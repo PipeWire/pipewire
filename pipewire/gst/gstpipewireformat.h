@@ -22,14 +22,15 @@
 
 #include <gst/gst.h>
 
+#include <spa/include/spa/type-map.h>
 #include <spa/include/spa/format.h>
 
 G_BEGIN_DECLS
 
-struct spa_format *   gst_caps_to_format      (GstCaps *caps, guint index);
-GPtrArray *   gst_caps_to_format_all  (GstCaps *caps);
+struct spa_format *   gst_caps_to_format      (GstCaps *caps, guint index, struct spa_type_map *map);
+GPtrArray *   gst_caps_to_format_all  (GstCaps *caps, struct spa_type_map *map);
 
-GstCaps *     gst_caps_from_format    (const struct spa_format *format);
+GstCaps *     gst_caps_from_format    (const struct spa_format *format, struct spa_type_map *map);
 
 G_END_DECLS
 

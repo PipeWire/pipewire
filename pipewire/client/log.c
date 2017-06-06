@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/eventfd.h>
 
 #include <spa/ringbuffer.h>
 
@@ -36,7 +37,8 @@ struct debug_log {
 	struct spa_log log;
 	struct spa_ringbuffer trace_rb;
 	uint8_t trace_data[TRACE_BUFFER];
-	struct spa_source *source;
+	bool have_source;
+	struct spa_source source;
 };
 /** \endcond */
 
@@ -53,11 +55,11 @@ do_logv(struct spa_log *log,
 	char text[1024], location[1024];
 	static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
 	int size;
-	bool do_trace = (level == SPA_LOG_LEVEL_TRACE && l->source);
+	bool do_trace;
 
 	vsnprintf(text, sizeof(text), fmt, args);
 
-	if ((do_trace = (level == SPA_LOG_LEVEL_TRACE && l->source)))
+	if ((do_trace = (level == SPA_LOG_LEVEL_TRACE && l->have_source)))
 		level++;
 
 	size = snprintf(location, sizeof(location), "[%s][%s:%i %s()] %s\n",
@@ -72,7 +74,7 @@ do_logv(struct spa_log *log,
 					  index & l->trace_rb.mask, location, size);
 		spa_ringbuffer_write_update(&l->trace_rb, index + size);
 
-		write(l->source->fd, &count, sizeof(uint64_t));
+		write(l->source.fd, &count, sizeof(uint64_t));
 	} else
 		fputs(location, stdout);
 }
@@ -91,12 +93,63 @@ do_log(struct spa_log *log,
 	va_end(args);
 }
 
+static void on_trace_event(struct spa_source *source)
+{
+	struct debug_log *l = source->data;
+	int32_t avail;
+	uint32_t index;
+	uint64_t count;
+
+	if (read(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+		fprintf(stderr, "failed to read event fd: %s", strerror(errno));
+
+	while ((avail = spa_ringbuffer_get_read_index(&l->trace_rb, &index)) > 0) {
+		uint32_t offset, first;
+
+		if (avail > l->trace_rb.size) {
+			fprintf(stderr, "\n** trace overflow ** %d\n", avail);
+			index += avail - l->trace_rb.size;
+			avail = l->trace_rb.size;
+		}
+		offset = index & l->trace_rb.mask;
+		first = SPA_MIN(avail, l->trace_rb.size - offset);
+
+		fwrite(l->trace_data + offset, first, 1, stderr);
+		if (SPA_UNLIKELY(avail > first)) {
+			fwrite(l->trace_data, avail - first, 1, stderr);
+		}
+		spa_ringbuffer_read_update(&l->trace_rb, index + avail);
+	}
+}
+
+static void
+do_set_loop(struct spa_log *log, struct spa_loop *loop)
+{
+	struct debug_log *l = SPA_CONTAINER_OF(log, struct debug_log, log);
+
+	if (l->have_source) {
+		spa_loop_remove_source(l->source.loop, &l->source);
+		close(l->source.fd);
+		l->have_source = false;
+	}
+	if (loop) {
+		l->source.func = on_trace_event;
+		l->source.data = l;
+		l->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+		l->source.mask = SPA_IO_IN;
+		l->source.rmask = 0;
+		spa_loop_add_source(loop, &l->source);
+		l->have_source = true;
+	}
+}
+
 static struct debug_log log = {
 	{sizeof(struct spa_log),
 	 NULL,
 	 DEFAULT_LOG_LEVEL,
 	 do_log,
 	 do_logv,
+	 do_set_loop,
 	 },
 	{0, 0, TRACE_BUFFER, TRACE_BUFFER - 1},
 };
@@ -120,47 +173,16 @@ void pw_log_set_level(enum spa_log_level level)
 	log.log.level = level;
 }
 
-static void on_trace_event(struct spa_source *source)
-{
-	int32_t avail;
-	uint32_t index;
-	uint64_t count;
-
-	if (read(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
-		fprintf(stderr, "failed to read event fd: %s", strerror(errno));
-
-	while ((avail = spa_ringbuffer_get_read_index(&log.trace_rb, &index)) > 0) {
-		uint32_t offset, first;
-
-		if (avail > log.trace_rb.size) {
-			fprintf(stderr, "\n** trace overflow ** %d\n", avail);
-			index += avail - log.trace_rb.size;
-			avail = log.trace_rb.size;
-		}
-		offset = index & log.trace_rb.mask;
-		first = SPA_MIN(avail, log.trace_rb.size - offset);
-
-		fwrite(log.trace_data + offset, first, 1, stderr);
-		if (SPA_UNLIKELY(avail > first)) {
-			fwrite(log.trace_data, avail - first, 1, stderr);
-		}
-		spa_ringbuffer_read_update(&log.trace_rb, index + avail);
-	}
-}
-
-/** Set the trace notify event
- * \param source the trace notify event
+/** Set the trace loop
+ * \param loop the trace loop
  *
- * When the trace log has produced new logging in the ringbuffer, this event
- * will be triggered and will then write the trace log to stderr
+ * Trace logging will be done in this loop.
  *
  * \memberof pw_log
  */
-void pw_log_set_trace_event(struct spa_source *source)
+void pw_log_set_loop(struct spa_loop *loop)
 {
-	log.source = source;
-	log.source->func = on_trace_event;
-	log.source->data = &log;
+	do_set_loop(&log.log, loop);
 }
 
 /** Log a message

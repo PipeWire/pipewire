@@ -23,7 +23,6 @@
 #include <string.h>
 
 #include <spa/type-map.h>
-#include <spa/lib/mapper.h>
 
 #include <pipewire/client/map.h>
 
@@ -94,6 +93,5 @@ static struct impl default_type_map = {
  */
 struct spa_type_map *pw_type_map_get_default(void)
 {
-	spa_type_map_set_default(&default_type_map.map);
 	return &default_type_map.map;
 }

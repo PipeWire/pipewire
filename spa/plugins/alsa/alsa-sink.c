@@ -31,7 +31,7 @@
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
-static const char default_device[] = "default";
+static const char default_device[] = "hw:0";
 static const uint32_t default_min_latency = 1024;
 
 static void reset_props(struct props *props)

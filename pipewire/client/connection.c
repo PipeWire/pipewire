@@ -320,7 +320,7 @@ pw_connection_get_next(struct pw_connection *conn,
 
 	if (debug_messages) {
 		printf("<<<<<<<<< in:\n");
-	        spa_debug_pod((struct spa_pod *)data, NULL);
+	        spa_debug_pod((struct spa_pod *)data);
 	}
 
 	return true;
@@ -374,7 +374,7 @@ pw_connection_end_write(struct pw_connection *conn, uint32_t dest_id, uint8_t op
 
 	if (debug_messages) {
 		printf(">>>>>>>>> out:\n");
-	        spa_debug_pod((struct spa_pod *)p, NULL);
+	        spa_debug_pod((struct spa_pod *)p);
 	}
 
 	pw_signal_emit(&conn->need_flush, conn);

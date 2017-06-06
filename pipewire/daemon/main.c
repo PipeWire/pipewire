@@ -41,13 +41,7 @@ int main(int argc, char *argv[])
 	}
 
 	loop = pw_main_loop_new();
-#if 1
-	{
-		struct spa_source *source;
-		source = pw_loop_add_event(loop->loop, NULL, NULL);
-		pw_log_set_trace_event(source);
-	}
-#endif
+	pw_log_set_loop(loop->loop->loop);
 
 	core = pw_core_new(loop, NULL);
 

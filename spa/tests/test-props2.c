@@ -28,11 +28,13 @@
 #include <spa/pod-builder.h>
 #include <spa/pod-iter.h>
 
-#include <spa/type-map.h>
-#include <spa/log.h>
+#include <spa/type-map-impl.h>
+#include <spa/log-impl.h>
 #include <spa/video/format.h>
+
 #include <lib/debug.h>
-#include <lib/mapper.h>
+
+static SPA_TYPE_MAP_IMPL(default_map, 4096);
 
 int main(int argc, char *argv[])
 {
@@ -41,7 +43,9 @@ int main(int argc, char *argv[])
 	uint8_t buffer[1024];
 	struct spa_pod *obj;
 	struct spa_pod_iter i;
-	struct spa_type_map *map = spa_type_map_get_default();
+	struct spa_type_map *map = &default_map.map;
+
+	spa_debug_set_type_map(map);
 
 	b.data = buffer;
 	b.size = 1024;
@@ -85,11 +89,11 @@ int main(int argc, char *argv[])
 	spa_pod_builder_pop(&b, &frame[0]);
 
 	obj = SPA_POD_BUILDER_DEREF(&b, frame[0].ref, struct spa_pod);
-	spa_debug_pod(obj, map);
+	spa_debug_pod(obj);
 
 	struct spa_pod_prop *p = spa_pod_object_find_prop((struct spa_pod_object *) obj, 4);
 	printf("%d %d\n", p->body.key, p->body.flags);
-	spa_debug_pod(&p->body.value, map);
+	spa_debug_pod(&p->body.value);
 
 	obj = SPA_POD_BUILDER_DEREF(&b, frame[2].ref, struct spa_pod);
 
@@ -115,8 +119,5 @@ int main(int argc, char *argv[])
 	SPA_POD_ARRAY_BODY_FOREACH(&va->body, SPA_POD_BODY_SIZE(va), pi) {
 		printf("%d\n", *pi);
 	}
-
-
-
 	return 0;
 }

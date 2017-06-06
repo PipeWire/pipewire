@@ -42,6 +42,8 @@ struct pw_global;
  *
  * \subpage page_core
  *
+ * \subpage page_registry
+ *
  * \subpage page_global
  *
  * \subpage page_client
@@ -56,7 +58,31 @@ struct pw_global;
  *
  * The core object is a singleton object that manages the state and
  * resources of the PipeWire server.
+ */
+/** \page page_registry Registry
  *
+ * \section page_registry_overview Overview
+ *
+ * The registry object is a singleton object that keeps track of
+ * global objects on the PipeWire server. See also \ref page_global.
+ *
+ * Global objects typically represent an actual object in the
+ * server (for example, a module or node) or they are singleton
+ * objects such as the core.
+ *
+ * When a client creates a registry object, the registry object
+ * will emit a global event for each global currently in the
+ * registry.  Globals come and go as a result of device hotplugs or
+ * reconfiguration or other events, and the registry will send out
+ * global and global_remove events to keep the client up to date
+ * with the changes.  To mark the end of the initial burst of
+ * events, the client can use the pw_core.sync methosd immediately
+ * after calling pw_core.get_registry.
+ *
+ * A client can bind to a global object by using the bind
+ * request.  This creates a client-side proxy that lets the object
+ * emit events to the client and lets the client invoke methods on
+ * the object.
  */
 typedef int (*pw_bind_func_t) (struct pw_global *global,
 			       struct pw_client *client, uint32_t version, uint32_t id);
@@ -65,7 +91,14 @@ typedef int (*pw_bind_func_t) (struct pw_global *global,
  *
  * Global objects represent resources that are available on the server and
  * accessible to clients.
+ * Globals come and go when devices or other resources become available for
+ * clients.
  *
+ * The client receives a list of globals when it binds to the registry
+ * object. See \ref page_registry.
+ *
+ * A client can bind to a global to send methods or receive events from
+ * the global.
  */
 /** \class pw_global
  *

@@ -24,7 +24,6 @@
 #include <gst/video/video.h>
 #include <gst/audio/audio.h>
 
-#include <spa/lib/mapper.h>
 #include <spa/format-builder.h>
 #include <spa/video/format-utils.h>
 #include <spa/audio/format-utils.h>
@@ -51,9 +50,9 @@ static struct {
 } type = { NULL, };
 
 static void
-ensure_types (void)
+ensure_types (struct spa_type_map *map)
 {
-  struct spa_type_map *map = type.map = spa_type_map_get_default ();
+  type.map = map;
 
   type.format = spa_type_map_get_id (map, SPA_TYPE__Format);
   spa_type_media_type_map (map, &type.media_type);
@@ -573,7 +572,7 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 }
 
 struct spa_format *
-gst_caps_to_format (GstCaps *caps, guint index)
+gst_caps_to_format (GstCaps *caps, guint index, struct spa_type_map *map)
 {
   GstCapsFeatures *f;
   GstStructure *s;
@@ -582,7 +581,7 @@ gst_caps_to_format (GstCaps *caps, guint index)
   g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
   g_return_val_if_fail (gst_caps_is_fixed (caps), NULL);
 
-  ensure_types();
+  ensure_types(map);
 
   f = gst_caps_get_features (caps, index);
   s = gst_caps_get_structure (caps, index);
@@ -607,11 +606,11 @@ foreach_func (GstCapsFeatures *features,
 
 
 GPtrArray *
-gst_caps_to_format_all (GstCaps *caps)
+gst_caps_to_format_all (GstCaps *caps, struct spa_type_map *map)
 {
   GPtrArray *res;
 
-  ensure_types();
+  ensure_types(map);
 
   res = g_ptr_array_new_full (gst_caps_get_size (caps), (GDestroyNotify)g_free);
   gst_caps_foreach (caps, (GstCapsForeachFunc) foreach_func, res);
@@ -795,13 +794,13 @@ handle_fraction_prop (struct spa_pod_prop *prop, const char *key, GstCaps *res)
   }
 }
 GstCaps *
-gst_caps_from_format (const struct spa_format *format)
+gst_caps_from_format (const struct spa_format *format, struct spa_type_map *map)
 {
   GstCaps *res = NULL;
   uint32_t media_type, media_subtype;
   struct spa_pod_prop *prop;
 
-  ensure_types();
+  ensure_types(map);
 
   media_type = SPA_FORMAT_MEDIA_TYPE (format);
   media_subtype = SPA_FORMAT_MEDIA_SUBTYPE (format);

@@ -59,9 +59,8 @@ struct impl {
 	struct spa_ringbuffer trace_rb;
 	uint8_t trace_data[TRACE_BUFFER];
 
-	struct spa_loop *main_loop;
 	bool have_source;
-	struct spa_source trace_source;
+	struct spa_source source;
 };
 
 static void
@@ -95,7 +94,7 @@ impl_log_logv(struct spa_log *log,
 					  index & impl->trace_rb.mask, location, size);
 		spa_ringbuffer_write_update(&impl->trace_rb, index + size);
 
-		write(impl->trace_source.fd, &count, sizeof(uint64_t));
+		write(impl->source.fd, &count, sizeof(uint64_t));
 	} else
 		fputs(location, stderr);
 }
@@ -114,14 +113,6 @@ impl_log_log(struct spa_log *log,
 	impl_log_logv(log, level, file, line, func, fmt, args);
 	va_end(args);
 }
-
-static const struct spa_log impl_log = {
-	sizeof(struct spa_log),
-	NULL,
-	DEFAULT_LOG_LEVEL,
-        impl_log_log,
-        impl_log_logv,
-};
 
 static void on_trace_event(struct spa_source *source)
 {
@@ -151,6 +142,35 @@ static void on_trace_event(struct spa_source *source)
         }
 }
 
+static void
+impl_log_set_loop(struct spa_log *log, struct spa_loop *loop)
+{
+	struct impl *impl = SPA_CONTAINER_OF(log, struct impl, log);
+	if (impl->have_source) {
+		spa_loop_remove_source(impl->source.loop, &impl->source);
+		close(impl->source.fd);
+		impl->have_source = false;
+	}
+	if (loop) {
+		impl->source.func = on_trace_event;
+		impl->source.data = impl;
+		impl->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+		impl->source.mask = SPA_IO_IN;
+		impl->source.rmask = 0;
+		spa_loop_add_source(loop, &impl->source);
+		impl->have_source = true;
+	}
+}
+
+static const struct spa_log impl_log = {
+	sizeof(struct spa_log),
+	NULL,
+	DEFAULT_LOG_LEVEL,
+        impl_log_log,
+        impl_log_logv,
+        impl_log_set_loop,
+};
+
 static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
 {
 	struct impl *this;
@@ -176,10 +196,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	if (this->have_source) {
-		spa_loop_remove_source(this->main_loop, &this->trace_source);
-		close(this->trace_source.fd);
-	}
+	impl_log_set_loop(&this->log, NULL);
 
 	return SPA_RESULT_OK;
 }
@@ -207,8 +224,6 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; i < n_support; i++) {
 		if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
 			this->map = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE_LOOP__MainLoop) == 0)
-			this->main_loop = support[i].data;
 	}
 	if (this->map == NULL) {
 		spa_log_error(&this->log, "a type-map is needed");
@@ -217,16 +232,6 @@ impl_init(const struct spa_handle_factory *factory,
 	init_type(&this->type, this->map);
 
 	spa_ringbuffer_init(&this->trace_rb, TRACE_BUFFER);
-
-	if (this->main_loop) {
-		this->trace_source.func = on_trace_event;
-		this->trace_source.data = this;
-		this->trace_source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-		this->trace_source.mask = SPA_IO_IN;
-		this->trace_source.rmask = 0;
-		spa_loop_add_source(this->main_loop, &this->trace_source);
-		this->have_source = true;
-	}
 
 	spa_log_info(&this->log, NAME " %p: initialized", this);
 

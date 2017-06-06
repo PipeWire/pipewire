@@ -82,7 +82,7 @@ struct spa_port_info {
 
 
 struct spa_node_callbacks {
-	 /**
+	/**
 	 * struct spa_node_callbacks::event:
 	 * @node: a #struct spa_node
 	 * @event: the event that was emited
@@ -132,6 +132,8 @@ struct spa_node_callbacks {
 	void (*reuse_buffer) (struct spa_node *node,
 			      uint32_t port_id,
 			      uint32_t buffer_id, void *user_data);
+
+	void (*done) (struct spa_node *node, int seq, int res, void *user_data);
 };
 
 /**

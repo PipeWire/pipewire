@@ -25,12 +25,15 @@
 #include <errno.h>
 #include <poll.h>
 
-#include <spa/log.h>
-#include <spa/type-map.h>
+#include <spa/log-impl.h>
+#include <spa/type-map-impl.h>
 #include <spa/monitor.h>
 #include <spa/loop.h>
+
 #include <lib/debug.h>
-#include <lib/mapper.h>
+
+static SPA_TYPE_MAP_IMPL(default_map, 4096);
+static SPA_LOG_IMPL(default_log);
 
 struct type {
 	struct spa_type_monitor monitor;
@@ -57,7 +60,7 @@ struct data {
 
 static void inspect_item(struct data *data, struct spa_monitor_item *item)
 {
-	spa_debug_pod(&item->object.pod, data->map);
+	spa_debug_pod(&item->object.pod);
 }
 
 static void on_monitor_event(struct spa_monitor *monitor, struct spa_event *event, void *user_data)
@@ -162,12 +165,14 @@ int main(int argc, char *argv[])
 	spa_handle_factory_enum_func_t enum_func;
 	uint32_t fidx;
 
-	data.map = spa_type_map_get_default();
-	data.log = NULL;
+	data.map = &default_map.map;
+	data.log = &default_log.log;
 	data.main_loop.size = sizeof(struct spa_loop);
 	data.main_loop.add_source = do_add_source;
 	data.main_loop.update_source = do_update_source;
 	data.main_loop.remove_source = do_remove_source;
+
+	spa_debug_set_type_map(data.map);
 
 	data.support[0].type = SPA_TYPE__TypeMap;
 	data.support[0].data = data.map;

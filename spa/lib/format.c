@@ -24,8 +24,8 @@
 
 #include <spa/format-builder.h>
 #include <spa/video/format-utils.h>
+
 #include <lib/props.h>
-#include <lib/mapper.h>
 
 int
 spa_format_filter(const struct spa_format *format,

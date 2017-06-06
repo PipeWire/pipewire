@@ -107,12 +107,12 @@ dump_node_info(struct pw_context *c, int res, const struct pw_node_info *info, v
 		printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(1), info->n_input_ports, info->max_input_ports);
 		printf("%c\tinput formats:\n", MARK_CHANGE(2));
 		for (i = 0; i < info->n_input_formats; i++)
-			spa_debug_format(info->input_formats[i], c->type.map);
+			spa_debug_format(info->input_formats[i]);
 
 		printf("%c\toutput ports: %u/%u\n", MARK_CHANGE(3), info->n_output_ports, info->max_output_ports);
 		printf("%c\toutput formats:\n", MARK_CHANGE(4));
 		for (i = 0; i < info->n_output_formats; i++)
-			spa_debug_format(info->output_formats[i], c->type.map);
+			spa_debug_format(info->output_formats[i]);
 
 		printf("%c\tstate: \"%s\"", MARK_CHANGE(5), pw_node_state_as_string(info->state));
 		if (info->state == PW_NODE_STATE_ERROR && info->error)
@@ -164,7 +164,7 @@ dump_link_info(struct pw_context *c, int res, const struct pw_link_info *info, v
 		printf("%c\tinput-port-id: %u\n", MARK_CHANGE(3), info->input_port_id);
 		printf("%c\tformat:\n", MARK_CHANGE(4));
 		if (info->format)
-			spa_debug_format(info->format, c->type.map);
+			spa_debug_format(info->format);
 		else
 			printf("\t  none\n");
 	}

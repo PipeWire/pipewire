@@ -28,16 +28,17 @@
 
 #include <spa/node.h>
 #include <spa/log.h>
+#include <spa/log-impl.h>
 #include <spa/loop.h>
 #include <spa/type-map.h>
+#include <spa/type-map-impl.h>
 #include <spa/audio/format-utils.h>
 #include <spa/format-utils.h>
 #include <spa/format-builder.h>
 #include <spa/graph.h>
 
-#include <lib/mapper.h>
-#include <lib/debug.h>
-#include <lib/props.h>
+static SPA_TYPE_MAP_IMPL(default_map, 4096);
+static SPA_LOG_IMPL(default_log);
 
 struct type {
 	uint32_t node;
@@ -174,8 +175,7 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 	int res;
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
-	unsigned int i;
-	uint32_t state = 0;
+	uint32_t i;
 
 	if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
 		printf("can't load %s: %s\n", lib, dlerror());
@@ -190,7 +190,7 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 		const struct spa_handle_factory *factory;
 		void *iface;
 
-		if ((res = enum_func(&factory, state++)) < 0) {
+		if ((res = enum_func(&factory, i)) < 0) {
 			if (res != SPA_RESULT_ENUM_END)
 				printf("can't enumerate factories: %d\n", res);
 			break;
@@ -523,8 +523,8 @@ int main(int argc, char *argv[])
 
 	spa_graph_init(&data.graph);
 
-	data.map = spa_type_map_get_default();
-	data.log = spa_log_get_default();
+	data.map = &default_map.map;
+	data.log = &default_log.log;
 	data.data_loop.size = sizeof(struct spa_loop);
 	data.data_loop.add_source = do_add_source;
 	data.data_loop.update_source = do_update_source;

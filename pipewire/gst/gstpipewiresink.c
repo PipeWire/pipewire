@@ -623,7 +623,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
   pwsink = GST_PIPEWIRE_SINK (bsink);
 
-  possible = gst_caps_to_format_all (caps);
+  possible = gst_caps_to_format_all (caps, pwsink->ctx->type.map);
 
   pw_thread_loop_lock (pwsink->main_loop);
   state = pwsink->stream->state;

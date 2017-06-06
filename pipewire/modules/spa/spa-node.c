@@ -76,7 +76,7 @@ struct pw_spa_node *pw_spa_node_load(struct pw_core *core,
 		goto init_failed;
 	}
 	if ((res = spa_handle_get_interface(handle, core->type.spa_node, &iface)) < 0) {
-		pw_log_error("can't get interface %d", res);
+		pw_log_error("can't get node interface %d", res);
 		goto interface_failed;
 	}
 	spa_node = iface;

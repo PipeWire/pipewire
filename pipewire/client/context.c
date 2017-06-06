@@ -31,6 +31,8 @@
 #include "pipewire/client/connection.h"
 #include "pipewire/client/subscribe.h"
 
+#include <spa/lib/debug.h>
+
 /** \cond */
 struct context {
 	struct pw_context this;
@@ -436,6 +438,7 @@ struct pw_context *pw_context_new(struct pw_loop *loop,
 	this->properties = properties;
 
 	pw_type_init(&this->type);
+	spa_debug_set_type_map(this->type.map);
 
 	this->loop = loop;
 

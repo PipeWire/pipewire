@@ -684,7 +684,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, caps);
 
   /* open a connection with these caps */
-  possible = gst_caps_to_format_all (caps);
+  possible = gst_caps_to_format_all (caps, pwsrc->ctx->type.map);
 
   /* first disconnect */
   pw_thread_loop_lock (pwsrc->main_loop);
@@ -794,7 +794,7 @@ on_format_changed (struct pw_listener *listener,
     return;
   }
 
-  caps = gst_caps_from_format (format);
+  caps = gst_caps_from_format (format, pwsrc->ctx->type.map);
   GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, caps);
   res = gst_base_src_set_caps (GST_BASE_SRC (pwsrc), caps);
   gst_caps_unref (caps);

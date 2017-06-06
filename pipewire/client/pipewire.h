@@ -69,9 +69,9 @@ extern "C" {
  * The 'PIPEWIRE_DEBUG' environment variable can be used to enable
  * more debugging. The format is:
  *
- *    <level>[:<category>,...]
+ *    &lt;level&gt;[:&lt;category&gt;,...]
  *
- * - <level>: specifies the log level:
+ * - &lt;level&gt;: specifies the log level:
  *   + `0`: no logging is enabled
  *   + `1`: Error logging is enabled
  *   + `2`: Warnings are enabled
@@ -80,7 +80,7 @@ extern "C" {
  *   + `5`: Trace messages are enabled. These messages can be logged
  *		from the realtime threads.
  *
- * - <category>:  Specifies a string category to enable. Many categories
+ * - &lt;category&gt;:  Specifies a string category to enable. Many categories
  *		  can be separated by commas. Current categories are:
  *   + `connection`: to log connection messages
  */

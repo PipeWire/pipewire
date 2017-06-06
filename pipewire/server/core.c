@@ -361,6 +361,8 @@ struct pw_core *pw_core_new(struct pw_main_loop *main_loop, struct pw_properties
 	pw_type_init(&this->type);
 	pw_map_init(&this->objects, 128, 32);
 
+	spa_debug_set_type_map(this->type.map);
+
 	impl->support[0].type = SPA_TYPE__TypeMap;
 	impl->support[0].data = this->type.map;
 	impl->support[1].type = SPA_TYPE__Log;
@@ -719,7 +721,7 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 		}
 		pw_log_debug("Try filter: %p", filter);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(filter, core->type.map);
+			spa_debug_format(filter);
 
 		if ((res = spa_node_port_enum_formats(output->node->node,
 						      SPA_DIRECTION_OUTPUT,
@@ -735,7 +737,7 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 		}
 		pw_log_debug("Got filtered:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(format, core->type.map);
+			spa_debug_format(format);
 
 		spa_format_fixate(format);
 	} else {

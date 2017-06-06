@@ -31,6 +31,7 @@ extern "C" {
 
 #include <spa/defs.h>
 #include <spa/plugin.h>
+#include <spa/loop.h>
 
 enum spa_log_level {
 	SPA_LOG_LEVEL_NONE = 0,
@@ -102,7 +103,20 @@ struct spa_log {
 		      const char *func,
 		      const char *fmt,
 		      va_list args) SPA_PRINTF_FUNC(6, 0);
+	/**
+	 * Set the loop for trace logging
+	 * \param log the logger
+	 * \param loop the loop for trace logging
+	 *
+	 * Trace logging will be done to a ringbuffer and written to
+	 * the console/device from \a loop to ensure no blocking operations
+	 * are done from the realtime thread.
+	 */
+	void (*set_loop) (struct spa_log *log,
+			  struct spa_loop *loop);
 };
+
+#define spa_log_set_loop(l,...)	     (l)->set_loop((l),__VA_ARGS__)
 
 #define spa_log_level_enabled(l,lev) ((l) && (l)->level >= (lev))
 

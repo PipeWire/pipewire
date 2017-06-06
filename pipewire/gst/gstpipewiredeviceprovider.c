@@ -193,7 +193,7 @@ enum
 };
 
 static GstDevice *
-new_node (const struct pw_node_info *info)
+new_node (GstPipeWireDeviceProvider *self, const struct pw_node_info *info)
 {
   GstCaps *caps = NULL;
   GstStructure *props;
@@ -207,7 +207,7 @@ new_node (const struct pw_node_info *info)
     type = GST_PIPEWIRE_DEVICE_TYPE_SINK;
 
     for (i = 0; i < info->n_input_formats; i++) {
-      GstCaps *c1 = gst_caps_from_format (info->input_formats[i]);
+      GstCaps *c1 = gst_caps_from_format (info->input_formats[i], self->context->type.map);
       if (c1)
         gst_caps_append (caps, c1);
     }
@@ -215,7 +215,7 @@ new_node (const struct pw_node_info *info)
   else if (info->max_output_ports > 0 && info->max_input_ports == 0) {
     type = GST_PIPEWIRE_DEVICE_TYPE_SOURCE;
     for (i = 0; i < info->n_output_formats; i++) {
-      GstCaps *c1 = gst_caps_from_format (info->output_formats[i]);
+      GstCaps *c1 = gst_caps_from_format (info->output_formats[i], self->context->type.map);
       if (c1)
         gst_caps_append (caps, c1);
     }
@@ -251,7 +251,7 @@ get_node_info_cb (struct pw_context        *context,
 
   if (info) {
     GstDevice *dev;
-    dev = new_node (info);
+    dev = new_node (self, info);
     if (dev)
       gst_device_provider_device_add (GST_DEVICE_PROVIDER (self), dev);
   }
@@ -310,6 +310,7 @@ on_context_subscription (struct pw_listener         *listener,
 }
 
 typedef struct {
+  GstPipeWireDeviceProvider *self;
   gboolean end;
   GList **devices;
 } InfoData;
@@ -322,7 +323,7 @@ list_node_info_cb (struct pw_context        *c,
 {
   InfoData *data = user_data;
   if (info) {
-    *data->devices = g_list_prepend (*data->devices, gst_object_ref_sink (new_node (info)));
+    *data->devices = g_list_prepend (*data->devices, gst_object_ref_sink (new_node (data->self, info)));
   } else {
     data->end = TRUE;
   }
@@ -398,6 +399,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
                             self);
 
 
+  data.self = self;
   data.end = FALSE;
   data.devices = NULL;
   pw_context_list_node_info (c,

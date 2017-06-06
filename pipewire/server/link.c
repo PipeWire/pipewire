@@ -131,7 +131,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 
 	pw_log_debug("link %p: doing set format", this);
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_format(format, this->core->type.map);
+		spa_debug_format(format);
 
 	if (out_state == PW_PORT_STATE_CONFIGURE) {
 		pw_log_debug("link %p: doing set format on output", this);
@@ -348,7 +348,7 @@ spa_node_param_filter(struct pw_link *this,
 			break;
 
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_param(iparam, this->core->type.map);
+			spa_debug_param(iparam);
 
 		for (oidx = 0;; oidx++) {
 			struct spa_pod_frame f;
@@ -359,7 +359,7 @@ spa_node_param_filter(struct pw_link *this,
 				break;
 
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_param(oparam, this->core->type.map);
+				spa_debug_param(oparam);
 
 			if (iparam->object.body.type != oparam->object.body.type)
 				continue;
@@ -454,8 +454,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	}
 
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
-		spa_debug_port_info(oinfo, this->core->type.map);
-		spa_debug_port_info(iinfo, this->core->type.map);
+		spa_debug_port_info(oinfo);
+		spa_debug_port_info(iinfo);
 	}
 
 	if (impl->buffers == NULL) {
@@ -476,7 +476,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		for (i = 0, offset = 0; i < n_params; i++) {
 			params[i] = SPA_MEMBER(buffer, offset, struct spa_param);
 			spa_param_fixate(params[i]);
-			spa_debug_param(params[i], this->core->type.map);
+			spa_debug_param(params[i]);
 			offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 		}
 

@@ -24,13 +24,14 @@
 #include <errno.h>
 
 #include <spa/type-map.h>
+#include <spa/type-map-impl.h>
 #include <spa/log.h>
 #include <spa/node.h>
 #include <spa/loop.h>
 #include <spa/video/format-utils.h>
 #include <spa/format-builder.h>
+
 #include <lib/debug.h>
-#include <lib/mapper.h>
 
 #if 0
 /* { video/raw,
@@ -63,6 +64,8 @@ spa_build(SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
 	  type.format_video.framerate, SPA_PROP_TYPE_FRACTION, 25, 1,
 	  SPA_POD_PROP_FLAG_UNSET | SPA_PROP_RANGE_MIN_MAX, 0, 1, INT32_MAX, 1, 0);
 #endif
+
+static SPA_TYPE_MAP_IMPL(default_map, 4096);
 
 static struct {
 	uint32_t format;
@@ -142,8 +145,8 @@ static void do_static_struct(struct spa_type_map *map)
 		}
 	};
 
-	spa_debug_pod(&test_format.fmt.pod, map);
-	spa_debug_format(&test_format.fmt, map);
+	spa_debug_pod(&test_format.fmt.pod);
+	spa_debug_format(&test_format.fmt);
 
 	{
 		uint32_t format = 0, match;
@@ -174,9 +177,10 @@ int main(int argc, char *argv[])
 	struct spa_pod_frame frame[4];
 	uint8_t buffer[1024];
 	struct spa_format *fmt;
-	struct spa_type_map *map = spa_type_map_get_default();
+	struct spa_type_map *map = &default_map.map;
 
 	type_init(map);
+	spa_debug_set_type_map(map);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -209,7 +213,7 @@ int main(int argc, char *argv[])
 
 	spa_pod_builder_pop(&b, &frame[0]);
 
-	spa_debug_pod(&fmt->pod, map);
+	spa_debug_pod(&fmt->pod);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -242,8 +246,8 @@ int main(int argc, char *argv[])
 		-SPA_POD_TYPE_PROP, &frame[1]);
 
 	fmt = SPA_MEMBER(buffer, frame[0].ref, struct spa_format);
-	spa_debug_pod(&fmt->pod, map);
-	spa_debug_format(fmt, map);
+	spa_debug_pod(&fmt->pod);
+	spa_debug_format(fmt);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -279,8 +283,8 @@ int main(int argc, char *argv[])
 		0);
 
 	fmt = SPA_MEMBER(buffer, frame[0].ref, struct spa_format);
-	spa_debug_pod(&fmt->pod, map);
-	spa_debug_format(fmt, map);
+	spa_debug_pod(&fmt->pod);
+	spa_debug_format(fmt);
 
 	do_static_struct(map);
 

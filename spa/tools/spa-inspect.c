@@ -23,13 +23,16 @@
 #include <unistd.h>
 #include <dlfcn.h>
 
-#include <spa/type-map.h>
+#include <spa/type-map-impl.h>
 #include <spa/clock.h>
-#include <spa/log.h>
+#include <spa/log-impl.h>
 #include <spa/node.h>
 #include <spa/loop.h>
+
 #include <lib/debug.h>
-#include <lib/mapper.h>
+
+static SPA_TYPE_MAP_IMPL(default_map, 4096);
+static SPA_LOG_IMPL(default_log);
 
 struct type {
 	uint32_t node;
@@ -63,7 +66,7 @@ inspect_port(struct data *data, struct spa_node *node, enum spa_direction direct
 			break;
 		}
 		if (format)
-			spa_debug_format(format, data->map);
+			spa_debug_format(format);
 	}
 
 
@@ -75,7 +78,7 @@ inspect_port(struct data *data, struct spa_node *node, enum spa_direction direct
 				printf("port_enum_params error: %d\n", res);
 			break;
 		}
-		spa_debug_param(param, data->map);
+		spa_debug_param(param);
 	}
 }
 
@@ -89,7 +92,7 @@ static void inspect_node(struct data *data, struct spa_node *node)
 	if ((res = spa_node_get_props(node, &props)) < 0)
 		printf("can't get properties: %d\n", res);
 	else
-		spa_debug_props(props, data->map);
+		spa_debug_props(props);
 
 	if ((res = spa_node_get_n_ports(node, &n_input, &max_input, &n_output, &max_output)) < 0) {
 		printf("can't get n_ports: %d\n", res);
@@ -194,12 +197,14 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	data.map = spa_type_map_get_default();
-	data.log = NULL;
+	data.map = &default_map.map;
+	data.log = &default_log.log;
 	data.loop.size = sizeof(struct spa_loop);
 	data.loop.add_source = do_add_source;
 	data.loop.update_source = do_update_source;
 	data.loop.remove_source = do_remove_source;
+
+	spa_debug_set_type_map(data.map);
 
 	data.support[0].type = SPA_TYPE__TypeMap;
 	data.support[0].data = data.map;

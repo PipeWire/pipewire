@@ -33,16 +33,16 @@ extern "C" {
 #include <spa/dict.h>
 #include <spa/log.h>
 
-int spa_debug_port_info(const struct spa_port_info *info, const struct spa_type_map *map);
-int spa_debug_buffer(const struct spa_buffer *buffer, const struct spa_type_map *map);
-int spa_debug_props(const struct spa_props *props, const struct spa_type_map *map);
-int spa_debug_param(const struct spa_param *param, const struct spa_type_map *map);
-int spa_debug_pod(const struct spa_pod *pod, const struct spa_type_map *map);
-int spa_debug_format(const struct spa_format *format, const struct spa_type_map *map);
+void spa_debug_set_type_map(const struct spa_type_map *map);
+
+int spa_debug_port_info(const struct spa_port_info *info);
+int spa_debug_buffer(const struct spa_buffer *buffer);
+int spa_debug_props(const struct spa_props *props);
+int spa_debug_param(const struct spa_param *param);
+int spa_debug_pod(const struct spa_pod *pod);
+int spa_debug_format(const struct spa_format *format);
 int spa_debug_dump_mem(const void *data, size_t size);
 int spa_debug_dict(const struct spa_dict *dict);
-
-struct spa_log *spa_log_get_default(void);
 
 #ifdef __cplusplus
 } /* extern "C" */

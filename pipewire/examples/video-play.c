@@ -246,7 +246,7 @@ on_stream_format_changed(struct pw_listener *listener,
 		return;
 	}
 
-	spa_debug_format(format, data->context->type.map);
+	spa_debug_format(format);
 
 	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
 
@@ -348,7 +348,7 @@ static void on_state_changed(struct pw_listener *listener, struct pw_context *co
 		formats[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
 
 		printf("supported formats:\n");
-		spa_debug_format(formats[0], data->context->type.map);
+		spa_debug_format(formats[0]);
 
 		pw_signal_add(&data->stream->state_changed,
 			      &data->on_stream_state_changed, on_stream_state_changed);
@@ -381,6 +381,8 @@ int main(int argc, char *argv[])
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	init_type(&data.type, data.context->type.map);
+
+	spa_debug_set_type_map(data.context->type.map);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());

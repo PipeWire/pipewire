@@ -45,7 +45,7 @@ void
 pw_log_set_level(enum spa_log_level level);
 
 void
-pw_log_set_trace_event(struct spa_source *source);
+pw_log_set_loop(struct spa_loop *loop);
 
 
 void

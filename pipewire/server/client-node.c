@@ -993,7 +993,9 @@ static const struct spa_node proxy_node = {
 
 static int
 proxy_init(struct proxy *this,
-	   struct spa_dict *info, const struct spa_support *support, uint32_t n_support)
+	   struct spa_dict *info,
+	   const struct spa_support *support,
+	   uint32_t n_support)
 {
 	uint32_t i;
 
@@ -1005,7 +1007,7 @@ proxy_init(struct proxy *this,
 		else if (strcmp(support[i].type, SPA_TYPE_LOOP__DataLoop) == 0)
 			this->data_loop = support[i].data;
 	}
-	if (this->data_loop == NULL) {
+	if (this->main_loop == NULL) {
 		spa_log_error(this->log, "a main-loop is needed");
 	}
 	if (this->data_loop == NULL) {

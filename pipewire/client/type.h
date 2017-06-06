@@ -67,6 +67,7 @@ struct pw_type {
 	uint32_t client_node;
 	uint32_t module;
 
+	uint32_t spa_log;
 	uint32_t spa_node;
 	uint32_t spa_clock;
 	uint32_t spa_monitor;

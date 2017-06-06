@@ -144,6 +144,9 @@ struct pw_context {
 
 	struct pw_loop *loop;			/**< the loop */
 
+	struct spa_support *support;		/**< support for spa plugins */
+	uint32_t n_support;			/**< number of support items */
+
 	struct pw_proxy *core_proxy;		/**< proxy for the core object */
 	struct pw_proxy *registry_proxy;	/**< proxy for the registry object. Can
 						 *   be NULL when \ref PW_CONTEXT_FLAG_NO_PROXY

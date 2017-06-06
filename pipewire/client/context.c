@@ -37,6 +37,8 @@
 struct context {
 	struct pw_context this;
 
+	struct spa_support support[3];
+
 	bool no_proxy;
 
 	int fd;
@@ -437,10 +439,20 @@ struct pw_context *pw_context_new(struct pw_loop *loop,
 	pw_fill_context_properties(properties);
 	this->properties = properties;
 
+	this->loop = loop;
+
 	pw_type_init(&this->type);
+
 	spa_debug_set_type_map(this->type.map);
 
-	this->loop = loop;
+	impl->support[0].type = SPA_TYPE__TypeMap;
+	impl->support[0].data = this->type.map;
+	impl->support[1].type = SPA_TYPE_LOOP__MainLoop;
+	impl->support[1].data = this->loop->loop;
+	impl->support[2].type = SPA_TYPE__Log;
+	impl->support[2].data = pw_log_get(impl->support, 2);
+	this->support = impl->support;
+	this->n_support = 3;
 
 	impl->flush_event = pw_loop_add_event(loop, do_flush_event, impl);
 

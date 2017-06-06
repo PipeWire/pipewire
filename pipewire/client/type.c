@@ -48,6 +48,7 @@ void pw_type_init(struct pw_type *type)
 	type->client_node = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__ClientNode);
 	type->module = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Module);
 
+	type->spa_log = spa_type_map_get_id(type->map, SPA_TYPE__Log);
 	type->spa_node = spa_type_map_get_id(type->map, SPA_TYPE__Node);
 	type->spa_clock = spa_type_map_get_id(type->map, SPA_TYPE__Clock);
 	type->spa_monitor = spa_type_map_get_id(type->map, SPA_TYPE__Monitor);

@@ -20,147 +20,100 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
-#include <sys/eventfd.h>
+#include <dlfcn.h>
 
-#include <spa/ringbuffer.h>
+#include <spa/log.h>
 
 #include <pipewire/client/log.h>
+#include <pipewire/client/type.h>
 
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_ERROR
 
 enum spa_log_level pw_log_level = DEFAULT_LOG_LEVEL;
 
-/** \cond */
-#define TRACE_BUFFER (16*1024)
+static struct spa_log *global_log = NULL;
 
-struct debug_log {
-	struct spa_log log;
-	struct spa_ringbuffer trace_rb;
-	uint8_t trace_data[TRACE_BUFFER];
-	bool have_source;
-	struct spa_source source;
-};
-/** \endcond */
-
-static void
-do_logv(struct spa_log *log,
-	enum spa_log_level level,
-	const char *file,
-	int line,
-	const char *func,
-	const char *fmt,
-	va_list args)
+struct spa_log *pw_spa_log_load(const char *lib,
+				const char *factory_name,
+				struct spa_support *support,
+				uint32_t n_support)
 {
-	struct debug_log *l = SPA_CONTAINER_OF(log, struct debug_log, log);
-	char text[1024], location[1024];
-	static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
-	int size;
-	bool do_trace;
+        int res;
+        struct spa_handle *handle;
+        void *hnd;
+        uint32_t index, type_log;
+        spa_handle_factory_enum_func_t enum_func;
+        const struct spa_handle_factory *factory;
+        void *iface;
+	struct spa_type_map *map = NULL;
 
-	vsnprintf(text, sizeof(text), fmt, args);
-
-	if ((do_trace = (level == SPA_LOG_LEVEL_TRACE && l->have_source)))
-		level++;
-
-	size = snprintf(location, sizeof(location), "[%s][%s:%i %s()] %s\n",
-			levels[level], strrchr(file, '/') + 1, line, func, text);
-
-	if (SPA_UNLIKELY(do_trace)) {
-		uint32_t index;
-		uint64_t count = 1;
-
-		spa_ringbuffer_get_write_index(&l->trace_rb, &index);
-		spa_ringbuffer_write_data(&l->trace_rb, l->trace_data,
-					  index & l->trace_rb.mask, location, size);
-		spa_ringbuffer_write_update(&l->trace_rb, index + size);
-
-		write(l->source.fd, &count, sizeof(uint64_t));
-	} else
-		fputs(location, stdout);
-}
-
-static void
-do_log(struct spa_log *log,
-       enum spa_log_level level,
-       const char *file,
-       int line,
-       const char *func,
-       const char *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	do_logv(log, level, file, line, func, fmt, args);
-	va_end(args);
-}
-
-static void on_trace_event(struct spa_source *source)
-{
-	struct debug_log *l = source->data;
-	int32_t avail;
-	uint32_t index;
-	uint64_t count;
-
-	if (read(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
-		fprintf(stderr, "failed to read event fd: %s", strerror(errno));
-
-	while ((avail = spa_ringbuffer_get_read_index(&l->trace_rb, &index)) > 0) {
-		uint32_t offset, first;
-
-		if (avail > l->trace_rb.size) {
-			fprintf(stderr, "\n** trace overflow ** %d\n", avail);
-			index += avail - l->trace_rb.size;
-			avail = l->trace_rb.size;
-		}
-		offset = index & l->trace_rb.mask;
-		first = SPA_MIN(avail, l->trace_rb.size - offset);
-
-		fwrite(l->trace_data + offset, first, 1, stderr);
-		if (SPA_UNLIKELY(avail > first)) {
-			fwrite(l->trace_data, avail - first, 1, stderr);
-		}
-		spa_ringbuffer_read_update(&l->trace_rb, index + avail);
+	for (index = 0; index < n_support; index++) {
+		if (strcmp(support[index].type, SPA_TYPE__TypeMap) == 0)
+                        map = support[index].data;
 	}
-}
-
-static void
-do_set_loop(struct spa_log *log, struct spa_loop *loop)
-{
-	struct debug_log *l = SPA_CONTAINER_OF(log, struct debug_log, log);
-
-	if (l->have_source) {
-		spa_loop_remove_source(l->source.loop, &l->source);
-		close(l->source.fd);
-		l->have_source = false;
+	if (map == NULL) {
+                fprintf(stderr, "no type map");
+		return NULL;
 	}
-	if (loop) {
-		l->source.func = on_trace_event;
-		l->source.data = l;
-		l->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-		l->source.mask = SPA_IO_IN;
-		l->source.rmask = 0;
-		spa_loop_add_source(loop, &l->source);
-		l->have_source = true;
-	}
-}
 
-static struct debug_log log = {
-	{sizeof(struct spa_log),
-	 NULL,
-	 DEFAULT_LOG_LEVEL,
-	 do_log,
-	 do_logv,
-	 do_set_loop,
-	 },
-	{0, 0, TRACE_BUFFER, TRACE_BUFFER - 1},
-};
+	type_log = spa_type_map_get_id(map, SPA_TYPE__Log);
+
+        if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
+                fprintf(stderr, "can't load %s: %s", lib, dlerror());
+                return NULL;
+        }
+        if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
+                fprintf(stderr, "can't find enum function");
+                goto no_symbol;
+        }
+
+        for (index = 0;; index++) {
+                if ((res = enum_func(&factory, index)) < 0) {
+                        if (res != SPA_RESULT_ENUM_END)
+                                fprintf(stderr, "can't enumerate factories: %d", res);
+                        goto enum_failed;
+                }
+                if (strcmp(factory->name, factory_name) == 0)
+                        break;
+        }
+
+        handle = calloc(1, factory->size);
+        if ((res = spa_handle_factory_init(factory,
+                                           handle, NULL, support, n_support)) < 0) {
+                fprintf(stderr, "can't make factory instance: %d", res);
+                goto init_failed;
+        }
+        if ((res = spa_handle_get_interface(handle, type_log, &iface)) < 0) {
+                fprintf(stderr, "can't get log interface %d", res);
+                goto interface_failed;
+        }
+        return iface;
+
+      interface_failed:
+        spa_handle_clear(handle);
+      init_failed:
+        free(handle);
+      enum_failed:
+      no_symbol:
+        dlclose(hnd);
+        return NULL;
+}
 
 /** Get the global log interface
  * \return the global log
  * \memberof pw_log
  */
-struct spa_log *pw_log_get(void)
+struct spa_log *pw_log_get(struct spa_support *support,
+			   uint32_t n_support)
 {
-	return &log.log;
+	if (global_log == NULL) {
+		global_log = pw_spa_log_load("build/spa/plugins/logger/libspa-logger.so",
+					     "logger",
+					     support,
+					     n_support);
+		global_log->level = pw_log_level;
+	}
+	return global_log;
 }
 
 /** Set the global log level
@@ -170,19 +123,8 @@ struct spa_log *pw_log_get(void)
 void pw_log_set_level(enum spa_log_level level)
 {
 	pw_log_level = level;
-	log.log.level = level;
-}
-
-/** Set the trace loop
- * \param loop the trace loop
- *
- * Trace logging will be done in this loop.
- *
- * \memberof pw_log
- */
-void pw_log_set_loop(struct spa_loop *loop)
-{
-	do_set_loop(&log.log, loop);
+	if (global_log)
+		global_log->level = level;
 }
 
 /** Log a message
@@ -202,10 +144,10 @@ pw_log_log(enum spa_log_level level,
 	   const char *func,
 	   const char *fmt, ...)
 {
-	if (SPA_UNLIKELY(pw_log_level_enabled(level))) {
+	if (SPA_UNLIKELY(pw_log_level_enabled(level) && global_log)) {
 		va_list args;
 		va_start(args, fmt);
-		do_logv(&log.log, level, file, line, func, fmt, args);
+		global_log->logv(global_log, level, file, line, func, fmt, args);
 		va_end(args);
 	}
 }
@@ -228,8 +170,8 @@ pw_log_logv(enum spa_log_level level,
 	    const char *fmt,
 	    va_list args)
 {
-	if (SPA_UNLIKELY(pw_log_level_enabled(level))) {
-		do_logv(&log.log, level, file, line, func, fmt, args);
+	if (SPA_UNLIKELY(pw_log_level_enabled(level) && global_log)) {
+		global_log->logv(global_log, level, file, line, func, fmt, args);
 	}
 }
 

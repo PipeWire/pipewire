@@ -67,7 +67,7 @@ struct pw_proxy *pw_proxy_new(struct pw_context *context, uint32_t id, uint32_t 
 
 	spa_list_insert(&this->context->proxy_list, &this->link);
 
-	pw_log_trace("proxy %p: new %u", this, this->id);
+	pw_log_debug("proxy %p: new %u", this, this->id);
 
 	return this;
 
@@ -89,7 +89,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 {
 	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);
 
-	pw_log_trace("proxy %p: destroy %u", proxy, proxy->id);
+	pw_log_debug("proxy %p: destroy %u", proxy, proxy->id);
 	pw_signal_emit(&proxy->destroy_signal, proxy);
 
 	pw_map_remove(&proxy->context->objects, proxy->id);

@@ -55,10 +55,6 @@ static inline void spa_log_impl_log(struct spa_log *log,
 	va_end(args);
 }
 
-static inline void spa_log_impl_set_loop(struct spa_log *log, struct spa_loop *loop)
-{
-}
-
 #define SPA_LOG_IMPL_DEFINE(name)		\
 struct {					\
 	struct spa_log log;			\
@@ -69,8 +65,7 @@ struct {					\
             NULL,				\
 	    SPA_LOG_LEVEL_INFO,			\
 	    spa_log_impl_log,			\
-	    spa_log_impl_logv,			\
-	    spa_log_impl_set_loop,} }
+	    spa_log_impl_logv,} }
 
 #define SPA_LOG_IMPL(name)			\
         SPA_LOG_IMPL_DEFINE(name) = SPA_LOG_IMPL_INIT

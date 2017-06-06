@@ -41,7 +41,6 @@ int main(int argc, char *argv[])
 	}
 
 	loop = pw_main_loop_new();
-	pw_log_set_loop(loop->loop->loop);
 
 	core = pw_core_new(loop, NULL);
 

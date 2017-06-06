@@ -38,7 +38,7 @@
 
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_INFO
 
-#define TRACE_BUFFER 4096
+#define TRACE_BUFFER (16*1024)
 
 struct type {
 	uint32_t log;
@@ -142,33 +142,12 @@ static void on_trace_event(struct spa_source *source)
         }
 }
 
-static void
-impl_log_set_loop(struct spa_log *log, struct spa_loop *loop)
-{
-	struct impl *impl = SPA_CONTAINER_OF(log, struct impl, log);
-	if (impl->have_source) {
-		spa_loop_remove_source(impl->source.loop, &impl->source);
-		close(impl->source.fd);
-		impl->have_source = false;
-	}
-	if (loop) {
-		impl->source.func = on_trace_event;
-		impl->source.data = impl;
-		impl->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-		impl->source.mask = SPA_IO_IN;
-		impl->source.rmask = 0;
-		spa_loop_add_source(loop, &impl->source);
-		impl->have_source = true;
-	}
-}
-
 static const struct spa_log impl_log = {
 	sizeof(struct spa_log),
 	NULL,
 	DEFAULT_LOG_LEVEL,
-        impl_log_log,
-        impl_log_logv,
-        impl_log_set_loop,
+	impl_log_log,
+	impl_log_logv,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
@@ -196,8 +175,11 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	impl_log_set_loop(&this->log, NULL);
-
+	if (this->have_source) {
+		spa_loop_remove_source(this->source.loop, &this->source);
+		close(this->source.fd);
+		this->have_source = false;
+	}
 	return SPA_RESULT_OK;
 }
 
@@ -210,6 +192,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	uint32_t i;
+	struct spa_loop *loop = NULL;
 
 	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -224,12 +207,24 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; i < n_support; i++) {
 		if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
 			this->map = support[i].data;
+		if (strcmp(support[i].type, SPA_TYPE_LOOP__MainLoop) == 0)
+			loop = support[i].data;
 	}
 	if (this->map == NULL) {
 		spa_log_error(&this->log, "a type-map is needed");
 		return SPA_RESULT_ERROR;
 	}
 	init_type(&this->type, this->map);
+
+	if (loop) {
+		this->source.func = on_trace_event;
+		this->source.data = this;
+		this->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+		this->source.mask = SPA_IO_IN;
+		this->source.rmask = 0;
+		spa_loop_add_source(loop, &this->source);
+		this->have_source = true;
+	}
 
 	spa_ringbuffer_init(&this->trace_rb, TRACE_BUFFER);
 

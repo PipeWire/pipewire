@@ -58,7 +58,7 @@ libpipewire = shared_library('pipewire', pipewire_sources,
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  dependencies : [dbus_dep, mathlib, pthread_lib],
+  dependencies : [dbus_dep, dl_lib, mathlib, pthread_lib],
 )
 
 pipewire_dep = declare_dependency(link_with : libpipewire,

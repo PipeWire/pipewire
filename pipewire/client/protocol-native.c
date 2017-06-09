@@ -410,6 +410,26 @@ static bool node_demarshal_info(void *object, void *data, size_t size)
 }
 
 static void
+client_node_marshal_done(void *object, int seq, int res)
+{
+	struct pw_proxy *proxy = object;
+	struct pw_connection *connection = proxy->context->protocol_private;
+	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_frame f;
+
+	if (connection == NULL)
+		return;
+
+	core_update_map(proxy->context);
+
+	spa_pod_builder_struct(&b.b, &f,
+			       SPA_POD_TYPE_INT, seq,
+			       SPA_POD_TYPE_INT, res);
+
+	pw_connection_end_write(connection, proxy->id, PW_CLIENT_NODE_METHOD_DONE, b.b.offset);
+}
+
+static void
 client_node_marshal_update(void *object,
 			   uint32_t change_mask,
 			   uint32_t max_input_ports,
@@ -517,27 +537,6 @@ static void client_node_marshal_destroy(void *object)
 	spa_pod_builder_struct(&b.b, &f, 0);
 
 	pw_connection_end_write(connection, proxy->id, PW_CLIENT_NODE_METHOD_DESTROY, b.b.offset);
-}
-
-static bool client_node_demarshal_done(void *object, void *data, size_t size)
-{
-	struct pw_proxy *proxy = object;
-	struct spa_pod_iter it;
-	struct pw_connection *connection = proxy->context->protocol_private;
-	int32_t ridx, widx;
-	int readfd, writefd;
-
-	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &ridx, SPA_POD_TYPE_INT, &widx, 0))
-		return false;
-
-	readfd = pw_connection_get_fd(connection, ridx);
-	writefd = pw_connection_get_fd(connection, widx);
-	if (readfd == -1 || writefd == -1)
-		return false;
-
-	((struct pw_client_node_events *) proxy->implementation)->done(proxy, readfd, writefd);
-	return true;
 }
 
 static bool client_node_demarshal_set_props(void *object, void *data, size_t size)
@@ -787,19 +786,27 @@ static bool client_node_demarshal_transport(void *object, void *data, size_t siz
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
 	struct pw_connection *connection = proxy->context->protocol_private;
-	uint32_t memfd_idx, offset, sz;
-	int memfd;
+	uint32_t ridx, widx, memfd_idx, offset, sz;
+	int readfd, writefd, memfd;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &ridx,
+			      SPA_POD_TYPE_INT, &widx,
 			      SPA_POD_TYPE_INT, &memfd_idx,
 			      SPA_POD_TYPE_INT, &offset,
 			      SPA_POD_TYPE_INT, &sz, 0))
 		return false;
 
+	readfd = pw_connection_get_fd(connection, ridx);
+	writefd = pw_connection_get_fd(connection, widx);
 	memfd = pw_connection_get_fd(connection, memfd_idx);
-	((struct pw_client_node_events *) proxy->implementation)->transport(proxy, memfd, offset,
-									    sz);
+	if (readfd == -1 || writefd == -1 || memfd_idx == -1)
+		return false;
+
+	((struct pw_client_node_events *) proxy->implementation)->transport(proxy,
+									    readfd, writefd,
+									    memfd, offset, sz);
 	return true;
 }
 
@@ -941,6 +948,7 @@ static const struct pw_interface pw_protocol_native_client_registry_interface = 
 };
 
 static const struct pw_client_node_methods pw_protocol_native_client_client_node_methods = {
+	&client_node_marshal_done,
 	&client_node_marshal_update,
 	&client_node_marshal_port_update,
 	&client_node_marshal_event,
@@ -948,7 +956,6 @@ static const struct pw_client_node_methods pw_protocol_native_client_client_node
 };
 
 static const demarshal_func_t pw_protocol_native_client_client_node_demarshal[] = {
-	&client_node_demarshal_done,
 	&client_node_demarshal_set_props,
 	&client_node_demarshal_event,
 	&client_node_demarshal_add_port,

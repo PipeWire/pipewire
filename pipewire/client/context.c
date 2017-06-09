@@ -119,7 +119,8 @@ static void core_event_done(void *object, uint32_t seq)
 		pw_core_do_sync(this->core_proxy, 1);
 	} else if (seq == 1) {
 		context_set_state(this, PW_CONTEXT_STATE_CONNECTED, NULL);
-	}
+	} else
+		pw_signal_emit(&this->sync_done, this, seq);
 }
 
 static void core_event_error(void *object, uint32_t id, int res, const char *error, ...)
@@ -467,6 +468,7 @@ struct pw_context *pw_context_new(struct pw_loop *loop,
 	pw_signal_init(&this->state_changed);
 	pw_signal_init(&this->subscription);
 	pw_signal_init(&this->destroy_signal);
+	pw_signal_init(&this->sync_done);
 
 	return this;
 

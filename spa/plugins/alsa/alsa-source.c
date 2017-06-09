@@ -90,11 +90,11 @@ static int impl_node_set_props(struct spa_node *node, const struct spa_props *pr
 	return SPA_RESULT_OK;
 }
 
-static int do_send_event(struct spa_loop *loop, bool async, uint32_t seq, size_t size, void *data, void *user_data)
+static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, size_t size, void *data, void *user_data)
 {
 	struct state *this = user_data;
 
-	this->callbacks.event(&this->node, data, this->user_data);
+	this->callbacks.done(&this->node, seq, *(int*)data, this->user_data);
 
 	return SPA_RESULT_OK;
 }
@@ -108,11 +108,11 @@ static int do_start(struct spa_loop *loop, bool async, uint32_t seq, size_t size
 
 	if (async) {
 		spa_loop_invoke(this->main_loop,
-				do_send_event,
-				SPA_ID_INVALID,
-				sizeof(struct spa_event_node_async_complete),
-				&SPA_EVENT_NODE_ASYNC_COMPLETE_INIT(this->type.event_node.AsyncComplete,
-								    seq, res), this);
+				do_send_done,
+				seq,
+				sizeof(res),
+				&res,
+				this);
 	}
 	return res;
 }
@@ -126,11 +126,11 @@ static int do_pause(struct spa_loop *loop, bool async, uint32_t seq, size_t size
 
 	if (async) {
 		spa_loop_invoke(this->main_loop,
-				do_send_event,
-				SPA_ID_INVALID,
-				sizeof(struct spa_event_node_async_complete),
-				&SPA_EVENT_NODE_ASYNC_COMPLETE_INIT(this->type.event_node.AsyncComplete,
-								    seq, res), this);
+				do_send_done,
+				seq,
+				sizeof(res),
+				&res,
+				this);
 	}
 	return res;
 }

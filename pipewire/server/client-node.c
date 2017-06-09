@@ -863,6 +863,18 @@ static int handle_node_event(struct proxy *this, struct spa_event *event)
 }
 
 static void
+client_node_done(void *object, int seq, int res)
+{
+	struct pw_resource *resource = object;
+	struct pw_client_node *node = resource->object;
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+	struct proxy *this = &impl->proxy;
+
+	this->callbacks.done(&this->node, seq, res, this->user_data);
+}
+
+
+static void
 client_node_update(void *object,
 		   uint32_t change_mask,
 		   uint32_t max_input_ports,
@@ -935,6 +947,7 @@ static void client_node_destroy(void *object)
 }
 
 static struct pw_client_node_methods client_node_methods = {
+	&client_node_done,
 	&client_node_update,
 	&client_node_port_update,
 	&client_node_event,
@@ -1030,6 +1043,7 @@ static void on_initialized(struct pw_listener *listener, struct pw_node *node)
 	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, initialized);
 	struct pw_client_node *this = &impl->this;
 	struct pw_transport_info info;
+	int readfd, writefd;
 
 	if (this->resource == NULL)
 		return;
@@ -1038,8 +1052,10 @@ static void on_initialized(struct pw_listener *listener, struct pw_node *node)
 	impl->transport->area->n_input_ports = node->info.n_input_ports;
 	impl->transport->area->n_output_ports = node->info.n_output_ports;
 
+	pw_client_node_get_fds(this, &readfd, &writefd);
 	pw_transport_get_info(impl->transport, &info);
-	pw_client_node_notify_transport(this->resource, info.memfd, info.offset, info.size);
+
+	pw_client_node_notify_transport(this->resource, readfd, writefd, info.memfd, info.offset, info.size);
 }
 
 static void on_loop_changed(struct pw_listener *listener, struct pw_node *node)

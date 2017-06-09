@@ -112,7 +112,7 @@ static void on_before_iterate(struct pw_listener *listener, struct pw_loop *loop
 	struct native_client *client, *tmp;
 
 	spa_list_for_each_safe(client, tmp, &this->client_list, link)
-	    pw_connection_flush(client->connection);
+		pw_connection_flush(client->connection);
 }
 
 static void

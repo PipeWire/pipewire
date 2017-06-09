@@ -240,6 +240,12 @@ static void on_source_push(struct data *data)
 	}
 }
 
+static void on_sink_done(struct spa_node *node, int seq, int res, void *user_data)
+{
+	struct data *data = user_data;
+	spa_log_trace(data->log, "got sink done %d %d", seq, res);
+}
+
 static void on_sink_event(struct spa_node *node, struct spa_event *event, void *user_data)
 {
 	struct data *data = user_data;
@@ -264,11 +270,18 @@ on_sink_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id
 }
 
 static const struct spa_node_callbacks sink_callbacks = {
+	&on_sink_done,
 	&on_sink_event,
 	&on_sink_need_input,
 	NULL,
 	&on_sink_reuse_buffer
 };
+
+static void on_source_done(struct spa_node *node, int seq, int res, void *user_data)
+{
+	struct data *data = user_data;
+	spa_log_trace(data->log, "got source done %d %d", seq, res);
+}
 
 static void on_source_event(struct spa_node *node, struct spa_event *event, void *user_data)
 {
@@ -286,6 +299,7 @@ static void on_source_have_output(struct spa_node *node, void *user_data)
 }
 
 static const struct spa_node_callbacks source_callbacks = {
+	&on_source_done,
 	&on_source_event,
 	NULL,
 	&on_source_have_output,

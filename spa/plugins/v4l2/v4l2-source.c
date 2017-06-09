@@ -232,12 +232,12 @@ static int do_pause_done(struct spa_loop *loop,
 			 void *user_data)
 {
 	struct impl *this = user_data;
-	struct spa_event_node_async_complete *ac = data;
+	int res = *(int*)data;
 
-	if (SPA_RESULT_IS_OK(ac->body.res.value))
-		ac->body.res.value = spa_v4l2_stream_off(this);
+	if (SPA_RESULT_IS_OK(res))
+		res = spa_v4l2_stream_off(this);
 
-	this->callbacks.event(&this->node, (struct spa_event *) ac, this->user_data);
+	this->callbacks.done(&this->node, seq, res, this->user_data);
 
 	return SPA_RESULT_OK;
 }
@@ -259,9 +259,8 @@ static int do_pause(struct spa_loop *loop,
 		spa_loop_invoke(this->out_ports[0].main_loop,
 				do_pause_done,
 				seq,
-				sizeof(struct spa_event_node_async_complete),
-				&SPA_EVENT_NODE_ASYNC_COMPLETE_INIT(this->type.event_node.AsyncComplete,
-					seq, res),
+				sizeof(res),
+				&res,
 				this);
 	}
 	return res;
@@ -275,9 +274,9 @@ static int do_start_done(struct spa_loop *loop,
 			 void *user_data)
 {
 	struct impl *this = user_data;
-	struct spa_event_node_async_complete *ac = data;
+	int res = *(int*)data;
 
-	this->callbacks.event(&this->node, (struct spa_event *) ac, this->user_data);
+	this->callbacks.done(&this->node, seq, res, this->user_data);
 
 	return SPA_RESULT_OK;
 }
@@ -299,9 +298,8 @@ static int do_start(struct spa_loop *loop,
 		spa_loop_invoke(this->out_ports[0].main_loop,
 				do_start_done,
 				seq,
-				sizeof(struct spa_event_node_async_complete),
-				&SPA_EVENT_NODE_ASYNC_COMPLETE_INIT(this->type.event_node.AsyncComplete,
-					seq, res),
+				sizeof(res),
+				&res,
 				this);
 	}
 	return SPA_RESULT_OK;

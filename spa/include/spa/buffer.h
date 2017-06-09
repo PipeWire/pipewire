@@ -28,6 +28,12 @@ extern "C" {
 #include <spa/meta.h>
 #include <spa/type-map.h>
 
+/** \page page_buffer Buffers
+ *
+ * Buffers describe the data and metadata that is exchanged between
+ * ports of a node.
+ *
+ */
 #define SPA_TYPE__Buffer		SPA_TYPE_POINTER_BASE "Buffer"
 #define SPA_TYPE_BUFFER_BASE		SPA_TYPE__Buffer ":"
 
@@ -56,54 +62,34 @@ static inline void spa_type_data_map(struct spa_type_map *map, struct spa_type_d
 	}
 }
 
-/**
- * spa_chunk:
- * @offset: offset of valid data
- * @size: size of valid data
- * @stride: stride of data if applicable
- */
+/** Chunk of memory */
 struct spa_chunk {
-	uint32_t offset;
-	uint32_t size;
-	int32_t stride;
+	uint32_t offset;		/**< offset of valid data */
+	uint32_t size;			/**< size of valid data */
+	int32_t stride;			/**< stride of valid data */
 };
 
-/**
- * spa_data:
- * @type: memory type
- * @flags: memory flags
- * @fd: file descriptor
- * @mapoffset: start offset when mapping @fd
- * @maxsize: maximum size of the memory
- * @data: pointer to memory
- * @chunk: pointer to chunk with valid offset
- */
+/** Data for a buffer */
 struct spa_data {
-	uint32_t type;
-	uint32_t flags;
-	int fd;
-	uint32_t mapoffset;
-	uint32_t maxsize;
-	void *data;
-	struct spa_chunk *chunk;
+	uint32_t type;			/**< memory type */
+	uint32_t flags;			/**< data flags */
+	int fd;				/**< optional fd for data */
+	uint32_t mapoffset;		/**< offset to map fd at */
+	uint32_t maxsize;		/**< max size of data */
+	void *data;			/**< optional data pointer */
+	struct spa_chunk *chunk;	/**< valid chunk of memory */
 };
 
-/**
- * spa_buffer:
- * @id: buffer id
- * @n_metas: number of metadata
- * @metas: offset of array of @n_metas metadata
- * @n_datas: number of data pointers
- * @datas: offset of array of @n_datas data pointers
- */
+/** A Buffer */
 struct spa_buffer {
-	uint32_t id;
-	uint32_t n_metas;
-	struct spa_meta *metas;
-	uint32_t n_datas;
-	struct spa_data *datas;
+	uint32_t id;			/**< the id of this buffer */
+	uint32_t n_metas;		/**< number of metadata elements */
+	struct spa_meta *metas;		/**< array of metadata */
+	uint32_t n_datas;		/**< number of data members */
+	struct spa_data *datas;		/**< array of data members */
 };
 
+/** Find metadata in a buffer */
 static inline void *spa_buffer_find_meta(struct spa_buffer *b, uint32_t type)
 {
 	uint32_t i;

@@ -28,6 +28,10 @@ extern "C" {
 #include <spa/ringbuffer.h>
 #include <spa/type-map.h>
 
+/** \page page_meta Metadata
+ *
+ * Metadata contains extra information on a buffer.
+ */
 #define SPA_TYPE__Meta			SPA_TYPE_POINTER_BASE "Meta"
 #define SPA_TYPE_META_BASE		SPA_TYPE__Meta ":"
 
@@ -56,76 +60,51 @@ static inline void spa_type_meta_map(struct spa_type_map *map, struct spa_type_m
 	}
 }
 
-/**
- * spa_meta_header:
- * @flags: extra flags
- * @seq: sequence number. This monotonically increments and with the rate,
- *       it can be used to derive a media time.
- * @pts: The MONOTONIC time for @seq.
- * @dts_offset: offset relative to @pts to start decoding this buffer.
- */
+/** Describes essential buffer header metadata */
 struct spa_meta_header {
-#define SPA_META_HEADER_FLAG_DISCONT	(1 << 0)	/* data is not continous with previous buffer */
-#define SPA_META_HEADER_FLAG_CORRUPTED	(1 << 1)	/* data might be corrupted */
-#define SPA_META_HEADER_FLAG_MARKER	(1 << 2)	/* media specific marker */
-#define SPA_META_HEADER_FLAG_HEADER	(1 << 3)	/* data contains a codec specific header */
-#define SPA_META_HEADER_FLAG_GAP	(1 << 4)	/* data contains media neutral data */
-#define SPA_META_HEADER_FLAG_DELTA_UNIT	(1 << 5)	/* cannot be decoded independently */
-	uint32_t flags;
-	uint32_t seq;
-	int64_t pts;
-	int64_t dts_offset;
+#define SPA_META_HEADER_FLAG_DISCONT	(1 << 0)	/**< data is not continous with previous buffer */
+#define SPA_META_HEADER_FLAG_CORRUPTED	(1 << 1)	/**< data might be corrupted */
+#define SPA_META_HEADER_FLAG_MARKER	(1 << 2)	/**< media specific marker */
+#define SPA_META_HEADER_FLAG_HEADER	(1 << 3)	/**< data contains a codec specific header */
+#define SPA_META_HEADER_FLAG_GAP	(1 << 4)	/**< data contains media neutral data */
+#define SPA_META_HEADER_FLAG_DELTA_UNIT	(1 << 5)	/**< cannot be decoded independently */
+	uint32_t flags;			/**< flags */
+	uint32_t seq;			/**< sequence number, increments with a
+					  *  media specific frequency */
+	int64_t pts;			/**< presentation timestamp */
+	int64_t dts_offset;		/**< decoding timestamp and a difference with pts */
 };
 
+/** Pointer metadata */
 struct spa_meta_pointer {
-	uint32_t type;
-	void *ptr;
+	uint32_t type;		/**< the pointer type */
+	void *ptr;		/**< the pointer */
 };
 
-/**
- * spa_meta_video_crop:
- * @x:
- * @y:
- * @width:
- * @height
- */
+/** Video cropping metadata */
 struct spa_meta_video_crop {
-	int32_t x, y;
-	int32_t width, height;
+	int32_t x, y;		/**< x and y offsets */
+	int32_t width, height;	/**< width and height */
 };
 
-/**
- * spa_meta_ringbuffer:
- * @ringbuffer:
- */
+/** Ringbuffer metadata */
 struct spa_meta_ringbuffer {
-	struct spa_ringbuffer ringbuffer;
+	struct spa_ringbuffer ringbuffer;	/**< the ringbuffer */
 };
 
-/**
- * spa_meta_shared:
- * @flags: flags
- * @fd: the fd of the memory
- * @offset: start offset of memory
- * @size: size of the memory
- */
+/** Describes the shared memory of a buffer is stored */
 struct spa_meta_shared {
-	int32_t flags;
-	int fd;
-	int32_t offset;
-	uint32_t size;
+	int32_t flags;		/**< flags */
+	int fd;			/**< file descriptor of memory */
+	int32_t offset;		/**< offset in memory */
+	uint32_t size;		/**< size of memory */
 };
 
-/**
- * spa_meta:
- * @type: metadata type
- * @data: pointer to metadata
- * @size: size of metadata
- */
+/** A metadata element */
 struct spa_meta {
-	uint32_t type;
-	void *data;
-	uint32_t size;
+	uint32_t type;		/**< metadata type */
+	void *data;		/**< pointer to metadata */
+	uint32_t size;		/**< size of metadata */
 };
 
 #ifdef __cplusplus

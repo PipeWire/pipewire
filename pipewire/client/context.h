@@ -173,6 +173,8 @@ struct pw_context {
 
 	/** Signal emited when the context is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_context *context));
+
+	PW_SIGNAL(sync_done, (struct pw_listener *listener, struct pw_context *context, int seq));
 };
 
 struct pw_context *

@@ -81,6 +81,7 @@ struct spa_loop {
 
 	void (*remove_source) (struct spa_source *source);
 
+	/** invoke a function in the context of this loop */
 	int (*invoke) (struct spa_loop *loop,
 		       spa_invoke_func_t func,
 		       uint32_t seq,

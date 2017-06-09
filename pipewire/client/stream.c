@@ -84,6 +84,7 @@ struct stream {
 	struct pw_proxy *node_proxy;
 	bool disconnecting;
 	struct pw_listener node_proxy_destroy;
+	struct pw_listener node_proxy_sync_done;
 
 	struct pw_transport *trans;
 
@@ -405,11 +406,7 @@ static void add_async_complete(struct pw_stream *stream, uint32_t seq, int res)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	pw_client_node_do_event(impl->node_proxy, (struct spa_event *)
-				&SPA_EVENT_NODE_ASYNC_COMPLETE_INIT(stream->context->type.
-								    event_node.AsyncComplete, seq,
-								    res));
-
+	pw_client_node_do_done(impl->node_proxy, seq, res);
 }
 
 static void do_node_init(struct pw_stream *stream)
@@ -623,18 +620,6 @@ handle_node_command(struct pw_stream *stream, uint32_t seq, const struct spa_com
 		add_async_complete(stream, seq, SPA_RESULT_NOT_IMPLEMENTED);
 	}
 	return true;
-}
-
-static void client_node_done(void *object, int readfd, int writefd)
-{
-	struct pw_proxy *proxy = object;
-	struct pw_stream *stream = proxy->user_data;
-
-	pw_log_info("stream %p: create client node done with fds %d %d", stream, readfd, writefd);
-	handle_socket(stream, readfd, writefd);
-	do_node_init(stream);
-
-	stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
 }
 
 static void
@@ -856,7 +841,7 @@ client_node_port_command(void *object,
 	pw_log_warn("port command not supported");
 }
 
-static void client_node_transport(void *object, int memfd, uint32_t offset, uint32_t size)
+static void client_node_transport(void *object, int readfd, int writefd, int memfd, uint32_t offset, uint32_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct pw_stream *stream = proxy->user_data;
@@ -873,11 +858,13 @@ static void client_node_transport(void *object, int memfd, uint32_t offset, uint
 		pw_transport_destroy(impl->trans);
 	impl->trans = pw_transport_new_from_info(&info);
 
-	pw_log_debug("transport update %p", impl->trans);
+	pw_log_info("stream %p: create client transport %p with fds %d %d", stream, impl->trans, readfd, writefd);
+	handle_socket(stream, readfd, writefd);
+
+	stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
 }
 
 static const struct pw_client_node_events client_node_events = {
-	&client_node_done,
 	&client_node_set_props,
 	&client_node_event,
 	&client_node_add_port,
@@ -900,6 +887,20 @@ static void on_node_proxy_destroy(struct pw_listener *listener, struct pw_proxy 
 	impl->node_proxy = NULL;
 	pw_signal_remove(&impl->node_proxy_destroy);
 	stream_set_state(this, PW_STREAM_STATE_UNCONNECTED, NULL);
+}
+
+static void on_node_proxy_sync_done(struct pw_listener *listener, struct pw_context *context, int seq)
+{
+	struct stream *impl = SPA_CONTAINER_OF(listener, struct stream, node_proxy_sync_done);
+	struct pw_stream *this = &impl->this;
+
+	if (seq != 2)
+		return;
+
+	pw_log_info("stream %p: sync done %d", this, seq);
+	do_node_init(this);
+
+	pw_signal_remove(&impl->node_proxy_sync_done);
 }
 
 /** Connect a stream for input or output on \a port_path.
@@ -960,6 +961,10 @@ pw_stream_connect(struct pw_stream *stream,
 			       "client-node",
 			       "client-node",
 			       &stream->properties->dict, impl->node_proxy->id);
+
+	pw_signal_add(&stream->context->sync_done,
+		      &impl->node_proxy_sync_done, on_node_proxy_sync_done);
+
 	return true;
 }
 

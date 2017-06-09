@@ -313,20 +313,21 @@ static int do_pull(struct pw_node *this)
 	return res;
 }
 
-static void on_node_event(struct spa_node *node, struct spa_event *event, void *user_data)
+static void on_node_done(struct spa_node *node, int seq, int res, void *user_data)
 {
 	struct pw_node *this = user_data;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
-	if (SPA_EVENT_TYPE(event) == this->core->type.event_node.AsyncComplete) {
-		struct spa_event_node_async_complete *ac =
-		    (struct spa_event_node_async_complete *) event;
+	pw_log_debug("node %p: async complete event %d %d", this, seq, res);
+	pw_work_queue_complete(impl->work, this, seq, res);
+	pw_signal_emit(&this->async_complete, this, seq, res);
+}
 
-		pw_log_debug("node %p: async complete event %d %d", this, ac->body.seq.value,
-			     ac->body.res.value);
-		pw_work_queue_complete(impl->work, this, ac->body.seq.value, ac->body.res.value);
-		pw_signal_emit(&this->async_complete, this, ac->body.seq.value, ac->body.res.value);
-	} else if (SPA_EVENT_TYPE(event) == this->core->type.event_node.RequestClockUpdate) {
+static void on_node_event(struct spa_node *node, struct spa_event *event, void *user_data)
+{
+	struct pw_node *this = user_data;
+
+	if (SPA_EVENT_TYPE(event) == this->core->type.event_node.RequestClockUpdate) {
 		send_clock_update(this);
 	}
 }
@@ -509,6 +510,7 @@ void pw_node_set_data_loop(struct pw_node *node, struct pw_data_loop *loop)
 }
 
 static const struct spa_node_callbacks node_callbacks = {
+	&on_node_done,
 	&on_node_event,
 	&on_node_need_input,
 	&on_node_have_output,

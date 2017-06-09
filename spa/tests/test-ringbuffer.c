@@ -205,6 +205,11 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 	return SPA_RESULT_ERROR;
 }
 
+static void on_sink_done(struct spa_node *node, int seq, int res, void *user_data)
+{
+	printf("got done %d %d\n", seq, res);
+}
+
 static void on_sink_event(struct spa_node *node, struct spa_event *event, void *user_data)
 {
 	printf("got event %d\n", SPA_EVENT_TYPE(event));
@@ -231,6 +236,7 @@ on_sink_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id
 }
 
 static const struct spa_node_callbacks sink_callbacks = {
+	&on_sink_done,
 	&on_sink_event,
 	&on_sink_need_input,
 	NULL,

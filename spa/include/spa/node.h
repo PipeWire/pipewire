@@ -82,6 +82,7 @@ struct spa_port_info {
 
 
 struct spa_node_callbacks {
+	void (*done) (struct spa_node *node, int seq, int res, void *user_data);
 	/**
 	 * struct spa_node_callbacks::event:
 	 * @node: a #struct spa_node
@@ -133,7 +134,6 @@ struct spa_node_callbacks {
 			      uint32_t port_id,
 			      uint32_t buffer_id, void *user_data);
 
-	void (*done) (struct spa_node *node, int seq, int res, void *user_data);
 };
 
 /**

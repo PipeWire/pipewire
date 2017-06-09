@@ -43,19 +43,20 @@ static struct pw_node *create_node(struct pw_node_factory *factory,
 				   uint32_t new_id)
 {
 	struct pw_client_node *node;
-	int res;
-	int readfd, writefd;
 
 	node = pw_client_node_new(client, new_id, name, properties);
 	if (node == NULL)
 		goto no_mem;
 
+#if 0
 	if ((res = pw_client_node_get_fds(node, &readfd, &writefd)) < 0) {
 		pw_core_notify_error(client->core_resource,
 				     client->core_resource->id, SPA_RESULT_ERROR, "can't get data fds");
 		return NULL;
 	}
 	pw_client_node_notify_done(node->resource, readfd, writefd);
+#endif
+	pw_core_notify_done(client->core_resource, 2);
 
 	return node->node;
 

@@ -307,14 +307,18 @@ struct pw_client_node_buffer {
 	struct spa_buffer *buffer;	/**< buffer describing metadata and buffer memory */
 };
 
-#define PW_CLIENT_NODE_METHOD_UPDATE         0
-#define PW_CLIENT_NODE_METHOD_PORT_UPDATE    1
-#define PW_CLIENT_NODE_METHOD_EVENT          2
-#define PW_CLIENT_NODE_METHOD_DESTROY        3
-#define PW_CLIENT_NODE_METHOD_NUM            4
+#define PW_CLIENT_NODE_METHOD_DONE           0
+#define PW_CLIENT_NODE_METHOD_UPDATE         1
+#define PW_CLIENT_NODE_METHOD_PORT_UPDATE    2
+#define PW_CLIENT_NODE_METHOD_EVENT          3
+#define PW_CLIENT_NODE_METHOD_DESTROY        4
+#define PW_CLIENT_NODE_METHOD_NUM            5
 
 /** \ref pw_client_node methods */
 struct pw_client_node_methods {
+	/** Complete an async operation */
+	void (*done) (void *object, int seq, int res);
+
 	/**
 	 * Update the node ports and properties
 	 *
@@ -373,37 +377,27 @@ struct pw_client_node_methods {
 	void (*destroy) (void *object);
 };
 
+#define pw_client_node_do_done(r,...)         ((struct pw_client_node_methods*)r->iface->methods)->done(r,__VA_ARGS__)
 #define pw_client_node_do_update(r,...)       ((struct pw_client_node_methods*)r->iface->methods)->update(r,__VA_ARGS__)
 #define pw_client_node_do_port_update(r,...)  ((struct pw_client_node_methods*)r->iface->methods)->port_update(r,__VA_ARGS__)
 #define pw_client_node_do_event(r,...)        ((struct pw_client_node_methods*)r->iface->methods)->event(r,__VA_ARGS__)
 #define pw_client_node_do_destroy(r)          ((struct pw_client_node_methods*)r->iface->methods)->destroy(r)
 
-#define PW_CLIENT_NODE_EVENT_DONE            0
-#define PW_CLIENT_NODE_EVENT_SET_PROPS       1
-#define PW_CLIENT_NODE_EVENT_EVENT           2
-#define PW_CLIENT_NODE_EVENT_ADD_PORT        3
-#define PW_CLIENT_NODE_EVENT_REMOVE_PORT     4
-#define PW_CLIENT_NODE_EVENT_SET_FORMAT      5
-#define PW_CLIENT_NODE_EVENT_SET_PARAM       6
-#define PW_CLIENT_NODE_EVENT_ADD_MEM         7
-#define PW_CLIENT_NODE_EVENT_USE_BUFFERS     8
-#define PW_CLIENT_NODE_EVENT_NODE_COMMAND    9
-#define PW_CLIENT_NODE_EVENT_PORT_COMMAND    10
-#define PW_CLIENT_NODE_EVENT_TRANSPORT       11
-#define PW_CLIENT_NODE_EVENT_NUM             12
+#define PW_CLIENT_NODE_EVENT_SET_PROPS       0
+#define PW_CLIENT_NODE_EVENT_EVENT           1
+#define PW_CLIENT_NODE_EVENT_ADD_PORT        2
+#define PW_CLIENT_NODE_EVENT_REMOVE_PORT     3
+#define PW_CLIENT_NODE_EVENT_SET_FORMAT      4
+#define PW_CLIENT_NODE_EVENT_SET_PARAM       5
+#define PW_CLIENT_NODE_EVENT_ADD_MEM         6
+#define PW_CLIENT_NODE_EVENT_USE_BUFFERS     7
+#define PW_CLIENT_NODE_EVENT_NODE_COMMAND    8
+#define PW_CLIENT_NODE_EVENT_PORT_COMMAND    9
+#define PW_CLIENT_NODE_EVENT_TRANSPORT       10
+#define PW_CLIENT_NODE_EVENT_NUM             11
 
 /** \ref pw_client_node events */
 struct pw_client_node_events {
-	/**
-	 * Notify the creation of the client node
-	 *
-	 * A set of sockets are exchanged that are used to notify when
-	 * commands are available for reading and writing.
-	 *
-	 * \param readfd the fd used for receiving commands
-	 * \param writefd the fd used for sending command
-	 */
-	void (*done) (void *object, int readfd, int writefd);
 	/**
 	 * Notify of a property change
 	 *
@@ -538,10 +532,9 @@ struct pw_client_node_events {
 	 * \param offset the offset to map
 	 * \param size the size to map
 	 */
-	void (*transport) (void *object, int memfd, uint32_t offset, uint32_t size);
+	void (*transport) (void *object, int readfd, int writefd, int memfd, uint32_t offset, uint32_t size);
 };
 
-#define pw_client_node_notify_done(r,...)         ((struct pw_client_node_events*)r->iface->events)->done(r,__VA_ARGS__)
 #define pw_client_node_notify_set_props(r,...)    ((struct pw_client_node_events*)r->iface->events)->props(r,__VA_ARGS__)
 #define pw_client_node_notify_event(r,...)        ((struct pw_client_node_events*)r->iface->events)->event(r,__VA_ARGS__)
 #define pw_client_node_notify_add_port(r,...)     ((struct pw_client_node_events*)r->iface->events)->add_port(r,__VA_ARGS__)

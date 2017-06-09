@@ -176,6 +176,11 @@ static void handle_events(struct data *data)
 	}
 }
 
+static void on_source_done(struct spa_node *node, int seq, int res, void *user_data)
+{
+	printf("got done %d %d\n", seq, res);
+}
+
 static void on_source_event(struct spa_node *node, struct spa_event *event, void *user_data)
 {
 	struct data *data = user_data;
@@ -256,6 +261,7 @@ static void on_source_have_output(struct spa_node *node, void *user_data)
 }
 
 static const struct spa_node_callbacks source_callbacks = {
+	&on_source_done,
 	&on_source_event,
 	NULL,
 	&on_source_have_output,

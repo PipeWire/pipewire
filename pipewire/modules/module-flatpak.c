@@ -124,8 +124,8 @@ add_pending(struct client_info *cinfo, const char *handle, struct pw_access_data
 	struct async_pending *p;
 	struct pw_access_data *ad;
 
-	ad = access_data->async_copy(access_data, sizeof(struct async_pending));
-	ad->free_cb = free_pending;
+	ad = access_data->async_start(access_data, sizeof(struct async_pending));
+	ad->free = free_pending;
 
 	p = ad->user_data;
 	p->info = cinfo;
@@ -142,8 +142,7 @@ static void client_info_free(struct client_info *cinfo)
 	struct async_pending *p, *tmp;
 
 	spa_list_for_each_safe(p, tmp, &cinfo->async_pending, link) {
-		p->access_data->res = SPA_RESULT_NO_PERMISSION;
-		p->access_data->complete_cb(p->access_data);
+		p->access_data->complete(p->access_data, SPA_RESULT_NO_PERMISSION);
 	}
 	spa_list_remove(&cinfo->link);
 	free(cinfo);
@@ -272,8 +271,7 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 
 		pw_log_debug("portal check result: %d", response);
 
-		d->res = response == 0 ? SPA_RESULT_OK : SPA_RESULT_NO_PERMISSION;
-		d->complete_cb(d);
+		d->complete(d, response == 0 ? SPA_RESULT_OK : SPA_RESULT_NO_PERMISSION);
 
 		return DBUS_HANDLER_RESULT_HANDLED;
 	}
@@ -298,13 +296,11 @@ do_create_node(struct pw_access *access,
 	const char *device;
 
 	if (!cinfo->is_sandboxed) {
-		data->res = SPA_RESULT_OK;
-		data->complete_cb(data);
+		data->complete(data, SPA_RESULT_OK);
 		return SPA_RESULT_OK;
 	}
 	if (strcmp(factory_name, "client-node") != 0) {
-		data->res = SPA_RESULT_NO_PERMISSION;
-		data->complete_cb(data);
+		data->complete(data, SPA_RESULT_NO_PERMISSION);
 		return SPA_RESULT_NO_PERMISSION;
 	}
 
@@ -387,13 +383,14 @@ do_create_link(struct pw_access *access,
 {
 	struct impl *impl = SPA_CONTAINER_OF(access, struct impl, access);
 	struct client_info *cinfo = find_client_info(impl, data->resource->client);
+	int res;
 
 	if (cinfo->is_sandboxed)
-		data->res = SPA_RESULT_NO_PERMISSION;
+		res = SPA_RESULT_NO_PERMISSION;
 	else
-		data->res = SPA_RESULT_OK;
+		res = SPA_RESULT_OK;
 
-	data->complete_cb(data);
+	data->complete(data, res);
 	return SPA_RESULT_OK;
 }
 

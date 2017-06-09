@@ -143,7 +143,7 @@ static void core_get_registry(void *object, uint32_t new_id)
 			     resource->id, SPA_RESULT_NO_MEMORY, "no memory");
 }
 
-static void *async_create_node_copy(struct pw_access_data *data, size_t size)
+static void *async_create_node_start(struct pw_access_data *data, size_t size)
 {
 	struct access_create_node *d;
 
@@ -163,22 +163,22 @@ static void async_create_node_free(struct pw_access_data *data)
 	if (d->properties)
 		pw_properties_free(d->properties);
 	if (d->async) {
-		if (d->data.free_cb)
-			d->data.free_cb(&d->data);
+		if (d->data.free)
+			d->data.free(&d->data);
 		free(d->factory_name);
 		free(d->name);
 		free(d);
 	}
 }
 
-static void async_create_node_complete(struct pw_access_data *data)
+static void async_create_node_complete(struct pw_access_data *data, int res)
 {
 	struct access_create_node *d = (struct access_create_node *) data;
 	struct pw_resource *resource = d->data.resource;
 	struct pw_client *client = resource->client;
 	struct pw_node_factory *factory;
 
-	if (data->res != SPA_RESULT_OK)
+	if (res != SPA_RESULT_OK)
 		goto denied;
 
 	factory = pw_core_find_node_factory(client->core, d->factory_name);
@@ -197,7 +197,7 @@ static void async_create_node_complete(struct pw_access_data *data)
 			     resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown factory name");
 	goto done;
       denied:
-	pw_log_error("create node refused");
+	pw_log_error("create node refused %d", res);
 	pw_core_notify_error(client->core_resource,
 			     resource->id, SPA_RESULT_NO_PERMISSION, "operation not allowed");
       done:
@@ -228,9 +228,9 @@ core_create_node(void *object,
 	}
 
 	access_data.data.resource = resource;
-	access_data.data.async_copy = async_create_node_copy;
-	access_data.data.complete_cb = async_create_node_complete;
-	access_data.data.free_cb = NULL;
+	access_data.data.async_start = async_create_node_start;
+	access_data.data.complete = async_create_node_complete;
+	access_data.data.free = NULL;
 	access_data.factory_name = (char *) factory_name;
 	access_data.name = (char *) name;
 	access_data.properties = properties;
@@ -238,17 +238,16 @@ core_create_node(void *object,
 	access_data.async = false;
 
 	if (client->core->access) {
-		access_data.data.res = SPA_RESULT_NO_PERMISSION;
 		res = client->core->access->create_node(client->core->access,
 							&access_data.data,
 							factory_name,
 							name,
 							properties);
 	} else {
-		res = access_data.data.res = SPA_RESULT_OK;
+		res = SPA_RESULT_OK;
 	}
 	if (!SPA_RESULT_IS_ASYNC(res))
-		async_create_node_complete(&access_data.data);
+		async_create_node_complete(&access_data.data, res);
 	return;
 
       no_mem:

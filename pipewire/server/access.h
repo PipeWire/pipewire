@@ -32,12 +32,11 @@ extern "C" {
 #include <pipewire/server/resource.h>
 
 struct pw_access_data {
-	int res;
 	struct pw_resource *resource;
 
-	void *(*async_copy) (struct pw_access_data *data, size_t size);
-	void (*complete_cb) (struct pw_access_data *data);
-	void (*free_cb) (struct pw_access_data *data);
+	void *(*async_start) (struct pw_access_data *data, size_t size);
+	void (*complete) (struct pw_access_data *data, int res);
+	void (*free) (struct pw_access_data *data);
 	void *user_data;
 };
 

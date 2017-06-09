@@ -889,20 +889,6 @@ static void on_node_proxy_destroy(struct pw_listener *listener, struct pw_proxy 
 	stream_set_state(this, PW_STREAM_STATE_UNCONNECTED, NULL);
 }
 
-static void on_node_proxy_sync_done(struct pw_listener *listener, struct pw_context *context, int seq)
-{
-	struct stream *impl = SPA_CONTAINER_OF(listener, struct stream, node_proxy_sync_done);
-	struct pw_stream *this = &impl->this;
-
-	if (seq != 2)
-		return;
-
-	pw_log_info("stream %p: sync done %d", this, seq);
-	do_node_init(this);
-
-	pw_signal_remove(&impl->node_proxy_sync_done);
-}
-
 /** Connect a stream for input or output on \a port_path.
  * \param stream a \ref pw_stream
  * \param direction the stream direction
@@ -962,8 +948,7 @@ pw_stream_connect(struct pw_stream *stream,
 			       "client-node",
 			       &stream->properties->dict, impl->node_proxy->id);
 
-	pw_signal_add(&stream->context->sync_done,
-		      &impl->node_proxy_sync_done, on_node_proxy_sync_done);
+	do_node_init(stream);
 
 	return true;
 }

@@ -94,6 +94,7 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	pw_signal_init(&this->properties_changed);
 	pw_signal_init(&this->resource_added);
 	pw_signal_init(&this->resource_removed);
+	pw_signal_init(&this->busy_changed);
 
 	pw_map_init(&this->objects, 0, 32);
 	pw_map_init(&this->types, 0, 32);
@@ -178,5 +179,13 @@ void pw_client_update_properties(struct pw_client *client, const struct spa_dict
 
 	spa_list_for_each(resource, &client->resource_list, link) {
 		pw_client_notify_info(resource, &client->info);
+	}
+}
+
+void pw_client_set_busy(struct pw_client *client, bool busy)
+{
+	if (client->busy != busy) {
+		client->busy = busy;
+		pw_signal_emit(&client->busy_changed, client);
 	}
 }

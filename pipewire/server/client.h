@@ -102,6 +102,11 @@ struct pw_client {
 	PW_SIGNAL(resource_removed, (struct pw_listener *listener,
 				     struct pw_client *client, struct pw_resource *resource));
 
+	bool busy;
+	/** Emited when the client starts/stops an async operation that should
+	 * block/resume all methods for this client */
+	PW_SIGNAL(busy_changed, (struct pw_listener *listener, struct pw_client *client));
+
 	/** Emited when the client is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_client *client));
 };
@@ -115,6 +120,8 @@ pw_client_destroy(struct pw_client *client);
 
 void
 pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
+
+void pw_client_set_busy(struct pw_client *client, bool busy);
 
 #ifdef __cplusplus
 }

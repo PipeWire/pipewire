@@ -86,6 +86,7 @@ struct native_client {
 	struct spa_source *source;
 	struct pw_connection *connection;
 	struct pw_listener resource_added;
+	struct pw_listener busy_changed;
 };
 
 static void client_destroy(struct native_client *this)
@@ -100,10 +101,69 @@ static void client_destroy(struct native_client *this)
 }
 
 static void
+process_messages(struct native_client *client)
+{
+	struct pw_connection *conn = client->connection;
+	uint8_t opcode;
+	uint32_t id;
+	uint32_t size;
+	struct pw_client *c = client->client;
+	void *message;
+
+	while (pw_connection_get_next(conn, &opcode, &id, &message, &size)) {
+		struct pw_resource *resource;
+		const demarshal_func_t *demarshal;
+
+		pw_log_trace("protocol-native %p: got message %d from %u", client->impl,
+			     opcode, id);
+
+		resource = pw_map_lookup(&c->objects, id);
+		if (resource == NULL) {
+			pw_log_error("protocol-native %p: unknown resource %u",
+				     client->impl, id);
+			continue;
+		}
+		if (opcode >= resource->iface->n_methods) {
+			pw_log_error("protocol-native %p: invalid method %u %u", client->impl,
+				     id,  opcode);
+			client_destroy(client);
+			break;
+		}
+		demarshal = resource->iface->methods;
+		if (!demarshal[opcode] || !demarshal[opcode] (resource, message, size)) {
+			pw_log_error("protocol-native %p: invalid message received %u %u",
+				     client->impl, id, opcode);
+			client_destroy(client);
+			break;
+		}
+		if (c->busy) {
+			break;
+		}
+	}
+}
+
+static void
 on_resource_added(struct pw_listener *listener,
 		  struct pw_client *client, struct pw_resource *resource)
 {
 	pw_protocol_native_server_setup(resource);
+}
+
+static void
+on_busy_changed(struct pw_listener *listener,
+		struct pw_client *client)
+{
+	struct native_client *c = SPA_CONTAINER_OF(listener, struct native_client, busy_changed);
+	enum spa_io mask = SPA_IO_ERR | SPA_IO_HUP;
+
+	if (!client->busy)
+		mask |= SPA_IO_IN;
+
+	pw_loop_update_io(c->impl->core->main_loop->loop, c->source, mask);
+
+	if (!client->busy)
+		process_messages(c);
+
 }
 
 static void on_before_iterate(struct pw_listener *listener, struct pw_loop *loop)
@@ -120,12 +180,6 @@ connection_data(struct spa_loop_utils *utils,
 		struct spa_source *source, int fd, enum spa_io mask, void *data)
 {
 	struct native_client *client = data;
-	struct pw_connection *conn = client->connection;
-	uint8_t opcode;
-	uint32_t id;
-	uint32_t size;
-	struct pw_client *c = client->client;
-	void *message;
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_error("protocol-native %p: got connection error", client->impl);
@@ -133,35 +187,8 @@ connection_data(struct spa_loop_utils *utils,
 		return;
 	}
 
-	if (mask & SPA_IO_IN) {
-		while (pw_connection_get_next(conn, &opcode, &id, &message, &size)) {
-			struct pw_resource *resource;
-			const demarshal_func_t *demarshal;
-
-			pw_log_trace("protocol-native %p: got message %d from %u", client->impl,
-				     opcode, id);
-
-			resource = pw_map_lookup(&c->objects, id);
-			if (resource == NULL) {
-				pw_log_error("protocol-native %p: unknown resource %u",
-					     client->impl, id);
-				continue;
-			}
-			if (opcode >= resource->iface->n_methods) {
-				pw_log_error("protocol-native %p: invalid method %u %u", client->impl,
-					     id,  opcode);
-				client_destroy(client);
-				break;
-			}
-			demarshal = resource->iface->methods;
-			if (!demarshal[opcode] || !demarshal[opcode] (resource, message, size)) {
-				pw_log_error("protocol-native %p: invalid message received %u %u",
-					     client->impl, id, opcode);
-				client_destroy(client);
-				break;
-			}
-		}
-	}
+	if (mask & SPA_IO_IN)
+		process_messages(client);
 }
 
 static struct native_client *client_new(struct impl *impl, int fd)
@@ -206,6 +233,7 @@ static struct native_client *client_new(struct impl *impl, int fd)
 	spa_list_insert(impl->client_list.prev, &this->link);
 
 	pw_signal_add(&client->resource_added, &this->resource_added, on_resource_added);
+	pw_signal_add(&client->busy_changed, &this->busy_changed, on_busy_changed);
 
 	pw_global_bind(impl->core->global, client, 0, 0);
 	return this;

@@ -146,6 +146,7 @@ static void core_get_registry(void *object, uint32_t new_id)
 static void *async_create_node_start(struct pw_access_data *data, size_t size)
 {
 	struct access_create_node *d;
+	struct pw_client *client = data->resource->client;
 
 	d = calloc(1, sizeof(struct access_create_node) + size);
 	memcpy(d, data, sizeof(struct access_create_node));
@@ -153,6 +154,9 @@ static void *async_create_node_start(struct pw_access_data *data, size_t size)
 	d->name = strdup(d->name);
 	d->async = true;
 	d->data.user_data = SPA_MEMBER(d, sizeof(struct access_create_node), void);
+
+	pw_client_set_busy(client, true);
+
 	return d;
 }
 
@@ -202,6 +206,7 @@ static void async_create_node_complete(struct pw_access_data *data, int res)
 			     resource->id, SPA_RESULT_NO_PERMISSION, "operation not allowed");
       done:
 	async_create_node_free(&d->data);
+	pw_client_set_busy(client, false);
 	return;
 }
 

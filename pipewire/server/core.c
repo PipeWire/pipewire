@@ -152,18 +152,17 @@ core_create_node(void *object,
 	struct pw_client *client = resource->client;
 	struct pw_node_factory *factory;
 	struct pw_properties *properties;
-	int i;
 
 	factory = pw_core_find_node_factory(client->core, factory_name);
 	if (factory == NULL)
 		goto no_factory;
 
-	properties = pw_properties_new(NULL, NULL);
-	if (properties == NULL)
-		goto no_mem;
-
-	for (i = 0; i < props->n_items; i++)
-		pw_properties_set(properties, props->items[i].key, props->items[i].value);
+	if (props) {
+		properties = pw_properties_new_dict(props);
+		if (properties == NULL)
+			goto no_mem;
+	} else
+		properties = NULL;
 
 	/* error will be posted */
 	pw_node_factory_create_node(factory, client, name, properties, new_id);

@@ -70,13 +70,19 @@ struct pw_resource {
 	const struct pw_interface *iface;	/**< protocol specific interface functions */
 	const void *implementation;		/**< implementation */
 
+	void *access_private;		/**< private data for access control */
+
 	/** Emited when the resource is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_resource *resource));
 };
 
 struct pw_resource *
 pw_resource_new(struct pw_client *client,
-		uint32_t id, uint32_t type, void *object, pw_destroy_t destroy);
+		uint32_t id,
+		uint32_t type,
+		void *object,
+		const void *implementation,
+		pw_destroy_t destroy);
 
 void
 pw_resource_destroy(struct pw_resource *resource);

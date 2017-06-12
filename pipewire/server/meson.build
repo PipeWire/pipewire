@@ -1,5 +1,4 @@
 pipewirecore_headers = [
-  'access.h',
   'client.h',
   'client-node.h',
   'command.h',
@@ -17,7 +16,6 @@ pipewirecore_headers = [
 ]
 
 pipewirecore_sources = [
-  'access.c',
   'client.c',
   'client-node.c',
   'command.c',

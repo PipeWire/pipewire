@@ -29,7 +29,8 @@ extern "C" {
 struct pw_global;
 
 #include <pipewire/client/type.h>
-#include <pipewire/server/access.h>
+#include <pipewire/client/interfaces.h>
+
 #include <pipewire/server/main-loop.h>
 #include <pipewire/server/data-loop.h>
 #include <pipewire/server/node.h>
@@ -87,6 +88,9 @@ struct pw_global;
 typedef int (*pw_bind_func_t) (struct pw_global *global,
 			       struct pw_client *client, uint32_t version, uint32_t id);
 
+typedef bool (*pw_global_filter_func_t) (struct pw_global *global,
+					 struct pw_client *client, void *data);
+
 /** \page page_global Global
  *
  * Global objects represent resources that are available on the server and
@@ -141,7 +145,9 @@ struct pw_core {
 	struct pw_properties *properties;	/**< properties of the core */
 
 	struct pw_type type;		/**< type map and common types */
-	struct pw_access *access;	/**< access control checks */
+
+	pw_global_filter_func_t global_filter;
+	void *global_filter_data;
 
 	struct pw_map objects;		/**< map of known objects */
 

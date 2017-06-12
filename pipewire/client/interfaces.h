@@ -528,11 +528,18 @@ struct pw_client_node_events {
 	 * The transport area is used to exchange real-time commands between
 	 * the client and the server.
 	 *
+	 * \param readfd fd for signal data can be read
+	 * \param writefd fd for signal data can be written
 	 * \param memfd the memory fd of the area
 	 * \param offset the offset to map
 	 * \param size the size to map
 	 */
-	void (*transport) (void *object, int readfd, int writefd, int memfd, uint32_t offset, uint32_t size);
+	void (*transport) (void *object,
+			   int readfd,
+			   int writefd,
+			   int memfd,
+			   uint32_t offset,
+			   uint32_t size);
 };
 
 #define pw_client_node_notify_set_props(r,...)    ((struct pw_client_node_events*)r->iface->events)->props(r,__VA_ARGS__)

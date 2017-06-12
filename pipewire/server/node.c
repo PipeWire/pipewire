@@ -465,7 +465,7 @@ node_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	struct pw_node *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, global->object, node_unbind_func);
+	resource = pw_resource_new(client, id, global->type, global->object, NULL, node_unbind_func);
 	if (resource == NULL)
 		goto no_mem;
 

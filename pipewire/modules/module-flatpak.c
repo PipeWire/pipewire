@@ -29,7 +29,9 @@
 
 #include <dbus/dbus.h>
 
+#include "pipewire/client/interfaces.h"
 #include "pipewire/client/utils.h"
+
 #include "pipewire/server/core.h"
 #include "pipewire/server/module.h"
 
@@ -43,7 +45,6 @@ struct impl {
 	struct pw_listener global_removed;
 
 	struct spa_list client_list;
-	struct pw_access access;
 
 	struct spa_source *dispatch_event;
 };
@@ -53,15 +54,23 @@ struct client_info {
 	struct spa_list link;
 	struct pw_client *client;
 	bool is_sandboxed;
+	const struct pw_core_methods *old_methods;
+	struct pw_core_methods core_methods;
 	struct spa_list async_pending;
+	struct pw_listener resource_added;
+	struct pw_listener resource_removed;
 };
 
 struct async_pending {
 	struct spa_list link;
-	bool handled;
 	struct client_info *info;
+	bool handled;
 	char *handle;
-	struct pw_access_data *access_data;
+	struct pw_resource *resource;
+	char *factory_name;
+	char *name;
+	struct pw_properties *properties;
+	uint32_t new_id;
 };
 
 static struct client_info *find_client_info(struct impl *impl, struct pw_client *client)
@@ -106,44 +115,28 @@ static struct async_pending *find_pending(struct client_info *cinfo, const char 
 	return NULL;
 }
 
-static void free_pending(struct pw_access_data *d)
+static void free_pending(struct async_pending *p)
 {
-	struct async_pending *p = d->user_data;
-
 	if (!p->handled)
 		close_request(p);
 
 	pw_log_debug("pending %p: handle %s", p, p->handle);
 	spa_list_remove(&p->link);
 	free(p->handle);
-}
-
-static void
-add_pending(struct client_info *cinfo, const char *handle, struct pw_access_data *access_data)
-{
-	struct async_pending *p;
-	struct pw_access_data *ad;
-
-	ad = access_data->async_start(access_data, sizeof(struct async_pending));
-	ad->free = free_pending;
-
-	p = ad->user_data;
-	p->info = cinfo;
-	p->handle = strdup(handle);
-	p->access_data = ad;
-	p->handled = false;
-	pw_log_debug("pending %p: handle %s", p, handle);
-
-	spa_list_insert(cinfo->async_pending.prev, &p->link);
+	free(p->factory_name);
+	free(p->name);
+	if (p->properties)
+		pw_properties_free(p->properties);
+	free(p);
 }
 
 static void client_info_free(struct client_info *cinfo)
 {
 	struct async_pending *p, *tmp;
 
-	spa_list_for_each_safe(p, tmp, &cinfo->async_pending, link) {
-		p->access_data->complete(p->access_data, SPA_RESULT_NO_PERMISSION);
-	}
+	spa_list_for_each_safe(p, tmp, &cinfo->async_pending, link)
+		free_pending(p);
+
 	spa_list_remove(&cinfo->link);
 	free(cinfo);
 }
@@ -221,8 +214,8 @@ check_global_owner(struct pw_core *core, struct pw_client *client, struct pw_glo
 	return false;
 }
 
-static int
-do_view_global(struct pw_access *access, struct pw_client *client, struct pw_global *global)
+static bool
+do_global_filter(struct pw_global *global, struct pw_client *client, void *data)
 {
 	if (global->type == client->core->type.link) {
 		struct pw_link *link = global->object;
@@ -230,15 +223,15 @@ do_view_global(struct pw_access *access, struct pw_client *client, struct pw_glo
 		/* we must be able to see both nodes */
 		if (link->output
 		    && !check_global_owner(client->core, client, link->output->node->global))
-			 return SPA_RESULT_ERROR;
+			 return false;
 
 		if (link->input
 		    && !check_global_owner(client->core, client, link->input->node->global))
-			 return SPA_RESULT_ERROR;
+			 return false;
 	} else if (!check_global_owner(client->core, client, global))
-		 return SPA_RESULT_ERROR;
+		 return false;
 
-	return SPA_RESULT_OK;
+	return true;
 }
 
 static DBusHandlerResult
@@ -250,7 +243,6 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 		uint32_t response = 2;
 		DBusError error;
 		struct async_pending *p;
-		struct pw_access_data *d;
 
 		dbus_error_init(&error);
 
@@ -267,26 +259,39 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 			return DBUS_HANDLER_RESULT_HANDLED;
 
 		p->handled = true;
-		d = p->access_data;
 
 		pw_log_debug("portal check result: %d", response);
 
-		d->complete(d, response == 0 ? SPA_RESULT_OK : SPA_RESULT_NO_PERMISSION);
+		if (response == 0) {
+			cinfo->old_methods->create_node (p->resource,
+							 p->factory_name,
+							 p->name,
+							 &p->properties->dict,
+							 p->new_id);
+		} else {
+			pw_core_notify_error(cinfo->client->core_resource,
+					     p->resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
+
+		}
+		free_pending(p);
+		pw_client_set_busy(cinfo->client, false);
 
 		return DBUS_HANDLER_RESULT_HANDLED;
 	}
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
-static int
-do_create_node(struct pw_access *access,
-	       struct pw_access_data *data,
-	       const char *factory_name,
-	       const char *name,
-	       struct pw_properties *properties)
+
+static void do_create_node(void *object,
+			   const char *factory_name,
+			   const char *name,
+			   const struct spa_dict *props,
+			   uint32_t new_id)
 {
-	struct impl *impl = SPA_CONTAINER_OF(access, struct impl, access);
-	struct client_info *cinfo = find_client_info(impl, data->resource->client);
+	struct pw_resource *resource = object;
+	struct client_info *cinfo = resource->access_private;
+	struct impl *impl = cinfo->impl;
+	struct pw_client *client = resource->client;
 	DBusMessage *m = NULL, *r = NULL;
 	DBusError error;
 	pid_t pid;
@@ -294,14 +299,15 @@ do_create_node(struct pw_access *access,
 	DBusMessageIter dict_iter;
 	const char *handle;
 	const char *device;
+	struct async_pending *p;
 
 	if (!cinfo->is_sandboxed) {
-		data->complete(data, SPA_RESULT_OK);
-		return SPA_RESULT_OK;
+		cinfo->old_methods->create_node (object, factory_name, name, props, new_id);
+		return;
 	}
 	if (strcmp(factory_name, "client-node") != 0) {
-		data->complete(data, SPA_RESULT_NO_PERMISSION);
-		return SPA_RESULT_NO_PERMISSION;
+		pw_log_error("can only allow client-node");
+		goto not_allowed;
 	}
 
 	pw_log_info("ask portal for client %p", cinfo->client);
@@ -345,61 +351,93 @@ do_create_node(struct pw_access *access,
 
 	dbus_connection_add_filter(impl->bus, portal_response, cinfo, NULL);
 
-	add_pending(cinfo, handle, data);
+	p = calloc(1, sizeof(struct async_pending));
+	p->info = cinfo;
+	p->handle = strdup(handle);
+	p->handled = false;
+	p->resource = resource;
+	p->factory_name = strdup(factory_name);
+	p->name = strdup(name);
+	p->properties = props ? pw_properties_new_dict(props) : NULL;
+	p->new_id = new_id;
+	pw_client_set_busy(client, true);
 
-	return SPA_RESULT_RETURN_ASYNC(0);
+	pw_log_debug("pending %p: handle %s", p, handle);
+	spa_list_insert(cinfo->async_pending.prev, &p->link);
+
+	return;
 
       no_method_call:
 	pw_log_error("Failed to create message");
-	return SPA_RESULT_NO_PERMISSION;
+	goto not_allowed;
       message_failed:
 	dbus_message_unref(m);
-	return SPA_RESULT_NO_PERMISSION;
+	goto not_allowed;
       send_failed:
 	pw_log_error("Failed to call portal: %s", error.message);
 	dbus_error_free(&error);
 	dbus_message_unref(m);
-	return SPA_RESULT_NO_PERMISSION;
+	goto not_allowed;
       parse_failed:
 	pw_log_error("Failed to parse AccessDevice result: %s", error.message);
 	dbus_error_free(&error);
 	dbus_message_unref(r);
-	return SPA_RESULT_NO_PERMISSION;
+	goto not_allowed;
       subscribe_failed:
 	pw_log_error("Failed to subscribe to Request signal: %s", error.message);
 	dbus_error_free(&error);
-	return SPA_RESULT_NO_PERMISSION;
+	goto not_allowed;
+      not_allowed:
+	pw_core_notify_error(client->core_resource,
+			     resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
+	return;
 }
 
-static int
-do_create_link(struct pw_access *access,
-	       struct pw_access_data *data,
+static void
+do_create_link(void *object,
 	       uint32_t output_node_id,
 	       uint32_t output_port_id,
 	       uint32_t input_node_id,
 	       uint32_t input_port_id,
 	       const struct spa_format *filter,
-	       const struct pw_properties *props)
+	       const struct spa_dict *props,
+	       uint32_t new_id)
 {
-	struct impl *impl = SPA_CONTAINER_OF(access, struct impl, access);
-	struct client_info *cinfo = find_client_info(impl, data->resource->client);
-	int res;
+	struct pw_resource *resource = object;
+	struct client_info *cinfo = resource->access_private;
+	struct pw_client *client = resource->client;
 
-	if (cinfo->is_sandboxed)
-		res = SPA_RESULT_NO_PERMISSION;
-	else
-		res = SPA_RESULT_OK;
-
-	data->complete(data, res);
-	return SPA_RESULT_OK;
+	if (cinfo->is_sandboxed) {
+		pw_core_notify_error(client->core_resource,
+				     resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
+		return;
+	}
+	cinfo->old_methods->create_link (object,
+					 output_node_id,
+					 output_port_id,
+					 input_node_id,
+					 input_port_id,
+					 filter,
+					 props,
+					 new_id);
 }
 
+static void on_resource_added(struct pw_listener *listener,
+			      struct pw_client *client,
+			      struct pw_resource *resource)
+{
+	struct client_info *cinfo = SPA_CONTAINER_OF(listener, struct client_info, resource_added);
+	struct impl *impl = cinfo->impl;
 
-static struct pw_access access_checks = {
-	do_view_global,
-	do_create_node,
-	do_create_link,
-};
+	if (resource->type == impl->core->type.core) {
+		cinfo->old_methods = resource->implementation;
+		cinfo->core_methods = *cinfo->old_methods;
+		resource->implementation = &cinfo->core_methods;
+		resource->access_private = cinfo;
+		cinfo->core_methods.create_node = do_create_node;
+		cinfo->core_methods.create_link = do_create_link;
+	}
+}
 
 static void
 on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_global *global)
@@ -416,6 +454,8 @@ on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_gl
 		cinfo->is_sandboxed = client_is_sandboxed(client);
 		cinfo->is_sandboxed = true;
 		spa_list_init(&cinfo->async_pending);
+
+		pw_signal_add(&client->resource_added, &cinfo->resource_added, on_resource_added);
 
 		spa_list_insert(impl->client_list.prev, &cinfo->link);
 
@@ -624,7 +664,6 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 
 	impl->core = core;
 	impl->properties = properties;
-	impl->access = access_checks;
 
 	impl->bus = dbus_bus_get_private(DBUS_BUS_SESSION, &error);
 	if (impl->bus == NULL)
@@ -640,12 +679,12 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 					      toggle_timeout, impl, NULL);
 	dbus_connection_set_wakeup_main_function(impl->bus, wakeup_main, impl, NULL);
 
-	core->access = &impl->access;
-
 	spa_list_init(&impl->client_list);
 
 	pw_signal_add(&core->global_added, &impl->global_added, on_global_added);
 	pw_signal_add(&core->global_removed, &impl->global_removed, on_global_removed);
+	core->global_filter = do_global_filter;
+	core->global_filter_data = impl;
 
 	return impl;
 

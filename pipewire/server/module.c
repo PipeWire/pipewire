@@ -92,7 +92,7 @@ module_bind_func(struct pw_global *global, struct pw_client *client, uint32_t ve
 	struct pw_module *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, global->object, NULL);
+	resource = pw_resource_new(client, id, global->type, global->object, NULL, NULL);
 	if (resource == NULL)
 		goto no_mem;
 

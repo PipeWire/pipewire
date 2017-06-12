@@ -1173,7 +1173,9 @@ struct pw_client_node *pw_client_node_new(struct pw_client *client,
 	this->resource = pw_resource_new(client,
 					 id,
 					 client->core->type.client_node,
-					 this, (pw_destroy_t) client_node_resource_destroy);
+					 this,
+					 &client_node_methods,
+					 (pw_destroy_t) client_node_resource_destroy);
 	if (this->resource == NULL)
 		goto error_no_resource;
 
@@ -1183,8 +1185,6 @@ struct pw_client_node *pw_client_node_new(struct pw_client *client,
 	pw_signal_add(&this->node->initialized, &impl->initialized, on_initialized);
 	pw_signal_add(&this->node->loop_changed, &impl->loop_changed, on_loop_changed);
 	pw_signal_add(&impl->core->global_added, &impl->global_added, on_global_added);
-
-	this->resource->implementation = &client_node_methods;
 
 	return this;
 

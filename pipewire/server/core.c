@@ -38,19 +38,16 @@ struct impl {
 	struct spa_support support[4];
 };
 
-struct access_create_node {
-	struct pw_access_data data;
-	char *factory_name;
-	char *name;
-	struct pw_properties *properties;
-	uint32_t new_id;
-	bool async;
-};
 /** \endcond */
 
-#define ACCESS_VIEW_GLOBAL(client,global) (client->core->access == NULL || \
-					   client->core->access->view_global (client->core->access, \
-									      client, global) == SPA_RESULT_OK)
+static bool pw_global_is_visible(struct pw_global *global,
+				 struct pw_client *client)
+{
+	struct pw_core *core = client->core;
+
+	return (core->global_filter == NULL ||
+		core->global_filter(global, client, core->global_filter_data));
+}
 
 static void registry_bind(void *object, uint32_t id, uint32_t version, uint32_t new_id)
 {
@@ -66,7 +63,7 @@ static void registry_bind(void *object, uint32_t id, uint32_t version, uint32_t 
 	if (&global->link == &core->global_list)
 		goto no_id;
 
-	if (!ACCESS_VIEW_GLOBAL(client, global))
+	if (!pw_global_is_visible(global, client))
 		 goto no_id;
 
 	pw_log_debug("global %p: bind object id %d to %d", global, id, new_id);
@@ -118,16 +115,17 @@ static void core_get_registry(void *object, uint32_t new_id)
 
 	registry_resource = pw_resource_new(client,
 					    new_id,
-					    this->type.registry, this, destroy_registry_resource);
+					    this->type.registry,
+					    this,
+					    &registry_methods,
+					    destroy_registry_resource);
 	if (registry_resource == NULL)
 		goto no_mem;
-
-	registry_resource->implementation = &registry_methods;
 
 	spa_list_insert(this->registry_resource_list.prev, &registry_resource->link);
 
 	spa_list_for_each(global, &this->global_list, link) {
-		if (ACCESS_VIEW_GLOBAL(client, global))
+		if (pw_global_is_visible(global, client))
 			 pw_registry_notify_global(registry_resource,
 						   global->id,
 						   spa_type_map_get_type(this->type.map,
@@ -143,73 +141,6 @@ static void core_get_registry(void *object, uint32_t new_id)
 			     resource->id, SPA_RESULT_NO_MEMORY, "no memory");
 }
 
-static void *async_create_node_start(struct pw_access_data *data, size_t size)
-{
-	struct access_create_node *d;
-	struct pw_client *client = data->resource->client;
-
-	d = calloc(1, sizeof(struct access_create_node) + size);
-	memcpy(d, data, sizeof(struct access_create_node));
-	d->factory_name = strdup(d->factory_name);
-	d->name = strdup(d->name);
-	d->async = true;
-	d->data.user_data = SPA_MEMBER(d, sizeof(struct access_create_node), void);
-
-	pw_client_set_busy(client, true);
-
-	return d;
-}
-
-static void async_create_node_free(struct pw_access_data *data)
-{
-	struct access_create_node *d = (struct access_create_node *) data;
-
-	if (d->properties)
-		pw_properties_free(d->properties);
-	if (d->async) {
-		if (d->data.free)
-			d->data.free(&d->data);
-		free(d->factory_name);
-		free(d->name);
-		free(d);
-	}
-}
-
-static void async_create_node_complete(struct pw_access_data *data, int res)
-{
-	struct access_create_node *d = (struct access_create_node *) data;
-	struct pw_resource *resource = d->data.resource;
-	struct pw_client *client = resource->client;
-	struct pw_node_factory *factory;
-
-	if (res != SPA_RESULT_OK)
-		goto denied;
-
-	factory = pw_core_find_node_factory(client->core, d->factory_name);
-	if (factory == NULL)
-		goto no_factory;
-
-	/* error will be posted */
-	pw_node_factory_create_node(factory, client, d->name, d->properties, d->new_id);
-	d->properties = NULL;
-
-	goto done;
-
-      no_factory:
-	pw_log_error("can't find node factory");
-	pw_core_notify_error(client->core_resource,
-			     resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown factory name");
-	goto done;
-      denied:
-	pw_log_error("create node refused %d", res);
-	pw_core_notify_error(client->core_resource,
-			     resource->id, SPA_RESULT_NO_PERMISSION, "operation not allowed");
-      done:
-	async_create_node_free(&d->data);
-	pw_client_set_busy(client, false);
-	return;
-}
-
 static void
 core_create_node(void *object,
 		 const char *factory_name,
@@ -219,47 +150,39 @@ core_create_node(void *object,
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
-	int i;
+	struct pw_node_factory *factory;
 	struct pw_properties *properties;
-	struct access_create_node access_data;
-	int res;
+	int i;
+
+	factory = pw_core_find_node_factory(client->core, factory_name);
+	if (factory == NULL)
+		goto no_factory;
 
 	properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
 		goto no_mem;
 
-	for (i = 0; i < props->n_items; i++) {
+	for (i = 0; i < props->n_items; i++)
 		pw_properties_set(properties, props->items[i].key, props->items[i].value);
-	}
 
-	access_data.data.resource = resource;
-	access_data.data.async_start = async_create_node_start;
-	access_data.data.complete = async_create_node_complete;
-	access_data.data.free = NULL;
-	access_data.factory_name = (char *) factory_name;
-	access_data.name = (char *) name;
-	access_data.properties = properties;
-	access_data.new_id = new_id;
-	access_data.async = false;
+	/* error will be posted */
+	pw_node_factory_create_node(factory, client, name, properties, new_id);
+	properties = NULL;
 
-	if (client->core->access) {
-		res = client->core->access->create_node(client->core->access,
-							&access_data.data,
-							factory_name,
-							name,
-							properties);
-	} else {
-		res = SPA_RESULT_OK;
-	}
-	if (!SPA_RESULT_IS_ASYNC(res))
-		async_create_node_complete(&access_data.data, res);
+      done:
 	return;
+
+      no_factory:
+	pw_log_error("can't find node factory");
+	pw_core_notify_error(client->core_resource,
+			     resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown factory name");
+	goto done;
 
       no_mem:
-	pw_log_error("can't create client node");
+	pw_log_error("can't create properties");
 	pw_core_notify_error(client->core_resource,
 			     resource->id, SPA_RESULT_NO_MEMORY, "no memory");
-	return;
+	goto done;
 }
 
 static void
@@ -294,7 +217,7 @@ static void core_update_types(void *object, uint32_t first_id, uint32_t n_types,
 	}
 }
 
-static struct pw_core_methods core_methods = {
+static const struct pw_core_methods core_methods = {
 	&core_update_types,
 	&core_sync,
 	&core_get_registry,
@@ -316,11 +239,9 @@ core_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	struct pw_core *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, global->object, core_unbind_func);
+	resource = pw_resource_new(client, id, global->type, global->object, &core_methods, core_unbind_func);
 	if (resource == NULL)
 		goto no_mem;
-
-	resource->implementation = &core_methods;
 
 	spa_list_insert(this->resource_list.prev, &resource->link);
 	client->core_resource = resource;
@@ -483,8 +404,8 @@ pw_core_add_global(struct pw_core *core,
 	pw_log_debug("global %p: new %u %s, owner %p", this, this->id, type_name, owner);
 
 	spa_list_for_each(registry, &core->registry_resource_list, link)
-	    if (ACCESS_VIEW_GLOBAL(registry->client, this))
-		pw_registry_notify_global(registry, this->id, type_name, this->version);
+		if (pw_global_is_visible(this, registry->client))
+			pw_registry_notify_global(registry, this->id, type_name, this->version);
 
 	return true;
 }
@@ -533,8 +454,8 @@ void pw_global_destroy(struct pw_global *global)
 	pw_signal_emit(&global->destroy_signal, global);
 
 	spa_list_for_each(registry, &core->registry_resource_list, link)
-	    if (ACCESS_VIEW_GLOBAL(registry->client, global))
-		 pw_registry_notify_global_remove(registry, global->id);
+		if (pw_global_is_visible(global, registry->client))
+			pw_registry_notify_global_remove(registry, global->id);
 
 	pw_map_remove(&core->objects, global->id);
 

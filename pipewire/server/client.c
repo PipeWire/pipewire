@@ -43,7 +43,7 @@ client_bind_func(struct pw_global *global, struct pw_client *client, uint32_t ve
 	struct pw_client *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, global->object, client_unbind_func);
+	resource = pw_resource_new(client, id, global->type, global->object, NULL, client_unbind_func);
 	if (resource == NULL)
 		goto no_mem;
 

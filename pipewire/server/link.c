@@ -834,7 +834,7 @@ link_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, global->object, link_unbind_func);
+	resource = pw_resource_new(client, id, global->type, global->object, NULL, link_unbind_func);
 	if (resource == NULL)
 		goto no_mem;
 

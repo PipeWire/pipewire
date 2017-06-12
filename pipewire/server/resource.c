@@ -29,7 +29,11 @@ struct impl {
 /** \endcond */
 
 struct pw_resource *pw_resource_new(struct pw_client *client,
-				    uint32_t id, uint32_t type, void *object, pw_destroy_t destroy)
+				    uint32_t id,
+				    uint32_t type,
+				    void *object,
+				    const void *implementation,
+				    pw_destroy_t destroy)
 {
 	struct impl *impl;
 	struct pw_resource *this;
@@ -43,6 +47,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	this->client = client;
 	this->type = type;
 	this->object = object;
+	this->implementation = implementation;
 	this->destroy = destroy;
 
 	pw_signal_init(&this->destroy_signal);

@@ -17,13 +17,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <string.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <sys/eventfd.h>
-
-#include "spa/list.h"
-#include "spa/ringbuffer.h"
 #include "pipewire/client/log.h"
 #include "pipewire/server/main-loop.h"
 

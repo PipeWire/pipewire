@@ -118,8 +118,7 @@ struct state {
 	snd_pcm_stream_t stream;
 	snd_output_t *output;
 
-	struct spa_node_callbacks callbacks;
-	void *user_data;
+	const struct spa_node_callbacks *callbacks;
 
 	uint8_t props_buffer[1024];
 	struct props props;

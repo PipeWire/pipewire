@@ -24,7 +24,6 @@
 extern "C" {
 #endif
 
-#include <spa/include/spa/loop.h>
 #include <pipewire/client/loop.h>
 
 /** \class pw_main_loop

@@ -24,7 +24,6 @@
 extern "C" {
 #endif
 
-#include <spa/list.h>
 #include <spa/loop.h>
 
 #include <pipewire/client/sig.h>

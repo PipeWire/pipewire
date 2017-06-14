@@ -61,7 +61,7 @@ struct {					\
 } name
 
 #define SPA_LOG_IMPL_INIT			\
-        { { sizeof(struct spa_log),		\
+        { { SPA_VERSION_LOG,			\
             NULL,				\
 	    SPA_LOG_LEVEL_INFO,			\
 	    spa_log_impl_log,			\

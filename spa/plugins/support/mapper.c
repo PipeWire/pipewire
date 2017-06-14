@@ -121,7 +121,7 @@ impl_type_map_get_size(const struct spa_type_map *map)
 }
 
 static const struct spa_type_map impl_type_map = {
-	sizeof(struct spa_type_map),
+	SPA_VERSION_TYPE_MAP,
 	NULL,
 	impl_type_map_get_id,
 	impl_type_map_get_type,
@@ -208,6 +208,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_handle_factory type_map_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,
 	sizeof(struct impl),

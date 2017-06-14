@@ -17,16 +17,9 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <poll.h>
-#include <errno.h>
-#include <sys/eventfd.h>
-#include <limits.h>
-#include <sys/time.h>
-#include <sys/resource.h>
 #include <pthread.h>
+#include <errno.h>
+#include <sys/resource.h>
 
 #include "pipewire/client/log.h"
 #include "pipewire/client/rtkit.h"

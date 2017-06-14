@@ -324,7 +324,7 @@ pull_frames(struct state *state,
 		io->range.offset = state->sample_count * state->frame_size;
 		io->range.min_size = state->threshold * state->frame_size;
 		io->range.max_size = frames * state->frame_size;
-		state->callbacks.need_input(&state->node, state->user_data);
+		state->callbacks->need_input(state->callbacks, &state->node);
 	}
 	while (!spa_list_is_empty(&state->ready) && to_write > 0) {
 		uint8_t *src, *dst;
@@ -371,7 +371,10 @@ pull_frames(struct state *state,
 			b->outstanding = true;
 			state->io->buffer_id = b->outbuf->id;
 			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
-			state->callbacks.reuse_buffer(&state->node, 0, b->outbuf->id, state->user_data);
+			state->callbacks->reuse_buffer(state->callbacks,
+						       &state->node,
+						       0,
+						       b->outbuf->id);
 			state->ready_offset = 0;
 		}
 		total_frames += n_frames;
@@ -427,7 +430,7 @@ push_frames(struct state *state,
 			b->outstanding = true;
 			io->buffer_id = b->outbuf->id;
 			io->status = SPA_RESULT_HAVE_BUFFER;
-			state->callbacks.have_output(&state->node, state->user_data);
+			state->callbacks->have_output(state->callbacks, &state->node);
 		}
 	}
 	return total_frames;

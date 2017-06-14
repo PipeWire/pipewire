@@ -30,15 +30,17 @@ extern "C" {
 
 #define SPA_TYPE__TypeMap		SPA_TYPE_INTERFACE_BASE "TypeMap"
 
+#define SPA_VERSION_TYPE_MAP	0
+
 /**
  * spa_type_map:
  *
  * Maps between string types and their type id
  */
 struct spa_type_map {
-	/* the total size of this structure. This can be used to expand this
+	/* the version of this structure. This can be used to expand this
 	 * structure in the future */
-	size_t size;
+	uint32_t version;
 	/**
 	 * spa_type_map::info
 	 *

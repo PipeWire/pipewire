@@ -42,15 +42,17 @@ enum spa_log_level {
 	SPA_LOG_LEVEL_TRACE,
 };
 
+#define SPA_VERSION_LOG	0
+
 /**
  * struct spa_log:
  *
  * The Log interface
  */
 struct spa_log {
-	/* the total size of this log. This can be used to expand this
+	/* the version of this log. This can be used to expand this
 	 * structure in the future */
-	size_t size;
+	uint32_t version;
 	/**
 	 * struct spa_log::info
 	 *

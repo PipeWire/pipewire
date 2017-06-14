@@ -87,8 +87,7 @@ struct impl {
 	struct spa_type_map *map;
 	struct spa_log *log;
 
-	struct spa_node_callbacks callbacks;
-	void *user_data;
+	const struct spa_node_callbacks *callbacks;
 
 	int port_count;
 	int port_queued;
@@ -153,9 +152,7 @@ static int impl_node_send_command(struct spa_node *node, struct spa_command *com
 
 static int
 impl_node_set_callbacks(struct spa_node *node,
-			const struct spa_node_callbacks *callbacks,
-			size_t callbacks_size,
-			void *user_data)
+			const struct spa_node_callbacks *callbacks)
 {
 	struct impl *this;
 
@@ -163,8 +160,7 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	this->callbacks = *callbacks;
-	this->user_data = user_data;
+	this->callbacks = callbacks;
 
 	return SPA_RESULT_OK;
 }
@@ -774,7 +770,7 @@ static int impl_node_process_output(struct spa_node *node)
 }
 
 static const struct spa_node impl_node = {
-	sizeof(struct spa_node),
+	SPA_VERSION_NODE,
 	NULL,
 	impl_node_get_props,
 	impl_node_set_props,
@@ -884,6 +880,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 const struct spa_handle_factory spa_audiomixer_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,
 	sizeof(struct impl),

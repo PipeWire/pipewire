@@ -46,6 +46,8 @@ struct data {
 	struct spa_log *log;
 	struct spa_loop main_loop;
 
+	struct spa_monitor_callbacks callbacks;
+
 	struct spa_support support[3];
 	uint32_t n_support;
 
@@ -63,9 +65,11 @@ static void inspect_item(struct data *data, struct spa_monitor_item *item)
 	spa_debug_pod(&item->object.pod);
 }
 
-static void on_monitor_event(struct spa_monitor *monitor, struct spa_event *event, void *user_data)
+static void on_monitor_event(const struct spa_monitor_callbacks *callbacks,
+			     struct spa_monitor *monitor,
+			     struct spa_event *event)
 {
-	struct data *data = user_data;
+	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, callbacks);
 
 	if (SPA_EVENT_TYPE(event) == data->type.monitor.Added) {
 		fprintf(stderr, "added:\n");
@@ -99,7 +103,8 @@ static void do_remove_source(struct spa_source *source)
 {
 }
 
-static const struct spa_monitor_callbacks callbacks = {
+static const struct spa_monitor_callbacks impl_callbacks = {
+	SPA_VERSION_MONITOR_CALLBACKS,
 	on_monitor_event,
 };
 
@@ -121,8 +126,8 @@ static void handle_monitor(struct data *data, struct spa_monitor *monitor)
 		}
 		inspect_item(data, item);
 	}
-
-	spa_monitor_set_callbacks(monitor, &callbacks, sizeof(callbacks), &data);
+	data->callbacks = impl_callbacks;
+	spa_monitor_set_callbacks(monitor, &data->callbacks);
 
 	while (true) {
 		int i, r;
@@ -167,7 +172,7 @@ int main(int argc, char *argv[])
 
 	data.map = &default_map.map;
 	data.log = &default_log.log;
-	data.main_loop.size = sizeof(struct spa_loop);
+	data.main_loop.version = SPA_VERSION_LOOP;
 	data.main_loop.add_source = do_add_source;
 	data.main_loop.update_source = do_update_source;
 	data.main_loop.remove_source = do_remove_source;

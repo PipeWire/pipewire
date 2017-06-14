@@ -65,15 +65,18 @@ typedef int (*spa_invoke_func_t) (struct spa_loop *loop,
 				  size_t size,
 				  void *data,
 				  void *user_data);
+
+#define SPA_VERSION_LOOP	0
+
 /**
  * spa_loop:
  *
  * Register sources and work items to an event loop
  */
 struct spa_loop {
-	/* the total size of this structure. This can be used to expand this
+	/* the version of this structure. This can be used to expand this
 	 * structure in the future */
-	size_t size;
+	uint32_t version;
 
 	int (*add_source) (struct spa_loop *loop,
 			   struct spa_source *source);
@@ -96,14 +99,21 @@ struct spa_loop {
 #define spa_loop_remove_source(l,...)	(l)->remove_source(__VA_ARGS__)
 #define spa_loop_invoke(l,...)		(l)->invoke((l),__VA_ARGS__)
 
+#define SPA_VERSION_LOOP_CONTROL_HOOKS	0
+
 /** Control hooks */
 struct spa_loop_control_hooks {
+	uint32_t version;
+
 	struct spa_list link;
+
 	/** Executed right before waiting for events */
 	void (*before) (const struct spa_loop_control_hooks *hooks);
 	/** Executed right after waiting for events */
 	void (*after) (const struct spa_loop_control_hooks *hooks);
 };
+
+#define SPA_VERSION_LOOP_CONTROL	0
 
 /**
  * spa_loop_control:
@@ -111,9 +121,9 @@ struct spa_loop_control_hooks {
  * Control an event loop
  */
 struct spa_loop_control {
-	/* the total size of this structure. This can be used to expand this
+	/* the version of this structure. This can be used to expand this
 	 * structure in the future */
-	size_t size;
+	uint32_t version;
 
 	int (*get_fd) (struct spa_loop_control *ctrl);
 
@@ -150,15 +160,17 @@ typedef void (*spa_source_signal_func_t) (struct spa_loop_utils *utils,
 					  struct spa_source *source,
 					  int signal_number, void *data);
 
+#define SPA_VERSION_LOOP_UTILS	0
+
 /**
  * struct spa_loop_utils:
  *
  * Create sources for an event loop
  */
 struct spa_loop_utils {
-	/* the total size of this structure. This can be used to expand this
+	/* the version of this structure. This can be used to expand this
 	 * structure in the future */
-	size_t size;
+	uint32_t version;
 
 	struct spa_source *(*add_io) (struct spa_loop_utils *utils,
 				      int fd,

@@ -94,8 +94,7 @@ struct impl {
 	uint8_t props_buffer[512];
 	struct props props;
 
-	struct spa_node_callbacks callbacks;
-	void *user_data;
+	const struct spa_node_callbacks *callbacks;
 
 	struct spa_source timer_source;
 	struct itimerspec timerspec;
@@ -199,7 +198,7 @@ static int fill_buffer(struct impl *this, struct buffer *b)
 
 static void set_timer(struct impl *this, bool enabled)
 {
-	if (this->callbacks.have_output || this->props.live) {
+	if ((this->callbacks && this->callbacks->have_output) || this->props.live) {
 		if (enabled) {
 			if (this->props.live) {
 				uint64_t next_time = this->start_time + this->elapsed_time;
@@ -221,7 +220,7 @@ static inline void read_timer(struct impl *this)
 {
 	uint64_t expirations;
 
-	if (this->callbacks.have_output || this->props.live) {
+	if ((this->callbacks && this->callbacks->have_output) || this->props.live) {
 		if (read(this->timer_source.fd, &expirations, sizeof(uint64_t)) < sizeof(uint64_t))
 			perror("read timerfd");
 	}
@@ -278,8 +277,8 @@ static void on_output(struct spa_source *source)
 
 	res = make_buffer(this);
 
-	if (res == SPA_RESULT_HAVE_BUFFER && this->callbacks.have_output)
-		this->callbacks.have_output(&this->node, this->user_data);
+	if (res == SPA_RESULT_HAVE_BUFFER && this->callbacks && this->callbacks->have_output)
+		this->callbacks->have_output(this->callbacks, &this->node);
 }
 
 static int impl_node_send_command(struct spa_node *node, struct spa_command *command)
@@ -333,9 +332,7 @@ static int impl_node_send_command(struct spa_node *node, struct spa_command *com
 
 static int
 impl_node_set_callbacks(struct spa_node *node,
-			const struct spa_node_callbacks *callbacks,
-			size_t callbacks_size,
-			void *user_data)
+			const struct spa_node_callbacks *callbacks)
 {
 	struct impl *this;
 
@@ -343,12 +340,11 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	if (this->data_loop == NULL && callbacks->have_output != NULL) {
+	if (this->data_loop == NULL && (callbacks != NULL && callbacks->have_output != NULL)) {
 		spa_log_error(this->log, "a data_loop is needed for async operation");
 		return SPA_RESULT_ERROR;
 	}
-	this->callbacks = *callbacks;
-	this->user_data = user_data;
+	this->callbacks = callbacks;
 
 	return SPA_RESULT_OK;
 }
@@ -717,14 +713,15 @@ static int impl_node_process_output(struct spa_node *node)
 		this->io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (this->callbacks.have_output == NULL && (io->status == SPA_RESULT_NEED_BUFFER))
+	if ((this->callbacks == NULL || this->callbacks->have_output == NULL) &&
+			(io->status == SPA_RESULT_NEED_BUFFER))
 		return make_buffer(this);
 	else
 		return SPA_RESULT_OK;
 }
 
 static const struct spa_node impl_node = {
-	sizeof(struct spa_node),
+	SPA_VERSION_NODE,
 	NULL,
 	impl_node_get_props,
 	impl_node_set_props,
@@ -785,7 +782,7 @@ impl_clock_get_time(struct spa_clock *clock,
 }
 
 static const struct spa_clock impl_clock = {
-	sizeof(struct spa_clock),
+	SPA_VERSION_CLOCK,
 	NULL,
 	SPA_CLOCK_STATE_STOPPED,
 	impl_clock_get_props,
@@ -911,6 +908,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 const struct spa_handle_factory spa_fakesrc_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,
 	sizeof(struct impl),

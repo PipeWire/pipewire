@@ -58,6 +58,7 @@ static void after(const struct spa_loop_control_hooks *hooks)
 }
 
 static const struct spa_loop_control_hooks impl_hooks = {
+	SPA_VERSION_LOOP_CONTROL_HOOKS,
 	{ NULL, },
 	before,
 	after,

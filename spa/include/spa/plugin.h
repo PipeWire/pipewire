@@ -30,7 +30,12 @@ extern "C" {
 #define SPA_TYPE__Handle		SPA_TYPE_INTERFACE_BASE "Handle"
 #define SPA_TYPE__HandleFactory		SPA_TYPE_INTERFACE_BASE "HandleFactory"
 
+#define SPA_VERSION_HANDLE	0
+
 struct spa_handle {
+	/** Version of this struct */
+	uint32_t version;
+
 	/* user_data that can be set by the application */
 	void *user_data;
 	/**
@@ -98,7 +103,11 @@ static inline void *spa_support_find(const struct spa_support *support,
 
 #define SPA_SUPPORT_INIT(type,data) (struct spa_support) { (type), (data) }
 
+#define SPA_VERSION_HANDLE_FACTORY	0
+
 struct spa_handle_factory {
+	/** The version of this structure */
+	uint32_t version;
 	/**
 	 * spa_handle_factory::name
 	 *

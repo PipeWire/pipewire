@@ -17,10 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <spa/log.h>
-
 #include <pipewire/client/log.h>
-#include <pipewire/client/type.h>
 
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_ERROR
 

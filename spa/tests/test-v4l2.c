@@ -96,6 +96,7 @@ struct data {
 
 	struct spa_node *source;
 	struct spa_port_io source_output[1];
+	struct spa_node_callbacks source_callbacks;
 
 	SDL_Renderer *renderer;
 	SDL_Window *window;
@@ -176,23 +177,26 @@ static void handle_events(struct data *data)
 	}
 }
 
-static void on_source_done(struct spa_node *node, int seq, int res, void *user_data)
+static void on_source_done(const struct spa_node_callbacks *callbacks,
+			   struct spa_node *node, int seq, int res)
 {
 	printf("got done %d %d\n", seq, res);
 }
 
-static void on_source_event(struct spa_node *node, struct spa_event *event, void *user_data)
+static void on_source_event(const struct spa_node_callbacks *callbacks,
+			    struct spa_node *node, struct spa_event *event)
 {
-	struct data *data = user_data;
+	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, source_callbacks);
 
 	handle_events(data);
 
 	printf("got event %d\n", SPA_EVENT_TYPE(event));
 }
 
-static void on_source_have_output(struct spa_node *node, void *user_data)
+static void on_source_have_output(const struct spa_node_callbacks *callbacks,
+				  struct spa_node *node)
 {
-	struct data *data = user_data;
+	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, source_callbacks);
 	int res;
 	struct spa_buffer *b;
 	void *sdata, *ddata;
@@ -261,6 +265,7 @@ static void on_source_have_output(struct spa_node *node, void *user_data)
 }
 
 static const struct spa_node_callbacks source_callbacks = {
+	SPA_VERSION_NODE_CALLBACKS,
 	&on_source_done,
 	&on_source_event,
 	NULL,
@@ -309,7 +314,9 @@ static int make_nodes(struct data *data, const char *device)
 		printf("can't create v4l2-source: %d\n", res);
 		return res;
 	}
-	spa_node_set_callbacks(data->source, &source_callbacks, sizeof(source_callbacks), data);
+
+	data->source_callbacks = source_callbacks;
+	spa_node_set_callbacks(data->source, &data->source_callbacks);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_props(&b, &f[0], data->type.props,
@@ -549,7 +556,7 @@ int main(int argc, char *argv[])
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);
 
-	data.data_loop.size = sizeof(struct spa_loop);
+	data.data_loop.version = SPA_VERSION_LOOP;
 	data.data_loop.add_source = do_add_source;
 	data.data_loop.update_source = do_update_source;
 	data.data_loop.remove_source = do_remove_source;

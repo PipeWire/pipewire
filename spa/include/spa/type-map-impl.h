@@ -64,7 +64,7 @@ struct  {					\
 } name
 
 #define SPA_TYPE_MAP_IMPL_INIT			\
-	{ { sizeof(struct spa_type_map),	\
+	{ { SPA_VERSION_TYPE_MAP,		\
 	    NULL,				\
 	    spa_type_map_impl_get_id,		\
 	    spa_type_map_impl_get_type,		\

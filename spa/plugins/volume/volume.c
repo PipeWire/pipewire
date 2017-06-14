@@ -108,8 +108,7 @@ struct impl {
 	uint8_t props_buffer[512];
 	struct props props;
 
-	struct spa_node_callbacks callbacks;
-	void *user_data;
+	const struct spa_node_callbacks *callbacks;
 
 	uint8_t format_buffer[1024];
 	struct spa_audio_info current_format;
@@ -208,8 +207,7 @@ static int impl_node_send_command(struct spa_node *node, struct spa_command *com
 
 static int
 impl_node_set_callbacks(struct spa_node *node,
-			const struct spa_node_callbacks *callbacks,
-			size_t callbacks_size, void *user_data)
+			const struct spa_node_callbacks *callbacks)
 {
 	struct impl *this;
 
@@ -217,8 +215,7 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	this->callbacks = *callbacks;
-	this->user_data = user_data;
+	this->callbacks = callbacks;
 
 	return SPA_RESULT_OK;
 }
@@ -647,8 +644,8 @@ static struct spa_buffer *find_free_buffer(struct impl *this, struct port *port)
 
 static inline void release_buffer(struct impl *this, struct spa_buffer *buffer)
 {
-	if (this->callbacks.reuse_buffer)
-		this->callbacks.reuse_buffer(&this->node, 0, buffer->id, this->user_data);
+	if (this->callbacks && this->callbacks->reuse_buffer)
+		this->callbacks->reuse_buffer(this->callbacks, &this->node, 0, buffer->id);
 }
 
 static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buffer *sbuf)
@@ -765,7 +762,7 @@ static int impl_node_process_output(struct spa_node *node)
 }
 
 static const struct spa_node impl_node = {
-	sizeof(struct spa_node),
+	SPA_VERSION_NODE,
 	NULL,
 	impl_node_get_props,
 	impl_node_set_props,
@@ -879,6 +876,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 const struct spa_handle_factory spa_volume_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,
 	sizeof(struct impl),

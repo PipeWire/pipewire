@@ -104,12 +104,20 @@ enum spa_monitor_item_state {
 	SPA_MONITOR_ITEM_STATE_UNAVAILABLE,
 };
 
+#define SPA_VERSION_MONITOR_CALLBACKS	0
+
 /**
  * spa_monitor_callbacks:
  */
 struct spa_monitor_callbacks {
-	void (*event) (struct spa_monitor *monitor, struct spa_event *event, void *user_data);
+	uint32_t version;	/**< version of the structure */
+
+	void (*event) (const struct spa_monitor_callbacks *callbacks,
+		       struct spa_monitor *monitor,
+		       struct spa_event *event);
 };
+
+#define SPA_VERSION_MONITOR	0
 
 /**
  * spa_monitor:
@@ -117,6 +125,10 @@ struct spa_monitor_callbacks {
  * The device monitor interface.
  */
 struct spa_monitor {
+	/* the version of this monitor. This can be used to expand this
+	 * structure in the future */
+	uint32_t version;
+
 	/**
 	 * spa_monitor::info
 	 *
@@ -124,15 +136,10 @@ struct spa_monitor {
 	 */
 	const struct spa_dict *info;
 
-	/* the total size of this monitor. This can be used to expand this
-	 * structure in the future */
-	size_t size;
-
 	/**
 	 * spa_monitor::set_callbacks:
 	 * @monitor: a #spa_monitor
 	 * @callback: a #callbacks
-	 * @user_data: extra user data
 	 *
 	 * Set callbacks to receive asynchronous notifications from
 	 * the monitor.
@@ -140,8 +147,7 @@ struct spa_monitor {
 	 * Returns: #SPA_RESULT_OK on success
 	 */
 	int (*set_callbacks) (struct spa_monitor *monitor,
-			      const struct spa_monitor_callbacks *callbacks,
-			      size_t callbacks_size, void *user_data);
+			      const struct spa_monitor_callbacks *callbacks);
 
 	int (*enum_items) (struct spa_monitor *monitor,
 			   struct spa_monitor_item **item, uint32_t index);

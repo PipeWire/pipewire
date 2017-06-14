@@ -592,7 +592,7 @@ static void loop_destroy_source(struct spa_source *source)
 }
 
 static const struct spa_loop impl_loop = {
-	sizeof(struct spa_loop),
+	SPA_VERSION_LOOP,
 	loop_add_source,
 	loop_update_source,
 	loop_remove_source,
@@ -600,7 +600,7 @@ static const struct spa_loop impl_loop = {
 };
 
 static const struct spa_loop_control impl_loop_control = {
-	sizeof(struct spa_loop_control),
+	SPA_VERSION_LOOP_CONTROL,
 	loop_get_fd,
 	loop_add_hooks,
 	loop_enter,
@@ -609,7 +609,7 @@ static const struct spa_loop_control impl_loop_control = {
 };
 
 static const struct spa_loop_utils impl_loop_utils = {
-	sizeof(struct spa_loop_utils),
+	SPA_VERSION_LOOP_UTILS,
 	loop_add_io,
 	loop_update_io,
 	loop_add_idle,
@@ -734,11 +734,12 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_handle_factory loop_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,
 	sizeof(struct impl),
 	impl_init,
-	impl_enum_interface_info,
+	impl_enum_interface_info
 };
 
 static void reg(void) __attribute__ ((constructor));

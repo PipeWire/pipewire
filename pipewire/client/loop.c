@@ -17,18 +17,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <unistd.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/epoll.h>
-#include <sys/timerfd.h>
-#include <sys/eventfd.h>
-#include <sys/signalfd.h>
-#include <pthread.h>
-
 #include <spa/loop.h>
 #include <spa/type-map.h>
 

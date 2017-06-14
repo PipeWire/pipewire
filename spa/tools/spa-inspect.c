@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
 
 	data.map = &default_map.map;
 	data.log = &default_log.log;
-	data.loop.size = sizeof(struct spa_loop);
+	data.loop.version = SPA_VERSION_LOOP;
 	data.loop.add_source = do_add_source;
 	data.loop.update_source = do_update_source;
 	data.loop.remove_source = do_remove_source;

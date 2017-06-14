@@ -143,7 +143,7 @@ static void on_trace_event(struct spa_source *source)
 }
 
 static const struct spa_log impl_log = {
-	sizeof(struct spa_log),
+	SPA_VERSION_LOG,
 	NULL,
 	DEFAULT_LOG_LEVEL,
 	impl_log_log,
@@ -256,6 +256,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_handle_factory logger_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,
 	sizeof(struct impl),

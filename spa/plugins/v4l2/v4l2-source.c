@@ -157,8 +157,7 @@ struct impl {
 	uint8_t props_buffer[512];
 	struct props props;
 
-	struct spa_node_callbacks callbacks;
-	void *user_data;
+	const struct spa_node_callbacks *callbacks;
 
 	struct port out_ports[1];
 };
@@ -237,7 +236,7 @@ static int do_pause_done(struct spa_loop *loop,
 	if (SPA_RESULT_IS_OK(res))
 		res = spa_v4l2_stream_off(this);
 
-	this->callbacks.done(&this->node, seq, res, this->user_data);
+	this->callbacks->done(this->callbacks, &this->node, seq, res);
 
 	return SPA_RESULT_OK;
 }
@@ -276,7 +275,7 @@ static int do_start_done(struct spa_loop *loop,
 	struct impl *this = user_data;
 	int res = *(int*)data;
 
-	this->callbacks.done(&this->node, seq, res, this->user_data);
+	this->callbacks->done(this->callbacks, &this->node, seq, res);
 
 	return SPA_RESULT_OK;
 }
@@ -355,9 +354,7 @@ static int impl_node_send_command(struct spa_node *node, struct spa_command *com
 }
 
 static int impl_node_set_callbacks(struct spa_node *node,
-				   const struct spa_node_callbacks *callbacks,
-				   size_t callbacks_size,
-				   void *user_data)
+				   const struct spa_node_callbacks *callbacks)
 {
 	struct impl *this;
 
@@ -365,8 +362,7 @@ static int impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	this->callbacks = *callbacks;
-	this->user_data = user_data;
+	this->callbacks = callbacks;
 
 	return SPA_RESULT_OK;
 }
@@ -821,7 +817,7 @@ static int impl_node_process_output(struct spa_node *node)
 }
 
 static const struct spa_node impl_node = {
-	sizeof(struct spa_node),
+	SPA_VERSION_NODE,
 	NULL,
 	impl_node_get_props,
 	impl_node_set_props,
@@ -880,7 +876,7 @@ static int impl_clock_get_time(struct spa_clock *clock,
 }
 
 static const struct spa_clock impl_clock = {
-	sizeof(struct spa_clock),
+	SPA_VERSION_CLOCK,
 	NULL,
 	SPA_CLOCK_STATE_STOPPED,
 	impl_clock_get_props,
@@ -991,6 +987,7 @@ static int impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 const struct spa_handle_factory spa_v4l2_source_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,
 	sizeof(struct impl),

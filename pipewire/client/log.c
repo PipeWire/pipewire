@@ -52,25 +52,25 @@ struct spa_log *pw_spa_log_load(const char *lib,
                         map = support[index].data;
 	}
 	if (map == NULL) {
-                fprintf(stderr, "no type map");
+                fprintf(stderr, "no type map\n");
 		return NULL;
 	}
 
 	type_log = spa_type_map_get_id(map, SPA_TYPE__Log);
 
         if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
-                fprintf(stderr, "can't load %s: %s", lib, dlerror());
+                fprintf(stderr, "can't load %s: %s\n", lib, dlerror());
                 return NULL;
         }
         if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
-                fprintf(stderr, "can't find enum function");
+                fprintf(stderr, "can't find enum function\n");
                 goto no_symbol;
         }
 
         for (index = 0;; index++) {
                 if ((res = enum_func(&factory, index)) < 0) {
                         if (res != SPA_RESULT_ENUM_END)
-                                fprintf(stderr, "can't enumerate factories: %d", res);
+                                fprintf(stderr, "can't enumerate factories: %d\n", res);
                         goto enum_failed;
                 }
                 if (strcmp(factory->name, factory_name) == 0)
@@ -80,11 +80,11 @@ struct spa_log *pw_spa_log_load(const char *lib,
         handle = calloc(1, factory->size);
         if ((res = spa_handle_factory_init(factory,
                                            handle, NULL, support, n_support)) < 0) {
-                fprintf(stderr, "can't make factory instance: %d", res);
+                fprintf(stderr, "can't make factory instance: %d\n", res);
                 goto init_failed;
         }
         if ((res = spa_handle_get_interface(handle, type_log, &iface)) < 0) {
-                fprintf(stderr, "can't get log interface %d", res);
+                fprintf(stderr, "can't get log interface %d\n", res);
                 goto interface_failed;
         }
         return iface;
@@ -111,7 +111,8 @@ struct spa_log *pw_log_get(struct spa_support *support,
 					     "logger",
 					     support,
 					     n_support);
-		global_log->level = pw_log_level;
+		if (global_log)
+			global_log->level = pw_log_level;
 	}
 	return global_log;
 }

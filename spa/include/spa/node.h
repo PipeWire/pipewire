@@ -38,25 +38,22 @@ struct spa_node;
 #include <spa/buffer.h>
 #include <spa/format.h>
 
+/** A range */
 struct spa_range {
-	uint64_t offset;
-	uint32_t min_size;
-	uint32_t max_size;
+	uint64_t offset;	/**< offset in range */
+	uint32_t min_size;	/**< minimum size of data */
+	uint32_t max_size;	/**< maximum size of data */
 };
 
-/**
- * struct spa_port_io:
- * @status: the status
- * @buffer_id: a buffer id
- * @range: requested range
+/** Port IO area
  *
  * IO information for a port on a node. This is allocated
  * by the host and configured on all ports for which IO is requested.
  */
 struct spa_port_io {
-	uint32_t status;
-	uint32_t buffer_id;
-	struct spa_range range;
+	uint32_t status;		/**< the status code */
+	uint32_t buffer_id;		/**< a buffer id */
+	struct spa_range range;		/**< the requested range */
 };
 
 #define SPA_PORT_IO_INIT  (struct spa_port_io) { SPA_RESULT_NEED_BUFFER, SPA_ID_INVALID, }
@@ -67,17 +64,18 @@ struct spa_port_io {
  * @rate: rate of sequence number increment per second of media data
  */
 struct spa_port_info {
-#define SPA_PORT_INFO_FLAG_REMOVABLE		(1<<0)	/* port can be removed */
-#define SPA_PORT_INFO_FLAG_OPTIONAL		(1<<1)	/* processing on port is optional */
-#define SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS	(1<<2)	/* the port can allocate buffer data */
-#define SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS	(1<<3)	/* the port can use a provided buffer */
-#define SPA_PORT_INFO_FLAG_IN_PLACE		(1<<4)	/* the port can process data in-place and will need
-							 * a writable input buffer */
-#define SPA_PORT_INFO_FLAG_NO_REF		(1<<5)	/* the port does not keep a ref on the buffer */
-#define SPA_PORT_INFO_FLAG_LIVE			(1<<6)	/* output buffers from this port are timestamped against
-							 * a live clock. */
-	uint32_t flags;
-	uint32_t rate;
+#define SPA_PORT_INFO_FLAG_REMOVABLE		(1<<0)	/**< port can be removed */
+#define SPA_PORT_INFO_FLAG_OPTIONAL		(1<<1)	/**< processing on port is optional */
+#define SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS	(1<<2)	/**< the port can allocate buffer data */
+#define SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS	(1<<3)	/**< the port can use a provided buffer */
+#define SPA_PORT_INFO_FLAG_IN_PLACE		(1<<4)	/**< the port can process data in-place and will need
+							 *   a writable input buffer */
+#define SPA_PORT_INFO_FLAG_NO_REF		(1<<5)	/**< the port does not keep a ref on the buffer */
+#define SPA_PORT_INFO_FLAG_LIVE			(1<<6)	/**< output buffers from this port are timestamped against
+							 *   a live clock. */
+	uint32_t flags;				/**< port flags */
+	uint32_t rate;				/**< rate of sequence numbers on port */
+	const struct spa_dict *props;		/**< extra port properties */
 };
 
 

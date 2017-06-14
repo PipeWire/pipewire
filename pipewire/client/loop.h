@@ -26,6 +26,7 @@ extern "C" {
 
 #include <spa/list.h>
 #include <spa/loop.h>
+
 #include <pipewire/client/sig.h>
 
 /** \class pw_loop
@@ -39,8 +40,6 @@ struct pw_loop {
 	struct spa_loop_control *control;	/**< loop control */
 	struct spa_loop_utils *utils;		/**< loop utils */
 
-	/** Emited before the loop iteration starts */
-	PW_SIGNAL(before_iterate, (struct pw_listener *listener, struct pw_loop *loop));
 	/** Emited when the loop is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_loop *loop));
 };
@@ -57,7 +56,7 @@ pw_loop_destroy(struct pw_loop *loop);
 #define pw_loop_invoke(l,...)          spa_loop_invoke((l)->loop,__VA_ARGS__)
 
 #define pw_loop_get_fd(l)              spa_loop_control_get_fd((l)->control)
-#define pw_loop_set_hooks(l,...)       spa_loop_control_set_hooks((l)->control,__VA_ARGS__)
+#define pw_loop_add_hooks(l,...)       spa_loop_control_add_hooks((l)->control,__VA_ARGS__)
 #define pw_loop_enter(l)               spa_loop_control_enter((l)->control)
 #define pw_loop_iterate(l,...)         spa_loop_control_iterate((l)->control,__VA_ARGS__)
 #define pw_loop_leave(l)               spa_loop_control_leave((l)->control)

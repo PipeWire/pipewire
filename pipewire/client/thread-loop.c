@@ -35,6 +35,9 @@ struct thread_loop {
 	bool running;
 	pthread_t thread;
 
+	struct spa_loop_control_hooks hooks;
+	const struct spa_loop_control_hooks *old;
+
 	struct spa_source *event;
 
 	int n_waiting;
@@ -42,17 +45,23 @@ struct thread_loop {
 };
 /** \endcond */
 
-static void pre_hook(struct spa_loop_control *ctrl, void *data)
+static void before(const struct spa_loop_control_hooks *hooks)
 {
-	struct thread_loop *impl = data;
+	struct thread_loop *impl = SPA_CONTAINER_OF(hooks, struct thread_loop, hooks);
 	pthread_mutex_unlock(&impl->lock);
 }
 
-static void post_hook(struct spa_loop_control *ctrl, void *data)
+static void after(const struct spa_loop_control_hooks *hooks)
 {
-	struct thread_loop *impl = data;
+	struct thread_loop *impl = SPA_CONTAINER_OF(hooks, struct thread_loop, hooks);
 	pthread_mutex_lock(&impl->lock);
 }
+
+static const struct spa_loop_control_hooks impl_hooks = {
+	{ NULL, },
+	before,
+	after,
+};
 
 static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, void *data)
 {
@@ -90,7 +99,8 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop, const char *name
 	this->loop = loop;
 	this->name = name ? strdup(name) : NULL;
 
-	pw_loop_set_hooks(loop, pre_hook, post_hook, impl);
+	impl->hooks = impl_hooks;
+	pw_loop_add_hooks(loop, &impl->hooks);
 
 	pw_signal_init(&this->destroy_signal);
 
@@ -119,6 +129,8 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 	pthread_mutex_destroy(&impl->lock);
 	pthread_cond_destroy(&impl->cond);
 	pthread_cond_destroy(&impl->accept_cond);
+
+	spa_list_remove(&impl->hooks.link);
 
 	free(impl);
 }

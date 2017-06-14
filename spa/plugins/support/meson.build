@@ -1,5 +1,6 @@
 spa_support_sources = ['mapper.c',
 		       'logger.c',
+		       'loop.c',
 		       'plugin.c']
 
 spa_support_lib = shared_library('spa-support',

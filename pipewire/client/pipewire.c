@@ -36,17 +36,6 @@ static struct support_info {
 	uint32_t n_support;
 } support_info;
 
-static void * find_support(struct support_info *info, const char *type)
-{
-	int i;
-
-	for (i = 0; i < info->n_support; i++) {
-		if (strcmp(info->support->type, type) == 0)
-			return info->support->data;
-	}
-	return NULL;
-}
-
 static bool
 open_support(const char *lib,
 	     struct support_info *info)
@@ -73,23 +62,14 @@ load_interface(struct support_info *info,
 {
         int res;
         struct spa_handle *handle;
-        uint32_t index, type_id;
+        uint32_t type_id;
         const struct spa_handle_factory *factory;
         void *iface;
 	struct spa_type_map *map = NULL;
 
-	map = find_support(info, SPA_TYPE__TypeMap);
-	type_id = map ? spa_type_map_get_id(map, type) : 0;
-
-        for (index = 0;; index++) {
-                if ((res = info->enum_func(&factory, index)) < 0) {
-                        if (res != SPA_RESULT_ENUM_END)
-                                fprintf(stderr, "can't enumerate factories: %d\n", res);
-                        goto enum_failed;
-                }
-                if (strcmp(factory->name, factory_name) == 0)
-                        break;
-        }
+	factory = pw_get_support_factory(factory_name);
+	if (factory == NULL)
+		goto not_found;
 
         handle = calloc(1, factory->size);
         if ((res = spa_handle_factory_init(factory,
@@ -97,6 +77,10 @@ load_interface(struct support_info *info,
                 fprintf(stderr, "can't make factory instance: %d\n", res);
                 goto init_failed;
         }
+
+	map = pw_get_support_interface(SPA_TYPE__TypeMap);
+	type_id = map ? spa_type_map_get_id(map, type) : 0;
+
         if ((res = spa_handle_get_interface(handle, type_id, &iface)) < 0) {
                 fprintf(stderr, "can't get %s interface %d\n", type, res);
                 goto interface_failed;
@@ -107,7 +91,7 @@ load_interface(struct support_info *info,
 	spa_handle_clear(handle);
       init_failed:
 	free(handle);
-      enum_failed:
+      not_found:
 	return NULL;
 }
 
@@ -144,11 +128,40 @@ static void configure_support(struct support_info *info)
  * \param type the interface type
  * \return the interface or NULL when not configured
  */
-void *pw_get_support(const char *type)
+void *pw_get_support_interface(const char *type)
 {
-	return find_support(&support_info, type);
+	int i;
+
+	for (i = 0; i < support_info.n_support; i++) {
+		if (strcmp(support_info.support->type, type) == 0)
+			return support_info.support->data;
+	}
+	return NULL;
 }
 
+const struct spa_handle_factory *pw_get_support_factory(const char *factory_name)
+{
+	int res;
+	uint32_t index;
+        const struct spa_handle_factory *factory;
+
+        for (index = 0;; index++) {
+                if ((res = support_info.enum_func(&factory, index)) < 0) {
+                        if (res != SPA_RESULT_ENUM_END)
+                                fprintf(stderr, "can't enumerate factories: %d\n", res);
+                        break;
+                }
+                if (strcmp(factory->name, factory_name) == 0)
+                        return factory;
+	}
+	return NULL;
+}
+
+const struct spa_support *pw_get_support(uint32_t *n_support)
+{
+	*n_support = support_info.n_support;
+	return support_info.support;
+}
 
 /** Initialize PipeWire
  *

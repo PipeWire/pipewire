@@ -20,23 +20,28 @@
 #include <spa/plugin.h>
 #include <spa/node.h>
 
-extern const struct spa_handle_factory spa_logger_factory;
-extern const struct spa_handle_factory spa_type_map_factory;
+#define MAX_FACTORIES	16
+
+static const struct spa_handle_factory *factories[MAX_FACTORIES];
+static int n_factories;
+
+void
+spa_handle_factory_register(const struct spa_handle_factory *factory)
+{
+	if (n_factories < MAX_FACTORIES)
+		factories[n_factories++] = factory;
+	else
+		fprintf(stderr, "too many factories\n");
+}
 
 int
 spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t index)
 {
 	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-	switch (index) {
-	case 0:
-		*factory = &spa_type_map_factory;
-		break;
-	case 1:
-		*factory = &spa_logger_factory;
-		break;
-	default:
+	if (index >= n_factories)
 		return SPA_RESULT_ENUM_END;
-	}
+
+	*factory = factories[index];
 	return SPA_RESULT_OK;
 }

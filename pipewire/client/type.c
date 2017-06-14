@@ -37,7 +37,7 @@
  */
 void pw_type_init(struct pw_type *type)
 {
-	type->map = pw_get_support(SPA_TYPE__TypeMap);
+	type->map = pw_get_support_interface(SPA_TYPE__TypeMap);
 
 	type->core = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Core);
 	type->registry = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Registry);

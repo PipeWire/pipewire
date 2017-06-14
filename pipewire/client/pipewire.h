@@ -120,7 +120,13 @@ enum pw_direction
 pw_direction_reverse(enum pw_direction direction);
 
 void *
-pw_get_support(const char *type);
+pw_get_support_interface(const char *type);
+
+const struct spa_handle_factory *
+pw_get_support_factory(const char *factory_name);
+
+const struct spa_support *
+pw_get_support(uint32_t *n_support);
 
 #ifdef __cplusplus
 }

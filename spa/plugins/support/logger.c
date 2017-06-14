@@ -255,10 +255,16 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return SPA_RESULT_OK;
 }
 
-const struct spa_handle_factory spa_logger_factory = {
+static const struct spa_handle_factory logger_factory = {
 	NAME,
 	NULL,
 	sizeof(struct impl),
 	impl_init,
 	impl_enum_interface_info,
 };
+
+static void reg(void) __attribute__ ((constructor));
+static void reg(void)
+{
+	spa_handle_factory_register(&logger_factory);
+}

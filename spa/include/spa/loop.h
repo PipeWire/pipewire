@@ -37,6 +37,7 @@ struct spa_loop_utils;
 #define SPA_TYPE_LOOP__DataLoop		SPA_TYPE_LOOP_BASE "DataLoop"
 
 #include <spa/defs.h>
+#include <spa/list.h>
 
 enum spa_io {
 	SPA_IO_IN = (1 << 0),
@@ -95,7 +96,14 @@ struct spa_loop {
 #define spa_loop_remove_source(l,...)	(l)->remove_source(__VA_ARGS__)
 #define spa_loop_invoke(l,...)		(l)->invoke((l),__VA_ARGS__)
 
-typedef void (*spa_loop_hook_t) (struct spa_loop_control *ctrl, void *data);
+/** Control hooks */
+struct spa_loop_control_hooks {
+	struct spa_list link;
+	/** Executed right before waiting for events */
+	void (*before) (const struct spa_loop_control_hooks *hooks);
+	/** Executed right after waiting for events */
+	void (*after) (const struct spa_loop_control_hooks *hooks);
+};
 
 /**
  * spa_loop_control:
@@ -109,10 +117,12 @@ struct spa_loop_control {
 
 	int (*get_fd) (struct spa_loop_control *ctrl);
 
-	void (*set_hooks) (struct spa_loop_control *ctrl,
-			   spa_loop_hook_t pre_hook,
-			   spa_loop_hook_t post_hook,
-			   void *data);
+	/** Add a hook
+	 * \param ctrl the control to change
+	 * \param hooks the new hooks
+	 * \param old location to store previous hooks */
+	void (*add_hooks) (struct spa_loop_control *ctrl,
+			   struct spa_loop_control_hooks *hooks);
 
 	void (*enter) (struct spa_loop_control *ctrl);
 	void (*leave) (struct spa_loop_control *ctrl);
@@ -121,7 +131,7 @@ struct spa_loop_control {
 };
 
 #define spa_loop_control_get_fd(l)		(l)->get_fd(l)
-#define spa_loop_control_set_hooks(l,...)	(l)->set_hooks((l),__VA_ARGS__)
+#define spa_loop_control_add_hooks(l,...)	(l)->add_hooks((l),__VA_ARGS__)
 #define spa_loop_control_enter(l)		(l)->enter(l)
 #define spa_loop_control_iterate(l,...)		(l)->iterate((l),__VA_ARGS__)
 #define spa_loop_control_leave(l)		(l)->leave(l)

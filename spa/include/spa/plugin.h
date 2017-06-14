@@ -85,6 +85,17 @@ struct spa_support {
 	void *data;
 };
 
+static inline void *spa_support_find(const struct spa_support *support,
+				     uint32_t n_support,
+				     const char *type)
+{
+	uint32_t i;
+	for (i = 0; i < n_support; i++)
+		if (strcmp(support->type, type) == 0)
+			return support->data;
+	return NULL;
+}
+
 #define SPA_SUPPORT_INIT(type,data) (struct spa_support) { (type), (data) }
 
 struct spa_handle_factory {
@@ -181,6 +192,8 @@ typedef int (*spa_handle_factory_enum_func_t) (const struct spa_handle_factory *
  *          #SPA_RESULT_ENUM_END when there are no more factories
  */
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t index);
+
+void spa_handle_factory_register(const struct spa_handle_factory *factory);
 
 #ifdef __cplusplus
 }  /* extern "C" */

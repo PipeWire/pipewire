@@ -75,7 +75,7 @@ struct impl {
 	struct spa_list socket_list;
 	struct spa_list client_list;
 
-	struct pw_listener before_iterate;
+	struct spa_loop_control_hooks hooks;
 };
 
 struct native_client {
@@ -166,9 +166,9 @@ on_busy_changed(struct pw_listener *listener,
 
 }
 
-static void on_before_iterate(struct pw_listener *listener, struct pw_loop *loop)
+static void on_before_hook(const struct spa_loop_control_hooks *hooks)
 {
-	struct impl *this = SPA_CONTAINER_OF(listener, struct impl, before_iterate);
+	struct impl *this = SPA_CONTAINER_OF(hooks, struct impl, hooks);
 	struct native_client *client, *tmp;
 
 	spa_list_for_each_safe(client, tmp, &this->client_list, link)
@@ -430,8 +430,8 @@ static struct impl *pw_protocol_native_new(struct pw_core *core, struct pw_prope
 	if (!add_socket(impl, s))
 		goto error;
 
-	pw_signal_add(&impl->core->main_loop->loop->before_iterate,
-		      &impl->before_iterate, on_before_iterate);
+	impl->hooks.before = on_before_hook;
+	pw_loop_add_hooks(impl->core->main_loop->loop, &impl->hooks);
 
 	return impl;
 

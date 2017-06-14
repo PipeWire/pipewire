@@ -28,7 +28,6 @@ pipewire_sources = [
   'introspect.c',
   'log.c',
   'loop.c',
-  'mapper.c',
   'mem.c',
   'properties.c',
   'protocol-native.c',

@@ -1,4 +1,6 @@
-spa_support_sources = ['mapper.c', 'plugin.c']
+spa_support_sources = ['mapper.c',
+		       'logger.c',
+		       'plugin.c']
 
 spa_support_lib = shared_library('spa-support',
                           spa_support_sources,

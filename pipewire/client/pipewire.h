@@ -119,8 +119,8 @@ pw_fill_stream_properties(struct pw_properties *properties);
 enum pw_direction
 pw_direction_reverse(enum pw_direction direction);
 
-struct spa_type_map *
-pw_type_map_get_default(void);
+void *
+pw_get_support(const char *type);
 
 #ifdef __cplusplus
 }

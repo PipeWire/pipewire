@@ -22,10 +22,94 @@
 #include <stdio.h>
 #include <sys/prctl.h>
 #include <pwd.h>
+#include <errno.h>
+#include <dlfcn.h>
 
 #include "pipewire/client/pipewire.h"
 
 static char **categories = NULL;
+
+static struct support_info {
+	void *hnd;
+	spa_handle_factory_enum_func_t enum_func;
+	struct spa_support support[4];
+	uint32_t n_support;
+} support_info;
+
+static void * find_support(struct support_info *info, const char *type)
+{
+	int i;
+
+	for (i = 0; i < info->n_support; i++) {
+		if (strcmp(info->support->type, type) == 0)
+			return info->support->data;
+	}
+	return NULL;
+}
+
+static bool
+open_support(const char *lib,
+	     struct support_info *info)
+{
+        if ((info->hnd = dlopen(lib, RTLD_NOW)) == NULL) {
+                fprintf(stderr, "can't load %s: %s\n", lib, dlerror());
+                return false;
+        }
+        if ((info->enum_func = dlsym(info->hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
+                fprintf(stderr, "can't find enum function\n");
+                goto no_symbol;
+        }
+	return true;
+
+      no_symbol:
+	dlclose(info->hnd);
+	return false;
+}
+
+static void *
+load_interface(struct support_info *info,
+	       const char *factory_name,
+	       const char *type)
+{
+        int res;
+        struct spa_handle *handle;
+        uint32_t index, type_id;
+        const struct spa_handle_factory *factory;
+        void *iface;
+	struct spa_type_map *map = NULL;
+
+	map = find_support(info, SPA_TYPE__TypeMap);
+	type_id = map ? spa_type_map_get_id(map, type) : 0;
+
+        for (index = 0;; index++) {
+                if ((res = info->enum_func(&factory, index)) < 0) {
+                        if (res != SPA_RESULT_ENUM_END)
+                                fprintf(stderr, "can't enumerate factories: %d\n", res);
+                        goto enum_failed;
+                }
+                if (strcmp(factory->name, factory_name) == 0)
+                        break;
+        }
+
+        handle = calloc(1, factory->size);
+        if ((res = spa_handle_factory_init(factory,
+                                           handle, NULL, info->support, info->n_support)) < 0) {
+                fprintf(stderr, "can't make factory instance: %d\n", res);
+                goto init_failed;
+        }
+        if ((res = spa_handle_get_interface(handle, type_id, &iface)) < 0) {
+                fprintf(stderr, "can't get %s interface %d\n", type, res);
+                goto interface_failed;
+        }
+        return iface;
+
+      interface_failed:
+	spa_handle_clear(handle);
+      init_failed:
+	free(handle);
+      enum_failed:
+	return NULL;
+}
 
 static void configure_debug(const char *str)
 {
@@ -39,6 +123,32 @@ static void configure_debug(const char *str)
 	if (n_tokens > 1)
 		categories = pw_split_strv(level[1], ",", INT_MAX, &n_tokens);
 }
+
+static void configure_support(struct support_info *info)
+{
+	void *iface;
+
+	iface = load_interface(info, "mapper", SPA_TYPE__TypeMap);
+	if (iface != NULL) {
+		info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, iface);
+	}
+
+	iface = load_interface(info, "logger", SPA_TYPE__Log);
+	if (iface != NULL) {
+		info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__Log, iface);
+		pw_log_set(iface);
+	}
+}
+
+/** Get a support interface
+ * \param type the interface type
+ * \return the interface or NULL when not configured
+ */
+void *pw_get_support(const char *type)
+{
+	return find_support(&support_info, type);
+}
+
 
 /** Initialize PipeWire
  *
@@ -58,6 +168,9 @@ void pw_init(int *argc, char **argv[])
 
 	if ((str = getenv("PIPEWIRE_DEBUG")))
 		configure_debug(str);
+
+	if (open_support("build/spa/plugins/support/libspa-support.so", &support_info))
+		configure_support(&support_info);
 }
 
 /** Check if a debug category is enabled

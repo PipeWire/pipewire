@@ -17,11 +17,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
-#include <dlfcn.h>
-
 #include <spa/log.h>
 
 #include <pipewire/client/log.h>
@@ -33,87 +28,23 @@ enum spa_log_level pw_log_level = DEFAULT_LOG_LEVEL;
 
 static struct spa_log *global_log = NULL;
 
-struct spa_log *pw_spa_log_load(const char *lib,
-				const char *factory_name,
-				struct spa_support *support,
-				uint32_t n_support)
+/** Set the global log interface
+ * \param log the global log to set
+ * \memberof pw_log
+ */
+void pw_log_set(struct spa_log *log)
 {
-        int res;
-        struct spa_handle *handle;
-        void *hnd;
-        uint32_t index, type_log;
-        spa_handle_factory_enum_func_t enum_func;
-        const struct spa_handle_factory *factory;
-        void *iface;
-	struct spa_type_map *map = NULL;
-
-	for (index = 0; index < n_support; index++) {
-		if (strcmp(support[index].type, SPA_TYPE__TypeMap) == 0)
-                        map = support[index].data;
-	}
-	if (map == NULL) {
-                fprintf(stderr, "no type map\n");
-		return NULL;
-	}
-
-	type_log = spa_type_map_get_id(map, SPA_TYPE__Log);
-
-        if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
-                fprintf(stderr, "can't load %s: %s\n", lib, dlerror());
-                return NULL;
-        }
-        if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
-                fprintf(stderr, "can't find enum function\n");
-                goto no_symbol;
-        }
-
-        for (index = 0;; index++) {
-                if ((res = enum_func(&factory, index)) < 0) {
-                        if (res != SPA_RESULT_ENUM_END)
-                                fprintf(stderr, "can't enumerate factories: %d\n", res);
-                        goto enum_failed;
-                }
-                if (strcmp(factory->name, factory_name) == 0)
-                        break;
-        }
-
-        handle = calloc(1, factory->size);
-        if ((res = spa_handle_factory_init(factory,
-                                           handle, NULL, support, n_support)) < 0) {
-                fprintf(stderr, "can't make factory instance: %d\n", res);
-                goto init_failed;
-        }
-        if ((res = spa_handle_get_interface(handle, type_log, &iface)) < 0) {
-                fprintf(stderr, "can't get log interface %d\n", res);
-                goto interface_failed;
-        }
-        return iface;
-
-      interface_failed:
-        spa_handle_clear(handle);
-      init_failed:
-        free(handle);
-      enum_failed:
-      no_symbol:
-        dlclose(hnd);
-        return NULL;
+	global_log = log;
+	if (global_log)
+		global_log->level = pw_log_level;
 }
 
 /** Get the global log interface
  * \return the global log
  * \memberof pw_log
  */
-struct spa_log *pw_log_get(struct spa_support *support,
-			   uint32_t n_support)
+struct spa_log *pw_log_get(void)
 {
-	if (global_log == NULL) {
-		global_log = pw_spa_log_load("build/spa/plugins/logger/libspa-logger.so",
-					     "logger",
-					     support,
-					     n_support);
-		if (global_log)
-			global_log->level = pw_log_level;
-	}
 	return global_log;
 }
 

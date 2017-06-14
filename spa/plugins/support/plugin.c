@@ -20,6 +20,7 @@
 #include <spa/plugin.h>
 #include <spa/node.h>
 
+extern const struct spa_handle_factory spa_logger_factory;
 extern const struct spa_handle_factory spa_type_map_factory;
 
 int
@@ -30,6 +31,9 @@ spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t inde
 	switch (index) {
 	case 0:
 		*factory = &spa_type_map_factory;
+		break;
+	case 1:
+		*factory = &spa_logger_factory;
 		break;
 	default:
 		return SPA_RESULT_ENUM_END;

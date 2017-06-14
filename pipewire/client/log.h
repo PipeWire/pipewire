@@ -39,7 +39,8 @@ extern "C" {
 /** The global log level */
 extern enum spa_log_level pw_log_level;
 
-struct spa_log *pw_log_get(struct spa_support *support, uint32_t n_support);
+void pw_log_set(struct spa_log *log);
+struct spa_log *pw_log_get(void);
 
 void
 pw_log_set_level(enum spa_log_level level);

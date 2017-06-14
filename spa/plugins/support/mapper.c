@@ -77,24 +77,26 @@ static uint32_t
 impl_type_map_get_id(struct spa_type_map *map, const char *type)
 {
 	struct impl *impl = SPA_CONTAINER_OF(map, struct impl, map);
-	uint32_t i = 0, len;
+	uint32_t i, len;
 	void *p;
 	off_t o, *off;
 
-	if (type != NULL) {
-		for (i = 0; i < impl->types.size / sizeof(off_t); i++) {
-			o = ((off_t *)impl->types.data)[i];
-			if (strcmp(SPA_MEMBER(impl->strings.data, o, char), type) == 0)
-				return i;
-		}
-		len = strlen(type);
-		p = alloc_size(&impl->strings, len+1, 1024);
-		memcpy(p, type, len + 1);
+	if (type == NULL)
+		return SPA_ID_INVALID;
 
-		off = alloc_size(&impl->types, sizeof(off_t), 128);
-		*off = SPA_PTRDIFF(p, impl->strings.data);
-		i = SPA_PTRDIFF(off, impl->types.data) / sizeof(off_t);
+	for (i = 0; i < impl->types.size / sizeof(off_t); i++) {
+		o = ((off_t *)impl->types.data)[i];
+		if (strcmp(SPA_MEMBER(impl->strings.data, o, char), type) == 0)
+			return i;
 	}
+	len = strlen(type);
+	p = alloc_size(&impl->strings, len+1, 1024);
+	memcpy(p, type, len + 1);
+
+	off = alloc_size(&impl->types, sizeof(off_t), 128);
+	*off = SPA_PTRDIFF(p, impl->strings.data);
+	i = SPA_PTRDIFF(off, impl->types.data) / sizeof(off_t);
+
 	return i;
 
 }

@@ -577,6 +577,37 @@ static void loop_destroy_source(struct spa_source *source)
 	spa_list_insert(&loop_impl->destroy_list, &impl->link);
 }
 
+static const struct spa_loop loop_impl = {
+	sizeof(struct spa_loop),
+	loop_add_source,
+	loop_update_source,
+	loop_remove_source,
+	loop_invoke,
+};
+
+static const struct spa_loop_control loop_control_impl = {
+	sizeof(struct spa_loop_control),
+	loop_get_fd,
+	loop_set_hooks,
+	loop_enter,
+	loop_leave,
+	loop_iterate,
+};
+
+static const struct spa_loop_utils loop_utils_impl = {
+	sizeof(struct spa_loop_utils),
+	loop_add_io,
+	loop_update_io,
+	loop_add_idle,
+	loop_enable_idle,
+	loop_add_event,
+	loop_signal_event,
+	loop_add_timer,
+	loop_update_timer,
+	loop_add_signal,
+	loop_destroy_source,
+};
+
 /** Create a new loop
  * \returns a newly allocated loop
  * \memberof pw_loop
@@ -602,32 +633,13 @@ struct pw_loop *pw_loop_new(void)
 	pw_signal_init(&this->before_iterate);
 	pw_signal_init(&this->destroy_signal);
 
-	impl->loop.size = sizeof(struct spa_loop);
-	impl->loop.add_source = loop_add_source;
-	impl->loop.update_source = loop_update_source;
-	impl->loop.remove_source = loop_remove_source;
-	impl->loop.invoke = loop_invoke;
+	impl->loop = loop_impl;
 	this->loop = &impl->loop;
 
-	impl->control.size = sizeof(struct spa_loop_control);
-	impl->control.get_fd = loop_get_fd;
-	impl->control.set_hooks = loop_set_hooks;
-	impl->control.enter = loop_enter;
-	impl->control.leave = loop_leave;
-	impl->control.iterate = loop_iterate;
+	impl->control = loop_control_impl;
 	this->control = &impl->control;
 
-	impl->utils.size = sizeof(struct spa_loop_utils);
-	impl->utils.add_io = loop_add_io;
-	impl->utils.update_io = loop_update_io;
-	impl->utils.add_idle = loop_add_idle;
-	impl->utils.enable_idle = loop_enable_idle;
-	impl->utils.add_event = loop_add_event;
-	impl->utils.signal_event = loop_signal_event;
-	impl->utils.add_timer = loop_add_timer;
-	impl->utils.update_timer = loop_update_timer;
-	impl->utils.add_signal = loop_add_signal;
-	impl->utils.destroy_source = loop_destroy_source;
+	impl->utils = loop_utils_impl;
 	this->utils = &impl->utils;
 
 	spa_ringbuffer_init(&impl->buffer, DATAS_SIZE);

@@ -85,6 +85,8 @@ struct spa_support {
 	void *data;
 };
 
+#define SPA_SUPPORT_INIT(type,data) (struct spa_support) { (type), (data) }
+
 struct spa_handle_factory {
 	/**
 	 * spa_handle_factory::name

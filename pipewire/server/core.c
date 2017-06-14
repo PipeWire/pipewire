@@ -287,14 +287,10 @@ struct pw_core *pw_core_new(struct pw_main_loop *main_loop, struct pw_properties
 
 	spa_debug_set_type_map(this->type.map);
 
-	impl->support[0].type = SPA_TYPE__TypeMap;
-	impl->support[0].data = this->type.map;
-	impl->support[1].type = SPA_TYPE_LOOP__DataLoop;
-	impl->support[1].data = this->data_loop->loop->loop;
-	impl->support[2].type = SPA_TYPE_LOOP__MainLoop;
-	impl->support[2].data = this->main_loop->loop->loop;
-	impl->support[3].type = SPA_TYPE__Log;
-	impl->support[3].data = pw_log_get(impl->support, 3);
+	impl->support[0] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, this->type.map);
+	impl->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__DataLoop, this->data_loop->loop->loop);
+	impl->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__MainLoop, this->main_loop->loop->loop);
+	impl->support[3] = SPA_SUPPORT_INIT(SPA_TYPE__Log, pw_log_get());
 	this->support = impl->support;
 	this->n_support = 4;
 

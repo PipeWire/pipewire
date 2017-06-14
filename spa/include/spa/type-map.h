@@ -38,7 +38,7 @@ extern "C" {
 struct spa_type_map {
 	/* the total size of this structure. This can be used to expand this
 	 * structure in the future */
-	const size_t size;
+	size_t size;
 	/**
 	 * spa_type_map::info
 	 *

@@ -1169,12 +1169,16 @@ struct pw_client_node *pw_client_node_new(struct pw_client *client,
 
 	this->resource = pw_resource_new(client,
 					 id,
-					 client->core->type.client_node,
-					 this,
-					 &client_node_methods,
-					 (pw_destroy_t) client_node_resource_destroy);
+					 client->core->type.client_node, 0);
+
 	if (this->resource == NULL)
 		goto error_no_resource;
+
+	pw_resource_set_implementation(this->resource,
+				       this,
+				       PW_VERSION_CLIENT_NODE,
+				       &client_node_methods,
+				       (pw_destroy_t) client_node_resource_destroy);
 
 	impl->proxy.resource = this->resource;
 

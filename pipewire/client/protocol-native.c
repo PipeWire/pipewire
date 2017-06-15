@@ -23,6 +23,7 @@
 #include "pipewire/client/pipewire.h"
 
 #include "pipewire/client/protocol-native.h"
+#include "pipewire/client/protocol.h"
 #include "pipewire/client/interfaces.h"
 #include "pipewire/client/connection.h"
 
@@ -929,6 +930,8 @@ static const demarshal_func_t pw_protocol_native_client_core_demarshal[PW_CORE_E
 };
 
 static const struct pw_interface pw_protocol_native_client_core_interface = {
+	PIPEWIRE_TYPE__Core,
+	PW_VERSION_CORE,
 	PW_CORE_METHOD_NUM, &pw_protocol_native_client_core_methods,
 	PW_CORE_EVENT_NUM, pw_protocol_native_client_core_demarshal
 };
@@ -943,6 +946,8 @@ static const demarshal_func_t pw_protocol_native_client_registry_demarshal[] = {
 };
 
 static const struct pw_interface pw_protocol_native_client_registry_interface = {
+	PIPEWIRE_TYPE__Registry,
+	PW_VERSION_REGISTRY,
 	PW_REGISTRY_METHOD_NUM, &pw_protocol_native_client_registry_methods,
 	PW_REGISTRY_EVENT_NUM, pw_protocol_native_client_registry_demarshal,
 };
@@ -970,6 +975,8 @@ static const demarshal_func_t pw_protocol_native_client_client_node_demarshal[] 
 };
 
 static const struct pw_interface pw_protocol_native_client_client_node_interface = {
+	PIPEWIRE_TYPE_NODE_BASE "Client",
+	PW_VERSION_CLIENT_NODE,
 	PW_CLIENT_NODE_METHOD_NUM, &pw_protocol_native_client_client_node_methods,
 	PW_CLIENT_NODE_EVENT_NUM, pw_protocol_native_client_client_node_demarshal,
 };
@@ -979,6 +986,8 @@ static const demarshal_func_t pw_protocol_native_client_module_demarshal[] = {
 };
 
 static const struct pw_interface pw_protocol_native_client_module_interface = {
+	PIPEWIRE_TYPE__Module,
+	PW_VERSION_MODULE,
 	0, NULL,
 	PW_MODULE_EVENT_NUM, pw_protocol_native_client_module_demarshal,
 };
@@ -988,6 +997,8 @@ static const demarshal_func_t pw_protocol_native_client_node_demarshal[] = {
 };
 
 static const struct pw_interface pw_protocol_native_client_node_interface = {
+	PIPEWIRE_TYPE__Node,
+	PW_VERSION_NODE,
 	0, NULL,
 	PW_NODE_EVENT_NUM, pw_protocol_native_client_node_demarshal,
 };
@@ -997,6 +1008,8 @@ static const demarshal_func_t pw_protocol_native_client_client_demarshal[] = {
 };
 
 static const struct pw_interface pw_protocol_native_client_client_interface = {
+	PIPEWIRE_TYPE__Client,
+	PW_VERSION_CLIENT,
 	0, NULL,
 	PW_CLIENT_EVENT_NUM, pw_protocol_native_client_client_demarshal,
 };
@@ -1006,30 +1019,43 @@ static const demarshal_func_t pw_protocol_native_client_link_demarshal[] = {
 };
 
 static const struct pw_interface pw_protocol_native_client_link_interface = {
+	PIPEWIRE_TYPE__Link,
+	PW_VERSION_LINK,
 	0, NULL,
 	PW_LINK_EVENT_NUM, pw_protocol_native_client_link_demarshal,
 };
 
-bool pw_protocol_native_client_setup(struct pw_proxy *proxy)
+void pw_protocol_native_client_init(void)
 {
-	const struct pw_interface *iface;
+	static bool init = false;
+	struct pw_protocol *protocol;
 
-	if (proxy->type == proxy->context->type.core) {
-		iface = &pw_protocol_native_client_core_interface;
-	} else if (proxy->type == proxy->context->type.registry) {
-		iface = &pw_protocol_native_client_registry_interface;
-	} else if (proxy->type == proxy->context->type.module) {
-		iface = &pw_protocol_native_client_module_interface;
-	} else if (proxy->type == proxy->context->type.node) {
-		iface = &pw_protocol_native_client_node_interface;
-	} else if (proxy->type == proxy->context->type.client_node) {
-		iface = &pw_protocol_native_client_client_node_interface;
-	} else if (proxy->type == proxy->context->type.client) {
-		iface = &pw_protocol_native_client_client_interface;
-	} else if (proxy->type == proxy->context->type.link) {
-		iface = &pw_protocol_native_client_link_interface;
-	} else
-		return false;
-	proxy->iface = iface;
-	return true;
+	if (init)
+		return;
+
+	protocol = pw_protocol_get(PW_TYPE_PROTOCOL__Native);
+
+	pw_protocol_add_interfaces(protocol,
+				   &pw_protocol_native_client_core_interface,
+				   NULL);
+	pw_protocol_add_interfaces(protocol,
+				   &pw_protocol_native_client_registry_interface,
+				   NULL);
+	pw_protocol_add_interfaces(protocol,
+				   &pw_protocol_native_client_module_interface,
+				   NULL);
+	pw_protocol_add_interfaces(protocol,
+				   &pw_protocol_native_client_node_interface,
+				   NULL);
+	pw_protocol_add_interfaces(protocol,
+				   &pw_protocol_native_client_client_node_interface,
+				   NULL);
+	pw_protocol_add_interfaces(protocol,
+				   &pw_protocol_native_client_client_interface,
+				   NULL);
+	pw_protocol_add_interfaces(protocol,
+				   &pw_protocol_native_client_link_interface,
+				   NULL);
+
+	init = true;
 }

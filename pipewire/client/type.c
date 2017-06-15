@@ -19,17 +19,17 @@
 
 #include <string.h>
 
+#include "spa/defs.h"
+#include "spa/clock.h"
+#include "spa/type-map.h"
+#include "spa/monitor.h"
+
 #include "pipewire/client/pipewire.h"
 #include "pipewire/client/type.h"
 
-#include "pipewire/server/core.h"
-#include "pipewire/server/node.h"
 #include "pipewire/server/node-factory.h"
-#include "pipewire/server/client.h"
 #include "pipewire/server/client-node.h"
-#include "pipewire/server/module.h"
 
-#include "spa/monitor.h"
 
 /** Initializes the type system
  * \param type a type structure

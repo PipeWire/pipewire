@@ -88,26 +88,36 @@ extern "C" {
  * See \ref page_proxy
  */
 struct pw_proxy {
-	/** the owner context of this proxy */
-	struct pw_context *context;
-	/** link in the context */
-	struct spa_list link;
+	struct pw_context *context;	/**< the owner context of this proxy */
+	struct spa_list link;		/**< link in the context */
 
-	uint32_t id;	/**< client side id */
-	uint32_t type;	/**< object type id */
-
+	uint32_t id;			/**< client side id */
+	uint32_t type;			/**< object type id */
 	const struct pw_interface *iface;	/**< methods/events marshal/demarshal functions */
-	const void *implementation;		/**< event handler implementation */
 
-	void *user_data;		/**< optional client user data */
-        pw_destroy_t destroy;		/**< optional destroy function to clean up user_data */
+	void *object;			/**< client side object */
+	uint32_t version;
+	const void *implementation;	/**< event handler implementation */
+	pw_destroy_t destroy;		/**< optional destroy function to clean up the object */
 
 	/** destroy_signal is emited when the proxy is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_proxy *proxy));
+
+	void *user_data;		/**< extra user data */
 };
 
 struct pw_proxy *
-pw_proxy_new(struct pw_context *context, uint32_t id, uint32_t type);
+pw_proxy_new(struct pw_context *context,
+	     uint32_t id,
+	     uint32_t type,
+	     size_t user_data_size);
+
+int
+pw_proxy_set_implementation(struct pw_proxy *proxy,
+			    void *object,
+			    uint32_t version,
+			    const void *implementation,
+			    pw_destroy_t destroy);
 
 void pw_proxy_destroy(struct pw_proxy *proxy);
 

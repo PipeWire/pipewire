@@ -92,9 +92,11 @@ module_bind_func(struct pw_global *global, struct pw_client *client, uint32_t ve
 	struct pw_module *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, global->object, NULL, NULL);
+	resource = pw_resource_new(client, id, global->type, 0);
 	if (resource == NULL)
 		goto no_mem;
+
+	pw_resource_set_implementation(resource, global->object, PW_VERSION_MODULE, NULL, NULL);
 
 	pw_log_debug("module %p: bound to %d", global->object, resource->id);
 

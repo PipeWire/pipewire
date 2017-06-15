@@ -42,7 +42,7 @@ struct client_info {
 	struct impl *impl;
 	struct pw_client *client;
 	struct spa_list link;
-	struct pw_listener resource_added;
+	struct pw_listener resource_impl;
 	struct pw_listener resource_removed;
 	struct spa_list node_list;
 };
@@ -98,7 +98,7 @@ static void client_info_free(struct client_info *cinfo)
 	struct node_info *info, *tmp;
 
 	spa_list_remove(&cinfo->link);
-	pw_signal_remove(&cinfo->resource_added);
+	pw_signal_remove(&cinfo->resource_impl);
 	pw_signal_remove(&cinfo->resource_removed);
 
 	spa_list_for_each_safe(info, tmp, &cinfo->node_list, link)
@@ -278,10 +278,10 @@ on_node_added(struct impl *impl,
 }
 
 static void
-on_resource_added(struct pw_listener *listener,
-		  struct pw_client *client, struct pw_resource *resource)
+on_resource_impl(struct pw_listener *listener,
+		 struct pw_client *client, struct pw_resource *resource)
 {
-	struct client_info *cinfo = SPA_CONTAINER_OF(listener, struct client_info, resource_added);
+	struct client_info *cinfo = SPA_CONTAINER_OF(listener, struct client_info, resource_impl);
 	struct impl *impl = cinfo->impl;
 
 	if (resource->type == impl->core->type.client_node) {
@@ -325,7 +325,7 @@ on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_gl
 
 		spa_list_insert(impl->client_list.prev, &cinfo->link);
 
-		pw_signal_add(&client->resource_added, &cinfo->resource_added, on_resource_added);
+		pw_signal_add(&client->resource_impl, &cinfo->resource_impl, on_resource_impl);
 		pw_signal_add(&client->resource_removed, &cinfo->resource_removed,
 			      on_resource_removed);
 

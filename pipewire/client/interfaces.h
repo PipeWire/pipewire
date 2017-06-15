@@ -48,6 +48,8 @@ extern "C" {
  * \section page_iface_pw_core API
  */
 
+#define PW_VERSION_CORE				0
+
 #define PW_CORE_METHOD_UPDATE_TYPES		0
 #define PW_CORE_METHOD_SYNC			1
 #define PW_CORE_METHOD_GET_REGISTRY		2
@@ -215,6 +217,7 @@ struct pw_core_events {
 #define pw_core_notify_remove_id(r,...)    ((struct pw_core_events*)r->iface->events)->remove_id(r,__VA_ARGS__)
 #define pw_core_notify_info(r,...)         ((struct pw_core_events*)r->iface->events)->info(r,__VA_ARGS__)
 
+#define PW_VERSION_REGISTRY		0
 
 #define PW_REGISTRY_METHOD_BIND      0
 #define PW_REGISTRY_METHOD_NUM       1
@@ -269,8 +272,10 @@ struct pw_registry_events {
 #define pw_registry_notify_global(r,...)        ((struct pw_registry_events*)r->iface->events)->global(r,__VA_ARGS__)
 #define pw_registry_notify_global_remove(r,...) ((struct pw_registry_events*)r->iface->events)->global_remove(r,__VA_ARGS__)
 
-#define PW_MODULE_EVENT_INFO         0
-#define PW_MODULE_EVENT_NUM          1
+#define PW_VERSION_MODULE		0
+
+#define PW_MODULE_EVENT_INFO		0
+#define PW_MODULE_EVENT_NUM		1
 
 /** Module events */
 struct pw_module_events {
@@ -284,8 +289,10 @@ struct pw_module_events {
 
 #define pw_module_notify_info(r,...)      ((struct pw_module_events*)r->iface->events)->info(r,__VA_ARGS__)
 
-#define PW_NODE_EVENT_INFO         0
-#define PW_NODE_EVENT_NUM          1
+#define PW_VERSION_NODE		0
+
+#define PW_NODE_EVENT_INFO	0
+#define PW_NODE_EVENT_NUM	1
 
 /** Node events */
 struct pw_node_events {
@@ -306,6 +313,8 @@ struct pw_client_node_buffer {
 	uint32_t size;			/**< size in memory */
 	struct spa_buffer *buffer;	/**< buffer describing metadata and buffer memory */
 };
+
+#define PW_VERSION_CLIENT_NODE		0
 
 #define PW_CLIENT_NODE_METHOD_DONE           0
 #define PW_CLIENT_NODE_METHOD_UPDATE         1
@@ -554,8 +563,10 @@ struct pw_client_node_events {
 #define pw_client_node_notify_port_command(r,...) ((struct pw_client_node_events*)r->iface->events)->port_command(r,__VA_ARGS__)
 #define pw_client_node_notify_transport(r,...)    ((struct pw_client_node_events*)r->iface->events)->transport(r,__VA_ARGS__)
 
-#define PW_CLIENT_EVENT_INFO         0
-#define PW_CLIENT_EVENT_NUM          1
+#define PW_VERSION_CLIENT		0
+
+#define PW_CLIENT_EVENT_INFO		0
+#define PW_CLIENT_EVENT_NUM		1
 
 /** Client events */
 struct pw_client_events {
@@ -569,8 +580,10 @@ struct pw_client_events {
 
 #define pw_client_notify_info(r,...)      ((struct pw_client_events*)r->iface->events)->info(r,__VA_ARGS__)
 
-#define PW_LINK_EVENT_INFO         0
-#define PW_LINK_EVENT_NUM          1
+#define PW_VERSION_LINK		0
+
+#define PW_LINK_EVENT_INFO	0
+#define PW_LINK_EVENT_NUM	1
 
 /** Link events */
 struct pw_link_events {

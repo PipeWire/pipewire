@@ -57,7 +57,7 @@ struct client_info {
 	const struct pw_core_methods *old_methods;
 	struct pw_core_methods core_methods;
 	struct spa_list async_pending;
-	struct pw_listener resource_added;
+	struct pw_listener resource_impl;
 	struct pw_listener resource_removed;
 };
 
@@ -422,11 +422,11 @@ do_create_link(void *object,
 					 new_id);
 }
 
-static void on_resource_added(struct pw_listener *listener,
-			      struct pw_client *client,
-			      struct pw_resource *resource)
+static void on_resource_impl(struct pw_listener *listener,
+			     struct pw_client *client,
+			     struct pw_resource *resource)
 {
-	struct client_info *cinfo = SPA_CONTAINER_OF(listener, struct client_info, resource_added);
+	struct client_info *cinfo = SPA_CONTAINER_OF(listener, struct client_info, resource_impl);
 	struct impl *impl = cinfo->impl;
 
 	if (resource->type == impl->core->type.core) {
@@ -455,7 +455,7 @@ on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_gl
 		cinfo->is_sandboxed = true;
 		spa_list_init(&cinfo->async_pending);
 
-		pw_signal_add(&client->resource_added, &cinfo->resource_added, on_resource_added);
+		pw_signal_add(&client->resource_impl, &cinfo->resource_impl, on_resource_impl);
 
 		spa_list_insert(impl->client_list.prev, &cinfo->link);
 

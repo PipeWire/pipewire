@@ -86,8 +86,6 @@ struct pw_client {
 	bool ucred_valid;		/**< if the ucred member is valid */
 	struct ucred ucred;		/**< ucred information */
 
-	void *protocol_private;		/**< private data for the protocol implementation */
-
 	struct pw_resource *core_resource;	/**< core resource object */
 
 	struct pw_map objects;		/**< list of resource objects */
@@ -98,6 +96,9 @@ struct pw_client {
 	/** Emited when a resource is added */
 	PW_SIGNAL(resource_added, (struct pw_listener *listener,
 				   struct pw_client *client, struct pw_resource *resource));
+	/** Emited when a resource implementation is set */
+	PW_SIGNAL(resource_impl, (struct pw_listener *listener,
+				  struct pw_client *client, struct pw_resource *resource));
 	/** Emited when a resource is removed */
 	PW_SIGNAL(resource_removed, (struct pw_listener *listener,
 				     struct pw_client *client, struct pw_resource *resource));
@@ -109,11 +110,19 @@ struct pw_client {
 
 	/** Emited when the client is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_client *client));
+
+	struct pw_protocol *protocol;	/**< protocol in use */
+	void *protocol_private;		/**< private data for the protocol */
+
+	void *user_data;		/**< extra user data */
+	pw_destroy_t destroy;		/**< function to clean up the object */
 };
 
 struct pw_client *
 pw_client_new(struct pw_core *core,
-	      struct ucred *ucred, struct pw_properties *properties);
+	      struct ucred *ucred,
+	      struct pw_properties *properties,
+	      size_t user_data_size);
 
 void
 pw_client_destroy(struct pw_client *client);

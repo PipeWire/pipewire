@@ -652,7 +652,7 @@ client_node_set_format(void *object,
 		       uint32_t port_id, uint32_t flags, const struct spa_format *format)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_stream *stream = proxy->user_data;
+	struct pw_stream *stream = proxy->object;
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
 	if (impl->format)
@@ -686,7 +686,7 @@ client_node_add_mem(void *object,
 		    uint32_t type, int memfd, uint32_t flags, uint32_t offset, uint32_t size)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_stream *stream = proxy->user_data;
+	struct pw_stream *stream = proxy->object;
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct mem_id *m;
 
@@ -715,7 +715,7 @@ client_node_use_buffers(void *object,
 			uint32_t port_id, uint32_t n_buffers, struct pw_client_node_buffer *buffers)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_stream *stream = proxy->user_data;
+	struct pw_stream *stream = proxy->object;
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer_id *bid;
 	uint32_t i, j, len;
@@ -828,7 +828,7 @@ client_node_use_buffers(void *object,
 static void client_node_node_command(void *object, uint32_t seq, const struct spa_command *command)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_stream *stream = proxy->user_data;
+	struct pw_stream *stream = proxy->object;
 	handle_node_command(stream, seq, command);
 }
 
@@ -844,7 +844,7 @@ client_node_port_command(void *object,
 static void client_node_transport(void *object, int readfd, int writefd, int memfd, uint32_t offset, uint32_t size)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_stream *stream = proxy->user_data;
+	struct pw_stream *stream = proxy->object;
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct pw_transport_info info;
 
@@ -933,15 +933,16 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, "pipewire.autoconnect", "1");
 
 	impl->node_proxy = pw_proxy_new(stream->context,
-					SPA_ID_INVALID, stream->context->type.client_node);
+					SPA_ID_INVALID, stream->context->type.client_node, 0);
+
 	if (impl->node_proxy == NULL)
 		return false;
 
+	pw_proxy_set_implementation(impl->node_proxy, stream, PW_VERSION_CLIENT_NODE,
+				    &client_node_events, NULL);
+
 	pw_signal_add(&impl->node_proxy->destroy_signal,
 		      &impl->node_proxy_destroy, on_node_proxy_destroy);
-
-	impl->node_proxy->user_data = stream;
-	impl->node_proxy->implementation = &client_node_events;
 
 	pw_core_do_create_node(stream->context->core_proxy,
 			       "client-node",

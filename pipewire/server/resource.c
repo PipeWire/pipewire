@@ -31,14 +31,12 @@ struct impl {
 struct pw_resource *pw_resource_new(struct pw_client *client,
 				    uint32_t id,
 				    uint32_t type,
-				    void *object,
-				    const void *implementation,
-				    pw_destroy_t destroy)
+				    size_t user_data_size)
 {
 	struct impl *impl;
 	struct pw_resource *this;
 
-	impl = calloc(1, sizeof(struct impl));
+	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		return NULL;
 
@@ -46,20 +44,20 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	this->core = client->core;
 	this->client = client;
 	this->type = type;
-	this->object = object;
-	this->implementation = implementation;
-	this->destroy = destroy;
 
 	pw_signal_init(&this->destroy_signal);
 
 	if (id == SPA_ID_INVALID) {
-		this->id = pw_map_insert_new(&client->objects, this);
+		id = pw_map_insert_new(&client->objects, this);
 	} else if (!pw_map_insert_at(&client->objects, id, this))
 		goto in_use;
 
 	this->id = id;
 
-	pw_log_debug("resource %p: new for client %p id %u", this, client, this->id);
+	if (user_data_size > 0)
+		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+
+	pw_log_debug("resource %p: new for client %p id %u", this, client, id);
 	pw_signal_emit(&client->resource_added, client, this);
 
 	return this;
@@ -68,6 +66,24 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	pw_log_debug("resource %p: id %u in use for client %p", this, id, client);
 	free(impl);
 	return NULL;
+}
+
+int
+pw_resource_set_implementation(struct pw_resource *resource,
+			       void *object,
+			       uint32_t version,
+			       const void *implementation,
+			       pw_destroy_t destroy)
+{
+	struct pw_client *client = resource->client;
+
+	resource->object = object;
+	resource->version = version;
+	resource->implementation = implementation;
+	resource->destroy = destroy;
+	pw_signal_emit(&client->resource_impl, client, resource);
+
+	return SPA_RESULT_OK;
 }
 
 void pw_resource_destroy(struct pw_resource *resource)

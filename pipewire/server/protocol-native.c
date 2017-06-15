@@ -883,6 +883,8 @@ static const struct pw_core_events pw_protocol_native_server_core_events = {
 };
 
 const struct pw_interface pw_protocol_native_server_core_interface = {
+	PIPEWIRE_TYPE__Core,
+	PW_VERSION_CORE,
 	PW_CORE_METHOD_NUM, pw_protocol_native_server_core_demarshal,
 	PW_CORE_EVENT_NUM, &pw_protocol_native_server_core_events,
 };
@@ -897,6 +899,8 @@ static const struct pw_registry_events pw_protocol_native_server_registry_events
 };
 
 const struct pw_interface pw_protocol_native_server_registry_interface = {
+	PIPEWIRE_TYPE__Registry,
+	PW_VERSION_REGISTRY,
 	PW_REGISTRY_METHOD_NUM, pw_protocol_native_server_registry_demarshal,
 	PW_REGISTRY_EVENT_NUM, &pw_protocol_native_server_registry_events,
 };
@@ -906,6 +910,8 @@ static const struct pw_module_events pw_protocol_native_server_module_events = {
 };
 
 const struct pw_interface pw_protocol_native_server_module_interface = {
+	PIPEWIRE_TYPE__Module,
+	PW_VERSION_MODULE,
 	0, NULL,
 	PW_MODULE_EVENT_NUM, &pw_protocol_native_server_module_events,
 };
@@ -915,6 +921,8 @@ static const struct pw_node_events pw_protocol_native_server_node_events = {
 };
 
 const struct pw_interface pw_protocol_native_server_node_interface = {
+	PIPEWIRE_TYPE__Node,
+	PW_VERSION_NODE,
 	0, NULL,
 	PW_NODE_EVENT_NUM, &pw_protocol_native_server_node_events,
 };
@@ -924,6 +932,8 @@ static const struct pw_client_events pw_protocol_native_server_client_events = {
 };
 
 const struct pw_interface pw_protocol_native_server_client_interface = {
+	PIPEWIRE_TYPE__Client,
+	PW_VERSION_CLIENT,
 	0, NULL,
 	PW_CLIENT_EVENT_NUM, &pw_protocol_native_server_client_events,
 };
@@ -951,6 +961,8 @@ static const struct pw_client_node_events pw_protocol_native_server_client_node_
 };
 
 const struct pw_interface pw_protocol_native_server_client_node_interface = {
+	PIPEWIRE_TYPE_NODE_BASE "Client",
+	PW_VERSION_CLIENT_NODE,
 	PW_CLIENT_NODE_METHOD_NUM, &pw_protocol_native_server_client_node_demarshal,
 	PW_CLIENT_NODE_EVENT_NUM, &pw_protocol_native_server_client_node_events,
 };
@@ -960,29 +972,43 @@ static const struct pw_link_events pw_protocol_native_server_link_events = {
 };
 
 const struct pw_interface pw_protocol_native_server_link_interface = {
+	PIPEWIRE_TYPE__Link,
+	PW_VERSION_LINK,
 	0, NULL,
 	PW_LINK_EVENT_NUM, &pw_protocol_native_server_link_events,
 };
 
-bool pw_protocol_native_server_setup(struct pw_resource *resource)
+void pw_protocol_native_server_init(void)
 {
-	const struct pw_interface *iface;
-	if (resource->type == resource->core->type.core) {
-		iface = &pw_protocol_native_server_core_interface;
-	} else if (resource->type == resource->core->type.registry) {
-		iface = &pw_protocol_native_server_registry_interface;
-	} else if (resource->type == resource->core->type.module) {
-		iface = &pw_protocol_native_server_module_interface;
-	} else if (resource->type == resource->core->type.node) {
-		iface = &pw_protocol_native_server_node_interface;
-	} else if (resource->type == resource->core->type.client) {
-		iface = &pw_protocol_native_server_client_interface;
-	} else if (resource->type == resource->core->type.client_node) {
-		iface = &pw_protocol_native_server_client_node_interface;
-	} else if (resource->type == resource->core->type.link) {
-		iface = &pw_protocol_native_server_link_interface;
-	} else
-		return false;
-	resource->iface = iface;
-	return true;
+	static bool init = false;
+	struct pw_protocol *protocol;
+
+	if (init)
+		return;
+
+	protocol = pw_protocol_get(PW_TYPE_PROTOCOL__Native);
+
+	pw_protocol_add_interfaces(protocol,
+				   NULL,
+				   &pw_protocol_native_server_core_interface);
+	pw_protocol_add_interfaces(protocol,
+				   NULL,
+				   &pw_protocol_native_server_registry_interface);
+	pw_protocol_add_interfaces(protocol,
+				   NULL,
+				   &pw_protocol_native_server_module_interface);
+	pw_protocol_add_interfaces(protocol,
+				   NULL,
+				   &pw_protocol_native_server_node_interface);
+	pw_protocol_add_interfaces(protocol,
+				   NULL,
+				   &pw_protocol_native_server_client_node_interface);
+	pw_protocol_add_interfaces(protocol,
+				   NULL,
+				   &pw_protocol_native_server_client_interface);
+	pw_protocol_add_interfaces(protocol,
+				   NULL,
+				   &pw_protocol_native_server_link_interface);
+
+	init = true;
 }

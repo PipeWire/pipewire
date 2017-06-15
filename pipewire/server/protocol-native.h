@@ -19,4 +19,4 @@
 
 #include "pipewire/client/pipewire.h"
 
-bool pw_protocol_native_server_setup(struct pw_resource *resource);
+void pw_protocol_native_server_init(void);

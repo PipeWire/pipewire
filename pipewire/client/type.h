@@ -44,6 +44,8 @@ extern "C" {
  * \sa pw_proxy, pw_resource
  */
 struct pw_interface {
+	const char *type;	/**< interface type */
+	uint32_t version;	/**< version */
 	uint32_t n_methods;	/**< number of methods in the interface */
 	const void *methods;	/**< method implementations of the interface */
 	uint32_t n_events;	/**< number of events in the interface */

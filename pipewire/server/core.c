@@ -116,11 +116,15 @@ static void core_get_registry(void *object, uint32_t new_id)
 	registry_resource = pw_resource_new(client,
 					    new_id,
 					    this->type.registry,
-					    this,
-					    &registry_methods,
-					    destroy_registry_resource);
+					    0);
 	if (registry_resource == NULL)
 		goto no_mem;
+
+	pw_resource_set_implementation(registry_resource,
+				       this,
+				       PW_VERSION_REGISTRY,
+				       &registry_methods,
+				       destroy_registry_resource);
 
 	spa_list_insert(this->registry_resource_list.prev, &registry_resource->link);
 
@@ -238,9 +242,12 @@ core_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	struct pw_core *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, global->object, &core_methods, core_unbind_func);
+	resource = pw_resource_new(client, id, global->type, 0);
 	if (resource == NULL)
 		goto no_mem;
+
+	pw_resource_set_implementation(resource, global->object,
+				       PW_VERSION_CORE, &core_methods, core_unbind_func);
 
 	spa_list_insert(this->resource_list.prev, &resource->link);
 	client->core_resource = resource;

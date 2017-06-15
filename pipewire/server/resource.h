@@ -64,25 +64,32 @@ struct pw_resource {
 
 	uint32_t id;			/**< per client unique id, index in client objects */
 	uint32_t type;			/**< type id of the object */
-	void *object;			/**< pointer to the object */
-	pw_destroy_t destroy;		/**< function to clean up the object */
-
 	const struct pw_interface *iface;	/**< protocol specific interface functions */
-	const void *implementation;		/**< implementation */
 
-	void *access_private;		/**< private data for access control */
+	void *object;			/**< pointer to the object */
+	uint32_t version;		/**< interface version */
+	const void *implementation;	/**< method implementation */
+	pw_destroy_t destroy;		/**< function to clean up the object */
 
 	/** Emited when the resource is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_resource *resource));
+
+	void *access_private;		/**< private data for access control */
+	void *user_data;		/**< extra user data */
 };
 
 struct pw_resource *
 pw_resource_new(struct pw_client *client,
 		uint32_t id,
 		uint32_t type,
-		void *object,
-		const void *implementation,
-		pw_destroy_t destroy);
+		size_t user_data_size);
+
+int
+pw_resource_set_implementation(struct pw_resource *resource,
+			       void *object,
+			       uint32_t version,
+			       const void *implementation,
+			       pw_destroy_t destroy);
 
 void
 pw_resource_destroy(struct pw_resource *resource);

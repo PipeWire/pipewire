@@ -103,6 +103,7 @@ extern "C" {
 #include <pipewire/client/map.h>
 #include <pipewire/client/loop.h>
 #include <pipewire/client/properties.h>
+#include <pipewire/client/protocol.h>
 #include <pipewire/client/subscribe.h>
 #include <pipewire/client/proxy.h>
 #include <pipewire/client/type.h>
@@ -159,6 +160,7 @@ struct pw_context {
 	struct spa_list stream_list;		/**< list of \ref pw_stream objects */
 	struct spa_list proxy_list;		/**< list of \ref pw_proxy objects */
 
+	struct pw_protocol *protocol;		/**< the protocol in use */
 	void *protocol_private;			/**< private data for the protocol */
 
 	enum pw_context_state state;		/**< context state */

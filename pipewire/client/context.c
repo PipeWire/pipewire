@@ -27,6 +27,7 @@
 
 #include "pipewire/client/context.h"
 #include "pipewire/client/introspect.h"
+#include "pipewire/client/interfaces.h"
 #include "pipewire/client/protocol-native.h"
 #include "pipewire/client/connection.h"
 #include "pipewire/client/subscribe.h"
@@ -48,6 +49,10 @@ struct context {
 	bool disconnecting;
 	struct pw_listener need_flush;
 	struct spa_source *flush_event;
+};
+
+struct proxy_data {
+	void *info;
 };
 /** \endcond */
 
@@ -97,15 +102,16 @@ static void core_event_info(void *object, struct pw_core_info *info)
 	struct pw_proxy *proxy = object;
 	struct pw_context *this = proxy->context;
 	enum pw_subscription_event event;
+	struct proxy_data *data = proxy->user_data;
 
 	pw_log_debug("got core info");
 
-	if (proxy->user_data == NULL)
+	if (data->info == NULL)
 		event = PW_SUBSCRIPTION_EVENT_NEW;
 	else
 		event = PW_SUBSCRIPTION_EVENT_CHANGE;
 
-	proxy->user_data = pw_core_info_update(proxy->user_data, info);
+	data->info = pw_core_info_update(data->info, info);
 
 	pw_signal_emit(&this->subscription, this, event, proxy->type, proxy->id);
 }
@@ -169,15 +175,16 @@ static void module_event_info(void *object, struct pw_module_info *info)
 	struct pw_proxy *proxy = object;
 	struct pw_context *this = proxy->context;
 	enum pw_subscription_event event;
+	struct proxy_data *data = proxy->user_data;
 
 	pw_log_debug("got module info");
 
-	if (proxy->user_data == NULL)
+	if (data->info == NULL)
 		event = PW_SUBSCRIPTION_EVENT_NEW;
 	else
 		event = PW_SUBSCRIPTION_EVENT_CHANGE;
 
-	proxy->user_data = pw_module_info_update(proxy->user_data, info);
+	data->info = pw_module_info_update(data->info, info);
 
 	pw_signal_emit(&this->subscription, this, event, proxy->type, proxy->id);
 }
@@ -191,15 +198,16 @@ static void node_event_info(void *object, struct pw_node_info *info)
 	struct pw_proxy *proxy = object;
 	struct pw_context *this = proxy->context;
 	enum pw_subscription_event event;
+	struct proxy_data *data = proxy->user_data;
 
 	pw_log_debug("got node info");
 
-	if (proxy->user_data == NULL)
+	if (data->info == NULL)
 		event = PW_SUBSCRIPTION_EVENT_NEW;
 	else
 		event = PW_SUBSCRIPTION_EVENT_CHANGE;
 
-	proxy->user_data = pw_node_info_update(proxy->user_data, info);
+	data->info = pw_node_info_update(data->info, info);
 
 	pw_signal_emit(&this->subscription, this, event, proxy->type, proxy->id);
 }
@@ -213,15 +221,16 @@ static void client_event_info(void *object, struct pw_client_info *info)
 	struct pw_proxy *proxy = object;
 	struct pw_context *this = proxy->context;
 	enum pw_subscription_event event;
+	struct proxy_data *data = proxy->user_data;
 
 	pw_log_debug("got client info");
 
-	if (proxy->user_data == NULL)
+	if (data->info == NULL)
 		event = PW_SUBSCRIPTION_EVENT_NEW;
 	else
 		event = PW_SUBSCRIPTION_EVENT_CHANGE;
 
-	proxy->user_data = pw_client_info_update(proxy->user_data, info);
+	data->info = pw_client_info_update(data->info, info);
 
 	pw_signal_emit(&this->subscription, this, event, proxy->type, proxy->id);
 }
@@ -235,15 +244,16 @@ static void link_event_info(void *object, struct pw_link_info *info)
 	struct pw_proxy *proxy = object;
 	struct pw_context *this = proxy->context;
 	enum pw_subscription_event event;
+	struct proxy_data *data = proxy->user_data;
 
 	pw_log_debug("got link info");
 
-	if (proxy->user_data == NULL)
+	if (data->info == NULL)
 		event = PW_SUBSCRIPTION_EVENT_NEW;
 	else
 		event = PW_SUBSCRIPTION_EVENT_CHANGE;
 
-	proxy->user_data = pw_link_info_update(proxy->user_data, info);
+	data->info = pw_link_info_update(data->info, info);
 
 	pw_signal_emit(&this->subscription, this, event, proxy->type, proxy->id);
 }
@@ -253,23 +263,26 @@ static const struct pw_link_events link_events = {
 };
 
 static void
-destroy_proxy (struct pw_proxy *proxy)
+destroy_proxy (void *data)
 {
-	if (proxy->user_data == NULL)
+	struct pw_proxy *proxy = data;
+	struct proxy_data *user_data = proxy->user_data;
+
+	if (user_data->info == NULL)
 		return;
 
 	if (proxy->type == proxy->context->type.core) {
-		pw_core_info_free (proxy->user_data);
+		pw_core_info_free (user_data->info);
 	} else if (proxy->type == proxy->context->type.node) {
-		pw_node_info_free (proxy->user_data);
+		pw_node_info_free (user_data->info);
 	} else if (proxy->type == proxy->context->type.module) {
-		pw_module_info_free (proxy->user_data);
+		pw_module_info_free (user_data->info);
 	} else if (proxy->type == proxy->context->type.client) {
-		pw_client_info_free (proxy->user_data);
+		pw_client_info_free (user_data->info);
 	} else if (proxy->type == proxy->context->type.link) {
-		pw_link_info_free (proxy->user_data);
+		pw_link_info_free (user_data->info);
 	}
-	proxy->user_data = NULL;
+	user_data->info = NULL;
 }
 
 static void registry_event_global(void *object, uint32_t id, const char *type, uint32_t version)
@@ -278,6 +291,8 @@ static void registry_event_global(void *object, uint32_t id, const char *type, u
 	struct pw_context *this = registry_proxy->context;
 	struct context *impl = SPA_CONTAINER_OF(this, struct context, this);
 	struct pw_proxy *proxy = NULL;
+	uint32_t proxy_type, client_version;
+	const void *implementation;
 
 	if (impl->no_proxy)
 		return;
@@ -285,34 +300,31 @@ static void registry_event_global(void *object, uint32_t id, const char *type, u
 	pw_log_debug("got global %u %s %u", id, type, version);
 
 	if (!strcmp(type, PIPEWIRE_TYPE__Node)) {
-		proxy = pw_proxy_new(this, SPA_ID_INVALID, this->type.node);
-		if (proxy == NULL)
-			goto no_mem;
-
-		proxy->implementation = &node_events;
+		proxy_type = this->type.node;
+		implementation = &node_events;
+		client_version = PW_VERSION_NODE;
 	} else if (!strcmp(type, PIPEWIRE_TYPE__Module)) {
-		proxy = pw_proxy_new(this, SPA_ID_INVALID, this->type.module);
-		if (proxy == NULL)
-			goto no_mem;
-
-		proxy->implementation = &module_events;
+		proxy_type = this->type.module;
+		implementation = &module_events;
+		client_version = PW_VERSION_MODULE;
 	} else if (!strcmp(type, PIPEWIRE_TYPE__Client)) {
-		proxy = pw_proxy_new(this, SPA_ID_INVALID, this->type.client);
-		if (proxy == NULL)
-			goto no_mem;
-
-		proxy->implementation = &client_events;
+		proxy_type = this->type.client;
+		implementation = &client_events;
+		client_version = PW_VERSION_CLIENT;
 	} else if (!strcmp(type, PIPEWIRE_TYPE__Link)) {
-		proxy = pw_proxy_new(this, SPA_ID_INVALID, this->type.link);
-		if (proxy == NULL)
-			goto no_mem;
+		proxy_type = this->type.link;
+		implementation = &link_events;
+		client_version = PW_VERSION_LINK;
+	} else
+		return;
 
-		proxy->implementation = &link_events;
-	}
-	if (proxy) {
-		proxy->destroy = (pw_destroy_t)destroy_proxy;
-		pw_registry_do_bind(registry_proxy, id, version, proxy->id);
-	}
+	proxy = pw_proxy_new(this, SPA_ID_INVALID, proxy_type, sizeof(struct proxy_data));
+	if (proxy == NULL)
+		goto no_mem;
+
+	pw_proxy_set_implementation(proxy, this, client_version, implementation, destroy_proxy);
+
+	pw_registry_do_bind(registry_proxy, id, version, proxy->id);
 
 	return;
 
@@ -440,6 +452,9 @@ struct pw_context *pw_context_new(struct pw_loop *loop,
 	this->properties = properties;
 
 	this->loop = loop;
+
+	this->protocol = pw_protocol_get(PW_TYPE_PROTOCOL__Native);
+	pw_protocol_native_client_init();
 
 	pw_type_init(&this->type);
 
@@ -593,25 +608,26 @@ bool pw_context_connect_fd(struct pw_context *context, enum pw_context_flags fla
 				      SPA_IO_IN | SPA_IO_HUP | SPA_IO_ERR,
 				      false, on_context_data, impl);
 
-	context->core_proxy = pw_proxy_new(context, 0, context->type.core);
+	context->core_proxy = pw_proxy_new(context, 0, context->type.core, sizeof(struct proxy_data));
 	if (context->core_proxy == NULL)
 		goto no_proxy;
 
-	context->core_proxy->implementation = &core_events;
-	context->core_proxy->destroy = (pw_destroy_t)destroy_proxy;
+	pw_proxy_set_implementation(context->core_proxy, context, PW_VERSION_CORE,
+				    &core_events, destroy_proxy);
 
 	pw_core_do_client_update(context->core_proxy, &context->properties->dict);
 
 	if (!(flags & PW_CONTEXT_FLAG_NO_REGISTRY)) {
 		context->registry_proxy = pw_proxy_new(context,
-						       SPA_ID_INVALID, context->type.registry);
+						       SPA_ID_INVALID, context->type.registry, 0);
+
 		if (context->registry_proxy == NULL)
 			goto no_registry;
 
-		context->registry_proxy->implementation = &registry_events;
+		pw_proxy_set_implementation(context->registry_proxy, context, PW_VERSION_REGISTRY,
+					    &registry_events, NULL);
 
 		pw_core_do_get_registry(context->core_proxy, context->registry_proxy->id);
-
 	}
 	impl->no_proxy = ! !(flags & PW_CONTEXT_FLAG_NO_PROXY);
 
@@ -683,10 +699,13 @@ void pw_context_get_core_info(struct pw_context *context, pw_core_info_cb_t cb, 
 	proxy = pw_map_lookup(&context->objects, 0);
 	if (proxy == NULL) {
 		cb(context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
-	} else if (proxy->type == context->type.core && proxy->user_data) {
-		struct pw_core_info *info = proxy->user_data;
-		cb(context, SPA_RESULT_OK, info, user_data);
-		info->change_mask = 0;
+	} else if (proxy->type == context->type.core) {
+		struct proxy_data *data = proxy->user_data;
+		struct pw_core_info *info = data->info;
+		if (info) {
+			cb(context, SPA_RESULT_OK, info, user_data);
+			info->change_mask = 0;
+		}
 	}
 	cb(context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
@@ -699,6 +718,7 @@ static void do_list(struct pw_context *context, uint32_t type, list_func_t cb, v
 
 	pw_array_for_each(item, &context->objects.items) {
 		struct pw_proxy *proxy;
+		struct proxy_data *data;
 
 		if (pw_map_item_is_free(item))
 			continue;
@@ -707,8 +727,9 @@ static void do_list(struct pw_context *context, uint32_t type, list_func_t cb, v
 		if (proxy->type != type)
 			continue;
 
-		if (proxy->user_data)
-			cb(context, SPA_RESULT_OK, proxy->user_data, user_data);
+		data = proxy->user_data;
+		if (data->info)
+			cb(context, SPA_RESULT_OK, data->info, user_data);
 	}
 	cb(context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
@@ -749,10 +770,13 @@ pw_context_get_module_info_by_id(struct pw_context *context,
 	proxy = pw_map_lookup(&context->objects, id);
 	if (proxy == NULL) {
 		cb(context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
-	} else if (proxy->type == context->type.module && proxy->user_data) {
-		struct pw_module_info *info = proxy->user_data;
-		cb(context, SPA_RESULT_OK, info, user_data);
-		info->change_mask = 0;
+	} else if (proxy->type == context->type.module) {
+		struct proxy_data *data = proxy->user_data;
+		struct pw_module_info *info = data->info;
+		if (info) {
+			cb(context, SPA_RESULT_OK, info, user_data);
+			info->change_mask = 0;
+		}
 	}
 	cb(context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
@@ -793,10 +817,13 @@ pw_context_get_client_info_by_id(struct pw_context *context,
 	proxy = pw_map_lookup(&context->objects, id);
 	if (proxy == NULL) {
 		cb(context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
-	} else if (proxy->type == context->type.client && proxy->user_data) {
-		struct pw_client_info *info = proxy->user_data;
-		cb(context, SPA_RESULT_OK, info, user_data);
-		info->change_mask = 0;
+	} else if (proxy->type == context->type.client) {
+		struct proxy_data *data = proxy->user_data;
+		struct pw_client_info *info = data->info;
+		if (info) {
+			cb(context, SPA_RESULT_OK, info, user_data);
+			info->change_mask = 0;
+		}
 	}
 	cb(context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
@@ -836,10 +863,13 @@ pw_context_get_node_info_by_id(struct pw_context *context,
 	proxy = pw_map_lookup(&context->objects, id);
 	if (proxy == NULL) {
 		cb(context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
-	} else if (proxy->type == context->type.node && proxy->user_data) {
-		struct pw_node_info *info = proxy->user_data;
-		cb(context, SPA_RESULT_OK, info, user_data);
-		info->change_mask = 0;
+	} else if (proxy->type == context->type.node) {
+		struct proxy_data *data = proxy->user_data;
+		struct pw_node_info *info = data->info;
+		if (info) {
+			cb(context, SPA_RESULT_OK, info, user_data);
+			info->change_mask = 0;
+		}
 	}
 	cb(context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
@@ -879,10 +909,13 @@ pw_context_get_link_info_by_id(struct pw_context *context,
 	proxy = pw_map_lookup(&context->objects, id);
 	if (proxy == NULL) {
 		cb(context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
-	} else if (proxy->type == context->type.link && proxy->user_data) {
-		struct pw_link_info *info = proxy->user_data;
-		cb(context, SPA_RESULT_OK, info, user_data);
-		info->change_mask = 0;
+	} else if (proxy->type == context->type.link) {
+		struct proxy_data *data = proxy->user_data;
+		struct pw_link_info *info = data->info;
+		if (info) {
+			cb(context, SPA_RESULT_OK, info, user_data);
+			info->change_mask = 0;
+		}
 	}
 	cb(context, SPA_RESULT_ENUM_END, NULL, user_data);
 }

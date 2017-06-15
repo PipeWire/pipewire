@@ -89,15 +89,16 @@ struct native_client {
 	struct pw_listener busy_changed;
 };
 
-static void client_destroy(struct native_client *this)
+static void client_destroy(void *data)
 {
+	struct pw_client *client = data;
+	struct native_client *this = client->user_data;
+
 	pw_loop_destroy_source(this->impl->core->main_loop->loop, this->source);
-	pw_client_destroy(this->client);
 	spa_list_remove(&this->link);
 
 	pw_connection_destroy(this->connection);
 	close(this->fd);
-	free(this);
 }
 
 static void
@@ -126,14 +127,14 @@ process_messages(struct native_client *client)
 		if (opcode >= resource->iface->n_methods) {
 			pw_log_error("protocol-native %p: invalid method %u %u", client->impl,
 				     id,  opcode);
-			client_destroy(client);
+			pw_client_destroy(c);
 			break;
 		}
 		demarshal = resource->iface->methods;
 		if (!demarshal[opcode] || !demarshal[opcode] (resource, message, size)) {
 			pw_log_error("protocol-native %p: invalid message received %u %u",
 				     client->impl, id, opcode);
-			client_destroy(client);
+			pw_client_destroy(c);
 			break;
 		}
 		if (c->busy) {
@@ -146,7 +147,9 @@ static void
 on_resource_added(struct pw_listener *listener,
 		  struct pw_client *client, struct pw_resource *resource)
 {
-	pw_protocol_native_server_setup(resource);
+	resource->iface = pw_protocol_get_interface(client->protocol,
+						    spa_type_map_get_type(client->core->type.map, resource->type),
+						    true);
 }
 
 static void
@@ -183,7 +186,7 @@ connection_data(struct spa_loop_utils *utils,
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_error("protocol-native %p: got connection error", client->impl);
-		client_destroy(client);
+		pw_client_destroy(client->client);
 		return;
 	}
 
@@ -198,10 +201,21 @@ static struct native_client *client_new(struct impl *impl, int fd)
 	socklen_t len;
 	struct ucred ucred, *ucredp;
 
-	this = calloc(1, sizeof(struct native_client));
-	if (this == NULL)
-		goto no_native_client;
+	len = sizeof(ucred);
+	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
+		pw_log_error("no peercred: %m");
+		ucredp = NULL;
+	} else {
+		ucredp = &ucred;
+	}
 
+	client = pw_client_new(impl->core, ucredp, NULL, sizeof(struct native_client));
+	if (client == NULL)
+		goto no_client;
+
+	client->destroy = client_destroy;
+
+	this = client->user_data;
 	this->impl = impl;
 	this->fd = fd;
 	this->source = pw_loop_add_io(impl->core->main_loop->loop,
@@ -214,18 +228,7 @@ static struct native_client *client_new(struct impl *impl, int fd)
 	if (this->connection == NULL)
 		goto no_connection;
 
-	len = sizeof(ucred);
-	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
-		pw_log_error("no peercred: %m");
-		ucredp = NULL;
-	} else {
-		ucredp = &ucred;
-	}
-
-	client = pw_client_new(impl->core, ucredp, NULL);
-	if (client == NULL)
-		goto no_client;
-
+	client->protocol = pw_protocol_get(PW_TYPE_PROTOCOL__Native);
 	client->protocol_private = this->connection;
 
 	this->client = client;
@@ -236,15 +239,14 @@ static struct native_client *client_new(struct impl *impl, int fd)
 	pw_signal_add(&client->busy_changed, &this->busy_changed, on_busy_changed);
 
 	pw_global_bind(impl->core->global, client, 0, 0);
+
 	return this;
 
-      no_client:
-	pw_connection_destroy(this->connection);
       no_connection:
 	pw_loop_destroy_source(impl->core->main_loop->loop, this->source);
       no_source:
 	free(this);
-      no_native_client:
+      no_client:
 	return NULL;
 }
 
@@ -461,6 +463,8 @@ static void pw_protocol_native_destroy(struct impl *impl)
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
+	pw_protocol_native_server_init();
+
 	pw_protocol_native_new(module->core, NULL);
 	return true;
 }

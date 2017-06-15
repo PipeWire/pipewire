@@ -834,10 +834,12 @@ link_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, global->object, NULL, link_unbind_func);
+	resource = pw_resource_new(client, id, global->type, 0);
+
 	if (resource == NULL)
 		goto no_mem;
 
+	pw_resource_set_implementation(resource, global->object, PW_VERSION_LINK, NULL, link_unbind_func);
 	impl->refcount++;
 
 	pw_log_debug("link %p: bound to %d", global->object, resource->id);

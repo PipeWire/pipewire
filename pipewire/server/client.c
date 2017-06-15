@@ -43,9 +43,11 @@ client_bind_func(struct pw_global *global, struct pw_client *client, uint32_t ve
 	struct pw_client *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, global->object, NULL, client_unbind_func);
+	resource = pw_resource_new(client, id, global->type, 0);
 	if (resource == NULL)
 		goto no_mem;
+
+	pw_resource_set_implementation(resource, global->object, PW_VERSION_CLIENT, NULL, client_unbind_func);
 
 	pw_log_debug("client %p: bound to %d", global->object, resource->id);
 
@@ -73,12 +75,14 @@ client_bind_func(struct pw_global *global, struct pw_client *client, uint32_t ve
  * \memberof pw_client
  */
 struct pw_client *pw_client_new(struct pw_core *core,
-				struct ucred *ucred, struct pw_properties *properties)
+				struct ucred *ucred,
+				struct pw_properties *properties,
+				size_t user_data_size)
 {
 	struct pw_client *this;
 	struct impl *impl;
 
-	impl = calloc(1, sizeof(struct impl));
+	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		return NULL;
 
@@ -90,9 +94,13 @@ struct pw_client *pw_client_new(struct pw_core *core,
 		this->ucred = *ucred;
 	this->properties = properties;
 
+	if (user_data_size > 0)
+		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+
 	spa_list_init(&this->resource_list);
 	pw_signal_init(&this->properties_changed);
 	pw_signal_init(&this->resource_added);
+	pw_signal_init(&this->resource_impl);
 	pw_signal_init(&this->resource_removed);
 	pw_signal_init(&this->busy_changed);
 
@@ -142,6 +150,9 @@ void pw_client_destroy(struct pw_client *client)
 
 	if (client->properties)
 		pw_properties_free(client->properties);
+
+	if (client->destroy)
+		client->destroy(client);
 
 	free(impl);
 }

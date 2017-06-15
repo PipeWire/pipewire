@@ -41,12 +41,14 @@ struct proxy {
  *
  * \memberof pw_proxy
  */
-struct pw_proxy *pw_proxy_new(struct pw_context *context, uint32_t id, uint32_t type)
+struct pw_proxy *pw_proxy_new(struct pw_context *context,
+			      uint32_t id, uint32_t type,
+			      size_t user_data_size)
 {
 	struct proxy *impl;
 	struct pw_proxy *this;
 
-	impl = calloc(1, sizeof(struct proxy));
+	impl = calloc(1, sizeof(struct proxy) + user_data_size);
 	if (impl == NULL)
 		return NULL;
 
@@ -63,7 +65,12 @@ struct pw_proxy *pw_proxy_new(struct pw_context *context, uint32_t id, uint32_t 
 
 	this->id = id;
 
-	pw_protocol_native_client_setup(this);
+	if (user_data_size > 0)
+		this->user_data = SPA_MEMBER(impl, sizeof(struct proxy), void);
+
+	this->iface = pw_protocol_get_interface(context->protocol,
+						spa_type_map_get_type(context->type.map, type),
+						false);
 
 	spa_list_insert(&this->context->proxy_list, &this->link);
 
@@ -75,6 +82,19 @@ struct pw_proxy *pw_proxy_new(struct pw_context *context, uint32_t id, uint32_t 
 	pw_log_error("proxy %p: id %u in use for context %p", this, id, context);
 	free(impl);
 	return NULL;
+}
+
+int pw_proxy_set_implementation(struct pw_proxy *proxy,
+				void *object,
+				uint32_t version,
+				const void *implementation,
+				pw_destroy_t destroy)
+{
+	proxy->object = object;
+	proxy->version = version;
+	proxy->implementation = implementation;
+	proxy->destroy = destroy;
+	return SPA_RESULT_OK;
 }
 
 /** Destroy a proxy object

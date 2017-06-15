@@ -57,6 +57,10 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
+	this->iface = pw_protocol_get_interface(client->protocol,
+                                                spa_type_map_get_type(client->core->type.map, type),
+                                                true);
+
 	pw_log_debug("resource %p: new for client %p id %u", this, client, id);
 	pw_signal_emit(&client->resource_added, client, this);
 

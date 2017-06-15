@@ -144,15 +144,6 @@ process_messages(struct native_client *client)
 }
 
 static void
-on_resource_added(struct pw_listener *listener,
-		  struct pw_client *client, struct pw_resource *resource)
-{
-	resource->iface = pw_protocol_get_interface(client->protocol,
-						    spa_type_map_get_type(client->core->type.map, resource->type),
-						    true);
-}
-
-static void
 on_busy_changed(struct pw_listener *listener,
 		struct pw_client *client)
 {
@@ -235,7 +226,6 @@ static struct native_client *client_new(struct impl *impl, int fd)
 
 	spa_list_insert(impl->client_list.prev, &this->link);
 
-	pw_signal_add(&client->resource_added, &this->resource_added, on_resource_added);
 	pw_signal_add(&client->busy_changed, &this->busy_changed, on_busy_changed);
 
 	pw_global_bind(impl->core->global, client, 0, 0);

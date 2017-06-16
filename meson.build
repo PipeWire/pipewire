@@ -51,7 +51,7 @@ cdata.set('PACKAGE', '"pipewire"')
 cdata.set('PACKAGE_NAME', '"PipeWire"')
 cdata.set('PACKAGE_STRING', '"PipeWire @0@"'.format(pipewire_version))
 cdata.set('PACKAGE_TARNAME', '"pipewire"')
-cdata.set('PACKAGE_URL', '""')
+cdata.set('PACKAGE_URL', '"http://pipewire.org"')
 cdata.set('PACKAGE_VERSION', '"@0@"'.format(pipewire_version))
 cdata.set('MODULEDIR', '"@0@/@1@/pipewire-@2@"'.format(pipewire_libdir,apiversion))
 cdata.set('PIPEWIRE_CONFIG_DIR', '"@0@/pipewire"'.format(pipewire_sysconfdir))
@@ -146,4 +146,11 @@ if doxygen.found()
   subdir('doc')
 else
   message('Documentation disabled without doxygen')
+endif
+
+xmltoman = find_program('xmltoman', required: false)
+if xmltoman.found()
+  subdir('man')
+else
+  message('Man page disabled without xmltoman')
 endif

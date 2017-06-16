@@ -453,8 +453,7 @@ struct pw_context *pw_context_new(struct pw_loop *loop,
 
 	this->loop = loop;
 
-	this->protocol = pw_protocol_get(PW_TYPE_PROTOCOL__Native);
-	pw_protocol_native_client_init();
+	this->protocol = pw_protocol_native_client_init();
 
 	pw_type_init(&this->type);
 
@@ -753,7 +752,7 @@ pw_context_list_module_info(struct pw_context *context, pw_module_info_cb_t cb, 
 /** Get module information
  *
  * \param context A \ref pw_context
- * \param id the server side id of the module to query
+ * \param id the client side id of the module to query
  * \param cb the callback to call with the results
  * \param user_data user data passed to \a cb
  *
@@ -800,7 +799,7 @@ pw_context_list_client_info(struct pw_context *context, pw_client_info_cb_t cb, 
 /** Get client information
  *
  * \param context A \ref pw_context
- * \param id the server side id of the client to query
+ * \param id the client side id of the client to query
  * \param cb the callback to call with the results
  * \param user_data user data passed to \a cb
  *
@@ -846,7 +845,7 @@ void pw_context_list_node_info(struct pw_context *context, pw_node_info_cb_t cb,
 /** Get node information
  *
  * \param context A \ref pw_context
- * \param id the server side id of the node to query
+ * \param id the client side id of the node to query
  * \param cb the callback to call with the results
  * \param user_data user data passed to \a cb
  *
@@ -892,7 +891,7 @@ void pw_context_list_link_info(struct pw_context *context, pw_link_info_cb_t cb,
 /** Get link information
  *
  * \param context A \ref pw_context
- * \param id the server side id of the link to query
+ * \param id the client side id of the link to query
  * \param cb the callback to call with the results
  * \param user_data user data passed to \a cb
  *

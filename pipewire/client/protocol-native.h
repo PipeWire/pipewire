@@ -17,4 +17,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-void pw_protocol_native_client_init(void);
+#include <pipewire/client/protocol.h>
+
+struct pw_protocol *pw_protocol_native_client_init(void);

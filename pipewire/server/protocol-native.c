@@ -978,15 +978,15 @@ const struct pw_interface pw_protocol_native_server_link_interface = {
 	PW_LINK_EVENT_NUM, &pw_protocol_native_server_link_events,
 };
 
-void pw_protocol_native_server_init(void)
+struct pw_protocol *pw_protocol_native_server_init(void)
 {
 	static bool init = false;
 	struct pw_protocol *protocol;
 
-	if (init)
-		return;
-
 	protocol = pw_protocol_get(PW_TYPE_PROTOCOL__Native);
+
+	if (init)
+		return protocol;
 
 	pw_protocol_add_interfaces(protocol,
 				   NULL,
@@ -1011,4 +1011,6 @@ void pw_protocol_native_server_init(void)
 				   &pw_protocol_native_server_link_interface);
 
 	init = true;
+
+	return protocol;
 }

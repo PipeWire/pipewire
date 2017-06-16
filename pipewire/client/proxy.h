@@ -100,7 +100,7 @@ struct pw_proxy {
 	const void *implementation;	/**< event handler implementation */
 	pw_destroy_t destroy;		/**< optional destroy function to clean up the object */
 
-	/** destroy_signal is emited when the proxy is destroyed */
+	/** destroy is emited when the proxy is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_proxy *proxy));
 
 	void *user_data;		/**< extra user data */

@@ -1,4 +1,4 @@
-%global majorminor   0.1
+%global majorminor   0.1.0
 
 #global snap       20141103
 #global gitrel     327
@@ -13,36 +13,31 @@
 
 Name:           pipewire
 Summary:        Media Sharing Server
-Version:        0.1
+Version:        0.1.0
 Release:        2%{?snap:.%{snap}git%{shortcommit}}%{?dist}
 License:        LGPLv2+
 URL:            http://www.freedesktop.org/wiki/Software/PipeWire
 %if 0%{?gitrel}
 # git clone git://anongit.freedesktop.org/gstreamer/pipewire
 # cd pipewire; git reset --hard %{gitcommit}; ./autogen.sh; make; make distcheck
-Source0:        pipewire-%{version}-%{gitrel}-g%{shortcommit}.tar.xz
+Source0:        pipewire-%{version}-%{gitrel}-g%{shortcommit}.tar.gz
 %else
-Source0:        http://freedesktop.org/software/pipewire/releases/pipewire-%{version}.tar.xz
+Source0:        http://freedesktop.org/software/pipewire/releases/pipewire-%{version}.tar.gz
 %endif
 
 ## upstream patches
 
 ## upstreamable patches
 
-BuildRequires:  automake libtool
-BuildRequires:  m4
-BuildRequires:  libtool-ltdl-devel
-BuildRequires:  intltool
+BuildRequires:  meson >= 0.35.0
 BuildRequires:  pkgconfig
-BuildRequires:  xmltoman
-BuildRequires:  tcp_wrappers-devel
 BuildRequires:  pkgconfig(glib-2.0) >= 2.32
 BuildRequires:  pkgconfig(gio-unix-2.0) >= 2.32
-BuildRequires:  pkgconfig(gstreamer-1.0) >= 1.5.0
-BuildRequires:  pkgconfig(gstreamer-base-1.0) >= 1.5.0
-BuildRequires:  pkgconfig(gstreamer-plugins-base-1.0) >= 1.5.0
-BuildRequires:  pkgconfig(gstreamer-net-1.0) >= 1.5.0
-BuildRequires:  pkgconfig(gstreamer-allocators-1.0) >= 1.5.0
+BuildRequires:  pkgconfig(gstreamer-1.0) >= 1.10.0
+BuildRequires:  pkgconfig(gstreamer-base-1.0) >= 1.10.0
+BuildRequires:  pkgconfig(gstreamer-plugins-base-1.0) >= 1.10.0
+BuildRequires:  pkgconfig(gstreamer-net-1.0) >= 1.10.0
+BuildRequires:  pkgconfig(gstreamer-allocators-1.0) >= 1.10.0
 BuildRequires:  systemd-devel >= 184
 
 Requires(pre):  shadow-utils
@@ -81,46 +76,15 @@ This package contains command line utilities for the PipeWire media server.
 %prep
 %setup -q -T -b0 -n %{name}-%{version}%{?gitrel:-%{gitrel}-g%{shortcommit}}
 
-%if 0%{?gitrel:1}
-# fixup PACKAGE_VERSION that leaks into pkgconfig files and friends
-sed -i.PACKAGE_VERSION -e "s|^PACKAGE_VERSION=.*|PACKAGE_VERSION=\'%{version}\'|" configure
-%else
-## kill rpaths
-%if "%{_libdir}" != "/usr/lib"
-sed -i -e 's|"/lib /usr/lib|"/%{_lib} %{_libdir}|' configure
-%endif
-%endif
-
-
 %build
-%configure \
-  --disable-silent-rules \
-  --disable-static \
-  --disable-rpath \
-  --with-system-user=pipewire \
-  --with-system-group=pipewire \
-  --with-access-group=pipewire-access \
-  --disable-systemd-daemon \
-  --enable-tests
-
-make %{?_smp_mflags} V=1
+%meson
+%meson_build
 
 %install
-make install DESTDIR=$RPM_BUILD_ROOT
-
-## unpackaged files
-# extraneous libtool crud
-rm -fv $RPM_BUILD_ROOT%{_libdir}/*.la
+%meson_install
 
 %check
-# don't fail build due failing tests on big endian arches (rhbz#1067470)
-make check \
-%ifarch ppc %{power64} s390 s390x
-  || :
-%else
-  %{nil}
-%endif
-
+%meson_test
 
 %pre
 getent group pipewire >/dev/null || groupadd -r pipewire
@@ -135,9 +99,6 @@ exit 0
 %license LICENSE GPL LGPL
 %doc README
 %{_sysconfdir}/xdg/autostart/pipewire.desktop
-## already owned by -libs, see also https://bugzilla.redhat.com/show_bug.cgi?id=909690
-#dir %{_sysconfdir}/pipewire/
-%{_sysconfdir}/dbus-1/system.d/pipewire-system.conf
 %{_bindir}/pipewire
 %{_libdir}/libpipewire-%{majorminor}.so
 %{_libdir}/libpipewirecore-%{majorminor}.so

@@ -85,7 +85,6 @@ struct native_client {
 	int fd;
 	struct spa_source *source;
 	struct pw_connection *connection;
-	struct pw_listener resource_added;
 	struct pw_listener busy_changed;
 };
 
@@ -219,7 +218,7 @@ static struct native_client *client_new(struct impl *impl, int fd)
 	if (this->connection == NULL)
 		goto no_connection;
 
-	client->protocol = pw_protocol_get(PW_TYPE_PROTOCOL__Native);
+	client->protocol = pw_protocol_native_server_init();
 	client->protocol_private = this->connection;
 
 	this->client = client;
@@ -453,8 +452,6 @@ static void pw_protocol_native_destroy(struct impl *impl)
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
-	pw_protocol_native_server_init();
-
 	pw_protocol_native_new(module->core, NULL);
 	return true;
 }

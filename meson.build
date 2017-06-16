@@ -143,14 +143,7 @@ subdir('pkgconfig')
 
 doxygen = find_program('doxygen', required: false)
 if doxygen.found()
-  subdir('doxygen')
+  subdir('doc')
 else
   message('Documentation disabled without doxygen')
 endif
-
-#gtkdoc = find_program('gtkdoc-scan', required : false)
-#if gtkdoc.found()
-#  subdir('docs')
-#else
-#  message('Not building documentation as gtk-doc was not found')
-#endif

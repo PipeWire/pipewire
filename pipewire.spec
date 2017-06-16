@@ -98,25 +98,37 @@ exit 0
 %files
 %license LICENSE GPL LGPL
 %doc README
+%{_datadir}/doc/pipewire/html
 %{_bindir}/pipewire
-%{_libdir}/libpipewire-%{majorminor}.so
-%{_libdir}/libpipewirecore-%{majorminor}.so
+%{_libdir}/libpipewire-%{majorminor}.so.*
+%{_libdir}/libpipewirecore-%{majorminor}.so.*
+%{_libdir}/libspa-lib.so.*
 %{_libdir}/gstreamer-1.0/libgstpipewire.*
+%{_libdir}/pipewire-%{majorminor}/
+%{_libdir}/spa/
 %{_mandir}/man1/pipewire.1*
+%{_sysconfdir}/pipewire/pipewire.conf
 
 %files libs
 %license LICENSE GPL LGPL
 %doc README
-#%dir %{_sysconfdir}/pipewire/
+%dir %{_sysconfdir}/pipewire/
 #%dir %{_libdir}/pipewire/
 
 %files libs-devel
+%{_libdir}/libpipewire-%{majorminor}.so
+%{_libdir}/libpipewirecore-%{majorminor}.so
+%{_libdir}/libspa-lib.so
 %{_includedir}/pipewire/
-%{_libdir}/pkgconfig/libpipewire*.pc
+%{_includedir}/spa/
+%{_libdir}/pkgconfig/libpipewire-%{majorminor}.pc
+%{_libdir}/pkgconfig/libspa-%{majorminor}.pc
 
 %files utils
 %{_bindir}/pipewire-monitor
 %{_mandir}/man1/pipewire-monitor.1*
+%{_bindir}/spa-monitor
+%{_bindir}/spa-inspect
 
 %changelog
 * Wed Sep 9 2015 Wim Taymans <wtaymans@redhat.com> - 0.1.0-2

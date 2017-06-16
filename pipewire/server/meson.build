@@ -38,7 +38,7 @@ libpipewirecore_c_args = [
 ]
 
 
-libpipewirecore = shared_library('pipewirecore', pipewirecore_sources,
+libpipewirecore = shared_library('pipewirecore-@0@'.format(apiversion), pipewirecore_sources,
   version : libversion,
   soversion : soversion,
   c_args : libpipewirecore_c_args,

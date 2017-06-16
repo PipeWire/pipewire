@@ -20,5 +20,5 @@ foreach m : manpages
 		command : [xmltoman, '@INPUT@'],
 		capture : true,
 		install : true,
-		install_dir : 'subdir')
+		install_dir : join_paths(get_option('mandir'), 'man1'))
 endforeach

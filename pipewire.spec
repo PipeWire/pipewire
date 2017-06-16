@@ -1,4 +1,4 @@
-%global majorminor   0.1.0
+%global majorminor   0.1
 
 #global snap       20141103
 #global gitrel     327
@@ -98,7 +98,6 @@ exit 0
 %files
 %license LICENSE GPL LGPL
 %doc README
-%{_sysconfdir}/xdg/autostart/pipewire.desktop
 %{_bindir}/pipewire
 %{_libdir}/libpipewire-%{majorminor}.so
 %{_libdir}/libpipewirecore-%{majorminor}.so

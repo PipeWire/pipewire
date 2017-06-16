@@ -219,7 +219,8 @@ struct pw_stream {
 	PW_SIGNAL(state_changed, (struct pw_listener *listener, struct pw_stream *stream));
 
 	/** Emited when the format changed. The listener should call
-	 * pw_stream_finish_format() to complete format negotiation */
+	 * pw_stream_finish_format() from within this signal or later to complete
+	 * the format negotiation */
 	PW_SIGNAL(format_changed, (struct pw_listener *listener,
 				   struct pw_stream *stream, struct spa_format *format));
 

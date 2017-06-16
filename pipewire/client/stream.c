@@ -1009,7 +1009,10 @@ bool pw_stream_disconnect(struct pw_stream *stream)
 
 	unhandle_socket(stream);
 
-	pw_client_node_do_destroy(impl->node_proxy);
+	if (impl->node_proxy) {
+		pw_client_node_do_destroy(impl->node_proxy);
+		impl->node_proxy = NULL;
+	}
 
 	return true;
 }

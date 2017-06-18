@@ -109,12 +109,10 @@ struct data {
 
 	struct spa_node *sink;
 	struct spa_port_io source_sink_io[1];
-	struct spa_node_callbacks sink_callbacks;
 
 	struct spa_node *source;
 	struct spa_buffer *source_buffers[1];
 	struct buffer source_buffer[1];
-	struct spa_node_callbacks source_callbacks;
 
 	bool running;
 	pthread_t thread;
@@ -242,24 +240,21 @@ static void on_source_push(struct data *data)
 	}
 }
 
-static void on_sink_done(const struct spa_node_callbacks *callbacks,
-			 struct spa_node *node, int seq, int res)
+static void on_sink_done(struct spa_node *node, int seq, int res, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, sink_callbacks);
+	struct data *data = user_data;
 	spa_log_trace(data->log, "got sink done %d %d", seq, res);
 }
 
-static void on_sink_event(const struct spa_node_callbacks *callbacks,
-			  struct spa_node *node, struct spa_event *event)
+static void on_sink_event(struct spa_node *node, struct spa_event *event, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, sink_callbacks);
+	struct data *data = user_data;
 	spa_log_trace(data->log, "got sink event %d", SPA_EVENT_TYPE(event));
 }
 
-static void on_sink_need_input(const struct spa_node_callbacks *callbacks,
-			       struct spa_node *node)
+static void on_sink_need_input(struct spa_node *node, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, sink_callbacks);
+	struct data *data = user_data;
 	spa_log_trace(data->log, "need input");
 	on_sink_pull(data);
 	if (--data->iterations == 0)
@@ -267,10 +262,9 @@ static void on_sink_need_input(const struct spa_node_callbacks *callbacks,
 }
 
 static void
-on_sink_reuse_buffer(const struct spa_node_callbacks *callbacks,
-		     struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+on_sink_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, sink_callbacks);
+	struct data *data = user_data;
 
 	data->source_sink_io[0].buffer_id = buffer_id;
 }
@@ -284,24 +278,21 @@ static const struct spa_node_callbacks sink_callbacks = {
 	&on_sink_reuse_buffer
 };
 
-static void on_source_done(const struct spa_node_callbacks *callbacks,
-			   struct spa_node *node, int seq, int res)
+static void on_source_done(struct spa_node *node, int seq, int res, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, source_callbacks);
+	struct data *data = user_data;
 	spa_log_trace(data->log, "got source done %d %d", seq, res);
 }
 
-static void on_source_event(const struct spa_node_callbacks *callbacks,
-			    struct spa_node *node, struct spa_event *event)
+static void on_source_event(struct spa_node *node, struct spa_event *event, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, source_callbacks);
+	struct data *data = user_data;
 	spa_log_trace(data->log, "got source event %d", SPA_EVENT_TYPE(event));
 }
 
-static void on_source_have_output(const struct spa_node_callbacks *callbacks,
-				  struct spa_node *node)
+static void on_source_have_output(struct spa_node *node, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, source_callbacks);
+	struct data *data = user_data;
 	spa_log_trace(data->log, "have_output");
 	on_source_push(data);
 	if (--data->iterations == 0)
@@ -355,9 +346,8 @@ static int make_nodes(struct data *data)
 		return res;
 	}
 
-	data->sink_callbacks = sink_callbacks;
 	if (data->mode & MODE_ASYNC_PULL)
-		spa_node_set_callbacks(data->sink, &data->sink_callbacks);
+		spa_node_set_callbacks(data->sink, &sink_callbacks, data);
 
 	if ((res = make_node(data, &data->source,
 			     "build/spa/plugins/test/libspa-test.so", "fakesrc")) < 0) {
@@ -365,9 +355,8 @@ static int make_nodes(struct data *data)
 		return res;
 	}
 
-	data->source_callbacks = source_callbacks;
 	if (data->mode & MODE_ASYNC_PUSH)
-		spa_node_set_callbacks(data->source, &data->source_callbacks);
+		spa_node_set_callbacks(data->source, &source_callbacks, data);
 
 	data->source_sink_io[0] = SPA_PORT_IO_INIT;
 	data->source_sink_io[0].status = SPA_RESULT_NEED_BUFFER;

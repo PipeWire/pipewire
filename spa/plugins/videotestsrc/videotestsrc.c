@@ -112,6 +112,7 @@ struct impl {
 	struct props props;
 
 	const struct spa_node_callbacks *callbacks;
+	void *user_data;
 
 	struct spa_source timer_source;
 	struct itimerspec timerspec;
@@ -300,7 +301,7 @@ static void on_output(struct spa_source *source)
 	res = make_buffer(this);
 
 	if (res == SPA_RESULT_HAVE_BUFFER)
-		this->callbacks->have_output(this->callbacks, &this->node);
+		this->callbacks->have_output(&this->node, this->user_data);
 }
 
 static int impl_node_send_command(struct spa_node *node, struct spa_command *command)
@@ -354,7 +355,8 @@ static int impl_node_send_command(struct spa_node *node, struct spa_command *com
 
 static int
 impl_node_set_callbacks(struct spa_node *node,
-			const struct spa_node_callbacks *callbacks)
+			const struct spa_node_callbacks *callbacks,
+			void *user_data)
 {
 	struct impl *this;
 
@@ -367,6 +369,7 @@ impl_node_set_callbacks(struct spa_node *node,
 		return SPA_RESULT_ERROR;
 	}
 	this->callbacks = callbacks;
+	this->user_data = user_data;
 
 	return SPA_RESULT_OK;
 }

@@ -107,7 +107,6 @@ struct data {
 
 	struct spa_node *sink;
 	struct spa_port_io volume_sink_io[1];
-	struct spa_node_callbacks sink_callbacks;
 
 	struct spa_node *volume;
 	struct spa_buffer *volume_buffers[1];
@@ -216,22 +215,19 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 	return SPA_RESULT_ERROR;
 }
 
-static void on_sink_done(const struct spa_node_callbacks *callbacks,
-			 struct spa_node *node, int seq, int res)
+static void on_sink_done(struct spa_node *node, int seq, int res, void *user_data)
 {
 	printf("got done %d %d\n", seq, res);
 }
 
-static void on_sink_event(const struct spa_node_callbacks *callbacks,
-			  struct spa_node *node, struct spa_event *event)
+static void on_sink_event(struct spa_node *node, struct spa_event *event, void *user_data)
 {
 	printf("got event %d\n", SPA_EVENT_TYPE(event));
 }
 
-static void on_sink_need_input(const struct spa_node_callbacks *callbacks,
-			       struct spa_node *node)
+static void on_sink_need_input(struct spa_node *node, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, sink_callbacks);
+	struct data *data = user_data;
 
 	data->sink_node.action = SPA_GRAPH_ACTION_CHECK;
 	data->sink_node.state = SPA_RESULT_NEED_BUFFER;
@@ -240,10 +236,9 @@ static void on_sink_need_input(const struct spa_node_callbacks *callbacks,
 }
 
 static void
-on_sink_reuse_buffer(const struct spa_node_callbacks *callbacks,
-		     struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+on_sink_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, sink_callbacks);
+	struct data *data = user_data;
 
 	data->volume_sink_io[0].buffer_id = buffer_id;
 }
@@ -297,8 +292,7 @@ static int make_nodes(struct data *data, const char *device)
 		printf("can't create alsa-sink: %d\n", res);
 		return res;
 	}
-	data->sink_callbacks = sink_callbacks;
-	spa_node_set_callbacks(data->sink, &data->sink_callbacks);
+	spa_node_set_callbacks(data->sink, &sink_callbacks, data);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_props(&b, &f[0], data->type.props,

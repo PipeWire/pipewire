@@ -48,7 +48,6 @@ struct impl {
 	void *hnd;
 
 	struct spa_list item_list;
-	struct spa_monitor_callbacks callbacks;
 };
 
 static void add_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
@@ -150,10 +149,9 @@ static void remove_item(struct pw_spa_monitor *this, struct spa_monitor_item *it
 		destroy_item(mitem);
 }
 
-static void on_monitor_event(const struct spa_monitor_callbacks *callbacks,
-			     struct spa_monitor *monitor, struct spa_event *event)
+static void on_monitor_event(struct spa_monitor *monitor, struct spa_event *event, void *user_data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(callbacks, struct impl, callbacks);
+	struct impl *impl = user_data;
 	struct pw_spa_monitor *this = &impl->this;
 
 	if (SPA_EVENT_TYPE(event) == impl->core->type.monitor.Added) {
@@ -272,8 +270,7 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 		}
 		add_item(this, item);
 	}
-	impl->callbacks = callbacks;
-	spa_monitor_set_callbacks(this->monitor, &impl->callbacks);
+	spa_monitor_set_callbacks(this->monitor, &callbacks, impl);
 
 	return this;
 

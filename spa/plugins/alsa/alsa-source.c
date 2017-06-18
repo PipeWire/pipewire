@@ -94,7 +94,7 @@ static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, size_t 
 {
 	struct state *this = user_data;
 
-	this->callbacks->done(this->callbacks, &this->node, seq, *(int*)data);
+	this->callbacks->done(&this->node, seq, *(int*)data, this->user_data);
 
 	return SPA_RESULT_OK;
 }
@@ -168,7 +168,8 @@ static int impl_node_send_command(struct spa_node *node, struct spa_command *com
 
 static int
 impl_node_set_callbacks(struct spa_node *node,
-			const struct spa_node_callbacks *callbacks)
+			const struct spa_node_callbacks *callbacks,
+			void *user_data)
 {
 	struct state *this;
 
@@ -177,6 +178,7 @@ impl_node_set_callbacks(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct state, node);
 
 	this->callbacks = callbacks;
+	this->user_data = user_data;
 
 	return SPA_RESULT_OK;
 }

@@ -95,6 +95,7 @@ struct proxy {
 	struct spa_loop *data_loop;
 
 	const struct spa_node_callbacks *callbacks;
+	void *user_data;
 
 	struct pw_resource *resource;
 
@@ -209,7 +210,8 @@ static int spa_proxy_node_send_command(struct spa_node *node, struct spa_command
 
 static int
 spa_proxy_node_set_callbacks(struct spa_node *node,
-			     const struct spa_node_callbacks *callbacks)
+			     const struct spa_node_callbacks *callbacks,
+			     void *user_data)
 {
 	struct proxy *this;
 
@@ -218,6 +220,7 @@ spa_proxy_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
 	this->callbacks = callbacks;
+	this->user_data = user_data;
 
 	return SPA_RESULT_OK;
 }
@@ -847,14 +850,14 @@ static int handle_node_event(struct proxy *this, struct spa_event *event)
 			*io = impl->transport->outputs[i];
 			pw_log_trace("%d %d", io->status, io->buffer_id);
 		}
-		this->callbacks->have_output(this->callbacks, &this->node);
+		this->callbacks->have_output(&this->node, this->user_data);
 	} else if (SPA_EVENT_TYPE(event) == impl->core->type.event_transport.NeedInput) {
-		this->callbacks->need_input(this->callbacks, &this->node);
+		this->callbacks->need_input(&this->node, this->user_data);
 	} else if (SPA_EVENT_TYPE(event) == impl->core->type.event_transport.ReuseBuffer) {
 		struct pw_event_transport_reuse_buffer *p =
 		    (struct pw_event_transport_reuse_buffer *) event;
-		this->callbacks->reuse_buffer(this->callbacks, &this->node, p->body.port_id.value,
-					     p->body.buffer_id.value);
+		this->callbacks->reuse_buffer(&this->node, p->body.port_id.value,
+					     p->body.buffer_id.value, this->user_data);
 	}
 	return SPA_RESULT_OK;
 }
@@ -867,7 +870,7 @@ client_node_done(void *object, int seq, int res)
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct proxy *this = &impl->proxy;
 
-	this->callbacks->done(this->callbacks, &this->node, seq, res);
+	this->callbacks->done(&this->node, seq, res, this->user_data);
 }
 
 
@@ -933,7 +936,7 @@ static void client_node_event(void *object, struct spa_event *event)
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct proxy *this = &impl->proxy;
 
-	this->callbacks->event(this->callbacks, &this->node, event);
+	this->callbacks->event(&this->node, event, this->user_data);
 }
 
 static void client_node_destroy(void *object)

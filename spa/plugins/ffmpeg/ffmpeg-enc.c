@@ -76,6 +76,7 @@ struct impl {
 	struct spa_log *log;
 
 	const struct spa_node_callbacks *callbacks;
+	void *user_data;
 
 	struct port in_ports[1];
 	struct port out_ports[1];
@@ -114,7 +115,8 @@ static int spa_ffmpeg_enc_node_send_command(struct spa_node *node, struct spa_co
 
 static int
 spa_ffmpeg_enc_node_set_callbacks(struct spa_node *node,
-				  const struct spa_node_callbacks *callbacks)
+				  const struct spa_node_callbacks *callbacks,
+				  void *user_data)
 {
 	struct impl *this;
 
@@ -124,6 +126,7 @@ spa_ffmpeg_enc_node_set_callbacks(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	this->callbacks = callbacks;
+	this->user_data = user_data;
 
 	return SPA_RESULT_OK;
 }

@@ -46,8 +46,6 @@ struct data {
 	struct spa_log *log;
 	struct spa_loop main_loop;
 
-	struct spa_monitor_callbacks callbacks;
-
 	struct spa_support support[3];
 	uint32_t n_support;
 
@@ -65,11 +63,10 @@ static void inspect_item(struct data *data, struct spa_monitor_item *item)
 	spa_debug_pod(&item->object.pod);
 }
 
-static void on_monitor_event(const struct spa_monitor_callbacks *callbacks,
-			     struct spa_monitor *monitor,
-			     struct spa_event *event)
+static void on_monitor_event(struct spa_monitor *monitor,
+			     struct spa_event *event, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, callbacks);
+	struct data *data = user_data;
 
 	if (SPA_EVENT_TYPE(event) == data->type.monitor.Added) {
 		fprintf(stderr, "added:\n");
@@ -126,8 +123,7 @@ static void handle_monitor(struct data *data, struct spa_monitor *monitor)
 		}
 		inspect_item(data, item);
 	}
-	data->callbacks = impl_callbacks;
-	spa_monitor_set_callbacks(monitor, &data->callbacks);
+	spa_monitor_set_callbacks(monitor, &impl_callbacks, data);
 
 	while (true) {
 		int i, r;

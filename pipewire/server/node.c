@@ -36,7 +36,6 @@ struct impl {
 	struct pw_work_queue *work;
 
 	bool async_init;
-	struct spa_node_callbacks callbacks;
 };
 
 /** \endcond */
@@ -314,10 +313,9 @@ static int do_pull(struct pw_node *this)
 	return res;
 }
 
-static void on_node_done(const struct spa_node_callbacks *callbacks,
-			 struct spa_node *node, int seq, int res)
+static void on_node_done(struct spa_node *node, int seq, int res, void *user_data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(callbacks, struct impl, callbacks);
+	struct impl *impl = user_data;
 	struct pw_node *this = &impl->this;
 
 	pw_log_debug("node %p: async complete event %d %d", this, seq, res);
@@ -325,10 +323,9 @@ static void on_node_done(const struct spa_node_callbacks *callbacks,
 	pw_signal_emit(&this->async_complete, this, seq, res);
 }
 
-static void on_node_event(const struct spa_node_callbacks *callbacks,
-			  struct spa_node *node, struct spa_event *event)
+static void on_node_event(struct spa_node *node, struct spa_event *event, void *user_data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(callbacks, struct impl, callbacks);
+	struct impl *impl = user_data;
 	struct pw_node *this = &impl->this;
 
 	if (SPA_EVENT_TYPE(event) == this->core->type.event_node.RequestClockUpdate) {
@@ -336,19 +333,17 @@ static void on_node_event(const struct spa_node_callbacks *callbacks,
 	}
 }
 
-static void on_node_need_input(const struct spa_node_callbacks *callbacks,
-			       struct spa_node *node)
+static void on_node_need_input(struct spa_node *node, void *user_data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(callbacks, struct impl, callbacks);
+	struct impl *impl = user_data;
 	struct pw_node *this = &impl->this;
 
 	do_pull(this);
 }
 
-static void on_node_have_output(const struct spa_node_callbacks *callbacks,
-				struct spa_node *node)
+static void on_node_have_output(struct spa_node *node, void *user_data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(callbacks, struct impl, callbacks);
+	struct impl *impl = user_data;
 	struct pw_node *this = &impl->this;
 	int res;
 	struct pw_port *outport;
@@ -384,10 +379,9 @@ static void on_node_have_output(const struct spa_node_callbacks *callbacks,
 }
 
 static void
-on_node_reuse_buffer(const struct spa_node_callbacks *callbacks,
-		     struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+on_node_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id, void *user_data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(callbacks, struct impl, callbacks);
+	struct impl *impl = user_data;
 	struct pw_node *this = &impl->this;
 	struct pw_port *inport;
 
@@ -560,8 +554,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	spa_list_init(&this->resource_list);
 
-	impl->callbacks = node_callbacks;
-	if (spa_node_set_callbacks(this->node, &impl->callbacks) < 0)
+	if (spa_node_set_callbacks(this->node, &node_callbacks, impl) < 0)
 		pw_log_warn("node %p: error setting callback", this);
 
 	pw_signal_init(&this->destroy_signal);

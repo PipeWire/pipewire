@@ -96,7 +96,6 @@ struct data {
 
 	struct spa_node *source;
 	struct spa_port_io source_output[1];
-	struct spa_node_callbacks source_callbacks;
 
 	SDL_Renderer *renderer;
 	SDL_Window *window;
@@ -177,26 +176,23 @@ static void handle_events(struct data *data)
 	}
 }
 
-static void on_source_done(const struct spa_node_callbacks *callbacks,
-			   struct spa_node *node, int seq, int res)
+static void on_source_done(struct spa_node *node, int seq, int res, void *user_data)
 {
 	printf("got done %d %d\n", seq, res);
 }
 
-static void on_source_event(const struct spa_node_callbacks *callbacks,
-			    struct spa_node *node, struct spa_event *event)
+static void on_source_event(struct spa_node *node, struct spa_event *event, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, source_callbacks);
+	struct data *data = user_data;
 
 	handle_events(data);
 
 	printf("got event %d\n", SPA_EVENT_TYPE(event));
 }
 
-static void on_source_have_output(const struct spa_node_callbacks *callbacks,
-				  struct spa_node *node)
+static void on_source_have_output(struct spa_node *node, void *user_data)
 {
-	struct data *data = SPA_CONTAINER_OF(callbacks, struct data, source_callbacks);
+	struct data *data = user_data;
 	int res;
 	struct spa_buffer *b;
 	void *sdata, *ddata;
@@ -315,8 +311,7 @@ static int make_nodes(struct data *data, const char *device)
 		return res;
 	}
 
-	data->source_callbacks = source_callbacks;
-	spa_node_set_callbacks(data->source, &data->source_callbacks);
+	spa_node_set_callbacks(data->source, &source_callbacks, data);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_props(&b, &f[0], data->type.props,

@@ -84,8 +84,7 @@ struct spa_node_callbacks {
 	uint32_t version;	/**< version of this structure */
 
 	/** Emited when an async operation completed */
-	void (*done) (const struct spa_node_callbacks *callbacks,
-		      struct spa_node *node, int seq, int res);
+	void (*done) (struct spa_node *node, int seq, int res, void *user_data);
 	/**
 	 * struct spa_node_callbacks::event:
 	 * @node: a #struct spa_node
@@ -94,8 +93,7 @@ struct spa_node_callbacks {
 	 * This will be called when an out-of-bound event is notified
 	 * on @node. the callback can be called from any thread.
 	 */
-	void (*event) (const struct spa_node_callbacks *callbacks,
-		       struct spa_node *node, struct spa_event *event);
+	void (*event) (struct spa_node *node, struct spa_event *event, void *user_data);
 	/**
 	 * struct spa_node_callbacks::need_input:
 	 * @node: a #struct spa_node
@@ -106,8 +104,7 @@ struct spa_node_callbacks {
 	 * When this function is NULL, synchronous operation is requested
 	 * on the input ports.
 	 */
-	void (*need_input) (const struct spa_node_callbacks *callbacks,
-			    struct spa_node *node);
+	void (*need_input) (struct spa_node *node, void *user_data);
 	/**
 	 * struct spa_node_callbacks::have_output:
 	 * @node: a #struct spa_node
@@ -118,8 +115,7 @@ struct spa_node_callbacks {
 	 * When this function is NULL, synchronous operation is requested
 	 * on the output ports.
 	 */
-	void (*have_output) (const struct spa_node_callbacks *callbacks,
-			     struct spa_node *node);
+	void (*have_output) (struct spa_node *node, void *user_data);
 	/**
 	 * struct spa_node_callbacks::reuse_buffer:
 	 * @node: a #struct spa_node
@@ -132,10 +128,9 @@ struct spa_node_callbacks {
 	 * When this function is NULL, the buffers to reuse will be set in
 	 * the io area or the input ports.
 	 */
-	void (*reuse_buffer) (const struct spa_node_callbacks *callbacks,
-			      struct spa_node *node,
+	void (*reuse_buffer) (struct spa_node *node,
 			      uint32_t port_id,
-			      uint32_t buffer_id);
+			      uint32_t buffer_id, void *user_data);
 
 };
 
@@ -235,7 +230,8 @@ struct spa_node {
 	 *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
 	 */
 	int (*set_callbacks) (struct spa_node *node,
-			      const struct spa_node_callbacks *callbacks);
+			      const struct spa_node_callbacks *callbacks,
+			      void *data);
 	/**
 	 * struct spa_node::get_n_ports:
 	 * @node: a #struct spa_node

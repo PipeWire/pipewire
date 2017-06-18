@@ -112,9 +112,7 @@ enum spa_monitor_item_state {
 struct spa_monitor_callbacks {
 	uint32_t version;	/**< version of the structure */
 
-	void (*event) (const struct spa_monitor_callbacks *callbacks,
-		       struct spa_monitor *monitor,
-		       struct spa_event *event);
+	void (*event) (struct spa_monitor *monitor, struct spa_event *event, void *user_data);
 };
 
 #define SPA_VERSION_MONITOR	0
@@ -147,7 +145,8 @@ struct spa_monitor {
 	 * Returns: #SPA_RESULT_OK on success
 	 */
 	int (*set_callbacks) (struct spa_monitor *monitor,
-			      const struct spa_monitor_callbacks *callbacks);
+			      const struct spa_monitor_callbacks *callbacks,
+			      void *user_data);
 
 	int (*enum_items) (struct spa_monitor *monitor,
 			   struct spa_monitor_item **item, uint32_t index);

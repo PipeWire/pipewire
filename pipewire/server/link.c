@@ -476,7 +476,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		for (i = 0, offset = 0; i < n_params; i++) {
 			params[i] = SPA_MEMBER(buffer, offset, struct spa_param);
 			spa_param_fixate(params[i]);
-			spa_debug_param(params[i]);
+			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+				spa_debug_param(params[i]);
 			offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 		}
 

@@ -18,6 +18,10 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <getopt.h>
 #include <limits.h>
 
@@ -73,6 +77,7 @@ setup_video_node(struct pw_core *core, struct spa_node *spa_node, struct pw_prop
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
+	const char *dir;
 	struct pw_properties *video_props = NULL, *audio_props = NULL;
 
 	if (args != NULL) {
@@ -118,17 +123,17 @@ bool pipewire__module_init(struct pw_module *module, const char *args)
 		free(argv);
 		pw_free_strv(tmp_argv);
 	}
+	if ((dir = getenv("SPA_PLUGIN_DIR")) == NULL)
+		dir = PLUGINDIR;
 
-	pw_spa_monitor_load(module->core,
-			    "build/spa/plugins/alsa/libspa-alsa.so", "alsa-monitor", "alsa");
-	pw_spa_monitor_load(module->core,
-			    "build/spa/plugins/v4l2/libspa-v4l2.so", "v4l2-monitor", "v4l2");
+	pw_spa_monitor_load(module->core, dir, "alsa/libspa-alsa", "alsa-monitor", "alsa");
+
+	pw_spa_monitor_load(module->core, dir, "v4l2/libspa-v4l2", "v4l2-monitor", "v4l2");
+
 	audio_props = pw_properties_new("media.class", "Audio/Source", NULL);
-	pw_spa_node_load(module->core,
-			 "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
+	pw_spa_node_load(module->core, dir, "audiotestsrc/libspa-audiotestsrc",
 			 "audiotestsrc", "audiotestsrc", audio_props, NULL);
-	pw_spa_node_load(module->core,
-			 "build/spa/plugins/videotestsrc/libspa-videotestsrc.so",
+	pw_spa_node_load(module->core, dir, "videotestsrc/libspa-videotestsrc",
 			 "videotestsrc", "videotestsrc", video_props, setup_video_node);
 
 	return true;

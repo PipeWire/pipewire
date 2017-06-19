@@ -6,4 +6,4 @@ testlib = shared_library('spa-test',
                           dependencies : threads_dep,
                           link_with : spalib,
                           install : true,
-                          install_dir : '@0@/spa'.format(get_option('libdir')))
+                          install_dir : '@0@/spa/test'.format(get_option('libdir')))

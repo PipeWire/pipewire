@@ -17,6 +17,10 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <unistd.h>
 #include <limits.h>
 #include <stdio.h>
@@ -37,21 +41,29 @@ static struct support_info {
 } support_info;
 
 static bool
-open_support(const char *lib,
+open_support(const char *path,
+	     const char *lib,
 	     struct support_info *info)
 {
-        if ((info->hnd = dlopen(lib, RTLD_NOW)) == NULL) {
-                fprintf(stderr, "can't load %s: %s\n", lib, dlerror());
-                return false;
+	char *filename;
+
+        asprintf(&filename, "%s/%s.so", path, lib);
+
+        if ((info->hnd = dlopen(filename, RTLD_NOW)) == NULL) {
+                fprintf(stderr, "can't load %s: %s\n", filename, dlerror());
+                goto open_failed;
         }
         if ((info->enum_func = dlsym(info->hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
                 fprintf(stderr, "can't find enum function\n");
                 goto no_symbol;
         }
+	free(filename);
 	return true;
 
       no_symbol:
 	dlclose(info->hnd);
+      open_failed:
+        free(filename);
 	return false;
 }
 
@@ -182,7 +194,10 @@ void pw_init(int *argc, char **argv[])
 	if ((str = getenv("PIPEWIRE_DEBUG")))
 		configure_debug(str);
 
-	if (open_support("build/spa/plugins/support/libspa-support.so", &support_info))
+	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
+		str = PLUGINDIR;
+
+	if (open_support(str, "support/libspa-support", &support_info))
 		configure_support(&support_info);
 }
 

@@ -8,4 +8,4 @@ spa_support_lib = shared_library('spa-support',
                           include_directories : [ spa_inc, spa_libinc],
                           dependencies : threads_dep,
                           install : true,
-                          install_dir : '@0@/spa'.format(get_option('libdir')))
+                          install_dir : '@0@/spa/support'.format(get_option('libdir')))

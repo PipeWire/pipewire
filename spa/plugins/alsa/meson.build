@@ -10,4 +10,4 @@ spa_alsa = shared_library('spa-alsa',
                            dependencies : [ alsa_dep, libudev_dep ],
                            link_with : spalib,
                            install : true,
-                           install_dir : '@0@/spa'.format(get_option('libdir')))
+                           install_dir : '@0@/spa/alsa'.format(get_option('libdir')))

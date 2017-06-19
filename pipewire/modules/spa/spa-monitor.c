@@ -200,6 +200,7 @@ static const struct spa_monitor_callbacks callbacks = {
 };
 
 struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
+					   const char *dir,
 					   const char *lib,
 					   const char *factory_name, const char *system_name)
 {
@@ -212,10 +213,13 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	uint32_t index;
 	spa_handle_factory_enum_func_t enum_func;
 	const struct spa_handle_factory *factory;
+	char *filename;
 
-	if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
-		pw_log_error("can't load %s: %s", lib, dlerror());
-		return NULL;
+	asprintf(&filename, "%s/%s.so", dir, lib);
+
+	if ((hnd = dlopen(filename, RTLD_NOW)) == NULL) {
+		pw_log_error("can't load %s: %s", filename, dlerror());
+		goto open_failed;
 	}
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		pw_log_error("can't find enum function");
@@ -250,7 +254,7 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	this = &impl->this;
 	pw_signal_init(&this->destroy_signal);
 	this->monitor = iface;
-	this->lib = strdup(lib);
+	this->lib = filename;
 	this->factory_name = strdup(factory_name);
 	this->system_name = strdup(system_name);
 	this->handle = handle;
@@ -281,6 +285,8 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
       enum_failed:
       no_symbol:
 	dlclose(hnd);
+      open_failed:
+	free(filename);
 	return NULL;
 
 }

@@ -8,6 +8,7 @@ clean:
 	ninja-build -C build clean
 
 run:
+	SPA_PLUGIN_DIR=build/spa/plugins \
 	PIPEWIRE_MODULE_DIR=build \
 	PIPEWIRE_CONFIG_FILE=build/pipewire/daemon/pipewire.conf \
 	build/pipewire/daemon/pipewire

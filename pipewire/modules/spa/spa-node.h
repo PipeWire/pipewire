@@ -41,6 +41,7 @@ typedef int (*setup_node_t) (struct pw_core *core,
 
 struct pw_spa_node *
 pw_spa_node_load(struct pw_core *core,
+		 const char *dir,
 		 const char *lib,
 		 const char *factory_name,
 		 const char *name,

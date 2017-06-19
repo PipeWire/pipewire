@@ -360,11 +360,14 @@
 /* Define to the version of this package. */
 #mesondefine PACKAGE_VERSION
 
-/* directory where plugins are located */
+/* directory where modules are located */
 #mesondefine MODULEDIR
 
 /* directory where config files are located */
 #mesondefine PIPEWIRE_CONFIG_DIR
+
+/* directory where plugins are located */
+#mesondefine PLUGINDIR
 
 /* Define to necessary symbol if this constant uses a non-standard name on
    your system. */

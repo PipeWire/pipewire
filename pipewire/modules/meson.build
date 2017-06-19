@@ -1,4 +1,3 @@
-#subdir('gst')
 subdir('spa')
 
 pipewire_module_c_args = [

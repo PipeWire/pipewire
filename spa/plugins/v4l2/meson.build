@@ -8,4 +8,4 @@ v4l2lib = shared_library('spa-v4l2',
                           dependencies : [ v4l2_dep, libudev_dep ],
                           link_with : spalib,
                           install : true,
-                          install_dir : '@0@/spa'.format(get_option('libdir')))
+                          install_dir : '@0@/spa/v4l2'.format(get_option('libdir')))

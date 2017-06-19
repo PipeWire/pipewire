@@ -40,6 +40,7 @@ struct pw_spa_monitor {
 
 struct pw_spa_monitor *
 pw_spa_monitor_load(struct pw_core *core,
+		    const char *dir,
 		    const char *lib,
 		    const char *factory_name, const char *system_name);
 void

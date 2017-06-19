@@ -33,6 +33,7 @@ struct impl {
 };
 
 struct pw_spa_node *pw_spa_node_load(struct pw_core *core,
+				     const char *dir,
 				     const char *lib,
 				     const char *factory_name,
 				     const char *name,
@@ -49,10 +50,13 @@ struct pw_spa_node *pw_spa_node_load(struct pw_core *core,
 	spa_handle_factory_enum_func_t enum_func;
 	const struct spa_handle_factory *factory;
 	void *iface;
+	char *filename;
 
-	if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
-		pw_log_error("can't load %s: %s", lib, dlerror());
-		return NULL;
+	asprintf(&filename, "%s/%s.so", dir, lib);
+
+	if ((hnd = dlopen(filename, RTLD_NOW)) == NULL) {
+		pw_log_error("can't load %s: %s", filename, dlerror());
+		goto open_failed;
 	}
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		pw_log_error("can't find enum function");
@@ -98,7 +102,7 @@ struct pw_spa_node *pw_spa_node_load(struct pw_core *core,
 	}
 
 	this->node = pw_node_new(core, NULL, name, false, spa_node, spa_clock, properties);
-	this->lib = strdup(lib);
+	this->lib = filename;
 	this->factory_name = strdup(factory_name);
 	this->handle = handle;
 
@@ -111,6 +115,8 @@ struct pw_spa_node *pw_spa_node_load(struct pw_core *core,
       enum_failed:
       no_symbol:
 	dlclose(hnd);
+      open_failed:
+	free(filename);
 	return NULL;
 }
 

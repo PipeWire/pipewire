@@ -6,4 +6,4 @@ audiotestsrclib = shared_library('spa-audiotestsrc',
                           dependencies : libm,
                           link_with : spalib,
                           install : true,
-                          install_dir : '@0@/spa'.format(get_option('libdir')))
+                          install_dir : '@0@/spa/audiotestsrc'.format(get_option('libdir')))

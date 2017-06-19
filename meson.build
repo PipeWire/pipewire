@@ -53,9 +53,10 @@ cdata.set('PACKAGE_STRING', '"PipeWire @0@"'.format(pipewire_version))
 cdata.set('PACKAGE_TARNAME', '"pipewire"')
 cdata.set('PACKAGE_URL', '"http://pipewire.org"')
 cdata.set('PACKAGE_VERSION', '"@0@"'.format(pipewire_version))
-cdata.set('MODULEDIR', '"@0@/@1@/pipewire-@2@"'.format(pipewire_libdir,apiversion))
+cdata.set('MODULEDIR', '"@0@/pipewire-@1@"'.format(pipewire_libdir,apiversion))
 cdata.set('PIPEWIRE_CONFIG_DIR', '"@0@/pipewire"'.format(pipewire_sysconfdir))
 cdata.set('VERSION', '"@0@"'.format(pipewire_version))
+cdata.set('PLUGINDIR', '"@0@/spa"'.format(pipewire_libdir))
 # FIXME: --with-memory-alignment],[8,N,malloc,pagesize (default is 32)]) option
 cdata.set('MEMORY_ALIGNMENT_MALLOC', 1)
 

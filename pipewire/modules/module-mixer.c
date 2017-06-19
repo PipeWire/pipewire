@@ -27,7 +27,7 @@
 #include "pipewire/server/core.h"
 #include "pipewire/server/module.h"
 
-#define AUDIOMIXER_LIB "build/spa/plugins/audiomixer/libspa-audiomixer.so"
+#define AUDIOMIXER_LIB "audiomixer/libspa-audiomixer"
 
 struct impl {
 	struct pw_core *core;
@@ -43,10 +43,17 @@ static const struct spa_handle_factory *find_factory(struct impl *impl)
 	uint32_t index;
 	const struct spa_handle_factory *factory = NULL;
 	int res;
+	char *filename;
+	const char *dir;
 
-	if ((impl->hnd = dlopen(AUDIOMIXER_LIB, RTLD_NOW)) == NULL) {
+	if ((dir = getenv("SPA_PLUIGIN_DIR")) == NULL)
+		dir = PLUGINDIR;
+
+	asprintf(&filename, "%s/%s.so", dir, AUDIOMIXER_LIB);
+
+	if ((impl->hnd = dlopen(filename, RTLD_NOW)) == NULL) {
 		pw_log_error("can't load %s: %s", AUDIOMIXER_LIB, dlerror());
-		return NULL;
+		goto open_failed;
 	}
 	if ((enum_func = dlsym(impl->hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		pw_log_error("can't find enum function");
@@ -62,12 +69,15 @@ static const struct spa_handle_factory *find_factory(struct impl *impl)
 		if (strcmp(factory->name, "audiomixer") == 0)
 			break;
 	}
+	free(filename);
 	return factory;
 
       enum_failed:
       no_symbol:
 	dlclose(impl->hnd);
 	impl->hnd = NULL;
+      open_failed:
+	free(filename);
 	return NULL;
 }
 

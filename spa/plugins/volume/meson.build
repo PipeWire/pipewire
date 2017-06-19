@@ -5,4 +5,4 @@ volumelib = shared_library('spa-volume',
                            include_directories : [spa_inc, spa_libinc],
                            link_with : spalib,
                            install : true,
-                           install_dir : '@0@/spa'.format(get_option('libdir')))
+                           install_dir : '@0@/spa/volume'.format(get_option('libdir')))

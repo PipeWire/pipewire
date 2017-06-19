@@ -44,7 +44,7 @@ struct pw_array {
 
 #define pw_array_get_len_s(a,s)			((a)->size / (s))
 #define pw_array_get_unchecked_s(a,idx,s,t)	SPA_MEMBER((a)->data,(idx)*(s),t)
-#define pw_array_check_index_s(a,idx,s)		((idx) < pw_array_get_len(a,s))
+#define pw_array_check_index_s(a,idx,s)		((idx) < pw_array_get_len_s(a,s))
 
 /** Get the number of items of type \a t in array \memberof pw_array */
 #define pw_array_get_len(a,t)			pw_array_get_len_s(a,sizeof(t))

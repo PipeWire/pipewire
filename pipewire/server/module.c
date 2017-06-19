@@ -174,6 +174,8 @@ struct pw_module *pw_module_load(struct pw_core *core,
 	this = &impl->this;
 	this->core = core;
 
+	pw_signal_init(&this->destroy_signal);
+
 	if (!init_func(this, (char *) args))
 		goto init_failed;
 

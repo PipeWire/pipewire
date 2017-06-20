@@ -310,3 +310,40 @@ spa_props_filter(struct spa_pod_builder *b,
 	}
 	return SPA_RESULT_OK;
 }
+
+int spa_props_compare(const struct spa_pod *props1,
+                      uint32_t props1_size,
+                      const struct spa_pod *props2,
+                      uint32_t props2_size)
+{
+	const struct spa_pod *pr;
+
+	SPA_POD_FOREACH(props1, props1_size, pr) {
+		struct spa_pod_prop *p1, *p2;
+		void *a1, *a2;
+
+		if (pr->type != SPA_POD_TYPE_PROP)
+			continue;
+
+		p1 = (struct spa_pod_prop *) pr;
+
+		if ((p2 = find_prop(props2, props2_size, p1->body.key)) == NULL)
+			return SPA_RESULT_INCOMPATIBLE_PROPS;
+
+		/* incompatible property types */
+		if (p1->body.value.type != p2->body.value.type)
+			return SPA_RESULT_INCOMPATIBLE_PROPS;
+
+		if (p1->body.flags & SPA_POD_PROP_FLAG_UNSET ||
+		    p2->body.flags & SPA_POD_PROP_FLAG_UNSET)
+			return SPA_RESULT_INCOMPATIBLE_PROPS;
+
+		a1 = SPA_MEMBER(p1, sizeof(struct spa_pod_prop), void);
+		a2 = SPA_MEMBER(p2, sizeof(struct spa_pod_prop), void);
+
+		if (compare_value(p1->body.value.type, a1, a2) != 0)
+			return SPA_RESULT_INCOMPATIBLE_PROPS;
+	}
+	return SPA_RESULT_OK;
+
+}

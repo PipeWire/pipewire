@@ -10,6 +10,8 @@
 #include <sys/timerfd.h>
 
 #include <lib/debug.h>
+#include <lib/format.h>
+
 #include "alsa-utils.h"
 
 #define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", snd_strerror(err)); return err; }

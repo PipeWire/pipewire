@@ -158,7 +158,7 @@ int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_membl
 			return SPA_RESULT_ERRNO;
 		}
 #else
-		char filename[] = "/dev/shm/spa-tmpfile.XXXXXX";
+		char filename[] = "/dev/shm/pipewire-tmpfile.XXXXXX";
 		mem->fd = mkostemp(filename, O_CLOEXEC);
 		if (mem->fd == -1) {
 			pw_log_error("Failed to create temporary file: %s\n", strerror(errno));

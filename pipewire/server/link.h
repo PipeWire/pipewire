@@ -32,6 +32,17 @@ extern "C" {
 #include <pipewire/server/port.h>
 #include <pipewire/server/main-loop.h>
 
+/** \page page_link Link
+ *
+ * \section page_link_overview Overview
+ *
+ * A link is the connection between 2 nodes (\ref page_node). Nodes are
+ * linked together on ports.
+ *
+ * The link is responsible for negotiating the format and buffers for
+ * the nodes.
+ */
+
 /** \class pw_link
  *
  * PipeWire link interface.

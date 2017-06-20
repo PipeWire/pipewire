@@ -611,6 +611,7 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 
 	pw_log_debug("core %p: finding best format %d %d", core, out_state, in_state);
 
+	/* when a port is configured but the node is idle, we can reconfigure with a different format */
 	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE)
 		out_state = PW_PORT_STATE_CONFIGURE;
 	if (in_state > PW_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE)

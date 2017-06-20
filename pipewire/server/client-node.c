@@ -30,6 +30,7 @@
 
 #include "spa/node.h"
 #include "spa/format-builder.h"
+#include "spa/lib/format.h"
 
 #include "pipewire/client/pipewire.h"
 #include "pipewire/client/interfaces.h"

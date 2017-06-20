@@ -59,3 +59,20 @@ spa_format_filter(const struct spa_format *format,
 
 	return res;
 }
+
+int
+spa_format_compare(const struct spa_format *format1,
+		   const struct spa_format *format2)
+{
+	if (format1 == NULL || format2 == NULL)
+		return SPA_RESULT_INVALID_ARGUMENTS;
+
+	if (SPA_FORMAT_MEDIA_TYPE(format1) != SPA_FORMAT_MEDIA_TYPE(format2) ||
+	    SPA_FORMAT_MEDIA_SUBTYPE(format1) != SPA_FORMAT_MEDIA_SUBTYPE(format2))
+		return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+	return spa_props_compare(SPA_POD_CONTENTS(struct spa_format, format1),
+				 SPA_POD_CONTENTS_SIZE(struct spa_format, format1),
+				 SPA_POD_CONTENTS(struct spa_format, format2),
+				 SPA_POD_CONTENTS_SIZE(struct spa_format, format2));
+}

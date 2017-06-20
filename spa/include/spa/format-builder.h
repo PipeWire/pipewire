@@ -54,11 +54,6 @@ spa_pod_builder_push_format(struct spa_pod_builder *builder,
 		SPA_POD_TYPE_ID,media_subtype,					\
 		__VA_ARGS__)
 
-int
-spa_format_filter(const struct spa_format *format,
-		  const struct spa_format *filter,
-		  struct spa_pod_builder *result);
-
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

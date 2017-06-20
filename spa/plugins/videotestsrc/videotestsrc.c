@@ -33,6 +33,8 @@
 #include <spa/list.h>
 #include <spa/video/format-utils.h>
 #include <spa/format-builder.h>
+
+#include <lib/format.h>
 #include <lib/props.h>
 
 #define NAME "videotestsrc"

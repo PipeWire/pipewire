@@ -1,5 +1,6 @@
 spalib_headers = [
   'debug.h',
+  'format.h',
   'props.h',
 ]
 

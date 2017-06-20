@@ -26,6 +26,7 @@
 #include <spa/node.h>
 #include <spa/audio/format-utils.h>
 #include <spa/format-builder.h>
+#include <lib/format.h>
 #include <lib/props.h>
 
 #define NAME "audiomixer"

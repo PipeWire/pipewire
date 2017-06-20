@@ -28,6 +28,7 @@
 #include <spa/format-builder.h>
 #include <spa/param-alloc.h>
 #include <lib/props.h>
+#include <lib/format.h>
 
 #define NAME "volume"
 

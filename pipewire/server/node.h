@@ -39,6 +39,16 @@ extern "C" {
 #include <pipewire/server/client.h>
 #include <pipewire/server/data-loop.h>
 
+/** \page page_node Node
+ *
+ * \section page_node_overview Overview
+ *
+ * The node object processes data. The node has a list of
+ * input and output ports (\ref page_port) on which it
+ * will receive and send out buffers respectively.
+ *
+ * The node wraps an SPA node object.
+ */
 /** \class pw_node
  *
  * PipeWire node class.

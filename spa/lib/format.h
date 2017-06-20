@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_LIBPROPS_H__
-#define __SPA_LIBPROPS_H__
+#ifndef __SPA_LIBFORMAT_H__
+#define __SPA_LIBFORMAT_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,18 +26,15 @@ extern "C" {
 
 #include <spa/props.h>
 
-int spa_props_filter(struct spa_pod_builder *b,
-		     const struct spa_pod *props,
-		     uint32_t props_size,
-		     const struct spa_pod *filter,
-		     uint32_t filter_size);
+int spa_format_filter(const struct spa_format *format,
+		      const struct spa_format *filter,
+		      struct spa_pod_builder *result);
 
-int spa_props_compare(const struct spa_pod *props1,
-		      uint32_t props1_size,
-		      const struct spa_pod *props2,
-		      uint32_t props2_size);
+int spa_format_compare(const struct spa_format *format1,
+		       const struct spa_format *format2);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
 
-#endif /* __SPA_LIBPROPS_H__ */
+#endif /* __SPA_LIBFORMAT_H__ */

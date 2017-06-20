@@ -162,15 +162,11 @@ struct pw_link *pw_port_link(struct pw_port *output_port,
 	return link;
 
       same_node:
-	{
-		asprintf(error, "can't link a node to itself");
-		return NULL;
-	}
+	asprintf(error, "can't link a node to itself");
+	return NULL;
       was_linked:
-	{
-		asprintf(error, "input port was already linked");
-		return NULL;
-	}
+	asprintf(error, "input port was already linked");
+	return NULL;
       no_mem:
 	return NULL;
 }

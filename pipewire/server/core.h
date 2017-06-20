@@ -51,6 +51,9 @@ struct pw_global;
  *
  * \subpage page_resource
  *
+ * \subpage page_node
+ *
+ * \subpage page_link
  */
 
 /** \page page_core Core

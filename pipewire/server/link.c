@@ -23,6 +23,7 @@
 #include <spa/video/format.h>
 #include <spa/pod-utils.h>
 
+#include <spa/lib/format.h>
 #include <spa/lib/props.h>
 
 #include "pipewire/client/pipewire.h"
@@ -108,7 +109,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = SPA_RESULT_ERROR, res2;
-	struct spa_format *format;
+	struct spa_format *format, *current;
 	char *error = NULL;
 
 	if (in_state != PW_PORT_STATE_CONFIGURE && out_state != PW_PORT_STATE_CONFIGURE)
@@ -120,13 +121,39 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	if (format == NULL)
 		goto error;
 
+	format = spa_format_copy(format);
+
 	if (out_state > PW_PORT_STATE_CONFIGURE && this->output->node->info.state == PW_NODE_STATE_IDLE) {
-		pw_node_set_state(this->output->node, PW_NODE_STATE_SUSPENDED);
-		out_state = PW_PORT_STATE_CONFIGURE;
+		if ((res = spa_node_port_get_format(this->output->node->node,
+						    SPA_DIRECTION_OUTPUT,
+						    this->output->port_id,
+						    (const struct spa_format **) &current)) < 0) {
+			asprintf(&error, "error get output format: %d", res);
+			goto error;
+		}
+		if (spa_format_compare(current, format) < 0) {
+			pw_log_debug("link %p: output format change, renegotiate", this);
+			pw_node_set_state(this->output->node, PW_NODE_STATE_SUSPENDED);
+			out_state = PW_PORT_STATE_CONFIGURE;
+		}
+		else
+			pw_node_update_state(this->output->node, PW_NODE_STATE_RUNNING, NULL);
 	}
 	if (in_state > PW_PORT_STATE_CONFIGURE && this->input->node->info.state == PW_NODE_STATE_IDLE) {
-		pw_node_set_state(this->input->node, PW_NODE_STATE_SUSPENDED);
-		in_state = PW_PORT_STATE_CONFIGURE;
+		if ((res = spa_node_port_get_format(this->input->node->node,
+						    SPA_DIRECTION_INPUT,
+						    this->input->port_id,
+						    (const struct spa_format **) &current)) < 0) {
+			asprintf(&error, "error get input format: %d", res);
+			goto error;
+		}
+		if (spa_format_compare(current, format) < 0) {
+			pw_log_debug("link %p: input format change, renegotiate", this);
+			pw_node_set_state(this->input->node, PW_NODE_STATE_SUSPENDED);
+			in_state = PW_PORT_STATE_CONFIGURE;
+		}
+		else
+			pw_node_update_state(this->input->node, PW_NODE_STATE_RUNNING, NULL);
 	}
 
 	pw_log_debug("link %p: doing set format", this);
@@ -157,13 +184,18 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		pw_work_queue_add(impl->work, this->input->node, res2, complete_ready, this->input);
 		res = res2 != SPA_RESULT_OK ? res2 : res;
 	}
+
+	if (this->info.format)
+		free(this->info.format);
+	this->info.format = format;
+
 	return res;
 
       error:
-	{
-		pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
-		return res;
-	}
+	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
+	if (format)
+		free(format);
+	return res;
 }
 
 static struct spa_param *find_param(struct spa_param **params, int n_params, uint32_t type)
@@ -637,16 +669,14 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	return res;
 
       error:
-	{
-		this->output->buffers = NULL;
-		this->output->n_buffers = 0;
-		this->output->allocated = false;
-		this->input->buffers = NULL;
-		this->input->n_buffers = 0;
-		this->input->allocated = false;
-		pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
-		return res;
-	}
+	this->output->buffers = NULL;
+	this->output->n_buffers = 0;
+	this->output->allocated = false;
+	this->input->buffers = NULL;
+	this->input->n_buffers = 0;
+	this->input->allocated = false;
+	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
+	return res;
 }
 
 static int do_start(struct pw_link *this, uint32_t in_state, uint32_t out_state)
@@ -809,6 +839,9 @@ static void pw_link_free(struct pw_link *link)
 	pw_signal_emit(&link->free_signal, link);
 
 	pw_work_queue_destroy(impl->work);
+
+	if (link->info.format)
+		free(link->info.format);
 
 	if (impl->buffer_owner == link)
 		pw_memblock_free(&impl->buffer_mem);
@@ -997,14 +1030,10 @@ do_link_remove(struct spa_loop *loop,
 
 	if (this->rt.input) {
 		spa_list_remove(&this->rt.input_link);
-		if (spa_list_is_empty(&this->rt.input->rt.links))
-			pw_port_pause_rt(this->rt.input);
 		this->rt.input = NULL;
 	}
 	if (this->rt.output) {
 		spa_list_remove(&this->rt.output_link);
-		if (spa_list_is_empty(&this->rt.output->rt.links))
-			pw_port_pause_rt(this->rt.output);
 		this->rt.output = NULL;
 	}
 

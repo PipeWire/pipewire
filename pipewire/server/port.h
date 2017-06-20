@@ -44,55 +44,67 @@ enum pw_port_state {
 	PW_PORT_STATE_STREAMING = 4,
 };
 
+/** \page page_port Port
+ *
+ * \section page_node_overview Overview
+ *
+ * A port can be used to link two nodes.
+ */
 /** \class pw_port
  *
  * The port object
  */
 struct pw_port {
-	struct spa_list link;
+	struct spa_list link;		/**< link in node port_list */
 
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_port *));
 
-	struct pw_node *node;
-	enum pw_direction direction;
-	uint32_t port_id;
-	enum pw_port_state state;
-	struct spa_port_io io;
+	struct pw_node *node;		/**< owner node */
+	enum pw_direction direction;	/**< port direction */
+	uint32_t port_id;		/**< port id */
+	enum pw_port_state state;	/**< state of the port */
+	struct spa_port_io io;		/**< io area of the port */
 
-	bool allocated;
-	struct pw_memblock buffer_mem;
-	struct spa_buffer **buffers;
-	uint32_t n_buffers;
+	bool allocated;			/**< if buffers are allocated */
+	struct pw_memblock buffer_mem;	/**< allocated buffer memory */
+	struct spa_buffer **buffers;	/**< port buffers */
+	uint32_t n_buffers;		/**< number of port buffers */
 
-	struct spa_list links;
+	struct spa_list links;		/**< list of \ref pw_link */
 
 	struct {
-		struct spa_list links;
-	} rt;
+		struct spa_list links;	/**< list of \ref pw_link only accessed from the
+					  *  data thread */
+	} rt;				/**< data only accessed from the data thread */
 };
 
+/** Create a new port \memberof pw_port
+ * \return a newly allocated port */
 struct pw_port *
 pw_port_new(struct pw_node *node, enum pw_direction direction, uint32_t port_id);
 
-void
-pw_port_destroy(struct pw_port *port);
+/** Destroy a port \memberof pw_port */
+void pw_port_destroy(struct pw_port *port);
 
-
+/** Link two ports with an optional filter \memberof pw_port
+ * \return a newly allocated \ref pw_link or NULL and \a error is set.
+ *
+ * If the ports were already linked, the existing link will be returned. */
 struct pw_link *
-pw_port_link(struct pw_port *output_port,
-	     struct pw_port *input_port,
-	     struct spa_format *format_filter,
-	     struct pw_properties *properties,
-	     char **error);
+pw_port_link(struct pw_port *output_port,	/**< output port */
+	     struct pw_port *input_port,	/**< input port */
+	     struct spa_format *format_filter,	/**< optional filter */
+	     struct pw_properties *properties,	/**< extra properties */
+	     char **error			/**< result error message or NULL */);
 
-int
-pw_port_unlink(struct pw_port *port, struct pw_link *link);
+/** Unlink a port \memberof pw_port */
+int pw_port_unlink(struct pw_port *port, struct pw_link *link);
 
-int
-pw_port_pause_rt(struct pw_port *port);
+/** Pause a port, should be called from data thread \memberof pw_port */
+int pw_port_pause_rt(struct pw_port *port);
 
-int
-pw_port_clear_buffers(struct pw_port *port);
+/** Clear the buffers on a port \memberof pw_port */
+int pw_port_clear_buffers(struct pw_port *port);
 
 #ifdef __cplusplus
 }

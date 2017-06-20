@@ -125,7 +125,6 @@ struct impl {
 
 	struct pw_listener node_free;
 	struct pw_listener initialized;
-	struct pw_listener loop_changed;
 	struct pw_listener global_added;
 
 	int fds[2];
@@ -1059,12 +1058,6 @@ static void on_initialized(struct pw_listener *listener, struct pw_node *node)
 	pw_client_node_notify_transport(this->resource, readfd, writefd, info.memfd, info.offset, info.size);
 }
 
-static void on_loop_changed(struct pw_listener *listener, struct pw_node *node)
-{
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, loop_changed);
-	impl->proxy.data_loop = node->data_loop->loop->loop;
-}
-
 static void
 on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_global *global)
 {
@@ -1102,7 +1095,6 @@ static void client_node_resource_destroy(struct pw_resource *resource)
 	impl->proxy.resource = this->resource = NULL;
 
 	pw_signal_remove(&impl->global_added);
-	pw_signal_remove(&impl->loop_changed);
 	pw_signal_remove(&impl->initialized);
 
 	if (proxy->data_source.fd != -1)
@@ -1188,7 +1180,6 @@ struct pw_client_node *pw_client_node_new(struct pw_client *client,
 
 	pw_signal_add(&this->node->free_signal, &impl->node_free, on_node_free);
 	pw_signal_add(&this->node->initialized, &impl->initialized, on_initialized);
-	pw_signal_add(&this->node->loop_changed, &impl->loop_changed, on_loop_changed);
 	pw_signal_add(&impl->core->global_added, &impl->global_added, on_global_added);
 
 	return this;

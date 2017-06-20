@@ -87,21 +87,25 @@ struct pw_link {
 };
 
 
+/** Make a new link between two ports \memberof pw_link
+ * \return a newly allocated link */
 struct pw_link *
-pw_link_new(struct pw_core *core,
-	    struct pw_port *output,
-	    struct pw_port *input,
-	    struct spa_format *format_filter,
-	    struct pw_properties *properties);
+pw_link_new(struct pw_core *core,		/**< the core object */
+	    struct pw_port *output,		/**< an output port */
+	    struct pw_port *input,		/**< an input port */
+	    struct spa_format *format_filter,	/**< an optional format filter */
+	    struct pw_properties *properties	/**< extra properties */);
 
-void
-pw_link_destroy(struct pw_link *link);
+/** Destroy a link \memberof pw_link */
+void pw_link_destroy(struct pw_link *link);
 
-bool
-pw_link_activate(struct pw_link *link);
+/** Activate a link \memberof pw_link
+ * Starts the negotiation of formats and buffers on \a link and then
+ * starts data streaming */
+bool pw_link_activate(struct pw_link *link);
 
-bool
-pw_link_deactivate(struct pw_link *link);
+/** Deactivate a link \memberof pw_link */
+bool pw_link_deactivate(struct pw_link *link);
 
 #ifdef __cplusplus
 }

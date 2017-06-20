@@ -178,15 +178,6 @@ const char *pw_stream_state_as_string(enum pw_stream_state state)
 	return "invalid-state";
 }
 
-/** Create a new unconneced \ref pw_stream
- *
- * \param context a \ref pw_context
- * \param name a stream name
- * \param props stream properties, ownership is taken
- * \return a newly allocated \ref pw_stream
- *
- * \memberof pw_stream
- */
 struct pw_stream *pw_stream_new(struct pw_context *context,
 				const char *name, struct pw_properties *props)
 {
@@ -293,10 +284,6 @@ static void set_params(struct pw_stream *stream, int n_params, struct spa_param 
 	}
 }
 
-/** Destroy a stream
- * \param stream the stream to destroy
- * \memberof pw_stream
- */
 void pw_stream_destroy(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -889,22 +876,6 @@ static void on_node_proxy_destroy(struct pw_listener *listener, struct pw_proxy 
 	stream_set_state(this, PW_STREAM_STATE_UNCONNECTED, NULL);
 }
 
-/** Connect a stream for input or output on \a port_path.
- * \param stream a \ref pw_stream
- * \param direction the stream direction
- * \param mode a \ref pw_stream_mode
- * \param port_path the port path to connect to or NULL to let the server choose a port
- * \param flags a \ref pw_stream
- * \param n_possible_formats number of items in \a possible_formats
- * \param possible_formats an array with possible accepted formats
- * \return true on success.
- *
- * When \a mode is \ref PW_STREAM_MODE_BUFFER, you should connect to the new-buffer
- * signal and use pw_stream_peek_buffer() to get the latest metadata and
- * data.
- *
- * \memberof pw_stream
- */
 bool
 pw_stream_connect(struct pw_stream *stream,
 		  enum pw_direction direction,
@@ -954,24 +925,7 @@ pw_stream_connect(struct pw_stream *stream,
 	return true;
 }
 
-/** Complete the negotiation process with result code \a res
- * \param stream a \ref pw_stream
- * \param res a result code
- * \param params an array of pointers to \ref spa_param
- * \param n_params number of elements in \a params
- *
- * Complete the negotiation process with result code \a res.
- *
- * This function should be called after notification of the format.
-
- * When \a res indicates success, \a params contain the parameters for the
- * allocation state.
- *
- * Returns: %true on success
- *
- * \memberof pw_stream
- */
-bool
+void
 pw_stream_finish_format(struct pw_stream *stream,
 			int res, struct spa_param **params, uint32_t n_params)
 {
@@ -991,17 +945,9 @@ pw_stream_finish_format(struct pw_stream *stream,
 	add_async_complete(stream, impl->pending_seq, res);
 
 	impl->pending_seq = SPA_ID_INVALID;
-
-	return true;
 }
 
-/** Disconnect \a stream
- * \param stream: a \ref pw_stream
- * \return true on success
- *
- * \memberof pw_stream
- */
-bool pw_stream_disconnect(struct pw_stream *stream)
+void pw_stream_disconnect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
@@ -1013,8 +959,6 @@ bool pw_stream_disconnect(struct pw_stream *stream)
 		pw_client_node_do_destroy(impl->node_proxy);
 		impl->node_proxy = NULL;
 	}
-
-	return true;
 }
 
 bool pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
@@ -1033,14 +977,6 @@ bool pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	return true;
 }
 
-/** Get the id of an empty buffer that can be filled
- *
- * \param stream: a \ref pw_stream
- * \return the id of an empty buffer or \ref SPA_ID_INVALID when no buffer is
- * available.
- *
- * \memberof pw_stream
- */
 uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1054,15 +990,6 @@ uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream)
 	return bid->id;
 }
 
-/** Recycle the buffer with \a id
- * \param stream: a \ref pw_stream
- * \param id: a buffer id
- * \return true on success
- *
- * Let the PipeWire server know that it can reuse the buffer with \a id.
- *
- * \memberof pw_stream
- */
 bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1083,15 +1010,6 @@ bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 	return true;
 }
 
-/** Get the buffer with \a id from \a stream
- * \param stream: a \ref pw_stream
- * \param id: the buffer id
- * \return a \ref spa_buffer or NULL when there is no buffer
- *
- * This function should be called from the new-buffer signal callback.
- *
- * \memberof pw_stream
- */
 struct spa_buffer *pw_stream_peek_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct buffer_id *bid;
@@ -1102,16 +1020,6 @@ struct spa_buffer *pw_stream_peek_buffer(struct pw_stream *stream, uint32_t id)
 	return NULL;
 }
 
-/** Send a buffer with \a id to \a stream
- * \param stream a \ref pw_stream
- * \param id a buffer id
- * \return true when \a id was handled
- *
- * For provider or playback streams, this function should be called whenever
- * there is a new frame available.
- *
- * \memberof pw_stream
- */
 bool pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);

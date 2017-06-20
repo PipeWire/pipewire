@@ -177,17 +177,28 @@ struct pw_context {
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_context *context));
 };
 
+/** Create a new unconnected context \memberof pw_context
+ * \return a new unconnected context */
 struct pw_context *
-pw_context_new(struct pw_loop *loop,
-	       const char *name, struct pw_properties *properties);
+pw_context_new(struct pw_loop *loop,		/**< a \ref pw_loop to use as event loop */
+	       const char *name,		/**< an application name */
+	       struct pw_properties *properties	/**< optional properties, ownership of
+						  *  the properties is taken.*/ );
 
+/** Destroy a context \memberof pw_context */
 void pw_context_destroy(struct pw_context *context);
 
+/** Connect to the PipeWire daemon \memberof pw_context
+ * \return true on success. */
 bool pw_context_connect(struct pw_context *context, enum pw_context_flags flags);
 
+/** Connect to the PipeWire daemon on the given socket \memberof pw_context
+ * \param fd the connected socket to use
+ * \return true on success. */
 bool pw_context_connect_fd(struct pw_context *context, enum pw_context_flags flags, int fd);
 
-bool pw_context_disconnect(struct pw_context *context);
+/** Disconnect from the daemon. \memberof pw_context */
+void pw_context_disconnect(struct pw_context *context);
 
 #ifdef __cplusplus
 }

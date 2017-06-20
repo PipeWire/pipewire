@@ -509,12 +509,6 @@ static void init_complete(struct pw_node *this)
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 }
 
-void pw_node_set_data_loop(struct pw_node *node, struct pw_data_loop *loop)
-{
-	node->data_loop = loop;
-	pw_signal_emit(&node->loop_changed, node);
-}
-
 static const struct spa_node_callbacks node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	&on_node_done,
@@ -565,7 +559,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	pw_signal_init(&this->free_signal);
 	pw_signal_init(&this->async_complete);
 	pw_signal_init(&this->initialized);
-	pw_signal_init(&this->loop_changed);
 
 	this->info.state = PW_NODE_STATE_CREATING;
 

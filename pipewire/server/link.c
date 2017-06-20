@@ -892,17 +892,6 @@ link_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	return SPA_RESULT_NO_MEMORY;
 }
 
-/** Create a new link
- * \param core the core class
- * \param output an output port
- * \param input an input port
- * \param format_filter a format filter
- * \param properties extra properties
- *
- * Make a link between \a output and \a input
- *
- * \memberof pw_link
- */
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *output,
 			    struct pw_port *input,
@@ -1041,13 +1030,6 @@ do_link_remove(struct spa_loop *loop,
 	return res;
 }
 
-/** Destroy a link
- * \param link the link to destroy
- *
- * Trigger removal of \a link
- *
- * \memberof pw_link
- */
 void pw_link_destroy(struct pw_link *link)
 {
 	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);

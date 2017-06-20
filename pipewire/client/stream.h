@@ -238,42 +238,73 @@ struct pw_stream {
 	PW_SIGNAL(need_buffer, (struct pw_listener *listener, struct pw_stream *stream));
 };
 
+/** Create a new unconneced \ref pw_stream \memberof pw_stream
+ * \return a newly allocated \ref pw_stream */
 struct pw_stream *
-pw_stream_new(struct pw_context *context,
-	      const char *name,
-	      struct pw_properties *props);
+pw_stream_new(struct pw_context *context,	/**< a \ref pw_context */
+	      const char *name,			/**< a stream name */
+	      struct pw_properties *props	/**< stream properties, ownership is taken */);
+
+/** Destroy a stream \memberof pw_stream */
+void pw_stream_destroy(struct pw_stream *stream);
+
+/** Connect a stream for input or output on \a port_path. \memberof pw_stream
+ * \return true on success.
+ *
+ * When \a mode is \ref PW_STREAM_MODE_BUFFER, you should connect to the new-buffer
+ * signal and use pw_stream_peek_buffer() to get the latest metadata and
+ * data. */
+bool
+pw_stream_connect(struct pw_stream *stream,		/**< a \ref pw_stream */
+		  enum pw_direction direction,		/**< the stream direction */
+		  enum pw_stream_mode mode,		/**< a \ref pw_stream_mode */
+		  const char *port_path,		/**< the port path to connect to or NULL
+							  *  to let the server choose a port */
+		  enum pw_stream_flags flags,		/**< stream flags */
+		  uint32_t n_possible_formats,		/**< number of items in \a possible_formats */
+		  struct spa_format **possible_formats	/**< an array with possible accepted formats */);
+
+/** Disconnect \a stream \memberof pw_stream */
+void pw_stream_disconnect(struct pw_stream *stream);
+
+/** Complete the negotiation process with result code \a res \memberof pw_stream
+ *
+ * This function should be called after notification of the format.
+
+ * When \a res indicates success, \a params contain the parameters for the
+ * allocation state.  */
 void
-pw_stream_destroy(struct pw_stream *stream);
+pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
+			int res,			/**< a result code */
+			struct spa_param **params,	/**< an array of pointers to \ref spa_param */
+			uint32_t n_params		/**< number of elements in \a params */);
 
-bool
-pw_stream_connect(struct pw_stream *stream,
-		  enum pw_direction direction,
-		  enum pw_stream_mode mode,
-		  const char *port_path,
-		  enum pw_stream_flags flags,
-		  uint32_t n_possible_formats,
-		  struct spa_format **possible_formats);
-bool
-pw_stream_disconnect(struct pw_stream *stream);
+/** Query the time on the stream \memberof pw_stream */
+bool pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);
 
-bool
-pw_stream_finish_format(struct pw_stream *stream,
-			int res, struct spa_param **params, uint32_t n_params);
+/** Get the id of an empty buffer that can be filled \memberof pw_stream
+ * \return the id of an empty buffer or \ref SPA_ID_INVALID when no buffer is
+ * available.  */
+uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream);
 
-bool
-pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);
+/** Recycle the buffer with \a id \memberof pw_stream
+ * \return true on success, false when \a id is invalid or not a used buffer
+ * Let the PipeWire server know that it can reuse the buffer with \a id. */
+bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id);
 
-uint32_t
-pw_stream_get_empty_buffer(struct pw_stream *stream);
-
-bool
-pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id);
-
+/** Get the buffer with \a id from \a stream \memberof pw_stream
+ * \return a \ref spa_buffer or NULL when there is no buffer
+ *
+ * This function should be called from the new-buffer signal callback. */
 struct spa_buffer *
 pw_stream_peek_buffer(struct pw_stream *stream, uint32_t id);
 
-bool
-pw_stream_send_buffer(struct pw_stream *stream, uint32_t id);
+/** Send a buffer with \a id to \a stream \memberof pw_stream
+ * \return true when \a id was handled, false on error
+ *
+ * For provider or playback streams, this function should be called whenever
+ * there is a new buffer available. */
+bool pw_stream_send_buffer(struct pw_stream *stream, uint32_t id);
 
 #ifdef __cplusplus
 }

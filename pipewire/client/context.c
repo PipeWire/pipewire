@@ -416,16 +416,6 @@ on_context_data(struct spa_loop_utils *utils,
 	}
 }
 
-/** Create a new unconnected context
- *
- * \param loop a \ref pw_loop to use as event loop
- * \param name an application name
- * \param properties optional properties, ownership of the properties is
- *		taken.
- * \return a new unconnected context
- *
- * \memberof pw_context
- */
 struct pw_context *pw_context_new(struct pw_loop *loop,
 				  const char *name, struct pw_properties *properties)
 {
@@ -487,12 +477,6 @@ struct pw_context *pw_context_new(struct pw_loop *loop,
 	return NULL;
 }
 
-/** Destroy a context
- *
- * \param context a \ref pw_context to destroy to destroy
- *
- * \memberof pw_context
- */
 void pw_context_destroy(struct pw_context *context)
 {
 	struct context *impl = SPA_CONTAINER_OF(context, struct context, this);
@@ -522,14 +506,6 @@ void pw_context_destroy(struct pw_context *context)
 	free(impl);
 }
 
-/** Connect to the PipeWire daemon
- *
- * \param context a \ref pw_context
- * \param flags flags to use
- * \return true on success.
- *
- * \memberof pw_context
- */
 bool pw_context_connect(struct pw_context *context, enum pw_context_flags flags)
 {
 	struct sockaddr_un addr;
@@ -577,15 +553,6 @@ bool pw_context_connect(struct pw_context *context, enum pw_context_flags flags)
 	return false;
 }
 
-/** Connect to the PipeWire daemon on the given socket
- *
- * \param context a \ref pw_context
- * \param flags flags to use
- * \param fd the connected socket to use
- * \return true on success.
- *
- * \memberof pw_context
- */
 bool pw_context_connect_fd(struct pw_context *context, enum pw_context_flags flags, int fd)
 {
 	struct context *impl = SPA_CONTAINER_OF(context, struct context, this);
@@ -644,14 +611,7 @@ bool pw_context_connect_fd(struct pw_context *context, enum pw_context_flags fla
 	return false;
 }
 
-/** Disconnect from the daemon.
- *
- * \param context a \ref pw_context
- * \return true on success.
- *
- * \memberof pw_context
- */
-bool pw_context_disconnect(struct pw_context *context)
+void pw_context_disconnect(struct pw_context *context)
 {
 	struct context *impl = SPA_CONTAINER_OF(context, struct context, this);
 
@@ -679,8 +639,6 @@ bool pw_context_disconnect(struct pw_context *context)
 	impl->fd = -1;
 
 	context_set_state(context, PW_CONTEXT_STATE_UNCONNECTED, NULL);
-
-	return true;
 }
 
 /** Get core information

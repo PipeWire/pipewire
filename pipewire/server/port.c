@@ -97,20 +97,6 @@ static struct pw_link *find_link(struct pw_port *output_port, struct pw_port *in
 	return NULL;
 }
 
-/** Link two ports
- * \param output_port an output port
- * \param input_port an input port
- * \param format_filter a format filter
- * \param properties extra properties
- * \param error an error or NULL
- * \return a newly allocated \ref pw_link or NULL and \a error is set.
- *
- * Make a link between \a output_port and \a input_port
- *
- * If the ports were already linked, the existing link will be returned.
- *
- * \memberof pw_port
- */
 struct pw_link *pw_port_link(struct pw_port *output_port,
 			     struct pw_port *input_port,
 			     struct spa_format *format_filter,

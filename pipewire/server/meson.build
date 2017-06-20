@@ -28,12 +28,12 @@ pipewirecore_sources = [
   'work-queue.c',
 ]
 
+install_headers(pipewirecore_headers, subdir : 'pipewire/server')
+
 libpipewirecore_c_args = [
   '-DHAVE_CONFIG_H',
   '-D_GNU_SOURCE',
 ]
-
-install_headers(pipewirecore_headers, subdir : 'pipewire/server')
 
 libpipewirecore = shared_library('pipewirecore-@0@'.format(apiversion), pipewirecore_sources,
   version : libversion,

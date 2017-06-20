@@ -4,11 +4,11 @@ PipeWire
 PipeWire is a server and user space API to deal with multimedia
 pipelines. This includes:
 
-  - Make availabe sources of video (such as from a capture devices or
+  - Making available sources of video (such as from a capture devices or
        application provided streams) and multiplexing this with
        clients.
   - Accessing sources of video for consumption.
-  - Generating graphs for audio and video processing
+  - Generating graphs for audio and video processing.
 
 Nodes in the graph can be implemented as separate processes,
 communicating with sockets and exchanging multimedia content using fd

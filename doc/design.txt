@@ -16,7 +16,7 @@ only and should be able to handle compressed video and other
 streamable media as well.
 
 The design is in some part inspired by pulseaudio, hence its original
-name. Increasinly we also seem to add functionality of jack and
+name. Increasingly we also seem to add functionality of jack and
 GStreamer.
 
 

@@ -262,7 +262,7 @@ pw_stream_connect(struct pw_stream *stream,		/**< a \ref pw_stream */
 							  *  to let the server choose a port */
 		  enum pw_stream_flags flags,		/**< stream flags */
 		  uint32_t n_possible_formats,		/**< number of items in \a possible_formats */
-		  struct spa_format **possible_formats	/**< an array with possible accepted formats */);
+		  const struct spa_format **possible_formats	/**< an array with possible accepted formats */);
 
 /** Disconnect \a stream \memberof pw_stream */
 void pw_stream_disconnect(struct pw_stream *stream);

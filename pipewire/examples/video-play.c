@@ -299,7 +299,7 @@ static void on_state_changed(struct pw_listener *listener, struct pw_context *co
 
 	case PW_CONTEXT_STATE_CONNECTED:
 	{
-		struct spa_format *formats[1];
+		const struct spa_format *formats[1];
 		uint8_t buffer[1024];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 		struct spa_pod_frame f[2];

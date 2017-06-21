@@ -665,7 +665,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
                      pwsrc->path,
                      PW_STREAM_FLAG_AUTOCONNECT,
                      possible->len,
-                     (struct spa_format **)possible->pdata);
+                     (const struct spa_format **)possible->pdata);
   g_ptr_array_free (possible, TRUE);
 
   while (TRUE) {

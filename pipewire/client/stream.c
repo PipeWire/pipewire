@@ -250,7 +250,7 @@ static void unhandle_socket(struct pw_stream *stream)
 
 static void
 set_possible_formats(struct pw_stream *stream,
-		     int n_possible_formats, struct spa_format **possible_formats)
+		     int n_possible_formats, const struct spa_format **possible_formats)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int i;
@@ -888,7 +888,7 @@ pw_stream_connect(struct pw_stream *stream,
 		  const char *port_path,
 		  enum pw_stream_flags flags,
 		  uint32_t n_possible_formats,
-		  struct spa_format **possible_formats)
+		  const struct spa_format **possible_formats)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 

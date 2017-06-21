@@ -643,7 +643,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
                           pwsink->path,
                           flags,
                           possible->len,
-                          (struct spa_format **) possible->pdata);
+                          (const struct spa_format **) possible->pdata);
 
     while (TRUE) {
       state = pwsink->stream->state;

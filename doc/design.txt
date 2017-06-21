@@ -1,174 +1,71 @@
 PipeWire
 --------
 
-The idea is to make a server where you can provide
-and consume media to/from.
+PipeWire is a media server that can run graphs of multimedia nodes.
+Nodes can run inside the server or in separate processes.
 
 Some of the requirements are:
 
- - must be efficient for raw video using fd passing
+ - must be efficient for raw video using fd passing and audio with
+   shared ringbuffers
  - must be able to provide/consume/process media from any process
- - streaming media only (no seeking)
  - policy to restrict access to devices and streams
+ - extensible
 
 Although an initial goal, the design is not limited to raw video
 only and should be able to handle compressed video and other
-streamable media as well.
+media as well.
 
-The design is in some part inspired by pulseaudio, hence its original
-name. Increasingly we also seem to add functionality of jack and
-GStreamer.
+PipeWire uses the SPA plugin API for the nodes in the graph. SPA is
+a plugin API designed for low-latency and efficient processing of
+any multimedia format.
+
+Some of the application we intend to build
+
+ - v4l2 device provider. Provide controlled access to v4l2 devices
+   and share 1 device between multiple processes.
+
+ - gnome-shell video provider. Gnome-shell provides a node that
+   gives the contents of the frame buffer for screen sharing or
+   screen recording.
+
+ - audio server. Mix and playback multiple audio streams. The design
+   is more like CRAS (Chromium audio server) than pulseaudio and with
+   the added benefit that processing can be arranged in a graph.
+
+ - Pro audio graph processing like JACK.
+
+ - Media playback backend
 
 
 Protocol
 --------
 
-The protocol is similar to wayland but with custom
+The native protocol and object model is similar to wayland but with custom
 serialization/deserialization of messages. This is because the datastructures
-in the messages are more complicated.
+in the messages are more complicated and not easily expressable in xml format.
 
 
-fd management
+Extensibility
 -------------
 
-Clients receive fds with buffers and memory after a format was negotiated.
-Updates to these buffers are notified by a message containing the id of the
-buffer.
+The functionality of the server is implemented and extended with modules and
+extensions. Modules are server side bits of logic that hook into various
+places to provide extra features. This mostly means controlling the processing
+graph in some way.
 
-Wire
-----
+Extensions are the client side version of the modules. Most extensions provide
+both a client side and server side init function. New interfaces or new object
+implementation can easily be added with modules/extensions.
 
-The wire protocol for the node control channel is a serialization of
-structures.
+Some of the extensions that can be written
 
+ - protocol extensions: a client/server side API (.h) together with protocol
+   extensions and server/client side logic to implement a new object or
+   interface.
 
-               +-----+   +----+   +----+
-               |     |   |  S |   |    |
-               |     -----    -----    |
-               +-----+   +----+   +----+
-                           |
-                           |
-                           |
-                           |
-                         +----+
-                         |    |
-                         |  C |
-                         +----+
+ - a module to check security of method calls
 
+ - a module to automatically create or link or relink nodes
 
-    Client                                  Proxy
-                                              |                         INIT
-                     node-update              |
-       -------------------------------------->|
-                     port-update              |
-       -------------------------------------->|
-                 state-change CONFIGURE       |                         CONFIGURE
-       -------------------------------------->|
-                                              |<--- enum-ports
-                                              |<--- enum-formats
-                                              |<--- add-port
-                                              |<--- remove-port
-                       set-property           |<--- set-property
-       <--------------------------------------|
-                       set-format             |<--- set-format
-       <--------------------------------------|
-                                              |
-                       port-update            |
-       -------------------------------------->|
-                   state-change READY         |                         READY
-       -------------------------------------->|
-                                              |<--- port memory requirements
-                       add-mem                |<--- use-buffers
-       <--------------------------------------|
-                       remove-mem             |
-       <--------------------------------------|
-                       add-buffer             |
-       <--------------------------------------|
-                    remove-buffer             |
-       <--------------------------------------|
-                                              |
-                       pause                  |<--- stop
-       <--------------------------------------|
-                   state-change PAUSED        |                         PAUSED
-       -------------------------------------->|
-                                              |
-                       play                   |<--- start
-       <--------------------------------------|
-                   state-change STREAMING     |                         STREAMING
-       -------------------------------------->|
-                                              |
-                   need-input                 |
-       <------------------------------------->|
-                   have-output                |
-       <------------------------------------->|
-                   process-buffer             |
-       <------------------------------------->|
-                   reuse-buffer               |
-       <------------------------------------->|
-
-
-
-
-1) Update config C->S                 INIT
-
-   node-update
-   port-update
-   state change CONFIGURE
-
-2) Set formats S->C                   CONFIGURE
-
-   set-property
-   enumerate ports
-   add-port
-   remove-port
-   enumerate formats
-   set-format
-
-3) Buffer requirements update C->S
-
-   Update port status
-   state change READY if enough formats are set
-
-4) Start S->C                         READY
-
-   read port memory requirements
-   add_mem
-   remove_mem
-   add_buffer
-   remove_buffer
-   command START/PAUSE
-
-5) Pause S->C                         PAUSED
-
-   state change STREAMING
-   set-format to NULL -> state change to CONFIGURE
-
-5) data transfer C->S                 STREAMING
-
-   need-input
-   have-output
-
-   process_buffer
-   reuse_buffer
-   state change PAUSED
-
-6) data transfer S->C
-
-   process_buffer
-   reuse_buffer
-
-7) format change C->S
-
-   port-update
-   state change CONFIGURE
-
-8) format change S->C
-
-   Send set-format change on ports -> READY if new memory requirements
-                                   -> PAUSED/STREAMING if all ok
-
-9) format-change to NULL
-
-   state change CONFIGURE
-
-10) ERROR
+ - a module to suspend idle nodes

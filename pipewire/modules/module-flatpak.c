@@ -165,6 +165,7 @@ static bool client_is_sandboxed(struct pw_client *cl)
 	if (fd == -1)
 		return false;
 
+	spa_zero(data);
 	size = sizeof(data);
 	ptr = data;
 

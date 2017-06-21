@@ -59,7 +59,7 @@ static inline bool spa_pod_is_object_type(struct spa_pod *pod, uint32_t type)
 	     (iter) = SPA_MEMBER((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), struct spa_pod))
 
 #define SPA_POD_CONTENTS_FOREACH(pod, offset, iter)						\
-	SPA_POD_FOREACH(SPA_MEMBER((pod), (offset), struct spa_pod),SPA_POD_SIZE (pod),iter)
+	SPA_POD_FOREACH(SPA_MEMBER((pod), (offset), struct spa_pod),SPA_POD_SIZE (pod)-(offset),iter)
 
 #define SPA_POD_OBJECT_BODY_FOREACH(body, size, iter)						\
 	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_object_body), struct spa_pod);	\

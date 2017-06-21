@@ -21,7 +21,7 @@
 #define __PIPEWIRE_SPA_MONITOR_H__
 
 #include <pipewire/server/core.h>
-#include <spa/include/spa/monitor.h>
+#include <spa/monitor.h>
 
 #ifdef __cplusplus
 extern "C" {

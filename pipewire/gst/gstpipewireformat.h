@@ -22,8 +22,8 @@
 
 #include <gst/gst.h>
 
-#include <spa/include/spa/type-map.h>
-#include <spa/include/spa/format.h>
+#include <spa/type-map.h>
+#include <spa/format.h>
 
 G_BEGIN_DECLS
 

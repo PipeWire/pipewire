@@ -29,11 +29,6 @@
 #define INPUT_BUFFER_SIZE       (1<<12)
 #define OUTPUT_BUFFER_SIZE      (1<<12)
 
-#define CMD_NONE                0
-#define CMD_PROCESS_DATA       (1<<0)
-#define CMD_PROCESS_EVENTS     (1<<1)
-#define CMD_PROCESS_SYNC       (1<<2)
-
 struct transport {
 	struct pw_transport trans;
 

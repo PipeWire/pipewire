@@ -635,6 +635,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 
   /* open a connection with these caps */
   possible = gst_caps_to_format_all (caps, pwsrc->ctx->type.map);
+  gst_caps_unref (caps);
 
   /* first disconnect */
   pw_thread_loop_lock (pwsrc->main_loop);
@@ -665,6 +666,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
                      PW_STREAM_FLAG_AUTOCONNECT,
                      possible->len,
                      (struct spa_format **)possible->pdata);
+  g_ptr_array_free (possible, TRUE);
 
   while (TRUE) {
     enum pw_stream_state state = pwsrc->stream->state;

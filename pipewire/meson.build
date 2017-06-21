@@ -1,5 +1,6 @@
 
 subdir('client')
+subdir('extensions')
 subdir('server')
 subdir('daemon')
 subdir('tools')

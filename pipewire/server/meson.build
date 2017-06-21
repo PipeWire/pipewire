@@ -33,6 +33,7 @@ libpipewirecore_c_args = [
   '-D_GNU_SOURCE',
 ]
 
+install_headers(pipewirecore_headers, subdir : 'pipewire/server')
 
 libpipewirecore = shared_library('pipewirecore-@0@'.format(apiversion), pipewirecore_sources,
   version : libversion,

@@ -66,7 +66,6 @@ struct pw_type {
 	uint32_t node_factory;
 	uint32_t link;
 	uint32_t client;
-	uint32_t client_node;
 	uint32_t module;
 
 	uint32_t spa_log;

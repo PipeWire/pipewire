@@ -26,7 +26,6 @@
 #include "pipewire/client/interfaces.h"
 #include "pipewire/server/core.h"
 #include "pipewire/server/module.h"
-#include "pipewire/server/client-node.h"
 
 struct impl {
 	struct pw_core *core;
@@ -35,23 +34,12 @@ struct impl {
 	struct pw_listener global_added;
 	struct pw_listener global_removed;
 
-	struct spa_list client_list;
-};
-
-struct client_info {
-	struct impl *impl;
-	struct pw_client *client;
-	struct spa_list link;
-	struct pw_listener resource_impl;
-	struct pw_listener resource_removed;
 	struct spa_list node_list;
 };
 
 struct node_info {
 	struct impl *impl;
-	struct client_info *info;
 	struct pw_node *node;
-	struct pw_resource *resource;
 	struct spa_list link;
 	struct pw_listener state_changed;
 	struct pw_listener port_added;
@@ -60,23 +48,12 @@ struct node_info {
 	struct pw_listener link_state_changed;
 };
 
-static struct node_info *find_node_info(struct client_info *cinfo, struct pw_node *node)
+static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
 {
 	struct node_info *info;
 
-	spa_list_for_each(info, &cinfo->node_list, link) {
+	spa_list_for_each(info, &impl->node_list, link) {
 		if (info->node == node)
-			return info;
-	}
-	return NULL;
-}
-
-static struct client_info *find_client_info(struct impl *impl, struct pw_client *client)
-{
-	struct client_info *info;
-
-	spa_list_for_each(info, &impl->client_list, link) {
-		if (info->client == client)
 			return info;
 	}
 	return NULL;
@@ -91,20 +68,6 @@ static void node_info_free(struct node_info *info)
 	pw_signal_remove(&info->port_unlinked);
 	pw_signal_remove(&info->link_state_changed);
 	free(info);
-}
-
-static void client_info_free(struct client_info *cinfo)
-{
-	struct node_info *info, *tmp;
-
-	spa_list_remove(&cinfo->link);
-	pw_signal_remove(&cinfo->resource_impl);
-	pw_signal_remove(&cinfo->resource_removed);
-
-	spa_list_for_each_safe(info, tmp, &cinfo->node_list, link)
-	    node_info_free(info);
-
-	free(cinfo);
 }
 
 static void try_link_port(struct pw_node *node, struct pw_port *port, struct node_info *info);
@@ -139,13 +102,14 @@ on_link_state_changed(struct pw_listener *listener,
 				pw_core_notify_error(resource->client->core_resource,
 						     resource->id, SPA_RESULT_ERROR, link->error);
 			}
-			if (info->info->client) {
-				pw_core_notify_error(info->info->client->core_resource,
-						     info->resource->id,
+			if (info->node->owner) {
+				pw_core_notify_error(info->node->owner->client->core_resource,
+						     info->node->owner->id,
 						     SPA_RESULT_ERROR, link->error);
 			}
 			break;
 		}
+
 
 	case PW_LINK_STATE_UNLINKED:
 		pw_log_debug("module %p: link %p: unlinked", impl, link);
@@ -211,9 +175,9 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 
       error:
 	pw_log_error("module %p: can't link node '%s'", impl, error);
-	if (info->info->client && info->info->client->core_resource) {
-		pw_core_notify_error(info->info->client->core_resource,
-				     info->resource->id, SPA_RESULT_ERROR, error);
+	if (info->node->owner && info->node->owner->client->core_resource) {
+		pw_core_notify_error(info->node->owner->client->core_resource,
+				     info->node->owner->id, SPA_RESULT_ERROR, error);
 	}
 	free(error);
 	return;
@@ -253,83 +217,29 @@ on_state_changed(struct pw_listener *listener,
 }
 
 static void
-on_node_added(struct impl *impl,
-	      struct pw_node *node, struct pw_resource *resource, struct client_info *cinfo)
-{
-	struct node_info *info;
-
-	info = calloc(1, sizeof(struct node_info));
-	info->impl = impl;
-	info->node = node;
-	info->resource = resource;
-	info->info = cinfo;
-	spa_list_insert(cinfo->node_list.prev, &info->link);
-
-	spa_list_init(&info->port_unlinked.link);
-	spa_list_init(&info->link_state_changed.link);
-	pw_signal_add(&node->port_added, &info->port_added, on_port_added);
-	pw_signal_add(&node->port_removed, &info->port_removed, on_port_removed);
-	pw_signal_add(&node->state_changed, &info->state_changed, on_state_changed);
-
-	pw_log_debug("module %p: node %p added", impl, node);
-
-	if (node->info.state > PW_NODE_STATE_CREATING)
-		on_node_created(node, info);
-}
-
-static void
-on_resource_impl(struct pw_listener *listener,
-		 struct pw_client *client, struct pw_resource *resource)
-{
-	struct client_info *cinfo = SPA_CONTAINER_OF(listener, struct client_info, resource_impl);
-	struct impl *impl = cinfo->impl;
-
-	if (resource->type == impl->core->type.client_node) {
-		struct pw_client_node *cnode = resource->object;
-		on_node_added(impl, cnode->node, resource, cinfo);
-	}
-}
-
-static void
-on_resource_removed(struct pw_listener *listener,
-		    struct pw_client *client, struct pw_resource *resource)
-{
-	struct client_info *cinfo =
-	    SPA_CONTAINER_OF(listener, struct client_info, resource_removed);
-	struct impl *impl = cinfo->impl;
-
-	if (resource->type == impl->core->type.client_node) {
-		struct pw_client_node *cnode = resource->object;
-		struct node_info *ninfo;
-
-		if ((ninfo = find_node_info(cinfo, cnode->node)))
-			node_info_free(ninfo);
-
-		pw_log_debug("module %p: node %p removed", impl, cnode->node);
-	}
-}
-
-static void
 on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_global *global)
 {
 	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, global_added);
 
-	if (global->type == impl->core->type.client) {
-		struct pw_client *client = global->object;
-		struct client_info *cinfo;
+	if (global->type == impl->core->type.node) {
+		struct pw_node *node = global->object;
+		struct node_info *ninfo;
 
-		cinfo = calloc(1, sizeof(struct client_info));
-		cinfo->impl = impl;
-		cinfo->client = global->object;
-		spa_list_init(&cinfo->node_list);
+		ninfo = calloc(1, sizeof(struct node_info));
+		ninfo->impl = impl;
+		ninfo->node = node;
+		spa_list_insert(impl->node_list.prev, &ninfo->link);
+		spa_list_init(&ninfo->port_unlinked.link);
+		spa_list_init(&ninfo->link_state_changed.link);
 
-		spa_list_insert(impl->client_list.prev, &cinfo->link);
+		pw_signal_add(&node->port_added, &ninfo->port_added, on_port_added);
+		pw_signal_add(&node->port_removed, &ninfo->port_removed, on_port_removed);
+		pw_signal_add(&node->state_changed, &ninfo->state_changed, on_state_changed);
 
-		pw_signal_add(&client->resource_impl, &cinfo->resource_impl, on_resource_impl);
-		pw_signal_add(&client->resource_removed, &cinfo->resource_removed,
-			      on_resource_removed);
+		pw_log_debug("module %p: node %p added", impl, node);
 
-		pw_log_debug("module %p: client %p added", impl, cinfo->client);
+		if (node->info.state > PW_NODE_STATE_CREATING)
+			on_node_created(node, ninfo);
 	}
 }
 
@@ -338,14 +248,14 @@ on_global_removed(struct pw_listener *listener, struct pw_core *core, struct pw_
 {
 	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, global_removed);
 
-	if (global->type == impl->core->type.client) {
-		struct pw_client *client = global->object;
-		struct client_info *cinfo;
+	if (global->type == impl->core->type.node) {
+		struct pw_node *node = global->object;
+		struct node_info *ninfo;
 
-		if ((cinfo = find_client_info(impl, client)))
-			client_info_free(cinfo);
+		if ((ninfo = find_node_info(impl, node)))
+			node_info_free(ninfo);
 
-		pw_log_debug("module %p: client %p removed", impl, client);
+		pw_log_debug("module %p: node %p removed", impl, node);
 	}
 }
 
@@ -368,7 +278,7 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 	impl->core = core;
 	impl->properties = properties;
 
-	spa_list_init(&impl->client_list);
+	spa_list_init(&impl->node_list);
 
 	pw_signal_add(&core->global_added, &impl->global_added, on_global_added);
 	pw_signal_add(&core->global_removed, &impl->global_removed, on_global_removed);

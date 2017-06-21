@@ -1,6 +1,5 @@
 pipewirecore_headers = [
   'client.h',
-  'client-node.h',
   'command.h',
   'core.h',
   'data-loop.h',
@@ -17,7 +16,6 @@ pipewirecore_headers = [
 
 pipewirecore_sources = [
   'client.c',
-  'client-node.c',
   'command.c',
   'core.c',
   'data-loop.c',

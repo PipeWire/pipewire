@@ -63,6 +63,8 @@ struct buffer_id {
 struct stream {
 	struct pw_stream this;
 
+	uint32_t type_client_node;
+
 	uint32_t n_possible_formats;
 	struct spa_format **possible_formats;
 
@@ -203,6 +205,7 @@ struct pw_stream *pw_stream_new(struct pw_context *context,
 
 	this->context = context;
 	this->name = strdup(name);
+	impl->type_client_node = spa_type_map_get_id(context->type.map, PIPEWIRE_TYPE_NODE_BASE "Client");
 
 	pw_signal_init(&this->destroy_signal);
 	pw_signal_init(&this->state_changed);
@@ -904,7 +907,9 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, "pipewire.autoconnect", "1");
 
 	impl->node_proxy = pw_proxy_new(stream->context,
-					SPA_ID_INVALID, stream->context->type.client_node, 0);
+					SPA_ID_INVALID,
+					impl->type_client_node,
+					0);
 
 	if (impl->node_proxy == NULL)
 		return false;
@@ -918,7 +923,8 @@ pw_stream_connect(struct pw_stream *stream,
 	pw_core_do_create_node(stream->context->core_proxy,
 			       "client-node",
 			       "client-node",
-			       &stream->properties->dict, impl->node_proxy->id);
+			       &stream->properties->dict,
+			       impl->node_proxy->id);
 
 	do_node_init(stream);
 

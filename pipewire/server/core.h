@@ -33,6 +33,7 @@ struct pw_global;
 
 #include <pipewire/server/main-loop.h>
 #include <pipewire/server/data-loop.h>
+#include <pipewire/server/resource.h>
 #include <pipewire/server/node.h>
 #include <pipewire/server/link.h>
 #include <pipewire/server/node-factory.h>
@@ -120,7 +121,7 @@ typedef bool (*pw_global_filter_func_t) (struct pw_global *global,
  */
 struct pw_global {
 	struct pw_core *core;		/**< the core */
-	struct pw_client *owner;	/**< the owner of this object, NULL when the
+	struct pw_resource *owner;	/**< the owner of this object, NULL when the
 					  *  PipeWire server is the owner */
 
 	struct spa_list link;		/**< link in core list of globals */
@@ -192,7 +193,7 @@ pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict);
 
 bool
 pw_core_add_global(struct pw_core *core,
-		   struct pw_client *owner,
+		   struct pw_resource *owner,
 		   uint32_t type,
 		   uint32_t version,
 		   void *object, pw_bind_func_t bind,

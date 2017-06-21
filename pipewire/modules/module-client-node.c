@@ -27,9 +27,7 @@
 #include "pipewire/client/interfaces.h"
 #include "pipewire/server/core.h"
 #include "pipewire/server/module.h"
-#include "pipewire/server/client-node.h"
-
-#define AUDIOMIXER_LIB "build/spa/plugins/audiomixer/libspa-audiomixer.so"
+#include "module-client-node/client-node.h"
 
 struct impl {
 	struct pw_node_factory this;

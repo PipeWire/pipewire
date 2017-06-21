@@ -22,7 +22,6 @@
 #include <pipewire/client/interfaces.h>
 #include <pipewire/server/core.h>
 #include <pipewire/server/data-loop.h>
-#include <pipewire/server/client-node.h>
 #include <spa/lib/debug.h>
 #include <spa/format-utils.h>
 
@@ -369,7 +368,7 @@ void pw_core_destroy(struct pw_core *core)
  */
 bool
 pw_core_add_global(struct pw_core *core,
-		   struct pw_client *owner,
+		   struct pw_resource *owner,
 		   uint32_t type,
 		   uint32_t version,
 		   void *object,

@@ -32,7 +32,8 @@ pipewire_module_mixer = shared_library('pipewire-module-mixer', [ 'module-mixer.
   dependencies : [mathlib, dl_lib, pipewire_dep, pipewirecore_dep],
 )
 
-pipewire_module_client_node = shared_library('pipewire-module-client-node', [ 'module-client-node.c' ],
+pipewire_module_client_node = shared_library('pipewire-module-client-node',
+  [ 'module-client-node.c', 'module-client-node/client-node.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
   link_with : spalib,

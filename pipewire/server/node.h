@@ -58,7 +58,7 @@ struct pw_node {
 	struct spa_list link;		/**< link in core node_list */
 	struct pw_global *global;	/**< global for this node */
 
-	struct pw_client *owner;		/**< owner client if any */
+	struct pw_resource *owner;		/**< owner resource if any */
 	struct pw_properties *properties;	/**< properties of the node */
 
 	struct pw_node_info info;		/**< introspectable node info */
@@ -111,7 +111,7 @@ struct pw_node {
 /** Create a new node \memberof pw_node */
 struct pw_node *
 pw_node_new(struct pw_core *core,		/**< the core */
-	    struct pw_client *owner,		/**< optional owner */
+	    struct pw_resource *owner,		/**< optional owner */
 	    const char *name,			/**< node name */
 	    bool async,				/**< if the node will initialize async */
 	    struct spa_node *node,		/**< the node */

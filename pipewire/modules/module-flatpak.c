@@ -208,7 +208,7 @@ check_global_owner(struct pw_core *core, struct pw_client *client, struct pw_glo
 	if (global->owner == NULL)
 		return true;
 
-	if (global->owner->ucred.uid == client->ucred.uid)
+	if (global->owner->client->ucred.uid == client->ucred.uid)
 		return true;
 
 	return false;

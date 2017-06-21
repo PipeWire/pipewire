@@ -28,7 +28,6 @@
 #include "pipewire/client/type.h"
 
 #include "pipewire/server/node-factory.h"
-#include "pipewire/server/client-node.h"
 
 
 /** Initializes the type system
@@ -45,7 +44,6 @@ void pw_type_init(struct pw_type *type)
 	type->node_factory = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__NodeFactory);
 	type->link = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Link);
 	type->client = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Client);
-	type->client_node = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__ClientNode);
 	type->module = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Module);
 
 	type->spa_log = spa_type_map_get_id(type->map, SPA_TYPE__Log);

@@ -110,7 +110,7 @@ struct pw_client *pw_client_new(struct pw_core *core,
 
 	spa_list_insert(core->client_list.prev, &this->link);
 
-	pw_core_add_global(core, this, core->type.client, 0, this, client_bind_func, &this->global);
+	pw_core_add_global(core, NULL, core->type.client, 0, this, client_bind_func, &this->global);
 
 	this->info.id = this->global->id;
 	this->info.props = this->properties ? &this->properties->dict : NULL;

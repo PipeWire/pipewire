@@ -519,7 +519,7 @@ static const struct spa_node_callbacks node_callbacks = {
 };
 
 struct pw_node *pw_node_new(struct pw_core *core,
-			    struct pw_client *owner,
+			    struct pw_resource *owner,
 			    const char *name,
 			    bool async,
 			    struct spa_node *node,

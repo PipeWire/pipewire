@@ -37,7 +37,6 @@
 #include "pipewire/server/protocol-native.h"
 #include "pipewire/server/node.h"
 #include "pipewire/server/module.h"
-#include "pipewire/server/client-node.h"
 #include "pipewire/server/client.h"
 #include "pipewire/server/resource.h"
 #include "pipewire/server/link.h"

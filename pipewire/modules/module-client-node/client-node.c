@@ -37,7 +37,7 @@
 #include "pipewire/client/transport.h"
 
 #include "pipewire/server/core.h"
-#include "pipewire/server/client-node.h"
+#include "client-node.h"
 
 /** \cond */
 
@@ -116,6 +116,8 @@ struct proxy {
 
 struct impl {
 	struct pw_client_node this;
+
+	uint32_t type_client_node;
 
 	struct pw_core *core;
 
@@ -1064,7 +1066,7 @@ on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_gl
 	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, global_added);
 
 	if (global->object == impl->this.node)
-		global->owner = impl->this.client;
+		global->owner = impl->this.resource;
 }
 
 static int proxy_clear(struct proxy *this)
@@ -1152,23 +1154,25 @@ struct pw_client_node *pw_client_node_new(struct pw_client *client,
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug("client-node %p: new", impl);
 
+	impl->type_client_node = spa_type_map_get_id(client->core->type.map, PIPEWIRE_TYPE__ClientNode);
+
 	pw_signal_init(&this->destroy_signal);
 
 	proxy_init(&impl->proxy, NULL, client->core->support, client->core->n_support);
-
-	this->node = pw_node_new(client->core,
-				 client, name, true, &impl->proxy.node, NULL, properties);
-	if (this->node == NULL)
-		goto error_no_node;
-
 	impl->proxy.impl = impl;
 
 	this->resource = pw_resource_new(client,
 					 id,
-					 client->core->type.client_node, 0);
+					 impl->type_client_node,
+					 0);
 
 	if (this->resource == NULL)
 		goto error_no_resource;
+
+	this->node = pw_node_new(client->core,
+				 this->resource, name, true, &impl->proxy.node, NULL, properties);
+	if (this->node == NULL)
+		goto error_no_node;
 
 	pw_resource_set_implementation(this->resource,
 				       this,
@@ -1184,9 +1188,9 @@ struct pw_client_node *pw_client_node_new(struct pw_client *client,
 
 	return this;
 
-      error_no_resource:
-	pw_node_destroy(this->node);
       error_no_node:
+	pw_resource_destroy(this->resource);
+      error_no_resource:
 	proxy_clear(&impl->proxy);
 	free(impl);
 	return NULL;

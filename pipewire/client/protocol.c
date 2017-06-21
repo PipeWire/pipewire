@@ -48,6 +48,8 @@ struct pw_protocol *pw_protocol_get(const char *name)
 	spa_list_init(&protocol->iface_list);
 	spa_list_insert(impl->protocol_list.prev, &protocol->link);
 
+	pw_log_info("Created protocol %s", name);
+
 	return protocol;
 }
 
@@ -57,12 +59,19 @@ pw_protocol_add_interfaces(struct pw_protocol *protocol,
 			   const struct pw_interface *server_iface)
 {
 	struct pw_protocol_iface *iface;
+	const char *type;
+	uint32_t version;
 
 	iface = calloc(1, sizeof(struct pw_protocol_iface));
 	iface->client_iface = client_iface;
 	iface->server_iface = server_iface;
 
 	spa_list_insert(protocol->iface_list.prev, &iface->link);
+
+	type = client_iface ? client_iface->type : server_iface->type;
+	version = client_iface ? client_iface->version : server_iface->version;
+
+	pw_log_info("Add iface %s:%d to protocol %s", type, version, protocol->name);
 }
 
 const struct pw_interface *

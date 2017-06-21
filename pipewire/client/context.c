@@ -26,6 +26,7 @@
 #include "pipewire/client/pipewire.h"
 
 #include "pipewire/client/context.h"
+#include "pipewire/client/extension.h"
 #include "pipewire/client/introspect.h"
 #include "pipewire/client/interfaces.h"
 #include "pipewire/client/protocol-native.h"
@@ -443,8 +444,6 @@ struct pw_context *pw_context_new(struct pw_loop *loop,
 
 	this->loop = loop;
 
-	this->protocol = pw_protocol_native_client_init();
-
 	pw_type_init(&this->type);
 
 	spa_debug_set_type_map(this->type.map);
@@ -462,12 +461,18 @@ struct pw_context *pw_context_new(struct pw_loop *loop,
 	pw_map_init(&this->objects, 64, 32);
 	pw_map_init(&this->types, 64, 32);
 
+	spa_list_init(&this->extension_list);
 	spa_list_init(&this->stream_list);
 	spa_list_init(&this->proxy_list);
 
 	pw_signal_init(&this->state_changed);
 	pw_signal_init(&this->subscription);
 	pw_signal_init(&this->destroy_signal);
+
+	pw_extension_load(this, "libpipewire-module-protocol-native", NULL);
+	pw_extension_load(this, "libpipewire-module-client-node", NULL);
+
+	this->protocol = pw_protocol_get(PW_TYPE_PROTOCOL__Native);
 
 	return this;
 
@@ -482,6 +487,7 @@ void pw_context_destroy(struct pw_context *context)
 	struct context *impl = SPA_CONTAINER_OF(context, struct context, this);
 	struct pw_stream *stream, *t1;
 	struct pw_proxy *proxy, *t2;
+	struct pw_extension *ext, *t3;
 
 	pw_log_debug("context %p: destroy", context);
 	pw_signal_emit(&context->destroy_signal, context);
@@ -495,6 +501,8 @@ void pw_context_destroy(struct pw_context *context)
 	    pw_stream_destroy(stream);
 	spa_list_for_each_safe(proxy, t2, &context->proxy_list, link)
 	    pw_proxy_destroy(proxy);
+	spa_list_for_each_safe(ext, t3, &context->extension_list, link)
+	    pw_extension_destroy(ext);
 
 	pw_map_clear(&context->objects);
 	pw_map_clear(&context->types);

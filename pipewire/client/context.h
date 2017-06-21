@@ -157,6 +157,7 @@ struct pw_context {
 	uint32_t n_types;			/**< number of client types */
 	struct pw_map types;			/**< client types */
 
+	struct spa_list extension_list;		/**< list of \ref pw_extension objects */
 	struct spa_list stream_list;		/**< list of \ref pw_stream objects */
 	struct spa_list proxy_list;		/**< list of \ref pw_proxy objects */
 

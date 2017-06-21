@@ -34,7 +34,6 @@
 #include "pipewire/client/interfaces.h"
 
 #include "pipewire/server/core.h"
-#include "pipewire/server/protocol-native.h"
 #include "pipewire/server/node.h"
 #include "pipewire/server/module.h"
 #include "pipewire/server/client.h"
@@ -50,6 +49,8 @@
 
 #define LOCK_SUFFIX     ".lock"
 #define LOCK_SUFFIXLEN  5
+
+struct pw_protocol *pw_protocol_native_init(void);
 
 typedef bool(*demarshal_func_t) (void *object, void *data, size_t size);
 
@@ -69,6 +70,7 @@ struct impl {
 	struct pw_core *core;
 	struct spa_list link;
 
+	struct pw_protocol *protocol;
 	struct pw_properties *properties;
 
 	struct spa_list socket_list;
@@ -217,7 +219,7 @@ static struct native_client *client_new(struct impl *impl, int fd)
 	if (this->connection == NULL)
 		goto no_connection;
 
-	client->protocol = pw_protocol_native_server_init();
+	client->protocol = impl->protocol;
 	client->protocol_private = this->connection;
 
 	this->client = client;
@@ -397,6 +399,7 @@ static struct impl *pw_protocol_native_new(struct pw_core *core, struct pw_prope
 
 	impl->core = core;
 	impl->properties = properties;
+	impl->protocol = pw_protocol_native_init();
 
 	name = NULL;
 	if (impl->properties)

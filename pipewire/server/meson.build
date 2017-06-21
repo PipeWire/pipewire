@@ -9,7 +9,6 @@ pipewirecore_headers = [
   'node.h',
   'node-factory.h',
   'port.h',
-  'protocol-native.h',
   'resource.h',
   'work-queue.h',
 ]
@@ -25,7 +24,6 @@ pipewirecore_sources = [
   'node.c',
   'node-factory.c',
   'port.c',
-  'protocol-native.c',
   'resource.c',
   'work-queue.c',
 ]

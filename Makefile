@@ -15,6 +15,7 @@ run:
 
 monitor:
 	SPA_PLUGIN_DIR=build/spa/plugins \
+	PIPEWIRE_MODULE_DIR=build/pipewire/modules/ \
 	build/pipewire/tools/pipewire-monitor
 
 dist:

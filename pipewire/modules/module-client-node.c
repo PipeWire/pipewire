@@ -29,6 +29,8 @@
 #include "pipewire/server/module.h"
 #include "module-client-node/client-node.h"
 
+struct pw_protocol *pw_protocol_native_ext_client_node_init(void);
+
 struct impl {
 	struct pw_node_factory this;
 	struct pw_properties *properties;
@@ -68,6 +70,8 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 	impl->this.name = "client-node";
         pw_signal_init(&impl->this.destroy_signal);
 	impl->this.create_node = create_node;
+
+	pw_protocol_native_ext_client_node_init();
 
 	spa_list_insert(core->node_factory_list.prev, &impl->this.link);
 

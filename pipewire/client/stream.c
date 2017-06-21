@@ -35,6 +35,7 @@
 #include "pipewire/client/stream.h"
 #include "pipewire/client/transport.h"
 #include "pipewire/client/utils.h"
+#include "pipewire/extensions/client-node.h"
 
 /** \cond */
 

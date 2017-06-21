@@ -17,20 +17,24 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 
 #include "spa/pod-iter.h"
+#include "pipewire/client/pipewire.h"
 
+#include "pipewire/client/protocol.h"
 #include "pipewire/client/interfaces.h"
+#include "pipewire/client/connection.h"
 #include "pipewire/server/resource.h"
-#include "pipewire/server/protocol-native.h"
 
 /** \cond */
-typedef bool(*demarshal_func_t) (void *object, void *data, size_t size);
-
 struct builder {
 	struct spa_pod_builder b;
 	struct pw_connection *connection;
 };
+
+typedef bool(*demarshal_func_t) (void *object, void *data, size_t size);
+
 /** \endcond */
 
 static uint32_t write_pod(struct spa_pod_builder *b, uint32_t ref, const void *data, uint32_t size)
@@ -46,7 +50,25 @@ static uint32_t write_pod(struct spa_pod_builder *b, uint32_t ref, const void *d
 	return ref;
 }
 
-static void core_update_map(struct pw_client *client)
+static void core_update_map_client(struct pw_context *context)
+{
+	uint32_t diff, base, i;
+	const char **types;
+
+	base = context->n_types;
+	diff = spa_type_map_get_size(context->type.map) - base;
+	if (diff == 0)
+		return;
+
+	types = alloca(diff * sizeof(char *));
+	for (i = 0; i < diff; i++, base++)
+		types[i] = spa_type_map_get_type(context->type.map, base);
+
+	pw_core_do_update_types(context->core_proxy, context->n_types, diff, types);
+	context->n_types += diff;
+}
+
+static void core_update_map_server(struct pw_client *client)
 {
 	uint32_t diff, base, i;
 	struct pw_core *core = client->core;
@@ -65,6 +87,267 @@ static void core_update_map(struct pw_client *client)
 	client->n_types += diff;
 }
 
+
+static void core_marshal_client_update(void *object, const struct spa_dict *props)
+{
+	struct pw_proxy *proxy = object;
+	struct pw_connection *connection = proxy->context->protocol_private;
+	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_frame f;
+	int i, n_items;
+
+	if (connection == NULL)
+		return;
+
+	core_update_map_client(proxy->context);
+
+	n_items = props ? props->n_items : 0;
+
+	spa_pod_builder_add(&b.b, SPA_POD_TYPE_STRUCT, &f, SPA_POD_TYPE_INT, n_items, 0);
+
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_add(&b.b,
+				    SPA_POD_TYPE_STRING, props->items[i].key,
+				    SPA_POD_TYPE_STRING, props->items[i].value, 0);
+	}
+	spa_pod_builder_add(&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
+
+	pw_connection_end_write(connection, proxy->id, PW_CORE_METHOD_CLIENT_UPDATE, b.b.offset);
+}
+
+static void core_marshal_sync(void *object, uint32_t seq)
+{
+	struct pw_proxy *proxy = object;
+	struct pw_connection *connection = proxy->context->protocol_private;
+	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_frame f;
+
+	if (connection == NULL)
+		return;
+
+	core_update_map_client(proxy->context);
+
+	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_INT, seq);
+
+	pw_connection_end_write(connection, proxy->id, PW_CORE_METHOD_SYNC, b.b.offset);
+}
+
+static void core_marshal_get_registry(void *object, uint32_t new_id)
+{
+	struct pw_proxy *proxy = object;
+	struct pw_connection *connection = proxy->context->protocol_private;
+	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_frame f;
+
+	if (connection == NULL)
+		return;
+
+	core_update_map_client(proxy->context);
+
+	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_INT, new_id);
+
+	pw_connection_end_write(connection, proxy->id, PW_CORE_METHOD_GET_REGISTRY, b.b.offset);
+}
+
+static void
+core_marshal_create_node(void *object,
+			 const char *factory_name,
+			 const char *name, const struct spa_dict *props, uint32_t new_id)
+{
+	struct pw_proxy *proxy = object;
+	struct pw_connection *connection = proxy->context->protocol_private;
+	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_frame f;
+	uint32_t i, n_items;
+
+	if (connection == NULL)
+		return;
+
+	core_update_map_client(proxy->context);
+
+	n_items = props ? props->n_items : 0;
+
+	spa_pod_builder_add(&b.b,
+			    SPA_POD_TYPE_STRUCT, &f,
+			    SPA_POD_TYPE_STRING, factory_name,
+			    SPA_POD_TYPE_STRING, name, SPA_POD_TYPE_INT, n_items, 0);
+
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_add(&b.b,
+				    SPA_POD_TYPE_STRING, props->items[i].key,
+				    SPA_POD_TYPE_STRING, props->items[i].value, 0);
+	}
+	spa_pod_builder_add(&b.b, SPA_POD_TYPE_INT, new_id, -SPA_POD_TYPE_STRUCT, &f, 0);
+
+	pw_connection_end_write(connection, proxy->id, PW_CORE_METHOD_CREATE_NODE, b.b.offset);
+}
+
+static void
+core_marshal_create_link(void *object,
+			 uint32_t output_node_id,
+			 uint32_t output_port_id,
+			 uint32_t input_node_id,
+			 uint32_t input_port_id,
+			 const struct spa_format *filter,
+			 const struct spa_dict *props,
+			 uint32_t new_id)
+{
+	struct pw_proxy *proxy = object;
+	struct pw_connection *connection = proxy->context->protocol_private;
+	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_frame f;
+	uint32_t i, n_items;
+
+	if (connection == NULL)
+		return;
+
+	core_update_map_client(proxy->context);
+
+	n_items = props ? props->n_items : 0;
+
+	spa_pod_builder_add(&b.b,
+			    SPA_POD_TYPE_STRUCT, &f,
+			    SPA_POD_TYPE_INT, output_node_id,
+			    SPA_POD_TYPE_INT, output_port_id,
+			    SPA_POD_TYPE_INT, input_node_id,
+			    SPA_POD_TYPE_INT, input_port_id,
+			    SPA_POD_TYPE_POD, filter,
+			    SPA_POD_TYPE_INT, n_items, 0);
+
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_add(&b.b,
+				    SPA_POD_TYPE_STRING, props->items[i].key,
+				    SPA_POD_TYPE_STRING, props->items[i].value, 0);
+	}
+	spa_pod_builder_add(&b.b,
+			    SPA_POD_TYPE_INT, new_id,
+			    -SPA_POD_TYPE_STRUCT, &f, 0);
+
+	pw_connection_end_write(connection, proxy->id, PW_CORE_METHOD_CREATE_LINK, b.b.offset);
+}
+
+static void
+core_marshal_update_types_client(void *object, uint32_t first_id, uint32_t n_types, const char **types)
+{
+	struct pw_proxy *proxy = object;
+	struct pw_connection *connection = proxy->context->protocol_private;
+	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_frame f;
+	uint32_t i;
+
+	if (connection == NULL)
+		return;
+
+	spa_pod_builder_add(&b.b,
+			    SPA_POD_TYPE_STRUCT, &f,
+			    SPA_POD_TYPE_INT, first_id, SPA_POD_TYPE_INT, n_types, 0);
+
+	for (i = 0; i < n_types; i++) {
+		spa_pod_builder_add(&b.b, SPA_POD_TYPE_STRING, types[i], 0);
+	}
+	spa_pod_builder_add(&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
+
+	pw_connection_end_write(connection, proxy->id, PW_CORE_METHOD_UPDATE_TYPES, b.b.offset);
+}
+
+static bool core_demarshal_info(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_dict props;
+	struct pw_core_info info;
+	struct spa_pod_iter it;
+	int i;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.id,
+			      SPA_POD_TYPE_LONG, &info.change_mask,
+			      SPA_POD_TYPE_STRING, &info.user_name,
+			      SPA_POD_TYPE_STRING, &info.host_name,
+			      SPA_POD_TYPE_STRING, &info.version,
+			      SPA_POD_TYPE_STRING, &info.name,
+			      SPA_POD_TYPE_INT, &info.cookie, SPA_POD_TYPE_INT, &props.n_items, 0))
+		return false;
+
+	info.props = &props;
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (!spa_pod_iter_get(&it,
+				      SPA_POD_TYPE_STRING, &props.items[i].key,
+				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
+			return false;
+	}
+	((struct pw_core_events *) proxy->implementation)->info(proxy, &info);
+	return true;
+}
+
+static bool core_demarshal_done(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_iter it;
+	uint32_t seq;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &seq, 0))
+		return false;
+
+	((struct pw_core_events *) proxy->implementation)->done(proxy, seq);
+	return true;
+}
+
+static bool core_demarshal_error(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_iter it;
+	uint32_t id, res;
+	const char *error;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &id,
+			      SPA_POD_TYPE_INT, &res, SPA_POD_TYPE_STRING, &error, 0))
+		return false;
+
+	((struct pw_core_events *) proxy->implementation)->error(proxy, id, res, error);
+	return true;
+}
+
+static bool core_demarshal_remove_id(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_iter it;
+	uint32_t id;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &id, 0))
+		return false;
+
+	((struct pw_core_events *) proxy->implementation)->remove_id(proxy, id);
+	return true;
+}
+
+static bool core_demarshal_update_types_client(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_iter it;
+	uint32_t first_id, n_types;
+	const char **types;
+	int i;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &first_id, SPA_POD_TYPE_INT, &n_types, 0))
+		return false;
+
+	types = alloca(n_types * sizeof(char *));
+	for (i = 0; i < n_types; i++) {
+		if (!spa_pod_iter_get(&it, SPA_POD_TYPE_STRING, &types[i], 0))
+			return false;
+	}
+	((struct pw_core_events *) proxy->implementation)->update_types(proxy, first_id, n_types,
+									types);
+	return true;
+}
+
 static void core_marshal_info(void *object, struct pw_core_info *info)
 {
 	struct pw_resource *resource = object;
@@ -73,7 +356,7 @@ static void core_marshal_info(void *object, struct pw_core_info *info)
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
 
-	core_update_map(resource->client);
+	core_update_map_server(resource->client);
 
 	n_items = info->props ? info->props->n_items : 0;
 
@@ -104,7 +387,7 @@ static void core_marshal_done(void *object, uint32_t seq)
 	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
 	struct spa_pod_frame f;
 
-	core_update_map(resource->client);
+	core_update_map_server(resource->client);
 
 	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_INT, seq);
 
@@ -120,7 +403,7 @@ static void core_marshal_error(void *object, uint32_t id, int res, const char *e
 	struct spa_pod_frame f;
 	va_list ap;
 
-	core_update_map(resource->client);
+	core_update_map_server(resource->client);
 
 	va_start(ap, error);
 	vsnprintf(buffer, sizeof(buffer), error, ap);
@@ -140,7 +423,7 @@ static void core_marshal_remove_id(void *object, uint32_t id)
 	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
 	struct spa_pod_frame f;
 
-	core_update_map(resource->client);
+	core_update_map_server(resource->client);
 
 	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_INT, id);
 
@@ -148,7 +431,7 @@ static void core_marshal_remove_id(void *object, uint32_t id)
 }
 
 static void
-core_marshal_update_types(void *object, uint32_t first_id, uint32_t n_types, const char **types)
+core_marshal_update_types_server(void *object, uint32_t first_id, uint32_t n_types, const char **types)
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
@@ -289,7 +572,7 @@ static bool core_demarshal_create_link(void *object, void *data, size_t size)
 	return true;
 }
 
-static bool core_demarshal_update_types(void *object, void *data, size_t size)
+static bool core_demarshal_update_types_server(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_iter it;
@@ -318,7 +601,7 @@ static void registry_marshal_global(void *object, uint32_t id, const char *type,
 	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
 	struct spa_pod_frame f;
 
-	core_update_map(resource->client);
+	core_update_map_server(resource->client);
 
 	spa_pod_builder_struct(&b.b, &f,
 			       SPA_POD_TYPE_INT, id,
@@ -335,7 +618,7 @@ static void registry_marshal_global_remove(void *object, uint32_t id)
 	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
 	struct spa_pod_frame f;
 
-	core_update_map(resource->client);
+	core_update_map_server(resource->client);
 
 	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_INT, id);
 
@@ -368,7 +651,7 @@ static void module_marshal_info(void *object, struct pw_module_info *info)
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
 
-	core_update_map(resource->client);
+	core_update_map_server(resource->client);
 
 	n_items = info->props ? info->props->n_items : 0;
 
@@ -390,6 +673,35 @@ static void module_marshal_info(void *object, struct pw_module_info *info)
 	pw_connection_end_write(connection, resource->id, PW_MODULE_EVENT_INFO, b.b.offset);
 }
 
+static bool module_demarshal_info(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_iter it;
+	struct spa_dict props;
+	struct pw_module_info info;
+	int i;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.id,
+			      SPA_POD_TYPE_LONG, &info.change_mask,
+			      SPA_POD_TYPE_STRING, &info.name,
+			      SPA_POD_TYPE_STRING, &info.filename,
+			      SPA_POD_TYPE_STRING, &info.args, SPA_POD_TYPE_INT, &props.n_items, 0))
+		return false;
+
+	info.props = &props;
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (!spa_pod_iter_get(&it,
+				      SPA_POD_TYPE_STRING, &props.items[i].key,
+				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
+			return false;
+	}
+	((struct pw_module_events *) proxy->implementation)->info(proxy, &info);
+	return true;
+}
+
 static void node_marshal_info(void *object, struct pw_node_info *info)
 {
 	struct pw_resource *resource = object;
@@ -398,7 +710,7 @@ static void node_marshal_info(void *object, struct pw_node_info *info)
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
 
-	core_update_map(resource->client);
+	core_update_map_server(resource->client);
 
 	spa_pod_builder_add(&b.b,
 			    SPA_POD_TYPE_STRUCT, &f,
@@ -436,6 +748,59 @@ static void node_marshal_info(void *object, struct pw_node_info *info)
 	pw_connection_end_write(connection, resource->id, PW_NODE_EVENT_INFO, b.b.offset);
 }
 
+static bool node_demarshal_info(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_iter it;
+	struct spa_dict props;
+	struct pw_node_info info;
+	int i;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.id,
+			      SPA_POD_TYPE_LONG, &info.change_mask,
+			      SPA_POD_TYPE_STRING, &info.name,
+			      SPA_POD_TYPE_INT, &info.max_input_ports,
+			      SPA_POD_TYPE_INT, &info.n_input_ports,
+			      SPA_POD_TYPE_INT, &info.n_input_formats, 0))
+		return false;
+
+	info.input_formats = alloca(info.n_input_formats * sizeof(struct spa_format *));
+	for (i = 0; i < info.n_input_formats; i++)
+		if (!spa_pod_iter_get(&it, SPA_POD_TYPE_OBJECT, &info.input_formats[i], 0))
+			return false;
+
+	if (!spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.max_output_ports,
+			      SPA_POD_TYPE_INT, &info.n_output_ports,
+			      SPA_POD_TYPE_INT, &info.n_output_formats, 0))
+		return false;
+
+	info.output_formats = alloca(info.n_output_formats * sizeof(struct spa_format *));
+	for (i = 0; i < info.n_output_formats; i++)
+		if (!spa_pod_iter_get(&it, SPA_POD_TYPE_OBJECT, &info.output_formats[i], 0))
+			return false;
+
+	if (!spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.state,
+			      SPA_POD_TYPE_STRING, &info.error,
+			      SPA_POD_TYPE_INT, &props.n_items, 0))
+		return false;
+
+	info.props = &props;
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (!spa_pod_iter_get(&it,
+				      SPA_POD_TYPE_STRING, &props.items[i].key,
+				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
+			return false;
+	}
+	((struct pw_node_events *) proxy->implementation)->info(proxy, &info);
+	return true;
+}
+
 static void client_marshal_info(void *object, struct pw_client_info *info)
 {
 	struct pw_resource *resource = object;
@@ -444,7 +809,7 @@ static void client_marshal_info(void *object, struct pw_client_info *info)
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
 
-	core_update_map(resource->client);
+	core_update_map_server(resource->client);
 
 	n_items = info->props ? info->props->n_items : 0;
 
@@ -463,384 +828,30 @@ static void client_marshal_info(void *object, struct pw_client_info *info)
 	pw_connection_end_write(connection, resource->id, PW_CLIENT_EVENT_INFO, b.b.offset);
 }
 
-static void
-client_node_marshal_set_props(void *object, uint32_t seq, const struct spa_props *props)
+static bool client_demarshal_info(void *object, void *data, size_t size)
 {
-	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-
-	core_update_map(resource->client);
-
-	spa_pod_builder_struct(&b.b, &f,
-			       SPA_POD_TYPE_INT, seq,
-			       SPA_POD_TYPE_POD, props);
-
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_SET_PROPS,
-				b.b.offset);
-}
-
-static void client_node_marshal_event(void *object, const struct spa_event *event)
-{
-	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-
-	core_update_map(resource->client);
-
-	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_POD, event);
-
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_EVENT, b.b.offset);
-}
-
-static void
-client_node_marshal_add_port(void *object,
-			     uint32_t seq, enum spa_direction direction, uint32_t port_id)
-{
-	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-
-	core_update_map(resource->client);
-
-	spa_pod_builder_struct(&b.b, &f,
-			       SPA_POD_TYPE_INT, seq,
-			       SPA_POD_TYPE_INT, direction, SPA_POD_TYPE_INT, port_id);
-
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_ADD_PORT,
-				b.b.offset);
-}
-
-static void
-client_node_marshal_remove_port(void *object,
-				uint32_t seq, enum spa_direction direction, uint32_t port_id)
-{
-	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-
-	core_update_map(resource->client);
-
-	spa_pod_builder_struct(&b.b, &f,
-			       SPA_POD_TYPE_INT, seq,
-			       SPA_POD_TYPE_INT, direction, SPA_POD_TYPE_INT, port_id);
-
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_REMOVE_PORT,
-				b.b.offset);
-}
-
-static void
-client_node_marshal_set_format(void *object,
-			       uint32_t seq,
-			       enum spa_direction direction,
-			       uint32_t port_id,
-			       uint32_t flags,
-			       const struct spa_format *format)
-{
-	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-
-	core_update_map(resource->client);
-
-	spa_pod_builder_struct(&b.b, &f,
-			       SPA_POD_TYPE_INT, seq,
-			       SPA_POD_TYPE_INT, direction,
-			       SPA_POD_TYPE_INT, port_id,
-			       SPA_POD_TYPE_INT, flags,
-			       SPA_POD_TYPE_POD, format);
-
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_SET_FORMAT,
-				b.b.offset);
-}
-
-static void
-client_node_marshal_set_param(void *object,
-			      uint32_t seq,
-			      enum spa_direction direction,
-			      uint32_t port_id,
-			      const struct spa_param *param)
-{
-	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-
-	core_update_map(resource->client);
-
-	spa_pod_builder_struct(&b.b, &f,
-			       SPA_POD_TYPE_INT, seq,
-			       SPA_POD_TYPE_INT, direction,
-			       SPA_POD_TYPE_INT, port_id,
-			       SPA_POD_TYPE_POD, param);
-
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_SET_PARAM,
-				b.b.offset);
-}
-
-static void
-client_node_marshal_add_mem(void *object,
-			    enum spa_direction direction,
-			    uint32_t port_id,
-			    uint32_t mem_id,
-			    uint32_t type,
-			    int memfd, uint32_t flags, uint32_t offset, uint32_t size)
-{
-	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-
-	core_update_map(resource->client);
-
-	spa_pod_builder_struct(&b.b, &f,
-			       SPA_POD_TYPE_INT, direction,
-			       SPA_POD_TYPE_INT, port_id,
-			       SPA_POD_TYPE_INT, mem_id,
-			       SPA_POD_TYPE_ID, type,
-			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, memfd),
-			       SPA_POD_TYPE_INT, flags,
-			       SPA_POD_TYPE_INT, offset, SPA_POD_TYPE_INT, size);
-
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_ADD_MEM, b.b.offset);
-}
-
-static void
-client_node_marshal_use_buffers(void *object,
-				uint32_t seq,
-				enum spa_direction direction,
-				uint32_t port_id,
-				uint32_t n_buffers, struct pw_client_node_buffer *buffers)
-{
-	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-	uint32_t i, j;
-
-	core_update_map(resource->client);
-
-	spa_pod_builder_add(&b.b,
-			    SPA_POD_TYPE_STRUCT, &f,
-			    SPA_POD_TYPE_INT, seq,
-			    SPA_POD_TYPE_INT, direction,
-			    SPA_POD_TYPE_INT, port_id, SPA_POD_TYPE_INT, n_buffers, 0);
-
-	for (i = 0; i < n_buffers; i++) {
-		struct spa_buffer *buf = buffers[i].buffer;
-
-		spa_pod_builder_add(&b.b,
-				    SPA_POD_TYPE_INT, buffers[i].mem_id,
-				    SPA_POD_TYPE_INT, buffers[i].offset,
-				    SPA_POD_TYPE_INT, buffers[i].size,
-				    SPA_POD_TYPE_INT, buf->id, SPA_POD_TYPE_INT, buf->n_metas, 0);
-
-		for (j = 0; j < buf->n_metas; j++) {
-			struct spa_meta *m = &buf->metas[j];
-			spa_pod_builder_add(&b.b,
-					    SPA_POD_TYPE_ID, m->type, SPA_POD_TYPE_INT, m->size, 0);
-		}
-		spa_pod_builder_add(&b.b, SPA_POD_TYPE_INT, buf->n_datas, 0);
-		for (j = 0; j < buf->n_datas; j++) {
-			struct spa_data *d = &buf->datas[j];
-			spa_pod_builder_add(&b.b,
-					    SPA_POD_TYPE_ID, d->type,
-					    SPA_POD_TYPE_INT, SPA_PTR_TO_UINT32(d->data),
-					    SPA_POD_TYPE_INT, d->flags,
-					    SPA_POD_TYPE_INT, d->mapoffset,
-					    SPA_POD_TYPE_INT, d->maxsize, 0);
-		}
-	}
-	spa_pod_builder_add(&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
-
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_USE_BUFFERS,
-				b.b.offset);
-}
-
-static void
-client_node_marshal_node_command(void *object, uint32_t seq, const struct spa_command *command)
-{
-	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-
-	core_update_map(resource->client);
-
-	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_INT, seq, SPA_POD_TYPE_POD, command);
-
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_NODE_COMMAND,
-				b.b.offset);
-}
-
-static void
-client_node_marshal_port_command(void *object,
-				 uint32_t direction,
-				 uint32_t port_id,
-				 const struct spa_command *command)
-{
-	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-
-	core_update_map(resource->client);
-
-	spa_pod_builder_struct(&b.b, &f,
-			       SPA_POD_TYPE_INT, direction,
-			       SPA_POD_TYPE_INT, port_id,
-			       SPA_POD_TYPE_POD, command);
-
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_PORT_COMMAND,
-				b.b.offset);
-}
-
-static void client_node_marshal_transport(void *object, int readfd, int writefd,
-					  int memfd, uint32_t offset, uint32_t size)
-{
-	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-
-	core_update_map(resource->client);
-
-	spa_pod_builder_struct(&b.b, &f,
-			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, readfd),
-			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, writefd),
-			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, memfd),
-			       SPA_POD_TYPE_INT, offset, SPA_POD_TYPE_INT, size);
-
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_TRANSPORT,
-				b.b.offset);
-}
-
-
-static bool client_node_demarshal_done(void *object, void *data, size_t size)
-{
-	struct pw_resource *resource = object;
+	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
-	uint32_t seq, res;
+	struct spa_dict props;
+	struct pw_client_info info;
+	uint32_t i;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
-			      SPA_POD_TYPE_INT, &seq,
-			      SPA_POD_TYPE_INT, &res, 0))
+			      SPA_POD_TYPE_INT, &info.id,
+			      SPA_POD_TYPE_LONG, &info.change_mask,
+			      SPA_POD_TYPE_INT, &props.n_items, 0))
 		return false;
 
-	((struct pw_client_node_methods *) resource->implementation)->done(resource, seq, res);
-	return true;
-}
-
-static bool client_node_demarshal_update(void *object, void *data, size_t size)
-{
-	struct pw_resource *resource = object;
-	struct spa_pod_iter it;
-	uint32_t change_mask, max_input_ports, max_output_ports;
-	const struct spa_props *props;
-
-	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
-	    !spa_pod_iter_get(&it,
-			      SPA_POD_TYPE_INT, &change_mask,
-			      SPA_POD_TYPE_INT, &max_input_ports,
-			      SPA_POD_TYPE_INT, &max_output_ports, -SPA_POD_TYPE_OBJECT, &props, 0))
-		return false;
-
-	((struct pw_client_node_methods *) resource->implementation)->update(resource, change_mask,
-									     max_input_ports,
-									     max_output_ports,
-									     props);
-	return true;
-}
-
-static bool client_node_demarshal_port_update(void *object, void *data, size_t size)
-{
-	struct pw_resource *resource = object;
-	struct spa_pod_iter it;
-	uint32_t i, direction, port_id, change_mask, n_possible_formats, n_params;
-	const struct spa_param **params = NULL;
-	const struct spa_format **possible_formats = NULL, *format = NULL;
-	struct spa_port_info info, *infop = NULL;
-	struct spa_pod *ipod;
-
-	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
-	    !spa_pod_iter_get(&it,
-			      SPA_POD_TYPE_INT, &direction,
-			      SPA_POD_TYPE_INT, &port_id,
-			      SPA_POD_TYPE_INT, &change_mask,
-			      SPA_POD_TYPE_INT, &n_possible_formats, 0))
-		return false;
-
-	possible_formats = alloca(n_possible_formats * sizeof(struct spa_format *));
-	for (i = 0; i < n_possible_formats; i++)
-		if (!spa_pod_iter_get(&it, SPA_POD_TYPE_OBJECT, &possible_formats[i], 0))
-			return false;
-
-	if (!spa_pod_iter_get(&it, -SPA_POD_TYPE_OBJECT, &format, SPA_POD_TYPE_INT, &n_params, 0))
-		return false;
-
-	params = alloca(n_params * sizeof(struct spa_param *));
-	for (i = 0; i < n_params; i++)
-		if (!spa_pod_iter_get(&it, SPA_POD_TYPE_OBJECT, &params[i], 0))
-			return false;
-
-	if (!spa_pod_iter_get(&it, -SPA_POD_TYPE_STRUCT, &ipod, 0))
-		return false;
-
-	if (ipod) {
-		struct spa_pod_iter it2;
-		infop = &info;
-
-		if (!spa_pod_iter_pod(&it2, ipod) ||
-		    !spa_pod_iter_get(&it2,
-				      SPA_POD_TYPE_INT, &info.flags,
-				      SPA_POD_TYPE_INT, &info.rate, 0))
+	info.props = &props;
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (!spa_pod_iter_get(&it,
+				      SPA_POD_TYPE_STRING, &props.items[i].key,
+				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
 			return false;
 	}
-
-	((struct pw_client_node_methods *) resource->implementation)->port_update(resource,
-										  direction,
-										  port_id,
-										  change_mask,
-										  n_possible_formats,
-										  possible_formats,
-										  format,
-										  n_params,
-										  params, infop);
-	return true;
-}
-
-static bool client_node_demarshal_event(void *object, void *data, size_t size)
-{
-	struct pw_resource *resource = object;
-	struct spa_pod_iter it;
-	struct spa_event *event;
-
-	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
-	    !spa_pod_iter_get(&it, SPA_POD_TYPE_OBJECT, &event, 0))
-		return false;
-
-	((struct pw_client_node_methods *) resource->implementation)->event(resource, event);
-	return true;
-}
-
-static bool client_node_demarshal_destroy(void *object, void *data, size_t size)
-{
-	struct pw_resource *resource = object;
-	struct spa_pod_iter it;
-
-	if (!spa_pod_iter_struct(&it, data, size))
-		return false;
-
-	((struct pw_client_node_methods *) resource->implementation)->destroy(resource);
+	((struct pw_client_events *) proxy->implementation)->info(proxy, &info);
 	return true;
 }
 
@@ -851,7 +862,7 @@ static void link_marshal_info(void *object, struct pw_link_info *info)
 	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
 	struct spa_pod_frame f;
 
-	core_update_map(resource->client);
+	core_update_map_server(resource->client);
 
 	spa_pod_builder_struct(&b.b, &f,
 			       SPA_POD_TYPE_INT, info->id,
@@ -865,8 +876,166 @@ static void link_marshal_info(void *object, struct pw_link_info *info)
 	pw_connection_end_write(connection, resource->id, PW_LINK_EVENT_INFO, b.b.offset);
 }
 
+static bool link_demarshal_info(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_iter it;
+	struct pw_link_info info = { 0, };
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.id,
+			      SPA_POD_TYPE_LONG, &info.change_mask,
+			      SPA_POD_TYPE_INT, &info.output_node_id,
+			      SPA_POD_TYPE_INT, &info.output_port_id,
+			      SPA_POD_TYPE_INT, &info.input_node_id,
+			      SPA_POD_TYPE_INT, &info.input_port_id,
+			      -SPA_POD_TYPE_OBJECT, &info.format, 0))
+		return false;
+
+	((struct pw_link_events *) proxy->implementation)->info(proxy, &info);
+	return true;
+}
+
+static bool registry_demarshal_global(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_iter it;
+	uint32_t id, version;
+	const char *type;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &id,
+			      SPA_POD_TYPE_STRING, &type,
+			      SPA_POD_TYPE_INT, &version, 0))
+		return false;
+
+	((struct pw_registry_events *) proxy->implementation)->global (proxy, id, type, version);
+	return true;
+}
+
+static bool registry_demarshal_global_remove(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_iter it;
+	uint32_t id;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &id, 0))
+		return false;
+
+	((struct pw_registry_events *) proxy->implementation)->global_remove(proxy, id);
+	return true;
+}
+
+static void registry_marshal_bind(void *object, uint32_t id, uint32_t version, uint32_t new_id)
+{
+	struct pw_proxy *proxy = object;
+	struct pw_connection *connection = proxy->context->protocol_private;
+	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_frame f;
+
+	if (connection == NULL)
+		return;
+
+	core_update_map_client(proxy->context);
+
+	spa_pod_builder_struct(&b.b, &f,
+			       SPA_POD_TYPE_INT, id,
+			       SPA_POD_TYPE_INT, version,
+			       SPA_POD_TYPE_INT, new_id);
+
+	pw_connection_end_write(connection, proxy->id, PW_REGISTRY_METHOD_BIND, b.b.offset);
+}
+
+static const struct pw_core_methods pw_protocol_native_client_core_methods = {
+	&core_marshal_update_types_client,
+	&core_marshal_sync,
+	&core_marshal_get_registry,
+	&core_marshal_client_update,
+	&core_marshal_create_node,
+	&core_marshal_create_link
+};
+
+static const demarshal_func_t pw_protocol_native_client_core_demarshal[PW_CORE_EVENT_NUM] = {
+	&core_demarshal_update_types_client,
+	&core_demarshal_done,
+	&core_demarshal_error,
+	&core_demarshal_remove_id,
+	&core_demarshal_info
+};
+
+static const struct pw_interface pw_protocol_native_client_core_interface = {
+	PIPEWIRE_TYPE__Core,
+	PW_VERSION_CORE,
+	PW_CORE_METHOD_NUM, &pw_protocol_native_client_core_methods,
+	PW_CORE_EVENT_NUM, pw_protocol_native_client_core_demarshal
+};
+
+static const struct pw_registry_methods pw_protocol_native_client_registry_methods = {
+	&registry_marshal_bind
+};
+
+static const demarshal_func_t pw_protocol_native_client_registry_demarshal[] = {
+	&registry_demarshal_global,
+	&registry_demarshal_global_remove,
+};
+
+static const struct pw_interface pw_protocol_native_client_registry_interface = {
+	PIPEWIRE_TYPE__Registry,
+	PW_VERSION_REGISTRY,
+	PW_REGISTRY_METHOD_NUM, &pw_protocol_native_client_registry_methods,
+	PW_REGISTRY_EVENT_NUM, pw_protocol_native_client_registry_demarshal,
+};
+
+static const demarshal_func_t pw_protocol_native_client_module_demarshal[] = {
+	&module_demarshal_info,
+};
+
+static const struct pw_interface pw_protocol_native_client_module_interface = {
+	PIPEWIRE_TYPE__Module,
+	PW_VERSION_MODULE,
+	0, NULL,
+	PW_MODULE_EVENT_NUM, pw_protocol_native_client_module_demarshal,
+};
+
+static const demarshal_func_t pw_protocol_native_client_node_demarshal[] = {
+	&node_demarshal_info,
+};
+
+static const struct pw_interface pw_protocol_native_client_node_interface = {
+	PIPEWIRE_TYPE__Node,
+	PW_VERSION_NODE,
+	0, NULL,
+	PW_NODE_EVENT_NUM, pw_protocol_native_client_node_demarshal,
+};
+
+static const demarshal_func_t pw_protocol_native_client_client_demarshal[] = {
+	&client_demarshal_info,
+};
+
+static const struct pw_interface pw_protocol_native_client_client_interface = {
+	PIPEWIRE_TYPE__Client,
+	PW_VERSION_CLIENT,
+	0, NULL,
+	PW_CLIENT_EVENT_NUM, pw_protocol_native_client_client_demarshal,
+};
+
+static const demarshal_func_t pw_protocol_native_client_link_demarshal[] = {
+	&link_demarshal_info,
+};
+
+static const struct pw_interface pw_protocol_native_client_link_interface = {
+	PIPEWIRE_TYPE__Link,
+	PW_VERSION_LINK,
+	0, NULL,
+	PW_LINK_EVENT_NUM, pw_protocol_native_client_link_demarshal,
+};
+
 static const demarshal_func_t pw_protocol_native_server_core_demarshal[PW_CORE_METHOD_NUM] = {
-	&core_demarshal_update_types,
+	&core_demarshal_update_types_server,
 	&core_demarshal_sync,
 	&core_demarshal_get_registry,
 	&core_demarshal_client_update,
@@ -875,7 +1044,7 @@ static const demarshal_func_t pw_protocol_native_server_core_demarshal[PW_CORE_M
 };
 
 static const struct pw_core_events pw_protocol_native_server_core_events = {
-	&core_marshal_update_types,
+	&core_marshal_update_types_server,
 	&core_marshal_done,
 	&core_marshal_error,
 	&core_marshal_remove_id,
@@ -938,35 +1107,6 @@ const struct pw_interface pw_protocol_native_server_client_interface = {
 	PW_CLIENT_EVENT_NUM, &pw_protocol_native_server_client_events,
 };
 
-static const demarshal_func_t pw_protocol_native_server_client_node_demarshal[] = {
-	&client_node_demarshal_done,
-	&client_node_demarshal_update,
-	&client_node_demarshal_port_update,
-	&client_node_demarshal_event,
-	&client_node_demarshal_destroy,
-};
-
-static const struct pw_client_node_events pw_protocol_native_server_client_node_events = {
-	&client_node_marshal_set_props,
-	&client_node_marshal_event,
-	&client_node_marshal_add_port,
-	&client_node_marshal_remove_port,
-	&client_node_marshal_set_format,
-	&client_node_marshal_set_param,
-	&client_node_marshal_add_mem,
-	&client_node_marshal_use_buffers,
-	&client_node_marshal_node_command,
-	&client_node_marshal_port_command,
-	&client_node_marshal_transport,
-};
-
-const struct pw_interface pw_protocol_native_server_client_node_interface = {
-	PIPEWIRE_TYPE_NODE_BASE "Client",
-	PW_VERSION_CLIENT_NODE,
-	PW_CLIENT_NODE_METHOD_NUM, &pw_protocol_native_server_client_node_demarshal,
-	PW_CLIENT_NODE_EVENT_NUM, &pw_protocol_native_server_client_node_events,
-};
-
 static const struct pw_link_events pw_protocol_native_server_link_events = {
 	&link_marshal_info,
 };
@@ -978,7 +1118,7 @@ const struct pw_interface pw_protocol_native_server_link_interface = {
 	PW_LINK_EVENT_NUM, &pw_protocol_native_server_link_events,
 };
 
-struct pw_protocol *pw_protocol_native_server_init(void)
+struct pw_protocol *pw_protocol_native_init(void)
 {
 	static bool init = false;
 	struct pw_protocol *protocol;
@@ -989,25 +1129,22 @@ struct pw_protocol *pw_protocol_native_server_init(void)
 		return protocol;
 
 	pw_protocol_add_interfaces(protocol,
-				   NULL,
+				   &pw_protocol_native_client_core_interface,
 				   &pw_protocol_native_server_core_interface);
 	pw_protocol_add_interfaces(protocol,
-				   NULL,
+				   &pw_protocol_native_client_registry_interface,
 				   &pw_protocol_native_server_registry_interface);
 	pw_protocol_add_interfaces(protocol,
-				   NULL,
+				   &pw_protocol_native_client_module_interface,
 				   &pw_protocol_native_server_module_interface);
 	pw_protocol_add_interfaces(protocol,
-				   NULL,
+				   &pw_protocol_native_client_node_interface,
 				   &pw_protocol_native_server_node_interface);
 	pw_protocol_add_interfaces(protocol,
-				   NULL,
-				   &pw_protocol_native_server_client_node_interface);
-	pw_protocol_add_interfaces(protocol,
-				   NULL,
+				   &pw_protocol_native_client_client_interface,
 				   &pw_protocol_native_server_client_interface);
 	pw_protocol_add_interfaces(protocol,
-				   NULL,
+				   &pw_protocol_native_client_link_interface,
 				   &pw_protocol_native_server_link_interface);
 
 	init = true;

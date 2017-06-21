@@ -21,13 +21,11 @@
 #define __PIPEWIRE_CLIENT_NODE_H__
 
 #include <pipewire/server/node.h>
+#include <pipewire/extensions/client-node.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define PIPEWIRE_TYPE__ClientNode                            PIPEWIRE_TYPE_NODE_BASE "Client"
-#define PIPEWIRE_TYPE_CLIENT_NODE_BASE                       PIPEWIRE_TYPE__ClientNode ":"
 
 /** \class pw_client_node
  *

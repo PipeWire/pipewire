@@ -736,7 +736,6 @@ client_node_use_buffers(void *object,
 					    strerror(errno));
 				continue;
 			}
-			mid->ptr = SPA_MEMBER(mid->ptr, mid->offset, void);
 		}
 		len = pw_array_get_len(&impl->buffer_ids, struct buffer_id);
 		bid = pw_array_add(&impl->buffer_ids, sizeof(struct buffer_id));
@@ -749,7 +748,7 @@ client_node_use_buffers(void *object,
 
 		b = buffers[i].buffer;
 
-		bid->buf_ptr = SPA_MEMBER(mid->ptr, buffers[i].offset, void);
+		bid->buf_ptr = SPA_MEMBER(mid->ptr, mid->offset + buffers[i].offset, void);
 		{
 			size_t size;
 

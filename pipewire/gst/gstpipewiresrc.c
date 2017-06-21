@@ -1072,8 +1072,6 @@ gst_pipewire_src_close (GstPipeWireSrc * pwsrc)
 
   pw_thread_loop_stop (pwsrc->main_loop);
 
-  g_hash_table_remove_all (pwsrc->buf_ids);
-
   pw_stream_destroy (pwsrc->stream);
   pwsrc->stream = NULL;
 

@@ -327,6 +327,8 @@ void pw_stream_destroy(struct pw_stream *stream)
 	if (stream->name)
 		free(stream->name);
 
+	close(impl->rtwritefd);
+
 	free(impl);
 }
 

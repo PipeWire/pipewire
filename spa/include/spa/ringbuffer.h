@@ -36,7 +36,7 @@ struct spa_ringbuffer;
  * spa_ringbuffer:
  * @readindex: the current read index
  * @writeindex: the current write index
- * @size: the size of the ringbuffer must be power of 2
+ * @size: the size of the ringbuffer
  * @mask: mask as @size - 1
  */
 struct spa_ringbuffer {
@@ -46,28 +46,18 @@ struct spa_ringbuffer {
 	uint32_t mask;
 };
 
+#define SPA_RINGBUFFER_INIT(size)	(struct spa_ringbuffer) { 0, 0, (size), (size)-1 }
+
 /**
  * spa_ringbuffer_init:
  * @rbuf: a #struct spa_ringbuffer
- * @data: pointer to an array
- * @size: the number of elements in @data
+ * @size: the number of elements in the ringbuffer
  *
- * Initialize a #struct spa_ringbuffer with @data and @size.
- * Size must be a power of 2.
- *
- * Returns: %SPA_RESULT_OK, unless size is not a power of 2.
+ * Initialize a #struct spa_ringbuffer with @size.
  */
-static inline int spa_ringbuffer_init(struct spa_ringbuffer *rbuf, uint32_t size)
+static inline void spa_ringbuffer_init(struct spa_ringbuffer *rbuf, uint32_t size)
 {
-	if (SPA_UNLIKELY((size & (size - 1)) != 0))
-		return SPA_RESULT_ERROR;
-
-	rbuf->size = size;
-	rbuf->mask = size - 1;
-	rbuf->readindex = 0;
-	rbuf->writeindex = 0;
-
-	return SPA_RESULT_OK;
+	*rbuf = SPA_RINGBUFFER_INIT(size);
 }
 
 /**

@@ -110,11 +110,15 @@ static void on_timeout(struct spa_loop_utils *utils, struct spa_source *source, 
 		return;
 
 	if ((h = spa_buffer_find_meta(buf, data->type.meta.Header))) {
+#if 0
 		struct timespec now;
-		h->flags = 0;
-		h->seq = data->seq++;
 		clock_gettime(CLOCK_MONOTONIC, &now);
 		h->pts = SPA_TIMESPEC_TO_TIME(&now);
+#else
+		h->pts = -1;
+#endif
+		h->flags = 0;
+		h->seq = data->seq++;
 		h->dts_offset = 0;
 	}
 

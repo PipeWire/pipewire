@@ -453,7 +453,6 @@ on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_gl
 		cinfo->impl = impl;
 		cinfo->client = client;
 		cinfo->is_sandboxed = client_is_sandboxed(client);
-		cinfo->is_sandboxed = true;
 		spa_list_init(&cinfo->async_pending);
 
 		pw_signal_add(&client->resource_impl, &cinfo->resource_impl, on_resource_impl);

@@ -122,6 +122,18 @@ configure_file(input : 'config.h.meson',
 
 configinc = include_directories('.')
 
+makedata = configuration_data()
+  makedata.set('VERSION', pipewire_version)
+if version_arr.length() == 4
+  makedata.set('TAG', 'HEAD')
+else
+  makedata.set('TAG', pipewire_version)
+endif
+
+configure_file(input : 'Makefile.in',
+  output : 'Makefile',
+  configuration : makedata)
+
 # Find dependencies
 glib_dep = dependency('glib-2.0', version : '>=2.32.0')
 gobject_dep = dependency('gobject-2.0')

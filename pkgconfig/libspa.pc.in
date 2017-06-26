@@ -5,6 +5,6 @@ includedir=@includedir@/
 
 Name: libspa
 Description: Simple Plugin API
-Version: @PACKAGE_VERSION@
+Version: @VERSION@
 Libs: -L${libdir} -lspa-lib
 Cflags: -I${includedir} -D_REENTRANT

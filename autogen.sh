@@ -20,3 +20,4 @@
 rm -rf ./build
 mkdir build
 meson build $@
+ln -s build/Makefile Makefile

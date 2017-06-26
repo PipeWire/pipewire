@@ -6,6 +6,6 @@ moduledir=@moduledir@
 
 Name: libpipewirecore
 Description: PipeWire Core
-Version: @PACKAGE_VERSION@
+Version: @VERSION@
 Libs: -L${libdir} -lpipewirecore-@PIPEWIRE_API_VERSION@
 Cflags: -I${includedir} -D_REENTRANT

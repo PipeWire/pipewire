@@ -31,6 +31,7 @@ Source0:        http://freedesktop.org/software/pipewire/releases/pipewire-%{ver
 
 BuildRequires:  meson >= 0.35.0
 BuildRequires:  pkgconfig
+BuildRequires:  pkgconfig(dbus-1)
 BuildRequires:  pkgconfig(glib-2.0) >= 2.32
 BuildRequires:  pkgconfig(gio-unix-2.0) >= 2.32
 BuildRequires:  pkgconfig(gstreamer-1.0) >= 1.10.0
@@ -57,11 +58,11 @@ License:        LGPLv2+
 This package contains the runtime libraries for any application that wishes
 to interface with a PipeWire media server.
 
-%package libs-devel
+%package devel
 Summary:        Headers and libraries for PipeWire client development
 License:        LGPLv2+
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
-%description libs-devel
+%description devel
 Headers and libraries for developing applications that can communicate with
 a PipeWire media server.
 

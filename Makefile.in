@@ -1,0 +1,25 @@
+all:
+	ninja-build -C build
+
+install:
+	ninja-build -C build install
+
+clean:
+	ninja-build -C build clean
+
+run:
+	SPA_PLUGIN_DIR=build/spa/plugins \
+	PIPEWIRE_MODULE_DIR=build \
+	PIPEWIRE_CONFIG_FILE=build/pipewire/daemon/pipewire.conf \
+	build/pipewire/daemon/pipewire
+
+monitor:
+	SPA_PLUGIN_DIR=build/spa/plugins \
+	PIPEWIRE_MODULE_DIR=build/pipewire/modules/ \
+	build/pipewire/tools/pipewire-monitor
+
+dist:
+	git archive --prefix=pipewire-@VERSION@/ -o pipewire-@VERSION@.tar.gz @TAG@
+
+rpm: dist
+	rpmbuild -ta pipewire-@VERSION@.tar.gz

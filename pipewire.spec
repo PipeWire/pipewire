@@ -13,8 +13,8 @@
 
 Name:           pipewire
 Summary:        Media Sharing Server
-Version:        0.1.0
-Release:        2%{?snap:.%{snap}git%{shortcommit}}%{?dist}
+Version:        0.1.1
+Release:        1%{?snap:.%{snap}git%{shortcommit}}%{?dist}
 License:        LGPLv2+
 URL:            http://www.freedesktop.org/wiki/Software/PipeWire
 %if 0%{?gitrel}
@@ -116,13 +116,14 @@ exit 0
 %dir %{_sysconfdir}/pipewire/
 #%dir %{_libdir}/pipewire/
 
-%files libs-devel
+%files devel
 %{_libdir}/libpipewire-%{majorminor}.so
 %{_libdir}/libpipewirecore-%{majorminor}.so
 %{_libdir}/libspa-lib.so
 %{_includedir}/pipewire/
 %{_includedir}/spa/
 %{_libdir}/pkgconfig/libpipewire-%{majorminor}.pc
+%{_libdir}/pkgconfig/libpipewirecore-%{majorminor}.pc
 %{_libdir}/pkgconfig/libspa-%{majorminor}.pc
 
 %files utils
@@ -132,6 +133,11 @@ exit 0
 %{_bindir}/spa-inspect
 
 %changelog
+* Mon Jun 26 2017 Wim Taymans <wtaymans@redhat.com> - 0.1.1-1
+- Update to 0.1.1
+- Add dbus-1 to BuildRequires
+- change libs-devel to -devel
+
 * Wed Sep 9 2015 Wim Taymans <wtaymans@redhat.com> - 0.1.0-2
 - Fix BuildRequires to use pkgconfig, add all dependencies found in configure.ac
 - Add user and groups  if needed

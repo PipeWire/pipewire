@@ -81,6 +81,9 @@ pw_protocol_get_interface(struct pw_protocol *protocol,
 {
 	struct pw_protocol_iface *protocol_iface;
 
+	if (protocol == NULL)
+		return NULL;
+
 	spa_list_for_each(protocol_iface, &protocol->iface_list, link) {
 		const struct pw_interface *iface = server ? protocol_iface->server_iface :
 							    protocol_iface->client_iface;

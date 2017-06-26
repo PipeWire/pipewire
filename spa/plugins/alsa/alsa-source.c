@@ -112,6 +112,7 @@ static int do_start(struct spa_loop *loop, bool async, uint32_t seq, size_t size
 				seq,
 				sizeof(res),
 				&res,
+				false,
 				this);
 	}
 	return res;
@@ -130,6 +131,7 @@ static int do_pause(struct spa_loop *loop, bool async, uint32_t seq, size_t size
 				seq,
 				sizeof(res),
 				&res,
+				false,
 				this);
 	}
 	return res;
@@ -151,7 +153,7 @@ static int impl_node_send_command(struct spa_node *node, struct spa_command *com
 		if (this->n_buffers == 0)
 			return SPA_RESULT_NO_BUFFERS;
 
-		return spa_loop_invoke(this->data_loop, do_start, ++this->seq, 0, NULL, this);
+		return spa_loop_invoke(this->data_loop, do_start, ++this->seq, 0, NULL, false, this);
 	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
 		if (!this->have_format)
 			return SPA_RESULT_NO_FORMAT;
@@ -159,7 +161,7 @@ static int impl_node_send_command(struct spa_node *node, struct spa_command *com
 		if (this->n_buffers == 0)
 			return SPA_RESULT_NO_BUFFERS;
 
-		return spa_loop_invoke(this->data_loop, do_pause, ++this->seq, 0, NULL, this);
+		return spa_loop_invoke(this->data_loop, do_pause, ++this->seq, 0, NULL, false, this);
 	} else
 		return SPA_RESULT_NOT_IMPLEMENTED;
 

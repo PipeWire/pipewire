@@ -598,45 +598,11 @@ struct pw_node *pw_node_new(struct pw_core *core,
 }
 
 static int
-do_node_remove_done(struct spa_loop *loop,
-		    bool async, uint32_t seq, size_t size, void *data, void *user_data)
-{
-	struct pw_node *this = user_data;
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	struct pw_port *port, *tmp;
-
-	pw_log_debug("node %p: remove done, destroy ports", this);
-	spa_list_for_each_safe(port, tmp, &this->input_ports, link)
-		pw_port_destroy(port);
-
-	spa_list_for_each_safe(port, tmp, &this->output_ports, link)
-		pw_port_destroy(port);
-
-	pw_log_debug("node %p: free", this);
-	pw_signal_emit(&this->free_signal, this);
-
-	pw_work_queue_destroy(impl->work);
-
-	if (this->input_port_map)
-		free(this->input_port_map);
-	if (this->output_port_map)
-		free(this->output_port_map);
-
-	if (this->properties)
-		pw_properties_free(this->properties);
-	clear_info(this);
-	free(impl);
-
-	return SPA_RESULT_OK;
-}
-
-static int
 do_node_remove(struct spa_loop *loop,
 	       bool async, uint32_t seq, size_t size, void *data, void *user_data)
 {
 	struct pw_node *this = user_data;
 	struct pw_port *port, *tmp;
-	int res;
 
 	pause_node(this);
 
@@ -656,10 +622,7 @@ do_node_remove(struct spa_loop *loop,
 			link->rt.output = NULL;
 		}
 	}
-
-	res = pw_loop_invoke(this->core->main_loop->loop, do_node_remove_done, seq, 0, NULL, this);
-
-	return res;
+	return SPA_RESULT_OK;
 }
 
 /** Destroy a node
@@ -674,6 +637,7 @@ void pw_node_destroy(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_resource *resource, *tmp;
+	struct pw_port *port, *tmpp;
 
 	pw_log_debug("node %p: destroy", impl);
 	pw_signal_emit(&node->destroy_signal, node);
@@ -686,7 +650,30 @@ void pw_node_destroy(struct pw_node *node)
 	spa_list_for_each_safe(resource, tmp, &node->resource_list, link)
 		pw_resource_destroy(resource);
 
-	pw_loop_invoke(node->data_loop->loop, do_node_remove, 1, 0, NULL, node);
+	pw_loop_invoke(node->data_loop->loop, do_node_remove, 1, 0, NULL, true, node);
+
+	pw_log_debug("node %p: destroy ports", node);
+	spa_list_for_each_safe(port, tmpp, &node->input_ports, link)
+		pw_port_destroy(port);
+
+	spa_list_for_each_safe(port, tmpp, &node->output_ports, link)
+		pw_port_destroy(port);
+
+	pw_log_debug("node %p: free", node);
+	pw_signal_emit(&node->free_signal, node);
+
+	pw_work_queue_destroy(impl->work);
+
+	if (node->input_port_map)
+		free(node->input_port_map);
+	if (node->output_port_map)
+		free(node->output_port_map);
+
+	if (node->properties)
+		pw_properties_free(node->properties);
+	clear_info(node);
+	free(impl);
+
 }
 
 /**

@@ -115,6 +115,7 @@ static int do_command(struct spa_loop *loop, bool async, uint32_t seq, size_t si
 				seq,
 				sizeof(res),
 				&res,
+				false,
 				this);
 	}
 	return res;
@@ -142,6 +143,7 @@ static int impl_node_send_command(struct spa_node *node, struct spa_command *com
 				       ++this->seq,
 				       SPA_POD_SIZE(command),
 				       command,
+				       false,
 				       this);
 
 	} else

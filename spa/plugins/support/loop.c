@@ -47,7 +47,9 @@ struct invoke_item {
 	uint32_t seq;
 	size_t size;
 	void *data;
+	bool block;
 	void *user_data;
+	int res;
 };
 
 struct type {
@@ -55,6 +57,8 @@ struct type {
 	uint32_t loop_control;
 	uint32_t loop_utils;
 };
+
+static void loop_signal_event(struct spa_source *source);
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
@@ -80,7 +84,8 @@ struct impl {
 	int epoll_fd;
 	pthread_t thread;
 
-	struct spa_source *event;
+	struct spa_source *wakeup;
+	int ack_fd;
 
 	struct spa_ringbuffer buffer;
 	uint8_t buffer_data[DATAS_SIZE];
@@ -187,7 +192,12 @@ static void loop_remove_source(struct spa_source *source)
 
 static int
 loop_invoke(struct spa_loop *loop,
-	    spa_invoke_func_t func, uint32_t seq, size_t size, void *data, void *user_data)
+	    spa_invoke_func_t func,
+	    uint32_t seq,
+	    size_t size,
+	    void *data,
+	    bool block,
+	    void *user_data)
 {
 	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, loop);
 	bool in_thread = pthread_equal(impl->thread, pthread_self());
@@ -199,6 +209,7 @@ loop_invoke(struct spa_loop *loop,
 	} else {
 		int32_t filled, avail;
 		uint32_t idx, offset, l0;
+		uint64_t count = 1;
 
 		filled = spa_ringbuffer_get_write_index(&impl->buffer, &idx);
 		if (filled < 0 || filled > impl->buffer.size) {
@@ -220,6 +231,7 @@ loop_invoke(struct spa_loop *loop,
 		item->func = func;
 		item->seq = seq;
 		item->size = size;
+		item->block = block;
 		item->user_data = user_data;
 
 		if (l0 > sizeof(struct invoke_item) + size) {
@@ -235,17 +247,25 @@ loop_invoke(struct spa_loop *loop,
 
 		spa_ringbuffer_write_update(&impl->buffer, idx + item->item_size);
 
-		spa_loop_utils_signal_event(&impl->utils, impl->event);
+		spa_loop_utils_signal_event(&impl->utils, impl->wakeup);
 
-		if (seq != SPA_ID_INVALID)
-			res = SPA_RESULT_RETURN_ASYNC(seq);
-		else
-			res = SPA_RESULT_OK;
+		if (block) {
+			if (read(impl->ack_fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+				spa_log_warn(impl->log, NAME " %p: failed to read event fd: %s",
+						impl, strerror(errno));
+			res = item->res;
+		}
+		else {
+			if (seq != SPA_ID_INVALID)
+				res = SPA_RESULT_RETURN_ASYNC(seq);
+			else
+				res = SPA_RESULT_OK;
+		}
 	}
 	return res;
 }
 
-static void event_func(struct spa_loop_utils *utils, struct spa_source *source, void *data)
+static void wakeup_func(struct spa_loop_utils *utils, struct spa_source *source, void *data)
 {
 	struct impl *impl = data;
 	uint32_t index;
@@ -253,9 +273,16 @@ static void event_func(struct spa_loop_utils *utils, struct spa_source *source, 
 	while (spa_ringbuffer_get_read_index(&impl->buffer, &index) > 0) {
 		struct invoke_item *item =
 		    SPA_MEMBER(impl->buffer_data, index & impl->buffer.mask, struct invoke_item);
-		item->func(&impl->loop, true, item->seq, item->size, item->data,
+		item->res = item->func(&impl->loop, true, item->seq, item->size, item->data,
 			   item->user_data);
 		spa_ringbuffer_read_update(&impl->buffer, index + item->item_size);
+
+		if (item->block) {
+			uint64_t count = 1;
+			if (write(impl->ack_fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+				spa_log_warn(impl->log, NAME " %p: failed to write event fd: %s",
+						impl, strerror(errno));
+		}
 	}
 }
 
@@ -705,7 +732,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_ringbuffer_init(&impl->buffer, DATAS_SIZE);
 
-	impl->event = spa_loop_utils_add_event(&impl->utils, event_func, impl);
+	impl->wakeup = spa_loop_utils_add_event(&impl->utils, wakeup_func, impl);
+	impl->ack_fd = eventfd(0, EFD_CLOEXEC);
 
 	spa_log_info(impl->log, NAME " %p: initialized", impl);
 

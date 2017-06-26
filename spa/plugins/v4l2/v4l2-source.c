@@ -261,6 +261,7 @@ static int do_pause(struct spa_loop *loop,
 				seq,
 				sizeof(res),
 				&res,
+				false,
 				this);
 	}
 	return res;
@@ -300,6 +301,7 @@ static int do_start(struct spa_loop *loop,
 				seq,
 				sizeof(res),
 				&res,
+				false,
 				this);
 	}
 	return SPA_RESULT_OK;
@@ -332,6 +334,7 @@ static int impl_node_send_command(struct spa_node *node, struct spa_command *com
 				       ++this->seq,
 				       SPA_POD_SIZE(command),
 				       command,
+				       false,
 				       this);
 	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
 		struct port *state = &this->out_ports[0];
@@ -347,6 +350,7 @@ static int impl_node_send_command(struct spa_node *node, struct spa_command *com
 				       ++this->seq,
 				       SPA_POD_SIZE(command),
 				       command,
+				       false,
 				       this);
 	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.ClockUpdate) {
 		return SPA_RESULT_OK;

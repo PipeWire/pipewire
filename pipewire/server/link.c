@@ -38,8 +38,6 @@
 struct impl {
 	struct pw_link this;
 
-	int refcount;
-
 	struct pw_work_queue *work;
 
 	struct spa_format *format_filter;
@@ -831,41 +829,16 @@ bool pw_link_deactivate(struct pw_link *this)
 	return true;
 }
 
-static void pw_link_free(struct pw_link *link)
-{
-	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
-
-	pw_log_debug("link %p: free", link);
-	pw_signal_emit(&link->free_signal, link);
-
-	pw_work_queue_destroy(impl->work);
-
-	if (link->info.format)
-		free(link->info.format);
-
-	if (impl->buffer_owner == link)
-		pw_memblock_free(&impl->buffer_mem);
-
-	free(impl);
-}
-
 static void link_unbind_func(void *data)
 {
 	struct pw_resource *resource = data;
-	struct pw_link *this = resource->object;
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-
 	spa_list_remove(&resource->link);
-
-	if (--impl->refcount == 0)
-		pw_link_free(this);
 }
 
 static int
 link_bind_func(struct pw_global *global, struct pw_client *client, uint32_t version, uint32_t id)
 {
 	struct pw_link *this = global->object;
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_resource *resource;
 
 	resource = pw_resource_new(client, id, global->type, 0);
@@ -874,7 +847,6 @@ link_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 		goto no_mem;
 
 	pw_resource_set_implementation(resource, global->object, PW_VERSION_LINK, NULL, link_unbind_func);
-	impl->refcount++;
 
 	pw_log_debug("link %p: bound to %d", global->object, resource->id);
 
@@ -913,7 +885,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->core = core;
 	this->properties = properties;
 	this->state = PW_LINK_STATE_INIT;
-	impl->refcount = 1;
 
 	this->input = input;
 	this->output = output;
@@ -972,49 +943,9 @@ static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 }
 
 static int
-do_link_remove_done(struct spa_loop *loop,
-		    bool async, uint32_t seq, size_t size, void *data, void *user_data)
-{
-	struct pw_link *this = user_data;
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-
-	if (this->input) {
-		spa_list_remove(&this->input_link);
-		this->input->node->n_used_input_links--;
-
-		clear_port_buffers(this, this->input);
-
-		if (this->input->node->n_used_input_links == 0 &&
-		    this->input->node->n_used_output_links == 0 &&
-		    this->input->node->info.state > PW_NODE_STATE_IDLE)
-			pw_node_update_state(this->input->node, PW_NODE_STATE_IDLE, NULL);
-
-		this->input = NULL;
-	}
-	if (this->output) {
-		spa_list_remove(&this->output_link);
-		this->output->node->n_used_output_links--;
-
-		clear_port_buffers(this, this->output);
-
-		if (this->output->node->n_used_input_links == 0 &&
-		    this->output->node->n_used_output_links == 0 &&
-		    this->output->node->info.state > PW_NODE_STATE_IDLE)
-			pw_node_update_state(this->output->node, PW_NODE_STATE_IDLE, NULL);
-
-		this->output = NULL;
-	}
-	if (--impl->refcount == 0)
-		pw_link_free(this);
-
-	return SPA_RESULT_OK;
-}
-
-static int
 do_link_remove(struct spa_loop *loop,
 	       bool async, uint32_t seq, size_t size, void *data, void *user_data)
 {
-	int res;
 	struct pw_link *this = user_data;
 
 	if (this->rt.input) {
@@ -1025,9 +956,7 @@ do_link_remove(struct spa_loop *loop,
 		spa_list_remove(&this->rt.output_link);
 		this->rt.output = NULL;
 	}
-
-	res = pw_loop_invoke(this->core->main_loop->loop, do_link_remove_done, seq, 0, NULL, this);
-	return res;
+	return SPA_RESULT_OK;
 }
 
 void pw_link_destroy(struct pw_link *link)
@@ -1048,18 +977,54 @@ void pw_link_destroy(struct pw_link *link)
 		pw_signal_remove(&impl->input_port_destroy);
 		pw_signal_remove(&impl->input_async_complete);
 
-		impl->refcount++;
 		pw_loop_invoke(link->input->node->data_loop->loop,
-			       do_link_remove, 1, 0, NULL, link);
+			       do_link_remove, 1, 0, NULL, true, link);
 	}
 	if (link->output) {
 		pw_signal_remove(&impl->output_port_destroy);
 		pw_signal_remove(&impl->output_async_complete);
 
-		impl->refcount++;
 		pw_loop_invoke(link->output->node->data_loop->loop,
-			       do_link_remove, 2, 0, NULL, link);
+			       do_link_remove, 2, 0, NULL, true, link);
 	}
-	if (--impl->refcount == 0)
-		pw_link_free(link);
+
+	if (link->input) {
+		spa_list_remove(&link->input_link);
+		link->input->node->n_used_input_links--;
+
+		clear_port_buffers(link, link->input);
+
+		if (link->input->node->n_used_input_links == 0 &&
+		    link->input->node->n_used_output_links == 0 &&
+		    link->input->node->info.state > PW_NODE_STATE_IDLE)
+			pw_node_update_state(link->input->node, PW_NODE_STATE_IDLE, NULL);
+
+		link->input = NULL;
+	}
+	if (link->output) {
+		spa_list_remove(&link->output_link);
+		link->output->node->n_used_output_links--;
+
+		clear_port_buffers(link, link->output);
+
+		if (link->output->node->n_used_input_links == 0 &&
+		    link->output->node->n_used_output_links == 0 &&
+		    link->output->node->info.state > PW_NODE_STATE_IDLE)
+			pw_node_update_state(link->output->node, PW_NODE_STATE_IDLE, NULL);
+
+		link->output = NULL;
+	}
+
+	pw_log_debug("link %p: free", link);
+	pw_signal_emit(&link->free_signal, link);
+
+	pw_work_queue_destroy(impl->work);
+
+	if (link->info.format)
+		free(link->info.format);
+
+	if (impl->buffer_owner == link)
+		pw_memblock_free(&impl->buffer_mem);
+
+	free(impl);
 }

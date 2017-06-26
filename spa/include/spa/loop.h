@@ -91,6 +91,7 @@ struct spa_loop {
 		       uint32_t seq,
 		       size_t size,
 		       void *data,
+		       bool block,
 		       void *user_data);
 };
 

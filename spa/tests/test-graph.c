@@ -274,7 +274,7 @@ static void do_remove_source(struct spa_source *source)
 
 static int
 do_invoke(struct spa_loop *loop,
-	  spa_invoke_func_t func, uint32_t seq, size_t size, void *data, void *user_data)
+	  spa_invoke_func_t func, uint32_t seq, size_t size, void *data, bool block, void *user_data)
 {
 	return func(loop, false, seq, size, data, user_data);
 }

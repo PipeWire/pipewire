@@ -121,6 +121,11 @@ pw_proxy_set_implementation(struct pw_proxy *proxy,
 
 void pw_proxy_destroy(struct pw_proxy *proxy);
 
+#define pw_proxy_notify(p,type,event,...)	((type*) (p)->implementation)->event(p, __VA_ARGS__)
+#define pw_proxy_notify_na(p,type,event)	((type*) (p)->implementation)->event(p)
+#define pw_proxy_do(p,type,method,...)		((type*) (p)->iface->methods)->method(p, __VA_ARGS__)
+#define pw_proxy_do_na(p,type,method)		((type*) (p)->iface->methods)->method(p)
+
 #ifdef __cplusplus
 }
 #endif

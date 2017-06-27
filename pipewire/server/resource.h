@@ -94,6 +94,11 @@ pw_resource_set_implementation(struct pw_resource *resource,
 void
 pw_resource_destroy(struct pw_resource *resource);
 
+#define pw_resource_do(r,type,method,...)	((type*) r->implementation)->method(r, __VA_ARGS__)
+#define pw_resource_do_na(r,type,method)	((type*) r->implementation)->method(r)
+#define pw_resource_notify(r,type,event,...)	((type*) r->iface->events)->event(r, __VA_ARGS__)
+#define pw_resource_notify_na(r,type,event)	((type*) r->iface->events)->event(r)
+
 #ifdef __cplusplus
 }
 #endif

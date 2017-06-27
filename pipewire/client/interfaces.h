@@ -139,12 +139,12 @@ struct pw_core_methods {
 			     uint32_t new_id);
 };
 
-#define pw_core_do_update_types(r,...)       ((struct pw_core_methods*)r->iface->methods)->update_types(r,__VA_ARGS__)
-#define pw_core_do_sync(r,...)               ((struct pw_core_methods*)r->iface->methods)->sync(r,__VA_ARGS__)
-#define pw_core_do_get_registry(r,...)       ((struct pw_core_methods*)r->iface->methods)->get_registry(r,__VA_ARGS__)
-#define pw_core_do_client_update(r,...)      ((struct pw_core_methods*)r->iface->methods)->client_update(r,__VA_ARGS__)
-#define pw_core_do_create_node(r,...)        ((struct pw_core_methods*)r->iface->methods)->create_node(r,__VA_ARGS__)
-#define pw_core_do_create_link(r,...)        ((struct pw_core_methods*)r->iface->methods)->create_link(r,__VA_ARGS__)
+#define pw_core_do_update_types(p,...)       pw_proxy_do(p,struct pw_core_methods,update_types,__VA_ARGS__)
+#define pw_core_do_sync(p,...)               pw_proxy_do(p,struct pw_core_methods,sync,__VA_ARGS__)
+#define pw_core_do_get_registry(p,...)       pw_proxy_do(p,struct pw_core_methods,get_registry,__VA_ARGS__)
+#define pw_core_do_client_update(p,...)      pw_proxy_do(p,struct pw_core_methods,client_update,__VA_ARGS__)
+#define pw_core_do_create_node(p,...)        pw_proxy_do(p,struct pw_core_methods,create_node,__VA_ARGS__)
+#define pw_core_do_create_link(p,...)        pw_proxy_do(p,struct pw_core_methods,create_link,__VA_ARGS__)
 
 #define PW_CORE_EVENT_UPDATE_TYPES 0
 #define PW_CORE_EVENT_DONE         1
@@ -211,11 +211,11 @@ struct pw_core_events {
 	void (*info) (void *object, struct pw_core_info *info);
 };
 
-#define pw_core_notify_update_types(r,...) ((struct pw_core_events*)r->iface->events)->update_types(r,__VA_ARGS__)
-#define pw_core_notify_done(r,...)         ((struct pw_core_events*)r->iface->events)->done(r,__VA_ARGS__)
-#define pw_core_notify_error(r,...)        ((struct pw_core_events*)r->iface->events)->error(r,__VA_ARGS__)
-#define pw_core_notify_remove_id(r,...)    ((struct pw_core_events*)r->iface->events)->remove_id(r,__VA_ARGS__)
-#define pw_core_notify_info(r,...)         ((struct pw_core_events*)r->iface->events)->info(r,__VA_ARGS__)
+#define pw_core_notify_update_types(r,...) pw_resource_notify(r,struct pw_core_events,update_types,__VA_ARGS__)
+#define pw_core_notify_done(r,...)         pw_resource_notify(r,struct pw_core_events,done,__VA_ARGS__)
+#define pw_core_notify_error(r,...)        pw_resource_notify(r,struct pw_core_events,error,__VA_ARGS__)
+#define pw_core_notify_remove_id(r,...)    pw_resource_notify(r,struct pw_core_events,remove_id,__VA_ARGS__)
+#define pw_core_notify_info(r,...)         pw_resource_notify(r,struct pw_core_events,info,__VA_ARGS__)
 
 #define PW_VERSION_REGISTRY		0
 
@@ -238,7 +238,7 @@ struct pw_registry_methods {
 	void (*bind) (void *object, uint32_t id, uint32_t version, uint32_t new_id);
 };
 
-#define pw_registry_do_bind(r,...)        ((struct pw_registry_methods*)r->iface->methods)->bind(r,__VA_ARGS__)
+#define pw_registry_do_bind(p,...)        pw_proxy_do(p,struct pw_registry_methods,bind,__VA_ARGS__)
 
 #define PW_REGISTRY_EVENT_GLOBAL             0
 #define PW_REGISTRY_EVENT_GLOBAL_REMOVE      1
@@ -269,8 +269,8 @@ struct pw_registry_events {
 	void (*global_remove) (void *object, uint32_t id);
 };
 
-#define pw_registry_notify_global(r,...)        ((struct pw_registry_events*)r->iface->events)->global(r,__VA_ARGS__)
-#define pw_registry_notify_global_remove(r,...) ((struct pw_registry_events*)r->iface->events)->global_remove(r,__VA_ARGS__)
+#define pw_registry_notify_global(r,...)        pw_resource_notify(r,struct pw_registry_events,global,__VA_ARGS__)
+#define pw_registry_notify_global_remove(r,...) pw_resource_notify(r,struct pw_registry_events,global_remove,__VA_ARGS__)
 
 #define PW_VERSION_MODULE		0
 
@@ -287,7 +287,7 @@ struct pw_module_events {
 	void (*info) (void *object, struct pw_module_info *info);
 };
 
-#define pw_module_notify_info(r,...)      ((struct pw_module_events*)r->iface->events)->info(r,__VA_ARGS__)
+#define pw_module_notify_info(r,...)      pw_resource_notify(r,struct pw_module_events,info,__VA_ARGS__)
 
 #define PW_VERSION_NODE		0
 
@@ -304,7 +304,7 @@ struct pw_node_events {
 	void (*info) (void *object, struct pw_node_info *info);
 };
 
-#define pw_node_notify_info(r,...)      ((struct pw_node_events*)r->iface->events)->info(r,__VA_ARGS__)
+#define pw_node_notify_info(r,...)      pw_resource_notify(r,struct pw_node_events,info,__VA_ARGS__)
 
 #define PW_VERSION_CLIENT		0
 
@@ -321,7 +321,7 @@ struct pw_client_events {
 	void (*info) (void *object, struct pw_client_info *info);
 };
 
-#define pw_client_notify_info(r,...)      ((struct pw_client_events*)r->iface->events)->info(r,__VA_ARGS__)
+#define pw_client_notify_info(r,...)      pw_resource_notify(r,struct pw_client_events,info,__VA_ARGS__)
 
 #define PW_VERSION_LINK		0
 
@@ -338,7 +338,7 @@ struct pw_link_events {
 	void (*info) (void *object, struct pw_link_info *info);
 };
 
-#define pw_link_notify_info(r,...)      ((struct pw_link_events*)r->iface->events)->info(r,__VA_ARGS__)
+#define pw_link_notify_info(r,...)      pw_resource_notify(r,struct pw_link_events,info,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

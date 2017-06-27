@@ -277,7 +277,7 @@ static bool core_demarshal_info(void *object, void *data, size_t size)
 				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
 			return false;
 	}
-	((struct pw_core_events *) proxy->implementation)->info(proxy, &info);
+	pw_proxy_notify(proxy, struct pw_core_events, info, &info);
 	return true;
 }
 
@@ -291,7 +291,7 @@ static bool core_demarshal_done(void *object, void *data, size_t size)
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &seq, 0))
 		return false;
 
-	((struct pw_core_events *) proxy->implementation)->done(proxy, seq);
+	pw_proxy_notify(proxy, struct pw_core_events, done, seq);
 	return true;
 }
 
@@ -308,7 +308,7 @@ static bool core_demarshal_error(void *object, void *data, size_t size)
 			      SPA_POD_TYPE_INT, &res, SPA_POD_TYPE_STRING, &error, 0))
 		return false;
 
-	((struct pw_core_events *) proxy->implementation)->error(proxy, id, res, error);
+	pw_proxy_notify(proxy, struct pw_core_events, error, id, res, error);
 	return true;
 }
 
@@ -322,7 +322,7 @@ static bool core_demarshal_remove_id(void *object, void *data, size_t size)
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &id, 0))
 		return false;
 
-	((struct pw_core_events *) proxy->implementation)->remove_id(proxy, id);
+	pw_proxy_notify(proxy, struct pw_core_events, remove_id, id);
 	return true;
 }
 
@@ -343,8 +343,7 @@ static bool core_demarshal_update_types_client(void *object, void *data, size_t 
 		if (!spa_pod_iter_get(&it, SPA_POD_TYPE_STRING, &types[i], 0))
 			return false;
 	}
-	((struct pw_core_events *) proxy->implementation)->update_types(proxy, first_id, n_types,
-									types);
+	pw_proxy_notify(proxy, struct pw_core_events, update_types, first_id, n_types, types);
 	return true;
 }
 
@@ -469,7 +468,7 @@ static bool core_demarshal_client_update(void *object, void *data, size_t size)
 				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
 			return false;
 	}
-	((struct pw_core_methods *) resource->implementation)->client_update(resource, &props);
+	pw_resource_do(resource, struct pw_core_methods, client_update, &props);
 	return true;
 }
 
@@ -483,7 +482,7 @@ static bool core_demarshal_sync(void *object, void *data, size_t size)
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &seq, 0))
 		return false;
 
-	((struct pw_core_methods *) resource->implementation)->sync(resource, seq);
+	pw_resource_do(resource, struct pw_core_methods, sync, seq);
 	return true;
 }
 
@@ -497,7 +496,7 @@ static bool core_demarshal_get_registry(void *object, void *data, size_t size)
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &new_id, 0))
 		return false;
 
-	((struct pw_core_methods *) resource->implementation)->get_registry(resource, new_id);
+	pw_resource_do(resource, struct pw_core_methods, get_registry, new_id);
 	return true;
 }
 
@@ -525,9 +524,8 @@ static bool core_demarshal_create_node(void *object, void *data, size_t size)
 	if (!spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &new_id, 0))
 		return false;
 
-	((struct pw_core_methods *) resource->implementation)->create_node(resource,
-									   factory_name,
-									   name, &props, new_id);
+	pw_resource_do(resource, struct pw_core_methods, create_node, factory_name,
+								      name, &props, new_id);
 	return true;
 }
 
@@ -561,14 +559,13 @@ static bool core_demarshal_create_link(void *object, void *data, size_t size)
 	if (!spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &new_id, 0))
 		return false;
 
-	((struct pw_core_methods *) resource->implementation)->create_link(resource,
-									   output_node_id,
-									   output_port_id,
-									   input_node_id,
-									   input_port_id,
-									   filter,
-									   &props,
-									   new_id);
+	pw_resource_do(resource, struct pw_core_methods, create_link, output_node_id,
+								      output_port_id,
+								      input_node_id,
+								      input_port_id,
+								      filter,
+								      &props,
+								      new_id);
 	return true;
 }
 
@@ -589,8 +586,7 @@ static bool core_demarshal_update_types_server(void *object, void *data, size_t 
 		if (!spa_pod_iter_get(&it, SPA_POD_TYPE_STRING, &types[i], 0))
 			return false;
 	}
-	((struct pw_core_methods *) resource->implementation)->update_types(resource, first_id,
-									    n_types, types);
+	pw_resource_do(resource, struct pw_core_methods, update_types, first_id, n_types, types);
 	return true;
 }
 
@@ -639,7 +635,7 @@ static bool registry_demarshal_bind(void *object, void *data, size_t size)
 			      SPA_POD_TYPE_INT, &new_id, 0))
 		return false;
 
-	((struct pw_registry_methods *) resource->implementation)->bind(resource, id, version, new_id);
+	pw_resource_do(resource, struct pw_registry_methods, bind, id, version, new_id);
 	return true;
 }
 
@@ -698,7 +694,7 @@ static bool module_demarshal_info(void *object, void *data, size_t size)
 				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
 			return false;
 	}
-	((struct pw_module_events *) proxy->implementation)->info(proxy, &info);
+	pw_proxy_notify(proxy, struct pw_module_events, info, &info);
 	return true;
 }
 
@@ -797,7 +793,7 @@ static bool node_demarshal_info(void *object, void *data, size_t size)
 				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
 			return false;
 	}
-	((struct pw_node_events *) proxy->implementation)->info(proxy, &info);
+	pw_proxy_notify(proxy, struct pw_node_events, info, &info);
 	return true;
 }
 
@@ -851,7 +847,7 @@ static bool client_demarshal_info(void *object, void *data, size_t size)
 				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
 			return false;
 	}
-	((struct pw_client_events *) proxy->implementation)->info(proxy, &info);
+	pw_proxy_notify(proxy, struct pw_client_events, info, &info);
 	return true;
 }
 
@@ -894,7 +890,7 @@ static bool link_demarshal_info(void *object, void *data, size_t size)
 			      -SPA_POD_TYPE_OBJECT, &info.format, 0))
 		return false;
 
-	((struct pw_link_events *) proxy->implementation)->info(proxy, &info);
+	pw_proxy_notify(proxy, struct pw_link_events, info, &info);
 	return true;
 }
 
@@ -912,7 +908,7 @@ static bool registry_demarshal_global(void *object, void *data, size_t size)
 			      SPA_POD_TYPE_INT, &version, 0))
 		return false;
 
-	((struct pw_registry_events *) proxy->implementation)->global (proxy, id, type, version);
+	pw_proxy_notify(proxy, struct pw_registry_events, global, id, type, version);
 	return true;
 }
 
@@ -926,7 +922,7 @@ static bool registry_demarshal_global_remove(void *object, void *data, size_t si
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &id, 0))
 		return false;
 
-	((struct pw_registry_events *) proxy->implementation)->global_remove(proxy, id);
+	pw_proxy_notify(proxy, struct pw_registry_events, global_remove, id);
 	return true;
 }
 

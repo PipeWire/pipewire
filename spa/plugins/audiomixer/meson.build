@@ -1,4 +1,4 @@
-audiomixer_sources = ['audiomixer.c', 'plugin.c']
+audiomixer_sources = ['audiomixer.c', 'conv.c', 'plugin.c']
 
 audiomixerlib = shared_library('spa-audiomixer',
                           audiomixer_sources,

@@ -208,6 +208,8 @@ struct pw_stream {
 	struct spa_list link;		/**< link in the context */
 
 	char *name;				/**< the name of the stream */
+	uint32_t node_id;			/**< node id for remote node, available from
+						  *  CONFIGURE state and higher */
 	struct pw_properties *properties;	/**< properties of the stream */
 
 	/** Emited when the stream is destroyed */

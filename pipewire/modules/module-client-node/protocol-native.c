@@ -468,11 +468,12 @@ static bool client_node_demarshal_transport(void *object, void *data, size_t siz
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
 	struct pw_connection *connection = proxy->context->protocol_private;
-	uint32_t ridx, widx, memfd_idx, offset, sz;
+	uint32_t node_id, ridx, widx, memfd_idx, offset, sz;
 	int readfd, writefd, memfd;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &node_id,
 			      SPA_POD_TYPE_INT, &ridx,
 			      SPA_POD_TYPE_INT, &widx,
 			      SPA_POD_TYPE_INT, &memfd_idx,
@@ -486,7 +487,7 @@ static bool client_node_demarshal_transport(void *object, void *data, size_t siz
 	if (readfd == -1 || writefd == -1 || memfd_idx == -1)
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->transport(proxy,
+	((struct pw_client_node_events *) proxy->implementation)->transport(proxy, node_id,
 									    readfd, writefd,
 									    memfd, offset, sz);
 	return true;
@@ -729,7 +730,7 @@ client_node_marshal_port_command(void *object,
 				b.b.offset);
 }
 
-static void client_node_marshal_transport(void *object, int readfd, int writefd,
+static void client_node_marshal_transport(void *object, uint32_t node_id, int readfd, int writefd,
 					  int memfd, uint32_t offset, uint32_t size)
 {
 	struct pw_resource *resource = object;
@@ -740,6 +741,7 @@ static void client_node_marshal_transport(void *object, int readfd, int writefd,
 	core_update_map_server(resource->client);
 
 	spa_pod_builder_struct(&b.b, &f,
+			       SPA_POD_TYPE_INT, node_id,
 			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, readfd),
 			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, writefd),
 			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, memfd),
@@ -882,6 +884,7 @@ static const struct pw_client_node_methods pw_protocol_native_client_client_node
 };
 
 static const demarshal_func_t pw_protocol_native_client_client_node_demarshal[] = {
+	&client_node_demarshal_transport,
 	&client_node_demarshal_set_props,
 	&client_node_demarshal_event_event,
 	&client_node_demarshal_add_port,
@@ -892,7 +895,6 @@ static const demarshal_func_t pw_protocol_native_client_client_node_demarshal[] 
 	&client_node_demarshal_use_buffers,
 	&client_node_demarshal_node_command,
 	&client_node_demarshal_port_command,
-	&client_node_demarshal_transport
 };
 
 static const struct pw_interface pw_protocol_native_client_client_node_interface = {
@@ -911,6 +913,7 @@ static const demarshal_func_t pw_protocol_native_server_client_node_demarshal[] 
 };
 
 static const struct pw_client_node_events pw_protocol_native_server_client_node_events = {
+	&client_node_marshal_transport,
 	&client_node_marshal_set_props,
 	&client_node_marshal_event_event,
 	&client_node_marshal_add_port,
@@ -921,7 +924,6 @@ static const struct pw_client_node_events pw_protocol_native_server_client_node_
 	&client_node_marshal_use_buffers,
 	&client_node_marshal_node_command,
 	&client_node_marshal_port_command,
-	&client_node_marshal_transport,
 };
 
 const struct pw_interface pw_protocol_native_server_client_node_interface = {

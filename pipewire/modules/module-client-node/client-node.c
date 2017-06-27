@@ -80,9 +80,6 @@ struct proxy_port {
 
 	uint32_t n_buffers;
 	struct proxy_buffer buffers[MAX_BUFFERS];
-
-	uint32_t buffer_mem_id;
-	struct pw_memblock buffer_mem;
 };
 
 struct proxy {
@@ -139,9 +136,6 @@ static int clear_buffers(struct proxy *this, struct proxy_port *port)
 {
 	if (port->n_buffers) {
 		spa_log_info(this->log, "proxy %p: clear buffers", this);
-
-		pw_memblock_free(&port->buffer_mem);
-
 		port->n_buffers = 0;
 	}
 	return SPA_RESULT_OK;
@@ -1057,7 +1051,8 @@ static void on_initialized(struct pw_listener *listener, struct pw_node *node)
 	pw_client_node_get_fds(this, &readfd, &writefd);
 	pw_transport_get_info(impl->transport, &info);
 
-	pw_client_node_notify_transport(this->resource, readfd, writefd, info.memfd, info.offset, info.size);
+	pw_client_node_notify_transport(this->resource, node->global->id,
+					readfd, writefd, info.memfd, info.offset, info.size);
 }
 
 static void

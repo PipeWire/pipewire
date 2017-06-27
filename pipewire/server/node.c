@@ -157,7 +157,6 @@ static void update_port_ids(struct pw_node *node)
 			break;
 		}
 	}
-	pw_signal_emit(&node->initialized, node);
 }
 
 static int pause_node(struct pw_node *this)
@@ -505,6 +504,8 @@ static void init_complete(struct pw_node *this)
 			   this->core->type.node, 0, this, node_bind_func, &this->global);
 
 	update_info(this);
+
+	pw_signal_emit(&this->initialized, this);
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 }

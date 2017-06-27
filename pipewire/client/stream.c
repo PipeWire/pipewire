@@ -833,12 +833,15 @@ client_node_port_command(void *object,
 	pw_log_warn("port command not supported");
 }
 
-static void client_node_transport(void *object, int readfd, int writefd, int memfd, uint32_t offset, uint32_t size)
+static void client_node_transport(void *object, uint32_t node_id,
+				  int readfd, int writefd, int memfd, uint32_t offset, uint32_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct pw_stream *stream = proxy->object;
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct pw_transport_info info;
+
+	stream->node_id = node_id;
 
 	info.memfd = memfd;
 	if (info.memfd == -1)
@@ -850,13 +853,15 @@ static void client_node_transport(void *object, int readfd, int writefd, int mem
 		pw_transport_destroy(impl->trans);
 	impl->trans = pw_transport_new_from_info(&info);
 
-	pw_log_info("stream %p: create client transport %p with fds %d %d", stream, impl->trans, readfd, writefd);
+	pw_log_info("stream %p: create client transport %p with fds %d %d for node %u",
+			stream, impl->trans, readfd, writefd, node_id);
 	handle_socket(stream, readfd, writefd);
 
 	stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
 }
 
 static const struct pw_client_node_events client_node_events = {
+	&client_node_transport,
 	&client_node_set_props,
 	&client_node_event,
 	&client_node_add_port,
@@ -867,7 +872,6 @@ static const struct pw_client_node_events client_node_events = {
 	&client_node_use_buffers,
 	&client_node_node_command,
 	&client_node_port_command,
-	&client_node_transport
 };
 
 static void on_node_proxy_destroy(struct pw_listener *listener, struct pw_proxy *proxy)

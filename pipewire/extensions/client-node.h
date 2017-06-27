@@ -119,21 +119,41 @@ struct pw_client_node_methods {
 #define pw_client_node_do_event(r,...)        ((struct pw_client_node_methods*)r->iface->methods)->event(r,__VA_ARGS__)
 #define pw_client_node_do_destroy(r)          ((struct pw_client_node_methods*)r->iface->methods)->destroy(r)
 
-#define PW_CLIENT_NODE_EVENT_SET_PROPS       0
-#define PW_CLIENT_NODE_EVENT_EVENT           1
-#define PW_CLIENT_NODE_EVENT_ADD_PORT        2
-#define PW_CLIENT_NODE_EVENT_REMOVE_PORT     3
-#define PW_CLIENT_NODE_EVENT_SET_FORMAT      4
-#define PW_CLIENT_NODE_EVENT_SET_PARAM       5
-#define PW_CLIENT_NODE_EVENT_ADD_MEM         6
-#define PW_CLIENT_NODE_EVENT_USE_BUFFERS     7
-#define PW_CLIENT_NODE_EVENT_NODE_COMMAND    8
-#define PW_CLIENT_NODE_EVENT_PORT_COMMAND    9
-#define PW_CLIENT_NODE_EVENT_TRANSPORT       10
+#define PW_CLIENT_NODE_EVENT_TRANSPORT       0
+#define PW_CLIENT_NODE_EVENT_SET_PROPS       1
+#define PW_CLIENT_NODE_EVENT_EVENT           2
+#define PW_CLIENT_NODE_EVENT_ADD_PORT        3
+#define PW_CLIENT_NODE_EVENT_REMOVE_PORT     4
+#define PW_CLIENT_NODE_EVENT_SET_FORMAT      5
+#define PW_CLIENT_NODE_EVENT_SET_PARAM       6
+#define PW_CLIENT_NODE_EVENT_ADD_MEM         7
+#define PW_CLIENT_NODE_EVENT_USE_BUFFERS     8
+#define PW_CLIENT_NODE_EVENT_NODE_COMMAND    9
+#define PW_CLIENT_NODE_EVENT_PORT_COMMAND    10
 #define PW_CLIENT_NODE_EVENT_NUM             11
 
 /** \ref pw_client_node events */
 struct pw_client_node_events {
+	/**
+	 * Notify of a new transport area
+	 *
+	 * The transport area is used to exchange real-time commands between
+	 * the client and the server.
+	 *
+	 * \param node_id the node id created for this client node
+	 * \param readfd fd for signal data can be read
+	 * \param writefd fd for signal data can be written
+	 * \param memfd the memory fd of the area
+	 * \param offset the offset to map
+	 * \param size the size to map
+	 */
+	void (*transport) (void *object,
+			   uint32_t node_id,
+			   int readfd,
+			   int writefd,
+			   int memfd,
+			   uint32_t offset,
+			   uint32_t size);
 	/**
 	 * Notify of a property change
 	 *
@@ -258,26 +278,9 @@ struct pw_client_node_events {
 			      uint32_t port_id,
 			      const struct spa_command *command);
 
-	/**
-	 * Notify of a new transport area
-	 *
-	 * The transport area is used to exchange real-time commands between
-	 * the client and the server.
-	 *
-	 * \param readfd fd for signal data can be read
-	 * \param writefd fd for signal data can be written
-	 * \param memfd the memory fd of the area
-	 * \param offset the offset to map
-	 * \param size the size to map
-	 */
-	void (*transport) (void *object,
-			   int readfd,
-			   int writefd,
-			   int memfd,
-			   uint32_t offset,
-			   uint32_t size);
 };
 
+#define pw_client_node_notify_transport(r,...)    ((struct pw_client_node_events*)r->iface->events)->transport(r,__VA_ARGS__)
 #define pw_client_node_notify_set_props(r,...)    ((struct pw_client_node_events*)r->iface->events)->props(r,__VA_ARGS__)
 #define pw_client_node_notify_event(r,...)        ((struct pw_client_node_events*)r->iface->events)->event(r,__VA_ARGS__)
 #define pw_client_node_notify_add_port(r,...)     ((struct pw_client_node_events*)r->iface->events)->add_port(r,__VA_ARGS__)
@@ -288,7 +291,6 @@ struct pw_client_node_events {
 #define pw_client_node_notify_use_buffers(r,...)  ((struct pw_client_node_events*)r->iface->events)->use_buffers(r,__VA_ARGS__)
 #define pw_client_node_notify_node_command(r,...) ((struct pw_client_node_events*)r->iface->events)->node_command(r,__VA_ARGS__)
 #define pw_client_node_notify_port_command(r,...) ((struct pw_client_node_events*)r->iface->events)->port_command(r,__VA_ARGS__)
-#define pw_client_node_notify_transport(r,...)    ((struct pw_client_node_events*)r->iface->events)->transport(r,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

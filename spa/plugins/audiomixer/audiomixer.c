@@ -253,8 +253,8 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 			   SPA_PORT_INFO_FLAG_IN_PLACE;
 
 	this->port_count++;
-	if (this->last_port < port_id)
-		this->last_port = port_id;
+	if (this->last_port <= port_id)
+		this->last_port = port_id + 1;
 
 	return SPA_RESULT_OK;
 }
@@ -280,14 +280,14 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 	}
 	spa_memzero(port, sizeof(struct port));
 
-	if (port_id == this->last_port) {
+	if (port_id == this->last_port + 1) {
 		int i;
 
-		for (i = this->last_port; i > 0; i--)
+		for (i = this->last_port; i >= 0; i--)
 			if (GET_IN_PORT (this, i)->valid)
 				break;
 
-		this->last_port = i;
+		this->last_port = i + 1;
 	}
 
 	return SPA_RESULT_OK;

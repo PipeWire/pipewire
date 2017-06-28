@@ -66,6 +66,7 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
   dependencies : [mathlib, dl_lib, pipewire_dep, pipewirecore_dep],
 )
 
+if jack_dep.found()
 pipewire_module_jack = shared_library('pipewire-module-jack',
   [ 'module-jack.c',
     'module-jack/shm.c' ],
@@ -74,8 +75,9 @@ pipewire_module_jack = shared_library('pipewire-module-jack',
   link_with : spalib,
   install : true,
   install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, pipewirecore_dep],
+  dependencies : [jack_dep, mathlib, dl_lib, rt_lib, pipewire_dep, pipewirecore_dep],
 )
+endif
 
 pipewire_module_suspend_on_idle = shared_library('pipewire-module-suspend-on-idle', [ 'module-suspend-on-idle.c' ],
   c_args : pipewire_module_c_args,

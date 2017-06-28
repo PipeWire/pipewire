@@ -28,7 +28,6 @@
 
 #include "pipewire/client/pipewire.h"
 #include "pipewire/client/interfaces.h"
-#include "pipewire/client/protocol-native.h"
 #include "pipewire/client/array.h"
 #include "pipewire/client/connection.h"
 #include "pipewire/client/context.h"

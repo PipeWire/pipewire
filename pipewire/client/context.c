@@ -29,7 +29,6 @@
 #include "pipewire/client/extension.h"
 #include "pipewire/client/introspect.h"
 #include "pipewire/client/interfaces.h"
-#include "pipewire/client/protocol-native.h"
 #include "pipewire/client/connection.h"
 #include "pipewire/client/subscribe.h"
 

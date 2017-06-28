@@ -19,7 +19,6 @@
 
 #include <pipewire/client/log.h>
 #include <pipewire/client/proxy.h>
-#include <pipewire/client/protocol-native.h>
 
 /** \cond */
 struct proxy {

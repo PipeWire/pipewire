@@ -99,6 +99,7 @@ struct impl {
 	void *user_data;
 
 	int port_count;
+	int last_port;
 	struct port in_ports[MAX_PORTS];
 	struct port out_ports[1];
 
@@ -220,7 +221,7 @@ impl_node_get_port_ids(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	if (input_ids) {
-		for (i = 0, idx = 0; i < MAX_PORTS && idx < n_input_ports; i++) {
+		for (i = 0, idx = 0; i < this->last_port && idx < n_input_ports; i++) {
 			if (this->in_ports[i].valid)
 				input_ids[idx++] = i;
 		}
@@ -252,6 +253,8 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 			   SPA_PORT_INFO_FLAG_IN_PLACE;
 
 	this->port_count++;
+	if (this->last_port < port_id)
+		this->last_port = port_id;
 
 	return SPA_RESULT_OK;
 }
@@ -276,6 +279,16 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 			this->have_format = false;
 	}
 	spa_memzero(port, sizeof(struct port));
+
+	if (port_id == this->last_port) {
+		int i;
+
+		for (i = this->last_port; i > 0; i--)
+			if (GET_IN_PORT (this, i)->valid)
+				break;
+
+		this->last_port = i;
+	}
 
 	return SPA_RESULT_OK;
 }
@@ -673,7 +686,7 @@ static int mix_output(struct impl *this, size_t n_bytes)
 
 	spa_log_trace(this->log, NAME " %p: dequeue output buffer %d %zd",
 		      this, outbuf->outbuf->id, n_bytes);
-	for (layer = 0, i = 0; i < MAX_PORTS; i++) {
+	for (layer = 0, i = 0; i < this->last_port; i++) {
 		struct port *in_port = GET_IN_PORT(this, i);
 
 		if (in_port->io == NULL || in_port->n_buffers == 0)
@@ -712,7 +725,7 @@ static int impl_node_process_input(struct spa_node *node)
 	if (outio->status == SPA_RESULT_HAVE_BUFFER)
 		return SPA_RESULT_HAVE_BUFFER;
 
-	for (i = 0; i < MAX_PORTS; i++) {
+	for (i = 0; i < this->last_port; i++) {
 		struct port *inport = GET_IN_PORT(this, i);
 		struct spa_port_io *inio;
 
@@ -777,7 +790,7 @@ static int impl_node_process_output(struct spa_node *node)
 		outio->buffer_id = SPA_ID_INVALID;
 	}
 	/* produce more output if possible */
-	for (i = 0; i < MAX_PORTS; i++) {
+	for (i = 0; i < this->last_port; i++) {
 		struct port *inport = GET_IN_PORT(this, i);
 
 		if (inport->io == NULL || inport->n_buffers == 0)
@@ -790,7 +803,7 @@ static int impl_node_process_output(struct spa_node *node)
 		outio->status = mix_output(this, min_queued);
 	} else {
 		/* take requested output range and apply to input */
-		for (i = 0; i < MAX_PORTS; i++) {
+		for (i = 0; i < this->last_port; i++) {
 			struct port *inport = GET_IN_PORT(this, i);
 			struct spa_port_io *inio;
 
@@ -892,6 +905,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->node = impl_node;
 
 	port = GET_OUT_PORT(this, 0);
+	port->valid = true;
 	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
 	    SPA_PORT_INFO_FLAG_NO_REF;
 	spa_list_init(&port->queue);

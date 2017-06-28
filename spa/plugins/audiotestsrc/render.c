@@ -33,11 +33,13 @@ audio_test_src_create_sine_##type (struct impl *this, type *samples, size_t n_sa
 	amp = this->props.volume * scale;						\
 											\
 	for (i = 0; i < n_samples; i++) {						\
+		type val;								\
 		this->accumulator += step;						\
 		if (this->accumulator >= M_PI_M2)					\
 			this->accumulator -= M_PI_M2;					\
+		val = (type) (sin (this->accumulator) * amp);				\
 		for (c = 0; c < channels; ++c)						\
-			*samples++ = (type) (sin (this->accumulator) * amp);		\
+			*samples++ = val;						\
 	}										\
 }
 

@@ -223,8 +223,8 @@ static void on_sink_pull(struct data *data)
 		spa_node_process_output(data->source);
 		spa_node_process_input(data->sink);
 	} else {
-		data->sink_node.action = SPA_GRAPH_ACTION_CHECK;
-		spa_graph_node_schedule(&data->graph, &data->sink_node);
+		spa_graph_node_pull(&data->graph, &data->sink_node);
+		while (spa_graph_node_iterate(&data->graph));
 	}
 }
 
@@ -235,8 +235,8 @@ static void on_source_push(struct data *data)
 		spa_node_process_output(data->source);
 		spa_node_process_input(data->sink);
 	} else {
-		data->source_node.action = SPA_GRAPH_ACTION_OUT;
-		spa_graph_node_schedule(&data->graph, &data->source_node);
+		spa_graph_node_push(&data->graph, &data->source_node);
+		while (spa_graph_node_iterate(&data->graph));
 	}
 }
 

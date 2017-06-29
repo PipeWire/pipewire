@@ -37,7 +37,7 @@
 #include <spa/format-utils.h>
 #include <spa/format-builder.h>
 
-#undef USE_GRAPH
+#define USE_GRAPH
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
@@ -240,10 +240,9 @@ static void on_sink_need_input(struct spa_node *node, void *user_data)
 {
 	struct data *data = user_data;
 #ifdef USE_GRAPH
-	data->sink_node.action = PROCESS_CHECK;
-	data->sink_node.state = SPA_RESULT_NEED_BUFFER;
+	spa_graph_node_pull(&data->graph, &data->sink_node);
+	while (spa_graph_node_iterate(&data->graph));
 
-	spa_graph_node_schedule(&data->graph, &data->sink_node);
 #else
 	int res;
 

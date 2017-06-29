@@ -229,10 +229,9 @@ static void on_sink_need_input(struct spa_node *node, void *user_data)
 {
 	struct data *data = user_data;
 
-	data->sink_node.action = SPA_GRAPH_ACTION_CHECK;
-	data->sink_node.state = SPA_RESULT_NEED_BUFFER;
+	spa_graph_node_pull(&data->graph, &data->sink_node);
 
-	spa_graph_node_schedule(&data->graph, &data->sink_node);
+	while (spa_graph_node_iterate(&data->graph));
 }
 
 static void

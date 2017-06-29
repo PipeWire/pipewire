@@ -72,6 +72,8 @@ struct pw_port {
 
 	struct spa_list links;		/**< list of \ref pw_link */
 
+	void *mixer;			/**< optional port buffer mixer */
+
 	struct {
 		struct spa_list links;	/**< list of \ref pw_link only accessed from the
 					  *  data thread */

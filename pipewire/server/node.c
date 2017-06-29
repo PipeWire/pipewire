@@ -709,41 +709,50 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 
 	pw_log_debug("node %p: direction %d max %u, n %u", node, direction, max_ports, *n_ports);
 
+	/* first try to find an unlinked port */
 	spa_list_for_each(p, ports, link) {
-		if (spa_list_is_empty(&p->links)) {
-			port = p;
-			break;
-		}
+		if (spa_list_is_empty(&p->links))
+			return p;
 	}
 
-	if (port == NULL) {
-		/* no port, can we create one ? */
-		if (*n_ports < max_ports) {
-			for (i = 0; i < max_ports && port == NULL; i++) {
-				if (portmap[i] == NULL) {
-					pw_log_debug("node %p: creating port direction %d %u", node,
-						     direction, i);
-					port = portmap[i] = pw_port_new(node, direction, i);
-					spa_list_insert(ports, &port->link);
-					(*n_ports)++;
-					if ((res = spa_node_add_port(node->node, direction, i)) < 0) {
-						pw_log_error("node %p: could not add port %d", node,
-							     i);
-					} else {
-						spa_node_port_set_io(node->node, direction, i,
-								     &port->io);
-					}
+	/* no port, can we create one ? */
+	if (*n_ports < max_ports) {
+		for (i = 0; i < max_ports; i++) {
+			if (portmap[i] == NULL) {
+				pw_log_debug("node %p: creating port direction %d %u", node, direction, i);
+
+				port = pw_port_new(node, direction, i);
+				if (port == NULL)
+					goto no_mem;
+
+				spa_list_insert(ports, &port->link);
+
+				if ((res = spa_node_add_port(node->node, direction, i)) < 0) {
+					pw_log_error("node %p: could not add port %d", node, i);
+					pw_port_destroy(port);
+					continue;
+				} else {
+					spa_node_port_set_io(node->node, direction, i, &port->io);
 				}
+				(*n_ports)++;
+				portmap[i] = port;
+				break;
 			}
-		} else {
-			/* for output we can reuse an existing port */
-			if (direction == PW_DIRECTION_OUTPUT && !spa_list_is_empty(ports)) {
-				port = spa_list_first(ports, struct pw_port, link);
-			}
+		}
+	} else {
+		if (!spa_list_is_empty(ports)) {
+			port = spa_list_first(ports, struct pw_port, link);
+			/* for output we can reuse an existing port, for input only
+			 * when there is a mixer */
+			if (direction == PW_DIRECTION_INPUT && port->mixer == NULL)
+				port = NULL;
 		}
 	}
 	return port;
 
+      no_mem:
+	pw_log_error("node %p: can't create new port", node);
+	return NULL;
 }
 
 static void on_state_complete(struct pw_node *node, void *data, int res)

@@ -65,8 +65,6 @@ struct pw_link {
 
 	/** Emited when the link is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *, struct pw_link *));
-	/** Emited when the object is freed */
-	PW_SIGNAL(free_signal, (struct pw_listener *, struct pw_link *));
 
 	struct spa_list resource_list;	/**< list of bound resources */
 

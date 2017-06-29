@@ -892,7 +892,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	pw_signal_init(&this->port_unlinked);
 	pw_signal_init(&this->state_changed);
 	pw_signal_init(&this->destroy_signal);
-	pw_signal_init(&this->free_signal);
 
 	impl->format_filter = format_filter;
 
@@ -1006,9 +1005,6 @@ void pw_link_destroy(struct pw_link *link)
 
 		link->output = NULL;
 	}
-
-	pw_log_debug("link %p: free", link);
-	pw_signal_emit(&link->free_signal, link);
 
 	pw_work_queue_destroy(impl->work);
 

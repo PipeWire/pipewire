@@ -725,8 +725,8 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 		if (!spa_list_is_empty(ports)) {
 			port = spa_list_first(ports, struct pw_port, link);
 			/* for output we can reuse an existing port, for input only
-			 * when there is a mixer */
-			if (direction == PW_DIRECTION_INPUT && port->mixer == NULL)
+			 * when there is a multiplex */
+			if (direction == PW_DIRECTION_INPUT && port->multiplex == NULL)
 				port = NULL;
 		}
 	}

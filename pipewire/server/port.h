@@ -72,7 +72,7 @@ struct pw_port {
 
 	struct spa_list links;		/**< list of \ref pw_link */
 
-	void *mixer;			/**< optional port buffer mixer */
+	void *multiplex;		/**< optional port buffer mix/split */
 
 	struct {
 		struct spa_list links;	/**< list of \ref pw_link only accessed from the

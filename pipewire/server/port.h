@@ -102,11 +102,20 @@ pw_port_link(struct pw_port *output_port,	/**< output port */
 /** Unlink a port \memberof pw_port */
 int pw_port_unlink(struct pw_port *port, struct pw_link *link);
 
+/** Set a format on a port \memberof pw_port */
+int pw_port_set_format(struct pw_port *port, uint32_t flags, struct spa_format *format);
+
+/** Use buffers on a port \memberof pw_port */
+int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers);
+
+/** Allocate memory for buffers on a port \memberof pw_port */
+int pw_port_alloc_buffers(struct pw_port *port,
+			  struct spa_param **params, uint32_t n_params,
+			  struct spa_buffer **buffers, uint32_t *n_buffers);
+
+
 /** Pause a port, should be called from data thread \memberof pw_port */
 int pw_port_pause_rt(struct pw_port *port);
-
-/** Clear the buffers on a port \memberof pw_port */
-int pw_port_clear_buffers(struct pw_port *port);
 
 #ifdef __cplusplus
 }

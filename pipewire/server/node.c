@@ -91,9 +91,8 @@ static void update_port_ids(struct pw_node *node)
 			pw_log_debug("node %p: input port added %d", node, input_port_ids[i]);
 
 			np = pw_port_new(node, PW_DIRECTION_INPUT, input_port_ids[i]);
-			if ((res =
-			     spa_node_port_set_io(node->node, SPA_DIRECTION_INPUT, np->port_id,
-						  &np->io)) < 0)
+			if ((res = spa_node_port_set_io(node->node, SPA_DIRECTION_INPUT,
+							np->port_id, &np->io)) < 0)
 				pw_log_warn("node %p: can't set input IO %d", node, res);
 
 			spa_list_insert(ports, &np->link);
@@ -133,9 +132,8 @@ static void update_port_ids(struct pw_node *node)
 			pw_log_debug("node %p: output port added %d", node, output_port_ids[i]);
 
 			np = pw_port_new(node, PW_DIRECTION_OUTPUT, output_port_ids[i]);
-			if ((res =
-			     spa_node_port_set_io(node->node, SPA_DIRECTION_OUTPUT, np->port_id,
-						  &np->io)) < 0)
+			if ((res = spa_node_port_set_io(node->node, SPA_DIRECTION_OUTPUT,
+							np->port_id, &np->io)) < 0)
 				pw_log_warn("node %p: can't set output IO %d", node, res);
 
 			spa_list_insert(ports, &np->link);
@@ -198,29 +196,13 @@ static int suspend_node(struct pw_node *this)
 	pw_log_debug("node %p: suspend node", this);
 
 	spa_list_for_each(p, &this->input_ports, link) {
-		if ((res =
-		     spa_node_port_set_format(this->node, SPA_DIRECTION_INPUT, p->port_id, 0,
-					      NULL)) < 0)
+		if ((res = pw_port_set_format(p, 0, NULL)) < 0)
 			pw_log_warn("error unset format input: %d", res);
-		p->buffers = NULL;
-		p->n_buffers = 0;
-		if (p->allocated)
-			pw_memblock_free(&p->buffer_mem);
-		p->allocated = false;
-		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 
 	spa_list_for_each(p, &this->output_ports, link) {
-		if ((res =
-		     spa_node_port_set_format(this->node, SPA_DIRECTION_OUTPUT, p->port_id, 0,
-					      NULL)) < 0)
+		if ((res = pw_port_set_format(p, 0, NULL)) < 0)
 			pw_log_warn("error unset format output: %d", res);
-		p->buffers = NULL;
-		p->n_buffers = 0;
-		if (p->allocated)
-			pw_memblock_free(&p->buffer_mem);
-		p->allocated = false;
-		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 	return res;
 }

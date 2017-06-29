@@ -68,6 +68,14 @@ void pw_port_destroy(struct pw_port *port)
 	free(port);
 }
 
+static void port_update_state(struct pw_port *port, enum pw_port_state state)
+{
+	if (port->state != state) {
+		pw_log_debug("port %p: state %d -> %d", port, port->state, state);
+		port->state = state;
+	}
+}
+
 static int
 do_add_link(struct spa_loop *loop,
 	    bool async, uint32_t seq, size_t size, void *data, void *user_data)
@@ -169,8 +177,7 @@ int pw_port_pause_rt(struct pw_port *port)
 					 port->port_id,
 					 &SPA_COMMAND_INIT(port->node->core->type.command_node.
 							   Pause));
-	port->state = PW_PORT_STATE_PAUSED;
-	pw_log_debug("port %p: state PAUSED", port);
+	port_update_state (port, PW_PORT_STATE_PAUSED);
 	return res;
 }
 
@@ -204,6 +211,9 @@ int pw_port_unlink(struct pw_port *port, struct pw_link *link)
 	res = pw_loop_invoke(node->data_loop->loop,
 			     do_remove_link, impl->seq++, sizeof(struct pw_link *), &link, true, port);
 
+	if (port->state > PW_PORT_STATE_PAUSED)
+		port_update_state (port, PW_PORT_STATE_PAUSED);
+
 	pw_log_debug("port %p: finish unlink", port);
 	if (port->direction == PW_DIRECTION_OUTPUT) {
 		if (link->output) {
@@ -219,49 +229,105 @@ int pw_port_unlink(struct pw_port *port, struct pw_link *link)
 		}
 	}
 
-	if (!port->allocated && port->state > PW_PORT_STATE_READY) {
-		pw_log_debug("port %p: clear buffers on port", port);
-		spa_node_port_use_buffers(node->node,
-					  port->direction, port->port_id, NULL, 0);
-		port->buffers = NULL;
-		port->n_buffers = 0;
-		port->state = PW_PORT_STATE_READY;
-		pw_log_debug("port %p: state READY", port);
-	}
+	if (!port->allocated)
+		pw_port_use_buffers(port, NULL, 0);
 
-	if (node->n_used_output_links == 0 && node->n_used_input_links == 0) {
+	if (node->n_used_output_links == 0 && node->n_used_input_links == 0)
 		pw_node_update_state(node, PW_NODE_STATE_IDLE, NULL);
-	}
+
 	return res;
 }
 
 static int
-do_clear_buffers(struct spa_loop *loop,
-		 bool async, uint32_t seq, size_t size, void *data, void *user_data)
+do_port_pause(struct spa_loop *loop,
+	      bool async, uint32_t seq, size_t size, void *data, void *user_data)
 {
 	struct pw_port *port = user_data;
 	return pw_port_pause_rt(port);
 }
 
-int pw_port_clear_buffers(struct pw_port *port)
+int pw_port_set_format(struct pw_port *port, uint32_t flags, struct spa_format *format)
 {
 	int res;
+
+	res = spa_node_port_set_format(port->node->node, port->direction, port->port_id, flags, format);
+
+	pw_log_debug("port %p: set format %d", port, res);
+
+	if (!SPA_RESULT_IS_ASYNC(res)) {
+		if (format == NULL) {
+			port->buffers = NULL;
+			port->n_buffers = 0;
+			if (port->allocated)
+				pw_memblock_free(&port->buffer_mem);
+			port->allocated = false;
+			port_update_state (port, PW_PORT_STATE_CONFIGURE);
+		}
+		else {
+			port_update_state (port, PW_PORT_STATE_READY);
+		}
+	}
+	return res;
+}
+
+int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers)
+{
 	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
+	int res;
 
-	pw_log_debug("port %p: clear buffers", port);
-
-	res = pw_loop_invoke(port->node->data_loop->loop,
-			     do_clear_buffers, impl->seq++, 0, NULL, true, port);
-
-	if (port->state <= PW_PORT_STATE_READY)
+	if (n_buffers == 0 && port->state <= PW_PORT_STATE_READY)
 		return SPA_RESULT_OK;
 
-	pw_log_debug("port %p: clear buffers finish", port);
-	res = spa_node_port_use_buffers(port->node->node, port->direction, port->port_id, NULL, 0);
-	port->buffers = NULL;
-	port->n_buffers = 0;
-	port->state = PW_PORT_STATE_READY;
-	pw_log_debug("port %p: state READY", port);
+	if (n_buffers > 0 && port->state < PW_PORT_STATE_READY)
+		return SPA_RESULT_NO_FORMAT;
+
+	if (port->state > PW_PORT_STATE_PAUSED) {
+		res = pw_loop_invoke(port->node->data_loop->loop,
+				     do_port_pause, impl->seq++, 0, NULL, true, port);
+		port_update_state (port, PW_PORT_STATE_PAUSED);
+	}
+
+	pw_log_debug("port %p: use %d buffers", port, n_buffers);
+	res = spa_node_port_use_buffers(port->node->node, port->direction, port->port_id, buffers, n_buffers);
+	port->buffers = buffers;
+	port->n_buffers = n_buffers;
+	if (port->allocated)
+		pw_memblock_free(&port->buffer_mem);
+	port->allocated = false;
+
+	if (port->n_buffers == 0)
+		port_update_state (port, PW_PORT_STATE_READY);
+	else if (!SPA_RESULT_IS_ASYNC(res))
+		port_update_state (port, PW_PORT_STATE_PAUSED);
+
+	return res;
+}
+
+int pw_port_alloc_buffers(struct pw_port *port,
+			  struct spa_param **params, uint32_t n_params,
+			  struct spa_buffer **buffers, uint32_t *n_buffers)
+{
+	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
+	int res;
+
+	if (port->state < PW_PORT_STATE_READY)
+		return SPA_RESULT_NO_FORMAT;
+
+	if (port->state > PW_PORT_STATE_PAUSED) {
+		res = pw_loop_invoke(port->node->data_loop->loop,
+				     do_port_pause, impl->seq++, 0, NULL, true, port);
+		port_update_state (port, PW_PORT_STATE_PAUSED);
+	}
+
+	pw_log_debug("port %p: alloc %d buffers", port, *n_buffers);
+	res = spa_node_port_alloc_buffers(port->node->node, port->direction, port->port_id,
+					  params, n_params, buffers, n_buffers);
+	port->buffers = buffers;
+	port->n_buffers = *n_buffers;
+	port->allocated = true;
+
+	if (!SPA_RESULT_IS_ASYNC(res))
+		port_update_state (port, PW_PORT_STATE_PAUSED);
 
 	return res;
 }

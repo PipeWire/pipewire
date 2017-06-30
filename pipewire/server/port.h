@@ -75,8 +75,10 @@ struct pw_port {
 	void *multiplex;		/**< optional port buffer mix/split */
 
 	struct {
-		struct spa_list links;	/**< list of \ref pw_link only accessed from the
-					  *  data thread */
+		struct spa_graph *graph;
+		struct spa_graph_port port;
+		struct spa_graph_port mix_port;
+		struct spa_graph_node mix_node;
 	} rt;				/**< data only accessed from the data thread */
 };
 
@@ -87,20 +89,6 @@ pw_port_new(struct pw_node *node, enum pw_direction direction, uint32_t port_id)
 
 /** Destroy a port \memberof pw_port */
 void pw_port_destroy(struct pw_port *port);
-
-/** Link two ports with an optional filter \memberof pw_port
- * \return a newly allocated \ref pw_link or NULL and \a error is set.
- *
- * If the ports were already linked, the existing link will be returned. */
-struct pw_link *
-pw_port_link(struct pw_port *output_port,	/**< output port */
-	     struct pw_port *input_port,	/**< input port */
-	     struct spa_format *format_filter,	/**< optional filter */
-	     struct pw_properties *properties,	/**< extra properties */
-	     char **error			/**< result error message or NULL */);
-
-/** Unlink a port \memberof pw_port */
-int pw_port_unlink(struct pw_port *port, struct pw_link *link);
 
 /** Set a format on a port \memberof pw_port */
 int pw_port_set_format(struct pw_port *port, uint32_t flags, struct spa_format *format);

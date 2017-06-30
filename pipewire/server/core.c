@@ -291,6 +291,9 @@ struct pw_core *pw_core_new(struct pw_main_loop *main_loop, struct pw_properties
 	pw_type_init(&this->type);
 	pw_map_init(&this->objects, 128, 32);
 
+	spa_graph_init(&this->rt.graph);
+	spa_graph_scheduler_init(&this->rt.sched, &this->rt.graph);
+
 	spa_debug_set_type_map(this->type.map);
 
 	impl->support[0] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, this->type.map);

@@ -36,6 +36,7 @@
 #include <spa/format-utils.h>
 #include <spa/format-builder.h>
 #include <spa/graph.h>
+#include <spa/graph-scheduler1.h>
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
@@ -97,6 +98,7 @@ struct data {
 	uint32_t n_support;
 
 	struct spa_graph graph;
+	struct spa_graph_scheduler sched;
 	struct spa_graph_node source_node;
 	struct spa_graph_port source_out;
 	struct spa_graph_port volume_in;
@@ -229,9 +231,9 @@ static void on_sink_need_input(struct spa_node *node, void *user_data)
 {
 	struct data *data = user_data;
 
-	spa_graph_node_pull(&data->graph, &data->sink_node);
+	spa_graph_scheduler_pull(&data->sched, &data->sink_node);
 
-	while (spa_graph_node_iterate(&data->graph));
+	while (spa_graph_scheduler_iterate(&data->sched));
 }
 
 static void
@@ -338,12 +340,12 @@ static int make_nodes(struct data *data, const char *device)
 	spa_node_port_set_io(data->volume, SPA_DIRECTION_OUTPUT, 0, &data->volume_sink_io[0]);
 	spa_node_port_set_io(data->sink, SPA_DIRECTION_INPUT, 0, &data->volume_sink_io[0]);
 
-	spa_graph_node_add(&data->graph, &data->source_node, spa_graph_node_schedule_default,
+	spa_graph_node_add(&data->graph, &data->source_node, spa_graph_scheduler_default,
 			   data->source);
 	spa_graph_port_add(&data->graph, &data->source_node, &data->source_out,
 			   SPA_DIRECTION_OUTPUT, 0, 0, &data->source_volume_io[0]);
 
-	spa_graph_node_add(&data->graph, &data->volume_node, spa_graph_node_schedule_default,
+	spa_graph_node_add(&data->graph, &data->volume_node, spa_graph_scheduler_default,
 			   data->volume);
 	spa_graph_port_add(&data->graph, &data->volume_node, &data->volume_in, SPA_DIRECTION_INPUT,
 			   0, 0, &data->source_volume_io[0]);
@@ -353,7 +355,7 @@ static int make_nodes(struct data *data, const char *device)
 	spa_graph_port_add(&data->graph, &data->volume_node,
 			   &data->volume_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->volume_sink_io[0]);
 
-	spa_graph_node_add(&data->graph, &data->sink_node, spa_graph_node_schedule_default,
+	spa_graph_node_add(&data->graph, &data->sink_node, spa_graph_scheduler_default,
 			   data->sink);
 	spa_graph_port_add(&data->graph, &data->sink_node, &data->sink_in, SPA_DIRECTION_INPUT, 0,
 			   0, &data->volume_sink_io[0]);
@@ -528,6 +530,7 @@ int main(int argc, char *argv[])
 
 
 	spa_graph_init(&data.graph);
+	spa_graph_scheduler_init(&data.sched, &data.graph);
 
 	data.map = &default_map.map;
 	data.log = &default_log.log;

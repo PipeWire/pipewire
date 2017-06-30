@@ -25,6 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/log.h>
+#include <spa/graph-scheduler3.h>
 
 struct pw_global;
 
@@ -180,6 +181,11 @@ struct pw_core {
 	/** Emited when a global is removed */
 	PW_SIGNAL(global_removed, (struct pw_listener *listener,
 				   struct pw_core *core, struct pw_global *global));
+
+	struct {
+		struct spa_graph_scheduler sched;
+		struct spa_graph graph;
+	} rt;
 };
 
 struct pw_core *

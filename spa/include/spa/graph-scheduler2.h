@@ -1,0 +1,153 @@
+/* Simple Plugin API
+ * Copyright (C) 2017 Wim Taymans <wim.taymans@gmail.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
+
+#ifndef __SPA_GRAPH_SCHEDULER_H__
+#define __SPA_GRAPH_SCHEDULER_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <spa/graph.h>
+
+static inline int spa_graph_scheduler_default(struct spa_graph_node *node)
+{
+	int res;
+	struct spa_node *n = node->user_data;
+
+	if (node->action == SPA_GRAPH_ACTION_IN)
+		res = spa_node_process_input(n);
+	else if (node->action == SPA_GRAPH_ACTION_OUT)
+		res = spa_node_process_output(n);
+	else
+		res = SPA_RESULT_ERROR;
+
+	return res;
+}
+
+static inline bool spa_graph_scheduler_iterate(struct spa_graph *graph)
+{
+	bool empty;
+	struct spa_graph_port *p;
+	struct spa_graph_node *n;
+	int iter = 1;
+	uint32_t action;
+
+next:
+	empty = spa_list_is_empty(&graph->ready);
+	if (empty && !spa_list_is_empty(&graph->pending)) {
+		debug("copy pending\n");
+		spa_list_insert_list(&graph->ready, &graph->pending);
+		spa_list_init(&graph->pending);
+		empty = false;
+	}
+	if (iter-- == 0 || empty)
+		return !empty;
+
+	n = spa_list_first(&graph->ready, struct spa_graph_node, ready_link);
+	spa_list_remove(&n->ready_link);
+	n->ready_link.next = NULL;
+
+	action = n->action;
+
+	debug("node %p action %d, state %d\n", n, action, n->state);
+
+	switch (action) {
+	case SPA_GRAPH_ACTION_IN:
+	case SPA_GRAPH_ACTION_OUT:
+	case SPA_GRAPH_ACTION_END:
+		if (action == SPA_GRAPH_ACTION_END)
+			n->action = SPA_GRAPH_ACTION_OUT;
+
+		n->state = n->schedule(n);
+		debug("node %p schedule %d res %d\n", n, action, n->state);
+
+		if (action == SPA_GRAPH_ACTION_IN && n == graph->node)
+			break;
+
+		if (action != SPA_GRAPH_ACTION_END) {
+			debug("node %p add ready for CHECK\n", n);
+			n->action = SPA_GRAPH_ACTION_CHECK;
+			spa_list_insert(graph->ready.prev, &n->ready_link);
+		}
+		else {
+			spa_graph_node_update(graph, n);
+		}
+		break;
+
+	case SPA_GRAPH_ACTION_CHECK:
+		if (n->state == SPA_RESULT_NEED_BUFFER) {
+			n->ready_in = 0;
+			spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
+				struct spa_graph_node *pn = p->peer->node;
+				if (p->io->status == SPA_RESULT_NEED_BUFFER) {
+					if (pn != graph->node
+					    || pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC) {
+						pn->action = SPA_GRAPH_ACTION_OUT;
+						debug("node %p add ready OUT\n", n);
+						spa_list_insert(graph->ready.prev,
+								&pn->ready_link);
+					}
+				} else if (p->io->status == SPA_RESULT_OK)
+					n->ready_in++;
+			}
+		}
+		else if (n->state == SPA_RESULT_HAVE_BUFFER) {
+			spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link)
+				spa_graph_port_check(graph, p->peer);
+
+			debug("node %p add pending\n", n);
+			n->action = SPA_GRAPH_ACTION_END;
+			spa_list_insert(&graph->pending, &n->ready_link);
+		}
+		else if (n->state == SPA_RESULT_OK) {
+			spa_graph_node_update(graph, n);
+		}
+		break;
+
+	default:
+		break;
+	}
+	goto next;
+}
+
+static inline void spa_graph_scheduler_pull(struct spa_graph *graph, struct spa_graph_node *node)
+{
+	node->action = SPA_GRAPH_ACTION_CHECK;
+	node->state = SPA_RESULT_NEED_BUFFER;
+	graph->node = node;
+	debug("node %p start pull\n", node);
+	if (node->ready_link.next == NULL)
+		spa_list_insert(graph->ready.prev, &node->ready_link);
+}
+
+static inline void spa_graph_scheduler_push(struct spa_graph *graph, struct spa_graph_node *node)
+{
+	node->action = SPA_GRAPH_ACTION_OUT;
+	graph->node = node;
+	debug("node %p start push\n", node);
+	if (node->ready_link.next == NULL)
+		spa_list_insert(graph->ready.prev, &node->ready_link);
+}
+
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
+
+#endif /* __SPA_GRAPH_SCHEDULER_H__ */

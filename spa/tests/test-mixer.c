@@ -31,6 +31,7 @@
 #include <spa/log-impl.h>
 #include <spa/loop.h>
 #include <spa/graph.h>
+#include <spa/graph-scheduler1.h>
 #include <spa/type-map.h>
 #include <spa/type-map-impl.h>
 #include <spa/audio/format-utils.h>
@@ -99,6 +100,7 @@ struct data {
 	uint32_t n_support;
 
 	struct spa_graph graph;
+	struct spa_graph_scheduler sched;
 	struct spa_graph_node source1_node;
 	struct spa_graph_port source1_out;
 	struct spa_graph_node source2_node;
@@ -240,8 +242,8 @@ static void on_sink_need_input(struct spa_node *node, void *user_data)
 {
 	struct data *data = user_data;
 #ifdef USE_GRAPH
-	spa_graph_node_pull(&data->graph, &data->sink_node);
-	while (spa_graph_node_iterate(&data->graph));
+	spa_graph_scheduler_pull(&data->sched, &data->sink_node);
+	while (spa_graph_scheduler_iterate(&data->sched));
 
 #else
 	int res;
@@ -416,17 +418,17 @@ static int make_nodes(struct data *data, const char *device)
 	spa_node_port_set_io(data->sink, SPA_DIRECTION_INPUT, 0, &data->mix_sink_io[0]);
 
 #ifdef USE_GRAPH
-	spa_graph_node_add(&data->graph, &data->source1_node, spa_graph_node_schedule_default,
+	spa_graph_node_add(&data->graph, &data->source1_node, spa_graph_scheduler_default,
 			   data->source1);
 	spa_graph_port_add(&data->graph, &data->source1_node, &data->source1_out,
 			   SPA_DIRECTION_OUTPUT, 0, 0, &data->source1_mix_io[0]);
 
-	spa_graph_node_add(&data->graph, &data->source2_node, spa_graph_node_schedule_default,
+	spa_graph_node_add(&data->graph, &data->source2_node, spa_graph_scheduler_default,
 			   data->source2);
 	spa_graph_port_add(&data->graph, &data->source2_node, &data->source2_out,
 			   SPA_DIRECTION_OUTPUT, 0, 0, &data->source2_mix_io[0]);
 
-	spa_graph_node_add(&data->graph, &data->mix_node, spa_graph_node_schedule_default,
+	spa_graph_node_add(&data->graph, &data->mix_node, spa_graph_scheduler_default,
 			   data->mix);
 	spa_graph_port_add(&data->graph, &data->mix_node, &data->mix_in[0], SPA_DIRECTION_INPUT,
 			   data->mix_ports[0], 0, &data->source1_mix_io[0]);
@@ -439,7 +441,7 @@ static int make_nodes(struct data *data, const char *device)
 	spa_graph_port_add(&data->graph, &data->mix_node,
 			   &data->mix_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->mix_sink_io[0]);
 
-	spa_graph_node_add(&data->graph, &data->sink_node, spa_graph_node_schedule_default,
+	spa_graph_node_add(&data->graph, &data->sink_node, spa_graph_scheduler_default,
 			   data->sink);
 	spa_graph_port_add(&data->graph, &data->sink_node, &data->sink_in, SPA_DIRECTION_INPUT, 0,
 			   0, &data->mix_sink_io[0]);
@@ -646,6 +648,7 @@ int main(int argc, char *argv[])
 	data.data_loop.invoke = do_invoke;
 
 	spa_graph_init(&data.graph);
+	spa_graph_scheduler_init(&data.sched, &data.graph);
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);

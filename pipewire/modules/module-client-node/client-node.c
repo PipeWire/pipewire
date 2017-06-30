@@ -782,7 +782,10 @@ static int spa_proxy_node_process_input(struct spa_node *node)
 	}
 	send_have_output(this);
 
-	return SPA_RESULT_OK;
+	if (this->callbacks->need_input)
+		return SPA_RESULT_OK;
+	else
+		return SPA_RESULT_NEED_BUFFER;
 }
 
 static int spa_proxy_node_process_output(struct spa_node *node)

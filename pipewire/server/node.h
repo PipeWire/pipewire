@@ -106,6 +106,12 @@ struct pw_node {
 				   struct pw_node *node, uint32_t seq, int res));
 
 	struct pw_data_loop *data_loop;		/**< the data loop for this node */
+
+	struct {
+		struct spa_graph_scheduler *sched;
+		struct spa_graph_node node;
+	} rt;
+
 };
 
 /** Create a new node \memberof pw_node */

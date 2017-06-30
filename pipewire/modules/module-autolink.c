@@ -159,9 +159,9 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 		goto error;
 
 	if (port->direction == PW_DIRECTION_OUTPUT)
-		link = pw_port_link(port, target, NULL, NULL, &error);
+		link = pw_link_new(impl->core, port, target, NULL, NULL, &error);
 	else
-		link = pw_port_link(target, port, NULL, NULL, &error);
+		link = pw_link_new(impl->core, target, port, NULL, NULL, &error);
 
 	if (link == NULL)
 		goto error;

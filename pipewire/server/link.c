@@ -758,21 +758,59 @@ on_output_async_complete_notify(struct pw_listener *listener,
 	pw_work_queue_complete(impl->work, node, seq, res);
 }
 
+static int
+do_remove_input(struct spa_loop *loop,
+	        bool async, uint32_t seq, size_t size, void *data, void *user_data)
+{
+	struct pw_link *this = user_data;
+	struct pw_port *port = ((struct pw_port **) data)[0];
+	spa_graph_port_remove(port->rt.graph, &this->rt.in_port);
+	return SPA_RESULT_OK;
+}
+
+static void input_remove(struct pw_link *this, struct pw_port *port)
+{
+	struct impl *impl = (struct impl *) this;
+
+	pw_log_debug("link %p: remove input port %p", this, port);
+	pw_signal_remove(&impl->input_port_destroy);
+	pw_signal_remove(&impl->input_async_complete);
+	pw_loop_invoke(port->node->data_loop->loop,
+		       do_remove_input, 1, sizeof(struct pw_port*), &port, true, this);
+}
+
+static int
+do_remove_output(struct spa_loop *loop,
+	         bool async, uint32_t seq, size_t size, void *data, void *user_data)
+{
+	struct pw_link *this = user_data;
+	struct pw_port *port = ((struct pw_port **) data)[0];
+	spa_graph_port_remove(port->rt.graph, &this->rt.out_port);
+	return SPA_RESULT_OK;
+}
+
+static void output_remove(struct pw_link *this, struct pw_port *port)
+{
+	struct impl *impl = (struct impl *) this;
+
+	pw_log_debug("link %p: remove output port %p", this, port);
+	pw_signal_remove(&impl->output_port_destroy);
+	pw_signal_remove(&impl->output_async_complete);
+	pw_loop_invoke(port->node->data_loop->loop,
+		       do_remove_output, 1, sizeof(struct pw_port*), &port, true, this);
+}
+
 static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 {
 	struct impl *impl = (struct impl *) this;
 	struct pw_port *other;
 
 	if (port == this->input) {
-		pw_log_debug("link %p: input port destroyed %p", this, port);
-		pw_signal_remove(&impl->input_port_destroy);
-		pw_signal_remove(&impl->input_async_complete);
+		input_remove(this, port);
 		this->input = NULL;
 		other = this->output;
 	} else if (port == this->output) {
-		pw_log_debug("link %p: output port destroyed %p", this, port);
-		pw_signal_remove(&impl->output_port_destroy);
-		pw_signal_remove(&impl->output_async_complete);
+		output_remove(this, port);
 		this->output = NULL;
 		other = this->input;
 	} else
@@ -784,6 +822,7 @@ static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 
 		pw_log_debug("link %p: clear input allocated buffers on port %p", this, other);
 		pw_port_use_buffers(other, NULL, 0);
+		impl->buffer_owner = NULL;
 	}
 
 	pw_signal_emit(&this->port_unlinked, this, port);
@@ -863,18 +902,54 @@ link_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	return SPA_RESULT_NO_MEMORY;
 }
 
+static int
+do_add_link(struct spa_loop *loop,
+            bool async, uint32_t seq, size_t size, void *data, void *user_data)
+{
+        struct pw_link *this = user_data;
+        struct pw_port *port = ((struct pw_port **) data)[0];
+
+        if (port->direction == PW_DIRECTION_OUTPUT) {
+                spa_graph_port_add(port->rt.graph,
+                                   &port->rt.mix_node,
+                                   &this->rt.out_port,
+                                   PW_DIRECTION_OUTPUT,
+                                   this->rt.out_port.port_id,
+                                   0,
+                                   &this->io);
+        } else {
+                spa_graph_port_add(port->rt.graph,
+                                   &port->rt.mix_node,
+                                   &this->rt.in_port,
+                                   PW_DIRECTION_INPUT,
+                                   this->rt.in_port.port_id,
+                                   0,
+                                   &this->io);
+        }
+
+        return SPA_RESULT_OK;
+}
+
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *output,
 			    struct pw_port *input,
 			    struct spa_format *format_filter,
-			    struct pw_properties *properties)
+			    struct pw_properties *properties,
+			    char **error)
 {
 	struct impl *impl;
 	struct pw_link *this;
+	struct pw_node *input_node, *output_node;
+
+	if (output == input)
+		goto same_ports;
+
+	if (pw_link_find(output, input))
+		goto link_exists;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
-		return NULL;
+		goto no_mem;
 
 	this = &impl->this;
 	pw_log_debug("link %p: new", this);
@@ -888,6 +963,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->input = input;
 	this->output = output;
 
+	input_node = input->node;
+	output_node = output->node;
+
 	spa_list_init(&this->resource_list);
 	pw_signal_init(&this->port_unlinked);
 	pw_signal_init(&this->state_changed);
@@ -895,21 +973,33 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	impl->format_filter = format_filter;
 
-	pw_signal_add(&this->input->destroy_signal,
+	pw_signal_add(&input->destroy_signal,
 		      &impl->input_port_destroy, on_input_port_destroy);
 
-	pw_signal_add(&this->input->node->async_complete,
+	pw_signal_add(&input_node->async_complete,
 		      &impl->input_async_complete, on_input_async_complete_notify);
 
-	pw_signal_add(&this->output->destroy_signal,
+	pw_signal_add(&output->destroy_signal,
 		      &impl->output_port_destroy, on_output_port_destroy);
 
-	pw_signal_add(&this->output->node->async_complete,
+	pw_signal_add(&output_node->async_complete,
 		      &impl->output_async_complete, on_output_async_complete_notify);
 
 	pw_log_debug("link %p: constructed %p:%d -> %p:%d", impl,
-		     this->output->node, this->output->port_id,
-		     this->input->node, this->input->port_id);
+		     output_node, output->port_id, input_node, input->port_id);
+
+	input_node->live = output_node->live;
+	if (output_node->clock)
+		input_node->clock = output_node->clock;
+
+	pw_log_debug("link %p: output node %p clock %p, live %d", this, output_node, output_node->clock,
+                             output_node->live);
+
+	spa_list_insert(output->links.prev, &this->output_link);
+	spa_list_insert(input->links.prev, &this->input_link);
+
+	output_node->n_used_output_links++;
+	input_node->n_used_input_links++;
 
 	spa_list_insert(core->link_list.prev, &this->link);
 
@@ -922,7 +1012,26 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->info.input_port_id = input ? input->port_id : -1;
 	this->info.format = NULL;
 
+	spa_graph_port_link(output_node->rt.sched->graph, &this->rt.out_port, &this->rt.in_port);
+
+	pw_loop_invoke(output_node->data_loop->loop,
+		       do_add_link,
+		       SPA_ID_INVALID, sizeof(struct pw_port *), &output, false, this);
+	pw_loop_invoke(input_node->data_loop->loop,
+		       do_add_link,
+		       SPA_ID_INVALID, sizeof(struct pw_port *), &input, false, this);
+
 	return this;
+
+      same_ports:
+	asprintf(error, "can't link the same ports");
+	return NULL;
+      link_exists:
+	asprintf(error, "link already exists");
+	return NULL;
+      no_mem:
+	asprintf(error, "no memory");
+	return NULL;
 }
 
 static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
@@ -933,22 +1042,6 @@ static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 		pw_port_use_buffers(port, NULL, 0);
 }
 
-static int
-do_link_remove(struct spa_loop *loop,
-	       bool async, uint32_t seq, size_t size, void *data, void *user_data)
-{
-	struct pw_link *this = user_data;
-
-	if (this->rt.input) {
-		spa_list_remove(&this->rt.input_link);
-		this->rt.input = NULL;
-	}
-	if (this->rt.output) {
-		spa_list_remove(&this->rt.output_link);
-		this->rt.output = NULL;
-	}
-	return SPA_RESULT_OK;
-}
 
 void pw_link_destroy(struct pw_link *link)
 {
@@ -965,21 +1058,8 @@ void pw_link_destroy(struct pw_link *link)
 	    pw_resource_destroy(resource);
 
 	if (link->input) {
-		pw_signal_remove(&impl->input_port_destroy);
-		pw_signal_remove(&impl->input_async_complete);
+		input_remove(link, link->input);
 
-		pw_loop_invoke(link->input->node->data_loop->loop,
-			       do_link_remove, 1, 0, NULL, true, link);
-	}
-	if (link->output) {
-		pw_signal_remove(&impl->output_port_destroy);
-		pw_signal_remove(&impl->output_async_complete);
-
-		pw_loop_invoke(link->output->node->data_loop->loop,
-			       do_link_remove, 2, 0, NULL, true, link);
-	}
-
-	if (link->input) {
 		spa_list_remove(&link->input_link);
 		link->input->node->n_used_input_links--;
 
@@ -993,6 +1073,8 @@ void pw_link_destroy(struct pw_link *link)
 		link->input = NULL;
 	}
 	if (link->output) {
+		output_remove(link, link->output);
+
 		spa_list_remove(&link->output_link);
 		link->output->node->n_used_output_links--;
 
@@ -1015,4 +1097,15 @@ void pw_link_destroy(struct pw_link *link)
 		pw_memblock_free(&impl->buffer_mem);
 
 	free(impl);
+}
+
+struct pw_link *pw_link_find(struct pw_port *output_port, struct pw_port *input_port)
+{
+	struct pw_link *pl;
+
+	spa_list_for_each(pl, &output_port->links, output_link) {
+		if (pl->input == input_port)
+			return pl;
+	}
+	return NULL;
 }

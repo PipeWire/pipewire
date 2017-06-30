@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include <spa/graph-scheduler3.h>
+
 #include "pipewire/client/pipewire.h"
 #include "pipewire/client/interfaces.h"
 
@@ -237,63 +239,6 @@ static void send_clock_update(struct pw_node *this)
 		pw_log_debug("got error %d", res);
 }
 
-static int do_pull(struct pw_node *this)
-{
-	int res = SPA_RESULT_OK;
-	struct pw_port *inport;
-	bool have_output = false;
-
-	spa_list_for_each(inport, &this->input_ports, link) {
-		struct pw_link *link;
-		struct pw_port *outport;
-		struct spa_port_io *pi;
-		struct spa_port_io *po;
-
-		pi = &inport->io;
-		pw_log_trace("node %p: need input port %d, %d %d", this,
-			     inport->port_id, pi->buffer_id, pi->status);
-
-		if (pi->status != SPA_RESULT_NEED_BUFFER)
-			continue;
-
-		spa_list_for_each(link, &inport->rt.links, rt.input_link) {
-			if (link->rt.input == NULL || link->rt.output == NULL)
-				continue;
-
-			outport = link->rt.output;
-			po = &outport->io;
-
-			/* pull */
-			*po = *pi;
-			pi->buffer_id = SPA_ID_INVALID;
-
-			pw_log_trace("node %p: process output %p %d", outport->node, po,
-				     po->buffer_id);
-
-			res = spa_node_process_output(outport->node->node);
-
-			if (res == SPA_RESULT_NEED_BUFFER) {
-				res = do_pull(outport->node);
-				pw_log_trace("node %p: pull return %d", outport->node, res);
-			}
-			if (res == SPA_RESULT_HAVE_BUFFER) {
-				*pi = *po;
-				pw_log_trace("node %p: have output %d %d", this, pi->status,
-					     pi->buffer_id);
-				have_output = true;
-			} else if (res < 0) {
-				pw_log_warn("node %p: got process output %d", outport->node, res);
-			}
-
-		}
-	}
-	if (have_output) {
-		pw_log_trace("node %p: doing process input", this);
-		res = spa_node_process_input(this->node);
-	}
-	return res;
-}
-
 static void on_node_done(struct spa_node *node, int seq, int res, void *user_data)
 {
 	struct impl *impl = user_data;
@@ -319,49 +264,24 @@ static void on_node_need_input(struct spa_node *node, void *user_data)
 	struct impl *impl = user_data;
 	struct pw_node *this = &impl->this;
 
-	do_pull(this);
+	spa_graph_scheduler_pull(this->rt.sched, &this->rt.node);
+	while (spa_graph_scheduler_iterate(this->rt.sched));
 }
 
 static void on_node_have_output(struct spa_node *node, void *user_data)
 {
 	struct impl *impl = user_data;
 	struct pw_node *this = &impl->this;
-	int res;
-	struct pw_port *outport;
 
-	spa_list_for_each(outport, &this->output_ports, link) {
-		struct pw_link *link;
-		struct spa_port_io *po;
-
-		po = &outport->io;
-		if (po->buffer_id == SPA_ID_INVALID)
-			continue;
-
-		pw_log_trace("node %p: have output %d", this, po->buffer_id);
-
-		spa_list_for_each(link, &outport->rt.links, rt.output_link) {
-			struct pw_port *inport;
-
-			if (link->rt.input == NULL || link->rt.output == NULL)
-				continue;
-
-			inport = link->rt.input;
-			inport->io = *po;
-
-			pw_log_trace("node %p: do process input %d", this, po->buffer_id);
-
-			if ((res = spa_node_process_input(inport->node->node)) < 0)
-				pw_log_warn("node %p: got process input %d", inport->node, res);
-
-		}
-		po->status = SPA_RESULT_NEED_BUFFER;
-	}
-	res = spa_node_process_output(this->node);
+	spa_graph_scheduler_push(this->rt.sched, &this->rt.node);
+	while (spa_graph_scheduler_iterate(this->rt.sched));
 }
 
 static void
 on_node_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id, void *user_data)
 {
+
+#if 0
 	struct impl *impl = user_data;
 	struct pw_node *this = &impl->this;
 	struct pw_port *inport;
@@ -380,6 +300,7 @@ on_node_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id
 			outport->io.buffer_id = buffer_id;
 		}
 	}
+#endif
 }
 
 static void node_unbind_func(void *data)
@@ -476,11 +397,17 @@ static void init_complete(struct pw_node *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
+	spa_graph_node_add(this->rt.sched->graph,
+			   &this->rt.node,
+			   spa_graph_scheduler_default,
+			   this->node);
+
 	update_port_ids(this);
 	pw_log_debug("node %p: init completed", this);
 	impl->async_init = false;
 
 	spa_list_insert(this->core->node_list.prev, &this->link);
+
 	pw_core_add_global(this->core,
 			   this->owner,
 			   this->core->type.node, 0, this, node_bind_func, &this->global);
@@ -528,6 +455,8 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this->node = node;
 	this->clock = clock;
 	this->data_loop = core->data_loop;
+
+	this->rt.sched = &core->rt.sched;
 
 	spa_list_init(&this->resource_list);
 
@@ -585,26 +514,11 @@ do_node_remove(struct spa_loop *loop,
 	       bool async, uint32_t seq, size_t size, void *data, void *user_data)
 {
 	struct pw_node *this = user_data;
-	struct pw_port *port, *tmp;
 
 	pause_node(this);
 
-	spa_list_for_each_safe(port, tmp, &this->input_ports, link) {
-		struct pw_link *link, *tlink;
-		spa_list_for_each_safe(link, tlink, &port->rt.links, rt.input_link) {
-			pw_port_pause_rt(link->rt.input);
-			spa_list_remove(&link->rt.input_link);
-			link->rt.input = NULL;
-		}
-	}
-	spa_list_for_each_safe(port, tmp, &this->output_ports, link) {
-		struct pw_link *link, *tlink;
-		spa_list_for_each_safe(link, tlink, &port->rt.links, rt.output_link) {
-			pw_port_pause_rt(link->rt.output);
-			spa_list_remove(&link->rt.output_link);
-			link->rt.output = NULL;
-		}
-	}
+	spa_graph_node_remove(this->rt.sched->graph, &this->rt.node);
+
 	return SPA_RESULT_OK;
 }
 

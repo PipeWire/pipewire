@@ -68,19 +68,20 @@ struct pw_link {
 
 	struct spa_list resource_list;	/**< list of bound resources */
 
+	struct spa_port_io io;		/**< link io area */
+
 	struct pw_port *output;		/**< output port */
 	struct spa_list output_link;	/**< link in output port links */
 	struct pw_port *input;		/**< input port */
 	struct spa_list input_link;	/**< link in input port links */
+
 	/** Emited when the port is unlinked */
 	PW_SIGNAL(port_unlinked, (struct pw_listener *listener,
 				  struct pw_link *link, struct pw_port *port));
 
 	struct {
-		struct pw_port *input;
-		struct pw_port *output;
-		struct spa_list input_link;
-		struct spa_list output_link;
+		struct spa_graph_port out_port;
+		struct spa_graph_port in_port;
 	} rt;
 };
 
@@ -92,10 +93,14 @@ pw_link_new(struct pw_core *core,		/**< the core object */
 	    struct pw_port *output,		/**< an output port */
 	    struct pw_port *input,		/**< an input port */
 	    struct spa_format *format_filter,	/**< an optional format filter */
-	    struct pw_properties *properties	/**< extra properties */);
+	    struct pw_properties *properties	/**< extra properties */,
+	    char **error			/**< error string */);
 
 /** Destroy a link \memberof pw_link */
 void pw_link_destroy(struct pw_link *link);
+
+/** Find the link between 2 ports \memberof pw_link */
+struct pw_link * pw_link_find(struct pw_port *output, struct pw_port *input);
 
 /** Activate a link \memberof pw_link
  * Starts the negotiation of formats and buffers on \a link and then

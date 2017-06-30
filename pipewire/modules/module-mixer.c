@@ -157,7 +157,7 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 		if (op == NULL)
 			continue;
 
-		pw_port_link(op, ip, NULL, NULL, &error);
+		pw_link_new(core, op, ip, NULL, NULL, &error);
 	}
 	return impl;
 }

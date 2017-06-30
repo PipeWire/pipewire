@@ -45,6 +45,14 @@ static inline void spa_list_insert(struct spa_list *list, struct spa_list *elem)
 	elem->next->prev = elem;
 }
 
+static inline void spa_list_insert_list(struct spa_list *list, struct spa_list *other)
+{
+	other->next->prev = list;
+	other->prev->next = list->next;
+	list->next->prev = other->prev;
+	list->next = other->next;
+}
+
 static inline void spa_list_remove(struct spa_list *elem)
 {
 	elem->prev->next = elem->next;

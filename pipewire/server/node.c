@@ -640,7 +640,7 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 			port = spa_list_first(ports, struct pw_port, link);
 			/* for output we can reuse an existing port, for input only
 			 * when there is a multiplex */
-			if (direction == PW_DIRECTION_INPUT && port->multiplex == NULL)
+			if (direction == PW_DIRECTION_INPUT && port->mix == NULL)
 				port = NULL;
 		}
 	}
@@ -664,10 +664,28 @@ static void on_state_complete(struct pw_node *node, void *data, int res)
 	pw_node_update_state(node, state, error);
 }
 
+static void node_deactivate(struct pw_node *this)
+{
+	struct pw_port *port;
+
+	pw_log_debug("node %p: deactivate", this);
+	spa_list_for_each(port, &this->input_ports, link) {
+		struct pw_link *link;
+		spa_list_for_each(link, &port->links, input_link)
+			pw_link_deactivate(link);
+	}
+	spa_list_for_each(port, &this->output_ports, link) {
+		struct pw_link *link;
+		spa_list_for_each(link, &port->links, output_link)
+			pw_link_deactivate(link);
+	}
+}
+
 static void node_activate(struct pw_node *this)
 {
 	struct pw_port *port;
 
+	pw_log_debug("node %p: activate", this);
 	spa_list_for_each(port, &this->input_ports, link) {
 		struct pw_link *link;
 		spa_list_for_each(link, &port->links, input_link)
@@ -753,6 +771,9 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 			free((char*)node->info.error);
 		node->info.error = error;
 		node->info.state = state;
+
+		if (state == PW_NODE_STATE_IDLE)
+			node_deactivate(node);
 
 		pw_signal_emit(&node->state_changed, node, old, state);
 

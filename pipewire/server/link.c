@@ -381,8 +381,8 @@ spa_node_param_filter(struct pw_link *this,
 			struct spa_pod_frame f;
 			uint32_t offset;
 
-			if (spa_node_port_enum_params
-			    (out_node, SPA_DIRECTION_OUTPUT, out_port, oidx, &oparam) < 0)
+			if (spa_node_port_enum_params(out_node, SPA_DIRECTION_OUTPUT,
+						      out_port, oidx, &oparam) < 0)
 				break;
 
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
@@ -589,7 +589,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		}
 
 		if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
-			if ((res = pw_port_alloc_buffers(this->output, params, n_params,
+			if ((res = pw_port_alloc_buffers(this->output,
+							 params, n_params,
 							 impl->buffers, &impl->n_buffers)) < 0) {
 				asprintf(&error, "error alloc output buffers: %d", res);
 				goto error;
@@ -602,7 +603,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			pw_log_debug("allocated %d buffers %p from output port", impl->n_buffers,
 				     impl->buffers);
 		} else if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
-			if ((res = pw_port_alloc_buffers(this->input, params, n_params,
+			if ((res = pw_port_alloc_buffers(this->input,
+							 params, n_params,
 							 impl->buffers, &impl->n_buffers)) < 0) {
 				asprintf(&error, "error alloc input buffers: %d", res);
 				goto error;
@@ -619,7 +621,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 	if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
 		pw_log_debug("using %d buffers %p on input port", impl->n_buffers, impl->buffers);
-		if ((res = pw_port_use_buffers(this->input, impl->buffers, impl->n_buffers)) < 0) {
+		if ((res = pw_port_use_buffers(this->input,
+					       impl->buffers, impl->n_buffers)) < 0) {
 			asprintf(&error, "error use input buffers: %d", res);
 			goto error;
 		}
@@ -627,7 +630,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			pw_work_queue_add(impl->work, this->input->node, res, complete_paused, this->input);
 	} else if (out_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
 		pw_log_debug("using %d buffers %p on output port", impl->n_buffers, impl->buffers);
-		if ((res = pw_port_use_buffers(this->output, impl->buffers, impl->n_buffers)) < 0) {
+		if ((res = pw_port_use_buffers(this->output,
+					       impl->buffers, impl->n_buffers)) < 0) {
 			asprintf(&error, "error use output buffers: %d", res);
 			goto error;
 		}
@@ -758,6 +762,14 @@ on_output_async_complete_notify(struct pw_listener *listener,
 	pw_work_queue_complete(impl->work, node, seq, res);
 }
 
+static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
+{
+	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
+
+	if (impl->buffer_owner != port)
+		pw_port_use_buffers(port, NULL, 0);
+}
+
 static int
 do_remove_input(struct spa_loop *loop,
 	        bool async, uint32_t seq, size_t size, void *data, void *user_data)
@@ -775,8 +787,11 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	pw_log_debug("link %p: remove input port %p", this, port);
 	pw_signal_remove(&impl->input_port_destroy);
 	pw_signal_remove(&impl->input_async_complete);
+
 	pw_loop_invoke(port->node->data_loop->loop,
 		       do_remove_input, 1, sizeof(struct pw_port*), &port, true, this);
+
+	clear_port_buffers(this, this->input);
 }
 
 static int
@@ -796,8 +811,11 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	pw_log_debug("link %p: remove output port %p", this, port);
 	pw_signal_remove(&impl->output_port_destroy);
 	pw_signal_remove(&impl->output_async_complete);
+
 	pw_loop_invoke(port->node->data_loop->loop,
 		       do_remove_output, 1, sizeof(struct pw_port*), &port, true, this);
+
+	clear_port_buffers(this, this->output);
 }
 
 static void on_port_destroy(struct pw_link *this, struct pw_port *port)
@@ -807,11 +825,9 @@ static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 
 	if (port == this->input) {
 		input_remove(this, port);
-		this->input = NULL;
 		other = this->output;
 	} else if (port == this->output) {
 		output_remove(this, port);
-		this->output = NULL;
 		other = this->input;
 	} else
 		return;
@@ -820,7 +836,7 @@ static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 		impl->buffers = NULL;
 		impl->n_buffers = 0;
 
-		pw_log_debug("link %p: clear input allocated buffers on port %p", this, other);
+		pw_log_debug("link %p: clear allocated buffers on port %p", this, other);
 		pw_port_use_buffers(other, NULL, 0);
 		impl->buffer_owner = NULL;
 	}
@@ -845,6 +861,15 @@ static void on_output_port_destroy(struct pw_listener *listener, struct pw_port 
 	on_port_destroy(&impl->this, port);
 }
 
+static int
+do_activate_link(struct spa_loop *loop,
+		 bool async, uint32_t seq, size_t size, void *data, void *user_data)
+{
+        struct pw_link *this = user_data;
+	spa_graph_port_link(this->output->node->rt.sched->graph, &this->rt.out_port, &this->rt.in_port);
+	return SPA_RESULT_OK;
+}
+
 bool pw_link_activate(struct pw_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
@@ -855,15 +880,70 @@ bool pw_link_activate(struct pw_link *this)
 	impl->active = true;
 
 	pw_log_debug("link %p: activate", this);
+	pw_loop_invoke(this->output->node->data_loop->loop,
+		       do_activate_link, SPA_ID_INVALID, 0, NULL, false, this);
+
+	this->output->node->n_used_output_links++;
+	this->input->node->n_used_input_links++;
+
 	pw_work_queue_add(impl->work,
 			  this, SPA_RESULT_WAIT_SYNC, (pw_work_func_t) check_states, this);
+
 	return true;
+}
+
+static int
+do_deactivate_link(struct spa_loop *loop,
+		   bool async, uint32_t seq, size_t size, void *data, void *user_data)
+{
+        struct pw_link *this = user_data;
+	spa_graph_port_unlink(this->output->node->rt.sched->graph, &this->rt.out_port);
+	return SPA_RESULT_OK;
 }
 
 bool pw_link_deactivate(struct pw_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	struct pw_node *input_node, *output_node;
+
+	if (!impl->active)
+		return true;
+
 	impl->active = false;
+	pw_log_debug("link %p: deactivate", this);
+	pw_loop_invoke(this->output->node->data_loop->loop,
+		       do_deactivate_link, SPA_ID_INVALID, 0, NULL, true, this);
+
+	input_node = this->input->node;
+	output_node = this->output->node;
+
+	input_node->n_used_input_links--;
+	output_node->n_used_output_links--;
+
+	pw_log_debug("link %p: in %d %d, out %d %d, %d %d %d %d", this,
+			input_node->n_used_input_links,
+			input_node->n_used_output_links,
+			output_node->n_used_input_links,
+			output_node->n_used_output_links,
+			input_node->idle_used_input_links,
+			input_node->idle_used_output_links,
+			output_node->idle_used_input_links,
+			output_node->idle_used_output_links);
+
+	if (input_node->n_used_input_links <= input_node->idle_used_input_links &&
+	    input_node->n_used_output_links <= input_node->idle_used_output_links &&
+	    input_node->info.state > PW_NODE_STATE_IDLE) {
+		pw_node_update_state(input_node, PW_NODE_STATE_IDLE, NULL);
+		this->input->state = PW_PORT_STATE_PAUSED;
+	}
+
+	if (output_node->n_used_input_links <= output_node->idle_used_input_links &&
+	    output_node->n_used_output_links <= output_node->idle_used_output_links &&
+	    output_node->info.state > PW_NODE_STATE_IDLE) {
+		pw_node_update_state(output_node, PW_NODE_STATE_IDLE, NULL);
+		this->output->state = PW_PORT_STATE_PAUSED;
+	}
+
 	return true;
 }
 
@@ -998,21 +1078,16 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	spa_list_insert(output->links.prev, &this->output_link);
 	spa_list_insert(input->links.prev, &this->input_link);
 
-	output_node->n_used_output_links++;
-	input_node->n_used_input_links++;
-
 	spa_list_insert(core->link_list.prev, &this->link);
 
 	pw_core_add_global(core, NULL, core->type.link, 0, this, link_bind_func, &this->global);
 
 	this->info.id = this->global->id;
-	this->info.output_node_id = output ? output->node->global->id : -1;
+	this->info.output_node_id = output ? output_node->global->id : -1;
 	this->info.output_port_id = output ? output->port_id : -1;
-	this->info.input_node_id = input ? input->node->global->id : -1;
+	this->info.input_node_id = input ? input_node->global->id : -1;
 	this->info.input_port_id = input ? input->port_id : -1;
 	this->info.format = NULL;
-
-	spa_graph_port_link(output_node->rt.sched->graph, &this->rt.out_port, &this->rt.in_port);
 
 	pw_loop_invoke(output_node->data_loop->loop,
 		       do_add_link,
@@ -1034,15 +1109,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	return NULL;
 }
 
-static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
-{
-	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
-
-	if (impl->buffer_owner != port)
-		pw_port_use_buffers(port, NULL, 0);
-}
-
-
 void pw_link_destroy(struct pw_link *link)
 {
 	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
@@ -1051,42 +1117,19 @@ void pw_link_destroy(struct pw_link *link)
 	pw_log_debug("link %p: destroy", impl);
 	pw_signal_emit(&link->destroy_signal, link);
 
+	pw_link_deactivate(link);
+
 	pw_global_destroy(link->global);
 	spa_list_remove(&link->link);
 
 	spa_list_for_each_safe(resource, tmp, &link->resource_list, link)
 	    pw_resource_destroy(resource);
 
-	if (link->input) {
-		input_remove(link, link->input);
+	input_remove(link, link->input);
+	spa_list_remove(&link->input_link);
 
-		spa_list_remove(&link->input_link);
-		link->input->node->n_used_input_links--;
-
-		clear_port_buffers(link, link->input);
-
-		if (link->input->node->n_used_input_links == 0 &&
-		    link->input->node->n_used_output_links == 0 &&
-		    link->input->node->info.state > PW_NODE_STATE_IDLE)
-			pw_node_update_state(link->input->node, PW_NODE_STATE_IDLE, NULL);
-
-		link->input = NULL;
-	}
-	if (link->output) {
-		output_remove(link, link->output);
-
-		spa_list_remove(&link->output_link);
-		link->output->node->n_used_output_links--;
-
-		clear_port_buffers(link, link->output);
-
-		if (link->output->node->n_used_input_links == 0 &&
-		    link->output->node->n_used_output_links == 0 &&
-		    link->output->node->info.state > PW_NODE_STATE_IDLE)
-			pw_node_update_state(link->output->node, PW_NODE_STATE_IDLE, NULL);
-
-		link->output = NULL;
-	}
+	output_remove(link, link->output);
+	spa_list_remove(&link->output_link);
 
 	pw_work_queue_destroy(impl->work);
 

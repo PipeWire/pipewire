@@ -41,6 +41,36 @@ static inline int spa_graph_scheduler_default(struct spa_graph_node *node)
 	return res;
 }
 
+static inline void spa_graph_port_check(struct spa_graph *graph, struct spa_graph_port *port)
+{
+	struct spa_graph_node *node = port->node;
+
+	if (port->io->status == SPA_RESULT_HAVE_BUFFER)
+		node->ready_in++;
+
+	debug("port %p node %p check %d %d %d\n", port, node, port->io->status, node->ready_in, node->required_in);
+
+	if (node->required_in > 0 && node->ready_in == node->required_in) {
+		node->action = SPA_GRAPH_ACTION_IN;
+		if (node->ready_link.next == NULL)
+			spa_list_insert(graph->ready.prev, &node->ready_link);
+	} else if (node->ready_link.next) {
+		spa_list_remove(&node->ready_link);
+		node->ready_link.next = NULL;
+	}
+}
+
+static inline void spa_graph_node_update(struct spa_graph *graph, struct spa_graph_node *node) {
+	struct spa_graph_port *p;
+
+	node->ready_in = 0;
+	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
+		if (p->io->status == SPA_RESULT_OK && !(node->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
+			node->ready_in++;
+	}
+	debug("node %p update %d ready\n", node, node->ready_in);
+}
+
 static inline bool spa_graph_scheduler_iterate(struct spa_graph *graph)
 {
 	bool empty;

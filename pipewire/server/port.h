@@ -72,7 +72,7 @@ struct pw_port {
 
 	struct spa_list links;		/**< list of \ref pw_link */
 
-	void *multiplex;		/**< optional port buffer mix/split */
+	void *mix;			/**< optional port buffer mix/split */
 
 	struct {
 		struct spa_graph *graph;
@@ -101,9 +101,6 @@ int pw_port_alloc_buffers(struct pw_port *port,
 			  struct spa_param **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers);
 
-
-/** Pause a port, should be called from data thread \memberof pw_port */
-int pw_port_pause_rt(struct pw_port *port);
 
 #ifdef __cplusplus
 }

@@ -256,6 +256,8 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 	if (this->last_port <= port_id)
 		this->last_port = port_id + 1;
 
+	spa_log_info(this->log, NAME " %p: add port %d", this, port_id);
+
 	return SPA_RESULT_OK;
 }
 
@@ -289,6 +291,7 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 
 		this->last_port = i + 1;
 	}
+	spa_log_info(this->log, NAME " %p: remove port %d", this, port_id);
 
 	return SPA_RESULT_OK;
 }
@@ -414,11 +417,11 @@ impl_node_port_set_format(struct spa_node *node,
 				this->copy = this->ops.copy[CONV_F32_F32];
 				this->add = this->ops.add[CONV_F32_F32];
 			}
-
 		}
 		if (!port->have_format) {
 			this->n_formats++;
 			port->have_format = true;
+			spa_log_info(this->log, NAME " %p: set format on port %d", this, port_id);
 		}
 	}
 

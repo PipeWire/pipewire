@@ -28,7 +28,6 @@ extern "C" {
 
 struct spa_graph_scheduler {
 	struct spa_graph *graph;
-        struct spa_list pending;
         struct spa_graph_node *node;
 };
 
@@ -36,7 +35,6 @@ static inline void spa_graph_scheduler_init(struct spa_graph_scheduler *sched,
 					    struct spa_graph *graph)
 {
 	sched->graph = graph;
-	spa_list_init(&sched->pending);
 	sched->node = NULL;
 }
 
@@ -67,8 +65,11 @@ static inline void spa_graph_scheduler_pull(struct spa_graph_scheduler *sched, s
 
 	node->ready_in = 0;
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
-		struct spa_graph_port *pport = p->peer;
-		struct spa_graph_node *pnode = pport->node;
+		struct spa_graph_port *pport;
+		struct spa_graph_node *pnode;
+		if ((pport = p->peer) == NULL)
+			continue;
+		pnode = pport->node;
 		debug("node %p peer %p io %d\n", node, pnode, pport->io->status);
 		if (pport->io->status == SPA_RESULT_NEED_BUFFER) {
 			spa_list_insert(ready.prev, &pnode->ready_link);
@@ -102,7 +103,8 @@ static inline void spa_graph_scheduler_pull(struct spa_graph_scheduler *sched, s
 		if (node->state == SPA_RESULT_HAVE_BUFFER) {
 			spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
 				if (p->io->status == SPA_RESULT_HAVE_BUFFER)
-			                p->peer->node->ready_in++;
+					if (p->peer)
+				                p->peer->node->ready_in++;
 			}
 		}
 	}
@@ -125,8 +127,11 @@ static inline void spa_graph_scheduler_push(struct spa_graph_scheduler *sched, s
 	spa_list_init(&ready);
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
-		struct spa_graph_port *pport = p->peer;
-		struct spa_graph_node *pnode = pport->node;
+		struct spa_graph_port *pport;
+		struct spa_graph_node *pnode;
+		if ((pport = p->peer) == NULL)
+			continue;
+		pnode = pport->node;
 		if (pport->io->status == SPA_RESULT_HAVE_BUFFER)
 			pnode->ready_in++;
 
@@ -161,7 +166,8 @@ static inline void spa_graph_scheduler_push(struct spa_graph_scheduler *sched, s
 		node->ready_in = 0;
 		spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
 			if (p->io->status == SPA_RESULT_OK && !(n->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
-		                p->peer->node->ready_in++;
+				if (p->peer)
+			                p->peer->node->ready_in++;
 		}
 	}
 }

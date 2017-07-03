@@ -84,10 +84,12 @@ struct pw_node {
 	struct spa_list input_ports;		/**< list of input ports */
 	struct pw_port **input_port_map;	/**< map from port_id to port */
 	uint32_t n_used_input_links;		/**< number of active input links */
+	uint32_t idle_used_input_links;		/**< number of active input to be idle */
 
 	struct spa_list output_ports;		/**< list of output ports */
 	struct pw_port **output_port_map;	/**< map from port_id to port */
 	uint32_t n_used_output_links;		/**< number of active output links */
+	uint32_t idle_used_output_links;	/**< number of active output to be idle */
 
 	/** Emited when a new port is added */
 	PW_SIGNAL(port_added, (struct pw_listener *listener,

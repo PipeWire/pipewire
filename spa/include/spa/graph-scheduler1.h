@@ -28,6 +28,7 @@ extern "C" {
 
 struct spa_graph_scheduler {
 	struct spa_graph *graph;
+        struct spa_list ready;
         struct spa_list pending;
         struct spa_graph_node *node;
 };
@@ -36,6 +37,7 @@ static inline void spa_graph_scheduler_init(struct spa_graph_scheduler *sched,
 					    struct spa_graph *graph)
 {
 	sched->graph = graph;
+	spa_list_init(&sched->ready);
 	spa_list_init(&sched->pending);
 	sched->node = NULL;
 }
@@ -55,16 +57,34 @@ static inline int spa_graph_scheduler_default(struct spa_graph_node *node)
 	return res;
 }
 
+static inline void spa_scheduler_port_check(struct spa_graph_scheduler *sched, struct spa_graph_port *port)
+{
+	struct spa_graph_node *node = port->node;
+
+	if (port->io->status == SPA_RESULT_HAVE_BUFFER)
+		node->ready_in++;
+
+	debug("port %p node %p check %d %d %d\n", port, node, port->io->status, node->ready_in, node->required_in);
+
+	if (node->required_in > 0 && node->ready_in == node->required_in) {
+		node->action = SPA_GRAPH_ACTION_IN;
+		if (node->ready_link.next == NULL)
+			spa_list_insert(sched->ready.prev, &node->ready_link);
+	} else if (node->ready_link.next) {
+		spa_list_remove(&node->ready_link);
+		node->ready_link.next = NULL;
+	}
+}
+
 static inline bool spa_graph_scheduler_iterate(struct spa_graph_scheduler *sched)
 {
 	bool res;
-	struct spa_graph *graph = sched->graph;
 	struct spa_graph_port *p;
 	struct spa_graph_node *n;
 
-	res = !spa_list_is_empty(&graph->ready);
+	res = !spa_list_is_empty(&sched->ready);
 	if (res) {
-		n = spa_list_first(&graph->ready, struct spa_graph_node, ready_link);
+		n = spa_list_first(&sched->ready, struct spa_graph_node, ready_link);
 
 		spa_list_remove(&n->ready_link);
 		n->ready_link.next = NULL;
@@ -79,7 +99,7 @@ static inline bool spa_graph_scheduler_iterate(struct spa_graph_scheduler *sched
 			if (n->action == SPA_GRAPH_ACTION_IN && n == sched->node)
 				break;
 			n->action = SPA_GRAPH_ACTION_CHECK;
-			spa_list_insert(graph->ready.prev, &n->ready_link);
+			spa_list_insert(sched->ready.prev, &n->ready_link);
 			break;
 
 		case SPA_GRAPH_ACTION_CHECK:
@@ -91,7 +111,7 @@ static inline bool spa_graph_scheduler_iterate(struct spa_graph_scheduler *sched
 						if (pn != sched->node
 						    || pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC) {
 							pn->action = SPA_GRAPH_ACTION_OUT;
-							spa_list_insert(graph->ready.prev,
+							spa_list_insert(sched->ready.prev,
 									&pn->ready_link);
 						}
 					} else if (p->io->status == SPA_RESULT_OK)
@@ -99,14 +119,14 @@ static inline bool spa_graph_scheduler_iterate(struct spa_graph_scheduler *sched
 				}
 			} else if (n->state == SPA_RESULT_HAVE_BUFFER) {
 				spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link)
-					spa_graph_port_check(graph, p->peer);
+					spa_scheduler_port_check(sched, p->peer);
 			}
 			break;
 
 		default:
 			break;
 		}
-		res = !spa_list_is_empty(&graph->ready);
+		res = !spa_list_is_empty(&sched->ready);
 	}
 	return res;
 }
@@ -118,7 +138,7 @@ static inline void spa_graph_scheduler_pull(struct spa_graph_scheduler *sched, s
 	node->state = SPA_RESULT_NEED_BUFFER;
 	sched->node = node;
 	if (node->ready_link.next == NULL)
-		spa_list_insert(sched->graph->ready.prev, &node->ready_link);
+		spa_list_insert(sched->ready.prev, &node->ready_link);
 }
 
 static inline void spa_graph_scheduler_push(struct spa_graph_scheduler *sched, struct spa_graph_node *node)
@@ -127,7 +147,7 @@ static inline void spa_graph_scheduler_push(struct spa_graph_scheduler *sched, s
 	node->action = SPA_GRAPH_ACTION_OUT;
 	sched->node = node;
 	if (node->ready_link.next == NULL)
-		spa_list_insert(sched->graph->ready.prev, &node->ready_link);
+		spa_list_insert(sched->ready.prev, &node->ready_link);
 }
 
 #ifdef __cplusplus

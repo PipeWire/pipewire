@@ -46,7 +46,7 @@ static const struct spa_handle_factory *find_factory(struct impl *impl)
 	char *filename;
 	const char *dir;
 
-	if ((dir = getenv("SPA_PLUIGIN_DIR")) == NULL)
+	if ((dir = getenv("SPA_PLUGIN_DIR")) == NULL)
 		dir = PLUGINDIR;
 
 	asprintf(&filename, "%s/%s.so", dir, AUDIOMIXER_LIB);
@@ -156,6 +156,9 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 		op = pw_node_get_free_port(node, PW_DIRECTION_OUTPUT);
 		if (op == NULL)
 			continue;
+
+		n->idle_used_input_links++;
+		node->idle_used_output_links++;
 
 		pw_link_new(core, op, ip, NULL, NULL, &error);
 	}

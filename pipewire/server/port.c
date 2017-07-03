@@ -85,12 +85,13 @@ static int schedule_mix(struct spa_graph_node *node)
                 io->status = SPA_RESULT_NEED_BUFFER;
 		spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
 			*p->io = *io;
+		io->buffer_id = SPA_ID_INVALID;
                 res = SPA_RESULT_NEED_BUFFER;
 	}
         else
                 res = SPA_RESULT_ERROR;
 
-        return res;
+	return res;
 }
 
 static int do_add_port(struct spa_loop *loop,
@@ -194,28 +195,17 @@ static void port_update_state(struct pw_port *port, enum pw_port_state state)
 	}
 }
 
-int pw_port_pause_rt(struct pw_port *port)
-{
-	int res;
-
-	if (port->state <= PW_PORT_STATE_PAUSED)
-		return SPA_RESULT_OK;
-
-	res = spa_node_port_send_command(port->node->node,
-					 port->direction,
-					 port->port_id,
-					 &SPA_COMMAND_INIT(port->node->core->type.command_node.
-							   Pause));
-	port_update_state (port, PW_PORT_STATE_PAUSED);
-	return res;
-}
-
 static int
 do_port_pause(struct spa_loop *loop,
 	      bool async, uint32_t seq, size_t size, void *data, void *user_data)
 {
 	struct pw_port *port = user_data;
-	return pw_port_pause_rt(port);
+
+	return spa_node_port_send_command(port->node->node,
+					 port->direction,
+					 port->port_id,
+					 &SPA_COMMAND_INIT(port->node->core->type.command_node.
+							   Pause));
 }
 
 int pw_port_set_format(struct pw_port *port, uint32_t flags, struct spa_format *format)
@@ -223,7 +213,6 @@ int pw_port_set_format(struct pw_port *port, uint32_t flags, struct spa_format *
 	int res;
 
 	res = spa_node_port_set_format(port->node->node, port->direction, port->port_id, flags, format);
-
 	pw_log_debug("port %p: set format %d", port, res);
 
 	if (!SPA_RESULT_IS_ASYNC(res)) {

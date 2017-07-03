@@ -37,7 +37,8 @@ struct pw_spa_node {
 };
 
 typedef int (*setup_node_t) (struct pw_core *core,
-			     struct spa_node *spa_node, struct pw_properties *pw_props);
+			     struct spa_node *spa_node,
+			     struct pw_properties *pw_props);
 
 struct pw_spa_node *
 pw_spa_node_load(struct pw_core *core,

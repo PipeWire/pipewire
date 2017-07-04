@@ -383,6 +383,7 @@ node_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 
 	this->info.change_mask = ~0;
 	pw_node_notify_info(resource, &this->info);
+	this->info.change_mask = 0;
 
 	return SPA_RESULT_OK;
 
@@ -592,6 +593,7 @@ void pw_node_destroy(struct pw_node *node)
 struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction direction)
 {
 	uint32_t *n_ports, max_ports;
+	uint64_t change_mask;
 	struct spa_list *ports;
 	struct pw_port *port = NULL, *p, **portmap;
 	int res;
@@ -602,11 +604,13 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 		n_ports = &node->info.n_input_ports;
 		ports = &node->input_ports;
 		portmap = node->input_port_map;
+		change_mask = 1 << 1;
 	} else {
 		max_ports = node->info.max_output_ports;
 		n_ports = &node->info.n_output_ports;
 		ports = &node->output_ports;
 		portmap = node->output_port_map;
+		change_mask = 1 << 3;
 	}
 
 	pw_log_debug("node %p: direction %d max %u, n %u", node, direction, max_ports, *n_ports);
@@ -637,6 +641,7 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 					spa_node_port_set_io(node->node, direction, i, &port->io);
 				}
 				(*n_ports)++;
+				node->info.change_mask |= change_mask;
 				portmap[i] = port;
 				break;
 			}
@@ -783,9 +788,9 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 
 		pw_signal_emit(&node->state_changed, node, old, state);
 
-		node->info.change_mask = 1 << 5;
-		spa_list_for_each(resource, &node->resource_list, link) {
+		node->info.change_mask |= 1 << 5;
+		spa_list_for_each(resource, &node->resource_list, link)
 			pw_node_notify_info(resource, &node->info);
-		}
+		node->info.change_mask = 0;
 	}
 }

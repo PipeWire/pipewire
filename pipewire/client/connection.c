@@ -33,7 +33,7 @@
 
 /** \cond */
 
-#define MAX_BUFFER_SIZE 4096
+#define MAX_BUFFER_SIZE (1024 * 32)
 #define MAX_FDS 28
 
 static bool debug_messages = 0;

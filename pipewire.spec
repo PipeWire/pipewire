@@ -45,6 +45,7 @@ BuildRequires:  alsa-lib-devel
 BuildRequires:  libv4l-devel
 BuildRequires:  doxygen
 BuildRequires:  xmltoman
+BuildRequires:  graphviz
 
 Requires(pre):  shadow-utils
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}

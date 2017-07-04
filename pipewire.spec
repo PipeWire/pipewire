@@ -43,6 +43,8 @@ BuildRequires:  pkgconfig(gstreamer-allocators-1.0) >= 1.10.0
 BuildRequires:  systemd-devel >= 184
 BuildRequires:  alsa-lib-devel
 BuildRequires:  libv4l-devel
+BuildRequires:  doxygen
+BuildRequires:  xmltoman
 
 Requires(pre):  shadow-utils
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}

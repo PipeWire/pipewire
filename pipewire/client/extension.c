@@ -63,8 +63,7 @@ struct pw_extension *pw_extension_load(struct pw_context *context,
 
 	pw_log_debug("PIPEWIRE_MODULE_DIR set to: %s", module_dir);
 
-	asprintf(&filename, "%s/%s.so", module_dir, name);
-	if (filename == NULL)
+	if (asprintf(&filename, "%s/%s.so", module_dir, name) < 0)
 		goto no_filename;
 
 	pw_log_debug("trying to load extension: %s (%s)", name, filename);
@@ -101,15 +100,19 @@ struct pw_extension *pw_extension_load(struct pw_context *context,
 	return this;
 
       no_filename:
-	pw_log_error("No memory");
+	pw_log_error("Can't create filename: %m");
 	return NULL;
       open_failed:
 	pw_log_error("Failed to open module: \"%s\" %s", filename, dlerror());
 	free(filename);
 	return NULL;
-      no_mem:
       no_pw_extension:
 	pw_log_error("\"%s\" is not a pipewire extension", name);
+	dlclose(hnd);
+	free(filename);
+	return NULL;
+      no_mem:
+	pw_log_error("no memory");
 	dlclose(hnd);
 	free(filename);
 	return NULL;

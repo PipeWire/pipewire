@@ -83,7 +83,10 @@ context_set_state(struct pw_context *context, enum pw_context_state state, const
 			va_list varargs;
 
 			va_start(varargs, fmt);
-			vasprintf(&context->error, fmt, varargs);
+			if (vasprintf(&context->error, fmt, varargs) < 0) {
+				pw_log_debug("context %p: error formating message: %m", context);
+				context->error = NULL;
+			}
 			va_end(varargs);
 		} else {
 			context->error = NULL;

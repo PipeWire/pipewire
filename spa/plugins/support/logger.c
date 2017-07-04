@@ -94,7 +94,8 @@ impl_log_logv(struct spa_log *log,
 					  index & impl->trace_rb.mask, location, size);
 		spa_ringbuffer_write_update(&impl->trace_rb, index + size);
 
-		write(impl->source.fd, &count, sizeof(uint64_t));
+		if (write(impl->source.fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+			fprintf(stderr, "error signaling eventfd: %s\n", strerror(errno));
 	} else
 		fputs(location, stderr);
 }

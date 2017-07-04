@@ -47,7 +47,8 @@ open_support(const char *path,
 {
 	char *filename;
 
-        asprintf(&filename, "%s/%s.so", path, lib);
+        if (asprintf(&filename, "%s/%s.so", path, lib) < 0)
+		goto no_filename;
 
         if ((info->hnd = dlopen(filename, RTLD_NOW)) == NULL) {
                 fprintf(stderr, "can't load %s: %s\n", filename, dlerror());
@@ -60,6 +61,8 @@ open_support(const char *path,
 	free(filename);
 	return true;
 
+      no_filename:
+	return false;
       no_symbol:
 	dlclose(info->hnd);
       open_failed:
@@ -282,7 +285,8 @@ char *pw_get_client_name(void)
 	else if ((cc = pw_get_prgname()))
 		return strdup(cc);
 	else {
-		asprintf(&c, "pipewire-pid-%zd", (size_t) getpid());
+		if (asprintf(&c, "pipewire-pid-%zd", (size_t) getpid()) < 0)
+			return NULL;
 		return c;
 	}
 }

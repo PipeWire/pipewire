@@ -154,7 +154,9 @@ static int spa_proxy_node_set_props(struct spa_node *node, const struct spa_prop
 static inline void do_flush(struct proxy *this)
 {
 	uint64_t cmd = 1;
-	write(this->writefd, &cmd, 8);
+	if (write(this->writefd, &cmd, 8) != 8)
+		spa_log_warn(this->log, "proxy %p: error writing event: %s", this, strerror(errno));
+
 }
 
 static inline void send_need_input(struct proxy *this)
@@ -967,7 +969,9 @@ static void proxy_on_data_fd_events(struct spa_source *source)
 		struct spa_event event;
 		uint64_t cmd;
 
-		read(this->data_source.fd, &cmd, 8);
+		if (read(this->data_source.fd, &cmd, 8) != 8)
+			spa_log_warn(this->log, "proxy %p: error reading event: %s",
+					this, strerror(errno));
 
 		while (pw_transport_next_event(impl->transport, &event) == SPA_RESULT_OK) {
 			struct spa_event *ev = alloca(SPA_POD_SIZE(&event));

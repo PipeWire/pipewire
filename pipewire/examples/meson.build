@@ -4,8 +4,10 @@ executable('video-src',
   dependencies : [pipewire_dep],
 )
 
-executable('video-play',
-  'video-play.c',
-  install: false,
-  dependencies : [pipewire_dep,sdl_dep],
-)
+if sdl_dep.found()
+  executable('video-play',
+    'video-play.c',
+    install: false,
+    dependencies : [pipewire_dep,sdl_dep],
+  )
+endif

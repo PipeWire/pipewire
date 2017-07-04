@@ -540,21 +540,27 @@ void pw_node_destroy(struct pw_node *node)
 	pw_signal_emit(&node->destroy_signal, node);
 
 	if (!impl->async_init) {
+		pw_loop_invoke(node->data_loop->loop, do_node_remove, 1, 0, NULL, true, node);
+
 		spa_list_remove(&node->link);
 		pw_global_destroy(node->global);
+		node->global = NULL;
 	}
 
 	spa_list_for_each_safe(resource, tmp, &node->resource_list, link)
 		pw_resource_destroy(resource);
 
-	pw_loop_invoke(node->data_loop->loop, do_node_remove, 1, 0, NULL, true, node);
-
 	pw_log_debug("node %p: destroy ports", node);
-	spa_list_for_each_safe(port, tmpp, &node->input_ports, link)
+	spa_list_for_each_safe(port, tmpp, &node->input_ports, link) {
+		pw_signal_emit(&node->port_removed, node, port);
 		pw_port_destroy(port);
+	}
 
-	spa_list_for_each_safe(port, tmpp, &node->output_ports, link)
+	spa_list_for_each_safe(port, tmpp, &node->output_ports, link) {
+		pw_signal_emit(&node->port_removed, node, port);
 		pw_port_destroy(port);
+	}
+
 
 	pw_log_debug("node %p: free", node);
 	pw_signal_emit(&node->free_signal, node);

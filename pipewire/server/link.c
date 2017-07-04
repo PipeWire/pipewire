@@ -1127,9 +1127,11 @@ void pw_link_destroy(struct pw_link *link)
 
 	input_remove(link, link->input);
 	spa_list_remove(&link->input_link);
+	link->input = NULL;
 
 	output_remove(link, link->output);
 	spa_list_remove(&link->output_link);
+	link->output = NULL;
 
 	pw_work_queue_destroy(impl->work);
 

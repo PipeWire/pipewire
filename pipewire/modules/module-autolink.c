@@ -46,6 +46,7 @@ struct node_info {
 	struct pw_listener port_removed;
 	struct pw_listener port_unlinked;
 	struct pw_listener link_state_changed;
+	struct pw_listener link_destroy;
 };
 
 static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
@@ -66,6 +67,7 @@ static void node_info_free(struct node_info *info)
 	pw_signal_remove(&info->port_added);
 	pw_signal_remove(&info->port_removed);
 	pw_signal_remove(&info->port_unlinked);
+	pw_signal_remove(&info->link_destroy);
 	pw_signal_remove(&info->link_state_changed);
 	free(info);
 }
@@ -124,6 +126,21 @@ on_link_state_changed(struct pw_listener *listener,
 	}
 }
 
+static void
+on_link_destroy(struct pw_listener *listener, struct pw_link *link)
+{
+	struct node_info *info = SPA_CONTAINER_OF(listener, struct node_info, link_destroy);
+	struct impl *impl = info->impl;
+
+	pw_log_debug("module %p: link %p destroyed", impl, link);
+	pw_signal_remove(&info->port_unlinked);
+	pw_signal_remove(&info->link_state_changed);
+	pw_signal_remove(&info->link_destroy);
+	spa_list_init(&info->port_unlinked.link);
+	spa_list_init(&info->link_state_changed.link);
+	spa_list_init(&info->link_destroy.link);
+}
+
 static void try_link_port(struct pw_node *node, struct pw_port *port, struct node_info *info)
 {
 	struct impl *impl = info->impl;
@@ -168,6 +185,7 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 
 	pw_signal_add(&link->port_unlinked, &info->port_unlinked, on_link_port_unlinked);
 	pw_signal_add(&link->state_changed, &info->link_state_changed, on_link_state_changed);
+	pw_signal_add(&link->destroy_signal, &info->link_destroy, on_link_destroy);
 
 	pw_link_activate(link);
 

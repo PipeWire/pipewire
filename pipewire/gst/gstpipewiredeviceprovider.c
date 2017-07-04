@@ -220,7 +220,8 @@ new_node (GstPipeWireDeviceProvider *self, const struct pw_node_info *info)
         gst_caps_append (caps, c1);
     }
   } else {
-    type = GST_PIPEWIRE_DEVICE_TYPE_UNKNOWN;
+    gst_caps_unref(caps);
+    return NULL;
   }
 
   props = gst_structure_new_empty ("pipewire-proplist");
@@ -323,7 +324,9 @@ list_node_info_cb (struct pw_context        *c,
 {
   InfoData *data = user_data;
   if (info) {
-    *data->devices = g_list_prepend (*data->devices, gst_object_ref_sink (new_node (data->self, info)));
+    GstDevice *dev = new_node (data->self, info);
+    if (dev)
+      *data->devices = g_list_prepend (*data->devices, gst_object_ref_sink (dev));
   } else {
     data->end = TRUE;
   }

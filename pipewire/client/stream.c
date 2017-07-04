@@ -647,6 +647,8 @@ client_node_set_format(void *object,
 	struct pw_stream *stream = proxy->object;
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
+	pw_log_debug("stream %p: format changed %d", stream, seq);
+
 	if (impl->format)
 		free(impl->format);
 	impl->format = format ? spa_format_copy(format) : NULL;
@@ -941,6 +943,8 @@ pw_stream_finish_format(struct pw_stream *stream,
 			int res, struct spa_param **params, uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+
+	pw_log_debug("stream %p: finish format %d %d", stream, res, impl->pending_seq);
 
 	set_params(stream, n_params, params);
 

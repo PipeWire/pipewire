@@ -648,7 +648,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     while (TRUE) {
       state = pwsink->stream->state;
 
-      if (state == PW_STREAM_STATE_CONFIGURE)
+      if (state == PW_STREAM_STATE_READY)
         break;
 
       if (state == PW_STREAM_STATE_ERROR)

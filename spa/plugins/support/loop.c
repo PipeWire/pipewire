@@ -223,9 +223,7 @@ loop_invoke(struct spa_loop *loop,
 		}
 		offset = idx & impl->buffer.mask;
 
-		l0 = offset + avail;
-		if (l0 > impl->buffer.size)
-			l0 = impl->buffer.size - l0;
+		l0 = impl->buffer.size - offset;
 
 		item = SPA_MEMBER(impl->buffer_data, offset, struct invoke_item);
 		item->func = func;
@@ -241,7 +239,7 @@ loop_invoke(struct spa_loop *loop,
 				item->item_size = l0;
 		} else {
 			item->data = impl->buffer_data;
-			item->item_size = l0 + 1 + size;
+			item->item_size = l0 + size;
 		}
 		memcpy(item->data, data, size);
 

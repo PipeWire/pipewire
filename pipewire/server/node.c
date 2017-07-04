@@ -200,11 +200,13 @@ static int suspend_node(struct pw_node *this)
 	spa_list_for_each(p, &this->input_ports, link) {
 		if ((res = pw_port_set_format(p, 0, NULL)) < 0)
 			pw_log_warn("error unset format input: %d", res);
+		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 
 	spa_list_for_each(p, &this->output_ports, link) {
 		if ((res = pw_port_set_format(p, 0, NULL)) < 0)
 			pw_log_warn("error unset format output: %d", res);
+		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 	return res;
 }

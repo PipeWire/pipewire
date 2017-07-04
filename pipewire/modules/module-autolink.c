@@ -249,6 +249,7 @@ on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_gl
 		spa_list_insert(impl->node_list.prev, &ninfo->link);
 		spa_list_init(&ninfo->port_unlinked.link);
 		spa_list_init(&ninfo->link_state_changed.link);
+		spa_list_init(&ninfo->link_destroy.link);
 
 		pw_signal_add(&node->port_added, &ninfo->port_added, on_port_added);
 		pw_signal_add(&node->port_removed, &ninfo->port_removed, on_port_removed);

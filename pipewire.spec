@@ -31,6 +31,7 @@ Source0:        http://freedesktop.org/software/pipewire/releases/pipewire-%{ver
 
 BuildRequires:  meson >= 0.35.0
 BuildRequires:  pkgconfig
+BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(dbus-1)
 BuildRequires:  pkgconfig(glib-2.0) >= 2.32
 BuildRequires:  pkgconfig(gio-unix-2.0) >= 2.32
@@ -40,6 +41,8 @@ BuildRequires:  pkgconfig(gstreamer-plugins-base-1.0) >= 1.10.0
 BuildRequires:  pkgconfig(gstreamer-net-1.0) >= 1.10.0
 BuildRequires:  pkgconfig(gstreamer-allocators-1.0) >= 1.10.0
 BuildRequires:  systemd-devel >= 184
+BuildRequires:  alsa-lib-devel
+BuildRequires:  libv4l-devel
 
 Requires(pre):  shadow-utils
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}

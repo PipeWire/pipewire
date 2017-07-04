@@ -1,7 +1,9 @@
 subdir('alsa')
 subdir('audiomixer')
 subdir('audiotestsrc')
-subdir('ffmpeg')
+if avcodec_dep.found()
+  subdir('ffmpeg')
+endif
 subdir('support')
 subdir('test')
 subdir('videotestsrc')

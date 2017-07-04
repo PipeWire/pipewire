@@ -2,12 +2,12 @@
 
 alsa_dep = dependency('alsa')
 v4l2_dep = dependency('libv4l2')
-xv_dep = dependency('x11')
-sdl_dep = dependency('sdl2')
-avcodec_dep = dependency('libavcodec')
-avformat_dep = dependency('libavformat')
-avfilter_dep = dependency('libavfilter')
-libva_dep = dependency('libva')
+x11_dep = dependency('x11', required : false)
+sdl_dep = dependency('sdl2', required : false)
+avcodec_dep = dependency('libavcodec', required : false)
+avformat_dep = dependency('libavformat', required : false)
+avfilter_dep = dependency('libavfilter', required : false)
+libva_dep = dependency('libva', required : false)
 libudev_dep = dependency('libudev')
 threads_dep = dependency('threads')
 

@@ -444,7 +444,7 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 	}
 
 	/* no port, can we create one ? */
-	if (max_ports == 0 || n_ports < max_ports) {
+	if (n_ports < max_ports) {
 		uint32_t port_id = pw_map_insert_new(portmap, NULL);
 
 		pw_log_debug("node %p: creating port direction %d %u", node, direction, port_id);

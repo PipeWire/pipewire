@@ -4,7 +4,7 @@ pipewire_module_spa_c_args = [
 ]
 
 pipewire_module_spa_monitor = shared_library('pipewire-module-spa-monitor',
-  [ 'module-monitor.c', 'spa-monitor.c' ],
+  [ 'module-monitor.c', 'spa-monitor.c', 'spa-node.c' ],
   c_args : pipewire_module_spa_c_args,
   include_directories : [configinc, spa_inc],
   link_with : spalib,

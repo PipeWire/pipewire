@@ -42,20 +42,23 @@ static inline void spa_graph_scheduler_init(struct spa_graph_scheduler *sched,
 	sched->node = NULL;
 }
 
-static inline int spa_graph_scheduler_default(struct spa_graph_node *node)
+static inline int spa_graph_scheduler_input(struct spa_graph_node *node, void *user_data)
 {
-	int res;
 	struct spa_node *n = node->user_data;
-
-	if (node->action == SPA_GRAPH_ACTION_IN)
-		res = spa_node_process_input(n);
-	else if (node->action == SPA_GRAPH_ACTION_OUT)
-		res = spa_node_process_output(n);
-	else
-		res = SPA_RESULT_ERROR;
-
-	return res;
+	return spa_node_process_input(n);
 }
+
+static inline int spa_graph_scheduler_output(struct spa_graph_node *node, void *user_data)
+{
+	struct spa_node *n = node->user_data;
+	return spa_node_process_output(n);
+}
+
+static const struct spa_graph_node_methods spa_graph_scheduler_default = {
+	SPA_VERSION_GRAPH_NODE_METHODS,
+	spa_graph_scheduler_input,
+	spa_graph_scheduler_output,
+};
 
 static inline void spa_scheduler_port_check(struct spa_graph_scheduler *sched, struct spa_graph_port *port)
 {
@@ -93,11 +96,17 @@ static inline bool spa_graph_scheduler_iterate(struct spa_graph_scheduler *sched
 
 		switch (n->action) {
 		case SPA_GRAPH_ACTION_IN:
-		case SPA_GRAPH_ACTION_OUT:
-			n->state = n->schedule(n);
-			debug("node %p scheduled action %d state %d\n", n, n->action, n->state);
-			if (n->action == SPA_GRAPH_ACTION_IN && n == sched->node)
+			n->state = n->methods->schedule_input(n, n->user_data);
+			debug("node %p scheduled input state %d\n", n, n->state);
+			if (n == sched->node)
 				break;
+			n->action = SPA_GRAPH_ACTION_CHECK;
+			spa_list_insert(sched->ready.prev, &n->ready_link);
+			break;
+
+		case SPA_GRAPH_ACTION_OUT:
+			n->state = n->methods->schedule_output(n, n->user_data);
+			debug("node %p scheduled output state %d\n", n, n->state);
 			n->action = SPA_GRAPH_ACTION_CHECK;
 			spa_list_insert(sched->ready.prev, &n->ready_link);
 			break;

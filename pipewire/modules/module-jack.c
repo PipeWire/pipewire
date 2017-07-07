@@ -61,7 +61,7 @@
 #define LOCK_SUFFIX     ".lock"
 #define LOCK_SUFFIXLEN  5
 
-static int segment_num = 0;
+int segment_num = 0;
 
 typedef bool(*demarshal_func_t) (void *object, void *data, size_t size);
 
@@ -223,8 +223,6 @@ handle_client_open(struct client *client)
 	char name[JACK_CLIENT_NAME_SIZE+1];
 	int result, ref_num, shared_engine, shared_client, shared_graph;
 	struct jack_client *jc;
-	size_t size;
-	jack_shm_info_t info;
 
 	CheckSize(kClientOpen_size);
 	CheckRead(&PID, sizeof(int));
@@ -241,25 +239,21 @@ handle_client_open(struct client *client)
 	jc->owner = client;
 	jc->ref_num = ref_num;
 
-	if (jack_synchro_alloc(&server->synchro_table[ref_num],
-			       name,
-			       server->engine_control->server_name,
-			       0,
-			       false,
-			       server->promiscuous) < 0) {
+	if (jack_synchro_init(&server->synchro_table[ref_num],
+			      name,
+			      server->engine_control->server_name,
+			      0,
+			      false,
+			      server->promiscuous) < 0) {
 		result = -1;
 		goto reply;
 	}
 
-	size = sizeof(struct jack_client_control);
-
-	if (jack_shm_alloc(size, &info, segment_num++) < 0) {
+	jc->control = jack_client_control_alloc(name, client->client->ucred.pid, ref_num, -1);
+	if (jc->control == NULL) {
 		result = -1;
 		goto reply;
 	}
-
-	jc->control = (struct jack_client_control *)jack_shm_addr(&info);
-	jc->control->info = info;
 
 	server->client_table[ref_num] = jc;
 
@@ -481,6 +475,78 @@ static struct client *client_new(struct impl *impl, int fd)
 	return NULL;
 }
 
+static int
+make_int_client(struct impl *impl, struct pw_node *node)
+{
+	struct jack_server *server = &impl->server;
+	struct jack_connection_manager *conn;
+	int ref_num;
+	struct jack_client *jc;
+	jack_port_id_t port_id;
+
+	ref_num = jack_server_allocate_ref_num(server);
+	if (ref_num == -1)
+		return -1;
+
+	if (jack_synchro_init(&server->synchro_table[ref_num],
+			      "system",
+			      server->engine_control->server_name,
+			      0,
+			      false,
+			      server->promiscuous) < 0) {
+		return -1;
+	}
+
+	jc = calloc(1,sizeof(struct jack_client));
+	jc->ref_num = ref_num;
+	jc->node = node;
+	jc->control = jack_client_control_alloc("system", -1, ref_num, -1);
+	jc->control->active = true;
+
+	server->client_table[ref_num] = jc;
+
+	impl->server.engine_control->driver_num++;
+
+	conn = jack_graph_manager_next_start(server->graph_manager);
+
+	jack_connection_manager_init_ref_num(conn, ref_num);
+
+	port_id = jack_graph_manager_allocate_port(server->graph_manager,
+						   ref_num, "system:playback_1", 2,
+						   JackPortIsInput |  JackPortIsPhysical | JackPortIsTerminal);
+
+	jack_connection_manager_add_port(conn, true, ref_num, port_id);
+
+	jack_graph_manager_next_stop(server->graph_manager);
+
+	return 0;
+}
+
+static bool init_nodes(struct impl *impl)
+{
+	struct pw_core *core = impl->core;
+	struct pw_node *n;
+
+        spa_list_for_each(n, &core->node_list, link) {
+                const char *str;
+
+                if (n->global == NULL)
+                        continue;
+
+                if (n->properties == NULL)
+                        continue;
+
+                if ((str = pw_properties_get(n->properties, "media.class")) == NULL)
+                        continue;
+
+                if (strcmp(str, "Audio/Sink") != 0)
+                        continue;
+
+		make_int_client(impl, n);
+        }
+	return true;
+}
+
 static struct socket *create_socket(void)
 {
 	struct socket *s;
@@ -591,8 +657,6 @@ static bool add_socket(struct impl *impl, struct socket *s)
 static int init_server(struct impl *impl, const char *name, bool promiscuous)
 {
 	struct jack_server *server = &impl->server;
-	jack_shm_info_t info;
-	size_t size;
 	int i;
 	struct socket *s;
 
@@ -604,27 +668,16 @@ static int init_server(struct impl *impl, const char *name, bool promiscuous)
 	jack_cleanup_shm();
 
 	/* graph manager */
-	size = sizeof(struct jack_graph_manager) + 2048 * sizeof(struct jack_port);
-
-	if (jack_shm_alloc(size, &info, segment_num++) < 0)
-		return -1;
-
-	server->graph_manager = (struct jack_graph_manager *)jack_shm_addr(&info);
-	server->graph_manager->info = info;
+	server->graph_manager = jack_graph_manager_alloc(2048);
 
 	/* engine control */
-	size = sizeof(struct jack_engine_control);
-
-	if (jack_shm_alloc(size, &info, segment_num++) < 0)
-		return -1;
-
-	server->engine_control = (struct jack_engine_control *)jack_shm_addr(&info);
-	server->engine_control->info = info;
-
-	strcpy(server->engine_control->server_name, name);
+	server->engine_control = jack_engine_control_alloc(name);
 
 	for (i = 0; i < CLIENT_NUM; i++)
 		server->synchro_table[i] = JACK_SYNCHRO_INIT;
+
+	if (!init_nodes(impl))
+		return -1;
 
 	s = create_socket();
 

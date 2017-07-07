@@ -26,6 +26,7 @@
 
 #include "pipewire/server/core.h"
 #include "pipewire/server/module.h"
+#include "pipewire/modules/spa/spa-node.h"
 
 #define AUDIOMIXER_LIB "audiomixer/libspa-audiomixer"
 
@@ -108,7 +109,8 @@ static struct pw_node *make_node(struct impl *impl)
 	}
 	spa_clock = iface;
 
-	node = pw_node_new(impl->core, NULL, "audiomixer", false, spa_node, spa_clock, NULL);
+	node = pw_spa_node_new(impl->core, NULL, "audiomixer", false, spa_node, spa_clock, NULL);
+
 	return node;
 
       interface_failed:

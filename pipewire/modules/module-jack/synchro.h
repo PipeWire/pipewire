@@ -26,11 +26,11 @@ struct jack_synchro {
 #define JACK_SYNCHRO_INIT	(struct jack_synchro) { { 0, }, false, NULL }
 
 static inline int
-jack_synchro_alloc(struct jack_synchro *synchro,
-		   const char *client_name,
-		   const char *server_name,
-		   int value, bool internal,
-		   bool promiscuous)
+jack_synchro_init(struct jack_synchro *synchro,
+		  const char *client_name,
+		  const char *server_name,
+		  int value, bool internal,
+		  bool promiscuous)
 {
 	if (promiscuous)
 		snprintf(synchro->name, sizeof(synchro->name),
@@ -39,9 +39,10 @@ jack_synchro_alloc(struct jack_synchro *synchro,
 		snprintf(synchro->name, sizeof(synchro->name),
 				"jack_sem.%d_%s_%s", getuid(), server_name, client_name);
 
+	synchro->flush = false;
 	if ((synchro->semaphore = sem_open(synchro->name, O_CREAT | O_RDWR, 0777, value)) == (sem_t*)SEM_FAILED) {
 		pw_log_error("can't check in named semaphore name = %s err = %s", synchro->name, strerror(errno));
 		return -1;
 	}
-	return true;
+	return 0;
 }

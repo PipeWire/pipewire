@@ -21,8 +21,6 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include <spa/graph-scheduler3.h>
-
 #include "pipewire/client/pipewire.h"
 #include "pipewire/client/interfaces.h"
 
@@ -36,156 +34,37 @@ struct impl {
 	struct pw_node this;
 
 	struct pw_work_queue *work;
+	struct pw_listener on_async_complete;
+	struct pw_listener on_event;
 
-	bool async_init;
+	bool exported;
 };
 
 /** \endcond */
 
-static void init_complete(struct pw_node *this);
-
-static void update_port_ids(struct pw_node *node)
-{
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	uint32_t *input_port_ids, *output_port_ids;
-	uint32_t n_input_ports, n_output_ports, max_input_ports, max_output_ports;
-	uint32_t i;
-	struct spa_list *ports;
-	int res;
-
-	if (node->node == NULL)
-		return;
-
-	spa_node_get_n_ports(node->node,
-			     &n_input_ports, &max_input_ports, &n_output_ports, &max_output_ports);
-
-	node->info.n_input_ports = n_input_ports;
-	node->info.max_input_ports = max_input_ports;
-	node->info.n_output_ports = n_output_ports;
-	node->info.max_output_ports = max_output_ports;
-
-	node->input_port_map = calloc(max_input_ports, sizeof(struct pw_port *));
-	node->output_port_map = calloc(max_output_ports, sizeof(struct pw_port *));
-
-	input_port_ids = alloca(sizeof(uint32_t) * n_input_ports);
-	output_port_ids = alloca(sizeof(uint32_t) * n_output_ports);
-
-	spa_node_get_port_ids(node->node,
-			      max_input_ports, input_port_ids, max_output_ports, output_port_ids);
-
-	pw_log_debug("node %p: update_port ids %u/%u, %u/%u", node,
-		     n_input_ports, max_input_ports, n_output_ports, max_output_ports);
-
-	i = 0;
-	ports = &node->input_ports;
-	while (true) {
-		struct pw_port *p = (ports == &node->input_ports) ? NULL :
-		    SPA_CONTAINER_OF(ports, struct pw_port, link);
-
-		if (p && i < n_input_ports && p->port_id == input_port_ids[i]) {
-			node->input_port_map[p->port_id] = p;
-			pw_log_debug("node %p: exiting input port %d", node, input_port_ids[i]);
-			i++;
-			ports = ports->next;
-		} else if ((p && i < n_input_ports && input_port_ids[i] < p->port_id)
-			   || i < n_input_ports) {
-			struct pw_port *np;
-			pw_log_debug("node %p: input port added %d", node, input_port_ids[i]);
-
-			np = pw_port_new(node, PW_DIRECTION_INPUT, input_port_ids[i]);
-			if ((res = spa_node_port_set_io(node->node, SPA_DIRECTION_INPUT,
-							np->port_id, &np->io)) < 0)
-				pw_log_warn("node %p: can't set input IO %d", node, res);
-
-			spa_list_insert(ports, &np->link);
-			ports = np->link.next;
-			node->input_port_map[np->port_id] = np;
-
-			if (!impl->async_init)
-				pw_signal_emit(&node->port_added, node, np);
-			i++;
-		} else if (p) {
-			node->input_port_map[p->port_id] = NULL;
-			ports = ports->next;
-			if (!impl->async_init)
-				pw_signal_emit(&node->port_removed, node, p);
-			pw_log_debug("node %p: input port removed %d", node, p->port_id);
-			pw_port_destroy(p);
-		} else {
-			pw_log_debug("node %p: no more input ports", node);
-			break;
-		}
-	}
-
-	i = 0;
-	ports = &node->output_ports;
-	while (true) {
-		struct pw_port *p = (ports == &node->output_ports) ? NULL :
-		    SPA_CONTAINER_OF(ports, struct pw_port, link);
-
-		if (p && i < n_output_ports && p->port_id == output_port_ids[i]) {
-			pw_log_debug("node %p: exiting output port %d", node, output_port_ids[i]);
-			i++;
-			ports = ports->next;
-			node->output_port_map[p->port_id] = p;
-		} else if ((p && i < n_output_ports && output_port_ids[i] < p->port_id)
-			   || i < n_output_ports) {
-			struct pw_port *np;
-			pw_log_debug("node %p: output port added %d", node, output_port_ids[i]);
-
-			np = pw_port_new(node, PW_DIRECTION_OUTPUT, output_port_ids[i]);
-			if ((res = spa_node_port_set_io(node->node, SPA_DIRECTION_OUTPUT,
-							np->port_id, &np->io)) < 0)
-				pw_log_warn("node %p: can't set output IO %d", node, res);
-
-			spa_list_insert(ports, &np->link);
-			ports = np->link.next;
-			node->output_port_map[np->port_id] = np;
-
-			if (!impl->async_init)
-				pw_signal_emit(&node->port_added, node, np);
-			i++;
-		} else if (p) {
-			node->output_port_map[p->port_id] = NULL;
-			ports = ports->next;
-			if (!impl->async_init)
-				pw_signal_emit(&node->port_removed, node, p);
-			pw_log_debug("node %p: output port removed %d", node, p->port_id);
-			pw_port_destroy(p);
-		} else {
-			pw_log_debug("node %p: no more output ports", node);
-			break;
-		}
-	}
-}
-
 static int pause_node(struct pw_node *this)
 {
-	int res;
+	int res = SPA_RESULT_OK;
 
 	if (this->info.state <= PW_NODE_STATE_IDLE)
 		return SPA_RESULT_OK;
 
 	pw_log_debug("node %p: pause node", this);
-
-	if ((res = spa_node_send_command(this->node,
-					 &SPA_COMMAND_INIT(this->core->type.command_node.Pause))) <
-	    0)
-		pw_log_debug("got error %d", res);
+	if ((res = this->implementation->send_command(this,
+			&SPA_COMMAND_INIT(this->core->type.command_node.Pause))) < 0)
+		pw_log_debug("node %p: send command error %d", this, res);
 
 	return res;
 }
 
 static int start_node(struct pw_node *this)
 {
-	int res;
+	int res = SPA_RESULT_OK;
 
 	pw_log_debug("node %p: start node", this);
-
-	if ((res = spa_node_send_command(this->node,
-					 &SPA_COMMAND_INIT(this->core->type.command_node.Start))) <
-	    0)
-		pw_log_debug("got error %d", res);
+	if ((res = this->implementation->send_command(this,
+			&SPA_COMMAND_INIT(this->core->type.command_node.Start))) < 0)
+		pw_log_debug("node %p: send command error %d", this, res);
 
 	return res;
 }
@@ -211,23 +90,33 @@ static int suspend_node(struct pw_node *this)
 	return res;
 }
 
+static void on_async_complete(struct pw_listener *listener,
+			      struct pw_node *node, uint32_t seq, int res)
+{
+        struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, on_async_complete);
+	struct pw_node *this = &impl->this;
+
+	pw_log_debug("node %p: async complete event %d %d", this, seq, res);
+	pw_work_queue_complete(impl->work, this, seq, res);
+}
+
 static void send_clock_update(struct pw_node *this)
 {
 	int res;
 	struct spa_command_node_clock_update cu =
-	    SPA_COMMAND_NODE_CLOCK_UPDATE_INIT(this->core->type.command_node.ClockUpdate,
-					       SPA_COMMAND_NODE_CLOCK_UPDATE_TIME |
-					       SPA_COMMAND_NODE_CLOCK_UPDATE_SCALE |
-					       SPA_COMMAND_NODE_CLOCK_UPDATE_STATE |
-					       SPA_COMMAND_NODE_CLOCK_UPDATE_LATENCY,	/* change_mask */
-					       1,	/* rate */
-					       0,	/* ticks */
-					       0,	/* monotonic_time */
-					       0,	/* offset */
-					       (1 << 16) | 1,	/* scale */
-					       SPA_CLOCK_STATE_RUNNING,	/* state */
-					       0,	/* flags */
-					       0);	/* latency */
+		SPA_COMMAND_NODE_CLOCK_UPDATE_INIT(this->core->type.command_node.ClockUpdate,
+						SPA_COMMAND_NODE_CLOCK_UPDATE_TIME |
+						SPA_COMMAND_NODE_CLOCK_UPDATE_SCALE |
+						SPA_COMMAND_NODE_CLOCK_UPDATE_STATE |
+						SPA_COMMAND_NODE_CLOCK_UPDATE_LATENCY,   /* change_mask */
+						1,       /* rate */
+						0,       /* ticks */
+						0,       /* monotonic_time */
+						0,       /* offset */
+						(1 << 16) | 1,   /* scale */
+						SPA_CLOCK_STATE_RUNNING, /* state */
+						0,       /* flags */
+						0);      /* latency */
 
 	if (this->clock && this->live) {
 		cu.body.flags.value = SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE;
@@ -236,73 +125,20 @@ static void send_clock_update(struct pw_node *this)
 					 &cu.body.ticks.value,
 					 &cu.body.monotonic_time.value);
 	}
-
-	if ((res = spa_node_send_command(this->node, (struct spa_command *) &cu)) < 0)
-		pw_log_debug("got error %d", res);
+	if ((res = this->implementation->send_command(this, (struct spa_command *) &cu)) < 0)
+		pw_log_debug("node %p: send clock update error %d", this, res);
 }
 
-static void on_node_done(struct spa_node *node, int seq, int res, void *user_data)
+static void on_event(struct pw_listener *listener,
+		     struct pw_node *node, struct spa_event *event)
 {
-	struct impl *impl = user_data;
+        struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, on_event);
 	struct pw_node *this = &impl->this;
 
-	pw_log_debug("node %p: async complete event %d %d", this, seq, res);
-	pw_work_queue_complete(impl->work, this, seq, res);
-	pw_signal_emit(&this->async_complete, this, seq, res);
-}
-
-static void on_node_event(struct spa_node *node, struct spa_event *event, void *user_data)
-{
-	struct impl *impl = user_data;
-	struct pw_node *this = &impl->this;
-
-	if (SPA_EVENT_TYPE(event) == this->core->type.event_node.RequestClockUpdate) {
-		send_clock_update(this);
-	}
-}
-
-static void on_node_need_input(struct spa_node *node, void *user_data)
-{
-	struct impl *impl = user_data;
-	struct pw_node *this = &impl->this;
-
-	spa_graph_scheduler_pull(this->rt.sched, &this->rt.node);
-	while (spa_graph_scheduler_iterate(this->rt.sched));
-}
-
-static void on_node_have_output(struct spa_node *node, void *user_data)
-{
-	struct impl *impl = user_data;
-	struct pw_node *this = &impl->this;
-
-	spa_graph_scheduler_push(this->rt.sched, &this->rt.node);
-	while (spa_graph_scheduler_iterate(this->rt.sched));
-}
-
-static void
-on_node_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id, void *user_data)
-{
-
-#if 0
-	struct impl *impl = user_data;
-	struct pw_node *this = &impl->this;
-	struct pw_port *inport;
-
-	pw_log_trace("node %p: reuse buffer %u", this, buffer_id);
-
-	spa_list_for_each(inport, &this->input_ports, link) {
-		struct pw_link *link;
-		struct pw_port *outport;
-
-		spa_list_for_each(link, &inport->rt.links, rt.input_link) {
-			if (link->rt.input == NULL || link->rt.output == NULL)
-				continue;
-
-			outport = link->rt.output;
-			outport->io.buffer_id = buffer_id;
-		}
-	}
-#endif
+	pw_log_trace("node %p: event %d", this, SPA_EVENT_TYPE(event));
+        if (SPA_EVENT_TYPE(event) == this->core->type.event_node.RequestClockUpdate) {
+                send_clock_update(this);
+        }
 }
 
 static void node_unbind_func(void *data)
@@ -316,32 +152,38 @@ update_info(struct pw_node *this)
 {
 	this->info.id = this->global->id;
 	this->info.input_formats = NULL;
-	for (this->info.n_input_formats = 0;; this->info.n_input_formats++) {
-		struct spa_format *fmt;
 
-		if (spa_node_port_enum_formats(this->node,
-					       SPA_DIRECTION_INPUT,
-					       0, &fmt, NULL, this->info.n_input_formats) < 0)
-			break;
+	if (!spa_list_is_empty(&this->input_ports)) {
+		struct pw_port *port = spa_list_first(&this->input_ports, struct pw_port, link);
 
-		this->info.input_formats =
-		    realloc(this->info.input_formats,
-			    sizeof(struct spa_format *) * (this->info.n_input_formats + 1));
-		this->info.input_formats[this->info.n_input_formats] = spa_format_copy(fmt);
+		for (this->info.n_input_formats = 0;; this->info.n_input_formats++) {
+			struct spa_format *fmt;
+
+			if (pw_port_enum_formats(port, &fmt, NULL, this->info.n_input_formats) < 0)
+				break;
+
+			this->info.input_formats =
+			    realloc(this->info.input_formats,
+				    sizeof(struct spa_format *) * (this->info.n_input_formats + 1));
+			this->info.input_formats[this->info.n_input_formats] = spa_format_copy(fmt);
+		}
 	}
+
 	this->info.output_formats = NULL;
-	for (this->info.n_output_formats = 0;; this->info.n_output_formats++) {
-		struct spa_format *fmt;
+	if (!spa_list_is_empty(&this->output_ports)) {
+		struct pw_port *port = spa_list_first(&this->output_ports, struct pw_port, link);
 
-		if (spa_node_port_enum_formats(this->node,
-					       SPA_DIRECTION_OUTPUT,
-					       0, &fmt, NULL, this->info.n_output_formats) < 0)
-			break;
+		for (this->info.n_output_formats = 0;; this->info.n_output_formats++) {
+			struct spa_format *fmt;
 
-		this->info.output_formats =
-		    realloc(this->info.output_formats,
-			    sizeof(struct spa_format *) * (this->info.n_output_formats + 1));
-		this->info.output_formats[this->info.n_output_formats] = spa_format_copy(fmt);
+			if (pw_port_enum_formats(port, &fmt, NULL, this->info.n_output_formats) < 0)
+				break;
+
+			this->info.output_formats =
+			    realloc(this->info.output_formats,
+				    sizeof(struct spa_format *) * (this->info.n_output_formats + 1));
+			this->info.output_formats[this->info.n_output_formats] = spa_format_copy(fmt);
+		}
 	}
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 }
@@ -396,18 +238,22 @@ node_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	return SPA_RESULT_NO_MEMORY;
 }
 
-static void init_complete(struct pw_node *this)
+static int
+do_node_add(struct spa_loop *loop,
+	    bool async, uint32_t seq, size_t size, void *data, void *user_data)
+{
+	struct pw_node *this = user_data;
+
+	spa_graph_node_add(this->rt.sched->graph, &this->rt.node);
+
+	return SPA_RESULT_OK;
+}
+
+void pw_node_export(struct pw_node *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
-	spa_graph_node_add(this->rt.sched->graph,
-			   &this->rt.node,
-			   spa_graph_scheduler_default,
-			   this->node);
-
-	update_port_ids(this);
-	pw_log_debug("node %p: init completed", this);
-	impl->async_init = false;
+	pw_log_debug("node %p: export", this);
 
 	spa_list_insert(this->core->node_list.prev, &this->link);
 
@@ -415,33 +261,27 @@ static void init_complete(struct pw_node *this)
 			   this->owner,
 			   this->core->type.node, 0, this, node_bind_func, &this->global);
 
+	pw_loop_invoke(this->data_loop->loop, do_node_add, 1, 0, NULL, false, this);
+
 	update_info(this);
+
+	impl->exported = true;
 
 	pw_signal_emit(&this->initialized, this);
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 }
 
-static const struct spa_node_callbacks node_callbacks = {
-	SPA_VERSION_NODE_CALLBACKS,
-	&on_node_done,
-	&on_node_event,
-	&on_node_need_input,
-	&on_node_have_output,
-	&on_node_reuse_buffer,
-};
-
 struct pw_node *pw_node_new(struct pw_core *core,
 			    struct pw_resource *owner,
 			    const char *name,
-			    bool async,
-			    struct spa_node *node,
-			    struct spa_clock *clock, struct pw_properties *properties)
+			    struct pw_properties *properties,
+			    size_t user_data_size)
 {
 	struct impl *impl;
 	struct pw_node *this;
 
-	impl = calloc(1, sizeof(struct impl));
+	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		return NULL;
 
@@ -450,66 +290,45 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this->owner = owner;
 	pw_log_debug("node %p: new, owner %p", this, owner);
 
+	if (user_data_size > 0)
+                this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+
 	impl->work = pw_work_queue_new(this->core->main_loop->loop);
 
 	this->info.name = strdup(name);
 	this->properties = properties;
 
-	this->node = node;
-	this->clock = clock;
 	this->data_loop = core->data_loop;
 
 	this->rt.sched = &core->rt.sched;
 
 	spa_list_init(&this->resource_list);
 
-	if (spa_node_set_callbacks(this->node, &node_callbacks, impl) < 0)
-		pw_log_warn("node %p: error setting callback", this);
-
-	pw_signal_init(&this->destroy_signal);
-	pw_signal_init(&this->port_added);
-	pw_signal_init(&this->port_removed);
 	pw_signal_init(&this->state_request);
 	pw_signal_init(&this->state_changed);
+	pw_signal_init(&this->initialized);
+	pw_signal_init(&this->port_added);
+	pw_signal_init(&this->port_removed);
+	pw_signal_init(&this->destroy_signal);
 	pw_signal_init(&this->free_signal);
 	pw_signal_init(&this->async_complete);
-	pw_signal_init(&this->initialized);
+	pw_signal_init(&this->event);
+
+	pw_signal_add(&this->async_complete, &impl->on_async_complete, on_async_complete);
+	pw_signal_add(&this->event, &impl->on_event, on_event);
 
 	this->info.state = PW_NODE_STATE_CREATING;
 
 	spa_list_init(&this->input_ports);
+	pw_map_init(&this->input_port_map, 64, 64);
 	spa_list_init(&this->output_ports);
+	pw_map_init(&this->output_port_map, 64, 64);
 
-	if (this->node->info) {
-		uint32_t i;
-
-		if (this->properties == NULL)
-			this->properties = pw_properties_new(NULL, NULL);
-
-		if (this->properties)
-			goto no_mem;
-
-		for (i = 0; i < this->node->info->n_items; i++)
-			pw_properties_set(this->properties,
-					  this->node->info->items[i].key,
-					  this->node->info->items[i].value);
-	}
-
-	impl->async_init = async;
-	if (async) {
-		pw_work_queue_add(impl->work,
-				  this,
-				  SPA_RESULT_RETURN_ASYNC(0), (pw_work_func_t) init_complete, NULL);
-	} else {
-		init_complete(this);
-	}
+	spa_graph_node_init(&this->rt.node,
+			    &this->rt.methods,
+			    this);
 
 	return this;
-
-      no_mem:
-	free((char *)this->info.name);
-	free(impl);
-	return NULL;
 }
 
 static int
@@ -520,7 +339,7 @@ do_node_remove(struct spa_loop *loop,
 
 	pause_node(this);
 
-	spa_graph_node_remove(this->rt.sched->graph, &this->rt.node);
+	spa_graph_node_remove(&this->rt.node);
 
 	return SPA_RESULT_OK;
 }
@@ -542,9 +361,9 @@ void pw_node_destroy(struct pw_node *node)
 	pw_log_debug("node %p: destroy", impl);
 	pw_signal_emit(&node->destroy_signal, node);
 
-	if (!impl->async_init) {
-		pw_loop_invoke(node->data_loop->loop, do_node_remove, 1, 0, NULL, true, node);
+	pw_loop_invoke(node->data_loop->loop, do_node_remove, 1, 0, NULL, true, node);
 
+	if (impl->exported) {
 		spa_list_remove(&node->link);
 		pw_global_destroy(node->global);
 		node->global = NULL;
@@ -564,22 +383,23 @@ void pw_node_destroy(struct pw_node *node)
 		pw_port_destroy(port);
 	}
 
-
 	pw_log_debug("node %p: free", node);
 	pw_signal_emit(&node->free_signal, node);
 
+	if (node->destroy)
+		node->destroy(node);
+
 	pw_work_queue_destroy(impl->work);
 
-	if (node->input_port_map)
-		free(node->input_port_map);
-	if (node->output_port_map)
-		free(node->output_port_map);
+	pw_map_clear(&node->input_port_map);
+	pw_map_clear(&node->output_port_map);
 
 	if (node->properties)
 		pw_properties_free(node->properties);
-	clear_info(node);
-	free(impl);
 
+	clear_info(node);
+
+	free(impl);
 }
 
 /**
@@ -594,68 +414,46 @@ void pw_node_destroy(struct pw_node *node)
  */
 struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction direction)
 {
-	uint32_t *n_ports, max_ports;
-	uint64_t change_mask;
+	uint32_t n_ports, max_ports;
 	struct spa_list *ports;
-	struct pw_port *port = NULL, *p, **portmap;
-	int res;
-	int i;
+	struct pw_port *port = NULL, *p, *mixport = NULL;
+	struct pw_map *portmap;
 
 	if (direction == PW_DIRECTION_INPUT) {
 		max_ports = node->info.max_input_ports;
-		n_ports = &node->info.n_input_ports;
+		n_ports = node->info.n_input_ports;
 		ports = &node->input_ports;
-		portmap = node->input_port_map;
-		change_mask = 1 << 1;
+		portmap = &node->input_port_map;
 	} else {
 		max_ports = node->info.max_output_ports;
-		n_ports = &node->info.n_output_ports;
+		n_ports = node->info.n_output_ports;
 		ports = &node->output_ports;
-		portmap = node->output_port_map;
-		change_mask = 1 << 3;
+		portmap = &node->output_port_map;
 	}
 
-	pw_log_debug("node %p: direction %d max %u, n %u", node, direction, max_ports, *n_ports);
+	pw_log_debug("node %p: direction %d max %u, n %u", node, direction, max_ports, n_ports);
 
 	/* first try to find an unlinked port */
 	spa_list_for_each(p, ports, link) {
 		if (spa_list_is_empty(&p->links))
 			return p;
+		/* for output we can reuse an existing port, for input only
+		 * when there is a multiplex */
+		if (direction == PW_DIRECTION_OUTPUT || p->mix != NULL)
+			mixport = p;
 	}
 
 	/* no port, can we create one ? */
-	if (*n_ports < max_ports) {
-		for (i = 0; i < max_ports; i++) {
-			if (portmap[i] == NULL) {
-				pw_log_debug("node %p: creating port direction %d %u", node, direction, i);
+	if (max_ports == 0 || n_ports < max_ports) {
+		uint32_t port_id = pw_map_insert_new(portmap, NULL);
 
-				port = pw_port_new(node, direction, i);
-				if (port == NULL)
-					goto no_mem;
+		pw_log_debug("node %p: creating port direction %d %u", node, direction, port_id);
 
-				spa_list_insert(ports, &port->link);
-
-				if ((res = spa_node_add_port(node->node, direction, i)) < 0) {
-					pw_log_error("node %p: could not add port %d", node, i);
-					pw_port_destroy(port);
-					continue;
-				} else {
-					spa_node_port_set_io(node->node, direction, i, &port->io);
-				}
-				(*n_ports)++;
-				node->info.change_mask |= change_mask;
-				portmap[i] = port;
-				break;
-			}
-		}
+		port = node->implementation->add_port(node, direction, port_id);
+		if (port == NULL)
+			goto no_mem;
 	} else {
-		if (!spa_list_is_empty(ports)) {
-			port = spa_list_first(ports, struct pw_port, link);
-			/* for output we can reuse an existing port, for input only
-			 * when there is a multiplex */
-			if (direction == PW_DIRECTION_INPUT && port->mix == NULL)
-				port = NULL;
-		}
+		port = mixport;
 	}
 	return port;
 

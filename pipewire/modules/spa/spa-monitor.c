@@ -33,6 +33,7 @@
 #include <pipewire/server/node.h>
 
 #include "spa-monitor.h"
+#include "spa-node.h"
 
 struct monitor_item {
 	char *id;
@@ -107,7 +108,7 @@ static void add_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
 
 	mitem = calloc(1, sizeof(struct monitor_item));
 	mitem->id = strdup(id);
-	mitem->node = pw_node_new(impl->core, NULL, name, false, node_iface, clock_iface, props);
+	mitem->node = pw_spa_node_new(impl->core, NULL, name, false, node_iface, clock_iface, props);
 
 	spa_list_insert(impl->item_list.prev, &mitem->link);
 }

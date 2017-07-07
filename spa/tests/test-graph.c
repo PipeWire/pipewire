@@ -340,27 +340,27 @@ static int make_nodes(struct data *data, const char *device)
 	spa_node_port_set_io(data->volume, SPA_DIRECTION_OUTPUT, 0, &data->volume_sink_io[0]);
 	spa_node_port_set_io(data->sink, SPA_DIRECTION_INPUT, 0, &data->volume_sink_io[0]);
 
-	spa_graph_node_add(&data->graph, &data->source_node, spa_graph_scheduler_default,
-			   data->source);
-	spa_graph_port_add(&data->graph, &data->source_node, &data->source_out,
-			   SPA_DIRECTION_OUTPUT, 0, 0, &data->source_volume_io[0]);
+	spa_graph_node_init(&data->source_node, &spa_graph_scheduler_default, data->source);
+	spa_graph_node_add(&data->graph, &data->source_node);
+	spa_graph_port_init(&data->source_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->source_volume_io[0]);
+	spa_graph_port_add(&data->source_node, &data->source_out);
 
-	spa_graph_node_add(&data->graph, &data->volume_node, spa_graph_scheduler_default,
-			   data->volume);
-	spa_graph_port_add(&data->graph, &data->volume_node, &data->volume_in, SPA_DIRECTION_INPUT,
-			   0, 0, &data->source_volume_io[0]);
+	spa_graph_node_init(&data->volume_node, &spa_graph_scheduler_default, data->volume);
+	spa_graph_node_add(&data->graph, &data->volume_node);
+	spa_graph_port_init(&data->volume_in, SPA_DIRECTION_INPUT, 0, 0, &data->source_volume_io[0]);
+	spa_graph_port_add(&data->volume_node, &data->volume_in);
 
-	spa_graph_port_link(&data->graph, &data->source_out, &data->volume_in);
+	spa_graph_port_link(&data->source_out, &data->volume_in);
 
-	spa_graph_port_add(&data->graph, &data->volume_node,
-			   &data->volume_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->volume_sink_io[0]);
+	spa_graph_port_init(&data->volume_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->volume_sink_io[0]);
+	spa_graph_port_add(&data->volume_node, &data->volume_out);
 
-	spa_graph_node_add(&data->graph, &data->sink_node, spa_graph_scheduler_default,
-			   data->sink);
-	spa_graph_port_add(&data->graph, &data->sink_node, &data->sink_in, SPA_DIRECTION_INPUT, 0,
-			   0, &data->volume_sink_io[0]);
+	spa_graph_node_init(&data->sink_node, &spa_graph_scheduler_default, data->sink);
+	spa_graph_node_add(&data->graph, &data->sink_node);
+	spa_graph_port_init(&data->sink_in, SPA_DIRECTION_INPUT, 0, 0, &data->volume_sink_io[0]);
+	spa_graph_port_add(&data->sink_node, &data->sink_in);
 
-	spa_graph_port_link(&data->graph, &data->volume_out, &data->sink_in);
+	spa_graph_port_link(&data->volume_out, &data->sink_in);
 
 	return res;
 }

@@ -23,7 +23,8 @@ pipewire_module_autolink = shared_library('pipewire-module-autolink', [ 'module-
   dependencies : [mathlib, dl_lib, pipewire_dep, pipewirecore_dep],
 )
 
-pipewire_module_mixer = shared_library('pipewire-module-mixer', [ 'module-mixer.c' ],
+pipewire_module_mixer = shared_library('pipewire-module-mixer',
+  [ 'module-mixer.c', 'spa/spa-node.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
   link_with : spalib,
@@ -36,6 +37,7 @@ pipewire_module_client_node = shared_library('pipewire-module-client-node',
   [ 'module-client-node.c',
     'module-client-node/client-node.c',
     'module-client-node/protocol-native.c',
+    'spa/spa-node.c',
     'extension-client-node.c', ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
@@ -69,7 +71,8 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
 if jack_dep.found()
 pipewire_module_jack = shared_library('pipewire-module-jack',
   [ 'module-jack.c',
-    'module-jack/shm.c' ],
+    'module-jack/shm.c',
+    'module-jack/jack-node.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
   link_with : spalib,

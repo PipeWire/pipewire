@@ -32,7 +32,6 @@
 #include <pipewire/server/module.h>
 
 #include "spa-monitor.h"
-#include "spa-node.h"
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {

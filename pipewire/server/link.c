@@ -124,10 +124,8 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	format = spa_format_copy(format);
 
 	if (out_state > PW_PORT_STATE_CONFIGURE && this->output->node->info.state == PW_NODE_STATE_IDLE) {
-		if ((res = spa_node_port_get_format(this->output->node->node,
-						    SPA_DIRECTION_OUTPUT,
-						    this->output->port_id,
-						    (const struct spa_format **) &current)) < 0) {
+		if ((res = pw_port_get_format(this->output,
+					      (const struct spa_format **) &current)) < 0) {
 			asprintf(&error, "error get output format: %d", res);
 			goto error;
 		}
@@ -140,10 +138,8 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			pw_node_update_state(this->output->node, PW_NODE_STATE_RUNNING, NULL);
 	}
 	if (in_state > PW_PORT_STATE_CONFIGURE && this->input->node->info.state == PW_NODE_STATE_IDLE) {
-		if ((res = spa_node_port_get_format(this->input->node->node,
-						    SPA_DIRECTION_INPUT,
-						    this->input->port_id,
-						    (const struct spa_format **) &current)) < 0) {
+		if ((res = pw_port_get_format(this->input,
+					      (const struct spa_format **) &current)) < 0) {
 			asprintf(&error, "error get input format: %d", res);
 			goto error;
 		}
@@ -360,17 +356,17 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 }
 
 static int
-spa_node_param_filter(struct pw_link *this,
-		      struct spa_node *in_node,
-		      uint32_t in_port,
-		      struct spa_node *out_node, uint32_t out_port, struct spa_pod_builder *result)
+param_filter(struct pw_link *this,
+	     struct pw_port *in_port,
+	     struct pw_port *out_port,
+	     struct spa_pod_builder *result)
 {
 	int res;
 	struct spa_param *oparam, *iparam;
 	int iidx, oidx, num = 0;
 
 	for (iidx = 0;; iidx++) {
-		if (spa_node_port_enum_params(in_node, SPA_DIRECTION_INPUT, in_port, iidx, &iparam)
+		if (pw_port_enum_params(in_port, iidx, &iparam)
 		    < 0)
 			break;
 
@@ -381,8 +377,7 @@ spa_node_param_filter(struct pw_link *this,
 			struct spa_pod_frame f;
 			uint32_t offset;
 
-			if (spa_node_port_enum_params(out_node, SPA_DIRECTION_OUTPUT,
-						      out_port, oidx, &oparam) < 0)
+			if (pw_port_enum_params(out_port, oidx, &oparam) < 0)
 				break;
 
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
@@ -397,8 +392,7 @@ spa_node_param_filter(struct pw_link *this,
 						    SPA_POD_CONTENTS(struct spa_param, iparam),
 						    SPA_POD_CONTENTS_SIZE(struct spa_param, iparam),
 						    SPA_POD_CONTENTS(struct spa_param, oparam),
-						    SPA_POD_CONTENTS_SIZE(struct spa_param,
-									  oparam))) < 0) {
+						    SPA_POD_CONTENTS_SIZE(struct spa_param, oparam))) < 0) {
 				result->offset = offset;
 				result->stack = NULL;
 				continue;
@@ -426,14 +420,11 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	pw_log_debug("link %p: doing alloc buffers %p %p", this, this->output->node,
 		     this->input->node);
 	/* find out what's possible */
-	if ((res = spa_node_port_get_info(this->output->node->node,
-					  SPA_DIRECTION_OUTPUT,
-					  this->output->port_id, &oinfo)) < 0) {
+	if ((res = pw_port_get_info(this->output, &oinfo)) < 0) {
 		asprintf(&error, "error get output port info: %d", res);
 		goto error;
 	}
-	if ((res = spa_node_port_get_info(this->input->node->node,
-					  SPA_DIRECTION_INPUT, this->input->port_id, &iinfo)) < 0) {
+	if ((res = pw_port_get_info(this->input, &iinfo)) < 0) {
 		asprintf(&error, "error get input port info: %d", res);
 		goto error;
 	}
@@ -493,11 +484,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		uint32_t max_buffers;
 		size_t minsize = 1024, stride = 0;
 
-		n_params = spa_node_param_filter(this,
-						 this->input->node->node,
-						 this->input->port_id,
-						 this->output->node->node,
-						 this->output->port_id, &b);
+		n_params = param_filter(this, this->input, this->output, &b);
 
 		params = alloca(n_params * sizeof(struct spa_param *));
 		for (i = 0, offset = 0; i < n_params; i++) {
@@ -775,8 +762,7 @@ do_remove_input(struct spa_loop *loop,
 	        bool async, uint32_t seq, size_t size, void *data, void *user_data)
 {
 	struct pw_link *this = user_data;
-	struct pw_port *port = ((struct pw_port **) data)[0];
-	spa_graph_port_remove(port->rt.graph, &this->rt.in_port);
+	spa_graph_port_remove(&this->rt.in_port);
 	return SPA_RESULT_OK;
 }
 
@@ -789,7 +775,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	pw_signal_remove(&impl->input_async_complete);
 
 	pw_loop_invoke(port->node->data_loop->loop,
-		       do_remove_input, 1, sizeof(struct pw_port*), &port, true, this);
+		       do_remove_input, 1, 0, NULL, true, this);
 
 	clear_port_buffers(this, this->input);
 }
@@ -799,8 +785,7 @@ do_remove_output(struct spa_loop *loop,
 	         bool async, uint32_t seq, size_t size, void *data, void *user_data)
 {
 	struct pw_link *this = user_data;
-	struct pw_port *port = ((struct pw_port **) data)[0];
-	spa_graph_port_remove(port->rt.graph, &this->rt.out_port);
+	spa_graph_port_remove(&this->rt.out_port);
 	return SPA_RESULT_OK;
 }
 
@@ -813,7 +798,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	pw_signal_remove(&impl->output_async_complete);
 
 	pw_loop_invoke(port->node->data_loop->loop,
-		       do_remove_output, 1, sizeof(struct pw_port*), &port, true, this);
+		       do_remove_output, 1, 0, NULL, true, this);
 
 	clear_port_buffers(this, this->output);
 }
@@ -866,7 +851,7 @@ do_activate_link(struct spa_loop *loop,
 		 bool async, uint32_t seq, size_t size, void *data, void *user_data)
 {
         struct pw_link *this = user_data;
-	spa_graph_port_link(this->output->node->rt.sched->graph, &this->rt.out_port, &this->rt.in_port);
+	spa_graph_port_link(&this->rt.out_port, &this->rt.in_port);
 	return SPA_RESULT_OK;
 }
 
@@ -897,7 +882,7 @@ do_deactivate_link(struct spa_loop *loop,
 		   bool async, uint32_t seq, size_t size, void *data, void *user_data)
 {
         struct pw_link *this = user_data;
-	spa_graph_port_unlink(this->output->node->rt.sched->graph, &this->rt.out_port);
+	spa_graph_port_unlink(&this->rt.out_port);
 	return SPA_RESULT_OK;
 }
 
@@ -990,21 +975,9 @@ do_add_link(struct spa_loop *loop,
         struct pw_port *port = ((struct pw_port **) data)[0];
 
         if (port->direction == PW_DIRECTION_OUTPUT) {
-                spa_graph_port_add(port->rt.graph,
-                                   &port->rt.mix_node,
-                                   &this->rt.out_port,
-                                   PW_DIRECTION_OUTPUT,
-                                   this->rt.out_port.port_id,
-                                   0,
-                                   &this->io);
+                spa_graph_port_add(&port->rt.mix_node, &this->rt.out_port);
         } else {
-                spa_graph_port_add(port->rt.graph,
-                                   &port->rt.mix_node,
-                                   &this->rt.in_port,
-                                   PW_DIRECTION_INPUT,
-                                   this->rt.in_port.port_id,
-                                   0,
-                                   &this->io);
+                spa_graph_port_add(&port->rt.mix_node, &this->rt.in_port);
         }
 
         return SPA_RESULT_OK;
@@ -1088,6 +1061,17 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->info.input_node_id = input ? input_node->global->id : -1;
 	this->info.input_port_id = input ? input->port_id : -1;
 	this->info.format = NULL;
+
+	spa_graph_port_init(&this->rt.out_port,
+			    PW_DIRECTION_OUTPUT,
+			    this->rt.out_port.port_id,
+			    0,
+			    &this->io);
+	spa_graph_port_init(&this->rt.in_port,
+			    PW_DIRECTION_INPUT,
+			    this->rt.in_port.port_id,
+			    0,
+			    &this->io);
 
 	pw_loop_invoke(output_node->data_loop->loop,
 		       do_add_link,

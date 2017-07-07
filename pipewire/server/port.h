@@ -44,6 +44,38 @@ enum pw_port_state {
 	PW_PORT_STATE_STREAMING = 4,
 };
 
+struct pw_port;
+
+#define PW_VERSION_PORT_IMPLEMENTATION 0
+
+struct pw_port_implementation {
+	uint32_t version;
+
+	int (*enum_formats) (struct pw_port *port,
+			     struct spa_format **format,
+			     const struct spa_format *filter,
+			     int32_t index);
+
+	int (*set_format) (struct pw_port *port, uint32_t flags, struct spa_format *format);
+
+	int (*get_format) (struct pw_port *port, const struct spa_format **format);
+
+	int (*get_info) (struct pw_port *port, const struct spa_port_info **info);
+
+	int (*enum_params) (struct pw_port *port, uint32_t index, struct spa_param **param);
+
+	int (*set_param) (struct pw_port *port, struct spa_param *param);
+
+	int (*use_buffers) (struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers);
+
+	int (*alloc_buffers) (struct pw_port *port,
+			      struct spa_param **params, uint32_t n_params,
+			      struct spa_buffer **buffers, uint32_t *n_buffers);
+	int (*reuse_buffer) (struct pw_port *port, uint32_t buffer_id);
+
+	int (*send_command) (struct pw_port *port, struct spa_command *command);
+};
+
 /** \page page_port Port
  *
  * \section page_node_overview Overview
@@ -60,9 +92,16 @@ struct pw_port {
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_port *));
 
 	struct pw_node *node;		/**< owner node */
+
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
+
 	enum pw_port_state state;	/**< state of the port */
+	/** Emited when the port state changes */
+	PW_SIGNAL(state_changed, (struct pw_listener *listener, struct pw_port *port));
+
+	const struct pw_port_implementation *implementation;
+
 	struct spa_port_io io;		/**< io area of the port */
 
 	bool allocated;			/**< if buffers are allocated */
@@ -80,18 +119,44 @@ struct pw_port {
 		struct spa_graph_port mix_port;
 		struct spa_graph_node mix_node;
 	} rt;				/**< data only accessed from the data thread */
+
+        void *user_data;                /**< extra user data */
+        pw_destroy_t destroy;           /**< function to clean up the object */
 };
 
 /** Create a new port \memberof pw_port
  * \return a newly allocated port */
 struct pw_port *
-pw_port_new(struct pw_node *node, enum pw_direction direction, uint32_t port_id);
+pw_port_new(enum pw_direction direction,
+	    uint32_t port_id,
+	    size_t user_data_size);
+
+/** Add a port to a node \memberof pw_port */
+void pw_port_add(struct pw_port *port, struct pw_node *node);
 
 /** Destroy a port \memberof pw_port */
 void pw_port_destroy(struct pw_port *port);
 
+/** Get the current format on a port \memberof pw_port */
+int pw_port_enum_formats(struct pw_port *port,
+			 struct spa_format **format,
+			 const struct spa_format *filter,
+			 int32_t index);
+
 /** Set a format on a port \memberof pw_port */
 int pw_port_set_format(struct pw_port *port, uint32_t flags, struct spa_format *format);
+
+/** Get the current format on a port \memberof pw_port */
+int pw_port_get_format(struct pw_port *port, const struct spa_format **format);
+
+/** Get the info on a port \memberof pw_port */
+int pw_port_get_info(struct pw_port *port, const struct spa_port_info **info);
+
+/** Enumerate the port parameters \memberof pw_port */
+int pw_port_enum_params(struct pw_port *port, uint32_t index, struct spa_param **param);
+
+/** Set a port parameter \memberof pw_port */
+int pw_port_set_param(struct pw_port *port, struct spa_param *param);
 
 /** Use buffers on a port \memberof pw_port */
 int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers);

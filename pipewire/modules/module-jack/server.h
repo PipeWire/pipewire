@@ -21,6 +21,7 @@ struct jack_client {
 	int ref_num;
 	struct client *owner;
 	struct jack_client_control *control;
+	struct pw_node *node;
 };
 
 struct jack_server {

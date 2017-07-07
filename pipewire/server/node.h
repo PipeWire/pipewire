@@ -39,6 +39,26 @@ extern "C" {
 #include <pipewire/server/client.h>
 #include <pipewire/server/data-loop.h>
 
+struct pw_node;
+
+
+#define PW_VERSION_NODE_IMPLEMENTATION      0
+
+struct pw_node_implementation {
+	uint32_t version;
+
+        int (*get_props) (struct pw_node *node, struct spa_props **props);
+
+        int (*set_props) (struct pw_node *node, const struct spa_props *props);
+
+        int (*send_command) (struct pw_node *node,
+			     struct spa_command *command);
+
+	struct pw_port* (*add_port) (struct pw_node *node,
+				     enum pw_direction direction,
+				     uint32_t port_id);
+};
+
 /** \page page_node Node
  *
  * \section page_node_overview Overview
@@ -71,23 +91,24 @@ struct pw_node {
 				  struct pw_node *object,
 				  enum pw_node_state old, enum pw_node_state state));
 
-	struct spa_handle *handle;	/**< handle to SPA factory */
-	struct spa_node *node;		/**< handle to SPA node */
 	bool live;			/**< if the node is live */
 	struct spa_clock *clock;	/**< handle to SPA clock if any */
 
 	struct spa_list resource_list;	/**< list of resources for this node */
 
+	/** Implementation of core node functions */
+	const struct pw_node_implementation *implementation;
+
 	/** Emited when the node is initialized */
 	PW_SIGNAL(initialized, (struct pw_listener *listener, struct pw_node *object));
 
 	struct spa_list input_ports;		/**< list of input ports */
-	struct pw_port **input_port_map;	/**< map from port_id to port */
+	struct pw_map input_port_map;		/**< map from port_id to port */
 	uint32_t n_used_input_links;		/**< number of active input links */
 	uint32_t idle_used_input_links;		/**< number of active input to be idle */
 
 	struct spa_list output_ports;		/**< list of output ports */
-	struct pw_port **output_port_map;	/**< map from port_id to port */
+	struct pw_map output_port_map;		/**< map from port_id to port */
 	uint32_t n_used_output_links;		/**< number of active output links */
 	uint32_t idle_used_output_links;	/**< number of active output to be idle */
 
@@ -107,13 +128,20 @@ struct pw_node {
 	PW_SIGNAL(async_complete, (struct pw_listener *listener,
 				   struct pw_node *node, uint32_t seq, int res));
 
+	/** an event is emited */
+	PW_SIGNAL(event, (struct pw_listener *listener,
+			  struct pw_node *node, struct spa_event *event));
+
 	struct pw_data_loop *data_loop;		/**< the data loop for this node */
 
 	struct {
+		struct spa_graph_node_methods methods;
 		struct spa_graph_scheduler *sched;
 		struct spa_graph_node node;
 	} rt;
 
+        void *user_data;                /**< extra user data */
+        pw_destroy_t destroy;           /**< function to clean up the object */
 };
 
 /** Create a new node \memberof pw_node */
@@ -121,10 +149,11 @@ struct pw_node *
 pw_node_new(struct pw_core *core,		/**< the core */
 	    struct pw_resource *owner,		/**< optional owner */
 	    const char *name,			/**< node name */
-	    bool async,				/**< if the node will initialize async */
-	    struct spa_node *node,		/**< the node */
-	    struct spa_clock *clock,		/**< optional clock */
-	    struct pw_properties *properties	/**< extra properties */);
+	    struct pw_properties *properties,	/**< extra properties */
+	    size_t user_data_size		/**< user data size */);
+
+/** Complete initialization of the node */
+void pw_node_export(struct pw_node *node);
 
 /** Destroy a node */
 void pw_node_destroy(struct pw_node *node);

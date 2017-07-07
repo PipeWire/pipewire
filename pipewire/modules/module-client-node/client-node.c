@@ -37,6 +37,7 @@
 #include "pipewire/client/transport.h"
 
 #include "pipewire/server/core.h"
+#include "pipewire/modules/spa/spa-node.h"
 #include "client-node.h"
 
 /** \cond */
@@ -89,7 +90,6 @@ struct proxy {
 
 	struct spa_type_map *map;
 	struct spa_log *log;
-	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;
 
 	const struct spa_node_callbacks *callbacks;
@@ -1018,13 +1018,8 @@ proxy_init(struct proxy *this,
 	for (i = 0; i < n_support; i++) {
 		if (strcmp(support[i].type, SPA_TYPE__Log) == 0)
 			this->log = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE_LOOP__MainLoop) == 0)
-			this->main_loop = support[i].data;
 		else if (strcmp(support[i].type, SPA_TYPE_LOOP__DataLoop) == 0)
 			this->data_loop = support[i].data;
-	}
-	if (this->main_loop == NULL) {
-		spa_log_error(this->log, "a main-loop is needed");
 	}
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data-loop is needed");
@@ -1171,8 +1166,13 @@ struct pw_client_node *pw_client_node_new(struct pw_client *client,
 	if (this->resource == NULL)
 		goto error_no_resource;
 
-	this->node = pw_node_new(client->core,
-				 this->resource, name, true, &impl->proxy.node, NULL, properties);
+	this->node = pw_spa_node_new(client->core,
+				     this->resource,
+				     name,
+				     true,
+				     &impl->proxy.node,
+				     NULL,
+				     properties);
 	if (this->node == NULL)
 		goto error_no_node;
 

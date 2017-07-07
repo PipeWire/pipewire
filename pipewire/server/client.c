@@ -146,14 +146,15 @@ void pw_client_destroy(struct pw_client *client)
 	pw_map_for_each(&client->objects, destroy_resource, client);
 
 	pw_log_debug("client %p: free", impl);
+
+	if (client->destroy)
+		client->destroy(client);
+
 	pw_map_clear(&client->objects);
 	pw_map_clear(&client->types);
 
 	if (client->properties)
 		pw_properties_free(client->properties);
-
-	if (client->destroy)
-		client->destroy(client);
 
 	free(impl);
 }

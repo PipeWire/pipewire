@@ -10,6 +10,7 @@ pipewirecore_headers = [
   'node-factory.h',
   'port.h',
   'resource.h',
+#  'spa-node.h',
   'work-queue.h',
 ]
 
@@ -25,6 +26,7 @@ pipewirecore_sources = [
   'node-factory.c',
   'port.c',
   'resource.c',
+#  'spa-node.c',
   'work-queue.c',
 ]
 

@@ -13,7 +13,7 @@
 
 Name:           pipewire
 Summary:        Media Sharing Server
-Version:        0.1.2
+Version:        0.1.2.1
 Release:        1%{?snap:.%{snap}git%{shortcommit}}%{?dist}
 License:        LGPLv2+
 URL:            http://www.freedesktop.org/wiki/Software/PipeWire
@@ -108,7 +108,6 @@ exit 0
 %{_datadir}/doc/pipewire/html
 %{_bindir}/pipewire
 %{_libdir}/libpipewire-%{majorminor}.so.*
-%{_libdir}/libpipewirecore-%{majorminor}.so.*
 %{_libdir}/libspa-lib.so.*
 %{_libdir}/gstreamer-1.0/libgstpipewire.*
 %{_libdir}/pipewire-%{majorminor}/
@@ -124,12 +123,10 @@ exit 0
 
 %files devel
 %{_libdir}/libpipewire-%{majorminor}.so
-%{_libdir}/libpipewirecore-%{majorminor}.so
 %{_libdir}/libspa-lib.so
 %{_includedir}/pipewire/
 %{_includedir}/spa/
 %{_libdir}/pkgconfig/libpipewire-%{majorminor}.pc
-%{_libdir}/pkgconfig/libpipewirecore-%{majorminor}.pc
 %{_libdir}/pkgconfig/libspa-%{majorminor}.pc
 
 %files utils

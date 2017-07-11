@@ -121,6 +121,7 @@ configure_file(input : 'config.h.meson',
   configuration : cdata)
 
 configinc = include_directories('.')
+pipewire_inc = include_directories('src')
 
 makedata = configuration_data()
   makedata.set('VERSION', pipewire_version)
@@ -152,7 +153,7 @@ gst_dep = [dependency('gstreamer-1.0'),
            dependency('gstreamer-allocators-1.0'),]
 
 subdir('spa')
-subdir('pipewire')
+subdir('src')
 subdir('pkgconfig')
 
 doxygen = find_program('doxygen', required: false)

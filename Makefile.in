@@ -10,13 +10,13 @@ clean:
 run:
 	SPA_PLUGIN_DIR=build/spa/plugins \
 	PIPEWIRE_MODULE_DIR=build \
-	PIPEWIRE_CONFIG_FILE=build/pipewire/daemon/pipewire.conf \
-	build/pipewire/daemon/pipewire
+	PIPEWIRE_CONFIG_FILE=build/src/daemon/pipewire.conf \
+	build/src/daemon/pipewire
 
 monitor:
 	SPA_PLUGIN_DIR=build/spa/plugins \
-	PIPEWIRE_MODULE_DIR=build/pipewire/modules/ \
-	build/pipewire/tools/pipewire-monitor
+	PIPEWIRE_MODULE_DIR=build/src/modules/ \
+	build/src/tools/pipewire-monitor
 
 dist:
 	git archive --prefix=pipewire-@VERSION@/ -o pipewire-@VERSION@.tar.gz @TAG@

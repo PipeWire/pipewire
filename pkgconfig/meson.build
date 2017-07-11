@@ -11,7 +11,6 @@ pkg_install_dir = '@0@/pkgconfig'.format(get_option('libdir'))
 
 pkg_files = [
   'libpipewire',
-  'libpipewirecore',
   'libspa',
 ]
 

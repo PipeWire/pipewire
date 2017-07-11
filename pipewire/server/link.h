@@ -27,6 +27,7 @@ extern "C" {
 #include <spa/ringbuffer.h>
 
 #include <pipewire/client/mem.h>
+#include <pipewire/client/introspect.h>
 
 #include <pipewire/server/core.h>
 #include <pipewire/server/port.h>

@@ -96,8 +96,8 @@ static inline bool spa_graph_scheduler_iterate(struct spa_graph_scheduler *sched
 
 		switch (n->action) {
 		case SPA_GRAPH_ACTION_IN:
-			n->state = n->methods->schedule_input(n, n->user_data);
-			debug("node %p scheduled input state %d\n", n, n->state);
+			n->state = n->methods->process_input(n, n->user_data);
+			debug("node %p processed input state %d\n", n, n->state);
 			if (n == sched->node)
 				break;
 			n->action = SPA_GRAPH_ACTION_CHECK;
@@ -105,8 +105,8 @@ static inline bool spa_graph_scheduler_iterate(struct spa_graph_scheduler *sched
 			break;
 
 		case SPA_GRAPH_ACTION_OUT:
-			n->state = n->methods->schedule_output(n, n->user_data);
-			debug("node %p scheduled output state %d\n", n, n->state);
+			n->state = n->methods->process_output(n, n->user_data);
+			debug("node %p processed output state %d\n", n, n->state);
 			n->action = SPA_GRAPH_ACTION_CHECK;
 			spa_list_insert(sched->ready.prev, &n->ready_link);
 			break;

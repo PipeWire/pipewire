@@ -31,6 +31,7 @@ extern "C" {
 #include <spa/node.h>
 
 #include <pipewire/client/mem.h>
+#include <pipewire/client/introspect.h>
 #include <pipewire/client/transport.h>
 
 #include <pipewire/server/core.h>
@@ -57,6 +58,10 @@ struct pw_node_implementation {
 	struct pw_port* (*add_port) (struct pw_node *node,
 				     enum pw_direction direction,
 				     uint32_t port_id);
+
+        int (*process_input) (struct pw_node *node);
+
+        int (*process_output) (struct pw_node *node);
 };
 
 /** \page page_node Node
@@ -132,10 +137,9 @@ struct pw_node {
 	PW_SIGNAL(event, (struct pw_listener *listener,
 			  struct pw_node *node, struct spa_event *event));
 
-	struct pw_data_loop *data_loop;		/**< the data loop for this node */
+	struct pw_loop *data_loop;		/**< the data loop for this node */
 
 	struct {
-		struct spa_graph_node_methods methods;
 		struct spa_graph_scheduler *sched;
 		struct spa_graph_node node;
 	} rt;

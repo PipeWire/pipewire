@@ -24,6 +24,10 @@
 extern "C" {
 #endif
 
+#ifndef __USE_GNU
+#define __USE_GNU
+#endif
+
 #include <sys/socket.h>
 
 #include <pipewire/client/introspect.h>

@@ -774,7 +774,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	pw_signal_remove(&impl->input_port_destroy);
 	pw_signal_remove(&impl->input_async_complete);
 
-	pw_loop_invoke(port->node->data_loop->loop,
+	pw_loop_invoke(port->node->data_loop,
 		       do_remove_input, 1, 0, NULL, true, this);
 
 	clear_port_buffers(this, this->input);
@@ -797,7 +797,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	pw_signal_remove(&impl->output_port_destroy);
 	pw_signal_remove(&impl->output_async_complete);
 
-	pw_loop_invoke(port->node->data_loop->loop,
+	pw_loop_invoke(port->node->data_loop,
 		       do_remove_output, 1, 0, NULL, true, this);
 
 	clear_port_buffers(this, this->output);
@@ -865,7 +865,7 @@ bool pw_link_activate(struct pw_link *this)
 	impl->active = true;
 
 	pw_log_debug("link %p: activate", this);
-	pw_loop_invoke(this->output->node->data_loop->loop,
+	pw_loop_invoke(this->output->node->data_loop,
 		       do_activate_link, SPA_ID_INVALID, 0, NULL, false, this);
 
 	this->output->node->n_used_output_links++;
@@ -896,7 +896,7 @@ bool pw_link_deactivate(struct pw_link *this)
 
 	impl->active = false;
 	pw_log_debug("link %p: deactivate", this);
-	pw_loop_invoke(this->output->node->data_loop->loop,
+	pw_loop_invoke(this->output->node->data_loop,
 		       do_deactivate_link, SPA_ID_INVALID, 0, NULL, true, this);
 
 	input_node = this->input->node;
@@ -1007,7 +1007,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this = &impl->this;
 	pw_log_debug("link %p: new", this);
 
-	impl->work = pw_work_queue_new(core->main_loop->loop);
+	impl->work = pw_work_queue_new(core->main_loop);
 
 	this->core = core;
 	this->properties = properties;
@@ -1073,10 +1073,10 @@ struct pw_link *pw_link_new(struct pw_core *core,
 			    0,
 			    &this->io);
 
-	pw_loop_invoke(output_node->data_loop->loop,
+	pw_loop_invoke(output_node->data_loop,
 		       do_add_link,
 		       SPA_ID_INVALID, sizeof(struct pw_port *), &output, false, this);
-	pw_loop_invoke(input_node->data_loop->loop,
+	pw_loop_invoke(input_node->data_loop,
 		       do_add_link,
 		       SPA_ID_INVALID, sizeof(struct pw_port *), &input, false, this);
 

@@ -1,8 +1,5 @@
 pipewire_headers = [
   'array.h',
-  'connection.h',
-  'context.h',
-  'extension.h',
   'interfaces.h',
   'introspect.h',
   'log.h',
@@ -16,7 +13,6 @@ pipewire_headers = [
   'rtkit.h',
   'sig.h',
   'stream.h',
-  'subscribe.h',
   'thread-loop.h',
   'transport.h',
   'type.h',
@@ -24,9 +20,6 @@ pipewire_headers = [
 ]
 
 pipewire_sources = [
-  'connection.c',
-  'context.c',
-  'extension.c',
   'introspect.c',
   'log.c',
   'loop.c',

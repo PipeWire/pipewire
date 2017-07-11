@@ -27,9 +27,7 @@
 #include "pipewire/client/interfaces.h"
 #include "pipewire/server/core.h"
 #include "pipewire/server/module.h"
-#include "module-client-node/client-node.h"
-
-struct pw_protocol *pw_protocol_native_ext_client_node_init(void);
+#include "spa-node.h"
 
 struct impl {
 	struct pw_node_factory this;
@@ -41,18 +39,44 @@ static struct pw_node *create_node(struct pw_node_factory *factory,
 				   const char *name,
 				   struct pw_properties *properties)
 {
-	struct pw_client_node *node;
+	struct pw_node *node;
+	const char *lib, *factory_name;
 
-	node = pw_client_node_new(resource, name, properties);
+	if (properties == NULL)
+		goto no_properties;
+
+	lib = pw_properties_get(properties, "spa.library.name");
+	factory_name = pw_properties_get(properties, "spa.factory.name");
+
+	if(lib == NULL || factory_name == NULL)
+		goto no_properties;
+
+	node = pw_spa_node_load(factory->core,
+				NULL,
+				lib,
+				factory_name,
+				name,
+				properties);
 	if (node == NULL)
 		goto no_mem;
 
-	return node->node;
+	return node;
 
+      no_properties:
+	pw_log_error("missing properties");
+	if (resource) {
+		pw_core_notify_error(resource->client->core_resource,
+				     resource->client->core_resource->id,
+				     SPA_RESULT_INVALID_ARGUMENTS, "missing properties");
+	}
+	return NULL;
       no_mem:
 	pw_log_error("can't create node");
-	pw_core_notify_error(resource->client->core_resource,
-			     resource->client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+	if (resource) {
+		pw_core_notify_error(resource->client->core_resource,
+				     resource->client->core_resource->id,
+				     SPA_RESULT_NO_MEMORY, "no memory");
+	}
 	return NULL;
 }
 
@@ -66,12 +90,9 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 	impl->properties = properties;
 
 	impl->this.core = core;
-	impl->this.name = "client-node";
-	impl->this.type = spa_type_map_get_id(core->type.map, PIPEWIRE_TYPE__ClientNode);
+	impl->this.name = "spa-node-factory";
         pw_signal_init(&impl->this.destroy_signal);
 	impl->this.create_node = create_node;
-
-	pw_protocol_native_ext_client_node_init();
 
 	spa_list_insert(core->node_factory_list.prev, &impl->this.link);
 

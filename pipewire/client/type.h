@@ -33,6 +33,27 @@ extern "C" {
 #include <pipewire/client/map.h>
 #include <pipewire/client/transport.h>
 
+#define PIPEWIRE_TYPE__Core		"PipeWire:Object:Core"
+#define PIPEWIRE_TYPE_CORE_BASE		PIPEWIRE_TYPE__Core ":"
+
+#define PIPEWIRE_TYPE__Registry		"PipeWire:Object:Registry"
+#define PIPEWIRE_TYPE_REGISYRY_BASE	PIPEWIRE_TYPE__Registry ":"
+
+#define PIPEWIRE_TYPE__Node		"PipeWire:Object:Node"
+#define PIPEWIRE_TYPE_NODE_BASE		PIPEWIRE_TYPE__Node ":"
+
+#define PIPEWIRE_TYPE__Client		"PipeWire:Object:Client"
+#define PIPEWIRE_TYPE_CLIENT_BASE	PIPEWIRE_TYPE__Client ":"
+
+#define PIPEWIRE_TYPE__Link		"PipeWire:Object:Link"
+#define PIPEWIRE_TYPE_LINK_BASE		PIPEWIRE_TYPE__Link ":"
+
+#define PIPEWIRE_TYPE__Module		"PipeWire:Object:Module"
+#define PIPEWIRE_TYPE_MODULE_BASE	PIPEWIRE_TYPE__Module ":"
+
+#define PW_TYPE__Protocol		"PipeWire:Protocol"
+#define PW_TYPE_PROTOCOL_BASE		PW_TYPE__Protocol ":"
+
 /** \class pw_interface
  * \brief The interface definition
  *

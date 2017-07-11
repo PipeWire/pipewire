@@ -484,14 +484,14 @@ static void dispatch_cb(struct spa_loop_utils *utils, struct spa_source *source,
 	struct impl *impl = userdata;
 
 	if (dbus_connection_dispatch(impl->bus) == DBUS_DISPATCH_COMPLETE)
-		pw_loop_enable_idle(impl->core->main_loop->loop, source, false);
+		pw_loop_enable_idle(impl->core->main_loop, source, false);
 }
 
 static void dispatch_status(DBusConnection *conn, DBusDispatchStatus status, void *userdata)
 {
 	struct impl *impl = userdata;
 
-	pw_loop_enable_idle(impl->core->main_loop->loop,
+	pw_loop_enable_idle(impl->core->main_loop,
 			    impl->dispatch_event, status == DBUS_DISPATCH_COMPLETE ? false : true);
 }
 
@@ -552,7 +552,7 @@ static dbus_bool_t add_watch(DBusWatch *watch, void *userdata)
 
 	/* we dup because dbus tends to add the same fd multiple times and our epoll
 	 * implementation does not like that */
-	source = pw_loop_add_io(impl->core->main_loop->loop,
+	source = pw_loop_add_io(impl->core->main_loop,
 				dup(dbus_watch_get_unix_fd(watch)),
 				dbus_to_io(watch), true, handle_io_event, watch);
 
@@ -566,7 +566,7 @@ static void remove_watch(DBusWatch *watch, void *userdata)
 	struct spa_source *source;
 
 	if ((source = dbus_watch_get_data(watch)))
-		pw_loop_destroy_source(impl->core->main_loop->loop, source);
+		pw_loop_destroy_source(impl->core->main_loop, source);
 }
 
 static void toggle_watch(DBusWatch *watch, void *userdata)
@@ -576,7 +576,7 @@ static void toggle_watch(DBusWatch *watch, void *userdata)
 
 	source = dbus_watch_get_data(watch);
 
-	pw_loop_update_io(impl->core->main_loop->loop, source, dbus_to_io(watch));
+	pw_loop_update_io(impl->core->main_loop, source, dbus_to_io(watch));
 }
 
 static void
@@ -606,14 +606,14 @@ static dbus_bool_t add_timeout(DBusTimeout *timeout, void *userdata)
 	if (!dbus_timeout_get_enabled(timeout))
 		return FALSE;
 
-	source = pw_loop_add_timer(impl->core->main_loop->loop, handle_timer_event, timeout);
+	source = pw_loop_add_timer(impl->core->main_loop, handle_timer_event, timeout);
 
 	dbus_timeout_set_data(timeout, source, NULL);
 
 	t = dbus_timeout_get_interval(timeout) * SPA_NSEC_PER_MSEC;
 	ts.tv_sec = t / SPA_NSEC_PER_SEC;
 	ts.tv_nsec = t % SPA_NSEC_PER_SEC;
-	pw_loop_update_timer(impl->core->main_loop->loop, source, &ts, NULL, false);
+	pw_loop_update_timer(impl->core->main_loop, source, &ts, NULL, false);
 	return TRUE;
 }
 
@@ -623,7 +623,7 @@ static void remove_timeout(DBusTimeout *timeout, void *userdata)
 	struct spa_source *source;
 
 	if ((source = dbus_timeout_get_data(timeout)))
-		pw_loop_destroy_source(impl->core->main_loop->loop, source);
+		pw_loop_destroy_source(impl->core->main_loop, source);
 }
 
 static void toggle_timeout(DBusTimeout *timeout, void *userdata)
@@ -642,14 +642,14 @@ static void toggle_timeout(DBusTimeout *timeout, void *userdata)
 	} else {
 		tsp = NULL;
 	}
-	pw_loop_update_timer(impl->core->main_loop->loop, source, tsp, NULL, false);
+	pw_loop_update_timer(impl->core->main_loop, source, tsp, NULL, false);
 }
 
 static void wakeup_main(void *userdata)
 {
 	struct impl *impl = userdata;
 
-	pw_loop_enable_idle(impl->core->main_loop->loop, impl->dispatch_event, true);
+	pw_loop_enable_idle(impl->core->main_loop, impl->dispatch_event, true);
 }
 
 static struct impl *module_new(struct pw_core *core, struct pw_properties *properties)
@@ -669,7 +669,7 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 	if (impl->bus == NULL)
 		goto error;
 
-	impl->dispatch_event = pw_loop_add_idle(core->main_loop->loop, false, dispatch_cb, impl);
+	impl->dispatch_event = pw_loop_add_idle(core->main_loop, false, dispatch_cb, impl);
 
 	dbus_connection_set_exit_on_disconnect(impl->bus, false);
 	dbus_connection_set_dispatch_status_function(impl->bus, dispatch_status, impl, NULL);

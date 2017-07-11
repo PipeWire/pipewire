@@ -148,6 +148,8 @@ struct pw_core {
 	struct pw_global *global;	/**< the global of the core */
 
 	struct pw_core_info info;	/**< info about the core */
+	/** Emited when the core info is updated */
+	PW_SIGNAL(info_changed, (struct pw_listener *listener, struct pw_core *core));
 
 	struct pw_properties *properties;	/**< properties of the core */
 
@@ -158,6 +160,7 @@ struct pw_core {
 
 	struct pw_map objects;		/**< map of known objects */
 
+	struct spa_list remote_list;		/**< list of remote connections */
 	struct spa_list resource_list;		/**< list of core resources */
 	struct spa_list registry_resource_list;	/**< list of registry resources */
 	struct spa_list global_list;		/**< list of globals */
@@ -166,8 +169,8 @@ struct pw_core {
 	struct spa_list node_factory_list;	/**< list of node factories */
 	struct spa_list link_list;		/**< list of links */
 
-	struct pw_main_loop *main_loop;	/**< main loop for control */
-	struct pw_data_loop *data_loop;	/**< data loop for data passing */
+	struct pw_loop *main_loop;	/**< main loop for control */
+	struct pw_loop *data_loop;	/**< data loop for data passing */
 
 	struct spa_support *support;	/**< support for spa plugins */
 	uint32_t n_support;		/**< number of support items */
@@ -189,7 +192,7 @@ struct pw_core {
 };
 
 struct pw_core *
-pw_core_new(struct pw_main_loop *main_loop, struct pw_properties *props);
+pw_core_new(struct pw_loop *main_loop, struct pw_properties *props);
 
 void
 pw_core_destroy(struct pw_core *core);

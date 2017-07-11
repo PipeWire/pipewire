@@ -30,10 +30,10 @@
 #include "pipewire/client/interfaces.h"
 #include "pipewire/client/array.h"
 #include "pipewire/client/connection.h"
-#include "pipewire/client/context.h"
 #include "pipewire/client/stream.h"
 #include "pipewire/client/transport.h"
 #include "pipewire/client/utils.h"
+#include "pipewire/client/stream.h"
 #include "pipewire/extensions/client-node.h"
 
 /** \cond */
@@ -180,7 +180,7 @@ const char *pw_stream_state_as_string(enum pw_stream_state state)
 	return "invalid-state";
 }
 
-struct pw_stream *pw_stream_new(struct pw_context *context,
+struct pw_stream *pw_stream_new(struct pw_remote *remote,
 				const char *name, struct pw_properties *props)
 {
 	struct stream *impl;
@@ -203,9 +203,9 @@ struct pw_stream *pw_stream_new(struct pw_context *context,
 
 	this->properties = props;
 
-	this->context = context;
+	this->remote = remote;
 	this->name = strdup(name);
-	impl->type_client_node = spa_type_map_get_id(context->type.map, PIPEWIRE_TYPE_NODE_BASE "Client");
+	impl->type_client_node = spa_type_map_get_id(remote->core->type.map, PIPEWIRE_TYPE_NODE_BASE "Client");
 
 	pw_signal_init(&this->destroy_signal);
 	pw_signal_init(&this->state_changed);
@@ -224,7 +224,7 @@ struct pw_stream *pw_stream_new(struct pw_context *context,
 	impl->pending_seq = SPA_ID_INVALID;
 	spa_list_init(&impl->free);
 
-	spa_list_insert(&context->stream_list, &this->link);
+	spa_list_insert(&remote->stream_list, &this->link);
 
 	return this;
 
@@ -238,11 +238,11 @@ static void unhandle_socket(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
 	if (impl->rtsocket_source) {
-		pw_loop_destroy_source(stream->context->loop, impl->rtsocket_source);
+		pw_loop_destroy_source(stream->remote->core->data_loop, impl->rtsocket_source);
 		impl->rtsocket_source = NULL;
 	}
 	if (impl->timeout_source) {
-		pw_loop_destroy_source(stream->context->loop, impl->timeout_source);
+		pw_loop_destroy_source(stream->remote->core->data_loop, impl->timeout_source);
 		impl->timeout_source = NULL;
 	}
 }
@@ -349,6 +349,7 @@ static void add_port_update(struct pw_stream *stream, uint32_t change_mask)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
+
 	pw_client_node_do_port_update(impl->node_proxy,
 				      impl->direction,
 				      impl->port_id,
@@ -367,7 +368,7 @@ static inline void send_need_input(struct pw_stream *stream)
 	uint64_t cmd = 1;
 
 	pw_transport_add_event(impl->trans,
-			       &SPA_EVENT_INIT(stream->context->type.event_transport.NeedInput));
+			       &SPA_EVENT_INIT(stream->remote->core->type.event_transport.NeedInput));
 	write(impl->rtwritefd, &cmd, 8);
 #endif
 }
@@ -378,7 +379,7 @@ static inline void send_have_output(struct pw_stream *stream)
 	uint64_t cmd = 1;
 
 	pw_transport_add_event(impl->trans,
-			       &SPA_EVENT_INIT(stream->context->type.event_transport.HaveOutput));
+			       &SPA_EVENT_INIT(stream->remote->core->type.event_transport.HaveOutput));
 	write(impl->rtwritefd, &cmd, 8);
 }
 
@@ -387,7 +388,7 @@ static void add_request_clock_update(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
 	pw_client_node_do_event(impl->node_proxy, (struct spa_event *)
-				&SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT(stream->context->type.
+				&SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT(stream->remote->core->type.
 									  event_node.
 									  RequestClockUpdate,
 									  SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_TIME,
@@ -465,9 +466,9 @@ static inline void reuse_buffer(struct pw_stream *stream, uint32_t id)
 static void handle_rtnode_event(struct pw_stream *stream, struct spa_event *event)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct pw_context *context = impl->this.context;
+	struct pw_remote *remote = impl->this.remote;
 
-	if (SPA_EVENT_TYPE(event) == context->type.event_transport.HaveOutput) {
+	if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.HaveOutput) {
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
@@ -482,7 +483,7 @@ static void handle_rtnode_event(struct pw_stream *stream, struct spa_event *even
 			input->buffer_id = SPA_ID_INVALID;
 		}
 		send_need_input(stream);
-	} else if (SPA_EVENT_TYPE(event) == context->type.event_transport.NeedInput) {
+	} else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.NeedInput) {
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_output_ports; i++) {
@@ -498,7 +499,7 @@ static void handle_rtnode_event(struct pw_stream *stream, struct spa_event *even
 		impl->in_need_buffer = true;
 		pw_signal_emit(&stream->need_buffer, stream);
 		impl->in_need_buffer = false;
-	} else if (SPA_EVENT_TYPE(event) == context->type.event_transport.ReuseBuffer) {
+	} else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ReuseBuffer) {
 		struct pw_event_transport_reuse_buffer *p =
 		    (struct pw_event_transport_reuse_buffer *) event;
 
@@ -547,15 +548,15 @@ static void handle_socket(struct pw_stream *stream, int rtreadfd, int rtwritefd)
 
 	impl->rtreadfd = rtreadfd;
 	impl->rtwritefd = rtwritefd;
-	impl->rtsocket_source = pw_loop_add_io(stream->context->loop,
+	impl->rtsocket_source = pw_loop_add_io(stream->remote->core->data_loop,
 					       impl->rtreadfd,
 					       SPA_IO_ERR | SPA_IO_HUP,
 					       true, on_rtsocket_condition, stream);
 
-	impl->timeout_source = pw_loop_add_timer(stream->context->loop, on_timeout, stream);
+	impl->timeout_source = pw_loop_add_timer(stream->remote->core->main_loop, on_timeout, stream);
 	interval.tv_sec = 0;
 	interval.tv_nsec = 100000000;
-	pw_loop_update_timer(stream->context->loop, impl->timeout_source, NULL, &interval, false);
+	pw_loop_update_timer(stream->remote->core->main_loop, impl->timeout_source, NULL, &interval, false);
 	return;
 }
 
@@ -563,26 +564,26 @@ static bool
 handle_node_command(struct pw_stream *stream, uint32_t seq, const struct spa_command *command)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct pw_context *context = stream->context;
+	struct pw_remote *remote = stream->remote;
 
-	if (SPA_COMMAND_TYPE(command) == context->type.command_node.Pause) {
+	if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Pause) {
 		add_async_complete(stream, seq, SPA_RESULT_OK);
 
 		if (stream->state == PW_STREAM_STATE_STREAMING) {
 			pw_log_debug("stream %p: pause %d", stream, seq);
 
-			pw_loop_update_io(stream->context->loop,
+			pw_loop_update_io(stream->remote->core->data_loop,
 					  impl->rtsocket_source, SPA_IO_ERR | SPA_IO_HUP);
 
 			stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
 		}
-	} else if (SPA_COMMAND_TYPE(command) == context->type.command_node.Start) {
+	} else if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Start) {
 		add_async_complete(stream, seq, SPA_RESULT_OK);
 
 		if (stream->state == PW_STREAM_STATE_PAUSED) {
 			pw_log_debug("stream %p: start %d %d", stream, seq, impl->direction);
 
-			pw_loop_update_io(stream->context->loop,
+			pw_loop_update_io(stream->remote->core->data_loop,
 					  impl->rtsocket_source,
 					  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 
@@ -595,7 +596,7 @@ handle_node_command(struct pw_stream *stream, uint32_t seq, const struct spa_com
 			}
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, NULL);
 		}
-	} else if (SPA_COMMAND_TYPE(command) == context->type.command_node.ClockUpdate) {
+	} else if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.ClockUpdate) {
 		struct spa_command_node_clock_update *cu = (__typeof__(cu)) command;
 
 		if (cu->body.flags.value & SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE) {
@@ -791,13 +792,13 @@ client_node_use_buffers(void *object,
 			    SPA_MEMBER(bid->buf_ptr, offset + sizeof(struct spa_chunk) * j,
 				       struct spa_chunk);
 
-			if (d->type == stream->context->type.data.Id) {
+			if (d->type == stream->remote->core->type.data.Id) {
 				struct mem_id *bmid = find_mem(stream, SPA_PTR_TO_UINT32(d->data));
-				d->type = stream->context->type.data.MemFd;
+				d->type = stream->remote->core->type.data.MemFd;
 				d->data = NULL;
 				d->fd = bmid->fd;
 				pw_log_debug(" data %d %u -> fd %d", j, bmid->id, bmid->fd);
-			} else if (d->type == stream->context->type.data.MemPtr) {
+			} else if (d->type == stream->remote->core->type.data.MemPtr) {
 				d->data = SPA_MEMBER(bid->buf_ptr, SPA_PTR_TO_INT(d->data), void);
 				d->fd = -1;
 				pw_log_debug(" data %d %u -> mem %p", j, bid->id, d->data);
@@ -913,7 +914,7 @@ pw_stream_connect(struct pw_stream *stream,
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
 		pw_properties_set(stream->properties, "pipewire.autoconnect", "1");
 
-	impl->node_proxy = pw_proxy_new(stream->context,
+	impl->node_proxy = pw_proxy_new(stream->remote,
 					SPA_ID_INVALID,
 					impl->type_client_node,
 					0);
@@ -927,7 +928,7 @@ pw_stream_connect(struct pw_stream *stream,
 	pw_signal_add(&impl->node_proxy->destroy_signal,
 		      &impl->node_proxy_destroy, on_node_proxy_destroy);
 
-	pw_core_do_create_node(stream->context->core_proxy,
+	pw_core_do_create_node(stream->remote->core_proxy,
 			       "client-node",
 			       "client-node",
 			       &stream->properties->dict,
@@ -1009,7 +1010,7 @@ bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct pw_event_transport_reuse_buffer rb = PW_EVENT_TRANSPORT_REUSE_BUFFER_INIT
-	    (stream->context->type.event_transport.ReuseBuffer, impl->port_id, id);
+	    (stream->remote->core->type.event_transport.ReuseBuffer, impl->port_id, id);
 	struct buffer_id *bid;
 	uint64_t cmd = 1;
 

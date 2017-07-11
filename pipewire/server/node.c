@@ -261,7 +261,7 @@ void pw_node_export(struct pw_node *this)
 			   this->owner,
 			   this->core->type.node, 0, this, node_bind_func, &this->global);
 
-	pw_loop_invoke(this->data_loop->loop, do_node_add, 1, 0, NULL, false, this);
+	pw_loop_invoke(this->data_loop, do_node_add, 1, 0, NULL, false, this);
 
 	update_info(this);
 
@@ -271,6 +271,26 @@ void pw_node_export(struct pw_node *this)
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 }
+
+static int
+graph_impl_process_input(struct spa_graph_node *node, void *user_data)
+{
+	struct pw_node *this = user_data;
+	return this->implementation->process_input(this);
+}
+
+static int
+graph_impl_process_output(struct spa_graph_node *node, void *user_data)
+{
+	struct pw_node *this = user_data;
+	return this->implementation->process_output(this);
+}
+
+static const struct spa_graph_node_methods graph_methods = {
+	SPA_VERSION_GRAPH_NODE_METHODS,
+	graph_impl_process_input,
+        graph_impl_process_output,
+};
 
 struct pw_node *pw_node_new(struct pw_core *core,
 			    struct pw_resource *owner,
@@ -293,7 +313,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	if (user_data_size > 0)
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
-	impl->work = pw_work_queue_new(this->core->main_loop->loop);
+	impl->work = pw_work_queue_new(this->core->main_loop);
 
 	this->info.name = strdup(name);
 	this->properties = properties;
@@ -324,9 +344,10 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_list_init(&this->output_ports);
 	pw_map_init(&this->output_port_map, 64, 64);
 
-	spa_graph_node_init(&this->rt.node,
-			    &this->rt.methods,
-			    this);
+	spa_graph_node_init(&this->rt.node);
+	spa_graph_node_set_methods(&this->rt.node,
+				   &graph_methods,
+				   this);
 
 	return this;
 }
@@ -361,7 +382,7 @@ void pw_node_destroy(struct pw_node *node)
 	pw_log_debug("node %p: destroy", impl);
 	pw_signal_emit(&node->destroy_signal, node);
 
-	pw_loop_invoke(node->data_loop->loop, do_node_remove, 1, 0, NULL, true, node);
+	pw_loop_invoke(node->data_loop, do_node_remove, 1, 0, NULL, true, node);
 
 	if (impl->exported) {
 		spa_list_remove(&node->link);

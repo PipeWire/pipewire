@@ -34,15 +34,13 @@ extern "C" {
 struct pw_client_node {
 	struct pw_node *node;
 
-	struct pw_client *client;
 	struct pw_resource *resource;
 
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_client_node *node));
 };
 
 struct pw_client_node *
-pw_client_node_new(struct pw_client *client,
-		   uint32_t id,
+pw_client_node_new(struct pw_resource *resource,
 		   const char *name,
 		   struct pw_properties *properties);
 

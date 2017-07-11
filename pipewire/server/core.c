@@ -35,6 +35,7 @@ struct impl {
 	struct pw_core this;
 
 	struct spa_support support[4];
+	struct pw_data_loop *data_loop;
 };
 
 /** \endcond */
@@ -152,6 +153,7 @@ core_create_node(void *object,
 		 uint32_t new_id)
 {
 	struct pw_resource *resource = object;
+	struct pw_resource *node_resource;
 	struct pw_client *client = resource->client;
 	struct pw_node_factory *factory;
 	struct pw_properties *properties;
@@ -160,15 +162,22 @@ core_create_node(void *object,
 	if (factory == NULL)
 		goto no_factory;
 
+	node_resource = pw_resource_new(client,
+					new_id,
+					factory->type,
+					0);
+	if (node_resource == NULL)
+		goto no_resource;
+
 	if (props) {
 		properties = pw_properties_new_dict(props);
 		if (properties == NULL)
-			goto no_mem;
+			goto no_properties;
 	} else
 		properties = NULL;
 
 	/* error will be posted */
-	pw_node_factory_create_node(factory, client, name, properties, new_id);
+	pw_node_factory_create_node(factory, node_resource, name, properties);
 	properties = NULL;
 
       done:
@@ -180,8 +189,14 @@ core_create_node(void *object,
 			     resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown factory name");
 	goto done;
 
-      no_mem:
+      no_resource:
+	pw_log_error("can't create resource");
+	goto no_mem;
+      no_properties:
 	pw_log_error("can't create properties");
+	pw_resource_destroy(node_resource);
+	goto no_mem;
+      no_mem:
 	pw_core_notify_error(client->core_resource,
 			     resource->id, SPA_RESULT_NO_MEMORY, "no memory");
 	goto done;
@@ -271,7 +286,7 @@ core_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
  *
  * \memberof pw_core
  */
-struct pw_core *pw_core_new(struct pw_main_loop *main_loop, struct pw_properties *properties)
+struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *properties)
 {
 	struct impl *impl;
 	struct pw_core *this;
@@ -281,10 +296,11 @@ struct pw_core *pw_core_new(struct pw_main_loop *main_loop, struct pw_properties
 		return NULL;
 
 	this = &impl->this;
-	this->data_loop = pw_data_loop_new();
-	if (this->data_loop == NULL)
+	impl->data_loop = pw_data_loop_new();
+	if (impl->data_loop == NULL)
 		goto no_data_loop;
 
+	this->data_loop = impl->data_loop->loop;
 	this->main_loop = main_loop;
 	this->properties = properties;
 
@@ -297,14 +313,15 @@ struct pw_core *pw_core_new(struct pw_main_loop *main_loop, struct pw_properties
 	spa_debug_set_type_map(this->type.map);
 
 	impl->support[0] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, this->type.map);
-	impl->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__DataLoop, this->data_loop->loop->loop);
-	impl->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__MainLoop, this->main_loop->loop->loop);
+	impl->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__DataLoop, this->data_loop->loop);
+	impl->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__MainLoop, this->main_loop->loop);
 	impl->support[3] = SPA_SUPPORT_INIT(SPA_TYPE__Log, pw_log_get());
 	this->support = impl->support;
 	this->n_support = 4;
 
-	pw_data_loop_start(this->data_loop);
+	pw_data_loop_start(impl->data_loop);
 
+	spa_list_init(&this->remote_list);
 	spa_list_init(&this->resource_list);
 	spa_list_init(&this->registry_resource_list);
 	spa_list_init(&this->global_list);
@@ -312,6 +329,7 @@ struct pw_core *pw_core_new(struct pw_main_loop *main_loop, struct pw_properties
 	spa_list_init(&this->node_list);
 	spa_list_init(&this->node_factory_list);
 	spa_list_init(&this->link_list);
+	pw_signal_init(&this->info_changed);
 	pw_signal_init(&this->destroy_signal);
 	pw_signal_init(&this->global_added);
 	pw_signal_init(&this->global_removed);
@@ -348,7 +366,7 @@ void pw_core_destroy(struct pw_core *core)
 	pw_log_debug("core %p: destroy", core);
 	pw_signal_emit(&core->destroy_signal, core);
 
-	pw_data_loop_destroy(core->data_loop);
+	pw_data_loop_destroy(impl->data_loop);
 
 	pw_map_clear(&core->objects);
 
@@ -496,6 +514,8 @@ void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict
 
 	core->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
 	core->info.props = core->properties ? &core->properties->dict : NULL;
+
+	pw_signal_emit(&core->info_changed, core);
 
 	spa_list_for_each(resource, &core->resource_list, link) {
 		pw_core_notify_info(resource, &core->info);

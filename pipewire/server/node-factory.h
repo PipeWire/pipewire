@@ -42,16 +42,16 @@ struct pw_node_factory {
 	struct pw_global *global;	/**< global for this factory */
 
 	const char *name;		/**< the factory name */
+	uint32_t type;			/**< type of the created nodes */
 
 	/** Emited when the factory is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_node_factory *object));
 
 	/** The function to create a node from this factory */
 	struct pw_node *(*create_node) (struct pw_node_factory *factory,
-					struct pw_client *client,
+					struct pw_resource *resource,
 					const char *name,
-					struct pw_properties *properties,
-					uint32_t new_id);
+					struct pw_properties *properties);
 };
 
 #define pw_node_factory_create_node(f,...)	(f)->create_node((f),__VA_ARGS__)

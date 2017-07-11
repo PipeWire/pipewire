@@ -59,7 +59,7 @@ static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
 static void remove_idle_timeout(struct node_info *info)
 {
 	if (info->idle_timeout) {
-		pw_loop_destroy_source(info->impl->core->main_loop->loop, info->idle_timeout);
+		pw_loop_destroy_source(info->impl->core->main_loop, info->idle_timeout);
 		info->idle_timeout = NULL;
 	}
 }
@@ -102,11 +102,11 @@ on_node_state_changed(struct pw_listener *listener,
 		struct timespec value;
 
 		pw_log_debug("module %p: node %p became idle", impl, node);
-		info->idle_timeout = pw_loop_add_timer(impl->core->main_loop->loop,
+		info->idle_timeout = pw_loop_add_timer(impl->core->main_loop,
 						       idle_timeout, info);
 		value.tv_sec = 3;
 		value.tv_nsec = 0;
-		pw_loop_update_timer(impl->core->main_loop->loop,
+		pw_loop_update_timer(impl->core->main_loop,
 				     info->idle_timeout, &value, NULL, false);
 	}
 }

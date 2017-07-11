@@ -46,6 +46,8 @@ struct pw_protocol *pw_protocol_get(const char *name)
 	protocol = calloc(1, sizeof(struct pw_protocol));
 	protocol->name = name;
 	spa_list_init(&protocol->iface_list);
+	spa_list_init(&protocol->connection_list);
+	spa_list_init(&protocol->listener_list);
 	spa_list_insert(impl->protocol_list.prev, &protocol->link);
 
 	pw_log_info("Created protocol %s", name);

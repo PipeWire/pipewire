@@ -74,15 +74,19 @@ static int schedule_tee_output(struct spa_graph_node *node, void *user_data)
 	return SPA_RESULT_NEED_BUFFER;
 }
 
+static const struct spa_graph_node_methods schedule_tee_node = {
+	SPA_VERSION_GRAPH_NODE_METHODS,
+	schedule_tee_input,
+	schedule_tee_output,
+};
+
 static int schedule_tee_reuse_buffer(struct spa_graph_port *port, uint32_t buffer_id, void *user_data)
 {
 	return SPA_RESULT_OK;
 }
 
-static const struct spa_graph_node_methods schedule_tee = {
-	SPA_VERSION_GRAPH_NODE_METHODS,
-	schedule_tee_input,
-	schedule_tee_output,
+static const struct spa_graph_port_methods schedule_tee_port = {
+	SPA_VERSION_GRAPH_PORT_METHODS,
 	schedule_tee_reuse_buffer,
 };
 
@@ -114,15 +118,18 @@ static int schedule_mix_output(struct spa_graph_node *node, void *user_data)
 	return SPA_RESULT_NEED_BUFFER;
 }
 
+static const struct spa_graph_node_methods schedule_mix_node = {
+	SPA_VERSION_GRAPH_NODE_METHODS,
+	schedule_mix_input,
+	schedule_mix_output,
+};
+
 static int schedule_mix_reuse_buffer(struct spa_graph_port *port, uint32_t buffer_id, void *user_data)
 {
 	return SPA_RESULT_OK;
 }
-
-static const struct spa_graph_node_methods schedule_mix = {
-	SPA_VERSION_GRAPH_NODE_METHODS,
-	schedule_mix_input,
-	schedule_mix_output,
+static const struct spa_graph_port_methods schedule_mix_port = {
+	SPA_VERSION_GRAPH_PORT_METHODS,
 	schedule_mix_reuse_buffer,
 };
 
@@ -159,16 +166,22 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 			    this->port_id,
 			    0,
 			    &this->io);
-	spa_graph_node_init(&this->rt.mix_node,
-			    this->direction == PW_DIRECTION_INPUT ?
-				&schedule_mix :
-				&schedule_tee,
-			    this);
+	spa_graph_node_init(&this->rt.mix_node);
+	spa_graph_node_set_methods(&this->rt.mix_node,
+				   this->direction == PW_DIRECTION_INPUT ?
+					&schedule_mix_node :
+					&schedule_tee_node,
+				   this);
 	spa_graph_port_init(&this->rt.mix_port,
 			    pw_direction_reverse(this->direction),
 			    0,
 			    0,
 			    &this->io);
+	spa_graph_port_set_methods(&this->rt.mix_port,
+				   this->direction == PW_DIRECTION_INPUT ?
+					&schedule_mix_port :
+					&schedule_tee_port,
+				   this);
 	return this;
 }
 
@@ -204,7 +217,7 @@ void pw_port_add(struct pw_port *port, struct pw_node *node)
 	}
 
 	port->rt.graph = node->rt.sched->graph;
-	pw_loop_invoke(node->data_loop->loop, do_add_port, SPA_ID_INVALID, 0, NULL, false, port);
+	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, 0, NULL, false, port);
 
 	port_update_state(port, PW_PORT_STATE_CONFIGURE);
 
@@ -238,7 +251,7 @@ void pw_port_destroy(struct pw_port *port)
 	pw_signal_emit(&port->destroy_signal, port);
 
 	if (node) {
-		pw_loop_invoke(port->node->data_loop->loop, do_remove_port, SPA_ID_INVALID, 0, NULL, true, port);
+		pw_loop_invoke(port->node->data_loop, do_remove_port, SPA_ID_INVALID, 0, NULL, true, port);
 
 		if (port->direction == PW_DIRECTION_INPUT) {
 			pw_map_remove(&node->input_port_map, port->port_id);
@@ -330,7 +343,7 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 		return SPA_RESULT_NO_FORMAT;
 
 	if (port->state > PW_PORT_STATE_PAUSED) {
-		pw_loop_invoke(port->node->data_loop->loop,
+		pw_loop_invoke(port->node->data_loop,
 			       do_port_pause, 0, 0, NULL, true, port);
 		port_update_state (port, PW_PORT_STATE_PAUSED);
 	}
@@ -362,7 +375,7 @@ int pw_port_alloc_buffers(struct pw_port *port,
 		return SPA_RESULT_NO_FORMAT;
 
 	if (port->state > PW_PORT_STATE_PAUSED) {
-		pw_loop_invoke(port->node->data_loop->loop,
+		pw_loop_invoke(port->node->data_loop,
 			       do_port_pause, 0, 0, NULL, true, port);
 		port_update_state (port, PW_PORT_STATE_PAUSED);
 	}

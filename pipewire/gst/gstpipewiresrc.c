@@ -307,6 +307,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
 
   src->loop = pw_loop_new ();
   src->main_loop = pw_thread_loop_new (src->loop, "pipewire-main-loop");
+  src->core = pw_core_new (src->loop, NULL);
   GST_DEBUG ("loop %p, mainloop %p", src->loop, src->main_loop);
 
 }
@@ -359,7 +360,8 @@ on_add_buffer (struct pw_listener *listener,
   GstBuffer *buf;
   uint32_t i;
   ProcessMemData data;
-  struct pw_context *ctx = pwsrc->stream->context;
+  struct pw_remote *remote = pwsrc->stream->remote;
+  struct pw_core *core = remote->core;
 
   GST_LOG_OBJECT (pwsrc, "add buffer");
 
@@ -374,19 +376,19 @@ on_add_buffer (struct pw_listener *listener,
   data.src = gst_object_ref (pwsrc);
   data.id = id;
   data.buf = b;
-  data.header = spa_buffer_find_meta (b, ctx->type.meta.Header);
+  data.header = spa_buffer_find_meta (b, core->type.meta.Header);
 
   for (i = 0; i < b->n_datas; i++) {
     struct spa_data *d = &b->datas[i];
     GstMemory *gmem = NULL;
 
-    if (d->type == ctx->type.data.MemFd || d->type == ctx->type.data.DmaBuf) {
+    if (d->type == core->type.data.MemFd || d->type == core->type.data.DmaBuf) {
       gmem = gst_fd_allocator_alloc (pwsrc->fd_allocator, dup (d->fd),
                 d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
       gst_memory_resize (gmem, d->chunk->offset + d->mapoffset, d->chunk->size);
       data.offset = d->mapoffset;
     }
-    else if (d->type == ctx->type.data.MemPtr) {
+    else if (d->type == core->type.data.MemPtr) {
       gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, d->chunk->offset + d->mapoffset,
                 d->chunk->size, NULL, NULL);
       data.offset = 0;
@@ -543,7 +545,7 @@ gst_pipewire_src_stream_start (GstPipeWireSrc *pwsrc)
     if (state == PW_STREAM_STATE_ERROR)
       goto start_error;
 
-    if (pwsrc->ctx->state == PW_CONTEXT_STATE_ERROR)
+    if (pwsrc->remote->state == PW_REMOTE_STATE_ERROR)
       goto start_error;
 
     pw_thread_loop_wait (pwsrc->main_loop);
@@ -583,7 +585,7 @@ wait_negotiated (GstPipeWireSrc *this)
     if (state == PW_STREAM_STATE_ERROR)
       break;
 
-    if (this->ctx->state == PW_CONTEXT_STATE_ERROR)
+    if (this->remote->state == PW_REMOTE_STATE_ERROR)
       break;
 
     if (this->started)
@@ -634,7 +636,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, caps);
 
   /* open a connection with these caps */
-  possible = gst_caps_to_format_all (caps, pwsrc->ctx->type.map);
+  possible = gst_caps_to_format_all (caps, pwsrc->remote->core->type.map);
   gst_caps_unref (caps);
 
   /* first disconnect */
@@ -679,7 +681,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
     if (state == PW_STREAM_STATE_ERROR)
       goto connect_error;
 
-    if (pwsrc->ctx->state == PW_CONTEXT_STATE_ERROR)
+    if (pwsrc->remote->state == PW_REMOTE_STATE_ERROR)
       goto connect_error;
 
     pw_thread_loop_wait (pwsrc->main_loop);
@@ -738,7 +740,8 @@ on_format_changed (struct pw_listener *listener,
   GstPipeWireSrc *pwsrc = SPA_CONTAINER_OF (listener, GstPipeWireSrc, stream_format_changed);
   GstCaps *caps;
   gboolean res;
-  struct pw_context *ctx = stream->context;
+  struct pw_remote *remote = stream->remote;
+  struct pw_core *core = remote->core;
 
   if (format == NULL) {
     GST_DEBUG_OBJECT (pwsrc, "clear format");
@@ -746,7 +749,7 @@ on_format_changed (struct pw_listener *listener,
     return;
   }
 
-  caps = gst_caps_from_format (format, pwsrc->ctx->type.map);
+  caps = gst_caps_from_format (format, core->type.map);
   GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, caps);
   res = gst_base_src_set_caps (GST_BASE_SRC (pwsrc), caps);
   gst_caps_unref (caps);
@@ -758,16 +761,16 @@ on_format_changed (struct pw_listener *listener,
     struct spa_pod_frame f[2];
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
-    spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_buffers.Buffers,
-      PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.size,    SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
-      PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
-      PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, 16, 0, INT32_MAX),
-      PROP    (&f[1], ctx->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
+    spa_pod_builder_object (&b, &f[0], 0, core->type.param_alloc_buffers.Buffers,
+      PROP_U_MM (&f[1], core->type.param_alloc_buffers.size,    SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
+      PROP_U_MM (&f[1], core->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
+      PROP_U_MM (&f[1], core->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, 16, 0, INT32_MAX),
+      PROP    (&f[1], core->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
     params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
-    spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
-        PROP    (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
-        PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
+    spa_pod_builder_object (&b, &f[0], 0, core->type.param_alloc_meta_enable.MetaEnable,
+        PROP    (&f[1], core->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, core->type.meta.Header),
+        PROP    (&f[1], core->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
     params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
@@ -969,22 +972,22 @@ gst_pipewire_src_stop (GstBaseSrc * basesrc)
 }
 
 static void
-on_ctx_state_changed (struct pw_listener *listener,
-                      struct pw_context  *ctx)
+on_remote_state_changed (struct pw_listener *listener,
+			 struct pw_remote  *remote)
 {
-  GstPipeWireSrc *pwsrc = SPA_CONTAINER_OF (listener, GstPipeWireSrc, ctx_state_changed);
-  enum pw_context_state state = ctx->state;
+  GstPipeWireSrc *pwsrc = SPA_CONTAINER_OF (listener, GstPipeWireSrc, remote_state_changed);
+  enum pw_remote_state state = remote->state;
 
-  GST_DEBUG ("got context state %s", pw_context_state_as_string (state));
+  GST_DEBUG ("got remote state %s", pw_remote_state_as_string (state));
 
   switch (state) {
-    case PW_CONTEXT_STATE_UNCONNECTED:
-    case PW_CONTEXT_STATE_CONNECTING:
-    case PW_CONTEXT_STATE_CONNECTED:
+    case PW_REMOTE_STATE_UNCONNECTED:
+    case PW_REMOTE_STATE_CONNECTING:
+    case PW_REMOTE_STATE_CONNECTED:
       break;
-    case PW_CONTEXT_STATE_ERROR:
+    case PW_REMOTE_STATE_ERROR:
       GST_ELEMENT_ERROR (pwsrc, RESOURCE, FAILED,
-          ("context error: %s", ctx->error), (NULL));
+          ("remote error: %s", remote->error), (NULL));
       break;
   }
   pw_thread_loop_signal (pwsrc->main_loop, FALSE);
@@ -1013,20 +1016,20 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
     goto mainloop_failed;
 
   pw_thread_loop_lock (pwsrc->main_loop);
-  pwsrc->ctx = pw_context_new (pwsrc->loop, g_get_application_name (), NULL);
+  pwsrc->remote = pw_remote_new (pwsrc->core, NULL);
 
-  pw_signal_add (&pwsrc->ctx->state_changed, &pwsrc->ctx_state_changed, on_ctx_state_changed);
+  pw_signal_add (&pwsrc->remote->state_changed, &pwsrc->remote_state_changed, on_remote_state_changed);
 
-  pw_context_connect (pwsrc->ctx, PW_CONTEXT_FLAG_NO_REGISTRY);
+  pw_remote_connect (pwsrc->remote);
 
   while (TRUE) {
-    enum pw_context_state state = pwsrc->ctx->state;
+    enum pw_remote_state state = pwsrc->remote->state;
 
-    GST_DEBUG ("waiting for CONNECTED, now %s", pw_context_state_as_string (state));
-    if (state == PW_CONTEXT_STATE_CONNECTED)
+    GST_DEBUG ("waiting for CONNECTED, now %s", pw_remote_state_as_string (state));
+    if (state == PW_REMOTE_STATE_CONNECTED)
       break;
 
-    if (state == PW_CONTEXT_STATE_ERROR)
+    if (state == PW_REMOTE_STATE_ERROR)
       goto connect_error;
 
     pw_thread_loop_wait (pwsrc->main_loop);
@@ -1039,7 +1042,7 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
     props = NULL;
   }
 
-  pwsrc->stream = pw_stream_new (pwsrc->ctx, pwsrc->client_name, props);
+  pwsrc->stream = pw_stream_new (pwsrc->remote, pwsrc->client_name, props);
 
   pw_signal_add (&pwsrc->stream->state_changed, &pwsrc->stream_state_changed, on_state_changed);
   pw_signal_add (&pwsrc->stream->format_changed, &pwsrc->stream_format_changed, on_format_changed);
@@ -1075,8 +1078,8 @@ gst_pipewire_src_close (GstPipeWireSrc * pwsrc)
   pw_stream_destroy (pwsrc->stream);
   pwsrc->stream = NULL;
 
-  pw_context_destroy (pwsrc->ctx);
-  pwsrc->ctx = NULL;
+  pw_remote_destroy (pwsrc->remote);
+  pwsrc->remote = NULL;
 
   GST_OBJECT_LOCK (pwsrc);
   g_clear_object (&pwsrc->clock);

@@ -30,6 +30,8 @@
 
 #include <pipewire/client/pipewire.h>
 #include <pipewire/client/sig.h>
+#include <pipewire/server/module.h>
+#include <pipewire/server/node-factory.h>
 #include <spa/lib/debug.h>
 
 struct type {
@@ -73,19 +75,24 @@ struct data {
 	struct spa_source *timer;
 
 	struct pw_core *core;
-	struct pw_remote *remote;
-	struct pw_listener on_state_changed;
+	struct pw_node *node;
+	struct pw_port *port;
+	struct spa_port_info port_info;
 
-	struct pw_stream *stream;
-	struct pw_listener on_stream_state_changed;
-	struct pw_listener on_stream_format_changed;
-	struct pw_listener on_stream_new_buffer;
+	struct pw_node *v4l2;
+
+	struct pw_link *link;
+
+	uint8_t buffer[1024];
 
 	struct spa_video_info_raw format;
 	int32_t stride;
 
 	uint8_t params_buffer[1024];
-	int counter;
+	struct spa_param *params[2];
+
+	struct spa_buffer *buffers[32];
+	int n_buffers;
 };
 
 static void handle_events(struct data *data)
@@ -98,62 +105,6 @@ static void handle_events(struct data *data)
 			break;
 		}
 	}
-}
-
-static void
-on_stream_new_buffer(struct pw_listener *listener, struct pw_stream *stream, uint32_t id)
-{
-	struct data *data = SPA_CONTAINER_OF(listener, struct data, on_stream_new_buffer);
-	struct spa_buffer *buf;
-	uint8_t *map;
-	void *sdata, *ddata;
-	int sstride, dstride, ostride;
-	int i;
-	uint8_t *src, *dst;
-
-	buf = pw_stream_peek_buffer(data->stream, id);
-
-	if (buf->datas[0].type == data->type.data.MemFd) {
-		map = mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ,
-			   MAP_PRIVATE, buf->datas[0].fd, 0);
-		sdata = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);
-	} else if (buf->datas[0].type == data->type.data.MemPtr) {
-		map = NULL;
-		sdata = buf->datas[0].data;
-	} else
-		return;
-
-	if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
-		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-		return;
-	}
-	sstride = buf->datas[0].chunk->stride;
-	ostride = SPA_MIN(sstride, dstride);
-
-	src = sdata;
-	dst = ddata;
-	for (i = 0; i < data->format.size.height; i++) {
-		memcpy(dst, src, ostride);
-		src += sstride;
-		dst += dstride;
-	}
-	SDL_UnlockTexture(data->texture);
-
-	SDL_RenderClear(data->renderer);
-	SDL_RenderCopy(data->renderer, data->texture, NULL, NULL);
-	SDL_RenderPresent(data->renderer);
-
-	if (map)
-		munmap(map, buf->datas[0].maxsize);
-
-	pw_stream_recycle_buffer(data->stream, id);
-
-	handle_events(data);
-}
-
-static void on_stream_state_changed(struct pw_listener *listener, struct pw_stream *stream)
-{
-	printf("stream state: \"%s\"\n", pw_stream_state_as_string(stream->state));
 }
 
 static struct {
@@ -230,22 +181,75 @@ static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
 	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
 			SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
 
-static void
-on_stream_format_changed(struct pw_listener *listener,
-			 struct pw_stream *stream, struct spa_format *format)
+static int impl_port_enum_formats(struct pw_port *port,
+				  struct spa_format **format,
+				  const struct spa_format *filter,
+				  int32_t index)
 {
-	struct data *data = SPA_CONTAINER_OF(listener, struct data, on_stream_format_changed);
-	struct pw_remote *remote = stream->remote;
-	struct pw_core *core = remote->core;
+	struct data *data = port->user_data;
+	const struct spa_format *formats[1];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(data->buffer, sizeof(data->buffer));
+	struct spa_pod_frame f[2];
+	SDL_RendererInfo info;
+	int i, c;
+
+	if (index != 0)
+		return SPA_RESULT_ENUM_END;
+
+	SDL_GetRendererInfo(data->renderer, &info);
+
+	spa_pod_builder_push_format(&b, &f[0], data->type.format,
+				    data->type.media_type.video,
+				    data->type.media_subtype.raw);
+
+	spa_pod_builder_push_prop(&b, &f[1], data->type.format_video.format,
+				  SPA_POD_PROP_FLAG_UNSET |
+				  SPA_POD_PROP_RANGE_ENUM);
+	for (i = 0, c = 0; i < info.num_texture_formats; i++) {
+		uint32_t id = sdl_format_to_id(data, info.texture_formats[i]);
+		if (id == 0)
+			continue;
+		if (c++ == 0)
+			spa_pod_builder_id(&b, id);
+		spa_pod_builder_id(&b, id);
+	}
+	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
+		uint32_t id =
+		    *SPA_MEMBER(&data->type.video_format, video_formats[i].id,
+				uint32_t);
+		if (id != data->type.video_format.UNKNOWN)
+			spa_pod_builder_id(&b, id);
+	}
+	spa_pod_builder_pop(&b, &f[1]);
+	spa_pod_builder_add(&b,
+		PROP_U_MM(&f[1], data->type.format_video.size, SPA_POD_TYPE_RECTANGLE,
+			WIDTH, HEIGHT,
+			1, 1, info.max_texture_width, info.max_texture_height),
+		PROP_U_MM(&f[1], data->type.format_video.framerate, SPA_POD_TYPE_FRACTION,
+			25, 1,
+			0, 1, 30, 1),
+		0);
+	spa_pod_builder_pop(&b, &f[0]);
+	formats[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+
+	spa_debug_format(formats[0]);
+
+	*format = (struct spa_format *)formats[0];
+
+	return SPA_RESULT_OK;
+}
+
+static int impl_port_set_format(struct pw_port *port, uint32_t flags, struct spa_format *format)
+{
+	struct data *data = port->user_data;
+	struct pw_core *core = data->core;
 	struct spa_pod_builder b = { NULL };
 	struct spa_pod_frame f[2];
-	struct spa_param *params[2];
 	Uint32 sdl_format;
 	void *d;
 
 	if (format == NULL) {
-		pw_stream_finish_format(stream, SPA_RESULT_OK, NULL, 0);
-		return;
+		return SPA_RESULT_OK;
 	}
 
 	spa_debug_format(format);
@@ -253,10 +257,8 @@ on_stream_format_changed(struct pw_listener *listener,
 	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
 
 	sdl_format = id_to_sdl_format(data, data->format.format);
-	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN) {
-		pw_stream_finish_format(stream, SPA_RESULT_ERROR, NULL, 0);
-		return;
-	}
+	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN)
+		return SPA_RESULT_ERROR;
 
 	data->texture = SDL_CreateTexture(data->renderer,
 					  sdl_format,
@@ -277,111 +279,229 @@ on_stream_format_changed(struct pw_listener *listener,
 			2, 32),
 		PROP(&f[1], core->type.param_alloc_buffers.align, SPA_POD_TYPE_INT,
 			16));
-	params[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
+	data->params[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
 
 	spa_pod_builder_object(&b, &f[0], 0, core->type.param_alloc_meta_enable.MetaEnable,
 		PROP(&f[1], core->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID,
 			core->type.meta.Header),
 		PROP(&f[1], core->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT,
 			sizeof(struct spa_meta_header)));
-	params[1] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
+	data->params[1] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
 
-	pw_stream_finish_format(stream, SPA_RESULT_OK, params, 2);
+	return SPA_RESULT_OK;
 }
 
-static void on_state_changed(struct pw_listener *listener, struct pw_remote *remote)
+static int impl_port_get_format(struct pw_port *port, const struct spa_format **format)
 {
-	struct data *data = SPA_CONTAINER_OF(listener, struct data, on_state_changed);
+	return SPA_RESULT_NOT_IMPLEMENTED;
+}
 
-	switch (remote->state) {
-	case PW_CONTEXT_STATE_ERROR:
-		printf("remote error: %s\n", remote->error);
-		data->running = false;
-		break;
+static int impl_port_get_info(struct pw_port *port, const struct spa_port_info **info)
+{
+	struct data *data = port->user_data;
 
-	case PW_CONTEXT_STATE_CONNECTED:
-	{
-		const struct spa_format *formats[1];
-		uint8_t buffer[1024];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-		struct spa_pod_frame f[2];
-		SDL_RendererInfo info;
-		int i, c;
+	data->port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+	data->port_info.rate = 0;
+	data->port_info.props = NULL;
 
-		printf("remote state: \"%s\"\n",
-		       pw_remote_state_as_string(remote->state));
+	*info = &data->port_info;
 
-		data->stream = pw_stream_new(remote, "video-play", NULL);
+	return SPA_RESULT_OK;
+}
 
-		SDL_GetRendererInfo(data->renderer, &info);
+static int impl_port_enum_params(struct pw_port *port, uint32_t index, struct spa_param **param)
+{
+	struct data *data = port->user_data;
 
-		spa_pod_builder_push_format(&b, &f[0], data->type.format,
-					    data->type.media_type.video,
-					    data->type.media_subtype.raw);
+	if (index >= 2)
+		return SPA_RESULT_ENUM_END;
 
-		spa_pod_builder_push_prop(&b, &f[1], data->type.format_video.format,
-					  SPA_POD_PROP_FLAG_UNSET |
-					  SPA_POD_PROP_RANGE_ENUM);
-		for (i = 0, c = 0; i < info.num_texture_formats; i++) {
-			uint32_t id = sdl_format_to_id(data, info.texture_formats[i]);
-			if (id == 0)
-				continue;
-			if (c++ == 0)
-				spa_pod_builder_id(&b, id);
-			spa_pod_builder_id(&b, id);
-		}
-		for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
-			uint32_t id =
-			    *SPA_MEMBER(&data->type.video_format, video_formats[i].id,
-					uint32_t);
-			if (id != data->type.video_format.UNKNOWN)
-				spa_pod_builder_id(&b, id);
-		}
-		spa_pod_builder_pop(&b, &f[1]);
-		spa_pod_builder_add(&b,
-			PROP_U_MM(&f[1], data->type.format_video.size, SPA_POD_TYPE_RECTANGLE,
-				WIDTH, HEIGHT,
-				1, 1, info.max_texture_width, info.max_texture_height),
-			PROP_U_MM(&f[1], data->type.format_video.framerate, SPA_POD_TYPE_FRACTION,
-				25, 1,
-				0, 1, 30, 1),
-			0);
-		spa_pod_builder_pop(&b, &f[0]);
-		formats[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+	*param = data->params[index];
 
-		printf("supported formats:\n");
-		spa_debug_format(formats[0]);
+	return SPA_RESULT_OK;
+}
 
-		pw_signal_add(&data->stream->state_changed,
-			      &data->on_stream_state_changed, on_stream_state_changed);
-		pw_signal_add(&data->stream->format_changed,
-			      &data->on_stream_format_changed, on_stream_format_changed);
-		pw_signal_add(&data->stream->new_buffer,
-			      &data->on_stream_new_buffer, on_stream_new_buffer);
+static int impl_port_set_param(struct pw_port *port, struct spa_param *param)
+{
+	return SPA_RESULT_NOT_IMPLEMENTED;
+}
 
-		pw_stream_connect(data->stream,
-				  PW_DIRECTION_INPUT,
-				  PW_STREAM_MODE_BUFFER,
-				  data->path, PW_STREAM_FLAG_AUTOCONNECT, 1, formats);
-		break;
+static int impl_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers)
+{
+	struct data *data = port->user_data;
+	int i;
+	for (i = 0; i < n_buffers; i++)
+		data->buffers[i] = buffers[i];
+	data->n_buffers = n_buffers;
+	return SPA_RESULT_OK;
+}
+
+static int impl_port_alloc_buffers(struct pw_port *port,
+                              struct spa_param **params, uint32_t n_params,
+                              struct spa_buffer **buffers, uint32_t *n_buffers)
+{
+	return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static int impl_port_reuse_buffer(struct pw_port *port, uint32_t buffer_id)
+{
+	return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static int impl_port_send_command(struct pw_port *port, struct spa_command *command)
+{
+	return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static const struct pw_port_implementation impl_port = {
+	PW_VERSION_PORT_IMPLEMENTATION,
+	impl_port_enum_formats,
+	impl_port_set_format,
+	impl_port_get_format,
+	impl_port_get_info,
+	impl_port_enum_params,
+	impl_port_set_param,
+	impl_port_use_buffers,
+	impl_port_alloc_buffers,
+	impl_port_reuse_buffer,
+	impl_port_send_command,
+};
+
+static int impl_node_get_props(struct pw_node *node, struct spa_props **props)
+{
+	return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static int impl_node_set_props(struct pw_node *node, const struct spa_props *props)
+{
+	return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static int impl_node_send_command(struct pw_node *node,
+                            struct spa_command *command)
+{
+	return SPA_RESULT_OK;
+}
+
+static struct pw_port* impl_node_add_port(struct pw_node *node,
+                                     enum pw_direction direction,
+                                     uint32_t port_id)
+{
+	return NULL;
+}
+
+static int impl_node_process_input(struct pw_node *node)
+{
+	struct data *data = node->user_data;
+	struct pw_port *port = data->port;
+	struct spa_buffer *buf;
+	uint8_t *map;
+	void *sdata, *ddata;
+	int sstride, dstride, ostride;
+	int i;
+	uint8_t *src, *dst;
+
+	buf = port->buffers[port->io.buffer_id];
+
+	if (buf->datas[0].type == data->type.data.MemFd ||
+	    buf->datas[0].type == data->type.data.DmaBuf) {
+		map = mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ,
+			   MAP_PRIVATE, buf->datas[0].fd, 0);
+		sdata = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);
+	} else if (buf->datas[0].type == data->type.data.MemPtr) {
+		map = NULL;
+		sdata = buf->datas[0].data;
+	} else
+		return SPA_RESULT_ERROR;
+
+	if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
+		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+		return SPA_RESULT_ERROR;
 	}
-	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(remote->state));
-		break;
+	sstride = buf->datas[0].chunk->stride;
+	ostride = SPA_MIN(sstride, dstride);
+
+	src = sdata;
+	dst = ddata;
+	for (i = 0; i < data->format.size.height; i++) {
+		memcpy(dst, src, ostride);
+		src += sstride;
+		dst += dstride;
 	}
+	SDL_UnlockTexture(data->texture);
+
+	SDL_RenderClear(data->renderer);
+	SDL_RenderCopy(data->renderer, data->texture, NULL, NULL);
+	SDL_RenderPresent(data->renderer);
+
+	if (map)
+		munmap(map, buf->datas[0].maxsize);
+
+	handle_events(data);
+
+	port->io.status = SPA_RESULT_NEED_BUFFER;
+
+	return SPA_RESULT_NEED_BUFFER;
+}
+
+static int impl_node_process_output(struct pw_node *node)
+{
+	return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static const struct pw_node_implementation impl_node = {
+	PW_VERSION_NODE_IMPLEMENTATION,
+	impl_node_get_props,
+	impl_node_set_props,
+	impl_node_send_command,
+	impl_node_add_port,
+	impl_node_process_input,
+	impl_node_process_output,
+};
+
+static void make_nodes(struct data *data)
+{
+	struct pw_node_factory *factory;
+	struct pw_properties *props;
+
+	data->node = pw_node_new(data->core, NULL, "SDL-sink", NULL, 0);
+	data->node->user_data = data;
+	data->node->implementation = &impl_node;
+
+	data->port = pw_port_new(PW_DIRECTION_INPUT, 0, 0);
+	data->port->user_data = data;
+	data->port->implementation = &impl_port;
+	pw_port_add(data->port, data->node);
+	pw_node_export(data->node);
+
+	factory = pw_core_find_node_factory(data->core, "spa-node-factory");
+
+	props = pw_properties_new("spa.library.name", "v4l2/libspa-v4l2",
+				  "spa.factory.name", "v4l2-source", NULL);
+	data->v4l2 = pw_node_factory_create_node(factory, NULL, "v4l2-source", props);
+
+	data->link = pw_link_new(data->core,
+				 pw_node_get_free_port(data->v4l2, PW_DIRECTION_OUTPUT),
+				 data->port,
+				 NULL,
+				 NULL,
+				 NULL);
+	pw_link_activate(data->link);
 }
 
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
+	char *err;
 
 	pw_init(&argc, &argv);
 
 	data.loop = pw_loop_new();
 	data.running = true;
 	data.core = pw_core_new(data.loop, NULL);
-	data.remote = pw_remote_new(data.core, NULL);
 	data.path = argc > 1 ? argv[1] : NULL;
+
+	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, &err);
 
 	init_type(&data.type, data.core->type.map);
 
@@ -398,9 +518,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	pw_signal_add(&data.remote->state_changed, &data.on_state_changed, on_state_changed);
-
-	pw_remote_connect(data.remote);
+	make_nodes(&data);
 
 	pw_loop_enter(data.loop);
 	while (data.running) {
@@ -408,7 +526,6 @@ int main(int argc, char *argv[])
 	}
 	pw_loop_leave(data.loop);
 
-	pw_remote_destroy(data.remote);
 	pw_loop_destroy(data.loop);
 
 	return 0;

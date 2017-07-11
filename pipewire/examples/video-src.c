@@ -64,7 +64,8 @@ struct data {
 	struct pw_loop *loop;
 	struct spa_source *timer;
 
-	struct pw_context *context;
+	struct pw_core *core;
+	struct pw_remote *remote;
 	struct pw_listener on_state_changed;
 
 	struct pw_stream *stream;
@@ -175,7 +176,8 @@ on_stream_format_changed(struct pw_listener *listener,
 			 struct pw_stream *stream, struct spa_format *format)
 {
 	struct data *data = SPA_CONTAINER_OF(listener, struct data, on_stream_format_changed);
-	struct pw_context *ctx = stream->context;
+	struct pw_remote *remote = stream->remote;
+	struct pw_core *core = remote->core;
 	struct spa_pod_builder b = { NULL };
 	struct spa_pod_frame f[2];
 	struct spa_param *params[2];
@@ -189,49 +191,49 @@ on_stream_format_changed(struct pw_listener *listener,
 	data->stride = SPA_ROUND_UP_N(data->format.size.width * BPP, 4);
 
 	spa_pod_builder_init(&b, data->params_buffer, sizeof(data->params_buffer));
-	spa_pod_builder_object(&b, &f[0], 0, ctx->type.param_alloc_buffers.Buffers,
-		PROP(&f[1], ctx->type.param_alloc_buffers.size, SPA_POD_TYPE_INT,
+	spa_pod_builder_object(&b, &f[0], 0, core->type.param_alloc_buffers.Buffers,
+		PROP(&f[1], core->type.param_alloc_buffers.size, SPA_POD_TYPE_INT,
 			data->stride * data->format.size.height),
-		PROP(&f[1], ctx->type.param_alloc_buffers.stride, SPA_POD_TYPE_INT,
+		PROP(&f[1], core->type.param_alloc_buffers.stride, SPA_POD_TYPE_INT,
 			data->stride),
-		PROP_U_MM(&f[1], ctx->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
+		PROP_U_MM(&f[1], core->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
 			32,
 			2, 32),
-		PROP(&f[1], ctx->type.param_alloc_buffers.align, SPA_POD_TYPE_INT,
+		PROP(&f[1], core->type.param_alloc_buffers.align, SPA_POD_TYPE_INT,
 			16));
 	params[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
 
-	spa_pod_builder_object(&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
-		PROP(&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID,
-			ctx->type.meta.Header),
-		PROP(&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT,
+	spa_pod_builder_object(&b, &f[0], 0, core->type.param_alloc_meta_enable.MetaEnable,
+		PROP(&f[1], core->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID,
+			core->type.meta.Header),
+		PROP(&f[1], core->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT,
 			sizeof(struct spa_meta_header)));
 	params[1] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
 
 	pw_stream_finish_format(stream, SPA_RESULT_OK, params, 2);
 }
 
-static void on_state_changed(struct pw_listener *listener, struct pw_context *context)
+static void on_state_changed(struct pw_listener *listener, struct pw_remote *remote)
 {
 	struct data *data = SPA_CONTAINER_OF(listener, struct data, on_state_changed);
 
-	switch (context->state) {
-	case PW_CONTEXT_STATE_ERROR:
-		printf("context error: %s\n", context->error);
+	switch (remote->state) {
+	case PW_REMOTE_STATE_ERROR:
+		printf("remote error: %s\n", remote->error);
 		data->running = false;
 		break;
 
-	case PW_CONTEXT_STATE_CONNECTED:
+	case PW_REMOTE_STATE_CONNECTED:
 	{
 		const struct spa_format *formats[1];
 		uint8_t buffer[1024];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 		struct spa_pod_frame f[2];
 
-		printf("context state: \"%s\"\n",
-		       pw_context_state_as_string(context->state));
+		printf("remote state: \"%s\"\n",
+		       pw_remote_state_as_string(remote->state));
 
-		data->stream = pw_stream_new(context, "video-src", NULL);
+		data->stream = pw_stream_new(remote, "video-src", NULL);
 
 		spa_pod_builder_format(&b, &f[0], data->type.format,
 			data->type.media_type.video,
@@ -257,7 +259,7 @@ static void on_state_changed(struct pw_listener *listener, struct pw_context *co
 		break;
 	}
 	default:
-		printf("context state: \"%s\"\n", pw_context_state_as_string(context->state));
+		printf("remote state: \"%s\"\n", pw_remote_state_as_string(remote->state));
 		break;
 	}
 }
@@ -270,15 +272,16 @@ int main(int argc, char *argv[])
 
 	data.loop = pw_loop_new();
 	data.running = true;
-	data.context = pw_context_new(data.loop, "video-src", NULL);
+	data.core = pw_core_new(data.loop, NULL);
+	data.remote = pw_remote_new(data.core, NULL);
 
-	init_type(&data.type, data.context->type.map);
+	init_type(&data.type, data.core->type.map);
 
 	data.timer = pw_loop_add_timer(data.loop, on_timeout, &data);
 
-	pw_signal_add(&data.context->state_changed, &data.on_state_changed, on_state_changed);
+	pw_signal_add(&data.remote->state_changed, &data.on_state_changed, on_state_changed);
 
-	pw_context_connect(data.context, PW_CONTEXT_FLAG_NO_REGISTRY);
+	pw_remote_connect(data.remote);
 
 	pw_loop_enter(data.loop);
 	while (data.running) {
@@ -286,7 +289,7 @@ int main(int argc, char *argv[])
 	}
 	pw_loop_leave(data.loop);
 
-	pw_context_destroy(data.context);
+	pw_remote_destroy(data.remote);
 	pw_loop_destroy(data.loop);
 
 	return 0;

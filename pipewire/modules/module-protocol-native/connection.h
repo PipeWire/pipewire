@@ -61,12 +61,20 @@ pw_connection_get_next(struct pw_connection *conn,
 		       uint32_t *dest_id,
 		       void **data, uint32_t *size);
 
-void *
-pw_connection_begin_write(struct pw_connection *conn, uint32_t size);
+struct spa_pod_builder *
+pw_connection_begin_write_resource(struct pw_connection *conn,
+				   struct pw_resource *resource,
+				   uint8_t opcode);
+
+struct spa_pod_builder *
+pw_connection_begin_write_proxy(struct pw_connection *conn,
+				struct pw_proxy *proxy,
+				uint8_t opcode);
+
 
 void
 pw_connection_end_write(struct pw_connection *conn,
-			uint32_t dest_id, uint8_t opcode, uint32_t size);
+			struct spa_pod_builder *builder);
 
 bool
 pw_connection_flush(struct pw_connection *conn);

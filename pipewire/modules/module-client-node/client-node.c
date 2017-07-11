@@ -1132,41 +1132,33 @@ static void on_node_free(struct pw_listener *listener, struct pw_node *node)
  *
  * \memberof pw_client_node
  */
-struct pw_client_node *pw_client_node_new(struct pw_client *client,
-					  uint32_t id,
+struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 					  const char *name,
 					  struct pw_properties *properties)
 {
 	struct impl *impl;
 	struct pw_client_node *this;
+	struct pw_core *core = resource->client->core;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return NULL;
 
 	this = &impl->this;
-	this->client = client;
 
-	impl->core = client->core;
+	impl->core = core;
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug("client-node %p: new", impl);
 
-	impl->type_client_node = spa_type_map_get_id(client->core->type.map, PIPEWIRE_TYPE__ClientNode);
+	impl->type_client_node = spa_type_map_get_id(core->type.map, PIPEWIRE_TYPE__ClientNode);
 
 	pw_signal_init(&this->destroy_signal);
 
-	proxy_init(&impl->proxy, NULL, client->core->support, client->core->n_support);
+	proxy_init(&impl->proxy, NULL, core->support, core->n_support);
 	impl->proxy.impl = impl;
 
-	this->resource = pw_resource_new(client,
-					 id,
-					 impl->type_client_node,
-					 0);
-
-	if (this->resource == NULL)
-		goto error_no_resource;
-
-	this->node = pw_spa_node_new(client->core,
+	this->resource = resource;
+	this->node = pw_spa_node_new(core,
 				     this->resource,
 				     name,
 				     true,
@@ -1192,7 +1184,6 @@ struct pw_client_node *pw_client_node_new(struct pw_client *client,
 
       error_no_node:
 	pw_resource_destroy(this->resource);
-      error_no_resource:
 	proxy_clear(&impl->proxy);
 	free(impl);
 	return NULL;

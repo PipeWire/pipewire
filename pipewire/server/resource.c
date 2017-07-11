@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "pipewire/client/interfaces.h"
+#include "pipewire/client/protocol.h"
 #include "pipewire/server/resource.h"
 
 /** \cond */

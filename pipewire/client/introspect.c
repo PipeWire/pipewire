@@ -21,7 +21,7 @@
 
 #include "pipewire/client/pipewire.h"
 
-#include "pipewire/client/context.h"
+#include "pipewire/server/remote.h"
 #include "pipewire/client/subscribe.h"
 
 const char *pw_node_state_as_string(enum pw_node_state state)
@@ -118,8 +118,6 @@ static struct spa_dict *pw_spa_dict_copy(struct spa_dict *dict)
 struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 					 const struct pw_core_info *update)
 {
-	uint64_t change_mask;
-
 	if (update == NULL)
 		return info;
 
@@ -127,12 +125,9 @@ struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 		info = calloc(1, sizeof(struct pw_core_info));
 		if (info == NULL)
 			return NULL;
-		change_mask = ~0;
-	} else {
-		change_mask = info->change_mask | update->change_mask;
 	}
 	info->id = update->id;
-	info->change_mask = change_mask;
+	info->change_mask = update->change_mask;
 
 	if (update->change_mask & (1 << 0)) {
 		if (info->user_name)
@@ -182,7 +177,6 @@ void pw_core_info_free(struct pw_core_info *info)
 struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 					 const struct pw_node_info *update)
 {
-	uint64_t change_mask;
 	int i;
 
 	if (update == NULL)
@@ -192,12 +186,9 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 		info = calloc(1, sizeof(struct pw_node_info));
 		if (info == NULL)
 			return NULL;
-		change_mask = ~0;
-	} else {
-		change_mask = info->change_mask | update->change_mask;
 	}
 	info->id = update->id;
-	info->change_mask = change_mask;
+	info->change_mask = update->change_mask;
 
 	if (update->change_mask & (1 << 0)) {
 		if (info->name)
@@ -285,8 +276,6 @@ void pw_node_info_free(struct pw_node_info *info)
 struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 					     const struct pw_module_info *update)
 {
-	uint64_t change_mask;
-
 	if (update == NULL)
 		return info;
 
@@ -294,12 +283,9 @@ struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 		info = calloc(1, sizeof(struct pw_module_info));
 		if (info == NULL)
 			return NULL;
-		change_mask = ~0;
-	} else {
-		change_mask = info->change_mask | update->change_mask;
 	}
 	info->id = update->id;
-	info->change_mask = change_mask;
+	info->change_mask = update->change_mask;
 
 	if (update->change_mask & (1 << 0)) {
 		if (info->name)
@@ -341,8 +327,6 @@ void pw_module_info_free(struct pw_module_info *info)
 struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
 					     const struct pw_client_info *update)
 {
-	uint64_t change_mask;
-
 	if (update == NULL)
 		return info;
 
@@ -350,12 +334,9 @@ struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
 		info = calloc(1, sizeof(struct pw_client_info));
 		if (info == NULL)
 			return NULL;
-		change_mask = ~0;
-	} else {
-		change_mask = info->change_mask | update->change_mask;
 	}
 	info->id = update->id;
-	info->change_mask = change_mask;
+	info->change_mask = update->change_mask;
 
 	if (update->change_mask & (1 << 0)) {
 		if (info->props)
@@ -375,8 +356,6 @@ void pw_client_info_free(struct pw_client_info *info)
 struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 					 const struct pw_link_info *update)
 {
-	uint64_t change_mask;
-
 	if (update == NULL)
 		return info;
 
@@ -384,12 +363,9 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 		info = calloc(1, sizeof(struct pw_link_info));
 		if (info == NULL)
 			return NULL;
-		change_mask = ~0;
-	} else {
-		change_mask = info->change_mask | update->change_mask;
 	}
 	info->id = update->id;
-	info->change_mask = change_mask;
+	info->change_mask = update->change_mask;
 
 	if (update->change_mask & (1 << 0))
 		info->output_node_id = update->output_node_id;

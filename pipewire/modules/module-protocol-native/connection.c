@@ -27,9 +27,8 @@
 
 #include <spa/lib/debug.h>
 
-#include "pipewire.h"
+#include <pipewire/client/pipewire.h>
 #include "connection.h"
-#include "log.h"
 
 /** \cond */
 
@@ -52,10 +51,14 @@ struct buffer {
 	bool update;
 };
 
-struct pw_connection_impl {
+struct impl {
 	struct pw_connection this;
 
 	struct buffer in, out;
+
+	uint32_t dest_id;
+	uint8_t opcode;
+	struct spa_pod_builder builder;
 };
 
 /** \endcond */
@@ -70,7 +73,7 @@ struct pw_connection_impl {
  */
 int pw_connection_get_fd(struct pw_connection *conn, uint32_t index)
 {
-	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 
 	if (index < 0 || index >= impl->in.n_fds)
 		return -1;
@@ -88,7 +91,7 @@ int pw_connection_get_fd(struct pw_connection *conn, uint32_t index)
  */
 uint32_t pw_connection_add_fd(struct pw_connection *conn, int fd)
 {
-	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	uint32_t index, i;
 
 	for (i = 0; i < impl->out.n_fds; i++) {
@@ -186,10 +189,10 @@ static void clear_buffer(struct buffer *buf)
  */
 struct pw_connection *pw_connection_new(int fd)
 {
-	struct pw_connection_impl *impl;
+	struct impl *impl;
 	struct pw_connection *this;
 
-	impl = calloc(1, sizeof(struct pw_connection_impl));
+	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return NULL;
 
@@ -229,7 +232,7 @@ struct pw_connection *pw_connection_new(int fd)
  */
 void pw_connection_destroy(struct pw_connection *conn)
 {
-	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 
 	pw_log_debug("connection %p: destroy", conn);
 
@@ -261,7 +264,7 @@ pw_connection_get_next(struct pw_connection *conn,
 		       void **dt,
 		       uint32_t *sz)
 {
-	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	size_t len, size;
 	uint8_t *data;
 	struct buffer *buf;
@@ -326,20 +329,9 @@ pw_connection_get_next(struct pw_connection *conn,
 	return true;
 }
 
-/** Start writing \a size bytes
- *
- * \param conn the connection
- * \param size the number of bytes to write
- * \return memory to write into
- *
- * Makes sure that \a size bytes can be written to \a conn and
- * returns a pointer to the memory to write into
- *
- * \memberof pw_connection
- */
-void *pw_connection_begin_write(struct pw_connection *conn, uint32_t size)
+static inline void *begin_write(struct pw_connection *conn, uint32_t size)
 {
-	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	uint32_t *p;
 	struct buffer *buf = &impl->out;
 	/* 4 for dest_id, 1 for opcode, 3 for size and size for payload */
@@ -347,28 +339,91 @@ void *pw_connection_begin_write(struct pw_connection *conn, uint32_t size)
 	return p + 2;
 }
 
-/** End writing to the connection
- *
- * \param conn the connection
- * \param dest_id the destination id
- * \param opcode the opcode
- * \param size the total written size
- *
- * Finnish writing a message of \a size to \a conn and write the
- * \a dest_id and \a opcode and final size to the connection
- *
- * \memberof pw_connection
- */
-void
-pw_connection_end_write(struct pw_connection *conn, uint32_t dest_id, uint8_t opcode, uint32_t size)
+static uint32_t write_pod(struct spa_pod_builder *b, uint32_t ref, const void *data, uint32_t size)
 {
-	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
-	uint32_t *p;
+	struct impl *impl = SPA_CONTAINER_OF(b, struct impl, builder);
+
+        if (ref == -1)
+                ref = b->offset;
+
+        if (b->size <= b->offset) {
+                b->size = SPA_ROUND_UP_N(b->offset + size, 4096);
+                b->data = begin_write(&impl->this, b->size);
+        }
+        memcpy(b->data + ref, data, size);
+
+        return ref;
+}
+
+struct spa_pod_builder *
+pw_connection_begin_write_resource(struct pw_connection *conn,
+                                   struct pw_resource *resource,
+				   uint8_t opcode)
+{
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
+        uint32_t diff, base, i, b;
+        struct pw_client *client = resource->client;
+        struct pw_core *core = client->core;
+        const char **types;
+
+        base = client->n_types;
+        diff = spa_type_map_get_size(core->type.map) - base;
+        if (diff > 0) {
+		types = alloca(diff * sizeof(char *));
+	        for (i = 0, b = base; i < diff; i++, b++)
+	                types[i] = spa_type_map_get_type(core->type.map, b);
+
+	        client->n_types += diff;
+	        pw_core_notify_update_types(client->core_resource, base, diff, types);
+	}
+
+	impl->dest_id = resource->id;
+	impl->opcode = opcode;
+	impl->builder = (struct spa_pod_builder) { NULL, 0, 0, NULL, write_pod };
+
+	return &impl->builder;
+}
+
+struct spa_pod_builder *
+pw_connection_begin_write_proxy(struct pw_connection *conn,
+                                struct pw_proxy *proxy,
+				uint8_t opcode)
+{
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
+        uint32_t diff, base, i, b;
+        const char **types;
+        struct pw_remote *remote = proxy->remote;
+        struct pw_core *core = remote->core;
+
+        base = remote->n_types;
+        diff = spa_type_map_get_size(core->type.map) - base;
+        if (diff > 0) {
+		types = alloca(diff * sizeof(char *));
+	        for (i = 0, b = base; i < diff; i++, b++)
+	                types[i] = spa_type_map_get_type(core->type.map, b);
+
+	        remote->n_types += diff;
+	        pw_core_do_update_types(remote->core_proxy, base, diff, types);
+	}
+
+	impl->dest_id = proxy->id;
+	impl->opcode = opcode;
+	impl->builder = (struct spa_pod_builder) { NULL, 0, 0, NULL, write_pod };
+
+	return &impl->builder;
+}
+
+void
+pw_connection_end_write(struct pw_connection *conn,
+                        struct spa_pod_builder *builder)
+{
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
+	uint32_t *p, size = builder->offset;
 	struct buffer *buf = &impl->out;
 
 	p = connection_ensure_size(conn, buf, 8 + size);
-	*p++ = dest_id;
-	*p++ = (opcode << 24) | (size & 0xffffff);
+	*p++ = impl->dest_id;
+	*p++ = (impl->opcode << 24) | (size & 0xffffff);
 
 	buf->buffer_size += 8 + size;
 
@@ -391,7 +446,7 @@ pw_connection_end_write(struct pw_connection *conn, uint32_t dest_id, uint8_t op
  */
 bool pw_connection_flush(struct pw_connection *conn)
 {
-	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	ssize_t len;
 	struct msghdr msg = { 0 };
 	struct iovec iov[1];
@@ -463,7 +518,7 @@ bool pw_connection_flush(struct pw_connection *conn)
  */
 bool pw_connection_clear(struct pw_connection *conn)
 {
-	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 
 	clear_buffer(&impl->out);
 	clear_buffer(&impl->in);

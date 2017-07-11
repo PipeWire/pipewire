@@ -23,7 +23,7 @@
 #include <spa/buffer.h>
 #include <spa/format.h>
 
-#include <pipewire/client/context.h>
+#include <pipewire/server/remote.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -204,8 +204,8 @@ struct pw_time {
  * See also \ref page_streams and \ref page_client_api
  */
 struct pw_stream {
-	struct pw_context *context;	/**< the owner context */
-	struct spa_list link;		/**< link in the context */
+	struct pw_remote *remote;	/**< the owner remote */
+	struct spa_list link;		/**< link in the remote */
 
 	char *name;				/**< the name of the stream */
 	uint32_t node_id;			/**< node id for remote node, available from
@@ -243,7 +243,7 @@ struct pw_stream {
 /** Create a new unconneced \ref pw_stream \memberof pw_stream
  * \return a newly allocated \ref pw_stream */
 struct pw_stream *
-pw_stream_new(struct pw_context *context,	/**< a \ref pw_context */
+pw_stream_new(struct pw_remote *remote,		/**< a \ref pw_remote */
 	      const char *name,			/**< a stream name */
 	      struct pw_properties *props	/**< stream properties, ownership is taken */);
 

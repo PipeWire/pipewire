@@ -27,9 +27,6 @@
 extern "C" {
 #endif
 
-struct pw_context;
-
-#include <pipewire/client/context.h>
 #include <pipewire/client/properties.h>
 
 /** \enum pw_node_state The different node states \memberof pw_node */
@@ -102,19 +99,6 @@ pw_core_info_update(struct pw_core_info *info,
 /** Free a \ref pw_core_info  \memberof pw_introspect */
 void pw_core_info_free(struct pw_core_info *info);
 
-/**  Callback with information about the PipeWire core
- * \param c A \ref pw_context
- * \param res A result code
- * \param info a \ref pw_core_info
- * \param user_data user data as passed to \ref pw_context_get_core_info()
- *
- * \memberof pw_introspect
- */
-typedef void (*pw_core_info_cb_t) (struct pw_context *c,
-				   int res, const struct pw_core_info *info, void *user_data);
-
-void pw_context_get_core_info(struct pw_context *context, pw_core_info_cb_t cb, void *user_data);
-
 /** The module information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_module_info {
 	uint32_t id;		/**< server side id of the module */
@@ -133,28 +117,6 @@ pw_module_info_update(struct pw_module_info *info,
 /** Free a \ref pw_module_info \memberof pw_introspect */
 void pw_module_info_free(struct pw_module_info *info);
 
-
-
-/** Callback with information about a module
- * \param c A \ref pw_context
- * \param res A result code
- * \param info a \ref pw_module_info
- * \param user_data user data as passed to \ref pw_context_list_module_info()
- *
- * \memberof pw_introspect
- */
-typedef void (*pw_module_info_cb_t) (struct pw_context *c,
-				     int res, const struct pw_module_info *info, void *user_data);
-
-void
-pw_context_list_module_info(struct pw_context *context,
-			    pw_module_info_cb_t cb, void *user_data);
-
-
-void
-pw_context_get_module_info_by_id(struct pw_context *context,
-				 uint32_t id, pw_module_info_cb_t cb, void *user_data);
-
 /** The client information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_client_info {
 	uint32_t id;		/**< server side id of the client */
@@ -170,25 +132,6 @@ pw_client_info_update(struct pw_client_info *info,
 /** Free a \ref pw_client_info \memberof pw_introspect */
 void pw_client_info_free(struct pw_client_info *info);
 
-
-/** Callback with information about a client
- * \param c A \ref pw_context
- * \param res A result code
- * \param info a \ref pw_client_info
- * \param user_data user data as passed to \ref pw_context_list_client_info()
- *
- * \memberof pw_introspect
- */
-typedef void (*pw_client_info_cb_t) (struct pw_context *c,
-				     int res, const struct pw_client_info *info, void *user_data);
-
-void
-pw_context_list_client_info(struct pw_context *context,
-			    pw_client_info_cb_t cb, void *user_data);
-
-void
-pw_context_get_client_info_by_id(struct pw_context *context,
-				 uint32_t id, pw_client_info_cb_t cb, void *user_data);
 
 /** The node information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_node_info {
@@ -215,24 +158,6 @@ pw_node_info_update(struct pw_node_info *info,
 void
 pw_node_info_free(struct pw_node_info *info);
 
-/** Callback with information about a node
- * \param c A \ref pw_context
- * \param res A result code
- * \param info a \ref pw_node_info
- * \param user_data user data as passed to \ref pw_context_list_node_info()
- *
- * \memberof pw_introspect
- */
-typedef void (*pw_node_info_cb_t) (struct pw_context *c,
-				   int res, const struct pw_node_info *info, void *user_data);
-
-void
-pw_context_list_node_info(struct pw_context *context, pw_node_info_cb_t cb, void *user_data);
-
-void
-pw_context_get_node_info_by_id(struct pw_context *context,
-			       uint32_t id, pw_node_info_cb_t cb, void *user_data);
-
 
 /** The link information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_link_info {
@@ -251,25 +176,6 @@ pw_link_info_update(struct pw_link_info *info,
 
 void
 pw_link_info_free(struct pw_link_info *info);
-
-
-/** Callback with information about a link
- * \param c A \ref pw_context
- * \param res A result code
- * \param info a \ref pw_link_info
- * \param user_data user data as passed to \ref pw_context_list_link_info()
- *
- * \memberof pw_introspect
- */
-typedef void (*pw_link_info_cb_t) (struct pw_context *c,
-				   int res, const struct pw_link_info *info, void *user_data);
-
-void
-pw_context_list_link_info(struct pw_context *context, pw_link_info_cb_t cb, void *user_data);
-
-void
-pw_context_get_link_info_by_id(struct pw_context *context,
-			       uint32_t id, pw_link_info_cb_t cb, void *user_data);
 
 #ifdef __cplusplus
 }

@@ -24,10 +24,9 @@
 extern "C" {
 #endif
 
-#include <pipewire/client/connection.h>
-#include <pipewire/client/context.h>
 #include <pipewire/client/type.h>
 #include <pipewire/client/utils.h>
+#include <pipewire/server/remote.h>
 
 /** \page page_proxy Proxy
  *
@@ -88,8 +87,8 @@ extern "C" {
  * See \ref page_proxy
  */
 struct pw_proxy {
-	struct pw_context *context;	/**< the owner context of this proxy */
-	struct spa_list link;		/**< link in the context */
+	struct pw_remote *remote;	/**< the owner remote of this proxy */
+	struct spa_list link;		/**< link in the remote */
 
 	uint32_t id;			/**< client side id */
 	uint32_t type;			/**< object type id */
@@ -107,7 +106,7 @@ struct pw_proxy {
 };
 
 struct pw_proxy *
-pw_proxy_new(struct pw_context *context,
+pw_proxy_new(struct pw_remote *remote,
 	     uint32_t id,
 	     uint32_t type,
 	     size_t user_data_size);

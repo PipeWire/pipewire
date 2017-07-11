@@ -106,7 +106,7 @@ static void client_destroy(void *data)
 	struct pw_client *client = data;
 	struct client *this = client->user_data;
 
-	pw_loop_destroy_source(this->impl->core->main_loop->loop, this->source);
+	pw_loop_destroy_source(this->impl->core->main_loop, this->source);
 	spa_list_remove(&this->link);
 
 	close(this->fd);
@@ -407,7 +407,7 @@ on_busy_changed(struct pw_listener *listener,
 	if (!client->busy)
 		mask |= SPA_IO_IN;
 
-	pw_loop_update_io(c->impl->core->main_loop->loop, c->source, mask);
+	pw_loop_update_io(c->impl->core->main_loop, c->source, mask);
 
 	if (!client->busy)
 		process_messages(c);
@@ -453,7 +453,7 @@ static struct client *client_new(struct impl *impl, int fd)
 	this = client->user_data;
 	this->impl = impl;
 	this->fd = fd;
-	this->source = pw_loop_add_io(impl->core->main_loop->loop,
+	this->source = pw_loop_add_io(impl->core->main_loop,
 				      this->fd,
 				      SPA_IO_ERR | SPA_IO_HUP, false, connection_data, this);
 	if (this->source == NULL)
@@ -622,7 +622,7 @@ socket_data(struct spa_loop_utils *utils,
 		return;
 	}
 
-	pw_loop_update_io(impl->core->main_loop->loop,
+	pw_loop_update_io(impl->core->main_loop,
 			  client->source, SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 }
 
@@ -644,7 +644,7 @@ static bool add_socket(struct impl *impl, struct socket *s)
 		return false;
 	}
 
-	s->loop = impl->core->main_loop->loop;
+	s->loop = impl->core->main_loop;
 	s->source = pw_loop_add_io(s->loop, s->fd, SPA_IO_IN, false, socket_data, impl);
 	if (s->source == NULL)
 		return false;

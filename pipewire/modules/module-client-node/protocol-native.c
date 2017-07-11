@@ -24,91 +24,33 @@
 
 #include "pipewire/client/interfaces.h"
 #include "pipewire/client/protocol.h"
-#include "pipewire/client/connection.h"
 #include "pipewire/server/client.h"
 #include "pipewire/extensions/client-node.h"
 
+#include "pipewire/modules/module-protocol-native/connection.h"
+
 /** \cond */
-struct builder {
-	struct spa_pod_builder b;
-	struct pw_connection *connection;
-};
 
 typedef bool(*demarshal_func_t) (void *object, void *data, size_t size);
 
 /** \endcond */
 
-static uint32_t write_pod(struct spa_pod_builder *b, uint32_t ref, const void *data, uint32_t size)
-{
-	if (ref == -1)
-		ref = b->offset;
-
-	if (b->size <= b->offset) {
-		b->size = SPA_ROUND_UP_N(b->offset + size, 4096);
-		b->data = pw_connection_begin_write(((struct builder *) b)->connection, b->size);
-	}
-	memcpy(b->data + ref, data, size);
-	return ref;
-}
-
-static void core_update_map_client(struct pw_context *context)
-{
-	uint32_t diff, base, i;
-	const char **types;
-
-	base = context->n_types;
-	diff = spa_type_map_get_size(context->type.map) - base;
-	if (diff == 0)
-		return;
-
-	types = alloca(diff * sizeof(char *));
-	for (i = 0; i < diff; i++, base++)
-		types[i] = spa_type_map_get_type(context->type.map, base);
-
-	pw_core_do_update_types(context->core_proxy, context->n_types, diff, types);
-	context->n_types += diff;
-}
-
-static void core_update_map_server(struct pw_client *client)
-{
-	uint32_t diff, base, i;
-	struct pw_core *core = client->core;
-	const char **types;
-
-	base = client->n_types;
-	diff = spa_type_map_get_size(core->type.map) - base;
-	if (diff == 0)
-		return;
-
-	types = alloca(diff * sizeof(char *));
-	for (i = 0; i < diff; i++, base++)
-		types[i] = spa_type_map_get_type(core->type.map, base);
-
-	pw_core_notify_update_types(client->core_resource, client->n_types, diff, types);
-	client->n_types += diff;
-}
-
-
 static void
 client_node_marshal_done(void *object, int seq, int res)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_connection *connection = proxy->context->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct pw_connection *connection = proxy->remote->protocol_private;
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	if (connection == NULL)
-		return;
+	b = pw_connection_begin_write_proxy(connection, proxy, PW_CLIENT_NODE_METHOD_DONE);
 
-	core_update_map_client(proxy->context);
-
-	spa_pod_builder_struct(&b.b, &f,
+	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
 			       SPA_POD_TYPE_INT, res);
 
-	pw_connection_end_write(connection, proxy->id, PW_CLIENT_NODE_METHOD_DONE, b.b.offset);
+	pw_connection_end_write(connection, b);
 }
-
 
 
 static void
@@ -118,21 +60,18 @@ client_node_marshal_update(void *object,
 			   uint32_t max_output_ports, const struct spa_props *props)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_connection *connection = proxy->context->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct pw_connection *connection = proxy->remote->protocol_private;
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	if (connection == NULL)
-		return;
+	b = pw_connection_begin_write_proxy(connection, proxy, PW_CLIENT_NODE_METHOD_UPDATE);
 
-	core_update_map_client(proxy->context);
-
-	spa_pod_builder_struct(&b.b, &f,
+	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, change_mask,
 			       SPA_POD_TYPE_INT, max_input_ports,
 			       SPA_POD_TYPE_INT, max_output_ports, SPA_POD_TYPE_POD, props);
 
-	pw_connection_end_write(connection, proxy->id, PW_CLIENT_NODE_METHOD_UPDATE, b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void
@@ -147,78 +86,68 @@ client_node_marshal_port_update(void *object,
 				const struct spa_param **params, const struct spa_port_info *info)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_connection *connection = proxy->context->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct pw_connection *connection = proxy->remote->protocol_private;
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f[2];
 	int i;
 
-	if (connection == NULL)
-		return;
+	b = pw_connection_begin_write_proxy(connection, proxy, PW_CLIENT_NODE_METHOD_PORT_UPDATE);
 
-	core_update_map_client(proxy->context);
-
-	spa_pod_builder_add(&b.b,
+	spa_pod_builder_add(b,
 			    SPA_POD_TYPE_STRUCT, &f[0],
 			    SPA_POD_TYPE_INT, direction,
 			    SPA_POD_TYPE_INT, port_id,
 			    SPA_POD_TYPE_INT, change_mask, SPA_POD_TYPE_INT, n_possible_formats, 0);
 
 	for (i = 0; i < n_possible_formats; i++)
-		spa_pod_builder_add(&b.b, SPA_POD_TYPE_POD, possible_formats[i], 0);
+		spa_pod_builder_add(b, SPA_POD_TYPE_POD, possible_formats[i], 0);
 
-	spa_pod_builder_add(&b.b, SPA_POD_TYPE_POD, format, SPA_POD_TYPE_INT, n_params, 0);
+	spa_pod_builder_add(b, SPA_POD_TYPE_POD, format, SPA_POD_TYPE_INT, n_params, 0);
 
 	for (i = 0; i < n_params; i++) {
 		const struct spa_param *p = params[i];
-		spa_pod_builder_add(&b.b, SPA_POD_TYPE_POD, p, 0);
+		spa_pod_builder_add(b, SPA_POD_TYPE_POD, p, 0);
 	}
 
 	if (info) {
-		spa_pod_builder_add(&b.b,
+		spa_pod_builder_add(b,
 				    SPA_POD_TYPE_STRUCT, &f[1],
 				    SPA_POD_TYPE_INT, info->flags, SPA_POD_TYPE_INT, info->rate, 0);
-		spa_pod_builder_add(&b.b, -SPA_POD_TYPE_STRUCT, &f[1], 0);
+		spa_pod_builder_add(b, -SPA_POD_TYPE_STRUCT, &f[1], 0);
 	} else {
-		spa_pod_builder_add(&b.b, SPA_POD_TYPE_POD, NULL, 0);
+		spa_pod_builder_add(b, SPA_POD_TYPE_POD, NULL, 0);
 	}
-	spa_pod_builder_add(&b.b, -SPA_POD_TYPE_STRUCT, &f[0], 0);
+	spa_pod_builder_add(b, -SPA_POD_TYPE_STRUCT, &f[0], 0);
 
-	pw_connection_end_write(connection, proxy->id, PW_CLIENT_NODE_METHOD_PORT_UPDATE,
-				b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void client_node_marshal_event_method(void *object, struct spa_event *event)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_connection *connection = proxy->context->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct pw_connection *connection = proxy->remote->protocol_private;
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	if (connection == NULL)
-		return;
+	b = pw_connection_begin_write_proxy(connection, proxy, PW_CLIENT_NODE_METHOD_EVENT);
 
-	core_update_map_client(proxy->context);
+	spa_pod_builder_struct(b, &f, SPA_POD_TYPE_POD, event);
 
-	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_POD, event);
-
-	pw_connection_end_write(connection, proxy->id, PW_CLIENT_NODE_METHOD_EVENT, b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void client_node_marshal_destroy(void *object)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_connection *connection = proxy->context->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct pw_connection *connection = proxy->remote->protocol_private;
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	if (connection == NULL)
-		return;
+	b = pw_connection_begin_write_proxy(connection, proxy, PW_CLIENT_NODE_METHOD_DESTROY);
 
-	core_update_map_client(proxy->context);
+	spa_pod_builder_struct(b, &f, 0);
 
-	spa_pod_builder_struct(&b.b, &f, 0);
-
-	pw_connection_end_write(connection, proxy->id, PW_CLIENT_NODE_METHOD_DESTROY, b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static bool client_node_demarshal_set_props(void *object, void *data, size_t size)
@@ -245,7 +174,7 @@ static bool client_node_demarshal_event_event(void *object, void *data, size_t s
 	const struct spa_event *event;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_OBJECT, &event, 0))
 		return false;
 
@@ -295,7 +224,7 @@ static bool client_node_demarshal_set_format(void *object, void *data, size_t si
 	const struct spa_format *format = NULL;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &seq,
 			      SPA_POD_TYPE_INT, &direction,
@@ -318,7 +247,7 @@ static bool client_node_demarshal_set_param(void *object, void *data, size_t siz
 	const struct spa_param *param = NULL;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &seq,
 			      SPA_POD_TYPE_INT, &direction,
@@ -335,12 +264,12 @@ static bool client_node_demarshal_add_mem(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
-	struct pw_connection *connection = proxy->context->protocol_private;
+	struct pw_connection *connection = proxy->remote->protocol_private;
 	uint32_t direction, port_id, mem_id, type, memfd_idx, flags, offset, sz;
 	int memfd;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &direction,
 			      SPA_POD_TYPE_INT, &port_id,
@@ -371,7 +300,7 @@ static bool client_node_demarshal_use_buffers(void *object, void *data, size_t s
 	int i, j;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &seq,
 			      SPA_POD_TYPE_INT, &direction,
@@ -433,7 +362,7 @@ static bool client_node_demarshal_node_command(void *object, void *data, size_t 
 	uint32_t seq;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &seq, SPA_POD_TYPE_OBJECT, &command, 0))
 		return false;
 
@@ -449,7 +378,7 @@ static bool client_node_demarshal_port_command(void *object, void *data, size_t 
 	uint32_t direction, port_id;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &direction,
 			      SPA_POD_TYPE_INT, &port_id,
@@ -467,7 +396,7 @@ static bool client_node_demarshal_transport(void *object, void *data, size_t siz
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
-	struct pw_connection *connection = proxy->context->protocol_private;
+	struct pw_connection *connection = proxy->remote->protocol_private;
 	uint32_t node_id, ridx, widx, memfd_idx, offset, sz;
 	int readfd, writefd, memfd;
 
@@ -498,31 +427,30 @@ client_node_marshal_set_props(void *object, uint32_t seq, const struct spa_props
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	core_update_map_server(resource->client);
+	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_SET_PROPS);
 
-	spa_pod_builder_struct(&b.b, &f,
+	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
 			       SPA_POD_TYPE_POD, props);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_SET_PROPS,
-				b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void client_node_marshal_event_event(void *object, const struct spa_event *event)
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	core_update_map_server(resource->client);
+	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_EVENT);
 
-	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_POD, event);
+	spa_pod_builder_struct(b, &f, SPA_POD_TYPE_POD, event);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_EVENT, b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void
@@ -531,17 +459,16 @@ client_node_marshal_add_port(void *object,
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	core_update_map_server(resource->client);
+	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_ADD_PORT);
 
-	spa_pod_builder_struct(&b.b, &f,
+	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
 			       SPA_POD_TYPE_INT, direction, SPA_POD_TYPE_INT, port_id);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_ADD_PORT,
-				b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void
@@ -550,17 +477,16 @@ client_node_marshal_remove_port(void *object,
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	core_update_map_server(resource->client);
+	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_REMOVE_PORT);
 
-	spa_pod_builder_struct(&b.b, &f,
+	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
 			       SPA_POD_TYPE_INT, direction, SPA_POD_TYPE_INT, port_id);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_REMOVE_PORT,
-				b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void
@@ -573,20 +499,19 @@ client_node_marshal_set_format(void *object,
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	core_update_map_server(resource->client);
+	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_SET_FORMAT);
 
-	spa_pod_builder_struct(&b.b, &f,
+	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
 			       SPA_POD_TYPE_INT, direction,
 			       SPA_POD_TYPE_INT, port_id,
 			       SPA_POD_TYPE_INT, flags,
 			       SPA_POD_TYPE_POD, format);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_SET_FORMAT,
-				b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void
@@ -598,19 +523,18 @@ client_node_marshal_set_param(void *object,
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	core_update_map_server(resource->client);
+	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_SET_PARAM);
 
-	spa_pod_builder_struct(&b.b, &f,
+	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
 			       SPA_POD_TYPE_INT, direction,
 			       SPA_POD_TYPE_INT, port_id,
 			       SPA_POD_TYPE_POD, param);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_SET_PARAM,
-				b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void
@@ -623,12 +547,12 @@ client_node_marshal_add_mem(void *object,
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	core_update_map_server(resource->client);
+	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_ADD_MEM);
 
-	spa_pod_builder_struct(&b.b, &f,
+	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, direction,
 			       SPA_POD_TYPE_INT, port_id,
 			       SPA_POD_TYPE_INT, mem_id,
@@ -637,7 +561,7 @@ client_node_marshal_add_mem(void *object,
 			       SPA_POD_TYPE_INT, flags,
 			       SPA_POD_TYPE_INT, offset, SPA_POD_TYPE_INT, size);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_ADD_MEM, b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void
@@ -649,13 +573,13 @@ client_node_marshal_use_buffers(void *object,
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, j;
 
-	core_update_map_server(resource->client);
+	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_USE_BUFFERS);
 
-	spa_pod_builder_add(&b.b,
+	spa_pod_builder_add(b,
 			    SPA_POD_TYPE_STRUCT, &f,
 			    SPA_POD_TYPE_INT, seq,
 			    SPA_POD_TYPE_INT, direction,
@@ -664,7 +588,7 @@ client_node_marshal_use_buffers(void *object,
 	for (i = 0; i < n_buffers; i++) {
 		struct spa_buffer *buf = buffers[i].buffer;
 
-		spa_pod_builder_add(&b.b,
+		spa_pod_builder_add(b,
 				    SPA_POD_TYPE_INT, buffers[i].mem_id,
 				    SPA_POD_TYPE_INT, buffers[i].offset,
 				    SPA_POD_TYPE_INT, buffers[i].size,
@@ -672,13 +596,13 @@ client_node_marshal_use_buffers(void *object,
 
 		for (j = 0; j < buf->n_metas; j++) {
 			struct spa_meta *m = &buf->metas[j];
-			spa_pod_builder_add(&b.b,
+			spa_pod_builder_add(b,
 					    SPA_POD_TYPE_ID, m->type, SPA_POD_TYPE_INT, m->size, 0);
 		}
-		spa_pod_builder_add(&b.b, SPA_POD_TYPE_INT, buf->n_datas, 0);
+		spa_pod_builder_add(b, SPA_POD_TYPE_INT, buf->n_datas, 0);
 		for (j = 0; j < buf->n_datas; j++) {
 			struct spa_data *d = &buf->datas[j];
-			spa_pod_builder_add(&b.b,
+			spa_pod_builder_add(b,
 					    SPA_POD_TYPE_ID, d->type,
 					    SPA_POD_TYPE_INT, SPA_PTR_TO_UINT32(d->data),
 					    SPA_POD_TYPE_INT, d->flags,
@@ -686,10 +610,9 @@ client_node_marshal_use_buffers(void *object,
 					    SPA_POD_TYPE_INT, d->maxsize, 0);
 		}
 	}
-	spa_pod_builder_add(&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
+	spa_pod_builder_add(b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_USE_BUFFERS,
-				b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void
@@ -697,15 +620,14 @@ client_node_marshal_node_command(void *object, uint32_t seq, const struct spa_co
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	core_update_map_server(resource->client);
+	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_NODE_COMMAND);
 
-	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_INT, seq, SPA_POD_TYPE_POD, command);
+	spa_pod_builder_struct(b, &f, SPA_POD_TYPE_INT, seq, SPA_POD_TYPE_POD, command);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_NODE_COMMAND,
-				b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void
@@ -716,18 +638,17 @@ client_node_marshal_port_command(void *object,
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	core_update_map_server(resource->client);
+	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_PORT_COMMAND);
 
-	spa_pod_builder_struct(&b.b, &f,
+	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, direction,
 			       SPA_POD_TYPE_INT, port_id,
 			       SPA_POD_TYPE_POD, command);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_PORT_COMMAND,
-				b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 static void client_node_marshal_transport(void *object, uint32_t node_id, int readfd, int writefd,
@@ -735,20 +656,19 @@ static void client_node_marshal_transport(void *object, uint32_t node_id, int re
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	core_update_map_server(resource->client);
+	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_TRANSPORT);
 
-	spa_pod_builder_struct(&b.b, &f,
+	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, node_id,
 			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, readfd),
 			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, writefd),
 			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, memfd),
 			       SPA_POD_TYPE_INT, offset, SPA_POD_TYPE_INT, size);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_TRANSPORT,
-				b.b.offset);
+	pw_connection_end_write(connection, b);
 }
 
 

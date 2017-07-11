@@ -84,9 +84,14 @@ struct _GstPipeWireDeviceProvider {
   struct pw_loop *loop;
   struct pw_thread_loop *main_loop;
 
-  struct pw_context *context;
-  struct pw_listener ctx_state_changed;
-  struct pw_listener ctx_subscription;
+  struct pw_core *core;
+  struct pw_remote *remote;
+  struct pw_proxy *registry;
+  gboolean end;
+  gboolean list_only;
+  GList **devices;
+  struct pw_listener remote_state_changed;
+  struct pw_listener on_sync_reply;
 };
 
 struct _GstPipeWireDeviceProviderClass {

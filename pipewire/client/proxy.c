@@ -19,6 +19,7 @@
 
 #include <pipewire/client/log.h>
 #include <pipewire/client/proxy.h>
+#include <pipewire/server/core.h>
 
 /** \cond */
 struct proxy {
@@ -28,7 +29,7 @@ struct proxy {
 
 /** Create a proxy object with a given id and type
  *
- * \param context Context object
+ * \param remote Remote object
  * \param id Id of the new object, SPA_ID_INVALID will choose a new id
  * \param type Type of the proxy object
  * \return A newly allocated proxy object or NULL on failure
@@ -36,11 +37,11 @@ struct proxy {
  * This function creates a new proxy object with the supplied id and type. The
  * proxy object will have an id assigned from the client id space.
  *
- * \sa pw_context
+ * \sa pw_remote
  *
  * \memberof pw_proxy
  */
-struct pw_proxy *pw_proxy_new(struct pw_context *context,
+struct pw_proxy *pw_proxy_new(struct pw_remote *remote,
 			      uint32_t id, uint32_t type,
 			      size_t user_data_size)
 {
@@ -52,14 +53,14 @@ struct pw_proxy *pw_proxy_new(struct pw_context *context,
 		return NULL;
 
 	this = &impl->this;
-	this->context = context;
+	this->remote = remote;
 	this->type = type;
 
 	pw_signal_init(&this->destroy_signal);
 
 	if (id == SPA_ID_INVALID) {
-		id = pw_map_insert_new(&context->objects, this);
-	} else if (!pw_map_insert_at(&context->objects, id, this))
+		id = pw_map_insert_new(&remote->objects, this);
+	} else if (!pw_map_insert_at(&remote->objects, id, this))
 		goto in_use;
 
 	this->id = id;
@@ -67,18 +68,18 @@ struct pw_proxy *pw_proxy_new(struct pw_context *context,
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct proxy), void);
 
-	this->iface = pw_protocol_get_interface(context->protocol,
-						spa_type_map_get_type(context->type.map, type),
+	this->iface = pw_protocol_get_interface(remote->protocol,
+						spa_type_map_get_type(remote->core->type.map, type),
 						false);
 
-	spa_list_insert(&this->context->proxy_list, &this->link);
+	spa_list_insert(&this->remote->proxy_list, &this->link);
 
-	pw_log_debug("proxy %p: new %u", this, this->id);
+	pw_log_debug("proxy %p: new %u, remote %p", this, this->id, remote);
 
 	return this;
 
       in_use:
-	pw_log_error("proxy %p: id %u in use for context %p", this, id, context);
+	pw_log_error("proxy %p: id %u in use for remote %p", this, id, remote);
 	free(impl);
 	return NULL;
 }
@@ -100,7 +101,7 @@ int pw_proxy_set_implementation(struct pw_proxy *proxy,
  *
  * \param proxy Proxy object to destroy
  *
- * \note This is normally called by \ref pw_context when the server
+ * \note This is normally called by \ref pw_remote when the server
  *       decides to destroy the server side object
  * \memberof pw_proxy
  */
@@ -111,7 +112,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	pw_log_debug("proxy %p: destroy %u", proxy, proxy->id);
 	pw_signal_emit(&proxy->destroy_signal, proxy);
 
-	pw_map_remove(&proxy->context->objects, proxy->id);
+	pw_map_remove(&proxy->remote->objects, proxy->id);
 	spa_list_remove(&proxy->link);
 
 	if (proxy->destroy)

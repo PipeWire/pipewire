@@ -270,12 +270,26 @@ node_impl_add_port(struct pw_node *node,
 	return make_port(node, direction, port_id);
 }
 
+static int node_impl_schedule_input(struct pw_node *node)
+{
+	struct impl *impl = node->user_data;
+	return spa_node_process_input(impl->node);
+}
+
+static int node_impl_schedule_output(struct pw_node *node)
+{
+	struct impl *impl = node->user_data;
+	return spa_node_process_output(impl->node);
+}
+
 static const struct pw_node_implementation node_impl = {
 	PW_VERSION_NODE_IMPLEMENTATION,
 	node_impl_get_props,
 	node_impl_set_props,
 	node_impl_send_command,
 	node_impl_add_port,
+	node_impl_schedule_input,
+	node_impl_schedule_output,
 };
 
 static void pw_spa_node_destroy(void *object)
@@ -347,16 +361,16 @@ on_node_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id
 {
         struct impl *impl = user_data;
         struct pw_node *this = impl->this;
-        struct spa_graph_port *p;
+        struct spa_graph_port *p, *pp;
 
         spa_list_for_each(p, &this->rt.node.ports[SPA_DIRECTION_INPUT], link) {
 		if (p->port_id != port_id)
 			continue;
 
-		if (p->peer && p->peer->node->methods->reuse_buffer) {
-			struct spa_graph_node *n = p->peer->node;
-			n->methods->reuse_buffer(p->peer, buffer_id, n->user_data);
-		}
+		pp = p->peer;
+		if (pp && pp->methods->reuse_buffer)
+			pp->methods->reuse_buffer(pp, buffer_id, pp->user_data);
+
 		break;
 	}
 }
@@ -403,8 +417,6 @@ pw_spa_node_new(struct pw_core *core,
 
 	this->destroy = pw_spa_node_destroy;
 	this->implementation = &node_impl;
-	this->rt.methods = spa_graph_scheduler_default;
-	this->rt.node.user_data = node;
 	this->clock = clock;
 
 	impl = this->user_data;

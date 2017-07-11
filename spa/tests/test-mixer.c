@@ -418,17 +418,20 @@ static int make_nodes(struct data *data, const char *device)
 	spa_node_port_set_io(data->sink, SPA_DIRECTION_INPUT, 0, &data->mix_sink_io[0]);
 
 #ifdef USE_GRAPH
-	spa_graph_node_init(&data->source1_node, &spa_graph_scheduler_default, data->source1);
+	spa_graph_node_init(&data->source1_node);
+	spa_graph_node_set_methods(&data->source1_node, &spa_graph_scheduler_default, data->source1);
 	spa_graph_port_init(&data->source1_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->source1_mix_io[0]);
 	spa_graph_port_add(&data->source1_node, &data->source1_out);
 	spa_graph_node_add(&data->graph, &data->source1_node);
 
-	spa_graph_node_init(&data->source2_node, &spa_graph_scheduler_default, data->source2);
+	spa_graph_node_init(&data->source2_node);
+	spa_graph_node_set_methods(&data->source2_node, &spa_graph_scheduler_default, data->source2);
 	spa_graph_port_init(&data->source2_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->source2_mix_io[0]);
 	spa_graph_port_add(&data->source2_node, &data->source2_out);
 	spa_graph_node_add(&data->graph, &data->source2_node);
 
-	spa_graph_node_init(&data->mix_node, &spa_graph_scheduler_default, data->mix);
+	spa_graph_node_init(&data->mix_node);
+	spa_graph_node_set_methods(&data->mix_node, &spa_graph_scheduler_default, data->mix);
 	spa_graph_port_init(&data->mix_in[0], SPA_DIRECTION_INPUT,
 			    data->mix_ports[0], 0, &data->source1_mix_io[0]);
 	spa_graph_port_add(&data->mix_node, &data->mix_in[0]);
@@ -443,7 +446,8 @@ static int make_nodes(struct data *data, const char *device)
 	spa_graph_port_init(&data->mix_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->mix_sink_io[0]);
 	spa_graph_port_add(&data->mix_node, &data->mix_out);
 
-	spa_graph_node_init(&data->sink_node, &spa_graph_scheduler_default, data->sink);
+	spa_graph_node_init(&data->sink_node);
+	spa_graph_node_set_methods(&data->sink_node, &spa_graph_scheduler_default, data->sink);
 	spa_graph_port_init(&data->sink_in, SPA_DIRECTION_INPUT, 0, 0, &data->mix_sink_io[0]);
 	spa_graph_port_add(&data->sink_node, &data->sink_in);
 	spa_graph_node_add(&data->graph, &data->sink_node);

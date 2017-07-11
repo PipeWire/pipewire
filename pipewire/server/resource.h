@@ -30,6 +30,7 @@ extern "C" {
 #include <spa/list.h>
 
 #include <pipewire/client/sig.h>
+#include <pipewire/client/utils.h>
 #include <pipewire/server/core.h>
 
 /** \page page_resource Resource

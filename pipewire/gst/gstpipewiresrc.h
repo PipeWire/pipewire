@@ -67,8 +67,9 @@ struct _GstPipeWireSrc {
   struct pw_loop *loop;
   struct pw_thread_loop *main_loop;
 
-  struct pw_context *ctx;
-  struct pw_listener ctx_state_changed;
+  struct pw_core *core;
+  struct pw_remote *remote;
+  struct pw_listener remote_state_changed;
 
   struct pw_stream *stream;
   struct pw_listener stream_state_changed;

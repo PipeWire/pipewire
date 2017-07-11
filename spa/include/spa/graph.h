@@ -46,8 +46,14 @@ struct spa_graph {
 struct spa_graph_node_methods {
 	uint32_t version;
 
-	int (*schedule_input) (struct spa_graph_node *node, void *user_data);
-	int (*schedule_output) (struct spa_graph_node *node, void *user_data);
+	int (*process_input) (struct spa_graph_node *node, void *user_data);
+	int (*process_output) (struct spa_graph_node *node, void *user_data);
+};
+
+#define SPA_VERSION_GRAPH_PORT_METHODS	0
+struct spa_graph_port_methods {
+	uint32_t version;
+
 	int (*reuse_buffer) (struct spa_graph_port *port, uint32_t buffer_id, void *user_data);
 };
 
@@ -62,11 +68,11 @@ struct spa_graph_node {
 #define SPA_GRAPH_ACTION_IN      1
 #define SPA_GRAPH_ACTION_OUT     2
 	uint32_t action;
-	const struct spa_graph_node_methods *methods;
-	void *user_data;
 	uint32_t max_in;
 	uint32_t required_in;
 	uint32_t ready_in;
+	const struct spa_graph_node_methods *methods;
+	void *user_data;
 };
 
 struct spa_graph_port {
@@ -77,6 +83,8 @@ struct spa_graph_port {
 	uint32_t flags;
 	struct spa_port_io *io;
 	struct spa_graph_port *peer;
+	const struct spa_graph_port_methods *methods;
+	void *user_data;
 };
 
 static inline void spa_graph_init(struct spa_graph *graph)
@@ -85,17 +93,22 @@ static inline void spa_graph_init(struct spa_graph *graph)
 }
 
 static inline void
-spa_graph_node_init(struct spa_graph_node *node,
-		    const struct spa_graph_node_methods *methods,
-		    void *user_data)
+spa_graph_node_init(struct spa_graph_node *node)
 {
 	spa_list_init(&node->ports[SPA_DIRECTION_INPUT]);
 	spa_list_init(&node->ports[SPA_DIRECTION_OUTPUT]);
 	node->flags = 0;
-	node->methods = methods;
-	node->user_data = user_data;
 	node->max_in = node->required_in = node->ready_in = 0;
 	debug("node %p init\n", node);
+}
+
+static inline void
+spa_graph_node_set_methods(struct spa_graph_node *node,
+			   const struct spa_graph_node_methods *methods,
+			   void *user_data)
+{
+	node->methods = methods;
+	node->user_data = user_data;
 }
 
 static inline void
@@ -121,6 +134,15 @@ spa_graph_port_init(struct spa_graph_port *port,
 	port->port_id = port_id;
 	port->flags = flags;
 	port->io = io;
+}
+
+static inline void
+spa_graph_port_set_methods(struct spa_graph_port *port,
+			   const struct spa_graph_port_methods *methods,
+			   void *user_data)
+{
+	port->methods = methods;
+	port->user_data = user_data;
 }
 
 static inline void

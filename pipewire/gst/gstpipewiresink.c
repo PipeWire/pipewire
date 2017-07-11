@@ -235,7 +235,8 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
 static void
 pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 {
-  struct pw_context *ctx = sink->stream->context;
+  struct pw_remote *remote = sink->stream->remote;
+  struct pw_core *core = remote->core;
   GstStructure *config;
   GstCaps *caps;
   guint size;
@@ -250,36 +251,36 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_push_object (&b, &f[0], 0, ctx->type.param_alloc_buffers.Buffers);
+  spa_pod_builder_push_object (&b, &f[0], 0, core->type.param_alloc_buffers.Buffers);
   if (size == 0)
     spa_pod_builder_add (&b,
-        PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.size, SPA_POD_TYPE_INT, 0, 0, INT32_MAX), 0);
+        PROP_U_MM (&f[1], core->type.param_alloc_buffers.size, SPA_POD_TYPE_INT, 0, 0, INT32_MAX), 0);
   else
     spa_pod_builder_add (&b,
-        PROP_MM (&f[1], ctx->type.param_alloc_buffers.size, SPA_POD_TYPE_INT, size, size, INT32_MAX), 0);
+        PROP_MM (&f[1], core->type.param_alloc_buffers.size, SPA_POD_TYPE_INT, size, size, INT32_MAX), 0);
 
   spa_pod_builder_add (&b,
-      PROP_MM (&f[1], ctx->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
-      PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, min_buffers, min_buffers, max_buffers ? max_buffers : INT32_MAX),
-      PROP    (&f[1], ctx->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16),
+      PROP_MM (&f[1], core->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
+      PROP_U_MM (&f[1], core->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, min_buffers, min_buffers, max_buffers ? max_buffers : INT32_MAX),
+      PROP    (&f[1], core->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16),
       0);
   spa_pod_builder_pop (&b, &f[0]);
   port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
-      PROP    (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
-      PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
+  spa_pod_builder_object (&b, &f[0], 0, core->type.param_alloc_meta_enable.MetaEnable,
+      PROP    (&f[1], core->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, core->type.meta.Header),
+      PROP    (&f[1], core->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
   port_params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
-      PROP    (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Ringbuffer),
-      PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_ringbuffer)),
-      PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT,
+  spa_pod_builder_object (&b, &f[0], 0, core->type.param_alloc_meta_enable.MetaEnable,
+      PROP    (&f[1], core->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, core->type.meta.Ringbuffer),
+      PROP    (&f[1], core->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_ringbuffer)),
+      PROP    (&f[1], core->type.param_alloc_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT,
                                                                          size * SPA_MAX (4,
                                                                                 SPA_MAX (min_buffers, max_buffers))),
-      PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
-      PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
-      PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
+      PROP    (&f[1], core->type.param_alloc_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
+      PROP    (&f[1], core->type.param_alloc_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
+      PROP    (&f[1], core->type.param_alloc_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
   port_params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
   pw_thread_loop_lock (sink->main_loop);
@@ -304,6 +305,7 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
 
   sink->loop = pw_loop_new ();
   sink->main_loop = pw_thread_loop_new (sink->loop, "pipewire-sink-loop");
+  sink->core = pw_core_new (sink->loop, NULL);
   GST_DEBUG ("loop %p %p", sink->loop, sink->main_loop);
 }
 
@@ -441,6 +443,7 @@ on_add_buffer (struct pw_listener *listener,
   GstBuffer *buf;
   uint32_t i;
   ProcessMemData data;
+  struct pw_core *core = pwsink->remote->core;
 
   GST_LOG_OBJECT (pwsink, "add buffer");
 
@@ -454,20 +457,20 @@ on_add_buffer (struct pw_listener *listener,
   data.sink = gst_object_ref (pwsink);
   data.id = id;
   data.buf = b;
-  data.header = spa_buffer_find_meta (b, stream->context->type.meta.Header);
+  data.header = spa_buffer_find_meta (b, core->type.meta.Header);
 
   for (i = 0; i < b->n_datas; i++) {
     struct spa_data *d = &b->datas[i];
     GstMemory *gmem = NULL;
 
-    if (d->type == stream->context->type.data.MemFd ||
-        d->type == stream->context->type.data.DmaBuf) {
+    if (d->type == core->type.data.MemFd ||
+        d->type == core->type.data.DmaBuf) {
       gmem = gst_fd_allocator_alloc (pwsink->allocator, dup (d->fd),
                 d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
       gst_memory_resize (gmem, d->chunk->offset + d->mapoffset, d->chunk->size);
       data.offset = d->mapoffset;
     }
-    else if (d->type == stream->context->type.data.MemPtr) {
+    else if (d->type == core->type.data.MemPtr) {
       gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, d->chunk->offset,
                                      d->chunk->size, NULL, NULL);
       data.offset = 0;
@@ -623,7 +626,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
   pwsink = GST_PIPEWIRE_SINK (bsink);
 
-  possible = gst_caps_to_format_all (caps, pwsink->ctx->type.map);
+  possible = gst_caps_to_format_all (caps, pwsink->remote->core->type.map);
 
   pw_thread_loop_lock (pwsink->main_loop);
   state = pwsink->stream->state;
@@ -755,7 +758,7 @@ gst_pipewire_sink_start (GstBaseSink * basesink)
   }
 
   pw_thread_loop_lock (pwsink->main_loop);
-  pwsink->stream = pw_stream_new (pwsink->ctx, pwsink->client_name, props);
+  pwsink->stream = pw_stream_new (pwsink->remote, pwsink->client_name, props);
   pwsink->pool->stream = pwsink->stream;
 
   pw_signal_add (&pwsink->stream->state_changed, &pwsink->stream_state_changed, on_state_changed);
@@ -789,23 +792,23 @@ gst_pipewire_sink_stop (GstBaseSink * basesink)
 }
 
 static void
-on_ctx_state_changed (struct pw_listener *listener,
-                      struct pw_context  *ctx)
+on_remote_state_changed (struct pw_listener *listener,
+                      struct pw_remote  *remote)
 {
-  GstPipeWireSink *pwsink = SPA_CONTAINER_OF (listener, GstPipeWireSink, ctx_state_changed);
-  enum pw_context_state state;
+  GstPipeWireSink *pwsink = SPA_CONTAINER_OF (listener, GstPipeWireSink, remote_state_changed);
+  enum pw_remote_state state;
 
-  state = ctx->state;
-  GST_DEBUG ("got context state %d", state);
+  state = remote->state;
+  GST_DEBUG ("got remote state %d", state);
 
   switch (state) {
-    case PW_CONTEXT_STATE_UNCONNECTED:
-    case PW_CONTEXT_STATE_CONNECTING:
-    case PW_CONTEXT_STATE_CONNECTED:
+    case PW_REMOTE_STATE_UNCONNECTED:
+    case PW_REMOTE_STATE_CONNECTING:
+    case PW_REMOTE_STATE_CONNECTED:
       break;
-    case PW_CONTEXT_STATE_ERROR:
+    case PW_REMOTE_STATE_ERROR:
       GST_ELEMENT_ERROR (pwsink, RESOURCE, FAILED,
-          ("context error: %s", ctx->error), (NULL));
+          ("remote error: %s", remote->error), (NULL));
       break;
   }
   pw_thread_loop_signal (pwsink->main_loop, FALSE);
@@ -818,19 +821,19 @@ gst_pipewire_sink_open (GstPipeWireSink * pwsink)
     goto mainloop_error;
 
   pw_thread_loop_lock (pwsink->main_loop);
-  pwsink->ctx = pw_context_new (pwsink->loop, g_get_application_name (), NULL);
+  pwsink->remote = pw_remote_new (pwsink->core, NULL);
 
-  pw_signal_add (&pwsink->ctx->state_changed, &pwsink->ctx_state_changed, on_ctx_state_changed);
+  pw_signal_add (&pwsink->remote->state_changed, &pwsink->remote_state_changed, on_remote_state_changed);
 
-  pw_context_connect (pwsink->ctx, PW_CONTEXT_FLAG_NO_REGISTRY);
+  pw_remote_connect (pwsink->remote);
 
   while (TRUE) {
-    enum pw_context_state state = pwsink->ctx->state;
+    enum pw_remote_state state = pwsink->remote->state;
 
-    if (state == PW_CONTEXT_STATE_CONNECTED)
+    if (state == PW_REMOTE_STATE_CONNECTED)
       break;
 
-    if (state == PW_CONTEXT_STATE_ERROR)
+    if (state == PW_REMOTE_STATE_ERROR)
       goto connect_error;
 
     pw_thread_loop_wait (pwsink->main_loop);
@@ -860,16 +863,16 @@ gst_pipewire_sink_close (GstPipeWireSink * pwsink)
   if (pwsink->stream) {
     pw_stream_disconnect (pwsink->stream);
   }
-  if (pwsink->ctx) {
-    pw_context_disconnect (pwsink->ctx);
+  if (pwsink->remote) {
+    pw_remote_disconnect (pwsink->remote);
 
     while (TRUE) {
-      enum pw_context_state state = pwsink->ctx->state;
+      enum pw_remote_state state = pwsink->remote->state;
 
-      if (state == PW_CONTEXT_STATE_UNCONNECTED)
+      if (state == PW_REMOTE_STATE_UNCONNECTED)
         break;
 
-      if (state == PW_CONTEXT_STATE_ERROR)
+      if (state == PW_REMOTE_STATE_ERROR)
         break;
 
       pw_thread_loop_wait (pwsink->main_loop);
@@ -884,9 +887,9 @@ gst_pipewire_sink_close (GstPipeWireSink * pwsink)
     pwsink->stream = NULL;
   }
 
-  if (pwsink->ctx) {
-    pw_context_destroy (pwsink->ctx);
-    pwsink->ctx = NULL;
+  if (pwsink->remote) {
+    pw_remote_destroy (pwsink->remote);
+    pwsink->remote = NULL;
   }
 
   return TRUE;

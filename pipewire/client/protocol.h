@@ -29,8 +29,26 @@ extern "C" {
 
 #include <pipewire/client/subscribe.h>
 #include <pipewire/client/type.h>
+#include <pipewire/client/properties.h>
 
 #define PW_TYPE_PROTOCOL__Native	PW_TYPE_PROTOCOL_BASE "Native"
+
+struct pw_protocol_connection {
+	struct spa_list link;
+	struct pw_remote *remote;
+
+	int (*connect) (struct pw_protocol_connection *conn);
+	int (*connect_fd) (struct pw_protocol_connection *conn, int fd);
+	int (*disconnect) (struct pw_protocol_connection *conn);
+	int (*destroy) (struct pw_protocol_connection *conn);
+};
+
+struct pw_protocol_listener {
+	struct spa_list link;
+	struct pw_core *core;
+
+	int (*destroy) (struct pw_protocol_listener *listen);
+};
 
 struct pw_protocol_iface {
 	struct spa_list link;
@@ -42,6 +60,16 @@ struct pw_protocol {
 	struct spa_list link;
 	const char *name;
 	struct spa_list iface_list;
+	struct spa_list connection_list;
+	struct spa_list listener_list;
+
+	struct pw_protocol_connection * (*new_connection) (struct pw_protocol *protocol,
+							   struct pw_remote *remote,
+							   struct pw_properties *properties);
+	struct pw_protocol_listener * (*add_listener) (struct pw_protocol *protocol,
+						       struct pw_core *core,
+						       struct pw_properties *properties);
+	void *protocol_private;
 };
 
 struct pw_protocol *pw_protocol_get(const char *name);

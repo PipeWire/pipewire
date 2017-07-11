@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 
 	loop = pw_main_loop_new();
 
-	core = pw_core_new(loop, NULL);
+	core = pw_core_new(loop->loop, NULL);
 
 	pw_daemon_config_run_commands(config, core);
 

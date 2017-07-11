@@ -241,36 +241,35 @@ destroy_proxy (void *data)
 }
 
 
-static void registry_event_global(void *object, uint32_t id, const char *type, uint32_t version)
+static void registry_event_global(void *object, uint32_t id, uint32_t type, uint32_t version)
 {
         struct pw_proxy *registry_proxy = object;
         struct data *data = registry_proxy->object;
         struct pw_core *core = data->core;
         struct pw_remote *remote = registry_proxy->remote;
         struct pw_proxy *proxy = NULL;
-        uint32_t proxy_type, client_version;
+        uint32_t client_version;
         const void *implementation;
 
-        if (!strcmp(type, PIPEWIRE_TYPE__Node)) {
-                proxy_type = core->type.node;
+        if (type == core->type.node) {
                 implementation = &node_events;
                 client_version = PW_VERSION_NODE;
-        } else if (!strcmp(type, PIPEWIRE_TYPE__Module)) {
-                proxy_type = core->type.module;
+	}
+	else if (type == core->type.module) {
                 implementation = &module_events;
                 client_version = PW_VERSION_MODULE;
-        } else if (!strcmp(type, PIPEWIRE_TYPE__Client)) {
-                proxy_type = core->type.client;
+	}
+	else if (type == core->type.client) {
                 implementation = &client_events;
                 client_version = PW_VERSION_CLIENT;
-        } else if (!strcmp(type, PIPEWIRE_TYPE__Link)) {
-                proxy_type = core->type.link;
+	}
+	else if (type == core->type.link) {
                 implementation = &link_events;
                 client_version = PW_VERSION_LINK;
         } else
                 return;
 
-        proxy = pw_proxy_new(remote, SPA_ID_INVALID, proxy_type, sizeof(struct proxy_data));
+        proxy = pw_proxy_new(remote, SPA_ID_INVALID, type, sizeof(struct proxy_data));
         if (proxy == NULL)
                 goto no_mem;
 

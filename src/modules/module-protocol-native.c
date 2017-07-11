@@ -452,6 +452,8 @@ on_remote_data(struct spa_loop_utils *utils,
         struct pw_connection *conn = impl->connection;
 
         if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
+		pw_log_error("protocol-native %p: got connection error", impl);
+		pw_remote_destroy(this);
                 return;
         }
 

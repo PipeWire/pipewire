@@ -133,8 +133,7 @@ static void core_get_registry(void *object, uint32_t new_id)
 		if (pw_global_is_visible(global, client))
 			 pw_registry_notify_global(registry_resource,
 						   global->id,
-						   spa_type_map_get_type(this->type.map,
-									 global->type),
+						   global->type,
 						   global->version);
 	}
 
@@ -400,7 +399,6 @@ pw_core_add_global(struct pw_core *core,
 	struct global_impl *impl;
 	struct pw_global *this;
 	struct pw_resource *registry;
-	const char *type_name;
 
 	impl = calloc(1, sizeof(struct global_impl));
 	if (impl == NULL)
@@ -423,12 +421,11 @@ pw_core_add_global(struct pw_core *core,
 	spa_list_insert(core->global_list.prev, &this->link);
 	pw_signal_emit(&core->global_added, core, this);
 
-	type_name = spa_type_map_get_type(core->type.map, this->type);
-	pw_log_debug("global %p: new %u %s, owner %p", this, this->id, type_name, owner);
+	pw_log_debug("global %p: new %u %d, owner %p", this, this->id, this->type, owner);
 
 	spa_list_for_each(registry, &core->registry_resource_list, link)
 		if (pw_global_is_visible(this, registry->client))
-			pw_registry_notify_global(registry, this->id, type_name, this->version);
+			pw_registry_notify_global(registry, this->id, this->type, this->version);
 
 	return true;
 }

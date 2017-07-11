@@ -319,7 +319,7 @@ static const struct pw_node_events node_events = {
   &node_event_info
 };
 
-static void registry_event_global(void *object, uint32_t id, const char *type, uint32_t version)
+static void registry_event_global(void *object, uint32_t id, uint32_t type, uint32_t version)
 {
   struct pw_proxy *registry = object;
   GstPipeWireDeviceProvider *self = registry->object;
@@ -327,7 +327,7 @@ static void registry_event_global(void *object, uint32_t id, const char *type, u
   struct pw_core *core = remote->core;
   struct pw_proxy *proxy = NULL;
 
-  if (strcmp(type, PIPEWIRE_TYPE__Node))
+  if (type != core->type.node)
     return;
 
   proxy = pw_proxy_new(remote, SPA_ID_INVALID, core->type.node, 0);

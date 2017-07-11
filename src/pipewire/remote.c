@@ -206,7 +206,6 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 void pw_remote_destroy(struct pw_remote *remote)
 {
 	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
-	struct pw_proxy *proxy, *t2;
 
 	pw_log_debug("remote %p: destroy", remote);
 	pw_signal_emit(&remote->destroy_signal, remote);
@@ -216,16 +215,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 
 	remote->conn->destroy(remote->conn);
 
-	spa_list_for_each_safe(proxy, t2, &remote->proxy_list, link)
-	    pw_proxy_destroy(proxy);
-
-	pw_map_clear(&remote->objects);
-	pw_map_clear(&remote->types);
-
 	spa_list_remove(&remote->link);
-
-	if (remote->info)
-		pw_core_info_free (remote->info);
 
 	if (remote->properties)
 		pw_properties_free(remote->properties);
@@ -283,11 +273,24 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 
 void pw_remote_disconnect(struct pw_remote *remote)
 {
+	struct pw_proxy *proxy, *t2;
+
+	pw_log_debug("remote %p: disconnect", remote);
 	remote->conn->disconnect(remote->conn);
 
-	if (remote->core_proxy)
-		pw_proxy_destroy(remote->core_proxy);
+	spa_list_for_each_safe(proxy, t2, &remote->proxy_list, link)
+	    pw_proxy_destroy(proxy);
+
 	remote->core_proxy = NULL;
+
+	pw_map_clear(&remote->objects);
+	pw_map_clear(&remote->types);
+	remote->n_types = 0;
+
+	if (remote->info) {
+		pw_core_info_free (remote->info);
+		remote->info = NULL;
+	}
 
         remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
 }

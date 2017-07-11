@@ -137,7 +137,7 @@ struct pw_remote {
 	struct pw_map types;			/**< client types */
 
 	struct spa_list proxy_list;		/**< list of \ref pw_proxy objects */
-	struct spa_list stream_list;		/**< list of \ref pw_proxy objects */
+	struct spa_list stream_list;		/**< list of \ref pw_stream objects */
 
 	struct pw_protocol *protocol;		/**< the protocol in use */
 	void *protocol_private;			/**< private data for the protocol */

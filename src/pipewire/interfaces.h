@@ -256,7 +256,7 @@ struct pw_registry_events {
 	 * \param type the type of the object
 	 * \param version the version of the object
 	 */
-	void (*global) (void *object, uint32_t id, const char *type, uint32_t version);
+	void (*global) (void *object, uint32_t id, uint32_t type, uint32_t version);
 	/**
 	 * Notify of a global object removal
 	 *

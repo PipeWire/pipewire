@@ -522,7 +522,7 @@ static bool core_demarshal_update_types_server(void *object, void *data, size_t 
 	return true;
 }
 
-static void registry_marshal_global(void *object, uint32_t id, const char *type, uint32_t version)
+static void registry_marshal_global(void *object, uint32_t id, uint32_t type, uint32_t version)
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
@@ -533,7 +533,7 @@ static void registry_marshal_global(void *object, uint32_t id, const char *type,
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, id,
-			       SPA_POD_TYPE_STRING, type,
+			       SPA_POD_TYPE_ID, type,
 			       SPA_POD_TYPE_INT, version);
 
 	pw_connection_end_write(connection, b);
@@ -829,13 +829,13 @@ static bool registry_demarshal_global(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
-	uint32_t id, version;
-	const char *type;
+	uint32_t id, type, version;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &id,
-			      SPA_POD_TYPE_STRING, &type,
+			      SPA_POD_TYPE_ID, &type,
 			      SPA_POD_TYPE_INT, &version, 0))
 		return false;
 

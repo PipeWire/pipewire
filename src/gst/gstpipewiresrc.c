@@ -194,6 +194,8 @@ gst_pipewire_src_finalize (GObject * object)
 
   clear_queue (pwsrc);
 
+  pw_core_destroy (pwsrc->core);
+  pwsrc->core = NULL;
   pw_thread_loop_destroy (pwsrc->main_loop);
   pwsrc->main_loop = NULL;
   pw_loop_destroy (pwsrc->loop);

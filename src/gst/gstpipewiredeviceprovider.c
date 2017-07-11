@@ -551,6 +551,10 @@ gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
     pw_remote_destroy (self->remote);
     self->remote = NULL;
   }
+  if (self->core) {
+    pw_core_destroy (self->core);
+    self->core = NULL;
+  }
   if (self->main_loop) {
     pw_thread_loop_destroy (self->main_loop);
     self->main_loop = NULL;

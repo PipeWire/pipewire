@@ -274,9 +274,13 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 void pw_remote_disconnect(struct pw_remote *remote)
 {
 	struct pw_proxy *proxy, *t2;
+	struct pw_stream *stream, *s2;
 
 	pw_log_debug("remote %p: disconnect", remote);
 	remote->conn->disconnect(remote->conn);
+
+	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
+	    pw_stream_destroy(stream);
 
 	spa_list_for_each_safe(proxy, t2, &remote->proxy_list, link)
 	    pw_proxy_destroy(proxy);

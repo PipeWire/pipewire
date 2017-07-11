@@ -395,7 +395,6 @@ get_name(struct pw_properties *properties)
 		name = getenv("PIPEWIRE_CORE");
 	if (name == NULL)
 		name = "pipewire-0";
-
 	return name;
 }
 
@@ -411,10 +410,7 @@ static int impl_connect(struct pw_protocol_connection *conn)
                 return -1;
         }
 
-        if (name == NULL)
-                name = getenv("PIPEWIRE_CORE");
-        if (name == NULL)
-                name = "pipewire-0";
+	name = get_name(NULL);
 
         if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0)
                 return -1;
@@ -614,7 +610,7 @@ impl_add_listener(struct pw_protocol *protocol,
 	l->fd = -1;
 	l->fd_lock = -1;
 
-	name = get_name(properties);
+	name = get_name(core->properties);
 
 	if (!init_socket_name(l, name))
 		goto error;
@@ -643,6 +639,7 @@ impl_add_listener(struct pw_protocol *protocol,
 static struct impl *pw_protocol_native_new(struct pw_core *core, struct pw_properties *properties)
 {
 	struct impl *impl;
+	const char *val;
 
 	impl = calloc(1, sizeof(struct impl));
 
@@ -656,8 +653,10 @@ static struct impl *pw_protocol_native_new(struct pw_core *core, struct pw_prope
 
 	spa_list_init(&impl->client_list);
 
-	impl_add_listener(impl->protocol, core, properties);
-
+	if ((val = pw_properties_get(core->properties, "pipewire.daemon"))) {
+		if (atoi(val) == 1)
+			impl_add_listener(impl->protocol, core, properties);
+	}
 	return impl;
 }
 

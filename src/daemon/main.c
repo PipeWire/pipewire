@@ -29,6 +29,7 @@ int main(int argc, char *argv[])
 	struct pw_main_loop *loop;
 	struct pw_daemon_config *config;
 	char *err = NULL;
+	struct pw_properties *props;
 
 	pw_init(&argc, &argv);
 
@@ -42,7 +43,10 @@ int main(int argc, char *argv[])
 
 	loop = pw_main_loop_new();
 
-	core = pw_core_new(loop->loop, NULL);
+	props = pw_properties_new("pipewire.core.name", "pipewire-0",
+				  "pipewire.daemon", "1", NULL);
+
+	core = pw_core_new(loop->loop, props);
 
 	pw_daemon_config_run_commands(config, core);
 

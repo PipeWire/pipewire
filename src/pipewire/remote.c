@@ -165,7 +165,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	if (properties == NULL)
 		goto no_mem;
 
-	pw_fill_remote_properties(properties);
+	pw_fill_remote_properties(core, properties);
 	this->properties = properties;
 
 	this->state = PW_REMOTE_STATE_UNCONNECTED;

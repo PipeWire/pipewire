@@ -109,10 +109,10 @@ char *
 pw_get_client_name(void);
 
 void
-pw_fill_remote_properties(struct pw_properties *properties);
+pw_fill_remote_properties(struct pw_core *core, struct pw_properties *properties);
 
 void
-pw_fill_stream_properties(struct pw_properties *properties);
+pw_fill_stream_properties(struct pw_core *core, struct pw_properties *properties);
 
 enum pw_direction
 pw_direction_reverse(enum pw_direction direction);

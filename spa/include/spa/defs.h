@@ -152,6 +152,9 @@ struct spa_fraction {
 #endif
 #endif
 
+#define SPA_STRINGIFY_1(x...)	#x
+#define SPA_STRINGIFY(x...)	SPA_STRINGIFY_1(x)
+
 #define spa_return_if_fail(expr)					\
 	do {								\
 		if (SPA_UNLIKELY(!(expr)))				\

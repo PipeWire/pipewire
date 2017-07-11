@@ -16,6 +16,7 @@
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+#include <unistd.h>
 #include <time.h>
 
 #include <spa/lib/debug.h>
@@ -273,6 +274,7 @@ core_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 
 	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
 	pw_core_notify_info(resource, &this->info);
+	this->info.change_mask = 0;
 
 	return SPA_RESULT_OK;
 
@@ -293,6 +295,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 {
 	struct impl *impl;
 	struct pw_core *this;
+	const char *name;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -305,7 +308,6 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	this->data_loop = impl->data_loop->loop;
 	this->main_loop = main_loop;
-	this->properties = properties;
 
 	pw_type_init(&this->type);
 	pw_map_init(&this->objects, 128, 32);
@@ -344,11 +346,20 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->info.change_mask = 0;
 	this->info.user_name = pw_get_user_name();
 	this->info.host_name = pw_get_host_name();
-	this->info.version = "0";
-	this->info.name = "pipewire-0";
+	this->info.version = SPA_STRINGIFY(PW_VERSION_CORE);
 	srandom(time(NULL));
 	this->info.cookie = random();
 	this->info.props = this->properties ? &this->properties->dict : NULL;
+
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if ((name = pw_properties_get(properties, "pipewire.core.name")) == NULL) {
+		pw_properties_setf(properties,
+				   "pipewire.core.name", "pipewire-%s-%d",
+				   pw_get_user_name(), getpid());
+	}
+	this->info.name = pw_properties_get(properties, "pipewire.core.name");
+	this->properties = properties;
 
 	return this;
 
@@ -522,6 +533,7 @@ void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict
 	spa_list_for_each(resource, &core->resource_list, link) {
 		pw_core_notify_info(resource, &core->info);
 	}
+	core->info.change_mask = 0;
 }
 
 /** Find a port to link with

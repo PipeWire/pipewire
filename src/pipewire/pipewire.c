@@ -298,8 +298,10 @@ char *pw_get_client_name(void)
  *
  * \memberof pw_pipewire
  */
-void pw_fill_remote_properties(struct pw_properties *properties)
+void pw_fill_remote_properties(struct pw_core *core, struct pw_properties *properties)
 {
+	const char *val;
+
 	if (!pw_properties_get(properties, "application.name"))
 		pw_properties_set(properties, "application.name", pw_get_application_name());
 
@@ -322,6 +324,11 @@ void pw_fill_remote_properties(struct pw_properties *properties)
 		pw_properties_set(properties, "application.process.session_id",
 				  getenv("XDG_SESSION_ID"));
 	}
+	pw_properties_set(properties, "pipewire.core.version", core->info.version);
+	pw_properties_set(properties, "pipewire.core.name", core->info.name);
+
+	if ((val = pw_properties_get(core->properties, "pipewire.daemon")))
+		pw_properties_set(properties, "pipewire.daemon", val);
 }
 
 /** Fill stream properties
@@ -331,7 +338,7 @@ void pw_fill_remote_properties(struct pw_properties *properties)
  *
  * \memberof pw_pipewire
  */
-void pw_fill_stream_properties(struct pw_properties *properties)
+void pw_fill_stream_properties(struct pw_core *core, struct pw_properties *properties)
 {
 }
 

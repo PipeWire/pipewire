@@ -65,6 +65,7 @@ struct pw_resource {
 
 	uint32_t id;			/**< per client unique id, index in client objects */
 	uint32_t type;			/**< type id of the object */
+	uint32_t client_version;	/**< version of the client interface */
 	const struct pw_interface *iface;	/**< protocol specific interface functions */
 
 	void *object;			/**< pointer to the object */
@@ -83,6 +84,7 @@ struct pw_resource *
 pw_resource_new(struct pw_client *client,
 		uint32_t id,
 		uint32_t type,
+		uint32_t client_version,
 		size_t user_data_size);
 
 int

@@ -32,6 +32,7 @@ struct impl {
 struct pw_resource *pw_resource_new(struct pw_client *client,
 				    uint32_t id,
 				    uint32_t type,
+				    uint32_t client_version,
 				    size_t user_data_size)
 {
 	struct impl *impl;
@@ -45,6 +46,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	this->core = client->core;
 	this->client = client;
 	this->type = type;
+	this->client_version = client_version;
 
 	pw_signal_init(&this->destroy_signal);
 

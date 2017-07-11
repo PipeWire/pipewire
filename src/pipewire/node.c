@@ -215,7 +215,7 @@ node_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	struct pw_node *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, 0);
+	resource = pw_resource_new(client, id, global->type, version, 0);
 	if (resource == NULL)
 		goto no_mem;
 
@@ -257,9 +257,8 @@ void pw_node_export(struct pw_node *this)
 
 	spa_list_insert(this->core->node_list.prev, &this->link);
 
-	pw_core_add_global(this->core,
-			   this->owner,
-			   this->core->type.node, 0, this, node_bind_func, &this->global);
+	pw_core_add_global(this->core, this->owner, this->core->type.node, PW_VERSION_NODE,
+			   this, node_bind_func, &this->global);
 
 	pw_loop_invoke(this->data_loop, do_node_add, 1, 0, NULL, false, this);
 

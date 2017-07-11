@@ -106,7 +106,7 @@ static void core_sync(void *object, uint32_t seq)
 	pw_core_notify_done(resource, seq);
 }
 
-static void core_get_registry(void *object, uint32_t new_id)
+static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
@@ -117,6 +117,7 @@ static void core_get_registry(void *object, uint32_t new_id)
 	registry_resource = pw_resource_new(client,
 					    new_id,
 					    this->type.registry,
+					    version,
 					    0);
 	if (registry_resource == NULL)
 		goto no_mem;
@@ -150,6 +151,7 @@ core_create_node(void *object,
 		 const char *factory_name,
 		 const char *name,
 		 const struct spa_dict *props,
+		 uint32_t version,
 		 uint32_t new_id)
 {
 	struct pw_resource *resource = object;
@@ -165,6 +167,7 @@ core_create_node(void *object,
 	node_resource = pw_resource_new(client,
 					new_id,
 					factory->type,
+					version,
 					0);
 	if (node_resource == NULL)
 		goto no_resource;
@@ -256,7 +259,7 @@ core_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	struct pw_core *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, 0);
+	resource = pw_resource_new(client, id, global->type, version, 0);
 	if (resource == NULL)
 		goto no_mem;
 
@@ -334,7 +337,8 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	pw_signal_init(&this->global_added);
 	pw_signal_init(&this->global_removed);
 
-	pw_core_add_global(this, NULL, this->type.core, 0, this, core_bind_func, &this->global);
+	pw_core_add_global(this, NULL, this->type.core, PW_VERSION_CORE,
+			   this, core_bind_func, &this->global);
 
 	this->info.id = this->global->id;
 	this->info.change_mask = 0;

@@ -72,7 +72,7 @@ static void core_marshal_sync(void *object, uint32_t seq)
 	pw_connection_end_write(connection, b);
 }
 
-static void core_marshal_get_registry(void *object, uint32_t new_id)
+static void core_marshal_get_registry(void *object, uint32_t version, uint32_t new_id)
 {
 	struct pw_proxy *proxy = object;
 	struct pw_connection *connection = proxy->remote->protocol_private;
@@ -81,7 +81,9 @@ static void core_marshal_get_registry(void *object, uint32_t new_id)
 
 	b = pw_connection_begin_write_proxy(connection, proxy, PW_CORE_METHOD_GET_REGISTRY);
 
-	spa_pod_builder_struct(b, &f, SPA_POD_TYPE_INT, new_id);
+	spa_pod_builder_struct(b, &f,
+			       SPA_POD_TYPE_INT, version,
+			       SPA_POD_TYPE_INT, new_id);
 
 	pw_connection_end_write(connection, b);
 }
@@ -89,7 +91,8 @@ static void core_marshal_get_registry(void *object, uint32_t new_id)
 static void
 core_marshal_create_node(void *object,
 			 const char *factory_name,
-			 const char *name, const struct spa_dict *props, uint32_t new_id)
+			 const char *name, const struct spa_dict *props,
+			 uint32_t version, uint32_t new_id)
 {
 	struct pw_proxy *proxy = object;
 	struct pw_connection *connection = proxy->remote->protocol_private;
@@ -111,7 +114,10 @@ core_marshal_create_node(void *object,
 				    SPA_POD_TYPE_STRING, props->items[i].key,
 				    SPA_POD_TYPE_STRING, props->items[i].value, 0);
 	}
-	spa_pod_builder_add(b, SPA_POD_TYPE_INT, new_id, -SPA_POD_TYPE_STRUCT, &f, 0);
+	spa_pod_builder_add(b,
+			    SPA_POD_TYPE_INT, version,
+			    SPA_POD_TYPE_INT, new_id,
+			    -SPA_POD_TYPE_STRUCT, &f, 0);
 
 	pw_connection_end_write(connection, b);
 }
@@ -340,7 +346,8 @@ static void core_marshal_error(void *object, uint32_t id, int res, const char *e
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, id,
-			       SPA_POD_TYPE_INT, res, SPA_POD_TYPE_STRING, buffer);
+			       SPA_POD_TYPE_INT, res,
+			       SPA_POD_TYPE_STRING, buffer);
 
 	pw_connection_end_write(connection, b);
 }
@@ -422,13 +429,16 @@ static bool core_demarshal_get_registry(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_iter it;
-	int32_t new_id;
+	int32_t version, new_id;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &new_id, 0))
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &version,
+			      SPA_POD_TYPE_INT, &new_id, 0))
+
 		return false;
 
-	pw_resource_do(resource, struct pw_core_methods, get_registry, new_id);
+	pw_resource_do(resource, struct pw_core_methods, get_registry, version, new_id);
 	return true;
 }
 
@@ -436,7 +446,7 @@ static bool core_demarshal_create_node(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_iter it;
-	uint32_t new_id, i;
+	uint32_t version, new_id, i;
 	const char *factory_name, *name;
 	struct spa_dict props;
 
@@ -453,11 +463,13 @@ static bool core_demarshal_create_node(void *object, void *data, size_t size)
 				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
 			return false;
 	}
-	if (!spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &new_id, 0))
+	if (!spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &version,
+			      SPA_POD_TYPE_INT, &new_id, 0))
 		return false;
 
 	pw_resource_do(resource, struct pw_core_methods, create_node, factory_name,
-								      name, &props, new_id);
+								      name, &props, version, new_id);
 	return true;
 }
 

@@ -95,9 +95,10 @@ struct pw_core_methods {
 	 *
 	 * Create a registry object that allows the client to list and bind
 	 * the global objects available from the PipeWire server
+	 * \param version the client proxy id
 	 * \param id the client proxy id
 	 */
-	void (*get_registry) (void *object, uint32_t new_id);
+	void (*get_registry) (void *object, uint32_t version, uint32_t new_id);
 	/**
 	 * Update the client properties
 	 * \param props the new client properties
@@ -111,12 +112,14 @@ struct pw_core_methods {
 	 * \param factory_name the factory name to use
 	 * \param name the node name
 	 * \param props extra properties
+	 * \param version the version of the interface
 	 * \param new_id the client proxy id
 	 */
 	void (*create_node) (void *object,
 			     const char *factory_name,
 			     const char *name,
 			     const struct spa_dict *props,
+			     uint32_t version,
 			     uint32_t new_id);
 	/**
 	 * Create a new link between two node ports

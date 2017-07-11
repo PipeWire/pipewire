@@ -412,7 +412,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
 
   reg = pw_proxy_new(r, SPA_ID_INVALID, c->type.registry, 0);
   pw_proxy_set_implementation(reg, self, PW_VERSION_REGISTRY, &registry_events, NULL);
-  pw_core_do_get_registry(r->core_proxy, reg->id);
+  pw_core_do_get_registry(r->core_proxy, PW_VERSION_REGISTRY, reg->id);
   pw_core_do_sync(r->core_proxy, 1);
 
   for (;;) {
@@ -517,7 +517,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   self->registry = pw_proxy_new(self->remote, SPA_ID_INVALID, self->core->type.registry, 0);
   pw_proxy_set_implementation(self->registry, self, PW_VERSION_REGISTRY, &registry_events, NULL);
-  pw_core_do_get_registry(self->remote->core_proxy, self->registry->id);
+  pw_core_do_get_registry(self->remote->core_proxy, PW_VERSION_REGISTRY, self->registry->id);
   pw_core_do_sync(self->remote->core_proxy, 1);
 
   pw_thread_loop_unlock (self->main_loop);

@@ -943,7 +943,7 @@ link_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	struct pw_link *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, 0);
+	resource = pw_resource_new(client, id, global->type, version, 0);
 
 	if (resource == NULL)
 		goto no_mem;
@@ -1052,7 +1052,8 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	spa_list_insert(core->link_list.prev, &this->link);
 
-	pw_core_add_global(core, NULL, core->type.link, 0, this, link_bind_func, &this->global);
+	pw_core_add_global(core, NULL, core->type.link, PW_VERSION_LINK,
+			   this, link_bind_func, &this->global);
 
 	this->info.id = this->global->id;
 	this->info.output_node_id = output ? output_node->global->id : -1;

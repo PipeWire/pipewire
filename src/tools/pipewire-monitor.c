@@ -315,7 +315,7 @@ static void on_state_changed(struct pw_listener *listener, struct pw_remote *rem
 		pw_proxy_set_implementation(data->registry_proxy, data, PW_VERSION_REGISTRY,
                                             &registry_events, NULL);
 
-		pw_core_do_get_registry(data->remote->core_proxy,
+		pw_core_do_get_registry(data->remote->core_proxy, PW_VERSION_REGISTRY,
 					data->registry_proxy->id);
 
 		break;

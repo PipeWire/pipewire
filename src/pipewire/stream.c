@@ -931,6 +931,7 @@ pw_stream_connect(struct pw_stream *stream,
 			       "client-node",
 			       "client-node",
 			       &stream->properties->dict,
+			       PW_VERSION_CLIENT_NODE,
 			       impl->node_proxy->id);
 
 	do_node_init(stream);

@@ -70,6 +70,7 @@ struct async_pending {
 	char *factory_name;
 	char *name;
 	struct pw_properties *properties;
+	uint32_t version;
 	uint32_t new_id;
 };
 
@@ -268,6 +269,7 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 							 p->factory_name,
 							 p->name,
 							 &p->properties->dict,
+							 p->version,
 							 p->new_id);
 		} else {
 			pw_core_notify_error(cinfo->client->core_resource,
@@ -287,6 +289,7 @@ static void do_create_node(void *object,
 			   const char *factory_name,
 			   const char *name,
 			   const struct spa_dict *props,
+			   uint32_t version,
 			   uint32_t new_id)
 {
 	struct pw_resource *resource = object;
@@ -303,7 +306,7 @@ static void do_create_node(void *object,
 	struct async_pending *p;
 
 	if (!cinfo->is_sandboxed) {
-		cinfo->old_methods->create_node (object, factory_name, name, props, new_id);
+		cinfo->old_methods->create_node (object, factory_name, name, props, version, new_id);
 		return;
 	}
 	if (strcmp(factory_name, "client-node") != 0) {
@@ -360,6 +363,7 @@ static void do_create_node(void *object,
 	p->factory_name = strdup(factory_name);
 	p->name = strdup(name);
 	p->properties = props ? pw_properties_new_dict(props) : NULL;
+	p->version = version;
 	p->new_id = new_id;
 	pw_client_set_busy(client, true);
 

@@ -92,7 +92,7 @@ module_bind_func(struct pw_global *global, struct pw_client *client, uint32_t ve
 	struct pw_module *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, 0);
+	resource = pw_resource_new(client, id, global->type, version, 0);
 	if (resource == NULL)
 		goto no_mem;
 
@@ -179,7 +179,8 @@ struct pw_module *pw_module_load(struct pw_core *core,
 	if (!init_func(this, (char *) args))
 		goto init_failed;
 
-	pw_core_add_global(core, NULL, core->type.module, 0, impl, module_bind_func, &this->global);
+	pw_core_add_global(core, NULL, core->type.module, PW_VERSION_MODULE,
+			   impl, module_bind_func, &this->global);
 
 	this->info.id = this->global->id;
 	this->info.name = name ? strdup(name) : NULL;

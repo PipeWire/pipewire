@@ -23,14 +23,17 @@
 #include <sys/un.h>
 #include <errno.h>
 
+#include <spa/lib/debug.h>
+
 #include "pipewire/pipewire.h"
 #include "pipewire/introspect.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/remote.h"
 #include "pipewire/core.h"
 #include "pipewire/module.h"
+#include "pipewire/stream.h"
 
-#include <spa/lib/debug.h>
+#include "extensions/protocol-native.h"
 
 /** \cond */
 struct remote {
@@ -150,6 +153,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 {
 	struct remote *impl;
 	struct pw_remote *this;
+	struct pw_protocol *protocol;
 
 	impl = calloc(1, sizeof(struct remote));
 	if (impl == NULL)
@@ -183,11 +187,12 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	pw_module_load(core, "libpipewire-module-protocol-native", NULL, NULL);
 	pw_module_load(core, "libpipewire-module-client-node", NULL, NULL);
-	this->protocol = pw_protocol_get(PW_TYPE_PROTOCOL__Native);
-	if (this->protocol == NULL || this->protocol->new_connection == NULL)
+
+	protocol = pw_core_find_protocol(core, PW_TYPE_PROTOCOL__Native);
+	if (protocol == NULL)
 		goto no_protocol;
 
-	this->conn = this->protocol->new_connection(this->protocol, this, properties);
+	this->conn = pw_protocol_new_connection(protocol, this, properties);
 	if (this->conn == NULL)
 		goto no_connection;
 
@@ -213,7 +218,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 	if (remote->state != PW_REMOTE_STATE_UNCONNECTED)
 		pw_remote_disconnect(remote);
 
-	remote->conn->destroy(remote->conn);
+	pw_protocol_connection_destroy (remote->conn);
 
 	spa_list_remove(&remote->link);
 
@@ -238,7 +243,7 @@ static int do_connect(struct pw_remote *remote)
 	return 0;
 
       no_proxy:
-	remote->conn->disconnect(remote->conn);
+	pw_protocol_connection_disconnect (remote->conn);
 	remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: no memory");
 	return -1;
 }
@@ -249,7 +254,7 @@ int pw_remote_connect(struct pw_remote *remote)
 
 	remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
-	if ((res = remote->conn->connect(remote->conn)) < 0) {
+	if ((res = pw_protocol_connection_connect (remote->conn)) < 0) {
 		remote_update_state(remote, PW_REMOTE_STATE_ERROR, "connect failed");
 		return res;
 	}
@@ -263,7 +268,7 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 
 	remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
-	if ((res = remote->conn->connect_fd(remote->conn, fd)) < 0) {
+	if ((res = pw_protocol_connection_connect_fd (remote->conn, fd)) < 0) {
 		remote_update_state(remote, PW_REMOTE_STATE_ERROR, "connect_fd failed");
 		return res;
 	}
@@ -277,7 +282,7 @@ void pw_remote_disconnect(struct pw_remote *remote)
 	struct pw_stream *stream, *s2;
 
 	pw_log_debug("remote %p: disconnect", remote);
-	remote->conn->disconnect(remote->conn);
+	pw_protocol_connection_disconnect (remote->conn);
 
 	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
 	    pw_stream_destroy(stream);

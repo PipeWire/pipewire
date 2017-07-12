@@ -100,10 +100,10 @@ struct spa_loop {
 #define spa_loop_remove_source(l,...)	(l)->remove_source(__VA_ARGS__)
 #define spa_loop_invoke(l,...)		(l)->invoke((l),__VA_ARGS__)
 
-#define SPA_VERSION_LOOP_CONTROL_HOOKS	0
 
 /** Control hooks */
 struct spa_loop_control_hooks {
+#define SPA_VERSION_LOOP_CONTROL_HOOKS	0
 	uint32_t version;
 
 	struct spa_list link;
@@ -114,7 +114,6 @@ struct spa_loop_control_hooks {
 	void (*after) (const struct spa_loop_control_hooks *hooks);
 };
 
-#define SPA_VERSION_LOOP_CONTROL	0
 
 /**
  * spa_loop_control:
@@ -124,14 +123,14 @@ struct spa_loop_control_hooks {
 struct spa_loop_control {
 	/* the version of this structure. This can be used to expand this
 	 * structure in the future */
+#define SPA_VERSION_LOOP_CONTROL	0
 	uint32_t version;
 
 	int (*get_fd) (struct spa_loop_control *ctrl);
 
 	/** Add a hook
 	 * \param ctrl the control to change
-	 * \param hooks the new hooks
-	 * \param old location to store previous hooks */
+	 * \param hooks the hooks to add */
 	void (*add_hooks) (struct spa_loop_control *ctrl,
 			   struct spa_loop_control_hooks *hooks);
 

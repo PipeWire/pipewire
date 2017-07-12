@@ -68,7 +68,7 @@ struct pw_proxy *pw_proxy_new(struct pw_remote *remote,
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct proxy), void);
 
-	this->iface = pw_protocol_get_interface(remote->protocol,
+	this->iface = pw_protocol_get_interface(remote->conn->protocol,
 						spa_type_map_get_type(remote->core->type.map, type),
 						false);
 

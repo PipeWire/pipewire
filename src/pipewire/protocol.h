@@ -28,26 +28,40 @@ extern "C" {
 #include <spa/list.h>
 
 #include <pipewire/type.h>
+#include <pipewire/utils.h>
+#include <pipewire/core.h>
 #include <pipewire/properties.h>
 
-#define PW_TYPE_PROTOCOL__Native	PW_TYPE_PROTOCOL_BASE "Native"
+#define PW_TYPE__Protocol               "PipeWire:Protocol"
+#define PW_TYPE_PROTOCOL_BASE           PW_TYPE__Protocol ":"
 
 struct pw_protocol_connection {
-	struct spa_list link;
-	struct pw_remote *remote;
+	struct spa_list link;		/**< link in protocol connection_list */
+	struct pw_protocol *protocol;	/**< the owner protocol */
+
+	struct pw_remote *remote;	/**< the associated remote */
 
 	int (*connect) (struct pw_protocol_connection *conn);
 	int (*connect_fd) (struct pw_protocol_connection *conn, int fd);
-	int (*disconnect) (struct pw_protocol_connection *conn);
-	int (*destroy) (struct pw_protocol_connection *conn);
+	void (*disconnect) (struct pw_protocol_connection *conn);
+	void (*destroy) (struct pw_protocol_connection *conn);
 };
+
+#define pw_protocol_connection_connect(c)	((c)->connect(c))
+#define pw_protocol_connection_connect_fd(c,fd)	((c)->connect_fd(c,fd))
+#define pw_protocol_connection_disconnect(c)	((c)->disconnect(c))
+#define pw_protocol_connection_destroy(c)	((c)->destroy(c))
 
 struct pw_protocol_listener {
-	struct spa_list link;
-	struct pw_core *core;
+	struct spa_list link;		/**< link in protocol listener_list */
+	struct pw_protocol *protocol;	/**< the owner protocol */
 
-	int (*destroy) (struct pw_protocol_listener *listen);
+	struct spa_list client_list;	/**< list of client of this protocol */
+
+	void (*destroy) (struct pw_protocol_listener *listen);
 };
+
+#define pw_protocol_listener_destroy(l)	((l)->destroy(l))
 
 struct pw_protocol_iface {
 	struct spa_list link;
@@ -55,23 +69,46 @@ struct pw_protocol_iface {
 	const struct pw_interface *server_iface;
 };
 
-struct pw_protocol {
-	struct spa_list link;
-	const char *name;
-	struct spa_list iface_list;
-	struct spa_list connection_list;
-	struct spa_list listener_list;
-
+struct pw_protocol_implementaton {
+#define PW_VERSION_PROTOCOL_IMPLEMENTATION	0
+	uint32_t version;
 	struct pw_protocol_connection * (*new_connection) (struct pw_protocol *protocol,
 							   struct pw_remote *remote,
 							   struct pw_properties *properties);
 	struct pw_protocol_listener * (*add_listener) (struct pw_protocol *protocol,
 						       struct pw_core *core,
 						       struct pw_properties *properties);
-	void *protocol_private;
 };
 
-struct pw_protocol *pw_protocol_get(const char *name);
+struct pw_protocol {
+	struct spa_list link;			/**< link in core protocol_list */
+	struct pw_core *core;			/**< core for this protocol */
+
+	char *name;				/**< type name of the protocol */
+
+	struct spa_list iface_list;		/**< list of supported interfaces */
+	struct spa_list connection_list;	/**< list of current connections */
+	struct spa_list listener_list;		/**< list of current listeners */
+
+	const struct pw_protocol_implementaton *implementation;	/**< implementation of the protocol */
+
+	/** Emited when the protocol is destroyed */
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_protocol *protocol));
+
+	const void *extension;	/**< extension API */
+
+	void *user_data;	/**< user data for the implementation */
+        pw_destroy_t destroy;	/**< function to clean up the object */
+};
+
+#define pw_protocol_new_connection(p,...)	((p)->implementation->new_connection(p,__VA_ARGS__))
+#define pw_protocol_add_listener(p,...)		((p)->implementation->add_listener(p,__VA_ARGS__))
+
+#define pw_protocol_ext(p,type,method,...)		((type*)(p)->extension)->method( __VA_ARGS__)
+#define pw_protocol_connection_ext(c,type,method,...)	((type*)(c)->protocol->extension)->method( __VA_ARGS__)
+#define pw_protocol_listener_ext(l,type,method,...)	((type*)(l)->protocol->extension)->method( __VA_ARGS__)
+
+struct pw_protocol *pw_protocol_new(struct pw_core *core, const char *name, size_t user_data_size);
 
 /** \class pw_protocol
  *
@@ -83,9 +120,7 @@ pw_protocol_add_interfaces(struct pw_protocol *protocol,
 			   const struct pw_interface *server_iface);
 
 const struct pw_interface *
-pw_protocol_get_interface(struct pw_protocol *protocol,
-			  const char *type,
-			  bool server);
+pw_protocol_get_interface(struct pw_protocol *protocol, const char *type, bool server);
 
 #ifdef __cplusplus
 }  /* extern "C" */

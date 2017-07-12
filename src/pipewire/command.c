@@ -19,6 +19,7 @@
  */
 
 #include <string.h>
+#include <stdio.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/utils.h>

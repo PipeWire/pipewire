@@ -1150,7 +1150,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug("client-node %p: new", impl);
 
-	impl->type_client_node = spa_type_map_get_id(core->type.map, PIPEWIRE_TYPE__ClientNode);
+	impl->type_client_node = spa_type_map_get_id(core->type.map, PW_TYPE__ClientNode);
 
 	pw_signal_init(&this->destroy_signal);
 

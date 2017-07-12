@@ -60,7 +60,7 @@ static const struct spa_graph_node_methods spa_graph_node_scheduler_default = {
 static inline int spa_graph_port_scheduler_reuse_buffer(struct spa_graph_port *port,
 							uint32_t buffer_id, void *user_data)
 {
-	printf("port %p reuse buffer %d\n", port, buffer_id);
+	debug("port %p reuse buffer %d\n", port, buffer_id);
 	struct spa_node *node = port->node->user_data;
 	return spa_node_port_reuse_buffer(node, port->port_id, buffer_id);
 }

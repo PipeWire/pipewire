@@ -25,9 +25,9 @@
 #include "pipewire/interfaces.h"
 #include "pipewire/protocol.h"
 #include "pipewire/client.h"
-#include "extensions/client-node.h"
 
-#include "modules/module-protocol-native/connection.h"
+#include "extensions/protocol-native.h"
+#include "extensions/client-node.h"
 
 /** \cond */
 
@@ -39,17 +39,16 @@ static void
 client_node_marshal_done(void *object, int seq, int res)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_connection *connection = proxy->remote->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_proxy(connection, proxy, PW_CLIENT_NODE_METHOD_DONE);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_METHOD_DONE);
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
 			       SPA_POD_TYPE_INT, res);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_proxy(proxy, b);
 }
 
 
@@ -60,18 +59,17 @@ client_node_marshal_update(void *object,
 			   uint32_t max_output_ports, const struct spa_props *props)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_connection *connection = proxy->remote->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_proxy(connection, proxy, PW_CLIENT_NODE_METHOD_UPDATE);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_METHOD_UPDATE);
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, change_mask,
 			       SPA_POD_TYPE_INT, max_input_ports,
 			       SPA_POD_TYPE_INT, max_output_ports, SPA_POD_TYPE_POD, props);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_proxy(proxy, b);
 }
 
 static void
@@ -86,12 +84,11 @@ client_node_marshal_port_update(void *object,
 				const struct spa_param **params, const struct spa_port_info *info)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_connection *connection = proxy->remote->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f[2];
 	int i;
 
-	b = pw_connection_begin_write_proxy(connection, proxy, PW_CLIENT_NODE_METHOD_PORT_UPDATE);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_METHOD_PORT_UPDATE);
 
 	spa_pod_builder_add(b,
 			    SPA_POD_TYPE_STRUCT, &f[0],
@@ -119,35 +116,33 @@ client_node_marshal_port_update(void *object,
 	}
 	spa_pod_builder_add(b, -SPA_POD_TYPE_STRUCT, &f[0], 0);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_proxy(proxy, b);
 }
 
 static void client_node_marshal_event_method(void *object, struct spa_event *event)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_connection *connection = proxy->remote->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_proxy(connection, proxy, PW_CLIENT_NODE_METHOD_EVENT);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_METHOD_EVENT);
 
 	spa_pod_builder_struct(b, &f, SPA_POD_TYPE_POD, event);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_proxy(proxy, b);
 }
 
 static void client_node_marshal_destroy(void *object)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_connection *connection = proxy->remote->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_proxy(connection, proxy, PW_CLIENT_NODE_METHOD_DESTROY);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_METHOD_DESTROY);
 
 	spa_pod_builder_struct(b, &f, 0);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_proxy(proxy, b);
 }
 
 static bool client_node_demarshal_set_props(void *object, void *data, size_t size)
@@ -264,7 +259,6 @@ static bool client_node_demarshal_add_mem(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
-	struct pw_connection *connection = proxy->remote->protocol_private;
 	uint32_t direction, port_id, mem_id, type, memfd_idx, flags, offset, sz;
 	int memfd;
 
@@ -280,7 +274,7 @@ static bool client_node_demarshal_add_mem(void *object, void *data, size_t size)
 			      SPA_POD_TYPE_INT, &offset, SPA_POD_TYPE_INT, &sz, 0))
 		return false;
 
-	memfd = pw_connection_get_fd(connection, memfd_idx);
+	memfd = pw_protocol_native_get_proxy_fd(proxy, memfd_idx);
 
 	((struct pw_client_node_events *) proxy->implementation)->add_mem(proxy,
 									  direction,
@@ -396,7 +390,6 @@ static bool client_node_demarshal_transport(void *object, void *data, size_t siz
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
-	struct pw_connection *connection = proxy->remote->protocol_private;
 	uint32_t node_id, ridx, widx, memfd_idx, offset, sz;
 	int readfd, writefd, memfd;
 
@@ -410,9 +403,9 @@ static bool client_node_demarshal_transport(void *object, void *data, size_t siz
 			      SPA_POD_TYPE_INT, &sz, 0))
 		return false;
 
-	readfd = pw_connection_get_fd(connection, ridx);
-	writefd = pw_connection_get_fd(connection, widx);
-	memfd = pw_connection_get_fd(connection, memfd_idx);
+	readfd = pw_protocol_native_get_proxy_fd(proxy, ridx);
+	writefd = pw_protocol_native_get_proxy_fd(proxy, widx);
+	memfd = pw_protocol_native_get_proxy_fd(proxy, memfd_idx);
 	if (readfd == -1 || writefd == -1 || memfd_idx == -1)
 		return false;
 
@@ -426,31 +419,29 @@ static void
 client_node_marshal_set_props(void *object, uint32_t seq, const struct spa_props *props)
 {
 	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_SET_PROPS);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_SET_PROPS);
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
 			       SPA_POD_TYPE_POD, props);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 static void client_node_marshal_event_event(void *object, const struct spa_event *event)
 {
 	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_EVENT);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_EVENT);
 
 	spa_pod_builder_struct(b, &f, SPA_POD_TYPE_POD, event);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 static void
@@ -458,17 +449,16 @@ client_node_marshal_add_port(void *object,
 			     uint32_t seq, enum spa_direction direction, uint32_t port_id)
 {
 	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_ADD_PORT);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_ADD_PORT);
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
 			       SPA_POD_TYPE_INT, direction, SPA_POD_TYPE_INT, port_id);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 static void
@@ -476,17 +466,16 @@ client_node_marshal_remove_port(void *object,
 				uint32_t seq, enum spa_direction direction, uint32_t port_id)
 {
 	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_REMOVE_PORT);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_REMOVE_PORT);
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
 			       SPA_POD_TYPE_INT, direction, SPA_POD_TYPE_INT, port_id);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 static void
@@ -498,11 +487,10 @@ client_node_marshal_set_format(void *object,
 			       const struct spa_format *format)
 {
 	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_SET_FORMAT);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_SET_FORMAT);
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
@@ -511,7 +499,7 @@ client_node_marshal_set_format(void *object,
 			       SPA_POD_TYPE_INT, flags,
 			       SPA_POD_TYPE_POD, format);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 static void
@@ -522,11 +510,10 @@ client_node_marshal_set_param(void *object,
 			      const struct spa_param *param)
 {
 	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_SET_PARAM);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_SET_PARAM);
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, seq,
@@ -534,7 +521,7 @@ client_node_marshal_set_param(void *object,
 			       SPA_POD_TYPE_INT, port_id,
 			       SPA_POD_TYPE_POD, param);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 static void
@@ -546,22 +533,21 @@ client_node_marshal_add_mem(void *object,
 			    int memfd, uint32_t flags, uint32_t offset, uint32_t size)
 {
 	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_ADD_MEM);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_ADD_MEM);
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, direction,
 			       SPA_POD_TYPE_INT, port_id,
 			       SPA_POD_TYPE_INT, mem_id,
 			       SPA_POD_TYPE_ID, type,
-			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, memfd),
+			       SPA_POD_TYPE_INT, pw_protocol_native_add_resource_fd(resource, memfd),
 			       SPA_POD_TYPE_INT, flags,
 			       SPA_POD_TYPE_INT, offset, SPA_POD_TYPE_INT, size);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 static void
@@ -572,12 +558,11 @@ client_node_marshal_use_buffers(void *object,
 				uint32_t n_buffers, struct pw_client_node_buffer *buffers)
 {
 	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, j;
 
-	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_USE_BUFFERS);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_USE_BUFFERS);
 
 	spa_pod_builder_add(b,
 			    SPA_POD_TYPE_STRUCT, &f,
@@ -612,22 +597,21 @@ client_node_marshal_use_buffers(void *object,
 	}
 	spa_pod_builder_add(b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 static void
 client_node_marshal_node_command(void *object, uint32_t seq, const struct spa_command *command)
 {
 	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_NODE_COMMAND);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_NODE_COMMAND);
 
 	spa_pod_builder_struct(b, &f, SPA_POD_TYPE_INT, seq, SPA_POD_TYPE_POD, command);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 static void
@@ -637,38 +621,36 @@ client_node_marshal_port_command(void *object,
 				 const struct spa_command *command)
 {
 	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_PORT_COMMAND);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_PORT_COMMAND);
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, direction,
 			       SPA_POD_TYPE_INT, port_id,
 			       SPA_POD_TYPE_POD, command);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 static void client_node_marshal_transport(void *object, uint32_t node_id, int readfd, int writefd,
 					  int memfd, uint32_t offset, uint32_t size)
 {
 	struct pw_resource *resource = object;
-	struct pw_connection *connection = resource->client->protocol_private;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_connection_begin_write_resource(connection, resource, PW_CLIENT_NODE_EVENT_TRANSPORT);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_TRANSPORT);
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, node_id,
-			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, readfd),
-			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, writefd),
-			       SPA_POD_TYPE_INT, pw_connection_add_fd(connection, memfd),
+			       SPA_POD_TYPE_INT, pw_protocol_native_add_resource_fd(resource, readfd),
+			       SPA_POD_TYPE_INT, pw_protocol_native_add_resource_fd(resource, writefd),
+			       SPA_POD_TYPE_INT, pw_protocol_native_add_resource_fd(resource, memfd),
 			       SPA_POD_TYPE_INT, offset, SPA_POD_TYPE_INT, size);
 
-	pw_connection_end_write(connection, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 
@@ -818,7 +800,7 @@ static const demarshal_func_t pw_protocol_native_client_client_node_demarshal[] 
 };
 
 static const struct pw_interface pw_protocol_native_client_client_node_interface = {
-	PIPEWIRE_TYPE_NODE_BASE "Client",
+	PW_TYPE__ClientNode,
 	PW_VERSION_CLIENT_NODE,
 	PW_CLIENT_NODE_METHOD_NUM, &pw_protocol_native_client_client_node_methods,
 	PW_CLIENT_NODE_EVENT_NUM, pw_protocol_native_client_client_node_demarshal,
@@ -847,27 +829,24 @@ static const struct pw_client_node_events pw_protocol_native_server_client_node_
 };
 
 const struct pw_interface pw_protocol_native_server_client_node_interface = {
-	PIPEWIRE_TYPE_NODE_BASE "Client",
+	PW_TYPE__ClientNode,
 	PW_VERSION_CLIENT_NODE,
 	PW_CLIENT_NODE_METHOD_NUM, &pw_protocol_native_server_client_node_demarshal,
 	PW_CLIENT_NODE_EVENT_NUM, &pw_protocol_native_server_client_node_events,
 };
 
-struct pw_protocol *pw_protocol_native_ext_client_node_init(void)
+struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core)
 {
-	static bool init = false;
 	struct pw_protocol *protocol;
 
-	protocol = pw_protocol_get(PW_TYPE_PROTOCOL__Native);
+	protocol = pw_core_find_protocol(core, PW_TYPE_PROTOCOL__Native);
 
-	if (init)
-		return protocol;
+	if (protocol == NULL)
+		return NULL;
 
 	pw_protocol_add_interfaces(protocol,
 				   &pw_protocol_native_client_client_node_interface,
 				   &pw_protocol_native_server_client_node_interface);
-
-	init = true;
 
 	return protocol;
 }

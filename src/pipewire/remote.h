@@ -139,8 +139,6 @@ struct pw_remote {
 	struct spa_list proxy_list;		/**< list of \ref pw_proxy objects */
 	struct spa_list stream_list;		/**< list of \ref pw_stream objects */
 
-	struct pw_protocol *protocol;		/**< the protocol in use */
-	void *protocol_private;			/**< private data for the protocol */
 	struct pw_protocol_connection *conn;	/**< the protocol connection */
 
 	enum pw_remote_state state;

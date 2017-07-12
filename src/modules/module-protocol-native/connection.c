@@ -53,7 +53,7 @@ struct buffer {
 };
 
 struct impl {
-	struct pw_connection this;
+	struct pw_protocol_native_connection this;
 
 	struct buffer in, out;
 
@@ -70,9 +70,9 @@ struct impl {
  * \param index the index of the fd to get
  * \return the fd at \a index or -1 when no such fd exists
  *
- * \memberof pw_connection
+ * \memberof pw_protocol_native_connection
  */
-int pw_connection_get_fd(struct pw_connection *conn, uint32_t index)
+int pw_protocol_native_connection_get_fd(struct pw_protocol_native_connection *conn, uint32_t index)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 
@@ -88,9 +88,9 @@ int pw_connection_get_fd(struct pw_connection *conn, uint32_t index)
  * \param fd the fd to add
  * \return the index of the fd or -1 when an error occured
  *
- * \memberof pw_connection
+ * \memberof pw_protocol_native_connection
  */
-uint32_t pw_connection_add_fd(struct pw_connection *conn, int fd)
+uint32_t pw_protocol_native_connection_add_fd(struct pw_protocol_native_connection *conn, int fd)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	uint32_t index, i;
@@ -112,7 +112,7 @@ uint32_t pw_connection_add_fd(struct pw_connection *conn, int fd)
 	return index;
 }
 
-static void *connection_ensure_size(struct pw_connection *conn, struct buffer *buf, size_t size)
+static void *connection_ensure_size(struct pw_protocol_native_connection *conn, struct buffer *buf, size_t size)
 {
 	if (buf->buffer_size + size > buf->buffer_maxsize) {
 		buf->buffer_maxsize = SPA_ROUND_UP_N(buf->buffer_size + size, MAX_BUFFER_SIZE);
@@ -124,7 +124,7 @@ static void *connection_ensure_size(struct pw_connection *conn, struct buffer *b
 	return (uint8_t *) buf->buffer_data + buf->buffer_size;
 }
 
-static bool refill_buffer(struct pw_connection *conn, struct buffer *buf)
+static bool refill_buffer(struct pw_protocol_native_connection *conn, struct buffer *buf)
 {
 	ssize_t len;
 	struct cmsghdr *cmsg;
@@ -186,12 +186,12 @@ static void clear_buffer(struct buffer *buf)
  * \param fd the socket
  * \returns a newly allocated connection object
  *
- * \memberof pw_connection
+ * \memberof pw_protocol_native_connection
  */
-struct pw_connection *pw_connection_new(int fd)
+struct pw_protocol_native_connection *pw_protocol_native_connection_new(int fd)
 {
 	struct impl *impl;
-	struct pw_connection *this;
+	struct pw_protocol_native_connection *this;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -229,9 +229,9 @@ struct pw_connection *pw_connection_new(int fd)
  *
  * \param conn the connection to destroy
  *
- * \memberof pw_connection
+ * \memberof pw_protocol_native_connection
  */
-void pw_connection_destroy(struct pw_connection *conn)
+void pw_protocol_native_connection_destroy(struct pw_protocol_native_connection *conn)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 
@@ -256,10 +256,10 @@ void pw_connection_destroy(struct pw_connection *conn)
  * Get the next packet in \a conn and store the opcode and destination
  * id as well as the packet data and size.
  *
- * \memberof pw_connection
+ * \memberof pw_protocol_native_connection
  */
 bool
-pw_connection_get_next(struct pw_connection *conn,
+pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *conn,
 		       uint8_t *opcode,
 		       uint32_t *dest_id,
 		       void **dt,
@@ -330,7 +330,7 @@ pw_connection_get_next(struct pw_connection *conn,
 	return true;
 }
 
-static inline void *begin_write(struct pw_connection *conn, uint32_t size)
+static inline void *begin_write(struct pw_protocol_native_connection *conn, uint32_t size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	uint32_t *p;
@@ -357,9 +357,9 @@ static uint32_t write_pod(struct spa_pod_builder *b, uint32_t ref, const void *d
 }
 
 struct spa_pod_builder *
-pw_connection_begin_write_resource(struct pw_connection *conn,
-                                   struct pw_resource *resource,
-				   uint8_t opcode)
+pw_protocol_native_connection_begin_resource(struct pw_protocol_native_connection *conn,
+					     struct pw_resource *resource,
+					     uint8_t opcode)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
         uint32_t diff, base, i, b;
@@ -386,9 +386,9 @@ pw_connection_begin_write_resource(struct pw_connection *conn,
 }
 
 struct spa_pod_builder *
-pw_connection_begin_write_proxy(struct pw_connection *conn,
-                                struct pw_proxy *proxy,
-				uint8_t opcode)
+pw_protocol_native_connection_begin_proxy(struct pw_protocol_native_connection *conn,
+					  struct pw_proxy *proxy,
+					  uint8_t opcode)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
         uint32_t diff, base, i, b;
@@ -415,8 +415,8 @@ pw_connection_begin_write_proxy(struct pw_connection *conn,
 }
 
 void
-pw_connection_end_write(struct pw_connection *conn,
-                        struct spa_pod_builder *builder)
+pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
+				  struct spa_pod_builder *builder)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	uint32_t *p, size = builder->offset;
@@ -443,9 +443,9 @@ pw_connection_end_write(struct pw_connection *conn,
  *
  * Write the queued messages on the connection to the socket
  *
- * \memberof pw_connection
+ * \memberof pw_protocol_native_connection
  */
-bool pw_connection_flush(struct pw_connection *conn)
+bool pw_protocol_native_connection_flush(struct pw_protocol_native_connection *conn)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	ssize_t len;
@@ -515,9 +515,9 @@ bool pw_connection_flush(struct pw_connection *conn)
  *
  * Remove all queued messages from \a conn
  *
- * \memberof pw_connection
+ * \memberof pw_protocol_native_connection
  */
-bool pw_connection_clear(struct pw_connection *conn)
+bool pw_protocol_native_connection_clear(struct pw_protocol_native_connection *conn)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 

@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define PIPEWIRE_TYPE__NodeFactory                            "PipeWire:Object:NodeFactory"
-#define PIPEWIRE_TYPE_NODE_FACTORY_BASE                       PIPEWIRE_TYPE__NodeFactory ":"
+#define PW_TYPE__NodeFactory                            "PipeWire:Object:NodeFactory"
+#define PW_TYPE_NODE_FACTORY_BASE                       PW_TYPE__NodeFactory ":"
 
 #include <pipewire/core.h>
 #include <pipewire/resource.h>

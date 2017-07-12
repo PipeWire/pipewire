@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define PIPEWIRE_TYPE__Node                          "PipeWire:Object:Node"
-#define PIPEWIRE_TYPE_NODE_BASE                      PIPEWIRE_TYPE__Node ":"
+#define PW_TYPE__Node                          PW_TYPE_OBJECT_BASE "Node"
+#define PW_TYPE_NODE_BASE                      PW_TYPE__Node ":"
 
 #include <spa/clock.h>
 #include <spa/node.h>

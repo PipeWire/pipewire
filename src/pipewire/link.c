@@ -18,6 +18,7 @@
  */
 
 #include <string.h>
+#include <stdio.h>
 
 #include <spa/lib/debug.h>
 #include <spa/video/format.h>

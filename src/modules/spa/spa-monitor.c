@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <stdio.h>
 #include <dlfcn.h>
 #include <errno.h>
 #include <poll.h>

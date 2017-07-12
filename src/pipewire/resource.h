@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define PIPEWIRE_TYPE__Resource                            "PipeWire:Object:Resource"
-#define PIPEWIRE_TYPE_RESOURCE_BASE                        PIPEWIRE_TYPE__Resource ":"
+#define PW_TYPE__Resource                            "PipeWire:Object:Resource"
+#define PW_TYPE_RESOURCE_BASE                        PW_TYPE__Resource ":"
 
 #include <spa/list.h>
 

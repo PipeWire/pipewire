@@ -36,6 +36,9 @@ extern "C" {
 #include <pipewire/sig.h>
 #include <pipewire/resource.h>
 
+#define PW_TYPE__Client           PW_TYPE_OBJECT_BASE "Client"
+#define PW_TYPE_CLIENT_BASE       PW_TYPE__Client ":"
+
 /** \page page_client Client
  *
  * \section sec_page_client_overview Overview
@@ -115,6 +118,7 @@ struct pw_client {
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_client *client));
 
 	struct pw_protocol *protocol;	/**< protocol in use */
+	struct spa_list protocol_link;	/**< link in the protocol client_list */
 	void *protocol_private;		/**< private data for the protocol */
 
 	void *user_data;		/**< extra user data */

@@ -24,11 +24,12 @@
 extern "C" {
 #endif
 
-#define PIPEWIRE_TYPE__Port                          "PipeWire:Object:Port"
-#define PIPEWIRE_TYPE_PORT_BASE                      PIPEWIRE_TYPE__Port ":"
+#define PW_TYPE__Port                          "PipeWire:Object:Port"
+#define PW_TYPE_PORT_BASE                      PW_TYPE__Port ":"
 
 #include <spa/node.h>
 
+#include <pipewire/utils.h>
 #include <pipewire/introspect.h>
 #include <pipewire/mem.h>
 

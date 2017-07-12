@@ -30,14 +30,18 @@ extern "C" {
 struct pw_global;
 
 #include <pipewire/type.h>
-#include <pipewire/interfaces.h>
-
-#include <pipewire/main-loop.h>
-#include <pipewire/data-loop.h>
-#include <pipewire/resource.h>
+#include <pipewire/loop.h>
+#include <pipewire/client.h>
+#include <pipewire/port.h>
+#include <pipewire/sig.h>
 #include <pipewire/node.h>
-#include <pipewire/link.h>
 #include <pipewire/node-factory.h>
+
+#define PW_TYPE__Core			PW_TYPE_OBJECT_BASE "Core"
+#define PW_TYPE_CORE_BASE		PW_TYPE__Core ":"
+
+#define PW_TYPE__Registry		PW_TYPE_OBJECT_BASE "Registry"
+#define PW_TYPE_REGISTRY_BASE		PW_TYPE__Registry ":"
 
 /** \page page_server_api Server API
  *
@@ -160,6 +164,7 @@ struct pw_core {
 
 	struct pw_map objects;		/**< map of known objects */
 
+	struct spa_list protocol_list;		/**< list of protocols */
 	struct spa_list remote_list;		/**< list of remote connections */
 	struct spa_list resource_list;		/**< list of core resources */
 	struct spa_list registry_resource_list;	/**< list of registry resources */
@@ -235,6 +240,9 @@ pw_core_find_port(struct pw_core *core,
 
 struct pw_node_factory *
 pw_core_find_node_factory(struct pw_core *core, const char *name);
+
+struct pw_protocol *
+pw_core_find_protocol(struct pw_core *core, const char *name);
 
 #ifdef __cplusplus
 }

@@ -25,7 +25,6 @@ extern "C" {
 #endif
 
 #include <stdarg.h>
-#include <stdio.h>
 #include <spa/pod-utils.h>
 
 struct spa_pod_frame {

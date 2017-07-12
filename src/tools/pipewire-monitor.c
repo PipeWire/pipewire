@@ -22,6 +22,8 @@
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
+#include <pipewire/interfaces.h>
+#include <pipewire/type.h>
 #include <pipewire/sig.h>
 
 struct data {
@@ -60,7 +62,7 @@ static void on_info_changed(struct pw_listener *listener, struct pw_remote *remo
 	bool print_all = true, print_mark = false;
 
 	printf("\tid: %u\n", info->id);
-	printf("\ttype: %s\n", PIPEWIRE_TYPE__Core);
+	printf("\ttype: %s\n", PW_TYPE__Core);
 	if (print_all) {
 		printf("%c\tuser-name: \"%s\"\n", MARK_CHANGE(0), info->user_name);
 		printf("%c\thost-name: \"%s\"\n", MARK_CHANGE(1), info->host_name);
@@ -90,7 +92,7 @@ static void module_event_info(void *object, struct pw_module_info *info)
 	info = data->info = pw_module_info_update(data->info, info);
 
 	printf("\tid: %u\n", info->id);
-	printf("\ttype: %s\n", PIPEWIRE_TYPE__Module);
+	printf("\ttype: %s\n", PW_TYPE__Module);
 	if (print_all) {
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 		printf("%c\tfilename: \"%s\"\n", MARK_CHANGE(1), info->filename);
@@ -122,7 +124,7 @@ static void node_event_info(void *object, struct pw_node_info *info)
 	info = data->info = pw_node_info_update(data->info, info);
 
 	printf("\tid: %u\n", info->id);
-	printf("\ttype: %s\n", PIPEWIRE_TYPE__Node);
+	printf("\ttype: %s\n", PW_TYPE__Node);
 	if (print_all) {
 		int i;
 
@@ -169,7 +171,7 @@ static void client_event_info(void *object, struct pw_client_info *info)
         info = data->info = pw_client_info_update(data->info, info);
 
 	printf("\tid: %u\n", info->id);
-	printf("\ttype: %s\n", PIPEWIRE_TYPE__Client);
+	printf("\ttype: %s\n", PW_TYPE__Client);
 	if (print_all) {
 		print_properties(info->props, MARK_CHANGE(0));
 	}
@@ -198,7 +200,7 @@ static void link_event_info(void *object, struct pw_link_info *info)
         info = data->info = pw_link_info_update(data->info, info);
 
 	printf("\tid: %u\n", info->id);
-	printf("\ttype: %s\n", PIPEWIRE_TYPE__Link);
+	printf("\ttype: %s\n", PW_TYPE__Link);
 	if (print_all) {
 		printf("%c\toutput-node-id: %u\n", MARK_CHANGE(0), info->output_node_id);
 		printf("%c\toutput-port-id: %u\n", MARK_CHANGE(1), info->output_port_id);

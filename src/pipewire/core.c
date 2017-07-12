@@ -18,12 +18,14 @@
  */
 #include <unistd.h>
 #include <time.h>
+#include <stdio.h>
 
 #include <spa/lib/debug.h>
 #include <spa/format-utils.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/interfaces.h>
+#include <pipewire/protocol.h>
 #include <pipewire/core.h>
 #include <pipewire/data-loop.h>
 
@@ -326,6 +328,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	pw_data_loop_start(impl->data_loop);
 
+	spa_list_init(&this->protocol_list);
 	spa_list_init(&this->remote_list);
 	spa_list_init(&this->resource_list);
 	spa_list_init(&this->registry_resource_list);
@@ -724,6 +727,17 @@ struct pw_node_factory *pw_core_find_node_factory(struct pw_core *core, const ch
 	spa_list_for_each(factory, &core->node_factory_list, link) {
 		if (strcmp(factory->name, name) == 0)
 			return factory;
+	}
+	return NULL;
+}
+
+struct pw_protocol *pw_core_find_protocol(struct pw_core *core, const char *name)
+{
+	struct pw_protocol *protocol;
+
+	spa_list_for_each(protocol, &core->protocol_list, link) {
+		if (strcmp(protocol->name, name) == 0)
+			return protocol;
 	}
 	return NULL;
 }

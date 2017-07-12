@@ -17,6 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <stdio.h>
+
 #include "pipewire/pipewire.h"
 #include "pipewire/properties.h"
 

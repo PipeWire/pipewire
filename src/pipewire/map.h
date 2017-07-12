@@ -25,7 +25,6 @@ extern "C" {
 #endif
 
 #include <string.h>
-#include <stdio.h>
 
 #include <spa/defs.h>
 #include <pipewire/array.h>

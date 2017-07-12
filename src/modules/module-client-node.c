@@ -30,7 +30,7 @@
 
 #include "module-client-node/client-node.h"
 
-struct pw_protocol *pw_protocol_native_ext_client_node_init(void);
+struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core);
 
 struct impl {
 	struct pw_node_factory this;
@@ -68,11 +68,11 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 
 	impl->this.core = core;
 	impl->this.name = "client-node";
-	impl->this.type = spa_type_map_get_id(core->type.map, PIPEWIRE_TYPE__ClientNode);
+	impl->this.type = spa_type_map_get_id(core->type.map, PW_TYPE__ClientNode);
         pw_signal_init(&impl->this.destroy_signal);
 	impl->this.create_node = create_node;
 
-	pw_protocol_native_ext_client_node_init();
+	pw_protocol_native_ext_client_node_init(core);
 
 	spa_list_insert(core->node_factory_list.prev, &impl->this.link);
 

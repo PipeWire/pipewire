@@ -22,6 +22,7 @@
 #include "config.h"
 #endif
 
+#include <stdio.h>
 #include <dlfcn.h>
 #include <dirent.h>
 #include <sys/stat.h>

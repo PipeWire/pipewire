@@ -19,40 +19,66 @@
 
 #include <pipewire/protocol.h>
 
-static struct impl {
-	bool init;
-	struct spa_list protocol_list;
-} protocols;
+struct impl {
+	struct pw_protocol this;
+};
 
-static struct impl *get_impl(void)
+struct pw_protocol *pw_protocol_new(struct pw_core *core,
+				    const char *name,
+				    size_t user_data_size)
 {
-	if (!protocols.init) {
-		spa_list_init(&protocols.protocol_list);
-		protocols.init = true;
-	}
-	return &protocols;
-}
-
-struct pw_protocol *pw_protocol_get(const char *name)
-{
-	struct impl *impl = get_impl();
 	struct pw_protocol *protocol;
 
-	spa_list_for_each(protocol, &impl->protocol_list, link) {
-		if (strcmp(protocol->name, name) == 0)
-                        return protocol;
-        }
+	if (pw_core_find_protocol(core, name) != NULL)
+		return NULL;
 
-	protocol = calloc(1, sizeof(struct pw_protocol));
-	protocol->name = name;
+	protocol = calloc(1, sizeof(struct impl) + user_data_size);
+	protocol->core = core;
+	protocol->name = strdup(name);
+
 	spa_list_init(&protocol->iface_list);
 	spa_list_init(&protocol->connection_list);
 	spa_list_init(&protocol->listener_list);
-	spa_list_insert(impl->protocol_list.prev, &protocol->link);
 
-	pw_log_info("Created protocol %s", name);
+	pw_signal_init(&protocol->destroy_signal);
+
+	if (user_data_size > 0)
+		protocol->user_data = SPA_MEMBER(protocol, sizeof(struct impl), void);
+
+	spa_list_insert(core->protocol_list.prev, &protocol->link);
+
+	pw_log_info("protocol %p: Created protocol %s", protocol, name);
 
 	return protocol;
+}
+
+void pw_protocol_destroy(struct pw_protocol *protocol)
+{
+	struct impl *impl = SPA_CONTAINER_OF(protocol, struct impl, this);
+	struct pw_protocol_iface *iface, *t1;
+	struct pw_protocol_listener *listener, *t2;
+	struct pw_protocol_connection *connection, *t3;
+
+	pw_log_info("protocol %p: destroy", protocol);
+	pw_signal_emit(&protocol->destroy_signal, protocol);
+
+	spa_list_remove(&protocol->link);
+
+	spa_list_for_each_safe(iface, t1, &protocol->iface_list, link)
+		free(iface);
+
+	spa_list_for_each_safe(listener, t2, &protocol->listener_list, link)
+		pw_protocol_listener_destroy(listener);
+
+	spa_list_for_each_safe(connection, t3, &protocol->connection_list, link)
+		pw_protocol_connection_destroy(connection);
+
+	free(protocol->name);
+
+	if (protocol->destroy)
+		protocol->destroy(protocol);
+
+	free(impl);
 }
 
 void

@@ -29,9 +29,13 @@ extern "C" {
 #include <pipewire/mem.h>
 #include <pipewire/introspect.h>
 
+#include <pipewire/type.h>
 #include <pipewire/core.h>
 #include <pipewire/port.h>
 #include <pipewire/main-loop.h>
+
+#define PW_TYPE__Link             PW_TYPE_OBJECT_BASE "Link"
+#define PW_TYPE_LINK_BASE         PW_TYPE__Link ":"
 
 /** \page page_link Link
  *

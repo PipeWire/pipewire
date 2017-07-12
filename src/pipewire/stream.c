@@ -204,7 +204,7 @@ struct pw_stream *pw_stream_new(struct pw_remote *remote,
 
 	this->remote = remote;
 	this->name = strdup(name);
-	impl->type_client_node = spa_type_map_get_id(remote->core->type.map, PIPEWIRE_TYPE_NODE_BASE "Client");
+	impl->type_client_node = spa_type_map_get_id(remote->core->type.map, PW_TYPE__ClientNode);
 
 	pw_signal_init(&this->destroy_signal);
 	pw_signal_init(&this->state_changed);

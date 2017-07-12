@@ -26,6 +26,7 @@
 
 #include "pipewire/pipewire.h"
 #include "pipewire/type.h"
+#include "pipewire/module.h"
 
 #include "pipewire/node-factory.h"
 
@@ -38,13 +39,13 @@ void pw_type_init(struct pw_type *type)
 {
 	type->map = pw_get_support_interface(SPA_TYPE__TypeMap);
 
-	type->core = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Core);
-	type->registry = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Registry);
-	type->node = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Node);
-	type->node_factory = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__NodeFactory);
-	type->link = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Link);
-	type->client = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Client);
-	type->module = spa_type_map_get_id(type->map, PIPEWIRE_TYPE__Module);
+	type->core = spa_type_map_get_id(type->map, PW_TYPE__Core);
+	type->registry = spa_type_map_get_id(type->map, PW_TYPE__Registry);
+	type->node = spa_type_map_get_id(type->map, PW_TYPE__Node);
+	type->node_factory = spa_type_map_get_id(type->map, PW_TYPE__NodeFactory);
+	type->link = spa_type_map_get_id(type->map, PW_TYPE__Link);
+	type->client = spa_type_map_get_id(type->map, PW_TYPE__Client);
+	type->module = spa_type_map_get_id(type->map, PW_TYPE__Module);
 
 	type->spa_log = spa_type_map_get_id(type->map, SPA_TYPE__Log);
 	type->spa_node = spa_type_map_get_id(type->map, SPA_TYPE__Node);

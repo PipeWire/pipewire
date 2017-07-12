@@ -24,16 +24,29 @@
 extern "C" {
 #endif
 
+#include <spa/plugin.h>
+
+#include <pipewire/client.h>
+#include <pipewire/core.h>
+#include <pipewire/interfaces.h>
 #include <pipewire/introspect.h>
+#include <pipewire/link.h>
 #include <pipewire/log.h>
 #include <pipewire/loop.h>
-#include <pipewire/mem.h>
-#include <pipewire/thread-loop.h>
+#include <pipewire/main-loop.h>
+#include <pipewire/module.h>
+#include <pipewire/node-factory.h>
+#include <pipewire/node.h>
+#include <pipewire/port.h>
 #include <pipewire/properties.h>
+#include <pipewire/proxy.h>
+#include <pipewire/remote.h>
+#include <pipewire/resource.h>
+#include <pipewire/sig.h>
 #include <pipewire/stream.h>
+#include <pipewire/thread-loop.h>
+#include <pipewire/type.h>
 #include <pipewire/utils.h>
-
-#include <spa/type-map.h>
 
 /** \mainpage
  *

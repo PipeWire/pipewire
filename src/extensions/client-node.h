@@ -30,8 +30,8 @@ extern "C" {
 #include <spa/param-alloc.h>
 #include <spa/node.h>
 
-#define PIPEWIRE_TYPE__ClientNode                            PIPEWIRE_TYPE_NODE_BASE "Client"
-#define PIPEWIRE_TYPE_CLIENT_NODE_BASE                       PIPEWIRE_TYPE__ClientNode ":"
+#define PW_TYPE__ClientNode			PW_TYPE_NODE_BASE "Client"
+#define PW_TYPE_CLIENT_NODE_BASE		PW_TYPE__ClientNode ":"
 
 /** information about a buffer */
 struct pw_client_node_buffer {

@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PIPEWIRE_CONNECTION_H__
-#define __PIPEWIRE_CONNECTION_H__
+#ifndef __PIPEWIRE_PROTOCOL_NATIVE_CONNECTION_H__
+#define __PIPEWIRE_PROTOCOL_NATIVE_CONNECTION_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,63 +27,61 @@ extern "C" {
 #include <spa/defs.h>
 #include <pipewire/sig.h>
 
-/** \class pw_connection
+/** \class pw_protocol_native_connection
  *
  * \brief Manages the connection between client and server
  *
- * The \ref pw_connection handles the connection between client
+ * The \ref pw_protocol_native_connection handles the connection between client
  * and server on a given socket.
  */
-struct pw_connection {
+struct pw_protocol_native_connection {
 	int fd;	/**< the socket */
 
 	/** Emited when data has been written that needs to be flushed */
-	PW_SIGNAL(need_flush,     (struct pw_listener *listener, struct pw_connection *conn));
+	PW_SIGNAL(need_flush,     (struct pw_listener *listener,
+				   struct pw_protocol_native_connection *conn));
 	/** Emited when the connection is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_connection *conn));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener,
+				   struct pw_protocol_native_connection *conn));
 };
 
-struct pw_connection *
-pw_connection_new(int fd);
+struct pw_protocol_native_connection *
+pw_protocol_native_connection_new(int fd);
 
 void
-pw_connection_destroy(struct pw_connection *conn);
-
-uint32_t
-pw_connection_add_fd(struct pw_connection *conn, int fd);
-
-int
-pw_connection_get_fd(struct pw_connection *conn, uint32_t index);
+pw_protocol_native_connection_destroy(struct pw_protocol_native_connection *conn);
 
 bool
-pw_connection_get_next(struct pw_connection *conn,
-		       uint8_t *opcode,
-		       uint32_t *dest_id,
-		       void **data, uint32_t *size);
+pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *conn,
+				       uint8_t *opcode,
+				       uint32_t *dest_id,
+				       void **data, uint32_t *size);
+
+uint32_t pw_protocol_native_connection_add_fd(struct pw_protocol_native_connection *conn, int fd);
+
+int pw_protocol_native_connection_get_fd(struct pw_protocol_native_connection *conn, uint32_t index);
 
 struct spa_pod_builder *
-pw_connection_begin_write_resource(struct pw_connection *conn,
-				   struct pw_resource *resource,
-				   uint8_t opcode);
+pw_protocol_native_connection_begin_resource(struct pw_protocol_native_connection *conn,
+                                             struct pw_resource *resource,
+                                             uint8_t opcode);
 
 struct spa_pod_builder *
-pw_connection_begin_write_proxy(struct pw_connection *conn,
-				struct pw_proxy *proxy,
-				uint8_t opcode);
-
-
+pw_protocol_native_connection_begin_proxy(struct pw_protocol_native_connection *conn,
+                                          struct pw_proxy *proxy,
+                                          uint8_t opcode);
 void
-pw_connection_end_write(struct pw_connection *conn,
-			struct spa_pod_builder *builder);
+pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
+                                  struct spa_pod_builder *builder);
 
 bool
-pw_connection_flush(struct pw_connection *conn);
+pw_protocol_native_connection_flush(struct pw_protocol_native_connection *conn);
 
 bool
-pw_connection_clear(struct pw_connection *conn);
+pw_protocol_native_connection_clear(struct pw_protocol_native_connection *conn);
 
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
 
-#endif /* __PIPEWIRE_CONNECTION_H__ */
+#endif /* __PIPEWIRE_PROTOCOL_NATIVE_CONNECTION_H__ */

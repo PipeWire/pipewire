@@ -66,8 +66,6 @@ typedef int (*spa_invoke_func_t) (struct spa_loop *loop,
 				  void *data,
 				  void *user_data);
 
-#define SPA_VERSION_LOOP	0
-
 /**
  * spa_loop:
  *
@@ -76,6 +74,7 @@ typedef int (*spa_invoke_func_t) (struct spa_loop *loop,
 struct spa_loop {
 	/* the version of this structure. This can be used to expand this
 	 * structure in the future */
+#define SPA_VERSION_LOOP	0
 	uint32_t version;
 
 	int (*add_source) (struct spa_loop *loop,
@@ -160,8 +159,6 @@ typedef void (*spa_source_signal_func_t) (struct spa_loop_utils *utils,
 					  struct spa_source *source,
 					  int signal_number, void *data);
 
-#define SPA_VERSION_LOOP_UTILS	0
-
 /**
  * struct spa_loop_utils:
  *
@@ -170,6 +167,7 @@ typedef void (*spa_source_signal_func_t) (struct spa_loop_utils *utils,
 struct spa_loop_utils {
 	/* the version of this structure. This can be used to expand this
 	 * structure in the future */
+#define SPA_VERSION_LOOP_UTILS	0
 	uint32_t version;
 
 	struct spa_source *(*add_io) (struct spa_loop_utils *utils,

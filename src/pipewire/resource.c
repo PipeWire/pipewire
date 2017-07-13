@@ -32,8 +32,9 @@ struct impl {
 struct pw_resource *pw_resource_new(struct pw_client *client,
 				    uint32_t id,
 				    uint32_t type,
-				    uint32_t client_version,
-				    size_t user_data_size)
+				    uint32_t version,
+				    size_t user_data_size,
+				    pw_destroy_t destroy)
 {
 	struct impl *impl;
 	struct pw_resource *this;
@@ -46,7 +47,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	this->core = client->core;
 	this->client = client;
 	this->type = type;
-	this->client_version = client_version;
+	this->version = version;
 
 	pw_signal_init(&this->destroy_signal);
 
@@ -60,9 +61,9 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
-	this->iface = pw_protocol_get_interface(client->protocol,
-                                                spa_type_map_get_type(client->core->type.map, type),
-                                                true);
+	this->destroy = destroy;
+
+	this->marshal = pw_protocol_get_marshal(client->protocol, type);
 
 	pw_log_debug("resource %p: new for client %p id %u", this, client, id);
 	pw_signal_emit(&client->resource_added, client, this);
@@ -77,17 +78,12 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 
 int
 pw_resource_set_implementation(struct pw_resource *resource,
-			       void *object,
-			       uint32_t version,
-			       const void *implementation,
-			       pw_destroy_t destroy)
+			       void *object, const void *implementation)
 {
 	struct pw_client *client = resource->client;
 
 	resource->object = object;
-	resource->version = version;
 	resource->implementation = implementation;
-	resource->destroy = destroy;
 	pw_signal_emit(&client->resource_impl, client, resource);
 
 	return SPA_RESULT_OK;
@@ -107,7 +103,7 @@ void pw_resource_destroy(struct pw_resource *resource)
 		resource->destroy(resource);
 
 	if (client->core_resource)
-		pw_core_notify_remove_id(client->core_resource, resource->id);
+		pw_core_resource_remove_id(client->core_resource, resource->id);
 
 	free(resource);
 }

@@ -193,7 +193,7 @@ enum
 };
 
 static GstDevice *
-new_node (GstPipeWireDeviceProvider *self, const struct pw_node_info *info)
+new_node (GstPipeWireDeviceProvider *self, const struct pw_node_info *info, uint32_t id)
 {
   GstCaps *caps = NULL;
   GstStructure *props;
@@ -234,7 +234,7 @@ new_node (GstPipeWireDeviceProvider *self, const struct pw_node_info *info)
   if (klass == NULL)
     klass = "unknown/unknown";
 
-  return gst_pipewire_device_new (info->id,
+  return gst_pipewire_device_new (id,
                                info->name,
                                caps,
                                klass,
@@ -295,18 +295,24 @@ on_sync_reply (struct pw_listener *listener, struct pw_remote *remote, uint32_t 
 {
   GstPipeWireDeviceProvider *self = SPA_CONTAINER_OF (listener, GstPipeWireDeviceProvider, on_sync_reply);
   if (seq == 1)
-    pw_core_do_sync(self->registry->remote->core_proxy, 2);
+    pw_core_proxy_sync(self->remote->core_proxy, 2);
   else if (seq == 2)
     self->end = true;
 }
 
+struct node_data {
+  GstPipeWireDeviceProvider *self;
+  uint32_t id;
+};
+
 static void node_event_info(void *object, struct pw_node_info *info)
 {
   struct pw_proxy *proxy = object;
-  GstPipeWireDeviceProvider *self = proxy->object;
+  struct node_data *node_data = proxy->user_data;
+  GstPipeWireDeviceProvider *self = node_data->self;
   GstDevice *dev;
 
-  dev = new_node (self, info);
+  dev = new_node (self, info, node_data->id);
   if (dev) {
     if(self->list_only)
       *self->devices = g_list_prepend (*self->devices, gst_object_ref_sink (dev));
@@ -316,26 +322,32 @@ static void node_event_info(void *object, struct pw_node_info *info)
 }
 
 static const struct pw_node_events node_events = {
+  PW_VERSION_NODE_EVENTS,
   &node_event_info
 };
 
+
 static void registry_event_global(void *object, uint32_t id, uint32_t type, uint32_t version)
 {
-  struct pw_proxy *registry = object;
-  GstPipeWireDeviceProvider *self = registry->object;
-  struct pw_remote *remote = registry->remote;
+  struct pw_registry_proxy *registry = object;
+  GstPipeWireDeviceProvider *self = registry->proxy.user_data;
+  struct pw_remote *remote = self->remote;
   struct pw_core *core = remote->core;
-  struct pw_proxy *proxy = NULL;
+  struct pw_node_proxy *node;
+  struct node_data *data;
 
   if (type != core->type.node)
     return;
 
-  proxy = pw_proxy_new(remote, SPA_ID_INVALID, core->type.node, 0);
-  if (proxy == NULL)
+  node = pw_registry_proxy_bind(registry, id, core->type.node, PW_VERSION_NODE,
+				sizeof(struct node_data), NULL);
+  if (node == NULL)
     goto no_mem;
 
-  pw_proxy_set_implementation(proxy, self, PW_VERSION_NODE, &node_events, NULL);
-  pw_registry_do_bind(registry, id, version, proxy->id);
+  data = node->proxy.user_data;
+  data->id = id;
+  data->self = self;
+  pw_node_proxy_add_listener(node, node, &node_events);
   return;
 
 no_mem:
@@ -345,8 +357,8 @@ no_mem:
 
 static void registry_event_global_remove(void *object, uint32_t id)
 {
-  struct pw_proxy *registry = object;
-  GstPipeWireDeviceProvider *self = registry->object;
+  struct pw_registry_proxy *registry = object;
+  GstPipeWireDeviceProvider *self = registry->proxy.user_data;
   GstDeviceProvider *provider = GST_DEVICE_PROVIDER (self);
   GstPipeWireDevice *dev;
 
@@ -358,6 +370,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 }
 
 static const struct pw_registry_events registry_events = {
+  PW_VERSION_REGISTRY_EVENTS,
   registry_event_global,
   registry_event_global_remove,
 };
@@ -369,7 +382,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   struct pw_loop *l = NULL;
   struct pw_core *c = NULL;
   struct pw_remote *r = NULL;
-  struct pw_proxy *reg = NULL;
+  struct pw_registry_proxy *reg = NULL;
 
   GST_DEBUG_OBJECT (self, "starting probe");
 
@@ -410,10 +423,10 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   self->list_only = TRUE;
   self->devices = NULL;
 
-  reg = pw_proxy_new(r, SPA_ID_INVALID, c->type.registry, 0);
-  pw_proxy_set_implementation(reg, self, PW_VERSION_REGISTRY, &registry_events, NULL);
-  pw_core_do_get_registry(r->core_proxy, PW_VERSION_REGISTRY, reg->id);
-  pw_core_do_sync(r->core_proxy, 1);
+  reg = pw_core_proxy_get_registry(r->core_proxy, PW_VERSION_REGISTRY, 0, NULL);
+  reg->proxy.user_data = self;
+  pw_registry_proxy_add_listener(reg, reg, &registry_events);
+  pw_core_proxy_sync(r->core_proxy, 1);
 
   for (;;) {
     if (r->state <= 0)
@@ -515,10 +528,10 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
   GST_DEBUG_OBJECT (self, "connected");
   get_core_info (self->remote, self);
 
-  self->registry = pw_proxy_new(self->remote, SPA_ID_INVALID, self->core->type.registry, 0);
-  pw_proxy_set_implementation(self->registry, self, PW_VERSION_REGISTRY, &registry_events, NULL);
-  pw_core_do_get_registry(self->remote->core_proxy, PW_VERSION_REGISTRY, self->registry->id);
-  pw_core_do_sync(self->remote->core_proxy, 1);
+  self->registry = pw_core_proxy_get_registry(self->remote->core_proxy, PW_VERSION_REGISTRY, 0, NULL);
+  self->registry->proxy.user_data = self;
+  pw_registry_proxy_add_listener(self->registry, self->registry, &registry_events);
+  pw_core_proxy_sync(self->remote->core_proxy, 1);
 
   pw_thread_loop_unlock (self->main_loop);
 

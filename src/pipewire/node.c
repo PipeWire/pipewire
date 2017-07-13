@@ -151,7 +151,6 @@ static void node_unbind_func(void *data)
 static void
 update_info(struct pw_node *this)
 {
-	this->info.id = this->global->id;
 	this->info.input_formats = NULL;
 
 	if (!spa_list_is_empty(&this->input_ports)) {
@@ -211,31 +210,33 @@ clear_info(struct pw_node *this)
 }
 
 static int
-node_bind_func(struct pw_global *global, struct pw_client *client, uint32_t version, uint32_t id)
+node_bind_func(struct pw_global *global,
+	       struct pw_client *client,
+	       uint32_t version, uint32_t id)
 {
 	struct pw_node *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, version, 0);
+	resource = pw_resource_new(client, id, global->type, version, 0, node_unbind_func);
 	if (resource == NULL)
 		goto no_mem;
 
-	pw_resource_set_implementation(resource, global->object, PW_VERSION_NODE, NULL, node_unbind_func);
+	pw_resource_set_implementation(resource, this, NULL);
 
 	pw_log_debug("node %p: bound to %d", this, resource->id);
 
 	spa_list_insert(this->resource_list.prev, &resource->link);
 
 	this->info.change_mask = ~0;
-	pw_node_notify_info(resource, &this->info);
+	pw_node_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
 	return SPA_RESULT_OK;
 
       no_mem:
 	pw_log_error("can't create node resource");
-	pw_core_notify_error(client->core_resource,
-			     client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+	pw_core_resource_error(client->core_resource,
+			       client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
 	return SPA_RESULT_NO_MEMORY;
 }
 
@@ -250,6 +251,7 @@ do_node_add(struct spa_loop *loop,
 	return SPA_RESULT_OK;
 }
 
+
 void pw_node_export(struct pw_node *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
@@ -259,7 +261,7 @@ void pw_node_export(struct pw_node *this)
 	spa_list_insert(this->core->node_list.prev, &this->link);
 
 	pw_core_add_global(this->core, this->owner, this->core->type.node, PW_VERSION_NODE,
-			   this, node_bind_func, &this->global);
+			   node_bind_func, this, &this->global);
 
 	pw_loop_invoke(this->data_loop, do_node_add, 1, 0, NULL, false, this);
 
@@ -611,7 +613,7 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 
 		node->info.change_mask |= 1 << 5;
 		spa_list_for_each(resource, &node->resource_list, link)
-			pw_node_notify_info(resource, &node->info);
+			pw_node_resource_info(resource, &node->info);
 		node->info.change_mask = 0;
 	}
 }

@@ -26,7 +26,8 @@ extern "C" {
 
 #include <pipewire/type.h>
 #include <pipewire/utils.h>
-#include <pipewire/remote.h>
+
+struct pw_remote;
 
 /** \page page_proxy Proxy
  *
@@ -82,7 +83,7 @@ extern "C" {
  * A pw_proxy acts as a client side proxy to an object existing in the
  * pipewire server. The proxy is responsible for converting interface functions
  * invoked by the client to PipeWire messages. Events will call the handlers
- * set in implementation.
+ * set in listener.
  *
  * See \ref page_proxy
  */
@@ -91,39 +92,40 @@ struct pw_proxy {
 	struct spa_list link;		/**< link in the remote */
 
 	uint32_t id;			/**< client side id */
-	uint32_t type;			/**< object type id */
-	const struct pw_interface *iface;	/**< methods/events marshal/demarshal functions */
+	uint32_t type;			/**< type id */
 
-	void *object;			/**< client side object */
-	uint32_t version;
-	const void *implementation;	/**< event handler implementation */
-	pw_destroy_t destroy;		/**< optional destroy function to clean up the object */
+	const void *listener;           /**< event listener */
+        void *object;                   /**< object associated with proxy */
+
+	const struct pw_protocol_marshal *marshal;	/**< protocol specific marshal functions */
 
 	/** destroy is emited when the proxy is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_proxy *proxy));
 
 	void *user_data;		/**< extra user data */
+	pw_destroy_t destroy;		/**< optional destroy function to clean up the user_data */
 };
 
+/** Make a new proxy object. The id can be used to bind to a remote object. */
 struct pw_proxy *
-pw_proxy_new(struct pw_remote *remote,
-	     uint32_t id,
-	     uint32_t type,
-	     size_t user_data_size);
+pw_proxy_new(struct pw_remote *remote,	/**< remote this proxy is from */
+	     uint32_t id,		/**< local id, SPA_ID_INVALID to have one automatically
+					  *  allocated for you */
+	     uint32_t type,		/**< interface type id */
+	     size_t user_data_size,	/**< size of user data */
+	     pw_destroy_t destroy	/**< destroy function for user data */);
 
-int
-pw_proxy_set_implementation(struct pw_proxy *proxy,
-			    void *object,
-			    uint32_t version,
-			    const void *implementation,
-			    pw_destroy_t destroy);
+void
+pw_proxy_add_listener(struct pw_proxy *proxy,	/**< the proxy */
+		      void *object,		/**< object associated with proxy */
+		      const void *events	/**< events */);
 
 void pw_proxy_destroy(struct pw_proxy *proxy);
 
-#define pw_proxy_notify(p,type,event,...)	((type*) (p)->implementation)->event(p, __VA_ARGS__)
-#define pw_proxy_notify_na(p,type,event)	((type*) (p)->implementation)->event(p)
-#define pw_proxy_do(p,type,method,...)		((type*) (p)->iface->methods)->method(p, __VA_ARGS__)
-#define pw_proxy_do_na(p,type,method)		((type*) (p)->iface->methods)->method(p)
+#define pw_proxy_notify(p,type,event,...)	((type*) (p)->listener)->event(p, __VA_ARGS__)
+#define pw_proxy_notify_na(p,type,event)	((type*) (p)->listener)->event(p)
+#define pw_proxy_do(p,type,method,...)		((type*) (p)->marshal->method_marshal)->method(p, __VA_ARGS__)
+#define pw_proxy_do_na(p,type,method)		((type*) (p)->marshal->method_marshal)->method(p)
 
 #ifdef __cplusplus
 }

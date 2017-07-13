@@ -24,8 +24,6 @@
 extern "C" {
 #endif
 
-struct pw_remote;
-
 #include <pipewire/map.h>
 #include <pipewire/loop.h>
 #include <pipewire/properties.h>
@@ -123,7 +121,7 @@ struct pw_remote {
 	struct spa_list link;			/**< link in core remote_list */
 	struct pw_properties *properties;	/**< extra properties */
 
-	struct pw_proxy *core_proxy;		/**< proxy for the core object */
+	struct pw_core_proxy *core_proxy;	/**< proxy for the core object */
 	struct pw_map objects;			/**< map of client side proxy objects
 						 *   indexed with the client id */
         struct pw_core_info *info;		/**< info about the remote core */

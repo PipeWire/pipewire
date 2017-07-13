@@ -43,8 +43,6 @@ enum spa_clock_state {
 #include <spa/plugin.h>
 #include <spa/props.h>
 
-#define SPA_VERSION_CLOCK	0
-
 /**
  * spa_clock:
  *
@@ -53,6 +51,7 @@ enum spa_clock_state {
 struct spa_clock {
 	/* the version of this clock. This can be used to expand this
 	 * structure in the future */
+#define SPA_VERSION_CLOCK	0
 	uint32_t version;
 
 	const struct spa_dict *info;

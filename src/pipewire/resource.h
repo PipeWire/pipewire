@@ -64,14 +64,15 @@ struct pw_resource {
 	struct pw_client *client;	/**< owner client */
 
 	uint32_t id;			/**< per client unique id, index in client objects */
-	uint32_t type;			/**< type id of the object */
-	uint32_t client_version;	/**< version of the client interface */
-	const struct pw_interface *iface;	/**< protocol specific interface functions */
+	uint32_t type;			/**< type of the client interface */
+	uint32_t version;		/**< version of the client interface */
 
-	void *object;			/**< pointer to the object */
-	uint32_t version;		/**< interface version */
-	const void *implementation;	/**< method implementation */
+	void *object;
+	const void *implementation;
+
 	pw_destroy_t destroy;		/**< function to clean up the object */
+
+        const struct pw_protocol_marshal *marshal;
 
 	/** Emited when the resource is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_resource *resource));
@@ -80,27 +81,27 @@ struct pw_resource {
 	void *user_data;		/**< extra user data */
 };
 
+/** Make a new resource for client */
 struct pw_resource *
-pw_resource_new(struct pw_client *client,
-		uint32_t id,
-		uint32_t type,
-		uint32_t client_version,
-		size_t user_data_size);
+pw_resource_new(struct pw_client *client,	/**< the client owning the resource */
+		uint32_t id,			/**< the remote per client id */
+		uint32_t type,			/**< interface of the resource */
+		uint32_t version,		/**< requested interface version */
+		size_t user_data_size,		/**< extra user data size */
+		pw_destroy_t destroy		/**< destroy function for user data */);
+
 
 int
 pw_resource_set_implementation(struct pw_resource *resource,
-			       void *object,
-			       uint32_t version,
-			       const void *implementation,
-			       pw_destroy_t destroy);
+			       void *object, const void *implementation);
 
 void
 pw_resource_destroy(struct pw_resource *resource);
 
 #define pw_resource_do(r,type,method,...)	((type*) r->implementation)->method(r, __VA_ARGS__)
 #define pw_resource_do_na(r,type,method)	((type*) r->implementation)->method(r)
-#define pw_resource_notify(r,type,event,...)	((type*) r->iface->events)->event(r, __VA_ARGS__)
-#define pw_resource_notify_na(r,type,event)	((type*) r->iface->events)->event(r)
+#define pw_resource_notify(r,type,event,...)	((type*) r->marshal->event_marshal)->event(r, __VA_ARGS__)
+#define pw_resource_notify_na(r,type,event)	((type*) r->marshal->event_marshal)->event(r)
 
 #ifdef __cplusplus
 }

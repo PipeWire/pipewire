@@ -101,13 +101,13 @@ on_link_state_changed(struct pw_listener *listener,
 				     link->error);
 
 			spa_list_for_each(resource, &link->resource_list, link) {
-				pw_core_notify_error(resource->client->core_resource,
-						     resource->id, SPA_RESULT_ERROR, link->error);
+				pw_core_resource_error(resource->client->core_resource,
+						       resource->id, SPA_RESULT_ERROR, link->error);
 			}
 			if (info->node->owner) {
-				pw_core_notify_error(info->node->owner->client->core_resource,
-						     info->node->owner->id,
-						     SPA_RESULT_ERROR, link->error);
+				pw_core_resource_error(info->node->owner->client->core_resource,
+						       info->node->owner->id,
+						       SPA_RESULT_ERROR, link->error);
 			}
 			break;
 		}
@@ -194,8 +194,8 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
       error:
 	pw_log_error("module %p: can't link node '%s'", impl, error);
 	if (info->node->owner && info->node->owner->client->core_resource) {
-		pw_core_notify_error(info->node->owner->client->core_resource,
-				     info->node->owner->id, SPA_RESULT_ERROR, error);
+		pw_core_resource_error(info->node->owner->client->core_resource,
+				       info->node->owner->id, SPA_RESULT_ERROR, error);
 	}
 	free(error);
 	return;

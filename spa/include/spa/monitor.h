@@ -104,18 +104,16 @@ enum spa_monitor_item_state {
 	SPA_MONITOR_ITEM_STATE_UNAVAILABLE,
 };
 
-#define SPA_VERSION_MONITOR_CALLBACKS	0
-
 /**
  * spa_monitor_callbacks:
  */
 struct spa_monitor_callbacks {
-	uint32_t version;	/**< version of the structure */
+	/** version of the structure */
+#define SPA_VERSION_MONITOR_CALLBACKS	0
+	uint32_t version;
 
 	void (*event) (struct spa_monitor *monitor, struct spa_event *event, void *user_data);
 };
-
-#define SPA_VERSION_MONITOR	0
 
 /**
  * spa_monitor:
@@ -125,6 +123,7 @@ struct spa_monitor_callbacks {
 struct spa_monitor {
 	/* the version of this monitor. This can be used to expand this
 	 * structure in the future */
+#define SPA_VERSION_MONITOR	0
 	uint32_t version;
 
 	/**

@@ -30,7 +30,18 @@ extern "C" {
 #include <spa/param-alloc.h>
 #include <spa/node.h>
 
+#include <pipewire/type.h>
 #include <pipewire/introspect.h>
+#include <pipewire/proxy.h>
+#include <pipewire/remote.h>
+#include <pipewire/core.h>
+
+struct pw_core_proxy { struct pw_proxy proxy; };
+struct pw_registry_proxy { struct pw_proxy proxy; };
+struct pw_module_proxy { struct pw_proxy proxy; };
+struct pw_node_proxy { struct pw_proxy proxy; };
+struct pw_client_proxy { struct pw_proxy proxy; };
+struct pw_link_proxy { struct pw_proxy proxy; };
 
 /**
  * \page page_pipewire_protocol The PipeWire protocol
@@ -48,7 +59,16 @@ extern "C" {
  * \section page_iface_pw_core API
  */
 
-#define PW_VERSION_CORE				0
+/** Core */
+
+#define PW_TYPE_INTERFACE__Core		PW_TYPE_INTERFACE_BASE "Core"
+#define PW_TYPE_INTERFACE__Registry	PW_TYPE_INTERFACE_BASE "Registry"
+#define PW_TYPE_INTERFACE__Module	PW_TYPE_INTERFACE_BASE "Module"
+#define PW_TYPE_INTERFACE__Node		PW_TYPE_INTERFACE_BASE "Node"
+#define PW_TYPE_INTERFACE__Client	PW_TYPE_INTERFACE_BASE "Client"
+#define PW_TYPE_INTERFACE__Link		PW_TYPE_INTERFACE_BASE "Link"
+
+#define PW_VERSION_CORE			0
 
 #define PW_CORE_METHOD_UPDATE_TYPES		0
 #define PW_CORE_METHOD_SYNC			1
@@ -67,6 +87,8 @@ extern "C" {
  * for internal features.
  */
 struct pw_core_methods {
+#define PW_VERSION_CORE_METHODS	0
+	uint32_t version;
 	/**
 	 * Update the type map
 	 *
@@ -111,15 +133,17 @@ struct pw_core_methods {
 	 *
 	 * \param factory_name the factory name to use
 	 * \param name the node name
-	 * \param props extra properties
+	 * \param type the interface to bind to
 	 * \param version the version of the interface
+	 * \param props extra properties
 	 * \param new_id the client proxy id
 	 */
 	void (*create_node) (void *object,
 			     const char *factory_name,
 			     const char *name,
-			     const struct spa_dict *props,
+			     uint32_t type,
 			     uint32_t version,
+			     const struct spa_dict *props,
 			     uint32_t new_id);
 	/**
 	 * Create a new link between two node ports
@@ -142,12 +166,69 @@ struct pw_core_methods {
 			     uint32_t new_id);
 };
 
-#define pw_core_do_update_types(p,...)       pw_proxy_do(p,struct pw_core_methods,update_types,__VA_ARGS__)
-#define pw_core_do_sync(p,...)               pw_proxy_do(p,struct pw_core_methods,sync,__VA_ARGS__)
-#define pw_core_do_get_registry(p,...)       pw_proxy_do(p,struct pw_core_methods,get_registry,__VA_ARGS__)
-#define pw_core_do_client_update(p,...)      pw_proxy_do(p,struct pw_core_methods,client_update,__VA_ARGS__)
-#define pw_core_do_create_node(p,...)        pw_proxy_do(p,struct pw_core_methods,create_node,__VA_ARGS__)
-#define pw_core_do_create_link(p,...)        pw_proxy_do(p,struct pw_core_methods,create_link,__VA_ARGS__)
+static inline void
+pw_core_proxy_update_types(struct pw_core_proxy *core, uint32_t first_id, uint32_t n_types, const char **types)
+{
+	pw_proxy_do(&core->proxy, struct pw_core_methods, update_types, first_id, n_types, types);
+}
+
+static inline void
+pw_core_proxy_sync(struct pw_core_proxy *core, uint32_t seq)
+{
+	pw_proxy_do(&core->proxy, struct pw_core_methods, sync, seq);
+}
+
+static inline struct pw_registry_proxy *
+pw_core_proxy_get_registry(struct pw_core_proxy *core, uint32_t version, size_t user_data_size, pw_destroy_t destroy)
+{
+	struct pw_core *c = core->proxy.remote->core;
+	struct pw_proxy *p = pw_proxy_new(core->proxy.remote, SPA_ID_INVALID, c->type.registry,
+					  user_data_size, destroy);
+	pw_proxy_do(&core->proxy, struct pw_core_methods, get_registry, version, p->id);
+	return (struct pw_registry_proxy *) p;
+}
+
+static inline void
+pw_core_proxy_client_update(struct pw_core_proxy *core, const struct spa_dict *props)
+{
+	pw_proxy_do(&core->proxy, struct pw_core_methods, client_update, props);
+}
+
+static inline void *
+pw_core_proxy_create_node(struct pw_core_proxy *core,
+			  const char *factory_name,
+                          const char *name,
+                          uint32_t type,
+                          uint32_t version,
+                          const struct spa_dict *props,
+			  size_t user_data_size,
+			  pw_destroy_t destroy)
+{
+	struct pw_proxy *p = pw_proxy_new(core->proxy.remote, SPA_ID_INVALID, type, user_data_size, destroy);
+	pw_proxy_do(&core->proxy, struct pw_core_methods, create_node, factory_name,
+			name, type, version, props, p->id);
+	return p;
+}
+
+static inline struct pw_link_proxy *
+pw_core_proxy_create_link(struct pw_core_proxy *core,
+			  uint32_t output_node_id,
+                          uint32_t output_port_id,
+                          uint32_t input_node_id,
+                          uint32_t input_port_id,
+                          const struct spa_format *filter,
+                          const struct spa_dict *prop,
+			  size_t user_data_size,
+			  pw_destroy_t destroy)
+{
+	struct pw_core *c = core->proxy.remote->core;
+	struct pw_proxy *p = pw_proxy_new(core->proxy.remote, SPA_ID_INVALID, c->type.link,
+					  user_data_size, destroy);
+	pw_proxy_do(&core->proxy, struct pw_core_methods, create_link, output_node_id, output_port_id,
+			input_node_id, input_port_id, filter, prop, p->id);
+	return (struct pw_link_proxy*) p;
+}
+
 
 #define PW_CORE_EVENT_UPDATE_TYPES 0
 #define PW_CORE_EVENT_DONE         1
@@ -161,6 +242,8 @@ struct pw_core_methods {
  *  \ingroup pw_core_interface The pw_core interface
  */
 struct pw_core_events {
+#define PW_VERSION_CORE_EVENTS	0
+	uint32_t version;
 	/**
 	 * Update the type map
 	 *
@@ -214,19 +297,31 @@ struct pw_core_events {
 	void (*info) (void *object, struct pw_core_info *info);
 };
 
-#define pw_core_notify_update_types(r,...) pw_resource_notify(r,struct pw_core_events,update_types,__VA_ARGS__)
-#define pw_core_notify_done(r,...)         pw_resource_notify(r,struct pw_core_events,done,__VA_ARGS__)
-#define pw_core_notify_error(r,...)        pw_resource_notify(r,struct pw_core_events,error,__VA_ARGS__)
-#define pw_core_notify_remove_id(r,...)    pw_resource_notify(r,struct pw_core_events,remove_id,__VA_ARGS__)
-#define pw_core_notify_info(r,...)         pw_resource_notify(r,struct pw_core_events,info,__VA_ARGS__)
+static inline void
+pw_core_proxy_add_listener(struct pw_core_proxy *core,
+			   void *object, const struct pw_core_events *events)
+{
+	pw_proxy_add_listener(&core->proxy, object, events);
+}
+
+
+#define pw_core_resource_update_types(r,...) pw_resource_notify(r,struct pw_core_events,update_types,__VA_ARGS__)
+#define pw_core_resource_done(r,...)         pw_resource_notify(r,struct pw_core_events,done,__VA_ARGS__)
+#define pw_core_resource_error(r,...)        pw_resource_notify(r,struct pw_core_events,error,__VA_ARGS__)
+#define pw_core_resource_remove_id(r,...)    pw_resource_notify(r,struct pw_core_events,remove_id,__VA_ARGS__)
+#define pw_core_resource_info(r,...)         pw_resource_notify(r,struct pw_core_events,info,__VA_ARGS__)
+
+
 
 #define PW_VERSION_REGISTRY		0
 
-#define PW_REGISTRY_METHOD_BIND      0
-#define PW_REGISTRY_METHOD_NUM       1
+#define PW_REGISTRY_METHOD_BIND		0
+#define PW_REGISTRY_METHOD_NUM		1
 
 /** Registry methods */
 struct pw_registry_methods {
+#define PW_VERSION_REGISTRY_METHODS	0
+	uint32_t version;
 	/**
 	 * Bind to a global object
 	 *
@@ -235,13 +330,24 @@ struct pw_registry_methods {
 	 * send to the remote global object and events can be received
 	 *
 	 * \param id the global id to bind to
-	 * \param version the version to use
+	 * \param type the interface type to bind to
+	 * \param version the interface version to use
 	 * \param new_id the client proxy to use
 	 */
-	void (*bind) (void *object, uint32_t id, uint32_t version, uint32_t new_id);
+	void (*bind) (void *object, uint32_t id, uint32_t type, uint32_t version, uint32_t new_id);
 };
 
-#define pw_registry_do_bind(p,...)        pw_proxy_do(p,struct pw_registry_methods,bind,__VA_ARGS__)
+/** Registry */
+static inline void *
+pw_registry_proxy_bind(struct pw_registry_proxy *registry,
+		       uint32_t id, uint32_t type, uint32_t version,
+		       size_t user_data_size, pw_destroy_t destroy)
+{
+	struct pw_proxy *p = pw_proxy_new(registry->proxy.remote, SPA_ID_INVALID,
+					  type, user_data_size, destroy);
+	pw_proxy_do(&registry->proxy, struct pw_registry_methods, bind, id, type, version, p->id);
+	return p;
+}
 
 #define PW_REGISTRY_EVENT_GLOBAL             0
 #define PW_REGISTRY_EVENT_GLOBAL_REMOVE      1
@@ -249,6 +355,8 @@ struct pw_registry_methods {
 
 /** Registry events */
 struct pw_registry_events {
+#define PW_VERSION_REGISTRY_EVENTS	0
+	uint32_t version;
 	/**
 	 * Notify of a new global object
 	 *
@@ -256,8 +364,8 @@ struct pw_registry_events {
 	 * available.
 	 *
 	 * \param id the global object id
-	 * \param type the type of the object
-	 * \param version the version of the object
+	 * \param type the type of the interface
+	 * \param version the version of the interface
 	 */
 	void (*global) (void *object, uint32_t id, uint32_t type, uint32_t version);
 	/**
@@ -272,8 +380,16 @@ struct pw_registry_events {
 	void (*global_remove) (void *object, uint32_t id);
 };
 
-#define pw_registry_notify_global(r,...)        pw_resource_notify(r,struct pw_registry_events,global,__VA_ARGS__)
-#define pw_registry_notify_global_remove(r,...) pw_resource_notify(r,struct pw_registry_events,global_remove,__VA_ARGS__)
+static inline void
+pw_registry_proxy_add_listener(struct pw_registry_proxy *registry,
+			       void *object, const struct pw_registry_events *events)
+{
+	pw_proxy_add_listener(&registry->proxy, object, events);
+}
+
+#define pw_registry_resource_global(r,...)        pw_resource_notify(r,struct pw_registry_events,global,__VA_ARGS__)
+#define pw_registry_resource_global_remove(r,...) pw_resource_notify(r,struct pw_registry_events,global_remove,__VA_ARGS__)
+
 
 #define PW_VERSION_MODULE		0
 
@@ -282,6 +398,8 @@ struct pw_registry_events {
 
 /** Module events */
 struct pw_module_events {
+#define PW_VERSION_MODULE_EVENTS	0
+	uint32_t version;
 	/**
 	 * Notify module info
 	 *
@@ -290,15 +408,24 @@ struct pw_module_events {
 	void (*info) (void *object, struct pw_module_info *info);
 };
 
-#define pw_module_notify_info(r,...)      pw_resource_notify(r,struct pw_module_events,info,__VA_ARGS__)
+static inline void
+pw_module_proxy_add_listener(struct pw_module_proxy *module,
+			     void *object, const struct pw_module_events *events)
+{
+	pw_proxy_add_listener(&module->proxy, object, events);
+}
 
-#define PW_VERSION_NODE		0
+#define pw_module_resource_info(r,...)	pw_resource_notify(r,struct pw_module_events,info,__VA_ARGS__)
+
+#define PW_VERSION_NODE			0
 
 #define PW_NODE_EVENT_INFO	0
 #define PW_NODE_EVENT_NUM	1
 
 /** Node events */
 struct pw_node_events {
+#define PW_VERSION_NODE_EVENTS	0
+	uint32_t version;
 	/**
 	 * Notify node info
 	 *
@@ -307,7 +434,14 @@ struct pw_node_events {
 	void (*info) (void *object, struct pw_node_info *info);
 };
 
-#define pw_node_notify_info(r,...)      pw_resource_notify(r,struct pw_node_events,info,__VA_ARGS__)
+static inline void
+pw_node_proxy_add_listener(struct pw_node_proxy *node,
+			   void *object, const struct pw_node_events *events)
+{
+	pw_proxy_add_listener(&node->proxy, object, events);
+}
+
+#define pw_node_resource_info(r,...) pw_resource_notify(r,struct pw_node_events,info,__VA_ARGS__)
 
 #define PW_VERSION_CLIENT		0
 
@@ -316,6 +450,8 @@ struct pw_node_events {
 
 /** Client events */
 struct pw_client_events {
+#define PW_VERSION_CLIENT_EVENTS	0
+	uint32_t version;
 	/**
 	 * Notify client info
 	 *
@@ -324,15 +460,26 @@ struct pw_client_events {
 	void (*info) (void *object, struct pw_client_info *info);
 };
 
-#define pw_client_notify_info(r,...)      pw_resource_notify(r,struct pw_client_events,info,__VA_ARGS__)
+/** Client */
+static inline void
+pw_client_proxy_add_listener(struct pw_client_proxy *client,
+			     void *object, const struct pw_client_events *events)
+{
+	pw_proxy_add_listener(&client->proxy, object, events);
+}
 
-#define PW_VERSION_LINK		0
+#define pw_client_resource_info(r,...) pw_resource_notify(r,struct pw_client_events,info,__VA_ARGS__)
+
+
+#define PW_VERSION_LINK			0
 
 #define PW_LINK_EVENT_INFO	0
 #define PW_LINK_EVENT_NUM	1
 
 /** Link events */
 struct pw_link_events {
+#define PW_VERSION_LINK_EVENTS	0
+	uint32_t version;
 	/**
 	 * Notify link info
 	 *
@@ -341,7 +488,15 @@ struct pw_link_events {
 	void (*info) (void *object, struct pw_link_info *info);
 };
 
-#define pw_link_notify_info(r,...)      pw_resource_notify(r,struct pw_link_events,info,__VA_ARGS__)
+/** Link */
+static inline void
+pw_link_proxy_add_listener(struct pw_link_proxy *link,
+			   void *object, const struct pw_link_events *events)
+{
+	pw_proxy_add_listener(&link->proxy, object, events);
+}
+
+#define pw_link_resource_info(r,...)      pw_resource_notify(r,struct pw_link_events,info,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

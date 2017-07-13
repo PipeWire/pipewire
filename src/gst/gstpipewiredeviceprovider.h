@@ -86,7 +86,7 @@ struct _GstPipeWireDeviceProvider {
 
   struct pw_core *core;
   struct pw_remote *remote;
-  struct pw_proxy *registry;
+  struct pw_registry_proxy *registry;
   gboolean end;
   gboolean list_only;
   GList **devices;

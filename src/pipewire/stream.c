@@ -82,7 +82,7 @@ struct stream {
 	int rtwritefd;
 	struct spa_source *rtsocket_source;
 
-	struct pw_proxy *node_proxy;
+	struct pw_client_node_proxy *node_proxy;
 	bool disconnecting;
 	struct pw_listener node_proxy_destroy;
 	struct pw_listener node_proxy_sync_done;
@@ -204,7 +204,7 @@ struct pw_stream *pw_stream_new(struct pw_remote *remote,
 
 	this->remote = remote;
 	this->name = strdup(name);
-	impl->type_client_node = spa_type_map_get_id(remote->core->type.map, PW_TYPE__ClientNode);
+	impl->type_client_node = spa_type_map_get_id(remote->core->type.map, PW_TYPE_INTERFACE__ClientNode);
 
 	pw_signal_init(&this->destroy_signal);
 	pw_signal_init(&this->state_changed);
@@ -340,8 +340,8 @@ static void add_node_update(struct pw_stream *stream, uint32_t change_mask)
 	if (change_mask & PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS)
 		max_output_ports = impl->direction == SPA_DIRECTION_OUTPUT ? 1 : 0;
 
-	pw_client_node_do_update(impl->node_proxy,
-				 change_mask, max_input_ports, max_output_ports, NULL);
+	pw_client_node_proxy_update(impl->node_proxy,
+				    change_mask, max_input_ports, max_output_ports, NULL);
 }
 
 static void add_port_update(struct pw_stream *stream, uint32_t change_mask)
@@ -349,15 +349,15 @@ static void add_port_update(struct pw_stream *stream, uint32_t change_mask)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
 
-	pw_client_node_do_port_update(impl->node_proxy,
-				      impl->direction,
-				      impl->port_id,
-				      change_mask,
-				      impl->n_possible_formats,
-				      (const struct spa_format **) impl->possible_formats,
-				      impl->format,
-				      impl->n_params,
-				      (const struct spa_param **) impl->params, &impl->port_info);
+	pw_client_node_proxy_port_update(impl->node_proxy,
+					 impl->direction,
+					 impl->port_id,
+					 change_mask,
+					 impl->n_possible_formats,
+					 (const struct spa_format **) impl->possible_formats,
+					 impl->format,
+					 impl->n_params,
+					 (const struct spa_param **) impl->params, &impl->port_info);
 }
 
 static inline void send_need_input(struct pw_stream *stream)
@@ -386,19 +386,19 @@ static void add_request_clock_update(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	pw_client_node_do_event(impl->node_proxy, (struct spa_event *)
-				&SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT(stream->remote->core->type.
-									  event_node.
-									  RequestClockUpdate,
-									  SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_TIME,
-									  0, 0));
+	pw_client_node_proxy_event(impl->node_proxy, (struct spa_event *)
+				   &SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT(stream->remote->core->type.
+									     event_node.
+									     RequestClockUpdate,
+									     SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_TIME,
+									     0, 0));
 }
 
 static void add_async_complete(struct pw_stream *stream, uint32_t seq, int res)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	pw_client_node_do_done(impl->node_proxy, seq, res);
+	pw_client_node_proxy_done(impl->node_proxy, seq, res);
 }
 
 static void do_node_init(struct pw_stream *stream)
@@ -862,6 +862,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 }
 
 static const struct pw_client_node_events client_node_events = {
+	PW_VERSION_CLIENT_NODE_EVENTS,
 	&client_node_transport,
 	&client_node_set_props,
 	&client_node_event,
@@ -913,26 +914,19 @@ pw_stream_connect(struct pw_stream *stream,
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
 		pw_properties_set(stream->properties, "pipewire.autoconnect", "1");
 
-	impl->node_proxy = pw_proxy_new(stream->remote,
-					SPA_ID_INVALID,
-					impl->type_client_node,
-					0);
-
+	impl->node_proxy = pw_core_proxy_create_node(stream->remote->core_proxy,
+			       "client-node",
+			       "client-node",
+			       impl->type_client_node,
+			       PW_VERSION_CLIENT_NODE,
+			       &stream->properties->dict, 0, NULL);
 	if (impl->node_proxy == NULL)
 		return false;
 
-	pw_proxy_set_implementation(impl->node_proxy, stream, PW_VERSION_CLIENT_NODE,
-				    &client_node_events, NULL);
+	pw_client_node_proxy_add_listener(impl->node_proxy, stream, &client_node_events);
 
-	pw_signal_add(&impl->node_proxy->destroy_signal,
+	pw_signal_add(&impl->node_proxy->proxy.destroy_signal,
 		      &impl->node_proxy_destroy, on_node_proxy_destroy);
-
-	pw_core_do_create_node(stream->remote->core_proxy,
-			       "client-node",
-			       "client-node",
-			       &stream->properties->dict,
-			       PW_VERSION_CLIENT_NODE,
-			       impl->node_proxy->id);
 
 	do_node_init(stream);
 
@@ -972,7 +966,7 @@ void pw_stream_disconnect(struct pw_stream *stream)
 	unhandle_socket(stream);
 
 	if (impl->node_proxy) {
-		pw_client_node_do_destroy(impl->node_proxy);
+		pw_client_node_proxy_destroy(impl->node_proxy);
 		impl->node_proxy = NULL;
 	}
 }

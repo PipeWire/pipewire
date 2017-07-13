@@ -114,8 +114,6 @@ struct proxy {
 struct impl {
 	struct pw_client_node this;
 
-	uint32_t type_client_node;
-
 	struct pw_core *core;
 
 	struct proxy proxy;
@@ -194,10 +192,10 @@ static int spa_proxy_node_send_command(struct spa_node *node, struct spa_command
 	core = this->impl->core;
 
 	if (SPA_COMMAND_TYPE(command) == core->type.command_node.ClockUpdate) {
-		pw_client_node_notify_node_command(this->resource, this->seq++, command);
+		pw_client_node_resource_node_command(this->resource, this->seq++, command);
 	} else {
 		/* send start */
-		pw_client_node_notify_node_command(this->resource, this->seq, command);
+		pw_client_node_resource_node_command(this->resource, this->seq, command);
 		if (SPA_COMMAND_TYPE(command) == core->type.command_node.Start)
 			send_need_input(this);
 
@@ -470,8 +468,8 @@ spa_proxy_node_port_set_format(struct spa_node *node,
 	if (this->resource == NULL)
 		return SPA_RESULT_OK;
 
-	pw_client_node_notify_set_format(this->resource,
-					 this->seq, direction, port_id, flags, format);
+	pw_client_node_resource_set_format(this->resource,
+					   this->seq, direction, port_id, flags, format);
 
 	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
@@ -644,12 +642,12 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 		mb[i].offset = 0;
 		mb[i].size = msh->size;
 
-		pw_client_node_notify_add_mem(this->resource,
-					      direction,
-					      port_id,
-					      mb[i].mem_id,
-					      impl->core->type.data.MemFd,
-					      msh->fd, msh->flags, msh->offset, msh->size);
+		pw_client_node_resource_add_mem(this->resource,
+					        direction,
+					        port_id,
+					        mb[i].mem_id,
+					        impl->core->type.data.MemFd,
+					        msh->fd, msh->flags, msh->offset, msh->size);
 
 		for (j = 0; j < buffers[i]->n_metas; j++) {
 			memcpy(&b->buffer.metas[j], &buffers[i]->metas[j], sizeof(struct spa_meta));
@@ -662,13 +660,13 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 
 			if (d->type == impl->core->type.data.DmaBuf ||
 			    d->type == impl->core->type.data.MemFd) {
-				pw_client_node_notify_add_mem(this->resource,
-							      direction,
-							      port_id,
-							      n_mem,
-							      d->type,
-							      d->fd,
-							      d->flags, d->mapoffset, d->maxsize);
+				pw_client_node_resource_add_mem(this->resource,
+							        direction,
+							        port_id,
+							        n_mem,
+							        d->type,
+							        d->fd,
+							        d->flags, d->mapoffset, d->maxsize);
 				b->buffer.datas[j].type = impl->core->type.data.Id;
 				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(n_mem);
 				n_mem++;
@@ -683,8 +681,8 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 		}
 	}
 
-	pw_client_node_notify_use_buffers(this->resource,
-					  this->seq, direction, port_id, n_buffers, mb);
+	pw_client_node_resource_use_buffers(this->resource,
+					    this->seq, direction, port_id, n_buffers, mb);
 
 	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
@@ -948,6 +946,7 @@ static void client_node_destroy(void *object)
 }
 
 static struct pw_client_node_methods client_node_methods = {
+	PW_VERSION_CLIENT_NODE_METHODS,
 	&client_node_done,
 	&client_node_update,
 	&client_node_port_update,
@@ -1053,8 +1052,8 @@ static void on_initialized(struct pw_listener *listener, struct pw_node *node)
 	pw_client_node_get_fds(this, &readfd, &writefd);
 	pw_transport_get_info(impl->transport, &info);
 
-	pw_client_node_notify_transport(this->resource, node->global->id,
-					readfd, writefd, info.memfd, info.offset, info.size);
+	pw_client_node_resource_transport(this->resource, node->global->id,
+					  readfd, writefd, info.memfd, info.offset, info.size);
 }
 
 static void
@@ -1150,8 +1149,6 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug("client-node %p: new", impl);
 
-	impl->type_client_node = spa_type_map_get_id(core->type.map, PW_TYPE__ClientNode);
-
 	pw_signal_init(&this->destroy_signal);
 
 	proxy_init(&impl->proxy, NULL, core->support, core->n_support);
@@ -1168,11 +1165,9 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	if (this->node == NULL)
 		goto error_no_node;
 
+	this->resource->destroy = (pw_destroy_t) client_node_resource_destroy;
 	pw_resource_set_implementation(this->resource,
-				       this,
-				       PW_VERSION_CLIENT_NODE,
-				       &client_node_methods,
-				       (pw_destroy_t) client_node_resource_destroy);
+				       this, &client_node_methods);
 
 	impl->proxy.resource = this->resource;
 

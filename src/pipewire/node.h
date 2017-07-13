@@ -42,10 +42,8 @@ extern "C" {
 
 struct pw_node;
 
-
-#define PW_VERSION_NODE_IMPLEMENTATION      0
-
 struct pw_node_implementation {
+#define PW_VERSION_NODE_IMPLEMENTATION      0
 	uint32_t version;
 
         int (*get_props) (struct pw_node *node, struct spa_props **props);
@@ -71,8 +69,6 @@ struct pw_node_implementation {
  * The node object processes data. The node has a list of
  * input and output ports (\ref page_port) on which it
  * will receive and send out buffers respectively.
- *
- * The node wraps an SPA node object.
  */
 /** \class pw_node
  *

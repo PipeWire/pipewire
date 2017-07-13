@@ -20,6 +20,7 @@
 #include <pipewire/log.h>
 #include <pipewire/proxy.h>
 #include <pipewire/core.h>
+#include <pipewire/remote.h>
 
 /** \cond */
 struct proxy {
@@ -42,8 +43,10 @@ struct proxy {
  * \memberof pw_proxy
  */
 struct pw_proxy *pw_proxy_new(struct pw_remote *remote,
-			      uint32_t id, uint32_t type,
-			      size_t user_data_size)
+			      uint32_t id,
+			      uint32_t type,
+			      size_t user_data_size,
+			      pw_destroy_t destroy)
 {
 	struct proxy *impl;
 	struct pw_proxy *this;
@@ -54,7 +57,6 @@ struct pw_proxy *pw_proxy_new(struct pw_remote *remote,
 
 	this = &impl->this;
 	this->remote = remote;
-	this->type = type;
 
 	pw_signal_init(&this->destroy_signal);
 
@@ -64,13 +66,13 @@ struct pw_proxy *pw_proxy_new(struct pw_remote *remote,
 		goto in_use;
 
 	this->id = id;
+	this->type = type;
+	this->destroy = destroy;
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct proxy), void);
 
-	this->iface = pw_protocol_get_interface(remote->conn->protocol,
-						spa_type_map_get_type(remote->core->type.map, type),
-						false);
+	this->marshal = pw_protocol_get_marshal(remote->conn->protocol, type);
 
 	spa_list_insert(&this->remote->proxy_list, &this->link);
 
@@ -84,17 +86,11 @@ struct pw_proxy *pw_proxy_new(struct pw_remote *remote,
 	return NULL;
 }
 
-int pw_proxy_set_implementation(struct pw_proxy *proxy,
-				void *object,
-				uint32_t version,
-				const void *implementation,
-				pw_destroy_t destroy)
+void pw_proxy_add_listener(struct pw_proxy *proxy,
+			   void *object, const void *listener)
 {
 	proxy->object = object;
-	proxy->version = version;
-	proxy->implementation = implementation;
-	proxy->destroy = destroy;
-	return SPA_RESULT_OK;
+	proxy->listener = listener;
 }
 
 /** Destroy a proxy object

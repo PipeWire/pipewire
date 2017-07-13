@@ -37,12 +37,6 @@ struct pw_global;
 #include <pipewire/node.h>
 #include <pipewire/node-factory.h>
 
-#define PW_TYPE__Core			PW_TYPE_OBJECT_BASE "Core"
-#define PW_TYPE_CORE_BASE		PW_TYPE__Core ":"
-
-#define PW_TYPE__Registry		PW_TYPE_OBJECT_BASE "Registry"
-#define PW_TYPE_REGISTRY_BASE		PW_TYPE__Registry ":"
-
 /** \page page_server_api Server API
  *
  * \section page_server_overview Overview
@@ -96,8 +90,10 @@ struct pw_global;
  * emit events to the client and lets the client invoke methods on
  * the object.
  */
-typedef int (*pw_bind_func_t) (struct pw_global *global,
-			       struct pw_client *client, uint32_t version, uint32_t id);
+typedef int (*pw_bind_func_t) (struct pw_global *global,	/**< the global to bind */
+			       struct pw_client *client,	/**< client that binds */
+			       uint32_t version,		/**< client interface version */
+			       uint32_t id);			/**< client proxy id */
 
 typedef bool (*pw_global_filter_func_t) (struct pw_global *global,
 					 struct pw_client *client, void *data);
@@ -131,9 +127,12 @@ struct pw_global {
 
 	struct spa_list link;		/**< link in core list of globals */
 	uint32_t id;			/**< server id of the object */
-	uint32_t type;			/**< type of the object */
-	uint32_t version;		/**< version of the object */
-	void *object;			/**< object associated with the global */
+
+	uint32_t type;			/**< type of interface */
+	uint32_t version;		/**< version of interface */
+	pw_bind_func_t bind;		/**< function to bind to the interface */
+
+	void *object;			/**< object associated with the interface */
 
 	/** Emited when the global is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_global *global));
@@ -210,12 +209,15 @@ pw_core_add_global(struct pw_core *core,
 		   struct pw_resource *owner,
 		   uint32_t type,
 		   uint32_t version,
-		   void *object, pw_bind_func_t bind,
+		   pw_bind_func_t bind,
+		   void *object,
 		   struct pw_global **global);
 
 int
 pw_global_bind(struct pw_global *global,
-	       struct pw_client *client, uint32_t version, uint32_t id);
+	       struct pw_client *client,
+	       uint32_t version,
+	       uint32_t id);
 
 void
 pw_global_destroy(struct pw_global *global);

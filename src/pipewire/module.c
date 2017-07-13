@@ -88,28 +88,31 @@ static char *find_module(const char *path, const char *name)
 }
 
 static int
-module_bind_func(struct pw_global *global, struct pw_client *client, uint32_t version, uint32_t id)
+module_bind_func(struct pw_global *global,
+		 struct pw_client *client,
+		 uint32_t version, uint32_t id)
 {
 	struct pw_module *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, version, 0);
+	resource = pw_resource_new(client, id, global->type, version, 0, NULL);
 	if (resource == NULL)
 		goto no_mem;
 
-	pw_resource_set_implementation(resource, global->object, PW_VERSION_MODULE, NULL, NULL);
+	pw_resource_set_implementation(resource, this, NULL);
 
-	pw_log_debug("module %p: bound to %d", global->object, resource->id);
+	pw_log_debug("module %p: bound to %d", this, resource->id);
 
 	this->info.change_mask = ~0;
-	pw_module_notify_info(resource, &this->info);
+	pw_module_resource_info(resource, &this->info);
+	this->info.change_mask = 0;
 
 	return SPA_RESULT_OK;
 
       no_mem:
 	pw_log_error("can't create module resource");
-	pw_core_notify_error(client->core_resource,
-			     client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+	pw_core_resource_error(client->core_resource,
+			       client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
 	return SPA_RESULT_NO_MEMORY;
 }
 
@@ -181,9 +184,8 @@ struct pw_module *pw_module_load(struct pw_core *core,
 		goto init_failed;
 
 	pw_core_add_global(core, NULL, core->type.module, PW_VERSION_MODULE,
-			   impl, module_bind_func, &this->global);
+			   module_bind_func, this, &this->global);
 
-	this->info.id = this->global->id;
 	this->info.name = name ? strdup(name) : NULL;
 	this->info.filename = filename;
 	this->info.args = args ? strdup(args) : NULL;

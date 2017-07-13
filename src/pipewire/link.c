@@ -939,31 +939,34 @@ static void link_unbind_func(void *data)
 }
 
 static int
-link_bind_func(struct pw_global *global, struct pw_client *client, uint32_t version, uint32_t id)
+link_bind_func(struct pw_global *global,
+	       struct pw_client *client,
+	       uint32_t version, uint32_t id)
 {
 	struct pw_link *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, version, 0);
+	resource = pw_resource_new(client, id, global->type, version, 0, link_unbind_func);
 
 	if (resource == NULL)
 		goto no_mem;
 
-	pw_resource_set_implementation(resource, global->object, PW_VERSION_LINK, NULL, link_unbind_func);
+	pw_resource_set_implementation(resource, this, NULL);
 
-	pw_log_debug("link %p: bound to %d", global->object, resource->id);
+	pw_log_debug("link %p: bound to %d", this, resource->id);
 
 	spa_list_insert(this->resource_list.prev, &resource->link);
 
 	this->info.change_mask = ~0;
-	pw_link_notify_info(resource, &this->info);
+	pw_link_resource_info(resource, &this->info);
+	this->info.change_mask = 0;
 
 	return SPA_RESULT_OK;
 
       no_mem:
 	pw_log_error("can't create link resource");
-	pw_core_notify_error(client->core_resource,
-			     client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+	pw_core_resource_error(client->core_resource,
+			       client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
 	return SPA_RESULT_NO_MEMORY;
 }
 
@@ -1054,9 +1057,8 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	spa_list_insert(core->link_list.prev, &this->link);
 
 	pw_core_add_global(core, NULL, core->type.link, PW_VERSION_LINK,
-			   this, link_bind_func, &this->global);
+			   link_bind_func, this, &this->global);
 
-	this->info.id = this->global->id;
 	this->info.output_node_id = output ? output_node->global->id : -1;
 	this->info.output_port_id = output ? output->port_id : -1;
 	this->info.input_node_id = input ? input_node->global->id : -1;

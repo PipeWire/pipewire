@@ -69,8 +69,9 @@ struct async_pending {
 	struct pw_resource *resource;
 	char *factory_name;
 	char *name;
-	struct pw_properties *properties;
+	uint32_t type;
 	uint32_t version;
+	struct pw_properties *properties;
 	uint32_t new_id;
 };
 
@@ -230,8 +231,9 @@ do_global_filter(struct pw_global *global, struct pw_client *client, void *data)
 		if (link->input
 		    && !check_global_owner(client->core, client, link->input->node->global))
 			 return false;
-	} else if (!check_global_owner(client->core, client, global))
-		 return false;
+	}
+	else if (!check_global_owner(client->core, client, global))
+		return false;
 
 	return true;
 }
@@ -268,12 +270,13 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 			cinfo->old_methods->create_node (p->resource,
 							 p->factory_name,
 							 p->name,
-							 &p->properties->dict,
+							 p->type,
 							 p->version,
+							 &p->properties->dict,
 							 p->new_id);
 		} else {
-			pw_core_notify_error(cinfo->client->core_resource,
-					     p->resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
+			pw_core_resource_error(cinfo->client->core_resource,
+					       p->resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
 
 		}
 		free_pending(p);
@@ -288,8 +291,9 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 static void do_create_node(void *object,
 			   const char *factory_name,
 			   const char *name,
-			   const struct spa_dict *props,
+			   uint32_t type,
 			   uint32_t version,
+			   const struct spa_dict *props,
 			   uint32_t new_id)
 {
 	struct pw_resource *resource = object;
@@ -306,7 +310,7 @@ static void do_create_node(void *object,
 	struct async_pending *p;
 
 	if (!cinfo->is_sandboxed) {
-		cinfo->old_methods->create_node (object, factory_name, name, props, version, new_id);
+		cinfo->old_methods->create_node (object, factory_name, name, type, version, props, new_id);
 		return;
 	}
 	if (strcmp(factory_name, "client-node") != 0) {
@@ -362,8 +366,9 @@ static void do_create_node(void *object,
 	p->resource = resource;
 	p->factory_name = strdup(factory_name);
 	p->name = strdup(name);
-	p->properties = props ? pw_properties_new_dict(props) : NULL;
+	p->type = type;
 	p->version = version;
+	p->properties = props ? pw_properties_new_dict(props) : NULL;
 	p->new_id = new_id;
 	pw_client_set_busy(client, true);
 
@@ -393,8 +398,8 @@ static void do_create_node(void *object,
 	dbus_error_free(&error);
 	goto not_allowed;
       not_allowed:
-	pw_core_notify_error(client->core_resource,
-			     resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
+	pw_core_resource_error(client->core_resource,
+			       resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
 	return;
 }
 
@@ -413,8 +418,8 @@ do_create_link(void *object,
 	struct pw_client *client = resource->client;
 
 	if (cinfo->is_sandboxed) {
-		pw_core_notify_error(client->core_resource,
-				     resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
+		pw_core_resource_error(client->core_resource,
+				       resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
 		return;
 	}
 	cinfo->old_methods->create_link (object,
@@ -432,9 +437,8 @@ static void on_resource_impl(struct pw_listener *listener,
 			     struct pw_resource *resource)
 {
 	struct client_info *cinfo = SPA_CONTAINER_OF(listener, struct client_info, resource_impl);
-	struct impl *impl = cinfo->impl;
 
-	if (resource->type == impl->core->type.core) {
+	if (resource->type == client->core->type.core) {
 		cinfo->old_methods = resource->implementation;
 		cinfo->core_methods = *cinfo->old_methods;
 		resource->implementation = &cinfo->core_methods;

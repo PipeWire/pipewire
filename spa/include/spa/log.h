@@ -42,8 +42,6 @@ enum spa_log_level {
 	SPA_LOG_LEVEL_TRACE,
 };
 
-#define SPA_VERSION_LOG	0
-
 /**
  * struct spa_log:
  *
@@ -52,6 +50,7 @@ enum spa_log_level {
 struct spa_log {
 	/* the version of this log. This can be used to expand this
 	 * structure in the future */
+#define SPA_VERSION_LOG	0
 	uint32_t version;
 	/**
 	 * struct spa_log::info

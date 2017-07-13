@@ -78,9 +78,9 @@ struct spa_port_info {
 	const struct spa_dict *props;		/**< extra port properties */
 };
 
-#define SPA_VERSION_NODE_CALLBACKS	0
 
 struct spa_node_callbacks {
+#define SPA_VERSION_NODE_CALLBACKS	0
 	uint32_t version;	/**< version of this structure */
 
 	/** Emited when an async operation completed */
@@ -134,8 +134,6 @@ struct spa_node_callbacks {
 
 };
 
-#define SPA_VERSION_NODE	0
-
 /**
  * struct spa_node:
  *
@@ -147,6 +145,7 @@ struct spa_node_callbacks {
 struct spa_node {
 	/* the version of this node. This can be used to expand this
 	 * structure in the future */
+#define SPA_VERSION_NODE	0
 	uint32_t version;
 	/**
 	 * spa_node::info

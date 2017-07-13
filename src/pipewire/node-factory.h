@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define PW_TYPE__NodeFactory                            "PipeWire:Object:NodeFactory"
-#define PW_TYPE_NODE_FACTORY_BASE                       PW_TYPE__NodeFactory ":"
+#define PW_TYPE_INTERFACE__NodeFactory                  PW_TYPE_INTERFACE_BASE "NodeFactory"
+#define PW_TYPE_NODE_FACTORY_BASE                       PW_TYPE_INTERFACE__NodeFactory ":"
 
 #include <pipewire/core.h>
 #include <pipewire/resource.h>
@@ -42,7 +42,6 @@ struct pw_node_factory {
 	struct pw_global *global;	/**< global for this factory */
 
 	const char *name;		/**< the factory name */
-	uint32_t type;			/**< type of the created nodes */
 
 	/** Emited when the factory is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_node_factory *object));

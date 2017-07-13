@@ -116,13 +116,13 @@ process_messages(struct pw_client *client)
 				     client->protocol, id);
 			continue;
 		}
-		if (opcode >= resource->iface->n_methods) {
+		if (opcode >= resource->marshal->n_methods) {
 			pw_log_error("protocol-native %p: invalid method %u %u", client->protocol,
 				     id,  opcode);
 			pw_client_destroy(client);
 			break;
 		}
-		demarshal = resource->iface->methods;
+		demarshal = resource->marshal->method_demarshal;
 		if (!demarshal[opcode] || !demarshal[opcode] (resource, message, size)) {
 			pw_log_error("protocol-native %p: invalid message received %u %u",
 				     client->protocol, id, opcode);
@@ -449,13 +449,13 @@ on_remote_data(struct spa_loop_utils *utils,
                                 pw_log_error("protocol-native %p: could not find proxy %u", this, id);
                                 continue;
                         }
-                        if (opcode >= proxy->iface->n_events) {
+                        if (opcode >= proxy->marshal->n_events) {
                                 pw_log_error("protocol-native %p: invalid method %u for %u", this, opcode,
                                              id);
                                 continue;
                         }
 
-                        demarshal = proxy->iface->events;
+                        demarshal = proxy->marshal->event_demarshal;
                         if (demarshal[opcode]) {
                                 if (!demarshal[opcode] (proxy, message, size))
                                         pw_log_error

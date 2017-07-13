@@ -554,9 +554,6 @@ gst_pipewire_src_stream_start (GstPipeWireSrc *pwsrc)
   }
 
   parse_stream_properties (pwsrc, pwsrc->stream->properties);
-  pw_thread_loop_unlock (pwsrc->main_loop);
-
-  pw_thread_loop_lock (pwsrc->main_loop);
   GST_DEBUG_OBJECT (pwsrc, "signal started");
   pwsrc->started = TRUE;
   pw_thread_loop_signal (pwsrc->main_loop, FALSE);

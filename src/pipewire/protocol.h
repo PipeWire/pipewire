@@ -63,10 +63,15 @@ struct pw_protocol_listener {
 
 #define pw_protocol_listener_destroy(l)	((l)->destroy(l))
 
-struct pw_protocol_iface {
-	struct spa_list link;
-	const struct pw_interface *client_iface;
-	const struct pw_interface *server_iface;
+struct pw_protocol_marshal {
+        const char *type;               /**< interface type */
+	uint32_t version;               /**< version */
+	uint32_t n_methods;             /**< number of methods in the interface */
+	const void *method_marshal;
+	const void *method_demarshal;
+        uint32_t n_events;              /**< number of events in the interface */
+	const void *event_marshal;
+	const void *event_demarshal;
 };
 
 struct pw_protocol_implementaton {
@@ -86,7 +91,7 @@ struct pw_protocol {
 
 	char *name;				/**< type name of the protocol */
 
-	struct spa_list iface_list;		/**< list of supported interfaces */
+	struct spa_list marshal_list;		/**< list of marshallers for supported interfaces */
 	struct spa_list connection_list;	/**< list of current connections */
 	struct spa_list listener_list;		/**< list of current listeners */
 
@@ -104,9 +109,7 @@ struct pw_protocol {
 #define pw_protocol_new_connection(p,...)	((p)->implementation->new_connection(p,__VA_ARGS__))
 #define pw_protocol_add_listener(p,...)		((p)->implementation->add_listener(p,__VA_ARGS__))
 
-#define pw_protocol_ext(p,type,method,...)		((type*)(p)->extension)->method( __VA_ARGS__)
-#define pw_protocol_connection_ext(c,type,method,...)	((type*)(c)->protocol->extension)->method( __VA_ARGS__)
-#define pw_protocol_listener_ext(l,type,method,...)	((type*)(l)->protocol->extension)->method( __VA_ARGS__)
+#define pw_protocol_ext(p,type,method,...)	(((type*)(p)->extension)->method( __VA_ARGS__))
 
 struct pw_protocol *pw_protocol_new(struct pw_core *core, const char *name, size_t user_data_size);
 
@@ -114,13 +117,11 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core, const char *name, size
  *
  * \brief Manages protocols and their implementation
  */
-void
-pw_protocol_add_interfaces(struct pw_protocol *protocol,
-			   const struct pw_interface *client_iface,
-			   const struct pw_interface *server_iface);
+void pw_protocol_add_marshal(struct pw_protocol *protocol,
+			      const struct pw_protocol_marshal *marshal);
 
-const struct pw_interface *
-pw_protocol_get_interface(struct pw_protocol *protocol, const char *type, bool server);
+const struct pw_protocol_marshal *
+pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type);
 
 #ifdef __cplusplus
 }  /* extern "C" */

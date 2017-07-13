@@ -66,7 +66,7 @@ static struct pw_node *create_node(struct pw_node_factory *factory,
       no_properties:
 	pw_log_error("missing properties");
 	if (resource) {
-		pw_core_notify_error(resource->client->core_resource,
+		pw_core_resource_error(resource->client->core_resource,
 				     resource->client->core_resource->id,
 				     SPA_RESULT_INVALID_ARGUMENTS, "missing properties");
 	}
@@ -74,7 +74,7 @@ static struct pw_node *create_node(struct pw_node_factory *factory,
       no_mem:
 	pw_log_error("can't create node");
 	if (resource) {
-		pw_core_notify_error(resource->client->core_resource,
+		pw_core_resource_error(resource->client->core_resource,
 				     resource->client->core_resource->id,
 				     SPA_RESULT_NO_MEMORY, "no memory");
 	}
@@ -97,7 +97,8 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 
 	spa_list_insert(core->node_factory_list.prev, &impl->this.link);
 
-        pw_core_add_global(core, NULL, core->type.node_factory, 0, impl, NULL, &impl->this.global);
+        pw_core_add_global(core, NULL, core->type.node_factory, 0,
+			NULL, impl, &impl->this.global);
 
 	return impl;
 }

@@ -44,6 +44,14 @@ static struct pw_node *create_node(struct pw_node_factory *factory,
 {
 	struct pw_client_node *node;
 
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		goto no_mem;
+
+	pw_properties_setf(properties,
+			   "pipewire.owner.client", "%d", resource->client->global->id);
+
 	node = pw_client_node_new(resource, name, properties);
 	if (node == NULL)
 		goto no_mem;
@@ -52,8 +60,10 @@ static struct pw_node *create_node(struct pw_node_factory *factory,
 
       no_mem:
 	pw_log_error("can't create node");
-	pw_core_notify_error(resource->client->core_resource,
-			     resource->client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+	pw_core_resource_error(resource->client->core_resource,
+			       resource->client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+	if (properties)
+		pw_properties_free(properties);
 	return NULL;
 }
 
@@ -68,7 +78,7 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 
 	impl->this.core = core;
 	impl->this.name = "client-node";
-	impl->this.type = spa_type_map_get_id(core->type.map, PW_TYPE__ClientNode);
+
         pw_signal_init(&impl->this.destroy_signal);
 	impl->this.create_node = create_node;
 
@@ -76,7 +86,8 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 
 	spa_list_insert(core->node_factory_list.prev, &impl->this.link);
 
-        pw_core_add_global(core, NULL, core->type.node_factory, 0, impl, NULL, &impl->this.global);
+        pw_core_add_global(core, NULL, core->type.node_factory, 0,
+			   NULL, impl, &impl->this.global);
 
 	return impl;
 }

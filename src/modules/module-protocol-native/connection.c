@@ -375,7 +375,7 @@ pw_protocol_native_connection_begin_resource(struct pw_protocol_native_connectio
 	                types[i] = spa_type_map_get_type(core->type.map, b);
 
 	        client->n_types += diff;
-	        pw_core_notify_update_types(client->core_resource, base, diff, types);
+		pw_core_resource_update_types(client->core_resource, base, diff, types);
 	}
 
 	impl->dest_id = resource->id;
@@ -404,7 +404,7 @@ pw_protocol_native_connection_begin_proxy(struct pw_protocol_native_connection *
 	                types[i] = spa_type_map_get_type(core->type.map, b);
 
 	        remote->n_types += diff;
-	        pw_core_do_update_types(remote->core_proxy, base, diff, types);
+	        pw_core_proxy_update_types(remote->core_proxy, base, diff, types);
 	}
 
 	impl->dest_id = proxy->id;

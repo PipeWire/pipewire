@@ -30,8 +30,6 @@ extern "C" {
 
 #define SPA_TYPE__TypeMap		SPA_TYPE_INTERFACE_BASE "TypeMap"
 
-#define SPA_VERSION_TYPE_MAP	0
-
 /**
  * spa_type_map:
  *
@@ -40,6 +38,7 @@ extern "C" {
 struct spa_type_map {
 	/* the version of this structure. This can be used to expand this
 	 * structure in the future */
+#define SPA_VERSION_TYPE_MAP	0
 	uint32_t version;
 	/**
 	 * spa_type_map::info

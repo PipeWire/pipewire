@@ -158,7 +158,7 @@ static bool client_node_demarshal_set_props(void *object, void *data, size_t siz
 			      -SPA_POD_TYPE_OBJECT, &props, 0))
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->set_props(proxy, seq, props);
+	pw_proxy_notify(proxy, struct pw_client_node_events, set_props, seq, props);
 	return true;
 }
 
@@ -173,7 +173,7 @@ static bool client_node_demarshal_event_event(void *object, void *data, size_t s
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_OBJECT, &event, 0))
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->event(proxy, event);
+	pw_proxy_notify(proxy, struct pw_client_node_events, event, event);
 	return true;
 }
 
@@ -189,8 +189,7 @@ static bool client_node_demarshal_add_port(void *object, void *data, size_t size
 			      SPA_POD_TYPE_INT, &direction, SPA_POD_TYPE_INT, &port_id, 0))
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->add_port(proxy, seq, direction,
-									   port_id);
+	pw_proxy_notify(proxy, struct pw_client_node_events, add_port, seq, direction, port_id);
 	return true;
 }
 
@@ -206,8 +205,7 @@ static bool client_node_demarshal_remove_port(void *object, void *data, size_t s
 			      SPA_POD_TYPE_INT, &direction, SPA_POD_TYPE_INT, &port_id, 0))
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->remove_port(proxy, seq, direction,
-									      port_id);
+	pw_proxy_notify(proxy, struct pw_client_node_events, remove_port, seq, direction, port_id);
 	return true;
 }
 
@@ -228,9 +226,8 @@ static bool client_node_demarshal_set_format(void *object, void *data, size_t si
 			      -SPA_POD_TYPE_OBJECT, &format, 0))
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->set_format(proxy, seq, direction,
-									     port_id, flags,
-									     format);
+	pw_proxy_notify(proxy, struct pw_client_node_events, set_format, seq, direction, port_id,
+			flags, format);
 	return true;
 }
 
@@ -250,8 +247,7 @@ static bool client_node_demarshal_set_param(void *object, void *data, size_t siz
 			      -SPA_POD_TYPE_OBJECT, &param, 0))
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->set_param(proxy, seq, direction,
-									     port_id, param);
+	pw_proxy_notify(proxy, struct pw_client_node_events, set_param, seq, direction, port_id, param);
 	return true;
 }
 
@@ -276,12 +272,11 @@ static bool client_node_demarshal_add_mem(void *object, void *data, size_t size)
 
 	memfd = pw_protocol_native_get_proxy_fd(proxy, memfd_idx);
 
-	((struct pw_client_node_events *) proxy->implementation)->add_mem(proxy,
-									  direction,
-									  port_id,
-									  mem_id,
-									  type,
-									  memfd, flags, offset, sz);
+	pw_proxy_notify(proxy, struct pw_client_node_events, add_mem, direction,
+								      port_id,
+								      mem_id,
+								      type,
+								      memfd, flags, offset, sz);
 	return true;
 }
 
@@ -340,11 +335,10 @@ static bool client_node_demarshal_use_buffers(void *object, void *data, size_t s
 			d->data = SPA_UINT32_TO_PTR(data_id);
 		}
 	}
-	((struct pw_client_node_events *) proxy->implementation)->use_buffers(proxy,
-									      seq,
-									      direction,
-									      port_id,
-									      n_buffers, buffers);
+	pw_proxy_notify(proxy, struct pw_client_node_events, use_buffers, seq,
+									  direction,
+									  port_id,
+									  n_buffers, buffers);
 	return true;
 }
 
@@ -360,7 +354,7 @@ static bool client_node_demarshal_node_command(void *object, void *data, size_t 
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &seq, SPA_POD_TYPE_OBJECT, &command, 0))
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->node_command(proxy, seq, command);
+	pw_proxy_notify(proxy, struct pw_client_node_events, node_command, seq, command);
 	return true;
 }
 
@@ -379,10 +373,9 @@ static bool client_node_demarshal_port_command(void *object, void *data, size_t 
 			      SPA_POD_TYPE_OBJECT, &command, 0))
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->port_command(proxy,
-									       direction,
-									       port_id,
-									       command);
+	pw_proxy_notify(proxy, struct pw_client_node_events, port_command, direction,
+									   port_id,
+									   command);
 	return true;
 }
 
@@ -409,9 +402,9 @@ static bool client_node_demarshal_transport(void *object, void *data, size_t siz
 	if (readfd == -1 || writefd == -1 || memfd_idx == -1)
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->transport(proxy, node_id,
-									    readfd, writefd,
-									    memfd, offset, sz);
+	pw_proxy_notify(proxy, struct pw_client_node_events, transport, node_id,
+									readfd, writefd,
+									memfd, offset, sz);
 	return true;
 }
 
@@ -666,7 +659,7 @@ static bool client_node_demarshal_done(void *object, void *data, size_t size)
 			      SPA_POD_TYPE_INT, &res, 0))
 		return false;
 
-	((struct pw_client_node_methods *) resource->implementation)->done(resource, seq, res);
+	pw_resource_do(resource, struct pw_client_node_methods, done, seq, res);
 	return true;
 }
 
@@ -685,10 +678,10 @@ static bool client_node_demarshal_update(void *object, void *data, size_t size)
 			      SPA_POD_TYPE_INT, &max_output_ports, -SPA_POD_TYPE_OBJECT, &props, 0))
 		return false;
 
-	((struct pw_client_node_methods *) resource->implementation)->update(resource, change_mask,
-									     max_input_ports,
-									     max_output_ports,
-									     props);
+	pw_resource_do(resource, struct pw_client_node_methods, update, change_mask,
+									max_input_ports,
+									max_output_ports,
+									props);
 	return true;
 }
 
@@ -738,15 +731,14 @@ static bool client_node_demarshal_port_update(void *object, void *data, size_t s
 			return false;
 	}
 
-	((struct pw_client_node_methods *) resource->implementation)->port_update(resource,
-										  direction,
-										  port_id,
-										  change_mask,
-										  n_possible_formats,
-										  possible_formats,
-										  format,
-										  n_params,
-										  params, infop);
+	pw_resource_do(resource, struct pw_client_node_methods, port_update, direction,
+									     port_id,
+									     change_mask,
+									     n_possible_formats,
+									     possible_formats,
+									     format,
+									     n_params,
+									     params, infop);
 	return true;
 }
 
@@ -761,7 +753,7 @@ static bool client_node_demarshal_event_method(void *object, void *data, size_t 
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_OBJECT, &event, 0))
 		return false;
 
-	((struct pw_client_node_methods *) resource->implementation)->event(resource, event);
+	pw_resource_do(resource, struct pw_client_node_methods, event, event);
 	return true;
 }
 
@@ -773,11 +765,12 @@ static bool client_node_demarshal_destroy(void *object, void *data, size_t size)
 	if (!spa_pod_iter_struct(&it, data, size))
 		return false;
 
-	((struct pw_client_node_methods *) resource->implementation)->destroy(resource);
+	pw_resource_do_na(resource, struct pw_client_node_methods, destroy);
 	return true;
 }
 
-static const struct pw_client_node_methods pw_protocol_native_client_client_node_methods = {
+static const struct pw_client_node_methods pw_protocol_native_client_node_method_marshal = {
+	PW_VERSION_CLIENT_NODE_METHODS,
 	&client_node_marshal_done,
 	&client_node_marshal_update,
 	&client_node_marshal_port_update,
@@ -785,28 +778,7 @@ static const struct pw_client_node_methods pw_protocol_native_client_client_node
 	&client_node_marshal_destroy
 };
 
-static const demarshal_func_t pw_protocol_native_client_client_node_demarshal[] = {
-	&client_node_demarshal_transport,
-	&client_node_demarshal_set_props,
-	&client_node_demarshal_event_event,
-	&client_node_demarshal_add_port,
-	&client_node_demarshal_remove_port,
-	&client_node_demarshal_set_format,
-	&client_node_demarshal_set_param,
-	&client_node_demarshal_add_mem,
-	&client_node_demarshal_use_buffers,
-	&client_node_demarshal_node_command,
-	&client_node_demarshal_port_command,
-};
-
-static const struct pw_interface pw_protocol_native_client_client_node_interface = {
-	PW_TYPE__ClientNode,
-	PW_VERSION_CLIENT_NODE,
-	PW_CLIENT_NODE_METHOD_NUM, &pw_protocol_native_client_client_node_methods,
-	PW_CLIENT_NODE_EVENT_NUM, pw_protocol_native_client_client_node_demarshal,
-};
-
-static const demarshal_func_t pw_protocol_native_server_client_node_demarshal[] = {
+static const demarshal_func_t pw_protocol_native_client_node_method_demarshal[] = {
 	&client_node_demarshal_done,
 	&client_node_demarshal_update,
 	&client_node_demarshal_port_update,
@@ -814,7 +786,8 @@ static const demarshal_func_t pw_protocol_native_server_client_node_demarshal[] 
 	&client_node_demarshal_destroy,
 };
 
-static const struct pw_client_node_events pw_protocol_native_server_client_node_events = {
+static const struct pw_client_node_events pw_protocol_native_client_node_event_marshal = {
+	PW_VERSION_CLIENT_NODE_EVENTS,
 	&client_node_marshal_transport,
 	&client_node_marshal_set_props,
 	&client_node_marshal_event_event,
@@ -828,11 +801,29 @@ static const struct pw_client_node_events pw_protocol_native_server_client_node_
 	&client_node_marshal_port_command,
 };
 
-const struct pw_interface pw_protocol_native_server_client_node_interface = {
-	PW_TYPE__ClientNode,
+static const demarshal_func_t pw_protocol_native_client_node_event_demarshal[] = {
+	&client_node_demarshal_transport,
+	&client_node_demarshal_set_props,
+	&client_node_demarshal_event_event,
+	&client_node_demarshal_add_port,
+	&client_node_demarshal_remove_port,
+	&client_node_demarshal_set_format,
+	&client_node_demarshal_set_param,
+	&client_node_demarshal_add_mem,
+	&client_node_demarshal_use_buffers,
+	&client_node_demarshal_node_command,
+	&client_node_demarshal_port_command,
+};
+
+const struct pw_protocol_marshal pw_protocol_native_client_node_marshal = {
+	PW_TYPE_INTERFACE__ClientNode,
 	PW_VERSION_CLIENT_NODE,
-	PW_CLIENT_NODE_METHOD_NUM, &pw_protocol_native_server_client_node_demarshal,
-	PW_CLIENT_NODE_EVENT_NUM, &pw_protocol_native_server_client_node_events,
+	PW_CLIENT_NODE_METHOD_NUM,
+	&pw_protocol_native_client_node_method_marshal,
+	&pw_protocol_native_client_node_method_demarshal,
+	PW_CLIENT_NODE_EVENT_NUM,
+	&pw_protocol_native_client_node_event_marshal,
+	pw_protocol_native_client_node_event_demarshal,
 };
 
 struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core)
@@ -844,9 +835,7 @@ struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core
 	if (protocol == NULL)
 		return NULL;
 
-	pw_protocol_add_interfaces(protocol,
-				   &pw_protocol_native_client_client_node_interface,
-				   &pw_protocol_native_server_client_node_interface);
+	pw_protocol_add_marshal(protocol, &pw_protocol_native_client_node_marshal);
 
 	return protocol;
 }

@@ -32,7 +32,6 @@
 /** \cond */
 struct global_impl {
 	struct pw_global this;
-	pw_bind_func_t bind;
 };
 
 struct impl {
@@ -53,39 +52,59 @@ static bool pw_global_is_visible(struct pw_global *global,
 		core->global_filter(global, client, core->global_filter_data));
 }
 
-static void registry_bind(void *object, uint32_t id, uint32_t version, uint32_t new_id)
+static struct pw_global *find_global(struct pw_core *core, uint32_t id)
+{
+	struct pw_global *global;
+	spa_list_for_each(global, &core->global_list, link) {
+		if (global->id == id)
+			return global;
+	}
+	return NULL;
+}
+
+static void registry_bind(void *object, uint32_t id,
+			  uint32_t type, uint32_t version, uint32_t new_id)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
 	struct pw_core *core = resource->core;
 	struct pw_global *global;
+	const char *type_name;
 
-	spa_list_for_each(global, &core->global_list, link) {
-		if (global->id == id)
-			break;
-	}
-	if (&global->link == &core->global_list)
+	if ((global = find_global(core, id)) == 0)
 		goto no_id;
 
 	if (!pw_global_is_visible(global, client))
-		 goto no_id;
+		goto no_id;
 
-	pw_log_debug("global %p: bind object id %d to %d", global, id, new_id);
+	if (type != global->type)
+		goto wrong_interface;
+
+	type_name = spa_type_map_get_type(core->type.map, type);
+
+	pw_log_debug("global %p: bind global id %d, iface %s to %d", global, id, type_name, new_id);
+
 	pw_global_bind(global, client, version, new_id);
 
 	return;
 
       no_id:
 	pw_log_debug("registry %p: no global with id %u to bind to %u", resource, id, new_id);
+	goto exit;
+      wrong_interface:
+	pw_log_debug("registry %p: global with id %u has no interface %u", resource, id, type);
+	goto exit;
+      exit:
 	/* unmark the new_id the map, the client does not yet know about the failed
 	 * bind and will choose the next id, which we would refuse when we don't mark
 	 * new_id as 'used and freed' */
 	pw_map_insert_at(&client->objects, new_id, NULL);
-	pw_core_notify_remove_id(client->core_resource, new_id);
+	pw_core_resource_remove_id(client->core_resource, new_id);
 	return;
 }
 
 static struct pw_registry_methods registry_methods = {
+	PW_VERSION_REGISTRY_METHODS,
 	&registry_bind
 };
 
@@ -106,7 +125,7 @@ static void core_sync(void *object, uint32_t seq)
 {
 	struct pw_resource *resource = object;
 
-	pw_core_notify_done(resource, seq);
+	pw_core_resource_done(resource, seq);
 }
 
 static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
@@ -121,40 +140,40 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 					    new_id,
 					    this->type.registry,
 					    version,
-					    0);
+					    0, destroy_registry_resource);
 	if (registry_resource == NULL)
 		goto no_mem;
 
 	pw_resource_set_implementation(registry_resource,
-				       this,
-				       PW_VERSION_REGISTRY,
-				       &registry_methods,
-				       destroy_registry_resource);
+				       registry_resource,
+				       &registry_methods);
 
 	spa_list_insert(this->registry_resource_list.prev, &registry_resource->link);
 
 	spa_list_for_each(global, &this->global_list, link) {
-		if (pw_global_is_visible(global, client))
-			 pw_registry_notify_global(registry_resource,
-						   global->id,
-						   global->type,
-						   global->version);
+		if (pw_global_is_visible(global, client)) {
+			pw_registry_resource_global(registry_resource,
+						    global->id,
+						    global->type,
+						    global->version);
+		}
 	}
 
 	return;
 
       no_mem:
 	pw_log_error("can't create registry resource");
-	pw_core_notify_error(client->core_resource,
-			     resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+	pw_core_resource_error(client->core_resource,
+			       resource->id, SPA_RESULT_NO_MEMORY, "no memory");
 }
 
 static void
 core_create_node(void *object,
 		 const char *factory_name,
 		 const char *name,
-		 const struct spa_dict *props,
+		 uint32_t type,
 		 uint32_t version,
+		 const struct spa_dict *props,
 		 uint32_t new_id)
 {
 	struct pw_resource *resource = object;
@@ -167,11 +186,7 @@ core_create_node(void *object,
 	if (factory == NULL)
 		goto no_factory;
 
-	node_resource = pw_resource_new(client,
-					new_id,
-					factory->type,
-					version,
-					0);
+	node_resource = pw_resource_new(client, new_id, type, version, 0, NULL);
 	if (node_resource == NULL)
 		goto no_resource;
 
@@ -191,8 +206,8 @@ core_create_node(void *object,
 
       no_factory:
 	pw_log_error("can't find node factory");
-	pw_core_notify_error(client->core_resource,
-			     resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown factory name");
+	pw_core_resource_error(client->core_resource,
+			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown factory name");
 	goto done;
 
       no_resource:
@@ -203,8 +218,8 @@ core_create_node(void *object,
 	pw_resource_destroy(node_resource);
 	goto no_mem;
       no_mem:
-	pw_core_notify_error(client->core_resource,
-			     resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+	pw_core_resource_error(client->core_resource,
+			       resource->id, SPA_RESULT_NO_MEMORY, "no memory");
 	goto done;
 }
 
@@ -222,8 +237,8 @@ core_create_link(void *object,
 	struct pw_client *client = resource->client;
 
 	pw_log_error("can't create link");
-	pw_core_notify_error(client->core_resource,
-			     resource->id, SPA_RESULT_NOT_IMPLEMENTED, "not implemented");
+	pw_core_resource_error(client->core_resource,
+			       resource->id, SPA_RESULT_NOT_IMPLEMENTED, "not implemented");
 }
 
 static void core_update_types(void *object, uint32_t first_id, uint32_t n_types, const char **types)
@@ -241,6 +256,7 @@ static void core_update_types(void *object, uint32_t first_id, uint32_t n_types,
 }
 
 static const struct pw_core_methods core_methods = {
+	PW_VERSION_CORE_METHODS,
 	&core_update_types,
 	&core_sync,
 	&core_get_registry,
@@ -257,26 +273,27 @@ static void core_unbind_func(void *data)
 }
 
 static int
-core_bind_func(struct pw_global *global, struct pw_client *client, uint32_t version, uint32_t id)
+core_bind_func(struct pw_global *global,
+	       struct pw_client *client,
+	       uint32_t version,
+	       uint32_t id)
 {
 	struct pw_core *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, version, 0);
+	resource = pw_resource_new(client, id, global->type, version, 0, core_unbind_func);
 	if (resource == NULL)
 		goto no_mem;
 
-	pw_resource_set_implementation(resource, global->object,
-				       PW_VERSION_CORE, &core_methods, core_unbind_func);
+	pw_resource_set_implementation(resource, resource, &core_methods);
 
 	spa_list_insert(this->resource_list.prev, &resource->link);
 	client->core_resource = resource;
 
-	pw_log_debug("core %p: bound to %d", global->object, resource->id);
+	pw_log_debug("core %p: bound to %d", this, resource->id);
 
 	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
-	pw_core_notify_info(resource, &this->info);
-	this->info.change_mask = 0;
+	pw_core_resource_info(resource, &this->info);
 
 	return SPA_RESULT_OK;
 
@@ -343,9 +360,8 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	pw_signal_init(&this->global_removed);
 
 	pw_core_add_global(this, NULL, this->type.core, PW_VERSION_CORE,
-			   this, core_bind_func, &this->global);
+			   core_bind_func, this, &this->global);
 
-	this->info.id = this->global->id;
 	this->info.change_mask = 0;
 	this->info.user_name = pw_get_user_name();
 	this->info.host_name = pw_get_host_name();
@@ -397,7 +413,8 @@ void pw_core_destroy(struct pw_core *core)
  * \param core a core
  * \param owner an optional owner of the global
  * \param type the type of the global
- * \param version the version
+ * \param n_ifaces number of interfaces
+ * \param ifaces interface information
  * \param object the associated object
  * \param bind a function to bind to this global
  * \param[out] global a result global
@@ -407,28 +424,29 @@ void pw_core_destroy(struct pw_core *core)
  */
 bool
 pw_core_add_global(struct pw_core *core,
-		   struct pw_resource *owner,
+	           struct pw_resource *owner,
 		   uint32_t type,
 		   uint32_t version,
-		   void *object,
 		   pw_bind_func_t bind,
+		   void *object,
 		   struct pw_global **global)
 {
 	struct global_impl *impl;
 	struct pw_global *this;
 	struct pw_resource *registry;
+	const char *type_name;
 
 	impl = calloc(1, sizeof(struct global_impl));
 	if (impl == NULL)
 		return false;
 
 	this = &impl->this;
-	impl->bind = bind;
 
 	this->core = core;
 	this->owner = owner;
 	this->type = type;
 	this->version = version;
+	this->bind = bind;
 	this->object = object;
 	*global = this;
 
@@ -439,11 +457,13 @@ pw_core_add_global(struct pw_core *core,
 	spa_list_insert(core->global_list.prev, &this->link);
 	pw_signal_emit(&core->global_added, core, this);
 
-	pw_log_debug("global %p: new %u %d, owner %p", this, this->id, this->type, owner);
+	type_name = spa_type_map_get_type(core->type.map, this->type);
+
+	pw_log_debug("global %p: new %u %s, owner %p", this, this->id, type_name, owner);
 
 	spa_list_for_each(registry, &core->registry_resource_list, link)
 		if (pw_global_is_visible(this, registry->client))
-			pw_registry_notify_global(registry, this->id, this->type, this->version);
+			pw_registry_resource_global(registry, this->id, this->type, this->version);
 
 	return true;
 }
@@ -462,18 +482,33 @@ pw_core_add_global(struct pw_core *core,
  * \memberof pw_global
  */
 int
-pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t version, uint32_t id)
+pw_global_bind(struct pw_global *global, struct pw_client *client,
+	       uint32_t version, uint32_t id)
 {
 	int res;
-	struct global_impl *impl = SPA_CONTAINER_OF(global, struct global_impl, this);
 
-	if (impl->bind) {
-		res = impl->bind(global, client, version, id);
-	} else {
-		res = SPA_RESULT_NOT_IMPLEMENTED;
-		pw_core_notify_error(client->core_resource,
-				     client->core_resource->id, res, "can't bind object id %d", id);
-	}
+	if (global->bind == NULL)
+		goto no_bind;
+
+	if (global->version < version)
+		goto wrong_version;
+
+	res = global->bind(global, client, version, id);
+
+	return res;
+
+     wrong_version:
+	res = SPA_RESULT_INCOMPATIBLE_VERSION;
+	pw_core_resource_error(client->core_resource,
+			       client->core_resource->id,
+			     res, "id %d: interface version %d < %d",
+			     id, global->version, version);
+	return res;
+     no_bind:
+	res = SPA_RESULT_NOT_IMPLEMENTED;
+	pw_core_resource_error(client->core_resource,
+			       client->core_resource->id,
+			     res, "can't bind object id %d to interface", id);
 	return res;
 }
 
@@ -493,7 +528,7 @@ void pw_global_destroy(struct pw_global *global)
 
 	spa_list_for_each(registry, &core->registry_resource_list, link)
 		if (pw_global_is_visible(global, registry->client))
-			pw_registry_notify_global_remove(registry, global->id);
+			pw_registry_resource_global_remove(registry, global->id);
 
 	pw_map_remove(&core->objects, global->id);
 
@@ -534,7 +569,7 @@ void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict
 	pw_signal_emit(&core->info_changed, core);
 
 	spa_list_for_each(resource, &core->resource_list, link) {
-		pw_core_notify_info(resource, &core->info);
+		pw_core_resource_info(resource, &core->info);
 	}
 	core->info.change_mask = 0;
 }

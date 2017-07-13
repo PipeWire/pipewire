@@ -74,7 +74,6 @@ const char * pw_link_state_as_string(enum pw_link_state state);
 
 /**  The core information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_core_info {
-	uint32_t id;			/**< server side id of the core */
 #define PW_CORE_CHANGE_MASK_USER_NAME  (1 << 0)
 #define PW_CORE_CHANGE_MASK_HOST_NAME  (1 << 1)
 #define PW_CORE_CHANGE_MASK_VERSION    (1 << 2)
@@ -101,7 +100,6 @@ void pw_core_info_free(struct pw_core_info *info);
 
 /** The module information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_module_info {
-	uint32_t id;		/**< server side id of the module */
 	uint64_t change_mask;	/**< bitfield of changed fields since last call */
 	const char *name;	/**< name of the module */
 	const char *filename;	/**< filename of the module */
@@ -119,7 +117,6 @@ void pw_module_info_free(struct pw_module_info *info);
 
 /** The client information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_client_info {
-	uint32_t id;		/**< server side id of the client */
 	uint64_t change_mask;	/**< bitfield of changed fields since last call */
 	struct spa_dict *props;	/**< extra properties */
 };
@@ -135,7 +132,6 @@ void pw_client_info_free(struct pw_client_info *info);
 
 /** The node information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_node_info {
-	uint32_t id;				/**< server side id of the node */
 	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	const char *name;			/**< name the node, suitable for display */
 	uint32_t max_input_ports;		/**< maximum number of inputs */
@@ -161,7 +157,6 @@ pw_node_info_free(struct pw_node_info *info);
 
 /** The link information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_link_info {
-	uint32_t id;			/**< server side id of the link */
 	uint64_t change_mask;		/**< bitfield of changed fields since last call */
 	uint32_t output_node_id;	/**< server side output node id */
 	uint32_t output_port_id;	/**< output port id */

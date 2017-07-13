@@ -87,7 +87,7 @@ remote_update_state(struct pw_remote *remote, enum pw_remote_state state, const 
 static void core_event_info(void *object, struct pw_core_info *info)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_remote *this = proxy->remote;
+	struct pw_remote *this = proxy->object;
 
 	pw_log_debug("got core info");
 	this->info = pw_core_info_update(this->info, info);
@@ -97,7 +97,7 @@ static void core_event_info(void *object, struct pw_core_info *info)
 static void core_event_done(void *object, uint32_t seq)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_remote *this = proxy->remote;
+	struct pw_remote *this = proxy->object;
 
 	pw_log_debug("core event done %d", seq);
 	if (seq == 0)
@@ -109,15 +109,14 @@ static void core_event_done(void *object, uint32_t seq)
 static void core_event_error(void *object, uint32_t id, int res, const char *error, ...)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_remote *this = proxy->remote;
+	struct pw_remote *this = proxy->object;
 	remote_update_state(this, PW_REMOTE_STATE_ERROR, error);
 }
 
 static void core_event_remove_id(void *object, uint32_t id)
 {
-	struct pw_proxy *core_proxy = object;
-	struct pw_remote *this = core_proxy->remote;
-	struct pw_proxy *proxy;
+	struct pw_proxy *proxy = object;
+	struct pw_remote *this = proxy->object;
 
 	proxy = pw_map_lookup(&this->objects, id);
 	if (proxy) {
@@ -130,7 +129,7 @@ static void
 core_event_update_types(void *object, uint32_t first_id, uint32_t n_types, const char **types)
 {
 	struct pw_proxy *proxy = object;
-	struct pw_remote *this = proxy->remote;
+	struct pw_remote *this = proxy->object;
 	int i;
 
 	for (i = 0; i < n_types; i++, first_id++) {
@@ -141,6 +140,7 @@ core_event_update_types(void *object, uint32_t first_id, uint32_t n_types, const
 }
 
 static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	&core_event_update_types,
 	&core_event_done,
 	&core_event_error,
@@ -230,15 +230,14 @@ void pw_remote_destroy(struct pw_remote *remote)
 
 static int do_connect(struct pw_remote *remote)
 {
-	remote->core_proxy = pw_proxy_new(remote, 0, remote->core->type.core, 0);
+	remote->core_proxy = (struct pw_core_proxy*)pw_proxy_new(remote, 0, remote->core->type.core, 0, NULL);
 	if (remote->core_proxy == NULL)
 		goto no_proxy;
 
-	pw_proxy_set_implementation(remote->core_proxy, remote, PW_VERSION_CORE,
-				    &core_events, NULL);
+	pw_proxy_add_listener((struct pw_proxy*)remote->core_proxy, remote, &core_events);
 
-	pw_core_do_client_update(remote->core_proxy, &remote->properties->dict);
-	pw_core_do_sync(remote->core_proxy, 0);
+	pw_core_proxy_client_update(remote->core_proxy, &remote->properties->dict);
+	pw_core_proxy_sync(remote->core_proxy, 0);
 
 	return 0;
 

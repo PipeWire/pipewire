@@ -33,27 +33,13 @@ extern "C" {
 #include <pipewire/map.h>
 #include <pipewire/transport.h>
 
-#define PW_TYPE__Object		"PipeWire:Object"
+#define PW_TYPE_BASE		"PipeWire:"
+
+#define PW_TYPE__Object		PW_TYPE_BASE "Object"
 #define PW_TYPE_OBJECT_BASE	PW_TYPE__Object ":"
 
-/** \class pw_interface
- * \brief The interface definition
- *
- * The interface implements the methods and events for a \ref
- * pw_proxy. It typically implements marshal functions for the
- * methods and calls the user installed implementation after
- * demarshalling the events.
- *
- * \sa pw_proxy, pw_resource
- */
-struct pw_interface {
-	const char *type;	/**< interface type */
-	uint32_t version;	/**< version */
-	uint32_t n_methods;	/**< number of methods in the interface */
-	const void *methods;	/**< method implementations of the interface */
-	uint32_t n_events;	/**< number of events in the interface */
-	const void *events;	/**< event implementations of the interface */
-};
+#define PW_TYPE__Interface	PW_TYPE_BASE "Interface"
+#define PW_TYPE_INTERFACE_BASE	PW_TYPE__Interface ":"
 
 /** \class pw_type
  * \brief PipeWire type support struct

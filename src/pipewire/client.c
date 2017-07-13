@@ -38,30 +38,33 @@ static void client_unbind_func(void *data)
 }
 
 static int
-client_bind_func(struct pw_global *global, struct pw_client *client, uint32_t version, uint32_t id)
+client_bind_func(struct pw_global *global,
+		 struct pw_client *client,
+		 uint32_t version, uint32_t id)
 {
 	struct pw_client *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, version, 0);
+	resource = pw_resource_new(client, id, global->type, version, 0, client_unbind_func);
 	if (resource == NULL)
 		goto no_mem;
 
-	pw_resource_set_implementation(resource, global->object, PW_VERSION_CLIENT, NULL, client_unbind_func);
+	pw_resource_set_implementation(resource, this, NULL);
 
-	pw_log_debug("client %p: bound to %d", global->object, resource->id);
+	pw_log_debug("client %p: bound to %d", this, resource->id);
 
 	spa_list_insert(this->resource_list.prev, &resource->link);
 
 	this->info.change_mask = ~0;
-	pw_client_notify_info(resource, &this->info);
+	pw_client_resource_info(resource, &this->info);
+	this->info.change_mask = 0;
 
 	return SPA_RESULT_OK;
 
       no_mem:
 	pw_log_error("can't create client resource");
-	pw_core_notify_error(client->core_resource,
-			     client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+	pw_core_resource_error(client->core_resource,
+			       client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
 	return SPA_RESULT_NO_MEMORY;
 }
 
@@ -111,9 +114,8 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	spa_list_insert(core->client_list.prev, &this->link);
 
 	pw_core_add_global(core, NULL, core->type.client, PW_VERSION_CLIENT,
-			   this, client_bind_func, &this->global);
+			   client_bind_func, this, &this->global);
 
-	this->info.id = this->global->id;
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
 	return this;
@@ -192,7 +194,7 @@ void pw_client_update_properties(struct pw_client *client, const struct spa_dict
 	pw_signal_emit(&client->properties_changed, client);
 
 	spa_list_for_each(resource, &client->resource_list, link) {
-		pw_client_notify_info(resource, &client->info);
+		pw_client_resource_info(resource, &client->info);
 	}
 }
 

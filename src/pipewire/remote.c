@@ -154,6 +154,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	struct remote *impl;
 	struct pw_remote *this;
 	struct pw_protocol *protocol;
+	const char *protocol_name;
 
 	impl = calloc(1, sizeof(struct remote));
 	if (impl == NULL)
@@ -185,16 +186,22 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	pw_signal_init(&this->state_changed);
 	pw_signal_init(&this->destroy_signal);
 
-	pw_module_load(core, "libpipewire-module-protocol-native", NULL, NULL);
-	pw_module_load(core, "libpipewire-module-client-node", NULL, NULL);
+	if ((protocol_name = pw_properties_get(properties, "pipewire.protocol")) == NULL) {
+		if (!pw_module_load(core, "libpipewire-module-protocol-native", NULL, NULL))
+			goto no_protocol;
 
-	protocol = pw_core_find_protocol(core, PW_TYPE_PROTOCOL__Native);
+		protocol_name = PW_TYPE_PROTOCOL__Native;
+	}
+
+	protocol = pw_core_find_protocol(core, protocol_name);
 	if (protocol == NULL)
 		goto no_protocol;
 
 	this->conn = pw_protocol_new_connection(protocol, this, properties);
 	if (this->conn == NULL)
 		goto no_connection;
+
+	pw_module_load(core, "libpipewire-module-client-node", NULL, NULL);
 
         spa_list_insert(core->remote_list.prev, &this->link);
 
@@ -302,6 +309,5 @@ void pw_remote_disconnect(struct pw_remote *remote)
 		pw_core_info_free (remote->info);
 		remote->info = NULL;
 	}
-
         pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
 }

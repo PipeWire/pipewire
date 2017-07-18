@@ -170,6 +170,9 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd);
 /** Disconnect from the remote PipeWire. \memberof pw_remote */
 void pw_remote_disconnect(struct pw_remote *remote);
 
+/** Update the state of the remote, mostly used by protocols */
+void pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, const char *fmt, ...);
+
 #ifdef __cplusplus
 }
 #endif

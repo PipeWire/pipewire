@@ -895,6 +895,9 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     if (pwsrc->flushing)
       goto streaming_stopped;
 
+    if (pwsrc->stream == NULL)
+      goto streaming_error;
+
     state = pwsrc->stream->state;
     if (state == PW_STREAM_STATE_ERROR)
       goto streaming_error;

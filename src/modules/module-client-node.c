@@ -44,14 +44,6 @@ static struct pw_node *create_node(struct pw_node_factory *factory,
 {
 	struct pw_client_node *node;
 
-	if (properties == NULL)
-		properties = pw_properties_new(NULL, NULL);
-	if (properties == NULL)
-		goto no_mem;
-
-	pw_properties_setf(properties,
-			   "pipewire.owner.client", "%d", resource->client->global->id);
-
 	node = pw_client_node_new(resource, name, properties);
 	if (node == NULL)
 		goto no_mem;

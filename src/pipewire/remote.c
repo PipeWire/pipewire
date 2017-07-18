@@ -56,8 +56,8 @@ const char *pw_remote_state_as_string(enum pw_remote_state state)
 	return "invalid-state";
 }
 
-static void
-remote_update_state(struct pw_remote *remote, enum pw_remote_state state, const char *fmt, ...)
+void
+pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, const char *fmt, ...)
 {
 	if (remote->state != state) {
 		if (remote->error)
@@ -101,7 +101,7 @@ static void core_event_done(void *object, uint32_t seq)
 
 	pw_log_debug("core event done %d", seq);
 	if (seq == 0)
-		remote_update_state(this, PW_REMOTE_STATE_CONNECTED, NULL);
+		pw_remote_update_state(this, PW_REMOTE_STATE_CONNECTED, NULL);
 
 	pw_signal_emit(&this->sync_reply, this, seq);
 }
@@ -110,7 +110,7 @@ static void core_event_error(void *object, uint32_t id, int res, const char *err
 {
 	struct pw_proxy *proxy = object;
 	struct pw_remote *this = proxy->object;
-	remote_update_state(this, PW_REMOTE_STATE_ERROR, error);
+	pw_remote_update_state(this, PW_REMOTE_STATE_ERROR, error);
 }
 
 static void core_event_remove_id(void *object, uint32_t id)
@@ -211,12 +211,16 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 void pw_remote_destroy(struct pw_remote *remote)
 {
 	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
+	struct pw_stream *stream, *s2;
 
 	pw_log_debug("remote %p: destroy", remote);
 	pw_signal_emit(&remote->destroy_signal, remote);
 
 	if (remote->state != PW_REMOTE_STATE_UNCONNECTED)
 		pw_remote_disconnect(remote);
+
+	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
+	    pw_stream_destroy(stream);
 
 	pw_protocol_connection_destroy (remote->conn);
 
@@ -243,7 +247,7 @@ static int do_connect(struct pw_remote *remote)
 
       no_proxy:
 	pw_protocol_connection_disconnect (remote->conn);
-	remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: no memory");
+	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: no memory");
 	return -1;
 }
 
@@ -251,10 +255,10 @@ int pw_remote_connect(struct pw_remote *remote)
 {
 	int res;
 
-	remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
+	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
 	if ((res = pw_protocol_connection_connect (remote->conn)) < 0) {
-		remote_update_state(remote, PW_REMOTE_STATE_ERROR, "connect failed");
+		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "connect failed");
 		return res;
 	}
 
@@ -265,10 +269,10 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 {
 	int res;
 
-	remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
+	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
 	if ((res = pw_protocol_connection_connect_fd (remote->conn, fd)) < 0) {
-		remote_update_state(remote, PW_REMOTE_STATE_ERROR, "connect_fd failed");
+		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "connect_fd failed");
 		return res;
 	}
 
@@ -281,14 +285,13 @@ void pw_remote_disconnect(struct pw_remote *remote)
 	struct pw_stream *stream, *s2;
 
 	pw_log_debug("remote %p: disconnect", remote);
-	pw_protocol_connection_disconnect (remote->conn);
-
 	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
-	    pw_stream_destroy(stream);
+	    pw_stream_disconnect(stream);
+
+	pw_protocol_connection_disconnect (remote->conn);
 
 	spa_list_for_each_safe(proxy, t2, &remote->proxy_list, link)
 	    pw_proxy_destroy(proxy);
-
 	remote->core_proxy = NULL;
 
 	pw_map_clear(&remote->objects);
@@ -300,5 +303,5 @@ void pw_remote_disconnect(struct pw_remote *remote)
 		remote->info = NULL;
 	}
 
-        remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
+        pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
 }

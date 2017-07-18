@@ -56,6 +56,10 @@ void pw_protocol_native_init(struct pw_protocol *protocol);
 
 typedef bool(*demarshal_func_t) (void *object, void *data, size_t size);
 
+struct protocol_data {
+	struct pw_module *module;
+};
+
 struct connection {
 	struct pw_protocol_connection this;
 
@@ -80,10 +84,6 @@ struct listener {
 	struct pw_loop *loop;
 	struct spa_source *source;
 	struct spa_loop_control_hooks hooks;
-};
-
-struct protocol_data {
-	void *unused;
 };
 
 struct client_data {
@@ -198,6 +198,7 @@ static struct pw_client *client_new(struct listener *l, int fd)
 	struct client_data *this;
 	struct pw_client *client;
 	struct pw_protocol *protocol = l->this.protocol;
+	struct protocol_data *pd = protocol->user_data;
 	socklen_t len;
 	struct ucred ucred, *ucredp;
 
@@ -209,7 +210,7 @@ static struct pw_client *client_new(struct listener *l, int fd)
 		ucredp = &ucred;
 	}
 
-	client = pw_client_new(protocol->core, ucredp, NULL, sizeof(struct client_data));
+	client = pw_client_new(protocol->core, pd->module->global, ucredp, NULL, sizeof(struct client_data));
 	if (client == NULL)
 		goto no_client;
 
@@ -698,14 +699,16 @@ const static struct pw_protocol_native_ext protocol_ext_impl = {
 	impl_ext_end_resource,
 };
 
-static struct pw_protocol *pw_protocol_native_new(struct pw_core *core, struct pw_properties *properties)
+static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
+	struct pw_core *core = module->core;
 	struct pw_protocol *this;
 	const char *val;
+	struct protocol_data *d;
 
 	this = pw_protocol_new(core, PW_TYPE_PROTOCOL__Native, sizeof(struct protocol_data));
 	if (this == NULL)
-		return NULL;
+		return false;
 
 	this->implementation = &protocol_impl;
 	this->extension = &protocol_ext_impl;
@@ -714,11 +717,14 @@ static struct pw_protocol *pw_protocol_native_new(struct pw_core *core, struct p
 
 	pw_log_debug("protocol-native %p: new", this);
 
+	d = this->user_data;
+	d->module = module;
+
 	if ((val = pw_properties_get(core->properties, "pipewire.daemon"))) {
 		if (atoi(val) == 1)
 			impl_add_listener(this, core, properties);
 	}
-	return this;
+	return true;
 }
 
 #if 0
@@ -741,6 +747,5 @@ static void pw_protocol_native_destroy(struct impl *impl)
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
-	pw_protocol_native_new(module->core, NULL);
-	return true;
+	return module_init(module, NULL);
 }

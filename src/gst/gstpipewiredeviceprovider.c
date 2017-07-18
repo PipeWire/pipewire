@@ -303,6 +303,7 @@ on_sync_reply (struct pw_listener *listener, struct pw_remote *remote, uint32_t 
 struct node_data {
   GstPipeWireDeviceProvider *self;
   uint32_t id;
+  uint32_t parent_id;
 };
 
 static void node_event_info(void *object, struct pw_node_info *info)
@@ -327,7 +328,8 @@ static const struct pw_node_events node_events = {
 };
 
 
-static void registry_event_global(void *object, uint32_t id, uint32_t type, uint32_t version)
+static void registry_event_global(void *object, uint32_t id, uint32_t parent_id,
+				  uint32_t type, uint32_t version)
 {
   struct pw_registry_proxy *registry = object;
   GstPipeWireDeviceProvider *self = registry->proxy.user_data;
@@ -346,6 +348,7 @@ static void registry_event_global(void *object, uint32_t id, uint32_t type, uint
 
   data = node->proxy.user_data;
   data->id = id;
+  data->parent_id = parent_id;
   data->self = self;
   pw_node_proxy_add_listener(node, node, &node_events);
   return;

@@ -987,6 +987,7 @@ do_add_link(struct spa_loop *loop,
 }
 
 struct pw_link *pw_link_new(struct pw_core *core,
+			    struct pw_global *parent,
 			    struct pw_port *output,
 			    struct pw_port *input,
 			    struct spa_format *format_filter,
@@ -1056,9 +1057,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	spa_list_insert(core->link_list.prev, &this->link);
 
-	pw_core_add_global(core, NULL, core->type.link, PW_VERSION_LINK,
-			   link_bind_func, this, &this->global);
-
 	this->info.output_node_id = output ? output_node->global->id : -1;
 	this->info.output_port_id = output ? output->port_id : -1;
 	this->info.input_node_id = input ? input_node->global->id : -1;
@@ -1082,6 +1080,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	pw_loop_invoke(input_node->data_loop,
 		       do_add_link,
 		       SPA_ID_INVALID, sizeof(struct pw_port *), &input, false, this);
+
+	this->global = pw_core_add_global(core, NULL, parent, core->type.link, PW_VERSION_LINK,
+			   link_bind_func, this);
 
 	return this;
 

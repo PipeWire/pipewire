@@ -34,6 +34,8 @@
 struct impl {
 	struct pw_node this;
 
+	struct pw_global *parent;
+
 	struct pw_work_queue *work;
 	struct pw_listener on_async_complete;
 	struct pw_listener on_event;
@@ -255,20 +257,20 @@ do_node_add(struct spa_loop *loop,
 void pw_node_export(struct pw_node *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	struct pw_core *core = this->core;
 
 	pw_log_debug("node %p: export", this);
 
-	spa_list_insert(this->core->node_list.prev, &this->link);
-
-	pw_core_add_global(this->core, this->owner, this->core->type.node, PW_VERSION_NODE,
-			   node_bind_func, this, &this->global);
+	update_info(this);
 
 	pw_loop_invoke(this->data_loop, do_node_add, 1, 0, NULL, false, this);
 
-	update_info(this);
+	spa_list_insert(core->node_list.prev, &this->link);
+	this->global = pw_core_add_global(core, this->owner, impl->parent,
+					  core->type.node, PW_VERSION_NODE,
+					  node_bind_func, this);
 
 	impl->exported = true;
-
 	pw_signal_emit(&this->initialized, this);
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
@@ -296,6 +298,7 @@ static const struct spa_graph_node_methods graph_methods = {
 
 struct pw_node *pw_node_new(struct pw_core *core,
 			    struct pw_resource *owner,
+			    struct pw_global *parent,
 			    const char *name,
 			    struct pw_properties *properties,
 			    size_t user_data_size)
@@ -316,6 +319,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	impl->work = pw_work_queue_new(this->core->main_loop);
+	impl->parent = parent;
 
 	this->info.name = strdup(name);
 	this->properties = properties;

@@ -95,6 +95,7 @@ struct pw_link {
  * \return a newly allocated link */
 struct pw_link *
 pw_link_new(struct pw_core *core,		/**< the core object */
+	    struct pw_global *parent,		/**< parent global */
 	    struct pw_port *output,		/**< an output port */
 	    struct pw_port *input,		/**< an input port */
 	    struct spa_format *format_filter,	/**< an optional format filter */

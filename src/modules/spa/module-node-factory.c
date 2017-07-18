@@ -54,6 +54,7 @@ static struct pw_node *create_node(struct pw_node_factory *factory,
 
 	node = pw_spa_node_load(factory->core,
 				NULL,
+				NULL,
 				lib,
 				factory_name,
 				name,
@@ -81,11 +82,15 @@ static struct pw_node *create_node(struct pw_node_factory *factory,
 	return NULL;
 }
 
-static struct impl *module_new(struct pw_core *core, struct pw_properties *properties)
+static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
+	struct pw_core *core = module->core;
 	struct impl *impl;
 
 	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		return false;
+
 	pw_log_debug("module %p: new", impl);
 
 	impl->properties = properties;
@@ -97,10 +102,10 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 
 	spa_list_insert(core->node_factory_list.prev, &impl->this.link);
 
-        pw_core_add_global(core, NULL, core->type.node_factory, 0,
-			NULL, impl, &impl->this.global);
+        impl->this.global = pw_core_add_global(core, NULL, module->global, core->type.node_factory, 0,
+			NULL, impl);
 
-	return impl;
+	return true;
 }
 
 #if 0
@@ -114,6 +119,5 @@ static void module_destroy(struct impl *impl)
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
-	module_new(module->core, NULL);
-	return true;
+	return module_init(module, NULL);
 }

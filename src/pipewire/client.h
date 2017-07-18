@@ -127,6 +127,7 @@ struct pw_client {
 
 struct pw_client *
 pw_client_new(struct pw_core *core,
+	      struct pw_global *parent,
 	      struct ucred *ucred,
 	      struct pw_properties *properties,
 	      size_t user_data_size);

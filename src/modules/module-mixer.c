@@ -32,6 +32,7 @@
 
 struct impl {
 	struct pw_core *core;
+	struct pw_module *module;
 	struct pw_properties *properties;
 
 	void *hnd;
@@ -109,7 +110,8 @@ static struct pw_node *make_node(struct impl *impl)
 	}
 	spa_clock = iface;
 
-	node = pw_spa_node_new(impl->core, NULL, "audiomixer", false, spa_node, spa_clock, NULL);
+	node = pw_spa_node_new(impl->core, NULL, impl->module->global,
+			       "audiomixer", false, spa_node, spa_clock, NULL);
 
 	return node;
 
@@ -120,8 +122,9 @@ static struct pw_node *make_node(struct impl *impl)
 	return NULL;
 }
 
-static struct impl *module_new(struct pw_core *core, struct pw_properties *properties)
+static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
+	struct pw_core *core = module->core;
 	struct impl *impl;
 	struct pw_node *n;
 
@@ -129,6 +132,7 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = core;
+	impl->module = module;
 	impl->properties = properties;
 
 	impl->factory = find_factory(impl);
@@ -162,7 +166,7 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 		n->idle_used_input_links++;
 		node->idle_used_output_links++;
 
-		pw_link_new(core, op, ip, NULL, NULL, &error);
+		pw_link_new(core, module->global, op, ip, NULL, NULL, &error);
 	}
 	return impl;
 }
@@ -178,6 +182,5 @@ static void module_destroy(struct impl *impl)
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
-	module_new(module->core, NULL);
-	return true;
+	return module_init(module, NULL);
 }

@@ -60,7 +60,7 @@ bool pipewire__module_init(struct pw_module *module, const char *args)
 		pw_free_strv(prop);
 	}
 
-	pw_spa_node_load(module->core, NULL, argv[0], argv[1], argv[2], props);
+	pw_spa_node_load(module->core, NULL, module->global, argv[0], argv[1], argv[2], props);
 
 	pw_free_strv(argv);
 

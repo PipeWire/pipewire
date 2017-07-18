@@ -39,6 +39,7 @@ struct data {
 
 struct proxy_data {
 	uint32_t id;
+	uint32_t parent_id;
 	uint32_t version;
 	void *info;
 };
@@ -93,6 +94,7 @@ static void module_event_info(void *object, struct pw_module_info *info)
 	info = data->info = pw_module_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
+	printf("\tparent_id: %d\n", data->parent_id);
 	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Module, data->version);
 	if (print_all) {
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
@@ -126,6 +128,7 @@ static void node_event_info(void *object, struct pw_node_info *info)
 	info = data->info = pw_node_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
+	printf("\tparent_id: %d\n", data->parent_id);
 	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Node, data->version);
 	if (print_all) {
 		int i;
@@ -174,6 +177,7 @@ static void client_event_info(void *object, struct pw_client_info *info)
         info = data->info = pw_client_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
+	printf("\tparent_id: %d\n", data->parent_id);
 	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Client, data->version);
 	if (print_all) {
 		print_properties(info->props, MARK_CHANGE(0));
@@ -204,6 +208,7 @@ static void link_event_info(void *object, struct pw_link_info *info)
         info = data->info = pw_link_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
+	printf("\tparent_id: %d\n", data->parent_id);
 	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Link, data->version);
 	if (print_all) {
 		printf("%c\toutput-node-id: %u\n", MARK_CHANGE(0), info->output_node_id);
@@ -252,7 +257,8 @@ destroy_proxy (void *data)
 }
 
 
-static void registry_event_global(void *object, uint32_t id, uint32_t type, uint32_t version)
+static void registry_event_global(void *object, uint32_t id, uint32_t parent_id,
+				  uint32_t type, uint32_t version)
 {
         struct pw_proxy *proxy = object;
         struct data *data = proxy->object;
@@ -280,6 +286,7 @@ static void registry_event_global(void *object, uint32_t id, uint32_t type, uint
 	else {
 		printf("added:\n");
 		printf("\tid: %u\n", id);
+		printf("\tparent_id: %d\n", parent_id);
 		printf("\ttype: %s (version %d)\n", spa_type_map_get_type(core->type.map, type), version);
 		return;
 	}
@@ -291,6 +298,7 @@ static void registry_event_global(void *object, uint32_t id, uint32_t type, uint
 
 	pd = proxy->user_data;
 	pd->id = id;
+	pd->parent_id = parent_id;
 	pd->version = version;
         pw_proxy_add_listener(proxy, proxy, events);
 

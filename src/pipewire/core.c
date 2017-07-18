@@ -69,7 +69,6 @@ static void registry_bind(void *object, uint32_t id,
 	struct pw_client *client = resource->client;
 	struct pw_core *core = resource->core;
 	struct pw_global *global;
-	const char *type_name;
 
 	if ((global = find_global(core, id)) == 0)
 		goto no_id;
@@ -80,9 +79,8 @@ static void registry_bind(void *object, uint32_t id,
 	if (type != global->type)
 		goto wrong_interface;
 
-	type_name = spa_type_map_get_type(core->type.map, type);
-
-	pw_log_debug("global %p: bind global id %d, iface %s to %d", global, id, type_name, new_id);
+	pw_log_debug("global %p: bind global id %d, iface %s to %d", global, id,
+		     spa_type_map_get_type(core->type.map, type), new_id);
 
 	pw_global_bind(global, client, version, new_id);
 
@@ -154,6 +152,7 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 		if (pw_global_is_visible(global, client)) {
 			pw_registry_resource_global(registry_resource,
 						    global->id,
+						    global->parent->id,
 						    global->type,
 						    global->version);
 		}
@@ -359,9 +358,6 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	pw_signal_init(&this->global_added);
 	pw_signal_init(&this->global_removed);
 
-	pw_core_add_global(this, NULL, this->type.core, PW_VERSION_CORE,
-			   core_bind_func, this, &this->global);
-
 	this->info.change_mask = 0;
 	this->info.user_name = pw_get_user_name();
 	this->info.host_name = pw_get_host_name();
@@ -379,6 +375,9 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	}
 	this->info.name = pw_properties_get(properties, "pipewire.core.name");
 	this->properties = properties;
+
+	this->global = pw_core_add_global(this, NULL, NULL, this->type.core, PW_VERSION_CORE,
+			   core_bind_func, this);
 
 	return this;
 
@@ -422,23 +421,22 @@ void pw_core_destroy(struct pw_core *core)
  *
  * \memberof pw_core
  */
-bool
+struct pw_global *
 pw_core_add_global(struct pw_core *core,
 	           struct pw_resource *owner,
+	           struct pw_global *parent,
 		   uint32_t type,
 		   uint32_t version,
 		   pw_bind_func_t bind,
-		   void *object,
-		   struct pw_global **global)
+		   void *object)
 {
 	struct global_impl *impl;
 	struct pw_global *this;
 	struct pw_resource *registry;
-	const char *type_name;
 
 	impl = calloc(1, sizeof(struct global_impl));
 	if (impl == NULL)
-		return false;
+		return NULL;
 
 	this = &impl->this;
 
@@ -448,24 +446,31 @@ pw_core_add_global(struct pw_core *core,
 	this->version = version;
 	this->bind = bind;
 	this->object = object;
-	*global = this;
 
 	pw_signal_init(&this->destroy_signal);
 
 	this->id = pw_map_insert_new(&core->objects, this);
 
+	if (owner && owner->client)
+		parent = owner->client->global;
+	if (parent == NULL)
+		parent = core->global;
+	if (parent == NULL)
+		parent = this;
+	this->parent = parent;
+
 	spa_list_insert(core->global_list.prev, &this->link);
 	pw_signal_emit(&core->global_added, core, this);
 
-	type_name = spa_type_map_get_type(core->type.map, this->type);
-
-	pw_log_debug("global %p: new %u %s, owner %p", this, this->id, type_name, owner);
+	pw_log_debug("global %p: new %u %s, owner %p", this, this->id,
+			spa_type_map_get_type(core->type.map, this->type), owner);
 
 	spa_list_for_each(registry, &core->registry_resource_list, link)
 		if (pw_global_is_visible(this, registry->client))
-			pw_registry_resource_global(registry, this->id, this->type, this->version);
+			pw_registry_resource_global(registry, this->id, this->parent->id,
+						    this->type, this->version);
 
-	return true;
+	return this;
 }
 
 /** Bind to a global

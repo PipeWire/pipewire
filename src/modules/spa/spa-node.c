@@ -387,6 +387,7 @@ static const struct spa_node_callbacks node_callbacks = {
 struct pw_node *
 pw_spa_node_new(struct pw_core *core,
 		struct pw_resource *owner,
+		struct pw_global *parent,
 		const char *name,
 		bool async,
 		struct spa_node *node,
@@ -411,7 +412,7 @@ pw_spa_node_new(struct pw_core *core,
 					  node->info->items[i].value);
 	}
 
-	this = pw_node_new(core, owner, name, properties, sizeof(struct impl));
+	this = pw_node_new(core, owner, parent, name, properties, sizeof(struct impl));
 	if (this == NULL)
 		return NULL;
 
@@ -498,6 +499,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 
 struct pw_node *pw_spa_node_load(struct pw_core *core,
 				 struct pw_resource *owner,
+				 struct pw_global *parent,
 				 const char *lib,
 				 const char *factory_name,
 				 const char *name,
@@ -567,7 +569,7 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 		}
 	}
 
-	this = pw_spa_node_new(core, owner, name, async, spa_node, spa_clock, properties);
+	this = pw_spa_node_new(core, owner, parent, name, async, spa_node, spa_clock, properties);
 	impl->hnd = hnd;
 	impl->handle = handle;
 	impl->lib = filename;

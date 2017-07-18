@@ -78,6 +78,7 @@ struct socket {
 
 struct impl {
 	struct pw_core *core;
+	struct pw_module *module;
 	struct spa_list link;
 
 	struct pw_properties *properties;
@@ -444,7 +445,7 @@ static struct client *client_new(struct impl *impl, int fd)
 		ucredp = &ucred;
 	}
 
-        client = pw_client_new(impl->core, ucredp, NULL, sizeof(struct client));
+        client = pw_client_new(impl->core, impl->module->global, ucredp, NULL, sizeof(struct client));
 	if (client == NULL)
 		goto no_client;
 
@@ -695,8 +696,9 @@ static int init_server(struct impl *impl, const char *name, bool promiscuous)
 }
 
 
-static struct impl *module_new(struct pw_core *core, struct pw_properties *properties)
+static struct impl *module_init(struct pw_module *module, struct pw_properties *properties)
 {
+	struct pw_core *core = module->core;
 	struct impl *impl;
 	const char *name, *str;
 	bool promiscuous;
@@ -705,6 +707,7 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 	pw_log_debug("protocol-jack %p: new", impl);
 
 	impl->core = core;
+	impl->module = module;
 	impl->properties = properties;
 
 	spa_list_init(&impl->socket_list);
@@ -749,6 +752,6 @@ static void module_destroy(struct impl *impl)
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
-	module_new(module->core, NULL);
+	module_init(module, NULL);
 	return true;
 }

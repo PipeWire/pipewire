@@ -122,7 +122,6 @@ struct impl {
 
 	struct pw_listener node_free;
 	struct pw_listener initialized;
-	struct pw_listener global_added;
 
 	int fds[2];
 	int other_fds[2];
@@ -1056,15 +1055,6 @@ static void on_initialized(struct pw_listener *listener, struct pw_node *node)
 					  readfd, writefd, info.memfd, info.offset, info.size);
 }
 
-static void
-on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_global *global)
-{
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, global_added);
-
-	if (global->object == impl->this.node)
-		global->owner = impl->this.resource;
-}
-
 static int proxy_clear(struct proxy *this)
 {
 	uint32_t i;
@@ -1092,7 +1082,6 @@ static void client_node_resource_destroy(struct pw_resource *resource)
 
 	impl->proxy.resource = this->resource = NULL;
 
-	pw_signal_remove(&impl->global_added);
 	pw_signal_remove(&impl->initialized);
 
 	if (proxy->data_source.fd != -1)
@@ -1157,6 +1146,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	this->resource = resource;
 	this->node = pw_spa_node_new(core,
 				     this->resource,
+				     NULL,
 				     name,
 				     true,
 				     &impl->proxy.node,
@@ -1173,7 +1163,6 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 
 	pw_signal_add(&this->node->free_signal, &impl->node_free, on_node_free);
 	pw_signal_add(&this->node->initialized, &impl->initialized, on_initialized);
-	pw_signal_add(&impl->core->global_added, &impl->global_added, on_global_added);
 
 	return this;
 

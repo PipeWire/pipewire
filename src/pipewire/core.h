@@ -127,6 +127,7 @@ struct pw_global {
 
 	struct spa_list link;		/**< link in core list of globals */
 	uint32_t id;			/**< server id of the object */
+	struct pw_global *parent;	/**< parent global */
 
 	uint32_t type;			/**< type of interface */
 	uint32_t version;		/**< version of interface */
@@ -204,14 +205,14 @@ pw_core_destroy(struct pw_core *core);
 void
 pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict);
 
-bool
+struct pw_global *
 pw_core_add_global(struct pw_core *core,
 		   struct pw_resource *owner,
+		   struct pw_global *parent,
 		   uint32_t type,
 		   uint32_t version,
 		   pw_bind_func_t bind,
-		   void *object,
-		   struct pw_global **global);
+		   void *object);
 
 int
 pw_global_bind(struct pw_global *global,

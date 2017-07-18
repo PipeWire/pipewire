@@ -180,16 +180,17 @@ struct pw_module *pw_module_load(struct pw_core *core,
 
 	pw_signal_init(&this->destroy_signal);
 
-	if (!init_func(this, (char *) args))
-		goto init_failed;
-
-	pw_core_add_global(core, NULL, core->type.module, PW_VERSION_MODULE,
-			   module_bind_func, this, &this->global);
-
 	this->info.name = name ? strdup(name) : NULL;
 	this->info.filename = filename;
 	this->info.args = args ? strdup(args) : NULL;
 	this->info.props = NULL;
+
+	this->global = pw_core_add_global(core, NULL, core->global,
+					  core->type.module, PW_VERSION_MODULE,
+					  module_bind_func, this);
+
+	if (!init_func(this, (char *) args))
+		goto init_failed;
 
 	pw_log_debug("loaded module: %s", this->info.name);
 

@@ -29,6 +29,7 @@
 
 struct impl {
 	struct pw_core *core;
+	struct pw_module *module;
 	struct pw_properties *properties;
 
 	struct pw_listener global_added;
@@ -176,9 +177,9 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 		goto error;
 
 	if (port->direction == PW_DIRECTION_OUTPUT)
-		link = pw_link_new(impl->core, port, target, NULL, NULL, &error);
+		link = pw_link_new(impl->core, impl->module->global, port, target, NULL, NULL, &error);
 	else
-		link = pw_link_new(impl->core, target, port, NULL, NULL, &error);
+		link = pw_link_new(impl->core, impl->module->global, target, port, NULL, NULL, &error);
 
 	if (link == NULL)
 		goto error;
@@ -287,14 +288,16 @@ on_global_removed(struct pw_listener *listener, struct pw_core *core, struct pw_
  *
  * Returns: a new #struct impl
  */
-static struct impl *module_new(struct pw_core *core, struct pw_properties *properties)
+static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
+	struct pw_core *core = module->core;
 	struct impl *impl;
 
 	impl = calloc(1, sizeof(struct impl));
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = core;
+	impl->module = module;
 	impl->properties = properties;
 
 	spa_list_init(&impl->node_list);
@@ -324,6 +327,5 @@ static void module_destroy(struct impl *impl)
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
-	module->user_data = module_new(module->core, NULL);
-	return true;
+	return module_init(module, NULL);
 }

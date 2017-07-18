@@ -47,6 +47,7 @@ struct impl {
 	struct pw_spa_monitor this;
 
 	struct pw_core *core;
+	struct pw_global *parent;
 
 	void *hnd;
 
@@ -110,7 +111,8 @@ static void add_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
 
 	mitem = calloc(1, sizeof(struct monitor_item));
 	mitem->id = strdup(id);
-	mitem->node = pw_spa_node_new(impl->core, NULL, name, false, node_iface, clock_iface, props);
+	mitem->node = pw_spa_node_new(impl->core, NULL, impl->parent, name,
+				      false, node_iface, clock_iface, props);
 
 	spa_list_insert(impl->item_list.prev, &mitem->link);
 }
@@ -203,6 +205,7 @@ static const struct spa_monitor_callbacks callbacks = {
 };
 
 struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
+					   struct pw_global *parent,
 					   const char *dir,
 					   const char *lib,
 					   const char *factory_name, const char *system_name)
@@ -252,6 +255,7 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 
 	impl = calloc(1, sizeof(struct impl));
 	impl->core = core;
+	impl->parent = parent;
 	impl->hnd = hnd;
 
 	this = &impl->this;

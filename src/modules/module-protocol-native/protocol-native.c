@@ -529,7 +529,8 @@ static bool core_demarshal_update_types_server(void *object, void *data, size_t 
 	return true;
 }
 
-static void registry_marshal_global(void *object, uint32_t id, uint32_t type, uint32_t version)
+static void registry_marshal_global(void *object, uint32_t id, uint32_t parent_id,
+				    uint32_t type, uint32_t version)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -539,6 +540,7 @@ static void registry_marshal_global(void *object, uint32_t id, uint32_t type, ui
 
 	spa_pod_builder_struct(b, &f,
 			       SPA_POD_TYPE_INT, id,
+			       SPA_POD_TYPE_INT, parent_id,
 			       SPA_POD_TYPE_ID, type,
 			       SPA_POD_TYPE_INT, version);
 
@@ -742,7 +744,8 @@ static void client_marshal_info(void *object, struct pw_client_info *info)
 
 	spa_pod_builder_add(b,
 			    SPA_POD_TYPE_STRUCT, &f,
-			    SPA_POD_TYPE_LONG, info->change_mask, SPA_POD_TYPE_INT, n_items, 0);
+			    SPA_POD_TYPE_LONG, info->change_mask,
+			    SPA_POD_TYPE_INT, n_items, 0);
 
 	for (i = 0; i < n_items; i++) {
 		spa_pod_builder_add(b,
@@ -824,17 +827,18 @@ static bool registry_demarshal_global(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
-	uint32_t id, type, version;
+	uint32_t id, parent_id, type, version;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &id,
+			      SPA_POD_TYPE_INT, &parent_id,
 			      SPA_POD_TYPE_ID, &type,
 			      SPA_POD_TYPE_INT, &version, 0))
 		return false;
 
-	pw_proxy_notify(proxy, struct pw_registry_events, global, id, type, version);
+	pw_proxy_notify(proxy, struct pw_registry_events, global, id, parent_id, type, version);
 	return true;
 }
 

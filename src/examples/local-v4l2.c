@@ -464,7 +464,7 @@ static void make_nodes(struct data *data)
 	struct pw_node_factory *factory;
 	struct pw_properties *props;
 
-	data->node = pw_node_new(data->core, NULL, "SDL-sink", NULL, 0);
+	data->node = pw_node_new(data->core, NULL, NULL, "SDL-sink", NULL, 0);
 	data->node->user_data = data;
 	data->node->implementation = &impl_node;
 
@@ -480,6 +480,7 @@ static void make_nodes(struct data *data)
 	data->v4l2 = pw_node_factory_create_node(factory, NULL, "v4l2-source", props);
 
 	data->link = pw_link_new(data->core,
+				 NULL,
 				 pw_node_get_free_port(data->v4l2, PW_DIRECTION_OUTPUT),
 				 data->port,
 				 NULL,

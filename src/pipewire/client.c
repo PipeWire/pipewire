@@ -78,6 +78,7 @@ client_bind_func(struct pw_global *global,
  * \memberof pw_client
  */
 struct pw_client *pw_client_new(struct pw_core *core,
+				struct pw_global *parent,
 				struct ucred *ucred,
 				struct pw_properties *properties,
 				size_t user_data_size)
@@ -113,10 +114,10 @@ struct pw_client *pw_client_new(struct pw_core *core,
 
 	spa_list_insert(core->client_list.prev, &this->link);
 
-	pw_core_add_global(core, NULL, core->type.client, PW_VERSION_CLIENT,
-			   client_bind_func, this, &this->global);
-
 	this->info.props = this->properties ? &this->properties->dict : NULL;
+
+	this->global = pw_core_add_global(core, NULL, parent, core->type.client, PW_VERSION_CLIENT,
+			   client_bind_func, this);
 
 	return this;
 }

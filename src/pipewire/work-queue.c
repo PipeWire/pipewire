@@ -46,7 +46,8 @@ struct impl {
 };
 /** \endcond */
 
-static void process_work_queue(struct spa_loop_utils *utils, struct spa_source *source, void *data)
+static void process_work_queue(struct spa_loop_utils *utils, struct spa_source *source,
+			       uint64_t count, void *data)
 {
 	struct impl *impl = data;
 	struct pw_work_queue *this = &impl->this;

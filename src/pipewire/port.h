@@ -47,9 +47,8 @@ enum pw_port_state {
 
 struct pw_port;
 
-#define PW_VERSION_PORT_IMPLEMENTATION 0
-
 struct pw_port_implementation {
+#define PW_VERSION_PORT_IMPLEMENTATION 0
 	uint32_t version;
 
 	int (*enum_formats) (struct pw_port *port,

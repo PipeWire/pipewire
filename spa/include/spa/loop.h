@@ -152,7 +152,8 @@ typedef void (*spa_source_io_func_t) (struct spa_loop_utils *utils,
 typedef void (*spa_source_idle_func_t) (struct spa_loop_utils *utils,
 					struct spa_source *source, void *data);
 typedef void (*spa_source_event_func_t) (struct spa_loop_utils *utils,
-					 struct spa_source *source, void *data);
+					 struct spa_source *source,
+					 uint64_t count, void *data);
 typedef void (*spa_source_timer_func_t) (struct spa_loop_utils *utils,
 					 struct spa_source *source, void *data);
 typedef void (*spa_source_signal_func_t) (struct spa_loop_utils *utils,

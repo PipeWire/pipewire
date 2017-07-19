@@ -101,7 +101,7 @@ static void *do_loop(void *user_data)
 }
 
 
-static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, void *data)
+static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, uint64_t count, void *data)
 {
 	struct impl *impl = data;
 	impl->running = false;

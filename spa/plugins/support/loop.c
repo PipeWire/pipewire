@@ -263,7 +263,7 @@ loop_invoke(struct spa_loop *loop,
 	return res;
 }
 
-static void wakeup_func(struct spa_loop_utils *utils, struct spa_source *source, void *data)
+static void wakeup_func(struct spa_loop_utils *utils, struct spa_source *source, uint64_t count, void *data)
 {
 	struct impl *impl = data;
 	uint32_t index;
@@ -458,7 +458,7 @@ static void source_event_func(struct spa_source *source)
 	if (read(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(impl->impl->log, NAME " %p: failed to read event fd: %s", source, strerror(errno));
 
-	impl->func.event(&impl->impl->utils, source, source->data);
+	impl->func.event(&impl->impl->utils, source, count, source->data);
 }
 
 static struct spa_source *loop_add_event(struct spa_loop_utils *utils,

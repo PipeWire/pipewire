@@ -69,6 +69,7 @@ struct connection {
         struct pw_protocol_native_connection *connection;
 
         bool disconnecting;
+	bool flush_signaled;
         struct pw_listener need_flush;
         struct spa_source *flush_event;
 };
@@ -473,9 +474,11 @@ on_remote_data(struct spa_loop_utils *utils,
 }
 
 
-static void do_flush_event(struct spa_loop_utils *utils, struct spa_source *source, void *data)
+static void do_flush_event(struct spa_loop_utils *utils, struct spa_source *source,
+			   uint64_t count, void *data)
 {
         struct connection *impl = data;
+	impl->flush_signaled = false;
         if (impl->connection)
                 if (!pw_protocol_native_connection_flush(impl->connection))
                         impl->this.disconnect(&impl->this);
@@ -485,7 +488,11 @@ static void on_need_flush(struct pw_listener *listener, struct pw_protocol_nativ
 {
         struct connection *impl = SPA_CONTAINER_OF(listener, struct connection, need_flush);
         struct pw_remote *remote = impl->this.remote;
-        pw_loop_signal_event(remote->core->main_loop, impl->flush_event);
+
+	if (!impl->flush_signaled) {
+		impl->flush_signaled = true;
+		pw_loop_signal_event(remote->core->main_loop, impl->flush_event);
+	}
 }
 
 static int impl_connect_fd(struct pw_protocol_connection *conn, int fd)

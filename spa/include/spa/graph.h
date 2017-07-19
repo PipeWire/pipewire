@@ -42,16 +42,16 @@ struct spa_graph {
 	struct spa_list nodes;
 };
 
-#define SPA_VERSION_GRAPH_NODE_METHODS	0
 struct spa_graph_node_methods {
+#define SPA_VERSION_GRAPH_NODE_METHODS	0
 	uint32_t version;
 
 	int (*process_input) (struct spa_graph_node *node, void *user_data);
 	int (*process_output) (struct spa_graph_node *node, void *user_data);
 };
 
-#define SPA_VERSION_GRAPH_PORT_METHODS	0
 struct spa_graph_port_methods {
+#define SPA_VERSION_GRAPH_PORT_METHODS	0
 	uint32_t version;
 
 	int (*reuse_buffer) (struct spa_graph_port *port, uint32_t buffer_id, void *user_data);

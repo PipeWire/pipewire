@@ -63,11 +63,13 @@ struct pw_module {
 typedef bool (*pw_module_init_func_t) (struct pw_module *module, char *args);
 
 struct pw_module *
-pw_module_load(struct pw_core *core,
-	       const char *name, const char *args, char **err);
+pw_module_load(struct pw_core *core, const char *name, const char *args);
 
 void
 pw_module_destroy(struct pw_module *module);
+
+struct pw_module *
+pw_core_find_module(struct pw_core *core, const char *filename);
 
 #ifdef __cplusplus
 }

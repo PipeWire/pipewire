@@ -492,7 +492,6 @@ static void make_nodes(struct data *data)
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
-	char *err;
 
 	pw_init(&argc, &argv);
 
@@ -501,7 +500,7 @@ int main(int argc, char *argv[])
 	data.core = pw_core_new(data.loop, NULL);
 	data.path = argc > 1 ? argv[1] : NULL;
 
-	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, &err);
+	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL);
 
 	init_type(&data.type, data.core->type.map);
 

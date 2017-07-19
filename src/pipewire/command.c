@@ -90,7 +90,11 @@ execute_command_module_load(struct pw_command *command, struct pw_core *core, ch
 {
 	struct impl *impl = SPA_CONTAINER_OF(command, struct impl, this);
 
-	return pw_module_load(core, impl->args[1], impl->args[2], err) != NULL;
+	if (pw_module_load(core, impl->args[1], impl->args[2]) == NULL) {
+		asprintf(err, "could not load module \"%s\"", impl->args[1]);
+		return false;
+	}
+	return true;
 }
 
 /** Free command

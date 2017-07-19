@@ -168,6 +168,7 @@ struct pw_core {
 	struct spa_list remote_list;		/**< list of remote connections */
 	struct spa_list resource_list;		/**< list of core resources */
 	struct spa_list registry_resource_list;	/**< list of registry resources */
+	struct spa_list module_list;		/**< list of modules */
 	struct spa_list global_list;		/**< list of globals */
 	struct spa_list client_list;		/**< list of clients */
 	struct spa_list node_list;		/**< list of nodes */
@@ -243,9 +244,6 @@ pw_core_find_port(struct pw_core *core,
 
 struct pw_node_factory *
 pw_core_find_node_factory(struct pw_core *core, const char *name);
-
-struct pw_protocol *
-pw_core_find_protocol(struct pw_core *core, const char *name);
 
 #ifdef __cplusplus
 }

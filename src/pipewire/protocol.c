@@ -35,9 +35,6 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 {
 	struct pw_protocol *protocol;
 
-	if (pw_core_find_protocol(core, name) != NULL)
-		return NULL;
-
 	protocol = calloc(1, sizeof(struct impl) + user_data_size);
 	protocol->core = core;
 	protocol->name = strdup(name);
@@ -114,5 +111,15 @@ pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type)
 		if (impl->type == type)
                         return impl->marshal;
         }
+	return NULL;
+}
+
+struct pw_protocol *pw_core_find_protocol(struct pw_core *core, const char *name)
+{
+	struct pw_protocol *protocol;
+	spa_list_for_each(protocol, &core->protocol_list, link) {
+		if (strcmp(protocol->name, name) == 0)
+			return protocol;
+	}
 	return NULL;
 }

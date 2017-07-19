@@ -187,7 +187,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	pw_signal_init(&this->destroy_signal);
 
 	if ((protocol_name = pw_properties_get(properties, "pipewire.protocol")) == NULL) {
-		if (!pw_module_load(core, "libpipewire-module-protocol-native", NULL, NULL))
+		if (!pw_module_load(core, "libpipewire-module-protocol-native", NULL))
 			goto no_protocol;
 
 		protocol_name = PW_TYPE_PROTOCOL__Native;
@@ -201,7 +201,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	if (this->conn == NULL)
 		goto no_connection;
 
-	pw_module_load(core, "libpipewire-module-client-node", NULL, NULL);
+	pw_module_load(core, "libpipewire-module-client-node", NULL);
 
         spa_list_insert(core->remote_list.prev, &this->link);
 
@@ -245,7 +245,7 @@ static int do_connect(struct pw_remote *remote)
 	if (remote->core_proxy == NULL)
 		goto no_proxy;
 
-	pw_proxy_add_listener((struct pw_proxy*)remote->core_proxy, remote, &core_events);
+	pw_proxy_add_listener(&remote->core_proxy->proxy, remote, &core_events);
 
 	pw_core_proxy_client_update(remote->core_proxy, &remote->properties->dict);
 	pw_core_proxy_sync(remote->core_proxy, 0);

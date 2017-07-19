@@ -116,18 +116,27 @@ module_bind_func(struct pw_global *global,
 	return SPA_RESULT_NO_MEMORY;
 }
 
+struct pw_module * pw_core_find_module(struct pw_core *core, const char *filename)
+{
+	struct pw_module *module;
+	spa_list_for_each(module, &core->module_list, link) {
+                if (strcmp(module->info.filename, filename) == 0)
+                        return module;
+        }
+	return NULL;
+}
+
 /** Load a module
  *
  * \param core a \ref pw_core
  * \param name name of the module to load
  * \param args A string with arguments for the module
- * \param[out] err Return location for an error string, or NULL
+ * \param[out] error Return location for an error string, or NULL
  * \return A \ref pw_module if the module could be loaded, or NULL on failure.
  *
  * \memberof pw_module
  */
-struct pw_module *pw_module_load(struct pw_core *core,
-				 const char *name, const char *args, char **err)
+struct pw_module *pw_module_load(struct pw_core *core, const char *name, const char *args)
 {
 	struct pw_module *this;
 	struct impl *impl;
@@ -185,6 +194,7 @@ struct pw_module *pw_module_load(struct pw_core *core,
 	this->info.args = args ? strdup(args) : NULL;
 	this->info.props = NULL;
 
+	spa_list_insert(core->module_list.prev, &this->link);
 	this->global = pw_core_add_global(core, NULL, core->global,
 					  core->type.module, PW_VERSION_MODULE,
 					  module_bind_func, this);
@@ -197,24 +207,20 @@ struct pw_module *pw_module_load(struct pw_core *core,
 	return this;
 
       not_found:
-	if (err)
-		asprintf(err, "No module \"%s\" was found", name);
+	pw_log_error("No module \"%s\" was found", name);
 	return NULL;
       open_failed:
-	if (err)
-		asprintf(err, "Failed to open module: \"%s\" %s", filename, dlerror());
+	pw_log_error("Failed to open module: \"%s\" %s", filename, dlerror());
 	free(filename);
 	return NULL;
       no_mem:
       no_pw_module:
-	if (err)
-		asprintf(err, "\"%s\" is not a pipewire module", name);
+	pw_log_error("\"%s\" is not a pipewire module", filename);
 	dlclose(hnd);
 	free(filename);
 	return NULL;
       init_failed:
-	if (err)
-		asprintf(err, "\"%s\" failed to initialize", name);
+	pw_log_error("\"%s\" failed to initialize", filename);
 	pw_module_destroy(this);
 	return NULL;
 }
@@ -235,6 +241,9 @@ void pw_module_destroy(struct pw_module *module)
 		free((char *) module->info.filename);
 	if (module->info.args)
 		free((char *) module->info.args);
+
+	spa_list_remove(&module->link);
+	pw_global_destroy(module->global);
 	dlclose(impl->hnd);
 	free(impl);
 }

@@ -715,6 +715,9 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	const char *val;
 	struct protocol_data *d;
 
+	if (pw_core_find_protocol(core, PW_TYPE_PROTOCOL__Native) != NULL)
+		return true;
+
 	this = pw_protocol_new(core, PW_TYPE_PROTOCOL__Native, sizeof(struct protocol_data));
 	if (this == NULL)
 		return false;

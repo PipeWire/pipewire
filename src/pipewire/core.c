@@ -349,6 +349,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	spa_list_init(&this->resource_list);
 	spa_list_init(&this->registry_resource_list);
 	spa_list_init(&this->global_list);
+	spa_list_init(&this->module_list);
 	spa_list_init(&this->client_list);
 	spa_list_init(&this->node_list);
 	spa_list_init(&this->node_factory_list);
@@ -767,17 +768,6 @@ struct pw_node_factory *pw_core_find_node_factory(struct pw_core *core, const ch
 	spa_list_for_each(factory, &core->node_factory_list, link) {
 		if (strcmp(factory->name, name) == 0)
 			return factory;
-	}
-	return NULL;
-}
-
-struct pw_protocol *pw_core_find_protocol(struct pw_core *core, const char *name)
-{
-	struct pw_protocol *protocol;
-
-	spa_list_for_each(protocol, &core->protocol_list, link) {
-		if (strcmp(protocol->name, name) == 0)
-			return protocol;
 	}
 	return NULL;
 }

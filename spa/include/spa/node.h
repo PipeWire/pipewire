@@ -214,7 +214,7 @@ struct spa_node {
 	 *          #SPA_RESULT_INVALID_COMMAND @command is an invalid command
 	 *          #SPA_RESULT_ASYNC @command is executed asynchronously
 	 */
-	int (*send_command) (struct spa_node *node, struct spa_command *command);
+	int (*send_command) (struct spa_node *node, const struct spa_command *command);
 	/**
 	 * struct spa_node::set_event_callback:
 	 * @node: a #struct spa_node
@@ -519,7 +519,7 @@ struct spa_node {
 	int (*port_send_command) (struct spa_node *node,
 				  enum spa_direction direction,
 				  uint32_t port_id,
-				  struct spa_command *command);
+				  const struct spa_command *command);
 	/**
 	 * struct spa_node::process_input:
 	 * @node: a #struct spa_node

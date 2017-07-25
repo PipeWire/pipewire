@@ -47,9 +47,6 @@ pw_client_node_new(struct pw_resource *resource,
 void
 pw_client_node_destroy(struct pw_client_node *node);
 
-int
-pw_client_node_get_fds(struct pw_client_node *node, int *readfd, int *writefd);
-
 #ifdef __cplusplus
 }
 #endif

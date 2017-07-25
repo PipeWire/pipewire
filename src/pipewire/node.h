@@ -51,7 +51,7 @@ struct pw_node_implementation {
         int (*set_props) (struct pw_node *node, const struct spa_props *props);
 
         int (*send_command) (struct pw_node *node,
-			     struct spa_command *command);
+			     const struct spa_command *command);
 
 	struct pw_port* (*add_port) (struct pw_node *node,
 				     enum pw_direction direction,
@@ -131,7 +131,12 @@ struct pw_node {
 
 	/** an event is emited */
 	PW_SIGNAL(event, (struct pw_listener *listener,
-			  struct pw_node *node, struct spa_event *event));
+			  struct pw_node *node, const struct spa_event *event));
+
+	/** the node wants input */
+	PW_SIGNAL(need_input, (struct pw_listener *listener, struct pw_node *node));
+	/** the node has output */
+	PW_SIGNAL(have_output, (struct pw_listener *listener, struct pw_node *node));
 
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
@@ -158,6 +163,10 @@ void pw_node_export(struct pw_node *node);
 
 /** Destroy a node */
 void pw_node_destroy(struct pw_node *node);
+
+/** Find the port with direction and port_id or NULL when not found */
+struct pw_port *
+pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id);
 
 /** Get a free unused port from the node */
 struct pw_port *

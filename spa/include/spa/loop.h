@@ -63,7 +63,7 @@ typedef int (*spa_invoke_func_t) (struct spa_loop *loop,
 				  bool async,
 				  uint32_t seq,
 				  size_t size,
-				  void *data,
+				  const void *data,
 				  void *user_data);
 
 /**
@@ -89,7 +89,7 @@ struct spa_loop {
 		       spa_invoke_func_t func,
 		       uint32_t seq,
 		       size_t size,
-		       void *data,
+		       const void *data,
 		       bool block,
 		       void *user_data);
 };

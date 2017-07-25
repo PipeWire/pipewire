@@ -102,7 +102,7 @@ static void transport_reset_area(struct pw_transport *trans)
  * \return a newly allocated \ref pw_transport
  * \memberof pw_transport
  */
-struct pw_transport *pw_transport_new(uint32_t max_input_ports, uint32_t max_output_ports)
+struct pw_transport *pw_transport_new(uint32_t max_input_ports, uint32_t max_output_ports, size_t user_data_size)
 {
 	struct transport *impl;
 	struct pw_transport *trans;
@@ -113,14 +113,16 @@ struct pw_transport *pw_transport_new(uint32_t max_input_ports, uint32_t max_out
 	area.max_output_ports = max_output_ports;
 	area.n_output_ports = 0;
 
-	impl = calloc(1, sizeof(struct transport));
+	impl = calloc(1, sizeof(struct transport) + user_data_size);
 	if (impl == NULL)
 		return NULL;
 
-	impl->offset = 0;
-
 	trans = &impl->trans;
 	pw_signal_init(&trans->destroy_signal);
+	impl->offset = 0;
+
+	if(user_data_size > 0)
+		trans->user_data = SPA_MEMBER(impl, sizeof(struct transport), void);
 
 	pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 			  PW_MEMBLOCK_FLAG_MAP_READWRITE |
@@ -133,18 +135,21 @@ struct pw_transport *pw_transport_new(uint32_t max_input_ports, uint32_t max_out
 	return trans;
 }
 
-struct pw_transport *pw_transport_new_from_info(struct pw_transport_info *info)
+struct pw_transport *pw_transport_new_from_info(struct pw_transport_info *info, size_t user_data_size)
 {
 	struct transport *impl;
 	struct pw_transport *trans;
 	void *tmp;
 
-	impl = calloc(1, sizeof(struct transport));
+	impl = calloc(1, sizeof(struct transport) + user_data_size);
 	if (impl == NULL)
 		return NULL;
 
 	trans = &impl->trans;
 	pw_signal_init(&trans->destroy_signal);
+
+	if(user_data_size > 0)
+		trans->user_data = SPA_MEMBER(impl, sizeof(struct transport), void);
 
 	impl->mem.flags = PW_MEMBLOCK_FLAG_MAP_READWRITE | PW_MEMBLOCK_FLAG_WITH_FD;
 	impl->mem.fd = info->memfd;

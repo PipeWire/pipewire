@@ -85,7 +85,6 @@ struct stream {
 	struct pw_client_node_proxy *node_proxy;
 	bool disconnecting;
 	struct pw_listener node_proxy_destroy;
-	struct pw_listener node_proxy_sync_done;
 
 	struct pw_transport *trans;
 
@@ -852,7 +851,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 
 	if (impl->trans)
 		pw_transport_destroy(impl->trans);
-	impl->trans = pw_transport_new_from_info(&info);
+	impl->trans = pw_transport_new_from_info(&info, 0);
 
 	pw_log_info("stream %p: create client transport %p with fds %d %d for node %u",
 			stream, impl->trans, readfd, writefd, node_id);

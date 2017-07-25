@@ -56,7 +56,7 @@ struct pw_port_implementation {
 			     const struct spa_format *filter,
 			     int32_t index);
 
-	int (*set_format) (struct pw_port *port, uint32_t flags, struct spa_format *format);
+	int (*set_format) (struct pw_port *port, uint32_t flags, const struct spa_format *format);
 
 	int (*get_format) (struct pw_port *port, const struct spa_format **format);
 
@@ -144,7 +144,7 @@ int pw_port_enum_formats(struct pw_port *port,
 			 int32_t index);
 
 /** Set a format on a port \memberof pw_port */
-int pw_port_set_format(struct pw_port *port, uint32_t flags, struct spa_format *format);
+int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format);
 
 /** Get the current format on a port \memberof pw_port */
 int pw_port_get_format(struct pw_port *port, const struct spa_format **format);

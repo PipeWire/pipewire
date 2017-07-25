@@ -195,7 +195,7 @@ loop_invoke(struct spa_loop *loop,
 	    spa_invoke_func_t func,
 	    uint32_t seq,
 	    size_t size,
-	    void *data,
+	    const void *data,
 	    bool block,
 	    void *user_data)
 {

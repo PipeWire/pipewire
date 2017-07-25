@@ -239,7 +239,7 @@ static int impl_port_enum_formats(struct pw_port *port,
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_set_format(struct pw_port *port, uint32_t flags, struct spa_format *format)
+static int impl_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format)
 {
 	struct data *data = port->user_data;
 	struct pw_core *core = data->core;
@@ -378,7 +378,7 @@ static int impl_node_set_props(struct pw_node *node, const struct spa_props *pro
 }
 
 static int impl_node_send_command(struct pw_node *node,
-                            struct spa_command *command)
+                                  const struct spa_command *command)
 {
 	return SPA_RESULT_OK;
 }

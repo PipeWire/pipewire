@@ -39,6 +39,8 @@ struct impl {
 	struct pw_work_queue *work;
 	struct pw_listener on_async_complete;
 	struct pw_listener on_event;
+	struct pw_listener on_need_input;
+	struct pw_listener on_have_output;
 
 	bool exported;
 };
@@ -133,7 +135,7 @@ static void send_clock_update(struct pw_node *this)
 }
 
 static void on_event(struct pw_listener *listener,
-		     struct pw_node *node, struct spa_event *event)
+		     struct pw_node *node, const struct spa_event *event)
 {
         struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, on_event);
 	struct pw_node *this = &impl->this;
@@ -142,6 +144,20 @@ static void on_event(struct pw_listener *listener,
         if (SPA_EVENT_TYPE(event) == this->core->type.event_node.RequestClockUpdate) {
                 send_clock_update(this);
         }
+}
+
+static void on_need_input(struct pw_listener *listener,
+			  struct pw_node *node)
+{
+	spa_graph_scheduler_pull(node->rt.sched, &node->rt.node);
+	while (spa_graph_scheduler_iterate(node->rt.sched));
+}
+
+static void on_have_output(struct pw_listener *listener,
+			   struct pw_node *node)
+{
+	spa_graph_scheduler_push(node->rt.sched, &node->rt.node);
+	while (spa_graph_scheduler_iterate(node->rt.sched));
 }
 
 static void node_unbind_func(void *data)
@@ -244,7 +260,7 @@ node_bind_func(struct pw_global *global,
 
 static int
 do_node_add(struct spa_loop *loop,
-	    bool async, uint32_t seq, size_t size, void *data, void *user_data)
+	    bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
 	struct pw_node *this = user_data;
 
@@ -313,16 +329,21 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this = &impl->this;
 	this->core = core;
 	this->owner = owner;
+	impl->parent = parent;
 	pw_log_debug("node %p: new, owner %p", this, owner);
 
 	if (user_data_size > 0)
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
-	impl->work = pw_work_queue_new(this->core->main_loop);
-	impl->parent = parent;
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		goto no_mem;
 
-	this->info.name = strdup(name);
 	this->properties = properties;
+
+	impl->work = pw_work_queue_new(this->core->main_loop);
+	this->info.name = strdup(name);
 
 	this->data_loop = core->data_loop;
 
@@ -339,9 +360,13 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	pw_signal_init(&this->free_signal);
 	pw_signal_init(&this->async_complete);
 	pw_signal_init(&this->event);
+	pw_signal_init(&this->need_input);
+	pw_signal_init(&this->have_output);
 
 	pw_signal_add(&this->async_complete, &impl->on_async_complete, on_async_complete);
 	pw_signal_add(&this->event, &impl->on_event, on_event);
+	pw_signal_add(&this->need_input, &impl->on_need_input, on_need_input);
+	pw_signal_add(&this->have_output, &impl->on_have_output, on_have_output);
 
 	this->info.state = PW_NODE_STATE_CREATING;
 
@@ -356,11 +381,15 @@ struct pw_node *pw_node_new(struct pw_core *core,
 				   this);
 
 	return this;
+
+      no_mem:
+	free(impl);
+	return NULL;
 }
 
 static int
 do_node_remove(struct spa_loop *loop,
-	       bool async, uint32_t seq, size_t size, void *data, void *user_data)
+	       bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
 	struct pw_node *this = user_data;
 
@@ -427,6 +456,19 @@ void pw_node_destroy(struct pw_node *node)
 	clear_info(node);
 
 	free(impl);
+}
+
+struct pw_port *
+pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id)
+{
+	struct pw_map *portmap;
+
+	if (direction == PW_DIRECTION_INPUT)
+		portmap = &node->input_port_map;
+	else
+		portmap = &node->output_port_map;
+
+	return pw_map_lookup(portmap, port_id);
 }
 
 /**

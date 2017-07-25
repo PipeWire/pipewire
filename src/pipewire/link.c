@@ -244,7 +244,7 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 	/* each buffer */
 	skel_size = sizeof(struct spa_buffer);
 
-	metas = alloca(sizeof(struct spa_meta) * n_params + 1);
+	metas = alloca(sizeof(struct spa_meta) * (n_params + 1));
 
 	/* add shared metadata */
 	metas[n_metas].type = this->core->type.meta.Shared;
@@ -759,7 +759,7 @@ static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 
 static int
 do_remove_input(struct spa_loop *loop,
-	        bool async, uint32_t seq, size_t size, void *data, void *user_data)
+	        bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
 	struct pw_link *this = user_data;
 	spa_graph_port_remove(&this->rt.in_port);
@@ -782,7 +782,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 
 static int
 do_remove_output(struct spa_loop *loop,
-	         bool async, uint32_t seq, size_t size, void *data, void *user_data)
+	         bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
 	struct pw_link *this = user_data;
 	spa_graph_port_remove(&this->rt.out_port);
@@ -848,7 +848,7 @@ static void on_output_port_destroy(struct pw_listener *listener, struct pw_port 
 
 static int
 do_activate_link(struct spa_loop *loop,
-		 bool async, uint32_t seq, size_t size, void *data, void *user_data)
+		 bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
         struct pw_link *this = user_data;
 	spa_graph_port_link(&this->rt.out_port, &this->rt.in_port);
@@ -879,7 +879,7 @@ bool pw_link_activate(struct pw_link *this)
 
 static int
 do_deactivate_link(struct spa_loop *loop,
-		   bool async, uint32_t seq, size_t size, void *data, void *user_data)
+		   bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
         struct pw_link *this = user_data;
 	spa_graph_port_unlink(&this->rt.out_port);
@@ -972,7 +972,7 @@ link_bind_func(struct pw_global *global,
 
 static int
 do_add_link(struct spa_loop *loop,
-            bool async, uint32_t seq, size_t size, void *data, void *user_data)
+            bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
         struct pw_link *this = user_data;
         struct pw_port *port = ((struct pw_port **) data)[0];

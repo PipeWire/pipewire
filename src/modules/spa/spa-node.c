@@ -59,7 +59,7 @@ static int port_impl_enum_formats(struct pw_port *port,
 	return spa_node_port_enum_formats(p->node, port->direction, port->port_id, format, filter, index);
 }
 
-static int port_impl_set_format(struct pw_port *port, uint32_t flags, struct spa_format *format)
+static int port_impl_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format)
 {
 	struct port *p = port->user_data;
 	return spa_node_port_set_format(p->node, port->direction, port->port_id, flags, format);
@@ -248,7 +248,7 @@ static int node_impl_set_props(struct pw_node *node, const struct spa_props *pro
 	return spa_node_set_props(impl->node, props);
 }
 
-static int node_impl_send_command(struct pw_node *node, struct spa_command *command)
+static int node_impl_send_command(struct pw_node *node, const struct spa_command *command)
 {
 	struct impl *impl = node->user_data;
 	return spa_node_send_command(impl->node, command);
@@ -342,18 +342,14 @@ static void on_node_need_input(struct spa_node *node, void *user_data)
 {
         struct impl *impl = user_data;
         struct pw_node *this = impl->this;
-
-        spa_graph_scheduler_pull(this->rt.sched, &this->rt.node);
-        while (spa_graph_scheduler_iterate(this->rt.sched));
+	pw_signal_emit(&this->need_input, this);
 }
 
 static void on_node_have_output(struct spa_node *node, void *user_data)
 {
         struct impl *impl = user_data;
         struct pw_node *this = impl->this;
-
-        spa_graph_scheduler_push(this->rt.sched, &this->rt.node);
-        while (spa_graph_scheduler_iterate(this->rt.sched));
+	pw_signal_emit(&this->have_output, this);
 }
 
 static void

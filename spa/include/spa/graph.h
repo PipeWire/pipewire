@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+#include <stdio.h>
+
 #include <spa/defs.h>
 #include <spa/list.h>
 #include <spa/node.h>

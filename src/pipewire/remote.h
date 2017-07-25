@@ -136,6 +136,7 @@ struct pw_remote {
 
 	struct spa_list proxy_list;		/**< list of \ref pw_proxy objects */
 	struct spa_list stream_list;		/**< list of \ref pw_stream objects */
+	struct spa_list remote_node_list;	/**< list of \ref pw_remote_node objects */
 
 	struct pw_protocol_connection *conn;	/**< the protocol connection */
 
@@ -172,6 +173,9 @@ void pw_remote_disconnect(struct pw_remote *remote);
 
 /** Update the state of the remote, mostly used by protocols */
 void pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, const char *fmt, ...);
+
+struct pw_proxy *pw_remote_export(struct pw_remote *remote,
+				  struct pw_node *node);
 
 #ifdef __cplusplus
 }

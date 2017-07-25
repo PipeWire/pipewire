@@ -48,6 +48,57 @@
  *
  */
 
+bool:      true | false
+int:       <num>
+float:     <num.frac>
+string:    "<string>"
+bytes:     "$<base64>"
+pointer:   "@<pointer>"
+rectangle: "<width>x<height>"
+fraction:  "<num>/<denom>"
+bitmask:   "|<bits>"
+array:     "[<values>,...]"
+object:    "{<key>: <value>,...}"
+key:       "<name>"
+
+
+  "format": "S16LE",
+  "format": [ "S16LE", "S24LE" ],
+  "size": "320x240",
+  "+size": [ "320x240", { "min": "320x240", "max": "640x480", "step": "8x8" ],
+  "-size": [ "320x240", ["320x240", "640x480", "512x400"] ],
+
+  "schema.size": { "default": "320x240",
+		   "flags": ["range", "optional"],
+		   "values": ["320x240", "640x480", "8x8"] }
+
+
+  "size-schema":
+	{ "default": "320x240",
+	  "values": ["320x240", "640x480"]
+	},
+  "size-schema":
+	{ "default": "320x240",
+	  "values": { "min": "320x240", "max": "640x480", "step": "8x8" }
+	},
+
+
+  "size-alt": { "def": "320x240", "type": "range", "vals": ["320x240", "640x480", "8x8"] },
+  "size-alt": { "def": "320x240", "type": "enum", "vals": ["320x240", "640x480"],
+
+{
+  "type": "audio/raw",
+  "format": ["S16LE", "enum", "S16LE", "S24LE" ],
+  "size": [ "320x240", "range", "320x240", "640x480" ],
+  "framerate": [ "25/1", "range", "25/1", "30/1" ]
+}
+
+{ "type": "audio", "subtype": "raw",
+  "format": "S16LE",
+  "size": { "min": "320x240", "max": "640x480", "step": "8x8" },
+
+  "framerate": [ "25/1", "30/1" ] }
+
 spa_build(SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
 	  type.format_video.format, SPA_PROP_TYPE_ID,
 	  video_format.I420

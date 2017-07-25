@@ -90,7 +90,7 @@ static int impl_node_set_props(struct spa_node *node, const struct spa_props *pr
 	return SPA_RESULT_OK;
 }
 
-static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, size_t size, void *data, void *user_data)
+static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
 	struct state *this = user_data;
 
@@ -99,7 +99,7 @@ static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, size_t 
 	return SPA_RESULT_OK;
 }
 
-static int do_start(struct spa_loop *loop, bool async, uint32_t seq, size_t size, void *data, void *user_data)
+static int do_start(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
 	struct state *this = user_data;
 	int res;
@@ -118,7 +118,7 @@ static int do_start(struct spa_loop *loop, bool async, uint32_t seq, size_t size
 	return res;
 }
 
-static int do_pause(struct spa_loop *loop, bool async, uint32_t seq, size_t size, void *data, void *user_data)
+static int do_pause(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
 	struct state *this = user_data;
 	int res;
@@ -137,7 +137,7 @@ static int do_pause(struct spa_loop *loop, bool async, uint32_t seq, size_t size
 	return res;
 }
 
-static int impl_node_send_command(struct spa_node *node, struct spa_command *command)
+static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	struct state *this;
 
@@ -533,7 +533,7 @@ static int impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, 
 
 static int
 impl_node_port_send_command(struct spa_node *node,
-			    enum spa_direction direction, uint32_t port_id, struct spa_command *command)
+			    enum spa_direction direction, uint32_t port_id, const struct spa_command *command)
 {
 	struct state *this;
 	int res;

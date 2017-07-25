@@ -90,7 +90,7 @@ static int spa_ffmpeg_dec_node_set_props(struct spa_node *node, const struct spa
 	return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static int spa_ffmpeg_dec_node_send_command(struct spa_node *node, struct spa_command *command)
+static int spa_ffmpeg_dec_node_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	struct impl *this;
 
@@ -424,7 +424,7 @@ static int
 spa_ffmpeg_dec_node_port_send_command(struct spa_node *node,
 				      enum spa_direction direction,
 				      uint32_t port_id,
-				      struct spa_command *command)
+				      const struct spa_command *command)
 {
 	return SPA_RESULT_NOT_IMPLEMENTED;
 }

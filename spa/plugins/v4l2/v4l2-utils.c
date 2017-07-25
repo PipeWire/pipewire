@@ -969,7 +969,8 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		} else if (d[0].type == this->type.data.DmaBuf) {
 			state->memtype = V4L2_MEMORY_DMABUF;
 		} else {
-			spa_log_error(state->log, "v4l2: can't use buffers of type %d", d[0].type);
+			spa_log_error(state->log, "v4l2: can't use buffers of type %s (%d)",
+					spa_type_map_get_type (this->map, d[0].type), d[0].type);
 			return SPA_RESULT_ERROR;
 		}
 	}

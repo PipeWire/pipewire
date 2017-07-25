@@ -66,13 +66,15 @@ struct pw_transport {
 	struct spa_ringbuffer *input_buffer;	/**< ringbuffer for input memory */
 	void *output_data;			/**< output memory for ringbuffer */
 	struct spa_ringbuffer *output_buffer;	/**< ringbuffer for output memory */
+
+	void *user_data;
 };
 
 struct pw_transport *
-pw_transport_new(uint32_t max_input_ports, uint32_t max_output_ports);
+pw_transport_new(uint32_t max_input_ports, uint32_t max_output_ports, size_t user_data_size);
 
 struct pw_transport *
-pw_transport_new_from_info(struct pw_transport_info *info);
+pw_transport_new_from_info(struct pw_transport_info *info, size_t user_data_size);
 
 void
 pw_transport_destroy(struct pw_transport *trans);

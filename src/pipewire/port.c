@@ -185,7 +185,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 }
 
 static int do_add_port(struct spa_loop *loop,
-		       bool async, uint32_t seq, size_t size, void *data, void *user_data)
+		       bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
         struct pw_port *this = user_data;
 
@@ -224,7 +224,7 @@ void pw_port_add(struct pw_port *port, struct pw_node *node)
 }
 
 static int do_remove_port(struct spa_loop *loop,
-			  bool async, uint32_t seq, size_t size, void *data, void *user_data)
+			  bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
         struct pw_port *this = user_data;
 	struct spa_graph_port *p;
@@ -272,7 +272,7 @@ void pw_port_destroy(struct pw_port *port)
 
 static int
 do_port_pause(struct spa_loop *loop,
-              bool async, uint32_t seq, size_t size, void *data, void *user_data)
+              bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
         struct pw_port *port = user_data;
 
@@ -288,7 +288,7 @@ int pw_port_enum_formats(struct pw_port *port,
 	return port->implementation->enum_formats(port, format, filter, index);
 }
 
-int pw_port_set_format(struct pw_port *port, uint32_t flags, struct spa_format *format)
+int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format)
 {
 	int res;
 

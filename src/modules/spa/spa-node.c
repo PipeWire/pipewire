@@ -49,7 +49,6 @@ struct port {
 	struct spa_node *node;
 };
 
-
 static int port_impl_enum_formats(struct pw_port *port,
 				  struct spa_format **format,
 				  const struct spa_format *filter,
@@ -313,7 +312,7 @@ static void complete_init(struct impl *impl)
 {
         struct pw_node *this = impl->this;
 	update_port_ids(impl);
-	pw_node_export(this);
+	pw_node_register(this);
 }
 
 static void on_node_done(struct spa_node *node, int seq, int res, void *user_data)

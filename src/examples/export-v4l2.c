@@ -81,7 +81,7 @@ static void make_node(struct data *data)
                                   "spa.factory.name", "v4l2-source", NULL);
         data->node = pw_node_factory_create_node(factory, NULL, "v4l2-source", props);
 
-	pw_node_export(data->node);
+	pw_node_register(data->node);
 
 	pw_remote_export(data->remote, data->node);
 }

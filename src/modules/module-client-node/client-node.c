@@ -156,24 +156,6 @@ static inline void do_flush(struct proxy *this)
 
 }
 
-static inline void send_need_input(struct proxy *this)
-{
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, proxy);
-
-	pw_transport_add_event(impl->transport,
-			       &SPA_EVENT_INIT(impl->core->type.event_transport.NeedInput));
-	do_flush(this);
-}
-
-static inline void send_have_output(struct proxy *this)
-{
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, proxy);
-
-	pw_transport_add_event(impl->transport,
-			       &SPA_EVENT_INIT(impl->core->type.event_transport.HaveOutput));
-	do_flush(this);
-}
-
 static int spa_proxy_node_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	struct proxy *this;
@@ -195,9 +177,6 @@ static int spa_proxy_node_send_command(struct spa_node *node, const struct spa_c
 	} else {
 		/* send start */
 		pw_client_node_resource_node_command(this->resource, this->seq, command);
-		if (SPA_COMMAND_TYPE(command) == core->type.command_node.Start)
-			send_need_input(this);
-
 		res = SPA_RESULT_RETURN_ASYNC(this->seq++);
 	}
 	return res;
@@ -780,9 +759,11 @@ static int spa_proxy_node_process_input(struct spa_node *node)
 		pw_log_trace("%d %d", io->status, io->buffer_id);
 
 		impl->transport->inputs[i] = *io;
-		io->status = SPA_RESULT_OK;
+		io->status = SPA_RESULT_NEED_BUFFER;
 	}
-	send_have_output(this);
+	pw_transport_add_event(impl->transport,
+			       &SPA_EVENT_INIT(impl->core->type.event_transport.ProcessInput));
+	do_flush(this);
 
 	if (this->callbacks->need_input)
 		return SPA_RESULT_OK;
@@ -795,45 +776,26 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 	struct proxy *this;
 	struct impl *impl;
 	int i;
-	bool send_need = false, flush = false;
 
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
 	impl = this->impl;
 
+	pw_log_trace("process output");
+
 	for (i = 0; i < MAX_OUTPUTS; i++) {
-		struct spa_port_io *io = this->out_ports[i].io, tmp;
+		struct spa_port_io *io = this->out_ports[i].io;
 
 		if (!io)
 			continue;
 
-		if (io->buffer_id != SPA_ID_INVALID) {
-			struct pw_event_transport_reuse_buffer rb =
-			    PW_EVENT_TRANSPORT_REUSE_BUFFER_INIT(impl->core->type.event_transport.
-								 ReuseBuffer, i, io->buffer_id);
-
-			spa_log_trace(this->log, "reuse buffer %d", io->buffer_id);
-
-			pw_transport_add_event(impl->transport, (struct spa_event *) &rb);
-			io->buffer_id = SPA_ID_INVALID;
-			flush = true;
-		}
-
-		tmp = impl->transport->outputs[i];
 		impl->transport->outputs[i] = *io;
-
-		pw_log_trace("%d %d  %d %d", io->status, io->buffer_id, tmp.status, tmp.buffer_id);
-
-		if (io->status == SPA_RESULT_NEED_BUFFER)
-			send_need = true;
-
-		*io = tmp;
+		pw_log_trace("%d %d  %d", io->status, io->buffer_id, io->status);
 	}
-	if (send_need)
-		send_need_input(this);
-	else if (flush)
-		do_flush(this);
+	pw_transport_add_event(impl->transport,
+			       &SPA_EVENT_INIT(impl->core->type.event_transport.ProcessOutput));
+	do_flush(this);
 
-	return SPA_RESULT_HAVE_BUFFER;
+	return SPA_RESULT_OK;
 }
 
 static int handle_node_event(struct proxy *this, struct spa_event *event)

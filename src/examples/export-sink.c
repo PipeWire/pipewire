@@ -489,7 +489,7 @@ static void make_node(struct data *data)
 	data->port->user_data = data;
 	data->port->implementation = &impl_port;
 	pw_port_add(data->port, data->node);
-	pw_node_export(data->node);
+	pw_node_register(data->node);
 
 	pw_remote_export(data->remote, data->node);
 }

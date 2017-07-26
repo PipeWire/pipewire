@@ -94,14 +94,18 @@ pw_transport_parse_event(struct pw_transport *trans, void *event);
 #define PW_TYPE_EVENT__Transport            SPA_TYPE_EVENT_BASE "Transport"
 #define PW_TYPE_EVENT_TRANSPORT_BASE        PW_TYPE_EVENT__Transport ":"
 
-#define PW_TYPE_EVENT_TRANSPORT__HaveOutput       PW_TYPE_EVENT_TRANSPORT_BASE "HaveOutput"
-#define PW_TYPE_EVENT_TRANSPORT__NeedInput        PW_TYPE_EVENT_TRANSPORT_BASE "NeedInput"
-#define PW_TYPE_EVENT_TRANSPORT__ReuseBuffer      PW_TYPE_EVENT_TRANSPORT_BASE "ReuseBuffer"
+#define PW_TYPE_EVENT_TRANSPORT__HaveOutput	PW_TYPE_EVENT_TRANSPORT_BASE "HaveOutput"
+#define PW_TYPE_EVENT_TRANSPORT__NeedInput	PW_TYPE_EVENT_TRANSPORT_BASE "NeedInput"
+#define PW_TYPE_EVENT_TRANSPORT__ReuseBuffer	PW_TYPE_EVENT_TRANSPORT_BASE "ReuseBuffer"
+#define PW_TYPE_EVENT_TRANSPORT__ProcessInput	PW_TYPE_EVENT_TRANSPORT_BASE "ProcessInput"
+#define PW_TYPE_EVENT_TRANSPORT__ProcessOutput	PW_TYPE_EVENT_TRANSPORT_BASE "ProcessOutput"
 
 struct pw_type_event_transport {
 	uint32_t HaveOutput;
 	uint32_t NeedInput;
 	uint32_t ReuseBuffer;
+	uint32_t ProcessInput;
+	uint32_t ProcessOutput;
 };
 
 static inline void
@@ -111,6 +115,8 @@ pw_type_event_transport_map(struct spa_type_map *map, struct pw_type_event_trans
 		type->HaveOutput = spa_type_map_get_id(map, PW_TYPE_EVENT_TRANSPORT__HaveOutput);
 		type->NeedInput = spa_type_map_get_id(map, PW_TYPE_EVENT_TRANSPORT__NeedInput);
 		type->ReuseBuffer = spa_type_map_get_id(map, PW_TYPE_EVENT_TRANSPORT__ReuseBuffer);
+		type->ProcessInput = spa_type_map_get_id(map, PW_TYPE_EVENT_TRANSPORT__ProcessInput);
+		type->ProcessOutput = spa_type_map_get_id(map, PW_TYPE_EVENT_TRANSPORT__ProcessOutput);
 	}
 }
 

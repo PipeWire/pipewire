@@ -472,7 +472,7 @@ static void make_nodes(struct data *data)
 	data->port->user_data = data;
 	data->port->implementation = &impl_port;
 	pw_port_add(data->port, data->node);
-	pw_node_export(data->node);
+	pw_node_register(data->node);
 
 	factory = pw_core_find_node_factory(data->core, "spa-node-factory");
 	props = pw_properties_new("spa.library.name", "v4l2/libspa-v4l2",

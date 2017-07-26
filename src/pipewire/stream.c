@@ -466,13 +466,13 @@ static void handle_rtnode_event(struct pw_stream *stream, struct spa_event *even
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct pw_remote *remote = impl->this.remote;
 
-	if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.HaveOutput) {
+	if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ProcessInput) {
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
 			struct spa_port_io *input = &impl->trans->inputs[i];
 
-			pw_log_trace("stream %p: have output %d %d", stream, input->status,
+			pw_log_trace("stream %p: process input %d %d", stream, input->status,
 				     input->buffer_id);
 			if (input->buffer_id == SPA_ID_INVALID)
 				continue;
@@ -481,7 +481,7 @@ static void handle_rtnode_event(struct pw_stream *stream, struct spa_event *even
 			input->buffer_id = SPA_ID_INVALID;
 		}
 		send_need_input(stream);
-	} else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.NeedInput) {
+	} else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ProcessOutput) {
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_output_ports; i++) {
@@ -493,7 +493,7 @@ static void handle_rtnode_event(struct pw_stream *stream, struct spa_event *even
 			reuse_buffer(stream, output->buffer_id);
 			output->buffer_id = SPA_ID_INVALID;
 		}
-		pw_log_trace("stream %p: need input", stream);
+		pw_log_trace("stream %p: process output", stream);
 		impl->in_need_buffer = true;
 		pw_signal_emit(&stream->need_buffer, stream);
 		impl->in_need_buffer = false;

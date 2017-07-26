@@ -52,6 +52,7 @@ static int schedule_tee_input(struct spa_graph_node *node, void *user_data)
 		res = SPA_RESULT_NEED_BUFFER;
 	}
 	else {
+		pw_log_trace("tee input %d %d", io->status, io->buffer_id);
 		spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link)
 			*p->io = *io;
 		io->status = SPA_RESULT_OK;
@@ -96,6 +97,7 @@ static int schedule_mix_input(struct spa_graph_node *node, void *user_data)
 	struct spa_port_io *io = this->rt.mix_port.io;
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
+		pw_log_trace("mix input %p %p->%p %d %d", p, p->io, io, p->io->status, p->io->buffer_id);
 		*io = *p->io;
 		p->io->status = SPA_RESULT_OK;
 		p->io->buffer_id = SPA_ID_INVALID;
@@ -297,6 +299,8 @@ int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_fo
 
 	if (!SPA_RESULT_IS_ASYNC(res)) {
 		if (format == NULL) {
+			if (port->buffers)
+				free(port->buffers);
 			port->buffers = NULL;
 			port->n_buffers = 0;
 			if (port->allocated)
@@ -334,6 +338,7 @@ int pw_port_set_param(struct pw_port *port, struct spa_param *param)
 int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	int res;
+	size_t size;
 
 	if (n_buffers == 0 && port->state <= PW_PORT_STATE_READY)
 		return SPA_RESULT_OK;
@@ -350,7 +355,11 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 	pw_log_debug("port %p: use %d buffers", port, n_buffers);
 	res = port->implementation->use_buffers(port, buffers, n_buffers);
 
-	port->buffers = buffers;
+	size = sizeof(struct spa_buffer *) * n_buffers;
+
+	if (port->buffers)
+		free(port->buffers);
+	port->buffers = size ? memcpy(malloc(size), buffers, size) : NULL;
 	port->n_buffers = n_buffers;
 	if (port->allocated)
 		pw_memblock_free(&port->buffer_mem);
@@ -369,6 +378,7 @@ int pw_port_alloc_buffers(struct pw_port *port,
 			  struct spa_buffer **buffers, uint32_t *n_buffers)
 {
 	int res;
+	size_t size;
 
 	if (port->state < PW_PORT_STATE_READY)
 		return SPA_RESULT_NO_FORMAT;
@@ -382,7 +392,11 @@ int pw_port_alloc_buffers(struct pw_port *port,
 	pw_log_debug("port %p: alloc %d buffers", port, *n_buffers);
 	res = port->implementation->alloc_buffers(port, params, n_params, buffers, n_buffers);
 
-	port->buffers = buffers;
+	size = sizeof(struct spa_buffer *) * *n_buffers;
+
+	if (port->buffers)
+		free(port->buffers);
+	port->buffers = size ? memcpy(malloc(size), buffers, size) : NULL;
 	port->n_buffers = *n_buffers;
 	port->allocated = true;
 

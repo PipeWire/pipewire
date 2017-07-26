@@ -42,7 +42,7 @@ struct impl {
 	struct pw_listener on_need_input;
 	struct pw_listener on_have_output;
 
-	bool exported;
+	bool registered;
 };
 
 /** \endcond */
@@ -270,12 +270,12 @@ do_node_add(struct spa_loop *loop,
 }
 
 
-void pw_node_export(struct pw_node *this)
+void pw_node_register(struct pw_node *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_core *core = this->core;
 
-	pw_log_debug("node %p: export", this);
+	pw_log_debug("node %p: register", this);
 
 	update_info(this);
 
@@ -286,7 +286,7 @@ void pw_node_export(struct pw_node *this)
 					  core->type.node, PW_VERSION_NODE,
 					  node_bind_func, this);
 
-	impl->exported = true;
+	impl->registered = true;
 	pw_signal_emit(&this->initialized, this);
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
@@ -419,7 +419,7 @@ void pw_node_destroy(struct pw_node *node)
 
 	pw_loop_invoke(node->data_loop, do_node_remove, 1, 0, NULL, true, node);
 
-	if (impl->exported) {
+	if (impl->registered) {
 		spa_list_remove(&node->link);
 		pw_global_destroy(node->global);
 		node->global = NULL;

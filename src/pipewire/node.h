@@ -158,8 +158,8 @@ pw_node_new(struct pw_core *core,		/**< the core */
 	    struct pw_properties *properties,	/**< extra properties */
 	    size_t user_data_size		/**< user data size */);
 
-/** Complete initialization of the node */
-void pw_node_export(struct pw_node *node);
+/** Complete initialization of the node and register */
+void pw_node_register(struct pw_node *node);
 
 /** Destroy a node */
 void pw_node_destroy(struct pw_node *node);

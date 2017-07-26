@@ -130,11 +130,35 @@ static inline bool spa_graph_scheduler_iterate(struct spa_graph_scheduler *sched
 	return false;
 }
 
+static inline void spa_graph_scheduler_push(struct spa_graph_scheduler *sched, struct spa_graph_node *node);
+
+static inline void spa_graph_scheduler_chain(struct spa_graph_scheduler *sched,
+					     struct spa_list *ready)
+{
+	struct spa_graph_node *n, *t;
+	struct spa_graph_port *p;
+
+
+	spa_list_for_each_safe(n, t, ready, ready_link) {
+		n->state = n->methods->process_input(n, n->user_data);
+		debug("node %p chain processed in %d\n", n, n->state);
+		if (n->state == SPA_RESULT_HAVE_BUFFER)
+			spa_graph_scheduler_push(sched, n);
+		else {
+			n->ready_in = 0;
+			spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
+				if (p->io->status == SPA_RESULT_OK && !(n->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
+			                n->ready_in++;
+			}
+		}
+		spa_list_remove(&n->ready_link);
+		n->ready_link.next = NULL;
+	}
+}
 
 static inline void spa_graph_scheduler_push(struct spa_graph_scheduler *sched, struct spa_graph_node *node)
 {
 	struct spa_graph_port *p;
-	struct spa_graph_node *n, *t;
 	struct spa_list ready;
 
 	debug("node %p start push\n", node);
@@ -157,30 +181,15 @@ static inline void spa_graph_scheduler_push(struct spa_graph_scheduler *sched, s
                         spa_list_insert(ready.prev, &pnode->ready_link);
 	}
 
-	spa_list_for_each_safe(n, t, &ready, ready_link) {
-		n->state = n->methods->process_input(n, n->user_data);
-		debug("peer %p processed in %d\n", n, n->state);
-		if (n->state == SPA_RESULT_HAVE_BUFFER)
-			spa_graph_scheduler_push(sched, n);
-		else {
-			n->ready_in = 0;
-			spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
-				if (p->io->status == SPA_RESULT_OK && !(n->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
-			                node->ready_in++;
-			}
-		}
-		spa_list_remove(&n->ready_link);
-		n->ready_link.next = NULL;
-	}
+	spa_graph_scheduler_chain(sched, &ready);
 
 	node->state = node->methods->process_output(node, node->user_data);
 	debug("node %p processed out %d\n", node, node->state);
 	if (node->state == SPA_RESULT_NEED_BUFFER) {
 		node->ready_in = 0;
 		spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
-			if (p->io->status == SPA_RESULT_OK && !(n->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
-				if (p->peer)
-			                p->peer->node->ready_in++;
+			if (p->io->status == SPA_RESULT_OK && !(node->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
+				node->ready_in++;
 		}
 	}
 }

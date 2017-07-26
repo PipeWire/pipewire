@@ -81,6 +81,7 @@ struct node_data {
 struct trans_data {
 	struct spa_graph_port *in_ports;
 	struct spa_graph_port *out_ports;
+	/* memory for ports follows */
 };
 
 /** \endcond */
@@ -375,10 +376,18 @@ static void handle_rtnode_event(struct pw_proxy *proxy, struct spa_event *event)
 	struct spa_graph_node *n = &data->node->rt.node;
 	int res;
 
-        if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.HaveOutput) {
-		res = n->methods->process_input(n, n->user_data);
+        if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ProcessInput) {
+		struct spa_list ready;
+		struct spa_graph_port *port;
+
+		spa_list_init(&ready);
+
+		spa_list_for_each(port, &n->ports[SPA_DIRECTION_INPUT], link)
+			spa_list_insert(ready.prev, &port->peer->node->ready_link);
+
+	        spa_graph_scheduler_chain(data->node->rt.sched, &ready);
         }
-	else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.NeedInput) {
+	else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ProcessOutput) {
 		res = n->methods->process_output(n, n->user_data);
 	}
 	else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ReuseBuffer) {
@@ -450,6 +459,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 				    i,
 				    0,
 				    &data->trans->inputs[i]);
+		pw_log_info("transport in %d %p", i, &data->trans->inputs[i]);
 	}
 	spa_list_for_each(port, &data->node->input_ports, link)
 		spa_graph_port_add(&port->rt.mix_node, &t->in_ports[port->port_id]);
@@ -460,6 +470,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 				    i,
 				    0,
 				    &data->trans->outputs[i]);
+		pw_log_info("transport out %d %p", i, &data->trans->inputs[i]);
 	}
 	spa_list_for_each(port, &data->node->output_ports, link)
 		spa_graph_port_add(&port->rt.mix_node, &t->out_ports[port->port_id]);

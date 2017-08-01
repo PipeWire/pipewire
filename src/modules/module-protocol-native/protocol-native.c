@@ -30,12 +30,6 @@
 
 #include "connection.h"
 
-/** \cond */
-
-typedef bool(*demarshal_func_t) (void *object, void *data, size_t size);
-
-/** \endcond */
-
 static void core_marshal_client_update(void *object, const struct spa_dict *props)
 {
 	struct pw_proxy *proxy = object;
@@ -442,7 +436,6 @@ static bool core_demarshal_create_node(void *object, void *data, size_t size)
 	struct spa_dict props;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_STRING, &factory_name,
 			      SPA_POD_TYPE_STRING, &name,
@@ -478,7 +471,6 @@ static bool core_demarshal_create_link(void *object, void *data, size_t size)
 	struct spa_dict props;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &output_node_id,
 			      SPA_POD_TYPE_INT, &output_port_id,
@@ -568,7 +560,6 @@ static bool registry_demarshal_bind(void *object, void *data, size_t size)
 	uint32_t id, version, type, new_id;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &id,
 			      SPA_POD_TYPE_ID, &type,
@@ -689,7 +680,6 @@ static bool node_demarshal_info(void *object, void *data, size_t size)
 	int i;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_LONG, &info.change_mask,
 			      SPA_POD_TYPE_STRING, &info.name,
@@ -810,7 +800,6 @@ static bool link_demarshal_info(void *object, void *data, size_t size)
 	struct pw_link_info info = { 0, };
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_LONG, &info.change_mask,
 			      SPA_POD_TYPE_INT, &info.output_node_id,
@@ -831,7 +820,6 @@ static bool registry_demarshal_global(void *object, void *data, size_t size)
 	uint32_t id, parent_id, permissions, type, version;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &id,
 			      SPA_POD_TYPE_INT, &parent_id,
@@ -886,13 +874,13 @@ static const struct pw_core_methods pw_protocol_native_core_method_marshal = {
 	&core_marshal_create_link
 };
 
-static const demarshal_func_t pw_protocol_native_core_method_demarshal[PW_CORE_METHOD_NUM] = {
-	&core_demarshal_update_types_server,
-	&core_demarshal_sync,
-	&core_demarshal_get_registry,
-	&core_demarshal_client_update,
-	&core_demarshal_create_node,
-	&core_demarshal_create_link
+static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_demarshal[PW_CORE_METHOD_NUM] = {
+	{ &core_demarshal_update_types_server, 0, },
+	{ &core_demarshal_sync, 0, },
+	{ &core_demarshal_get_registry, 0, },
+	{ &core_demarshal_client_update, 0, },
+	{ &core_demarshal_create_node, PW_PROTOCOL_NATIVE_REMAP, },
+	{ &core_demarshal_create_link, PW_PROTOCOL_NATIVE_REMAP, }
 };
 
 static const struct pw_core_events pw_protocol_native_core_event_marshal = {
@@ -904,12 +892,12 @@ static const struct pw_core_events pw_protocol_native_core_event_marshal = {
 	&core_marshal_info
 };
 
-static const demarshal_func_t pw_protocol_native_core_event_demarshal[PW_CORE_EVENT_NUM] = {
-	&core_demarshal_update_types_client,
-	&core_demarshal_done,
-	&core_demarshal_error,
-	&core_demarshal_remove_id,
-	&core_demarshal_info
+static const struct pw_protocol_native_demarshal pw_protocol_native_core_event_demarshal[PW_CORE_EVENT_NUM] = {
+	{ &core_demarshal_update_types_client, 0, },
+	{ &core_demarshal_done, 0, },
+	{ &core_demarshal_error, 0, },
+	{ &core_demarshal_remove_id, 0, },
+	{ &core_demarshal_info, 0, },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_core_marshal = {
@@ -928,8 +916,8 @@ static const struct pw_registry_methods pw_protocol_native_registry_method_marsh
 	&registry_marshal_bind
 };
 
-static const demarshal_func_t pw_protocol_native_registry_method_demarshal[] = {
-	&registry_demarshal_bind,
+static const struct pw_protocol_native_demarshal pw_protocol_native_registry_method_demarshal[] = {
+	{ &registry_demarshal_bind, PW_PROTOCOL_NATIVE_REMAP, }
 };
 
 static const struct pw_registry_events pw_protocol_native_registry_event_marshal = {
@@ -938,9 +926,9 @@ static const struct pw_registry_events pw_protocol_native_registry_event_marshal
 	&registry_marshal_global_remove,
 };
 
-static const demarshal_func_t pw_protocol_native_registry_event_demarshal[] = {
-	&registry_demarshal_global,
-	&registry_demarshal_global_remove,
+static const struct pw_protocol_native_demarshal pw_protocol_native_registry_event_demarshal[] = {
+	{ &registry_demarshal_global, PW_PROTOCOL_NATIVE_REMAP, },
+	{ &registry_demarshal_global_remove, 0, }
 };
 
 const struct pw_protocol_marshal pw_protocol_native_registry_marshal = {
@@ -959,8 +947,8 @@ static const struct pw_module_events pw_protocol_native_module_event_marshal = {
 	&module_marshal_info,
 };
 
-static const demarshal_func_t pw_protocol_native_module_event_demarshal[] = {
-	&module_demarshal_info,
+static const struct pw_protocol_native_demarshal pw_protocol_native_module_event_demarshal[] = {
+	{ &module_demarshal_info, 0, },
 };
 
 const struct pw_protocol_marshal pw_protocol_native_module_marshal = {
@@ -977,8 +965,8 @@ static const struct pw_node_events pw_protocol_native_node_event_marshal = {
 	&node_marshal_info,
 };
 
-static const demarshal_func_t pw_protocol_native_node_event_demarshal[] = {
-	&node_demarshal_info,
+static const struct pw_protocol_native_demarshal pw_protocol_native_node_event_demarshal[] = {
+	{ &node_demarshal_info, PW_PROTOCOL_NATIVE_REMAP, }
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_node_marshal = {
@@ -995,8 +983,8 @@ static const struct pw_client_events pw_protocol_native_client_event_marshal = {
 	&client_marshal_info,
 };
 
-static const demarshal_func_t pw_protocol_native_client_event_demarshal[] = {
-	&client_demarshal_info,
+static const struct pw_protocol_native_demarshal pw_protocol_native_client_event_demarshal[] = {
+	{ &client_demarshal_info, 0, },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_client_marshal = {
@@ -1013,8 +1001,8 @@ static const struct pw_link_events pw_protocol_native_link_event_marshal = {
 	&link_marshal_info,
 };
 
-static const demarshal_func_t pw_protocol_native_link_event_demarshal[] = {
-	&link_demarshal_info,
+static const struct pw_protocol_native_demarshal pw_protocol_native_link_event_demarshal[] = {
+	{ &link_demarshal_info, PW_PROTOCOL_NATIVE_REMAP, }
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_link_marshal = {

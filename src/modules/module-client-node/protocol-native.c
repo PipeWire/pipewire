@@ -29,12 +29,6 @@
 #include "extensions/protocol-native.h"
 #include "extensions/client-node.h"
 
-/** \cond */
-
-typedef bool(*demarshal_func_t) (void *object, void *data, size_t size);
-
-/** \endcond */
-
 static void
 client_node_marshal_done(void *object, int seq, int res)
 {
@@ -169,7 +163,6 @@ static bool client_node_demarshal_event_event(void *object, void *data, size_t s
 	const struct spa_event *event;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_OBJECT, &event, 0))
 		return false;
 
@@ -217,7 +210,6 @@ static bool client_node_demarshal_set_format(void *object, void *data, size_t si
 	const struct spa_format *format = NULL;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &seq,
 			      SPA_POD_TYPE_INT, &direction,
@@ -239,7 +231,6 @@ static bool client_node_demarshal_set_param(void *object, void *data, size_t siz
 	const struct spa_param *param = NULL;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &seq,
 			      SPA_POD_TYPE_INT, &direction,
@@ -259,7 +250,6 @@ static bool client_node_demarshal_add_mem(void *object, void *data, size_t size)
 	int memfd;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &direction,
 			      SPA_POD_TYPE_INT, &port_id,
@@ -289,7 +279,6 @@ static bool client_node_demarshal_use_buffers(void *object, void *data, size_t s
 	int i, j;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &seq,
 			      SPA_POD_TYPE_INT, &direction,
@@ -350,7 +339,6 @@ static bool client_node_demarshal_node_command(void *object, void *data, size_t 
 	uint32_t seq;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &seq, SPA_POD_TYPE_OBJECT, &command, 0))
 		return false;
 
@@ -366,7 +354,6 @@ static bool client_node_demarshal_port_command(void *object, void *data, size_t 
 	uint32_t direction, port_id;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->remote->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &direction,
 			      SPA_POD_TYPE_INT, &port_id,
@@ -671,7 +658,6 @@ static bool client_node_demarshal_update(void *object, void *data, size_t size)
 	const struct spa_props *props;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &change_mask,
 			      SPA_POD_TYPE_INT, &max_input_ports,
@@ -696,7 +682,6 @@ static bool client_node_demarshal_port_update(void *object, void *data, size_t s
 	struct spa_pod *ipod;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &direction,
 			      SPA_POD_TYPE_INT, &port_id,
@@ -749,7 +734,6 @@ static bool client_node_demarshal_event_method(void *object, void *data, size_t 
 	struct spa_event *event;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
 	    !spa_pod_iter_get(&it, SPA_POD_TYPE_OBJECT, &event, 0))
 		return false;
 
@@ -778,12 +762,12 @@ static const struct pw_client_node_methods pw_protocol_native_client_node_method
 	&client_node_marshal_destroy
 };
 
-static const demarshal_func_t pw_protocol_native_client_node_method_demarshal[] = {
-	&client_node_demarshal_done,
-	&client_node_demarshal_update,
-	&client_node_demarshal_port_update,
-	&client_node_demarshal_event_method,
-	&client_node_demarshal_destroy,
+static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_method_demarshal[] = {
+	{ &client_node_demarshal_done, 0 },
+	{ &client_node_demarshal_update, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_port_update, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_event_method, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_destroy, 0 },
 };
 
 static const struct pw_client_node_events pw_protocol_native_client_node_event_marshal = {
@@ -801,18 +785,18 @@ static const struct pw_client_node_events pw_protocol_native_client_node_event_m
 	&client_node_marshal_port_command,
 };
 
-static const demarshal_func_t pw_protocol_native_client_node_event_demarshal[] = {
-	&client_node_demarshal_transport,
-	&client_node_demarshal_set_props,
-	&client_node_demarshal_event_event,
-	&client_node_demarshal_add_port,
-	&client_node_demarshal_remove_port,
-	&client_node_demarshal_set_format,
-	&client_node_demarshal_set_param,
-	&client_node_demarshal_add_mem,
-	&client_node_demarshal_use_buffers,
-	&client_node_demarshal_node_command,
-	&client_node_demarshal_port_command,
+static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_event_demarshal[] = {
+	{ &client_node_demarshal_transport, 0 },
+	{ &client_node_demarshal_set_props, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_event_event, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_add_port, 0 },
+	{ &client_node_demarshal_remove_port, 0 },
+	{ &client_node_demarshal_set_format, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_set_param, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_add_mem, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_use_buffers, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_node_command, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_port_command, PW_PROTOCOL_NATIVE_REMAP },
 };
 
 const struct pw_protocol_marshal pw_protocol_native_client_node_marshal = {

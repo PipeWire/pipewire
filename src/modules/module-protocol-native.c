@@ -54,8 +54,6 @@
 
 void pw_protocol_native_init(struct pw_protocol *protocol);
 
-typedef bool(*demarshal_func_t) (void *object, void *data, size_t size);
-
 struct protocol_data {
 	struct pw_module *module;
 };
@@ -106,7 +104,7 @@ process_messages(struct pw_client *client)
 
 	while (pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size)) {
 		struct pw_resource *resource;
-		const demarshal_func_t *demarshal;
+		const struct pw_protocol_native_demarshal *demarshal;
 
 		pw_log_trace("protocol-native %p: got message %d from %u", client->protocol,
 			     opcode, id);
@@ -117,23 +115,50 @@ process_messages(struct pw_client *client)
 				     client->protocol, id);
 			continue;
 		}
-		if (opcode >= resource->marshal->n_methods) {
-			pw_log_error("protocol-native %p: invalid method %u %u", client->protocol,
-				     id,  opcode);
-			pw_client_destroy(client);
-			break;
+		if ((resource->permissions & PW_PERM_X) == 0) {
+			pw_log_error("protocol-native %p: execute not allowed on resource %u",
+				     client->protocol, id);
+			continue;
 		}
+
+		if (opcode >= resource->marshal->n_methods)
+			goto invalid_method;
+
 		demarshal = resource->marshal->method_demarshal;
-		if (!demarshal[opcode] || !demarshal[opcode] (resource, message, size)) {
-			pw_log_error("protocol-native %p: invalid message received %u %u",
-				     client->protocol, id, opcode);
-			pw_client_destroy(client);
-			break;
+		if (!demarshal[opcode].func)
+			goto invalid_message;
+
+		if ((demarshal[opcode].flags & PW_PROTOCOL_NATIVE_PERM_W) &&
+		    ((resource->permissions & PW_PERM_X) == 0)) {
+			pw_log_error("protocol-native %p: method %u requires write access on %u",
+				     client->protocol, opcode, id);
+			continue;
 		}
-		if (client->busy) {
+
+		if (demarshal[opcode].flags & PW_PROTOCOL_NATIVE_REMAP)
+			if (!pw_pod_remap_data(SPA_POD_TYPE_STRUCT, message, size, &client->types))
+				goto invalid_message;
+
+		if (!demarshal[opcode].func (resource, message, size))
+			goto invalid_message;
+
+		/* when the client is busy processing an async action, stop processing messages
+		 * for the client until it finishes the action */
+		if (client->busy)
 			break;
-		}
 	}
+	return;
+
+      invalid_method:
+	pw_log_error("protocol-native %p: invalid method %u on resource %u",
+		     client->protocol, opcode, id);
+	pw_client_destroy(client);
+	return;
+      invalid_message:
+	pw_log_error("protocol-native %p: invalid message received %u %u",
+		     client->protocol, id, opcode);
+	pw_client_destroy(client);
+	return;
 }
 
 static void
@@ -444,7 +469,7 @@ on_remote_data(struct spa_loop_utils *utils,
                 while (!impl->disconnecting
                        && pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size)) {
                         struct pw_proxy *proxy;
-                        const demarshal_func_t *demarshal;
+                        const struct pw_protocol_native_demarshal *demarshal;
 
                         pw_log_trace("protocol-native %p: got message %d from %u", this, opcode, id);
 
@@ -460,15 +485,25 @@ on_remote_data(struct spa_loop_utils *utils,
                         }
 
                         demarshal = proxy->marshal->event_demarshal;
-                        if (demarshal[opcode]) {
-                                if (!demarshal[opcode] (proxy, message, size))
+			if (!demarshal[opcode].func) {
+                                pw_log_error("protocol-native %p: function %d not implemented on %u", this,
+                                             opcode, id);
+				continue;
+			}
+
+			if (demarshal[opcode].flags & PW_PROTOCOL_NATIVE_REMAP) {
+				if (!pw_pod_remap_data(SPA_POD_TYPE_STRUCT, message, size, &this->types)) {
                                         pw_log_error
                                             ("protocol-native %p: invalid message received %u for %u", this,
                                              opcode, id);
-                        } else
-                                pw_log_error("protocol-native %p: function %d not implemented on %u", this,
-                                             opcode, id);
-
+					continue;
+				}
+			}
+			if (!demarshal[opcode].func(proxy, message, size)) {
+				pw_log_error ("protocol-native %p: invalid message received %u for %u", this,
+					opcode, id);
+				continue;
+			}
                 }
         }
 }

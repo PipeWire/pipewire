@@ -64,6 +64,7 @@ struct pw_resource {
 	struct pw_client *client;	/**< owner client */
 
 	uint32_t id;			/**< per client unique id, index in client objects */
+	uint32_t permissions;		/**< resource permissions */
 	uint32_t type;			/**< type of the client interface */
 	uint32_t version;		/**< version of the client interface */
 
@@ -85,6 +86,7 @@ struct pw_resource {
 struct pw_resource *
 pw_resource_new(struct pw_client *client,	/**< the client owning the resource */
 		uint32_t id,			/**< the remote per client id */
+		uint32_t permissions,		/**< permissions on this resource */
 		uint32_t type,			/**< interface of the resource */
 		uint32_t version,		/**< requested interface version */
 		size_t user_data_size,		/**< extra user data size */

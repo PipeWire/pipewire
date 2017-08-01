@@ -89,13 +89,13 @@ static char *find_module(const char *path, const char *name)
 
 static int
 module_bind_func(struct pw_global *global,
-		 struct pw_client *client,
+		 struct pw_client *client, uint32_t permissions,
 		 uint32_t version, uint32_t id)
 {
 	struct pw_module *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, version, 0, NULL);
+	resource = pw_resource_new(client, id, permissions, global->type, version, 0, NULL);
 	if (resource == NULL)
 		goto no_mem;
 

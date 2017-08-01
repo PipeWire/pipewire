@@ -31,6 +31,7 @@ struct impl {
 
 struct pw_resource *pw_resource_new(struct pw_client *client,
 				    uint32_t id,
+				    uint32_t permissions,
 				    uint32_t type,
 				    uint32_t version,
 				    size_t user_data_size,
@@ -46,6 +47,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	this = &impl->this;
 	this->core = client->core;
 	this->client = client;
+	this->permissions = permissions;
 	this->type = type;
 	this->version = version;
 

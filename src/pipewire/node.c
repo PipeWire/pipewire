@@ -229,13 +229,13 @@ clear_info(struct pw_node *this)
 
 static int
 node_bind_func(struct pw_global *global,
-	       struct pw_client *client,
+	       struct pw_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
 {
 	struct pw_node *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, version, 0, node_unbind_func);
+	resource = pw_resource_new(client, id, permissions, global->type, version, 0, node_unbind_func);
 	if (resource == NULL)
 		goto no_mem;
 
@@ -282,7 +282,8 @@ void pw_node_register(struct pw_node *this)
 	pw_loop_invoke(this->data_loop, do_node_add, 1, 0, NULL, false, this);
 
 	spa_list_insert(core->node_list.prev, &this->link);
-	this->global = pw_core_add_global(core, this->owner, impl->parent,
+	this->global = pw_core_add_global(core, this->owner ? this->owner->client : NULL,
+					  impl->parent,
 					  core->type.node, PW_VERSION_NODE,
 					  node_bind_func, this);
 

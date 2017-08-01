@@ -211,14 +211,14 @@ check_global_owner(struct pw_core *core, struct pw_client *client, struct pw_glo
 	if (global->owner == NULL)
 		return true;
 
-	if (global->owner->client->ucred.uid == client->ucred.uid)
+	if (global->owner->ucred.uid == client->ucred.uid)
 		return true;
 
 	return false;
 }
 
-static bool
-do_global_filter(struct pw_global *global, struct pw_client *client, void *data)
+static uint32_t
+do_permission(struct pw_global *global, struct pw_client *client, void *data)
 {
 	if (global->type == client->core->type.link) {
 		struct pw_link *link = global->object;
@@ -226,16 +226,16 @@ do_global_filter(struct pw_global *global, struct pw_client *client, void *data)
 		/* we must be able to see both nodes */
 		if (link->output
 		    && !check_global_owner(client->core, client, link->output->node->global))
-			 return false;
+			 return 0;
 
 		if (link->input
 		    && !check_global_owner(client->core, client, link->input->node->global))
-			 return false;
+			 return 0;
 	}
 	else if (!check_global_owner(client->core, client, global))
-		return false;
+		return 0;
 
-	return true;
+	return PW_PERM_RWX;
 }
 
 static DBusHandlerResult
@@ -691,8 +691,8 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 
 	pw_signal_add(&core->global_added, &impl->global_added, on_global_added);
 	pw_signal_add(&core->global_removed, &impl->global_removed, on_global_removed);
-	core->global_filter = do_global_filter;
-	core->global_filter_data = impl;
+	core->permission_func = do_permission;
+	core->permission_data = impl;
 
 	return impl;
 

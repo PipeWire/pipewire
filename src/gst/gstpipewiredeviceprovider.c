@@ -328,7 +328,7 @@ static const struct pw_node_events node_events = {
 };
 
 
-static void registry_event_global(void *object, uint32_t id, uint32_t parent_id,
+static void registry_event_global(void *object, uint32_t id, uint32_t parent_id, uint32_t permissions,
 				  uint32_t type, uint32_t version)
 {
   struct pw_registry_proxy *registry = object;

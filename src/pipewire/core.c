@@ -43,14 +43,18 @@ struct impl {
 
 /** \endcond */
 
-static bool pw_global_is_visible(struct pw_global *global,
-				 struct pw_client *client)
+static inline uint32_t pw_global_permissions(struct pw_global *global,
+					     struct pw_client *client)
 {
 	struct pw_core *core = client->core;
 
-	return (core->global_filter == NULL ||
-		core->global_filter(global, client, core->global_filter_data));
+	if (core->permission_func == NULL)
+		return PW_PERM_RWX;
+
+	return core->permission_func(global, client, core->permission_data);
 }
+
+#define PW_PERM_IS_R(p)	(((p)&PW_PERM_R) == PW_PERM_R)
 
 static struct pw_global *find_global(struct pw_core *core, uint32_t id)
 {
@@ -69,11 +73,14 @@ static void registry_bind(void *object, uint32_t id,
 	struct pw_client *client = resource->client;
 	struct pw_core *core = resource->core;
 	struct pw_global *global;
+	uint32_t permissions;
 
 	if ((global = find_global(core, id)) == 0)
 		goto no_id;
 
-	if (!pw_global_is_visible(global, client))
+	permissions = pw_global_permissions(global, client);
+
+	if (!PW_PERM_IS_R(permissions))
 		goto no_id;
 
 	if (type != global->type)
@@ -82,7 +89,7 @@ static void registry_bind(void *object, uint32_t id,
 	pw_log_debug("global %p: bind global id %d, iface %s to %d", global, id,
 		     spa_type_map_get_type(core->type.map, type), new_id);
 
-	pw_global_bind(global, client, version, new_id);
+	pw_global_bind(global, client, permissions, version, new_id);
 
 	return;
 
@@ -136,6 +143,7 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 
 	registry_resource = pw_resource_new(client,
 					    new_id,
+					    PW_PERM_RWX,
 					    this->type.registry,
 					    version,
 					    0, destroy_registry_resource);
@@ -149,10 +157,12 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 	spa_list_insert(this->registry_resource_list.prev, &registry_resource->link);
 
 	spa_list_for_each(global, &this->global_list, link) {
-		if (pw_global_is_visible(global, client)) {
+		uint32_t permissions = pw_global_permissions(global, client);
+		if (PW_PERM_IS_R(permissions)) {
 			pw_registry_resource_global(registry_resource,
 						    global->id,
 						    global->parent->id,
+						    permissions,
 						    global->type,
 						    global->version);
 		}
@@ -185,7 +195,7 @@ core_create_node(void *object,
 	if (factory == NULL)
 		goto no_factory;
 
-	node_resource = pw_resource_new(client, new_id, type, version, 0, NULL);
+	node_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0, NULL);
 	if (node_resource == NULL)
 		goto no_resource;
 
@@ -274,13 +284,14 @@ static void core_unbind_func(void *data)
 static int
 core_bind_func(struct pw_global *global,
 	       struct pw_client *client,
+	       uint32_t permissions,
 	       uint32_t version,
 	       uint32_t id)
 {
 	struct pw_core *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, version, 0, core_unbind_func);
+	resource = pw_resource_new(client, id, permissions, global->type, version, 0, core_unbind_func);
 	if (resource == NULL)
 		goto no_mem;
 
@@ -328,7 +339,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->main_loop = main_loop;
 
 	pw_type_init(&this->type);
-	pw_map_init(&this->objects, 128, 32);
+	pw_map_init(&this->globals, 128, 32);
 
 	spa_graph_init(&this->rt.graph);
 	spa_graph_scheduler_init(&this->rt.sched, &this->rt.graph);
@@ -402,7 +413,7 @@ void pw_core_destroy(struct pw_core *core)
 
 	pw_data_loop_destroy(impl->data_loop);
 
-	pw_map_clear(&core->objects);
+	pw_map_clear(&core->globals);
 
 	pw_log_debug("core %p: free", core);
 	free(impl);
@@ -424,7 +435,7 @@ void pw_core_destroy(struct pw_core *core)
  */
 struct pw_global *
 pw_core_add_global(struct pw_core *core,
-	           struct pw_resource *owner,
+	           struct pw_client *owner,
 	           struct pw_global *parent,
 		   uint32_t type,
 		   uint32_t version,
@@ -450,10 +461,10 @@ pw_core_add_global(struct pw_core *core,
 
 	pw_signal_init(&this->destroy_signal);
 
-	this->id = pw_map_insert_new(&core->objects, this);
+	this->id = pw_map_insert_new(&core->globals, this);
 
-	if (owner && owner->client)
-		parent = owner->client->global;
+	if (owner)
+		parent = owner->global;
 	if (parent == NULL)
 		parent = core->global;
 	if (parent == NULL)
@@ -466,11 +477,16 @@ pw_core_add_global(struct pw_core *core,
 	pw_log_debug("global %p: new %u %s, owner %p", this, this->id,
 			spa_type_map_get_type(core->type.map, this->type), owner);
 
-	spa_list_for_each(registry, &core->registry_resource_list, link)
-		if (pw_global_is_visible(this, registry->client))
-			pw_registry_resource_global(registry, this->id, this->parent->id,
-						    this->type, this->version);
-
+	spa_list_for_each(registry, &core->registry_resource_list, link) {
+		uint32_t permissions = pw_global_permissions(this, registry->client);
+		if (PW_PERM_IS_R(permissions))
+			pw_registry_resource_global(registry,
+						    this->id,
+						    this->parent->id,
+						    permissions,
+						    this->type,
+						    this->version);
+	}
 	return this;
 }
 
@@ -488,7 +504,7 @@ pw_core_add_global(struct pw_core *core,
  * \memberof pw_global
  */
 int
-pw_global_bind(struct pw_global *global, struct pw_client *client,
+pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
 {
 	int res;
@@ -499,7 +515,7 @@ pw_global_bind(struct pw_global *global, struct pw_client *client,
 	if (global->version < version)
 		goto wrong_version;
 
-	res = global->bind(global, client, version, id);
+	res = global->bind(global, client, permissions, version, id);
 
 	return res;
 
@@ -532,11 +548,13 @@ void pw_global_destroy(struct pw_global *global)
 	pw_log_debug("global %p: destroy %u", global, global->id);
 	pw_signal_emit(&global->destroy_signal, global);
 
-	spa_list_for_each(registry, &core->registry_resource_list, link)
-		if (pw_global_is_visible(global, registry->client))
+	spa_list_for_each(registry, &core->registry_resource_list, link) {
+		uint32_t permissions = pw_global_permissions(global, registry->client);
+		if (PW_PERM_IS_R(permissions))
 			pw_registry_resource_global_remove(registry, global->id);
+	}
 
-	pw_map_remove(&core->objects, global->id);
+	pw_map_remove(&core->globals, global->id);
 
 	spa_list_remove(&global->link);
 	pw_signal_emit(&core->global_removed, core, global);

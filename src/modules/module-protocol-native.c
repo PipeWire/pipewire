@@ -234,7 +234,7 @@ static struct pw_client *client_new(struct listener *l, int fd)
 
 	pw_signal_add(&client->busy_changed, &this->busy_changed, on_busy_changed);
 
-	pw_global_bind(protocol->core->global, client, PW_VERSION_CORE, 0);
+	pw_global_bind(protocol->core->global, client, PW_PERM_RWX, PW_VERSION_CORE, 0);
 
 	return client;
 

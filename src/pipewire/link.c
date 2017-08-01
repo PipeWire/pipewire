@@ -940,13 +940,13 @@ static void link_unbind_func(void *data)
 
 static int
 link_bind_func(struct pw_global *global,
-	       struct pw_client *client,
+	       struct pw_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
 {
 	struct pw_link *this = global->object;
 	struct pw_resource *resource;
 
-	resource = pw_resource_new(client, id, global->type, version, 0, link_unbind_func);
+	resource = pw_resource_new(client, id, permissions, global->type, version, 0, link_unbind_func);
 
 	if (resource == NULL)
 		goto no_mem;

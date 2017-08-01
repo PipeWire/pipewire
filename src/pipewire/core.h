@@ -92,11 +92,17 @@ struct pw_global;
  */
 typedef int (*pw_bind_func_t) (struct pw_global *global,	/**< the global to bind */
 			       struct pw_client *client,	/**< client that binds */
+			       uint32_t permissions,		/**< permissions for the bind */
 			       uint32_t version,		/**< client interface version */
 			       uint32_t id);			/**< client proxy id */
 
-typedef bool (*pw_global_filter_func_t) (struct pw_global *global,
-					 struct pw_client *client, void *data);
+#define PW_PERM_R	0400	/**< object can be seen and events can be received */
+#define PW_PERM_W	0200	/**< methods can be called that modify the object */
+#define PW_PERM_X	0100	/**< methods can be called on the object. The W flag must be
+				  *  present in order to call methods that modify the object. */
+#define PW_PERM_RWX	(PW_PERM_R|PW_PERM_W|PW_PERM_X)
+typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
+					  struct pw_client *client, void *data);
 
 /** \page page_global Global
  *
@@ -122,7 +128,7 @@ typedef bool (*pw_global_filter_func_t) (struct pw_global *global,
  */
 struct pw_global {
 	struct pw_core *core;		/**< the core */
-	struct pw_resource *owner;	/**< the owner of this object, NULL when the
+	struct pw_client *owner;	/**< the owner of this object, NULL when the
 					  *  PipeWire server is the owner */
 
 	struct spa_list link;		/**< link in core list of globals */
@@ -157,12 +163,12 @@ struct pw_core {
 
 	struct pw_properties *properties;	/**< properties of the core */
 
-	struct pw_type type;		/**< type map and common types */
+	struct pw_type type;			/**< type map and common types */
 
-	pw_global_filter_func_t global_filter;
-	void *global_filter_data;
+	pw_permission_func_t permission_func;	/**< get permissions of an object */
+	void *permission_data;			/**< data passed to permission function */
 
-	struct pw_map objects;		/**< map of known objects */
+	struct pw_map globals;			/**< map of globals */
 
 	struct spa_list protocol_list;		/**< list of protocols */
 	struct spa_list remote_list;		/**< list of remote connections */
@@ -208,7 +214,7 @@ pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict);
 
 struct pw_global *
 pw_core_add_global(struct pw_core *core,
-		   struct pw_resource *owner,
+		   struct pw_client *owner,
 		   struct pw_global *parent,
 		   uint32_t type,
 		   uint32_t version,
@@ -218,6 +224,7 @@ pw_core_add_global(struct pw_core *core,
 int
 pw_global_bind(struct pw_global *global,
 	       struct pw_client *client,
+	       uint32_t permissions,
 	       uint32_t version,
 	       uint32_t id);
 

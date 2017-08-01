@@ -775,7 +775,7 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 {
 	struct proxy *this;
 	struct impl *impl;
-	int i;
+	int i, res = SPA_RESULT_OK;
 
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
 	impl = this->impl;
@@ -783,19 +783,23 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 	pw_log_trace("process output");
 
 	for (i = 0; i < MAX_OUTPUTS; i++) {
-		struct spa_port_io *io = this->out_ports[i].io;
+		struct spa_port_io *io = this->out_ports[i].io, tmp;
 
 		if (!io)
 			continue;
 
+		tmp = impl->transport->outputs[i];
 		impl->transport->outputs[i] = *io;
+		if (tmp.status == SPA_RESULT_HAVE_BUFFER)
+			res = SPA_RESULT_HAVE_BUFFER;
+		*io = tmp;
 		pw_log_trace("%d %d  %d", io->status, io->buffer_id, io->status);
 	}
 	pw_transport_add_event(impl->transport,
 			       &SPA_EVENT_INIT(impl->core->type.event_transport.ProcessOutput));
 	do_flush(this);
 
-	return SPA_RESULT_OK;
+	return res;
 }
 
 static int handle_node_event(struct proxy *this, struct spa_event *event)

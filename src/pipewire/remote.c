@@ -374,7 +374,6 @@ static void handle_rtnode_event(struct pw_proxy *proxy, struct spa_event *event)
 	struct node_data *data = proxy->user_data;
         struct pw_remote *remote = proxy->remote;
 	struct spa_graph_node *n = &data->node->rt.node;
-	int res;
 
         if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ProcessInput) {
 		struct spa_list ready;
@@ -388,7 +387,7 @@ static void handle_rtnode_event(struct pw_proxy *proxy, struct spa_event *event)
 	        spa_graph_scheduler_chain(data->node->rt.sched, &ready);
         }
 	else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ProcessOutput) {
-		res = n->methods->process_output(n, n->user_data);
+		n->methods->process_output(n, n->user_data);
 	}
 	else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ReuseBuffer) {
 	}

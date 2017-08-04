@@ -30,6 +30,7 @@
 #include "config.h"
 
 #include "pipewire/pipewire.h"
+#include "pipewire/private.h"
 #include "pipewire/log.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/core.h"
@@ -86,10 +87,11 @@ struct listener {
 };
 
 struct client_data {
+	struct pw_client *client;
 	int fd;
 	struct spa_source *source;
 	struct pw_protocol_native_connection *connection;
-	struct pw_listener busy_changed;
+	struct pw_callback_info client_callbacks;
 };
 
 static void
@@ -162,18 +164,18 @@ process_messages(struct pw_client *client)
 }
 
 static void
-on_busy_changed(struct pw_listener *listener,
-		struct pw_client *client)
+client_busy_changed(void *data, bool busy)
 {
-	struct client_data *data = SPA_CONTAINER_OF(listener, struct client_data, busy_changed);
+	struct pw_client *client = data;
+	struct client_data *c = client->user_data;
 	enum spa_io mask = SPA_IO_ERR | SPA_IO_HUP;
 
-	if (!client->busy)
+	if (!busy)
 		mask |= SPA_IO_IN;
 
-	pw_loop_update_io(client->core->main_loop, data->source, mask);
+	pw_loop_update_io(client->core->main_loop, c->source, mask);
 
-	if (!client->busy)
+	if (busy)
 		process_messages(client);
 
 }
@@ -207,7 +209,7 @@ connection_data(struct spa_loop_utils *utils,
 		process_messages(client);
 }
 
-static void client_destroy(void *data)
+static void client_free(void *data)
 {
 	struct pw_client *client = data;
 	struct client_data *this = client->user_data;
@@ -218,6 +220,12 @@ static void client_destroy(void *data)
 	pw_protocol_native_connection_destroy(this->connection);
 	close(this->fd);
 }
+
+static const struct pw_client_callbacks client_callbacks = {
+	PW_VERSION_CLIENT_CALLBACKS,
+	.free = client_free,
+	.busy_changed = client_busy_changed,
+};
 
 static struct pw_client *client_new(struct listener *l, int fd)
 {
@@ -240,9 +248,8 @@ static struct pw_client *client_new(struct listener *l, int fd)
 	if (client == NULL)
 		goto no_client;
 
-	client->destroy = client_destroy;
-
-	this = client->user_data;
+	this = pw_client_get_user_data(client);
+	this->client = client;
 	this->fd = fd;
 	this->source = pw_loop_add_io(protocol->core->main_loop,
 				      this->fd,
@@ -257,7 +264,7 @@ static struct pw_client *client_new(struct listener *l, int fd)
 	client->protocol = protocol;
 	spa_list_insert(l->this.client_list.prev, &client->protocol_link);
 
-	pw_signal_add(&client->busy_changed, &this->busy_changed, on_busy_changed);
+	pw_client_add_callbacks(client, &this->client_callbacks, &client_callbacks, client);
 
 	pw_global_bind(protocol->core->global, client, PW_PERM_RWX, PW_VERSION_CORE, 0);
 
@@ -474,7 +481,7 @@ on_remote_data(struct spa_loop_utils *utils,
                         pw_log_trace("protocol-native %p: got message %d from %u", this, opcode, id);
 
                         proxy = pw_map_lookup(&this->objects, id);
-                        if (proxy == NULL) {
+                        if (proxy == NULL || proxy->marshal == NULL) {
                                 pw_log_error("protocol-native %p: could not find proxy %u", this, id);
                                 continue;
                         }
@@ -764,7 +771,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 
 	pw_log_debug("protocol-native %p: new", this);
 
-	d = this->user_data;
+	d = pw_protocol_get_user_data(this);
 	d->module = module;
 
 	if ((val = pw_properties_get(core->properties, "pipewire.daemon"))) {

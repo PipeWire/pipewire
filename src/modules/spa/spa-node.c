@@ -30,6 +30,7 @@
 #include <spa/node.h>
 
 #include "spa-node.h"
+#include "pipewire/private.h"
 
 struct impl {
 	struct pw_node *this;
@@ -41,101 +42,111 @@ struct impl {
         struct spa_node *node;          /**< handle to SPA node */
 	char *lib;
 	char *factory_name;
+
+	struct pw_callback_info node_callbacks;
 };
 
 struct port {
 	struct pw_port *port;
-
+	enum pw_direction direction;
+	uint32_t port_id;
 	struct spa_node *node;
 };
 
-static int port_impl_enum_formats(struct pw_port *port,
+static int port_impl_set_io(void *data, struct spa_port_io *io)
+{
+	struct port *p = data;
+	return spa_node_port_set_io(p->node, p->direction, p->port_id, io);
+}
+
+static int port_impl_enum_formats(void *data,
 				  struct spa_format **format,
 				  const struct spa_format *filter,
 				  int32_t index)
 {
-	struct port *p = port->user_data;
-	return spa_node_port_enum_formats(p->node, port->direction, port->port_id, format, filter, index);
+	struct port *p = data;
+	return spa_node_port_enum_formats(p->node, p->direction, p->port_id, format, filter, index);
 }
 
-static int port_impl_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format)
+static int port_impl_set_format(void *data, uint32_t flags, const struct spa_format *format)
 {
-	struct port *p = port->user_data;
-	return spa_node_port_set_format(p->node, port->direction, port->port_id, flags, format);
+	struct port *p = data;
+	return spa_node_port_set_format(p->node, p->direction, p->port_id, flags, format);
 }
 
-static int port_impl_get_format(struct pw_port *port, const struct spa_format **format)
+static int port_impl_get_format(void *data, const struct spa_format **format)
 {
-	struct port *p = port->user_data;
-	return spa_node_port_get_format(p->node, port->direction, port->port_id, format);
+	struct port *p = data;
+	return spa_node_port_get_format(p->node, p->direction, p->port_id, format);
 }
 
-static int port_impl_get_info(struct pw_port *port, const struct spa_port_info **info)
+static int port_impl_get_info(void *data, const struct spa_port_info **info)
 {
-	struct port *p = port->user_data;
-	return spa_node_port_get_info(p->node, port->direction, port->port_id, info);
+	struct port *p = data;
+	return spa_node_port_get_info(p->node, p->direction, p->port_id, info);
 }
 
-static int port_impl_enum_params(struct pw_port *port, uint32_t index, struct spa_param **param)
+static int port_impl_enum_params(void *data, uint32_t index, struct spa_param **param)
 {
-	struct port *p = port->user_data;
-	return spa_node_port_enum_params(p->node, port->direction, port->port_id, index, param);
+	struct port *p = data;
+	return spa_node_port_enum_params(p->node, p->direction, p->port_id, index, param);
 }
 
-static int port_impl_set_param(struct pw_port *port, struct spa_param *param)
+static int port_impl_set_param(void *data, struct spa_param *param)
 {
-	struct port *p = port->user_data;
-	return spa_node_port_set_param(p->node, port->direction, port->port_id, param);
+	struct port *p = data;
+	return spa_node_port_set_param(p->node, p->direction, p->port_id, param);
 }
 
-static int port_impl_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers)
+static int port_impl_use_buffers(void *data, struct spa_buffer **buffers, uint32_t n_buffers)
 {
-	struct port *p = port->user_data;
-	return spa_node_port_use_buffers(p->node, port->direction, port->port_id, buffers, n_buffers);
+	struct port *p = data;
+	return spa_node_port_use_buffers(p->node, p->direction, p->port_id, buffers, n_buffers);
 }
 
-static int port_impl_alloc_buffers(struct pw_port *port,
+static int port_impl_alloc_buffers(void *data,
 				   struct spa_param **params, uint32_t n_params,
 				   struct spa_buffer **buffers, uint32_t *n_buffers)
 {
-	struct port *p = port->user_data;
-	return spa_node_port_alloc_buffers(p->node, port->direction, port->port_id,
+	struct port *p = data;
+	return spa_node_port_alloc_buffers(p->node, p->direction, p->port_id,
 					   params, n_params, buffers, n_buffers);
 }
 
-static int port_impl_reuse_buffer(struct pw_port *port, uint32_t buffer_id)
+static int port_impl_reuse_buffer(void *data, uint32_t buffer_id)
 {
-	struct port *p = port->user_data;
-	return spa_node_port_reuse_buffer(p->node, port->port_id, buffer_id);
+	struct port *p = data;
+	return spa_node_port_reuse_buffer(p->node, p->port_id, buffer_id);
 }
 
-static int port_impl_send_command(struct pw_port *port, struct spa_command *command)
+static int port_impl_send_command(void *data, struct spa_command *command)
 {
-	struct port *p = port->user_data;
+	struct port *p = data;
         return spa_node_port_send_command(p->node,
-                                          port->direction,
-                                          port->port_id,
+                                          p->direction,
+                                          p->port_id,
 					  command);
 }
 
 const struct pw_port_implementation port_impl = {
 	PW_VERSION_PORT_IMPLEMENTATION,
-	port_impl_enum_formats,
-	port_impl_set_format,
-	port_impl_get_format,
-	port_impl_get_info,
-	port_impl_enum_params,
-	port_impl_set_param,
-	port_impl_use_buffers,
-	port_impl_alloc_buffers,
-	port_impl_reuse_buffer,
-	port_impl_send_command,
+	.set_io = port_impl_set_io,
+	.enum_formats = port_impl_enum_formats,
+	.set_format = port_impl_set_format,
+	.get_format = port_impl_get_format,
+	.get_info = port_impl_get_info,
+	.enum_params = port_impl_enum_params,
+	.set_param = port_impl_set_param,
+	.use_buffers = port_impl_use_buffers,
+	.alloc_buffers = port_impl_alloc_buffers,
+	.reuse_buffer = port_impl_reuse_buffer,
+	.send_command = port_impl_send_command,
 };
 
 static struct pw_port *
-make_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id)
+make_port(struct impl *impl, enum pw_direction direction, uint32_t port_id)
 {
-	struct impl *impl = node->user_data;
+	struct pw_node *node = impl->this;
 	struct pw_port *port;
 	struct port *p;
 
@@ -143,13 +154,13 @@ make_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id)
 	if (port == NULL)
 		return NULL;
 
-	p = port->user_data;
+	p = pw_port_get_user_data(port);
+	p->port = port;
+	p->direction = direction;
+	p->port_id = port_id;
 	p->node = impl->node;
 
-	port->implementation = &port_impl;
-
-	spa_node_port_set_io(impl->node, direction, port_id, &port->io);
-
+	pw_port_set_implementation(port, &port_impl, p);
 	pw_port_add(port, node);
 
 	return port;
@@ -192,7 +203,7 @@ static void update_port_ids(struct impl *impl)
                            || i < n_input_ports) {
                         struct pw_port *np;
                         pw_log_debug("node %p: input port added %d", this, input_port_ids[i]);
-                        np = make_port(this, PW_DIRECTION_INPUT, input_port_ids[i]);
+                        np = make_port(impl, PW_DIRECTION_INPUT, input_port_ids[i]);
 
                         ports = np->link.next;
                         i++;
@@ -220,7 +231,7 @@ static void update_port_ids(struct impl *impl)
                            || i < n_output_ports) {
                         struct pw_port *np;
                         pw_log_debug("node %p: output port added %d", this, output_port_ids[i]);
-                        np = make_port(this, PW_DIRECTION_OUTPUT, output_port_ids[i]);
+                        np = make_port(impl, PW_DIRECTION_OUTPUT, output_port_ids[i]);
                         ports = np->link.next;
                         i++;
                 } else if (p) {
@@ -235,66 +246,66 @@ static void update_port_ids(struct impl *impl)
 }
 
 
-static int node_impl_get_props(struct pw_node *node, struct spa_props **props)
+static int node_impl_get_props(void *data, struct spa_props **props)
 {
-	struct impl *impl = node->user_data;
+	struct impl *impl = data;
 	return spa_node_get_props(impl->node, props);
 }
 
-static int node_impl_set_props(struct pw_node *node, const struct spa_props *props)
+static int node_impl_set_props(void *data, const struct spa_props *props)
 {
-	struct impl *impl = node->user_data;
+	struct impl *impl = data;
 	return spa_node_set_props(impl->node, props);
 }
 
-static int node_impl_send_command(struct pw_node *node, const struct spa_command *command)
+static int node_impl_send_command(void *data, const struct spa_command *command)
 {
-	struct impl *impl = node->user_data;
+	struct impl *impl = data;
 	return spa_node_send_command(impl->node, command);
 }
 
 static struct pw_port*
-node_impl_add_port(struct pw_node *node,
+node_impl_add_port(void *data,
 		   enum pw_direction direction,
 		   uint32_t port_id)
 {
-	struct impl *impl = node->user_data;
+	struct impl *impl = data;
 	int res;
 
 	if ((res = spa_node_add_port(impl->node, direction, port_id)) < 0) {
-		pw_log_error("node %p: could not add port %d %d", node, port_id, res);
+		pw_log_error("node %p: could not add port %d %d", impl->this, port_id, res);
 		return NULL;
 	}
 
-	return make_port(node, direction, port_id);
+	return make_port(impl, direction, port_id);
 }
 
-static int node_impl_schedule_input(struct pw_node *node)
+static int node_impl_process_input(void *data)
 {
-	struct impl *impl = node->user_data;
+	struct impl *impl = data;
 	return spa_node_process_input(impl->node);
 }
 
-static int node_impl_schedule_output(struct pw_node *node)
+static int node_impl_process_output(void *data)
 {
-	struct impl *impl = node->user_data;
+	struct impl *impl = data;
 	return spa_node_process_output(impl->node);
 }
 
 static const struct pw_node_implementation node_impl = {
 	PW_VERSION_NODE_IMPLEMENTATION,
-	node_impl_get_props,
-	node_impl_set_props,
-	node_impl_send_command,
-	node_impl_add_port,
-	node_impl_schedule_input,
-	node_impl_schedule_output,
+	.get_props = node_impl_get_props,
+	.set_props = node_impl_set_props,
+	.send_command = node_impl_send_command,
+	.add_port = node_impl_add_port,
+	.process_input = node_impl_process_input,
+	.process_output = node_impl_process_output,
 };
 
-static void pw_spa_node_destroy(void *object)
+static void pw_spa_node_destroy(void *data)
 {
-	struct pw_node *node = object;
-	struct impl *impl = node->user_data;
+	struct impl *impl = data;
+	struct pw_node *node = impl->this;
 
 	pw_log_debug("spa-node %p: destroy", node);
 
@@ -326,7 +337,7 @@ static void on_node_done(struct spa_node *node, int seq, int res, void *user_dat
 	}
 
         pw_log_debug("spa-node %p: async complete event %d %d", this, seq, res);
-	pw_signal_emit(&this->async_complete, this, seq, res);
+	pw_callback_emit(&this->callback_list, struct pw_node_callbacks, async_complete, seq, res);
 }
 
 static void on_node_event(struct spa_node *node, struct spa_event *event, void *user_data)
@@ -334,21 +345,21 @@ static void on_node_event(struct spa_node *node, struct spa_event *event, void *
         struct impl *impl = user_data;
         struct pw_node *this = impl->this;
 
-	pw_signal_emit(&this->event, this, event);
+	pw_callback_emit(&this->callback_list, struct pw_node_callbacks, event, event);
 }
 
 static void on_node_need_input(struct spa_node *node, void *user_data)
 {
         struct impl *impl = user_data;
         struct pw_node *this = impl->this;
-	pw_signal_emit(&this->need_input, this);
+	pw_callback_emit_na(&this->callback_list, struct pw_node_callbacks, need_input);
 }
 
 static void on_node_have_output(struct spa_node *node, void *user_data)
 {
         struct impl *impl = user_data;
         struct pw_node *this = impl->this;
-	pw_signal_emit(&this->have_output, this);
+	pw_callback_emit_na(&this->callback_list, struct pw_node_callbacks, have_output);
 }
 
 static void
@@ -370,13 +381,18 @@ on_node_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id
 	}
 }
 
-static const struct spa_node_callbacks node_callbacks = {
+static const struct spa_node_callbacks spa_node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
-	&on_node_done,
-	&on_node_event,
-	&on_node_need_input,
-	&on_node_have_output,
-	&on_node_reuse_buffer,
+	.done = on_node_done,
+	.event = on_node_event,
+	.need_input = on_node_need_input,
+	.have_output = on_node_have_output,
+	.reuse_buffer = on_node_reuse_buffer,
+};
+
+static const struct pw_node_callbacks node_callbacks = {
+	PW_VERSION_NODE_CALLBACKS,
+	.destroy = pw_spa_node_destroy,
 };
 
 struct pw_node *
@@ -411,8 +427,6 @@ pw_spa_node_new(struct pw_core *core,
 	if (this == NULL)
 		return NULL;
 
-	this->destroy = pw_spa_node_destroy;
-	this->implementation = &node_impl;
 	this->clock = clock;
 
 	impl = this->user_data;
@@ -420,7 +434,11 @@ pw_spa_node_new(struct pw_core *core,
 	impl->node = node;
 	impl->async_init = async;
 
-	if (spa_node_set_callbacks(impl->node, &node_callbacks, impl) < 0)
+	pw_node_add_callbacks(this, &impl->node_callbacks, &node_callbacks, impl);
+
+	pw_node_set_implementation(this, &node_impl, impl);
+
+	if (spa_node_set_callbacks(impl->node, &spa_node_callbacks, impl) < 0)
 		pw_log_warn("spa-node %p: error setting callback", this);
 
 	if (!async) {

@@ -27,55 +27,6 @@ extern "C" {
 #define PW_TYPE__Port                          "PipeWire:Object:Port"
 #define PW_TYPE_PORT_BASE                      PW_TYPE__Port ":"
 
-#include <spa/node.h>
-
-#include <pipewire/utils.h>
-#include <pipewire/introspect.h>
-#include <pipewire/mem.h>
-
-#include <pipewire/core.h>
-#include <pipewire/link.h>
-
-enum pw_port_state {
-	PW_PORT_STATE_ERROR = -1,
-	PW_PORT_STATE_INIT = 0,
-	PW_PORT_STATE_CONFIGURE = 1,
-	PW_PORT_STATE_READY = 2,
-	PW_PORT_STATE_PAUSED = 3,
-	PW_PORT_STATE_STREAMING = 4,
-};
-
-struct pw_port;
-
-struct pw_port_implementation {
-#define PW_VERSION_PORT_IMPLEMENTATION 0
-	uint32_t version;
-
-	int (*enum_formats) (struct pw_port *port,
-			     struct spa_format **format,
-			     const struct spa_format *filter,
-			     int32_t index);
-
-	int (*set_format) (struct pw_port *port, uint32_t flags, const struct spa_format *format);
-
-	int (*get_format) (struct pw_port *port, const struct spa_format **format);
-
-	int (*get_info) (struct pw_port *port, const struct spa_port_info **info);
-
-	int (*enum_params) (struct pw_port *port, uint32_t index, struct spa_param **param);
-
-	int (*set_param) (struct pw_port *port, struct spa_param *param);
-
-	int (*use_buffers) (struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers);
-
-	int (*alloc_buffers) (struct pw_port *port,
-			      struct spa_param **params, uint32_t n_params,
-			      struct spa_buffer **buffers, uint32_t *n_buffers);
-	int (*reuse_buffer) (struct pw_port *port, uint32_t buffer_id);
-
-	int (*send_command) (struct pw_port *port, struct spa_command *command);
-};
-
 /** \page page_port Port
  *
  * \section page_node_overview Overview
@@ -86,42 +37,65 @@ struct pw_port_implementation {
  *
  * The port object
  */
-struct pw_port {
-	struct spa_list link;		/**< link in node port_list */
+struct pw_port;
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_port *));
+#include <spa/node.h>
 
-	struct pw_node *node;		/**< owner node */
+#include <pipewire/utils.h>
+#include <pipewire/introspect.h>
+#include <pipewire/mem.h>
 
-	enum pw_direction direction;	/**< port direction */
-	uint32_t port_id;		/**< port id */
+#include <pipewire/core.h>
+#include <pipewire/link.h>
+#include <pipewire/node.h>
 
-	enum pw_port_state state;	/**< state of the port */
-	/** Emited when the port state changes */
-	PW_SIGNAL(state_changed, (struct pw_listener *listener, struct pw_port *port));
+enum pw_port_state {
+	PW_PORT_STATE_ERROR = -1,
+	PW_PORT_STATE_INIT = 0,
+	PW_PORT_STATE_CONFIGURE = 1,
+	PW_PORT_STATE_READY = 2,
+	PW_PORT_STATE_PAUSED = 3,
+	PW_PORT_STATE_STREAMING = 4,
+};
 
-	const struct pw_port_implementation *implementation;
+struct pw_port_implementation {
+#define PW_VERSION_PORT_IMPLEMENTATION 0
+	uint32_t version;
 
-	struct spa_port_io io;		/**< io area of the port */
+	int (*set_io) (void *data, struct spa_port_io *io);
 
-	bool allocated;			/**< if buffers are allocated */
-	struct pw_memblock buffer_mem;	/**< allocated buffer memory */
-	struct spa_buffer **buffers;	/**< port buffers */
-	uint32_t n_buffers;		/**< number of port buffers */
+	int (*enum_formats) (void *data,
+			     struct spa_format **format,
+			     const struct spa_format *filter,
+			     int32_t index);
 
-	struct spa_list links;		/**< list of \ref pw_link */
+	int (*set_format) (void *data, uint32_t flags, const struct spa_format *format);
 
-	void *mix;			/**< optional port buffer mix/split */
+	int (*get_format) (void *data, const struct spa_format **format);
 
-	struct {
-		struct spa_graph *graph;
-		struct spa_graph_port port;
-		struct spa_graph_port mix_port;
-		struct spa_graph_node mix_node;
-	} rt;				/**< data only accessed from the data thread */
+	int (*get_info) (void *data, const struct spa_port_info **info);
 
-        void *user_data;                /**< extra user data */
-        pw_destroy_t destroy;           /**< function to clean up the object */
+	int (*enum_params) (void *data, uint32_t index, struct spa_param **param);
+
+	int (*set_param) (void *data, struct spa_param *param);
+
+	int (*use_buffers) (void *data, struct spa_buffer **buffers, uint32_t n_buffers);
+
+	int (*alloc_buffers) (void *data,
+			      struct spa_param **params, uint32_t n_params,
+			      struct spa_buffer **buffers, uint32_t *n_buffers);
+	int (*reuse_buffer) (void *data, uint32_t buffer_id);
+
+	int (*send_command) (void *data, struct spa_command *command);
+};
+
+struct pw_port_callbacks {
+#define PW_VERSION_PORT_CALLBACKS 0
+	uint32_t version;
+
+	void (*destroy) (void *data);
+
+	void (*state_changed) (void *data, enum pw_port_state state);
 };
 
 /** Create a new port \memberof pw_port
@@ -134,8 +108,19 @@ pw_port_new(enum pw_direction direction,
 /** Add a port to a node \memberof pw_port */
 void pw_port_add(struct pw_port *port, struct pw_node *node);
 
+void pw_port_set_implementation(struct pw_port *port,
+				const struct pw_port_implementation *implementation,
+				void *data);
+
+void pw_port_add_callbacks(struct pw_port *port,
+			   struct pw_callback_info *info,
+			   const struct pw_port_callbacks *callbacks,
+			   void *data);
+
 /** Destroy a port \memberof pw_port */
 void pw_port_destroy(struct pw_port *port);
+
+void * pw_port_get_user_data(struct pw_port *port);
 
 /** Get the current format on a port \memberof pw_port */
 int pw_port_enum_formats(struct pw_port *port,

@@ -28,6 +28,7 @@
 
 #include <pipewire/pipewire.h>
 #include <pipewire/command.h>
+#include <pipewire/private.h>
 
 #include "daemon/daemon-config.h"
 

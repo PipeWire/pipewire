@@ -87,13 +87,13 @@ extern "C" {
  *
  * See also \ref page_thread_loop
  */
-struct pw_thread_loop {
-	struct pw_loop *loop;	/**< the \ref pw_loop that is wrapped */
-	char *name;		/**< the thread name */
+struct pw_thread_loop;
 
-	/** Emited when the threaded loop is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener,
-				   struct pw_thread_loop *loop));
+struct pw_thread_loop_callbacks {
+#define PW_VERSION_THREAD_LOOP_CALLBACKS	0
+        uint32_t version;
+
+        void (*destroy) (void *data);
 };
 
 struct pw_thread_loop *
@@ -101,6 +101,13 @@ pw_thread_loop_new(struct pw_loop *loop, const char *name);
 
 void
 pw_thread_loop_destroy(struct pw_thread_loop *loop);
+
+void pw_thread_loop_add_callbacks(struct pw_thread_loop *loop,
+				  struct pw_callback_info *info,
+				  const struct pw_thread_loop_callbacks *callbacks,
+				  void *data);
+struct pw_loop *
+pw_thread_loop_get_loop(struct pw_thread_loop *loop);
 
 int
 pw_thread_loop_start(struct pw_thread_loop *loop);

@@ -24,6 +24,7 @@
 #include "config.h"
 
 #include "pipewire/interfaces.h"
+#include "pipewire/private.h"
 #include "pipewire/core.h"
 #include "pipewire/module.h"
 
@@ -32,29 +33,27 @@ struct impl {
 	struct pw_module *module;
 	struct pw_properties *properties;
 
-	struct pw_listener global_added;
-	struct pw_listener global_removed;
+	struct pw_callback_info core_callbacks;
 
 	struct spa_list node_list;
 };
 
 struct node_info {
+	struct spa_list l;
+
 	struct impl *impl;
 	struct pw_node *node;
-	struct spa_list link;
-	struct pw_listener state_changed;
-	struct pw_listener port_added;
-	struct pw_listener port_removed;
-	struct pw_listener port_unlinked;
-	struct pw_listener link_state_changed;
-	struct pw_listener link_destroy;
+	struct pw_callback_info node_callbacks;
+
+	struct pw_link *link;
+	struct pw_callback_info link_callbacks;
 };
 
 static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
 {
 	struct node_info *info;
 
-	spa_list_for_each(info, &impl->node_list, link) {
+	spa_list_for_each(info, &impl->node_list, l) {
 		if (info->node == node)
 			return info;
 	}
@@ -63,22 +62,19 @@ static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
 
 static void node_info_free(struct node_info *info)
 {
-	spa_list_remove(&info->link);
-	pw_signal_remove(&info->state_changed);
-	pw_signal_remove(&info->port_added);
-	pw_signal_remove(&info->port_removed);
-	pw_signal_remove(&info->port_unlinked);
-	pw_signal_remove(&info->link_destroy);
-	pw_signal_remove(&info->link_state_changed);
+	spa_list_remove(&info->l);
+	pw_callback_remove(&info->node_callbacks);
+	pw_callback_remove(&info->link_callbacks);
 	free(info);
 }
 
 static void try_link_port(struct pw_node *node, struct pw_port *port, struct node_info *info);
 
 static void
-on_link_port_unlinked(struct pw_listener *listener, struct pw_link *link, struct pw_port *port)
+link_port_unlinked(void *data, struct pw_port *port)
 {
-	struct node_info *info = SPA_CONTAINER_OF(listener, struct node_info, port_unlinked);
+	struct node_info *info = data;
+	struct pw_link *link = info->link;
 	struct impl *impl = info->impl;
 
 	pw_log_debug("module %p: link %p: port %p unlinked", impl, link, port);
@@ -87,10 +83,10 @@ on_link_port_unlinked(struct pw_listener *listener, struct pw_link *link, struct
 }
 
 static void
-on_link_state_changed(struct pw_listener *listener,
-		      struct pw_link *link, enum pw_link_state old, enum pw_link_state state)
+link_state_changed(void *data, enum pw_link_state old, enum pw_link_state state, const char *error)
 {
-	struct node_info *info = SPA_CONTAINER_OF(listener, struct node_info, link_state_changed);
+	struct node_info *info = data;
+	struct pw_link *link = info->link;
 	struct impl *impl = info->impl;
 
 	switch (state) {
@@ -98,17 +94,16 @@ on_link_state_changed(struct pw_listener *listener,
 		{
 			struct pw_resource *resource;
 
-			pw_log_debug("module %p: link %p: state error: %s", impl, link,
-				     link->error);
+			pw_log_debug("module %p: link %p: state error: %s", impl, link, error);
 
 			spa_list_for_each(resource, &link->resource_list, link) {
 				pw_core_resource_error(resource->client->core_resource,
-						       resource->id, SPA_RESULT_ERROR, link->error);
+						       resource->id, SPA_RESULT_ERROR, error);
 			}
 			if (info->node->owner) {
 				pw_core_resource_error(info->node->owner->client->core_resource,
 						       info->node->owner->id,
-						       SPA_RESULT_ERROR, link->error);
+						       SPA_RESULT_ERROR, error);
 			}
 			break;
 		}
@@ -128,19 +123,23 @@ on_link_state_changed(struct pw_listener *listener,
 }
 
 static void
-on_link_destroy(struct pw_listener *listener, struct pw_link *link)
+link_destroy(void *data)
 {
-	struct node_info *info = SPA_CONTAINER_OF(listener, struct node_info, link_destroy);
+	struct node_info *info = data;
+	struct pw_link *link = info->link;
 	struct impl *impl = info->impl;
 
 	pw_log_debug("module %p: link %p destroyed", impl, link);
-	pw_signal_remove(&info->port_unlinked);
-	pw_signal_remove(&info->link_state_changed);
-	pw_signal_remove(&info->link_destroy);
-	spa_list_init(&info->port_unlinked.link);
-	spa_list_init(&info->link_state_changed.link);
-	spa_list_init(&info->link_destroy.link);
+	pw_callback_remove(&info->link_callbacks);
+        spa_list_init(&info->link_callbacks.link);
 }
+
+static const struct pw_link_callbacks link_callbacks = {
+	PW_VERSION_LINK_CALLBACKS,
+	.destroy = link_destroy,
+	.port_unlinked = link_port_unlinked,
+	.state_changed = link_state_changed,
+};
 
 static void try_link_port(struct pw_node *node, struct pw_port *port, struct node_info *info)
 {
@@ -184,10 +183,9 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 	if (link == NULL)
 		goto error;
 
-	pw_signal_add(&link->port_unlinked, &info->port_unlinked, on_link_port_unlinked);
-	pw_signal_add(&link->state_changed, &info->link_state_changed, on_link_state_changed);
-	pw_signal_add(&link->destroy_signal, &info->link_destroy, on_link_destroy);
+	info->link = link;
 
+	pw_link_add_callbacks(link, &info->link_callbacks, &link_callbacks, info);
 	pw_link_activate(link);
 
 	return;
@@ -202,15 +200,13 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 	return;
 }
 
-static void on_port_added(struct pw_listener *listener, struct pw_node *node, struct pw_port *port)
+static void node_port_added(void *data, struct pw_port *port)
 {
-	struct node_info *info = SPA_CONTAINER_OF(listener, struct node_info, port_added);
-
-	try_link_port(node, port, info);
+	struct node_info *info = data;
+	try_link_port(info->node, port, info);
 }
 
-static void
-on_port_removed(struct pw_listener *listener, struct pw_node *node, struct pw_port *port)
+static void node_port_removed(void *data, struct pw_port *port)
 {
 }
 
@@ -219,26 +215,32 @@ static void on_node_created(struct pw_node *node, struct node_info *info)
 	struct pw_port *port;
 
 	spa_list_for_each(port, &node->input_ports, link)
-	    on_port_added(&info->port_added, node, port);
+	    node_port_added(info, port);
 
 	spa_list_for_each(port, &node->output_ports, link)
-	    on_port_added(&info->port_added, node, port);
+	    node_port_added(info, port);
 }
 
 static void
-on_state_changed(struct pw_listener *listener,
-		 struct pw_node *node, enum pw_node_state old, enum pw_node_state state)
+node_state_changed(void *data, enum pw_node_state old, enum pw_node_state state, const char *error)
 {
-	struct node_info *info = SPA_CONTAINER_OF(listener, struct node_info, state_changed);
+	struct node_info *info = data;
 
 	if (old == PW_NODE_STATE_CREATING && state == PW_NODE_STATE_SUSPENDED)
-		on_node_created(node, info);
+		on_node_created(info->node, info);
 }
 
+static const struct pw_node_callbacks node_callbacks = {
+	PW_VERSION_NODE_CALLBACKS,
+	.port_added = node_port_added,
+	.port_removed = node_port_removed,
+	.state_changed = node_state_changed,
+};
+
 static void
-on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_global *global)
+core_global_added(void *data, struct pw_global *global)
 {
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, global_added);
+	struct impl *impl = data;
 
 	if (global->type == impl->core->type.node) {
 		struct pw_node *node = global->object;
@@ -247,14 +249,11 @@ on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_gl
 		ninfo = calloc(1, sizeof(struct node_info));
 		ninfo->impl = impl;
 		ninfo->node = node;
-		spa_list_insert(impl->node_list.prev, &ninfo->link);
-		spa_list_init(&ninfo->port_unlinked.link);
-		spa_list_init(&ninfo->link_state_changed.link);
-		spa_list_init(&ninfo->link_destroy.link);
 
-		pw_signal_add(&node->port_added, &ninfo->port_added, on_port_added);
-		pw_signal_add(&node->port_removed, &ninfo->port_removed, on_port_removed);
-		pw_signal_add(&node->state_changed, &ninfo->state_changed, on_state_changed);
+		spa_list_insert(impl->node_list.prev, &ninfo->l);
+
+		pw_node_add_callbacks(node, &ninfo->node_callbacks, &node_callbacks, ninfo);
+		spa_list_init(&ninfo->link_callbacks.link);
 
 		pw_log_debug("module %p: node %p added", impl, node);
 
@@ -264,9 +263,9 @@ on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_gl
 }
 
 static void
-on_global_removed(struct pw_listener *listener, struct pw_core *core, struct pw_global *global)
+core_global_removed(void *data, struct pw_global *global)
 {
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, global_removed);
+	struct impl *impl = data;
 
 	if (global->type == impl->core->type.node) {
 		struct pw_node *node = global->object;
@@ -278,6 +277,13 @@ on_global_removed(struct pw_listener *listener, struct pw_core *core, struct pw_
 		pw_log_debug("module %p: node %p removed", impl, node);
 	}
 }
+
+
+const struct pw_core_callbacks core_callbacks = {
+	PW_VERSION_CORE_CALLBACKS,
+        .global_added = core_global_added,
+        .global_removed = core_global_removed,
+};
 
 /**
  * module_new:
@@ -302,8 +308,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 
 	spa_list_init(&impl->node_list);
 
-	pw_signal_add(&core->global_added, &impl->global_added, on_global_added);
-	pw_signal_add(&core->global_removed, &impl->global_removed, on_global_removed);
+	pw_core_add_callbacks(core, &impl->core_callbacks, &core_callbacks, impl);
 
 	return impl;
 }

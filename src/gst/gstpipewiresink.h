@@ -81,16 +81,12 @@ struct _GstPipeWireSink {
   struct pw_thread_loop *main_loop;
 
   struct pw_core *core;
+  struct pw_type *type;
   struct pw_remote *remote;
-  struct pw_listener remote_state_changed;
+  struct pw_callback_info remote_callbacks;
 
   struct pw_stream *stream;
-  struct pw_listener stream_state_changed;
-  struct pw_listener stream_format_changed;
-  struct pw_listener stream_add_buffer;
-  struct pw_listener stream_remove_buffer;
-  struct pw_listener stream_new_buffer;
-  struct pw_listener stream_need_buffer;
+  struct pw_callback_info stream_callbacks;
 
   GstAllocator *allocator;
   GstStructure *properties;

@@ -30,6 +30,7 @@
 #include <dbus/dbus.h>
 
 #include "pipewire/interfaces.h"
+#include "pipewire/private.h"
 #include "pipewire/utils.h"
 
 #include "pipewire/core.h"
@@ -41,8 +42,7 @@ struct impl {
 
 	DBusConnection *bus;
 
-	struct pw_listener global_added;
-	struct pw_listener global_removed;
+	struct pw_callback_info core_callbacks;
 
 	struct spa_list client_list;
 
@@ -57,8 +57,7 @@ struct client_info {
 	const struct pw_core_methods *old_methods;
 	struct pw_core_methods core_methods;
 	struct spa_list async_pending;
-	struct pw_listener resource_impl;
-	struct pw_listener resource_removed;
+	struct pw_callback_info client_callback;
 };
 
 struct async_pending {
@@ -139,6 +138,7 @@ static void client_info_free(struct client_info *cinfo)
 	spa_list_for_each_safe(p, tmp, &cinfo->async_pending, link)
 		free_pending(p);
 
+	pw_callback_remove(&cinfo->client_callback);
 	spa_list_remove(&cinfo->link);
 	free(cinfo);
 }
@@ -432,11 +432,10 @@ do_create_link(void *object,
 					 new_id);
 }
 
-static void on_resource_impl(struct pw_listener *listener,
-			     struct pw_client *client,
-			     struct pw_resource *resource)
+static void client_resource_impl(void *data, struct pw_resource *resource)
 {
-	struct client_info *cinfo = SPA_CONTAINER_OF(listener, struct client_info, resource_impl);
+	struct client_info *cinfo = data;
+	struct pw_client *client = cinfo->client;
 
 	if (resource->type == client->core->type.core) {
 		cinfo->old_methods = resource->implementation;
@@ -448,10 +447,15 @@ static void on_resource_impl(struct pw_listener *listener,
 	}
 }
 
+const struct pw_client_callbacks client_callbacks = {
+	PW_VERSION_CLIENT_CALLBACKS,
+	.resource_impl = client_resource_impl,
+};
+
 static void
-on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_global *global)
+core_global_added(void *data, struct pw_global *global)
 {
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, global_added);
+	struct impl *impl = data;
 
 	if (global->type == impl->core->type.client) {
 		struct pw_client *client = global->object;
@@ -463,7 +467,7 @@ on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_gl
 		cinfo->is_sandboxed = client_is_sandboxed(client);
 		spa_list_init(&cinfo->async_pending);
 
-		pw_signal_add(&client->resource_impl, &cinfo->resource_impl, on_resource_impl);
+		pw_client_add_callbacks(client, &cinfo->client_callback, &client_callbacks, cinfo);
 
 		spa_list_insert(impl->client_list.prev, &cinfo->link);
 
@@ -472,9 +476,9 @@ on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_gl
 }
 
 static void
-on_global_removed(struct pw_listener *listener, struct pw_core *core, struct pw_global *global)
+core_global_removed(void *data, struct pw_global *global)
 {
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, global_removed);
+	struct impl *impl = data;
 
 	if (global->type == impl->core->type.client) {
 		struct pw_client *client = global->object;
@@ -486,6 +490,12 @@ on_global_removed(struct pw_listener *listener, struct pw_core *core, struct pw_
 		pw_log_debug("module %p: client %p removed", impl, client);
 	}
 }
+
+const struct pw_core_callbacks core_callbacks = {
+	PW_VERSION_CORE_CALLBACKS,
+	.global_added = core_global_added,
+	.global_removed = core_global_removed,
+};
 
 static void dispatch_cb(struct spa_loop_utils *utils, struct spa_source *source, void *userdata)
 {
@@ -689,8 +699,8 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 
 	spa_list_init(&impl->client_list);
 
-	pw_signal_add(&core->global_added, &impl->global_added, on_global_added);
-	pw_signal_add(&core->global_removed, &impl->global_removed, on_global_removed);
+	pw_core_add_callbacks(core, &impl->core_callbacks, &core_callbacks, impl);
+
 	core->permission_func = do_permission;
 	core->permission_data = impl;
 

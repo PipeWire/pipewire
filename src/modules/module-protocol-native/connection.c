@@ -28,10 +28,9 @@
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
+#include <pipewire/private.h>
 
 #include "connection.h"
-
-/** \cond */
 
 #define MAX_BUFFER_SIZE (1024 * 32)
 #define MAX_FDS 28

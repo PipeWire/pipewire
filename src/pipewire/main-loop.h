@@ -24,25 +24,35 @@
 extern "C" {
 #endif
 
-#include <pipewire/loop.h>
-
 /** \class pw_main_loop
  *
  * \brief PipeWire main-loop interface.
  *
  * A main loop object
  */
-
 /** A main loop object \memberof pw_main_loop */
-struct pw_main_loop {
-	struct pw_loop *loop;		/**< the wrapped loop */
+struct pw_main_loop;
 
-	/** Emited when the loop is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_main_loop *loop));
+#include <pipewire/loop.h>
+#include <pipewire/callback.h>
+
+struct pw_main_loop_callbacks {
+#define PW_VERSION_MAIN_LOOP_CALLBACKS	0
+	uint32_t version;
+
+	void (*destroy) (void *data);
 };
 
 struct pw_main_loop *
 pw_main_loop_new(void);
+
+void pw_main_loop_add_callbacks(struct pw_main_loop *loop,
+				struct pw_callback_info *info,
+				const struct pw_main_loop_callbacks *callbacks,
+				void *data);
+
+struct pw_loop *
+pw_main_loop_get_loop(struct pw_main_loop *loop);
 
 void
 pw_main_loop_destroy(struct pw_main_loop *loop);

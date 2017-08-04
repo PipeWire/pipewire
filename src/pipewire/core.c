@@ -24,6 +24,8 @@
 #include <spa/format-utils.h>
 
 #include <pipewire/pipewire.h>
+#include <pipewire/callback.h>
+#include <pipewire/private.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/protocol.h>
 #include <pipewire/core.h>
@@ -34,11 +36,8 @@ struct global_impl {
 	struct pw_global this;
 };
 
-struct impl {
-	struct pw_core this;
-
-	struct spa_support support[4];
-	struct pw_data_loop *data_loop;
+struct resource_data {
+	struct pw_callback_info resource_callbacks;
 };
 
 /** \endcond */
@@ -108,9 +107,9 @@ static void registry_bind(void *object, uint32_t id,
 	return;
 }
 
-static struct pw_registry_methods registry_methods = {
+static const struct pw_registry_methods registry_methods = {
 	PW_VERSION_REGISTRY_METHODS,
-	&registry_bind
+	.bind = registry_bind
 };
 
 static void destroy_registry_resource(void *object)
@@ -119,10 +118,14 @@ static void destroy_registry_resource(void *object)
 	spa_list_remove(&resource->link);
 }
 
+static const struct pw_resource_callbacks resource_callbacks = {
+	PW_VERSION_RESOURCE_CALLBACKS,
+	.destroy = destroy_registry_resource
+};
+
 static void core_client_update(void *object, const struct spa_dict *props)
 {
 	struct pw_resource *resource = object;
-
 	pw_client_update_properties(resource->client, props);
 }
 
@@ -140,19 +143,26 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 	struct pw_core *this = resource->core;
 	struct pw_global *global;
 	struct pw_resource *registry_resource;
+	struct resource_data *data;
 
 	registry_resource = pw_resource_new(client,
 					    new_id,
 					    PW_PERM_RWX,
 					    this->type.registry,
 					    version,
-					    0, destroy_registry_resource);
+					    sizeof(*data));
 	if (registry_resource == NULL)
 		goto no_mem;
 
+	data = pw_resource_get_user_data(registry_resource);
+	pw_resource_add_callbacks(registry_resource,
+				  &data->resource_callbacks,
+				  &resource_callbacks,
+				  registry_resource);
+
 	pw_resource_set_implementation(registry_resource,
-				       registry_resource,
-				       &registry_methods);
+				       &registry_methods,
+				       registry_resource);
 
 	spa_list_insert(this->registry_resource_list.prev, &registry_resource->link);
 
@@ -195,7 +205,7 @@ core_create_node(void *object,
 	if (factory == NULL)
 		goto no_factory;
 
-	node_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0, NULL);
+	node_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0);
 	if (node_resource == NULL)
 		goto no_resource;
 
@@ -281,6 +291,11 @@ static void core_unbind_func(void *data)
 	spa_list_remove(&resource->link);
 }
 
+static const struct pw_resource_callbacks core_resource_callbacks = {
+	PW_VERSION_RESOURCE_CALLBACKS,
+	.destroy = core_unbind_func,
+};
+
 static int
 core_bind_func(struct pw_global *global,
 	       struct pw_client *client,
@@ -290,12 +305,16 @@ core_bind_func(struct pw_global *global,
 {
 	struct pw_core *this = global->object;
 	struct pw_resource *resource;
+	struct resource_data *data;
 
-	resource = pw_resource_new(client, id, permissions, global->type, version, 0, core_unbind_func);
+	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
 	if (resource == NULL)
 		goto no_mem;
 
-	pw_resource_set_implementation(resource, resource, &core_methods);
+	data = pw_resource_get_user_data(resource);
+	pw_resource_add_callbacks(resource, &data->resource_callbacks, &core_resource_callbacks, resource);
+
+	pw_resource_set_implementation(resource, &core_methods, resource);
 
 	spa_list_insert(this->resource_list.prev, &resource->link);
 	client->core_resource = resource;
@@ -322,20 +341,18 @@ core_bind_func(struct pw_global *global,
  */
 struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *properties)
 {
-	struct impl *impl;
 	struct pw_core *this;
 	const char *name;
 
-	impl = calloc(1, sizeof(struct impl));
-	if (impl == NULL)
+	this = calloc(1, sizeof(struct pw_core));
+	if (this == NULL)
 		return NULL;
 
-	this = &impl->this;
-	impl->data_loop = pw_data_loop_new();
-	if (impl->data_loop == NULL)
+	this->data_loop_impl = pw_data_loop_new();
+	if (this->data_loop_impl == NULL)
 		goto no_data_loop;
 
-	this->data_loop = impl->data_loop->loop;
+	this->data_loop = pw_data_loop_get_loop(this->data_loop_impl);
 	this->main_loop = main_loop;
 
 	pw_type_init(&this->type);
@@ -346,14 +363,13 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	spa_debug_set_type_map(this->type.map);
 
-	impl->support[0] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, this->type.map);
-	impl->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__DataLoop, this->data_loop->loop);
-	impl->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__MainLoop, this->main_loop->loop);
-	impl->support[3] = SPA_SUPPORT_INIT(SPA_TYPE__Log, pw_log_get());
-	this->support = impl->support;
+	this->support[0] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, this->type.map);
+	this->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__DataLoop, this->data_loop->loop);
+	this->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__MainLoop, this->main_loop->loop);
+	this->support[3] = SPA_SUPPORT_INIT(SPA_TYPE__Log, pw_log_get());
 	this->n_support = 4;
 
-	pw_data_loop_start(impl->data_loop);
+	pw_data_loop_start(this->data_loop_impl);
 
 	spa_list_init(&this->protocol_list);
 	spa_list_init(&this->remote_list);
@@ -365,10 +381,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	spa_list_init(&this->node_list);
 	spa_list_init(&this->node_factory_list);
 	spa_list_init(&this->link_list);
-	pw_signal_init(&this->info_changed);
-	pw_signal_init(&this->destroy_signal);
-	pw_signal_init(&this->global_added);
-	pw_signal_init(&this->global_removed);
+	pw_callback_init(&this->callback_list);
 
 	this->info.change_mask = 0;
 	this->info.user_name = pw_get_user_name();
@@ -394,7 +407,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	return this;
 
       no_data_loop:
-	free(impl);
+	free(this);
 	return NULL;
 }
 
@@ -406,17 +419,15 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
  */
 void pw_core_destroy(struct pw_core *core)
 {
-	struct impl *impl = SPA_CONTAINER_OF(core, struct impl, this);
-
 	pw_log_debug("core %p: destroy", core);
-	pw_signal_emit(&core->destroy_signal, core);
+	pw_callback_emit(&core->callback_list, struct pw_core_callbacks, destroy, core);
 
-	pw_data_loop_destroy(impl->data_loop);
+	pw_data_loop_destroy(core->data_loop_impl);
 
 	pw_map_clear(&core->globals);
 
 	pw_log_debug("core %p: free", core);
-	free(impl);
+	free(core);
 }
 
 /** Create and add a new global to the core
@@ -459,8 +470,6 @@ pw_core_add_global(struct pw_core *core,
 	this->bind = bind;
 	this->object = object;
 
-	pw_signal_init(&this->destroy_signal);
-
 	this->id = pw_map_insert_new(&core->globals, this);
 
 	if (owner)
@@ -472,7 +481,8 @@ pw_core_add_global(struct pw_core *core,
 	this->parent = parent;
 
 	spa_list_insert(core->global_list.prev, &this->link);
-	pw_signal_emit(&core->global_added, core, this);
+
+	pw_callback_emit(&core->callback_list, struct pw_core_callbacks, global_added, this);
 
 	pw_log_debug("global %p: new %u %s, owner %p", this, this->id,
 			spa_type_map_get_type(core->type.map, this->type), owner);
@@ -488,6 +498,21 @@ pw_core_add_global(struct pw_core *core,
 						    this->version);
 	}
 	return this;
+}
+
+uint32_t pw_global_get_type(struct pw_global *global)
+{
+	return global->type;
+}
+
+uint32_t pw_global_get_version(struct pw_global *global)
+{
+	return global->version;
+}
+
+void * pw_global_get_object(struct pw_global *global)
+{
+	return global->object;
 }
 
 /** Bind to a global
@@ -546,7 +571,6 @@ void pw_global_destroy(struct pw_global *global)
 	struct pw_resource *registry;
 
 	pw_log_debug("global %p: destroy %u", global, global->id);
-	pw_signal_emit(&global->destroy_signal, global);
 
 	spa_list_for_each(registry, &core->registry_resource_list, link) {
 		uint32_t permissions = pw_global_permissions(global, registry->client);
@@ -557,10 +581,39 @@ void pw_global_destroy(struct pw_global *global)
 	pw_map_remove(&core->globals, global->id);
 
 	spa_list_remove(&global->link);
-	pw_signal_emit(&core->global_removed, core, global);
+	pw_callback_emit(&core->callback_list, struct pw_core_callbacks, global_removed, global);
 
 	pw_log_debug("global %p: free", global);
 	free(global);
+}
+
+void pw_core_add_callbacks(struct pw_core *core,
+			   struct pw_callback_info *info,
+			   const struct pw_core_callbacks *callbacks,
+			   void *data)
+{
+	pw_callback_add(&core->callback_list, info, callbacks, data);
+}
+
+struct pw_type *pw_core_get_type(struct pw_core *core)
+{
+	return &core->type;
+}
+
+const struct spa_support *pw_core_get_support(struct pw_core *core, uint32_t *n_support)
+{
+	*n_support = core->n_support;
+	return core->support;
+}
+
+struct pw_loop *pw_core_get_main_loop(struct pw_core *core)
+{
+	return core->main_loop;
+}
+
+const struct spa_dict *pw_core_get_properties(struct pw_core *core)
+{
+	return &core->properties->dict;
 }
 
 /** Update core properties
@@ -590,7 +643,7 @@ void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict
 	core->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
 	core->info.props = core->properties ? &core->properties->dict : NULL;
 
-	pw_signal_emit(&core->info_changed, core);
+	pw_callback_emit(&core->callback_list, struct pw_core_callbacks, info_changed, &core->info);
 
 	spa_list_for_each(resource, &core->resource_list, link) {
 		pw_core_resource_info(resource, &core->info);

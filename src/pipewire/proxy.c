@@ -21,6 +21,7 @@
 #include <pipewire/proxy.h>
 #include <pipewire/core.h>
 #include <pipewire/remote.h>
+#include <pipewire/private.h>
 
 /** \cond */
 struct proxy {
@@ -30,7 +31,7 @@ struct proxy {
 
 /** Create a proxy object with a given id and type
  *
- * \param remote Remote object
+ * \param proxy another proxy object that serves as a factory
  * \param id Id of the new object, SPA_ID_INVALID will choose a new id
  * \param type Type of the proxy object
  * \return A newly allocated proxy object or NULL on failure
@@ -42,14 +43,13 @@ struct proxy {
  *
  * \memberof pw_proxy
  */
-struct pw_proxy *pw_proxy_new(struct pw_remote *remote,
-			      uint32_t id,
+struct pw_proxy *pw_proxy_new(struct pw_proxy *proxy,
 			      uint32_t type,
-			      size_t user_data_size,
-			      pw_destroy_t destroy)
+			      size_t user_data_size)
 {
 	struct proxy *impl;
 	struct pw_proxy *this;
+	struct pw_remote *remote = proxy->remote;
 
 	impl = calloc(1, sizeof(struct proxy) + user_data_size);
 	if (impl == NULL)
@@ -58,16 +58,10 @@ struct pw_proxy *pw_proxy_new(struct pw_remote *remote,
 	this = &impl->this;
 	this->remote = remote;
 
-	pw_signal_init(&this->destroy_signal);
+	pw_callback_init(&this->callback_list);
+	pw_callback_init(&this->listener_list);
 
-	if (id == SPA_ID_INVALID) {
-		id = pw_map_insert_new(&remote->objects, this);
-	} else if (!pw_map_insert_at(&remote->objects, id, this))
-		goto in_use;
-
-	this->id = id;
-	this->type = type;
-	this->destroy = destroy;
+	this->id = pw_map_insert_new(&remote->objects, this);
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct proxy), void);
@@ -76,21 +70,35 @@ struct pw_proxy *pw_proxy_new(struct pw_remote *remote,
 
 	spa_list_insert(&this->remote->proxy_list, &this->link);
 
-	pw_log_debug("proxy %p: new %u, remote %p", this, this->id, remote);
+	pw_log_debug("proxy %p: new %u, remote %p, marshal %p", this, this->id, remote, this->marshal);
 
 	return this;
+}
 
-      in_use:
-	pw_log_error("proxy %p: id %u in use for remote %p", this, id, remote);
-	free(impl);
-	return NULL;
+void *pw_proxy_get_user_data(struct pw_proxy *proxy)
+{
+	return proxy->user_data;
+}
+
+uint32_t pw_proxy_get_id(struct pw_proxy *proxy)
+{
+	return proxy->id;
+}
+
+void pw_proxy_add_callbacks(struct pw_proxy *proxy,
+			    struct pw_callback_info *info,
+			    const struct pw_proxy_callbacks *callbacks,
+			    void *data)
+{
+	pw_callback_add(&proxy->callback_list, info, callbacks, data);
 }
 
 void pw_proxy_add_listener(struct pw_proxy *proxy,
-			   void *object, const void *listener)
+			   struct pw_callback_info *info,
+			   const void *callbacks,
+			   void *data)
 {
-	proxy->object = object;
-	proxy->listener = listener;
+	pw_callback_add(&proxy->listener_list, info, callbacks, data);
 }
 
 /** Destroy a proxy object
@@ -106,13 +114,20 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);
 
 	pw_log_debug("proxy %p: destroy %u", proxy, proxy->id);
-	pw_signal_emit(&proxy->destroy_signal, proxy);
+	pw_callback_emit_na(&proxy->callback_list, struct pw_proxy_callbacks, destroy);
 
 	pw_map_remove(&proxy->remote->objects, proxy->id);
 	spa_list_remove(&proxy->link);
 
-	if (proxy->destroy)
-		proxy->destroy(proxy);
-
 	free(impl);
+}
+
+struct pw_callback_list *pw_proxy_get_listeners(struct pw_proxy *proxy)
+{
+	return &proxy->listener_list;
+}
+
+const void *pw_proxy_get_implementation(struct pw_proxy *proxy)
+{
+	return proxy->marshal->method_marshal;
 }

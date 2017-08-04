@@ -49,7 +49,9 @@ bool pipewire__module_init(struct pw_module *module, const char *args)
 	if ((dir = getenv("SPA_PLUGIN_DIR")) == NULL)
 		dir = PLUGINDIR;
 
-	pw_spa_monitor_load(module->core, module->global, dir, argv[0], argv[1], argv[2]);
+	pw_spa_monitor_load(pw_module_get_core(module),
+			    pw_module_get_global(module),
+			    dir, argv[0], argv[1], argv[2]);
 
 	pw_free_strv(argv);
 

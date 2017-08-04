@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 	props = pw_properties_new("pipewire.core.name", "pipewire-0",
 				  "pipewire.daemon", "1", NULL);
 
-	core = pw_core_new(loop->loop, props);
+	core = pw_core_new(pw_main_loop_get_loop(loop), props);
 
 	pw_daemon_config_run_commands(config, core);
 

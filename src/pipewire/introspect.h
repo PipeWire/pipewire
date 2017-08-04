@@ -163,6 +163,7 @@ struct pw_link_info {
 	uint32_t input_node_id;		/**< server side input node id */
 	uint32_t input_port_id;		/**< input port id */
 	struct spa_format *format;	/**< format over link */
+	struct spa_dict *props;		/**< the properties of the link */
 };
 
 struct pw_link_info *

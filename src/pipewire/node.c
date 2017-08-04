@@ -24,6 +24,7 @@
 
 #include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"
+#include "pipewire/private.h"
 
 #include "pipewire/node.h"
 #include "pipewire/data-loop.h"
@@ -37,12 +38,14 @@ struct impl {
 	struct pw_global *parent;
 
 	struct pw_work_queue *work;
-	struct pw_listener on_async_complete;
-	struct pw_listener on_event;
-	struct pw_listener on_need_input;
-	struct pw_listener on_have_output;
+
+	struct pw_callback_info node_callbacks;
 
 	bool registered;
+};
+
+struct resource_data {
+	struct pw_callback_info resource_callbacks;
 };
 
 /** \endcond */
@@ -55,8 +58,13 @@ static int pause_node(struct pw_node *this)
 		return SPA_RESULT_OK;
 
 	pw_log_debug("node %p: pause node", this);
-	if ((res = this->implementation->send_command(this,
-			&SPA_COMMAND_INIT(this->core->type.command_node.Pause))) < 0)
+	if (this->implementation->send_command)
+		res = this->implementation->send_command(this->implementation_data,
+                        &SPA_COMMAND_INIT(this->core->type.command_node.Pause));
+	else
+		res = SPA_RESULT_NOT_IMPLEMENTED;
+
+	if (res < 0)
 		pw_log_debug("node %p: send command error %d", this, res);
 
 	return res;
@@ -67,8 +75,13 @@ static int start_node(struct pw_node *this)
 	int res = SPA_RESULT_OK;
 
 	pw_log_debug("node %p: start node", this);
-	if ((res = this->implementation->send_command(this,
-			&SPA_COMMAND_INIT(this->core->type.command_node.Start))) < 0)
+	if (this->implementation->send_command)
+		res = this->implementation->send_command(this->implementation_data,
+			&SPA_COMMAND_INIT(this->core->type.command_node.Start));
+	else
+		res = SPA_RESULT_NOT_IMPLEMENTED;
+
+	if (res < 0)
 		pw_log_debug("node %p: send command error %d", this, res);
 
 	return res;
@@ -95,10 +108,9 @@ static int suspend_node(struct pw_node *this)
 	return res;
 }
 
-static void on_async_complete(struct pw_listener *listener,
-			      struct pw_node *node, uint32_t seq, int res)
+static void node_async_complete(void *data, uint32_t seq, int res)
 {
-        struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, on_async_complete);
+        struct impl *impl = data;
 	struct pw_node *this = &impl->this;
 
 	pw_log_debug("node %p: async complete event %d %d", this, seq, res);
@@ -130,14 +142,18 @@ static void send_clock_update(struct pw_node *this)
 					 &cu.body.ticks.value,
 					 &cu.body.monotonic_time.value);
 	}
-	if ((res = this->implementation->send_command(this, (struct spa_command *) &cu)) < 0)
+	if (this->implementation->send_command)
+		res = this->implementation->send_command(this->implementation_data, (struct spa_command *) &cu);
+	else
+		res = SPA_RESULT_NOT_IMPLEMENTED;
+
+	if (res < 0)
 		pw_log_debug("node %p: send clock update error %d", this, res);
 }
 
-static void on_event(struct pw_listener *listener,
-		     struct pw_node *node, const struct spa_event *event)
+static void node_event(void *data, const struct spa_event *event)
 {
-        struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, on_event);
+        struct impl *impl = data;
 	struct pw_node *this = &impl->this;
 
 	pw_log_trace("node %p: event %d", this, SPA_EVENT_TYPE(event));
@@ -146,18 +162,22 @@ static void on_event(struct pw_listener *listener,
         }
 }
 
-static void on_need_input(struct pw_listener *listener,
-			  struct pw_node *node)
+static void node_need_input(void *data)
 {
-	spa_graph_scheduler_pull(node->rt.sched, &node->rt.node);
-	while (spa_graph_scheduler_iterate(node->rt.sched));
+        struct impl *impl = data;
+	struct pw_node *this = &impl->this;
+
+	spa_graph_scheduler_pull(this->rt.sched, &this->rt.node);
+	while (spa_graph_scheduler_iterate(this->rt.sched));
 }
 
-static void on_have_output(struct pw_listener *listener,
-			   struct pw_node *node)
+static void node_have_output(void *data)
 {
-	spa_graph_scheduler_push(node->rt.sched, &node->rt.node);
-	while (spa_graph_scheduler_iterate(node->rt.sched));
+        struct impl *impl = data;
+	struct pw_node *this = &impl->this;
+
+	spa_graph_scheduler_push(this->rt.sched, &this->rt.node);
+	while (spa_graph_scheduler_iterate(this->rt.sched));
 }
 
 static void node_unbind_func(void *data)
@@ -227,6 +247,11 @@ clear_info(struct pw_node *this)
 
 }
 
+static const struct pw_resource_callbacks resource_callbacks = {
+	PW_VERSION_RESOURCE_CALLBACKS,
+	.destroy = node_unbind_func,
+};
+
 static int
 node_bind_func(struct pw_global *global,
 	       struct pw_client *client, uint32_t permissions,
@@ -234,12 +259,14 @@ node_bind_func(struct pw_global *global,
 {
 	struct pw_node *this = global->object;
 	struct pw_resource *resource;
+	struct resource_data *data;
 
-	resource = pw_resource_new(client, id, permissions, global->type, version, 0, node_unbind_func);
+	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
 	if (resource == NULL)
 		goto no_mem;
 
-	pw_resource_set_implementation(resource, this, NULL);
+	data = pw_resource_get_user_data(resource);
+	pw_resource_add_callbacks(resource, &data->resource_callbacks, &resource_callbacks, resource);
 
 	pw_log_debug("node %p: bound to %d", this, resource->id);
 
@@ -288,7 +315,7 @@ void pw_node_register(struct pw_node *this)
 					  node_bind_func, this);
 
 	impl->registered = true;
-	pw_signal_emit(&this->initialized, this);
+	pw_callback_emit_na(&this->callback_list, struct pw_node_callbacks, initialized);
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 }
@@ -297,20 +324,38 @@ static int
 graph_impl_process_input(struct spa_graph_node *node, void *user_data)
 {
 	struct pw_node *this = user_data;
-	return this->implementation->process_input(this);
+	int res;
+	if (this->implementation->process_input)
+		res = this->implementation->process_input(this->implementation_data);
+	else
+		res = SPA_RESULT_NOT_IMPLEMENTED;
+	return res;
 }
 
 static int
 graph_impl_process_output(struct spa_graph_node *node, void *user_data)
 {
 	struct pw_node *this = user_data;
-	return this->implementation->process_output(this);
+	int res;
+	if (this->implementation->process_output)
+		res = this->implementation->process_output(this->implementation_data);
+	else
+		res = SPA_RESULT_NOT_IMPLEMENTED;
+	return res;
 }
 
 static const struct spa_graph_node_methods graph_methods = {
 	SPA_VERSION_GRAPH_NODE_METHODS,
 	graph_impl_process_input,
         graph_impl_process_output,
+};
+
+static const struct pw_node_callbacks node_callbacks = {
+	PW_VERSION_NODE_CALLBACKS,
+	.async_complete = node_async_complete,
+	.event = node_event,
+	.need_input = node_need_input,
+	.have_output = node_have_output,
 };
 
 struct pw_node *pw_node_new(struct pw_core *core,
@@ -352,22 +397,9 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	spa_list_init(&this->resource_list);
 
-	pw_signal_init(&this->state_request);
-	pw_signal_init(&this->state_changed);
-	pw_signal_init(&this->initialized);
-	pw_signal_init(&this->port_added);
-	pw_signal_init(&this->port_removed);
-	pw_signal_init(&this->destroy_signal);
-	pw_signal_init(&this->free_signal);
-	pw_signal_init(&this->async_complete);
-	pw_signal_init(&this->event);
-	pw_signal_init(&this->need_input);
-	pw_signal_init(&this->have_output);
+	pw_callback_init(&this->callback_list);
 
-	pw_signal_add(&this->async_complete, &impl->on_async_complete, on_async_complete);
-	pw_signal_add(&this->event, &impl->on_event, on_event);
-	pw_signal_add(&this->need_input, &impl->on_need_input, on_need_input);
-	pw_signal_add(&this->have_output, &impl->on_have_output, on_have_output);
+	pw_node_add_callbacks(this, &impl->node_callbacks, &node_callbacks, impl);
 
 	this->info.state = PW_NODE_STATE_CREATING;
 
@@ -386,6 +418,32 @@ struct pw_node *pw_node_new(struct pw_core *core,
       no_mem:
 	free(impl);
 	return NULL;
+}
+
+void * pw_node_get_user_data(struct pw_node *node)
+{
+	return node->user_data;
+}
+
+struct pw_core * pw_node_get_core(struct pw_node *node)
+{
+	return node->core;
+}
+
+void pw_node_set_implementation(struct pw_node *node,
+				const struct pw_node_implementation *implementation,
+				void *data)
+{
+	node->implementation = implementation;
+	node->implementation_data = data;
+}
+
+void pw_node_add_callbacks(struct pw_node *node,
+			   struct pw_callback_info *info,
+			   const struct pw_node_callbacks *callbacks,
+			   void *data)
+{
+	pw_callback_add(&node->callback_list, info, callbacks, data);
 }
 
 static int
@@ -416,7 +474,7 @@ void pw_node_destroy(struct pw_node *node)
 	struct pw_port *port, *tmpp;
 
 	pw_log_debug("node %p: destroy", impl);
-	pw_signal_emit(&node->destroy_signal, node);
+	pw_callback_emit_na(&node->callback_list, struct pw_node_callbacks, destroy);
 
 	pw_loop_invoke(node->data_loop, do_node_remove, 1, 0, NULL, true, node);
 
@@ -431,20 +489,17 @@ void pw_node_destroy(struct pw_node *node)
 
 	pw_log_debug("node %p: destroy ports", node);
 	spa_list_for_each_safe(port, tmpp, &node->input_ports, link) {
-		pw_signal_emit(&node->port_removed, node, port);
+		pw_callback_emit(&node->callback_list, struct pw_node_callbacks, port_removed, port);
 		pw_port_destroy(port);
 	}
 
 	spa_list_for_each_safe(port, tmpp, &node->output_ports, link) {
-		pw_signal_emit(&node->port_removed, node, port);
+		pw_callback_emit(&node->callback_list, struct pw_node_callbacks, port_removed, port);
 		pw_port_destroy(port);
 	}
 
 	pw_log_debug("node %p: free", node);
-	pw_signal_emit(&node->free_signal, node);
-
-	if (node->destroy)
-		node->destroy(node);
+	pw_callback_emit_na(&node->callback_list, struct pw_node_callbacks, free);
 
 	pw_work_queue_destroy(impl->work);
 
@@ -519,7 +574,11 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 
 		pw_log_debug("node %p: creating port direction %d %u", node, direction, port_id);
 
-		port = node->implementation->add_port(node, direction, port_id);
+		if (node->implementation->add_port)
+			port = node->implementation->add_port(node->implementation_data, direction, port_id);
+		else
+			port = NULL;
+
 		if (port == NULL)
 			goto no_mem;
 	} else {
@@ -593,7 +652,7 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 	int res = SPA_RESULT_OK;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
-	pw_signal_emit(&node->state_request, node, state);
+	pw_callback_emit(&node->callback_list, struct pw_node_callbacks, state_request, state);
 
 	pw_log_debug("node %p: set state %s", node, pw_node_state_as_string(state));
 
@@ -656,11 +715,15 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 		if (state == PW_NODE_STATE_IDLE)
 			node_deactivate(node);
 
-		pw_signal_emit(&node->state_changed, node, old, state);
+		pw_callback_emit(&node->callback_list, struct pw_node_callbacks, state_changed,
+				 old, state, error);
 
 		node->info.change_mask |= 1 << 5;
+		pw_callback_emit(&node->callback_list, struct pw_node_callbacks, info_changed, &node->info);
+
 		spa_list_for_each(resource, &node->resource_list, link)
 			pw_node_resource_info(resource, &node->info);
+
 		node->info.change_mask = 0;
 	}
 }

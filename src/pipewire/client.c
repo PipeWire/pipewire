@@ -23,12 +23,18 @@
 #include "pipewire/interfaces.h"
 
 #include "pipewire/client.h"
+#include "pipewire/private.h"
 #include "pipewire/resource.h"
 
 /** \cond */
 struct impl {
 	struct pw_client this;
 };
+
+struct resource_data {
+	struct pw_callback_info resource_callbacks;
+};
+
 /** \endcond */
 
 static void client_unbind_func(void *data)
@@ -37,6 +43,11 @@ static void client_unbind_func(void *data)
 	spa_list_remove(&resource->link);
 }
 
+static const struct pw_resource_callbacks resource_callbacks = {
+	PW_VERSION_RESOURCE_CALLBACKS,
+	.destroy = client_unbind_func,
+};
+
 static int
 client_bind_func(struct pw_global *global,
 		 struct pw_client *client, uint32_t permissions,
@@ -44,12 +55,14 @@ client_bind_func(struct pw_global *global,
 {
 	struct pw_client *this = global->object;
 	struct pw_resource *resource;
+	struct resource_data *data;
 
-	resource = pw_resource_new(client, id, permissions, global->type, version, 0, client_unbind_func);
+	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
 	if (resource == NULL)
 		goto no_mem;
 
-	pw_resource_set_implementation(resource, this, NULL);
+	data = pw_resource_get_user_data(resource);
+	pw_resource_add_callbacks(resource, &data->resource_callbacks, &resource_callbacks, resource);
 
 	pw_log_debug("client %p: bound to %d", this, resource->id);
 
@@ -102,15 +115,10 @@ struct pw_client *pw_client_new(struct pw_core *core,
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	spa_list_init(&this->resource_list);
-	pw_signal_init(&this->properties_changed);
-	pw_signal_init(&this->resource_added);
-	pw_signal_init(&this->resource_impl);
-	pw_signal_init(&this->resource_removed);
-	pw_signal_init(&this->busy_changed);
+	pw_callback_init(&this->callback_list);
 
 	pw_map_init(&this->objects, 0, 32);
 	pw_map_init(&this->types, 0, 32);
-	pw_signal_init(&this->destroy_signal);
 
 	spa_list_insert(core->client_list.prev, &this->link);
 
@@ -120,6 +128,11 @@ struct pw_client *pw_client_new(struct pw_core *core,
 			   client_bind_func, this);
 
 	return this;
+}
+
+void *pw_client_get_user_data(struct pw_client *client)
+{
+	return client->user_data;
 }
 
 static void destroy_resource(void *object, void *data)
@@ -139,7 +152,7 @@ void pw_client_destroy(struct pw_client *client)
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 
 	pw_log_debug("client %p: destroy", client);
-	pw_signal_emit(&client->destroy_signal, client);
+	pw_callback_emit_na(&client->callback_list, struct pw_client_callbacks, destroy);
 
 	spa_list_remove(&client->link);
 	pw_global_destroy(client->global);
@@ -149,10 +162,8 @@ void pw_client_destroy(struct pw_client *client)
 
 	pw_map_for_each(&client->objects, destroy_resource, client);
 
+	pw_callback_emit_na(&client->callback_list, struct pw_client_callbacks, free);
 	pw_log_debug("client %p: free", impl);
-
-	if (client->destroy)
-		client->destroy(client);
 
 	pw_map_clear(&client->objects);
 	pw_map_clear(&client->types);
@@ -161,6 +172,19 @@ void pw_client_destroy(struct pw_client *client)
 		pw_properties_free(client->properties);
 
 	free(impl);
+}
+
+void pw_client_add_callbacks(struct pw_client *client,
+			     struct pw_callback_info *info,
+			     const struct pw_client_callbacks *callbacks,
+			     void *data)
+{
+	pw_callback_add(&client->callback_list, info, callbacks, data);
+}
+
+const struct pw_client_info *pw_client_get_info(struct pw_client *client)
+{
+	return &client->info;
 }
 
 /** Update client properties
@@ -189,20 +213,21 @@ void pw_client_update_properties(struct pw_client *client, const struct spa_dict
 					  dict->items[i].key, dict->items[i].value);
 	}
 
-	client->info.change_mask = 1 << 0;
+	client->info.change_mask |= 1 << 0;
 	client->info.props = client->properties ? &client->properties->dict : NULL;
 
-	pw_signal_emit(&client->properties_changed, client);
+	pw_callback_emit(&client->callback_list, struct pw_client_callbacks, info_changed, &client->info);
 
-	spa_list_for_each(resource, &client->resource_list, link) {
+	spa_list_for_each(resource, &client->resource_list, link)
 		pw_client_resource_info(resource, &client->info);
-	}
+
+	client->info.change_mask = 0;
 }
 
 void pw_client_set_busy(struct pw_client *client, bool busy)
 {
 	if (client->busy != busy) {
 		client->busy = busy;
-		pw_signal_emit(&client->busy_changed, client);
+		pw_callback_emit(&client->callback_list, struct pw_client_callbacks, busy_changed, busy);
 	}
 }

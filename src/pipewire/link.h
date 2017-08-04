@@ -26,6 +26,12 @@ extern "C" {
 
 #include <spa/ringbuffer.h>
 
+/** \class pw_link
+ *
+ * PipeWire link interface.
+ */
+struct pw_link;
+
 #include <pipewire/mem.h>
 #include <pipewire/introspect.h>
 
@@ -48,48 +54,19 @@ extern "C" {
  * the nodes.
  */
 
-/** \class pw_link
- *
- * PipeWire link interface.
- */
-struct pw_link {
-	struct pw_core *core;		/**< core object */
-	struct spa_list link;		/**< link in core link_list */
-	struct pw_global *global;	/**< global for this link */
+struct pw_link_callbacks {
+#define PW_VERSION_LINK_CALLBACKS	0
+	uint32_t version;
 
-	struct pw_properties *properties;	/**< extra link properties */
+	void (*destroy) (void *data);
 
-        struct pw_link_info info;		/**< introspectable link info */
+	void (*info_changed) (void *data, const struct pw_link_info *info);
 
-	enum pw_link_state state;	/**< link state */
-	char *error;			/**< error message when state error */
-	/** Emited when the link state changed */
-	PW_SIGNAL(state_changed, (struct pw_listener *listener,
-				  struct pw_link *link,
-				  enum pw_link_state old, enum pw_link_state state));
+	void (*state_changed) (void *data, enum pw_link_state old,
+					   enum pw_link_state state, const char *error);
 
-	/** Emited when the link is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *, struct pw_link *));
-
-	struct spa_list resource_list;	/**< list of bound resources */
-
-	struct spa_port_io io;		/**< link io area */
-
-	struct pw_port *output;		/**< output port */
-	struct spa_list output_link;	/**< link in output port links */
-	struct pw_port *input;		/**< input port */
-	struct spa_list input_link;	/**< link in input port links */
-
-	/** Emited when the port is unlinked */
-	PW_SIGNAL(port_unlinked, (struct pw_listener *listener,
-				  struct pw_link *link, struct pw_port *port));
-
-	struct {
-		struct spa_graph_port out_port;
-		struct spa_graph_port in_port;
-	} rt;
+	void (*port_unlinked) (void *data, struct pw_port *port);
 };
-
 
 /** Make a new link between two ports \memberof pw_link
  * \return a newly allocated link */
@@ -100,10 +77,15 @@ pw_link_new(struct pw_core *core,		/**< the core object */
 	    struct pw_port *input,		/**< an input port */
 	    struct spa_format *format_filter,	/**< an optional format filter */
 	    struct pw_properties *properties	/**< extra properties */,
-	    char **error			/**< error string */);
+	    char **error			/**< error string when result is NULL */);
 
 /** Destroy a link \memberof pw_link */
 void pw_link_destroy(struct pw_link *link);
+
+void pw_link_add_callbacks(struct pw_link *link,
+			   struct pw_callback_info *info,
+			   const struct pw_link_callbacks *callbacks,
+			   void *data);
 
 /** Find the link between 2 ports \memberof pw_link */
 struct pw_link * pw_link_find(struct pw_port *output, struct pw_port *input);

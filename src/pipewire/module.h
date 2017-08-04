@@ -36,18 +36,7 @@ extern "C" {
  *
  * A dynamically loadable module
  */
-struct pw_module {
-	struct pw_core *core;		/**< the core object */
-	struct spa_list link;		/**< link in the core module_list */
-	struct pw_global *global;	/**< global object for this module */
-
-	struct pw_module_info info;	/**< introspectable module info */
-
-	void *user_data;		/**< module user_data */
-
-	/** Emited when the module is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_module *module));
-};
+struct pw_module;
 
 /** Module init function signature
  *
@@ -62,8 +51,27 @@ struct pw_module {
  */
 typedef bool (*pw_module_init_func_t) (struct pw_module *module, char *args);
 
+struct pw_module_callbacks {
+#define PW_VERSION_MODULE_CALLBACKS	0
+	uint32_t version;
+
+	void (*destroy) (void *data, struct pw_module *module);
+};
+
 struct pw_module *
 pw_module_load(struct pw_core *core, const char *name, const char *args);
+
+struct pw_core * pw_module_get_core(struct pw_module *module);
+
+struct pw_global * pw_module_get_global(struct pw_module *module);
+
+const struct pw_module_info *
+pw_module_get_info(struct pw_module *module);
+
+void pw_module_add_callbacks(struct pw_module *module,
+			     struct pw_callback_info *info,
+			     const struct pw_module_callbacks *callbacks,
+			     void *data);
 
 void
 pw_module_destroy(struct pw_module *module);

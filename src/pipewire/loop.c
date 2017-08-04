@@ -72,8 +72,6 @@ struct pw_loop *pw_loop_new(void)
 
 	this = &impl->this;
 
-	pw_signal_init(&this->destroy_signal);
-
 	if ((res = spa_handle_factory_init(factory,
 					   impl->handle,
 					   NULL,
@@ -121,8 +119,6 @@ struct pw_loop *pw_loop_new(void)
 void pw_loop_destroy(struct pw_loop *loop)
 {
 	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
-
-	pw_signal_emit(&loop->destroy_signal, loop);
 
 	spa_handle_clear(impl->handle);
 	free(impl);

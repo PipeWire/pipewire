@@ -33,6 +33,7 @@
 #include "spa/lib/format.h"
 
 #include "pipewire/pipewire.h"
+#include "pipewire/private.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/transport.h"
 
@@ -120,8 +121,8 @@ struct impl {
 
 	struct pw_transport *transport;
 
-	struct pw_listener node_free;
-	struct pw_listener initialized;
+	struct pw_callback_info node_callbacks;
+	struct pw_callback_info resource_callbacks;
 
 	int fds[2];
 	int other_fds[2];
@@ -830,11 +831,9 @@ static int handle_node_event(struct proxy *this, struct spa_event *event)
 }
 
 static void
-client_node_done(void *object, int seq, int res)
+client_node_done(void *data, int seq, int res)
 {
-	struct pw_resource *resource = object;
-	struct pw_client_node *node = resource->object;
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+	struct impl *impl = data;
 	struct proxy *this = &impl->proxy;
 
 	this->callbacks->done(&this->node, seq, res, this->user_data);
@@ -842,14 +841,12 @@ client_node_done(void *object, int seq, int res)
 
 
 static void
-client_node_update(void *object,
+client_node_update(void *data,
 		   uint32_t change_mask,
 		   uint32_t max_input_ports,
 		   uint32_t max_output_ports, const struct spa_props *props)
 {
-	struct pw_resource *resource = object;
-	struct pw_client_node *node = resource->object;
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+	struct impl *impl = data;
 	struct proxy *this = &impl->proxy;
 
 	if (change_mask & PW_CLIENT_NODE_UPDATE_MAX_INPUTS)
@@ -862,7 +859,7 @@ client_node_update(void *object,
 }
 
 static void
-client_node_port_update(void *object,
+client_node_port_update(void *data,
 			enum spa_direction direction,
 			uint32_t port_id,
 			uint32_t change_mask,
@@ -872,9 +869,7 @@ client_node_port_update(void *object,
 			uint32_t n_params,
 			const struct spa_param **params, const struct spa_port_info *info)
 {
-	struct pw_resource *resource = object;
-	struct pw_client_node *node = resource->object;
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+	struct impl *impl = data;
 	struct proxy *this = &impl->proxy;
 	bool remove;
 
@@ -896,30 +891,26 @@ client_node_port_update(void *object,
 	}
 }
 
-static void client_node_event(void *object, struct spa_event *event)
+static void client_node_event(void *data, struct spa_event *event)
 {
-	struct pw_resource *resource = object;
-	struct pw_client_node *node = resource->object;
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+	struct impl *impl = data;
 	struct proxy *this = &impl->proxy;
-
 	this->callbacks->event(&this->node, event, this->user_data);
 }
 
-static void client_node_destroy(void *object)
+static void client_node_destroy(void *data)
 {
-	struct pw_resource *resource = object;
-	struct pw_client_node *node = resource->object;
-	pw_client_node_destroy(node);
+	struct impl *impl = data;
+	pw_client_node_destroy(&impl->this);
 }
 
 static struct pw_client_node_methods client_node_methods = {
 	PW_VERSION_CLIENT_NODE_METHODS,
-	&client_node_done,
-	&client_node_update,
-	&client_node_port_update,
-	&client_node_event,
-	&client_node_destroy,
+	.done = client_node_done,
+	.update = client_node_update,
+	.port_update = client_node_port_update,
+	.event = client_node_event,
+	.destroy = client_node_destroy,
 };
 
 static void proxy_on_data_fd_events(struct spa_source *source)
@@ -1035,10 +1026,11 @@ static int client_node_get_fds(struct pw_client_node *node, int *readfd, int *wr
 	return SPA_RESULT_OK;
 }
 
-static void on_initialized(struct pw_listener *listener, struct pw_node *node)
+static void node_initialized(void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, initialized);
+	struct impl *impl = data;
 	struct pw_client_node *this = &impl->this;
+	struct pw_node *node = this->node;
 	struct pw_transport_info info;
 	int readfd, writefd;
 
@@ -1072,10 +1064,10 @@ static int proxy_clear(struct proxy *this)
 	return SPA_RESULT_OK;
 }
 
-static void client_node_resource_destroy(struct pw_resource *resource)
+static void client_node_resource_destroy(void *data)
 {
-	struct pw_client_node *this = resource->object;
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	struct impl *impl = data;
+	struct pw_client_node *this = &impl->this;
 	struct proxy *proxy = &impl->proxy;
 
 	pw_log_debug("client-node %p: destroy", impl);
@@ -1083,25 +1075,23 @@ static void client_node_resource_destroy(struct pw_resource *resource)
 
 	impl->proxy.resource = this->resource = NULL;
 
-	pw_signal_remove(&impl->initialized);
-
 	if (proxy->data_source.fd != -1)
 		spa_loop_remove_source(proxy->data_loop, &proxy->data_source);
 
 	pw_node_destroy(this->node);
 }
 
-static void on_node_free(struct pw_listener *listener, struct pw_node *node)
+static void node_free(void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, node_free);
+	struct impl *impl = data;
 
 	pw_log_debug("client-node %p: free", &impl->this);
 	proxy_clear(&impl->proxy);
 
-	pw_signal_remove(&impl->node_free);
-
 	if (impl->transport)
 		pw_transport_destroy(impl->transport);
+
+	pw_callback_remove(&impl->node_callbacks);
 
 	if (impl->fds[0] != -1)
 		close(impl->fds[0]);
@@ -1109,6 +1099,17 @@ static void on_node_free(struct pw_listener *listener, struct pw_node *node)
 		close(impl->fds[1]);
 	free(impl);
 }
+
+static const struct pw_node_callbacks node_callbacks = {
+	PW_VERSION_NODE_CALLBACKS,
+	.free = node_free,
+	.initialized = node_initialized,
+};
+
+static const struct pw_resource_callbacks resource_callbacks = {
+	PW_VERSION_RESOURCE_CALLBACKS,
+	.destroy = client_node_resource_destroy,
+};
 
 /** Create a new client node
  * \param client an owner \ref pw_client
@@ -1156,14 +1157,17 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	if (this->node == NULL)
 		goto error_no_node;
 
-	this->resource->destroy = (pw_destroy_t) client_node_resource_destroy;
+	pw_resource_add_callbacks(this->resource,
+				  &impl->resource_callbacks,
+				  &resource_callbacks,
+				  impl);
 	pw_resource_set_implementation(this->resource,
-				       this, &client_node_methods);
+				       &client_node_methods,
+				       impl);
 
 	impl->proxy.resource = this->resource;
 
-	pw_signal_add(&this->node->free_signal, &impl->node_free, on_node_free);
-	pw_signal_add(&this->node->initialized, &impl->initialized, on_initialized);
+	pw_node_add_callbacks(this->node, &impl->node_callbacks, &node_callbacks, impl);
 
 	return this;
 

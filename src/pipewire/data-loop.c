@@ -24,17 +24,7 @@
 #include "pipewire/log.h"
 #include "pipewire/rtkit.h"
 #include "pipewire/data-loop.h"
-
-/** \cond */
-struct impl {
-	struct pw_data_loop this;
-
-	struct spa_source *event;
-
-	bool running;
-	pthread_t thread;
-};
-/** \endcond */
+#include "pipewire/private.h"
 
 static void make_realtime(struct pw_data_loop *this)
 {
@@ -81,21 +71,20 @@ static void make_realtime(struct pw_data_loop *this)
 
 static void *do_loop(void *user_data)
 {
-	struct impl *impl = user_data;
-	struct pw_data_loop *this = &impl->this;
+	struct pw_data_loop *this = user_data;
 	int res;
 
 	make_realtime(this);
 
 	pw_log_debug("data-loop %p: enter thread", this);
-	pw_loop_enter(impl->this.loop);
+	pw_loop_enter(this->loop);
 
-	while (impl->running) {
+	while (this->running) {
 		if ((res = pw_loop_iterate(this->loop, -1)) < 0)
 			pw_log_warn("data-loop %p: iterate error %d", this, res);
 	}
 	pw_log_debug("data-loop %p: leave thread", this);
-	pw_loop_leave(impl->this.loop);
+	pw_loop_leave(this->loop);
 
 	return NULL;
 }
@@ -103,8 +92,8 @@ static void *do_loop(void *user_data)
 
 static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, uint64_t count, void *data)
 {
-	struct impl *impl = data;
-	impl->running = false;
+	struct pw_data_loop *this = data;
+	this->running = false;
 }
 
 /** Create a new \ref pw_data_loop.
@@ -114,27 +103,26 @@ static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, uin
  */
 struct pw_data_loop *pw_data_loop_new(void)
 {
-	struct impl *impl;
 	struct pw_data_loop *this;
 
-	impl = calloc(1, sizeof(struct impl));
-	if (impl == NULL)
+	this = calloc(1, sizeof(struct pw_data_loop));
+	if (this == NULL)
 		return NULL;
 
-	pw_log_debug("data-loop %p: new", impl);
+	pw_log_debug("data-loop %p: new", this);
 
-	this = &impl->this;
 	this->loop = pw_loop_new();
 	if (this->loop == NULL)
 		goto no_loop;
 
-	pw_signal_init(&this->destroy_signal);
+	pw_callback_init(&this->callback_list);
 
-	impl->event = pw_loop_add_event(this->loop, do_stop, impl);
+	this->event = pw_loop_add_event(this->loop, do_stop, this);
+
 	return this;
 
       no_loop:
-	free(impl);
+	free(this);
 	return NULL;
 }
 
@@ -144,16 +132,29 @@ struct pw_data_loop *pw_data_loop_new(void)
  */
 void pw_data_loop_destroy(struct pw_data_loop *loop)
 {
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
+	pw_log_debug("data-loop %p: destroy", loop);
 
-	pw_log_debug("data-loop %p: destroy", impl);
-	pw_signal_emit(&loop->destroy_signal, loop);
+	pw_callback_emit_na(&loop->callback_list, struct pw_data_loop_callbacks, destroy);
 
 	pw_data_loop_stop(loop);
 
-	pw_loop_destroy_source(loop->loop, impl->event);
+	pw_loop_destroy_source(loop->loop, loop->event);
 	pw_loop_destroy(loop->loop);
-	free(impl);
+	free(loop);
+}
+
+void pw_data_loop_add_callbacks(struct pw_data_loop *loop,
+				struct pw_callback_info *info,
+				const struct pw_data_loop_callbacks *callbacks,
+				void *data)
+{
+	pw_callback_add(&loop->callback_list, info, callbacks, data);
+}
+
+struct pw_loop *
+pw_data_loop_get_loop(struct pw_data_loop *loop)
+{
+	return loop->loop;
 }
 
 /** Start a data loop
@@ -166,15 +167,13 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
  */
 int pw_data_loop_start(struct pw_data_loop *loop)
 {
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
-
-	if (!impl->running) {
+	if (!loop->running) {
 		int err;
 
-		impl->running = true;
-		if ((err = pthread_create(&impl->thread, NULL, do_loop, impl)) != 0) {
-			pw_log_warn("data-loop %p: can't create thread: %s", impl, strerror(err));
-			impl->running = false;
+		loop->running = true;
+		if ((err = pthread_create(&loop->thread, NULL, do_loop, loop)) != 0) {
+			pw_log_warn("data-loop %p: can't create thread: %s", loop, strerror(err));
+			loop->running = false;
 			return SPA_RESULT_ERROR;
 		}
 	}
@@ -191,12 +190,10 @@ int pw_data_loop_start(struct pw_data_loop *loop)
  */
 int pw_data_loop_stop(struct pw_data_loop *loop)
 {
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
+	if (loop->running) {
+		pw_loop_signal_event(loop->loop, loop->event);
 
-	if (impl->running) {
-		pw_loop_signal_event(impl->this.loop, impl->event);
-
-		pthread_join(impl->thread, NULL);
+		pthread_join(loop->thread, NULL);
 	}
 	return SPA_RESULT_OK;
 }
@@ -209,6 +206,5 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
  */
 bool pw_data_loop_in_thread(struct pw_data_loop * loop)
 {
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
-	return pthread_equal(impl->thread, pthread_self());
+	return pthread_equal(loop->thread, pthread_self());
 }

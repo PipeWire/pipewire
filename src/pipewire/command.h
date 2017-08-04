@@ -25,17 +25,13 @@
 extern "C" {
 #endif
 
-#include <pipewire/core.h>
-
 /** \class pw_command
  *
  * A configuration command
  */
-struct pw_command {
-	struct spa_list link;	/**< link in list of commands */
+struct pw_command;
 
-	const char *name;	/**< command name */
-};
+#include <pipewire/core.h>
 
 
 struct pw_command *

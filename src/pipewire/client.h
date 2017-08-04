@@ -30,10 +30,23 @@ extern "C" {
 
 #include <sys/socket.h>
 
+/** \class pw_client
+ *
+ * \brief PipeWire client object class.
+ *
+ * The client object represents a client connection with the PipeWire
+ * server.
+ *
+ * Each client has its own list of resources it is bound to along with
+ * a mapping between the client types and server types.
+ */
+struct pw_client;
+
 #include <pipewire/core.h>
 #include <pipewire/introspect.h>
 #include <pipewire/properties.h>
 #include <pipewire/sig.h>
+#include <pipewire/callback.h>
 #include <pipewire/resource.h>
 
 #define PW_TYPE__Client           PW_TYPE_OBJECT_BASE "Client"
@@ -69,60 +82,23 @@ extern "C" {
  * See also \ref page_resource
  */
 
-/** \class pw_client
- *
- * \brief PipeWire client object class.
- *
- * The client object represents a client connection with the PipeWire
- * server.
- *
- * Each client has its own list of resources it is bound to along with
- * a mapping between the client types and server types.
- */
-struct pw_client {
-	struct pw_core *core;		/**< core object */
-	struct spa_list link;		/**< link in core object client list */
-	struct pw_global *global;	/**< global object created for this client */
+struct pw_client_callbacks {
+#define PW_VERSION_CLIENT_CALLBACKS      0
+        uint32_t version;
 
-	struct pw_properties *properties;	/**< Client properties */
-	/** Emited when the properties changed */
-	PW_SIGNAL(properties_changed, (struct pw_listener *listener, struct pw_client *client));
+	void (*destroy) (void *data);
 
-	struct pw_client_info info;	/**< client info */
-	bool ucred_valid;		/**< if the ucred member is valid */
-	struct ucred ucred;		/**< ucred information */
+	void (*free) (void *data);
 
-	struct pw_resource *core_resource;	/**< core resource object */
+	void (*info_changed) (void *data, struct pw_client_info *info);
 
-	struct pw_map objects;		/**< list of resource objects */
-	uint32_t n_types;		/**< number of client types */
-	struct pw_map types;		/**< map of client types */
+	void (*resource_added) (void *data, struct pw_resource *resource);
 
-	struct spa_list resource_list;	/**< The list of resources of this client */
-	/** Emited when a resource is added */
-	PW_SIGNAL(resource_added, (struct pw_listener *listener,
-				   struct pw_client *client, struct pw_resource *resource));
-	/** Emited when a resource implementation is set */
-	PW_SIGNAL(resource_impl, (struct pw_listener *listener,
-				  struct pw_client *client, struct pw_resource *resource));
-	/** Emited when a resource is removed */
-	PW_SIGNAL(resource_removed, (struct pw_listener *listener,
-				     struct pw_client *client, struct pw_resource *resource));
+	void (*resource_impl) (void *data, struct pw_resource *resource);
 
-	bool busy;
-	/** Emited when the client starts/stops an async operation that should
-	 * block/resume all methods for this client */
-	PW_SIGNAL(busy_changed, (struct pw_listener *listener, struct pw_client *client));
+	void (*resource_removed) (void *data, struct pw_resource *resource);
 
-	/** Emited when the client is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_client *client));
-
-	struct pw_protocol *protocol;	/**< protocol in use */
-	struct spa_list protocol_link;	/**< link in the protocol client_list */
-	void *protocol_private;		/**< private data for the protocol */
-
-	void *user_data;		/**< extra user data */
-	pw_destroy_t destroy;		/**< function to clean up the object */
+	void (*busy_changed) (void *data, bool busy);
 };
 
 struct pw_client *
@@ -132,12 +108,22 @@ pw_client_new(struct pw_core *core,
 	      struct pw_properties *properties,
 	      size_t user_data_size);
 
-void
-pw_client_destroy(struct pw_client *client);
+void pw_client_destroy(struct pw_client *client);
 
-void
-pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
+void *pw_client_get_user_data(struct pw_client *client);
 
+void pw_client_add_callbacks(struct pw_client *client,
+			     struct pw_callback_info *info,
+			     const struct pw_client_callbacks *callbacks,
+			     void *data);
+
+
+const struct pw_client_info *pw_client_get_info(struct pw_client *client);
+
+void pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
+
+/** Mark the client busy. This can be used when an asynchronous operation is
+  * started and no further processing is allowed to happen for the client */
 void pw_client_set_busy(struct pw_client *client, bool busy);
 
 #ifdef __cplusplus

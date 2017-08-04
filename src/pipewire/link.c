@@ -27,7 +27,9 @@
 #include <spa/lib/format.h>
 #include <spa/lib/props.h>
 
+#include "callback.h"
 #include "pipewire.h"
+#include "private.h"
 #include "interfaces.h"
 #include "link.h"
 #include "work-queue.h"
@@ -45,15 +47,19 @@ struct impl {
 	struct spa_format *format_filter;
 	struct pw_properties *properties;
 
-	struct pw_listener input_port_destroy;
-	struct pw_listener input_async_complete;
-	struct pw_listener output_port_destroy;
-	struct pw_listener output_async_complete;
+	struct pw_callback_info input_port_callbacks;
+	struct pw_callback_info input_node_callbacks;
+	struct pw_callback_info output_port_callbacks;
+	struct pw_callback_info output_node_callbacks;
 
 	void *buffer_owner;
 	struct pw_memblock buffer_mem;
 	struct spa_buffer **buffers;
 	uint32_t n_buffers;
+};
+
+struct resource_data {
+	struct pw_callback_info resource_callbacks;
 };
 
 /** \endcond */
@@ -71,7 +77,7 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 			free(link->error);
 		link->error = error;
 
-		pw_signal_emit(&link->state_changed, link, old, state);
+		pw_callback_emit(&link->callback_list, struct pw_link_callbacks, state_changed, old, state, error);
 	}
 }
 
@@ -730,20 +736,20 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 }
 
 static void
-on_input_async_complete_notify(struct pw_listener *listener,
-			       struct pw_node *node, uint32_t seq, int res)
+input_node_async_complete(void *data, uint32_t seq, int res)
 {
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, input_async_complete);
+	struct impl *impl = data;
+	struct pw_node *node = impl->this.input->node;
 
 	pw_log_debug("link %p: node %p async complete %d %d", impl, node, seq, res);
 	pw_work_queue_complete(impl->work, node, seq, res);
 }
 
 static void
-on_output_async_complete_notify(struct pw_listener *listener,
-				struct pw_node *node, uint32_t seq, int res)
+output_node_async_complete(void *data, uint32_t seq, int res)
 {
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, output_async_complete);
+	struct impl *impl = data;
+	struct pw_node *node = impl->this.output->node;
 
 	pw_log_debug("link %p: node %p async complete %d %d", impl, node, seq, res);
 	pw_work_queue_complete(impl->work, node, seq, res);
@@ -771,8 +777,8 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	struct impl *impl = (struct impl *) this;
 
 	pw_log_debug("link %p: remove input port %p", this, port);
-	pw_signal_remove(&impl->input_port_destroy);
-	pw_signal_remove(&impl->input_async_complete);
+	pw_callback_remove(&impl->input_port_callbacks);
+	pw_callback_remove(&impl->input_node_callbacks);
 
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_input, 1, 0, NULL, true, this);
@@ -794,8 +800,8 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	struct impl *impl = (struct impl *) this;
 
 	pw_log_debug("link %p: remove output port %p", this, port);
-	pw_signal_remove(&impl->output_port_destroy);
-	pw_signal_remove(&impl->output_async_complete);
+	pw_callback_remove(&impl->output_port_callbacks);
+	pw_callback_remove(&impl->output_node_callbacks);
 
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_output, 1, 0, NULL, true, this);
@@ -826,24 +832,22 @@ static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 		impl->buffer_owner = NULL;
 	}
 
-	pw_signal_emit(&this->port_unlinked, this, port);
+	pw_callback_emit(&this->callback_list, struct pw_link_callbacks, port_unlinked, port);
 
 	pw_link_update_state(this, PW_LINK_STATE_UNLINKED, NULL);
 	pw_link_destroy(this);
 }
 
-static void on_input_port_destroy(struct pw_listener *listener, struct pw_port *port)
+static void input_port_destroy(void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, input_port_destroy);
-
-	on_port_destroy(&impl->this, port);
+	struct impl *impl = data;
+	on_port_destroy(&impl->this, impl->this.input);
 }
 
-static void on_output_port_destroy(struct pw_listener *listener, struct pw_port *port)
+static void output_port_destroy(void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, output_port_destroy);
-
-	on_port_destroy(&impl->this, port);
+	struct impl *impl = data;
+	on_port_destroy(&impl->this, impl->this.output);
 }
 
 static int
@@ -938,6 +942,11 @@ static void link_unbind_func(void *data)
 	spa_list_remove(&resource->link);
 }
 
+static const struct pw_resource_callbacks resource_callbacks = {
+	PW_VERSION_RESOURCE_CALLBACKS,
+	.destroy = link_unbind_func,
+};
+
 static int
 link_bind_func(struct pw_global *global,
 	       struct pw_client *client, uint32_t permissions,
@@ -945,13 +954,14 @@ link_bind_func(struct pw_global *global,
 {
 	struct pw_link *this = global->object;
 	struct pw_resource *resource;
+	struct resource_data *data;
 
-	resource = pw_resource_new(client, id, permissions, global->type, version, 0, link_unbind_func);
-
+	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
 	if (resource == NULL)
 		goto no_mem;
 
-	pw_resource_set_implementation(resource, this, NULL);
+	data = pw_resource_get_user_data(resource);
+	pw_resource_add_callbacks(resource, &data->resource_callbacks, &resource_callbacks, resource);
 
 	pw_log_debug("link %p: bound to %d", this, resource->id);
 
@@ -985,6 +995,26 @@ do_add_link(struct spa_loop *loop,
 
         return SPA_RESULT_OK;
 }
+
+static const struct pw_port_callbacks input_port_callbacks = {
+	PW_VERSION_PORT_CALLBACKS,
+	.destroy = input_port_destroy,
+};
+
+static const struct pw_port_callbacks output_port_callbacks = {
+	PW_VERSION_PORT_CALLBACKS,
+	.destroy = output_port_destroy,
+};
+
+static const struct pw_node_callbacks input_node_callbacks = {
+	PW_VERSION_NODE_CALLBACKS,
+	.async_complete = input_node_async_complete,
+};
+
+static const struct pw_node_callbacks output_node_callbacks = {
+	PW_VERSION_NODE_CALLBACKS,
+	.async_complete = output_node_async_complete,
+};
 
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_global *parent,
@@ -1024,23 +1054,14 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	output_node = output->node;
 
 	spa_list_init(&this->resource_list);
-	pw_signal_init(&this->port_unlinked);
-	pw_signal_init(&this->state_changed);
-	pw_signal_init(&this->destroy_signal);
+	pw_callback_init(&this->callback_list);
 
 	impl->format_filter = format_filter;
 
-	pw_signal_add(&input->destroy_signal,
-		      &impl->input_port_destroy, on_input_port_destroy);
-
-	pw_signal_add(&input_node->async_complete,
-		      &impl->input_async_complete, on_input_async_complete_notify);
-
-	pw_signal_add(&output->destroy_signal,
-		      &impl->output_port_destroy, on_output_port_destroy);
-
-	pw_signal_add(&output_node->async_complete,
-		      &impl->output_async_complete, on_output_async_complete_notify);
+	pw_port_add_callbacks(input, &impl->input_port_callbacks, &input_port_callbacks, impl);
+	pw_node_add_callbacks(input_node, &impl->input_node_callbacks, &input_node_callbacks, impl);
+	pw_port_add_callbacks(output, &impl->output_port_callbacks, &output_port_callbacks, impl);
+	pw_node_add_callbacks(output_node, &impl->output_node_callbacks, &output_node_callbacks, impl);
 
 	pw_log_debug("link %p: constructed %p:%d -> %p:%d", impl,
 		     output_node, output->port_id, input_node, input->port_id);
@@ -1103,7 +1124,7 @@ void pw_link_destroy(struct pw_link *link)
 	struct pw_resource *resource, *tmp;
 
 	pw_log_debug("link %p: destroy", impl);
-	pw_signal_emit(&link->destroy_signal, link);
+	pw_callback_emit_na(&link->callback_list, struct pw_link_callbacks, destroy);
 
 	pw_link_deactivate(link);
 
@@ -1130,6 +1151,14 @@ void pw_link_destroy(struct pw_link *link)
 		pw_memblock_free(&impl->buffer_mem);
 
 	free(impl);
+}
+
+void pw_link_add_callbacks(struct pw_link *link,
+			   struct pw_callback_info *info,
+			   const struct pw_link_callbacks *callbacks,
+			   void *data)
+{
+	pw_callback_add(&link->callback_list, info, callbacks, data);
 }
 
 struct pw_link *pw_link_find(struct pw_port *output_port, struct pw_port *input_port)

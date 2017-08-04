@@ -29,10 +29,6 @@ extern "C" {
 
 #include <spa/list.h>
 
-#include <pipewire/sig.h>
-#include <pipewire/utils.h>
-#include <pipewire/core.h>
-
 /** \page page_resource Resource
  *
  * \section sec_page_resource Overview
@@ -48,6 +44,7 @@ extern "C" {
  * destroyed.
  *
  */
+
 /** \class pw_resource
  *
  * \brief Client owned objects
@@ -57,29 +54,17 @@ extern "C" {
  *
  * See also \ref page_resource
  */
-struct pw_resource {
-	struct pw_core *core;		/**< the core object */
-	struct spa_list link;		/**< link in object resource_list */
+struct pw_resource;
 
-	struct pw_client *client;	/**< owner client */
+#include <pipewire/utils.h>
+#include <pipewire/core.h>
+#include <pipewire/client.h>
 
-	uint32_t id;			/**< per client unique id, index in client objects */
-	uint32_t permissions;		/**< resource permissions */
-	uint32_t type;			/**< type of the client interface */
-	uint32_t version;		/**< version of the client interface */
+struct pw_resource_callbacks {
+#define PW_VERSION_RESOURCE_CALLBACKS	0
+	uint32_t version;
 
-	void *object;
-	const void *implementation;
-
-	pw_destroy_t destroy;		/**< function to clean up the object */
-
-        const struct pw_protocol_marshal *marshal;
-
-	/** Emited when the resource is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_resource *resource));
-
-	void *access_private;		/**< private data for access control */
-	void *user_data;		/**< extra user data */
+	void (*destroy) (void *data);
 };
 
 /** Make a new resource for client */
@@ -89,19 +74,24 @@ pw_resource_new(struct pw_client *client,	/**< the client owning the resource */
 		uint32_t permissions,		/**< permissions on this resource */
 		uint32_t type,			/**< interface of the resource */
 		uint32_t version,		/**< requested interface version */
-		size_t user_data_size,		/**< extra user data size */
-		pw_destroy_t destroy		/**< destroy function for user data */);
+		size_t user_data_size		/**< extra user data size */);
 
+void *pw_resource_get_user_data(struct pw_resource *resource);
 
-int
-pw_resource_set_implementation(struct pw_resource *resource,
-			       void *object, const void *implementation);
+void pw_resource_add_callbacks(struct pw_resource *resource,
+			       struct pw_callback_info *info,
+			       const struct pw_resource_callbacks *callbacks,
+			       void *data);
+
+void pw_resource_set_implementation(struct pw_resource *resource,
+				    const void *implementation,
+				    void *data);
 
 void
 pw_resource_destroy(struct pw_resource *resource);
 
-#define pw_resource_do(r,type,method,...)	((type*) r->implementation)->method(r, __VA_ARGS__)
-#define pw_resource_do_na(r,type,method)	((type*) r->implementation)->method(r)
+#define pw_resource_do(r,type,method,...)	((type*) r->implementation)->method(r->implementation_data, __VA_ARGS__)
+#define pw_resource_do_na(r,type,method)	((type*) r->implementation)->method(r->implementation_data)
 #define pw_resource_notify(r,type,event,...)	((type*) r->marshal->event_marshal)->event(r, __VA_ARGS__)
 #define pw_resource_notify_na(r,type,event)	((type*) r->marshal->event_marshal)->event(r)
 

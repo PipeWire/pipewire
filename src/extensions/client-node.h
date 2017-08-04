@@ -339,9 +339,11 @@ struct pw_client_node_events {
 
 static inline void
 pw_client_node_proxy_add_listener(struct pw_client_node_proxy *p,
-				  void *object, const struct pw_client_node_events *events)
+				  struct pw_callback_info *info,
+				  const struct pw_client_node_events *events,
+				  void *data)
 {
-        pw_proxy_add_listener(&p->proxy, object, events);
+        pw_proxy_add_listener((struct pw_proxy*)p, info, events, data);
 }
 
 #define pw_client_node_resource_transport(r,...)    pw_resource_notify(r,struct pw_client_node_events,transport,__VA_ARGS__)

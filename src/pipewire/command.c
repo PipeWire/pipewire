@@ -26,6 +26,7 @@
 #include <pipewire/module.h>
 
 #include "command.h"
+#include "private.h"
 
 /** \cond */
 typedef bool(*pw_command_func_t) (struct pw_command *command, struct pw_core *core, char **err);

@@ -64,9 +64,10 @@ struct data {
 	struct pw_loop *loop;
 
 	struct pw_core *core;
+	struct pw_type *t;
 
 	struct pw_remote *remote;
-	struct pw_listener on_state_changed;
+	struct pw_callback_info remote_callbacks;
 
 	struct pw_node *node;
 };
@@ -86,13 +87,13 @@ static void make_node(struct data *data)
 	pw_remote_export(data->remote, data->node);
 }
 
-static void on_state_changed(struct pw_listener *listener, struct pw_remote *remote)
+static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
 {
-	struct data *data = SPA_CONTAINER_OF(listener, struct data, on_state_changed);
+	struct data *data = _data;
 
-	switch (remote->state) {
+	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
-		printf("remote error: %s\n", remote->error);
+		printf("remote error: %s\n", error);
 		data->running = false;
 		break;
 
@@ -101,11 +102,15 @@ static void on_state_changed(struct pw_listener *listener, struct pw_remote *rem
 		break;
 
 	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(remote->state));
+		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
 		break;
 	}
 }
 
+static const struct pw_remote_callbacks remote_callbacks = {
+	PW_VERSION_REMOTE_CALLBACKS,
+	.state_changed = on_state_changed,
+};
 
 int main(int argc, char *argv[])
 {
@@ -116,15 +121,16 @@ int main(int argc, char *argv[])
 	data.loop = pw_loop_new();
 	data.running = true;
 	data.core = pw_core_new(data.loop, NULL);
+	data.t = pw_core_get_type(data.core);
         data.remote = pw_remote_new(data.core, NULL);
 
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL);
 
-	init_type(&data.type, data.core->type.map);
+	init_type(&data.type, data.t->map);
 
-	spa_debug_set_type_map(data.core->type.map);
+	spa_debug_set_type_map(data.t->map);
 
-	pw_signal_add(&data.remote->state_changed, &data.on_state_changed, on_state_changed);
+	pw_remote_add_callbacks(data.remote, &data.remote_callbacks, &remote_callbacks, &data);
 
         pw_remote_connect(data.remote);
 

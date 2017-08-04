@@ -19,14 +19,7 @@
 
 #include "pipewire/log.h"
 #include "pipewire/main-loop.h"
-
-/** \cond */
-struct impl {
-	struct pw_main_loop this;
-
-	bool running;
-};
-/** \endcond */
+#include "pipewire/private.h"
 
 /** Create a new new main loop
  * \return a newly allocated \ref pw_main_loop
@@ -35,26 +28,24 @@ struct impl {
  */
 struct pw_main_loop *pw_main_loop_new(void)
 {
-	struct impl *impl;
 	struct pw_main_loop *this;
 
-	impl = calloc(1, sizeof(struct impl));
-	if (impl == NULL)
+	this = calloc(1, sizeof(struct pw_main_loop));
+	if (this == NULL)
 		return NULL;
 
-	pw_log_debug("main-loop %p: new", impl);
-	this = &impl->this;
+	pw_log_debug("main-loop %p: new", this);
 
 	this->loop = pw_loop_new();
 	if (this->loop == NULL)
 		goto no_loop;
 
-	pw_signal_init(&this->destroy_signal);
+	pw_callback_init(&this->callback_list);
 
 	return this;
 
       no_loop:
-	free(impl);
+	free(this);
 	return NULL;
 }
 
@@ -65,14 +56,25 @@ struct pw_main_loop *pw_main_loop_new(void)
  */
 void pw_main_loop_destroy(struct pw_main_loop *loop)
 {
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
-
-	pw_log_debug("main-loop %p: destroy", impl);
-	pw_signal_emit(&loop->destroy_signal, loop);
+	pw_log_debug("main-loop %p: destroy", loop);
+	pw_callback_emit_na(&loop->callback_list, struct pw_main_loop_callbacks, destroy);
 
 	pw_loop_destroy(loop->loop);
 
-	free(impl);
+	free(loop);
+}
+
+void pw_main_loop_add_callbacks(struct pw_main_loop *loop,
+				struct pw_callback_info *info,
+				const struct pw_main_loop_callbacks *callbacks,
+				void *data)
+{
+	pw_callback_add(&loop->callback_list, info, callbacks, data);
+}
+
+struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop)
+{
+	return loop->loop;
 }
 
 /** Stop a main loop
@@ -84,9 +86,8 @@ void pw_main_loop_destroy(struct pw_main_loop *loop)
  */
 void pw_main_loop_quit(struct pw_main_loop *loop)
 {
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
-	pw_log_debug("main-loop %p: quit", impl);
-	impl->running = false;
+	pw_log_debug("main-loop %p: quit", loop);
+	loop->running = false;
 }
 
 /** Start a main loop
@@ -99,13 +100,11 @@ void pw_main_loop_quit(struct pw_main_loop *loop)
  */
 void pw_main_loop_run(struct pw_main_loop *loop)
 {
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
+	pw_log_debug("main-loop %p: run", loop);
 
-	pw_log_debug("main-loop %p: run", impl);
-
-	impl->running = true;
+	loop->running = true;
 	pw_loop_enter(loop->loop);
-	while (impl->running) {
+	while (loop->running) {
 		pw_loop_iterate(loop->loop, -1);
 	}
 	pw_loop_leave(loop->loop);

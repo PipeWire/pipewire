@@ -29,6 +29,7 @@
 #include <errno.h>
 
 #include "pipewire/pipewire.h"
+#include "pipewire/private.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/utils.h"
 #include "pipewire/module.h"
@@ -38,6 +39,12 @@ struct impl {
 	struct pw_module this;
 	void *hnd;
 };
+
+struct resource_data {
+	struct pw_callback_info resource_callbacks;
+};
+
+
 /** \endcond */
 
 static char *find_module(const char *path, const char *name)
@@ -87,6 +94,17 @@ static char *find_module(const char *path, const char *name)
 	return filename;
 }
 
+static void module_unbind_func(void *data)
+{
+	struct pw_resource *resource = data;
+	spa_list_remove(&resource->link);
+}
+
+static const struct pw_resource_callbacks resource_callbacks = {
+	PW_VERSION_RESOURCE_CALLBACKS,
+	.destroy = module_unbind_func,
+};
+
 static int
 module_bind_func(struct pw_global *global,
 		 struct pw_client *client, uint32_t permissions,
@@ -94,14 +112,18 @@ module_bind_func(struct pw_global *global,
 {
 	struct pw_module *this = global->object;
 	struct pw_resource *resource;
+	struct resource_data *data;
 
-	resource = pw_resource_new(client, id, permissions, global->type, version, 0, NULL);
+	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
 	if (resource == NULL)
 		goto no_mem;
 
-	pw_resource_set_implementation(resource, this, NULL);
+	data = pw_resource_get_user_data(resource);
+	pw_resource_add_callbacks(resource, &data->resource_callbacks, &resource_callbacks, resource);
 
 	pw_log_debug("module %p: bound to %d", this, resource->id);
+
+	spa_list_insert(this->resource_list.prev, &resource->link);
 
 	this->info.change_mask = ~0;
 	pw_module_resource_info(resource, &this->info);
@@ -187,7 +209,8 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 	this = &impl->this;
 	this->core = core;
 
-	pw_signal_init(&this->destroy_signal);
+	spa_list_init(&this->resource_list);
+	pw_callback_init(&this->callback_list);
 
 	this->info.name = name ? strdup(name) : NULL;
 	this->info.filename = filename;
@@ -232,8 +255,12 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 void pw_module_destroy(struct pw_module *module)
 {
 	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
+	struct pw_resource *resource, *tmp;
 
-	pw_signal_emit(&module->destroy_signal, module);
+	pw_callback_emit(&module->callback_list, struct pw_module_callbacks, destroy, module);
+
+	spa_list_for_each_safe(resource, tmp, &module->resource_list, link)
+		pw_resource_destroy(resource);
 
 	if (module->info.name)
 		free((char *) module->info.name);
@@ -246,4 +273,29 @@ void pw_module_destroy(struct pw_module *module)
 	pw_global_destroy(module->global);
 	dlclose(impl->hnd);
 	free(impl);
+}
+
+struct pw_core *
+pw_module_get_core(struct pw_module *module)
+{
+	return module->core;
+}
+
+struct pw_global * pw_module_get_global(struct pw_module *module)
+{
+	return module->global;
+}
+
+const struct pw_module_info *
+pw_module_get_info(struct pw_module *module)
+{
+	return &module->info;
+}
+
+void pw_module_add_callbacks(struct pw_module *module,
+			     struct pw_callback_info *info,
+			     const struct pw_module_callbacks *callbacks,
+			     void *data)
+{
+	pw_callback_add(&module->callback_list, info, callbacks, data);
 }

@@ -25,6 +25,7 @@
 #include "pipewire/interfaces.h"
 #include "pipewire/protocol.h"
 #include "pipewire/client.h"
+#include "pipewire/private.h"
 
 #include "extensions/protocol-native.h"
 #include "extensions/client-node.h"

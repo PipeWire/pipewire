@@ -24,21 +24,32 @@
 extern "C" {
 #endif
 
-#include <pipewire/loop.h>
-
 /** \class pw_data_loop
  *
  * PipeWire rt-loop object.
  */
-struct pw_data_loop {
-	struct pw_loop *loop;		/**< wrapped loop object */
+struct pw_data_loop;
 
-	/** Emited when the data loop is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_data_loop *loop));
+#include <pipewire/loop.h>
+#include <pipewire/callback.h>
+
+struct pw_data_loop_callbacks {
+#define PW_VERSION_DATA_LOOP_CALLBACKS		0
+	uint32_t version;
+
+	void (*destroy) (void *data);
 };
 
 struct pw_data_loop *
 pw_data_loop_new(void);
+
+void pw_data_loop_add_callbacks(struct pw_data_loop *loop,
+				struct pw_callback_info *info,
+				const struct pw_data_loop_callbacks *callbacks,
+				void *data);
+
+struct pw_loop *
+pw_data_loop_get_loop(struct pw_data_loop *loop);
 
 void
 pw_data_loop_destroy(struct pw_data_loop *loop);

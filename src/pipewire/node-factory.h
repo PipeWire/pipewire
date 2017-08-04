@@ -27,33 +27,46 @@ extern "C" {
 #define PW_TYPE_INTERFACE__NodeFactory                  PW_TYPE_INTERFACE_BASE "NodeFactory"
 #define PW_TYPE_NODE_FACTORY_BASE                       PW_TYPE_INTERFACE__NodeFactory ":"
 
-#include <pipewire/core.h>
-#include <pipewire/resource.h>
-
 /** \class pw_node_factory
  *
  * \brief PipeWire node factory interface.
  *
  * The factory object is used to make nodes on demand.
  */
-struct pw_node_factory {
-	struct pw_core *core;		/**< the core */
-	struct spa_list link;		/**< link in core node_factory_list */
-	struct pw_global *global;	/**< global for this factory */
+struct pw_node_factory;
 
-	const char *name;		/**< the factory name */
+#include <pipewire/core.h>
+#include <pipewire/resource.h>
 
-	/** Emited when the factory is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_node_factory *object));
+struct pw_node_factory_implementation {
+#define PW_VERSION_NODE_FACRORY_IMPLEMENTATION	0
+	uint32_t version;
 
 	/** The function to create a node from this factory */
-	struct pw_node *(*create_node) (struct pw_node_factory *factory,
+	struct pw_node *(*create_node) (void *data,
 					struct pw_resource *resource,
 					const char *name,
 					struct pw_properties *properties);
 };
 
-#define pw_node_factory_create_node(f,...)	(f)->create_node((f),__VA_ARGS__)
+struct pw_node_factory *pw_node_factory_new(struct pw_core *core,
+					    const char *name,
+					    size_t user_data_size);
+
+void pw_node_factory_export(struct pw_node_factory *factory,
+			    struct pw_client *owner,
+			    struct pw_global *parent);
+
+void *pw_node_factory_get_user_data(struct pw_node_factory *factory);
+
+void pw_node_factory_set_implementation(struct pw_node_factory *factory,
+					const struct pw_node_factory_implementation *implementation,
+					void *data);
+
+struct pw_node *pw_node_factory_create_node(struct pw_node_factory *factory,
+					    struct pw_resource *resource,
+					    const char *name,
+					    struct pw_properties *properties);
 
 #ifdef __cplusplus
 }

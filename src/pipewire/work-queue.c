@@ -34,8 +34,8 @@ struct work_item {
 	struct spa_list link;
 };
 
-struct impl {
-	struct pw_work_queue this;
+struct pw_work_queue {
+	struct pw_loop *loop;
 
 	struct spa_source *wakeup;
 	uint32_t counter;
@@ -49,33 +49,32 @@ struct impl {
 static void process_work_queue(struct spa_loop_utils *utils, struct spa_source *source,
 			       uint64_t count, void *data)
 {
-	struct impl *impl = data;
-	struct pw_work_queue *this = &impl->this;
+	struct pw_work_queue *this = data;
 	struct work_item *item, *tmp;
 
-	spa_list_for_each_safe(item, tmp, &impl->work_list, link) {
+	spa_list_for_each_safe(item, tmp, &this->work_list, link) {
 		if (item->seq != SPA_ID_INVALID) {
 			pw_log_debug("work-queue %p: %d waiting for item %p %d", this,
-				     impl->n_queued, item->obj, item->seq);
+				     this->n_queued, item->obj, item->seq);
 			continue;
 		}
 
 		if (item->res == SPA_RESULT_WAIT_SYNC &&
-		    item != spa_list_first(&impl->work_list, struct work_item, link)) {
+		    item != spa_list_first(&this->work_list, struct work_item, link)) {
 			pw_log_debug("work-queue %p: %d sync item %p not head", this,
-				     impl->n_queued, item->obj);
+				     this->n_queued, item->obj);
 			continue;
 		}
 
 		spa_list_remove(&item->link);
-		impl->n_queued--;
+		this->n_queued--;
 
 		if (item->func) {
 			pw_log_debug("work-queue %p: %d process work item %p %d %d", this,
-				     impl->n_queued, item->obj, item->seq, item->res);
+				     this->n_queued, item->obj, item->seq, item->res);
 			item->func(item->obj, item->data, item->res, item->id);
 		}
-		spa_list_insert(impl->free_list.prev, &item->link);
+		spa_list_insert(this->free_list.prev, &item->link);
 	}
 }
 
@@ -88,20 +87,17 @@ static void process_work_queue(struct spa_loop_utils *utils, struct spa_source *
  */
 struct pw_work_queue *pw_work_queue_new(struct pw_loop *loop)
 {
-	struct impl *impl;
 	struct pw_work_queue *this;
 
-	impl = calloc(1, sizeof(struct impl));
-	pw_log_debug("work-queue %p: new", impl);
+	this = calloc(1, sizeof(struct pw_work_queue));
+	pw_log_debug("work-queue %p: new", this);
 
-	this = &impl->this;
 	this->loop = loop;
-	pw_signal_init(&this->destroy_signal);
 
-	impl->wakeup = pw_loop_add_event(this->loop, process_work_queue, impl);
+	this->wakeup = pw_loop_add_event(this->loop, process_work_queue, this);
 
-	spa_list_init(&impl->work_list);
-	spa_list_init(&impl->free_list);
+	spa_list_init(&this->work_list);
+	spa_list_init(&this->free_list);
 
 	return this;
 }
@@ -113,23 +109,21 @@ struct pw_work_queue *pw_work_queue_new(struct pw_loop *loop)
  */
 void pw_work_queue_destroy(struct pw_work_queue *queue)
 {
-	struct impl *impl = SPA_CONTAINER_OF(queue, struct impl, this);
 	struct work_item *item, *tmp;
 
-	pw_log_debug("work-queue %p: destroy", impl);
-	pw_signal_emit(&queue->destroy_signal, queue);
+	pw_log_debug("work-queue %p: destroy", queue);
 
-	pw_loop_destroy_source(queue->loop, impl->wakeup);
+	pw_loop_destroy_source(queue->loop, queue->wakeup);
 
-	spa_list_for_each_safe(item, tmp, &impl->work_list, link) {
+	spa_list_for_each_safe(item, tmp, &queue->work_list, link) {
 		pw_log_warn("work-queue %p: cancel work item %p %d %d", queue,
 			    item->obj, item->seq, item->res);
 		free(item);
 	}
-	spa_list_for_each_safe(item, tmp, &impl->free_list, link)
+	spa_list_for_each_safe(item, tmp, &queue->free_list, link)
 		free(item);
 
-	free(impl);
+	free(queue);
 }
 
 /** Add an item to the work queue
@@ -145,19 +139,18 @@ void pw_work_queue_destroy(struct pw_work_queue *queue)
 uint32_t
 pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_t func, void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(queue, struct impl, this);
 	struct work_item *item;
 	bool have_work = false;
 
-	if (!spa_list_is_empty(&impl->free_list)) {
-		item = spa_list_first(&impl->free_list, struct work_item, link);
+	if (!spa_list_is_empty(&queue->free_list)) {
+		item = spa_list_first(&queue->free_list, struct work_item, link);
 		spa_list_remove(&item->link);
 	} else {
 		item = malloc(sizeof(struct work_item));
 		if (item == NULL)
 			return SPA_ID_INVALID;
 	}
-	item->id = ++impl->counter;
+	item->id = ++queue->counter;
 	item->obj = obj;
 	item->func = func;
 	item->data = data;
@@ -177,11 +170,11 @@ pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_
 		have_work = true;
 		pw_log_debug("work-queue %p: defer object %p", queue, obj);
 	}
-	spa_list_insert(impl->work_list.prev, &item->link);
-	impl->n_queued++;
+	spa_list_insert(queue->work_list.prev, &item->link);
+	queue->n_queued++;
 
 	if (have_work)
-		pw_loop_signal_event(impl->this.loop, impl->wakeup);
+		pw_loop_signal_event(queue->loop, queue->wakeup);
 
 	return item->id;
 }
@@ -195,11 +188,10 @@ pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_
  */
 void pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id)
 {
-	struct impl *impl = SPA_CONTAINER_OF(queue, struct impl, this);
 	bool have_work = false;
 	struct work_item *item;
 
-	spa_list_for_each(item, &impl->work_list, link) {
+	spa_list_for_each(item, &queue->work_list, link) {
 		if ((id == SPA_ID_INVALID || item->id == id) && (obj == NULL || item->obj == obj)) {
 			pw_log_debug("work-queue %p: cancel defer %d for object %p", queue,
 				     item->seq, item->obj);
@@ -209,7 +201,7 @@ void pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id)
 		}
 	}
 	if (have_work)
-		pw_loop_signal_event(impl->this.loop, impl->wakeup);
+		pw_loop_signal_event(queue->loop, queue->wakeup);
 }
 
 /** Complete a work item
@@ -223,10 +215,9 @@ void pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id)
 bool pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq, int res)
 {
 	struct work_item *item;
-	struct impl *impl = SPA_CONTAINER_OF(queue, struct impl, this);
 	bool have_work = false;
 
-	spa_list_for_each(item, &impl->work_list, link) {
+	spa_list_for_each(item, &queue->work_list, link) {
 		if (item->obj == obj && item->seq == seq) {
 			pw_log_debug("work-queue %p: found defered %d for object %p", queue, seq,
 				     obj);
@@ -238,7 +229,7 @@ bool pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq
 	if (!have_work) {
 		pw_log_debug("work-queue %p: no defered %d found for object %p", queue, seq, obj);
 	} else {
-		pw_loop_signal_event(impl->this.loop, impl->wakeup);
+		pw_loop_signal_event(queue->loop, queue->wakeup);
 	}
 	return have_work;
 }

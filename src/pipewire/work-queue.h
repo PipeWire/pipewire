@@ -24,20 +24,15 @@
 extern "C" {
 #endif
 
-#include <pipewire/loop.h>
-
-typedef void (*pw_work_func_t) (void *obj, void *data, int res, uint32_t id);
-
 /** \class pw_work_queue
  *
  * PipeWire work queue object
  */
-struct pw_work_queue {
-	struct pw_loop *loop;	/**< the loop used for handling work */
+struct pw_work_queue;
 
-	/** Emited when the work queue is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_work_queue *queue));
-};
+#include <pipewire/loop.h>
+
+typedef void (*pw_work_func_t) (void *obj, void *data, int res, uint32_t id);
 
 struct pw_work_queue *
 pw_work_queue_new(struct pw_loop *loop);

@@ -113,6 +113,8 @@ struct pw_protocol {
 
 struct pw_protocol *pw_protocol_new(struct pw_core *core, const char *name, size_t user_data_size);
 
+void *pw_protocol_get_user_data(struct pw_protocol *protocol);
+
 /** \class pw_protocol
  *
  * \brief Manages protocols and their implementation

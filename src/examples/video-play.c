@@ -72,13 +72,12 @@ struct data {
 	struct pw_loop *loop;
 
 	struct pw_core *core;
+	struct pw_type *t;
 	struct pw_remote *remote;
-	struct pw_listener on_state_changed;
+	struct pw_callback_info remote_callbacks;
 
 	struct pw_stream *stream;
-	struct pw_listener on_stream_state_changed;
-	struct pw_listener on_stream_format_changed;
-	struct pw_listener on_stream_new_buffer;
+	struct pw_callback_info stream_callbacks;
 
 	struct spa_video_info_raw format;
 	int32_t stride;
@@ -100,9 +99,10 @@ static void handle_events(struct data *data)
 }
 
 static void
-on_stream_new_buffer(struct pw_listener *listener, struct pw_stream *stream, uint32_t id)
+on_stream_new_buffer(void *_data, uint32_t id)
 {
-	struct data *data = SPA_CONTAINER_OF(listener, struct data, on_stream_new_buffer);
+	struct data *data = _data;
+	struct pw_stream *stream = data->stream;
 	struct spa_buffer *buf;
 	uint8_t *map;
 	void *sdata, *ddata;
@@ -110,7 +110,7 @@ on_stream_new_buffer(struct pw_listener *listener, struct pw_stream *stream, uin
 	int i;
 	uint8_t *src, *dst;
 
-	buf = pw_stream_peek_buffer(data->stream, id);
+	buf = pw_stream_peek_buffer(stream, id);
 
 	if (buf->datas[0].type == data->type.data.MemFd) {
 		map = mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ,
@@ -145,14 +145,15 @@ on_stream_new_buffer(struct pw_listener *listener, struct pw_stream *stream, uin
 	if (map)
 		munmap(map, buf->datas[0].maxsize);
 
-	pw_stream_recycle_buffer(data->stream, id);
+	pw_stream_recycle_buffer(stream, id);
 
 	handle_events(data);
 }
 
-static void on_stream_state_changed(struct pw_listener *listener, struct pw_stream *stream)
+static void on_stream_state_changed(void *data, enum pw_stream_state old,
+				    enum pw_stream_state state, const char *error)
 {
-	printf("stream state: \"%s\"\n", pw_stream_state_as_string(stream->state));
+	printf("stream state: \"%s\"\n", pw_stream_state_as_string(state));
 }
 
 static struct {
@@ -230,12 +231,11 @@ static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
 			SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
 
 static void
-on_stream_format_changed(struct pw_listener *listener,
-			 struct pw_stream *stream, struct spa_format *format)
+on_stream_format_changed(void *_data, struct spa_format *format)
 {
-	struct data *data = SPA_CONTAINER_OF(listener, struct data, on_stream_format_changed);
-	struct pw_remote *remote = stream->remote;
-	struct pw_core *core = remote->core;
+	struct data *data = _data;
+	struct pw_stream *stream = data->stream;
+	struct pw_type *t = data->t;
 	struct spa_pod_builder b = { NULL };
 	struct spa_pod_frame f[2];
 	struct spa_param *params[2];
@@ -266,35 +266,43 @@ on_stream_format_changed(struct pw_listener *listener,
 	SDL_UnlockTexture(data->texture);
 
 	spa_pod_builder_init(&b, data->params_buffer, sizeof(data->params_buffer));
-	spa_pod_builder_object(&b, &f[0], 0, core->type.param_alloc_buffers.Buffers,
-		PROP(&f[1], core->type.param_alloc_buffers.size, SPA_POD_TYPE_INT,
+	spa_pod_builder_object(&b, &f[0], 0, t->param_alloc_buffers.Buffers,
+		PROP(&f[1], t->param_alloc_buffers.size, SPA_POD_TYPE_INT,
 			data->stride * data->format.size.height),
-		PROP(&f[1], core->type.param_alloc_buffers.stride, SPA_POD_TYPE_INT,
+		PROP(&f[1], t->param_alloc_buffers.stride, SPA_POD_TYPE_INT,
 			data->stride),
-		PROP_U_MM(&f[1], core->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
+		PROP_U_MM(&f[1], t->param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
 			32,
 			2, 32),
-		PROP(&f[1], core->type.param_alloc_buffers.align, SPA_POD_TYPE_INT,
+		PROP(&f[1], t->param_alloc_buffers.align, SPA_POD_TYPE_INT,
 			16));
 	params[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
 
-	spa_pod_builder_object(&b, &f[0], 0, core->type.param_alloc_meta_enable.MetaEnable,
-		PROP(&f[1], core->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID,
-			core->type.meta.Header),
-		PROP(&f[1], core->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT,
+	spa_pod_builder_object(&b, &f[0], 0, t->param_alloc_meta_enable.MetaEnable,
+		PROP(&f[1], t->param_alloc_meta_enable.type, SPA_POD_TYPE_ID,
+			t->meta.Header),
+		PROP(&f[1], t->param_alloc_meta_enable.size, SPA_POD_TYPE_INT,
 			sizeof(struct spa_meta_header)));
 	params[1] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
 
 	pw_stream_finish_format(stream, SPA_RESULT_OK, params, 2);
 }
 
-static void on_state_changed(struct pw_listener *listener, struct pw_remote *remote)
-{
-	struct data *data = SPA_CONTAINER_OF(listener, struct data, on_state_changed);
+static const struct pw_stream_callbacks stream_callbacks = {
+	PW_VERSION_STREAM_CALLBACKS,
+	.state_changed = on_stream_state_changed,
+	.format_changed = on_stream_format_changed,
+	.new_buffer = on_stream_new_buffer,
+};
 
-	switch (remote->state) {
+static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
+{
+	struct data *data = _data;
+	struct pw_remote *remote = data->remote;
+
+	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
-		printf("remote error: %s\n", remote->error);
+		printf("remote error: %s\n", error);
 		data->running = false;
 		break;
 
@@ -307,8 +315,7 @@ static void on_state_changed(struct pw_listener *listener, struct pw_remote *rem
 		SDL_RendererInfo info;
 		int i, c;
 
-		printf("remote state: \"%s\"\n",
-		       pw_remote_state_as_string(remote->state));
+		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
 
 		data->stream = pw_stream_new(remote, "video-play", NULL);
 
@@ -351,12 +358,10 @@ static void on_state_changed(struct pw_listener *listener, struct pw_remote *rem
 		printf("supported formats:\n");
 		spa_debug_format(formats[0]);
 
-		pw_signal_add(&data->stream->state_changed,
-			      &data->on_stream_state_changed, on_stream_state_changed);
-		pw_signal_add(&data->stream->format_changed,
-			      &data->on_stream_format_changed, on_stream_format_changed);
-		pw_signal_add(&data->stream->new_buffer,
-			      &data->on_stream_new_buffer, on_stream_new_buffer);
+		pw_stream_add_callbacks(data->stream,
+					&data->stream_callbacks,
+					&stream_callbacks,
+					data);
 
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_INPUT,
@@ -365,10 +370,15 @@ static void on_state_changed(struct pw_listener *listener, struct pw_remote *rem
 		break;
 	}
 	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(remote->state));
+		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
 		break;
 	}
 }
+
+static const struct pw_remote_callbacks remote_callbacks = {
+	PW_VERSION_REMOTE_CALLBACKS,
+	.state_changed = on_state_changed,
+};
 
 int main(int argc, char *argv[])
 {
@@ -379,12 +389,13 @@ int main(int argc, char *argv[])
 	data.loop = pw_loop_new();
 	data.running = true;
 	data.core = pw_core_new(data.loop, NULL);
+	data.t = pw_core_get_type(data.core);
 	data.remote = pw_remote_new(data.core, NULL);
 	data.path = argc > 1 ? argv[1] : NULL;
 
-	init_type(&data.type, data.core->type.map);
+	init_type(&data.type, data.t->map);
 
-	spa_debug_set_type_map(data.core->type.map);
+	spa_debug_set_type_map(data.t->map);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());
@@ -397,7 +408,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	pw_signal_add(&data.remote->state_changed, &data.on_state_changed, on_state_changed);
+	pw_remote_add_callbacks(data.remote, &data.remote_callbacks, &remote_callbacks, &data);
 
 	pw_remote_connect(data.remote);
 

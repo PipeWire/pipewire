@@ -30,6 +30,7 @@
 #include <dlfcn.h>
 
 #include "pipewire/pipewire.h"
+#include "pipewire/private.h"
 
 static char **categories = NULL;
 

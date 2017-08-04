@@ -28,20 +28,19 @@
 
 struct impl {
 	struct pw_core *core;
+	struct pw_type *t;
 	struct pw_properties *properties;
 
-	struct pw_listener global_added;
-	struct pw_listener global_removed;
+	struct pw_callback_info core_callbacks;
 
 	struct spa_list node_list;
 };
 
 struct node_info {
+	struct spa_list link;
 	struct impl *impl;
 	struct pw_node *node;
-	struct spa_list link;
-	struct pw_listener node_state_request;
-	struct pw_listener node_state_changed;
+	struct pw_callback_info node_callbacks;
 	struct spa_source *idle_timeout;
 };
 
@@ -59,7 +58,7 @@ static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
 static void remove_idle_timeout(struct node_info *info)
 {
 	if (info->idle_timeout) {
-		pw_loop_destroy_source(info->impl->core->main_loop, info->idle_timeout);
+		pw_loop_destroy_source(pw_core_get_main_loop(info->impl->core), info->idle_timeout);
 		info->idle_timeout = NULL;
 	}
 }
@@ -68,8 +67,7 @@ static void node_info_free(struct node_info *info)
 {
 	spa_list_remove(&info->link);
 	remove_idle_timeout(info);
-	pw_signal_remove(&info->node_state_request);
-	pw_signal_remove(&info->node_state_changed);
+	pw_callback_remove(&info->node_callbacks);
 	free(info);
 }
 
@@ -83,63 +81,65 @@ static void idle_timeout(struct spa_loop_utils *utils, struct spa_source *source
 }
 
 static void
-on_node_state_request(struct pw_listener *listener, struct pw_node *node, enum pw_node_state state)
+node_state_request(void *data, enum pw_node_state state)
 {
-	struct node_info *info = SPA_CONTAINER_OF(listener, struct node_info, node_state_request);
+	struct node_info *info = data;
 	remove_idle_timeout(info);
 }
 
 static void
-on_node_state_changed(struct pw_listener *listener,
-		      struct pw_node *node, enum pw_node_state old, enum pw_node_state state)
+node_state_changed(void *data, enum pw_node_state old, enum pw_node_state state, const char *error)
 {
-	struct node_info *info = SPA_CONTAINER_OF(listener, struct node_info, node_state_changed);
+	struct node_info *info = data;
 	struct impl *impl = info->impl;
 
 	if (state != PW_NODE_STATE_IDLE) {
 		remove_idle_timeout(info);
 	} else {
 		struct timespec value;
+		struct pw_loop *main_loop = pw_core_get_main_loop(impl->core);
 
-		pw_log_debug("module %p: node %p became idle", impl, node);
-		info->idle_timeout = pw_loop_add_timer(impl->core->main_loop,
-						       idle_timeout, info);
+		pw_log_debug("module %p: node %p became idle", impl, info->node);
+		info->idle_timeout = pw_loop_add_timer(main_loop, idle_timeout, info);
 		value.tv_sec = 3;
 		value.tv_nsec = 0;
-		pw_loop_update_timer(impl->core->main_loop,
-				     info->idle_timeout, &value, NULL, false);
+		pw_loop_update_timer(main_loop, info->idle_timeout, &value, NULL, false);
 	}
 }
 
-static void
-on_global_added(struct pw_listener *listener, struct pw_core *core, struct pw_global *global)
-{
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, global_added);
+static const struct pw_node_callbacks node_callbacks = {
+	PW_VERSION_NODE_CALLBACKS,
+	.state_request = node_state_request,
+	.state_changed = node_state_changed,
+};
 
-	if (global->type == impl->core->type.node) {
-		struct pw_node *node = global->object;
+static void
+core_global_added(void *data, struct pw_global *global)
+{
+	struct impl *impl = data;
+
+	if (pw_global_get_type(global) == impl->t->node) {
+		struct pw_node *node = pw_global_get_object(global);
 		struct node_info *info;
 
 		info = calloc(1, sizeof(struct node_info));
 		info->impl = impl;
 		info->node = node;
 		spa_list_insert(impl->node_list.prev, &info->link);
-		pw_signal_add(&node->state_request, &info->node_state_request,
-			      on_node_state_request);
-		pw_signal_add(&node->state_changed, &info->node_state_changed,
-			      on_node_state_changed);
+
+		pw_node_add_callbacks(node, &info->node_callbacks, &node_callbacks, info);
 
 		pw_log_debug("module %p: node %p added", impl, node);
 	}
 }
 
 static void
-on_global_removed(struct pw_listener *listener, struct pw_core *core, struct pw_global *global)
+core_global_removed(void *data, struct pw_global *global)
 {
-	struct impl *impl = SPA_CONTAINER_OF(listener, struct impl, global_removed);
+	struct impl *impl = data;
 
-	if (global->type == impl->core->type.node) {
-		struct pw_node *node = global->object;
+	if (pw_global_get_type(global) == impl->t->node) {
+		struct pw_node *node = pw_global_get_object(global);
 		struct node_info *info;
 
 		if ((info = find_node_info(impl, node)))
@@ -149,6 +149,11 @@ on_global_removed(struct pw_listener *listener, struct pw_core *core, struct pw_
 	}
 }
 
+const struct pw_core_callbacks core_callbacks = {
+	PW_VERSION_CORE_CALLBACKS,
+	.global_added = core_global_added,
+	.global_removed = core_global_removed,
+};
 
 /**
  * module_new:
@@ -159,20 +164,20 @@ on_global_removed(struct pw_listener *listener, struct pw_core *core, struct pw_
  *
  * Returns: a new #struct impl
  */
-static struct impl *module_new(struct pw_core *core, struct pw_properties *properties)
+static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct impl *impl;
 
 	impl = calloc(1, sizeof(struct impl));
 	pw_log_debug("module %p: new", impl);
 
-	impl->core = core;
+	impl->core = pw_module_get_core(module);
+	impl->t = pw_core_get_type(impl->core);
 	impl->properties = properties;
 
 	spa_list_init(&impl->node_list);
 
-	pw_signal_add(&core->global_added, &impl->global_added, on_global_added);
-	pw_signal_add(&core->global_removed, &impl->global_removed, on_global_removed);
+	pw_core_add_callbacks(impl->core, &impl->core_callbacks, &core_callbacks, impl);
 
 	return impl;
 }
@@ -190,6 +195,5 @@ static void module_destroy(struct impl *impl)
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
-	module_new(module->core, NULL);
-	return true;
+	return module_init(module, NULL);
 }

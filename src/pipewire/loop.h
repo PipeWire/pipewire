@@ -38,9 +38,6 @@ struct pw_loop {
 	struct spa_loop *loop;			/**< wrapped loop */
 	struct spa_loop_control *control;	/**< loop control */
 	struct spa_loop_utils *utils;		/**< loop utils */
-
-	/** Emited when the loop is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_loop *loop));
 };
 
 struct pw_loop *

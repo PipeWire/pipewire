@@ -24,14 +24,6 @@
 extern "C" {
 #endif
 
-#include <pipewire/map.h>
-#include <pipewire/loop.h>
-#include <pipewire/properties.h>
-#include <pipewire/protocol.h>
-#include <pipewire/proxy.h>
-#include <pipewire/type.h>
-#include <pipewire/core.h>
-
 /** \page page_remote_api Remote API
  *
  * \section sec_remote_api_overview Overview
@@ -94,6 +86,25 @@ extern "C" {
  *
  * Use pw_remote_disconnect() to disconnect from the remote.
  */
+/** \class pw_remote
+ *
+ * \brief Represents a connection with the PipeWire server
+ *
+ * a \ref pw_remote is created and used to connect to the server.
+ * A \ref pw_proxy for the core object will automatically be created
+ * when connecting.
+ *
+ * See also \ref page_client_api
+ */
+struct pw_remote;
+
+#include <pipewire/map.h>
+#include <pipewire/loop.h>
+#include <pipewire/properties.h>
+#include <pipewire/protocol.h>
+#include <pipewire/proxy.h>
+#include <pipewire/type.h>
+#include <pipewire/core.h>
 
 /** \enum pw_remote_state The state of a \ref pw_remote \memberof pw_remote */
 enum pw_remote_state {
@@ -106,47 +117,18 @@ enum pw_remote_state {
 /** Convert a \ref pw_remote_state to a readable string \memberof pw_remote */
 const char *pw_remote_state_as_string(enum pw_remote_state state);
 
-/** \class pw_remote
- *
- * \brief Represents a connection with the PipeWire server
- *
- * a \ref pw_remote is created and used to connect to the server.
- * A \ref pw_proxy for the core object will automatically be created
- * when connecting.
- *
- * See also \ref page_client_api
- */
-struct pw_remote {
-	struct pw_core *core;			/**< core */
-	struct spa_list link;			/**< link in core remote_list */
-	struct pw_properties *properties;	/**< extra properties */
+struct pw_remote_callbacks {
+#define PW_VERSION_REMOTE_CALLBACKS	0
+	uint32_t version;
 
-	struct pw_core_proxy *core_proxy;	/**< proxy for the core object */
-	struct pw_map objects;			/**< map of client side proxy objects
-						 *   indexed with the client id */
-        struct pw_core_info *info;		/**< info about the remote core */
-	/** Signal emited when the core info changed */
-	PW_SIGNAL(info_changed, (struct pw_listener *listener, struct pw_remote *remote));
-
-	/** Signal emited when a reply to a sync was received */
-	PW_SIGNAL(sync_reply, (struct pw_listener *listener, struct pw_remote *remote, uint32_t seq));
-
-	uint32_t n_types;			/**< number of client types */
-	struct pw_map types;			/**< client types */
-
-	struct spa_list proxy_list;		/**< list of \ref pw_proxy objects */
-	struct spa_list stream_list;		/**< list of \ref pw_stream objects */
-	struct spa_list remote_node_list;	/**< list of \ref pw_remote_node objects */
-
-	struct pw_protocol_connection *conn;	/**< the protocol connection */
-
-	enum pw_remote_state state;
-	char *error;
-	/** Signal emited when the state changes */
-	PW_SIGNAL(state_changed, (struct pw_listener *listener, struct pw_remote *remote));
-
-	/** Signal emited when the remote is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_remote *remote));
+	void (*destroy)	(void *data);
+        /** emited when the remote core info changed */
+	void (*info_changed) (void *data, const struct pw_core_info *info);
+        /** emited when a reply to a sync was received */
+	void (*sync_reply) (void *data, uint32_t seq);
+	/** emited when the state changes */
+	void (*state_changed) (void *data, enum pw_remote_state old,
+			       enum pw_remote_state state, const char *error);
 };
 
 /** Create a new unconnected remote \memberof pw_remote
@@ -159,6 +141,18 @@ pw_remote_new(struct pw_core *core,		/**< a \ref pw_core */
 /** Destroy a remote \memberof pw_remote */
 void pw_remote_destroy(struct pw_remote *remote);
 
+/** Get the core used to construct this remote */
+struct pw_core *pw_remote_get_core(struct pw_remote *remote);
+
+/** Get the current state, \a error is set when state is \ref PW_REMOTE_STATE_ERROR */
+enum pw_remote_state pw_remote_get_state(struct pw_remote *remote, const char **error);
+
+/** Add callbacks to the remote */
+void pw_remote_add_callbacks(struct pw_remote *remote,
+			     struct pw_callback_info *info,
+			     const struct pw_remote_callbacks *callbacks,
+			     void *data);
+
 /** Connect to a remote PipeWire \memberof pw_remote
  * \return true on success. */
 int pw_remote_connect(struct pw_remote *remote);
@@ -168,14 +162,20 @@ int pw_remote_connect(struct pw_remote *remote);
  * \return true on success. */
 int pw_remote_connect_fd(struct pw_remote *remote, int fd);
 
+/** Get the core proxy, can only be called when connected */
+struct pw_core_proxy * pw_remote_get_core_proxy(struct pw_remote *remote);
+
+/** Get the remote core info, can only be called when connected */
+const struct pw_core_info *pw_remote_get_core_info(struct pw_remote *remote);
+
 /** Disconnect from the remote PipeWire. \memberof pw_remote */
 void pw_remote_disconnect(struct pw_remote *remote);
 
 /** Update the state of the remote, mostly used by protocols */
 void pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, const char *fmt, ...);
 
-struct pw_proxy *pw_remote_export(struct pw_remote *remote,
-				  struct pw_node *node);
+/** run a local node in a remote graph */
+struct pw_proxy *pw_remote_export(struct pw_remote *remote, struct pw_node *node);
 
 #ifdef __cplusplus
 }

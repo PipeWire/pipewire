@@ -25,6 +25,7 @@
 #include "config.h"
 
 #include "pipewire/core.h"
+#include "pipewire/private.h"
 #include "pipewire/module.h"
 #include "modules/spa/spa-node.h"
 

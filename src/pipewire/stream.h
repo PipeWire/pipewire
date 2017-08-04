@@ -20,11 +20,6 @@
 #ifndef __PIPEWIRE_STREAM_H__
 #define __PIPEWIRE_STREAM_H__
 
-#include <spa/buffer.h>
-#include <spa/format.h>
-
-#include <pipewire/remote.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -156,6 +151,21 @@ extern "C" {
  *
  * Use \ref pw_stream_disconnect() to disconnect a stream after use.
  */
+/** \class pw_stream
+ *
+ * \brief PipeWire stream object class
+ *
+ * The stream object provides a convenient way to send and
+ * receive data streams from/to PipeWire.
+ *
+ * See also \ref page_streams and \ref page_client_api
+ */
+struct pw_stream;
+
+#include <spa/buffer.h>
+#include <spa/format.h>
+
+#include <pipewire/remote.h>
 
 /** \enum pw_stream_state The state of a stream \memberof pw_stream */
 enum pw_stream_state {
@@ -167,6 +177,30 @@ enum pw_stream_state {
 	PW_STREAM_STATE_PAUSED = 4,		/**< paused, fully configured but not
 						  *  processing data yet */
 	PW_STREAM_STATE_STREAMING = 5		/**< streaming */
+};
+
+struct pw_stream_callbacks {
+#define PW_VERSION_STREAM_CALLBACKS	0
+	uint32_t version;
+
+	void (*destroy) (void *data);
+	/** when the stream state changes */
+	void (*state_changed) (void *data, enum pw_stream_state old,
+				enum pw_stream_state state, const char *error);
+	/** when the format changed. The listener should call
+	 * pw_stream_finish_format() from within this callbaclk or later to complete
+	 * the format negotiation */
+	void (*format_changed) (void *data, struct spa_format *format);
+
+        /** when a new buffer was created for this stream */
+        void (*add_buffer) (void *data, uint32_t id);
+        /** when a buffer was destroyed for this stream */
+        void (*remove_buffer) (void *data, uint32_t id);
+        /** when a buffer can be reused (for playback streams) or
+         *  is filled (for capture streams */
+        void (*new_buffer) (void *data, uint32_t id);
+        /** when a buffer is needed (for playback streams) */
+        void (*need_buffer) (void *data);
 };
 
 /** Convert a stream state to a readable string \memberof pw_stream */
@@ -194,52 +228,6 @@ struct pw_time {
 	int32_t rate;		/**< the rate of \a ticks */
 };
 
-/** \class pw_stream
- *
- * \brief PipeWire stream object class
- *
- * The stream object provides a convenient way to send and
- * receive data streams from/to PipeWire.
- *
- * See also \ref page_streams and \ref page_client_api
- */
-struct pw_stream {
-	struct pw_remote *remote;	/**< the owner remote */
-	struct spa_list link;		/**< link in the remote */
-
-	char *name;				/**< the name of the stream */
-	uint32_t node_id;			/**< node id for remote node, available from
-						  *  CONFIGURE state and higher */
-	struct pw_properties *properties;	/**< properties of the stream */
-
-	/** Emited when the stream is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_stream *stream));
-
-	enum pw_stream_state state;		/**< stream state */
-	char *error;				/**< error reason when state is in error */
-	/** Emited when the stream state changes */
-	PW_SIGNAL(state_changed, (struct pw_listener *listener, struct pw_stream *stream));
-
-	/** Emited when the format changed. The listener should call
-	 * pw_stream_finish_format() from within this signal or later to complete
-	 * the format negotiation */
-	PW_SIGNAL(format_changed, (struct pw_listener *listener,
-				   struct pw_stream *stream, struct spa_format *format));
-
-	/** Emited when a new buffer was created for this stream */
-	PW_SIGNAL(add_buffer, (struct pw_listener *listener,
-			       struct pw_stream *stream, uint32_t id));
-	/** Emited when a buffer was destroyed for this stream */
-	PW_SIGNAL(remove_buffer, (struct pw_listener *listener,
-				  struct pw_stream *stream, uint32_t id));
-	/** Emited when a buffer can be reused (for playback streams) or
-	 *  is filled (for capture streams */
-	PW_SIGNAL(new_buffer, (struct pw_listener *listener,
-			       struct pw_stream *stream, uint32_t id));
-	/** Emited when a buffer is needed (for playback streams) */
-	PW_SIGNAL(need_buffer, (struct pw_listener *listener, struct pw_stream *stream));
-};
-
 /** Create a new unconneced \ref pw_stream \memberof pw_stream
  * \return a newly allocated \ref pw_stream */
 struct pw_stream *
@@ -249,6 +237,15 @@ pw_stream_new(struct pw_remote *remote,		/**< a \ref pw_remote */
 
 /** Destroy a stream \memberof pw_stream */
 void pw_stream_destroy(struct pw_stream *stream);
+
+void pw_stream_add_callbacks(struct pw_stream *stream,
+			     struct pw_callback_info *info,
+			     const struct pw_stream_callbacks *callbacks,
+			     void *data);
+
+enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **error);
+
+struct pw_properties *pw_stream_get_properties(struct pw_stream *stream);
 
 /** Connect a stream for input or output on \a port_path. \memberof pw_stream
  * \return true on success.

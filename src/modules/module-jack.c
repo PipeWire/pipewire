@@ -35,6 +35,7 @@
 #include "config.h"
 
 #include "pipewire/pipewire.h"
+#include "pipewire/private.h"
 #include "pipewire/log.h"
 #include "pipewire/interfaces.h"
 
@@ -97,15 +98,14 @@ struct client {
 	struct pw_client *client;
 	int fd;
 	struct spa_source *source;
-	struct pw_listener busy_changed;
+	struct pw_callback_info client_callbacks;
 };
 
 static int process_messages(struct client *client);
 
 static void client_destroy(void *data)
 {
-	struct pw_client *client = data;
-	struct client *this = client->user_data;
+	struct client *this = data;
 
 	pw_loop_destroy_source(this->impl->core->main_loop, this->source);
 	spa_list_remove(&this->link);
@@ -399,18 +399,17 @@ process_messages(struct client *client)
 }
 
 static void
-on_busy_changed(struct pw_listener *listener,
-		struct pw_client *client)
+client_busy_changed(void *data, bool busy)
 {
-	struct client *c = SPA_CONTAINER_OF(listener, struct client, busy_changed);
+	struct client *c = data;
 	enum spa_io mask = SPA_IO_ERR | SPA_IO_HUP;
 
-	if (!client->busy)
+	if (!busy)
 		mask |= SPA_IO_IN;
 
 	pw_loop_update_io(c->impl->core->main_loop, c->source, mask);
 
-	if (!client->busy)
+	if (!busy)
 		process_messages(c);
 }
 
@@ -429,6 +428,12 @@ connection_data(struct spa_loop_utils *utils,
 	if (mask & SPA_IO_IN)
 		process_messages(client);
 }
+
+static const struct pw_client_callbacks client_callbacks = {
+	PW_VERSION_CLIENT_CALLBACKS,
+	.destroy = client_destroy,
+	.busy_changed = client_busy_changed,
+};
 
 static struct client *client_new(struct impl *impl, int fd)
 {
@@ -449,8 +454,6 @@ static struct client *client_new(struct impl *impl, int fd)
 	if (client == NULL)
 		goto no_client;
 
-	client->destroy = client_destroy;
-
 	this = client->user_data;
 	this->impl = impl;
 	this->fd = fd;
@@ -464,7 +467,7 @@ static struct client *client_new(struct impl *impl, int fd)
 
 	spa_list_insert(impl->client_list.prev, &this->link);
 
-	pw_signal_add(&client->busy_changed, &this->busy_changed, on_busy_changed);
+	pw_client_add_callbacks(client, &this->client_callbacks, &client_callbacks, this);
 
 	pw_log_error("module-jack %p: added new client", impl);
 

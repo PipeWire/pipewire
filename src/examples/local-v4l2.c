@@ -75,6 +75,7 @@ struct data {
 	struct spa_source *timer;
 
 	struct pw_core *core;
+	struct pw_type *t;
 	struct pw_node *node;
 	struct pw_port *port;
 	struct spa_port_info port_info;
@@ -82,6 +83,8 @@ struct data {
 	struct pw_node *v4l2;
 
 	struct pw_link *link;
+
+	struct spa_port_io *io;
 
 	uint8_t buffer[1024];
 
@@ -181,14 +184,21 @@ static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
 	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
 			SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
 
-static int impl_port_enum_formats(struct pw_port *port,
+static int impl_port_set_io(void *data, struct spa_port_io *io)
+{
+	struct data *d = data;
+	d->io = io;
+	return SPA_RESULT_OK;
+}
+
+static int impl_port_enum_formats(void *data,
 				  struct spa_format **format,
 				  const struct spa_format *filter,
 				  int32_t index)
 {
-	struct data *data = port->user_data;
+	struct data *d = data;
 	const struct spa_format *formats[1];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(data->buffer, sizeof(data->buffer));
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(d->buffer, sizeof(d->buffer));
 	struct spa_pod_frame f[2];
 	SDL_RendererInfo info;
 	int i, c;
@@ -196,17 +206,17 @@ static int impl_port_enum_formats(struct pw_port *port,
 	if (index != 0)
 		return SPA_RESULT_ENUM_END;
 
-	SDL_GetRendererInfo(data->renderer, &info);
+	SDL_GetRendererInfo(d->renderer, &info);
 
-	spa_pod_builder_push_format(&b, &f[0], data->type.format,
-				    data->type.media_type.video,
-				    data->type.media_subtype.raw);
+	spa_pod_builder_push_format(&b, &f[0], d->type.format,
+				    d->type.media_type.video,
+				    d->type.media_subtype.raw);
 
-	spa_pod_builder_push_prop(&b, &f[1], data->type.format_video.format,
+	spa_pod_builder_push_prop(&b, &f[1], d->type.format_video.format,
 				  SPA_POD_PROP_FLAG_UNSET |
 				  SPA_POD_PROP_RANGE_ENUM);
 	for (i = 0, c = 0; i < info.num_texture_formats; i++) {
-		uint32_t id = sdl_format_to_id(data, info.texture_formats[i]);
+		uint32_t id = sdl_format_to_id(d, info.texture_formats[i]);
 		if (id == 0)
 			continue;
 		if (c++ == 0)
@@ -215,17 +225,17 @@ static int impl_port_enum_formats(struct pw_port *port,
 	}
 	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
 		uint32_t id =
-		    *SPA_MEMBER(&data->type.video_format, video_formats[i].id,
+		    *SPA_MEMBER(&d->type.video_format, video_formats[i].id,
 				uint32_t);
-		if (id != data->type.video_format.UNKNOWN)
+		if (id != d->type.video_format.UNKNOWN)
 			spa_pod_builder_id(&b, id);
 	}
 	spa_pod_builder_pop(&b, &f[1]);
 	spa_pod_builder_add(&b,
-		PROP_U_MM(&f[1], data->type.format_video.size, SPA_POD_TYPE_RECTANGLE,
+		PROP_U_MM(&f[1], d->type.format_video.size, SPA_POD_TYPE_RECTANGLE,
 			WIDTH, HEIGHT,
 			1, 1, info.max_texture_width, info.max_texture_height),
-		PROP_U_MM(&f[1], data->type.format_video.framerate, SPA_POD_TYPE_FRACTION,
+		PROP_U_MM(&f[1], d->type.format_video.framerate, SPA_POD_TYPE_FRACTION,
 			25, 1,
 			0, 1, 30, 1),
 		0);
@@ -239,14 +249,14 @@ static int impl_port_enum_formats(struct pw_port *port,
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format)
+static int impl_port_set_format(void *data, uint32_t flags, const struct spa_format *format)
 {
-	struct data *data = port->user_data;
-	struct pw_core *core = data->core;
+	struct data *d = data;
+	struct pw_type *t = d->t;
 	struct spa_pod_builder b = { NULL };
 	struct spa_pod_frame f[2];
 	Uint32 sdl_format;
-	void *d;
+	void *dest;
 
 	if (format == NULL) {
 		return SPA_RESULT_OK;
@@ -254,146 +264,91 @@ static int impl_port_set_format(struct pw_port *port, uint32_t flags, const stru
 
 	spa_debug_format(format);
 
-	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
+	spa_format_video_raw_parse(format, &d->format, &d->type.format_video);
 
-	sdl_format = id_to_sdl_format(data, data->format.format);
+	sdl_format = id_to_sdl_format(d, d->format.format);
 	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN)
 		return SPA_RESULT_ERROR;
 
-	data->texture = SDL_CreateTexture(data->renderer,
+	d->texture = SDL_CreateTexture(d->renderer,
 					  sdl_format,
 					  SDL_TEXTUREACCESS_STREAMING,
-					  data->format.size.width,
-					  data->format.size.height);
-	SDL_LockTexture(data->texture, NULL, &d, &data->stride);
-	SDL_UnlockTexture(data->texture);
+					  d->format.size.width,
+					  d->format.size.height);
+	SDL_LockTexture(d->texture, NULL, &dest, &d->stride);
+	SDL_UnlockTexture(d->texture);
 
-	spa_pod_builder_init(&b, data->params_buffer, sizeof(data->params_buffer));
-	spa_pod_builder_object(&b, &f[0], 0, core->type.param_alloc_buffers.Buffers,
-		PROP(&f[1], core->type.param_alloc_buffers.size, SPA_POD_TYPE_INT,
-			data->stride * data->format.size.height),
-		PROP(&f[1], core->type.param_alloc_buffers.stride, SPA_POD_TYPE_INT,
-			data->stride),
-		PROP_U_MM(&f[1], core->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
+	spa_pod_builder_init(&b, d->params_buffer, sizeof(d->params_buffer));
+	spa_pod_builder_object(&b, &f[0], 0, t->param_alloc_buffers.Buffers,
+		PROP(&f[1], t->param_alloc_buffers.size, SPA_POD_TYPE_INT,
+			d->stride * d->format.size.height),
+		PROP(&f[1], t->param_alloc_buffers.stride, SPA_POD_TYPE_INT,
+			d->stride),
+		PROP_U_MM(&f[1], t->param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
 			32,
 			2, 32),
-		PROP(&f[1], core->type.param_alloc_buffers.align, SPA_POD_TYPE_INT,
+		PROP(&f[1], t->param_alloc_buffers.align, SPA_POD_TYPE_INT,
 			16));
-	data->params[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
+	d->params[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
 
-	spa_pod_builder_object(&b, &f[0], 0, core->type.param_alloc_meta_enable.MetaEnable,
-		PROP(&f[1], core->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID,
-			core->type.meta.Header),
-		PROP(&f[1], core->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT,
+	spa_pod_builder_object(&b, &f[0], 0, t->param_alloc_meta_enable.MetaEnable,
+		PROP(&f[1], t->param_alloc_meta_enable.type, SPA_POD_TYPE_ID,
+			t->meta.Header),
+		PROP(&f[1], t->param_alloc_meta_enable.size, SPA_POD_TYPE_INT,
 			sizeof(struct spa_meta_header)));
-	data->params[1] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
+	d->params[1] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
 
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_get_format(struct pw_port *port, const struct spa_format **format)
+static int impl_port_get_info(void *data, const struct spa_port_info **info)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
-}
+	struct data *d = data;
 
-static int impl_port_get_info(struct pw_port *port, const struct spa_port_info **info)
-{
-	struct data *data = port->user_data;
+	d->port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+	d->port_info.rate = 0;
+	d->port_info.props = NULL;
 
-	data->port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-	data->port_info.rate = 0;
-	data->port_info.props = NULL;
-
-	*info = &data->port_info;
+	*info = &d->port_info;
 
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_enum_params(struct pw_port *port, uint32_t index, struct spa_param **param)
+static int impl_port_enum_params(void *data, uint32_t index, struct spa_param **param)
 {
-	struct data *data = port->user_data;
+	struct data *d = data;
 
 	if (index >= 2)
 		return SPA_RESULT_ENUM_END;
 
-	*param = data->params[index];
+	*param = d->params[index];
 
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_set_param(struct pw_port *port, struct spa_param *param)
+static int impl_port_use_buffers(void *data, struct spa_buffer **buffers, uint32_t n_buffers)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static int impl_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers)
-{
-	struct data *data = port->user_data;
+	struct data *d = data;
 	int i;
 	for (i = 0; i < n_buffers; i++)
-		data->buffers[i] = buffers[i];
-	data->n_buffers = n_buffers;
+		d->buffers[i] = buffers[i];
+	d->n_buffers = n_buffers;
 	return SPA_RESULT_OK;
-}
-
-static int impl_port_alloc_buffers(struct pw_port *port,
-                              struct spa_param **params, uint32_t n_params,
-                              struct spa_buffer **buffers, uint32_t *n_buffers)
-{
-	return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static int impl_port_reuse_buffer(struct pw_port *port, uint32_t buffer_id)
-{
-	return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static int impl_port_send_command(struct pw_port *port, struct spa_command *command)
-{
-	return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static const struct pw_port_implementation impl_port = {
 	PW_VERSION_PORT_IMPLEMENTATION,
-	impl_port_enum_formats,
-	impl_port_set_format,
-	impl_port_get_format,
-	impl_port_get_info,
-	impl_port_enum_params,
-	impl_port_set_param,
-	impl_port_use_buffers,
-	impl_port_alloc_buffers,
-	impl_port_reuse_buffer,
-	impl_port_send_command,
+	.set_io = impl_port_set_io,
+	.enum_formats = impl_port_enum_formats,
+	.set_format = impl_port_set_format,
+	.get_info = impl_port_get_info,
+	.enum_params = impl_port_enum_params,
+	.use_buffers = impl_port_use_buffers,
 };
 
-static int impl_node_get_props(struct pw_node *node, struct spa_props **props)
+static int impl_node_process_input(void *data)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static int impl_node_set_props(struct pw_node *node, const struct spa_props *props)
-{
-	return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static int impl_node_send_command(struct pw_node *node,
-                                  const struct spa_command *command)
-{
-	return SPA_RESULT_OK;
-}
-
-static struct pw_port* impl_node_add_port(struct pw_node *node,
-                                     enum pw_direction direction,
-                                     uint32_t port_id)
-{
-	return NULL;
-}
-
-static int impl_node_process_input(struct pw_node *node)
-{
-	struct data *data = node->user_data;
-	struct pw_port *port = data->port;
+	struct data *d = data;
 	struct spa_buffer *buf;
 	uint8_t *map;
 	void *sdata, *ddata;
@@ -401,20 +356,20 @@ static int impl_node_process_input(struct pw_node *node)
 	int i;
 	uint8_t *src, *dst;
 
-	buf = port->buffers[port->io.buffer_id];
+	buf = d->buffers[d->io->buffer_id];
 
-	if (buf->datas[0].type == data->type.data.MemFd ||
-	    buf->datas[0].type == data->type.data.DmaBuf) {
+	if (buf->datas[0].type == d->type.data.MemFd ||
+	    buf->datas[0].type == d->type.data.DmaBuf) {
 		map = mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ,
 			   MAP_PRIVATE, buf->datas[0].fd, 0);
 		sdata = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);
-	} else if (buf->datas[0].type == data->type.data.MemPtr) {
+	} else if (buf->datas[0].type == d->type.data.MemPtr) {
 		map = NULL;
 		sdata = buf->datas[0].data;
 	} else
 		return SPA_RESULT_ERROR;
 
-	if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
+	if (SDL_LockTexture(d->texture, NULL, &ddata, &dstride) < 0) {
 		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
 		return SPA_RESULT_ERROR;
 	}
@@ -423,40 +378,30 @@ static int impl_node_process_input(struct pw_node *node)
 
 	src = sdata;
 	dst = ddata;
-	for (i = 0; i < data->format.size.height; i++) {
+	for (i = 0; i < d->format.size.height; i++) {
 		memcpy(dst, src, ostride);
 		src += sstride;
 		dst += dstride;
 	}
-	SDL_UnlockTexture(data->texture);
+	SDL_UnlockTexture(d->texture);
 
-	SDL_RenderClear(data->renderer);
-	SDL_RenderCopy(data->renderer, data->texture, NULL, NULL);
-	SDL_RenderPresent(data->renderer);
+	SDL_RenderClear(d->renderer);
+	SDL_RenderCopy(d->renderer, d->texture, NULL, NULL);
+	SDL_RenderPresent(d->renderer);
 
 	if (map)
 		munmap(map, buf->datas[0].maxsize);
 
-	handle_events(data);
+	handle_events(d);
 
-	port->io.status = SPA_RESULT_NEED_BUFFER;
+	d->io->status = SPA_RESULT_NEED_BUFFER;
 
 	return SPA_RESULT_NEED_BUFFER;
 }
 
-static int impl_node_process_output(struct pw_node *node)
-{
-	return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
 static const struct pw_node_implementation impl_node = {
 	PW_VERSION_NODE_IMPLEMENTATION,
-	impl_node_get_props,
-	impl_node_set_props,
-	impl_node_send_command,
-	impl_node_add_port,
-	impl_node_process_input,
-	impl_node_process_output,
+	.process_input = impl_node_process_input,
 };
 
 static void make_nodes(struct data *data)
@@ -465,12 +410,10 @@ static void make_nodes(struct data *data)
 	struct pw_properties *props;
 
 	data->node = pw_node_new(data->core, NULL, NULL, "SDL-sink", NULL, 0);
-	data->node->user_data = data;
-	data->node->implementation = &impl_node;
+	pw_node_set_implementation(data->node, &impl_node, data);
 
 	data->port = pw_port_new(PW_DIRECTION_INPUT, 0, 0);
-	data->port->user_data = data;
-	data->port->implementation = &impl_port;
+	pw_port_set_implementation(data->port, &impl_port, data);
 	pw_port_add(data->port, data->node);
 	pw_node_register(data->node);
 
@@ -498,13 +441,14 @@ int main(int argc, char *argv[])
 	data.loop = pw_loop_new();
 	data.running = true;
 	data.core = pw_core_new(data.loop, NULL);
+	data.t = pw_core_get_type(data.core);
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL);
 
-	init_type(&data.type, data.core->type.map);
+	init_type(&data.type, data.t->map);
 
-	spa_debug_set_type_map(data.core->type.map);
+	spa_debug_set_type_map(data.t->map);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());

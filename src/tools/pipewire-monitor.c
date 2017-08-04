@@ -30,19 +30,27 @@ struct data {
 	bool running;
 	struct pw_loop *loop;
 	struct pw_core *core;
-	struct pw_remote *remote;
-	struct pw_registry_proxy *registry_proxy;
 
-	struct pw_listener on_info_changed;
-	struct pw_listener on_state_changed;
+	struct pw_remote *remote;
+	struct pw_callback_info remote_callbacks;
+
+	struct pw_core_proxy *core_proxy;
+
+	struct pw_registry_proxy *registry_proxy;
+	struct pw_callback_info registry_listener;
 };
 
 struct proxy_data {
+	struct pw_proxy *proxy;
 	uint32_t id;
 	uint32_t parent_id;
 	uint32_t permissions;
 	uint32_t version;
+	uint32_t type;
 	void *info;
+	pw_destroy_t destroy;
+	struct pw_callback_info proxy_listener;
+	struct pw_callback_info proxy_callbacks;
 };
 
 static void print_properties(struct spa_dict *props, char mark)
@@ -60,9 +68,8 @@ static void print_properties(struct spa_dict *props, char mark)
 
 #define MARK_CHANGE(f) ((print_mark && ((info)->change_mask & (1 << (f)))) ? '*' : ' ')
 
-static void on_info_changed(struct pw_listener *listener, struct pw_remote *remote)
+static void on_info_changed(void *data, const struct pw_core_info *info)
 {
-	struct pw_core_info *info = remote->info;
 	bool print_all = true, print_mark = false;
 
 	printf("\ttype: %s\n", PW_TYPE_INTERFACE__Core);
@@ -79,7 +86,7 @@ static void on_info_changed(struct pw_listener *listener, struct pw_remote *remo
 static void module_event_info(void *object, struct pw_module_info *info)
 {
         struct pw_proxy *proxy = object;
-        struct proxy_data *data = proxy->user_data;
+        struct proxy_data *data = pw_proxy_get_user_data(proxy);
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -110,13 +117,13 @@ static void module_event_info(void *object, struct pw_module_info *info)
 
 static const struct pw_module_events module_events = {
 	PW_VERSION_MODULE_EVENTS,
-        &module_event_info,
+        .info = module_event_info,
 };
 
 static void node_event_info(void *object, struct pw_node_info *info)
 {
         struct pw_proxy *proxy = object;
-        struct proxy_data *data = proxy->user_data;
+        struct proxy_data *data = pw_proxy_get_user_data(proxy);
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -162,13 +169,13 @@ static void node_event_info(void *object, struct pw_node_info *info)
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
-        &node_event_info
+        .info = node_event_info
 };
 
 static void client_event_info(void *object, struct pw_client_info *info)
 {
         struct pw_proxy *proxy = object;
-        struct proxy_data *data = proxy->user_data;
+        struct proxy_data *data = pw_proxy_get_user_data(proxy);
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -196,13 +203,13 @@ static void client_event_info(void *object, struct pw_client_info *info)
 
 static const struct pw_client_events client_events = {
 	PW_VERSION_CLIENT_EVENTS,
-        &client_event_info
+        .info = client_event_info
 };
 
 static void link_event_info(void *object, struct pw_link_info *info)
 {
         struct pw_proxy *proxy = object;
-        struct proxy_data *data = proxy->user_data;
+        struct proxy_data *data = pw_proxy_get_user_data(proxy);
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -238,63 +245,58 @@ static void link_event_info(void *object, struct pw_link_info *info)
 
 static const struct pw_link_events link_events = {
 	PW_VERSION_LINK_EVENTS,
-        &link_event_info
+	.info = link_event_info
 };
 
 static void
 destroy_proxy (void *data)
 {
-        struct pw_proxy *proxy = data;
-        struct pw_core *core = proxy->remote->core;
-        struct proxy_data *user_data = proxy->user_data;
+        struct proxy_data *user_data = data;
 
         if (user_data->info == NULL)
                 return;
 
-        if (proxy->type == core->type.core) {
-                pw_core_info_free (user_data->info);
-	}
-	else if (proxy->type == core->type.node) {
-                pw_node_info_free (user_data->info);
-	}
-	else if (proxy->type == core->type.module) {
-                pw_module_info_free (user_data->info);
-	}
-	else if (proxy->type == core->type.client) {
-                pw_client_info_free (user_data->info);
-	}
-	else if (proxy->type == core->type.link) {
-                pw_link_info_free (user_data->info);
-        }
+	if (user_data->destroy)
+		user_data->destroy(user_data->info);
         user_data->info = NULL;
 }
 
+static const struct pw_proxy_callbacks proxy_callbacks = {
+	PW_VERSION_PROXY_CALLBACKS,
+	.destroy = destroy_proxy,
+};
 
-static void registry_event_global(void *object, uint32_t id, uint32_t parent_id,
+static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 				  uint32_t permissions, uint32_t type, uint32_t version)
 {
-        struct pw_proxy *proxy = object;
-        struct data *data = proxy->object;
+        struct data *d = data;
+        struct pw_proxy *proxy;
         uint32_t client_version;
         const void *events;
-	struct pw_core *core = data->core;
+	struct pw_core *core = d->core;
+	struct pw_type *t = pw_core_get_type(core);
 	struct proxy_data *pd;
+	pw_destroy_t destroy;
 
-	if (type == core->type.node) {
+	if (type == t->node) {
 		events = &node_events;
 		client_version = PW_VERSION_NODE;
+		destroy = (pw_destroy_t) pw_node_info_free;
 	}
-	else if (type == core->type.module) {
+	else if (type == t->module) {
 		events = &module_events;
 		client_version = PW_VERSION_MODULE;
+		destroy = (pw_destroy_t) pw_module_info_free;
 	}
-	else if (type == core->type.client) {
+	else if (type == t->client) {
 		events = &client_events;
 		client_version = PW_VERSION_CLIENT;
+		destroy = (pw_destroy_t) pw_client_info_free;
 	}
-	else if (type == core->type.link) {
+	else if (type == t->link) {
 		events = &link_events;
 		client_version = PW_VERSION_LINK;
+		destroy = (pw_destroy_t) pw_link_info_free;
 	}
 	else {
 		printf("added:\n");
@@ -303,21 +305,25 @@ static void registry_event_global(void *object, uint32_t id, uint32_t parent_id,
 		printf("\tpermissions: %c%c%c\n", permissions & PW_PERM_R ? 'r' : '-',
 						  permissions & PW_PERM_W ? 'w' : '-',
 						  permissions & PW_PERM_X ? 'x' : '-');
-		printf("\ttype: %s (version %d)\n", spa_type_map_get_type(core->type.map, type), version);
+		printf("\ttype: %s (version %d)\n", spa_type_map_get_type(t->map, type), version);
 		return;
 	}
 
-        proxy = pw_registry_proxy_bind(data->registry_proxy, id, type,
-					       client_version, sizeof(struct proxy_data), destroy_proxy);
+        proxy = pw_registry_proxy_bind(d->registry_proxy, id, type,
+				       client_version,
+				       sizeof(struct proxy_data));
         if (proxy == NULL)
                 goto no_mem;
 
-	pd = proxy->user_data;
+	pd = pw_proxy_get_user_data(proxy);
+	pd->proxy = proxy;
 	pd->id = id;
 	pd->parent_id = parent_id;
 	pd->permissions = permissions;
 	pd->version = version;
-        pw_proxy_add_listener(proxy, proxy, events);
+	pd->destroy = destroy;
+        pw_proxy_add_listener(proxy, &pd->proxy_listener, events, pd);
+        pw_proxy_add_callbacks(proxy, &pd->proxy_callbacks, &proxy_callbacks, pd);
 
         return;
 
@@ -334,34 +340,45 @@ static void registry_event_global_remove(void *object, uint32_t id)
 
 static const struct pw_registry_events registry_events = {
 	PW_VERSION_REGISTRY_EVENTS,
-	registry_event_global,
-	registry_event_global_remove,
+	.global = registry_event_global,
+	.global_remove = registry_event_global_remove,
 };
 
-static void on_state_changed(struct pw_listener *listener, struct pw_remote *remote)
+static void on_state_changed(void *_data, enum pw_remote_state old,
+			     enum pw_remote_state state, const char *error)
 {
-	struct data *data = SPA_CONTAINER_OF(listener, struct data, on_state_changed);
+	struct data *data = _data;
+	struct pw_type *t = pw_core_get_type(data->core);
 
-	switch (remote->state) {
+	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
-		printf("remote error: %s\n", remote->error);
+		printf("remote error: %s\n", error);
 		data->running = false;
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(remote->state));
+		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
 
-		data->registry_proxy = pw_core_proxy_get_registry(data->remote->core_proxy,
-								  PW_VERSION_REGISTRY, 0, NULL);
+		data->core_proxy = pw_remote_get_core_proxy(data->remote);
+		data->registry_proxy = pw_core_proxy_get_registry(data->core_proxy,
+								  t->registry,
+								  PW_VERSION_REGISTRY, 0);
 		pw_registry_proxy_add_listener(data->registry_proxy,
-					       data, &registry_events);
+					       &data->registry_listener,
+					       &registry_events, data);
 		break;
 
 	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(remote->state));
+		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
 		break;
 	}
 }
+
+static const struct pw_remote_callbacks remote_callbacks = {
+	PW_VERSION_REMOTE_CALLBACKS,
+	.info_changed = on_info_changed,
+	.state_changed = on_state_changed,
+};
 
 int main(int argc, char *argv[])
 {
@@ -374,9 +391,7 @@ int main(int argc, char *argv[])
 	data.core = pw_core_new(data.loop, NULL);
 	data.remote = pw_remote_new(data.core, NULL);
 
-	pw_signal_add(&data.remote->info_changed, &data.on_info_changed, on_info_changed);
-	pw_signal_add(&data.remote->state_changed, &data.on_state_changed, on_state_changed);
-
+	pw_remote_add_callbacks(data.remote, &data.remote_callbacks, &remote_callbacks, &data);
 	pw_remote_connect(data.remote);
 
 	pw_loop_enter(data.loop);

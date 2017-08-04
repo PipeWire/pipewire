@@ -29,7 +29,19 @@ extern "C" {
 
 struct pw_global;
 
+/** \class pw_core
+ *
+ * \brief the core PipeWire object
+ *
+ * The server core object manages all resources available on the
+ * server.
+ *
+ * See \ref page_server_api
+ */
+struct pw_core;
+
 #include <pipewire/type.h>
+#include <pipewire/callback.h>
 #include <pipewire/loop.h>
 #include <pipewire/client.h>
 #include <pipewire/port.h>
@@ -126,91 +138,40 @@ typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
  *
  * See \ref page_server_api
  */
-struct pw_global {
-	struct pw_core *core;		/**< the core */
-	struct pw_client *owner;	/**< the owner of this object, NULL when the
-					  *  PipeWire server is the owner */
+struct pw_global;
 
-	struct spa_list link;		/**< link in core list of globals */
-	uint32_t id;			/**< server id of the object */
-	struct pw_global *parent;	/**< parent global */
+struct pw_core_callbacks {
+#define PW_VERSION_CORE_CALLBACKS      0
+	uint32_t version;
 
-	uint32_t type;			/**< type of interface */
-	uint32_t version;		/**< version of interface */
-	pw_bind_func_t bind;		/**< function to bind to the interface */
+	void (*destroy) (void *data, struct pw_core *core);
 
-	void *object;			/**< object associated with the interface */
+	void (*info_changed) (void *data, struct pw_core_info *info);
 
-	/** Emited when the global is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_global *global));
-};
+	void (*global_added) (void *data, struct pw_global *global);
 
-/** \class pw_core
- *
- * \brief the core PipeWire object
- *
- * The server core object manages all resources available on the
- * server.
- *
- * See \ref page_server_api
- */
-struct pw_core {
-	struct pw_global *global;	/**< the global of the core */
-
-	struct pw_core_info info;	/**< info about the core */
-	/** Emited when the core info is updated */
-	PW_SIGNAL(info_changed, (struct pw_listener *listener, struct pw_core *core));
-
-	struct pw_properties *properties;	/**< properties of the core */
-
-	struct pw_type type;			/**< type map and common types */
-
-	pw_permission_func_t permission_func;	/**< get permissions of an object */
-	void *permission_data;			/**< data passed to permission function */
-
-	struct pw_map globals;			/**< map of globals */
-
-	struct spa_list protocol_list;		/**< list of protocols */
-	struct spa_list remote_list;		/**< list of remote connections */
-	struct spa_list resource_list;		/**< list of core resources */
-	struct spa_list registry_resource_list;	/**< list of registry resources */
-	struct spa_list module_list;		/**< list of modules */
-	struct spa_list global_list;		/**< list of globals */
-	struct spa_list client_list;		/**< list of clients */
-	struct spa_list node_list;		/**< list of nodes */
-	struct spa_list node_factory_list;	/**< list of node factories */
-	struct spa_list link_list;		/**< list of links */
-
-	struct pw_loop *main_loop;	/**< main loop for control */
-	struct pw_loop *data_loop;	/**< data loop for data passing */
-
-	struct spa_support *support;	/**< support for spa plugins */
-	uint32_t n_support;		/**< number of support items */
-
-	/** Emited when the core is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_core *core));
-
-	/** Emited when a global is added */
-	PW_SIGNAL(global_added, (struct pw_listener *listener,
-				 struct pw_core *core, struct pw_global *global));
-	/** Emited when a global is removed */
-	PW_SIGNAL(global_removed, (struct pw_listener *listener,
-				   struct pw_core *core, struct pw_global *global));
-
-	struct {
-		struct spa_graph_scheduler sched;
-		struct spa_graph graph;
-	} rt;
+	void (*global_removed) (void *data, struct pw_global *global);
 };
 
 struct pw_core *
 pw_core_new(struct pw_loop *main_loop, struct pw_properties *props);
 
-void
-pw_core_destroy(struct pw_core *core);
+void pw_core_destroy(struct pw_core *core);
 
-void
-pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict);
+void pw_core_add_callbacks(struct pw_core *core,
+			   struct pw_callback_info *info,
+			   const struct pw_core_callbacks *callbacks,
+			   void *data);
+
+struct pw_type *pw_core_get_type(struct pw_core *core);
+
+const struct spa_dict *pw_core_get_properties(struct pw_core *core);
+
+const struct spa_support *pw_core_get_support(struct pw_core *core, uint32_t *n_support);
+
+struct pw_loop *pw_core_get_main_loop(struct pw_core *core);
+
+void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict);
 
 struct pw_global *
 pw_core_add_global(struct pw_core *core,
@@ -220,6 +181,16 @@ pw_core_add_global(struct pw_core *core,
 		   uint32_t version,
 		   pw_bind_func_t bind,
 		   void *object);
+
+struct pw_client * pw_global_get_owner(struct pw_global *global);
+
+struct pw_global * pw_global_get_parent(struct pw_global *global);
+
+uint32_t pw_global_get_type(struct pw_global *global);
+
+uint32_t pw_global_get_version(struct pw_global *global);
+
+void * pw_global_get_object(struct pw_global *global);
 
 int
 pw_global_bind(struct pw_global *global,

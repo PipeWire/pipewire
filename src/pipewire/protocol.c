@@ -18,6 +18,7 @@
  */
 
 #include <pipewire/protocol.h>
+#include <pipewire/private.h>
 
 struct impl {
 	struct pw_protocol this;
@@ -53,6 +54,11 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 	pw_log_info("protocol %p: Created protocol %s", protocol, name);
 
 	return protocol;
+}
+
+void *pw_protocol_get_user_data(struct pw_protocol *protocol)
+{
+	return protocol->user_data;
 }
 
 void pw_protocol_destroy(struct pw_protocol *protocol)
@@ -96,7 +102,8 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 
 	spa_list_insert(protocol->marshal_list.prev, &impl->link);
 
-	pw_log_info("Add marshal %s:%d to protocol %s", marshal->type, marshal->version, protocol->name);
+	pw_log_info("Add marshal %s:%d to protocol %s", marshal->type, marshal->version,
+			protocol->name);
 }
 
 const struct pw_protocol_marshal *

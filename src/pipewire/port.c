@@ -22,6 +22,7 @@
 #include <errno.h>
 
 #include "pipewire/pipewire.h"
+#include "pipewire/private.h"
 #include "pipewire/port.h"
 
 /** \cond */
@@ -36,7 +37,7 @@ static void port_update_state(struct pw_port *port, enum pw_port_state state)
 	if (port->state != state) {
 		pw_log_debug("port %p: state %d -> %d", port, port->state, state);
 		port->state = state;
-		pw_signal_emit(&port->state_changed, port);
+		pw_callback_emit(&port->callback_list, struct pw_port_callbacks, state_changed, state);
 	}
 }
 
@@ -159,8 +160,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 
 	spa_list_init(&this->links);
 
-	pw_signal_init(&this->state_changed);
-	pw_signal_init(&this->destroy_signal);
+	pw_callback_init(&this->callback_list);
 
 	spa_graph_port_init(&this->rt.port,
 			    this->direction,
@@ -184,6 +184,27 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 					&schedule_tee_port,
 				   this);
 	return this;
+}
+
+void pw_port_set_implementation(struct pw_port *port,
+				const struct pw_port_implementation *implementation,
+				void *data)
+{
+	port->implementation = implementation;
+	port->implementation_data = data;
+}
+
+void pw_port_add_callbacks(struct pw_port *port,
+			   struct pw_callback_info *info,
+			   const struct pw_port_callbacks *callbacks,
+			   void *data)
+{
+	pw_callback_add(&port->callback_list, info, callbacks, data);
+}
+
+void * pw_port_get_user_data(struct pw_port *port)
+{
+	return port->user_data;
 }
 
 static int do_add_port(struct spa_loop *loop,
@@ -217,12 +238,15 @@ void pw_port_add(struct pw_port *port, struct pw_node *node)
 		node->info.change_mask |= 1 << 3;
 	}
 
+	if (port->implementation->set_io)
+		port->implementation->set_io(port->implementation_data, &port->io);
+
 	port->rt.graph = node->rt.sched->graph;
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, 0, NULL, false, port);
 
 	port_update_state(port, PW_PORT_STATE_CONFIGURE);
 
-	pw_signal_emit(&node->port_added, node, port);
+	pw_callback_emit(&node->callback_list, struct pw_node_callbacks, port_added, port);
 }
 
 static int do_remove_port(struct spa_loop *loop,
@@ -249,7 +273,7 @@ void pw_port_destroy(struct pw_port *port)
 
 	pw_log_debug("port %p: destroy", port);
 
-	pw_signal_emit(&port->destroy_signal, port);
+	pw_callback_emit_na(&port->callback_list, struct pw_port_callbacks, destroy);
 
 	if (node) {
 		pw_loop_invoke(port->node->data_loop, do_remove_port, SPA_ID_INVALID, 0, NULL, true, port);
@@ -263,12 +287,8 @@ void pw_port_destroy(struct pw_port *port)
 			node->info.n_output_ports--;
 		}
 		spa_list_remove(&port->link);
-		pw_signal_emit(&node->port_removed, node, port);
+		pw_callback_emit(&node->callback_list, struct pw_node_callbacks, port_removed, port);
 	}
-
-	if (port->destroy)
-		port->destroy(port);
-
 	free(port);
 }
 
@@ -277,9 +297,14 @@ do_port_pause(struct spa_loop *loop,
               bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
         struct pw_port *port = user_data;
+	int res;
 
-        return port->implementation->send_command(port,
-		&SPA_COMMAND_INIT(port->node->core->type.command_node.Pause));
+	if (port->implementation->send_command)
+		res = port->implementation->send_command(port->implementation_data,
+				&SPA_COMMAND_INIT(port->node->core->type.command_node.Pause));
+	else
+		res = SPA_RESULT_OK;
+	return res;
 }
 
 int pw_port_enum_formats(struct pw_port *port,
@@ -287,14 +312,23 @@ int pw_port_enum_formats(struct pw_port *port,
                          const struct spa_format *filter,
                          int32_t index)
 {
-	return port->implementation->enum_formats(port, format, filter, index);
+	int res;
+	if (port->implementation->enum_formats)
+		res = port->implementation->enum_formats(port->implementation_data, format, filter, index);
+	else
+		res = SPA_RESULT_ENUM_END;
+	return res;
 }
 
 int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format)
 {
 	int res;
 
-	res = port->implementation->set_format(port, flags, format);
+	if (port->implementation->set_format)
+		res = port->implementation->set_format(port->implementation_data, flags, format);
+	else
+		res = SPA_RESULT_OK;
+
 	pw_log_debug("port %p: set format %d", port, res);
 
 	if (!SPA_RESULT_IS_ASYNC(res)) {
@@ -317,22 +351,42 @@ int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_fo
 
 int pw_port_get_format(struct pw_port *port, const struct spa_format **format)
 {
-	return port->implementation->get_format(port, format);
+	int res;
+	if (port->implementation->get_format)
+		res = port->implementation->get_format(port->implementation_data, format);
+	else
+		res = SPA_RESULT_NOT_IMPLEMENTED;
+	return res;
 }
 
 int pw_port_get_info(struct pw_port *port, const struct spa_port_info **info)
 {
-	return port->implementation->get_info(port, info);
+	int res;
+	if (port->implementation->get_info)
+		res = port->implementation->get_info(port->implementation_data, info);
+	else
+		res = SPA_RESULT_NOT_IMPLEMENTED;
+	return res;
 }
 
 int pw_port_enum_params(struct pw_port *port, uint32_t index, struct spa_param **param)
 {
-	return port->implementation->enum_params(port, index, param);
+	int res;
+	if (port->implementation->enum_params)
+		res = port->implementation->enum_params(port->implementation_data, index, param);
+	else
+		res = SPA_RESULT_ENUM_END;
+	return res;
 }
 
 int pw_port_set_param(struct pw_port *port, struct spa_param *param)
 {
-	return port->implementation->set_param(port, param);
+	int res;
+	if (port->implementation->set_param)
+		res = port->implementation->set_param(port->implementation_data, param);
+	else
+		res = SPA_RESULT_NOT_IMPLEMENTED;
+	return res;
 }
 
 int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers)
@@ -353,7 +407,11 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 	}
 
 	pw_log_debug("port %p: use %d buffers", port, n_buffers);
-	res = port->implementation->use_buffers(port, buffers, n_buffers);
+
+	if (port->implementation->use_buffers)
+		res = port->implementation->use_buffers(port->implementation_data, buffers, n_buffers);
+	else
+		res = SPA_RESULT_NOT_IMPLEMENTED;
 
 	size = sizeof(struct spa_buffer *) * n_buffers;
 
@@ -390,7 +448,11 @@ int pw_port_alloc_buffers(struct pw_port *port,
 	}
 
 	pw_log_debug("port %p: alloc %d buffers", port, *n_buffers);
-	res = port->implementation->alloc_buffers(port, params, n_params, buffers, n_buffers);
+
+	if (port->implementation->alloc_buffers)
+		res = port->implementation->alloc_buffers(port->implementation_data, params, n_params, buffers, n_buffers);
+	else
+		res = SPA_RESULT_NOT_IMPLEMENTED;
 
 	size = sizeof(struct spa_buffer *) * *n_buffers;
 

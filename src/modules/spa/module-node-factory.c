@@ -25,21 +25,24 @@
 #include "config.h"
 
 #include "pipewire/interfaces.h"
+#include "pipewire/private.h"
 #include "pipewire/core.h"
 #include "pipewire/module.h"
 
 #include "spa-node.h"
 
-struct impl {
-	struct pw_node_factory this;
+struct factory_data {
+	struct pw_core *core;
+	struct pw_node_factory *this;
 	struct pw_properties *properties;
 };
 
-static struct pw_node *create_node(struct pw_node_factory *factory,
+static struct pw_node *create_node(void *_data,
 				   struct pw_resource *resource,
 				   const char *name,
 				   struct pw_properties *properties)
 {
+	struct factory_data *data = _data;
 	struct pw_node *node;
 	const char *lib, *factory_name;
 
@@ -52,7 +55,7 @@ static struct pw_node *create_node(struct pw_node_factory *factory,
 	if(lib == NULL || factory_name == NULL)
 		goto no_properties;
 
-	node = pw_spa_node_load(factory->core,
+	node = pw_spa_node_load(data->core,
 				NULL,
 				NULL,
 				lib,
@@ -82,28 +85,32 @@ static struct pw_node *create_node(struct pw_node_factory *factory,
 	return NULL;
 }
 
+static const struct pw_node_factory_implementation impl_factory = {
+	PW_VERSION_NODE_FACRORY_IMPLEMENTATION,
+	.create_node = create_node,
+};
+
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = module->core;
-	struct impl *impl;
+	struct pw_node_factory *factory;
+	struct factory_data *data;
 
-	impl = calloc(1, sizeof(struct impl));
-	if (impl == NULL)
+	factory = pw_node_factory_new(core, "spa-node-factory", sizeof(*data));
+	if (factory == NULL)
 		return false;
 
-	pw_log_debug("module %p: new", impl);
+	data = pw_node_factory_get_user_data(factory);
+	data->this = factory;
+	data->properties = properties;
 
-	impl->properties = properties;
+	pw_log_debug("module %p: new", module);
 
-	impl->this.core = core;
-	impl->this.name = "spa-node-factory";
-        pw_signal_init(&impl->this.destroy_signal);
-	impl->this.create_node = create_node;
+	pw_node_factory_set_implementation(factory,
+					   &impl_factory,
+					   data);
 
-	spa_list_insert(core->node_factory_list.prev, &impl->this.link);
-
-        impl->this.global = pw_core_add_global(core, NULL, module->global, core->type.node_factory, 0,
-			NULL, impl);
+	pw_node_factory_export(factory, NULL, module->global);
 
 	return true;
 }

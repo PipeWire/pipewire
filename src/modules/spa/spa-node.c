@@ -43,7 +43,7 @@ struct impl {
 	char *lib;
 	char *factory_name;
 
-	struct pw_callback_info node_callbacks;
+	struct pw_listener node_listener;
 };
 
 struct port {
@@ -337,7 +337,7 @@ static void on_node_done(struct spa_node *node, int seq, int res, void *user_dat
 	}
 
         pw_log_debug("spa-node %p: async complete event %d %d", this, seq, res);
-	pw_callback_emit(&this->callback_list, struct pw_node_callbacks, async_complete, seq, res);
+	pw_listener_list_emit(&this->listener_list, struct pw_node_events, async_complete, seq, res);
 }
 
 static void on_node_event(struct spa_node *node, struct spa_event *event, void *user_data)
@@ -345,21 +345,21 @@ static void on_node_event(struct spa_node *node, struct spa_event *event, void *
         struct impl *impl = user_data;
         struct pw_node *this = impl->this;
 
-	pw_callback_emit(&this->callback_list, struct pw_node_callbacks, event, event);
+	pw_listener_list_emit(&this->listener_list, struct pw_node_events, event, event);
 }
 
 static void on_node_need_input(struct spa_node *node, void *user_data)
 {
         struct impl *impl = user_data;
         struct pw_node *this = impl->this;
-	pw_callback_emit_na(&this->callback_list, struct pw_node_callbacks, need_input);
+	pw_listener_list_emit_na(&this->listener_list, struct pw_node_events, need_input);
 }
 
 static void on_node_have_output(struct spa_node *node, void *user_data)
 {
         struct impl *impl = user_data;
         struct pw_node *this = impl->this;
-	pw_callback_emit_na(&this->callback_list, struct pw_node_callbacks, have_output);
+	pw_listener_list_emit_na(&this->listener_list, struct pw_node_events, have_output);
 }
 
 static void
@@ -390,8 +390,8 @@ static const struct spa_node_callbacks spa_node_callbacks = {
 	.reuse_buffer = on_node_reuse_buffer,
 };
 
-static const struct pw_node_callbacks node_callbacks = {
-	PW_VERSION_NODE_CALLBACKS,
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
 	.destroy = pw_spa_node_destroy,
 };
 
@@ -434,7 +434,7 @@ pw_spa_node_new(struct pw_core *core,
 	impl->node = node;
 	impl->async_init = async;
 
-	pw_node_add_callbacks(this, &impl->node_callbacks, &node_callbacks, impl);
+	pw_node_add_listener(this, &impl->node_listener, &node_events, impl);
 
 	pw_node_set_implementation(this, &node_impl, impl);
 

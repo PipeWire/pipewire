@@ -68,26 +68,26 @@ struct pw_link_proxy;
 #define PW_TYPE_INTERFACE__Client	PW_TYPE_INTERFACE_BASE "Client"
 #define PW_TYPE_INTERFACE__Link		PW_TYPE_INTERFACE_BASE "Link"
 
-#define PW_VERSION_CORE			0
+#define PW_VERSION_CORE				0
 
-#define PW_CORE_METHOD_UPDATE_TYPES		0
-#define PW_CORE_METHOD_SYNC			1
-#define PW_CORE_METHOD_GET_REGISTRY		2
-#define PW_CORE_METHOD_CLIENT_UPDATE		3
-#define PW_CORE_METHOD_CREATE_NODE		4
-#define PW_CORE_METHOD_CREATE_LINK		5
-#define PW_CORE_METHOD_NUM			6
+#define PW_CORE_PROXY_METHOD_UPDATE_TYPES	0
+#define PW_CORE_PROXY_METHOD_SYNC		1
+#define PW_CORE_PROXY_METHOD_GET_REGISTRY	2
+#define PW_CORE_PROXY_METHOD_CLIENT_UPDATE	3
+#define PW_CORE_PROXY_METHOD_CREATE_NODE	4
+#define PW_CORE_PROXY_METHOD_CREATE_LINK	5
+#define PW_CORE_PROXY_METHOD_NUM		6
 
 /**
- * \struct pw_core_methods
+ * \struct pw_core_proxy_methods
  * \brief Core methods
  *
  * The core global object. This is a singleton object used for
  * creating new objects in the PipeWire server. It is also used
  * for internal features.
  */
-struct pw_core_methods {
-#define PW_VERSION_CORE_METHODS	0
+struct pw_core_proxy_methods {
+#define PW_VERSION_CORE_PROXY_METHODS	0
 	uint32_t version;
 	/**
 	 * Update the type map
@@ -169,27 +169,27 @@ struct pw_core_methods {
 static inline void
 pw_core_proxy_update_types(struct pw_core_proxy *core, uint32_t first_id, uint32_t n_types, const char **types)
 {
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_methods, update_types, first_id, n_types, types);
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, update_types, first_id, n_types, types);
 }
 
 static inline void
 pw_core_proxy_sync(struct pw_core_proxy *core, uint32_t seq)
 {
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_methods, sync, seq);
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, sync, seq);
 }
 
 static inline struct pw_registry_proxy *
 pw_core_proxy_get_registry(struct pw_core_proxy *core, uint32_t type, uint32_t version, size_t user_data_size)
 {
 	struct pw_proxy *p = pw_proxy_new((struct pw_proxy*)core, type, user_data_size);
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_methods, get_registry, version, pw_proxy_get_id(p));
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, get_registry, version, pw_proxy_get_id(p));
 	return (struct pw_registry_proxy *) p;
 }
 
 static inline void
 pw_core_proxy_client_update(struct pw_core_proxy *core, const struct spa_dict *props)
 {
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_methods, client_update, props);
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, client_update, props);
 }
 
 static inline void *
@@ -202,7 +202,7 @@ pw_core_proxy_create_node(struct pw_core_proxy *core,
 			  size_t user_data_size)
 {
 	struct pw_proxy *p = pw_proxy_new((struct pw_proxy*)core, type, user_data_size);
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_methods, create_node, factory_name,
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, create_node, factory_name,
 			name, type, version, props, pw_proxy_get_id(p));
 	return p;
 }
@@ -219,25 +219,25 @@ pw_core_proxy_create_link(struct pw_core_proxy *core,
 			  size_t user_data_size)
 {
 	struct pw_proxy *p = pw_proxy_new((struct pw_proxy*)core, type, user_data_size);
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_methods, create_link, output_node_id, output_port_id,
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, create_link, output_node_id, output_port_id,
 			input_node_id, input_port_id, filter, prop, pw_proxy_get_id(p));
 	return (struct pw_link_proxy*) p;
 }
 
 
-#define PW_CORE_EVENT_UPDATE_TYPES 0
-#define PW_CORE_EVENT_DONE         1
-#define PW_CORE_EVENT_ERROR        2
-#define PW_CORE_EVENT_REMOVE_ID    3
-#define PW_CORE_EVENT_INFO         4
-#define PW_CORE_EVENT_NUM          5
+#define PW_CORE_PROXY_EVENT_UPDATE_TYPES 0
+#define PW_CORE_PROXY_EVENT_DONE         1
+#define PW_CORE_PROXY_EVENT_ERROR        2
+#define PW_CORE_PROXY_EVENT_REMOVE_ID    3
+#define PW_CORE_PROXY_EVENT_INFO         4
+#define PW_CORE_PROXY_EVENT_NUM          5
 
-/** \struct pw_core_events
+/** \struct pw_core_proxy_events
  *  \brief Core events
  *  \ingroup pw_core_interface The pw_core interface
  */
-struct pw_core_events {
-#define PW_VERSION_CORE_EVENTS	0
+struct pw_core_proxy_events {
+#define PW_VERSION_CORE_PROXY_EVENTS	0
 	uint32_t version;
 	/**
 	 * Update the type map
@@ -294,30 +294,29 @@ struct pw_core_events {
 
 static inline void
 pw_core_proxy_add_listener(struct pw_core_proxy *core,
-			   struct pw_callback_info *info,
-			   const struct pw_core_events *events,
+			   struct pw_listener *listener,
+			   const struct pw_core_proxy_events *events,
 			   void *data)
 {
-	pw_proxy_add_listener((struct pw_proxy*)core, info, events, data);
+	pw_proxy_add_proxy_listener((struct pw_proxy*)core, listener, events, data);
 }
 
 
-#define pw_core_resource_update_types(r,...) pw_resource_notify(r,struct pw_core_events,update_types,__VA_ARGS__)
-#define pw_core_resource_done(r,...)         pw_resource_notify(r,struct pw_core_events,done,__VA_ARGS__)
-#define pw_core_resource_error(r,...)        pw_resource_notify(r,struct pw_core_events,error,__VA_ARGS__)
-#define pw_core_resource_remove_id(r,...)    pw_resource_notify(r,struct pw_core_events,remove_id,__VA_ARGS__)
-#define pw_core_resource_info(r,...)         pw_resource_notify(r,struct pw_core_events,info,__VA_ARGS__)
+#define pw_core_resource_update_types(r,...) pw_resource_notify(r,struct pw_core_proxy_events,update_types,__VA_ARGS__)
+#define pw_core_resource_done(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,done,__VA_ARGS__)
+#define pw_core_resource_error(r,...)        pw_resource_notify(r,struct pw_core_proxy_events,error,__VA_ARGS__)
+#define pw_core_resource_remove_id(r,...)    pw_resource_notify(r,struct pw_core_proxy_events,remove_id,__VA_ARGS__)
+#define pw_core_resource_info(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,info,__VA_ARGS__)
 
 
+#define PW_VERSION_REGISTRY			0
 
-#define PW_VERSION_REGISTRY		0
-
-#define PW_REGISTRY_METHOD_BIND		0
-#define PW_REGISTRY_METHOD_NUM		1
+#define PW_REGISTRY_PROXY_METHOD_BIND		0
+#define PW_REGISTRY_PROXY_METHOD_NUM		1
 
 /** Registry methods */
-struct pw_registry_methods {
-#define PW_VERSION_REGISTRY_METHODS	0
+struct pw_registry_proxy_methods {
+#define PW_VERSION_REGISTRY_PROXY_METHODS	0
 	uint32_t version;
 	/**
 	 * Bind to a global object
@@ -342,17 +341,17 @@ pw_registry_proxy_bind(struct pw_registry_proxy *registry,
 {
 	struct pw_proxy *reg = (struct pw_proxy*)registry;
 	struct pw_proxy *p = pw_proxy_new(reg, type, user_data_size);
-	pw_proxy_do(reg, struct pw_registry_methods, bind, id, type, version, pw_proxy_get_id(p));
+	pw_proxy_do(reg, struct pw_registry_proxy_methods, bind, id, type, version, pw_proxy_get_id(p));
 	return p;
 }
 
-#define PW_REGISTRY_EVENT_GLOBAL             0
-#define PW_REGISTRY_EVENT_GLOBAL_REMOVE      1
-#define PW_REGISTRY_EVENT_NUM                2
+#define PW_REGISTRY_PROXY_EVENT_GLOBAL             0
+#define PW_REGISTRY_PROXY_EVENT_GLOBAL_REMOVE      1
+#define PW_REGISTRY_PROXY_EVENT_NUM                2
 
 /** Registry events */
-struct pw_registry_events {
-#define PW_VERSION_REGISTRY_EVENTS	0
+struct pw_registry_proxy_events {
+#define PW_VERSION_REGISTRY_PROXY_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify of a new global object
@@ -382,25 +381,25 @@ struct pw_registry_events {
 
 static inline void
 pw_registry_proxy_add_listener(struct pw_registry_proxy *registry,
-			       struct pw_callback_info *info,
-			       const struct pw_registry_events *events,
+			       struct pw_listener *listener,
+			       const struct pw_registry_proxy_events *events,
 			       void *data)
 {
-	pw_proxy_add_listener((struct pw_proxy*)registry, info, events, data);
+	pw_proxy_add_proxy_listener((struct pw_proxy*)registry, listener, events, data);
 }
 
-#define pw_registry_resource_global(r,...)        pw_resource_notify(r,struct pw_registry_events,global,__VA_ARGS__)
-#define pw_registry_resource_global_remove(r,...) pw_resource_notify(r,struct pw_registry_events,global_remove,__VA_ARGS__)
+#define pw_registry_resource_global(r,...)        pw_resource_notify(r,struct pw_registry_proxy_events,global,__VA_ARGS__)
+#define pw_registry_resource_global_remove(r,...) pw_resource_notify(r,struct pw_registry_proxy_events,global_remove,__VA_ARGS__)
 
 
-#define PW_VERSION_MODULE		0
+#define PW_VERSION_MODULE			0
 
-#define PW_MODULE_EVENT_INFO		0
-#define PW_MODULE_EVENT_NUM		1
+#define PW_MODULE_PROXY_EVENT_INFO		0
+#define PW_MODULE_PROXY_EVENT_NUM		1
 
 /** Module events */
-struct pw_module_events {
-#define PW_VERSION_MODULE_EVENTS	0
+struct pw_module_proxy_events {
+#define PW_VERSION_MODULE_PROXY_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify module info
@@ -412,23 +411,23 @@ struct pw_module_events {
 
 static inline void
 pw_module_proxy_add_listener(struct pw_module_proxy *module,
-			     struct pw_callback_info *info,
-			     const struct pw_module_events *events,
+			     struct pw_listener *listener,
+			     const struct pw_module_proxy_events *events,
 			     void *data)
 {
-	pw_proxy_add_listener((struct pw_proxy*)module, info, events, data);
+	pw_proxy_add_proxy_listener((struct pw_proxy*)module, listener, events, data);
 }
 
-#define pw_module_resource_info(r,...)	pw_resource_notify(r,struct pw_module_events,info,__VA_ARGS__)
+#define pw_module_resource_info(r,...)	pw_resource_notify(r,struct pw_module_proxy_events,info,__VA_ARGS__)
 
 #define PW_VERSION_NODE			0
 
-#define PW_NODE_EVENT_INFO	0
-#define PW_NODE_EVENT_NUM	1
+#define PW_NODE_PROXY_EVENT_INFO	0
+#define PW_NODE_PROXY_EVENT_NUM	1
 
 /** Node events */
-struct pw_node_events {
-#define PW_VERSION_NODE_EVENTS	0
+struct pw_node_proxy_events {
+#define PW_VERSION_NODE_PROXY_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify node info
@@ -440,23 +439,23 @@ struct pw_node_events {
 
 static inline void
 pw_node_proxy_add_listener(struct pw_node_proxy *node,
-			   struct pw_callback_info *info,
-			   const struct pw_node_events *events,
+			   struct pw_listener *listener,
+			   const struct pw_node_proxy_events *events,
 			   void *data)
 {
-	pw_proxy_add_listener((struct pw_proxy*)node, info, events, data);
+	pw_proxy_add_proxy_listener((struct pw_proxy*)node, listener, events, data);
 }
 
-#define pw_node_resource_info(r,...) pw_resource_notify(r,struct pw_node_events,info,__VA_ARGS__)
+#define pw_node_resource_info(r,...) pw_resource_notify(r,struct pw_node_proxy_events,info,__VA_ARGS__)
 
-#define PW_VERSION_CLIENT		0
+#define PW_VERSION_CLIENT			0
 
-#define PW_CLIENT_EVENT_INFO		0
-#define PW_CLIENT_EVENT_NUM		1
+#define PW_CLIENT_PROXY_EVENT_INFO		0
+#define PW_CLIENT_PROXY_EVENT_NUM		1
 
 /** Client events */
-struct pw_client_events {
-#define PW_VERSION_CLIENT_EVENTS	0
+struct pw_client_proxy_events {
+#define PW_VERSION_CLIENT_PROXY_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify client info
@@ -469,24 +468,24 @@ struct pw_client_events {
 /** Client */
 static inline void
 pw_client_proxy_add_listener(struct pw_client_proxy *client,
-			     struct pw_callback_info *info,
-			     const struct pw_client_events *events,
+			     struct pw_listener *listener,
+			     const struct pw_client_proxy_events *events,
 			     void *data)
 {
-	pw_proxy_add_listener((struct pw_proxy*)client, info, events, data);
+	pw_proxy_add_proxy_listener((struct pw_proxy*)client, listener, events, data);
 }
 
-#define pw_client_resource_info(r,...) pw_resource_notify(r,struct pw_client_events,info,__VA_ARGS__)
+#define pw_client_resource_info(r,...) pw_resource_notify(r,struct pw_client_proxy_events,info,__VA_ARGS__)
 
 
 #define PW_VERSION_LINK			0
 
-#define PW_LINK_EVENT_INFO	0
-#define PW_LINK_EVENT_NUM	1
+#define PW_LINK_PROXY_EVENT_INFO	0
+#define PW_LINK_PROXY_EVENT_NUM	1
 
 /** Link events */
-struct pw_link_events {
-#define PW_VERSION_LINK_EVENTS	0
+struct pw_link_proxy_events {
+#define PW_VERSION_LINK_PROXY_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify link info
@@ -499,14 +498,14 @@ struct pw_link_events {
 /** Link */
 static inline void
 pw_link_proxy_add_listener(struct pw_link_proxy *link,
-			   struct pw_callback_info *info,
-			   const struct pw_link_events *events,
+			   struct pw_listener *listener,
+			   const struct pw_link_proxy_events *events,
 			   void *data)
 {
-	pw_proxy_add_listener((struct pw_proxy*)link, info, events, data);
+	pw_proxy_add_proxy_listener((struct pw_proxy*)link, listener, events, data);
 }
 
-#define pw_link_resource_info(r,...)      pw_resource_notify(r,struct pw_link_events,info,__VA_ARGS__)
+#define pw_link_resource_info(r,...)      pw_resource_notify(r,struct pw_link_proxy_events,info,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

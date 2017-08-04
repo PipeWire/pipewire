@@ -43,13 +43,13 @@ struct proxy {
  *
  * \memberof pw_proxy
  */
-struct pw_proxy *pw_proxy_new(struct pw_proxy *proxy,
+struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 			      uint32_t type,
 			      size_t user_data_size)
 {
 	struct proxy *impl;
 	struct pw_proxy *this;
-	struct pw_remote *remote = proxy->remote;
+	struct pw_remote *remote = factory->remote;
 
 	impl = calloc(1, sizeof(struct proxy) + user_data_size);
 	if (impl == NULL)
@@ -58,8 +58,8 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *proxy,
 	this = &impl->this;
 	this->remote = remote;
 
-	pw_callback_init(&this->callback_list);
-	pw_callback_init(&this->listener_list);
+	pw_listener_list_init(&this->listener_list);
+	pw_listener_list_init(&this->proxy_listener_list);
 
 	this->id = pw_map_insert_new(&remote->objects, this);
 
@@ -85,20 +85,20 @@ uint32_t pw_proxy_get_id(struct pw_proxy *proxy)
 	return proxy->id;
 }
 
-void pw_proxy_add_callbacks(struct pw_proxy *proxy,
-			    struct pw_callback_info *info,
-			    const struct pw_proxy_callbacks *callbacks,
-			    void *data)
-{
-	pw_callback_add(&proxy->callback_list, info, callbacks, data);
-}
-
 void pw_proxy_add_listener(struct pw_proxy *proxy,
-			   struct pw_callback_info *info,
-			   const void *callbacks,
+			   struct pw_listener *listener,
+			   const struct pw_proxy_events *events,
 			   void *data)
 {
-	pw_callback_add(&proxy->listener_list, info, callbacks, data);
+	pw_listener_list_add(&proxy->listener_list, listener, events, data);
+}
+
+void pw_proxy_add_proxy_listener(struct pw_proxy *proxy,
+				 struct pw_listener *listener,
+				 const void *events,
+				 void *data)
+{
+	pw_listener_list_add(&proxy->proxy_listener_list, listener, events, data);
 }
 
 /** Destroy a proxy object
@@ -114,7 +114,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);
 
 	pw_log_debug("proxy %p: destroy %u", proxy, proxy->id);
-	pw_callback_emit_na(&proxy->callback_list, struct pw_proxy_callbacks, destroy);
+	pw_listener_list_emit_na(&proxy->listener_list, struct pw_proxy_events, destroy);
 
 	pw_map_remove(&proxy->remote->objects, proxy->id);
 	spa_list_remove(&proxy->link);
@@ -122,12 +122,12 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	free(impl);
 }
 
-struct pw_callback_list *pw_proxy_get_listeners(struct pw_proxy *proxy)
+struct pw_listener_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy)
 {
-	return &proxy->listener_list;
+	return &proxy->proxy_listener_list;
 }
 
-const void *pw_proxy_get_implementation(struct pw_proxy *proxy)
+const void *pw_proxy_get_proxy_implementation(struct pw_proxy *proxy)
 {
 	return proxy->marshal->method_marshal;
 }

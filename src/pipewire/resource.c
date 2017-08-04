@@ -51,7 +51,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	this->type = type;
 	this->version = version;
 
-	pw_callback_init(&this->callback_list);
+	pw_listener_list_init(&this->listener_list);
 
 	if (id == SPA_ID_INVALID) {
 		id = pw_map_insert_new(&client->objects, this);
@@ -66,7 +66,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	this->marshal = pw_protocol_get_marshal(client->protocol, type);
 
 	pw_log_debug("resource %p: new for client %p id %u", this, client, id);
-	pw_callback_emit(&client->callback_list, struct pw_client_callbacks, resource_added, this);
+	pw_listener_list_emit(&client->listener_list, struct pw_client_events, resource_added, this);
 
 	return this;
 
@@ -81,12 +81,12 @@ void *pw_resource_get_user_data(struct pw_resource *resource)
 	return resource->user_data;
 }
 
-void pw_resource_add_callbacks(struct pw_resource *resource,
-			       struct pw_callback_info *info,
-			       const struct pw_resource_callbacks *callbacks,
-			       void *data)
+void pw_resource_add_listener(struct pw_resource *resource,
+			      struct pw_listener *listener,
+			      const struct pw_resource_events *events,
+			      void *data)
 {
-	pw_callback_add(&resource->callback_list, info, callbacks, data);
+	pw_listener_list_add(&resource->listener_list, listener, events, data);
 }
 
 void pw_resource_set_implementation(struct pw_resource *resource,
@@ -96,7 +96,7 @@ void pw_resource_set_implementation(struct pw_resource *resource,
 	struct pw_client *client = resource->client;
 	resource->implementation = implementation;
 	resource->implementation_data = data;
-	pw_callback_emit(&client->callback_list, struct pw_client_callbacks, resource_impl, resource);
+	pw_listener_list_emit(&client->listener_list, struct pw_client_events, resource_impl, resource);
 }
 
 void pw_resource_destroy(struct pw_resource *resource)
@@ -104,10 +104,10 @@ void pw_resource_destroy(struct pw_resource *resource)
 	struct pw_client *client = resource->client;
 
 	pw_log_trace("resource %p: destroy %u", resource, resource->id);
-	pw_callback_emit_na(&resource->callback_list, struct pw_resource_callbacks, destroy);
+	pw_listener_list_emit_na(&resource->listener_list, struct pw_resource_events, destroy);
 
 	pw_map_insert_at(&client->objects, resource->id, NULL);
-	pw_callback_emit(&client->callback_list, struct pw_client_callbacks, resource_removed, resource);
+	pw_listener_list_emit(&client->listener_list, struct pw_client_events, resource_removed, resource);
 
 	if (client->core_resource)
 		pw_core_resource_remove_id(client->core_resource, resource->id);

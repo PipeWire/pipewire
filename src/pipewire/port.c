@@ -37,7 +37,7 @@ static void port_update_state(struct pw_port *port, enum pw_port_state state)
 	if (port->state != state) {
 		pw_log_debug("port %p: state %d -> %d", port, port->state, state);
 		port->state = state;
-		pw_callback_emit(&port->callback_list, struct pw_port_callbacks, state_changed, state);
+		pw_listener_list_emit(&port->listener_list, struct pw_port_events, state_changed, state);
 	}
 }
 
@@ -160,7 +160,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 
 	spa_list_init(&this->links);
 
-	pw_callback_init(&this->callback_list);
+	pw_listener_list_init(&this->listener_list);
 
 	spa_graph_port_init(&this->rt.port,
 			    this->direction,
@@ -194,12 +194,12 @@ void pw_port_set_implementation(struct pw_port *port,
 	port->implementation_data = data;
 }
 
-void pw_port_add_callbacks(struct pw_port *port,
-			   struct pw_callback_info *info,
-			   const struct pw_port_callbacks *callbacks,
-			   void *data)
+void pw_port_add_listener(struct pw_port *port,
+			  struct pw_listener *listener,
+			  const struct pw_port_events *events,
+			  void *data)
 {
-	pw_callback_add(&port->callback_list, info, callbacks, data);
+	pw_listener_list_add(&port->listener_list, listener, events, data);
 }
 
 void * pw_port_get_user_data(struct pw_port *port)
@@ -246,7 +246,7 @@ void pw_port_add(struct pw_port *port, struct pw_node *node)
 
 	port_update_state(port, PW_PORT_STATE_CONFIGURE);
 
-	pw_callback_emit(&node->callback_list, struct pw_node_callbacks, port_added, port);
+	pw_listener_list_emit(&node->listener_list, struct pw_node_events, port_added, port);
 }
 
 static int do_remove_port(struct spa_loop *loop,
@@ -273,7 +273,7 @@ void pw_port_destroy(struct pw_port *port)
 
 	pw_log_debug("port %p: destroy", port);
 
-	pw_callback_emit_na(&port->callback_list, struct pw_port_callbacks, destroy);
+	pw_listener_list_emit_na(&port->listener_list, struct pw_port_events, destroy);
 
 	if (node) {
 		pw_loop_invoke(port->node->data_loop, do_remove_port, SPA_ID_INVALID, 0, NULL, true, port);
@@ -287,7 +287,7 @@ void pw_port_destroy(struct pw_port *port)
 			node->info.n_output_ports--;
 		}
 		spa_list_remove(&port->link);
-		pw_callback_emit(&node->callback_list, struct pw_node_callbacks, port_removed, port);
+		pw_listener_list_emit(&node->listener_list, struct pw_node_events, port_removed, port);
 	}
 	free(port);
 }

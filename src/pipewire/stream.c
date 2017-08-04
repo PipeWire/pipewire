@@ -85,8 +85,8 @@ struct stream {
 
 	struct pw_client_node_proxy *node_proxy;
 	bool disconnecting;
-	struct pw_callback_info node_listener;
-	struct pw_callback_info proxy_callbacks;
+	struct pw_listener node_listener;
+	struct pw_listener proxy_listener;
 
 	struct pw_transport *trans;
 
@@ -131,7 +131,7 @@ static void clear_buffers(struct pw_stream *stream)
 	pw_log_debug("stream %p: clear buffers", stream);
 
 	pw_array_for_each(bid, &impl->buffer_ids) {
-		pw_callback_emit(&stream->callback_list, struct pw_stream_callbacks, remove_buffer, bid->id);
+		pw_listener_list_emit(&stream->listener_list, struct pw_stream_events, remove_buffer, bid->id);
 		free(bid->buf);
 		bid->buf = NULL;
 		bid->used = false;
@@ -155,7 +155,7 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 			     pw_stream_state_as_string(state), stream->error);
 
 		stream->state = state;
-		pw_callback_emit(&stream->callback_list, struct pw_stream_callbacks, state_changed,
+		pw_listener_list_emit(&stream->listener_list, struct pw_stream_events, state_changed,
 				old, state, error);
 	}
 	return res;
@@ -209,7 +209,7 @@ struct pw_stream *pw_stream_new(struct pw_remote *remote,
 	this->name = strdup(name);
 	impl->type_client_node = spa_type_map_get_id(remote->core->type.map, PW_TYPE_INTERFACE__ClientNode);
 
-	pw_callback_init(&this->callback_list);
+	pw_listener_list_init(&this->listener_list);
 
 	this->state = PW_STREAM_STATE_UNCONNECTED;
 
@@ -241,12 +241,12 @@ struct pw_properties *pw_stream_get_properties(struct pw_stream *stream)
 	return stream->properties;
 }
 
-void pw_stream_add_callbacks(struct pw_stream *stream,
-			     struct pw_callback_info *info,
-			     const struct pw_stream_callbacks *callbacks,
-			     void *data)
+void pw_stream_add_listener(struct pw_stream *stream,
+			    struct pw_listener *listener,
+			    const struct pw_stream_events *events,
+			    void *data)
 {
-	pw_callback_add(&stream->callback_list, info, callbacks, data);
+	pw_listener_list_add(&stream->listener_list, listener, events, data);
 }
 
 static void unhandle_socket(struct pw_stream *stream)
@@ -309,14 +309,14 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	pw_log_debug("stream %p: destroy", stream);
 
-	pw_callback_emit_na(&stream->callback_list, struct pw_stream_callbacks, destroy);
+	pw_listener_list_emit_na(&stream->listener_list, struct pw_stream_events, destroy);
 
 	unhandle_socket(stream);
 
 	spa_list_remove(&stream->link);
 
 	if (impl->node_proxy)
-		pw_callback_remove(&impl->proxy_callbacks);
+		pw_listener_remove(&impl->proxy_listener);
 
 	set_possible_formats(stream, 0, NULL);
 	set_params(stream, 0, NULL);
@@ -475,7 +475,7 @@ static inline void reuse_buffer(struct pw_stream *stream, uint32_t id)
 		pw_log_trace("stream %p: reuse buffer %u", stream, id);
 		bid->used = false;
 		spa_list_insert(impl->free.prev, &bid->link);
-		pw_callback_emit(&stream->callback_list, struct pw_stream_callbacks, new_buffer, id);
+		pw_listener_list_emit(&stream->listener_list, struct pw_stream_events, new_buffer, id);
 	}
 }
 
@@ -495,7 +495,7 @@ static void handle_rtnode_event(struct pw_stream *stream, struct spa_event *even
 			if (input->buffer_id == SPA_ID_INVALID)
 				continue;
 
-			pw_callback_emit(&stream->callback_list, struct pw_stream_callbacks,
+			pw_listener_list_emit(&stream->listener_list, struct pw_stream_events,
 					 new_buffer, input->buffer_id);
 			input->buffer_id = SPA_ID_INVALID;
 		}
@@ -514,7 +514,7 @@ static void handle_rtnode_event(struct pw_stream *stream, struct spa_event *even
 		}
 		pw_log_trace("stream %p: process output", stream);
 		impl->in_need_buffer = true;
-		pw_callback_emit_na(&stream->callback_list, struct pw_stream_callbacks, need_buffer);
+		pw_listener_list_emit_na(&stream->listener_list, struct pw_stream_events, need_buffer);
 		impl->in_need_buffer = false;
 	} else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ReuseBuffer) {
 		struct pw_event_transport_reuse_buffer *p =
@@ -608,7 +608,7 @@ handle_node_command(struct pw_stream *stream, uint32_t seq, const struct spa_com
 				send_need_input(stream);
 			else {
 				impl->in_need_buffer = true;
-				pw_callback_emit_na(&stream->callback_list, struct pw_stream_callbacks,
+				pw_listener_list_emit_na(&stream->listener_list, struct pw_stream_events,
 						    need_buffer);
 				impl->in_need_buffer = false;
 			}
@@ -672,7 +672,7 @@ client_node_set_format(void *data,
 	impl->format = format ? spa_format_copy(format) : NULL;
 	impl->pending_seq = seq;
 
-	pw_callback_emit(&stream->callback_list, struct pw_stream_callbacks, format_changed, impl->format);
+	pw_listener_list_emit(&stream->listener_list, struct pw_stream_events, format_changed, impl->format);
 
 	if (format)
 		stream_set_state(stream, PW_STREAM_STATE_READY, NULL);
@@ -821,7 +821,7 @@ client_node_use_buffers(void *data,
 				pw_log_warn("unknown buffer data type %d", d->type);
 			}
 		}
-		pw_callback_emit(&stream->callback_list, struct pw_stream_callbacks, add_buffer, bid->id);
+		pw_listener_list_emit(&stream->listener_list, struct pw_stream_events, add_buffer, bid->id);
 	}
 
 	add_async_complete(stream, seq, SPA_RESULT_OK);
@@ -876,8 +876,8 @@ static void client_node_transport(void *data, uint32_t node_id,
 	stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
 }
 
-static const struct pw_client_node_events client_node_events = {
-	PW_VERSION_CLIENT_NODE_EVENTS,
+static const struct pw_client_node_proxy_events client_node_events = {
+	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
 	.transport = client_node_transport,
 	.set_props = client_node_set_props,
 	.event = client_node_event,
@@ -899,13 +899,13 @@ static void on_node_proxy_destroy(void *data)
 	impl->disconnecting = false;
 	impl->node_proxy = NULL;
 
-	pw_callback_remove(&impl->proxy_callbacks);
+	pw_listener_remove(&impl->proxy_listener);
 
 	stream_set_state(this, PW_STREAM_STATE_UNCONNECTED, NULL);
 }
 
-static const struct pw_proxy_callbacks proxy_callbacks = {
-	PW_VERSION_PROXY_CALLBACKS,
+static const struct pw_proxy_events proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
 	.destroy = on_node_proxy_destroy,
 };
 
@@ -946,7 +946,7 @@ pw_stream_connect(struct pw_stream *stream,
 		return false;
 
 	pw_client_node_proxy_add_listener(impl->node_proxy, &impl->node_listener, &client_node_events, impl);
-	pw_proxy_add_callbacks((struct pw_proxy*)impl->node_proxy, &impl->proxy_callbacks, &proxy_callbacks, impl);
+	pw_proxy_add_listener((struct pw_proxy*)impl->node_proxy, &impl->proxy_listener, &proxy_events, impl);
 
 	do_node_init(stream);
 

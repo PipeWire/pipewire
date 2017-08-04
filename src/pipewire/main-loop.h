@@ -34,10 +34,10 @@ extern "C" {
 struct pw_main_loop;
 
 #include <pipewire/loop.h>
-#include <pipewire/callback.h>
+#include <pipewire/listener.h>
 
-struct pw_main_loop_callbacks {
-#define PW_VERSION_MAIN_LOOP_CALLBACKS	0
+struct pw_main_loop_events {
+#define PW_VERSION_MAIN_LOOP_EVENTS	0
 	uint32_t version;
 
 	void (*destroy) (void *data);
@@ -46,10 +46,10 @@ struct pw_main_loop_callbacks {
 struct pw_main_loop *
 pw_main_loop_new(void);
 
-void pw_main_loop_add_callbacks(struct pw_main_loop *loop,
-				struct pw_callback_info *info,
-				const struct pw_main_loop_callbacks *callbacks,
-				void *data);
+void pw_main_loop_add_listener(struct pw_main_loop *loop,
+			       struct pw_listener *listener,
+			       const struct pw_main_loop_events *events,
+			       void *data);
 
 struct pw_loop *
 pw_main_loop_get_loop(struct pw_main_loop *loop);

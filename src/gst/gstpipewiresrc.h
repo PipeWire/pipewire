@@ -70,10 +70,10 @@ struct _GstPipeWireSrc {
   struct pw_core *core;
   struct pw_type *type;
   struct pw_remote *remote;
-  struct pw_callback_info remote_callbacks;
+  struct pw_listener remote_listener;
 
   struct pw_stream *stream;
-  struct pw_callback_info stream_callbacks;
+  struct pw_listener stream_listener;
 
   GstAllocator *fd_allocator;
   GstStructure *properties;

@@ -42,7 +42,7 @@
 struct remote {
 	struct pw_remote this;
 	uint32_t type_client_node;
-	struct pw_callback_info core_callbacks;
+	struct pw_listener core_listener;
 };
 
 struct mem_id {
@@ -62,11 +62,9 @@ struct buffer_id {
 };
 
 struct node_data {
-	struct pw_node *node;
 	struct pw_remote *remote;
 	struct pw_core *core;
 	struct pw_type *t;
-        struct pw_client_node_proxy *node_proxy;
 	uint32_t node_id;
 
 	int rtreadfd;
@@ -74,9 +72,11 @@ struct node_data {
 	struct spa_source *rtsocket_source;
         struct pw_transport *trans;
 
-        struct pw_listener node_proxy_destroy;
-	struct pw_callback_info node_callbacks;
-	struct pw_callback_info node_listener;
+	struct pw_node *node;
+	struct pw_listener node_listener;
+
+        struct pw_client_node_proxy *node_proxy;
+	struct pw_listener proxy_listener;
 
         struct pw_array mem_ids;
 	struct pw_array buffer_ids;
@@ -132,7 +132,7 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 			     pw_remote_state_as_string(state), remote->error);
 
 		remote->state = state;
-		pw_callback_emit(&remote->callback_list, struct pw_remote_callbacks, state_changed,
+		pw_listener_list_emit(&remote->listener_list, struct pw_remote_events, state_changed,
 				 old, state, remote->error);
 	}
 }
@@ -143,7 +143,7 @@ static void core_event_info(void *data, struct pw_core_info *info)
 
 	pw_log_debug("got core info");
 	this->info = pw_core_info_update(this->info, info);
-	pw_callback_emit(&this->callback_list, struct pw_remote_callbacks, info_changed, info);
+	pw_listener_list_emit(&this->listener_list, struct pw_remote_events, info_changed, info);
 }
 
 static void core_event_done(void *data, uint32_t seq)
@@ -154,7 +154,7 @@ static void core_event_done(void *data, uint32_t seq)
 	if (seq == 0)
 		pw_remote_update_state(this, PW_REMOTE_STATE_CONNECTED, NULL);
 
-	pw_callback_emit(&this->callback_list, struct pw_remote_callbacks, sync_reply, seq);
+	pw_listener_list_emit(&this->listener_list, struct pw_remote_events, sync_reply, seq);
 }
 
 static void core_event_error(void *data, uint32_t id, int res, const char *error, ...)
@@ -188,8 +188,8 @@ core_event_update_types(void *data, uint32_t first_id, uint32_t n_types, const c
 	}
 }
 
-static const struct pw_core_events core_events = {
-	PW_VERSION_CORE_EVENTS,
+static const struct pw_core_proxy_events core_proxy_events = {
+	PW_VERSION_CORE_PROXY_EVENTS,
 	.update_types = core_event_update_types,
 	.done = core_event_done,
 	.error = core_event_error,
@@ -231,7 +231,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	spa_list_init(&this->proxy_list);
 	spa_list_init(&this->stream_list);
 
-	pw_callback_init(&this->callback_list);
+	pw_listener_list_init(&this->listener_list);
 
 	if ((protocol_name = pw_properties_get(properties, "pipewire.protocol")) == NULL) {
 		if (!pw_module_load(core, "libpipewire-module-protocol-native", NULL))
@@ -268,7 +268,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 	struct pw_stream *stream, *s2;
 
 	pw_log_debug("remote %p: destroy", remote);
-	pw_callback_emit_na(&remote->callback_list, struct pw_remote_callbacks, destroy);
+	pw_listener_list_emit_na(&remote->listener_list, struct pw_remote_events, destroy);
 
 	if (remote->state != PW_REMOTE_STATE_UNCONNECTED)
 		pw_remote_disconnect(remote);
@@ -298,12 +298,12 @@ enum pw_remote_state pw_remote_get_state(struct pw_remote *remote, const char **
 	return remote->state;
 }
 
-void pw_remote_add_callbacks(struct pw_remote *remote,
-			     struct pw_callback_info *info,
-			     const struct pw_remote_callbacks *callbacks,
-			     void *data)
+void pw_remote_add_listener(struct pw_remote *remote,
+			    struct pw_listener *listener,
+			    const struct pw_remote_events *events,
+			    void *data)
 {
-	pw_callback_add(&remote->callback_list, info, callbacks, data);
+	pw_listener_list_add(&remote->listener_list, listener, events, data);
 }
 
 static int do_connect(struct pw_remote *remote)
@@ -317,7 +317,7 @@ static int do_connect(struct pw_remote *remote)
 	if (remote->core_proxy == NULL)
 		goto no_proxy;
 
-	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_callbacks, &core_events, remote);
+	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_proxy_events, remote);
 
 	pw_core_proxy_client_update(remote->core_proxy, &remote->properties->dict);
 	pw_core_proxy_sync(remote->core_proxy, 0);
@@ -906,8 +906,8 @@ client_node_port_command(void *object,
 	pw_log_warn("port command not supported");
 }
 
-static const struct pw_client_node_events client_node_events = {
-	PW_VERSION_CLIENT_NODE_EVENTS,
+static const struct pw_client_node_proxy_events client_node_events = {
+	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
 	.transport = client_node_transport,
 	.set_props = client_node_set_props,
 	.event = client_node_event,
@@ -967,8 +967,8 @@ static void do_node_init(struct pw_proxy *proxy)
         pw_client_node_proxy_done(data->node_proxy, 0, SPA_RESULT_OK);
 }
 
-static const struct pw_node_callbacks node_callbacks = {
-	PW_VERSION_NODE_CALLBACKS,
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
 	.need_input = node_need_input,
 	.have_output = node_have_output,
 };
@@ -1002,9 +1002,9 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
         pw_array_init(&data->buffer_ids, 32);
         pw_array_ensure_size(&data->buffer_ids, sizeof(struct buffer_id) * 64);
 
-	pw_node_add_callbacks(node, &data->node_callbacks, &node_callbacks, data);
+	pw_node_add_listener(node, &data->node_listener, &node_events, data);
 
-        pw_client_node_proxy_add_listener(data->node_proxy, &data->node_listener, &client_node_events, proxy);
+        pw_client_node_proxy_add_listener(data->node_proxy, &data->proxy_listener, &client_node_events, proxy);
         do_node_init(proxy);
 
 	return proxy;

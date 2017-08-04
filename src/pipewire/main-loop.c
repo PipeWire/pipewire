@@ -40,7 +40,7 @@ struct pw_main_loop *pw_main_loop_new(void)
 	if (this->loop == NULL)
 		goto no_loop;
 
-	pw_callback_init(&this->callback_list);
+	pw_listener_list_init(&this->listener_list);
 
 	return this;
 
@@ -57,19 +57,19 @@ struct pw_main_loop *pw_main_loop_new(void)
 void pw_main_loop_destroy(struct pw_main_loop *loop)
 {
 	pw_log_debug("main-loop %p: destroy", loop);
-	pw_callback_emit_na(&loop->callback_list, struct pw_main_loop_callbacks, destroy);
+	pw_listener_list_emit_na(&loop->listener_list, struct pw_main_loop_events, destroy);
 
 	pw_loop_destroy(loop->loop);
 
 	free(loop);
 }
 
-void pw_main_loop_add_callbacks(struct pw_main_loop *loop,
-				struct pw_callback_info *info,
-				const struct pw_main_loop_callbacks *callbacks,
-				void *data)
+void pw_main_loop_add_listener(struct pw_main_loop *loop,
+			       struct pw_listener *listener,
+			       const struct pw_main_loop_events *events,
+			       void *data)
 {
-	pw_callback_add(&loop->callback_list, info, callbacks, data);
+	pw_listener_list_add(&loop->listener_list, listener, events, data);
 }
 
 struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop)

@@ -1008,13 +1008,13 @@ copy_properties (GQuark field_id,
   return TRUE;
 }
 
-static const struct pw_remote_callbacks remote_callbacks = {
-	PW_VERSION_REMOTE_CALLBACKS,
+static const struct pw_remote_events remote_events = {
+	PW_VERSION_REMOTE_EVENTS,
 	.state_changed = on_remote_state_changed,
 };
 
-static const struct pw_stream_callbacks stream_callbacks = {
-	PW_VERSION_STREAM_CALLBACKS,
+static const struct pw_stream_events stream_events = {
+	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_state_changed,
 	.format_changed = on_format_changed,
 	.add_buffer = on_add_buffer,
@@ -1035,9 +1035,9 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
   if ((pwsrc->remote = pw_remote_new (pwsrc->core, NULL)) == NULL)
     goto no_remote;
 
-  pw_remote_add_callbacks (pwsrc->remote,
-			   &pwsrc->remote_callbacks,
-			   &remote_callbacks, pwsrc);
+  pw_remote_add_listener (pwsrc->remote,
+			  &pwsrc->remote_listener,
+			  &remote_events, pwsrc);
 
   pw_remote_connect (pwsrc->remote);
 
@@ -1065,10 +1065,10 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
     goto no_stream;
 
 
-  pw_stream_add_callbacks(pwsrc->stream,
-			  &pwsrc->stream_callbacks,
-			  &stream_callbacks,
-			  pwsrc);
+  pw_stream_add_listener(pwsrc->stream,
+			 &pwsrc->stream_listener,
+			 &stream_events,
+			 pwsrc);
 
 
   pwsrc->clock = gst_pipewire_clock_new (pwsrc->stream);

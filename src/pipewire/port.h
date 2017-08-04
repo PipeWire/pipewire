@@ -89,8 +89,8 @@ struct pw_port_implementation {
 	int (*send_command) (void *data, struct spa_command *command);
 };
 
-struct pw_port_callbacks {
-#define PW_VERSION_PORT_CALLBACKS 0
+struct pw_port_events {
+#define PW_VERSION_PORT_EVENTS 0
 	uint32_t version;
 
 	void (*destroy) (void *data);
@@ -112,10 +112,10 @@ void pw_port_set_implementation(struct pw_port *port,
 				const struct pw_port_implementation *implementation,
 				void *data);
 
-void pw_port_add_callbacks(struct pw_port *port,
-			   struct pw_callback_info *info,
-			   const struct pw_port_callbacks *callbacks,
-			   void *data);
+void pw_port_add_listener(struct pw_port *port,
+			  struct pw_listener *listener,
+			  const struct pw_port_events *events,
+			  void *data);
 
 /** Destroy a port \memberof pw_port */
 void pw_port_destroy(struct pw_port *port);

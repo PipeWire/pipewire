@@ -115,7 +115,7 @@ struct pw_data_loop *pw_data_loop_new(void)
 	if (this->loop == NULL)
 		goto no_loop;
 
-	pw_callback_init(&this->callback_list);
+	pw_listener_list_init(&this->listener_list);
 
 	this->event = pw_loop_add_event(this->loop, do_stop, this);
 
@@ -134,7 +134,7 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 {
 	pw_log_debug("data-loop %p: destroy", loop);
 
-	pw_callback_emit_na(&loop->callback_list, struct pw_data_loop_callbacks, destroy);
+	pw_listener_list_emit_na(&loop->listener_list, struct pw_data_loop_events, destroy);
 
 	pw_data_loop_stop(loop);
 
@@ -143,12 +143,12 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 	free(loop);
 }
 
-void pw_data_loop_add_callbacks(struct pw_data_loop *loop,
-				struct pw_callback_info *info,
-				const struct pw_data_loop_callbacks *callbacks,
-				void *data)
+void pw_data_loop_add_listener(struct pw_data_loop *loop,
+			       struct pw_listener *listener,
+			       const struct pw_data_loop_events *events,
+			       void *data)
 {
-	pw_callback_add(&loop->callback_list, info, callbacks, data);
+	pw_listener_list_add(&loop->listener_list, listener, events, data);
 }
 
 struct pw_loop *

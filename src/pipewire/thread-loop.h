@@ -89,8 +89,8 @@ extern "C" {
  */
 struct pw_thread_loop;
 
-struct pw_thread_loop_callbacks {
-#define PW_VERSION_THREAD_LOOP_CALLBACKS	0
+struct pw_thread_loop_events {
+#define PW_VERSION_THREAD_LOOP_EVENTS	0
         uint32_t version;
 
         void (*destroy) (void *data);
@@ -102,10 +102,10 @@ pw_thread_loop_new(struct pw_loop *loop, const char *name);
 void
 pw_thread_loop_destroy(struct pw_thread_loop *loop);
 
-void pw_thread_loop_add_callbacks(struct pw_thread_loop *loop,
-				  struct pw_callback_info *info,
-				  const struct pw_thread_loop_callbacks *callbacks,
-				  void *data);
+void pw_thread_loop_add_listener(struct pw_thread_loop *loop,
+				 struct pw_listener *listener,
+				 const struct pw_thread_loop_events *events,
+				 void *data);
 struct pw_loop *
 pw_thread_loop_get_loop(struct pw_thread_loop *loop);
 

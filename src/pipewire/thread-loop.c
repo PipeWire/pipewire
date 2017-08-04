@@ -27,7 +27,7 @@ struct pw_thread_loop {
 	struct pw_loop *loop;
 	char *name;
 
-	struct pw_callback_list callback_list;
+	struct pw_listener_list listener_list;
 
 	pthread_mutex_t lock;
 	pthread_cond_t cond;
@@ -102,7 +102,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop, const char *name
 	this->hooks = impl_hooks;
 	pw_loop_add_hooks(loop, &this->hooks);
 
-	pw_callback_init(&this->callback_list);
+	pw_listener_list_init(&this->listener_list);
 
 	pthread_mutexattr_init(&attr);
 	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
@@ -118,7 +118,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop, const char *name
 /** Destroy a threaded loop \memberof pw_thread_loop */
 void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 {
-	pw_callback_emit_na(&loop->callback_list, struct pw_thread_loop_callbacks, destroy);
+	pw_listener_list_emit_na(&loop->listener_list, struct pw_thread_loop_events, destroy);
 
 	pw_thread_loop_stop(loop);
 
@@ -133,12 +133,12 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 	free(loop);
 }
 
-void pw_thread_loop_add_callbacks(struct pw_thread_loop *loop,
-				  struct pw_callback_info *info,
-				  const struct pw_thread_loop_callbacks *callbacks,
-				  void *data)
+void pw_thread_loop_add_listener(struct pw_thread_loop *loop,
+				 struct pw_listener *listener,
+				 const struct pw_thread_loop_events *events,
+				 void *data)
 {
-	pw_callback_add(&loop->callback_list, info, callbacks, data);
+	pw_listener_list_add(&loop->listener_list, listener, events, data);
 }
 
 struct pw_loop *

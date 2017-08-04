@@ -27,7 +27,6 @@
 #include <spa/lib/format.h>
 #include <spa/lib/props.h>
 
-#include "callback.h"
 #include "pipewire.h"
 #include "private.h"
 #include "interfaces.h"
@@ -47,10 +46,10 @@ struct impl {
 	struct spa_format *format_filter;
 	struct pw_properties *properties;
 
-	struct pw_callback_info input_port_callbacks;
-	struct pw_callback_info input_node_callbacks;
-	struct pw_callback_info output_port_callbacks;
-	struct pw_callback_info output_node_callbacks;
+	struct pw_listener input_port_listener;
+	struct pw_listener input_node_listener;
+	struct pw_listener output_port_listener;
+	struct pw_listener output_node_listener;
 
 	void *buffer_owner;
 	struct pw_memblock buffer_mem;
@@ -59,7 +58,7 @@ struct impl {
 };
 
 struct resource_data {
-	struct pw_callback_info resource_callbacks;
+	struct pw_listener resource_listener;
 };
 
 /** \endcond */
@@ -77,7 +76,7 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 			free(link->error);
 		link->error = error;
 
-		pw_callback_emit(&link->callback_list, struct pw_link_callbacks, state_changed, old, state, error);
+		pw_listener_list_emit(&link->listener_list, struct pw_link_events, state_changed, old, state, error);
 	}
 }
 
@@ -777,8 +776,8 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	struct impl *impl = (struct impl *) this;
 
 	pw_log_debug("link %p: remove input port %p", this, port);
-	pw_callback_remove(&impl->input_port_callbacks);
-	pw_callback_remove(&impl->input_node_callbacks);
+	pw_listener_remove(&impl->input_port_listener);
+	pw_listener_remove(&impl->input_node_listener);
 
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_input, 1, 0, NULL, true, this);
@@ -800,8 +799,8 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	struct impl *impl = (struct impl *) this;
 
 	pw_log_debug("link %p: remove output port %p", this, port);
-	pw_callback_remove(&impl->output_port_callbacks);
-	pw_callback_remove(&impl->output_node_callbacks);
+	pw_listener_remove(&impl->output_port_listener);
+	pw_listener_remove(&impl->output_node_listener);
 
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_output, 1, 0, NULL, true, this);
@@ -832,7 +831,7 @@ static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 		impl->buffer_owner = NULL;
 	}
 
-	pw_callback_emit(&this->callback_list, struct pw_link_callbacks, port_unlinked, port);
+	pw_listener_list_emit(&this->listener_list, struct pw_link_events, port_unlinked, port);
 
 	pw_link_update_state(this, PW_LINK_STATE_UNLINKED, NULL);
 	pw_link_destroy(this);
@@ -942,8 +941,8 @@ static void link_unbind_func(void *data)
 	spa_list_remove(&resource->link);
 }
 
-static const struct pw_resource_callbacks resource_callbacks = {
-	PW_VERSION_RESOURCE_CALLBACKS,
+static const struct pw_resource_events resource_events = {
+	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = link_unbind_func,
 };
 
@@ -961,7 +960,7 @@ link_bind_func(struct pw_global *global,
 		goto no_mem;
 
 	data = pw_resource_get_user_data(resource);
-	pw_resource_add_callbacks(resource, &data->resource_callbacks, &resource_callbacks, resource);
+	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
 
 	pw_log_debug("link %p: bound to %d", this, resource->id);
 
@@ -996,23 +995,23 @@ do_add_link(struct spa_loop *loop,
         return SPA_RESULT_OK;
 }
 
-static const struct pw_port_callbacks input_port_callbacks = {
-	PW_VERSION_PORT_CALLBACKS,
+static const struct pw_port_events input_port_events = {
+	PW_VERSION_PORT_EVENTS,
 	.destroy = input_port_destroy,
 };
 
-static const struct pw_port_callbacks output_port_callbacks = {
-	PW_VERSION_PORT_CALLBACKS,
+static const struct pw_port_events output_port_events = {
+	PW_VERSION_PORT_EVENTS,
 	.destroy = output_port_destroy,
 };
 
-static const struct pw_node_callbacks input_node_callbacks = {
-	PW_VERSION_NODE_CALLBACKS,
+static const struct pw_node_events input_node_events = {
+	PW_VERSION_NODE_EVENTS,
 	.async_complete = input_node_async_complete,
 };
 
-static const struct pw_node_callbacks output_node_callbacks = {
-	PW_VERSION_NODE_CALLBACKS,
+static const struct pw_node_events output_node_events = {
+	PW_VERSION_NODE_EVENTS,
 	.async_complete = output_node_async_complete,
 };
 
@@ -1054,14 +1053,14 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	output_node = output->node;
 
 	spa_list_init(&this->resource_list);
-	pw_callback_init(&this->callback_list);
+	pw_listener_list_init(&this->listener_list);
 
 	impl->format_filter = format_filter;
 
-	pw_port_add_callbacks(input, &impl->input_port_callbacks, &input_port_callbacks, impl);
-	pw_node_add_callbacks(input_node, &impl->input_node_callbacks, &input_node_callbacks, impl);
-	pw_port_add_callbacks(output, &impl->output_port_callbacks, &output_port_callbacks, impl);
-	pw_node_add_callbacks(output_node, &impl->output_node_callbacks, &output_node_callbacks, impl);
+	pw_port_add_listener(input, &impl->input_port_listener, &input_port_events, impl);
+	pw_node_add_listener(input_node, &impl->input_node_listener, &input_node_events, impl);
+	pw_port_add_listener(output, &impl->output_port_listener, &output_port_events, impl);
+	pw_node_add_listener(output_node, &impl->output_node_listener, &output_node_events, impl);
 
 	pw_log_debug("link %p: constructed %p:%d -> %p:%d", impl,
 		     output_node, output->port_id, input_node, input->port_id);
@@ -1124,7 +1123,7 @@ void pw_link_destroy(struct pw_link *link)
 	struct pw_resource *resource, *tmp;
 
 	pw_log_debug("link %p: destroy", impl);
-	pw_callback_emit_na(&link->callback_list, struct pw_link_callbacks, destroy);
+	pw_listener_list_emit_na(&link->listener_list, struct pw_link_events, destroy);
 
 	pw_link_deactivate(link);
 
@@ -1153,12 +1152,12 @@ void pw_link_destroy(struct pw_link *link)
 	free(impl);
 }
 
-void pw_link_add_callbacks(struct pw_link *link,
-			   struct pw_callback_info *info,
-			   const struct pw_link_callbacks *callbacks,
-			   void *data)
+void pw_link_add_listener(struct pw_link *link,
+			  struct pw_listener *listener,
+			  const struct pw_link_events *events,
+			  void *data)
 {
-	pw_callback_add(&link->callback_list, info, callbacks, data);
+	pw_listener_list_add(&link->listener_list, listener, events, data);
 }
 
 struct pw_link *pw_link_find(struct pw_port *output_port, struct pw_port *input_port)

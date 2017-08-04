@@ -276,7 +276,6 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	impl->hnd = hnd;
 
 	this = &impl->this;
-	pw_signal_init(&this->destroy_signal);
 	this->monitor = iface;
 	this->lib = filename;
 	this->factory_name = strdup(factory_name);
@@ -321,7 +320,6 @@ void pw_spa_monitor_destroy(struct pw_spa_monitor *monitor)
 	struct monitor_item *mitem, *tmp;
 
 	pw_log_debug("spa-monitor %p: dispose", impl);
-	pw_signal_emit(&monitor->destroy_signal, monitor);
 
 	spa_list_for_each_safe(mitem, tmp, &impl->item_list, link)
 	    destroy_item(mitem);

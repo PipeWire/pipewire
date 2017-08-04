@@ -65,11 +65,12 @@ struct connection {
 	int fd;
 
 	struct spa_source *source;
+
         struct pw_protocol_native_connection *connection;
+        struct pw_listener conn_listener;
 
         bool disconnecting;
 	bool flush_signaled;
-        struct pw_listener need_flush;
         struct spa_source *flush_event;
 };
 
@@ -88,10 +89,10 @@ struct listener {
 
 struct client_data {
 	struct pw_client *client;
+	struct pw_listener client_listener;
 	int fd;
 	struct spa_source *source;
 	struct pw_protocol_native_connection *connection;
-	struct pw_callback_info client_callbacks;
 };
 
 static void
@@ -221,8 +222,8 @@ static void client_free(void *data)
 	close(this->fd);
 }
 
-static const struct pw_client_callbacks client_callbacks = {
-	PW_VERSION_CLIENT_CALLBACKS,
+static const struct pw_client_events client_events = {
+	PW_VERSION_CLIENT_EVENTS,
 	.free = client_free,
 	.busy_changed = client_busy_changed,
 };
@@ -264,7 +265,7 @@ static struct pw_client *client_new(struct listener *l, int fd)
 	client->protocol = protocol;
 	spa_list_insert(l->this.client_list.prev, &client->protocol_link);
 
-	pw_client_add_callbacks(client, &this->client_callbacks, &client_callbacks, client);
+	pw_client_add_listener(client, &this->client_listener, &client_events, client);
 
 	pw_global_bind(protocol->core->global, client, PW_PERM_RWX, PW_VERSION_CORE, 0);
 
@@ -526,9 +527,9 @@ static void do_flush_event(struct spa_loop_utils *utils, struct spa_source *sour
                         impl->this.disconnect(&impl->this);
 }
 
-static void on_need_flush(struct pw_listener *listener, struct pw_protocol_native_connection *connection)
+static void on_need_flush(void *data)
 {
-        struct connection *impl = SPA_CONTAINER_OF(listener, struct connection, need_flush);
+        struct connection *impl = data;
         struct pw_remote *remote = impl->this.remote;
 
 	if (!impl->flush_signaled) {
@@ -536,6 +537,11 @@ static void on_need_flush(struct pw_listener *listener, struct pw_protocol_nativ
 		pw_loop_signal_event(remote->core->main_loop, impl->flush_event);
 	}
 }
+
+static const struct pw_protocol_native_connection_events conn_events = {
+	PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS,
+	.need_flush = on_need_flush,
+};
 
 static int impl_connect_fd(struct pw_protocol_connection *conn, int fd)
 {
@@ -546,7 +552,10 @@ static int impl_connect_fd(struct pw_protocol_connection *conn, int fd)
         if (impl->connection == NULL)
                 goto error_close;
 
-        pw_signal_add(&impl->connection->need_flush, &impl->need_flush, on_need_flush);
+	pw_protocol_native_connection_add_listener(impl->connection,
+						   &impl->conn_listener,
+						   &conn_events,
+						   impl);
 
         impl->fd = fd;
         impl->source = pw_loop_add_io(remote->core->main_loop,
@@ -787,10 +796,6 @@ static void pw_protocol_native_destroy(struct impl *impl)
 	struct impl *object, *tmp;
 
 	pw_log_debug("protocol-native %p: destroy", impl);
-
-	pw_signal_remove(&impl->before_iterate);
-
-	pw_global_destroy(impl->global);
 
 	spa_list_for_each_safe(object, tmp, &impl->object_list, link)
 	    object_destroy(object);

@@ -41,11 +41,10 @@ struct pw_global;
 struct pw_core;
 
 #include <pipewire/type.h>
-#include <pipewire/callback.h>
+#include <pipewire/listener.h>
 #include <pipewire/loop.h>
 #include <pipewire/client.h>
 #include <pipewire/port.h>
-#include <pipewire/sig.h>
 #include <pipewire/node.h>
 #include <pipewire/node-factory.h>
 
@@ -140,8 +139,8 @@ typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
  */
 struct pw_global;
 
-struct pw_core_callbacks {
-#define PW_VERSION_CORE_CALLBACKS      0
+struct pw_core_events {
+#define PW_VERSION_CORE_EVENTS	0
 	uint32_t version;
 
 	void (*destroy) (void *data, struct pw_core *core);
@@ -158,10 +157,10 @@ pw_core_new(struct pw_loop *main_loop, struct pw_properties *props);
 
 void pw_core_destroy(struct pw_core *core);
 
-void pw_core_add_callbacks(struct pw_core *core,
-			   struct pw_callback_info *info,
-			   const struct pw_core_callbacks *callbacks,
-			   void *data);
+void pw_core_add_listener(struct pw_core *core,
+			  struct pw_listener *listener,
+			  const struct pw_core_events *events,
+			  void *data);
 
 struct pw_type *pw_core_get_type(struct pw_core *core);
 

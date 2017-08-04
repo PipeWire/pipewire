@@ -179,8 +179,8 @@ enum pw_stream_state {
 	PW_STREAM_STATE_STREAMING = 5		/**< streaming */
 };
 
-struct pw_stream_callbacks {
-#define PW_VERSION_STREAM_CALLBACKS	0
+struct pw_stream_events {
+#define PW_VERSION_STREAM_EVENTS	0
 	uint32_t version;
 
 	void (*destroy) (void *data);
@@ -238,10 +238,10 @@ pw_stream_new(struct pw_remote *remote,		/**< a \ref pw_remote */
 /** Destroy a stream \memberof pw_stream */
 void pw_stream_destroy(struct pw_stream *stream);
 
-void pw_stream_add_callbacks(struct pw_stream *stream,
-			     struct pw_callback_info *info,
-			     const struct pw_stream_callbacks *callbacks,
-			     void *data);
+void pw_stream_add_listener(struct pw_stream *stream,
+			    struct pw_listener *listener,
+			    const struct pw_stream_events *events,
+			    void *data);
 
 enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **error);
 
@@ -294,7 +294,7 @@ bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id);
 /** Get the buffer with \a id from \a stream \memberof pw_stream
  * \return a \ref spa_buffer or NULL when there is no buffer
  *
- * This function should be called from the new-buffer signal callback. */
+ * This function should be called from the new-buffer event. */
 struct spa_buffer *
 pw_stream_peek_buffer(struct pw_stream *stream, uint32_t id);
 

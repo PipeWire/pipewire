@@ -30,7 +30,6 @@ extern "C" {
 #include <spa/node.h>
 
 #include <pipewire/mem.h>
-#include <pipewire/sig.h>
 
 /** information about the transport region \memberof pw_transport */
 struct pw_transport_info {
@@ -56,9 +55,6 @@ struct pw_transport_area {
  * lockfree way.
  */
 struct pw_transport {
-	/** Emited when the transport is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_transport *trans));
-
 	struct pw_transport_area *area;		/**< the transport area */
 	struct spa_port_io *inputs;		/**< array of input port io */
 	struct spa_port_io *outputs;		/**< array of output port io */

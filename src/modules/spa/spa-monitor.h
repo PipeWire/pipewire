@@ -35,8 +35,6 @@ struct pw_spa_monitor {
 	char *factory_name;
 	char *system_name;
 	struct spa_handle *handle;
-
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_spa_monitor *monitor));
 };
 
 struct pw_spa_monitor *

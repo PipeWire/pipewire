@@ -76,8 +76,8 @@ struct pw_node_implementation {
 };
 
 
-struct pw_node_callbacks {
-#define PW_VERSION_NODE_CALLBACKS	0
+struct pw_node_events {
+#define PW_VERSION_NODE_EVENTS	0
 	uint32_t version;
 
 	/** the node is destroyed */
@@ -135,10 +135,10 @@ void pw_node_set_implementation(struct pw_node *node,
 				const struct pw_node_implementation *implementation,
 				void *data);
 
-void pw_node_add_callbacks(struct pw_node *node,
-			   struct pw_callback_info *info,
-			   const struct pw_node_callbacks *callbacks,
-			   void *data);
+void pw_node_add_listener(struct pw_node *node,
+			  struct pw_listener *listener,
+			  const struct pw_node_events *events,
+			  void *data);
 
 /** Find the port with direction and port_id or NULL when not found */
 struct pw_port *

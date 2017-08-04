@@ -42,7 +42,7 @@ struct impl {
 
 	DBusConnection *bus;
 
-	struct pw_callback_info core_callbacks;
+	struct pw_listener core_listener;
 
 	struct spa_list client_list;
 
@@ -54,10 +54,10 @@ struct client_info {
 	struct spa_list link;
 	struct pw_client *client;
 	bool is_sandboxed;
-	const struct pw_core_methods *old_methods;
-	struct pw_core_methods core_methods;
+	const struct pw_core_proxy_methods *old_methods;
+	struct pw_core_proxy_methods core_methods;
 	struct spa_list async_pending;
-	struct pw_callback_info client_callback;
+	struct pw_listener client_listener;
 };
 
 struct async_pending {
@@ -138,7 +138,7 @@ static void client_info_free(struct client_info *cinfo)
 	spa_list_for_each_safe(p, tmp, &cinfo->async_pending, link)
 		free_pending(p);
 
-	pw_callback_remove(&cinfo->client_callback);
+	pw_listener_remove(&cinfo->client_listener);
 	spa_list_remove(&cinfo->link);
 	free(cinfo);
 }
@@ -447,8 +447,8 @@ static void client_resource_impl(void *data, struct pw_resource *resource)
 	}
 }
 
-const struct pw_client_callbacks client_callbacks = {
-	PW_VERSION_CLIENT_CALLBACKS,
+const struct pw_client_events client_events = {
+	PW_VERSION_CLIENT_EVENTS,
 	.resource_impl = client_resource_impl,
 };
 
@@ -467,7 +467,7 @@ core_global_added(void *data, struct pw_global *global)
 		cinfo->is_sandboxed = client_is_sandboxed(client);
 		spa_list_init(&cinfo->async_pending);
 
-		pw_client_add_callbacks(client, &cinfo->client_callback, &client_callbacks, cinfo);
+		pw_client_add_listener(client, &cinfo->client_listener, &client_events, cinfo);
 
 		spa_list_insert(impl->client_list.prev, &cinfo->link);
 
@@ -491,8 +491,8 @@ core_global_removed(void *data, struct pw_global *global)
 	}
 }
 
-const struct pw_core_callbacks core_callbacks = {
-	PW_VERSION_CORE_CALLBACKS,
+const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.global_added = core_global_added,
 	.global_removed = core_global_removed,
 };
@@ -699,7 +699,7 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 
 	spa_list_init(&impl->client_list);
 
-	pw_core_add_callbacks(core, &impl->core_callbacks, &core_callbacks, impl);
+	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 
 	core->permission_func = do_permission;
 	core->permission_data = impl;

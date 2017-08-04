@@ -35,8 +35,6 @@ struct pw_client_node {
 	struct pw_node *node;
 
 	struct pw_resource *resource;
-
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_client_node *node));
 };
 
 struct pw_client_node *

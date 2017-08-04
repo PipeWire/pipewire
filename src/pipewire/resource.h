@@ -60,8 +60,8 @@ struct pw_resource;
 #include <pipewire/core.h>
 #include <pipewire/client.h>
 
-struct pw_resource_callbacks {
-#define PW_VERSION_RESOURCE_CALLBACKS	0
+struct pw_resource_events {
+#define PW_VERSION_RESOURCE_EVENTS	0
 	uint32_t version;
 
 	void (*destroy) (void *data);
@@ -78,10 +78,10 @@ pw_resource_new(struct pw_client *client,	/**< the client owning the resource */
 
 void *pw_resource_get_user_data(struct pw_resource *resource);
 
-void pw_resource_add_callbacks(struct pw_resource *resource,
-			       struct pw_callback_info *info,
-			       const struct pw_resource_callbacks *callbacks,
-			       void *data);
+void pw_resource_add_listener(struct pw_resource *resource,
+			      struct pw_listener *listener,
+			      const struct pw_resource_events *events,
+			      void *data);
 
 void pw_resource_set_implementation(struct pw_resource *resource,
 				    const void *implementation,

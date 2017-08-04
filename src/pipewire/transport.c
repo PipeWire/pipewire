@@ -118,7 +118,6 @@ struct pw_transport *pw_transport_new(uint32_t max_input_ports, uint32_t max_out
 		return NULL;
 
 	trans = &impl->trans;
-	pw_signal_init(&trans->destroy_signal);
 	impl->offset = 0;
 
 	if(user_data_size > 0)
@@ -146,7 +145,6 @@ struct pw_transport *pw_transport_new_from_info(struct pw_transport_info *info, 
 		return NULL;
 
 	trans = &impl->trans;
-	pw_signal_init(&trans->destroy_signal);
 
 	if(user_data_size > 0)
 		trans->user_data = SPA_MEMBER(impl, sizeof(struct transport), void);
@@ -189,8 +187,6 @@ void pw_transport_destroy(struct pw_transport *trans)
 	struct transport *impl = (struct transport *) trans;
 
 	pw_log_debug("transport %p: destroy", trans);
-
-	pw_signal_emit(&trans->destroy_signal, trans);
 
 	pw_memblock_free(&impl->mem);
 	free(impl);

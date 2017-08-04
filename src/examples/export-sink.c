@@ -30,7 +30,6 @@
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/sig.h>
 #include <pipewire/module.h>
 #include <pipewire/node-factory.h>
 
@@ -77,7 +76,7 @@ struct data {
 	struct pw_type *t;
 
 	struct pw_remote *remote;
-	struct pw_callback_info remote_callbacks;
+	struct pw_listener remote_listener;
 
 	struct pw_node *node;
 	struct pw_port *port;
@@ -463,8 +462,8 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 	}
 }
 
-static const struct pw_remote_callbacks remote_callbacks = {
-	PW_VERSION_REMOTE_CALLBACKS,
+static const struct pw_remote_events remote_events = {
+	PW_VERSION_REMOTE_EVENTS,
 	.state_changed = on_state_changed,
 };
 
@@ -498,7 +497,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	pw_remote_add_callbacks(data.remote, &data.remote_callbacks, &remote_callbacks, &data);
+	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 
         pw_remote_connect(data.remote);
 

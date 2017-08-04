@@ -30,7 +30,6 @@
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/sig.h>
 
 struct type {
 	uint32_t format;
@@ -74,10 +73,10 @@ struct data {
 	struct pw_core *core;
 	struct pw_type *t;
 	struct pw_remote *remote;
-	struct pw_callback_info remote_callbacks;
+	struct pw_listener remote_listener;
 
 	struct pw_stream *stream;
-	struct pw_callback_info stream_callbacks;
+	struct pw_listener stream_listener;
 
 	struct spa_video_info_raw format;
 	int32_t stride;
@@ -288,8 +287,8 @@ on_stream_format_changed(void *_data, struct spa_format *format)
 	pw_stream_finish_format(stream, SPA_RESULT_OK, params, 2);
 }
 
-static const struct pw_stream_callbacks stream_callbacks = {
-	PW_VERSION_STREAM_CALLBACKS,
+static const struct pw_stream_events stream_events = {
+	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_stream_state_changed,
 	.format_changed = on_stream_format_changed,
 	.new_buffer = on_stream_new_buffer,
@@ -358,10 +357,10 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		printf("supported formats:\n");
 		spa_debug_format(formats[0]);
 
-		pw_stream_add_callbacks(data->stream,
-					&data->stream_callbacks,
-					&stream_callbacks,
-					data);
+		pw_stream_add_listener(data->stream,
+				       &data->stream_listener,
+				       &stream_events,
+				       data);
 
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_INPUT,
@@ -375,8 +374,8 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 	}
 }
 
-static const struct pw_remote_callbacks remote_callbacks = {
-	PW_VERSION_REMOTE_CALLBACKS,
+static const struct pw_remote_events remote_events = {
+	PW_VERSION_REMOTE_EVENTS,
 	.state_changed = on_state_changed,
 };
 
@@ -408,7 +407,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	pw_remote_add_callbacks(data.remote, &data.remote_callbacks, &remote_callbacks, &data);
+	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 
 	pw_remote_connect(data.remote);
 

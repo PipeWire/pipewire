@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PIPEWIRE_CALLBACK_H__
-#define __PIPEWIRE_CALLBACK_H__
+#ifndef __PIPEWIRE_LISTENER_H__
+#define __PIPEWIRE_LISTENER_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,52 +26,52 @@ extern "C" {
 
 #include <spa/list.h>
 
-struct pw_callback_list {
+struct pw_listener_list {
 	struct spa_list list;
 };
 
-struct pw_callback_info {
+struct pw_listener {
 	struct spa_list link;
-	const void *callbacks;
+	const void *events;
 	void *data;
 };
 
-static inline void pw_callback_init(struct pw_callback_list *list)
+static inline void pw_listener_list_init(struct pw_listener_list *list)
 {
 	spa_list_init(&list->list);
 }
 
-/** Add a callback \memberof pw_callback */
-static inline void pw_callback_add(struct pw_callback_list *list,
-				   struct pw_callback_info *info,
-				   const void *callbacks, void *data)
+/** Add a listener \memberof pw_listener */
+static inline void pw_listener_list_add(struct pw_listener_list *list,
+					struct pw_listener *listener,
+					const void *events, void *data)
 {
-	info->callbacks = callbacks;
-	info->data = data;
-	spa_list_insert(list->list.prev, &info->link);
+	listener->events = events;
+	listener->data = data;
+	spa_list_insert(list->list.prev, &listener->link);
 }
 
-/** Remove a signal listener \memberof pw_callback */
-static inline void pw_callback_remove(struct pw_callback_info *info)
+/** Remove a listener \memberof pw_listener */
+static inline void pw_listener_remove(struct pw_listener *listener)
 {
-        spa_list_remove(&info->link);
+        spa_list_remove(&listener->link);
 }
 
-#define pw_callback_emit(l,type,method,...) ({			\
-	struct pw_callback_list *list = l;			\
-	struct pw_callback_info *ci, *t;			\
+#define pw_listener_list_emit(l,type,method,...) ({		\
+	struct pw_listener_list *list = l;			\
+	struct pw_listener *ci, *t;				\
 	spa_list_for_each_safe(ci, t, &list->list, link) {	\
-		const type *cb = ci->callbacks;			\
+		const type *cb = ci->events;			\
 		if (cb->method)					\
 			cb->method(ci->data, __VA_ARGS__);	\
 	}							\
 });
 
-#define pw_callback_emit_na(l,type,method) ({			\
-	struct pw_callback_list *list = l;			\
-	struct pw_callback_info *ci, *t;			\
+#define pw_listener_list_emit_na(l,type,method) ({		\
+	struct pw_listener_list *list = l;			\
+	struct pw_listener *ci, *t;				\
 	spa_list_for_each_safe(ci, t, &list->list, link) {	\
-		const type *cb = ci->callbacks;			\
+		const type *cb = ci->events;			\
 		if (cb->method)					\
 			cb->method(ci->data);			\
 	}							\
@@ -81,4 +81,4 @@ static inline void pw_callback_remove(struct pw_callback_info *info)
 }
 #endif
 
-#endif /* __PIPEWIRE_CALLBACK_H__ */
+#endif /* __PIPEWIRE_LISTENER_H__ */

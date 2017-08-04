@@ -33,7 +33,7 @@ struct impl {
 	struct pw_module *module;
 	struct pw_properties *properties;
 
-	struct pw_callback_info core_callbacks;
+	struct pw_listener core_listener;
 
 	struct spa_list node_list;
 };
@@ -43,10 +43,10 @@ struct node_info {
 
 	struct impl *impl;
 	struct pw_node *node;
-	struct pw_callback_info node_callbacks;
+	struct pw_listener node_listener;
 
 	struct pw_link *link;
-	struct pw_callback_info link_callbacks;
+	struct pw_listener link_listener;
 };
 
 static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
@@ -63,8 +63,8 @@ static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
 static void node_info_free(struct node_info *info)
 {
 	spa_list_remove(&info->l);
-	pw_callback_remove(&info->node_callbacks);
-	pw_callback_remove(&info->link_callbacks);
+	pw_listener_remove(&info->node_listener);
+	pw_listener_remove(&info->link_listener);
 	free(info);
 }
 
@@ -130,12 +130,12 @@ link_destroy(void *data)
 	struct impl *impl = info->impl;
 
 	pw_log_debug("module %p: link %p destroyed", impl, link);
-	pw_callback_remove(&info->link_callbacks);
-        spa_list_init(&info->link_callbacks.link);
+	pw_listener_remove(&info->link_listener);
+        spa_list_init(&info->link_listener.link);
 }
 
-static const struct pw_link_callbacks link_callbacks = {
-	PW_VERSION_LINK_CALLBACKS,
+static const struct pw_link_events link_events = {
+	PW_VERSION_LINK_EVENTS,
 	.destroy = link_destroy,
 	.port_unlinked = link_port_unlinked,
 	.state_changed = link_state_changed,
@@ -185,7 +185,7 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 
 	info->link = link;
 
-	pw_link_add_callbacks(link, &info->link_callbacks, &link_callbacks, info);
+	pw_link_add_listener(link, &info->link_listener, &link_events, info);
 	pw_link_activate(link);
 
 	return;
@@ -230,8 +230,8 @@ node_state_changed(void *data, enum pw_node_state old, enum pw_node_state state,
 		on_node_created(info->node, info);
 }
 
-static const struct pw_node_callbacks node_callbacks = {
-	PW_VERSION_NODE_CALLBACKS,
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
 	.port_added = node_port_added,
 	.port_removed = node_port_removed,
 	.state_changed = node_state_changed,
@@ -252,8 +252,8 @@ core_global_added(void *data, struct pw_global *global)
 
 		spa_list_insert(impl->node_list.prev, &ninfo->l);
 
-		pw_node_add_callbacks(node, &ninfo->node_callbacks, &node_callbacks, ninfo);
-		spa_list_init(&ninfo->link_callbacks.link);
+		pw_node_add_listener(node, &ninfo->node_listener, &node_events, ninfo);
+		spa_list_init(&ninfo->link_listener.link);
 
 		pw_log_debug("module %p: node %p added", impl, node);
 
@@ -279,8 +279,8 @@ core_global_removed(void *data, struct pw_global *global)
 }
 
 
-const struct pw_core_callbacks core_callbacks = {
-	PW_VERSION_CORE_CALLBACKS,
+const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
         .global_added = core_global_added,
         .global_removed = core_global_removed,
 };
@@ -308,7 +308,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 
 	spa_list_init(&impl->node_list);
 
-	pw_core_add_callbacks(core, &impl->core_callbacks, &core_callbacks, impl);
+	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 
 	return impl;
 }
@@ -318,14 +318,7 @@ static void module_destroy(struct impl *impl)
 {
 	pw_log_debug("module %p: destroy", impl);
 
-	pw_global_destroy(impl->global);
-
-	pw_signal_remove(&impl->global_added);
-	pw_signal_remove(&impl->global_removed);
-	pw_signal_remove(&impl->port_added);
-	pw_signal_remove(&impl->port_removed);
-	pw_signal_remove(&impl->port_unlinked);
-	pw_signal_remove(&impl->link_state_changed);
+	pw_listener_remove(&impl->core_listener);
 	free(impl);
 }
 #endif

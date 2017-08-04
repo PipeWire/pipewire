@@ -96,9 +96,9 @@ struct client {
 	struct impl *impl;
 	struct spa_list link;
 	struct pw_client *client;
+	struct pw_listener client_listener;
 	int fd;
 	struct spa_source *source;
-	struct pw_callback_info client_callbacks;
 };
 
 static int process_messages(struct client *client);
@@ -429,8 +429,8 @@ connection_data(struct spa_loop_utils *utils,
 		process_messages(client);
 }
 
-static const struct pw_client_callbacks client_callbacks = {
-	PW_VERSION_CLIENT_CALLBACKS,
+static const struct pw_client_events client_events = {
+	PW_VERSION_CLIENT_EVENTS,
 	.destroy = client_destroy,
 	.busy_changed = client_busy_changed,
 };
@@ -467,7 +467,7 @@ static struct client *client_new(struct impl *impl, int fd)
 
 	spa_list_insert(impl->client_list.prev, &this->link);
 
-	pw_client_add_callbacks(client, &this->client_callbacks, &client_callbacks, this);
+	pw_client_add_listener(client, &this->client_listener, &client_events, this);
 
 	pw_log_error("module-jack %p: added new client", impl);
 

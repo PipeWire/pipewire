@@ -97,9 +97,6 @@ struct pw_protocol {
 
 	const struct pw_protocol_implementaton *implementation;	/**< implementation of the protocol */
 
-	/** Emited when the protocol is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_protocol *protocol));
-
 	const void *extension;	/**< extension API */
 
 	void *user_data;	/**< user data for the implementation */

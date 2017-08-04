@@ -54,8 +54,8 @@ struct pw_link;
  * the nodes.
  */
 
-struct pw_link_callbacks {
-#define PW_VERSION_LINK_CALLBACKS	0
+struct pw_link_events {
+#define PW_VERSION_LINK_EVENTS	0
 	uint32_t version;
 
 	void (*destroy) (void *data);
@@ -82,10 +82,10 @@ pw_link_new(struct pw_core *core,		/**< the core object */
 /** Destroy a link \memberof pw_link */
 void pw_link_destroy(struct pw_link *link);
 
-void pw_link_add_callbacks(struct pw_link *link,
-			   struct pw_callback_info *info,
-			   const struct pw_link_callbacks *callbacks,
-			   void *data);
+void pw_link_add_listener(struct pw_link *link,
+			  struct pw_listener *listener,
+			  const struct pw_link_events *events,
+			  void *data);
 
 /** Find the link between 2 ports \memberof pw_link */
 struct pw_link * pw_link_find(struct pw_port *output, struct pw_port *input);

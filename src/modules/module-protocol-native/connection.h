@@ -25,7 +25,14 @@ extern "C" {
 #endif
 
 #include <spa/defs.h>
-#include <pipewire/sig.h>
+#include <pipewire/listener.h>
+
+struct pw_protocol_native_connection_events {
+#define PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS	0
+	void (*destroy) (void *data);
+
+	void (*need_flush) (void *data);
+};
 
 /** \class pw_protocol_native_connection
  *
@@ -37,13 +44,17 @@ extern "C" {
 struct pw_protocol_native_connection {
 	int fd;	/**< the socket */
 
-	/** Emited when data has been written that needs to be flushed */
-	PW_SIGNAL(need_flush,     (struct pw_listener *listener,
-				   struct pw_protocol_native_connection *conn));
-	/** Emited when the connection is destroyed */
-	PW_SIGNAL(destroy_signal, (struct pw_listener *listener,
-				   struct pw_protocol_native_connection *conn));
+	struct pw_listener_list listener_list;
 };
+
+static inline void
+pw_protocol_native_connection_add_listener(struct pw_protocol_native_connection *conn,
+					   struct pw_listener *listener,
+					   const struct pw_protocol_native_connection_events *events,
+					   void *data)
+{
+	pw_listener_list_add(&conn->listener_list, listener, events, data);
+}
 
 struct pw_protocol_native_connection *
 pw_protocol_native_connection_new(int fd);

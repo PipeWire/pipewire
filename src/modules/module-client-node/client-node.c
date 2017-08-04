@@ -121,8 +121,8 @@ struct impl {
 
 	struct pw_transport *transport;
 
-	struct pw_callback_info node_callbacks;
-	struct pw_callback_info resource_callbacks;
+	struct pw_listener node_listener;
+	struct pw_listener resource_listener;
 
 	int fds[2];
 	int other_fds[2];
@@ -904,8 +904,8 @@ static void client_node_destroy(void *data)
 	pw_client_node_destroy(&impl->this);
 }
 
-static struct pw_client_node_methods client_node_methods = {
-	PW_VERSION_CLIENT_NODE_METHODS,
+static struct pw_client_node_proxy_methods client_node_methods = {
+	PW_VERSION_CLIENT_NODE_PROXY_METHODS,
 	.done = client_node_done,
 	.update = client_node_update,
 	.port_update = client_node_port_update,
@@ -1071,7 +1071,6 @@ static void client_node_resource_destroy(void *data)
 	struct proxy *proxy = &impl->proxy;
 
 	pw_log_debug("client-node %p: destroy", impl);
-	pw_signal_emit(&this->destroy_signal, this);
 
 	impl->proxy.resource = this->resource = NULL;
 
@@ -1091,7 +1090,7 @@ static void node_free(void *data)
 	if (impl->transport)
 		pw_transport_destroy(impl->transport);
 
-	pw_callback_remove(&impl->node_callbacks);
+	pw_listener_remove(&impl->node_listener);
 
 	if (impl->fds[0] != -1)
 		close(impl->fds[0]);
@@ -1100,14 +1099,14 @@ static void node_free(void *data)
 	free(impl);
 }
 
-static const struct pw_node_callbacks node_callbacks = {
-	PW_VERSION_NODE_CALLBACKS,
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
 	.free = node_free,
 	.initialized = node_initialized,
 };
 
-static const struct pw_resource_callbacks resource_callbacks = {
-	PW_VERSION_RESOURCE_CALLBACKS,
+static const struct pw_resource_events resource_events = {
+	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = client_node_resource_destroy,
 };
 
@@ -1140,8 +1139,6 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug("client-node %p: new", impl);
 
-	pw_signal_init(&this->destroy_signal);
-
 	proxy_init(&impl->proxy, NULL, core->support, core->n_support);
 	impl->proxy.impl = impl;
 
@@ -1157,17 +1154,17 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	if (this->node == NULL)
 		goto error_no_node;
 
-	pw_resource_add_callbacks(this->resource,
-				  &impl->resource_callbacks,
-				  &resource_callbacks,
-				  impl);
+	pw_resource_add_listener(this->resource,
+				 &impl->resource_listener,
+				 &resource_events,
+				 impl);
 	pw_resource_set_implementation(this->resource,
 				       &client_node_methods,
 				       impl);
 
 	impl->proxy.resource = this->resource;
 
-	pw_node_add_callbacks(this->node, &impl->node_callbacks, &node_callbacks, impl);
+	pw_node_add_listener(this->node, &impl->node_listener, &node_events, impl);
 
 	return this;
 

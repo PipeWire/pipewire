@@ -203,8 +203,7 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(int fd)
 	pw_log_debug("connection %p: new", this);
 
 	this->fd = fd;
-	pw_signal_init(&this->need_flush);
-	pw_signal_init(&this->destroy_signal);
+	pw_listener_list_init(&this->listener_list);
 
 	impl->out.buffer_data = malloc(MAX_BUFFER_SIZE);
 	impl->out.buffer_maxsize = MAX_BUFFER_SIZE;
@@ -236,7 +235,7 @@ void pw_protocol_native_connection_destroy(struct pw_protocol_native_connection 
 
 	pw_log_debug("connection %p: destroy", conn);
 
-	pw_signal_emit(&conn->destroy_signal, conn);
+	pw_listener_list_emit_na(&conn->listener_list, struct pw_protocol_native_connection_events, destroy);
 
 	free(impl->out.buffer_data);
 	free(impl->in.buffer_data);
@@ -431,8 +430,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 		printf(">>>>>>>>> out:\n");
 	        spa_debug_pod((struct spa_pod *)p);
 	}
-
-	pw_signal_emit(&conn->need_flush, conn);
+	pw_listener_list_emit_na(&conn->listener_list, struct pw_protocol_native_connection_events, need_flush);
 }
 
 /** Flush the connection object

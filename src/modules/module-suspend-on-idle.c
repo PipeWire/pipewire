@@ -31,7 +31,7 @@ struct impl {
 	struct pw_type *t;
 	struct pw_properties *properties;
 
-	struct pw_callback_info core_callbacks;
+	struct pw_listener core_listener;
 
 	struct spa_list node_list;
 };
@@ -40,7 +40,7 @@ struct node_info {
 	struct spa_list link;
 	struct impl *impl;
 	struct pw_node *node;
-	struct pw_callback_info node_callbacks;
+	struct pw_listener node_listener;
 	struct spa_source *idle_timeout;
 };
 
@@ -67,7 +67,7 @@ static void node_info_free(struct node_info *info)
 {
 	spa_list_remove(&info->link);
 	remove_idle_timeout(info);
-	pw_callback_remove(&info->node_callbacks);
+	pw_listener_remove(&info->node_listener);
 	free(info);
 }
 
@@ -107,8 +107,8 @@ node_state_changed(void *data, enum pw_node_state old, enum pw_node_state state,
 	}
 }
 
-static const struct pw_node_callbacks node_callbacks = {
-	PW_VERSION_NODE_CALLBACKS,
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
 	.state_request = node_state_request,
 	.state_changed = node_state_changed,
 };
@@ -127,7 +127,7 @@ core_global_added(void *data, struct pw_global *global)
 		info->node = node;
 		spa_list_insert(impl->node_list.prev, &info->link);
 
-		pw_node_add_callbacks(node, &info->node_callbacks, &node_callbacks, info);
+		pw_node_add_listener(node, &info->node_listener, &node_events, info);
 
 		pw_log_debug("module %p: node %p added", impl, node);
 	}
@@ -149,8 +149,8 @@ core_global_removed(void *data, struct pw_global *global)
 	}
 }
 
-const struct pw_core_callbacks core_callbacks = {
-	PW_VERSION_CORE_CALLBACKS,
+const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.global_added = core_global_added,
 	.global_removed = core_global_removed,
 };
@@ -177,7 +177,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 
 	spa_list_init(&impl->node_list);
 
-	pw_core_add_callbacks(impl->core, &impl->core_callbacks, &core_callbacks, impl);
+	pw_core_add_listener(impl->core, &impl->core_listener, &core_events, impl);
 
 	return impl;
 }

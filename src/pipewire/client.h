@@ -45,8 +45,7 @@ struct pw_client;
 #include <pipewire/core.h>
 #include <pipewire/introspect.h>
 #include <pipewire/properties.h>
-#include <pipewire/sig.h>
-#include <pipewire/callback.h>
+#include <pipewire/listener.h>
 #include <pipewire/resource.h>
 
 #define PW_TYPE__Client           PW_TYPE_OBJECT_BASE "Client"
@@ -82,8 +81,8 @@ struct pw_client;
  * See also \ref page_resource
  */
 
-struct pw_client_callbacks {
-#define PW_VERSION_CLIENT_CALLBACKS      0
+struct pw_client_events {
+#define PW_VERSION_CLIENT_EVENTS	0
         uint32_t version;
 
 	void (*destroy) (void *data);
@@ -112,10 +111,10 @@ void pw_client_destroy(struct pw_client *client);
 
 void *pw_client_get_user_data(struct pw_client *client);
 
-void pw_client_add_callbacks(struct pw_client *client,
-			     struct pw_callback_info *info,
-			     const struct pw_client_callbacks *callbacks,
-			     void *data);
+void pw_client_add_listener(struct pw_client *client,
+			    struct pw_listener *listener,
+			    const struct pw_client_events *events,
+			    void *data);
 
 
 const struct pw_client_info *pw_client_get_info(struct pw_client *client);

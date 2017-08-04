@@ -51,11 +51,11 @@ struct pw_module;
  */
 typedef bool (*pw_module_init_func_t) (struct pw_module *module, char *args);
 
-struct pw_module_callbacks {
-#define PW_VERSION_MODULE_CALLBACKS	0
+struct pw_module_events {
+#define PW_VERSION_MODULE_EVENTS	0
 	uint32_t version;
 
-	void (*destroy) (void *data, struct pw_module *module);
+	void (*destroy) (void *data);
 };
 
 struct pw_module *
@@ -68,10 +68,10 @@ struct pw_global * pw_module_get_global(struct pw_module *module);
 const struct pw_module_info *
 pw_module_get_info(struct pw_module *module);
 
-void pw_module_add_callbacks(struct pw_module *module,
-			     struct pw_callback_info *info,
-			     const struct pw_module_callbacks *callbacks,
-			     void *data);
+void pw_module_add_listener(struct pw_module *module,
+			    struct pw_listener *listener,
+			    const struct pw_module_events *events,
+			    void *data);
 
 void
 pw_module_destroy(struct pw_module *module);

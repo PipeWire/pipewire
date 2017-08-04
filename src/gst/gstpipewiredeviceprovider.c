@@ -327,13 +327,13 @@ struct node_data {
   struct pw_node_proxy *node;
   uint32_t id;
   uint32_t parent_id;
-  struct pw_callback_info node_listener;
+  struct pw_listener node_listener;
 };
 
 struct registry_data {
   GstPipeWireDeviceProvider *self;
   struct pw_registry_proxy *registry;
-  struct pw_callback_info registry_listener;
+  struct pw_listener registry_listener;
 };
 
 static void node_event_info(void *data, struct pw_node_info *info)
@@ -351,8 +351,8 @@ static void node_event_info(void *data, struct pw_node_info *info)
   }
 }
 
-static const struct pw_node_events node_events = {
-  PW_VERSION_NODE_EVENTS,
+static const struct pw_node_proxy_events node_events = {
+  PW_VERSION_NODE_PROXY_EVENTS,
   .info = node_event_info
 };
 
@@ -399,16 +399,16 @@ static void registry_event_global_remove(void *data, uint32_t id)
   }
 }
 
-static const struct pw_registry_events registry_events = {
-  PW_VERSION_REGISTRY_EVENTS,
+static const struct pw_registry_proxy_events registry_events = {
+  PW_VERSION_REGISTRY_PROXY_EVENTS,
   .global = registry_event_global,
   .global_remove = registry_event_global_remove,
 };
 
-static const struct pw_remote_callbacks remote_callbacks = {
-	PW_VERSION_REMOTE_CALLBACKS,
-	.state_changed = on_state_changed,
-	.sync_reply = on_sync_reply,
+static const struct pw_remote_events remote_events = {
+  PW_VERSION_REMOTE_EVENTS,
+  .state_changed = on_state_changed,
+  .sync_reply = on_sync_reply,
 };
 
 static GList *
@@ -421,7 +421,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   struct pw_remote *r = NULL;
   struct pw_registry_proxy *reg = NULL;
   struct registry_data *data;
-  struct pw_callback_info callbacks;
+  struct pw_listener listener;
 
   GST_DEBUG_OBJECT (self, "starting probe");
 
@@ -436,7 +436,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   if (!(r = pw_remote_new (c, NULL)))
     goto failed;
 
-  pw_remote_add_callbacks(r, &callbacks, &remote_callbacks, self);
+  pw_remote_add_listener(r, &listener, &remote_events, self);
 
   pw_remote_connect (r);
 
@@ -528,7 +528,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
     goto failed_remote;
   }
 
-  pw_remote_add_callbacks (self->remote, &self->remote_callbacks, &remote_callbacks, self);
+  pw_remote_add_listener (self->remote, &self->remote_listener, &remote_events, self);
 
   pw_remote_connect (self->remote);
   for (;;) {

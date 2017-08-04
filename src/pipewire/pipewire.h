@@ -42,7 +42,7 @@ extern "C" {
 #include <pipewire/proxy.h>
 #include <pipewire/remote.h>
 #include <pipewire/resource.h>
-#include <pipewire/sig.h>
+#include <pipewire/listener.h>
 #include <pipewire/stream.h>
 #include <pipewire/thread-loop.h>
 #include <pipewire/type.h>

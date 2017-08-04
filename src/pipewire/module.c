@@ -41,7 +41,7 @@ struct impl {
 };
 
 struct resource_data {
-	struct pw_callback_info resource_callbacks;
+	struct pw_listener resource_listener;
 };
 
 
@@ -100,8 +100,8 @@ static void module_unbind_func(void *data)
 	spa_list_remove(&resource->link);
 }
 
-static const struct pw_resource_callbacks resource_callbacks = {
-	PW_VERSION_RESOURCE_CALLBACKS,
+static const struct pw_resource_events resource_events = {
+	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = module_unbind_func,
 };
 
@@ -119,7 +119,7 @@ module_bind_func(struct pw_global *global,
 		goto no_mem;
 
 	data = pw_resource_get_user_data(resource);
-	pw_resource_add_callbacks(resource, &data->resource_callbacks, &resource_callbacks, resource);
+	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
 
 	pw_log_debug("module %p: bound to %d", this, resource->id);
 
@@ -210,7 +210,7 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 	this->core = core;
 
 	spa_list_init(&this->resource_list);
-	pw_callback_init(&this->callback_list);
+	pw_listener_list_init(&this->listener_list);
 
 	this->info.name = name ? strdup(name) : NULL;
 	this->info.filename = filename;
@@ -257,7 +257,7 @@ void pw_module_destroy(struct pw_module *module)
 	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
 	struct pw_resource *resource, *tmp;
 
-	pw_callback_emit(&module->callback_list, struct pw_module_callbacks, destroy, module);
+	pw_listener_list_emit_na(&module->listener_list, struct pw_module_events, destroy);
 
 	spa_list_for_each_safe(resource, tmp, &module->resource_list, link)
 		pw_resource_destroy(resource);
@@ -292,10 +292,10 @@ pw_module_get_info(struct pw_module *module)
 	return &module->info;
 }
 
-void pw_module_add_callbacks(struct pw_module *module,
-			     struct pw_callback_info *info,
-			     const struct pw_module_callbacks *callbacks,
-			     void *data)
+void pw_module_add_listener(struct pw_module *module,
+			    struct pw_listener *listener,
+			    const struct pw_module_events *events,
+			    void *data)
 {
-	pw_callback_add(&module->callback_list, info, callbacks, data);
+	pw_listener_list_add(&module->listener_list, listener, events, data);
 }

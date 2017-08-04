@@ -26,7 +26,6 @@ extern "C" {
 
 #include <spa/loop.h>
 
-#include <pipewire/sig.h>
 
 /** \class pw_loop
  *

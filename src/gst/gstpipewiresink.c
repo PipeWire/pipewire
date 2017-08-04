@@ -734,8 +734,8 @@ copy_properties (GQuark field_id,
   return TRUE;
 }
 
-static const struct pw_stream_callbacks stream_callbacks = {
-	PW_VERSION_STREAM_CALLBACKS,
+static const struct pw_stream_events stream_events = {
+	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_state_changed,
 	.format_changed = on_format_changed,
 	.add_buffer = on_add_buffer,
@@ -763,10 +763,10 @@ gst_pipewire_sink_start (GstBaseSink * basesink)
   pwsink->stream = pw_stream_new (pwsink->remote, pwsink->client_name, props);
   pwsink->pool->stream = pwsink->stream;
 
-  pw_stream_add_callbacks(pwsink->stream,
-			  &pwsink->stream_callbacks,
-			  &stream_callbacks,
-			  pwsink);
+  pw_stream_add_listener(pwsink->stream,
+			 &pwsink->stream_listener,
+			 &stream_events,
+			 pwsink);
 
   pw_thread_loop_unlock (pwsink->main_loop);
 
@@ -812,8 +812,8 @@ on_remote_state_changed (void *data, enum pw_remote_state old, enum pw_remote_st
   pw_thread_loop_signal (pwsink->main_loop, FALSE);
 }
 
-static const struct pw_remote_callbacks remote_callbacks = {
-	PW_VERSION_REMOTE_CALLBACKS,
+static const struct pw_remote_events remote_events = {
+	PW_VERSION_REMOTE_EVENTS,
 	.state_changed = on_remote_state_changed,
 };
 
@@ -828,9 +828,9 @@ gst_pipewire_sink_open (GstPipeWireSink * pwsink)
   pw_thread_loop_lock (pwsink->main_loop);
   pwsink->remote = pw_remote_new (pwsink->core, NULL);
 
-  pw_remote_add_callbacks (pwsink->remote,
-			   &pwsink->remote_callbacks,
-			   &remote_callbacks, pwsink);
+  pw_remote_add_listener (pwsink->remote,
+			  &pwsink->remote_listener,
+			  &remote_events, pwsink);
 
   pw_remote_connect (pwsink->remote);
 

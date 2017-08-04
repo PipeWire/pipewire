@@ -117,8 +117,8 @@ enum pw_remote_state {
 /** Convert a \ref pw_remote_state to a readable string \memberof pw_remote */
 const char *pw_remote_state_as_string(enum pw_remote_state state);
 
-struct pw_remote_callbacks {
-#define PW_VERSION_REMOTE_CALLBACKS	0
+struct pw_remote_events {
+#define PW_VERSION_REMOTE_EVENTS	0
 	uint32_t version;
 
 	void (*destroy)	(void *data);
@@ -147,11 +147,11 @@ struct pw_core *pw_remote_get_core(struct pw_remote *remote);
 /** Get the current state, \a error is set when state is \ref PW_REMOTE_STATE_ERROR */
 enum pw_remote_state pw_remote_get_state(struct pw_remote *remote, const char **error);
 
-/** Add callbacks to the remote */
-void pw_remote_add_callbacks(struct pw_remote *remote,
-			     struct pw_callback_info *info,
-			     const struct pw_remote_callbacks *callbacks,
-			     void *data);
+/** Add listener for events */
+void pw_remote_add_listener(struct pw_remote *remote,
+			    struct pw_listener *listener,
+			    const struct pw_remote_events *events,
+			    void *data);
 
 /** Connect to a remote PipeWire \memberof pw_remote
  * \return true on success. */

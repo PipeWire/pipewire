@@ -30,7 +30,6 @@
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/sig.h>
 #include <pipewire/module.h>
 #include <pipewire/node-factory.h>
 

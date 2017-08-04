@@ -44,8 +44,6 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 	spa_list_init(&protocol->connection_list);
 	spa_list_init(&protocol->listener_list);
 
-	pw_signal_init(&protocol->destroy_signal);
-
 	if (user_data_size > 0)
 		protocol->user_data = SPA_MEMBER(protocol, sizeof(struct impl), void);
 
@@ -69,7 +67,6 @@ void pw_protocol_destroy(struct pw_protocol *protocol)
 	struct pw_protocol_connection *connection, *t3;
 
 	pw_log_info("protocol %p: destroy", protocol);
-	pw_signal_emit(&protocol->destroy_signal, protocol);
 
 	spa_list_remove(&protocol->link);
 

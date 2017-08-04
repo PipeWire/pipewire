@@ -88,10 +88,10 @@ struct pw_proxy;
 
 #include <pipewire/type.h>
 #include <pipewire/utils.h>
-#include <pipewire/callback.h>
+#include <pipewire/listener.h>
 
-struct pw_proxy_callbacks {
-#define PW_VERSION_PROXY_CALLBACKS   0
+struct pw_proxy_events {
+#define PW_VERSION_PROXY_EVENTS		0
         uint32_t version;
 
         void (*destroy) (void *data);
@@ -99,21 +99,21 @@ struct pw_proxy_callbacks {
 
 /** Make a new proxy object. The id can be used to bind to a remote object. */
 struct pw_proxy *
-pw_proxy_new(struct pw_proxy *proxy,	/**< proxy as factory */
+pw_proxy_new(struct pw_proxy *factory,	/**< factory */
 	     uint32_t type,		/**< interface type */
 	     size_t user_data_size	/**< size of user data */);
 
 void
-pw_proxy_add_callbacks(struct pw_proxy *proxy,
-		       struct pw_callback_info *info,
-		       const struct pw_proxy_callbacks *callbacks,
+pw_proxy_add_listener(struct pw_proxy *proxy,
+		       struct pw_listener *listener,
+		       const struct pw_proxy_events *events,
 		       void *data);
 
 void
-pw_proxy_add_listener(struct pw_proxy *proxy,	/**< the proxy */
-		      struct pw_callback_info *info,
-		      const void *callbacks,	/**< events */
-		      void *data		/**< data passed to events */);
+pw_proxy_add_proxy_listener(struct pw_proxy *proxy,		/**< the proxy */
+			    struct pw_listener *listener,	/**< listener */
+			    const void *events,			/**< proxied events */
+			    void *data				/**< data passed to events */);
 
 void pw_proxy_destroy(struct pw_proxy *proxy);
 
@@ -121,15 +121,15 @@ void *pw_proxy_get_user_data(struct pw_proxy *proxy);
 
 uint32_t pw_proxy_get_id(struct pw_proxy *proxy);
 
-struct pw_callback_list *pw_proxy_get_listeners(struct pw_proxy *proxy);
+struct pw_listener_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy);
 
-const void *pw_proxy_get_implementation(struct pw_proxy *proxy);
+const void *pw_proxy_get_proxy_implementation(struct pw_proxy *proxy);
 
-#define pw_proxy_notify(p,type,event,...)	pw_callback_emit(pw_proxy_get_listeners(p),type,event,__VA_ARGS__)
-#define pw_proxy_notify_na(p,type,event)	pw_callback_emit_na(pw_proxy_get_listeners(p),type,event)
+#define pw_proxy_notify(p,type,event,...)	pw_listener_list_emit(pw_proxy_get_proxy_listeners(p),type,event,__VA_ARGS__)
+#define pw_proxy_notify_na(p,type,event)	pw_listener_list_emit_na(pw_proxy_get_proxy_listeners(p),type,event)
 
-#define pw_proxy_do(p,type,method,...)		((type*) pw_proxy_get_implementation(p))->method(p, __VA_ARGS__)
-#define pw_proxy_do_na(p,type,method)		((type*) pw_proxy_get_implementation(p))->method(p)
+#define pw_proxy_do(p,type,method,...)		((type*) pw_proxy_get_proxy_implementation(p))->method(p, __VA_ARGS__)
+#define pw_proxy_do_na(p,type,method)		((type*) pw_proxy_get_proxy_implementation(p))->method(p)
 
 #ifdef __cplusplus
 }

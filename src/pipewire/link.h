@@ -87,8 +87,24 @@ void pw_link_add_listener(struct pw_link *link,
 			  const struct pw_link_events *events,
 			  void *data);
 
+
+struct pw_core *pw_link_get_core(struct pw_link *link);
+
+const struct pw_link_info *pw_link_get_info(struct pw_link *link);
+
+/** Get the global of the link */
+struct pw_global *pw_link_get_global(struct pw_link *link);
+
+/** Get the output port of the link */
+struct pw_port *pw_link_get_output(struct pw_link *link);
+
+/** Get the input port of the link */
+struct pw_port *pw_link_get_input(struct pw_link *link);
+
 /** Find the link between 2 ports \memberof pw_link */
-struct pw_link * pw_link_find(struct pw_port *output, struct pw_port *input);
+struct pw_link *pw_link_find(struct pw_port *output, struct pw_port *input);
+
+void pw_link_inc_idle(struct pw_link *link);
 
 /** Activate a link \memberof pw_link
  * Starts the negotiation of formats and buffers on \a link and then

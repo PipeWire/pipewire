@@ -38,35 +38,36 @@ static inline void spa_graph_scheduler_init(struct spa_graph_scheduler *sched,
 	sched->node = NULL;
 }
 
-static inline int spa_graph_node_scheduler_input(struct spa_graph_node *node, void *user_data)
+static inline int spa_graph_node_scheduler_input(void *data)
 {
-	struct spa_node *n = node->user_data;
+	struct spa_node *n = data;
 	return spa_node_process_input(n);
 }
 
-static inline int spa_graph_node_scheduler_output(struct spa_graph_node *node, void *user_data)
+static inline int spa_graph_node_scheduler_output(void *data)
 {
-	struct spa_node *n = node->user_data;
+	struct spa_node *n = data;
 	return spa_node_process_output(n);
 }
 
 
-static const struct spa_graph_node_methods spa_graph_node_scheduler_default = {
-	SPA_VERSION_GRAPH_NODE_METHODS,
+static const struct spa_graph_node_callbacks spa_graph_node_scheduler_default = {
+	SPA_VERSION_GRAPH_NODE_CALLBACKS,
 	spa_graph_node_scheduler_input,
 	spa_graph_node_scheduler_output,
 };
 
-static inline int spa_graph_port_scheduler_reuse_buffer(struct spa_graph_port *port,
-							uint32_t buffer_id, void *user_data)
+static inline int spa_graph_port_scheduler_reuse_buffer(void *data,
+							uint32_t buffer_id)
 {
+	struct spa_graph_port *port = data;
+	struct spa_node *node = port->node->callbacks_data;
 	debug("port %p reuse buffer %d\n", port, buffer_id);
-	struct spa_node *node = port->node->user_data;
 	return spa_node_port_reuse_buffer(node, port->port_id, buffer_id);
 }
 
-static const struct spa_graph_port_methods spa_graph_port_scheduler_default = {
-	SPA_VERSION_GRAPH_PORT_METHODS,
+static const struct spa_graph_port_callbacks spa_graph_port_scheduler_default = {
+	SPA_VERSION_GRAPH_PORT_CALLBACKS,
 	spa_graph_port_scheduler_reuse_buffer,
 };
 
@@ -96,7 +97,7 @@ static inline void spa_graph_scheduler_pull(struct spa_graph_scheduler *sched, s
 	}
 
 	spa_list_for_each_safe(n, t, &ready, ready_link) {
-		n->state = n->methods->process_output(n, n->user_data);
+		n->state = n->callbacks->process_output(n->callbacks_data);
 		debug("peer %p processed out %d\n", n, n->state);
 		if (n->state == SPA_RESULT_NEED_BUFFER)
 			spa_graph_scheduler_pull(sched, n);
@@ -113,7 +114,7 @@ static inline void spa_graph_scheduler_pull(struct spa_graph_scheduler *sched, s
 	debug("node %p %d %d\n", node, node->ready_in, node->required_in);
 
 	if (node->required_in > 0 && node->ready_in == node->required_in) {
-		node->state = node->methods->process_input(node, node->user_data);
+		node->state = node->callbacks->process_input(node->callbacks_data);
 		debug("node %p processed in %d\n", node, node->state);
 		if (node->state == SPA_RESULT_HAVE_BUFFER) {
 			spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
@@ -140,7 +141,7 @@ static inline void spa_graph_scheduler_chain(struct spa_graph_scheduler *sched,
 
 
 	spa_list_for_each_safe(n, t, ready, ready_link) {
-		n->state = n->methods->process_input(n, n->user_data);
+		n->state = n->callbacks->process_input(n->callbacks_data);
 		debug("node %p chain processed in %d\n", n, n->state);
 		if (n->state == SPA_RESULT_HAVE_BUFFER)
 			spa_graph_scheduler_push(sched, n);
@@ -183,7 +184,7 @@ static inline void spa_graph_scheduler_push(struct spa_graph_scheduler *sched, s
 
 	spa_graph_scheduler_chain(sched, &ready);
 
-	node->state = node->methods->process_output(node, node->user_data);
+	node->state = node->callbacks->process_output(node->callbacks_data);
 	debug("node %p processed out %d\n", node, node->state);
 	if (node->state == SPA_RESULT_NEED_BUFFER) {
 		node->ready_in = 0;

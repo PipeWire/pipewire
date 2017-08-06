@@ -109,6 +109,14 @@ pw_client_new(struct pw_core *core,
 
 void pw_client_destroy(struct pw_client *client);
 
+struct pw_core *pw_client_get_core(struct pw_client *client);
+
+struct pw_global *pw_client_get_global(struct pw_client *client);
+
+const struct pw_properties *pw_client_get_properties(struct pw_client *client);
+
+const struct ucred *pw_client_get_ucred(struct pw_client *client);
+
 void *pw_client_get_user_data(struct pw_client *client);
 
 void pw_client_add_listener(struct pw_client *client,

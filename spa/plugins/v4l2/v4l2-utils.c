@@ -934,7 +934,7 @@ static int mmap_read(struct impl *this)
 	b->outstanding = true;
 	io->buffer_id = b->outbuf->id;
 	io->status = SPA_RESULT_HAVE_BUFFER;
-	this->callbacks->have_output(&this->node, this->user_data);
+	this->callbacks->have_output(this->callbacks_data);
 
 	return SPA_RESULT_OK;
 }

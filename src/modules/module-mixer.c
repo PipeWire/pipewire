@@ -25,7 +25,6 @@
 #include "config.h"
 
 #include "pipewire/core.h"
-#include "pipewire/private.h"
 #include "pipewire/module.h"
 #include "modules/spa/spa-node.h"
 
@@ -33,6 +32,7 @@
 
 struct impl {
 	struct pw_core *core;
+	struct pw_type *t;
 	struct pw_module *module;
 	struct pw_properties *properties;
 
@@ -92,26 +92,30 @@ static struct pw_node *make_node(struct impl *impl)
 	struct spa_node *spa_node;
 	struct spa_clock *spa_clock;
 	struct pw_node *node;
+	const struct spa_support *support;
+	uint32_t n_support;
+
+	support = pw_core_get_support(impl->core, &n_support);
 
 	handle = calloc(1, impl->factory->size);
 	if ((res = spa_handle_factory_init(impl->factory,
 					   handle,
-					   NULL, impl->core->support, impl->core->n_support)) < 0) {
+					   NULL, support, n_support)) < 0) {
 		pw_log_error("can't make factory instance: %d", res);
 		goto init_failed;
 	}
-	if ((res = spa_handle_get_interface(handle, impl->core->type.spa_node, &iface)) < 0) {
+	if ((res = spa_handle_get_interface(handle, impl->t->spa_node, &iface)) < 0) {
 		pw_log_error("can't get interface %d", res);
 		goto interface_failed;
 	}
 	spa_node = iface;
 
-	if ((res = spa_handle_get_interface(handle, impl->core->type.spa_clock, &iface)) < 0) {
+	if ((res = spa_handle_get_interface(handle, impl->t->spa_clock, &iface)) < 0) {
 		iface = NULL;
 	}
 	spa_clock = iface;
 
-	node = pw_spa_node_new(impl->core, NULL, impl->module->global,
+	node = pw_spa_node_new(impl->core, NULL, pw_module_get_global(impl->module),
 			       "audiomixer", false, spa_node, spa_clock, NULL);
 
 	return node;
@@ -123,53 +127,60 @@ static struct pw_node *make_node(struct impl *impl)
 	return NULL;
 }
 
+static bool on_global(void *data, struct pw_global *global)
+{
+	struct impl *impl = data;
+	struct pw_node *n, *node;
+	struct pw_properties *properties;
+	const char *str;
+	char *error;
+	struct pw_port *ip, *op;
+	struct pw_link *link;
+
+	if (pw_global_get_type(global) != impl->t->node)
+		return true;
+
+	n = pw_global_get_object(global);
+
+	properties = pw_node_get_properties(n);
+	if ((str = pw_properties_get(properties, "media.class")) == NULL)
+		return true;
+
+	if (strcmp(str, "Audio/Sink") != 0)
+		return true;
+
+	if ((ip = pw_node_get_free_port(n, PW_DIRECTION_INPUT)) == NULL)
+		return true;
+
+	node = make_node(impl);
+	op = pw_node_get_free_port(node, PW_DIRECTION_OUTPUT);
+	if (op == NULL)
+		return true;
+
+	link = pw_link_new(impl->core, pw_module_get_global(impl->module), op, ip, NULL, NULL, &error);
+	pw_link_inc_idle(link);
+
+	return true;
+}
+
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
-	struct pw_core *core = module->core;
+	struct pw_core *core = pw_module_get_core(module);
 	struct impl *impl;
-	struct pw_node *n;
 
 	impl = calloc(1, sizeof(struct impl));
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = core;
+	impl->t = pw_core_get_type(core);
 	impl->module = module;
 	impl->properties = properties;
 
 	impl->factory = find_factory(impl);
 
-	spa_list_for_each(n, &core->node_list, link) {
-		const char *str;
-		char *error;
-		struct pw_node *node;
-		struct pw_port *ip, *op;
+	pw_core_for_each_global(core, on_global, impl);
 
-		if (n->global == NULL)
-			continue;
-
-		if (n->properties == NULL)
-			continue;
-
-		if ((str = pw_properties_get(n->properties, "media.class")) == NULL)
-			continue;
-
-		if (strcmp(str, "Audio/Sink") != 0)
-			continue;
-
-		if ((ip = pw_node_get_free_port(n, PW_DIRECTION_INPUT)) == NULL)
-			continue;
-
-		node = make_node(impl);
-		op = pw_node_get_free_port(node, PW_DIRECTION_OUTPUT);
-		if (op == NULL)
-			continue;
-
-		n->idle_used_input_links++;
-		node->idle_used_output_links++;
-
-		pw_link_new(core, module->global, op, ip, NULL, NULL, &error);
-	}
-	return impl;
+	return true;
 }
 
 #if 0

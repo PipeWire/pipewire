@@ -76,6 +76,16 @@ pw_resource_new(struct pw_client *client,	/**< the client owning the resource */
 		uint32_t version,		/**< requested interface version */
 		size_t user_data_size		/**< extra user data size */);
 
+void pw_resource_destroy(struct pw_resource *resource);
+
+struct pw_client *pw_resource_get_client(struct pw_resource *resource);
+
+uint32_t pw_resource_get_id(struct pw_resource *resource);
+
+uint32_t pw_resource_get_permissions(struct pw_resource *resource);
+
+struct pw_protocol *pw_resource_get_protocol(struct pw_resource *resource);
+
 void *pw_resource_get_user_data(struct pw_resource *resource);
 
 void pw_resource_add_listener(struct pw_resource *resource,
@@ -87,12 +97,27 @@ void pw_resource_set_implementation(struct pw_resource *resource,
 				    const void *implementation,
 				    void *data);
 
-void
-pw_resource_destroy(struct pw_resource *resource);
+void pw_resource_error(struct pw_resource *resource, int result, const char *error);
 
-#define pw_resource_do(r,type,method,...)	((type*) r->implementation)->method(r->implementation_data, __VA_ARGS__)
-#define pw_resource_do_na(r,type,method)	((type*) r->implementation)->method(r->implementation_data)
-#define pw_resource_notify(r,type,event,...)	((type*) r->marshal->event_marshal)->event(r, __VA_ARGS__)
+struct pw_listener *pw_resource_get_implementation(struct pw_resource *resource);
+
+const void *pw_resource_get_proxy_notify(struct pw_resource *resource);
+
+#define pw_resource_do(r,type,method,...) ({				\
+        struct pw_listener *l = pw_resource_get_implementation(r);	\
+	const type *cb = l->events;					\
+	if (cb->method)							\
+		cb->method(l->data, __VA_ARGS__);			\
+});
+
+#define pw_resource_do_na(r,type,method) ({				\
+        struct pw_listener *l = pw_resource_get_implementation(r);	\
+	const type *cb = l->events;					\
+	if (cb->method)							\
+		cb->method(l->data);					\
+});
+
+#define pw_resource_notify(r,type,event,...)	((type*) pw_resource_get_proxy_notify(r))->event(r, __VA_ARGS__)
 #define pw_resource_notify_na(r,type,event)	((type*) r->marshal->event_marshal)->event(r)
 
 #ifdef __cplusplus

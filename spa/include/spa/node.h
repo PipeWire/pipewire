@@ -84,7 +84,7 @@ struct spa_node_callbacks {
 	uint32_t version;	/**< version of this structure */
 
 	/** Emited when an async operation completed */
-	void (*done) (struct spa_node *node, int seq, int res, void *user_data);
+	void (*done) (void *data, int seq, int res);
 	/**
 	 * struct spa_node_callbacks::event:
 	 * @node: a #struct spa_node
@@ -93,7 +93,7 @@ struct spa_node_callbacks {
 	 * This will be called when an out-of-bound event is notified
 	 * on @node. the callback can be called from any thread.
 	 */
-	void (*event) (struct spa_node *node, struct spa_event *event, void *user_data);
+	void (*event) (void *data, struct spa_event *event);
 	/**
 	 * struct spa_node_callbacks::need_input:
 	 * @node: a #struct spa_node
@@ -104,7 +104,7 @@ struct spa_node_callbacks {
 	 * When this function is NULL, synchronous operation is requested
 	 * on the input ports.
 	 */
-	void (*need_input) (struct spa_node *node, void *user_data);
+	void (*need_input) (void *data);
 	/**
 	 * struct spa_node_callbacks::have_output:
 	 * @node: a #struct spa_node
@@ -115,7 +115,7 @@ struct spa_node_callbacks {
 	 * When this function is NULL, synchronous operation is requested
 	 * on the output ports.
 	 */
-	void (*have_output) (struct spa_node *node, void *user_data);
+	void (*have_output) (void *data);
 	/**
 	 * struct spa_node_callbacks::reuse_buffer:
 	 * @node: a #struct spa_node
@@ -128,9 +128,9 @@ struct spa_node_callbacks {
 	 * When this function is NULL, the buffers to reuse will be set in
 	 * the io area or the input ports.
 	 */
-	void (*reuse_buffer) (struct spa_node *node,
+	void (*reuse_buffer) (void *data,
 			      uint32_t port_id,
-			      uint32_t buffer_id, void *user_data);
+			      uint32_t buffer_id);
 
 };
 

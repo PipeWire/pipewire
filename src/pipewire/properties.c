@@ -49,7 +49,7 @@ static void clear_item(struct spa_dict_item *item)
 	free((char *) item->value);
 }
 
-static int find_index(struct pw_properties *this, const char *key)
+static int find_index(const struct pw_properties *this, const char *key)
 {
 	struct properties *impl = SPA_CONTAINER_OF(this, struct properties, this);
 	int i, len = pw_array_get_len(&impl->items, struct spa_dict_item);
@@ -125,7 +125,7 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
  *
  * \memberof pw_properties
  */
-struct pw_properties *pw_properties_copy(struct pw_properties *properties)
+struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
 	struct pw_properties *copy;
@@ -152,7 +152,7 @@ struct pw_properties *pw_properties_copy(struct pw_properties *properties)
  *
  * \memberof pw_properties
  */
-struct pw_properties *pw_properties_merge(struct pw_properties *oldprops,
+struct pw_properties *pw_properties_merge(const struct pw_properties *oldprops,
 					  struct pw_properties *newprops)
 {
 	struct pw_properties *res = NULL;
@@ -277,7 +277,7 @@ void pw_properties_setf(struct pw_properties *properties, const char *key, const
  *
  * \memberof pw_properties
  */
-const char *pw_properties_get(struct pw_properties *properties, const char *key)
+const char *pw_properties_get(const struct pw_properties *properties, const char *key)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
 	int index = find_index(properties, key);
@@ -301,7 +301,7 @@ const char *pw_properties_get(struct pw_properties *properties, const char *key)
  *
  * \memberof pw_properties
  */
-const char *pw_properties_iterate(struct pw_properties *properties, void **state)
+const char *pw_properties_iterate(const struct pw_properties *properties, void **state)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
 	uint32_t index;

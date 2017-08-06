@@ -46,10 +46,10 @@ struct pw_properties *
 pw_properties_new_dict(const struct spa_dict *dict);
 
 struct pw_properties *
-pw_properties_copy(struct pw_properties *properties);
+pw_properties_copy(const struct pw_properties *properties);
 
 struct pw_properties *
-pw_properties_merge(struct pw_properties *oldprops,
+pw_properties_merge(const struct pw_properties *oldprops,
 		    struct pw_properties *newprops);
 
 void
@@ -62,10 +62,10 @@ void
 pw_properties_setf(struct pw_properties *properties,
 		   const char *key, const char *format, ...) SPA_PRINTF_FUNC(3, 4);
 const char *
-pw_properties_get(struct pw_properties *properties, const char *key);
+pw_properties_get(const struct pw_properties *properties, const char *key);
 
 const char *
-pw_properties_iterate(struct pw_properties *properties, void **state);
+pw_properties_iterate(const struct pw_properties *properties, void **state);
 
 #ifdef __cplusplus
 }

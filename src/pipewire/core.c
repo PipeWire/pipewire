@@ -500,6 +500,16 @@ pw_core_add_global(struct pw_core *core,
 	return this;
 }
 
+struct pw_core *pw_global_get_core(struct pw_global *global)
+{
+	return global->core;
+}
+
+const struct pw_core_info *pw_core_get_info(struct pw_core *core)
+{
+	return &core->info;
+}
+
 uint32_t pw_global_get_type(struct pw_global *global)
 {
 	return global->type;
@@ -513,6 +523,11 @@ uint32_t pw_global_get_version(struct pw_global *global)
 void * pw_global_get_object(struct pw_global *global)
 {
 	return global->object;
+}
+
+uint32_t pw_global_get_id(struct pw_global *global)
+{
+	return global->id;
 }
 
 /** Bind to a global
@@ -649,6 +664,23 @@ void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict
 		pw_core_resource_info(resource, &core->info);
 	}
 	core->info.change_mask = 0;
+}
+
+bool pw_core_for_each_global(struct pw_core *core,
+			     bool (*callback) (void *data, struct pw_global *global),
+			     void *data)
+{
+	struct pw_global *g, *t;
+
+	spa_list_for_each_safe(g, t, &core->global_list, link)
+		if (!callback(data, g))
+			return false;
+	return true;
+}
+
+struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id)
+{
+	return pw_map_lookup(&core->globals, id);
 }
 
 /** Find a port to link with

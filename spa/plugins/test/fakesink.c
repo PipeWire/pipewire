@@ -92,7 +92,7 @@ struct impl {
 	struct props props;
 
 	const struct spa_node_callbacks *callbacks;
-	void *user_data;
+	void *callbacks_data;
 
 	struct spa_source timer_source;
 	struct itimerspec timerspec;
@@ -226,7 +226,7 @@ static int consume_buffer(struct impl *this)
 	if (spa_list_is_empty(&this->ready)) {
 		io->status = SPA_RESULT_NEED_BUFFER;
 		if (this->callbacks->need_input)
-			this->callbacks->need_input(&this->node, this->user_data);
+			this->callbacks->need_input(this->callbacks_data);
 	}
 	if (spa_list_is_empty(&this->ready)) {
 		spa_log_error(this->log, NAME " %p: no buffers", this);
@@ -322,7 +322,7 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 static int
 impl_node_set_callbacks(struct spa_node *node,
 			const struct spa_node_callbacks *callbacks,
-			void *user_data)
+			void *data)
 {
 	struct impl *this;
 
@@ -335,7 +335,7 @@ impl_node_set_callbacks(struct spa_node *node,
 		return SPA_RESULT_ERROR;
 	}
 	this->callbacks = callbacks;
-	this->user_data = user_data;
+	this->callbacks_data = data;
 
 	return SPA_RESULT_OK;
 }

@@ -326,9 +326,9 @@ static void complete_init(struct impl *impl)
 	pw_node_register(this);
 }
 
-static void on_node_done(struct spa_node *node, int seq, int res, void *user_data)
+static void on_node_done(void *data, int seq, int res)
 {
-        struct impl *impl = user_data;
+        struct impl *impl = data;
         struct pw_node *this = impl->this;
 
 	if (impl->async_init) {
@@ -340,32 +340,32 @@ static void on_node_done(struct spa_node *node, int seq, int res, void *user_dat
 	pw_listener_list_emit(&this->listener_list, struct pw_node_events, async_complete, seq, res);
 }
 
-static void on_node_event(struct spa_node *node, struct spa_event *event, void *user_data)
+static void on_node_event(void *data, struct spa_event *event)
 {
-        struct impl *impl = user_data;
+        struct impl *impl = data;
         struct pw_node *this = impl->this;
 
 	pw_listener_list_emit(&this->listener_list, struct pw_node_events, event, event);
 }
 
-static void on_node_need_input(struct spa_node *node, void *user_data)
+static void on_node_need_input(void *data)
 {
-        struct impl *impl = user_data;
+        struct impl *impl = data;
         struct pw_node *this = impl->this;
 	pw_listener_list_emit_na(&this->listener_list, struct pw_node_events, need_input);
 }
 
-static void on_node_have_output(struct spa_node *node, void *user_data)
+static void on_node_have_output(void *data)
 {
-        struct impl *impl = user_data;
+        struct impl *impl = data;
         struct pw_node *this = impl->this;
 	pw_listener_list_emit_na(&this->listener_list, struct pw_node_events, have_output);
 }
 
 static void
-on_node_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id, void *user_data)
+on_node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 {
-        struct impl *impl = user_data;
+        struct impl *impl = data;
         struct pw_node *this = impl->this;
         struct spa_graph_port *p, *pp;
 
@@ -374,8 +374,8 @@ on_node_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id
 			continue;
 
 		pp = p->peer;
-		if (pp && pp->methods->reuse_buffer)
-			pp->methods->reuse_buffer(pp, buffer_id, pp->user_data);
+		if (pp && pp->callbacks->reuse_buffer)
+			pp->callbacks->reuse_buffer(pp->callbacks_data, buffer_id);
 
 		break;
 	}

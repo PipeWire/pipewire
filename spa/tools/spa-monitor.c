@@ -63,10 +63,9 @@ static void inspect_item(struct data *data, struct spa_monitor_item *item)
 	spa_debug_pod(&item->object.pod);
 }
 
-static void on_monitor_event(struct spa_monitor *monitor,
-			     struct spa_event *event, void *user_data)
+static void on_monitor_event(void *_data, struct spa_event *event)
 {
-	struct data *data = user_data;
+	struct data *data = _data;
 
 	if (SPA_EVENT_TYPE(event) == data->type.monitor.Added) {
 		fprintf(stderr, "added:\n");
@@ -102,7 +101,7 @@ static void do_remove_source(struct spa_source *source)
 
 static const struct spa_monitor_callbacks impl_callbacks = {
 	SPA_VERSION_MONITOR_CALLBACKS,
-	on_monitor_event,
+	.event = on_monitor_event,
 };
 
 static void handle_monitor(struct data *data, struct spa_monitor *monitor)

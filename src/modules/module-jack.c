@@ -35,7 +35,6 @@
 #include "config.h"
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
 #include "pipewire/log.h"
 #include "pipewire/interfaces.h"
 
@@ -79,6 +78,7 @@ struct socket {
 
 struct impl {
 	struct pw_core *core;
+	struct pw_type *t;
 	struct pw_module *module;
 	struct spa_list link;
 
@@ -107,7 +107,7 @@ static void client_destroy(void *data)
 {
 	struct client *this = data;
 
-	pw_loop_destroy_source(this->impl->core->main_loop, this->source);
+	pw_loop_destroy_source(pw_core_get_main_loop(this->impl->core), this->source);
 	spa_list_remove(&this->link);
 
 	close(this->fd);
@@ -224,6 +224,7 @@ handle_client_open(struct client *client)
 	char name[JACK_CLIENT_NAME_SIZE+1];
 	int result, ref_num, shared_engine, shared_client, shared_graph;
 	struct jack_client *jc;
+	const struct ucred *ucred;
 
 	CheckSize(kClientOpen_size);
 	CheckRead(&PID, sizeof(int));
@@ -250,7 +251,9 @@ handle_client_open(struct client *client)
 		goto reply;
 	}
 
-	jc->control = jack_client_control_alloc(name, client->client->ucred.pid, ref_num, -1);
+	ucred = pw_client_get_ucred(client->client);
+
+	jc->control = jack_client_control_alloc(name, ucred ? ucred->pid : 0, ref_num, -1);
 	if (jc->control == NULL) {
 		result = -1;
 		goto reply;
@@ -407,7 +410,7 @@ client_busy_changed(void *data, bool busy)
 	if (!busy)
 		mask |= SPA_IO_IN;
 
-	pw_loop_update_io(c->impl->core->main_loop, c->source, mask);
+	pw_loop_update_io(pw_core_get_main_loop(c->impl->core), c->source, mask);
 
 	if (!busy)
 		process_messages(c);
@@ -450,14 +453,15 @@ static struct client *client_new(struct impl *impl, int fd)
 		ucredp = &ucred;
 	}
 
-        client = pw_client_new(impl->core, impl->module->global, ucredp, NULL, sizeof(struct client));
+        client = pw_client_new(impl->core, pw_module_get_global(impl->module),
+			       ucredp, NULL, sizeof(struct client));
 	if (client == NULL)
 		goto no_client;
 
-	this = client->user_data;
+	this = pw_client_get_user_data(client);
 	this->impl = impl;
 	this->fd = fd;
-	this->source = pw_loop_add_io(impl->core->main_loop,
+	this->source = pw_loop_add_io(pw_core_get_main_loop(impl->core),
 				      this->fd,
 				      SPA_IO_ERR | SPA_IO_HUP, false, connection_data, this);
 	if (this->source == NULL)
@@ -526,28 +530,35 @@ make_int_client(struct impl *impl, struct pw_node *node)
 	return 0;
 }
 
+static bool on_global(void *data, struct pw_global *global)
+{
+	struct impl *impl = data;
+	struct pw_node *node;
+	struct pw_properties *properties;
+	const char *str;
+
+	if (pw_global_get_type(global) != impl->t->node)
+		return true;
+
+	node = pw_global_get_object(global);
+
+	properties = pw_node_get_properties(node);
+	if ((str = pw_properties_get(properties, "media.class")) == NULL)
+		return true;
+
+	if (strcmp(str, "Audio/Sink") != 0)
+		return true;
+
+	make_int_client(impl, node);
+	return true;
+}
+
+
 static bool init_nodes(struct impl *impl)
 {
 	struct pw_core *core = impl->core;
-	struct pw_node *n;
 
-        spa_list_for_each(n, &core->node_list, link) {
-                const char *str;
-
-                if (n->global == NULL)
-                        continue;
-
-                if (n->properties == NULL)
-                        continue;
-
-                if ((str = pw_properties_get(n->properties, "media.class")) == NULL)
-                        continue;
-
-                if (strcmp(str, "Audio/Sink") != 0)
-                        continue;
-
-		make_int_client(impl, n);
-        }
+	pw_core_for_each_global(core, on_global, impl);
 	return true;
 }
 
@@ -626,7 +637,7 @@ socket_data(struct spa_loop_utils *utils,
 		return;
 	}
 
-	pw_loop_update_io(impl->core->main_loop,
+	pw_loop_update_io(pw_core_get_main_loop(impl->core),
 			  client->source, SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 }
 
@@ -648,7 +659,7 @@ static bool add_socket(struct impl *impl, struct socket *s)
 		return false;
 	}
 
-	s->loop = impl->core->main_loop;
+	s->loop = pw_core_get_main_loop(impl->core);
 	s->source = pw_loop_add_io(s->loop, s->fd, SPA_IO_IN, false, socket_data, impl);
 	if (s->source == NULL)
 		return false;
@@ -701,7 +712,7 @@ static int init_server(struct impl *impl, const char *name, bool promiscuous)
 
 static struct impl *module_init(struct pw_module *module, struct pw_properties *properties)
 {
-	struct pw_core *core = module->core;
+	struct pw_core *core = pw_module_get_core(module);
 	struct impl *impl;
 	const char *name, *str;
 	bool promiscuous;
@@ -710,6 +721,7 @@ static struct impl *module_init(struct pw_module *module, struct pw_properties *
 	pw_log_debug("protocol-jack %p: new", impl);
 
 	impl->core = core;
+	impl->t = pw_core_get_type(core);
 	impl->module = module;
 	impl->properties = properties;
 

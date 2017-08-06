@@ -162,9 +162,9 @@ static void remove_item(struct pw_spa_monitor *this, struct spa_monitor_item *it
 		destroy_item(mitem);
 }
 
-static void on_monitor_event(struct spa_monitor *monitor, struct spa_event *event, void *user_data)
+static void on_monitor_event(void *data, struct spa_event *event)
 {
-	struct impl *impl = user_data;
+	struct impl *impl = data;
 	struct pw_spa_monitor *this = &impl->this;
 	struct pw_type *t = pw_core_get_type(impl->core);
 
@@ -213,7 +213,7 @@ static void update_monitor(struct pw_core *core, const char *name)
 
 static const struct spa_monitor_callbacks callbacks = {
 	SPA_VERSION_MONITOR_CALLBACKS,
-	on_monitor_event,
+	.event = on_monitor_event,
 };
 
 struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,

@@ -509,7 +509,7 @@ on_state_changed (void *data,
 }
 
 static void
-parse_stream_properties (GstPipeWireSrc *pwsrc, struct pw_properties *props)
+parse_stream_properties (GstPipeWireSrc *pwsrc, const struct pw_properties *props)
 {
   const gchar *var;
   gboolean is_live;

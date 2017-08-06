@@ -59,7 +59,6 @@ struct pw_client {
 
 	struct pw_protocol *protocol;	/**< protocol in use */
 	struct spa_list protocol_link;	/**< link in the protocol client_list */
-	void *protocol_private;		/**< private data for the protocol */
 
 	void *user_data;		/**< extra user data */
 };
@@ -104,6 +103,7 @@ struct pw_core {
 	struct spa_list node_list;		/**< list of nodes */
 	struct spa_list node_factory_list;	/**< list of node factories */
 	struct spa_list link_list;		/**< list of links */
+
 	struct pw_listener_list listener_list;
 
 	struct pw_loop *main_loop;	/**< main loop for control */
@@ -269,8 +269,7 @@ struct pw_resource {
 	uint32_t type;			/**< type of the client interface */
 	uint32_t version;		/**< version of the client interface */
 
-	const void *implementation;
-	void *implementation_data;
+	struct pw_listener implementation;
 
 	struct pw_listener_list listener_list;
 

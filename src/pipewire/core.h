@@ -164,6 +164,8 @@ void pw_core_add_listener(struct pw_core *core,
 
 struct pw_type *pw_core_get_type(struct pw_core *core);
 
+const struct pw_core_info *pw_core_get_info(struct pw_core *core);
+
 const struct spa_dict *pw_core_get_properties(struct pw_core *core);
 
 const struct spa_support *pw_core_get_support(struct pw_core *core, uint32_t *n_support);
@@ -171,6 +173,11 @@ const struct spa_support *pw_core_get_support(struct pw_core *core, uint32_t *n_
 struct pw_loop *pw_core_get_main_loop(struct pw_core *core);
 
 void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict);
+
+/** iterate the globals */
+bool pw_core_for_each_global(struct pw_core *core,
+			     bool (*callback) (void *data, struct pw_global *global),
+			     void *data);
 
 struct pw_global *
 pw_core_add_global(struct pw_core *core,
@@ -181,15 +188,22 @@ pw_core_add_global(struct pw_core *core,
 		   pw_bind_func_t bind,
 		   void *object);
 
-struct pw_client * pw_global_get_owner(struct pw_global *global);
+struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id);
 
-struct pw_global * pw_global_get_parent(struct pw_global *global);
+
+struct pw_core *pw_global_get_core(struct pw_global *global);
+
+struct pw_client *pw_global_get_owner(struct pw_global *global);
+
+struct pw_global *pw_global_get_parent(struct pw_global *global);
 
 uint32_t pw_global_get_type(struct pw_global *global);
 
 uint32_t pw_global_get_version(struct pw_global *global);
 
-void * pw_global_get_object(struct pw_global *global);
+void *pw_global_get_object(struct pw_global *global);
+
+uint32_t pw_global_get_id(struct pw_global *global);
 
 int
 pw_global_bind(struct pw_global *global,

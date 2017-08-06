@@ -23,7 +23,6 @@
 #include "spa/pod-iter.h"
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
 #include "pipewire/protocol.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/resource.h"

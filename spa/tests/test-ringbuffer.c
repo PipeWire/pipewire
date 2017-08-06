@@ -205,19 +205,19 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 	return SPA_RESULT_ERROR;
 }
 
-static void on_sink_done(struct spa_node *node, int seq, int res, void *user_data)
+static void on_sink_done(void *data, int seq, int res)
 {
 	printf("got done %d %d\n", seq, res);
 }
 
-static void on_sink_event(struct spa_node *node, struct spa_event *event, void *user_data)
+static void on_sink_event(void *data, struct spa_event *event)
 {
 	printf("got event %d\n", SPA_EVENT_TYPE(event));
 }
 
-static void on_sink_need_input(struct spa_node *node, void *user_data)
+static void on_sink_need_input(void *_data)
 {
-	struct data *data = user_data;
+	struct data *data = _data;
 	int res;
 
 	res = spa_node_process_output(data->source);
@@ -229,22 +229,20 @@ static void on_sink_need_input(struct spa_node *node, void *user_data)
 }
 
 static void
-on_sink_reuse_buffer(struct spa_node *node,
+on_sink_reuse_buffer(void *_data,
 		     uint32_t port_id,
-		     uint32_t buffer_id,
-		     void *user_data)
+		     uint32_t buffer_id)
 {
-	struct data *data = user_data;
+	struct data *data = _data;
 	data->source_sink_io[0].buffer_id = buffer_id;
 }
 
 static const struct spa_node_callbacks sink_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
-	&on_sink_done,
-	&on_sink_event,
-	&on_sink_need_input,
-	NULL,
-	&on_sink_reuse_buffer
+	.done = on_sink_done,
+	.event = on_sink_event,
+	.need_input = on_sink_need_input,
+	.reuse_buffer = on_sink_reuse_buffer
 };
 
 static int do_add_source(struct spa_loop *loop, struct spa_source *source)

@@ -94,7 +94,7 @@ struct proxy {
 	struct spa_loop *data_loop;
 
 	const struct spa_node_callbacks *callbacks;
-	void *user_data;
+	void *callbacks_data;
 
 	struct pw_resource *resource;
 
@@ -116,6 +116,7 @@ struct impl {
 	struct pw_client_node this;
 
 	struct pw_core *core;
+	struct pw_type *t;
 
 	struct proxy proxy;
 
@@ -161,7 +162,7 @@ static int spa_proxy_node_send_command(struct spa_node *node, const struct spa_c
 {
 	struct proxy *this;
 	int res = SPA_RESULT_OK;
-	struct pw_core *core;
+	struct pw_type *t;
 
 	if (node == NULL || command == NULL)
 		return SPA_RESULT_INVALID_ARGUMENTS;
@@ -171,9 +172,9 @@ static int spa_proxy_node_send_command(struct spa_node *node, const struct spa_c
 	if (this->resource == NULL)
 		return SPA_RESULT_OK;
 
-	core = this->impl->core;
+	t = this->impl->t;
 
-	if (SPA_COMMAND_TYPE(command) == core->type.command_node.ClockUpdate) {
+	if (SPA_COMMAND_TYPE(command) == t->command_node.ClockUpdate) {
 		pw_client_node_resource_node_command(this->resource, this->seq++, command);
 	} else {
 		/* send start */
@@ -186,7 +187,7 @@ static int spa_proxy_node_send_command(struct spa_node *node, const struct spa_c
 static int
 spa_proxy_node_set_callbacks(struct spa_node *node,
 			     const struct spa_node_callbacks *callbacks,
-			     void *user_data)
+			     void *data)
 {
 	struct proxy *this;
 
@@ -195,7 +196,7 @@ spa_proxy_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
 	this->callbacks = callbacks;
-	this->user_data = user_data;
+	this->callbacks_data = data;
 
 	return SPA_RESULT_OK;
 }
@@ -577,10 +578,13 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 	size_t n_mem;
 	struct pw_client_node_buffer *mb;
 	struct spa_meta_shared *msh;
+	struct pw_type *t;
 
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
 	impl = this->impl;
 	spa_log_info(this->log, "proxy %p: use buffers %p %u", this, buffers, n_buffers);
+
+	t = impl->t;
 
 	if (!CHECK_PORT(this, direction, port_id))
 		return SPA_RESULT_INVALID_PORT;
@@ -608,7 +612,7 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 	for (i = 0; i < n_buffers; i++) {
 		struct proxy_buffer *b = &port->buffers[i];
 
-		msh = spa_buffer_find_meta(buffers[i], impl->core->type.meta.Shared);
+		msh = spa_buffer_find_meta(buffers[i], t->meta.Shared);
 		if (msh == NULL) {
 			spa_log_error(this->log, "missing shared metadata on buffer %d", i);
 			return SPA_RESULT_ERROR;
@@ -628,7 +632,7 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 					        direction,
 					        port_id,
 					        mb[i].mem_id,
-					        impl->core->type.data.MemFd,
+					        t->data.MemFd,
 					        msh->fd, msh->flags, msh->offset, msh->size);
 
 		for (j = 0; j < buffers[i]->n_metas; j++) {
@@ -640,8 +644,8 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 
 			memcpy(&b->buffer.datas[j], d, sizeof(struct spa_data));
 
-			if (d->type == impl->core->type.data.DmaBuf ||
-			    d->type == impl->core->type.data.MemFd) {
+			if (d->type == t->data.DmaBuf ||
+			    d->type == t->data.MemFd) {
 				pw_client_node_resource_add_mem(this->resource,
 							        direction,
 							        port_id,
@@ -649,10 +653,10 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 							        d->type,
 							        d->fd,
 							        d->flags, d->mapoffset, d->maxsize);
-				b->buffer.datas[j].type = impl->core->type.data.Id;
+				b->buffer.datas[j].type = t->data.Id;
 				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(n_mem);
 				n_mem++;
-			} else if (d->type == impl->core->type.data.MemPtr) {
+			} else if (d->type == t->data.MemPtr) {
 				b->buffer.datas[j].data = SPA_INT_TO_PTR(b->size);
 				b->size += d->maxsize;
 			} else {
@@ -716,7 +720,7 @@ spa_proxy_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32
 	spa_log_trace(this->log, "reuse buffer %d", buffer_id);
 	{
 		struct pw_event_transport_reuse_buffer rb = PW_EVENT_TRANSPORT_REUSE_BUFFER_INIT
-		    (impl->core->type.event_transport.ReuseBuffer, port_id, buffer_id);
+		    (impl->t->event_transport.ReuseBuffer, port_id, buffer_id);
 		pw_transport_add_event(impl->transport, (struct spa_event *) &rb);
 	}
 
@@ -763,7 +767,7 @@ static int spa_proxy_node_process_input(struct spa_node *node)
 		io->status = SPA_RESULT_NEED_BUFFER;
 	}
 	pw_transport_add_event(impl->transport,
-			       &SPA_EVENT_INIT(impl->core->type.event_transport.ProcessInput));
+			       &SPA_EVENT_INIT(impl->t->event_transport.ProcessInput));
 	do_flush(this);
 
 	if (this->callbacks->need_input)
@@ -797,7 +801,7 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 		pw_log_trace("%d %d  %d", io->status, io->buffer_id, io->status);
 	}
 	pw_transport_add_event(impl->transport,
-			       &SPA_EVENT_INIT(impl->core->type.event_transport.ProcessOutput));
+			       &SPA_EVENT_INIT(impl->t->event_transport.ProcessOutput));
 	do_flush(this);
 
 	return res;
@@ -808,7 +812,7 @@ static int handle_node_event(struct proxy *this, struct spa_event *event)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, proxy);
 	int i;
 
-	if (SPA_EVENT_TYPE(event) == impl->core->type.event_transport.HaveOutput) {
+	if (SPA_EVENT_TYPE(event) == impl->t->event_transport.HaveOutput) {
 		for (i = 0; i < MAX_OUTPUTS; i++) {
 			struct spa_port_io *io = this->out_ports[i].io;
 
@@ -818,14 +822,14 @@ static int handle_node_event(struct proxy *this, struct spa_event *event)
 			*io = impl->transport->outputs[i];
 			pw_log_trace("%d %d", io->status, io->buffer_id);
 		}
-		this->callbacks->have_output(&this->node, this->user_data);
-	} else if (SPA_EVENT_TYPE(event) == impl->core->type.event_transport.NeedInput) {
-		this->callbacks->need_input(&this->node, this->user_data);
-	} else if (SPA_EVENT_TYPE(event) == impl->core->type.event_transport.ReuseBuffer) {
+		this->callbacks->have_output(this->callbacks_data);
+	} else if (SPA_EVENT_TYPE(event) == impl->t->event_transport.NeedInput) {
+		this->callbacks->need_input(this->callbacks_data);
+	} else if (SPA_EVENT_TYPE(event) == impl->t->event_transport.ReuseBuffer) {
 		struct pw_event_transport_reuse_buffer *p =
 		    (struct pw_event_transport_reuse_buffer *) event;
-		this->callbacks->reuse_buffer(&this->node, p->body.port_id.value,
-					     p->body.buffer_id.value, this->user_data);
+		this->callbacks->reuse_buffer(this->callbacks_data, p->body.port_id.value,
+					     p->body.buffer_id.value);
 	}
 	return SPA_RESULT_OK;
 }
@@ -836,7 +840,7 @@ client_node_done(void *data, int seq, int res)
 	struct impl *impl = data;
 	struct proxy *this = &impl->proxy;
 
-	this->callbacks->done(&this->node, seq, res, this->user_data);
+	this->callbacks->done(this->callbacks_data, seq, res);
 }
 
 
@@ -895,7 +899,7 @@ static void client_node_event(void *data, struct spa_event *event)
 {
 	struct impl *impl = data;
 	struct proxy *this = &impl->proxy;
-	this->callbacks->event(&this->node, event, this->user_data);
+	this->callbacks->event(this->callbacks_data, event);
 }
 
 static void client_node_destroy(void *data)
@@ -1033,18 +1037,19 @@ static void node_initialized(void *data)
 	struct pw_node *node = this->node;
 	struct pw_transport_info info;
 	int readfd, writefd;
+	const struct pw_node_info *i = pw_node_get_info(node);
 
 	if (this->resource == NULL)
 		return;
 
-	impl->transport = pw_transport_new(node->info.max_input_ports, node->info.max_output_ports, 0);
-	impl->transport->area->n_input_ports = node->info.n_input_ports;
-	impl->transport->area->n_output_ports = node->info.n_output_ports;
+	impl->transport = pw_transport_new(i->max_input_ports, i->max_output_ports, 0);
+	impl->transport->area->n_input_ports = i->n_input_ports;
+	impl->transport->area->n_output_ports = i->n_output_ports;
 
 	client_node_get_fds(this, &readfd, &writefd);
 	pw_transport_get_info(impl->transport, &info);
 
-	pw_client_node_resource_transport(this->resource, node->global->id,
+	pw_client_node_resource_transport(this->resource, pw_global_get_id(pw_node_get_global(node)),
 					  readfd, writefd, info.memfd, info.offset, info.size);
 }
 
@@ -1136,6 +1141,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	this = &impl->this;
 
 	impl->core = core;
+	impl->t = pw_core_get_type(core);
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug("client-node %p: new", impl);
 

@@ -54,6 +54,7 @@ struct client_info {
 	struct spa_list link;
 	struct pw_client *client;
 	bool is_sandboxed;
+	bool in_override;
 	const struct pw_core_proxy_methods *old_methods;
 	struct pw_core_proxy_methods core_methods;
 	struct spa_list async_pending;
@@ -438,9 +439,20 @@ static void client_resource_impl(void *data, struct pw_resource *resource)
 	struct pw_client *client = cinfo->client;
 
 	if (resource->type == client->core->type.core) {
-		cinfo->old_methods = resource->implementation;
+		struct pw_listener *impl = pw_resource_get_implementation(resource);
+
+		if (cinfo->in_override)
+			return;
+
+		cinfo->old_methods = impl->events;
 		cinfo->core_methods = *cinfo->old_methods;
-		resource->implementation = &cinfo->core_methods;
+
+		cinfo->in_override = true;
+		pw_resource_set_implementation(resource,
+					       &cinfo->core_methods,
+					       impl->data);
+		cinfo->in_override = false;
+
 		resource->access_private = cinfo;
 		cinfo->core_methods.create_node = do_create_node;
 		cinfo->core_methods.create_link = do_create_link;

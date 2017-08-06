@@ -158,7 +158,7 @@ struct impl {
 	struct props props;
 
 	const struct spa_node_callbacks *callbacks;
-	void *user_data;
+	void *callbacks_data;
 
 	struct port out_ports[1];
 };
@@ -237,7 +237,7 @@ static int do_pause_done(struct spa_loop *loop,
 	if (SPA_RESULT_IS_OK(res))
 		res = spa_v4l2_stream_off(this);
 
-	this->callbacks->done(&this->node, seq, res, this->user_data);
+	this->callbacks->done(this->callbacks_data, seq, res);
 
 	return SPA_RESULT_OK;
 }
@@ -277,7 +277,7 @@ static int do_start_done(struct spa_loop *loop,
 	struct impl *this = user_data;
 	int res = *(int*)data;
 
-	this->callbacks->done(&this->node, seq, res, this->user_data);
+	this->callbacks->done(this->callbacks_data, seq, res);
 
 	return SPA_RESULT_OK;
 }
@@ -360,7 +360,7 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 static int impl_node_set_callbacks(struct spa_node *node,
 				   const struct spa_node_callbacks *callbacks,
-				   void *user_data)
+				   void *data)
 {
 	struct impl *this;
 
@@ -369,7 +369,7 @@ static int impl_node_set_callbacks(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	this->callbacks = callbacks;
-	this->user_data = user_data;
+	this->callbacks_data = data;
 
 	return SPA_RESULT_OK;
 }

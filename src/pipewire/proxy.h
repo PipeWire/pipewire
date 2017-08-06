@@ -121,6 +121,8 @@ void *pw_proxy_get_user_data(struct pw_proxy *proxy);
 
 uint32_t pw_proxy_get_id(struct pw_proxy *proxy);
 
+struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
+
 struct pw_listener_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy);
 
 const void *pw_proxy_get_proxy_implementation(struct pw_proxy *proxy);

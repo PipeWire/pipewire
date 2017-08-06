@@ -245,7 +245,9 @@ void pw_stream_add_listener(struct pw_stream *stream,
 
 enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **error);
 
-struct pw_properties *pw_stream_get_properties(struct pw_stream *stream);
+const char *pw_stream_get_name(struct pw_stream *stream);
+
+const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream);
 
 /** Connect a stream for input or output on \a port_path. \memberof pw_stream
  * \return true on success.

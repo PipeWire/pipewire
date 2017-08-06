@@ -24,12 +24,12 @@
 #include "config.h"
 
 #include "pipewire/interfaces.h"
-#include "pipewire/private.h"
 #include "pipewire/core.h"
 #include "pipewire/module.h"
 
 struct impl {
 	struct pw_core *core;
+	struct pw_type *t;
 	struct pw_module *module;
 	struct pw_properties *properties;
 
@@ -76,10 +76,12 @@ link_port_unlinked(void *data, struct pw_port *port)
 	struct node_info *info = data;
 	struct pw_link *link = info->link;
 	struct impl *impl = info->impl;
+	struct pw_port *input = pw_link_get_input(link);
 
 	pw_log_debug("module %p: link %p: port %p unlinked", impl, link, port);
-	if (port->direction == PW_DIRECTION_OUTPUT && link->input)
-		try_link_port(link->input->node, link->input, info);
+
+	if (pw_port_get_direction(port) == PW_DIRECTION_OUTPUT && input)
+		try_link_port(pw_port_get_node(input), input, info);
 }
 
 static void
@@ -91,23 +93,8 @@ link_state_changed(void *data, enum pw_link_state old, enum pw_link_state state,
 
 	switch (state) {
 	case PW_LINK_STATE_ERROR:
-		{
-			struct pw_resource *resource;
-
-			pw_log_debug("module %p: link %p: state error: %s", impl, link, error);
-
-			spa_list_for_each(resource, &link->resource_list, link) {
-				pw_core_resource_error(resource->client->core_resource,
-						       resource->id, SPA_RESULT_ERROR, error);
-			}
-			if (info->node->owner) {
-				pw_core_resource_error(info->node->owner->client->core_resource,
-						       info->node->owner->id,
-						       SPA_RESULT_ERROR, error);
-			}
-			break;
-		}
-
+		pw_log_debug("module %p: link %p: state error: %s", impl, link, error);
+		break;
 
 	case PW_LINK_STATE_UNLINKED:
 		pw_log_debug("module %p: link %p: unlinked", impl, link);
@@ -151,7 +138,7 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 	struct pw_link *link;
 	struct pw_port *target;
 
-	props = node->properties;
+	props = pw_node_get_properties(node);
 	if (props == NULL) {
 		pw_log_debug("module %p: node has no properties", impl);
 		return;
@@ -175,11 +162,13 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 	if (target == NULL)
 		goto error;
 
-	if (port->direction == PW_DIRECTION_OUTPUT)
-		link = pw_link_new(impl->core, impl->module->global, port, target, NULL, NULL, &error);
-	else
-		link = pw_link_new(impl->core, impl->module->global, target, port, NULL, NULL, &error);
+	if (pw_port_get_direction(port) == PW_DIRECTION_INPUT) {
+	        struct pw_port *tmp = target;
+		target = port;
+		port = tmp;
+	}
 
+	link = pw_link_new(impl->core, pw_module_get_global(impl->module), port, target, NULL, NULL, &error);
 	if (link == NULL)
 		goto error;
 
@@ -192,9 +181,10 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 
       error:
 	pw_log_error("module %p: can't link node '%s'", impl, error);
-	if (info->node->owner && info->node->owner->client->core_resource) {
-		pw_core_resource_error(info->node->owner->client->core_resource,
-				       info->node->owner->id, SPA_RESULT_ERROR, error);
+	{
+		struct pw_resource *owner = pw_node_get_owner(info->node);
+		if (owner)
+			pw_resource_error(owner, SPA_RESULT_ERROR, error);
 	}
 	free(error);
 	return;
@@ -210,15 +200,16 @@ static void node_port_removed(void *data, struct pw_port *port)
 {
 }
 
+static bool on_node_port_added(void *data, struct pw_port *port)
+{
+	node_port_added(data, port);
+	return true;
+}
+
 static void on_node_created(struct pw_node *node, struct node_info *info)
 {
-	struct pw_port *port;
-
-	spa_list_for_each(port, &node->input_ports, link)
-	    node_port_added(info, port);
-
-	spa_list_for_each(port, &node->output_ports, link)
-	    node_port_added(info, port);
+	pw_node_for_each_port(node, PW_DIRECTION_INPUT, on_node_port_added, info);
+	pw_node_for_each_port(node, PW_DIRECTION_OUTPUT, on_node_port_added, info);
 }
 
 static void
@@ -242,8 +233,8 @@ core_global_added(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 
-	if (global->type == impl->core->type.node) {
-		struct pw_node *node = global->object;
+	if (pw_global_get_type(global) == impl->t->node) {
+		struct pw_node *node = pw_global_get_object(global);
 		struct node_info *ninfo;
 
 		ninfo = calloc(1, sizeof(struct node_info));
@@ -257,7 +248,7 @@ core_global_added(void *data, struct pw_global *global)
 
 		pw_log_debug("module %p: node %p added", impl, node);
 
-		if (node->info.state > PW_NODE_STATE_CREATING)
+		if (pw_node_get_info(node)->state > PW_NODE_STATE_CREATING)
 			on_node_created(node, ninfo);
 	}
 }
@@ -267,8 +258,8 @@ core_global_removed(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 
-	if (global->type == impl->core->type.node) {
-		struct pw_node *node = global->object;
+	if (pw_global_get_type(global) == impl->t->node) {
+		struct pw_node *node = pw_global_get_object(global);
 		struct node_info *ninfo;
 
 		if ((ninfo = find_node_info(impl, node)))
@@ -296,13 +287,14 @@ const struct pw_core_events core_events = {
  */
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
-	struct pw_core *core = module->core;
+	struct pw_core *core = pw_module_get_core(module);
 	struct impl *impl;
 
 	impl = calloc(1, sizeof(struct impl));
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = core;
+	impl->t = pw_core_get_type(core);
 	impl->module = module;
 	impl->properties = properties;
 

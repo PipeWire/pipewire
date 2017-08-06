@@ -321,9 +321,9 @@ void pw_node_register(struct pw_node *this)
 }
 
 static int
-graph_impl_process_input(struct spa_graph_node *node, void *user_data)
+graph_impl_process_input(void *data)
 {
-	struct pw_node *this = user_data;
+	struct pw_node *this = data;
 	int res;
 	if (this->implementation->process_input)
 		res = this->implementation->process_input(this->implementation_data);
@@ -333,9 +333,9 @@ graph_impl_process_input(struct spa_graph_node *node, void *user_data)
 }
 
 static int
-graph_impl_process_output(struct spa_graph_node *node, void *user_data)
+graph_impl_process_output(void *data)
 {
-	struct pw_node *this = user_data;
+	struct pw_node *this = data;
 	int res;
 	if (this->implementation->process_output)
 		res = this->implementation->process_output(this->implementation_data);
@@ -344,8 +344,8 @@ graph_impl_process_output(struct spa_graph_node *node, void *user_data)
 	return res;
 }
 
-static const struct spa_graph_node_methods graph_methods = {
-	SPA_VERSION_GRAPH_NODE_METHODS,
+static const struct spa_graph_node_callbacks graph_callbacks = {
+	SPA_VERSION_GRAPH_NODE_CALLBACKS,
 	.process_input = graph_impl_process_input,
         .process_output = graph_impl_process_output,
 };
@@ -409,15 +409,20 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	pw_map_init(&this->output_port_map, 64, 64);
 
 	spa_graph_node_init(&this->rt.node);
-	spa_graph_node_set_methods(&this->rt.node,
-				   &graph_methods,
-				   this);
+	spa_graph_node_set_callbacks(&this->rt.node,
+				     &graph_callbacks,
+				     this);
 
 	return this;
 
       no_mem:
 	free(impl);
 	return NULL;
+}
+
+const struct pw_node_info *pw_node_get_info(struct pw_node *node)
+{
+	return &node->info;
 }
 
 void * pw_node_get_user_data(struct pw_node *node)
@@ -428,6 +433,21 @@ void * pw_node_get_user_data(struct pw_node *node)
 struct pw_core * pw_node_get_core(struct pw_node *node)
 {
 	return node->core;
+}
+
+struct pw_resource *pw_node_get_owner(struct pw_node *node)
+{
+	return node->owner;
+}
+
+struct pw_global *pw_node_get_global(struct pw_node *node)
+{
+	return node->global;
+}
+
+struct pw_properties *pw_node_get_properties(struct pw_node *node)
+{
+	return node->properties;
 }
 
 void pw_node_set_implementation(struct pw_node *node,
@@ -512,6 +532,25 @@ void pw_node_destroy(struct pw_node *node)
 	clear_info(node);
 
 	free(impl);
+}
+
+bool pw_node_for_each_port(struct pw_node *node,
+			   enum pw_direction direction,
+			   bool (*callback) (void *data, struct pw_port *port),
+			   void *data)
+{
+	struct spa_list *ports;
+	struct pw_port *p, *t;
+
+	if (direction == PW_DIRECTION_INPUT)
+		ports = &node->input_ports;
+	else
+		ports = &node->output_ports;
+
+	spa_list_for_each_safe(p, t, ports, link)
+		if (!callback(data, p))
+			return false;
+	return true;
 }
 
 struct pw_port *

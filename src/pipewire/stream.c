@@ -236,7 +236,12 @@ enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **
 	return stream->state;
 }
 
-struct pw_properties *pw_stream_get_properties(struct pw_stream *stream)
+const char *pw_stream_get_name(struct pw_stream *stream)
+{
+	return stream->name;
+}
+
+const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream)
 {
 	return stream->properties;
 }

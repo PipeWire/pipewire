@@ -66,15 +66,15 @@ struct pw_protocol_native_ext {
 
 };
 
-#define pw_protocol_native_begin_proxy(p,...)		pw_protocol_ext((p)->remote->conn->protocol,struct pw_protocol_native_ext,begin_proxy,p,__VA_ARGS__)
-#define pw_protocol_native_add_proxy_fd(p,...)		pw_protocol_ext((p)->remote->conn->protocol,struct pw_protocol_native_ext,add_proxy_fd,p,__VA_ARGS__)
-#define pw_protocol_native_get_proxy_fd(p,...)		pw_protocol_ext((p)->remote->conn->protocol,struct pw_protocol_native_ext,get_proxy_fd,p,__VA_ARGS__)
-#define pw_protocol_native_end_proxy(p,...)		pw_protocol_ext((p)->remote->conn->protocol,struct pw_protocol_native_ext,end_proxy,p,__VA_ARGS__)
+#define pw_protocol_native_begin_proxy(p,...)		pw_protocol_ext(pw_proxy_get_protocol(p),struct pw_protocol_native_ext,begin_proxy,p,__VA_ARGS__)
+#define pw_protocol_native_add_proxy_fd(p,...)		pw_protocol_ext(pw_proxy_get_protocol(p),struct pw_protocol_native_ext,add_proxy_fd,p,__VA_ARGS__)
+#define pw_protocol_native_get_proxy_fd(p,...)		pw_protocol_ext(pw_proxy_get_protocol(p),struct pw_protocol_native_ext,get_proxy_fd,p,__VA_ARGS__)
+#define pw_protocol_native_end_proxy(p,...)		pw_protocol_ext(pw_proxy_get_protocol(p),struct pw_protocol_native_ext,end_proxy,p,__VA_ARGS__)
 
-#define pw_protocol_native_begin_resource(r,...)	pw_protocol_ext((r)->client->protocol,struct pw_protocol_native_ext,begin_resource,r,__VA_ARGS__)
-#define pw_protocol_native_add_resource_fd(r,...)	pw_protocol_ext((r)->client->protocol,struct pw_protocol_native_ext,add_resource_fd,r,__VA_ARGS__)
-#define pw_protocol_native_get_resource_fd(r,...)	pw_protocol_ext((r)->client->protocol,struct pw_protocol_native_ext,get_resource_fd,r,__VA_ARGS__)
-#define pw_protocol_native_end_resource(r,...)		pw_protocol_ext((r)->client->protocol,struct pw_protocol_native_ext,end_resource,r,__VA_ARGS__)
+#define pw_protocol_native_begin_resource(r,...)	pw_protocol_ext(pw_resource_get_protocol(r),struct pw_protocol_native_ext,begin_resource,r,__VA_ARGS__)
+#define pw_protocol_native_add_resource_fd(r,...)	pw_protocol_ext(pw_resource_get_protocol(r),struct pw_protocol_native_ext,add_resource_fd,r,__VA_ARGS__)
+#define pw_protocol_native_get_resource_fd(r,...)	pw_protocol_ext(pw_resource_get_protocol(r),struct pw_protocol_native_ext,get_resource_fd,r,__VA_ARGS__)
+#define pw_protocol_native_end_resource(r,...)		pw_protocol_ext(pw_resource_get_protocol(r),struct pw_protocol_native_ext,end_resource,r,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

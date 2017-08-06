@@ -130,6 +130,29 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	return this;
 }
 
+struct pw_core *pw_client_get_core(struct pw_client *client)
+{
+	return client->core;
+}
+
+struct pw_global *pw_client_get_global(struct pw_client *client)
+{
+	return client->global;
+}
+
+const struct pw_properties *pw_client_get_properties(struct pw_client *client)
+{
+	return client->properties;
+}
+
+const struct ucred *pw_client_get_ucred(struct pw_client *client)
+{
+	if (!client->ucred_valid)
+		return NULL;
+
+	return &client->ucred;
+}
+
 void *pw_client_get_user_data(struct pw_client *client)
 {
 	return client->user_data;

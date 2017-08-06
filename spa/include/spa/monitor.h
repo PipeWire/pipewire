@@ -112,7 +112,7 @@ struct spa_monitor_callbacks {
 #define SPA_VERSION_MONITOR_CALLBACKS	0
 	uint32_t version;
 
-	void (*event) (struct spa_monitor *monitor, struct spa_event *event, void *user_data);
+	void (*event) (void *data, struct spa_event *event);
 };
 
 /**
@@ -145,7 +145,7 @@ struct spa_monitor {
 	 */
 	int (*set_callbacks) (struct spa_monitor *monitor,
 			      const struct spa_monitor_callbacks *callbacks,
-			      void *user_data);
+			      void *data);
 
 	int (*enum_items) (struct spa_monitor *monitor,
 			   struct spa_monitor_item **item, uint32_t index);

@@ -25,7 +25,6 @@
 #include "config.h"
 
 #include "pipewire/interfaces.h"
-#include "pipewire/private.h"
 #include "pipewire/core.h"
 #include "pipewire/module.h"
 
@@ -70,17 +69,13 @@ static struct pw_node *create_node(void *_data,
       no_properties:
 	pw_log_error("missing properties");
 	if (resource) {
-		pw_core_resource_error(resource->client->core_resource,
-				     resource->client->core_resource->id,
-				     SPA_RESULT_INVALID_ARGUMENTS, "missing properties");
+		pw_resource_error(resource, SPA_RESULT_INVALID_ARGUMENTS, "missing properties");
 	}
 	return NULL;
       no_mem:
 	pw_log_error("can't create node");
 	if (resource) {
-		pw_core_resource_error(resource->client->core_resource,
-				     resource->client->core_resource->id,
-				     SPA_RESULT_NO_MEMORY, "no memory");
+		pw_resource_error(resource, SPA_RESULT_NO_MEMORY, "no memory");
 	}
 	return NULL;
 }
@@ -92,7 +87,7 @@ static const struct pw_node_factory_implementation impl_factory = {
 
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
-	struct pw_core *core = module->core;
+	struct pw_core *core = pw_module_get_core(module);
 	struct pw_node_factory *factory;
 	struct factory_data *data;
 
@@ -110,7 +105,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 					   &impl_factory,
 					   data);
 
-	pw_node_factory_export(factory, NULL, module->global);
+	pw_node_factory_export(factory, NULL, pw_module_get_global(module));
 
 	return true;
 }

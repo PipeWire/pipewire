@@ -76,6 +76,26 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	return NULL;
 }
 
+struct pw_client *pw_resource_get_client(struct pw_resource *resource)
+{
+	return resource->client;
+}
+
+uint32_t pw_resource_get_id(struct pw_resource *resource)
+{
+	return resource->id;
+}
+
+uint32_t pw_resource_get_permissions(struct pw_resource *resource)
+{
+	return resource->permissions;
+}
+
+struct pw_protocol *pw_resource_get_protocol(struct pw_resource *resource)
+{
+	return resource->client->protocol;
+}
+
 void *pw_resource_get_user_data(struct pw_resource *resource)
 {
 	return resource->user_data;
@@ -94,9 +114,27 @@ void pw_resource_set_implementation(struct pw_resource *resource,
 				    void *data)
 {
 	struct pw_client *client = resource->client;
-	resource->implementation = implementation;
-	resource->implementation_data = data;
+
+	resource->implementation.events = implementation;
+	resource->implementation.data = data;
+
 	pw_listener_list_emit(&client->listener_list, struct pw_client_events, resource_impl, resource);
+}
+
+struct pw_listener *pw_resource_get_implementation(struct pw_resource *resource)
+{
+	return &resource->implementation;
+}
+
+const void *pw_resource_get_proxy_notify(struct pw_resource *resource)
+{
+	return resource->marshal->event_marshal;
+}
+
+void pw_resource_error(struct pw_resource *resource, int result, const char *error)
+{
+	if (resource->client->core_resource)
+		pw_core_resource_error(resource->client->core_resource, resource->id, result, error);
 }
 
 void pw_resource_destroy(struct pw_resource *resource)

@@ -105,6 +105,15 @@ pw_port_new(enum pw_direction direction,
 	    uint32_t port_id,
 	    size_t user_data_size);
 
+/** Get the port direction */
+enum pw_direction pw_port_get_direction(struct pw_port *port);
+
+/** Get the port id */
+uint32_t pw_port_get_id(struct pw_port *port);
+
+/** Get the port parent node or NULL when not yet set */
+struct pw_node *pw_port_get_node(struct pw_port *port);
+
 /** Add a port to a node \memberof pw_port */
 void pw_port_add(struct pw_port *port, struct pw_node *node);
 

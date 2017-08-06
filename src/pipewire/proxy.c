@@ -85,6 +85,11 @@ uint32_t pw_proxy_get_id(struct pw_proxy *proxy)
 	return proxy->id;
 }
 
+struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy)
+{
+	return proxy->remote->conn->protocol;
+}
+
 void pw_proxy_add_listener(struct pw_proxy *proxy,
 			   struct pw_listener *listener,
 			   const struct pw_proxy_events *events,

@@ -65,8 +65,7 @@ struct pw_core * pw_module_get_core(struct pw_module *module);
 
 struct pw_global * pw_module_get_global(struct pw_module *module);
 
-const struct pw_module_info *
-pw_module_get_info(struct pw_module *module);
+const struct pw_module_info *pw_module_get_info(struct pw_module *module);
 
 void pw_module_add_listener(struct pw_module *module,
 			    struct pw_listener *listener,

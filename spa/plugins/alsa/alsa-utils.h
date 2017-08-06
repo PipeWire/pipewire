@@ -119,7 +119,7 @@ struct state {
 	snd_output_t *output;
 
 	const struct spa_node_callbacks *callbacks;
-	void *user_data;
+	void *callbacks_data;
 
 	uint8_t props_buffer[1024];
 	struct props props;

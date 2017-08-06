@@ -1170,3 +1170,34 @@ struct pw_link *pw_link_find(struct pw_port *output_port, struct pw_port *input_
 	}
 	return NULL;
 }
+
+struct pw_core *pw_link_get_core(struct pw_link *link)
+{
+	return link->core;
+}
+
+const struct pw_link_info *pw_link_get_info(struct pw_link *link)
+{
+	return &link->info;
+}
+
+struct pw_global *pw_link_get_global(struct pw_link *link)
+{
+	return link->global;
+}
+
+struct pw_port *pw_link_get_output(struct pw_link *link)
+{
+	return link->output;
+}
+
+struct pw_port *pw_link_get_input(struct pw_link *link)
+{
+	return link->input;
+}
+
+void pw_link_inc_idle(struct pw_link *link)
+{
+	link->input->node->idle_used_input_links++;
+	link->output->node->idle_used_output_links++;
+}

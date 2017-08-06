@@ -61,7 +61,7 @@ struct impl {
 	struct spa_loop *main_loop;
 
 	const struct spa_monitor_callbacks *callbacks;
-	void *user_data;
+	void *callbacks_data;
 
 	struct udev *udev;
 	struct udev_monitor *umonitor;
@@ -231,13 +231,13 @@ static void impl_on_fd_events(struct spa_source *source)
 	spa_pod_builder_object(&b, &f[0], 0, type, SPA_POD_TYPE_POD, this->uitem.item);
 
 	event = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_event);
-	this->callbacks->event(&this->monitor, event, this->user_data);
+	this->callbacks->event(this->callbacks_data, event);
 }
 
 static int
 impl_monitor_set_callbacks(struct spa_monitor *monitor,
 			   const struct spa_monitor_callbacks *callbacks,
-			   void *user_data)
+			   void *data)
 {
 	int res;
 	struct impl *this;
@@ -247,7 +247,7 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 	this = SPA_CONTAINER_OF(monitor, struct impl, monitor);
 
 	this->callbacks = callbacks;
-	this->user_data = user_data;
+	this->callbacks_data = data;
 	if (callbacks) {
 		if ((res = impl_udev_open(this)) < 0)
 			return res;

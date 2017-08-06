@@ -127,9 +127,17 @@ void pw_node_register(struct pw_node *node);
 /** Destroy a node */
 void pw_node_destroy(struct pw_node *node);
 
+const struct pw_node_info *pw_node_get_info(struct pw_node *node);
+
 void * pw_node_get_user_data(struct pw_node *node);
 
-struct pw_core * pw_node_get_core(struct pw_node *node);
+struct pw_core *pw_node_get_core(struct pw_node *node);
+
+struct pw_resource *pw_node_get_owner(struct pw_node *node);
+
+struct pw_global *pw_node_get_global(struct pw_node *node);
+
+struct pw_properties *pw_node_get_properties(struct pw_node *node);
 
 void pw_node_set_implementation(struct pw_node *node,
 				const struct pw_node_implementation *implementation,
@@ -139,6 +147,13 @@ void pw_node_add_listener(struct pw_node *node,
 			  struct pw_listener *listener,
 			  const struct pw_node_events *events,
 			  void *data);
+
+/** iterate the ports in the given direction */
+bool pw_node_for_each_port(struct pw_node *node,
+			   enum pw_direction direction,
+			   bool (*callback) (void *data, struct pw_port *port),
+			   void *data);
+
 
 /** Find the port with direction and port_id or NULL when not found */
 struct pw_port *

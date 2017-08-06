@@ -44,19 +44,19 @@ struct spa_graph {
 	struct spa_list nodes;
 };
 
-struct spa_graph_node_methods {
-#define SPA_VERSION_GRAPH_NODE_METHODS	0
+struct spa_graph_node_callbacks {
+#define SPA_VERSION_GRAPH_NODE_CALLBACKS	0
 	uint32_t version;
 
-	int (*process_input) (struct spa_graph_node *node, void *user_data);
-	int (*process_output) (struct spa_graph_node *node, void *user_data);
+	int (*process_input) (void *data);
+	int (*process_output) (void *data);
 };
 
-struct spa_graph_port_methods {
-#define SPA_VERSION_GRAPH_PORT_METHODS	0
+struct spa_graph_port_callbacks {
+#define SPA_VERSION_GRAPH_PORT_CALLBACKS	0
 	uint32_t version;
 
-	int (*reuse_buffer) (struct spa_graph_port *port, uint32_t buffer_id, void *user_data);
+	int (*reuse_buffer) (void *data, uint32_t buffer_id);
 };
 
 struct spa_graph_node {
@@ -73,8 +73,8 @@ struct spa_graph_node {
 	uint32_t max_in;
 	uint32_t required_in;
 	uint32_t ready_in;
-	const struct spa_graph_node_methods *methods;
-	void *user_data;
+	const struct spa_graph_node_callbacks *callbacks;
+	void *callbacks_data;
 };
 
 struct spa_graph_port {
@@ -85,8 +85,8 @@ struct spa_graph_port {
 	uint32_t flags;
 	struct spa_port_io *io;
 	struct spa_graph_port *peer;
-	const struct spa_graph_port_methods *methods;
-	void *user_data;
+	const struct spa_graph_port_callbacks *callbacks;
+	void *callbacks_data;
 };
 
 static inline void spa_graph_init(struct spa_graph *graph)
@@ -105,12 +105,12 @@ spa_graph_node_init(struct spa_graph_node *node)
 }
 
 static inline void
-spa_graph_node_set_methods(struct spa_graph_node *node,
-			   const struct spa_graph_node_methods *methods,
-			   void *user_data)
+spa_graph_node_set_callbacks(struct spa_graph_node *node,
+			     const struct spa_graph_node_callbacks *callbacks,
+			     void *data)
 {
-	node->methods = methods;
-	node->user_data = user_data;
+	node->callbacks = callbacks;
+	node->callbacks_data = data;
 }
 
 static inline void
@@ -139,12 +139,12 @@ spa_graph_port_init(struct spa_graph_port *port,
 }
 
 static inline void
-spa_graph_port_set_methods(struct spa_graph_port *port,
-			   const struct spa_graph_port_methods *methods,
-			   void *user_data)
+spa_graph_port_set_callbacks(struct spa_graph_port *port,
+			     const struct spa_graph_port_callbacks *callbacks,
+			     void *data)
 {
-	port->methods = methods;
-	port->user_data = user_data;
+	port->callbacks = callbacks;
+	port->callbacks_data = data;
 }
 
 static inline void

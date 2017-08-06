@@ -42,20 +42,20 @@ static inline void spa_graph_scheduler_init(struct spa_graph_scheduler *sched,
 	sched->node = NULL;
 }
 
-static inline int spa_graph_scheduler_input(struct spa_graph_node *node, void *user_data)
+static inline int spa_graph_scheduler_input(void *data)
 {
-	struct spa_node *n = node->user_data;
+	struct spa_node *n = data;
 	return spa_node_process_input(n);
 }
 
-static inline int spa_graph_scheduler_output(struct spa_graph_node *node, void *user_data)
+static inline int spa_graph_scheduler_output(void *data)
 {
-	struct spa_node *n = node->user_data;
+	struct spa_node *n = data;
 	return spa_node_process_output(n);
 }
 
-static const struct spa_graph_node_methods spa_graph_scheduler_default = {
-	SPA_VERSION_GRAPH_NODE_METHODS,
+static const struct spa_graph_node_callbacks spa_graph_scheduler_default = {
+	SPA_VERSION_GRAPH_NODE_CALLBACKS,
 	spa_graph_scheduler_input,
 	spa_graph_scheduler_output,
 };
@@ -96,7 +96,7 @@ static inline bool spa_graph_scheduler_iterate(struct spa_graph_scheduler *sched
 
 		switch (n->action) {
 		case SPA_GRAPH_ACTION_IN:
-			n->state = n->methods->process_input(n, n->user_data);
+			n->state = n->callbacks->process_input(n->callbacks_data);
 			debug("node %p processed input state %d\n", n, n->state);
 			if (n == sched->node)
 				break;
@@ -105,7 +105,7 @@ static inline bool spa_graph_scheduler_iterate(struct spa_graph_scheduler *sched
 			break;
 
 		case SPA_GRAPH_ACTION_OUT:
-			n->state = n->methods->process_output(n, n->user_data);
+			n->state = n->callbacks->process_output(n->callbacks_data);
 			debug("node %p processed output state %d\n", n, n->state);
 			n->action = SPA_GRAPH_ACTION_CHECK;
 			spa_list_insert(sched->ready.prev, &n->ready_link);

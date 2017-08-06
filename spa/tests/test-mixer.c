@@ -228,19 +228,19 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 	return SPA_RESULT_ERROR;
 }
 
-static void on_sink_done(struct spa_node *node, int seq, int res, void *user_data)
+static void on_sink_done(void *data, int seq, int res)
 {
 	printf("got done %d %d\n", seq, res);
 }
 
-static void on_sink_event(struct spa_node *node, struct spa_event *event, void *user_data)
+static void on_sink_event(void *data, struct spa_event *event)
 {
 	printf("got event %d\n", SPA_EVENT_TYPE(event));
 }
 
-static void on_sink_need_input(struct spa_node *node, void *user_data)
+static void on_sink_need_input(void *_data)
 {
-	struct data *data = user_data;
+	struct data *data = _data;
 #ifdef USE_GRAPH
 	spa_graph_scheduler_pull(&data->sched, &data->sink_node);
 	while (spa_graph_scheduler_iterate(&data->sched));
@@ -279,23 +279,20 @@ static void on_sink_need_input(struct spa_node *node, void *user_data)
 }
 
 static void
-on_sink_reuse_buffer(struct spa_node *node,
+on_sink_reuse_buffer(void *_data,
 		     uint32_t port_id,
-		     uint32_t buffer_id,
-		     void *user_data)
+		     uint32_t buffer_id)
 {
-	struct data *data = user_data;
-
+	struct data *data = _data;
 	data->mix_sink_io[0].buffer_id = buffer_id;
 }
 
 static const struct spa_node_callbacks sink_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
-	&on_sink_done,
-	&on_sink_event,
-	&on_sink_need_input,
-	NULL,
-	&on_sink_reuse_buffer
+	.done = on_sink_done,
+	.event = on_sink_event,
+	.need_input = &on_sink_need_input,
+	.reuse_buffer = on_sink_reuse_buffer
 };
 
 static int do_add_source(struct spa_loop *loop, struct spa_source *source)
@@ -419,19 +416,19 @@ static int make_nodes(struct data *data, const char *device)
 
 #ifdef USE_GRAPH
 	spa_graph_node_init(&data->source1_node);
-	spa_graph_node_set_methods(&data->source1_node, &spa_graph_scheduler_default, data->source1);
+	spa_graph_node_set_callbacks(&data->source1_node, &spa_graph_scheduler_default, data->source1);
 	spa_graph_port_init(&data->source1_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->source1_mix_io[0]);
 	spa_graph_port_add(&data->source1_node, &data->source1_out);
 	spa_graph_node_add(&data->graph, &data->source1_node);
 
 	spa_graph_node_init(&data->source2_node);
-	spa_graph_node_set_methods(&data->source2_node, &spa_graph_scheduler_default, data->source2);
+	spa_graph_node_set_callbacks(&data->source2_node, &spa_graph_scheduler_default, data->source2);
 	spa_graph_port_init(&data->source2_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->source2_mix_io[0]);
 	spa_graph_port_add(&data->source2_node, &data->source2_out);
 	spa_graph_node_add(&data->graph, &data->source2_node);
 
 	spa_graph_node_init(&data->mix_node);
-	spa_graph_node_set_methods(&data->mix_node, &spa_graph_scheduler_default, data->mix);
+	spa_graph_node_set_callbacks(&data->mix_node, &spa_graph_scheduler_default, data->mix);
 	spa_graph_port_init(&data->mix_in[0], SPA_DIRECTION_INPUT,
 			    data->mix_ports[0], 0, &data->source1_mix_io[0]);
 	spa_graph_port_add(&data->mix_node, &data->mix_in[0]);
@@ -447,7 +444,7 @@ static int make_nodes(struct data *data, const char *device)
 	spa_graph_port_add(&data->mix_node, &data->mix_out);
 
 	spa_graph_node_init(&data->sink_node);
-	spa_graph_node_set_methods(&data->sink_node, &spa_graph_scheduler_default, data->sink);
+	spa_graph_node_set_callbacks(&data->sink_node, &spa_graph_scheduler_default, data->sink);
 	spa_graph_port_init(&data->sink_in, SPA_DIRECTION_INPUT, 0, 0, &data->mix_sink_io[0]);
 	spa_graph_port_add(&data->sink_node, &data->sink_in);
 	spa_graph_node_add(&data->graph, &data->sink_node);

@@ -176,23 +176,23 @@ static void handle_events(struct data *data)
 	}
 }
 
-static void on_source_done(struct spa_node *node, int seq, int res, void *user_data)
+static void on_source_done(void *data, int seq, int res)
 {
 	printf("got done %d %d\n", seq, res);
 }
 
-static void on_source_event(struct spa_node *node, struct spa_event *event, void *user_data)
+static void on_source_event(void *_data, struct spa_event *event)
 {
-	struct data *data = user_data;
+	struct data *data = _data;
 
 	handle_events(data);
 
 	printf("got event %d\n", SPA_EVENT_TYPE(event));
 }
 
-static void on_source_have_output(struct spa_node *node, void *user_data)
+static void on_source_have_output(void *_data)
 {
-	struct data *data = user_data;
+	struct data *data = _data;
 	int res;
 	struct spa_buffer *b;
 	void *sdata, *ddata;
@@ -262,11 +262,9 @@ static void on_source_have_output(struct spa_node *node, void *user_data)
 
 static const struct spa_node_callbacks source_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
-	&on_source_done,
-	&on_source_event,
-	NULL,
-	&on_source_have_output,
-	NULL
+	.done = on_source_done,
+	.event = on_source_event,
+	.have_output = on_source_have_output
 };
 
 static int do_add_source(struct spa_loop *loop, struct spa_source *source)

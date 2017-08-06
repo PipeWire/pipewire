@@ -423,7 +423,7 @@ static void handle_rtnode_event(struct pw_proxy *proxy, struct spa_event *event)
 	        spa_graph_scheduler_chain(data->node->rt.sched, &ready);
         }
 	else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ProcessOutput) {
-		n->methods->process_output(n, n->user_data);
+		n->callbacks->process_output(n->callbacks_data);
 	}
 	else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ReuseBuffer) {
 	}

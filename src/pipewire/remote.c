@@ -42,7 +42,6 @@
 struct remote {
 	struct pw_remote this;
 	uint32_t type_client_node;
-	struct pw_type_event_client_node type_event_client_node;
 	struct pw_listener core_listener;
 };
 
@@ -221,7 +220,6 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	this->properties = properties;
 
         impl->type_client_node = spa_type_map_get_id(core->type.map, PW_TYPE_INTERFACE__ClientNode);
-	pw_type_event_client_node_map(core->type.map, &impl->type_event_client_node);
 	this->state = PW_REMOTE_STATE_UNCONNECTED;
 
 	pw_map_init(&this->objects, 64, 32);
@@ -404,14 +402,12 @@ static void unhandle_socket(struct pw_proxy *proxy)
 	}
 }
 
-static void handle_rtnode_event(struct pw_proxy *proxy, struct spa_event *event)
+static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_message *message)
 {
 	struct node_data *data = proxy->user_data;
-        struct pw_remote *remote = proxy->remote;
-        struct remote *this = SPA_CONTAINER_OF(remote, struct remote, this);
 	struct spa_graph_node *n = &data->node->rt.node;
 
-        if (SPA_EVENT_TYPE(event) == this->type_event_client_node.ProcessInput) {
+        if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT) {
 		struct spa_list ready;
 		struct spa_graph_port *port;
 
@@ -422,13 +418,13 @@ static void handle_rtnode_event(struct pw_proxy *proxy, struct spa_event *event)
 
 	        spa_graph_scheduler_chain(data->node->rt.sched, &ready);
         }
-	else if (SPA_EVENT_TYPE(event) == this->type_event_client_node.ProcessOutput) {
+	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT) {
 		n->callbacks->process_output(n->callbacks_data);
 	}
-	else if (SPA_EVENT_TYPE(event) == this->type_event_client_node.ReuseBuffer) {
+	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {
 	}
 	else {
-		pw_log_warn("unexpected node event %d", SPA_EVENT_TYPE(event));
+		pw_log_warn("unexpected node message %d", PW_CLIENT_NODE_MESSAGE_TYPE(message));
 	}
 }
 
@@ -446,15 +442,15 @@ on_rtsocket_condition(struct spa_loop_utils *utils,
 	}
 
 	if (mask & SPA_IO_IN) {
-		struct spa_event event;
+		struct pw_client_node_message message;
 		uint64_t cmd;
 
 		read(data->rtreadfd, &cmd, 8);
 
-		while (pw_client_node_transport_next_event(data->trans, &event) == SPA_RESULT_OK) {
-			struct spa_event *ev = alloca(SPA_POD_SIZE(&event));
-			pw_client_node_transport_parse_event(data->trans, ev);
-			handle_rtnode_event(proxy, ev);
+		while (pw_client_node_transport_next_message(data->trans, &message) == SPA_RESULT_OK) {
+			struct pw_client_node_message *msg = alloca(SPA_POD_SIZE(&message));
+			pw_client_node_transport_parse_message(data->trans, msg);
+			handle_rtnode_message(proxy, msg);
 		}
 	}
 }
@@ -913,22 +909,20 @@ static const struct pw_client_node_proxy_events client_node_events = {
 static void node_need_input(void *data)
 {
 	struct node_data *d = data;
-        struct remote *this = SPA_CONTAINER_OF(d->remote, struct remote, this);
         uint64_t cmd = 1;
 
-        pw_client_node_transport_add_event(d->trans,
-                               &SPA_EVENT_INIT(this->type_event_client_node.NeedInput));
+	pw_client_node_transport_add_message(d->trans,
+				&PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
         write(d->rtwritefd, &cmd, 8);
 }
 
 static void node_have_output(void *data)
 {
 	struct node_data *d = data;
-        struct remote *this = SPA_CONTAINER_OF(d->remote, struct remote, this);
         uint64_t cmd = 1;
 
-        pw_client_node_transport_add_event(d->trans,
-                               &SPA_EVENT_INIT(this->type_event_client_node.HaveOutput));
+        pw_client_node_transport_add_message(d->trans,
+                               &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT));
         write(d->rtwritefd, &cmd, 8);
 }
 

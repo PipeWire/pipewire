@@ -93,8 +93,6 @@ struct proxy {
 	struct spa_log *log;
 	struct spa_loop *data_loop;
 
-	struct pw_type_event_client_node type_event_client_node;
-
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 
@@ -156,7 +154,7 @@ static inline void do_flush(struct proxy *this)
 {
 	uint64_t cmd = 1;
 	if (write(this->writefd, &cmd, 8) != 8)
-		spa_log_warn(this->log, "proxy %p: error writing event: %s", this, strerror(errno));
+		spa_log_warn(this->log, "proxy %p: error flushing : %s", this, strerror(errno));
 
 }
 
@@ -721,9 +719,8 @@ spa_proxy_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32
 
 	spa_log_trace(this->log, "reuse buffer %d", buffer_id);
 	{
-		struct pw_event_client_node_reuse_buffer rb = PW_EVENT_CLIENT_NODE_REUSE_BUFFER_INIT
-		    (this->type_event_client_node.ReuseBuffer, port_id, buffer_id);
-		pw_client_node_transport_add_event(impl->transport, (struct spa_event *) &rb);
+		struct pw_client_node_message_reuse_buffer rb = PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER_INIT(port_id, buffer_id);
+		pw_client_node_transport_add_message(impl->transport, (struct pw_client_node_message *) &rb);
 	}
 
 	return SPA_RESULT_OK;
@@ -768,8 +765,8 @@ static int spa_proxy_node_process_input(struct spa_node *node)
 		impl->transport->inputs[i] = *io;
 		io->status = SPA_RESULT_NEED_BUFFER;
 	}
-	pw_client_node_transport_add_event(impl->transport,
-			       &SPA_EVENT_INIT(this->type_event_client_node.ProcessInput));
+	pw_client_node_transport_add_message(impl->transport,
+			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT));
 	do_flush(this);
 
 	if (this->callbacks->need_input)
@@ -802,19 +799,19 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 		*io = tmp;
 		pw_log_trace("%d %d  %d", io->status, io->buffer_id, io->status);
 	}
-	pw_client_node_transport_add_event(impl->transport,
-			       &SPA_EVENT_INIT(this->type_event_client_node.ProcessOutput));
+	pw_client_node_transport_add_message(impl->transport,
+			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT));
 	do_flush(this);
 
 	return res;
 }
 
-static int handle_node_event(struct proxy *this, struct spa_event *event)
+static int handle_node_message(struct proxy *this, struct pw_client_node_message *message)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, proxy);
 	int i;
 
-	if (SPA_EVENT_TYPE(event) == this->type_event_client_node.HaveOutput) {
+	if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT) {
 		for (i = 0; i < MAX_OUTPUTS; i++) {
 			struct spa_port_io *io = this->out_ports[i].io;
 
@@ -825,11 +822,11 @@ static int handle_node_event(struct proxy *this, struct spa_event *event)
 			pw_log_trace("%d %d", io->status, io->buffer_id);
 		}
 		this->callbacks->have_output(this->callbacks_data);
-	} else if (SPA_EVENT_TYPE(event) == this->type_event_client_node.NeedInput) {
+	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_NEED_INPUT) {
 		this->callbacks->need_input(this->callbacks_data);
-	} else if (SPA_EVENT_TYPE(event) == this->type_event_client_node.ReuseBuffer) {
-		struct pw_event_client_node_reuse_buffer *p =
-		    (struct pw_event_client_node_reuse_buffer *) event;
+	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {
+		struct pw_client_node_message_reuse_buffer *p =
+		    (struct pw_client_node_message_reuse_buffer *) message;
 		this->callbacks->reuse_buffer(this->callbacks_data, p->body.port_id.value,
 					     p->body.buffer_id.value);
 	}
@@ -930,18 +927,17 @@ static void proxy_on_data_fd_events(struct spa_source *source)
 	}
 
 	if (source->rmask & SPA_IO_IN) {
-		struct spa_event event;
+		struct pw_client_node_message message;
 		uint64_t cmd;
 
 		if (read(this->data_source.fd, &cmd, 8) != 8)
-			spa_log_warn(this->log, "proxy %p: error reading event: %s",
+			spa_log_warn(this->log, "proxy %p: error reading message: %s",
 					this, strerror(errno));
 
-		while (pw_client_node_transport_next_event(impl->transport, &event) == SPA_RESULT_OK) {
-			struct spa_event *ev = alloca(SPA_POD_SIZE(&event));
-			pw_client_node_transport_parse_event(impl->transport, ev);
-                        pw_pod_remap(&ev->pod, &this->resource->client->types);;
-			handle_node_event(this, ev);
+		while (pw_client_node_transport_next_message(impl->transport, &message) == SPA_RESULT_OK) {
+			struct pw_client_node_message *msg = alloca(SPA_POD_SIZE(&message));
+			pw_client_node_transport_parse_message(impl->transport, msg);
+			handle_node_message(this, msg);
 		}
 	}
 }
@@ -998,8 +994,6 @@ proxy_init(struct proxy *this,
 	}
 
 	this->node = proxy_node;
-
-	pw_type_event_client_node_map(this->map, &this->type_event_client_node);
 
 	this->data_source.func = proxy_on_data_fd_events;
 	this->data_source.data = this;

@@ -37,7 +37,7 @@ struct transport {
 	struct pw_memblock mem;
 	size_t offset;
 
-	struct spa_event current;
+	struct pw_client_node_message current;
 	uint32_t current_index;
 };
 /** \endcond */
@@ -98,64 +98,64 @@ static void transport_reset_area(struct pw_client_node_transport *trans)
 	spa_ringbuffer_init(trans->output_buffer, OUTPUT_BUFFER_SIZE);
 }
 
-static int add_event(struct pw_client_node_transport *trans, struct spa_event *event)
+static int add_message(struct pw_client_node_transport *trans, struct pw_client_node_message *message)
 {
 	struct transport *impl = (struct transport *) trans;
 	int32_t filled, avail;
 	uint32_t size, index;
 
-	if (impl == NULL || event == NULL)
+	if (impl == NULL || message == NULL)
 		return SPA_RESULT_INVALID_ARGUMENTS;
 
 	filled = spa_ringbuffer_get_write_index(trans->output_buffer, &index);
 	avail = trans->output_buffer->size - filled;
-	size = SPA_POD_SIZE(event);
+	size = SPA_POD_SIZE(message);
 	if (avail < size)
 		return SPA_RESULT_ERROR;
 
 	spa_ringbuffer_write_data(trans->output_buffer,
 				  trans->output_data,
-				  index & trans->output_buffer->mask, event, size);
+				  index & trans->output_buffer->mask, message, size);
 	spa_ringbuffer_write_update(trans->output_buffer, index + size);
 
 	return SPA_RESULT_OK;
 }
 
-static int next_event(struct pw_client_node_transport *trans, struct spa_event *event)
+static int next_message(struct pw_client_node_transport *trans, struct pw_client_node_message *message)
 {
 	struct transport *impl = (struct transport *) trans;
 	int32_t avail;
 
-	if (impl == NULL || event == NULL)
+	if (impl == NULL || message == NULL)
 		return SPA_RESULT_INVALID_ARGUMENTS;
 
 	avail = spa_ringbuffer_get_read_index(trans->input_buffer, &impl->current_index);
-	if (avail < sizeof(struct spa_event))
+	if (avail < sizeof(struct pw_client_node_message))
 		return SPA_RESULT_ENUM_END;
 
 	spa_ringbuffer_read_data(trans->input_buffer,
 				 trans->input_data,
 				 impl->current_index & trans->input_buffer->mask,
-				 &impl->current, sizeof(struct spa_event));
+				 &impl->current, sizeof(struct pw_client_node_message));
 
-	*event = impl->current;
+	*message = impl->current;
 
 	return SPA_RESULT_OK;
 }
 
-static int parse_event(struct pw_client_node_transport *trans, void *event)
+static int parse_message(struct pw_client_node_transport *trans, void *message)
 {
 	struct transport *impl = (struct transport *) trans;
 	uint32_t size;
 
-	if (impl == NULL || event == NULL)
+	if (impl == NULL || message == NULL)
 		return SPA_RESULT_INVALID_ARGUMENTS;
 
 	size = SPA_POD_SIZE(&impl->current);
 
 	spa_ringbuffer_read_data(trans->input_buffer,
 				 trans->input_data,
-				 impl->current_index & trans->input_buffer->mask, event, size);
+				 impl->current_index & trans->input_buffer->mask, message, size);
 	spa_ringbuffer_read_update(trans->input_buffer, impl->current_index + size);
 
 	return SPA_RESULT_OK;
@@ -194,9 +194,9 @@ pw_client_node_transport_new(uint32_t max_input_ports, uint32_t max_output_ports
 	transport_setup_area(impl->mem.ptr, trans);
 	transport_reset_area(trans);
 
-	trans->add_event = add_event;
-	trans->next_event = next_event;
-	trans->parse_event = parse_event;
+	trans->add_message = add_message;
+	trans->next_message = next_message;
+	trans->parse_message = parse_message;
 
 	return trans;
 }
@@ -236,9 +236,9 @@ pw_client_node_transport_new_from_info(struct pw_client_node_transport_info *inf
 	trans->output_data = trans->input_data;
 	trans->input_data = tmp;
 
-	trans->add_event = add_event;
-	trans->next_event = next_event;
-	trans->parse_event = parse_event;
+	trans->add_message = add_message;
+	trans->next_message = next_message;
+	trans->parse_message = parse_message;
 
 	return trans;
 

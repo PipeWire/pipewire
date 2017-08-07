@@ -38,6 +38,8 @@ struct pw_client_node_proxy;
 
 #define PW_VERSION_CLIENT_NODE			0
 
+struct pw_client_node_message;
+
 /** Shared structure between client and server \memberof pw_client_node */
 struct pw_client_node_area {
 	uint32_t max_input_ports;	/**< max input ports of the node */
@@ -63,88 +65,86 @@ struct pw_client_node_transport {
 	void *output_data;			/**< output memory for ringbuffer */
 	struct spa_ringbuffer *output_buffer;	/**< ringbuffer for output memory */
 
-	/** Add an event to the transport
-	 * \param trans the transport to send the event on
-	 * \param event the event to add
+	/** Add a message to the transport
+	 * \param trans the transport to send the message on
+	 * \param message the message to add
 	 * \return 0 on success, < 0 on error
 	 *
-	 * Write \a event to the shared ringbuffer.
+	 * Write \a message to the shared ringbuffer.
 	 */
-	int (*add_event) (struct pw_client_node_transport *trans, struct spa_event *event);
+	int (*add_message) (struct pw_client_node_transport *trans, struct pw_client_node_message *message);
 
-	/** Get next event from a transport
-	 * \param trans the transport to get the event of
-	 * \param[out] event the event to read
-	 * \return 0 on success, < 0 on error, SPA_RESULT_ENUM_END when no more events
+	/** Get next message from a transport
+	 * \param trans the transport to get the message of
+	 * \param[out] message the message to read
+	 * \return 0 on success, < 0 on error, SPA_RESULT_ENUM_END when no more messages
 	 *      are available.
 	 *
-	 * Get the skeleton next event from \a trans into \a event. This function will
-	 * only read the head and object body of the event.
+	 * Get the skeleton next message from \a trans into \a message. This function will
+	 * only read the head and object body of the message.
 	 *
-	 * After the complete size of the event has been calculated, you should call
-	 * \ref parse_event() to read the complete event contents.
+	 * After the complete size of the message has been calculated, you should call
+	 * \ref parse_message() to read the complete message contents.
 	 */
-	int (*next_event) (struct pw_client_node_transport *trans, struct spa_event *event);
+	int (*next_message) (struct pw_client_node_transport *trans, struct pw_client_node_message *message);
 
-	/** Parse the complete event on transport
+	/** Parse the complete message on transport
 	 * \param trans the transport to read from
-	 * \param[out] event memory that can hold the complete event
+	 * \param[out] message memory that can hold the complete message
 	 * \return 0 on success, < 0 on error
 	 *
-	 * Use this function after \ref next_event().
-	 *
+	 * Use this function after \ref next_message().
 	 */
-	int (*parse_event) (struct pw_client_node_transport *trans, void *event);
+	int (*parse_message) (struct pw_client_node_transport *trans, void *message);
 };
 
-#define pw_client_node_transport_add_event(t,e)		((t)->add_event((t), (e)))
-#define pw_client_node_transport_next_event(t,e)	((t)->next_event((t), (e)))
-#define pw_client_node_transport_parse_event(t,e)	((t)->parse_event((t), (e)))
+#define pw_client_node_transport_add_message(t,m)	((t)->add_message((t), (m)))
+#define pw_client_node_transport_next_message(t,m)	((t)->next_message((t), (m)))
+#define pw_client_node_transport_parse_message(t,m)	((t)->parse_message((t), (m)))
 
-#define PW_TYPE_EVENT__ClientNode		SPA_TYPE_EVENT_BASE "ClientNode"
-#define PW_TYPE_EVENT_CLIENT_NODE_BASE		PW_TYPE_EVENT__ClientNode ":"
-
-#define PW_TYPE_EVENT_CLIENT_NODE__HaveOutput		PW_TYPE_EVENT_CLIENT_NODE_BASE "HaveOutput"
-#define PW_TYPE_EVENT_CLIENT_NODE__NeedInput		PW_TYPE_EVENT_CLIENT_NODE_BASE "NeedInput"
-#define PW_TYPE_EVENT_CLIENT_NODE__ReuseBuffer		PW_TYPE_EVENT_CLIENT_NODE_BASE "ReuseBuffer"
-#define PW_TYPE_EVENT_CLIENT_NODE__ProcessInput		PW_TYPE_EVENT_CLIENT_NODE_BASE "ProcessInput"
-#define PW_TYPE_EVENT_CLIENT_NODE__ProcessOutput	PW_TYPE_EVENT_CLIENT_NODE_BASE "ProcessOutput"
-
-struct pw_type_event_client_node {
-	uint32_t HaveOutput;
-	uint32_t NeedInput;
-	uint32_t ReuseBuffer;
-	uint32_t ProcessInput;
-	uint32_t ProcessOutput;
+enum pw_client_node_message_type {
+	PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT,
+	PW_CLIENT_NODE_MESSAGE_NEED_INPUT,
+	PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER,
+	PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT,
+	PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT,
 };
 
-static inline void
-pw_type_event_client_node_map(struct spa_type_map *map, struct pw_type_event_client_node *type)
-{
-	if (type->HaveOutput == 0) {
-		type->HaveOutput = spa_type_map_get_id(map, PW_TYPE_EVENT_CLIENT_NODE__HaveOutput);
-		type->NeedInput = spa_type_map_get_id(map, PW_TYPE_EVENT_CLIENT_NODE__NeedInput);
-		type->ReuseBuffer = spa_type_map_get_id(map, PW_TYPE_EVENT_CLIENT_NODE__ReuseBuffer);
-		type->ProcessInput = spa_type_map_get_id(map, PW_TYPE_EVENT_CLIENT_NODE__ProcessInput);
-		type->ProcessOutput = spa_type_map_get_id(map, PW_TYPE_EVENT_CLIENT_NODE__ProcessOutput);
-	}
-}
-
-struct pw_event_client_node_reuse_buffer_body {
-	struct spa_pod_object_body body;
-	struct spa_pod_int port_id;
-	struct spa_pod_int buffer_id;
+struct pw_client_node_message_body {
+	struct spa_pod_int type		SPA_ALIGNED(8);
 };
 
-struct pw_event_client_node_reuse_buffer {
-	struct spa_pod pod;
-	struct pw_event_client_node_reuse_buffer_body body;
+struct pw_client_node_message {
+	struct spa_pod_struct pod;
+	struct pw_client_node_message_body body;
 };
 
-#define PW_EVENT_CLIENT_NODE_REUSE_BUFFER_INIT(type,port_id,buffer_id)		\
-	SPA_EVENT_INIT_COMPLEX(struct pw_event_client_node_reuse_buffer,	\
-		sizeof(struct pw_event_client_node_reuse_buffer_body), type,	\
-		SPA_POD_INT_INIT(port_id),					\
+struct pw_client_node_message_reuse_buffer_body {
+	struct spa_pod_int type		SPA_ALIGNED(8);
+	struct spa_pod_int port_id	SPA_ALIGNED(8);
+	struct spa_pod_int buffer_id	SPA_ALIGNED(8);
+};
+
+struct pw_client_node_message_reuse_buffer {
+	struct spa_pod_struct pod;
+	struct pw_client_node_message_reuse_buffer_body body;
+};
+
+#define PW_CLIENT_NODE_MESSAGE_TYPE(message)	(((struct pw_client_node_message*)(message))->body.type.value)
+
+#define PW_CLIENT_NODE_MESSAGE_INIT(ev) (struct pw_client_node_message) \
+	{ { { sizeof(struct pw_client_node_message_body), SPA_POD_TYPE_STRUCT } },	\
+	  { SPA_POD_INT_INIT(ev) } }
+
+#define PW_CLIENT_NODE_MESSAGE_INIT_VA(type,size,message,...) (type)			\
+	{ { { size, SPA_POD_TYPE_STRUCT } },						\
+	  { SPA_POD_INT_INIT(message), __VA_ARGS__ } }					\
+
+#define PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER_INIT(port_id,buffer_id)			\
+	PW_CLIENT_NODE_MESSAGE_INIT_VA(struct pw_client_node_message_reuse_buffer,	\
+		sizeof(struct pw_client_node_message_reuse_buffer_body),		\
+		PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER,					\
+		SPA_POD_INT_INIT(port_id),						\
 		SPA_POD_INT_INIT(buffer_id))
 
 

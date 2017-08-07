@@ -142,7 +142,7 @@ void pw_resource_destroy(struct pw_resource *resource)
 	struct pw_client *client = resource->client;
 
 	pw_log_trace("resource %p: destroy %u", resource, resource->id);
-	pw_listener_list_emit_na(&resource->listener_list, struct pw_resource_events, destroy);
+	pw_listener_list_emit(&resource->listener_list, struct pw_resource_events, destroy);
 
 	pw_map_insert_at(&client->objects, resource->id, NULL);
 	pw_listener_list_emit(&client->listener_list, struct pw_client_events, resource_removed, resource);

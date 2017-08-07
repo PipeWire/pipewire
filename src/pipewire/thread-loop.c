@@ -118,7 +118,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop, const char *name
 /** Destroy a threaded loop \memberof pw_thread_loop */
 void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 {
-	pw_listener_list_emit_na(&loop->listener_list, struct pw_thread_loop_events, destroy);
+	pw_listener_list_emit(&loop->listener_list, struct pw_thread_loop_events, destroy);
 
 	pw_thread_loop_stop(loop);
 

@@ -760,7 +760,7 @@ static bool client_node_demarshal_destroy(void *object, void *data, size_t size)
 	if (!spa_pod_iter_struct(&it, data, size))
 		return false;
 
-	pw_resource_do_na(resource, struct pw_client_node_proxy_methods, destroy);
+	pw_resource_do(resource, struct pw_client_node_proxy_methods, destroy);
 	return true;
 }
 

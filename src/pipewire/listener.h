@@ -63,17 +63,7 @@ static inline void pw_listener_remove(struct pw_listener *listener)
 	spa_list_for_each_safe(ci, t, &list->list, link) {	\
 		const type *cb = ci->events;			\
 		if (cb->method)					\
-			cb->method(ci->data, __VA_ARGS__);	\
-	}							\
-});
-
-#define pw_listener_list_emit_na(l,type,method) ({		\
-	struct pw_listener_list *list = l;			\
-	struct pw_listener *ci, *t;				\
-	spa_list_for_each_safe(ci, t, &list->list, link) {	\
-		const type *cb = ci->events;			\
-		if (cb->method)					\
-			cb->method(ci->data);			\
+			cb->method(ci->data, ## __VA_ARGS__);	\
 	}							\
 });
 

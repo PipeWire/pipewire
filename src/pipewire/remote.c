@@ -265,7 +265,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 	struct pw_stream *stream, *s2;
 
 	pw_log_debug("remote %p: destroy", remote);
-	pw_listener_list_emit_na(&remote->listener_list, struct pw_remote_events, destroy);
+	pw_listener_list_emit(&remote->listener_list, struct pw_remote_events, destroy);
 
 	if (remote->state != PW_REMOTE_STATE_UNCONNECTED)
 		pw_remote_disconnect(remote);

@@ -107,18 +107,10 @@ const void *pw_resource_get_proxy_notify(struct pw_resource *resource);
         struct pw_listener *l = pw_resource_get_implementation(r);	\
 	const type *cb = l->events;					\
 	if (cb->method)							\
-		cb->method(l->data, __VA_ARGS__);			\
+		cb->method(l->data, ## __VA_ARGS__);			\
 });
 
-#define pw_resource_do_na(r,type,method) ({				\
-        struct pw_listener *l = pw_resource_get_implementation(r);	\
-	const type *cb = l->events;					\
-	if (cb->method)							\
-		cb->method(l->data);					\
-});
-
-#define pw_resource_notify(r,type,event,...)	((type*) pw_resource_get_proxy_notify(r))->event(r, __VA_ARGS__)
-#define pw_resource_notify_na(r,type,event)	((type*) r->marshal->event_marshal)->event(r)
+#define pw_resource_notify(r,type,event,...)	((type*) pw_resource_get_proxy_notify(r))->event(r, ## __VA_ARGS__)
 
 #ifdef __cplusplus
 }

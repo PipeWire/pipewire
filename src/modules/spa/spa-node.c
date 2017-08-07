@@ -352,14 +352,14 @@ static void on_node_need_input(void *data)
 {
         struct impl *impl = data;
         struct pw_node *this = impl->this;
-	pw_listener_list_emit_na(&this->listener_list, struct pw_node_events, need_input);
+	pw_listener_list_emit(&this->listener_list, struct pw_node_events, need_input);
 }
 
 static void on_node_have_output(void *data)
 {
         struct impl *impl = data;
         struct pw_node *this = impl->this;
-	pw_listener_list_emit_na(&this->listener_list, struct pw_node_events, have_output);
+	pw_listener_list_emit(&this->listener_list, struct pw_node_events, have_output);
 }
 
 static void

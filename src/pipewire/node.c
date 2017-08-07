@@ -315,7 +315,7 @@ void pw_node_register(struct pw_node *this)
 					  node_bind_func, this);
 
 	impl->registered = true;
-	pw_listener_list_emit_na(&this->listener_list, struct pw_node_events, initialized);
+	pw_listener_list_emit(&this->listener_list, struct pw_node_events, initialized);
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 }
@@ -494,7 +494,7 @@ void pw_node_destroy(struct pw_node *node)
 	struct pw_port *port, *tmpp;
 
 	pw_log_debug("node %p: destroy", impl);
-	pw_listener_list_emit_na(&node->listener_list, struct pw_node_events, destroy);
+	pw_listener_list_emit(&node->listener_list, struct pw_node_events, destroy);
 
 	pw_loop_invoke(node->data_loop, do_node_remove, 1, 0, NULL, true, node);
 
@@ -519,7 +519,7 @@ void pw_node_destroy(struct pw_node *node)
 	}
 
 	pw_log_debug("node %p: free", node);
-	pw_listener_list_emit_na(&node->listener_list, struct pw_node_events, free);
+	pw_listener_list_emit(&node->listener_list, struct pw_node_events, free);
 
 	pw_work_queue_destroy(impl->work);
 

@@ -175,7 +175,7 @@ void pw_client_destroy(struct pw_client *client)
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 
 	pw_log_debug("client %p: destroy", client);
-	pw_listener_list_emit_na(&client->listener_list, struct pw_client_events, destroy);
+	pw_listener_list_emit(&client->listener_list, struct pw_client_events, destroy);
 
 	spa_list_remove(&client->link);
 	pw_global_destroy(client->global);
@@ -185,7 +185,7 @@ void pw_client_destroy(struct pw_client *client)
 
 	pw_map_for_each(&client->objects, destroy_resource, client);
 
-	pw_listener_list_emit_na(&client->listener_list, struct pw_client_events, free);
+	pw_listener_list_emit(&client->listener_list, struct pw_client_events, free);
 	pw_log_debug("client %p: free", impl);
 
 	pw_map_clear(&client->objects);

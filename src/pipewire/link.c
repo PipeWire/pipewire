@@ -1123,7 +1123,7 @@ void pw_link_destroy(struct pw_link *link)
 	struct pw_resource *resource, *tmp;
 
 	pw_log_debug("link %p: destroy", impl);
-	pw_listener_list_emit_na(&link->listener_list, struct pw_link_events, destroy);
+	pw_listener_list_emit(&link->listener_list, struct pw_link_events, destroy);
 
 	pw_link_deactivate(link);
 

@@ -313,7 +313,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	pw_log_debug("stream %p: destroy", stream);
 
-	pw_listener_list_emit_na(&stream->listener_list, struct pw_stream_events, destroy);
+	pw_listener_list_emit(&stream->listener_list, struct pw_stream_events, destroy);
 
 	unhandle_socket(stream);
 
@@ -514,7 +514,7 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 		}
 		pw_log_trace("stream %p: process output", stream);
 		impl->in_need_buffer = true;
-		pw_listener_list_emit_na(&stream->listener_list, struct pw_stream_events, need_buffer);
+		pw_listener_list_emit(&stream->listener_list, struct pw_stream_events, need_buffer);
 		impl->in_need_buffer = false;
 	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {
 		struct pw_client_node_message_reuse_buffer *p =
@@ -608,7 +608,7 @@ handle_node_command(struct pw_stream *stream, uint32_t seq, const struct spa_com
 				send_need_input(stream);
 			else {
 				impl->in_need_buffer = true;
-				pw_listener_list_emit_na(&stream->listener_list, struct pw_stream_events,
+				pw_listener_list_emit(&stream->listener_list, struct pw_stream_events,
 						    need_buffer);
 				impl->in_need_buffer = false;
 			}

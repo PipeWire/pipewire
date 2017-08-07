@@ -280,7 +280,7 @@ pw_client_node_proxy_event(struct pw_client_node_proxy *p, struct spa_event *eve
 static inline void
 pw_client_node_proxy_destroy(struct pw_client_node_proxy *p)
 {
-        pw_proxy_do_na((struct pw_proxy*)p, struct pw_client_node_proxy_methods, destroy);
+        pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, destroy);
 }
 
 

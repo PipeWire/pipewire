@@ -119,7 +119,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);
 
 	pw_log_debug("proxy %p: destroy %u", proxy, proxy->id);
-	pw_listener_list_emit_na(&proxy->listener_list, struct pw_proxy_events, destroy);
+	pw_listener_list_emit(&proxy->listener_list, struct pw_proxy_events, destroy);
 
 	pw_map_remove(&proxy->remote->objects, proxy->id);
 	spa_list_remove(&proxy->link);

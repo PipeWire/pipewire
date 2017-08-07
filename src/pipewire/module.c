@@ -257,7 +257,7 @@ void pw_module_destroy(struct pw_module *module)
 	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
 	struct pw_resource *resource, *tmp;
 
-	pw_listener_list_emit_na(&module->listener_list, struct pw_module_events, destroy);
+	pw_listener_list_emit(&module->listener_list, struct pw_module_events, destroy);
 
 	spa_list_for_each_safe(resource, tmp, &module->resource_list, link)
 		pw_resource_destroy(resource);

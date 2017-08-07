@@ -57,7 +57,7 @@ struct pw_main_loop *pw_main_loop_new(void)
 void pw_main_loop_destroy(struct pw_main_loop *loop)
 {
 	pw_log_debug("main-loop %p: destroy", loop);
-	pw_listener_list_emit_na(&loop->listener_list, struct pw_main_loop_events, destroy);
+	pw_listener_list_emit(&loop->listener_list, struct pw_main_loop_events, destroy);
 
 	pw_loop_destroy(loop->loop);
 

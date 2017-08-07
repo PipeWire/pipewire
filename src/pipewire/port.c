@@ -292,7 +292,7 @@ void pw_port_destroy(struct pw_port *port)
 
 	pw_log_debug("port %p: destroy", port);
 
-	pw_listener_list_emit_na(&port->listener_list, struct pw_port_events, destroy);
+	pw_listener_list_emit(&port->listener_list, struct pw_port_events, destroy);
 
 	if (node) {
 		pw_loop_invoke(port->node->data_loop, do_remove_port, SPA_ID_INVALID, 0, NULL, true, port);
@@ -469,7 +469,9 @@ int pw_port_alloc_buffers(struct pw_port *port,
 	pw_log_debug("port %p: alloc %d buffers", port, *n_buffers);
 
 	if (port->implementation->alloc_buffers)
-		res = port->implementation->alloc_buffers(port->implementation_data, params, n_params, buffers, n_buffers);
+		res = port->implementation->alloc_buffers(port->implementation_data,
+							  params, n_params,
+							  buffers, n_buffers);
 	else
 		res = SPA_RESULT_NOT_IMPLEMENTED;
 

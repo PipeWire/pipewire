@@ -46,7 +46,6 @@ struct pw_node;
 
 #include <pipewire/mem.h>
 #include <pipewire/introspect.h>
-#include <pipewire/transport.h>
 
 #include <pipewire/core.h>
 #include <pipewire/port.h>

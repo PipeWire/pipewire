@@ -30,6 +30,8 @@
 #include "extensions/protocol-native.h"
 #include "extensions/client-node.h"
 
+#include "transport.h"
+
 static void
 client_node_marshal_done(void *object, int seq, int res)
 {
@@ -371,8 +373,10 @@ static bool client_node_demarshal_transport(void *object, void *data, size_t siz
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
-	uint32_t node_id, ridx, widx, memfd_idx, offset, sz;
-	int readfd, writefd, memfd;
+	uint32_t node_id, ridx, widx, memfd_idx;
+	int readfd, writefd;
+	struct pw_client_node_transport_info info;
+	struct pw_client_node_transport *transport;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
@@ -380,19 +384,21 @@ static bool client_node_demarshal_transport(void *object, void *data, size_t siz
 			      SPA_POD_TYPE_INT, &ridx,
 			      SPA_POD_TYPE_INT, &widx,
 			      SPA_POD_TYPE_INT, &memfd_idx,
-			      SPA_POD_TYPE_INT, &offset,
-			      SPA_POD_TYPE_INT, &sz, 0))
+			      SPA_POD_TYPE_INT, &info.offset,
+			      SPA_POD_TYPE_INT, &info.size, 0))
 		return false;
 
 	readfd = pw_protocol_native_get_proxy_fd(proxy, ridx);
 	writefd = pw_protocol_native_get_proxy_fd(proxy, widx);
-	memfd = pw_protocol_native_get_proxy_fd(proxy, memfd_idx);
-	if (readfd == -1 || writefd == -1 || memfd_idx == -1)
+	info.memfd = pw_protocol_native_get_proxy_fd(proxy, memfd_idx);
+
+	if (readfd == -1 || writefd == -1 || info.memfd == -1)
 		return false;
 
+	transport = pw_client_node_transport_new_from_info(&info);
+
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, transport, node_id,
-									readfd, writefd,
-									memfd, offset, sz);
+								   readfd, writefd, transport);
 	return true;
 }
 
@@ -616,11 +622,14 @@ client_node_marshal_port_command(void *object,
 }
 
 static void client_node_marshal_transport(void *object, uint32_t node_id, int readfd, int writefd,
-					  int memfd, uint32_t offset, uint32_t size)
+					  struct pw_client_node_transport *transport)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
+	struct pw_client_node_transport_info info;
+
+	pw_client_node_transport_get_info(transport, &info);
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT);
 
@@ -628,8 +637,9 @@ static void client_node_marshal_transport(void *object, uint32_t node_id, int re
 			       SPA_POD_TYPE_INT, node_id,
 			       SPA_POD_TYPE_INT, pw_protocol_native_add_resource_fd(resource, readfd),
 			       SPA_POD_TYPE_INT, pw_protocol_native_add_resource_fd(resource, writefd),
-			       SPA_POD_TYPE_INT, pw_protocol_native_add_resource_fd(resource, memfd),
-			       SPA_POD_TYPE_INT, offset, SPA_POD_TYPE_INT, size);
+			       SPA_POD_TYPE_INT, pw_protocol_native_add_resource_fd(resource, info.memfd),
+			       SPA_POD_TYPE_INT, info.offset,
+			       SPA_POD_TYPE_INT, info.size);
 
 	pw_protocol_native_end_resource(resource, b);
 }

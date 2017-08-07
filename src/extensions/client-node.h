@@ -38,6 +38,116 @@ struct pw_client_node_proxy;
 
 #define PW_VERSION_CLIENT_NODE			0
 
+/** Shared structure between client and server \memberof pw_client_node */
+struct pw_client_node_area {
+	uint32_t max_input_ports;	/**< max input ports of the node */
+	uint32_t n_input_ports;		/**< number of input ports of the node */
+	uint32_t max_output_ports;	/**< max output ports of the node */
+	uint32_t n_output_ports;	/**< number of output ports of the node */
+};
+
+/** \class pw_client_node_transport
+ *
+ * \brief Transport object
+ *
+ * The transport object contains shared data and ringbuffers to exchange
+ * events and data between the server and the client in a low-latency and
+ * lockfree way.
+ */
+struct pw_client_node_transport {
+	struct pw_client_node_area *area;	/**< the transport area */
+	struct spa_port_io *inputs;		/**< array of input port io */
+	struct spa_port_io *outputs;		/**< array of output port io */
+	void *input_data;			/**< input memory for ringbuffer */
+	struct spa_ringbuffer *input_buffer;	/**< ringbuffer for input memory */
+	void *output_data;			/**< output memory for ringbuffer */
+	struct spa_ringbuffer *output_buffer;	/**< ringbuffer for output memory */
+
+	/** Add an event to the transport
+	 * \param trans the transport to send the event on
+	 * \param event the event to add
+	 * \return 0 on success, < 0 on error
+	 *
+	 * Write \a event to the shared ringbuffer.
+	 */
+	int (*add_event) (struct pw_client_node_transport *trans, struct spa_event *event);
+
+	/** Get next event from a transport
+	 * \param trans the transport to get the event of
+	 * \param[out] event the event to read
+	 * \return 0 on success, < 0 on error, SPA_RESULT_ENUM_END when no more events
+	 *      are available.
+	 *
+	 * Get the skeleton next event from \a trans into \a event. This function will
+	 * only read the head and object body of the event.
+	 *
+	 * After the complete size of the event has been calculated, you should call
+	 * \ref parse_event() to read the complete event contents.
+	 */
+	int (*next_event) (struct pw_client_node_transport *trans, struct spa_event *event);
+
+	/** Parse the complete event on transport
+	 * \param trans the transport to read from
+	 * \param[out] event memory that can hold the complete event
+	 * \return 0 on success, < 0 on error
+	 *
+	 * Use this function after \ref next_event().
+	 *
+	 */
+	int (*parse_event) (struct pw_client_node_transport *trans, void *event);
+};
+
+#define pw_client_node_transport_add_event(t,e)		((t)->add_event((t), (e)))
+#define pw_client_node_transport_next_event(t,e)	((t)->next_event((t), (e)))
+#define pw_client_node_transport_parse_event(t,e)	((t)->parse_event((t), (e)))
+
+#define PW_TYPE_EVENT__ClientNode		SPA_TYPE_EVENT_BASE "ClientNode"
+#define PW_TYPE_EVENT_CLIENT_NODE_BASE		PW_TYPE_EVENT__ClientNode ":"
+
+#define PW_TYPE_EVENT_CLIENT_NODE__HaveOutput		PW_TYPE_EVENT_CLIENT_NODE_BASE "HaveOutput"
+#define PW_TYPE_EVENT_CLIENT_NODE__NeedInput		PW_TYPE_EVENT_CLIENT_NODE_BASE "NeedInput"
+#define PW_TYPE_EVENT_CLIENT_NODE__ReuseBuffer		PW_TYPE_EVENT_CLIENT_NODE_BASE "ReuseBuffer"
+#define PW_TYPE_EVENT_CLIENT_NODE__ProcessInput		PW_TYPE_EVENT_CLIENT_NODE_BASE "ProcessInput"
+#define PW_TYPE_EVENT_CLIENT_NODE__ProcessOutput	PW_TYPE_EVENT_CLIENT_NODE_BASE "ProcessOutput"
+
+struct pw_type_event_client_node {
+	uint32_t HaveOutput;
+	uint32_t NeedInput;
+	uint32_t ReuseBuffer;
+	uint32_t ProcessInput;
+	uint32_t ProcessOutput;
+};
+
+static inline void
+pw_type_event_client_node_map(struct spa_type_map *map, struct pw_type_event_client_node *type)
+{
+	if (type->HaveOutput == 0) {
+		type->HaveOutput = spa_type_map_get_id(map, PW_TYPE_EVENT_CLIENT_NODE__HaveOutput);
+		type->NeedInput = spa_type_map_get_id(map, PW_TYPE_EVENT_CLIENT_NODE__NeedInput);
+		type->ReuseBuffer = spa_type_map_get_id(map, PW_TYPE_EVENT_CLIENT_NODE__ReuseBuffer);
+		type->ProcessInput = spa_type_map_get_id(map, PW_TYPE_EVENT_CLIENT_NODE__ProcessInput);
+		type->ProcessOutput = spa_type_map_get_id(map, PW_TYPE_EVENT_CLIENT_NODE__ProcessOutput);
+	}
+}
+
+struct pw_event_client_node_reuse_buffer_body {
+	struct spa_pod_object_body body;
+	struct spa_pod_int port_id;
+	struct spa_pod_int buffer_id;
+};
+
+struct pw_event_client_node_reuse_buffer {
+	struct spa_pod pod;
+	struct pw_event_client_node_reuse_buffer_body body;
+};
+
+#define PW_EVENT_CLIENT_NODE_REUSE_BUFFER_INIT(type,port_id,buffer_id)		\
+	SPA_EVENT_INIT_COMPLEX(struct pw_event_client_node_reuse_buffer,	\
+		sizeof(struct pw_event_client_node_reuse_buffer_body), type,	\
+		SPA_POD_INT_INIT(port_id),					\
+		SPA_POD_INT_INIT(buffer_id))
+
+
 /** information about a buffer */
 struct pw_client_node_buffer {
 	uint32_t mem_id;		/**< the memory id for the metadata */
@@ -200,17 +310,13 @@ struct pw_client_node_proxy_events {
 	 * \param node_id the node id created for this client node
 	 * \param readfd fd for signal data can be read
 	 * \param writefd fd for signal data can be written
-	 * \param memfd the memory fd of the area
-	 * \param offset the offset to map
-	 * \param size the size to map
+	 * \param transport the shared transport area
 	 */
 	void (*transport) (void *object,
 			   uint32_t node_id,
 			   int readfd,
 			   int writefd,
-			   int memfd,
-			   uint32_t offset,
-			   uint32_t size);
+			   struct pw_client_node_transport *transport);
 	/**
 	 * Notify of a property change
 	 *

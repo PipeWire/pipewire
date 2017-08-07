@@ -42,6 +42,7 @@
 struct remote {
 	struct pw_remote this;
 	uint32_t type_client_node;
+	struct pw_type_event_client_node type_event_client_node;
 	struct pw_listener core_listener;
 };
 
@@ -70,7 +71,9 @@ struct node_data {
 	int rtreadfd;
 	int rtwritefd;
 	struct spa_source *rtsocket_source;
-        struct pw_transport *trans;
+        struct pw_client_node_transport *trans;
+	struct spa_graph_port *in_ports;
+	struct spa_graph_port *out_ports;
 
 	struct pw_node *node;
 	struct pw_listener node_listener;
@@ -82,11 +85,6 @@ struct node_data {
 	struct pw_array buffer_ids;
 	bool in_order;
 
-};
-struct trans_data {
-	struct spa_graph_port *in_ports;
-	struct spa_graph_port *out_ports;
-	/* memory for ports follows */
 };
 
 /** \endcond */
@@ -223,6 +221,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	this->properties = properties;
 
         impl->type_client_node = spa_type_map_get_id(core->type.map, PW_TYPE_INTERFACE__ClientNode);
+	pw_type_event_client_node_map(core->type.map, &impl->type_event_client_node);
 	this->state = PW_REMOTE_STATE_UNCONNECTED;
 
 	pw_map_init(&this->objects, 64, 32);
@@ -409,9 +408,10 @@ static void handle_rtnode_event(struct pw_proxy *proxy, struct spa_event *event)
 {
 	struct node_data *data = proxy->user_data;
         struct pw_remote *remote = proxy->remote;
+        struct remote *this = SPA_CONTAINER_OF(remote, struct remote, this);
 	struct spa_graph_node *n = &data->node->rt.node;
 
-        if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ProcessInput) {
+        if (SPA_EVENT_TYPE(event) == this->type_event_client_node.ProcessInput) {
 		struct spa_list ready;
 		struct spa_graph_port *port;
 
@@ -422,10 +422,10 @@ static void handle_rtnode_event(struct pw_proxy *proxy, struct spa_event *event)
 
 	        spa_graph_scheduler_chain(data->node->rt.sched, &ready);
         }
-	else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ProcessOutput) {
+	else if (SPA_EVENT_TYPE(event) == this->type_event_client_node.ProcessOutput) {
 		n->callbacks->process_output(n->callbacks_data);
 	}
-	else if (SPA_EVENT_TYPE(event) == remote->core->type.event_transport.ReuseBuffer) {
+	else if (SPA_EVENT_TYPE(event) == this->type_event_client_node.ReuseBuffer) {
 	}
 	else {
 		pw_log_warn("unexpected node event %d", SPA_EVENT_TYPE(event));
@@ -451,45 +451,34 @@ on_rtsocket_condition(struct spa_loop_utils *utils,
 
 		read(data->rtreadfd, &cmd, 8);
 
-		while (pw_transport_next_event(data->trans, &event) == SPA_RESULT_OK) {
+		while (pw_client_node_transport_next_event(data->trans, &event) == SPA_RESULT_OK) {
 			struct spa_event *ev = alloca(SPA_POD_SIZE(&event));
-			pw_transport_parse_event(data->trans, ev);
+			pw_client_node_transport_parse_event(data->trans, ev);
 			handle_rtnode_event(proxy, ev);
 		}
 	}
 }
 
 static void client_node_transport(void *object, uint32_t node_id,
-                                  int readfd, int writefd, int memfd, uint32_t offset, uint32_t size)
+                                  int readfd, int writefd,
+				  struct pw_client_node_transport *transport)
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct pw_transport_info info;
-	struct trans_data *t;
 	struct pw_port *port;
 	int i;
 
 	data->node_id = node_id;
-
-	info.memfd = memfd;
-	if (info.memfd == -1)
-		return;
-	info.offset = offset;
-	info.size = size;
-
-	if (data->trans)
-		pw_transport_destroy(data->trans);
-	data->trans = pw_transport_new_from_info(&info, sizeof(struct trans_data));
-	t = data->trans->user_data;
+	data->trans = transport;
 
 	pw_log_info("remote-node %p: create transport %p with fds %d %d for node %u",
 		proxy, data->trans, readfd, writefd, node_id);
 
-	t->in_ports = calloc(data->trans->area->max_input_ports, sizeof(struct spa_graph_port));
-	t->out_ports = calloc(data->trans->area->max_output_ports, sizeof(struct spa_graph_port));
+	data->in_ports = calloc(data->trans->area->max_input_ports, sizeof(struct spa_graph_port));
+	data->out_ports = calloc(data->trans->area->max_output_ports, sizeof(struct spa_graph_port));
 
 	for (i = 0; i < data->trans->area->max_input_ports; i++) {
-		spa_graph_port_init(&t->in_ports[i],
+		spa_graph_port_init(&data->in_ports[i],
 				    SPA_DIRECTION_INPUT,
 				    i,
 				    0,
@@ -497,10 +486,10 @@ static void client_node_transport(void *object, uint32_t node_id,
 		pw_log_info("transport in %d %p", i, &data->trans->inputs[i]);
 	}
 	spa_list_for_each(port, &data->node->input_ports, link)
-		spa_graph_port_add(&port->rt.mix_node, &t->in_ports[port->port_id]);
+		spa_graph_port_add(&port->rt.mix_node, &data->in_ports[port->port_id]);
 
 	for (i = 0; i < data->trans->area->max_output_ports; i++) {
-		spa_graph_port_init(&t->out_ports[i],
+		spa_graph_port_init(&data->out_ports[i],
 				    SPA_DIRECTION_OUTPUT,
 				    i,
 				    0,
@@ -508,7 +497,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 		pw_log_info("transport out %d %p", i, &data->trans->inputs[i]);
 	}
 	spa_list_for_each(port, &data->node->output_ports, link)
-		spa_graph_port_add(&port->rt.mix_node, &t->out_ports[port->port_id]);
+		spa_graph_port_add(&port->rt.mix_node, &data->out_ports[port->port_id]);
 
         data->rtreadfd = readfd;
         data->rtwritefd = writefd;
@@ -924,20 +913,22 @@ static const struct pw_client_node_proxy_events client_node_events = {
 static void node_need_input(void *data)
 {
 	struct node_data *d = data;
+        struct remote *this = SPA_CONTAINER_OF(d->remote, struct remote, this);
         uint64_t cmd = 1;
 
-        pw_transport_add_event(d->trans,
-                               &SPA_EVENT_INIT(d->t->event_transport.NeedInput));
+        pw_client_node_transport_add_event(d->trans,
+                               &SPA_EVENT_INIT(this->type_event_client_node.NeedInput));
         write(d->rtwritefd, &cmd, 8);
 }
 
 static void node_have_output(void *data)
 {
 	struct node_data *d = data;
+        struct remote *this = SPA_CONTAINER_OF(d->remote, struct remote, this);
         uint64_t cmd = 1;
 
-        pw_transport_add_event(d->trans,
-                               &SPA_EVENT_INIT(d->t->event_transport.HaveOutput));
+        pw_client_node_transport_add_event(d->trans,
+                               &SPA_EVENT_INIT(this->type_event_client_node.HaveOutput));
         write(d->rtwritefd, &cmd, 8);
 }
 

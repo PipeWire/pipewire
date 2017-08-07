@@ -62,8 +62,6 @@ void pw_type_init(struct pw_type *type)
 	spa_type_param_alloc_buffers_map(type->map, &type->param_alloc_buffers);
 	spa_type_param_alloc_meta_enable_map(type->map, &type->param_alloc_meta_enable);
 	spa_type_param_alloc_video_padding_map(type->map, &type->param_alloc_video_padding);
-
-	pw_type_event_transport_map(type->map, &type->event_transport);
 }
 
 bool pw_pod_remap_data(uint32_t type, void *body, uint32_t size, struct pw_map *types)

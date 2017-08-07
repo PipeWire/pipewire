@@ -31,7 +31,6 @@ extern "C" {
 #include <spa/param-alloc.h>
 
 #include <pipewire/map.h>
-#include <pipewire/transport.h>
 
 #define PW_TYPE_BASE		"PipeWire:"
 
@@ -72,7 +71,6 @@ struct pw_type {
 	struct spa_type_param_alloc_buffers param_alloc_buffers;
 	struct spa_type_param_alloc_meta_enable param_alloc_meta_enable;
 	struct spa_type_param_alloc_video_padding param_alloc_video_padding;
-	struct pw_type_event_transport event_transport;
 };
 
 void

@@ -35,11 +35,11 @@
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 #include "pipewire/interfaces.h"
-#include "pipewire/transport.h"
 
 #include "pipewire/core.h"
 #include "modules/spa/spa-node.h"
 #include "client-node.h"
+#include "transport.h"
 
 /** \cond */
 
@@ -93,6 +93,8 @@ struct proxy {
 	struct spa_log *log;
 	struct spa_loop *data_loop;
 
+	struct pw_type_event_client_node type_event_client_node;
+
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 
@@ -120,7 +122,7 @@ struct impl {
 
 	struct proxy proxy;
 
-	struct pw_transport *transport;
+	struct pw_client_node_transport *transport;
 
 	struct pw_listener node_listener;
 	struct pw_listener resource_listener;
@@ -719,9 +721,9 @@ spa_proxy_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32
 
 	spa_log_trace(this->log, "reuse buffer %d", buffer_id);
 	{
-		struct pw_event_transport_reuse_buffer rb = PW_EVENT_TRANSPORT_REUSE_BUFFER_INIT
-		    (impl->t->event_transport.ReuseBuffer, port_id, buffer_id);
-		pw_transport_add_event(impl->transport, (struct spa_event *) &rb);
+		struct pw_event_client_node_reuse_buffer rb = PW_EVENT_CLIENT_NODE_REUSE_BUFFER_INIT
+		    (this->type_event_client_node.ReuseBuffer, port_id, buffer_id);
+		pw_client_node_transport_add_event(impl->transport, (struct spa_event *) &rb);
 	}
 
 	return SPA_RESULT_OK;
@@ -766,8 +768,8 @@ static int spa_proxy_node_process_input(struct spa_node *node)
 		impl->transport->inputs[i] = *io;
 		io->status = SPA_RESULT_NEED_BUFFER;
 	}
-	pw_transport_add_event(impl->transport,
-			       &SPA_EVENT_INIT(impl->t->event_transport.ProcessInput));
+	pw_client_node_transport_add_event(impl->transport,
+			       &SPA_EVENT_INIT(this->type_event_client_node.ProcessInput));
 	do_flush(this);
 
 	if (this->callbacks->need_input)
@@ -800,8 +802,8 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 		*io = tmp;
 		pw_log_trace("%d %d  %d", io->status, io->buffer_id, io->status);
 	}
-	pw_transport_add_event(impl->transport,
-			       &SPA_EVENT_INIT(impl->t->event_transport.ProcessOutput));
+	pw_client_node_transport_add_event(impl->transport,
+			       &SPA_EVENT_INIT(this->type_event_client_node.ProcessOutput));
 	do_flush(this);
 
 	return res;
@@ -812,7 +814,7 @@ static int handle_node_event(struct proxy *this, struct spa_event *event)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, proxy);
 	int i;
 
-	if (SPA_EVENT_TYPE(event) == impl->t->event_transport.HaveOutput) {
+	if (SPA_EVENT_TYPE(event) == this->type_event_client_node.HaveOutput) {
 		for (i = 0; i < MAX_OUTPUTS; i++) {
 			struct spa_port_io *io = this->out_ports[i].io;
 
@@ -823,11 +825,11 @@ static int handle_node_event(struct proxy *this, struct spa_event *event)
 			pw_log_trace("%d %d", io->status, io->buffer_id);
 		}
 		this->callbacks->have_output(this->callbacks_data);
-	} else if (SPA_EVENT_TYPE(event) == impl->t->event_transport.NeedInput) {
+	} else if (SPA_EVENT_TYPE(event) == this->type_event_client_node.NeedInput) {
 		this->callbacks->need_input(this->callbacks_data);
-	} else if (SPA_EVENT_TYPE(event) == impl->t->event_transport.ReuseBuffer) {
-		struct pw_event_transport_reuse_buffer *p =
-		    (struct pw_event_transport_reuse_buffer *) event;
+	} else if (SPA_EVENT_TYPE(event) == this->type_event_client_node.ReuseBuffer) {
+		struct pw_event_client_node_reuse_buffer *p =
+		    (struct pw_event_client_node_reuse_buffer *) event;
 		this->callbacks->reuse_buffer(this->callbacks_data, p->body.port_id.value,
 					     p->body.buffer_id.value);
 	}
@@ -935,9 +937,10 @@ static void proxy_on_data_fd_events(struct spa_source *source)
 			spa_log_warn(this->log, "proxy %p: error reading event: %s",
 					this, strerror(errno));
 
-		while (pw_transport_next_event(impl->transport, &event) == SPA_RESULT_OK) {
+		while (pw_client_node_transport_next_event(impl->transport, &event) == SPA_RESULT_OK) {
 			struct spa_event *ev = alloca(SPA_POD_SIZE(&event));
-			pw_transport_parse_event(impl->transport, ev);
+			pw_client_node_transport_parse_event(impl->transport, ev);
+                        pw_pod_remap(&ev->pod, &this->resource->client->types);;
 			handle_node_event(this, ev);
 		}
 	}
@@ -982,12 +985,21 @@ proxy_init(struct proxy *this,
 			this->log = support[i].data;
 		else if (strcmp(support[i].type, SPA_TYPE_LOOP__DataLoop) == 0)
 			this->data_loop = support[i].data;
+		else if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
+			this->map = support[i].data;
 	}
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data-loop is needed");
+		return SPA_RESULT_ERROR;
+	}
+	if (this->map == NULL) {
+		spa_log_error(this->log, "a type map is needed");
+		return SPA_RESULT_ERROR;
 	}
 
 	this->node = proxy_node;
+
+	pw_type_event_client_node_map(this->map, &this->type_event_client_node);
 
 	this->data_source.func = proxy_on_data_fd_events;
 	this->data_source.data = this;
@@ -1035,22 +1047,20 @@ static void node_initialized(void *data)
 	struct impl *impl = data;
 	struct pw_client_node *this = &impl->this;
 	struct pw_node *node = this->node;
-	struct pw_transport_info info;
 	int readfd, writefd;
 	const struct pw_node_info *i = pw_node_get_info(node);
 
 	if (this->resource == NULL)
 		return;
 
-	impl->transport = pw_transport_new(i->max_input_ports, i->max_output_ports, 0);
+	impl->transport = pw_client_node_transport_new(i->max_input_ports, i->max_output_ports);
 	impl->transport->area->n_input_ports = i->n_input_ports;
 	impl->transport->area->n_output_ports = i->n_output_ports;
 
 	client_node_get_fds(this, &readfd, &writefd);
-	pw_transport_get_info(impl->transport, &info);
 
 	pw_client_node_resource_transport(this->resource, pw_global_get_id(pw_node_get_global(node)),
-					  readfd, writefd, info.memfd, info.offset, info.size);
+					  readfd, writefd, impl->transport);
 }
 
 static int proxy_clear(struct proxy *this)
@@ -1093,7 +1103,7 @@ static void node_free(void *data)
 	proxy_clear(&impl->proxy);
 
 	if (impl->transport)
-		pw_transport_destroy(impl->transport);
+		pw_client_node_transport_destroy(impl->transport);
 
 	pw_listener_remove(&impl->node_listener);
 

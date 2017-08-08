@@ -66,10 +66,10 @@ struct data {
 	struct pw_core *core;
 	struct pw_type *t;
 	struct pw_remote *remote;
-	struct pw_listener remote_listener;
+	struct spa_hook remote_listener;
 
 	struct pw_stream *stream;
-	struct pw_listener stream_listener;
+	struct spa_hook stream_listener;
 
 	struct spa_video_info_raw format;
 	int32_t stride;

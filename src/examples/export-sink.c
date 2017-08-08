@@ -76,7 +76,7 @@ struct data {
 	struct pw_type *t;
 
 	struct pw_remote *remote;
-	struct pw_listener remote_listener;
+	struct spa_hook remote_listener;
 
 	struct pw_node *node;
 	struct pw_port *port;

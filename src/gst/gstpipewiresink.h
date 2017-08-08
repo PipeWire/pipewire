@@ -83,10 +83,10 @@ struct _GstPipeWireSink {
   struct pw_core *core;
   struct pw_type *type;
   struct pw_remote *remote;
-  struct pw_listener remote_listener;
+  struct spa_hook remote_listener;
 
   struct pw_stream *stream;
-  struct pw_listener stream_listener;
+  struct spa_hook stream_listener;
 
   GstAllocator *allocator;
   GstStructure *properties;

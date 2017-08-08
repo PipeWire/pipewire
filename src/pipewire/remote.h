@@ -149,7 +149,7 @@ enum pw_remote_state pw_remote_get_state(struct pw_remote *remote, const char **
 
 /** Add listener for events */
 void pw_remote_add_listener(struct pw_remote *remote,
-			    struct pw_listener *listener,
+			    struct spa_hook *listener,
 			    const struct pw_remote_events *events,
 			    void *data);
 

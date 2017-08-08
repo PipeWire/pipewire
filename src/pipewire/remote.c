@@ -42,7 +42,7 @@
 struct remote {
 	struct pw_remote this;
 	uint32_t type_client_node;
-	struct pw_listener core_listener;
+	struct spa_hook core_listener;
 };
 
 struct mem_id {
@@ -75,10 +75,10 @@ struct node_data {
 	struct spa_graph_port *out_ports;
 
 	struct pw_node *node;
-	struct pw_listener node_listener;
+	struct spa_hook node_listener;
 
         struct pw_client_node_proxy *node_proxy;
-	struct pw_listener proxy_listener;
+	struct spa_hook proxy_listener;
 
         struct pw_array mem_ids;
 	struct pw_array buffer_ids;
@@ -129,7 +129,7 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 			     pw_remote_state_as_string(state), remote->error);
 
 		remote->state = state;
-		pw_listener_list_emit(&remote->listener_list, struct pw_remote_events, state_changed,
+		spa_hook_list_call(&remote->listener_list, struct pw_remote_events, state_changed,
 				 old, state, remote->error);
 	}
 }
@@ -140,7 +140,7 @@ static void core_event_info(void *data, struct pw_core_info *info)
 
 	pw_log_debug("got core info");
 	this->info = pw_core_info_update(this->info, info);
-	pw_listener_list_emit(&this->listener_list, struct pw_remote_events, info_changed, info);
+	spa_hook_list_call(&this->listener_list, struct pw_remote_events, info_changed, info);
 }
 
 static void core_event_done(void *data, uint32_t seq)
@@ -151,7 +151,7 @@ static void core_event_done(void *data, uint32_t seq)
 	if (seq == 0)
 		pw_remote_update_state(this, PW_REMOTE_STATE_CONNECTED, NULL);
 
-	pw_listener_list_emit(&this->listener_list, struct pw_remote_events, sync_reply, seq);
+	spa_hook_list_call(&this->listener_list, struct pw_remote_events, sync_reply, seq);
 }
 
 static void core_event_error(void *data, uint32_t id, int res, const char *error, ...)
@@ -228,7 +228,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	spa_list_init(&this->proxy_list);
 	spa_list_init(&this->stream_list);
 
-	pw_listener_list_init(&this->listener_list);
+	spa_hook_list_init(&this->listener_list);
 
 	if ((protocol_name = pw_properties_get(properties, "pipewire.protocol")) == NULL) {
 		if (!pw_module_load(core, "libpipewire-module-protocol-native", NULL))
@@ -265,7 +265,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 	struct pw_stream *stream, *s2;
 
 	pw_log_debug("remote %p: destroy", remote);
-	pw_listener_list_emit(&remote->listener_list, struct pw_remote_events, destroy);
+	spa_hook_list_call(&remote->listener_list, struct pw_remote_events, destroy);
 
 	if (remote->state != PW_REMOTE_STATE_UNCONNECTED)
 		pw_remote_disconnect(remote);
@@ -296,11 +296,11 @@ enum pw_remote_state pw_remote_get_state(struct pw_remote *remote, const char **
 }
 
 void pw_remote_add_listener(struct pw_remote *remote,
-			    struct pw_listener *listener,
+			    struct spa_hook *listener,
 			    const struct pw_remote_events *events,
 			    void *data)
 {
-	pw_listener_list_add(&remote->listener_list, listener, events, data);
+	spa_hook_list_append(&remote->listener_list, listener, events, data);
 }
 
 static int do_connect(struct pw_remote *remote)
@@ -396,15 +396,26 @@ void pw_remote_disconnect(struct pw_remote *remote)
         pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
 }
 
+static int
+do_remove_source(struct spa_loop *loop,
+                 bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+{
+	struct node_data *d = user_data;
+
+	if (d->rtsocket_source) {
+		pw_loop_destroy_source(d->core->data_loop, d->rtsocket_source);
+		d->rtsocket_source = NULL;
+	}
+        return SPA_RESULT_OK;
+}
+
 
 static void unhandle_socket(struct pw_proxy *proxy)
 {
 	struct node_data *data = proxy->user_data;
 
-	if (data->rtsocket_source) {
-		pw_loop_destroy_source(proxy->remote->core->data_loop, data->rtsocket_source);
-		data->rtsocket_source = NULL;
-	}
+        pw_loop_invoke(data->core->data_loop,
+                       do_remove_source, 1, 0, NULL, true, data);
 }
 
 static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_message *message)

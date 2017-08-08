@@ -103,7 +103,7 @@ void
 pw_thread_loop_destroy(struct pw_thread_loop *loop);
 
 void pw_thread_loop_add_listener(struct pw_thread_loop *loop,
-				 struct pw_listener *listener,
+				 struct spa_hook *listener,
 				 const struct pw_thread_loop_events *events,
 				 void *data);
 struct pw_loop *

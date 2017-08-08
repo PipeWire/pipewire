@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/defs.h>
-#include <pipewire/listener.h>
+#include <spa/hook.h>
 
 struct pw_protocol_native_connection_events {
 #define PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS	0
@@ -44,16 +44,16 @@ struct pw_protocol_native_connection_events {
 struct pw_protocol_native_connection {
 	int fd;	/**< the socket */
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 };
 
 static inline void
 pw_protocol_native_connection_add_listener(struct pw_protocol_native_connection *conn,
-					   struct pw_listener *listener,
+					   struct spa_hook *listener,
 					   const struct pw_protocol_native_connection_events *events,
 					   void *data)
 {
-	pw_listener_list_add(&conn->listener_list, listener, events, data);
+	spa_hook_list_append(&conn->listener_list, listener, events, data);
 }
 
 struct pw_protocol_native_connection *

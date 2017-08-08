@@ -91,7 +91,7 @@ struct pw_protocol *pw_resource_get_protocol(struct pw_resource *resource);
 void *pw_resource_get_user_data(struct pw_resource *resource);
 
 void pw_resource_add_listener(struct pw_resource *resource,
-			      struct pw_listener *listener,
+			      struct spa_hook *listener,
 			      const struct pw_resource_events *events,
 			      void *data);
 
@@ -100,21 +100,24 @@ void pw_resource_set_implementation(struct pw_resource *resource,
 				    void *data);
 
 void pw_resource_add_override(struct pw_resource *resource,
-			      struct pw_listener *listener,
+			      struct spa_hook *listener,
 			      const void *implementation,
 			      void *data);
 
 void pw_resource_error(struct pw_resource *resource, int result, const char *error);
 
-struct pw_listener_list *pw_resource_get_implementation(struct pw_resource *resource);
+struct spa_hook_list *pw_resource_get_implementation(struct pw_resource *resource);
 
 const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *resource);
 
-#define pw_resource_do(r,type,method,...)	pw_listener_list_emit_once(pw_resource_get_implementation(r),type,method,## __VA_ARGS__)
+#define pw_resource_do(r,type,method,...)		\
+	spa_hook_list_call_once(pw_resource_get_implementation(r),type,method,## __VA_ARGS__)
 
-#define pw_resource_do_parent(r,l,type,method,...) pw_listener_list_emit_once_start(pw_resource_get_implementation(r),l,type,method,## __VA_ARGS__)
+#define pw_resource_do_parent(r,l,type,method,...)	\
+	spa_hook_list_call_once_start(pw_resource_get_implementation(r),l,type,method,## __VA_ARGS__)
 
-#define pw_resource_notify(r,type,event,...)	((type*) pw_resource_get_marshal(r)->event_marshal)->event(r, ## __VA_ARGS__)
+#define pw_resource_notify(r,type,event,...)		\
+	((type*) pw_resource_get_marshal(r)->event_marshal)->event(r, ## __VA_ARGS__)
 
 #ifdef __cplusplus
 }

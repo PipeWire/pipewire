@@ -67,7 +67,7 @@ struct connection {
 	struct spa_source *source;
 
         struct pw_protocol_native_connection *connection;
-        struct pw_listener conn_listener;
+        struct spa_hook conn_listener;
 
         bool disconnecting;
 	bool flush_signaled;
@@ -84,12 +84,12 @@ struct listener {
 
 	struct pw_loop *loop;
 	struct spa_source *source;
-	struct spa_loop_control_hooks hooks;
+	struct spa_hook hook;
 };
 
 struct client_data {
 	struct pw_client *client;
-	struct pw_listener client_listener;
+	struct spa_hook client_listener;
 	int fd;
 	struct spa_source *source;
 	struct pw_protocol_native_connection *connection;
@@ -187,19 +187,6 @@ client_busy_changed(void *data, bool busy)
 	if (!busy)
 		process_messages(c);
 
-}
-
-static void on_before_hook(const struct spa_loop_control_hooks *hooks)
-{
-	struct listener *listener = SPA_CONTAINER_OF(hooks, struct listener, hooks);
-	struct pw_protocol_listener *this = &listener->this;
-	struct pw_client *client, *tmp;
-	struct client_data *data;
-
-	spa_list_for_each_safe(client, tmp, &this->client_list, protocol_link) {
-		data = client->user_data;
-		pw_protocol_native_connection_flush(data->connection);
-	}
 }
 
 static void
@@ -664,6 +651,24 @@ static void destroy_listener(struct pw_protocol_listener *listener)
 	free(l);
 }
 
+static void on_before_hook(void *_data)
+{
+	struct listener *listener = _data;
+	struct pw_protocol_listener *this = &listener->this;
+	struct pw_client *client, *tmp;
+	struct client_data *data;
+
+	spa_list_for_each_safe(client, tmp, &this->client_list, protocol_link) {
+		data = client->user_data;
+		pw_protocol_native_connection_flush(data->connection);
+	}
+}
+
+static const struct spa_loop_control_hooks impl_hooks = {
+	SPA_VERSION_LOOP_CONTROL_HOOKS,
+	.before = on_before_hook,
+};
+
 static struct pw_protocol_listener *
 impl_add_listener(struct pw_protocol *protocol,
                   struct pw_core *core,
@@ -697,8 +702,7 @@ impl_add_listener(struct pw_protocol *protocol,
 
 	spa_list_insert(protocol->listener_list.prev, &this->link);
 
-	l->hooks.before = on_before_hook;
-	pw_loop_add_hooks(pw_core_get_main_loop(core), &l->hooks);
+	pw_loop_add_hook(pw_core_get_main_loop(core), &l->hook, &impl_hooks, l);
 
 	pw_log_info("protocol-native %p: Added listener %p", protocol, this);
 

@@ -34,12 +34,12 @@ extern "C" {
 struct pw_main_loop;
 
 #include <pipewire/loop.h>
-#include <pipewire/listener.h>
 
 struct pw_main_loop_events {
 #define PW_VERSION_MAIN_LOOP_EVENTS	0
 	uint32_t version;
 
+	/** Emited when the main loop is destroyed */
 	void (*destroy) (void *data);
 };
 
@@ -47,7 +47,7 @@ struct pw_main_loop *
 pw_main_loop_new(void);
 
 void pw_main_loop_add_listener(struct pw_main_loop *loop,
-			       struct pw_listener *listener,
+			       struct spa_hook *listener,
 			       const struct pw_main_loop_events *events,
 			       void *data);
 

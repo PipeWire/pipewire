@@ -68,7 +68,7 @@ struct pw_global * pw_module_get_global(struct pw_module *module);
 const struct pw_module_info *pw_module_get_info(struct pw_module *module);
 
 void pw_module_add_listener(struct pw_module *module,
-			    struct pw_listener *listener,
+			    struct spa_hook *listener,
 			    const struct pw_module_events *events,
 			    void *data);
 

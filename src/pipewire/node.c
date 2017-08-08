@@ -39,13 +39,13 @@ struct impl {
 
 	struct pw_work_queue *work;
 
-	struct pw_listener node_listener;
+	struct spa_hook node_listener;
 
 	bool registered;
 };
 
 struct resource_data {
-	struct pw_listener resource_listener;
+	struct spa_hook resource_listener;
 };
 
 /** \endcond */
@@ -315,7 +315,7 @@ void pw_node_register(struct pw_node *this)
 					  node_bind_func, this);
 
 	impl->registered = true;
-	pw_listener_list_emit(&this->listener_list, struct pw_node_events, initialized);
+	spa_hook_list_call(&this->listener_list, struct pw_node_events, initialized);
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 }
@@ -397,7 +397,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	spa_list_init(&this->resource_list);
 
-	pw_listener_list_init(&this->listener_list);
+	spa_hook_list_init(&this->listener_list);
 
 	pw_node_add_listener(this, &impl->node_listener, &node_events, impl);
 
@@ -459,11 +459,11 @@ void pw_node_set_implementation(struct pw_node *node,
 }
 
 void pw_node_add_listener(struct pw_node *node,
-			   struct pw_listener *listener,
+			   struct spa_hook *listener,
 			   const struct pw_node_events *events,
 			   void *data)
 {
-	pw_listener_list_add(&node->listener_list, listener, events, data);
+	spa_hook_list_append(&node->listener_list, listener, events, data);
 }
 
 static int
@@ -494,7 +494,7 @@ void pw_node_destroy(struct pw_node *node)
 	struct pw_port *port, *tmpp;
 
 	pw_log_debug("node %p: destroy", impl);
-	pw_listener_list_emit(&node->listener_list, struct pw_node_events, destroy);
+	spa_hook_list_call(&node->listener_list, struct pw_node_events, destroy);
 
 	pw_loop_invoke(node->data_loop, do_node_remove, 1, 0, NULL, true, node);
 
@@ -509,17 +509,17 @@ void pw_node_destroy(struct pw_node *node)
 
 	pw_log_debug("node %p: destroy ports", node);
 	spa_list_for_each_safe(port, tmpp, &node->input_ports, link) {
-		pw_listener_list_emit(&node->listener_list, struct pw_node_events, port_removed, port);
+		spa_hook_list_call(&node->listener_list, struct pw_node_events, port_removed, port);
 		pw_port_destroy(port);
 	}
 
 	spa_list_for_each_safe(port, tmpp, &node->output_ports, link) {
-		pw_listener_list_emit(&node->listener_list, struct pw_node_events, port_removed, port);
+		spa_hook_list_call(&node->listener_list, struct pw_node_events, port_removed, port);
 		pw_port_destroy(port);
 	}
 
 	pw_log_debug("node %p: free", node);
-	pw_listener_list_emit(&node->listener_list, struct pw_node_events, free);
+	spa_hook_list_call(&node->listener_list, struct pw_node_events, free);
 
 	pw_work_queue_destroy(impl->work);
 
@@ -691,7 +691,7 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 	int res = SPA_RESULT_OK;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
-	pw_listener_list_emit(&node->listener_list, struct pw_node_events, state_request, state);
+	spa_hook_list_call(&node->listener_list, struct pw_node_events, state_request, state);
 
 	pw_log_debug("node %p: set state %s", node, pw_node_state_as_string(state));
 
@@ -754,11 +754,11 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 		if (state == PW_NODE_STATE_IDLE)
 			node_deactivate(node);
 
-		pw_listener_list_emit(&node->listener_list, struct pw_node_events, state_changed,
+		spa_hook_list_call(&node->listener_list, struct pw_node_events, state_changed,
 				 old, state, error);
 
 		node->info.change_mask |= 1 << 5;
-		pw_listener_list_emit(&node->listener_list, struct pw_node_events, info_changed, &node->info);
+		spa_hook_list_call(&node->listener_list, struct pw_node_events, info_changed, &node->info);
 
 		spa_list_for_each(resource, &node->resource_list, link)
 			pw_node_resource_info(resource, &node->info);

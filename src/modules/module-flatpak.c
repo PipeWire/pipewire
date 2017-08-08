@@ -42,7 +42,7 @@ struct impl {
 
 	DBusConnection *bus;
 
-	struct pw_listener core_listener;
+	struct spa_hook core_listener;
 
 	struct spa_list client_list;
 
@@ -55,9 +55,9 @@ struct client_info {
 	struct pw_client *client;
 	bool is_sandboxed;
 	struct pw_resource *core_resource;
-	struct pw_listener core_override;
+	struct spa_hook core_override;
 	struct spa_list async_pending;
-	struct pw_listener client_listener;
+	struct spa_hook client_listener;
 };
 
 struct async_pending {
@@ -138,7 +138,7 @@ static void client_info_free(struct client_info *cinfo)
 	spa_list_for_each_safe(p, tmp, &cinfo->async_pending, link)
 		free_pending(p);
 
-	pw_listener_remove(&cinfo->client_listener);
+	spa_hook_remove(&cinfo->client_listener);
 	spa_list_remove(&cinfo->link);
 	free(cinfo);
 }

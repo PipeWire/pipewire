@@ -51,8 +51,9 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	this->type = type;
 	this->version = version;
 
-	pw_listener_list_init(&this->implementation_list);
-	pw_listener_list_init(&this->listener_list);
+	spa_hook_list_init(&this->implementation_list);
+	spa_hook_list_append(&this->implementation_list, &this->implementation, NULL, NULL);
+	spa_hook_list_init(&this->listener_list);
 
 	if (id == SPA_ID_INVALID) {
 		id = pw_map_insert_new(&client->objects, this);
@@ -65,10 +66,9 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	this->marshal = pw_protocol_get_marshal(client->protocol, type);
-	pw_listener_list_add(&this->implementation_list, &this->implementation, NULL, NULL);
 
 	pw_log_debug("resource %p: new for client %p id %u", this, client, id);
-	pw_listener_list_emit(&client->listener_list, struct pw_client_events, resource_added, this);
+	spa_hook_list_call(&client->listener_list, struct pw_client_events, resource_added, this);
 
 	return this;
 
@@ -109,11 +109,11 @@ void *pw_resource_get_user_data(struct pw_resource *resource)
 }
 
 void pw_resource_add_listener(struct pw_resource *resource,
-			      struct pw_listener *listener,
+			      struct spa_hook *listener,
 			      const struct pw_resource_events *events,
 			      void *data)
 {
-	pw_listener_list_add(&resource->listener_list, listener, events, data);
+	spa_hook_list_append(&resource->listener_list, listener, events, data);
 }
 
 void pw_resource_set_implementation(struct pw_resource *resource,
@@ -122,23 +122,21 @@ void pw_resource_set_implementation(struct pw_resource *resource,
 {
 	struct pw_client *client = resource->client;
 
-	resource->implementation.events = implementation;
+	resource->implementation.funcs = implementation;
 	resource->implementation.data = data;
 
-	pw_listener_list_emit(&client->listener_list, struct pw_client_events, resource_impl, resource);
+	spa_hook_list_call(&client->listener_list, struct pw_client_events, resource_impl, resource);
 }
 
 void pw_resource_add_override(struct pw_resource *resource,
-			      struct pw_listener *listener,
+			      struct spa_hook *listener,
 			      const void *implementation,
 			      void *data)
 {
-	listener->events = implementation;
-	listener->data = data;
-	spa_list_insert(&resource->implementation_list.list, &listener->link);
+	spa_hook_list_prepend(&resource->implementation_list, listener, implementation, data);
 }
 
-struct pw_listener_list *pw_resource_get_implementation(struct pw_resource *resource)
+struct spa_hook_list *pw_resource_get_implementation(struct pw_resource *resource)
 {
 	return &resource->implementation_list;
 }
@@ -159,10 +157,10 @@ void pw_resource_destroy(struct pw_resource *resource)
 	struct pw_client *client = resource->client;
 
 	pw_log_trace("resource %p: destroy %u", resource, resource->id);
-	pw_listener_list_emit(&resource->listener_list, struct pw_resource_events, destroy);
+	spa_hook_list_call(&resource->listener_list, struct pw_resource_events, destroy);
 
 	pw_map_insert_at(&client->objects, resource->id, NULL);
-	pw_listener_list_emit(&client->listener_list, struct pw_client_events, resource_removed, resource);
+	spa_hook_list_call(&client->listener_list, struct pw_client_events, resource_removed, resource);
 
 	if (client->core_resource)
 		pw_core_resource_remove_id(client->core_resource, resource->id);

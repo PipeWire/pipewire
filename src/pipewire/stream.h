@@ -239,7 +239,7 @@ pw_stream_new(struct pw_remote *remote,		/**< a \ref pw_remote */
 void pw_stream_destroy(struct pw_stream *stream);
 
 void pw_stream_add_listener(struct pw_stream *stream,
-			    struct pw_listener *listener,
+			    struct spa_hook *listener,
 			    const struct pw_stream_events *events,
 			    void *data);
 

@@ -31,7 +31,6 @@ extern "C" {
 struct pw_data_loop;
 
 #include <pipewire/loop.h>
-#include <pipewire/listener.h>
 
 struct pw_data_loop_events {
 #define PW_VERSION_DATA_LOOP_EVENTS		0
@@ -44,7 +43,7 @@ struct pw_data_loop *
 pw_data_loop_new(void);
 
 void pw_data_loop_add_listener(struct pw_data_loop *loop,
-			       struct pw_listener *listener,
+			       struct spa_hook *listener,
 			       const struct pw_data_loop_events *events,
 			       void *data);
 

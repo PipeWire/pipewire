@@ -32,7 +32,7 @@ struct impl {
 };
 
 struct resource_data {
-	struct pw_listener resource_listener;
+	struct spa_hook resource_listener;
 };
 
 /** \endcond */
@@ -114,7 +114,7 @@ struct pw_client *pw_client_new(struct pw_core *core,
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	spa_list_init(&this->resource_list);
-	pw_listener_list_init(&this->listener_list);
+	spa_hook_list_init(&this->listener_list);
 
 	pw_map_init(&this->objects, 0, 32);
 	pw_map_init(&this->types, 0, 32);
@@ -184,7 +184,7 @@ void pw_client_destroy(struct pw_client *client)
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 
 	pw_log_debug("client %p: destroy", client);
-	pw_listener_list_emit(&client->listener_list, struct pw_client_events, destroy);
+	spa_hook_list_call(&client->listener_list, struct pw_client_events, destroy);
 
 	spa_list_remove(&client->link);
 	pw_global_destroy(client->global);
@@ -194,7 +194,7 @@ void pw_client_destroy(struct pw_client *client)
 
 	pw_map_for_each(&client->objects, destroy_resource, client);
 
-	pw_listener_list_emit(&client->listener_list, struct pw_client_events, free);
+	spa_hook_list_call(&client->listener_list, struct pw_client_events, free);
 	pw_log_debug("client %p: free", impl);
 
 	pw_map_clear(&client->objects);
@@ -207,11 +207,11 @@ void pw_client_destroy(struct pw_client *client)
 }
 
 void pw_client_add_listener(struct pw_client *client,
-			    struct pw_listener *listener,
+			    struct spa_hook *listener,
 			    const struct pw_client_events *events,
 			    void *data)
 {
-	pw_listener_list_add(&client->listener_list, listener, events, data);
+	spa_hook_list_append(&client->listener_list, listener, events, data);
 }
 
 const struct pw_client_info *pw_client_get_info(struct pw_client *client)
@@ -248,7 +248,7 @@ void pw_client_update_properties(struct pw_client *client, const struct spa_dict
 	client->info.change_mask |= 1 << 0;
 	client->info.props = client->properties ? &client->properties->dict : NULL;
 
-	pw_listener_list_emit(&client->listener_list, struct pw_client_events, info_changed, &client->info);
+	spa_hook_list_call(&client->listener_list, struct pw_client_events, info_changed, &client->info);
 
 	spa_list_for_each(resource, &client->resource_list, link)
 		pw_client_resource_info(resource, &client->info);
@@ -261,6 +261,6 @@ void pw_client_set_busy(struct pw_client *client, bool busy)
 	if (client->busy != busy) {
 		pw_log_debug("client %p: busy %d", client, busy);
 		client->busy = busy;
-		pw_listener_list_emit(&client->listener_list, struct pw_client_events, busy_changed, busy);
+		spa_hook_list_call(&client->listener_list, struct pw_client_events, busy_changed, busy);
 	}
 }

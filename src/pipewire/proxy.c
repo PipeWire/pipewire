@@ -58,8 +58,8 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 	this = &impl->this;
 	this->remote = remote;
 
-	pw_listener_list_init(&this->listener_list);
-	pw_listener_list_init(&this->proxy_listener_list);
+	spa_hook_list_init(&this->listener_list);
+	spa_hook_list_init(&this->proxy_listener_list);
 
 	this->id = pw_map_insert_new(&remote->objects, this);
 
@@ -91,19 +91,19 @@ struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy)
 }
 
 void pw_proxy_add_listener(struct pw_proxy *proxy,
-			   struct pw_listener *listener,
+			   struct spa_hook *listener,
 			   const struct pw_proxy_events *events,
 			   void *data)
 {
-	pw_listener_list_add(&proxy->listener_list, listener, events, data);
+	spa_hook_list_append(&proxy->listener_list, listener, events, data);
 }
 
 void pw_proxy_add_proxy_listener(struct pw_proxy *proxy,
-				 struct pw_listener *listener,
+				 struct spa_hook *listener,
 				 const void *events,
 				 void *data)
 {
-	pw_listener_list_add(&proxy->proxy_listener_list, listener, events, data);
+	spa_hook_list_append(&proxy->proxy_listener_list, listener, events, data);
 }
 
 /** Destroy a proxy object
@@ -119,7 +119,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);
 
 	pw_log_debug("proxy %p: destroy %u", proxy, proxy->id);
-	pw_listener_list_emit(&proxy->listener_list, struct pw_proxy_events, destroy);
+	spa_hook_list_call(&proxy->listener_list, struct pw_proxy_events, destroy);
 
 	pw_map_remove(&proxy->remote->objects, proxy->id);
 	spa_list_remove(&proxy->link);
@@ -127,7 +127,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	free(impl);
 }
 
-struct pw_listener_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy)
+struct spa_hook_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy)
 {
 	return &proxy->proxy_listener_list;
 }

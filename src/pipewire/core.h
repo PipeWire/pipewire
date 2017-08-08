@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/log.h>
-#include <spa/graph-scheduler3.h>
+#include <spa/hook.h>
 
 struct pw_global;
 
@@ -41,7 +41,6 @@ struct pw_global;
 struct pw_core;
 
 #include <pipewire/type.h>
-#include <pipewire/listener.h>
 #include <pipewire/loop.h>
 #include <pipewire/client.h>
 #include <pipewire/port.h>
@@ -158,7 +157,7 @@ pw_core_new(struct pw_loop *main_loop, struct pw_properties *props);
 void pw_core_destroy(struct pw_core *core);
 
 void pw_core_add_listener(struct pw_core *core,
-			  struct pw_listener *listener,
+			  struct spa_hook *listener,
 			  const struct pw_core_events *events,
 			  void *data);
 

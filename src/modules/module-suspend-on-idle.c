@@ -31,7 +31,7 @@ struct impl {
 	struct pw_type *t;
 	struct pw_properties *properties;
 
-	struct pw_listener core_listener;
+	struct spa_hook core_listener;
 
 	struct spa_list node_list;
 };
@@ -40,7 +40,7 @@ struct node_info {
 	struct spa_list link;
 	struct impl *impl;
 	struct pw_node *node;
-	struct pw_listener node_listener;
+	struct spa_hook node_listener;
 	struct spa_source *idle_timeout;
 };
 
@@ -67,7 +67,7 @@ static void node_info_free(struct node_info *info)
 {
 	spa_list_remove(&info->link);
 	remove_idle_timeout(info);
-	pw_listener_remove(&info->node_listener);
+	spa_hook_remove(&info->node_listener);
 	free(info);
 }
 

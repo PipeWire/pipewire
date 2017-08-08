@@ -96,7 +96,7 @@ struct client {
 	struct impl *impl;
 	struct spa_list link;
 	struct pw_client *client;
-	struct pw_listener client_listener;
+	struct spa_hook client_listener;
 	int fd;
 	struct spa_source *source;
 };

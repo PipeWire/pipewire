@@ -67,6 +67,12 @@ static inline void spa_list_remove(struct spa_list *elem)
 #define spa_list_last(item, type, member)				\
 	SPA_CONTAINER_OF((head)->prev, type, member)
 
+#define spa_list_append(list, item)					\
+	spa_list_insert((list)->prev, item);
+
+#define spa_list_prepend(list, item)					\
+	spa_list_insert(list, item);
+
 #define spa_list_for_each_next(pos, head, curr, member)					\
 	for (pos = SPA_CONTAINER_OF((curr)->next, __typeof__(*pos), member);		\
 	     &pos->member != (head);							\

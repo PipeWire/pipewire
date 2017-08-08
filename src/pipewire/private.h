@@ -25,6 +25,7 @@ extern "C" {
 #endif
 
 #include <sys/socket.h>
+#include <spa/graph-scheduler3.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/introspect.h"
@@ -55,7 +56,7 @@ struct pw_client {
 
 	bool busy;
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 
 	struct pw_protocol *protocol;	/**< protocol in use */
 	struct spa_list protocol_link;	/**< link in the protocol client_list */
@@ -104,7 +105,7 @@ struct pw_core {
 	struct spa_list node_factory_list;	/**< list of node factories */
 	struct spa_list link_list;		/**< list of links */
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 
 	struct pw_loop *main_loop;	/**< main loop for control */
 	struct pw_loop *data_loop;	/**< data loop for data passing */
@@ -122,7 +123,7 @@ struct pw_core {
 struct pw_data_loop {
         struct pw_loop *loop;
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 
         struct spa_source *event;
 
@@ -133,7 +134,7 @@ struct pw_data_loop {
 struct pw_main_loop {
         struct pw_loop *loop;
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 
         bool running;
 };
@@ -158,7 +159,7 @@ struct pw_link {
 	struct pw_port *input;		/**< input port */
 	struct spa_list input_link;	/**< link in input port links */
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 
 	struct {
 		struct spa_graph_port out_port;
@@ -175,7 +176,7 @@ struct pw_module {
 
 	struct spa_list resource_list;	/**< list of resources for this module */
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 
 	void *user_data;                /**< module user_data */
 };
@@ -209,7 +210,7 @@ struct pw_node {
 	uint32_t n_used_output_links;		/**< number of active output links */
 	uint32_t idle_used_output_links;	/**< number of active output to be idle */
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
@@ -243,7 +244,7 @@ struct pw_port {
 
 	struct spa_list links;		/**< list of \ref pw_link */
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 
 	void *mix;			/**< optional port buffer mix/split */
 
@@ -269,9 +270,9 @@ struct pw_resource {
 	uint32_t type;			/**< type of the client interface */
 	uint32_t version;		/**< version of the client interface */
 
-	struct pw_listener implementation;
-	struct pw_listener_list implementation_list;
-	struct pw_listener_list listener_list;
+	struct spa_hook implementation;
+	struct spa_hook_list implementation_list;
+	struct spa_hook_list listener_list;
 
         const struct pw_protocol_marshal *marshal;
 
@@ -286,8 +287,8 @@ struct pw_proxy {
 
 	uint32_t id;			/**< client side id */
 
-	struct pw_listener_list listener_list;
-	struct pw_listener_list proxy_listener_list;
+	struct spa_hook_list listener_list;
+	struct spa_hook_list proxy_listener_list;
 
 	const struct pw_protocol_marshal *marshal;	/**< protocol specific marshal functions */
 
@@ -316,7 +317,7 @@ struct pw_remote {
 	enum pw_remote_state state;
 	char *error;
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 };
 
 
@@ -332,7 +333,7 @@ struct pw_stream {
 	enum pw_stream_state state;		/**< stream state */
 	char *error;				/**< error reason when state is in error */
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 };
 
 struct pw_node_factory {

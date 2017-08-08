@@ -41,7 +41,7 @@ struct impl {
 };
 
 struct resource_data {
-	struct pw_listener resource_listener;
+	struct spa_hook resource_listener;
 };
 
 
@@ -210,7 +210,7 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 	this->core = core;
 
 	spa_list_init(&this->resource_list);
-	pw_listener_list_init(&this->listener_list);
+	spa_hook_list_init(&this->listener_list);
 
 	this->info.name = name ? strdup(name) : NULL;
 	this->info.filename = filename;
@@ -257,7 +257,7 @@ void pw_module_destroy(struct pw_module *module)
 	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
 	struct pw_resource *resource, *tmp;
 
-	pw_listener_list_emit(&module->listener_list, struct pw_module_events, destroy);
+	spa_hook_list_call(&module->listener_list, struct pw_module_events, destroy);
 
 	spa_list_for_each_safe(resource, tmp, &module->resource_list, link)
 		pw_resource_destroy(resource);
@@ -293,9 +293,9 @@ pw_module_get_info(struct pw_module *module)
 }
 
 void pw_module_add_listener(struct pw_module *module,
-			    struct pw_listener *listener,
+			    struct spa_hook *listener,
 			    const struct pw_module_events *events,
 			    void *data)
 {
-	pw_listener_list_add(&module->listener_list, listener, events, data);
+	spa_hook_list_append(&module->listener_list, listener, events, data);
 }

@@ -24,7 +24,6 @@
 #include <spa/format-utils.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/listener.h>
 #include <pipewire/private.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/protocol.h>
@@ -37,7 +36,7 @@ struct global_impl {
 };
 
 struct resource_data {
-	struct pw_listener resource_listener;
+	struct spa_hook resource_listener;
 };
 
 /** \endcond */
@@ -381,7 +380,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	spa_list_init(&this->node_list);
 	spa_list_init(&this->node_factory_list);
 	spa_list_init(&this->link_list);
-	pw_listener_list_init(&this->listener_list);
+	spa_hook_list_init(&this->listener_list);
 
 	this->info.change_mask = 0;
 	this->info.user_name = pw_get_user_name();
@@ -420,7 +419,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 void pw_core_destroy(struct pw_core *core)
 {
 	pw_log_debug("core %p: destroy", core);
-	pw_listener_list_emit(&core->listener_list, struct pw_core_events, destroy, core);
+	spa_hook_list_call(&core->listener_list, struct pw_core_events, destroy, core);
 
 	pw_data_loop_destroy(core->data_loop_impl);
 
@@ -482,7 +481,7 @@ pw_core_add_global(struct pw_core *core,
 
 	spa_list_insert(core->global_list.prev, &this->link);
 
-	pw_listener_list_emit(&core->listener_list, struct pw_core_events, global_added, this);
+	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_added, this);
 
 	pw_log_debug("global %p: new %u %s, owner %p", this, this->id,
 			spa_type_map_get_type(core->type.map, this->type), owner);
@@ -612,18 +611,18 @@ void pw_global_destroy(struct pw_global *global)
 	pw_map_remove(&core->globals, global->id);
 
 	spa_list_remove(&global->link);
-	pw_listener_list_emit(&core->listener_list, struct pw_core_events, global_removed, global);
+	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_removed, global);
 
 	pw_log_debug("global %p: free", global);
 	free(global);
 }
 
 void pw_core_add_listener(struct pw_core *core,
-			  struct pw_listener *listener,
+			  struct spa_hook *listener,
 			  const struct pw_core_events *events,
 			  void *data)
 {
-	pw_listener_list_add(&core->listener_list, listener, events, data);
+	spa_hook_list_append(&core->listener_list, listener, events, data);
 }
 
 void pw_core_set_permission_callback(struct pw_core *core,
@@ -682,7 +681,7 @@ void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict
 	core->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
 	core->info.props = core->properties ? &core->properties->dict : NULL;
 
-	pw_listener_list_emit(&core->listener_list, struct pw_core_events, info_changed, &core->info);
+	spa_hook_list_call(&core->listener_list, struct pw_core_events, info_changed, &core->info);
 
 	spa_list_for_each(resource, &core->resource_list, link) {
 		pw_core_resource_info(resource, &core->info);

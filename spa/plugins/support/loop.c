@@ -79,7 +79,7 @@ struct impl {
 
 	struct spa_list source_list;
 	struct spa_list destroy_list;
-	struct spa_list hooks_list;
+	struct spa_hook_list hooks_list;
 
 	int epoll_fd;
 	pthread_t thread;
@@ -293,11 +293,13 @@ static int loop_get_fd(struct spa_loop_control *ctrl)
 
 static void
 loop_add_hooks(struct spa_loop_control *ctrl,
-	       struct spa_loop_control_hooks *hooks)
+	       struct spa_hook *hook,
+	       const struct spa_loop_control_hooks *hooks,
+	       void *data)
 {
 	struct impl *impl = SPA_CONTAINER_OF(ctrl, struct impl, control);
 
-	spa_list_insert(impl->hooks_list.prev, &hooks->link);
+	spa_hook_list_append(&impl->hooks_list, hook, hooks, data);
 }
 
 static void loop_enter(struct spa_loop_control *ctrl)
@@ -318,18 +320,13 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 	struct epoll_event ep[32];
 	int i, nfds, save_errno = 0;
 	struct source_impl *source, *tmp;
-	struct spa_loop_control_hooks *hooks, *th;
 
-	spa_list_for_each_safe(hooks, th, &impl->hooks_list, link)
-		if (hooks->before)
-			hooks->before(hooks);
+	spa_hook_list_call(&impl->hooks_list, struct spa_loop_control_hooks, before);
 
 	if (SPA_UNLIKELY((nfds = epoll_wait(impl->epoll_fd, ep, SPA_N_ELEMENTS(ep), timeout)) < 0))
 		save_errno = errno;
 
-	spa_list_for_each_safe(hooks, th, &impl->hooks_list, link)
-		if (hooks->after)
-			hooks->after(hooks);
+	spa_hook_list_call(&impl->hooks_list, struct spa_loop_control_hooks, after);
 
 	if (SPA_UNLIKELY(nfds < 0)) {
 		errno = save_errno;
@@ -345,7 +342,7 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 	}
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data.ptr;
-		if (s->rmask) {
+		if (s->rmask && s->fd != -1) {
 			s->func(s);
 		}
 	}
@@ -441,11 +438,12 @@ static void loop_enable_idle(struct spa_source *source, bool enabled)
 	if (enabled && !impl->enabled) {
 		count = 1;
 		if (write(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
-			spa_log_warn(impl->impl->log, NAME " %p: failed to write idle fd: %s", source,
-				    strerror(errno));
+			spa_log_warn(impl->impl->log, NAME " %p: failed to write idle fd %d: %s",
+					source, source->fd, strerror(errno));
 	} else if (!enabled && impl->enabled) {
 		if (read(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
-			spa_log_warn(impl->impl->log, NAME " %p: failed to read idle fd: %s", source, strerror(errno));
+			spa_log_warn(impl->impl->log, NAME " %p: failed to read idle fd %d: %s",
+					source, source->fd, strerror(errno));
 	}
 	impl->enabled = enabled;
 }
@@ -456,7 +454,8 @@ static void source_event_func(struct spa_source *source)
 	uint64_t count;
 
 	if (read(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
-		spa_log_warn(impl->impl->log, NAME " %p: failed to read event fd: %s", source, strerror(errno));
+		spa_log_warn(impl->impl->log, NAME " %p: failed to read event fd %d: %s",
+				source, source->fd, strerror(errno));
 
 	impl->func.event(&impl->impl->utils, source, count, source->data);
 }
@@ -493,7 +492,8 @@ static void loop_signal_event(struct spa_source *source)
 	uint64_t count = 1;
 
 	if (write(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
-		spa_log_warn(impl->impl->log, NAME " %p: failed to write event fd: %s", source, strerror(errno));
+		spa_log_warn(impl->impl->log, NAME " %p: failed to write event fd %d: %s",
+				source, source->fd, strerror(errno));
 }
 
 static void source_timer_func(struct spa_source *source)
@@ -502,7 +502,8 @@ static void source_timer_func(struct spa_source *source)
 	uint64_t expires;
 
 	if (read(source->fd, &expires, sizeof(uint64_t)) != sizeof(uint64_t))
-		spa_log_warn(impl->impl->log, NAME " %p: failed to read timer fd: %s", source, strerror(errno));
+		spa_log_warn(impl->impl->log, NAME " %p: failed to read timer fd %d: %s",
+				source, source->fd, strerror(errno));
 
 	impl->func.timer(&impl->impl->utils, source, source->data);
 }
@@ -564,7 +565,8 @@ static void source_signal_func(struct spa_source *source)
 	struct signalfd_siginfo signal_info;
 
 	if (read(source->fd, &signal_info, sizeof(signal_info)) != sizeof(signal_info))
-		spa_log_warn(impl->impl->log, NAME " %p: failed to read signal fd: %s", source, strerror(errno));
+		spa_log_warn(impl->impl->log, NAME " %p: failed to read signal fd %d: %s",
+				source, source->fd, strerror(errno));
 
 	impl->func.signal(&impl->impl->utils, source, impl->signal_number, source->data);
 }
@@ -610,8 +612,10 @@ static void loop_destroy_source(struct spa_source *source)
 
 	spa_loop_remove_source(source->loop, source);
 
-	if (source->fd != -1 && impl->close)
+	if (source->fd != -1 && impl->close) {
 		close(source->fd);
+		source->fd = -1;
+	}
 
 	spa_list_insert(&loop_impl->destroy_list, &impl->link);
 }
@@ -726,7 +730,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_list_init(&impl->source_list);
 	spa_list_init(&impl->destroy_list);
-	spa_list_init(&impl->hooks_list);
+	spa_hook_list_init(&impl->hooks_list);
 
 	spa_ringbuffer_init(&impl->buffer, DATAS_SIZE);
 

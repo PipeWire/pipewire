@@ -106,13 +106,13 @@ pw_proxy_new(struct pw_proxy *factory,	/**< factory */
 
 void
 pw_proxy_add_listener(struct pw_proxy *proxy,
-		       struct pw_listener *listener,
+		       struct spa_hook *listener,
 		       const struct pw_proxy_events *events,
 		       void *data);
 
 void
 pw_proxy_add_proxy_listener(struct pw_proxy *proxy,		/**< the proxy */
-			    struct pw_listener *listener,	/**< listener */
+			    struct spa_hook *listener,		/**< listener */
 			    const void *events,			/**< proxied events */
 			    void *data				/**< data passed to events */);
 
@@ -124,11 +124,11 @@ uint32_t pw_proxy_get_id(struct pw_proxy *proxy);
 
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
 
-struct pw_listener_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy);
+struct spa_hook_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy);
 
 const struct pw_protocol_marshal *pw_proxy_get_marshal(struct pw_proxy *proxy);
 
-#define pw_proxy_notify(p,type,event,...)	pw_listener_list_emit(pw_proxy_get_proxy_listeners(p),type,event,## __VA_ARGS__)
+#define pw_proxy_notify(p,type,event,...)	spa_hook_list_call(pw_proxy_get_proxy_listeners(p),type,event,## __VA_ARGS__)
 #define pw_proxy_do(p,type,method,...)		((type*) pw_proxy_get_marshal(p)->method_marshal)->method(p, ## __VA_ARGS__)
 
 #ifdef __cplusplus

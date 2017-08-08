@@ -294,7 +294,7 @@ struct pw_core_proxy_events {
 
 static inline void
 pw_core_proxy_add_listener(struct pw_core_proxy *core,
-			   struct pw_listener *listener,
+			   struct spa_hook *listener,
 			   const struct pw_core_proxy_events *events,
 			   void *data)
 {
@@ -381,7 +381,7 @@ struct pw_registry_proxy_events {
 
 static inline void
 pw_registry_proxy_add_listener(struct pw_registry_proxy *registry,
-			       struct pw_listener *listener,
+			       struct spa_hook *listener,
 			       const struct pw_registry_proxy_events *events,
 			       void *data)
 {
@@ -411,7 +411,7 @@ struct pw_module_proxy_events {
 
 static inline void
 pw_module_proxy_add_listener(struct pw_module_proxy *module,
-			     struct pw_listener *listener,
+			     struct spa_hook *listener,
 			     const struct pw_module_proxy_events *events,
 			     void *data)
 {
@@ -439,7 +439,7 @@ struct pw_node_proxy_events {
 
 static inline void
 pw_node_proxy_add_listener(struct pw_node_proxy *node,
-			   struct pw_listener *listener,
+			   struct spa_hook *listener,
 			   const struct pw_node_proxy_events *events,
 			   void *data)
 {
@@ -468,7 +468,7 @@ struct pw_client_proxy_events {
 /** Client */
 static inline void
 pw_client_proxy_add_listener(struct pw_client_proxy *client,
-			     struct pw_listener *listener,
+			     struct spa_hook *listener,
 			     const struct pw_client_proxy_events *events,
 			     void *data)
 {
@@ -498,7 +498,7 @@ struct pw_link_proxy_events {
 /** Link */
 static inline void
 pw_link_proxy_add_listener(struct pw_link_proxy *link,
-			   struct pw_listener *listener,
+			   struct spa_hook *listener,
 			   const struct pw_link_proxy_events *events,
 			   void *data)
 {

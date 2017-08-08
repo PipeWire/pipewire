@@ -121,8 +121,8 @@ struct impl {
 
 	struct pw_client_node_transport *transport;
 
-	struct pw_listener node_listener;
-	struct pw_listener resource_listener;
+	struct spa_hook node_listener;
+	struct spa_hook resource_listener;
 
 	int fds[2];
 	int other_fds[2];
@@ -1098,7 +1098,7 @@ static void node_free(void *data)
 	if (impl->transport)
 		pw_client_node_transport_destroy(impl->transport);
 
-	pw_listener_remove(&impl->node_listener);
+	spa_hook_remove(&impl->node_listener);
 
 	if (impl->fds[0] != -1)
 		close(impl->fds[0]);

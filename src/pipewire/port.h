@@ -122,7 +122,7 @@ void pw_port_set_implementation(struct pw_port *port,
 				void *data);
 
 void pw_port_add_listener(struct pw_port *port,
-			  struct pw_listener *listener,
+			  struct spa_hook *listener,
 			  const struct pw_port_events *events,
 			  void *data);
 

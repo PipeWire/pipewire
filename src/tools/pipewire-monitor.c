@@ -31,12 +31,12 @@ struct data {
 	struct pw_core *core;
 
 	struct pw_remote *remote;
-	struct pw_listener remote_listener;
+	struct spa_hook remote_listener;
 
 	struct pw_core_proxy *core_proxy;
 
 	struct pw_registry_proxy *registry_proxy;
-	struct pw_listener registry_listener;
+	struct spa_hook registry_listener;
 };
 
 struct proxy_data {
@@ -48,8 +48,8 @@ struct proxy_data {
 	uint32_t type;
 	void *info;
 	pw_destroy_t destroy;
-	struct pw_listener proxy_listener;
-	struct pw_listener proxy_proxy_listener;
+	struct spa_hook proxy_listener;
+	struct spa_hook proxy_proxy_listener;
 };
 
 static void print_properties(struct spa_dict *props, char mark)

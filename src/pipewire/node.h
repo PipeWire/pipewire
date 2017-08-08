@@ -143,7 +143,7 @@ void pw_node_set_implementation(struct pw_node *node,
 				void *data);
 
 void pw_node_add_listener(struct pw_node *node,
-			  struct pw_listener *listener,
+			  struct spa_hook *listener,
 			  const struct pw_node_events *events,
 			  void *data);
 

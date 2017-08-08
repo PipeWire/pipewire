@@ -38,6 +38,7 @@ struct spa_loop_utils;
 
 #include <spa/defs.h>
 #include <spa/list.h>
+#include <spa/hook.h>
 
 enum spa_io {
 	SPA_IO_IN = (1 << 0),
@@ -77,11 +78,14 @@ struct spa_loop {
 #define SPA_VERSION_LOOP	0
 	uint32_t version;
 
+	/** add a source to the loop */
 	int (*add_source) (struct spa_loop *loop,
 			   struct spa_source *source);
 
+	/** update the source io mask */
 	int (*update_source) (struct spa_source *source);
 
+	/** remove a source from the loop */
 	void (*remove_source) (struct spa_source *source);
 
 	/** invoke a function in the context of this loop */
@@ -104,15 +108,11 @@ struct spa_loop {
 struct spa_loop_control_hooks {
 #define SPA_VERSION_LOOP_CONTROL_HOOKS	0
 	uint32_t version;
-
-	struct spa_list link;
-
 	/** Executed right before waiting for events */
-	void (*before) (const struct spa_loop_control_hooks *hooks);
+	void (*before) (void *data);
 	/** Executed right after waiting for events */
-	void (*after) (const struct spa_loop_control_hooks *hooks);
+	void (*after) (void *data);
 };
-
 
 /**
  * spa_loop_control:
@@ -130,8 +130,10 @@ struct spa_loop_control {
 	/** Add a hook
 	 * \param ctrl the control to change
 	 * \param hooks the hooks to add */
-	void (*add_hooks) (struct spa_loop_control *ctrl,
-			   struct spa_loop_control_hooks *hooks);
+	void (*add_hook) (struct spa_loop_control *ctrl,
+			  struct spa_hook *hook,
+			  const struct spa_loop_control_hooks *hooks,
+			  void *data);
 
 	void (*enter) (struct spa_loop_control *ctrl);
 	void (*leave) (struct spa_loop_control *ctrl);
@@ -140,7 +142,7 @@ struct spa_loop_control {
 };
 
 #define spa_loop_control_get_fd(l)		(l)->get_fd(l)
-#define spa_loop_control_add_hooks(l,...)	(l)->add_hooks((l),__VA_ARGS__)
+#define spa_loop_control_add_hook(l,...)	(l)->add_hook((l),__VA_ARGS__)
 #define spa_loop_control_enter(l)		(l)->enter(l)
 #define spa_loop_control_iterate(l,...)		(l)->iterate((l),__VA_ARGS__)
 #define spa_loop_control_leave(l)		(l)->leave(l)
@@ -198,6 +200,9 @@ struct spa_loop_utils {
 					  int signal_number,
 					  spa_source_signal_func_t func, void *data);
 
+	/** destroy a source allocated with this interface. This function
+	 * should only be called when the loop is not running or from the
+	 * context of the running loop */
 	void (*destroy_source) (struct spa_source *source);
 };
 

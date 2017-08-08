@@ -83,7 +83,7 @@ pw_link_new(struct pw_core *core,		/**< the core object */
 void pw_link_destroy(struct pw_link *link);
 
 void pw_link_add_listener(struct pw_link *link,
-			  struct pw_listener *listener,
+			  struct spa_hook *listener,
 			  const struct pw_link_events *events,
 			  void *data);
 

@@ -88,7 +88,7 @@ struct _GstPipeWireDeviceProvider {
   struct pw_type *type;
 
   struct pw_remote *remote;
-  struct pw_listener remote_listener;
+  struct spa_hook remote_listener;
 
   struct pw_core_proxy *core_proxy;
   struct pw_registry_proxy *registry;

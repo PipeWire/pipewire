@@ -27,7 +27,7 @@ struct pw_thread_loop {
 	struct pw_loop *loop;
 	char *name;
 
-	struct pw_listener_list listener_list;
+	struct spa_hook_list listener_list;
 
 	pthread_mutex_t lock;
 	pthread_cond_t cond;
@@ -36,8 +36,7 @@ struct pw_thread_loop {
 	bool running;
 	pthread_t thread;
 
-	struct spa_loop_control_hooks hooks;
-	const struct spa_loop_control_hooks *old;
+	struct spa_hook hook;
 
 	struct spa_source *event;
 
@@ -46,21 +45,20 @@ struct pw_thread_loop {
 };
 /** \endcond */
 
-static void before(const struct spa_loop_control_hooks *hooks)
+static void before(void *data)
 {
-	struct pw_thread_loop *this = SPA_CONTAINER_OF(hooks, struct pw_thread_loop, hooks);
+	struct pw_thread_loop *this = data;
 	pthread_mutex_unlock(&this->lock);
 }
 
-static void after(const struct spa_loop_control_hooks *hooks)
+static void after(void *data)
 {
-	struct pw_thread_loop *this = SPA_CONTAINER_OF(hooks, struct pw_thread_loop, hooks);
+	struct pw_thread_loop *this = data;
 	pthread_mutex_lock(&this->lock);
 }
 
 static const struct spa_loop_control_hooks impl_hooks = {
 	SPA_VERSION_LOOP_CONTROL_HOOKS,
-	{ NULL, },
 	before,
 	after,
 };
@@ -99,10 +97,9 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop, const char *name
 	this->loop = loop;
 	this->name = name ? strdup(name) : NULL;
 
-	this->hooks = impl_hooks;
-	pw_loop_add_hooks(loop, &this->hooks);
+	pw_loop_add_hook(loop, &this->hook, &impl_hooks, this);
 
-	pw_listener_list_init(&this->listener_list);
+	spa_hook_list_init(&this->listener_list);
 
 	pthread_mutexattr_init(&attr);
 	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
@@ -118,7 +115,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop, const char *name
 /** Destroy a threaded loop \memberof pw_thread_loop */
 void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 {
-	pw_listener_list_emit(&loop->listener_list, struct pw_thread_loop_events, destroy);
+	spa_hook_list_call(&loop->listener_list, struct pw_thread_loop_events, destroy);
 
 	pw_thread_loop_stop(loop);
 
@@ -128,17 +125,17 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 	pthread_cond_destroy(&loop->cond);
 	pthread_cond_destroy(&loop->accept_cond);
 
-	spa_list_remove(&loop->hooks.link);
+	spa_hook_remove(&loop->hook);
 
 	free(loop);
 }
 
 void pw_thread_loop_add_listener(struct pw_thread_loop *loop,
-				 struct pw_listener *listener,
+				 struct spa_hook *listener,
 				 const struct pw_thread_loop_events *events,
 				 void *data)
 {
-	pw_listener_list_add(&loop->listener_list, listener, events, data);
+	spa_hook_list_append(&loop->listener_list, listener, events, data);
 }
 
 struct pw_loop *

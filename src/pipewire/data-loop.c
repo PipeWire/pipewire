@@ -115,7 +115,7 @@ struct pw_data_loop *pw_data_loop_new(void)
 	if (this->loop == NULL)
 		goto no_loop;
 
-	pw_listener_list_init(&this->listener_list);
+	spa_hook_list_init(&this->listener_list);
 
 	this->event = pw_loop_add_event(this->loop, do_stop, this);
 
@@ -134,7 +134,7 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 {
 	pw_log_debug("data-loop %p: destroy", loop);
 
-	pw_listener_list_emit(&loop->listener_list, struct pw_data_loop_events, destroy);
+	spa_hook_list_call(&loop->listener_list, struct pw_data_loop_events, destroy);
 
 	pw_data_loop_stop(loop);
 
@@ -144,11 +144,11 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 }
 
 void pw_data_loop_add_listener(struct pw_data_loop *loop,
-			       struct pw_listener *listener,
+			       struct spa_hook *listener,
 			       const struct pw_data_loop_events *events,
 			       void *data)
 {
-	pw_listener_list_add(&loop->listener_list, listener, events, data);
+	spa_hook_list_append(&loop->listener_list, listener, events, data);
 }
 
 struct pw_loop *

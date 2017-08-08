@@ -33,7 +33,7 @@ struct impl {
 	struct pw_module *module;
 	struct pw_properties *properties;
 
-	struct pw_listener core_listener;
+	struct spa_hook core_listener;
 
 	struct spa_list node_list;
 };
@@ -43,10 +43,10 @@ struct node_info {
 
 	struct impl *impl;
 	struct pw_node *node;
-	struct pw_listener node_listener;
+	struct spa_hook node_listener;
 
 	struct pw_link *link;
-	struct pw_listener link_listener;
+	struct spa_hook link_listener;
 };
 
 static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
@@ -63,8 +63,8 @@ static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
 static void node_info_free(struct node_info *info)
 {
 	spa_list_remove(&info->l);
-	pw_listener_remove(&info->node_listener);
-	pw_listener_remove(&info->link_listener);
+	spa_hook_remove(&info->node_listener);
+	spa_hook_remove(&info->link_listener);
 	free(info);
 }
 
@@ -117,7 +117,7 @@ link_destroy(void *data)
 	struct impl *impl = info->impl;
 
 	pw_log_debug("module %p: link %p destroyed", impl, link);
-	pw_listener_remove(&info->link_listener);
+	spa_hook_remove(&info->link_listener);
         spa_list_init(&info->link_listener.link);
 }
 
@@ -310,7 +310,7 @@ static void module_destroy(struct impl *impl)
 {
 	pw_log_debug("module %p: destroy", impl);
 
-	pw_listener_remove(&impl->core_listener);
+	spa_hook_remove(&impl->core_listener);
 	free(impl);
 }
 #endif

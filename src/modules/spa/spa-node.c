@@ -43,7 +43,7 @@ struct impl {
 	char *lib;
 	char *factory_name;
 
-	struct pw_listener node_listener;
+	struct spa_hook node_listener;
 };
 
 struct port {
@@ -337,7 +337,7 @@ static void on_node_done(void *data, int seq, int res)
 	}
 
         pw_log_debug("spa-node %p: async complete event %d %d", this, seq, res);
-	pw_listener_list_emit(&this->listener_list, struct pw_node_events, async_complete, seq, res);
+	spa_hook_list_call(&this->listener_list, struct pw_node_events, async_complete, seq, res);
 }
 
 static void on_node_event(void *data, struct spa_event *event)
@@ -345,21 +345,21 @@ static void on_node_event(void *data, struct spa_event *event)
         struct impl *impl = data;
         struct pw_node *this = impl->this;
 
-	pw_listener_list_emit(&this->listener_list, struct pw_node_events, event, event);
+	spa_hook_list_call(&this->listener_list, struct pw_node_events, event, event);
 }
 
 static void on_node_need_input(void *data)
 {
         struct impl *impl = data;
         struct pw_node *this = impl->this;
-	pw_listener_list_emit(&this->listener_list, struct pw_node_events, need_input);
+	spa_hook_list_call(&this->listener_list, struct pw_node_events, need_input);
 }
 
 static void on_node_have_output(void *data)
 {
         struct impl *impl = data;
         struct pw_node *this = impl->this;
-	pw_listener_list_emit(&this->listener_list, struct pw_node_events, have_output);
+	spa_hook_list_call(&this->listener_list, struct pw_node_events, have_output);
 }
 
 static void

@@ -45,7 +45,6 @@ struct pw_client;
 #include <pipewire/core.h>
 #include <pipewire/introspect.h>
 #include <pipewire/properties.h>
-#include <pipewire/listener.h>
 #include <pipewire/resource.h>
 
 #define PW_TYPE__Client           PW_TYPE_OBJECT_BASE "Client"
@@ -140,7 +139,7 @@ const struct ucred *pw_client_get_ucred(struct pw_client *client);
 void *pw_client_get_user_data(struct pw_client *client);
 
 void pw_client_add_listener(struct pw_client *client,
-			    struct pw_listener *listener,
+			    struct spa_hook *listener,
 			    const struct pw_client_events *events,
 			    void *data);
 

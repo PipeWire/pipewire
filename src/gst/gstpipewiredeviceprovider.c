@@ -327,13 +327,13 @@ struct node_data {
   struct pw_node_proxy *node;
   uint32_t id;
   uint32_t parent_id;
-  struct pw_listener node_listener;
+  struct spa_hook node_listener;
 };
 
 struct registry_data {
   GstPipeWireDeviceProvider *self;
   struct pw_registry_proxy *registry;
-  struct pw_listener registry_listener;
+  struct spa_hook registry_listener;
 };
 
 static void node_event_info(void *data, struct pw_node_info *info)
@@ -422,7 +422,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   struct pw_remote *r = NULL;
   struct pw_registry_proxy *reg = NULL;
   struct registry_data *data;
-  struct pw_listener listener;
+  struct spa_hook listener;
 
   GST_DEBUG_OBJECT (self, "starting probe");
 

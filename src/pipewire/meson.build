@@ -7,7 +7,6 @@ pipewire_headers = [
   'interfaces.h',
   'introspect.h',
   'link.h',
-  'listener.h',
   'log.h',
   'loop.h',
   'main-loop.h',

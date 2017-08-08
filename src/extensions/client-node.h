@@ -445,7 +445,7 @@ struct pw_client_node_proxy_events {
 
 static inline void
 pw_client_node_proxy_add_listener(struct pw_client_node_proxy *p,
-				  struct pw_listener *listener,
+				  struct spa_hook *listener,
 				  const struct pw_client_node_proxy_events *events,
 				  void *data)
 {

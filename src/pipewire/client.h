@@ -112,32 +112,43 @@ struct pw_client_events {
 
 /** Create a new client. This is mainly used by protocols. */
 struct pw_client *
-pw_client_new(struct pw_core *core,
-	      struct pw_global *parent,
-	      struct ucred *ucred,
-	      struct pw_properties *properties,
-	      size_t user_data_size);
+pw_client_new(struct pw_core *core,		/**< the core object */
+	      struct pw_global *parent,		/**< the client parent */
+	      struct ucred *ucred,		/**< optional ucred */
+	      struct pw_properties *properties,	/**< client properties */
+	      size_t user_data_size		/**< extra user data size */);
 
+/** Destroy a previously created client */
 void pw_client_destroy(struct pw_client *client);
 
-const struct pw_client_info *pw_client_get_info(struct pw_client *client);
-
-void pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
-
-const struct pw_properties *pw_client_get_properties(struct pw_client *client);
-
-struct pw_core *pw_client_get_core(struct pw_client *client);
-
-struct pw_resource *pw_client_get_core_resource(struct pw_client *client);
-
-struct pw_resource *pw_client_get_resource(struct pw_client *client, uint32_t id);
-
-struct pw_global *pw_client_get_global(struct pw_client *client);
-
-const struct ucred *pw_client_get_ucred(struct pw_client *client);
-
+/** Get the client user data */
 void *pw_client_get_user_data(struct pw_client *client);
 
+/** Get the client information */
+const struct pw_client_info *pw_client_get_info(struct pw_client *client);
+
+/** Update the client properties */
+void pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
+
+/** Get the client properties */
+const struct pw_properties *pw_client_get_properties(struct pw_client *client);
+
+/** Get the core used to create this client */
+struct pw_core *pw_client_get_core(struct pw_client *client);
+
+/** Get the client core resource */
+struct pw_resource *pw_client_get_core_resource(struct pw_client *client);
+
+/** Get a resource with the given id */
+struct pw_resource *pw_client_get_resource(struct pw_client *client, uint32_t id);
+
+/** Get the global associated with this client */
+struct pw_global *pw_client_get_global(struct pw_client *client);
+
+/** Get the ucred from a client or NULL when not specified/valid */
+const struct ucred *pw_client_get_ucred(struct pw_client *client);
+
+/** listen to events from this client */
 void pw_client_add_listener(struct pw_client *client,
 			    struct spa_hook *listener,
 			    const struct pw_client_events *events,

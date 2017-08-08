@@ -27,8 +27,6 @@ extern "C" {
 #include <spa/log.h>
 #include <spa/hook.h>
 
-struct pw_global;
-
 /** \class pw_core
  *
  * \brief the core PipeWire object
@@ -42,6 +40,7 @@ struct pw_core;
 
 #include <pipewire/type.h>
 #include <pipewire/loop.h>
+#include <pipewire/global.h>
 #include <pipewire/client.h>
 #include <pipewire/port.h>
 #include <pipewire/node.h>
@@ -100,11 +99,6 @@ struct pw_core;
  * emit events to the client and lets the client invoke methods on
  * the object.
  */
-typedef int (*pw_bind_func_t) (struct pw_global *global,	/**< the global to bind */
-			       struct pw_client *client,	/**< client that binds */
-			       uint32_t permissions,		/**< permissions for the bind */
-			       uint32_t version,		/**< client interface version */
-			       uint32_t id);			/**< client proxy id */
 
 #define PW_PERM_R	0400	/**< object can be seen and events can be received */
 #define PW_PERM_W	0200	/**< methods can be called that modify the object */
@@ -114,29 +108,9 @@ typedef int (*pw_bind_func_t) (struct pw_global *global,	/**< the global to bind
 typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
 					  struct pw_client *client, void *data);
 
-/** \page page_global Global
- *
- * Global objects represent resources that are available on the server and
- * accessible to clients.
- * Globals come and go when devices or other resources become available for
- * clients.
- *
- * The client receives a list of globals when it binds to the registry
- * object. See \ref page_registry.
- *
- * A client can bind to a global to send methods or receive events from
- * the global.
- */
-/** \class pw_global
- *
- * \brief A global object visible to all clients
- *
- * A global object is visible to all clients and represents a resource
- * that can be used or inspected.
- *
- * See \ref page_server_api
- */
-struct pw_global;
+#define PW_PERM_IS_R(p) (((p)&PW_PERM_R) == PW_PERM_R)
+#define PW_PERM_IS_W(p) (((p)&PW_PERM_W) == PW_PERM_W)
+#define PW_PERM_IS_X(p) (((p)&PW_PERM_X) == PW_PERM_X)
 
 struct pw_core_events {
 #define PW_VERSION_CORE_EVENTS	0
@@ -184,41 +158,7 @@ bool pw_core_for_each_global(struct pw_core *core,
 			     bool (*callback) (void *data, struct pw_global *global),
 			     void *data);
 
-struct pw_global *
-pw_core_add_global(struct pw_core *core,
-		   struct pw_client *owner,
-		   struct pw_global *parent,
-		   uint32_t type,
-		   uint32_t version,
-		   pw_bind_func_t bind,
-		   void *object);
-
 struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id);
-
-
-struct pw_core *pw_global_get_core(struct pw_global *global);
-
-struct pw_client *pw_global_get_owner(struct pw_global *global);
-
-struct pw_global *pw_global_get_parent(struct pw_global *global);
-
-uint32_t pw_global_get_type(struct pw_global *global);
-
-uint32_t pw_global_get_version(struct pw_global *global);
-
-void *pw_global_get_object(struct pw_global *global);
-
-uint32_t pw_global_get_id(struct pw_global *global);
-
-int
-pw_global_bind(struct pw_global *global,
-	       struct pw_client *client,
-	       uint32_t permissions,
-	       uint32_t version,
-	       uint32_t id);
-
-void
-pw_global_destroy(struct pw_global *global);
 
 struct spa_format *
 pw_core_find_format(struct pw_core *core,

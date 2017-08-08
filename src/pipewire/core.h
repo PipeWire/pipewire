@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#include <spa/log.h>
 #include <spa/hook.h>
+#include <spa/format.h>
 
 /** \class pw_core
  *
@@ -38,13 +38,14 @@ extern "C" {
  */
 struct pw_core;
 
-#include <pipewire/type.h>
-#include <pipewire/loop.h>
-#include <pipewire/global.h>
 #include <pipewire/client.h>
-#include <pipewire/port.h>
-#include <pipewire/node.h>
+#include <pipewire/global.h>
+#include <pipewire/introspect.h>
+#include <pipewire/loop.h>
 #include <pipewire/node-factory.h>
+#include <pipewire/port.h>
+#include <pipewire/properties.h>
+#include <pipewire/type.h>
 
 /** \page page_server_api Server API
  *

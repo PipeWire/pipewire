@@ -34,6 +34,7 @@ extern "C" {
 struct pw_main_loop;
 
 #include <pipewire/loop.h>
+#include <pipewire/properties.h>
 
 struct pw_main_loop_events {
 #define PW_VERSION_MAIN_LOOP_EVENTS	0

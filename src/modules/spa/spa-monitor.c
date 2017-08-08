@@ -32,6 +32,7 @@
 #include <spa/pod-iter.h>
 
 #include <pipewire/log.h>
+#include <pipewire/type.h>
 #include <pipewire/node.h>
 
 #include "spa-monitor.h"

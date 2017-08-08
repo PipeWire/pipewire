@@ -30,11 +30,8 @@ extern "C" {
 #include <spa/param-alloc.h>
 #include <spa/node.h>
 
-#include <pipewire/type.h>
 #include <pipewire/introspect.h>
 #include <pipewire/proxy.h>
-#include <pipewire/remote.h>
-#include <pipewire/core.h>
 
 struct pw_core_proxy;
 struct pw_registry_proxy;

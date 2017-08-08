@@ -27,9 +27,10 @@
 
 #include <spa/lib/props.h>
 
-#include <pipewire/utils.h>
 #include <pipewire/core.h>
+#include <pipewire/log.h>
 #include <pipewire/module.h>
+#include <pipewire/utils.h>
 
 #include "spa-monitor.h"
 #include "spa-node.h"

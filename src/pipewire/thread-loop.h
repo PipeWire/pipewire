@@ -20,11 +20,11 @@
 #ifndef __PIPEWIRE_THREAD_LOOP_H__
 #define __PIPEWIRE_THREAD_LOOP_H__
 
-#include <pipewire/loop.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include <pipewire/loop.h>
 
 /** \page page_thread_loop Threaded Loop
  *

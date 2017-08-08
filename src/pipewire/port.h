@@ -27,6 +27,10 @@ extern "C" {
 #define PW_TYPE__Port                          "PipeWire:Object:Port"
 #define PW_TYPE_PORT_BASE                      PW_TYPE__Port ":"
 
+#include <spa/hook.h>
+#include <spa/node.h>
+#include <spa/buffer.h>
+
 /** \page page_port Port
  *
  * \section page_node_overview Overview
@@ -39,14 +43,8 @@ extern "C" {
  */
 struct pw_port;
 
-#include <spa/node.h>
-
-#include <pipewire/utils.h>
-#include <pipewire/introspect.h>
-#include <pipewire/mem.h>
-
 #include <pipewire/core.h>
-#include <pipewire/link.h>
+#include <pipewire/introspect.h>
 #include <pipewire/node.h>
 
 enum pw_port_state {

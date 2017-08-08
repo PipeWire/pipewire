@@ -24,10 +24,6 @@
 extern "C" {
 #endif
 
-#include <spa/log.h>
-#include <spa/hook.h>
-
-struct pw_global;
 /** \page page_global Global
  *
  * Global objects represent resources that are available on the server and
@@ -52,12 +48,8 @@ struct pw_global;
  */
 struct pw_global;
 
-#include <pipewire/type.h>
-#include <pipewire/loop.h>
+#include <pipewire/core.h>
 #include <pipewire/client.h>
-#include <pipewire/port.h>
-#include <pipewire/node.h>
-#include <pipewire/node-factory.h>
 
 typedef int (*pw_bind_func_t) (struct pw_global *global,	/**< the global to bind */
 			       struct pw_client *client,	/**< client that binds */

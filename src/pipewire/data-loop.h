@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+#include <spa/hook.h>
+
 /** \class pw_data_loop
  *
  * PipeWire rt-loop object.
@@ -31,6 +33,7 @@ extern "C" {
 struct pw_data_loop;
 
 #include <pipewire/loop.h>
+#include <pipewire/properties.h>
 
 struct pw_data_loop_events {
 #define PW_VERSION_DATA_LOOP_EVENTS		0

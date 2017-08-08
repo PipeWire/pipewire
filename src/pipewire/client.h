@@ -30,6 +30,8 @@ extern "C" {
 
 #include <sys/socket.h>
 
+#include <spa/hook.h>
+
 /** \class pw_client
  *
  * \brief PipeWire client object class.
@@ -43,6 +45,7 @@ extern "C" {
 struct pw_client;
 
 #include <pipewire/core.h>
+#include <pipewire/global.h>
 #include <pipewire/introspect.h>
 #include <pipewire/properties.h>
 #include <pipewire/resource.h>

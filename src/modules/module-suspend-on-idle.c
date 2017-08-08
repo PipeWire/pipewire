@@ -24,6 +24,8 @@
 #include "config.h"
 
 #include "pipewire/core.h"
+#include "pipewire/log.h"
+#include "pipewire/type.h"
 #include "pipewire/module.h"
 
 struct impl {

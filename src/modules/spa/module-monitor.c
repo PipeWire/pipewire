@@ -28,6 +28,7 @@
 #include <spa/lib/props.h>
 
 #include <pipewire/utils.h>
+#include <pipewire/log.h>
 #include <pipewire/core.h>
 #include <pipewire/module.h>
 

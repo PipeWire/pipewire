@@ -23,8 +23,10 @@
 
 #include "config.h"
 
-#include "pipewire/interfaces.h"
 #include "pipewire/core.h"
+#include "pipewire/interfaces.h"
+#include "pipewire/link.h"
+#include "pipewire/log.h"
 #include "pipewire/module.h"
 
 struct impl {

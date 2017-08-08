@@ -27,9 +27,6 @@ extern "C" {
 #define PW_TYPE__Node                          PW_TYPE_OBJECT_BASE "Node"
 #define PW_TYPE_NODE_BASE                      PW_TYPE__Node ":"
 
-#include <spa/clock.h>
-#include <spa/node.h>
-
 /** \page page_node Node
  *
  * \section page_node_overview Overview
@@ -44,14 +41,10 @@ extern "C" {
  */
 struct pw_node;
 
-#include <pipewire/mem.h>
-#include <pipewire/introspect.h>
-
 #include <pipewire/core.h>
+#include <pipewire/global.h>
+#include <pipewire/introspect.h>
 #include <pipewire/port.h>
-#include <pipewire/link.h>
-#include <pipewire/client.h>
-#include <pipewire/data-loop.h>
 #include <pipewire/resource.h>
 
 struct pw_node_implementation {

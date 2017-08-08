@@ -29,11 +29,12 @@
 
 #include <dbus/dbus.h>
 
-#include "pipewire/interfaces.h"
-#include "pipewire/utils.h"
-
 #include "pipewire/core.h"
+#include "pipewire/interfaces.h"
+#include "pipewire/link.h"
+#include "pipewire/log.h"
 #include "pipewire/module.h"
+#include "pipewire/utils.h"
 
 struct impl {
 	struct pw_core *core;

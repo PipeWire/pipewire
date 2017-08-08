@@ -21,7 +21,6 @@
 #define __PIPEWIRE_LOG_H__
 
 #include <spa/log.h>
-#include <spa/loop.h>
 
 #ifdef __cplusplus
 extern "C" {

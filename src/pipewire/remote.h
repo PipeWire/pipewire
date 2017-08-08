@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+#include <spa/hook.h>
+
 /** \page page_remote_api Remote API
  *
  * \section sec_remote_api_overview Overview
@@ -98,13 +100,10 @@ extern "C" {
  */
 struct pw_remote;
 
-#include <pipewire/map.h>
-#include <pipewire/loop.h>
+#include <pipewire/core.h>
 #include <pipewire/properties.h>
 #include <pipewire/protocol.h>
 #include <pipewire/proxy.h>
-#include <pipewire/type.h>
-#include <pipewire/core.h>
 
 /** \enum pw_remote_state The state of a \ref pw_remote \memberof pw_remote */
 enum pw_remote_state {

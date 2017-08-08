@@ -25,6 +25,8 @@
 extern "C" {
 #endif
 
+#include <spa/hook.h>
+
 #include <pipewire/core.h>
 
 #define PW_TYPE__Module           PW_TYPE_OBJECT_BASE "Module"

@@ -27,6 +27,7 @@ extern "C" {
 #include <sys/socket.h>
 #include <spa/graph-scheduler3.h>
 
+#include "pipewire/mem.h"
 #include "pipewire/pipewire.h"
 #include "pipewire/introspect.h"
 

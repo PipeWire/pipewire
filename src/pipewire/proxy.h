@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-struct pw_remote;
+#include <spa/hook.h>
 
 /** \page page_proxy Proxy
  *
@@ -86,9 +86,6 @@ struct pw_remote;
  */
 struct pw_proxy;
 
-#include <pipewire/utils.h>
-#include <pipewire/core.h>
-#include <pipewire/client.h>
 #include <pipewire/protocol.h>
 
 struct pw_proxy_events {

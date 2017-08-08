@@ -24,21 +24,15 @@
 extern "C" {
 #endif
 
-#include <spa/ringbuffer.h>
-
 /** \class pw_link
  *
  * PipeWire link interface.
  */
 struct pw_link;
 
-#include <pipewire/mem.h>
-#include <pipewire/introspect.h>
-
-#include <pipewire/type.h>
 #include <pipewire/core.h>
+#include <pipewire/introspect.h>
 #include <pipewire/port.h>
-#include <pipewire/main-loop.h>
 
 #define PW_TYPE__Link             PW_TYPE_OBJECT_BASE "Link"
 #define PW_TYPE_LINK_BASE         PW_TYPE__Link ":"

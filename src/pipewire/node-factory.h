@@ -36,6 +36,9 @@ extern "C" {
 struct pw_node_factory;
 
 #include <pipewire/core.h>
+#include <pipewire/client.h>
+#include <pipewire/global.h>
+#include <pipewire/properties.h>
 #include <pipewire/resource.h>
 
 struct pw_node_factory_implementation {

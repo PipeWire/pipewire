@@ -24,13 +24,11 @@
 extern "C" {
 #endif
 
-#include <spa/defs.h>
 #include <spa/list.h>
 
-#include <pipewire/type.h>
-#include <pipewire/utils.h>
 #include <pipewire/core.h>
 #include <pipewire/properties.h>
+#include <pipewire/utils.h>
 
 #define PW_TYPE__Protocol               "PipeWire:Protocol"
 #define PW_TYPE_PROTOCOL_BASE           PW_TYPE__Protocol ":"

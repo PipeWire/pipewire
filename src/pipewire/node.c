@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <errno.h>
 
+#include <spa/clock.h>
+
 #include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/private.h"

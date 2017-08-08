@@ -25,7 +25,10 @@
 #include "config.h"
 
 #include "pipewire/core.h"
+#include "pipewire/link.h"
+#include "pipewire/log.h"
 #include "pipewire/module.h"
+#include "pipewire/type.h"
 #include "modules/spa/spa-node.h"
 
 #define AUDIOMIXER_LIB "audiomixer/libspa-audiomixer"

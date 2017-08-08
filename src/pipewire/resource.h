@@ -27,7 +27,7 @@ extern "C" {
 #define PW_TYPE__Resource                            "PipeWire:Object:Resource"
 #define PW_TYPE_RESOURCE_BASE                        PW_TYPE__Resource ":"
 
-#include <spa/list.h>
+#include <spa/hook.h>
 
 /** \page page_resource Resource
  *
@@ -56,8 +56,6 @@ extern "C" {
  */
 struct pw_resource;
 
-#include <pipewire/utils.h>
-#include <pipewire/core.h>
 #include <pipewire/client.h>
 
 struct pw_resource_events {

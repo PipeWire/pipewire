@@ -388,7 +388,8 @@ no_mem:
 
 static void registry_event_global_remove(void *data, uint32_t id)
 {
-  GstPipeWireDeviceProvider *self = data;
+  struct registry_data *rd = data;
+  GstPipeWireDeviceProvider *self = rd->self;
   GstDeviceProvider *provider = GST_DEVICE_PROVIDER (self);
   GstPipeWireDevice *dev;
 

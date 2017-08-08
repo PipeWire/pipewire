@@ -67,18 +67,23 @@ static inline void spa_list_remove(struct spa_list *elem)
 #define spa_list_last(item, type, member)				\
 	SPA_CONTAINER_OF((head)->prev, type, member)
 
-#define spa_list_for_each(pos, head, member)						\
-	for (pos = SPA_CONTAINER_OF((head)->next, __typeof__(*pos), member);		\
+#define spa_list_for_each_next(pos, head, curr, member)					\
+	for (pos = SPA_CONTAINER_OF((curr)->next, __typeof__(*pos), member);		\
 	     &pos->member != (head);							\
 	     pos = SPA_CONTAINER_OF(pos->member.next, __typeof__(*pos), member))
 
-#define spa_list_for_each_safe(pos, tmp, head, member)					\
-	for (pos = SPA_CONTAINER_OF((head)->next, __typeof__(*pos), member),		\
+#define spa_list_for_each(pos, head, member)						\
+	spa_list_for_each_next(pos, head, head, member)					\
+
+#define spa_list_for_each_safe_next(pos, tmp, head, curr, member)			\
+	for (pos = SPA_CONTAINER_OF((curr)->next, __typeof__(*pos), member),		\
 	     tmp = SPA_CONTAINER_OF((pos)->member.next, __typeof__(*tmp), member);	\
 	     &pos->member != (head);							\
 	     pos = tmp,									\
 	     tmp = SPA_CONTAINER_OF(pos->member.next, __typeof__(*tmp), member))
 
+#define spa_list_for_each_safe(pos, tmp, head, member)					\
+	spa_list_for_each_safe_next(pos, tmp, head, head, member)			\
 
 #ifdef __cplusplus
 }  /* extern "C" */

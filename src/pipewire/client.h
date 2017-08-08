@@ -81,25 +81,37 @@ struct pw_client;
  * See also \ref page_resource
  */
 
+/** The events that a client can emit */
 struct pw_client_events {
 #define PW_VERSION_CLIENT_EVENTS	0
         uint32_t version;
 
+	/** emited when the client is destroyed */
 	void (*destroy) (void *data);
 
+	/** emited right before the client is freed */
 	void (*free) (void *data);
 
+	/** emited when the client info changed */
 	void (*info_changed) (void *data, struct pw_client_info *info);
 
+	/** emited when a new resource is added for client */
 	void (*resource_added) (void *data, struct pw_resource *resource);
 
+	/** emited when an implementation is set on a resource. This can
+	 * be used to override the implementation */
 	void (*resource_impl) (void *data, struct pw_resource *resource);
 
+	/** emited when a resource is removed */
 	void (*resource_removed) (void *data, struct pw_resource *resource);
 
+	/** emited when the client becomes busy processing an asynchronous
+	 * message. In the busy state no messages should be processed.
+	 * Processing should resume when the client becomes not busy */
 	void (*busy_changed) (void *data, bool busy);
 };
 
+/** Create a new client. This is mainly used by protocols. */
 struct pw_client *
 pw_client_new(struct pw_core *core,
 	      struct pw_global *parent,
@@ -109,11 +121,19 @@ pw_client_new(struct pw_core *core,
 
 void pw_client_destroy(struct pw_client *client);
 
-struct pw_core *pw_client_get_core(struct pw_client *client);
+const struct pw_client_info *pw_client_get_info(struct pw_client *client);
 
-struct pw_global *pw_client_get_global(struct pw_client *client);
+void pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
 
 const struct pw_properties *pw_client_get_properties(struct pw_client *client);
+
+struct pw_core *pw_client_get_core(struct pw_client *client);
+
+struct pw_resource *pw_client_get_core_resource(struct pw_client *client);
+
+struct pw_resource *pw_client_get_resource(struct pw_client *client, uint32_t id);
+
+struct pw_global *pw_client_get_global(struct pw_client *client);
 
 const struct ucred *pw_client_get_ucred(struct pw_client *client);
 
@@ -124,10 +144,6 @@ void pw_client_add_listener(struct pw_client *client,
 			    const struct pw_client_events *events,
 			    void *data);
 
-
-const struct pw_client_info *pw_client_get_info(struct pw_client *client);
-
-void pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
 
 /** Mark the client busy. This can be used when an asynchronous operation is
   * started and no further processing is allowed to happen for the client */

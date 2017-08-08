@@ -132,7 +132,7 @@ struct pw_listener_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy)
 	return &proxy->proxy_listener_list;
 }
 
-const void *pw_proxy_get_proxy_implementation(struct pw_proxy *proxy)
+const struct pw_protocol_marshal *pw_proxy_get_marshal(struct pw_proxy *proxy)
 {
-	return proxy->marshal->method_marshal;
+	return proxy->marshal;
 }

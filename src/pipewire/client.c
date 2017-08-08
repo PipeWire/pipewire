@@ -76,8 +76,7 @@ client_bind_func(struct pw_global *global,
 
       no_mem:
 	pw_log_error("can't create client resource");
-	pw_core_resource_error(client->core_resource,
-			       client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+	pw_resource_error(client->core_resource, SPA_RESULT_NO_MEMORY, "no memory");
 	return SPA_RESULT_NO_MEMORY;
 }
 
@@ -133,6 +132,16 @@ struct pw_client *pw_client_new(struct pw_core *core,
 struct pw_core *pw_client_get_core(struct pw_client *client)
 {
 	return client->core;
+}
+
+struct pw_resource *pw_client_get_core_resource(struct pw_client *client)
+{
+	return client->core_resource;
+}
+
+struct pw_resource *pw_client_get_resource(struct pw_client *client, uint32_t id)
+{
+	return pw_map_lookup(&client->objects, id);
 }
 
 struct pw_global *pw_client_get_global(struct pw_client *client)
@@ -250,6 +259,7 @@ void pw_client_update_properties(struct pw_client *client, const struct spa_dict
 void pw_client_set_busy(struct pw_client *client, bool busy)
 {
 	if (client->busy != busy) {
+		pw_log_debug("client %p: busy %d", client, busy);
 		client->busy = busy;
 		pw_listener_list_emit(&client->listener_list, struct pw_client_events, busy_changed, busy);
 	}

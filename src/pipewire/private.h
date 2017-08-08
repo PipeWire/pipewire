@@ -270,7 +270,7 @@ struct pw_resource {
 	uint32_t version;		/**< version of the client interface */
 
 	struct pw_listener implementation;
-
+	struct pw_listener_list implementation_list;
 	struct pw_listener_list listener_list;
 
         const struct pw_protocol_marshal *marshal;

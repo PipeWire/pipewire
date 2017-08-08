@@ -162,11 +162,17 @@ void pw_core_add_listener(struct pw_core *core,
 			  const struct pw_core_events *events,
 			  void *data);
 
+void pw_core_set_permission_callback(struct pw_core *core,
+				     pw_permission_func_t callback,
+				     void *data);
+
 struct pw_type *pw_core_get_type(struct pw_core *core);
 
 const struct pw_core_info *pw_core_get_info(struct pw_core *core);
 
-const struct spa_dict *pw_core_get_properties(struct pw_core *core);
+struct pw_global *pw_core_get_global(struct pw_core *core);
+
+const struct pw_properties *pw_core_get_properties(struct pw_core *core);
 
 const struct spa_support *pw_core_get_support(struct pw_core *core, uint32_t *n_support);
 

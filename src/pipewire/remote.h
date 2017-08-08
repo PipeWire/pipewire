@@ -168,6 +168,8 @@ struct pw_core_proxy * pw_remote_get_core_proxy(struct pw_remote *remote);
 /** Get the remote core info, can only be called when connected */
 const struct pw_core_info *pw_remote_get_core_info(struct pw_remote *remote);
 
+struct pw_proxy *pw_remote_get_proxy(struct pw_remote *remote, uint32_t id);
+
 /** Disconnect from the remote PipeWire. \memberof pw_remote */
 void pw_remote_disconnect(struct pw_remote *remote);
 

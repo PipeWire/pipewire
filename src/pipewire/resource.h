@@ -84,6 +84,8 @@ uint32_t pw_resource_get_id(struct pw_resource *resource);
 
 uint32_t pw_resource_get_permissions(struct pw_resource *resource);
 
+uint32_t pw_resource_get_type(struct pw_resource *resource);
+
 struct pw_protocol *pw_resource_get_protocol(struct pw_resource *resource);
 
 void *pw_resource_get_user_data(struct pw_resource *resource);
@@ -97,20 +99,22 @@ void pw_resource_set_implementation(struct pw_resource *resource,
 				    const void *implementation,
 				    void *data);
 
+void pw_resource_add_override(struct pw_resource *resource,
+			      struct pw_listener *listener,
+			      const void *implementation,
+			      void *data);
+
 void pw_resource_error(struct pw_resource *resource, int result, const char *error);
 
-struct pw_listener *pw_resource_get_implementation(struct pw_resource *resource);
+struct pw_listener_list *pw_resource_get_implementation(struct pw_resource *resource);
 
-const void *pw_resource_get_proxy_notify(struct pw_resource *resource);
+const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *resource);
 
-#define pw_resource_do(r,type,method,...) ({				\
-        struct pw_listener *l = pw_resource_get_implementation(r);	\
-	const type *cb = l->events;					\
-	if (cb->method)							\
-		cb->method(l->data, ## __VA_ARGS__);			\
-});
+#define pw_resource_do(r,type,method,...)	pw_listener_list_emit_once(pw_resource_get_implementation(r),type,method,## __VA_ARGS__)
 
-#define pw_resource_notify(r,type,event,...)	((type*) pw_resource_get_proxy_notify(r))->event(r, ## __VA_ARGS__)
+#define pw_resource_do_parent(r,l,type,method,...) pw_listener_list_emit_once_start(pw_resource_get_implementation(r),l,type,method,## __VA_ARGS__)
+
+#define pw_resource_notify(r,type,event,...)	((type*) pw_resource_get_marshal(r)->event_marshal)->event(r, ## __VA_ARGS__)
 
 #ifdef __cplusplus
 }

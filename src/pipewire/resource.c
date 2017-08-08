@@ -51,6 +51,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	this->type = type;
 	this->version = version;
 
+	pw_listener_list_init(&this->implementation_list);
 	pw_listener_list_init(&this->listener_list);
 
 	if (id == SPA_ID_INVALID) {
@@ -64,6 +65,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	this->marshal = pw_protocol_get_marshal(client->protocol, type);
+	pw_listener_list_add(&this->implementation_list, &this->implementation, NULL, NULL);
 
 	pw_log_debug("resource %p: new for client %p id %u", this, client, id);
 	pw_listener_list_emit(&client->listener_list, struct pw_client_events, resource_added, this);
@@ -89,6 +91,11 @@ uint32_t pw_resource_get_id(struct pw_resource *resource)
 uint32_t pw_resource_get_permissions(struct pw_resource *resource)
 {
 	return resource->permissions;
+}
+
+uint32_t pw_resource_get_type(struct pw_resource *resource)
+{
+	return resource->type;
 }
 
 struct pw_protocol *pw_resource_get_protocol(struct pw_resource *resource)
@@ -121,14 +128,24 @@ void pw_resource_set_implementation(struct pw_resource *resource,
 	pw_listener_list_emit(&client->listener_list, struct pw_client_events, resource_impl, resource);
 }
 
-struct pw_listener *pw_resource_get_implementation(struct pw_resource *resource)
+void pw_resource_add_override(struct pw_resource *resource,
+			      struct pw_listener *listener,
+			      const void *implementation,
+			      void *data)
 {
-	return &resource->implementation;
+	listener->events = implementation;
+	listener->data = data;
+	spa_list_insert(&resource->implementation_list.list, &listener->link);
 }
 
-const void *pw_resource_get_proxy_notify(struct pw_resource *resource)
+struct pw_listener_list *pw_resource_get_implementation(struct pw_resource *resource)
 {
-	return resource->marshal->event_marshal;
+	return &resource->implementation_list;
+}
+
+const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *resource)
+{
+	return resource->marshal;
 }
 
 void pw_resource_error(struct pw_resource *resource, int result, const char *error)

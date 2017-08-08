@@ -189,13 +189,13 @@ static void update_monitor(struct pw_core *core, const char *name)
 {
 	const char *monitors;
 	struct spa_dict_item item;
-	const struct spa_dict *props;
+	const struct pw_properties *props;
 	struct spa_dict dict = SPA_DICT_INIT(1, &item);
 
 	props = pw_core_get_properties(core);
 
 	if (props)
-		monitors = spa_dict_lookup(props, "monitors");
+		monitors = pw_properties_get(props, "monitors");
 	else
 		monitors = NULL;
 

@@ -337,6 +337,11 @@ const struct pw_core_info *pw_remote_get_core_info(struct pw_remote *remote)
 	return remote->info;
 }
 
+struct pw_proxy *pw_remote_get_proxy(struct pw_remote *remote, uint32_t id)
+{
+	return pw_map_lookup(&remote->objects, id);
+}
+
 int pw_remote_connect(struct pw_remote *remote)
 {
 	int res;

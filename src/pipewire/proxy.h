@@ -86,9 +86,10 @@ struct pw_remote;
  */
 struct pw_proxy;
 
-#include <pipewire/type.h>
 #include <pipewire/utils.h>
-#include <pipewire/listener.h>
+#include <pipewire/core.h>
+#include <pipewire/client.h>
+#include <pipewire/protocol.h>
 
 struct pw_proxy_events {
 #define PW_VERSION_PROXY_EVENTS		0
@@ -125,10 +126,10 @@ struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
 
 struct pw_listener_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy);
 
-const void *pw_proxy_get_proxy_implementation(struct pw_proxy *proxy);
+const struct pw_protocol_marshal *pw_proxy_get_marshal(struct pw_proxy *proxy);
 
 #define pw_proxy_notify(p,type,event,...)	pw_listener_list_emit(pw_proxy_get_proxy_listeners(p),type,event,## __VA_ARGS__)
-#define pw_proxy_do(p,type,method,...)		((type*) pw_proxy_get_proxy_implementation(p))->method(p, ## __VA_ARGS__)
+#define pw_proxy_do(p,type,method,...)		((type*) pw_proxy_get_marshal(p)->method_marshal)->method(p, ## __VA_ARGS__)
 
 #ifdef __cplusplus
 }

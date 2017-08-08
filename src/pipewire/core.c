@@ -500,14 +500,30 @@ pw_core_add_global(struct pw_core *core,
 	return this;
 }
 
+const struct pw_core_info *pw_core_get_info(struct pw_core *core)
+{
+	return &core->info;
+}
+
+struct pw_global *pw_core_get_global(struct pw_core *core)
+{
+	return core->global;
+}
+
 struct pw_core *pw_global_get_core(struct pw_global *global)
 {
 	return global->core;
 }
 
-const struct pw_core_info *pw_core_get_info(struct pw_core *core)
+
+struct pw_client *pw_global_get_owner(struct pw_global *global)
 {
-	return &core->info;
+	return global->owner;
+}
+
+struct pw_global *pw_global_get_parent(struct pw_global *global)
+{
+	return global->parent;
 }
 
 uint32_t pw_global_get_type(struct pw_global *global)
@@ -610,6 +626,14 @@ void pw_core_add_listener(struct pw_core *core,
 	pw_listener_list_add(&core->listener_list, listener, events, data);
 }
 
+void pw_core_set_permission_callback(struct pw_core *core,
+				     pw_permission_func_t callback,
+				     void *data)
+{
+	core->permission_func = callback;
+	core->permission_data = data;
+}
+
 struct pw_type *pw_core_get_type(struct pw_core *core)
 {
 	return &core->type;
@@ -626,9 +650,9 @@ struct pw_loop *pw_core_get_main_loop(struct pw_core *core)
 	return core->main_loop;
 }
 
-const struct spa_dict *pw_core_get_properties(struct pw_core *core)
+const struct pw_properties *pw_core_get_properties(struct pw_core *core)
 {
-	return &core->properties->dict;
+	return core->properties;
 }
 
 /** Update core properties

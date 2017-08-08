@@ -93,13 +93,14 @@ struct client_data {
 	int fd;
 	struct spa_source *source;
 	struct pw_protocol_native_connection *connection;
+	bool busy;
 };
 
 static void
-process_messages(struct pw_client *client)
+process_messages(struct client_data *data)
 {
-	struct client_data *data = client->user_data;
 	struct pw_protocol_native_connection *conn = data->connection;
+	struct pw_client *client = data->client;
 	uint8_t opcode;
 	uint32_t id;
 	uint32_t size;
@@ -108,31 +109,40 @@ process_messages(struct pw_client *client)
 	while (pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size)) {
 		struct pw_resource *resource;
 		const struct pw_protocol_native_demarshal *demarshal;
+	        const struct pw_protocol_marshal *marshal;
+		uint32_t permissions;
+
+		/* when the client is busy processing an async action, stop processing messages
+		 * for the client until it finishes the action */
+		if (data->busy)
+			break;
 
 		pw_log_trace("protocol-native %p: got message %d from %u", client->protocol,
 			     opcode, id);
 
-		resource = pw_map_lookup(&client->objects, id);
+		resource = pw_client_get_resource(client, id);
 		if (resource == NULL) {
 			pw_log_error("protocol-native %p: unknown resource %u",
 				     client->protocol, id);
 			continue;
 		}
-		if ((resource->permissions & PW_PERM_X) == 0) {
+		permissions = pw_resource_get_permissions(resource);
+		if ((permissions & PW_PERM_X) == 0) {
 			pw_log_error("protocol-native %p: execute not allowed on resource %u",
 				     client->protocol, id);
 			continue;
 		}
 
-		if (opcode >= resource->marshal->n_methods)
+		marshal = pw_resource_get_marshal(resource);
+		if (marshal == NULL || opcode >= marshal->n_methods)
 			goto invalid_method;
 
-		demarshal = resource->marshal->method_demarshal;
+		demarshal = marshal->method_demarshal;
 		if (!demarshal[opcode].func)
 			goto invalid_message;
 
 		if ((demarshal[opcode].flags & PW_PROTOCOL_NATIVE_PERM_W) &&
-		    ((resource->permissions & PW_PERM_X) == 0)) {
+		    ((permissions & PW_PERM_X) == 0)) {
 			pw_log_error("protocol-native %p: method %u requires write access on %u",
 				     client->protocol, opcode, id);
 			continue;
@@ -144,11 +154,6 @@ process_messages(struct pw_client *client)
 
 		if (!demarshal[opcode].func (resource, message, size))
 			goto invalid_message;
-
-		/* when the client is busy processing an async action, stop processing messages
-		 * for the client until it finishes the action */
-		if (client->busy)
-			break;
 	}
 	return;
 
@@ -167,17 +172,20 @@ process_messages(struct pw_client *client)
 static void
 client_busy_changed(void *data, bool busy)
 {
-	struct pw_client *client = data;
-	struct client_data *c = client->user_data;
+	struct client_data *c = data;
+	struct pw_client *client = c->client;
 	enum spa_io mask = SPA_IO_ERR | SPA_IO_HUP;
+
+	c->busy = busy;
 
 	if (!busy)
 		mask |= SPA_IO_IN;
 
+	pw_log_debug("protocol-native %p: busy changed %d", client->protocol, busy);
 	pw_loop_update_io(client->core->main_loop, c->source, mask);
 
-	if (busy)
-		process_messages(client);
+	if (!busy)
+		process_messages(c);
 
 }
 
@@ -198,7 +206,8 @@ static void
 connection_data(struct spa_loop_utils *utils,
 		struct spa_source *source, int fd, enum spa_io mask, void *data)
 {
-	struct pw_client *client = data;
+	struct client_data *this = data;
+	struct pw_client *client = this->client;
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_error("protocol-native %p: got connection error", client->protocol);
@@ -207,13 +216,13 @@ connection_data(struct spa_loop_utils *utils,
 	}
 
 	if (mask & SPA_IO_IN)
-		process_messages(client);
+		process_messages(this);
 }
 
 static void client_free(void *data)
 {
-	struct pw_client *client = data;
-	struct client_data *this = client->user_data;
+	struct client_data *this = data;
+	struct pw_client *client = this->client;
 
 	pw_loop_destroy_source(client->protocol->core->main_loop, this->source);
 	spa_list_remove(&client->protocol_link);
@@ -236,6 +245,7 @@ static struct pw_client *client_new(struct listener *l, int fd)
 	struct protocol_data *pd = protocol->user_data;
 	socklen_t len;
 	struct ucred ucred, *ucredp;
+	struct pw_core *core = protocol->core;
 
 	len = sizeof(ucred);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
@@ -245,16 +255,20 @@ static struct pw_client *client_new(struct listener *l, int fd)
 		ucredp = &ucred;
 	}
 
-	client = pw_client_new(protocol->core, pd->module->global, ucredp, NULL, sizeof(struct client_data));
+	client = pw_client_new(protocol->core,
+			       pw_module_get_global(pd->module),
+			       ucredp,
+			       NULL,
+			       sizeof(struct client_data));
 	if (client == NULL)
 		goto no_client;
 
 	this = pw_client_get_user_data(client);
 	this->client = client;
 	this->fd = fd;
-	this->source = pw_loop_add_io(protocol->core->main_loop,
+	this->source = pw_loop_add_io(pw_core_get_main_loop(core),
 				      this->fd,
-				      SPA_IO_ERR | SPA_IO_HUP, false, connection_data, client);
+				      SPA_IO_ERR | SPA_IO_HUP, false, connection_data, this);
 	if (this->source == NULL)
 		goto no_source;
 
@@ -265,14 +279,14 @@ static struct pw_client *client_new(struct listener *l, int fd)
 	client->protocol = protocol;
 	spa_list_insert(l->this.client_list.prev, &client->protocol_link);
 
-	pw_client_add_listener(client, &this->client_listener, &client_events, client);
+	pw_client_add_listener(client, &this->client_listener, &client_events, this);
 
-	pw_global_bind(protocol->core->global, client, PW_PERM_RWX, PW_VERSION_CORE, 0);
+	pw_global_bind(pw_core_get_global(core), client, PW_PERM_RWX, PW_VERSION_CORE, 0);
 
 	return client;
 
       no_connection:
-	pw_loop_destroy_source(protocol->core->main_loop, this->source);
+	pw_loop_destroy_source(pw_core_get_main_loop(core), this->source);
       no_source:
 	pw_client_destroy(client);
       no_client:
@@ -389,7 +403,7 @@ static bool add_socket(struct pw_protocol *protocol, struct listener *l)
 		return false;
 	}
 
-	l->loop = protocol->core->main_loop;
+	l->loop = pw_core_get_main_loop(protocol->core);
 	l->source = pw_loop_add_io(l->loop, l->fd, SPA_IO_IN, false, socket_data, l);
 	if (l->source == NULL)
 		return false;
@@ -398,7 +412,7 @@ static bool add_socket(struct pw_protocol *protocol, struct listener *l)
 }
 
 static const char *
-get_name(struct pw_properties *properties)
+get_name(const struct pw_properties *properties)
 {
 	const char *name = NULL;
 
@@ -459,10 +473,11 @@ on_remote_data(struct spa_loop_utils *utils,
         struct connection *impl = data;
         struct pw_remote *this = impl->this.remote;
         struct pw_protocol_native_connection *conn = impl->connection;
+	struct pw_core *core = pw_remote_get_core(this);
 
         if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_error("protocol-native %p: got connection error", impl);
-		pw_loop_destroy_source(this->core->main_loop, impl->source);
+		pw_loop_destroy_source(pw_core_get_main_loop(core), impl->source);
 		impl->source = NULL;
 		pw_remote_update_state(this, PW_REMOTE_STATE_ERROR, "connection error");
 		return;
@@ -478,21 +493,25 @@ on_remote_data(struct spa_loop_utils *utils,
                        && pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size)) {
                         struct pw_proxy *proxy;
                         const struct pw_protocol_native_demarshal *demarshal;
+			const struct pw_protocol_marshal *marshal;
 
                         pw_log_trace("protocol-native %p: got message %d from %u", this, opcode, id);
 
-                        proxy = pw_map_lookup(&this->objects, id);
-                        if (proxy == NULL || proxy->marshal == NULL) {
+                        proxy = pw_remote_get_proxy(this, id);
+
+                        if (proxy == NULL) {
                                 pw_log_error("protocol-native %p: could not find proxy %u", this, id);
                                 continue;
                         }
-                        if (opcode >= proxy->marshal->n_events) {
+
+			marshal = pw_proxy_get_marshal(proxy);
+                        if (marshal == NULL || opcode >= marshal->n_events) {
                                 pw_log_error("protocol-native %p: invalid method %u for %u", this, opcode,
                                              id);
                                 continue;
                         }
 
-                        demarshal = proxy->marshal->event_demarshal;
+                        demarshal = marshal->event_demarshal;
 			if (!demarshal[opcode].func) {
                                 pw_log_error("protocol-native %p: function %d not implemented on %u", this,
                                              opcode, id);
@@ -665,7 +684,7 @@ impl_add_listener(struct pw_protocol *protocol,
 	spa_list_init(&this->client_list);
 	this->destroy = destroy_listener;
 
-	name = get_name(core->properties);
+	name = get_name(pw_core_get_properties(core));
 
 	if (!init_socket_name(l, name))
 		goto error;
@@ -679,7 +698,7 @@ impl_add_listener(struct pw_protocol *protocol,
 	spa_list_insert(protocol->listener_list.prev, &this->link);
 
 	l->hooks.before = on_before_hook;
-	pw_loop_add_hooks(protocol->core->main_loop, &l->hooks);
+	pw_loop_add_hooks(pw_core_get_main_loop(core), &l->hooks);
 
 	pw_log_info("protocol-native %p: Added listener %p", protocol, this);
 
@@ -761,7 +780,7 @@ const static struct pw_protocol_native_ext protocol_ext_impl = {
 
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
-	struct pw_core *core = module->core;
+	struct pw_core *core = pw_module_get_core(module);
 	struct pw_protocol *this;
 	const char *val;
 	struct protocol_data *d;
@@ -783,7 +802,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	d = pw_protocol_get_user_data(this);
 	d->module = module;
 
-	if ((val = pw_properties_get(core->properties, "pipewire.daemon"))) {
+	if ((val = pw_properties_get(pw_core_get_properties(core), "pipewire.daemon"))) {
 		if (atoi(val) == 1)
 			impl_add_listener(this, core, properties);
 	}

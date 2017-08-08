@@ -30,7 +30,6 @@
 #include <dbus/dbus.h>
 
 #include "pipewire/interfaces.h"
-#include "pipewire/private.h"
 #include "pipewire/utils.h"
 
 #include "pipewire/core.h"
@@ -38,6 +37,7 @@
 
 struct impl {
 	struct pw_core *core;
+	struct pw_type *type;
 	struct pw_properties *properties;
 
 	DBusConnection *bus;
@@ -54,9 +54,8 @@ struct client_info {
 	struct spa_list link;
 	struct pw_client *client;
 	bool is_sandboxed;
-	bool in_override;
-	const struct pw_core_proxy_methods *old_methods;
-	struct pw_core_proxy_methods core_methods;
+	struct pw_resource *core_resource;
+	struct pw_listener core_override;
 	struct spa_list async_pending;
 	struct pw_listener client_listener;
 };
@@ -153,15 +152,20 @@ static bool client_is_sandboxed(struct pw_client *cl)
 	bool result;
 	int fd;
 	pid_t pid;
+	const struct ucred *ucred;
 
-	if (cl->ucred_valid) {
-		pw_log_info("client has trusted pid %d", cl->ucred.pid);
+	return true;
+
+	ucred = pw_client_get_ucred(cl);
+
+	if (ucred) {
+		pw_log_info("client has trusted pid %d", ucred->pid);
 	} else {
 		pw_log_info("no trusted pid found, assuming not sandboxed\n");
 		return false;
 	}
 
-	pid = cl->ucred.pid;
+	pid = ucred->pid;
 
 	sprintf(data, "/proc/%u/cgroup", pid);
 	fd = open(data, O_RDONLY | O_CLOEXEC, 0);
@@ -206,34 +210,47 @@ static bool client_is_sandboxed(struct pw_client *cl)
 static bool
 check_global_owner(struct pw_core *core, struct pw_client *client, struct pw_global *global)
 {
+	struct pw_client *owner;
+	const struct ucred *owner_ucred, *client_ucred;
+
 	if (global == NULL)
 		return false;
 
-	if (global->owner == NULL)
+	owner = pw_global_get_owner(global);
+	if (owner == NULL)
 		return true;
 
-	if (global->owner->ucred.uid == client->ucred.uid)
+	owner_ucred = pw_client_get_ucred(owner);
+	client_ucred = pw_client_get_ucred(client);
+
+	if (owner_ucred == NULL || client_ucred == NULL)
 		return true;
 
-	return false;
+	return owner_ucred->uid == client_ucred->uid;
 }
 
 static uint32_t
 do_permission(struct pw_global *global, struct pw_client *client, void *data)
 {
-	if (global->type == client->core->type.link) {
-		struct pw_link *link = global->object;
+	struct impl *impl = data;
 
+	if (pw_global_get_type(global) == impl->type->link) {
+		struct pw_link *link = pw_global_get_object(global);
+		struct pw_port *port;
+		struct pw_node *node;
+
+		port = pw_link_get_output(link);
+		node = pw_port_get_node(port);
 		/* we must be able to see both nodes */
-		if (link->output
-		    && !check_global_owner(client->core, client, link->output->node->global))
+		if (port && node && !check_global_owner(impl->core, client, pw_node_get_global(node)))
 			 return 0;
 
-		if (link->input
-		    && !check_global_owner(client->core, client, link->input->node->global))
+		port = pw_link_get_input(link);
+		node = pw_port_get_node(port);
+		if (port && node && !check_global_owner(impl->core, client, pw_node_get_global(node)))
 			 return 0;
 	}
-	else if (!check_global_owner(client->core, client, global))
+	else if (!check_global_owner(impl->core, client, global))
 		return 0;
 
 	return PW_PERM_RWX;
@@ -268,16 +285,18 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 		pw_log_debug("portal check result: %d", response);
 
 		if (response == 0) {
-			cinfo->old_methods->create_node (p->resource,
-							 p->factory_name,
-							 p->name,
-							 p->type,
-							 p->version,
-							 &p->properties->dict,
-							 p->new_id);
+			pw_resource_do_parent(cinfo->core_resource,
+					      &cinfo->core_override,
+					      struct pw_core_proxy_methods,
+					      create_node,
+					      p->factory_name,
+					      p->name,
+					      p->type,
+					      p->version,
+					      &p->properties->dict,
+					      p->new_id);
 		} else {
-			pw_core_resource_error(cinfo->client->core_resource,
-					       p->resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
+			pw_resource_error(p->resource, SPA_RESULT_NO_PERMISSION, "not allowed");
 
 		}
 		free_pending(p);
@@ -289,7 +308,7 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 }
 
 
-static void do_create_node(void *object,
+static void do_create_node(void *data,
 			   const char *factory_name,
 			   const char *name,
 			   uint32_t type,
@@ -297,10 +316,9 @@ static void do_create_node(void *object,
 			   const struct spa_dict *props,
 			   uint32_t new_id)
 {
-	struct pw_resource *resource = object;
-	struct client_info *cinfo = resource->access_private;
+	struct client_info *cinfo = data;
 	struct impl *impl = cinfo->impl;
-	struct pw_client *client = resource->client;
+	struct pw_client *client = cinfo->client;
 	DBusMessage *m = NULL, *r = NULL;
 	DBusError error;
 	pid_t pid;
@@ -311,7 +329,16 @@ static void do_create_node(void *object,
 	struct async_pending *p;
 
 	if (!cinfo->is_sandboxed) {
-		cinfo->old_methods->create_node (object, factory_name, name, type, version, props, new_id);
+		pw_resource_do_parent(cinfo->core_resource,
+				      &cinfo->core_override,
+				      struct pw_core_proxy_methods,
+				      create_node,
+				      factory_name,
+				      name,
+				      type,
+				      version,
+				      props,
+				      new_id);
 		return;
 	}
 	if (strcmp(factory_name, "client-node") != 0) {
@@ -320,6 +347,7 @@ static void do_create_node(void *object,
 	}
 
 	pw_log_info("ask portal for client %p", cinfo->client);
+	pw_client_set_busy(client, true);
 
 	dbus_error_init(&error);
 
@@ -330,7 +358,7 @@ static void do_create_node(void *object,
 
 	device = "camera";
 
-	pid = cinfo->client->ucred.pid;
+	pid = pw_client_get_ucred(cinfo->client)->pid;
 	if (!dbus_message_append_args(m, DBUS_TYPE_UINT32, &pid, DBUS_TYPE_INVALID))
 		goto message_failed;
 
@@ -364,14 +392,13 @@ static void do_create_node(void *object,
 	p->info = cinfo;
 	p->handle = strdup(handle);
 	p->handled = false;
-	p->resource = resource;
+	p->resource = cinfo->core_resource;
 	p->factory_name = strdup(factory_name);
 	p->name = strdup(name);
 	p->type = type;
 	p->version = version;
 	p->properties = props ? pw_properties_new_dict(props) : NULL;
 	p->new_id = new_id;
-	pw_client_set_busy(client, true);
 
 	pw_log_debug("pending %p: handle %s", p, handle);
 	spa_list_insert(cinfo->async_pending.prev, &p->link);
@@ -399,13 +426,12 @@ static void do_create_node(void *object,
 	dbus_error_free(&error);
 	goto not_allowed;
       not_allowed:
-	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
+	pw_resource_error(cinfo->core_resource, SPA_RESULT_NO_PERMISSION, "not allowed");
 	return;
 }
 
 static void
-do_create_link(void *object,
+do_create_link(void *data,
 	       uint32_t output_node_id,
 	       uint32_t output_port_id,
 	       uint32_t input_node_id,
@@ -414,48 +440,43 @@ do_create_link(void *object,
 	       const struct spa_dict *props,
 	       uint32_t new_id)
 {
-	struct pw_resource *resource = object;
-	struct client_info *cinfo = resource->access_private;
-	struct pw_client *client = resource->client;
+	struct client_info *cinfo = data;
 
 	if (cinfo->is_sandboxed) {
-		pw_core_resource_error(client->core_resource,
-				       resource->id, SPA_RESULT_NO_PERMISSION, "not allowed");
+		pw_resource_error(cinfo->core_resource, SPA_RESULT_NO_PERMISSION, "not allowed");
 		return;
 	}
-	cinfo->old_methods->create_link (object,
-					 output_node_id,
-					 output_port_id,
-					 input_node_id,
-					 input_port_id,
-					 filter,
-					 props,
-					 new_id);
+	pw_resource_do_parent(cinfo->core_resource,
+			      &cinfo->core_override,
+			      struct pw_core_proxy_methods,
+			      create_link,
+			      output_node_id,
+			      output_port_id,
+			      input_node_id,
+			      input_port_id,
+			      filter,
+			      props,
+			      new_id);
 }
+
+static const struct pw_core_proxy_methods core_override = {
+	PW_VERSION_CORE_PROXY_METHODS,
+	.create_node = do_create_node,
+	.create_link = do_create_link,
+};
 
 static void client_resource_impl(void *data, struct pw_resource *resource)
 {
 	struct client_info *cinfo = data;
-	struct pw_client *client = cinfo->client;
+	struct impl *impl = cinfo->impl;
 
-	if (resource->type == client->core->type.core) {
-		struct pw_listener *impl = pw_resource_get_implementation(resource);
-
-		if (cinfo->in_override)
-			return;
-
-		cinfo->old_methods = impl->events;
-		cinfo->core_methods = *cinfo->old_methods;
-
-		cinfo->in_override = true;
-		pw_resource_set_implementation(resource,
-					       &cinfo->core_methods,
-					       impl->data);
-		cinfo->in_override = false;
-
-		resource->access_private = cinfo;
-		cinfo->core_methods.create_node = do_create_node;
-		cinfo->core_methods.create_link = do_create_link;
+	if (pw_resource_get_type(resource) == impl->type->core) {
+		cinfo->core_resource = resource;
+		pw_log_debug("module %p: add core override", impl);
+		pw_resource_add_override(resource,
+					 &cinfo->core_override,
+					 &core_override,
+					 cinfo);
 	}
 }
 
@@ -469,8 +490,8 @@ core_global_added(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 
-	if (global->type == impl->core->type.client) {
-		struct pw_client *client = global->object;
+	if (pw_global_get_type(global) == impl->type->client) {
+		struct pw_client *client = pw_global_get_object(global);
 		struct client_info *cinfo;
 
 		cinfo = calloc(1, sizeof(struct client_info));
@@ -492,8 +513,8 @@ core_global_removed(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 
-	if (global->type == impl->core->type.client) {
-		struct pw_client *client = global->object;
+	if (pw_global_get_type(global) == impl->type->client) {
+		struct pw_client *client = pw_global_get_object(global);
 		struct client_info *cinfo;
 
 		if ((cinfo = find_client_info(impl, client)))
@@ -514,14 +535,14 @@ static void dispatch_cb(struct spa_loop_utils *utils, struct spa_source *source,
 	struct impl *impl = userdata;
 
 	if (dbus_connection_dispatch(impl->bus) == DBUS_DISPATCH_COMPLETE)
-		pw_loop_enable_idle(impl->core->main_loop, source, false);
+		pw_loop_enable_idle(pw_core_get_main_loop(impl->core), source, false);
 }
 
 static void dispatch_status(DBusConnection *conn, DBusDispatchStatus status, void *userdata)
 {
 	struct impl *impl = userdata;
 
-	pw_loop_enable_idle(impl->core->main_loop,
+	pw_loop_enable_idle(pw_core_get_main_loop(impl->core),
 			    impl->dispatch_event, status == DBUS_DISPATCH_COMPLETE ? false : true);
 }
 
@@ -582,7 +603,7 @@ static dbus_bool_t add_watch(DBusWatch *watch, void *userdata)
 
 	/* we dup because dbus tends to add the same fd multiple times and our epoll
 	 * implementation does not like that */
-	source = pw_loop_add_io(impl->core->main_loop,
+	source = pw_loop_add_io(pw_core_get_main_loop(impl->core),
 				dup(dbus_watch_get_unix_fd(watch)),
 				dbus_to_io(watch), true, handle_io_event, watch);
 
@@ -596,7 +617,7 @@ static void remove_watch(DBusWatch *watch, void *userdata)
 	struct spa_source *source;
 
 	if ((source = dbus_watch_get_data(watch)))
-		pw_loop_destroy_source(impl->core->main_loop, source);
+		pw_loop_destroy_source(pw_core_get_main_loop(impl->core), source);
 }
 
 static void toggle_watch(DBusWatch *watch, void *userdata)
@@ -606,7 +627,7 @@ static void toggle_watch(DBusWatch *watch, void *userdata)
 
 	source = dbus_watch_get_data(watch);
 
-	pw_loop_update_io(impl->core->main_loop, source, dbus_to_io(watch));
+	pw_loop_update_io(pw_core_get_main_loop(impl->core), source, dbus_to_io(watch));
 }
 
 static void
@@ -636,14 +657,14 @@ static dbus_bool_t add_timeout(DBusTimeout *timeout, void *userdata)
 	if (!dbus_timeout_get_enabled(timeout))
 		return FALSE;
 
-	source = pw_loop_add_timer(impl->core->main_loop, handle_timer_event, timeout);
+	source = pw_loop_add_timer(pw_core_get_main_loop(impl->core), handle_timer_event, timeout);
 
 	dbus_timeout_set_data(timeout, source, NULL);
 
 	t = dbus_timeout_get_interval(timeout) * SPA_NSEC_PER_MSEC;
 	ts.tv_sec = t / SPA_NSEC_PER_SEC;
 	ts.tv_nsec = t % SPA_NSEC_PER_SEC;
-	pw_loop_update_timer(impl->core->main_loop, source, &ts, NULL, false);
+	pw_loop_update_timer(pw_core_get_main_loop(impl->core), source, &ts, NULL, false);
 	return TRUE;
 }
 
@@ -653,7 +674,7 @@ static void remove_timeout(DBusTimeout *timeout, void *userdata)
 	struct spa_source *source;
 
 	if ((source = dbus_timeout_get_data(timeout)))
-		pw_loop_destroy_source(impl->core->main_loop, source);
+		pw_loop_destroy_source(pw_core_get_main_loop(impl->core), source);
 }
 
 static void toggle_timeout(DBusTimeout *timeout, void *userdata)
@@ -672,18 +693,19 @@ static void toggle_timeout(DBusTimeout *timeout, void *userdata)
 	} else {
 		tsp = NULL;
 	}
-	pw_loop_update_timer(impl->core->main_loop, source, tsp, NULL, false);
+	pw_loop_update_timer(pw_core_get_main_loop(impl->core), source, tsp, NULL, false);
 }
 
 static void wakeup_main(void *userdata)
 {
 	struct impl *impl = userdata;
 
-	pw_loop_enable_idle(impl->core->main_loop, impl->dispatch_event, true);
+	pw_loop_enable_idle(pw_core_get_main_loop(impl->core), impl->dispatch_event, true);
 }
 
-static struct impl *module_new(struct pw_core *core, struct pw_properties *properties)
+static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
+	struct pw_core *core = pw_module_get_core(module);
 	struct impl *impl;
 	DBusError error;
 
@@ -693,13 +715,14 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = core;
+	impl->type = pw_core_get_type(core);
 	impl->properties = properties;
 
 	impl->bus = dbus_bus_get_private(DBUS_BUS_SESSION, &error);
 	if (impl->bus == NULL)
 		goto error;
 
-	impl->dispatch_event = pw_loop_add_idle(core->main_loop, false, dispatch_cb, impl);
+	impl->dispatch_event = pw_loop_add_idle(pw_core_get_main_loop(core), false, dispatch_cb, impl);
 
 	dbus_connection_set_exit_on_disconnect(impl->bus, false);
 	dbus_connection_set_dispatch_status_function(impl->bus, dispatch_status, impl, NULL);
@@ -713,15 +736,14 @@ static struct impl *module_new(struct pw_core *core, struct pw_properties *prope
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 
-	core->permission_func = do_permission;
-	core->permission_data = impl;
+	pw_core_set_permission_callback(core, do_permission, impl);
 
-	return impl;
+	return true;
 
       error:
 	pw_log_error("Failed to connect to system bus: %s", error.message);
 	dbus_error_free(&error);
-	return NULL;
+	return false;
 }
 
 #if 0
@@ -737,6 +759,5 @@ static void module_destroy(struct impl *impl)
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
-	module_new(module->core, NULL);
-	return true;
+	return module_init(module, NULL);
 }

@@ -57,15 +57,25 @@ static inline void pw_listener_remove(struct pw_listener *listener)
         spa_list_remove(&listener->link);
 }
 
-#define pw_listener_list_emit(l,type,method,...) ({		\
-	struct pw_listener_list *list = l;			\
-	struct pw_listener *ci, *t;				\
-	spa_list_for_each_safe(ci, t, &list->list, link) {	\
-		const type *cb = ci->events;			\
-		if (cb->method)					\
-			cb->method(ci->data, ## __VA_ARGS__);	\
-	}							\
+#define pw_listener_list_do_emit(l,start,type,method,once,...) ({	\
+	struct pw_listener_list *list = l;				\
+	struct spa_list *s = start ? (struct spa_list *)start : &list->list;	\
+	struct pw_listener *ci, *t;					\
+	spa_list_for_each_safe_next(ci, t, &list->list, s, link) {	\
+		const type *cb = ci->events;				\
+		if (cb->method)	{					\
+			cb->method(ci->data, ## __VA_ARGS__);		\
+			if (once)					\
+				break;					\
+		}							\
+	}								\
 });
+
+#define pw_listener_list_emit(l,t,m,...)	pw_listener_list_do_emit(l,NULL,t,m,false,##__VA_ARGS__)
+#define pw_listener_list_emit_once(l,t,m,...)	pw_listener_list_do_emit(l,NULL,t,m,true,##__VA_ARGS__)
+
+#define pw_listener_list_emit_start(l,s,t,m,...)	pw_listener_list_do_emit(l,s,t,m,false,##__VA_ARGS__)
+#define pw_listener_list_emit_once_start(l,s,t,m,...)	pw_listener_list_do_emit(l,s,t,m,true,##__VA_ARGS__)
 
 #ifdef __cplusplus
 }

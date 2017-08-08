@@ -33,7 +33,6 @@
 #include "spa/lib/format.h"
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
 #include "pipewire/interfaces.h"
 
 #include "pipewire/core.h"
@@ -1136,7 +1135,11 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 {
 	struct impl *impl;
 	struct pw_client_node *this;
-	struct pw_core *core = resource->client->core;
+	struct pw_client *client = pw_resource_get_client(resource);
+	struct pw_core *core = pw_client_get_core(client);
+	const struct spa_support *support;
+	uint32_t n_support;
+
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -1149,7 +1152,9 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug("client-node %p: new", impl);
 
-	proxy_init(&impl->proxy, NULL, core->support, core->n_support);
+	support = pw_core_get_support(impl->core, &n_support);
+
+	proxy_init(&impl->proxy, NULL, support, n_support);
 	impl->proxy.impl = impl;
 
 	this->resource = resource;

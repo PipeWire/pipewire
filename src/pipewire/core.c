@@ -347,7 +347,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	if (this == NULL)
 		return NULL;
 
-	this->data_loop_impl = pw_data_loop_new();
+	this->data_loop_impl = pw_data_loop_new(properties);
 	if (this->data_loop_impl == NULL)
 		goto no_data_loop;
 
@@ -400,9 +400,13 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->info.name = pw_properties_get(properties, "pipewire.core.name");
 	this->properties = properties;
 
-	this->global = pw_core_add_global(this, NULL, NULL, this->type.core, PW_VERSION_CORE,
-			   core_bind_func, this);
-
+	this->global = pw_core_add_global(this,
+					  NULL,
+					  NULL,
+					  this->type.core,
+					  PW_VERSION_CORE,
+					  core_bind_func,
+					  this);
 	return this;
 
       no_data_loop:
@@ -418,10 +422,17 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
  */
 void pw_core_destroy(struct pw_core *core)
 {
+	struct pw_global *global, *t;
+
 	pw_log_debug("core %p: destroy", core);
 	spa_hook_list_call(&core->listener_list, struct pw_core_events, destroy, core);
 
+	spa_list_for_each_safe(global, t, &core->global_list, link)
+		pw_global_destroy(global);
+
 	pw_data_loop_destroy(core->data_loop_impl);
+
+	pw_properties_free(core->properties);
 
 	pw_map_clear(&core->globals);
 

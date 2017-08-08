@@ -83,7 +83,8 @@ static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, uin
  *
  * \memberof pw_thread_loop
  */
-struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop, const char *name)
+struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
+					  const char *name)
 {
 	struct pw_thread_loop *this;
 	pthread_mutexattr_t attr;

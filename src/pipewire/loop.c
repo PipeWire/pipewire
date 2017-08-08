@@ -41,7 +41,7 @@ struct impl {
  * \returns a newly allocated loop
  * \memberof pw_loop
  */
-struct pw_loop *pw_loop_new(void)
+struct pw_loop *pw_loop_new(struct pw_properties *properties)
 {
 	int res;
 	struct impl *impl;

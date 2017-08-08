@@ -44,9 +44,6 @@ pw_client_node_transport_new(uint32_t max_input_ports, uint32_t max_output_ports
 struct pw_client_node_transport *
 pw_client_node_transport_new_from_info(struct pw_client_node_transport_info *info);
 
-void
-pw_client_node_transport_destroy(struct pw_client_node_transport *trans);
-
 int
 pw_client_node_transport_get_info(struct pw_client_node_transport *trans,
 				  struct pw_client_node_transport_info *info);

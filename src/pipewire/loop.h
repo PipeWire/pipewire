@@ -26,6 +26,7 @@ extern "C" {
 
 #include <spa/loop.h>
 
+#include <pipewire/properties.h>
 
 /** \class pw_loop
  *
@@ -40,7 +41,7 @@ struct pw_loop {
 };
 
 struct pw_loop *
-pw_loop_new(void);
+pw_loop_new(struct pw_properties *properties);
 
 void
 pw_loop_destroy(struct pw_loop *loop);

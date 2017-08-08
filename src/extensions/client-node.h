@@ -65,6 +65,12 @@ struct pw_client_node_transport {
 	void *output_data;			/**< output memory for ringbuffer */
 	struct spa_ringbuffer *output_buffer;	/**< ringbuffer for output memory */
 
+	/** Destroy a transport
+	 * \param trans a transport to destroy
+	 * \memberof pw_client_node_transport
+	 */
+	void (*destroy) (struct pw_client_node_transport *trans);
+
 	/** Add a message to the transport
 	 * \param trans the transport to send the message on
 	 * \param message the message to add
@@ -98,6 +104,7 @@ struct pw_client_node_transport {
 	int (*parse_message) (struct pw_client_node_transport *trans, void *message);
 };
 
+#define pw_client_node_transport_destroy(t)		((t)->destroy((t)))
 #define pw_client_node_transport_add_message(t,m)	((t)->add_message((t), (m)))
 #define pw_client_node_transport_next_message(t,m)	((t)->next_message((t), (m)))
 #define pw_client_node_transport_parse_message(t,m)	((t)->parse_message((t), (m)))

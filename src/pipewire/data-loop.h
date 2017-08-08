@@ -40,7 +40,7 @@ struct pw_data_loop_events {
 };
 
 struct pw_data_loop *
-pw_data_loop_new(void);
+pw_data_loop_new(struct pw_properties *properties);
 
 void pw_data_loop_add_listener(struct pw_data_loop *loop,
 			       struct spa_hook *listener,

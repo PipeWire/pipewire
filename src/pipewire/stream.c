@@ -260,7 +260,6 @@ do_remove_sources(struct spa_loop *loop,
 	struct stream *impl = user_data;
 	struct pw_stream *stream = &impl->this;
 
-	printf("removing sources\n");
 	if (impl->rtsocket_source) {
 		pw_loop_destroy_source(stream->remote->core->data_loop, impl->rtsocket_source);
 		impl->rtsocket_source = NULL;
@@ -328,12 +327,12 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	spa_hook_list_call(&stream->listener_list, struct pw_stream_events, destroy);
 
-	unhandle_socket(stream);
-
-	spa_list_remove(&stream->link);
-
 	if (impl->node_proxy)
 		spa_hook_remove(&impl->proxy_listener);
+
+	pw_stream_disconnect(stream);
+
+	spa_list_remove(&stream->link);
 
 	set_possible_formats(stream, 0, NULL);
 	set_params(stream, 0, NULL);
@@ -872,6 +871,8 @@ static void client_node_transport(void *data, uint32_t node_id,
 
 	stream->node_id = node_id;
 
+	if (impl->trans)
+		pw_client_node_transport_destroy(impl->trans);
 	impl->trans = transport;
 
 	pw_log_info("stream %p: create client transport %p with fds %d %d for node %u",
@@ -903,7 +904,6 @@ static void on_node_proxy_destroy(void *data)
 
 	impl->disconnecting = false;
 	impl->node_proxy = NULL;
-
 	spa_hook_remove(&impl->proxy_listener);
 
 	stream_set_state(this, PW_STREAM_STATE_UNCONNECTED, NULL);
@@ -993,6 +993,10 @@ void pw_stream_disconnect(struct pw_stream *stream)
 	if (impl->node_proxy) {
 		pw_client_node_proxy_destroy(impl->node_proxy);
 		impl->node_proxy = NULL;
+	}
+	if (impl->trans) {
+		pw_client_node_transport_destroy(impl->trans);
+		impl->trans = NULL;
 	}
 }
 

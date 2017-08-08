@@ -98,6 +98,16 @@ static void transport_reset_area(struct pw_client_node_transport *trans)
 	spa_ringbuffer_init(trans->output_buffer, OUTPUT_BUFFER_SIZE);
 }
 
+static void destroy(struct pw_client_node_transport *trans)
+{
+	struct transport *impl = (struct transport *) trans;
+
+	pw_log_debug("transport %p: destroy", trans);
+
+	pw_memblock_free(&impl->mem);
+	free(impl);
+}
+
 static int add_message(struct pw_client_node_transport *trans, struct pw_client_node_message *message)
 {
 	struct transport *impl = (struct transport *) trans;
@@ -194,6 +204,7 @@ pw_client_node_transport_new(uint32_t max_input_ports, uint32_t max_output_ports
 	transport_setup_area(impl->mem.ptr, trans);
 	transport_reset_area(trans);
 
+	trans->destroy = destroy;
 	trans->add_message = add_message;
 	trans->next_message = next_message;
 	trans->parse_message = parse_message;
@@ -236,6 +247,7 @@ pw_client_node_transport_new_from_info(struct pw_client_node_transport_info *inf
 	trans->output_data = trans->input_data;
 	trans->input_data = tmp;
 
+	trans->destroy = destroy;
 	trans->add_message = add_message;
 	trans->next_message = next_message;
 	trans->parse_message = parse_message;
@@ -245,20 +257,6 @@ pw_client_node_transport_new_from_info(struct pw_client_node_transport_info *inf
       mmap_failed:
 	free(impl);
 	return NULL;
-}
-
-/** Destroy a transport
- * \param trans a transport to destroy
- * \memberof pw_client_node_transport
- */
-void pw_client_node_transport_destroy(struct pw_client_node_transport *trans)
-{
-	struct transport *impl = (struct transport *) trans;
-
-	pw_log_debug("transport %p: destroy", trans);
-
-	pw_memblock_free(&impl->mem);
-	free(impl);
 }
 
 /** Get transport info

@@ -302,7 +302,7 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
 
   g_queue_init (&sink->queue);
 
-  sink->loop = pw_loop_new ();
+  sink->loop = pw_loop_new (NULL);
   sink->main_loop = pw_thread_loop_new (sink->loop, "pipewire-sink-loop");
   sink->core = pw_core_new (sink->loop, NULL);
   sink->type = pw_core_get_type (sink->core);

@@ -426,7 +426,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
 
   GST_DEBUG_OBJECT (self, "starting probe");
 
-  if (!(l = pw_loop_new ()))
+  if (!(l = pw_loop_new (NULL)))
     return NULL;
 
   if (!(c = pw_core_new (l, NULL)))
@@ -503,7 +503,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   GST_DEBUG_OBJECT (self, "starting provider");
 
-  self->loop = pw_loop_new ();
+  self->loop = pw_loop_new (NULL);
   self->list_only = FALSE;
 
   if (!(self->main_loop = pw_thread_loop_new (self->loop, "pipewire-device-monitor"))) {
@@ -589,6 +589,8 @@ static void
 gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
 {
   GstPipeWireDeviceProvider *self = GST_PIPEWIRE_DEVICE_PROVIDER (provider);
+
+  GST_DEBUG_OBJECT (self, "stopping provider");
 
   if (self->remote) {
     pw_remote_disconnect (self->remote);

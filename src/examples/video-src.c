@@ -281,7 +281,7 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
-	data.loop = pw_loop_new();
+	data.loop = pw_loop_new(NULL);
 	data.running = true;
 	data.core = pw_core_new(data.loop, NULL);
 	data.t = pw_core_get_type(data.core);

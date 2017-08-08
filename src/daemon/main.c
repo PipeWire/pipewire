@@ -41,10 +41,10 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	loop = pw_main_loop_new();
-
 	props = pw_properties_new("pipewire.core.name", "pipewire-0",
 				  "pipewire.daemon", "1", NULL);
+
+	loop = pw_main_loop_new(props);
 
 	core = pw_core_new(pw_main_loop_get_loop(loop), props);
 

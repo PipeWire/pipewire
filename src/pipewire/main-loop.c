@@ -26,7 +26,7 @@
  *
  * \memberof pw_main_loop
  */
-struct pw_main_loop *pw_main_loop_new(void)
+struct pw_main_loop *pw_main_loop_new(struct pw_properties *properties)
 {
 	struct pw_main_loop *this;
 
@@ -36,7 +36,7 @@ struct pw_main_loop *pw_main_loop_new(void)
 
 	pw_log_debug("main-loop %p: new", this);
 
-	this->loop = pw_loop_new();
+	this->loop = pw_loop_new(properties);
 	if (this->loop == NULL)
 		goto no_loop;
 

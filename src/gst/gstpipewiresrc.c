@@ -308,7 +308,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->client_name = pw_get_client_name ();
   src->buf_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) gst_buffer_unref);
 
-  src->loop = pw_loop_new ();
+  src->loop = pw_loop_new (NULL);
   src->main_loop = pw_thread_loop_new (src->loop, "pipewire-main-loop");
   src->core = pw_core_new (src->loop, NULL);
   src->type = pw_core_get_type (src->core);

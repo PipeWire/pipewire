@@ -101,7 +101,7 @@ static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, uin
  *
  * \memberof pw_data_loop
  */
-struct pw_data_loop *pw_data_loop_new(void)
+struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
 {
 	struct pw_data_loop *this;
 
@@ -111,7 +111,7 @@ struct pw_data_loop *pw_data_loop_new(void)
 
 	pw_log_debug("data-loop %p: new", this);
 
-	this->loop = pw_loop_new();
+	this->loop = pw_loop_new(properties);
 	if (this->loop == NULL)
 		goto no_loop;
 

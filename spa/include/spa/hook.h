@@ -26,22 +26,32 @@ extern "C" {
 
 #include <spa/list.h>
 
+/** \class spa_hook
+ *
+ * \brief a list of hooks
+ *
+ * The hook list provides a way to keep track of hooks.
+ */
+/** A list of hooks */
 struct spa_hook_list {
 	struct spa_list list;
 };
 
+/** A hook, contains the structure with functions and the data passed
+ * to the functions. */
 struct spa_hook {
 	struct spa_list link;
 	const void *funcs;
 	void *data;
 };
 
+/** Initialize a hook list */
 static inline void spa_hook_list_init(struct spa_hook_list *list)
 {
 	spa_list_init(&list->list);
 }
 
-/** Add a hook \memberof spa_hook */
+/** Append a hook \memberof spa_hook */
 static inline void spa_hook_list_append(struct spa_hook_list *list,
 					struct spa_hook *hook,
 					const void *funcs, void *data)
@@ -51,6 +61,7 @@ static inline void spa_hook_list_append(struct spa_hook_list *list,
 	spa_list_append(&list->list, &hook->link);
 }
 
+/** Prepend a hook \memberof spa_hook */
 static inline void spa_hook_list_prepend(struct spa_hook_list *list,
 					 struct spa_hook *hook,
 					 const void *funcs, void *data)
@@ -60,12 +71,14 @@ static inline void spa_hook_list_prepend(struct spa_hook_list *list,
 	spa_list_prepend(&list->list, &hook->link);
 }
 
-/** Remove a listener \memberof spa_hook */
+/** Remove a hook \memberof spa_hook */
 static inline void spa_hook_remove(struct spa_hook *hook)
 {
         spa_list_remove(&hook->link);
 }
 
+/** Call all hooks in a list, starting from the given one and optionally stopping
+ * after calling the first non-NULL function */
 #define spa_hook_list_do_call(l,start,type,method,once,...) ({			\
 	struct spa_hook_list *list = l;						\
 	struct spa_list *s = start ? (struct spa_list *)start : &list->list;	\

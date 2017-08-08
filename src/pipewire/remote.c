@@ -271,7 +271,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 		pw_remote_disconnect(remote);
 
 	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
-	    pw_stream_destroy(stream);
+		pw_stream_destroy(stream);
 
 	pw_protocol_connection_destroy (remote->conn);
 
@@ -1005,7 +1005,10 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 
 	pw_node_add_listener(node, &data->node_listener, &node_events, data);
 
-        pw_client_node_proxy_add_listener(data->node_proxy, &data->proxy_listener, &client_node_events, proxy);
+        pw_client_node_proxy_add_listener(data->node_proxy,
+					  &data->proxy_listener,
+					  &client_node_events,
+					  proxy);
         do_node_init(proxy);
 
 	return proxy;

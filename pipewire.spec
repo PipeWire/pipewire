@@ -72,6 +72,13 @@ Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 Headers and libraries for developing applications that can communicate with
 a PipeWire media server.
 
+%package doc
+Summary:        PipeWire media server documentation
+License:        LGPLv2+
+
+%description doc
+This package contains documentation for the PipeWire media server.
+
 %package utils
 Summary:        PipeWire media server utilities
 License:        LGPLv2+
@@ -105,7 +112,6 @@ exit 0
 %files
 %license LICENSE GPL LGPL
 %doc README
-%{_datadir}/doc/pipewire/html
 %{_bindir}/pipewire
 %{_libdir}/libpipewire-%{majorminor}.so.*
 %{_libdir}/libspa-lib.so.*
@@ -129,6 +135,9 @@ exit 0
 %{_libdir}/pkgconfig/libpipewire-%{majorminor}.pc
 %{_libdir}/pkgconfig/libspa-%{majorminor}.pc
 
+%files doc
+%{_datadir}/doc/pipewire/html
+
 %files utils
 %{_bindir}/pipewire-monitor
 %{_mandir}/man1/pipewire-monitor.1*
@@ -139,6 +148,7 @@ exit 0
 * Tue Jul 04 2017 Wim Taymans <wtaymans@redhat.com> - 0.1.2-1
 - Update to 0.1.2
 - Added more build requirements
+- Make separate doc package
 
 * Mon Jun 26 2017 Wim Taymans <wtaymans@redhat.com> - 0.1.1-1
 - Update to 0.1.1

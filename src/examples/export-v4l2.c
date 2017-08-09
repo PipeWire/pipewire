@@ -20,8 +20,6 @@
 #include <stdio.h>
 #include <sys/mman.h>
 
-#include <SDL2/SDL.h>
-
 #include <spa/type-map.h>
 #include <spa/format-utils.h>
 #include <spa/video/format-utils.h>

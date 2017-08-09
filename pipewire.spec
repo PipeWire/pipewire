@@ -13,7 +13,7 @@
 
 Name:           pipewire
 Summary:        Media Sharing Server
-Version:        0.1.2.1
+Version:        0.1.3
 Release:        1%{?snap:.%{snap}git%{shortcommit}}%{?dist}
 License:        LGPLv2+
 URL:            http://www.freedesktop.org/wiki/Software/PipeWire
@@ -145,6 +145,9 @@ exit 0
 %{_bindir}/spa-inspect
 
 %changelog
+* Wed Aug 09 2017 Wim Taymans <wtaymans@redhat.com> - 0.1.3-1
+- Update to 0.1.3
+
 * Tue Jul 04 2017 Wim Taymans <wtaymans@redhat.com> - 0.1.2-1
 - Update to 0.1.2
 - Added more build requirements

@@ -129,7 +129,9 @@ struct pw_resource *pw_node_get_owner(struct pw_node *node);
 
 struct pw_global *pw_node_get_global(struct pw_node *node);
 
-struct pw_properties *pw_node_get_properties(struct pw_node *node);
+const struct pw_properties *pw_node_get_properties(struct pw_node *node);
+
+void pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict);
 
 void pw_node_set_implementation(struct pw_node *node,
 				const struct pw_node_implementation *implementation,

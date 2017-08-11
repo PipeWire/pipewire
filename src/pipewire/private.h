@@ -166,6 +166,8 @@ struct pw_link {
 		struct spa_graph_port out_port;
 		struct spa_graph_port in_port;
 	} rt;
+
+	void *user_data;
 };
 
 struct pw_module {
@@ -230,6 +232,7 @@ struct pw_port {
 
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
+	struct pw_properties *properties;
 
 	enum pw_port_state state;	/**< state of the port */
 

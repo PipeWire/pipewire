@@ -17,6 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <semaphore.h>
+
 struct jack_synchro {
 	char name[SYNC_MAX_NAME_SIZE];
         bool flush;
@@ -45,4 +47,30 @@ jack_synchro_init(struct jack_synchro *synchro,
 		return -1;
 	}
 	return 0;
+}
+
+static inline bool
+jack_synchro_signal(struct jack_synchro *synchro)
+{
+	int res;
+	if (synchro->flush)
+		return true;
+	if ((res = sem_post(synchro->semaphore)) < 0)
+		pw_log_error("semaphore %s post err = %s", synchro->name, strerror(errno));
+
+	return res == 0;
+}
+
+static inline bool
+jack_synchro_wait(struct jack_synchro *synchro)
+{
+	int res;
+	while ((res = sem_wait(synchro->semaphore)) < 0) {
+		if (errno != EINTR)
+			continue;
+
+		pw_log_error("semaphore %s wait err = %s", synchro->name, strerror(errno));
+		break;
+	}
+	return res == 0;
 }

@@ -47,6 +47,13 @@ struct node_info {
 	struct pw_node *node;
 	struct spa_hook node_listener;
 
+	struct spa_list links;
+};
+
+struct link_data {
+	struct spa_list l;
+
+	struct node_info *node_info;
 	struct pw_link *link;
 	struct spa_hook link_listener;
 };
@@ -62,11 +69,21 @@ static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
 	return NULL;
 }
 
+static void link_data_free(struct link_data *data)
+{
+	spa_list_remove(&data->l);
+	spa_hook_remove(&data->link_listener);
+	free(data);
+}
+
 static void node_info_free(struct node_info *info)
 {
+	struct link_data *ld, *t;
+
 	spa_list_remove(&info->l);
 	spa_hook_remove(&info->node_listener);
-	spa_hook_remove(&info->link_listener);
+	spa_list_for_each_safe(ld, t, &info->links, l)
+		link_data_free(ld);
 	free(info);
 }
 
@@ -75,8 +92,9 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 static void
 link_port_unlinked(void *data, struct pw_port *port)
 {
-	struct node_info *info = data;
-	struct pw_link *link = info->link;
+	struct link_data *ld = data;
+	struct node_info *info = ld->node_info;
+	struct pw_link *link = ld->link;
 	struct impl *impl = info->impl;
 	struct pw_port *input = pw_link_get_input(link);
 
@@ -89,8 +107,9 @@ link_port_unlinked(void *data, struct pw_port *port)
 static void
 link_state_changed(void *data, enum pw_link_state old, enum pw_link_state state, const char *error)
 {
-	struct node_info *info = data;
-	struct pw_link *link = info->link;
+	struct link_data *ld = data;
+	struct node_info *info = ld->node_info;
+	struct pw_link *link = ld->link;
 	struct impl *impl = info->impl;
 
 	switch (state) {
@@ -114,13 +133,9 @@ link_state_changed(void *data, enum pw_link_state old, enum pw_link_state state,
 static void
 link_destroy(void *data)
 {
-	struct node_info *info = data;
-	struct pw_link *link = info->link;
-	struct impl *impl = info->impl;
-
-	pw_log_debug("module %p: link %p destroyed", impl, link);
-	spa_hook_remove(&info->link_listener);
-        spa_list_init(&info->link_listener.link);
+	struct link_data *ld = data;
+	pw_log_debug("module %p: link %p destroyed", ld->node_info->impl, ld->link);
+	link_data_free(ld);
 }
 
 static const struct pw_link_events link_events = {
@@ -133,18 +148,15 @@ static const struct pw_link_events link_events = {
 static void try_link_port(struct pw_node *node, struct pw_port *port, struct node_info *info)
 {
 	struct impl *impl = info->impl;
-	struct pw_properties *props;
+	const struct pw_properties *props;
 	const char *str;
 	uint32_t path_id;
 	char *error = NULL;
 	struct pw_link *link;
 	struct pw_port *target;
+	struct link_data *ld;
 
 	props = pw_node_get_properties(node);
-	if (props == NULL) {
-		pw_log_debug("module %p: node has no properties", impl);
-		return;
-	}
 
 	str = pw_properties_get(props, "pipewire.target.node");
 	if (str != NULL)
@@ -170,13 +182,22 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 		port = tmp;
 	}
 
-	link = pw_link_new(impl->core, pw_module_get_global(impl->module), port, target, NULL, NULL, &error);
+	link = pw_link_new(impl->core,
+			   pw_module_get_global(impl->module),
+			   port, target,
+			   NULL, NULL,
+			   &error,
+			   sizeof(struct link_data));
 	if (link == NULL)
 		goto error;
 
-	info->link = link;
+	ld = pw_link_get_user_data(link);
+	ld->link = link;
+	ld->node_info = info;
+	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
 
-	pw_link_add_listener(link, &info->link_listener, &link_events, info);
+	spa_list_append(&info->links, &ld->l);
+
 	pw_link_activate(link);
 
 	return;
@@ -242,11 +263,10 @@ core_global_added(void *data, struct pw_global *global)
 		ninfo = calloc(1, sizeof(struct node_info));
 		ninfo->impl = impl;
 		ninfo->node = node;
+		spa_list_init(&ninfo->links);
 
-		spa_list_insert(impl->node_list.prev, &ninfo->l);
-
+		spa_list_append(&impl->node_list, &ninfo->l);
 		pw_node_add_listener(node, &ninfo->node_listener, &node_events, ninfo);
-		spa_list_init(&ninfo->link_listener.link);
 
 		pw_log_debug("module %p: node %p added", impl, node);
 

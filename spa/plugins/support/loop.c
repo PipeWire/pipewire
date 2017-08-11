@@ -263,7 +263,7 @@ loop_invoke(struct spa_loop *loop,
 	return res;
 }
 
-static void wakeup_func(struct spa_loop_utils *utils, struct spa_source *source, uint64_t count, void *data)
+static void wakeup_func(void *data, uint64_t count)
 {
 	struct impl *impl = data;
 	uint32_t index;
@@ -357,7 +357,7 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 static void source_io_func(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
-	impl->func.io(&impl->impl->utils, source, source->fd, source->rmask, source->data);
+	impl->func.io(source->data, source->fd, source->rmask);
 }
 
 static struct spa_source *loop_add_io(struct spa_loop_utils *utils,
@@ -398,7 +398,7 @@ static int loop_update_io(struct spa_source *source, enum spa_io mask)
 static void source_idle_func(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
-	impl->func.idle(&impl->impl->utils, source, source->data);
+	impl->func.idle(source->data);
 }
 
 static struct spa_source *loop_add_idle(struct spa_loop_utils *utils,
@@ -457,7 +457,7 @@ static void source_event_func(struct spa_source *source)
 		spa_log_warn(impl->impl->log, NAME " %p: failed to read event fd %d: %s",
 				source, source->fd, strerror(errno));
 
-	impl->func.event(&impl->impl->utils, source, count, source->data);
+	impl->func.event(source->data, count);
 }
 
 static struct spa_source *loop_add_event(struct spa_loop_utils *utils,
@@ -499,13 +499,13 @@ static void loop_signal_event(struct spa_source *source)
 static void source_timer_func(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
-	uint64_t expires;
+	uint64_t expirations;
 
-	if (read(source->fd, &expires, sizeof(uint64_t)) != sizeof(uint64_t))
+	if (read(source->fd, &expirations, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(impl->impl->log, NAME " %p: failed to read timer fd %d: %s",
 				source, source->fd, strerror(errno));
 
-	impl->func.timer(&impl->impl->utils, source, source->data);
+	impl->func.timer(source->data, expirations);
 }
 
 static struct spa_source *loop_add_timer(struct spa_loop_utils *utils,
@@ -568,7 +568,7 @@ static void source_signal_func(struct spa_source *source)
 		spa_log_warn(impl->impl->log, NAME " %p: failed to read signal fd %d: %s",
 				source, source->fd, strerror(errno));
 
-	impl->func.signal(&impl->impl->utils, source, impl->signal_number, source->data);
+	impl->func.signal(source->data, impl->signal_number);
 }
 
 static struct spa_source *loop_add_signal(struct spa_loop_utils *utils,

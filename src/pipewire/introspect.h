@@ -132,8 +132,15 @@ void pw_client_info_free(struct pw_client_info *info);
 
 /** The node information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_node_info {
+#define PW_NODE_CHANGE_MASK_NAME		(1 << 0)
+#define PW_NODE_CHANGE_MASK_INPUT_PORTS		(1 << 1)
+#define PW_NODE_CHANGE_MASK_INPUT_FORMATS	(1 << 2)
+#define PW_NODE_CHANGE_MASK_OUTPUT_PORTS	(1 << 3)
+#define PW_NODE_CHANGE_MASK_OUTPUT_FORMATS	(1 << 4)
+#define PW_NODE_CHANGE_MASK_STATE		(1 << 5)
+#define PW_NODE_CHANGE_MASK_PROPS		(1 << 6)
 	uint64_t change_mask;			/**< bitfield of changed fields since last call */
-	const char *name;			/**< name the node, suitable for display */
+	const char *name;                       /**< name the node, suitable for display */
 	uint32_t max_input_ports;		/**< maximum number of inputs */
 	uint32_t n_input_ports;			/**< number of inputs */
 	uint32_t n_input_formats;		/**< number of input formats */

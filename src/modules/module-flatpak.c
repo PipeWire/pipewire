@@ -531,12 +531,12 @@ const struct pw_core_events core_events = {
 	.global_removed = core_global_removed,
 };
 
-static void dispatch_cb(struct spa_loop_utils *utils, struct spa_source *source, void *userdata)
+static void dispatch_cb(void *userdata)
 {
 	struct impl *impl = userdata;
 
 	if (dbus_connection_dispatch(impl->bus) == DBUS_DISPATCH_COMPLETE)
-		pw_loop_enable_idle(pw_core_get_main_loop(impl->core), source, false);
+		pw_loop_enable_idle(pw_core_get_main_loop(impl->core), impl->dispatch_event, false);
 }
 
 static void dispatch_status(DBusConnection *conn, DBusDispatchStatus status, void *userdata)
@@ -583,8 +583,7 @@ static inline unsigned int io_to_dbus(enum spa_io mask)
 }
 
 static void
-handle_io_event(struct spa_loop_utils *utils,
-		struct spa_source *source, int fd, enum spa_io mask, void *userdata)
+handle_io_event(void *userdata, int fd, enum spa_io mask)
 {
 	DBusWatch *watch = userdata;
 
@@ -630,20 +629,26 @@ static void toggle_watch(DBusWatch *watch, void *userdata)
 
 	pw_loop_update_io(pw_core_get_main_loop(impl->core), source, dbus_to_io(watch));
 }
+struct timeout_data {
+	struct spa_source *source;
+	struct impl *impl;
+};
 
 static void
-handle_timer_event(struct spa_loop_utils *utils, struct spa_source *source, void *userdata)
+handle_timer_event(void *userdata, uint64_t expirations)
 {
 	DBusTimeout *timeout = userdata;
 	uint64_t t;
 	struct timespec ts;
+	struct timeout_data *data = dbus_timeout_get_data(timeout);
+	struct impl *impl = data->impl;
 
 	if (dbus_timeout_get_enabled(timeout)) {
 		t = dbus_timeout_get_interval(timeout) * SPA_NSEC_PER_MSEC;
 		ts.tv_sec = t / SPA_NSEC_PER_SEC;
 		ts.tv_nsec = t % SPA_NSEC_PER_SEC;
-		spa_loop_utils_update_timer(utils, source, &ts, NULL, false);
-
+		pw_loop_update_timer(pw_core_get_main_loop(impl->core),
+				     data->source, &ts, NULL, false);
 		dbus_timeout_handle(timeout);
 	}
 }
@@ -651,40 +656,44 @@ handle_timer_event(struct spa_loop_utils *utils, struct spa_source *source, void
 static dbus_bool_t add_timeout(DBusTimeout *timeout, void *userdata)
 {
 	struct impl *impl = userdata;
-	struct spa_source *source;
 	struct timespec ts;
+	struct timeout_data *data;
 	uint64_t t;
 
 	if (!dbus_timeout_get_enabled(timeout))
 		return FALSE;
 
-	source = pw_loop_add_timer(pw_core_get_main_loop(impl->core), handle_timer_event, timeout);
-
-	dbus_timeout_set_data(timeout, source, NULL);
+	data = calloc(1, sizeof(struct timeout_data));
+	data->impl = impl;
+	data->source = pw_loop_add_timer(pw_core_get_main_loop(impl->core), handle_timer_event, timeout);
+	dbus_timeout_set_data(timeout, data, NULL);
 
 	t = dbus_timeout_get_interval(timeout) * SPA_NSEC_PER_MSEC;
 	ts.tv_sec = t / SPA_NSEC_PER_SEC;
 	ts.tv_nsec = t % SPA_NSEC_PER_SEC;
-	pw_loop_update_timer(pw_core_get_main_loop(impl->core), source, &ts, NULL, false);
+	pw_loop_update_timer(pw_core_get_main_loop(impl->core), data->source, &ts, NULL, false);
+
 	return TRUE;
 }
 
 static void remove_timeout(DBusTimeout *timeout, void *userdata)
 {
 	struct impl *impl = userdata;
-	struct spa_source *source;
+	struct timeout_data *data;
 
-	if ((source = dbus_timeout_get_data(timeout)))
-		pw_loop_destroy_source(pw_core_get_main_loop(impl->core), source);
+	if ((data = dbus_timeout_get_data(timeout))) {
+		pw_loop_destroy_source(pw_core_get_main_loop(impl->core), data->source);
+		free(data);
+	}
 }
 
 static void toggle_timeout(DBusTimeout *timeout, void *userdata)
 {
 	struct impl *impl = userdata;
-	struct spa_source *source;
+	struct timeout_data *data;
 	struct timespec ts, *tsp;
 
-	source = dbus_timeout_get_data(timeout);
+	data = dbus_timeout_get_data(timeout);
 
 	if (dbus_timeout_get_enabled(timeout)) {
 		uint64_t t = dbus_timeout_get_interval(timeout) * SPA_NSEC_PER_MSEC;
@@ -694,7 +703,7 @@ static void toggle_timeout(DBusTimeout *timeout, void *userdata)
 	} else {
 		tsp = NULL;
 	}
-	pw_loop_update_timer(pw_core_get_main_loop(impl->core), source, tsp, NULL, false);
+	pw_loop_update_timer(pw_core_get_main_loop(impl->core), data->source, tsp, NULL, false);
 }
 
 static void wakeup_main(void *userdata)

@@ -90,7 +90,8 @@ static inline void spa_graph_scheduler_pull(struct spa_graph_scheduler *sched, s
 		pnode = pport->node;
 		debug("node %p peer %p io %d\n", node, pnode, pport->io->status);
 		if (pport->io->status == SPA_RESULT_NEED_BUFFER) {
-			spa_list_insert(ready.prev, &pnode->ready_link);
+			if (pnode->ready_link.next == NULL)
+				spa_list_append(&ready, &pnode->ready_link);
 		}
 		else if (pport->io->status == SPA_RESULT_OK && !(pnode->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
 			node->ready_in++;
@@ -111,7 +112,7 @@ static inline void spa_graph_scheduler_pull(struct spa_graph_scheduler *sched, s
 		n->ready_link.next = NULL;
 	}
 
-	debug("node %p %d %d\n", node, node->ready_in, node->required_in);
+	debug("node %p ready_in:%d required_in:%d\n", node, node->ready_in, node->required_in);
 
 	if (node->required_in > 0 && node->ready_in == node->required_in) {
 		node->state = node->callbacks->process_input(node->callbacks_data);
@@ -179,7 +180,8 @@ static inline void spa_graph_scheduler_push(struct spa_graph_scheduler *sched, s
 				pnode->ready_in, pnode->required_in);
 
 		if (pnode->required_in > 0 && pnode->ready_in == pnode->required_in)
-                        spa_list_insert(ready.prev, &pnode->ready_link);
+			if (pnode->ready_link.next == NULL)
+				spa_list_append(&ready, &pnode->ready_link);
 	}
 
 	spa_graph_scheduler_chain(sched, &ready);

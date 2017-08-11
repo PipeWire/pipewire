@@ -63,7 +63,7 @@ static const struct spa_loop_control_hooks impl_hooks = {
 	after,
 };
 
-static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, uint64_t count, void *data)
+static void do_stop(void *data, uint64_t count)
 {
 	struct pw_thread_loop *this = data;
 	this->running = false;

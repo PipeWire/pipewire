@@ -187,16 +187,16 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 	}
 	info->change_mask = update->change_mask;
 
-	if (update->change_mask & (1 << 0)) {
+	if (update->change_mask & PW_NODE_CHANGE_MASK_NAME) {
 		if (info->name)
 			free((void *) info->name);
 		info->name = update->name ? strdup(update->name) : NULL;
 	}
-	if (update->change_mask & (1 << 1)) {
+	if (update->change_mask & PW_NODE_CHANGE_MASK_INPUT_PORTS) {
 		info->max_input_ports = update->max_input_ports;
 		info->n_input_ports = update->n_input_ports;
 	}
-	if (update->change_mask & (1 << 2)) {
+	if (update->change_mask & PW_NODE_CHANGE_MASK_INPUT_FORMATS) {
 		for (i = 0; i < info->n_input_formats; i++)
 			free(info->input_formats[i]);
 		info->n_input_formats = update->n_input_formats;
@@ -212,11 +212,11 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 			info->input_formats[i] = spa_format_copy(update->input_formats[i]);
 		}
 	}
-	if (update->change_mask & (1 << 3)) {
+	if (update->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS) {
 		info->max_output_ports = update->max_output_ports;
 		info->n_output_ports = update->n_output_ports;
 	}
-	if (update->change_mask & (1 << 4)) {
+	if (update->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_FORMATS) {
 		for (i = 0; i < info->n_output_formats; i++)
 			free(info->output_formats[i]);
 		info->n_output_formats = update->n_output_formats;
@@ -233,13 +233,13 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 		}
 	}
 
-	if (update->change_mask & (1 << 5)) {
+	if (update->change_mask & PW_NODE_CHANGE_MASK_STATE) {
 		info->state = update->state;
 		if (info->error)
 			free((void *) info->error);
 		info->error = update->error ? strdup(update->error) : NULL;
 	}
-	if (update->change_mask & (1 << 6)) {
+	if (update->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
 		if (info->props)
 			pw_spa_dict_destroy(info->props);
 		info->props = pw_spa_dict_copy(update->props);

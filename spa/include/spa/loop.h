@@ -148,19 +148,11 @@ struct spa_loop_control {
 #define spa_loop_control_leave(l)		(l)->leave(l)
 
 
-typedef void (*spa_source_io_func_t) (struct spa_loop_utils *utils,
-				      struct spa_source *source,
-				      int fd, enum spa_io mask, void *data);
-typedef void (*spa_source_idle_func_t) (struct spa_loop_utils *utils,
-					struct spa_source *source, void *data);
-typedef void (*spa_source_event_func_t) (struct spa_loop_utils *utils,
-					 struct spa_source *source,
-					 uint64_t count, void *data);
-typedef void (*spa_source_timer_func_t) (struct spa_loop_utils *utils,
-					 struct spa_source *source, void *data);
-typedef void (*spa_source_signal_func_t) (struct spa_loop_utils *utils,
-					  struct spa_source *source,
-					  int signal_number, void *data);
+typedef void (*spa_source_io_func_t) (void *data, int fd, enum spa_io mask);
+typedef void (*spa_source_idle_func_t) (void *data);
+typedef void (*spa_source_event_func_t) (void *data, uint64_t count);
+typedef void (*spa_source_timer_func_t) (void *data, uint64_t expirations);
+typedef void (*spa_source_signal_func_t) (void *data, int signal_number);
 
 /**
  * struct spa_loop_utils:

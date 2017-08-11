@@ -320,6 +320,13 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	if (this == NULL)
 		return NULL;
 
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		goto no_mem;
+
+	this->properties = properties;
+
 	this->data_loop_impl = pw_data_loop_new(properties);
 	if (this->data_loop_impl == NULL)
 		goto no_data_loop;
@@ -355,23 +362,21 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	spa_list_init(&this->link_list);
 	spa_hook_list_init(&this->listener_list);
 
+	if ((name = pw_properties_get(properties, "pipewire.core.name")) == NULL) {
+		pw_properties_setf(properties,
+				   "pipewire.core.name", "pipewire-%s-%d",
+				   pw_get_user_name(), getpid());
+		name = pw_properties_get(properties, "pipewire.core.name");
+	}
+
 	this->info.change_mask = 0;
 	this->info.user_name = pw_get_user_name();
 	this->info.host_name = pw_get_host_name();
 	this->info.version = SPA_STRINGIFY(PW_VERSION_CORE);
 	srandom(time(NULL));
 	this->info.cookie = random();
-	this->info.props = this->properties ? &this->properties->dict : NULL;
-
-	if (properties == NULL)
-		properties = pw_properties_new(NULL, NULL);
-	if ((name = pw_properties_get(properties, "pipewire.core.name")) == NULL) {
-		pw_properties_setf(properties,
-				   "pipewire.core.name", "pipewire-%s-%d",
-				   pw_get_user_name(), getpid());
-	}
-	this->info.name = pw_properties_get(properties, "pipewire.core.name");
-	this->properties = properties;
+	this->info.props = &properties->dict;
+	this->info.name = name;
 
 	this->global = pw_core_add_global(this,
 					  NULL,
@@ -382,6 +387,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 					  this);
 	return this;
 
+      no_mem:
       no_data_loop:
 	free(this);
 	return NULL;
@@ -472,26 +478,19 @@ const struct pw_properties *pw_core_get_properties(struct pw_core *core)
 void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
+	uint32_t i;
 
-	if (core->properties == NULL) {
-		if (dict)
-			core->properties = pw_properties_new_dict(dict);
-	} else if (dict != &core->properties->dict) {
-		uint32_t i;
-
-		for (i = 0; i < dict->n_items; i++)
-			pw_properties_set(core->properties,
-					  dict->items[i].key, dict->items[i].value);
-	}
+	for (i = 0; i < dict->n_items; i++)
+		pw_properties_set(core->properties, dict->items[i].key, dict->items[i].value);
 
 	core->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
-	core->info.props = core->properties ? &core->properties->dict : NULL;
+	core->info.props = &core->properties->dict;
 
 	spa_hook_list_call(&core->listener_list, struct pw_core_events, info_changed, &core->info);
 
-	spa_list_for_each(resource, &core->resource_list, link) {
+	spa_list_for_each(resource, &core->resource_list, link)
 		pw_core_resource_info(resource, &core->info);
-	}
+
 	core->info.change_mask = 0;
 }
 
@@ -543,6 +542,9 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 
 	spa_list_for_each(n, &core->node_list, link) {
 		if (n->global == NULL)
+			continue;
+
+		if (other_port->node == n)
 			continue;
 
 		pw_log_debug("node id \"%d\"", n->global->id);

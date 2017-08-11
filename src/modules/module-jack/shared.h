@@ -98,6 +98,64 @@ static inline void jack_port_init(struct jack_port *port, int ref_num,
 	port->tied = NO_PORT;
 }
 
+static inline void jack_port_release(struct jack_port *port) {
+	port->in_use = false;
+}
+
+PRE_PACKED_STRUCTURE
+struct jack_client_control {
+	jack_shm_info_t info;
+	char name[JACK_CLIENT_NAME_SIZE+1];
+	bool callback[jack_notify_max];
+	volatile jack_transport_state_t transport_state;
+	volatile bool transport_sync;
+	volatile bool transport_timebase;
+	int ref_num;
+	int PID;
+	bool active;
+
+	int session_ID;
+	char session_command[JACK_SESSION_COMMAND_SIZE];
+	jack_session_flags_t session_flags;
+} POST_PACKED_STRUCTURE;
+
+static inline struct jack_client_control *
+jack_client_control_alloc(const char* name, int pid, int ref_num, int uuid)
+{
+	struct jack_client_control *ctrl;
+        jack_shm_info_t info;
+	size_t size;
+
+	size = sizeof(struct jack_client_control);
+        if (jack_shm_alloc(size, &info, segment_num++) < 0)
+                return NULL;
+
+        ctrl = (struct jack_client_control *)jack_shm_addr(&info);
+        ctrl->info = info;
+
+	strcpy(ctrl->name, name);
+        for (int i = 0; i < jack_notify_max; i++)
+            ctrl->callback[i] = false;
+
+        // Always activated
+        ctrl->callback[jack_notify_AddClient] = true;
+        ctrl->callback[jack_notify_RemoveClient] = true;
+        ctrl->callback[jack_notify_ActivateClient] = true;
+        ctrl->callback[jack_notify_LatencyCallback] = true;
+        // So that driver synchro are correctly setup in "flush" or "normal" mode
+        ctrl->callback[jack_notify_StartFreewheelCallback] = true;
+        ctrl->callback[jack_notify_StopFreewheelCallback] = true;
+        ctrl->ref_num = ref_num;
+        ctrl->PID = pid;
+        ctrl->transport_state = JackTransportStopped;
+        ctrl->transport_sync = false;
+        ctrl->transport_timebase = false;
+        ctrl->active = false;
+        ctrl->session_ID = uuid;
+
+	return ctrl;
+}
+
 #define MAKE_FIXED_ARRAY(size)			\
 PRE_PACKED_STRUCTURE				\
 struct {					\
@@ -105,24 +163,41 @@ struct {					\
         uint32_t counter;			\
 } POST_PACKED_STRUCTURE
 
-#define INIT_FIXED_ARRAY(arr) ({			\
-	int i;						\
-	for (i = 0; i < SPA_N_ELEMENTS(arr.table); i++)	\
-		arr.table[i] = EMPTY;			\
-	arr.counter = 0;				\
+#define INIT_FIXED_ARRAY(arr) ({				\
+	int _i;							\
+	for (_i = 0; _i < SPA_N_ELEMENTS(arr.table); _i++)	\
+		arr.table[_i] = EMPTY;				\
+	arr.counter = 0;					\
 })
-
+#define GET_ITEMS_FIXED_ARRAY(arr) ({				\
+	arr.table;						\
+})
 #define ADD_FIXED_ARRAY(arr,item) ({				\
-	int i,ret = -1;						\
-	for (i = 0; i < SPA_N_ELEMENTS(arr.table); i++)	{	\
-		if (arr.table[i] == EMPTY) {			\
-			arr.table[i] = item;			\
-			arr.counter++;				\
-			ret = 0;				\
+	int _ret = -1;						\
+	if (arr.counter < SPA_N_ELEMENTS(arr.table)) {		\
+		_ret = arr.counter++;				\
+		arr.table[_ret] = item;				\
+	}							\
+	_ret;							\
+})
+#define GET_FIXED_ARRAY(arr,item) ({				\
+	int _i,_ret = -1;					\
+	for (_i = 0; _i < arr.counter; _i++) {			\
+		if (arr.table[_i] == item) {			\
+			_ret = _i;				\
 			break;					\
 		}						\
 	}							\
-	ret;							\
+	_ret;							\
+})
+#define REMOVE_FIXED_ARRAY(arr,item) ({				\
+	int _ret = GET_FIXED_ARRAY(arr,item);			\
+	if (_ret >= 0) {					\
+		arr.counter--;					\
+		arr.table[_ret] = arr.table[arr.counter];	\
+		arr.table[arr.counter] = EMPTY;			\
+	}							\
+	_ret;							\
 })
 
 #define MAKE_FIXED_ARRAY1(size)			\
@@ -136,8 +211,9 @@ struct {					\
 	INIT_FIXED_ARRAY(arr.array);		\
 	arr.used = false;			\
 })
-
 #define ADD_FIXED_ARRAY1(arr,item) ADD_FIXED_ARRAY(arr.array,item)
+#define GET_FIXED_ARRAY1(arr,item) GET_FIXED_ARRAY(arr.array,item)
+#define GET_ITEMS_FIXED_ARRAY1(arr) GET_ITEMS_FIXED_ARRAY(arr.array)
 
 #define MAKE_FIXED_MATRIX(size)			\
 PRE_PACKED_STRUCTURE				\
@@ -152,6 +228,21 @@ struct {					\
 		mat.table[i][idx] = 0;				\
 	}							\
 })
+#define GET_ITEMS_FIXED_MATRIX(mat,idx1) ({			\
+	mat.table[idx1];					\
+})
+#define INC_FIXED_MATRIX(mat,idx1,idx2) ({			\
+	++mat.table[idx1][idx2];				\
+})
+#define DEC_FIXED_MATRIX(mat,idx1,idx2) ({			\
+	--mat.table[idx1][idx2];				\
+})
+#define GET_FIXED_MATRIX(mat,idx1,idx2) ({			\
+	mat.table[idx1][idx2];					\
+})
+#define CLEAR_FIXED_MATRIX(mat,idx1,idx2) ({			\
+	mat.table[idx1][idx2] = 0;				\
+})
 
 PRE_PACKED_STRUCTURE
 struct jack_activation_count {
@@ -161,6 +252,33 @@ struct jack_activation_count {
 
 static inline void jack_activation_count_set_value(struct jack_activation_count *cnt, int32_t val) {
 	cnt->value = val;
+}
+static inline int32_t jack_activation_count_get_value(struct jack_activation_count *cnt) {
+	return cnt->value;
+}
+static inline int32_t jack_activation_count_get_count(struct jack_activation_count *cnt) {
+	return cnt->count;
+}
+static inline void jack_activation_count_reset(struct jack_activation_count *cnt) {
+	cnt->value = cnt->count;
+}
+static inline void jack_activation_count_inc_value(struct jack_activation_count *cnt) {
+	cnt->count++;
+}
+static inline void jack_activation_count_dec_value(struct jack_activation_count *cnt) {
+	cnt->count--;
+}
+static inline bool jack_activation_count_signal(struct jack_activation_count *cnt,
+						struct jack_synchro *synchro)
+{
+	bool res = true;
+
+	if (cnt->value == 0)
+		res = jack_synchro_signal(synchro);
+	else if (__atomic_sub_fetch(&cnt->value, 1, __ATOMIC_SEQ_CST) == 0)
+		res = jack_synchro_signal(synchro);
+
+	return res;
 }
 
 #define MAKE_LOOP_FEEDBACK(size)		\
@@ -176,6 +294,62 @@ struct {					\
 		arr.table[i][1] = EMPTY;			\
 		arr.table[i][2] = 0;				\
 	}							\
+})
+#define ADD_LOOP_FEEDBACK(arr,ref1,ref2) ({			\
+	int i,res = false;					\
+	for (i = 0; i < SPA_N_ELEMENTS(arr.table); i++) {	\
+		if (arr.table[i][0] == EMPTY) {			\
+			arr.table[i][0] = ref1;			\
+			arr.table[i][1] = ref2;			\
+			arr.table[i][2] = 1;			\
+			res = true;				\
+			break;					\
+		}						\
+	}							\
+	res;							\
+})
+#define DEL_LOOP_FEEDBACK(arr,ref1,ref2) ({			\
+	int i,res = false;					\
+	for (i = 0; i < SPA_N_ELEMENTS(arr.table); i++) {	\
+		if (arr.table[i][0] == ref1 &&			\
+		    arr.table[i][1] == ref2) {			\
+			arr.table[i][0] = EMPTY;		\
+			arr.table[i][1] = EMPTY;		\
+			arr.table[i][2] = 0;			\
+			res = true;				\
+			break;					\
+		}						\
+	}							\
+	res;							\
+})
+#define GET_LOOP_FEEDBACK(arr,ref1,ref2) ({			\
+	int i,res = 1;						\
+	for (i = 0; i < SPA_N_ELEMENTS(arr.table); i++) {	\
+		if (arr.table[i][0] == ref1 &&			\
+		    arr.table[i][1] == ref2) {			\
+			res = i;				\
+			break;					\
+		}						\
+	}							\
+	res;							\
+})
+#define INC_LOOP_FEEDBACK(arr,ref1,ref2) ({			\
+	int res = true, idx = GET_LOOP_FEEDBACK(arr,ref1,ref2);	\
+	if (idx >= 0)						\
+		arr.table[idx][2]++;				\
+	else							\
+		res = ADD_LOOP_FEEDBACK(arr,ref1,ref2);		\
+	res;							\
+})
+#define DEC_LOOP_FEEDBACK(arr,idx) ({				\
+	int res = true, idx = GET_LOOP_FEEDBACK(arr,ref1,ref2);	\
+	if (idx >= 0) {						\
+		if (--arr.table[idx][2] == 0)			\
+			res = DEL_LOOP_FEEDBACK(arr,ref1,ref2);	\
+	}							\
+	else							\
+		res = false;					\
+	res;							\
 })
 
 PRE_PACKED_STRUCTURE
@@ -194,7 +368,8 @@ jack_connection_manager_init_ref_num(struct jack_connection_manager *conn, int r
 	INIT_FIXED_ARRAY1(conn->input_port[ref_num]);
 	INIT_FIXED_ARRAY(conn->output_port[ref_num]);
 	INIT_FIXED_MATRIX(conn->connection_ref, ref_num);
-	jack_activation_count_set_value (&conn->input_counter[ref_num], 0);
+	conn->input_counter[ref_num].count = 0;
+	jack_activation_count_set_value(&conn->input_counter[ref_num], 0);
 }
 
 static inline void
@@ -210,14 +385,185 @@ jack_connection_manager_init(struct jack_connection_manager *conn)
 		jack_connection_manager_init_ref_num(conn, i);
 }
 
+static inline void
+jack_connection_manager_reset(struct jack_connection_manager *conn,
+			      struct jack_client_timing *timing)
+{
+	int i;
+	for (i = 0; i < CLIENT_NUM; i++) {
+		jack_activation_count_reset(&conn->input_counter[i]);
+		timing[i].status = NotTriggered;
+	}
+}
+
 static inline int
 jack_connection_manager_add_port(struct jack_connection_manager *conn, bool input,
 				 int ref_num, jack_port_id_t port_id)
 {
-	if (input)
+	if (input) {
 		return ADD_FIXED_ARRAY1(conn->input_port[ref_num], port_id);
-	else
+	}
+	else {
 		return ADD_FIXED_ARRAY(conn->output_port[ref_num], port_id);
+	}
+}
+
+static inline int
+jack_connection_manager_get_output_refnum(struct jack_connection_manager *conn,
+					  jack_port_id_t port_index)
+{
+	int i;
+        for (i = 0; i < CLIENT_NUM; i++) {
+		if (GET_FIXED_ARRAY(conn->output_port[i], port_index) != -1)
+			return i;
+	}
+	return -1;
+}
+
+static inline int
+jack_connection_manager_get_input_refnum(struct jack_connection_manager *conn,
+					 jack_port_id_t port_index)
+{
+	int i;
+        for (i = 0; i < CLIENT_NUM; i++) {
+		if (GET_FIXED_ARRAY1(conn->input_port[i], port_index) != -1)
+			return i;
+	}
+	return -1;
+}
+
+static inline bool
+jack_connection_manager_is_connected(struct jack_connection_manager *conn,
+				     jack_port_id_t src_id, jack_port_id_t dst_id)
+{
+	return GET_FIXED_ARRAY(conn->connection[src_id], dst_id) != -1;
+}
+
+static inline int
+jack_connection_manager_connect(struct jack_connection_manager *conn,
+				jack_port_id_t src_id, jack_port_id_t dst_id)
+{
+	return ADD_FIXED_ARRAY(conn->connection[src_id], dst_id);
+}
+
+static inline int
+jack_connection_manager_disconnect(struct jack_connection_manager *conn,
+				   jack_port_id_t src_id, jack_port_id_t dst_id)
+{
+	return REMOVE_FIXED_ARRAY(conn->connection[src_id], dst_id);
+}
+
+static inline int
+jack_connection_manager_is_loop_path(struct jack_connection_manager *conn,
+				   jack_port_id_t src_id, jack_port_id_t dst_id)
+{
+	/* FIXME */
+	return false;
+}
+
+static inline void
+jack_connection_manager_direct_connect(struct jack_connection_manager *conn,
+				       int ref1, int ref2)
+{
+	if (INC_FIXED_MATRIX(conn->connection_ref, ref1, ref2) == 1)
+		jack_activation_count_inc_value(&conn->input_counter[ref2]);
+}
+
+static inline bool
+jack_connection_manager_is_direct_connection(struct jack_connection_manager *conn,
+					     int ref1, int ref2)
+{
+	return GET_FIXED_MATRIX(conn->connection_ref, ref1, ref2) > 0;
+}
+
+static inline void
+jack_connection_manager_direct_disconnect(struct jack_connection_manager *conn,
+					  int ref1, int ref2)
+{
+	if (DEC_FIXED_MATRIX(conn->connection_ref, ref1, ref2) == 0)
+		jack_activation_count_dec_value(&conn->input_counter[ref2]);
+}
+
+static inline bool
+jack_connection_manager_inc_feedback_connection(struct jack_connection_manager *conn,
+						jack_port_id_t src_id, jack_port_id_t dst_id)
+{
+	int ref1 = jack_connection_manager_get_output_refnum(conn, src_id);
+	int ref2 = jack_connection_manager_get_input_refnum(conn, dst_id);
+
+	if (ref1 != ref2)
+		jack_connection_manager_direct_connect(conn, ref2, ref1);
+
+	return INC_LOOP_FEEDBACK(conn->loop_feedback, ref1, ref2);
+}
+
+static inline void
+jack_connection_manager_inc_direct_connection(struct jack_connection_manager *conn,
+					      jack_port_id_t src_id, jack_port_id_t dst_id)
+{
+	int ref1 = jack_connection_manager_get_output_refnum(conn, src_id);
+	int ref2 = jack_connection_manager_get_input_refnum(conn, dst_id);
+
+	jack_connection_manager_direct_connect(conn, ref1, ref2);
+}
+
+static inline void
+jack_connection_manager_dec_direct_connection(struct jack_connection_manager *conn,
+					      jack_port_id_t src_id, jack_port_id_t dst_id)
+{
+	int ref1 = jack_connection_manager_get_output_refnum(conn, src_id);
+	int ref2 = jack_connection_manager_get_input_refnum(conn, dst_id);
+
+	jack_connection_manager_direct_disconnect(conn, ref1, ref2);
+}
+
+static inline int
+jack_connection_manager_get_activation(struct jack_connection_manager *conn, int ref_num)
+{
+	return jack_activation_count_get_value(&conn->input_counter[ref_num]);
+}
+
+static inline int
+jack_connection_manager_suspend_ref_num(struct jack_connection_manager *conn,
+					struct jack_client_control *control,
+					struct jack_synchro *synchro,
+					struct jack_client_timing *timing)
+{
+	int res = 0, ref_num = control->ref_num;
+	jack_time_t current_date = 0;
+
+	if (jack_synchro_wait(&synchro[ref_num])) {
+		timing[ref_num].status = Finished;
+		timing[ref_num].awake_at = current_date;
+	}
+	return res ? 0 : -1;
+}
+
+
+static inline int
+jack_connection_manager_resume_ref_num(struct jack_connection_manager *conn,
+				       struct jack_client_control *control,
+				       struct jack_synchro *synchro,
+				       struct jack_client_timing *timing)
+{
+	int i, res = 0, ref_num = control->ref_num;
+	const jack_int_t* output_ref = GET_ITEMS_FIXED_MATRIX(conn->connection_ref, ref_num);
+	jack_time_t current_date = 0;
+
+	timing[ref_num].status = Finished;
+	timing[ref_num].finished_at = current_date;
+
+	for (i = 0; i < CLIENT_NUM; i++) {
+		if (output_ref[i] <= 0)
+			continue;
+
+		timing[i].status = Triggered;
+		timing[i].signaled_at = current_date;
+
+		if (!jack_activation_count_signal(&conn->input_counter[i], &synchro[i]))
+			res = -1;
+	}
+	return res;
 }
 
 PRE_PACKED_STRUCTURE
@@ -286,6 +632,8 @@ jack_graph_manager_alloc(int port_max)
 
         mgr = (struct jack_graph_manager *)jack_shm_addr(&info);
         mgr->info = info;
+	Counter(mgr->state.counter) = 0;
+	mgr->state.call_write_counter = 0;
 
 	jack_connection_manager_init(&mgr->state.state[0]);
 	jack_connection_manager_init(&mgr->state.state[1]);
@@ -313,6 +661,31 @@ jack_graph_manager_allocate_port(struct jack_graph_manager *mgr,
 	return NO_PORT;
 }
 
+static inline void
+jack_graph_manager_release_port(struct jack_graph_manager *mgr, jack_port_id_t port_id)
+{
+	jack_port_release(&mgr->port_array[port_id]);
+}
+
+static inline struct jack_port *
+jack_graph_manager_get_port(struct jack_graph_manager *mgr, jack_port_id_t port_index)
+{
+	if (port_index > 0 && port_index < mgr->port_max)
+		return &mgr->port_array[port_index];
+	return NULL;
+}
+
+static inline jack_port_id_t
+jack_graph_manager_find_port(struct jack_graph_manager *mgr, const char *name)
+{
+	int i;
+	for (i = 0; i < mgr->port_max; i++) {
+		struct jack_port *port = &mgr->port_array[i];
+		if (port->in_use && strcmp(port->name, name) == 0)
+			return i;
+	}
+	return NO_PORT;
+}
 
 static inline struct jack_connection_manager *
 jack_graph_manager_next_start(struct jack_graph_manager *manager)
@@ -368,6 +741,38 @@ jack_graph_manager_next_stop(struct jack_graph_manager *manager)
 						    __ATOMIC_SEQ_CST,
 						    __ATOMIC_SEQ_CST));
 	}
+}
+
+static inline bool
+jack_graph_manager_is_pending_change(struct jack_graph_manager *manager)
+{
+	return CurIndex(manager->state.counter) != NextIndex(manager->state.counter);
+}
+
+static inline struct jack_connection_manager *
+jack_graph_manager_get_current(struct jack_graph_manager *manager)
+{
+	return &manager->state.state[CurArrayIndex(manager->state.counter)];
+}
+
+static inline struct jack_connection_manager *
+jack_graph_manager_try_switch(struct jack_graph_manager *manager)
+{
+	struct jack_atomic_counter old_val;
+	struct jack_atomic_counter new_val;
+	do {
+		old_val = manager->state.counter;
+		new_val = old_val;
+		CurIndex(new_val) = NextIndex(new_val);
+	}
+	while (!__atomic_compare_exchange_n((uint32_t*)&manager->state.counter,
+					    (uint32_t*)&Counter(old_val),
+					    Counter(new_val),
+					    false,
+					    __ATOMIC_SEQ_CST,
+					    __ATOMIC_SEQ_CST));
+
+	return &manager->state.state[CurArrayIndex(manager->state.counter)];
 }
 
 typedef enum {
@@ -515,7 +920,7 @@ jack_engine_control_alloc(const char* name)
 
 	ctrl->buffer_size = 512;
         ctrl->sample_rate = 48000;
-	ctrl->sync_mode = false;
+	ctrl->sync_mode = true;
 	ctrl->temporary = false;
 	ctrl->period_usecs = 1000000.f / ctrl->sample_rate * ctrl->buffer_size;
 	ctrl->timeout_usecs = 0;
@@ -542,60 +947,6 @@ jack_engine_control_alloc(const char* name)
 	ctrl->period = 0;
 	ctrl->computation = 0;
 	ctrl->constraint = 0;
-
-	return ctrl;
-}
-
-PRE_PACKED_STRUCTURE
-struct jack_client_control {
-	jack_shm_info_t info;
-	char name[JACK_CLIENT_NAME_SIZE+1];
-	bool callback[jack_notify_max];
-	volatile jack_transport_state_t transport_state;
-	volatile bool transport_sync;
-	volatile bool transport_timebase;
-	int ref_num;
-	int PID;
-	bool active;
-
-	int session_ID;
-	char session_command[JACK_SESSION_COMMAND_SIZE];
-	jack_session_flags_t session_flags;
-} POST_PACKED_STRUCTURE;
-
-static inline struct jack_client_control *
-jack_client_control_alloc(const char* name, int pid, int ref_num, int uuid)
-{
-	struct jack_client_control *ctrl;
-        jack_shm_info_t info;
-	size_t size;
-
-	size = sizeof(struct jack_client_control);
-        if (jack_shm_alloc(size, &info, segment_num++) < 0)
-                return NULL;
-
-        ctrl = (struct jack_client_control *)jack_shm_addr(&info);
-        ctrl->info = info;
-
-	strcpy(ctrl->name, name);
-        for (int i = 0; i < jack_notify_max; i++)
-            ctrl->callback[i] = false;
-
-        // Always activated
-        ctrl->callback[jack_notify_AddClient] = true;
-        ctrl->callback[jack_notify_RemoveClient] = true;
-        ctrl->callback[jack_notify_ActivateClient] = true;
-        ctrl->callback[jack_notify_LatencyCallback] = true;
-        // So that driver synchro are correctly setup in "flush" or "normal" mode
-        ctrl->callback[jack_notify_StartFreewheelCallback] = true;
-        ctrl->callback[jack_notify_StopFreewheelCallback] = true;
-        ctrl->ref_num = ref_num;
-        ctrl->PID = pid;
-        ctrl->transport_state = JackTransportStopped;
-        ctrl->transport_sync = false;
-        ctrl->transport_timebase = false;
-        ctrl->active = false;
-        ctrl->session_ID = uuid;
 
 	return ctrl;
 }

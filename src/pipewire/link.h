@@ -71,7 +71,8 @@ pw_link_new(struct pw_core *core,		/**< the core object */
 	    struct pw_port *input,		/**< an input port */
 	    struct spa_format *format_filter,	/**< an optional format filter */
 	    struct pw_properties *properties	/**< extra properties */,
-	    char **error			/**< error string when result is NULL */);
+	    char **error,			/**< error string when result is NULL */
+	    size_t user_data_size		/**< extra user data size */);
 
 /** Destroy a link \memberof pw_link */
 void pw_link_destroy(struct pw_link *link);
@@ -83,6 +84,8 @@ void pw_link_add_listener(struct pw_link *link,
 
 
 struct pw_core *pw_link_get_core(struct pw_link *link);
+
+void *pw_link_get_user_data(struct pw_link *link);
 
 const struct pw_link_info *pw_link_get_info(struct pw_link *link);
 

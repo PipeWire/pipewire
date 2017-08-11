@@ -21,7 +21,8 @@ struct jack_client {
 	int ref_num;
 	struct client *owner;
 	struct jack_client_control *control;
-	struct pw_node *node;
+	struct pw_jack_node *node;
+	int fd; /* notify fd */
 };
 
 struct jack_server {
@@ -34,6 +35,13 @@ struct jack_server {
 
 	struct jack_client* client_table[CLIENT_NUM];
 	struct jack_synchro synchro_table[CLIENT_NUM];
+
+	int audio_ref_num;
+	int freewheel_ref_num;
+
+	struct pw_jack_node *audio_node;
+	struct pw_node *audio_node_node;
+	int audio_used;
 };
 
 static inline int

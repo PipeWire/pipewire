@@ -445,8 +445,7 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 }
 
 static void
-on_rtsocket_condition(struct spa_loop_utils *utils,
-                      struct spa_source *source, int fd, enum spa_io mask, void *user_data)
+on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 {
 	struct pw_proxy *proxy = user_data;
 	struct node_data *data = proxy->user_data;

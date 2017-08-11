@@ -141,6 +141,7 @@ static const struct spa_graph_port_callbacks schedule_mix_port = {
 
 struct pw_port *pw_port_new(enum pw_direction direction,
 			    uint32_t port_id,
+			    struct pw_properties *properties,
 			    size_t user_data_size)
 {
 	struct impl *impl;
@@ -153,8 +154,14 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	this = &impl->this;
 	pw_log_debug("port %p: new", this);
 
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		goto no_mem;
+
 	this->direction = direction;
 	this->port_id = port_id;
+	this->properties = properties;
 	this->state = PW_PORT_STATE_INIT;
 	this->io.status = SPA_RESULT_OK;
 	this->io.buffer_id = SPA_ID_INVALID;
@@ -165,6 +172,8 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	spa_list_init(&this->links);
 
 	spa_hook_list_init(&this->listener_list);
+
+	spa_graph_port_set_callbacks(&this->rt.port, NULL, this);
 
 	spa_graph_port_init(&this->rt.port,
 			    this->direction,
@@ -188,6 +197,10 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 					&schedule_tee_port,
 				     this);
 	return this;
+
+       no_mem:
+	free(impl);
+	return NULL;
 }
 
 enum pw_direction pw_port_get_direction(struct pw_port *port)
@@ -198,6 +211,21 @@ enum pw_direction pw_port_get_direction(struct pw_port *port)
 uint32_t pw_port_get_id(struct pw_port *port)
 {
 	return port->port_id;
+}
+
+const struct pw_properties *pw_port_get_properties(struct pw_port *port)
+{
+	return port->properties;
+}
+
+void pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
+{
+	uint32_t i;
+	for (i = 0; i < dict->n_items; i++)
+		pw_properties_set(port->properties, dict->items[i].key, dict->items[i].value);
+
+	spa_hook_list_call(&port->listener_list, struct pw_port_events,
+			   properties_changed, port->properties);
 }
 
 struct pw_node *pw_port_get_node(struct pw_port *port)

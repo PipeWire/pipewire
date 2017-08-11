@@ -90,7 +90,7 @@ static void *do_loop(void *user_data)
 }
 
 
-static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, uint64_t count, void *data)
+static void do_stop(void *data, uint64_t count)
 {
 	struct pw_data_loop *this = data;
 	this->running = false;

@@ -434,7 +434,7 @@ static void make_node(struct data *data)
 	data->node = pw_node_new(data->core, NULL, NULL, "SDL-sink", props, 0);
 	pw_node_set_implementation(data->node, &impl_node, data);
 
-	data->port = pw_port_new(PW_DIRECTION_INPUT, 0, 0);
+	data->port = pw_port_new(PW_DIRECTION_INPUT, 0, NULL, 0);
 	pw_port_set_implementation(data->port, &impl_port, data);
 	pw_port_add(data->port, data->node);
 	pw_node_register(data->node);

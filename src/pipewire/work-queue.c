@@ -46,8 +46,7 @@ struct pw_work_queue {
 };
 /** \endcond */
 
-static void process_work_queue(struct spa_loop_utils *utils, struct spa_source *source,
-			       uint64_t count, void *data)
+static void process_work_queue(void *data, uint64_t count)
 {
 	struct pw_work_queue *this = data;
 	struct work_item *item, *tmp;

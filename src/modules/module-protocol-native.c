@@ -190,8 +190,7 @@ client_busy_changed(void *data, bool busy)
 }
 
 static void
-connection_data(struct spa_loop_utils *utils,
-		struct spa_source *source, int fd, enum spa_io mask, void *data)
+connection_data(void *data, int fd, enum spa_io mask)
 {
 	struct client_data *this = data;
 	struct pw_client *client = this->client;
@@ -343,8 +342,7 @@ static bool lock_socket(struct listener *l)
 }
 
 static void
-socket_data(struct spa_loop_utils *utils,
-	    struct spa_source *source, int fd, enum spa_io mask, void *data)
+socket_data(void *data, int fd, enum spa_io mask)
 {
 	struct listener *l = data;
 	struct pw_client *client;
@@ -454,8 +452,7 @@ static int impl_connect(struct pw_protocol_connection *conn)
 
 
 static void
-on_remote_data(struct spa_loop_utils *utils,
-	       struct spa_source *source, int fd, enum spa_io mask, void *data)
+on_remote_data(void *data, int fd, enum spa_io mask)
 {
         struct connection *impl = data;
         struct pw_remote *this = impl->this.remote;
@@ -523,8 +520,7 @@ on_remote_data(struct spa_loop_utils *utils,
 }
 
 
-static void do_flush_event(struct spa_loop_utils *utils, struct spa_source *source,
-			   uint64_t count, void *data)
+static void do_flush_event(void *data, uint64_t count)
 {
         struct connection *impl = data;
 	impl->flush_signaled = false;

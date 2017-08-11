@@ -94,6 +94,8 @@ struct pw_port_events {
 	void (*destroy) (void *data);
 
 	void (*state_changed) (void *data, enum pw_port_state state);
+
+	void (*properties_changed) (void *data, const struct pw_properties *properties);
 };
 
 /** Create a new port \memberof pw_port
@@ -101,10 +103,15 @@ struct pw_port_events {
 struct pw_port *
 pw_port_new(enum pw_direction direction,
 	    uint32_t port_id,
+	    struct pw_properties *properties,
 	    size_t user_data_size);
 
 /** Get the port direction */
 enum pw_direction pw_port_get_direction(struct pw_port *port);
+
+const struct pw_properties *pw_port_get_properties(struct pw_port *port);
+
+void pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict);
 
 /** Get the port id */
 uint32_t pw_port_get_id(struct pw_port *port);

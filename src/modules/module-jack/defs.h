@@ -30,6 +30,7 @@
 #define JACK_PORT_NAME_SIZE		256
 #define JACK_PORT_TYPE_SIZE		32
 #define JACK_PROTOCOL_VERSION		8
+#define JACK_MESSAGE_SIZE		256
 
 #define PORT_NUM_MAX 4096
 #define PORT_NUM_FOR_CLIENT 2048
@@ -59,8 +60,6 @@
 #define NO_PORT 0xFFFE
 #define EMPTY   0xFFFD
 #define FREE    0xFFFC
-
-
 
 typedef enum {
         JACK_TIMER_SYSTEM_CLOCK,

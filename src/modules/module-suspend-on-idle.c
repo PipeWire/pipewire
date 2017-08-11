@@ -73,7 +73,7 @@ static void node_info_free(struct node_info *info)
 	free(info);
 }
 
-static void idle_timeout(struct spa_loop_utils *utils, struct spa_source *source, void *data)
+static void idle_timeout(void *data, uint64_t expirations)
 {
 	struct node_info *info = data;
 

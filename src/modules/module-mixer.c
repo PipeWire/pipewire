@@ -134,7 +134,7 @@ static bool on_global(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 	struct pw_node *n, *node;
-	struct pw_properties *properties;
+	const struct pw_properties *properties;
 	const char *str;
 	char *error;
 	struct pw_port *ip, *op;
@@ -160,7 +160,7 @@ static bool on_global(void *data, struct pw_global *global)
 	if (op == NULL)
 		return true;
 
-	link = pw_link_new(impl->core, pw_module_get_global(impl->module), op, ip, NULL, NULL, &error);
+	link = pw_link_new(impl->core, pw_module_get_global(impl->module), op, ip, NULL, NULL, &error, 0);
 	pw_link_inc_idle(link);
 
 	return true;

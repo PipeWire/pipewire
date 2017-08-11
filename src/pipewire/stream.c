@@ -444,7 +444,7 @@ static void do_node_init(struct pw_stream *stream)
 	add_async_complete(stream, 0, SPA_RESULT_OK);
 }
 
-static void on_timeout(struct spa_loop_utils *utils, struct spa_source *source, void *data)
+static void on_timeout(void *data, uint64_t expirations)
 {
 	struct pw_stream *stream = data;
 	add_request_clock_update(stream);
@@ -544,8 +544,7 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 }
 
 static void
-on_rtsocket_condition(struct spa_loop_utils *utils,
-		      struct spa_source *source, int fd, enum spa_io mask, void *data)
+on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 {
 	struct pw_stream *stream = data;
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);

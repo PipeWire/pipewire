@@ -79,7 +79,7 @@ struct data {
 	uint32_t seq;
 };
 
-static void on_timeout(struct spa_loop_utils *utils, struct spa_source *source, void *userdata)
+static void on_timeout(void *userdata, uint64_t expirations)
 {
 	struct data *data = userdata;
 	uint32_t id;

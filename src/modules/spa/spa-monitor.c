@@ -114,6 +114,7 @@ static void add_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
 	}
 	if ((res = spa_handle_get_interface(handle, t->spa_clock, &clock_iface)) < 0) {
 		pw_log_info("no CLOCK interface: %d", res);
+		clock_iface = NULL;
 	}
 
 

@@ -1021,7 +1021,8 @@ struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *input,
 			    struct spa_format *format_filter,
 			    struct pw_properties *properties,
-			    char **error)
+			    char **error,
+			    size_t user_data_size)
 {
 	struct impl *impl;
 	struct pw_link *this;
@@ -1033,12 +1034,15 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	if (pw_link_find(output, input))
 		goto link_exists;
 
-	impl = calloc(1, sizeof(struct impl));
+	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		goto no_mem;
 
 	this = &impl->this;
 	pw_log_debug("link %p: new", this);
+
+	if (user_data_size > 0)
+                this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	impl->work = pw_work_queue_new(core->main_loop);
 
@@ -1157,6 +1161,7 @@ void pw_link_add_listener(struct pw_link *link,
 			  const struct pw_link_events *events,
 			  void *data)
 {
+	pw_log_debug("link %p: add listener %p", link, listener);
 	spa_hook_list_append(&link->listener_list, listener, events, data);
 }
 
@@ -1174,6 +1179,11 @@ struct pw_link *pw_link_find(struct pw_port *output_port, struct pw_port *input_
 struct pw_core *pw_link_get_core(struct pw_link *link)
 {
 	return link->core;
+}
+
+void *pw_link_get_user_data(struct pw_link *link)
+{
+	return link->user_data;
 }
 
 const struct pw_link_info *pw_link_get_info(struct pw_link *link)

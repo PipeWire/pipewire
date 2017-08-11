@@ -150,7 +150,7 @@ make_port(struct impl *impl, enum pw_direction direction, uint32_t port_id)
 	struct pw_port *port;
 	struct port *p;
 
-	port = pw_port_new(direction, port_id, sizeof(struct port));
+	port = pw_port_new(direction, port_id, NULL, sizeof(struct port));
 	if (port == NULL)
 		return NULL;
 

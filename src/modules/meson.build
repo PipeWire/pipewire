@@ -72,7 +72,8 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
 if jack_dep.found()
 pipewire_module_jack = shared_library('pipewire-module-jack',
   [ 'module-jack.c',
-    'module-jack/shm.c' ],
+    'module-jack/shm.c',
+    'module-jack/jack-node.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
   link_with : spalib,

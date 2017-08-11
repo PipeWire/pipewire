@@ -69,11 +69,10 @@ static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
 	return NULL;
 }
 
-static void link_data_free(struct link_data *data)
+static void link_data_remove(struct link_data *data)
 {
 	spa_list_remove(&data->l);
 	spa_hook_remove(&data->link_listener);
-	free(data);
 }
 
 static void node_info_free(struct node_info *info)
@@ -83,7 +82,7 @@ static void node_info_free(struct node_info *info)
 	spa_list_remove(&info->l);
 	spa_hook_remove(&info->node_listener);
 	spa_list_for_each_safe(ld, t, &info->links, l)
-		link_data_free(ld);
+		link_data_remove(ld);
 	free(info);
 }
 
@@ -135,7 +134,7 @@ link_destroy(void *data)
 {
 	struct link_data *ld = data;
 	pw_log_debug("module %p: link %p destroyed", ld->node_info->impl, ld->link);
-	link_data_free(ld);
+	link_data_remove(ld);
 }
 
 static const struct pw_link_events link_events = {

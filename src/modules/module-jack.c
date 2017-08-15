@@ -39,6 +39,7 @@
 #include "pipewire/module.h"
 #include "pipewire/client.h"
 #include "pipewire/resource.h"
+#include "pipewire/private.h"
 #include "pipewire/link.h"
 #include "pipewire/node-factory.h"
 #include "pipewire/data-loop.h"
@@ -86,6 +87,10 @@ struct impl {
 	struct jack_server server;
 
 	struct pw_link *sink_link;
+
+	struct {
+		struct spa_list nodes;
+	} rt;
 };
 
 struct client {
@@ -120,6 +125,80 @@ static bool init_socket_name(struct sockaddr_un *addr, const char *name, bool pr
 		return false;
 	}
 	return true;
+}
+
+static int
+notify_client(struct jack_client *client, int ref_num, const char *name, int notify,
+	      int sync, const char* message, int value1, int value2)
+{
+	int size, result = 0;
+	char _name[JACK_CLIENT_NAME_SIZE+1];
+	char _message[JACK_MESSAGE_SIZE+1];
+
+	if (client->fd == 0)
+		return 0;
+
+	if (name == NULL)
+		name = client->control->name;
+
+	snprintf(_name, sizeof(_name), "%s", name);
+        snprintf(_message, sizeof(_message), "%s", message);
+
+	size = sizeof(int) + sizeof(_name) + 5 * sizeof(int) + sizeof(_message);
+	CheckWrite(&size, sizeof(int));
+        CheckWrite(_name, sizeof(_name));
+	CheckWrite(&ref_num, sizeof(int));
+	CheckWrite(&notify, sizeof(int));
+	CheckWrite(&value1, sizeof(int));
+	CheckWrite(&value2, sizeof(int));
+	CheckWrite(&sync, sizeof(int));
+        CheckWrite(_message, sizeof(_message));
+
+	if (sync)
+		CheckRead(&result, sizeof(int));
+
+	return result;
+}
+
+static int
+notify_add_client(struct impl *impl, struct jack_client *client, const char *name, int ref_num)
+{
+	struct jack_server *server = &impl->server;
+	int i;
+
+	for (i = 0; i < CLIENT_NUM; i++) {
+		struct jack_client *c = server->client_table[i];
+		const char *n;
+
+		if (c == NULL || c == client)
+			continue;
+
+		n = c->control->name;
+		if (notify_client(c, ref_num, name, jack_notify_AddClient, false, "", 0, 0) < 0) {
+			pw_log_warn("module-jack %p: can't notify client", impl);
+		}
+		if (notify_client(client, i, n, jack_notify_AddClient, true, "", 0, 0) < 0) {
+			pw_log_error("module-jack %p: can't notify client", impl);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+void
+notify_clients(struct impl *impl, int notify,
+	       int sync, const char* message, int value1, int value2)
+{
+	struct jack_server *server = &impl->server;
+	int i;
+	for (i = 0; i < CLIENT_NUM; i++) {
+		struct jack_client *c = server->client_table[i];
+
+		if (c == NULL)
+			continue;
+
+		notify_client(c, i, NULL, notify, sync, message, value1, value2);
+	}
 }
 
 static int process_messages(struct client *client);
@@ -196,6 +275,9 @@ handle_register_port(struct client *client)
       reply_stop:
 	jack_graph_manager_next_stop(mgr);
 
+	if (jc->control->active)
+		notify_clients(impl, jack_notify_PortRegistrationOnCallback, false, "", port_index, 0);
+
       reply:
 	CheckWrite(&result, sizeof(int));
 	CheckWrite(&port_index, sizeof(jack_port_id_t));
@@ -226,6 +308,8 @@ handle_activate_client(struct client *client)
 	jack_connection_manager_direct_connect(conn, ref_num, server->freewheel_ref_num);
 
 	jack_graph_manager_next_stop(mgr);
+
+	notify_clients(impl, jack_notify_ActivateClient, true, "", 0, 0);
 
 	CheckWrite(&result, sizeof(int));
 	return 0;
@@ -305,61 +389,6 @@ handle_client_check(struct client *client)
 }
 
 static int
-notify_client(struct jack_client *client, int ref_num, const char *name, int notify,
-	      int sync, const char* message, int value1, int value2)
-{
-	int size, result = 0;
-	char _name[JACK_CLIENT_NAME_SIZE+1];
-	char _message[JACK_MESSAGE_SIZE+1];
-
-	if (client->fd == 0)
-		return 0;
-
-	snprintf(_name, sizeof(_name), "%s", name);
-        snprintf(_message, sizeof(_message), "%s", message);
-
-	size = sizeof(int) + sizeof(_name) + 5 * sizeof(int) + sizeof(_message);
-	CheckWrite(&size, sizeof(int));
-        CheckWrite(_name, sizeof(_name));
-	CheckWrite(&ref_num, sizeof(int));
-	CheckWrite(&notify, sizeof(int));
-	CheckWrite(&value1, sizeof(int));
-	CheckWrite(&value2, sizeof(int));
-	CheckWrite(&sync, sizeof(int));
-        CheckWrite(_message, sizeof(_message));
-
-	if (sync)
-		CheckRead(&result, sizeof(int));
-
-	return result;
-}
-
-static int
-notify_add_client(struct impl *impl, struct jack_client *client, const char *name, int ref_num)
-{
-	struct jack_server *server = &impl->server;
-	int i;
-
-	for (i = 0; i < CLIENT_NUM; i++) {
-		struct jack_client *c = server->client_table[i];
-		const char *n;
-
-		if (c == NULL || c == client)
-			continue;
-
-		n = c->control->name;
-		if (notify_client(c, ref_num, name, jack_notify_AddClient, false, "", 0, 0) < 0) {
-			pw_log_warn("module-jack %p: can't notify client", impl);
-		}
-		if (notify_client(client, i, n, jack_notify_AddClient, true, "", 0, 0) < 0) {
-			pw_log_error("module-jack %p: can't notify client", impl);
-			return -1;
-		}
-	}
-	return 0;
-}
-
-static int
 handle_client_open(struct client *client)
 {
 	struct impl *impl = client->impl;
@@ -433,6 +462,8 @@ handle_client_open(struct client *client)
 		pw_log_error("module-jack %p: can't notify add_client", impl);
 		goto reply;
 	}
+
+	spa_list_append(&impl->rt.nodes, &jc->node->graph_link);
 
 	shared_engine = impl->server.engine_control->info.index;
 	shared_client = jc->control->info.index;
@@ -576,6 +607,8 @@ handle_connect_name_ports(struct client *client)
 			   0);
 	pw_link_activate(link);
 
+	notify_clients(impl, jack_notify_PortConnectCallback, false, "", src_id, dst_id);
+
 	result = 0;
     reply_stop:
 	jack_graph_manager_next_stop(mgr);
@@ -618,9 +651,13 @@ process_messages(struct client *client)
 		res = handle_register_port(client);
 		break;
 	case jack_request_UnRegisterPort:
+		break;
 	case jack_request_ConnectPorts:
+		break;
 	case jack_request_DisconnectPorts:
+		break;
 	case jack_request_SetTimeBaseClient:
+		break;
 	case jack_request_ActivateClient:
 		res = handle_activate_client(client);
 		break;
@@ -628,6 +665,7 @@ process_messages(struct client *client)
 		res = handle_deactivate_client(client);
 		break;
 	case jack_request_DisconnectPort:
+		break;
 	case jack_request_SetClientCapabilities:
 	case jack_request_GetPortConnections:
 	case jack_request_GetPortNConnections:
@@ -649,6 +687,7 @@ process_messages(struct client *client)
 		res = handle_connect_name_ports(client);
 		break;
 	case jack_request_DisconnectNamePorts:
+		break;
 	case jack_request_GetInternalClientName:
 	case jack_request_InternalClientHandle:
 	case jack_request_InternalClientLoad:
@@ -763,6 +802,94 @@ static struct client *client_new(struct impl *impl, int fd)
 	return NULL;
 }
 
+static void jack_node_pull(void *data)
+{
+	struct jack_client *jc = data;
+	struct impl *impl = jc->data;
+	struct jack_server *server = &impl->server;
+	struct jack_graph_manager *mgr = server->graph_manager;
+	struct spa_graph_node *n = &jc->node->node->rt.node, *pn;
+	struct spa_graph_port *p, *pp;
+
+	jack_graph_manager_try_switch(mgr);
+
+	spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
+		if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
+			continue;
+		pn->state = pn->callbacks->process_input(pn->callbacks_data);
+	}
+}
+
+static void jack_node_push(void *data)
+{
+	struct jack_client *jc = data;
+	struct impl *impl = jc->data;
+	struct jack_server *server = &impl->server;
+	struct jack_graph_manager *mgr = server->graph_manager;
+	struct jack_connection_manager *conn;
+	int activation;
+	struct pw_jack_node *node;
+	struct spa_graph_node *n = &jc->node->node->rt.node, *pn;
+	struct spa_graph_port *p, *pp;
+
+	conn = jack_graph_manager_get_current(mgr);
+
+	jack_connection_manager_reset(conn, mgr->client_timing);
+
+	activation = jack_connection_manager_get_activation(conn, server->freewheel_ref_num);
+	if (activation == 0)
+		return;
+
+	pw_log_trace("resume %d", activation);
+
+	spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
+		if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
+			continue;
+		pn->state = pn->callbacks->process_output(pn->callbacks_data);
+	}
+
+	spa_list_for_each(node, &impl->rt.nodes, graph_link) {
+		n = &node->node->rt.node;
+		n->state = n->callbacks->process_output(n->callbacks_data);
+
+		spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
+			if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
+				continue;
+			pn->state = pn->callbacks->process_input(pn->callbacks_data);
+		}
+
+		n->state = n->callbacks->process_input(n->callbacks_data);
+
+		spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link) {
+			if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
+				continue;
+			pn->state = pn->callbacks->process_input(pn->callbacks_data);
+		}
+	}
+
+
+#if 0
+	jack_connection_manager_resume_ref_num(conn,
+					       client->control,
+					       server->synchro_table,
+					       mgr->client_timing);
+
+	if (server->engine_control->sync_mode) {
+		pw_log_trace("suspend");
+		jack_connection_manager_suspend_ref_num(conn,
+						        client->control,
+						        server->synchro_table,
+						        mgr->client_timing);
+	}
+#endif
+}
+
+static const struct pw_jack_node_events jack_node_events = {
+	PW_VERSION_JACK_NODE_EVENTS,
+	.pull = jack_node_pull,
+	.push = jack_node_push,
+};
+
 static int
 make_audio_client(struct impl *impl)
 {
@@ -787,6 +914,7 @@ make_audio_client(struct impl *impl)
 	}
 
 	jc = calloc(1,sizeof(struct jack_client));
+	jc->data = impl;
 	jc->ref_num = ref_num;
 	jc->control = jack_client_control_alloc("system", -1, ref_num, -1);
 	jc->control->active = true;
@@ -817,11 +945,12 @@ make_audio_client(struct impl *impl)
 	jack_graph_manager_next_stop(mgr);
 
 	server->audio_ref_num = ref_num;
-
 	server->audio_node = pw_jack_node_new(impl->core, pw_module_get_global(impl->module),
 					      server, ref_num, NULL);
 	server->audio_node_node = pw_jack_node_get_node(server->audio_node);
 	jc->node = server->audio_node;
+
+	pw_jack_node_add_listener(server->audio_node, &jc->node_listener, &jack_node_events, jc);
 
 	pw_log_debug("module-jack %p: Added audio driver %d", impl, ref_num);
 
@@ -851,6 +980,7 @@ make_freewheel_client(struct impl *impl)
 	}
 
 	jc = calloc(1,sizeof(struct jack_client));
+	jc->data = impl;
 	jc->ref_num = ref_num;
 	jc->control = jack_client_control_alloc("freewheel", -1, ref_num, -1);
 	jc->control->active = true;
@@ -876,7 +1006,7 @@ static bool on_global(void *data, struct pw_global *global)
 
 {
 	struct impl *impl = data;
-	struct pw_node *node, *n;
+	struct pw_node *node;
 	const struct pw_properties *properties;
 	const char *str;
 
@@ -892,10 +1022,8 @@ static bool on_global(void *data, struct pw_global *global)
 	if (strcmp(str, "Audio/Sink") != 0)
 		return true;
 
-	n = pw_jack_node_get_node(impl->server.audio_node);
-
 	impl->sink_link = pw_link_new(impl->core, pw_module_get_global(impl->module),
-		    pw_node_get_free_port(n, PW_DIRECTION_OUTPUT),
+		    pw_node_get_free_port(impl->server.audio_node_node, PW_DIRECTION_OUTPUT),
 		    pw_node_get_free_port(node, PW_DIRECTION_INPUT),
 		    NULL,
 		    NULL,
@@ -1106,6 +1234,7 @@ static struct impl *module_init(struct pw_module *module, struct pw_properties *
 
 	spa_list_init(&impl->socket_list);
 	spa_list_init(&impl->client_list);
+	spa_list_init(&impl->rt.nodes);
 
 	str = NULL;
 	if (impl->properties)

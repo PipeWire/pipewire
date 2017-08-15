@@ -170,7 +170,6 @@ static void node_need_input(void *data)
 	struct pw_node *this = &impl->this;
 
 	spa_graph_scheduler_pull(this->rt.sched, &this->rt.node);
-	while (spa_graph_scheduler_iterate(this->rt.sched));
 }
 
 static void node_have_output(void *data)
@@ -179,7 +178,6 @@ static void node_have_output(void *data)
 	struct pw_node *this = &impl->this;
 
 	spa_graph_scheduler_push(this->rt.sched, &this->rt.node);
-	while (spa_graph_scheduler_iterate(this->rt.sched));
 }
 
 static void node_unbind_func(void *data)

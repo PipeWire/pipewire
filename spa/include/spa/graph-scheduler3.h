@@ -28,14 +28,12 @@ extern "C" {
 
 struct spa_graph_scheduler {
 	struct spa_graph *graph;
-        struct spa_graph_node *node;
 };
 
 static inline void spa_graph_scheduler_init(struct spa_graph_scheduler *sched,
 					    struct spa_graph *graph)
 {
 	sched->graph = graph;
-	sched->node = NULL;
 }
 
 static inline int spa_graph_node_scheduler_input(void *data)

@@ -918,9 +918,9 @@ jack_engine_control_alloc(const char* name)
         ctrl = (struct jack_engine_control *)jack_shm_addr(&info);
         ctrl->info = info;
 
-	ctrl->buffer_size = 512;
+	ctrl->buffer_size = 128;
         ctrl->sample_rate = 48000;
-	ctrl->sync_mode = true;
+	ctrl->sync_mode = false;
 	ctrl->temporary = false;
 	ctrl->period_usecs = 1000000.f / ctrl->sample_rate * ctrl->buffer_size;
 	ctrl->timeout_usecs = 0;

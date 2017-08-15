@@ -26,11 +26,20 @@
 extern "C" {
 #endif
 
-/** \class pw_jack_node
- *
- * PipeWire jack node interface
- */
-struct pw_jack_node;
+struct pw_jack_node {
+	struct pw_core *core;
+	struct pw_node *node;
+
+	struct spa_hook_list listener_list;
+
+	struct jack_server *server;
+	struct jack_client *client;
+	int ref_num;
+
+	struct pw_port *otherport;
+
+	struct spa_list graph_link;
+};
 
 struct pw_jack_node_events {
 #define PW_VERSION_JACK_NODE_EVENTS 0
@@ -38,7 +47,9 @@ struct pw_jack_node_events {
 
         void (*destroy) (void *data);
 
-        void (*process) (void *data);
+        void (*pull) (void *data);
+
+        void (*push) (void *data);
 };
 
 

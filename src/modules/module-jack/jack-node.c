@@ -54,16 +54,12 @@ struct type {
         struct spa_type_audio_format audio_format;
 };
 
-struct pw_jack_node {
-	struct pw_core *core;
-	struct pw_node *node;
+struct impl {
+	struct pw_jack_node node;
 
-	struct spa_hook_list listener_list;
-
-	struct jack_server *server;
 	struct type type;
-	int ref_num;
-	struct pw_port *otherport;
+
+	int status;
 };
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
@@ -80,14 +76,15 @@ struct buffer {
         struct spa_list link;
 	struct spa_buffer *outbuf;
 	void *ptr;
-	size_t size;
 };
 
 struct port_data {
-	struct pw_jack_node *node;
+	struct impl *impl;
+	enum pw_direction direction;
 
 	int jack_port_id;
 	struct jack_port *port;
+	float *ptr;
 
 	struct spa_port_info info;
 
@@ -145,7 +142,7 @@ static void recycle_buffer(struct pw_jack_node *this, struct port_data *pd, uint
         spa_list_append(&pd->empty, &b->link);
 }
 
-static int node_process_input(void *data)
+static int driver_process_input(void *data)
 {
 	struct pw_jack_node *this = data;
 	struct spa_graph_node *node = &this->node->rt.node;
@@ -176,39 +173,147 @@ static int node_process_input(void *data)
 	return SPA_RESULT_HAVE_BUFFER;
 }
 
-static int node_process_output(void *data)
+static void conv_f32_s16(int16_t *out, float *in, int n_samples, int stride)
+{
+	int i;
+	for (i = 0; i < n_samples; i++) {
+		if (in[i] < -1.0f)
+			*out = -32767;
+		else if (in[i] >= 1.0f)
+			*out = 32767;
+		else
+			*out = lrintf(in[i] * 32767.0f);
+		out += stride;
+	}
+}
+static void fill_s16(int16_t *out, int n_samples, int stride)
+{
+	int i;
+	for (i = 0; i < n_samples; i++) {
+		*out = 0;
+		out += stride;
+	}
+}
+
+static int driver_process_output(void *data)
 {
 	struct pw_jack_node *this = data;
 	struct spa_graph_node *node = &this->node->rt.node;
 	struct spa_graph_port *p;
+	struct port_data *opd = pw_port_get_user_data(this->otherport);
+	struct spa_port_io *out_io = opd->io;
+	struct jack_engine_control *ctrl = this->server->engine_control;
+	struct buffer *out;
+	int16_t *op;
 
 	pw_log_trace(NAME "%p: process output", this);
 
-	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
-		struct pw_port *port = p->callbacks_data;
-		struct port_data *opd = pw_port_get_user_data(port);
-		struct spa_port_io *out_io = opd->io;
+	if (out_io->status == SPA_RESULT_HAVE_BUFFER)
+		return SPA_RESULT_HAVE_BUFFER;
 
-		if (out_io->status == SPA_RESULT_HAVE_BUFFER)
-			return SPA_RESULT_HAVE_BUFFER;
-
-		if (out_io->buffer_id != SPA_ID_INVALID) {
-	                recycle_buffer(this, opd, out_io->buffer_id);
-	                out_io->buffer_id = SPA_ID_INVALID;
-		}
+	if (out_io->buffer_id != SPA_ID_INVALID) {
+                recycle_buffer(this, opd, out_io->buffer_id);
+                out_io->buffer_id = SPA_ID_INVALID;
 	}
+
+	out = buffer_dequeue(this, opd);
+	if (out == NULL)
+		return SPA_RESULT_OUT_OF_BUFFERS;
+
+	out_io->buffer_id = out->outbuf->id;
+	out_io->status = SPA_RESULT_HAVE_BUFFER;
+
+	op = out->ptr;
+
+	spa_hook_list_call(&this->listener_list, struct pw_jack_node_events, pull);
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
 		struct pw_port *port = p->callbacks_data;
 		struct port_data *ipd = pw_port_get_user_data(port);
 		struct spa_port_io *in_io = ipd->io;
+		struct buffer *in;
+		int stride = 2;
 
+		if (in_io->buffer_id != SPA_ID_INVALID && in_io->status == SPA_RESULT_HAVE_BUFFER) {
+			in = &ipd->buffers[in_io->buffer_id];
+			conv_f32_s16(op, in->ptr, ctrl->buffer_size, stride);
+		}
+		else {
+			fill_s16(op, ctrl->buffer_size, stride);
+		}
+		op++;
 		in_io->status = SPA_RESULT_NEED_BUFFER;
 	}
+	out->outbuf->datas[0].chunk->size = ctrl->buffer_size * sizeof(int16_t) * 2;
 
-	spa_hook_list_call(&this->listener_list, struct pw_jack_node_events, process);
+	spa_hook_list_call(&this->listener_list, struct pw_jack_node_events, push);
+	node->ready_in = node->required_in;
 
-	return SPA_RESULT_NEED_BUFFER;
+	return SPA_RESULT_HAVE_BUFFER;
+}
+
+static const struct pw_node_implementation driver_impl = {
+	PW_VERSION_NODE_IMPLEMENTATION,
+	.get_props = node_get_props,
+	.set_props = node_set_props,
+	.send_command = node_send_command,
+	.add_port = node_add_port,
+	.process_input = driver_process_input,
+	.process_output = driver_process_output,
+};
+
+static int node_process_input(void *data)
+{
+	struct impl *impl = data;
+	struct pw_jack_node *this = &impl->node;
+	struct spa_graph_node *node = &this->node->rt.node;
+	struct spa_graph_port *p;
+        struct jack_server *server = this->server;
+        struct jack_graph_manager *mgr = server->graph_manager;
+	struct jack_connection_manager *conn;
+	jack_time_t current_date = 0;
+	int ref_num = this->ref_num;
+
+	pw_log_trace(NAME " %p: process input", impl);
+	if (impl->status == SPA_RESULT_HAVE_BUFFER)
+                return SPA_RESULT_HAVE_BUFFER;
+
+	mgr->client_timing[ref_num].status = Triggered;
+	mgr->client_timing[ref_num].signaled_at = current_date;
+
+	conn = jack_graph_manager_get_current(mgr);
+
+	jack_activation_count_signal(&conn->input_counter[ref_num],
+				     &server->synchro_table[ref_num]);
+
+	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
+		struct pw_port *port = p->callbacks_data;
+		struct port_data *opd = pw_port_get_user_data(port);
+		struct spa_port_io *out_io = opd->io;
+		out_io->buffer_id = 0;
+		out_io->status = SPA_RESULT_HAVE_BUFFER;
+		pw_log_trace(NAME " %p: port %p: %d %d", impl, p, out_io->buffer_id, out_io->status);
+	}
+	return impl->status = SPA_RESULT_HAVE_BUFFER;
+}
+
+static int node_process_output(void *data)
+{
+	struct impl *impl = data;
+	struct pw_jack_node *this = &impl->node;
+	struct spa_graph_node *node = &this->node->rt.node;
+	struct spa_graph_port *p;
+
+	pw_log_trace(NAME " %p: process output", impl);
+	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
+		struct pw_port *port = p->callbacks_data;
+		struct port_data *ipd = pw_port_get_user_data(port);
+		struct spa_port_io *in_io = ipd->io;
+		in_io->buffer_id = 0;
+		in_io->status = SPA_RESULT_NEED_BUFFER;
+		pw_log_trace(NAME " %p: port %p: %d %d", impl, p, in_io->buffer_id, in_io->status);
+	}
+	return impl->status = SPA_RESULT_NEED_BUFFER;
 }
 
 static const struct pw_node_implementation node_impl = {
@@ -237,9 +342,10 @@ static int port_enum_formats(void *data,
                              int32_t index)
 {
 	struct port_data *pd = data;
-	struct type *t = &pd->node->type;
+	struct type *t = &pd->impl->type;
         struct spa_pod_builder b = { NULL, };
         struct spa_pod_frame f[2];
+	struct jack_engine_control *ctrl = pd->impl->node.server->engine_control;
 
 	if (index > 0)
 		return SPA_RESULT_ENUM_END;
@@ -251,7 +357,7 @@ static int port_enum_formats(void *data,
 			spa_pod_builder_format(&b, &f[0], t->format,
 	                        t->media_type.audio, t->media_subtype.raw,
 	                        PROP(&f[1], t->format_audio.format, SPA_POD_TYPE_ID, t->audio_format.F32),
-	                        PROP(&f[1], t->format_audio.rate, SPA_POD_TYPE_INT, 44100),
+	                        PROP(&f[1], t->format_audio.rate, SPA_POD_TYPE_INT, ctrl->sample_rate),
 	                        PROP(&f[1], t->format_audio.channels, SPA_POD_TYPE_INT, 1));
 		}
 		else if (pd->port->type_id == 1) {
@@ -264,7 +370,7 @@ static int port_enum_formats(void *data,
                 spa_pod_builder_format(&b, &f[0], t->format,
                         t->media_type.audio, t->media_subtype.raw,
                         PROP(&f[1], t->format_audio.format, SPA_POD_TYPE_ID, t->audio_format.S16),
-                        PROP(&f[1], t->format_audio.rate, SPA_POD_TYPE_INT, 44100),
+                        PROP(&f[1], t->format_audio.rate, SPA_POD_TYPE_INT, ctrl->sample_rate),
                         PROP(&f[1], t->format_audio.channels, SPA_POD_TYPE_INT, 2));
 	}
         *format = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
@@ -279,7 +385,11 @@ static int port_set_format(void *data, uint32_t flags, const struct spa_format *
 
 static int port_get_format(void *data, const struct spa_format **format)
 {
-	return SPA_RESULT_OK;
+	int res;
+	struct spa_format *fmt;
+	res = port_enum_formats(data, &fmt, NULL, 0);
+	*format = fmt;
+	return res;
 }
 
 static int port_get_info(void *data, const struct spa_port_info **info)
@@ -287,7 +397,10 @@ static int port_get_info(void *data, const struct spa_port_info **info)
 	struct port_data *pd = data;
 
 	pd->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS | SPA_PORT_INFO_FLAG_LIVE;
-	pd->info.rate = 44100;
+	if (pd->direction == PW_DIRECTION_OUTPUT && pd->impl->node.otherport == NULL)
+		pd->info.flags |= SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+
+	pd->info.rate = pd->impl->node.server->engine_control->sample_rate;
 	*info = &pd->info;
 
 	return SPA_RESULT_OK;
@@ -306,7 +419,7 @@ static int port_set_param(void *data, struct spa_param *param)
 static int port_use_buffers(void *data, struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct port_data *pd = data;
-	struct type *t = &pd->node->type;
+	struct type *t = &pd->impl->type;
 	int i;
 
 	for (i = 0; i < n_buffers; i++) {
@@ -319,7 +432,6 @@ static int port_use_buffers(void *data, struct spa_buffer **buffers, uint32_t n_
 		     d[0].type == t->data.MemFd ||
 		     d[0].type == t->data.DmaBuf) && d[0].data != NULL) {
 			b->ptr = d[0].data;
-			b->size = d[0].maxsize;
 		} else {
 			pw_log_error(NAME " %p: invalid memory on buffer %p", pd, buffers[i]);
 			return SPA_RESULT_ERROR;
@@ -335,7 +447,23 @@ static int port_alloc_buffers(void *data,
                               struct spa_param **params, uint32_t n_params,
                               struct spa_buffer **buffers, uint32_t *n_buffers)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	struct port_data *pd = data;
+	struct type *t = &pd->impl->type;
+	int i;
+
+	for (i = 0; i < *n_buffers; i++) {
+                struct buffer *b;
+		struct spa_data *d = buffers[i]->datas;
+
+                b = &pd->buffers[i];
+		b->outbuf = buffers[i];
+		d[0].type = t->data.MemPtr;
+		b->ptr = d[0].data = pd->ptr;
+                spa_list_append(&pd->empty, &b->link);
+	}
+	pd->n_buffers = *n_buffers;
+
+	return SPA_RESULT_OK;
 }
 
 static int port_reuse_buffer(void *data, uint32_t buffer_id)
@@ -366,6 +494,7 @@ static const struct pw_port_implementation port_impl = {
 static struct pw_port *make_port(struct pw_jack_node *node, enum pw_direction direction,
 				 int port_id, int jack_port_id, struct jack_port *jp, bool autoconnect)
 {
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, node);
 	struct pw_port *port;
 	struct port_data *pd;
 	struct pw_properties *properties = NULL;
@@ -375,9 +504,11 @@ static struct pw_port *make_port(struct pw_jack_node *node, enum pw_direction di
 
 	port = pw_port_new(direction, port_id, properties, sizeof(struct port_data));
 	pd = pw_port_get_user_data(port);
-	pd->node = node;
+	pd->direction = direction;
+	pd->impl = impl;
 	pd->jack_port_id = jack_port_id;
 	pd->port = jp;
+	pd->ptr = (float *)((uintptr_t)jp->buffer & ~31L) + 8;
 	spa_list_init(&pd->empty);
 	pw_port_set_implementation(port, &port_impl, pd);
 	pw_port_add(port, node->node);
@@ -391,6 +522,7 @@ struct pw_jack_node *pw_jack_node_new(struct pw_core *core,
 				      int ref_num,
 				      struct pw_properties *properties)
 {
+	struct impl *impl;
 	struct pw_jack_node *this;
 	struct pw_node *node;
 	struct jack_client *client = server->client_table[ref_num];
@@ -401,21 +533,21 @@ struct pw_jack_node *pw_jack_node_new(struct pw_core *core,
 	bool make_input = false, make_output = false;
 
 	node = pw_node_new(core, NULL, parent, client->control->name,
-			   properties, sizeof(struct pw_jack_node));
+			   properties, sizeof(struct impl));
 	if (node == NULL)
 		return NULL;
 
-	this = pw_node_get_user_data(node);
+	impl = pw_node_get_user_data(node);
+	this = &impl->node;
 	pw_log_debug("jack-node %p: new", this);
 
 	this->node = node;
 	this->core = core;
         spa_hook_list_init(&this->listener_list);
 	this->server = server;
+	this->client = client;
 	this->ref_num = ref_num;
-	init_type(&this->type, pw_core_get_type(core)->map);
-
-	pw_node_set_implementation(node, &node_impl, this);
+	init_type(&impl->type, pw_core_get_type(core)->map);
 
 	conn = jack_graph_manager_next_start(mgr);
 
@@ -444,6 +576,12 @@ struct pw_jack_node *pw_jack_node_new(struct pw_core *core,
 		this->otherport = make_port(this, PW_DIRECTION_OUTPUT, 0, -1, NULL, true);
 	if (make_input)
 		this->otherport = make_port(this, PW_DIRECTION_INPUT, 0, -1, NULL, true);
+
+	if (make_output || make_input)
+		pw_node_set_implementation(node, &driver_impl, this);
+	else
+		pw_node_set_implementation(node, &node_impl, this);
+
 
 	pw_node_register(node);
 

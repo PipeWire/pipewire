@@ -101,7 +101,8 @@ static int schedule_mix_input(void *data)
 	struct spa_port_io *io = this->rt.mix_port.io;
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
-		pw_log_trace("mix input %p %p->%p %d %d", p, p->io, io, p->io->status, p->io->buffer_id);
+		pw_log_trace("mix %p: input %p %p->%p %d %d", node,
+				p, p->io, io, p->io->status, p->io->buffer_id);
 		*io = *p->io;
 		p->io->status = SPA_RESULT_OK;
 		p->io->buffer_id = SPA_ID_INVALID;

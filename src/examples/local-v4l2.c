@@ -389,7 +389,7 @@ static int impl_node_process_input(void *data)
 	SDL_RenderPresent(d->renderer);
 
 	if (map)
-		munmap(map, buf->datas[0].maxsize);
+		munmap(map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
 
 	handle_events(d);
 

@@ -142,7 +142,7 @@ on_stream_new_buffer(void *_data, uint32_t id)
 	SDL_RenderPresent(data->renderer);
 
 	if (map)
-		munmap(map, buf->datas[0].maxsize);
+		munmap(map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
 
 	pw_stream_recycle_buffer(stream, id);
 

@@ -1105,6 +1105,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 		       do_add_link,
 		       SPA_ID_INVALID, sizeof(struct pw_port *), &input, false, this);
 
+	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, this);
+	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, this);
+
 	this->global = pw_core_add_global(core, NULL, parent, core->type.link, PW_VERSION_LINK,
 			   link_bind_func, this);
 
@@ -1139,10 +1142,12 @@ void pw_link_destroy(struct pw_link *link)
 
 	input_remove(link, link->input);
 	spa_list_remove(&link->input_link);
+	spa_hook_list_call(&link->input->listener_list, struct pw_port_events, link_removed, link);
 	link->input = NULL;
 
 	output_remove(link, link->output);
 	spa_list_remove(&link->output_link);
+	spa_hook_list_call(&link->output->listener_list, struct pw_port_events, link_removed, link);
 	link->output = NULL;
 
 	pw_work_queue_destroy(impl->work);

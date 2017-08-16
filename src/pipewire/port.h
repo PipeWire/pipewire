@@ -42,6 +42,7 @@ extern "C" {
  * The port object
  */
 struct pw_port;
+struct pw_link;
 
 #include <pipewire/core.h>
 #include <pipewire/introspect.h>
@@ -92,6 +93,10 @@ struct pw_port_events {
 	uint32_t version;
 
 	void (*destroy) (void *data);
+
+	void (*link_added) (void *data, struct pw_link *link);
+
+	void (*link_removed) (void *data, struct pw_link *link);
 
 	void (*state_changed) (void *data, enum pw_port_state state);
 

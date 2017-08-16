@@ -237,20 +237,21 @@ notify_clients(struct impl *impl, int notify,
 	}
 }
 
-static void port_destroy(void *data)
+static void port_free(void *data)
 {
 	struct pw_jack_port *port = data;
 	struct port *p = port->user_data;
 	struct impl *impl = p->impl;
+	struct jack_client *jc = p->jc;
+	pw_log_debug("port %p: free", port);
 
-	pw_log_debug("port %p: destroy", port);
-
-	notify_clients(impl, jack_notify_PortRegistrationOffCallback, false, "", port->port_id, 0);
+	if (jc->node->control->active)
+		notify_clients(impl, jack_notify_PortRegistrationOffCallback, false, "", port->port_id, 0);
 }
 
 static const struct pw_jack_port_events port_listener = {
 	PW_VERSION_JACK_PORT_EVENTS,
-	.destroy = port_destroy,
+	.free = port_free,
 };
 
 static int process_messages(struct client *client);
@@ -336,14 +337,16 @@ handle_activate_client(struct client *client)
 
 	jack_graph_manager_next_stop(mgr);
 
+	jc = server->client_table[ref_num];
+	if (jc)
+		notify_client(jc, ref_num, NULL, jack_notify_ActivateClient, true, "", 0, 0);
+
 	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (input_ports[i] != EMPTY); i++)
 		notify_clients(impl, jack_notify_PortRegistrationOnCallback, false, "", input_ports[i], 0);
 	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (output_ports[i] != EMPTY); i++)
 		notify_clients(impl, jack_notify_PortRegistrationOnCallback, false, "", output_ports[i], 0);
 
-	jc = server->client_table[ref_num];
-	if (jc)
-		notify_client(jc, ref_num, NULL, jack_notify_ActivateClient, true, "", 0, 0);
+	jc->activated = true;
 
 	CheckWrite(&result, sizeof(int));
 	return 0;
@@ -352,16 +355,14 @@ handle_activate_client(struct client *client)
 static int client_deactivate(struct impl *impl, int ref_num)
 {
 	struct jack_server *server = &impl->server;
-	int fw_ref = server->freewheel_ref_num, i;
+	int fw_ref = server->freewheel_ref_num, i, j;
 	struct jack_graph_manager *mgr = server->graph_manager;
 	struct jack_connection_manager *conn;
-	jack_int_t input_ports[PORT_NUM_FOR_CLIENT];
-        jack_int_t output_ports[PORT_NUM_FOR_CLIENT];
+	struct jack_client *jc;
+	const jack_int_t *inputs, *outputs;
+	jack_int_t conns[CONNECTION_NUM_FOR_PORT];
 
 	conn = jack_graph_manager_next_start(mgr);
-
-	memcpy (input_ports, jack_connection_manager_get_inputs(conn, ref_num), sizeof(input_ports));
-	memcpy (output_ports, jack_connection_manager_get_outputs(conn, ref_num), sizeof(input_ports));
 
 	if (jack_connection_manager_is_direct_connection(conn, fw_ref, ref_num))
 		jack_connection_manager_direct_disconnect(conn, fw_ref, ref_num);
@@ -369,12 +370,36 @@ static int client_deactivate(struct impl *impl, int ref_num)
 	if (jack_connection_manager_is_direct_connection(conn, ref_num, fw_ref))
 		jack_connection_manager_direct_disconnect(conn, ref_num, fw_ref);
 
+	inputs = jack_connection_manager_get_inputs(conn, ref_num);
+	outputs = jack_connection_manager_get_outputs(conn, ref_num);
+
+	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (inputs[i] != EMPTY); i++) {
+		memcpy(conns, jack_connection_manager_get_connections(conn, inputs[i]), sizeof(conns));
+		for (j = 0; (j < CONNECTION_NUM_FOR_PORT) && (conns[j] != EMPTY); j++) {
+			jack_connection_manager_disconnect_ports(conn, conns[j], inputs[i]);
+			notify_clients(impl, jack_notify_PortDisconnectCallback,
+					false, "", conns[j], inputs[i]);
+		}
+	}
+	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (outputs[i] != EMPTY); i++) {
+		memcpy(conns, jack_connection_manager_get_connections(conn, outputs[i]), sizeof(conns));
+		for (j = 0; (j < CONNECTION_NUM_FOR_PORT) && (conns[j] != EMPTY); j++) {
+			jack_connection_manager_disconnect_ports(conn, outputs[i], conns[j]);
+			notify_clients(impl, jack_notify_PortDisconnectCallback,
+					false, "", outputs[i], conns[j]);
+		}
+	}
+
+	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (inputs[i] != EMPTY); i++)
+		notify_clients(impl, jack_notify_PortRegistrationOffCallback, false, "", inputs[i], 0);
+	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (outputs[i] != EMPTY); i++)
+		notify_clients(impl, jack_notify_PortRegistrationOffCallback, false, "", outputs[i], 0);
+
 	jack_graph_manager_next_stop(mgr);
 
-	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (input_ports[i] != EMPTY); i++)
-		notify_clients(impl, jack_notify_PortRegistrationOffCallback, false, "", input_ports[i], 0);
-	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (output_ports[i] != EMPTY); i++)
-		notify_clients(impl, jack_notify_PortRegistrationOffCallback, false, "", output_ports[i], 0);
+	jc = server->client_table[ref_num];
+	if (jc)
+		jc->activated = false;
 
 	return 0;
 }
@@ -448,7 +473,8 @@ static void node_destroy(void *data)
 
 	pw_log_debug("module-jack %p: jack_client %p destroy", impl, jc);
 
-	client_deactivate(impl, ref_num);
+	if (jc->activated)
+		client_deactivate(impl, ref_num);
 
 	spa_list_remove(&jc->client_link);
 	spa_list_remove(&jc->node->graph_link);
@@ -584,12 +610,14 @@ static void link_destroy(void *data)
 	pw_log_debug("module-jack %p: link %p destroy", impl, ld->link);
 
 	conn = jack_graph_manager_next_start(mgr);
-	if (jack_connection_manager_disconnect_ports(conn, src_id, dst_id)) {
-		pw_log_warn("module-jack %p: ports can't disconnect", impl);
+	if (jack_connection_manager_is_connected(conn, src_id, dst_id)) {
+		if (jack_connection_manager_disconnect_ports(conn, src_id, dst_id)) {
+			pw_log_warn("module-jack %p: ports can't disconnect", impl);
+		}
+		notify_clients(impl, jack_notify_PortDisconnectCallback, false, "", src_id, dst_id);
 	}
 	jack_graph_manager_next_stop(mgr);
 
-	notify_clients(impl, jack_notify_PortDisconnectCallback, false, "", src_id, dst_id);
 }
 
 static const struct pw_link_events link_events = {

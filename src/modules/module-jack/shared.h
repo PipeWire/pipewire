@@ -437,6 +437,12 @@ jack_connection_manager_get_outputs(struct jack_connection_manager *conn, int re
 	return GET_ITEMS_FIXED_ARRAY(conn->output_port[ref_num]);
 }
 
+static inline const jack_int_t *
+jack_connection_manager_get_connections(struct jack_connection_manager *conn, int port_index)
+{
+	return GET_ITEMS_FIXED_ARRAY(conn->connection[port_index]);
+}
+
 static inline int
 jack_connection_manager_get_output_refnum(struct jack_connection_manager *conn,
 					  jack_port_id_t port_index)
@@ -591,14 +597,10 @@ jack_connection_manager_disconnect_ports(struct jack_connection_manager *conn,
                 pw_log_error("connection %p: ports are not connected", conn);
                 return -1;
         }
-        if (jack_connection_manager_disconnect(conn, src_id, dst_id) < 0) {
-                pw_log_error("connection %p: connection table is full", conn);
-                return -1;
-        }
-        if (jack_connection_manager_disconnect(conn, dst_id, src_id) < 0) {
-                pw_log_error("connection %p: connection table is full", conn);
-                return -1;
-        }
+
+        jack_connection_manager_disconnect(conn, src_id, dst_id);
+        jack_connection_manager_disconnect(conn, dst_id, src_id);
+
         if (jack_connection_manager_is_loop_path(conn, src_id, dst_id) < 0)
                 jack_connection_manager_dec_feedback_connection(conn, src_id, dst_id);
         else

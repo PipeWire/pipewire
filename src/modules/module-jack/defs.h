@@ -135,7 +135,7 @@ enum jack_notification_type {
 #define kGetUUIDByClient_size (JACK_CLIENT_NAME_SIZE+1)
 
 #define CheckRead(var,size) if(read(client->fd,var,size)!=size) {pw_log_error("read error"); return -1; }
-#define CheckWrite(var,size) if(write(client->fd,var,size)!=size) {pw_log_error("write error"); return -1; }
+#define CheckWrite(var,size) if(send(client->fd,var,size,MSG_NOSIGNAL)!=size) {pw_log_error("write error"); return -1; }
 #define CheckSize(expected) { int __size; CheckRead(&__size, sizeof(int)); if (__size != expected) { pw_log_error("CheckSize error size %d != %d", __size, (int)expected); return -1; } }
 
 #define jack_error	pw_log_error

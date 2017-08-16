@@ -530,9 +530,16 @@ static void port_destroy(void *data)
 	jack_graph_manager_release_port(mgr, port->port_id);
 }
 
+static void port_free(void *data)
+{
+	struct port_data *pd = data;
+	spa_hook_list_call(&pd->listener_list, struct pw_jack_port_events, free);
+}
+
 static const struct pw_port_events port_events = {
 	PW_VERSION_PORT_EVENTS,
 	.destroy = port_destroy,
+	.free = port_free,
 };
 
 struct pw_jack_port *

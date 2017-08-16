@@ -94,6 +94,8 @@ struct pw_port_events {
 
 	void (*destroy) (void *data);
 
+	void (*free) (void *data);
+
 	void (*link_added) (void *data, struct pw_link *link);
 
 	void (*link_removed) (void *data, struct pw_link *link);

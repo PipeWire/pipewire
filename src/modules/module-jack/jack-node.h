@@ -75,6 +75,8 @@ struct pw_jack_port_events {
         uint32_t version;
 
         void (*destroy) (void *data);
+
+        void (*free) (void *data);
 };
 
 struct pw_jack_node *

@@ -337,6 +337,9 @@ void pw_port_destroy(struct pw_port *port)
 		spa_list_remove(&port->link);
 		spa_hook_list_call(&node->listener_list, struct pw_node_events, port_removed, port);
 	}
+
+	pw_log_debug("port %p: free", port);
+	spa_hook_list_call(&port->listener_list, struct pw_port_events, free);
 	free(port);
 }
 

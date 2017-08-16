@@ -17,15 +17,15 @@
  * Boston, MA 02110-1301, USA.
  */
 
+struct jack_server;
+
 struct jack_client {
-	int ref_num;
 	void *data;
 	struct client *owner;
-	struct jack_client_control *control;
 	struct pw_jack_node *node;
 	int fd; /* notify fd */
 	struct spa_hook node_listener;
-	struct spa_list graph_link;
+	struct spa_list client_link;
 };
 
 struct jack_server {

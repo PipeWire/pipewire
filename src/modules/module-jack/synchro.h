@@ -31,7 +31,7 @@ static inline int
 jack_synchro_init(struct jack_synchro *synchro,
 		  const char *client_name,
 		  const char *server_name,
-		  int value, bool internal,
+		  int value,
 		  bool promiscuous)
 {
 	if (promiscuous)
@@ -43,10 +43,23 @@ jack_synchro_init(struct jack_synchro *synchro,
 
 	synchro->flush = false;
 	if ((synchro->semaphore = sem_open(synchro->name, O_CREAT | O_RDWR, 0777, value)) == (sem_t*)SEM_FAILED) {
-		pw_log_error("can't check in named semaphore name = %s err = %s", synchro->name, strerror(errno));
+		pw_log_error("can't check semaphore %s: %s", synchro->name, strerror(errno));
 		return -1;
 	}
 	return 0;
+}
+
+static inline bool
+jack_synchro_close(struct jack_synchro *synchro)
+{
+	if (synchro->semaphore == NULL)
+		return true;
+
+	if (sem_close(synchro->semaphore) < 0) {
+		pw_log_warn("can't close semaphore %s: %s", synchro->name, strerror(errno));
+	}
+	synchro->semaphore = NULL;
+	return true;
 }
 
 static inline bool

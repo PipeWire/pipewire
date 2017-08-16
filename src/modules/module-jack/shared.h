@@ -211,9 +211,10 @@ struct {					\
 	INIT_FIXED_ARRAY(arr.array);		\
 	arr.used = false;			\
 })
+#define GET_ITEMS_FIXED_ARRAY1(arr) GET_ITEMS_FIXED_ARRAY(arr.array)
 #define ADD_FIXED_ARRAY1(arr,item) ADD_FIXED_ARRAY(arr.array,item)
 #define GET_FIXED_ARRAY1(arr,item) GET_FIXED_ARRAY(arr.array,item)
-#define GET_ITEMS_FIXED_ARRAY1(arr) GET_ITEMS_FIXED_ARRAY(arr.array)
+#define REMOVE_FIXED_ARRAY1(arr,item) REMOVE_FIXED_ARRAY(arr.array,item)
 
 #define MAKE_FIXED_MATRIX(size)			\
 PRE_PACKED_STRUCTURE				\
@@ -341,7 +342,7 @@ struct {					\
 		res = ADD_LOOP_FEEDBACK(arr,ref1,ref2);		\
 	res;							\
 })
-#define DEC_LOOP_FEEDBACK(arr,idx) ({				\
+#define DEC_LOOP_FEEDBACK(arr,ref1,ref2) ({			\
 	int res = true, idx = GET_LOOP_FEEDBACK(arr,ref1,ref2);	\
 	if (idx >= 0) {						\
 		if (--arr.table[idx][2] == 0)			\
@@ -397,15 +398,43 @@ jack_connection_manager_reset(struct jack_connection_manager *conn,
 }
 
 static inline int
-jack_connection_manager_add_port(struct jack_connection_manager *conn, bool input,
-				 int ref_num, jack_port_id_t port_id)
+jack_connection_manager_add_inport(struct jack_connection_manager *conn,
+				   int ref_num, jack_port_id_t port_id)
 {
-	if (input) {
-		return ADD_FIXED_ARRAY1(conn->input_port[ref_num], port_id);
-	}
-	else {
-		return ADD_FIXED_ARRAY(conn->output_port[ref_num], port_id);
-	}
+	return ADD_FIXED_ARRAY1(conn->input_port[ref_num], port_id);
+}
+
+static inline int
+jack_connection_manager_remove_inport(struct jack_connection_manager *conn,
+				      int ref_num, jack_port_id_t port_id)
+{
+	return REMOVE_FIXED_ARRAY1(conn->input_port[ref_num], port_id);
+}
+
+static inline int
+jack_connection_manager_add_outport(struct jack_connection_manager *conn,
+				    int ref_num, jack_port_id_t port_id)
+{
+	return ADD_FIXED_ARRAY(conn->output_port[ref_num], port_id);
+}
+
+static inline int
+jack_connection_manager_remove_outport(struct jack_connection_manager *conn,
+				       int ref_num, jack_port_id_t port_id)
+{
+	return REMOVE_FIXED_ARRAY(conn->output_port[ref_num], port_id);
+}
+
+static inline const jack_int_t *
+jack_connection_manager_get_inputs(struct jack_connection_manager *conn, int ref_num)
+{
+	return GET_ITEMS_FIXED_ARRAY1(conn->input_port[ref_num]);
+}
+
+static inline const jack_int_t *
+jack_connection_manager_get_outputs(struct jack_connection_manager *conn, int ref_num)
+{
+	return GET_ITEMS_FIXED_ARRAY(conn->output_port[ref_num]);
 }
 
 static inline int
@@ -497,6 +526,19 @@ jack_connection_manager_inc_feedback_connection(struct jack_connection_manager *
 	return INC_LOOP_FEEDBACK(conn->loop_feedback, ref1, ref2);
 }
 
+static inline bool
+jack_connection_manager_dec_feedback_connection(struct jack_connection_manager *conn,
+						jack_port_id_t src_id, jack_port_id_t dst_id)
+{
+	int ref1 = jack_connection_manager_get_output_refnum(conn, src_id);
+	int ref2 = jack_connection_manager_get_input_refnum(conn, dst_id);
+
+	if (ref1 != ref2)
+		jack_connection_manager_direct_disconnect(conn, ref2, ref1);
+
+	return DEC_LOOP_FEEDBACK(conn->loop_feedback, ref1, ref2);
+}
+
 static inline void
 jack_connection_manager_inc_direct_connection(struct jack_connection_manager *conn,
 					      jack_port_id_t src_id, jack_port_id_t dst_id)
@@ -516,6 +558,55 @@ jack_connection_manager_dec_direct_connection(struct jack_connection_manager *co
 
 	jack_connection_manager_direct_disconnect(conn, ref1, ref2);
 }
+
+static inline int
+jack_connection_manager_connect_ports(struct jack_connection_manager *conn,
+				      jack_port_id_t src_id, jack_port_id_t dst_id)
+{
+	if (jack_connection_manager_is_connected(conn, src_id, dst_id)) {
+                pw_log_error("connection %p: ports are already connected", conn);
+                return -1;
+        }
+        if (jack_connection_manager_connect(conn, src_id, dst_id) < 0) {
+                pw_log_error("connection %p: connection table is full", conn);
+                return -1;
+        }
+        if (jack_connection_manager_connect(conn, dst_id, src_id) < 0) {
+                pw_log_error("connection %p: connection table is full", conn);
+                return -1;
+        }
+        if (jack_connection_manager_is_loop_path(conn, src_id, dst_id) < 0)
+                jack_connection_manager_inc_feedback_connection(conn, src_id, dst_id);
+        else
+                jack_connection_manager_inc_direct_connection(conn, src_id, dst_id);
+
+	return 0;
+}
+
+static inline int
+jack_connection_manager_disconnect_ports(struct jack_connection_manager *conn,
+					 jack_port_id_t src_id, jack_port_id_t dst_id)
+{
+	if (!jack_connection_manager_is_connected(conn, src_id, dst_id)) {
+                pw_log_error("connection %p: ports are not connected", conn);
+                return -1;
+        }
+        if (jack_connection_manager_disconnect(conn, src_id, dst_id) < 0) {
+                pw_log_error("connection %p: connection table is full", conn);
+                return -1;
+        }
+        if (jack_connection_manager_disconnect(conn, dst_id, src_id) < 0) {
+                pw_log_error("connection %p: connection table is full", conn);
+                return -1;
+        }
+        if (jack_connection_manager_is_loop_path(conn, src_id, dst_id) < 0)
+                jack_connection_manager_dec_feedback_connection(conn, src_id, dst_id);
+        else
+                jack_connection_manager_dec_direct_connection(conn, src_id, dst_id);
+
+	return 0;
+}
+
 
 static inline int
 jack_connection_manager_get_activation(struct jack_connection_manager *conn, int ref_num)
@@ -918,7 +1009,7 @@ jack_engine_control_alloc(const char* name)
         ctrl = (struct jack_engine_control *)jack_shm_addr(&info);
         ctrl->info = info;
 
-	ctrl->buffer_size = 128;
+	ctrl->buffer_size = 64;
         ctrl->sample_rate = 48000;
 	ctrl->sync_mode = false;
 	ctrl->temporary = false;

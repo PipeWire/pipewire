@@ -95,11 +95,31 @@ struct impl {
 
 struct client {
 	struct impl *impl;
+
 	struct spa_list link;
+
 	struct pw_client *client;
 	struct spa_hook client_listener;
+
 	int fd;
 	struct spa_source *source;
+
+	struct spa_list jack_clients;
+};
+
+struct port {
+	struct impl *impl;
+	struct pw_jack_port *port;
+	struct spa_hook port_listener;
+	struct jack_client *jc;
+};
+
+struct link {
+	struct impl *impl;
+	struct pw_link *link;
+	struct pw_jack_port *out_port;
+	struct pw_jack_port *in_port;
+	struct spa_hook link_listener;
 };
 
 static bool init_socket_name(struct sockaddr_un *addr, const char *name, bool promiscuous, int which)
@@ -135,11 +155,11 @@ notify_client(struct jack_client *client, int ref_num, const char *name, int not
 	char _name[JACK_CLIENT_NAME_SIZE+1];
 	char _message[JACK_MESSAGE_SIZE+1];
 
-	if (client->fd == 0)
+	if (client->fd == -1)
 		return 0;
 
 	if (name == NULL)
-		name = client->control->name;
+		name = client->node->control->name;
 
 	snprintf(_name, sizeof(_name), "%s", name);
         snprintf(_message, sizeof(_message), "%s", message);
@@ -173,14 +193,30 @@ notify_add_client(struct impl *impl, struct jack_client *client, const char *nam
 		if (c == NULL || c == client)
 			continue;
 
-		n = c->control->name;
-		if (notify_client(c, ref_num, name, jack_notify_AddClient, false, "", 0, 0) < 0) {
-			pw_log_warn("module-jack %p: can't notify client", impl);
-		}
+		n = c->node->control->name;
+		if (notify_client(c, ref_num, name, jack_notify_AddClient, false, "", 0, 0) < 0)
+			pw_log_warn("module-jack %p: can't notify add client", impl);
+
 		if (notify_client(client, i, n, jack_notify_AddClient, true, "", 0, 0) < 0) {
-			pw_log_error("module-jack %p: can't notify client", impl);
+			pw_log_error("module-jack %p: can't notify add client", impl);
 			return -1;
 		}
+	}
+	return 0;
+}
+static int
+notify_remove_client(struct impl *impl, const char *name, int ref_num)
+{
+	struct jack_server *server = &impl->server;
+	int i;
+
+	for (i = 0; i < CLIENT_NUM; i++) {
+		struct jack_client *c = server->client_table[i];
+
+		if (c == NULL)
+			continue;
+                if (notify_client(c, ref_num, name, jack_notify_RemoveClient, false, "", 0, 0) < 0)
+			pw_log_warn("module-jack %p: can't notify remove client", impl);
 	}
 	return 0;
 }
@@ -201,34 +237,39 @@ notify_clients(struct impl *impl, int notify,
 	}
 }
 
-static int process_messages(struct client *client);
-
-static void client_destroy(void *data)
+static void port_destroy(void *data)
 {
-	struct client *this = data;
+	struct pw_jack_port *port = data;
+	struct port *p = port->user_data;
+	struct impl *impl = p->impl;
 
-	pw_loop_destroy_source(pw_core_get_main_loop(this->impl->core), this->source);
-	spa_list_remove(&this->link);
+	pw_log_debug("port %p: destroy", port);
 
-	close(this->fd);
+	notify_clients(impl, jack_notify_PortRegistrationOffCallback, false, "", port->port_id, 0);
 }
+
+static const struct pw_jack_port_events port_listener = {
+	PW_VERSION_JACK_PORT_EVENTS,
+	.destroy = port_destroy,
+};
+
+static int process_messages(struct client *client);
 
 static int
 handle_register_port(struct client *client)
 {
 	struct impl *impl = client->impl;
 	struct jack_server *server = &impl->server;
-	struct jack_graph_manager *mgr = server->graph_manager;
-	struct jack_connection_manager *conn;
-	int result = 0;
+	int result = -1;
 	int ref_num;
 	char name[JACK_PORT_NAME_SIZE + 1];
 	char port_type[JACK_PORT_TYPE_SIZE + 1];
 	unsigned int flags;
 	unsigned int buffer_size;
 	static jack_port_id_t port_index = 0;
-	jack_port_type_id_t type_id;
 	struct jack_client *jc;
+	struct pw_jack_port *port;
+	struct port *p;
 
 	CheckSize(kRegisterPort_size);
 	CheckRead(&ref_num, sizeof(int));
@@ -240,43 +281,24 @@ handle_register_port(struct client *client)
 	pw_log_debug("protocol-jack %p: kRegisterPort %d %s %s %u %u", impl,
 			ref_num, name, port_type, flags, buffer_size);
 
-	type_id = jack_port_get_type_id(port_type);
-
-	if (jack_graph_manager_find_port(mgr, name) != NO_PORT) {
-		pw_log_error("protocol-jack %p: port_name %s exists", impl, name);
-		result = -1;
-		goto reply;
-	}
-
-	port_index = jack_graph_manager_allocate_port(mgr, ref_num, name, type_id, flags);
-	if (port_index == NO_PORT) {
-		pw_log_error("protocol-jack %p: failed to create port name %s", impl, name);
-		result = -1;
-		goto reply;
-	}
-
 	jc = server->client_table[ref_num];
-	pw_jack_node_add_port(jc->node,
-			      flags & JackPortIsInput ?
-				PW_DIRECTION_INPUT :
-				PW_DIRECTION_OUTPUT,
-			      port_index);
 
-	conn = jack_graph_manager_next_start(mgr);
-
-	if (jack_connection_manager_add_port(conn, (flags & JackPortIsInput) ? true : false,
-					     ref_num, port_index) < 0) {
-		pw_log_error("protocol-jack %p: failed to add port", impl);
-		jack_graph_manager_release_port(mgr, port_index);
-		result = -1;
-		goto reply_stop;
+	port = pw_jack_node_add_port(jc->node, name, port_type, flags, sizeof(struct port));
+	if (port == NULL) {
+		pw_log_error("module-jack %p: can't add port", impl);
+		goto reply;
 	}
+	p = port->user_data;
+	p->impl = impl;
+	p->jc = jc;
+	port_index = port->port_id;
 
-      reply_stop:
-	jack_graph_manager_next_stop(mgr);
+	pw_jack_port_add_listener(port, &p->port_listener, &port_listener, port);
 
-	if (jc->control->active)
+	if (jc->node->control->active)
 		notify_clients(impl, jack_notify_PortRegistrationOnCallback, false, "", port_index, 0);
+
+	result = 0;
 
       reply:
 	CheckWrite(&result, sizeof(int));
@@ -291,9 +313,11 @@ handle_activate_client(struct client *client)
 	struct jack_server *server = &impl->server;
 	struct jack_graph_manager *mgr = server->graph_manager;
 	struct jack_connection_manager *conn;
-	int result = 0;
-	int ref_num;
+	struct jack_client *jc;
+	int result = 0, ref_num, i;
 	int is_real_time;
+	jack_int_t input_ports[PORT_NUM_FOR_CLIENT];
+        jack_int_t output_ports[PORT_NUM_FOR_CLIENT];
 
 	CheckSize(kActivateClient_size);
 	CheckRead(&ref_num, sizeof(int));
@@ -307,33 +331,37 @@ handle_activate_client(struct client *client)
 	jack_connection_manager_direct_connect(conn, server->freewheel_ref_num, ref_num);
 	jack_connection_manager_direct_connect(conn, ref_num, server->freewheel_ref_num);
 
+	memcpy (input_ports, jack_connection_manager_get_inputs(conn, ref_num), sizeof(input_ports));
+	memcpy (output_ports, jack_connection_manager_get_outputs(conn, ref_num), sizeof(input_ports));
+
 	jack_graph_manager_next_stop(mgr);
 
-	notify_clients(impl, jack_notify_ActivateClient, true, "", 0, 0);
+	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (input_ports[i] != EMPTY); i++)
+		notify_clients(impl, jack_notify_PortRegistrationOnCallback, false, "", input_ports[i], 0);
+	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (output_ports[i] != EMPTY); i++)
+		notify_clients(impl, jack_notify_PortRegistrationOnCallback, false, "", output_ports[i], 0);
+
+	jc = server->client_table[ref_num];
+	if (jc)
+		notify_client(jc, ref_num, NULL, jack_notify_ActivateClient, true, "", 0, 0);
 
 	CheckWrite(&result, sizeof(int));
 	return 0;
 }
 
-static int
-handle_deactivate_client(struct client *client)
+static int client_deactivate(struct impl *impl, int ref_num)
 {
-	struct impl *impl = client->impl;
 	struct jack_server *server = &impl->server;
+	int fw_ref = server->freewheel_ref_num, i;
 	struct jack_graph_manager *mgr = server->graph_manager;
 	struct jack_connection_manager *conn;
-	int result = 0;
-	int ref_num, fw_ref;
-
-	CheckSize(kDeactivateClient_size);
-	CheckRead(&ref_num, sizeof(int));
-
-	pw_log_debug("protocol-jack %p: kDeactivateClient %d", client->impl,
-			ref_num);
-
-	fw_ref = server->freewheel_ref_num;
+	jack_int_t input_ports[PORT_NUM_FOR_CLIENT];
+        jack_int_t output_ports[PORT_NUM_FOR_CLIENT];
 
 	conn = jack_graph_manager_next_start(mgr);
+
+	memcpy (input_ports, jack_connection_manager_get_inputs(conn, ref_num), sizeof(input_ports));
+	memcpy (output_ports, jack_connection_manager_get_outputs(conn, ref_num), sizeof(input_ports));
 
 	if (jack_connection_manager_is_direct_connection(conn, fw_ref, ref_num))
 		jack_connection_manager_direct_disconnect(conn, fw_ref, ref_num);
@@ -342,6 +370,29 @@ handle_deactivate_client(struct client *client)
 		jack_connection_manager_direct_disconnect(conn, ref_num, fw_ref);
 
 	jack_graph_manager_next_stop(mgr);
+
+	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (input_ports[i] != EMPTY); i++)
+		notify_clients(impl, jack_notify_PortRegistrationOffCallback, false, "", input_ports[i], 0);
+	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (output_ports[i] != EMPTY); i++)
+		notify_clients(impl, jack_notify_PortRegistrationOffCallback, false, "", output_ports[i], 0);
+
+	return 0;
+}
+
+static int
+handle_deactivate_client(struct client *client)
+{
+	struct impl *impl = client->impl;
+	int result = 0;
+	int ref_num;
+
+	CheckSize(kDeactivateClient_size);
+	CheckRead(&ref_num, sizeof(int));
+
+	pw_log_debug("protocol-jack %p: kDeactivateClient %d", client->impl,
+			ref_num);
+
+	result = client_deactivate(impl, ref_num);
 
 	CheckWrite(&result, sizeof(int));
 	return 0;
@@ -388,44 +439,84 @@ handle_client_check(struct client *client)
 	return 0;
 }
 
+static void node_destroy(void *data)
+{
+	struct jack_client *jc = data;
+	struct impl *impl = jc->data;
+	struct jack_server *server = &impl->server;
+	int ref_num = jc->node->control->ref_num;
+
+	pw_log_debug("module-jack %p: jack_client %p destroy", impl, jc);
+
+	client_deactivate(impl, ref_num);
+
+	spa_list_remove(&jc->client_link);
+	spa_list_remove(&jc->node->graph_link);
+
+	jack_server_free_ref_num(server, ref_num);
+}
+
+static void node_free(void *data)
+{
+	struct jack_client *jc = data;
+	struct impl *impl = jc->data;
+	struct jack_server *server = &impl->server;
+	int ref_num = jc->node->control->ref_num;
+
+	notify_remove_client(impl, jc->node->control->name, ref_num);
+
+	jack_synchro_close(&server->synchro_table[ref_num]);
+	if (jc->fd != -1)
+		close(jc->fd);
+}
+
+static const struct pw_jack_node_events node_events = {
+	PW_VERSION_JACK_NODE_EVENTS,
+	.destroy = node_destroy,
+	.free = node_free,
+};
+
 static int
 handle_client_open(struct client *client)
 {
 	struct impl *impl = client->impl;
 	struct jack_server *server = &impl->server;
-	struct jack_graph_manager *mgr = server->graph_manager;
-	struct jack_connection_manager *conn;
 	int PID, UUID;
 	char name[JACK_CLIENT_NAME_SIZE+1];
 	int result = -1, ref_num, shared_engine, shared_client, shared_graph;
 	struct jack_client *jc;
 	const struct ucred *ucred;
 	struct sockaddr_un addr;
+	struct pw_jack_node *node;
 
 	CheckSize(kClientOpen_size);
 	CheckRead(&PID, sizeof(int));
 	CheckRead(&UUID, sizeof(int));
 	CheckRead(name, sizeof(name));
 
-	ref_num = jack_server_allocate_ref_num(server);
-	if (ref_num == -1) {
-		pw_log_error("module-jack %p: can't allocated ref_num", impl);
+	ucred = pw_client_get_ucred(client->client);
+
+	node = pw_jack_node_new(impl->core,
+				pw_module_get_global(impl->module),
+				server,
+				name,
+				ucred ? ucred->pid : PID,
+				NULL,
+				sizeof(struct jack_client));
+	if (node == NULL) {
+		pw_log_error("module-jack %p: can't create node", impl);
 		goto reply;
 	}
 
-	jc = calloc(1,sizeof(struct jack_client));
+	ref_num = node->control->ref_num;
+
+	jc = node->user_data;
+	jc->fd = -1;
+	jc->data = impl;
 	jc->owner = client;
-	jc->ref_num = ref_num;
+	jc->node = node;
 
-	if (jack_synchro_init(&server->synchro_table[ref_num],
-			      name,
-			      server->engine_control->server_name,
-			      0,
-			      false,
-			      server->promiscuous) < 0) {
-		pw_log_error("module-jack %p: can't init synchro", impl);
-		goto reply;
-	}
+	pw_jack_node_add_listener(node, &jc->node_listener, &node_events, jc);
 
 	if ((jc->fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
 		pw_log_error("module-jack %p: can't create socket %s", impl, strerror(errno));
@@ -440,33 +531,19 @@ handle_client_open(struct client *client)
 		goto reply;
 	}
 
-	ucred = pw_client_get_ucred(client->client);
-
-	jc->control = jack_client_control_alloc(name, ucred ? ucred->pid : 0, ref_num, -1);
-	if (jc->control == NULL) {
-		pw_log_error("module-jack %p: can't create control", impl);
-		goto reply;
-	}
-
 	server->client_table[ref_num] = jc;
 	pw_log_debug("module-jack %p: Added client %d \"%s\"", impl, ref_num, name);
 
-	conn = jack_graph_manager_next_start(mgr);
-	jack_connection_manager_init_ref_num(conn, ref_num);
-	jack_graph_manager_next_stop(mgr);
-
-	jc->node = pw_jack_node_new(impl->core, pw_module_get_global(impl->module),
-				    server, ref_num, NULL);
+	spa_list_append(&client->jack_clients, &jc->client_link);
+	spa_list_append(&impl->rt.nodes, &jc->node->graph_link);
 
 	if (notify_add_client(impl, jc, name, ref_num) < 0) {
 		pw_log_error("module-jack %p: can't notify add_client", impl);
 		goto reply;
 	}
 
-	spa_list_append(&impl->rt.nodes, &jc->node->graph_link);
-
 	shared_engine = impl->server.engine_control->info.index;
-	shared_client = jc->control->info.index;
+	shared_client = jc->node->control->info.index;
 	shared_graph = impl->server.graph_manager->info.index;
 
 	result = 0;
@@ -488,9 +565,37 @@ handle_client_close(struct client *client)
 	CheckRead(&ref_num, sizeof(int));
 	int result = 0;
 
+
+
 	CheckWrite(&result, sizeof(int));
 	return 0;
 }
+
+static void link_destroy(void *data)
+{
+	struct link *ld = data;
+	struct impl *impl = ld->impl;
+	struct pw_jack_port *out_port = ld->out_port, *in_port = ld->in_port;
+	struct jack_server *server = &impl->server;
+	struct jack_graph_manager *mgr = server->graph_manager;
+	struct jack_connection_manager *conn;
+	jack_port_id_t src_id = out_port->port_id, dst_id = in_port->port_id;
+
+	pw_log_debug("module-jack %p: link %p destroy", impl, ld->link);
+
+	conn = jack_graph_manager_next_start(mgr);
+	if (jack_connection_manager_disconnect_ports(conn, src_id, dst_id)) {
+		pw_log_warn("module-jack %p: ports can't disconnect", impl);
+	}
+	jack_graph_manager_next_stop(mgr);
+
+	notify_clients(impl, jack_notify_PortDisconnectCallback, false, "", src_id, dst_id);
+}
+
+static const struct pw_link_events link_events = {
+	PW_VERSION_LINK_EVENTS,
+	.destroy = link_destroy,
+};
 
 static int
 handle_connect_name_ports(struct client *client)
@@ -506,8 +611,9 @@ handle_connect_name_ports(struct client *client)
 	int result = -1, in_ref, out_ref;
 	jack_port_id_t src_id, dst_id;
 	struct jack_port *src_port, *dst_port;
-	struct pw_port *out_port, *in_port;
+	struct pw_jack_port *out_port, *in_port;
 	struct pw_link *link;
+	struct link *ld;
 
 	CheckSize(kConnectNamePorts_size);
 	CheckRead(&ref_num, sizeof(int));
@@ -557,7 +663,7 @@ handle_connect_name_ports(struct client *client)
 		pw_log_error("protocol-jack %p: unknown client %d", impl, out_ref);
 		goto reply_stop;
 	}
-	if (!jc->control->active) {
+	if (!jc->node->control->active) {
 		pw_log_error("protocol-jack %p: can't connect ports of inactive client", impl);
 		goto reply_stop;
 	}
@@ -572,39 +678,32 @@ handle_connect_name_ports(struct client *client)
 		pw_log_error("protocol-jack %p: unknown client %d", impl, in_ref);
 		goto reply_stop;
 	}
-	if (!jc->control->active) {
+	if (!jc->node->control->active) {
 		pw_log_error("protocol-jack %p: can't connect ports of inactive client", impl);
 		goto reply_stop;
 	}
 	in_port = pw_jack_node_find_port(jc->node, PW_DIRECTION_INPUT, dst_id);
 
-	if (jack_connection_manager_is_connected(conn, src_id, dst_id)) {
-		pw_log_error("protocol-jack %p: ports are already connected", impl);
+	if (jack_connection_manager_connect_ports(conn, src_id, dst_id)) {
+		pw_log_error("protocol-jack %p: ports can't connect", impl);
 		goto reply_stop;
 	}
-	if (jack_connection_manager_connect(conn, src_id, dst_id) < 0) {
-		pw_log_error("protocol-jack %p: connection table is full", impl);
-		goto reply_stop;
-	}
-	if (jack_connection_manager_connect(conn, dst_id, src_id) < 0) {
-		pw_log_error("protocol-jack %p: connection table is full", impl);
-		goto reply_stop;
-	}
-	if (jack_connection_manager_is_loop_path(conn, src_id, dst_id) < 0)
-		jack_connection_manager_inc_feedback_connection(conn, src_id, dst_id);
-	else
-		jack_connection_manager_inc_direct_connection(conn, src_id, dst_id);
-
-	pw_log_debug("%p %p", out_port, in_port);
+	pw_log_debug("protocol-jack %p: connected ports %p %p", impl, out_port, in_port);
 
 	link = pw_link_new(impl->core,
 			   pw_module_get_global(impl->module),
-			   out_port,
-			   in_port,
+			   out_port->port,
+			   in_port->port,
 			   NULL,
 			   NULL,
 			   NULL,
-			   0);
+			   sizeof(struct link));
+	ld = pw_link_get_user_data(link);
+	ld->impl = impl;
+	ld->link = link;
+	ld->out_port = out_port;
+	ld->in_port = in_port;
+	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
 	pw_link_activate(link);
 
 	notify_clients(impl, jack_notify_PortConnectCallback, false, "", src_id, dst_id);
@@ -736,6 +835,17 @@ client_busy_changed(void *data, bool busy)
 		process_messages(c);
 }
 
+static void client_killed(struct client *client)
+{
+	struct jack_client *jc;
+
+	spa_list_for_each(jc, &client->jack_clients, client_link) {
+		close(jc->fd);
+		jc->fd = -1;
+	}
+	pw_client_destroy(client->client);
+}
+
 static void
 connection_data(void *data, int fd, enum spa_io mask)
 {
@@ -743,12 +853,26 @@ connection_data(void *data, int fd, enum spa_io mask)
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_error("protocol-native %p: got connection error", client->impl);
-		pw_client_destroy(client->client);
+		client_killed(client);
 		return;
 	}
 
 	if (mask & SPA_IO_IN)
 		process_messages(client);
+}
+
+static void client_destroy(void *data)
+{
+	struct client *this = data;
+	struct jack_client *jc, *t;
+
+	pw_loop_destroy_source(pw_core_get_main_loop(this->impl->core), this->source);
+	spa_list_remove(&this->link);
+
+	spa_list_for_each_safe(jc, t, &this->jack_clients, client_link)
+		pw_jack_node_destroy(jc->node);
+
+	close(this->fd);
 }
 
 static const struct pw_client_events client_events = {
@@ -778,6 +902,7 @@ static struct client *client_new(struct impl *impl, int fd)
 		goto no_client;
 
 	this = pw_client_get_user_data(client);
+	this->client = client;
 	this->impl = impl;
 	this->fd = fd;
 	this->source = pw_loop_add_io(pw_core_get_main_loop(impl->core),
@@ -786,8 +911,7 @@ static struct client *client_new(struct impl *impl, int fd)
 	if (this->source == NULL)
 		goto no_source;
 
-	this->client = client;
-
+	spa_list_init(&this->jack_clients);
 	spa_list_insert(impl->client_list.prev, &this->link);
 
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
@@ -894,63 +1018,35 @@ static int
 make_audio_client(struct impl *impl)
 {
 	struct jack_server *server = &impl->server;
-	struct jack_graph_manager *mgr = server->graph_manager;
-	struct jack_connection_manager *conn;
 	int ref_num;
 	struct jack_client *jc;
-	jack_port_id_t port_id;
+	struct pw_jack_node *node;
 
-	ref_num = jack_server_allocate_ref_num(server);
-	if (ref_num == -1)
-		return -1;
-
-	if (jack_synchro_init(&server->synchro_table[ref_num],
-			      "system",
-			      server->engine_control->server_name,
-			      0,
-			      false,
-			      server->promiscuous) < 0) {
+	node = pw_jack_driver_new(impl->core,
+				  pw_module_get_global(impl->module),
+				  server,
+				  "system",
+				  0, 2,
+				  NULL,
+				  sizeof(struct jack_client));
+	if (node == NULL) {
+		pw_log_error("module-jack %p: can't create driver node", impl);
 		return -1;
 	}
 
-	jc = calloc(1,sizeof(struct jack_client));
+	ref_num = node->control->ref_num;
+
+	jc = node->user_data;
+	jc->fd = -1;
 	jc->data = impl;
-	jc->ref_num = ref_num;
-	jc->control = jack_client_control_alloc("system", -1, ref_num, -1);
-	jc->control->active = true;
+	jc->node = node;
+	pw_jack_node_add_listener(node, &jc->node_listener, &jack_node_events, jc);
 
 	server->client_table[ref_num] = jc;
 
-	impl->server.engine_control->driver_num++;
-
-	conn = jack_graph_manager_next_start(mgr);
-
-	jack_connection_manager_init_ref_num(conn, ref_num);
-	jack_connection_manager_direct_connect(conn, ref_num, ref_num);
-
-	port_id = jack_graph_manager_allocate_port(mgr,
-						   ref_num, "system:playback_1", 0,
-						   JackPortIsInput |
-						   JackPortIsPhysical |
-						   JackPortIsTerminal);
-	jack_connection_manager_add_port(conn, true, ref_num, port_id);
-
-	port_id = jack_graph_manager_allocate_port(mgr,
-						   ref_num, "system:playback_2", 0,
-						   JackPortIsInput |
-						   JackPortIsPhysical |
-						   JackPortIsTerminal);
-	jack_connection_manager_add_port(conn, true, ref_num, port_id);
-
-	jack_graph_manager_next_stop(mgr);
-
 	server->audio_ref_num = ref_num;
-	server->audio_node = pw_jack_node_new(impl->core, pw_module_get_global(impl->module),
-					      server, ref_num, NULL);
-	server->audio_node_node = pw_jack_node_get_node(server->audio_node);
-	jc->node = server->audio_node;
-
-	pw_jack_node_add_listener(server->audio_node, &jc->node_listener, &jack_node_events, jc);
+	server->audio_node = node;
+	server->audio_node_node = node->node;
 
 	pw_log_debug("module-jack %p: Added audio driver %d", impl, ref_num);
 
@@ -961,40 +1057,30 @@ static int
 make_freewheel_client(struct impl *impl)
 {
 	struct jack_server *server = &impl->server;
-	struct jack_graph_manager *mgr = server->graph_manager;
-	struct jack_connection_manager *conn;
 	int ref_num;
 	struct jack_client *jc;
+	struct pw_jack_node *node;
 
-	ref_num = jack_server_allocate_ref_num(server);
-	if (ref_num == -1)
-		return -1;
-
-	if (jack_synchro_init(&server->synchro_table[ref_num],
-			      "freewheel",
-			      server->engine_control->server_name,
-			      0,
-			      false,
-			      server->promiscuous) < 0) {
+	node = pw_jack_driver_new(impl->core,
+				  pw_module_get_global(impl->module),
+				  server,
+				  "freewheel",
+				  0, 0,
+				  NULL,
+				  sizeof(struct jack_client));
+	if (node == NULL) {
+		pw_log_error("module-jack %p: can't create driver node", impl);
 		return -1;
 	}
 
-	jc = calloc(1,sizeof(struct jack_client));
+	ref_num = node->control->ref_num;
+
+	jc = node->user_data;
+	jc->fd = -1;
 	jc->data = impl;
-	jc->ref_num = ref_num;
-	jc->control = jack_client_control_alloc("freewheel", -1, ref_num, -1);
-	jc->control->active = true;
+	jc->node = node;
 
 	server->client_table[ref_num] = jc;
-
-	impl->server.engine_control->driver_num++;
-
-	conn = jack_graph_manager_next_start(mgr);
-
-	jack_connection_manager_init_ref_num(conn, ref_num);
-	jack_connection_manager_direct_connect(conn, ref_num, ref_num);
-
-	jack_graph_manager_next_stop(mgr);
 
 	server->freewheel_ref_num = ref_num;
 	pw_log_debug("module-jack %p: Added freewheel driver %d", impl, ref_num);
@@ -1009,6 +1095,7 @@ static bool on_global(void *data, struct pw_global *global)
 	struct pw_node *node;
 	const struct pw_properties *properties;
 	const char *str;
+	struct pw_port *in_port, *out_port;
 
 	if (pw_global_get_type(global) != impl->t->node)
 		return true;
@@ -1022,9 +1109,14 @@ static bool on_global(void *data, struct pw_global *global)
 	if (strcmp(str, "Audio/Sink") != 0)
 		return true;
 
+	out_port = pw_node_get_free_port(impl->server.audio_node_node, PW_DIRECTION_OUTPUT);
+	in_port = pw_node_get_free_port(node, PW_DIRECTION_INPUT);
+	if (out_port == NULL || in_port == NULL)
+		return true;
+
 	impl->sink_link = pw_link_new(impl->core, pw_module_get_global(impl->module),
-		    pw_node_get_free_port(impl->server.audio_node_node, PW_DIRECTION_OUTPUT),
-		    pw_node_get_free_port(node, PW_DIRECTION_INPUT),
+		    out_port,
+		    in_port,
 		    NULL,
 		    NULL,
 		    NULL,
@@ -1033,42 +1125,6 @@ static bool on_global(void *data, struct pw_global *global)
 
 	return false;
 }
-
-#if 0
-static void on_timeout(void *data, uint64_t expirations)
-{
-	struct impl *impl = data;
-	struct jack_server *server = &impl->server;
-	struct jack_graph_manager *mgr = server->graph_manager;
-	struct jack_connection_manager *conn;
-	struct jack_client *client;
-	int activation;
-
-	client = server->client_table[server->freewheel_ref_num];
-
-	conn = jack_graph_manager_try_switch(mgr);
-
-	jack_connection_manager_reset(conn, mgr->client_timing);
-
-	activation = jack_connection_manager_get_activation(conn, server->freewheel_ref_num);
-	if (activation == 0)
-		return;
-
-	pw_log_trace("resume %d", activation);
-	jack_connection_manager_resume_ref_num(conn,
-					       client->control,
-					       server->synchro_table,
-					       mgr->client_timing);
-
-	if (server->engine_control->sync_mode) {
-		pw_log_trace("suspend");
-		jack_connection_manager_suspend_ref_num(conn,
-						        client->control,
-						        server->synchro_table,
-						        mgr->client_timing);
-	}
-}
-#endif
 
 static bool init_nodes(struct impl *impl)
 {

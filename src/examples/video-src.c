@@ -302,6 +302,7 @@ int main(int argc, char *argv[])
 	pw_loop_leave(data.loop);
 
 	pw_remote_destroy(data.remote);
+	pw_core_destroy(data.core);
 	pw_loop_destroy(data.loop);
 
 	return 0;

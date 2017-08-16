@@ -155,8 +155,6 @@ static bool client_is_sandboxed(struct pw_client *cl)
 	pid_t pid;
 	const struct ucred *ucred;
 
-	return true;
-
 	ucred = pw_client_get_ucred(cl);
 
 	if (ucred) {

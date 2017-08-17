@@ -14,12 +14,13 @@ pipewire_c_args = [
 ]
 
 conf_config = configuration_data()
-conf_install_dir = '@0@/pipewire'.format(get_option('sysconfdir'))
+conf_install_dir = join_paths(get_option('sysconfdir'), 'pipewire')
 
 configure_file(input : 'pipewire.conf.in',
                output : 'pipewire.conf',
                configuration : conf_config,
                install_dir : conf_install_dir)
+
 
 executable('pipewire',
   pipewire_sources,

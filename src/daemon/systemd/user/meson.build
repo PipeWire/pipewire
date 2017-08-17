@@ -1,15 +1,14 @@
-systemd_install_dir = '@0@/systemd/user'.format(get_option('libdir'))
+systemd = dependency('systemd', required: true)
+if systemd.found()
+    systemd_user_services_dir = systemd.get_pkgconfig_variable('systemduserunitdir')
+endif
 
-pipewire_systemd_files = [
-  'pipewire.socket',
-]
-
-install_data(pipewire_systemd_files, install_dir : systemd_install_dir)
+install_data(sources : 'pipewire.socket', install_dir : systemd_user_services_dir)
 
 systemd_config = configuration_data()
-systemd_config.set('PW_BINARY', '@0@/pipewire'.format(pipewire_bindir))
+systemd_config.set('PW_BINARY', join_paths(pipewire_bindir, 'pipewire'))
 
 configure_file(input : 'pipewire.service.in',
                output : 'pipewire.service',
                configuration : systemd_config,
-               install_dir : systemd_install_dir)
+               install_dir : systemd_user_services_dir)

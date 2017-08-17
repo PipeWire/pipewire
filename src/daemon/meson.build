@@ -28,3 +28,5 @@ executable('pipewire',
   include_directories : [configinc, spa_inc],
   dependencies : [pipewire_dep],
 )
+
+subdir('systemd')

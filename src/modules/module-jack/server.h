@@ -44,7 +44,6 @@ struct jack_server {
 	int freewheel_ref_num;
 
 	struct pw_jack_node *audio_node;
-	struct pw_node *audio_node_node;
 	int audio_used;
 };
 

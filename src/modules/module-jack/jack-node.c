@@ -647,8 +647,16 @@ static void node_free(void *data)
 	spa_hook_list_call(&nd->listener_list, struct pw_jack_node_events, free);
 }
 
+static void node_state_changed(void *data, enum pw_node_state old,
+			       enum pw_node_state state, const char *error)
+{
+	struct node_data *nd = data;
+	spa_hook_list_call(&nd->listener_list, struct pw_jack_node_events, state_changed, old, state, error);
+}
+
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
+	.state_changed = node_state_changed,
 	.destroy = node_destroy,
 	.free = node_free,
 };
@@ -759,6 +767,7 @@ pw_jack_driver_new(struct pw_core *core,
         spa_hook_list_init(&nd->listener_list);
 	init_type(&nd->type, pw_core_get_type(core)->map);
 
+	pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
 	pw_node_set_implementation(node, &driver_impl, nd);
 
 	this = &nd->node;

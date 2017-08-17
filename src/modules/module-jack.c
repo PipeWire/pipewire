@@ -996,8 +996,12 @@ static void jack_node_pull(void *data)
 	struct jack_graph_manager *mgr = server->graph_manager;
 	struct spa_graph_node *n = &jc->node->node->rt.node, *pn;
 	struct spa_graph_port *p, *pp;
+	bool res;
 
-	jack_graph_manager_try_switch(mgr);
+	jack_graph_manager_try_switch(mgr, &res);
+	if (res) {
+		notify_clients(impl, jack_notify_GraphOrderCallback, false, "", 0, 0);
+	}
 
 	spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
 		if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
@@ -1108,7 +1112,6 @@ make_audio_client(struct impl *impl)
 
 	server->audio_ref_num = ref_num;
 	server->audio_node = node;
-	server->audio_node_node = node->node;
 
 	pw_log_debug("module-jack %p: Added audio driver %d", impl, ref_num);
 
@@ -1171,7 +1174,7 @@ static bool on_global(void *data, struct pw_global *global)
 	if (strcmp(str, "Audio/Sink") != 0)
 		return true;
 
-	out_port = pw_node_get_free_port(impl->server.audio_node_node, PW_DIRECTION_OUTPUT);
+	out_port = pw_node_get_free_port(impl->server.audio_node->node, PW_DIRECTION_OUTPUT);
 	in_port = pw_node_get_free_port(node, PW_DIRECTION_INPUT);
 	if (out_port == NULL || in_port == NULL)
 		return true;
@@ -1191,22 +1194,9 @@ static bool on_global(void *data, struct pw_global *global)
 static bool init_nodes(struct impl *impl)
 {
 	struct pw_core *core = impl->core;
-#if 0
-	struct timespec timeout, interval;
-#endif
 
 	make_audio_client(impl);
 	make_freewheel_client(impl);
-
-#if 0
-	timeout.tv_sec = 0;
-	timeout.tv_nsec = 1;
-	interval.tv_sec = 0;
-	interval.tv_nsec = 10 * SPA_NSEC_PER_MSEC;
-
-	impl->timer = pw_loop_add_timer(pw_core_get_main_loop(impl->core), on_timeout, impl);
-	pw_loop_update_timer(pw_core_get_main_loop(impl->core), impl->timer, &timeout, &interval, false);
-#endif
 
 	pw_core_for_each_global(core, on_global, impl);
 

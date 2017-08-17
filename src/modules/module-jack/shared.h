@@ -849,13 +849,14 @@ jack_graph_manager_get_current(struct jack_graph_manager *manager)
 }
 
 static inline struct jack_connection_manager *
-jack_graph_manager_try_switch(struct jack_graph_manager *manager)
+jack_graph_manager_try_switch(struct jack_graph_manager *manager, bool *res)
 {
 	struct jack_atomic_counter old_val;
 	struct jack_atomic_counter new_val;
 	do {
 		old_val = manager->state.counter;
 		new_val = old_val;
+		*res = CurIndex(new_val) != NextIndex(new_val);
 		CurIndex(new_val) = NextIndex(new_val);
 	}
 	while (!__atomic_compare_exchange_n((uint32_t*)&manager->state.counter,

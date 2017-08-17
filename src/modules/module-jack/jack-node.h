@@ -50,7 +50,12 @@ struct pw_jack_node_events {
         uint32_t version;
 
         void (*destroy) (void *data);
+
         void (*free) (void *data);
+
+	/** the state of the node changed */
+	void (*state_changed) (void *data, enum pw_node_state old,
+			       enum pw_node_state state, const char *error);
 
         void (*pull) (void *data);
 

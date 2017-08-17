@@ -404,10 +404,12 @@ void pw_core_destroy(struct pw_core *core)
 	struct pw_global *global, *t;
 
 	pw_log_debug("core %p: destroy", core);
-	spa_hook_list_call(&core->listener_list, struct pw_core_events, destroy, core);
+	spa_hook_list_call(&core->listener_list, struct pw_core_events, destroy);
 
 	spa_list_for_each_safe(global, t, &core->global_list, link)
 		pw_global_destroy(global);
+
+	spa_hook_list_call(&core->listener_list, struct pw_core_events, free);
 
 	pw_data_loop_destroy(core->data_loop_impl);
 

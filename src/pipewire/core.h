@@ -117,7 +117,9 @@ struct pw_core_events {
 #define PW_VERSION_CORE_EVENTS	0
 	uint32_t version;
 
-	void (*destroy) (void *data, struct pw_core *core);
+	void (*destroy) (void *data);
+
+	void (*free) (void *data);
 
 	void (*info_changed) (void *data, struct pw_core_info *info);
 

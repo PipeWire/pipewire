@@ -22,6 +22,7 @@ soversion = 0
 libversion = '@0@.@1@.0'.format(soversion, pipewire_version_minor.to_int() * 100 + pipewire_version_micro.to_int())
 
 prefix = get_option('prefix')
+pipewire_bindir = join_paths(prefix, get_option('bindir'))
 pipewire_datadir = join_paths(prefix, get_option('datadir'))
 pipewire_libdir = join_paths(prefix, get_option('libdir'))
 pipewire_localedir = join_paths(prefix, get_option('localedir'))

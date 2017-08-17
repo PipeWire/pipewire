@@ -957,6 +957,12 @@ pw_stream_connect(struct pw_stream *stream,
 	return true;
 }
 
+uint32_t
+pw_stream_get_node_id(struct pw_stream *stream)
+{
+	return stream->node_id;
+}
+
 void
 pw_stream_finish_format(struct pw_stream *stream,
 			int res, struct spa_param **params, uint32_t n_params)

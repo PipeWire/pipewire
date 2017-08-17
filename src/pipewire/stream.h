@@ -265,6 +265,11 @@ pw_stream_connect(struct pw_stream *stream,		/**< a \ref pw_stream */
 		  uint32_t n_possible_formats,		/**< number of items in \a possible_formats */
 		  const struct spa_format **possible_formats	/**< an array with possible accepted formats */);
 
+/** Get the node ID of the stream. \memberof pw_stream
+ * \return node ID. */
+uint32_t
+pw_stream_get_node_id(struct pw_stream *stream);
+
 /** Disconnect \a stream \memberof pw_stream */
 void pw_stream_disconnect(struct pw_stream *stream);
 

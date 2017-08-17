@@ -1150,6 +1150,8 @@ void pw_link_destroy(struct pw_link *link)
 	spa_hook_list_call(&link->output->listener_list, struct pw_port_events, link_removed, link);
 	link->output = NULL;
 
+	spa_hook_list_call(&link->listener_list, struct pw_link_events, free);
+
 	pw_work_queue_destroy(impl->work);
 
 	if (link->info.format)

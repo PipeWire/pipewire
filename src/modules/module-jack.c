@@ -81,6 +81,7 @@ struct impl {
 
 	struct spa_list socket_list;
 	struct spa_list client_list;
+	struct spa_list link_list;
 
 	struct spa_loop_control_hooks hooks;
 
@@ -120,6 +121,7 @@ struct link {
 	struct pw_jack_port *out_port;
 	struct pw_jack_port *in_port;
 	struct spa_hook link_listener;
+	struct spa_list link_link;
 };
 
 static bool init_socket_name(struct sockaddr_un *addr, const char *name, bool promiscuous, int which)
@@ -609,6 +611,8 @@ static void link_destroy(void *data)
 
 	pw_log_debug("module-jack %p: link %p destroy", impl, ld->link);
 
+	spa_list_remove(&ld->link_link);
+
 	conn = jack_graph_manager_next_start(mgr);
 	if (jack_connection_manager_is_connected(conn, src_id, dst_id)) {
 		if (jack_connection_manager_disconnect_ports(conn, src_id, dst_id)) {
@@ -731,6 +735,7 @@ handle_connect_name_ports(struct client *client)
 	ld->link = link;
 	ld->out_port = out_port;
 	ld->in_port = in_port;
+	spa_list_append(&impl->link_list, &ld->link_link);
 	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
 	pw_link_activate(link);
 
@@ -741,6 +746,34 @@ handle_connect_name_ports(struct client *client)
 	jack_graph_manager_next_stop(mgr);
 
     reply:
+	CheckWrite(&result, sizeof(int));
+	return 0;
+}
+
+static int
+handle_disconnect_name_ports(struct client *client)
+{
+	struct link *link, *t;
+	struct impl *impl = client->impl;
+	int result = -1;
+	int ref_num;
+	char src[REAL_JACK_PORT_NAME_SIZE+1];
+	char dst[REAL_JACK_PORT_NAME_SIZE+1];
+
+	CheckSize(kDisconnectNamePorts_size);
+	CheckRead(&ref_num, sizeof(int));
+	CheckRead(src, sizeof(src));
+	CheckRead(dst, sizeof(dst));
+
+	spa_list_for_each_safe(link, t, &impl->link_list, link_link) {
+		if ((strcmp(link->out_port->jack_port->name, src) == 0) &&
+		    (strcmp(link->in_port->jack_port->name, dst) == 0)) {
+			pw_link_destroy(link->link);
+			result = 0;
+			break;
+		}
+	}
+
 	CheckWrite(&result, sizeof(int));
 	return 0;
 }
@@ -814,6 +847,7 @@ process_messages(struct client *client)
 		res = handle_connect_name_ports(client);
 		break;
 	case jack_request_DisconnectNamePorts:
+		res = handle_disconnect_name_ports(client);
 		break;
 	case jack_request_GetInternalClientName:
 	case jack_request_InternalClientHandle:
@@ -1318,6 +1352,7 @@ static struct impl *module_init(struct pw_module *module, struct pw_properties *
 
 	spa_list_init(&impl->socket_list);
 	spa_list_init(&impl->client_list);
+	spa_list_init(&impl->link_list);
 	spa_list_init(&impl->rt.nodes);
 
 	str = NULL;

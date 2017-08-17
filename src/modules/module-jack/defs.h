@@ -132,6 +132,7 @@ enum jack_notification_type {
 #define kClientOpen_size (JACK_CLIENT_NAME_SIZE+1 + 2 * sizeof(int))
 #define kClientClose_size (sizeof(int))
 #define kConnectNamePorts_size (sizeof(int) + REAL_JACK_PORT_NAME_SIZE+1 + REAL_JACK_PORT_NAME_SIZE+1)
+#define kDisconnectNamePorts_size (sizeof(int) + REAL_JACK_PORT_NAME_SIZE+1 + REAL_JACK_PORT_NAME_SIZE+1)
 #define kGetUUIDByClient_size (JACK_CLIENT_NAME_SIZE+1)
 
 #define CheckRead(var,size) if(read(client->fd,var,size)!=size) {pw_log_error("read error"); return -1; }

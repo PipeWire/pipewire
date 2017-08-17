@@ -54,6 +54,8 @@ struct pw_link_events {
 
 	void (*destroy) (void *data);
 
+	void (*free) (void *data);
+
 	void (*info_changed) (void *data, const struct pw_link_info *info);
 
 	void (*state_changed) (void *data, enum pw_link_state old,

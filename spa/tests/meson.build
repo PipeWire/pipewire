@@ -10,6 +10,10 @@ executable('test-graph', 'test-graph.c',
            include_directories : [spa_inc ],
            dependencies : [dl_lib, pthread_lib],
            install : false)
+executable('test-graph2', 'test-graph2.c',
+           include_directories : [spa_inc ],
+           dependencies : [dl_lib, pthread_lib],
+           install : false)
 executable('test-perf', 'test-perf.c',
            include_directories : [spa_inc, spa_libinc ],
            dependencies : [dl_lib, pthread_lib],

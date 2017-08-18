@@ -60,33 +60,32 @@ struct spa_graph_port_callbacks {
 };
 
 struct spa_graph_node {
-	struct spa_list link;
-	struct spa_list ready_link;
-	struct spa_list ports[2];
+	struct spa_list link;		/**< link in graph nodes list */
+	struct spa_list ports[2];	/**< list of input and output ports */
+	struct spa_list ready_link;	/**< link for scheduler */
 #define SPA_GRAPH_NODE_FLAG_ASYNC       (1 << 0)
-	uint32_t flags;
-	int state;
-#define SPA_GRAPH_ACTION_CHECK   0
-#define SPA_GRAPH_ACTION_IN      1
-#define SPA_GRAPH_ACTION_OUT     2
-	uint32_t action;
-	uint32_t max_in;
-	uint32_t required_in;
-	uint32_t ready_in;
+	uint32_t flags;			/**< node flags */
+	uint32_t required_in;		/**< required number of ports */
+	uint32_t ready_in;		/**< number of ports with data */
+	int state;			/**< state of the node */
+	/** callbacks and data */
 	const struct spa_graph_node_callbacks *callbacks;
 	void *callbacks_data;
+	void *scheduler_data;		/**< scheduler private data */
 };
 
 struct spa_graph_port {
-	struct spa_list link;
-	struct spa_graph_node *node;
-	enum spa_direction direction;
-	uint32_t port_id;
-	uint32_t flags;
-	struct spa_port_io *io;
-	struct spa_graph_port *peer;
+	struct spa_list link;		/**< link in node port list */
+	struct spa_graph_node *node;	/**< owner node */
+	enum spa_direction direction;	/**< port direction */
+	uint32_t port_id;		/**< port id */
+	uint32_t flags;			/**< port flags */
+	struct spa_port_io *io;		/**< io area of the port */
+	struct spa_graph_port *peer;	/**< peer */
+	/** callbacks and data */
 	const struct spa_graph_port_callbacks *callbacks;
 	void *callbacks_data;
+	void *scheduler_data;		/**< scheduler private data */
 };
 
 static inline void spa_graph_init(struct spa_graph *graph)
@@ -100,7 +99,7 @@ spa_graph_node_init(struct spa_graph_node *node)
 	spa_list_init(&node->ports[SPA_DIRECTION_INPUT]);
 	spa_list_init(&node->ports[SPA_DIRECTION_OUTPUT]);
 	node->flags = 0;
-	node->max_in = node->required_in = node->ready_in = 0;
+	node->required_in = node->ready_in = 0;
 	debug("node %p init\n", node);
 }
 
@@ -118,9 +117,8 @@ spa_graph_node_add(struct spa_graph *graph,
 		   struct spa_graph_node *node)
 {
 	node->state = SPA_RESULT_NEED_BUFFER;
-	node->action = SPA_GRAPH_ACTION_OUT;
 	node->ready_link.next = NULL;
-	spa_list_insert(graph->nodes.prev, &node->link);
+	spa_list_append(&graph->nodes, &node->link);
 	debug("node %p add\n", node);
 }
 
@@ -153,8 +151,7 @@ spa_graph_port_add(struct spa_graph_node *node,
 {
 	debug("port %p add to node %p\n", port, node);
 	port->node = node;
-	spa_list_insert(node->ports[port->direction].prev, &port->link);
-	node->max_in++;
+	spa_list_append(&node->ports[port->direction], &port->link);
 	if (!(port->flags & SPA_PORT_INFO_FLAG_OPTIONAL) && port->direction == SPA_DIRECTION_INPUT)
 		node->required_in++;
 }

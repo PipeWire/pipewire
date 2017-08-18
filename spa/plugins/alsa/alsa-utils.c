@@ -480,7 +480,7 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	snd_pcm_status_t *status;
 	snd_htimestamp_t htstamp;
 
-	if (read(state->timerfd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
+	if (state->started && read(state->timerfd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(state->log, "error reading timerfd: %s", strerror(errno));
 
 	snd_pcm_status_alloca(&status);
@@ -566,7 +566,7 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 	snd_pcm_status_t *status;
 	snd_htimestamp_t htstamp;
 
-	if (read(state->timerfd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
+	if (state->started && read(state->timerfd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(state->log, "error reading timerfd: %s", strerror(errno));
 
 	snd_pcm_status_alloca(&status);

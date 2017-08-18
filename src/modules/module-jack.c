@@ -988,6 +988,19 @@ static struct client *client_new(struct impl *impl, int fd)
 	return NULL;
 }
 
+static int do_notify(struct spa_loop *loop,
+		     bool async,
+		     uint32_t seq,
+		     size_t size,
+		     const void *data,
+		     void *user_data)
+{
+	struct impl *impl = user_data;
+	const int *notify = data;
+	notify_clients(impl, *notify, false, "", 0, 0);
+	return SPA_RESULT_OK;
+}
+
 static void jack_node_pull(void *data)
 {
 	struct jack_client *jc = data;
@@ -1000,7 +1013,9 @@ static void jack_node_pull(void *data)
 
 	jack_graph_manager_try_switch(mgr, &res);
 	if (res) {
-		notify_clients(impl, jack_notify_GraphOrderCallback, false, "", 0, 0);
+		int notify = jack_notify_GraphOrderCallback;
+		pw_loop_invoke(pw_core_get_main_loop(impl->core),
+                       do_notify, 0, sizeof(notify), &notify, false, impl);
 	}
 
 	spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {

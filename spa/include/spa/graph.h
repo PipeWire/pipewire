@@ -40,9 +40,22 @@ struct spa_graph;
 struct spa_graph_node;
 struct spa_graph_port;
 
+struct spa_graph_callbacks {
+#define SPA_VERSION_GRAPH_CALLBACKS	0
+	uint32_t version;
+
+	int (*need_input) (void *data, struct spa_graph_node *node);
+	int (*have_output) (void *data, struct spa_graph_node *node);
+};
+
 struct spa_graph {
 	struct spa_list nodes;
+	const struct spa_graph_callbacks *callbacks;
+	void *callbacks_data;
 };
+
+#define spa_graph_need_input(g,n)	((g)->callbacks->need_input((g)->callbacks_data, (n)))
+#define spa_graph_have_output(g,n)	((g)->callbacks->have_output((g)->callbacks_data, (n)))
 
 struct spa_graph_node_callbacks {
 #define SPA_VERSION_GRAPH_NODE_CALLBACKS	0
@@ -61,6 +74,7 @@ struct spa_graph_port_callbacks {
 
 struct spa_graph_node {
 	struct spa_list link;		/**< link in graph nodes list */
+	struct spa_graph *graph;	/**< owner graph */
 	struct spa_list ports[2];	/**< list of input and output ports */
 	struct spa_list ready_link;	/**< link for scheduler */
 #define SPA_GRAPH_NODE_FLAG_ASYNC       (1 << 0)
@@ -94,6 +108,15 @@ static inline void spa_graph_init(struct spa_graph *graph)
 }
 
 static inline void
+spa_graph_set_callbacks(struct spa_graph *graph,
+			const struct spa_graph_callbacks *callbacks,
+			void *data)
+{
+	graph->callbacks = callbacks;
+	graph->callbacks_data = data;
+}
+
+static inline void
 spa_graph_node_init(struct spa_graph_node *node)
 {
 	spa_list_init(&node->ports[SPA_DIRECTION_INPUT]);
@@ -116,6 +139,7 @@ static inline void
 spa_graph_node_add(struct spa_graph *graph,
 		   struct spa_graph_node *node)
 {
+	node->graph = graph;
 	node->state = SPA_RESULT_NEED_BUFFER;
 	node->ready_link.next = NULL;
 	spa_list_append(&graph->nodes, &node->link);

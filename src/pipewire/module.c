@@ -217,7 +217,7 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 	this->info.args = args ? strdup(args) : NULL;
 	this->info.props = NULL;
 
-	spa_list_insert(core->module_list.prev, &this->link);
+	spa_list_append(&core->module_list, &this->link);
 	this->global = pw_core_add_global(core, NULL, core->global,
 					  core->type.module, PW_VERSION_MODULE,
 					  module_bind_func, this);

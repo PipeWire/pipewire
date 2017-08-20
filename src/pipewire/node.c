@@ -169,7 +169,7 @@ static void node_need_input(void *data)
         struct impl *impl = data;
 	struct pw_node *this = &impl->this;
 
-	spa_graph_scheduler_pull(this->rt.sched, &this->rt.node);
+	spa_graph_need_input(this->rt.graph, &this->rt.node);
 }
 
 static void node_have_output(void *data)
@@ -177,7 +177,7 @@ static void node_have_output(void *data)
         struct impl *impl = data;
 	struct pw_node *this = &impl->this;
 
-	spa_graph_scheduler_push(this->rt.sched, &this->rt.node);
+	spa_graph_have_output(this->rt.graph, &this->rt.node);
 }
 
 static void node_unbind_func(void *data)
@@ -291,7 +291,7 @@ do_node_add(struct spa_loop *loop,
 {
 	struct pw_node *this = user_data;
 
-	spa_graph_node_add(this->rt.sched->graph, &this->rt.node);
+	spa_graph_node_add(this->rt.graph, &this->rt.node);
 
 	return SPA_RESULT_OK;
 }
@@ -393,7 +393,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this->data_loop = core->data_loop;
 
-	this->rt.sched = &core->rt.sched;
+	this->rt.graph = &core->rt.graph;
 
 	spa_list_init(&this->resource_list);
 

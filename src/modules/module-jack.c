@@ -340,15 +340,16 @@ handle_activate_client(struct client *client)
 	jack_graph_manager_next_stop(mgr);
 
 	jc = server->client_table[ref_num];
-	if (jc)
+	if (jc) {
 		notify_client(jc, ref_num, NULL, jack_notify_ActivateClient, true, "", 0, 0);
+		jc->activated = true;
+		spa_list_append(&impl->rt.nodes, &jc->node->graph_link);
+	}
 
 	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (input_ports[i] != EMPTY); i++)
 		notify_clients(impl, jack_notify_PortRegistrationOnCallback, false, "", input_ports[i], 0);
 	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (output_ports[i] != EMPTY); i++)
 		notify_clients(impl, jack_notify_PortRegistrationOnCallback, false, "", output_ports[i], 0);
-
-	jc->activated = true;
 
 	CheckWrite(&result, sizeof(int));
 	return 0;
@@ -400,8 +401,10 @@ static int client_deactivate(struct impl *impl, int ref_num)
 	jack_graph_manager_next_stop(mgr);
 
 	jc = server->client_table[ref_num];
-	if (jc)
+	if (jc) {
 		jc->activated = false;
+		spa_list_remove(&jc->node->graph_link);
+	}
 
 	return 0;
 }
@@ -516,6 +519,7 @@ handle_client_open(struct client *client)
 	const struct ucred *ucred;
 	struct sockaddr_un addr;
 	struct pw_jack_node *node;
+	struct pw_properties *properties;
 
 	CheckSize(kClientOpen_size);
 	CheckRead(&PID, sizeof(int));
@@ -524,12 +528,16 @@ handle_client_open(struct client *client)
 
 	ucred = pw_client_get_ucred(client->client);
 
+	properties = pw_properties_new(NULL, NULL);
+	pw_properties_setf(properties, "application.jack.PID", "%d", PID);
+	pw_properties_setf(properties, "application.jack.UUID", "%d", UUID);
+
 	node = pw_jack_node_new(impl->core,
-				pw_module_get_global(impl->module),
+				pw_client_get_global(client->client),
 				server,
 				name,
 				ucred ? ucred->pid : PID,
-				NULL,
+				properties,
 				sizeof(struct jack_client));
 	if (node == NULL) {
 		pw_log_error("module-jack %p: can't create node", impl);
@@ -563,7 +571,6 @@ handle_client_open(struct client *client)
 	pw_log_debug("module-jack %p: Added client %d \"%s\"", impl, ref_num, name);
 
 	spa_list_append(&client->jack_clients, &jc->client_link);
-	spa_list_append(&impl->rt.nodes, &jc->node->graph_link);
 
 	if (notify_add_client(impl, jc, name, ref_num) < 0) {
 		pw_log_error("module-jack %p: can't notify add_client", impl);
@@ -949,6 +956,7 @@ static struct client *client_new(struct impl *impl, int fd)
 	struct pw_client *client;
 	socklen_t len;
 	struct ucred ucred, *ucredp;
+	struct pw_properties *properties;
 
 	len = sizeof(ucred);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
@@ -958,8 +966,17 @@ static struct client *client_new(struct impl *impl, int fd)
 		ucredp = &ucred;
 	}
 
+	properties = pw_properties_new("pipewire.protocol", "protocol-jack", NULL);
+	if (properties == NULL)
+		goto no_props;
+
+	if (ucredp) {
+		pw_properties_setf(properties, "application.process.id", "%d", ucredp->pid);
+		pw_properties_setf(properties, "application.process.userid", "%d", ucredp->uid);
+	}
+
         client = pw_client_new(impl->core, pw_module_get_global(impl->module),
-			       ucredp, NULL, sizeof(struct client));
+			       ucredp, properties, sizeof(struct client));
 	if (client == NULL)
 		goto no_client;
 
@@ -984,6 +1001,7 @@ static struct client *client_new(struct impl *impl, int fd)
 
       no_source:
 	free(this);
+      no_props:
       no_client:
 	return NULL;
 }
@@ -1018,6 +1036,7 @@ static void jack_node_pull(void *data)
                        do_notify, 0, sizeof(notify), &notify, false, impl);
 	}
 
+	/* mix all input */
 	spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
 		if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
 			continue;
@@ -1039,13 +1058,14 @@ static void jack_node_push(void *data)
 
 	conn = jack_graph_manager_get_current(mgr);
 
+	activation = jack_connection_manager_get_activation(conn, server->freewheel_ref_num);
+	if (activation != 0)
+		pw_log_warn("resume %d, some client did not complete", activation);
+
 	jack_connection_manager_reset(conn, mgr->client_timing);
 
-	activation = jack_connection_manager_get_activation(conn, server->freewheel_ref_num);
-	if (activation == 0)
-		return;
-
-	pw_log_trace("resume %d", activation);
+        jack_activation_count_signal(&conn->input_counter[server->freewheel_ref_num],
+                                    &server->synchro_table[server->freewheel_ref_num]);
 
 	spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
 		if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
@@ -1055,16 +1075,25 @@ static void jack_node_push(void *data)
 
 	spa_list_for_each(node, &impl->rt.nodes, graph_link) {
 		n = &node->node->rt.node;
+
+		spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link) {
+			if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
+				continue;
+			pn->state = pn->callbacks->process_output(pn->callbacks_data);
+		}
 		n->state = n->callbacks->process_output(n->callbacks_data);
 
+		/* mix inputs */
 		spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
 			if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
 				continue;
+			pn->state = pn->callbacks->process_output(pn->callbacks_data);
 			pn->state = pn->callbacks->process_input(pn->callbacks_data);
 		}
 
 		n->state = n->callbacks->process_input(n->callbacks_data);
 
+		/* tee outputs */
 		spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link) {
 			if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
 				continue;
@@ -1340,7 +1369,7 @@ static int init_server(struct impl *impl, const char *name, bool promiscuous)
 }
 
 
-static struct impl *module_init(struct pw_module *module, struct pw_properties *properties)
+static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct impl *impl;
@@ -1379,11 +1408,11 @@ static struct impl *module_init(struct pw_module *module, struct pw_properties *
 	if (init_server(impl, name, promiscuous) < 0)
 		goto error;
 
-	return impl;
+	return true;
 
       error:
 	free(impl);
-	return NULL;
+	return false;
 }
 
 #if 0
@@ -1399,6 +1428,5 @@ static void module_destroy(struct impl *impl)
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
-	module_init(module, NULL);
-	return true;
+	return module_init(module, NULL);
 }

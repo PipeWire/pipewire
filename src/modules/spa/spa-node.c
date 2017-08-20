@@ -21,8 +21,6 @@
 #include "config.h"
 #endif
 
-#include <spa/graph-scheduler3.h>
-
 #include <string.h>
 #include <stdio.h>
 #include <dlfcn.h>

@@ -231,14 +231,15 @@ static void link_event_info(void *object, struct pw_link_info *info)
 	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Link, data->version);
 	if (print_all) {
 		printf("%c\toutput-node-id: %u\n", MARK_CHANGE(0), info->output_node_id);
-		printf("%c\toutput-port-id: %u\n", MARK_CHANGE(1), info->output_port_id);
-		printf("%c\tinput-node-id: %u\n", MARK_CHANGE(2), info->input_node_id);
-		printf("%c\tinput-port-id: %u\n", MARK_CHANGE(3), info->input_port_id);
-		printf("%c\tformat:\n", MARK_CHANGE(4));
+		printf("%c\toutput-port-id: %u\n", MARK_CHANGE(0), info->output_port_id);
+		printf("%c\tinput-node-id: %u\n", MARK_CHANGE(1), info->input_node_id);
+		printf("%c\tinput-port-id: %u\n", MARK_CHANGE(1), info->input_port_id);
+		printf("%c\tformat:\n", MARK_CHANGE(2));
 		if (info->format)
 			spa_debug_format(info->format);
 		else
 			printf("\t  none\n");
+		print_properties(info->props, MARK_CHANGE(3));
 	}
 }
 

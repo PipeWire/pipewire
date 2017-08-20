@@ -117,6 +117,7 @@ void pw_module_info_free(struct pw_module_info *info);
 
 /** The client information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_client_info {
+#define PW_CLIENT_CHANGE_MASK_PROPS		(1 << 0)
 	uint64_t change_mask;	/**< bitfield of changed fields since last call */
 	struct spa_dict *props;	/**< extra properties */
 };
@@ -164,6 +165,10 @@ pw_node_info_free(struct pw_node_info *info);
 
 /** The link information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_link_info {
+#define PW_LINK_CHANGE_MASK_OUTPUT		(1 << 0)
+#define PW_LINK_CHANGE_MASK_INPUT		(1 << 1)
+#define PW_LINK_CHANGE_MASK_FORMAT		(1 << 2)
+#define PW_LINK_CHANGE_MASK_PROPS		(1 << 3)
 	uint64_t change_mask;		/**< bitfield of changed fields since last call */
 	uint32_t output_node_id;	/**< server side output node id */
 	uint32_t output_port_id;	/**< output port id */

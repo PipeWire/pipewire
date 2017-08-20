@@ -103,7 +103,7 @@ struct data {
 	int iterations;
 
 	struct spa_graph graph;
-	struct spa_graph_scheduler sched;
+	struct spa_graph_data graph_data;
 	struct spa_graph_node source_node;
 	struct spa_graph_port source_out;
 	struct spa_graph_port sink_in;
@@ -225,8 +225,7 @@ static void on_sink_pull(struct data *data)
 		spa_node_process_output(data->source);
 		spa_node_process_input(data->sink);
 	} else {
-		spa_graph_scheduler_pull(&data->sched, &data->sink_node);
-		while (spa_graph_scheduler_iterate(&data->sched));
+		spa_graph_need_input(&data->graph, &data->sink_node);
 	}
 }
 
@@ -237,8 +236,7 @@ static void on_source_push(struct data *data)
 		spa_node_process_output(data->source);
 		spa_node_process_input(data->sink);
 	} else {
-		spa_graph_scheduler_push(&data->sched, &data->source_node);
-		while (spa_graph_scheduler_iterate(&data->sched));
+		spa_graph_have_output(&data->graph, &data->source_node);
 	}
 }
 
@@ -364,7 +362,7 @@ static int make_nodes(struct data *data)
 	spa_node_port_set_io(data->sink, SPA_DIRECTION_INPUT, 0, &data->source_sink_io[0]);
 
 	spa_graph_node_init(&data->source_node);
-	spa_graph_node_set_callbacks(&data->source_node, &spa_graph_scheduler_default, data->source);
+	spa_graph_node_set_callbacks(&data->source_node, &spa_graph_node_impl_default, data->source);
 	spa_graph_node_add(&data->graph, &data->source_node);
 
 	data->source_node.flags = (data->mode & MODE_ASYNC_PUSH) ? SPA_GRAPH_NODE_FLAG_ASYNC : 0;
@@ -372,7 +370,7 @@ static int make_nodes(struct data *data)
 	spa_graph_port_add(&data->source_node, &data->source_out);
 
 	spa_graph_node_init(&data->sink_node);
-	spa_graph_node_set_callbacks(&data->sink_node, &spa_graph_scheduler_default, data->sink);
+	spa_graph_node_set_callbacks(&data->sink_node, &spa_graph_node_impl_default, data->sink);
 	spa_graph_node_add(&data->graph, &data->sink_node);
 
 	data->sink_node.flags = (data->mode & MODE_ASYNC_PULL) ? SPA_GRAPH_NODE_FLAG_ASYNC : 0;
@@ -529,7 +527,8 @@ int main(int argc, char *argv[])
 	const char *str;
 
 	spa_graph_init(&data.graph);
-	spa_graph_scheduler_init(&data.sched, &data.graph);
+	spa_graph_data_init(&data.graph_data, &data.graph);
+	spa_graph_set_callbacks(&data.graph, &spa_graph_impl_default, &data.graph_data);
 
 	data.map = &default_map.map;
 	data.log = &default_log.log;

@@ -676,6 +676,10 @@ struct pw_jack_node *pw_jack_node_new(struct pw_core *core,
 	struct jack_graph_manager *mgr = server->graph_manager;
         struct jack_connection_manager *conn;
 
+	if (properties == NULL)
+		properties = pw_properties_new("jack.server.name", server->engine_control->server_name,
+					       "jack.name", name, NULL);
+
 	ref_num = jack_server_allocate_ref_num(server);
 	if (ref_num == -1) {
                 pw_log_error(NAME " %p: can't allocated ref_num", core);
@@ -690,6 +694,7 @@ struct pw_jack_node *pw_jack_node_new(struct pw_core *core,
                 pw_log_error(NAME " %p: can't init synchro", core);
                 return NULL;
         }
+	pw_properties_setf(properties, "jack.ref-num", "%d", ref_num);
 
 	node = pw_node_new(core, NULL, parent, name, properties, sizeof(struct node_data) + user_data_size);
 	if (node == NULL)
@@ -744,6 +749,10 @@ pw_jack_driver_new(struct pw_core *core,
         struct jack_connection_manager *conn;
         char n[REAL_JACK_PORT_NAME_SIZE];
 
+	if (properties == NULL)
+		properties = pw_properties_new("jack.server.name", server->engine_control->server_name,
+					       "jack.name", name, NULL);
+
 	ref_num = jack_server_allocate_ref_num(server);
 	if (ref_num == -1) {
                 pw_log_error(NAME " %p: can't allocated ref_num", core);
@@ -758,6 +767,7 @@ pw_jack_driver_new(struct pw_core *core,
                 pw_log_error(NAME " %p: can't init synchro", core);
                 return NULL;
         }
+	pw_properties_setf(properties, "jack.ref-num", "%d", ref_num);
 
 	node = pw_node_new(core, NULL, parent, name, properties, sizeof(struct node_data) + user_data_size);
 	if (node == NULL)

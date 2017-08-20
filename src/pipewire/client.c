@@ -102,7 +102,7 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	if (impl == NULL)
 		return NULL;
 
-	pw_log_debug("client %p: new", impl);
+	pw_log_debug("client %p: new parent %d", impl, parent ? parent->id : 0);
 
 	this = &impl->this;
 	this->core = core;
@@ -123,7 +123,7 @@ struct pw_client *pw_client_new(struct pw_core *core,
 
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
-	this->global = pw_core_add_global(core, this, parent, core->type.client, PW_VERSION_CLIENT,
+	this->global = pw_core_add_global(core, NULL, parent, core->type.client, PW_VERSION_CLIENT,
 			   client_bind_func, this);
 
 	return this;

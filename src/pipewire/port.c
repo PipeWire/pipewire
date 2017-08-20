@@ -289,7 +289,7 @@ void pw_port_add(struct pw_port *port, struct pw_node *node)
 	if (port->implementation->set_io)
 		port->implementation->set_io(port->implementation_data, &port->io);
 
-	port->rt.graph = node->rt.sched->graph;
+	port->rt.graph = node->rt.graph;
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, 0, NULL, false, port);
 
 	port_update_state(port, PW_PORT_STATE_CONFIGURE);

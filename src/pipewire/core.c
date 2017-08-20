@@ -22,6 +22,7 @@
 
 #include <spa/lib/debug.h>
 #include <spa/format-utils.h>
+#include <spa/graph-scheduler3.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
@@ -338,7 +339,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	pw_map_init(&this->globals, 128, 32);
 
 	spa_graph_init(&this->rt.graph);
-	spa_graph_scheduler_init(&this->rt.sched, &this->rt.graph);
+	spa_graph_set_callbacks(&this->rt.graph, &spa_graph_impl_default, NULL);
 
 	spa_debug_set_type_map(this->type.map);
 

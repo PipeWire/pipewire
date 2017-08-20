@@ -116,6 +116,8 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	int res = SPA_RESULT_ERROR, res2;
 	struct spa_format *format, *current;
 	char *error = NULL;
+	struct pw_resource *resource;
+	bool changed = true;
 
 	if (in_state != PW_PORT_STATE_CONFIGURE && out_state != PW_PORT_STATE_CONFIGURE)
 		return SPA_RESULT_OK;
@@ -139,8 +141,10 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			pw_node_set_state(this->output->node, PW_NODE_STATE_SUSPENDED);
 			out_state = PW_PORT_STATE_CONFIGURE;
 		}
-		else
+		else {
 			pw_node_update_state(this->output->node, PW_NODE_STATE_RUNNING, NULL);
+			changed = false;
+		}
 	}
 	if (in_state > PW_PORT_STATE_CONFIGURE && this->input->node->info.state == PW_NODE_STATE_IDLE) {
 		if ((res = pw_port_get_format(this->input,
@@ -153,8 +157,10 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			pw_node_set_state(this->input->node, PW_NODE_STATE_SUSPENDED);
 			in_state = PW_PORT_STATE_CONFIGURE;
 		}
-		else
+		else {
 			pw_node_update_state(this->input->node, PW_NODE_STATE_RUNNING, NULL);
+			changed = false;
+		}
 	}
 
 	pw_log_debug("link %p: doing set format", this);
@@ -181,9 +187,19 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			pw_work_queue_add(impl->work, this->input->node, res2, complete_ready, this->input);
 	}
 
+
 	if (this->info.format)
 		free(this->info.format);
 	this->info.format = format;
+
+	if (changed) {
+		this->info.change_mask |= PW_LINK_CHANGE_MASK_FORMAT;
+
+		spa_list_for_each(resource, &this->resource_list, link)
+			pw_link_resource_info(resource, &this->info);
+
+		this->info.change_mask = 0;
+	}
 
 	return SPA_RESULT_OK;
 

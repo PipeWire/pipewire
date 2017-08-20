@@ -424,15 +424,24 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 	struct spa_graph_node *n = &data->node->rt.node;
 
         if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT) {
-		struct spa_list ready;
-		struct spa_graph_port *port;
+		struct spa_graph_port *port, *pp;
+		struct spa_graph_node *pn;
 
-		spa_list_init(&ready);
-
-		spa_list_for_each(port, &n->ports[SPA_DIRECTION_INPUT], link)
-			spa_list_insert(ready.prev, &port->peer->node->ready_link);
-
-	        spa_graph_scheduler_chain(data->node->rt.sched, &ready);
+		/* process all input in the mixers */
+		spa_list_for_each(port, &n->ports[SPA_DIRECTION_INPUT], link) {
+			pn = port->peer->node;
+	                pn->state = pn->callbacks->process_input(pn->callbacks_data);
+	                if (pn->state == SPA_RESULT_HAVE_BUFFER)
+	                        spa_graph_have_output(data->node->rt.graph, pn);
+			else {
+	                        pn->ready_in = 0;
+	                        spa_list_for_each(pp, &pn->ports[SPA_DIRECTION_INPUT], link) {
+                                if (pp->io->status == SPA_RESULT_OK &&
+				    !(pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
+                                        pn->ready_in++;
+				}
+	                }
+		}
         }
 	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT) {
 		n->callbacks->process_output(n->callbacks_data);

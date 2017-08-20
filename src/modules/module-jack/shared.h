@@ -274,8 +274,10 @@ static inline bool jack_activation_count_signal(struct jack_activation_count *cn
 {
 	bool res = true;
 
-	if (cnt->value == 0)
+	if (cnt->value == 0) {
+		pw_log_error("activation == 0");
 		res = jack_synchro_signal(synchro);
+	}
 	else if (__atomic_sub_fetch(&cnt->value, 1, __ATOMIC_SEQ_CST) == 0)
 		res = jack_synchro_signal(synchro);
 
@@ -1012,7 +1014,7 @@ jack_engine_control_alloc(const char* name)
         ctrl = (struct jack_engine_control *)jack_shm_addr(&info);
         ctrl->info = info;
 
-	ctrl->buffer_size = 64;
+	ctrl->buffer_size = 128;
         ctrl->sample_rate = 48000;
 	ctrl->sync_mode = false;
 	ctrl->temporary = false;

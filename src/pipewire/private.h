@@ -24,8 +24,9 @@
 extern "C" {
 #endif
 
+#include <spa/graph.h>
+
 #include <sys/socket.h>
-#include <spa/graph-scheduler3.h>
 
 #include "pipewire/mem.h"
 #include "pipewire/pipewire.h"
@@ -116,7 +117,6 @@ struct pw_core {
 	uint32_t n_support;		/**< number of support items */
 
 	struct {
-		struct spa_graph_scheduler sched;
 		struct spa_graph graph;
 	} rt;
 };
@@ -218,7 +218,7 @@ struct pw_node {
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
 	struct {
-		struct spa_graph_scheduler *sched;
+		struct spa_graph *graph;
 		struct spa_graph_node node;
 	} rt;
 

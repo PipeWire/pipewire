@@ -160,6 +160,9 @@ notify_client(struct jack_client *client, int ref_num, const char *name, int not
 	if (client->fd == -1)
 		return 0;
 
+	if (!client->node->control->callback[notify])
+		return 0;
+
 	if (name == NULL)
 		name = client->node->control->name;
 
@@ -214,7 +217,6 @@ notify_remove_client(struct impl *impl, const char *name, int ref_num)
 
 	for (i = 0; i < CLIENT_NUM; i++) {
 		struct jack_client *c = server->client_table[i];
-
 		if (c == NULL)
 			continue;
                 if (notify_client(c, ref_num, name, jack_notify_RemoveClient, false, "", 0, 0) < 0)
@@ -231,10 +233,8 @@ notify_clients(struct impl *impl, int notify,
 	int i;
 	for (i = 0; i < CLIENT_NUM; i++) {
 		struct jack_client *c = server->client_table[i];
-
 		if (c == NULL)
 			continue;
-
 		notify_client(c, i, NULL, notify, sync, message, value1, value2);
 	}
 }
@@ -309,6 +309,23 @@ handle_register_port(struct client *client)
 	return 0;
 }
 
+static int do_add_node(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data,
+		     void *user_data)
+{
+	struct jack_client *jc = user_data;
+	struct impl *impl = jc->data;
+	spa_list_append(&impl->rt.nodes, &jc->node->graph_link);
+	return SPA_RESULT_OK;
+}
+
+static int do_remove_node(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data,
+		     void *user_data)
+{
+	struct jack_client *jc = user_data;
+	spa_list_remove(&jc->node->graph_link);
+	return SPA_RESULT_OK;
+}
+
 static int
 handle_activate_client(struct client *client)
 {
@@ -331,8 +348,10 @@ handle_activate_client(struct client *client)
 
 	conn = jack_graph_manager_next_start(mgr);
 
-	jack_connection_manager_direct_connect(conn, server->freewheel_ref_num, ref_num);
-	jack_connection_manager_direct_connect(conn, ref_num, server->freewheel_ref_num);
+	if (is_real_time) {
+		jack_connection_manager_direct_connect(conn, server->freewheel_ref_num, ref_num);
+		jack_connection_manager_direct_connect(conn, ref_num, server->freewheel_ref_num);
+	}
 
 	memcpy (input_ports, jack_connection_manager_get_inputs(conn, ref_num), sizeof(input_ports));
 	memcpy (output_ports, jack_connection_manager_get_outputs(conn, ref_num), sizeof(input_ports));
@@ -343,7 +362,10 @@ handle_activate_client(struct client *client)
 	if (jc) {
 		notify_client(jc, ref_num, NULL, jack_notify_ActivateClient, true, "", 0, 0);
 		jc->activated = true;
-		spa_list_append(&impl->rt.nodes, &jc->node->graph_link);
+		jc->realtime = is_real_time;
+		if (is_real_time)
+			pw_loop_invoke(jc->node->node->data_loop,
+				do_add_node, 0, 0, NULL, false, jc);
 	}
 
 	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (input_ports[i] != EMPTY); i++)
@@ -364,6 +386,14 @@ static int client_deactivate(struct impl *impl, int ref_num)
 	struct jack_client *jc;
 	const jack_int_t *inputs, *outputs;
 	jack_int_t conns[CONNECTION_NUM_FOR_PORT];
+
+	jc = server->client_table[ref_num];
+	if (jc) {
+		jc->activated = false;
+		if (jc->realtime)
+			pw_loop_invoke(jc->node->node->data_loop,
+					do_remove_node, 0, 0, NULL, false, jc);
+	}
 
 	conn = jack_graph_manager_next_start(mgr);
 
@@ -399,12 +429,6 @@ static int client_deactivate(struct impl *impl, int ref_num)
 		notify_clients(impl, jack_notify_PortRegistrationOffCallback, false, "", outputs[i], 0);
 
 	jack_graph_manager_next_stop(mgr);
-
-	jc = server->client_table[ref_num];
-	if (jc) {
-		jc->activated = false;
-		spa_list_remove(&jc->node->graph_link);
-	}
 
 	return 0;
 }
@@ -1006,7 +1030,7 @@ static struct client *client_new(struct impl *impl, int fd)
 	return NULL;
 }
 
-static int do_notify(struct spa_loop *loop,
+static int do_graph_order_changed(struct spa_loop *loop,
 		     bool async,
 		     uint32_t seq,
 		     size_t size,
@@ -1014,8 +1038,25 @@ static int do_notify(struct spa_loop *loop,
 		     void *user_data)
 {
 	struct impl *impl = user_data;
-	const int *notify = data;
-	notify_clients(impl, *notify, false, "", 0, 0);
+	struct jack_server *server = &impl->server;
+	int i;
+
+	for (i = 0; i < CLIENT_NUM; i++) {
+		struct jack_client *c = server->client_table[i];
+		if (c == NULL)
+			continue;
+                if (notify_client(c, i, NULL, jack_notify_LatencyCallback, true, "", 0, 0) < 0)
+			pw_log_warn("module-jack %p: can't notify capture latency", impl);
+	}
+	for (i = 0; i < CLIENT_NUM; i++) {
+		struct jack_client *c = server->client_table[i];
+		if (c == NULL)
+			continue;
+                if (notify_client(c, i, NULL, jack_notify_LatencyCallback, true, "", 1, 0) < 0)
+			pw_log_warn("module-jack %p: can't notify playback latency", impl);
+	}
+
+	notify_clients(impl, jack_notify_GraphOrderCallback, false, "", 0, 0);
 	return SPA_RESULT_OK;
 }
 
@@ -1031,9 +1072,8 @@ static void jack_node_pull(void *data)
 
 	jack_graph_manager_try_switch(mgr, &res);
 	if (res) {
-		int notify = jack_notify_GraphOrderCallback;
 		pw_loop_invoke(pw_core_get_main_loop(impl->core),
-                       do_notify, 0, sizeof(notify), &notify, false, impl);
+                       do_graph_order_changed, 0, 0, NULL, false, impl);
 	}
 
 	/* mix all input */

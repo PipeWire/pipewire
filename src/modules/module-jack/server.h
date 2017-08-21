@@ -27,6 +27,7 @@ struct jack_client {
 	struct spa_hook node_listener;
 	struct spa_list client_link;
 	bool activated;
+	bool realtime;
 };
 
 struct jack_server {

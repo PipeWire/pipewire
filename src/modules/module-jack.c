@@ -502,11 +502,12 @@ static void node_destroy(void *data)
 
 	pw_log_debug("module-jack %p: jack_client %p destroy", impl, jc);
 
-	if (jc->activated)
+	if (jc->activated) {
 		client_deactivate(impl, ref_num);
-
+		if (jc->realtime)
+			spa_list_remove(&jc->node->graph_link);
+	}
 	spa_list_remove(&jc->client_link);
-	spa_list_remove(&jc->node->graph_link);
 
 	jack_server_free_ref_num(server, ref_num);
 }

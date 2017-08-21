@@ -163,7 +163,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		}
 	}
 
-	pw_log_debug("link %p: doing set format", this);
+	pw_log_debug("link %p: doing set format %p", this, format);
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_format(format);
 

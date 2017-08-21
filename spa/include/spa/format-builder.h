@@ -52,7 +52,7 @@ spa_pod_builder_push_format(struct spa_pod_builder *builder,
 	spa_pod_builder_object(b, f, 0, format_type,				\
 		SPA_POD_TYPE_ID,media_type,					\
 		SPA_POD_TYPE_ID,media_subtype,					\
-		__VA_ARGS__)
+		## __VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -888,7 +888,7 @@ struct jack_transport_engine {
         int time_base_master;
         bool pending_pos;
         bool network_sync;
-        bool conditionnal;
+        bool conditional;
         int32_t write_counter;
 } POST_PACKED_STRUCTURE;
 

@@ -126,23 +126,32 @@ struct link {
 
 static bool init_socket_name(struct sockaddr_un *addr, const char *name, bool promiscuous, int which)
 {
-	int name_size;
+	int name_size, i;
 	const char *runtime_dir;
+	char cname[SYNC_MAX_NAME_SIZE+1];
+
+	for (i = 0; name[i] != '\0'; i++) {
+		if (name[i] == '/' || name[i] == '\\')
+			cname[i] = '_';
+		else
+			cname[i] = name[i];
+	}
+	cname[i] = name[i];
 
 	runtime_dir = JACK_SOCKET_DIR;
 
 	addr->sun_family = AF_UNIX;
 	if (promiscuous) {
 		name_size = snprintf(addr->sun_path, sizeof(addr->sun_path),
-			     "%s/jack_%s_%d", runtime_dir, name, which) + 1;
+			     "%s/jack_%s_%d", runtime_dir, cname, which) + 1;
 	} else {
 		name_size = snprintf(addr->sun_path, sizeof(addr->sun_path),
-			     "%s/jack_%s_%d_%d", runtime_dir, name, getuid(), which) + 1;
+			     "%s/jack_%s_%d_%d", runtime_dir, cname, getuid(), which) + 1;
 	}
 
 	if (name_size > (int) sizeof(addr->sun_path)) {
 		pw_log_error("socket path \"%s/%s\" plus null terminator exceeds 108 bytes",
-			     runtime_dir, name);
+			     runtime_dir, cname);
 		*addr->sun_path = 0;
 		return false;
 	}
@@ -448,6 +457,38 @@ handle_deactivate_client(struct client *client)
 
 	result = client_deactivate(impl, ref_num);
 
+	CheckWrite(&result, sizeof(int));
+	return 0;
+}
+
+static int
+handle_set_timebase_callback(struct client *client)
+{
+	struct impl *impl = client->impl;
+	struct jack_server *server = &impl->server;
+	int result = 0;
+	int ref_num, conditional, tbm;
+
+	CheckSize(kSetTimebaseCallback_size);
+	CheckRead(&ref_num, sizeof(int));
+	CheckRead(&conditional, sizeof(int));
+
+	pw_log_debug("protocol-jack %p: kSetTimebaseCallback %d", client->impl, ref_num);
+
+	tbm = server->engine_control->transport.time_base_master;
+
+	if (conditional && tbm > 0) {
+		if (ref_num != tbm) {
+			pw_log_error("ref = %d failed: %d is already the master", ref_num, tbm);
+			result = EBUSY;
+		} else {
+			pw_log_debug("ref = %d was already timebase master", ref_num);
+		}
+	} else {
+		server->engine_control->transport.time_base_master = ref_num;
+		server->engine_control->transport.conditional = conditional;
+		pw_log_debug("new timebase master: ref = %d", ref_num);
+	}
 	CheckWrite(&result, sizeof(int));
 	return 0;
 }
@@ -863,6 +904,8 @@ process_messages(struct client *client)
 	case jack_request_GetPortNConnections:
 	case jack_request_ReleaseTimebase:
 	case jack_request_SetTimebaseCallback:
+		res = handle_set_timebase_callback(client);
+		break;
 	case jack_request_SetBufferSize:
 	case jack_request_SetFreeWheel:
 		break;

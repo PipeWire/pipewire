@@ -34,12 +34,22 @@ jack_synchro_init(struct jack_synchro *synchro,
 		  int value,
 		  bool promiscuous)
 {
+	char cname[SYNC_MAX_NAME_SIZE+1];
+	int i;
+	for (i = 0; client_name[i] != '\0'; i++) {
+		if (client_name[i] == '/' || client_name[i] == '\\')
+			cname[i] = '_';
+		else
+			cname[i] = client_name[i];
+	}
+	cname[i] = client_name[i];
+
 	if (promiscuous)
 		snprintf(synchro->name, sizeof(synchro->name),
-				"jack_sem.%s_%s", server_name, client_name);
+				"jack_sem.%s_%s", server_name, cname);
 	else
 		snprintf(synchro->name, sizeof(synchro->name),
-				"jack_sem.%d_%s_%s", getuid(), server_name, client_name);
+				"jack_sem.%d_%s_%s", getuid(), server_name, cname);
 
 	synchro->flush = false;
 	if ((synchro->semaphore = sem_open(synchro->name, O_CREAT | O_RDWR, 0777, value)) == (sem_t*)SEM_FAILED) {

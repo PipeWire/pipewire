@@ -75,6 +75,7 @@ struct spa_format;
 #define SPA_TYPE_MEDIA_SUBTYPE__g729		SPA_TYPE_MEDIA_SUBTYPE_BASE "g729"
 #define SPA_TYPE_MEDIA_SUBTYPE__amr		SPA_TYPE_MEDIA_SUBTYPE_BASE "amr"
 #define SPA_TYPE_MEDIA_SUBTYPE__gsm		SPA_TYPE_MEDIA_SUBTYPE_BASE "gsm"
+#define SPA_TYPE_MEDIA_SUBTYPE__midi		SPA_TYPE_MEDIA_SUBTYPE_BASE "midi"
 
 struct spa_format_body {
 	struct spa_pod_object_body obj_body;

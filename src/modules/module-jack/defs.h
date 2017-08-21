@@ -127,6 +127,7 @@ enum jack_notification_type {
 
 #define kActivateClient_size (2*sizeof(int))
 #define kDeactivateClient_size (sizeof(int))
+#define kSetTimebaseCallback_size (sizeof(int) + sizeof(int))
 #define kRegisterPort_size (sizeof(int) + JACK_PORT_NAME_SIZE+1 + JACK_PORT_TYPE_SIZE+1 + 2*sizeof(unsigned int))
 #define kClientCheck_size (JACK_CLIENT_NAME_SIZE+1 + 4 * sizeof(int))
 #define kClientOpen_size (JACK_CLIENT_NAME_SIZE+1 + 2 * sizeof(int))

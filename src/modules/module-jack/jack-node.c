@@ -52,6 +52,7 @@ struct type {
         struct spa_type_media_subtype media_subtype;
         struct spa_type_format_audio format_audio;
         struct spa_type_audio_format audio_format;
+        struct spa_type_media_subtype_audio media_subtype_audio;
 };
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
@@ -62,6 +63,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
         spa_type_media_subtype_map(map, &type->media_subtype);
         spa_type_format_audio_map(map, &type->format_audio);
         spa_type_audio_format_map(map, &type->audio_format);
+        spa_type_media_subtype_audio_map(map, &type->media_subtype_audio);
 }
 
 struct node_data {
@@ -372,7 +374,8 @@ static int port_enum_formats(void *data,
 	                        PROP(&f[1], t->format_audio.channels, SPA_POD_TYPE_INT, 1));
 		}
 		else if (pd->port.jack_port->type_id == 1) {
-			return SPA_RESULT_ENUM_END;
+			spa_pod_builder_format(&b, &f[0], t->format,
+	                        t->media_type.audio, t->media_subtype_audio.midi);
 		}
 		else
 			return SPA_RESULT_ENUM_END;

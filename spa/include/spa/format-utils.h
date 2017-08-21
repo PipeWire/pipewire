@@ -114,6 +114,7 @@ struct spa_type_media_subtype_audio {
 	uint32_t g729;
 	uint32_t amr;
 	uint32_t gsm;
+	uint32_t midi;
 };
 
 static inline void
@@ -133,6 +134,7 @@ spa_type_media_subtype_audio_map(struct spa_type_map *map,
 		type->g729 = spa_type_map_get_id(map, SPA_TYPE_MEDIA_SUBTYPE__g729);
 		type->amr = spa_type_map_get_id(map, SPA_TYPE_MEDIA_SUBTYPE__amr);
 		type->gsm = spa_type_map_get_id(map, SPA_TYPE_MEDIA_SUBTYPE__gsm);
+		type->midi = spa_type_map_get_id(map, SPA_TYPE_MEDIA_SUBTYPE__midi);
 	}
 }
 

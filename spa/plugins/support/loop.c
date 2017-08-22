@@ -563,8 +563,10 @@ static void source_signal_func(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
 	struct signalfd_siginfo signal_info;
+	int len;
 
-	if (read(source->fd, &signal_info, sizeof(signal_info)) != sizeof(signal_info))
+	len = read(source->fd, &signal_info, sizeof signal_info);
+	if (!(len == -1 && errno == EAGAIN) && len != sizeof signal_info)
 		spa_log_warn(impl->impl->log, NAME " %p: failed to read signal fd %d: %s",
 				source, source->fd, strerror(errno));
 
@@ -586,10 +588,12 @@ static struct spa_source *loop_add_signal(struct spa_loop_utils *utils,
 	source->source.loop = &impl->loop;
 	source->source.func = source_signal_func;
 	source->source.data = data;
+
 	sigemptyset(&mask);
 	sigaddset(&mask, signal_number);
 	source->source.fd = signalfd(-1, &mask, SFD_CLOEXEC | SFD_NONBLOCK);
 	sigprocmask(SIG_BLOCK, &mask, NULL);
+
 	source->source.mask = SPA_IO_IN;
 	source->impl = impl;
 	source->close = true;

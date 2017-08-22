@@ -37,6 +37,7 @@ struct impl {
 	struct pw_core *core;
 	struct pw_type *t;
 	struct pw_module *module;
+	struct spa_hook module_listener;
 	struct pw_properties *properties;
 
 	void *hnd;
@@ -119,7 +120,7 @@ static struct pw_node *make_node(struct impl *impl)
 	spa_clock = iface;
 
 	node = pw_spa_node_new(impl->core, NULL, pw_module_get_global(impl->module),
-			       "audiomixer", false, spa_node, spa_clock, NULL);
+			       "audiomixer", false, spa_node, spa_clock, NULL, 0);
 
 	return node;
 
@@ -166,6 +167,23 @@ static bool on_global(void *data, struct pw_global *global)
 	return true;
 }
 
+static void module_destroy(void *data)
+{
+	struct impl *impl = data;
+
+	spa_hook_remove(&impl->module_listener);
+
+	if (impl->properties)
+		pw_properties_free(impl->properties);
+
+	free(impl);
+}
+
+static const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
+	.destroy = module_destroy,
+};
+
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
@@ -183,17 +201,10 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 
 	pw_core_for_each_global(core, on_global, impl);
 
+	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
+
 	return true;
 }
-
-#if 0
-static void module_destroy(struct impl *impl)
-{
-	pw_log_debug("module %p: destroy", impl);
-
-	free(impl);
-}
-#endif
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {

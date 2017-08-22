@@ -36,6 +36,7 @@ struct impl {
 	struct pw_properties *properties;
 
 	struct spa_hook core_listener;
+	struct spa_hook module_listener;
 
 	struct spa_list node_list;
 };
@@ -71,8 +72,11 @@ static struct node_info *find_node_info(struct impl *impl, struct pw_node *node)
 
 static void link_data_remove(struct link_data *data)
 {
-	spa_list_remove(&data->l);
-	spa_hook_remove(&data->link_listener);
+	if (data->node_info) {
+		spa_list_remove(&data->l);
+		spa_hook_remove(&data->link_listener);
+		data->node_info = NULL;
+	}
 }
 
 static void node_info_free(struct node_info *info)
@@ -290,6 +294,27 @@ core_global_removed(void *data, struct pw_global *global)
 	}
 }
 
+static void module_destroy(void *data)
+{
+	struct impl *impl = data;
+	struct node_info *info, *t;
+
+	spa_list_for_each_safe(info, t, &impl->node_list, l)
+		node_info_free(info);
+
+	spa_hook_remove(&impl->core_listener);
+	spa_hook_remove(&impl->module_listener);
+
+	if (impl->properties)
+		pw_properties_free(impl->properties);
+
+	free(impl);
+}
+
+const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
+        .destroy = module_destroy,
+};
 
 const struct pw_core_events core_events = {
 	PW_VERSION_CORE_EVENTS,
@@ -322,19 +347,10 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	spa_list_init(&impl->node_list);
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
+	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	return impl;
 }
-
-#if 0
-static void module_destroy(struct impl *impl)
-{
-	pw_log_debug("module %p: destroy", impl);
-
-	spa_hook_remove(&impl->core_listener);
-	free(impl);
-}
-#endif
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {

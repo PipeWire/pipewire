@@ -44,6 +44,7 @@ struct impl {
 	DBusConnection *bus;
 
 	struct spa_hook core_listener;
+	struct spa_hook module_listener;
 
 	struct spa_list client_list;
 
@@ -711,6 +712,33 @@ static void wakeup_main(void *userdata)
 	pw_loop_enable_idle(pw_core_get_main_loop(impl->core), impl->dispatch_event, true);
 }
 
+static void module_destroy(void *data)
+{
+	struct impl *impl = data;
+	struct client_info *info, *t;
+
+	spa_hook_remove(&impl->core_listener);
+	spa_hook_remove(&impl->module_listener);
+
+	dbus_connection_close(impl->bus);
+	dbus_connection_unref(impl->bus);
+
+	spa_list_for_each_safe(info, t, &impl->client_list, link)
+		client_info_free(info);
+
+	pw_loop_destroy_source(pw_core_get_main_loop(impl->core), impl->dispatch_event);
+
+	if (impl->properties)
+		pw_properties_free(impl->properties);
+
+	free(impl);
+}
+
+const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
+	.destroy = module_destroy,
+};
+
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
@@ -743,6 +771,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	spa_list_init(&impl->client_list);
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
+	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	pw_core_set_permission_callback(core, do_permission, impl);
 

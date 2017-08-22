@@ -705,6 +705,15 @@ static int do_start(struct pw_link *this, uint32_t in_state, uint32_t out_state)
 	return res;
 }
 
+static int
+do_activate_link(struct spa_loop *loop,
+		 bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+{
+        struct pw_link *this = user_data;
+	spa_graph_port_link(&this->rt.out_port, &this->rt.in_port);
+	return SPA_RESULT_OK;
+}
+
 static int check_states(struct pw_link *this, void *user_data, int res)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
@@ -726,6 +735,8 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 	pw_log_debug("link %p: input state %d, output state %d", this, in_state, out_state);
 
 	if (in_state == PW_PORT_STATE_STREAMING && out_state == PW_PORT_STATE_STREAMING) {
+		pw_loop_invoke(this->output->node->data_loop,
+			       do_activate_link, SPA_ID_INVALID, 0, NULL, false, this);
 		pw_link_update_state(this, PW_LINK_STATE_RUNNING, NULL);
 		return SPA_RESULT_OK;
 	}
@@ -865,15 +876,6 @@ static void output_port_destroy(void *data)
 	on_port_destroy(&impl->this, impl->this.output);
 }
 
-static int
-do_activate_link(struct spa_loop *loop,
-		 bool async, uint32_t seq, size_t size, const void *data, void *user_data)
-{
-        struct pw_link *this = user_data;
-	spa_graph_port_link(&this->rt.out_port, &this->rt.in_port);
-	return SPA_RESULT_OK;
-}
-
 bool pw_link_activate(struct pw_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
@@ -884,9 +886,6 @@ bool pw_link_activate(struct pw_link *this)
 	impl->active = true;
 
 	pw_log_debug("link %p: activate", this);
-	pw_loop_invoke(this->output->node->data_loop,
-		       do_activate_link, SPA_ID_INVALID, 0, NULL, false, this);
-
 	this->output->node->n_used_output_links++;
 	this->input->node->n_used_input_links++;
 
@@ -1169,6 +1168,9 @@ void pw_link_destroy(struct pw_link *link)
 	spa_hook_list_call(&link->listener_list, struct pw_link_events, free);
 
 	pw_work_queue_destroy(impl->work);
+
+	if (link->properties)
+		pw_properties_free(link->properties);
 
 	if (link->info.format)
 		free(link->info.format);

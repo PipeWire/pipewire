@@ -57,10 +57,13 @@ void pw_protocol_native_init(struct pw_protocol *protocol);
 
 struct protocol_data {
 	struct pw_module *module;
+	struct spa_hook module_listener;
+	struct pw_protocol *protocol;
+	struct pw_properties *properties;
 };
 
-struct connection {
-	struct pw_protocol_connection this;
+struct client {
+	struct pw_protocol_client this;
 
 	int fd;
 
@@ -74,8 +77,8 @@ struct connection {
         struct spa_source *flush_event;
 };
 
-struct listener {
-	struct pw_protocol_listener this;
+struct server {
+	struct pw_protocol_server this;
 
 	int fd;
 	int fd_lock;
@@ -223,11 +226,11 @@ static const struct pw_client_events client_events = {
 	.busy_changed = client_busy_changed,
 };
 
-static struct pw_client *client_new(struct listener *l, int fd)
+static struct pw_client *client_new(struct server *s, int fd)
 {
 	struct client_data *this;
 	struct pw_client *client;
-	struct pw_protocol *protocol = l->this.protocol;
+	struct pw_protocol *protocol = s->this.protocol;
 	struct protocol_data *pd = protocol->user_data;
 	socklen_t len;
 	struct ucred ucred, *ucredp;
@@ -263,7 +266,7 @@ static struct pw_client *client_new(struct listener *l, int fd)
 		goto no_connection;
 
 	client->protocol = protocol;
-	spa_list_insert(l->this.client_list.prev, &client->protocol_link);
+	spa_list_append(&s->this.client_list, &client->protocol_link);
 
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
 
@@ -279,7 +282,7 @@ static struct pw_client *client_new(struct listener *l, int fd)
 	return NULL;
 }
 
-static bool init_socket_name(struct listener *l, const char *name)
+static bool init_socket_name(struct server *s, const char *name)
 {
 	int name_size;
 	const char *runtime_dir;
@@ -289,62 +292,62 @@ static bool init_socket_name(struct listener *l, const char *name)
 		return false;
 	}
 
-	l->addr.sun_family = AF_LOCAL;
-	name_size = snprintf(l->addr.sun_path, sizeof(l->addr.sun_path),
+	s->addr.sun_family = AF_LOCAL;
+	name_size = snprintf(s->addr.sun_path, sizeof(s->addr.sun_path),
 			     "%s/%s", runtime_dir, name) + 1;
 
-	if (name_size > (int) sizeof(l->addr.sun_path)) {
+	if (name_size > (int) sizeof(s->addr.sun_path)) {
 		pw_log_error("socket path \"%s/%s\" plus null terminator exceeds 108 bytes",
 			     runtime_dir, name);
-		*l->addr.sun_path = 0;
+		*s->addr.sun_path = 0;
 		return false;
 	}
 	return true;
 }
 
-static bool lock_socket(struct listener *l)
+static bool lock_socket(struct server *s)
 {
 	struct stat socket_stat;
 
-	snprintf(l->lock_addr, sizeof(l->lock_addr), "%s%s", l->addr.sun_path, LOCK_SUFFIX);
+	snprintf(s->lock_addr, sizeof(s->lock_addr), "%s%s", s->addr.sun_path, LOCK_SUFFIX);
 
-	l->fd_lock = open(l->lock_addr, O_CREAT | O_CLOEXEC,
+	s->fd_lock = open(s->lock_addr, O_CREAT | O_CLOEXEC,
 			  (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP));
 
-	if (l->fd_lock < 0) {
-		pw_log_error("unable to open lockfile %s check permissions", l->lock_addr);
+	if (s->fd_lock < 0) {
+		pw_log_error("unable to open lockfile %s check permissions", s->lock_addr);
 		goto err;
 	}
 
-	if (flock(l->fd_lock, LOCK_EX | LOCK_NB) < 0) {
+	if (flock(s->fd_lock, LOCK_EX | LOCK_NB) < 0) {
 		pw_log_error("unable to lock lockfile %s, maybe another daemon is running",
-			     l->lock_addr);
+			     s->lock_addr);
 		goto err_fd;
 	}
 
-	if (stat(l->addr.sun_path, &socket_stat) < 0) {
+	if (stat(s->addr.sun_path, &socket_stat) < 0) {
 		if (errno != ENOENT) {
-			pw_log_error("did not manage to stat file %s\n", l->addr.sun_path);
+			pw_log_error("did not manage to stat file %s\n", s->addr.sun_path);
 			goto err_fd;
 		}
 	} else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
-		unlink(l->addr.sun_path);
+		unlink(s->addr.sun_path);
 	}
 	return true;
 
       err_fd:
-	close(l->fd_lock);
-	l->fd_lock = -1;
+	close(s->fd_lock);
+	s->fd_lock = -1;
       err:
-	*l->lock_addr = 0;
-	*l->addr.sun_path = 0;
+	*s->lock_addr = 0;
+	*s->addr.sun_path = 0;
 	return false;
 }
 
 static void
 socket_data(void *data, int fd, enum spa_io mask)
 {
-	struct listener *l = data;
+	struct server *s = data;
 	struct pw_client *client;
 	struct client_data *c;
 	struct sockaddr_un name;
@@ -358,7 +361,7 @@ socket_data(void *data, int fd, enum spa_io mask)
 		return;
 	}
 
-	client = client_new(l, client_fd);
+	client = client_new(s, client_fd);
 	if (client == NULL) {
 		pw_log_error("failed to create client");
 		close(client_fd);
@@ -370,27 +373,27 @@ socket_data(void *data, int fd, enum spa_io mask)
 			  c->source, SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 }
 
-static bool add_socket(struct pw_protocol *protocol, struct listener *l)
+static bool add_socket(struct pw_protocol *protocol, struct server *s)
 {
 	socklen_t size;
 
-	if ((l->fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0)
+	if ((s->fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0)
 		return false;
 
-	size = offsetof(struct sockaddr_un, sun_path) + strlen(l->addr.sun_path);
-	if (bind(l->fd, (struct sockaddr *) &l->addr, size) < 0) {
+	size = offsetof(struct sockaddr_un, sun_path) + strlen(s->addr.sun_path);
+	if (bind(s->fd, (struct sockaddr *) &s->addr, size) < 0) {
 		pw_log_error("bind() failed with error: %m");
 		return false;
 	}
 
-	if (listen(l->fd, 128) < 0) {
+	if (listen(s->fd, 128) < 0) {
 		pw_log_error("listen() failed with error: %m");
 		return false;
 	}
 
-	l->loop = pw_core_get_main_loop(protocol->core);
-	l->source = pw_loop_add_io(l->loop, l->fd, SPA_IO_IN, false, socket_data, l);
-	if (l->source == NULL)
+	s->loop = pw_core_get_main_loop(protocol->core);
+	s->source = pw_loop_add_io(s->loop, s->fd, SPA_IO_IN, false, socket_data, s);
+	if (s->source == NULL)
 		return false;
 
 	return true;
@@ -410,7 +413,7 @@ get_name(const struct pw_properties *properties)
 	return name;
 }
 
-static int impl_connect(struct pw_protocol_connection *conn)
+static int impl_connect(struct pw_protocol_client *conn)
 {
         struct sockaddr_un addr;
         socklen_t size;
@@ -454,7 +457,7 @@ static int impl_connect(struct pw_protocol_connection *conn)
 static void
 on_remote_data(void *data, int fd, enum spa_io mask)
 {
-        struct connection *impl = data;
+        struct client *impl = data;
         struct pw_remote *this = impl->this.remote;
         struct pw_protocol_native_connection *conn = impl->connection;
 	struct pw_core *core = pw_remote_get_core(this);
@@ -522,7 +525,7 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 
 static void do_flush_event(void *data, uint64_t count)
 {
-        struct connection *impl = data;
+        struct client *impl = data;
 	impl->flush_signaled = false;
         if (impl->connection)
                 if (!pw_protocol_native_connection_flush(impl->connection))
@@ -531,7 +534,7 @@ static void do_flush_event(void *data, uint64_t count)
 
 static void on_need_flush(void *data)
 {
-        struct connection *impl = data;
+        struct client *impl = data;
         struct pw_remote *remote = impl->this.remote;
 
 	if (!impl->flush_signaled) {
@@ -545,9 +548,9 @@ static const struct pw_protocol_native_connection_events conn_events = {
 	.need_flush = on_need_flush,
 };
 
-static int impl_connect_fd(struct pw_protocol_connection *conn, int fd)
+static int impl_connect_fd(struct pw_protocol_client *conn, int fd)
 {
-        struct connection *impl = SPA_CONTAINER_OF(conn, struct connection, this);
+        struct client *impl = SPA_CONTAINER_OF(conn, struct client, this);
 	struct pw_remote *remote = conn->remote;
 
         impl->connection = pw_protocol_native_connection_new(fd);
@@ -572,9 +575,9 @@ static int impl_connect_fd(struct pw_protocol_connection *conn, int fd)
         return -1;
 }
 
-static void impl_disconnect(struct pw_protocol_connection *conn)
+static void impl_disconnect(struct pw_protocol_client *conn)
 {
-        struct connection *impl = SPA_CONTAINER_OF(conn, struct connection, this);
+        struct client *impl = SPA_CONTAINER_OF(conn, struct client, this);
 	struct pw_remote *remote = conn->remote;
 
         impl->disconnecting = true;
@@ -592,9 +595,9 @@ static void impl_disconnect(struct pw_protocol_connection *conn)
         impl->fd = -1;
 }
 
-static void impl_destroy(struct pw_protocol_connection *conn)
+static void impl_destroy(struct pw_protocol_client *conn)
 {
-        struct connection *impl = SPA_CONTAINER_OF(conn, struct connection, this);
+        struct client *impl = SPA_CONTAINER_OF(conn, struct client, this);
 	struct pw_remote *remote = conn->remote;
 
         pw_loop_destroy_source(remote->core->main_loop, impl->flush_event);
@@ -603,15 +606,15 @@ static void impl_destroy(struct pw_protocol_connection *conn)
 	free(impl);
 }
 
-static struct pw_protocol_connection *
-impl_new_connection(struct pw_protocol *protocol,
-		    struct pw_remote *remote,
-		    struct pw_properties *properties)
+static struct pw_protocol_client *
+impl_new_client(struct pw_protocol *protocol,
+		struct pw_remote *remote,
+		struct pw_properties *properties)
 {
-	struct connection *impl;
-	struct pw_protocol_connection *this;
+	struct client *impl;
+	struct pw_protocol_client *this;
 
-	if ((impl = calloc(1, sizeof(struct connection))) == NULL)
+	if ((impl = calloc(1, sizeof(struct client))) == NULL)
 		return NULL;
 
 	this = &impl->this;
@@ -625,32 +628,34 @@ impl_new_connection(struct pw_protocol *protocol,
 
         impl->flush_event = pw_loop_add_event(remote->core->main_loop, do_flush_event, impl);
 
-	spa_list_insert(protocol->connection_list.prev, &this->link);
+	spa_list_append(&protocol->client_list, &this->link);
 
 	return this;
 }
 
-static void destroy_listener(struct pw_protocol_listener *listener)
+static void destroy_server(struct pw_protocol_server *server)
 {
-	struct listener *l = SPA_CONTAINER_OF(listener, struct listener, this);
+	struct server *s = SPA_CONTAINER_OF(server, struct server, this);
 
-	if (l->source)
-		pw_loop_destroy_source(l->loop, l->source);
-	if (l->addr.sun_path[0])
-		unlink(l->addr.sun_path);
-	if (l->fd >= 0)
-		close(l->fd);
-	if (l->lock_addr[0])
-		unlink(l->lock_addr);
-	if (l->fd_lock >= 0)
-		close(l->fd_lock);
-	free(l);
+	spa_list_remove(&server->link);
+
+	if (s->source)
+		pw_loop_destroy_source(s->loop, s->source);
+	if (s->addr.sun_path[0])
+		unlink(s->addr.sun_path);
+	if (s->fd >= 0)
+		close(s->fd);
+	if (s->lock_addr[0])
+		unlink(s->lock_addr);
+	if (s->fd_lock >= 0)
+		close(s->fd_lock);
+	free(s);
 }
 
 static void on_before_hook(void *_data)
 {
-	struct listener *listener = _data;
-	struct pw_protocol_listener *this = &listener->this;
+	struct server *server = _data;
+	struct pw_protocol_server *this = &server->this;
 	struct pw_client *client, *tmp;
 	struct client_data *data;
 
@@ -665,79 +670,79 @@ static const struct spa_loop_control_hooks impl_hooks = {
 	.before = on_before_hook,
 };
 
-static struct pw_protocol_listener *
-impl_add_listener(struct pw_protocol *protocol,
-                  struct pw_core *core,
-                  struct pw_properties *properties)
+static struct pw_protocol_server *
+impl_add_server(struct pw_protocol *protocol,
+                struct pw_core *core,
+                struct pw_properties *properties)
 {
-	struct pw_protocol_listener *this;
-	struct listener *l;
+	struct pw_protocol_server *this;
+	struct server *s;
 	const char *name;
 
-	if ((l = calloc(1, sizeof(struct listener))) == NULL)
+	if ((s = calloc(1, sizeof(struct server))) == NULL)
 		return NULL;
 
-	l->fd = -1;
-	l->fd_lock = -1;
+	s->fd = -1;
+	s->fd_lock = -1;
 
-	this = &l->this;
+	this = &s->this;
 	this->protocol = protocol;
 	spa_list_init(&this->client_list);
-	this->destroy = destroy_listener;
+	this->destroy = destroy_server;
 
 	name = get_name(pw_core_get_properties(core));
 
-	if (!init_socket_name(l, name))
+	if (!init_socket_name(s, name))
 		goto error;
 
-	if (!lock_socket(l))
+	if (!lock_socket(s))
 		goto error;
 
-	if (!add_socket(protocol, l))
+	if (!add_socket(protocol, s))
 		goto error;
 
-	spa_list_insert(protocol->listener_list.prev, &this->link);
+	spa_list_append(&protocol->server_list, &this->link);
 
-	pw_loop_add_hook(pw_core_get_main_loop(core), &l->hook, &impl_hooks, l);
+	pw_loop_add_hook(pw_core_get_main_loop(core), &s->hook, &impl_hooks, s);
 
-	pw_log_info("protocol-native %p: Added listener %p", protocol, this);
+	pw_log_info("protocol-native %p: Added server %p", protocol, this);
 
 	return this;
 
       error:
-	destroy_listener(this);
+	destroy_server(this);
 	return NULL;
 }
 
 const static struct pw_protocol_implementaton protocol_impl = {
 	PW_VERSION_PROTOCOL_IMPLEMENTATION,
-	impl_new_connection,
-	impl_add_listener,
+	.new_client = impl_new_client,
+	.add_server = impl_add_server,
 };
 
 static struct spa_pod_builder *
 impl_ext_begin_proxy(struct pw_proxy *proxy, uint8_t opcode)
 {
-	struct connection *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct connection, this);
+	struct client *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct client, this);
 	return pw_protocol_native_connection_begin_proxy(impl->connection, proxy, opcode);
 }
 
 static uint32_t impl_ext_add_proxy_fd(struct pw_proxy *proxy, int fd)
 {
-	struct connection *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct connection, this);
+	struct client *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct client, this);
 	return pw_protocol_native_connection_add_fd(impl->connection, fd);
 }
 
 static int impl_ext_get_proxy_fd(struct pw_proxy *proxy, uint32_t index)
 {
-	struct connection *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct connection, this);
+	struct client *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct client, this);
 	return pw_protocol_native_connection_get_fd(impl->connection, index);
 }
 
 static void impl_ext_end_proxy(struct pw_proxy *proxy,
 			       struct spa_pod_builder *builder)
 {
-	struct connection *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct connection, this);
+	struct client *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct client, this);
 	pw_protocol_native_connection_end(impl->connection, builder);
 }
 
@@ -778,6 +783,23 @@ const static struct pw_protocol_native_ext protocol_ext_impl = {
 	impl_ext_end_resource,
 };
 
+static void module_destroy(void *data)
+{
+	struct protocol_data *d = data;
+
+	spa_hook_remove(&d->module_listener);
+
+	if (d->properties)
+		pw_properties_free(d->properties);
+
+	pw_protocol_destroy(d->protocol);
+}
+
+static const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
+	.destroy = module_destroy,
+};
+
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
@@ -800,28 +822,19 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	pw_log_debug("protocol-native %p: new", this);
 
 	d = pw_protocol_get_user_data(this);
+	d->protocol = this;
 	d->module = module;
+	d->properties = properties;
 
 	if ((val = pw_properties_get(pw_core_get_properties(core), "pipewire.daemon"))) {
 		if (atoi(val) == 1)
-			impl_add_listener(this, core, properties);
+			impl_add_server(this, core, properties);
 	}
+
+	pw_module_add_listener(module, &d->module_listener, &module_events, d);
+
 	return true;
 }
-
-#if 0
-static void pw_protocol_native_destroy(struct impl *impl)
-{
-	struct impl *object, *tmp;
-
-	pw_log_debug("protocol-native %p: destroy", impl);
-
-	spa_list_for_each_safe(object, tmp, &impl->object_list, link)
-	    object_destroy(object);
-
-	free(impl);
-}
-#endif
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {

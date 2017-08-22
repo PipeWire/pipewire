@@ -34,7 +34,23 @@ struct pw_node_factory *pw_node_factory_new(struct pw_core *core,
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(this, sizeof(*this), void);
 
+	pw_log_debug("node-factory %p: new", this);
+
 	return this;
+}
+
+void pw_node_factory_destroy(struct pw_node_factory *factory)
+{
+	pw_log_debug("node-factory %p: destroy", factory);
+
+	if (factory->global) {
+		spa_list_remove(&factory->link);
+		pw_global_destroy(factory->global);
+	}
+	if (factory->name)
+		free((char *)factory->name);
+
+	free(factory);
 }
 
 void pw_node_factory_export(struct pw_node_factory *factory,
@@ -42,7 +58,7 @@ void pw_node_factory_export(struct pw_node_factory *factory,
 			    struct pw_global *parent)
 {
 	struct pw_core *core = factory->core;
-	spa_list_insert(core->node_factory_list.prev, &factory->link);
+	spa_list_append(&core->node_factory_list, &factory->link);
         factory->global = pw_core_add_global(core, owner, parent, core->type.node_factory, 0, NULL, factory);
 }
 

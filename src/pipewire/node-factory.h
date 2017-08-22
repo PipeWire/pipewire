@@ -60,6 +60,8 @@ void pw_node_factory_export(struct pw_node_factory *factory,
 			    struct pw_client *owner,
 			    struct pw_global *parent);
 
+void pw_node_factory_destroy(struct pw_node_factory *factory);
+
 void *pw_node_factory_get_user_data(struct pw_node_factory *factory);
 
 void pw_node_factory_set_implementation(struct pw_node_factory *factory,

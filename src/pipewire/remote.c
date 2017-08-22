@@ -241,7 +241,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	if (protocol == NULL)
 		goto no_protocol;
 
-	this->conn = pw_protocol_new_connection(protocol, this, properties);
+	this->conn = pw_protocol_new_client(protocol, this, properties);
 	if (this->conn == NULL)
 		goto no_connection;
 
@@ -273,7 +273,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
 		pw_stream_destroy(stream);
 
-	pw_protocol_connection_destroy (remote->conn);
+	pw_protocol_client_destroy (remote->conn);
 
 	spa_list_remove(&remote->link);
 
@@ -322,7 +322,7 @@ static int do_connect(struct pw_remote *remote)
 	return 0;
 
       no_proxy:
-	pw_protocol_connection_disconnect (remote->conn);
+	pw_protocol_client_disconnect (remote->conn);
 	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: no memory");
 	return -1;
 }
@@ -348,7 +348,7 @@ int pw_remote_connect(struct pw_remote *remote)
 
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
-	if ((res = pw_protocol_connection_connect (remote->conn)) < 0) {
+	if ((res = pw_protocol_client_connect (remote->conn)) < 0) {
 		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "connect failed");
 		return res;
 	}
@@ -362,7 +362,7 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
-	if ((res = pw_protocol_connection_connect_fd (remote->conn, fd)) < 0) {
+	if ((res = pw_protocol_client_connect_fd (remote->conn, fd)) < 0) {
 		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "connect_fd failed");
 		return res;
 	}
@@ -379,7 +379,7 @@ void pw_remote_disconnect(struct pw_remote *remote)
 	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
 	    pw_stream_disconnect(stream);
 
-	pw_protocol_connection_disconnect (remote->conn);
+	pw_protocol_client_disconnect (remote->conn);
 
 	spa_list_for_each_safe(proxy, t2, &remote->proxy_list, link)
 	    pw_proxy_destroy(proxy);

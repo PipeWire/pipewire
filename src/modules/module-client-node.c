@@ -36,6 +36,8 @@ struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core
 struct factory_data {
 	struct pw_node_factory *this;
 	struct pw_properties *properties;
+
+	struct spa_hook module_listener;
 };
 
 static struct pw_node *create_node(void *_data,
@@ -64,6 +66,23 @@ static const struct pw_node_factory_implementation impl_factory = {
 	.create_node = create_node,
 };
 
+static void module_destroy(void *data)
+{
+	struct factory_data *d = data;
+
+	spa_hook_remove(&d->module_listener);
+
+	if (d->properties)
+		pw_properties_free(d->properties);
+
+	pw_node_factory_destroy(d->this);
+}
+
+const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
+	.destroy = module_destroy,
+};
+
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
@@ -88,17 +107,10 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 
 	pw_node_factory_export(factory, NULL, pw_module_get_global(module));
 
+	pw_module_add_listener(module, &data->module_listener, &module_events, data);
+
 	return true;
 }
-
-#if 0
-static void module_destroy(struct impl *impl)
-{
-	pw_log_debug("module %p: destroy", impl);
-
-	free(impl);
-}
-#endif
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {

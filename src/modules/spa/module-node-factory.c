@@ -61,7 +61,7 @@ static struct pw_node *create_node(void *_data,
 				lib,
 				factory_name,
 				name,
-				properties);
+				properties, 0);
 	if (node == NULL)
 		goto no_mem;
 

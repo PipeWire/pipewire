@@ -102,6 +102,8 @@ struct pw_node_events {
 	void (*need_input) (void *data);
         /** the node has output */
 	void (*have_output) (void *data);
+        /** the node has a buffer to reuse */
+	void (*reuse_buffer) (void *data, uint32_t port_id, uint32_t buffer_id);
 };
 
 /** Create a new node \memberof pw_node */
@@ -118,6 +120,10 @@ void pw_node_register(struct pw_node *node);
 
 /** Destroy a node */
 void pw_node_destroy(struct pw_node *node);
+
+void pw_node_set_max_ports(struct pw_node *node,
+			   uint32_t max_input_ports,
+			   uint32_t max_output_ports);
 
 const struct pw_node_info *pw_node_get_info(struct pw_node *node);
 
@@ -141,6 +147,8 @@ void pw_node_add_listener(struct pw_node *node,
 			  struct spa_hook *listener,
 			  const struct pw_node_events *events,
 			  void *data);
+
+struct spa_hook_list *pw_node_get_listeners(struct pw_node *node);
 
 /** iterate the ports in the given direction */
 bool pw_node_for_each_port(struct pw_node *node,

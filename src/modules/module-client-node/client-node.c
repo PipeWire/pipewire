@@ -1165,7 +1165,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 				     true,
 				     &impl->proxy.node,
 				     NULL,
-				     properties);
+				     properties, 0);
 	if (this->node == NULL)
 		goto error_no_node;
 

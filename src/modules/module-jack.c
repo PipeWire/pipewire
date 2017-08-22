@@ -73,7 +73,7 @@ struct impl {
 	struct pw_core *core;
 	struct pw_type *t;
 	struct pw_module *module;
-	struct spa_list link;
+	struct spa_hook module_listener;
 
         struct spa_source *timer;
 
@@ -1434,15 +1434,15 @@ static int init_server(struct impl *impl, const char *name, bool promiscuous)
 	for (i = 0; i < CLIENT_NUM; i++)
 		server->synchro_table[i] = JACK_SYNCHRO_INIT;
 
-	if (!init_nodes(impl))
-		return -1;
-
 	s = create_socket();
 
 	if (!init_socket_name(&s->addr, name, promiscuous, 0))
 		goto error;
 
 	if (!add_socket(impl, s))
+		goto error;
+
+	if (!init_nodes(impl))
 		goto error;
 
 	return 0;
@@ -1452,6 +1452,26 @@ static int init_server(struct impl *impl, const char *name, bool promiscuous)
 	return -1;
 }
 
+static void module_destroy(void *data)
+{
+	struct impl *impl = data;
+	struct link *ld, *t;
+
+	spa_hook_remove(&impl->module_listener);
+
+	spa_list_for_each_safe(ld, t, &impl->link_list, link_link)
+		pw_link_destroy(ld->link);
+
+	if (impl->properties)
+		pw_properties_free(impl->properties);
+
+	free(impl);
+}
+
+static const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
+	.destroy = module_destroy,
+};
 
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
@@ -1492,23 +1512,14 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	if (init_server(impl, name, promiscuous) < 0)
 		goto error;
 
+	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
+
 	return true;
 
       error:
 	free(impl);
 	return false;
 }
-
-#if 0
-static void module_destroy(struct impl *impl)
-{
-	struct impl *object, *tmp;
-
-	pw_log_debug("module %p: destroy", impl);
-
-	free(impl);
-}
-#endif
 
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {

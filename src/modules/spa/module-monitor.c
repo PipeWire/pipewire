@@ -34,11 +34,32 @@
 
 #include "spa-monitor.h"
 
+struct data {
+	struct pw_spa_monitor *monitor;
+	struct spa_hook module_listener;
+};
+
+static void module_destroy(void *data)
+{
+	struct data *d = data;
+
+	spa_hook_remove(&d->module_listener);
+
+	pw_spa_monitor_destroy(d->monitor);
+}
+
+const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
+	.destroy = module_destroy,
+};
+
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
 	const char *dir;
 	char **argv;
 	int n_tokens;
+	struct pw_spa_monitor *monitor;
+	struct data *data;
 
 	if (args == NULL)
 		goto wrong_arguments;
@@ -50,11 +71,17 @@ bool pipewire__module_init(struct pw_module *module, const char *args)
 	if ((dir = getenv("SPA_PLUGIN_DIR")) == NULL)
 		dir = PLUGINDIR;
 
-	pw_spa_monitor_load(pw_module_get_core(module),
-			    pw_module_get_global(module),
-			    dir, argv[0], argv[1], argv[2]);
+	monitor = pw_spa_monitor_load(pw_module_get_core(module),
+				      pw_module_get_global(module),
+				      dir, argv[0], argv[1], argv[2],
+				      sizeof(struct data));
+
+	data = monitor->user_data;
+	data->monitor = monitor;
 
 	pw_free_strv(argv);
+
+	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
 	return true;
 

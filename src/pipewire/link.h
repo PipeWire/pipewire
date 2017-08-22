@@ -103,6 +103,7 @@ struct pw_port *pw_link_get_input(struct pw_link *link);
 /** Find the link between 2 ports \memberof pw_link */
 struct pw_link *pw_link_find(struct pw_port *output, struct pw_port *input);
 
+/** Indicate that linked nodes can be idle even when linked with this link */
 void pw_link_inc_idle(struct pw_link *link);
 
 /** Activate a link \memberof pw_link

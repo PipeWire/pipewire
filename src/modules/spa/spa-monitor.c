@@ -42,6 +42,7 @@ struct monitor_item {
 	char *id;
 	struct spa_list link;
 	struct pw_node *node;
+	struct spa_handle *handle;
 };
 
 struct impl {
@@ -120,10 +121,11 @@ static void add_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
 
 	mitem = calloc(1, sizeof(struct monitor_item));
 	mitem->id = strdup(id);
+	mitem->handle = handle;
 	mitem->node = pw_spa_node_new(impl->core, NULL, impl->parent, name,
-				      false, node_iface, clock_iface, props);
+				      false, node_iface, clock_iface, props, 0);
 
-	spa_list_insert(impl->item_list.prev, &mitem->link);
+	spa_list_append(&impl->item_list, &mitem->link);
 }
 
 static struct monitor_item *find_item(struct pw_spa_monitor *this, const char *id)
@@ -143,6 +145,8 @@ void destroy_item(struct monitor_item *mitem)
 {
 	pw_node_destroy(mitem->node);
 	spa_list_remove(&mitem->link);
+	spa_handle_clear(mitem->handle);
+	free(mitem->handle);
 	free(mitem->id);
 	free(mitem);
 }
@@ -222,7 +226,9 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 					   struct pw_global *parent,
 					   const char *dir,
 					   const char *lib,
-					   const char *factory_name, const char *system_name)
+					   const char *factory_name,
+					   const char *system_name,
+					   size_t user_data_size)
 {
 	struct impl *impl;
 	struct pw_spa_monitor *this;
@@ -271,7 +277,7 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 		goto interface_failed;
 	}
 
-	impl = calloc(1, sizeof(struct impl));
+	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	impl->core = core;
 	impl->t = t;
 	impl->parent = parent;
@@ -283,6 +289,9 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	this->factory_name = strdup(factory_name);
 	this->system_name = strdup(system_name);
 	this->handle = handle;
+
+        if (user_data_size > 0)
+		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	update_monitor(core, this->system_name);
 
@@ -321,10 +330,10 @@ void pw_spa_monitor_destroy(struct pw_spa_monitor *monitor)
 	struct impl *impl = SPA_CONTAINER_OF(monitor, struct impl, this);
 	struct monitor_item *mitem, *tmp;
 
-	pw_log_debug("spa-monitor %p: dispose", impl);
+	pw_log_debug("spa-monitor %p: destroy", impl);
 
 	spa_list_for_each_safe(mitem, tmp, &impl->item_list, link)
-	    destroy_item(mitem);
+		destroy_item(mitem);
 
 	spa_handle_clear(monitor->handle);
 	free(monitor->handle);

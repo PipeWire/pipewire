@@ -180,6 +180,23 @@ static void node_have_output(void *data)
 	spa_graph_have_output(this->rt.graph, &this->rt.node);
 }
 
+static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
+{
+        struct impl *impl = data;
+	struct pw_node *this = &impl->this;
+        struct spa_graph_port *p, *pp;
+
+	spa_list_for_each(p, &this->rt.node.ports[SPA_DIRECTION_INPUT], link) {
+		if (p->port_id != port_id)
+			continue;
+
+		pp = p->peer;
+		if (pp && pp->callbacks->reuse_buffer)
+			pp->callbacks->reuse_buffer(pp->callbacks_data, buffer_id);
+		break;
+	}
+}
+
 static void node_unbind_func(void *data)
 {
 	struct pw_resource *resource = data;
@@ -190,7 +207,6 @@ static void
 update_info(struct pw_node *this)
 {
 	this->info.input_formats = NULL;
-
 	if (!spa_list_is_empty(&this->input_ports)) {
 		struct pw_port *port = spa_list_first(&this->input_ports, struct pw_port, link);
 
@@ -356,6 +372,7 @@ static const struct pw_node_events node_events = {
 	.event = node_event,
 	.need_input = node_need_input,
 	.have_output = node_have_output,
+	.reuse_buffer = node_reuse_buffer,
 };
 
 struct pw_node *pw_node_new(struct pw_core *core,
@@ -485,6 +502,11 @@ void pw_node_add_listener(struct pw_node *node,
 	spa_hook_list_append(&node->listener_list, listener, events, data);
 }
 
+struct spa_hook_list *pw_node_get_listeners(struct pw_node *node)
+{
+	return &node->listener_list;
+}
+
 static int
 do_node_remove(struct spa_loop *loop,
 	       bool async, uint32_t seq, size_t size, const void *data, void *user_data)
@@ -551,6 +573,20 @@ void pw_node_destroy(struct pw_node *node)
 	clear_info(node);
 
 	free(impl);
+}
+
+void pw_node_set_max_ports(struct pw_node *node,
+			   uint32_t max_input_ports,
+			   uint32_t max_output_ports)
+{
+	if (node->info.max_input_ports != max_input_ports) {
+		node->info.max_input_ports = max_input_ports;
+		node->info.change_mask |= PW_NODE_CHANGE_MASK_INPUT_PORTS;
+	}
+	if (node->info.max_output_ports != max_output_ports) {
+		node->info.max_output_ports = max_output_ports;
+		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
+	}
 }
 
 bool pw_node_for_each_port(struct pw_node *node,

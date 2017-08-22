@@ -38,7 +38,8 @@ pw_spa_node_new(struct pw_core *core,
 		bool async,
 		struct spa_node *node,
 		struct spa_clock *clock,
-		struct pw_properties *properties);
+		struct pw_properties *properties,
+		size_t user_data_size);
 
 struct pw_node *
 pw_spa_node_load(struct pw_core *core,
@@ -47,7 +48,8 @@ pw_spa_node_load(struct pw_core *core,
 		 const char *lib,
 		 const char *factory_name,
 		 const char *name,
-		 struct pw_properties *properties);
+		 struct pw_properties *properties,
+		 size_t user_data_size);
 
 #ifdef __cplusplus
 }

@@ -37,6 +37,24 @@ struct pw_command {
 	const char *name;	/**< command name */
 };
 
+struct pw_protocol {
+	struct spa_list link;                   /**< link in core protocol_list */
+	struct pw_core *core;                   /**< core for this protocol */
+
+	char *name;                             /**< type name of the protocol */
+
+	struct spa_list marshal_list;           /**< list of marshallers for supported interfaces */
+	struct spa_list client_list;            /**< list of current clients */
+	struct spa_list server_list;            /**< list of current servers */
+	struct spa_hook_list listener_list;	/**< event listeners */
+
+	const struct pw_protocol_implementaton *implementation; /**< implementation of the protocol */
+
+	const void *extension;  /**< extension API */
+
+	void *user_data;        /**< user data for the implementation */
+};
+
 struct pw_client {
 	struct pw_core *core;		/**< core object */
 	struct spa_list link;		/**< link in core object client list */
@@ -316,7 +334,7 @@ struct pw_remote {
 	struct spa_list stream_list;		/**< list of \ref pw_stream objects */
 	struct spa_list remote_node_list;	/**< list of \ref pw_remote_node objects */
 
-	struct pw_protocol_connection *conn;	/**< the protocol connection */
+	struct pw_protocol_client *conn;	/**< the protocol client connection */
 
 	enum pw_remote_state state;
 	char *error;

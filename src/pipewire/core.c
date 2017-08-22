@@ -403,9 +403,13 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 void pw_core_destroy(struct pw_core *core)
 {
 	struct pw_global *global, *t;
+	struct pw_module *module, *tm;
 
 	pw_log_debug("core %p: destroy", core);
 	spa_hook_list_call(&core->listener_list, struct pw_core_events, destroy);
+
+	spa_list_for_each_safe(module, tm, &core->module_list, link)
+		pw_module_destroy(module);
 
 	spa_list_for_each_safe(global, t, &core->global_list, link)
 		pw_global_destroy(global);

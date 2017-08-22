@@ -89,8 +89,7 @@ pw_global_bind(struct pw_global *global,
 	       uint32_t version,
 	       uint32_t id);
 
-void
-pw_global_destroy(struct pw_global *global);
+void pw_global_destroy(struct pw_global *global);
 
 #ifdef __cplusplus
 }

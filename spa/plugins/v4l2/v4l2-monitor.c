@@ -252,14 +252,16 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 		if ((res = impl_udev_open(this)) < 0)
 			return res;
 
+		if (this->umonitor)
+			udev_monitor_unref(this->umonitor);
 		this->umonitor = udev_monitor_new_from_netlink(this->udev, "udev");
-		if (!this->umonitor)
+		if (this->umonitor == NULL)
 			return SPA_RESULT_ERROR;
 
 		udev_monitor_filter_add_match_subsystem_devtype(this->umonitor,
 								"video4linux", NULL);
-
 		udev_monitor_enable_receiving(this->umonitor);
+
 		this->source.func = impl_on_fd_events;
 		this->source.data = this;
 		this->source.fd = udev_monitor_get_fd(this->umonitor);;
@@ -348,6 +350,15 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this = (struct impl *) handle;
+
+	if (this->enumerate)
+		udev_enumerate_unref(this->enumerate);
+	if (this->umonitor)
+		udev_monitor_unref(this->umonitor);
+	if (this->udev)
+		udev_unref(this->udev);
+
 	return SPA_RESULT_OK;
 }
 
@@ -365,7 +376,9 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_return_val_if_fail(handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	handle->get_interface = impl_get_interface;
-	handle->clear = impl_clear, this = (struct impl *) handle;
+	handle->clear = impl_clear;
+
+	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
 		if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)

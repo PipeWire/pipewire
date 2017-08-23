@@ -117,8 +117,15 @@ link_state_changed(void *data, enum pw_link_state old, enum pw_link_state state,
 
 	switch (state) {
 	case PW_LINK_STATE_ERROR:
+	{
+		struct pw_resource *owner = pw_node_get_owner(info->node);
+
 		pw_log_debug("module %p: link %p: state error: %s", impl, link, error);
+		if (owner)
+			pw_resource_error(owner, SPA_RESULT_ERROR, error);
+
 		break;
+	}
 
 	case PW_LINK_STATE_UNLINKED:
 		pw_log_debug("module %p: link %p: unlinked", impl, link);

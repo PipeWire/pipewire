@@ -297,8 +297,11 @@ on_sync_reply (void *data, uint32_t seq)
   GstPipeWireDeviceProvider *self = data;
   if (seq == 1)
     pw_core_proxy_sync(self->core_proxy, 2);
-  else if (seq == 2)
+  else if (seq == 2) {
     self->end = true;
+    if (self->main_loop)
+      pw_thread_loop_signal (self->main_loop, FALSE);
+  }
 }
 
 static void
@@ -562,6 +565,13 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   pw_registry_proxy_add_listener(self->registry, &data->registry_listener, &registry_events, data);
   pw_core_proxy_sync(self->core_proxy, 1);
+
+  for (;;) {
+    if (self->end)
+      break;
+    pw_thread_loop_wait (self->main_loop);
+  }
+  GST_DEBUG_OBJECT (self, "started");
 
   pw_thread_loop_unlock (self->main_loop);
 

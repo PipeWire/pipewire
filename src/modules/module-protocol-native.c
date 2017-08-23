@@ -625,7 +625,8 @@ impl_new_client(struct pw_protocol *protocol,
 	this->disconnect = impl_disconnect;
 	this->destroy = impl_destroy;
 
-        impl->flush_event = pw_loop_add_event(remote->core->main_loop, do_flush_event, impl);
+	impl->fd = -1;
+	impl->flush_event = pw_loop_add_event(remote->core->main_loop, do_flush_event, impl);
 
 	spa_list_append(&protocol->client_list, &this->link);
 

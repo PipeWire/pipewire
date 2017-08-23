@@ -16,8 +16,7 @@ Description=Multimedia Service
 Requires=pipewire.socket
 
 [Service]
-# Note that notify will only work if --daemonize=no
-Type=notify
+Type=simple
 ExecStart=@PW_BINARY@
 Restart=on-failure
 

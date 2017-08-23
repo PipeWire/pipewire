@@ -413,16 +413,16 @@ get_name(const struct pw_properties *properties)
 	return name;
 }
 
-static int impl_connect(struct pw_protocol_client *conn)
+static int impl_connect(struct pw_protocol_client *client)
 {
-        struct sockaddr_un addr;
-        socklen_t size;
-        const char *runtime_dir, *name = NULL;
-        int name_size, fd;
+	struct sockaddr_un addr;
+	socklen_t size;
+	const char *runtime_dir, *name = NULL;
+	int name_size, fd;
 
-        if ((runtime_dir = getenv("XDG_RUNTIME_DIR")) == NULL) {
+	if ((runtime_dir = getenv("XDG_RUNTIME_DIR")) == NULL) {
 		pw_log_error("connect failed: XDG_RUNTIME_DIR not set in the environment");
-                return -1;
+		return -1;
         }
 
 	name = get_name(NULL);
@@ -442,11 +442,10 @@ static int impl_connect(struct pw_protocol_client *conn)
 
         size = offsetof(struct sockaddr_un, sun_path) + name_size;
 
-        if (connect(fd, (struct sockaddr *) &addr, size) < 0) {
+        if (connect(fd, (struct sockaddr *) &addr, size) < 0)
                 goto error_close;
-        }
 
-        return conn->connect_fd(conn, fd);
+	return pw_protocol_client_connect_fd(client, fd);
 
       error_close:
         close(fd);
@@ -457,9 +456,9 @@ static int impl_connect(struct pw_protocol_client *conn)
 static void
 on_remote_data(void *data, int fd, enum spa_io mask)
 {
-        struct client *impl = data;
-        struct pw_remote *this = impl->this.remote;
-        struct pw_protocol_native_connection *conn = impl->connection;
+	struct client *impl = data;
+	struct pw_remote *this = impl->this.remote;
+	struct pw_protocol_native_connection *conn = impl->connection;
 	struct pw_core *core = pw_remote_get_core(this);
 
         if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
@@ -548,13 +547,13 @@ static const struct pw_protocol_native_connection_events conn_events = {
 	.need_flush = on_need_flush,
 };
 
-static int impl_connect_fd(struct pw_protocol_client *conn, int fd)
+static int impl_connect_fd(struct pw_protocol_client *client, int fd)
 {
-        struct client *impl = SPA_CONTAINER_OF(conn, struct client, this);
-	struct pw_remote *remote = conn->remote;
+	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
+	struct pw_remote *remote = client->remote;
 
-        impl->connection = pw_protocol_native_connection_new(fd);
-        if (impl->connection == NULL)
+	impl->connection = pw_protocol_native_connection_new(fd);
+	if (impl->connection == NULL)
                 goto error_close;
 
 	pw_protocol_native_connection_add_listener(impl->connection,
@@ -575,34 +574,34 @@ static int impl_connect_fd(struct pw_protocol_client *conn, int fd)
         return -1;
 }
 
-static void impl_disconnect(struct pw_protocol_client *conn)
+static void impl_disconnect(struct pw_protocol_client *client)
 {
-        struct client *impl = SPA_CONTAINER_OF(conn, struct client, this);
-	struct pw_remote *remote = conn->remote;
+	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
+	struct pw_remote *remote = client->remote;
 
-        impl->disconnecting = true;
+	impl->disconnecting = true;
 
-        if (impl->source)
+	if (impl->source)
                 pw_loop_destroy_source(remote->core->main_loop, impl->source);
-        impl->source = NULL;
+	impl->source = NULL;
 
-        if (impl->connection)
+	if (impl->connection)
                 pw_protocol_native_connection_destroy(impl->connection);
-        impl->connection = NULL;
+	impl->connection = NULL;
 
-        if (impl->fd != -1)
+	if (impl->fd != -1)
                 close(impl->fd);
-        impl->fd = -1;
+	impl->fd = -1;
 }
 
-static void impl_destroy(struct pw_protocol_client *conn)
+static void impl_destroy(struct pw_protocol_client *client)
 {
-        struct client *impl = SPA_CONTAINER_OF(conn, struct client, this);
-	struct pw_remote *remote = conn->remote;
+	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
+	struct pw_remote *remote = client->remote;
 
-        pw_loop_destroy_source(remote->core->main_loop, impl->flush_event);
+	pw_loop_destroy_source(remote->core->main_loop, impl->flush_event);
 
-	spa_list_remove(&conn->link);
+	spa_list_remove(&client->link);
 	free(impl);
 }
 
@@ -636,8 +635,12 @@ impl_new_client(struct pw_protocol *protocol,
 static void destroy_server(struct pw_protocol_server *server)
 {
 	struct server *s = SPA_CONTAINER_OF(server, struct server, this);
+	struct pw_client *client, *tmp;
 
 	spa_list_remove(&server->link);
+
+	spa_list_for_each_safe(client, tmp, &server->client_list, protocol_link)
+		pw_client_destroy(client);
 
 	if (s->source)
 		pw_loop_destroy_source(s->loop, s->source);

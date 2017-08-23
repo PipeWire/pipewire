@@ -84,14 +84,14 @@ void pw_protocol_destroy(struct pw_protocol *protocol)
 
 	spa_list_remove(&protocol->link);
 
-	spa_list_for_each_safe(marshal, t1, &protocol->marshal_list, link)
-		free(marshal);
-
 	spa_list_for_each_safe(server, t2, &protocol->server_list, link)
 		pw_protocol_server_destroy(server);
 
 	spa_list_for_each_safe(client, t3, &protocol->client_list, link)
 		pw_protocol_client_destroy(client);
+
+	spa_list_for_each_safe(marshal, t1, &protocol->marshal_list, link)
+		free(marshal);
 
 	free(protocol->name);
 

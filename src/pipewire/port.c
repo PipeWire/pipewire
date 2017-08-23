@@ -341,10 +341,10 @@ void pw_port_destroy(struct pw_port *port)
 	pw_log_debug("port %p: free", port);
 	spa_hook_list_call(&port->listener_list, struct pw_port_events, free);
 
-	if (port->buffers)
+	if (port->allocated) {
 		free(port->buffers);
-	if (port->allocated)
 		pw_memblock_free(&port->buffer_mem);
+	}
 
 	if (port->properties)
 		pw_properties_free(port->properties);
@@ -393,12 +393,12 @@ int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_fo
 
 	if (!SPA_RESULT_IS_ASYNC(res)) {
 		if (format == NULL) {
-			if (port->buffers)
+			if (port->allocated) {
 				free(port->buffers);
+				pw_memblock_free(&port->buffer_mem);
+			}
 			port->buffers = NULL;
 			port->n_buffers = 0;
-			if (port->allocated)
-				pw_memblock_free(&port->buffer_mem);
 			port->allocated = false;
 			port_update_state (port, PW_PORT_STATE_CONFIGURE);
 		}
@@ -452,7 +452,6 @@ int pw_port_set_param(struct pw_port *port, struct spa_param *param)
 int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	int res;
-	size_t size;
 
 	if (n_buffers == 0 && port->state <= PW_PORT_STATE_READY)
 		return SPA_RESULT_OK;
@@ -473,14 +472,12 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 	else
 		res = SPA_RESULT_NOT_IMPLEMENTED;
 
-	size = sizeof(struct spa_buffer *) * n_buffers;
-
-	if (port->buffers)
+	if (port->allocated) {
 		free(port->buffers);
-	port->buffers = size ? memcpy(malloc(size), buffers, size) : NULL;
-	port->n_buffers = n_buffers;
-	if (port->allocated)
 		pw_memblock_free(&port->buffer_mem);
+	}
+	port->buffers = buffers;
+	port->n_buffers = n_buffers;
 	port->allocated = false;
 
 	if (port->n_buffers == 0)
@@ -496,7 +493,6 @@ int pw_port_alloc_buffers(struct pw_port *port,
 			  struct spa_buffer **buffers, uint32_t *n_buffers)
 {
 	int res;
-	size_t size;
 
 	if (port->state < PW_PORT_STATE_READY)
 		return SPA_RESULT_NO_FORMAT;
@@ -516,11 +512,7 @@ int pw_port_alloc_buffers(struct pw_port *port,
 	else
 		res = SPA_RESULT_NOT_IMPLEMENTED;
 
-	size = sizeof(struct spa_buffer *) * *n_buffers;
-
-	if (port->buffers)
-		free(port->buffers);
-	port->buffers = size ? memcpy(malloc(size), buffers, size) : NULL;
+	port->buffers = buffers;
 	port->n_buffers = *n_buffers;
 	port->allocated = true;
 

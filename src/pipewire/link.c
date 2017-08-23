@@ -590,7 +590,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 						      n_params,
 						      params,
 						      1,
-						      data_sizes, data_strides, &impl->buffer_mem);
+						      data_sizes, data_strides,
+						      &impl->buffer_mem);
 
 			pw_log_debug("allocating %d input buffers %p %zd %zd", impl->n_buffers,
 				     impl->buffers, minsize, stride);
@@ -1175,9 +1176,10 @@ void pw_link_destroy(struct pw_link *link)
 	if (link->info.format)
 		free(link->info.format);
 
-	if (impl->buffer_owner == link)
+	if (impl->buffer_owner == link) {
+		free(impl->buffers);
 		pw_memblock_free(&impl->buffer_mem);
-
+	}
 	free(impl);
 }
 

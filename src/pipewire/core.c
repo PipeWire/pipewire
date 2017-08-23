@@ -586,8 +586,10 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 						pout,
 						pin,
 						props,
-						n_format_filters, format_filters, error) == NULL)
+						n_format_filters, format_filters, error) == NULL) {
+				free(*error);
 				continue;
+			}
 
 			best = p;
 		}

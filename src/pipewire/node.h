@@ -47,27 +47,6 @@ struct pw_node;
 #include <pipewire/port.h>
 #include <pipewire/resource.h>
 
-struct pw_node_implementation {
-#define PW_VERSION_NODE_IMPLEMENTATION	0
-	uint32_t version;
-
-        int (*get_props) (void *data, struct spa_props **props);
-
-        int (*set_props) (void *data, const struct spa_props *props);
-
-        int (*send_command) (void *data,
-			     const struct spa_command *command);
-
-	struct pw_port* (*add_port) (void *data,
-				     enum pw_direction direction,
-				     uint32_t port_id);
-
-        int (*process_input) (void *data);
-
-        int (*process_output) (void *data);
-};
-
-
 struct pw_node_events {
 #define PW_VERSION_NODE_EVENTS	0
 	uint32_t version;
@@ -139,9 +118,8 @@ const struct pw_properties *pw_node_get_properties(struct pw_node *node);
 
 void pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict);
 
-void pw_node_set_implementation(struct pw_node *node,
-				const struct pw_node_implementation *implementation,
-				void *data);
+void pw_node_set_implementation(struct pw_node *node, struct spa_node *spa_node);
+struct spa_node *pw_node_get_implementation(struct pw_node *node);
 
 void pw_node_add_listener(struct pw_node *node,
 			  struct spa_hook *listener,
@@ -161,9 +139,12 @@ bool pw_node_for_each_port(struct pw_node *node,
 struct pw_port *
 pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id);
 
-/** Get a free unused port from the node */
-struct pw_port *
-pw_node_get_free_port(struct pw_node *node, enum pw_direction direction);
+/** Get a free unused port_id from the node */
+uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direction);
+
+/** Get a free unused port from the node, this can be an old unused existing port
+  * or a new port */
+struct pw_port * pw_node_get_free_port(struct pw_node *node, enum pw_direction direction);
 
 /** Change the state of the node */
 int pw_node_set_state(struct pw_node *node, enum pw_node_state state);

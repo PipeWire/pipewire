@@ -41,8 +41,6 @@ struct impl {
 
 	struct pw_work_queue *work;
 
-	struct spa_hook node_listener;
-
 	bool registered;
 };
 
@@ -60,12 +58,8 @@ static int pause_node(struct pw_node *this)
 		return SPA_RESULT_OK;
 
 	pw_log_debug("node %p: pause node", this);
-	if (this->implementation->send_command)
-		res = this->implementation->send_command(this->implementation_data,
-                        &SPA_COMMAND_INIT(this->core->type.command_node.Pause));
-	else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
-
+	res = spa_node_send_command(this->node,
+				    &SPA_COMMAND_INIT(this->core->type.command_node.Pause));
 	if (res < 0)
 		pw_log_debug("node %p: send command error %d", this, res);
 
@@ -77,12 +71,8 @@ static int start_node(struct pw_node *this)
 	int res = SPA_RESULT_OK;
 
 	pw_log_debug("node %p: start node", this);
-	if (this->implementation->send_command)
-		res = this->implementation->send_command(this->implementation_data,
-			&SPA_COMMAND_INIT(this->core->type.command_node.Start));
-	else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
-
+	res = spa_node_send_command(this->node,
+				    &SPA_COMMAND_INIT(this->core->type.command_node.Start));
 	if (res < 0)
 		pw_log_debug("node %p: send command error %d", this, res);
 
@@ -99,24 +89,17 @@ static int suspend_node(struct pw_node *this)
 	spa_list_for_each(p, &this->input_ports, link) {
 		if ((res = pw_port_set_format(p, 0, NULL)) < 0)
 			pw_log_warn("error unset format input: %d", res);
+		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 
 	spa_list_for_each(p, &this->output_ports, link) {
 		if ((res = pw_port_set_format(p, 0, NULL)) < 0)
 			pw_log_warn("error unset format output: %d", res);
+		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 	return res;
-}
-
-static void node_async_complete(void *data, uint32_t seq, int res)
-{
-        struct impl *impl = data;
-	struct pw_node *this = &impl->this;
-
-	pw_log_debug("node %p: async complete event %d %d", this, seq, res);
-	pw_work_queue_complete(impl->work, this, seq, res);
 }
 
 static void send_clock_update(struct pw_node *this)
@@ -144,57 +127,9 @@ static void send_clock_update(struct pw_node *this)
 					 &cu.body.ticks.value,
 					 &cu.body.monotonic_time.value);
 	}
-	if (this->implementation->send_command)
-		res = this->implementation->send_command(this->implementation_data, (struct spa_command *) &cu);
-	else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
-
+	res = spa_node_send_command(this->node, (struct spa_command *) &cu);
 	if (res < 0)
 		pw_log_debug("node %p: send clock update error %d", this, res);
-}
-
-static void node_event(void *data, const struct spa_event *event)
-{
-        struct impl *impl = data;
-	struct pw_node *this = &impl->this;
-
-	pw_log_trace("node %p: event %d", this, SPA_EVENT_TYPE(event));
-        if (SPA_EVENT_TYPE(event) == this->core->type.event_node.RequestClockUpdate) {
-                send_clock_update(this);
-        }
-}
-
-static void node_need_input(void *data)
-{
-        struct impl *impl = data;
-	struct pw_node *this = &impl->this;
-
-	spa_graph_need_input(this->rt.graph, &this->rt.node);
-}
-
-static void node_have_output(void *data)
-{
-        struct impl *impl = data;
-	struct pw_node *this = &impl->this;
-
-	spa_graph_have_output(this->rt.graph, &this->rt.node);
-}
-
-static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
-{
-        struct impl *impl = data;
-	struct pw_node *this = &impl->this;
-        struct spa_graph_port *p, *pp;
-
-	spa_list_for_each(p, &this->rt.node.ports[SPA_DIRECTION_INPUT], link) {
-		if (p->port_id != port_id)
-			continue;
-
-		pp = p->peer;
-		if (pp && pp->callbacks->reuse_buffer)
-			pp->callbacks->reuse_buffer(pp->callbacks_data, buffer_id);
-		break;
-	}
 }
 
 static void node_unbind_func(void *data)
@@ -213,7 +148,8 @@ update_info(struct pw_node *this)
 		for (this->info.n_input_formats = 0;; this->info.n_input_formats++) {
 			struct spa_format *fmt;
 
-			if (pw_port_enum_formats(port, &fmt, NULL, this->info.n_input_formats) < 0)
+			if (spa_node_port_enum_formats(port->node->node, port->direction, port->port_id,
+						       &fmt, NULL, this->info.n_input_formats) < 0)
 				break;
 
 			this->info.input_formats =
@@ -230,7 +166,8 @@ update_info(struct pw_node *this)
 		for (this->info.n_output_formats = 0;; this->info.n_output_formats++) {
 			struct spa_format *fmt;
 
-			if (pw_port_enum_formats(port, &fmt, NULL, this->info.n_output_formats) < 0)
+			if (spa_node_port_enum_formats(port->node->node, port->direction, port->port_id,
+						       &fmt, NULL, this->info.n_output_formats) < 0)
 				break;
 
 			this->info.output_formats =
@@ -340,39 +277,20 @@ static int
 graph_impl_process_input(void *data)
 {
 	struct pw_node *this = data;
-	int res;
-	if (this->implementation->process_input)
-		res = this->implementation->process_input(this->implementation_data);
-	else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
-	return res;
+	return spa_node_process_input(this->node);
 }
 
 static int
 graph_impl_process_output(void *data)
 {
 	struct pw_node *this = data;
-	int res;
-	if (this->implementation->process_output)
-		res = this->implementation->process_output(this->implementation_data);
-	else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
-	return res;
+	return spa_node_process_output(this->node);
 }
 
 static const struct spa_graph_node_callbacks graph_callbacks = {
 	SPA_VERSION_GRAPH_NODE_CALLBACKS,
 	.process_input = graph_impl_process_input,
         .process_output = graph_impl_process_output,
-};
-
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
-	.async_complete = node_async_complete,
-	.event = node_event,
-	.need_input = node_need_input,
-	.have_output = node_have_output,
-	.reuse_buffer = node_reuse_buffer,
 };
 
 struct pw_node *pw_node_new(struct pw_core *core,
@@ -415,8 +333,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_list_init(&this->resource_list);
 
 	spa_hook_list_init(&this->listener_list);
-
-	pw_node_add_listener(this, &impl->node_listener, &node_events, impl);
 
 	this->info.state = PW_NODE_STATE_CREATING;
 
@@ -486,12 +402,77 @@ void pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict
 	node->info.change_mask = 0;
 }
 
-void pw_node_set_implementation(struct pw_node *node,
-				const struct pw_node_implementation *implementation,
-				void *data)
+static void node_done(void *data, int seq, int res)
 {
-	node->implementation = implementation;
-	node->implementation_data = data;
+	struct pw_node *node = data;
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+
+	pw_log_debug("node %p: async complete event %d %d", node, seq, res);
+	pw_work_queue_complete(impl->work, node, seq, res);
+	spa_hook_list_call(&node->listener_list, struct pw_node_events, async_complete, seq, res);
+}
+
+static void node_event(void *data, struct spa_event *event)
+{
+	struct pw_node *node = data;
+
+	pw_log_trace("node %p: event %d", node, SPA_EVENT_TYPE(event));
+        if (SPA_EVENT_TYPE(event) == node->core->type.event_node.RequestClockUpdate) {
+                send_clock_update(node);
+        }
+	spa_hook_list_call(&node->listener_list, struct pw_node_events, event, event);
+}
+
+static void node_need_input(void *data)
+{
+	struct pw_node *node = data;
+	spa_hook_list_call(&node->listener_list, struct pw_node_events, need_input);
+	spa_graph_need_input(node->rt.graph, &node->rt.node);
+}
+
+static void node_have_output(void *data)
+{
+	struct pw_node *node = data;
+	spa_hook_list_call(&node->listener_list, struct pw_node_events, have_output);
+	spa_graph_have_output(node->rt.graph, &node->rt.node);
+}
+
+static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
+{
+	struct pw_node *node = data;
+        struct spa_graph_port *p, *pp;
+
+	spa_list_for_each(p, &node->rt.node.ports[SPA_DIRECTION_INPUT], link) {
+		if (p->port_id != port_id)
+			continue;
+
+		pp = p->peer;
+		if (pp && pp->callbacks->reuse_buffer)
+			pp->callbacks->reuse_buffer(pp->callbacks_data, buffer_id);
+		break;
+	}
+}
+
+
+static const struct spa_node_callbacks node_callbacks = {
+	SPA_VERSION_NODE_CALLBACKS,
+	.done = node_done,
+	.event = node_event,
+	.need_input = node_need_input,
+	.have_output = node_have_output,
+	.reuse_buffer = node_reuse_buffer,
+};
+
+void pw_node_set_implementation(struct pw_node *node,
+				struct spa_node *spa_node)
+{
+	node->node = spa_node;
+	spa_node_set_callbacks(node->node, &node_callbacks, node);
+}
+
+struct spa_node *pw_node_get_implementation(struct pw_node *node)
+{
+	return node->node;
 }
 
 void pw_node_add_listener(struct pw_node *node,
@@ -621,6 +602,14 @@ pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t po
 	return pw_map_lookup(portmap, port_id);
 }
 
+uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direction)
+{
+	if (direction == PW_DIRECTION_INPUT)
+		return pw_map_insert_new(&node->input_port_map, NULL);
+	else
+		return pw_map_insert_new(&node->output_port_map, NULL);
+}
+
 /**
  * pw_node_get_free_port:
  * \param node a \ref pw_node
@@ -665,16 +654,19 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 	/* no port, can we create one ? */
 	if (n_ports < max_ports) {
 		uint32_t port_id = pw_map_insert_new(portmap, NULL);
+		int res;
 
 		pw_log_debug("node %p: creating port direction %d %u", node, direction, port_id);
 
-		if (node->implementation->add_port)
-			port = node->implementation->add_port(node->implementation_data, direction, port_id);
-		else
-			port = NULL;
-
+		if ((res = spa_node_add_port(node->node, direction, port_id)) < 0) {
+			pw_log_error("node %p: could not add port %d %d", node, port_id, res);
+			goto no_mem;
+		}
+		port = pw_port_new(direction, port_id, NULL, 0);
 		if (port == NULL)
 			goto no_mem;
+
+		pw_port_add(port, node);
 	} else {
 		port = mixport;
 	}

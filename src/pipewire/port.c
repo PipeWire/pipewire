@@ -235,14 +235,6 @@ struct pw_node *pw_port_get_node(struct pw_port *port)
 	return port->node;
 }
 
-void pw_port_set_implementation(struct pw_port *port,
-				const struct pw_port_implementation *implementation,
-				void *data)
-{
-	port->implementation = implementation;
-	port->implementation_data = data;
-}
-
 void pw_port_add_listener(struct pw_port *port,
 			  struct spa_hook *listener,
 			  const struct pw_port_events *events,
@@ -269,26 +261,27 @@ static int do_add_port(struct spa_loop *loop,
 	return SPA_RESULT_OK;
 }
 
-void pw_port_add(struct pw_port *port, struct pw_node *node)
+bool pw_port_add(struct pw_port *port, struct pw_node *node)
 {
+	uint32_t port_id = port->port_id;
+
 	port->node = node;
 
 	pw_log_debug("port %p: add to node %p", port, node);
 	if (port->direction == PW_DIRECTION_INPUT) {
 		spa_list_insert(&node->input_ports, &port->link);
-		pw_map_insert_at(&node->input_port_map, port->port_id, port);
+		pw_map_insert_at(&node->input_port_map, port_id, port);
 		node->info.n_input_ports++;
 		node->info.change_mask |= 1 << 1;
 	}
 	else {
 		spa_list_insert(&node->output_ports, &port->link);
-		pw_map_insert_at(&node->output_port_map, port->port_id, port);
+		pw_map_insert_at(&node->output_port_map, port_id, port);
 		node->info.n_output_ports++;
 		node->info.change_mask |= 1 << 3;
 	}
 
-	if (port->implementation->set_io)
-		port->implementation->set_io(port->implementation_data, &port->io);
+	spa_node_port_set_io(node->node, port->direction, port_id, &port->io);
 
 	port->rt.graph = node->rt.graph;
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, 0, NULL, false, port);
@@ -297,6 +290,7 @@ void pw_port_add(struct pw_port *port, struct pw_node *node)
 		port_update_state(port, PW_PORT_STATE_CONFIGURE);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, port_added, port);
+	return true;
 }
 
 static int do_remove_port(struct spa_loop *loop,
@@ -359,38 +353,16 @@ do_port_pause(struct spa_loop *loop,
               bool async, uint32_t seq, size_t size, const void *data, void *user_data)
 {
         struct pw_port *port = user_data;
-	int res;
-
-	if (port->implementation->send_command)
-		res = port->implementation->send_command(port->implementation_data,
-				&SPA_COMMAND_INIT(port->node->core->type.command_node.Pause));
-	else
-		res = SPA_RESULT_OK;
-	return res;
-}
-
-int pw_port_enum_formats(struct pw_port *port,
-                         struct spa_format **format,
-                         const struct spa_format *filter,
-                         int32_t index)
-{
-	int res;
-	if (port->implementation->enum_formats)
-		res = port->implementation->enum_formats(port->implementation_data, format, filter, index);
-	else
-		res = SPA_RESULT_ENUM_END;
-	return res;
+	struct pw_node *node = port->node;
+	return spa_node_port_send_command(node->node, port->direction, port->port_id,
+				&SPA_COMMAND_INIT(node->core->type.command_node.Pause));
 }
 
 int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format)
 {
 	int res;
 
-	if (port->implementation->set_format)
-		res = port->implementation->set_format(port->implementation_data, flags, format);
-	else
-		res = SPA_RESULT_OK;
-
+	res = spa_node_port_set_format(port->node->node, port->direction, port->port_id, flags, format);
 	pw_log_debug("port %p: set format %d", port, res);
 
 	if (!SPA_RESULT_IS_ASYNC(res)) {
@@ -411,46 +383,6 @@ int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_fo
 	return res;
 }
 
-int pw_port_get_format(struct pw_port *port, const struct spa_format **format)
-{
-	int res;
-	if (port->implementation->get_format)
-		res = port->implementation->get_format(port->implementation_data, format);
-	else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
-	return res;
-}
-
-int pw_port_get_info(struct pw_port *port, const struct spa_port_info **info)
-{
-	int res;
-	if (port->implementation->get_info)
-		res = port->implementation->get_info(port->implementation_data, info);
-	else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
-	return res;
-}
-
-int pw_port_enum_params(struct pw_port *port, uint32_t index, struct spa_param **param)
-{
-	int res;
-	if (port->implementation->enum_params)
-		res = port->implementation->enum_params(port->implementation_data, index, param);
-	else
-		res = SPA_RESULT_ENUM_END;
-	return res;
-}
-
-int pw_port_set_param(struct pw_port *port, struct spa_param *param)
-{
-	int res;
-	if (port->implementation->set_param)
-		res = port->implementation->set_param(port->implementation_data, param);
-	else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
-	return res;
-}
-
 int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	int res;
@@ -468,11 +400,7 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 	}
 
 	pw_log_debug("port %p: use %d buffers", port, n_buffers);
-
-	if (port->implementation->use_buffers)
-		res = port->implementation->use_buffers(port->implementation_data, buffers, n_buffers);
-	else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
+	res = spa_node_port_use_buffers(port->node->node, port->direction, port->port_id, buffers, n_buffers);
 
 	if (port->allocated) {
 		free(port->buffers);
@@ -507,13 +435,9 @@ int pw_port_alloc_buffers(struct pw_port *port,
 
 	pw_log_debug("port %p: alloc %d buffers", port, *n_buffers);
 
-	if (port->implementation->alloc_buffers)
-		res = port->implementation->alloc_buffers(port->implementation_data,
+	res = spa_node_port_alloc_buffers(port->node->node, port->direction, port->port_id,
 							  params, n_params,
 							  buffers, n_buffers);
-	else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
-
 	if (port->allocated) {
 		free(port->buffers);
 		pw_memblock_free(&port->buffer_mem);

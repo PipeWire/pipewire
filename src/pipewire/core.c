@@ -642,13 +642,15 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 
 	if (in_state == PW_PORT_STATE_CONFIGURE && out_state > PW_PORT_STATE_CONFIGURE) {
 		/* only input needs format */
-		if ((res = pw_port_get_format(output, (const struct spa_format **) &format)) < 0) {
+		if ((res = spa_node_port_get_format(output->node->node, output->direction, output->port_id,
+						    (const struct spa_format **) &format)) < 0) {
 			asprintf(error, "error get output format: %d", res);
 			goto error;
 		}
 	} else if (out_state == PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
 		/* only output needs format */
-		if ((res = pw_port_get_format(input, (const struct spa_format **) &format)) < 0) {
+		if ((res = spa_node_port_get_format(input->node->node, input->direction, input->port_id,
+						    (const struct spa_format **) &format)) < 0) {
 			asprintf(error, "error get input format: %d", res);
 			goto error;
 		}
@@ -656,7 +658,8 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 	      again:
 		/* both ports need a format */
 		pw_log_debug("core %p: finding best format", core);
-		if ((res = pw_port_enum_formats(input, &filter, NULL, iidx)) < 0) {
+		if ((res = spa_node_port_enum_formats(input->node->node, input->direction, input->port_id,
+						      &filter, NULL, iidx)) < 0) {
 			if (res == SPA_RESULT_ENUM_END && iidx != 0) {
 				asprintf(error, "error input enum formats: %d", res);
 				goto error;
@@ -666,7 +669,8 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_format(filter);
 
-		if ((res = pw_port_enum_formats(output, &format, filter, oidx)) < 0) {
+		if ((res = spa_node_port_enum_formats(output->node->node, output->direction, output->port_id,
+						      &format, filter, oidx)) < 0) {
 			if (res == SPA_RESULT_ENUM_END) {
 				oidx = 0;
 				iidx++;

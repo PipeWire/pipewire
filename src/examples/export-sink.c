@@ -82,6 +82,9 @@ struct data {
 	struct pw_port *port;
 	struct spa_port_info port_info;
 
+	struct spa_node impl_node;
+	const struct spa_node_callbacks *callbacks;
+	void *callbacks_data;
 	struct spa_port_io *io;
 
 	uint8_t buffer[1024];
@@ -182,19 +185,34 @@ static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
 	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
 			SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
 
-static int impl_port_set_io(void *data, struct spa_port_io *io)
+static int impl_send_command(struct spa_node *node, const struct spa_command *command)
 {
-	struct data *d = data;
+	return SPA_RESULT_OK;
+}
+
+static int impl_set_callbacks(struct spa_node *node,
+			      const struct spa_node_callbacks *callbacks, void *data)
+{
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	d->callbacks = callbacks;
+	d->callbacks_data = data;
+	return SPA_RESULT_OK;
+}
+
+static int impl_port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+			    struct spa_port_io *io)
+{
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	d->io = io;
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_enum_formats(void *data,
+static int impl_port_enum_formats(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
 				  struct spa_format **format,
 				  const struct spa_format *filter,
-				  int32_t index)
+				  uint32_t index)
 {
-	struct data *d = data;
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	const struct spa_format *formats[1];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(d->buffer, sizeof(d->buffer));
 	struct spa_pod_frame f[2];
@@ -247,9 +265,10 @@ static int impl_port_enum_formats(void *data,
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_set_format(void *data, uint32_t flags, const struct spa_format *format)
+static int impl_port_set_format(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+				uint32_t flags, const struct spa_format *format)
 {
-	struct data *d = data;
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct pw_type *t = d->t;
 	struct spa_pod_builder b = { NULL };
 	struct spa_pod_frame f[2];
@@ -298,9 +317,10 @@ static int impl_port_set_format(void *data, uint32_t flags, const struct spa_for
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_get_format(void *data, const struct spa_format **format)
+static int impl_port_get_format(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+				const struct spa_format **format)
 {
-	struct data *d = data;
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(d->buffer, sizeof(d->buffer));
 	struct spa_pod_frame f[2];
 
@@ -318,9 +338,10 @@ static int impl_port_get_format(void *data, const struct spa_format **format)
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_get_info(void *data, const struct spa_port_info **info)
+static int impl_port_get_info(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+			      const struct spa_port_info **info)
 {
-	struct data *d = data;
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
 	d->port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 	d->port_info.rate = 0;
@@ -331,9 +352,10 @@ static int impl_port_get_info(void *data, const struct spa_port_info **info)
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_enum_params(void *data, uint32_t index, struct spa_param **param)
+static int impl_port_enum_params(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+				 uint32_t index, struct spa_param **param)
 {
-	struct data *d = data;
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
 	if (index >= 2)
 		return SPA_RESULT_ENUM_END;
@@ -343,9 +365,10 @@ static int impl_port_enum_params(void *data, uint32_t index, struct spa_param **
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_use_buffers(void *data, struct spa_buffer **buffers, uint32_t n_buffers)
+static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+				 struct spa_buffer **buffers, uint32_t n_buffers)
 {
-	struct data *d = data;
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	int i;
 	for (i = 0; i < n_buffers; i++)
 		d->buffers[i] = buffers[i];
@@ -353,20 +376,9 @@ static int impl_port_use_buffers(void *data, struct spa_buffer **buffers, uint32
 	return SPA_RESULT_OK;
 }
 
-static const struct pw_port_implementation impl_port = {
-	PW_VERSION_PORT_IMPLEMENTATION,
-	.set_io = impl_port_set_io,
-	.enum_formats = impl_port_enum_formats,
-	.set_format = impl_port_set_format,
-	.get_format = impl_port_get_format,
-	.get_info = impl_port_get_info,
-	.enum_params = impl_port_enum_params,
-	.use_buffers = impl_port_use_buffers,
-};
-
-static int impl_node_process_input(void *data)
+static int impl_node_process_input(struct spa_node *node)
 {
-	struct data *d = data;
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct spa_buffer *buf;
 	uint8_t *map;
 	void *sdata, *ddata;
@@ -417,8 +429,17 @@ static int impl_node_process_input(void *data)
 	return SPA_RESULT_NEED_BUFFER;
 }
 
-static const struct pw_node_implementation impl_node = {
-	PW_VERSION_NODE_IMPLEMENTATION,
+static const struct spa_node impl_node = {
+	SPA_VERSION_NODE,
+	.set_callbacks = impl_set_callbacks,
+	.send_command = impl_send_command,
+	.port_set_io = impl_port_set_io,
+	.port_enum_formats = impl_port_enum_formats,
+	.port_set_format = impl_port_set_format,
+	.port_get_format = impl_port_get_format,
+	.port_get_info = impl_port_get_info,
+	.port_enum_params = impl_port_enum_params,
+	.port_use_buffers = impl_port_use_buffers,
 	.process_input = impl_node_process_input,
 };
 
@@ -432,10 +453,10 @@ static void make_node(struct data *data)
 			NULL);
 
 	data->node = pw_node_new(data->core, NULL, NULL, "SDL-sink", props, 0);
-	pw_node_set_implementation(data->node, &impl_node, data);
+	data->impl_node = impl_node;
+	pw_node_set_implementation(data->node, &data->impl_node);
 
 	data->port = pw_port_new(PW_DIRECTION_INPUT, 0, NULL, 0);
-	pw_port_set_implementation(data->port, &impl_port, data);
 	pw_port_add(data->port, data->node);
 	pw_node_register(data->node);
 

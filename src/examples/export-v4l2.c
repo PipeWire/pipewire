@@ -95,6 +95,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
+		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
 		make_node(data);
 		break;
 

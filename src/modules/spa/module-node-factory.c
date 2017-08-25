@@ -98,6 +98,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 
 	data = pw_node_factory_get_user_data(factory);
 	data->this = factory;
+	data->core = core;
 	data->properties = properties;
 
 	pw_log_debug("module %p: new", module);

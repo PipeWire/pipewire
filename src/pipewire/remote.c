@@ -550,13 +550,14 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 		}
 	}
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_FORMAT) {
-		pw_port_get_format(port, &format);
+		spa_node_port_get_format(port->node->node, port->direction, port->port_id, &format);
 	}
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
 		for (;; n_params++) {
                         struct spa_param *param;
 
-                        if (pw_port_enum_params(port, n_params, &param) < 0)
+                        if (spa_node_port_enum_params(port->node->node, port->direction, port->port_id,
+						      n_params, &param) < 0)
                                 break;
 
                         params = realloc(params, sizeof(struct spa_param *) * (n_params + 1));
@@ -564,7 +565,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
                 }
 	}
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO) {
-		pw_port_get_info(port, &port_info);
+		spa_node_port_get_info(port->node->node, port->direction, port->port_id, &port_info);
 		pi = * port_info;
 		pi.flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
 	}
@@ -858,7 +859,7 @@ handle_node_command(struct pw_proxy *proxy, uint32_t seq, const struct spa_comma
 				  data->rtsocket_source,
 				  SPA_IO_ERR | SPA_IO_HUP);
 
-		if ((res = data->node->implementation->send_command(data->node, command)) < 0)
+		if ((res = spa_node_send_command(data->node->node, command)) < 0)
 			pw_log_warn("node %p: pause failed", proxy);
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
@@ -871,7 +872,7 @@ handle_node_command(struct pw_proxy *proxy, uint32_t seq, const struct spa_comma
 				  data->rtsocket_source,
 				  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 
-		if ((res = data->node->implementation->send_command(data->node, command)) < 0)
+		if ((res = spa_node_send_command(data->node->node, command)) < 0)
 			pw_log_warn("node %p: start failed", proxy);
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
@@ -934,7 +935,6 @@ static void node_need_input(void *data)
 {
 	struct node_data *d = data;
         uint64_t cmd = 1;
-
 	pw_client_node_transport_add_message(d->trans,
 				&PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
         write(d->rtwritefd, &cmd, 8);
@@ -944,7 +944,6 @@ static void node_have_output(void *data)
 {
 	struct node_data *d = data;
         uint64_t cmd = 1;
-
         pw_client_node_transport_add_message(d->trans,
                                &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT));
         write(d->rtwritefd, &cmd, 8);

@@ -57,37 +57,6 @@ enum pw_port_state {
 	PW_PORT_STATE_STREAMING = 4,
 };
 
-struct pw_port_implementation {
-#define PW_VERSION_PORT_IMPLEMENTATION 0
-	uint32_t version;
-
-	int (*set_io) (void *data, struct spa_port_io *io);
-
-	int (*enum_formats) (void *data,
-			     struct spa_format **format,
-			     const struct spa_format *filter,
-			     int32_t index);
-
-	int (*set_format) (void *data, uint32_t flags, const struct spa_format *format);
-
-	int (*get_format) (void *data, const struct spa_format **format);
-
-	int (*get_info) (void *data, const struct spa_port_info **info);
-
-	int (*enum_params) (void *data, uint32_t index, struct spa_param **param);
-
-	int (*set_param) (void *data, struct spa_param *param);
-
-	int (*use_buffers) (void *data, struct spa_buffer **buffers, uint32_t n_buffers);
-
-	int (*alloc_buffers) (void *data,
-			      struct spa_param **params, uint32_t n_params,
-			      struct spa_buffer **buffers, uint32_t *n_buffers);
-	int (*reuse_buffer) (void *data, uint32_t buffer_id);
-
-	int (*send_command) (void *data, struct spa_command *command);
-};
-
 struct pw_port_events {
 #define PW_VERSION_PORT_EVENTS 0
 	uint32_t version;
@@ -127,11 +96,7 @@ uint32_t pw_port_get_id(struct pw_port *port);
 struct pw_node *pw_port_get_node(struct pw_port *port);
 
 /** Add a port to a node \memberof pw_port */
-void pw_port_add(struct pw_port *port, struct pw_node *node);
-
-void pw_port_set_implementation(struct pw_port *port,
-				const struct pw_port_implementation *implementation,
-				void *data);
+bool pw_port_add(struct pw_port *port, struct pw_node *node);
 
 void pw_port_add_listener(struct pw_port *port,
 			  struct spa_hook *listener,
@@ -142,36 +107,6 @@ void pw_port_add_listener(struct pw_port *port,
 void pw_port_destroy(struct pw_port *port);
 
 void * pw_port_get_user_data(struct pw_port *port);
-
-/** Get the current format on a port \memberof pw_port */
-int pw_port_enum_formats(struct pw_port *port,
-			 struct spa_format **format,
-			 const struct spa_format *filter,
-			 int32_t index);
-
-/** Set a format on a port \memberof pw_port */
-int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format);
-
-/** Get the current format on a port \memberof pw_port */
-int pw_port_get_format(struct pw_port *port, const struct spa_format **format);
-
-/** Get the info on a port \memberof pw_port */
-int pw_port_get_info(struct pw_port *port, const struct spa_port_info **info);
-
-/** Enumerate the port parameters \memberof pw_port */
-int pw_port_enum_params(struct pw_port *port, uint32_t index, struct spa_param **param);
-
-/** Set a port parameter \memberof pw_port */
-int pw_port_set_param(struct pw_port *port, struct spa_param *param);
-
-/** Use buffers on a port \memberof pw_port */
-int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers);
-
-/** Allocate memory for buffers on a port \memberof pw_port */
-int pw_port_alloc_buffers(struct pw_port *port,
-			  struct spa_param **params, uint32_t n_params,
-			  struct spa_buffer **buffers, uint32_t *n_buffers);
-
 
 #ifdef __cplusplus
 }

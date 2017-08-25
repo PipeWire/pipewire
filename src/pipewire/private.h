@@ -219,12 +219,9 @@ struct pw_node {
 
 	bool live;			/**< if the node is live */
 	struct spa_clock *clock;	/**< handle to SPA clock if any */
+	struct spa_node *node;		/**< SPA node implementation */
 
 	struct spa_list resource_list;	/**< list of resources for this node */
-
-	/** Implementation of core node functions */
-	const struct pw_node_implementation *implementation;
-	void *implementation_data;
 
 	struct spa_list input_ports;		/**< list of input ports */
 	struct pw_map input_port_map;		/**< map from port_id to port */
@@ -259,9 +256,6 @@ struct pw_port {
 
 	enum pw_port_state state;	/**< state of the port */
 
-	const struct pw_port_implementation *implementation;
-	void *implementation_data;
-
 	struct spa_port_io io;		/**< io area of the port */
 
 	bool allocated;			/**< if buffers are allocated */
@@ -273,14 +267,14 @@ struct pw_port {
 
 	struct spa_hook_list listener_list;
 
-	void *mix;			/**< optional port buffer mix/split */
+	struct spa_node *mix;		/**< optional port buffer mix/split */
 
 	struct {
 		struct spa_graph *graph;
-		struct spa_graph_port port;
-		struct spa_graph_port mix_port;
-		struct spa_graph_node mix_node;
-	} rt;				/**< data only accessed from the data thread */
+		struct spa_graph_port port;	/**< this graph port, linked to mix_port */
+		struct spa_graph_port mix_port;	/**< port from the mixer */
+		struct spa_graph_node mix_node;	/**< mixer node */
+	} rt;					/**< data only accessed from the data thread */
 
         void *user_data;                /**< extra user data */
 };
@@ -375,6 +369,17 @@ struct pw_node_factory {
 
 	void *user_data;
 };
+
+/** Set a format on a port \memberof pw_port */
+int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format);
+
+/** Use buffers on a port \memberof pw_port */
+int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers);
+
+/** Allocate memory for buffers on a port \memberof pw_port */
+int pw_port_alloc_buffers(struct pw_port *port,
+			  struct spa_param **params, uint32_t n_params,
+			  struct spa_buffer **buffers, uint32_t *n_buffers);
 
 #ifdef __cplusplus
 }

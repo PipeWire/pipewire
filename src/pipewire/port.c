@@ -106,6 +106,7 @@ static int schedule_mix_input(void *data)
 		*io = *p->io;
 		p->io->status = SPA_RESULT_OK;
 		p->io->buffer_id = SPA_ID_INVALID;
+		break;
 	}
 	return SPA_RESULT_HAVE_BUFFER;
 }
@@ -292,7 +293,8 @@ void pw_port_add(struct pw_port *port, struct pw_node *node)
 	port->rt.graph = node->rt.graph;
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, 0, NULL, false, port);
 
-	port_update_state(port, PW_PORT_STATE_CONFIGURE);
+	if (port->state <= PW_PORT_STATE_INIT)
+		port_update_state(port, PW_PORT_STATE_CONFIGURE);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, port_added, port);
 }
@@ -480,7 +482,7 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 	port->n_buffers = n_buffers;
 	port->allocated = false;
 
-	if (port->n_buffers == 0)
+	if (n_buffers == 0)
 		port_update_state (port, PW_PORT_STATE_READY);
 	else if (!SPA_RESULT_IS_ASYNC(res))
 		port_update_state (port, PW_PORT_STATE_PAUSED);
@@ -512,6 +514,10 @@ int pw_port_alloc_buffers(struct pw_port *port,
 	else
 		res = SPA_RESULT_NOT_IMPLEMENTED;
 
+	if (port->allocated) {
+		free(port->buffers);
+		pw_memblock_free(&port->buffer_mem);
+	}
 	port->buffers = buffers;
 	port->n_buffers = *n_buffers;
 	port->allocated = true;

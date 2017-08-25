@@ -77,7 +77,7 @@ struct node_data {
 
 	struct spa_hook_list listener_list;
 
-	int port_count;
+	int port_count[2];
 
 	int status;
 };
@@ -102,9 +102,15 @@ struct port_data {
 
 	struct spa_port_io *io;
 
+	bool have_buffers;
 	struct buffer buffers[64];
 	uint32_t n_buffers;
         struct spa_list empty;
+
+	struct spa_buffer *bufs[1];
+	struct spa_buffer buf;
+	struct spa_data data[1];
+	struct spa_chunk chunk[1];
 
 	uint8_t buffer[1024];
 };
@@ -156,33 +162,7 @@ static void recycle_buffer(struct pw_jack_node *this, struct port_data *pd, uint
 
 static int driver_process_input(void *data)
 {
-	struct pw_jack_node *this = data;
-	struct spa_graph_node *node = &this->node->rt.node;
-	struct spa_graph_port *p;
-	struct buffer *out;
-	struct port_data *opd = SPA_CONTAINER_OF(this->driverport, struct port_data, port);
-	struct spa_port_io *out_io = opd->io;
-
-	pw_log_trace("process input");
-	if (out_io->status == SPA_RESULT_HAVE_BUFFER)
-                return SPA_RESULT_HAVE_BUFFER;
-
-	out = buffer_dequeue(this, opd);
-	if (out == NULL)
-		return SPA_RESULT_OUT_OF_BUFFERS;
-
-	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
-		struct pw_port *port = p->callbacks_data;
-		struct port_data *ipd = pw_port_get_user_data(port);
-		struct spa_port_io *in_io = ipd->io;
-
-		in_io->status = SPA_RESULT_NEED_BUFFER;
-	}
-
-	out_io->buffer_id = out->outbuf->id;
-	out_io->status = SPA_RESULT_HAVE_BUFFER;
-
-	return SPA_RESULT_HAVE_BUFFER;
+	return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static void conv_f32_s16(int16_t *out, float *in, int n_samples, int stride)
@@ -206,6 +186,12 @@ static void fill_s16(int16_t *out, int n_samples, int stride)
 		out += stride;
 	}
 }
+static void add_f32(float *out, float *in, int n_samples)
+{
+	int i;
+	for (i = 0; i < n_samples; i++)
+		out[i] += in[i];
+}
 
 static int driver_process_output(void *data)
 {
@@ -213,7 +199,7 @@ static int driver_process_output(void *data)
 	struct pw_jack_node *this = &nd->node;
 	struct spa_graph_node *node = &this->node->rt.node;
 	struct spa_graph_port *p;
-	struct port_data *opd = SPA_CONTAINER_OF(this->driverport, struct port_data, port);
+	struct port_data *opd = SPA_CONTAINER_OF(this->driver_out, struct port_data, port);
 	struct spa_port_io *out_io = opd->io;
 	struct jack_engine_control *ctrl = this->server->engine_control;
 	struct buffer *out;
@@ -224,7 +210,7 @@ static int driver_process_output(void *data)
 	if (out_io->status == SPA_RESULT_HAVE_BUFFER)
 		return SPA_RESULT_HAVE_BUFFER;
 
-	if (out_io->buffer_id != SPA_ID_INVALID) {
+	if (out_io->buffer_id < opd->n_buffers) {
                 recycle_buffer(this, opd, out_io->buffer_id);
                 out_io->buffer_id = SPA_ID_INVALID;
 	}
@@ -247,7 +233,7 @@ static int driver_process_output(void *data)
 		struct buffer *in;
 		int stride = 2;
 
-		if (in_io->buffer_id != SPA_ID_INVALID && in_io->status == SPA_RESULT_HAVE_BUFFER) {
+		if (in_io->buffer_id < ipd->n_buffers && in_io->status == SPA_RESULT_HAVE_BUFFER) {
 			in = &ipd->buffers[in_io->buffer_id];
 			conv_f32_s16(op, in->ptr, ctrl->buffer_size, stride);
 		}
@@ -437,6 +423,10 @@ static int port_use_buffers(void *data, struct spa_buffer **buffers, uint32_t n_
 	struct type *t = &pd->node->type;
 	int i;
 
+	if (pd->have_buffers)
+		return SPA_RESULT_OK;
+
+	pw_log_debug("use_buffers %d", n_buffers);
 	for (i = 0; i < n_buffers; i++) {
                 struct buffer *b;
 		struct spa_data *d = buffers[i]->datas;
@@ -466,6 +456,7 @@ static int port_alloc_buffers(void *data,
 	struct type *t = &pd->node->type;
 	int i;
 
+	pw_log_debug("alloc %d", *n_buffers);
 	for (i = 0; i < *n_buffers; i++) {
                 struct buffer *b;
 		struct spa_data *d = buffers[i]->datas;
@@ -473,6 +464,7 @@ static int port_alloc_buffers(void *data,
                 b = &pd->buffers[i];
 		b->outbuf = buffers[i];
 		d[0].type = t->data.MemPtr;
+		d[0].maxsize = pd->node->node.server->engine_control->buffer_size;
 		b->ptr = d[0].data = pd->port.ptr;
                 spa_list_append(&pd->empty, &b->link);
 	}
@@ -504,6 +496,64 @@ static const struct pw_port_implementation port_impl = {
 	.alloc_buffers = port_alloc_buffers,
 	.reuse_buffer = port_reuse_buffer,
 	.send_command = port_send_command,
+};
+
+static int schedule_mix_input(void *data)
+{
+	struct pw_jack_port *this = data;
+	struct spa_graph_node *node = &this->port->rt.mix_node;
+	struct spa_graph_port *p;
+	struct spa_port_io *io = this->port->rt.mix_port.io;
+	struct port_data *pd = SPA_CONTAINER_OF(this, struct port_data, port);
+	size_t buffer_size = pd->node->node.server->engine_control->buffer_size;
+	int layer = 0;
+
+	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
+		struct pw_link *link = p->callbacks_data;
+		struct spa_buffer *inbuf;
+
+		pw_log_trace("mix %p: input %d %d", node, p->io->buffer_id, link->output->n_buffers);
+
+		if (!(p->io->buffer_id < link->output->n_buffers && p->io->status == SPA_RESULT_HAVE_BUFFER))
+			continue;
+
+		inbuf = link->output->buffers[p->io->buffer_id];
+
+		if (layer++ == 0)
+			memcpy(pd->buffers[0].ptr, inbuf->datas[0].data, buffer_size * sizeof(float));
+		else
+			add_f32(pd->buffers[0].ptr, inbuf->datas[0].data, buffer_size);
+
+		pw_log_trace("mix %p: input %p %p->%p %d %d", node,
+				p, p->io, io, p->io->status, p->io->buffer_id);
+		*io = *p->io;
+		io->buffer_id = 0;
+		p->io->status = SPA_RESULT_OK;
+		p->io->buffer_id = SPA_ID_INVALID;
+	}
+	return SPA_RESULT_HAVE_BUFFER;
+}
+
+static int schedule_mix_output(void *data)
+{
+	struct pw_jack_port *this = data;
+	struct spa_graph_node *node = &this->port->rt.mix_node;
+	struct spa_graph_port *p;
+	struct spa_port_io *io = this->port->rt.mix_port.io;
+
+	io->status = SPA_RESULT_NEED_BUFFER;
+	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
+		*p->io = *io;
+	io->buffer_id = SPA_ID_INVALID;
+
+	return SPA_RESULT_NEED_BUFFER;
+}
+
+
+static const struct spa_graph_node_callbacks schedule_mix_node = {
+	SPA_VERSION_GRAPH_NODE_CALLBACKS,
+	schedule_mix_input,
+	schedule_mix_output,
 };
 
 static void port_destroy(void *data)
@@ -539,14 +589,25 @@ static void port_free(void *data)
 	spa_hook_list_call(&pd->listener_list, struct pw_jack_port_events, free);
 }
 
+static void port_link_added(void *data, struct pw_link *link)
+{
+}
+
+static void port_link_removed(void *data, struct pw_link *link)
+{
+}
+
 static const struct pw_port_events port_events = {
 	PW_VERSION_PORT_EVENTS,
 	.destroy = port_destroy,
 	.free = port_free,
+	.link_added = port_link_added,
+	.link_removed = port_link_removed,
 };
 
 struct pw_jack_port *
-alloc_port(struct pw_jack_node *node, enum pw_direction direction, uint32_t port_id, size_t user_data_size)
+alloc_port(struct pw_jack_node *node, enum pw_direction direction,
+	   uint32_t port_id, size_t user_data_size)
 {
 	struct node_data *nd = SPA_CONTAINER_OF(node, struct node_data, node);
 	struct pw_port *p;
@@ -561,8 +622,8 @@ alloc_port(struct pw_jack_node *node, enum pw_direction direction, uint32_t port
 	pd->node = nd;
         spa_hook_list_init(&pd->listener_list);
 	spa_list_init(&pd->empty);
-	port = &pd->port;
 
+	port = &pd->port;
 	port->node = node;
 	port->direction = direction;
 	port->port = p;
@@ -573,7 +634,6 @@ alloc_port(struct pw_jack_node *node, enum pw_direction direction, uint32_t port
 	pw_port_add_listener(p, &pd->port_listener, &port_events, pd);
 
 	pw_port_set_implementation(p, &port_impl, pd);
-	pw_port_add(p, node->node);
 
 	return port;
 }
@@ -590,6 +650,7 @@ pw_jack_node_add_port(struct pw_jack_node *node,
 	struct jack_graph_manager *mgr = server->graph_manager;
         struct jack_connection_manager *conn;
 	struct pw_jack_port *port;
+	struct port_data *pd;
         jack_port_type_id_t type_id;
 	jack_port_id_t port_id;
 	enum pw_direction direction;
@@ -611,7 +672,7 @@ pw_jack_node_add_port(struct pw_jack_node *node,
                 return NULL;
 	}
 
-	port = alloc_port(node, direction, nd->port_count++, user_data_size);
+	port = alloc_port(node, direction, nd->port_count[direction]++, user_data_size);
 	if (port == NULL)
 		return NULL;
 
@@ -619,12 +680,41 @@ pw_jack_node_add_port(struct pw_jack_node *node,
 	port->jack_port = jack_graph_manager_get_port(mgr, port_id);
 	port->ptr = (float *)((uintptr_t)port->jack_port->buffer & ~31L) + 8;
 
+	pd = SPA_CONTAINER_OF(port, struct port_data, port);
+
         conn = jack_graph_manager_next_start(mgr);
 	if (direction == PW_DIRECTION_INPUT)
 		jack_connection_manager_add_inport(conn, ref_num, port_id);
 	else
 		jack_connection_manager_add_outport(conn, ref_num, port_id);
         jack_graph_manager_next_stop(mgr);
+
+	{
+		struct spa_buffer *b = &pd->buf;
+		struct type *t = &pd->node->type;
+
+		pd->bufs[0] = b;
+		b->id = 0;
+		b->n_metas = 0;
+		b->metas = NULL;
+		b->n_datas = 1;
+		b->datas = pd->data;
+		pd->data[0].data = pd->port.ptr;
+		pd->data[0].chunk = pd->chunk;
+		pd->data[0].type = t->data.MemPtr;
+		pd->data[0].maxsize = pd->node->node.server->engine_control->buffer_size;
+
+		port->port->state = PW_PORT_STATE_READY;
+		pw_port_use_buffers(port->port, pd->bufs, 1);
+		pd->have_buffers = true;
+		port->port->state = PW_PORT_STATE_PAUSED;
+	}
+	if (direction == PW_DIRECTION_INPUT) {
+		port->port->mix = port;
+		spa_graph_node_set_callbacks(&port->port->rt.mix_node, &schedule_mix_node, port);
+	}
+
+	pw_port_add(port->port, node->node);
 
 	return port;
 }
@@ -816,11 +906,14 @@ pw_jack_driver_new(struct pw_core *core,
 	}
         jack_graph_manager_next_stop(mgr);
 
-	if (n_capture_channels > 0)
-		this->driverport = alloc_port(this, PW_DIRECTION_INPUT, 0, 0);
-	if (n_playback_channels > 0)
-		this->driverport = alloc_port(this, PW_DIRECTION_OUTPUT, 0, 0);
-
+	if (n_capture_channels > 0) {
+		this->driver_in = alloc_port(this, PW_DIRECTION_INPUT, 0, 0);
+		pw_port_add(this->driver_in->port, node);
+	}
+	if (n_playback_channels > 0) {
+		this->driver_out = alloc_port(this, PW_DIRECTION_OUTPUT, 0, 0);
+		pw_port_add(this->driver_out->port, node);
+	}
 	pw_node_register(node);
 
 	return this;

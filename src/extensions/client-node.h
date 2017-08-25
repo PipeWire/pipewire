@@ -165,10 +165,10 @@ struct pw_client_node_buffer {
 
 #define PW_CLIENT_NODE_PROXY_METHOD_DONE		0
 #define PW_CLIENT_NODE_PROXY_METHOD_UPDATE		1
-#define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE	2
+#define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE		2
 #define PW_CLIENT_NODE_PROXY_METHOD_EVENT		3
 #define PW_CLIENT_NODE_PROXY_METHOD_DESTROY		4
-#define PW_CLIENT_NODE_PROXY_METHOD_NUM		5
+#define PW_CLIENT_NODE_PROXY_METHOD_NUM			5
 
 /** \ref pw_client_node methods */
 struct pw_client_node_proxy_methods {

@@ -38,7 +38,8 @@ struct pw_jack_node {
 
         struct jack_client_control *control;
 
-	struct pw_jack_port *driverport;
+	struct pw_jack_port *driver_out;
+	struct pw_jack_port *driver_in;
 
 	struct spa_list graph_link;
 

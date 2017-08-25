@@ -50,11 +50,6 @@ struct impl {
 	struct spa_hook input_node_listener;
 	struct spa_hook output_port_listener;
 	struct spa_hook output_node_listener;
-
-	void *buffer_owner;
-	struct pw_memblock buffer_mem;
-	struct spa_buffer **buffers;
-	uint32_t n_buffers;
 };
 
 struct resource_data {
@@ -497,7 +492,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		spa_debug_port_info(iinfo);
 	}
 
-	if (impl->buffers == NULL) {
+	if (this->buffers == NULL) {
 		struct spa_param **params, *param;
 		uint8_t buffer[4096];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -564,18 +559,18 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		if (this->output->n_buffers) {
 			out_flags = 0;
 			in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-			impl->n_buffers = this->output->n_buffers;
-			impl->buffers = this->output->buffers;
-			impl->buffer_owner = this->output;
-			pw_log_debug("reusing %d output buffers %p", impl->n_buffers,
-				     impl->buffers);
-		} else if (this->input->n_buffers) {
+			this->n_buffers = this->output->n_buffers;
+			this->buffers = this->output->buffers;
+			this->buffer_owner = this->output;
+			pw_log_debug("reusing %d output buffers %p", this->n_buffers,
+				     this->buffers);
+		} else if (this->input->n_buffers && this->input->mix == NULL) {
 			out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 			in_flags = 0;
-			impl->n_buffers = this->input->n_buffers;
-			impl->buffers = this->input->buffers;
-			impl->buffer_owner = this->input;
-			pw_log_debug("reusing %d input buffers %p", impl->n_buffers, impl->buffers);
+			this->n_buffers = this->input->n_buffers;
+			this->buffers = this->input->buffers;
+			this->buffer_owner = this->input;
+			pw_log_debug("reusing %d input buffers %p", this->n_buffers, this->buffers);
 		} else {
 			size_t data_sizes[1];
 			ssize_t data_strides[1];
@@ -583,64 +578,64 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			data_sizes[0] = minsize;
 			data_strides[0] = stride;
 
-			impl->buffer_owner = this;
-			impl->n_buffers = max_buffers;
-			impl->buffers = alloc_buffers(this,
-						      impl->n_buffers,
+			this->buffer_owner = this;
+			this->n_buffers = max_buffers;
+			this->buffers = alloc_buffers(this,
+						      this->n_buffers,
 						      n_params,
 						      params,
 						      1,
 						      data_sizes, data_strides,
-						      &impl->buffer_mem);
+						      &this->buffer_mem);
 
-			pw_log_debug("allocating %d input buffers %p %zd %zd", impl->n_buffers,
-				     impl->buffers, minsize, stride);
+			pw_log_debug("allocating %d input buffers %p %zd %zd", this->n_buffers,
+				     this->buffers, minsize, stride);
 		}
 
 		if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(this->output,
 							 params, n_params,
-							 impl->buffers, &impl->n_buffers)) < 0) {
+							 this->buffers, &this->n_buffers)) < 0) {
 				asprintf(&error, "error alloc output buffers: %d", res);
 				goto error;
 			}
 			if (SPA_RESULT_IS_ASYNC(res))
 				pw_work_queue_add(impl->work, this->output->node, res, complete_paused,
 						  this->output);
-			this->output->buffer_mem = impl->buffer_mem;
-			impl->buffer_owner = this->output;
-			pw_log_debug("allocated %d buffers %p from output port", impl->n_buffers,
-				     impl->buffers);
+			this->output->buffer_mem = this->buffer_mem;
+			this->buffer_owner = this->output;
+			pw_log_debug("allocated %d buffers %p from output port", this->n_buffers,
+				     this->buffers);
 		} else if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(this->input,
 							 params, n_params,
-							 impl->buffers, &impl->n_buffers)) < 0) {
+							 this->buffers, &this->n_buffers)) < 0) {
 				asprintf(&error, "error alloc input buffers: %d", res);
 				goto error;
 			}
 			if (SPA_RESULT_IS_ASYNC(res))
 				pw_work_queue_add(impl->work, this->input->node, res, complete_paused,
 						  this->input);
-			this->input->buffer_mem = impl->buffer_mem;
-			impl->buffer_owner = this->input;
-			pw_log_debug("allocated %d buffers %p from input port", impl->n_buffers,
-				     impl->buffers);
+			this->input->buffer_mem = this->buffer_mem;
+			this->buffer_owner = this->input;
+			pw_log_debug("allocated %d buffers %p from input port", this->n_buffers,
+				     this->buffers);
 		}
 	}
 
 	if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
-		pw_log_debug("using %d buffers %p on input port", impl->n_buffers, impl->buffers);
+		pw_log_debug("using %d buffers %p on input port", this->n_buffers, this->buffers);
 		if ((res = pw_port_use_buffers(this->input,
-					       impl->buffers, impl->n_buffers)) < 0) {
+					       this->buffers, this->n_buffers)) < 0) {
 			asprintf(&error, "error use input buffers: %d", res);
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res))
 			pw_work_queue_add(impl->work, this->input->node, res, complete_paused, this->input);
 	} else if (out_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
-		pw_log_debug("using %d buffers %p on output port", impl->n_buffers, impl->buffers);
+		pw_log_debug("using %d buffers %p on output port", this->n_buffers, this->buffers);
 		if ((res = pw_port_use_buffers(this->output,
-					       impl->buffers, impl->n_buffers)) < 0) {
+					       this->buffers, this->n_buffers)) < 0) {
 			asprintf(&error, "error use output buffers: %d", res);
 			goto error;
 		}
@@ -784,9 +779,7 @@ output_node_async_complete(void *data, uint32_t seq, int res)
 
 static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 {
-	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
-
-	if (impl->buffer_owner != port)
+	if (link->buffer_owner != port)
 		pw_port_use_buffers(port, NULL, 0);
 }
 
@@ -838,7 +831,6 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 
 static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 {
-	struct impl *impl = (struct impl *) this;
 	struct pw_port *other;
 
 	if (port == this->input) {
@@ -850,13 +842,13 @@ static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 	} else
 		return;
 
-	if (impl->buffer_owner == port) {
-		impl->buffers = NULL;
-		impl->n_buffers = 0;
+	if (this->buffer_owner == port) {
+		this->buffers = NULL;
+		this->n_buffers = 0;
 
 		pw_log_debug("link %p: clear allocated buffers on port %p", this, other);
 		pw_port_use_buffers(other, NULL, 0);
-		impl->buffer_owner = NULL;
+		this->buffer_owner = NULL;
 	}
 
 	spa_hook_list_call(&this->listener_list, struct pw_link_events, port_unlinked, port);
@@ -1114,6 +1106,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 			    0,
 			    &this->io);
 
+	this->rt.in_port.callbacks_data = this;
+	this->rt.out_port.callbacks_data = this;
+
 	pw_loop_invoke(output_node->data_loop,
 		       do_add_link,
 		       SPA_ID_INVALID, sizeof(struct pw_port *), &output, false, this);
@@ -1176,9 +1171,9 @@ void pw_link_destroy(struct pw_link *link)
 	if (link->info.format)
 		free(link->info.format);
 
-	if (impl->buffer_owner == link) {
-		free(impl->buffers);
-		pw_memblock_free(&impl->buffer_mem);
+	if (link->buffer_owner == link) {
+		free(link->buffers);
+		pw_memblock_free(&link->buffer_mem);
 	}
 	free(impl);
 }

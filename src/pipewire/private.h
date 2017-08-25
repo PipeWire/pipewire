@@ -180,6 +180,11 @@ struct pw_link {
 
 	struct spa_hook_list listener_list;
 
+	void *buffer_owner;
+	struct pw_memblock buffer_mem;
+	struct spa_buffer **buffers;
+	uint32_t n_buffers;
+
 	struct {
 		struct spa_graph_port out_port;
 		struct spa_graph_port in_port;

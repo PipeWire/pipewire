@@ -750,7 +750,7 @@ static int impl_node_process_output(struct spa_node *node)
 		return SPA_RESULT_HAVE_BUFFER;
 
 	/* recycle */
-	if (output->buffer_id != SPA_ID_INVALID) {
+	if (output->buffer_id < out_port->n_buffers) {
 		recycle_buffer(this, output->buffer_id);
 		output->buffer_id = SPA_ID_INVALID;
 	}

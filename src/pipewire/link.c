@@ -1115,10 +1115,10 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	spa_list_insert(core->link_list.prev, &this->link);
 
-	this->info.output_node_id = output ? output_node->global->id : -1;
-	this->info.output_port_id = output ? output->port_id : -1;
-	this->info.input_node_id = input ? input_node->global->id : -1;
-	this->info.input_port_id = input ? input->port_id : -1;
+	this->info.output_node_id = output_node->global->id;
+	this->info.output_port_id = output->port_id;
+	this->info.input_node_id = input_node->global->id;
+	this->info.input_port_id = input->port_id;
 	this->info.format = NULL;
 
 	spa_graph_port_init(&this->rt.out_port,
@@ -1135,11 +1135,10 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->rt.in_port.callbacks_data = this;
 	this->rt.out_port.callbacks_data = this;
 
-	pw_loop_invoke(output_node->data_loop,
-		       do_add_link,
+	/* nodes can be in different data loops so we do this twice */
+	pw_loop_invoke(output_node->data_loop, do_add_link,
 		       SPA_ID_INVALID, sizeof(struct pw_port *), &output, false, this);
-	pw_loop_invoke(input_node->data_loop,
-		       do_add_link,
+	pw_loop_invoke(input_node->data_loop, do_add_link,
 		       SPA_ID_INVALID, sizeof(struct pw_port *), &input, false, this);
 
 	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, this);

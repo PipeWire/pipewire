@@ -711,7 +711,7 @@ static int impl_node_process_output(struct spa_node *node)
 	if (io->status == SPA_RESULT_HAVE_BUFFER)
 		return SPA_RESULT_HAVE_BUFFER;
 
-	if (io->buffer_id != SPA_ID_INVALID) {
+	if (io->buffer_id < this->n_buffers) {
 		reuse_buffer(this, this->io->buffer_id);
 		this->io->buffer_id = SPA_ID_INVALID;
 	}

@@ -657,7 +657,7 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 	} else if (in_state == PW_PORT_STATE_CONFIGURE && out_state == PW_PORT_STATE_CONFIGURE) {
 	      again:
 		/* both ports need a format */
-		pw_log_debug("core %p: finding best format", core);
+		pw_log_debug("core %p: do enum input %d", core, iidx);
 		if ((res = spa_node_port_enum_formats(input->node->node, input->direction, input->port_id,
 						      &filter, NULL, iidx)) < 0) {
 			if (res == SPA_RESULT_ENUM_END && iidx != 0) {
@@ -665,7 +665,7 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 				goto error;
 			}
 		}
-		pw_log_debug("Try filter: %p", filter);
+		pw_log_debug("enum output %d with filter: %p", oidx, filter);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_format(filter);
 

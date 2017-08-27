@@ -545,7 +545,7 @@ static int impl_node_process_input(struct spa_node *node)
 	input = this->io;
 	spa_return_val_if_fail(input != NULL, SPA_RESULT_WRONG_STATE);
 
-	if (input->status == SPA_RESULT_HAVE_BUFFER && input->buffer_id != SPA_ID_INVALID) {
+	if (input->status == SPA_RESULT_HAVE_BUFFER && input->buffer_id < this->n_buffers) {
 		struct buffer *b = &this->buffers[input->buffer_id];
 
 		if (!b->outstanding) {

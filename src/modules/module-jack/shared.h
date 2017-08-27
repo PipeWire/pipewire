@@ -1000,6 +1000,16 @@ jack_engine_control_reset_rolling_usecs(struct jack_engine_control *ctrl)
     ctrl->rolling_interval = floor((JACK_ENGINE_ROLLING_INTERVAL * 1000.f) / ctrl->period_usecs);
 }
 
+static inline uint64_t calc_computation(jack_nframes_t buffer_size)
+{
+	if (buffer_size < 128)
+		return 500;
+	else if (buffer_size < 256)
+		return 300;
+	else
+		return 100;
+}
+
 static inline struct jack_engine_control *
 jack_engine_control_alloc(const char* name)
 {
@@ -1040,9 +1050,8 @@ jack_engine_control_alloc(const char* name)
 	jack_engine_control_reset_rolling_usecs(ctrl);
 	ctrl->CPU_load = 0.f;
 
-	ctrl->period = 0;
-	ctrl->computation = 0;
-	ctrl->constraint = 0;
+	ctrl->period = ctrl->constraint = ctrl->period_usecs * 1000;
+	ctrl->computation = calc_computation(ctrl->buffer_size) * 1000;
 
 	return ctrl;
 }

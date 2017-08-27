@@ -732,11 +732,11 @@ static int impl_node_process_input(struct spa_node *node)
 		struct port *inport = GET_IN_PORT(this, i);
 		struct spa_port_io *inio;
 
-		if ((inio = inport->io) == NULL || inport->n_buffers == 0)
+		if ((inio = inport->io) == NULL)
 			continue;
 
 		if (inport->queued_bytes == 0 &&
-		    inio->status == SPA_RESULT_HAVE_BUFFER && inio->buffer_id != SPA_ID_INVALID) {
+		    inio->status == SPA_RESULT_HAVE_BUFFER && inio->buffer_id < inport->n_buffers) {
 			struct buffer *b = &inport->buffers[inio->buffer_id];
 
 			if (!b->outstanding) {
@@ -788,7 +788,7 @@ static int impl_node_process_output(struct spa_node *node)
 		return SPA_RESULT_HAVE_BUFFER;
 
 	/* recycle */
-	if (outio->buffer_id != SPA_ID_INVALID) {
+	if (outio->buffer_id < outport->n_buffers) {
 		recycle_buffer(this, outio->buffer_id);
 		outio->buffer_id = SPA_ID_INVALID;
 	}

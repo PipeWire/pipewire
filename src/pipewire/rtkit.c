@@ -77,6 +77,7 @@ struct pw_rtkit_bus *pw_rtkit_bus_get_system(void)
 	return bus;
 
       error:
+	free(bus);
 	pw_log_error("Failed to connect to system bus: %s", error.message);
 	dbus_error_free(&error);
 	return NULL;

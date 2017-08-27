@@ -272,7 +272,6 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 		goto init_failed;
 	}
 	if ((res = spa_handle_get_interface(handle, t->spa_monitor, &iface)) < 0) {
-		free(handle);
 		pw_log_error("can't get MONITOR interface: %d", res);
 		goto interface_failed;
 	}

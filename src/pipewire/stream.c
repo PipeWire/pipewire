@@ -78,7 +78,6 @@ struct stream {
 
 	enum pw_stream_mode mode;
 
-	int rtreadfd;
 	int rtwritefd;
 	struct spa_source *rtsocket_source;
 
@@ -207,6 +206,7 @@ struct pw_stream *pw_stream_new(struct pw_remote *remote,
 	this->remote = remote;
 	this->name = strdup(name);
 	impl->type_client_node = spa_type_map_get_id(remote->core->type.map, PW_TYPE_INTERFACE__ClientNode);
+	impl->rtwritefd = -1;
 
 	spa_hook_list_init(&this->listener_list);
 
@@ -268,7 +268,11 @@ do_remove_sources(struct spa_loop *loop,
 		pw_loop_destroy_source(stream->remote->core->data_loop, impl->timeout_source);
 		impl->timeout_source = NULL;
 	}
-        return SPA_RESULT_OK;
+	if (impl->rtwritefd != -1) {
+		close(impl->rtwritefd);
+		impl->rtwritefd = -1;
+	}
+	return SPA_RESULT_OK;
 }
 
 static void unhandle_socket(struct pw_stream *stream)
@@ -354,8 +358,6 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	if (stream->name)
 		free(stream->name);
-
-	close(impl->rtwritefd);
 
 	free(impl);
 }
@@ -559,7 +561,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 		struct pw_client_node_message message;
 		uint64_t cmd;
 
-		read(impl->rtreadfd, &cmd, 8);
+		read(fd, &cmd, 8);
 
 		while (pw_client_node_transport_next_message(impl->trans, &message) == SPA_RESULT_OK) {
 			struct pw_client_node_message *msg = alloca(SPA_POD_SIZE(&message));
@@ -574,10 +576,9 @@ static void handle_socket(struct pw_stream *stream, int rtreadfd, int rtwritefd)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct timespec interval;
 
-	impl->rtreadfd = rtreadfd;
 	impl->rtwritefd = rtwritefd;
 	impl->rtsocket_source = pw_loop_add_io(stream->remote->core->data_loop,
-					       impl->rtreadfd,
+					       rtreadfd,
 					       SPA_IO_ERR | SPA_IO_HUP,
 					       true, on_rtsocket_condition, stream);
 

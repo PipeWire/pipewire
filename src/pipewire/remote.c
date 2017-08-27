@@ -67,7 +67,6 @@ struct node_data {
 	struct pw_type *t;
 	uint32_t node_id;
 
-	int rtreadfd;
 	int rtwritefd;
 	struct spa_source *rtsocket_source;
         struct pw_client_node_transport *trans;
@@ -323,7 +322,7 @@ static int do_connect(struct pw_remote *remote)
 	return 0;
 
       no_proxy:
-	pw_protocol_client_disconnect (remote->conn);
+	pw_protocol_client_disconnect(remote->conn);
 	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: no memory");
 	return -1;
 }
@@ -470,7 +469,7 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 		struct pw_client_node_message message;
 		uint64_t cmd;
 
-		read(data->rtreadfd, &cmd, 8);
+		read(fd, &cmd, 8);
 
 		while (pw_client_node_transport_next_message(data->trans, &message) == SPA_RESULT_OK) {
 			struct pw_client_node_message *msg = alloca(SPA_POD_SIZE(&message));
@@ -546,10 +545,9 @@ static void client_node_transport(void *object, uint32_t node_id,
 	spa_list_for_each(port, &data->node->output_ports, link)
 		spa_graph_port_add(&port->rt.mix_node, &data->out_ports[port->port_id]);
 
-        data->rtreadfd = readfd;
         data->rtwritefd = writefd;
         data->rtsocket_source = pw_loop_add_io(proxy->remote->core->data_loop,
-                                               data->rtreadfd,
+                                               readfd,
                                                SPA_IO_ERR | SPA_IO_HUP,
                                                true, on_rtsocket_condition, proxy);
 }

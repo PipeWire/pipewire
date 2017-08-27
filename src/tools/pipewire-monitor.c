@@ -56,10 +56,12 @@ static void print_properties(struct spa_dict *props, char mark)
 {
 	struct spa_dict_item *item;
 
-	if (props == NULL)
-		return;
-
 	printf("%c\tproperties:\n", mark);
+	if (props == NULL || props->n_items == 0) {
+		printf("\t\tnone\n");
+		return;
+	}
+
 	spa_dict_for_each(item, props) {
 		printf("%c\t\t%s = \"%s\"\n", mark, item->key, item->value);
 	}
@@ -238,7 +240,7 @@ static void link_event_info(void *object, struct pw_link_info *info)
 		if (info->format)
 			spa_debug_format(info->format);
 		else
-			printf("\t  none\n");
+			printf("\t\tnone\n");
 		print_properties(info->props, MARK_CHANGE(3));
 	}
 }

@@ -268,13 +268,13 @@ bool pw_port_add(struct pw_port *port, struct pw_node *node)
 		spa_list_insert(&node->input_ports, &port->link);
 		pw_map_insert_at(&node->input_port_map, port_id, port);
 		node->info.n_input_ports++;
-		node->info.change_mask |= 1 << 1;
+		node->info.change_mask |= PW_NODE_CHANGE_MASK_INPUT_PORTS;
 	}
 	else {
 		spa_list_insert(&node->output_ports, &port->link);
 		pw_map_insert_at(&node->output_port_map, port_id, port);
 		node->info.n_output_ports++;
-		node->info.change_mask |= 1 << 3;
+		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
 	}
 
 	spa_node_port_set_io(node->node, port->direction, port_id, &port->io);

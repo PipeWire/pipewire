@@ -100,6 +100,10 @@ void pw_core_info_free(struct pw_core_info *info);
 
 /** The module information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_module_info {
+#define PW_MODULE_CHANGE_MASK_NAME	(1 << 0)
+#define PW_MODULE_CHANGE_MASK_FILENAME	(1 << 1)
+#define PW_MODULE_CHANGE_MASK_ARGS	(1 << 2)
+#define PW_MODULE_CHANGE_MASK_PROPS	(1 << 3)
 	uint64_t change_mask;	/**< bitfield of changed fields since last call */
 	const char *name;	/**< name of the module */
 	const char *filename;	/**< filename of the module */

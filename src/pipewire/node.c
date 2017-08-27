@@ -315,6 +315,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_hook_list_init(&this->listener_list);
 
 	this->info.state = PW_NODE_STATE_CREATING;
+	this->info.props = &this->properties->dict;
 
 	spa_list_init(&this->input_ports);
 	pw_map_init(&this->input_port_map, 64, 64);

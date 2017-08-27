@@ -1120,6 +1120,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->info.input_node_id = input_node->global->id;
 	this->info.input_port_id = input->port_id;
 	this->info.format = NULL;
+	this->info.props = this->properties ? &this->properties->dict : NULL;
 
 	spa_graph_port_init(&this->rt.out_port,
 			    PW_DIRECTION_OUTPUT,

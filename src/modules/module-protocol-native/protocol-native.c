@@ -292,7 +292,8 @@ static void core_marshal_info(void *object, struct pw_core_info *info)
 			    SPA_POD_TYPE_STRING, info->host_name,
 			    SPA_POD_TYPE_STRING, info->version,
 			    SPA_POD_TYPE_STRING, info->name,
-			    SPA_POD_TYPE_INT, info->cookie, SPA_POD_TYPE_INT, n_items, 0);
+			    SPA_POD_TYPE_INT, info->cookie,
+			    SPA_POD_TYPE_INT, n_items, 0);
 
 	for (i = 0; i < n_items; i++) {
 		spa_pod_builder_add(b,
@@ -779,16 +780,28 @@ static void link_marshal_info(void *object, struct pw_link_info *info)
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
+	uint32_t i, n_items;
 
 	b = pw_protocol_native_begin_resource(resource, PW_LINK_PROXY_EVENT_INFO);
 
-	spa_pod_builder_struct(b, &f,
-			       SPA_POD_TYPE_LONG, info->change_mask,
-			       SPA_POD_TYPE_INT, info->output_node_id,
-			       SPA_POD_TYPE_INT, info->output_port_id,
-			       SPA_POD_TYPE_INT, info->input_node_id,
-			       SPA_POD_TYPE_INT, info->input_port_id,
-			       SPA_POD_TYPE_POD, info->format);
+	n_items = info->props ? info->props->n_items : 0;
+
+	spa_pod_builder_add(b,
+			    SPA_POD_TYPE_STRUCT, &f,
+			    SPA_POD_TYPE_LONG, info->change_mask,
+			    SPA_POD_TYPE_INT, info->output_node_id,
+			    SPA_POD_TYPE_INT, info->output_port_id,
+			    SPA_POD_TYPE_INT, info->input_node_id,
+			    SPA_POD_TYPE_INT, info->input_port_id,
+			    SPA_POD_TYPE_POD, info->format,
+			    SPA_POD_TYPE_INT, n_items, 0);
+
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_add(b,
+				    SPA_POD_TYPE_STRING, info->props->items[i].key,
+				    SPA_POD_TYPE_STRING, info->props->items[i].value, 0);
+	}
+	spa_pod_builder_add(b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
 	pw_protocol_native_end_resource(resource, b);
 }
@@ -797,7 +810,9 @@ static bool link_demarshal_info(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
+	struct spa_dict props;
 	struct pw_link_info info = { 0, };
+	int i;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
@@ -806,9 +821,18 @@ static bool link_demarshal_info(void *object, void *data, size_t size)
 			      SPA_POD_TYPE_INT, &info.output_port_id,
 			      SPA_POD_TYPE_INT, &info.input_node_id,
 			      SPA_POD_TYPE_INT, &info.input_port_id,
-			      -SPA_POD_TYPE_OBJECT, &info.format, 0))
+			      -SPA_POD_TYPE_OBJECT, &info.format,
+			      SPA_POD_TYPE_INT, &props.n_items, 0))
 		return false;
 
+	info.props = &props;
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (!spa_pod_iter_get(&it,
+				      SPA_POD_TYPE_STRING, &props.items[i].key,
+				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
+			return false;
+	}
 	pw_proxy_notify(proxy, struct pw_link_proxy_events, info, &info);
 	return true;
 }

@@ -347,7 +347,7 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 		}
 	}
 	spa_list_for_each_safe(source, tmp, &impl->destroy_list, link)
-	    free(source);
+		free(source);
 
 	spa_list_init(&impl->destroy_list);
 

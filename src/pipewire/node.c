@@ -273,26 +273,6 @@ void pw_node_register(struct pw_node *this)
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 }
 
-static int
-graph_impl_process_input(void *data)
-{
-	struct pw_node *this = data;
-	return spa_node_process_input(this->node);
-}
-
-static int
-graph_impl_process_output(void *data)
-{
-	struct pw_node *this = data;
-	return spa_node_process_output(this->node);
-}
-
-static const struct spa_graph_node_callbacks graph_callbacks = {
-	SPA_VERSION_GRAPH_NODE_CALLBACKS,
-	.process_input = graph_impl_process_input,
-        .process_output = graph_impl_process_output,
-};
-
 struct pw_node *pw_node_new(struct pw_core *core,
 			    struct pw_resource *owner,
 			    struct pw_global *parent,
@@ -342,9 +322,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	pw_map_init(&this->output_port_map, 64, 64);
 
 	spa_graph_node_init(&this->rt.node);
-	spa_graph_node_set_callbacks(&this->rt.node,
-				     &graph_callbacks,
-				     this);
 
 	return this;
 
@@ -446,9 +423,8 @@ static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 		if (p->port_id != port_id)
 			continue;
 
-		pp = p->peer;
-		if (pp && pp->callbacks->reuse_buffer)
-			pp->callbacks->reuse_buffer(pp->callbacks_data, buffer_id);
+		if ((pp = p->peer) != NULL)
+			spa_node_port_reuse_buffer(pp->node->implementation, pp->port_id, buffer_id);
 		break;
 	}
 }
@@ -468,6 +444,7 @@ void pw_node_set_implementation(struct pw_node *node,
 {
 	node->node = spa_node;
 	spa_node_set_callbacks(node->node, &node_callbacks, node);
+	spa_graph_node_set_implementation(&node->rt.node, spa_node);
 }
 
 struct spa_node *pw_node_get_implementation(struct pw_node *node)

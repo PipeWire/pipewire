@@ -28,6 +28,8 @@
 /** \cond */
 struct impl {
 	struct pw_port this;
+
+	struct spa_node mix_node;
 };
 /** \endcond */
 
@@ -41,9 +43,10 @@ static void port_update_state(struct pw_port *port, enum pw_port_state state)
 	}
 }
 
-static int schedule_tee_input(void *data)
+static int schedule_tee_input(struct spa_node *data)
 {
-        struct pw_port *this = data;
+	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
+        struct pw_port *this = &impl->this;
 	struct spa_graph_node *node = &this->rt.mix_node;
 	struct spa_graph_port *p;
 	struct spa_port_io *io = this->rt.mix_port.io;
@@ -63,9 +66,10 @@ static int schedule_tee_input(void *data)
 	}
         return res;
 }
-static int schedule_tee_output(void *data)
+static int schedule_tee_output(struct spa_node *data)
 {
-        struct pw_port *this = data;
+	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
+        struct pw_port *this = &impl->this;
 	struct spa_graph_node *node = &this->rt.mix_node;
 	struct spa_graph_port *p;
 	struct spa_port_io *io = this->rt.mix_port.io;
@@ -77,25 +81,23 @@ static int schedule_tee_output(void *data)
 	return SPA_RESULT_NEED_BUFFER;
 }
 
-static const struct spa_graph_node_callbacks schedule_tee_node = {
-	SPA_VERSION_GRAPH_NODE_CALLBACKS,
-	schedule_tee_input,
-	schedule_tee_output,
-};
-
-static int schedule_tee_reuse_buffer(void *data, uint32_t buffer_id)
+static int schedule_tee_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)
 {
 	return SPA_RESULT_OK;
 }
 
-static const struct spa_graph_port_callbacks schedule_tee_port = {
-	SPA_VERSION_GRAPH_PORT_CALLBACKS,
-	schedule_tee_reuse_buffer,
+static const struct spa_node schedule_tee_node = {
+	SPA_VERSION_NODE,
+	NULL,
+	.process_input = schedule_tee_input,
+	.process_output = schedule_tee_output,
+	.port_reuse_buffer = schedule_tee_reuse_buffer,
 };
 
-static int schedule_mix_input(void *data)
+static int schedule_mix_input(struct spa_node *data)
 {
-        struct pw_port *this = data;
+	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
+        struct pw_port *this = &impl->this;
 	struct spa_graph_node *node = &this->rt.mix_node;
 	struct spa_graph_port *p;
 	struct spa_port_io *io = this->rt.mix_port.io;
@@ -111,9 +113,10 @@ static int schedule_mix_input(void *data)
 	return SPA_RESULT_HAVE_BUFFER;
 }
 
-static int schedule_mix_output(void *data)
+static int schedule_mix_output(struct spa_node *data)
 {
-        struct pw_port *this = data;
+	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
+        struct pw_port *this = &impl->this;
 	struct spa_graph_node *node = &this->rt.mix_node;
 	struct spa_graph_port *p;
 	struct spa_port_io *io = this->rt.mix_port.io;
@@ -126,19 +129,17 @@ static int schedule_mix_output(void *data)
 	return SPA_RESULT_NEED_BUFFER;
 }
 
-static const struct spa_graph_node_callbacks schedule_mix_node = {
-	SPA_VERSION_GRAPH_NODE_CALLBACKS,
-	schedule_mix_input,
-	schedule_mix_output,
-};
-
-static int schedule_mix_reuse_buffer(void *data, uint32_t buffer_id)
+static int schedule_mix_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)
 {
 	return SPA_RESULT_OK;
 }
-static const struct spa_graph_port_callbacks schedule_mix_port = {
-	SPA_VERSION_GRAPH_PORT_CALLBACKS,
-	schedule_mix_reuse_buffer,
+
+static const struct spa_node schedule_mix_node = {
+	SPA_VERSION_NODE,
+	NULL,
+	.process_input = schedule_mix_input,
+	.process_output = schedule_mix_output,
+	.port_reuse_buffer = schedule_mix_reuse_buffer,
 };
 
 struct pw_port *pw_port_new(enum pw_direction direction,
@@ -175,29 +176,24 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 
 	spa_hook_list_init(&this->listener_list);
 
-	spa_graph_port_set_callbacks(&this->rt.port, NULL, this);
-
 	spa_graph_port_init(&this->rt.port,
 			    this->direction,
 			    this->port_id,
 			    0,
 			    &this->io);
 	spa_graph_node_init(&this->rt.mix_node);
-	spa_graph_node_set_callbacks(&this->rt.mix_node,
-				     this->direction == PW_DIRECTION_INPUT ?
-					&schedule_mix_node :
-					&schedule_tee_node,
-				     this);
+
+	impl->mix_node = this->direction == PW_DIRECTION_INPUT ?  schedule_mix_node : schedule_tee_node;
+	spa_graph_node_set_implementation(&this->rt.mix_node, &impl->mix_node);
 	spa_graph_port_init(&this->rt.mix_port,
 			    pw_direction_reverse(this->direction),
 			    0,
 			    0,
 			    &this->io);
-	spa_graph_port_set_callbacks(&this->rt.mix_port,
-				     this->direction == PW_DIRECTION_INPUT ?
-					&schedule_mix_port :
-					&schedule_tee_port,
-				     this);
+
+	this->rt.mix_port.scheduler_data = this;
+	this->rt.port.scheduler_data = this;
+
 	return this;
 
        no_mem:

@@ -45,24 +45,6 @@ static inline void spa_graph_data_init(struct spa_graph_data *data,
 	data->node = NULL;
 }
 
-static inline int spa_graph_node_impl_input(void *data)
-{
-	struct spa_node *n = data;
-	return spa_node_process_input(n);
-}
-
-static inline int spa_graph_node_impl_output(void *data)
-{
-	struct spa_node *n = data;
-	return spa_node_process_output(n);
-}
-
-static const struct spa_graph_node_callbacks spa_graph_node_impl_default = {
-	SPA_VERSION_GRAPH_NODE_CALLBACKS,
-	spa_graph_node_impl_input,
-	spa_graph_node_impl_output,
-};
-
 static inline void spa_graph_data_port_check(struct spa_graph_data *data, struct spa_graph_port *port)
 {
 	struct spa_graph_node *node = port->node;
@@ -70,7 +52,8 @@ static inline void spa_graph_data_port_check(struct spa_graph_data *data, struct
 	if (port->io->status == SPA_RESULT_HAVE_BUFFER)
 		node->ready_in++;
 
-	debug("port %p node %p check %d %d %d\n", port, node, port->io->status, node->ready_in, node->required_in);
+	debug("port %p node %p check %d %d %d\n", port, node,
+	      port->io->status, node->ready_in, node->required_in);
 
 	if (node->required_in > 0 && node->ready_in == node->required_in) {
 		node->state = SPA_GRAPH_STATE_IN;
@@ -100,7 +83,7 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 
 		switch (n->state) {
 		case SPA_GRAPH_STATE_IN:
-			state = n->callbacks->process_input(n->callbacks_data);
+			state = spa_node_process_input(n->implementation);
 			if (state == SPA_RESULT_NEED_BUFFER)
 				n->state = SPA_GRAPH_STATE_CHECK_IN;
 			else if (state == SPA_RESULT_HAVE_BUFFER)
@@ -112,7 +95,7 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 			break;
 
 		case SPA_GRAPH_STATE_OUT:
-			state = n->callbacks->process_output(n->callbacks_data);
+			state = spa_node_process_output(n->implementation);
 			if (state == SPA_RESULT_NEED_BUFFER)
 				n->state = SPA_GRAPH_STATE_CHECK_IN;
 			else if (state == SPA_RESULT_HAVE_BUFFER)

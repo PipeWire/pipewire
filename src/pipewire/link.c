@@ -1132,8 +1132,8 @@ struct pw_link *pw_link_new(struct pw_core *core,
 			    0,
 			    &this->io);
 
-	this->rt.in_port.callbacks_data = this;
-	this->rt.out_port.callbacks_data = this;
+	this->rt.in_port.scheduler_data = this;
+	this->rt.out_port.scheduler_data = this;
 
 	/* nodes can be in different data loops so we do this twice */
 	pw_loop_invoke(output_node->data_loop, do_add_link,

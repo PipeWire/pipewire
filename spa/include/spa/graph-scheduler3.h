@@ -26,38 +26,6 @@ extern "C" {
 
 #include <spa/graph.h>
 
-static inline int spa_graph_node_impl_input(void *data)
-{
-	struct spa_node *n = data;
-	return spa_node_process_input(n);
-}
-
-static inline int spa_graph_node_impl_output(void *data)
-{
-	struct spa_node *n = data;
-	return spa_node_process_output(n);
-}
-
-static const struct spa_graph_node_callbacks spa_graph_node_impl_default = {
-	SPA_VERSION_GRAPH_NODE_CALLBACKS,
-	spa_graph_node_impl_input,
-	spa_graph_node_impl_output,
-};
-
-static inline int spa_graph_port_impl_reuse_buffer(void *data,
-						   uint32_t buffer_id)
-{
-	struct spa_graph_port *port = data;
-	struct spa_node *node = port->node->callbacks_data;
-	debug("port %p reuse buffer %d\n", port, buffer_id);
-	return spa_node_port_reuse_buffer(node, port->port_id, buffer_id);
-}
-
-static const struct spa_graph_port_callbacks spa_graph_port_impl_default = {
-	SPA_VERSION_GRAPH_PORT_CALLBACKS,
-	spa_graph_port_impl_reuse_buffer,
-};
-
 static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *node)
 {
 	struct spa_graph_port *p;
@@ -85,7 +53,7 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 	}
 
 	spa_list_for_each_safe(n, t, &ready, ready_link) {
-		n->state = n->callbacks->process_output(n->callbacks_data);
+		n->state = spa_node_process_output(n->implementation);
 		debug("peer %p processed out %d\n", n, n->state);
 		if (n->state == SPA_RESULT_NEED_BUFFER)
 			spa_graph_need_input(n->graph, n);
@@ -102,7 +70,7 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 	debug("node %p ready_in:%d required_in:%d\n", node, node->ready_in, node->required_in);
 
 	if (node->required_in > 0 && node->ready_in == node->required_in) {
-		node->state = node->callbacks->process_input(node->callbacks_data);
+		node->state = spa_node_process_input(node->implementation);
 		debug("node %p processed in %d\n", node, node->state);
 		if (node->state == SPA_RESULT_HAVE_BUFFER) {
 			spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
@@ -143,7 +111,7 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 	}
 
 	spa_list_for_each_safe(n, t, &ready, ready_link) {
-		n->state = n->callbacks->process_input(n->callbacks_data);
+		n->state = spa_node_process_input(n->implementation);
 		debug("node %p chain processed in %d\n", n, n->state);
 		if (n->state == SPA_RESULT_HAVE_BUFFER)
 			spa_graph_have_output(n->graph, n);
@@ -159,7 +127,7 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 		n->ready_link.next = NULL;
 	}
 
-	node->state = node->callbacks->process_output(node->callbacks_data);
+	node->state = spa_node_process_output(node->implementation);
 	debug("node %p processed out %d\n", node, node->state);
 	if (node->state == SPA_RESULT_NEED_BUFFER) {
 		node->ready_in = 0;

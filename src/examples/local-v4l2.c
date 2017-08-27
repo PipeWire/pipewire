@@ -107,7 +107,7 @@ static void handle_events(struct data *data)
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
 		case SDL_QUIT:
-			exit(0);
+			data->running = false;
 			break;
 		}
 	}
@@ -487,10 +487,13 @@ int main(int argc, char *argv[])
 
 	pw_loop_enter(data.loop);
 	while (data.running) {
-		pw_loop_iterate(data.loop, -1);
+		pw_loop_iterate(data.loop, 100);
 	}
 	pw_loop_leave(data.loop);
 
+	pw_link_destroy(data.link);
+	pw_node_destroy(data.node);
+	pw_core_destroy(data.core);
 	pw_loop_destroy(data.loop);
 
 	return 0;

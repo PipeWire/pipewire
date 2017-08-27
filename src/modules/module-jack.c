@@ -1124,7 +1124,7 @@ static void jack_node_pull(void *data)
 	spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
 		if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
 			continue;
-		pn->state = pn->callbacks->process_input(pn->callbacks_data);
+		pn->state = spa_node_process_input(pn->implementation);
 	}
 }
 
@@ -1154,7 +1154,7 @@ static void jack_node_push(void *data)
 	spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
 		if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
 			continue;
-		pn->state = pn->callbacks->process_output(pn->callbacks_data);
+		pn->state = spa_node_process_output(pn->implementation);
 	}
 
 	spa_list_for_each(node, &impl->rt.nodes, graph_link) {
@@ -1163,25 +1163,25 @@ static void jack_node_push(void *data)
 		spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link) {
 			if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
 				continue;
-			pn->state = pn->callbacks->process_output(pn->callbacks_data);
+			pn->state = spa_node_process_output(pn->implementation);
 		}
-		n->state = n->callbacks->process_output(n->callbacks_data);
+		n->state = spa_node_process_output(n->implementation);
 
 		/* mix inputs */
 		spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
 			if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
 				continue;
-			pn->state = pn->callbacks->process_output(pn->callbacks_data);
-			pn->state = pn->callbacks->process_input(pn->callbacks_data);
+			pn->state = spa_node_process_output(pn->implementation);
+			pn->state = spa_node_process_input(pn->implementation);
 		}
 
-		n->state = n->callbacks->process_input(n->callbacks_data);
+		n->state = spa_node_process_input(n->implementation);
 
 		/* tee outputs */
 		spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link) {
 			if ((pp = p->peer) == NULL || ((pn = pp->node) == NULL))
 				continue;
-			pn->state = pn->callbacks->process_input(pn->callbacks_data);
+			pn->state = spa_node_process_input(pn->implementation);
 		}
 	}
 

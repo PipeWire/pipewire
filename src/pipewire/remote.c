@@ -78,6 +78,7 @@ struct node_data {
 	struct spa_hook node_listener;
 
         struct pw_client_node_proxy *node_proxy;
+	struct spa_hook node_proxy_listener;
 	struct spa_hook proxy_listener;
 
         struct pw_array mem_ids;
@@ -430,7 +431,7 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 		/* process all input in the mixers */
 		spa_list_for_each(port, &n->ports[SPA_DIRECTION_INPUT], link) {
 			pn = port->peer->node;
-	                pn->state = pn->callbacks->process_input(pn->callbacks_data);
+	                pn->state = spa_node_process_input(pn->implementation);
 	                if (pn->state == SPA_RESULT_HAVE_BUFFER)
 	                        spa_graph_have_output(data->node->rt.graph, pn);
 			else {
@@ -444,7 +445,7 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 		}
         }
 	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT) {
-		n->callbacks->process_output(n->callbacks_data);
+		spa_node_process_output(n->implementation);
 	}
 	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {
 	}
@@ -479,6 +480,28 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 	}
 }
 
+static void clean_transport(struct pw_proxy *proxy)
+{
+	struct node_data *data = proxy->user_data;
+	struct pw_port *port;
+
+	if (data->trans == NULL)
+		return;
+
+	spa_list_for_each(port, &data->node->input_ports, link)
+		spa_graph_port_remove(&data->in_ports[port->port_id]);
+	spa_list_for_each(port, &data->node->output_ports, link)
+		spa_graph_port_remove(&data->out_ports[port->port_id]);
+
+	free(data->in_ports);
+	free(data->out_ports);
+	pw_client_node_transport_destroy(data->trans);
+	unhandle_socket(proxy);
+	close(data->rtwritefd);
+
+	data->trans = NULL;
+}
+
 static void client_node_transport(void *object, uint32_t node_id,
                                   int readfd, int writefd,
 				  struct pw_client_node_transport *transport)
@@ -488,14 +511,18 @@ static void client_node_transport(void *object, uint32_t node_id,
 	struct pw_port *port;
 	int i;
 
+	clean_transport(proxy);
+
 	data->node_id = node_id;
 	data->trans = transport;
 
 	pw_log_info("remote-node %p: create transport %p with fds %d %d for node %u",
 		proxy, data->trans, readfd, writefd, node_id);
 
-	data->in_ports = calloc(data->trans->area->max_input_ports, sizeof(struct spa_graph_port));
-	data->out_ports = calloc(data->trans->area->max_output_ports, sizeof(struct spa_graph_port));
+	data->in_ports = calloc(data->trans->area->max_input_ports,
+				 sizeof(struct spa_graph_port));
+	data->out_ports = calloc(data->trans->area->max_output_ports,
+				  sizeof(struct spa_graph_port));
 
 	for (i = 0; i < data->trans->area->max_input_ports; i++) {
 		spa_graph_port_init(&data->in_ports[i],
@@ -521,8 +548,6 @@ static void client_node_transport(void *object, uint32_t node_id,
 
         data->rtreadfd = readfd;
         data->rtwritefd = writefd;
-
-	unhandle_socket(proxy);
         data->rtsocket_source = pw_loop_add_io(proxy->remote->core->data_loop,
                                                data->rtreadfd,
                                                SPA_IO_ERR | SPA_IO_HUP,
@@ -676,7 +701,7 @@ static void clear_mems(struct pw_proxy *proxy)
 	struct mem_id *mid;
 
 	pw_array_for_each(mid, &data->mem_ids)
-	    clear_memid(mid);
+		clear_memid(mid);
 	data->mem_ids.size = 0;
 }
 
@@ -981,6 +1006,25 @@ static const struct pw_node_events node_events = {
 	.have_output = node_have_output,
 };
 
+static void node_proxy_destroy(void *data)
+{
+	struct node_data *d = data;
+	struct pw_proxy *proxy = (struct pw_proxy*) d->node_proxy;
+
+	clean_transport(proxy);
+	clear_buffers(proxy);
+	clear_mems(proxy);
+	pw_array_clear(&d->mem_ids);
+	pw_array_clear(&d->buffer_ids);
+
+	spa_hook_remove(&d->node_listener);
+}
+
+static const struct pw_proxy_events proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = node_proxy_destroy,
+};
+
 struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 				  struct pw_node *node)
 {
@@ -1010,10 +1054,11 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
         pw_array_init(&data->buffer_ids, 32);
         pw_array_ensure_size(&data->buffer_ids, sizeof(struct buffer_id) * 64);
 
+	pw_proxy_add_listener(proxy, &data->proxy_listener, &proxy_events, data);
 	pw_node_add_listener(node, &data->node_listener, &node_events, data);
 
         pw_client_node_proxy_add_listener(data->node_proxy,
-					  &data->proxy_listener,
+					  &data->node_proxy_listener,
 					  &client_node_events,
 					  proxy);
         do_node_init(proxy);

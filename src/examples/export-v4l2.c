@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <sys/mman.h>
+#include <signal.h>
 
 #include <spa/type-map.h>
 #include <spa/format-utils.h>
@@ -79,8 +80,6 @@ static void make_node(struct data *data)
                                   "spa.factory.name", "v4l2-source", NULL);
         data->node = pw_node_factory_create_node(factory, NULL, "v4l2-source", props);
 
-	pw_node_register(data->node);
-
 	pw_remote_export(data->remote, data->node);
 }
 
@@ -110,6 +109,12 @@ static const struct pw_remote_events remote_events = {
 	.state_changed = on_state_changed,
 };
 
+static void do_quit(void *data, int signal_number)
+{
+        struct data *d = data;
+	d->running = false;
+}
+
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
@@ -117,6 +122,9 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.loop = pw_loop_new(NULL);
+        pw_loop_add_signal(data.loop, SIGINT, do_quit, &data);
+        pw_loop_add_signal(data.loop, SIGTERM, do_quit, &data);
+
 	data.running = true;
 	data.core = pw_core_new(data.loop, NULL);
 	data.t = pw_core_get_type(data.core);
@@ -134,10 +142,14 @@ int main(int argc, char *argv[])
 
 	pw_loop_enter(data.loop);
 	while (data.running) {
-		pw_loop_iterate(data.loop, -1);
+		pw_loop_iterate(data.loop, 100);
 	}
 	pw_loop_leave(data.loop);
 
+	pw_remote_destroy(data.remote);
+	if (data.node)
+		pw_node_destroy(data.node);
+	pw_core_destroy(data.core);
 	pw_loop_destroy(data.loop);
 
 	return 0;

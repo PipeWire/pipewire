@@ -56,21 +56,7 @@ struct spa_graph {
 
 #define spa_graph_need_input(g,n)	((g)->callbacks->need_input((g)->callbacks_data, (n)))
 #define spa_graph_have_output(g,n)	((g)->callbacks->have_output((g)->callbacks_data, (n)))
-
-struct spa_graph_node_callbacks {
-#define SPA_VERSION_GRAPH_NODE_CALLBACKS	0
-	uint32_t version;
-
-	int (*process_input) (void *data);
-	int (*process_output) (void *data);
-};
-
-struct spa_graph_port_callbacks {
-#define SPA_VERSION_GRAPH_PORT_CALLBACKS	0
-	uint32_t version;
-
-	int (*reuse_buffer) (void *data, uint32_t buffer_id);
-};
+#define spa_graph_reuse_buffer(g,n,p,i)	((g)->callbacks->reuse_buffer((g)->callbacks_data, (n),(p),(i)))
 
 struct spa_graph_node {
 	struct spa_list link;		/**< link in graph nodes list */
@@ -82,9 +68,7 @@ struct spa_graph_node {
 	uint32_t required_in;		/**< required number of ports */
 	uint32_t ready_in;		/**< number of ports with data */
 	int state;			/**< state of the node */
-	/** callbacks and data */
-	const struct spa_graph_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_node *implementation;/**< node implementation */
 	void *scheduler_data;		/**< scheduler private data */
 };
 
@@ -96,9 +80,6 @@ struct spa_graph_port {
 	uint32_t flags;			/**< port flags */
 	struct spa_port_io *io;		/**< io area of the port */
 	struct spa_graph_port *peer;	/**< peer */
-	/** callbacks and data */
-	const struct spa_graph_port_callbacks *callbacks;
-	void *callbacks_data;
 	void *scheduler_data;		/**< scheduler private data */
 };
 
@@ -127,12 +108,10 @@ spa_graph_node_init(struct spa_graph_node *node)
 }
 
 static inline void
-spa_graph_node_set_callbacks(struct spa_graph_node *node,
-			     const struct spa_graph_node_callbacks *callbacks,
-			     void *data)
+spa_graph_node_set_implementation(struct spa_graph_node *node,
+				  struct spa_node *implementation)
 {
-	node->callbacks = callbacks;
-	node->callbacks_data = data;
+	node->implementation = implementation;
 }
 
 static inline void
@@ -158,15 +137,6 @@ spa_graph_port_init(struct spa_graph_port *port,
 	port->port_id = port_id;
 	port->flags = flags;
 	port->io = io;
-}
-
-static inline void
-spa_graph_port_set_callbacks(struct spa_graph_port *port,
-			     const struct spa_graph_port_callbacks *callbacks,
-			     void *data)
-{
-	port->callbacks = callbacks;
-	port->callbacks_data = data;
 }
 
 static inline void

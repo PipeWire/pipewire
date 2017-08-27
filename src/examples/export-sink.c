@@ -448,7 +448,7 @@ static void make_node(struct data *data)
 	struct pw_properties *props;
 
 	props = pw_properties_new(
-			//"pipewire.target.node", port_path,
+			"pipewire.target.node", data->path,
 			"pipewire.autoconnect", "1",
 			NULL);
 

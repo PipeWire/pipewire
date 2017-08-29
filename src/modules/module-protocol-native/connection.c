@@ -75,7 +75,7 @@ int pw_protocol_native_connection_get_fd(struct pw_protocol_native_connection *c
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 
-	if (index < 0 || index >= impl->in.n_fds)
+	if (index >= impl->in.n_fds)
 		return -1;
 
 	return impl->in.fds[index];

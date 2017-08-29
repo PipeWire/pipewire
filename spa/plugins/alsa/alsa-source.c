@@ -741,7 +741,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-	if (index < 0 || index >= SPA_N_ELEMENTS(impl_interfaces))
+	if (index >= SPA_N_ELEMENTS(impl_interfaces))
 		return SPA_RESULT_ENUM_END;
 
 	*info = &impl_interfaces[index];

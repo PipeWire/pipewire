@@ -379,14 +379,18 @@ static int port_enum_formats(struct spa_node *node, enum spa_direction direction
 	struct node_data *nd = SPA_CONTAINER_OF(node, struct node_data, node_impl);
 	struct port_data *pd = nd->port_data[direction][port_id];
 	struct type *t = &pd->node->type;
-        struct spa_pod_builder b = { NULL, };
+	struct spa_pod_builder b = { NULL, };
+	struct spa_format *fmt;
+	uint8_t buffer[4096];
+	int res;
+
         struct spa_pod_frame f[2];
 	struct jack_engine_control *ctrl = pd->node->node.server->engine_control;
 
 	if (index > 0)
 		return SPA_RESULT_ENUM_END;
 
-        spa_pod_builder_init(&b, pd->buffer, sizeof(pd->buffer));
+        spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	if (pd->port.jack_port) {
 		if (pd->port.jack_port->type_id == 0) {
@@ -410,7 +414,13 @@ static int port_enum_formats(struct spa_node *node, enum spa_direction direction
                         PROP(&f[1], t->format_audio.rate, SPA_POD_TYPE_INT, ctrl->sample_rate),
                         PROP(&f[1], t->format_audio.channels, SPA_POD_TYPE_INT, 2));
 	}
-        *format = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+	fmt = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+
+        spa_pod_builder_init(&b, pd->buffer, sizeof(pd->buffer));
+        if ((res = spa_format_filter(fmt, filter, &b)) < 0)
+                return res;
+
+        *format = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_format);
 
 	return SPA_RESULT_OK;
 }

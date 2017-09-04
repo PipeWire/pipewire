@@ -63,8 +63,6 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 struct data {
 	struct type type;
 
-	const char *path;
-
 	SDL_Renderer *renderer;
 	SDL_Window *window;
 	SDL_Texture *texture;
@@ -464,7 +462,6 @@ int main(int argc, char *argv[])
 	data.running = true;
 	data.core = pw_core_new(data.loop, NULL);
 	data.t = pw_core_get_type(data.core);
-	data.path = argc > 1 ? argv[1] : NULL;
 
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL);
 

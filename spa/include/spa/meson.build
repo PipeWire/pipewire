@@ -10,6 +10,7 @@ spa_headers = [
   'format.h',
   'format-builder.h',
   'format-utils.h',
+  'hook.h',
   'list.h',
   'log.h',
   'loop.h',

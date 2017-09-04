@@ -989,7 +989,7 @@ connection_data(void *data, int fd, enum spa_io mask)
 	struct client *client = data;
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
-		pw_log_error("protocol-native %p: got connection error", client->impl);
+		pw_log_error("jack %p: got connection error", client->impl);
 		client_killed(client);
 		return;
 	}

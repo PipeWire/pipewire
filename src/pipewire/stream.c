@@ -103,12 +103,27 @@ struct stream {
 };
 /** \endcond */
 
-static void clear_memid(struct mem_id *mid)
+static void clear_memid(struct stream *impl, struct mem_id *mid)
 {
 	if (mid->ptr != NULL)
 		munmap(mid->ptr, mid->size + mid->offset);
 	mid->ptr = NULL;
-	close(mid->fd);
+	if (mid->fd != -1) {
+		bool has_ref = false;
+		int fd;
+
+		fd = mid->fd;
+		mid->fd = -1;
+
+		pw_array_for_each(mid, &impl->mem_ids) {
+			if (mid->fd == fd) {
+				has_ref = true;
+				break;
+			}
+		}
+		if (!has_ref)
+			close(fd);
+	}
 }
 
 static void clear_mems(struct pw_stream *stream)
@@ -117,7 +132,7 @@ static void clear_mems(struct pw_stream *stream)
 	struct mem_id *mid;
 
 	pw_array_for_each(mid, &impl->mem_ids)
-	    clear_memid(mid);
+	    clear_memid(impl, mid);
 	impl->mem_ids.size = 0;
 }
 
@@ -717,7 +732,7 @@ client_node_add_mem(void *data,
 	if (m) {
 		pw_log_debug("update mem %u, fd %d, flags %d, off %d, size %d",
 			     mem_id, memfd, flags, offset, size);
-		clear_memid(m);
+		clear_memid(impl, m);
 	} else {
 		m = pw_array_add(&impl->mem_ids, sizeof(struct mem_id));
 		pw_log_debug("add mem %u, fd %d, flags %d, off %d, size %d",

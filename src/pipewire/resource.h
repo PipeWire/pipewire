@@ -58,10 +58,12 @@ struct pw_resource;
 
 #include <pipewire/client.h>
 
+/** Resource events */
 struct pw_resource_events {
 #define PW_VERSION_RESOURCE_EVENTS	0
 	uint32_t version;
 
+	/** The resource is destroyed */
 	void (*destroy) (void *data);
 };
 
@@ -74,38 +76,51 @@ pw_resource_new(struct pw_client *client,	/**< the client owning the resource */
 		uint32_t version,		/**< requested interface version */
 		size_t user_data_size		/**< extra user data size */);
 
+/** Destroy a resource */
 void pw_resource_destroy(struct pw_resource *resource);
 
+/** Get the client owning this resource */
 struct pw_client *pw_resource_get_client(struct pw_resource *resource);
 
+/** Get the unique id of this resource */
 uint32_t pw_resource_get_id(struct pw_resource *resource);
 
+/** Get the permissions of this resource */
 uint32_t pw_resource_get_permissions(struct pw_resource *resource);
 
+/** Get the type of this resource */
 uint32_t pw_resource_get_type(struct pw_resource *resource);
 
+/** Get the protocol used for this resource */
 struct pw_protocol *pw_resource_get_protocol(struct pw_resource *resource);
 
+/** Get the user data for the resource, the size was given in \ref pw_resource_new */
 void *pw_resource_get_user_data(struct pw_resource *resource);
 
+/** Add an event listener */
 void pw_resource_add_listener(struct pw_resource *resource,
 			      struct spa_hook *listener,
 			      const struct pw_resource_events *events,
 			      void *data);
 
+/** Set the resource implementation. */
 void pw_resource_set_implementation(struct pw_resource *resource,
 				    const void *implementation,
 				    void *data);
 
+/** Override the implementation of a resource. */
 void pw_resource_add_override(struct pw_resource *resource,
 			      struct spa_hook *listener,
 			      const void *implementation,
 			      void *data);
 
+/** Generate an error for a resource */
 void pw_resource_error(struct pw_resource *resource, int result, const char *error);
 
+/** Get the implementation list of a resource */
 struct spa_hook_list *pw_resource_get_implementation(struct pw_resource *resource);
 
+/** Get the marshal functions for the resource */
 const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *resource);
 
 #define pw_resource_do(r,type,method,...)		\

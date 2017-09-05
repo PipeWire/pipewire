@@ -31,9 +31,9 @@ struct proxy {
 
 /** Create a proxy object with a given id and type
  *
- * \param proxy another proxy object that serves as a factory
- * \param id Id of the new object, SPA_ID_INVALID will choose a new id
+ * \param factory another proxy object that serves as a factory
  * \param type Type of the proxy object
+ * \param user_data_size size of user_data
  * \return A newly allocated proxy object or NULL on failure
  *
  * This function creates a new proxy object with the supplied id and type. The

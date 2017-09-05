@@ -41,8 +41,8 @@ extern "C" {
  * choose a port for you.
  *
  * For more complicated nodes such as filters or ports with multiple
- * inputs and/or outputs you will need to manage the \ref pw_client_node proxy
- * yourself.
+ * inputs and/or outputs you will need to create a pw_node yourself and
+ * export it with \ref pw_remote_export.
  *
  * \section sec_create Create
  *
@@ -51,7 +51,7 @@ extern "C" {
  * pw_fill_stream_properties() to get a basic set of properties for the
  * stream.
  *
- * Once the stream is created, the state_changed signal should be used to
+ * Once the stream is created, the state_changed event should be used to
  * track the state of the stream.
  *
  * \section sec_connect Connect
@@ -88,7 +88,7 @@ extern "C" {
  * PW_STREAM_STATE_CONFIGURE state. In this state the format will be
  * negotiated by the PipeWire server.
  *
- * Once the format has been selected, the format_changed signal is
+ * Once the format has been selected, the format_changed event is
  * emited with the configured format as a parameter.
  *
  * The client should now prepare itself to deal with the format and
@@ -106,7 +106,7 @@ extern "C" {
  * notify the stream of the buffers that will be used to exchange data
  * between client and server.
  *
- * With the add_buffer signal, a stream will be notified of a new buffer
+ * With the add_buffer event, a stream will be notified of a new buffer
  * that can be used for data transport.
  *
  * Afer the buffers are negotiated, the stream will transition to the
@@ -124,7 +124,7 @@ extern "C" {
  *
  * \subsection ssec_consume Consume data
  *
- * The new_buffer signal is emited for each new buffer can can be
+ * The new_buffer event is emited for each new buffer can can be
  * consumed.
  *
  * \ref pw_stream_peek_buffer() should be used to get the data and metadata
@@ -135,7 +135,7 @@ extern "C" {
  *
  * \subsection ssec_produce Produce data
  *
- * The need_buffer signal is emited when PipeWire needs a new buffer for this
+ * The need_buffer event is emited when PipeWire needs a new buffer for this
  * stream.
  *
  * \ref pw_stream_get_empty_buffer() gives the id of an empty buffer.
@@ -144,7 +144,7 @@ extern "C" {
  *
  * To send the filled buffer, use \ref pw_stream_send_buffer().
  *
- * The new_buffer signal is emited when PipeWire no longer uses the buffer
+ * The new_buffer event is emited when PipeWire no longer uses the buffer
  * and it can be safely reused.
  *
  * \section sec_stream_disconnect Disconnect
@@ -158,7 +158,7 @@ extern "C" {
  * The stream object provides a convenient way to send and
  * receive data streams from/to PipeWire.
  *
- * See also \ref page_streams and \ref page_client_api
+ * See also \ref page_streams and \ref page_core_api
  */
 struct pw_stream;
 
@@ -179,6 +179,7 @@ enum pw_stream_state {
 	PW_STREAM_STATE_STREAMING = 5		/**< streaming */
 };
 
+/** Events for a stream */
 struct pw_stream_events {
 #define PW_VERSION_STREAM_EVENTS	0
 	uint32_t version;
@@ -253,7 +254,7 @@ const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream);
  * \return true on success.
  *
  * When \a mode is \ref PW_STREAM_MODE_BUFFER, you should connect to the new-buffer
- * signal and use pw_stream_peek_buffer() to get the latest metadata and
+ * event and use pw_stream_peek_buffer() to get the latest metadata and
  * data. */
 bool
 pw_stream_connect(struct pw_stream *stream,		/**< a \ref pw_stream */

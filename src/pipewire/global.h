@@ -26,37 +26,42 @@ extern "C" {
 
 /** \page page_global Global
  *
- * Global objects represent resources that are available on the server and
- * accessible to clients.
+ * Global objects represent resources that are available on the PipeWire
+ * core and are accessible to remote clients.
  * Globals come and go when devices or other resources become available for
  * clients.
  *
- * The client receives a list of globals when it binds to the registry
+ * Remote clients receives a list of globals when it binds to the registry
  * object. See \ref page_registry.
  *
  * A client can bind to a global to send methods or receive events from
  * the global.
+ *
+ * Global objects are arranged in a hierarchy where each global has a parent
+ * global. The core global is the top parent in the hierarchy.
  */
 /** \class pw_global
  *
- * \brief A global object visible to all clients
+ * \brief A global object visible to remote clients
  *
- * A global object is visible to all clients and represents a resource
+ * A global object is visible to remote clients and represents a resource
  * that can be used or inspected.
  *
- * See \ref page_server_api
+ * See \ref page_remote_api
  */
 struct pw_global;
 
 #include <pipewire/core.h>
 #include <pipewire/client.h>
 
+/** The function to let a client bind to a global */
 typedef int (*pw_bind_func_t) (struct pw_global *global,	/**< the global to bind */
 			       struct pw_client *client,	/**< client that binds */
 			       uint32_t permissions,		/**< permissions for the bind */
 			       uint32_t version,		/**< client interface version */
 			       uint32_t id			/**< client proxy id */);
 
+/** Add a new global object to the core registry */
 struct pw_global *
 pw_core_add_global(struct pw_core *core,
                    struct pw_client *owner,
@@ -66,29 +71,39 @@ pw_core_add_global(struct pw_core *core,
                    pw_bind_func_t bind,
                    void *object);
 
+/** Get the permissions of the global for a given client */
 uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client);
 
+/** Get the core object of this global */
 struct pw_core *pw_global_get_core(struct pw_global *global);
 
+/** Get the owner of the global. This can be NULL when the core is owner */
 struct pw_client *pw_global_get_owner(struct pw_global *global);
 
+/** Get the parent of a global */
 struct pw_global *pw_global_get_parent(struct pw_global *global);
 
+/** Get the global type */
 uint32_t pw_global_get_type(struct pw_global *global);
 
+/** Get the global version */
 uint32_t pw_global_get_version(struct pw_global *global);
 
+/** Get the object associated with the global. This depends on the type of the
+  * global */
 void *pw_global_get_object(struct pw_global *global);
 
+/** Get the unique id of the global */
 uint32_t pw_global_get_id(struct pw_global *global);
 
-int
-pw_global_bind(struct pw_global *global,
-	       struct pw_client *client,
-	       uint32_t permissions,
-	       uint32_t version,
-	       uint32_t id);
+/** Let a client bind to a global */
+int pw_global_bind(struct pw_global *global,
+		   struct pw_client *client,
+		   uint32_t permissions,
+		   uint32_t version,
+		   uint32_t id);
 
+/** Destroy a global */
 void pw_global_destroy(struct pw_global *global);
 
 #ifdef __cplusplus

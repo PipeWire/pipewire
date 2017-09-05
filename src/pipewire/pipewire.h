@@ -51,12 +51,12 @@ extern "C" {
  *
  * \section sec_intro Introduction
  *
- * This document describes the API for the PipeWire multimedia server.
+ * This document describes the API for the PipeWire multimedia framework.
  * The API consists of two parts:
  *
- * \li The client side API (See \subpage page_client_api)
- * \li The server side API and tools to build new modules (See
- * \subpage page_server_api)
+ * \li The core API and tools to build new modules (See
+ * \subpage page_core_api)
+ * \li The remote API (See \subpage page_remote_api)
  *
  * \section sec_errors Error reporting
  *

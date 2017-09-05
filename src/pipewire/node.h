@@ -47,6 +47,7 @@ struct pw_node;
 #include <pipewire/port.h>
 #include <pipewire/resource.h>
 
+/** Node events, listen to them with \ref pw_node_add_listener */
 struct pw_node_events {
 #define PW_VERSION_NODE_EVENTS	0
 	uint32_t version;
@@ -100,33 +101,42 @@ void pw_node_register(struct pw_node *node);
 /** Destroy a node */
 void pw_node_destroy(struct pw_node *node);
 
+/** Configure the maximum input and output ports */
 void pw_node_set_max_ports(struct pw_node *node,
 			   uint32_t max_input_ports,
 			   uint32_t max_output_ports);
 
+/** Get the node info */
 const struct pw_node_info *pw_node_get_info(struct pw_node *node);
 
+/** Get node user_data. The size of the memory was given in \ref pw_node_new */
 void * pw_node_get_user_data(struct pw_node *node);
 
+/** Get the core of this node */
 struct pw_core *pw_node_get_core(struct pw_node *node);
 
+/** Get the node owner or NULL when not owned by a remote client */
 struct pw_resource *pw_node_get_owner(struct pw_node *node);
 
+/** Get the global of this node */
 struct pw_global *pw_node_get_global(struct pw_node *node);
 
+/** Get the node properties */
 const struct pw_properties *pw_node_get_properties(struct pw_node *node);
 
+/** Update the node properties */
 void pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict);
 
+/** Set the node implementation */
 void pw_node_set_implementation(struct pw_node *node, struct spa_node *spa_node);
+/** Get the node implementation */
 struct spa_node *pw_node_get_implementation(struct pw_node *node);
 
+/** Add an event listener */
 void pw_node_add_listener(struct pw_node *node,
 			  struct spa_hook *listener,
 			  const struct pw_node_events *events,
 			  void *data);
-
-struct spa_hook_list *pw_node_get_listeners(struct pw_node *node);
 
 /** iterate the ports in the given direction */
 bool pw_node_for_each_port(struct pw_node *node,

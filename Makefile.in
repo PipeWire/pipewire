@@ -23,3 +23,13 @@ dist:
 
 rpm: dist
 	rpmbuild -ta pipewire-@VERSION@.tar.gz
+
+publish:
+	git branch -D gh-pages 2>/dev/null || true && \
+	git branch -D draft 2>/dev/null || true && \
+	git checkout -b draft && \
+	git add -f build/doc/html && \
+	git commit -anm "Deploy on gh-pages" && \
+	git subtree split --prefix build/doc/html -b gh-pages && \
+	git push --force origin gh-pages:gh-pages && \
+	git checkout master 2>/dev/null

@@ -778,6 +778,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	return true;
 
       error:
+	free(impl);
 	pw_log_error("Failed to connect to system bus: %s", error.message);
 	dbus_error_free(&error);
 	return false;

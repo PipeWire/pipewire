@@ -36,6 +36,7 @@ struct pw_main_loop;
 #include <pipewire/loop.h>
 #include <pipewire/properties.h>
 
+/** Events of the main loop */
 struct pw_main_loop_events {
 #define PW_VERSION_MAIN_LOOP_EVENTS	0
 	uint32_t version;
@@ -44,25 +45,27 @@ struct pw_main_loop_events {
 	void (*destroy) (void *data);
 };
 
+/** Create a new main loop */
 struct pw_main_loop *
 pw_main_loop_new(struct pw_properties *properties);
 
+/** Add an event listener */
 void pw_main_loop_add_listener(struct pw_main_loop *loop,
 			       struct spa_hook *listener,
 			       const struct pw_main_loop_events *events,
 			       void *data);
 
-struct pw_loop *
-pw_main_loop_get_loop(struct pw_main_loop *loop);
+/** Get the loop implementation */
+struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop);
 
-void
-pw_main_loop_destroy(struct pw_main_loop *loop);
+/** Destroy a loop */
+void pw_main_loop_destroy(struct pw_main_loop *loop);
 
-void
-pw_main_loop_run(struct pw_main_loop *loop);
+/** Run a main loop. This blocks until \ref pw_main_loop_quit is called */
+void pw_main_loop_run(struct pw_main_loop *loop);
 
-void
-pw_main_loop_quit(struct pw_main_loop *loop);
+/** Quit a main loop */
+void pw_main_loop_quit(struct pw_main_loop *loop);
 
 #ifdef __cplusplus
 }

@@ -49,28 +49,35 @@ struct pw_link;
 #include <pipewire/node.h>
 
 enum pw_port_state {
-	PW_PORT_STATE_ERROR = -1,
-	PW_PORT_STATE_INIT = 0,
-	PW_PORT_STATE_CONFIGURE = 1,
-	PW_PORT_STATE_READY = 2,
-	PW_PORT_STATE_PAUSED = 3,
-	PW_PORT_STATE_STREAMING = 4,
+	PW_PORT_STATE_ERROR = -1,	/**< the port is in error */
+	PW_PORT_STATE_INIT = 0,		/**< the port is being created */
+	PW_PORT_STATE_CONFIGURE = 1,	/**< the port is ready for format negotiation */
+	PW_PORT_STATE_READY = 2,	/**< the port is ready for buffer allocation */
+	PW_PORT_STATE_PAUSED = 3,	/**< the port is paused */
+	PW_PORT_STATE_STREAMING = 4,	/**< the port is streaming */
 };
 
+/** Port events, use \ref pw_port_add_listener */
 struct pw_port_events {
 #define PW_VERSION_PORT_EVENTS 0
 	uint32_t version;
 
+	/** The port is destroyed */
 	void (*destroy) (void *data);
 
+	/** The port is freed */
 	void (*free) (void *data);
 
+	/** a new link is added on this port */
 	void (*link_added) (void *data, struct pw_link *link);
 
+	/** a link is removed from this port */
 	void (*link_removed) (void *data, struct pw_link *link);
 
+	/** the state of the port changed */
 	void (*state_changed) (void *data, enum pw_port_state state);
 
+	/** the properties of the port changed */
 	void (*properties_changed) (void *data, const struct pw_properties *properties);
 };
 
@@ -85,8 +92,10 @@ pw_port_new(enum pw_direction direction,
 /** Get the port direction */
 enum pw_direction pw_port_get_direction(struct pw_port *port);
 
+/** Get the port properties */
 const struct pw_properties *pw_port_get_properties(struct pw_port *port);
 
+/** Update the port properties */
 void pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict);
 
 /** Get the port id */
@@ -98,6 +107,7 @@ struct pw_node *pw_port_get_node(struct pw_port *port);
 /** Add a port to a node \memberof pw_port */
 bool pw_port_add(struct pw_port *port, struct pw_node *node);
 
+/** Add an event listener on the port */
 void pw_port_add_listener(struct pw_port *port,
 			  struct spa_hook *listener,
 			  const struct pw_port_events *events,
@@ -106,6 +116,7 @@ void pw_port_add_listener(struct pw_port *port,
 /** Destroy a port \memberof pw_port */
 void pw_port_destroy(struct pw_port *port);
 
+/** Get the user data of a port, the size of the memory was given \ref in pw_port_new */
 void * pw_port_get_user_data(struct pw_port *port);
 
 #ifdef __cplusplus

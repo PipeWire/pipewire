@@ -31,9 +31,19 @@ extern "C" {
  * \section sec_page_proxy_overview Overview
  *
  * The proxy object is a client side representation of a resource
- * that lives on the server.
+ * that lives on a remote PipeWire instance.
  *
- * It is used to communicate with the server side object.
+ * It is used to communicate with the remote object.
+ *
+ * \section sec_page_proxy_core Core proxy
+ *
+ * A proxy for a remote core object can be obtained by making
+ * a remote connection. See \ref pw_page_remote_api
+ *
+ * A pw_core_proxy can then be retrieved with \ref pw_remote_get_core_proxy
+ *
+ * Some methods on proxy object allow creation of more proxy objects or
+ * create a binding between a local proxy and global resource.
  *
  * \section sec_page_proxy_create Create
  *
@@ -77,8 +87,8 @@ extern "C" {
  *
  * \brief Represents an object on the client side.
  *
- * A pw_proxy acts as a client side proxy to an object existing in the
- * pipewire server. The proxy is responsible for converting interface functions
+ * A pw_proxy acts as a client side proxy to an object existing in a remote
+ * pipewire instance. The proxy is responsible for converting interface functions
  * invoked by the client to PipeWire messages. Events will call the handlers
  * set in listener.
  *
@@ -88,41 +98,51 @@ struct pw_proxy;
 
 #include <pipewire/protocol.h>
 
+/** Proxy events, use \ref pw_proxy_add_listener */
 struct pw_proxy_events {
 #define PW_VERSION_PROXY_EVENTS		0
         uint32_t version;
 
+	/** The proxy is destroyed */
         void (*destroy) (void *data);
 };
 
-/** Make a new proxy object. The id can be used to bind to a remote object. */
+/** Make a new proxy object. The id can be used to bind to a remote object and
+  * can be retrieved with \ref pw_proxy_get_id . */
 struct pw_proxy *
 pw_proxy_new(struct pw_proxy *factory,	/**< factory */
 	     uint32_t type,		/**< interface type */
 	     size_t user_data_size	/**< size of user data */);
 
-void
-pw_proxy_add_listener(struct pw_proxy *proxy,
-		       struct spa_hook *listener,
-		       const struct pw_proxy_events *events,
-		       void *data);
+/** Add an event listener to proxy */
+void pw_proxy_add_listener(struct pw_proxy *proxy,
+			   struct spa_hook *listener,
+			   const struct pw_proxy_events *events,
+			   void *data);
 
-void
-pw_proxy_add_proxy_listener(struct pw_proxy *proxy,		/**< the proxy */
-			    struct spa_hook *listener,		/**< listener */
-			    const void *events,			/**< proxied events */
-			    void *data				/**< data passed to events */);
+/** Add a listener for the events received from the remote resource. The
+  * events depend on the type of the remote resource. */
+void pw_proxy_add_proxy_listener(struct pw_proxy *proxy,	/**< the proxy */
+				 struct spa_hook *listener,	/**< listener */
+				 const void *events,		/**< proxied events */
+				 void *data			/**< data passed to events */);
 
+/** destroy a proxy */
 void pw_proxy_destroy(struct pw_proxy *proxy);
 
+/** Get the user_data. The size was given in \ref pw_proxy_new */
 void *pw_proxy_get_user_data(struct pw_proxy *proxy);
 
+/** Get the local id of the proxy */
 uint32_t pw_proxy_get_id(struct pw_proxy *proxy);
 
+/** Get the protocol used for the proxy */
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
 
+/** Get the listener of proxy */
 struct spa_hook_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy);
 
+/** Get the marshal functions for the proxy */
 const struct pw_protocol_marshal *pw_proxy_get_marshal(struct pw_proxy *proxy);
 
 #define pw_proxy_notify(p,type,event,...)	spa_hook_list_call(pw_proxy_get_proxy_listeners(p),type,event,## __VA_ARGS__)

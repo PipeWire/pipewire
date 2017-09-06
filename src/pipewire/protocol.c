@@ -20,6 +20,7 @@
 #include <pipewire/protocol.h>
 #include <pipewire/private.h>
 
+/** \cond */
 struct impl {
 	struct pw_protocol this;
 };
@@ -29,6 +30,7 @@ struct marshal {
 	const struct pw_protocol_marshal *marshal;
 	uint32_t type;
 };
+/** \endcond */
 
 struct pw_protocol *pw_protocol_new(struct pw_core *core,
 				    const char *name,

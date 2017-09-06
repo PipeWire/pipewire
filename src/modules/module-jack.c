@@ -1038,11 +1038,6 @@ static struct client *client_new(struct impl *impl, int fd)
 	if (properties == NULL)
 		goto no_props;
 
-	if (ucredp) {
-		pw_properties_setf(properties, "application.process.id", "%d", ucredp->pid);
-		pw_properties_setf(properties, "application.process.userid", "%d", ucredp->uid);
-	}
-
         client = pw_client_new(impl->core, pw_module_get_global(impl->module),
 			       ucredp, properties, sizeof(struct client));
 	if (client == NULL)

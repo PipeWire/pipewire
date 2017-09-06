@@ -10,6 +10,16 @@ else
   doxyfile_conf.set('HAVE_DOT', 'NO')
 endif
 
+inputs = ''
+foreach h : pipewire_headers
+  inputs += ' ' + join_paths(meson.source_root(), 'src', 'pipewire', h)
+endforeach
+foreach h : pipewire_sources
+  inputs += ' ' + join_paths(meson.source_root(), 'src', 'pipewire', h)
+endforeach
+
+doxyfile_conf.set('inputs', inputs)
+
 doxyfile = configure_file(input: 'Doxyfile.in',
                           output: 'Doxyfile',
                           configuration: doxyfile_conf,

@@ -230,6 +230,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 	socklen_t len;
 	struct ucred ucred, *ucredp;
 	struct pw_core *core = protocol->core;
+	struct pw_properties *props;
 
 	len = sizeof(ucred);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
@@ -239,10 +240,14 @@ static struct pw_client *client_new(struct server *s, int fd)
 		ucredp = &ucred;
 	}
 
+	props = pw_properties_new("pipewire.protocol", "protocol-native", NULL);
+	if (props == NULL)
+		goto no_props;
+
 	client = pw_client_new(protocol->core,
 			       pw_module_get_global(pd->module),
 			       ucredp,
-			       NULL,
+			       props,
 			       sizeof(struct client_data));
 	if (client == NULL)
 		goto no_client;
@@ -272,6 +277,7 @@ static struct pw_client *client_new(struct server *s, int fd)
       no_source:
 	pw_client_destroy(client);
       no_client:
+      no_props:
 	return NULL;
 }
 

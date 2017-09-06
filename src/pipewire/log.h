@@ -30,7 +30,7 @@ extern "C" {
  *
  * Logging functions of PipeWire
  *
- * Loggin is performed to stdout and stderr. Trace logging is performed
+ * Logging is performed to stdout and stderr. Trace logging is performed
  * in a lockfree ringbuffer and written out from the main thread as to not
  * block the realtime threads.
  */

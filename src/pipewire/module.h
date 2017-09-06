@@ -53,30 +53,38 @@ struct pw_module;
  */
 typedef bool (*pw_module_init_func_t) (struct pw_module *module, char *args);
 
+/** Module events added with \ref pw_module_add_listener */
 struct pw_module_events {
 #define PW_VERSION_MODULE_EVENTS	0
 	uint32_t version;
 
+	/** The module id destroyed */
 	void (*destroy) (void *data);
 };
 
+/** Load a module by name and arguments */
 struct pw_module *
 pw_module_load(struct pw_core *core, const char *name, const char *args);
 
+/** Get the core of a module */
 struct pw_core * pw_module_get_core(struct pw_module *module);
 
+/** Get the global of a module */
 struct pw_global * pw_module_get_global(struct pw_module *module);
 
+/** Get the module info */
 const struct pw_module_info *pw_module_get_info(struct pw_module *module);
 
+/** Add an event listener to a module */
 void pw_module_add_listener(struct pw_module *module,
 			    struct spa_hook *listener,
 			    const struct pw_module_events *events,
 			    void *data);
 
-void
-pw_module_destroy(struct pw_module *module);
+/** Destroy a module */
+void pw_module_destroy(struct pw_module *module);
 
+/** Find a module by filename */
 struct pw_module *
 pw_core_find_module(struct pw_core *core, const char *filename);
 

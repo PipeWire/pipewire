@@ -70,9 +70,9 @@ extern "C" {
  * on to the lock more than necessary though, as the threaded loop stops
  * while the lock is held.
  *
- * \section sec_thread_loop_signals Signals and Callbacks
+ * \section sec_thread_loop_events Events and Callbacks
  *
- * All signals and callbacks are called with the thread lock held.
+ * All events and callbacks are called with the thread lock held.
  *
  */
 /** \class pw_thread_loop
@@ -89,49 +89,54 @@ extern "C" {
  */
 struct pw_thread_loop;
 
+/** Thread loop events */
 struct pw_thread_loop_events {
 #define PW_VERSION_THREAD_LOOP_EVENTS	0
         uint32_t version;
 
+	/** the loop is destroyed */
         void (*destroy) (void *data);
 };
 
+/** Make a new thread loop with the given name */
 struct pw_thread_loop *
 pw_thread_loop_new(struct pw_loop *loop, const char *name);
 
-void
-pw_thread_loop_destroy(struct pw_thread_loop *loop);
+/** Destroy a thread loop */
+void pw_thread_loop_destroy(struct pw_thread_loop *loop);
 
+/** Add an event listener */
 void pw_thread_loop_add_listener(struct pw_thread_loop *loop,
 				 struct spa_hook *listener,
 				 const struct pw_thread_loop_events *events,
 				 void *data);
-struct pw_loop *
-pw_thread_loop_get_loop(struct pw_thread_loop *loop);
 
-int
-pw_thread_loop_start(struct pw_thread_loop *loop);
+/** Get the loop implementation of the thread loop */
+struct pw_loop * pw_thread_loop_get_loop(struct pw_thread_loop *loop);
 
-void
-pw_thread_loop_stop(struct pw_thread_loop *loop);
+/** Start the thread loop */
+int pw_thread_loop_start(struct pw_thread_loop *loop);
 
-void
-pw_thread_loop_lock(struct pw_thread_loop *loop);
+/** Stop the thread loop */
+void pw_thread_loop_stop(struct pw_thread_loop *loop);
 
-void
-pw_thread_loop_unlock(struct pw_thread_loop *loop);
+/** Lock the loop. This ensures exclusive ownership of the loop */
+void pw_thread_loop_lock(struct pw_thread_loop *loop);
 
-void
-pw_thread_loop_wait(struct pw_thread_loop *loop);
+/** Unlock the loop */
+void pw_thread_loop_unlock(struct pw_thread_loop *loop);
 
-void
-pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept);
+/** Release the lock and wait until some thread calls \ref pw_thread_loop_signal */
+void pw_thread_loop_wait(struct pw_thread_loop *loop);
 
-void
-pw_thread_loop_accept(struct pw_thread_loop *loop);
+/** Signal all threads waiting with \ref pw_thread_loop_wait */
+void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept);
 
-bool
-pw_thread_loop_in_thread(struct pw_thread_loop *loop);
+/** Signal all threads executing \ref pw_thread_loop_signal with wait_for_accept */
+void pw_thread_loop_accept(struct pw_thread_loop *loop);
+
+/** Check if inside the thread */
+bool pw_thread_loop_in_thread(struct pw_thread_loop *loop);
 
 #ifdef __cplusplus
 }

@@ -52,7 +52,7 @@ struct pw_link_proxy;
  * \section page_iface_pw_core_desc Description
  *
  * The core global object.  This is a special singleton object.  It
- * is used for internal Wayland protocol features.
+ * is used for internal PipeWire protocol features.
  * \section page_iface_pw_core API
  */
 
@@ -80,8 +80,8 @@ struct pw_link_proxy;
  * \brief Core methods
  *
  * The core global object. This is a singleton object used for
- * creating new objects in the PipeWire server. It is also used
- * for internal features.
+ * creating new objects in the remote PipeWire intance. It is
+ * also used for internal features.
  */
 struct pw_core_proxy_methods {
 #define PW_VERSION_CORE_PROXY_METHODS	0
@@ -307,6 +307,32 @@ pw_core_proxy_add_listener(struct pw_core_proxy *core,
 
 
 #define PW_VERSION_REGISTRY			0
+
+/** \page page_registry Registry
+ *
+ * \section page_registry_overview Overview
+ *
+ * The registry object is a singleton object that keeps track of
+ * global objects on the PipeWire instance. See also \ref page_global.
+ *
+ * Global objects typically represent an actual object in PipeWire
+ * (for example, a module or node) or they are singleton
+ * objects such as the core.
+ *
+ * When a client creates a registry object, the registry object
+ * will emit a global event for each global currently in the
+ * registry.  Globals come and go as a result of device hotplugs or
+ * reconfiguration or other events, and the registry will send out
+ * global and global_remove events to keep the client up to date
+ * with the changes.  To mark the end of the initial burst of
+ * events, the client can use the pw_core.sync methosd immediately
+ * after calling pw_core.get_registry.
+ *
+ * A client can bind to a global object by using the bind
+ * request.  This creates a client-side proxy that lets the object
+ * emit events to the client and lets the client invoke methods on
+ * the object. See \ref page_proxy
+ */
 
 #define PW_REGISTRY_PROXY_METHOD_BIND		0
 #define PW_REGISTRY_PROXY_METHOD_NUM		1

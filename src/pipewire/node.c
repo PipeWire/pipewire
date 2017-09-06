@@ -461,11 +461,6 @@ void pw_node_add_listener(struct pw_node *node,
 	spa_hook_list_append(&node->listener_list, listener, events, data);
 }
 
-struct spa_hook_list *pw_node_get_listeners(struct pw_node *node)
-{
-	return &node->listener_list;
-}
-
 static int
 do_node_remove(struct spa_loop *loop,
 	       bool async, uint32_t seq, size_t size, const void *data, void *user_data)

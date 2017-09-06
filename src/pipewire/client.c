@@ -108,6 +108,18 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	this->core = core;
 	if ((this->ucred_valid = (ucred != NULL)))
 		this->ucred = *ucred;
+
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		return NULL;
+
+	if (ucred) {
+		pw_properties_setf(properties, "pipewire.ucred.pid", "%d", ucred->pid);
+		pw_properties_setf(properties, "pipewire.ucred.uid", "%d", ucred->uid);
+		pw_properties_setf(properties, "pipewire.ucred.gid", "%d", ucred->gid);
+	}
+
 	this->properties = properties;
 
 	if (user_data_size > 0)

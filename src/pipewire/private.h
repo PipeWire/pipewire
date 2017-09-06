@@ -32,6 +32,7 @@ extern "C" {
 #include "pipewire/pipewire.h"
 #include "pipewire/introspect.h"
 
+/** \cond */
 struct pw_command {
 	struct spa_list link;	/**< link in list of commands */
 	const char *name;	/**< command name */
@@ -380,6 +381,8 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 int pw_port_alloc_buffers(struct pw_port *port,
 			  struct spa_param **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers);
+
+/** \endcond */
 
 #ifdef __cplusplus
 }

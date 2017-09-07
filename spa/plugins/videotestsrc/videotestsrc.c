@@ -116,6 +116,7 @@ struct impl {
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 
+	bool async;
 	struct spa_source timer_source;
 	struct itimerspec timerspec;
 
@@ -143,7 +144,7 @@ struct impl {
 #define CHECK_PORT_NUM(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) < MAX_PORTS)
 #define CHECK_PORT(this,d,p)      (CHECK_PORT_NUM(this,d,p) && this->io)
 
-#define DEFAULT_LIVE true
+#define DEFAULT_LIVE false
 #define DEFAULT_PATTERN pattern_smpte_snow
 
 static void reset_props(struct impl *this, struct props *props)
@@ -224,7 +225,7 @@ static int fill_buffer(struct impl *this, struct buffer *b)
 
 static void set_timer(struct impl *this, bool enabled)
 {
-	if ((this->callbacks && this->callbacks->have_output) || this->props.live) {
+	if (this->async || this->props.live) {
 		if (enabled) {
 			if (this->props.live) {
 				uint64_t next_time = this->start_time + this->elapsed_time;
@@ -246,7 +247,7 @@ static void read_timer(struct impl *this)
 {
 	uint64_t expirations;
 
-	if ((this->callbacks && this->callbacks->have_output) || this->props.live) {
+	if (this->async || this->props.live) {
 		if (read(this->timer_source.fd, &expirations, sizeof(uint64_t)) != sizeof(uint64_t))
 			perror("read timerfd");
 	}
@@ -366,10 +367,6 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	if (this->data_loop == NULL && callbacks != NULL && callbacks->have_output != NULL) {
-		spa_log_error(this->log, "a data_loop is needed for async operation");
-		return SPA_RESULT_ERROR;
-	}
 	this->callbacks = callbacks;
 	this->callbacks_data = data;
 
@@ -631,7 +628,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			PROP(&f[1], this->type.param_alloc_buffers.stride, SPA_POD_TYPE_INT,
 				this->stride),
 			PROP_U_MM(&f[1], this->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
-				32, 2, 32),
+				2, 1, 32),
 			PROP(&f[1], this->type.param_alloc_buffers.align, SPA_POD_TYPE_INT,
 				16));
 			break;
@@ -697,8 +694,9 @@ impl_node_port_use_buffers(struct spa_node *node,
 		     d[0].type == this->type.data.DmaBuf) && d[0].data == NULL) {
 			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
 				      buffers[i]);
+			return SPA_RESULT_ERROR;
 		}
-		spa_list_insert(this->empty.prev, &b->link);
+		spa_list_append(&this->empty, &b->link);
 	}
 	this->n_buffers = n_buffers;
 
@@ -712,7 +710,7 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 			     struct spa_param **params,
 			     uint32_t n_params,
 			     struct spa_buffer **buffers,
-			     uint32_t * n_buffers)
+			     uint32_t *n_buffers)
 {
 	struct impl *this;
 
@@ -755,7 +753,7 @@ static inline void reuse_buffer(struct impl *this, uint32_t id)
 	spa_log_trace(this->log, NAME " %p: reuse buffer %d", this, id);
 
 	b->outstanding = false;
-	spa_list_insert(this->empty.prev, &b->link);
+	spa_list_append(&this->empty, &b->link);
 
 	if (!this->props.live)
 		set_timer(this, true);
@@ -811,16 +809,24 @@ static int impl_node_process_output(struct spa_node *node)
 		this->io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if ((this->callbacks == NULL || this->callbacks->have_output == NULL) &&
-			(io->status == SPA_RESULT_NEED_BUFFER))
+	if (!this->async && (io->status == SPA_RESULT_NEED_BUFFER))
 		return make_buffer(this);
 	else
 		return SPA_RESULT_OK;
 }
 
+static const struct spa_dict_item node_info_items[] = {
+	{ "media.class", "Video/Source" },
+};
+
+static const struct spa_dict node_info = {
+	SPA_N_ELEMENTS(node_info_items),
+	node_info_items
+};
+
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
-	NULL,
+	&node_info,
 	impl_node_get_props,
 	impl_node_set_props,
 	impl_node_send_command,
@@ -1005,10 +1011,20 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return SPA_RESULT_OK;
 }
 
+static const struct spa_dict_item info_items[] = {
+	{ "factory.author", "Wim Taymans <wim.taymans@gmail.com>" },
+	{ "factory.description", "Generate a video test pattern" },
+};
+
+static const struct spa_dict info = {
+	SPA_N_ELEMENTS(info_items),
+	info_items
+};
+
 const struct spa_handle_factory spa_videotestsrc_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
-	NULL,
+	&info,
 	sizeof(struct impl),
 	impl_init,
 	impl_enum_interface_info,

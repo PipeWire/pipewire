@@ -76,19 +76,20 @@ const char *pw_link_state_as_string(enum pw_link_state state)
 
 static void pw_spa_dict_destroy(struct spa_dict *dict)
 {
-	struct spa_dict_item *item;
+	const struct spa_dict_item *item;
 
 	spa_dict_for_each(item, dict) {
 		free((void *) item->key);
 		free((void *) item->value);
 	}
-	free(dict->items);
+	free((void*)dict->items);
 	free(dict);
 }
 
 static struct spa_dict *pw_spa_dict_copy(struct spa_dict *dict)
 {
 	struct spa_dict *copy;
+	struct spa_dict_item *items;
 	uint32_t i;
 
 	if (dict == NULL)
@@ -97,14 +98,14 @@ static struct spa_dict *pw_spa_dict_copy(struct spa_dict *dict)
 	copy = calloc(1, sizeof(struct spa_dict));
 	if (copy == NULL)
 		goto no_mem;
-	copy->items = calloc(dict->n_items, sizeof(struct spa_dict_item));
+	copy->items = items = calloc(dict->n_items, sizeof(struct spa_dict_item));
 	if (copy->items == NULL)
 		goto no_items;
 	copy->n_items = dict->n_items;
 
 	for (i = 0; i < dict->n_items; i++) {
-		copy->items[i].key = strdup(dict->items[i].key);
-		copy->items[i].value = strdup(dict->items[i].value);
+		items[i].key = strdup(dict->items[i].key);
+		items[i].value = strdup(dict->items[i].value);
 	}
 	return copy;
 

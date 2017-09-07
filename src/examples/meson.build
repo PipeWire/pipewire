@@ -3,13 +3,14 @@ executable('video-src',
   install: false,
   dependencies : [pipewire_dep],
 )
-executable('export-v4l2',
-  'export-v4l2.c',
-  install: false,
-  dependencies : [pipewire_dep],
-)
 executable('export-source',
   'export-source.c',
+  install: false,
+  dependencies : [pipewire_dep, libm],
+)
+
+executable('export-spa',
+  'export-spa.c',
   install: false,
   dependencies : [pipewire_dep, libm],
 )

@@ -38,7 +38,7 @@ struct spa_dict_item {
 
 struct spa_dict {
 	uint32_t n_items;
-	struct spa_dict_item *items;
+	const struct spa_dict_item *items;
 };
 
 #define SPA_DICT_INIT(n_items,items) { n_items, items }
@@ -48,10 +48,10 @@ struct spa_dict {
 	     (item) < &(dict)->items[(dict)->n_items];		\
 	     (item)++)
 
-static inline struct spa_dict_item *spa_dict_lookup_item(const struct spa_dict *dict,
-							 const char *key)
+static inline const struct spa_dict_item *spa_dict_lookup_item(const struct spa_dict *dict,
+							       const char *key)
 {
-	struct spa_dict_item *item;
+	const struct spa_dict_item *item;
 	spa_dict_for_each(item, dict) {
 		if (!strcmp(item->key, key))
 			return item;
@@ -61,7 +61,7 @@ static inline struct spa_dict_item *spa_dict_lookup_item(const struct spa_dict *
 
 static inline const char *spa_dict_lookup(const struct spa_dict *dict, const char *key)
 {
-	struct spa_dict_item *item = spa_dict_lookup_item(dict, key);
+	const struct spa_dict_item *item = spa_dict_lookup_item(dict, key);
 	return item ? item->value : NULL;
 }
 

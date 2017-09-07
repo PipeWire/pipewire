@@ -198,7 +198,7 @@ new_node (GstPipeWireDeviceProvider *self, const struct pw_node_info *info, uint
   GstCaps *caps = NULL;
   GstStructure *props;
   const gchar *klass = NULL;
-  struct spa_dict_item *item;
+  const struct spa_dict_item *item;
   GstPipeWireDeviceType type;
   int i;
   struct pw_type *t = self->type;

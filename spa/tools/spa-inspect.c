@@ -89,6 +89,12 @@ static void inspect_node(struct data *data, struct spa_node *node)
 	uint32_t *in_ports, *out_ports;
 	struct spa_props *props;
 
+	printf("node info:\n");
+	if (node->info)
+		spa_debug_dict(node->info);
+	else
+		printf("  none\n");
+
 	if ((res = spa_node_get_props(node, &props)) < 0)
 		printf("can't get properties: %d\n", res);
 	else

@@ -103,20 +103,6 @@ pw_spa_node_new(struct pw_core *core,
 	struct pw_node *this;
 	struct impl *impl;
 
-	if (node->info) {
-		uint32_t i;
-
-		if (properties == NULL)
-			properties = pw_properties_new(NULL, NULL);
-		if (properties == NULL)
-			return NULL;
-
-		for (i = 0; i < node->info->n_items; i++)
-			pw_properties_set(properties,
-					  node->info->items[i].key,
-					  node->info->items[i].value);
-	}
-
 	this = pw_node_new(core, owner, parent, name, properties, sizeof(struct impl) + user_data_size);
 	if (this == NULL)
 		return NULL;

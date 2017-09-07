@@ -610,7 +610,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 						      data_sizes, data_strides,
 						      &this->buffer_mem);
 
-			pw_log_debug("link %p: allocating %d input buffers %p %zd %zd", this,
+			pw_log_debug("link %p: allocating %d buffers %p %zd %zd", this,
 				     this->n_buffers, this->buffers, minsize, stride);
 		}
 

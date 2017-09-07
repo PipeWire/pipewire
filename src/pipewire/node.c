@@ -500,6 +500,14 @@ void pw_node_set_implementation(struct pw_node *node,
 	node->node = spa_node;
 	spa_node_set_callbacks(node->node, &node_callbacks, node);
 	spa_graph_node_set_implementation(&node->rt.node, spa_node);
+
+	if (spa_node->info) {
+		uint32_t i;
+		for (i = 0; i < spa_node->info->n_items; i++)
+			pw_properties_set(node->properties,
+					  spa_node->info->items[i].key,
+					  spa_node->info->items[i].value);
+	}
 }
 
 struct spa_node *pw_node_get_implementation(struct pw_node *node)

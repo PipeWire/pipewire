@@ -96,7 +96,6 @@ static void add_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
 			pw_properties_set(props, key, val);
 		}
 	}
-	pw_properties_set(props, "media.class", klass);
 
 	support = pw_core_get_support(impl->core, &n_support);
 

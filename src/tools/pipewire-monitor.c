@@ -54,7 +54,7 @@ struct proxy_data {
 
 static void print_properties(struct spa_dict *props, char mark)
 {
-	struct spa_dict_item *item;
+	const struct spa_dict_item *item;
 
 	printf("%c\tproperties:\n", mark);
 	if (props == NULL || props->n_items == 0) {

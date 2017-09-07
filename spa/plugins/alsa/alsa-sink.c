@@ -32,7 +32,7 @@
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_min_latency = 64;
+static const uint32_t default_min_latency = 128;
 
 static void reset_props(struct props *props)
 {
@@ -446,7 +446,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &this->buffers[i];
-		uint32_t type = buffers[i]->datas[0].type;
+		uint32_t type;
 
 		b->outbuf = buffers[i];
 		b->outstanding = true;
@@ -454,6 +454,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->h = spa_buffer_find_meta(b->outbuf, this->type.meta.Header);
 		b->rb = spa_buffer_find_meta(b->outbuf, this->type.meta.Ringbuffer);
 
+		type = buffers[i]->datas[0].type;
 		if ((type == this->type.data.MemFd ||
 		     type == this->type.data.DmaBuf ||
 		     type == this->type.data.MemPtr) && buffers[i]->datas[0].data == NULL) {
@@ -569,10 +570,18 @@ static int impl_node_process_output(struct spa_node *node)
 	return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
+static const struct spa_dict_item node_info_items[] = {
+	{ "media.class", "Audio/Sink" },
+};
+
+static const struct spa_dict node_info = {
+	SPA_N_ELEMENTS(node_info_items),
+	node_info_items
+};
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
-	NULL,
+	&node_info,
 	impl_node_get_props,
 	impl_node_set_props,
 	impl_node_send_command,
@@ -693,10 +702,20 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return SPA_RESULT_OK;
 }
 
+static const struct spa_dict_item info_items[] = {
+	{ "factory.author", "Wim Taymans <wim.taymans@gmail.com>" },
+	{ "factory.description", "Play audio with the alsa API" },
+};
+
+static const struct spa_dict info = {
+	SPA_N_ELEMENTS(info_items),
+	info_items
+};
+
 const struct spa_handle_factory spa_alsa_sink_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
-	NULL,
+	&info,
 	sizeof(struct state),
 	impl_init,
 	impl_enum_interface_info,

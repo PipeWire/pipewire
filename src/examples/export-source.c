@@ -29,8 +29,6 @@
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/module.h>
-#include <pipewire/node-factory.h>
 
 #define M_PI_M2 ( M_PI + M_PI )
 
@@ -311,9 +309,6 @@ static int impl_node_process_output(struct spa_node *node)
 	int i, c, n_samples;
 	int16_t *dst;
         struct spa_port_io *io = d->io;
-
-	if (io->status == SPA_RESULT_HAVE_BUFFER)
-		return SPA_RESULT_HAVE_BUFFER;
 
 	if (io->buffer_id < d->n_buffers) {
 		reuse_buffer(d, io->buffer_id);

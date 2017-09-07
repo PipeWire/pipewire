@@ -823,9 +823,18 @@ static int impl_node_process_output(struct spa_node *node)
 	return res;
 }
 
+static const struct spa_dict_item info_items[] = {
+	{ "media.class", "Video/Source" },
+};
+
+static const struct spa_dict info = {
+	SPA_N_ELEMENTS(info_items),
+	info_items
+};
+
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
-	NULL,
+	&info,
 	impl_node_get_props,
 	impl_node_set_props,
 	impl_node_send_command,

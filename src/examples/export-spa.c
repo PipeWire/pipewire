@@ -29,7 +29,6 @@
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/module.h>
 #include <pipewire/node-factory.h>
 
 struct data {
@@ -42,19 +41,33 @@ struct data {
 	struct spa_hook remote_listener;
 
 	struct pw_node *node;
+	const char *library;
+	const char *factory;
+	const char *path;
 };
 
-static void make_node(struct data *data)
+static int make_node(struct data *data)
 {
 	struct pw_node_factory *factory;
 	struct pw_properties *props;
 
         factory = pw_core_find_node_factory(data->core, "spa-node-factory");
-        props = pw_properties_new("spa.library.name", "v4l2/libspa-v4l2",
-                                  "spa.factory.name", "v4l2-source", NULL);
-        data->node = pw_node_factory_create_node(factory, NULL, "v4l2-source", props);
+	if (factory == NULL)
+		return -1;
+
+        props = pw_properties_new("spa.library.name", data->library,
+                                  "spa.factory.name", data->factory, NULL);
+
+	if (data->path) {
+		pw_properties_set(props, "pipewire.autoconnect", "1");
+		pw_properties_set(props, "pipewire.target.node", data->path);
+	}
+
+        data->node = pw_node_factory_create_node(factory, NULL, data->factory, props);
 
 	pw_remote_export(data->remote, data->node);
+
+	return 0;
 }
 
 static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
@@ -69,7 +82,10 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 	case PW_REMOTE_STATE_CONNECTED:
 		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-		make_node(data);
+		if (make_node(data) < 0) {
+			pw_log_error("can't make node");
+			pw_main_loop_quit(data->loop);
+		}
 		break;
 
 	default:
@@ -96,6 +112,13 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
+	if (argc < 3) {
+		fprintf(stderr, "usage: %s <library> <factory> [path]\n\n"
+				"\texample: %s v4l2/libspa-v4l2 v4l2-source\n\n",
+				argv[0], argv[0]);
+		return -1;
+	}
+
 	data.loop = pw_main_loop_new(NULL);
 	l = pw_main_loop_get_loop(data.loop);
         pw_loop_add_signal(l, SIGINT, do_quit, &data);
@@ -103,6 +126,10 @@ int main(int argc, char *argv[])
 	data.core = pw_core_new(l, NULL);
 	data.t = pw_core_get_type(data.core);
         data.remote = pw_remote_new(data.core, NULL);
+	data.library = argv[1];
+	data.factory = argv[2];
+	if (argc > 3)
+		data.path = argv[3];
 
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL);
 
@@ -114,7 +141,6 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
-	pw_remote_destroy(data.remote);
 	if (data.node)
 		pw_node_destroy(data.node);
 	pw_core_destroy(data.core);

@@ -580,9 +580,18 @@ static int impl_node_process_output(struct spa_node *node)
 	return SPA_RESULT_OK;
 }
 
+static const struct spa_dict_item node_info_items[] = {
+	{ "media.class", "Audio/Sink" },
+};
+
+static const struct spa_dict node_info = {
+	SPA_N_ELEMENTS(node_info_items),
+	node_info_items
+};
+
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
-	NULL,
+	&node_info,
 	impl_node_get_props,
 	impl_node_set_props,
 	impl_node_send_command,
@@ -749,10 +758,20 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return SPA_RESULT_OK;
 }
 
+static const struct spa_dict_item info_items[] = {
+	{ "factory.author", "Wim Taymans <wim.taymans@gmail.com>" },
+	{ "factory.description", "Record audio with the alsa API" },
+};
+
+static const struct spa_dict info = {
+	SPA_N_ELEMENTS(info_items),
+	info_items
+};
+
 const struct spa_handle_factory spa_alsa_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
-	NULL,
+	&info,
 	sizeof(struct state),
 	impl_init,
 	impl_enum_interface_info,

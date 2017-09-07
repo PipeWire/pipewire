@@ -4,6 +4,7 @@ pkgconf.set('prefix', get_option('prefix'))
 pkgconf.set('exec_prefix', '${prefix}')
 pkgconf.set('libdir', '${prefix}/@0@'.format(get_option('libdir')))
 pkgconf.set('includedir', '${prefix}/@0@'.format(get_option('includedir')))
+pkgconf.set('moduledir', '${prefix}/@0@'.format(modules_install_dir))
 pkgconf.set('PIPEWIRE_API_VERSION', apiversion)
 pkgconf.set('VERSION', pipewire_version)
 

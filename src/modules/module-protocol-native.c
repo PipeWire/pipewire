@@ -693,6 +693,8 @@ impl_add_server(struct pw_protocol *protocol,
 	spa_list_init(&this->client_list);
 	this->destroy = destroy_server;
 
+	spa_list_append(&protocol->server_list, &this->link);
+
 	name = get_name(pw_core_get_properties(core));
 
 	if (!init_socket_name(s, name))
@@ -703,8 +705,6 @@ impl_add_server(struct pw_protocol *protocol,
 
 	if (!add_socket(protocol, s))
 		goto error;
-
-	spa_list_append(&protocol->server_list, &this->link);
 
 	pw_loop_add_hook(pw_core_get_main_loop(core), &s->hook, &impl_hooks, s);
 
@@ -831,7 +831,8 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 
 	if ((val = pw_properties_get(pw_core_get_properties(core), "pipewire.daemon"))) {
 		if (atoi(val) == 1)
-			impl_add_server(this, core, properties);
+			if (impl_add_server(this, core, properties) == NULL)
+				return false;
 	}
 
 	pw_module_add_listener(module, &d->module_listener, &module_events, d);

@@ -32,7 +32,7 @@
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_min_latency = 128;
+static const uint32_t default_min_latency = 64;
 
 static void reset_props(struct props *props)
 {
@@ -368,13 +368,13 @@ impl_node_port_enum_params(struct spa_node *node,
 	switch (index) {
 	case 0:
 		spa_pod_builder_object(&b, &f[0], 0, this->type.param_alloc_buffers.Buffers,
-			PROP(&f[1], this->type.param_alloc_buffers.size, SPA_POD_TYPE_INT,
-				this->props.min_latency * this->frame_size),
+			PROP_U_MM(&f[1], this->type.param_alloc_buffers.size, SPA_POD_TYPE_INT,
+				  this->props.min_latency * this->frame_size,
+				  this->props.min_latency * this->frame_size, INT32_MAX),
 			PROP(&f[1], this->type.param_alloc_buffers.stride, SPA_POD_TYPE_INT,
 				0),
 			PROP_MM(&f[1], this->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
-				32,
-				1, 32),
+				2, 2, 32),
 			PROP(&f[1], this->type.param_alloc_buffers.align, SPA_POD_TYPE_INT,
 				16));
 		break;

@@ -67,14 +67,12 @@ struct data {
 	SDL_Window *window;
 	SDL_Texture *texture;
 
-	bool running;
-	struct pw_loop *loop;
+	struct pw_main_loop *loop;
 	struct spa_source *timer;
 
 	struct pw_core *core;
 	struct pw_type *t;
 	struct pw_node *node;
-	struct pw_port *port;
 	struct spa_port_info port_info;
 
 	struct pw_node *v4l2;
@@ -105,7 +103,7 @@ static void handle_events(struct data *data)
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
 		case SDL_QUIT:
-			data->running = false;
+			pw_main_loop_quit(data->loop);
 			break;
 		}
 	}
@@ -196,6 +194,28 @@ static int impl_set_callbacks(struct spa_node *node,
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	d->callbacks = callbacks;
 	d->callbacks_data = data;
+	return SPA_RESULT_OK;
+}
+
+static int impl_get_n_ports(struct spa_node *node,
+			    uint32_t *n_input_ports,
+			    uint32_t *max_input_ports,
+			    uint32_t *n_output_ports,
+			    uint32_t *max_output_ports)
+{
+	*n_input_ports = *max_input_ports = 1;
+	*n_output_ports = *max_output_ports = 0;
+	return SPA_RESULT_OK;
+}
+
+static int impl_get_port_ids(struct spa_node *node,
+                             uint32_t n_input_ports,
+                             uint32_t *input_ids,
+                             uint32_t n_output_ports,
+                             uint32_t *output_ids)
+{
+	if (n_input_ports > 0)
+                input_ids[0] = 0;
 	return SPA_RESULT_OK;
 }
 
@@ -414,6 +434,8 @@ static const struct spa_node impl_node = {
 	NULL,
 	.send_command = impl_send_command,
 	.set_callbacks = impl_set_callbacks,
+	.get_n_ports = impl_get_n_ports,
+	.get_port_ids = impl_get_port_ids,
 	.port_set_io = impl_port_set_io,
 	.port_enum_formats = impl_port_enum_formats,
 	.port_set_format = impl_port_set_format,
@@ -432,8 +454,6 @@ static void make_nodes(struct data *data)
 	data->impl_node = impl_node;
 	pw_node_set_implementation(data->node, &data->impl_node);
 
-	data->port = pw_port_new(PW_DIRECTION_INPUT, 0, NULL, 0);
-	pw_port_add(data->port, data->node);
 	pw_node_register(data->node);
 
 	factory = pw_core_find_node_factory(data->core, "spa-node-factory");
@@ -444,7 +464,7 @@ static void make_nodes(struct data *data)
 	data->link = pw_link_new(data->core,
 				 NULL,
 				 pw_node_get_free_port(data->v4l2, PW_DIRECTION_OUTPUT),
-				 data->port,
+				 pw_node_find_port(data->node, PW_DIRECTION_INPUT, 0),
 				 NULL,
 				 NULL,
 				 NULL,
@@ -458,9 +478,8 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
-	data.loop = pw_loop_new(NULL);
-	data.running = true;
-	data.core = pw_core_new(data.loop, NULL);
+	data.loop = pw_main_loop_new(NULL);
+	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL);
 	data.t = pw_core_get_type(data.core);
 
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL);
@@ -482,16 +501,12 @@ int main(int argc, char *argv[])
 
 	make_nodes(&data);
 
-	pw_loop_enter(data.loop);
-	while (data.running) {
-		pw_loop_iterate(data.loop, 100);
-	}
-	pw_loop_leave(data.loop);
+	pw_main_loop_run(data.loop);
 
 	pw_link_destroy(data.link);
 	pw_node_destroy(data.node);
 	pw_core_destroy(data.core);
-	pw_loop_destroy(data.loop);
+	pw_main_loop_destroy(data.loop);
 
 	return 0;
 }

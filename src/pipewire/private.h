@@ -155,6 +155,7 @@ struct pw_main_loop {
         struct pw_loop *loop;
 
 	struct spa_hook_list listener_list;
+        struct spa_source *event;
 
         bool running;
 };
@@ -370,6 +371,12 @@ struct pw_node_factory {
 
 	void *user_data;
 };
+
+/** Add a port to a node \memberof pw_port */
+bool pw_port_add(struct pw_port *port, struct pw_node *node);
+
+/** Destroy a port \memberof pw_port */
+void pw_port_destroy(struct pw_port *port);
 
 /** Set a format on a port \memberof pw_port */
 int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format);

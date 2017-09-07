@@ -138,6 +138,58 @@ static void node_unbind_func(void *data)
 	spa_list_remove(&resource->link);
 }
 
+static int update_port_ids(struct pw_node *node)
+{
+	uint32_t *input_port_ids, *output_port_ids;
+	uint32_t n_input_ports, n_output_ports, max_input_ports, max_output_ports;
+	struct pw_port *port;
+	uint32_t i;
+	int res;
+
+	res = spa_node_get_n_ports(node->node,
+				   &n_input_ports,
+				   &max_input_ports,
+				   &n_output_ports,
+				   &max_output_ports);
+	if (res < 0)
+		return res;
+
+	if (node->info.max_input_ports != max_input_ports) {
+		node->info.max_input_ports = max_input_ports;
+		node->info.change_mask |= PW_NODE_CHANGE_MASK_INPUT_PORTS;
+	}
+	if (node->info.max_output_ports != max_output_ports) {
+		node->info.max_output_ports = max_output_ports;
+		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
+	}
+
+	input_port_ids = alloca(sizeof(uint32_t) * n_input_ports);
+	output_port_ids = alloca(sizeof(uint32_t) * n_output_ports);
+
+	res = spa_node_get_port_ids(node->node,
+				    max_input_ports,
+				    input_port_ids,
+				    max_output_ports,
+				    output_port_ids);
+	if (res < 0)
+		return res;
+
+	pw_log_debug("node %p: update_port ids %u/%u, %u/%u", node,
+		     n_input_ports, max_input_ports, n_output_ports, max_output_ports);
+
+	for (i = 0; i < n_input_ports; i++) {
+		pw_log_debug("node %p: input port added %d", node, input_port_ids[i]);
+		if ((port = pw_port_new(PW_DIRECTION_INPUT, input_port_ids[i], NULL, 0)))
+			pw_port_add(port, node);
+        }
+	for (i = 0; i < n_output_ports; i++) {
+		pw_log_debug("node %p: output port added %d", node, output_port_ids[i]);
+		if ((port = pw_port_new(PW_DIRECTION_OUTPUT, output_port_ids[i], NULL, 0)))
+			pw_port_add(port, node);
+        }
+	return SPA_RESULT_OK;
+}
+
 static void
 update_info(struct pw_node *this)
 {
@@ -257,6 +309,7 @@ void pw_node_register(struct pw_node *this)
 
 	pw_log_debug("node %p: register", this);
 
+	update_port_ids(this);
 	update_info(this);
 
 	pw_loop_invoke(this->data_loop, do_node_add, 1, 0, NULL, false, this);
@@ -440,6 +493,7 @@ static const struct spa_node_callbacks node_callbacks = {
 	.reuse_buffer = node_reuse_buffer,
 };
 
+
 void pw_node_set_implementation(struct pw_node *node,
 				struct spa_node *spa_node)
 {
@@ -527,20 +581,6 @@ void pw_node_destroy(struct pw_node *node)
 	clear_info(node);
 
 	free(impl);
-}
-
-void pw_node_set_max_ports(struct pw_node *node,
-			   uint32_t max_input_ports,
-			   uint32_t max_output_ports)
-{
-	if (node->info.max_input_ports != max_input_ports) {
-		node->info.max_input_ports = max_input_ports;
-		node->info.change_mask |= PW_NODE_CHANGE_MASK_INPUT_PORTS;
-	}
-	if (node->info.max_output_ports != max_output_ports) {
-		node->info.max_output_ports = max_output_ports;
-		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
-	}
 }
 
 bool pw_node_for_each_port(struct pw_node *node,

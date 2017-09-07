@@ -396,9 +396,6 @@ param_filter(struct pw_link *this,
 					      iidx, &iparam) < 0)
 			break;
 
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_param(iparam);
-
 		for (oidx = 0;; oidx++) {
 			struct spa_pod_frame f;
 			uint32_t offset;
@@ -407,7 +404,7 @@ param_filter(struct pw_link *this,
 						      out_port->port_id, oidx, &oparam) < 0)
 				break;
 
-			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+			if (iidx == 0 && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 				spa_debug_param(oparam);
 
 			if (iparam->object.body.type != oparam->object.body.type)
@@ -427,6 +424,9 @@ param_filter(struct pw_link *this,
 			spa_pod_builder_pop(result, &f);
 			num++;
 		}
+		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+			spa_debug_param(iparam);
+
 	}
 	return num;
 }
@@ -522,6 +522,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		for (i = 0, offset = 0; i < n_params; i++) {
 			params[i] = SPA_MEMBER(buffer, offset, struct spa_param);
 			spa_param_fixate(params[i]);
+			pw_log_debug("fixated param %d:", i);
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 				spa_debug_param(params[i]);
 			offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
@@ -563,8 +564,12 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 									      max_buffers);
 				minsize = SPA_MAX(minsize, qminsize);
 				stride = SPA_MAX(stride, qstride);
+
+				pw_log_debug("%d %d %d -> %zd %zd %d", qminsize, qstride, qmax_buffers,
+					     minsize, stride, max_buffers);
 			} else {
-				minsize = 4096;
+				pw_log_warn("no buffers param");
+				minsize = 1024;
 			}
 		}
 

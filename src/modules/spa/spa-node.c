@@ -48,53 +48,6 @@ struct impl {
 	struct spa_hook node_listener;
 };
 
-static struct pw_port *
-make_port(struct impl *impl, enum pw_direction direction, uint32_t port_id)
-{
-	struct pw_node *node = impl->this;
-	struct pw_port *port;
-
-	port = pw_port_new(direction, port_id, NULL, 0);
-	if (port == NULL)
-		return NULL;
-
-	pw_port_add(port, node);
-
-	return port;
-}
-
-static void update_port_ids(struct impl *impl)
-{
-	struct pw_node *this = impl->this;
-        uint32_t *input_port_ids, *output_port_ids;
-        uint32_t n_input_ports, n_output_ports, max_input_ports, max_output_ports;
-        uint32_t i;
-
-        spa_node_get_n_ports(impl->node,
-                             &n_input_ports, &max_input_ports, &n_output_ports, &max_output_ports);
-
-	pw_node_set_max_ports(this, max_input_ports, max_output_ports);
-
-        input_port_ids = alloca(sizeof(uint32_t) * n_input_ports);
-        output_port_ids = alloca(sizeof(uint32_t) * n_output_ports);
-
-        spa_node_get_port_ids(impl->node,
-                              max_input_ports, input_port_ids, max_output_ports, output_port_ids);
-
-        pw_log_debug("node %p: update_port ids %u/%u, %u/%u", this,
-                     n_input_ports, max_input_ports, n_output_ports, max_output_ports);
-
-	for (i = 0; i < n_input_ports; i++) {
-		pw_log_debug("node %p: input port added %d", this, input_port_ids[i]);
-		make_port(impl, PW_DIRECTION_INPUT, input_port_ids[i]);
-	}
-	for (i = 0; i < n_output_ports; i++) {
-		pw_log_debug("node %p: output port added %d", this, output_port_ids[i]);
-		make_port(impl, PW_DIRECTION_OUTPUT, output_port_ids[i]);
-	}
-}
-
-
 static void pw_spa_node_destroy(void *data)
 {
 	struct impl *impl = data;
@@ -115,7 +68,6 @@ static void pw_spa_node_destroy(void *data)
 static void complete_init(struct impl *impl)
 {
         struct pw_node *this = impl->this;
-	update_port_ids(impl);
 	pw_node_register(this);
 }
 
@@ -177,7 +129,7 @@ pw_spa_node_new(struct pw_core *core,
 	impl->async_init = async;
 
 	pw_node_add_listener(this, &impl->node_listener, &node_events, impl);
-	pw_node_set_implementation(this, node);
+	pw_node_set_implementation(this, impl->node);
 
 	if (!async)
 		complete_init(impl);

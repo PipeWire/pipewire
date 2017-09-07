@@ -58,7 +58,10 @@ int main(int argc, char *argv[])
 
 	core = pw_core_new(pw_main_loop_get_loop(loop), props);
 
-	pw_daemon_config_run_commands(config, core);
+	if (!pw_daemon_config_run_commands(config, core)) {
+		pw_log_error("failed to run config commands");
+		return -1;
+	}
 
 	pw_log_info("start main loop");
 	pw_main_loop_run(loop);

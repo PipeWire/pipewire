@@ -166,7 +166,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	this->port_id = port_id;
 	this->properties = properties;
 	this->state = PW_PORT_STATE_INIT;
-	this->io.status = SPA_RESULT_OK;
+	this->io.status = SPA_RESULT_NEED_BUFFER;
 	this->io.buffer_id = SPA_ID_INVALID;
 
         if (user_data_size > 0)

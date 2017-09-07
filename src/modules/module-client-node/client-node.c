@@ -783,8 +783,6 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
 	impl = this->impl;
 
-	pw_log_trace("process output");
-
 	for (i = 0; i < MAX_OUTPUTS; i++) {
 		struct spa_port_io *io = this->out_ports[i].io, tmp;
 
@@ -792,11 +790,14 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 			continue;
 
 		tmp = impl->transport->outputs[i];
+		io->status = SPA_RESULT_NEED_BUFFER;
 		impl->transport->outputs[i] = *io;
 		if (tmp.status == SPA_RESULT_HAVE_BUFFER)
 			res = SPA_RESULT_HAVE_BUFFER;
 		*io = tmp;
-		pw_log_trace("%d %d  %d", io->status, io->buffer_id, io->status);
+		pw_log_trace("%d %d -> %d %d", io->status, io->buffer_id,
+				impl->transport->outputs[i].status,
+				impl->transport->outputs[i].buffer_id);
 	}
 	pw_client_node_transport_add_message(impl->transport,
 			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT));
@@ -929,7 +930,7 @@ static void proxy_on_data_fd_events(struct spa_source *source)
 		struct pw_client_node_message message;
 		uint64_t cmd;
 
-		if (read(this->data_source.fd, &cmd, 8) != 8)
+		if (read(this->data_source.fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
 			spa_log_warn(this->log, "proxy %p: error reading message: %s",
 					this, strerror(errno));
 

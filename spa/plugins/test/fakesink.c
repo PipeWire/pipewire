@@ -206,7 +206,7 @@ static inline void read_timer(struct impl *this)
 	uint64_t expirations;
 
 	if ((this->callbacks && this->callbacks->need_input) || this->props.live) {
-		if (read(this->timer_source.fd, &expirations, sizeof(uint64_t)) < sizeof(uint64_t))
+		if (read(this->timer_source.fd, &expirations, sizeof(uint64_t)) != sizeof(uint64_t))
 			perror("read timerfd");
 	}
 }

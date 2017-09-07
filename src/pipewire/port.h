@@ -104,17 +104,11 @@ uint32_t pw_port_get_id(struct pw_port *port);
 /** Get the port parent node or NULL when not yet set */
 struct pw_node *pw_port_get_node(struct pw_port *port);
 
-/** Add a port to a node \memberof pw_port */
-bool pw_port_add(struct pw_port *port, struct pw_node *node);
-
 /** Add an event listener on the port */
 void pw_port_add_listener(struct pw_port *port,
 			  struct spa_hook *listener,
 			  const struct pw_port_events *events,
 			  void *data);
-
-/** Destroy a port \memberof pw_port */
-void pw_port_destroy(struct pw_port *port);
 
 /** Get the user data of a port, the size of the memory was given \ref in pw_port_new */
 void * pw_port_get_user_data(struct pw_port *port);

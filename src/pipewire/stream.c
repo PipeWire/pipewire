@@ -576,7 +576,8 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 		struct pw_client_node_message message;
 		uint64_t cmd;
 
-		read(fd, &cmd, 8);
+		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
+			pw_log_warn("stream %p: read failed %m", impl);
 
 		while (pw_client_node_transport_next_message(impl->trans, &message) == SPA_RESULT_OK) {
 			struct pw_client_node_message *msg = alloca(SPA_POD_SIZE(&message));

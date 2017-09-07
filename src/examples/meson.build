@@ -8,6 +8,11 @@ executable('export-v4l2',
   install: false,
   dependencies : [pipewire_dep],
 )
+executable('export-source',
+  'export-source.c',
+  install: false,
+  dependencies : [pipewire_dep, libm],
+)
 
 if sdl_dep.found()
   executable('video-play',

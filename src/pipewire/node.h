@@ -101,11 +101,6 @@ void pw_node_register(struct pw_node *node);
 /** Destroy a node */
 void pw_node_destroy(struct pw_node *node);
 
-/** Configure the maximum input and output ports */
-void pw_node_set_max_ports(struct pw_node *node,
-			   uint32_t max_input_ports,
-			   uint32_t max_output_ports);
-
 /** Get the node info */
 const struct pw_node_info *pw_node_get_info(struct pw_node *node);
 

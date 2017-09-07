@@ -265,7 +265,7 @@ static void read_timer(struct impl *this)
 	uint64_t expirations;
 
 	if ((this->callbacks && this->callbacks->have_output) || this->props.live) {
-		if (read(this->timer_source.fd, &expirations, sizeof(uint64_t)) < sizeof(uint64_t))
+		if (read(this->timer_source.fd, &expirations, sizeof(uint64_t)) != sizeof(uint64_t))
 			perror("read timerfd");
 	}
 }
@@ -754,7 +754,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
 				      buffers[i]);
 		}
-		spa_list_insert(this->empty.prev, &b->link);
+		spa_list_append(&this->empty, &b->link);
 	}
 	this->n_buffers = n_buffers;
 
@@ -811,7 +811,7 @@ static inline void reuse_buffer(struct impl *this, uint32_t id)
 	spa_log_trace(this->log, NAME " %p: reuse buffer %d", this, id);
 
 	b->outstanding = false;
-	spa_list_insert(this->empty.prev, &b->link);
+	spa_list_append(&this->empty, &b->link);
 
 	if (!this->props.live)
 		set_timer(this, true);

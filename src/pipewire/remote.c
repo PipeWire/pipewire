@@ -422,11 +422,10 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 {
 	struct node_data *data = proxy->user_data;
 	struct spa_graph_node *n = &data->node->rt.node;
+	struct spa_graph_port *port, *pp;
+	struct spa_graph_node *pn;
 
         if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT) {
-		struct spa_graph_port *port, *pp;
-		struct spa_graph_node *pn;
-
 		/* process all input in the mixers */
 		spa_list_for_each(port, &n->ports[SPA_DIRECTION_INPUT], link) {
 			pn = port->peer->node;
@@ -436,15 +435,20 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 			else {
 	                        pn->ready_in = 0;
 	                        spa_list_for_each(pp, &pn->ports[SPA_DIRECTION_INPUT], link) {
-                                if (pp->io->status == SPA_RESULT_OK &&
-				    !(pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
-                                        pn->ready_in++;
+					if (pp->io->status == SPA_RESULT_OK &&
+					    !(pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
+						pn->ready_in++;
 				}
 	                }
 		}
         }
 	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT) {
-		spa_node_process_output(n->implementation);
+		spa_list_for_each(port, &n->ports[SPA_DIRECTION_OUTPUT], link) {
+			pn = port->peer->node;
+			pn->state = spa_node_process_output(pn->implementation);
+			if (pn->state == SPA_RESULT_NEED_BUFFER)
+				spa_graph_need_input(data->node->rt.graph, pn);
+		}
 	}
 	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {
 	}
@@ -469,7 +473,8 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 		struct pw_client_node_message message;
 		uint64_t cmd;
 
-		read(fd, &cmd, 8);
+		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
+			pw_log_warn("proxy %p: read failed %m", proxy);
 
 		while (pw_client_node_transport_next_message(data->trans, &message) == SPA_RESULT_OK) {
 			struct pw_client_node_message *msg = alloca(SPA_POD_SIZE(&message));

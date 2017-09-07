@@ -32,34 +32,8 @@
 #include <pipewire/module.h>
 #include <pipewire/node-factory.h>
 
-struct type {
-	uint32_t format;
-	uint32_t props;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_format_video format_video;
-	struct spa_type_video_format video_format;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_video_map(map, &type->format_video);
-	spa_type_video_format_map(map, &type->video_format);
-}
-
 struct data {
-	struct type type;
-
-	bool running;
-	struct pw_loop *loop;
+	struct pw_main_loop *loop;
 
 	struct pw_core *core;
 	struct pw_type *t;
@@ -90,7 +64,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
 		printf("remote error: %s\n", error);
-		data->running = false;
+		pw_main_loop_quit(data->loop);
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
@@ -112,27 +86,25 @@ static const struct pw_remote_events remote_events = {
 static void do_quit(void *data, int signal_number)
 {
         struct data *d = data;
-	d->running = false;
+	pw_main_loop_quit(d->loop);
 }
 
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
+	struct pw_loop *l;
 
 	pw_init(&argc, &argv);
 
-	data.loop = pw_loop_new(NULL);
-        pw_loop_add_signal(data.loop, SIGINT, do_quit, &data);
-        pw_loop_add_signal(data.loop, SIGTERM, do_quit, &data);
-
-	data.running = true;
-	data.core = pw_core_new(data.loop, NULL);
+	data.loop = pw_main_loop_new(NULL);
+	l = pw_main_loop_get_loop(data.loop);
+        pw_loop_add_signal(l, SIGINT, do_quit, &data);
+        pw_loop_add_signal(l, SIGTERM, do_quit, &data);
+	data.core = pw_core_new(l, NULL);
 	data.t = pw_core_get_type(data.core);
         data.remote = pw_remote_new(data.core, NULL);
 
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL);
-
-	init_type(&data.type, data.t->map);
 
 	spa_debug_set_type_map(data.t->map);
 
@@ -140,17 +112,13 @@ int main(int argc, char *argv[])
 
         pw_remote_connect(data.remote);
 
-	pw_loop_enter(data.loop);
-	while (data.running) {
-		pw_loop_iterate(data.loop, 100);
-	}
-	pw_loop_leave(data.loop);
+	pw_main_loop_run(data.loop);
 
 	pw_remote_destroy(data.remote);
 	if (data.node)
 		pw_node_destroy(data.node);
 	pw_core_destroy(data.core);
-	pw_loop_destroy(data.loop);
+	pw_main_loop_destroy(data.loop);
 
 	return 0;
 }

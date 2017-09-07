@@ -985,7 +985,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		return SPA_RESULT_ERROR;
 	}
 	spa_log_info(state->log, "v4l2: got %d buffers", reqbuf.count);
-	if (reqbuf.count < 2) {
+	if (reqbuf.count < n_buffers) {
 		spa_log_error(state->log, "v4l2: can't allocate enough buffers");
 		return SPA_RESULT_ERROR;
 	}

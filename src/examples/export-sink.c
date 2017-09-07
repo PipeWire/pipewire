@@ -69,8 +69,7 @@ struct data {
 	SDL_Window *window;
 	SDL_Texture *texture;
 
-	bool running;
-	struct pw_loop *loop;
+	struct pw_main_loop *loop;
 
 	struct pw_core *core;
 	struct pw_type *t;
@@ -79,7 +78,6 @@ struct data {
 	struct spa_hook remote_listener;
 
 	struct pw_node *node;
-	struct pw_port *port;
 	struct spa_port_info port_info;
 
 	struct spa_node impl_node;
@@ -105,7 +103,7 @@ static void handle_events(struct data *data)
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
 		case SDL_QUIT:
-			exit(0);
+			pw_main_loop_quit(data->loop);
 			break;
 		}
 	}
@@ -196,6 +194,28 @@ static int impl_set_callbacks(struct spa_node *node,
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	d->callbacks = callbacks;
 	d->callbacks_data = data;
+	return SPA_RESULT_OK;
+}
+
+static int impl_get_n_ports(struct spa_node *node,
+			    uint32_t *n_input_ports,
+			    uint32_t *max_input_ports,
+			    uint32_t *n_output_ports,
+			    uint32_t *max_output_ports)
+{
+	*n_input_ports = *max_input_ports = 1;
+	*n_output_ports = *max_output_ports = 0;
+	return SPA_RESULT_OK;
+}
+
+static int impl_get_port_ids(struct spa_node *node,
+                             uint32_t n_input_ports,
+                             uint32_t *input_ids,
+                             uint32_t n_output_ports,
+                             uint32_t *output_ids)
+{
+	if (n_input_ports > 0)
+                input_ids[0] = 0;
 	return SPA_RESULT_OK;
 }
 
@@ -433,6 +453,8 @@ static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
 	.set_callbacks = impl_set_callbacks,
 	.send_command = impl_send_command,
+	.get_n_ports = impl_get_n_ports,
+	.get_port_ids = impl_get_port_ids,
 	.port_set_io = impl_port_set_io,
 	.port_enum_formats = impl_port_enum_formats,
 	.port_set_format = impl_port_set_format,
@@ -455,8 +477,6 @@ static void make_node(struct data *data)
 	data->impl_node = impl_node;
 	pw_node_set_implementation(data->node, &data->impl_node);
 
-	data->port = pw_port_new(PW_DIRECTION_INPUT, 0, NULL, 0);
-	pw_port_add(data->port, data->node);
 	pw_node_register(data->node);
 
 	pw_remote_export(data->remote, data->node);
@@ -469,7 +489,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
 		printf("remote error: %s\n", error);
-		data->running = false;
+		pw_main_loop_quit(data->loop);
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
@@ -493,9 +513,8 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
-	data.loop = pw_loop_new(NULL);
-	data.running = true;
-	data.core = pw_core_new(data.loop, NULL);
+	data.loop = pw_main_loop_new(NULL);
+	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL);
 	data.t = pw_core_get_type(data.core);
         data.remote = pw_remote_new(data.core, NULL);
 	data.path = argc > 1 ? argv[1] : NULL;
@@ -521,13 +540,10 @@ int main(int argc, char *argv[])
 
         pw_remote_connect(data.remote);
 
-	pw_loop_enter(data.loop);
-	while (data.running) {
-		pw_loop_iterate(data.loop, -1);
-	}
-	pw_loop_leave(data.loop);
+	pw_main_loop_run(data.loop);
 
-	pw_loop_destroy(data.loop);
+	pw_core_destroy(data.core);
+	pw_main_loop_destroy(data.loop);
 
 	return 0;
 }

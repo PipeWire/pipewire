@@ -138,12 +138,52 @@ static void node_unbind_func(void *data)
 	spa_list_remove(&resource->link);
 }
 
+static void update_port_map(struct pw_node *node, enum pw_direction direction,
+			    struct pw_map *portmap, uint32_t *ids, uint32_t n_ids)
+{
+	uint32_t o, n;
+	size_t os, ns;
+	struct pw_port *port;
+
+	o = n = 0;
+	os = pw_map_get_size(portmap);
+	ns = n_ids;
+
+	while (o < os || n < ns) {
+		port = pw_map_lookup(portmap, o);
+
+		if (n >= ns || o < ids[n]) {
+			pw_log_debug("node %p: %s port removed %d", node,
+					pw_direction_as_string(direction), o);
+
+			if (port != NULL)
+				pw_port_destroy(port);
+
+			o++;
+		}
+		else if (o >= os || (n < ns && o > ids[n])) {
+			pw_log_debug("node %p: %s port added %d", node,
+					pw_direction_as_string(direction), ids[n]);
+
+			if (port == NULL)
+				if ((port = pw_port_new(direction, ids[n], NULL, 0)))
+					pw_port_add(port, node);
+
+			n++;
+		}
+		else {
+			pw_log_debug("node %p: %s port unchanged %d", node,
+					pw_direction_as_string(direction), ids[n]);
+			n++;
+			o++;
+		}
+	}
+}
+
 static int update_port_ids(struct pw_node *node)
 {
 	uint32_t *input_port_ids, *output_port_ids;
 	uint32_t n_input_ports, n_output_ports, max_input_ports, max_output_ports;
-	struct pw_port *port;
-	uint32_t i;
 	int res;
 
 	res = spa_node_get_n_ports(node->node,
@@ -177,16 +217,9 @@ static int update_port_ids(struct pw_node *node)
 	pw_log_debug("node %p: update_port ids %u/%u, %u/%u", node,
 		     n_input_ports, max_input_ports, n_output_ports, max_output_ports);
 
-	for (i = 0; i < n_input_ports; i++) {
-		pw_log_debug("node %p: input port added %d", node, input_port_ids[i]);
-		if ((port = pw_port_new(PW_DIRECTION_INPUT, input_port_ids[i], NULL, 0)))
-			pw_port_add(port, node);
-        }
-	for (i = 0; i < n_output_ports; i++) {
-		pw_log_debug("node %p: output port added %d", node, output_port_ids[i]);
-		if ((port = pw_port_new(PW_DIRECTION_OUTPUT, output_port_ids[i], NULL, 0)))
-			pw_port_add(port, node);
-        }
+	update_port_map(node, PW_DIRECTION_INPUT, &node->input_port_map, input_port_ids, n_input_ports);
+	update_port_map(node, PW_DIRECTION_OUTPUT, &node->output_port_map, output_port_ids, n_output_ports);
+
 	return SPA_RESULT_OK;
 }
 

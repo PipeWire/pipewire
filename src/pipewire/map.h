@@ -170,7 +170,7 @@ static inline void pw_map_for_each(struct pw_map *map, void (*func) (void *, voi
 	union pw_map_item *item;
 
 	pw_array_for_each(item, &map->items) {
-		if (item->data && !pw_map_item_is_free(item))
+		if (!pw_map_item_is_free(item))
 			func(item->data, data);
 	}
 }

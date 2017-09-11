@@ -18,6 +18,7 @@
  */
 
 #include <stdio.h>
+#include <signal.h>
 
 #include <spa/lib/debug.h>
 
@@ -26,8 +27,7 @@
 #include <pipewire/type.h>
 
 struct data {
-	bool running;
-	struct pw_loop *loop;
+	struct pw_main_loop *loop;
 	struct pw_core *core;
 
 	struct pw_remote *remote;
@@ -355,7 +355,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
 		printf("remote error: %s\n", error);
-		data->running = false;
+		pw_main_loop_quit(data->loop);
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
@@ -382,28 +382,35 @@ static const struct pw_remote_events remote_events = {
 	.state_changed = on_state_changed,
 };
 
+static void do_quit(void *data, int signal_number)
+{
+	struct data *d = data;
+	pw_main_loop_quit(d->loop);
+}
+
 int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
+	struct pw_loop *l;
 
 	pw_init(&argc, &argv);
 
-	data.loop = pw_loop_new(NULL);
-	data.running = true;
-	data.core = pw_core_new(data.loop, NULL);
+	data.loop = pw_main_loop_new(NULL);
+	l = pw_main_loop_get_loop(data.loop);
+	pw_loop_add_signal(l, SIGINT, do_quit, &data);
+	pw_loop_add_signal(l, SIGTERM, do_quit, &data);
+
+	data.core = pw_core_new(l, NULL);
 	data.remote = pw_remote_new(data.core, NULL);
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 	pw_remote_connect(data.remote);
 
-	pw_loop_enter(data.loop);
-	while (data.running) {
-		pw_loop_iterate(data.loop, -1);
-	}
-	pw_loop_leave(data.loop);
+	pw_main_loop_run(data.loop);
 
 	pw_remote_destroy(data.remote);
-	pw_loop_destroy(data.loop);
+	pw_core_destroy(data.core);
+	pw_main_loop_destroy(data.loop);
 
 	return 0;
 }

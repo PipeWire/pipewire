@@ -155,7 +155,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 		return NULL;
 
 	this = &impl->this;
-	pw_log_debug("port %p: new", this);
+	pw_log_debug("port %p: new %s %d", this, pw_direction_as_string(direction), port_id);
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);

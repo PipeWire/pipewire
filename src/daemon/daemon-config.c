@@ -58,7 +58,7 @@ parse_line(struct pw_daemon_config *config,
 		free(local_err);
 		ret = false;
 	} else {
-		spa_list_insert(config->commands.prev, &command->link);
+		spa_list_append(&config->commands, &command->link);
 	}
 
 	return ret;
@@ -194,9 +194,8 @@ bool pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_co
 		}
 	}
 
-	spa_list_for_each_safe(command, tmp, &config->commands, link) {
+	spa_list_for_each_safe(command, tmp, &config->commands, link)
 		pw_command_free(command);
-	}
 
 	return ret;
 }

@@ -81,14 +81,6 @@ struct pw_port_events {
 	void (*properties_changed) (void *data, const struct pw_properties *properties);
 };
 
-/** Create a new port \memberof pw_port
- * \return a newly allocated port */
-struct pw_port *
-pw_port_new(enum pw_direction direction,
-	    uint32_t port_id,
-	    struct pw_properties *properties,
-	    size_t user_data_size);
-
 /** Get the port direction */
 enum pw_direction pw_port_get_direction(struct pw_port *port);
 
@@ -109,9 +101,6 @@ void pw_port_add_listener(struct pw_port *port,
 			  struct spa_hook *listener,
 			  const struct pw_port_events *events,
 			  void *data);
-
-/** Get the user data of a port, the size of the memory was given \ref in pw_port_new */
-void * pw_port_get_user_data(struct pw_port *port);
 
 #ifdef __cplusplus
 }

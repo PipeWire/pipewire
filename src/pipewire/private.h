@@ -372,6 +372,17 @@ struct pw_node_factory {
 	void *user_data;
 };
 
+/** Create a new port \memberof pw_port
+ * \return a newly allocated port */
+struct pw_port *
+pw_port_new(enum pw_direction direction,
+	    uint32_t port_id,
+	    struct pw_properties *properties,
+	    size_t user_data_size);
+
+/** Get the user data of a port, the size of the memory was given \ref in pw_port_new */
+void * pw_port_get_user_data(struct pw_port *port);
+
 /** Add a port to a node \memberof pw_port */
 bool pw_port_add(struct pw_port *port, struct pw_node *node);
 

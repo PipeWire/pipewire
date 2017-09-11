@@ -181,7 +181,8 @@ void *pw_client_get_user_data(struct pw_client *client)
 
 static void destroy_resource(void *object, void *data)
 {
-	pw_resource_destroy(object);
+	if (object)
+		pw_resource_destroy(object);
 }
 
 /** Destroy a client object

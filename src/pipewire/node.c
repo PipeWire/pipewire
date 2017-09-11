@@ -153,7 +153,7 @@ static void update_port_map(struct pw_node *node, enum pw_direction direction,
 		port = pw_map_lookup(portmap, o);
 
 		if (n >= ns || o < ids[n]) {
-			pw_log_debug("node %p: %s port removed %d", node,
+			pw_log_debug("node %p: %s port %d removed", node,
 					pw_direction_as_string(direction), o);
 
 			if (port != NULL)
@@ -161,8 +161,8 @@ static void update_port_map(struct pw_node *node, enum pw_direction direction,
 
 			o++;
 		}
-		else if (o >= os || (n < ns && o > ids[n])) {
-			pw_log_debug("node %p: %s port added %d", node,
+		else if (o >= os || o > ids[n]) {
+			pw_log_debug("node %p: %s port %d added", node,
 					pw_direction_as_string(direction), ids[n]);
 
 			if (port == NULL)
@@ -172,8 +172,8 @@ static void update_port_map(struct pw_node *node, enum pw_direction direction,
 			n++;
 		}
 		else {
-			pw_log_debug("node %p: %s port unchanged %d", node,
-					pw_direction_as_string(direction), ids[n]);
+			pw_log_debug("node %p: %s port %d unchanged", node,
+					pw_direction_as_string(direction), o);
 			n++;
 			o++;
 		}
@@ -719,7 +719,6 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 		port = pw_port_new(direction, port_id, NULL, 0);
 		if (port == NULL)
 			goto no_mem;
-
 		pw_port_add(port, node);
 	} else {
 		port = mixport;

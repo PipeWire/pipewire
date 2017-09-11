@@ -247,7 +247,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	pw_module_load(core, "libpipewire-module-client-node", NULL);
 
-        spa_list_insert(core->remote_list.prev, &this->link);
+        spa_list_append(&core->remote_list, &this->link);
 
 	return this;
 

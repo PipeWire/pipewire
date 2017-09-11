@@ -86,7 +86,7 @@ struct pw_properties *pw_properties_new(const char *key, ...)
 	va_start(varargs, key);
 	while (key != NULL) {
 		value = va_arg(varargs, char *);
-		add_func(&impl->this, strdup(key), strdup(value));
+		add_func(&impl->this, strdup(key), value ? strdup(value) : NULL);
 		key = va_arg(varargs, char *);
 	}
 	va_end(varargs);
@@ -112,8 +112,11 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 
 	pw_array_init(&impl->items, 16);
 
-	for (i = 0; i < dict->n_items; i++)
-		add_func(&impl->this, strdup(dict->items[i].key), strdup(dict->items[i].value));
+	for (i = 0; i < dict->n_items; i++) {
+		if (dict->items[i].key != NULL)
+			add_func(&impl->this, strdup(dict->items[i].key),
+				 dict->items[i].value ? strdup(dict->items[i].value) : NULL);
+	}
 
 	return &impl->this;
 }
@@ -136,7 +139,7 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
 		return NULL;
 
 	pw_array_for_each(item, &impl->items)
-	    add_func(copy, strdup(item->key), strdup(item->value));
+	    add_func(copy, strdup(item->key), item->value ? strdup(item->value) : NULL);
 
 	return copy;
 }
@@ -211,11 +214,8 @@ static void do_replace(struct pw_properties *properties, char *key, char *value)
 		clear_item(item);
 		if (value == NULL) {
 			struct spa_dict_item *other = pw_array_get_unchecked(&impl->items,
-									     pw_array_get_len
-									     (&impl->items,
-									      struct spa_dict_item)
-									     - 1,
-									     struct spa_dict_item);
+						     pw_array_get_len(&impl->items, struct spa_dict_item) - 1,
+						     struct spa_dict_item);
 			item->key = other->key;
 			item->value = other->value;
 			impl->items.size -= sizeof(struct spa_dict_item);

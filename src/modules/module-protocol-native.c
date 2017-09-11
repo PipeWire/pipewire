@@ -65,6 +65,7 @@ struct protocol_data {
 struct client {
 	struct pw_protocol_client this;
 
+	struct pw_properties *properties;
 	struct spa_source *source;
 
         struct pw_protocol_native_connection *connection;
@@ -406,14 +407,14 @@ static bool add_socket(struct pw_protocol *protocol, struct server *s)
 }
 
 static const char *
-get_name(const struct pw_properties *properties)
+get_remote(const struct pw_properties *properties)
 {
 	const char *name = NULL;
 
 	if (properties)
-		name = pw_properties_get(properties, "pipewire.core.name");
+		name = pw_properties_get(properties, "pipewire.remote.name");
 	if (name == NULL)
-		name = getenv("PIPEWIRE_CORE");
+		name = getenv("PIPEWIRE_REMOTE");
 	if (name == NULL)
 		name = "pipewire-0";
 	return name;
@@ -421,6 +422,7 @@ get_name(const struct pw_properties *properties)
 
 static int impl_connect(struct pw_protocol_client *client)
 {
+	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
 	struct sockaddr_un addr;
 	socklen_t size;
 	const char *runtime_dir, *name = NULL;
@@ -431,7 +433,7 @@ static int impl_connect(struct pw_protocol_client *client)
 		return -1;
         }
 
-	name = get_name(NULL);
+	name = get_remote(impl->properties);
 
         if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0)
                 return -1;
@@ -604,6 +606,9 @@ static void impl_destroy(struct pw_protocol_client *client)
 
 	pw_loop_destroy_source(remote->core->main_loop, impl->flush_event);
 
+	if (impl->properties)
+		pw_properties_free(impl->properties);
+
 	spa_list_remove(&client->link);
 	free(impl);
 }
@@ -622,6 +627,8 @@ impl_new_client(struct pw_protocol *protocol,
 	this = &impl->this;
 	this->protocol = protocol;
 	this->remote = remote;
+
+	impl->properties = properties ? pw_properties_copy(properties) : NULL;
 
 	this->connect = impl_connect;
 	this->connect_fd = impl_connect_fd;
@@ -673,6 +680,20 @@ static const struct spa_loop_control_hooks impl_hooks = {
 	SPA_VERSION_LOOP_CONTROL_HOOKS,
 	.before = on_before_hook,
 };
+
+static const char *
+get_name(const struct pw_properties *properties)
+{
+	const char *name = NULL;
+
+	if (properties)
+		name = pw_properties_get(properties, "pipewire.core.name");
+	if (name == NULL)
+		name = getenv("PIPEWIRE_CORE");
+	if (name == NULL)
+		name = "pipewire-0";
+	return name;
+}
 
 static struct pw_protocol_server *
 impl_add_server(struct pw_protocol *protocol,

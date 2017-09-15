@@ -376,8 +376,10 @@ core_bind_func(struct pw_global *global,
 
 	pw_resource_set_implementation(resource, &core_methods, resource);
 
-	spa_list_insert(this->resource_list.prev, &resource->link);
-	client->core_resource = resource;
+	spa_list_append(&this->resource_list, &resource->link);
+
+	if (resource->id == 0)
+		client->core_resource = resource;
 
 	pw_log_debug("core %p: bound to %d", this, resource->id);
 

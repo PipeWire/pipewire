@@ -1152,6 +1152,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	this->global = pw_core_add_global(core, NULL, parent, core->type.link, PW_VERSION_LINK,
 			   link_bind_func, this);
+	this->info.id = this->global->id;
 
 	return this;
 

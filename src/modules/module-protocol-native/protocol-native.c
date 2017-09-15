@@ -188,6 +188,7 @@ static bool core_demarshal_info(void *object, void *data, size_t size)
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.id,
 			      SPA_POD_TYPE_LONG, &info.change_mask,
 			      SPA_POD_TYPE_STRING, &info.user_name,
 			      SPA_POD_TYPE_STRING, &info.host_name,
@@ -287,6 +288,7 @@ static void core_marshal_info(void *object, struct pw_core_info *info)
 
 	spa_pod_builder_add(b,
 			    SPA_POD_TYPE_STRUCT, &f,
+			    SPA_POD_TYPE_INT, info->id,
 			    SPA_POD_TYPE_LONG, info->change_mask,
 			    SPA_POD_TYPE_STRING, info->user_name,
 			    SPA_POD_TYPE_STRING, info->host_name,
@@ -585,6 +587,7 @@ static void module_marshal_info(void *object, struct pw_module_info *info)
 
 	spa_pod_builder_add(b,
 			    SPA_POD_TYPE_STRUCT, &f,
+			    SPA_POD_TYPE_INT, info->id,
 			    SPA_POD_TYPE_LONG, info->change_mask,
 			    SPA_POD_TYPE_STRING, info->name,
 			    SPA_POD_TYPE_STRING, info->filename,
@@ -610,6 +613,7 @@ static bool module_demarshal_info(void *object, void *data, size_t size)
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.id,
 			      SPA_POD_TYPE_LONG, &info.change_mask,
 			      SPA_POD_TYPE_STRING, &info.name,
 			      SPA_POD_TYPE_STRING, &info.filename,
@@ -639,6 +643,7 @@ static void node_marshal_info(void *object, struct pw_node_info *info)
 
 	spa_pod_builder_add(b,
 			    SPA_POD_TYPE_STRUCT, &f,
+			    SPA_POD_TYPE_INT, info->id,
 			    SPA_POD_TYPE_LONG, info->change_mask,
 			    SPA_POD_TYPE_STRING, info->name,
 			    SPA_POD_TYPE_INT, info->max_input_ports,
@@ -682,6 +687,7 @@ static bool node_demarshal_info(void *object, void *data, size_t size)
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.id,
 			      SPA_POD_TYPE_LONG, &info.change_mask,
 			      SPA_POD_TYPE_STRING, &info.name,
 			      SPA_POD_TYPE_INT, &info.max_input_ports,
@@ -736,6 +742,7 @@ static void client_marshal_info(void *object, struct pw_client_info *info)
 
 	spa_pod_builder_add(b,
 			    SPA_POD_TYPE_STRUCT, &f,
+			    SPA_POD_TYPE_INT, info->id,
 			    SPA_POD_TYPE_LONG, info->change_mask,
 			    SPA_POD_TYPE_INT, n_items, 0);
 
@@ -759,6 +766,7 @@ static bool client_demarshal_info(void *object, void *data, size_t size)
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.id,
 			      SPA_POD_TYPE_LONG, &info.change_mask,
 			      SPA_POD_TYPE_INT, &props.n_items, 0))
 		return false;
@@ -788,6 +796,7 @@ static void link_marshal_info(void *object, struct pw_link_info *info)
 
 	spa_pod_builder_add(b,
 			    SPA_POD_TYPE_STRUCT, &f,
+			    SPA_POD_TYPE_INT, info->id,
 			    SPA_POD_TYPE_LONG, info->change_mask,
 			    SPA_POD_TYPE_INT, info->output_node_id,
 			    SPA_POD_TYPE_INT, info->output_port_id,
@@ -816,6 +825,7 @@ static bool link_demarshal_info(void *object, void *data, size_t size)
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.id,
 			      SPA_POD_TYPE_LONG, &info.change_mask,
 			      SPA_POD_TYPE_INT, &info.output_node_id,
 			      SPA_POD_TYPE_INT, &info.output_port_id,

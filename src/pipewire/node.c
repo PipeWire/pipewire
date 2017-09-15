@@ -353,6 +353,7 @@ void pw_node_register(struct pw_node *this)
 					  core->type.node, PW_VERSION_NODE,
 					  node_bind_func, this);
 
+	this->info.id = this->global->id;
 	impl->registered = true;
 	spa_hook_list_call(&this->listener_list, struct pw_node_events, initialized);
 

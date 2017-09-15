@@ -74,6 +74,7 @@ const char * pw_link_state_as_string(enum pw_link_state state);
 
 /**  The core information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_core_info {
+	uint32_t id;			/**< id of the global */
 #define PW_CORE_CHANGE_MASK_USER_NAME  (1 << 0)
 #define PW_CORE_CHANGE_MASK_HOST_NAME  (1 << 1)
 #define PW_CORE_CHANGE_MASK_VERSION    (1 << 2)
@@ -100,6 +101,7 @@ void pw_core_info_free(struct pw_core_info *info);
 
 /** The module information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_module_info {
+	uint32_t id;		/**< id of the global */
 #define PW_MODULE_CHANGE_MASK_NAME	(1 << 0)
 #define PW_MODULE_CHANGE_MASK_FILENAME	(1 << 1)
 #define PW_MODULE_CHANGE_MASK_ARGS	(1 << 2)
@@ -121,6 +123,7 @@ void pw_module_info_free(struct pw_module_info *info);
 
 /** The client information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_client_info {
+	uint32_t id;		/**< id of the global */
 #define PW_CLIENT_CHANGE_MASK_PROPS		(1 << 0)
 	uint64_t change_mask;	/**< bitfield of changed fields since last call */
 	struct spa_dict *props;	/**< extra properties */
@@ -137,6 +140,7 @@ void pw_client_info_free(struct pw_client_info *info);
 
 /** The node information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_node_info {
+	uint32_t id;				/**< id of the global */
 #define PW_NODE_CHANGE_MASK_NAME		(1 << 0)
 #define PW_NODE_CHANGE_MASK_INPUT_PORTS		(1 << 1)
 #define PW_NODE_CHANGE_MASK_INPUT_FORMATS	(1 << 2)
@@ -169,6 +173,7 @@ pw_node_info_free(struct pw_node_info *info);
 
 /** The link information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_link_info {
+	uint32_t id;			/**< id of the global */
 #define PW_LINK_CHANGE_MASK_OUTPUT		(1 << 0)
 #define PW_LINK_CHANGE_MASK_INPUT		(1 << 1)
 #define PW_LINK_CHANGE_MASK_FORMAT		(1 << 2)

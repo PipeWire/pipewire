@@ -222,6 +222,8 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 					  core->type.module, PW_VERSION_MODULE,
 					  module_bind_func, this);
 
+	this->info.id = this->global->id;
+
 	if (!init_func(this, (char *) args))
 		goto init_failed;
 

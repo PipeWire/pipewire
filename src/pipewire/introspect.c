@@ -126,6 +126,7 @@ struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 		if (info == NULL)
 			return NULL;
 	}
+	info->id = update->id;
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_CORE_CHANGE_MASK_USER_NAME) {
@@ -186,6 +187,7 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 		if (info == NULL)
 			return NULL;
 	}
+	info->id = update->id;
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_NODE_CHANGE_MASK_NAME) {
@@ -282,6 +284,7 @@ struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 		if (info == NULL)
 			return NULL;
 	}
+	info->id = update->id;
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_MODULE_CHANGE_MASK_NAME) {
@@ -332,6 +335,7 @@ struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
 		if (info == NULL)
 			return NULL;
 	}
+	info->id = update->id;
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
@@ -360,6 +364,7 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 		if (info == NULL)
 			return NULL;
 	}
+	info->id = update->id;
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_LINK_CHANGE_MASK_OUTPUT) {

@@ -32,10 +32,17 @@ extern "C" {
 #include "pipewire/pipewire.h"
 #include "pipewire/introspect.h"
 
+struct pw_command;
+
+typedef bool (*pw_command_func_t) (struct pw_command *command, struct pw_core *core, char **err);
+
 /** \cond */
 struct pw_command {
+	uint32_t id;		/**< id of command */
 	struct spa_list link;	/**< link in list of commands */
-	const char *name;	/**< command name */
+        pw_command_func_t func;
+        char **args;
+        int n_args;
 };
 
 struct pw_protocol {

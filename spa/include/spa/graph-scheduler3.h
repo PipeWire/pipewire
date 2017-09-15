@@ -96,16 +96,22 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
 		struct spa_graph_port *pport;
 		struct spa_graph_node *pnode;
+		uint32_t prequired, pready;
+
 		if ((pport = p->peer) == NULL)
 			continue;
+
 		pnode = pport->node;
 		if (pport->io->status == SPA_RESULT_HAVE_BUFFER)
 			pnode->ready[SPA_DIRECTION_INPUT]++;
 
-		debug("node %p peer %p io %d %d %d\n", node, pnode, pport->io->status,
-				pnode->ready[SPA_DIRECTION_INPUT], pnode->required[SPA_DIRECTION_INPUT]);
+		pready = pnode->ready[SPA_DIRECTION_INPUT];
+		prequired = pnode->required[SPA_DIRECTION_INPUT];
 
-		if (pnode->required > 0 && pnode->ready == pnode->required)
+		debug("node %p peer %p io %d %d %d\n", node, pnode, pport->io->status,
+				pready, prequired);
+
+		if (prequired > 0 && pready == prequired)
 			if (pnode->ready_link.next == NULL)
 				spa_list_append(&ready, &pnode->ready_link);
 	}

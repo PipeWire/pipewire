@@ -245,10 +245,79 @@ core_create_link(void *object,
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
+	struct pw_node *output_node, *input_node;
+	struct pw_port *outport, *inport;
+	struct pw_core *core = client->core;
+	struct pw_global *global;
+	struct pw_link *link;
+	char *error;
+	int res;
 
-	pw_log_error("can't create link");
+	global = pw_core_find_global(core, output_node_id);
+	if (global == NULL || global->type != core->type.node)
+		goto no_output;
+
+	output_node = global->object;
+
+	global = pw_core_find_global(core, input_node_id);
+	if (global == NULL || global->type != core->type.node)
+		goto no_input;
+
+	input_node = global->object;
+
+	if (output_port_id == SPA_ID_INVALID)
+		outport = pw_node_get_free_port(output_node, SPA_DIRECTION_OUTPUT);
+	else
+		outport = pw_node_find_port(output_node, SPA_DIRECTION_OUTPUT, output_port_id);
+	if (outport == NULL)
+		goto no_output_port;
+
+	if (input_port_id == SPA_ID_INVALID)
+		inport = pw_node_get_free_port(input_node, SPA_DIRECTION_INPUT);
+	else
+		inport = pw_node_find_port(input_node, SPA_DIRECTION_INPUT, input_port_id);
+	if (inport == NULL)
+		goto no_input_port;
+
+	link = pw_link_new(core, pw_client_get_global(client), outport, inport, NULL, NULL, &error, 0);
+	if (link == NULL)
+		goto no_link;
+
+	res = pw_global_bind(pw_link_get_global(link), client, PW_PERM_RWX, PW_VERSION_LINK, new_id);
+	if (res < 0)
+		goto no_bind;
+
+	pw_link_activate(link);
+
+      done:
+	return;
+
+      no_output:
 	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_NOT_IMPLEMENTED, "not implemented");
+			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown output node");
+	goto done;
+      no_input:
+	pw_core_resource_error(client->core_resource,
+			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown input node");
+	goto done;
+      no_output_port:
+	pw_core_resource_error(client->core_resource,
+			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown output port");
+	goto done;
+      no_input_port:
+	pw_core_resource_error(client->core_resource,
+			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown input port");
+	goto done;
+      no_link:
+	pw_core_resource_error(client->core_resource,
+			       resource->id, SPA_RESULT_ERROR, "can't create link: %s, error");
+	free(error);
+	goto done;
+      no_bind:
+	pw_core_resource_error(client->core_resource,
+			       resource->id, res, "can't bind link: %d", res);
+	goto done;
+
 }
 
 static void core_update_types(void *object, uint32_t first_id, uint32_t n_types, const char **types)

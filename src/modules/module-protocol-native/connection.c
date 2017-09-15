@@ -321,7 +321,7 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 
 
 	if (debug_messages) {
-		printf("<<<<<<<<< in:\n");
+		printf("<<<<<<<<< in: %d %d %zd\n", *dest_id, *opcode, len);
 	        spa_debug_pod((struct spa_pod *)data);
 	}
 
@@ -427,7 +427,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 	buf->buffer_size += 8 + size;
 
 	if (debug_messages) {
-		printf(">>>>>>>>> out:\n");
+		printf(">>>>>>>>> out: %d %d %d\n", impl->dest_id, impl->opcode, size);
 	        spa_debug_pod((struct spa_pod *)p);
 	}
 	spa_hook_list_call(&conn->listener_list, struct pw_protocol_native_connection_events, need_flush);

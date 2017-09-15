@@ -52,7 +52,7 @@ static struct pw_node *create_node(void *_data,
 	lib = pw_properties_get(properties, "spa.library.name");
 	factory_name = pw_properties_get(properties, "spa.factory.name");
 
-	if(lib == NULL || factory_name == NULL)
+	if (lib == NULL || factory_name == NULL)
 		goto no_properties;
 
 	node = pw_spa_node_load(data->core,
@@ -68,9 +68,12 @@ static struct pw_node *create_node(void *_data,
 	return node;
 
       no_properties:
-	pw_log_error("missing properties");
+	pw_log_error("needed properties: spa.library.name=<library-name> spa.factory.name=<factory-name>");
 	if (resource) {
-		pw_resource_error(resource, SPA_RESULT_INVALID_ARGUMENTS, "missing properties");
+		pw_resource_error(resource, SPA_RESULT_INVALID_ARGUMENTS,
+					"needed properties: "
+						"spa.library.name=<library-name> "
+						"spa.factory.name=<factory-name>");
 	}
 	return NULL;
       no_mem:

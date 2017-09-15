@@ -497,8 +497,8 @@ static void node_need_input(void *data)
 static void node_have_output(void *data)
 {
 	struct pw_node *node = data;
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, have_output);
 	spa_graph_have_output(node->rt.graph, &node->rt.node);
+	spa_hook_list_call(&node->listener_list, struct pw_node_events, have_output);
 }
 
 static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
@@ -534,13 +534,8 @@ void pw_node_set_implementation(struct pw_node *node,
 	spa_node_set_callbacks(node->node, &node_callbacks, node);
 	spa_graph_node_set_implementation(&node->rt.node, spa_node);
 
-	if (spa_node->info) {
-		uint32_t i;
-		for (i = 0; i < spa_node->info->n_items; i++)
-			pw_properties_set(node->properties,
-					  spa_node->info->items[i].key,
-					  spa_node->info->items[i].value);
-	}
+	if (spa_node->info)
+		pw_node_update_properties(node, spa_node->info);
 }
 
 struct spa_node *pw_node_get_implementation(struct pw_node *node)

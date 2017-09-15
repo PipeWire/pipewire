@@ -32,7 +32,7 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 	struct spa_graph_node *n, *t;
 	struct spa_list ready;
 
-	debug("node %p start pull\n", node);
+	spa_debug("node %p start pull", node);
 
 	spa_list_init(&ready);
 
@@ -43,7 +43,7 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 		if ((pport = p->peer) == NULL)
 			continue;
 		pnode = pport->node;
-		debug("node %p peer %p io %d %d\n", node, pnode, pport->io->status, pport->io->buffer_id);
+		spa_debug("node %p peer %p io %d %d", node, pnode, pport->io->status, pport->io->buffer_id);
 		if (pport->io->status == SPA_RESULT_NEED_BUFFER) {
 			if (pnode->ready_link.next == NULL)
 				spa_list_append(&ready, &pnode->ready_link);
@@ -54,7 +54,7 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 
 	spa_list_for_each_safe(n, t, &ready, ready_link) {
 		n->state = spa_node_process_output(n->implementation);
-		debug("peer %p processed out %d\n", n, n->state);
+		spa_debug("peer %p processed out %d", n, n->state);
 		if (n->state == SPA_RESULT_NEED_BUFFER)
 			spa_graph_need_input(n->graph, n);
 		else {
@@ -67,11 +67,11 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 		n->ready_link.next = NULL;
 	}
 
-	debug("node %p ready:%d required:%d\n", node, node->ready[SPA_DIRECTION_INPUT], node->required[SPA_DIRECTION_INPUT]);
+	spa_debug("node %p ready:%d required:%d", node, node->ready[SPA_DIRECTION_INPUT], node->required[SPA_DIRECTION_INPUT]);
 
 	if (node->required[SPA_DIRECTION_INPUT] > 0 && node->ready[SPA_DIRECTION_INPUT] == node->required[SPA_DIRECTION_INPUT]) {
 		node->state = spa_node_process_input(node->implementation);
-		debug("node %p processed in %d\n", node, node->state);
+		spa_debug("node %p processed in %d", node, node->state);
 		if (node->state == SPA_RESULT_HAVE_BUFFER) {
 			spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
 				if (p->io->status == SPA_RESULT_HAVE_BUFFER)
@@ -89,7 +89,7 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 	struct spa_list ready;
 	struct spa_graph_node *n, *t;
 
-	debug("node %p start push\n", node);
+	spa_debug("node %p start push", node);
 
 	spa_list_init(&ready);
 
@@ -108,7 +108,7 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 		pready = pnode->ready[SPA_DIRECTION_INPUT];
 		prequired = pnode->required[SPA_DIRECTION_INPUT];
 
-		debug("node %p peer %p io %d %d %d\n", node, pnode, pport->io->status,
+		spa_debug("node %p peer %p io %d %d %d", node, pnode, pport->io->status,
 				pready, prequired);
 
 		if (prequired > 0 && pready == prequired)
@@ -118,7 +118,7 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 
 	spa_list_for_each_safe(n, t, &ready, ready_link) {
 		n->state = spa_node_process_input(n->implementation);
-		debug("node %p chain processed in %d\n", n, n->state);
+		spa_debug("node %p chain processed in %d", n, n->state);
 		if (n->state == SPA_RESULT_HAVE_BUFFER)
 			spa_graph_have_output(n->graph, n);
 		else {
@@ -134,7 +134,7 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 	}
 
 	node->state = spa_node_process_output(node->implementation);
-	debug("node %p processed out %d\n", node, node->state);
+	spa_debug("node %p processed out %d", node, node->state);
 	if (node->state == SPA_RESULT_NEED_BUFFER) {
 		node->ready[SPA_DIRECTION_INPUT] = 0;
 		spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {

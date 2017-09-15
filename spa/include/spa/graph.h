@@ -30,10 +30,8 @@ extern "C" {
 #include <spa/list.h>
 #include <spa/node.h>
 
-#if 0
-#define debug(...)	printf(__VA_ARGS__)
-#else
-#define debug(...)
+#ifndef spa_debug
+#define spa_debug(...)
 #endif
 
 struct spa_graph;
@@ -105,7 +103,7 @@ spa_graph_node_init(struct spa_graph_node *node)
 	node->flags = 0;
 	node->required[SPA_DIRECTION_INPUT] = node->ready[SPA_DIRECTION_INPUT] = 0;
 	node->required[SPA_DIRECTION_OUTPUT] = node->ready[SPA_DIRECTION_OUTPUT] = 0;
-	debug("node %p init\n", node);
+	spa_debug("node %p init", node);
 }
 
 static inline void
@@ -123,7 +121,7 @@ spa_graph_node_add(struct spa_graph *graph,
 	node->state = SPA_RESULT_NEED_BUFFER;
 	node->ready_link.next = NULL;
 	spa_list_append(&graph->nodes, &node->link);
-	debug("node %p add\n", node);
+	spa_debug("node %p add", node);
 }
 
 static inline void
@@ -133,7 +131,7 @@ spa_graph_port_init(struct spa_graph_port *port,
 		    uint32_t flags,
 		    struct spa_port_io *io)
 {
-	debug("port %p init type %d id %d\n", port, direction, port_id);
+	spa_debug("port %p init type %d id %d", port, direction, port_id);
 	port->direction = direction;
 	port->port_id = port_id;
 	port->flags = flags;
@@ -144,7 +142,7 @@ static inline void
 spa_graph_port_add(struct spa_graph_node *node,
 		   struct spa_graph_port *port)
 {
-	debug("port %p add to node %p\n", port, node);
+	spa_debug("port %p add to node %p", port, node);
 	port->node = node;
 	spa_list_append(&node->ports[port->direction], &port->link);
 	if (!(port->flags & SPA_PORT_INFO_FLAG_OPTIONAL))
@@ -153,7 +151,7 @@ spa_graph_port_add(struct spa_graph_node *node,
 
 static inline void spa_graph_node_remove(struct spa_graph_node *node)
 {
-	debug("node %p remove\n", node);
+	spa_debug("node %p remove", node);
 	spa_list_remove(&node->link);
 	if (node->ready_link.next)
 		spa_list_remove(&node->ready_link);
@@ -161,7 +159,7 @@ static inline void spa_graph_node_remove(struct spa_graph_node *node)
 
 static inline void spa_graph_port_remove(struct spa_graph_port *port)
 {
-	debug("port %p remove\n", port);
+	spa_debug("port %p remove", port);
 	spa_list_remove(&port->link);
 	if (!(port->flags & SPA_PORT_INFO_FLAG_OPTIONAL))
 		port->node->required[port->direction]--;
@@ -170,7 +168,7 @@ static inline void spa_graph_port_remove(struct spa_graph_port *port)
 static inline void
 spa_graph_port_link(struct spa_graph_port *out, struct spa_graph_port *in)
 {
-	debug("port %p link to %p \n", out, in);
+	spa_debug("port %p link to %p", out, in);
 	out->peer = in;
 	in->peer = out;
 }
@@ -178,7 +176,7 @@ spa_graph_port_link(struct spa_graph_port *out, struct spa_graph_port *in)
 static inline void
 spa_graph_port_unlink(struct spa_graph_port *port)
 {
-	debug("port %p unlink from %p \n", port, port->peer);
+	spa_debug("port %p unlink from %p", port, port->peer);
 	if (port->peer) {
 		port->peer->peer = NULL;
 		port->peer = NULL;

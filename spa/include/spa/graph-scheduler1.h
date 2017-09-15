@@ -53,7 +53,7 @@ static inline void spa_graph_data_port_check(struct spa_graph_data *data, struct
 	if (port->io->status == SPA_RESULT_HAVE_BUFFER)
 		node->ready[SPA_DIRECTION_INPUT]++;
 
-	debug("port %p node %p check %d %d %d\n", port, node,
+	spa_debug("port %p node %p check %d %d %d", port, node,
 	      port->io->status, node->ready[SPA_DIRECTION_INPUT], required);
 
 	if (required > 0 && node->ready[SPA_DIRECTION_INPUT] == required) {
@@ -80,7 +80,7 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 		spa_list_remove(&n->ready_link);
 		n->ready_link.next = NULL;
 
-		debug("node %p state %d\n", n, n->state);
+		spa_debug("node %p state %d", n, n->state);
 
 		switch (n->state) {
 		case SPA_GRAPH_STATE_IN:
@@ -89,7 +89,7 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 				n->state = SPA_GRAPH_STATE_CHECK_IN;
 			else if (state == SPA_RESULT_HAVE_BUFFER)
 				n->state = SPA_GRAPH_STATE_CHECK_OUT;
-			debug("node %p processed input state %d\n", n, n->state);
+			spa_debug("node %p processed input state %d", n, n->state);
 			if (n == data->node)
 				break;
 			spa_list_append(&data->ready, &n->ready_link);
@@ -101,7 +101,7 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 				n->state = SPA_GRAPH_STATE_CHECK_IN;
 			else if (state == SPA_RESULT_HAVE_BUFFER)
 				n->state = SPA_GRAPH_STATE_CHECK_OUT;
-			debug("node %p processed output state %d\n", n, n->state);
+			spa_debug("node %p processed output state %d", n, n->state);
 			spa_list_append(&data->ready, &n->ready_link);
 			break;
 
@@ -135,7 +135,7 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *node)
 {
 	struct spa_graph_data *d = data;
-	debug("node %p start pull\n", node);
+	spa_debug("node %p start pull", node);
 	node->state = SPA_GRAPH_STATE_CHECK_IN;
 	d->node = node;
 	if (node->ready_link.next == NULL)
@@ -149,7 +149,7 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *node)
 {
 	struct spa_graph_data *d = data;
-	debug("node %p start push\n", node);
+	spa_debug("node %p start push", node);
 	node->state = SPA_GRAPH_STATE_OUT;
 	d->node = node;
 	if (node->ready_link.next == NULL)

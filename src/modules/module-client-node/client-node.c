@@ -794,15 +794,17 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 		impl->transport->outputs[i] = *io;
 		if (tmp.status == SPA_RESULT_HAVE_BUFFER)
 			res = SPA_RESULT_HAVE_BUFFER;
+		else if (tmp.status == SPA_RESULT_NEED_BUFFER)
+			res = SPA_RESULT_NEED_BUFFER;
 		*io = tmp;
 		pw_log_trace("%d %d -> %d %d", io->status, io->buffer_id,
 				impl->transport->outputs[i].status,
 				impl->transport->outputs[i].buffer_id);
 	}
+
 	pw_client_node_transport_add_message(impl->transport,
 			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT));
 	do_flush(this);
-
 	return res;
 }
 

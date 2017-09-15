@@ -61,6 +61,11 @@ struct buffer_id {
 	struct spa_buffer *buf;
 };
 
+struct port {
+	struct spa_graph_port output;
+	struct spa_graph_port input;
+};
+
 struct node_data {
 	struct pw_remote *remote;
 	struct pw_core *core;
@@ -70,8 +75,13 @@ struct node_data {
 	int rtwritefd;
 	struct spa_source *rtsocket_source;
         struct pw_client_node_transport *trans;
-	struct spa_graph_port *in_ports;
-	struct spa_graph_port *out_ports;
+
+	struct spa_node out_node_impl;
+	struct spa_graph_node out_node;
+	struct port *out_ports;
+	struct spa_node in_node_impl;
+	struct spa_graph_node in_node;
+	struct port *in_ports;
 
 	struct pw_node *node;
 	struct spa_hook node_listener;
@@ -430,36 +440,14 @@ static void unhandle_socket(struct pw_proxy *proxy)
 static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_message *message)
 {
 	struct node_data *data = proxy->user_data;
-	struct spa_graph_node *n = &data->node->rt.node;
-	struct spa_graph_port *port, *pp;
-	struct spa_graph_node *pn;
 
         if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT) {
-		/* process all input in the mixers */
-		spa_list_for_each(port, &n->ports[SPA_DIRECTION_INPUT], link) {
-			pn = port->peer->node;
-	                pn->state = spa_node_process_input(pn->implementation);
-	                if (pn->state == SPA_RESULT_HAVE_BUFFER)
-	                        spa_graph_have_output(data->node->rt.graph, pn);
-			else {
-	                        pn->ready[SPA_DIRECTION_INPUT] = 0;
-	                        spa_list_for_each(pp, &pn->ports[SPA_DIRECTION_INPUT], link) {
-					if (pp->io->status == SPA_RESULT_OK &&
-					    !(pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
-						pn->ready[SPA_DIRECTION_INPUT]++;
-				}
-	                }
-		}
+		pw_log_trace("remote %p: process input", data->remote);
+		spa_graph_have_output(data->node->rt.graph, &data->in_node);
         }
 	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT) {
-		spa_list_for_each(port, &n->ports[SPA_DIRECTION_OUTPUT], link) {
-			pn = port->peer->node;
-			pn->state = spa_node_process_output(pn->implementation);
-			pw_log_trace("node %p: process output %d", pn->implementation, pn->state);
-			if (pn->state == SPA_RESULT_NEED_BUFFER) {
-				spa_graph_need_input(data->node->rt.graph, pn);
-			}
-		}
+		pw_log_trace("remote %p: process output", data->remote);
+		spa_graph_need_input(data->node->rt.graph, &data->out_node);
 	}
 	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {
 	}
@@ -503,10 +491,14 @@ static void clean_transport(struct pw_proxy *proxy)
 	if (data->trans == NULL)
 		return;
 
-	spa_list_for_each(port, &data->node->input_ports, link)
-		spa_graph_port_remove(&data->in_ports[port->port_id]);
-	spa_list_for_each(port, &data->node->output_ports, link)
-		spa_graph_port_remove(&data->out_ports[port->port_id]);
+	spa_list_for_each(port, &data->node->input_ports, link) {
+		spa_graph_port_remove(&data->in_ports[port->port_id].output);
+		spa_graph_port_remove(&data->in_ports[port->port_id].input);
+	}
+	spa_list_for_each(port, &data->node->output_ports, link) {
+		spa_graph_port_remove(&data->out_ports[port->port_id].output);
+		spa_graph_port_remove(&data->out_ports[port->port_id].input);
+	}
 
 	free(data->in_ports);
 	free(data->out_ports);
@@ -516,6 +508,11 @@ static void clean_transport(struct pw_proxy *proxy)
 
 	data->trans = NULL;
 }
+
+struct port_info {
+	struct spa_graph_port internal;
+	struct spa_graph_port external;
+};
 
 static void client_node_transport(void *object, uint32_t node_id,
                                   int readfd, int writefd,
@@ -535,31 +532,45 @@ static void client_node_transport(void *object, uint32_t node_id,
 		proxy, data->trans, readfd, writefd, node_id);
 
 	data->in_ports = calloc(data->trans->area->max_input_ports,
-				 sizeof(struct spa_graph_port));
+				 sizeof(struct port));
 	data->out_ports = calloc(data->trans->area->max_output_ports,
-				  sizeof(struct spa_graph_port));
+				  sizeof(struct port));
 
 	for (i = 0; i < data->trans->area->max_input_ports; i++) {
-		spa_graph_port_init(&data->in_ports[i],
+		spa_graph_port_init(&data->in_ports[i].input,
 				    SPA_DIRECTION_INPUT,
 				    i,
 				    0,
 				    &data->trans->inputs[i]);
+		spa_graph_port_init(&data->in_ports[i].output,
+				    SPA_DIRECTION_OUTPUT,
+				    i,
+				    0,
+				    &data->trans->inputs[i]);
+		spa_graph_port_add(&data->in_node, &data->in_ports[i].output);
+		spa_graph_port_link(&data->in_ports[i].output, &data->in_ports[i].input);
 		pw_log_info("transport in %d %p", i, &data->trans->inputs[i]);
 	}
 	spa_list_for_each(port, &data->node->input_ports, link)
-		spa_graph_port_add(&port->rt.mix_node, &data->in_ports[port->port_id]);
+		spa_graph_port_add(&port->rt.mix_node, &data->in_ports[port->port_id].input);
 
 	for (i = 0; i < data->trans->area->max_output_ports; i++) {
-		spa_graph_port_init(&data->out_ports[i],
+		spa_graph_port_init(&data->out_ports[i].output,
 				    SPA_DIRECTION_OUTPUT,
 				    i,
 				    0,
 				    &data->trans->outputs[i]);
+		spa_graph_port_init(&data->out_ports[i].input,
+				    SPA_DIRECTION_INPUT,
+				    i,
+				    0,
+				    &data->trans->outputs[i]);
+		spa_graph_port_add(&data->out_node, &data->out_ports[i].input);
+		spa_graph_port_link(&data->out_ports[i].output, &data->out_ports[i].input);
 		pw_log_info("transport out %d %p", i, &data->trans->inputs[i]);
 	}
 	spa_list_for_each(port, &data->node->output_ports, link)
-		spa_graph_port_add(&port->rt.mix_node, &data->out_ports[port->port_id]);
+		spa_graph_port_add(&port->rt.mix_node, &data->out_ports[port->port_id].output);
 
         data->rtwritefd = writefd;
         data->rtsocket_source = pw_loop_add_io(proxy->remote->core->data_loop,
@@ -1039,6 +1050,33 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = node_proxy_destroy,
 };
 
+static int impl_process_input(struct spa_node *node)
+{
+#if 0
+	struct node_data *data = SPA_CONTAINER_OF(node, struct node_data, out_node_impl);
+	node_have_output(data);
+#endif
+	pw_log_trace("node %p: have output", node);
+	return SPA_RESULT_OK;
+}
+
+static int impl_process_output(struct spa_node *node)
+{
+#if 0
+	struct node_data *data = SPA_CONTAINER_OF(node, struct node_data, in_node_impl);
+	node_need_input(data);
+#endif
+	pw_log_trace("node %p: need input", node);
+	return SPA_RESULT_OK;
+}
+
+static const struct spa_node node_impl = {
+	SPA_VERSION_NODE,
+	NULL,
+	.process_input = impl_process_input,
+	.process_output = impl_process_output,
+};
+
 struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 				  struct pw_node *node)
 {
@@ -1062,6 +1100,13 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	data->core = pw_node_get_core(node);
 	data->t = pw_core_get_type(data->core);
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;
+	data->in_node_impl = node_impl;
+	data->out_node_impl = node_impl;
+
+	spa_graph_node_init(&data->in_node);
+	spa_graph_node_set_implementation(&data->in_node, &data->in_node_impl);
+	spa_graph_node_init(&data->out_node);
+	spa_graph_node_set_implementation(&data->out_node, &data->out_node_impl);
 
         pw_array_init(&data->mem_ids, 64);
         pw_array_ensure_size(&data->mem_ids, sizeof(struct mem_id) * 64);

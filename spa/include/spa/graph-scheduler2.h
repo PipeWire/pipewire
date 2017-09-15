@@ -48,7 +48,7 @@ static inline void spa_graph_port_check(struct spa_graph *graph, struct spa_grap
 	if (port->io->status == SPA_RESULT_HAVE_BUFFER)
 		node->ready++;
 
-	debug("port %p node %p check %d %d %d\n", port, node, port->io->status, node->ready, node->required);
+	spa_debug("port %p node %p check %d %d %d", port, node, port->io->status, node->ready, node->required);
 
 	if (node->required > 0 && node->ready == node->required) {
 		node->action = SPA_GRAPH_ACTION_IN;
@@ -68,7 +68,7 @@ static inline void spa_graph_node_update(struct spa_graph *graph, struct spa_gra
 		if (p->io->status == SPA_RESULT_OK && !(node->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
 			node->ready++;
 	}
-	debug("node %p update %d ready\n", node, node->ready);
+	spa_debug("node %p update %d ready", node, node->ready);
 }
 
 static inline bool spa_graph_scheduler_iterate(struct spa_graph *graph)
@@ -82,7 +82,7 @@ static inline bool spa_graph_scheduler_iterate(struct spa_graph *graph)
 next:
 	empty = spa_list_is_empty(&graph->ready);
 	if (empty && !spa_list_is_empty(&graph->pending)) {
-		debug("copy pending\n");
+		spa_debug("copy pending");
 		spa_list_insert_list(&graph->ready, &graph->pending);
 		spa_list_init(&graph->pending);
 		empty = false;
@@ -94,7 +94,7 @@ next:
 	spa_list_remove(&n->ready_link);
 	n->ready_link.next = NULL;
 
-	debug("node %p state %d\n", n, n->state);
+	spa_debug("node %p state %d", n, n->state);
 
 	switch (n->state) {
 	case SPA_GRAPH_STATE_IN:
@@ -104,13 +104,13 @@ next:
 			n->state = SPA_GRAPH_STATE_OUT;
 
 		state = n->schedule(n);
-		debug("node %p schedule %d res %d\n", n, action, state);
+		spa_debug("node %p schedule %d res %d", n, action, state);
 
 		if (n->state == SPA_GRAPH_STATE_IN && n == graph->node)
 			break;
 
 		if (n->state != SPA_GRAPH_STATE_END) {
-			debug("node %p add ready for CHECK\n", n);
+			spa_debug("node %p add ready for CHECK", n);
 			if (state == SPA_RESULT_NEED_BUFFER)
 				n->state = SPA_GRAPH_STATE_CHECK_IN;
 			else if (state == SPA_RESULT_HAVE_BUFFER)
@@ -132,7 +132,7 @@ next:
 				if (pn != graph->node
 				    || pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC) {
 					pn->state = SPA_GRAPH_STATE_OUT;
-					debug("node %p add ready OUT\n", n);
+					spa_debug("node %p add ready OUT", n);
 					spa_list_insert(graph->ready.prev,
 							&pn->ready_link);
 				}
@@ -145,7 +145,7 @@ next:
 		spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link)
 			spa_graph_port_check(graph, p->peer);
 
-		debug("node %p add pending\n", n);
+		spa_debug("node %p add pending", n);
 		n->state = SPA_GRAPH_STATE_END;
 		spa_list_insert(&graph->pending, &n->ready_link);
 		break;
@@ -165,7 +165,7 @@ static inline void spa_graph_scheduler_pull(struct spa_graph *graph, struct spa_
 	node->action = SPA_GRAPH_ACTION_CHECK;
 	node->state = SPA_RESULT_NEED_BUFFER;
 	graph->node = node;
-	debug("node %p start pull\n", node);
+	spa_debug("node %p start pull", node);
 	if (node->ready_link.next == NULL)
 		spa_list_insert(graph->ready.prev, &node->ready_link);
 }
@@ -174,7 +174,7 @@ static inline void spa_graph_scheduler_push(struct spa_graph *graph, struct spa_
 {
 	node->action = SPA_GRAPH_ACTION_OUT;
 	graph->node = node;
-	debug("node %p start push\n", node);
+	spa_debug("node %p start push", node);
 	if (node->ready_link.next == NULL)
 		spa_list_insert(graph->ready.prev, &node->ready_link);
 }

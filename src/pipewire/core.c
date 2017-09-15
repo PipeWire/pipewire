@@ -170,18 +170,22 @@ core_create_node(void *object,
 		 uint32_t new_id)
 {
 	struct pw_resource *resource = object;
-	struct pw_resource *node_resource;
+	struct pw_resource *node_resource = NULL;
 	struct pw_client *client = resource->client;
 	struct pw_node_factory *factory;
+	struct pw_node *node;
 	struct pw_properties *properties;
+	int res;
 
 	factory = pw_core_find_node_factory(client->core, factory_name);
 	if (factory == NULL)
 		goto no_factory;
 
-	node_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0);
-	if (node_resource == NULL)
-		goto no_resource;
+	if (type != client->core->type.node) {
+		node_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0);
+		if (node_resource == NULL)
+			goto no_resource;
+	}
 
 	if (props) {
 		properties = pw_properties_new_dict(props);
@@ -191,16 +195,25 @@ core_create_node(void *object,
 		properties = NULL;
 
 	/* error will be posted */
-	pw_node_factory_create_node(factory, node_resource, name, properties);
+	node = pw_node_factory_create_node(factory, node_resource, name, properties);
+	if (node == NULL)
+		goto no_mem;
+
+	if (type == client->core->type.node) {
+		res = pw_global_bind(pw_node_get_global(node), client, PW_PERM_RWX, version, new_id);
+		if (res < 0)
+			goto no_bind;
+	}
+
 	properties = NULL;
 
       done:
 	return;
 
       no_factory:
-	pw_log_error("can't find node factory");
+	pw_log_error("can't find node factory %s", factory_name);
 	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown factory name");
+			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown factory name %s", factory_name);
 	goto done;
 
       no_resource:
@@ -213,6 +226,10 @@ core_create_node(void *object,
       no_mem:
 	pw_core_resource_error(client->core_resource,
 			       resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+	goto done;
+      no_bind:
+	pw_core_resource_error(client->core_resource,
+			       resource->id, res, "can't bind node: %d", res);
 	goto done;
 }
 

@@ -51,23 +51,31 @@ struct impl {
 	struct spa_source *dispatch_event;
 };
 
+struct resource;
+
 struct client_info {
-	struct impl *impl;
 	struct spa_list link;
+	struct impl *impl;
 	struct pw_client *client;
-	bool is_sandboxed;
-	struct pw_resource *core_resource;
-	struct spa_hook core_override;
-	struct spa_list async_pending;
 	struct spa_hook client_listener;
+	bool is_sandboxed;
+        struct spa_list resources;
+	struct resource *core_resource;
+	struct spa_list async_pending;
+};
+
+struct resource {
+        struct spa_list link;
+	struct client_info *cinfo;
+	struct pw_resource *resource;
+	struct spa_hook override;
 };
 
 struct async_pending {
 	struct spa_list link;
-	struct client_info *info;
+	struct resource *resource;
 	bool handled;
 	char *handle;
-	struct pw_resource *resource;
 	char *factory_name;
 	char *name;
 	uint32_t type;
@@ -90,7 +98,7 @@ static struct client_info *find_client_info(struct impl *impl, struct pw_client 
 static void close_request(struct async_pending *p)
 {
 	DBusMessage *m = NULL;
-	struct impl *impl = p->info->impl;
+	struct impl *impl = p->resource->cinfo->impl;
 
 	pw_log_debug("pending %p: handle %s", p, p->handle);
 
@@ -133,12 +141,21 @@ static void free_pending(struct async_pending *p)
 	free(p);
 }
 
+static void free_resource(struct resource *r)
+{
+	spa_list_remove(&r->link);
+	free(r);
+}
+
 static void client_info_free(struct client_info *cinfo)
 {
-	struct async_pending *p, *tmp;
+	struct async_pending *p, *tp;
+	struct resource *r, *tr;
 
-	spa_list_for_each_safe(p, tmp, &cinfo->async_pending, link)
+	spa_list_for_each_safe(p, tp, &cinfo->async_pending, link)
 		free_pending(p);
+	spa_list_for_each_safe(r, tr, &cinfo->resources, link)
+		free_resource(r);
 
 	spa_hook_remove(&cinfo->client_listener);
 	spa_list_remove(&cinfo->link);
@@ -285,8 +302,8 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 		pw_log_debug("portal check result: %d", response);
 
 		if (response == 0) {
-			pw_resource_do_parent(cinfo->core_resource,
-					      &cinfo->core_override,
+			pw_resource_do_parent(p->resource->resource,
+					      &p->resource->override,
 					      struct pw_core_proxy_methods,
 					      create_node,
 					      p->factory_name,
@@ -296,7 +313,7 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 					      &p->properties->dict,
 					      p->new_id);
 		} else {
-			pw_resource_error(p->resource, SPA_RESULT_NO_PERMISSION, "not allowed");
+			pw_resource_error(p->resource->resource, SPA_RESULT_NO_PERMISSION, "not allowed");
 
 		}
 		free_pending(p);
@@ -316,7 +333,8 @@ static void do_create_node(void *data,
 			   const struct spa_dict *props,
 			   uint32_t new_id)
 {
-	struct client_info *cinfo = data;
+	struct resource *resource = data;
+	struct client_info *cinfo = resource->cinfo;
 	struct impl *impl = cinfo->impl;
 	struct pw_client *client = cinfo->client;
 	DBusMessage *m = NULL, *r = NULL;
@@ -329,8 +347,8 @@ static void do_create_node(void *data,
 	struct async_pending *p;
 
 	if (!cinfo->is_sandboxed) {
-		pw_resource_do_parent(cinfo->core_resource,
-				      &cinfo->core_override,
+		pw_resource_do_parent(resource->resource,
+				      &resource->override,
 				      struct pw_core_proxy_methods,
 				      create_node,
 				      factory_name,
@@ -389,10 +407,9 @@ static void do_create_node(void *data,
 	dbus_connection_add_filter(impl->bus, portal_response, cinfo, NULL);
 
 	p = calloc(1, sizeof(struct async_pending));
-	p->info = cinfo;
+	p->resource = resource;
 	p->handle = strdup(handle);
 	p->handled = false;
-	p->resource = cinfo->core_resource;
 	p->factory_name = strdup(factory_name);
 	p->name = strdup(name);
 	p->type = type;
@@ -401,7 +418,7 @@ static void do_create_node(void *data,
 	p->new_id = new_id;
 
 	pw_log_debug("pending %p: handle %s", p, handle);
-	spa_list_insert(cinfo->async_pending.prev, &p->link);
+	spa_list_append(&cinfo->async_pending, &p->link);
 
 	return;
 
@@ -426,7 +443,7 @@ static void do_create_node(void *data,
 	dbus_error_free(&error);
 	goto not_allowed;
       not_allowed:
-	pw_resource_error(cinfo->core_resource, SPA_RESULT_NO_PERMISSION, "not allowed");
+	pw_resource_error(cinfo->core_resource->resource, SPA_RESULT_NO_PERMISSION, "not allowed");
 	return;
 }
 
@@ -440,14 +457,15 @@ do_create_link(void *data,
 	       const struct spa_dict *props,
 	       uint32_t new_id)
 {
-	struct client_info *cinfo = data;
+	struct resource *resource = data;
+	struct client_info *cinfo = resource->cinfo;
 
 	if (cinfo->is_sandboxed) {
-		pw_resource_error(cinfo->core_resource, SPA_RESULT_NO_PERMISSION, "not allowed");
+		pw_resource_error(resource->resource, SPA_RESULT_NO_PERMISSION, "not allowed");
 		return;
 	}
-	pw_resource_do_parent(cinfo->core_resource,
-			      &cinfo->core_override,
+	pw_resource_do_parent(resource->resource,
+			      &resource->override,
 			      struct pw_core_proxy_methods,
 			      create_link,
 			      output_node_id,
@@ -471,12 +489,21 @@ static void client_resource_impl(void *data, struct pw_resource *resource)
 	struct impl *impl = cinfo->impl;
 
 	if (pw_resource_get_type(resource) == impl->type->core) {
-		cinfo->core_resource = resource;
+		struct resource *r;
+
+		r = calloc(1, sizeof(struct resource));
+		r->cinfo = cinfo;
+		r->resource = resource;
+		spa_list_append(&cinfo->resources, &r->link);
+
+		if (pw_resource_get_id(resource) == 0)
+			cinfo->core_resource = r;
+
 		pw_log_debug("module %p: add core override", impl);
 		pw_resource_add_override(resource,
-					 &cinfo->core_override,
+					 &r->override,
 					 &core_override,
-					 cinfo);
+					 r);
 	}
 }
 
@@ -499,6 +526,7 @@ core_global_added(void *data, struct pw_global *global)
 		cinfo->client = client;
 		cinfo->is_sandboxed = client_is_sandboxed(client);
 		spa_list_init(&cinfo->async_pending);
+		spa_list_init(&cinfo->resources);
 
 		pw_client_add_listener(client, &cinfo->client_listener, &client_events, cinfo);
 

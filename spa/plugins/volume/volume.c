@@ -114,6 +114,7 @@ struct impl {
 
 	uint8_t format_buffer[1024];
 	struct spa_audio_info current_format;
+	int bpf;
 
 	struct port in_ports[1];
 	struct port out_ports[1];
@@ -377,6 +378,7 @@ impl_node_port_set_format(struct spa_node *node,
 		if (!spa_format_audio_raw_parse(format, &info.info.raw, &this->type.format_audio))
 			return SPA_RESULT_INVALID_MEDIA_TYPE;
 
+		this->bpf = 2 * info.info.raw.channels;
 		this->current_format = info;
 		port->have_format = true;
 	}
@@ -392,6 +394,8 @@ impl_node_port_get_format(struct spa_node *node,
 {
 	struct impl *this;
 	struct port *port;
+	struct spa_pod_builder b = { NULL, };
+	struct spa_pod_frame f[2];
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -406,7 +410,17 @@ impl_node_port_get_format(struct spa_node *node,
 	if (!port->have_format)
 		return SPA_RESULT_NO_FORMAT;
 
-	*format = NULL;
+        spa_pod_builder_init(&b, this->format_buffer, sizeof(this->format_buffer));
+        spa_pod_builder_format(&b, &f[0], this->type.format,
+                this->type.media_type.audio,
+                this->type.media_subtype.raw,
+                PROP(&f[1], this->type.format_audio.format, SPA_POD_TYPE_ID,
+                        this->current_format.info.raw.format),
+                PROP(&f[1], this->type.format_audio.rate, SPA_POD_TYPE_INT,
+                        this->current_format.info.raw.rate),
+                PROP(&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT,
+                        this->current_format.info.raw.channels));
+        *format = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
 
 	return SPA_RESULT_OK;
 }
@@ -461,15 +475,14 @@ impl_node_port_enum_params(struct spa_node *node,
 	switch (index) {
 	case 0:
 		spa_pod_builder_object(&b, &f[0], 0, this->type.param_alloc_buffers.Buffers,
-			PROP(&f[1], this->type.param_alloc_buffers.size, SPA_POD_TYPE_INT,
-				16),
-			PROP(&f[1], this->type.param_alloc_buffers.stride, SPA_POD_TYPE_INT,
-				16),
+			PROP_U_MM(&f[1], this->type.param_alloc_buffers.size,    SPA_POD_TYPE_INT,
+										  1024 * this->bpf,
+										  16 * this->bpf,
+										  INT32_MAX / this->bpf),
+			PROP     (&f[1], this->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0),
 			PROP_U_MM(&f[1], this->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
-				MAX_BUFFERS,
-				2, MAX_BUFFERS),
-			PROP(&f[1], this->type.param_alloc_buffers.align, SPA_POD_TYPE_INT,
-				16));
+										  2, 1, MAX_BUFFERS),
+			PROP     (&f[1], this->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
 		break;
 
 	case 1:
@@ -713,9 +726,13 @@ static int impl_node_process_input(struct spa_node *node)
 	if (output->status == SPA_RESULT_HAVE_BUFFER)
 		return SPA_RESULT_HAVE_BUFFER;
 
+
 	in_port = &this->in_ports[0];
 	input = in_port->io;
 	spa_return_val_if_fail(input != NULL, SPA_RESULT_ERROR);
+
+	if (input->buffer_id >= in_port->n_buffers)
+		return SPA_RESULT_NEED_BUFFER;
 
 	if ((dbuf = find_free_buffer(this, out_port)) == NULL)
 		return SPA_RESULT_OUT_OF_BUFFERS;

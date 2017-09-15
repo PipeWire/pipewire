@@ -433,11 +433,11 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 	                if (pn->state == SPA_RESULT_HAVE_BUFFER)
 	                        spa_graph_have_output(data->node->rt.graph, pn);
 			else {
-	                        pn->ready_in = 0;
+	                        pn->ready[SPA_DIRECTION_INPUT] = 0;
 	                        spa_list_for_each(pp, &pn->ports[SPA_DIRECTION_INPUT], link) {
 					if (pp->io->status == SPA_RESULT_OK &&
 					    !(pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
-						pn->ready_in++;
+						pn->ready[SPA_DIRECTION_INPUT]++;
 				}
 	                }
 		}
@@ -446,8 +446,10 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 		spa_list_for_each(port, &n->ports[SPA_DIRECTION_OUTPUT], link) {
 			pn = port->peer->node;
 			pn->state = spa_node_process_output(pn->implementation);
-			if (pn->state == SPA_RESULT_NEED_BUFFER)
+			pw_log_trace("node %p: process output %d", pn->implementation, pn->state);
+			if (pn->state == SPA_RESULT_NEED_BUFFER) {
 				spa_graph_need_input(data->node->rt.graph, pn);
+			}
 		}
 	}
 	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {

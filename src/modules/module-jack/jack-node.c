@@ -299,7 +299,7 @@ static int driver_process_output(struct spa_node *node)
 	out->outbuf->datas[0].chunk->size = ctrl->buffer_size * sizeof(int16_t) * 2;
 
 	spa_hook_list_call(&nd->listener_list, struct pw_jack_node_events, push);
-	gn->ready_in = gn->required_in;
+	gn->ready[SPA_DIRECTION_INPUT] = gn->required[SPA_DIRECTION_OUTPUT] = 0;
 
 	return SPA_RESULT_HAVE_BUFFER;
 }

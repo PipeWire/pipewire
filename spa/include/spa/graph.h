@@ -65,8 +65,8 @@ struct spa_graph_node {
 	struct spa_list ready_link;	/**< link for scheduler */
 #define SPA_GRAPH_NODE_FLAG_ASYNC       (1 << 0)
 	uint32_t flags;			/**< node flags */
-	uint32_t required_in;		/**< required number of ports */
-	uint32_t ready_in;		/**< number of ports with data */
+	uint32_t required[2];		/**< required number of ports */
+	uint32_t ready[2];		/**< number of ports with data */
 	int state;			/**< state of the node */
 	struct spa_node *implementation;/**< node implementation */
 	void *scheduler_data;		/**< scheduler private data */
@@ -103,7 +103,8 @@ spa_graph_node_init(struct spa_graph_node *node)
 	spa_list_init(&node->ports[SPA_DIRECTION_INPUT]);
 	spa_list_init(&node->ports[SPA_DIRECTION_OUTPUT]);
 	node->flags = 0;
-	node->required_in = node->ready_in = 0;
+	node->required[SPA_DIRECTION_INPUT] = node->ready[SPA_DIRECTION_INPUT] = 0;
+	node->required[SPA_DIRECTION_OUTPUT] = node->ready[SPA_DIRECTION_OUTPUT] = 0;
 	debug("node %p init\n", node);
 }
 
@@ -146,8 +147,8 @@ spa_graph_port_add(struct spa_graph_node *node,
 	debug("port %p add to node %p\n", port, node);
 	port->node = node;
 	spa_list_append(&node->ports[port->direction], &port->link);
-	if (!(port->flags & SPA_PORT_INFO_FLAG_OPTIONAL) && port->direction == SPA_DIRECTION_INPUT)
-		node->required_in++;
+	if (!(port->flags & SPA_PORT_INFO_FLAG_OPTIONAL))
+		node->required[port->direction]++;
 }
 
 static inline void spa_graph_node_remove(struct spa_graph_node *node)
@@ -162,8 +163,8 @@ static inline void spa_graph_port_remove(struct spa_graph_port *port)
 {
 	debug("port %p remove\n", port);
 	spa_list_remove(&port->link);
-	if (!(port->flags & SPA_PORT_INFO_FLAG_OPTIONAL) && port->direction == SPA_DIRECTION_INPUT)
-		port->node->required_in--;
+	if (!(port->flags & SPA_PORT_INFO_FLAG_OPTIONAL))
+		port->node->required[port->direction]--;
 }
 
 static inline void

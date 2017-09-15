@@ -48,14 +48,15 @@ static inline void spa_graph_data_init(struct spa_graph_data *data,
 static inline void spa_graph_data_port_check(struct spa_graph_data *data, struct spa_graph_port *port)
 {
 	struct spa_graph_node *node = port->node;
+	uint32_t required = node->required[SPA_DIRECTION_INPUT];
 
 	if (port->io->status == SPA_RESULT_HAVE_BUFFER)
-		node->ready_in++;
+		node->ready[SPA_DIRECTION_INPUT]++;
 
 	debug("port %p node %p check %d %d %d\n", port, node,
-	      port->io->status, node->ready_in, node->required_in);
+	      port->io->status, node->ready[SPA_DIRECTION_INPUT], required);
 
-	if (node->required_in > 0 && node->ready_in == node->required_in) {
+	if (required > 0 && node->ready[SPA_DIRECTION_INPUT] == required) {
 		node->state = SPA_GRAPH_STATE_IN;
 		if (node->ready_link.next == NULL)
 			spa_list_insert(data->ready.prev, &node->ready_link);
@@ -105,7 +106,7 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 			break;
 
 		case SPA_GRAPH_STATE_CHECK_IN:
-			n->ready_in = 0;
+			n->ready[SPA_DIRECTION_INPUT] = 0;
 			spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
 				struct spa_graph_node *pn = p->peer->node;
 				if (p->io->status == SPA_RESULT_NEED_BUFFER) {
@@ -116,7 +117,7 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 								&pn->ready_link);
 					}
 				} else if (p->io->status == SPA_RESULT_OK)
-					n->ready_in++;
+					n->ready[SPA_DIRECTION_INPUT]++;
 			}
 		case SPA_GRAPH_STATE_CHECK_OUT:
 			spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link)

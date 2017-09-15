@@ -299,6 +299,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 
 static inline void reuse_buffer(struct data *d, uint32_t id)
 {
+	pw_log_trace("sine-source %p: recycle buffer %d", d, id);
         spa_list_append(&d->empty, &d->buffers[id].link);
 }
 
@@ -410,7 +411,7 @@ int main(int argc, char *argv[])
 	data.loop = pw_main_loop_new(NULL);
 	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL);
 	data.t = pw_core_get_type(data.core);
-        data.remote = pw_remote_new(data.core, NULL);
+        data.remote = pw_remote_new(data.core, NULL, 0);
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	spa_list_init(&data.empty);

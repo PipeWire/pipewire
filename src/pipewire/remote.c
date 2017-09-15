@@ -195,14 +195,15 @@ static const struct pw_core_proxy_events core_proxy_events = {
 };
 
 struct pw_remote *pw_remote_new(struct pw_core *core,
-				struct pw_properties *properties)
+				struct pw_properties *properties,
+				size_t user_data_size)
 {
 	struct remote *impl;
 	struct pw_remote *this;
 	struct pw_protocol *protocol;
 	const char *protocol_name;
 
-	impl = calloc(1, sizeof(struct remote));
+	impl = calloc(1, sizeof(struct remote) + user_data_size);
 	if (impl == NULL)
 		return NULL;
 
@@ -210,6 +211,9 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	pw_log_debug("remote %p: new", impl);
 
 	this->core = core;
+
+	if (user_data_size > 0)
+		this->user_data = SPA_MEMBER(impl, sizeof(struct remote), void);
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -286,6 +290,11 @@ void pw_remote_destroy(struct pw_remote *remote)
 struct pw_core *pw_remote_get_core(struct pw_remote *remote)
 {
 	return remote->core;
+}
+
+void *pw_remote_get_user_data(struct pw_remote *remote)
+{
+	return remote->user_data;
 }
 
 enum pw_remote_state pw_remote_get_state(struct pw_remote *remote, const char **error)

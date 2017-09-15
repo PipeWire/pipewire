@@ -1032,7 +1032,7 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
     goto mainloop_failed;
 
   pw_thread_loop_lock (pwsrc->main_loop);
-  if ((pwsrc->remote = pw_remote_new (pwsrc->core, NULL)) == NULL)
+  if ((pwsrc->remote = pw_remote_new (pwsrc->core, NULL, 0)) == NULL)
     goto no_remote;
 
   pw_remote_add_listener (pwsrc->remote,

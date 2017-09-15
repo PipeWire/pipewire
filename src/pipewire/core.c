@@ -106,6 +106,7 @@ static void core_sync(void *object, uint32_t seq)
 {
 	struct pw_resource *resource = object;
 
+	pw_log_debug("core %p: sync %d from resource %p", resource->core, seq, resource);
 	pw_core_resource_done(resource, seq);
 }
 

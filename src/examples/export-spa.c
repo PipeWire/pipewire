@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
         pw_loop_add_signal(l, SIGTERM, do_quit, &data);
 	data.core = pw_core_new(l, NULL);
 	data.t = pw_core_get_type(data.core);
-        data.remote = pw_remote_new(data.core, NULL);
+        data.remote = pw_remote_new(data.core, NULL, 0);
 	data.library = argv[1];
 	data.factory = argv[2];
 	if (argc > 3)

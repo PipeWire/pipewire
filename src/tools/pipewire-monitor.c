@@ -401,7 +401,7 @@ int main(int argc, char *argv[])
 	pw_loop_add_signal(l, SIGTERM, do_quit, &data);
 
 	data.core = pw_core_new(l, NULL);
-	data.remote = pw_remote_new(data.core, NULL);
+	data.remote = pw_remote_new(data.core, NULL, 0);
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 	pw_remote_connect(data.remote);

@@ -437,7 +437,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
 
   t = pw_core_get_type(c);
 
-  if (!(r = pw_remote_new (c, NULL)))
+  if (!(r = pw_remote_new (c, NULL, 0)))
     goto failed;
 
   pw_remote_add_listener(r, &listener, &remote_events, self);
@@ -527,7 +527,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   pw_thread_loop_lock (self->main_loop);
 
-  if (!(self->remote = pw_remote_new (self->core, NULL))) {
+  if (!(self->remote = pw_remote_new (self->core, NULL, 0))) {
     GST_ERROR_OBJECT (self, "Failed to create remote");
     goto failed_remote;
   }

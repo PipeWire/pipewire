@@ -142,14 +142,18 @@ struct pw_remote_events {
  * \return a new unconnected remote */
 struct pw_remote *
 pw_remote_new(struct pw_core *core,		/**< a \ref pw_core */
-	      struct pw_properties *properties	/**< optional properties, ownership of
-						  *  the properties is taken.*/ );
+	      struct pw_properties *properties,	/**< optional properties, ownership of
+						  *  the properties is taken.*/
+	      size_t user_data_size		/**< extra user data size */);
 
 /** Destroy a remote \memberof pw_remote */
 void pw_remote_destroy(struct pw_remote *remote);
 
 /** Get the core used to construct this remote */
 struct pw_core *pw_remote_get_core(struct pw_remote *remote);
+
+/** Get the user_data. The size was given in \ref pw_remote_new */
+void *pw_remote_get_user_data(struct pw_remote *remote);
 
 /** Get the current state, \a error is set when state is \ref PW_REMOTE_STATE_ERROR */
 enum pw_remote_state pw_remote_get_state(struct pw_remote *remote, const char **error);

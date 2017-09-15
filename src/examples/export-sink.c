@@ -516,7 +516,7 @@ int main(int argc, char *argv[])
 	data.loop = pw_main_loop_new(NULL);
 	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL);
 	data.t = pw_core_get_type(data.core);
-        data.remote = pw_remote_new(data.core, NULL);
+        data.remote = pw_remote_new(data.core, NULL, 0);
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL);

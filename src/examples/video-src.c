@@ -285,7 +285,7 @@ int main(int argc, char *argv[])
 	data.running = true;
 	data.core = pw_core_new(data.loop, NULL);
 	data.t = pw_core_get_type(data.core);
-	data.remote = pw_remote_new(data.core, NULL);
+	data.remote = pw_remote_new(data.core, NULL, 0);
 
 	init_type(&data.type, data.t->map);
 

@@ -826,7 +826,7 @@ gst_pipewire_sink_open (GstPipeWireSink * pwsink)
     goto mainloop_error;
 
   pw_thread_loop_lock (pwsink->main_loop);
-  pwsink->remote = pw_remote_new (pwsink->core, NULL);
+  pwsink->remote = pw_remote_new (pwsink->core, NULL, 0);
 
   pw_remote_add_listener (pwsink->remote,
 			  &pwsink->remote_listener,

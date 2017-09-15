@@ -341,6 +341,8 @@ struct pw_remote {
 	char *error;
 
 	struct spa_hook_list listener_list;
+
+	void *user_data;			/**< extra user data */
 };
 
 

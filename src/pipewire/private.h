@@ -130,7 +130,7 @@ struct pw_core {
 	struct spa_list global_list;		/**< list of globals */
 	struct spa_list client_list;		/**< list of clients */
 	struct spa_list node_list;		/**< list of nodes */
-	struct spa_list node_factory_list;	/**< list of node factories */
+	struct spa_list factory_list;		/**< list of factories */
 	struct spa_list link_list;		/**< list of links */
 
 	struct spa_hook_list listener_list;
@@ -368,15 +368,21 @@ struct pw_stream {
 	struct spa_hook_list listener_list;
 };
 
-struct pw_node_factory {
+struct pw_factory {
 	struct pw_core *core;		/**< the core */
 	struct spa_list link;		/**< link in core node_factory_list */
 	struct pw_global *global;	/**< global for this factory */
 
+	struct pw_factory_info info;	/**< introspectable factory info */
 	const char *name;		/**< the factory name */
+	uint32_t type;			/**< the type produced by the factory*/
+	uint32_t version;		/**< the version of the produced object */
+	struct pw_properties *properties;	/**< properties of the factory */
 
-	const struct pw_node_factory_implementation *implementation;
+	const struct pw_factory_implementation *implementation;
 	void *implementation_data;
+
+	struct spa_list resource_list;	/**< The list of resources of this factory */
 
 	void *user_data;
 };

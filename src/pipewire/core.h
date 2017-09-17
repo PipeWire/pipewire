@@ -41,7 +41,7 @@ struct pw_core;
 #include <pipewire/global.h>
 #include <pipewire/introspect.h>
 #include <pipewire/loop.h>
-#include <pipewire/node-factory.h>
+#include <pipewire/factory.h>
 #include <pipewire/port.h>
 #include <pipewire/properties.h>
 #include <pipewire/type.h>
@@ -172,9 +172,9 @@ pw_core_find_port(struct pw_core *core,
 		  struct spa_format **format_filters,
 		  char **error);
 
-/** Find a node factory by name */
-struct pw_node_factory *
-pw_core_find_node_factory(struct pw_core *core, const char *name);
+/** Find a factory by name */
+struct pw_factory *
+pw_core_find_factory(struct pw_core *core, const char *name);
 
 #ifdef __cplusplus
 }

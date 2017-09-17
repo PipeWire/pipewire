@@ -33,27 +33,33 @@
 
 struct factory_data {
 	struct pw_core *core;
-	struct pw_node_factory *this;
+	struct pw_factory *this;
 	struct pw_properties *properties;
 };
 
-static struct pw_node *create_node(void *_data,
-				   struct pw_resource *resource,
-				   const char *name,
-				   struct pw_properties *properties)
+static void *create_object(void *_data,
+			   struct pw_resource *resource,
+			   uint32_t type,
+			   uint32_t version,
+			   struct pw_properties *properties,
+			   uint32_t new_id)
 {
 	struct factory_data *data = _data;
 	struct pw_node *node;
-	const char *lib, *factory_name;
+	const char *lib, *factory_name, *name;
 
 	if (properties == NULL)
 		goto no_properties;
 
 	lib = pw_properties_get(properties, "spa.library.name");
 	factory_name = pw_properties_get(properties, "spa.factory.name");
+	name = pw_properties_get(properties, "name");
 
 	if (lib == NULL || factory_name == NULL)
 		goto no_properties;
+
+	if (name == NULL)
+		name = "spa-node";
 
 	node = pw_spa_node_load(data->core,
 				NULL,
@@ -64,6 +70,12 @@ static struct pw_node *create_node(void *_data,
 				properties, 0);
 	if (node == NULL)
 		goto no_mem;
+
+	if (resource)
+		pw_global_bind(pw_node_get_global(node),
+			       pw_resource_get_client(resource),
+			       PW_PERM_RWX,
+			       version, new_id);
 
 	return node;
 
@@ -84,33 +96,39 @@ static struct pw_node *create_node(void *_data,
 	return NULL;
 }
 
-static const struct pw_node_factory_implementation impl_factory = {
-	PW_VERSION_NODE_FACRORY_IMPLEMENTATION,
-	.create_node = create_node,
+static const struct pw_factory_implementation impl_factory = {
+	PW_VERSION_FACTORY_IMPLEMENTATION,
+	.create_object = create_object,
 };
 
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
-	struct pw_node_factory *factory;
+	struct pw_type *t = pw_core_get_type(core);
+	struct pw_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_node_factory_new(core, "spa-node-factory", sizeof(*data));
+	factory = pw_factory_new(core,
+				 "spa-node-factory",
+				 t->node,
+				 PW_VERSION_NODE,
+				 NULL,
+				 sizeof(*data));
 	if (factory == NULL)
 		return false;
 
-	data = pw_node_factory_get_user_data(factory);
+	data = pw_factory_get_user_data(factory);
 	data->this = factory;
 	data->core = core;
 	data->properties = properties;
 
 	pw_log_debug("module %p: new", module);
 
-	pw_node_factory_set_implementation(factory,
-					   &impl_factory,
-					   data);
+	pw_factory_set_implementation(factory,
+				      &impl_factory,
+				      data);
 
-	pw_node_factory_export(factory, NULL, pw_module_get_global(module));
+	pw_factory_register(factory, NULL, pw_module_get_global(module));
 
 	return true;
 }

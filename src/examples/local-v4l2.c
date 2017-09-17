@@ -447,7 +447,7 @@ static const struct spa_node impl_node = {
 
 static void make_nodes(struct data *data)
 {
-	struct pw_node_factory *factory;
+	struct pw_factory *factory;
 	struct pw_properties *props;
 
 	data->node = pw_node_new(data->core, NULL, NULL, "SDL-sink", NULL, 0);
@@ -456,10 +456,15 @@ static void make_nodes(struct data *data)
 
 	pw_node_register(data->node);
 
-	factory = pw_core_find_node_factory(data->core, "spa-node-factory");
+	factory = pw_core_find_factory(data->core, "spa-node-factory");
 	props = pw_properties_new("spa.library.name", "v4l2/libspa-v4l2",
 				  "spa.factory.name", "v4l2-source", NULL);
-	data->v4l2 = pw_node_factory_create_node(factory, NULL, "v4l2-source", props);
+	data->v4l2 = pw_factory_create_object(factory,
+					      NULL,
+					      data->t->node,
+					      PW_VERSION_NODE,
+					      props,
+					      SPA_ID_INVALID);
 
 	data->link = pw_link_new(data->core,
 				 NULL,

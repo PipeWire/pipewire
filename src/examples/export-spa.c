@@ -48,10 +48,11 @@ struct data {
 
 static int make_node(struct data *data)
 {
-	struct pw_node_factory *factory;
+	struct pw_factory *factory;
+	struct pw_type *t = data->t;
 	struct pw_properties *props;
 
-        factory = pw_core_find_node_factory(data->core, "spa-node-factory");
+        factory = pw_core_find_factory(data->core, "spa-node-factory");
 	if (factory == NULL)
 		return -1;
 
@@ -63,7 +64,11 @@ static int make_node(struct data *data)
 		pw_properties_set(props, "pipewire.target.node", data->path);
 	}
 
-        data->node = pw_node_factory_create_node(factory, NULL, data->factory, props);
+        data->node = pw_factory_create_object(factory,
+					      NULL,
+					      t->node,
+					      PW_VERSION_NODE,
+					      props, SPA_ID_INVALID);
 
 	pw_remote_export(data->remote, data->node);
 

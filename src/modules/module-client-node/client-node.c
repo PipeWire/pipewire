@@ -1133,7 +1133,6 @@ static const struct pw_resource_events resource_events = {
  * \memberof pw_client_node
  */
 struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
-					  const char *name,
 					  struct pw_properties *properties)
 {
 	struct impl *impl;
@@ -1142,7 +1141,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	struct pw_core *core = pw_client_get_core(client);
 	const struct spa_support *support;
 	uint32_t n_support;
-
+	const char *name = "client-node";
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

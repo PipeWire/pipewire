@@ -37,6 +37,7 @@ struct pw_core_proxy;
 struct pw_registry_proxy;
 struct pw_module_proxy;
 struct pw_node_proxy;
+struct pw_factory_proxy;
 struct pw_client_proxy;
 struct pw_link_proxy;
 
@@ -124,24 +125,22 @@ struct pw_core_proxy_methods {
 	 */
 	void (*client_update) (void *object, const struct spa_dict *props);
 	/**
-	 * Create a new node on the PipeWire server from a factory.
+	 * Create a new object on the PipeWire server from a factory.
 	 * Use a \a factory_name of "client-node" to create a
 	 * \ref pw_client_node.
 	 *
 	 * \param factory_name the factory name to use
-	 * \param name the node name
 	 * \param type the interface to bind to
 	 * \param version the version of the interface
 	 * \param props extra properties
 	 * \param new_id the client proxy id
 	 */
-	void (*create_node) (void *object,
-			     const char *factory_name,
-			     const char *name,
-			     uint32_t type,
-			     uint32_t version,
-			     const struct spa_dict *props,
-			     uint32_t new_id);
+	void (*create_object) (void *object,
+			       const char *factory_name,
+			       uint32_t type,
+			       uint32_t version,
+			       const struct spa_dict *props,
+			       uint32_t new_id);
 	/**
 	 * Create a new link between two node ports
 	 *
@@ -190,17 +189,16 @@ pw_core_proxy_client_update(struct pw_core_proxy *core, const struct spa_dict *p
 }
 
 static inline void *
-pw_core_proxy_create_node(struct pw_core_proxy *core,
-			  const char *factory_name,
-                          const char *name,
-                          uint32_t type,
-                          uint32_t version,
-                          const struct spa_dict *props,
-			  size_t user_data_size)
+pw_core_proxy_create_object(struct pw_core_proxy *core,
+			    const char *factory_name,
+			    uint32_t type,
+			    uint32_t version,
+			    const struct spa_dict *props,
+			    size_t user_data_size)
 {
 	struct pw_proxy *p = pw_proxy_new((struct pw_proxy*)core, type, user_data_size);
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, create_node, factory_name,
-			name, type, version, props, pw_proxy_get_id(p));
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, create_object, factory_name,
+			type, version, props, pw_proxy_get_id(p));
 	return p;
 }
 
@@ -470,6 +468,35 @@ pw_node_proxy_add_listener(struct pw_node_proxy *node,
 }
 
 #define pw_node_resource_info(r,...) pw_resource_notify(r,struct pw_node_proxy_events,info,__VA_ARGS__)
+
+#define PW_VERSION_FACTORY			0
+
+#define PW_FACTORY_PROXY_EVENT_INFO		0
+#define PW_FACTORY_PROXY_EVENT_NUM		1
+
+/** Factory events */
+struct pw_factory_proxy_events {
+#define PW_VERSION_FACTORY_PROXY_EVENTS	0
+	uint32_t version;
+	/**
+	 * Notify factory info
+	 *
+	 * \param info info about the factory
+	 */
+	void (*info) (void *object, struct pw_factory_info *info);
+};
+
+/** Factory */
+static inline void
+pw_factory_proxy_add_listener(struct pw_factory_proxy *factory,
+			      struct spa_hook *listener,
+			      const struct pw_factory_proxy_events *events,
+			      void *data)
+{
+	pw_proxy_add_proxy_listener((struct pw_proxy*)factory, listener, events, data);
+}
+
+#define pw_factory_resource_info(r,...) pw_resource_notify(r,struct pw_factory_proxy_events,info,__VA_ARGS__)
 
 #define PW_VERSION_CLIENT			0
 

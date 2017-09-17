@@ -957,8 +957,7 @@ pw_stream_connect(struct pw_stream *stream,
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
 		pw_properties_set(stream->properties, "pipewire.autoconnect", "1");
 
-	impl->node_proxy = pw_core_proxy_create_node(stream->remote->core_proxy,
-			       "client-node",
+	impl->node_proxy = pw_core_proxy_create_object(stream->remote->core_proxy,
 			       "client-node",
 			       impl->type_client_node,
 			       PW_VERSION_CLIENT_NODE,

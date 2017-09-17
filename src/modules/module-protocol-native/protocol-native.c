@@ -82,10 +82,10 @@ static void core_marshal_get_registry(void *object, uint32_t version, uint32_t n
 }
 
 static void
-core_marshal_create_node(void *object,
-			 const char *factory_name, const char *name,
-			 uint32_t type, uint32_t version,
-			 const struct spa_dict *props, uint32_t new_id)
+core_marshal_create_object(void *object,
+			   const char *factory_name,
+			   uint32_t type, uint32_t version,
+			   const struct spa_dict *props, uint32_t new_id)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
@@ -99,7 +99,6 @@ core_marshal_create_node(void *object,
 	spa_pod_builder_add(b,
 			    SPA_POD_TYPE_STRUCT, &f,
 			    SPA_POD_TYPE_STRING, factory_name,
-			    SPA_POD_TYPE_STRING, name,
 			    SPA_POD_TYPE_ID, type,
 			    SPA_POD_TYPE_INT, version,
 			    SPA_POD_TYPE_INT, n_items, 0);
@@ -430,18 +429,17 @@ static bool core_demarshal_get_registry(void *object, void *data, size_t size)
 	return true;
 }
 
-static bool core_demarshal_create_node(void *object, void *data, size_t size)
+static bool core_demarshal_create_object(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_iter it;
 	uint32_t version, type, new_id, i;
-	const char *factory_name, *name;
+	const char *factory_name;
 	struct spa_dict props;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_STRING, &factory_name,
-			      SPA_POD_TYPE_STRING, &name,
 			      SPA_POD_TYPE_ID, &type,
 			      SPA_POD_TYPE_INT, &version,
 			      SPA_POD_TYPE_INT, &props.n_items, 0))
@@ -458,7 +456,7 @@ static bool core_demarshal_create_node(void *object, void *data, size_t size)
 			      SPA_POD_TYPE_INT, &new_id, 0))
 		return false;
 
-	pw_resource_do(resource, struct pw_core_proxy_methods, create_node, factory_name, name,
+	pw_resource_do(resource, struct pw_core_proxy_methods, create_object, factory_name,
 								      type, version,
 								      &props, new_id);
 	return true;
@@ -904,7 +902,7 @@ static const struct pw_core_proxy_methods pw_protocol_native_core_method_marshal
 	&core_marshal_sync,
 	&core_marshal_get_registry,
 	&core_marshal_client_update,
-	&core_marshal_create_node,
+	&core_marshal_create_object,
 	&core_marshal_create_link
 };
 
@@ -913,7 +911,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_
 	{ &core_demarshal_sync, 0, },
 	{ &core_demarshal_get_registry, 0, },
 	{ &core_demarshal_client_update, 0, },
-	{ &core_demarshal_create_node, PW_PROTOCOL_NATIVE_REMAP, },
+	{ &core_demarshal_create_object, PW_PROTOCOL_NATIVE_REMAP, },
 	{ &core_demarshal_create_link, PW_PROTOCOL_NATIVE_REMAP, }
 };
 

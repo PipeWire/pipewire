@@ -123,7 +123,7 @@ module_bind_func(struct pw_global *global,
 
 	pw_log_debug("module %p: bound to %d", this, resource->id);
 
-	spa_list_insert(this->resource_list.prev, &resource->link);
+	spa_list_append(&this->resource_list, &resource->link);
 
 	this->info.change_mask = ~0;
 	pw_module_resource_info(resource, &this->info);

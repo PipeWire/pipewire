@@ -34,36 +34,54 @@
 struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core);
 
 struct factory_data {
-	struct pw_node_factory *this;
+	struct pw_factory *this;
 	struct pw_properties *properties;
 
 	struct spa_hook module_listener;
+	uint32_t type_client_node;
 };
 
-static struct pw_node *create_node(void *_data,
-				   struct pw_resource *resource,
-				   const char *name,
-				   struct pw_properties *properties)
+static void *create_object(void *_data,
+			   struct pw_resource *resource,
+			   uint32_t type,
+			   uint32_t version,
+			   struct pw_properties *properties,
+			   uint32_t new_id)
 {
 	struct pw_client_node *node;
+	struct pw_resource *node_resource;
 
-	node = pw_client_node_new(resource, name, properties);
+	if (resource == NULL)
+		goto no_resource;
+
+	node_resource = pw_resource_new(pw_resource_get_client(resource),
+					new_id, PW_PERM_RWX, type, version, 0);
+	if (node_resource == NULL)
+		goto no_mem;
+
+	node = pw_client_node_new(node_resource, properties);
 	if (node == NULL)
 		goto no_mem;
 
-	return node->node;
+	return node;
 
+      no_resource:
+	pw_log_error("client-node needs a resource");
+	pw_resource_error(resource, SPA_RESULT_INVALID_ARGUMENTS, "no resource");
+	goto done;
       no_mem:
 	pw_log_error("can't create node");
 	pw_resource_error(resource, SPA_RESULT_NO_MEMORY, "no memory");
+	goto done;
+      done:
 	if (properties)
 		pw_properties_free(properties);
 	return NULL;
 }
 
-static const struct pw_node_factory_implementation impl_factory = {
-	PW_VERSION_NODE_FACRORY_IMPLEMENTATION,
-	.create_node = create_node,
+static const struct pw_factory_implementation impl_factory = {
+	PW_VERSION_FACTORY_IMPLEMENTATION,
+	.create_object = create_object,
 };
 
 static void module_destroy(void *data)
@@ -75,7 +93,7 @@ static void module_destroy(void *data)
 	if (d->properties)
 		pw_properties_free(d->properties);
 
-	pw_node_factory_destroy(d->this);
+	pw_factory_destroy(d->this);
 }
 
 const struct pw_module_events module_events = {
@@ -86,26 +104,36 @@ const struct pw_module_events module_events = {
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
-	struct pw_node_factory *factory;
+	struct pw_type *t = pw_core_get_type(core);
+	struct pw_factory *factory;
 	struct factory_data *data;
+	uint32_t type_client_node;
 
-	factory = pw_node_factory_new(core, "client-node", sizeof(*data));
+        type_client_node = spa_type_map_get_id(t->map, PW_TYPE_INTERFACE__ClientNode);
+
+	factory = pw_factory_new(core,
+				 "client-node",
+				 type_client_node,
+				 PW_VERSION_CLIENT_NODE,
+				 NULL,
+				 sizeof(*data));
 	if (factory == NULL)
 		return false;
 
-	data = pw_node_factory_get_user_data(factory);
+	data = pw_factory_get_user_data(factory);
 	data->this = factory;
 	data->properties = properties;
+	data->type_client_node = type_client_node;
 
 	pw_log_debug("module %p: new", module);
 
-	pw_node_factory_set_implementation(factory,
-					   &impl_factory,
-					   data);
+	pw_factory_set_implementation(factory,
+				      &impl_factory,
+				      data);
 
 	pw_protocol_native_ext_client_node_init(core);
 
-	pw_node_factory_export(factory, NULL, pw_module_get_global(module));
+	pw_factory_register(factory, NULL, pw_module_get_global(module));
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 

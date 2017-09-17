@@ -39,7 +39,6 @@ struct pw_client_node {
 
 struct pw_client_node *
 pw_client_node_new(struct pw_resource *resource,
-		   const char *name,
 		   struct pw_properties *properties);
 
 void

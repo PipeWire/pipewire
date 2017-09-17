@@ -77,7 +77,6 @@ struct async_pending {
 	bool handled;
 	char *handle;
 	char *factory_name;
-	char *name;
 	uint32_t type;
 	uint32_t version;
 	struct pw_properties *properties;
@@ -135,7 +134,6 @@ static void free_pending(struct async_pending *p)
 	spa_list_remove(&p->link);
 	free(p->handle);
 	free(p->factory_name);
-	free(p->name);
 	if (p->properties)
 		pw_properties_free(p->properties);
 	free(p);
@@ -305,9 +303,8 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 			pw_resource_do_parent(p->resource->resource,
 					      &p->resource->override,
 					      struct pw_core_proxy_methods,
-					      create_node,
+					      create_object,
 					      p->factory_name,
-					      p->name,
 					      p->type,
 					      p->version,
 					      &p->properties->dict,
@@ -325,13 +322,12 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 }
 
 
-static void do_create_node(void *data,
-			   const char *factory_name,
-			   const char *name,
-			   uint32_t type,
-			   uint32_t version,
-			   const struct spa_dict *props,
-			   uint32_t new_id)
+static void do_create_object(void *data,
+			     const char *factory_name,
+			     uint32_t type,
+			     uint32_t version,
+			     const struct spa_dict *props,
+			     uint32_t new_id)
 {
 	struct resource *resource = data;
 	struct client_info *cinfo = resource->cinfo;
@@ -350,9 +346,8 @@ static void do_create_node(void *data,
 		pw_resource_do_parent(resource->resource,
 				      &resource->override,
 				      struct pw_core_proxy_methods,
-				      create_node,
+				      create_object,
 				      factory_name,
-				      name,
 				      type,
 				      version,
 				      props,
@@ -411,7 +406,6 @@ static void do_create_node(void *data,
 	p->handle = strdup(handle);
 	p->handled = false;
 	p->factory_name = strdup(factory_name);
-	p->name = strdup(name);
 	p->type = type;
 	p->version = version;
 	p->properties = props ? pw_properties_new_dict(props) : NULL;
@@ -479,7 +473,7 @@ do_create_link(void *data,
 
 static const struct pw_core_proxy_methods core_override = {
 	PW_VERSION_CORE_PROXY_METHODS,
-	.create_node = do_create_node,
+	.create_object = do_create_object,
 	.create_link = do_create_link,
 };
 

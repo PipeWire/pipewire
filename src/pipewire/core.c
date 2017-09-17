@@ -164,31 +164,28 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 }
 
 static void
-core_create_node(void *object,
-		 const char *factory_name,
-		 const char *name,
-		 uint32_t type,
-		 uint32_t version,
-		 const struct spa_dict *props,
-		 uint32_t new_id)
+core_create_object(void *object,
+		   const char *factory_name,
+		   uint32_t type,
+		   uint32_t version,
+		   const struct spa_dict *props,
+		   uint32_t new_id)
 {
 	struct pw_resource *resource = object;
-	struct pw_resource *node_resource = NULL;
 	struct pw_client *client = resource->client;
-	struct pw_node_factory *factory;
-	struct pw_node *node;
+	struct pw_factory *factory;
+	void *obj;
 	struct pw_properties *properties;
-	int res;
 
-	factory = pw_core_find_node_factory(client->core, factory_name);
+	factory = pw_core_find_factory(client->core, factory_name);
 	if (factory == NULL)
 		goto no_factory;
 
-	if (type != client->core->type.node) {
-		node_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0);
-		if (node_resource == NULL)
-			goto no_resource;
-	}
+	if (factory->type != type)
+		goto wrong_type;
+
+	if (factory->version < version)
+		goto wrong_version;
 
 	if (props) {
 		properties = pw_properties_new_dict(props);
@@ -198,15 +195,9 @@ core_create_node(void *object,
 		properties = NULL;
 
 	/* error will be posted */
-	node = pw_node_factory_create_node(factory, node_resource, name, properties);
-	if (node == NULL)
+	obj = pw_factory_create_object(factory, resource, type, version, properties, new_id);
+	if (obj == NULL)
 		goto no_mem;
-
-	if (type == client->core->type.node) {
-		res = pw_global_bind(pw_node_get_global(node), client, PW_PERM_RWX, version, new_id);
-		if (res < 0)
-			goto no_bind;
-	}
 
 	properties = NULL;
 
@@ -218,21 +209,18 @@ core_create_node(void *object,
 	pw_core_resource_error(client->core_resource,
 			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown factory name %s", factory_name);
 	goto done;
-
-      no_resource:
-	pw_log_error("can't create resource");
-	goto no_mem;
+      wrong_version:
+      wrong_type:
+	pw_log_error("invalid resource type/version");
+	pw_core_resource_error(client->core_resource,
+			       resource->id, SPA_RESULT_INCOMPATIBLE_VERSION, "wrong resource type/version");
+	goto done;
       no_properties:
 	pw_log_error("can't create properties");
-	pw_resource_destroy(node_resource);
 	goto no_mem;
       no_mem:
 	pw_core_resource_error(client->core_resource,
 			       resource->id, SPA_RESULT_NO_MEMORY, "no memory");
-	goto done;
-      no_bind:
-	pw_core_resource_error(client->core_resource,
-			       resource->id, res, "can't bind node: %d", res);
 	goto done;
 }
 
@@ -343,7 +331,7 @@ static const struct pw_core_proxy_methods core_methods = {
 	.sync = core_sync,
 	.get_registry = core_get_registry,
 	.client_update = core_client_update,
-	.create_node = core_create_node,
+	.create_object = core_create_object,
 	.create_link = core_create_link
 };
 
@@ -451,7 +439,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	spa_list_init(&this->module_list);
 	spa_list_init(&this->client_list);
 	spa_list_init(&this->node_list);
-	spa_list_init(&this->node_factory_list);
+	spa_list_init(&this->factory_list);
 	spa_list_init(&this->link_list);
 	spa_hook_list_init(&this->listener_list);
 
@@ -792,21 +780,21 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 	return NULL;
 }
 
-/** Find a node by name
+/** Find a factory by name
  *
  * \param core the core object
- * \param name the name of the node to find
+ * \param name the name of the factory to find
  *
- * Find in the list of nodes registered in \a core for one with
+ * Find in the list of factories registered in \a core for one with
  * the given \a name.
  *
  * \memberof pw_core
  */
-struct pw_node_factory *pw_core_find_node_factory(struct pw_core *core, const char *name)
+struct pw_factory *pw_core_find_factory(struct pw_core *core, const char *name)
 {
-	struct pw_node_factory *factory;
+	struct pw_factory *factory;
 
-	spa_list_for_each(factory, &core->node_factory_list, link) {
+	spa_list_for_each(factory, &core->factory_list, link) {
 		if (strcmp(factory->name, name) == 0)
 			return factory;
 	}

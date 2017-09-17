@@ -170,6 +170,23 @@ pw_node_info_update(struct pw_node_info *info,
 void
 pw_node_info_free(struct pw_node_info *info);
 
+/** The factory information. Extra information can be added in later versions \memberof pw_introspect */
+struct pw_factory_info {
+	uint32_t id;			/**< id of the global */
+	const char *name;		/**< name the factory */
+	uint32_t type;			/**< type of the factory */
+	uint32_t version;		/**< version of the objects */
+#define PW_FACTORY_CHANGE_MASK_PROPS	(1 << 0)
+	uint64_t change_mask;		/**< bitfield of changed fields since last call */
+	struct spa_dict *props;		/**< the properties of the factory */
+};
+
+struct pw_factory_info *
+pw_factory_info_update(struct pw_factory_info *info,
+		       const struct pw_factory_info *update);
+
+void
+pw_factory_info_free(struct pw_factory_info *info);
 
 /** The link information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_link_info {

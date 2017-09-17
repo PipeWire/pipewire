@@ -811,7 +811,7 @@ static bool do_info(struct data *data, const char *cmd, char *args, char **error
 static bool do_create_node(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
-	char *a[3];
+	char *a[2];
         int n;
 	uint32_t id;
 	struct pw_type *t = data->t;
@@ -819,18 +819,18 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 	struct pw_properties *props = NULL;
 	struct proxy_data *pd;
 
-	n = pw_split_ip(args, WHITESPACE, 3, a);
-	if (n < 2) {
-		asprintf(error, "%s <factory-name> <name> [<properties>]", cmd);
+	n = pw_split_ip(args, WHITESPACE, 2, a);
+	if (n < 1) {
+		asprintf(error, "%s <factory-name> [<properties>]", cmd);
 		return false;
 	}
-	if (n == 3)
-		props = parse_props(a[2]);
+	if (n == 2)
+		props = parse_props(a[1]);
 
-	proxy = pw_core_proxy_create_node(rd->core_proxy, a[0], a[1],
-					  t->node, PW_VERSION_NODE,
-					  props ? &props->dict : NULL,
-					  sizeof(struct proxy_data));
+	proxy = pw_core_proxy_create_object(rd->core_proxy, a[0],
+					    t->node, PW_VERSION_NODE,
+					    props ? &props->dict : NULL,
+					    sizeof(struct proxy_data));
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;

@@ -1084,13 +1084,12 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	struct pw_proxy *proxy;
 	struct node_data *data;
 
-	proxy = pw_core_proxy_create_node(remote->core_proxy,
-					  "client-node",
-					  "client-node",
-					  impl->type_client_node,
-					  PW_VERSION_CLIENT_NODE,
-					  &node->properties->dict,
-					  sizeof(struct node_data));
+	proxy = pw_core_proxy_create_object(remote->core_proxy,
+					    "client-node",
+					    impl->type_client_node,
+					    PW_VERSION_CLIENT_NODE,
+					    &node->properties->dict,
+					    sizeof(struct node_data));
         if (proxy == NULL)
                 return NULL;
 

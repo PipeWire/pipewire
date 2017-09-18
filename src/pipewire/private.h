@@ -374,9 +374,6 @@ struct pw_factory {
 	struct pw_global *global;	/**< global for this factory */
 
 	struct pw_factory_info info;	/**< introspectable factory info */
-	const char *name;		/**< the factory name */
-	uint32_t type;			/**< the type produced by the factory*/
-	uint32_t version;		/**< the version of the produced object */
 	struct pw_properties *properties;	/**< properties of the factory */
 
 	const struct pw_factory_implementation *implementation;

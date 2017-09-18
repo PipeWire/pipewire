@@ -273,6 +273,42 @@ void pw_node_info_free(struct pw_node_info *info)
 	free(info);
 }
 
+struct pw_factory_info *pw_factory_info_update(struct pw_factory_info *info,
+					       const struct pw_factory_info *update)
+{
+	if (update == NULL)
+		return info;
+
+	if (info == NULL) {
+		info = calloc(1, sizeof(struct pw_factory_info));
+		if (info == NULL)
+			return NULL;
+	}
+	info->id = update->id;
+	if (info->name)
+		free((void *) info->name);
+	info->name = update->name ? strdup(update->name) : NULL;
+	info->type = update->type;
+	info->version = update->version;
+	info->change_mask = update->change_mask;
+
+	if (update->change_mask & PW_FACTORY_CHANGE_MASK_PROPS) {
+		if (info->props)
+			pw_spa_dict_destroy(info->props);
+		info->props = pw_spa_dict_copy(update->props);
+	}
+	return info;
+}
+
+void pw_factory_info_free(struct pw_factory_info *info)
+{
+	if (info->name)
+		free((void *) info->name);
+	if (info->props)
+		pw_spa_dict_destroy(info->props);
+	free(info);
+}
+
 struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 					     const struct pw_module_info *update)
 {

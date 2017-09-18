@@ -36,11 +36,13 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 
 	this = calloc(1, sizeof(*this) + user_data_size);
 	this->core = core;
-	this->name = strdup(name);
-	this->type = type;
-	this->version = version;
 	this->properties = properties;
 	spa_list_init(&this->resource_list);
+
+	this->info.name = strdup(name);
+	this->info.type = type;
+	this->info.version = version;
+	this->info.props = properties ? &properties->dict : NULL;
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(this, sizeof(*this), void);
@@ -58,8 +60,10 @@ void pw_factory_destroy(struct pw_factory *factory)
 		spa_list_remove(&factory->link);
 		pw_global_destroy(factory->global);
 	}
-	if (factory->name)
-		free((char *)factory->name);
+	if (factory->info.name)
+		free((char *)factory->info.name);
+	if (factory->properties)
+		pw_properties_free(factory->properties);
 
 	free(factory);
 }
@@ -121,6 +125,11 @@ void pw_factory_register(struct pw_factory *factory,
 void *pw_factory_get_user_data(struct pw_factory *factory)
 {
 	return factory->user_data;
+}
+
+struct pw_global *pw_factory_get_global(struct pw_factory *factory)
+{
+	return factory->global;
 }
 
 void pw_factory_set_implementation(struct pw_factory *factory,

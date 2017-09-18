@@ -181,10 +181,10 @@ core_create_object(void *object,
 	if (factory == NULL)
 		goto no_factory;
 
-	if (factory->type != type)
+	if (factory->info.type != type)
 		goto wrong_type;
 
-	if (factory->version < version)
+	if (factory->info.version < version)
 		goto wrong_version;
 
 	if (props) {
@@ -795,7 +795,7 @@ struct pw_factory *pw_core_find_factory(struct pw_core *core, const char *name)
 	struct pw_factory *factory;
 
 	spa_list_for_each(factory, &core->factory_list, link) {
-		if (strcmp(factory->name, name) == 0)
+		if (strcmp(factory->info.name, name) == 0)
 			return factory;
 	}
 	return NULL;

@@ -40,6 +40,7 @@ struct data {
 };
 
 struct proxy_data {
+	struct data *data;
 	struct pw_proxy *proxy;
 	uint32_t id;
 	uint32_t parent_id;
@@ -86,8 +87,7 @@ static void on_info_changed(void *data, const struct pw_core_info *info)
 
 static void module_event_info(void *object, struct pw_module_info *info)
 {
-        struct pw_proxy *proxy = object;
-        struct proxy_data *data = pw_proxy_get_user_data(proxy);
+        struct proxy_data *data = object;
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -123,8 +123,7 @@ static const struct pw_module_proxy_events module_events = {
 
 static void node_event_info(void *object, struct pw_node_info *info)
 {
-        struct pw_proxy *proxy = object;
-        struct proxy_data *data = pw_proxy_get_user_data(proxy);
+        struct proxy_data *data = object;
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -173,10 +172,45 @@ static const struct pw_node_proxy_events node_events = {
         .info = node_event_info
 };
 
+static void factory_event_info(void *object, struct pw_factory_info *info)
+{
+        struct proxy_data *data = object;
+	struct pw_type *t = pw_core_get_type(data->data->core);
+	bool print_all, print_mark;
+
+	print_all = true;
+        if (data->info == NULL) {
+		printf("added:\n");
+		print_mark = false;
+	}
+        else {
+		printf("changed:\n");
+		print_mark = true;
+	}
+
+        info = data->info = pw_factory_info_update(data->info, info);
+
+	printf("\tid: %d\n", data->id);
+	printf("\tparent_id: %d\n", data->parent_id);
+	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
+					  data->permissions & PW_PERM_W ? 'w' : '-',
+					  data->permissions & PW_PERM_X ? 'x' : '-');
+	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Factory, data->version);
+	printf("\tname: \"%s\"\n", info->name);
+	printf("\tobject-type: %s/%d\n", spa_type_map_get_type(t->map, info->type), info->version);
+	if (print_all) {
+		print_properties(info->props, MARK_CHANGE(0));
+	}
+}
+
+static const struct pw_factory_proxy_events factory_events = {
+	PW_VERSION_FACTORY_PROXY_EVENTS,
+        .info = factory_event_info
+};
+
 static void client_event_info(void *object, struct pw_client_info *info)
 {
-        struct pw_proxy *proxy = object;
-        struct proxy_data *data = pw_proxy_get_user_data(proxy);
+        struct proxy_data *data = object;
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -209,8 +243,7 @@ static const struct pw_client_proxy_events client_events = {
 
 static void link_event_info(void *object, struct pw_link_info *info)
 {
-        struct pw_proxy *proxy = object;
-        struct proxy_data *data = pw_proxy_get_user_data(proxy);
+        struct proxy_data *data = object;
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -290,6 +323,11 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		client_version = PW_VERSION_MODULE;
 		destroy = (pw_destroy_t) pw_module_info_free;
 	}
+	else if (type == t->factory) {
+		events = &factory_events;
+		client_version = PW_VERSION_FACTORY;
+		destroy = (pw_destroy_t) pw_factory_info_free;
+	}
 	else if (type == t->client) {
 		events = &client_events;
 		client_version = PW_VERSION_CLIENT;
@@ -318,6 +356,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
                 goto no_mem;
 
 	pd = pw_proxy_get_user_data(proxy);
+	pd->data = d;
 	pd->proxy = proxy;
 	pd->id = id;
 	pd->parent_id = parent_id;

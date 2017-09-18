@@ -69,6 +69,9 @@ void pw_factory_destroy(struct pw_factory *factory);
 
 void *pw_factory_get_user_data(struct pw_factory *factory);
 
+/** Get the global of this factory */
+struct pw_global *pw_factory_get_global(struct pw_factory *factory);
+
 void pw_factory_set_implementation(struct pw_factory *factory,
 				   const struct pw_factory_implementation *implementation,
 				   void *data);

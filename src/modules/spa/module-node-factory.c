@@ -63,7 +63,7 @@ static void *create_object(void *_data,
 
 	node = pw_spa_node_load(data->core,
 				NULL,
-				NULL,
+				pw_factory_get_global(data->this),
 				lib,
 				factory_name,
 				name,

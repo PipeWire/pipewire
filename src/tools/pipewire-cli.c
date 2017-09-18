@@ -543,6 +543,17 @@ static void info_node(struct proxy_data *pd)
 	print_properties(info->props, MARK_CHANGE(6));
 }
 
+static void info_factory(struct proxy_data *pd)
+{
+	struct pw_factory_info *info = pd->info;
+	struct pw_type *t = pd->rd->data->t;
+
+	info_global(pd);
+	fprintf(stdout, "\tname: \"%s\"\n", info->name);
+	fprintf(stdout, "\tobject-type: %s/%d\n", spa_type_map_get_type(t->map, info->type), info->version);
+	print_properties(info->props, MARK_CHANGE(0));
+}
+
 static void info_client(struct proxy_data *pd)
 {
 	struct pw_client_info *info = pd->info;
@@ -622,6 +633,24 @@ static void node_event_info(void *object, struct pw_node_info *info)
 static const struct pw_node_proxy_events node_events = {
 	PW_VERSION_NODE_PROXY_EVENTS,
 	.info = node_event_info
+};
+
+static void factory_event_info(void *object, struct pw_factory_info *info)
+{
+	struct proxy_data *pd = object;
+	struct remote_data *rd = pd->rd;
+	pd->info = pw_factory_info_update(pd->info, info);
+	if (pd->global == NULL)
+		pd->global = pw_map_lookup(&rd->globals, info->id);
+	if (pd->global && pd->global->info_pending) {
+		info_factory(pd);
+		pd->global->info_pending = false;
+	}
+}
+
+static const struct pw_factory_proxy_events factory_events = {
+	PW_VERSION_FACTORY_PROXY_EVENTS,
+	.info = factory_event_info
 };
 
 static void client_event_info(void *object, struct pw_client_info *info)
@@ -715,6 +744,12 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		info_func = info_node;
+	}
+	else if (global->type == t->factory) {
+		events = &factory_events;
+		client_version = PW_VERSION_FACTORY;
+		destroy = (pw_destroy_t) pw_factory_info_free;
+		info_func = info_factory;
 	}
 	else if (global->type == t->client) {
 		events = &client_events;

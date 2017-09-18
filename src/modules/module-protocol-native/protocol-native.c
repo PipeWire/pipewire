@@ -92,7 +92,7 @@ core_marshal_create_object(void *object,
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_CREATE_NODE);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_CREATE_OBJECT);
 
 	n_items = props ? props->n_items : 0;
 
@@ -630,6 +630,66 @@ static bool module_demarshal_info(void *object, void *data, size_t size)
 	return true;
 }
 
+static void factory_marshal_info(void *object, struct pw_factory_info *info)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+	struct spa_pod_frame f;
+	uint32_t i, n_items;
+
+	b = pw_protocol_native_begin_resource(resource, PW_FACTORY_PROXY_EVENT_INFO);
+
+	n_items = info->props ? info->props->n_items : 0;
+
+	spa_pod_builder_add(b,
+			    SPA_POD_TYPE_STRUCT, &f,
+			    SPA_POD_TYPE_INT, info->id,
+			    SPA_POD_TYPE_LONG, info->change_mask,
+			    SPA_POD_TYPE_STRING, info->name,
+			    SPA_POD_TYPE_ID, info->type,
+			    SPA_POD_TYPE_INT, info->version,
+			    SPA_POD_TYPE_INT, n_items, 0);
+
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_add(b,
+				    SPA_POD_TYPE_STRING, info->props->items[i].key,
+				    SPA_POD_TYPE_STRING, info->props->items[i].value, 0);
+	}
+	spa_pod_builder_add(b, -SPA_POD_TYPE_STRUCT, &f, 0);
+
+	pw_protocol_native_end_resource(resource, b);
+}
+
+static bool factory_demarshal_info(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_iter it;
+	struct spa_dict props;
+	struct pw_factory_info info;
+	int i;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &info.id,
+			      SPA_POD_TYPE_LONG, &info.change_mask,
+			      SPA_POD_TYPE_STRING, &info.name,
+			      SPA_POD_TYPE_ID, &info.type,
+			      SPA_POD_TYPE_INT, &info.version,
+			      SPA_POD_TYPE_INT, &props.n_items, 0))
+		return false;
+
+	info.props = &props;
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (!spa_pod_iter_get(&it,
+				      SPA_POD_TYPE_STRING, &props.items[i].key,
+				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
+			return false;
+	}
+	pw_proxy_notify(proxy, struct pw_factory_proxy_events, info, &info);
+	return true;
+}
+
 static void node_marshal_info(void *object, struct pw_node_info *info)
 {
 	struct pw_resource *resource = object;
@@ -992,6 +1052,24 @@ const struct pw_protocol_marshal pw_protocol_native_module_marshal = {
 	pw_protocol_native_module_event_demarshal,
 };
 
+static const struct pw_factory_proxy_events pw_protocol_native_factory_event_marshal = {
+	PW_VERSION_FACTORY_PROXY_EVENTS,
+	&factory_marshal_info,
+};
+
+static const struct pw_protocol_native_demarshal pw_protocol_native_factory_event_demarshal[] = {
+	{ &factory_demarshal_info, PW_PROTOCOL_NATIVE_REMAP, },
+};
+
+const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
+	PW_TYPE_INTERFACE__Factory,
+	PW_VERSION_FACTORY,
+	0, NULL, NULL,
+	PW_FACTORY_PROXY_EVENT_NUM,
+	&pw_protocol_native_factory_event_marshal,
+	pw_protocol_native_factory_event_demarshal,
+};
+
 static const struct pw_node_proxy_events pw_protocol_native_node_event_marshal = {
 	PW_VERSION_NODE_PROXY_EVENTS,
 	&node_marshal_info,
@@ -1052,6 +1130,7 @@ void pw_protocol_native_init(struct pw_protocol *protocol)
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_registry_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_module_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_node_marshal);
+	pw_protocol_add_marshal(protocol, &pw_protocol_native_factory_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_client_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_link_marshal);
 }

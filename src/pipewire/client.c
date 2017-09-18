@@ -114,9 +114,9 @@ struct pw_client *pw_client_new(struct pw_core *core,
 		return NULL;
 
 	if (ucred) {
-		pw_properties_setf(properties, "pipewire.ucred.pid", "%d", ucred->pid);
-		pw_properties_setf(properties, "pipewire.ucred.uid", "%d", ucred->uid);
-		pw_properties_setf(properties, "pipewire.ucred.gid", "%d", ucred->gid);
+		pw_properties_setf(properties, PW_CLIENT_PROP_UCRED_PID, "%d", ucred->pid);
+		pw_properties_setf(properties, PW_CLIENT_PROP_UCRED_UID, "%d", ucred->uid);
+		pw_properties_setf(properties, PW_CLIENT_PROP_UCRED_GID, "%d", ucred->gid);
 	}
 
 	this->properties = properties;

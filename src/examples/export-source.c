@@ -363,9 +363,9 @@ static void make_node(struct data *data)
 {
 	struct pw_properties *props;
 
-	props = pw_properties_new("pipewire.autoconnect", "1", NULL);
+	props = pw_properties_new(PW_NODE_PROP_AUTOCONNECT, "1", NULL);
 	if (data->path)
-		pw_properties_set(props, "pipewire.target.node", data->path);
+		pw_properties_set(props, PW_NODE_PROP_TARGET_NODE, data->path);
 
 	data->node = pw_node_new(data->core, "sine-source", props, 0);
 	data->impl_node = impl_node;

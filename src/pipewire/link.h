@@ -71,6 +71,10 @@ struct pw_link_events {
 	void (*port_unlinked) (void *data, struct pw_port *port);
 };
 
+/** Indicate that a link is passive, it does not cause the nodes to activate,
+  * set to "1" or "0" */
+#define PW_LINK_PROP_PASSIVE	"pipewire.link.passive"
+
 /** Make a new link between two ports \memberof pw_link
  * \return a newly allocated link */
 struct pw_link *
@@ -117,17 +121,6 @@ struct pw_port *pw_link_get_input(struct pw_link *link);
 
 /** Find the link between 2 ports \memberof pw_link */
 struct pw_link *pw_link_find(struct pw_port *output, struct pw_port *input);
-
-/** Indicate that linked nodes can be idle even when linked with this link */
-void pw_link_inc_idle(struct pw_link *link);
-
-/** Activate a link \memberof pw_link
-  * Starts the negotiation of formats and buffers on \a link and then
-  * starts data streaming */
-bool pw_link_activate(struct pw_link *link);
-
-/** Deactivate a link \memberof pw_link */
-bool pw_link_deactivate(struct pw_link *link);
 
 #ifdef __cplusplus
 }

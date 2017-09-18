@@ -515,13 +515,13 @@ parse_stream_properties (GstPipeWireSrc *pwsrc, const struct pw_properties *prop
   gboolean is_live;
 
   GST_OBJECT_LOCK (pwsrc);
-  var = pw_properties_get (props, "pipewire.latency.is-live");
-  is_live = pwsrc->is_live = var ? (atoi (var) == 1) : FALSE;
+  var = pw_properties_get (props, PW_STREAM_PROP_IS_LIVE);
+  is_live = pwsrc->is_live = var ? pw_properties_parse_bool(var) : FALSE;
 
-  var = pw_properties_get (props, "pipewire.latency.min");
+  var = pw_properties_get (props, PW_STREAM_PROP_LATENCY_MIN);
   pwsrc->min_latency = var ? (GstClockTime) atoi (var) : 0;
 
-  var = pw_properties_get (props, "pipewire.latency.max");
+  var = pw_properties_get (props, PW_STREAM_PROP_LATENCY_MAX);
   pwsrc->max_latency = var ? (GstClockTime) atoi (var) : GST_CLOCK_TIME_NONE;
   GST_OBJECT_UNLOCK (pwsrc);
 

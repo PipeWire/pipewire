@@ -1088,12 +1088,20 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->properties = properties;
 	this->state = PW_LINK_STATE_INIT;
 
+
 	this->input = input;
 	this->output = output;
 
 	input_node = input->node;
 	output_node = output->node;
 
+	if (properties) {
+		const char *str = pw_properties_get(properties, PW_LINK_PROP_PASSIVE);
+		if (str && pw_properties_parse_bool(str)) {
+			input_node->idle_used_input_links++;
+			output_node->idle_used_output_links++;
+		}
+	}
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
 
@@ -1165,11 +1173,30 @@ void pw_link_register(struct pw_link *link,
 		      struct pw_global *parent)
 {
 	struct pw_core *core = link->core;
+	struct pw_node *input_node, *output_node;
 
 	spa_list_insert(core->link_list.prev, &link->link);
 	link->global = pw_core_add_global(core, owner, parent, core->type.link, PW_VERSION_LINK,
 			   link_bind_func, link);
 	link->info.id = link->global->id;
+
+	input_node = link->input->node;
+	output_node = link->output->node;
+
+	pw_log_debug("link %p: in %d %d, out %d %d, %d %d %d %d", link,
+			input_node->n_used_input_links,
+			input_node->n_used_output_links,
+			output_node->n_used_input_links,
+			output_node->n_used_output_links,
+			input_node->idle_used_input_links,
+			input_node->idle_used_output_links,
+			output_node->idle_used_input_links,
+			output_node->idle_used_output_links);
+
+	if ((input_node->n_used_input_links + 1 > input_node->idle_used_input_links ||
+	    output_node->n_used_output_links + 1 > output_node->idle_used_output_links) &&
+	    input_node->active && output_node->active)
+		pw_link_activate(link);
 }
 
 
@@ -1266,10 +1293,4 @@ struct pw_port *pw_link_get_output(struct pw_link *link)
 struct pw_port *pw_link_get_input(struct pw_link *link)
 {
 	return link->input;
-}
-
-void pw_link_inc_idle(struct pw_link *link)
-{
-	link->input->node->idle_used_input_links++;
-	link->output->node->idle_used_output_links++;
 }

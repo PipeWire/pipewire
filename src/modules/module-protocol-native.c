@@ -241,7 +241,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 		ucredp = &ucred;
 	}
 
-	props = pw_properties_new("pipewire.protocol", "protocol-native", NULL);
+	props = pw_properties_new(PW_CLIENT_PROP_PROTOCOL, "protocol-native", NULL);
 	if (props == NULL)
 		goto no_props;
 
@@ -412,7 +412,7 @@ get_remote(const struct pw_properties *properties)
 	const char *name = NULL;
 
 	if (properties)
-		name = pw_properties_get(properties, "pipewire.remote.name");
+		name = pw_properties_get(properties, PW_REMOTE_PROP_REMOTE_NAME);
 	if (name == NULL)
 		name = getenv("PIPEWIRE_REMOTE");
 	if (name == NULL)
@@ -687,7 +687,7 @@ get_name(const struct pw_properties *properties)
 	const char *name = NULL;
 
 	if (properties)
-		name = pw_properties_get(properties, "pipewire.core.name");
+		name = pw_properties_get(properties, PW_CORE_PROP_NAME);
 	if (name == NULL)
 		name = getenv("PIPEWIRE_CORE");
 	if (name == NULL)
@@ -850,10 +850,10 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	d->module = module;
 	d->properties = properties;
 
-	if ((val = pw_properties_get(pw_core_get_properties(core), "pipewire.daemon"))) {
-		if (atoi(val) == 1)
-			if (impl_add_server(this, core, properties) == NULL)
-				return false;
+	val = pw_properties_get(pw_core_get_properties(core), PW_CORE_PROP_DAEMON);
+	if (val && pw_properties_parse_bool(val)) {
+		if (impl_add_server(this, core, properties) == NULL)
+			return false;
 	}
 
 	pw_module_add_listener(module, &d->module_listener, &module_events, d);

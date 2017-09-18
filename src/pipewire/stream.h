@@ -248,6 +248,13 @@ enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **
 
 const char *pw_stream_get_name(struct pw_stream *stream);
 
+/** Indicates that the stream is live, boolean default false */
+#define PW_STREAM_PROP_IS_LIVE		"pipewire.latency.is-live"
+/** The minimum latency of the stream, int, default 0 */
+#define PW_STREAM_PROP_LATENCY_MIN	"pipewire.latency.min"
+/** The maximum latency of the stream, int default MAXINT */
+#define PW_STREAM_PROP_LATENCY_MAX	"pipewire.latency.max"
+
 const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream);
 
 /** Connect a stream for input or output on \a port_path. \memberof pw_stream

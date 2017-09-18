@@ -280,8 +280,6 @@ core_create_link(void *object,
 	if (res < 0)
 		goto no_bind;
 
-	pw_link_activate(link);
-
       done:
 	return;
 
@@ -445,11 +443,11 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	spa_list_init(&this->link_list);
 	spa_hook_list_init(&this->listener_list);
 
-	if ((name = pw_properties_get(properties, "pipewire.core.name")) == NULL) {
+	if ((name = pw_properties_get(properties, PW_CORE_PROP_NAME)) == NULL) {
 		pw_properties_setf(properties,
-				   "pipewire.core.name", "pipewire-%s-%d",
+				   PW_CORE_PROP_NAME, "pipewire-%s-%d",
 				   pw_get_user_name(), getpid());
-		name = pw_properties_get(properties, "pipewire.core.name");
+		name = pw_properties_get(properties, PW_CORE_PROP_NAME);
 	}
 
 	this->info.change_mask = 0;

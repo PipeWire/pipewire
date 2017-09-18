@@ -138,6 +138,11 @@ struct pw_remote_events {
 			       enum pw_remote_state state, const char *error);
 };
 
+/** Specify the name of the protocol to use, default is using the native protocol */
+#define PW_REMOTE_PROP_PROTOCOL		"pipewire.protocol"
+/** The name of the remote to connect to, default env(PIPEWIRE_REMOTE) or pipewire-0 */
+#define PW_REMOTE_PROP_REMOTE_NAME	"pipewire.remote.name"
+
 /** Create a new unconnected remote \memberof pw_remote
  * \return a new unconnected remote */
 struct pw_remote *

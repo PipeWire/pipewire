@@ -325,11 +325,11 @@ void pw_fill_remote_properties(struct pw_core *core, struct pw_properties *prope
 		pw_properties_set(properties, "application.process.session_id",
 				  getenv("XDG_SESSION_ID"));
 	}
-	pw_properties_set(properties, "pipewire.core.version", core->info.version);
-	pw_properties_set(properties, "pipewire.core.name", core->info.name);
+	pw_properties_set(properties, PW_CORE_PROP_VERSION, core->info.version);
+	pw_properties_set(properties, PW_CORE_PROP_NAME, core->info.name);
 
-	if ((val = pw_properties_get(core->properties, "pipewire.daemon")))
-		pw_properties_set(properties, "pipewire.daemon", val);
+	if ((val = pw_properties_get(core->properties, PW_CORE_PROP_DAEMON)))
+		pw_properties_set(properties, PW_CORE_PROP_DAEMON, val);
 }
 
 /** Fill stream properties

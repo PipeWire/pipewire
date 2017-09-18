@@ -244,7 +244,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	spa_hook_list_init(&this->listener_list);
 
-	if ((protocol_name = pw_properties_get(properties, "pipewire.protocol")) == NULL) {
+	if ((protocol_name = pw_properties_get(properties, PW_REMOTE_PROP_PROTOCOL)) == NULL) {
 		if (!pw_module_load(core, "libpipewire-module-protocol-native", NULL))
 			goto no_protocol;
 
@@ -941,9 +941,9 @@ handle_node_command(struct pw_proxy *proxy, uint32_t seq, const struct spa_comma
 
 #if 0
 		if (cu->body.flags.value & SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE) {
-			pw_properties_set(stream->properties, "pipewire.latency.is-live", "1");
+			pw_properties_set(stream->properties, PW_STREAM_PROP_IS_LIVE, "1");
 			pw_properties_setf(stream->properties,
-					   "pipewire.latency.min", "%" PRId64,
+					   PW_STREAM_PROP_LATENCY_MIN, "%" PRId64,
 					   cu->body.latency.value);
 		}
 		impl->last_ticks = cu->body.ticks.value;

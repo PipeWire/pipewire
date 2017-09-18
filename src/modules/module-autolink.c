@@ -169,12 +169,12 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 
 	props = pw_node_get_properties(node);
 
-	str = pw_properties_get(props, "pipewire.target.node");
+	str = pw_properties_get(props, PW_NODE_PROP_TARGET_NODE);
 	if (str != NULL)
 		path_id = atoi(str);
 	else {
-		str = pw_properties_get(props, "pipewire.autoconnect");
-		if (str == NULL || atoi(str) == 0) {
+		str = pw_properties_get(props, PW_NODE_PROP_AUTOCONNECT);
+		if (str == NULL || !pw_properties_parse_bool(str)) {
 			pw_log_debug("module %p: node does not need autoconnect", impl);
 			return;
 		}
@@ -208,8 +208,6 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 
 	spa_list_append(&info->links, &ld->l);
 	pw_link_register(link, NULL, pw_module_get_global(impl->module));
-
-	pw_link_activate(link);
 
 	return;
 

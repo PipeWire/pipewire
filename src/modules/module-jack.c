@@ -810,7 +810,6 @@ handle_connect_name_ports(struct client *client)
 	spa_list_append(&impl->link_list, &ld->link_link);
 	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
 	pw_link_register(link, NULL, pw_module_get_global(impl->module));
-	pw_link_activate(link);
 
 	notify_clients(impl, jack_notify_PortConnectCallback, false, "", src_id, dst_id);
 
@@ -1034,7 +1033,7 @@ static struct client *client_new(struct impl *impl, int fd)
 		ucredp = &ucred;
 	}
 
-	properties = pw_properties_new("pipewire.protocol", "protocol-jack", NULL);
+	properties = pw_properties_new(PW_CLIENT_PROP_PROTOCOL, "protocol-jack", NULL);
 	if (properties == NULL)
 		goto no_props;
 
@@ -1283,6 +1282,7 @@ static bool on_global(void *data, struct pw_global *global)
 	struct pw_node *node;
 	const struct pw_properties *properties;
 	const char *str;
+	char *error;
 	struct pw_port *in_port, *out_port;
 
 	if (pw_global_get_type(global) != impl->t->node)
@@ -1306,10 +1306,14 @@ static bool on_global(void *data, struct pw_global *global)
 		    out_port,
 		    in_port,
 		    NULL,
-		    NULL,
-		    NULL,
+		    pw_properties_new(PW_LINK_PROP_PASSIVE, "true", NULL),
+		    &error,
 		    0);
-	pw_link_inc_idle(impl->sink_link);
+	if (impl->sink_link == NULL) {
+		pw_log_warn("can't link ports: %s", error);
+		free(error);
+		return true;
+	}
 	pw_link_register(impl->sink_link, NULL, pw_module_get_global(impl->module));
 
 	return false;

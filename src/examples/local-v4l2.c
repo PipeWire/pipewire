@@ -465,7 +465,6 @@ static void make_nodes(struct data *data)
 					      PW_VERSION_NODE,
 					      props,
 					      SPA_ID_INVALID);
-
 	data->link = pw_link_new(data->core,
 				 pw_node_get_free_port(data->v4l2, PW_DIRECTION_OUTPUT),
 				 pw_node_find_port(data->node, PW_DIRECTION_INPUT, 0),
@@ -474,7 +473,9 @@ static void make_nodes(struct data *data)
 				 NULL,
 				 0);
 	pw_link_register(data->link, NULL, NULL);
-	pw_link_activate(data->link);
+
+	pw_node_set_active(data->node, true);
+	pw_node_set_active(data->v4l2, true);
 }
 
 int main(int argc, char *argv[])

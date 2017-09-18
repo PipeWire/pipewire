@@ -60,8 +60,8 @@ static int make_node(struct data *data)
                                   "spa.factory.name", data->factory, NULL);
 
 	if (data->path) {
-		pw_properties_set(props, "pipewire.autoconnect", "1");
-		pw_properties_set(props, "pipewire.target.node", data->path);
+		pw_properties_set(props, PW_NODE_PROP_AUTOCONNECT, "1");
+		pw_properties_set(props, PW_NODE_PROP_TARGET_NODE, data->path);
 	}
 
         data->node = pw_factory_create_object(factory,

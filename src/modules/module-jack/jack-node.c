@@ -918,6 +918,7 @@ struct pw_jack_node *pw_jack_node_new(struct pw_core *core,
         jack_graph_manager_next_stop(mgr);
 
 	pw_node_register(node, NULL, parent);
+	pw_node_set_active(node, true);
 
 	return this;
 }
@@ -1014,6 +1015,7 @@ pw_jack_driver_new(struct pw_core *core,
 		pw_port_add(this->driver_out->port, node);
 	}
 	pw_node_register(node, NULL, parent);
+	pw_node_set_active(node, true);
 
 	return this;
 }

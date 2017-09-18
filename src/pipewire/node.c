@@ -786,13 +786,16 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 		break;
 
 	case PW_NODE_STATE_IDLE:
-		res = pause_node(node);
+		if (!node->active)
+			res = pause_node(node);
 		break;
 
 	case PW_NODE_STATE_RUNNING:
-		node_activate(node);
-		send_clock_update(node);
-		res = start_node(node);
+		if (node->active) {
+			node_activate(node);
+			send_clock_update(node);
+			res = start_node(node);
+		}
 		break;
 
 	case PW_NODE_STATE_ERROR:
@@ -847,4 +850,24 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 
 		node->info.change_mask = 0;
 	}
+}
+
+bool pw_node_set_active(struct pw_node *node, bool active)
+{
+	bool old = node->active;
+
+	if (old != active) {
+		pw_log_debug("node %p: %s", node, active ? "activate" : "deactivate");
+		node->active = active;
+		if (active)
+			node_activate(node);
+		else
+			pw_node_set_state(node, PW_NODE_STATE_IDLE);
+	}
+	return true;
+}
+
+bool pw_node_is_active(struct pw_node *node)
+{
+	return node->active;
 }

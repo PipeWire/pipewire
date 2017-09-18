@@ -156,7 +156,7 @@ void pw_resource_destroy(struct pw_resource *resource)
 {
 	struct pw_client *client = resource->client;
 
-	pw_log_trace("resource %p: destroy %u", resource, resource->id);
+	pw_log_debug("resource %p: destroy %u", resource, resource->id);
 	spa_hook_list_call(&resource->listener_list, struct pw_resource_events, destroy);
 
 	pw_map_insert_at(&client->objects, resource->id, NULL);
@@ -165,6 +165,6 @@ void pw_resource_destroy(struct pw_resource *resource)
 	if (client->core_resource)
 		pw_core_resource_remove_id(client->core_resource, resource->id);
 
-	pw_log_trace("resource %p: free", resource);
+	pw_log_debug("resource %p: free", resource);
 	free(resource);
 }

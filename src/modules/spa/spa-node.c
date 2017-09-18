@@ -72,6 +72,7 @@ static void complete_init(struct impl *impl)
 {
         struct pw_node *this = impl->this;
 	pw_node_register(this, impl->owner, impl->parent);
+	pw_node_set_active(this, true);
 }
 
 static void on_node_done(void *data, uint32_t seq, int res)

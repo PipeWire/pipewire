@@ -225,6 +225,7 @@ struct pw_node {
 
 	struct pw_node_info info;		/**< introspectable node info */
 
+	bool active;			/**< if the node is active */
 	bool live;			/**< if the node is live */
 	struct spa_clock *clock;	/**< handle to SPA clock if any */
 	struct spa_node *node;		/**< SPA node implementation */
@@ -410,6 +411,20 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 int pw_port_alloc_buffers(struct pw_port *port,
 			  struct spa_param **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers);
+
+/** Change the state of the node */
+int pw_node_set_state(struct pw_node *node, enum pw_node_state state);
+
+/** Update the state of the node, mostly used by node implementations */
+void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *error);
+
+/** Activate a link \memberof pw_link
+  * Starts the negotiation of formats and buffers on \a link and then
+  * starts data streaming */
+bool pw_link_activate(struct pw_link *link);
+
+/** Deactivate a link \memberof pw_link */
+bool pw_link_deactivate(struct pw_link *link);
 
 /** \endcond */
 

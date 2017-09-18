@@ -646,9 +646,9 @@ handle_node_command(struct pw_stream *stream, uint32_t seq, const struct spa_com
 		struct spa_command_node_clock_update *cu = (__typeof__(cu)) command;
 
 		if (cu->body.flags.value & SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE) {
-			pw_properties_set(stream->properties, "pipewire.latency.is-live", "1");
+			pw_properties_set(stream->properties, PW_STREAM_PROP_IS_LIVE, "1");
 			pw_properties_setf(stream->properties,
-					   "pipewire.latency.min", "%" PRId64,
+					   PW_STREAM_PROP_LATENCY_MIN, "%" PRId64,
 					   cu->body.latency.value);
 		}
 		impl->last_ticks = cu->body.ticks.value;
@@ -953,9 +953,9 @@ pw_stream_connect(struct pw_stream *stream,
 	if (stream->properties == NULL)
 		stream->properties = pw_properties_new(NULL, NULL);
 	if (port_path)
-		pw_properties_set(stream->properties, "pipewire.target.node", port_path);
+		pw_properties_set(stream->properties, PW_NODE_PROP_TARGET_NODE, port_path);
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
-		pw_properties_set(stream->properties, "pipewire.autoconnect", "1");
+		pw_properties_set(stream->properties, PW_NODE_PROP_AUTOCONNECT, "1");
 
 	impl->node_proxy = pw_core_proxy_create_object(stream->remote->core_proxy,
 			       "client-node",

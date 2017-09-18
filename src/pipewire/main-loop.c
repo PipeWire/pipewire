@@ -95,9 +95,7 @@ struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop)
 void pw_main_loop_quit(struct pw_main_loop *loop)
 {
 	pw_log_debug("main-loop %p: quit", loop);
-	if (loop->running) {
-		pw_loop_signal_event(loop->loop, loop->event);
-	}
+	pw_loop_signal_event(loop->loop, loop->event);
 }
 
 /** Start a main loop

@@ -86,6 +86,11 @@ struct pw_node_events {
 	void (*reuse_buffer) (void *data, uint32_t port_id, uint32_t buffer_id);
 };
 
+/** Automatically connect this node to a compatible node */
+#define PW_NODE_PROP_AUTOCONNECT	"pipewire.autoconnect"
+/** Try to connect the node to this node id */
+#define PW_NODE_PROP_TARGET_NODE	"pipewire.target.node"
+
 /** Create a new node \memberof pw_node */
 struct pw_node *
 pw_node_new(struct pw_core *core,		/**< the core */
@@ -148,11 +153,12 @@ uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direct
   * or a new port */
 struct pw_port * pw_node_get_free_port(struct pw_node *node, enum pw_direction direction);
 
-/** Change the state of the node */
-int pw_node_set_state(struct pw_node *node, enum pw_node_state state);
+/** Set a node active. This will start negotiation with all linked active
+  * nodes and start data transport */
+bool pw_node_set_active(struct pw_node *node, bool active);
 
-/** Update the state of the node, mostly used by node implementations */
-void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *error);
+/** Check is a node is active */
+bool pw_node_is_active(struct pw_node *node);
 
 #ifdef __cplusplus
 }

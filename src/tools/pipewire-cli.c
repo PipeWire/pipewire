@@ -374,7 +374,7 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n == 1) {
-		props = pw_properties_new("pipewire.remote.name", a[0], NULL);
+		props = pw_properties_new(PW_REMOTE_PROP_REMOTE_NAME, a[0], NULL);
 	}
 	remote = pw_remote_new(data->core, props, sizeof(struct remote_data));
 
@@ -1054,7 +1054,7 @@ int main(int argc, char *argv[])
 	spa_list_init(&data.remotes);
 	pw_map_init(&data.vars, 64, 16);
 
-	data.core = pw_core_new(l, pw_properties_new("pipewire.daemon", "1", NULL));
+	data.core = pw_core_new(l, pw_properties_new(PW_CORE_PROP_DAEMON, "1", NULL));
 	data.t = pw_core_get_type(data.core);
 	info = pw_core_get_info(data.core);
 

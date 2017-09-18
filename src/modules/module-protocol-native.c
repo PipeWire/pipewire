@@ -850,7 +850,9 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	d->module = module;
 	d->properties = properties;
 
-	val = pw_properties_get(pw_core_get_properties(core), PW_CORE_PROP_DAEMON);
+	val = getenv("PIPEWIRE_DAEMON");
+	if (val == NULL)
+		val = pw_properties_get(pw_core_get_properties(core), PW_CORE_PROP_DAEMON);
 	if (val && pw_properties_parse_bool(val)) {
 		if (impl_add_server(this, core, properties) == NULL)
 			return false;

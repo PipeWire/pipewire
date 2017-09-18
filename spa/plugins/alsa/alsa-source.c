@@ -581,7 +581,7 @@ static int impl_node_process_output(struct spa_node *node)
 }
 
 static const struct spa_dict_item node_info_items[] = {
-	{ "media.class", "Audio/Sink" },
+	{ "media.class", "Audio/Source" },
 };
 
 static const struct spa_dict node_info = {

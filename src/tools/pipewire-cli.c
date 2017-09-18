@@ -505,6 +505,7 @@ static void info_core(struct proxy_data *pd)
 	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(3), info->name);
 	fprintf(stdout, "%c\tcookie: %u\n", MARK_CHANGE(4), info->cookie);
 	print_properties(info->props, MARK_CHANGE(5));
+	info->change_mask = 0;
 }
 
 static void info_module(struct proxy_data *pd)
@@ -516,6 +517,7 @@ static void info_module(struct proxy_data *pd)
 	fprintf(stdout, "%c\tfilename: \"%s\"\n", MARK_CHANGE(1), info->filename);
 	fprintf(stdout, "%c\targs: \"%s\"\n", MARK_CHANGE(2), info->args);
 	print_properties(info->props, MARK_CHANGE(3));
+	info->change_mask = 0;
 }
 
 static void info_node(struct proxy_data *pd)
@@ -541,6 +543,7 @@ static void info_node(struct proxy_data *pd)
 	else
 		fprintf(stdout, "\n");
 	print_properties(info->props, MARK_CHANGE(6));
+	info->change_mask = 0;
 }
 
 static void info_factory(struct proxy_data *pd)
@@ -552,6 +555,7 @@ static void info_factory(struct proxy_data *pd)
 	fprintf(stdout, "\tname: \"%s\"\n", info->name);
 	fprintf(stdout, "\tobject-type: %s/%d\n", spa_type_map_get_type(t->map, info->type), info->version);
 	print_properties(info->props, MARK_CHANGE(0));
+	info->change_mask = 0;
 }
 
 static void info_client(struct proxy_data *pd)
@@ -560,6 +564,7 @@ static void info_client(struct proxy_data *pd)
 
 	info_global(pd);
 	print_properties(info->props, MARK_CHANGE(0));
+	info->change_mask = 0;
 }
 
 static void info_link(struct proxy_data *pd)
@@ -577,6 +582,7 @@ static void info_link(struct proxy_data *pd)
 	else
 		fprintf(stdout, "\t\tnone\n");
 	print_properties(info->props, MARK_CHANGE(3));
+	info->change_mask = 0;
 }
 
 
@@ -584,6 +590,8 @@ static void core_event_info(void *object, struct pw_core_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
+	if (pd->info)
+		fprintf(stdout, "remote $%d core %d changed\n", rd->id, info->id);
 	pd->info = pw_core_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -603,6 +611,8 @@ static void module_event_info(void *object, struct pw_module_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
+	if (pd->info)
+		fprintf(stdout, "remote $%d module %d changed\n", rd->id, info->id);
 	pd->info = pw_module_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -621,6 +631,8 @@ static void node_event_info(void *object, struct pw_node_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
+	if (pd->info)
+		fprintf(stdout, "remote $%d node %d changed\n", rd->id, info->id);
 	pd->info = pw_node_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -639,6 +651,8 @@ static void factory_event_info(void *object, struct pw_factory_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
+	if (pd->info)
+		fprintf(stdout, "remote $%d factory %d changed\n", rd->id, info->id);
 	pd->info = pw_factory_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -657,6 +671,8 @@ static void client_event_info(void *object, struct pw_client_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
+	if (pd->info)
+		fprintf(stdout, "remote $%d client %d changed\n", rd->id, info->id);
 	pd->info = pw_client_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -675,6 +691,8 @@ static void link_event_info(void *object, struct pw_link_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
+	if (pd->info)
+		fprintf(stdout, "remote $%d link %d changed\n", rd->id, info->id);
 	pd->info = pw_link_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -991,7 +1009,7 @@ static bool parse(struct data *data, char *buf, size_t size, char **error)
 			return command_list[i].func(data, cmd, args, error);
 		}
 	}
-        asprintf(error, "Command \"%s\" does not exist", cmd);
+        asprintf(error, "Command \"%s\" does not exist. Type 'help' for usage.", cmd);
 	return false;
 }
 

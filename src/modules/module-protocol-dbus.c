@@ -231,7 +231,7 @@ static struct client *client_new(struct impl *impl, const char *sender)
 	struct client *this;
 	struct pw_client *client;
 
-	client = pw_client_new(impl->core, NULL, NULL);
+	client = pw_client_new(impl->core, NULL, NULL, 0);
 
 	if ((this = (struct client *) find_object(impl, client))) {
 		pipewire_client1_set_sender(this->parent.iface, sender);

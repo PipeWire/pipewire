@@ -180,7 +180,7 @@ struct pw_core_proxy * pw_remote_get_core_proxy(struct pw_remote *remote);
 const struct pw_core_info *pw_remote_get_core_info(struct pw_remote *remote);
 
 /** Get the proxy with the given id */
-struct pw_proxy *pw_remote_get_proxy(struct pw_remote *remote, uint32_t id);
+struct pw_proxy *pw_remote_find_proxy(struct pw_remote *remote, uint32_t id);
 
 /** Disconnect from the remote PipeWire. \memberof pw_remote */
 void pw_remote_disconnect(struct pw_remote *remote);

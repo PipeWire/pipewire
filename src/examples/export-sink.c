@@ -473,11 +473,11 @@ static void make_node(struct data *data)
 	if (data->path)
 		pw_properties_set(props, "pipewire.target.node", data->path);
 
-	data->node = pw_node_new(data->core, NULL, NULL, "SDL-sink", props, 0);
+	data->node = pw_node_new(data->core, "SDL-sink", props, 0);
 	data->impl_node = impl_node;
 	pw_node_set_implementation(data->node, &data->impl_node);
 
-	pw_node_register(data->node);
+	pw_node_register(data->node, NULL, NULL);
 
 	pw_remote_export(data->remote, data->node);
 }
@@ -518,8 +518,6 @@ int main(int argc, char *argv[])
 	data.t = pw_core_get_type(data.core);
         data.remote = pw_remote_new(data.core, NULL, 0);
 	data.path = argc > 1 ? argv[1] : NULL;
-
-	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL);
 
 	init_type(&data.type, data.t->map);
 

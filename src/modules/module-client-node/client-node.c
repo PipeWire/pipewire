@@ -1161,7 +1161,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 
 	this->resource = resource;
 	this->node = pw_spa_node_new(core,
-				     this->resource,
+				     pw_resource_get_client(this->resource),
 				     NULL,
 				     name,
 				     true,

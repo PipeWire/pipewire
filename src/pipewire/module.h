@@ -51,7 +51,7 @@ struct pw_module;
  *
  * \memberof pw_module
  */
-typedef bool (*pw_module_init_func_t) (struct pw_module *module, char *args);
+typedef bool (*pw_module_init_func_t) (struct pw_module *module, const char *args);
 
 /** Module events added with \ref pw_module_add_listener */
 struct pw_module_events {
@@ -62,7 +62,7 @@ struct pw_module_events {
 	void (*destroy) (void *data);
 };
 
-/** Load a module by name and arguments */
+/** Load a module by name and arguments and register it */
 struct pw_module *
 pw_module_load(struct pw_core *core, const char *name, const char *args);
 

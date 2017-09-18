@@ -265,10 +265,19 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	return this;
 
-      no_connection:
-      no_protocol:
-	pw_properties_free(properties);
       no_mem:
+	pw_log_error("no memory");
+	goto exit;
+      no_protocol:
+	pw_log_error("can't load native protocol");
+	goto exit_free_props;
+      no_connection:
+	pw_log_error("can't create new native protocol connection");
+	goto exit_free_props;
+
+      exit_free_props:
+	pw_properties_free(properties);
+      exit:
 	free(impl);
 	return NULL;
 }
@@ -356,7 +365,7 @@ const struct pw_core_info *pw_remote_get_core_info(struct pw_remote *remote)
 	return remote->info;
 }
 
-struct pw_proxy *pw_remote_get_proxy(struct pw_remote *remote, uint32_t id)
+struct pw_proxy *pw_remote_find_proxy(struct pw_remote *remote, uint32_t id)
 {
 	return pw_map_lookup(&remote->objects, id);
 }

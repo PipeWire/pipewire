@@ -367,11 +367,11 @@ static void make_node(struct data *data)
 	if (data->path)
 		pw_properties_set(props, "pipewire.target.node", data->path);
 
-	data->node = pw_node_new(data->core, NULL, NULL, "sine-source", props, 0);
+	data->node = pw_node_new(data->core, "sine-source", props, 0);
 	data->impl_node = impl_node;
 	pw_node_set_implementation(data->node, &data->impl_node);
 
-	pw_node_register(data->node);
+	pw_node_register(data->node, NULL, NULL);
 
 	pw_remote_export(data->remote, data->node);
 }

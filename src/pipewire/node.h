@@ -89,14 +89,14 @@ struct pw_node_events {
 /** Create a new node \memberof pw_node */
 struct pw_node *
 pw_node_new(struct pw_core *core,		/**< the core */
-	    struct pw_resource *owner,		/**< optional owner */
-	    struct pw_global *parent,		/**< optional parent */
 	    const char *name,			/**< node name */
 	    struct pw_properties *properties,	/**< extra properties */
 	    size_t user_data_size		/**< user data size */);
 
 /** Complete initialization of the node and register */
-void pw_node_register(struct pw_node *node);
+void pw_node_register(struct pw_node *node,	/**< node to register */
+		      struct pw_client *owner,	/**< optional owner */
+		      struct pw_global *parent	/**< optional parent */);
 
 /** Destroy a node */
 void pw_node_destroy(struct pw_node *node);
@@ -109,9 +109,6 @@ void * pw_node_get_user_data(struct pw_node *node);
 
 /** Get the core of this node */
 struct pw_core *pw_node_get_core(struct pw_node *node);
-
-/** Get the node owner or NULL when not owned by a remote client */
-struct pw_resource *pw_node_get_owner(struct pw_node *node);
 
 /** Get the global of this node */
 struct pw_global *pw_node_get_global(struct pw_node *node);

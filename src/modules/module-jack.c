@@ -796,7 +796,6 @@ handle_connect_name_ports(struct client *client)
 	pw_log_debug("protocol-jack %p: connected ports %p %p", impl, out_port, in_port);
 
 	link = pw_link_new(impl->core,
-			   pw_module_get_global(impl->module),
 			   out_port->port,
 			   in_port->port,
 			   NULL,
@@ -810,6 +809,7 @@ handle_connect_name_ports(struct client *client)
 	ld->in_port = in_port;
 	spa_list_append(&impl->link_list, &ld->link_link);
 	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
+	pw_link_register(link, NULL, pw_module_get_global(impl->module));
 	pw_link_activate(link);
 
 	notify_clients(impl, jack_notify_PortConnectCallback, false, "", src_id, dst_id);
@@ -1038,8 +1038,7 @@ static struct client *client_new(struct impl *impl, int fd)
 	if (properties == NULL)
 		goto no_props;
 
-        client = pw_client_new(impl->core, pw_module_get_global(impl->module),
-			       ucredp, properties, sizeof(struct client));
+        client = pw_client_new(impl->core, ucredp, properties, sizeof(struct client));
 	if (client == NULL)
 		goto no_client;
 
@@ -1057,6 +1056,8 @@ static struct client *client_new(struct impl *impl, int fd)
 	spa_list_insert(impl->client_list.prev, &this->link);
 
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
+
+	pw_client_register(client, NULL, pw_module_get_global(impl->module));
 
 	pw_log_debug("module-jack %p: added new client", impl);
 
@@ -1277,7 +1278,6 @@ make_freewheel_client(struct impl *impl)
 }
 
 static bool on_global(void *data, struct pw_global *global)
-
 {
 	struct impl *impl = data;
 	struct pw_node *node;
@@ -1302,7 +1302,7 @@ static bool on_global(void *data, struct pw_global *global)
 	if (out_port == NULL || in_port == NULL)
 		return true;
 
-	impl->sink_link = pw_link_new(impl->core, pw_module_get_global(impl->module),
+	impl->sink_link = pw_link_new(impl->core,
 		    out_port,
 		    in_port,
 		    NULL,
@@ -1310,6 +1310,7 @@ static bool on_global(void *data, struct pw_global *global)
 		    NULL,
 		    0);
 	pw_link_inc_idle(impl->sink_link);
+	pw_link_register(impl->sink_link, NULL, pw_module_get_global(impl->module));
 
 	return false;
 }

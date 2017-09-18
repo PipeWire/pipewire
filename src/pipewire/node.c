@@ -37,11 +37,7 @@
 struct impl {
 	struct pw_node this;
 
-	struct pw_global *parent;
-
 	struct pw_work_queue *work;
-
-	bool registered;
 };
 
 struct resource_data {
@@ -335,9 +331,10 @@ do_node_add(struct spa_loop *loop,
 }
 
 
-void pw_node_register(struct pw_node *this)
+void pw_node_register(struct pw_node *this,
+		      struct pw_client *owner,
+		      struct pw_global *parent)
 {
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_core *core = this->core;
 
 	pw_log_debug("node %p: register", this);
@@ -348,21 +345,17 @@ void pw_node_register(struct pw_node *this)
 	pw_loop_invoke(this->data_loop, do_node_add, 1, 0, NULL, false, this);
 
 	spa_list_insert(core->node_list.prev, &this->link);
-	this->global = pw_core_add_global(core, this->owner ? this->owner->client : NULL,
-					  impl->parent,
+	this->global = pw_core_add_global(core, owner, parent,
 					  core->type.node, PW_VERSION_NODE,
 					  node_bind_func, this);
 
 	this->info.id = this->global->id;
-	impl->registered = true;
 	spa_hook_list_call(&this->listener_list, struct pw_node_events, initialized);
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 }
 
 struct pw_node *pw_node_new(struct pw_core *core,
-			    struct pw_resource *owner,
-			    struct pw_global *parent,
 			    const char *name,
 			    struct pw_properties *properties,
 			    size_t user_data_size)
@@ -376,9 +369,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this = &impl->this;
 	this->core = core;
-	this->owner = owner;
-	impl->parent = parent;
-	pw_log_debug("node %p: new, owner %p", this, owner);
+	pw_log_debug("node %p: new \"%s\"", this, name);
 
 	if (user_data_size > 0)
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
@@ -431,11 +422,6 @@ void * pw_node_get_user_data(struct pw_node *node)
 struct pw_core * pw_node_get_core(struct pw_node *node)
 {
 	return node->core;
-}
-
-struct pw_resource *pw_node_get_owner(struct pw_node *node)
-{
-	return node->owner;
 }
 
 struct pw_global *pw_node_get_global(struct pw_node *node)
@@ -584,7 +570,7 @@ void pw_node_destroy(struct pw_node *node)
 
 	pw_loop_invoke(node->data_loop, do_node_remove, 1, 0, NULL, true, node);
 
-	if (impl->registered) {
+	if (node->global) {
 		spa_list_remove(&node->link);
 		pw_global_destroy(node->global);
 		node->global = NULL;

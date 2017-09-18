@@ -32,8 +32,8 @@ extern "C" {
 
 struct pw_node *
 pw_spa_node_new(struct pw_core *core,
-		struct pw_resource *owner,          /**< optional owner */
-		struct pw_global *parent,           /**< optional parent */
+		struct pw_client *owner,	/**< optional owner */
+		struct pw_global *parent,	/**< optional parent */
 		const char *name,
 		bool async,
 		struct spa_node *node,
@@ -43,8 +43,8 @@ pw_spa_node_new(struct pw_core *core,
 
 struct pw_node *
 pw_spa_node_load(struct pw_core *core,
-		 struct pw_resource *owner,          /**< optional owner */
-		 struct pw_global *parent,           /**< optional parent */
+		 struct pw_client *owner,	/**< optional owner */
+		 struct pw_global *parent,	/**< optional parent */
 		 const char *lib,
 		 const char *factory_name,
 		 const char *name,

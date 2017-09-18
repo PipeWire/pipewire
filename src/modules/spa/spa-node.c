@@ -37,6 +37,9 @@
 struct impl {
 	struct pw_node *this;
 
+	struct pw_client *owner;
+	struct pw_global *parent;
+
 	bool async_init;
 
 	void *hnd;
@@ -68,7 +71,7 @@ static void pw_spa_node_destroy(void *data)
 static void complete_init(struct impl *impl)
 {
         struct pw_node *this = impl->this;
-	pw_node_register(this);
+	pw_node_register(this, impl->owner, impl->parent);
 }
 
 static void on_node_done(void *data, uint32_t seq, int res)
@@ -91,7 +94,7 @@ static const struct pw_node_events node_events = {
 
 struct pw_node *
 pw_spa_node_new(struct pw_core *core,
-		struct pw_resource *owner,
+		struct pw_client *owner,
 		struct pw_global *parent,
 		const char *name,
 		bool async,
@@ -103,7 +106,7 @@ pw_spa_node_new(struct pw_core *core,
 	struct pw_node *this;
 	struct impl *impl;
 
-	this = pw_node_new(core, owner, parent, name, properties, sizeof(struct impl) + user_data_size);
+	this = pw_node_new(core, name, properties, sizeof(struct impl) + user_data_size);
 	if (this == NULL)
 		return NULL;
 
@@ -111,6 +114,8 @@ pw_spa_node_new(struct pw_core *core,
 
 	impl = this->user_data;
 	impl->this = this;
+	impl->owner = owner;
+	impl->parent = parent;
 	impl->node = node;
 	impl->async_init = async;
 
@@ -187,7 +192,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 
 
 struct pw_node *pw_spa_node_load(struct pw_core *core,
-				 struct pw_resource *owner,
+				 struct pw_client *owner,
 				 struct pw_global *parent,
 				 const char *lib,
 				 const char *factory_name,

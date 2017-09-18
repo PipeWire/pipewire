@@ -886,7 +886,7 @@ struct pw_jack_node *pw_jack_node_new(struct pw_core *core,
         }
 	pw_properties_setf(properties, "jack.ref-num", "%d", ref_num);
 
-	node = pw_node_new(core, NULL, parent, name, properties, sizeof(struct node_data) + user_data_size);
+	node = pw_node_new(core, name, properties, sizeof(struct node_data) + user_data_size);
 	if (node == NULL)
 		return NULL;
 
@@ -917,7 +917,7 @@ struct pw_jack_node *pw_jack_node_new(struct pw_core *core,
         jack_connection_manager_init_ref_num(conn, ref_num);
         jack_graph_manager_next_stop(mgr);
 
-	pw_node_register(node);
+	pw_node_register(node, NULL, parent);
 
 	return this;
 }
@@ -960,7 +960,7 @@ pw_jack_driver_new(struct pw_core *core,
         }
 	pw_properties_setf(properties, "jack.ref-num", "%d", ref_num);
 
-	node = pw_node_new(core, NULL, parent, name, properties, sizeof(struct node_data) + user_data_size);
+	node = pw_node_new(core, name, properties, sizeof(struct node_data) + user_data_size);
 	if (node == NULL)
 		return NULL;
 
@@ -1013,7 +1013,7 @@ pw_jack_driver_new(struct pw_core *core,
 		this->driver_out = alloc_port(this, PW_DIRECTION_OUTPUT, 0);
 		pw_port_add(this->driver_out->port, node);
 	}
-	pw_node_register(node);
+	pw_node_register(node, NULL, parent);
 
 	return this;
 }

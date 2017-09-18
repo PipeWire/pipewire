@@ -120,7 +120,7 @@ process_messages(struct client_data *data)
 		pw_log_trace("protocol-native %p: got message %d from %u", client->protocol,
 			     opcode, id);
 
-		resource = pw_client_get_resource(client, id);
+		resource = pw_client_find_resource(client, id);
 		if (resource == NULL) {
 			pw_log_error("protocol-native %p: unknown resource %u",
 				     client->protocol, id);
@@ -246,7 +246,6 @@ static struct pw_client *client_new(struct server *s, int fd)
 		goto no_props;
 
 	client = pw_client_new(protocol->core,
-			       pw_module_get_global(pd->module),
 			       ucredp,
 			       props,
 			       sizeof(struct client_data));
@@ -268,6 +267,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 	spa_list_append(&s->this.client_list, &client->protocol_link);
 
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
+	pw_client_register(client, NULL, pw_module_get_global(pd->module));
 
 	pw_global_bind(pw_core_get_global(core), client, PW_PERM_RWX, PW_VERSION_CORE, 0);
 
@@ -491,7 +491,7 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 
                         pw_log_trace("protocol-native %p: got message %d from %u", this, opcode, id);
 
-                        proxy = pw_remote_get_proxy(this, id);
+                        proxy = pw_remote_find_proxy(this, id);
 
                         if (proxy == NULL) {
                                 pw_log_error("protocol-native %p: could not find proxy %u", this, id);

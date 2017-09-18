@@ -435,15 +435,24 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.loop = pw_main_loop_new(NULL);
+	if (data.loop == NULL)
+		return -1;
+
 	l = pw_main_loop_get_loop(data.loop);
 	pw_loop_add_signal(l, SIGINT, do_quit, &data);
 	pw_loop_add_signal(l, SIGTERM, do_quit, &data);
 
 	data.core = pw_core_new(l, NULL);
+	if (data.core == NULL)
+		return -1;
+
 	data.remote = pw_remote_new(data.core, NULL, 0);
+	if (data.remote == NULL)
+		return -1;
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
-	pw_remote_connect(data.remote);
+	if (pw_remote_connect(data.remote) < 0)
+		return -1;
 
 	pw_main_loop_run(data.loop);
 

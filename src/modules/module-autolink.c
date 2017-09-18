@@ -118,11 +118,12 @@ link_state_changed(void *data, enum pw_link_state old, enum pw_link_state state,
 	switch (state) {
 	case PW_LINK_STATE_ERROR:
 	{
-		struct pw_resource *owner = pw_node_get_owner(info->node);
+		struct pw_global *global = pw_node_get_global(info->node);
+		struct pw_client *owner = pw_global_get_owner(global);
 
 		pw_log_debug("module %p: link %p: state error: %s", impl, link, error);
 		if (owner)
-			pw_resource_error(owner, SPA_RESULT_ERROR, error);
+			pw_resource_error(pw_client_get_core_resource(owner), SPA_RESULT_ERROR, error);
 
 		break;
 	}
@@ -193,7 +194,6 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 	}
 
 	link = pw_link_new(impl->core,
-			   pw_module_get_global(impl->module),
 			   port, target,
 			   NULL, NULL,
 			   &error,
@@ -207,6 +207,7 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
 
 	spa_list_append(&info->links, &ld->l);
+	pw_link_register(link, NULL, pw_module_get_global(impl->module));
 
 	pw_link_activate(link);
 
@@ -215,9 +216,10 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
       error:
 	pw_log_error("module %p: can't link node '%s'", impl, error);
 	{
-		struct pw_resource *owner = pw_node_get_owner(info->node);
+		struct pw_global *global = pw_node_get_global(info->node);
+		struct pw_client *owner = pw_global_get_owner(global);
 		if (owner)
-			pw_resource_error(owner, SPA_RESULT_ERROR, error);
+			pw_resource_error(pw_client_get_core_resource(owner), SPA_RESULT_ERROR, error);
 	}
 	free(error);
 	return;

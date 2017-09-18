@@ -116,13 +116,17 @@ struct pw_client_events {
 /** Create a new client. This is mainly used by protocols. */
 struct pw_client *
 pw_client_new(struct pw_core *core,		/**< the core object */
-	      struct pw_global *parent,		/**< the client parent */
 	      struct ucred *ucred,		/**< optional ucred */
 	      struct pw_properties *properties,	/**< client properties */
 	      size_t user_data_size		/**< extra user data size */);
 
 /** Destroy a previously created client */
 void pw_client_destroy(struct pw_client *client);
+
+/** Finish configuration and register a client */
+void pw_client_register(struct pw_client *client,	/**< the client to register */
+			struct pw_client *owner,	/**< optional owner */
+			struct pw_global *parent	/**< the client parent */);
 
 /** Get the client user data */
 void *pw_client_get_user_data(struct pw_client *client);
@@ -143,7 +147,7 @@ struct pw_core *pw_client_get_core(struct pw_client *client);
 struct pw_resource *pw_client_get_core_resource(struct pw_client *client);
 
 /** Get a resource with the given id */
-struct pw_resource *pw_client_get_resource(struct pw_client *client, uint32_t id);
+struct pw_resource *pw_client_find_resource(struct pw_client *client, uint32_t id);
 
 /** Get the global associated with this client */
 struct pw_global *pw_client_get_global(struct pw_client *client);

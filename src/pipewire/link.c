@@ -1055,7 +1055,6 @@ static const struct pw_node_events output_node_events = {
 };
 
 struct pw_link *pw_link_new(struct pw_core *core,
-			    struct pw_global *parent,
 			    struct pw_port *output,
 			    struct pw_port *input,
 			    struct spa_format *format_filter,
@@ -1118,8 +1117,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	spa_list_insert(output->links.prev, &this->output_link);
 	spa_list_insert(input->links.prev, &this->input_link);
 
-	spa_list_insert(core->link_list.prev, &this->link);
-
 	this->info.output_node_id = output_node->global->id;
 	this->info.output_port_id = output->port_id;
 	this->info.input_node_id = input_node->global->id;
@@ -1150,10 +1147,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, this);
 	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, this);
 
-	this->global = pw_core_add_global(core, NULL, parent, core->type.link, PW_VERSION_LINK,
-			   link_bind_func, this);
-	this->info.id = this->global->id;
-
 	return this;
 
       same_ports:
@@ -1167,6 +1160,19 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	return NULL;
 }
 
+void pw_link_register(struct pw_link *link,
+		      struct pw_client *owner,
+		      struct pw_global *parent)
+{
+	struct pw_core *core = link->core;
+
+	spa_list_insert(core->link_list.prev, &link->link);
+	link->global = pw_core_add_global(core, owner, parent, core->type.link, PW_VERSION_LINK,
+			   link_bind_func, link);
+	link->info.id = link->global->id;
+}
+
+
 void pw_link_destroy(struct pw_link *link)
 {
 	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
@@ -1177,8 +1183,10 @@ void pw_link_destroy(struct pw_link *link)
 
 	pw_link_deactivate(link);
 
-	pw_global_destroy(link->global);
-	spa_list_remove(&link->link);
+	if (link->global) {
+		spa_list_remove(&link->link);
+		pw_global_destroy(link->global);
+	}
 
 	spa_list_for_each_safe(resource, tmp, &link->resource_list, link)
 	    pw_resource_destroy(resource);

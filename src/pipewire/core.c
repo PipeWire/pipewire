@@ -270,9 +270,11 @@ core_create_link(void *object,
 	if (inport == NULL)
 		goto no_input_port;
 
-	link = pw_link_new(core, pw_client_get_global(client), outport, inport, NULL, NULL, &error, 0);
+	link = pw_link_new(core, outport, inport, NULL, NULL, &error, 0);
 	if (link == NULL)
 		goto no_link;
+
+	pw_link_register(link, client, pw_client_get_global(client));
 
 	res = pw_global_bind(pw_link_get_global(link), client, PW_PERM_RWX, PW_VERSION_LINK, new_id);
 	if (res < 0)

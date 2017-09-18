@@ -450,11 +450,11 @@ static void make_nodes(struct data *data)
 	struct pw_factory *factory;
 	struct pw_properties *props;
 
-	data->node = pw_node_new(data->core, NULL, NULL, "SDL-sink", NULL, 0);
+	data->node = pw_node_new(data->core, "SDL-sink", NULL, 0);
 	data->impl_node = impl_node;
 	pw_node_set_implementation(data->node, &data->impl_node);
 
-	pw_node_register(data->node);
+	pw_node_register(data->node, NULL, NULL);
 
 	factory = pw_core_find_factory(data->core, "spa-node-factory");
 	props = pw_properties_new("spa.library.name", "v4l2/libspa-v4l2",
@@ -467,13 +467,13 @@ static void make_nodes(struct data *data)
 					      SPA_ID_INVALID);
 
 	data->link = pw_link_new(data->core,
-				 NULL,
 				 pw_node_get_free_port(data->v4l2, PW_DIRECTION_OUTPUT),
 				 pw_node_find_port(data->node, PW_DIRECTION_INPUT, 0),
 				 NULL,
 				 NULL,
 				 NULL,
 				 0);
+	pw_link_register(data->link, NULL, NULL);
 	pw_link_activate(data->link);
 }
 

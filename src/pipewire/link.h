@@ -75,7 +75,6 @@ struct pw_link_events {
  * \return a newly allocated link */
 struct pw_link *
 pw_link_new(struct pw_core *core,		/**< the core object */
-	    struct pw_global *parent,		/**< parent global */
 	    struct pw_port *output,		/**< an output port */
 	    struct pw_port *input,		/**< an input port */
 	    struct spa_format *format_filter,	/**< an optional format filter */
@@ -91,6 +90,11 @@ void pw_link_add_listener(struct pw_link *link,
 			  struct spa_hook *listener,
 			  const struct pw_link_events *events,
 			  void *data);
+
+/** Finish link configuration and register */
+void pw_link_register(struct pw_link *link,	/**< the link to register */
+		      struct pw_client *owner,	/**< optional link owner */
+		      struct pw_global *parent	/**< parent global */);
 
 /** Get the core of a link */
 struct pw_core *pw_link_get_core(struct pw_link *link);

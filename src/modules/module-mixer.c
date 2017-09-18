@@ -161,8 +161,9 @@ static bool on_global(void *data, struct pw_global *global)
 	if (op == NULL)
 		return true;
 
-	link = pw_link_new(impl->core, pw_module_get_global(impl->module), op, ip, NULL, NULL, &error, 0);
+	link = pw_link_new(impl->core, op, ip, NULL, NULL, &error, 0);
 	pw_link_inc_idle(link);
+	pw_link_register(link, NULL, pw_module_get_global(impl->module));
 
 	return true;
 }

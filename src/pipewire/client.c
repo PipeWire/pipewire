@@ -90,7 +90,6 @@ client_bind_func(struct pw_global *global,
  * \memberof pw_client
  */
 struct pw_client *pw_client_new(struct pw_core *core,
-				struct pw_global *parent,
 				struct ucred *ucred,
 				struct pw_properties *properties,
 				size_t user_data_size)
@@ -102,9 +101,9 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	if (impl == NULL)
 		return NULL;
 
-	pw_log_debug("client %p: new parent %d", impl, parent ? parent->id : 0);
-
 	this = &impl->this;
+	pw_log_debug("client %p: new", this);
+
 	this->core = core;
 	if ((this->ucred_valid = (ucred != NULL)))
 		this->ucred = *ucred;
@@ -131,16 +130,22 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	pw_map_init(&this->objects, 0, 32);
 	pw_map_init(&this->types, 0, 32);
 
-	spa_list_insert(core->client_list.prev, &this->link);
-
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
-	this->global = pw_core_add_global(core, NULL, parent, core->type.client, PW_VERSION_CLIENT,
-			   client_bind_func, this);
-
-	this->info.id = this->global->id;
-
 	return this;
+}
+
+void pw_client_register(struct pw_client *client,
+			struct pw_client *owner,
+			struct pw_global *parent)
+{
+	struct pw_core *core = client->core;
+
+	pw_log_debug("client %p: register parent %d", client, parent ? parent->id : SPA_ID_INVALID);
+	spa_list_insert(core->client_list.prev, &client->link);
+	client->global = pw_core_add_global(core, owner, parent, core->type.client, PW_VERSION_CLIENT,
+			   client_bind_func, client);
+	client->info.id = client->global->id;
 }
 
 struct pw_core *pw_client_get_core(struct pw_client *client)
@@ -153,7 +158,7 @@ struct pw_resource *pw_client_get_core_resource(struct pw_client *client)
 	return client->core_resource;
 }
 
-struct pw_resource *pw_client_get_resource(struct pw_client *client, uint32_t id)
+struct pw_resource *pw_client_find_resource(struct pw_client *client, uint32_t id)
 {
 	return pw_map_lookup(&client->objects, id);
 }
@@ -201,8 +206,10 @@ void pw_client_destroy(struct pw_client *client)
 	pw_log_debug("client %p: destroy", client);
 	spa_hook_list_call(&client->listener_list, struct pw_client_events, destroy);
 
-	spa_list_remove(&client->link);
-	pw_global_destroy(client->global);
+	if (client->global) {
+		spa_list_remove(&client->link);
+		pw_global_destroy(client->global);
+	}
 
 	spa_list_for_each_safe(resource, tmp, &client->resource_list, link)
 	    pw_resource_destroy(resource);

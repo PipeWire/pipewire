@@ -160,66 +160,53 @@ static void client_info_free(struct client_info *cinfo)
 	free(cinfo);
 }
 
-static bool client_is_sandboxed(struct pw_client *cl)
+static bool check_sandboxed(struct client_info *cinfo, char **error)
 {
-	char data[2048], *ptr;
-	size_t n, size;
-	const char *state = NULL;
-	const char *current;
-	bool result;
-	int fd;
-	pid_t pid;
+	char root_path[2048];
+	int root_fd, info_fd;
 	const struct ucred *ucred;
+	struct stat stat_buf;
 
-	ucred = pw_client_get_ucred(cl);
+	ucred = pw_client_get_ucred(cinfo->client);
+
+	cinfo->is_sandboxed = true;
 
 	if (ucred) {
 		pw_log_info("client has trusted pid %d", ucred->pid);
 	} else {
+		cinfo->is_sandboxed = false;
 		pw_log_info("no trusted pid found, assuming not sandboxed\n");
+		return true;
+	}
+
+	sprintf(root_path, "/proc/%u/root", ucred->pid);
+	root_fd = openat (AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
+	if (root_fd == -1) {
+		/* Not able to open the root dir shouldn't happen. Probably the app died and
+		 * we're failing due to /proc/$pid not existing. In that case fail instead
+		 * of treating this as privileged. */
+		asprintf(error, "failed to open \"%s\": %m", root_path);
 		return false;
 	}
-
-	pid = ucred->pid;
-
-	sprintf(data, "/proc/%u/cgroup", pid);
-	fd = open(data, O_RDONLY | O_CLOEXEC, 0);
-	if (fd == -1)
+	info_fd = openat (root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);
+	close (root_fd);
+	if (info_fd == -1) {
+		if (errno == ENOENT) {
+			pw_log_debug("no .flatpak-info, client on the host");
+			cinfo->is_sandboxed = false;
+			/* No file => on the host */
+			return true;
+		}
+		asprintf(error, "error opening .flatpak-info: %m");
 		return false;
-
-	spa_zero(data);
-	size = sizeof(data);
-	ptr = data;
-
-	while (size > 0) {
-		int r;
-
-		if ((r = read(fd, data, size)) < 0) {
-			if (errno == EINTR)
-				continue;
-			else
-				break;
-		}
-		if (r == 0)
-			break;
-
-		ptr += r;
-		size -= r;
+        }
+	if (fstat (info_fd, &stat_buf) != 0 || !S_ISREG (stat_buf.st_mode)) {
+		/* Some weird fd => failure */
+		close(info_fd);
+		asprintf(error, "error fstat .flatpak-info: %m");
+		return false;
 	}
-	close(fd);
-
-	result = false;
-	while ((current = pw_split_walk(data, "\n", &n, &state)) != NULL) {
-		if (strncmp(current, "1:name=systemd:", strlen("1:name=systemd:")) == 0) {
-			const char *p = strstr(current, "flatpak-");
-			if (p && p - current < n) {
-				pw_log_info("found a flatpak cgroup, assuming sandboxed\n");
-				result = true;
-				break;
-			}
-		}
-	}
-	return result;
+	return true;
 }
 
 static bool
@@ -514,11 +501,15 @@ core_global_added(void *data, struct pw_global *global)
 	if (pw_global_get_type(global) == impl->type->client) {
 		struct pw_client *client = pw_global_get_object(global);
 		struct client_info *cinfo;
+		char *error;
 
 		cinfo = calloc(1, sizeof(struct client_info));
 		cinfo->impl = impl;
 		cinfo->client = client;
-		cinfo->is_sandboxed = client_is_sandboxed(client);
+		if (!check_sandboxed(cinfo, &error)) {
+			pw_log_warn("module %p: client %p sandbox check failed: %s", impl, client, error);
+			free(error);
+		}
 		spa_list_init(&cinfo->async_pending);
 		spa_list_init(&cinfo->resources);
 

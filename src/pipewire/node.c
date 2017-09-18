@@ -257,7 +257,6 @@ update_info(struct pw_node *this)
 			this->info.output_formats[this->info.n_output_formats] = spa_format_copy(fmt);
 		}
 	}
-	this->info.props = this->properties ? &this->properties->dict : NULL;
 }
 
 static void

@@ -729,7 +729,7 @@ impl_add_server(struct pw_protocol *protocol,
 
 	pw_loop_add_hook(pw_core_get_main_loop(core), &s->hook, &impl_hooks, s);
 
-	pw_log_info("protocol-native %p: Added server %p", protocol, this);
+	pw_log_info("protocol-native %p: Added server %p %s", protocol, this, name);
 
 	return this;
 

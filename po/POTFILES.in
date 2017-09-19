@@ -1,2 +1,1 @@
-pipewire/daemon/main.c
-pipewire/daemon/pipewire.desktop.in
+src/daemon/pipewire.desktop.in

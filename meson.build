@@ -141,7 +141,7 @@ glib_dep = dependency('glib-2.0', version : '>=2.32.0')
 gobject_dep = dependency('gobject-2.0')
 gmodule_dep = dependency('gmodule-2.0')
 gio_dep = [dependency('gio-2.0'), dependency('gio-unix-2.0')]
-jack_dep = dependency('jack', required : false)
+jack_dep = dependency('jack', version : '>= 1.9.10', required : false)
 mathlib = cc.find_library('m', required : false)
 rt_lib = cc.find_library('rt', required : false) # clock_gettime
 dl_lib = cc.find_library('dl', required : false)

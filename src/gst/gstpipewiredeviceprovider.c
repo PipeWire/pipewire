@@ -321,7 +321,8 @@ on_state_changed (void *data, enum pw_remote_state old, enum pw_remote_state sta
       GST_ERROR_OBJECT (self, "remote error: %s", error);
       break;
   }
-  pw_thread_loop_signal (self->main_loop, FALSE);
+  if (self->main_loop)
+    pw_thread_loop_signal (self->main_loop, FALSE);
 }
 
 

@@ -1,11 +1,11 @@
 all:
-	ninja-build -C build
+	ninja -C build
 
 install:
-	ninja-build -C build install
+	ninja -C build install
 
 clean:
-	ninja-build -C build clean
+	ninja -C build clean
 
 run: all
 	SPA_PLUGIN_DIR=build/spa/plugins \

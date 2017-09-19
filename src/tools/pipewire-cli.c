@@ -162,18 +162,18 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 static struct command command_list[] = {
 	{ "help", "Show this help", do_help },
 	{ "load-module", "Load a module. <module-name> [<module-arguments>]", do_load_module },
-	{ "unload-module", "Unload a module. $<module-var>", do_not_implemented },
+	{ "unload-module", "Unload a module. <module-var>", do_not_implemented },
 	{ "connect", "Connect to a remote. [<remote-name>]", do_connect },
-	{ "disconnect", "Disconnect from a remote. [$<remote-var>]", do_disconnect },
+	{ "disconnect", "Disconnect from a remote. [<remote-var>]", do_disconnect },
 	{ "list-remotes", "List connected remotes.", do_list_remotes },
-	{ "switch-remote", "Switch between current remotes. [$<remote-var>]", do_switch_remote },
+	{ "switch-remote", "Switch between current remotes. [<remote-var>]", do_switch_remote },
 	{ "list-objects", "List objects or current remote.", do_list_objects },
 	{ "info", "Get info about an object. <object-id>|all", do_info },
-	{ "create-node", "Create a node from a factory. <factory-name> <name> [<properties>]", do_create_node },
-	{ "destroy-node", "Destroy a node. $<node-var>", do_destroy_node },
+	{ "create-node", "Create a node from a factory. <factory-name> [<properties>]", do_create_node },
+	{ "destroy-node", "Destroy a node. <node-var>", do_destroy_node },
 	{ "create-link", "Create a link between nodes. <node-id> <port-id> <node-id> <port-id> [<properties>]", do_create_link },
-	{ "destroy-link", "Destroy a link. $<link-var>", do_destroy_link },
-	{ "export-node", "Export a local node to the current remote. <node-id>", do_export_node },
+	{ "destroy-link", "Destroy a link. <link-var>", do_destroy_link },
+	{ "export-node", "Export a local node to the current remote. <node-id> [remote-var]", do_export_node },
 };
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error)
@@ -207,7 +207,7 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 	}
 
 	id = pw_map_insert_new(&data->vars, module);
-	fprintf(stdout, "$%d = @module:%d\n", id, pw_global_get_id(pw_module_get_global(module)));
+	fprintf(stdout, "%d = @module:%d\n", id, pw_global_get_id(pw_module_get_global(module)));
 
 	return true;
 }
@@ -216,7 +216,7 @@ static void on_info_changed(void *_data, const struct pw_core_info *info)
 {
 	struct remote_data *rd = _data;
 	rd->name = info->name;
-	fprintf(stdout, "remote $%d is named '%s'\n", rd->id, rd->name);
+	fprintf(stdout, "remote %d is named '%s'\n", rd->id, rd->name);
 }
 
 static void show_prompt(struct remote_data *rd)
@@ -268,7 +268,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	global->type = type;
 	global->version = version;
 
-	fprintf(stdout, "remote $%d added global: ", rd->id);
+	fprintf(stdout, "remote %d added global: ", rd->id);
 	print_global(global, NULL);
 
 	size = pw_map_get_size(&rd->globals);
@@ -294,11 +294,11 @@ static void registry_event_global_remove(void *data, uint32_t id)
 
 	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
-		fprintf(stdout, "remote $%d removed unknown global %d\n", rd->id, id);
+		fprintf(stdout, "remote %d removed unknown global %d\n", rd->id, id);
 		return;
 	}
 
-	fprintf(stdout, "remote $%d removed global: ", rd->id);
+	fprintf(stdout, "remote %d removed global: ", rd->id);
 	print_global(global, NULL);
 	destroy_global(global, rd);
 }
@@ -333,12 +333,12 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
-		fprintf(stderr, "remote $%d error: %s\n", rd->id, error);
+		fprintf(stderr, "remote %d error: %s\n", rd->id, error);
 		pw_main_loop_quit(data->loop);
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
-		fprintf(stdout, "remote $%d state: \"%s\"\n", rd->id, pw_remote_state_as_string(state));
+		fprintf(stdout, "remote %d state: \"%s\"\n", rd->id, pw_remote_state_as_string(state));
 		rd->core_proxy = pw_remote_get_core_proxy(rd->remote);
 		rd->registry_proxy = pw_core_proxy_get_registry(rd->core_proxy,
 								t->registry,
@@ -350,7 +350,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 		break;
 
 	default:
-		fprintf(stdout, "remote $%d state: \"%s\"\n", rd->id, pw_remote_state_as_string(state));
+		fprintf(stdout, "remote %d state: \"%s\"\n", rd->id, pw_remote_state_as_string(state));
 		break;
 	}
 }
@@ -385,7 +385,7 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	rd->id = pw_map_insert_new(&data->vars, rd);
 	spa_list_append(&data->remotes, &rd->link);
 
-	fprintf(stdout, "$%d = @remote:%p\n", rd->id, remote);
+	fprintf(stdout, "%d = @remote:%p\n", rd->id, remote);
 	data->current = rd;
 
 	pw_remote_add_listener(remote, &rd->remote_listener, &remote_events, rd);
@@ -431,7 +431,7 @@ static bool do_list_remotes(struct data *data, const char *cmd, char *args, char
 	struct remote_data *rd;
 
 	spa_list_for_each(rd, &data->remotes, link)
-		fprintf(stdout, "\t$%d = @remote:%p '%s'\n", rd->id, rd->remote, rd->name);
+		fprintf(stdout, "\t%d = @remote:%p '%s'\n", rd->id, rd->remote, rd->name);
 
 	return true;
 }
@@ -591,7 +591,7 @@ static void core_event_info(void *object, struct pw_core_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote $%d core %d changed\n", rd->id, info->id);
+		fprintf(stdout, "remote %d core %d changed\n", rd->id, info->id);
 	pd->info = pw_core_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -612,7 +612,7 @@ static void module_event_info(void *object, struct pw_module_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote $%d module %d changed\n", rd->id, info->id);
+		fprintf(stdout, "remote %d module %d changed\n", rd->id, info->id);
 	pd->info = pw_module_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -632,7 +632,7 @@ static void node_event_info(void *object, struct pw_node_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote $%d node %d changed\n", rd->id, info->id);
+		fprintf(stdout, "remote %d node %d changed\n", rd->id, info->id);
 	pd->info = pw_node_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -652,7 +652,7 @@ static void factory_event_info(void *object, struct pw_factory_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote $%d factory %d changed\n", rd->id, info->id);
+		fprintf(stdout, "remote %d factory %d changed\n", rd->id, info->id);
 	pd->info = pw_factory_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -672,7 +672,7 @@ static void client_event_info(void *object, struct pw_client_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote $%d client %d changed\n", rd->id, info->id);
+		fprintf(stdout, "remote %d client %d changed\n", rd->id, info->id);
 	pd->info = pw_client_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -692,7 +692,7 @@ static void link_event_info(void *object, struct pw_link_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote $%d link %d changed\n", rd->id, info->id);
+		fprintf(stdout, "remote %d link %d changed\n", rd->id, info->id);
 	pd->info = pw_link_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -893,7 +893,7 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	id = pw_map_insert_new(&data->vars, proxy);
-	fprintf(stdout, "$%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
+	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
 
 	return true;
 }
@@ -938,7 +938,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	id = pw_map_insert_new(&data->vars, proxy);
-	fprintf(stdout, "$%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
+	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
 
 	return true;
 }
@@ -956,15 +956,22 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	struct pw_global *global;
 	struct pw_node *node;
 	struct pw_proxy *proxy;
-	char *a[1];
-	int n;
+	char *a[2];
+	int n, idx;
 	uint32_t id;
 
-	n = pw_split_ip(args, WHITESPACE, 1, a);
+	n = pw_split_ip(args, WHITESPACE, 2, a);
 	if (n < 1) {
-		asprintf(error, "%s <node-id>", cmd);
+		asprintf(error, "%s <node-id> [<remote-var>]", cmd);
 		return false;
 	}
+	if (n == 2) {
+		idx = atoi(a[1]);
+		rd = pw_map_lookup(&data->vars, idx);
+		if (rd == NULL)
+			goto no_remote;
+	}
+
 	global = pw_core_find_global(data->core, atoi(a[0]));
 	if (global == NULL) {
 		asprintf(error, "object %d does not exist", atoi(a[0]));
@@ -978,9 +985,13 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	proxy = pw_remote_export(rd->remote, node);
 
 	id = pw_map_insert_new(&data->vars, proxy);
-	fprintf(stdout, "$%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
+	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
 
 	return true;
+
+      no_remote:
+        asprintf(error, "Remote %d does not exist", idx);
+	return false;
 }
 
 static bool parse(struct data *data, char *buf, size_t size, char **error)

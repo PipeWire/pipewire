@@ -7,6 +7,7 @@ manpage_conf.set('top_srcdir', meson.source_root())
 manpage_conf.set('top_builddir', meson.build_root())
 
 manpages = ['pipewire.1',
+	    'pipewire-cli.1',
 	    'pipewire-monitor.1' ]
 
 foreach m : manpages

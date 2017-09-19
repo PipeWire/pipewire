@@ -431,6 +431,7 @@ int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
 	struct pw_loop *l;
+	struct pw_properties *props = NULL;
 
 	pw_init(&argc, &argv);
 
@@ -446,7 +447,10 @@ int main(int argc, char *argv[])
 	if (data.core == NULL)
 		return -1;
 
-	data.remote = pw_remote_new(data.core, NULL, 0);
+	if (argc > 1)
+		props = pw_properties_new(PW_REMOTE_PROP_REMOTE_NAME, argv[1], NULL);
+
+	data.remote = pw_remote_new(data.core, props, 0);
 	if (data.remote == NULL)
 		return -1;
 

@@ -22,16 +22,22 @@ License along with PipeWire; if not, see <http://www.gnu.org/licenses/>.
 <manpage name="pipewire-monitor" section="1" desc="The PipeWire monitor">
 
   <synopsis>
-    <cmd>pipewire</cmd>
+    <cmd>pipewire-monitor [<arg>remote-name</arg>]</cmd>
   </synopsis>
 
   <description>
-    <p>Monitor objects on the PipeWire service.</p>
+    <p>Monitor objects on the PipeWire instance.</p>
   </description>
 
   <options>
 
     <option>
+       <p><opt>remote-name</opt></p>
+       <optdesc><p>The name the remote instance to monitor. If left unspecified,
+       a connection is made to the default PipeWire instance.</p></optdesc>
+     </option>
+
+     <option>
       <p><opt>-h | --help</opt></p>
 
       <optdesc><p>Show help.</p></optdesc>

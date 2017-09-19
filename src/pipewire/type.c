@@ -28,8 +28,6 @@
 #include "pipewire/type.h"
 #include "pipewire/module.h"
 
-#include "pipewire/node-factory.h"
-
 
 /** Initializes the type system
  * \param type a type structure

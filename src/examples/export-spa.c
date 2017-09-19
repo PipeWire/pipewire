@@ -29,7 +29,7 @@
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/node-factory.h>
+#include <pipewire/factory.h>
 
 struct data {
 	struct pw_main_loop *loop;

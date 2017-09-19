@@ -35,7 +35,7 @@ extern "C" {
 #include <pipewire/loop.h>
 #include <pipewire/main-loop.h>
 #include <pipewire/module.h>
-#include <pipewire/node-factory.h>
+#include <pipewire/factory.h>
 #include <pipewire/node.h>
 #include <pipewire/port.h>
 #include <pipewire/properties.h>

@@ -37,7 +37,7 @@
 #include "pipewire/server/client.h"
 #include "pipewire/server/resource.h"
 #include "pipewire/server/link.h"
-#include "pipewire/server/node-factory.h"
+#include "pipewire/server/factory.h"
 #include "pipewire/server/data-loop.h"
 #include "pipewire/server/main-loop.h"
 

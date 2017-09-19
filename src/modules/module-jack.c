@@ -41,7 +41,7 @@
 #include "pipewire/resource.h"
 #include "pipewire/private.h"
 #include "pipewire/link.h"
-#include "pipewire/node-factory.h"
+#include "pipewire/factory.h"
 #include "pipewire/data-loop.h"
 #include "pipewire/main-loop.h"
 

@@ -31,7 +31,7 @@
 
 #include <pipewire/pipewire.h>
 #include <pipewire/module.h>
-#include <pipewire/node-factory.h>
+#include <pipewire/factory.h>
 
 struct type {
 	uint32_t format;

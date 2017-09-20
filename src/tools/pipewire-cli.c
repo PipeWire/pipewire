@@ -1032,7 +1032,7 @@ static void do_input(void *data, int fd, enum spa_io mask)
 {
 	struct data *d = data;
 	char buf[4096], *error;
-	size_t r;
+	ssize_t r;
 
 	if (mask & SPA_IO_IN) {
 		while (true) {

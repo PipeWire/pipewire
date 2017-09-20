@@ -39,3 +39,8 @@ executable('test-props2', 'test-props2.c',
            dependencies : [],
            link_with : spalib,
            install : false)
+executable('test-props3', 'test-props3.c',
+           include_directories : [spa_inc, spa_libinc ],
+           dependencies : [],
+           link_with : spalib,
+           install : false)

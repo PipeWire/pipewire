@@ -99,6 +99,55 @@ key:       "<name>"
 
   "framerate": [ "25/1", "30/1" ] }
 
+* JSON based format description
+
+ [ <type>,
+   [ <media-type>, <media-subtype> ],
+   {
+     <key> : [ <type>, <value>, [ <value>, ... ] ],
+     ...
+   }
+ ]
+
+   <type> = "123.."
+
+   1: s = string    :  "value"
+      i = int       :  <number>
+      f = float     :  <float>
+      b = bool      :  true | false
+      R = rectangle : [ <width>, <height> ]
+      F = fraction  : [ <num>, <denom> ]
+
+   2: - = default (only default value present)
+      e = enum	        : [ <value>, ... ]
+      f = flags	        : [ <number> ]
+      m = min/max	: [ <min>, <max> ]
+      s = min/max/step  : [ <min>, <max>, <step> ]
+
+   3: u = unset		: value is unset, choose from options or default
+      o = optional	: value does not need to be set
+      r = readonly      : value is read only
+      d = deprecated    : value is deprecated
+
+[ "Format",
+  [ "video", "raw"],
+  {
+    "format" :    [ "se", "I420", [ "I420", "YUY2" ] ],
+    "size" :      [ "Rmu", [320, 240], [[ 640, 480], [1024,786]]],
+    "framerate" : [ "Fsu", [25, 1], [[ 0, 1], [65536,1]]]"
+  }
+]
+
+[ "Format",
+  [ "audio", "raw"],
+  {
+    "format" :      [ "se", "S16LE", [ "F32LE", "S16LE" ] ],
+    "rate" :        [ "imu", 44100, [8000, 96000]],
+    "channels" :    [ "imu", 1, [1, 4096]]"
+    "interleaved" : [ "beo", true ]"
+  }
+]
+
 spa_build(SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
 	  type.format_video.format, SPA_PROP_TYPE_ID,
 	  video_format.I420

@@ -80,7 +80,6 @@ static void registry_bind(void *object, uint32_t id,
 	 * new_id as 'used and freed' */
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
-	return;
 }
 
 static const struct pw_registry_proxy_methods registry_methods = {

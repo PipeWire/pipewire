@@ -112,8 +112,68 @@ spa_json_iter_init (struct spa_json_iter *iter, const char *data, size_t size)
   iter->state = NONE;
 }
 
+struct spa_json_chunk {
+	const char *value;
+	int len;
+};
+
+enum spa_json_type {
+	SPA_JSON_TYPE_INVALID,
+	SPA_JSON_TYPE_ARRAY,
+	SPA_JSON_TYPE_OBJECT,
+	SPA_JSON_TYPE_STRING,
+	SPA_JSON_TYPE_NUMBER,
+	SPA_JSON_TYPE_BOOL,
+	SPA_JSON_TYPE_NULL,
+};
+
+static inline enum spa_json_type spa_json_chunk_get_type(struct spa_json_chunk *chunk)
+{
+	switch (chunk->value[0]) {
+	case '[':
+		return SPA_JSON_TYPE_ARRAY;
+	case '{':
+		return SPA_JSON_TYPE_OBJECT;
+	case '"':
+		return SPA_JSON_TYPE_STRING;
+	case '-': case '0' ... '9':
+		return SPA_JSON_TYPE_NUMBER;
+	case 't': case 'f':
+		return SPA_JSON_TYPE_BOOL;
+	case 'n':
+		return SPA_JSON_TYPE_NULL;
+	}
+	return SPA_JSON_TYPE_INVALID;
+}
+
+
+static inline bool spa_json_chunk_is_object(struct spa_json_chunk *chunk) {
+	return chunk->value[0] == '{';
+}
+
+static inline bool spa_json_chunk_is_array(struct spa_json_chunk *chunk) {
+	return chunk->value[0] == '[';
+}
+
+static inline bool spa_json_chunk_is_string(struct spa_json_chunk *chunk) {
+	return chunk->value[0] == '"';
+}
+
+static inline bool spa_json_chunk_is_number(struct spa_json_chunk *chunk) {
+	return (chunk->value[0] >= '0' && chunk->value[0] <= '9') ||
+		chunk->value[0] == '-' ;
+}
+
+static inline bool spa_json_chunk_is_bool(struct spa_json_chunk *chunk) {
+	return chunk->value[0] == 't' || chunk->value[0] == 'f';
+}
+
+static inline bool spa_json_chunk_is_null(struct spa_json_chunk *chunk) {
+	return chunk->value[0] == 'n';
+}
+
 static int
-spa_json_iter_next (struct spa_json_iter *iter, const char **value)
+spa_json_iter_value(struct spa_json_iter *iter, struct spa_json_chunk *value)
 {
   int utf8_remain = 0;
 
@@ -130,29 +190,29 @@ again:
           case '\t': case ' ': case '\r': case '\n': case ':': case ',':
             continue;
           case '"':
-            *value = iter->cur;
+            value->value = iter->cur;
             iter->state = STRING;
             continue;
           case '[': case '{':
-            *value = iter->cur;
+            value->value = iter->cur;
             if (++iter->depth > 1)
               continue;
             iter->cur++;
-            return 1;
+            return value->len = 1;
           case '}': case ']':
             if (iter->depth == 0) {
               if (iter->parent)
                 iter->parent->cur = iter->cur;
-              return 0;
+              return -1;
             }
             --iter->depth;
             continue;
           case '-': case 'a' ... 'z': case 'A' ... 'Z': case '0' ... '9':
-            *value = iter->cur;
+            value->value = iter->cur;
             iter->state = BARE;
             continue;
         }
-        return -1;
+        return -2;
       case BARE:
         switch (cur) {
           case '\t': case ' ': case '\r': case '\n': case ':': case ',':
@@ -160,12 +220,12 @@ again:
             iter->state = STRUCT;
             if (iter->depth > 0)
               goto again;
-            return iter->cur - *value;
+            return value->len = iter->cur - value->value;
           default:
             if (cur >= 32 && cur <= 126)
               continue;
         }
-        return -1;
+        return -2;
       case STRING:
         switch (cur) {
           case '\\':
@@ -176,7 +236,7 @@ again:
             if (iter->depth > 0)
               continue;
             iter->cur++;
-            return iter->cur - *value;
+            return value->len = iter->cur - value->value;
           case 240 ... 247:
             utf8_remain++;
           case 224 ... 239:
@@ -189,7 +249,7 @@ again:
             if (cur >= 32 && cur <= 126)
               continue;
         }
-        return -1;
+        return -2;
       case UTF8:
         switch (cur) {
           case 128 ... 191:
@@ -197,7 +257,7 @@ again:
               iter->state = STRING;
             continue;
         }
-        return -1;
+        return -2;
       case ESC:
         switch (cur) {
           case '"': case '\\': case '/': case 'b': case 'f': case 'n': case 'r':
@@ -205,77 +265,99 @@ again:
             iter->state = STRING;
             continue;
         }
-        return -1;
+        return -2;
     }
   }
-  return iter->depth == 0 ? 0 : -1;
+  return iter->depth == 0 ? -1 : -2;
 }
 
-static void
-spa_json_iter_enter (struct spa_json_iter *iter, struct spa_json_iter *sub)
+static int
+spa_json_iter_enter(struct spa_json_iter *iter, struct spa_json_iter *sub)
 {
   sub->end = iter->end;
   sub->parent = iter;
   sub->cur = iter->cur;
   sub->state = NONE;
+  return 0;
+}
+
+static int
+spa_json_iter_enter_array(struct spa_json_iter *iter,
+			  struct spa_json_iter *array)
+{
+	struct spa_json_chunk chunk;
+	if (spa_json_iter_value(iter, &chunk) < 0) return -1;
+	if (*chunk.value != '[') return -1;
+	return spa_json_iter_enter(iter, array);
+}
+
+static int
+spa_json_iter_enter_object(struct spa_json_iter *iter,
+			   struct spa_json_iter *object)
+{
+	struct spa_json_chunk chunk;
+	if (spa_json_iter_value(iter, &chunk) < 0) return -1;
+	if (*chunk.value != '{') return -1;
+	return spa_json_iter_enter(iter, object);
+}
+
+static int
+spa_json_iter_string(struct spa_json_iter *iter,
+		     struct spa_json_chunk *str)
+{
+	if (spa_json_iter_value(iter, str) < 0) return -1;
+	return (*str->value == '"')  ? 0 : -1;
+}
+
+static int
+spa_format_parse(struct spa_json_iter *iter,
+		 struct spa_json_chunk *media_type,
+		 struct spa_json_chunk *media_subtype,
+		 struct spa_json_iter *props)
+{
+	struct spa_json_iter it[2];
+	struct spa_json_chunk type;
+
+	if (spa_json_iter_enter_array(iter, &it[0]) < 0) return -1;
+	if (spa_json_iter_string(&it[0], &type) < 0) return -1;
+	if (strncmp(type.value, "\"Format\"", type.len) != 0) return -1;
+
+	if (spa_json_iter_enter_array(&it[0], &it[1]) < 0) return -1;
+	if (spa_json_iter_string(&it[1], media_type) < 0) return -1;
+	if (spa_json_iter_string(&it[1], media_subtype) < 0) return -1;
+
+	return spa_json_iter_enter_object(&it[0], props);
 }
 
 static int test_parsing(const char *format)
 {
 	struct spa_json_iter iter[5];
-	const char *value;
-	int len;
+	struct spa_json_chunk media_type, media_subtype, value;
+	struct spa_json_iter props;
 
 	spa_json_iter_init (&iter[0], format, strlen(format));
 
-	if ((len = spa_json_iter_next(&iter[0], &value)) < 0) return len;
-	if (*value != '[') return -1;
-	spa_json_iter_enter(&iter[0], &iter[1]);
+	if (spa_format_parse(&iter[0], &media_type, &media_subtype, &props) < 0)
+		return -1;
 
-	if ((len = spa_json_iter_next(&iter[1], &value)) < 0) return len;
-	if (*value != '"') return -1;
+	printf("Media Type: %.*s\n", media_type.len, media_type.value);
+	printf("Media SubType: %.*s\n", media_subtype.len, media_subtype.value);
 
-	printf("Type: %.*s\n", len, value);
+	while (spa_json_iter_string(&props, &value) >= 0) {
+		printf("Key: %.*s\n", value.len, value.value);
 
-	if ((len = spa_json_iter_next(&iter[1], &value)) < 0) return len;
-	if (*value != '[') return -1;
-	spa_json_iter_enter(&iter[1], &iter[2]);
+		if (spa_json_iter_enter_array(&props, &iter[1]) < 0) return -1;
+		if (spa_json_iter_string(&iter[1], &value) < 0) return -1;
+		printf("flags: %.*s\n", value.len, value.value);
 
-	if ((len = spa_json_iter_next(&iter[2], &value)) < 0) return len;
-	if (*value != '"') return -1;
-	printf("Media Type: %.*s\n", len, value);
+		if (spa_json_iter_value(&iter[1], &value) < 0) return -1;
+		printf("default: %.*s\n", value.len, value.value);
 
-	if ((len = spa_json_iter_next(&iter[2], &value)) < 0) return len;
-	if (*value != '"') return -1;
-	printf("Media SubType: %.*s\n", len, value);
-
-	if ((len = spa_json_iter_next(&iter[1], &value)) < 0) return len;
-	if (*value != '{') return -1;
-	spa_json_iter_enter(&iter[1], &iter[2]);
-
-	while ((len = spa_json_iter_next(&iter[2], &value)) > 0) {
-		if (*value != '"') return -1;
-		printf("Key: %.*s\n", len, value);
-
-		if ((len = spa_json_iter_next(&iter[2], &value)) < 0) return len;
-		if (*value != '[') return -1;
-		spa_json_iter_enter(&iter[2], &iter[3]);
-
-		if ((len = spa_json_iter_next(&iter[3], &value)) < 0) return len;
-		printf("flags: %.*s\n", len, value);
-
-		if ((len = spa_json_iter_next(&iter[3], &value)) < 0) return len;
-		printf("default: %.*s\n", len, value);
-
-		if ((len = spa_json_iter_next(&iter[3], &value)) < 0) return len;
-		if (*value != '[') return -1;
-		spa_json_iter_enter(&iter[3], &iter[4]);
-
-		while ((len = spa_json_iter_next(&iter[4], &value)) > 0) {
-			printf("value: %.*s\n", len, value);
+		if (spa_json_iter_enter_array(&iter[1], &iter[2]) < 0) return -1;
+		while (spa_json_iter_value(&iter[2], &value) >= 0) {
+			printf("value: %.*s\n", value.len, value.value);
 		}
 	}
-
 	return 0;
 }
 

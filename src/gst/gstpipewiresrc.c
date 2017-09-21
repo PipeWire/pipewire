@@ -726,11 +726,7 @@ connect_error:
   }
 }
 
-#define PROP(f,key,type,...)                                                    \
-          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define SPA_PROP_RANGE(min,max)	2,min,max
 
 static void
 on_format_changed (void              *data,
@@ -757,20 +753,19 @@ on_format_changed (void              *data,
     struct spa_param *params[2];
     struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
-    struct spa_pod_frame f[2];
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
-    spa_pod_builder_object (&b, &f[0], 0, t->param_alloc_buffers.Buffers,
-      PROP_U_MM (&f[1], t->param_alloc_buffers.size,    SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
-      PROP_U_MM (&f[1], t->param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
-      PROP_U_MM (&f[1], t->param_alloc_buffers.buffers, SPA_POD_TYPE_INT, 16, 0, INT32_MAX),
-      PROP    (&f[1], t->param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
-    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
+    params[0] = spa_pod_builder_param (&b,
+	t->param_alloc_buffers.Buffers,
+	":", t->param_alloc_buffers.size,    "ir", 0,  SPA_PROP_RANGE(0, INT32_MAX),
+	":", t->param_alloc_buffers.stride,  "ir", 0,  SPA_PROP_RANGE(0, INT32_MAX),
+	":", t->param_alloc_buffers.buffers, "ir", 16, SPA_PROP_RANGE(1, INT32_MAX),
+	":", t->param_alloc_buffers.align,   "i", 16);
 
-    spa_pod_builder_object (&b, &f[0], 0, t->param_alloc_meta_enable.MetaEnable,
-        PROP    (&f[1], t->param_alloc_meta_enable.type, SPA_POD_TYPE_ID, t->meta.Header),
-        PROP    (&f[1], t->param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
-    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
+    params[1] = spa_pod_builder_param (&b,
+	t->param_alloc_meta_enable.MetaEnable,
+        ":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
+        ":", t->param_alloc_meta_enable.size, "i", sizeof (struct spa_meta_header));
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
     pw_stream_finish_format (pwsrc->stream, SPA_RESULT_OK, params, 2);

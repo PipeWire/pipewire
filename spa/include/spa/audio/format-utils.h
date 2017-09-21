@@ -50,18 +50,19 @@ spa_type_format_audio_map(struct spa_type_map *map, struct spa_type_format_audio
 	}
 }
 
-static inline bool
+static inline int
 spa_format_audio_raw_parse(const struct spa_format *format,
 			   struct spa_audio_info_raw *info, struct spa_type_format_audio *type)
 {
-	spa_format_query(format,
-			 type->format, SPA_POD_TYPE_ID, &info->format,
-			 type->flags, SPA_POD_TYPE_INT, &info->flags,
-			 type->layout, SPA_POD_TYPE_INT, &info->layout,
-			 type->rate, SPA_POD_TYPE_INT, &info->rate,
-			 type->channels, SPA_POD_TYPE_INT, &info->channels,
-			 type->channel_mask, SPA_POD_TYPE_INT, &info->channel_mask, 0);
-	return true;
+	struct spa_pod_parser prs;
+	spa_pod_parser_pod(&prs, &format->pod);
+	return spa_pod_parser_get(&prs,
+		":",type->format,	"I", &info->format,
+		":",type->rate,		"i", &info->rate,
+		":",type->channels,	"i", &info->channels,
+		":",type->flags,	"?i", &info->flags,
+		":",type->layout,	"?i", &info->layout,
+		":",type->channel_mask,	"?i", &info->channel_mask, NULL);
 }
 
 #ifdef __cplusplus

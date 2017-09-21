@@ -27,7 +27,7 @@ extern "C" {
 #include <stdarg.h>
 
 #include <spa/format.h>
-#include <spa/pod-utils.h>
+#include <spa/pod-parser.h>
 #include <spa/type-map.h>
 
 struct spa_type_media_type {
@@ -149,22 +149,17 @@ spa_type_media_subtype_audio_map(struct spa_type_map *map,
 #define SPA_FORMAT_MEDIA_TYPE(f)	SPA_POD_VALUE(struct spa_pod_id, &f->body.media_type)
 #define SPA_FORMAT_MEDIA_SUBTYPE(f)	SPA_POD_VALUE(struct spa_pod_id, &f->body.media_subtype)
 
-static inline struct spa_pod_prop *spa_format_find_prop(const struct spa_format *format,
-							uint32_t key)
+#define spa_format_parse(format,...)				\
+({								\
+	struct spa_pod_parser __p;				\
+	const struct spa_format *__format = format;		\
+	spa_pod_parser_pod(&__p, &__format->pod);		\
+	spa_pod_parser_get(&__p, "<", ##__VA_ARGS__, NULL);	\
+})
+
+static inline struct spa_pod_prop *spa_format_find_prop(const struct spa_format *format, uint32_t key)
 {
-	return spa_pod_contents_find_prop(&format->pod, sizeof(struct spa_format), key);
-}
-
-static inline uint32_t spa_format_query(const struct spa_format *format, uint32_t key, ...)
-{
-	uint32_t count;
-	va_list args;
-
-	va_start(args, key);
-	count = spa_pod_contents_queryv(&format->pod, sizeof(struct spa_format), key, args);
-	va_end(args);
-
-	return count;
+       return spa_pod_contents_find_prop(&format->pod, sizeof(struct spa_format), key);
 }
 
 static inline int spa_format_fixate(struct spa_format *format)

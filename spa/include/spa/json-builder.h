@@ -1,4 +1,4 @@
-/* Simple Plugin API
+/* Spa
  * Copyright (C) 2017 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_POD_ITER_H__
-#define __SPA_POD_ITER_H__
+#ifndef __SPA_JSON_BUILDER_H__
+#define __SPA_JSON_BUILDER_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,39 +27,41 @@ extern "C" {
 #include <stdarg.h>
 
 #include <spa/defs.h>
-#include <spa/pod-utils.h>
 
-struct spa_pod_iter {
-	const void *data;
-	uint32_t size;
-	uint32_t offset;
+struct spa_json_builder {
+	char *data;
+	int size;
+	int offset;
+	int (*printf) (void *user_data, const char *format, va_list args);
+	void *user_data;
 };
 
-static inline void spa_pod_iter_init(struct spa_pod_iter *iter, const void *data, uint32_t size, uint32_t offset)
+static inline int spa_json_builder_printf(struct spa_json_builder *builder,
+					  const char *format, ...)
 {
-	iter->data = data;
-	iter->size = size;
-	iter->offset = offset;
-}
+        va_list args;
+	int res;
 
-static inline struct spa_pod *spa_pod_iter_current(struct spa_pod_iter *iter)
-{
-	if (iter->offset + 8 <= iter->size) {
-		struct spa_pod *pod = SPA_MEMBER(iter->data, iter->offset, struct spa_pod);
-		if (SPA_POD_SIZE(pod) <= iter->size)
-			return pod;
+	va_start(args, format);
+	if (builder->printf)
+		res = builder->printf(builder->user_data, format, args);
+	else {
+		int size = builder->size;
+		int offset = builder->offset;
+		int remain = SPA_MAX(0, size - offset);
+
+		res = vsnprintf(&builder->data[offset], remain, format, args);
+		builder->offset += res;
+		if (builder->offset > size)
+			res = -1;
 	}
-	return NULL;
-}
+	va_end(args);
 
-static inline void spa_pod_iter_advance(struct spa_pod_iter *iter, struct spa_pod *current)
-{
-	if (current)
-		iter->offset += SPA_ROUND_UP_N(SPA_POD_SIZE(current), 8);
+	return res;
 }
 
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_POD_H__ */
+#endif /* __SPA_JSON_BUILDER_H__ */

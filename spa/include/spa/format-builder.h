@@ -48,11 +48,11 @@ spa_pod_builder_push_format(struct spa_pod_builder *builder,
 				    spa_pod_builder_raw(builder, &p, sizeof(p)));
 }
 
-#define spa_pod_builder_format(b,f,format_type,media_type,media_subtype,...)	\
-	spa_pod_builder_object(b, f, 0, format_type,				\
-		SPA_POD_TYPE_ID,media_type,					\
-		SPA_POD_TYPE_ID,media_subtype,					\
-		## __VA_ARGS__)
+#define spa_pod_builder_format(b,format_type,media_type,media_subtype,...)	\
+	spa_pod_builder_object(b, 0, format_type,				\
+		"I",media_type,							\
+		"I",media_subtype,						\
+		##__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

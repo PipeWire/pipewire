@@ -125,24 +125,10 @@ static void reset_props(struct impl *this, struct props *props)
 	props->live = DEFAULT_LIVE;
 }
 
-#define PROP(f,key,type,...)							\
-	SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_MM(f,key,type,...)							\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)						\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
-			SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_EN(f,key,type,n,...)						\
-	SPA_POD_PROP (f,key, SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-#define PROP_U_EN(f,key,type,n,...)						\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
-			SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-
 static int impl_node_get_props(struct spa_node *node, struct spa_props **props)
 {
 	struct impl *this;
 	struct spa_pod_builder b = { NULL, };
-	struct spa_pod_frame f[2];
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(props != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -150,10 +136,9 @@ static int impl_node_get_props(struct spa_node *node, struct spa_props **props)
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	spa_pod_builder_init(&b, this->props_buffer, sizeof(this->props_buffer));
-	spa_pod_builder_props(&b, &f[0], this->type.props,
-		PROP(&f[1], this->type.prop_live, SPA_POD_TYPE_BOOL,
-			this->props.live));
-	*props = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_props);
+	*props = spa_pod_builder_props(&b,
+		this->type.props,
+		":", this->type.prop_live, "b", this->props.live);
 
 	return SPA_RESULT_OK;
 }
@@ -169,8 +154,8 @@ static int impl_node_set_props(struct spa_node *node, const struct spa_props *pr
 	if (props == NULL) {
 		reset_props(this, &this->props);
 	} else {
-		spa_props_query(props,
-				this->type.prop_live, SPA_POD_TYPE_BOOL, &this->props.live, 0);
+		spa_props_parse(props,
+			":", this->type.prop_live, "?b", &this->props.live, NULL);
 	}
 
 	if (this->props.live)
@@ -497,12 +482,13 @@ impl_node_port_enum_params(struct spa_node *node,
 {
 	struct impl *this;
 	struct spa_pod_builder b = { NULL };
-	struct spa_pod_frame f[2];
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(param != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -510,30 +496,25 @@ impl_node_port_enum_params(struct spa_node *node,
 
 	switch (index) {
 	case 0:
-		spa_pod_builder_object(&b, &f[0], 0, this->type.param_alloc_buffers.Buffers,
-			PROP(&f[1], this->type.param_alloc_buffers.size, SPA_POD_TYPE_INT,
-				128),
-			PROP(&f[1], this->type.param_alloc_buffers.stride, SPA_POD_TYPE_INT,
-				1),
-			PROP_U_MM(&f[1], this->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
-				32,
-				2, 32),
-			PROP(&f[1], this->type.param_alloc_buffers.align, SPA_POD_TYPE_INT,
-				16));
+		*param = spa_pod_builder_param(&b,
+			t->param_alloc_buffers.Buffers,
+			":", t->param_alloc_buffers.size,    "i", 128,
+			":", t->param_alloc_buffers.stride,  "i", 1,
+			":", t->param_alloc_buffers.buffers, "ir", 2,
+								2, 1, 32,
+			":", t->param_alloc_buffers.align,   "i", 16);
 		break;
 
 	case 1:
-		spa_pod_builder_object(&b, &f[0], 0, this->type.param_alloc_meta_enable.MetaEnable,
-			PROP(&f[1], this->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID,
-				this->type.meta.Header),
-			PROP(&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT,
-				sizeof(struct spa_meta_header)));
+		*param = spa_pod_builder_param(&b,
+			t->param_alloc_meta_enable.MetaEnable,
+			":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
+			":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
 		break;
 
 	default:
 		return SPA_RESULT_NOT_IMPLEMENTED;
 	}
-	*param = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
 
 	return SPA_RESULT_OK;
 }

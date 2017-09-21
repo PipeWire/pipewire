@@ -91,7 +91,7 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 				break;						\
 		}								\
 	}									\
-});
+})
 
 #define spa_hook_list_call(l,t,m,...)			spa_hook_list_do_call(l,NULL,t,m,false,##__VA_ARGS__)
 #define spa_hook_list_call_once(l,t,m,...)		spa_hook_list_do_call(l,NULL,t,m,true,##__VA_ARGS__)

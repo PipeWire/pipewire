@@ -43,34 +43,38 @@ extern "C" {
 enum spa_pod_type {
 	SPA_POD_TYPE_INVALID = 0,
 	SPA_POD_TYPE_NONE = 1,
+
 	SPA_POD_TYPE_BOOL,
+
 	SPA_POD_TYPE_ID,
 	SPA_POD_TYPE_INT,
 	SPA_POD_TYPE_LONG,
 	SPA_POD_TYPE_FLOAT,
 	SPA_POD_TYPE_DOUBLE,
+
 	SPA_POD_TYPE_STRING,
 	SPA_POD_TYPE_BYTES,
-	SPA_POD_TYPE_POINTER,
+
 	SPA_POD_TYPE_RECTANGLE,
 	SPA_POD_TYPE_FRACTION,
-	SPA_POD_TYPE_BITMASK,
+	SPA_POD_TYPE_BITMAP,
+
 	SPA_POD_TYPE_ARRAY,
 	SPA_POD_TYPE_STRUCT,
 	SPA_POD_TYPE_OBJECT,
+
+	SPA_POD_TYPE_POINTER,
+	SPA_POD_TYPE_FD,
+
 	SPA_POD_TYPE_PROP,
 	SPA_POD_TYPE_POD,
+
+	SPA_POD_TYPE_CUSTOM_START = 64,
 };
 
 struct spa_pod {
 	uint32_t size;
 	uint32_t type;		/* one of spa_pod_type */
-};
-
-struct spa_pod_int {
-	struct spa_pod pod;
-	int32_t value;
-	int32_t __padding;
 };
 
 struct spa_pod_bool {
@@ -80,6 +84,12 @@ struct spa_pod_bool {
 };
 
 struct spa_pod_id {
+	struct spa_pod pod;
+	int32_t value;
+	int32_t __padding;
+};
+
+struct spa_pod_int {
 	struct spa_pod pod;
 	int32_t value;
 	int32_t __padding;
@@ -108,16 +118,6 @@ struct spa_pod_string {
 struct spa_pod_bytes {
 	struct spa_pod pod;
 	/* value here */
-};
-
-struct spa_pod_pointer_body {
-	uint32_t type;
-	void *value;
-};
-
-struct spa_pod_pointer {
-	struct spa_pod pod;
-	struct spa_pod_pointer_body body;
 };
 
 struct spa_pod_rectangle {
@@ -150,6 +150,32 @@ struct spa_pod_struct {
 	/* one or more spa_pod follow */
 };
 
+struct spa_pod_object_body {
+	uint32_t id;
+	uint32_t type;
+	/* contents follow, series of spa_pod */
+};
+
+struct spa_pod_object {
+	struct spa_pod pod;
+	struct spa_pod_object_body body;
+};
+
+struct spa_pod_pointer_body {
+	uint32_t type;
+	void *value;
+};
+
+struct spa_pod_pointer {
+	struct spa_pod pod;
+	struct spa_pod_pointer_body body;
+};
+
+struct spa_pod_fd {
+	struct spa_pod pod;
+	int value;
+};
+
 struct spa_pod_prop_body {
 	uint32_t key;
 #define SPA_POD_PROP_RANGE_NONE		0
@@ -171,17 +197,6 @@ struct spa_pod_prop_body {
 struct spa_pod_prop {
 	struct spa_pod pod;
 	struct spa_pod_prop_body body;
-};
-
-struct spa_pod_object_body {
-	uint32_t id;
-	uint32_t type;
-	/* contents follow, series of spa_pod_prop */
-};
-
-struct spa_pod_object {
-	struct spa_pod pod;
-	struct spa_pod_object_body body;
 };
 
 #ifdef __cplusplus

@@ -236,9 +236,8 @@ static struct spa_param *find_meta_enable(struct pw_core *core, struct spa_param
 		    (&params[i]->object.pod, core->type.param_alloc_meta_enable.MetaEnable)) {
 			uint32_t qtype;
 
-			if (spa_param_query(params[i],
-					    core->type.param_alloc_meta_enable.type,
-					    SPA_POD_TYPE_ID, &qtype, 0) != 1)
+			if (spa_param_parse(params[i],
+				":", core->type.param_alloc_meta_enable.type, "I", &qtype, NULL) < 0)
 				continue;
 
 			if (qtype == type)
@@ -285,11 +284,9 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 		    (&params[i]->object.pod, this->core->type.param_alloc_meta_enable.MetaEnable)) {
 			uint32_t type, size;
 
-			if (spa_param_query(params[i],
-					    this->core->type.param_alloc_meta_enable.type,
-					    SPA_POD_TYPE_ID, &type,
-					    this->core->type.param_alloc_meta_enable.size,
-					    SPA_POD_TYPE_INT, &size, 0) != 2)
+			if (spa_param_parse(params[i],
+				":", this->core->type.param_alloc_meta_enable.type, "I", &type,
+				":", this->core->type.param_alloc_meta_enable.size, "i", &size, NULL) < 0)
 				continue;
 
 			pw_log_debug("link %p: enable meta %d %d", this, type, size);
@@ -534,11 +531,9 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			uint32_t ms, s;
 			max_buffers = 1;
 
-			if (spa_param_query(param,
-					    this->core->type.param_alloc_meta_enable.ringbufferSize,
-					    SPA_POD_TYPE_INT, &ms,
-					    this->core->type.param_alloc_meta_enable.
-					    ringbufferStride, SPA_POD_TYPE_INT, &s, 0) == 2) {
+			if (spa_param_parse(param,
+				":", this->core->type.param_alloc_meta_enable.ringbufferSize,   "i", &ms,
+				":", this->core->type.param_alloc_meta_enable.ringbufferStride, "i", &s, NULL) >= 0) {
 				minsize = ms;
 				stride = s;
 			}
@@ -551,13 +546,10 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				uint32_t qmax_buffers = max_buffers,
 				    qminsize = minsize, qstride = stride;
 
-				spa_param_query(param,
-						this->core->type.param_alloc_buffers.size,
-						SPA_POD_TYPE_INT, &qminsize,
-						this->core->type.param_alloc_buffers.stride,
-						SPA_POD_TYPE_INT, &qstride,
-						this->core->type.param_alloc_buffers.buffers,
-						SPA_POD_TYPE_INT, &qmax_buffers, 0);
+				spa_param_parse(param,
+					":", this->core->type.param_alloc_buffers.size, "i", &qminsize,
+					":", this->core->type.param_alloc_buffers.stride, "i", &qstride,
+					":", this->core->type.param_alloc_buffers.buffers, "i", &qmax_buffers, NULL);
 
 				max_buffers =
 				    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,

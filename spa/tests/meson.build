@@ -1,26 +1,32 @@
 executable('test-mixer', 'test-mixer.c',
            include_directories : [spa_inc ],
            dependencies : [dl_lib, pthread_lib],
+           link_with : spalib,
            install : false)
 executable('test-ringbuffer', 'test-ringbuffer.c',
            include_directories : [spa_inc, spa_libinc ],
            dependencies : [dl_lib, pthread_lib],
+           link_with : spalib,
            install : false)
 executable('test-graph', 'test-graph.c',
            include_directories : [spa_inc ],
            dependencies : [dl_lib, pthread_lib],
+           link_with : spalib,
            install : false)
 executable('test-graph2', 'test-graph2.c',
            include_directories : [spa_inc ],
            dependencies : [dl_lib, pthread_lib],
+           link_with : spalib,
            install : false)
 executable('test-perf', 'test-perf.c',
            include_directories : [spa_inc, spa_libinc ],
            dependencies : [dl_lib, pthread_lib],
+           link_with : spalib,
            install : false)
 executable('stress-ringbuffer', 'stress-ringbuffer.c',
            include_directories : [spa_inc, spa_libinc ],
            dependencies : [dl_lib, pthread_lib],
+           link_with : spalib,
            install : false)
 if sdl_dep.found()
   executable('test-v4l2', 'test-v4l2.c',
@@ -40,6 +46,16 @@ executable('test-props2', 'test-props2.c',
            link_with : spalib,
            install : false)
 executable('test-props3', 'test-props3.c',
+           include_directories : [spa_inc, spa_libinc ],
+           dependencies : [],
+           link_with : spalib,
+           install : false)
+#executable('test-props4', 'test-props4.c',
+#           include_directories : [spa_inc, spa_libinc ],
+#           dependencies : [],
+#           link_with : spalib,
+#           install : false)
+executable('test-props5', 'test-props5.c',
            include_directories : [spa_inc, spa_libinc ],
            dependencies : [],
            link_with : spalib,

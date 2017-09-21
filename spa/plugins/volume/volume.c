@@ -135,38 +135,23 @@ static void reset_props(struct props *props)
 	props->mute = DEFAULT_MUTE;
 }
 
-#define PROP(f,key,type,...)							\
-	SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_MM(f,key,type,...)							\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)						\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
-			SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_EN(f,key,type,n,...)						\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
-			SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-
-
 static int impl_node_get_props(struct spa_node *node, struct spa_props **props)
 {
 	struct impl *this;
 	struct spa_pod_builder b = { NULL, };
-	struct spa_pod_frame f[2];
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(props != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_pod_builder_init(&b, this->props_buffer, sizeof(this->props_buffer));
-	spa_pod_builder_props(&b, &f[0], this->type.props,
-		PROP_MM(&f[1], this->type.prop_volume, SPA_POD_TYPE_DOUBLE,
-			this->props.volume,
-			0.0, 10.0),
-		PROP(&f[1], this->type.prop_mute, SPA_POD_TYPE_BOOL,
-			this->props.mute));
-
-	*props = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_props);
+	*props = spa_pod_builder_props(&b,
+		t->props,
+		":", t->prop_volume, "dr", this->props.volume, 2, 0.0, 10.0,
+		":", t->prop_mute,   "b",  this->props.mute);
 
 	return SPA_RESULT_OK;
 }
@@ -174,17 +159,19 @@ static int impl_node_get_props(struct spa_node *node, struct spa_props **props)
 static int impl_node_set_props(struct spa_node *node, const struct spa_props *props)
 {
 	struct impl *this;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	if (props == NULL) {
 		reset_props(&this->props);
 	} else {
-		spa_props_query(props,
-				this->type.prop_volume, SPA_POD_TYPE_DOUBLE, &this->props.volume,
-				this->type.prop_mute, SPA_POD_TYPE_BOOL, &this->props.mute, 0);
+		spa_props_parse(props,
+			":", t->prop_volume, "?d", &this->props.volume,
+			":", t->prop_mute,   "?b", &this->props.mute, NULL);
 	}
 	return SPA_RESULT_OK;
 }
@@ -288,13 +275,14 @@ impl_node_port_enum_formats(struct spa_node *node,
 	struct spa_format *fmt;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { NULL, };
-	struct spa_pod_frame f[2];
 	uint32_t count, match;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -305,25 +293,19 @@ impl_node_port_enum_formats(struct spa_node *node,
 
 	switch (count++) {
 	case 0:
-		spa_pod_builder_format(&b, &f[0], this->type.format,
-			this->type.media_type.audio,
-			this->type.media_subtype.raw,
-			PROP_U_EN(&f[1], this->type.format_audio.format, SPA_POD_TYPE_ID, 3,
-				this->type.audio_format.S16,
-				this->type.audio_format.S16,
-				this->type.audio_format.S32),
-			PROP_U_MM(&f[1], this->type.format_audio.rate, SPA_POD_TYPE_INT,
-				44100,
-				1, INT32_MAX),
-			PROP_U_MM(&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT,
-				2,
-				1, INT32_MAX));
-
+		fmt = spa_pod_builder_format(&b,
+			t->format,
+			t->media_type.audio, t->media_subtype.raw,
+			":", t->format_audio.format,  "Ieu", t->audio_format.S16,
+									2, t->audio_format.S16,
+								           t->audio_format.S32,
+			":", t->format_audio.rate,    "iru", 44100,	2, 1, INT32_MAX,
+			":", t->format_audio.channels,"iru", 2,		2, 1, INT32_MAX);
 		break;
 	default:
 		return SPA_RESULT_ENUM_END;
 	}
-	fmt = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+
 	spa_pod_builder_init(&b, this->format_buffer, sizeof(this->format_buffer));
 
 	if ((res = spa_format_filter(fmt, filter, &b)) != SPA_RESULT_OK || match++ != index)
@@ -375,7 +357,7 @@ impl_node_port_set_format(struct spa_node *node,
 		    info.media_subtype != this->type.media_subtype.raw)
 			return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-		if (!spa_format_audio_raw_parse(format, &info.info.raw, &this->type.format_audio))
+		if (spa_format_audio_raw_parse(format, &info.info.raw, &this->type.format_audio) < 0)
 			return SPA_RESULT_INVALID_MEDIA_TYPE;
 
 		this->bpf = 2 * info.info.raw.channels;
@@ -395,12 +377,13 @@ impl_node_port_get_format(struct spa_node *node,
 	struct impl *this;
 	struct port *port;
 	struct spa_pod_builder b = { NULL, };
-	struct spa_pod_frame f[2];
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -411,16 +394,12 @@ impl_node_port_get_format(struct spa_node *node,
 		return SPA_RESULT_NO_FORMAT;
 
         spa_pod_builder_init(&b, this->format_buffer, sizeof(this->format_buffer));
-        spa_pod_builder_format(&b, &f[0], this->type.format,
-                this->type.media_type.audio,
-                this->type.media_subtype.raw,
-                PROP(&f[1], this->type.format_audio.format, SPA_POD_TYPE_ID,
-                        this->current_format.info.raw.format),
-                PROP(&f[1], this->type.format_audio.rate, SPA_POD_TYPE_INT,
-                        this->current_format.info.raw.rate),
-                PROP(&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT,
-                        this->current_format.info.raw.channels));
-        *format = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+	*format = spa_pod_builder_format(&b,
+			t->format,
+	                t->media_type.audio, t->media_subtype.raw,
+			":", t->format_audio.format,   "I", this->current_format.info.raw.format,
+			":", t->format_audio.rate,     "i", this->current_format.info.raw.rate,
+			":", t->format_audio.channels, "i", this->current_format.info.raw.channels);
 
 	return SPA_RESULT_OK;
 }
@@ -456,14 +435,15 @@ impl_node_port_enum_params(struct spa_node *node,
 			   struct spa_param **param)
 {
 	struct spa_pod_builder b = { NULL };
-	struct spa_pod_frame f[2];
 	struct impl *this;
 	struct port *port;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(param != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -474,30 +454,27 @@ impl_node_port_enum_params(struct spa_node *node,
 
 	switch (index) {
 	case 0:
-		spa_pod_builder_object(&b, &f[0], 0, this->type.param_alloc_buffers.Buffers,
-			PROP_U_MM(&f[1], this->type.param_alloc_buffers.size,    SPA_POD_TYPE_INT,
-										  1024 * this->bpf,
-										  16 * this->bpf,
-										  INT32_MAX / this->bpf),
-			PROP     (&f[1], this->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0),
-			PROP_U_MM(&f[1], this->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
-										  2, 1, MAX_BUFFERS),
-			PROP     (&f[1], this->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
+		*param = spa_pod_builder_param(&b,
+			t->param_alloc_buffers.Buffers,
+			":", t->param_alloc_buffers.size,    "iru", 1024 * this->bpf,
+									2, 16 * this->bpf,
+									   INT32_MAX / this->bpf,
+			":", t->param_alloc_buffers.stride,  "i", 0,
+			":", t->param_alloc_buffers.buffers, "iru", 2,
+									2, 1, MAX_BUFFERS,
+			":", t->param_alloc_buffers.align,   "i", 16);
 		break;
 
 	case 1:
-		spa_pod_builder_object(&b, &f[0], 0, this->type.param_alloc_meta_enable.MetaEnable,
-			PROP(&f[1], this->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID,
-				this->type.meta.Header),
-			PROP(&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT,
-				sizeof(struct spa_meta_header)));
+		*param = spa_pod_builder_param(&b,
+			t->param_alloc_meta_enable.MetaEnable,
+			":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
+			":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
 		break;
 
 	default:
 		return SPA_RESULT_NOT_IMPLEMENTED;
 	}
-
-	*param = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
 
 	return SPA_RESULT_OK;
 }

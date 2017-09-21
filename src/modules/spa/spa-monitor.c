@@ -29,7 +29,7 @@
 
 #include <spa/node.h>
 #include <spa/monitor.h>
-#include <spa/pod-iter.h>
+#include <spa/pod-parser.h>
 
 #include <pipewire/log.h>
 #include <pipewire/type.h>
@@ -73,27 +73,29 @@ static void add_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
 	const struct spa_support *support;
 	uint32_t n_support;
 
-	spa_pod_object_query(&item->object,
-			     t->monitor.name, SPA_POD_TYPE_STRING, &name,
-			     t->monitor.id, SPA_POD_TYPE_STRING, &id,
-			     t->monitor.klass, SPA_POD_TYPE_STRING, &klass,
-			     t->monitor.factory, SPA_POD_TYPE_POINTER, &factory,
-			     t->monitor.info, SPA_POD_TYPE_STRUCT, &info, 0);
+	if (spa_pod_object_parse(&item->object,
+			":",t->monitor.name,    "s", &name,
+			":",t->monitor.id,      "s", &id,
+			":",t->monitor.klass,   "s", &klass,
+			":",t->monitor.factory, "p", &factory,
+			":",t->monitor.info,    "T", &info, NULL) < 0)
+		return;
 
 	pw_log_debug("monitor %p: add: \"%s\" (%s)", this, name, id);
 
 	props = pw_properties_new(NULL, NULL);
 
 	if (info) {
-		struct spa_pod_iter it;
+		struct spa_pod_parser prs;
 
-		spa_pod_iter_pod(&it, info);
-		while (true) {
-			const char *key, *val;
-			if (!spa_pod_iter_get
-			    (&it, SPA_POD_TYPE_STRING, &key, SPA_POD_TYPE_STRING, &val, 0))
-				break;
-			pw_properties_set(props, key, val);
+		spa_pod_parser_pod(&prs, info);
+		if (spa_pod_parser_get(&prs, "[", NULL) == 0) {
+			while (true) {
+				const char *key, *val;
+				if (spa_pod_parser_get(&prs, "ss", &key, &val, NULL) < 0)
+					break;
+				pw_properties_set(props, key, val);
+			}
 		}
 	}
 
@@ -157,9 +159,10 @@ static void remove_item(struct pw_spa_monitor *this, struct spa_monitor_item *it
 	const char *name, *id;
 	struct pw_type *t = pw_core_get_type(impl->core);
 
-	spa_pod_object_query(&item->object,
-			     t->monitor.name, SPA_POD_TYPE_STRING, &name,
-			     t->monitor.id, SPA_POD_TYPE_STRING, &id, 0);
+	if (spa_pod_object_parse(&item->object,
+			":",t->monitor.name, "s", &name,
+			":",t->monitor.id,   "s", &id, NULL) < 0)
+		return;
 
 	pw_log_debug("monitor %p: remove: \"%s\" (%s)", this, name, id);
 	mitem = find_item(this, id);
@@ -183,8 +186,9 @@ static void on_monitor_event(void *data, struct spa_event *event)
 		struct spa_monitor_item *item = SPA_POD_CONTENTS(struct spa_event, event);
 		const char *name;
 
-		spa_pod_object_query(&item->object,
-				     t->monitor.name, SPA_POD_TYPE_STRING, &name, 0);
+		if (spa_pod_object_parse(&item->object,
+				":",t->monitor.name, "s", &name, NULL) < 0)
+			return;
 
 		pw_log_debug("monitor %p: changed: \"%s\"", this, name);
 	}

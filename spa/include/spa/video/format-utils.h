@@ -74,50 +74,53 @@ spa_type_format_video_map(struct spa_type_map *map, struct spa_type_format_video
 	}
 }
 
-static inline bool
+static inline int
 spa_format_video_raw_parse(const struct spa_format *format,
 			   struct spa_video_info_raw *info, struct spa_type_format_video *type)
 {
-	spa_format_query(format,
-			 type->format, SPA_POD_TYPE_ID, &info->format,
-			 type->size, SPA_POD_TYPE_RECTANGLE, &info->size,
-			 type->framerate, SPA_POD_TYPE_FRACTION, &info->framerate,
-			 type->max_framerate, SPA_POD_TYPE_FRACTION, &info->max_framerate,
-			 type->views, SPA_POD_TYPE_INT, &info->views,
-			 type->interlace_mode, SPA_POD_TYPE_INT, &info->interlace_mode,
-			 type->pixel_aspect_ratio, SPA_POD_TYPE_FRACTION, &info->pixel_aspect_ratio,
-			 type->multiview_mode, SPA_POD_TYPE_INT, &info->multiview_mode,
-			 type->multiview_flags, SPA_POD_TYPE_INT, &info->multiview_flags,
-			 type->chroma_site, SPA_POD_TYPE_INT, &info->chroma_site,
-			 type->color_range, SPA_POD_TYPE_INT, &info->color_range,
-			 type->color_matrix, SPA_POD_TYPE_INT, &info->color_matrix,
-			 type->transfer_function, SPA_POD_TYPE_INT, &info->transfer_function,
-			 type->color_primaries, SPA_POD_TYPE_INT, &info->color_primaries, 0);
-	return true;
+	struct spa_pod_parser prs;
+	spa_pod_parser_pod(&prs, &format->pod);
+	return spa_pod_parser_get(&prs,
+		":",type->format,		"I", &info->format,
+		":",type->size,			"R", &info->size,
+		":",type->framerate,		"F", &info->framerate,
+		":",type->max_framerate,	"?F", &info->max_framerate,
+		":",type->views,		"?i", &info->views,
+		":",type->interlace_mode,	"?i", &info->interlace_mode,
+		":",type->pixel_aspect_ratio,	"?F", &info->pixel_aspect_ratio,
+		":",type->multiview_mode,	"?i", &info->multiview_mode,
+		":",type->multiview_flags,	"?i", &info->multiview_flags,
+		":",type->chroma_site,		"?i", &info->chroma_site,
+		":",type->color_range,		"?i", &info->color_range,
+		":",type->color_matrix,		"?i", &info->color_matrix,
+		":",type->transfer_function,	"?i", &info->transfer_function,
+		":",type->color_primaries,	"?i", &info->color_primaries, NULL);
 }
 
-static inline bool
+static inline int
 spa_format_video_h264_parse(const struct spa_format *format,
 			    struct spa_video_info_h264 *info, struct spa_type_format_video *type)
 {
-	spa_format_query(format,
-			 type->size, SPA_POD_TYPE_RECTANGLE, &info->size,
-			 type->framerate, SPA_POD_TYPE_FRACTION, &info->framerate,
-			 type->max_framerate, SPA_POD_TYPE_FRACTION, &info->max_framerate,
-			 type->stream_format, SPA_POD_TYPE_INT, &info->stream_format,
-			 type->alignment, SPA_POD_TYPE_INT, &info->alignment, 0);
-	return true;
+	struct spa_pod_parser prs;
+	spa_pod_parser_pod(&prs, &format->pod);
+	return spa_pod_parser_get(&prs,
+		":",type->size,			"?R", &info->size,
+		":",type->framerate,		"?F", &info->framerate,
+		":",type->max_framerate,	"?F", &info->max_framerate,
+		":",type->stream_format,	"?i", &info->stream_format,
+		":",type->alignment,		"?i", &info->alignment, NULL);
 }
 
-static inline bool
+static inline int
 spa_format_video_mjpg_parse(const struct spa_format *format,
 			    struct spa_video_info_mjpg *info, struct spa_type_format_video *type)
 {
-	spa_format_query(format,
-			 type->size, SPA_POD_TYPE_RECTANGLE, &info->size,
-			 type->framerate, SPA_POD_TYPE_FRACTION, &info->framerate,
-			 type->max_framerate, SPA_POD_TYPE_FRACTION, &info->max_framerate, 0);
-	return true;
+	struct spa_pod_parser prs;
+	spa_pod_parser_pod(&prs, &format->pod);
+	return spa_pod_parser_get(&prs,
+		":",type->size,			"?R", &info->size,
+		":",type->framerate,		"?F", &info->framerate,
+		":",type->max_framerate,	"?F", &info->max_framerate, NULL);
 }
 
 #ifdef __cplusplus

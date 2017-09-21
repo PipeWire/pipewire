@@ -38,6 +38,8 @@
 #include <spa/graph.h>
 #include <spa/graph-scheduler1.h>
 
+#include <spa/lib/debug.h>
+
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
 
@@ -281,7 +283,6 @@ static int make_nodes(struct data *data, const char *device)
 	int res;
 	struct spa_props *props;
 	struct spa_pod_builder b = { 0 };
-	struct spa_pod_frame f[2];
 	uint8_t buffer[128];
 
 	if ((res = make_node(data, &data->sink,
@@ -292,12 +293,12 @@ static int make_nodes(struct data *data, const char *device)
 	spa_node_set_callbacks(data->sink, &sink_callbacks, data);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_props(&b, &f[0], data->type.props,
-		SPA_POD_PROP(&f[1], data->type.props_device, 0, SPA_POD_TYPE_STRING, 1,
-			device ? device : "hw:0"),
-		SPA_POD_PROP(&f[1], data->type.props_min_latency, 0, SPA_POD_TYPE_INT, 1,
-			MIN_LATENCY));
-	props = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_props);
+	props = spa_pod_builder_props(&b,
+		data->type.props,
+		":", data->type.props_device,      "s", device ? device : "hw:0",
+		":", data->type.props_min_latency, "i", MIN_LATENCY);
+
+	spa_debug_pod(&props->object.pod);
 
 	if ((res = spa_node_set_props(data->sink, props)) < 0)
 		printf("got set_props error %d\n", res);
@@ -316,14 +317,11 @@ static int make_nodes(struct data *data, const char *device)
 	}
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_props(&b, &f[0], data->type.props,
-		SPA_POD_PROP(&f[1], data->type.props_freq, 0, SPA_POD_TYPE_DOUBLE, 1,
-			600.0),
-		SPA_POD_PROP(&f[1], data->type.props_volume, 0, SPA_POD_TYPE_DOUBLE, 1,
-			0.5),
-		SPA_POD_PROP(&f[1], data->type.props_live, 0, SPA_POD_TYPE_BOOL, 1,
-			false));
-	props = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_props);
+	props = spa_pod_builder_props(&b,
+		data->type.props,
+		":", data->type.props_freq,   "d", 600.0,
+		":", data->type.props_volume, "d", 0.5,
+		":", data->type.props_live,   "b", false);
 
 	if ((res = spa_node_set_props(data->source, props)) < 0)
 		printf("got set_props error %d\n", res);
@@ -370,22 +368,16 @@ static int negotiate_formats(struct data *data)
 	struct spa_format *format, *filter;
 	uint32_t state = 0;
 	struct spa_pod_builder b = { 0 };
-	struct spa_pod_frame f[2];
 	uint8_t buffer[256];
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_format(&b, &f[0], data->type.format,
-		data->type.media_type.audio,
-		data->type.media_subtype.raw,
-		SPA_POD_PROP(&f[1], data->type.format_audio.format, 0, SPA_POD_TYPE_ID, 1,
-			data->type.audio_format.S16),
-		SPA_POD_PROP(&f[1], data->type.format_audio.layout, 0, SPA_POD_TYPE_INT, 1,
-			SPA_AUDIO_LAYOUT_INTERLEAVED),
-		SPA_POD_PROP(&f[1], data->type.format_audio.rate, 0, SPA_POD_TYPE_INT, 1,
-			44100),
-		SPA_POD_PROP(&f[1], data->type.format_audio.channels, 0, SPA_POD_TYPE_INT, 1,
-			2));
-	filter = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+	filter = spa_pod_builder_format(&b,
+		data->type.format,
+		data->type.media_type.audio, data->type.media_subtype.raw,
+		":", data->type.format_audio.format,   "I", data->type.audio_format.S16,
+		":", data->type.format_audio.layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
+		":", data->type.format_audio.rate,     "i", 44100,
+		":", data->type.format_audio.channels, "i", 2);
 
 	if ((res =
 	     spa_node_port_enum_formats(data->sink, SPA_DIRECTION_INPUT, 0, &format, filter,
@@ -527,7 +519,6 @@ int main(int argc, char *argv[])
 	int res;
 	const char *str;
 
-
 	spa_graph_init(&data.graph);
 	spa_graph_data_init(&data.graph_data, &data.graph);
 	spa_graph_set_callbacks(&data.graph, &spa_graph_impl_default, &data.graph_data);
@@ -539,6 +530,8 @@ int main(int argc, char *argv[])
 	data.data_loop.update_source = do_update_source;
 	data.data_loop.remove_source = do_remove_source;
 	data.data_loop.invoke = do_invoke;
+
+	spa_debug_set_type_map(data.map);
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);

@@ -680,12 +680,11 @@ spa_v4l2_enum_format(struct impl *this,
 
 	if (media_subtype == this->type.media_subtype.raw) {
 		spa_pod_builder_add(&b,
-		PROP(&f[1], this->type.format_video.format, SPA_POD_TYPE_ID,
-					 video_format), 0);
+		":", this->type.format_video.format, "I", video_format, 0);
 	}
 	spa_pod_builder_add(&b,
-	PROP(&f[1], this->type.format_video.size, SPA_POD_TYPE_RECTANGLE,
-		state->frmsize.discrete.width, state->frmsize.discrete.height), 0);
+		":", this->type.format_video.size, "R", &SPA_RECTANGLE(state->frmsize.discrete.width,
+								       state->frmsize.discrete.height), 0);
 
 	spa_pod_builder_push_prop(&b, &f[1], this->type.format_video.framerate,
 				  SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_UNSET);

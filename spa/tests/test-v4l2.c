@@ -299,7 +299,6 @@ static int make_nodes(struct data *data, const char *device)
 	int res;
 	struct spa_props *props;
 	struct spa_pod_builder b = { 0 };
-	struct spa_pod_frame f[2];
 	uint8_t buffer[256];
 
 	if ((res =
@@ -312,10 +311,9 @@ static int make_nodes(struct data *data, const char *device)
 	spa_node_set_callbacks(data->source, &source_callbacks, data);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_props(&b, &f[0], data->type.props,
-		SPA_POD_PROP(&f[1], data->type.props_device, 0, SPA_POD_TYPE_STRING, 1,
-			device ? device : "/dev/video0"));
-	props = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_props);
+	props = spa_pod_builder_props(&b,
+		data->type.props,
+		":", data->type.props_device, "s", device ? device : "/dev/video0");
 
 	if ((res = spa_node_set_props(data->source, props)) < 0)
 		printf("got set_props error %d\n", res);
@@ -389,7 +387,6 @@ static int negotiate_formats(struct data *data)
 	int res;
 	const struct spa_port_info *info;
 	struct spa_format *format;
-	struct spa_pod_frame f[2];
 	uint8_t buffer[256];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
@@ -407,17 +404,12 @@ static int negotiate_formats(struct data *data)
 		return res;
 #else
 
-	spa_pod_builder_format(&b, &f[0], data->type.format,
-			       data->type.media_type.video, data->type.media_subtype.raw,
-			       SPA_POD_PROP(&f[1], data->type.format_video.format, 0,
-					    SPA_POD_TYPE_ID, 1,
-					    data->type.video_format.YUY2),
-			       SPA_POD_PROP(&f[1], data->type.format_video.size, 0,
-					    SPA_POD_TYPE_RECTANGLE, 1,
-					    320, 240),
-			       SPA_POD_PROP(&f[1], data->type.format_video.framerate, 0,
-					    SPA_POD_TYPE_FRACTION, 1, 25, 1));
-	format = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+	format = spa_pod_builder_format(&b,
+			data->type.format,
+			data->type.media_type.video, data->type.media_subtype.raw,
+			":", data->type.format_video.format,    "I", data->type.video_format.YUY2,
+			":", data->type.format_video.size,      "R", &SPA_RECTANGLE(320, 240),
+			":", data->type.format_video.framerate, "F", &SPA_FRACTION(25,1));
 #endif
 
 	if ((res = spa_node_port_set_format(data->source, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)

@@ -217,21 +217,8 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
   process_mem_data_quark = g_quark_from_static_string ("GstPipeWireSinkProcessMemQuark");
 }
 
+#define SPA_PROP_RANGE(min,max)	2,min,max
 
-#define PROP(f,key,type,...)                                                    \
-          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_R(f,key,type,...)                                                  \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READONLY,type,1,__VA_ARGS__)
-#define PROP_MM(f,key,type,...)                                                 \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_EN(f,key,type,n,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-#define PROP_U_EN(f,key,type,n,...)                                             \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 static void
 pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 {
@@ -244,43 +231,44 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   struct spa_param *port_params[3];
   struct spa_pod_builder b = { NULL };
   uint8_t buffer[1024];
-  struct spa_pod_frame f[2];
+  struct spa_pod_frame f[1];
 
   config = gst_buffer_pool_get_config (GST_BUFFER_POOL (pool));
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_push_object (&b, &f[0], 0, t->param_alloc_buffers.Buffers);
+  spa_pod_builder_push_param (&b, &f[0], t->param_alloc_buffers.Buffers);
   if (size == 0)
     spa_pod_builder_add (&b,
-        PROP_U_MM (&f[1], t->param_alloc_buffers.size, SPA_POD_TYPE_INT, 0, 0, INT32_MAX), 0);
+        ":", t->param_alloc_buffers.size, "iru", 0, SPA_PROP_RANGE(0, INT32_MAX), NULL);
   else
     spa_pod_builder_add (&b,
-        PROP_MM (&f[1], t->param_alloc_buffers.size, SPA_POD_TYPE_INT, size, size, INT32_MAX), 0);
+        ":", t->param_alloc_buffers.size, "ir", size, SPA_PROP_RANGE(size, INT32_MAX), NULL);
 
   spa_pod_builder_add (&b,
-      PROP_MM (&f[1], t->param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
-      PROP_U_MM (&f[1], t->param_alloc_buffers.buffers, SPA_POD_TYPE_INT, min_buffers, min_buffers, max_buffers ? max_buffers : INT32_MAX),
-      PROP    (&f[1], t->param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16),
-      0);
+      ":", t->param_alloc_buffers.stride,  "ir", 0, SPA_PROP_RANGE(0, INT32_MAX),
+      ":", t->param_alloc_buffers.buffers, "iru", min_buffers,
+						SPA_PROP_RANGE(min_buffers,
+							       max_buffers ? max_buffers : INT32_MAX),
+      ":", t->param_alloc_buffers.align,   "i", 16,
+      NULL);
   spa_pod_builder_pop (&b, &f[0]);
   port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
-  spa_pod_builder_object (&b, &f[0], 0, t->param_alloc_meta_enable.MetaEnable,
-      PROP    (&f[1], t->param_alloc_meta_enable.type, SPA_POD_TYPE_ID, t->meta.Header),
-      PROP    (&f[1], t->param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
-  port_params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
+  port_params[1] = spa_pod_builder_param (&b,
+      t->param_alloc_meta_enable.MetaEnable,
+      ":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
+      ":", t->param_alloc_meta_enable.size, "i", sizeof (struct spa_meta_header));
 
-  spa_pod_builder_object (&b, &f[0], 0, t->param_alloc_meta_enable.MetaEnable,
-      PROP    (&f[1], t->param_alloc_meta_enable.type, SPA_POD_TYPE_ID, t->meta.Ringbuffer),
-      PROP    (&f[1], t->param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_ringbuffer)),
-      PROP    (&f[1], t->param_alloc_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT,
-                                                                   size * SPA_MAX (4,
-                                                                          SPA_MAX (min_buffers, max_buffers))),
-      PROP    (&f[1], t->param_alloc_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
-      PROP    (&f[1], t->param_alloc_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
-      PROP    (&f[1], t->param_alloc_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
-  port_params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
+  port_params[2] = spa_pod_builder_param (&b,
+      t->param_alloc_meta_enable.MetaEnable,
+      ":", t->param_alloc_meta_enable.type, "I", t->meta.Ringbuffer,
+      ":", t->param_alloc_meta_enable.size, "i", sizeof (struct spa_meta_ringbuffer),
+      ":", t->param_alloc_meta_enable.ringbufferSize,   "i", size * SPA_MAX (4,
+                                                                    SPA_MAX (min_buffers, max_buffers)),
+      ":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,
+      ":", t->param_alloc_meta_enable.ringbufferBlocks, "i", 1,
+      ":", t->param_alloc_meta_enable.ringbufferAlign,  "i", 16);
 
   pw_thread_loop_lock (sink->main_loop);
   pw_stream_finish_format (sink->stream, SPA_RESULT_OK, port_params, 2);

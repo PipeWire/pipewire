@@ -387,13 +387,12 @@ static int negotiate_formats(struct data *data)
 	int res;
 	struct spa_format *format;
 	struct spa_pod_builder b = { 0 };
-	struct spa_pod_frame f[2];
 	uint8_t buffer[256];
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_format(&b, &f[0], data->type.format,
-			       data->type.media_type.binary, data->type.media_subtype.raw, 0);
-	format = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+	format = spa_pod_builder_format(&b,
+			data->type.format,
+			data->type.media_type.binary, data->type.media_subtype.raw);
 
 	if ((res = spa_node_port_set_format(data->sink, SPA_DIRECTION_INPUT, 0, 0, format)) < 0)
 		return res;

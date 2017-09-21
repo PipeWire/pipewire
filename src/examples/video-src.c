@@ -165,12 +165,6 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 	}
 }
 
-#define PROP(f,key,type,...)							\
-	SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)						\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
-			SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-
 static void
 on_stream_format_changed(void *_data, struct spa_format *format)
 {
@@ -178,7 +172,6 @@ on_stream_format_changed(void *_data, struct spa_format *format)
 	struct pw_stream *stream = data->stream;
 	struct pw_type *t = data->t;
 	struct spa_pod_builder b = { NULL };
-	struct spa_pod_frame f[2];
 	struct spa_param *params[2];
 
 	if (format == NULL) {
@@ -190,24 +183,18 @@ on_stream_format_changed(void *_data, struct spa_format *format)
 	data->stride = SPA_ROUND_UP_N(data->format.size.width * BPP, 4);
 
 	spa_pod_builder_init(&b, data->params_buffer, sizeof(data->params_buffer));
-	spa_pod_builder_object(&b, &f[0], 0, t->param_alloc_buffers.Buffers,
-		PROP(&f[1], t->param_alloc_buffers.size, SPA_POD_TYPE_INT,
-			data->stride * data->format.size.height),
-		PROP(&f[1], t->param_alloc_buffers.stride, SPA_POD_TYPE_INT,
-			data->stride),
-		PROP_U_MM(&f[1], t->param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
-			32,
-			2, 32),
-		PROP(&f[1], t->param_alloc_buffers.align, SPA_POD_TYPE_INT,
-			16));
-	params[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
+	params[0] = spa_pod_builder_param(&b,
+		t->param_alloc_buffers.Buffers,
+		":", t->param_alloc_buffers.size,    "i", data->stride * data->format.size.height,
+		":", t->param_alloc_buffers.stride,  "i", data->stride,
+		":", t->param_alloc_buffers.buffers, "iru", 2,
+								2, 1, 32,
+		":", t->param_alloc_buffers.align,   "i", 16);
 
-	spa_pod_builder_object(&b, &f[0], 0, t->param_alloc_meta_enable.MetaEnable,
-		PROP(&f[1], t->param_alloc_meta_enable.type, SPA_POD_TYPE_ID,
-			t->meta.Header),
-		PROP(&f[1], t->param_alloc_meta_enable.size, SPA_POD_TYPE_INT,
-			sizeof(struct spa_meta_header)));
-	params[1] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
+	params[1] = spa_pod_builder_param(&b,
+		t->param_alloc_meta_enable.MetaEnable,
+		":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
+		":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
 
 	pw_stream_finish_format(stream, SPA_RESULT_OK, params, 2);
 }
@@ -234,24 +221,19 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		const struct spa_format *formats[1];
 		uint8_t buffer[1024];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-		struct spa_pod_frame f[2];
 
 		printf("remote state: \"%s\"\n",
 		       pw_remote_state_as_string(state));
 
 		data->stream = pw_stream_new(remote, "video-src", NULL);
 
-		spa_pod_builder_format(&b, &f[0], data->type.format,
-			data->type.media_type.video,
-			data->type.media_subtype.raw,
-			PROP(&f[1], data->type.format_video.format, SPA_POD_TYPE_ID,
-				data->type.video_format.RGB),
-			PROP_U_MM(&f[1], data->type.format_video.size, SPA_POD_TYPE_RECTANGLE,
-				320, 240,
-				1, 1, 4096, 4096),
-			PROP(&f[1], data->type.format_video.framerate, SPA_POD_TYPE_FRACTION,
-				25, 1));
-		formats[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+		formats[0] = spa_pod_builder_format(&b, data->type.format,
+			data->type.media_type.video, data->type.media_subtype.raw,
+			":", data->type.format_video.format,    "I", data->type.video_format.RGB,
+			":", data->type.format_video.size,      "Rru", &SPA_RECTANGLE(320, 240),
+									2, &SPA_RECTANGLE(1, 1),
+									   &SPA_RECTANGLE(4096, 4096),
+			":", data->type.format_video.framerate, "F", &SPA_FRACTION(25, 1));
 
 		pw_stream_add_listener(data->stream,
 				       &data->stream_listener,

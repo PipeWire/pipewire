@@ -248,7 +248,7 @@ spa_ffmpeg_enc_node_port_set_format(struct spa_node *node,
 		    info.media_subtype != this->type.media_subtype.raw)
 			return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-		if (!spa_format_video_raw_parse(format, &info.info.raw, &this->type.format_video))
+		if (spa_format_video_raw_parse(format, &info.info.raw, &this->type.format_video) < 0)
 			return SPA_RESULT_INVALID_MEDIA_TYPE;
 
 		if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {

@@ -71,6 +71,7 @@ enum spa_result {
 	SPA_RESULT_OUT_OF_BUFFERS = -35,
 	SPA_RESULT_INCOMPATIBLE_PROPS = -36,
 	SPA_RESULT_INCOMPATIBLE_VERSION = -37,
+	SPA_RESULT_NOT_FOUND = -38,
 };
 
 #define SPA_ASYNC_BIT			(1 << 30)
@@ -89,11 +90,14 @@ enum spa_direction {
 	SPA_DIRECTION_OUTPUT = 1,
 };
 
+#define SPA_RECTANGLE(width,height) (struct spa_rectangle){ width, height }
+
 struct spa_rectangle {
 	uint32_t width;
 	uint32_t height;
 };
 
+#define SPA_FRACTION(num,denom) (struct spa_fraction){ num, denom }
 struct spa_fraction {
 	uint32_t num;
 	uint32_t denom;

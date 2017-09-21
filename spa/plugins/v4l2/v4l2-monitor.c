@@ -89,7 +89,7 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 {
 	const char *str, *name;
 	struct spa_pod_builder b = { NULL, };
-	struct spa_pod_frame f[3];
+	struct type *t = &this->type;
 
 	if (item->udevice)
 		udev_device_unref(item->udevice);
@@ -112,59 +112,43 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 
 	spa_pod_builder_init(&b, this->item_buffer, sizeof(this->item_buffer));
 
-	spa_pod_builder_push_object(&b, &f[0], 0, this->type.monitor.MonitorItem);
+	spa_pod_builder_add(&b,
+		"<", 0, t->monitor.MonitorItem,
+		":", t->monitor.id,      "s", udev_device_get_syspath(item->udevice),
+		":", t->monitor.flags,   "i", 0,
+		":", t->monitor.state,   "i", SPA_MONITOR_ITEM_STATE_AVAILABLE,
+		":", t->monitor.name,    "s", name,
+		":", t->monitor.klass,   "s", "Video/Source",
+		":", t->monitor.factory, "p", t->handle_factory, &spa_v4l2_source_factory,
+		":", t->monitor.info,    "[",
+		NULL);
 
 	spa_pod_builder_add(&b,
-		SPA_POD_PROP(&f[1], this->type.monitor.id, 0, SPA_POD_TYPE_STRING, 1,
-			udev_device_get_syspath(item->udevice)),
-		SPA_POD_PROP(&f[1], this->type.monitor.flags, 0, SPA_POD_TYPE_INT, 1,
-			0),
-		SPA_POD_PROP(&f[1], this->type.monitor.state, 0, SPA_POD_TYPE_INT, 1,
-			SPA_MONITOR_ITEM_STATE_AVAILABLE),
-		SPA_POD_PROP(&f[1], this->type.monitor.name, 0, SPA_POD_TYPE_STRING, 1,
-			name),
-		SPA_POD_PROP(&f[1], this->type.monitor.klass, 0, SPA_POD_TYPE_STRING, 1,
-			"Video/Source"),
-		SPA_POD_PROP(&f[1], this->type.monitor.factory, 0, SPA_POD_TYPE_POINTER, 1,
-			this->type.handle_factory, &spa_v4l2_source_factory),
-		0);
-	spa_pod_builder_add(&b,
-			    SPA_POD_TYPE_PROP, &f[1], this->type.monitor.info, 0,
-			    SPA_POD_TYPE_STRUCT, 1, &f[2], 0);
-
-
-	spa_pod_builder_add(&b,
-			    SPA_POD_TYPE_STRING, "udev-probed", SPA_POD_TYPE_STRING, "1",
-			    SPA_POD_TYPE_STRING, "device.api", SPA_POD_TYPE_STRING, "v4l2",
-			    SPA_POD_TYPE_STRING, "device.path", SPA_POD_TYPE_STRING,
-			    udev_device_get_devnode(item->udevice), 0);
+		    "s", "udev-probed", "s", "1",
+		    "s", "device.api",  "s", "v4l2",
+		    "s", "device.path", "s", udev_device_get_devnode(item->udevice),
+		    NULL);
 
 	str = udev_device_get_property_value(item->udevice, "ID_PATH");
 	if (!(str && *str))
 		str = udev_device_get_syspath(item->udevice);
 	if (str && *str) {
-		spa_pod_builder_add(&b, SPA_POD_TYPE_STRING, "device.bus_path", SPA_POD_TYPE_STRING,
-				str, 0);
+		spa_pod_builder_add(&b, "s", "device.bus_path", "s", str, 0);
 	}
 	if ((str = udev_device_get_syspath(item->udevice)) && *str) {
-		spa_pod_builder_add(&b, SPA_POD_TYPE_STRING, "sysfs.path", SPA_POD_TYPE_STRING,
-				str, 0);
+		spa_pod_builder_add(&b, "s", "sysfs.path", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_ID")) && *str) {
-		spa_pod_builder_add(&b, SPA_POD_TYPE_STRING, "udev.id", SPA_POD_TYPE_STRING,
-				str, 0);
+		spa_pod_builder_add(&b, "s", "udev.id", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_BUS")) && *str) {
-		spa_pod_builder_add(&b, SPA_POD_TYPE_STRING, "device.bus", SPA_POD_TYPE_STRING,
-				str, 0);
+		spa_pod_builder_add(&b, "s", "device.bus", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "SUBSYSTEM")) && *str) {
-		spa_pod_builder_add(&b, SPA_POD_TYPE_STRING, "device.subsystem",
-				    SPA_POD_TYPE_STRING, str, 0);
+		spa_pod_builder_add(&b, "s", "device.subsystem", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_VENDOR_ID")) && *str) {
-		spa_pod_builder_add(&b, SPA_POD_TYPE_STRING, "device.vendor.id",
-				    SPA_POD_TYPE_STRING, str, 0);
+		spa_pod_builder_add(&b, "s", "device.vendor.id", "s", str, 0);
 	}
 	str = udev_device_get_property_value(item->udevice, "ID_VENDOR_FROM_DATABASE");
 	if (!(str && *str)) {
@@ -174,29 +158,20 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 		}
 	}
 	if (str && *str) {
-		spa_pod_builder_add(&b, SPA_POD_TYPE_STRING, "device.vendor.name",
-				    SPA_POD_TYPE_STRING, str, 0);
+		spa_pod_builder_add(&b, "s", "device.vendor.name", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_MODEL_ID")) && *str) {
-		spa_pod_builder_add(&b, SPA_POD_TYPE_STRING, "device.product.id",
-				    SPA_POD_TYPE_STRING, str, 0);
+		spa_pod_builder_add(&b, "s", "device.product.id", "s", str, 0);
 	}
-	spa_pod_builder_add(&b, SPA_POD_TYPE_STRING, "device.product.name", SPA_POD_TYPE_STRING,
-			    name, 0);
+	spa_pod_builder_add(&b, "s", "device.product.name", "s", name, 0);
 	if ((str = udev_device_get_property_value(item->udevice, "ID_SERIAL")) && *str) {
-		spa_pod_builder_add(&b, SPA_POD_TYPE_STRING, "device.serial", SPA_POD_TYPE_STRING,
-				    str, 0);
+		spa_pod_builder_add(&b, "s", "device.serial", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_V4L_CAPABILITIES")) && *str) {
-		spa_pod_builder_add(&b, SPA_POD_TYPE_STRING, "device.capabilities",
-				    SPA_POD_TYPE_STRING, str, 0);
+		spa_pod_builder_add(&b, "s", "device.capabilities", "s", str, 0);
 	}
 
-	spa_pod_builder_add(&b, -SPA_POD_TYPE_STRUCT, &f[2], -SPA_POD_TYPE_PROP, &f[1], 0);
-
-	spa_pod_builder_pop(&b, &f[0]);
-
-	item->item = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_monitor_item);
+	item->item = spa_pod_builder_add(&b, "]>", NULL);
 }
 
 static void impl_on_fd_events(struct spa_source *source)
@@ -207,7 +182,6 @@ static void impl_on_fd_events(struct spa_source *source)
 	const char *action;
 	uint32_t type;
 	struct spa_pod_builder b = { NULL, };
-	struct spa_pod_frame f[1];
 	uint8_t buffer[4096];
 
 	dev = udev_monitor_receive_device(this->umonitor);
@@ -228,9 +202,8 @@ static void impl_on_fd_events(struct spa_source *source)
 		return;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_object(&b, &f[0], 0, type, SPA_POD_TYPE_POD, this->uitem.item);
+	event = spa_pod_builder_object(&b, 0, type, "P", this->uitem.item);
 
-	event = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_event);
 	this->callbacks->event(this->callbacks_data, event);
 }
 

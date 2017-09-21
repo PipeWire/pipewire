@@ -368,9 +368,6 @@ static int port_set_io(struct spa_node *node, enum spa_direction direction, uint
 	return SPA_RESULT_OK;
 }
 
-#define PROP(f,key,type,...)                                                    \
-        SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-
 static int port_enum_formats(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
                              struct spa_format **format,
                              const struct spa_format *filter,
@@ -383,8 +380,6 @@ static int port_enum_formats(struct spa_node *node, enum spa_direction direction
 	struct spa_format *fmt;
 	uint8_t buffer[4096];
 	int res;
-
-        struct spa_pod_frame f[2];
 	struct jack_engine_control *ctrl = pd->node->node.server->engine_control;
 
 	if (index > 0)
@@ -394,27 +389,29 @@ static int port_enum_formats(struct spa_node *node, enum spa_direction direction
 
 	if (pd->port.jack_port) {
 		if (pd->port.jack_port->type_id == 0) {
-			spa_pod_builder_format(&b, &f[0], t->format,
+			fmt = spa_pod_builder_format(&b,
+				t->format,
 	                        t->media_type.audio, t->media_subtype.raw,
-	                        PROP(&f[1], t->format_audio.format, SPA_POD_TYPE_ID, t->audio_format.F32),
-	                        PROP(&f[1], t->format_audio.rate, SPA_POD_TYPE_INT, ctrl->sample_rate),
-	                        PROP(&f[1], t->format_audio.channels, SPA_POD_TYPE_INT, 1));
+	                        ":", t->format_audio.format,   "I", t->audio_format.F32,
+	                        ":", t->format_audio.rate,     "i", ctrl->sample_rate,
+	                        ":", t->format_audio.channels, "i", 1);
 		}
 		else if (pd->port.jack_port->type_id == 1) {
-			spa_pod_builder_format(&b, &f[0], t->format,
+			fmt = spa_pod_builder_format(&b,
+				t->format,
 	                        t->media_type.audio, t->media_subtype_audio.midi);
 		}
 		else
 			return SPA_RESULT_ENUM_END;
 	}
 	else {
-                spa_pod_builder_format(&b, &f[0], t->format,
+                fmt = spa_pod_builder_format(&b,
+			t->format,
                         t->media_type.audio, t->media_subtype.raw,
-                        PROP(&f[1], t->format_audio.format, SPA_POD_TYPE_ID, t->audio_format.S16),
-                        PROP(&f[1], t->format_audio.rate, SPA_POD_TYPE_INT, ctrl->sample_rate),
-                        PROP(&f[1], t->format_audio.channels, SPA_POD_TYPE_INT, 2));
+                        ":", t->format_audio.format,   "I", t->audio_format.S16,
+                        ":", t->format_audio.rate,     "i", ctrl->sample_rate,
+                        ":", t->format_audio.channels, "i", 2);
 	}
-	fmt = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
 
         spa_pod_builder_init(&b, pd->buffer, sizeof(pd->buffer));
         if ((res = spa_format_filter(fmt, filter, &b)) < 0)

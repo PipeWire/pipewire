@@ -122,19 +122,6 @@ struct impl {
 #define GET_OUT_PORT(this,p)         (&this->out_ports[p])
 #define GET_PORT(this,d,p)           (d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
 
-#define PROP(f,key,type,...)							\
-	SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_MM(f,key,type,...)							\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)						\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
-			SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_EN(f,key,type,n,...)						\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-#define PROP_U_EN(f,key,type,n,...)						\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
-			SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-
 static int impl_node_get_props(struct spa_node *node, struct spa_props **props)
 {
 	return SPA_RESULT_NOT_IMPLEMENTED;
@@ -310,13 +297,14 @@ impl_node_port_enum_formats(struct spa_node *node,
 	struct spa_format *fmt;
 	uint8_t buffer[256];
 	struct spa_pod_builder b = { NULL, };
-	struct spa_pod_frame f[2];
 	uint32_t count, match;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -327,24 +315,20 @@ impl_node_port_enum_formats(struct spa_node *node,
 
 	switch (count++) {
 	case 0:
-		spa_pod_builder_format(&b, &f[0], this->type.format,
-			this->type.media_type.audio,
-			this->type.media_subtype.raw,
-			PROP_U_EN(&f[1], this->type.format_audio.format, SPA_POD_TYPE_ID, 3,
-				this->type.audio_format.S16,
-				this->type.audio_format.S16,
-				this->type.audio_format.F32),
-			PROP_U_MM(&f[1], this->type.format_audio.rate, SPA_POD_TYPE_INT,
-				44100,
-				1, INT32_MAX),
-			PROP_U_MM(&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT,
-				2,
-				1, INT32_MAX));
+		fmt = spa_pod_builder_format(&b,
+			t->format,
+			t->media_type.audio, t->media_subtype.raw,
+			":", t->format_audio.format,   "Ieu", t->audio_format.S16,
+								2, t->audio_format.S16,
+								   t->audio_format.F32,
+			":", t->format_audio.rate,     "iru", 44100,
+								2, 1, INT32_MAX,
+			":", t->format_audio.channels, "iru", 2,
+								2, 1, INT32_MAX);
 		break;
 	default:
 		return SPA_RESULT_ENUM_END;
 	}
-	fmt = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
 
 	spa_pod_builder_init(&b, this->format_buffer, sizeof(this->format_buffer));
 
@@ -375,10 +359,12 @@ impl_node_port_set_format(struct spa_node *node,
 {
 	struct impl *this;
 	struct port *port;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -396,11 +382,11 @@ impl_node_port_set_format(struct spa_node *node,
 			SPA_FORMAT_MEDIA_SUBTYPE(format),
 		};
 
-		if (info.media_type != this->type.media_type.audio ||
-		    info.media_subtype != this->type.media_subtype.raw)
+		if (info.media_type != t->media_type.audio ||
+		    info.media_subtype != t->media_subtype.raw)
 			return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-		if (!spa_format_audio_raw_parse(format, &info.info.raw, &this->type.format_audio))
+		if (spa_format_audio_raw_parse(format, &info.info.raw, &t->format_audio) < 0)
 			return SPA_RESULT_INVALID_MEDIA_TYPE;
 
 		if (this->have_format) {
@@ -409,11 +395,11 @@ impl_node_port_set_format(struct spa_node *node,
 		} else {
 			this->have_format = true;
 			this->format = info;
-			if (info.info.raw.format == this->type.audio_format.S16) {
+			if (info.info.raw.format == t->audio_format.S16) {
 				this->copy = this->ops.copy[CONV_S16_S16];
 				this->add = this->ops.add[CONV_S16_S16];
 			}
-			else if (info.info.raw.format == this->type.audio_format.F32) {
+			else if (info.info.raw.format == t->audio_format.F32) {
 				this->copy = this->ops.copy[CONV_F32_F32];
 				this->add = this->ops.add[CONV_F32_F32];
 			}
@@ -437,12 +423,13 @@ impl_node_port_get_format(struct spa_node *node,
 	struct impl *this;
 	struct port *port;
 	struct spa_pod_builder b = { NULL, };
-	struct spa_pod_frame f[2];
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -452,16 +439,12 @@ impl_node_port_get_format(struct spa_node *node,
 		return SPA_RESULT_NO_FORMAT;
 
 	spa_pod_builder_init(&b, this->format_buffer, sizeof(this->format_buffer));
-	spa_pod_builder_format(&b, &f[0], this->type.format,
-		this->type.media_type.audio,
-		this->type.media_subtype.raw,
-		PROP(&f[1], this->type.format_audio.format, SPA_POD_TYPE_ID,
-			this->format.info.raw.format),
-		PROP(&f[1], this->type.format_audio.rate, SPA_POD_TYPE_INT,
-			this->format.info.raw.rate),
-		PROP(&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT,
-			this->format.info.raw.channels));
-	*format = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+	*format = spa_pod_builder_format(&b,
+		t->format,
+		t->media_type.audio, t->media_subtype.raw,
+		":", t->format_audio.format,   "I", this->format.info.raw.format,
+		":", t->format_audio.rate,     "i", this->format.info.raw.rate,
+		":", t->format_audio.channels, "i", this->format.info.raw.channels);
 
 	return SPA_RESULT_OK;
 }
@@ -517,10 +500,12 @@ impl_node_port_use_buffers(struct spa_node *node,
 	struct impl *this;
 	struct port *port;
 	uint32_t i;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -537,11 +522,11 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b = &port->buffers[i];
 		b->outbuf = buffers[i];
 		b->outstanding = direction == SPA_DIRECTION_INPUT ? true : false;
-		b->h = spa_buffer_find_meta(buffers[i], this->type.meta.Header);
+		b->h = spa_buffer_find_meta(buffers[i], t->meta.Header);
 
-		if (!((d[0].type == this->type.data.MemPtr ||
-		       d[0].type == this->type.data.MemFd ||
-		       d[0].type == this->type.data.DmaBuf) && d[0].data != NULL)) {
+		if (!((d[0].type == t->data.MemPtr ||
+		       d[0].type == t->data.MemFd ||
+		       d[0].type == t->data.DmaBuf) && d[0].data != NULL)) {
 			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
 				      buffers[i]);
 			return SPA_RESULT_ERROR;

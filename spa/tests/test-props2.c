@@ -26,7 +26,7 @@
 
 #include <spa/pod.h>
 #include <spa/pod-builder.h>
-#include <spa/pod-iter.h>
+#include <spa/pod-parser.h>
 
 #include <spa/type-map-impl.h>
 #include <spa/log-impl.h>
@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 	struct spa_pod_frame frame[4];
 	uint8_t buffer[1024];
 	struct spa_pod *obj;
-	struct spa_pod_iter i;
+	struct spa_pod_parser prs;
 	struct spa_type_map *map = &default_map.map;
 
 	spa_debug_set_type_map(map);
@@ -105,14 +105,17 @@ int main(int argc, char *argv[])
 	struct spa_rectangle vr;
 	struct spa_fraction vfr;
 	struct spa_pod_array *va;
-	spa_pod_iter_pod(&i, obj);
-	spa_pod_iter_get(&i, SPA_POD_TYPE_INT, &vi,
-			 SPA_POD_TYPE_LONG, &vl,
-			 SPA_POD_TYPE_FLOAT, &vf,
-			 SPA_POD_TYPE_DOUBLE, &vd,
-			 SPA_POD_TYPE_STRING, &vs,
-			 SPA_POD_TYPE_RECTANGLE, &vr,
-			 SPA_POD_TYPE_FRACTION, &vfr, SPA_POD_TYPE_ARRAY, &va, 0);
+	spa_pod_parser_pod(&prs, obj);
+	spa_pod_parser_get(&prs,
+			"["
+			"i", &vi,
+			"l", &vl,
+			"f", &vf,
+			"d", &vd,
+			"s", &vs,
+			"R", &vr,
+			"F", &vfr,
+			"P", &va, 0);
 
 	printf("%u %lu %f %g %s %ux%u %u/%u\n", vi, vl, vf, vd, vs, vr.width, vr.height, vfr.num,
 	       vfr.denom);

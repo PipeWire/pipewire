@@ -27,6 +27,10 @@ extern "C" {
 #include <stdarg.h>
 #include <spa/pod-utils.h>
 
+#ifndef SPA_POD_MAX_LEVEL
+#define SPA_POD_MAX_LEVEL       16
+#endif
+
 struct spa_pod_frame {
 	struct spa_pod_frame *parent;
 	struct spa_pod pod;
@@ -42,6 +46,8 @@ struct spa_pod_builder {
 			   uint32_t size);
 	bool in_array;
 	bool first;
+        struct spa_pod_frame frame[SPA_POD_MAX_LEVEL];
+        int depth;
 };
 
 #define SPA_POD_BUILDER_INIT(buffer,size)  { buffer, size, }
@@ -54,6 +60,7 @@ static inline void spa_pod_builder_init(struct spa_pod_builder *builder, void *d
 	builder->size = size;
 	builder->offset = 0;
 	builder->stack = NULL;
+	builder->depth = 0;
 }
 
 static inline uint32_t
@@ -144,6 +151,14 @@ spa_pod_builder_primitive(struct spa_pod_builder *builder, const struct spa_pod 
 	return ref;
 }
 
+#define SPA_POD_NONE_INIT() { 0, SPA_POD_TYPE_NONE }
+
+static inline uint32_t spa_pod_builder_none(struct spa_pod_builder *builder)
+{
+	const struct spa_pod p = SPA_POD_NONE_INIT();
+	return spa_pod_builder_primitive(builder, &p);
+}
+
 #define SPA_POD_BOOL_INIT(val) { { sizeof(uint32_t), SPA_POD_TYPE_BOOL }, val ? 1 : 0 }
 
 static inline uint32_t spa_pod_builder_bool(struct spa_pod_builder *builder, bool val)
@@ -195,11 +210,23 @@ static inline uint32_t spa_pod_builder_double(struct spa_pod_builder *builder, d
 #define SPA_POD_STRING_INIT(len) { { len, SPA_POD_TYPE_STRING } }
 
 static inline uint32_t
+spa_pod_builder_write_string(struct spa_pod_builder *builder, const char *str, uint32_t len)
+{
+	uint32_t ref = 0;
+	if (spa_pod_builder_raw(builder, str, len) == -1)
+		ref = -1;
+	if (spa_pod_builder_raw(builder, "", 1) == -1)
+		ref = -1;
+	spa_pod_builder_pad(builder, builder->offset);
+	return ref;
+}
+
+static inline uint32_t
 spa_pod_builder_string_len(struct spa_pod_builder *builder, const char *str, uint32_t len)
 {
-	const struct spa_pod_string p = SPA_POD_STRING_INIT(len);
+	const struct spa_pod_string p = SPA_POD_STRING_INIT(len+1);
 	uint32_t ref = spa_pod_builder_raw(builder, &p, sizeof(p));
-	if (spa_pod_builder_raw_padded(builder, str, len) == -1)
+	if (spa_pod_builder_write_string(builder, str, len) == -1)
 		ref = -1;
 	return ref;
 }
@@ -207,7 +234,7 @@ spa_pod_builder_string_len(struct spa_pod_builder *builder, const char *str, uin
 static inline uint32_t spa_pod_builder_string(struct spa_pod_builder *builder, const char *str)
 {
 	uint32_t len = str ? strlen(str) : 0;
-	return spa_pod_builder_string_len(builder, str ? str : "", len + 1);
+	return spa_pod_builder_string_len(builder, str ? str : "", len);
 }
 
 #define SPA_POD_BYTES_INIT(len) { { len, SPA_POD_TYPE_BYTES } }
@@ -228,6 +255,14 @@ static inline uint32_t
 spa_pod_builder_pointer(struct spa_pod_builder *builder, uint32_t type, void *val)
 {
 	const struct spa_pod_pointer p = SPA_POD_POINTER_INIT(type, val);
+	return spa_pod_builder_primitive(builder, &p.pod);
+}
+
+#define SPA_POD_FD_INIT(fd) { { sizeof(int), SPA_POD_TYPE_FD }, fd }
+
+static inline uint32_t spa_pod_builder_fd(struct spa_pod_builder *builder, int fd)
+{
+	const struct spa_pod_fd p = SPA_POD_FD_INIT(fd);
 	return spa_pod_builder_primitive(builder, &p.pod);
 }
 
@@ -311,238 +346,227 @@ spa_pod_builder_push_prop(struct spa_pod_builder *builder,
 							sizeof(p) - sizeof(struct spa_pod)));
 }
 
-static inline void
-spa_pod_builder_addv(struct spa_pod_builder *builder, uint32_t type, va_list args)
+static inline uint32_t spa_pod_range_from_id(char id)
 {
-	uint32_t n_values = 0;
-	union {
-		struct spa_pod pod;
-		struct spa_pod_bool bool_pod;
-		struct spa_pod_id id_pod;
-		struct spa_pod_int int_pod;
-		struct spa_pod_long long_pod;
-		struct spa_pod_float float_pod;
-		struct spa_pod_double double_pod;
-		struct spa_pod_string string_pod;
-		struct spa_pod_bytes bytes_pod;
-		struct spa_pod_pointer pointer_pod;
-		struct spa_pod_rectangle rectangle_pod;
-		struct spa_pod_fraction fraction_pod;
-		struct spa_pod_array array_pod;
-		struct spa_pod_struct struct_pod;
-		struct spa_pod_object object_pod;
-		struct spa_pod_prop prop_pod;
-	} head;
-	uint32_t head_size;
-	const void *body;
-	uint32_t body_size;
-	static const uint64_t zeroes = 0;
-
-	while (type != SPA_POD_TYPE_INVALID) {
-		struct spa_pod_frame *f = NULL;
-		const void *data[3];
-		uint32_t size[3], ref, i, n_sizes = 0;
-
-		switch (type) {
-		case SPA_POD_TYPE_NONE:
-			break;
-		case SPA_POD_TYPE_BOOL:
-		case SPA_POD_TYPE_ID:
-		case SPA_POD_TYPE_INT:
-			head.int_pod.pod.type = type;
-			head.int_pod.pod.size = body_size = sizeof(uint32_t);
-			head.int_pod.value = va_arg(args, int);
-			head_size = sizeof(struct spa_pod);
-			body = &head.int_pod.value;
-			goto primitive;
-		case SPA_POD_TYPE_LONG:
-			head.long_pod.pod.type = SPA_POD_TYPE_LONG;
-			head.long_pod.pod.size = body_size = sizeof(uint32_t);
-			head.long_pod.value = va_arg(args, int64_t);
-			head_size = sizeof(struct spa_pod);
-			body = &head.long_pod.value;
-			goto primitive;
-		case SPA_POD_TYPE_FLOAT:
-			head.float_pod.pod.type = SPA_POD_TYPE_FLOAT;
-			head.float_pod.pod.size = body_size = sizeof(float);
-			head.float_pod.value = va_arg(args, double);
-			head_size = sizeof(struct spa_pod);
-			body = &head.float_pod.value;
-			goto primitive;
-		case SPA_POD_TYPE_DOUBLE:
-			head.double_pod.pod.type = SPA_POD_TYPE_DOUBLE;
-			head.double_pod.pod.size = body_size = sizeof(double);
-			head.double_pod.value = va_arg(args, double);
-			head_size = sizeof(struct spa_pod);
-			body = &head.double_pod.value;
-			goto primitive;
-		case SPA_POD_TYPE_STRING:
-			body = va_arg(args, const char *);
-			body_size = body ? strlen(body) + 1 : (body = "", 1);
-			head.string_pod.pod.type = SPA_POD_TYPE_STRING;
-			head.string_pod.pod.size = body_size;
-			head_size = sizeof(struct spa_pod);
-			goto primitive;
-		case -SPA_POD_TYPE_STRING:
-			body = va_arg(args, const char *);
-			body_size = va_arg(args, uint32_t);
-			head.string_pod.pod.type = SPA_POD_TYPE_STRING;
-			head.string_pod.pod.size = body_size;
-			head_size = sizeof(struct spa_pod);
-			goto primitive;
-		case SPA_POD_TYPE_BYTES:
-			body = va_arg(args, void *);
-			body_size = va_arg(args, uint32_t);
-			head.bytes_pod.pod.type = SPA_POD_TYPE_BYTES;
-			head.bytes_pod.pod.size = body_size;
-			head_size = sizeof(struct spa_pod);
-			goto primitive;
-		case SPA_POD_TYPE_POINTER:
-			head.pointer_pod.pod.type = SPA_POD_TYPE_POINTER;
-			head.pointer_pod.pod.size = body_size = sizeof(struct spa_pod_pointer_body);
-			head.pointer_pod.body.type = va_arg(args, uint32_t);
-			head.pointer_pod.body.value = va_arg(args, void *);
-			head_size = sizeof(struct spa_pod);
-			body = &head.pointer_pod.body;
-			goto primitive;
-		case SPA_POD_TYPE_RECTANGLE:
-			head.rectangle_pod.pod.type = SPA_POD_TYPE_RECTANGLE;
-			head.rectangle_pod.pod.size = body_size = sizeof(struct spa_rectangle);
-			head.rectangle_pod.value.width = va_arg(args, uint32_t);
-			head.rectangle_pod.value.height = va_arg(args, uint32_t);
-			head_size = sizeof(struct spa_pod);
-			body = &head.rectangle_pod.value;
-			goto primitive;
-		case -SPA_POD_TYPE_RECTANGLE:
-			head.rectangle_pod.pod.type = SPA_POD_TYPE_RECTANGLE;
-			head.rectangle_pod.pod.size = body_size = sizeof(struct spa_rectangle);
-			head.rectangle_pod.value = *va_arg(args, struct spa_rectangle *);
-			head_size = sizeof(struct spa_pod);
-			body = &head.rectangle_pod.value;
-			goto primitive;
-		case SPA_POD_TYPE_FRACTION:
-			head.fraction_pod.pod.type = SPA_POD_TYPE_FRACTION;
-			head.fraction_pod.pod.size = body_size = sizeof(struct spa_fraction);
-			head.fraction_pod.value.num = va_arg(args, uint32_t);
-			head.fraction_pod.value.denom = va_arg(args, uint32_t);
-			head_size = sizeof(struct spa_pod);
-			body = &head.fraction_pod.value;
-			goto primitive;
-		case -SPA_POD_TYPE_FRACTION:
-			head.fraction_pod.pod.type = SPA_POD_TYPE_FRACTION;
-			head.fraction_pod.pod.size = body_size = sizeof(struct spa_fraction);
-			head.fraction_pod.value = *va_arg(args, struct spa_fraction *);
-			head_size = sizeof(struct spa_pod);
-			body = &head.fraction_pod.value;
-			goto primitive;
-		case SPA_POD_TYPE_BITMASK:
-			break;
-		case SPA_POD_TYPE_ARRAY:
-			f = va_arg(args, struct spa_pod_frame *);
-			type = va_arg(args, uint32_t);
-			n_values = va_arg(args, uint32_t);
-			head.array_pod.pod.type = SPA_POD_TYPE_ARRAY;
-			head.array_pod.pod.size = 0;
-			head_size = sizeof(struct spa_pod);
-			body = NULL;
-			goto primitive;
-		case SPA_POD_TYPE_STRUCT:
-			f = va_arg(args, struct spa_pod_frame *);
-			head.struct_pod.pod.type = SPA_POD_TYPE_STRUCT;
-			head.struct_pod.pod.size = 0;
-			head_size = sizeof(struct spa_pod);
-			body = NULL;
-			goto primitive;
-		case SPA_POD_TYPE_OBJECT:
-			f = va_arg(args, struct spa_pod_frame *);
-			head.object_pod.pod.type = SPA_POD_TYPE_OBJECT;
-			head.object_pod.pod.size = sizeof(struct spa_pod_object_body);
-			head.object_pod.body.id = va_arg(args, uint32_t);
-			head.object_pod.body.type = va_arg(args, uint32_t);
-			head_size = sizeof(struct spa_pod_object);
-			body = NULL;
-			goto primitive;
-		case SPA_POD_TYPE_PROP:
-			f = va_arg(args, struct spa_pod_frame *);
-			head.prop_pod.pod.type = SPA_POD_TYPE_PROP;
-			head.prop_pod.pod.size =
-			    sizeof(struct spa_pod_prop_body) - sizeof(struct spa_pod);
-			head.prop_pod.body.key = va_arg(args, uint32_t);
-			head.prop_pod.body.flags = va_arg(args, uint32_t);
-			head_size = sizeof(struct spa_pod_prop) - sizeof(struct spa_pod);
-			body = NULL;
-			type = va_arg(args, uint32_t);
-			n_values = va_arg(args, uint32_t);
-			goto primitive;
-		case -SPA_POD_TYPE_ARRAY:
-		case -SPA_POD_TYPE_STRUCT:
-		case -SPA_POD_TYPE_OBJECT:
-		case -SPA_POD_TYPE_PROP:
-			f = va_arg(args, struct spa_pod_frame *);
-			spa_pod_builder_pop(builder, f);
-			break;
-		case SPA_POD_TYPE_POD:
-			if ((body = va_arg(args, void *)) == NULL) {
-				head.pod.type = SPA_POD_TYPE_NONE;
-				head.pod.size = 0;
-				body = &head;
-			}
-			body_size = SPA_POD_SIZE(body);
-			goto extra;
-		}
-		if (0) {
-		      primitive:
-			if (!builder->in_array || builder->first) {
-				data[n_sizes] = &head;
-				size[n_sizes++] = head_size;
-				builder->first = false;
-			}
-			if (body) {
-			      extra:
-				data[n_sizes] = body;
-				size[n_sizes++] = body_size;
-				if (!builder->in_array) {
-					data[n_sizes] = &zeroes;
-					size[n_sizes++] = SPA_ROUND_UP_N(body_size, 8) - body_size;
-				}
-			}
-			for (i = 0; i < n_sizes; i++) {
-				ref = spa_pod_builder_raw(builder, data[i], size[i]);
-				if (f && i == 0)
-					spa_pod_builder_push(builder, f, data[i], ref);
-			}
-		}
-		if (n_values > 0)
-			n_values--;
-		else
-			type = va_arg(args, uint32_t);
+	switch (id) {
+	case 'r':
+		return SPA_POD_PROP_RANGE_MIN_MAX;
+	case 's':
+		return SPA_POD_PROP_RANGE_STEP;
+	case 'e':
+		return SPA_POD_PROP_RANGE_ENUM;
+	case 'f':
+		return SPA_POD_PROP_RANGE_FLAGS;
+	default:
+		return SPA_POD_PROP_RANGE_NONE;
 	}
 }
 
-static inline void spa_pod_builder_add(struct spa_pod_builder *builder, uint32_t type, ...)
+static inline uint32_t spa_pod_flag_from_id(char id)
 {
-	va_list args;
-
-	va_start(args, type);
-	spa_pod_builder_addv(builder, type, args);
-	va_end(args);
+	switch (id) {
+	case 'u':
+		return SPA_POD_PROP_FLAG_UNSET;
+	case 'o':
+		return SPA_POD_PROP_FLAG_OPTIONAL;
+	case 'r':
+		return SPA_POD_PROP_FLAG_READONLY;
+	case 'd':
+		return SPA_POD_PROP_FLAG_DEPRECATED;
+	default:
+		return 0;
+	}
 }
 
-#define SPA_POD_OBJECT(f,id,type,...)						\
-	SPA_POD_TYPE_OBJECT, f, id, type, __VA_ARGS__, -SPA_POD_TYPE_OBJECT, f
+#define SPA_POD_BUILDER_COLLECT(builder,type,args)				\
+do {										\
+	switch (type) {								\
+	case 'b':								\
+		spa_pod_builder_bool(builder, va_arg(args, int));		\
+		break;								\
+	case 'I':								\
+		spa_pod_builder_id(builder, va_arg(args, uint32_t));		\
+		break;								\
+	case 'i':								\
+		spa_pod_builder_int(builder, va_arg(args, int));		\
+		break;								\
+	case 'l':								\
+		spa_pod_builder_long(builder, va_arg(args, int64_t));		\
+		break;								\
+	case 'f':								\
+		spa_pod_builder_float(builder, va_arg(args, double));		\
+		break;								\
+	case 'd':								\
+		spa_pod_builder_double(builder, va_arg(args, double));		\
+		break;								\
+	case 's':								\
+	{									\
+		char *strval = va_arg(args, char *) ? : "";			\
+		size_t len = strlen(strval);					\
+		spa_pod_builder_string_len(builder, strval, len);		\
+		break;								\
+	}									\
+	case 'S':								\
+	{									\
+		char *strval = va_arg(args, char *);				\
+		size_t len = va_arg(args, int);					\
+		spa_pod_builder_string_len(builder, strval, len);		\
+		break;								\
+	}									\
+	case 'z':								\
+	{									\
+		void *ptr  = va_arg(args, void *);				\
+		int len = va_arg(args, int);					\
+		spa_pod_builder_bytes(builder, ptr, len);			\
+		break;								\
+	}									\
+	case 'R':								\
+	{									\
+		struct spa_rectangle *rectval =					\
+			va_arg(args, struct spa_rectangle *);			\
+		spa_pod_builder_rectangle(builder,				\
+				rectval->width, rectval->height);		\
+		break;								\
+	}									\
+	case 'F':								\
+	{									\
+		struct spa_fraction *fracval =					\
+			va_arg(args, struct spa_fraction *);			\
+		spa_pod_builder_fraction(builder, fracval->num, fracval->denom);\
+		break;								\
+	}									\
+	case 'a':								\
+	{									\
+		int child_size = va_arg(args, int);				\
+		int child_type = va_arg(args, int);				\
+		int n_elems = va_arg(args, int);				\
+		void *elems = va_arg(args, void *);				\
+		spa_pod_builder_array(builder, child_size,			\
+				child_type, n_elems, elems);			\
+		break;								\
+	}									\
+	case 'p':								\
+	{									\
+		int t = va_arg(args, uint32_t);					\
+		spa_pod_builder_pointer(builder, t, va_arg(args, void *));	\
+		break;								\
+	}									\
+	case 'h':								\
+		spa_pod_builder_fd(builder, va_arg(args, int));			\
+		break;								\
+	case 'P':								\
+	{									\
+		struct spa_pod *pod = va_arg(args, struct spa_pod *);		\
+		if (pod == NULL)						\
+			spa_pod_builder_none(builder);				\
+		else								\
+			spa_pod_builder_primitive(builder, pod);		\
+		break;								\
+	}									\
+	}									\
+} while(false)
 
-#define SPA_POD_STRUCT(f,...)							\
-	SPA_POD_TYPE_STRUCT, f, __VA_ARGS__, -SPA_POD_TYPE_STRUCT, f
+static inline void *
+spa_pod_builder_addv(struct spa_pod_builder *builder,
+		    const char *format, va_list args)
+{
+	while (format) {
+		switch (*format) {
+		case '<':
+		{
+			uint32_t id = va_arg(args, uint32_t);
+			uint32_t type = va_arg(args, uint32_t);
+			spa_pod_builder_push_object(builder, &builder->frame[builder->depth++], id, type);
+			break;
+		}
+		case '[':
+			spa_pod_builder_push_struct(builder, &builder->frame[builder->depth++]);
+			break;
+		case '(':
+			spa_pod_builder_push_array(builder, &builder->frame[builder->depth++]);
+			break;
+		case ':':
+		{
+			const char *spec;
+			char type;
+			int n_values;
+			uint32_t key, flags;
 
-#define SPA_POD_PROP(f,key,flags,type,...)					\
-	SPA_POD_TYPE_PROP, f, key, flags, type, __VA_ARGS__, -SPA_POD_TYPE_PROP, f
+			key = va_arg(args, uint32_t);
+			format = spec = va_arg(args, const char *);
+			type = *spec;
+			if (*spec != '\0')
+				spec++;
+			flags = spa_pod_range_from_id(*spec);
+			if (*spec != '\0')
+				spec++;
+			for (;*spec;spec++)
+				flags |= spa_pod_flag_from_id(*spec);
 
+			spa_pod_builder_push_prop(builder, &builder->frame[builder->depth++], key, flags);
 
-#define spa_pod_builder_object(b,f,id,type,...)					\
-	spa_pod_builder_add(b, SPA_POD_OBJECT(f,id,type,__VA_ARGS__), 0)
+			if (type == '{' || type == '[')
+				continue;
 
-#define spa_pod_builder_struct(b,f,...)						\
-	spa_pod_builder_add(b, SPA_POD_STRUCT(f,__VA_ARGS__), 0)
+			n_values = -1;
+	                while (n_values-- != 0) {
+				SPA_POD_BUILDER_COLLECT(builder, type, args);
+
+	                        if ((flags & SPA_POD_PROP_RANGE_MASK) == 0)
+					break;
+
+	                        if (n_values == -2)
+	                                n_values = va_arg(args, int);
+			}
+			spa_pod_builder_pop(builder, &builder->frame[--builder->depth]);
+			break;
+		}
+		case ']': case ')': case '>':
+			spa_pod_builder_pop(builder, &builder->frame[--builder->depth]);
+			if (builder->depth > 0 &&
+			    builder->frame[builder->depth-1].pod.type == SPA_POD_TYPE_PROP)
+				spa_pod_builder_pop(builder, &builder->frame[--builder->depth]);
+			break;
+		case ' ': case '\n': case '\t': case '\r':
+			break;
+		case '\0':
+			format = va_arg(args, const char *);
+			continue;
+		default:
+			SPA_POD_BUILDER_COLLECT(builder,*format,args);
+			break;;
+		}
+		format++;
+	}
+	return SPA_POD_BUILDER_DEREF(builder, builder->frame[builder->depth].ref, void);
+}
+
+static inline void *spa_pod_builder_add(struct spa_pod_builder *builder, const char *format, ...)
+{
+	void *res;
+	va_list args;
+
+	va_start(args, format);
+	res = spa_pod_builder_addv(builder, format, args);
+	va_end(args);
+
+	return res;
+}
+
+#define SPA_POD_OBJECT(id,type,...)			\
+	"<", id, type, ##__VA_ARGS__, ">"
+
+#define SPA_POD_STRUCT(...)				\
+	"[", ##__VA_ARGS__, "]"
+
+#define SPA_POD_PROP(key,spec,type,value,...)		\
+	":", key, spec, value, ##__VA_ARGS__
+
+#define spa_pod_builder_object(b,id,type,...)					\
+	spa_pod_builder_add(b, SPA_POD_OBJECT(id,type,##__VA_ARGS__), NULL)
+
+#define spa_pod_builder_struct(b,...)					\
+	spa_pod_builder_add(b, SPA_POD_STRUCT(__VA_ARGS__), NULL)
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -26,6 +26,7 @@ extern "C" {
 
 #include <spa/pod.h>
 #include <spa/pod-builder.h>
+#include <spa/pod-parser.h>
 
 struct spa_props {
 	struct spa_pod_object object;
@@ -58,20 +59,16 @@ spa_pod_builder_push_props(struct spa_pod_builder *builder,
 	return spa_pod_builder_push_object(builder, frame, 0, props_type);
 }
 
-#define spa_pod_builder_props(b,f,props_type,...)		\
-	spa_pod_builder_object(b, f, 0, props_type,__VA_ARGS__)
+#define spa_pod_builder_props(b,props_type,...)		\
+	spa_pod_builder_object(b, 0, props_type,##__VA_ARGS__)
 
-static inline uint32_t spa_props_query(const struct spa_props *props, uint32_t key, ...)
-{
-	uint32_t count;
-	va_list args;
-
-	va_start(args, key);
-	count = spa_pod_contents_queryv(&props->object.pod, sizeof(struct spa_props), key, args);
-	va_end(args);
-
-	return count;
-}
+#define spa_props_parse(props,...)				\
+({								\
+	struct spa_pod_parser __p;				\
+	const struct spa_props *__props = props;		\
+	spa_pod_parser_pod(&__p, &__props->object.pod);		\
+	spa_pod_parser_get(&__p, "<", ##__VA_ARGS__, NULL);	\
+})
 
 #ifdef __cplusplus
 }  /* extern "C" */

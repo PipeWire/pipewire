@@ -177,12 +177,6 @@ static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
 	return SDL_PIXELFORMAT_UNKNOWN;
 }
 
-#define PROP(f,key,type,...)							\
-	SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)						\
-	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
-			SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-
 static int impl_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	return SPA_RESULT_OK;
@@ -233,7 +227,6 @@ static int impl_port_enum_formats(struct spa_node *node, enum spa_direction dire
 				  uint32_t index)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	const struct spa_format *formats[1];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(d->buffer, sizeof(d->buffer));
 	struct spa_pod_frame f[2];
 	SDL_RendererInfo info;
@@ -268,19 +261,18 @@ static int impl_port_enum_formats(struct spa_node *node, enum spa_direction dire
 	}
 	spa_pod_builder_pop(&b, &f[1]);
 	spa_pod_builder_add(&b,
-		PROP_U_MM(&f[1], d->type.format_video.size, SPA_POD_TYPE_RECTANGLE,
-			WIDTH, HEIGHT,
-			1, 1, info.max_texture_width, info.max_texture_height),
-		PROP_U_MM(&f[1], d->type.format_video.framerate, SPA_POD_TYPE_FRACTION,
-			25, 1,
-			0, 1, 30, 1),
-		0);
+		":", d->type.format_video.size,      "Rru", &SPA_RECTANGLE(WIDTH, HEIGHT),
+								2, &SPA_RECTANGLE(1,1),
+								   &SPA_RECTANGLE(info.max_texture_width,
+										  info.max_texture_height),
+		":", d->type.format_video.framerate, "Fru", &SPA_FRACTION(25,1),
+								2, &SPA_FRACTION(0,1),
+								   &SPA_FRACTION(30,1),
+		NULL);
 	spa_pod_builder_pop(&b, &f[0]);
-	formats[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+	*format = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
 
-	spa_debug_format(formats[0]);
-
-	*format = (struct spa_format *)formats[0];
+	spa_debug_format(*format);
 
 	return SPA_RESULT_OK;
 }
@@ -291,7 +283,6 @@ static int impl_port_set_format(struct spa_node *node, enum spa_direction direct
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct pw_type *t = d->t;
 	struct spa_pod_builder b = { NULL };
-	struct spa_pod_frame f[2];
 	Uint32 sdl_format;
 	void *dest;
 
@@ -315,24 +306,18 @@ static int impl_port_set_format(struct spa_node *node, enum spa_direction direct
 	SDL_UnlockTexture(d->texture);
 
 	spa_pod_builder_init(&b, d->params_buffer, sizeof(d->params_buffer));
-	spa_pod_builder_object(&b, &f[0], 0, t->param_alloc_buffers.Buffers,
-		PROP(&f[1], t->param_alloc_buffers.size, SPA_POD_TYPE_INT,
-			d->stride * d->format.size.height),
-		PROP(&f[1], t->param_alloc_buffers.stride, SPA_POD_TYPE_INT,
-			d->stride),
-		PROP_U_MM(&f[1], t->param_alloc_buffers.buffers, SPA_POD_TYPE_INT,
-			32,
-			2, 32),
-		PROP(&f[1], t->param_alloc_buffers.align, SPA_POD_TYPE_INT,
-			16));
-	d->params[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
+	d->params[0] = spa_pod_builder_param(&b,
+		t->param_alloc_buffers.Buffers,
+		":", t->param_alloc_buffers.size,    "i", d->stride * d->format.size.height,
+		":", t->param_alloc_buffers.stride,  "i", d->stride,
+		":", t->param_alloc_buffers.buffers, "iru", 32,
+								2, 2, 32,
+		":", t->param_alloc_buffers.align,   "i", 16);
 
-	spa_pod_builder_object(&b, &f[0], 0, t->param_alloc_meta_enable.MetaEnable,
-		PROP(&f[1], t->param_alloc_meta_enable.type, SPA_POD_TYPE_ID,
-			t->meta.Header),
-		PROP(&f[1], t->param_alloc_meta_enable.size, SPA_POD_TYPE_INT,
-			sizeof(struct spa_meta_header)));
-	d->params[1] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_param);
+	d->params[1] = spa_pod_builder_param(&b,
+		t->param_alloc_meta_enable.MetaEnable,
+		":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
+		":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
 
 	return SPA_RESULT_OK;
 }
@@ -342,18 +327,13 @@ static int impl_port_get_format(struct spa_node *node, enum spa_direction direct
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(d->buffer, sizeof(d->buffer));
-	struct spa_pod_frame f[2];
 
-	spa_pod_builder_push_format(&b, &f[0], d->type.format,
-				    d->type.media_type.video,
-				    d->type.media_subtype.raw);
-	spa_pod_builder_add(&b,
-		PROP(&f[1], d->type.format_video.format, SPA_POD_TYPE_ID, d->format.format),
-		PROP(&f[1], d->type.format_video.size, SPA_POD_TYPE_RECTANGLE, &d->format.size),
-		PROP(&f[1], d->type.format_video.framerate, SPA_POD_TYPE_FRACTION, &d->format.framerate),
-		0);
-	spa_pod_builder_pop(&b, &f[0]);
-	*format = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+	*format = spa_pod_builder_format(&b, d->type.format,
+		d->type.media_type.video,
+		d->type.media_subtype.raw,
+		":", d->type.format_video.format,    "I", d->format.format,
+		":", d->type.format_video.size,      "R", &d->format.size,
+		":", d->type.format_video.framerate, "F", &d->format.framerate);
 
 	return SPA_RESULT_OK;
 }

@@ -35,17 +35,26 @@ struct spa_param {
 	struct spa_pod_object object;
 };
 
-static inline uint32_t spa_param_query(const struct spa_param *param, uint32_t key, ...)
+static inline uint32_t
+spa_pod_builder_push_param(struct spa_pod_builder *builder,
+			   struct spa_pod_frame *frame,
+			   uint32_t param_type)
 {
-	uint32_t count;
-	va_list args;
-
-	va_start(args, key);
-	count = spa_pod_contents_queryv(&param->object.pod, sizeof(struct spa_param), key, args);
-	va_end(args);
-
-	return count;
+	return spa_pod_builder_push_object(builder, frame, 0, param_type);
 }
+
+#define spa_pod_builder_param(b,param_type,...)			\
+	spa_pod_builder_object(b, 0, param_type,		\
+		##__VA_ARGS__)
+
+
+#define spa_param_parse(param,...)				\
+({								\
+	struct spa_pod_parser __p;				\
+	const struct spa_param *__param = param;		\
+	spa_pod_parser_pod(&__p, &__param->object.pod);		\
+	spa_pod_parser_get(&__p, "<", ##__VA_ARGS__, NULL);	\
+})
 
 #define SPA_PARAM_BODY_FOREACH(body, size, iter)							\
 	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_object_body), struct spa_pod_prop);	\

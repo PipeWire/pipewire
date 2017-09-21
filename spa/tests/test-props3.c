@@ -40,16 +40,22 @@
  [ <type>,
    [ <media-type>, <media-subtype> ],
    {
-     <key> : [ <type>, <value>, [ <value>, ... ] ],
+     <key> : <property>,
      ...
    }
  ]
 
-   <type> = "123.."
+ <property> =   [ <flags>, <default>, [ <alternatives>,... ]]
+              | <value>
+
+
+   <flags> = "123.."
 
    1: s = string    :  "value"
       i = int       :  <number>
+      l = long      :  <number>
       f = float     :  <float>
+      d = double    :  <double>
       b = bool      :  true | false
       R = rectangle : [ <width>, <height> ]
       F = fraction  : [ <num>, <denom> ]
@@ -88,18 +94,16 @@
 
 #include <stddef.h>
 
-#define NONE      0
-#define STRUCT    1
-#define BARE      2
-#define STRING    3
-#define UTF8      4
-#define ESC       5
+#define STRUCT    0
+#define BARE      1
+#define STRING    2
+#define UTF8      3
+#define ESC       4
 
 struct spa_json_iter {
 	const char *start;
 	const char *cur;
 	const char *end;
-	struct spa_json_iter *parent;
 	int state;
 	int depth;
 };
@@ -109,71 +113,97 @@ struct spa_json_chunk {
 	int len;
 };
 
-static void
-spa_json_iter_init (struct spa_json_iter *iter, const char *data, size_t size)
-{
-	iter->end = size == -1 ? NULL : data + size;
-	iter->parent = NULL;
-	iter->cur = data;
-	iter->state = NONE;
-}
+static inline int
+spa_json_chunk_extract(struct spa_json_chunk *chunk, const char *template, ...);
 
 enum spa_json_type {
-	SPA_JSON_TYPE_INVALID,
-	SPA_JSON_TYPE_ARRAY,
-	SPA_JSON_TYPE_OBJECT,
-	SPA_JSON_TYPE_STRING,
-	SPA_JSON_TYPE_NUMBER,
-	SPA_JSON_TYPE_BOOL,
-	SPA_JSON_TYPE_NULL,
+	SPA_JSON_TYPE_ANY	= '-',
+	SPA_JSON_TYPE_CHUNK	= 'c',
+	SPA_JSON_TYPE_INT	= 'i',
+	SPA_JSON_TYPE_LONG	= 'l',
+	SPA_JSON_TYPE_FLOAT	= 'f',
+	SPA_JSON_TYPE_DOUBLE	= 'd',
+	SPA_JSON_TYPE_STRING	= 's',
+	SPA_JSON_TYPE_BOOL	= 'b',
+	SPA_JSON_TYPE_RECTANGLE	= 'R',
+	SPA_JSON_TYPE_FRACTION	= 'F',
+	SPA_JSON_TYPE_OBJECT	= 'o',
+	SPA_JSON_TYPE_ARRAY	= 'a'
 };
 
-static inline enum spa_json_type spa_json_chunk_get_type(struct spa_json_chunk *chunk)
+static inline bool spa_json_chunk_is_type(struct spa_json_chunk *chunk,
+					  enum spa_json_type type)
 {
-	switch (chunk->value[0]) {
-	case '[':
-		return SPA_JSON_TYPE_ARRAY;
-	case '{':
-		return SPA_JSON_TYPE_OBJECT;
-	case '"':
-		return SPA_JSON_TYPE_STRING;
-	case '-': case '0' ... '9':
-		return SPA_JSON_TYPE_NUMBER;
-	case 't': case 'f':
-		return SPA_JSON_TYPE_BOOL;
-	case 'n':
-		return SPA_JSON_TYPE_NULL;
+	switch (type) {
+	case SPA_JSON_TYPE_ANY:
+	case SPA_JSON_TYPE_CHUNK:
+		return true;
+	case SPA_JSON_TYPE_INT:
+	case SPA_JSON_TYPE_LONG:
+	case SPA_JSON_TYPE_FLOAT:
+	case SPA_JSON_TYPE_DOUBLE:
+		return (chunk->value[0] >= '0' && chunk->value[0] <= '9') ||
+			chunk->value[0] == '-' ;
+	case SPA_JSON_TYPE_STRING:
+		return chunk->value[0] == '\"';
+	case SPA_JSON_TYPE_BOOL:
+		return chunk->value[0] == 't' || chunk->value[0] == 'f';
+	case SPA_JSON_TYPE_RECTANGLE:
+	case SPA_JSON_TYPE_FRACTION:
+	case SPA_JSON_TYPE_ARRAY:
+		return chunk->value[0] == '[';
+	case SPA_JSON_TYPE_OBJECT:
+		return chunk->value[0] == '{';
 	}
-	return SPA_JSON_TYPE_INVALID;
+	return false;
 }
 
-
-static inline bool spa_json_chunk_is_object(struct spa_json_chunk *chunk) {
-	return chunk->value[0] == '{';
+static inline int spa_json_chunk_to_int(struct spa_json_chunk *chunk) {
+	return atoi(chunk->value);
+}
+static inline int64_t spa_json_chunk_to_long(struct spa_json_chunk *chunk) {
+	return atol(chunk->value);
+}
+static inline int64_t spa_json_chunk_to_float(struct spa_json_chunk *chunk) {
+	return strtof(chunk->value, NULL);
+}
+static inline int64_t spa_json_chunk_to_double(struct spa_json_chunk *chunk) {
+	return strtod(chunk->value, NULL);
+}
+static inline bool spa_json_chunk_to_bool(struct spa_json_chunk *chunk) {
+	return chunk->value[0] == 't';
+}
+static inline int spa_json_chunk_to_rectangle(struct spa_json_chunk *chunk,
+					      struct spa_rectangle *rect) {
+	return spa_json_chunk_extract(chunk, "[ #pi, #pi ]", &rect->width, &rect->height);
+}
+static inline int spa_json_chunk_to_fraction(struct spa_json_chunk *chunk,
+					     struct spa_fraction *frac) {
+	return spa_json_chunk_extract(chunk, "[ #pi, #pi ]", &frac->num, &frac->denom);
 }
 
-static inline bool spa_json_chunk_is_array(struct spa_json_chunk *chunk) {
-	return chunk->value[0] == '[';
+static inline void
+spa_json_iter_init (struct spa_json_iter *iter, const char *data, size_t size)
+{
+	iter->start = iter->cur = data;
+	iter->end = size == -1 ? NULL : data + size;
+	iter->state = STRUCT;
+	iter->depth = 0;
 }
 
-static inline bool spa_json_chunk_is_string(struct spa_json_chunk *chunk) {
-	return chunk->value[0] == '"';
+static inline bool
+spa_json_iter_chunk(struct spa_json_iter *iter, struct spa_json_chunk *chunk)
+{
+	if (!spa_json_chunk_is_type(chunk, SPA_JSON_TYPE_OBJECT) &&
+	    !spa_json_chunk_is_type(chunk, SPA_JSON_TYPE_ARRAY))
+		return false;
+
+	spa_json_iter_init (iter, chunk->value, -1);
+	iter->cur++;
+	return true;
 }
 
-static inline bool spa_json_chunk_is_number(struct spa_json_chunk *chunk) {
-	return (chunk->value[0] >= '0' && chunk->value[0] <= '9') ||
-		chunk->value[0] == '-' ;
-}
-
-static inline bool spa_json_chunk_is_bool(struct spa_json_chunk *chunk) {
-	return chunk->value[0] == 't' || chunk->value[0] == 'f';
-}
-
-static inline bool spa_json_chunk_is_null(struct spa_json_chunk *chunk) {
-	return chunk->value[0] == 'n';
-}
-
-static int
+static inline int
 spa_json_iter_next_chunk(struct spa_json_iter *iter, struct spa_json_chunk *chunk)
 {
 	int utf8_remain = 0;
@@ -182,10 +212,6 @@ spa_json_iter_next_chunk(struct spa_json_iter *iter, struct spa_json_chunk *chun
 		unsigned char cur = (unsigned char) *iter->cur;
 again:
 		switch (iter->state) {
-		case NONE:
-			iter->state = STRUCT;
-			iter->depth = 0;
-			/** fallthrough */
 		case STRUCT:
 			switch (cur) {
 			case '\t': case ' ': case '\r': case '\n': case ':': case ',':
@@ -201,11 +227,8 @@ again:
 				iter->cur++;
 				return chunk->len = 1;
 			case '}': case ']':
-				if (iter->depth == 0) {
-					if (iter->parent)
-						iter->parent->cur = iter->cur;
+				if (iter->depth == 0)
 					return 0;
-				}
 				--iter->depth;
 				continue;
 			case '-': case 'a' ... 'z': case 'A' ... 'Z': case '0' ... '9': case '#':
@@ -274,52 +297,292 @@ again:
 	return iter->depth == 0 ? 0 : -1;
 }
 
-static int
-spa_json_iter_recurse(struct spa_json_iter *iter, struct spa_json_iter *sub)
+static inline void
+spa_json_chunk_print(struct spa_json_chunk *chunk, int prefix)
 {
-	sub->end = iter->end;
-	sub->parent = iter;
-	sub->cur = iter->cur;
-	sub->state = NONE;
-	sub->start = iter->cur-1;
+	struct spa_json_iter iter;
+	if (spa_json_iter_chunk(&iter, chunk)) {
+		struct spa_json_chunk chunk2 = { NULL, };
+
+		printf ("%-*s%c\n", prefix, "", chunk->value[0]);
+		while (spa_json_iter_next_chunk(&iter, &chunk2) > 0)
+			spa_json_chunk_print(&chunk2, prefix + 2);
+		printf ("%-*s%c\n", prefix, "", iter.cur[0]);
+	} else {
+		printf ("%-*s%.*s\n", prefix, "", chunk->len, chunk->value);
+	}
+}
+
+
+static inline int spa_json_iter_find_key(struct spa_json_iter *iter, const char *key)
+{
+	struct spa_json_chunk ch = { NULL, };
+	int res;
+
+	iter->cur = iter->start + 1;
+	iter->depth = 0;
+	iter->state = STRUCT;
+
+	while (true) {
+		/* read key */
+		if ((res = spa_json_iter_next_chunk(iter, &ch)) <= 0)
+			return res;
+
+		if (spa_json_chunk_is_type(&ch, SPA_JSON_TYPE_STRING) &&
+		    strncmp(key, ch.value, ch.len) == 0)
+			return 1;
+	}
 	return 0;
 }
 
-static int
-spa_json_iter_chunk(struct spa_json_iter *iter, struct spa_json_chunk *chunk)
-{
-	if (spa_json_chunk_is_object(chunk) || spa_json_chunk_is_array(chunk))
-		spa_json_iter_init (iter, chunk->value + 1, -1);
-	else
-		spa_json_iter_init (iter, chunk->value, chunk->len);
-	return 0;
-}
+enum spa_json_prop_range {
+	SPA_JSON_PROP_RANGE_NONE	= '-',
+	SPA_JSON_PROP_RANGE_MIN_MAX	= 'r',
+	SPA_JSON_PROP_RANGE_STEP	= 's',
+	SPA_JSON_PROP_RANGE_ENUM	= 'e',
+	SPA_JSON_PROP_RANGE_FLAGS	= 'f'
+};
 
-static void
-spa_json_iter_print (struct spa_json_iter *it, int prefix)
-{
-	struct spa_json_chunk chunk;
+enum spa_json_prop_flags {
+	SPA_JSON_PROP_FLAG_UNSET	= (1 << 0),
+	SPA_JSON_PROP_FLAG_OPTIONAL	= (1 << 1),
+	SPA_JSON_PROP_FLAG_READONLY	= (1 << 2),
+	SPA_JSON_PROP_FLAG_DEPRECATED	= (1 << 3),
+};
 
-	while (spa_json_iter_next_chunk(it, &chunk) > 0) {
-		printf ("%-*s %.*s\n", prefix, "", chunk.len, chunk.value);
-		if (spa_json_chunk_is_object(&chunk) ||
-		    spa_json_chunk_is_array(&chunk)) {
-			struct spa_json_iter sub;
-			spa_json_iter_recurse(it, &sub);
-			spa_json_iter_print(&sub, prefix + 2);
-			printf ("%-*s %c\n", prefix, "", sub.cur[0]);
+struct spa_json_prop {
+	enum spa_json_type type;
+	enum spa_json_prop_range range;
+	enum spa_json_prop_flags flags;
+	struct spa_json_chunk value;
+	struct spa_json_chunk alternatives;
+};
+
+static inline int
+spa_json_chunk_parse_prop(struct spa_json_chunk *chunk, char type,
+			 struct spa_json_prop *prop)
+{
+	if (spa_json_chunk_is_type(chunk, SPA_JSON_TYPE_ARRAY)) {
+		struct spa_json_chunk flags;
+		int res;
+		char ch;
+
+		/* [<flags>, <default>, [<alternatives>,...]] */
+		if ((res = spa_json_chunk_extract(chunk,
+				"[ #&cs, #&c-, #&ca ]",
+				&flags, &prop->value, &prop->alternatives)) < 3) {
+			printf("can't parse prop chunk %d\n", res);
+			return -1;
+		}
+
+		/* skip \" */
+		flags.value++;
+		prop->type = *flags.value++;
+		if (type != SPA_JSON_TYPE_ANY && type != SPA_JSON_TYPE_CHUNK && prop->type != type) {
+			printf("prop chunk of wrong type %d %d\n", prop->type, type);
+			return -1;
+		}
+		prop->range = *flags.value++;
+		/* flags */
+		prop->flags = 0;
+		while ((ch = *flags.value++) != '\"') {
+			switch (ch) {
+			case 'u':
+				prop->flags |= SPA_JSON_PROP_FLAG_UNSET;
+				break;
+			case 'o':
+				prop->flags |= SPA_JSON_PROP_FLAG_OPTIONAL;
+				break;
+			case 'r':
+				prop->flags |= SPA_JSON_PROP_FLAG_READONLY;
+				break;
+			case 'd':
+				prop->flags |= SPA_JSON_PROP_FLAG_DEPRECATED;
+				break;
+			}
 		}
 	}
+	else {
+		/* <value> */
+		prop->type = type;
+		prop->range = SPA_JSON_PROP_RANGE_NONE;
+		prop->flags = 0;
+		prop->value = *chunk;
+		prop->alternatives = *chunk;
+	}
+	return 0;
+}
+
+/**
+ * #[*]<asign>
+ *
+ * * = skip assignment
+ * <asign> is:
+ *   &<type>  -> pointer to type
+ *   p<type>  -> property, fixed value store in pointer to type
+ *   P<type>  -> property, stored in pointer to struct spa_json_prop
+ *
+ * <type>
+ *   -  -> any
+ *   c<type>  -> store as chunk if of type
+ *   s  -> string
+ *   i  -> int
+ *   l  -> long
+ *   f  -> float
+ *   d  -> double
+ *   b  -> bool
+ *   R  -> rectangle
+ *   F  -> fraction
+ *   a  -> array
+ *   o  -> object
+ */
+static inline int
+spa_json_chunk_extract(struct spa_json_chunk *chunk,
+		      const char *template, ...)
+{
+	struct spa_json_iter templ[16], it[16];
+	struct spa_json_chunk tch = { NULL, }, ch = { NULL, };
+	struct spa_json_prop prop;
+	const char *match;
+	int collected = 0, res, level = 0;
+	va_list args;
+	bool store;
+
+        va_start(args, template);
+
+	spa_json_iter_init(&it[0], chunk->value, chunk->len);
+	spa_json_iter_init (&templ[0], template, -1);
+
+	while (true) {
+		res = spa_json_iter_next_chunk(&templ[level], &tch);
+		if (res == 0) {
+			if (--level == 0)
+				break;
+			continue;
+		} else if (res < 0) {
+			return res;
+		}
+
+		switch (tch.value[0]) {
+		case '[': case '{':
+			if (spa_json_iter_next_chunk(&it[level], &ch) <= 0 ||
+			    ch.value[0] != tch.value[0])
+				return -1;
+			if (++level == 16)
+				return -2;
+			spa_json_iter_chunk(&it[level], &ch);
+			spa_json_iter_chunk(&templ[level], &tch);
+			break;
+		case '"':
+		case '-': case '0' ... '9':
+		case 't': case 'f':
+		case 'n':
+			if (templ[level].start[0] == '{') {
+				if (spa_json_iter_find_key(&it[level], tch.value) <= 0)
+					continue;
+			} else if (spa_json_iter_next_chunk(&it[level], &ch) <= 0 ||
+			    ch.len != tch.len ||
+			    strncmp(ch.value, tch.value, ch.len) != 0)
+				return -1;
+			break;
+		case '#':
+			match = tch.value + 1;
+			if (spa_json_iter_next_chunk(&it[level], &ch) <= 0)
+				return -1;
+
+			store = (match[0] != '*');
+			if (!store)
+				match++;
+
+			switch (match[0]) {
+			case 'p':
+			case 'P':
+				if (spa_json_chunk_parse_prop(&ch, match[1], &prop) < 0)
+					goto skip;
+
+				if (match[0] == 'P') {
+					if (store)
+						*va_arg(args, struct spa_json_prop *) = prop;
+					collected++;
+					break;
+				}
+				else {
+					if (prop.flags & SPA_JSON_PROP_FLAG_UNSET)
+						goto skip;
+
+					ch = prop.value;
+				}
+				/* fallthrough */
+			case '&':
+				if (!spa_json_chunk_is_type(&ch, match[1] == SPA_JSON_TYPE_CHUNK ?
+										match[2] : match[1])) {
+skip:
+					if (store)
+						va_arg(args, void *);
+					break;
+				}
+				if (!store)
+					break;
+
+				collected++;
+
+				switch (match[1]) {
+				case SPA_JSON_TYPE_CHUNK:
+					*va_arg(args, struct spa_json_chunk *) = ch;
+					break;
+				case SPA_JSON_TYPE_INT:
+					*va_arg(args, int *) = spa_json_chunk_to_int(&ch);
+					break;
+				case SPA_JSON_TYPE_LONG:
+					*va_arg(args, int64_t *) = spa_json_chunk_to_long(&ch);
+					break;
+				case SPA_JSON_TYPE_FLOAT:
+					*va_arg(args, float *) = spa_json_chunk_to_float(&ch);
+					break;
+				case SPA_JSON_TYPE_DOUBLE:
+					*va_arg(args, double *) = spa_json_chunk_to_double(&ch);
+					break;
+				case SPA_JSON_TYPE_BOOL:
+					*va_arg(args, bool *) = spa_json_chunk_to_bool(&ch);
+					break;
+				case SPA_JSON_TYPE_RECTANGLE:
+					spa_json_chunk_to_rectangle(&ch,
+						va_arg(args, struct spa_rectangle *));
+					break;
+				case SPA_JSON_TYPE_FRACTION:
+					spa_json_chunk_to_fraction(&ch,
+						va_arg(args, struct spa_fraction *));
+					break;
+				default:
+					printf("ignoring invalid #p type %c\n", match[1]);
+					va_arg(args, void *);
+					collected--;
+					continue;
+				}
+				break;
+			default:
+				printf("ignoring unknown match type %c\n", *match);
+				break;
+			}
+			break;
+		default:
+			printf("invalid char %c\n", tch.value[0]);
+			return -2;
+		}
+	}
+        va_end(args);
+
+	return collected;
 }
 
 static int
 spa_json_iter_array(struct spa_json_iter *iter,
 		    struct spa_json_iter *array)
 {
-	struct spa_json_chunk chunk;
+	struct spa_json_chunk chunk = { NULL, };
 	if (spa_json_iter_next_chunk(iter, &chunk) <= 0 ||
-	    !spa_json_chunk_is_array(&chunk)) return -1;
-	return spa_json_iter_recurse(iter, array);
+	    !spa_json_chunk_is_type(&chunk, SPA_JSON_TYPE_ARRAY)) return -1;
+	return spa_json_iter_chunk(array, &chunk);
 }
 
 static int
@@ -328,8 +591,8 @@ spa_json_iter_object(struct spa_json_iter *iter,
 {
 	struct spa_json_chunk chunk;
 	if (spa_json_iter_next_chunk(iter, &chunk) <= 0 ||
-	    !spa_json_chunk_is_object(&chunk)) return -1;
-	return spa_json_iter_recurse(iter, object);
+	    !spa_json_chunk_is_type(&chunk, SPA_JSON_TYPE_OBJECT)) return -1;
+	return spa_json_iter_chunk(object, &chunk);
 }
 
 static int
@@ -337,7 +600,7 @@ spa_json_iter_string(struct spa_json_iter *iter,
 		     struct spa_json_chunk *str)
 {
 	if (spa_json_iter_next_chunk(iter, str) <= 0) return -1;
-	return (*str->value == '"')  ? 0 : -1;
+	return spa_json_chunk_is_type(str, SPA_JSON_TYPE_STRING) ? 0 : -1;
 }
 
 static int
@@ -363,7 +626,7 @@ spa_format_parse(struct spa_json_iter *iter,
 static int test_parsing(const char *format)
 {
 	struct spa_json_iter iter[5];
-	struct spa_json_chunk media_type, media_subtype, value;
+	struct spa_json_chunk media_type, media_subtype, value = { NULL, };
 	struct spa_json_iter props;
 
 	spa_json_iter_init (&iter[0], format, strlen(format));
@@ -392,167 +655,68 @@ static int test_parsing(const char *format)
 	return 0;
 }
 
-static int spa_json_iter_find_key(struct spa_json_iter *iter,
-				  const char *key,
-				  struct spa_json_chunk *chunk)
-{
-	struct spa_json_chunk ch;
-	struct spa_json_iter it = *iter;
-	int res;
-
-	while (true) {
-		if ((res = spa_json_iter_next_chunk(&it, &ch)) <= 0)
-			return res;
-
-		if (spa_json_iter_next_chunk(&it, chunk) <= 0)
-			return -1;
-
-		if (spa_json_chunk_is_string(&ch) &&
-		    strncmp(key, ch.value, ch.len) == 0)
-			return 1;
-	}
-	return 0;
-}
-
-/**
- * #c  -> any chunk
- * #s  -> string chunk
- * #n  -> number chunk
- * #b  -> bool chunk
- * #i  -> iter
- */
-
-static int spa_json_iter_extract(struct spa_json_iter *iter,
-				 const char *template, ...)
-{
-	struct spa_json_iter templ[16], it[16];
-	struct spa_json_chunk tchunk, chunk, *ch;
-	int collected = 0, res, level = 0;
-	va_list args;
-
-        va_start(args, template);
-
-	it[0] = *iter;
-	spa_json_iter_init (&templ[0], template, strlen(template));
-
-	while (true) {
-		res = spa_json_iter_next_chunk(&templ[level], &tchunk);
-		if (res == 0) {
-			if (--level == 0)
-				break;
-			continue;
-		} else if (res < 0) {
-			return res;
-		}
-
-		switch (tchunk.value[0]) {
-			case '[': case '{':
-				if (spa_json_iter_next_chunk(&it[level], &chunk) <= 0 ||
-				    chunk.value[0] != tchunk.value[0])
-					return -1;
-				if (++level == 16)
-					return -2;
-				spa_json_iter_recurse(&it[level-1], &it[level]);
-				spa_json_iter_recurse(&templ[level-1], &templ[level]);
-				break;
-			case '"':
-			case '-': case '0' ... '9':
-			case 't': case 'f':
-			case 'n':
-				if (templ[level].start[0] == '{') {
-					it[level].cur = it[level].start + 1;
-					it[level].depth = 0;
-					it[level].state = 1;
-					if (spa_json_iter_find_key(&it[level], tchunk.value, &chunk) <= 0)
-						continue;
-					it[level].cur = chunk.value;
-
-				} else if (spa_json_iter_next_chunk(&it[level], &chunk) <= 0 ||
-				    chunk.len != tchunk.len ||
-				    strncmp(chunk.value, tchunk.value, chunk.len) != 0)
-					return -1;
-				break;
-			case '#':
-				ch = va_arg(args, struct spa_json_chunk *);
-				if (spa_json_iter_next_chunk(&it[level], ch) <= 0)
-					return -1;
-
-				switch (tchunk.value[1]) {
-					case 's':
-						if (spa_json_chunk_is_string(ch))
-							collected++;
-						break;
-					case 'c':
-						collected++;
-						break;
-				}
-				break;
-			default:
-				printf("invalid %c\n", tchunk.value[0]);
-				return -2;
-		}
-	}
-        va_end(args);
-
-	return collected;
-}
-
 static int test_extract(const char *fmt)
 {
 	struct spa_json_iter iter;
+	struct spa_json_chunk chunk;
 	struct spa_json_chunk media_type;
 	struct spa_json_chunk media_subtype;
+	struct spa_json_chunk format_flags;
 	struct spa_json_chunk format;
 	struct spa_json_chunk rate;
-	struct spa_json_chunk channels;
+	struct spa_json_prop channels;
 	int res;
 
 	spa_json_iter_init (&iter, fmt, strlen(fmt));
-	res = spa_json_iter_extract(&iter,
+	spa_json_iter_next_chunk(&iter, &chunk);
+	res = spa_json_chunk_extract(&chunk,
 		"[ \"Format\", "
-		"  [ #s, #s], "
+		"  [ #&cs, #&cs], "
 		"  { "
-		"    \"rate\":        #c, "
-		"    \"format\":      #c, "
-		"    \"channels\":    #c "
+		"    \"rate\":        #&c-, "
+		"    \"format\":      [ #&cs, #&c-, #*&ca ], "
+		"    \"channels\":    #P-"
 		"  } "
 		"]",
 		&media_type,
 		&media_subtype,
 		&rate,
+		&format_flags,
 		&format,
 		&channels);
 
 	printf("collected %d\n", res);
 	printf("media type %.*s\n", media_type.len, media_type.value);
 	printf("media subtype %.*s\n", media_subtype.len, media_subtype.value);
-	printf("rate:\n");
-	spa_json_iter_chunk (&iter, &rate);
-	spa_json_iter_print(&iter, 4);
-	printf("format:\n");
-	spa_json_iter_chunk (&iter, &format);
-	spa_json_iter_print(&iter, 4);
-	printf("channels:\n");
-	spa_json_iter_chunk (&iter, &channels);
-	spa_json_iter_print(&iter, 4);
+	printf("rate: %.*s\n", rate.len, rate.value);
+	spa_json_chunk_print(&rate, 4);
+	printf("format flags:\n");
+	spa_json_chunk_print(&format_flags, 4);
+	printf("format default:\n");
+	spa_json_chunk_print(&format, 4);
+	printf("channels prop %c %c %04x:\n", channels.type, channels.range, channels.flags);
+	printf("channels value:\n");
+	spa_json_chunk_print(&channels.value, 4);
+	printf("channels alt:\n");
+	spa_json_chunk_print(&channels.alternatives, 4);
 	return 0;
 }
 
 static int test_extract2(const char *fmt)
 {
-	struct spa_json_iter iter, iter2;
+	struct spa_json_iter iter;
+	struct spa_json_chunk chunk;
 	struct spa_json_chunk media_type;
 	struct spa_json_chunk media_subtype;
-	struct spa_json_chunk props;
-	struct spa_json_chunk format;
-	struct spa_json_chunk rate;
+	struct spa_json_chunk props, rate, format;
 	int res;
 
 	spa_json_iter_init (&iter, fmt, strlen(fmt));
-	res = spa_json_iter_extract(&iter,
+	spa_json_iter_next_chunk(&iter, &chunk);
+	res = spa_json_chunk_extract(&chunk,
 		"[ \"Format\", "
-		"  [ #s, #s], "
-		"  #c "
+		"  [ #&cs, #&cs], "
+		"  #&c- "
 		"]",
 		&media_type,
 		&media_subtype,
@@ -565,22 +729,63 @@ static int test_extract2(const char *fmt)
 	spa_json_iter_chunk(&iter, &props);
 
 	printf("rate:\n");
-	if (spa_json_iter_find_key(&iter, "\"rate\"", &rate) > 0) {
-		spa_json_iter_chunk(&iter2, &rate);
-		spa_json_iter_print(&iter2, 4);
+	if (spa_json_iter_find_key(&iter, "\"rate\"") > 0) {
+		spa_json_iter_next_chunk(&iter, &rate);
+		spa_json_chunk_print(&rate, 4);
 	}
 
 	printf("format:\n");
-	if (spa_json_iter_find_key(&iter, "\"format\"", &format) > 0) {
-		spa_json_iter_chunk(&iter2, &format);
-		spa_json_iter_print(&iter2, 4);
+	if (spa_json_iter_find_key(&iter, "\"format\"") > 0) {
+		spa_json_iter_next_chunk(&iter, &format);
+		spa_json_chunk_print(&format, 4);
 	}
 
 	return 0;
 }
 
+static int test_extract3(const char *fmt)
+{
+	struct spa_json_iter iter;
+	struct spa_json_chunk chunk;
+	struct spa_json_chunk media_type;
+	struct spa_json_chunk media_subtype;
+	struct spa_json_chunk format;
+	int rate = -1, res;
+	struct spa_json_prop channels;
+
+	spa_json_iter_init (&iter, fmt, strlen(fmt));
+	spa_json_iter_next_chunk(&iter, &chunk);
+	res = spa_json_chunk_extract(&chunk,
+		"[ \"Format\", "
+		"  [ #&cs, #&cs], "
+		"  { "
+		"    \"rate\":        #pi, "
+		"    \"format\":      #pcs, "
+		"    \"channels\":    #P-"
+		"  } "
+		"]",
+		&media_type,
+		&media_subtype,
+		&rate,
+		&format,
+		&channels);
+
+	printf("collected %d\n", res);
+	printf("media type %.*s\n", media_type.len, media_type.value);
+	printf("media subtype %.*s\n", media_subtype.len, media_subtype.value);
+	printf("media rate %d\n", rate);
+	printf("media format %.*s\n", format.len, format.value);
+	printf("media channels: %c %c %04x\n",channels.type, channels.range, channels.flags);
+	spa_json_chunk_print(&channels.value, 2);
+	spa_json_chunk_print(&channels.alternatives, 2);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
+	struct spa_json_iter iter;
+	struct spa_json_chunk chunk;
+
 	const char *format =
 		"[ \"Format\", "
 		"  [ \"audio\", \"raw\"], "
@@ -592,9 +797,24 @@ int main(int argc, char *argv[])
 		"  }"
 		"]";
 
+	spa_json_iter_init(&iter, format, -1);
+	spa_json_iter_next_chunk(&iter, &chunk);
+	spa_json_chunk_print(&chunk, 0);
+
 	test_parsing(format);
 	test_extract(format);
 	test_extract2(format);
+	test_extract3(format);
+
+	test_extract3(
+		"[ \"Format\", "
+		"  [ \"audio\", \"raw\"], "
+                "  { "
+                "    \"format\":      \"S16LE\", "
+                "    \"rate\":        44100, "
+                "    \"channels\":    2, "
+                "  }"
+                "]");
 
 	return 0;
 }

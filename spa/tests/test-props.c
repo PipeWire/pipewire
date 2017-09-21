@@ -134,7 +134,7 @@ key:       "<name>"
   {
     "format" :    [ "se", "I420", [ "I420", "YUY2" ] ],
     "size" :      [ "Rmu", [320, 240], [[ 640, 480], [1024,786]]],
-    "framerate" : [ "Fsu", [25, 1], [[ 0, 1], [65536,1]]]"
+    "framerate" : [ "Fsu", [25, 1], [[ 0, 1], [65536,1]]]
   }
 ]
 
@@ -143,8 +143,8 @@ key:       "<name>"
   {
     "format" :      [ "se", "S16LE", [ "F32LE", "S16LE" ] ],
     "rate" :        [ "imu", 44100, [8000, 96000]],
-    "channels" :    [ "imu", 1, [1, 4096]]"
-    "interleaved" : [ "beo", true ]"
+    "channels" :    [ "imu", 1, [1, 4096]]
+    "interleaved" : [ "beo", true ]
   }
 ]
 

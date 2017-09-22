@@ -83,6 +83,15 @@ static int schedule_tee_output(struct spa_node *data)
 
 static int schedule_tee_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)
 {
+	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
+	struct pw_port *this = &impl->this;
+	struct spa_graph_node *node = &this->rt.mix_node;
+	struct spa_graph_port *p, *pp;
+
+	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
+		if ((pp = p->peer) != NULL)
+			spa_node_port_reuse_buffer(pp->node->implementation, port_id, buffer_id);
+
 	return SPA_RESULT_OK;
 }
 
@@ -131,6 +140,15 @@ static int schedule_mix_output(struct spa_node *data)
 
 static int schedule_mix_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)
 {
+	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
+	struct pw_port *this = &impl->this;
+	struct spa_graph_node *node = &this->rt.mix_node;
+	struct spa_graph_port *p, *pp;
+
+	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
+		if ((pp = p->peer) != NULL)
+			spa_node_port_reuse_buffer(pp->node->implementation, port_id, buffer_id);
+
 	return SPA_RESULT_OK;
 }
 

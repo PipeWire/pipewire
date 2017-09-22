@@ -931,6 +931,8 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   GST_BUFFER_PTS (*buffer) = pts;
   GST_BUFFER_DTS (*buffer) = dts;
 
+  buffer_recycle (GST_MINI_OBJECT_CAST (*buffer));
+
   return GST_FLOW_OK;
 
 not_negotiated:

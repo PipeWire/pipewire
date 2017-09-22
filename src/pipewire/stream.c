@@ -521,11 +521,15 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 
 		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
 			struct spa_port_io *input = &impl->trans->inputs[i];
+			struct buffer_id *bid;
 
 			pw_log_trace("stream %p: process input %d %d", stream, input->status,
 				     input->buffer_id);
 			if (input->buffer_id == SPA_ID_INVALID)
 				continue;
+
+			bid = find_buffer(stream, input->buffer_id);
+			bid->used = true;
 
 			spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
 					 new_buffer, input->buffer_id);

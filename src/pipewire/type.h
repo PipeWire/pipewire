@@ -76,15 +76,6 @@ struct pw_type {
 void
 pw_type_init(struct pw_type *type);
 
-bool
-pw_pod_remap_data(uint32_t type, void *body, uint32_t size, struct pw_map *types);
-
-static inline bool
-pw_pod_remap(struct spa_pod *pod, struct pw_map *types)
-{
-	return pw_pod_remap_data(pod->type, SPA_POD_BODY(pod), pod->size, types);
-}
-
 #ifdef __cplusplus
 }
 #endif

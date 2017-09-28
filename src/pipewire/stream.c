@@ -95,6 +95,9 @@ struct stream {
 	struct pw_array buffer_ids;
 	bool in_order;
 
+	bool client_reuse;
+	uint32_t *last_buffer_id;
+
 	struct spa_list free;
 	bool in_need_buffer;
 
@@ -201,6 +204,7 @@ struct pw_stream *pw_stream_new(struct pw_remote *remote,
 {
 	struct stream *impl;
 	struct pw_stream *this;
+	const char *str;
 
 	impl = calloc(1, sizeof(struct stream));
 	if (impl == NULL)
@@ -223,6 +227,9 @@ struct pw_stream *pw_stream_new(struct pw_remote *remote,
 	this->name = strdup(name);
 	impl->type_client_node = spa_type_map_get_id(remote->core->type.map, PW_TYPE_INTERFACE__ClientNode);
 	impl->rtwritefd = -1;
+
+	str = pw_properties_get(props, "pipewire.client.reuse");
+	impl->client_reuse = str && strcmp(str, "1") == 0;
 
 	spa_hook_list_init(&this->listener_list);
 
@@ -521,19 +528,34 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 
 		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
 			struct spa_port_io *input = &impl->trans->inputs[i];
-			struct buffer_id *bid;
+			uint32_t len, first, id;
 
 			pw_log_trace("stream %p: process input %d %d", stream, input->status,
 				     input->buffer_id);
 			if (input->buffer_id == SPA_ID_INVALID)
 				continue;
 
-			bid = find_buffer(stream, input->buffer_id);
-			bid->used = true;
+			len = pw_array_get_len(&impl->buffer_ids, struct buffer_id);
+			if (impl->client_reuse && impl->last_buffer_id[i] != SPA_ID_INVALID)
+				first = (impl->last_buffer_id[i] + 1) % len;
+			else
+				first = input->buffer_id;
 
-			spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
-					 new_buffer, input->buffer_id);
-			input->buffer_id = SPA_ID_INVALID;
+			id = first;
+			while (true) {
+				struct buffer_id *bid;
+
+				bid = find_buffer(stream, id);
+				bid->used = true;
+
+				spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
+						   new_buffer, id);
+				impl->last_buffer_id[i] = id;
+
+				if (id == input->buffer_id)
+					break;
+				id = (id + 1) % len;
+			}
 		}
 		send_need_input(stream);
 	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT) {
@@ -891,12 +913,19 @@ static void client_node_transport(void *data, uint32_t node_id,
 {
 	struct stream *impl = data;
 	struct pw_stream *stream = &impl->this;
+	int i;
 
 	stream->node_id = node_id;
 
-	if (impl->trans)
+	if (impl->trans) {
 		pw_client_node_transport_destroy(impl->trans);
+		free (impl->last_buffer_id);
+	}
 	impl->trans = transport;
+	impl->last_buffer_id = malloc(impl->trans->area->max_input_ports * sizeof(uint32_t));
+	for (i = 0; i < impl->trans->area->max_input_ports; i++) {
+		impl->last_buffer_id[i] = SPA_ID_INVALID;
+	}
 
 	pw_log_info("stream %p: create client transport %p with fds %d %d for node %u",
 			stream, impl->trans, readfd, writefd, node_id);
@@ -1026,6 +1055,8 @@ void pw_stream_disconnect(struct pw_stream *stream)
 	if (impl->trans) {
 		pw_client_node_transport_destroy(impl->trans);
 		impl->trans = NULL;
+		free(impl->last_buffer_id);
+		impl->last_buffer_id = NULL;
 	}
 }
 

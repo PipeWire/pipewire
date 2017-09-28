@@ -31,11 +31,13 @@
 #include "spa/node.h"
 #include "spa/format-builder.h"
 #include "spa/lib/format.h"
+#include "spa/graph.h"
 
 #include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"
 
 #include "pipewire/core.h"
+#include "pipewire/private.h"
 #include "modules/spa/spa-node.h"
 #include "client-node.h"
 #include "transport.h"
@@ -126,6 +128,8 @@ struct impl {
 
 	int fds[2];
 	int other_fds[2];
+
+	bool client_reuse;
 };
 
 /** \endcond */
@@ -762,13 +766,19 @@ static int spa_proxy_node_process_input(struct spa_node *node)
 		pw_log_trace("%d %d", io->status, io->buffer_id);
 
 		impl->transport->inputs[i] = *io;
-		io->status = SPA_RESULT_NEED_BUFFER;
+
+		if (impl->client_reuse) {
+			io->status = SPA_RESULT_OK;
+			io->buffer_id = SPA_ID_INVALID;
+		} else {
+			io->status = SPA_RESULT_NEED_BUFFER;
+		}
 	}
 	pw_client_node_transport_add_message(impl->transport,
 			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT));
 	do_flush(this);
 
-	if (this->callbacks->need_input)
+	if (this->callbacks->need_input || impl->client_reuse)
 		return SPA_RESULT_OK;
 	else
 		return SPA_RESULT_NEED_BUFFER;
@@ -1149,6 +1159,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	const struct spa_support *support;
 	uint32_t n_support;
 	const char *name = "client-node";
+	const char *str;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -1177,6 +1188,13 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 				     properties, 0);
 	if (this->node == NULL)
 		goto error_no_node;
+
+	str = pw_properties_get(properties, "pipewire.client.reuse");
+	impl->client_reuse = str && strcmp(str, "1") == 0;
+	if (impl->client_reuse)
+		this->node->rt.node.flags |= SPA_GRAPH_NODE_FLAG_ASYNC;
+	else
+		this->node->rt.node.flags &= ~SPA_GRAPH_NODE_FLAG_ASYNC;
 
 	pw_resource_add_listener(this->resource,
 				 &impl->resource_listener,

@@ -137,7 +137,7 @@ spa_pod_maker_build(struct spa_pod_maker *maker,
 			spa_pod_builder_push_array(&maker->b, &maker->frame[maker->depth++]);
 			break;
 		case '{':
-			spa_pod_builder_push_map(&maker->b, &maker->frame[maker->depth++]);
+			spa_pod_builder_push_object(&maker->b, &maker->frame[maker->depth++], 0, 0);
 			break;
 		case ']': case '}': case ')':
 			spa_pod_builder_pop(&maker->b, &maker->frame[--maker->depth]);

@@ -25,7 +25,6 @@ extern "C" {
 #endif
 
 #include <stdarg.h>
-#include <stdio.h>
 #include <spa/pod-iter.h>
 
 #ifndef SPA_POD_MAX_LEVEL

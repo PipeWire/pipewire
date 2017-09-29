@@ -9,7 +9,7 @@ executable('test-ringbuffer', 'test-ringbuffer.c',
            link_with : spalib,
            install : false)
 executable('test-graph', 'test-graph.c',
-           include_directories : [spa_inc ],
+           include_directories : [spa_inc, spa_libinc ],
            dependencies : [dl_lib, pthread_lib],
            link_with : spalib,
            install : false)

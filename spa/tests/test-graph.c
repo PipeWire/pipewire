@@ -38,7 +38,7 @@
 #include <spa/graph.h>
 #include <spa/graph-scheduler1.h>
 
-#include <spa/lib/debug.h>
+#include <lib/debug.h>
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);

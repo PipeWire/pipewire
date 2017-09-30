@@ -13,3 +13,22 @@ pipelines. This includes:
 Nodes in the graph can be implemented as separate processes,
 communicating with sockets and exchanging multimedia content using fd
 passing.
+
+Building
+--------
+
+Pipewire uses the Meson and Ninja build system to compile. If you're not
+familiar with these tools, the included "autogen.sh" script will
+automatically run the correct meson/ninja commands, and output a Makefile.
+It follows that there are two methods to build Pipewire, however both rely
+on Meson and Ninja to actually perform the compilation:
+
+$ ./autogen.sh
+$ make
+
+or the Meson/Ninja native method:
+
+$ meson build
+$ cd build
+$ ninja
+

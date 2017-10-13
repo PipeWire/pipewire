@@ -229,7 +229,7 @@ struct pw_stream *pw_stream_new(struct pw_remote *remote,
 	impl->rtwritefd = -1;
 
 	str = pw_properties_get(props, "pipewire.client.reuse");
-	impl->client_reuse = str && strcmp(str, "1") == 0;
+	impl->client_reuse = str && pw_properties_parse_bool(str);
 
 	spa_hook_list_init(&this->listener_list);
 
@@ -528,34 +528,21 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 
 		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
 			struct spa_port_io *input = &impl->trans->inputs[i];
-			uint32_t len, first, id;
+			struct buffer_id *bid;
+			uint32_t buffer_id;
+
+			buffer_id = input->buffer_id;
+			input->buffer_id = SPA_ID_INVALID;
 
 			pw_log_trace("stream %p: process input %d %d", stream, input->status,
-				     input->buffer_id);
-			if (input->buffer_id == SPA_ID_INVALID)
+				     buffer_id);
+
+			if ((bid = find_buffer(stream, buffer_id)) == NULL)
 				continue;
 
-			len = pw_array_get_len(&impl->buffer_ids, struct buffer_id);
-			if (impl->client_reuse && impl->last_buffer_id[i] != SPA_ID_INVALID)
-				first = (impl->last_buffer_id[i] + 1) % len;
-			else
-				first = input->buffer_id;
-
-			id = first;
-			while (true) {
-				struct buffer_id *bid;
-
-				bid = find_buffer(stream, id);
-				bid->used = true;
-
-				spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
-						   new_buffer, id);
-				impl->last_buffer_id[i] = id;
-
-				if (id == input->buffer_id)
-					break;
-				id = (id + 1) % len;
-			}
+			bid->used = true;
+			spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
+					 new_buffer, buffer_id);
 		}
 		send_need_input(stream);
 	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT) {

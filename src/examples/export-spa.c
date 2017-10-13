@@ -70,6 +70,8 @@ static int make_node(struct data *data)
 					      PW_VERSION_NODE,
 					      props, SPA_ID_INVALID);
 
+	pw_node_set_active(data->node, true);
+
 	pw_remote_export(data->remote, data->node);
 
 	return 0;

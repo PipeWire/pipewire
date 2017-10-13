@@ -113,6 +113,18 @@ client_node_marshal_port_update(void *object,
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
+static void client_node_marshal_set_active(void *object, bool active)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE);
+
+	spa_pod_builder_struct(b, "b", active);
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
 static void client_node_marshal_event_method(void *object, struct spa_event *event)
 {
 	struct pw_proxy *proxy = object;
@@ -749,6 +761,22 @@ static bool client_node_demarshal_port_update(void *object, void *data, size_t s
 	return true;
 }
 
+static bool client_node_demarshal_set_active(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	bool active;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs,
+			"["
+			"b", &active, NULL) < 0)
+		return false;
+
+	pw_resource_do(resource, struct pw_client_node_proxy_methods, set_active, active);
+	return true;
+}
+
 static bool client_node_demarshal_event_method(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
@@ -783,6 +811,7 @@ static const struct pw_client_node_proxy_methods pw_protocol_native_client_node_
 	&client_node_marshal_done,
 	&client_node_marshal_update,
 	&client_node_marshal_port_update,
+	&client_node_marshal_set_active,
 	&client_node_marshal_event_method,
 	&client_node_marshal_destroy
 };
@@ -791,6 +820,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_
 	{ &client_node_demarshal_done, 0 },
 	{ &client_node_demarshal_update, PW_PROTOCOL_NATIVE_REMAP },
 	{ &client_node_demarshal_port_update, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_set_active, 0 },
 	{ &client_node_demarshal_event_method, PW_PROTOCOL_NATIVE_REMAP },
 	{ &client_node_demarshal_destroy, 0 },
 };

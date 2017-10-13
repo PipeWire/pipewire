@@ -170,12 +170,12 @@ void pw_remote_add_listener(struct pw_remote *remote,
 			    void *data);
 
 /** Connect to a remote PipeWire \memberof pw_remote
- * \return true on success. */
+ * \return 0 on success, < 0 on error */
 int pw_remote_connect(struct pw_remote *remote);
 
 /** Connect to a remote PipeWire on the given socket \memberof pw_remote
  * \param fd the connected socket to use
- * \return true on success. */
+ * \return 0 on success, < 0 on error */
 int pw_remote_connect_fd(struct pw_remote *remote, int fd);
 
 /** Get the core proxy, can only be called when connected */

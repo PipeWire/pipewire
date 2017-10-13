@@ -586,6 +586,8 @@ static void client_node_transport(void *object, uint32_t node_id,
                                                readfd,
                                                SPA_IO_ERR | SPA_IO_HUP,
                                                true, on_rtsocket_condition, proxy);
+	if (data->node->active)
+		pw_client_node_proxy_set_active(data->node_proxy, true);
 }
 
 static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_t change_mask)
@@ -1034,8 +1036,16 @@ static void do_node_init(struct pw_proxy *proxy)
         pw_client_node_proxy_done(data->node_proxy, 0, SPA_RESULT_OK);
 }
 
+static void node_active_changed(void *data, bool active)
+{
+	struct node_data *d = data;
+	pw_log_debug("active %d", active);
+	pw_client_node_proxy_set_active(d->node_proxy, active);
+}
+
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
+	.active_changed = node_active_changed,
 	.need_input = node_need_input,
 	.have_output = node_have_output,
 };

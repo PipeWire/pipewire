@@ -166,9 +166,10 @@ struct pw_client_node_buffer {
 #define PW_CLIENT_NODE_PROXY_METHOD_DONE		0
 #define PW_CLIENT_NODE_PROXY_METHOD_UPDATE		1
 #define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE		2
-#define PW_CLIENT_NODE_PROXY_METHOD_EVENT		3
-#define PW_CLIENT_NODE_PROXY_METHOD_DESTROY		4
-#define PW_CLIENT_NODE_PROXY_METHOD_NUM			5
+#define PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE		3
+#define PW_CLIENT_NODE_PROXY_METHOD_EVENT		4
+#define PW_CLIENT_NODE_PROXY_METHOD_DESTROY		5
+#define PW_CLIENT_NODE_PROXY_METHOD_NUM			6
 
 /** \ref pw_client_node methods */
 struct pw_client_node_proxy_methods {
@@ -226,6 +227,10 @@ struct pw_client_node_proxy_methods {
 			     const struct spa_param **params,
 			     const struct spa_port_info *info);
 	/**
+	 * Activate of deactivate the node
+	 */
+	void (*set_active) (void *object, bool active);
+	/**
 	 * Send an event to the node
 	 * \param event the event to send
 	 */
@@ -276,6 +281,12 @@ pw_client_node_proxy_port_update(struct pw_client_node_proxy *p,
 								   n_params,
 								   params,
 								   info);
+}
+
+static inline void
+pw_client_node_proxy_set_active(struct pw_client_node_proxy *p, bool active)
+{
+        pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, set_active, active);
 }
 
 static inline void

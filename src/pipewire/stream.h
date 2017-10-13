@@ -209,11 +209,12 @@ const char * pw_stream_state_as_string(enum pw_stream_state state);
 
 /** \enum pw_stream_flags Extra flags that can be used in \ref pw_stream_connect() \memberof pw_stream */
 enum pw_stream_flags {
-	PW_STREAM_FLAG_NONE = 0,		/**< no flags */
-	PW_STREAM_FLAG_AUTOCONNECT = (1 << 0),	/**< try to automatically connect
-						  *  this stream */
-	PW_STREAM_FLAG_CLOCK_UPDATE = (1 << 1),	/**< request periodic clock updates for
-						  *  this stream */
+	PW_STREAM_FLAG_NONE = 0,			/**< no flags */
+	PW_STREAM_FLAG_AUTOCONNECT	= (1 << 0),	/**< try to automatically connect
+							  *  this stream */
+	PW_STREAM_FLAG_CLOCK_UPDATE	= (1 << 1),	/**< request periodic clock updates for
+							  *  this stream */
+	PW_STREAM_FLAG_INACTIVE		= (1 << 2),	/**< start the stream inactive */
 };
 
 /** \enum pw_stream_mode The method for transfering data for a stream \memberof pw_stream */
@@ -292,6 +293,9 @@ pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 			int res,			/**< a result code */
 			struct spa_param **params,	/**< an array of pointers to \ref spa_param */
 			uint32_t n_params		/**< number of elements in \a params */);
+
+/** Activate or deactivate the stream \memberof pw_stream */
+void pw_stream_set_active(struct pw_stream *stream, bool active);
 
 /** Query the time on the stream \memberof pw_stream */
 bool pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);

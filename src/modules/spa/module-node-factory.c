@@ -67,6 +67,7 @@ static void *create_object(void *_data,
 				lib,
 				factory_name,
 				name,
+				0,
 				properties, 0);
 	if (node == NULL)
 		goto no_mem;

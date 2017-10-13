@@ -77,6 +77,7 @@ struct stream {
 	uint32_t pending_seq;
 
 	enum pw_stream_mode mode;
+	enum pw_stream_flags flags;
 
 	int rtwritefd;
 	struct spa_source *rtsocket_source;
@@ -459,6 +460,8 @@ static void do_node_init(struct pw_stream *stream)
 	add_port_update(stream, PW_CLIENT_NODE_PORT_UPDATE_POSSIBLE_FORMATS |
 			PW_CLIENT_NODE_PORT_UPDATE_INFO);
 	add_async_complete(stream, 0, SPA_RESULT_OK);
+	if (!(impl->flags & PW_STREAM_FLAG_INACTIVE))
+		pw_client_node_proxy_set_active(impl->node_proxy, true);
 }
 
 static void on_timeout(void *data, uint64_t expirations)
@@ -945,6 +948,7 @@ pw_stream_connect(struct pw_stream *stream,
 	    direction == PW_DIRECTION_INPUT ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT;
 	impl->port_id = 0;
 	impl->mode = mode;
+	impl->flags = flags;
 
 	set_possible_formats(stream, n_possible_formats, possible_formats);
 
@@ -1019,6 +1023,12 @@ void pw_stream_disconnect(struct pw_stream *stream)
 		pw_client_node_transport_destroy(impl->trans);
 		impl->trans = NULL;
 	}
+}
+
+void pw_stream_set_active(struct pw_stream *stream, bool active)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	pw_client_node_proxy_set_active(impl->node_proxy, active);
 }
 
 bool pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)

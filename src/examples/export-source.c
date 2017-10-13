@@ -355,6 +355,7 @@ static void make_node(struct data *data)
 	pw_node_set_implementation(data->node, &data->impl_node);
 
 	pw_node_register(data->node, NULL, NULL);
+	pw_node_set_active(data->node, true);
 
 	pw_remote_export(data->remote, data->node);
 }

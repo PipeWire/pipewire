@@ -64,7 +64,6 @@ static void add_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
 	struct spa_handle *handle;
 	struct monitor_item *mitem;
 	void *node_iface;
-	void *clock_iface;
 	struct pw_properties *props = NULL;
 	const char *name, *id, *klass;
 	struct spa_handle_factory *factory;
@@ -114,17 +113,13 @@ static void add_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
 		pw_log_error("can't get NODE interface: %d", res);
 		return;
 	}
-	if ((res = spa_handle_get_interface(handle, t->spa_clock, &clock_iface)) < 0) {
-		pw_log_info("no CLOCK interface: %d", res);
-		clock_iface = NULL;
-	}
-
 
 	mitem = calloc(1, sizeof(struct monitor_item));
 	mitem->id = strdup(id);
 	mitem->handle = handle;
 	mitem->node = pw_spa_node_new(impl->core, NULL, impl->parent, name,
-				      false, node_iface, clock_iface, props, 0);
+				      PW_SPA_NODE_FLAG_ACTIVATE,
+				      node_iface, handle, props, 0);
 
 	spa_list_append(&impl->item_list, &mitem->link);
 }

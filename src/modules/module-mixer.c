@@ -94,7 +94,6 @@ static struct pw_node *make_node(struct impl *impl)
 	int res;
 	void *iface;
 	struct spa_node *spa_node;
-	struct spa_clock *spa_clock;
 	struct pw_node *node;
 	const struct spa_support *support;
 	uint32_t n_support;
@@ -114,13 +113,8 @@ static struct pw_node *make_node(struct impl *impl)
 	}
 	spa_node = iface;
 
-	if ((res = spa_handle_get_interface(handle, impl->t->spa_clock, &iface)) < 0) {
-		iface = NULL;
-	}
-	spa_clock = iface;
-
 	node = pw_spa_node_new(impl->core, NULL, pw_module_get_global(impl->module),
-			       "audiomixer", false, spa_node, spa_clock, NULL, 0);
+			       "audiomixer", PW_SPA_NODE_FLAG_ACTIVATE, spa_node, handle, NULL, 0);
 
 	return node;
 

@@ -65,6 +65,7 @@ bool pipewire__module_init(struct pw_module *module, const char *args)
 			 NULL,
 			 pw_module_get_global(module),
 			 argv[0], argv[1], argv[2],
+			 PW_SPA_NODE_FLAG_ACTIVATE,
 			 props, 0);
 
 	pw_free_strv(argv);

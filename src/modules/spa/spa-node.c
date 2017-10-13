@@ -40,6 +40,7 @@ struct impl {
 	struct pw_client *owner;
 	struct pw_global *parent;
 
+	enum pw_spa_node_flags flags;
 	bool async_init;
 
 	void *hnd;
@@ -72,7 +73,8 @@ static void complete_init(struct impl *impl)
 {
         struct pw_node *this = impl->this;
 	pw_node_register(this, impl->owner, impl->parent);
-	pw_node_set_active(this, true);
+	if (impl->flags & PW_SPA_NODE_FLAG_ACTIVATE)
+		pw_node_set_active(this, true);
 }
 
 static void on_node_done(void *data, uint32_t seq, int res)
@@ -98,32 +100,40 @@ pw_spa_node_new(struct pw_core *core,
 		struct pw_client *owner,
 		struct pw_global *parent,
 		const char *name,
-		bool async,
+		enum pw_spa_node_flags flags,
 		struct spa_node *node,
-		struct spa_clock *clock,
+		struct spa_handle *handle,
 		struct pw_properties *properties,
 		size_t user_data_size)
 {
 	struct pw_node *this;
 	struct impl *impl;
+	void *iface = NULL;
+	struct pw_type *t = pw_core_get_type(core);
+	int res;
 
 	this = pw_node_new(core, name, properties, sizeof(struct impl) + user_data_size);
 	if (this == NULL)
 		return NULL;
 
-	this->clock = clock;
+	if (handle) {
+		if ((res = spa_handle_get_interface(handle, t->spa_clock, &iface)) < 0)
+			iface = NULL;
+		this->clock = iface;
+	}
 
 	impl = this->user_data;
 	impl->this = this;
 	impl->owner = owner;
 	impl->parent = parent;
 	impl->node = node;
-	impl->async_init = async;
+	impl->flags = flags;
+	impl->async_init = flags & PW_SPA_NODE_FLAG_ASYNC;
 
 	pw_node_add_listener(this, &impl->node_listener, &node_events, impl);
 	pw_node_set_implementation(this, impl->node);
 
-	if (!async)
+	if (!impl->async_init)
 		complete_init(impl);
 
 	return this;
@@ -198,13 +208,13 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 				 const char *lib,
 				 const char *factory_name,
 				 const char *name,
+				 enum pw_spa_node_flags flags,
 				 struct pw_properties *properties,
 				 size_t user_data_size)
 {
 	struct pw_node *this;
 	struct impl *impl;
 	struct spa_node *spa_node;
-	struct spa_clock *spa_clock;
 	int res;
 	struct spa_handle *handle;
 	void *hnd;
@@ -214,7 +224,6 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	void *iface;
 	char *filename;
 	const char *dir;
-	bool async;
 	const struct spa_support *support;
 	uint32_t n_support;
 	struct pw_type *t = pw_core_get_type(core);
@@ -251,7 +260,8 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 		pw_log_error("can't make factory instance: %d", res);
 		goto init_failed;
 	}
-	async = SPA_RESULT_IS_ASYNC(res);
+	if (SPA_RESULT_IS_ASYNC(res))
+		flags |= PW_SPA_NODE_FLAG_ASYNC;
 
 	if ((res = spa_handle_get_interface(handle, t->spa_node, &iface)) < 0) {
 		pw_log_error("can't get node interface %d", res);
@@ -259,19 +269,14 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	}
 	spa_node = iface;
 
-	if ((res = spa_handle_get_interface(handle, t->spa_clock, &iface)) < 0) {
-		iface = NULL;
-	}
-	spa_clock = iface;
-
 	if (properties != NULL) {
 		if (setup_props(core, spa_node, properties) != SPA_RESULT_OK) {
 			pw_log_debug("Unrecognized properties");
 		}
 	}
 
-	this = pw_spa_node_new(core, owner, parent, name, async,
-			       spa_node, spa_clock, properties, user_data_size);
+	this = pw_spa_node_new(core, owner, parent, name, flags,
+			       spa_node, handle, properties, user_data_size);
 
 	impl = this->user_data;
 	impl->hnd = hnd;

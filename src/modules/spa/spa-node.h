@@ -30,14 +30,19 @@
 extern "C" {
 #endif
 
+enum pw_spa_node_flags {
+	PW_SPA_NODE_FLAG_ASYNC		= (1 << 0),
+	PW_SPA_NODE_FLAG_ACTIVATE	= (1 << 1),
+};
+
 struct pw_node *
 pw_spa_node_new(struct pw_core *core,
 		struct pw_client *owner,	/**< optional owner */
 		struct pw_global *parent,	/**< optional parent */
 		const char *name,
-		bool async,
+		enum pw_spa_node_flags flags,
 		struct spa_node *node,
-		struct spa_clock *clock,
+		struct spa_handle *handle,
 		struct pw_properties *properties,
 		size_t user_data_size);
 
@@ -48,6 +53,7 @@ pw_spa_node_load(struct pw_core *core,
 		 const char *lib,
 		 const char *factory_name,
 		 const char *name,
+		 enum pw_spa_node_flags flags,
 		 struct pw_properties *properties,
 		 size_t user_data_size);
 

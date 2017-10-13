@@ -896,6 +896,12 @@ client_node_port_update(void *data,
 	}
 }
 
+static void client_node_set_active(void *data, bool active)
+{
+	struct impl *impl = data;
+	pw_node_set_active(impl->this.node, active);
+}
+
 static void client_node_event(void *data, struct spa_event *event)
 {
 	struct impl *impl = data;
@@ -914,6 +920,7 @@ static struct pw_client_node_proxy_methods client_node_methods = {
 	.done = client_node_done,
 	.update = client_node_update,
 	.port_update = client_node_port_update,
+	.set_active = client_node_set_active,
 	.event = client_node_event,
 	.destroy = client_node_destroy,
 };
@@ -1164,7 +1171,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 				     pw_resource_get_client(this->resource),
 				     NULL,
 				     name,
-				     true,
+				     PW_SPA_NODE_FLAG_ASYNC,
 				     &impl->proxy.node,
 				     NULL,
 				     properties, 0);

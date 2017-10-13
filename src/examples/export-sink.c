@@ -458,8 +458,8 @@ static void make_node(struct data *data)
 	data->node = pw_node_new(data->core, "SDL-sink", props, 0);
 	data->impl_node = impl_node;
 	pw_node_set_implementation(data->node, &data->impl_node);
-
 	pw_node_register(data->node, NULL, NULL);
+	pw_node_set_active(data->node, true);
 
 	pw_remote_export(data->remote, data->node);
 }

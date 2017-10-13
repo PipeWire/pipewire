@@ -66,6 +66,9 @@ struct pw_node_events {
 
 	/** the node info changed */
 	void (*info_changed) (void *data, struct pw_node_info *info);
+	/** the node active state changed */
+	void (*active_changed) (void *data, bool active);
+
 	/** a new state is requested on the node */
 	void (*state_request) (void *data, enum pw_node_state state);
 	/** the state of the node changed */

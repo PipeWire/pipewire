@@ -858,6 +858,7 @@ bool pw_node_set_active(struct pw_node *node, bool active)
 	if (old != active) {
 		pw_log_debug("node %p: %s", node, active ? "activate" : "deactivate");
 		node->active = active;
+		spa_hook_list_call(&node->listener_list, struct pw_node_events, active_changed, active);
 		if (active)
 			node_activate(node);
 		else

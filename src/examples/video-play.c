@@ -149,10 +149,18 @@ on_stream_new_buffer(void *_data, uint32_t id)
 	handle_events(data);
 }
 
-static void on_stream_state_changed(void *data, enum pw_stream_state old,
+static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 				    enum pw_stream_state state, const char *error)
 {
+	struct data *data = _data;
 	printf("stream state: \"%s\"\n", pw_stream_state_as_string(state));
+	switch (state) {
+	case PW_STREAM_STATE_CONFIGURE:
+		pw_stream_set_active(data->stream, true);
+		break;
+	default:
+		break;
+	}
 }
 
 static struct {
@@ -355,7 +363,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_INPUT,
 				  PW_STREAM_MODE_BUFFER,
-				  data->path, PW_STREAM_FLAG_AUTOCONNECT, 1, formats);
+				  data->path, PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_INACTIVE, 1, formats);
 		break;
 	}
 	default:

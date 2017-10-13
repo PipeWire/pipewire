@@ -85,12 +85,10 @@ static int schedule_tee_reuse_buffer(struct spa_node *data, uint32_t port_id, ui
 {
 	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
 	struct pw_port *this = &impl->this;
-	struct spa_graph_node *node = &this->rt.mix_node;
-	struct spa_graph_port *p, *pp;
+	struct spa_graph_port *p = &this->rt.mix_port, *pp;
 
-	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
-		if ((pp = p->peer) != NULL)
-			spa_node_port_reuse_buffer(pp->node->implementation, port_id, buffer_id);
+	if ((pp = p->peer) != NULL)
+		spa_node_port_reuse_buffer(pp->node->implementation, port_id, buffer_id);
 
 	return SPA_RESULT_OK;
 }

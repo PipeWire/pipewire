@@ -709,7 +709,7 @@ static int impl_node_process_input(struct spa_node *node)
 
 	sbuf = in_port->buffers[input->buffer_id].outbuf;
 
-	input->status = SPA_RESULT_NEED_BUFFER;
+	input->status = SPA_RESULT_OK;
 
 	do_volume(this, sbuf, dbuf);
 

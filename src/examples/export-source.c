@@ -286,6 +286,13 @@ static inline void reuse_buffer(struct data *d, uint32_t id)
         spa_list_append(&d->empty, &d->buffers[id].link);
 }
 
+static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+{
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	reuse_buffer(d, buffer_id);
+	return SPA_RESULT_OK;
+}
+
 static int impl_node_process_output(struct spa_node *node)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
@@ -339,6 +346,7 @@ static const struct spa_node impl_node = {
 	.port_get_info = impl_port_get_info,
 	.port_enum_params = impl_port_enum_params,
 	.port_use_buffers = impl_port_use_buffers,
+	.port_reuse_buffer = impl_port_reuse_buffer,
 	.process_output = impl_node_process_output,
 };
 

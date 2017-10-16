@@ -70,6 +70,8 @@ struct socket {
 };
 
 struct impl {
+	uint32_t prop_min_latency;
+
 	struct pw_core *core;
 	struct pw_type *t;
 	struct pw_module *module;
@@ -1284,6 +1286,7 @@ static bool on_global(void *data, struct pw_global *global)
 	const char *str;
 	char *error;
 	struct pw_port *in_port, *out_port;
+	struct spa_props *props;
 
 	if (pw_global_get_type(global) != impl->t->node)
 		return true;
@@ -1314,6 +1317,19 @@ static bool on_global(void *data, struct pw_global *global)
 		free(error);
 		return true;
 	}
+
+	if (spa_node_get_props(node->node, &props) == SPA_RESULT_OK) {
+		int min_latency = -1;
+
+		spa_props_parse(props,
+			":", impl->prop_min_latency, "?i", &min_latency, NULL);
+
+		if (min_latency != -1)
+			jack_engine_control_set_buffer_size(impl->server.engine_control, min_latency);
+	}
+	pw_log_debug("module-jack %p: using buffer_size %d", impl,
+			impl->server.engine_control->buffer_size);
+
 	pw_link_register(impl->sink_link, NULL, pw_module_get_global(impl->module));
 
 	return false;
@@ -1487,6 +1503,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	impl->t = pw_core_get_type(core);
 	impl->module = module;
 	impl->properties = properties;
+	impl->prop_min_latency = spa_type_map_get_id(impl->t->map, SPA_TYPE_PROPS__minLatency);
 
 	spa_list_init(&impl->socket_list);
 	spa_list_init(&impl->client_list);

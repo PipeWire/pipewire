@@ -459,6 +459,20 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 		spa_graph_need_input(data->node->rt.graph, &data->out_node);
 	}
 	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {
+		struct pw_client_node_message_reuse_buffer *rb =
+		    (struct pw_client_node_message_reuse_buffer *) message;
+		uint32_t port_id = rb->body.port_id.value;
+		uint32_t buffer_id = rb->body.buffer_id.value;
+		struct spa_graph_port *p, *pp;
+
+		spa_list_for_each(p, &data->out_node.ports[SPA_DIRECTION_INPUT], link) {
+			if (p->port_id != port_id || (pp = p->peer) == NULL)
+				continue;
+
+			spa_node_port_reuse_buffer(pp->node->implementation,
+						   pp->port_id, buffer_id);
+			break;
+		}
 	}
 	else {
 		pw_log_warn("unexpected node message %d", PW_CLIENT_NODE_MESSAGE_TYPE(message));
@@ -483,6 +497,10 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 
 		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
 			pw_log_warn("proxy %p: read failed %m", proxy);
+
+		if (cmd > 1)
+			pw_log_warn("proxy %p: %ld messages", proxy, cmd);
+
 
 		while (pw_client_node_transport_next_message(data->trans, &message) == SPA_RESULT_OK) {
 			struct pw_client_node_message *msg = alloca(SPA_POD_SIZE(&message));
@@ -546,6 +564,8 @@ static void client_node_transport(void *object, uint32_t node_id,
 				  sizeof(struct port));
 
 	for (i = 0; i < data->trans->area->max_input_ports; i++) {
+		data->trans->inputs[i].status = SPA_RESULT_NEED_BUFFER;
+		data->trans->inputs[i].buffer_id = SPA_ID_INVALID;
 		spa_graph_port_init(&data->in_ports[i].input,
 				    SPA_DIRECTION_INPUT,
 				    i,
@@ -1069,13 +1089,19 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = node_proxy_destroy,
 };
 
+static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+{
+	pw_log_trace("node %p: reuse buffer %d %d", node, port_id, buffer_id);
+	return SPA_RESULT_OK;
+}
+
 static int impl_process_input(struct spa_node *node)
 {
 #if 0
 	struct node_data *data = SPA_CONTAINER_OF(node, struct node_data, out_node_impl);
 	node_have_output(data);
 #endif
-	pw_log_trace("node %p: have output", node);
+	pw_log_trace("node %p: process input", node);
 	return SPA_RESULT_OK;
 }
 
@@ -1084,8 +1110,9 @@ static int impl_process_output(struct spa_node *node)
 #if 0
 	struct node_data *data = SPA_CONTAINER_OF(node, struct node_data, in_node_impl);
 	node_need_input(data);
-#endif
 	pw_log_trace("node %p: need input", node);
+#endif
+	pw_log_trace("node %p: process output", node);
 	return SPA_RESULT_OK;
 }
 
@@ -1094,6 +1121,7 @@ static const struct spa_node node_impl = {
 	NULL,
 	.process_input = impl_process_input,
 	.process_output = impl_process_output,
+	.port_reuse_buffer = impl_port_reuse_buffer,
 };
 
 struct pw_proxy *pw_remote_export(struct pw_remote *remote,

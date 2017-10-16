@@ -50,21 +50,17 @@ static int schedule_tee_input(struct spa_node *data)
 	struct spa_graph_node *node = &this->rt.mix_node;
 	struct spa_graph_port *p;
 	struct spa_port_io *io = this->rt.mix_port.io;
-        int res;
 
-	if (spa_list_is_empty(&node->ports[SPA_DIRECTION_OUTPUT])) {
-		io->status = SPA_RESULT_NEED_BUFFER;
-		res = SPA_RESULT_NEED_BUFFER;
-	}
-	else {
+	if (!spa_list_is_empty(&node->ports[SPA_DIRECTION_OUTPUT])) {
 		pw_log_trace("tee input %d %d", io->status, io->buffer_id);
 		spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link)
 			*p->io = *io;
-		io->status = SPA_RESULT_OK;
 		io->buffer_id = SPA_ID_INVALID;
-		res = SPA_RESULT_HAVE_BUFFER;
 	}
-        return res;
+	else
+		io->status = SPA_RESULT_NEED_BUFFER;
+
+        return io->status;
 }
 static int schedule_tee_output(struct spa_node *data)
 {
@@ -76,9 +72,8 @@ static int schedule_tee_output(struct spa_node *data)
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link)
 		*io = *p->io;
-	io->status = SPA_RESULT_NEED_BUFFER;
-
-	return SPA_RESULT_NEED_BUFFER;
+	pw_log_trace("tee output %d %d", io->status, io->buffer_id);
+	return io->status;
 }
 
 static int schedule_tee_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)
@@ -113,11 +108,10 @@ static int schedule_mix_input(struct spa_node *data)
 		pw_log_trace("mix %p: input %p %p->%p %d %d", node,
 				p, p->io, io, p->io->status, p->io->buffer_id);
 		*io = *p->io;
-		p->io->status = SPA_RESULT_OK;
 		p->io->buffer_id = SPA_ID_INVALID;
 		break;
 	}
-	return SPA_RESULT_HAVE_BUFFER;
+	return io->status;
 }
 
 static int schedule_mix_output(struct spa_node *data)
@@ -128,12 +122,10 @@ static int schedule_mix_output(struct spa_node *data)
 	struct spa_graph_port *p;
 	struct spa_port_io *io = this->rt.mix_port.io;
 
-	io->status = SPA_RESULT_NEED_BUFFER;
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
 		*p->io = *io;
-	io->buffer_id = SPA_ID_INVALID;
-
-	return SPA_RESULT_NEED_BUFFER;
+	pw_log_trace("mix output %d %d", io->status, io->buffer_id);
+	return io->status;
 }
 
 static int schedule_mix_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)

@@ -1123,6 +1123,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->info.format = NULL;
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
+	this->io.buffer_id = SPA_ID_INVALID;
+	this->io.status = SPA_RESULT_NEED_BUFFER;
+
 	spa_graph_port_init(&this->rt.out_port,
 			    PW_DIRECTION_OUTPUT,
 			    this->rt.out_port.port_id,

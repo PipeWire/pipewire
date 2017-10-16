@@ -532,6 +532,7 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 
 			buffer_id = input->buffer_id;
 			input->buffer_id = SPA_ID_INVALID;
+			input->status = SPA_RESULT_NEED_BUFFER;
 
 			pw_log_trace("stream %p: process input %d %d", stream, input->status,
 				     buffer_id);
@@ -908,6 +909,7 @@ static void client_node_transport(void *data, uint32_t node_id,
 	}
 	impl->trans = transport;
 	for (i = 0; i < impl->trans->area->max_input_ports; i++) {
+		impl->trans->inputs[i].status = SPA_RESULT_NEED_BUFFER;
 	}
 
 	pw_log_info("stream %p: create client transport %p with fds %d %d for node %u",

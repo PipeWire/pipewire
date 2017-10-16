@@ -48,7 +48,8 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 			if (pnode->ready_link.next == NULL)
 				spa_list_append(&ready, &pnode->ready_link);
 		}
-		else if (pport->io->status == SPA_RESULT_OK && !(pnode->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
+		else if (pport->io->status == SPA_RESULT_OK &&
+		    !(pnode->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
 			node->ready[SPA_DIRECTION_INPUT]++;
 	}
 
@@ -69,7 +70,8 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 
 	spa_debug("node %p ready:%d required:%d", node, node->ready[SPA_DIRECTION_INPUT], node->required[SPA_DIRECTION_INPUT]);
 
-	if (node->required[SPA_DIRECTION_INPUT] > 0 && node->ready[SPA_DIRECTION_INPUT] == node->required[SPA_DIRECTION_INPUT]) {
+	if (node->required[SPA_DIRECTION_INPUT] > 0 &&
+	    node->ready[SPA_DIRECTION_INPUT] == node->required[SPA_DIRECTION_INPUT]) {
 		node->state = spa_node_process_input(node->implementation);
 		spa_debug("node %p processed in %d", node, node->state);
 		if (node->state == SPA_RESULT_HAVE_BUFFER) {

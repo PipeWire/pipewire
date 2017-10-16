@@ -843,7 +843,7 @@ static bool do_info(struct data *data, const char *cmd, char *args, char **error
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n < 1) {
-		asprintf(error, "%s <object-id>", cmd);
+		asprintf(error, "%s <object-id>|all", cmd);
 		return false;
 	}
 	if (!strcmp(a[0], "all")) {

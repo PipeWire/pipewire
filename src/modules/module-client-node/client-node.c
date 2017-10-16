@@ -809,6 +809,7 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 	pw_client_node_transport_add_message(impl->transport,
 			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT));
 	do_flush(this);
+
 	return res;
 }
 
@@ -847,7 +848,6 @@ client_node_done(void *data, int seq, int res)
 
 	this->callbacks->done(this->callbacks_data, seq, res);
 }
-
 
 static void
 client_node_update(void *data,

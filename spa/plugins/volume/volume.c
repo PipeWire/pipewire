@@ -636,12 +636,6 @@ static struct spa_buffer *find_free_buffer(struct impl *this, struct port *port)
 	return b->outbuf;
 }
 
-static inline void release_buffer(struct impl *this, struct spa_buffer *buffer)
-{
-	if (this->callbacks && this->callbacks->reuse_buffer)
-		this->callbacks->reuse_buffer(this->callbacks_data, 0, buffer->id);
-}
-
 static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buffer *sbuf)
 {
 	uint32_t si, di, i, n_samples, n_bytes, soff, doff;
@@ -702,7 +696,6 @@ static int impl_node_process_input(struct spa_node *node)
 
 	if (output->status == SPA_RESULT_HAVE_BUFFER)
 		return SPA_RESULT_HAVE_BUFFER;
-
 
 	in_port = &this->in_ports[0];
 	input = in_port->io;

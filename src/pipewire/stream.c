@@ -96,7 +96,6 @@ struct stream {
 	bool in_order;
 
 	bool client_reuse;
-	uint32_t *last_buffer_id;
 
 	struct spa_list free;
 	bool in_need_buffer;
@@ -906,12 +905,9 @@ static void client_node_transport(void *data, uint32_t node_id,
 
 	if (impl->trans) {
 		pw_client_node_transport_destroy(impl->trans);
-		free (impl->last_buffer_id);
 	}
 	impl->trans = transport;
-	impl->last_buffer_id = malloc(impl->trans->area->max_input_ports * sizeof(uint32_t));
 	for (i = 0; i < impl->trans->area->max_input_ports; i++) {
-		impl->last_buffer_id[i] = SPA_ID_INVALID;
 	}
 
 	pw_log_info("stream %p: create client transport %p with fds %d %d for node %u",
@@ -1042,8 +1038,6 @@ void pw_stream_disconnect(struct pw_stream *stream)
 	if (impl->trans) {
 		pw_client_node_transport_destroy(impl->trans);
 		impl->trans = NULL;
-		free(impl->last_buffer_id);
-		impl->last_buffer_id = NULL;
 	}
 }
 

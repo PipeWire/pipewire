@@ -1080,7 +1080,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->properties = properties;
 	this->state = PW_LINK_STATE_INIT;
 
-
 	this->input = input;
 	this->output = output;
 

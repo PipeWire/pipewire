@@ -476,6 +476,7 @@ static void node_event(void *data, struct spa_event *event)
 static void node_need_input(void *data)
 {
 	struct pw_node *node = data;
+	pw_log_trace("node %p: need input", node);
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, need_input);
 	spa_graph_need_input(node->rt.graph, &node->rt.node);
 }
@@ -483,6 +484,7 @@ static void node_need_input(void *data)
 static void node_have_output(void *data)
 {
 	struct pw_node *node = data;
+	pw_log_trace("node %p: have output", node);
 	spa_graph_have_output(node->rt.graph, &node->rt.node);
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, have_output);
 }

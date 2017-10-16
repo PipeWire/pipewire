@@ -931,9 +931,13 @@ static int mmap_read(struct impl *this)
 	d[0].chunk->stride = state->fmt.fmt.pix.bytesperline;
 
 	b->outstanding = true;
-	io->buffer_id = b->outbuf->id;
-	io->status = SPA_RESULT_HAVE_BUFFER;
-	this->callbacks->have_output(this->callbacks_data);
+	if (io->status == SPA_RESULT_NEED_BUFFER) {
+		io->buffer_id = b->outbuf->id;
+		io->status = SPA_RESULT_HAVE_BUFFER;
+		this->callbacks->have_output(this->callbacks_data);
+	} else {
+		spa_v4l2_buffer_recycle(this, b->outbuf->id);
+	}
 
 	return SPA_RESULT_OK;
 }

@@ -57,6 +57,8 @@ pw_spa_node_load(struct pw_core *core,
 		 struct pw_properties *properties,
 		 size_t user_data_size);
 
+void *pw_spa_node_get_user_data(struct pw_node *node);
+
 #ifdef __cplusplus
 }
 #endif

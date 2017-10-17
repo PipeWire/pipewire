@@ -42,6 +42,13 @@ struct impl {
 
 	void *hnd;
 	const struct spa_handle_factory *factory;
+
+	struct spa_list node_list;
+};
+
+struct node_data {
+	struct spa_list link;
+	struct pw_node *node;
 };
 
 static const struct spa_handle_factory *find_factory(struct impl *impl)
@@ -97,6 +104,7 @@ static struct pw_node *make_node(struct impl *impl)
 	struct pw_node *node;
 	const struct spa_support *support;
 	uint32_t n_support;
+	struct node_data *nd;
 
 	support = pw_core_get_support(impl->core, &n_support);
 
@@ -114,7 +122,12 @@ static struct pw_node *make_node(struct impl *impl)
 	spa_node = iface;
 
 	node = pw_spa_node_new(impl->core, NULL, pw_module_get_global(impl->module),
-			       "audiomixer", PW_SPA_NODE_FLAG_ACTIVATE, spa_node, handle, NULL, 0);
+			       "audiomixer", PW_SPA_NODE_FLAG_ACTIVATE, spa_node, handle, NULL,
+			       sizeof(struct node_data));
+
+	nd = pw_spa_node_get_user_data(node);
+	nd->node = node;
+	spa_list_append(&impl->node_list, &nd->link);
 
 	return node;
 
@@ -169,8 +182,12 @@ static bool on_global(void *data, struct pw_global *global)
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
+	struct node_data *nd, *t;
 
 	spa_hook_remove(&impl->module_listener);
+
+	spa_list_for_each_safe(nd, t, &impl->node_list, link)
+		pw_node_destroy(nd->node);
 
 	if (impl->properties)
 		pw_properties_free(impl->properties);
@@ -197,6 +214,8 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	impl->properties = properties;
 
 	impl->factory = find_factory(impl);
+
+	spa_list_init(&impl->node_list);
 
 	pw_core_for_each_global(core, on_global, impl);
 

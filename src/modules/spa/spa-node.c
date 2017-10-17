@@ -50,6 +50,8 @@ struct impl {
 	char *factory_name;
 
 	struct spa_hook node_listener;
+
+	void *user_data;
 };
 
 static void pw_spa_node_destroy(void *data)
@@ -130,6 +132,9 @@ pw_spa_node_new(struct pw_core *core,
 	impl->flags = flags;
 	impl->async_init = flags & PW_SPA_NODE_FLAG_ASYNC;
 
+	if (user_data_size > 0)
+                impl->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+
 	pw_node_add_listener(this, &impl->node_listener, &node_events, impl);
 	pw_node_set_implementation(this, impl->node);
 
@@ -137,6 +142,12 @@ pw_spa_node_new(struct pw_core *core,
 		complete_init(impl);
 
 	return this;
+}
+
+void *pw_spa_node_get_user_data(struct pw_node *node)
+{
+	struct impl *impl = node->user_data;
+	return impl->user_data;
 }
 
 static int

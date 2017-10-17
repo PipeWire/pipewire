@@ -686,9 +686,9 @@ static int impl_clear(struct spa_handle *handle)
 	impl = (struct impl *) handle;
 
 	spa_list_for_each_safe(source, tmp, &impl->source_list, link)
-	    loop_destroy_source(&source->source);
+		loop_destroy_source(&source->source);
 	spa_list_for_each_safe(source, tmp, &impl->destroy_list, link)
-	    free(source);
+		free(source);
 
 	close(impl->ack_fd);
 	close(impl->epoll_fd);

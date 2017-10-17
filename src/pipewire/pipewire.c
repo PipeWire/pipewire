@@ -201,6 +201,9 @@ void pw_init(int *argc, char **argv[])
 	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
 		str = PLUGINDIR;
 
+	if (support_info.n_support > 0)
+		return;
+
 	if (open_support(str, "support/libspa-support", &support_info))
 		configure_support(&support_info);
 }

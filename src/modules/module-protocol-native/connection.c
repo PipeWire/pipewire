@@ -137,7 +137,7 @@ static bool refill_buffer(struct pw_protocol_native_connection *conn, struct buf
 	msg.msg_iovlen = 1;
 	msg.msg_control = cmsgbuf;
 	msg.msg_controllen = sizeof(cmsgbuf);
-	msg.msg_flags = MSG_CMSG_CLOEXEC;
+	msg.msg_flags = MSG_CMSG_CLOEXEC | MSG_DONTWAIT;
 
 	while (true) {
 		len = recvmsg(conn->fd, &msg, msg.msg_flags);
@@ -482,7 +482,7 @@ bool pw_protocol_native_connection_flush(struct pw_protocol_native_connection *c
 	}
 
 	while (true) {
-		len = sendmsg(conn->fd, &msg, MSG_NOSIGNAL);
+		len = sendmsg(conn->fd, &msg, MSG_NOSIGNAL | MSG_DONTWAIT);
 		if (len < 0) {
 			if (errno == EINTR)
 				continue;

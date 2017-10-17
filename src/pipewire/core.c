@@ -486,12 +486,20 @@ void pw_core_destroy(struct pw_core *core)
 {
 	struct pw_global *global, *t;
 	struct pw_module *module, *tm;
+	struct pw_remote *remote, *tr;
+	struct pw_node *node, *tn;
 
 	pw_log_debug("core %p: destroy", core);
 	spa_hook_list_call(&core->listener_list, struct pw_core_events, destroy);
 
+	spa_list_for_each_safe(remote, tr, &core->remote_list, link)
+		pw_remote_destroy(remote);
+
 	spa_list_for_each_safe(module, tm, &core->module_list, link)
 		pw_module_destroy(module);
+
+	spa_list_for_each_safe(node, tn, &core->node_list, link)
+		pw_node_destroy(node);
 
 	spa_list_for_each_safe(global, t, &core->global_list, link)
 		pw_global_destroy(global);

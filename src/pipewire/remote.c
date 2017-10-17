@@ -518,6 +518,8 @@ static void clean_transport(struct pw_proxy *proxy)
 	if (data->trans == NULL)
 		return;
 
+	unhandle_socket(proxy);
+
 	spa_list_for_each(port, &data->node->input_ports, link) {
 		spa_graph_port_remove(&data->in_ports[port->port_id].output);
 		spa_graph_port_remove(&data->in_ports[port->port_id].input);
@@ -530,7 +532,6 @@ static void clean_transport(struct pw_proxy *proxy)
 	free(data->in_ports);
 	free(data->out_ports);
 	pw_client_node_transport_destroy(data->trans);
-	unhandle_socket(proxy);
 	close(data->rtwritefd);
 
 	data->trans = NULL;
@@ -1056,6 +1057,15 @@ static void do_node_init(struct pw_proxy *proxy)
         pw_client_node_proxy_done(data->node_proxy, 0, SPA_RESULT_OK);
 }
 
+static void node_destroy(void *data)
+{
+	struct node_data *d = data;
+	pw_log_debug("%p: destroy", d);
+	pw_client_node_proxy_destroy(d->node_proxy);
+	pw_proxy_destroy((struct pw_proxy *)d->node_proxy);
+	d->node_proxy = NULL;
+}
+
 static void node_active_changed(void *data, bool active)
 {
 	struct node_data *d = data;
@@ -1065,6 +1075,7 @@ static void node_active_changed(void *data, bool active)
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
+	.destroy = node_destroy,
 	.active_changed = node_active_changed,
 	.need_input = node_need_input,
 	.have_output = node_have_output,

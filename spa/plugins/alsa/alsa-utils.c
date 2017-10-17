@@ -371,7 +371,6 @@ pull_frames(struct state *state,
 		if (reuse) {
 			spa_list_remove(&b->link);
 			b->outstanding = true;
-			state->io->buffer_id = b->outbuf->id;
 			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
 			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->outbuf->id);
 			state->ready_offset = 0;

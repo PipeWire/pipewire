@@ -667,6 +667,18 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 	return SPA_RESULT_OK;
 }
 
+static int do_remove_source(struct spa_loop *loop,
+			    bool async,
+			    uint32_t seq,
+			    size_t size,
+			    const void *data,
+			    void *user_data)
+{
+	struct state *state = user_data;
+	spa_loop_remove_source(state->data_loop, &state->source);
+	return SPA_RESULT_OK;
+}
+
 int spa_alsa_pause(struct state *state, bool xrun_recover)
 {
 	int err;
@@ -676,7 +688,7 @@ int spa_alsa_pause(struct state *state, bool xrun_recover)
 
 	spa_log_trace(state->log, "alsa %p: pause", state);
 
-	spa_loop_remove_source(state->data_loop, &state->source);
+	spa_loop_invoke(state->data_loop, do_remove_source, 0, 0, NULL, true, state);
 
 	if ((err = snd_pcm_drop(state->hndl)) < 0)
 		spa_log_error(state->log, "snd_pcm_drop %s", snd_strerror(err));

@@ -64,7 +64,10 @@ static void print_properties(struct spa_dict *props, char mark)
 	}
 
 	spa_dict_for_each(item, props) {
-		printf("%c\t\t%s = \"%s\"\n", mark, item->key, item->value);
+		if (item->value)
+			printf("%c\t\t%s = \"%s\"\n", mark, item->key, item->value);
+		else
+			printf("%c\t\t%s = (null)\n", mark, item->key);
 	}
 }
 

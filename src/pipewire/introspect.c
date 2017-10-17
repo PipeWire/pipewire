@@ -105,7 +105,7 @@ static struct spa_dict *pw_spa_dict_copy(struct spa_dict *dict)
 
 	for (i = 0; i < dict->n_items; i++) {
 		items[i].key = strdup(dict->items[i].key);
-		items[i].value = strdup(dict->items[i].value);
+		items[i].value = dict->items[i].value ? strdup(dict->items[i].value) : NULL;
 	}
 	return copy;
 

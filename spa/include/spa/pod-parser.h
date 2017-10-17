@@ -56,7 +56,7 @@ static inline bool spa_pod_parser_can_collect(struct spa_pod *pod, char type)
 
 	switch (SPA_POD_TYPE(pod)) {
 	case SPA_POD_TYPE_NONE:
-		return type == 'T' || type == 'O' || type == 'V';
+		return type == 'T' || type == 'O' || type == 'V' || type == 's';
 	case SPA_POD_TYPE_BOOL:
 		return type == 'b';
 	case SPA_POD_TYPE_ID:
@@ -116,7 +116,9 @@ do {											\
 		*va_arg(args, double*) = SPA_POD_VALUE(struct spa_pod_double, pod);	\
 		break;									\
 	case 's':									\
-		*va_arg(args, char**) = SPA_POD_CONTENTS(struct spa_pod_string, pod);	\
+		*va_arg(args, char**) =							\
+			(pod == NULL || (SPA_POD_TYPE(pod) == SPA_POD_TYPE_NONE)	\
+				? NULL : SPA_POD_CONTENTS(struct spa_pod_string, pod));	\
 		break;									\
 	case 'S':									\
 	{										\

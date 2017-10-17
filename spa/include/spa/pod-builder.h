@@ -401,9 +401,13 @@ do {										\
 		break;								\
 	case 's':								\
 	{									\
-		char *strval = va_arg(args, char *) ? : "";			\
-		size_t len = strlen(strval);					\
-		spa_pod_builder_string_len(builder, strval, len);		\
+		char *strval = va_arg(args, char *);				\
+		if (strval != NULL) {						\
+			size_t len = strlen(strval);				\
+			spa_pod_builder_string_len(builder, strval, len);	\
+		}								\
+		else								\
+			spa_pod_builder_none(builder);				\
 		break;								\
 	}									\
 	case 'S':								\

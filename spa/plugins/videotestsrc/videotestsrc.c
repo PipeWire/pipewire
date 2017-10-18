@@ -785,7 +785,7 @@ static int impl_node_process_output(struct spa_node *node)
 		this->io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (!this->async && (io->status == SPA_RESULT_NEED_BUFFER))
+	if (!this->props.live && (io->status == SPA_RESULT_NEED_BUFFER))
 		return make_buffer(this);
 	else
 		return SPA_RESULT_OK;

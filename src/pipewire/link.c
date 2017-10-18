@@ -671,6 +671,15 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	return res;
 }
 
+static int
+do_activate_link(struct spa_loop *loop,
+		 bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+{
+        struct pw_link *this = user_data;
+	spa_graph_port_link(&this->rt.out_port, &this->rt.in_port);
+	return SPA_RESULT_OK;
+}
+
 static int do_start(struct pw_link *this, uint32_t in_state, uint32_t out_state)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
@@ -685,6 +694,9 @@ static int do_start(struct pw_link *this, uint32_t in_state, uint32_t out_state)
 
 	input = this->input;
 	output = this->output;
+
+	pw_loop_invoke(output->node->data_loop,
+		       do_activate_link, SPA_ID_INVALID, 0, NULL, false, this);
 
 	if (in_state == PW_PORT_STATE_PAUSED) {
 		if  ((res = pw_node_set_state(input->node, PW_NODE_STATE_RUNNING)) < 0) {
@@ -713,15 +725,6 @@ static int do_start(struct pw_link *this, uint32_t in_state, uint32_t out_state)
       error:
 	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
 	return res;
-}
-
-static int
-do_activate_link(struct spa_loop *loop,
-		 bool async, uint32_t seq, size_t size, const void *data, void *user_data)
-{
-        struct pw_link *this = user_data;
-	spa_graph_port_link(&this->rt.out_port, &this->rt.in_port);
-	return SPA_RESULT_OK;
 }
 
 static int check_states(struct pw_link *this, void *user_data, int res)
@@ -754,8 +757,6 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 	}
 
 	if (in_state == PW_PORT_STATE_STREAMING && out_state == PW_PORT_STATE_STREAMING) {
-		pw_loop_invoke(output->node->data_loop,
-			       do_activate_link, SPA_ID_INVALID, 0, NULL, false, this);
 		pw_link_update_state(this, PW_LINK_STATE_RUNNING, NULL);
 		return SPA_RESULT_OK;
 	}

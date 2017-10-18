@@ -1,0 +1,8 @@
+option('enable_docs',
+       description: 'Build documentation',
+       type: 'boolean',
+       value: false)
+option('enable_man',
+       description: 'Build manpages',
+       type: 'boolean',
+       value: false)

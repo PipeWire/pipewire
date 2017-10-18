@@ -24,13 +24,18 @@
 extern "C" {
 #endif
 
-#include <spa/graph.h>
-
 #include <sys/socket.h>
+
 
 #include "pipewire/mem.h"
 #include "pipewire/pipewire.h"
 #include "pipewire/introspect.h"
+
+#ifndef spa_debug
+#define spa_debug pw_log_trace
+#endif
+
+#include <spa/graph.h>
 
 struct pw_command;
 

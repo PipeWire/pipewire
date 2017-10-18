@@ -100,8 +100,10 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 		struct spa_graph_node *pnode;
 		uint32_t prequired, pready;
 
-		if ((pport = p->peer) == NULL)
+		if ((pport = p->peer) == NULL) {
+			spa_debug("node %p port %p has no peer", node, p);
 			continue;
+		}
 
 		pnode = pport->node;
 		if (pport->io->status == SPA_RESULT_HAVE_BUFFER)

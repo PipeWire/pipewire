@@ -157,16 +157,16 @@ subdir('spa')
 subdir('src')
 subdir('pkgconfig')
 
-doxygen = find_program('doxygen', required: false)
-if doxygen.found()
-  subdir('doc')
-else
-  message('Documentation disabled without doxygen')
+if get_option('enable_docs')
+  doxygen_dep = find_program('doxygen')
+  if doxygen_dep.found()
+    subdir('doc')
+  endif
 endif
 
-xmltoman = find_program('xmltoman', required: false)
-if xmltoman.found()
-  subdir('man')
-else
-  message('Man page disabled without xmltoman')
+if get_option('enable_man')
+  xmltoman_dep = find_program('xmltoman')
+  if xmltoman_dep.found()
+    subdir('man')
+  endif
 endif

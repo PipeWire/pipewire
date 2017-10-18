@@ -83,6 +83,14 @@ static inline uint64_t pw_properties_parse_uint64(const char *value) {
 	return strtoull(value, NULL, 0);
 }
 
+static inline float pw_properties_parse_float(const char *value) {
+	return strtof(value, NULL);
+}
+
+static inline double pw_properties_parse_double(const char *value) {
+	return strtod(value, NULL);
+}
+
 #ifdef __cplusplus
 }
 #endif

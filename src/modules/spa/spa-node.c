@@ -181,21 +181,29 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 			pw_log_info("configure prop %s", key);
 
 			switch(prop->body.value.type) {
+			case SPA_POD_TYPE_BOOL:
+				SPA_POD_VALUE(struct spa_pod_bool, &prop->body.value) =
+					pw_properties_parse_bool(value);
+				break;
 			case SPA_POD_TYPE_ID:
 				SPA_POD_VALUE(struct spa_pod_id, &prop->body.value) =
 					spa_type_map_get_id(t->map, value);
 				break;
 			case SPA_POD_TYPE_INT:
-				SPA_POD_VALUE(struct spa_pod_int, &prop->body.value) = atoi(value);
+				SPA_POD_VALUE(struct spa_pod_int, &prop->body.value) =
+					pw_properties_parse_int(value);
 				break;
 			case SPA_POD_TYPE_LONG:
-				SPA_POD_VALUE(struct spa_pod_long, &prop->body.value) = atoi(value);
+				SPA_POD_VALUE(struct spa_pod_long, &prop->body.value) =
+					pw_properties_parse_int64(value);
 				break;
 			case SPA_POD_TYPE_FLOAT:
-				SPA_POD_VALUE(struct spa_pod_float, &prop->body.value) = atof(value);
+				SPA_POD_VALUE(struct spa_pod_float, &prop->body.value) =
+					pw_properties_parse_float(value);
 				break;
 			case SPA_POD_TYPE_DOUBLE:
-				SPA_POD_VALUE(struct spa_pod_double, &prop->body.value) = atof(value);
+				SPA_POD_VALUE(struct spa_pod_double, &prop->body.value) =
+					pw_properties_parse_double(value);
 				break;
 			case SPA_POD_TYPE_STRING:
 				break;

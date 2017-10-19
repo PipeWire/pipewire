@@ -84,6 +84,7 @@ struct impl {
 	struct spa_list socket_list;
 	struct spa_list client_list;
 	struct spa_list link_list;
+	struct spa_list node_list;
 
 	struct spa_loop_control_hooks hooks;
 
@@ -1238,6 +1239,8 @@ make_audio_client(struct impl *impl)
 	server->audio_ref_num = ref_num;
 	server->audio_node = node;
 
+	spa_list_append(&impl->node_list, &jc->link);
+
 	pw_log_debug("module-jack %p: Added audio driver %d", impl, ref_num);
 
 	return 0;
@@ -1274,6 +1277,8 @@ make_freewheel_client(struct impl *impl)
 
 	server->freewheel_ref_num = ref_num;
 	pw_log_debug("module-jack %p: Added freewheel driver %d", impl, ref_num);
+
+	spa_list_append(&impl->node_list, &jc->link);
 
 	return 0;
 }
@@ -1472,11 +1477,15 @@ static void module_destroy(void *data)
 {
 	struct impl *impl = data;
 	struct link *ld, *t;
+	struct jack_client *jc, *tc;
 
 	spa_hook_remove(&impl->module_listener);
 
 	spa_list_for_each_safe(ld, t, &impl->link_list, link_link)
 		pw_link_destroy(ld->link);
+
+	spa_list_for_each_safe(jc, tc, &impl->node_list, link)
+		pw_jack_node_destroy(jc->node);
 
 	if (impl->properties)
 		pw_properties_free(impl->properties);
@@ -1508,6 +1517,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	spa_list_init(&impl->socket_list);
 	spa_list_init(&impl->client_list);
 	spa_list_init(&impl->link_list);
+	spa_list_init(&impl->node_list);
 	spa_list_init(&impl->rt.nodes);
 
 	str = NULL;

@@ -20,6 +20,7 @@
 struct jack_server;
 
 struct jack_client {
+	struct spa_list link;
 	void *data;
 	struct client *owner;
 	struct pw_jack_node *node;

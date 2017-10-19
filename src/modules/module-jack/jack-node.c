@@ -531,6 +531,17 @@ static int port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t b
 	return SPA_RESULT_OK;
 }
 
+static int driver_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+{
+	struct node_data *nd = SPA_CONTAINER_OF(node, struct node_data, node_impl);
+	struct pw_jack_node *this = &nd->node;
+	struct port_data *opd = SPA_CONTAINER_OF(this->driver_out, struct port_data, port);
+
+	recycle_buffer(this, opd, buffer_id);
+
+	return SPA_RESULT_OK;
+}
+
 static int port_send_command(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
 			     const struct spa_command *command)
 {
@@ -557,7 +568,7 @@ static const struct spa_node driver_impl = {
 	.port_use_buffers = port_use_buffers,
 	.port_alloc_buffers = port_alloc_buffers,
 	.port_set_io = port_set_io,
-	.port_reuse_buffer = port_reuse_buffer,
+	.port_reuse_buffer = driver_reuse_buffer,
 	.port_send_command = port_send_command,
 	.process_input = driver_process_input,
 	.process_output = driver_process_output,
@@ -633,12 +644,9 @@ static int schedule_mix_output(struct spa_node *_node)
 	struct spa_graph_port *p;
 	struct spa_port_io *io = this->port->rt.mix_port.io;
 
-	io->status = SPA_RESULT_NEED_BUFFER;
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
 		*p->io = *io;
-	io->buffer_id = SPA_ID_INVALID;
-
-	return SPA_RESULT_NEED_BUFFER;
+	return io->status;
 }
 
 static const struct spa_node schedule_mix_node = {

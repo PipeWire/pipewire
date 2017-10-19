@@ -280,6 +280,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 static void destroy_global(void *obj, void *data)
 {
 	struct global *global = obj;
+
 	if (global == NULL)
 		return;
 
@@ -827,6 +828,9 @@ static void do_global_info_all(void *obj, void *data)
 	struct global *global = obj;
 	char *error;
 
+	if (global == NULL)
+		return;
+
 	if (!do_global_info(global, &error)) {
 		fprintf(stderr, "info: %s\n", error);
 		free(error);
@@ -846,7 +850,7 @@ static bool do_info(struct data *data, const char *cmd, char *args, char **error
 		asprintf(error, "%s <object-id>|all", cmd);
 		return false;
 	}
-	if (!strcmp(a[0], "all")) {
+	if (strcmp(a[0], "all") == 0) {
 		pw_map_for_each(&rd->globals, do_global_info_all, NULL);
 	}
 	else {

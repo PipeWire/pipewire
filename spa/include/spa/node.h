@@ -56,7 +56,7 @@ struct spa_port_io {
 	struct spa_range range;		/**< the requested range */
 };
 
-#define SPA_PORT_IO_INIT  (struct spa_port_io) { SPA_RESULT_NEED_BUFFER, SPA_ID_INVALID, }
+#define SPA_PORT_IO_INIT  (struct spa_port_io) { SPA_RESULT_OK, SPA_ID_INVALID, }
 
 /**
  * struct spa_port_info

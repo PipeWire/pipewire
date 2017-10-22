@@ -311,6 +311,22 @@ static int set_swparams(struct state *state)
 	return 0;
 }
 
+static inline void try_pull(struct state *state, snd_pcm_uframes_t frames, bool do_pull)
+{
+	struct spa_port_io *io = state->io;
+
+	if (spa_list_is_empty(&state->ready) && do_pull) {
+		spa_log_trace(state->log, "alsa-util %p: %d", state, io->status);
+		if (io->status != SPA_RESULT_OK)
+			return;
+		io->status = SPA_RESULT_NEED_BUFFER;
+		io->range.offset = state->sample_count * state->frame_size;
+		io->range.min_size = state->threshold * state->frame_size;
+		io->range.max_size = frames * state->frame_size;
+		state->callbacks->need_input(state->callbacks_data);
+	}
+}
+
 static inline snd_pcm_uframes_t
 pull_frames(struct state *state,
 	    const snd_pcm_channel_area_t *my_areas,
@@ -319,15 +335,9 @@ pull_frames(struct state *state,
 	    bool do_pull)
 {
 	snd_pcm_uframes_t total_frames = 0, to_write = frames;
-	struct spa_port_io *io = state->io;
 
-	if (spa_list_is_empty(&state->ready) && do_pull) {
-		io->status = SPA_RESULT_NEED_BUFFER;
-		io->range.offset = state->sample_count * state->frame_size;
-		io->range.min_size = state->threshold * state->frame_size;
-		io->range.max_size = frames * state->frame_size;
-		state->callbacks->need_input(state->callbacks_data);
-	}
+	try_pull(state, frames, do_pull);
+
 	while (!spa_list_is_empty(&state->ready) && to_write > 0) {
 		uint8_t *src, *dst;
 		size_t n_bytes, n_frames, size;
@@ -374,6 +384,8 @@ pull_frames(struct state *state,
 			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
 			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->outbuf->id);
 			state->ready_offset = 0;
+
+			try_pull(state, frames, do_pull);
 		}
 		total_frames += n_frames;
 		to_write -= n_frames;

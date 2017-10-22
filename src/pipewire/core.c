@@ -32,7 +32,7 @@
 #include <pipewire/core.h>
 #include <pipewire/data-loop.h>
 
-#include <spa/graph-scheduler3.h>
+#include <spa/graph-scheduler6.h>
 
 /** \cond */
 struct resource_data {

@@ -565,8 +565,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 				  sizeof(struct port));
 
 	for (i = 0; i < data->trans->area->max_input_ports; i++) {
-		data->trans->inputs[i].status = SPA_RESULT_NEED_BUFFER;
-		data->trans->inputs[i].buffer_id = SPA_ID_INVALID;
+		data->trans->inputs[i] = SPA_PORT_IO_INIT;
 		spa_graph_port_init(&data->in_ports[i].input,
 				    SPA_DIRECTION_INPUT,
 				    i,
@@ -1108,22 +1107,17 @@ static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint3
 
 static int impl_process_input(struct spa_node *node)
 {
-#if 0
 	struct node_data *data = SPA_CONTAINER_OF(node, struct node_data, out_node_impl);
-	node_have_output(data);
-#endif
 	pw_log_trace("node %p: process input", node);
+	node_have_output(data);
 	return SPA_RESULT_OK;
 }
 
 static int impl_process_output(struct spa_node *node)
 {
-#if 0
 	struct node_data *data = SPA_CONTAINER_OF(node, struct node_data, in_node_impl);
-	node_need_input(data);
-	pw_log_trace("node %p: need input", node);
-#endif
 	pw_log_trace("node %p: process output", node);
+	node_need_input(data);
 	return SPA_RESULT_OK;
 }
 

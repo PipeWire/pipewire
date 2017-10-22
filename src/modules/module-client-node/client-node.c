@@ -756,16 +756,12 @@ static int spa_proxy_node_process_input(struct spa_node *node)
 	impl = this->impl;
 
 	for (i = 0; i < MAX_INPUTS; i++) {
-		struct spa_port_io *io = this->in_ports[i].io, tmp;
+		struct spa_port_io *io = this->in_ports[i].io;
 
 		if (!io)
 			continue;
 
-		tmp = impl->transport->inputs[i];
 		impl->transport->inputs[i] = *io;
-		if (res == SPA_RESULT_OK)
-			res = tmp.status;
-		*io = tmp;
 		pw_log_trace("%d %d -> %d %d", io->status, io->buffer_id,
 				impl->transport->inputs[i].status,
 				impl->transport->inputs[i].buffer_id);
@@ -793,16 +789,12 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 	impl = this->impl;
 
 	for (i = 0; i < MAX_OUTPUTS; i++) {
-		struct spa_port_io *io = this->out_ports[i].io, tmp;
+		struct spa_port_io *io = this->out_ports[i].io;
 
 		if (!io)
 			continue;
 
-		tmp = impl->transport->outputs[i];
 		impl->transport->outputs[i] = *io;
-		if (res == SPA_RESULT_OK)
-			res = tmp.status;
-		*io = tmp;
 		pw_log_trace("%d %d -> %d %d", io->status, io->buffer_id,
 				impl->transport->outputs[i].status,
 				impl->transport->outputs[i].buffer_id);
@@ -828,12 +820,19 @@ static int handle_node_message(struct proxy *this, struct pw_client_node_message
 				continue;
 
 			*io = impl->transport->outputs[i];
-			impl->transport->outputs[i].buffer_id = SPA_ID_INVALID;
-			impl->transport->outputs[i].status = SPA_RESULT_OK;
 			pw_log_trace("%d %d", io->status, io->buffer_id);
 		}
 		this->callbacks->have_output(this->callbacks_data);
 	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_NEED_INPUT) {
+		for (i = 0; i < MAX_INPUTS; i++) {
+			struct spa_port_io *io = this->in_ports[i].io;
+
+			if (!io)
+				continue;
+
+			*io = impl->transport->inputs[i];
+			pw_log_trace("%d %d", io->status, io->buffer_id);
+		}
 		this->callbacks->need_input(this->callbacks_data);
 	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {
 		if (impl->client_reuse) {

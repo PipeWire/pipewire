@@ -313,7 +313,8 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
 
-		data->stream = pw_stream_new(remote, "video-play", NULL);
+		data->stream = pw_stream_new(remote, "video-play",
+				pw_properties_new("pipewire.client.reuse", "1", NULL));
 
 		SDL_GetRendererInfo(data->renderer, &info);
 

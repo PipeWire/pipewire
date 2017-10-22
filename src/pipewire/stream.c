@@ -416,14 +416,12 @@ static void add_port_update(struct pw_stream *stream, uint32_t change_mask)
 
 static inline void send_need_input(struct pw_stream *stream)
 {
-#if 0
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	uint64_t cmd = 1;
 
 	pw_client_node_transport_add_message(impl->trans,
 			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
 	write(impl->rtwritefd, &cmd, 8);
-#endif
 }
 
 static inline void send_have_output(struct pw_stream *stream)
@@ -531,7 +529,6 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 			uint32_t buffer_id;
 
 			buffer_id = input->buffer_id;
-			input->buffer_id = SPA_ID_INVALID;
 			input->status = SPA_RESULT_NEED_BUFFER;
 
 			pw_log_trace("stream %p: process input %d %d", stream, input->status,
@@ -1081,8 +1078,6 @@ uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream)
 bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct pw_client_node_message_reuse_buffer rb = PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER_INIT
-	    (impl->port_id, id);
 	struct buffer_id *bid;
 	uint64_t cmd = 1;
 
@@ -1092,7 +1087,8 @@ bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 	bid->used = false;
 	spa_list_insert(impl->free.prev, &bid->link);
 
-	pw_client_node_transport_add_message(impl->trans, (struct pw_client_node_message *) &rb);
+	pw_client_node_transport_add_message(impl->trans, (struct pw_client_node_message*)
+					&PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER_INIT(impl->port_id, id));
 	write(impl->rtwritefd, &cmd, 8);
 
 	return true;

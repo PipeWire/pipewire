@@ -768,9 +768,6 @@ static int spa_proxy_node_process_input(struct spa_node *node)
 
 		if (impl->client_reuse)
 			io->buffer_id = SPA_ID_INVALID;
-		else
-			io->buffer_id = impl->transport->inputs[i].buffer_id;
-
 	}
 	pw_client_node_transport_add_message(impl->transport,
 			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT));
@@ -831,6 +828,8 @@ static int handle_node_message(struct proxy *this, struct pw_client_node_message
 				continue;
 
 			*io = impl->transport->inputs[i];
+			if (impl->client_reuse)
+				io->buffer_id = SPA_ID_INVALID;
 			pw_log_trace("%d %d", io->status, io->buffer_id);
 		}
 		this->callbacks->need_input(this->callbacks_data);

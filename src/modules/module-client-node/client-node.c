@@ -128,6 +128,7 @@ struct impl {
 	int other_fds[2];
 
 	bool client_reuse;
+	bool out_pending;
 };
 
 /** \endcond */
@@ -785,6 +786,11 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
 	impl = this->impl;
 
+	if (impl->out_pending)
+		return res;
+
+	impl->out_pending = true;
+
 	for (i = 0; i < MAX_OUTPUTS; i++) {
 		struct spa_port_io *io = this->out_ports[i].io;
 
@@ -818,6 +824,7 @@ static int handle_node_message(struct proxy *this, struct pw_client_node_message
 
 			*io = impl->transport->outputs[i];
 			pw_log_trace("%d %d", io->status, io->buffer_id);
+			impl->out_pending = false;
 		}
 		this->callbacks->have_output(this->callbacks_data);
 	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_NEED_INPUT) {

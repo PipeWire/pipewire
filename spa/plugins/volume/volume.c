@@ -519,7 +519,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 		b = &port->buffers[i];
 		b->outbuf = buffers[i];
-		b->outstanding = true;
+		b->outstanding = direction == SPA_DIRECTION_INPUT;
 		b->h = spa_buffer_find_meta(buffers[i], this->type.meta.Header);
 
 		if ((d[0].type == this->type.data.MemPtr ||
@@ -532,7 +532,8 @@ impl_node_port_use_buffers(struct spa_node *node,
 				      buffers[i]);
 			return SPA_RESULT_ERROR;
 		}
-		spa_list_insert(port->empty.prev, &b->link);
+		if (!b->outstanding)
+			spa_list_append(&port->empty, &b->link);
 	}
 	port->n_buffers = n_buffers;
 
@@ -640,7 +641,7 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 {
 	uint32_t si, di, i, n_samples, n_bytes, soff, doff;
 	struct spa_data *sd, *dd;
-	uint16_t *src, *dst;
+	int16_t *src, *dst;
 	double volume;
 
 	volume = this->props.volume;
@@ -655,23 +656,26 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 		sd = &sbuf->datas[si];
 		dd = &dbuf->datas[di];
 
-		src = (uint16_t *) ((uint8_t *) sd->data + sd->chunk->offset + soff);
-		dst = (uint16_t *) ((uint8_t *) dd->data + dd->chunk->offset + doff);
+		src = (int16_t *) ((uint8_t *) sd->data + sd->chunk->offset + soff);
+		dst = (int16_t *) ((uint8_t *) dd->data + doff);
 
-		n_bytes = SPA_MIN(sd->chunk->size - soff, dd->chunk->size - doff);
+		n_bytes = SPA_MIN(sd->chunk->size - soff, dd->maxsize - doff);
 		n_samples = n_bytes / sizeof(uint16_t);
 
 		for (i = 0; i < n_samples; i++)
-			*src++ = *dst++ * volume;
+			dst[i] = src[i] * volume;
 
 		soff += n_bytes;
 		doff += n_bytes;
+
+		dd->chunk->offset = 0;
+		dd->chunk->size = doff;
 
 		if (soff >= sd->chunk->size) {
 			si++;
 			soff = 0;
 		}
-		if (doff >= dd->chunk->size) {
+		if (doff >= dd->maxsize) {
 			di++;
 			doff = 0;
 		}
@@ -704,14 +708,17 @@ static int impl_node_process_input(struct spa_node *node)
 	if (input->buffer_id >= in_port->n_buffers)
 		return SPA_RESULT_NEED_BUFFER;
 
-	if ((dbuf = find_free_buffer(this, out_port)) == NULL)
+	if ((dbuf = find_free_buffer(this, out_port)) == NULL) {
+                spa_log_error(this->log, NAME " %p: out of buffers", this);
 		return SPA_RESULT_OUT_OF_BUFFERS;
+	}
 
 	sbuf = in_port->buffers[input->buffer_id].outbuf;
 
 	input->status = SPA_RESULT_OK;
 
-	do_volume(this, sbuf, dbuf);
+	spa_log_trace(this->log, NAME " %p: do volume %d -> %d", this, sbuf->id, dbuf->id);
+	do_volume(this, dbuf, sbuf);
 
 	output->buffer_id = dbuf->id;
 	output->status = SPA_RESULT_HAVE_BUFFER;

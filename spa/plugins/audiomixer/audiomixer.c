@@ -521,7 +521,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 		b = &port->buffers[i];
 		b->outbuf = buffers[i];
-		b->outstanding = direction == SPA_DIRECTION_INPUT ? true : false;
+		b->outstanding = (direction == SPA_DIRECTION_INPUT);
 		b->h = spa_buffer_find_meta(buffers[i], t->meta.Header);
 
 		if (!((d[0].type == t->data.MemPtr ||

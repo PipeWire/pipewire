@@ -333,6 +333,7 @@ pull_frames(struct state *state,
 	    bool do_pull)
 {
 	snd_pcm_uframes_t total_frames = 0, to_write = frames;
+	bool underrun = false;
 
 	try_pull(state, frames, do_pull);
 
@@ -390,8 +391,16 @@ pull_frames(struct state *state,
 	}
 	if (total_frames == 0 && do_pull) {
 		total_frames = SPA_MIN(frames, state->threshold);
-		spa_log_trace(state->log, "underrun, want %zd frames", total_frames);
 		snd_pcm_areas_silence(my_areas, offset, state->channels, total_frames, state->format);
+		state->underrun += total_frames;
+		underrun = true;
+	}
+
+	if (state->underrun > 0) {
+		if (state->underrun >= state->rate || !underrun) {
+			spa_log_warn(state->log, "underrun, for %zd frames", state->underrun);
+			state->underrun = 0;
+		}
 	}
 	return total_frames;
 }

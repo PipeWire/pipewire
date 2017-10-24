@@ -159,6 +159,8 @@ struct state {
 	int64_t sample_count;
 	int64_t last_ticks;
 	int64_t last_monotonic;
+
+	uint64_t underrun;
 };
 
 int

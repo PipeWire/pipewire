@@ -583,7 +583,7 @@ static void recycle_buffer(struct impl *this, uint32_t id)
 		return;
 	}
 
-	spa_list_insert(port->empty.prev, &b->link);
+	spa_list_append(&port->empty, &b->link);
 	b->outstanding = false;
 	spa_log_trace(this->log, NAME " %p: recycle buffer %d", this, id);
 }

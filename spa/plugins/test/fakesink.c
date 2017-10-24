@@ -649,7 +649,7 @@ static int impl_node_process_input(struct spa_node *node)
 
 		spa_log_trace(this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
 
-		spa_list_insert(this->ready.prev, &b->link);
+		spa_list_append(&this->ready, &b->link);
 		b->outstanding = false;
 
 		input->buffer_id = SPA_ID_INVALID;

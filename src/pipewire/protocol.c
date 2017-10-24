@@ -50,7 +50,7 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 	if (user_data_size > 0)
 		protocol->user_data = SPA_MEMBER(protocol, sizeof(struct impl), void);
 
-	spa_list_insert(core->protocol_list.prev, &protocol->link);
+	spa_list_append(&core->protocol_list, &protocol->link);
 
 	pw_log_info("protocol %p: Created protocol %s", protocol, name);
 
@@ -118,7 +118,7 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 	impl->marshal = marshal;
 	impl->type = spa_type_map_get_id (protocol->core->type.map, marshal->type);
 
-	spa_list_insert(protocol->marshal_list.prev, &impl->link);
+	spa_list_append(&protocol->marshal_list, &impl->link);
 
 	pw_log_info("Add marshal %s:%d to protocol %s", marshal->type, marshal->version,
 			protocol->name);

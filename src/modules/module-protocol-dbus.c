@@ -124,7 +124,7 @@ static void *object_new(size_t size,
 	this->skel = skel;
 	this->destroy = destroy;
 
-	spa_list_insert(impl->object_list.prev, &this->link);
+	spa_list_append(&impl->object_list, &this->link);
 
 	if (export)
 		object_export(this);
@@ -243,7 +243,7 @@ static struct client *client_new(struct impl *impl, const char *sender)
 							  client_name_appeared_handler,
 							  client_name_vanished_handler, this, NULL);
 
-		spa_list_insert(impl->client_list.prev, &this->link);
+		spa_list_append(&impl->client_list, &this->link);
 	}
 	return this;
 }

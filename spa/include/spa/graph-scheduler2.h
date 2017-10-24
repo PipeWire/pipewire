@@ -53,7 +53,7 @@ static inline void spa_graph_port_check(struct spa_graph *graph, struct spa_grap
 	if (node->required > 0 && node->ready == node->required) {
 		node->action = SPA_GRAPH_ACTION_IN;
 		if (node->ready_link.next == NULL)
-			spa_list_insert(graph->ready.prev, &node->ready_link);
+			spa_list_append(&graph->ready, &node->ready_link);
 	} else if (node->ready_link.next) {
 		spa_list_remove(&node->ready_link);
 		node->ready_link.next = NULL;
@@ -117,7 +117,7 @@ next:
 				n->state = SPA_GRAPH_STATE_CHECK_OUT;
 			else if (state == SPA_RESULT_OK)
 				n->state = SPA_GRAPH_STATE_CHECK_OK;
-			spa_list_insert(graph->ready.prev, &n->ready_link);
+			spa_list_append(&graph->ready, &n->ready_link);
 		}
 		else {
 			spa_graph_node_update(graph, n);
@@ -133,8 +133,7 @@ next:
 				    || pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC) {
 					pn->state = SPA_GRAPH_STATE_OUT;
 					spa_debug("node %p add ready OUT", n);
-					spa_list_insert(graph->ready.prev,
-							&pn->ready_link);
+					spa_list_append(&graph->ready, &pn->ready_link);
 				}
 			} else if (p->io->status == SPA_RESULT_OK)
 				n->ready++;
@@ -167,7 +166,7 @@ static inline void spa_graph_scheduler_pull(struct spa_graph *graph, struct spa_
 	graph->node = node;
 	spa_debug("node %p start pull", node);
 	if (node->ready_link.next == NULL)
-		spa_list_insert(graph->ready.prev, &node->ready_link);
+		spa_list_append(&graph->ready, &node->ready_link);
 }
 
 static inline void spa_graph_scheduler_push(struct spa_graph *graph, struct spa_graph_node *node)
@@ -176,7 +175,7 @@ static inline void spa_graph_scheduler_push(struct spa_graph *graph, struct spa_
 	graph->node = node;
 	spa_debug("node %p start push", node);
 	if (node->ready_link.next == NULL)
-		spa_list_insert(graph->ready.prev, &node->ready_link);
+		spa_list_append(&graph->ready, &node->ready_link);
 }
 
 #ifdef __cplusplus

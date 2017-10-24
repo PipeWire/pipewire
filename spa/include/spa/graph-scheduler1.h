@@ -59,7 +59,7 @@ static inline void spa_graph_data_port_check(struct spa_graph_data *data, struct
 	if (required > 0 && node->ready[SPA_DIRECTION_INPUT] == required) {
 		node->state = SPA_GRAPH_STATE_IN;
 		if (node->ready_link.next == NULL)
-			spa_list_insert(data->ready.prev, &node->ready_link);
+			spa_list_append(&data->ready, &node->ready_link);
 	} else if (node->ready_link.next) {
 		spa_list_remove(&node->ready_link);
 		node->ready_link.next = NULL;

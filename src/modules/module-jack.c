@@ -1055,7 +1055,7 @@ static struct client *client_new(struct impl *impl, int fd)
 		goto no_source;
 
 	spa_list_init(&this->jack_clients);
-	spa_list_insert(impl->client_list.prev, &this->link);
+	spa_list_append(&impl->client_list, &this->link);
 
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
 
@@ -1426,7 +1426,7 @@ static bool add_socket(struct impl *impl, struct socket *s)
 	if (s->source == NULL)
 		return false;
 
-	spa_list_insert(impl->socket_list.prev, &s->link);
+	spa_list_append(&impl->socket_list, &s->link);
 
 	return true;
 }

@@ -583,7 +583,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
 				      buffers[i]);
 		}
-		spa_list_insert(this->empty.prev, &b->link);
+		spa_list_append(&this->empty, &b->link);
 	}
 	this->n_buffers = n_buffers;
 	this->underrun = false;
@@ -641,7 +641,7 @@ static inline void reuse_buffer(struct impl *this, uint32_t id)
 	spa_log_trace(this->log, NAME " %p: reuse buffer %d", this, id);
 
 	b->outstanding = false;
-	spa_list_insert(this->empty.prev, &b->link);
+	spa_list_append(&this->empty, &b->link);
 
 	if (this->underrun) {
 		set_timer(this, true);

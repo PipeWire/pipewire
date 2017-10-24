@@ -515,7 +515,7 @@ core_global_added(void *data, struct pw_global *global)
 
 		pw_client_add_listener(client, &cinfo->client_listener, &client_events, cinfo);
 
-		spa_list_insert(impl->client_list.prev, &cinfo->link);
+		spa_list_append(&impl->client_list, &cinfo->link);
 
 		pw_log_debug("module %p: client %p added", impl, client);
 	}

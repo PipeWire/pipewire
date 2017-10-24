@@ -241,7 +241,7 @@ struct pw_stream *pw_stream_new(struct pw_remote *remote,
 	impl->pending_seq = SPA_ID_INVALID;
 	spa_list_init(&impl->free);
 
-	spa_list_insert(&remote->stream_list, &this->link);
+	spa_list_append(&remote->stream_list, &this->link);
 
 	return this;
 
@@ -511,7 +511,7 @@ static inline void reuse_buffer(struct pw_stream *stream, uint32_t id)
 	if ((bid = find_buffer(stream, id)) && bid->used) {
 		pw_log_trace("stream %p: reuse buffer %u", stream, id);
 		bid->used = false;
-		spa_list_insert(impl->free.prev, &bid->link);
+		spa_list_append(&impl->free, &bid->link);
 		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, new_buffer, id);
 	}
 }
@@ -799,7 +799,7 @@ client_node_use_buffers(void *data,
 		bid = pw_array_add(&impl->buffer_ids, sizeof(struct buffer_id));
 		if (impl->direction == SPA_DIRECTION_OUTPUT) {
 			bid->used = false;
-			spa_list_insert(impl->free.prev, &bid->link);
+			spa_list_append(&impl->free, &bid->link);
 		} else {
 			bid->used = true;
 		}
@@ -1085,7 +1085,7 @@ bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 		return false;
 
 	bid->used = false;
-	spa_list_insert(impl->free.prev, &bid->link);
+	spa_list_append(&impl->free, &bid->link);
 
 	pw_client_node_transport_add_message(impl->trans, (struct pw_client_node_message*)
 					&PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER_INIT(impl->port_id, id));

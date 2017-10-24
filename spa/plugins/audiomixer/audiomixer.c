@@ -532,7 +532,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 			return SPA_RESULT_ERROR;
 		}
 		if (!b->outstanding)
-			spa_list_insert(port->queue.prev, &b->link);
+			spa_list_append(&port->queue, &b->link);
 	}
 	port->n_buffers = n_buffers;
 
@@ -582,7 +582,7 @@ static void recycle_buffer(struct impl *this, uint32_t id)
 		return;
 	}
 
-	spa_list_insert(port->queue.prev, &b->link);
+	spa_list_append(&port->queue, &b->link);
 	b->outstanding = false;
 	spa_log_trace(this->log, NAME " %p: recycle buffer %d", this, id);
 }
@@ -735,7 +735,7 @@ static int impl_node_process_input(struct spa_node *node)
 			inio->buffer_id = SPA_ID_INVALID;
 			inio->status = SPA_RESULT_OK;
 
-			spa_list_insert(inport->queue.prev, &b->link);
+			spa_list_append(&inport->queue, &b->link);
 			inport->queued_bytes += b->outbuf->datas[0].chunk->size;
 
 			spa_log_trace(this->log, NAME " %p: queue buffer %d on port %d %zd %zd",

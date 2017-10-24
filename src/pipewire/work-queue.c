@@ -73,7 +73,7 @@ static void process_work_queue(void *data, uint64_t count)
 				     this->n_queued, item->obj, item->seq, item->res);
 			item->func(item->obj, item->data, item->res, item->id);
 		}
-		spa_list_insert(this->free_list.prev, &item->link);
+		spa_list_append(&this->free_list, &item->link);
 	}
 }
 
@@ -169,7 +169,7 @@ pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_
 		have_work = true;
 		pw_log_debug("work-queue %p: defer object %p", queue, obj);
 	}
-	spa_list_insert(queue->work_list.prev, &item->link);
+	spa_list_append(&queue->work_list, &item->link);
 	queue->n_queued++;
 
 	if (have_work)

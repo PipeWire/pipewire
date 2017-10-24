@@ -254,7 +254,7 @@ static void recycle_buffer(struct state *this, uint32_t buffer_id)
 	spa_return_if_fail(b->outstanding);
 
 	b->outstanding = false;
-	spa_list_insert(this->free.prev, &b->link);
+	spa_list_append(&this->free, &b->link);
 }
 
 static int clear_buffers(struct state *this)
@@ -448,7 +448,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return SPA_RESULT_ERROR;
 		}
-		spa_list_insert(this->free.prev, &b->link);
+		spa_list_append(&this->free, &b->link);
 	}
 	this->n_buffers = n_buffers;
 

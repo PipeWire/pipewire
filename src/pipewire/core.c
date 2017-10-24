@@ -140,7 +140,7 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 				       &registry_methods,
 				       registry_resource);
 
-	spa_list_insert(this->registry_resource_list.prev, &registry_resource->link);
+	spa_list_append(&this->registry_resource_list, &registry_resource->link);
 
 	spa_list_for_each(global, &this->global_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, client);

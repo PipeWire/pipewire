@@ -93,7 +93,7 @@ pw_core_add_global(struct pw_core *core,
 		parent = this;
 	this->parent = parent;
 
-	spa_list_insert(core->global_list.prev, &this->link);
+	spa_list_append(&core->global_list, &this->link);
 
 	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_added, this);
 

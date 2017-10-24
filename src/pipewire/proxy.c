@@ -68,7 +68,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 
 	this->marshal = pw_protocol_get_marshal(remote->conn->protocol, type);
 
-	spa_list_insert(&this->remote->proxy_list, &this->link);
+	spa_list_append(&this->remote->proxy_list, &this->link);
 
 	pw_log_debug("proxy %p: new %u, remote %p, marshal %p", this, this->id, remote, this->marshal);
 

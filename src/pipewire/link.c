@@ -996,7 +996,7 @@ link_bind_func(struct pw_global *global,
 
 	pw_log_debug("link %p: bound to %d", this, resource->id);
 
-	spa_list_insert(this->resource_list.prev, &resource->link);
+	spa_list_append(&this->resource_list, &resource->link);
 
 	this->info.change_mask = ~0;
 	pw_link_resource_info(resource, &this->info);
@@ -1114,8 +1114,8 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	pw_log_debug("link %p: output node %p clock %p, live %d", this, output_node, output_node->clock,
                              output_node->live);
 
-	spa_list_insert(output->links.prev, &this->output_link);
-	spa_list_insert(input->links.prev, &this->input_link);
+	spa_list_append(&output->links, &this->output_link);
+	spa_list_append(&input->links, &this->input_link);
 
 	this->info.output_node_id = output_node->global->id;
 	this->info.output_port_id = output->port_id;
@@ -1169,7 +1169,7 @@ void pw_link_register(struct pw_link *link,
 	struct pw_core *core = link->core;
 	struct pw_node *input_node, *output_node;
 
-	spa_list_insert(core->link_list.prev, &link->link);
+	spa_list_append(&core->link_list, &link->link);
 	link->global = pw_core_add_global(core, owner, parent, core->type.link, PW_VERSION_LINK,
 			   link_bind_func, link);
 	link->info.id = link->global->id;

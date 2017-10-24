@@ -365,7 +365,7 @@ pull_frames(struct state *state,
 			reuse = avail == n_bytes;
 		} else {
 			offs = SPA_MIN(d[0].chunk->offset + state->ready_offset, d[0].maxsize);
-			size = SPA_MIN(d[0].chunk->size, d[0].maxsize) - offs;
+			size = SPA_MIN(d[0].chunk->size + offs, d[0].maxsize) - offs;
 			src = SPA_MEMBER(d[0].data, offs, uint8_t);
 
 			n_bytes = SPA_MIN(size, to_write * state->frame_size);

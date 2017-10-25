@@ -148,8 +148,6 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
-	if (data.node)
-		pw_node_destroy(data.node);
 	pw_core_destroy(data.core);
 	pw_main_loop_destroy(data.loop);
 

@@ -101,7 +101,7 @@ spa_pod_builder_raw(struct spa_pod_builder *builder, const void *data, uint32_t 
 	return ref;
 }
 
-static void spa_pod_builder_pad(struct spa_pod_builder *builder, uint32_t size)
+static inline void spa_pod_builder_pad(struct spa_pod_builder *builder, uint32_t size)
 {
 	uint64_t zeroes = 0;
 	size = SPA_ROUND_UP_N(size, 8) - size;

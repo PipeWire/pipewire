@@ -137,7 +137,7 @@ struct spa_node_callbacks {
 /**
  * struct spa_node:
  *
- * A struct spa_node is a component that can comsume and produce buffers.
+ * A struct spa_node is a component that can consume and produce buffers.
  *
  *
  *
@@ -585,7 +585,7 @@ struct spa_node {
 	 *   output from
 	 *
 	 * - set the status to SPA_RESULT_OK for the port you don't want more
-	 *   buffer from.
+	 *   buffers from.
 	 *
 	 * Returns: #SPA_RESULT_OK on success or when the node is asynchronous
 	 *          #SPA_RESULT_NEED_BUFFER for synchronous nodes when input

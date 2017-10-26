@@ -273,6 +273,7 @@ impl_node_port_set_format(struct spa_node *node,
 			  uint32_t port_id, uint32_t flags, const struct spa_format *format)
 {
 	struct state *this;
+	int err;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
@@ -297,8 +298,8 @@ impl_node_port_set_format(struct spa_node *node,
 		if (spa_format_audio_raw_parse(format, &info.info.raw, &this->type.format_audio) < 0)
 			return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-		if (spa_alsa_set_format(this, &info, flags) < 0)
-			return SPA_RESULT_ERROR;
+		if ((err = spa_alsa_set_format(this, &info, flags)) < 0)
+			return err;
 
 		this->current_format = info;
 		this->have_format = true;
@@ -384,7 +385,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			t->param_alloc_buffers.Buffers,
 			":", t->param_alloc_buffers.size,    "i", this->props.min_latency * this->frame_size,
 			":", t->param_alloc_buffers.stride,  "i", 0,
-			":", t->param_alloc_buffers.buffers, "i", 2,
+			":", t->param_alloc_buffers.buffers, "ir", 2,
 									2, 1, 32,
 			":", t->param_alloc_buffers.align,   "i", 16);
 		break;

@@ -74,7 +74,7 @@ static inline int memfd_create(const char *name, unsigned int flags)
 #endif
 
 
-#undef USE_MEMFD
+#define USE_MEMFD
 
 /** Map a memblock
  * \param mem a memblock

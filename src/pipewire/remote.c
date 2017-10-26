@@ -1124,11 +1124,12 @@ static void node_proxy_destroy(void *_data)
 	struct pw_proxy *proxy = (struct pw_proxy*) data->node_proxy;
 	int i;
 
-	for (i = 0; i < data->trans->area->max_input_ports; i++)
-		clear_port(&data->in_ports[i]);
-	for (i = 0; i < data->trans->area->max_output_ports; i++)
-		clear_port(&data->out_ports[i]);
-
+	if (data->trans) {
+		for (i = 0; i < data->trans->area->max_input_ports; i++)
+			clear_port(&data->in_ports[i]);
+		for (i = 0; i < data->trans->area->max_output_ports; i++)
+			clear_port(&data->out_ports[i]);
+	}
 	clean_transport(proxy);
 
 	spa_hook_remove(&data->node_listener);

@@ -372,7 +372,7 @@ int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_fo
 	pw_log_debug("port %p: set format %d", port, res);
 
 	if (!SPA_RESULT_IS_ASYNC(res)) {
-		if (format == NULL) {
+		if (format == NULL || res < 0) {
 			if (port->allocated) {
 				free(port->buffers);
 				pw_memblock_free(&port->buffer_mem);

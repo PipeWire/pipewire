@@ -245,6 +245,7 @@ impl_node_port_set_format(struct spa_node *node,
 			  const struct spa_format *format)
 {
 	struct state *this;
+	int err;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
@@ -270,8 +271,8 @@ impl_node_port_set_format(struct spa_node *node,
 		if (spa_format_audio_raw_parse(format, &info.info.raw, &this->type.format_audio) < 0)
 			return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-		if (spa_alsa_set_format(this, &info, flags) < 0)
-			return SPA_RESULT_ERROR;
+		if ((err = spa_alsa_set_format(this, &info, flags)) < 0)
+			return err;
 
 		this->current_format = info;
 		this->have_format = true;

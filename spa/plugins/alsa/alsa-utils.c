@@ -14,7 +14,16 @@
 
 #include "alsa-utils.h"
 
-#define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", snd_strerror(err)); return err; }
+static int convert_errnum(struct state *state, int errnum)
+{
+	switch (errnum) {
+	case -EBUSY:
+		return SPA_RESULT_BUSY;
+	}
+	return SPA_RESULT_ERROR;
+}
+
+#define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", snd_strerror(err)); return convert_errnum(state, err); }
 
 static int spa_alsa_open(struct state *state)
 {
@@ -128,7 +137,7 @@ spa_alsa_enum_format(struct state *state, struct spa_format **format, const stru
 
 	opened = state->opened;
 	if ((err = spa_alsa_open(state)) < 0)
-		return SPA_RESULT_ERROR;
+		return err;
 
 	hndl = state->hndl;
 	snd_pcm_hw_params_alloca(&params);

@@ -40,72 +40,72 @@ static int xioctl(int fd, int request, void *arg)
 
 static int spa_v4l2_open(struct impl *this)
 {
-	struct port *state = &this->out_ports[0];
+	struct port *port = &this->out_ports[0];
 	struct stat st;
 	struct props *props = &this->props;
 
-	if (state->opened)
+	if (port->opened)
 		return 0;
 
 	if (props->device[0] == '\0') {
-		spa_log_error(state->log, "v4l2: Device property not set");
+		spa_log_error(port->log, "v4l2: Device property not set");
 		return -1;
 	}
 
-	spa_log_info(state->log, "v4l2: Playback device is '%s'", props->device);
+	spa_log_info(port->log, "v4l2: Playback device is '%s'", props->device);
 
 	if (stat(props->device, &st) < 0) {
-		spa_log_error(state->log, "v4l2: Cannot identify '%s': %d, %s",
+		spa_log_error(port->log, "v4l2: Cannot identify '%s': %d, %s",
 			      props->device, errno, strerror(errno));
 		return -1;
 	}
 
 	if (!S_ISCHR(st.st_mode)) {
-		spa_log_error(state->log, "v4l2: %s is no device", props->device);
+		spa_log_error(port->log, "v4l2: %s is no device", props->device);
 		return -1;
 	}
 
-	state->fd = open(props->device, O_RDWR | O_NONBLOCK, 0);
+	port->fd = open(props->device, O_RDWR | O_NONBLOCK, 0);
 
-	if (state->fd == -1) {
-		spa_log_error(state->log, "v4l2: Cannot open '%s': %d, %s",
+	if (port->fd == -1) {
+		spa_log_error(port->log, "v4l2: Cannot open '%s': %d, %s",
 			      props->device, errno, strerror(errno));
 		return -1;
 	}
 
-	if (xioctl(state->fd, VIDIOC_QUERYCAP, &state->cap) < 0) {
+	if (xioctl(port->fd, VIDIOC_QUERYCAP, &port->cap) < 0) {
 		perror("QUERYCAP");
 		return -1;
 	}
 
-	if ((state->cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) == 0) {
-		spa_log_error(state->log, "v4l2: %s is no video capture device", props->device);
+	if ((port->cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) == 0) {
+		spa_log_error(port->log, "v4l2: %s is no video capture device", props->device);
 		return -1;
 	}
 
-	state->source.func = v4l2_on_fd_events;
-	state->source.data = this;
-	state->source.fd = state->fd;
-	state->source.mask = SPA_IO_IN | SPA_IO_ERR;
-	state->source.rmask = 0;
+	port->source.func = v4l2_on_fd_events;
+	port->source.data = this;
+	port->source.fd = port->fd;
+	port->source.mask = SPA_IO_IN | SPA_IO_ERR;
+	port->source.rmask = 0;
 
-	state->opened = true;
+	port->opened = true;
 
 	return 0;
 }
 
 static int spa_v4l2_buffer_recycle(struct impl *this, uint32_t buffer_id)
 {
-	struct port *state = &this->out_ports[0];
-	struct buffer *b = &state->buffers[buffer_id];
+	struct port *port = &this->out_ports[0];
+	struct buffer *b = &port->buffers[buffer_id];
 
 	if (!b->outstanding)
 		return SPA_RESULT_OK;
 
 	b->outstanding = false;
-	spa_log_trace(state->log, "v4l2 %p: recycle buffer %d", this, buffer_id);
+	spa_log_trace(port->log, "v4l2 %p: recycle buffer %d", this, buffer_id);
 
-	if (xioctl(state->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
+	if (xioctl(port->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
 		perror("VIDIOC_QBUF");
 	}
 	return SPA_RESULT_OK;
@@ -113,19 +113,19 @@ static int spa_v4l2_buffer_recycle(struct impl *this, uint32_t buffer_id)
 
 static int spa_v4l2_clear_buffers(struct impl *this)
 {
-	struct port *state = &this->out_ports[0];
+	struct port *port = &this->out_ports[0];
 	struct v4l2_requestbuffers reqbuf;
 	int i;
 
-	if (state->n_buffers == 0)
+	if (port->n_buffers == 0)
 		return SPA_RESULT_OK;
 
-	for (i = 0; i < state->n_buffers; i++) {
+	for (i = 0; i < port->n_buffers; i++) {
 		struct buffer *b;
 
-		b = &state->buffers[i];
+		b = &port->buffers[i];
 		if (b->outstanding) {
-			spa_log_info(state->log, "v4l2: queueing outstanding buffer %p", b);
+			spa_log_info(port->log, "v4l2: queueing outstanding buffer %p", b);
 			spa_v4l2_buffer_recycle(this, i);
 		}
 		if (b->allocated) {
@@ -139,50 +139,50 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 
 	spa_zero(reqbuf);
 	reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	reqbuf.memory = state->memtype;
+	reqbuf.memory = port->memtype;
 	reqbuf.count = 0;
 
-	if (xioctl(state->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
+	if (xioctl(port->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
 		perror("VIDIOC_REQBUFS");
 	}
-	state->n_buffers = 0;
+	port->n_buffers = 0;
 
 	return SPA_RESULT_OK;
 }
 
 static int spa_v4l2_port_set_enabled(struct impl *this, bool enabled)
 {
-	struct port *state = &this->out_ports[0];
-	if (state->source_enabled != enabled) {
-		spa_log_info(state->log, "v4l2: enabled %d", enabled);
-		state->source_enabled = enabled;
+	struct port *port = &this->out_ports[0];
+	if (port->source_enabled != enabled) {
+		spa_log_info(port->log, "v4l2: enabled %d", enabled);
+		port->source_enabled = enabled;
 		if (enabled)
-			spa_loop_add_source(state->data_loop, &state->source);
+			spa_loop_add_source(port->data_loop, &port->source);
 		else
-			spa_loop_remove_source(state->data_loop, &state->source);
+			spa_loop_remove_source(port->data_loop, &port->source);
 	}
 	return SPA_RESULT_OK;
 }
 
 static int spa_v4l2_close(struct impl *this)
 {
-	struct port *state = &this->out_ports[0];
+	struct port *port = &this->out_ports[0];
 
-	if (!state->opened)
+	if (!port->opened)
 		return 0;
 
-	if (state->n_buffers > 0)
+	if (port->n_buffers > 0)
 		return 0;
 
 	spa_v4l2_port_set_enabled(this, false);
 
-	spa_log_info(state->log, "v4l2: close");
+	spa_log_info(port->log, "v4l2: close");
 
-	if (close(state->fd))
+	if (close(port->fd))
 		perror("close");
 
-	state->fd = -1;
-	state->opened = false;
+	port->fd = -1;
+	port->opened = false;
 
 	return 0;
 }
@@ -526,7 +526,7 @@ spa_v4l2_enum_format(struct impl *this,
 		     const struct spa_format *filter,
 		     uint32_t index)
 {
-	struct port *state = &this->out_ports[0];
+	struct port *port = &this->out_ports[0];
 	int res, n_fractions;
 	const struct format_info *info;
 	struct spa_pod_frame f[2];
@@ -540,25 +540,25 @@ spa_v4l2_enum_format(struct impl *this,
 	*format = NULL;
 
 	if (index == 0) {
-		spa_zero(state->fmtdesc);
-		state->fmtdesc.index = 0;
-		state->fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		state->next_fmtdesc = true;
-		spa_zero(state->frmsize);
-		state->next_frmsize = true;
-		spa_zero(state->frmival);
+		spa_zero(port->fmtdesc);
+		port->fmtdesc.index = 0;
+		port->fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		port->next_fmtdesc = true;
+		spa_zero(port->frmsize);
+		port->next_frmsize = true;
+		spa_zero(port->frmival);
 	}
 
 	if (false) {
 	      next_fmtdesc:
-		state->fmtdesc.index++;
-		state->next_fmtdesc = true;
+		port->fmtdesc.index++;
+		port->next_fmtdesc = true;
 	}
 
-	while (state->next_fmtdesc) {
+	while (port->next_fmtdesc) {
 		if (filter) {
 			video_format =
-			    enum_filter_format(&this->type, filter, state->fmtdesc.index);
+			    enum_filter_format(&this->type, filter, port->fmtdesc.index);
 			if (video_format == this->type.video_format.UNKNOWN)
 				return SPA_RESULT_ENUM_END;
 
@@ -569,24 +569,24 @@ spa_v4l2_enum_format(struct impl *this,
 			if (info == NULL)
 				goto next_fmtdesc;
 
-			state->fmtdesc.pixelformat = info->fourcc;
+			port->fmtdesc.pixelformat = info->fourcc;
 		} else {
-			if ((res = xioctl(state->fd, VIDIOC_ENUM_FMT, &state->fmtdesc)) < 0) {
+			if ((res = xioctl(port->fd, VIDIOC_ENUM_FMT, &port->fmtdesc)) < 0) {
 				if (errno != EINVAL)
 					perror("VIDIOC_ENUM_FMT");
 				return SPA_RESULT_ENUM_END;
 			}
 		}
-		state->next_fmtdesc = false;
-		state->frmsize.index = 0;
-		state->frmsize.pixel_format = state->fmtdesc.pixelformat;
-		state->next_frmsize = true;
+		port->next_fmtdesc = false;
+		port->frmsize.index = 0;
+		port->frmsize.pixel_format = port->fmtdesc.pixelformat;
+		port->next_frmsize = true;
 	}
-	if (!(info = fourcc_to_format_info(state->fmtdesc.pixelformat)))
+	if (!(info = fourcc_to_format_info(port->fmtdesc.pixelformat)))
 		goto next_fmtdesc;
 
       next_frmsize:
-	while (state->next_frmsize) {
+	while (port->next_frmsize) {
 		if (filter) {
 			struct spa_pod_prop *p;
 
@@ -601,17 +601,17 @@ spa_v4l2_enum_format(struct impl *this,
 				const struct spa_rectangle *values =
 				    SPA_POD_BODY_CONST(&p->body.value);
 
-				if (state->frmsize.index > 0)
+				if (port->frmsize.index > 0)
 					goto next_fmtdesc;
 
-				state->frmsize.type = V4L2_FRMSIZE_TYPE_DISCRETE;
-				state->frmsize.discrete.width = values[0].width;
-				state->frmsize.discrete.height = values[0].height;
+				port->frmsize.type = V4L2_FRMSIZE_TYPE_DISCRETE;
+				port->frmsize.discrete.width = values[0].width;
+				port->frmsize.discrete.height = values[0].height;
 				goto have_size;
 			}
 		}
 	      do_frmsize:
-		if ((res = xioctl(state->fd, VIDIOC_ENUM_FRAMESIZES, &state->frmsize)) < 0) {
+		if ((res = xioctl(port->fd, VIDIOC_ENUM_FRAMESIZES, &port->frmsize)) < 0) {
 			if (errno == EINVAL)
 				goto next_fmtdesc;
 
@@ -633,41 +633,41 @@ spa_v4l2_enum_format(struct impl *this,
 			n_values = SPA_POD_PROP_N_VALUES(p);
 
 			if (range == SPA_POD_PROP_RANGE_MIN_MAX && n_values > 2) {
-				if (filter_framesize(&state->frmsize, &values[1], &values[2], &step))
+				if (filter_framesize(&port->frmsize, &values[1], &values[2], &step))
 					goto have_size;
 			} else if (range == SPA_POD_PROP_RANGE_STEP && n_values > 3) {
-				if (filter_framesize(&state->frmsize, &values[1], &values[2], &values[3]))
+				if (filter_framesize(&port->frmsize, &values[1], &values[2], &values[3]))
 					goto have_size;
 			} else if (range == SPA_POD_PROP_RANGE_ENUM) {
 				for (i = 1; i < n_values; i++) {
-					if (filter_framesize(&state->frmsize, &values[i], &values[i], &step))
+					if (filter_framesize(&port->frmsize, &values[i], &values[i], &step))
 						goto have_size;
 				}
 			}
 			/* nothing matches the filter, get next frame size */
-			state->frmsize.index++;
+			port->frmsize.index++;
 			continue;
 		}
 
 	      have_size:
-		if (state->frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+		if (port->frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
 			/* we have a fixed size, use this to get the frame intervals */
-			state->frmival.index = 0;
-			state->frmival.pixel_format = state->frmsize.pixel_format;
-			state->frmival.width = state->frmsize.discrete.width;
-			state->frmival.height = state->frmsize.discrete.height;
-			state->next_frmsize = false;
-		} else if (state->frmsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS ||
-			   state->frmsize.type == V4L2_FRMSIZE_TYPE_STEPWISE) {
+			port->frmival.index = 0;
+			port->frmival.pixel_format = port->frmsize.pixel_format;
+			port->frmival.width = port->frmsize.discrete.width;
+			port->frmival.height = port->frmsize.discrete.height;
+			port->next_frmsize = false;
+		} else if (port->frmsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS ||
+			   port->frmsize.type == V4L2_FRMSIZE_TYPE_STEPWISE) {
 			/* we have a non fixed size, fix to something sensible to get the
 			 * framerate */
-			state->frmival.index = 0;
-			state->frmival.pixel_format = state->frmsize.pixel_format;
-			state->frmival.width = state->frmsize.stepwise.min_width;
-			state->frmival.height = state->frmsize.stepwise.min_height;
-			state->next_frmsize = false;
+			port->frmival.index = 0;
+			port->frmival.pixel_format = port->frmsize.pixel_format;
+			port->frmival.width = port->frmsize.stepwise.min_width;
+			port->frmival.height = port->frmsize.stepwise.min_height;
+			port->next_frmsize = false;
 		} else {
-			state->frmsize.index++;
+			port->frmsize.index++;
 		}
 	}
 
@@ -675,7 +675,7 @@ spa_v4l2_enum_format(struct impl *this,
 	media_subtype = *SPA_MEMBER(&this->type, info->media_subtype_offset, uint32_t);
 	video_format = *SPA_MEMBER(&this->type, info->format_offset, uint32_t);
 
-	spa_pod_builder_init(&b, state->format_buffer, sizeof(state->format_buffer));
+	spa_pod_builder_init(&b, port->format_buffer, sizeof(port->format_buffer));
 	spa_pod_builder_push_format(&b, &f[0], this->type.format, media_type, media_subtype);
 
 	if (media_subtype == this->type.media_subtype.raw) {
@@ -683,8 +683,8 @@ spa_v4l2_enum_format(struct impl *this,
 		":", this->type.format_video.format, "I", video_format, 0);
 	}
 	spa_pod_builder_add(&b,
-		":", this->type.format_video.size, "R", &SPA_RECTANGLE(state->frmsize.discrete.width,
-								       state->frmsize.discrete.height), 0);
+		":", this->type.format_video.size, "R", &SPA_RECTANGLE(port->frmsize.discrete.width,
+								       port->frmsize.discrete.height), 0);
 
 	spa_pod_builder_push_prop(&b, &f[1], this->type.format_video.framerate,
 				  SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_UNSET);
@@ -692,14 +692,14 @@ spa_v4l2_enum_format(struct impl *this,
 	prop = SPA_POD_BUILDER_DEREF(&b, f[1].ref, struct spa_pod_prop);
 	n_fractions = 0;
 
-	state->frmival.index = 0;
+	port->frmival.index = 0;
 
 	while (true) {
-		if ((res = xioctl(state->fd, VIDIOC_ENUM_FRAMEINTERVALS, &state->frmival)) < 0) {
+		if ((res = xioctl(port->fd, VIDIOC_ENUM_FRAMEINTERVALS, &port->frmival)) < 0) {
 			if (errno == EINVAL) {
-				state->frmsize.index++;
-				state->next_frmsize = true;
-				if (state->frmival.index == 0)
+				port->frmsize.index++;
+				port->next_frmsize = true;
+				if (port->frmival.index == 0)
 					goto next_frmsize;
 				break;
 			}
@@ -723,54 +723,54 @@ spa_v4l2_enum_format(struct impl *this,
 			n_values = SPA_POD_PROP_N_VALUES(p);
 
 			if (!(p->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
-				if (filter_framerate(&state->frmival, &values[0], &values[0], &step))
+				if (filter_framerate(&port->frmival, &values[0], &values[0], &step))
 					goto have_framerate;
 			} else if (range == SPA_POD_PROP_RANGE_MIN_MAX && n_values > 2) {
-				if (filter_framerate(&state->frmival, &values[1], &values[2], &step))
+				if (filter_framerate(&port->frmival, &values[1], &values[2], &step))
 					goto have_framerate;
 			} else if (range == SPA_POD_PROP_RANGE_STEP && n_values > 3) {
-				if (filter_framerate(&state->frmival, &values[1], &values[2], &values[3]))
+				if (filter_framerate(&port->frmival, &values[1], &values[2], &values[3]))
 					goto have_framerate;
 			} else if (range == SPA_POD_PROP_RANGE_ENUM) {
 				for (i = 1; i < n_values; i++) {
-					if (filter_framerate(&state->frmival, &values[i], &values[i], &step))
+					if (filter_framerate(&port->frmival, &values[i], &values[i], &step))
 						goto have_framerate;
 				}
 			}
-			state->frmival.index++;
+			port->frmival.index++;
 			continue;
 		}
 
 	      have_framerate:
 
-		if (state->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
+		if (port->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
 			prop->body.flags |= SPA_POD_PROP_RANGE_ENUM;
 			if (n_fractions == 0)
 				spa_pod_builder_fraction(&b,
-							 state->frmival.discrete.denominator,
-							 state->frmival.discrete.numerator);
+							 port->frmival.discrete.denominator,
+							 port->frmival.discrete.numerator);
 			spa_pod_builder_fraction(&b,
-						 state->frmival.discrete.denominator,
-						 state->frmival.discrete.numerator);
-			state->frmival.index++;
-		} else if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
-			   state->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
+						 port->frmival.discrete.denominator,
+						 port->frmival.discrete.numerator);
+			port->frmival.index++;
+		} else if (port->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
+			   port->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
 			if (n_fractions == 0)
 				spa_pod_builder_fraction(&b, 25, 1);
 			spa_pod_builder_fraction(&b,
-						 state->frmival.stepwise.min.denominator,
-						 state->frmival.stepwise.min.numerator);
+						 port->frmival.stepwise.min.denominator,
+						 port->frmival.stepwise.min.numerator);
 			spa_pod_builder_fraction(&b,
-						 state->frmival.stepwise.max.denominator,
-						 state->frmival.stepwise.max.numerator);
+						 port->frmival.stepwise.max.denominator,
+						 port->frmival.stepwise.max.numerator);
 
-			if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
+			if (port->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
 				prop->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX;
 			} else {
 				prop->body.flags |= SPA_POD_PROP_RANGE_STEP;
 				spa_pod_builder_fraction(&b,
-							 state->frmival.stepwise.step.denominator,
-							 state->frmival.stepwise.step.numerator);
+							 port->frmival.stepwise.step.denominator,
+							 port->frmival.stepwise.step.numerator);
 			}
 			break;
 		}
@@ -789,7 +789,7 @@ spa_v4l2_enum_format(struct impl *this,
 
 static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format, bool try_only)
 {
-	struct port *state = &this->out_ports[0];
+	struct port *port = &this->out_ports[0];
 	int cmd;
 	struct v4l2_format reqfmt, fmt;
 	struct v4l2_streamparm streamparm;
@@ -824,7 +824,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 					      format->media_type,
 					      format->media_subtype, video_format, 0);
 	if (info == NULL || size == NULL || framerate == NULL) {
-		spa_log_error(state->log, "v4l2: unknown media type %d %d %d", format->media_type,
+		spa_log_error(port->log, "v4l2: unknown media type %d %d %d", format->media_type,
 			      format->media_subtype, video_format);
 		return -1;
 	}
@@ -837,7 +837,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	streamparm.parm.capture.timeperframe.numerator = framerate->denom;
 	streamparm.parm.capture.timeperframe.denominator = framerate->num;
 
-	spa_log_info(state->log, "v4l2: set %08x %dx%d %d/%d", fmt.fmt.pix.pixelformat,
+	spa_log_info(port->log, "v4l2: set %08x %dx%d %d/%d", fmt.fmt.pix.pixelformat,
 		     fmt.fmt.pix.width, fmt.fmt.pix.height,
 		     streamparm.parm.capture.timeperframe.denominator,
 		     streamparm.parm.capture.timeperframe.numerator);
@@ -848,16 +848,16 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 		return -1;
 
 	cmd = try_only ? VIDIOC_TRY_FMT : VIDIOC_S_FMT;
-	if (xioctl(state->fd, cmd, &fmt) < 0) {
+	if (xioctl(port->fd, cmd, &fmt) < 0) {
 		perror("VIDIOC_S_FMT");
 		return -1;
 	}
 
 	/* some cheap USB cam's won't accept any change */
-	if (xioctl(state->fd, VIDIOC_S_PARM, &streamparm) < 0)
+	if (xioctl(port->fd, VIDIOC_S_PARM, &streamparm) < 0)
 		perror("VIDIOC_S_PARM");
 
-	spa_log_info(state->log, "v4l2: got %08x %dx%d %d/%d", fmt.fmt.pix.pixelformat,
+	spa_log_info(port->log, "v4l2: got %08x %dx%d %d/%d", fmt.fmt.pix.pixelformat,
 		     fmt.fmt.pix.width, fmt.fmt.pix.height,
 		     streamparm.parm.capture.timeperframe.denominator,
 		     streamparm.parm.capture.timeperframe.numerator);
@@ -875,28 +875,28 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	framerate->num = streamparm.parm.capture.timeperframe.denominator;
 	framerate->denom = streamparm.parm.capture.timeperframe.numerator;
 
-	state->fmt = fmt;
-	state->info.flags = (state->export_buf ? SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS : 0) |
+	port->fmt = fmt;
+	port->info.flags = (port->export_buf ? SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS : 0) |
 	    SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS | SPA_PORT_INFO_FLAG_LIVE;
-	state->info.rate = streamparm.parm.capture.timeperframe.denominator;
+	port->info.rate = streamparm.parm.capture.timeperframe.denominator;
 
 	return 0;
 }
 
 static int mmap_read(struct impl *this)
 {
-	struct port *state = &this->out_ports[0];
+	struct port *port = &this->out_ports[0];
 	struct v4l2_buffer buf;
 	struct buffer *b;
 	struct spa_data *d;
 	int64_t pts;
-	struct spa_port_io *io = state->io;
+	struct spa_port_io *io = port->io;
 
 	spa_zero(buf);
 	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	buf.memory = state->memtype;
+	buf.memory = port->memtype;
 
-	if (xioctl(state->fd, VIDIOC_DQBUF, &buf) < 0) {
+	if (xioctl(port->fd, VIDIOC_DQBUF, &buf) < 0) {
 		switch (errno) {
 		case EAGAIN:
 			return SPA_RESULT_ERROR;
@@ -907,16 +907,16 @@ static int mmap_read(struct impl *this)
 		}
 	}
 
-	state->last_ticks = (int64_t) buf.timestamp.tv_sec * SPA_USEC_PER_SEC +
+	port->last_ticks = (int64_t) buf.timestamp.tv_sec * SPA_USEC_PER_SEC +
 			    (uint64_t) buf.timestamp.tv_usec;
-	pts = state->last_ticks * 1000;
+	pts = port->last_ticks * 1000;
 
 	if (buf.flags & V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC)
-		state->last_monotonic = pts;
+		port->last_monotonic = pts;
 	else
-		state->last_monotonic = SPA_TIME_INVALID;
+		port->last_monotonic = SPA_TIME_INVALID;
 
-	b = &state->buffers[buf.index];
+	b = &port->buffers[buf.index];
 	if (b->h) {
 		b->h->flags = 0;
 		if (buf.flags & V4L2_BUF_FLAG_ERROR)
@@ -928,7 +928,7 @@ static int mmap_read(struct impl *this)
 	d = b->outbuf->datas;
 	d[0].chunk->offset = 0;
 	d[0].chunk->size = buf.bytesused;
-	d[0].chunk->stride = state->fmt.fmt.pix.bytesperline;
+	d[0].chunk->stride = port->fmt.fmt.pix.bytesperline;
 
 	if (io->buffer_id != SPA_ID_INVALID)
 		spa_v4l2_buffer_recycle(this, io->buffer_id);
@@ -936,6 +936,8 @@ static int mmap_read(struct impl *this)
 	b->outstanding = true;
 	io->buffer_id = b->outbuf->id;
 	io->status = SPA_RESULT_HAVE_BUFFER;
+
+	spa_log_trace(port->log, "v4l2 %p: have output %d", this, io->buffer_id);
 	this->callbacks->have_output(this->callbacks_data);
 
 	return SPA_RESULT_OK;

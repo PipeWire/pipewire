@@ -639,14 +639,19 @@ handle_node_command(struct pw_stream *stream, uint32_t seq, const struct spa_com
 		add_async_complete(stream, seq, SPA_RESULT_OK);
 
 		if (stream->state == PW_STREAM_STATE_PAUSED) {
+			int i;
+
 			pw_log_debug("stream %p: start %d %d", stream, seq, impl->direction);
 
 			pw_loop_update_io(stream->remote->core->data_loop,
 					  impl->rtsocket_source,
 					  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 
-			if (impl->direction == SPA_DIRECTION_INPUT)
+			if (impl->direction == SPA_DIRECTION_INPUT) {
+				for (i = 0; i < impl->trans->area->max_input_ports; i++)
+					impl->trans->inputs[i].status = SPA_RESULT_NEED_BUFFER;
 				send_need_input(stream);
+			}
 			else {
 				impl->in_need_buffer = true;
 				spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
@@ -897,17 +902,12 @@ static void client_node_transport(void *data, uint32_t node_id,
 {
 	struct stream *impl = data;
 	struct pw_stream *stream = &impl->this;
-	int i;
 
 	stream->node_id = node_id;
 
-	if (impl->trans) {
+	if (impl->trans)
 		pw_client_node_transport_destroy(impl->trans);
-	}
 	impl->trans = transport;
-	for (i = 0; i < impl->trans->area->max_input_ports; i++) {
-		impl->trans->inputs[i].status = SPA_RESULT_NEED_BUFFER;
-	}
 
 	pw_log_info("stream %p: create client transport %p with fds %d %d for node %u",
 			stream, impl->trans, readfd, writefd, node_id);

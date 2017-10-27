@@ -388,6 +388,12 @@ static int impl_node_process_input(struct spa_node *node)
 	int i;
 	uint8_t *src, *dst;
 
+	if (d->io->status != SPA_RESULT_HAVE_BUFFER)
+		goto done;
+
+	if (d->io->buffer_id > d->n_buffers)
+		goto done;
+
 	buf = d->buffers[d->io->buffer_id];
 
 	if (buf->datas[0].type == d->type.data.MemFd ||
@@ -424,11 +430,10 @@ static int impl_node_process_input(struct spa_node *node)
 	if (map)
 		munmap(map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
 
+done:
 	handle_events(d);
 
-	d->io->status = SPA_RESULT_NEED_BUFFER;
-
-	return SPA_RESULT_NEED_BUFFER;
+	return d->io->status = SPA_RESULT_NEED_BUFFER;
 }
 
 static const struct spa_node impl_node = {

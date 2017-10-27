@@ -383,15 +383,16 @@ impl_node_port_enum_params(struct spa_node *node,
 			t->param_alloc_meta_enable.MetaEnable,
 			":", t->param_alloc_meta_enable.type,             "I", t->meta.Ringbuffer,
 			":", t->param_alloc_meta_enable.size,             "i", sizeof(struct spa_meta_ringbuffer),
-			":", t->param_alloc_meta_enable.ringbufferSize,   "i", this->period_frames *
-										this->frame_size * 32,
+			":", t->param_alloc_meta_enable.ringbufferSize,   "iru", this->props.min_latency * this->frame_size,
+									2, this->props.min_latency * this->frame_size,
+									   this->period_frames * this->frame_size,
 			":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,
 			":", t->param_alloc_meta_enable.ringbufferBlocks, "i", 1,
 			":", t->param_alloc_meta_enable.ringbufferAlign,  "i", 16);
 		break;
 
 	default:
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return SPA_RESULT_ENUM_END;
 	}
 
 	return SPA_RESULT_OK;

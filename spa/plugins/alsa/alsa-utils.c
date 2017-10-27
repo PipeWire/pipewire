@@ -369,10 +369,12 @@ pull_frames(struct state *state,
 			n_bytes = SPA_MIN(avail, to_write * state->frame_size);
 			n_frames = SPA_MIN(to_write, n_bytes / state->frame_size);
 
-			spa_ringbuffer_read_data(ringbuffer, d[0].data, index & ringbuffer->mask, dst, n_bytes);
+			spa_ringbuffer_read_data(ringbuffer, d[0].data, index % ringbuffer->mask, dst, n_bytes);
 
 			spa_ringbuffer_read_update(ringbuffer, index + n_bytes);
 			reuse = avail == n_bytes;
+			spa_log_trace(state->log, "%d %d %ld %zd", avail, index, to_write, n_bytes);
+			reuse = true;
 		} else {
 			offs = SPA_MIN(d[0].chunk->offset + state->ready_offset, d[0].maxsize);
 			size = SPA_MIN(d[0].chunk->size + offs, d[0].maxsize) - offs;

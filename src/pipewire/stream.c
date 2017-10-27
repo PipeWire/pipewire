@@ -529,7 +529,6 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 			uint32_t buffer_id;
 
 			buffer_id = input->buffer_id;
-			input->status = SPA_RESULT_NEED_BUFFER;
 
 			pw_log_trace("stream %p: process input %d %d", stream, input->status,
 				     buffer_id);
@@ -537,9 +536,16 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 			if ((bid = find_buffer(stream, buffer_id)) == NULL)
 				continue;
 
-			bid->used = true;
-			spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
+			if (impl->client_reuse)
+				input->buffer_id = SPA_ID_INVALID;
+
+			if (input->status == SPA_RESULT_HAVE_BUFFER) {
+				bid->used = true;
+				spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
 					 new_buffer, buffer_id);
+			}
+
+			input->status = SPA_RESULT_NEED_BUFFER;
 		}
 		send_need_input(stream);
 	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT) {

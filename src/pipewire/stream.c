@@ -99,6 +99,7 @@ struct stream {
 
 	struct spa_list free;
 	bool in_need_buffer;
+	bool in_new_buffer;
 
 	int64_t last_ticks;
 	int32_t last_rate;
@@ -434,6 +435,16 @@ static inline void send_have_output(struct pw_stream *stream)
 	write(impl->rtwritefd, &cmd, 8);
 }
 
+static inline void send_reuse_buffer(struct pw_stream *stream, uint32_t id)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	uint64_t cmd = 1;
+
+	pw_client_node_transport_add_message(impl->trans, (struct pw_client_node_message*)
+			       &PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER_INIT(impl->port_id, id));
+	write(impl->rtwritefd, &cmd, 8);
+}
+
 static void add_request_clock_update(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -512,7 +523,9 @@ static inline void reuse_buffer(struct pw_stream *stream, uint32_t id)
 		pw_log_trace("stream %p: reuse buffer %u", stream, id);
 		bid->used = false;
 		spa_list_append(&impl->free, &bid->link);
+		impl->in_new_buffer = true;
 		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, new_buffer, id);
+		impl->in_new_buffer = false;
 	}
 }
 
@@ -541,8 +554,10 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 
 			if (input->status == SPA_RESULT_HAVE_BUFFER) {
 				bid->used = true;
+				impl->in_new_buffer = true;
 				spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
 					 new_buffer, buffer_id);
+				impl->in_new_buffer = false;
 			}
 
 			input->status = SPA_RESULT_NEED_BUFFER;
@@ -1085,7 +1100,6 @@ bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer_id *bid;
-	uint64_t cmd = 1;
 
 	if ((bid = find_buffer(stream, id)) == NULL || !bid->used)
 		return false;
@@ -1093,9 +1107,16 @@ bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 	bid->used = false;
 	spa_list_append(&impl->free, &bid->link);
 
-	pw_client_node_transport_add_message(impl->trans, (struct pw_client_node_message*)
-					&PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER_INIT(impl->port_id, id));
-	write(impl->rtwritefd, &cmd, 8);
+	if (impl->in_new_buffer) {
+		int i;
+
+		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
+			struct spa_port_io *input = &impl->trans->inputs[i];
+			input->buffer_id = id;
+		}
+	} else {
+		send_reuse_buffer(stream, id);
+	}
 
 	return true;
 }

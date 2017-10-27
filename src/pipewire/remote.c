@@ -964,6 +964,24 @@ client_node_use_buffers(void *object,
 
 }
 
+static void node_need_input(void *data)
+{
+	struct node_data *d = data;
+        uint64_t cmd = 1;
+	pw_client_node_transport_add_message(d->trans,
+				&PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
+        write(d->rtwritefd, &cmd, 8);
+}
+
+static void node_have_output(void *data)
+{
+	struct node_data *d = data;
+        uint64_t cmd = 1;
+        pw_client_node_transport_add_message(d->trans,
+                               &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT));
+        write(d->rtwritefd, &cmd, 8);
+}
+
 static bool
 handle_node_command(struct pw_proxy *proxy, uint32_t seq, const struct spa_command *command)
 {
@@ -984,6 +1002,7 @@ handle_node_command(struct pw_proxy *proxy, uint32_t seq, const struct spa_comma
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
 	}
 	else if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Start) {
+		int i;
 
 		pw_log_debug("node %p: start %d", proxy, seq);
 
@@ -993,6 +1012,12 @@ handle_node_command(struct pw_proxy *proxy, uint32_t seq, const struct spa_comma
 
 		if ((res = spa_node_send_command(data->node->node, command)) < 0)
 			pw_log_warn("node %p: start failed", proxy);
+
+		/* FIXME we should call process_output on the node and see what its
+		 * status is */
+		for (i = 0; i < data->trans->area->max_input_ports; i++)
+			data->trans->inputs[i].status = SPA_RESULT_NEED_BUFFER;
+		node_need_input(data);
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
 	}
@@ -1049,24 +1074,6 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.node_command = client_node_node_command,
 	.port_command = client_node_port_command,
 };
-
-static void node_need_input(void *data)
-{
-	struct node_data *d = data;
-        uint64_t cmd = 1;
-	pw_client_node_transport_add_message(d->trans,
-				&PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
-        write(d->rtwritefd, &cmd, 8);
-}
-
-static void node_have_output(void *data)
-{
-	struct node_data *d = data;
-        uint64_t cmd = 1;
-        pw_client_node_transport_add_message(d->trans,
-                               &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT));
-        write(d->rtwritefd, &cmd, 8);
-}
 
 static void do_node_init(struct pw_proxy *proxy)
 {

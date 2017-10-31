@@ -44,9 +44,10 @@ struct props {
 	char device_name[128];
 	char card_name[128];
 	uint32_t min_latency;
+	uint32_t max_latency;
 };
 
-#define MAX_BUFFERS 64
+#define MAX_BUFFERS 32
 
 struct buffer {
 	struct spa_buffer *outbuf;
@@ -65,6 +66,7 @@ struct type {
 	uint32_t prop_device_name;
 	uint32_t prop_card_name;
 	uint32_t prop_min_latency;
+	uint32_t prop_max_latency;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
 	struct spa_type_media_type media_type;
@@ -88,6 +90,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->prop_device_name = spa_type_map_get_id(map, SPA_TYPE_PROPS__deviceName);
 	type->prop_card_name = spa_type_map_get_id(map, SPA_TYPE_PROPS__cardName);
 	type->prop_min_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__minLatency);
+	type->prop_max_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__maxLatency);
 
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
@@ -148,6 +151,7 @@ struct state {
 
 	struct spa_list free;
 	struct spa_list ready;
+
 	size_t ready_offset;
 
 	bool started;

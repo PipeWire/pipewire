@@ -33,11 +33,13 @@
 
 static const char default_device[] = "hw:0";
 static const uint32_t default_min_latency = 128;
+static const uint32_t default_max_latency = 1024;
 
 static void reset_props(struct props *props)
 {
 	strncpy(props->device, default_device, 64);
 	props->min_latency = default_min_latency;
+	props->max_latency = default_max_latency;
 }
 
 static int impl_node_get_props(struct spa_node *node, struct spa_props **props)
@@ -58,6 +60,8 @@ static int impl_node_get_props(struct spa_node *node, struct spa_props **props)
 		":", this->type.prop_device_name, "S", this->props.device_name, sizeof(this->props.device_name),
 		":", this->type.prop_card_name,   "S", this->props.card_name, sizeof(this->props.card_name),
 		":", this->type.prop_min_latency, "ir", this->props.min_latency,
+								2, 1, INT32_MAX,
+		":", this->type.prop_max_latency, "ir", this->props.max_latency,
 								2, 1, INT32_MAX);
 
 	return SPA_RESULT_OK;
@@ -367,7 +371,7 @@ impl_node_port_enum_params(struct spa_node *node,
 								   INT32_MAX,
 			":", t->param_alloc_buffers.stride,  "i", 0,
 			":", t->param_alloc_buffers.buffers, "ir", 2,
-								2, 2, 32,
+								2, 2, MAX_BUFFERS,
 			":", t->param_alloc_buffers.align,   "i", 16);
 		break;
 
@@ -381,9 +385,10 @@ impl_node_port_enum_params(struct spa_node *node,
 	case 2:
 		*param = spa_pod_builder_param(&b,
 			t->param_alloc_meta_enable.MetaEnable,
-			":", t->param_alloc_meta_enable.type,             "I", t->meta.Ringbuffer,
-			":", t->param_alloc_meta_enable.size,             "i", sizeof(struct spa_meta_ringbuffer),
-			":", t->param_alloc_meta_enable.ringbufferSize,   "iru", this->props.min_latency * this->frame_size,
+			":", t->param_alloc_meta_enable.type,		  "I", t->meta.Ringbuffer,
+			":", t->param_alloc_meta_enable.size,		  "i", sizeof(struct spa_meta_ringbuffer),
+			":", t->param_alloc_meta_enable.ringbufferSize,	  "iru",
+									  this->props.min_latency * this->frame_size,
 									2, this->props.min_latency * this->frame_size,
 									   this->period_frames * this->frame_size,
 			":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,

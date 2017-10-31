@@ -41,6 +41,7 @@ struct spa_props {
 #define SPA_TYPE_PROPS__card		SPA_TYPE_PROPS_BASE "card"
 #define SPA_TYPE_PROPS__cardName	SPA_TYPE_PROPS_BASE "cardName"
 #define SPA_TYPE_PROPS__minLatency	SPA_TYPE_PROPS_BASE "minLatency"
+#define SPA_TYPE_PROPS__maxLatency	SPA_TYPE_PROPS_BASE "maxLatency"
 #define SPA_TYPE_PROPS__periods		SPA_TYPE_PROPS_BASE "periods"
 #define SPA_TYPE_PROPS__periodSize	SPA_TYPE_PROPS_BASE "periodSize"
 #define SPA_TYPE_PROPS__periodEvent	SPA_TYPE_PROPS_BASE "periodEvent"

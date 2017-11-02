@@ -61,6 +61,7 @@ struct buffer {
 	void *ptr;
 	size_t size;
 	bool mapped;
+	struct spa_meta_ringbuffer *rb;
 };
 
 struct data {
@@ -89,7 +90,6 @@ struct data {
 	struct spa_audio_info_raw format;
 
 	uint8_t params_buffer[1024];
-	struct spa_param *params[2];
 
 	struct buffer buffers[32];
 	int n_buffers;
@@ -168,8 +168,6 @@ static int impl_port_set_format(struct spa_node *node, enum spa_direction direct
 				uint32_t flags, const struct spa_format *format)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	struct pw_type *t = d->t;
-	struct spa_pod_builder b = { NULL };
 
 	if (format == NULL)
 		return SPA_RESULT_OK;
@@ -181,21 +179,6 @@ static int impl_port_set_format(struct spa_node *node, enum spa_direction direct
 
 	if (d->format.format != d->type.audio_format.S16)
 		return SPA_RESULT_ERROR;
-
-	spa_pod_builder_init(&b, d->params_buffer, sizeof(d->params_buffer));
-	d->params[0] = spa_pod_builder_param(&b,
-		t->param_alloc_buffers.Buffers,
-		":", t->param_alloc_buffers.size,    "iru", 1024,
-									2, 32, 4096,
-		":", t->param_alloc_buffers.stride,  "i",   0,
-		":", t->param_alloc_buffers.buffers, "iru", 2,
-									2, 2, 32,
-		":", t->param_alloc_buffers.align,   "i",  16);
-
-	d->params[1] = spa_pod_builder_param(&b,
-		t->param_alloc_meta_enable.MetaEnable,
-		":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
-		":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
 
 	return SPA_RESULT_OK;
 }
@@ -233,12 +216,42 @@ static int impl_port_enum_params(struct spa_node *node, enum spa_direction direc
 				 uint32_t index, struct spa_param **param)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct pw_type *t = d->t;
+	struct spa_pod_builder b = { NULL };
 
-	if (index >= 2)
+	spa_pod_builder_init(&b, d->params_buffer, sizeof(d->params_buffer));
+
+	switch (index) {
+	case 0:
+		*param = spa_pod_builder_param(&b,
+			t->param_alloc_buffers.Buffers,
+			":", t->param_alloc_buffers.size,    "iru", 1024,
+										2, 32, 4096,
+			":", t->param_alloc_buffers.stride,  "i",   0,
+			":", t->param_alloc_buffers.buffers, "iru", 2,
+										2, 2, 32,
+			":", t->param_alloc_buffers.align,   "i",  16);
+		break;
+	case 1:
+		*param = spa_pod_builder_param(&b,
+			t->param_alloc_meta_enable.MetaEnable,
+			":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
+			":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
+		break;
+	case 2:
+		*param = spa_pod_builder_param(&b,
+			t->param_alloc_meta_enable.MetaEnable,
+			":", t->param_alloc_meta_enable.type,	"I", t->meta.Ringbuffer,
+			":", t->param_alloc_meta_enable.size,	"i", sizeof(struct spa_meta_ringbuffer),
+			":", t->param_alloc_meta_enable.ringbufferSize,   "ir", 5512 * 4,
+								2, 16 * 4, INT32_MAX / 4,
+			":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,
+			":", t->param_alloc_meta_enable.ringbufferBlocks, "i", 1,
+			":", t->param_alloc_meta_enable.ringbufferAlign,  "i", 16);
+		break;
+	default:
 		return SPA_RESULT_ENUM_END;
-
-	*param = d->params[index];
-
+	}
 	return SPA_RESULT_OK;
 }
 
@@ -273,6 +286,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		}
 		b->size = datas[0].maxsize;
 		b->buffer = buffers[i];
+		b->rb = spa_buffer_find_meta(buffers[i], d->type.meta.Ringbuffer);
 		pw_log_info("got buffer %d size %zd", i, b->size);
 		spa_list_append(&d->empty, &b->link);
 	}
@@ -297,9 +311,10 @@ static int impl_node_process_output(struct spa_node *node)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct buffer *b;
-	int i, c, n_samples;
+	int i, c, n_samples, avail;
 	int16_t *dst;
         struct spa_port_io *io = d->io;
+	uint32_t index = 0;
 
 	if (io->buffer_id < d->n_buffers) {
 		reuse_buffer(d, io->buffer_id);
@@ -312,8 +327,23 @@ static int impl_node_process_output(struct spa_node *node)
         b = spa_list_first(&d->empty, struct buffer, link);
         spa_list_remove(&b->link);
 
-	dst = b->ptr;
-        n_samples = b->size / (sizeof(int16_t) * d->format.channels);
+	if (b->rb) {
+		uint32_t filled, offset;
+
+		filled = spa_ringbuffer_get_write_index(&b->rb->ringbuffer, &index);
+		avail = b->rb->ringbuffer.size - filled;
+		offset = index % b->rb->ringbuffer.size;
+
+		if (offset + avail > b->rb->ringbuffer.size)
+			avail = b->rb->ringbuffer.size - offset;
+
+		dst = SPA_MEMBER(b->ptr, offset, void);
+	}
+	else {
+		dst = b->ptr;
+		avail = b->size;
+	}
+        n_samples = avail / (sizeof(int16_t) * d->format.channels);
 
         for (i = 0; i < n_samples; i++) {
                 int16_t val;
@@ -327,6 +357,10 @@ static int impl_node_process_output(struct spa_node *node)
                 for (c = 0; c < d->format.channels; c++)
                         *dst++ = val;
         }
+
+	if (b->rb)
+		spa_ringbuffer_write_update(&b->rb->ringbuffer, index + avail);
+
 	io->buffer_id = b->buffer->id;
 	io->status = SPA_RESULT_HAVE_BUFFER;
 

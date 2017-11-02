@@ -30,8 +30,6 @@
 #include <spa/log.h>
 #include <spa/log-impl.h>
 #include <spa/loop.h>
-#include <spa/graph.h>
-#include <spa/graph-scheduler1.h>
 #include <spa/type-map.h>
 #include <spa/type-map-impl.h>
 #include <spa/audio/format-utils.h>
@@ -42,6 +40,11 @@
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
+
+#define spa_debug(...)	spa_log_trace(&default_log.log,__VA_ARGS__)
+
+#include <spa/graph.h>
+#include <spa/graph-scheduler1.h>
 
 struct type {
 	uint32_t node;

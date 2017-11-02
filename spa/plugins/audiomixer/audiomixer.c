@@ -679,11 +679,11 @@ impl_node_port_send_command(struct spa_node *node,
 static inline void
 add_port_data(struct impl *this, void *out, size_t outsize, size_t next, struct port *port, int layer)
 {
-	void *in;
 	size_t insize;
 	struct buffer *b;
 	struct spa_data *id;
 	uint32_t index = 0, offset, len1, len2;
+	mix_func_t mix = layer == 0 ? this->copy : this->add;
 
 	b = spa_list_first(&port->queue, struct buffer, link);
 
@@ -704,21 +704,11 @@ add_port_data(struct impl *this, void *out, size_t outsize, size_t next, struct 
 		outsize = SPA_MIN(outsize, insize);
 		len1 = outsize;
 	}
-	in = SPA_MEMBER(id[0].data, offset, void);
 	len2 = outsize - len1;
 
-	if (layer == 0) {
-		this->copy(out, in, len1);
-		if (len2 > 0)
-			this->copy(out + len1, in + len1, len2);
-	}
-	else {
-		this->add(out, in, len1);
-		if (len2 > 0)
-			this->add(out + len1, in + len1, len2);
-	}
-
-	spa_log_trace(this->log, NAME " %p: %d %d %d %zd", this, index, len1, len2, outsize);
+	mix(out, SPA_MEMBER(id[0].data, offset, void), len1);
+	if (len2 > 0)
+		mix(out + len1, id[0].data, len2);
 
 	if (b->rb)
 		spa_ringbuffer_read_update(&b->rb->ringbuffer, index + outsize);
@@ -774,8 +764,6 @@ static int mix_output(struct impl *this, size_t n_bytes)
 		else
 			len1 = n_bytes;
 		len2 = n_bytes - len1;
-
-		spa_log_trace(this->log, NAME " %p: %d %d %d %ld %d %d", this, index, offset, avail, n_bytes, len1, len2);
 	} else {
 		n_bytes = SPA_MIN(n_bytes, od[0].maxsize);
 		offset = 0;

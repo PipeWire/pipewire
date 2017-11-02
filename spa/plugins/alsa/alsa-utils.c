@@ -372,7 +372,6 @@ pull_frames(struct state *state,
 
 			spa_ringbuffer_read_data(ringbuffer, d[0].data, index % ringbuffer->size, dst, n_bytes);
 
-
 			spa_ringbuffer_read_update(ringbuffer, index + n_bytes);
 
 			reuse = avail == n_frames || state->n_buffers == 1;

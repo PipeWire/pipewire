@@ -26,6 +26,16 @@ extern "C" {
 
 #include <spa/graph.h>
 
+struct spa_graph_data {
+	struct spa_graph *graph;
+};
+
+static inline void spa_graph_data_init(struct spa_graph_data *data,
+				       struct spa_graph *graph)
+{
+	data->graph = graph;
+}
+
 static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *node)
 {
 	struct spa_graph_port *p;

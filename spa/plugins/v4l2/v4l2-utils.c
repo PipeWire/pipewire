@@ -930,9 +930,6 @@ static int mmap_read(struct impl *this)
 	d[0].chunk->size = buf.bytesused;
 	d[0].chunk->stride = port->fmt.fmt.pix.bytesperline;
 
-	if (io->buffer_id != SPA_ID_INVALID)
-		spa_v4l2_buffer_recycle(this, io->buffer_id);
-
 	b->outstanding = true;
 	io->buffer_id = b->outbuf->id;
 	io->status = SPA_RESULT_HAVE_BUFFER;

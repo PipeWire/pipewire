@@ -285,7 +285,7 @@ static int make_buffer(struct impl *this)
 
 	if (b->rb) {
 		int32_t filled, avail;
-		uint32_t index, offset;
+		uint32_t index, offset, l0, l1;
 
 		filled = spa_ringbuffer_get_write_index(&b->rb->ringbuffer, &index);
 		avail = b->rb->ringbuffer.size - filled;
@@ -296,15 +296,18 @@ static int make_buffer(struct impl *this)
 		offset = index & b->rb->ringbuffer.mask;
 
 		if (offset + n_bytes > b->rb->ringbuffer.size) {
-			uint32_t l0 = b->rb->ringbuffer.size - offset;
-			this->render_func(this, SPA_MEMBER(b->outbuf->datas[0].data, offset, void),
-					  l0 / this->bpf);
-			this->render_func(this, b->outbuf->datas[0].data,
-					  (n_bytes - l0) / this->bpf);
-		} else {
-			this->render_func(this, SPA_MEMBER(b->outbuf->datas[0].data, offset, void),
-					  n_samples);
+			l0 = (b->rb->ringbuffer.size - offset) / this->bpf;
+			l1 = n_samples - l0;
 		}
+		else {
+			l0 = n_samples;
+			l1 = 0;
+		}
+
+		this->render_func(this, SPA_MEMBER(b->outbuf->datas[0].data, offset, void), l0);
+		if (l1)
+			this->render_func(this, b->outbuf->datas[0].data, l1);
+
 		spa_ringbuffer_write_update(&b->rb->ringbuffer, index + n_bytes);
 	} else {
 		n_samples = n_bytes / this->bpf;
@@ -674,8 +677,20 @@ impl_node_port_enum_params(struct spa_node *node,
 			":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
 		break;
 
+	case 2:
+		*param = spa_pod_builder_param(&b,
+			t->param_alloc_meta_enable.MetaEnable,
+			":", t->param_alloc_meta_enable.type,	"I", t->meta.Ringbuffer,
+			":", t->param_alloc_meta_enable.size,	"i", sizeof(struct spa_meta_ringbuffer),
+			":", t->param_alloc_meta_enable.ringbufferSize,   "ir", 5512 * this->bpf,
+								2, 16 * this->bpf, INT32_MAX / this->bpf,
+			":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,
+			":", t->param_alloc_meta_enable.ringbufferBlocks, "i", 1,
+			":", t->param_alloc_meta_enable.ringbufferAlign,  "i", 16);
+		break;
+
 	default:
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return SPA_RESULT_ENUM_END;
 	}
 
 	return SPA_RESULT_OK;

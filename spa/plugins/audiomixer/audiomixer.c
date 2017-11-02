@@ -677,7 +677,7 @@ impl_node_port_send_command(struct spa_node *node,
 }
 
 static inline void
-add_port_data(struct impl *this, void *out, size_t outsize, struct port *port, int layer)
+add_port_data(struct impl *this, void *out, size_t outsize, size_t next, struct port *port, int layer)
 {
 	void *in;
 	size_t insize;
@@ -718,12 +718,14 @@ add_port_data(struct impl *this, void *out, size_t outsize, struct port *port, i
 			this->add(out + len1, in + len1, len2);
 	}
 
+	spa_log_trace(this->log, NAME " %p: %d %d %d %zd", this, index, len1, len2, outsize);
+
 	if (b->rb)
 		spa_ringbuffer_read_update(&b->rb->ringbuffer, index + outsize);
 
 	port->queued_bytes -= outsize;
 
-	if (outsize == insize || b->rb) {
+	if (outsize == insize || (b->rb && next == 0)) {
 		spa_log_trace(this->log, NAME " %p: return buffer %d on port %p %zd",
 			      this, b->outbuf->id, port, outsize);
 		port->io->buffer_id = b->outbuf->id;
@@ -795,9 +797,9 @@ static int mix_output(struct impl *this, size_t n_bytes)
 			in_port->queued_offset = 0;
 			continue;
 		}
-		add_port_data(this, SPA_MEMBER(od[0].data, offset, void), len1, in_port, layer);
+		add_port_data(this, SPA_MEMBER(od[0].data, offset, void), len1, len2, in_port, layer);
 		if (len2 > 0)
-			add_port_data(this, od[0].data, len2, in_port, layer);
+			add_port_data(this, od[0].data, len2, 0, in_port, layer);
 		layer++;
 	}
 	if (outbuf->rb) {
@@ -860,7 +862,7 @@ static int impl_node_process_input(struct spa_node *node)
 			spa_list_append(&inport->queue, &b->link);
 
 			if (b->rb)
-				inport->queued_bytes = spa_ringbuffer_get_read_index(&b->rb->ringbuffer, &index);
+				inport->queued_bytes += spa_ringbuffer_get_read_index(&b->rb->ringbuffer, &index);
 			else
 				inport->queued_bytes += b->outbuf->datas[0].chunk->size;
 

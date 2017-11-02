@@ -59,7 +59,6 @@ struct buffer {
 	struct spa_buffer *buffer;
 	struct spa_list link;
 	void *ptr;
-	size_t size;
 	bool mapped;
 	struct spa_meta_ringbuffer *rb;
 };
@@ -243,7 +242,7 @@ static int impl_port_enum_params(struct spa_node *node, enum spa_direction direc
 			t->param_alloc_meta_enable.MetaEnable,
 			":", t->param_alloc_meta_enable.type,	"I", t->meta.Ringbuffer,
 			":", t->param_alloc_meta_enable.size,	"i", sizeof(struct spa_meta_ringbuffer),
-			":", t->param_alloc_meta_enable.ringbufferSize,   "ir", 5512 * 4,
+			":", t->param_alloc_meta_enable.ringbufferSize,   "ir", 1024 * 4,
 								2, 16 * 4, INT32_MAX / 4,
 			":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,
 			":", t->param_alloc_meta_enable.ringbufferBlocks, "i", 1,
@@ -284,10 +283,9 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 			pw_log_error("invalid buffer mem");
 			return SPA_RESULT_ERROR;
 		}
-		b->size = datas[0].maxsize;
 		b->buffer = buffers[i];
 		b->rb = spa_buffer_find_meta(buffers[i], d->type.meta.Ringbuffer);
-		pw_log_info("got buffer %d size %zd", i, b->size);
+		pw_log_info("got buffer %d size %d", i, datas[0].maxsize);
 		spa_list_append(&d->empty, &b->link);
 	}
 	d->n_buffers = n_buffers;
@@ -341,7 +339,7 @@ static int impl_node_process_output(struct spa_node *node)
 	}
 	else {
 		dst = b->ptr;
-		avail = b->size;
+		avail = b->buffer->datas[0].maxsize;
 	}
         n_samples = avail / (sizeof(int16_t) * d->format.channels);
 
@@ -358,8 +356,14 @@ static int impl_node_process_output(struct spa_node *node)
                         *dst++ = val;
         }
 
-	if (b->rb)
+	if (b->rb) {
 		spa_ringbuffer_write_update(&b->rb->ringbuffer, index + avail);
+	}
+	else {
+		b->buffer->datas[0].chunk->offset = 0;
+		b->buffer->datas[0].chunk->size = avail;
+		b->buffer->datas[0].chunk->stride = 0;
+	}
 
 	io->buffer_id = b->buffer->id;
 	io->status = SPA_RESULT_HAVE_BUFFER;

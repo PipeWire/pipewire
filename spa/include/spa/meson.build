@@ -23,6 +23,7 @@ spa_headers = [
   'pod.h',
   'pod-builder.h',
   'pod-iter.h',
+  'pod-parser.h',
   'pod-utils.h',
   'props.h',
   'ringbuffer.h',

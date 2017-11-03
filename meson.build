@@ -1,5 +1,5 @@
 project('pipewire', 'c',
-  version : '0.1.5.1',
+  version : '0.1.6',
   meson_version : '>= 0.36.0',
   default_options : [ 'warning_level=1',
                       'c_std=gnu99',
@@ -158,15 +158,15 @@ subdir('src')
 subdir('pkgconfig')
 
 if get_option('enable_docs')
-  doxygen_dep = find_program('doxygen')
-  if doxygen_dep.found()
+  doxygen = find_program('doxygen')
+  if doxygen.found()
     subdir('doc')
   endif
 endif
 
 if get_option('enable_man')
-  xmltoman_dep = find_program('xmltoman')
-  if xmltoman_dep.found()
+  xmltoman = find_program('xmltoman')
+  if xmltoman.found()
     subdir('man')
   endif
 endif

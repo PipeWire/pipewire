@@ -746,8 +746,10 @@ static int mix_output(struct impl *this, size_t n_bytes)
 	outport = GET_OUT_PORT(this, 0);
 	outio = outport->io;
 
-	if (spa_list_is_empty(&outport->queue))
+	if (spa_list_is_empty(&outport->queue)) {
+		spa_log_trace(this->log, NAME " %p: out of buffers", this);
 		return SPA_RESULT_OUT_OF_BUFFERS;
+	}
 
 	outbuf = spa_list_first(&outport->queue, struct buffer, link);
 	spa_list_remove(&outbuf->link);

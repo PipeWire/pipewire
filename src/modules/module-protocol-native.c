@@ -99,6 +99,7 @@ struct client_data {
 static bool pod_remap_data(uint32_t type, void *body, uint32_t size, struct pw_map *types)
 {
 	void *t;
+
 	switch (type) {
 	case SPA_POD_TYPE_ID:
 		if ((t = pw_map_lookup(types, *(int32_t *) body)) == NULL)
@@ -130,6 +131,11 @@ static bool pod_remap_data(uint32_t type, void *body, uint32_t size, struct pw_m
 	{
 		struct spa_pod_object_body *b = body;
 		struct spa_pod *p;
+
+		if ((t = pw_map_lookup(types, b->id)) != NULL)
+			b->id = PW_MAP_PTR_TO_ID(t);
+		else
+			b->id = SPA_ID_INVALID;
 
 		if ((t = pw_map_lookup(types, b->type)) == NULL)
 			return false;
@@ -211,7 +217,7 @@ process_messages(struct client_data *data)
 			if (!pod_remap_data(SPA_POD_TYPE_STRUCT, message, size, &client->types))
 				goto invalid_message;
 
-		if (!demarshal[opcode].func (resource, message, size))
+		if (!demarshal[opcode].func(resource, message, size))
 			goto invalid_message;
 	}
 	return;

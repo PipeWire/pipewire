@@ -32,7 +32,6 @@
 #include <spa/type-map-impl.h>
 #include <spa/audio/format-utils.h>
 #include <spa/format-utils.h>
-#include <spa/format-builder.h>
 #include <spa/graph.h>
 #include <spa/graph-scheduler1.h>
 
@@ -55,6 +54,7 @@ struct type {
 	uint32_t props_volume;
 	uint32_t props_min_latency;
 	uint32_t props_live;
+	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
 	struct spa_type_media_type media_type;
@@ -73,6 +73,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->props_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
 	type->props_min_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__minLatency);
 	type->props_live = spa_type_map_get_id(map, SPA_TYPE_PROPS__live);
+	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
@@ -385,19 +386,26 @@ static int make_nodes(struct data *data)
 static int negotiate_formats(struct data *data)
 {
 	int res;
-	struct spa_format *format;
+	struct spa_pod_object *format;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[256];
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	format = spa_pod_builder_format(&b,
-			data->type.format,
-			data->type.media_type.binary, data->type.media_subtype.raw);
+	format = spa_pod_builder_object(&b,
+			0, data->type.format,
+			"I", data->type.media_type.binary,
+			"I", data->type.media_subtype.raw);
 
-	if ((res = spa_node_port_set_format(data->sink, SPA_DIRECTION_INPUT, 0, 0, format)) < 0)
+	if ((res = spa_node_port_set_param(data->sink,
+					   SPA_DIRECTION_INPUT, 0,
+					   data->type.param.idFormat, 0,
+					   format)) < 0)
 		return res;
 
-	if ((res = spa_node_port_set_format(data->source, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
+	if ((res = spa_node_port_set_param(data->source,
+					   SPA_DIRECTION_OUTPUT, 0,
+					   data->type.param.idFormat, 0,
+					   format)) < 0)
 		return res;
 
 	init_buffer(data, data->source_buffers, data->source_buffer, 1, BUFFER_SIZE);

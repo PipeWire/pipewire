@@ -159,26 +159,6 @@ bool pw_core_for_each_global(struct pw_core *core,
 /** Find a core global by id */
 struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id);
 
-/** Find a good format between 2 ports */
-struct spa_format *
-pw_core_find_format(struct pw_core *core,
-		    struct pw_port *output,
-		    struct pw_port *input,
-		    struct pw_properties *props,
-		    uint32_t n_format_filters,
-		    struct spa_format **format_filters,
-		    char **error);
-
-/** Find a ports compatible with \a other_port and the format filters */
-struct pw_port *
-pw_core_find_port(struct pw_core *core,
-		  struct pw_port *other_port,
-		  uint32_t id,
-		  struct pw_properties *props,
-		  uint32_t n_format_filters,
-		  struct spa_format **format_filters,
-		  char **error);
-
 /** Find a factory by name */
 struct pw_factory *
 pw_core_find_factory(struct pw_core *core, const char *name);

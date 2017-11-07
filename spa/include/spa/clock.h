@@ -41,7 +41,7 @@ enum spa_clock_state {
 
 #include <spa/defs.h>
 #include <spa/plugin.h>
-#include <spa/props.h>
+#include <spa/pod-builder.h>
 
 /**
  * spa_clock:
@@ -64,9 +64,8 @@ struct spa_clock {
 	/**
 	 * spa_clock::get_props:
 	 * @clock: a #spa_clock
-	 * @props: a location for a #struct spa_props pointer
 	 *
-	 * Get the configurable properties of @clock.
+	 * Get the parameters of @clock.
 	 *
 	 * The returned @props is a snapshot of the current configuration and
 	 * can be modified. The modifications will take effect after a call
@@ -77,8 +76,9 @@ struct spa_clock {
 	 *          #SPA_RESULT_NOT_IMPLEMENTED when there are no properties
 	 *                 implemented on @clock
 	 */
-	int (*get_props) (struct spa_clock *clock,
-			  struct spa_props **props);
+	int (*enum_params) (struct spa_clock *clock,
+			    uint32_t id, uint32_t *index,
+			    struct spa_pod_builder *builder);
 	/**
 	 * spa_clock::set_props:
 	 * @clock: a #spa_clock
@@ -101,8 +101,9 @@ struct spa_clock {
 	 *          #SPA_RESULT_WRONG_PROPERTY_TYPE when a property has the wrong
 	 *                 type.
 	 */
-	int (*set_props) (struct spa_clock *clock,
-			  const struct spa_props *props);
+	int (*set_param) (struct spa_clock *clock,
+			  uint32_t id, uint32_t flags,
+			  const struct spa_pod_object *param);
 
 	int (*get_time) (struct spa_clock *clock,
 			 int32_t *rate,
@@ -110,8 +111,8 @@ struct spa_clock {
 			 int64_t *monotonic_time);
 };
 
-#define spa_clock_get_props(n,...)	(n)->get_props((n),__VA_ARGS__)
-#define spa_clock_set_props(n,...)	(n)->set_props((n),__VA_ARGS__)
+#define spa_clock_enum_params(n,...)	(n)->enum_params((n),__VA_ARGS__)
+#define spa_clock_set_param(n,...)	(n)->set_param((n),__VA_ARGS__)
 #define spa_clock_get_time(n,...)	(n)->get_time((n),__VA_ARGS__)
 
 #ifdef __cplusplus

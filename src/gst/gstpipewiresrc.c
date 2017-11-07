@@ -663,11 +663,10 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pwsrc->path);
   pw_stream_connect (pwsrc->stream,
                      PW_DIRECTION_INPUT,
-                     PW_STREAM_MODE_BUFFER,
                      pwsrc->path,
                      PW_STREAM_FLAG_AUTOCONNECT,
                      possible->len,
-                     (const struct spa_format **)possible->pdata);
+                     (const struct spa_pod_object **)possible->pdata);
   g_ptr_array_free (possible, TRUE);
 
   while (TRUE) {
@@ -729,8 +728,8 @@ connect_error:
 #define SPA_PROP_RANGE(min,max)	2,min,max
 
 static void
-on_format_changed (void              *data,
-                   struct spa_format *format)
+on_format_changed (void                  *data,
+                   struct spa_pod_object *format)
 {
   GstPipeWireSrc *pwsrc = data;
   GstCaps *caps;
@@ -740,7 +739,7 @@ on_format_changed (void              *data,
 
   if (format == NULL) {
     GST_DEBUG_OBJECT (pwsrc, "clear format");
-    pw_stream_finish_format (pwsrc->stream, SPA_RESULT_OK, NULL, 0);
+    pw_stream_finish_format (pwsrc->stream, SPA_RESULT_OK, 0, NULL);
     return;
   }
 
@@ -750,28 +749,28 @@ on_format_changed (void              *data,
   gst_caps_unref (caps);
 
   if (res) {
-    struct spa_param *params[2];
+    struct spa_pod_object *params[2];
     struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
-    params[0] = spa_pod_builder_param (&b,
-	t->param_alloc_buffers.Buffers,
+    params[0] = spa_pod_builder_object (&b,
+	0, t->param_alloc_buffers.Buffers,
 	":", t->param_alloc_buffers.size,    "ir", 0,  SPA_PROP_RANGE(0, INT32_MAX),
 	":", t->param_alloc_buffers.stride,  "ir", 0,  SPA_PROP_RANGE(0, INT32_MAX),
 	":", t->param_alloc_buffers.buffers, "ir", 16, SPA_PROP_RANGE(1, INT32_MAX),
 	":", t->param_alloc_buffers.align,   "i", 16);
 
-    params[1] = spa_pod_builder_param (&b,
-	t->param_alloc_meta_enable.MetaEnable,
+    params[1] = spa_pod_builder_object (&b,
+	0, t->param_alloc_meta_enable.MetaEnable,
         ":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
         ":", t->param_alloc_meta_enable.size, "i", sizeof (struct spa_meta_header));
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
-    pw_stream_finish_format (pwsrc->stream, SPA_RESULT_OK, params, 2);
+    pw_stream_finish_format (pwsrc->stream, SPA_RESULT_OK, 2, params);
   } else {
     GST_WARNING_OBJECT (pwsrc, "finish format with error");
-    pw_stream_finish_format (pwsrc->stream, SPA_RESULT_INVALID_MEDIA_TYPE, NULL, 0);
+    pw_stream_finish_format (pwsrc->stream, SPA_RESULT_INVALID_MEDIA_TYPE, 0, NULL);
   }
 }
 

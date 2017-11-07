@@ -28,6 +28,7 @@
 #include "pipewire/link.h"
 #include "pipewire/log.h"
 #include "pipewire/module.h"
+#include "pipewire/private.h"
 
 struct impl {
 	struct pw_core *core;

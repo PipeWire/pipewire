@@ -117,7 +117,7 @@ core_marshal_create_link(void *object,
 			 uint32_t output_port_id,
 			 uint32_t input_node_id,
 			 uint32_t input_port_id,
-			 const struct spa_format *filter,
+			 const struct spa_pod_object *filter,
 			 const struct spa_dict *props,
 			 uint32_t new_id)
 {
@@ -463,7 +463,7 @@ static bool core_demarshal_create_link(void *object, void *data, size_t size)
 	struct spa_pod_parser prs;
 	uint32_t new_id, i;
 	uint32_t output_node_id, output_port_id, input_node_id, input_port_id;
-	struct spa_format *filter = NULL;
+	struct spa_pod_object *filter = NULL;
 	struct spa_dict props;
 
 	spa_pod_parser_init(&prs, data, size, 0);
@@ -703,18 +703,18 @@ static void node_marshal_info(void *object, struct pw_node_info *info)
 			    "s", info->name,
 			    "i", info->max_input_ports,
 			    "i", info->n_input_ports,
-			    "i", info->n_input_formats, NULL);
+			    "i", info->n_input_params, NULL);
 
-	for (i = 0; i < info->n_input_formats; i++)
-		spa_pod_builder_add(b, "P", info->input_formats[i], NULL);
+	for (i = 0; i < info->n_input_params; i++)
+		spa_pod_builder_add(b, "P", info->input_params[i], NULL);
 
 	spa_pod_builder_add(b,
 			    "i", info->max_output_ports,
 			    "i", info->n_output_ports,
-			    "i", info->n_output_formats, 0);
+			    "i", info->n_output_params, 0);
 
-	for (i = 0; i < info->n_output_formats; i++)
-		spa_pod_builder_add(b, "P", info->output_formats[i], NULL);
+	for (i = 0; i < info->n_output_params; i++)
+		spa_pod_builder_add(b, "P", info->output_params[i], NULL);
 
 	n_items = info->props ? info->props->n_items : 0;
 
@@ -748,23 +748,23 @@ static bool node_demarshal_info(void *object, void *data, size_t size)
 			"s", &info.name,
 			"i", &info.max_input_ports,
 			"i", &info.n_input_ports,
-			"i", &info.n_input_formats, NULL) < 0)
+			"i", &info.n_input_params, NULL) < 0)
 		return false;
 
-	info.input_formats = alloca(info.n_input_formats * sizeof(struct spa_format *));
-	for (i = 0; i < info.n_input_formats; i++)
-		if (spa_pod_parser_get(&prs, "P", &info.input_formats[i], NULL) < 0)
+	info.input_params = alloca(info.n_input_params * sizeof(struct spa_pod_object *));
+	for (i = 0; i < info.n_input_params; i++)
+		if (spa_pod_parser_get(&prs, "P", &info.input_params[i], NULL) < 0)
 			return false;
 
 	if (spa_pod_parser_get(&prs,
 			      "i", &info.max_output_ports,
 			      "i", &info.n_output_ports,
-			      "i", &info.n_output_formats, NULL) < 0)
+			      "i", &info.n_output_params, NULL) < 0)
 		return false;
 
-	info.output_formats = alloca(info.n_output_formats * sizeof(struct spa_format *));
-	for (i = 0; i < info.n_output_formats; i++)
-		if (spa_pod_parser_get(&prs, "P", &info.output_formats[i], NULL) < 0)
+	info.output_params = alloca(info.n_output_params * sizeof(struct spa_pod_object *));
+	for (i = 0; i < info.n_output_params; i++)
+		if (spa_pod_parser_get(&prs, "P", &info.output_params[i], NULL) < 0)
 			return false;
 
 	if (spa_pod_parser_get(&prs,

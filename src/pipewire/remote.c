@@ -639,36 +639,42 @@ static void client_node_transport(void *object, uint32_t node_id,
 static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_t change_mask)
 {
 	struct node_data *data = proxy->user_data;
-	const struct spa_format *format = NULL;
 	const struct spa_port_info *port_info = NULL;
 	struct spa_port_info pi;
-	uint32_t n_possible_formats = 0, n_params = 0;
-	struct spa_param **params = NULL;
-	struct spa_format **possible_formats = NULL;
+	uint32_t n_params = 0;
+	struct spa_pod_object **params = NULL;
 
-	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_POSSIBLE_FORMATS) {
-		if (port->direction == PW_DIRECTION_INPUT) {
-			n_possible_formats = data->node->info.n_input_formats;
-			possible_formats = data->node->info.input_formats;
-		}
-		else if (port->direction == PW_DIRECTION_OUTPUT) {
-			n_possible_formats = data->node->info.n_output_formats;
-			possible_formats = data->node->info.output_formats;
-		}
-	}
-	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_FORMAT) {
-		spa_node_port_get_format(port->node->node, port->direction, port->port_id, &format);
-	}
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
-		for (;; n_params++) {
-                        struct spa_param *param;
+		uint32_t idx1, idx2, id;
+		uint8_t buf[2048];
+		struct spa_pod_builder b = { 0 };
 
-                        if (spa_node_port_enum_params(port->node->node, port->direction, port->port_id,
-						      n_params, &param) < 0)
+		for (idx1 = 0;;) {
+			struct spa_pod_object *param;
+
+			spa_pod_builder_init(&b, buf, sizeof(buf));
+                        if (spa_node_port_enum_params(port->node->node,
+						      port->direction, port->port_id,
+						      data->t->param.idList, &idx1,
+						      NULL, &b) < 0)
                                 break;
+			param = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
 
-                        params = realloc(params, sizeof(struct spa_param *) * (n_params + 1));
-                        params[n_params] = spa_param_copy(param);
+			spa_pod_object_parse(param,
+				":", data->t->param.listId, "I", &id, NULL);
+
+			for (idx2 = 0;; n_params++) {
+				spa_pod_builder_init(&b, buf, sizeof(buf));
+	                        if (spa_node_port_enum_params(port->node->node,
+							      port->direction, port->port_id,
+							      id, &idx2,
+							      NULL, &b) < 0)
+	                                break;
+				param = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+
+	                        params = realloc(params, sizeof(struct spa_pod_object *) * (n_params + 1));
+	                        params[n_params] = spa_pod_object_copy(param);
+			}
                 }
 	}
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO) {
@@ -681,11 +687,8 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
                                          port->direction,
                                          port->port_id,
                                          change_mask,
-                                         n_possible_formats,
-                                         (const struct spa_format **) possible_formats,
-                                         format,
                                          n_params,
-                                         (const struct spa_param **) params,
+                                         (const struct spa_pod_object **)params,
 					 &pi);
 	if (params) {
 		while (n_params > 0)
@@ -695,14 +698,94 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 }
 
 static void
-client_node_set_props(void *object, uint32_t seq, const struct spa_props *props)
+client_node_set_param(void *object, uint32_t seq, uint32_t id, uint32_t flags,
+		      const struct spa_pod_object *param)
 {
-	pw_log_warn("set property not implemented");
+	pw_log_warn("set param not implemented");
 }
 
 static void client_node_event(void *object, const struct spa_event *event)
 {
 	pw_log_warn("unhandled node event %d", SPA_EVENT_TYPE(event));
+}
+
+
+static void node_need_input(void *data)
+{
+	struct node_data *d = data;
+        uint64_t cmd = 1;
+	pw_client_node_transport_add_message(d->trans,
+				&PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
+        write(d->rtwritefd, &cmd, 8);
+}
+
+static void node_have_output(void *data)
+{
+	struct node_data *d = data;
+        uint64_t cmd = 1;
+        pw_client_node_transport_add_message(d->trans,
+                               &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT));
+        write(d->rtwritefd, &cmd, 8);
+}
+
+static void client_node_command(void *object, uint32_t seq, const struct spa_command *command)
+{
+	struct pw_proxy *proxy = object;
+	struct node_data *data = proxy->user_data;
+	struct pw_remote *remote = proxy->remote;
+	int res;
+
+	if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Pause) {
+		pw_log_debug("node %p: pause %d", proxy, seq);
+
+		pw_loop_update_io(remote->core->data_loop,
+				  data->rtsocket_source,
+				  SPA_IO_ERR | SPA_IO_HUP);
+
+		if ((res = spa_node_send_command(data->node->node, command)) < 0)
+			pw_log_warn("node %p: pause failed", proxy);
+
+		pw_client_node_proxy_done(data->node_proxy, seq, res);
+	}
+	else if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Start) {
+		int i;
+
+		pw_log_debug("node %p: start %d", proxy, seq);
+
+		pw_loop_update_io(remote->core->data_loop,
+				  data->rtsocket_source,
+				  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
+
+		if ((res = spa_node_send_command(data->node->node, command)) < 0)
+			pw_log_warn("node %p: start failed", proxy);
+
+		/* FIXME we should call process_output on the node and see what its
+		 * status is */
+		for (i = 0; i < data->trans->area->max_input_ports; i++)
+			data->trans->inputs[i].status = SPA_RESULT_NEED_BUFFER;
+		node_need_input(data);
+
+		pw_client_node_proxy_done(data->node_proxy, seq, res);
+	}
+	else if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.ClockUpdate) {
+		struct spa_command_node_clock_update *cu = (__typeof__(cu)) command;
+
+#if 0
+		if (cu->body.flags.value & SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE) {
+			pw_properties_set(stream->properties, PW_STREAM_PROP_IS_LIVE, "1");
+			pw_properties_setf(stream->properties,
+					   PW_STREAM_PROP_LATENCY_MIN, "%" PRId64,
+					   cu->body.latency.value);
+		}
+		impl->last_ticks = cu->body.ticks.value;
+		impl->last_rate = cu->body.rate.value;
+		impl->last_monotonic = cu->body.monotonic_time.value;
+#endif
+	}
+	else {
+		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
+		pw_client_node_proxy_done(data->node_proxy, seq, SPA_RESULT_NOT_IMPLEMENTED);
+	}
 }
 
 static void
@@ -718,10 +801,11 @@ client_node_remove_port(void *object, uint32_t seq, enum spa_direction direction
 }
 
 static void
-client_node_set_format(void *object,
-		       uint32_t seq,
-		       enum spa_direction direction,
-		       uint32_t port_id, uint32_t flags, const struct spa_format *format)
+client_node_port_set_param(void *object,
+			   uint32_t seq,
+			   enum spa_direction direction, uint32_t port_id,
+			   uint32_t id, uint32_t flags,
+			   const struct spa_pod_object *param)
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
@@ -734,27 +818,16 @@ client_node_set_format(void *object,
 		goto done;
 	}
 
-	res = pw_port_set_format(port->port, flags, format);
+	res = pw_port_set_param(port->port, id, flags, param);
 	if (res != SPA_RESULT_OK)
 		goto done;
 
 	add_port_update(proxy, port->port,
-			PW_CLIENT_NODE_PORT_UPDATE_FORMAT |
 			PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 			PW_CLIENT_NODE_PORT_UPDATE_INFO);
 
       done:
 	pw_client_node_proxy_done(data->node_proxy, seq, res);
-}
-
-static void
-client_node_set_param(void *object,
-		      uint32_t seq,
-		      enum spa_direction direction,
-		      uint32_t port_id,
-		      const struct spa_param *param)
-{
-	pw_log_warn("set param not implemented");
 }
 
 static struct mem_id *find_mem(struct port *port, uint32_t id)
@@ -807,11 +880,10 @@ static void clear_port(struct port *port)
 }
 
 static void
-client_node_add_mem(void *object,
-                    enum spa_direction direction,
-                    uint32_t port_id,
-                    uint32_t mem_id,
-                    uint32_t type, int memfd, uint32_t flags, uint32_t offset, uint32_t size)
+client_node_port_add_mem(void *object,
+			 enum spa_direction direction, uint32_t port_id,
+			 uint32_t mem_id,
+			 uint32_t type, int memfd, uint32_t flags, uint32_t offset, uint32_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
@@ -837,10 +909,10 @@ client_node_add_mem(void *object,
 }
 
 static void
-client_node_use_buffers(void *object,
-                        uint32_t seq,
-                        enum spa_direction direction,
-                        uint32_t port_id, uint32_t n_buffers, struct pw_client_node_buffer *buffers)
+client_node_port_use_buffers(void *object,
+			     uint32_t seq,
+			     enum spa_direction direction, uint32_t port_id,
+			     uint32_t n_buffers, struct pw_client_node_buffer *buffers)
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
@@ -964,93 +1036,6 @@ client_node_use_buffers(void *object,
 
 }
 
-static void node_need_input(void *data)
-{
-	struct node_data *d = data;
-        uint64_t cmd = 1;
-	pw_client_node_transport_add_message(d->trans,
-				&PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
-        write(d->rtwritefd, &cmd, 8);
-}
-
-static void node_have_output(void *data)
-{
-	struct node_data *d = data;
-        uint64_t cmd = 1;
-        pw_client_node_transport_add_message(d->trans,
-                               &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT));
-        write(d->rtwritefd, &cmd, 8);
-}
-
-static bool
-handle_node_command(struct pw_proxy *proxy, uint32_t seq, const struct spa_command *command)
-{
-	struct node_data *data = proxy->user_data;
-	struct pw_remote *remote = proxy->remote;
-	int res;
-
-	if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Pause) {
-		pw_log_debug("node %p: pause %d", proxy, seq);
-
-		pw_loop_update_io(remote->core->data_loop,
-				  data->rtsocket_source,
-				  SPA_IO_ERR | SPA_IO_HUP);
-
-		if ((res = spa_node_send_command(data->node->node, command)) < 0)
-			pw_log_warn("node %p: pause failed", proxy);
-
-		pw_client_node_proxy_done(data->node_proxy, seq, res);
-	}
-	else if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Start) {
-		int i;
-
-		pw_log_debug("node %p: start %d", proxy, seq);
-
-		pw_loop_update_io(remote->core->data_loop,
-				  data->rtsocket_source,
-				  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
-
-		if ((res = spa_node_send_command(data->node->node, command)) < 0)
-			pw_log_warn("node %p: start failed", proxy);
-
-		/* FIXME we should call process_output on the node and see what its
-		 * status is */
-		for (i = 0; i < data->trans->area->max_input_ports; i++)
-			data->trans->inputs[i].status = SPA_RESULT_NEED_BUFFER;
-		node_need_input(data);
-
-		pw_client_node_proxy_done(data->node_proxy, seq, res);
-	}
-	else if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.ClockUpdate) {
-		struct spa_command_node_clock_update *cu = (__typeof__(cu)) command;
-
-#if 0
-		if (cu->body.flags.value & SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE) {
-			pw_properties_set(stream->properties, PW_STREAM_PROP_IS_LIVE, "1");
-			pw_properties_setf(stream->properties,
-					   PW_STREAM_PROP_LATENCY_MIN, "%" PRId64,
-					   cu->body.latency.value);
-		}
-		impl->last_ticks = cu->body.ticks.value;
-		impl->last_rate = cu->body.rate.value;
-		impl->last_monotonic = cu->body.monotonic_time.value;
-#endif
-	}
-	else {
-		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
-		pw_client_node_proxy_done(data->node_proxy, seq, SPA_RESULT_NOT_IMPLEMENTED);
-	}
-	return true;
-}
-
-
-
-static void client_node_node_command(void *object, uint32_t seq, const struct spa_command *command)
-{
-	struct pw_proxy *proxy = object;
-	handle_node_command(proxy, seq, command);
-}
-
 static void
 client_node_port_command(void *object,
                          uint32_t direction,
@@ -1063,15 +1048,14 @@ client_node_port_command(void *object,
 static const struct pw_client_node_proxy_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
 	.transport = client_node_transport,
-	.set_props = client_node_set_props,
+	.set_param = client_node_set_param,
 	.event = client_node_event,
+	.command = client_node_command,
 	.add_port = client_node_add_port,
 	.remove_port = client_node_remove_port,
-	.set_format = client_node_set_format,
-	.set_param = client_node_set_param,
-	.add_mem = client_node_add_mem,
-	.use_buffers = client_node_use_buffers,
-	.node_command = client_node_node_command,
+	.port_set_param = client_node_port_set_param,
+	.port_add_mem = client_node_port_add_mem,
+	.port_use_buffers = client_node_port_use_buffers,
 	.port_command = client_node_port_command,
 };
 
@@ -1083,19 +1067,19 @@ static void do_node_init(struct pw_proxy *proxy)
         pw_client_node_proxy_update(data->node_proxy,
                                     PW_CLIENT_NODE_UPDATE_MAX_INPUTS |
 				    PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS |
-				    PW_CLIENT_NODE_UPDATE_PROPS,
+				    PW_CLIENT_NODE_UPDATE_PARAMS,
 				    data->node->info.max_input_ports,
 				    data->node->info.max_output_ports,
-				    NULL);
+				    0, NULL);
 
 	spa_list_for_each(port, &data->node->input_ports, link) {
 		add_port_update(proxy, port,
-				PW_CLIENT_NODE_PORT_UPDATE_POSSIBLE_FORMATS |
+				PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 				PW_CLIENT_NODE_PORT_UPDATE_INFO);
 	}
 	spa_list_for_each(port, &data->node->output_ports, link) {
 		add_port_update(proxy, port,
-				PW_CLIENT_NODE_PORT_UPDATE_POSSIBLE_FORMATS |
+				PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 				PW_CLIENT_NODE_PORT_UPDATE_INFO);
 	}
         pw_client_node_proxy_done(data->node_proxy, 0, SPA_RESULT_OK);

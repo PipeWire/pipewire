@@ -524,20 +524,28 @@ static void info_module(struct proxy_data *pd)
 static void info_node(struct proxy_data *pd)
 {
 	struct pw_node_info *info = pd->info;
+	struct pw_type *t = pd->rd->data->t;
 	int i;
 
 	info_global(pd);
 	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 	fprintf(stdout, "%c\tinput ports: %u/%u\n", MARK_CHANGE(1), info->n_input_ports, info->max_input_ports);
-	fprintf(stdout, "%c\tinput formats:\n", MARK_CHANGE(2));
-	for (i = 0; i < info->n_input_formats; i++)
-		spa_debug_format(info->input_formats[i]);
+	fprintf(stdout, "%c\tinput params:\n", MARK_CHANGE(2));
+	for (i = 0; i < info->n_input_params; i++) {
+		uint32_t flags = 0;
+		if (info->input_params[i]->body.type == t->spa_format)
+			flags |= SPA_DEBUG_FLAG_FORMAT;
+		spa_debug_pod(&info->input_params[i]->pod, flags);
+	}
 
 	fprintf(stdout, "%c\toutput ports: %u/%u\n", MARK_CHANGE(3), info->n_output_ports, info->max_output_ports);
-	fprintf(stdout, "%c\toutput formats:\n", MARK_CHANGE(4));
-	for (i = 0; i < info->n_output_formats; i++)
-		spa_debug_format(info->output_formats[i]);
-
+	fprintf(stdout, "%c\toutput params:\n", MARK_CHANGE(4));
+	for (i = 0; i < info->n_output_params; i++) {
+		uint32_t flags = 0;
+		if (info->output_params[i]->body.type == t->spa_format)
+			flags |= SPA_DEBUG_FLAG_FORMAT;
+		spa_debug_pod(&info->output_params[i]->pod, flags);
+	}
 	fprintf(stdout, "%c\tstate: \"%s\"", MARK_CHANGE(5), pw_node_state_as_string(info->state));
 	if (info->state == PW_NODE_STATE_ERROR && info->error)
 		fprintf(stdout, " \"%s\"\n", info->error);
@@ -579,7 +587,7 @@ static void info_link(struct proxy_data *pd)
 	fprintf(stdout, "%c\tinput-port-id: %u\n", MARK_CHANGE(1), info->input_port_id);
 	fprintf(stdout, "%c\tformat:\n", MARK_CHANGE(2));
 	if (info->format)
-		spa_debug_format(info->format);
+		spa_debug_pod(&info->format->pod, SPA_DEBUG_FLAG_FORMAT);
 	else
 		fprintf(stdout, "\t\tnone\n");
 	print_properties(info->props, MARK_CHANGE(3));

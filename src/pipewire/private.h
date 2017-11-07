@@ -389,6 +389,26 @@ struct pw_factory {
 	void *user_data;
 };
 
+/** Find a good format between 2 ports */
+int pw_core_find_format(struct pw_core *core,
+			struct pw_port *output,
+			struct pw_port *input,
+			struct pw_properties *props,
+			uint32_t n_format_filters,
+			struct spa_pod_object **format_filters,
+			struct spa_pod_builder *builder,
+			char **error);
+
+/** Find a ports compatible with \a other_port and the format filters */
+struct pw_port *
+pw_core_find_port(struct pw_core *core,
+		  struct pw_port *other_port,
+		  uint32_t id,
+		  struct pw_properties *props,
+		  uint32_t n_format_filters,
+		  struct spa_pod_object **format_filters,
+		  char **error);
+
 /** Create a new port \memberof pw_port
  * \return a newly allocated port */
 struct pw_port *
@@ -406,15 +426,16 @@ bool pw_port_add(struct pw_port *port, struct pw_node *node);
 /** Destroy a port \memberof pw_port */
 void pw_port_destroy(struct pw_port *port);
 
-/** Set a format on a port \memberof pw_port */
-int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format);
+/** Set a param on a port \memberof pw_port */
+int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
+		      const struct spa_pod_object *param);
 
 /** Use buffers on a port \memberof pw_port */
 int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers);
 
 /** Allocate memory for buffers on a port \memberof pw_port */
 int pw_port_alloc_buffers(struct pw_port *port,
-			  struct spa_param **params, uint32_t n_params,
+			  struct spa_pod_object **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers);
 
 /** Change the state of the node */

@@ -37,6 +37,7 @@ static SPA_LOG_IMPL(default_log);
 struct type {
 	uint32_t node;
 	uint32_t clock;
+	struct spa_type_param param;
 };
 
 struct data {
@@ -54,40 +55,51 @@ inspect_port(struct data *data, struct spa_node *node, enum spa_direction direct
 	     uint32_t port_id)
 {
 	int res;
-	struct spa_format *format;
-	uint32_t index;
+	uint32_t idx1, idx2;
+	uint32_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
 
-	for (index = 0;; index++) {
-		if ((res =
-		     spa_node_port_enum_formats(node, direction, port_id, &format, NULL,
-						index)) < 0) {
+	for (idx1 = 0;;) {
+		struct spa_pod_object *param;
+		uint32_t id;
+
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if ((res = spa_node_port_enum_params(node,
+						     direction, port_id,
+						     data->type.param.idList, &idx1,
+						     NULL, &b)) < 0) {
 			if (res != SPA_RESULT_ENUM_END)
 				printf("got error %d\n", res);
 			break;
 		}
-		if (format)
-			spa_debug_format(format);
-	}
+		param = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+		spa_debug_pod(&param->pod, 0);
 
+		spa_pod_object_parse(param,
+				":", data->type.param.listId, "I", &id,
+				NULL);
 
-	for (index = 0;; index++) {
-		struct spa_param *param;
-
-		if ((res = spa_node_port_enum_params(node, direction, port_id, index, &param)) < 0) {
-			if (res != SPA_RESULT_ENUM_END)
-				printf("port_enum_params error: %d\n", res);
-			break;
+		for (idx2 = 0;;) {
+			spa_pod_builder_init(&b, buffer, sizeof(buffer));
+			if ((res = spa_node_port_enum_params(node,
+							     direction, port_id,
+							     id, &idx2,
+							     NULL, &b)) < 0) {
+				if (res != SPA_RESULT_ENUM_END)
+					printf("got error %d\n", res);
+				break;
+			}
+			param = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+			spa_debug_pod(&param->pod, 0);
 		}
-		spa_debug_param(param);
 	}
 }
 
 static void inspect_node(struct data *data, struct spa_node *node)
 {
 	int res;
-	uint32_t i, n_input, max_input, n_output, max_output;
+	uint32_t i, n_input, max_input, n_output, max_output, index = 0;
 	uint32_t *in_ports, *out_ports;
-	struct spa_props *props;
 
 	printf("node info:\n");
 	if (node->info)
@@ -95,10 +107,19 @@ static void inspect_node(struct data *data, struct spa_node *node)
 	else
 		printf("  none\n");
 
-	if ((res = spa_node_get_props(node, &props)) < 0)
-		printf("can't get properties: %d\n", res);
-	else
-		spa_debug_props(props);
+	for (index = 0;;) {
+		uint8_t buf[2048];
+		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+		struct spa_pod_object *param;
+
+		if ((res = spa_node_enum_params(node, SPA_ID_INVALID, &index, NULL, &b)) < 0) {
+			if (res != SPA_RESULT_ENUM_END)
+				printf("enum_params error: %d\n", res);
+			break;
+		}
+		param = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+		spa_debug_pod(&param->pod, 0);
+	}
 
 	if ((res = spa_node_get_n_ports(node, &n_input, &max_input, &n_output, &max_output)) < 0) {
 		printf("can't get n_ports: %d\n", res);
@@ -224,6 +245,7 @@ int main(int argc, char *argv[])
 
 	data.type.node = spa_type_map_get_id(data.map, SPA_TYPE__Node);
 	data.type.clock = spa_type_map_get_id(data.map, SPA_TYPE__Clock);
+	spa_type_param_map(data.map, &data.type.param);
 
 	if ((handle = dlopen(argv[1], RTLD_NOW)) == NULL) {
 		printf("can't load %s\n", argv[1]);

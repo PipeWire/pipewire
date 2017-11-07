@@ -75,7 +75,7 @@ spa_type_format_video_map(struct spa_type_map *map, struct spa_type_format_video
 }
 
 static inline int
-spa_format_video_raw_parse(const struct spa_format *format,
+spa_format_video_raw_parse(const struct spa_pod_object *format,
 			   struct spa_video_info_raw *info, struct spa_type_format_video *type)
 {
 	struct spa_pod_parser prs;
@@ -98,7 +98,7 @@ spa_format_video_raw_parse(const struct spa_format *format,
 }
 
 static inline int
-spa_format_video_h264_parse(const struct spa_format *format,
+spa_format_video_h264_parse(const struct spa_pod_object *format,
 			    struct spa_video_info_h264 *info, struct spa_type_format_video *type)
 {
 	struct spa_pod_parser prs;
@@ -112,7 +112,7 @@ spa_format_video_h264_parse(const struct spa_format *format,
 }
 
 static inline int
-spa_format_video_mjpg_parse(const struct spa_format *format,
+spa_format_video_mjpg_parse(const struct spa_pod_object *format,
 			    struct spa_video_info_mjpg *info, struct spa_type_format_video *type)
 {
 	struct spa_pod_parser prs;

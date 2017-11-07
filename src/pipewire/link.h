@@ -81,7 +81,7 @@ struct pw_link *
 pw_link_new(struct pw_core *core,		/**< the core object */
 	    struct pw_port *output,		/**< an output port */
 	    struct pw_port *input,		/**< an input port */
-	    struct spa_format *format_filter,	/**< an optional format filter */
+	    struct spa_pod_object *format_filter,	/**< an optional format filter */
 	    struct pw_properties *properties	/**< extra properties */,
 	    char **error,			/**< error string when result is NULL */
 	    size_t user_data_size		/**< extra user data size */);

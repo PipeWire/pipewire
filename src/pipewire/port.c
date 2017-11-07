@@ -364,15 +364,16 @@ do_port_pause(struct spa_loop *loop,
 				&SPA_COMMAND_INIT(node->core->type.command_node.Pause));
 }
 
-int pw_port_set_format(struct pw_port *port, uint32_t flags, const struct spa_format *format)
+int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
+		      const struct spa_pod_object *param)
 {
 	int res;
 
-	res = spa_node_port_set_format(port->node->node, port->direction, port->port_id, flags, format);
-	pw_log_debug("port %p: set format %d", port, res);
+	res = spa_node_port_set_param(port->node->node, port->direction, port->port_id, id, flags, param);
+	pw_log_debug("port %p: set param %d %d", port, id, res);
 
-	if (!SPA_RESULT_IS_ASYNC(res)) {
-		if (format == NULL || res < 0) {
+	if (!SPA_RESULT_IS_ASYNC(res) && id == port->node->core->type.param.idFormat) {
+		if (param == NULL || res < 0) {
 			if (port->allocated) {
 				free(port->buffers);
 				pw_memblock_free(&port->buffer_mem);
@@ -425,7 +426,7 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 }
 
 int pw_port_alloc_buffers(struct pw_port *port,
-			  struct spa_param **params, uint32_t n_params,
+			  struct spa_pod_object **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers)
 {
 	int res;

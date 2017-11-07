@@ -25,7 +25,6 @@
 #include <spa/type-map.h>
 #include <spa/format-utils.h>
 #include <spa/video/format-utils.h>
-#include <spa/format-builder.h>
 #include <spa/props.h>
 #include <spa/lib/debug.h>
 
@@ -34,6 +33,7 @@
 struct type {
 	uint32_t format;
 	uint32_t props;
+	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
 	struct spa_type_media_type media_type;
@@ -46,6 +46,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
+	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
@@ -234,28 +235,26 @@ static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
 }
 
 static void
-on_stream_format_changed(void *_data, struct spa_format *format)
+on_stream_format_changed(void *_data, struct spa_pod_object *format)
 {
 	struct data *data = _data;
 	struct pw_stream *stream = data->stream;
 	struct pw_type *t = data->t;
 	struct spa_pod_builder b = { NULL };
-	struct spa_param *params[2];
+	struct spa_pod_object *params[2];
 	Uint32 sdl_format;
 	void *d;
 
 	if (format == NULL) {
-		pw_stream_finish_format(stream, SPA_RESULT_OK, NULL, 0);
+		pw_stream_finish_format(stream, SPA_RESULT_OK, 0, NULL);
 		return;
 	}
-
-	spa_debug_format(format);
 
 	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
 
 	sdl_format = id_to_sdl_format(data, data->format.format);
 	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN) {
-		pw_stream_finish_format(stream, SPA_RESULT_ERROR, NULL, 0);
+		pw_stream_finish_format(stream, SPA_RESULT_ERROR, 0, NULL);
 		return;
 	}
 
@@ -268,20 +267,20 @@ on_stream_format_changed(void *_data, struct spa_format *format)
 	SDL_UnlockTexture(data->texture);
 
 	spa_pod_builder_init(&b, data->params_buffer, sizeof(data->params_buffer));
-	params[0] = spa_pod_builder_param(&b,
-		t->param_alloc_buffers.Buffers,
+	params[0] = spa_pod_builder_object(&b,
+		t->param.idBuffers, t->param_alloc_buffers.Buffers,
 		":", t->param_alloc_buffers.size,    "i", data->stride * data->format.size.height,
 		":", t->param_alloc_buffers.stride,  "i", data->stride,
 		":", t->param_alloc_buffers.buffers, "iru", 32,
 								2, 2, 32,
 		":", t->param_alloc_buffers.align,    "i", 16);
 
-	params[1] = spa_pod_builder_param(&b,
-		t->param_alloc_meta_enable.MetaEnable,
+	params[1] = spa_pod_builder_object(&b,
+		t->param.idMeta, t->param_alloc_meta_enable.MetaEnable,
 		":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
 		":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
 
-	pw_stream_finish_format(stream, SPA_RESULT_OK, params, 2);
+	pw_stream_finish_format(stream, SPA_RESULT_OK, 2, params);
 }
 
 static const struct pw_stream_events stream_events = {
@@ -304,7 +303,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 	case PW_REMOTE_STATE_CONNECTED:
 	{
-		const struct spa_format *formats[1];
+		const struct spa_pod_object *params[1];
 		uint8_t buffer[1024];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 		struct spa_pod_frame f[2];
@@ -318,9 +317,10 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 		SDL_GetRendererInfo(data->renderer, &info);
 
-		spa_pod_builder_push_format(&b, &f[0], data->type.format,
-					    data->type.media_type.video,
-					    data->type.media_subtype.raw);
+		spa_pod_builder_push_object(&b, &f[0],
+					    data->type.param.idEnumFormat, data->type.format);
+		spa_pod_builder_id(&b, data->type.media_type.video);
+		spa_pod_builder_id(&b, data->type.media_subtype.raw);
 
 		spa_pod_builder_push_prop(&b, &f[1], data->type.format_video.format,
 					  SPA_POD_PROP_FLAG_UNSET |
@@ -351,10 +351,10 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 									   &SPA_RECTANGLE(30,1),
 			NULL);
 		spa_pod_builder_pop(&b, &f[0]);
-		formats[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+		params[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_pod_object);
 
 		printf("supported formats:\n");
-		spa_debug_format(formats[0]);
+		spa_debug_pod(&params[0]->pod, SPA_DEBUG_FLAG_FORMAT);
 
 		pw_stream_add_listener(data->stream,
 				       &data->stream_listener,
@@ -363,8 +363,9 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_INPUT,
-				  PW_STREAM_MODE_BUFFER,
-				  data->path, PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_INACTIVE, 1, formats);
+				  data->path,
+				  PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_INACTIVE,
+				  1, params);
 		break;
 	}
 	default:

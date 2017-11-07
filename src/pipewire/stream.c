@@ -64,19 +64,19 @@ struct stream {
 
 	uint32_t type_client_node;
 
-	uint32_t n_possible_formats;
-	struct spa_format **possible_formats;
+	uint32_t n_init_params;
+	struct spa_pod_object **init_params;
 
 	uint32_t n_params;
-	struct spa_param **params;
+	struct spa_pod_object **params;
 
-	struct spa_format *format;
+	struct spa_pod_object *format;
+
 	struct spa_port_info port_info;
 	enum spa_direction direction;
 	uint32_t port_id;
 	uint32_t pending_seq;
 
-	enum pw_stream_mode mode;
 	enum pw_stream_flags flags;
 
 	int rtwritefd;
@@ -307,27 +307,28 @@ static void unhandle_socket(struct pw_stream *stream)
 }
 
 static void
-set_possible_formats(struct pw_stream *stream,
-		     int n_possible_formats, const struct spa_format **possible_formats)
+set_init_params(struct pw_stream *stream,
+		     int n_init_params,
+		     const struct spa_pod_object **init_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int i;
 
-	if (impl->possible_formats) {
-		for (i = 0; i < impl->n_possible_formats; i++)
-			free(impl->possible_formats[i]);
-		free(impl->possible_formats);
-		impl->possible_formats = NULL;
+	if (impl->init_params) {
+		for (i = 0; i < impl->n_init_params; i++)
+			free(impl->init_params[i]);
+		free(impl->init_params);
+		impl->init_params = NULL;
 	}
-	impl->n_possible_formats = n_possible_formats;
-	if (n_possible_formats > 0) {
-		impl->possible_formats = malloc(n_possible_formats * sizeof(struct spa_format *));
-		for (i = 0; i < n_possible_formats; i++)
-			impl->possible_formats[i] = spa_format_copy(possible_formats[i]);
+	impl->n_init_params = n_init_params;
+	if (n_init_params > 0) {
+		impl->init_params = malloc(n_init_params * sizeof(struct spa_pod_object *));
+		for (i = 0; i < n_init_params; i++)
+			impl->init_params[i] = spa_pod_object_copy(init_params[i]);
 	}
 }
 
-static void set_params(struct pw_stream *stream, int n_params, struct spa_param **params)
+static void set_params(struct pw_stream *stream, int n_params, struct spa_pod_object **params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int i;
@@ -340,9 +341,9 @@ static void set_params(struct pw_stream *stream, int n_params, struct spa_param 
 	}
 	impl->n_params = n_params;
 	if (n_params > 0) {
-		impl->params = malloc(n_params * sizeof(struct spa_param *));
+		impl->params = malloc(n_params * sizeof(struct spa_pod_object *));
 		for (i = 0; i < n_params; i++)
-			impl->params[i] = spa_param_copy(params[i]);
+			impl->params[i] = spa_pod_object_copy(params[i]);
 	}
 }
 
@@ -361,7 +362,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	spa_list_remove(&stream->link);
 
-	set_possible_formats(stream, 0, NULL);
+	set_init_params(stream, 0, NULL);
 	set_params(stream, 0, NULL);
 
 	if (impl->format)
@@ -396,23 +397,38 @@ static void add_node_update(struct pw_stream *stream, uint32_t change_mask)
 		max_output_ports = impl->direction == SPA_DIRECTION_OUTPUT ? 1 : 0;
 
 	pw_client_node_proxy_update(impl->node_proxy,
-				    change_mask, max_input_ports, max_output_ports, NULL);
+				    change_mask, max_input_ports, max_output_ports,
+				    0, NULL);
 }
 
 static void add_port_update(struct pw_stream *stream, uint32_t change_mask)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	uint32_t n_params;
+	struct spa_pod_object **params;
+	int i, j;
 
+	n_params = impl->n_params + impl->n_init_params;
+	if (impl->format)
+		n_params += 1;
+
+	params = alloca(n_params * sizeof(struct spa_pod_object *));
+
+	j = 0;
+	for (i = 0; i < impl->n_init_params; i++)
+		params[j++] = (struct spa_pod_object *)impl->init_params[i];
+	if (impl->format)
+		params[j++] = impl->format;
+	for (i = 0; i < impl->n_params; i++)
+		params[j++] = impl->params[i];
 
 	pw_client_node_proxy_port_update(impl->node_proxy,
 					 impl->direction,
 					 impl->port_id,
 					 change_mask,
-					 impl->n_possible_formats,
-					 (const struct spa_format **) impl->possible_formats,
-					 impl->format,
-					 impl->n_params,
-					 (const struct spa_param **) impl->params, &impl->port_info);
+					 n_params,
+					 (const struct spa_pod_object **) params,
+					 &impl->port_info);
 }
 
 static inline void send_need_input(struct pw_stream *stream)
@@ -472,8 +488,10 @@ static void do_node_init(struct pw_stream *stream)
 			PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS);
 
 	impl->port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-	add_port_update(stream, PW_CLIENT_NODE_PORT_UPDATE_POSSIBLE_FORMATS |
-			PW_CLIENT_NODE_PORT_UPDATE_INFO);
+
+	add_port_update(stream, PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
+				PW_CLIENT_NODE_PORT_UPDATE_INFO);
+
 	add_async_complete(stream, 0, SPA_RESULT_OK);
 	if (!(impl->flags & PW_STREAM_FLAG_INACTIVE))
 		pw_client_node_proxy_set_active(impl->node_proxy, true);
@@ -639,10 +657,22 @@ static void handle_socket(struct pw_stream *stream, int rtreadfd, int rtwritefd)
 	return;
 }
 
-static bool
-handle_node_command(struct pw_stream *stream, uint32_t seq, const struct spa_command *command)
+static void
+client_node_set_param(void *data, uint32_t seq, uint32_t id, uint32_t flags,
+		      const struct spa_pod_object *param)
 {
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	pw_log_warn("set param not implemented");
+}
+
+static void client_node_event(void *data, const struct spa_event *event)
+{
+	pw_log_warn("unhandled node event %d", SPA_EVENT_TYPE(event));
+}
+
+static void client_node_command(void *data, uint32_t seq, const struct spa_command *command)
+{
+	struct stream *impl = data;
+	struct pw_stream *stream = &impl->this;
 	struct pw_remote *remote = stream->remote;
 
 	if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Pause) {
@@ -697,18 +727,6 @@ handle_node_command(struct pw_stream *stream, uint32_t seq, const struct spa_com
 		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
 		add_async_complete(stream, seq, SPA_RESULT_NOT_IMPLEMENTED);
 	}
-	return true;
-}
-
-static void
-client_node_set_props(void *data, uint32_t seq, const struct spa_props *props)
-{
-	pw_log_warn("set property not implemented");
-}
-
-static void client_node_event(void *data, const struct spa_event *event)
-{
-	pw_log_warn("unhandled node event %d", SPA_EVENT_TYPE(event));
 }
 
 static void
@@ -724,45 +742,48 @@ client_node_remove_port(void *data, uint32_t seq, enum spa_direction direction, 
 }
 
 static void
-client_node_set_format(void *data,
-		       uint32_t seq,
-		       enum spa_direction direction,
-		       uint32_t port_id, uint32_t flags, const struct spa_format *format)
+client_node_port_set_param(void *data,
+			   uint32_t seq,
+			   enum spa_direction direction, uint32_t port_id,
+			   uint32_t id, uint32_t flags,
+			   const struct spa_pod_object *param)
 {
 	struct stream *impl = data;
 	struct pw_stream *stream = &impl->this;
+	struct pw_type *t = &stream->remote->core->type;
 
-	pw_log_debug("stream %p: format changed %d", stream, seq);
+	if (id == t->param.idFormat) {
+		pw_log_debug("stream %p: format changed %d", stream, seq);
 
-	if (impl->format)
-		free(impl->format);
-	impl->format = format ? spa_format_copy(format) : NULL;
-	impl->pending_seq = seq;
+		if (impl->format)
+			free(impl->format);
+		if (param) {
+			impl->format = spa_pod_object_copy(param);
+			impl->format->body.id = id;
+		}
+		else
+			impl->format = NULL;
 
-	spa_hook_list_call(&stream->listener_list, struct pw_stream_events, format_changed, impl->format);
+		impl->pending_seq = seq;
 
-	if (format)
-		stream_set_state(stream, PW_STREAM_STATE_READY, NULL);
+		spa_hook_list_call(&stream->listener_list,
+					struct pw_stream_events,
+					format_changed, impl->format);
+
+		if (impl->format)
+			stream_set_state(stream, PW_STREAM_STATE_READY, NULL);
+		else
+			stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
+	}
 	else
-		stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
+		pw_log_warn("set param not implemented");
 }
 
 static void
-client_node_set_param(void *data,
-		      uint32_t seq,
-		      enum spa_direction direction,
-		      uint32_t port_id,
-		      const struct spa_param *param)
-{
-	pw_log_warn("set param not implemented");
-}
-
-static void
-client_node_add_mem(void *data,
-		    enum spa_direction direction,
-		    uint32_t port_id,
-		    uint32_t mem_id,
-		    uint32_t type, int memfd, uint32_t flags, uint32_t offset, uint32_t size)
+client_node_port_add_mem(void *data,
+			 enum spa_direction direction, uint32_t port_id,
+			 uint32_t mem_id,
+			 uint32_t type, int memfd, uint32_t flags, uint32_t offset, uint32_t size)
 {
 	struct stream *impl = data;
 	struct pw_stream *stream = &impl->this;
@@ -787,10 +808,10 @@ client_node_add_mem(void *data,
 }
 
 static void
-client_node_use_buffers(void *data,
-			uint32_t seq,
-			enum spa_direction direction,
-			uint32_t port_id, uint32_t n_buffers, struct pw_client_node_buffer *buffers)
+client_node_port_use_buffers(void *data,
+			     uint32_t seq,
+			     enum spa_direction direction, uint32_t port_id,
+			     uint32_t n_buffers, struct pw_client_node_buffer *buffers)
 {
 	struct stream *impl = data;
 	struct pw_stream *stream = &impl->this;
@@ -901,13 +922,6 @@ client_node_use_buffers(void *data,
 	}
 }
 
-static void client_node_node_command(void *data, uint32_t seq, const struct spa_command *command)
-{
-	struct stream *impl = data;
-	struct pw_stream *this = &impl->this;
-	handle_node_command(this, seq, command);
-}
-
 static void
 client_node_port_command(void *data,
 			 uint32_t direction,
@@ -940,15 +954,14 @@ static void client_node_transport(void *data, uint32_t node_id,
 static const struct pw_client_node_proxy_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
 	.transport = client_node_transport,
-	.set_props = client_node_set_props,
+	.set_param = client_node_set_param,
 	.event = client_node_event,
+	.command = client_node_command,
 	.add_port = client_node_add_port,
 	.remove_port = client_node_remove_port,
-	.set_format = client_node_set_format,
-	.set_param = client_node_set_param,
-	.add_mem = client_node_add_mem,
-	.use_buffers = client_node_use_buffers,
-	.node_command = client_node_node_command,
+	.port_set_param = client_node_port_set_param,
+	.port_add_mem = client_node_port_add_mem,
+	.port_use_buffers = client_node_port_use_buffers,
 	.port_command = client_node_port_command,
 };
 
@@ -972,21 +985,19 @@ static const struct pw_proxy_events proxy_events = {
 bool
 pw_stream_connect(struct pw_stream *stream,
 		  enum pw_direction direction,
-		  enum pw_stream_mode mode,
 		  const char *port_path,
 		  enum pw_stream_flags flags,
-		  uint32_t n_possible_formats,
-		  const struct spa_format **possible_formats)
+		  uint32_t n_params,
+		  const struct spa_pod_object **params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
 	impl->direction =
 	    direction == PW_DIRECTION_INPUT ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT;
 	impl->port_id = 0;
-	impl->mode = mode;
 	impl->flags = flags;
 
-	set_possible_formats(stream, n_possible_formats, possible_formats);
+	set_init_params(stream, n_params, params);
 
 	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, NULL);
 
@@ -1021,7 +1032,9 @@ pw_stream_get_node_id(struct pw_stream *stream)
 
 void
 pw_stream_finish_format(struct pw_stream *stream,
-			int res, struct spa_param **params, uint32_t n_params)
+			int res,
+			uint32_t n_params,
+			struct spa_pod_object **params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
@@ -1030,8 +1043,7 @@ pw_stream_finish_format(struct pw_stream *stream,
 	set_params(stream, n_params, params);
 
 	if (SPA_RESULT_IS_OK(res)) {
-		add_port_update(stream, (n_params ? PW_CLIENT_NODE_PORT_UPDATE_PARAMS : 0) |
-				PW_CLIENT_NODE_PORT_UPDATE_FORMAT);
+		add_port_update(stream, PW_CLIENT_NODE_PORT_UPDATE_PARAMS);
 
 		if (!impl->format) {
 			clear_buffers(stream);

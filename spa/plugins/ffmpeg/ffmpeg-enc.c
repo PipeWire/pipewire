@@ -52,6 +52,7 @@ struct port {
 
 struct type {
 	uint32_t node;
+	struct spa_type_param param;
 	struct spa_type_media_type media_type;
 	struct spa_type_media_subtype media_subtype;
 	struct spa_type_format_video format_video;
@@ -61,6 +62,7 @@ struct type {
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
+	spa_type_param_map(map, &type->param);
 	spa_type_media_type_map(map, &type->media_type);
 	spa_type_media_subtype_map(map, &type->media_subtype);
 	spa_type_format_video_map(map, &type->format_video);
@@ -84,12 +86,16 @@ struct impl {
 	bool started;
 };
 
-static int spa_ffmpeg_enc_node_get_props(struct spa_node *node, struct spa_props **props)
+static int spa_ffmpeg_enc_node_enum_params(struct spa_node *node,
+					   uint32_t id, uint32_t *index,
+					   const struct spa_pod_object *filter,
+					   struct spa_pod_builder *builder)
 {
 	return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static int spa_ffmpeg_enc_node_set_props(struct spa_node *node, const struct spa_props *props)
+static int spa_ffmpeg_enc_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
+					 const struct spa_pod_object *param)
 {
 	return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -186,107 +192,6 @@ spa_ffmpeg_enc_node_remove_port(struct spa_node *node,
 }
 
 static int
-spa_ffmpeg_enc_node_port_enum_formats(struct spa_node *node,
-				      enum spa_direction direction,
-				      uint32_t port_id,
-				      struct spa_format **format,
-				      const struct spa_format *filter, uint32_t index)
-{
-	//struct impl *this;
-	//struct port *port;
-
-	if (node == NULL || format == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
-
-	//this = SPA_CONTAINER_OF (node, struct impl, node);
-
-	if (!IS_VALID_PORT(this, direction, port_id))
-		return SPA_RESULT_INVALID_PORT;
-
-	//port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
-
-	switch (index) {
-	case 0:
-		break;
-	default:
-		return SPA_RESULT_ENUM_END;
-	}
-	*format = NULL;
-
-	return SPA_RESULT_OK;
-}
-
-static int
-spa_ffmpeg_enc_node_port_set_format(struct spa_node *node,
-				    enum spa_direction direction,
-				    uint32_t port_id,
-				    uint32_t flags, const struct spa_format *format)
-{
-	struct impl *this;
-	struct port *port;
-
-	if (node == NULL || format == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	if (!IS_VALID_PORT(this, direction, port_id))
-		return SPA_RESULT_INVALID_PORT;
-
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
-
-	if (format == NULL) {
-		port->have_format = false;
-		return SPA_RESULT_OK;
-	} else {
-		struct spa_video_info info = { SPA_FORMAT_MEDIA_TYPE(format),
-			SPA_FORMAT_MEDIA_SUBTYPE(format),
-		};
-
-		if (info.media_type != this->type.media_type.video &&
-		    info.media_subtype != this->type.media_subtype.raw)
-			return SPA_RESULT_INVALID_MEDIA_TYPE;
-
-		if (spa_format_video_raw_parse(format, &info.info.raw, &this->type.format_video) < 0)
-			return SPA_RESULT_INVALID_MEDIA_TYPE;
-
-		if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
-			port->current_format = info;
-			port->have_format = true;
-		}
-	}
-	return SPA_RESULT_OK;
-}
-
-static int
-spa_ffmpeg_enc_node_port_get_format(struct spa_node *node,
-				    enum spa_direction direction,
-				    uint32_t port_id, const struct spa_format **format)
-{
-	struct impl *this;
-	struct port *port;
-
-	if (node == NULL || format == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	if (!IS_VALID_PORT(this, direction, port_id))
-		return SPA_RESULT_INVALID_PORT;
-
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
-
-	if (!port->have_format)
-		return SPA_RESULT_NO_FORMAT;
-
-	*format = NULL;
-
-	return SPA_RESULT_OK;
-}
-
-static int
 spa_ffmpeg_enc_node_port_get_info(struct spa_node *node,
 				  enum spa_direction direction,
 				  uint32_t port_id, const struct spa_port_info **info)
@@ -309,20 +214,116 @@ spa_ffmpeg_enc_node_port_get_info(struct spa_node *node,
 	return SPA_RESULT_OK;
 }
 
+static int port_enum_formats(struct spa_node *node,
+			     enum spa_direction direction, uint32_t port_id,
+			     uint32_t *index,
+			     const struct spa_pod_object *filter,
+			     struct spa_pod_builder *builder)
+{
+	//struct impl *this = SPA_CONTAINER_OF (node, struct impl, node);
+	//struct port *port;
+
+	//port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+
+	switch (*index) {
+	case 0:
+		break;
+	default:
+		return SPA_RESULT_ENUM_END;
+	}
+	return SPA_RESULT_OK;
+}
+
+static int port_get_format(struct spa_node *node,
+			   enum spa_direction direction, uint32_t port_id,
+			   uint32_t *index,
+			   const struct spa_pod_object *filter,
+			   struct spa_pod_builder *builder)
+{
+	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
+	struct port *port;
+
+	port =
+	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+
+	if (!port->have_format)
+		return SPA_RESULT_NO_FORMAT;
+
+	if (*index > 0)
+		return SPA_RESULT_ENUM_END;
+
+	return SPA_RESULT_OK;
+}
+
 static int
 spa_ffmpeg_enc_node_port_enum_params(struct spa_node *node,
-				     enum spa_direction direction,
-				     uint32_t port_id, uint32_t index, struct spa_param **param)
+				     enum spa_direction direction, uint32_t port_id,
+				     uint32_t id, uint32_t *index,
+				     const struct spa_pod_object *filter,
+				     struct spa_pod_builder *builder)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
+	struct type *t = &this->type;
+
+	if (id == t->param.idEnumFormat) {
+		return port_enum_formats(node, direction, port_id, index, filter, builder);
+	}
+	else if (id == t->param.idFormat) {
+		return port_get_format(node, direction, port_id, index, filter, builder);
+	}
+	else
+		return SPA_RESULT_UNKNOWN_PARAM;
+}
+
+static int port_set_format(struct spa_node *node,
+			   enum spa_direction direction, uint32_t port_id,
+			   uint32_t flags, const struct spa_pod_object *format)
+{
+	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
+	struct port *port;
+
+	port =
+	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+
+	if (format == NULL) {
+		port->have_format = false;
+		return SPA_RESULT_OK;
+	} else {
+		struct spa_video_info info = { 0 };
+
+		spa_pod_object_parse(format,
+			"I", &info.media_type,
+			"I", &info.media_subtype);
+
+		if (info.media_type != this->type.media_type.video &&
+		    info.media_subtype != this->type.media_subtype.raw)
+			return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+		if (spa_format_video_raw_parse(format, &info.info.raw, &this->type.format_video) < 0)
+			return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+		if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
+			port->current_format = info;
+			port->have_format = true;
+		}
+	}
+	return SPA_RESULT_OK;
 }
 
 static int
 spa_ffmpeg_enc_node_port_set_param(struct spa_node *node,
-				   enum spa_direction direction,
-				   uint32_t port_id, const struct spa_param *param)
+				   enum spa_direction direction, uint32_t port_id,
+				   uint32_t id, uint32_t flags,
+				   const struct spa_pod_object *param)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
+	struct type *t = &this->type;
+
+	if (id == t->param.idFormat) {
+		return port_set_format(node, direction, port_id, flags, param);
+	}
+	else
+		return SPA_RESULT_UNKNOWN_PARAM;
 }
 
 static int
@@ -344,7 +345,7 @@ static int
 spa_ffmpeg_enc_node_port_alloc_buffers(struct spa_node *node,
 				       enum spa_direction direction,
 				       uint32_t port_id,
-				       struct spa_param **params,
+				       struct spa_pod_object **params,
 				       uint32_t n_params,
 				       struct spa_buffer **buffers,
 				       uint32_t *n_buffers)
@@ -428,17 +429,14 @@ static int spa_ffmpeg_enc_node_process_output(struct spa_node *node)
 static const struct spa_node ffmpeg_enc_node = {
 	SPA_VERSION_NODE,
 	NULL,
-	spa_ffmpeg_enc_node_get_props,
-	spa_ffmpeg_enc_node_set_props,
+	spa_ffmpeg_enc_node_enum_params,
+	spa_ffmpeg_enc_node_set_param,
 	spa_ffmpeg_enc_node_send_command,
 	spa_ffmpeg_enc_node_set_callbacks,
 	spa_ffmpeg_enc_node_get_n_ports,
 	spa_ffmpeg_enc_node_get_port_ids,
 	spa_ffmpeg_enc_node_add_port,
 	spa_ffmpeg_enc_node_remove_port,
-	spa_ffmpeg_enc_node_port_enum_formats,
-	spa_ffmpeg_enc_node_port_set_format,
-	spa_ffmpeg_enc_node_port_get_format,
 	spa_ffmpeg_enc_node_port_get_info,
 	spa_ffmpeg_enc_node_port_enum_params,
 	spa_ffmpeg_enc_node_port_set_param,

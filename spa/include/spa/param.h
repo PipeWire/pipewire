@@ -26,52 +26,64 @@ extern "C" {
 
 #include <spa/defs.h>
 #include <spa/pod-utils.h>
+#include <spa/type-map.h>
 
-struct spa_param;
-#define SPA_TYPE__Param		SPA_TYPE_POD_OBJECT_BASE "Param"
-#define SPA_TYPE_PARAM_BASE	SPA_TYPE__Param ":"
+/* base for parameter objects */
+#define SPA_TYPE__Param			SPA_TYPE_POD_OBJECT_BASE "Param"
+#define SPA_TYPE_PARAM_BASE		SPA_TYPE__Param ":"
 
-struct spa_param {
-	struct spa_pod_object object;
+/* base for parameter object enumerations */
+#define SPA_TYPE__ParamId		SPA_TYPE_ENUM_BASE "ParamId"
+#define SPA_TYPE_PARAM_ID_BASE		SPA_TYPE__ParamId ":"
+
+/** List of supported parameters */
+#define SPA_TYPE_PARAM_ID__List		SPA_TYPE_PARAM_ID_BASE "List"
+
+/* object with supported parameter id */
+#define SPA_TYPE_PARAM__List		SPA_TYPE_PARAM_BASE "List"
+#define SPA_TYPE_PARAM_LIST_BASE	SPA_TYPE_PARAM__List ":"
+#define SPA_TYPE_PARAM_LIST__id		SPA_TYPE_PARAM_LIST_BASE "id"
+
+/** Property parameter id, deals with SPA_TYPE__Props */
+#define SPA_TYPE_PARAM_ID__Props	SPA_TYPE_PARAM_ID_BASE "Props"
+
+/** The available formats */
+#define SPA_TYPE_PARAM_ID__EnumFormat	SPA_TYPE_PARAM_ID_BASE "EnumFormat"
+
+/** The current format */
+#define SPA_TYPE_PARAM_ID__Format	SPA_TYPE_PARAM_ID_BASE "Format"
+
+/** The supported buffer sizes */
+#define SPA_TYPE_PARAM_ID__Buffers	SPA_TYPE_PARAM_ID_BASE "Buffers"
+
+/** The supported metadata */
+#define SPA_TYPE_PARAM_ID__Meta		SPA_TYPE_PARAM_ID_BASE "Meta"
+
+struct spa_type_param {
+        uint32_t idList;	/**< id of the list param */
+        uint32_t List;		/**< list object type */
+        uint32_t listId;	/**< id in the list object */
+        uint32_t idProps;	/**< id to enumerate properties */
+        uint32_t idEnumFormat;	/**< id to enumerate formats */
+        uint32_t idFormat;	/**< id to get/set format parameter */
+        uint32_t idBuffers;	/**< id to enumerate buffer requirements */
+        uint32_t idMeta;	/**< id to enumerate supported metadata */
 };
 
-static inline uint32_t
-spa_pod_builder_push_param(struct spa_pod_builder *builder,
-			   struct spa_pod_frame *frame,
-			   uint32_t param_type)
+static inline void
+spa_type_param_map(struct spa_type_map *map,
+		   struct spa_type_param *type)
 {
-	return spa_pod_builder_push_object(builder, frame, 0, param_type);
-}
-
-#define spa_pod_builder_param(b,param_type,...)			\
-	spa_pod_builder_object(b, 0, param_type,		\
-		##__VA_ARGS__)
-
-
-#define spa_param_parse(param,...)				\
-({								\
-	struct spa_pod_parser __p;				\
-	const struct spa_param *__param = param;		\
-	spa_pod_parser_pod(&__p, &__param->object.pod);		\
-	spa_pod_parser_get(&__p, "<", ##__VA_ARGS__, NULL);	\
-})
-
-#define SPA_PARAM_BODY_FOREACH(body, size, iter)							\
-	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_object_body), struct spa_pod_prop);	\
-	     (iter) < SPA_MEMBER((body), (size), struct spa_pod_prop);					\
-	     (iter) = SPA_MEMBER((iter), SPA_ROUND_UP_N(SPA_POD_SIZE(iter), 8), struct spa_pod_prop))
-
-#define SPA_PARAM_FOREACH(param, iter) \
-	SPA_PARAM_BODY_FOREACH(&param->object.body, SPA_POD_BODY_SIZE(param), iter)
-
-static inline int spa_param_fixate(struct spa_param *param)
-{
-	struct spa_pod_prop *prop;
-
-	SPA_PARAM_FOREACH(param, prop)
-		prop->body.flags &= ~SPA_POD_PROP_FLAG_UNSET;
-
-	return SPA_RESULT_OK;
+        if (type->idList == 0) {
+                type->idList = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__List);
+                type->List = spa_type_map_get_id(map, SPA_TYPE_PARAM__List);
+                type->listId = spa_type_map_get_id(map, SPA_TYPE_PARAM_LIST__id);
+                type->idProps = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__Props);
+                type->idEnumFormat = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__EnumFormat);
+                type->idFormat = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__Format);
+                type->idBuffers = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__Buffers);
+                type->idMeta = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__Meta);
+        }
 }
 
 #ifdef __cplusplus

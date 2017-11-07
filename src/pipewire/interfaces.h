@@ -157,7 +157,7 @@ struct pw_core_proxy_methods {
 			     uint32_t output_port_id,
 			     uint32_t input_node_id,
 			     uint32_t input_port_id,
-			     const struct spa_format *filter,
+			     const struct spa_pod_object *filter,
 			     const struct spa_dict *props,
 			     uint32_t new_id);
 };
@@ -209,7 +209,7 @@ pw_core_proxy_create_link(struct pw_core_proxy *core,
                           uint32_t output_port_id,
                           uint32_t input_node_id,
                           uint32_t input_port_id,
-                          const struct spa_format *filter,
+                          const struct spa_pod_object *filter,
                           const struct spa_dict *prop,
 			  size_t user_data_size)
 {

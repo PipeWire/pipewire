@@ -229,7 +229,7 @@ core_create_link(void *object,
 		 uint32_t output_port_id,
 		 uint32_t input_node_id,
 		 uint32_t input_port_id,
-		 const struct spa_format *filter,
+		 const struct spa_pod_object *filter,
 		 const struct spa_dict *props,
 		 uint32_t new_id)
 {
@@ -625,7 +625,7 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 				  uint32_t id,
 				  struct pw_properties *props,
 				  uint32_t n_format_filters,
-				  struct spa_format **format_filters,
+				  struct spa_pod_object **format_filters,
 				  char **error)
 {
 	struct pw_port *best = NULL;
@@ -658,6 +658,8 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 			}
 		} else {
 			struct pw_port *p, *pin, *pout;
+			uint8_t buf[4096];
+			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
 			p = pw_node_get_free_port(n, pw_direction_reverse(other_port->direction));
 			if (p == NULL)
@@ -675,11 +677,13 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 						pout,
 						pin,
 						props,
-						n_format_filters, format_filters, error) == NULL) {
+						n_format_filters,
+						format_filters,
+						&b,
+						error) < 0) {
 				free(*error);
 				continue;
 			}
-
 			best = p;
 		}
 	}
@@ -705,18 +709,19 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
  *
  * \memberof pw_core
  */
-struct spa_format *pw_core_find_format(struct pw_core *core,
-				       struct pw_port *output,
-				       struct pw_port *input,
-				       struct pw_properties *props,
-				       uint32_t n_format_filters,
-				       struct spa_format **format_filters,
-				       char **error)
+int pw_core_find_format(struct pw_core *core,
+			struct pw_port *output,
+			struct pw_port *input,
+			struct pw_properties *props,
+			uint32_t n_format_filters,
+			struct spa_pod_object **format_filters,
+			struct spa_pod_builder *builder,
+			char **error)
 {
 	uint32_t out_state, in_state;
 	int res;
-	struct spa_format *filter = NULL, *format;
 	uint32_t iidx = 0, oidx = 0;
+	struct pw_type *t = &core->type;
 
 	out_state = output->state;
 	in_state = input->state;
@@ -731,60 +736,71 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 
 	if (in_state == PW_PORT_STATE_CONFIGURE && out_state > PW_PORT_STATE_CONFIGURE) {
 		/* only input needs format */
-		if ((res = spa_node_port_get_format(output->node->node, output->direction, output->port_id,
-						    (const struct spa_format **) &format)) < 0) {
+		if ((res = spa_node_port_enum_params(output->node->node,
+						     output->direction, output->port_id,
+						     t->param.idFormat, &oidx,
+						     NULL, builder)) < 0) {
 			asprintf(error, "error get output format: %d", res);
 			goto error;
 		}
 	} else if (out_state == PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
 		/* only output needs format */
-		if ((res = spa_node_port_get_format(input->node->node, input->direction, input->port_id,
-						    (const struct spa_format **) &format)) < 0) {
+		if ((res = spa_node_port_enum_params(input->node->node,
+						     input->direction, input->port_id,
+						     t->param.idFormat, &iidx,
+						     NULL, builder)) < 0) {
 			asprintf(error, "error get input format: %d", res);
 			goto error;
 		}
 	} else if (in_state == PW_PORT_STATE_CONFIGURE && out_state == PW_PORT_STATE_CONFIGURE) {
+		struct spa_pod_builder fb = { 0 };
+		uint8_t fbuf[4096];
+		struct spa_pod_object *format;
 	      again:
 		/* both ports need a format */
 		pw_log_debug("core %p: do enum input %d", core, iidx);
-		if ((res = spa_node_port_enum_formats(input->node->node, input->direction, input->port_id,
-						      &filter, NULL, iidx)) < 0) {
-			if (res == SPA_RESULT_ENUM_END && iidx != 0) {
+		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
+		if ((res = spa_node_port_enum_params(input->node->node,
+						     input->direction, input->port_id,
+						     t->param.idEnumFormat, &iidx,
+						     NULL, &fb)) < 0) {
+			if (res == SPA_RESULT_ENUM_END && iidx == 0) {
 				asprintf(error, "error input enum formats: %d", res);
 				goto error;
 			}
+			asprintf(error, "no more input formats");
+			goto error;
 		}
-		pw_log_debug("enum output %d with filter: %p", oidx, filter);
+		format = SPA_POD_BUILDER_DEREF(&fb, 0, struct spa_pod_object);
+		pw_log_debug("enum output %d with filter: %p", oidx, format);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(filter);
+			spa_debug_pod(&format->pod, SPA_DEBUG_FLAG_FORMAT);
 
-		if ((res = spa_node_port_enum_formats(output->node->node, output->direction, output->port_id,
-						      &format, filter, oidx)) < 0) {
+		if ((res = spa_node_port_enum_params(output->node->node,
+						     output->direction, output->port_id,
+						     t->param.idEnumFormat, &oidx,
+						     format, builder)) < 0) {
 			if (res == SPA_RESULT_ENUM_END) {
 				oidx = 0;
-				iidx++;
 				goto again;
 			}
 			asprintf(error, "error output enum formats: %d", res);
 			goto error;
 		}
+		format = SPA_POD_BUILDER_DEREF(&fb, 0, struct spa_pod_object);
+
 		pw_log_debug("Got filtered:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(format);
-
-		spa_format_fixate(format);
+			spa_debug_pod(&format->pod, SPA_DEBUG_FLAG_FORMAT);
 	} else {
+		res = SPA_RESULT_ERROR;
 		asprintf(error, "error node state");
 		goto error;
 	}
-	if (format == NULL) {
-		asprintf(error, "error get format");
-		goto error;
-	}
-	return format;
+	return res;
 
       error:
-	return NULL;
+	return res;
 }
 
 /** Find a factory by name

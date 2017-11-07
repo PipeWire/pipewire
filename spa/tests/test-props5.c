@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 						2, &SPA_FRACTION(0,1),
 						   &SPA_FRACTION(INT32_MAX, 1),
 			">", NULL);
-	spa_debug_pod(fmt);
+	spa_debug_pod(fmt, 0);
 
 	spa_pod_parser_pod(&prs, fmt);
 	res = spa_pod_parser_get(&prs,
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 	printf("media-type:%d media-subtype:%d\n", media_type, media_subtype);
 	printf("framerate:\n");
 	if (pod)
-		spa_debug_pod(pod);
+		spa_debug_pod(pod, 0);
 	printf("format: %d\n", fmt_value);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 			" P", NULL,
 			" [ i", 44, "i",45,"]"
 			">", NULL);
-	spa_debug_pod(pod);
+	spa_debug_pod(pod, 0);
 
 	spa_pod_parser_pod(&prs, pod);
 	res = spa_pod_parser_get(&prs,

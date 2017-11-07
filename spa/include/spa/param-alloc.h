@@ -66,6 +66,7 @@ spa_type_param_alloc_buffers_map(struct spa_type_map *map,
 #define SPA_TYPE_PARAM_ALLOC_META_ENABLE__size	SPA_TYPE_PARAM_ALLOC_META_ENABLE_BASE "size"
 
 #define SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferSize	SPA_TYPE_PARAM_ALLOC_META_ENABLE_BASE "ringbufferSize"
+#define SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferMinAvail	SPA_TYPE_PARAM_ALLOC_META_ENABLE_BASE "ringbufferMinAvail"
 #define SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferStride	SPA_TYPE_PARAM_ALLOC_META_ENABLE_BASE "ringbufferStride"
 #define SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferBlocks	SPA_TYPE_PARAM_ALLOC_META_ENABLE_BASE "ringbufferBlocks"
 #define SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferAlign	SPA_TYPE_PARAM_ALLOC_META_ENABLE_BASE "ringbufferAlign"
@@ -75,6 +76,7 @@ struct spa_type_param_alloc_meta_enable {
 	uint32_t type;
 	uint32_t size;
 	uint32_t ringbufferSize;
+	uint32_t ringbufferMinAvail;
 	uint32_t ringbufferStride;
 	uint32_t ringbufferBlocks;
 	uint32_t ringbufferAlign;
@@ -85,13 +87,21 @@ spa_type_param_alloc_meta_enable_map(struct spa_type_map *map,
 				     struct spa_type_param_alloc_meta_enable *type)
 {
 	if (type->MetaEnable == 0) {
-		type->MetaEnable = spa_type_map_get_id(map, SPA_TYPE_PARAM_ALLOC__MetaEnable);
-		type->type = spa_type_map_get_id(map, SPA_TYPE_PARAM_ALLOC_META_ENABLE__type);
-		type->size = spa_type_map_get_id(map, SPA_TYPE_PARAM_ALLOC_META_ENABLE__size);
-		type->ringbufferSize = spa_type_map_get_id(map, SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferSize);
-		type->ringbufferStride = spa_type_map_get_id(map, SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferStride);
-		type->ringbufferBlocks = spa_type_map_get_id(map, SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferBlocks);
-		type->ringbufferAlign = spa_type_map_get_id(map, SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferAlign);
+		int i;
+#define OFF(n) offsetof(struct spa_type_param_alloc_meta_enable, n)
+		static struct { off_t offset; const char *type; } tab[] = {
+			{ OFF(MetaEnable), SPA_TYPE_PARAM_ALLOC__MetaEnable },
+			{ OFF(type), SPA_TYPE_PARAM_ALLOC_META_ENABLE__type },
+			{ OFF(size), SPA_TYPE_PARAM_ALLOC_META_ENABLE__size },
+			{ OFF(ringbufferSize), SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferSize },
+			{ OFF(ringbufferMinAvail), SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferMinAvail },
+			{ OFF(ringbufferStride), SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferStride },
+			{ OFF(ringbufferBlocks), SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferBlocks },
+			{ OFF(ringbufferAlign), SPA_TYPE_PARAM_ALLOC_META_ENABLE__ringbufferAlign },
+		};
+#undef OFF
+		for (i = 0; i < SPA_N_ELEMENTS(tab); i++)
+			*SPA_MEMBER(type, tab[i].offset, uint32_t) = spa_type_map_get_id(map, tab[i].type);
 	}
 }
 

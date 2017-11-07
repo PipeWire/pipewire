@@ -128,6 +128,7 @@ static void node_event_info(void *object, struct pw_node_info *info)
 {
         struct proxy_data *data = object;
 	bool print_all, print_mark;
+	struct pw_type *t = pw_core_get_type(data->data->core);
 
 	print_all = true;
         if (data->info == NULL) {
@@ -152,14 +153,22 @@ static void node_event_info(void *object, struct pw_node_info *info)
 
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 		printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(1), info->n_input_ports, info->max_input_ports);
-		printf("%c\tinput formats:\n", MARK_CHANGE(2));
-		for (i = 0; i < info->n_input_formats; i++)
-			spa_debug_format(info->input_formats[i]);
+		printf("%c\tinput params:\n", MARK_CHANGE(2));
+		for (i = 0; i < info->n_input_params; i++) {
+			uint32_t flags = 0;
+			if (info->input_params[i]->body.type == t->spa_format)
+				flags |= SPA_DEBUG_FLAG_FORMAT;
+			spa_debug_pod(&info->input_params[i]->pod, flags);
+		}
 
 		printf("%c\toutput ports: %u/%u\n", MARK_CHANGE(3), info->n_output_ports, info->max_output_ports);
-		printf("%c\toutput formats:\n", MARK_CHANGE(4));
-		for (i = 0; i < info->n_output_formats; i++)
-			spa_debug_format(info->output_formats[i]);
+		printf("%c\toutput params:\n", MARK_CHANGE(4));
+		for (i = 0; i < info->n_output_params; i++) {
+			uint32_t flags = 0;
+			if (info->output_params[i]->body.type == t->spa_format)
+				flags |= SPA_DEBUG_FLAG_FORMAT;
+			spa_debug_pod(&info->output_params[i]->pod, flags);
+		}
 
 		printf("%c\tstate: \"%s\"", MARK_CHANGE(5), pw_node_state_as_string(info->state));
 		if (info->state == PW_NODE_STATE_ERROR && info->error)
@@ -274,7 +283,7 @@ static void link_event_info(void *object, struct pw_link_info *info)
 		printf("%c\tinput-port-id: %u\n", MARK_CHANGE(1), info->input_port_id);
 		printf("%c\tformat:\n", MARK_CHANGE(2));
 		if (info->format)
-			spa_debug_format(info->format);
+			spa_debug_pod(&info->format->pod, SPA_DEBUG_FLAG_FORMAT);
 		else
 			printf("\t\tnone\n");
 		print_properties(info->props, MARK_CHANGE(3));

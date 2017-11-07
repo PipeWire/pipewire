@@ -22,57 +22,44 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <spa/format-builder.h>
-#include <spa/video/format-utils.h>
-
 #include <lib/props.h>
 
 int
-spa_format_filter(const struct spa_format *format,
-		  const struct spa_format *filter,
-		  struct spa_pod_builder *result)
+spa_pod_object_filter(const struct spa_pod_object *obj,
+		      struct spa_pod_object *filter,
+		      struct spa_pod_builder *result)
 {
 	struct spa_pod_frame f;
 	int res;
 
-	if (format == NULL || result == NULL)
+	if (obj == NULL || result == NULL)
 		return SPA_RESULT_INVALID_ARGUMENTS;
 
 	if (filter == NULL) {
-		spa_pod_builder_raw_padded(result, format, SPA_POD_SIZE(format));
+		spa_pod_builder_raw_padded(result, obj, SPA_POD_SIZE(obj));
 		return SPA_RESULT_OK;
 	}
 
-	if (SPA_FORMAT_MEDIA_TYPE(filter) != SPA_FORMAT_MEDIA_TYPE(format) ||
-	    SPA_FORMAT_MEDIA_SUBTYPE(filter) != SPA_FORMAT_MEDIA_SUBTYPE(format))
-		return SPA_RESULT_INVALID_MEDIA_TYPE;
-
-	spa_pod_builder_push_format(result, &f, filter->body.obj_body.type,
-				    SPA_FORMAT_MEDIA_TYPE(filter),
-				    SPA_FORMAT_MEDIA_SUBTYPE(filter));
+	spa_pod_builder_push_object(result, &f, obj->body.id, obj->body.type);
 	res = spa_props_filter(result,
-			       SPA_POD_CONTENTS(struct spa_format, format),
-			       SPA_POD_CONTENTS_SIZE(struct spa_format, format),
-			       SPA_POD_CONTENTS(struct spa_format, filter),
-			       SPA_POD_CONTENTS_SIZE(struct spa_format, filter));
+			       SPA_POD_CONTENTS(struct spa_pod_object, obj),
+			       SPA_POD_CONTENTS_SIZE(struct spa_pod_object, obj),
+			       SPA_POD_CONTENTS(struct spa_pod_object, filter),
+			       SPA_POD_CONTENTS_SIZE(struct spa_pod_object, filter));
 	spa_pod_builder_pop(result, &f);
 
 	return res;
 }
 
 int
-spa_format_compare(const struct spa_format *format1,
-		   const struct spa_format *format2)
+spa_pod_object_compare(const struct spa_pod_object *obj1,
+		       const struct spa_pod_object *obj2)
 {
-	if (format1 == NULL || format2 == NULL)
+	if (obj1 == NULL || obj2 == NULL)
 		return SPA_RESULT_INVALID_ARGUMENTS;
 
-	if (SPA_FORMAT_MEDIA_TYPE(format1) != SPA_FORMAT_MEDIA_TYPE(format2) ||
-	    SPA_FORMAT_MEDIA_SUBTYPE(format1) != SPA_FORMAT_MEDIA_SUBTYPE(format2))
-		return SPA_RESULT_INVALID_MEDIA_TYPE;
-
-	return spa_props_compare(SPA_POD_CONTENTS(struct spa_format, format1),
-				 SPA_POD_CONTENTS_SIZE(struct spa_format, format1),
-				 SPA_POD_CONTENTS(struct spa_format, format2),
-				 SPA_POD_CONTENTS_SIZE(struct spa_format, format2));
+	return spa_props_compare(SPA_POD_CONTENTS(struct spa_pod_object, obj1),
+				 SPA_POD_CONTENTS_SIZE(struct spa_pod_object, obj1),
+				 SPA_POD_CONTENTS(struct spa_pod_object, obj2),
+				 SPA_POD_CONTENTS_SIZE(struct spa_pod_object, obj2));
 }

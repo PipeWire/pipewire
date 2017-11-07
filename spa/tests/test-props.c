@@ -29,7 +29,6 @@
 #include <spa/node.h>
 #include <spa/loop.h>
 #include <spa/video/format-utils.h>
-#include <spa/format-builder.h>
 
 #include <lib/debug.h>
 
@@ -187,9 +186,12 @@ static inline void type_init(struct spa_type_map *map)
 static void do_static_struct(struct spa_type_map *map)
 {
 	struct _test_format {
-		struct spa_format fmt;
+		struct spa_pod_object fmt;
 
 		struct {
+			struct spa_pod_id media_type		SPA_ALIGNED(8);
+			struct spa_pod_id media_subtype		SPA_ALIGNED(8);
+
 			struct spa_pod_prop prop_format		SPA_ALIGNED(8);
 			struct {
 				uint32_t def_format;
@@ -211,9 +213,12 @@ static void do_static_struct(struct spa_type_map *map)
 			} framerate_vals;
 		} props;
 	} test_format = {
-		SPA_FORMAT_INIT(sizeof(test_format.props) + sizeof(struct spa_format_body),
-				type.format, type.media_type.video, type.media_subtype.raw),
+		SPA_POD_OBJECT_INIT(sizeof(test_format.props) + sizeof(struct spa_pod_object_body),
+				0, type.format),
 		{
+			SPA_POD_ID_INIT(type.media_type.video),
+			SPA_POD_ID_INIT(type.media_subtype.raw),
+
 			SPA_POD_PROP_INIT(sizeof(test_format.props.format_vals) +
 						sizeof(struct spa_pod_prop_body),
 					  type.format_video.format,
@@ -245,23 +250,23 @@ static void do_static_struct(struct spa_type_map *map)
 		}
 	};
 
-	spa_debug_pod(&test_format.fmt.pod);
-	spa_debug_format(&test_format.fmt);
+	spa_debug_pod(&test_format.fmt.pod, 0);
+	spa_debug_pod(&test_format.fmt.pod, SPA_DEBUG_FLAG_FORMAT);
 
 	{
 		uint32_t format = -1;
 		int res;
 		struct spa_fraction frac = { -1, -1 };
 
-		res = spa_format_parse(&test_format.fmt,
+		res = spa_pod_object_parse(&test_format.fmt,
 			":",type.format_video.format, "I", &format,
 			":",type.format_video.framerate, "F", &frac, NULL);
 
 		printf("%d format %d num %d denom %d\n", res, format, frac.num, frac.denom);
 
-		spa_format_fixate(&test_format.fmt);
+		spa_pod_object_fixate(&test_format.fmt);
 
-		res = spa_format_parse(&test_format.fmt,
+		res = spa_pod_object_parse(&test_format.fmt,
 			":",type.format_video.format, "I", &format,
 			":",type.format_video.framerate, "F", &frac, NULL);
 
@@ -275,7 +280,7 @@ int main(int argc, char *argv[])
 	struct spa_pod_builder b = { NULL, };
 	struct spa_pod_frame f[2];
 	uint8_t buffer[1024];
-	struct spa_format *fmt;
+	struct spa_pod_object *fmt;
 	struct spa_type_map *map = &default_map.map;
 
 	type_init(map);
@@ -283,10 +288,12 @@ int main(int argc, char *argv[])
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	fmt = SPA_MEMBER(buffer, spa_pod_builder_push_format(&b, &f[0], type.format,
-							     type.media_type.video,
-							     type.media_subtype.raw),
-			 struct spa_format);
+	fmt = SPA_MEMBER(buffer, spa_pod_builder_push_object(&b, &f[0], 0, type.format),
+			 struct spa_pod_object);
+
+	spa_pod_builder_id(&b, type.media_type.video);
+	spa_pod_builder_id(&b, type.media_subtype.raw);
+
 	spa_pod_builder_push_prop(&b, &f[1], type.format_video.format,
 				  SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET);
 	spa_pod_builder_id(&b, type.video_format.I420);
@@ -312,13 +319,14 @@ int main(int argc, char *argv[])
 
 	spa_pod_builder_pop(&b, &f[0]);
 
-	spa_debug_pod(&fmt->pod);
+	spa_debug_pod(&fmt->pod, 0);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	fmt = spa_pod_builder_format(&b,
-		type.format,
-		type.media_type.video, type.media_subtype.raw,
+	fmt = spa_pod_builder_object(&b,
+		0, type.format,
+		"I", type.media_type.video,
+		"I", type.media_subtype.raw,
 		":", type.format_video.format,    "Ieu", type.video_format.I420,
 								2, type.video_format.I420,
 								   type.video_format.YUY2,
@@ -329,8 +337,8 @@ int main(int argc, char *argv[])
 								2, &SPA_FRACTION(0,1),
 								   &SPA_FRACTION(INT32_MAX,1));
 
-	spa_debug_pod(&fmt->pod);
-	spa_debug_format(fmt);
+	spa_debug_pod(&fmt->pod, 0);
+	spa_debug_pod(&fmt->pod, SPA_DEBUG_FLAG_FORMAT);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -359,8 +367,8 @@ int main(int argc, char *argv[])
 								   &SPA_FRACTION(INT32_MAX,1),
 		">", NULL);
 
-	spa_debug_pod(&fmt->pod);
-	spa_debug_format(fmt);
+	spa_debug_pod(&fmt->pod, 0);
+	spa_debug_pod(&fmt->pod, SPA_DEBUG_FLAG_FORMAT);
 
 	do_static_struct(map);
 

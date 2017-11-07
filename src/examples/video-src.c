@@ -25,7 +25,6 @@
 #include <spa/type-map.h>
 #include <spa/format-utils.h>
 #include <spa/video/format-utils.h>
-#include <spa/format-builder.h>
 #include <spa/props.h>
 #include <spa/lib/debug.h>
 
@@ -34,6 +33,7 @@
 struct type {
 	uint32_t format;
 	uint32_t props;
+	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
 	struct spa_type_media_type media_type;
@@ -46,6 +46,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
+	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
@@ -166,16 +167,16 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 }
 
 static void
-on_stream_format_changed(void *_data, struct spa_format *format)
+on_stream_format_changed(void *_data, struct spa_pod_object *format)
 {
 	struct data *data = _data;
 	struct pw_stream *stream = data->stream;
 	struct pw_type *t = data->t;
 	struct spa_pod_builder b = { NULL };
-	struct spa_param *params[2];
+	struct spa_pod_object *params[2];
 
 	if (format == NULL) {
-		pw_stream_finish_format(stream, SPA_RESULT_OK, NULL, 0);
+		pw_stream_finish_format(stream, SPA_RESULT_OK, 0, NULL);
 		return;
 	}
 	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
@@ -183,20 +184,20 @@ on_stream_format_changed(void *_data, struct spa_format *format)
 	data->stride = SPA_ROUND_UP_N(data->format.size.width * BPP, 4);
 
 	spa_pod_builder_init(&b, data->params_buffer, sizeof(data->params_buffer));
-	params[0] = spa_pod_builder_param(&b,
-		t->param_alloc_buffers.Buffers,
+	params[0] = spa_pod_builder_object(&b,
+		t->param.idBuffers, t->param_alloc_buffers.Buffers,
 		":", t->param_alloc_buffers.size,    "i", data->stride * data->format.size.height,
 		":", t->param_alloc_buffers.stride,  "i", data->stride,
 		":", t->param_alloc_buffers.buffers, "iru", 2,
 								2, 1, 32,
 		":", t->param_alloc_buffers.align,   "i", 16);
 
-	params[1] = spa_pod_builder_param(&b,
-		t->param_alloc_meta_enable.MetaEnable,
+	params[1] = spa_pod_builder_object(&b,
+		t->param.idMeta, t->param_alloc_meta_enable.MetaEnable,
 		":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
 		":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
 
-	pw_stream_finish_format(stream, SPA_RESULT_OK, params, 2);
+	pw_stream_finish_format(stream, SPA_RESULT_OK, 2, params);
 }
 
 static const struct pw_stream_events stream_events = {
@@ -218,7 +219,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 	case PW_REMOTE_STATE_CONNECTED:
 	{
-		const struct spa_format *formats[1];
+		const struct spa_pod_object *params[1];
 		uint8_t buffer[1024];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
@@ -227,8 +228,10 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 		data->stream = pw_stream_new(remote, "video-src", NULL);
 
-		formats[0] = spa_pod_builder_format(&b, data->type.format,
-			data->type.media_type.video, data->type.media_subtype.raw,
+		params[0] = spa_pod_builder_object(&b,
+			data->type.param.idEnumFormat, data->type.format,
+			"I", data->type.media_type.video,
+			"I", data->type.media_subtype.raw,
 			":", data->type.format_video.format,    "I", data->type.video_format.RGB,
 			":", data->type.format_video.size,      "Rru", &SPA_RECTANGLE(320, 240),
 									2, &SPA_RECTANGLE(1, 1),
@@ -242,8 +245,8 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_OUTPUT,
-				  PW_STREAM_MODE_BUFFER,
-				  NULL, PW_STREAM_FLAG_NONE, 1, formats);
+				  NULL, PW_STREAM_FLAG_NONE,
+				  1, params);
 		break;
 	}
 	default:

@@ -1291,7 +1291,9 @@ static bool on_global(void *data, struct pw_global *global)
 	const char *str;
 	char *error;
 	struct pw_port *in_port, *out_port;
-	struct spa_props *props;
+	uint32_t index = 0;
+	uint8_t buf[2048];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
 	if (pw_global_get_type(global) != impl->t->node)
 		return true;
@@ -1323,10 +1325,11 @@ static bool on_global(void *data, struct pw_global *global)
 		return true;
 	}
 
-	if (spa_node_get_props(node->node, &props) == SPA_RESULT_OK) {
+	if (spa_node_enum_params(node->node, SPA_ID_INVALID, &index, NULL, &b) == SPA_RESULT_OK) {
 		int min_latency = -1;
+		struct spa_pod_object *props = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
 
-		spa_props_parse(props,
+		spa_pod_object_parse(props,
 			":", impl->prop_min_latency, "?i", &min_latency, NULL);
 
 		if (min_latency != -1)

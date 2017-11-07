@@ -63,6 +63,7 @@ struct pw_type {
 	uint32_t spa_format;
 	uint32_t spa_props;
 
+	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
 	struct spa_type_event_node event_node;

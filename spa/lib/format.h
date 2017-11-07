@@ -26,12 +26,12 @@ extern "C" {
 
 #include <spa/props.h>
 
-int spa_format_filter(const struct spa_format *format,
-		      const struct spa_format *filter,
-		      struct spa_pod_builder *result);
+int spa_pod_object_filter(const struct spa_pod_object *obj,
+			  const struct spa_pod_object *filter,
+			  struct spa_pod_builder *result);
 
-int spa_format_compare(const struct spa_format *format1,
-		       const struct spa_format *format2);
+int spa_pod_object_compare(const struct spa_pod_object *obj1,
+			   const struct spa_pod_object *obj2);
 
 #ifdef __cplusplus
 } /* extern "C" */

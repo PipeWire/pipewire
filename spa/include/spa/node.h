@@ -32,6 +32,7 @@ struct spa_node;
 #include <spa/defs.h>
 #include <spa/plugin.h>
 #include <spa/props.h>
+#include <spa/pod-builder.h>
 #include <spa/param.h>
 #include <spa/event-node.h>
 #include <spa/command-node.h>
@@ -134,6 +135,10 @@ struct spa_node_callbacks {
 
 };
 
+#define SPA_NODE_PARAM_FLAG_TEST_ONLY	(1 << 0)	/* just check if the param is accepted */
+#define SPA_NODE_PARAM_FLAG_FIXATE	(1 << 1)	/* fixate the non-optional unset fields */
+#define SPA_NODE_PARAM_FLAG_NEAREST	(1 << 2)	/* allow set fields to be rounded to the
+							 * nearest allowed field value. */
 /**
  * struct spa_node:
  *
@@ -154,49 +159,61 @@ struct spa_node {
 	 */
 	const struct spa_dict *info;
 	/**
-	 * spa_node::get_props:
-	 * @node: a #spa_node
-	 * @props: a location for a #struct spa_props pointer
+	 * Enumerate the parameters of a node.
 	 *
-	 * Get the configurable properties of @node.
+	 * Parameters are identified with an \a id. Some parameters can have
+	 * multiple values, see the documentation of the parameter id.
 	 *
-	 * The returned @props is a snapshot of the current configuration and
-	 * can be modified. The modifications will take effect after a call
-	 * to spa_node::set_props.
+	 * Parameters can be filtered by passing a non-NULL \a filter.
 	 *
 	 * This function must be called from the main thread.
 	 *
-	 * Returns: #SPA_RESULT_OK on success
-	 *          #SPA_RESULT_INVALID_ARGUMENTS when node or props are %NULL
-	 *          #SPA_RESULT_NOT_IMPLEMENTED when there are no properties
-	 *                 implemented on @node
+	 * \param node a \ref spa_node
+	 * \param id the param id to enumerate
+	 * \param index the index of enumeration, pass 0 for the first item and the
+	 *	index is updated to retrieve the next item.
+	 * \param filter and optional filter to use
+	 * \param param builder for the result object.
+	 *
+	 * \return #SPA_RESULT_OK on success
+	 *         #SPA_RESULT_INVALID_ARGUMENTS when node or builder are %NULL
+	 *         #SPA_RESULT_UNKNOWN_PARAM the parameter \a id is unknown
+	 *         #SPA_RESULT_ENUM_END when there are no more parameters to enumerate
+	 *         #SPA_RESULT_NOT_IMPLEMENTED when there are no parameters
+	 *                 implemented on \a node
 	 */
-	int (*get_props) (struct spa_node *node, struct spa_props **props);
+	int (*enum_params) (struct spa_node *node,
+			    uint32_t id, uint32_t *index,
+			    const struct spa_pod_object *filter,
+			    struct spa_pod_builder *builder);
 	/**
-	 * struct spa_node::set_props:
-	 * @node: a #struct spa_node
-	 * @props: a #struct spa_props
+	 * Set the configurable parameter in \a node.
 	 *
-	 * Set the configurable properties in @node.
+	 * Usually, \a param will be obtained from enum_params and then
+	 * modified but it is also possible to set another spa_pod_object
+	 * as long as its keys and types match a supported object.
 	 *
-	 * Usually, @props will be obtained from struct spa_node::get_props and then
-	 * modified but it is also possible to set another #struct spa_props object
-	 * as long as its keys and types match those of struct spa_props::get_props.
-	 *
-	 * Properties with keys that are not known are ignored.
-	 *
-	 * If @props is NULL, all the properties are reset to their defaults.
+	 * Objects with property keys that are not known are ignored.
 	 *
 	 * This function must be called from the main thread.
 	 *
-	 * Returns: #SPA_RESULT_OK on success
-	 *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
-	 *          #SPA_RESULT_NOT_IMPLEMENTED when no properties can be
-	 *                 modified on @node.
-	 *          #SPA_RESULT_WRONG_PROPERTY_TYPE when a property has the wrong
+	 * \param node a \ref spa_node
+	 * \param id the parameter id to configure
+	 * \param flags additional flags
+	 * \param param the parameter to configure
+	 *
+	 * \return #SPA_RESULT_OK on success
+	 *         #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
+	 *         #SPA_RESULT_NOT_IMPLEMENTED when there are no parameters
+	 *                 implemented on \a node
+	 *         #SPA_RESULT_WRONG_PROPERTY_TYPE when a property has the wrong
 	 *                 type.
+	 *         #SPA_RESULT_UNKNOWN_PARAM the parameter is unknown
 	 */
-	int (*set_props) (struct spa_node *node, const struct spa_props *props);
+	int (*set_param) (struct spa_node *node,
+			  uint32_t id, uint32_t flags,
+			  const struct spa_pod_object *param);
+
 	/**
 	 * struct spa_node::send_command:
 	 * @node: a #struct spa_node
@@ -292,117 +309,72 @@ struct spa_node {
 	int (*add_port) (struct spa_node *node, enum spa_direction direction, uint32_t port_id);
 	int (*remove_port) (struct spa_node *node, enum spa_direction direction, uint32_t port_id);
 
-	/**
-	 * struct spa_node::port_enum_formats:
-	 * @node: a #struct spa_node
-	 * @direction: a #enum spa_direction
-	 * @port_id: the port to query
-	 * @format: pointer to a format
-	 * @filter: a format filter
-	 * @index: an index variable, 0 to get the first item
-	 *
-	 * Enumerate all possible formats on @port_id of @node that are compatible
-	 * with @filter. When @port_id is #SPA_ID_INVALID, the enumeration will
-	 * list all the formats possible on a port that would be added with
-	 * add_port().
-	 *
-	 * Use @index to retrieve the formats one by one until the function
-	 * returns #SPA_RESULT_ENUM_END.
-	 *
-	 * The result format can be queried and modified and ultimately be used
-	 * to call struct spa_node::port_set_format.
-	 *
-	 * This function must be called from the main thread.
-	 *
-	 * Returns: #SPA_RESULT_OK on success
-	 *          #SPA_RESULT_INVALID_ARGUMENTS when node or format is %NULL
-	 *          #SPA_RESULT_INVALID_PORT when port_id is not valid
-	 *          #SPA_RESULT_ENUM_END when no format exists
-	 */
-	int (*port_enum_formats) (struct spa_node *node,
-				  enum spa_direction direction,
-				  uint32_t port_id,
-				  struct spa_format **format,
-				  const struct spa_format *filter,
-				  uint32_t index);
-	/**
-	 * struct spa_node::port_set_format:
-	 * @node: a #struct spa_node
-	 * @direction: a #enum spa_direction
-	 * @port_id: the port to configure
-	 * @flags: flags
-	 * @format: a #struct spa_format with the format
-	 *
-	 * Set a format on @port_id of @node.
-	 *
-	 * When @format is %NULL, the current format will be removed.
-	 *
-	 * This function takes a copy of the format.
-	 *
-	 * Upon completion, this function might change the state of a node to
-	 * the READY state or to CONFIGURE when @format is NULL.
-	 *
-	 * This function must be called from the main thread.
-	 *
-	 * Returns: #SPA_RESULT_OK on success
-	 *          #SPA_RESULT_OK_RECHECK on success, the value of @format might have been
-	 *                 changed depending on @flags and the final value can be found by
-	 *                 doing struct spa_node::get_format.
-	 *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
-	 *          #SPA_RESULT_INVALID_PORT when port_id is not valid
-	 *          #SPA_RESULT_INVALID_MEDIA_TYPE when the media type is not valid
-	 *          #SPA_RESULT_INVALID_FORMAT_PROPERTIES when one of the mandatory format
-	 *                 properties is not specified and #SPA_PORT_FORMAT_FLAG_FIXATE was
-	 *                 not set in @flags.
-	 *          #SPA_RESULT_WRONG_PROPERTY_TYPE when the type or size of a property
-	 *                 is not correct.
-	 *          #SPA_RESULT_ASYNC the function is executed asynchronously
-	 */
-#define SPA_PORT_FORMAT_FLAG_TEST_ONLY	(1 << 0)	/* just check if the format is accepted */
-#define SPA_PORT_FORMAT_FLAG_FIXATE	(1 << 1)	/* fixate the non-optional unset fields */
-#define SPA_PORT_FORMAT_FLAG_NEAREST	(1 << 2)	/* allow set fields to be rounded to the
-							 * nearest allowed field value. */
-	int (*port_set_format) (struct spa_node *node,
-				enum spa_direction direction,
-				uint32_t port_id,
-				uint32_t flags,
-				const struct spa_format *format);
-	/**
-	 * struct spa_node::port_get_format:
-	 * @node: a #struct spa_node
-	 * @direction: a #enum spa_direction
-	 * @port_id: the port to query
-	 * @format: a pointer to a location to hold the #struct spa_format
-	 *
-	 * Get the format on @port_id of @node. The result #struct spa_format can
-	 * not be modified.
-	 *
-	 * This function must be called from the main thread.
-	 *
-	 * Returns: #SPA_RESULT_OK on success
-	 *          #SPA_RESULT_INVALID_ARGUMENTS when @node or @format is %NULL
-	 *          #SPA_RESULT_INVALID_PORT when @port_id is not valid
-	 *          #SPA_RESULT_INVALID_NO_FORMAT when no format was set
-	 */
-	int (*port_get_format) (struct spa_node *node,
-				enum spa_direction direction,
-				uint32_t port_id,
-				const struct spa_format **format);
-
 	int (*port_get_info) (struct spa_node *node,
 			      enum spa_direction direction,
 			      uint32_t port_id,
 			      const struct spa_port_info **info);
 
+	/**
+	 * Enumerate all possible parameters of \a id on \a port_id of \a node
+	 * that are compatible with \a filter.
+	 *
+	 * Use \a index to retrieve the parameters one by one until the function
+	 * returns #SPA_RESULT_ENUM_END.
+	 *
+	 * The result parameters can be queried and modified and ultimately be used
+	 * to call struct spa_node::port_set_param.
+	 *
+	 * This function must be called from the main thread.
+	 *
+	 * \param node a #struct spa_node
+	 * \param direction a #enum spa_direction
+	 * \param port_id the port to query
+	 * \param id the parameter id to query
+	 * \param index an index state variable, 0 to get the first item
+	 * \param filter a parameter filter or NULL for no filter
+	 * \param builder a builder for the result parameter object
+	 * \return #SPA_RESULT_OK on success
+	 *         #SPA_RESULT_INVALID_ARGUMENTS when node or index or builder is %NULL
+	 *         #SPA_RESULT_INVALID_PORT when port_id is not valid
+	 *         #SPA_RESULT_ENUM_END when no more parameters exists
+	 *         #SPA_RESULT_UNKNOWN_PARAM when \a id is unknown
+	 */
 	int (*port_enum_params) (struct spa_node *node,
-				 enum spa_direction direction,
-				 uint32_t port_id,
-				 uint32_t index,
-				 struct spa_param **param);
+				 enum spa_direction direction, uint32_t port_id,
+				 uint32_t id, uint32_t *index,
+				 const struct spa_pod_object *filter,
+				 struct spa_pod_builder *builder);
+
+	/**
+	 * Set a parameter on \a port_id of \a node.
+	 *
+	 * When \a param is %NULL, the parameter will be unset.
+	 *
+	 * This function must be called from the main thread.
+	 *
+	 * \param node a #struct spa_node
+	 * \param direction a #enum spa_direction
+	 * \param port_id the port to configure
+	 * \param flags optional flags
+	 * \param param a #struct spa_pod_object with the parameter to set
+	 * \return #SPA_RESULT_OK on success
+	 *         #SPA_RESULT_OK_RECHECK on success, the value of \a param might have been
+	 *                changed depending on \a flags and the final value can be found by
+	 *                doing struct spa_node::enum_params.
+	 *         #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
+	 *         #SPA_RESULT_INVALID_PORT when port_id is not valid
+	 *         #SPA_RESULT_INVALID_PARAM_INCOMPLETE when one of the mandatory param
+	 *                 properties is not specified and #SPA_NODE_PARAM_FLAG_FIXATE was
+	 *                 not set in \a flags.
+	 *         #SPA_RESULT_WRONG_PROPERTY_TYPE when the type or size of a property
+	 *                is not correct.
+	 *         #SPA_RESULT_ASYNC the function is executed asynchronously
+	 */
 	int (*port_set_param) (struct spa_node *node,
 			       enum spa_direction direction,
 			       uint32_t port_id,
-			       const struct spa_param *param);
+			       uint32_t id, uint32_t flags,
+			       const struct spa_pod_object *param);
 
 	/**
 	 * struct spa_node::port_use_buffers:
@@ -477,7 +449,7 @@ struct spa_node {
 	int (*port_alloc_buffers) (struct spa_node *node,
 				   enum spa_direction direction,
 				   uint32_t port_id,
-				   struct spa_param **params,
+				   struct spa_pod_object **params,
 				   uint32_t n_params,
 				   struct spa_buffer **buffers,
 				   uint32_t *n_buffers);
@@ -595,17 +567,14 @@ struct spa_node {
 	int (*process_output) (struct spa_node *node);
 };
 
-#define spa_node_get_props(n,...)		(n)->get_props((n),__VA_ARGS__)
-#define spa_node_set_props(n,...)		(n)->set_props((n),__VA_ARGS__)
+#define spa_node_enum_params(n,...)		(n)->enum_params((n),__VA_ARGS__)
+#define spa_node_set_param(n,...)		(n)->set_param((n),__VA_ARGS__)
 #define spa_node_send_command(n,...)		(n)->send_command((n),__VA_ARGS__)
 #define spa_node_set_callbacks(n,...)		(n)->set_callbacks((n),__VA_ARGS__)
 #define spa_node_get_n_ports(n,...)		(n)->get_n_ports((n),__VA_ARGS__)
 #define spa_node_get_port_ids(n,...)		(n)->get_port_ids((n),__VA_ARGS__)
 #define spa_node_add_port(n,...)		(n)->add_port((n),__VA_ARGS__)
 #define spa_node_remove_port(n,...)		(n)->remove_port((n),__VA_ARGS__)
-#define spa_node_port_enum_formats(n,...)	(n)->port_enum_formats((n),__VA_ARGS__)
-#define spa_node_port_set_format(n,...)		(n)->port_set_format((n),__VA_ARGS__)
-#define spa_node_port_get_format(n,...)		(n)->port_get_format((n),__VA_ARGS__)
 #define spa_node_port_get_info(n,...)		(n)->port_get_info((n),__VA_ARGS__)
 #define spa_node_port_enum_params(n,...)	(n)->port_enum_params((n),__VA_ARGS__)
 #define spa_node_port_set_param(n,...)		(n)->port_set_param((n),__VA_ARGS__)

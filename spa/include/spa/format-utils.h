@@ -138,40 +138,6 @@ spa_type_media_subtype_audio_map(struct spa_type_map *map,
 	}
 }
 
-#define SPA_FORMAT_BODY_FOREACH(body, size, iter)							\
-	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_format_body), struct spa_pod_prop);		\
-	     (iter) < SPA_MEMBER((body), (size), struct spa_pod_prop);					\
-	     (iter) = SPA_MEMBER((iter), SPA_ROUND_UP_N(SPA_POD_SIZE(iter), 8), struct spa_pod_prop))
-
-#define SPA_FORMAT_FOREACH(format, iter) \
-	SPA_FORMAT_BODY_FOREACH(&format->body, SPA_POD_BODY_SIZE(format), iter)
-
-#define SPA_FORMAT_MEDIA_TYPE(f)	SPA_POD_VALUE(struct spa_pod_id, &f->body.media_type)
-#define SPA_FORMAT_MEDIA_SUBTYPE(f)	SPA_POD_VALUE(struct spa_pod_id, &f->body.media_subtype)
-
-#define spa_format_parse(format,...)				\
-({								\
-	struct spa_pod_parser __p;				\
-	const struct spa_format *__format = format;		\
-	spa_pod_parser_pod(&__p, &__format->pod);		\
-	spa_pod_parser_get(&__p, "<", ##__VA_ARGS__, NULL);	\
-})
-
-static inline struct spa_pod_prop *spa_format_find_prop(const struct spa_format *format, uint32_t key)
-{
-       return spa_pod_contents_find_prop(&format->pod, sizeof(struct spa_format), key);
-}
-
-static inline int spa_format_fixate(struct spa_format *format)
-{
-	struct spa_pod_prop *prop;
-
-	SPA_FORMAT_FOREACH(format, prop)
-		prop->body.flags &= ~SPA_POD_PROP_FLAG_UNSET;
-
-	return SPA_RESULT_OK;
-}
-
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

@@ -207,16 +207,20 @@ new_node (GstPipeWireDeviceProvider *self, const struct pw_node_info *info, uint
   if (info->max_input_ports > 0 && info->max_output_ports == 0) {
     type = GST_PIPEWIRE_DEVICE_TYPE_SINK;
 
-    for (i = 0; i < info->n_input_formats; i++) {
-      GstCaps *c1 = gst_caps_from_format (info->input_formats[i], t->map);
+    for (i = 0; i < info->n_input_params; i++) {
+      if (info->input_params[i]->body.id != t->param.idEnumFormat)
+	      continue;
+      GstCaps *c1 = gst_caps_from_format (info->input_params[i], t->map);
       if (c1)
         gst_caps_append (caps, c1);
     }
   }
   else if (info->max_output_ports > 0 && info->max_input_ports == 0) {
     type = GST_PIPEWIRE_DEVICE_TYPE_SOURCE;
-    for (i = 0; i < info->n_output_formats; i++) {
-      GstCaps *c1 = gst_caps_from_format (info->output_formats[i], t->map);
+    for (i = 0; i < info->n_output_params; i++) {
+      if (info->output_params[i]->body.id != t->param.idEnumFormat)
+	      continue;
+      GstCaps *c1 = gst_caps_from_format (info->output_params[i], t->map);
       if (c1)
         gst_caps_append (caps, c1);
     }

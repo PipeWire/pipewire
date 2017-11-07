@@ -98,6 +98,8 @@ static inline struct spa_pod_prop *spa_pod_struct_find_prop(const struct spa_pod
 	return spa_pod_contents_find_prop(&obj->pod, sizeof(struct spa_pod_struct), key);
 }
 
+#include <spa/pod-parser.h>
+
 #define spa_pod_object_parse(object,...)			\
 ({								\
 	struct spa_pod_parser __p;				\
@@ -105,6 +107,16 @@ static inline struct spa_pod_prop *spa_pod_struct_find_prop(const struct spa_pod
 	spa_pod_parser_pod(&__p, &__obj->pod);			\
 	spa_pod_parser_get(&__p, "<", ##__VA_ARGS__, NULL);	\
 })
+
+static inline int spa_pod_object_fixate(struct spa_pod_object *obj)
+{
+	struct spa_pod *res;
+	SPA_POD_OBJECT_FOREACH(obj, res) {
+		if (res->type == SPA_POD_TYPE_PROP)
+			((struct spa_pod_prop *) res)->body.flags &= ~SPA_POD_PROP_FLAG_UNSET;
+	}
+	return SPA_RESULT_OK;
+}
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -24,7 +24,6 @@
 #include <spa/type-map.h>
 #include <spa/format-utils.h>
 #include <spa/audio/format-utils.h>
-#include <spa/format-builder.h>
 #include <spa/props.h>
 #include <spa/lib/debug.h>
 
@@ -88,8 +87,6 @@ struct data {
 
 	struct spa_audio_info_raw format;
 
-	uint8_t params_buffer[1024];
-
 	struct buffer buffers[32];
 	int n_buffers;
 	struct spa_list empty;
@@ -141,62 +138,6 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_enum_formats(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-				  struct spa_format **format,
-				  const struct spa_format *filter,
-				  uint32_t index)
-{
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(d->buffer, sizeof(d->buffer));
-
-	if (index != 0)
-		return SPA_RESULT_ENUM_END;
-
-	*format = spa_pod_builder_format(&b, d->type.format,
-		d->type.media_type.audio, d->type.media_subtype.raw,
-		":", d->type.format_audio.format,   "I", d->type.audio_format.S16,
-		":", d->type.format_audio.channels, "i", 2,
-		":", d->type.format_audio.rate,     "i", 44100);
-
-	spa_debug_format(*format);
-
-	return SPA_RESULT_OK;
-}
-
-static int impl_port_set_format(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-				uint32_t flags, const struct spa_format *format)
-{
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-
-	if (format == NULL)
-		return SPA_RESULT_OK;
-
-	spa_debug_format(format);
-
-	if (spa_format_audio_raw_parse(format, &d->format, &d->type.format_audio) < 0)
-		return SPA_RESULT_INVALID_MEDIA_TYPE;
-
-	if (d->format.format != d->type.audio_format.S16)
-		return SPA_RESULT_ERROR;
-
-	return SPA_RESULT_OK;
-}
-
-static int impl_port_get_format(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-				const struct spa_format **format)
-{
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(d->buffer, sizeof(d->buffer));
-
-	*format = spa_pod_builder_format(&b, d->type.format,
-		d->type.media_type.audio, d->type.media_subtype.raw,
-		":", d->type.format_audio.format,   "I",  d->format.format,
-		":", d->type.format_audio.channels, "i", d->format.channels,
-		":", d->type.format_audio.rate,     "i", d->format.rate);
-
-	return SPA_RESULT_OK;
-}
-
 static int impl_port_get_info(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
 			      const struct spa_port_info **info)
 {
@@ -211,47 +152,164 @@ static int impl_port_get_info(struct spa_node *node, enum spa_direction directio
 	return SPA_RESULT_OK;
 }
 
-static int impl_port_enum_params(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-				 uint32_t index, struct spa_param **param)
+static int port_enum_formats(struct spa_node *node,
+			     enum spa_direction direction, uint32_t port_id,
+			     uint32_t *index,
+			     const struct spa_pod_object *filter,
+			     struct spa_pod_builder *builder)
+{
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+
+	if (*index != 0)
+		return SPA_RESULT_ENUM_END;
+
+	spa_pod_builder_object(builder,
+		d->t->param.idEnumFormat, d->type.format,
+		"I", d->type.media_type.audio,
+		"I", d->type.media_subtype.raw,
+		":", d->type.format_audio.format,   "I", d->type.audio_format.S16,
+		":", d->type.format_audio.channels, "i", 2,
+		":", d->type.format_audio.rate,     "i", 44100);
+
+	(*index)++;
+
+	return SPA_RESULT_OK;
+}
+
+static int port_get_format(struct spa_node *node,
+			   enum spa_direction direction, uint32_t port_id,
+			   uint32_t *index,
+			   const struct spa_pod_object *filter,
+			   struct spa_pod_builder *builder)
+{
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+
+	if (*index != 0)
+		return SPA_RESULT_ENUM_END;
+
+	if (d->format.format == 0)
+		return SPA_RESULT_ENUM_END;
+
+	spa_pod_builder_object(builder,
+		d->t->param.idFormat, d->type.format,
+		"I", d->type.media_type.audio,
+		"I", d->type.media_subtype.raw,
+		":", d->type.format_audio.format,   "I",  d->format.format,
+		":", d->type.format_audio.channels, "i", d->format.channels,
+		":", d->type.format_audio.rate,     "i", d->format.rate);
+
+	(*index)++;
+
+	return SPA_RESULT_OK;
+}
+
+static int impl_port_enum_params(struct spa_node *node,
+				 enum spa_direction direction, uint32_t port_id,
+				 uint32_t id, uint32_t *index,
+				 const struct spa_pod_object *filter,
+				 struct spa_pod_builder *builder)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct pw_type *t = d->t;
-	struct spa_pod_builder b = { NULL };
 
-	spa_pod_builder_init(&b, d->params_buffer, sizeof(d->params_buffer));
+	if (id == t->param.idList) {
+		uint32_t list[] = { t->param.idEnumFormat,
+				    t->param.idFormat,
+				    t->param.idBuffers,
+				    t->param.idMeta };
 
-	switch (index) {
-	case 0:
-		*param = spa_pod_builder_param(&b,
-			t->param_alloc_buffers.Buffers,
+		if (*index < SPA_N_ELEMENTS(list))
+			spa_pod_builder_object(builder,
+				id, t->param.List,
+				":", t->param.listId, "I", list[*index]);
+		else
+			return SPA_RESULT_ENUM_END;
+	}
+	else if (id == t->param.idEnumFormat) {
+		return port_enum_formats(node, direction, port_id, index, filter, builder);
+	}
+	else if (id == t->param.idFormat) {
+		return port_get_format(node, direction, port_id, index, filter, builder);
+	}
+	else if (id == t->param.idBuffers) {
+		if (*index > 0)
+			return SPA_RESULT_ENUM_END;
+
+		spa_pod_builder_object(builder,
+			id, t->param_alloc_buffers.Buffers,
 			":", t->param_alloc_buffers.size,    "iru", 1024,
 										2, 32, 4096,
 			":", t->param_alloc_buffers.stride,  "i",   0,
 			":", t->param_alloc_buffers.buffers, "iru", 2,
 										2, 2, 32,
 			":", t->param_alloc_buffers.align,   "i",  16);
-		break;
-	case 1:
-		*param = spa_pod_builder_param(&b,
-			t->param_alloc_meta_enable.MetaEnable,
-			":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
-			":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
-		break;
-	case 2:
-		*param = spa_pod_builder_param(&b,
-			t->param_alloc_meta_enable.MetaEnable,
-			":", t->param_alloc_meta_enable.type,	"I", t->meta.Ringbuffer,
-			":", t->param_alloc_meta_enable.size,	"i", sizeof(struct spa_meta_ringbuffer),
-			":", t->param_alloc_meta_enable.ringbufferSize,   "ir", 1024 * 4,
-								2, 16 * 4, INT32_MAX / 4,
-			":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,
-			":", t->param_alloc_meta_enable.ringbufferBlocks, "i", 1,
-			":", t->param_alloc_meta_enable.ringbufferAlign,  "i", 16);
-		break;
-	default:
-		return SPA_RESULT_ENUM_END;
 	}
+	else if (id == t->param.idMeta) {
+		switch (*index) {
+		case 0:
+			spa_pod_builder_object(builder,
+				id, t->param_alloc_meta_enable.MetaEnable,
+				":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
+				":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
+			break;
+		case 1:
+			spa_pod_builder_object(builder,
+				id, t->param_alloc_meta_enable.MetaEnable,
+				":", t->param_alloc_meta_enable.type,	"I", t->meta.Ringbuffer,
+				":", t->param_alloc_meta_enable.size,	"i", sizeof(struct spa_meta_ringbuffer),
+				":", t->param_alloc_meta_enable.ringbufferSize,   "ir", 1024 * 4,
+									2, 16 * 4, INT32_MAX / 4,
+				":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,
+				":", t->param_alloc_meta_enable.ringbufferBlocks, "i", 1,
+				":", t->param_alloc_meta_enable.ringbufferAlign,  "i", 16);
+			break;
+		default:
+			return SPA_RESULT_ENUM_END;
+		}
+	}
+	else
+		return SPA_RESULT_UNKNOWN_PARAM;
+
+	(*index)++;
+
 	return SPA_RESULT_OK;
+}
+
+static int port_set_format(struct spa_node *node,
+			   enum spa_direction direction, uint32_t port_id,
+			   uint32_t flags, const struct spa_pod_object *format)
+{
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+
+	if (format == NULL) {
+		d->format.format = 0;
+		return SPA_RESULT_OK;
+	}
+
+	spa_debug_pod(&format->pod, SPA_DEBUG_FLAG_FORMAT);
+
+	if (spa_format_audio_raw_parse(format, &d->format, &d->type.format_audio) < 0)
+		return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+	if (d->format.format != d->type.audio_format.S16)
+		return SPA_RESULT_ERROR;
+
+	return SPA_RESULT_OK;
+}
+
+static int impl_port_set_param(struct spa_node *node,
+			       enum spa_direction direction, uint32_t port_id,
+			       uint32_t id, uint32_t flags,
+			       const struct spa_pod_object *param)
+{
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct pw_type *t = d->t;
+
+	if (id == t->param.idFormat) {
+		return port_set_format(node, direction, port_id, flags, param);
+	}
+	else
+		return SPA_RESULT_UNKNOWN_PARAM;
 }
 
 static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -378,11 +436,9 @@ static const struct spa_node impl_node = {
 	.get_n_ports = impl_get_n_ports,
 	.get_port_ids = impl_get_port_ids,
 	.port_set_io = impl_port_set_io,
-	.port_enum_formats = impl_port_enum_formats,
-	.port_set_format = impl_port_set_format,
-	.port_get_format = impl_port_get_format,
 	.port_get_info = impl_port_get_info,
 	.port_enum_params = impl_port_enum_params,
+	.port_set_param = impl_port_set_param,
 	.port_use_buffers = impl_port_use_buffers,
 	.port_reuse_buffer = impl_port_reuse_buffer,
 	.process_output = impl_node_process_output,

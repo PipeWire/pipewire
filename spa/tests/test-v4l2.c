@@ -33,7 +33,6 @@
 #include <spa/node.h>
 #include <spa/loop.h>
 #include <spa/video/format-utils.h>
-#include <spa/format-builder.h>
 #include <lib/debug.h>
 #include <lib/props.h>
 
@@ -46,6 +45,7 @@ struct type {
 	uint32_t format;
 	uint32_t props_device;
 	uint32_t SDL_Texture;
+	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
 	struct spa_type_media_type media_type;
@@ -63,6 +63,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props_device = spa_type_map_get_id(map, SPA_TYPE_PROPS__device);
 	type->SDL_Texture = spa_type_map_get_id(map, SPA_TYPE_POINTER_BASE "SDL_Texture");
+	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
@@ -297,7 +298,7 @@ do_invoke(struct spa_loop *loop,
 static int make_nodes(struct data *data, const char *device)
 {
 	int res;
-	struct spa_props *props;
+	struct spa_pod_object *props;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[256];
 
@@ -311,11 +312,11 @@ static int make_nodes(struct data *data, const char *device)
 	spa_node_set_callbacks(data->source, &source_callbacks, data);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	props = spa_pod_builder_props(&b,
-		data->type.props,
+	props = spa_pod_builder_object(&b,
+		0, data->type.props,
 		":", data->type.props_device, "s", device ? device : "/dev/video0");
 
-	if ((res = spa_node_set_props(data->source, props)) < 0)
+	if ((res = spa_node_set_param(data->source, data->type.param.idProps, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
 
 	return res;
@@ -386,7 +387,7 @@ static int negotiate_formats(struct data *data)
 {
 	int res;
 	const struct spa_port_info *info;
-	struct spa_format *format;
+	struct spa_pod_object *format;
 	uint8_t buffer[256];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
@@ -404,15 +405,19 @@ static int negotiate_formats(struct data *data)
 		return res;
 #else
 
-	format = spa_pod_builder_format(&b,
-			data->type.format,
-			data->type.media_type.video, data->type.media_subtype.raw,
+	format = spa_pod_builder_object(&b,
+			0, data->type.format,
+			"I", data->type.media_type.video,
+			"I", data->type.media_subtype.raw,
 			":", data->type.format_video.format,    "I", data->type.video_format.YUY2,
 			":", data->type.format_video.size,      "R", &SPA_RECTANGLE(320, 240),
 			":", data->type.format_video.framerate, "F", &SPA_FRACTION(25,1));
 #endif
 
-	if ((res = spa_node_port_set_format(data->source, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
+	if ((res = spa_node_port_set_param(data->source,
+					   SPA_DIRECTION_OUTPUT, 0,
+					   data->type.param.idFormat, 0,
+					   (struct spa_pod_object*)format)) < 0)
 		return res;
 
 	if ((res = spa_node_port_get_info(data->source, SPA_DIRECTION_OUTPUT, 0, &info)) < 0)

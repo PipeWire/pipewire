@@ -34,7 +34,6 @@
 #include <spa/type-map-impl.h>
 #include <spa/audio/format-utils.h>
 #include <spa/format-utils.h>
-#include <spa/format-builder.h>
 #include <spa/graph.h>
 #include <spa/graph-scheduler1.h>
 

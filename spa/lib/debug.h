@@ -37,10 +37,8 @@ void spa_debug_set_type_map(const struct spa_type_map *map);
 
 int spa_debug_port_info(const struct spa_port_info *info);
 int spa_debug_buffer(const struct spa_buffer *buffer);
-int spa_debug_props(const struct spa_props *props);
-int spa_debug_param(const struct spa_param *param);
-int spa_debug_pod(const struct spa_pod *pod);
-int spa_debug_format(const struct spa_format *format);
+#define SPA_DEBUG_FLAG_FORMAT	(1 << 0)
+int spa_debug_pod(const struct spa_pod *pod, uint32_t flags);
 int spa_debug_dump_mem(const void *data, size_t size);
 int spa_debug_dict(const struct spa_dict *dict);
 

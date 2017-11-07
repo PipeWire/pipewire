@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include <spa/props.h>
+#include <spa/pod-builder.h>
 
 static int compare_value(enum spa_pod_type type, const void *r1, const void *r2)
 {

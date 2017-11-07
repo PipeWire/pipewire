@@ -37,7 +37,6 @@ extern "C" {
 #include <spa/loop.h>
 #include <spa/ringbuffer.h>
 #include <spa/audio/format-utils.h>
-#include <spa/format-builder.h>
 
 struct props {
 	char device[64];
@@ -67,6 +66,7 @@ struct type {
 	uint32_t prop_card_name;
 	uint32_t prop_min_latency;
 	uint32_t prop_max_latency;
+	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
 	struct spa_type_media_type media_type;
@@ -92,6 +92,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->prop_min_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__minLatency);
 	type->prop_max_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__maxLatency);
 
+	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
@@ -124,7 +125,6 @@ struct state {
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 
-	uint8_t props_buffer[1024];
 	struct props props;
 
 	bool opened;
@@ -169,7 +169,9 @@ struct state {
 
 int
 spa_alsa_enum_format(struct state *state,
-		     struct spa_format **format, const struct spa_format *filter, uint32_t index);
+		     uint32_t *index,
+		     const struct spa_pod_object *filter,
+		     struct spa_pod_builder *builder);
 
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *info, uint32_t flags);
 

@@ -8,7 +8,6 @@ spa_headers = [
   'event.h',
   'event-node.h',
   'format.h',
-  'format-builder.h',
   'format-utils.h',
   'hook.h',
   'list.h',

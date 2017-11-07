@@ -83,14 +83,14 @@ static int suspend_node(struct pw_node *this)
 	pw_log_debug("node %p: suspend node", this);
 
 	spa_list_for_each(p, &this->input_ports, link) {
-		if ((res = pw_port_set_format(p, 0, NULL)) < 0)
+		if ((res = pw_port_set_param(p, this->core->type.param.idFormat, 0, NULL)) < 0)
 			pw_log_warn("error unset format input: %d", res);
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 
 	spa_list_for_each(p, &this->output_ports, link) {
-		if ((res = pw_port_set_format(p, 0, NULL)) < 0)
+		if ((res = pw_port_set_param(p, this->core->type.param.idFormat, 0, NULL)) < 0)
 			pw_log_warn("error unset format output: %d", res);
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
@@ -222,39 +222,52 @@ static int update_port_ids(struct pw_node *node)
 static void
 update_info(struct pw_node *this)
 {
-	this->info.input_formats = NULL;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
+
+	this->info.input_params = NULL;
 	if (!spa_list_is_empty(&this->input_ports)) {
 		struct pw_port *port = spa_list_first(&this->input_ports, struct pw_port, link);
+		uint32_t state = 0;
 
-		for (this->info.n_input_formats = 0;; this->info.n_input_formats++) {
-			struct spa_format *fmt;
+		for (this->info.n_input_params = 0;; this->info.n_input_params++) {
+			struct spa_pod_object *fmt;
 
-			if (spa_node_port_enum_formats(port->node->node, port->direction, port->port_id,
-						       &fmt, NULL, this->info.n_input_formats) < 0)
+			spa_pod_builder_init(&b, buffer, sizeof(buffer));
+			if (spa_node_port_enum_params(port->node->node,
+						      port->direction, port->port_id,
+						      this->core->type.param.idEnumFormat, &state,
+						      NULL, &b) < 0)
 				break;
+			fmt = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
 
-			this->info.input_formats =
-			    realloc(this->info.input_formats,
-				    sizeof(struct spa_format *) * (this->info.n_input_formats + 1));
-			this->info.input_formats[this->info.n_input_formats] = spa_format_copy(fmt);
+			this->info.input_params =
+			    realloc(this->info.input_params,
+				    sizeof(struct spa_pod_object *) * (this->info.n_input_params + 1));
+			this->info.input_params[this->info.n_input_params] = spa_pod_object_copy(fmt);
 		}
 	}
 
-	this->info.output_formats = NULL;
+	this->info.output_params = NULL;
 	if (!spa_list_is_empty(&this->output_ports)) {
 		struct pw_port *port = spa_list_first(&this->output_ports, struct pw_port, link);
+		uint32_t state = 0;
 
-		for (this->info.n_output_formats = 0;; this->info.n_output_formats++) {
-			struct spa_format *fmt;
+		for (this->info.n_output_params = 0;; this->info.n_output_params++) {
+			struct spa_pod_object *fmt;
 
-			if (spa_node_port_enum_formats(port->node->node, port->direction, port->port_id,
-						       &fmt, NULL, this->info.n_output_formats) < 0)
+			spa_pod_builder_init(&b, buffer, sizeof(buffer));
+			if (spa_node_port_enum_params(port->node->node,
+						      port->direction, port->port_id,
+						      this->core->type.param.idEnumFormat, &state,
+						      NULL, &b) < 0)
 				break;
+			fmt = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
 
-			this->info.output_formats =
-			    realloc(this->info.output_formats,
-				    sizeof(struct spa_format *) * (this->info.n_output_formats + 1));
-			this->info.output_formats[this->info.n_output_formats] = spa_format_copy(fmt);
+			this->info.output_params =
+			    realloc(this->info.output_params,
+				    sizeof(struct spa_pod_object *) * (this->info.n_output_params + 1));
+			this->info.output_params[this->info.n_output_params] = spa_pod_object_copy(fmt);
 		}
 	}
 }
@@ -265,16 +278,16 @@ clear_info(struct pw_node *this)
 	int i;
 
 	free((char*)this->info.name);
-	if (this->info.input_formats) {
-		for (i = 0; i < this->info.n_input_formats; i++)
-			free(this->info.input_formats[i]);
-		free(this->info.input_formats);
+	if (this->info.input_params) {
+		for (i = 0; i < this->info.n_input_params; i++)
+			free(this->info.input_params[i]);
+		free(this->info.input_params);
 	}
 
-	if (this->info.output_formats) {
-		for (i = 0; i < this->info.n_output_formats; i++)
-			free(this->info.output_formats[i]);
-		free(this->info.output_formats);
+	if (this->info.output_params) {
+		for (i = 0; i < this->info.n_output_params; i++)
+			free(this->info.output_params[i]);
+		free(this->info.output_params);
 	}
 	free((char*)this->info.error);
 

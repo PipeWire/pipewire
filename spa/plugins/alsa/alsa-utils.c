@@ -117,7 +117,9 @@ static snd_pcm_format_t spa_alsa_format_to_alsa(struct type *map, uint32_t forma
 }
 
 int
-spa_alsa_enum_format(struct state *state, struct spa_format **format, const struct spa_format *filter, uint32_t index)
+spa_alsa_enum_format(struct state *state, uint32_t *index,
+		     const struct spa_pod_object *filter,
+		     struct spa_pod_builder *builder)
 {
 	snd_pcm_t *hndl;
 	snd_pcm_hw_params_t *params;
@@ -128,11 +130,11 @@ spa_alsa_enum_format(struct state *state, struct spa_format **format, const stru
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct spa_pod_frame f[2];
 	struct spa_pod_prop *prop;
-	struct spa_format *fmt;
+	struct spa_pod_object *fmt;
 	int res;
 	bool opened;
 
-	if (index == 1)
+	if (*index > 0)
 		return SPA_RESULT_ENUM_END;
 
 	opened = state->opened;
@@ -143,8 +145,11 @@ spa_alsa_enum_format(struct state *state, struct spa_format **format, const stru
 	snd_pcm_hw_params_alloca(&params);
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
 
-	spa_pod_builder_push_format(&b, &f[0], state->type.format,
-				    state->type.media_type.audio, state->type.media_subtype.raw);
+	spa_pod_builder_push_object(&b, &f[0],
+				    state->type.param.idEnumFormat, state->type.format);
+	spa_pod_builder_add(&b,
+			"I", state->type.media_type.audio,
+			"I", state->type.media_subtype.raw, 0);
 
 	snd_pcm_format_mask_alloca(&fmask);
 	snd_pcm_hw_params_get_format_mask(params, fmask);
@@ -195,13 +200,13 @@ spa_alsa_enum_format(struct state *state, struct spa_format **format, const stru
 	spa_pod_builder_pop(&b, &f[1]);
 	spa_pod_builder_pop(&b, &f[0]);
 
-	fmt = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_format);
+	fmt = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_pod_object);
 
-	spa_pod_builder_init(&b, state->format_buffer, sizeof(state->format_buffer));
-	if ((res = spa_format_filter(fmt, filter, &b)) < 0)
+	(*index)++;
+
+	if ((res = spa_pod_object_filter(fmt, filter, builder)) < 0)
 		return res;
 
-	*format = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_format);
 	if (!opened)
 		spa_alsa_close(state);
 
@@ -251,7 +256,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	CHECK(snd_pcm_hw_params_set_channels_near(hndl, params, &rchannels), "set_channels");
 	if (rchannels != info->channels) {
 		spa_log_info(state->log, "Channels doesn't match (requested %u, get %u", info->channels, rchannels);
-		if (flags & SPA_PORT_FORMAT_FLAG_NEAREST)
+		if (flags & SPA_NODE_PARAM_FLAG_NEAREST)
 			info->channels = rchannels;
 		else
 			return -EINVAL;
@@ -262,7 +267,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	CHECK(snd_pcm_hw_params_set_rate_near(hndl, params, &rrate, 0), "set_rate_near");
 	if (rrate != info->rate) {
 		spa_log_info(state->log, "Rate doesn't match (requested %iHz, get %iHz)", info->rate, rrate);
-		if (flags & SPA_PORT_FORMAT_FLAG_NEAREST)
+		if (flags & SPA_NODE_PARAM_FLAG_NEAREST)
 			info->rate = rrate;
 		else
 			return -EINVAL;

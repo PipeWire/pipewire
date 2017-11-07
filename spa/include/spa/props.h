@@ -25,16 +25,12 @@ extern "C" {
 #endif
 
 #include <spa/pod.h>
-#include <spa/pod-builder.h>
-#include <spa/pod-parser.h>
+#include <spa/param.h>
 
-struct spa_props {
-	struct spa_pod_object object;
-};
+#define SPA_TYPE__Props			SPA_TYPE_POD_OBJECT_BASE "Props"
+#define SPA_TYPE_PROPS_BASE		SPA_TYPE__Props ":"
 
-#define SPA_TYPE__Props		SPA_TYPE_POD_OBJECT_BASE "Props"
-#define SPA_TYPE_PROPS_BASE	SPA_TYPE__Props ":"
-
+/** Common property ids */
 #define SPA_TYPE_PROPS__device		SPA_TYPE_PROPS_BASE "device"
 #define SPA_TYPE_PROPS__deviceName	SPA_TYPE_PROPS_BASE "deviceName"
 #define SPA_TYPE_PROPS__deviceFd	SPA_TYPE_PROPS_BASE "deviceFd"
@@ -51,25 +47,6 @@ struct spa_props {
 #define SPA_TYPE_PROPS__volume		SPA_TYPE_PROPS_BASE "volume"
 #define SPA_TYPE_PROPS__mute		SPA_TYPE_PROPS_BASE "mute"
 #define SPA_TYPE_PROPS__patternType	SPA_TYPE_PROPS_BASE "patternType"
-
-static inline uint32_t
-spa_pod_builder_push_props(struct spa_pod_builder *builder,
-			   struct spa_pod_frame *frame,
-			   uint32_t props_type)
-{
-	return spa_pod_builder_push_object(builder, frame, 0, props_type);
-}
-
-#define spa_pod_builder_props(b,props_type,...)		\
-	spa_pod_builder_object(b, 0, props_type,##__VA_ARGS__)
-
-#define spa_props_parse(props,...)				\
-({								\
-	struct spa_pod_parser __p;				\
-	const struct spa_props *__props = props;		\
-	spa_pod_parser_pod(&__p, &__props->object.pod);		\
-	spa_pod_parser_get(&__p, "<", ##__VA_ARGS__, NULL);	\
-})
 
 #ifdef __cplusplus
 }  /* extern "C" */

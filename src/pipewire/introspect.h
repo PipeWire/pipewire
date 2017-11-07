@@ -143,21 +143,21 @@ struct pw_node_info {
 	uint32_t id;				/**< id of the global */
 #define PW_NODE_CHANGE_MASK_NAME		(1 << 0)
 #define PW_NODE_CHANGE_MASK_INPUT_PORTS		(1 << 1)
-#define PW_NODE_CHANGE_MASK_INPUT_FORMATS	(1 << 2)
+#define PW_NODE_CHANGE_MASK_INPUT_PARAMS	(1 << 2)
 #define PW_NODE_CHANGE_MASK_OUTPUT_PORTS	(1 << 3)
-#define PW_NODE_CHANGE_MASK_OUTPUT_FORMATS	(1 << 4)
+#define PW_NODE_CHANGE_MASK_OUTPUT_PARAMS	(1 << 4)
 #define PW_NODE_CHANGE_MASK_STATE		(1 << 5)
 #define PW_NODE_CHANGE_MASK_PROPS		(1 << 6)
 	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	const char *name;                       /**< name the node, suitable for display */
 	uint32_t max_input_ports;		/**< maximum number of inputs */
 	uint32_t n_input_ports;			/**< number of inputs */
-	uint32_t n_input_formats;		/**< number of input formats */
-	struct spa_format **input_formats;	/**< array of input formats */
+	uint32_t n_input_params;		/**< number of input params */
+	struct spa_pod_object **input_params;	/**< array of input params */
 	uint32_t max_output_ports;		/**< maximum number of outputs */
 	uint32_t n_output_ports;		/**< number of outputs */
-	uint32_t n_output_formats;		/**< number of output formats */
-	struct spa_format **output_formats;	/**< array of output formats */
+	uint32_t n_output_params;		/**< number of output params */
+	struct spa_pod_object **output_params;	/**< array of output params */
 	enum pw_node_state state;		/**< the current state of the node */
 	const char *error;			/**< an error reason if \a state is error */
 	struct spa_dict *props;			/**< the properties of the node */
@@ -200,7 +200,7 @@ struct pw_link_info {
 	uint32_t output_port_id;	/**< output port id */
 	uint32_t input_node_id;		/**< server side input node id */
 	uint32_t input_port_id;		/**< input port id */
-	struct spa_format *format;	/**< format over link */
+	struct spa_pod_object *format;	/**< format over link */
 	struct spa_dict *props;		/**< the properties of the link */
 };
 

@@ -30,7 +30,6 @@
 
 #include <spa/node.h>
 #include <spa/hook.h>
-#include <spa/format-builder.h>
 #include <spa/lib/format.h>
 #include <spa/audio/format-utils.h>
 
@@ -47,6 +46,7 @@
 
 struct type {
         uint32_t format;
+	struct spa_type_param param;
 	struct spa_type_data data;
 	struct spa_type_media_type media_type;
         struct spa_type_media_subtype media_subtype;
@@ -58,6 +58,7 @@ struct type {
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
         type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
+        spa_type_param_map(map, &type->param);
         spa_type_data_map(map, &type->data);
         spa_type_media_type_map(map, &type->media_type);
         spa_type_media_subtype_map(map, &type->media_subtype);
@@ -121,12 +122,17 @@ struct port_data {
 
 /** \endcond */
 
-static int node_get_props(struct spa_node *node, struct spa_props **props)
+static int node_enum_params(struct spa_node *node,
+			    uint32_t id, uint32_t *index,
+			    const struct spa_pod_object *filter,
+			    struct spa_pod_builder *builder)
 {
 	return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static int node_set_props(struct spa_node *node, const struct spa_props *props)
+static int node_set_param(struct spa_node *node,
+			  uint32_t id, uint32_t flags,
+			  const struct spa_pod_object *param)
 {
 	return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -368,16 +374,17 @@ static int port_set_io(struct spa_node *node, enum spa_direction direction, uint
 	return SPA_RESULT_OK;
 }
 
-static int port_enum_formats(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-                             struct spa_format **format,
-                             const struct spa_format *filter,
-                             uint32_t index)
+static int port_enum_formats(struct spa_node *node,
+			     enum spa_direction direction, uint32_t port_id,
+                             uint32_t *index,
+                             const struct spa_pod_object *filter,
+                             struct spa_pod_builder *builder)
 {
 	struct node_data *nd = SPA_CONTAINER_OF(node, struct node_data, node_impl);
 	struct port_data *pd = nd->port_data[direction][port_id];
 	struct type *t = &pd->node->type;
 	struct spa_pod_builder b = { NULL, };
-	struct spa_format *fmt;
+	struct spa_pod_object *fmt;
 	uint8_t buffer[4096];
 	int res;
 	struct jack_engine_control *ctrl = pd->node->node.server->engine_control;
@@ -389,53 +396,37 @@ static int port_enum_formats(struct spa_node *node, enum spa_direction direction
 
 	if (pd->port.jack_port) {
 		if (pd->port.jack_port->type_id == 0) {
-			fmt = spa_pod_builder_format(&b,
-				t->format,
-	                        t->media_type.audio, t->media_subtype.raw,
+			fmt = spa_pod_builder_object(&b,
+				t->param.idEnumFormat, t->format,
+				"I", t->media_type.audio,
+				"I", t->media_subtype.raw,
 	                        ":", t->format_audio.format,   "I", t->audio_format.F32,
 	                        ":", t->format_audio.rate,     "i", ctrl->sample_rate,
 	                        ":", t->format_audio.channels, "i", 1);
 		}
 		else if (pd->port.jack_port->type_id == 1) {
-			fmt = spa_pod_builder_format(&b,
-				t->format,
-	                        t->media_type.audio, t->media_subtype_audio.midi);
+			fmt = spa_pod_builder_object(&b,
+				t->param.idEnumFormat, t->format,
+				"I", t->media_type.audio,
+				"I", t->media_subtype_audio.midi);
 		}
 		else
 			return SPA_RESULT_ENUM_END;
 	}
 	else {
-                fmt = spa_pod_builder_format(&b,
-			t->format,
-                        t->media_type.audio, t->media_subtype.raw,
+                fmt = spa_pod_builder_object(&b,
+			t->param.idEnumFormat, t->format,
+			"I", t->media_type.audio,
+			"I", t->media_subtype.raw,
                         ":", t->format_audio.format,   "I", t->audio_format.S16,
                         ":", t->format_audio.rate,     "i", ctrl->sample_rate,
                         ":", t->format_audio.channels, "i", 2);
 	}
 
-        spa_pod_builder_init(&b, pd->buffer, sizeof(pd->buffer));
-        if ((res = spa_format_filter(fmt, filter, &b)) < 0)
+        if ((res = spa_pod_object_filter(fmt, filter, builder)) < 0)
                 return res;
 
-        *format = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_format);
-
 	return SPA_RESULT_OK;
-}
-
-static int port_set_format(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-			   uint32_t flags, const struct spa_format *format)
-{
-	return SPA_RESULT_OK;
-}
-
-static int port_get_format(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-			   const struct spa_format **format)
-{
-	int res;
-	struct spa_format *fmt;
-	res = port_enum_formats(node, direction, port_id, &fmt, NULL, 0);
-	*format = fmt;
-	return res;
 }
 
 static int port_get_info(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -455,14 +446,31 @@ static int port_get_info(struct spa_node *node, enum spa_direction direction, ui
 	return SPA_RESULT_OK;
 }
 
-static int port_enum_params(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-			    uint32_t index, struct spa_param **param)
+static int port_enum_params(struct spa_node *node,
+			    enum spa_direction direction, uint32_t port_id,
+			    uint32_t id, uint32_t *index,
+			    const struct spa_pod_object *filter,
+			    struct spa_pod_builder *builder)
 {
+	struct node_data *nd = SPA_CONTAINER_OF(node, struct node_data, node_impl);
+	struct type *t = &nd->type;
+
+	if (id == t->param.idEnumFormat) {
+		return port_enum_formats(node, direction, port_id, index, filter, builder);
+	}
+	else if (id == t->param.idFormat) {
+		return port_enum_formats(node, direction, port_id, index, filter, builder);
+	}
+	else
+		return SPA_RESULT_UNKNOWN_PARAM;
+
 	return SPA_RESULT_ENUM_END;
 }
 
-static int port_set_param(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-			  const struct spa_param *param)
+static int port_set_param(struct spa_node *node,
+			  enum spa_direction direction, uint32_t port_id,
+			  uint32_t id, uint32_t flags,
+			  const struct spa_pod_object *param)
 {
 	return SPA_RESULT_OK;
 }
@@ -501,7 +509,7 @@ static int port_use_buffers(struct spa_node *node, enum spa_direction direction,
 }
 
 static int port_alloc_buffers(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-                              struct spa_param **params, uint32_t n_params,
+                              struct spa_pod_object **params, uint32_t n_params,
                               struct spa_buffer **buffers, uint32_t *n_buffers)
 {
 	struct node_data *nd = SPA_CONTAINER_OF(node, struct node_data, node_impl);
@@ -551,17 +559,14 @@ static int port_send_command(struct spa_node *node, enum spa_direction direction
 static const struct spa_node driver_impl = {
 	SPA_VERSION_NODE,
 	NULL,
-	.get_props = node_get_props,
-	.set_props = node_set_props,
+	.enum_params = node_enum_params,
+	.set_param = node_set_param,
 	.send_command = node_send_command,
 	.set_callbacks = node_set_callbacks,
 	.get_n_ports = node_get_n_ports,
 	.get_port_ids = node_get_port_ids,
 	.add_port = node_add_port,
 	.remove_port = node_remove_port,
-	.port_enum_formats = port_enum_formats,
-	.port_set_format = port_set_format,
-	.port_get_format = port_get_format,
 	.port_get_info = port_get_info,
 	.port_enum_params = port_enum_params,
 	.port_set_param = port_set_param,
@@ -577,17 +582,14 @@ static const struct spa_node driver_impl = {
 static const struct spa_node node_impl = {
 	SPA_VERSION_NODE,
 	NULL,
-	.get_props = node_get_props,
-	.set_props = node_set_props,
+	.enum_params = node_enum_params,
+	.set_param = node_set_param,
 	.send_command = node_send_command,
 	.set_callbacks = node_set_callbacks,
 	.get_n_ports = node_get_n_ports,
 	.get_port_ids = node_get_port_ids,
 	.add_port = node_add_port,
 	.remove_port = node_remove_port,
-	.port_enum_formats = port_enum_formats,
-	.port_set_format = port_set_format,
-	.port_get_format = port_get_format,
 	.port_get_info = port_get_info,
 	.port_enum_params = port_enum_params,
 	.port_set_param = port_set_param,

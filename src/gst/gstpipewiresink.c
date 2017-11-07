@@ -228,7 +228,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   guint size;
   guint min_buffers;
   guint max_buffers;
-  struct spa_param *port_params[3];
+  struct spa_pod_object *port_params[3];
   struct spa_pod_builder b = { NULL };
   uint8_t buffer[1024];
   struct spa_pod_frame f[1];
@@ -237,7 +237,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_push_param (&b, &f[0], t->param_alloc_buffers.Buffers);
+  spa_pod_builder_push_object (&b, &f[0], t->param.idBuffers, t->param_alloc_buffers.Buffers);
   if (size == 0)
     spa_pod_builder_add (&b,
         ":", t->param_alloc_buffers.size, "iru", 0, SPA_PROP_RANGE(0, INT32_MAX), NULL);
@@ -253,15 +253,15 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
       ":", t->param_alloc_buffers.align,   "i", 16,
       NULL);
   spa_pod_builder_pop (&b, &f[0]);
-  port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
+  port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_pod_object);
 
-  port_params[1] = spa_pod_builder_param (&b,
-      t->param_alloc_meta_enable.MetaEnable,
+  port_params[1] = spa_pod_builder_object (&b,
+      t->param.idMeta, t->param_alloc_meta_enable.MetaEnable,
       ":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
       ":", t->param_alloc_meta_enable.size, "i", sizeof (struct spa_meta_header));
 
-  port_params[2] = spa_pod_builder_param (&b,
-      t->param_alloc_meta_enable.MetaEnable,
+  port_params[2] = spa_pod_builder_object (&b,
+      t->param.idMeta, t->param_alloc_meta_enable.MetaEnable,
       ":", t->param_alloc_meta_enable.type, "I", t->meta.Ringbuffer,
       ":", t->param_alloc_meta_enable.size, "i", sizeof (struct spa_meta_ringbuffer),
       ":", t->param_alloc_meta_enable.ringbufferSize,   "i", size * SPA_MAX (4,
@@ -271,7 +271,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
       ":", t->param_alloc_meta_enable.ringbufferAlign,  "i", 16);
 
   pw_thread_loop_lock (sink->main_loop);
-  pw_stream_finish_format (sink->stream, SPA_RESULT_OK, port_params, 2);
+  pw_stream_finish_format (sink->stream, SPA_RESULT_OK, 2, port_params);
   pw_thread_loop_unlock (sink->main_loop);
 }
 
@@ -586,7 +586,7 @@ on_state_changed (void *data, enum pw_stream_state old, enum pw_stream_state sta
 }
 
 static void
-on_format_changed (void *data, struct spa_format *format)
+on_format_changed (void *data, struct spa_pod_object *format)
 {
   GstPipeWireSink *pwsink = data;
 
@@ -621,11 +621,10 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
     pw_stream_connect (pwsink->stream,
                           PW_DIRECTION_OUTPUT,
-                          PW_STREAM_MODE_BUFFER,
                           pwsink->path,
                           flags,
                           possible->len,
-                          (const struct spa_format **) possible->pdata);
+                          (const struct spa_pod_object **) possible->pdata);
 
     while (TRUE) {
       state = pw_stream_get_state (pwsink->stream, &error);

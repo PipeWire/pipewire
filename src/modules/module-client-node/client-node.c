@@ -29,7 +29,6 @@
 #include <sys/eventfd.h>
 
 #include "spa/node.h"
-#include "spa/format-builder.h"
 #include "spa/lib/format.h"
 
 #include "pipewire/pipewire.h"
@@ -73,11 +72,10 @@ struct proxy_buffer {
 struct proxy_port {
 	bool valid;
 	struct spa_port_info info;
-	struct spa_format *format;
-	uint32_t n_formats;
-	struct spa_format **formats;
+
+	bool have_format;
 	uint32_t n_params;
-	struct spa_param **params;
+	struct spa_pod_object **params;
 	struct spa_port_io *io;
 
 	uint32_t n_buffers;
@@ -107,6 +105,9 @@ struct proxy {
 	uint32_t n_outputs;
 	struct proxy_port in_ports[MAX_INPUTS];
 	struct proxy_port out_ports[MAX_OUTPUTS];
+
+	uint32_t n_params;
+	struct spa_pod_object **params;
 
 	uint8_t format_buffer[1024];
 	uint32_t seq;
@@ -145,14 +146,51 @@ static int clear_buffers(struct proxy *this, struct proxy_port *port)
 	return SPA_RESULT_OK;
 }
 
-static int spa_proxy_node_get_props(struct spa_node *node, struct spa_props **props)
+static int spa_proxy_node_enum_params(struct spa_node *node,
+				      uint32_t id, uint32_t *index,
+				      const struct spa_pod_object *filter,
+				      struct spa_pod_builder *builder)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	struct proxy *this;
+
+	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(index != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(builder != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+
+	this = SPA_CONTAINER_OF(node, struct proxy, node);
+
+	while (true) {
+		struct spa_pod_object *param;
+
+		if (*index >= this->n_params)
+			return SPA_RESULT_ENUM_END;
+
+		param = this->params[(*index)++];
+
+		if (param->body.id == id) {
+			spa_pod_builder_primitive(builder, &param->pod);
+			break;
+		}
+	}
+	return SPA_RESULT_OK;
 }
 
-static int spa_proxy_node_set_props(struct spa_node *node, const struct spa_props *props)
+static int spa_proxy_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
+				    const struct spa_pod_object *param)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	struct proxy *this;
+
+	if (node == NULL)
+		return SPA_RESULT_INVALID_ARGUMENTS;
+
+	this = SPA_CONTAINER_OF(node, struct proxy, node);
+
+	if (this->resource == NULL)
+		return SPA_RESULT_OK;
+
+	pw_client_node_resource_set_param(this->resource, this->seq, id, flags, param);
+
+	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
 
 static inline void do_flush(struct proxy *this)
@@ -180,10 +218,10 @@ static int spa_proxy_node_send_command(struct spa_node *node, const struct spa_c
 	t = this->impl->t;
 
 	if (SPA_COMMAND_TYPE(command) == t->command_node.ClockUpdate) {
-		pw_client_node_resource_node_command(this->resource, this->seq++, command);
+		pw_client_node_resource_command(this->resource, this->seq++, command);
 	} else {
 		/* send start */
-		pw_client_node_resource_node_command(this->resource, this->seq, command);
+		pw_client_node_resource_command(this->resource, this->seq, command);
 		res = SPA_RESULT_RETURN_ASYNC(this->seq++);
 	}
 	return res;
@@ -267,15 +305,12 @@ do_update_port(struct proxy *this,
 	       enum spa_direction direction,
 	       uint32_t port_id,
 	       uint32_t change_mask,
-	       uint32_t n_possible_formats,
-	       const struct spa_format **possible_formats,
-	       const struct spa_format *format,
 	       uint32_t n_params,
-	       const struct spa_param **params,
+	       const struct spa_pod_object **params,
 	       const struct spa_port_info *info)
 {
 	struct proxy_port *port;
-	uint32_t i;
+	struct pw_type *t = this->impl->t;
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		port = &this->in_ports[port_id];
@@ -283,31 +318,23 @@ do_update_port(struct proxy *this,
 		port = &this->out_ports[port_id];
 	}
 
-	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_POSSIBLE_FORMATS) {
-		spa_log_info(this->log, "proxy %p: %d formats", this, n_possible_formats);
-		for (i = 0; i < port->n_formats; i++)
-			free(port->formats[i]);
-		port->n_formats = n_possible_formats;
-		port->formats =
-		    realloc(port->formats, port->n_formats * sizeof(struct spa_format *));
-		for (i = 0; i < port->n_formats; i++)
-			port->formats[i] = spa_format_copy(possible_formats[i]);
-	}
-	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_FORMAT) {
-		spa_log_info(this->log, "proxy %p: update format %p", this, format);
-		if (port->format)
-			free(port->format);
-		port->format = spa_format_copy(format);
-	}
-
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
+		int i;
+
+		port->have_format = false;
+
 		spa_log_info(this->log, "proxy %p: update %d params", this, n_params);
 		for (i = 0; i < port->n_params; i++)
 			free(port->params[i]);
 		port->n_params = n_params;
-		port->params = realloc(port->params, port->n_params * sizeof(struct spa_param *));
-		for (i = 0; i < port->n_params; i++)
-			port->params[i] = spa_param_copy(params[i]);
+		port->params = realloc(port->params, port->n_params * sizeof(struct spa_pod_object *));
+
+		for (i = 0; i < port->n_params; i++) {
+			port->params[i] = spa_pod_object_copy(params[i]);
+			if (port->params[i]->body.id == t->param.idFormat)
+				port->have_format = true;
+		}
+
 	}
 
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO && info)
@@ -315,7 +342,7 @@ do_update_port(struct proxy *this,
 
 	if (!port->valid) {
 		spa_log_info(this->log, "proxy %p: adding port %d", this, port_id);
-		port->format = NULL;
+		port->have_format = false;
 		port->valid = true;
 
 		if (direction == SPA_DIRECTION_INPUT)
@@ -332,10 +359,8 @@ clear_port(struct proxy *this,
 	do_update_port(this,
 		       direction,
 		       port_id,
-		       PW_CLIENT_NODE_PORT_UPDATE_POSSIBLE_FORMATS |
-		       PW_CLIENT_NODE_PORT_UPDATE_FORMAT |
 		       PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
-		       PW_CLIENT_NODE_PORT_UPDATE_INFO, 0, NULL, NULL, 0, NULL, NULL);
+		       PW_CLIENT_NODE_PORT_UPDATE_INFO, 0, NULL, NULL);
 	clear_buffers(this, port);
 }
 
@@ -395,101 +420,6 @@ spa_proxy_node_remove_port(struct spa_node *node, enum spa_direction direction, 
 }
 
 static int
-spa_proxy_node_port_enum_formats(struct spa_node *node,
-				 enum spa_direction direction,
-				 uint32_t port_id,
-				 struct spa_format **format,
-				 const struct spa_format *filter,
-				 uint32_t index)
-{
-	struct proxy *this;
-	struct proxy_port *port;
-	struct spa_format *fmt;
-	struct spa_pod_builder b = { NULL, };
-	int res;
-	uint32_t count, match = 0;
-
-	if (node == NULL || format == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
-
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
-
-	if (!CHECK_PORT(this, direction, port_id))
-		return SPA_RESULT_INVALID_PORT;
-
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
-
-	count = match = filter ? 0 : index;
-
-      next:
-	if (count >= port->n_formats)
-		return SPA_RESULT_ENUM_END;
-
-	fmt = port->formats[count++];
-
-	spa_pod_builder_init(&b, this->format_buffer, sizeof(this->format_buffer));
-
-	if ((res = spa_format_filter(fmt, filter, &b)) != SPA_RESULT_OK || match++ != index)
-		goto next;
-
-	*format = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_format);
-
-	return SPA_RESULT_OK;
-}
-
-static int
-spa_proxy_node_port_set_format(struct spa_node *node,
-			       enum spa_direction direction,
-			       uint32_t port_id, uint32_t flags, const struct spa_format *format)
-{
-	struct proxy *this;
-
-	if (node == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
-
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
-
-	if (!CHECK_PORT(this, direction, port_id))
-		return SPA_RESULT_INVALID_PORT;
-
-	if (this->resource == NULL)
-		return SPA_RESULT_OK;
-
-	pw_client_node_resource_set_format(this->resource,
-					   this->seq, direction, port_id, flags, format);
-
-	return SPA_RESULT_RETURN_ASYNC(this->seq++);
-}
-
-static int
-spa_proxy_node_port_get_format(struct spa_node *node,
-			       enum spa_direction direction,
-			       uint32_t port_id, const struct spa_format **format)
-{
-	struct proxy *this;
-	struct proxy_port *port;
-
-	if (node == NULL || format == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
-
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
-
-	if (!CHECK_PORT(this, direction, port_id))
-		return SPA_RESULT_INVALID_PORT;
-
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
-
-	if (!port->format)
-		return SPA_RESULT_NO_FORMAT;
-
-	*format = port->format;
-
-	return SPA_RESULT_OK;
-}
-
-static int
 spa_proxy_node_port_get_info(struct spa_node *node,
 			     enum spa_direction direction,
 			     uint32_t port_id, const struct spa_port_info **info)
@@ -515,14 +445,17 @@ spa_proxy_node_port_get_info(struct spa_node *node,
 
 static int
 spa_proxy_node_port_enum_params(struct spa_node *node,
-				enum spa_direction direction,
-				uint32_t port_id, uint32_t index, struct spa_param **param)
+				enum spa_direction direction, uint32_t port_id,
+				uint32_t id, uint32_t *index,
+				const struct spa_pod_object *filter,
+				struct spa_pod_builder *builder)
 {
 	struct proxy *this;
 	struct proxy_port *port;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(param != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(index != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(builder != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
 
@@ -531,20 +464,48 @@ spa_proxy_node_port_enum_params(struct spa_node *node,
 	port =
 	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
-	if (index >= port->n_params)
-		return SPA_RESULT_ENUM_END;
+	while (true) {
+		struct spa_pod_object *param;
 
-	*param = port->params[index];
+		if (*index >= port->n_params)
+			return SPA_RESULT_ENUM_END;
 
+		param = port->params[(*index)++];
+
+		if (param->body.id == id) {
+			spa_pod_builder_primitive(builder, &param->pod);
+			break;
+		}
+	}
 	return SPA_RESULT_OK;
 }
 
 static int
 spa_proxy_node_port_set_param(struct spa_node *node,
-			      enum spa_direction direction,
-			      uint32_t port_id, const struct spa_param *param)
+			      enum spa_direction direction, uint32_t port_id,
+			      uint32_t id, uint32_t flags,
+			      const struct spa_pod_object *param)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	struct proxy *this;
+
+	if (node == NULL)
+		return SPA_RESULT_INVALID_ARGUMENTS;
+
+	this = SPA_CONTAINER_OF(node, struct proxy, node);
+
+	if (!CHECK_PORT(this, direction, port_id))
+		return SPA_RESULT_INVALID_PORT;
+
+	if (this->resource == NULL)
+		return SPA_RESULT_OK;
+
+	pw_client_node_resource_port_set_param(this->resource,
+					       this->seq,
+					       direction, port_id,
+					       id, flags,
+					       param);
+
+	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
 
 static int
@@ -597,7 +558,7 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 	port =
 	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
-	if (!port->format)
+	if (!port->have_format)
 		return SPA_RESULT_NO_FORMAT;
 
 	clear_buffers(this, port);
@@ -633,12 +594,12 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 		mb[i].offset = 0;
 		mb[i].size = msh->size;
 
-		pw_client_node_resource_add_mem(this->resource,
-					        direction,
-					        port_id,
-					        mb[i].mem_id,
-					        t->data.MemFd,
-					        msh->fd, msh->flags, msh->offset, msh->size);
+		pw_client_node_resource_port_add_mem(this->resource,
+						     direction,
+						     port_id,
+						     mb[i].mem_id,
+						     t->data.MemFd,
+						     msh->fd, msh->flags, msh->offset, msh->size);
 
 		for (j = 0; j < buffers[i]->n_metas; j++) {
 			memcpy(&b->buffer.metas[j], &buffers[i]->metas[j], sizeof(struct spa_meta));
@@ -651,13 +612,13 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 
 			if (d->type == t->data.DmaBuf ||
 			    d->type == t->data.MemFd) {
-				pw_client_node_resource_add_mem(this->resource,
-							        direction,
-							        port_id,
-							        n_mem,
-							        d->type,
-							        d->fd,
-							        d->flags, d->mapoffset, d->maxsize);
+				pw_client_node_resource_port_add_mem(this->resource,
+								     direction,
+								     port_id,
+								     n_mem,
+								     d->type,
+								     d->fd,
+								     d->flags, d->mapoffset, d->maxsize);
 				b->buffer.datas[j].type = t->data.Id;
 				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(n_mem);
 				n_mem++;
@@ -672,8 +633,10 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 		}
 	}
 
-	pw_client_node_resource_use_buffers(this->resource,
-					    this->seq, direction, port_id, n_buffers, mb);
+	pw_client_node_resource_port_use_buffers(this->resource,
+						 this->seq,
+						 direction, port_id,
+						 n_buffers, mb);
 
 	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
@@ -682,7 +645,7 @@ static int
 spa_proxy_node_port_alloc_buffers(struct spa_node *node,
 				  enum spa_direction direction,
 				  uint32_t port_id,
-				  struct spa_param **params,
+				  struct spa_pod_object **params,
 				  uint32_t n_params,
 				  struct spa_buffer **buffers,
 				  uint32_t *n_buffers)
@@ -701,7 +664,7 @@ spa_proxy_node_port_alloc_buffers(struct spa_node *node,
 	port =
 	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
-	if (!port->format)
+	if (!port->have_format)
 		return SPA_RESULT_NO_FORMAT;
 
 	return SPA_RESULT_NOT_IMPLEMENTED;
@@ -874,7 +837,9 @@ static void
 client_node_update(void *data,
 		   uint32_t change_mask,
 		   uint32_t max_input_ports,
-		   uint32_t max_output_ports, const struct spa_props *props)
+		   uint32_t max_output_ports,
+		   uint32_t n_params,
+		   const struct spa_pod_object **params)
 {
 	struct impl *impl = data;
 	struct proxy *this = &impl->proxy;
@@ -883,7 +848,18 @@ client_node_update(void *data,
 		this->max_inputs = max_input_ports;
 	if (change_mask & PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS)
 		this->max_outputs = max_output_ports;
+	if (change_mask & PW_CLIENT_NODE_UPDATE_PARAMS) {
+		int i;
+		spa_log_info(this->log, "proxy %p: update %d params", this, n_params);
 
+		for (i = 0; i < this->n_params; i++)
+			free(this->params[i]);
+		this->n_params = n_params;
+		this->params = realloc(this->params, this->n_params * sizeof(struct spa_pod_object *));
+
+		for (i = 0; i < this->n_params; i++)
+			this->params[i] = spa_pod_object_copy(params[i]);
+	}
 	spa_log_info(this->log, "proxy %p: got node update max_in %u, max_out %u", this,
 		     this->max_inputs, this->max_outputs);
 }
@@ -893,11 +869,9 @@ client_node_port_update(void *data,
 			enum spa_direction direction,
 			uint32_t port_id,
 			uint32_t change_mask,
-			uint32_t n_possible_formats,
-			const struct spa_format **possible_formats,
-			const struct spa_format *format,
 			uint32_t n_params,
-			const struct spa_param **params, const struct spa_port_info *info)
+			const struct spa_pod_object **params,
+			const struct spa_port_info *info)
 {
 	struct impl *impl = data;
 	struct proxy *this = &impl->proxy;
@@ -916,8 +890,7 @@ client_node_port_update(void *data,
 			       direction,
 			       port_id,
 			       change_mask,
-			       n_possible_formats,
-			       possible_formats, format, n_params, params, info);
+			       n_params, params, info);
 	}
 }
 
@@ -979,17 +952,14 @@ static void proxy_on_data_fd_events(struct spa_source *source)
 static const struct spa_node proxy_node = {
 	SPA_VERSION_NODE,
 	NULL,
-	spa_proxy_node_get_props,
-	spa_proxy_node_set_props,
+	spa_proxy_node_enum_params,
+	spa_proxy_node_set_param,
 	spa_proxy_node_send_command,
 	spa_proxy_node_set_callbacks,
 	spa_proxy_node_get_n_ports,
 	spa_proxy_node_get_port_ids,
 	spa_proxy_node_add_port,
 	spa_proxy_node_remove_port,
-	spa_proxy_node_port_enum_formats,
-	spa_proxy_node_port_set_format,
-	spa_proxy_node_port_get_format,
 	spa_proxy_node_port_get_info,
 	spa_proxy_node_port_enum_params,
 	spa_proxy_node_port_set_param,

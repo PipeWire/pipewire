@@ -189,9 +189,9 @@ struct pw_stream_events {
 	void (*state_changed) (void *data, enum pw_stream_state old,
 				enum pw_stream_state state, const char *error);
 	/** when the format changed. The listener should call
-	 * pw_stream_finish_format() from within this callbaclk or later to complete
-	 * the format negotiation */
-	void (*format_changed) (void *data, struct spa_format *format);
+	 * pw_stream_finish_format() from within this callback or later to complete
+	 * the format negotiation and start the buffer negotiation. */
+	void (*format_changed) (void *data, struct spa_pod_object *format);
 
         /** when a new buffer was created for this stream */
         void (*add_buffer) (void *data, uint32_t id);
@@ -215,12 +215,6 @@ enum pw_stream_flags {
 	PW_STREAM_FLAG_CLOCK_UPDATE	= (1 << 1),	/**< request periodic clock updates for
 							  *  this stream */
 	PW_STREAM_FLAG_INACTIVE		= (1 << 2),	/**< start the stream inactive */
-};
-
-/** \enum pw_stream_mode The method for transfering data for a stream \memberof pw_stream */
-enum pw_stream_mode {
-	PW_STREAM_MODE_BUFFER = 0,	/**< data is placed in buffers */
-	PW_STREAM_MODE_RINGBUFFER = 1,	/**< a ringbuffer is used to exchange data */
 };
 
 /** A time structure \memberof pw_stream */
@@ -267,12 +261,13 @@ const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream);
 bool
 pw_stream_connect(struct pw_stream *stream,		/**< a \ref pw_stream */
 		  enum pw_direction direction,		/**< the stream direction */
-		  enum pw_stream_mode mode,		/**< a \ref pw_stream_mode */
 		  const char *port_path,		/**< the port path to connect to or NULL
 							  *  to let the server choose a port */
 		  enum pw_stream_flags flags,		/**< stream flags */
-		  uint32_t n_possible_formats,		/**< number of items in \a possible_formats */
-		  const struct spa_format **possible_formats	/**< an array with possible accepted formats */);
+		  uint32_t n_params,			/**< number of items in \a params */
+		  const struct spa_pod_object **params	/**< an array with params. The params
+							  *  should ideally contain supported
+							  *  formats. */);
 
 /** Get the node ID of the stream. \memberof pw_stream
  * \return node ID. */
@@ -291,8 +286,10 @@ void pw_stream_disconnect(struct pw_stream *stream);
 void
 pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 			int res,			/**< a result code */
-			struct spa_param **params,	/**< an array of pointers to \ref spa_param */
-			uint32_t n_params		/**< number of elements in \a params */);
+			uint32_t n_params,		/**< number of elements in \a params */
+			struct spa_pod_object **params	/**< an array of params. The params should
+							  *  ideally contain parameters for doing
+							  *  buffer allocation. */);
 
 /** Activate or deactivate the stream \memberof pw_stream */
 void pw_stream_set_active(struct pw_stream *stream, bool active);

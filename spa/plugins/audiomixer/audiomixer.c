@@ -114,7 +114,6 @@ struct impl {
 	struct port in_ports[MAX_PORTS];
 	struct port out_ports[1];
 
-	uint8_t format_buffer[4096];
 	bool have_format;
 	int n_formats;
 	struct spa_audio_info format;

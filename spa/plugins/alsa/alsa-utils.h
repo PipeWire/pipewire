@@ -132,7 +132,6 @@ struct state {
 
 	bool have_format;
 	struct spa_audio_info current_format;
-	uint8_t format_buffer[1024];
 
 	snd_pcm_uframes_t buffer_frames;
 	snd_pcm_uframes_t period_frames;
@@ -142,8 +141,6 @@ struct state {
 	size_t frame_size;
 
 	struct spa_port_info info;
-	uint32_t params[3];
-	uint8_t params_buffer[1024];
 	struct spa_port_io *io;
 
 	struct buffer buffers[MAX_BUFFERS];

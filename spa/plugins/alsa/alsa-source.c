@@ -254,17 +254,6 @@ static void recycle_buffer(struct state *this, uint32_t buffer_id)
 	spa_list_append(&this->free, &b->link);
 }
 
-static int port_enum_formats(struct spa_node *node,
-			     enum spa_direction direction,
-			     uint32_t port_id,
-			     uint32_t *index,
-			     const struct spa_pod_object *filter,
-			     struct spa_pod_builder *builder)
-{
-	struct state *this = SPA_CONTAINER_OF(node, struct state, node);
-	return spa_alsa_enum_format(this, index, filter, builder);
-}
-
 static int port_get_format(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t *index,
@@ -311,12 +300,15 @@ impl_node_port_enum_params(struct spa_node *node,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
 	if (id == t->param.idEnumFormat) {
-		return port_enum_formats(node, direction, port_id, index, filter, builder);
+		return spa_alsa_enum_format(this, index, filter, builder);
 	}
 	else if (id == t->param.idFormat) {
 		return port_get_format(node, direction, port_id, index, filter, builder);
 	}
 	else if (id == t->param.idBuffers) {
+		if (*index > 0)
+			return SPA_RESULT_ENUM_END;
+
 		spa_pod_builder_object(builder,
 			id, t->param_alloc_buffers.Buffers,
 			":", t->param_alloc_buffers.size,    "i", this->props.min_latency * this->frame_size,

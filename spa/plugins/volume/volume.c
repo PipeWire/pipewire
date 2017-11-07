@@ -51,7 +51,6 @@ struct port {
 	bool have_format;
 
 	struct spa_port_info info;
-	uint8_t params_buffer[1024];
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -112,7 +111,6 @@ struct impl {
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 
-	uint8_t format_buffer[1024];
 	struct spa_audio_info current_format;
 	int bpf;
 

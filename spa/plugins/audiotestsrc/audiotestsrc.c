@@ -122,7 +122,6 @@ struct impl {
 	struct spa_log *log;
 	struct spa_loop *data_loop;
 
-	uint8_t props_buffer[512];
 	struct props props;
 
 	const struct spa_node_callbacks *callbacks;
@@ -137,7 +136,6 @@ struct impl {
 
 	bool have_format;
 	struct spa_audio_info current_format;
-	uint8_t format_buffer[1024];
 	size_t bpf;
 	render_func_t render_func;
 	double accumulator;

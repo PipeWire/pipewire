@@ -683,7 +683,6 @@ spa_v4l2_enum_format(struct impl *this,
 	media_subtype = *SPA_MEMBER(&this->type, info->media_subtype_offset, uint32_t);
 	video_format = *SPA_MEMBER(&this->type, info->format_offset, uint32_t);
 
-	spa_pod_builder_init(builder, port->format_buffer, sizeof(port->format_buffer));
 	spa_pod_builder_push_object(builder, &f[0],
 			this->type.param.idEnumFormat, this->type.format);
 	spa_pod_builder_add(builder,

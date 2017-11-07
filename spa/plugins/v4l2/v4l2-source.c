@@ -121,7 +121,6 @@ struct port {
 
 	bool have_format;
 	struct spa_video_info current_format;
-	uint8_t format_buffer[1024];
 
 	int fd;
 	bool opened;
@@ -154,7 +153,6 @@ struct impl {
 
 	uint32_t seq;
 
-	uint8_t props_buffer[512];
 	struct props props;
 
 	const struct spa_node_callbacks *callbacks;
@@ -455,16 +453,6 @@ static int impl_node_port_get_info(struct spa_node *node,
 	return SPA_RESULT_OK;
 }
 
-static int port_enum_formats(struct spa_node *node,
-			     enum spa_direction direction, uint32_t port_id,
-			     uint32_t *index,
-			     const struct spa_pod_object *filter,
-			     struct spa_pod_builder *builder)
-{
-	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
-	return spa_v4l2_enum_format(this, index, filter, builder);
-}
-
 static int port_get_format(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t *index,
@@ -547,7 +535,7 @@ static int impl_node_port_enum_params(struct spa_node *node,
 			return SPA_RESULT_ENUM_END;
 	}
 	else if (id == t->param.idEnumFormat) {
-		return port_enum_formats(node, direction, port_id, index, filter, builder);
+		return spa_v4l2_enum_format(this, index, filter, builder);
 	}
 	else if (id == t->param.idFormat) {
 		return port_get_format(node, direction, port_id, index, filter, builder);

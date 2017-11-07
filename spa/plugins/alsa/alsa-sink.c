@@ -240,16 +240,6 @@ impl_node_port_get_info(struct spa_node *node,
 	return SPA_RESULT_OK;
 }
 
-static int port_enum_formats(struct spa_node *node,
-			     enum spa_direction direction, uint32_t port_id,
-			     uint32_t *index,
-			     const struct spa_pod_object *filter,
-			     struct spa_pod_builder *builder)
-{
-	struct state *this = SPA_CONTAINER_OF(node, struct state, node);
-	return spa_alsa_enum_format(this, index, filter, builder);
-}
-
 static int port_get_format(struct spa_node *node,
 			  enum spa_direction direction, uint32_t port_id,
 			  uint32_t *index,
@@ -262,7 +252,7 @@ static int port_get_format(struct spa_node *node,
 	if (!this->have_format)
 		return SPA_RESULT_NO_FORMAT;
 
-	if(*index > 0)
+	if (*index > 0)
 		return SPA_RESULT_ENUM_END;
 
 	spa_pod_builder_object(builder,
@@ -297,7 +287,7 @@ impl_node_port_enum_params(struct spa_node *node,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
 	if (id == t->param.idEnumFormat) {
-		return port_enum_formats(node, direction, port_id, index, filter, builder);
+		return spa_alsa_enum_format(this, index, filter, builder);
 	}
 	else if (id == t->param.idFormat) {
 		return port_get_format(node, direction, port_id, index, filter, builder);

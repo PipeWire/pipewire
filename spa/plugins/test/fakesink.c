@@ -114,8 +114,7 @@ struct impl {
 	struct spa_list ready;
 };
 
-#define CHECK_PORT_NUM(this,d,p)  ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS)
-#define CHECK_PORT(this,d,p)      (CHECK_PORT_NUM(this,d,p) && this->io)
+#define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS)
 
 #define DEFAULT_LIVE false
 
@@ -138,13 +137,26 @@ static int impl_node_enum_params(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	t = &this->type;
 
-	if (id == t->param.idProps) {
+	if (id == t->param.idList) {
+		if (*index > 0)
+			return SPA_RESULT_ENUM_END;
+
+		spa_pod_builder_object(builder,
+			id, t->param.List,
+			":", t->param.listId,   "I",  t->param.idProps);
+	}
+	else if (id == t->param.idProps) {
+		if (*index > 0)
+			return SPA_RESULT_ENUM_END;
+
 		spa_pod_builder_object(builder,
 			id, t->props,
 			":", t->prop_live, "b", this->props.live);
 	}
 	else
 		return SPA_RESULT_UNKNOWN_PARAM;
+
+	(*index)++;
 
 	return SPA_RESULT_OK;
 }
@@ -348,13 +360,13 @@ impl_node_get_n_ports(struct spa_node *node,
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	if (n_input_ports)
-		*n_input_ports = 0;
+		*n_input_ports = 1;
 	if (n_output_ports)
-		*n_output_ports = 1;
+		*n_output_ports = 0;
 	if (max_input_ports)
-		*max_input_ports = 0;
+		*max_input_ports = 1;
 	if (max_output_ports)
-		*max_output_ports = 1;
+		*max_output_ports = 0;
 
 	return SPA_RESULT_OK;
 }
@@ -368,8 +380,8 @@ impl_node_get_port_ids(struct spa_node *node,
 {
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-	if (n_output_ports > 0 && output_ids != NULL)
-		output_ids[0] = 0;
+	if (n_input_ports > 0 && input_ids != NULL)
+		input_ids[0] = 0;
 
 	return SPA_RESULT_OK;
 }
@@ -452,7 +464,19 @@ impl_node_port_enum_params(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-	if (id == t->param.idEnumFormat) {
+	if (id == t->param.idList) {
+		uint32_t list[] = { t->param.idEnumFormat,
+				    t->param.idFormat,
+				    t->param.idBuffers,
+				    t->param.idMeta };
+
+		if (*index < SPA_N_ELEMENTS(list))
+			spa_pod_builder_object(builder, id, t->param.List,
+				":", t->param.listId, "I", list[*index]);
+		else
+			return SPA_RESULT_ENUM_END;
+	}
+	else if (id == t->param.idEnumFormat) {
 		return port_enum_formats(node, direction, port_id, index, filter, builder);
 	}
 	else if (id == t->param.idFormat) {
@@ -621,7 +645,7 @@ impl_node_port_set_io(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	spa_return_val_if_fail(CHECK_PORT_NUM(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
 	this->io = io;
 

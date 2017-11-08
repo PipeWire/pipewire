@@ -166,27 +166,6 @@ struct impl {
 
 #include "v4l2-utils.c"
 
-static int get_props(struct impl *this, uint32_t *index,
-		     const struct spa_pod_object *filter,
-		     struct spa_pod_builder *builder)
-{
-	struct type *t = &this->type;
-
-	switch (*index) {
-	case 0:
-		spa_pod_builder_object(builder, t->param.idProps, t->props,
-		":", t->prop_device,      "S", this->props.device, sizeof(this->props.device),
-		":", t->prop_device_name, "S-r", this->props.device_name, sizeof(this->props.device_name),
-		":", t->prop_device_fd,   "i-r", this->props.device_fd);
-		break;
-	default:
-		return SPA_RESULT_ENUM_END;
-	}
-	(*index)++;
-
-	return SPA_RESULT_OK;
-}
-
 static int impl_node_enum_params(struct spa_node *node,
 				 uint32_t id, uint32_t *index,
 				 const struct spa_pod_object *filter,
@@ -202,10 +181,31 @@ static int impl_node_enum_params(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	t = &this->type;
 
-	if (id == t->param.idProps)
-		return get_props(this, index, filter, builder);
+	if (id == t->param.idList) {
+		if (*index > 0)
+			return SPA_RESULT_ENUM_END;
 
-	return SPA_RESULT_UNKNOWN_PARAM;
+		spa_pod_builder_object(builder,
+			id, t->param.List,
+			":", t->param.listId,   "I",  t->param.idProps);
+	}
+	else if (id == t->param.idProps) {
+		struct props *p = &this->props;
+
+		if (*index > 0)
+			return SPA_RESULT_ENUM_END;
+
+		spa_pod_builder_object(builder, t->param.idProps, t->props,
+		":", t->prop_device,      "S", p->device, sizeof(p->device),
+		":", t->prop_device_name, "S-r", p->device_name, sizeof(p->device_name),
+		":", t->prop_device_fd,   "i-r", p->device_fd);
+	}
+	else
+		return SPA_RESULT_UNKNOWN_PARAM;
+
+	(*index)++;
+
+	return SPA_RESULT_OK;
 }
 
 static int impl_node_set_param(struct spa_node *node,
@@ -221,12 +221,14 @@ static int impl_node_set_param(struct spa_node *node,
 	t = &this->type;
 
 	if (id == t->param.idProps) {
+		struct props *p = &this->props;
+
 		if (param == NULL) {
-			reset_props(&this->props);
+			reset_props(p);
 			return SPA_RESULT_OK;
 		}
 		spa_pod_object_parse(param,
-			":", t->prop_device, "?S", this->props.device, sizeof(this->props.device), NULL);
+			":", t->prop_device, "?S", p->device, sizeof(p->device), NULL);
 	}
 	else
 		return SPA_RESULT_UNKNOWN_PARAM;
@@ -466,7 +468,6 @@ static int port_get_format(struct spa_node *node,
 
 	if (!port->have_format)
 		return SPA_RESULT_NO_FORMAT;
-
 	if (*index > 0)
 		return SPA_RESULT_ENUM_END;
 
@@ -541,6 +542,8 @@ static int impl_node_port_enum_params(struct spa_node *node,
 		return port_get_format(node, direction, port_id, index, filter, builder);
 	}
 	else if (id == t->param.idBuffers) {
+		if (!port->have_format)
+			return SPA_RESULT_NO_FORMAT;
 		if (*index > 0)
 			return SPA_RESULT_ENUM_END;
 

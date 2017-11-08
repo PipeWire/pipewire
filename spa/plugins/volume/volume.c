@@ -123,6 +123,9 @@ struct impl {
 #define CHECK_IN_PORT(this,d,p)  ((d) == SPA_DIRECTION_INPUT && (p) == 0)
 #define CHECK_OUT_PORT(this,d,p) ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 #define CHECK_PORT(this,d,p)     ((p) == 0)
+#define GET_IN_PORT(this,p)	 (&this->in_ports[p])
+#define GET_OUT_PORT(this,p)	 (&this->out_ports[p])
+#define GET_PORT(this,d,p)	 (d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
 
 #define DEFAULT_VOLUME 1.0
 #define DEFAULT_MUTE false
@@ -148,14 +151,29 @@ static int impl_node_enum_params(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	t = &this->type;
 
-	if (id == t->param.idProps) {
+	if (id == t->param.idList) {
+		if (*index > 0)
+			return SPA_RESULT_ENUM_END;
+
+		spa_pod_builder_object(builder,
+			id, t->param.List,
+			":", t->param.listId,   "I",  t->param.idProps);
+	}
+	else if (id == t->param.idProps) {
+		struct props *p = &this->props;
+
+		if(*index > 0)
+			return SPA_RESULT_ENUM_END;
+
 		spa_pod_builder_object(builder,
 			id, t->props,
-			":", t->prop_volume, "dr", this->props.volume, 2, 0.0, 10.0,
-			":", t->prop_mute,   "b",  this->props.mute);
+			":", t->prop_volume, "dr", p->volume, 2, 0.0, 10.0,
+			":", t->prop_mute,   "b",  p->mute);
 	}
 	else
 		return SPA_RESULT_UNKNOWN_PARAM;
+
+	(*index)++;
 
 	return SPA_RESULT_OK;
 }
@@ -172,13 +190,15 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	t = &this->type;
 
 	if (id == t->param.idProps) {
+		struct props *p = &this->props;
+
 		if (param == NULL) {
-			reset_props(&this->props);
+			reset_props(p);
 			return SPA_RESULT_OK;
 		}
 		spa_pod_object_parse(param,
-			":", t->prop_volume, "?d", &this->props.volume,
-			":", t->prop_mute,   "?b", &this->props.mute, NULL);
+			":", t->prop_volume, "?d", &p->volume,
+			":", t->prop_mute,   "?b", &p->mute, NULL);
 	}
 	else
 		return SPA_RESULT_UNKNOWN_PARAM;
@@ -288,8 +308,7 @@ impl_node_port_get_info(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+	port = GET_PORT(this, direction, port_id);
 	*info = &port->info;
 
 	return SPA_RESULT_OK;
@@ -344,12 +363,10 @@ static int port_get_format(struct spa_node *node,
 	struct port *port;
 	struct type *t = &this->type;
 
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+	port = GET_PORT(this, direction, port_id);
 
 	if (!port->have_format)
 		return SPA_RESULT_NO_FORMAT;
-
 	if (*index > 0)
 		return SPA_RESULT_ENUM_END;
 
@@ -373,6 +390,7 @@ impl_node_port_enum_params(struct spa_node *node,
 {
 	struct impl *this;
 	struct type *t;
+	struct port *port;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(index != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -383,13 +401,32 @@ impl_node_port_enum_params(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-	if (id == t->param.idEnumFormat) {
+	port = GET_PORT(this, direction, port_id);
+
+	if (id == t->param.idList) {
+		uint32_t list[] = { t->param.idEnumFormat,
+				    t->param.idFormat,
+				    t->param.idBuffers,
+				    t->param.idMeta };
+
+		if (*index < SPA_N_ELEMENTS(list))
+			spa_pod_builder_object(builder, id, t->param.List,
+				":", t->param.listId, "I", list[*index]);
+		else
+			return SPA_RESULT_ENUM_END;
+	}
+	else if (id == t->param.idEnumFormat) {
 		return port_enum_formats(node, direction, port_id, index, filter, builder);
 	}
 	else if (id == t->param.idFormat) {
 		return port_get_format(node, direction, port_id, index, filter, builder);
 	}
 	else if (id == t->param.idBuffers) {
+		if (!port->have_format)
+			return SPA_RESULT_NO_FORMAT;
+		if (*index > 0)
+			return SPA_RESULT_ENUM_END;
+
 		spa_pod_builder_object(builder,
 			id, t->param_alloc_buffers.Buffers,
 			":", t->param_alloc_buffers.size,    "iru", 1024 * this->bpf,
@@ -438,8 +475,7 @@ static int port_set_format(struct spa_node *node,
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct port *port;
 
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+	port = GET_PORT(this, direction, port_id);
 
 	if (format == NULL) {
 		port->have_format = false;
@@ -506,8 +542,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+	port = GET_PORT(this, direction, port_id);
 
 	if (!port->have_format)
 		return SPA_RESULT_NO_FORMAT;
@@ -568,8 +603,7 @@ impl_node_port_set_io(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+	port = GET_PORT(this, direction, port_id);
 	port->io = io;
 
 	return SPA_RESULT_OK;
@@ -577,7 +611,7 @@ impl_node_port_set_io(struct spa_node *node,
 
 static void recycle_buffer(struct impl *this, uint32_t id)
 {
-	struct port *port = &this->out_ports[0];
+	struct port *port = GET_OUT_PORT(this, 0);
 	struct buffer *b = &port->buffers[id];
 
 	if (!b->outstanding) {
@@ -602,7 +636,7 @@ static int impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, 
 	spa_return_val_if_fail(CHECK_PORT(this, SPA_DIRECTION_OUTPUT, port_id),
 			       SPA_RESULT_INVALID_PORT);
 
-	port = &this->out_ports[port_id];
+	port = GET_OUT_PORT(this, port_id);
 
 	if (port->n_buffers == 0)
 		return SPA_RESULT_NO_BUFFERS;
@@ -695,14 +729,14 @@ static int impl_node_process_input(struct spa_node *node)
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	out_port = &this->out_ports[0];
+	out_port = GET_OUT_PORT(this, 0);
 	output = out_port->io;
 	spa_return_val_if_fail(output != NULL, SPA_RESULT_ERROR);
 
 	if (output->status == SPA_RESULT_HAVE_BUFFER)
 		return SPA_RESULT_HAVE_BUFFER;
 
-	in_port = &this->in_ports[0];
+	in_port = GET_IN_PORT(this, 0);
 	input = in_port->io;
 	spa_return_val_if_fail(input != NULL, SPA_RESULT_ERROR);
 
@@ -737,7 +771,7 @@ static int impl_node_process_output(struct spa_node *node)
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	out_port = &this->out_ports[0];
+	out_port = GET_OUT_PORT(this, 0);
 	output = out_port->io;
 	spa_return_val_if_fail(output != NULL, SPA_RESULT_ERROR);
 
@@ -750,7 +784,7 @@ static int impl_node_process_output(struct spa_node *node)
 		output->buffer_id = SPA_ID_INVALID;
 	}
 
-	in_port = &this->in_ports[0];
+	in_port = GET_IN_PORT(this, 0);
 	input = in_port->io;
 	spa_return_val_if_fail(input != NULL, SPA_RESULT_ERROR);
 

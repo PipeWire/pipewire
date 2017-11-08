@@ -136,7 +136,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	if ((res = pw_core_find_format(this->core, output, input, NULL, 0, NULL, &b, &error)) < 0)
 		goto error;
 
-	format = spa_pod_object_copy(SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object));
+	format = spa_pod_object_copy(spa_pod_builder_deref(&b, 0));
 	spa_pod_object_fixate(format);
 
 	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE) {
@@ -147,7 +147,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			asprintf(&error, "error get output format: %d", res);
 			goto error;
 		}
-		current = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+		current = spa_pod_builder_deref(&b, 0);
 		if (spa_pod_object_compare(current, format) < 0) {
 			pw_log_debug("link %p: output format change, renegotiate", this);
 			pw_node_set_state(output->node, PW_NODE_STATE_SUSPENDED);
@@ -166,7 +166,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			asprintf(&error, "error get input format: %d", res);
 			goto error;
 		}
-		current = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+		current = spa_pod_builder_deref(&b, 0);
 		if (spa_pod_object_compare(current, format) < 0) {
 			pw_log_debug("link %p: input format change, renegotiate", this);
 			pw_node_set_state(input->node, PW_NODE_STATE_SUSPENDED);
@@ -410,10 +410,9 @@ param_filter(struct pw_link *this,
 		if (spa_node_port_enum_params(in_port->node->node, in_port->direction, in_port->port_id,
 					      id, &iidx, NULL, &ib) < 0)
 			break;
-		iparam = SPA_POD_BUILDER_DEREF(&ib, 0, struct spa_pod_object);
+		iparam = spa_pod_builder_deref(&ib, 0);
 
 		for (oidx = 0;;) {
-			struct spa_pod_frame f;
 			uint32_t offset;
 
 			spa_pod_builder_init(&ob, obuf, sizeof(obuf));
@@ -421,7 +420,7 @@ param_filter(struct pw_link *this,
 						      out_port->port_id, id, &oidx,
 						      NULL, &ob) < 0)
 				break;
-			oparam = SPA_POD_BUILDER_DEREF(&ob, 0, struct spa_pod_object);
+			oparam = spa_pod_builder_deref(&ob, 0);
 
 			if (iidx == 1 && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 				spa_debug_pod(&oparam->pod, 0);
@@ -430,17 +429,17 @@ param_filter(struct pw_link *this,
 				continue;
 
 			offset = result->offset;
-			spa_pod_builder_push_object(result, &f, id, iparam->body.type);
+			spa_pod_builder_push_object(result, id, iparam->body.type);
 			if ((res = spa_props_filter(result,
 						    SPA_POD_CONTENTS(struct spa_pod_object, iparam),
 						    SPA_POD_CONTENTS_SIZE(struct spa_pod_object, iparam),
 						    SPA_POD_CONTENTS(struct spa_pod_object, oparam),
 						    SPA_POD_CONTENTS_SIZE(struct spa_pod_object, oparam))) < 0) {
 				result->offset = offset;
-				result->stack = NULL;
+				result->depth = 0;
 				continue;
 			}
-			spa_pod_builder_pop(result, &f);
+			spa_pod_builder_pop(result);
 			num++;
 		}
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))

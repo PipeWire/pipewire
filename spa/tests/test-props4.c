@@ -64,11 +64,11 @@
 */
 #endif
 
-#define SPA_POD_MAX_LEVEL	16
+#define SPA_POD_MAX_DEPTH	16
 
 struct spa_pod_maker {
 	struct spa_pod_builder b;
-	struct spa_pod_frame frame[SPA_POD_MAX_LEVEL];
+	struct spa_pod_frame frame[SPA_POD_MAX_DEPTH];
 	int depth;
 };
 
@@ -392,7 +392,7 @@ static inline int
 spa_pod_match(struct spa_pod *pod,
 	      const char *templ, ...)
 {
-	struct spa_pod_iter it[SPA_POD_MAX_LEVEL];
+	struct spa_pod_iter it[SPA_POD_MAX_DEPTH];
 	int depth = 0, collected = 0;
 	va_list args;
 	const char *start;

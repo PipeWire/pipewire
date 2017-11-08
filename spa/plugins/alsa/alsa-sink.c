@@ -402,9 +402,10 @@ static int port_set_format(struct spa_node *node,
 	} else {
 		struct spa_audio_info info = { 0 };
 
-		spa_pod_object_parse(format,
+		if ((err = spa_pod_object_parse(format,
 			"I", &info.media_type,
-			"I", &info.media_subtype);
+			"I", &info.media_subtype)) < 0)
+			return err;
 
 		if (info.media_type != this->type.media_type.audio ||
 		    info.media_subtype != this->type.media_subtype.raw)

@@ -27,13 +27,9 @@ extern "C" {
 #include <stdarg.h>
 #include <spa/pod-iter.h>
 
-#ifndef SPA_POD_MAX_LEVEL
-#define SPA_POD_MAX_LEVEL       16
-#endif
-
 struct spa_pod_parser {
-	struct spa_pod_iter iter[SPA_POD_MAX_LEVEL];
 	int depth;
+	struct spa_pod_iter iter[SPA_POD_MAX_DEPTH];
 };
 
 static inline void spa_pod_parser_init(struct spa_pod_parser *parser,
@@ -210,13 +206,19 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 		case '<':
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_POD_TYPE_OBJECT)
 				return SPA_RESULT_ERROR;
-			it = &parser->iter[++parser->depth];
+			if (++parser->depth >= SPA_POD_MAX_DEPTH)
+				return SPA_RESULT_INVALID_ARGUMENTS;
+
+			it = &parser->iter[parser->depth];
 			spa_pod_iter_init(it, pod, SPA_POD_SIZE(pod), sizeof(struct spa_pod_object));
 			goto read_pod;
 		case '[':
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_POD_TYPE_STRUCT)
 				return SPA_RESULT_ERROR;
-			it = &parser->iter[++parser->depth];
+			if (++parser->depth >= SPA_POD_MAX_DEPTH)
+				return SPA_RESULT_INVALID_ARGUMENTS;
+
+			it = &parser->iter[parser->depth];
 			spa_pod_iter_init(it, pod, SPA_POD_SIZE(pod), sizeof(struct spa_pod_struct));
 			goto read_pod;
 		case ']': case '>':

@@ -1327,7 +1327,7 @@ static bool on_global(void *data, struct pw_global *global)
 
 	if (spa_node_enum_params(node->node, SPA_ID_INVALID, &index, NULL, &b) == SPA_RESULT_OK) {
 		int min_latency = -1;
-		struct spa_pod_object *props = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+		struct spa_pod_object *props = spa_pod_builder_deref(&b, 0);
 
 		spa_pod_object_parse(props,
 			":", impl->prop_min_latency, "?i", &min_latency, NULL);

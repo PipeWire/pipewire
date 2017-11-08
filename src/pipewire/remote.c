@@ -658,7 +658,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 						      data->t->param.idList, &idx1,
 						      NULL, &b) < 0)
                                 break;
-			param = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+			param = spa_pod_builder_deref(&b, 0);
 
 			spa_pod_object_parse(param,
 				":", data->t->param.listId, "I", &id, NULL);
@@ -670,7 +670,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 							      id, &idx2,
 							      NULL, &b) < 0)
 	                                break;
-				param = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+				param = spa_pod_builder_deref(&b, 0);
 
 	                        params = realloc(params, sizeof(struct spa_pod_object *) * (n_params + 1));
 	                        params[n_params] = spa_pod_object_copy(param);

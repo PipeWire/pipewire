@@ -138,19 +138,34 @@ spa_props_filter(struct spa_pod_builder *b,
 		 uint32_t filter_size)
 {
 	int j, k;
-	const struct spa_pod *pr;
+	const struct spa_pod *pp, *pf;
 
-	SPA_POD_FOREACH(props, props_size, pr) {
-		struct spa_pod_frame f;
+	pf = filter;
+
+	SPA_POD_FOREACH(props, props_size, pp) {
 		struct spa_pod_prop *p1, *p2, *np;
 		int nalt1, nalt2;
 		void *alt1, *alt2, *a1, *a2;
 		uint32_t rt1, rt2;
 
-		if (pr->type != SPA_POD_TYPE_PROP)
-			continue;
+		if (pp->type != SPA_POD_TYPE_PROP) {
+			if (pf != NULL) {
+				if (SPA_POD_SIZE(pp) != SPA_POD_SIZE(pf))
+					return SPA_RESULT_INCOMPATIBLE_PROPS;
 
-		p1 = (struct spa_pod_prop *) pr;
+				if (memcmp(pf, pp, SPA_POD_SIZE(pp)) != 0)
+					return SPA_RESULT_INCOMPATIBLE_PROPS;
+
+				if (spa_pod_has_next(filter, filter_size, pf))
+					pf = spa_pod_next(pf);
+				else
+					pf = NULL;
+			}
+			spa_pod_builder_raw_padded(b, pp, SPA_POD_SIZE(pp));
+			continue;
+		}
+
+		p1 = (struct spa_pod_prop *) pp;
 
 		if (filter == NULL || (p2 = find_prop(filter, filter_size, p1->body.key)) == NULL) {
 			/* no filter, copy the complete property */
@@ -166,8 +181,8 @@ spa_props_filter(struct spa_pod_builder *b,
 		rt2 = p2->body.flags & SPA_POD_PROP_RANGE_MASK;
 
 		/* else we filter. start with copying the property */
-		spa_pod_builder_push_prop(b, &f, p1->body.key, 0),
-		    np = SPA_POD_BUILDER_DEREF(b, f.ref, struct spa_pod_prop);
+		np = spa_pod_builder_deref(b,
+				spa_pod_builder_push_prop(b, p1->body.key, 0));
 
 		/* default value */
 		spa_pod_builder_raw(b, &p1->body.value,
@@ -306,7 +321,7 @@ spa_props_filter(struct spa_pod_builder *b,
 		if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_FLAGS)
 			return SPA_RESULT_NOT_IMPLEMENTED;
 
-		spa_pod_builder_pop(b, &f);
+		spa_pod_builder_pop(b);
 		fix_default(np);
 	}
 	return SPA_RESULT_OK;
@@ -346,5 +361,4 @@ int spa_props_compare(const struct spa_pod *props1,
 			return SPA_RESULT_INCOMPATIBLE_PROPS;
 	}
 	return SPA_RESULT_OK;
-
 }

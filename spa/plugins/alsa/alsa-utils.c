@@ -128,25 +128,24 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	unsigned int min, max;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	struct spa_pod_frame f[2];
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *fmt;
 	int res;
 	bool opened;
 
-	if (*index > 0)
-		return SPA_RESULT_ENUM_END;
-
 	opened = state->opened;
 	if ((err = spa_alsa_open(state)) < 0)
 		return err;
+
+      next:
+	if (*index > 0)
+		return SPA_RESULT_ENUM_END;
 
 	hndl = state->hndl;
 	snd_pcm_hw_params_alloca(&params);
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
 
-	spa_pod_builder_push_object(&b, &f[0],
-				    state->type.param.idEnumFormat, state->type.format);
+	spa_pod_builder_push_object(&b, state->type.param.idEnumFormat, state->type.format);
 	spa_pod_builder_add(&b,
 			"I", state->type.media_type.audio,
 			"I", state->type.media_subtype.raw, 0);
@@ -154,8 +153,8 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	snd_pcm_format_mask_alloca(&fmask);
 	snd_pcm_hw_params_get_format_mask(params, fmask);
 
-	spa_pod_builder_push_prop(&b, &f[1], state->type.format_audio.format, SPA_POD_PROP_RANGE_NONE);
-	prop = SPA_POD_BUILDER_DEREF(&b, f[1].ref, struct spa_pod_prop);
+	prop = spa_pod_builder_deref(&b,
+		spa_pod_builder_push_prop(&b, state->type.format_audio.format, SPA_POD_PROP_RANGE_NONE));
 
 	for (i = 1, j = 0; i < SPA_N_ELEMENTS(format_info); i++) {
 		const struct format_info *fi = &format_info[i];
@@ -169,13 +168,13 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	}
 	if (j > 1)
 		prop->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
-	spa_pod_builder_pop(&b, &f[1]);
+	spa_pod_builder_pop(&b);
 
 	CHECK(snd_pcm_hw_params_get_rate_min(params, &min, &dir), "get_rate_min");
 	CHECK(snd_pcm_hw_params_get_rate_max(params, &max, &dir), "get_rate_max");
 
-	spa_pod_builder_push_prop(&b, &f[1], state->type.format_audio.rate, SPA_POD_PROP_RANGE_NONE);
-	prop = SPA_POD_BUILDER_DEREF(&b, f[1].ref, struct spa_pod_prop);
+	prop = spa_pod_builder_deref(&b,
+		spa_pod_builder_push_prop(&b, state->type.format_audio.rate, SPA_POD_PROP_RANGE_NONE));
 
 	spa_pod_builder_int(&b, SPA_CLAMP(44100, min, max));
 	if (min != max) {
@@ -183,13 +182,13 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 		spa_pod_builder_int(&b, max);
 		prop->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET;
 	}
-	spa_pod_builder_pop(&b, &f[1]);
+	spa_pod_builder_pop(&b);
 
 	CHECK(snd_pcm_hw_params_get_channels_min(params, &min), "get_channels_min");
 	CHECK(snd_pcm_hw_params_get_channels_max(params, &max), "get_channels_max");
 
-	spa_pod_builder_push_prop(&b, &f[1], state->type.format_audio.channels, SPA_POD_PROP_RANGE_NONE);
-	prop = SPA_POD_BUILDER_DEREF(&b, f[1].ref, struct spa_pod_prop);
+	prop = spa_pod_builder_deref(&b,
+		spa_pod_builder_push_prop(&b, state->type.format_audio.channels, SPA_POD_PROP_RANGE_NONE));
 
 	spa_pod_builder_int(&b, SPA_CLAMP(2, min, max));
 	if (min != max) {
@@ -197,15 +196,14 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 		spa_pod_builder_int(&b, max);
 		prop->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET;
 	}
-	spa_pod_builder_pop(&b, &f[1]);
-	spa_pod_builder_pop(&b, &f[0]);
+	spa_pod_builder_pop(&b);
 
-	fmt = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_pod_object);
+	fmt = spa_pod_builder_pop_deref(&b);
 
 	(*index)++;
 
 	if ((res = spa_pod_object_filter(fmt, filter, builder)) < 0)
-		return res;
+		goto next;
 
 	if (!opened)
 		spa_alsa_close(state);

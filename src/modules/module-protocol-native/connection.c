@@ -378,7 +378,7 @@ pw_protocol_native_connection_begin_resource(struct pw_protocol_native_connectio
 
 	impl->dest_id = resource->id;
 	impl->opcode = opcode;
-	impl->builder = (struct spa_pod_builder) { NULL, 0, 0, NULL, write_pod };
+	impl->builder = (struct spa_pod_builder) { NULL, 0, 0, write_pod };
 
 	return &impl->builder;
 }
@@ -407,7 +407,7 @@ pw_protocol_native_connection_begin_proxy(struct pw_protocol_native_connection *
 
 	impl->dest_id = proxy->id;
 	impl->opcode = opcode;
-	impl->builder = (struct spa_pod_builder) { NULL, 0, 0, NULL, write_pod };
+	impl->builder = (struct spa_pod_builder) { NULL, 0, 0, write_pod };
 
 	return &impl->builder;
 }

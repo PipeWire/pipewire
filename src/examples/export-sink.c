@@ -242,7 +242,6 @@ static int port_enum_formats(struct spa_node *node,
 			     struct spa_pod_builder *builder)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	struct spa_pod_frame f[2];
 	SDL_RendererInfo info;
 	int i, c;
 
@@ -251,12 +250,12 @@ static int port_enum_formats(struct spa_node *node,
 
 	SDL_GetRendererInfo(d->renderer, &info);
 
-	spa_pod_builder_push_object(builder, &f[0],
+	spa_pod_builder_push_object(builder,
 				    d->t->param.idEnumFormat, d->type.format);
 	spa_pod_builder_id(builder, d->type.media_type.video);
 	spa_pod_builder_id(builder, d->type.media_subtype.raw);
 
-	spa_pod_builder_push_prop(builder, &f[1], d->type.format_video.format,
+	spa_pod_builder_push_prop(builder, d->type.format_video.format,
 				  SPA_POD_PROP_FLAG_UNSET |
 				  SPA_POD_PROP_RANGE_ENUM);
 	for (i = 0, c = 0; i < info.num_texture_formats; i++) {
@@ -274,7 +273,7 @@ static int port_enum_formats(struct spa_node *node,
 		if (id != d->type.video_format.UNKNOWN)
 			spa_pod_builder_id(builder, id);
 	}
-	spa_pod_builder_pop(builder, &f[1]);
+	spa_pod_builder_pop(builder);
 	spa_pod_builder_add(builder,
 		":", d->type.format_video.size,      "Rru", &SPA_RECTANGLE(WIDTH, HEIGHT),
 								2, &SPA_RECTANGLE(1,1),
@@ -284,7 +283,7 @@ static int port_enum_formats(struct spa_node *node,
 								2, &SPA_FRACTION(0,1),
 								   &SPA_FRACTION(30,1),
 		NULL);
-	spa_pod_builder_pop(builder, &f[0]);
+	spa_pod_builder_pop(builder);
 
 	(*index)++;
 

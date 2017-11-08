@@ -231,13 +231,12 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   struct spa_pod_object *port_params[3];
   struct spa_pod_builder b = { NULL };
   uint8_t buffer[1024];
-  struct spa_pod_frame f[1];
 
   config = gst_buffer_pool_get_config (GST_BUFFER_POOL (pool));
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_push_object (&b, &f[0], t->param.idBuffers, t->param_alloc_buffers.Buffers);
+  spa_pod_builder_push_object (&b, t->param.idBuffers, t->param_alloc_buffers.Buffers);
   if (size == 0)
     spa_pod_builder_add (&b,
         ":", t->param_alloc_buffers.size, "iru", 0, SPA_PROP_RANGE(0, INT32_MAX), NULL);
@@ -252,8 +251,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 							       max_buffers ? max_buffers : INT32_MAX),
       ":", t->param_alloc_buffers.align,   "i", 16,
       NULL);
-  spa_pod_builder_pop (&b, &f[0]);
-  port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_pod_object);
+  port_params[0] = spa_pod_builder_pop_deref (&b);
 
   port_params[1] = spa_pod_builder_object (&b,
       t->param.idMeta, t->param_alloc_meta_enable.MetaEnable,

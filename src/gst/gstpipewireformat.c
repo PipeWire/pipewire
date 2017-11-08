@@ -372,9 +372,9 @@ get_range_type2 (const GValue *v1, const GValue *v2)
 static gboolean
 handle_video_fields (ConvertData *d)
 {
-  struct spa_pod_frame f;
   const GValue *value, *value2;
   int i;
+  struct spa_pod_prop *prop;
 
   value = gst_structure_get_value (d->cs, "format");
   if (value) {
@@ -382,7 +382,7 @@ handle_video_fields (ConvertData *d)
     int idx;
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0)
-        spa_pod_builder_push_prop (&d->b, &f,
+        spa_pod_builder_push_prop (&d->b,
                                    type.format_video.format,
                                    get_range_type (value));
 
@@ -390,9 +390,9 @@ handle_video_fields (ConvertData *d)
       if (idx < SPA_N_ELEMENTS (video_format_map))
         spa_pod_builder_id (&d->b, *video_format_map[idx]);
     }
+    prop = spa_pod_builder_pop_deref(&d->b);
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
-    spa_pod_builder_pop (&d->b, &f);
+      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
   value = gst_structure_get_value (d->cs, "width");
   value2 = gst_structure_get_value (d->cs, "height");
@@ -400,15 +400,15 @@ handle_video_fields (ConvertData *d)
     struct spa_rectangle v;
     for (i = 0; get_nth_rectangle (value, value2, i, &v); i++) {
       if (i == 0)
-        spa_pod_builder_push_prop (&d->b, &f,
+        spa_pod_builder_push_prop (&d->b,
                                    type.format_video.size,
                                    get_range_type2 (value, value2));
 
       spa_pod_builder_rectangle (&d->b, v.width, v.height);
     }
+    prop = spa_pod_builder_pop_deref(&d->b);
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
-    spa_pod_builder_pop (&d->b, &f);
+      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
 
   value = gst_structure_get_value (d->cs, "framerate");
@@ -416,15 +416,15 @@ handle_video_fields (ConvertData *d)
     struct spa_fraction v;
     for (i = 0; get_nth_fraction (value, i, &v); i++) {
       if (i == 0)
-        spa_pod_builder_push_prop (&d->b, &f,
+        spa_pod_builder_push_prop (&d->b,
                                    type.format_video.framerate,
                                    get_range_type (value));
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
     }
+    prop = spa_pod_builder_pop_deref(&d->b);
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
-    spa_pod_builder_pop (&d->b, &f);
+      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
 
   value = gst_structure_get_value (d->cs, "max-framerate");
@@ -432,15 +432,15 @@ handle_video_fields (ConvertData *d)
     struct spa_fraction v;
     for (i = 0; get_nth_fraction (value, i, &v); i++) {
       if (i == 0)
-        spa_pod_builder_push_prop (&d->b, &f,
+        spa_pod_builder_push_prop (&d->b,
                                    type.format_video.max_framerate,
                                    get_range_type (value));
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
     }
+    prop = spa_pod_builder_pop_deref(&d->b);
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
-    spa_pod_builder_pop (&d->b, &f);
+      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
   return TRUE;
 }
@@ -448,8 +448,8 @@ handle_video_fields (ConvertData *d)
 static gboolean
 handle_audio_fields (ConvertData *d)
 {
-  struct spa_pod_frame f;
   const GValue *value;
+  struct spa_pod_prop *prop;
   int i = 0;
 
   value = gst_structure_get_value (d->cs, "format");
@@ -458,7 +458,7 @@ handle_audio_fields (ConvertData *d)
     int idx;
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0)
-        spa_pod_builder_push_prop (&d->b, &f,
+        spa_pod_builder_push_prop (&d->b,
                                    type.format_audio.format,
                                    get_range_type (value));
 
@@ -466,9 +466,9 @@ handle_audio_fields (ConvertData *d)
       if (idx < SPA_N_ELEMENTS (audio_format_map))
         spa_pod_builder_id (&d->b, *audio_format_map[idx]);
     }
+    prop = spa_pod_builder_pop_deref(&d->b);
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
-    spa_pod_builder_pop (&d->b, &f);
+      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
 
   value = gst_structure_get_value (d->cs, "layout");
@@ -485,45 +485,45 @@ handle_audio_fields (ConvertData *d)
         break;
 
       if (i == 0)
-        spa_pod_builder_push_prop (&d->b, &f,
+        spa_pod_builder_push_prop (&d->b,
                                    type.format_audio.layout,
                                    get_range_type (value));
 
       spa_pod_builder_int (&d->b, layout);
     }
+    prop = spa_pod_builder_pop_deref(&d->b);
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
-    spa_pod_builder_pop (&d->b, &f);
+      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
   value = gst_structure_get_value (d->cs, "rate");
   if (value) {
     int v;
     for (i = 0; get_nth_int (value, i, &v); i++) {
       if (i == 0)
-        spa_pod_builder_push_prop (&d->b, &f,
+        spa_pod_builder_push_prop (&d->b,
                                    type.format_audio.rate,
                                    get_range_type (value));
 
       spa_pod_builder_int (&d->b, v);
     }
+    prop = spa_pod_builder_pop_deref(&d->b);
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
-    spa_pod_builder_pop (&d->b, &f);
+      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
   value = gst_structure_get_value (d->cs, "channels");
   if (value) {
     int v;
     for (i = 0; get_nth_int (value, i, &v); i++) {
       if (i == 0)
-        spa_pod_builder_push_prop (&d->b, &f,
+        spa_pod_builder_push_prop (&d->b,
                                    type.format_audio.channels,
                                    get_range_type (value));
 
       spa_pod_builder_int (&d->b, v);
     }
+    prop = spa_pod_builder_pop_deref(&d->b);
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
-    spa_pod_builder_pop (&d->b, &f);
+      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
   return TRUE;
 }
@@ -546,7 +546,6 @@ static struct spa_pod_object *
 convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 {
   ConvertData d;
-  struct spa_pod_frame f;
 
   spa_zero (d);
   d.cf = cf;
@@ -557,7 +556,7 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 
   d.b.write = write_pod;
 
-  spa_pod_builder_push_object (&d.b, &f, 0, type.format);
+  spa_pod_builder_push_object (&d.b, 0, type.format);
   spa_pod_builder_id(&d.b, *d.type->media_type);
   spa_pod_builder_id(&d.b, *d.type->media_subtype);
 
@@ -566,7 +565,7 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
   else if (*d.type->media_type == type.media_type.audio)
     handle_audio_fields (&d);
 
-  spa_pod_builder_pop (&d.b, &f);
+  spa_pod_builder_pop (&d.b);
 
   return SPA_MEMBER (d.b.data, 0, struct spa_pod_object);
 }

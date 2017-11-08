@@ -417,7 +417,7 @@ static int negotiate_formats(struct data *data)
 	if ((res = spa_node_port_set_param(data->source,
 					   SPA_DIRECTION_OUTPUT, 0,
 					   data->type.param.idFormat, 0,
-					   (struct spa_pod_object*)format)) < 0)
+					   format)) < 0)
 		return res;
 
 	if ((res = spa_node_port_get_info(data->source, SPA_DIRECTION_OUTPUT, 0, &info)) < 0)

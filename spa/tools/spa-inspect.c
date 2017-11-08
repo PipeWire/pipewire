@@ -71,7 +71,7 @@ inspect_node_params(struct data *data, struct spa_node *node)
 				printf("enum_params error %d\n", res);
 			break;
 		}
-		param = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+		param = spa_pod_builder_deref(&b, 0);
 
 		spa_pod_object_parse(param,
 				":", data->type.param.listId, "I", &id,
@@ -89,7 +89,7 @@ inspect_node_params(struct data *data, struct spa_node *node)
 					printf("enum_params %id error %d\n", id, res);
 				break;
 			}
-			param = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+			param = spa_pod_builder_deref(&b, 0);
 			spa_debug_pod(&param->pod, flags);
 		}
 	}
@@ -117,7 +117,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 				printf("port_enum_params error %d\n", res);
 			break;
 		}
-		param = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+		param = spa_pod_builder_deref(&b, 0);
 		spa_pod_object_parse(param,
 				":", data->type.param.listId, "I", &id,
 				NULL);
@@ -135,7 +135,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 					printf("port_enum_params error %d\n", res);
 				break;
 			}
-			param = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+			param = spa_pod_builder_deref(&b, 0);
 			if (param->body.type == data->type.format)
 				flags |= SPA_DEBUG_FLAG_FORMAT;
 			spa_debug_pod(&param->pod, flags);

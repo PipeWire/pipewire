@@ -46,6 +46,15 @@ static inline bool spa_pod_is_object_type(struct spa_pod *pod, uint32_t type)
 	return (pod->type == SPA_POD_TYPE_OBJECT
 		&& ((struct spa_pod_object *) pod)->body.type == type);
 }
+static inline bool spa_pod_has_next(const void *pod, uint32_t size, const struct spa_pod *iter)
+{
+	return iter < SPA_MEMBER(pod, size, struct spa_pod);
+}
+
+static inline struct spa_pod *spa_pod_next(const struct spa_pod *iter)
+{
+	return SPA_MEMBER(iter, SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), struct spa_pod);
+}
 
 #define SPA_POD_ARRAY_BODY_FOREACH(body, _size, iter)							\
 	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_array_body), __typeof__(*(iter)));	\
@@ -54,16 +63,16 @@ static inline bool spa_pod_is_object_type(struct spa_pod *pod, uint32_t type)
 
 #define SPA_POD_FOREACH(pod, size, iter)								\
 	for ((iter) = (pod);										\
-	     (iter) < SPA_MEMBER((pod), (size), struct spa_pod);					\
-	     (iter) = SPA_MEMBER((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), struct spa_pod))
+	     spa_pod_has_next(pod, size, iter);								\
+	     (iter) = spa_pod_next(iter))
 
 #define SPA_POD_CONTENTS_FOREACH(pod, offset, iter)						\
 	SPA_POD_FOREACH(SPA_MEMBER((pod), (offset), struct spa_pod),SPA_POD_SIZE (pod)-(offset),iter)
 
 #define SPA_POD_OBJECT_BODY_FOREACH(body, size, iter)						\
 	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_object_body), struct spa_pod);	\
-	     (iter) < SPA_MEMBER((body), (size), struct spa_pod);				\
-	     (iter) = SPA_MEMBER((iter), SPA_ROUND_UP_N(SPA_POD_SIZE (iter), 8), struct spa_pod))
+	     spa_pod_has_next(body, size, iter);						\
+	     (iter) = spa_pod_next(iter))
 
 #define SPA_POD_OBJECT_FOREACH(obj, iter)					\
 	SPA_POD_OBJECT_BODY_FOREACH(&obj->body, SPA_POD_BODY_SIZE(obj), iter)

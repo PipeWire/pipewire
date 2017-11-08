@@ -278,7 +278,6 @@ static void do_static_struct(struct spa_type_map *map)
 int main(int argc, char *argv[])
 {
 	struct spa_pod_builder b = { NULL, };
-	struct spa_pod_frame f[2];
 	uint8_t buffer[1024];
 	struct spa_pod_object *fmt;
 	struct spa_type_map *map = &default_map.map;
@@ -288,36 +287,35 @@ int main(int argc, char *argv[])
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	fmt = SPA_MEMBER(buffer, spa_pod_builder_push_object(&b, &f[0], 0, type.format),
-			 struct spa_pod_object);
+	spa_pod_builder_push_object(&b, 0, type.format);
 
 	spa_pod_builder_id(&b, type.media_type.video);
 	spa_pod_builder_id(&b, type.media_subtype.raw);
 
-	spa_pod_builder_push_prop(&b, &f[1], type.format_video.format,
+	spa_pod_builder_push_prop(&b, type.format_video.format,
 				  SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET);
 	spa_pod_builder_id(&b, type.video_format.I420);
 	spa_pod_builder_id(&b, type.video_format.I420);
 	spa_pod_builder_id(&b, type.video_format.YUY2);
-	spa_pod_builder_pop(&b, &f[1]);
+	spa_pod_builder_pop(&b);
 
 	struct spa_rectangle size_min_max[] = { {1, 1}, {INT32_MAX, INT32_MAX} };
-	spa_pod_builder_push_prop(&b, &f[1],
+	spa_pod_builder_push_prop(&b,
 				  type.format_video.size,
 				  SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET);
 	spa_pod_builder_rectangle(&b, 320, 240);
 	spa_pod_builder_raw(&b, size_min_max, sizeof(size_min_max));
-	spa_pod_builder_pop(&b, &f[1]);
+	spa_pod_builder_pop(&b);
 
 	struct spa_fraction rate_min_max[] = { {0, 1}, {INT32_MAX, 1} };
-	spa_pod_builder_push_prop(&b, &f[1],
+	spa_pod_builder_push_prop(&b,
 				  type.format_video.framerate,
 				  SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET);
 	spa_pod_builder_fraction(&b, 25, 1);
 	spa_pod_builder_raw(&b, rate_min_max, sizeof(rate_min_max));
-	spa_pod_builder_pop(&b, &f[1]);
+	spa_pod_builder_pop(&b);
 
-	spa_pod_builder_pop(&b, &f[0]);
+	fmt = spa_pod_builder_pop_deref(&b);
 
 	spa_debug_pod(&fmt->pod, 0);
 

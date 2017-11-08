@@ -462,7 +462,6 @@ static int port_get_format(struct spa_node *node,
 			   struct spa_pod_builder *builder)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
-	struct spa_pod_frame f[1];
 	struct type *t = &this->type;
 	struct port *port = &this->out_ports[port_id];
 
@@ -471,8 +470,7 @@ static int port_get_format(struct spa_node *node,
 	if (*index > 0)
 		return SPA_RESULT_ENUM_END;
 
-	spa_pod_builder_push_object(builder, &f[0],
-			t->param.idFormat, t->format);
+	spa_pod_builder_push_object(builder, t->param.idFormat, t->format);
 
 	spa_pod_builder_add(builder,
 		"I", port->current_format.media_type,
@@ -495,7 +493,7 @@ static int port_get_format(struct spa_node *node,
 	} else
 		return SPA_RESULT_NO_FORMAT;
 
-	spa_pod_builder_pop(builder, &f[0]);
+	spa_pod_builder_pop(builder);
 
 	return SPA_RESULT_OK;
 }

@@ -340,7 +340,7 @@ static int negotiate_formats(struct data *data)
 					     filter, &b)) < 0)
 		return res;
 
-	format = SPA_POD_BUILDER_DEREF(&b, ref, struct spa_pod_object);
+	format = spa_pod_builder_deref(&b, ref);
 
 	if ((res = spa_node_port_set_param(data->sink,
 					   SPA_DIRECTION_INPUT, 0,

@@ -239,7 +239,7 @@ update_info(struct pw_node *this)
 						      this->core->type.param.idEnumFormat, &state,
 						      NULL, &b) < 0)
 				break;
-			fmt = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+			fmt = spa_pod_builder_deref(&b, 0);
 
 			this->info.input_params =
 			    realloc(this->info.input_params,
@@ -262,7 +262,7 @@ update_info(struct pw_node *this)
 						      this->core->type.param.idEnumFormat, &state,
 						      NULL, &b) < 0)
 				break;
-			fmt = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+			fmt = spa_pod_builder_deref(&b, 0);
 
 			this->info.output_params =
 			    realloc(this->info.output_params,

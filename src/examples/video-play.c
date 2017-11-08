@@ -306,7 +306,6 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		const struct spa_pod_object *params[1];
 		uint8_t buffer[1024];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-		struct spa_pod_frame f[2];
 		SDL_RendererInfo info;
 		int i, c;
 
@@ -317,12 +316,12 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 		SDL_GetRendererInfo(data->renderer, &info);
 
-		spa_pod_builder_push_object(&b, &f[0],
+		spa_pod_builder_push_object(&b,
 					    data->type.param.idEnumFormat, data->type.format);
 		spa_pod_builder_id(&b, data->type.media_type.video);
 		spa_pod_builder_id(&b, data->type.media_subtype.raw);
 
-		spa_pod_builder_push_prop(&b, &f[1], data->type.format_video.format,
+		spa_pod_builder_push_prop(&b, data->type.format_video.format,
 					  SPA_POD_PROP_FLAG_UNSET |
 					  SPA_POD_PROP_RANGE_ENUM);
 		for (i = 0, c = 0; i < info.num_texture_formats; i++) {
@@ -340,7 +339,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 			if (id != data->type.video_format.UNKNOWN)
 				spa_pod_builder_id(&b, id);
 		}
-		spa_pod_builder_pop(&b, &f[1]);
+		spa_pod_builder_pop(&b);
 		spa_pod_builder_add(&b,
 			":", data->type.format_video.size,      "Rru", &SPA_RECTANGLE(WIDTH, HEIGHT),
 									2, &SPA_RECTANGLE(1,1),
@@ -350,8 +349,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 									2, &SPA_RECTANGLE(0,1),
 									   &SPA_RECTANGLE(30,1),
 			NULL);
-		spa_pod_builder_pop(&b, &f[0]);
-		params[0] = SPA_POD_BUILDER_DEREF(&b, f[0].ref, struct spa_pod_object);
+		params[0] = spa_pod_builder_pop_deref(&b);
 
 		printf("supported formats:\n");
 		spa_debug_pod(&params[0]->pod, SPA_DEBUG_FLAG_FORMAT);

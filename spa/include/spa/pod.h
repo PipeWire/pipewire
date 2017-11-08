@@ -37,6 +37,10 @@ extern "C" {
 #define SPA_TYPE_POD__Struct		SPA_TYPE_POD_BASE "Struct"
 #define SPA_TYPE_POD_STRUCT_BASE	SPA_TYPE_POD__Struct ":"
 
+#ifndef SPA_POD_MAX_DEPTH
+#define SPA_POD_MAX_DEPTH       16
+#endif
+
 /**
  * spa_pod_type:
  */

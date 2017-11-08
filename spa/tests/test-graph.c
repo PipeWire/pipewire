@@ -386,20 +386,25 @@ static int negotiate_formats(struct data *data)
 
 	ref = b.offset;
 
+	spa_debug_pod(&filter->pod, 0);
+
+	spa_log_debug(&default_log.log, "enum_params");
 	if ((res = spa_node_port_enum_params(data->sink,
 					     SPA_DIRECTION_INPUT, 0,
 					     data->type.param.idEnumFormat, &state,
 					     filter, &b)) < 0)
 		return res;
 
-	format = SPA_POD_BUILDER_DEREF(&b, ref, struct spa_pod_object);
+	format = spa_pod_builder_deref(&b, ref);
+	spa_debug_pod(&format->pod, 0);
 
-
+	spa_log_debug(&default_log.log, "sink set_param");
 	if ((res = spa_node_port_set_param(data->sink,
 					   SPA_DIRECTION_INPUT, 0,
 					   data->type.param.idFormat, 0, format)) < 0)
 		return res;
 
+	spa_log_debug(&default_log.log, "volume set_param");
 	if ((res = spa_node_port_set_param(data->volume,
 					   SPA_DIRECTION_OUTPUT, 0,
 					   data->type.param.idFormat, 0, format)) < 0)

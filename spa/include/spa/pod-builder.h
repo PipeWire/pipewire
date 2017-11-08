@@ -27,12 +27,7 @@ extern "C" {
 #include <stdarg.h>
 #include <spa/pod-utils.h>
 
-#ifndef SPA_POD_MAX_LEVEL
-#define SPA_POD_MAX_LEVEL       16
-#endif
-
 struct spa_pod_frame {
-	struct spa_pod_frame *parent;
 	struct spa_pod pod;
 	uint32_t ref;
 };
@@ -41,38 +36,43 @@ struct spa_pod_builder {
 	void *data;
 	uint32_t size;
 	uint32_t offset;
-	struct spa_pod_frame *stack;
 	uint32_t (*write) (struct spa_pod_builder *builder, uint32_t ref, const void *data,
 			   uint32_t size);
+	void * (*deref) (struct spa_pod_builder *builder, uint32_t ref);
 	bool in_array;
 	bool first;
-        struct spa_pod_frame frame[SPA_POD_MAX_LEVEL];
-        int depth;
+	int depth;
+	struct spa_pod_frame frame[SPA_POD_MAX_DEPTH];
 };
 
 #define SPA_POD_BUILDER_INIT(buffer,size)  { buffer, size, }
-
-#define SPA_POD_BUILDER_DEREF(b,ref,type)    SPA_MEMBER((b)->data, (ref), type)
 
 static inline void spa_pod_builder_init(struct spa_pod_builder *builder, void *data, uint32_t size)
 {
 	builder->data = data;
 	builder->size = size;
 	builder->offset = 0;
-	builder->stack = NULL;
 	builder->depth = 0;
+	builder->in_array = builder->first = false;
+}
+
+static inline void *
+spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t ref)
+{
+	if (builder->deref)
+		return builder->deref(builder, ref);
+	else
+		return SPA_MEMBER(builder->data, ref, void);
 }
 
 static inline uint32_t
 spa_pod_builder_push(struct spa_pod_builder *builder,
-		     struct spa_pod_frame *frame,
 		     const struct spa_pod *pod,
 		     uint32_t ref)
 {
-	frame->parent = builder->stack;
+	struct spa_pod_frame *frame = &builder->frame[builder->depth++];
 	frame->pod = *pod;
 	frame->ref = ref;
-	builder->stack = frame;
 	builder->in_array = builder->first = (pod->type == SPA_POD_TYPE_ARRAY ||
 					      pod->type == SPA_POD_TYPE_PROP);
 	return ref;
@@ -82,7 +82,7 @@ static inline uint32_t
 spa_pod_builder_raw(struct spa_pod_builder *builder, const void *data, uint32_t size)
 {
 	uint32_t ref;
-	struct spa_pod_frame *f;
+	int i;
 
 	if (builder->write) {
 		ref = builder->write(builder, -1, data, size);
@@ -95,8 +95,9 @@ spa_pod_builder_raw(struct spa_pod_builder *builder, const void *data, uint32_t 
 	}
 
 	builder->offset += size;
-	for (f = builder->stack; f; f = f->parent)
-		f->pod.size += size;
+
+	for (i = 0; i < builder->depth; i++)
+		builder->frame[i].pod.size += size;
 
 	return ref;
 }
@@ -117,19 +118,26 @@ spa_pod_builder_raw_padded(struct spa_pod_builder *builder, const void *data, ui
 	return ref;
 }
 
-static inline void spa_pod_builder_pop(struct spa_pod_builder *builder, struct spa_pod_frame *frame)
+static inline uint32_t spa_pod_builder_pop(struct spa_pod_builder *builder)
 {
+	struct spa_pod_frame *frame = &builder->frame[--builder->depth], *top;
+
 	if (frame->ref != -1) {
 		if (builder->write)
 			builder->write(builder, frame->ref, &frame->pod, sizeof(struct spa_pod));
 		else
 			memcpy(builder->data + frame->ref, &frame->pod, sizeof(struct spa_pod));
 	}
-	builder->stack = frame->parent;
-	builder->in_array = (builder->stack && (builder->stack->pod.type == SPA_POD_TYPE_ARRAY ||
-						builder->stack->pod.type == SPA_POD_TYPE_PROP));
+	top = builder->depth > 0 ? &builder->frame[builder->depth-1] : NULL;
+	builder->in_array = (top && (top->pod.type == SPA_POD_TYPE_ARRAY ||
+				     top->pod.type == SPA_POD_TYPE_PROP));
 	spa_pod_builder_pad(builder, builder->offset);
+
+	return frame->ref;
 }
+
+#define spa_pod_builder_pop_deref(b)				\
+	spa_pod_builder_deref((b), spa_pod_builder_pop(b))
 
 static inline uint32_t
 spa_pod_builder_primitive(struct spa_pod_builder *builder, const struct spa_pod *p)
@@ -285,12 +293,12 @@ spa_pod_builder_fraction(struct spa_pod_builder *builder, uint32_t num, uint32_t
 }
 
 static inline uint32_t
-spa_pod_builder_push_array(struct spa_pod_builder *builder, struct spa_pod_frame *frame)
+spa_pod_builder_push_array(struct spa_pod_builder *builder)
 {
 	const struct spa_pod_array p =
 	    { {sizeof(struct spa_pod_array_body) - sizeof(struct spa_pod), SPA_POD_TYPE_ARRAY},
 	    {{0, 0}} };
-	return spa_pod_builder_push(builder, frame, &p.pod,
+	return spa_pod_builder_push(builder, &p.pod,
 				    spa_pod_builder_raw(builder, &p,
 							sizeof(p) - sizeof(struct spa_pod)));
 }
@@ -312,10 +320,10 @@ spa_pod_builder_array(struct spa_pod_builder *builder,
 #define SPA_POD_STRUCT_INIT(size) { { size, SPA_POD_TYPE_STRUCT } }
 
 static inline uint32_t
-spa_pod_builder_push_struct(struct spa_pod_builder *builder, struct spa_pod_frame *frame)
+spa_pod_builder_push_struct(struct spa_pod_builder *builder)
 {
 	const struct spa_pod_struct p = SPA_POD_STRUCT_INIT(0);
-	return spa_pod_builder_push(builder, frame, &p.pod,
+	return spa_pod_builder_push(builder, &p.pod,
 				    spa_pod_builder_raw(builder, &p, sizeof(p)));
 }
 
@@ -323,12 +331,11 @@ spa_pod_builder_push_struct(struct spa_pod_builder *builder, struct spa_pod_fram
 #define SPA_POD_OBJECT_INIT_COMPLEX(size,id,type,...)	{ { size, SPA_POD_TYPE_OBJECT }, { id, type }, __VA_ARGS__ }
 
 static inline uint32_t
-spa_pod_builder_push_object(struct spa_pod_builder *builder,
-			    struct spa_pod_frame *frame, uint32_t id, uint32_t type)
+spa_pod_builder_push_object(struct spa_pod_builder *builder, uint32_t id, uint32_t type)
 {
 	const struct spa_pod_object p =
 	    SPA_POD_OBJECT_INIT(sizeof(struct spa_pod_object_body), id, type);
-	return spa_pod_builder_push(builder, frame, &p.pod,
+	return spa_pod_builder_push(builder, &p.pod,
 				    spa_pod_builder_raw(builder, &p, sizeof(p)));
 }
 
@@ -336,12 +343,11 @@ spa_pod_builder_push_object(struct spa_pod_builder *builder,
 	{ { size, SPA_POD_TYPE_PROP}, {key, flags, { val_size, val_type } } }
 
 static inline uint32_t
-spa_pod_builder_push_prop(struct spa_pod_builder *builder,
-			  struct spa_pod_frame *frame, uint32_t key, uint32_t flags)
+spa_pod_builder_push_prop(struct spa_pod_builder *builder, uint32_t key, uint32_t flags)
 {
 	const struct spa_pod_prop p = SPA_POD_PROP_INIT (sizeof(struct spa_pod_prop_body) -
                                          sizeof(struct spa_pod), key, flags, 0, 0);
-	return spa_pod_builder_push(builder, frame, &p.pod,
+	return spa_pod_builder_push(builder, &p.pod,
 				    spa_pod_builder_raw(builder, &p,
 							sizeof(p) - sizeof(struct spa_pod)));
 }
@@ -480,14 +486,14 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 		{
 			uint32_t id = va_arg(args, uint32_t);
 			uint32_t type = va_arg(args, uint32_t);
-			spa_pod_builder_push_object(builder, &builder->frame[builder->depth++], id, type);
+			spa_pod_builder_push_object(builder, id, type);
 			break;
 		}
 		case '[':
-			spa_pod_builder_push_struct(builder, &builder->frame[builder->depth++]);
+			spa_pod_builder_push_struct(builder);
 			break;
 		case '(':
-			spa_pod_builder_push_array(builder, &builder->frame[builder->depth++]);
+			spa_pod_builder_push_array(builder);
 			break;
 		case ':':
 		{
@@ -507,7 +513,7 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 			for (;*spec;spec++)
 				flags |= spa_pod_flag_from_id(*spec);
 
-			spa_pod_builder_push_prop(builder, &builder->frame[builder->depth++], key, flags);
+			spa_pod_builder_push_prop(builder, key, flags);
 
 			if (type == '{' || type == '[')
 				continue;
@@ -522,14 +528,14 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 	                        if (n_values == -2)
 	                                n_values = va_arg(args, int);
 			}
-			spa_pod_builder_pop(builder, &builder->frame[--builder->depth]);
+			spa_pod_builder_pop(builder);
 			break;
 		}
 		case ']': case ')': case '>':
-			spa_pod_builder_pop(builder, &builder->frame[--builder->depth]);
+			spa_pod_builder_pop(builder);
 			if (builder->depth > 0 &&
 			    builder->frame[builder->depth-1].pod.type == SPA_POD_TYPE_PROP)
-				spa_pod_builder_pop(builder, &builder->frame[--builder->depth]);
+				spa_pod_builder_pop(builder);
 			break;
 		case ' ': case '\n': case '\t': case '\r':
 			break;
@@ -542,7 +548,7 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 		}
 		format++;
 	}
-	return SPA_POD_BUILDER_DEREF(builder, builder->frame[builder->depth].ref, void);
+	return spa_pod_builder_deref(builder, builder->frame[builder->depth].ref);
 }
 
 static inline void *spa_pod_builder_add(struct spa_pod_builder *builder, const char *format, ...)

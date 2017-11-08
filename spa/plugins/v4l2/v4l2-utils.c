@@ -530,10 +530,10 @@ spa_v4l2_enum_format(struct impl *this,
 	struct port *port = &this->out_ports[0];
 	int res, n_fractions;
 	const struct format_info *info;
-	struct spa_pod_frame f[2];
 	struct spa_pod_prop *prop;
 	uint32_t media_type, media_subtype, video_format;
 	uint32_t filter_media_type, filter_media_subtype;
+	struct type *t = &this->type;
 
 	if (spa_v4l2_open(this) < 0)
 		return SPA_RESULT_ERROR;
@@ -562,15 +562,15 @@ spa_v4l2_enum_format(struct impl *this,
 
 	while (port->next_fmtdesc) {
 		if (filter) {
-			video_format = enum_filter_format(&this->type,
+			video_format = enum_filter_format(t,
 					    filter_media_type,
 					    filter_media_subtype,
 					    filter, port->fmtdesc.index);
 
-			if (video_format == this->type.video_format.UNKNOWN)
+			if (video_format == t->video_format.UNKNOWN)
 				return SPA_RESULT_ENUM_END;
 
-			info = find_format_info_by_media_type(&this->type,
+			info = find_format_info_by_media_type(t,
 							      filter_media_type,
 							      filter_media_subtype,
 							      video_format, 0);
@@ -599,7 +599,7 @@ spa_v4l2_enum_format(struct impl *this,
 			struct spa_pod_prop *p;
 
 			/* check if we have a fixed frame size */
-			if (!(p = spa_pod_object_find_prop(filter, this->type.format_video.size)))
+			if (!(p = spa_pod_object_find_prop(filter, t->format_video.size)))
 				goto do_frmsize;
 
 			if (p->body.value.type != SPA_POD_TYPE_RECTANGLE)
@@ -633,7 +633,7 @@ spa_v4l2_enum_format(struct impl *this,
 			uint32_t i, n_values;
 
 			/* check if we have a fixed frame size */
-			if (!(p = spa_pod_object_find_prop(filter, this->type.format_video.size)))
+			if (!(p = spa_pod_object_find_prop(filter, t->format_video.size)))
 				goto have_size;
 
 			range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
@@ -679,28 +679,26 @@ spa_v4l2_enum_format(struct impl *this,
 		}
 	}
 
-	media_type = *SPA_MEMBER(&this->type, info->media_type_offset, uint32_t);
-	media_subtype = *SPA_MEMBER(&this->type, info->media_subtype_offset, uint32_t);
-	video_format = *SPA_MEMBER(&this->type, info->format_offset, uint32_t);
+	media_type = *SPA_MEMBER(t, info->media_type_offset, uint32_t);
+	media_subtype = *SPA_MEMBER(t, info->media_subtype_offset, uint32_t);
+	video_format = *SPA_MEMBER(t, info->format_offset, uint32_t);
 
-	spa_pod_builder_push_object(builder, &f[0],
-			this->type.param.idEnumFormat, this->type.format);
+	spa_pod_builder_push_object(builder, t->param.idEnumFormat, t->format);
 	spa_pod_builder_add(builder,
 			"I", media_type,
 			"I", media_subtype, 0);
 
-	if (media_subtype == this->type.media_subtype.raw) {
+	if (media_subtype == t->media_subtype.raw) {
 		spa_pod_builder_add(builder,
-			":", this->type.format_video.format, "I", video_format, 0);
+			":", t->format_video.format, "I", video_format, 0);
 	}
 	spa_pod_builder_add(builder,
-		":", this->type.format_video.size, "R", &SPA_RECTANGLE(port->frmsize.discrete.width,
-								       port->frmsize.discrete.height), 0);
+		":", t->format_video.size, "R", &SPA_RECTANGLE(port->frmsize.discrete.width,
+							       port->frmsize.discrete.height), 0);
 
-	spa_pod_builder_push_prop(builder, &f[1], this->type.format_video.framerate,
-				  SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_UNSET);
-
-	prop = SPA_POD_BUILDER_DEREF(builder, f[1].ref, struct spa_pod_prop);
+	prop = spa_pod_builder_deref(builder,
+			spa_pod_builder_push_prop(builder, t->format_video.framerate,
+				  SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_UNSET));
 	n_fractions = 0;
 
 	port->frmival.index = 0;
@@ -723,7 +721,7 @@ spa_v4l2_enum_format(struct impl *this,
 			uint32_t i, n_values;
 			const struct spa_fraction step = { 1, 1 }, *values;
 
-			if (!(p = spa_pod_object_find_prop(filter, this->type.format_video.framerate)))
+			if (!(p = spa_pod_object_find_prop(filter, t->format_video.framerate)))
 				goto have_framerate;
 
 			if (p->body.value.type != SPA_POD_TYPE_FRACTION)
@@ -790,8 +788,8 @@ spa_v4l2_enum_format(struct impl *this,
 	if (n_fractions <= 1) {
 		prop->body.flags &= ~(SPA_POD_PROP_RANGE_MASK | SPA_POD_PROP_FLAG_UNSET);
 	}
-	spa_pod_builder_pop(builder, &f[1]);
-	spa_pod_builder_pop(builder, &f[0]);
+	spa_pod_builder_pop(builder);
+	spa_pod_builder_pop(builder);
 
 	(*index)++;
 
@@ -808,6 +806,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	uint32_t video_format;
 	struct spa_rectangle *size = NULL;
 	struct spa_fraction *framerate = NULL;
+	struct type *t = &this->type;
 
 	spa_zero(fmt);
 	spa_zero(streamparm);
@@ -831,7 +830,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 		video_format = this->type.video_format.ENCODED;
 	}
 
-	info = find_format_info_by_media_type(&this->type,
+	info = find_format_info_by_media_type(t,
 					      format->media_type,
 					      format->media_subtype, video_format, 0);
 	if (info == NULL || size == NULL || framerate == NULL) {

@@ -771,7 +771,7 @@ int pw_core_find_format(struct pw_core *core,
 			asprintf(error, "no more input formats");
 			goto error;
 		}
-		format = SPA_POD_BUILDER_DEREF(&fb, 0, struct spa_pod_object);
+		format = spa_pod_builder_deref(&fb, 0);
 		pw_log_debug("enum output %d with filter: %p", oidx, format);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_pod(&format->pod, SPA_DEBUG_FLAG_FORMAT);
@@ -787,7 +787,7 @@ int pw_core_find_format(struct pw_core *core,
 			asprintf(error, "error output enum formats: %d", res);
 			goto error;
 		}
-		format = SPA_POD_BUILDER_DEREF(&fb, 0, struct spa_pod_object);
+		format = spa_pod_builder_deref(&fb, 0);
 
 		pw_log_debug("Got filtered:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))

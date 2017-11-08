@@ -166,7 +166,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 		pw_log_debug("spa_node_get_props failed: %d", res);
 		return SPA_RESULT_ERROR;
 	}
-	props = SPA_POD_BUILDER_DEREF(&b, 0, struct spa_pod_object);
+	props = spa_pod_builder_deref(&b, 0);
 
 	while ((key = pw_properties_iterate(pw_props, &state))) {
 		struct spa_pod_prop *prop;

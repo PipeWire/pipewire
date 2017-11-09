@@ -259,11 +259,45 @@ print_pod_value(uint32_t size, uint32_t type, void *body, int prefix)
 				prefix + 4);
 
 		i = 0;
-		SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
-			if (i == 0)
-				printf("%-*sAlternatives:\n", prefix + 2, "");
-			print_pod_value(b->value.size, b->value.type, alt, prefix + 4);
-			i++;
+		switch (b->flags & SPA_POD_PROP_RANGE_MASK) {
+		case SPA_POD_PROP_RANGE_NONE:
+			break;
+		case SPA_POD_PROP_RANGE_MIN_MAX:
+			SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
+				if (i == 0)
+					printf("%-*sMin: ", prefix + 2, "");
+				else if (i == 1)
+					printf("%-*sMax: ", prefix + 2, "");
+				else
+					break;
+				print_pod_value(b->value.size, b->value.type, alt, 0);
+				i++;
+			}
+			break;
+		case SPA_POD_PROP_RANGE_STEP:
+			SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
+				if (i == 0)
+					printf("%-*sMin:  ", prefix + 2, "");
+				else if (i == 1)
+					printf("%-*sMax:  ", prefix + 2, "");
+				else if (i == 2)
+					printf("%-*sStep: ", prefix + 2, "");
+				else
+					break;
+				print_pod_value(b->value.size, b->value.type, alt, 0);
+				i++;
+			}
+			break;
+		case SPA_POD_PROP_RANGE_ENUM:
+			SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
+				if (i == 0)
+					printf("%-*sEnum:\n", prefix + 2, "");
+				print_pod_value(b->value.size, b->value.type, alt, prefix + 4);
+				i++;
+			}
+			break;
+		case SPA_POD_PROP_RANGE_FLAGS:
+			break;
 		}
 		break;
 	}

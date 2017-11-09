@@ -31,7 +31,7 @@
 #include <spa/node.h>
 #include <spa/param-alloc.h>
 #include <spa/list.h>
-#include <lib/props.h>
+#include <lib/pod.h>
 
 #define NAME "logger"
 

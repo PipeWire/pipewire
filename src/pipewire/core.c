@@ -787,7 +787,7 @@ int pw_core_find_format(struct pw_core *core,
 			asprintf(error, "error output enum formats: %d", res);
 			goto error;
 		}
-		format = spa_pod_builder_deref(&fb, 0);
+		format = spa_pod_builder_deref(builder, 0);
 
 		pw_log_debug("Got filtered:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))

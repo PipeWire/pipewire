@@ -25,8 +25,6 @@
 #include <getopt.h>
 #include <limits.h>
 
-#include <spa/lib/props.h>
-
 #include <pipewire/utils.h>
 #include <pipewire/log.h>
 #include <pipewire/core.h>

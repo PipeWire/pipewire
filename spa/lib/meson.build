@@ -1,14 +1,12 @@
 spalib_headers = [
   'debug.h',
-  'format.h',
-  'props.h',
+  'pod.h',
 ]
 
 install_headers(spalib_headers, subdir : 'spa/lib')
 
 spalib_sources = ['debug.c',
-                  'props.c',
-                  'format.c']
+                  'pod.c' ]
 
 spalib = shared_library('spa-lib',
                          spalib_sources,

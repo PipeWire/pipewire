@@ -10,7 +10,7 @@
 #include <sys/timerfd.h>
 
 #include <lib/debug.h>
-#include <lib/format.h>
+#include <lib/pod.h>
 
 #include "alsa-utils.h"
 
@@ -202,7 +202,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 
 	(*index)++;
 
-	if ((res = spa_pod_object_filter(fmt, filter, builder)) < 0)
+	if ((res = spa_pod_filter(builder, (struct spa_pod*)fmt, (struct spa_pod*)filter)) < 0)
 		goto next;
 
 	if (!opened)

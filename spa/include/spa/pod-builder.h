@@ -36,9 +36,10 @@ struct spa_pod_builder {
 	void *data;
 	uint32_t size;
 	uint32_t offset;
-	uint32_t (*write) (struct spa_pod_builder *builder, uint32_t ref, const void *data,
-			   uint32_t size);
+
+	uint32_t (*write) (struct spa_pod_builder *builder, const void *data, uint32_t size);
 	void * (*deref) (struct spa_pod_builder *builder, uint32_t ref);
+	void (*reset) (struct spa_pod_builder *builder, uint32_t offset);
 	bool in_array;
 	bool first;
 	int depth;
@@ -47,13 +48,19 @@ struct spa_pod_builder {
 
 #define SPA_POD_BUILDER_INIT(buffer,size)  { buffer, size, }
 
-static inline void spa_pod_builder_init(struct spa_pod_builder *builder, void *data, uint32_t size)
+static inline void
+spa_pod_builder_reset(struct spa_pod_builder *builder, uint32_t offset)
 {
-	builder->data = data;
-	builder->size = size;
-	builder->offset = 0;
+	if (builder->reset)
+		builder->reset(builder, offset);
+	builder->offset = offset;
 	builder->depth = 0;
 	builder->in_array = builder->first = false;
+}
+
+static inline void spa_pod_builder_init(struct spa_pod_builder *builder, void *data, uint32_t size)
+{
+	*builder = (struct spa_pod_builder) SPA_POD_BUILDER_INIT(data, size);
 }
 
 static inline void *
@@ -85,7 +92,7 @@ spa_pod_builder_raw(struct spa_pod_builder *builder, const void *data, uint32_t 
 	int i;
 
 	if (builder->write) {
-		ref = builder->write(builder, -1, data, size);
+		ref = builder->write(builder, data, size);
 	} else {
 		ref = builder->offset;
 		if (ref + size > builder->size)
@@ -123,10 +130,8 @@ static inline uint32_t spa_pod_builder_pop(struct spa_pod_builder *builder)
 	struct spa_pod_frame *frame = &builder->frame[--builder->depth], *top;
 
 	if (frame->ref != -1) {
-		if (builder->write)
-			builder->write(builder, frame->ref, &frame->pod, sizeof(struct spa_pod));
-		else
-			memcpy(builder->data + frame->ref, &frame->pod, sizeof(struct spa_pod));
+		struct spa_pod *pod = spa_pod_builder_deref(builder, frame->ref);
+		*pod = frame->pod;
 	}
 	top = builder->depth > 0 ? &builder->frame[builder->depth-1] : NULL;
 	builder->in_array = (top && (top->pod.type == SPA_POD_TYPE_ARRAY ||

@@ -1,5 +1,5 @@
 /* Simple Plugin API
- * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
+ * Copyright (C) 2017 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,24 +17,25 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_LIBFORMAT_H__
-#define __SPA_LIBFORMAT_H__
+#ifndef __SPA_LIBPOD_H__
+#define __SPA_LIBPOD_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <spa/props.h>
+#include <spa/pod-builder.h>
 
-int spa_pod_object_filter(const struct spa_pod_object *obj,
-			  const struct spa_pod_object *filter,
-			  struct spa_pod_builder *result);
+int spa_pod_filter(struct spa_pod_builder *b,
+		   const struct spa_pod *pod,
+		   const struct spa_pod *filter);
 
-int spa_pod_object_compare(const struct spa_pod_object *obj1,
-			   const struct spa_pod_object *obj2);
+int spa_pod_compare(const struct spa_pod *pod1,
+		    const struct spa_pod *pod2);
 
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
 
-#endif /* __SPA_LIBFORMAT_H__ */
+#endif /* __SPA_LIBPOD_H__ */

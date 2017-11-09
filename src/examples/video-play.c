@@ -82,7 +82,6 @@ struct data {
 	struct spa_video_info_raw format;
 	int32_t stride;
 
-	uint8_t params_buffer[1024];
 	int counter;
 };
 
@@ -240,7 +239,8 @@ on_stream_format_changed(void *_data, struct spa_pod_object *format)
 	struct data *data = _data;
 	struct pw_stream *stream = data->stream;
 	struct pw_type *t = data->t;
-	struct spa_pod_builder b = { NULL };
+	uint8_t params_buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	struct spa_pod_object *params[2];
 	Uint32 sdl_format;
 	void *d;
@@ -266,7 +266,6 @@ on_stream_format_changed(void *_data, struct spa_pod_object *format)
 	SDL_LockTexture(data->texture, NULL, &d, &data->stride);
 	SDL_UnlockTexture(data->texture);
 
-	spa_pod_builder_init(&b, data->params_buffer, sizeof(data->params_buffer));
 	params[0] = spa_pod_builder_object(&b,
 		t->param.idBuffers, t->param_alloc_buffers.Buffers,
 		":", t->param_alloc_buffers.size,    "i", data->stride * data->format.size.height,

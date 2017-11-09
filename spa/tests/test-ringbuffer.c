@@ -34,7 +34,6 @@
 #include <spa/format-utils.h>
 
 #include <lib/debug.h>
-#include <lib/props.h>
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);

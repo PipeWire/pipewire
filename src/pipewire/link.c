@@ -24,8 +24,7 @@
 #include <spa/video/format.h>
 #include <spa/pod-utils.h>
 
-#include <spa/lib/format.h>
-#include <spa/lib/props.h>
+#include <spa/lib/pod.h>
 
 #include "pipewire.h"
 #include "private.h"
@@ -148,7 +147,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			goto error;
 		}
 		current = spa_pod_builder_deref(&b, 0);
-		if (spa_pod_object_compare(current, format) < 0) {
+		if (spa_pod_compare((struct spa_pod*)current, (struct spa_pod*)format) != 0) {
 			pw_log_debug("link %p: output format change, renegotiate", this);
 			pw_node_set_state(output->node, PW_NODE_STATE_SUSPENDED);
 			out_state = PW_PORT_STATE_CONFIGURE;
@@ -167,7 +166,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			goto error;
 		}
 		current = spa_pod_builder_deref(&b, 0);
-		if (spa_pod_object_compare(current, format) < 0) {
+		if (spa_pod_compare((struct spa_pod*)current, (struct spa_pod*)format) != 0) {
 			pw_log_debug("link %p: input format change, renegotiate", this);
 			pw_node_set_state(input->node, PW_NODE_STATE_SUSPENDED);
 			in_state = PW_PORT_STATE_CONFIGURE;
@@ -399,7 +398,6 @@ param_filter(struct pw_link *this,
 	     uint32_t id,
 	     struct spa_pod_builder *result)
 {
-	int res;
 	uint8_t ibuf[2048], obuf[2048];
         struct spa_pod_builder ib = { 0 }, ob = { 0 };
 	struct spa_pod_object *oparam, *iparam;
@@ -407,44 +405,37 @@ param_filter(struct pw_link *this,
 
 	for (iidx = 0;;) {
 	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));
+		pw_log_debug("iparam %d", iidx);
 		if (spa_node_port_enum_params(in_port->node->node, in_port->direction, in_port->port_id,
 					      id, &iidx, NULL, &ib) < 0)
 			break;
 		iparam = spa_pod_builder_deref(&ib, 0);
 
+		pw_log_debug("iparam %d", iidx);
+		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+			spa_debug_pod(&iparam->pod, 0);
+
 		for (oidx = 0;;) {
 			uint32_t offset;
 
 			spa_pod_builder_init(&ob, obuf, sizeof(obuf));
-			if (spa_node_port_enum_params(out_port->node->node, out_port->direction,
-						      out_port->port_id, id, &oidx,
-						      NULL, &ob) < 0)
-				break;
-			oparam = spa_pod_builder_deref(&ob, 0);
-
-			if (iidx == 1 && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(&oparam->pod, 0);
-
-			if (iparam->body.type != oparam->body.type)
-				continue;
 
 			offset = result->offset;
-			spa_pod_builder_push_object(result, id, iparam->body.type);
-			if ((res = spa_props_filter(result,
-						    SPA_POD_CONTENTS(struct spa_pod_object, iparam),
-						    SPA_POD_CONTENTS_SIZE(struct spa_pod_object, iparam),
-						    SPA_POD_CONTENTS(struct spa_pod_object, oparam),
-						    SPA_POD_CONTENTS_SIZE(struct spa_pod_object, oparam))) < 0) {
-				result->offset = offset;
-				result->depth = 0;
-				continue;
+
+			pw_log_debug("oparam %d %d", oidx, offset);
+			if (spa_node_port_enum_params(out_port->node->node, out_port->direction,
+						      out_port->port_id, id, &oidx,
+						      iparam, result) < 0) {
+				break;
 			}
-			spa_pod_builder_pop(result);
+			oparam = spa_pod_builder_deref(result, offset);
+
+			pw_log_debug("oparam %d", oidx);
+			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+				spa_debug_pod(&oparam->pod, 0);
+
 			num++;
 		}
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(&iparam->pod, 0);
-
 	}
 	return num;
 }

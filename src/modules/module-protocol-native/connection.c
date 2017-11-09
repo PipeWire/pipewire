@@ -338,12 +338,12 @@ static inline void *begin_write(struct pw_protocol_native_connection *conn, uint
 	return p + 2;
 }
 
-static uint32_t write_pod(struct spa_pod_builder *b, uint32_t ref, const void *data, uint32_t size)
+static uint32_t write_pod(struct spa_pod_builder *b, const void *data, uint32_t size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(b, struct impl, builder);
+	uint32_t ref = b->offset;
 
-        if (ref == -1)
-                ref = b->offset;
+	ref = b->offset;
 
         if (b->size <= b->offset) {
                 b->size = SPA_ROUND_UP_N(b->offset + size, 4096);

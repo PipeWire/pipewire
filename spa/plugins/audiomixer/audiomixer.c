@@ -25,9 +25,9 @@
 #include <spa/type-map.h>
 #include <spa/node.h>
 #include <spa/audio/format-utils.h>
-#include <lib/format.h>
-#include <lib/props.h>
 #include <spa/param-alloc.h>
+
+#include <lib/pod.h>
 
 #include "conv.h"
 
@@ -323,22 +323,15 @@ impl_node_port_get_info(struct spa_node *node,
 static int port_enum_formats(struct spa_node *node,
 			     enum spa_direction direction, uint32_t port_id,
 			     uint32_t *index,
-			     const struct spa_pod_object *filter,
+			     struct spa_pod **param,
 			     struct spa_pod_builder *builder)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
-	struct spa_pod_object *fmt;
-	uint8_t buffer[256];
-	struct spa_pod_builder b = { NULL, };
 	struct type *t = &this->type;
-	int res;
-
-      next:
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (*index) {
 	case 0:
-		fmt = spa_pod_builder_object(&b,
+		*param = spa_pod_builder_object(builder,
 			t->param.idEnumFormat, t->format,
 			"I", t->media_type.audio,
 			"I", t->media_subtype.raw,
@@ -353,19 +346,13 @@ static int port_enum_formats(struct spa_node *node,
 	default:
 		return SPA_RESULT_ENUM_END;
 	}
-
-	(*index)++;
-
-	if ((res = spa_pod_object_filter(fmt, filter, builder)) != SPA_RESULT_OK)
-		goto next;
-
 	return SPA_RESULT_OK;
 }
 
 static int port_get_format(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t *index,
-			   const struct spa_pod_object *filter,
+			   struct spa_pod **param,
 			   struct spa_pod_builder *builder)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
@@ -377,7 +364,7 @@ static int port_get_format(struct spa_node *node,
 	if (*index > 0)
 		return SPA_RESULT_ENUM_END;
 
-	spa_pod_builder_object(builder,
+	*param = spa_pod_builder_object(builder,
 		t->param.idFormat, t->format,
 		"I", t->media_type.audio,
 		"I", t->media_subtype.raw,
@@ -398,6 +385,9 @@ impl_node_port_enum_params(struct spa_node *node,
 	struct impl *this;
 	struct type *t;
 	struct port *port;
+	struct spa_pod *param;
+	uint32_t offset;
+	int res;
 
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 	spa_return_val_if_fail(index != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -410,6 +400,9 @@ impl_node_port_enum_params(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
+	offset = builder->offset;
+
+      next:
 	if (id == t->param.idList) {
 		uint32_t list[] = { t->param.idEnumFormat,
 				    t->param.idFormat,
@@ -417,16 +410,18 @@ impl_node_port_enum_params(struct spa_node *node,
 				    t->param.idMeta };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			spa_pod_builder_object(builder, id, t->param.List,
+			param = spa_pod_builder_object(builder, id, t->param.List,
 				":", t->param.listId, "I", list[*index]);
 		else
 			return SPA_RESULT_ENUM_END;
 	}
 	else if (id == t->param.idEnumFormat) {
-		return port_enum_formats(node, direction, port_id, index, filter, builder);
+		if ((res = port_enum_formats(node, direction, port_id, index, &param, builder)) < 0)
+			return res;
 	}
 	else if (id == t->param.idFormat) {
-		return port_get_format(node, direction, port_id, index, filter, builder);
+		if ((res = port_get_format(node, direction, port_id, index, &param, builder)) < 0)
+			return res;
 	}
 	else if (id == t->param.idBuffers) {
 		if (!port->have_format)
@@ -434,7 +429,7 @@ impl_node_port_enum_params(struct spa_node *node,
 		if (*index > 0)
 			return SPA_RESULT_ENUM_END;
 
-		spa_pod_builder_object(builder,
+		param = spa_pod_builder_object(builder,
 			id, t->param_alloc_buffers.Buffers,
 			":", t->param_alloc_buffers.size,    "iru", 1024 * this->bpf,
 									2, 16 * this->bpf,
@@ -450,13 +445,13 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		switch (*index) {
 		case 0:
-			spa_pod_builder_object(builder,
+			param = spa_pod_builder_object(builder,
 				id, t->param_alloc_meta_enable.MetaEnable,
 				":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
 				":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
 			break;
 		case 1:
-			spa_pod_builder_object(builder,
+			param = spa_pod_builder_object(builder,
 				id, t->param_alloc_meta_enable.MetaEnable,
 				":", t->param_alloc_meta_enable.type,	"I", t->meta.Ringbuffer,
 				":", t->param_alloc_meta_enable.size,	"i", sizeof(struct spa_meta_ringbuffer),
@@ -474,6 +469,10 @@ impl_node_port_enum_params(struct spa_node *node,
 		return SPA_RESULT_UNKNOWN_PARAM;
 
 	(*index)++;
+
+	spa_pod_builder_reset(builder, offset);
+	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
+		goto next;
 
 	return SPA_RESULT_OK;
 }

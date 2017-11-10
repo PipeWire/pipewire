@@ -21,9 +21,9 @@
 
 #include <asoundlib.h>
 
-#include <spa/node.h>
-#include <spa/list.h>
-#include <spa/audio/format.h>
+#include <spa/node/node.h>
+#include <spa/utils/list.h>
+#include <spa/param/audio/format.h>
 
 #include <lib/pod.h>
 
@@ -373,12 +373,12 @@ impl_node_port_enum_params(struct spa_node *node,
 			return SPA_RESULT_ENUM_END;
 
 		param = spa_pod_builder_object(builder,
-			id, t->param_alloc_buffers.Buffers,
-			":", t->param_alloc_buffers.size,    "i", this->props.min_latency * this->frame_size,
-			":", t->param_alloc_buffers.stride,  "i", 0,
-			":", t->param_alloc_buffers.buffers, "ir", 2,
-									2, 1, 32,
-			":", t->param_alloc_buffers.align,   "i", 16);
+			id, t->param_buffers.Buffers,
+			":", t->param_buffers.size,    "i", this->props.min_latency * this->frame_size,
+			":", t->param_buffers.stride,  "i", 0,
+			":", t->param_buffers.buffers, "ir", 2,
+								2, 1, 32,
+			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
 		if (!this->have_format)
@@ -387,9 +387,9 @@ impl_node_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
-				id, t->param_alloc_meta_enable.MetaEnable,
-				":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
-				":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
+				id, t->param_meta.Meta,
+				":", t->param_meta.type, "I", t->meta.Header,
+				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 			break;
 		default:
 			return SPA_RESULT_ENUM_END;

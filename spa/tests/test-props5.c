@@ -23,10 +23,9 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <spa/log.h>
-#include <lib/debug.h>
+#include <spa/pod/parser.h>
 
-#include <spa/pod-parser.h>
+#include <lib/debug.h>
 
 int main(int argc, char *argv[])
 {

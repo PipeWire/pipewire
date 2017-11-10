@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include <spa/defs.h>
+#include <spa/utils/defs.h>
 
 /** \class pw_array
  *

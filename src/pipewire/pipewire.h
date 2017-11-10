@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include <spa/plugin.h>
+#include <spa/support/plugin.h>
 
 #include <pipewire/client.h>
 #include <pipewire/core.h>

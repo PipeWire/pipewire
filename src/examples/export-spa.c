@@ -21,10 +21,11 @@
 #include <sys/mman.h>
 #include <signal.h>
 
-#include <spa/type-map.h>
-#include <spa/format-utils.h>
-#include <spa/video/format-utils.h>
-#include <spa/props.h>
+#include <spa/support/type-map.h>
+#include <spa/param/format-utils.h>
+#include <spa/param/video/format-utils.h>
+#include <spa/param/props.h>
+
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>

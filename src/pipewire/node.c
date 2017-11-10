@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include <spa/clock.h>
+#include <spa/clock/clock.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"

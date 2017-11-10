@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "spa/pod-parser.h"
+#include "spa/pod/parser.h"
 
 #include "pipewire/pipewire.h"
 #include "pipewire/protocol.h"

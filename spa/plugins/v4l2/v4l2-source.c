@@ -24,14 +24,15 @@
 
 #include <linux/videodev2.h>
 
-#include <spa/node.h>
-#include <spa/video/format-utils.h>
-#include <spa/clock.h>
-#include <spa/list.h>
-#include <spa/log.h>
-#include <spa/loop.h>
-#include <spa/param-alloc.h>
-#include <spa/type-map.h>
+#include <spa/support/type-map.h>
+#include <spa/support/log.h>
+#include <spa/support/loop.h>
+#include <spa/utils/list.h>
+#include <spa/clock/clock.h>
+#include <spa/node/node.h>
+#include <spa/param/video/format-utils.h>
+#include <spa/param/buffers.h>
+#include <spa/param/meta.h>
 
 #include <lib/debug.h>
 #include <lib/pod.h>
@@ -77,8 +78,8 @@ struct type {
 	struct spa_type_video_format video_format;
 	struct spa_type_event_node event_node;
 	struct spa_type_command_node command_node;
-	struct spa_type_param_alloc_buffers param_alloc_buffers;
-	struct spa_type_param_alloc_meta_enable param_alloc_meta_enable;
+	struct spa_type_param_buffers param_buffers;
+	struct spa_type_param_meta param_meta;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
 };
@@ -100,8 +101,8 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_video_format_map(map, &type->video_format);
 	spa_type_event_node_map(map, &type->event_node);
 	spa_type_command_node_map(map, &type->command_node);
-	spa_type_param_alloc_buffers_map(map, &type->param_alloc_buffers);
-	spa_type_param_alloc_meta_enable_map(map, &type->param_alloc_meta_enable);
+	spa_type_param_buffers_map(map, &type->param_buffers);
+	spa_type_param_meta_map(map, &type->param_meta);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
 }
@@ -564,20 +565,20 @@ static int impl_node_port_enum_params(struct spa_node *node,
 			return SPA_RESULT_ENUM_END;
 
 		param = spa_pod_builder_object(builder,
-			id, t->param_alloc_buffers.Buffers,
-			":", t->param_alloc_buffers.size,    "i", port->fmt.fmt.pix.sizeimage,
-			":", t->param_alloc_buffers.stride,  "i", port->fmt.fmt.pix.bytesperline,
-			":", t->param_alloc_buffers.buffers, "iru", MAX_BUFFERS,
+			id, t->param_buffers.Buffers,
+			":", t->param_buffers.size,    "i", port->fmt.fmt.pix.sizeimage,
+			":", t->param_buffers.stride,  "i", port->fmt.fmt.pix.bytesperline,
+			":", t->param_buffers.buffers, "iru", MAX_BUFFERS,
 									2, 2, MAX_BUFFERS,
-			":", t->param_alloc_buffers.align,   "i", 16);
+			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
-				id, t->param_alloc_meta_enable.MetaEnable,
-				":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
-				":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
+				id, t->param_meta.Meta,
+				":", t->param_meta.type, "I", t->meta.Header,
+				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 			break;
 		default:
 			return SPA_RESULT_ENUM_END;

@@ -22,10 +22,10 @@
 #include <time.h>
 #include <sys/mman.h>
 
-#include <spa/type-map.h>
-#include <spa/format-utils.h>
-#include <spa/video/format-utils.h>
-#include <spa/props.h>
+#include <spa/support/type-map.h>
+#include <spa/param/format-utils.h>
+#include <spa/param/video/format-utils.h>
+#include <spa/param/props.h>
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
@@ -184,17 +184,17 @@ on_stream_format_changed(void *_data, struct spa_pod_object *format)
 	data->stride = SPA_ROUND_UP_N(data->format.size.width * BPP, 4);
 
 	params[0] = spa_pod_builder_object(&b,
-		t->param.idBuffers, t->param_alloc_buffers.Buffers,
-		":", t->param_alloc_buffers.size,    "i", data->stride * data->format.size.height,
-		":", t->param_alloc_buffers.stride,  "i", data->stride,
-		":", t->param_alloc_buffers.buffers, "iru", 2,
+		t->param.idBuffers, t->param_buffers.Buffers,
+		":", t->param_buffers.size,    "i", data->stride * data->format.size.height,
+		":", t->param_buffers.stride,  "i", data->stride,
+		":", t->param_buffers.buffers, "iru", 2,
 								2, 1, 32,
-		":", t->param_alloc_buffers.align,   "i", 16);
+		":", t->param_buffers.align,   "i", 16);
 
 	params[1] = spa_pod_builder_object(&b,
-		t->param.idMeta, t->param_alloc_meta_enable.MetaEnable,
-		":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
-		":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
+		t->param.idMeta, t->param_meta.Meta,
+		":", t->param_meta.type, "I", t->meta.Header,
+		":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 
 	pw_stream_finish_format(stream, SPA_RESULT_OK, 2, params);
 }

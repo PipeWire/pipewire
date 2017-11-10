@@ -19,8 +19,8 @@
 
 #include <stdio.h>
 
-#include <spa/plugin.h>
-#include <spa/node.h>
+#include <spa/support/plugin.h>
+#include <spa/node/node.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>

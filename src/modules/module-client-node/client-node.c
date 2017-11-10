@@ -28,8 +28,8 @@
 #include <sys/mman.h>
 #include <sys/eventfd.h>
 
-#include "spa/node.h"
-#include "spa/lib/pod.h"
+#include <spa/node/node.h>
+#include <spa/lib/pod.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"

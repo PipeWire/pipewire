@@ -17,8 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <spa/plugin.h>
-#include <spa/node.h>
+#include <spa/support/plugin.h>
 
 extern const struct spa_handle_factory spa_v4l2_source_factory;
 extern const struct spa_handle_factory spa_v4l2_monitor_factory;

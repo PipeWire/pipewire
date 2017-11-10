@@ -24,14 +24,8 @@
 extern "C" {
 #endif
 
-#include <spa/defs.h>
-#include <spa/node.h>
-#include <spa/buffer.h>
-#include <spa/pod.h>
-#include <spa/props.h>
-#include <spa/format.h>
-#include <spa/dict.h>
-#include <spa/log.h>
+#include <spa/node/node.h>
+#include <spa/pod/pod.h>
 
 void spa_debug_set_type_map(const struct spa_type_map *map);
 

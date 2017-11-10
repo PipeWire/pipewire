@@ -19,8 +19,8 @@
 
 #include <stdio.h>
 
-#include <spa/loop.h>
-#include <spa/type-map.h>
+#include <spa/support/loop.h>
+#include <spa/support/type-map.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/loop.h>

@@ -20,7 +20,7 @@
 #ifndef __PIPEWIRE_SPA_MONITOR_H__
 #define __PIPEWIRE_SPA_MONITOR_H__
 
-#include <spa/monitor.h>
+#include <spa/monitor/monitor.h>
 
 #include <pipewire/core.h>
 

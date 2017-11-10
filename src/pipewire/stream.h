@@ -162,8 +162,8 @@ extern "C" {
  */
 struct pw_stream;
 
-#include <spa/buffer.h>
-#include <spa/format.h>
+#include <spa/buffer/buffer.h>
+#include <spa/param/param.h>
 
 #include <pipewire/remote.h>
 

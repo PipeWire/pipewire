@@ -20,7 +20,7 @@
 #ifndef __PIPEWIRE_MEM_H__
 #define __PIPEWIRE_MEM_H__
 
-#include <spa/defs.h>
+#include <spa/utils/defs.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -25,10 +25,10 @@
 #include <errno.h>
 #include <poll.h>
 
-#include <spa/log-impl.h>
-#include <spa/type-map-impl.h>
-#include <spa/monitor.h>
-#include <spa/loop.h>
+#include <spa/support/log-impl.h>
+#include <spa/support/type-map-impl.h>
+#include <spa/support/loop.h>
+#include <spa/monitor/monitor.h>
 
 #include <lib/debug.h>
 

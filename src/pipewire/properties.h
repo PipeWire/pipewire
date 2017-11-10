@@ -24,7 +24,7 @@
 //extern "C" {
 #endif
 
-#include <spa/dict.h>
+#include <spa/utils/dict.h>
 
 /** \class pw_properties
  *

@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#include <spa/hook.h>
-#include <spa/format.h>
+#include <spa/utils/defs.h>
+#include <spa/utils/hook.h>
 
 /** \class pw_core
  *
@@ -37,6 +37,7 @@ extern "C" {
  */
 struct pw_core;
 
+#include <pipewire/type.h>
 #include <pipewire/client.h>
 #include <pipewire/global.h>
 #include <pipewire/introspect.h>
@@ -44,7 +45,6 @@ struct pw_core;
 #include <pipewire/factory.h>
 #include <pipewire/port.h>
 #include <pipewire/properties.h>
-#include <pipewire/type.h>
 
 /** \page page_core_api Core API
  *

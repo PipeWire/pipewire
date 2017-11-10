@@ -21,10 +21,10 @@
 #include <math.h>
 #include <sys/mman.h>
 
-#include <spa/type-map.h>
-#include <spa/format-utils.h>
-#include <spa/audio/format-utils.h>
-#include <spa/props.h>
+#include <spa/support/type-map.h>
+#include <spa/param/format-utils.h>
+#include <spa/param/audio/format-utils.h>
+#include <spa/param/props.h>
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
@@ -236,32 +236,32 @@ static int impl_port_enum_params(struct spa_node *node,
 			return SPA_RESULT_ENUM_END;
 
 		spa_pod_builder_object(builder,
-			id, t->param_alloc_buffers.Buffers,
-			":", t->param_alloc_buffers.size,    "iru", 1024,
+			id, t->param_buffers.Buffers,
+			":", t->param_buffers.size,    "iru", 1024,
 										2, 32, 4096,
-			":", t->param_alloc_buffers.stride,  "i",   0,
-			":", t->param_alloc_buffers.buffers, "iru", 2,
+			":", t->param_buffers.stride,  "i",   0,
+			":", t->param_buffers.buffers, "iru", 2,
 										2, 2, 32,
-			":", t->param_alloc_buffers.align,   "i",  16);
+			":", t->param_buffers.align,   "i",  16);
 	}
 	else if (id == t->param.idMeta) {
 		switch (*index) {
 		case 0:
 			spa_pod_builder_object(builder,
-				id, t->param_alloc_meta_enable.MetaEnable,
-				":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
-				":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
+				id, t->param_meta.Meta,
+				":", t->param_meta.type, "I", t->meta.Header,
+				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 			break;
 		case 1:
 			spa_pod_builder_object(builder,
-				id, t->param_alloc_meta_enable.MetaEnable,
-				":", t->param_alloc_meta_enable.type,	"I", t->meta.Ringbuffer,
-				":", t->param_alloc_meta_enable.size,	"i", sizeof(struct spa_meta_ringbuffer),
-				":", t->param_alloc_meta_enable.ringbufferSize,   "ir", 1024 * 4,
+				id, t->param_meta.Meta,
+				":", t->param_meta.type,	"I", t->meta.Ringbuffer,
+				":", t->param_meta.size,	"i", sizeof(struct spa_meta_ringbuffer),
+				":", t->param_meta.ringbufferSize,   "ir", 1024 * 4,
 									2, 16 * 4, INT32_MAX / 4,
-				":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,
-				":", t->param_alloc_meta_enable.ringbufferBlocks, "i", 1,
-				":", t->param_alloc_meta_enable.ringbufferAlign,  "i", 16);
+				":", t->param_meta.ringbufferStride, "i", 0,
+				":", t->param_meta.ringbufferBlocks, "i", 1,
+				":", t->param_meta.ringbufferAlign,  "i", 16);
 			break;
 		default:
 			return SPA_RESULT_ENUM_END;

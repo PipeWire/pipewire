@@ -23,7 +23,6 @@
 #define spa_debug pw_log_trace
 
 #include <spa/lib/debug.h>
-#include <spa/format-utils.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
@@ -32,7 +31,7 @@
 #include <pipewire/core.h>
 #include <pipewire/data-loop.h>
 
-#include <spa/graph-scheduler6.h>
+#include <spa/graph/graph-scheduler6.h>
 
 /** \cond */
 struct resource_data {

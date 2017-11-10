@@ -20,8 +20,8 @@
 #ifndef __PIPEWIRE_SPA_NODE_H__
 #define __PIPEWIRE_SPA_NODE_H__
 
-#include <spa/clock.h>
-#include <spa/node.h>
+#include <spa/clock/clock.h>
+#include <spa/node/node.h>
 
 #include <pipewire/core.h>
 #include <pipewire/node.h>

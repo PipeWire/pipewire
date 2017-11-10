@@ -23,14 +23,15 @@
 #include <stdio.h>
 #include <sys/timerfd.h>
 
-#include <spa/type-map.h>
-#include <spa/clock.h>
-#include <spa/log.h>
-#include <spa/loop.h>
-#include <spa/node.h>
-#include <spa/param-alloc.h>
-#include <spa/list.h>
-#include <spa/audio/format-utils.h>
+#include <spa/support/type-map.h>
+#include <spa/support/log.h>
+#include <spa/support/loop.h>
+#include <spa/utils/list.h>
+#include <spa/clock/clock.h>
+#include <spa/node/node.h>
+#include <spa/param/audio/format-utils.h>
+#include <spa/param/buffers.h>
+#include <spa/param/meta.h>
 
 #include <lib/pod.h>
 
@@ -60,8 +61,8 @@ struct type {
 	struct spa_type_audio_format audio_format;
 	struct spa_type_event_node event_node;
 	struct spa_type_command_node command_node;
-	struct spa_type_param_alloc_buffers param_alloc_buffers;
-	struct spa_type_param_alloc_meta_enable param_alloc_meta_enable;
+	struct spa_type_param_buffers param_buffers;
+	struct spa_type_param_meta param_meta;
 };
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
@@ -85,8 +86,8 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_audio_format_map(map, &type->audio_format);
 	spa_type_event_node_map(map, &type->event_node);
 	spa_type_command_node_map(map, &type->command_node);
-	spa_type_param_alloc_buffers_map(map, &type->param_alloc_buffers);
-	spa_type_param_alloc_meta_enable_map(map, &type->param_alloc_meta_enable);
+	spa_type_param_buffers_map(map, &type->param_buffers);
+	spa_type_param_meta_map(map, &type->param_meta);
 }
 
 struct props {
@@ -621,14 +622,14 @@ impl_node_port_enum_params(struct spa_node *node,
 			return SPA_RESULT_ENUM_END;
 
 		param = spa_pod_builder_object(builder,
-			id, t->param_alloc_buffers.Buffers,
-			":", t->param_alloc_buffers.size,    "iru", 1024 * this->bpf,
+			id, t->param_buffers.Buffers,
+			":", t->param_buffers.size,    "iru", 1024 * this->bpf,
 									2, 16 * this->bpf,
 									   INT32_MAX / this->bpf,
-			":", t->param_alloc_buffers.stride,  "i",   0,
-			":", t->param_alloc_buffers.buffers, "iru", 2,
+			":", t->param_buffers.stride,  "i",   0,
+			":", t->param_buffers.buffers, "iru", 2,
 									2, 1, 32,
-			":", t->param_alloc_buffers.align,   "i",   16);
+			":", t->param_buffers.align,   "i",   16);
 	}
 	else if (id == t->param.idMeta) {
 		if (!this->have_format)
@@ -637,20 +638,20 @@ impl_node_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
-				id, t->param_alloc_meta_enable.MetaEnable,
-				":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
-				":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
+				id, t->param_meta.Meta,
+				":", t->param_meta.type, "I", t->meta.Header,
+				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 			break;
 		case 1:
 			param = spa_pod_builder_object(builder,
-				id, t->param_alloc_meta_enable.MetaEnable,
-				":", t->param_alloc_meta_enable.type,	"I", t->meta.Ringbuffer,
-				":", t->param_alloc_meta_enable.size,	"i", sizeof(struct spa_meta_ringbuffer),
-				":", t->param_alloc_meta_enable.ringbufferSize,   "ir", 5512 * this->bpf,
+				id, t->param_meta.Meta,
+				":", t->param_meta.type,	"I", t->meta.Ringbuffer,
+				":", t->param_meta.size,	"i", sizeof(struct spa_meta_ringbuffer),
+				":", t->param_meta.ringbufferSize,   "ir", 5512 * this->bpf,
 								2, 16 * this->bpf, INT32_MAX / this->bpf,
-				":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,
-				":", t->param_alloc_meta_enable.ringbufferBlocks, "i", 1,
-				":", t->param_alloc_meta_enable.ringbufferAlign,  "i", 16);
+				":", t->param_meta.ringbufferStride, "i", 0,
+				":", t->param_meta.ringbufferBlocks, "i", 1,
+				":", t->param_meta.ringbufferAlign,  "i", 16);
 			break;
 		default:
 			return SPA_RESULT_ENUM_END;

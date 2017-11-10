@@ -28,6 +28,9 @@
 #include <sys/file.h>
 #include <sys/mman.h>
 
+#include <spa/param/props.h>
+#include <spa/pod/parser.h>
+
 #include "config.h"
 
 #include "pipewire/pipewire.h"

@@ -22,8 +22,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <spa/props.h>
-#include <spa/pod-builder.h>
+#include <spa/param/props.h>
+#include <spa/pod/iter.h>
+#include <spa/pod/builder.h>
 
 static int compare_value(enum spa_pod_type type, const void *r1, const void *r2)
 {
@@ -380,7 +381,7 @@ int pod_filter(struct spa_pod_builder *b,
 		}
 		if (do_advance) {
 			pf = spa_pod_next(pf);
-			if (!spa_pod_is_iter(filter, filter_size, pf))
+			if (!spa_pod_is_inside(filter, filter_size, pf))
 				pf = NULL;
 		}
 
@@ -482,7 +483,7 @@ int pod_compare(const struct spa_pod *pod1,
 		}
 		if (do_advance) {
 			p2 = spa_pod_next(p2);
-			if (!spa_pod_is_iter(pod2, pod2_size, p2))
+			if (!spa_pod_is_inside(pod2, pod2_size, p2))
 				p2 = NULL;
 		}
 		if (do_recurse) {

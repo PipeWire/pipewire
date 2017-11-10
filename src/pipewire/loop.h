@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include <spa/loop.h>
+#include <spa/support/loop.h>
 
 #include <pipewire/properties.h>
 

@@ -26,7 +26,7 @@ extern "C" {
 
 #include <string.h>
 
-#include <spa/defs.h>
+#include <spa/utils/defs.h>
 #include <pipewire/array.h>
 
 /** \class pw_map

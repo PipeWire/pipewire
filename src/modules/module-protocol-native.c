@@ -27,6 +27,8 @@
 #include <fcntl.h>
 #include <sys/file.h>
 
+#include <spa/pod/iter.h>
+
 #include "config.h"
 
 #include "pipewire/pipewire.h"

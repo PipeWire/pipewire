@@ -20,8 +20,8 @@
 #ifndef __PIPEWIRE_INTROSPECT_H__
 #define __PIPEWIRE_INTROSPECT_H__
 
-#include <spa/defs.h>
-#include <spa/format.h>
+#include <spa/utils/defs.h>
+#include <spa/param/param.h>
 
 #ifdef __cplusplus
 extern "C" {

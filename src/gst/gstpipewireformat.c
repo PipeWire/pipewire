@@ -24,9 +24,9 @@
 #include <gst/video/video.h>
 #include <gst/audio/audio.h>
 
-#include <spa/pod-builder.h>
-#include <spa/video/format-utils.h>
-#include <spa/audio/format-utils.h>
+#include <spa/param/video/format-utils.h>
+#include <spa/param/audio/format-utils.h>
+#include <spa/pod/builder.h>
 
 #include "gstpipewireformat.h"
 

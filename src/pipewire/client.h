@@ -30,7 +30,7 @@ extern "C" {
 
 #include <sys/socket.h>
 
-#include <spa/hook.h>
+#include <spa/utils/hook.h>
 
 /** \class pw_client
  *

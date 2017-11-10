@@ -22,10 +22,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include <spa/type-map.h>
-#include <spa/log.h>
-#include <spa/node.h>
-#include <spa/video/format-utils.h>
+#include <spa/support/type-map.h>
+#include <spa/support/log.h>
+#include <spa/node/node.h>
+#include <spa/param/video/format-utils.h>
+
 #include <lib/pod.h>
 
 #define IS_VALID_PORT(this,d,id) ((id) == 0)

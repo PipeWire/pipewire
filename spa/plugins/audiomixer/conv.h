@@ -19,7 +19,8 @@
 
 #include <string.h>
 #include <stdio.h>
-#include <spa/defs.h>
+
+#include <spa/utils/defs.h>
 
 typedef void (*mix_func_t) (void *dst, const void *src, int n_bytes);
 typedef void (*mix_scale_func_t) (void *dst, const void *src, const void *scale, int n_bytes);

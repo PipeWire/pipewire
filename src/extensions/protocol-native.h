@@ -24,11 +24,9 @@
 extern "C" {
 #endif
 
-#include <spa/defs.h>
-#include <spa/props.h>
-#include <spa/format.h>
-#include <spa/param-alloc.h>
-#include <spa/node.h>
+#include <spa/utils/defs.h>
+#include <spa/param/param.h>
+#include <spa/node/node.h>
 
 #define PW_TYPE_PROTOCOL__Native	PW_TYPE_PROTOCOL_BASE "Native"
 #define PW_TYPE_PROTOCOL_NATIVE_BASE	PW_TYPE_PROTOCOL__Native ":"

@@ -22,10 +22,10 @@
 
 #include <SDL2/SDL.h>
 
-#include <spa/type-map.h>
-#include <spa/format-utils.h>
-#include <spa/video/format-utils.h>
-#include <spa/props.h>
+#include <spa/support/type-map.h>
+#include <spa/param/format-utils.h>
+#include <spa/param/video/format-utils.h>
+#include <spa/param/props.h>
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
@@ -347,21 +347,21 @@ static int impl_port_enum_params(struct spa_node *node,
 			return SPA_RESULT_ENUM_END;
 
 		spa_pod_builder_object(builder,
-			id, t->param_alloc_buffers.Buffers,
-			":", t->param_alloc_buffers.size,    "i", d->stride * d->format.size.height,
-			":", t->param_alloc_buffers.stride,  "i", d->stride,
-			":", t->param_alloc_buffers.buffers, "iru", 32,
+			id, t->param_buffers.Buffers,
+			":", t->param_buffers.size,    "i", d->stride * d->format.size.height,
+			":", t->param_buffers.stride,  "i", d->stride,
+			":", t->param_buffers.buffers, "iru", 32,
 									2, 2, 32,
-			":", t->param_alloc_buffers.align,   "i", 16);
+			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
 		if (*index != 0)
 			return SPA_RESULT_ENUM_END;
 
 		spa_pod_builder_object(builder,
-			id, t->param_alloc_meta_enable.MetaEnable,
-			":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
-			":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
+			id, t->param_meta.Meta,
+			":", t->param_meta.type, "I", t->meta.Header,
+			":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 	}
 	else
 		return SPA_RESULT_UNKNOWN_PARAM;

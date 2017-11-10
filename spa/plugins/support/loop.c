@@ -29,11 +29,12 @@
 #include <sys/signalfd.h>
 #include <pthread.h>
 
-#include <spa/loop.h>
-#include <spa/list.h>
-#include <spa/log.h>
-#include <spa/type-map.h>
-#include <spa/ringbuffer.h>
+#include <spa/support/loop.h>
+#include <spa/support/log.h>
+#include <spa/support/type-map.h>
+#include <spa/support/plugin.h>
+#include <spa/utils/list.h>
+#include <spa/utils/ringbuffer.h>
 
 #define NAME "loop"
 

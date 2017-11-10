@@ -19,8 +19,7 @@
 
 #include <stdio.h>
 
-#include <spa/plugin.h>
-#include <spa/node.h>
+#include <spa/support/plugin.h>
 
 #define MAX_FACTORIES	16
 

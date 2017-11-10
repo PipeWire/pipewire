@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <sched.h>
 
-#include <spa/ringbuffer.h>
+#include <spa/utils/ringbuffer.h>
 
 #define ARRAY_SIZE 64
 #define MAX_VALUE 0x10000

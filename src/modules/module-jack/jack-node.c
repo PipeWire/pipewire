@@ -28,9 +28,9 @@
 #include <sys/mman.h>
 #include <sys/eventfd.h>
 
-#include <spa/node.h>
-#include <spa/hook.h>
-#include <spa/audio/format-utils.h>
+#include <spa/node/node.h>
+#include <spa/utils/hook.h>
+#include <spa/param/audio/format-utils.h>
 
 #include <spa/lib/pod.h>
 

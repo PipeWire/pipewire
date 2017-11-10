@@ -17,8 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <spa/plugin.h>
-#include <spa/node.h>
+#include <spa/support/plugin.h>
 
 extern const struct spa_handle_factory spa_audiotestsrc_factory;
 

@@ -24,14 +24,11 @@
 #include <stdio.h>
 #include <sys/eventfd.h>
 
-#include <spa/type-map.h>
-#include <spa/clock.h>
-#include <spa/log.h>
-#include <spa/loop.h>
-#include <spa/node.h>
-#include <spa/param-alloc.h>
-#include <spa/list.h>
-#include <lib/pod.h>
+#include <spa/support/type-map.h>
+#include <spa/support/log.h>
+#include <spa/support/loop.h>
+#include <spa/support/plugin.h>
+#include <spa/utils/ringbuffer.h>
 
 #define NAME "logger"
 

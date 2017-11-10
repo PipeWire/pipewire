@@ -25,8 +25,9 @@
 #include <stdio.h>
 #include <dlfcn.h>
 
-#include <spa/node.h>
-#include <spa/graph.h>
+#include <spa/node/node.h>
+#include <spa/param/props.h>
+#include <spa/pod/iter.h>
 
 #include "spa-node.h"
 #include "pipewire/node.h"

@@ -21,8 +21,9 @@
 
 #include <asoundlib.h>
 
-#include <spa/node.h>
-#include <spa/audio/format.h>
+#include <spa/node/node.h>
+#include <spa/param/audio/format.h>
+
 #include <lib/pod.h>
 
 #define NAME "alsa-sink"
@@ -331,14 +332,14 @@ impl_node_port_enum_params(struct spa_node *node,
 			return SPA_RESULT_ENUM_END;
 
 		param = spa_pod_builder_object(builder,
-			id, t->param_alloc_buffers.Buffers,
-			":", t->param_alloc_buffers.size,    "iru", this->props.min_latency * this->frame_size,
-								2, this->props.min_latency * this->frame_size,
-								   INT32_MAX,
-			":", t->param_alloc_buffers.stride,  "i", 0,
-			":", t->param_alloc_buffers.buffers, "ir", 2,
+			id, t->param_buffers.Buffers,
+			":", t->param_buffers.size,    "iru", this->props.min_latency * this->frame_size,
+							2, this->props.min_latency * this->frame_size,
+							   INT32_MAX,
+			":", t->param_buffers.stride,  "i", 0,
+			":", t->param_buffers.buffers, "ir", 2,
 								2, 2, MAX_BUFFERS,
-			":", t->param_alloc_buffers.align,   "i", 16);
+			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
 		if (!this->have_format)
@@ -347,22 +348,22 @@ impl_node_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
-				id, t->param_alloc_meta_enable.MetaEnable,
-				":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
-				":", t->param_alloc_meta_enable.size, "i", sizeof(struct spa_meta_header));
+				id, t->param_meta.Meta,
+				":", t->param_meta.type, "I", t->meta.Header,
+				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 			break;
 		case 1:
 			param = spa_pod_builder_object(builder,
-				id, t->param_alloc_meta_enable.MetaEnable,
-				":", t->param_alloc_meta_enable.type,	  "I", t->meta.Ringbuffer,
-				":", t->param_alloc_meta_enable.size,	  "i", sizeof(struct spa_meta_ringbuffer),
-				":", t->param_alloc_meta_enable.ringbufferSize,	  "iru",
+				id, t->param_meta.Meta,
+				":", t->param_meta.type,	  "I", t->meta.Ringbuffer,
+				":", t->param_meta.size,	  "i", sizeof(struct spa_meta_ringbuffer),
+				":", t->param_meta.ringbufferSize,	  "iru",
 								  this->props.max_latency * this->frame_size,
 								2, this->props.min_latency * this->frame_size,
 								   this->period_frames * this->frame_size,
-				":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,
-				":", t->param_alloc_meta_enable.ringbufferBlocks, "i", 1,
-				":", t->param_alloc_meta_enable.ringbufferAlign,  "i", 16);
+				":", t->param_meta.ringbufferStride, "i", 0,
+				":", t->param_meta.ringbufferBlocks, "i", 1,
+				":", t->param_meta.ringbufferAlign,  "i", 16);
 			break;
 		default:
 			return SPA_RESULT_ENUM_END;

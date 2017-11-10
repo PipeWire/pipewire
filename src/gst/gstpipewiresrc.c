@@ -40,12 +40,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include <gio/gunixfdmessage.h>
 #include <gst/net/gstnetclientclock.h>
 #include <gst/allocators/gstfdmemory.h>
 #include <gst/video/video.h>
-
-#include <spa/buffer.h>
 
 #include "gstpipewireclock.h"
 
@@ -755,16 +752,16 @@ on_format_changed (void                  *data,
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
     params[0] = spa_pod_builder_object (&b,
-	0, t->param_alloc_buffers.Buffers,
-	":", t->param_alloc_buffers.size,    "ir", 0,  SPA_PROP_RANGE(0, INT32_MAX),
-	":", t->param_alloc_buffers.stride,  "ir", 0,  SPA_PROP_RANGE(0, INT32_MAX),
-	":", t->param_alloc_buffers.buffers, "ir", 16, SPA_PROP_RANGE(1, INT32_MAX),
-	":", t->param_alloc_buffers.align,   "i", 16);
+	0, t->param_buffers.Buffers,
+	":", t->param_buffers.size,    "ir", 0,  SPA_PROP_RANGE(0, INT32_MAX),
+	":", t->param_buffers.stride,  "ir", 0,  SPA_PROP_RANGE(0, INT32_MAX),
+	":", t->param_buffers.buffers, "ir", 16, SPA_PROP_RANGE(1, INT32_MAX),
+	":", t->param_buffers.align,   "i", 16);
 
     params[1] = spa_pod_builder_object (&b,
-	0, t->param_alloc_meta_enable.MetaEnable,
-        ":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
-        ":", t->param_alloc_meta_enable.size, "i", sizeof (struct spa_meta_header));
+	0, t->param_meta.Meta,
+        ":", t->param_meta.type, "I", t->meta.Header,
+        ":", t->param_meta.size, "i", sizeof (struct spa_meta_header));
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
     pw_stream_finish_format (pwsrc->stream, SPA_RESULT_OK, 2, params);

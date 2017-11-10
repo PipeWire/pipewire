@@ -23,9 +23,10 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <spa/log.h>
+#include <spa/support/log.h>
+#include <spa/pod/iter.h>
+
 #include <lib/debug.h>
-#include <spa/pod-iter.h>
 
 #if 0
 /*

@@ -22,8 +22,10 @@
 #include <errno.h>
 #include <sys/eventfd.h>
 
-#include <spa/format-utils.h>
-#include <spa/loop.h>
+#include <spa/support/loop.h>
+#include <spa/pod/parser.h>
+
+#include <lib/pod.h>
 
 #include "debug.h"
 

@@ -23,12 +23,12 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <spa/type-map.h>
-#include <spa/type-map-impl.h>
-#include <spa/log.h>
-#include <spa/node.h>
-#include <spa/loop.h>
-#include <spa/video/format-utils.h>
+#include <spa/support/log-impl.h>
+#include <spa/support/type-map-impl.h>
+#include <spa/pod/pod.h>
+#include <spa/pod/builder.h>
+#include <spa/pod/parser.h>
+#include <spa/param/video/format-utils.h>
 
 #include <lib/debug.h>
 

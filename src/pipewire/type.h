@@ -24,11 +24,12 @@
 extern "C" {
 #endif
 
-#include <spa/type-map.h>
-#include <spa/event-node.h>
-#include <spa/command-node.h>
-#include <spa/monitor.h>
-#include <spa/param-alloc.h>
+#include <spa/support/type-map.h>
+#include <spa/node/event.h>
+#include <spa/node/command.h>
+#include <spa/monitor/monitor.h>
+#include <spa/param/buffers.h>
+#include <spa/param/meta.h>
 
 #include <pipewire/map.h>
 
@@ -69,9 +70,8 @@ struct pw_type {
 	struct spa_type_event_node event_node;
 	struct spa_type_command_node command_node;
 	struct spa_type_monitor monitor;
-	struct spa_type_param_alloc_buffers param_alloc_buffers;
-	struct spa_type_param_alloc_meta_enable param_alloc_meta_enable;
-	struct spa_type_param_alloc_video_padding param_alloc_video_padding;
+	struct spa_type_param_buffers param_buffers;
+	struct spa_type_param_meta param_meta;
 };
 
 void

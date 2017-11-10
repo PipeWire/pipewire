@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#include <spa/defs.h>
-#include <spa/pod-utils.h>
+#include <spa/utils/defs.h>
+#include <spa/pod/pod.h>
 
 /** \class pw_utils
  *

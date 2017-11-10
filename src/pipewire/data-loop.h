@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include <spa/hook.h>
+#include <spa/utils/hook.h>
 
 /** \class pw_data_loop
  *

@@ -20,8 +20,6 @@
 #ifndef __PIPEWIRE_JACK_NODE_H__
 #define __PIPEWIRE_JACK_NODE_H__
 
-#include <spa/buffer.h>
-
 #include <pipewire/node.h>
 
 #ifdef __cplusplus

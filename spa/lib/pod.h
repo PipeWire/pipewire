@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#include <spa/props.h>
-#include <spa/pod-builder.h>
+#include <spa/param/props.h>
+#include <spa/pod/builder.h>
 
 int spa_pod_filter(struct spa_pod_builder *b,
 		   const struct spa_pod *pod,

@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-#include <spa/hook.h>
+#include <spa/utils/hook.h>
 
 #include <pipewire/core.h>
 

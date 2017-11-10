@@ -19,10 +19,12 @@
 
 #include <string.h>
 
-#include "spa/defs.h"
-#include "spa/clock.h"
-#include "spa/type-map.h"
-#include "spa/monitor.h"
+#include <spa/support/type-map.h>
+#include <spa/utils/defs.h>
+#include <spa/clock/clock.h>
+#include <spa/param/format.h>
+#include <spa/param/props.h>
+#include <spa/monitor/monitor.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/type.h"
@@ -58,7 +60,6 @@ void pw_type_init(struct pw_type *type)
 	spa_type_event_node_map(type->map, &type->event_node);
 	spa_type_command_node_map(type->map, &type->command_node);
 	spa_type_monitor_map(type->map, &type->monitor);
-	spa_type_param_alloc_buffers_map(type->map, &type->param_alloc_buffers);
-	spa_type_param_alloc_meta_enable_map(type->map, &type->param_alloc_meta_enable);
-	spa_type_param_alloc_video_padding_map(type->map, &type->param_alloc_video_padding);
+	spa_type_param_buffers_map(type->map, &type->param_buffers);
+	spa_type_param_meta_map(type->map, &type->param_meta);
 }

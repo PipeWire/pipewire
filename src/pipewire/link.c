@@ -20,10 +20,10 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <spa/lib/debug.h>
-#include <spa/video/format.h>
-#include <spa/pod-utils.h>
+#include <spa/pod/parser.h>
+#include <spa/param/param.h>
 
+#include <spa/lib/debug.h>
 #include <spa/lib/pod.h>
 
 #include "pipewire.h"
@@ -239,18 +239,18 @@ static struct spa_pod_object *find_param(struct spa_pod_object **params, int n_p
 	return NULL;
 }
 
-static struct spa_pod_object *find_meta_enable(struct pw_core *core, struct spa_pod_object **params,
+static struct spa_pod_object *find_meta(struct pw_core *core, struct spa_pod_object **params,
 					  int n_params, uint32_t type)
 {
 	uint32_t i;
 
 	for (i = 0; i < n_params; i++) {
 		if (spa_pod_is_object_type
-		    (&params[i]->pod, core->type.param_alloc_meta_enable.MetaEnable)) {
+		    (&params[i]->pod, core->type.param_meta.Meta)) {
 			uint32_t qtype;
 
 			if (spa_pod_object_parse(params[i],
-				":", core->type.param_alloc_meta_enable.type, "I", &qtype, NULL) < 0)
+				":", core->type.param_meta.type, "I", &qtype, NULL) < 0)
 				continue;
 
 			if (qtype == type)
@@ -294,12 +294,12 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 	/* collect metadata */
 	for (i = 0; i < n_params; i++) {
 		if (spa_pod_is_object_type
-		    (&params[i]->pod, this->core->type.param_alloc_meta_enable.MetaEnable)) {
+		    (&params[i]->pod, this->core->type.param_meta.Meta)) {
 			uint32_t type, size;
 
 			if (spa_pod_object_parse(params[i],
-				":", this->core->type.param_alloc_meta_enable.type, "I", &type,
-				":", this->core->type.param_alloc_meta_enable.size, "i", &size, NULL) < 0)
+				":", this->core->type.param_meta.type, "I", &type,
+				":", this->core->type.param_meta.size, "i", &size, NULL) < 0)
 				continue;
 
 			pw_log_debug("link %p: enable meta %d %d", this, type, size);
@@ -398,8 +398,8 @@ param_filter(struct pw_link *this,
 	     uint32_t id,
 	     struct spa_pod_builder *result)
 {
-	uint8_t ibuf[2048], obuf[2048];
-        struct spa_pod_builder ib = { 0 }, ob = { 0 };
+	uint8_t ibuf[4096];
+        struct spa_pod_builder ib = { 0 };
 	struct spa_pod_object *oparam, *iparam;
 	uint32_t iidx, oidx, num = 0;
 
@@ -411,14 +411,11 @@ param_filter(struct pw_link *this,
 			break;
 		iparam = spa_pod_builder_deref(&ib, 0);
 
-		pw_log_debug("iparam %d", iidx);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_pod(&iparam->pod, 0);
 
 		for (oidx = 0;;) {
 			uint32_t offset;
-
-			spa_pod_builder_init(&ob, obuf, sizeof(obuf));
 
 			offset = result->offset;
 
@@ -430,7 +427,6 @@ param_filter(struct pw_link *this,
 			}
 			oparam = spa_pod_builder_deref(result, offset);
 
-			pw_log_debug("oparam %d", oidx);
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 				spa_debug_pod(&oparam->pod, 0);
 
@@ -539,15 +535,14 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 		}
 
-		param = find_meta_enable(this->core, params, n_params,
-					 t->meta.Ringbuffer);
+		param = find_meta(this->core, params, n_params, t->meta.Ringbuffer);
 		if (param) {
 			uint32_t ms, s;
 			max_buffers = 1;
 
 			if (spa_pod_object_parse(param,
-				":", t->param_alloc_meta_enable.ringbufferSize,   "i", &ms,
-				":", t->param_alloc_meta_enable.ringbufferStride, "i", &s, NULL) >= 0) {
+				":", t->param_meta.ringbufferSize,   "i", &ms,
+				":", t->param_meta.ringbufferStride, "i", &s, NULL) >= 0) {
 				minsize = ms;
 				stride = s;
 			}
@@ -555,15 +550,15 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			max_buffers = MAX_BUFFERS;
 			minsize = stride = 0;
 			param = find_param(params, n_params,
-					   t->param_alloc_buffers.Buffers);
+					   t->param_buffers.Buffers);
 			if (param) {
 				uint32_t qmax_buffers = max_buffers,
 				    qminsize = minsize, qstride = stride;
 
 				spa_pod_object_parse(param,
-					":", t->param_alloc_buffers.size, "i", &qminsize,
-					":", t->param_alloc_buffers.stride, "i", &qstride,
-					":", t->param_alloc_buffers.buffers, "i", &qmax_buffers, NULL);
+					":", t->param_buffers.size, "i", &qminsize,
+					":", t->param_buffers.stride, "i", &qstride,
+					":", t->param_buffers.buffers, "i", &qmax_buffers, NULL);
 
 				max_buffers =
 				    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,

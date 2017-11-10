@@ -35,7 +35,7 @@ extern "C" {
 #define spa_debug pw_log_trace
 #endif
 
-#include <spa/graph.h>
+#include <spa/graph/graph.h>
 
 struct pw_command;
 

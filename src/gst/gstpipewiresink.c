@@ -39,11 +39,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include <gio/gunixfdmessage.h>
 #include <gst/allocators/gstfdmemory.h>
-#include <gst/video/video.h>
-
-#include <spa/buffer.h>
 
 #include "gstpipewireformat.h"
 
@@ -236,37 +232,37 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_push_object (&b, t->param.idBuffers, t->param_alloc_buffers.Buffers);
+  spa_pod_builder_push_object (&b, t->param.idBuffers, t->param_buffers.Buffers);
   if (size == 0)
     spa_pod_builder_add (&b,
-        ":", t->param_alloc_buffers.size, "iru", 0, SPA_PROP_RANGE(0, INT32_MAX), NULL);
+        ":", t->param_buffers.size, "iru", 0, SPA_PROP_RANGE(0, INT32_MAX), NULL);
   else
     spa_pod_builder_add (&b,
-        ":", t->param_alloc_buffers.size, "ir", size, SPA_PROP_RANGE(size, INT32_MAX), NULL);
+        ":", t->param_buffers.size, "ir", size, SPA_PROP_RANGE(size, INT32_MAX), NULL);
 
   spa_pod_builder_add (&b,
-      ":", t->param_alloc_buffers.stride,  "ir", 0, SPA_PROP_RANGE(0, INT32_MAX),
-      ":", t->param_alloc_buffers.buffers, "iru", min_buffers,
+      ":", t->param_buffers.stride,  "ir", 0, SPA_PROP_RANGE(0, INT32_MAX),
+      ":", t->param_buffers.buffers, "iru", min_buffers,
 						SPA_PROP_RANGE(min_buffers,
 							       max_buffers ? max_buffers : INT32_MAX),
-      ":", t->param_alloc_buffers.align,   "i", 16,
+      ":", t->param_buffers.align,   "i", 16,
       NULL);
   port_params[0] = spa_pod_builder_pop_deref (&b);
 
   port_params[1] = spa_pod_builder_object (&b,
-      t->param.idMeta, t->param_alloc_meta_enable.MetaEnable,
-      ":", t->param_alloc_meta_enable.type, "I", t->meta.Header,
-      ":", t->param_alloc_meta_enable.size, "i", sizeof (struct spa_meta_header));
+      t->param.idMeta, t->param_meta.Meta,
+      ":", t->param_meta.type, "I", t->meta.Header,
+      ":", t->param_meta.size, "i", sizeof (struct spa_meta_header));
 
   port_params[2] = spa_pod_builder_object (&b,
-      t->param.idMeta, t->param_alloc_meta_enable.MetaEnable,
-      ":", t->param_alloc_meta_enable.type, "I", t->meta.Ringbuffer,
-      ":", t->param_alloc_meta_enable.size, "i", sizeof (struct spa_meta_ringbuffer),
-      ":", t->param_alloc_meta_enable.ringbufferSize,   "i", size * SPA_MAX (4,
+      t->param.idMeta, t->param_meta.Meta,
+      ":", t->param_meta.type, "I", t->meta.Ringbuffer,
+      ":", t->param_meta.size, "i", sizeof (struct spa_meta_ringbuffer),
+      ":", t->param_meta.ringbufferSize,   "i", size * SPA_MAX (4,
                                                                     SPA_MAX (min_buffers, max_buffers)),
-      ":", t->param_alloc_meta_enable.ringbufferStride, "i", 0,
-      ":", t->param_alloc_meta_enable.ringbufferBlocks, "i", 1,
-      ":", t->param_alloc_meta_enable.ringbufferAlign,  "i", 16);
+      ":", t->param_meta.ringbufferStride, "i", 0,
+      ":", t->param_meta.ringbufferBlocks, "i", 1,
+      ":", t->param_meta.ringbufferAlign,  "i", 16);
 
   pw_thread_loop_lock (sink->main_loop);
   pw_stream_finish_format (sink->stream, SPA_RESULT_OK, 2, port_params);

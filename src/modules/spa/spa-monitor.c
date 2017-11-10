@@ -27,9 +27,9 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include <spa/node.h>
-#include <spa/monitor.h>
-#include <spa/pod-parser.h>
+#include <spa/node/node.h>
+#include <spa/monitor/monitor.h>
+#include <spa/pod/parser.h>
 
 #include <pipewire/log.h>
 #include <pipewire/type.h>

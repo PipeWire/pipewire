@@ -26,14 +26,16 @@
 #include <pthread.h>
 #include <poll.h>
 
-#include <spa/node.h>
-#include <spa/log.h>
-#include <spa/log-impl.h>
-#include <spa/loop.h>
-#include <spa/type-map.h>
-#include <spa/type-map-impl.h>
-#include <spa/audio/format-utils.h>
-#include <spa/format-utils.h>
+#include <spa/support/log.h>
+#include <spa/support/log-impl.h>
+#include <spa/support/loop.h>
+#include <spa/support/type-map.h>
+#include <spa/support/type-map-impl.h>
+#include <spa/node/node.h>
+#include <spa/param/param.h>
+#include <spa/param/props.h>
+#include <spa/param/audio/format-utils.h>
+#include <spa/param/format-utils.h>
 
 #define USE_GRAPH
 
@@ -42,8 +44,8 @@ static SPA_LOG_IMPL(default_log);
 
 #define spa_debug(...)	spa_log_trace(&default_log.log,__VA_ARGS__)
 
-#include <spa/graph.h>
-#include <spa/graph-scheduler1.h>
+#include <spa/graph/graph.h>
+#include <spa/graph/graph-scheduler1.h>
 
 struct type {
 	uint32_t node;

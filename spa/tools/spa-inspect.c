@@ -23,11 +23,14 @@
 #include <unistd.h>
 #include <dlfcn.h>
 
-#include <spa/type-map-impl.h>
-#include <spa/clock.h>
-#include <spa/log-impl.h>
-#include <spa/node.h>
-#include <spa/loop.h>
+#include <spa/support/type-map-impl.h>
+#include <spa/support/log-impl.h>
+#include <spa/support/loop.h>
+#include <spa/clock/clock.h>
+#include <spa/node/node.h>
+#include <spa/pod/parser.h>
+#include <spa/param/param.h>
+#include <spa/param/format.h>
 
 #include <lib/debug.h>
 

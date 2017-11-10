@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include <spa/list.h>
+#include <spa/utils/list.h>
 
 struct pw_protocol;
 

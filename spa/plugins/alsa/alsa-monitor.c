@@ -27,10 +27,11 @@
 #include <libudev.h>
 #include <asoundlib.h>
 
-#include <spa/log.h>
-#include <spa/type-map.h>
-#include <spa/loop.h>
-#include <spa/monitor.h>
+#include <spa/support/log.h>
+#include <spa/support/type-map.h>
+#include <spa/support/loop.h>
+#include <spa/monitor/monitor.h>
+
 #include <lib/debug.h>
 
 #define NAME  "alsa-monitor"

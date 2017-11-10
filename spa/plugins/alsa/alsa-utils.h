@@ -28,15 +28,17 @@ extern "C" {
 
 #include <asoundlib.h>
 
-#include <spa/type-map.h>
-#include <spa/clock.h>
-#include <spa/log.h>
-#include <spa/list.h>
-#include <spa/node.h>
-#include <spa/param-alloc.h>
-#include <spa/loop.h>
-#include <spa/ringbuffer.h>
-#include <spa/audio/format-utils.h>
+#include <spa/support/type-map.h>
+#include <spa/support/loop.h>
+#include <spa/support/log.h>
+#include <spa/utils/list.h>
+#include <spa/utils/ringbuffer.h>
+
+#include <spa/clock/clock.h>
+#include <spa/node/node.h>
+#include <spa/param/buffers.h>
+#include <spa/param/meta.h>
+#include <spa/param/audio/format-utils.h>
 
 struct props {
 	char device[64];
@@ -72,12 +74,12 @@ struct type {
 	struct spa_type_media_type media_type;
 	struct spa_type_media_subtype media_subtype;
 	struct spa_type_media_subtype_audio media_subtype_audio;
-	struct spa_type_format_audio format_audio;
 	struct spa_type_audio_format audio_format;
 	struct spa_type_event_node event_node;
 	struct spa_type_command_node command_node;
-	struct spa_type_param_alloc_buffers param_alloc_buffers;
-	struct spa_type_param_alloc_meta_enable param_alloc_meta_enable;
+	struct spa_type_format_audio format_audio;
+	struct spa_type_param_buffers param_buffers;
+	struct spa_type_param_meta param_meta;
 };
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
@@ -98,12 +100,12 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_media_type_map(map, &type->media_type);
 	spa_type_media_subtype_map(map, &type->media_subtype);
 	spa_type_media_subtype_audio_map(map, &type->media_subtype_audio);
-	spa_type_format_audio_map(map, &type->format_audio);
 	spa_type_audio_format_map(map, &type->audio_format);
 	spa_type_event_node_map(map, &type->event_node);
 	spa_type_command_node_map(map, &type->command_node);
-	spa_type_param_alloc_buffers_map(map, &type->param_alloc_buffers);
-	spa_type_param_alloc_meta_enable_map(map, &type->param_alloc_meta_enable);
+	spa_type_format_audio_map(map, &type->format_audio);
+	spa_type_param_buffers_map(map, &type->param_buffers);
+	spa_type_param_meta_map(map, &type->param_meta);
 }
 
 struct state {

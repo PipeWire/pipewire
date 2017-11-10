@@ -821,7 +821,7 @@ static int impl_node_process_output(struct spa_node *node)
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	io = this->io;
-	spa_return_val_if_fail(io != NULL, SPA_RESULT_WRONG_STATE);
+	spa_return_val_if_fail(io != NULL, SPA_RESULT_UNEXPECTED);
 
 	if (io->status == SPA_RESULT_HAVE_BUFFER)
 		return SPA_RESULT_HAVE_BUFFER;

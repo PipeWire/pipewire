@@ -206,7 +206,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 		switch (*format) {
 		case '<':
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_POD_TYPE_OBJECT)
-				return SPA_RESULT_ERROR;
+				return SPA_RESULT_INCOMPATIBLE;
 			if (++parser->depth >= SPA_POD_MAX_DEPTH)
 				return SPA_RESULT_INVALID_ARGUMENTS;
 
@@ -215,7 +215,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 			goto read_pod;
 		case '[':
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_POD_TYPE_STRUCT)
-				return SPA_RESULT_ERROR;
+				return SPA_RESULT_INCOMPATIBLE;
 			if (++parser->depth >= SPA_POD_MAX_DEPTH)
 				return SPA_RESULT_INVALID_ARGUMENTS;
 
@@ -224,7 +224,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 			goto read_pod;
 		case ']': case '>':
 			if (current != NULL)
-				return SPA_RESULT_ERROR;
+				return SPA_RESULT_INCOMPATIBLE;
 			if (--parser->depth < 0)
 				return SPA_RESULT_INVALID_ARGUMENTS;
 

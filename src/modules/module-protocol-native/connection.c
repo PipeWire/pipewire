@@ -116,7 +116,11 @@ static void *connection_ensure_size(struct pw_protocol_native_connection *conn, 
 	if (buf->buffer_size + size > buf->buffer_maxsize) {
 		buf->buffer_maxsize = SPA_ROUND_UP_N(buf->buffer_size + size, MAX_BUFFER_SIZE);
 		buf->buffer_data = realloc(buf->buffer_data, buf->buffer_maxsize);
-
+		if (buf->buffer_data == NULL) {
+			buf->buffer_maxsize = 0;
+			spa_hook_list_call(&conn->listener_list, struct pw_protocol_native_connection_events, error, -ENOMEM);
+			return NULL;
+		}
 		pw_log_warn("connection %p: resize buffer to %zd %zd %zd",
 			    conn, buf->buffer_size, size, buf->buffer_maxsize);
 	}
@@ -295,7 +299,8 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 	size -= buf->offset;
 
 	if (size < 8) {
-		connection_ensure_size(conn, buf, 8);
+		if (connection_ensure_size(conn, buf, 8) == NULL)
+			return false;
 		buf->update = true;
 		goto again;
 	}
@@ -308,7 +313,8 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 	len = p[1] & 0xffffff;
 
 	if (len > size) {
-		connection_ensure_size(conn, buf, len);
+		if (connection_ensure_size(conn, buf, len) == NULL)
+			return false;
 		buf->update = true;
 		goto again;
 	}
@@ -318,7 +324,6 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 
 	*dt = buf->data;
 	*sz = buf->size;
-
 
 	if (debug_messages) {
 		printf("<<<<<<<<< in: %d %d %zd\n", *dest_id, *opcode, len);
@@ -334,7 +339,9 @@ static inline void *begin_write(struct pw_protocol_native_connection *conn, uint
 	uint32_t *p;
 	struct buffer *buf = &impl->out;
 	/* 4 for dest_id, 1 for opcode, 3 for size and size for payload */
-	p = connection_ensure_size(conn, buf, 8 + size);
+	if ((p = connection_ensure_size(conn, buf, 8 + size)) == NULL)
+		return NULL;
+
 	return p + 2;
 }
 
@@ -420,7 +427,9 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 	uint32_t *p, size = builder->offset;
 	struct buffer *buf = &impl->out;
 
-	p = connection_ensure_size(conn, buf, 8 + size);
+	if ((p = connection_ensure_size(conn, buf, 8 + size)) == NULL)
+		return;
+
 	*p++ = impl->dest_id;
 	*p++ = (impl->opcode << 24) | (size & 0xffffff);
 

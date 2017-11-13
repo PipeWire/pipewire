@@ -31,6 +31,8 @@ struct pw_protocol_native_connection_events {
 #define PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS	0
 	void (*destroy) (void *data);
 
+	void (*error) (void *data, int error);
+
 	void (*need_flush) (void *data);
 };
 

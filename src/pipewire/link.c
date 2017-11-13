@@ -43,7 +43,7 @@ struct impl {
 
 	struct pw_work_queue *work;
 
-	struct spa_pod_object *format_filter;
+	struct spa_pod *format_filter;
 	struct pw_properties *properties;
 
 	struct spa_hook input_port_listener;
@@ -115,7 +115,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = -EIO, res2;
-	struct spa_pod_object *format = NULL, *current;
+	struct spa_pod *format = NULL, *current;
 	char *error = NULL;
 	struct pw_resource *resource;
 	bool changed = true;
@@ -133,24 +133,23 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	input = this->input;
 	output = this->output;
 
-	if ((res = pw_core_find_format(this->core, output, input, NULL, 0, NULL, &b, &error)) < 0)
+	if ((res = pw_core_find_format(this->core, output, input, NULL, 0, NULL, &format, &b, &error)) < 0)
 		goto error;
 
-	format = spa_pod_object_copy(spa_pod_builder_deref(&b, 0));
-	spa_pod_object_fixate(format);
+	format = pw_spa_pod_copy(format);
+	spa_pod_fixate(format);
 
 	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE) {
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
 						     t->param.idFormat, &index,
-						     NULL, &b)) <= 0) {
+						     NULL, &current, &b)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
 			asprintf(&error, "error get output format: %s", spa_strerror(res));
 			goto error;
 		}
-		current = spa_pod_builder_deref(&b, 0);
-		if (spa_pod_compare((struct spa_pod*)current, (struct spa_pod*)format) != 0) {
+		if (spa_pod_compare(current, format) != 0) {
 			pw_log_debug("link %p: output format change, renegotiate", this);
 			pw_node_set_state(output->node, PW_NODE_STATE_SUSPENDED);
 			out_state = PW_PORT_STATE_CONFIGURE;
@@ -164,14 +163,13 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
 						     t->param.idFormat, &index,
-						     NULL, &b)) <= 0) {
+						     NULL, &current, &b)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
 			asprintf(&error, "error get input format: %s", spa_strerror(res));
 			goto error;
 		}
-		current = spa_pod_builder_deref(&b, 0);
-		if (spa_pod_compare((struct spa_pod*)current, (struct spa_pod*)format) != 0) {
+		if (spa_pod_compare(current, format) != 0) {
 			pw_log_debug("link %p: input format change, renegotiate", this);
 			pw_node_set_state(input->node, PW_NODE_STATE_SUSPENDED);
 			in_state = PW_PORT_STATE_CONFIGURE;
@@ -184,7 +182,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 
 	pw_log_debug("link %p: doing set format %p", this, format);
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_pod(&format->pod, SPA_DEBUG_FLAG_FORMAT);
+		spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
 
 	if (out_state == PW_PORT_STATE_CONFIGURE) {
 		pw_log_debug("link %p: doing set format on output", this);
@@ -233,25 +231,24 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	return res;
 }
 
-static struct spa_pod_object *find_param(struct spa_pod_object **params, int n_params, uint32_t type)
+static struct spa_pod *find_param(struct spa_pod **params, int n_params, uint32_t type)
 {
 	uint32_t i;
 
 	for (i = 0; i < n_params; i++) {
-		if (spa_pod_is_object_type(&params[i]->pod, type))
+		if (spa_pod_is_object_type(params[i], type))
 			return params[i];
 	}
 	return NULL;
 }
 
-static struct spa_pod_object *find_meta(struct pw_core *core, struct spa_pod_object **params,
-					  int n_params, uint32_t type)
+static struct spa_pod *find_meta(struct pw_core *core, struct spa_pod **params,
+				 int n_params, uint32_t type)
 {
 	uint32_t i;
 
 	for (i = 0; i < n_params; i++) {
-		if (spa_pod_is_object_type
-		    (&params[i]->pod, core->type.param_meta.Meta)) {
+		if (spa_pod_is_object_type (params[i], core->type.param_meta.Meta)) {
 			uint32_t qtype;
 
 			if (spa_pod_object_parse(params[i],
@@ -268,7 +265,7 @@ static struct spa_pod_object *find_meta(struct pw_core *core, struct spa_pod_obj
 static struct spa_buffer **alloc_buffers(struct pw_link *this,
 					 uint32_t n_buffers,
 					 uint32_t n_params,
-					 struct spa_pod_object **params,
+					 struct spa_pod **params,
 					 uint32_t n_datas,
 					 size_t *data_sizes,
 					 ssize_t *data_strides,
@@ -298,8 +295,7 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 
 	/* collect metadata */
 	for (i = 0; i < n_params; i++) {
-		if (spa_pod_is_object_type
-		    (&params[i]->pod, this->core->type.param_meta.Meta)) {
+		if (spa_pod_is_object_type (params[i], this->core->type.param_meta.Meta)) {
 			uint32_t type, size;
 
 			if (spa_pod_object_parse(params[i],
@@ -405,35 +401,29 @@ param_filter(struct pw_link *this,
 {
 	uint8_t ibuf[4096];
         struct spa_pod_builder ib = { 0 };
-	struct spa_pod_object *oparam, *iparam;
+	struct spa_pod *oparam, *iparam;
 	uint32_t iidx, oidx, num = 0;
 
 	for (iidx = 0;;) {
 	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));
 		pw_log_debug("iparam %d", iidx);
 		if (spa_node_port_enum_params(in_port->node->node, in_port->direction, in_port->port_id,
-					      id, &iidx, NULL, &ib) <= 0)
+					      id, &iidx, NULL, &iparam, &ib) <= 0)
 			break;
-		iparam = spa_pod_builder_deref(&ib, 0);
 
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(&iparam->pod, 0);
+			spa_debug_pod(iparam, 0);
 
 		for (oidx = 0;;) {
-			uint32_t offset;
-
-			offset = result->state.offset;
-
-			pw_log_debug("oparam %d %d", oidx, offset);
+			pw_log_debug("oparam %d", oidx);
 			if (spa_node_port_enum_params(out_port->node->node, out_port->direction,
 						      out_port->port_id, id, &oidx,
-						      iparam, result) <= 0) {
+						      iparam, &oparam, result) <= 0) {
 				break;
 			}
-			oparam = spa_pod_builder_deref(result, offset);
 
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(&oparam->pod, 0);
+				spa_debug_pod(oparam, 0);
 
 			num++;
 		}
@@ -520,7 +510,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	}
 
 	if (this->buffers == NULL) {
-		struct spa_pod_object **params, *param;
+		struct spa_pod **params, *param;
 		uint8_t buffer[4096];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 		int i, offset, n_params;
@@ -530,13 +520,13 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		n_params = param_filter(this, input, output, t->param.idBuffers, &b);
 		n_params += param_filter(this, input, output, t->param.idMeta, &b);
 
-		params = alloca(n_params * sizeof(struct spa_pod_object *));
+		params = alloca(n_params * sizeof(struct spa_pod *));
 		for (i = 0, offset = 0; i < n_params; i++) {
-			params[i] = SPA_MEMBER(buffer, offset, struct spa_pod_object);
-			spa_pod_object_fixate(params[i]);
+			params[i] = SPA_MEMBER(buffer, offset, struct spa_pod);
+			spa_pod_fixate(params[i]);
 			pw_log_debug("fixated param %d:", i);
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(&params[i]->pod, 0);
+				spa_debug_pod(params[i], 0);
 			offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 		}
 
@@ -1064,7 +1054,7 @@ static const struct pw_node_events output_node_events = {
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *output,
 			    struct pw_port *input,
-			    struct spa_pod_object *format_filter,
+			    struct spa_pod *format_filter,
 			    struct pw_properties *properties,
 			    char **error,
 			    size_t user_data_size)

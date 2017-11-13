@@ -57,7 +57,7 @@ struct impl {
 	struct spa_list item_list;
 };
 
-static void add_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
+static void add_item(struct pw_spa_monitor *this, struct spa_pod *item)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res;
@@ -72,7 +72,7 @@ static void add_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
 	const struct spa_support *support;
 	uint32_t n_support;
 
-	if (spa_pod_object_parse(&item->object,
+	if (spa_pod_object_parse(item,
 			":",t->monitor.name,    "s", &name,
 			":",t->monitor.id,      "s", &id,
 			":",t->monitor.klass,   "s", &klass,
@@ -147,14 +147,14 @@ void destroy_item(struct monitor_item *mitem)
 	free(mitem);
 }
 
-static void remove_item(struct pw_spa_monitor *this, struct spa_monitor_item *item)
+static void remove_item(struct pw_spa_monitor *this, struct spa_pod *item)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct monitor_item *mitem;
 	const char *name, *id;
 	struct pw_type *t = pw_core_get_type(impl->core);
 
-	if (spa_pod_object_parse(&item->object,
+	if (spa_pod_object_parse(item,
 			":",t->monitor.name, "s", &name,
 			":",t->monitor.id,   "s", &id, NULL) < 0)
 		return;
@@ -172,16 +172,16 @@ static void on_monitor_event(void *data, struct spa_event *event)
 	struct pw_type *t = pw_core_get_type(impl->core);
 
 	if (SPA_EVENT_TYPE(event) == t->monitor.Added) {
-		struct spa_monitor_item *item = SPA_POD_CONTENTS(struct spa_event, event);
+		struct spa_pod *item = SPA_POD_CONTENTS(struct spa_event, event);
 		add_item(this, item);
 	} else if (SPA_EVENT_TYPE(event) == t->monitor.Removed) {
-		struct spa_monitor_item *item = SPA_POD_CONTENTS(struct spa_event, event);
+		struct spa_pod *item = SPA_POD_CONTENTS(struct spa_event, event);
 		remove_item(this, item);
 	} else if (SPA_EVENT_TYPE(event) == t->monitor.Changed) {
-		struct spa_monitor_item *item = SPA_POD_CONTENTS(struct spa_event, event);
+		struct spa_pod *item = SPA_POD_CONTENTS(struct spa_event, event);
 		const char *name;
 
-		if (spa_pod_object_parse(&item->object,
+		if (spa_pod_object_parse(item,
 				":",t->monitor.name, "s", &name, NULL) < 0)
 			return;
 
@@ -295,10 +295,12 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	spa_list_init(&impl->item_list);
 
 	for (index = 0;;) {
-		struct spa_monitor_item *item;
+		struct spa_pod *item;
+		uint8_t buffer[4096];
+		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 		int res;
 
-		if ((res = spa_monitor_enum_items(this->monitor, &item, &index)) <= 0) {
+		if ((res = spa_monitor_enum_items(this->monitor, &index, &item, &b)) <= 0) {
 			if (res != 0)
 				pw_log_debug("spa_monitor_enum_items: %s\n", spa_strerror(res));
 			break;

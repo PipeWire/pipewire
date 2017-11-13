@@ -27,10 +27,10 @@
 
 G_BEGIN_DECLS
 
-struct spa_pod_object * gst_caps_to_format      (GstCaps *caps, guint index, struct spa_type_map *map);
-GPtrArray *		gst_caps_to_format_all  (GstCaps *caps, struct spa_type_map *map);
+struct spa_pod * gst_caps_to_format      (GstCaps *caps, guint index, struct spa_type_map *map);
+GPtrArray *      gst_caps_to_format_all  (GstCaps *caps, struct spa_type_map *map);
 
-GstCaps *		gst_caps_from_format    (const struct spa_pod_object *format, struct spa_type_map *map);
+GstCaps *        gst_caps_from_format    (const struct spa_pod *format, struct spa_type_map *map);
 
 G_END_DECLS
 

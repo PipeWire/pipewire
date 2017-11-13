@@ -400,7 +400,7 @@ static const struct format_info *find_format_info_by_media_type(struct type *typ
 
 static uint32_t
 enum_filter_format(struct type *type, uint32_t media_type, int32_t media_subtype,
-		   const struct spa_pod_object *filter, uint32_t index)
+		   const struct spa_pod *filter, uint32_t index)
 {
 	uint32_t video_format = 0;
 
@@ -411,7 +411,7 @@ enum_filter_format(struct type *type, uint32_t media_type, int32_t media_subtype
 			uint32_t n_values;
 			const uint32_t *values;
 
-			if (!(p = spa_pod_object_find_prop(filter, type->format_video.format)))
+			if (!(p = spa_pod_find_prop(filter, type->format_video.format)))
 				return type->video_format.UNKNOWN;
 
 			if (p->body.value.type != SPA_POD_TYPE_ID)
@@ -525,7 +525,8 @@ filter_framerate(struct v4l2_frmivalenum *frmival,
 static int
 spa_v4l2_enum_format(struct impl *this,
 		     uint32_t *index,
-		     const struct spa_pod_object *filter,
+		     const struct spa_pod *filter,
+		     struct spa_pod **result,
 		     struct spa_pod_builder *builder)
 {
 	struct port *port = &this->out_ports[0];
@@ -600,7 +601,7 @@ spa_v4l2_enum_format(struct impl *this,
 			struct spa_pod_prop *p;
 
 			/* check if we have a fixed frame size */
-			if (!(p = spa_pod_object_find_prop(filter, t->format_video.size)))
+			if (!(p = spa_pod_find_prop(filter, t->format_video.size)))
 				goto do_frmsize;
 
 			if (p->body.value.type != SPA_POD_TYPE_RECTANGLE)
@@ -634,7 +635,7 @@ spa_v4l2_enum_format(struct impl *this,
 			uint32_t i, n_values;
 
 			/* check if we have a fixed frame size */
-			if (!(p = spa_pod_object_find_prop(filter, t->format_video.size)))
+			if (!(p = spa_pod_find_prop(filter, t->format_video.size)))
 				goto have_size;
 
 			range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
@@ -722,7 +723,7 @@ spa_v4l2_enum_format(struct impl *this,
 			uint32_t i, n_values;
 			const struct spa_fraction step = { 1, 1 }, *values;
 
-			if (!(p = spa_pod_object_find_prop(filter, t->format_video.framerate)))
+			if (!(p = spa_pod_find_prop(filter, t->format_video.framerate)))
 				goto have_framerate;
 
 			if (p->body.value.type != SPA_POD_TYPE_FRACTION)
@@ -790,7 +791,7 @@ spa_v4l2_enum_format(struct impl *this,
 		prop->body.flags &= ~(SPA_POD_PROP_RANGE_MASK | SPA_POD_PROP_FLAG_UNSET);
 	}
 	spa_pod_builder_pop(builder);
-	spa_pod_builder_pop(builder);
+	*result = spa_pod_builder_pop(builder);
 
 	(*index)++;
 
@@ -1031,7 +1032,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 
 static int
 mmap_init(struct impl *this,
-	  struct spa_pod_object **params,
+	  struct spa_pod **params,
 	  uint32_t n_params,
 	  struct spa_buffer **buffers,
 	  uint32_t *n_buffers)
@@ -1140,7 +1141,7 @@ static int read_init(struct impl *this)
 
 static int
 spa_v4l2_alloc_buffers(struct impl *this,
-		       struct spa_pod_object **params,
+		       struct spa_pod **params,
 		       uint32_t n_params,
 		       struct spa_buffer **buffers,
 		       uint32_t *n_buffers)

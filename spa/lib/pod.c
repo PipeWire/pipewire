@@ -330,9 +330,7 @@ int pod_filter(struct spa_pod_builder *b,
 			break;
 		case SPA_POD_TYPE_OBJECT:
 			if (pf != NULL) {
-				struct spa_pod_object *p1;
-
-				p1 = (struct spa_pod_object *) pp;
+				struct spa_pod_object *p1 = (struct spa_pod_object *) pp;
 
 				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE_OBJECT)
 					return -EINVAL;
@@ -394,18 +392,28 @@ int pod_filter(struct spa_pod_builder *b,
 
 int
 spa_pod_filter(struct spa_pod_builder *b,
+	       struct spa_pod **result,
 	       const struct spa_pod *pod,
 	       const struct spa_pod *filter)
 {
+	int res;
+	uint32_t offset;
+
         spa_return_val_if_fail(pod != NULL, -EINVAL);
         spa_return_val_if_fail(b != NULL, -EINVAL);
 
 	if (filter == NULL) {
-		spa_pod_builder_raw_padded(b, pod, SPA_POD_SIZE(pod));
+		*result = spa_pod_builder_deref(b,
+			spa_pod_builder_raw_padded(b, pod, SPA_POD_SIZE(pod)));
 		return 0;
 	}
-	return pod_filter(b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter));
 
+	offset = b->state.offset;
+
+	if ((res = pod_filter(b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter))) == 0)
+		*result = spa_pod_builder_deref(b, offset);
+
+	return res;
 }
 
 int pod_compare(const struct spa_pod *pod1,

@@ -51,12 +51,10 @@ spa_type_format_audio_map(struct spa_type_map *map, struct spa_type_format_audio
 }
 
 static inline int
-spa_format_audio_raw_parse(const struct spa_pod_object *format,
+spa_format_audio_raw_parse(const struct spa_pod *format,
 			   struct spa_audio_info_raw *info, struct spa_type_format_audio *type)
 {
-	struct spa_pod_parser prs;
-	spa_pod_parser_pod(&prs, &format->pod);
-	return spa_pod_parser_get(&prs,
+	return spa_pod_object_parse(format,
 		":",type->format,	"I", &info->format,
 		":",type->rate,		"i", &info->rate,
 		":",type->channels,	"i", &info->channels,

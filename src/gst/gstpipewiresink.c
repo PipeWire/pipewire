@@ -224,7 +224,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   guint size;
   guint min_buffers;
   guint max_buffers;
-  struct spa_pod_object *port_params[3];
+  struct spa_pod *port_params[3];
   struct spa_pod_builder b = { NULL };
   uint8_t buffer[1024];
 
@@ -580,7 +580,7 @@ on_state_changed (void *data, enum pw_stream_state old, enum pw_stream_state sta
 }
 
 static void
-on_format_changed (void *data, struct spa_pod_object *format)
+on_format_changed (void *data, struct spa_pod *format)
 {
   GstPipeWireSink *pwsink = data;
 
@@ -618,7 +618,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
                           pwsink->path,
                           flags,
                           possible->len,
-                          (const struct spa_pod_object **) possible->pdata);
+                          (const struct spa_pod **) possible->pdata);
 
     while (TRUE) {
       state = pw_stream_get_state (pwsink->stream, &error);

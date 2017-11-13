@@ -388,7 +388,7 @@ static int make_nodes(struct data *data)
 static int negotiate_formats(struct data *data)
 {
 	int res;
-	struct spa_pod_object *format;
+	struct spa_pod *format;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[256];
 

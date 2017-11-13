@@ -38,7 +38,6 @@
 extern const struct spa_handle_factory spa_v4l2_source_factory;
 
 struct item {
-	struct spa_monitor_item *item;
 	struct udev_device *udevice;
 };
 
@@ -70,7 +69,6 @@ struct impl {
 	struct udev_enumerate *enumerate;
 	uint32_t index;
 	struct udev_list_entry *devices;
-	uint8_t item_buffer[4096];
 
 	struct item uitem;
 
@@ -89,10 +87,10 @@ static int impl_udev_open(struct impl *this)
 	return 0;
 }
 
-static void fill_item(struct impl *this, struct item *item, struct udev_device *udevice)
+static void fill_item(struct impl *this, struct item *item, struct udev_device *udevice,
+		struct spa_pod **result, struct spa_pod_builder *builder)
 {
 	const char *str, *name;
-	struct spa_pod_builder b = { NULL, };
 	struct type *t = &this->type;
 
 	if (item->udevice)
@@ -114,9 +112,7 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 	if (!(name && *name))
 		name = "Unknown";
 
-	spa_pod_builder_init(&b, this->item_buffer, sizeof(this->item_buffer));
-
-	spa_pod_builder_add(&b,
+	spa_pod_builder_add(builder,
 		"<", 0, t->monitor.MonitorItem,
 		":", t->monitor.id,      "s", udev_device_get_syspath(item->udevice),
 		":", t->monitor.flags,   "i", 0,
@@ -127,7 +123,7 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 		":", t->monitor.info,    "[",
 		NULL);
 
-	spa_pod_builder_add(&b,
+	spa_pod_builder_add(builder,
 		    "s", "udev-probed", "s", "1",
 		    "s", "device.api",  "s", "v4l2",
 		    "s", "device.path", "s", udev_device_get_devnode(item->udevice),
@@ -137,22 +133,22 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 	if (!(str && *str))
 		str = udev_device_get_syspath(item->udevice);
 	if (str && *str) {
-		spa_pod_builder_add(&b, "s", "device.bus_path", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.bus_path", "s", str, 0);
 	}
 	if ((str = udev_device_get_syspath(item->udevice)) && *str) {
-		spa_pod_builder_add(&b, "s", "sysfs.path", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "sysfs.path", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_ID")) && *str) {
-		spa_pod_builder_add(&b, "s", "udev.id", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "udev.id", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_BUS")) && *str) {
-		spa_pod_builder_add(&b, "s", "device.bus", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.bus", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "SUBSYSTEM")) && *str) {
-		spa_pod_builder_add(&b, "s", "device.subsystem", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.subsystem", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_VENDOR_ID")) && *str) {
-		spa_pod_builder_add(&b, "s", "device.vendor.id", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.vendor.id", "s", str, 0);
 	}
 	str = udev_device_get_property_value(item->udevice, "ID_VENDOR_FROM_DATABASE");
 	if (!(str && *str)) {
@@ -162,20 +158,20 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 		}
 	}
 	if (str && *str) {
-		spa_pod_builder_add(&b, "s", "device.vendor.name", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.vendor.name", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_MODEL_ID")) && *str) {
-		spa_pod_builder_add(&b, "s", "device.product.id", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.product.id", "s", str, 0);
 	}
-	spa_pod_builder_add(&b, "s", "device.product.name", "s", name, 0);
+	spa_pod_builder_add(builder, "s", "device.product.name", "s", name, 0);
 	if ((str = udev_device_get_property_value(item->udevice, "ID_SERIAL")) && *str) {
-		spa_pod_builder_add(&b, "s", "device.serial", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.serial", "s", str, 0);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_V4L_CAPABILITIES")) && *str) {
-		spa_pod_builder_add(&b, "s", "device.capabilities", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.capabilities", "s", str, 0);
 	}
 
-	item->item = spa_pod_builder_add(&b, "]>", NULL);
+	*result = spa_pod_builder_add(builder, "]>", NULL);
 }
 
 static void impl_on_fd_events(struct spa_source *source)
@@ -187,9 +183,9 @@ static void impl_on_fd_events(struct spa_source *source)
 	uint32_t type;
 	struct spa_pod_builder b = { NULL, };
 	uint8_t buffer[4096];
+	struct spa_pod *item;
 
 	dev = udev_monitor_receive_device(this->umonitor);
-	fill_item(this, &this->uitem, dev);
 	if (dev == NULL)
 		return;
 
@@ -206,7 +202,8 @@ static void impl_on_fd_events(struct spa_source *source)
 		return;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, 0, type, "P", this->uitem.item);
+	event = spa_pod_builder_object(&b, 0, type);
+	fill_item(this, &this->uitem, dev, &item, &b);
 
 	this->callbacks->event(this->callbacks_data, event);
 }
@@ -253,7 +250,8 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 }
 
 static int
-impl_monitor_enum_items(struct spa_monitor *monitor, struct spa_monitor_item **item, uint32_t *index)
+impl_monitor_enum_items(struct spa_monitor *monitor, uint32_t *index,
+			struct spa_pod **item, struct spa_pod_builder *builder)
 {
 	int res;
 	struct impl *this;
@@ -284,17 +282,15 @@ impl_monitor_enum_items(struct spa_monitor *monitor, struct spa_monitor_item **i
 		this->index++;
 	}
 	if (this->devices == NULL) {
-		fill_item(this, &this->uitem, NULL);
+		fill_item(this, &this->uitem, NULL, item, builder);
 		return 0;
 	}
 
 	dev = udev_device_new_from_syspath(this->udev, udev_list_entry_get_name(this->devices));
 
-	fill_item(this, &this->uitem, dev);
+	fill_item(this, &this->uitem, dev, item, builder);
 	if (dev == NULL)
 		return 0;
-
-	*item = this->uitem.item;
 
 	this->devices = udev_list_entry_get_next(this->devices);
 	this->index++;

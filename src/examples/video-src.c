@@ -166,14 +166,14 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 }
 
 static void
-on_stream_format_changed(void *_data, struct spa_pod_object *format)
+on_stream_format_changed(void *_data, struct spa_pod *format)
 {
 	struct data *data = _data;
 	struct pw_stream *stream = data->stream;
 	struct pw_type *t = data->t;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	struct spa_pod_object *params[2];
+	struct spa_pod *params[2];
 
 	if (format == NULL) {
 		pw_stream_finish_format(stream, 0, 0, NULL);
@@ -218,7 +218,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 	case PW_REMOTE_STATE_CONNECTED:
 	{
-		const struct spa_pod_object *params[1];
+		const struct spa_pod *params[1];
 		uint8_t buffer[1024];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 

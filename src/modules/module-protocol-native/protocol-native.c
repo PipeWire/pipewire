@@ -117,7 +117,7 @@ core_marshal_create_link(void *object,
 			 uint32_t output_port_id,
 			 uint32_t input_node_id,
 			 uint32_t input_port_id,
-			 const struct spa_pod_object *filter,
+			 const struct spa_pod *filter,
 			 const struct spa_dict *props,
 			 uint32_t new_id)
 {
@@ -463,7 +463,7 @@ static bool core_demarshal_create_link(void *object, void *data, size_t size)
 	struct spa_pod_parser prs;
 	uint32_t new_id, i;
 	uint32_t output_node_id, output_port_id, input_node_id, input_port_id;
-	struct spa_pod_object *filter = NULL;
+	struct spa_pod *filter = NULL;
 	struct spa_dict props;
 
 	spa_pod_parser_init(&prs, data, size, 0);
@@ -751,7 +751,7 @@ static bool node_demarshal_info(void *object, void *data, size_t size)
 			"i", &info.n_input_params, NULL) < 0)
 		return false;
 
-	info.input_params = alloca(info.n_input_params * sizeof(struct spa_pod_object *));
+	info.input_params = alloca(info.n_input_params * sizeof(struct spa_pod *));
 	for (i = 0; i < info.n_input_params; i++)
 		if (spa_pod_parser_get(&prs, "P", &info.input_params[i], NULL) < 0)
 			return false;
@@ -762,7 +762,7 @@ static bool node_demarshal_info(void *object, void *data, size_t size)
 			      "i", &info.n_output_params, NULL) < 0)
 		return false;
 
-	info.output_params = alloca(info.n_output_params * sizeof(struct spa_pod_object *));
+	info.output_params = alloca(info.n_output_params * sizeof(struct spa_pod *));
 	for (i = 0; i < info.n_output_params; i++)
 		if (spa_pod_parser_get(&prs, "P", &info.output_params[i], NULL) < 0)
 			return false;

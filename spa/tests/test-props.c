@@ -258,15 +258,15 @@ static void do_static_struct(struct spa_type_map *map)
 		int res;
 		struct spa_fraction frac = { -1, -1 };
 
-		res = spa_pod_object_parse(&test_format.fmt,
+		res = spa_pod_object_parse(&test_format.fmt.pod,
 			":",type.format_video.format, "I", &format,
 			":",type.format_video.framerate, "F", &frac, NULL);
 
 		printf("%d format %d num %d denom %d\n", res, format, frac.num, frac.denom);
 
-		spa_pod_object_fixate(&test_format.fmt);
+		spa_pod_fixate(&test_format.fmt.pod);
 
-		res = spa_pod_object_parse(&test_format.fmt,
+		res = spa_pod_object_parse(&test_format.fmt.pod,
 			":",type.format_video.format, "I", &format,
 			":",type.format_video.framerate, "F", &frac, NULL);
 

@@ -206,13 +206,13 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 		if (info->n_input_params)
 			info->input_params =
 			    realloc(info->input_params,
-				    info->n_input_params * sizeof(struct spa_pod_object *));
+				    info->n_input_params * sizeof(struct spa_pod *));
 		else {
 			free(info->input_params);
 			info->input_params = NULL;
 		}
 		for (i = 0; i < info->n_input_params; i++) {
-			info->input_params[i] = spa_pod_object_copy(update->input_params[i]);
+			info->input_params[i] = pw_spa_pod_copy(update->input_params[i]);
 		}
 	}
 	if (update->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS) {
@@ -226,13 +226,13 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 		if (info->n_output_params)
 			info->output_params =
 			    realloc(info->output_params,
-				    info->n_output_params * sizeof(struct spa_pod_object *));
+				    info->n_output_params * sizeof(struct spa_pod *));
 		else {
 			free(info->output_params);
 			info->output_params = NULL;
 		}
 		for (i = 0; i < info->n_output_params; i++) {
-			info->output_params[i] = spa_pod_object_copy(update->output_params[i]);
+			info->output_params[i] = pw_spa_pod_copy(update->output_params[i]);
 		}
 	}
 
@@ -414,7 +414,7 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 	if (update->change_mask & PW_LINK_CHANGE_MASK_FORMAT) {
 		if (info->format)
 			free(info->format);
-		info->format = spa_pod_object_copy(update->format);
+		info->format = pw_spa_pod_copy(update->format);
 	}
 	return info;
 }

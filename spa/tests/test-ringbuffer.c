@@ -277,7 +277,7 @@ do_invoke(struct spa_loop *loop,
 static int make_nodes(struct data *data, const char *device)
 {
 	int res;
-	struct spa_pod_object *props;
+	struct spa_pod *props;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[128];
 
@@ -317,8 +317,8 @@ static int make_nodes(struct data *data, const char *device)
 static int negotiate_formats(struct data *data)
 {
 	int res;
-	struct spa_pod_object *format, *filter;
-	uint32_t state = 0, ref;
+	struct spa_pod *format, *filter;
+	uint32_t state = 0;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[4096];
 
@@ -333,15 +333,11 @@ static int negotiate_formats(struct data *data)
 		":", data->type.format_audio.rate,     "i", 44100,
 		":", data->type.format_audio.channels, "i", 2);
 
-	ref = b.state.offset;
-
 	if ((res = spa_node_port_enum_params(data->sink,
 					     SPA_DIRECTION_INPUT, 0,
 					     data->type.param.idEnumFormat, &state,
-					     filter, &b)) <= 0)
+					     filter, &format, &b)) <= 0)
 		return -EBADF;
-
-	format = spa_pod_builder_deref(&b, ref);
 
 	if ((res = spa_node_port_set_param(data->sink,
 					   SPA_DIRECTION_INPUT, 0,

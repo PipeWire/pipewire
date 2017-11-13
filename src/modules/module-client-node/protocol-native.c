@@ -53,7 +53,7 @@ client_node_marshal_update(void *object,
 			   uint32_t max_input_ports,
 			   uint32_t max_output_ports,
 			   uint32_t n_params,
-			   const struct spa_pod_object **params)
+			   const struct spa_pod **params)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
@@ -82,7 +82,7 @@ client_node_marshal_port_update(void *object,
 				uint32_t port_id,
 				uint32_t change_mask,
 				uint32_t n_params,
-				const struct spa_pod_object **params,
+				const struct spa_pod **params,
 				const struct spa_port_info *info)
 {
 	struct pw_proxy *proxy = object;
@@ -188,7 +188,7 @@ static bool client_node_demarshal_set_param(void *object, void *data, size_t siz
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	uint32_t seq, id, flags;
-	const struct spa_pod_object *param = NULL;
+	const struct spa_pod *param = NULL;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -276,7 +276,7 @@ static bool client_node_demarshal_port_set_param(void *object, void *data, size_
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	uint32_t seq, direction, port_id, id, flags;
-	const struct spa_pod_object *param = NULL;
+	const struct spa_pod *param = NULL;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -432,7 +432,7 @@ static void client_node_marshal_transport(void *object, uint32_t node_id, int re
 
 static void
 client_node_marshal_set_param(void *object, uint32_t seq, uint32_t id, uint32_t flags,
-			      const struct spa_pod_object *param)
+			      const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -514,7 +514,7 @@ client_node_marshal_port_set_param(void *object,
 				   uint32_t port_id,
 				   uint32_t id,
 				   uint32_t flags,
-				   const struct spa_pod_object *param)
+				   const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -652,7 +652,7 @@ static bool client_node_demarshal_update(void *object, void *data, size_t size)
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
 	uint32_t change_mask, max_input_ports, max_output_ports, n_params;
-	const struct spa_pod_object **params;
+	const struct spa_pod **params;
 	int i;
 
 	spa_pod_parser_init(&prs, data, size, 0);
@@ -664,7 +664,7 @@ static bool client_node_demarshal_update(void *object, void *data, size_t size)
 			"i", &n_params, NULL) < 0)
 		return false;
 
-	params = alloca(n_params * sizeof(struct spa_pod_object *));
+	params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0; i < n_params; i++)
 		if (spa_pod_parser_get(&prs, "O", &params[i], NULL) < 0)
 			return false;
@@ -682,7 +682,7 @@ static bool client_node_demarshal_port_update(void *object, void *data, size_t s
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
 	uint32_t i, direction, port_id, change_mask, n_params;
-	const struct spa_pod_object **params = NULL;
+	const struct spa_pod **params = NULL;
 	struct spa_port_info info, *infop = NULL;
 	struct spa_pod *ipod;
 
@@ -695,7 +695,7 @@ static bool client_node_demarshal_port_update(void *object, void *data, size_t s
 			"i", &n_params, NULL) < 0)
 		return false;
 
-	params = alloca(n_params * sizeof(struct spa_pod_object *));
+	params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0; i < n_params; i++)
 		if (spa_pod_parser_get(&prs, "O", &params[i], NULL) < 0)
 			return false;

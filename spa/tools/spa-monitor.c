@@ -58,9 +58,9 @@ struct data {
 };
 
 
-static void inspect_item(struct data *data, struct spa_monitor_item *item)
+static void inspect_item(struct data *data, struct spa_pod *item)
 {
-	spa_debug_pod(&item->object.pod, 0);
+	spa_debug_pod(item, 0);
 }
 
 static void on_monitor_event(void *_data, struct spa_event *event)
@@ -69,13 +69,13 @@ static void on_monitor_event(void *_data, struct spa_event *event)
 
 	if (SPA_EVENT_TYPE(event) == data->type.monitor.Added) {
 		fprintf(stderr, "added:\n");
-		inspect_item(data, (struct spa_monitor_item *) event);
+		inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
 	} else if (SPA_EVENT_TYPE(event) == data->type.monitor.Removed) {
 		fprintf(stderr, "removed:\n");
-		inspect_item(data, (struct spa_monitor_item *) event);
+		inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
 	} else if (SPA_EVENT_TYPE(event) == data->type.monitor.Changed) {
 		fprintf(stderr, "changed:\n");
-		inspect_item(data, (struct spa_monitor_item *) event);
+		inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
 	}
 }
 
@@ -113,9 +113,11 @@ static void handle_monitor(struct data *data, struct spa_monitor *monitor)
 		spa_debug_dict(monitor->info);
 
 	for (index = 0;;) {
-		struct spa_monitor_item *item;
+		struct spa_pod *item;
+		uint8_t buffer[4096];
+		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-		if ((res = spa_monitor_enum_items(monitor, &item, &index)) <= 0) {
+		if ((res = spa_monitor_enum_items(monitor, &index, &item, &b)) <= 0) {
 			if (res != 0)
 				printf("spa_monitor_enum_items: %s\n", spa_strerror(res));
 			break;

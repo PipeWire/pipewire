@@ -177,10 +177,16 @@ struct spa_pod_object {
 	struct spa_pod_object_body body;
 };
 
-static inline bool spa_pod_is_object_type(struct spa_pod *pod, uint32_t type)
+static inline bool spa_pod_is_object_type(const struct spa_pod *pod, uint32_t type)
 {
-	return (pod->type == SPA_POD_TYPE_OBJECT
+	return (pod && pod->type == SPA_POD_TYPE_OBJECT
 		&& ((struct spa_pod_object *) pod)->body.type == type);
+}
+
+static inline bool spa_pod_is_object_id(const struct spa_pod *pod, uint32_t id)
+{
+	return (pod && pod->type == SPA_POD_TYPE_OBJECT
+		&& ((struct spa_pod_object *) pod)->body.id == id);
 }
 
 struct spa_pod_pointer_body {

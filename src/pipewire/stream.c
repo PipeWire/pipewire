@@ -65,12 +65,12 @@ struct stream {
 	uint32_t type_client_node;
 
 	uint32_t n_init_params;
-	struct spa_pod_object **init_params;
+	struct spa_pod **init_params;
 
 	uint32_t n_params;
-	struct spa_pod_object **params;
+	struct spa_pod **params;
 
-	struct spa_pod_object *format;
+	struct spa_pod *format;
 
 	struct spa_port_info port_info;
 	enum spa_direction direction;
@@ -309,7 +309,7 @@ static void unhandle_socket(struct pw_stream *stream)
 static void
 set_init_params(struct pw_stream *stream,
 		     int n_init_params,
-		     const struct spa_pod_object **init_params)
+		     const struct spa_pod **init_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int i;
@@ -322,13 +322,13 @@ set_init_params(struct pw_stream *stream,
 	}
 	impl->n_init_params = n_init_params;
 	if (n_init_params > 0) {
-		impl->init_params = malloc(n_init_params * sizeof(struct spa_pod_object *));
+		impl->init_params = malloc(n_init_params * sizeof(struct spa_pod *));
 		for (i = 0; i < n_init_params; i++)
-			impl->init_params[i] = spa_pod_object_copy(init_params[i]);
+			impl->init_params[i] = pw_spa_pod_copy(init_params[i]);
 	}
 }
 
-static void set_params(struct pw_stream *stream, int n_params, struct spa_pod_object **params)
+static void set_params(struct pw_stream *stream, int n_params, struct spa_pod **params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int i;
@@ -341,9 +341,9 @@ static void set_params(struct pw_stream *stream, int n_params, struct spa_pod_ob
 	}
 	impl->n_params = n_params;
 	if (n_params > 0) {
-		impl->params = malloc(n_params * sizeof(struct spa_pod_object *));
+		impl->params = malloc(n_params * sizeof(struct spa_pod *));
 		for (i = 0; i < n_params; i++)
-			impl->params[i] = spa_pod_object_copy(params[i]);
+			impl->params[i] = pw_spa_pod_copy(params[i]);
 	}
 }
 
@@ -405,18 +405,18 @@ static void add_port_update(struct pw_stream *stream, uint32_t change_mask)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	uint32_t n_params;
-	struct spa_pod_object **params;
+	struct spa_pod **params;
 	int i, j;
 
 	n_params = impl->n_params + impl->n_init_params;
 	if (impl->format)
 		n_params += 1;
 
-	params = alloca(n_params * sizeof(struct spa_pod_object *));
+	params = alloca(n_params * sizeof(struct spa_pod *));
 
 	j = 0;
 	for (i = 0; i < impl->n_init_params; i++)
-		params[j++] = (struct spa_pod_object *)impl->init_params[i];
+		params[j++] = impl->init_params[i];
 	if (impl->format)
 		params[j++] = impl->format;
 	for (i = 0; i < impl->n_params; i++)
@@ -427,7 +427,7 @@ static void add_port_update(struct pw_stream *stream, uint32_t change_mask)
 					 impl->port_id,
 					 change_mask,
 					 n_params,
-					 (const struct spa_pod_object **) params,
+					 (const struct spa_pod **) params,
 					 &impl->port_info);
 }
 
@@ -659,7 +659,7 @@ static void handle_socket(struct pw_stream *stream, int rtreadfd, int rtwritefd)
 
 static void
 client_node_set_param(void *data, uint32_t seq, uint32_t id, uint32_t flags,
-		      const struct spa_pod_object *param)
+		      const struct spa_pod *param)
 {
 	pw_log_warn("set param not implemented");
 }
@@ -746,7 +746,7 @@ client_node_port_set_param(void *data,
 			   uint32_t seq,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t id, uint32_t flags,
-			   const struct spa_pod_object *param)
+			   const struct spa_pod *param)
 {
 	struct stream *impl = data;
 	struct pw_stream *stream = &impl->this;
@@ -757,9 +757,10 @@ client_node_port_set_param(void *data,
 
 		if (impl->format)
 			free(impl->format);
-		if (param) {
-			impl->format = spa_pod_object_copy(param);
-			impl->format->body.id = id;
+
+		if (spa_pod_is_object_type(param, t->spa_format)) {
+			impl->format = pw_spa_pod_copy(param);
+			((struct spa_pod_object*)impl->format)->body.id = id;
 		}
 		else
 			impl->format = NULL;
@@ -988,7 +989,7 @@ pw_stream_connect(struct pw_stream *stream,
 		  const char *port_path,
 		  enum pw_stream_flags flags,
 		  uint32_t n_params,
-		  const struct spa_pod_object **params)
+		  const struct spa_pod **params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
@@ -1034,7 +1035,7 @@ void
 pw_stream_finish_format(struct pw_stream *stream,
 			int res,
 			uint32_t n_params,
-			struct spa_pod_object **params)
+			struct spa_pod **params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 

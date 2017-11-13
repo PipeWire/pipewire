@@ -208,7 +208,7 @@ new_node (GstPipeWireDeviceProvider *self, const struct pw_node_info *info, uint
     type = GST_PIPEWIRE_DEVICE_TYPE_SINK;
 
     for (i = 0; i < info->n_input_params; i++) {
-      if (info->input_params[i]->body.id != t->param.idEnumFormat)
+      if (!spa_pod_is_object_id(info->input_params[i], t->param.idEnumFormat))
 	      continue;
       GstCaps *c1 = gst_caps_from_format (info->input_params[i], t->map);
       if (c1)
@@ -218,7 +218,7 @@ new_node (GstPipeWireDeviceProvider *self, const struct pw_node_info *info, uint
   else if (info->max_output_ports > 0 && info->max_input_ports == 0) {
     type = GST_PIPEWIRE_DEVICE_TYPE_SOURCE;
     for (i = 0; i < info->n_output_params; i++) {
-      if (info->output_params[i]->body.id != t->param.idEnumFormat)
+      if (!spa_pod_is_object_id(info->output_params[i], t->param.idEnumFormat))
 	      continue;
       GstCaps *c1 = gst_caps_from_format (info->output_params[i], t->map);
       if (c1)

@@ -229,7 +229,7 @@ core_create_link(void *object,
 		 uint32_t output_port_id,
 		 uint32_t input_node_id,
 		 uint32_t input_port_id,
-		 const struct spa_pod_object *filter,
+		 const struct spa_pod *filter,
 		 const struct spa_dict *props,
 		 uint32_t new_id)
 {
@@ -625,7 +625,7 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 				  uint32_t id,
 				  struct pw_properties *props,
 				  uint32_t n_format_filters,
-				  struct spa_pod_object **format_filters,
+				  struct spa_pod **format_filters,
 				  char **error)
 {
 	struct pw_port *best = NULL;
@@ -660,6 +660,7 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 			struct pw_port *p, *pin, *pout;
 			uint8_t buf[4096];
 			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+			struct spa_pod *dummy;
 
 			p = pw_node_get_free_port(n, pw_direction_reverse(other_port->direction));
 			if (p == NULL)
@@ -679,6 +680,7 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 						props,
 						n_format_filters,
 						format_filters,
+						&dummy,
 						&b,
 						error) < 0) {
 				free(*error);
@@ -714,7 +716,8 @@ int pw_core_find_format(struct pw_core *core,
 			struct pw_port *input,
 			struct pw_properties *props,
 			uint32_t n_format_filters,
-			struct spa_pod_object **format_filters,
+			struct spa_pod **format_filters,
+			struct spa_pod **format,
 			struct spa_pod_builder *builder,
 			char **error)
 {
@@ -739,7 +742,7 @@ int pw_core_find_format(struct pw_core *core,
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
 						     t->param.idFormat, &oidx,
-						     NULL, builder)) <= 0) {
+						     NULL, format, builder)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
 			asprintf(error, "error get output format: %s", spa_strerror(res));
@@ -750,7 +753,7 @@ int pw_core_find_format(struct pw_core *core,
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
 						     t->param.idFormat, &iidx,
-						     NULL, builder)) <= 0) {
+						     NULL, format, builder)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
 			asprintf(error, "error get input format: %s", spa_strerror(res));
@@ -759,7 +762,7 @@ int pw_core_find_format(struct pw_core *core,
 	} else if (in_state == PW_PORT_STATE_CONFIGURE && out_state == PW_PORT_STATE_CONFIGURE) {
 		struct spa_pod_builder fb = { 0 };
 		uint8_t fbuf[4096];
-		struct spa_pod_object *format;
+		struct spa_pod *filter;
 	      again:
 		/* both ports need a format */
 		pw_log_debug("core %p: do enum input %d", core, iidx);
@@ -767,7 +770,7 @@ int pw_core_find_format(struct pw_core *core,
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
 						     t->param.idEnumFormat, &iidx,
-						     NULL, &fb)) <= 0) {
+						     NULL, &filter, &fb)) <= 0) {
 			if (res == 0 && iidx == 0) {
 				asprintf(error, "error input enum formats: %s", spa_strerror(res));
 				goto error;
@@ -775,15 +778,14 @@ int pw_core_find_format(struct pw_core *core,
 			asprintf(error, "no more input formats");
 			goto error;
 		}
-		format = spa_pod_builder_deref(&fb, 0);
-		pw_log_debug("enum output %d with filter: %p", oidx, format);
+		pw_log_debug("enum output %d with filter: %p", oidx, filter);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(&format->pod, SPA_DEBUG_FLAG_FORMAT);
+			spa_debug_pod(filter, SPA_DEBUG_FLAG_FORMAT);
 
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
 						     t->param.idEnumFormat, &oidx,
-						     format, builder)) <= 0) {
+						     filter, format, builder)) <= 0) {
 			if (res == 0) {
 				oidx = 0;
 				goto again;
@@ -791,11 +793,10 @@ int pw_core_find_format(struct pw_core *core,
 			asprintf(error, "error output enum formats: %d", res);
 			goto error;
 		}
-		format = spa_pod_builder_deref(builder, 0);
 
 		pw_log_debug("Got filtered:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(&format->pod, SPA_DEBUG_FLAG_FORMAT);
+			spa_debug_pod(*format, SPA_DEBUG_FLAG_FORMAT);
 	} else {
 		res = -EBADF;
 		asprintf(error, "error node state");

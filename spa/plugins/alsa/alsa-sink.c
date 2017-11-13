@@ -45,7 +45,8 @@ static void reset_props(struct props *props)
 
 static int impl_node_enum_params(struct spa_node *node,
 				 uint32_t id, uint32_t *index,
-				 const struct spa_pod_object *filter,
+				 const struct spa_pod *filter,
+				 struct spa_pod **result,
 				 struct spa_pod_builder *builder)
 {
 	struct state *this;
@@ -93,14 +94,14 @@ static int impl_node_enum_params(struct spa_node *node,
 	(*index)++;
 
 	spa_pod_builder_reset(builder, &state);
-	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
+	if (spa_pod_filter(builder, result, param, filter) < 0)
 		goto next;
 
 	return 1;
 }
 
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
-			       const struct spa_pod_object *param)
+			       const struct spa_pod *param)
 {
 	struct state *this;
 	struct type *t;
@@ -274,7 +275,8 @@ static int
 impl_node_port_enum_params(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t id, uint32_t *index,
-			   const struct spa_pod_object *filter,
+			   const struct spa_pod *filter,
+			   struct spa_pod **result,
 			   struct spa_pod_builder *builder)
 {
 
@@ -308,8 +310,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 	}
 	else if (id == t->param.idEnumFormat) {
-	printf("%d\n", *index);
-		return spa_alsa_enum_format(this, index, filter, builder);
+		return spa_alsa_enum_format(this, index, filter, result, builder);
 	}
 	else if (id == t->param.idFormat) {
 		if (!this->have_format)
@@ -375,7 +376,7 @@ impl_node_port_enum_params(struct spa_node *node,
 	(*index)++;
 
 	spa_pod_builder_reset(builder, &state);
-	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
+	if (spa_pod_filter(builder, result, param, filter) < 0)
 		goto next;
 
 	return 1;
@@ -393,7 +394,7 @@ static int clear_buffers(struct state *this)
 static int port_set_format(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t flags,
-			   const struct spa_pod_object *format)
+			   const struct spa_pod *format)
 {
 	struct state *this = SPA_CONTAINER_OF(node, struct state, node);
 	int err;
@@ -438,7 +439,7 @@ static int
 impl_node_port_set_param(struct spa_node *node,
 			 enum spa_direction direction, uint32_t port_id,
 			 uint32_t id, uint32_t flags,
-			 const struct spa_pod_object *param)
+			 const struct spa_pod *param)
 {
 	struct state *this;
 	struct type *t;
@@ -509,7 +510,7 @@ static int
 impl_node_port_alloc_buffers(struct spa_node *node,
 			     enum spa_direction direction,
 			     uint32_t port_id,
-			     struct spa_pod_object **params,
+			     struct spa_pod **params,
 			     uint32_t n_params,
 			     struct spa_buffer **buffers,
 			     uint32_t *n_buffers)

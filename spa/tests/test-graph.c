@@ -285,7 +285,7 @@ do_invoke(struct spa_loop *loop,
 static int make_nodes(struct data *data, const char *device)
 {
 	int res;
-	struct spa_pod_object *props;
+	struct spa_pod *props;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[128];
 
@@ -302,7 +302,7 @@ static int make_nodes(struct data *data, const char *device)
 		":", data->type.props_device,      "s", device ? device : "hw:0",
 		":", data->type.props_min_latency, "i", MIN_LATENCY);
 
-	spa_debug_pod(&props->pod, 0);
+	spa_debug_pod(props, 0);
 
 	if ((res = spa_node_set_param(data->sink, data->type.param.idProps, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
@@ -368,8 +368,8 @@ static int make_nodes(struct data *data, const char *device)
 
 static int negotiate_formats(struct data *data)
 {
-	int res, ref;
-	struct spa_pod_object *format, *filter;
+	int res;
+	struct spa_pod *format, *filter;
 	uint32_t state = 0;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[4096];
@@ -384,19 +384,16 @@ static int negotiate_formats(struct data *data)
 		":", data->type.format_audio.rate,     "i", 44100,
 		":", data->type.format_audio.channels, "i", 2);
 
-	ref = b.state.offset;
-
-	spa_debug_pod(&filter->pod, 0);
+	spa_debug_pod(filter, 0);
 
 	spa_log_debug(&default_log.log, "enum_params");
 	if ((res = spa_node_port_enum_params(data->sink,
 					     SPA_DIRECTION_INPUT, 0,
 					     data->type.param.idEnumFormat, &state,
-					     filter, &b)) <= 0)
+					     filter, &format, &b)) <= 0)
 		return -EBADF;
 
-	format = spa_pod_builder_deref(&b, ref);
-	spa_debug_pod(&format->pod, 0);
+	spa_debug_pod(format, 0);
 
 	spa_log_debug(&default_log.log, "sink set_param");
 	if ((res = spa_node_port_set_param(data->sink,

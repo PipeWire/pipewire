@@ -663,7 +663,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
                      pwsrc->path,
                      PW_STREAM_FLAG_AUTOCONNECT,
                      possible->len,
-                     (const struct spa_pod_object **)possible->pdata);
+                     (const struct spa_pod **)possible->pdata);
   g_ptr_array_free (possible, TRUE);
 
   while (TRUE) {
@@ -725,8 +725,8 @@ connect_error:
 #define SPA_PROP_RANGE(min,max)	2,min,max
 
 static void
-on_format_changed (void                  *data,
-                   struct spa_pod_object *format)
+on_format_changed (void           *data,
+                   struct spa_pod *format)
 {
   GstPipeWireSrc *pwsrc = data;
   GstCaps *caps;
@@ -746,7 +746,7 @@ on_format_changed (void                  *data,
   gst_caps_unref (caps);
 
   if (res) {
-    struct spa_pod_object *params[2];
+    struct spa_pod *params[2];
     struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
 

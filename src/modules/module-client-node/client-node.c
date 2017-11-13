@@ -79,7 +79,7 @@ struct proxy_port {
 
 	bool have_format;
 	uint32_t n_params;
-	struct spa_pod_object **params;
+	struct spa_pod **params;
 	struct spa_port_io *io;
 
 	uint32_t n_buffers;
@@ -111,7 +111,7 @@ struct proxy {
 	struct proxy_port out_ports[MAX_OUTPUTS];
 
 	uint32_t n_params;
-	struct spa_pod_object **params;
+	struct spa_pod **params;
 
 	uint8_t format_buffer[1024];
 	uint32_t seq;
@@ -152,7 +152,8 @@ static int clear_buffers(struct proxy *this, struct proxy_port *port)
 
 static int spa_proxy_node_enum_params(struct spa_node *node,
 				      uint32_t id, uint32_t *index,
-				      const struct spa_pod_object *filter,
+				      const struct spa_pod *filter,
+				      struct spa_pod **result,
 				      struct spa_pod_builder *builder)
 {
 	struct proxy *this;
@@ -167,17 +168,17 @@ static int spa_proxy_node_enum_params(struct spa_node *node,
 	spa_pod_builder_get_state(builder, &state);
 
 	while (true) {
-		struct spa_pod_object *param;
+		struct spa_pod *param;
 
 		if (*index >= this->n_params)
 			return 0;
 
 		param = this->params[(*index)++];
 
-		if (param->body.id != id)
+		if (!spa_pod_is_object_id(param, id))
 			continue;
 
-		if (spa_pod_filter(builder, &param->pod, &filter->pod) == 0)
+		if (spa_pod_filter(builder, result, param, filter) == 0)
 			break;
 
 		spa_pod_builder_reset(builder, &state);
@@ -186,7 +187,7 @@ static int spa_proxy_node_enum_params(struct spa_node *node,
 }
 
 static int spa_proxy_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
-				    const struct spa_pod_object *param)
+				    const struct spa_pod *param)
 {
 	struct proxy *this;
 
@@ -316,7 +317,7 @@ do_update_port(struct proxy *this,
 	       uint32_t port_id,
 	       uint32_t change_mask,
 	       uint32_t n_params,
-	       const struct spa_pod_object **params,
+	       const struct spa_pod **params,
 	       const struct spa_port_info *info)
 {
 	struct proxy_port *port;
@@ -333,11 +334,11 @@ do_update_port(struct proxy *this,
 		for (i = 0; i < port->n_params; i++)
 			free(port->params[i]);
 		port->n_params = n_params;
-		port->params = realloc(port->params, port->n_params * sizeof(struct spa_pod_object *));
+		port->params = realloc(port->params, port->n_params * sizeof(struct spa_pod *));
 
 		for (i = 0; i < port->n_params; i++) {
-			port->params[i] = spa_pod_object_copy(params[i]);
-			if (port->params[i]->body.id == t->param.idFormat)
+			port->params[i] = pw_spa_pod_copy(params[i]);
+			if (spa_pod_is_object_id(port->params[i], t->param.idFormat))
 				port->have_format = true;
 		}
 
@@ -451,7 +452,8 @@ static int
 spa_proxy_node_port_enum_params(struct spa_node *node,
 				enum spa_direction direction, uint32_t port_id,
 				uint32_t id, uint32_t *index,
-				const struct spa_pod_object *filter,
+				const struct spa_pod *filter,
+				struct spa_pod **result,
 				struct spa_pod_builder *builder)
 {
 	struct proxy *this;
@@ -471,17 +473,17 @@ spa_proxy_node_port_enum_params(struct spa_node *node,
 	spa_pod_builder_get_state(builder, &state);
 
 	while (true) {
-		struct spa_pod_object *param;
+		struct spa_pod *param;
 
 		if (*index >= port->n_params)
 			return 0;
 
 		param = port->params[(*index)++];
 
-		if (param->body.id != id)
+		if (!spa_pod_is_object_id(param, id))
 			continue;
 
-		if (spa_pod_filter(builder, &param->pod, &filter->pod) == 0)
+		if (spa_pod_filter(builder, result, param, filter) == 0)
 			break;
 
 		spa_pod_builder_reset(builder, &state);
@@ -493,7 +495,7 @@ static int
 spa_proxy_node_port_set_param(struct spa_node *node,
 			      enum spa_direction direction, uint32_t port_id,
 			      uint32_t id, uint32_t flags,
-			      const struct spa_pod_object *param)
+			      const struct spa_pod *param)
 {
 	struct proxy *this;
 
@@ -652,7 +654,7 @@ static int
 spa_proxy_node_port_alloc_buffers(struct spa_node *node,
 				  enum spa_direction direction,
 				  uint32_t port_id,
-				  struct spa_pod_object **params,
+				  struct spa_pod **params,
 				  uint32_t n_params,
 				  struct spa_buffer **buffers,
 				  uint32_t *n_buffers)
@@ -845,7 +847,7 @@ client_node_update(void *data,
 		   uint32_t max_input_ports,
 		   uint32_t max_output_ports,
 		   uint32_t n_params,
-		   const struct spa_pod_object **params)
+		   const struct spa_pod **params)
 {
 	struct impl *impl = data;
 	struct proxy *this = &impl->proxy;
@@ -861,10 +863,10 @@ client_node_update(void *data,
 		for (i = 0; i < this->n_params; i++)
 			free(this->params[i]);
 		this->n_params = n_params;
-		this->params = realloc(this->params, this->n_params * sizeof(struct spa_pod_object *));
+		this->params = realloc(this->params, this->n_params * sizeof(struct spa_pod *));
 
 		for (i = 0; i < this->n_params; i++)
-			this->params[i] = spa_pod_object_copy(params[i]);
+			this->params[i] = pw_spa_pod_copy(params[i]);
 	}
 	spa_log_info(this->log, "proxy %p: got node update max_in %u, max_out %u", this,
 		     this->max_inputs, this->max_outputs);
@@ -876,7 +878,7 @@ client_node_port_update(void *data,
 			uint32_t port_id,
 			uint32_t change_mask,
 			uint32_t n_params,
-			const struct spa_pod_object **params,
+			const struct spa_pod **params,
 			const struct spa_port_info *info)
 {
 	struct impl *impl = data;

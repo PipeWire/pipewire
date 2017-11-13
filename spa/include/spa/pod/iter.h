@@ -24,6 +24,7 @@
 extern "C" {
 #endif
 
+#include <errno.h>
 #include <stdarg.h>
 
 #include <spa/pod/pod.h>
@@ -92,7 +93,7 @@ static inline struct spa_pod *spa_pod_next(const struct spa_pod *iter)
 	     (iter) = spa_pod_next(iter))
 
 #define SPA_POD_OBJECT_FOREACH(obj, iter)							\
-	SPA_POD_OBJECT_BODY_FOREACH(&obj->body, SPA_POD_BODY_SIZE(obj), iter)
+	SPA_POD_OBJECT_BODY_FOREACH(&(obj)->body, SPA_POD_BODY_SIZE(obj), iter)
 
 #define SPA_POD_PROP_ALTERNATIVE_FOREACH(body, _size, iter)					\
 	for ((iter) = SPA_MEMBER((body), (body)->value.size +					\
@@ -112,22 +113,33 @@ static inline struct spa_pod_prop *spa_pod_contents_find_prop(const struct spa_p
 	return NULL;
 }
 
-static inline struct spa_pod_prop *spa_pod_object_find_prop(const struct spa_pod_object *obj,
-							    uint32_t key)
+static inline struct spa_pod_prop *spa_pod_find_prop(const struct spa_pod *pod, uint32_t key)
 {
-	return spa_pod_contents_find_prop(&obj->pod, sizeof(struct spa_pod_object), key);
+	uint32_t offset;
+
+	if (pod->type == SPA_POD_TYPE_OBJECT)
+		offset = sizeof(struct spa_pod_object);
+	else if (pod->type == SPA_POD_TYPE_STRUCT)
+		offset = sizeof(struct spa_pod_struct);
+	else
+		return NULL;
+
+	return spa_pod_contents_find_prop(pod, offset, key);
 }
 
-static inline struct spa_pod_prop *spa_pod_struct_find_prop(const struct spa_pod_struct *obj,
-							    uint32_t key)
-{
-	return spa_pod_contents_find_prop(&obj->pod, sizeof(struct spa_pod_struct), key);
-}
-
-static inline int spa_pod_object_fixate(struct spa_pod_object *obj)
+static inline int spa_pod_fixate(struct spa_pod *pod)
 {
 	struct spa_pod *res;
-	SPA_POD_OBJECT_FOREACH(obj, res) {
+	uint32_t offset;
+
+	if (pod->type == SPA_POD_TYPE_OBJECT)
+		offset = sizeof(struct spa_pod_object);
+	else if (pod->type == SPA_POD_TYPE_STRUCT)
+		offset = sizeof(struct spa_pod_struct);
+	else
+		return -EINVAL;
+
+	SPA_POD_CONTENTS_FOREACH(pod, offset, res) {
 		if (res->type == SPA_POD_TYPE_PROP)
 			((struct spa_pod_prop *) res)->body.flags &= ~SPA_POD_PROP_FLAG_UNSET;
 	}

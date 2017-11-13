@@ -54,12 +54,6 @@ pw_spa_pod_copy(const struct spa_pod *pod)
 	return pod ? memcpy(malloc(SPA_POD_SIZE(pod)), pod, SPA_POD_SIZE(pod)) : NULL;
 }
 
-static inline struct spa_pod_object *
-spa_pod_object_copy(const struct spa_pod_object *pod)
-{
-	return (struct spa_pod_object*) pw_spa_pod_copy(&pod->pod);
-}
-
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

@@ -76,12 +76,10 @@ spa_type_format_video_map(struct spa_type_map *map, struct spa_type_format_video
 }
 
 static inline int
-spa_format_video_raw_parse(const struct spa_pod_object *format,
+spa_format_video_raw_parse(const struct spa_pod *format,
 			   struct spa_video_info_raw *info, struct spa_type_format_video *type)
 {
-	struct spa_pod_parser prs;
-	spa_pod_parser_pod(&prs, &format->pod);
-	return spa_pod_parser_get(&prs,
+	return spa_pod_object_parse(format,
 		":",type->format,		"I", &info->format,
 		":",type->size,			"R", &info->size,
 		":",type->framerate,		"F", &info->framerate,
@@ -99,12 +97,10 @@ spa_format_video_raw_parse(const struct spa_pod_object *format,
 }
 
 static inline int
-spa_format_video_h264_parse(const struct spa_pod_object *format,
+spa_format_video_h264_parse(const struct spa_pod *format,
 			    struct spa_video_info_h264 *info, struct spa_type_format_video *type)
 {
-	struct spa_pod_parser prs;
-	spa_pod_parser_pod(&prs, &format->pod);
-	return spa_pod_parser_get(&prs,
+	return spa_pod_object_parse(format,
 		":",type->size,			"?R", &info->size,
 		":",type->framerate,		"?F", &info->framerate,
 		":",type->max_framerate,	"?F", &info->max_framerate,
@@ -113,12 +109,10 @@ spa_format_video_h264_parse(const struct spa_pod_object *format,
 }
 
 static inline int
-spa_format_video_mjpg_parse(const struct spa_pod_object *format,
+spa_format_video_mjpg_parse(const struct spa_pod *format,
 			    struct spa_video_info_mjpg *info, struct spa_type_format_video *type)
 {
-	struct spa_pod_parser prs;
-	spa_pod_parser_pod(&prs, &format->pod);
-	return spa_pod_parser_get(&prs,
+	return spa_pod_object_parse(format,
 		":",type->size,			"?R", &info->size,
 		":",type->framerate,		"?F", &info->framerate,
 		":",type->max_framerate,	"?F", &info->max_framerate, NULL);

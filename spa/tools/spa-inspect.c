@@ -64,18 +64,17 @@ inspect_node_params(struct data *data, struct spa_node *node)
 	for (idx1 = 0;;) {
 		uint32_t buffer[4096];
 		struct spa_pod_builder b = { 0 };
-		struct spa_pod_object *param;
+		struct spa_pod *param;
 		uint32_t id;
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if ((res = spa_node_enum_params(node,
 						data->type.param.idList, &idx1,
-						NULL, &b)) <= 0) {
+						NULL, &param, &b)) <= 0) {
 			if (res != 0)
 				error(0, -res, "enum_params");
 			break;
 		}
-		param = spa_pod_builder_deref(&b, 0);
 
 		spa_pod_object_parse(param,
 				":", data->type.param.listId, "I", &id,
@@ -88,13 +87,12 @@ inspect_node_params(struct data *data, struct spa_node *node)
 			spa_pod_builder_init(&b, buffer, sizeof(buffer));
 			if ((res = spa_node_enum_params(node,
 							id, &idx2,
-							NULL, &b)) <= 0) {
+							NULL, &param, &b)) <= 0) {
 				if (res != 0)
 					error(0, -res, "enum_params %d", id);
 				break;
 			}
-			param = spa_pod_builder_deref(&b, 0);
-			spa_debug_pod(&param->pod, flags);
+			spa_debug_pod(param, flags);
 		}
 	}
 }
@@ -109,19 +107,18 @@ inspect_port_params(struct data *data, struct spa_node *node,
 	for (idx1 = 0;;) {
 		uint32_t buffer[4096];
 		struct spa_pod_builder b = { 0 };
-		struct spa_pod_object *param;
+		struct spa_pod *param;
 		uint32_t id;
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if ((res = spa_node_port_enum_params(node,
 						     direction, port_id,
 						     data->type.param.idList, &idx1,
-						     NULL, &b)) <= 0) {
+						     NULL, &param, &b)) <= 0) {
 			if (res != 0)
 				error(0, -res, "port_enum_params");
 			break;
 		}
-		param = spa_pod_builder_deref(&b, 0);
 		spa_pod_object_parse(param,
 				":", data->type.param.listId, "I", &id,
 				NULL);
@@ -134,15 +131,15 @@ inspect_port_params(struct data *data, struct spa_node *node,
 			if ((res = spa_node_port_enum_params(node,
 							     direction, port_id,
 							     id, &idx2,
-							     NULL, &b)) <= 0) {
+							     NULL, &param, &b)) <= 0) {
 				if (res != 0)
 					error(0, -res, "port_enum_params");
 				break;
 			}
-			param = spa_pod_builder_deref(&b, 0);
-			if (param->body.type == data->type.format)
+
+			if (spa_pod_is_object_type(param, data->type.format))
 				flags |= SPA_DEBUG_FLAG_FORMAT;
-			spa_debug_pod(&param->pod, flags);
+			spa_debug_pod(param, flags);
 		}
 	}
 }

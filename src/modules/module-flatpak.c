@@ -434,7 +434,7 @@ do_create_link(void *data,
 	       uint32_t output_port_id,
 	       uint32_t input_node_id,
 	       uint32_t input_port_id,
-	       const struct spa_pod_object *filter,
+	       const struct spa_pod *filter,
 	       const struct spa_dict *props,
 	       uint32_t new_id)
 {

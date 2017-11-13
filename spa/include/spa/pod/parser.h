@@ -249,13 +249,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 			uint32_t key = va_arg(args, uint32_t);
 			const struct spa_pod *obj = parser->iter[parser->depth].data;
 
-			if (SPA_POD_TYPE(obj) == SPA_POD_TYPE_OBJECT)
-				prop = spa_pod_object_find_prop((struct spa_pod_object*)obj, key);
-			else if (SPA_POD_TYPE(obj) == SPA_POD_TYPE_STRUCT)
-				prop = spa_pod_struct_find_prop((struct spa_pod_struct*)obj, key);
-			else
-				prop = NULL;
-
+			prop = spa_pod_find_prop(obj, key);
 			if (prop != NULL && (prop->body.flags & SPA_POD_PROP_FLAG_UNSET) == 0)
 				pod = &prop->body.value;
 			else
@@ -269,12 +263,12 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 		case 'V':
 			pod = (struct spa_pod *) prop;
 			if (pod == NULL && required)
-				return -ENOENT;
+				return -ESRCH;
 			goto collect;
 		default:
 			if (pod == NULL || !spa_pod_parser_can_collect(pod, *format)) {
 				if (required)
-					return -ENOENT;
+					return -ESRCH;
 				skip = true;
 			}
 		collect:
@@ -311,11 +305,10 @@ static inline int spa_pod_parser_get(struct spa_pod_parser *parser,
 	return res;
 }
 
-#define spa_pod_object_parse(object,...)			\
+#define spa_pod_object_parse(pod,...)				\
 ({								\
 	struct spa_pod_parser __p;				\
-	const struct spa_pod_object *__obj = object;		\
-	spa_pod_parser_pod(&__p, &__obj->pod);			\
+	spa_pod_parser_pod(&__p, pod);				\
 	spa_pod_parser_get(&__p, "<", ##__VA_ARGS__, NULL);	\
 })
 

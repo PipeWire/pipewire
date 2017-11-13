@@ -109,7 +109,8 @@ static snd_pcm_format_t spa_alsa_format_to_alsa(struct type *map, uint32_t forma
 
 int
 spa_alsa_enum_format(struct state *state, uint32_t *index,
-		     const struct spa_pod_object *filter,
+		     const struct spa_pod *filter,
+		     struct spa_pod **result,
 		     struct spa_pod_builder *builder)
 {
 	snd_pcm_t *hndl;
@@ -120,7 +121,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct spa_pod_prop *prop;
-	struct spa_pod_object *fmt;
+	struct spa_pod *fmt;
 	int res;
 	bool opened;
 
@@ -193,7 +194,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 
 	(*index)++;
 
-	if ((res = spa_pod_filter(builder, (struct spa_pod*)fmt, (struct spa_pod*)filter)) < 0)
+	if ((res = spa_pod_filter(builder, result, fmt, filter)) < 0)
 		goto next;
 
 	if (!opened)

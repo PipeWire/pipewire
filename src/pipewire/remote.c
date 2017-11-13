@@ -643,7 +643,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 	const struct spa_port_info *port_info = NULL;
 	struct spa_port_info pi;
 	uint32_t n_params = 0;
-	struct spa_pod_object **params = NULL;
+	struct spa_pod **params = NULL;
 
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
 		uint32_t idx1, idx2, id;
@@ -651,15 +651,14 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 		struct spa_pod_builder b = { 0 };
 
 		for (idx1 = 0;;) {
-			struct spa_pod_object *param;
+			struct spa_pod *param;
 
 			spa_pod_builder_init(&b, buf, sizeof(buf));
                         if (spa_node_port_enum_params(port->node->node,
 						      port->direction, port->port_id,
 						      data->t->param.idList, &idx1,
-						      NULL, &b) <= 0)
+						      NULL, &param, &b) <= 0)
                                 break;
-			param = spa_pod_builder_deref(&b, 0);
 
 			spa_pod_object_parse(param,
 				":", data->t->param.listId, "I", &id, NULL);
@@ -669,12 +668,11 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 	                        if (spa_node_port_enum_params(port->node->node,
 							      port->direction, port->port_id,
 							      id, &idx2,
-							      NULL, &b) <= 0)
+							      NULL, &param, &b) <= 0)
 	                                break;
-				param = spa_pod_builder_deref(&b, 0);
 
-	                        params = realloc(params, sizeof(struct spa_pod_object *) * (n_params + 1));
-	                        params[n_params] = spa_pod_object_copy(param);
+	                        params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
+	                        params[n_params] = pw_spa_pod_copy(param);
 			}
                 }
 	}
@@ -689,7 +687,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
                                          port->port_id,
                                          change_mask,
                                          n_params,
-                                         (const struct spa_pod_object **)params,
+                                         (const struct spa_pod **)params,
 					 &pi);
 	if (params) {
 		while (n_params > 0)
@@ -700,7 +698,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 
 static void
 client_node_set_param(void *object, uint32_t seq, uint32_t id, uint32_t flags,
-		      const struct spa_pod_object *param)
+		      const struct spa_pod *param)
 {
 	pw_log_warn("set param not implemented");
 }
@@ -806,7 +804,7 @@ client_node_port_set_param(void *object,
 			   uint32_t seq,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t id, uint32_t flags,
-			   const struct spa_pod_object *param)
+			   const struct spa_pod *param)
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;

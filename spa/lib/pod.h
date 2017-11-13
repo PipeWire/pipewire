@@ -28,6 +28,7 @@ extern "C" {
 #include <spa/pod/builder.h>
 
 int spa_pod_filter(struct spa_pod_builder *b,
+		   struct spa_pod **result,
 		   const struct spa_pod *pod,
 		   const struct spa_pod *filter);
 

@@ -191,7 +191,7 @@ struct pw_stream_events {
 	/** when the format changed. The listener should call
 	 * pw_stream_finish_format() from within this callback or later to complete
 	 * the format negotiation and start the buffer negotiation. */
-	void (*format_changed) (void *data, struct spa_pod_object *format);
+	void (*format_changed) (void *data, struct spa_pod *format);
 
         /** when a new buffer was created for this stream */
         void (*add_buffer) (void *data, uint32_t id);
@@ -265,7 +265,7 @@ pw_stream_connect(struct pw_stream *stream,		/**< a \ref pw_stream */
 							  *  to let the server choose a port */
 		  enum pw_stream_flags flags,		/**< stream flags */
 		  uint32_t n_params,			/**< number of items in \a params */
-		  const struct spa_pod_object **params	/**< an array with params. The params
+		  const struct spa_pod **params		/**< an array with params. The params
 							  *  should ideally contain supported
 							  *  formats. */);
 
@@ -287,7 +287,7 @@ void
 pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 			int res,			/**< a result code */
 			uint32_t n_params,		/**< number of elements in \a params */
-			struct spa_pod_object **params	/**< an array of params. The params should
+			struct spa_pod **params		/**< an array of params. The params should
 							  *  ideally contain parameters for doing
 							  *  buffer allocation. */);
 

@@ -169,7 +169,8 @@ struct state {
 int
 spa_alsa_enum_format(struct state *state,
 		     uint32_t *index,
-		     const struct spa_pod_object *filter,
+		     const struct spa_pod *filter,
+		     struct spa_pod **result,
 		     struct spa_pod_builder *builder);
 
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *info, uint32_t flags);

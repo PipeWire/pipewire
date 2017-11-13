@@ -170,7 +170,8 @@ struct impl {
 
 static int impl_node_enum_params(struct spa_node *node,
 				 uint32_t id, uint32_t *index,
-				 const struct spa_pod_object *filter,
+				 const struct spa_pod *filter,
+				 struct spa_pod **result,
 				 struct spa_pod_builder *builder)
 {
 	struct impl *this;
@@ -213,7 +214,7 @@ static int impl_node_enum_params(struct spa_node *node,
 	(*index)++;
 
 	spa_pod_builder_reset(builder, &state);
-	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
+	if (spa_pod_filter(builder, result, param, filter) < 0)
 		goto next;
 
 	return 1;
@@ -221,7 +222,7 @@ static int impl_node_enum_params(struct spa_node *node,
 
 static int impl_node_set_param(struct spa_node *node,
 			       uint32_t id, uint32_t flags,
-			       const struct spa_pod_object *param)
+			       const struct spa_pod *param)
 {
 	struct impl *this;
 	struct type *t;
@@ -467,9 +468,9 @@ static int impl_node_port_get_info(struct spa_node *node,
 static int port_get_format(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t *index,
-			   const struct spa_pod_object *filter,
-			   struct spa_pod_builder *builder,
-			   struct spa_pod **param)
+			   const struct spa_pod *filter,
+			   struct spa_pod **param,
+			   struct spa_pod_builder *builder)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct type *t = &this->type;
@@ -512,7 +513,8 @@ static int impl_node_port_enum_params(struct spa_node *node,
 				      enum spa_direction direction,
 				      uint32_t port_id,
 				      uint32_t id, uint32_t *index,
-				      const struct spa_pod_object *filter,
+				      const struct spa_pod *filter,
+				      struct spa_pod **result,
 				      struct spa_pod_builder *builder)
 {
 
@@ -550,10 +552,10 @@ static int impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 	}
 	else if (id == t->param.idEnumFormat) {
-		return spa_v4l2_enum_format(this, index, filter, builder);
+		return spa_v4l2_enum_format(this, index, filter, result, builder);
 	}
 	else if (id == t->param.idFormat) {
-		if((res = port_get_format(node, direction, port_id, index, filter, builder, &param)) <= 0)
+		if((res = port_get_format(node, direction, port_id, index, filter, &param, builder)) <= 0)
 			return res;
 	}
 	else if (id == t->param.idBuffers) {
@@ -588,7 +590,7 @@ static int impl_node_port_enum_params(struct spa_node *node,
 	(*index)++;
 
 	spa_pod_builder_reset(builder, &state);
-	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
+	if (spa_pod_filter(builder, result, param, filter) < 0)
 		goto next;
 
 	return 1;
@@ -597,7 +599,7 @@ static int impl_node_port_enum_params(struct spa_node *node,
 static int port_set_format(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t flags,
-			   const struct spa_pod_object *format)
+			   const struct spa_pod *format)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct spa_video_info info;
@@ -672,7 +674,7 @@ static int port_set_format(struct spa_node *node,
 static int impl_node_port_set_param(struct spa_node *node,
 				    enum spa_direction direction, uint32_t port_id,
 				    uint32_t id, uint32_t flags,
-				    const struct spa_pod_object *param)
+				    const struct spa_pod *param)
 {
 	struct impl *this;
 	struct type *t;
@@ -728,7 +730,7 @@ static int
 impl_node_port_alloc_buffers(struct spa_node *node,
 			     enum spa_direction direction,
 			     uint32_t port_id,
-			     struct spa_pod_object **params,
+			     struct spa_pod **params,
 			     uint32_t n_params,
 			     struct spa_buffer **buffers,
 			     uint32_t *n_buffers)
@@ -880,6 +882,7 @@ static const struct spa_node impl_node = {
 };
 
 static int impl_clock_enum_params(struct spa_clock *clock, uint32_t id, uint32_t *index,
+				  struct spa_pod **param,
 				  struct spa_pod_builder *builder)
 {
 	return -ENOTSUP;
@@ -887,7 +890,7 @@ static int impl_clock_enum_params(struct spa_clock *clock, uint32_t id, uint32_t
 
 static int impl_clock_set_param(struct spa_clock *clock,
 				uint32_t id, uint32_t flags,
-				const struct spa_pod_object *param)
+				const struct spa_pod *param)
 {
 	return -ENOTSUP;
 }

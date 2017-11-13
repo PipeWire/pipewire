@@ -543,7 +543,7 @@ write_pod (struct spa_pod_builder *b, const void *data, uint32_t size)
   return ref;
 }
 
-static struct spa_pod_object *
+static struct spa_pod *
 convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 {
   ConvertData d;
@@ -568,15 +568,15 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 
   spa_pod_builder_pop (&d.b);
 
-  return SPA_MEMBER (d.b.data, 0, struct spa_pod_object);
+  return SPA_MEMBER (d.b.data, 0, struct spa_pod);
 }
 
-struct spa_pod_object *
+struct spa_pod *
 gst_caps_to_format (GstCaps *caps, guint index, struct spa_type_map *map)
 {
   GstCapsFeatures *f;
   GstStructure *s;
-  struct spa_pod_object *res;
+  struct spa_pod *res;
 
   g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
   g_return_val_if_fail (gst_caps_is_fixed (caps), NULL);
@@ -596,7 +596,7 @@ foreach_func (GstCapsFeatures *features,
               GstStructure    *structure,
               GPtrArray       *array)
 {
-  struct spa_pod_object *fmt;
+  struct spa_pod *fmt;
 
   if ((fmt = convert_1 (features, structure)))
     g_ptr_array_insert (array, -1, fmt);
@@ -794,7 +794,7 @@ handle_fraction_prop (struct spa_pod_prop *prop, const char *key, GstCaps *res)
   }
 }
 GstCaps *
-gst_caps_from_format (const struct spa_pod_object *format, struct spa_type_map *map)
+gst_caps_from_format (const struct spa_pod *format, struct spa_type_map *map)
 {
   GstCaps *res = NULL;
   uint32_t media_type, media_subtype;
@@ -808,7 +808,7 @@ gst_caps_from_format (const struct spa_pod_object *format, struct spa_type_map *
   if (media_type == type.media_type.video) {
     if (media_subtype == type.media_subtype.raw) {
       res = gst_caps_new_empty_simple ("video/x-raw");
-      if ((prop = spa_pod_object_find_prop (format, type.format_video.format))) {
+      if ((prop = spa_pod_find_prop (format, type.format_video.format))) {
         handle_id_prop (prop, "format", res);
       }
     }
@@ -821,13 +821,13 @@ gst_caps_from_format (const struct spa_pod_object *format, struct spa_type_map *
           "alignment", G_TYPE_STRING, "au",
           NULL);
     }
-    if ((prop = spa_pod_object_find_prop (format, type.format_video.size))) {
+    if ((prop = spa_pod_find_prop (format, type.format_video.size))) {
       handle_rect_prop (prop, "width", "height", res);
     }
-    if ((prop = spa_pod_object_find_prop (format, type.format_video.framerate))) {
+    if ((prop = spa_pod_find_prop (format, type.format_video.framerate))) {
       handle_fraction_prop (prop, "framerate", res);
     }
-    if ((prop = spa_pod_object_find_prop (format, type.format_video.max_framerate))) {
+    if ((prop = spa_pod_find_prop (format, type.format_video.max_framerate))) {
       handle_fraction_prop (prop, "max-framerate", res);
     }
   } else if (media_type == type.media_type.audio) {
@@ -835,13 +835,13 @@ gst_caps_from_format (const struct spa_pod_object *format, struct spa_type_map *
       res = gst_caps_new_simple ("audio/x-raw",
           "layout", G_TYPE_STRING, "interleaved",
           NULL);
-      if ((prop = spa_pod_object_find_prop (format, type.format_audio.format))) {
+      if ((prop = spa_pod_find_prop (format, type.format_audio.format))) {
         handle_id_prop (prop, "format", res);
       }
-      if ((prop = spa_pod_object_find_prop (format, type.format_audio.rate))) {
+      if ((prop = spa_pod_find_prop (format, type.format_audio.rate))) {
         handle_int_prop (prop, "rate", res);
       }
-      if ((prop = spa_pod_object_find_prop (format, type.format_audio.channels))) {
+      if ((prop = spa_pod_find_prop (format, type.format_audio.channels))) {
         handle_int_prop (prop, "channels", res);
       }
     }

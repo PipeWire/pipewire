@@ -31,6 +31,7 @@ struct spa_monitor;
 #include <spa/utils/defs.h>
 #include <spa/utils/dict.h>
 #include <spa/pod/event.h>
+#include <spa/pod/builder.h>
 
 #define SPA_TYPE_EVENT__Monitor		SPA_TYPE_EVENT_BASE "Monitor"
 #define SPA_TYPE_EVENT_MONITOR_BASE	SPA_TYPE_EVENT__Monitor ":"
@@ -39,9 +40,7 @@ struct spa_monitor;
 #define SPA_TYPE_EVENT_MONITOR__Removed		SPA_TYPE_EVENT_MONITOR_BASE "Removed"
 #define SPA_TYPE_EVENT_MONITOR__Changed		SPA_TYPE_EVENT_MONITOR_BASE "Changed"
 
-struct spa_monitor_item {
-	struct spa_pod_object object;
-};
+
 #define SPA_TYPE__MonitorItem			SPA_TYPE_POD_OBJECT_BASE "MonitorItem"
 #define SPA_TYPE_MONITOR_ITEM_BASE		SPA_TYPE__MonitorItem ":"
 
@@ -54,20 +53,20 @@ struct spa_monitor_item {
 #define SPA_TYPE_MONITOR_ITEM__factory		SPA_TYPE_MONITOR_ITEM_BASE "factory"
 
 struct spa_type_monitor {
-	uint32_t Monitor;
+	uint32_t Monitor;		/*< the monitor object */
 
-	uint32_t Added;
-	uint32_t Removed;
-	uint32_t Changed;
+	uint32_t Added;			/*< item added event */
+	uint32_t Removed;		/*< item removed event */
+	uint32_t Changed;		/*< item changed event */
 
-	uint32_t MonitorItem;
-	uint32_t id;
-	uint32_t flags;
-	uint32_t state;
-	uint32_t name;
-	uint32_t klass;
-	uint32_t info;
-	uint32_t factory;
+	uint32_t MonitorItem;		/*< monitor item object */
+	uint32_t id;			/*< item id property */
+	uint32_t flags;			/*< item flags property */
+	uint32_t state;			/*< item state property */
+	uint32_t name;			/*< item name property */
+	uint32_t klass;			/*< item klass property */
+	uint32_t info;			/*< item info property */
+	uint32_t factory;		/*< item factory property */
 };
 
 static inline void spa_type_monitor_map(struct spa_type_map *map, struct spa_type_monitor *type)
@@ -92,16 +91,11 @@ enum spa_monitor_item_flags {
 	SPA_MONITOR_ITEM_FLAG_NONE = 0,
 };
 
-/**
- * spa_monitor_item_state:
- * @SPA_MONITOR_ITEM_STATE_AVAILABLE: The item is available
- * @SPA_MONITOR_ITEM_STATE_DISABLED: the item is disabled
- * @SPA_MONITOR_ITEM_STATE_UNAVAILABLE: the item is unavailable
- */
+/** The monitor item state */
 enum spa_monitor_item_state {
-	SPA_MONITOR_ITEM_STATE_AVAILABLE,
-	SPA_MONITOR_ITEM_STATE_DISABLED,
-	SPA_MONITOR_ITEM_STATE_UNAVAILABLE,
+	SPA_MONITOR_ITEM_STATE_AVAILABLE,	/*< The item is available */
+	SPA_MONITOR_ITEM_STATE_DISABLED,	/*< The item is disabled */
+	SPA_MONITOR_ITEM_STATE_UNAVAILABLE,	/*< The item is unavailable */
 };
 
 /**
@@ -112,6 +106,7 @@ struct spa_monitor_callbacks {
 #define SPA_VERSION_MONITOR_CALLBACKS	0
 	uint32_t version;
 
+	/** an item is added/removed/changed on the monitor */
 	void (*event) (void *data, struct spa_event *event);
 };
 
@@ -127,43 +122,40 @@ struct spa_monitor {
 	uint32_t version;
 
 	/**
-	 * spa_monitor::info
-	 *
 	 * Extra information about the monitor
 	 */
 	const struct spa_dict *info;
 
 	/**
-	 * spa_monitor::set_callbacks:
-	 * @monitor: a #spa_monitor
-	 * @callback: a #callbacks
-	 *
 	 * Set callbacks to receive asynchronous notifications from
 	 * the monitor.
 	 *
-	 * Returns: 0 on success
-	 *	    -errno on error
+	 * \param monitor: a #spa_monitor
+	 * \param callback: a #callbacks
+	 * \return 0 on success
+	 *	   < 0 errno on error
 	 */
 	int (*set_callbacks) (struct spa_monitor *monitor,
 			      const struct spa_monitor_callbacks *callbacks,
 			      void *data);
 
 	/**
-	 * spa_monitor::enum_items:
-	 * @monitor: a #spa_monitor
-	 * @item: result item
-	 * @index: index of the item
-	 *
 	 * Get the next item of the monitor. \a index should contain 0 to get the
 	 * first item and is updated with an opaque value that should be passed
 	 * unmodified to get the next items.
 	 *
-	 * Returns: 1 when an item is available
-	 *	    0 when no more items are available
-	 *	    -errno on error
+	 * \param monito: a spa_monitor
+	 * \param index state, use 0 for the first item
+	 * \param item result item
+	 * \param builder builder for \a item
+	 * \return 1 when an item is available
+	 *	   0 when no more items are available
+	 *	   < 0 errno on error
 	 */
 	int (*enum_items) (struct spa_monitor *monitor,
-			   struct spa_monitor_item **item, uint32_t *index);
+			   uint32_t *index,
+			   struct spa_pod **item,
+			   struct spa_pod_builder *builder);
 
 };
 

@@ -195,7 +195,7 @@ struct pw_client_node_proxy_methods {
 			uint32_t max_input_ports,
 			uint32_t max_output_ports,
 			uint32_t n_params,
-			const struct spa_pod_object **params);
+			const struct spa_pod **params);
 
 	/**
 	 * Update a node port
@@ -215,7 +215,7 @@ struct pw_client_node_proxy_methods {
 #define PW_CLIENT_NODE_PORT_UPDATE_INFO              (1 << 1)
 			     uint32_t change_mask,
 			     uint32_t n_params,
-			     const struct spa_pod_object **params,
+			     const struct spa_pod **params,
 			     const struct spa_port_info *info);
 	/**
 	 * Activate or deactivate the node
@@ -244,7 +244,7 @@ pw_client_node_proxy_update(struct pw_client_node_proxy *p,
 			    uint32_t max_input_ports,
 			    uint32_t max_output_ports,
 			    uint32_t n_params,
-			    const struct spa_pod_object **params)
+			    const struct spa_pod **params)
 {
         pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, update, change_mask,
 							      max_input_ports,
@@ -259,7 +259,7 @@ pw_client_node_proxy_port_update(struct pw_client_node_proxy *p,
 				 uint32_t port_id,
 				 uint32_t change_mask,
 				 uint32_t n_params,
-				 const struct spa_pod_object **params,
+				 const struct spa_pod **params,
 				 const struct spa_port_info *info)
 {
         pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, port_update, direction,
@@ -334,7 +334,7 @@ struct pw_client_node_proxy_events {
 	 */
 	void (*set_param) (void *object, uint32_t seq,
 			   uint32_t id, uint32_t flags,
-			   const struct spa_pod_object *param);
+			   const struct spa_pod *param);
 	/**
 	 * Receive an event from the client node
 	 * \param event the received event */
@@ -386,7 +386,7 @@ struct pw_client_node_proxy_events {
 				enum spa_direction direction,
 				uint32_t port_id,
 				uint32_t id, uint32_t flags,
-				const struct spa_pod_object *param);
+				const struct spa_pod *param);
 	/**
 	 * Memory was added for a port
 	 *

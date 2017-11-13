@@ -1297,6 +1297,7 @@ static bool on_global(void *data, struct pw_global *global)
 	uint32_t index = 0;
 	uint8_t buf[2048];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct spa_pod *props;
 
 	if (pw_global_get_type(global) != impl->t->node)
 		return true;
@@ -1328,9 +1329,8 @@ static bool on_global(void *data, struct pw_global *global)
 		return true;
 	}
 
-	if (spa_node_enum_params(node->node, SPA_ID_INVALID, &index, NULL, &b) == 1) {
+	if (spa_node_enum_params(node->node, impl->t->param.idProps, &index, NULL, &props, &b) == 1) {
 		int min_latency = -1;
-		struct spa_pod_object *props = spa_pod_builder_deref(&b, 0);
 
 		spa_pod_object_parse(props,
 			":", impl->prop_min_latency, "?i", &min_latency, NULL);

@@ -301,7 +301,7 @@ do_invoke(struct spa_loop *loop,
 static int make_nodes(struct data *data, const char *device)
 {
 	int res;
-	struct spa_pod_object *props;
+	struct spa_pod *props;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[256];
 
@@ -390,7 +390,7 @@ static int negotiate_formats(struct data *data)
 {
 	int res;
 	const struct spa_port_info *info;
-	struct spa_pod_object *format;
+	struct spa_pod *format;
 	uint8_t buffer[256];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 

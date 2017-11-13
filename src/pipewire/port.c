@@ -365,7 +365,7 @@ do_port_pause(struct spa_loop *loop,
 }
 
 int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
-		      const struct spa_pod_object *param)
+		      const struct spa_pod *param)
 {
 	int res;
 
@@ -426,7 +426,7 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 }
 
 int pw_port_alloc_buffers(struct pw_port *port,
-			  struct spa_pod_object **params, uint32_t n_params,
+			  struct spa_pod **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers)
 {
 	int res;

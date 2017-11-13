@@ -375,7 +375,7 @@ print_format_value(uint32_t size, uint32_t type, void *body)
 	}
 }
 
-static int spa_debug_format(const struct spa_pod_object *format)
+static int spa_debug_format(const struct spa_pod *format)
 {
 	int i;
 	const char *media_type;
@@ -383,7 +383,7 @@ static int spa_debug_format(const struct spa_pod_object *format)
 	struct spa_pod *pod;
 	uint32_t mtype, mstype;
 
-	if (format == NULL)
+	if (format == NULL || SPA_POD_TYPE(format) != SPA_POD_TYPE_OBJECT)
 		return -EINVAL;
 
 	if (spa_pod_object_parse(format, "I", &mtype,
@@ -396,7 +396,7 @@ static int spa_debug_format(const struct spa_pod_object *format)
 	fprintf(stderr, "%-6s %s/%s\n", "", rindex(media_type, ':') + 1,
 		rindex(media_subtype, ':') + 1);
 
-	SPA_POD_OBJECT_FOREACH(format, pod) {
+	SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)format, pod) {
 		struct spa_pod_prop *prop;
 		const char *key;
 
@@ -459,7 +459,7 @@ int spa_debug_pod(const struct spa_pod *pod, uint32_t flags)
 	int res = 0;
 
 	if (flags & SPA_DEBUG_FLAG_FORMAT)
-		res = spa_debug_format((struct spa_pod_object*)pod);
+		res = spa_debug_format(pod);
 	else
 		print_pod_value(pod->size, pod->type, SPA_POD_BODY(pod), 0);
 

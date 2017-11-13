@@ -436,7 +436,7 @@ do_remove_source(struct spa_loop *loop,
 		pw_loop_destroy_source(d->core->data_loop, d->rtsocket_source);
 		d->rtsocket_source = NULL;
 	}
-        return SPA_RESULT_OK;
+        return 0;
 }
 
 
@@ -504,7 +504,7 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 			pw_log_warn("proxy %p: %ld messages", proxy, cmd);
 
 
-		while (pw_client_node_transport_next_message(data->trans, &message) == SPA_RESULT_OK) {
+		while (pw_client_node_transport_next_message(data->trans, &message) == 1) {
 			struct pw_client_node_message *msg = alloca(SPA_POD_SIZE(&message));
 			pw_client_node_transport_parse_message(data->trans, msg);
 			handle_rtnode_message(proxy, msg);
@@ -657,7 +657,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
                         if (spa_node_port_enum_params(port->node->node,
 						      port->direction, port->port_id,
 						      data->t->param.idList, &idx1,
-						      NULL, &b) < 0)
+						      NULL, &b) <= 0)
                                 break;
 			param = spa_pod_builder_deref(&b, 0);
 
@@ -669,7 +669,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 	                        if (spa_node_port_enum_params(port->node->node,
 							      port->direction, port->port_id,
 							      id, &idx2,
-							      NULL, &b) < 0)
+							      NULL, &b) <= 0)
 	                                break;
 				param = spa_pod_builder_deref(&b, 0);
 
@@ -763,7 +763,7 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 		/* FIXME we should call process_output on the node and see what its
 		 * status is */
 		for (i = 0; i < data->trans->area->max_input_ports; i++)
-			data->trans->inputs[i].status = SPA_RESULT_NEED_BUFFER;
+			data->trans->inputs[i].status = SPA_STATUS_NEED_BUFFER;
 		node_need_input(data);
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
@@ -785,7 +785,7 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 	}
 	else {
 		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
-		pw_client_node_proxy_done(data->node_proxy, seq, SPA_RESULT_NOT_IMPLEMENTED);
+		pw_client_node_proxy_done(data->node_proxy, seq, -ENOTSUP);
 	}
 }
 
@@ -815,12 +815,12 @@ client_node_port_set_param(void *object,
 
 	port = find_port(data, direction, port_id);
 	if (port == NULL || port->port == NULL) {
-		res = SPA_RESULT_INVALID_PORT;
+		res = -EINVAL;
 		goto done;
 	}
 
 	res = pw_port_set_param(port->port, id, flags, param);
-	if (res != SPA_RESULT_OK)
+	if (res < 0)
 		goto done;
 
 	add_port_update(proxy, port->port,
@@ -925,7 +925,7 @@ client_node_port_use_buffers(void *object,
 
 	port = find_port(data, direction, port_id);
 	if (port == NULL) {
-		res = SPA_RESULT_INVALID_PORT;
+		res = -EINVAL;
 		goto done;
 	}
 
@@ -1011,7 +1011,7 @@ client_node_port_use_buffers(void *object,
 				map = mmap(NULL, d->maxsize + d->mapoffset, prot, MAP_SHARED, d->fd, 0);
 				if (map == MAP_FAILED) {
 					pw_log_error("data %d failed to mmap memory %m", j);
-					res = SPA_RESULT_ERROR;
+					res = errno;
 					goto done;
 				}
 				d->data = SPA_MEMBER(map, d->mapoffset, uint8_t);
@@ -1083,7 +1083,7 @@ static void do_node_init(struct pw_proxy *proxy)
 				PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 				PW_CLIENT_NODE_PORT_UPDATE_INFO);
 	}
-        pw_client_node_proxy_done(data->node_proxy, 0, SPA_RESULT_OK);
+        pw_client_node_proxy_done(data->node_proxy, 0, 0);
 }
 
 static void node_destroy(void *data)
@@ -1135,7 +1135,7 @@ static const struct pw_proxy_events proxy_events = {
 static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
 {
 	pw_log_trace("node %p: reuse buffer %d %d", node, port_id, buffer_id);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_process_input(struct spa_node *node)
@@ -1143,7 +1143,7 @@ static int impl_process_input(struct spa_node *node)
 	struct node_data *data = SPA_CONTAINER_OF(node, struct node_data, out_node_impl);
 	pw_log_trace("node %p: process input", node);
 	node_have_output(data);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_process_output(struct spa_node *node)
@@ -1151,7 +1151,7 @@ static int impl_process_output(struct spa_node *node)
 	struct node_data *data = SPA_CONTAINER_OF(node, struct node_data, in_node_impl);
 	pw_log_trace("node %p: process output", node);
 	node_need_input(data);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_node node_impl = {

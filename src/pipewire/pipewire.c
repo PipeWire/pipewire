@@ -161,10 +161,10 @@ const struct spa_handle_factory *pw_get_support_factory(const char *factory_name
 	uint32_t index;
         const struct spa_handle_factory *factory;
 
-        for (index = 0;; index++) {
-                if ((res = support_info.enum_func(&factory, index)) < 0) {
-                        if (res != SPA_RESULT_ENUM_END)
-                                fprintf(stderr, "can't enumerate factories: %d\n", res);
+        for (index = 0;;) {
+                if ((res = support_info.enum_func(&factory, &index)) <= 0) {
+                        if (res != 0)
+                                fprintf(stderr, "can't enumerate factories: %s\n", spa_strerror(res));
                         break;
                 }
                 if (strcmp(factory->name, factory_name) == 0)

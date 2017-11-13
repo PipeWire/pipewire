@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 #include <stdio.h>
 
 #include <spa/support/plugin.h>
@@ -38,7 +39,7 @@ ffmpeg_dec_init(const struct spa_handle_factory *factory,
 		uint32_t n_support)
 {
 	if (factory == NULL || handle == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	return spa_ffmpeg_dec_init(handle, info, support, n_support);
 }
@@ -51,7 +52,7 @@ ffmpeg_enc_init(const struct spa_handle_factory *factory,
 		uint32_t n_support)
 {
 	if (factory == NULL || handle == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	return spa_ffmpeg_enc_init(handle, info, support, n_support);
 }
@@ -63,20 +64,20 @@ static const struct spa_interface_info ffmpeg_interfaces[] = {
 static int
 ffmpeg_enum_interface_info(const struct spa_handle_factory *factory,
 			   const struct spa_interface_info **info,
-			   uint32_t index)
+			   uint32_t *index)
 {
-	if (factory == NULL || info == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+	if (factory == NULL || info == NULL || index == NULL)
+		return -EINVAL;
 
-	if (index >= 1)
-		return SPA_RESULT_ENUM_END;
+	if (*index < SPA_N_ELEMENTS(ffmpeg_interfaces))
+		*info = &ffmpeg_interfaces[(*index)++];
+	else
+		return 0;
 
-	*info = &ffmpeg_interfaces[index];
-
-	return SPA_RESULT_OK;
+	return 1;
 }
 
-int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t index)
+int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {
 	static const AVCodec *c = NULL;
 	static int ci = 0;
@@ -85,16 +86,16 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 
 	av_register_all();
 
-	if (index == 0) {
+	if (*index == 0) {
 		c = av_codec_next(NULL);
 		ci = 0;
 	}
-	while (index > ci && c) {
+	while (*index > ci && c) {
 		c = av_codec_next(c);
 		ci++;
 	}
 	if (c == NULL)
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	if (av_codec_is_encoder(c)) {
 		snprintf(name, 128, "ffenc_%s", c->name);
@@ -108,6 +109,7 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 	f.enum_interface_info = ffmpeg_enum_interface_info;
 
 	*factory = &f;
+	(*index)++;
 
-	return SPA_RESULT_OK;
+	return 1;
 }

@@ -253,10 +253,10 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 		goto no_symbol;
 	}
 
-	for (index = 0;; index++) {
-		if ((res = enum_func(&factory, index)) < 0) {
-			if (res != SPA_RESULT_ENUM_END)
-				pw_log_error("can't enumerate factories: %d", res);
+	for (index = 0;;) {
+		if ((res = enum_func(&factory, &index)) <= 0) {
+			if (res != 0)
+				pw_log_error("can't enumerate factories: %s", spa_strerror(res));
 			goto enum_failed;
 		}
 		if (strcmp(factory->name, factory_name) == 0)
@@ -294,13 +294,13 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 
 	spa_list_init(&impl->item_list);
 
-	for (index = 0;; index++) {
+	for (index = 0;;) {
 		struct spa_monitor_item *item;
 		int res;
 
-		if ((res = spa_monitor_enum_items(this->monitor, &item, index)) < 0) {
-			if (res != SPA_RESULT_ENUM_END)
-				pw_log_debug("spa_monitor_enum_items: got error %d\n", res);
+		if ((res = spa_monitor_enum_items(this->monitor, &item, &index)) <= 0) {
+			if (res != 0)
+				pw_log_debug("spa_monitor_enum_items: %s\n", spa_strerror(res));
 			break;
 		}
 		add_item(this, item);

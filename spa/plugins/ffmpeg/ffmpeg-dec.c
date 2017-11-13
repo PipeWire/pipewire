@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 #include <stddef.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -88,14 +89,14 @@ static int spa_ffmpeg_dec_node_enum_params(struct spa_node *node,
 					   const struct spa_pod_object *filter,
 					   struct spa_pod_builder *builder)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int spa_ffmpeg_dec_node_set_param(struct spa_node *node,
 					 uint32_t id, uint32_t flags,
 					 const struct spa_pod_object *param)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int spa_ffmpeg_dec_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -103,7 +104,7 @@ static int spa_ffmpeg_dec_node_send_command(struct spa_node *node, const struct 
 	struct impl *this;
 
 	if (node == NULL || command == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
@@ -112,9 +113,9 @@ static int spa_ffmpeg_dec_node_send_command(struct spa_node *node, const struct 
 	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
 		this->started = false;
 	} else
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -125,14 +126,14 @@ spa_ffmpeg_dec_node_set_callbacks(struct spa_node *node,
 	struct impl *this;
 
 	if (node == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	this->callbacks = callbacks;
 	this->user_data = user_data;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -143,7 +144,7 @@ spa_ffmpeg_dec_node_get_n_ports(struct spa_node *node,
 				uint32_t *max_output_ports)
 {
 	if (node == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	if (n_input_ports)
 		*n_input_ports = 1;
@@ -154,7 +155,7 @@ spa_ffmpeg_dec_node_get_n_ports(struct spa_node *node,
 	if (max_output_ports)
 		*max_output_ports = 1;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -165,21 +166,21 @@ spa_ffmpeg_dec_node_get_port_ids(struct spa_node *node,
 				 uint32_t *output_ids)
 {
 	if (node == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	if (n_input_ports > 0 && input_ids != NULL)
 		input_ids[0] = 0;
 	if (n_output_ports > 0 && output_ids != NULL)
 		output_ids[0] = 0;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 
 static int
 spa_ffmpeg_dec_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int
@@ -187,7 +188,7 @@ spa_ffmpeg_dec_node_remove_port(struct spa_node *node,
 				enum spa_direction direction,
 				uint32_t port_id)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int
@@ -200,18 +201,18 @@ spa_ffmpeg_dec_node_port_get_info(struct spa_node *node,
 	struct port *port;
 
 	if (node == NULL || info == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	if (!IS_VALID_PORT(this, direction, port_id))
-		return SPA_RESULT_INVALID_PORT;
+		return -EINVAL;
 
 	port =
 	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 	*info = &port->info;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int port_enum_formats(struct spa_node *node,
@@ -224,23 +225,21 @@ static int port_enum_formats(struct spa_node *node,
 	//struct impl *this;
 
 	if (node == NULL || index == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	//this = SPA_CONTAINER_OF (node, struct impl, node);
 
 	if (!IS_VALID_PORT(this, direction, port_id))
-		return SPA_RESULT_INVALID_PORT;
+		return -EINVAL;
 
 	switch (*index) {
 	case 0:
 		*param = NULL;
 		break;
 	default:
-		return SPA_RESULT_ENUM_END;
+		return 0;
 	}
-
-
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int port_get_format(struct spa_node *node,
@@ -257,14 +256,14 @@ static int port_get_format(struct spa_node *node,
 	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
 	if (!port->have_format)
-		return SPA_RESULT_NO_FORMAT;
+		return -EIO;
 
 	if (*index > 0)
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	*param = NULL;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int
@@ -291,18 +290,18 @@ spa_ffmpeg_dec_node_port_enum_params(struct spa_node *node,
 			param = spa_pod_builder_object(builder, id, t->param.List,
 				":", t->param.listId, "I", list[*index]);
 		else
-			return SPA_RESULT_ENUM_END;
+			return 0;
 	}
 	else if (id == t->param.idEnumFormat) {
-		if ((res = port_enum_formats(node, direction, port_id, index, filter, builder, &param)) < 0)
+		if ((res = port_enum_formats(node, direction, port_id, index, filter, builder, &param)) <= 0)
 			return res;
 	}
 	else if (id == t->param.idFormat) {
-		if ((res = port_get_format(node, direction, port_id, index, filter, builder, &param)) < 0)
+		if ((res = port_get_format(node, direction, port_id, index, filter, builder, &param)) <= 0)
 			return res;
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 
 	(*index)++;
 
@@ -310,7 +309,7 @@ spa_ffmpeg_dec_node_port_enum_params(struct spa_node *node,
 	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
 		goto next;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int port_set_format(struct spa_node *node,
@@ -322,19 +321,19 @@ static int port_set_format(struct spa_node *node,
 	struct port *port;
 
 	if (node == NULL || format == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	if (!IS_VALID_PORT(this, direction, port_id))
-		return SPA_RESULT_INVALID_PORT;
+		return -EINVAL;
 
 	port =
 	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
 	if (format == NULL) {
 		port->have_format = false;
-		return SPA_RESULT_OK;
+		return 0;
 	} else {
 		struct spa_video_info info = { 0 };
 
@@ -344,17 +343,17 @@ static int port_set_format(struct spa_node *node,
 
 		if (info.media_type != this->type.media_type.video &&
 		    info.media_subtype != this->type.media_subtype.raw)
-			return SPA_RESULT_INVALID_MEDIA_TYPE;
+			return -EINVAL;
 
 		if (spa_format_video_raw_parse(format, &info.info.raw, &this->type.format_video) < 0)
-			return SPA_RESULT_INVALID_MEDIA_TYPE;
+			return -EINVAL;
 
 		if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
 			port->current_format = info;
 			port->have_format = true;
 		}
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -370,7 +369,7 @@ spa_ffmpeg_dec_node_port_set_param(struct spa_node *node,
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 }
 
 static int
@@ -381,12 +380,12 @@ spa_ffmpeg_dec_node_port_use_buffers(struct spa_node *node,
 				     uint32_t n_buffers)
 {
 	if (node == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	if (!IS_VALID_PORT(node, direction, port_id))
-		return SPA_RESULT_INVALID_PORT;
+		return -EINVAL;
 
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int
@@ -398,7 +397,7 @@ spa_ffmpeg_dec_node_port_alloc_buffers(struct spa_node *node,
 				       struct spa_buffer **buffers,
 				       uint32_t *n_buffers)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int
@@ -411,23 +410,23 @@ spa_ffmpeg_dec_node_port_set_io(struct spa_node *node,
 	struct port *port;
 
 	if (node == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	if (!IS_VALID_PORT(this, direction, port_id))
-		return SPA_RESULT_INVALID_PORT;
+		return -EINVAL;
 
 	port =
 	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 	port->io = io;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int spa_ffmpeg_dec_node_process_input(struct spa_node *node)
 {
-	return SPA_RESULT_INVALID_PORT;
+	return -EINVAL;
 }
 
 static int spa_ffmpeg_dec_node_process_output(struct spa_node *node)
@@ -437,34 +436,34 @@ static int spa_ffmpeg_dec_node_process_output(struct spa_node *node)
 	struct spa_port_io *output;
 
 	if (node == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	port = &this->out_ports[0];
 
 	if ((output = port->io) == NULL)
-		return SPA_RESULT_ERROR;
+		return -EIO;
 
 	if (!port->have_format) {
-		output->status = SPA_RESULT_NO_FORMAT;
-		return SPA_RESULT_ERROR;
+		output->status = -EIO;
+		return -EIO;
 	}
-	output->status = SPA_RESULT_OK;
+	output->status = SPA_STATUS_OK;
 
-	return SPA_RESULT_OK;
+	return SPA_STATUS_OK;
 }
 
 static int
 spa_ffmpeg_dec_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
 {
 	if (node == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	if (port_id != 0)
-		return SPA_RESULT_INVALID_PORT;
+		return -EINVAL;
 
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int
@@ -473,7 +472,7 @@ spa_ffmpeg_dec_node_port_send_command(struct spa_node *node,
 				      uint32_t port_id,
 				      const struct spa_command *command)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 
@@ -506,16 +505,16 @@ spa_ffmpeg_dec_get_interface(struct spa_handle *handle, uint32_t interface_id, v
 	struct impl *this;
 
 	if (handle == NULL || interface == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	this = (struct impl *) handle;
 
 	if (interface_id == this->type.node)
 		*interface = &this->node;
 	else
-		return SPA_RESULT_UNKNOWN_INTERFACE;
+		return -ENOENT;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 int
@@ -539,7 +538,7 @@ spa_ffmpeg_dec_init(struct spa_handle *handle,
 	}
 	if (this->map == NULL) {
 		spa_log_error(this->log, "a type-map is needed");
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 	}
 	init_type(&this->type, this->map);
 
@@ -548,5 +547,5 @@ spa_ffmpeg_dec_init(struct spa_handle *handle,
 	this->in_ports[0].info.flags = 0;
 	this->out_ports[0].info.flags = 0;
 
-	return SPA_RESULT_OK;
+	return 0;
 }

@@ -132,20 +132,20 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 
 	if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
 		printf("can't load %s: %s\n", lib, dlerror());
-		return SPA_RESULT_ERROR;
+		return -errno;
 	}
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		printf("can't find enum function\n");
-		return SPA_RESULT_ERROR;
+		return -errno;
 	}
 
-	for (i = 0;; i++) {
+	for (i = 0;;) {
 		const struct spa_handle_factory *factory;
 		void *iface;
 
-		if ((res = enum_func(&factory, i)) < 0) {
-			if (res != SPA_RESULT_ENUM_END)
-				printf("can't enumerate factories: %d\n", res);
+		if ((res = enum_func(&factory, &i)) <= 0) {
+			if (res != 0)
+				printf("can't enumerate factories: %s\n", spa_strerror(res));
 			break;
 		}
 		if (strcmp(factory->name, name))
@@ -163,9 +163,9 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 			return res;
 		}
 		*node = iface;
-		return SPA_RESULT_OK;
+		return 0;
 	}
-	return SPA_RESULT_ERROR;
+	return -EBADF;
 }
 
 static void handle_events(struct data *data)
@@ -258,7 +258,7 @@ static void on_source_have_output(void *_data)
 		SDL_RenderPresent(data->renderer);
 	}
 
-	io->status = SPA_RESULT_NEED_BUFFER;
+	io->status = SPA_STATUS_NEED_BUFFER;
 
 	if ((res = spa_node_process_output(data->source)) < 0)
 		printf("got pull error %d\n", res);
@@ -279,12 +279,12 @@ static int do_add_source(struct spa_loop *loop, struct spa_source *source)
 	data->n_sources++;
 	data->rebuild_fds = true;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_update_source(struct spa_source *source)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void do_remove_source(struct spa_source *source)
@@ -342,11 +342,11 @@ static int alloc_buffers(struct data *data)
 					    SDL_TEXTUREACCESS_STREAMING, 320, 240);
 		if (!texture) {
 			printf("can't create texture: %s\n", SDL_GetError());
-			return SPA_RESULT_ERROR;
+			return -ENOMEM;
 		}
 		if (SDL_LockTexture(texture, NULL, &ptr, &stride) < 0) {
 			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-			return SPA_RESULT_ERROR;
+			return -EIO;
 		}
 
 		b->buffer.id = i;
@@ -404,8 +404,8 @@ static int negotiate_formats(struct data *data)
 #if 0
 	void *state = NULL;
 
-	if ((res = spa_node_port_enum_formats(data->source, 0, &format, NULL, &state)) < 0)
-		return res;
+	if ((res = spa_node_port_enum_formats(data->source, 0, &format, NULL, &state)) <= 0)
+		return -EBADF;
 #else
 
 	format = spa_pod_builder_object(&b,
@@ -448,7 +448,7 @@ static int negotiate_formats(struct data *data)
 		}
 		data->n_buffers = n_buffers;
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void *loop(void *user_data)

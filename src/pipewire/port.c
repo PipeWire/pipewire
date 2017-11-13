@@ -58,7 +58,7 @@ static int schedule_tee_input(struct spa_node *data)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 	else
-		io->status = SPA_RESULT_NEED_BUFFER;
+		io->status = SPA_STATUS_NEED_BUFFER;
 
         return io->status;
 }
@@ -86,7 +86,7 @@ static int schedule_tee_reuse_buffer(struct spa_node *data, uint32_t port_id, ui
 		pw_log_trace("tee reuse buffer %d %d", port_id, buffer_id);
 		spa_node_port_reuse_buffer(pp->node->implementation, port_id, buffer_id);
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_node schedule_tee_node = {
@@ -142,7 +142,7 @@ static int schedule_mix_reuse_buffer(struct spa_node *data, uint32_t port_id, ui
 			spa_node_port_reuse_buffer(pp->node->implementation, port_id, buffer_id);
 		}
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_node schedule_mix_node = {
@@ -264,7 +264,7 @@ static int do_add_port(struct spa_loop *loop,
 	spa_graph_port_add(&this->rt.mix_node, &this->rt.mix_port);
 	spa_graph_port_link(&this->rt.port, &this->rt.mix_port);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 bool pw_port_add(struct pw_port *port, struct pw_node *node)
@@ -314,7 +314,7 @@ static int do_remove_port(struct spa_loop *loop,
 	spa_graph_port_remove(&this->rt.mix_port);
 	spa_graph_node_remove(&this->rt.mix_node);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 void pw_port_destroy(struct pw_port *port)
@@ -395,10 +395,10 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 	int res;
 
 	if (n_buffers == 0 && port->state <= PW_PORT_STATE_READY)
-		return SPA_RESULT_OK;
+		return 0;
 
 	if (n_buffers > 0 && port->state < PW_PORT_STATE_READY)
-		return SPA_RESULT_NO_FORMAT;
+		return -EIO;
 
 	if (port->state > PW_PORT_STATE_PAUSED) {
 		pw_loop_invoke(port->node->data_loop,
@@ -432,7 +432,7 @@ int pw_port_alloc_buffers(struct pw_port *port,
 	int res;
 
 	if (port->state < PW_PORT_STATE_READY)
-		return SPA_RESULT_NO_FORMAT;
+		return -EIO;
 
 	if (port->state > PW_PORT_STATE_PAUSED) {
 		pw_loop_invoke(port->node->data_loop,

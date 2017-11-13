@@ -297,7 +297,7 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 					      &p->properties->dict,
 					      p->new_id);
 		} else {
-			pw_resource_error(p->resource->resource, SPA_RESULT_NO_PERMISSION, "not allowed");
+			pw_resource_error(p->resource->resource, -EPERM, "not allowed");
 
 		}
 		free_pending(p);
@@ -424,7 +424,7 @@ static void do_create_object(void *data,
 	dbus_error_free(&error);
 	goto not_allowed;
       not_allowed:
-	pw_resource_error(cinfo->core_resource->resource, SPA_RESULT_NO_PERMISSION, "not allowed");
+	pw_resource_error(cinfo->core_resource->resource, -EPERM, "not allowed");
 	return;
 }
 
@@ -442,7 +442,7 @@ do_create_link(void *data,
 	struct client_info *cinfo = resource->cinfo;
 
 	if (cinfo->is_sandboxed) {
-		pw_resource_error(resource->resource, SPA_RESULT_NO_PERMISSION, "not allowed");
+		pw_resource_error(resource->resource, -EPERM, "not allowed");
 		return;
 	}
 	pw_resource_do_parent(resource->resource,

@@ -116,7 +116,7 @@ spa_graph_node_add(struct spa_graph *graph,
 		   struct spa_graph_node *node)
 {
 	node->graph = graph;
-	node->state = SPA_RESULT_OK;
+	node->state = SPA_STATUS_OK;
 	node->ready_link.next = NULL;
 	spa_list_append(&graph->nodes, &node->link);
 	spa_debug("node %p add", node);

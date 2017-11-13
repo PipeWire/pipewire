@@ -141,14 +141,29 @@ struct spa_monitor {
 	 * Set callbacks to receive asynchronous notifications from
 	 * the monitor.
 	 *
-	 * Returns: #SPA_RESULT_OK on success
+	 * Returns: 0 on success
+	 *	    -errno on error
 	 */
 	int (*set_callbacks) (struct spa_monitor *monitor,
 			      const struct spa_monitor_callbacks *callbacks,
 			      void *data);
 
+	/**
+	 * spa_monitor::enum_items:
+	 * @monitor: a #spa_monitor
+	 * @item: result item
+	 * @index: index of the item
+	 *
+	 * Get the next item of the monitor. \a index should contain 0 to get the
+	 * first item and is updated with an opaque value that should be passed
+	 * unmodified to get the next items.
+	 *
+	 * Returns: 1 when an item is available
+	 *	    0 when no more items are available
+	 *	    -errno on error
+	 */
 	int (*enum_items) (struct spa_monitor *monitor,
-			   struct spa_monitor_item **item, uint32_t index);
+			   struct spa_monitor_item **item, uint32_t *index);
 
 };
 

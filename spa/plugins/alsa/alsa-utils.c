@@ -14,16 +14,7 @@
 
 #include "alsa-utils.h"
 
-static int convert_errnum(struct state *state, int errnum)
-{
-	switch (errnum) {
-	case -EBUSY:
-		return SPA_RESULT_BUSY;
-	}
-	return SPA_RESULT_ERROR;
-}
-
-#define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", snd_strerror(err)); return convert_errnum(state, err); }
+#define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", snd_strerror(err)); return err; }
 
 static int spa_alsa_open(struct state *state)
 {
@@ -139,7 +130,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 
       next:
 	if (*index > 0)
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	hndl = state->hndl;
 	snd_pcm_hw_params_alloca(&params);
@@ -208,7 +199,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	if (!opened)
 		spa_alsa_close(state);
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
@@ -234,7 +225,6 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	CHECK(snd_pcm_hw_params_set_rate_resample(hndl, params, 0), "set_rate_resample");
 	/* set the interleaved read/write format */
 	CHECK(snd_pcm_hw_params_set_access(hndl, params, SND_PCM_ACCESS_MMAP_INTERLEAVED), "set_access");
-
 
 	/* disable ALSA wakeups, we use a timer */
 	if (snd_pcm_hw_params_can_disable_period_wakeup(params))
@@ -329,7 +319,7 @@ static inline void try_pull(struct state *state, snd_pcm_uframes_t frames, bool 
 
 	if (spa_list_is_empty(&state->ready) && do_pull) {
 		spa_log_trace(state->log, "alsa-util %p: %d", state, io->status);
-		io->status = SPA_RESULT_NEED_BUFFER;
+		io->status = SPA_STATUS_NEED_BUFFER;
 		io->range.offset = state->sample_count * state->frame_size;
 		io->range.min_size = state->threshold * state->frame_size;
 		io->range.max_size = frames * state->frame_size;
@@ -461,7 +451,7 @@ push_frames(struct state *state,
 
 		b->outstanding = true;
 		io->buffer_id = b->outbuf->id;
-		io->status = SPA_RESULT_HAVE_BUFFER;
+		io->status = SPA_STATUS_HAVE_BUFFER;
 		state->callbacks->have_output(state->callbacks_data);
 	}
 	return total_frames;
@@ -661,7 +651,7 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 	int err;
 
 	if (state->started)
-		return SPA_RESULT_OK;
+		return 0;
 
 	spa_log_trace(state->log, "alsa %p: start", state);
 
@@ -671,7 +661,7 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 
 	if ((err = snd_pcm_prepare(state->hndl)) < 0) {
 		spa_log_error(state->log, "snd_pcm_prepare error: %s", snd_strerror(err));
-		return SPA_RESULT_ERROR;
+		return err;
 	}
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
@@ -692,7 +682,7 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 	} else {
 		if ((err = snd_pcm_start(state->hndl)) < 0) {
 			spa_log_error(state->log, "snd_pcm_start: %s", snd_strerror(err));
-			return SPA_RESULT_ERROR;
+			return err;
 		}
 		state->alsa_started = true;
 	}
@@ -700,7 +690,7 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 
 	state->started = true;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_remove_source(struct spa_loop *loop,
@@ -712,7 +702,7 @@ static int do_remove_source(struct spa_loop *loop,
 {
 	struct state *state = user_data;
 	spa_loop_remove_source(state->data_loop, &state->source);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 int spa_alsa_pause(struct state *state, bool xrun_recover)
@@ -720,7 +710,7 @@ int spa_alsa_pause(struct state *state, bool xrun_recover)
 	int err;
 
 	if (!state->started)
-		return SPA_RESULT_OK;
+		return 0;
 
 	spa_log_trace(state->log, "alsa %p: pause", state);
 
@@ -731,5 +721,5 @@ int spa_alsa_pause(struct state *state, bool xrun_recover)
 
 	state->started = false;
 
-	return SPA_RESULT_OK;
+	return 0;
 }

@@ -53,9 +53,9 @@ static int impl_node_enum_params(struct spa_node *node,
 	struct spa_pod *param;
 	uint32_t offset;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(index != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(builder != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+	spa_return_val_if_fail(builder != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 	t = &this->type;
@@ -65,7 +65,7 @@ static int impl_node_enum_params(struct spa_node *node,
       next:
 	if (id == t->param.idList) {
 		if (*index > 0)
-			return SPA_RESULT_ENUM_END;
+			return 0;
 
 		param = spa_pod_builder_object(builder,
 			id, t->param.List,
@@ -75,7 +75,7 @@ static int impl_node_enum_params(struct spa_node *node,
 		struct props *p = &this->props;
 
 		if (*index > 0)
-			return SPA_RESULT_ENUM_END;
+			return 0;
 
 		param = spa_pod_builder_object(builder,
 			id, t->props,
@@ -88,7 +88,7 @@ static int impl_node_enum_params(struct spa_node *node,
 								2, 1, INT32_MAX);
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 
 	(*index)++;
 
@@ -96,7 +96,7 @@ static int impl_node_enum_params(struct spa_node *node,
 	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
 		goto next;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
@@ -105,7 +105,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	struct state *this;
 	struct type *t;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 	t = &this->type;
@@ -115,16 +115,16 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 
 		if (param == NULL) {
 			reset_props(p);
-			return SPA_RESULT_OK;
+			return 0;
 		}
 		spa_pod_object_parse(param,
 			":", t->prop_device,      "?S", p->device, sizeof(p->device),
 			":", t->prop_min_latency, "?i", &p->min_latency, NULL);
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data, void *user_data)
@@ -133,7 +133,7 @@ static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, size_t 
 
 	this->callbacks->done(this->callbacks_data, seq, *(int*)data);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_command(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data, void *user_data)
@@ -146,7 +146,7 @@ static int do_command(struct spa_loop *loop, bool async, uint32_t seq, size_t si
 	    SPA_COMMAND_TYPE(cmd) == this->type.command_node.Pause) {
 		res = spa_node_port_send_command(&this->node, SPA_DIRECTION_INPUT, 0, cmd);
 	} else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
+		res = -ENOTSUP;
 
 	if (async) {
 		spa_loop_invoke(this->main_loop,
@@ -164,18 +164,17 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 {
 	struct state *this;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(command != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(command != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 
 	if (SPA_COMMAND_TYPE(command) == this->type.command_node.Start ||
 	    SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
 		if (!this->have_format)
-			return SPA_RESULT_NO_FORMAT;
-
+			return -EIO;
 		if (this->n_buffers == 0)
-			return SPA_RESULT_NO_BUFFERS;
+			return -EIO;
 
 		return spa_loop_invoke(this->data_loop,
 				       do_command,
@@ -186,7 +185,7 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 				       this);
 
 	} else
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 }
 
 static int
@@ -196,14 +195,14 @@ impl_node_set_callbacks(struct spa_node *node,
 {
 	struct state *this;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 
 	this->callbacks = callbacks;
 	this->callbacks_data = data;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -213,7 +212,7 @@ impl_node_get_n_ports(struct spa_node *node,
 		      uint32_t *n_output_ports,
 		      uint32_t *max_output_ports)
 {
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	if (n_input_ports)
 		*n_input_ports = 1;
@@ -224,7 +223,7 @@ impl_node_get_n_ports(struct spa_node *node,
 	if (max_output_ports)
 		*max_output_ports = 0;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -234,23 +233,23 @@ impl_node_get_port_ids(struct spa_node *node,
 		       uint32_t n_output_ports,
 		       uint32_t *output_ids)
 {
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	if (n_input_ports > 0 && input_ids != NULL)
 		input_ids[0] = 0;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 
 static int impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int
@@ -259,16 +258,16 @@ impl_node_port_get_info(struct spa_node *node,
 {
 	struct state *this;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(info != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	*info = &this->info;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -284,16 +283,17 @@ impl_node_port_enum_params(struct spa_node *node,
 	struct spa_pod *param;
 	uint32_t offset;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(index != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(builder != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+	spa_return_val_if_fail(builder != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 	t = &this->type;
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	offset = builder->offset;
+
 
       next:
 	if (id == t->param.idList) {
@@ -306,16 +306,17 @@ impl_node_port_enum_params(struct spa_node *node,
 			param = spa_pod_builder_object(builder, id, t->param.List,
 				":", t->param.listId, "I", list[*index]);
 		else
-			return SPA_RESULT_ENUM_END;
+			return 0;
 	}
 	else if (id == t->param.idEnumFormat) {
+	printf("%d\n", *index);
 		return spa_alsa_enum_format(this, index, filter, builder);
 	}
 	else if (id == t->param.idFormat) {
 		if (!this->have_format)
-			return SPA_RESULT_NO_FORMAT;
+			return -EIO;
 		if (*index > 0)
-			return SPA_RESULT_ENUM_END;
+			return 0;
 
 		param = spa_pod_builder_object(builder,
 			t->param.idFormat, t->format,
@@ -327,9 +328,9 @@ impl_node_port_enum_params(struct spa_node *node,
 	}
 	else if (id == t->param.idBuffers) {
 		if (!this->have_format)
-			return SPA_RESULT_NO_FORMAT;
+			return -EIO;
 		if (*index > 0)
-			return SPA_RESULT_ENUM_END;
+			return 0;
 
 		param = spa_pod_builder_object(builder,
 			id, t->param_buffers.Buffers,
@@ -343,7 +344,7 @@ impl_node_port_enum_params(struct spa_node *node,
 	}
 	else if (id == t->param.idMeta) {
 		if (!this->have_format)
-			return SPA_RESULT_NO_FORMAT;
+			return -EIO;
 
 		switch (*index) {
 		case 0:
@@ -366,11 +367,11 @@ impl_node_port_enum_params(struct spa_node *node,
 				":", t->param_meta.ringbufferAlign,  "i", 16);
 			break;
 		default:
-			return SPA_RESULT_ENUM_END;
+			return 0;
 		}
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 
 	(*index)++;
 
@@ -378,7 +379,7 @@ impl_node_port_enum_params(struct spa_node *node,
 	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
 		goto next;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int clear_buffers(struct state *this)
@@ -387,7 +388,7 @@ static int clear_buffers(struct state *this)
 		spa_list_init(&this->ready);
 		this->n_buffers = 0;
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int port_set_format(struct spa_node *node,
@@ -414,10 +415,10 @@ static int port_set_format(struct spa_node *node,
 
 		if (info.media_type != this->type.media_type.audio ||
 		    info.media_subtype != this->type.media_subtype.raw)
-			return SPA_RESULT_INVALID_MEDIA_TYPE;
+			return -EINVAL;
 
 		if (spa_format_audio_raw_parse(format, &info.info.raw, &this->type.format_audio) < 0)
-			return SPA_RESULT_INVALID_MEDIA_TYPE;
+			return -EINVAL;
 
 		if ((err = spa_alsa_set_format(this, &info, flags)) < 0)
 			return err;
@@ -431,7 +432,7 @@ static int port_set_format(struct spa_node *node,
 		this->info.rate = this->rate;
 	}
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -443,18 +444,18 @@ impl_node_port_set_param(struct spa_node *node,
 	struct state *this;
 	struct type *t;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 	t = &this->type;
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	if (id == t->param.idFormat) {
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 }
 
 static int
@@ -465,21 +466,21 @@ impl_node_port_use_buffers(struct spa_node *node,
 	struct state *this;
 	int i;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	spa_log_info(this->log, "use buffers %d", n_buffers);
 
 	if (!this->have_format)
-		return SPA_RESULT_NO_FORMAT;
+		return -EIO;
 
 	if (n_buffers == 0) {
 		spa_alsa_pause(this, false);
 		clear_buffers(this);
-		return SPA_RESULT_OK;
+		return 0;
 	}
 
 	for (i = 0; i < n_buffers; i++) {
@@ -497,12 +498,12 @@ impl_node_port_use_buffers(struct spa_node *node,
 		     type == this->type.data.DmaBuf ||
 		     type == this->type.data.MemPtr) && buffers[i]->datas[0].data == NULL) {
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
-			return SPA_RESULT_ERROR;
+			return -EINVAL;
 		}
 	}
 	this->n_buffers = n_buffers;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -516,17 +517,17 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 {
 	struct state *this;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(buffers != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(buffers != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	if (!this->have_format)
-		return SPA_RESULT_NO_FORMAT;
+		return -EIO;
 
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int
@@ -534,20 +535,20 @@ impl_node_port_set_io(struct spa_node *node, enum spa_direction direction, uint3
 {
 	struct state *this;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	this->io = io;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int
@@ -557,18 +558,18 @@ impl_node_port_send_command(struct spa_node *node,
 	struct state *this;
 	int res;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	if (SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
 		res = spa_alsa_pause(this, false);
 	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.Start) {
 		res = spa_alsa_start(this, false);
 	} else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
+		res = -ENOTSUP;
 
 	return res;
 }
@@ -578,19 +579,19 @@ static int impl_node_process_input(struct spa_node *node)
 	struct state *this;
 	struct spa_port_io *input;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 	input = this->io;
-	spa_return_val_if_fail(input != NULL, SPA_RESULT_UNEXPECTED);
+	spa_return_val_if_fail(input != NULL, -EIO);
 
-	if (input->status == SPA_RESULT_HAVE_BUFFER && input->buffer_id < this->n_buffers) {
+	if (input->status == SPA_STATUS_HAVE_BUFFER && input->buffer_id < this->n_buffers) {
 		struct buffer *b = &this->buffers[input->buffer_id];
 
 		if (!b->outstanding) {
 			spa_log_warn(this->log, NAME " %p: buffer %u in use", this, input->buffer_id);
-			input->status = SPA_RESULT_INVALID_BUFFER_ID;
-			return SPA_RESULT_ERROR;
+			input->status = -EINVAL;
+			return -EINVAL;
 		}
 
 		spa_log_trace(this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
@@ -598,14 +599,14 @@ static int impl_node_process_input(struct spa_node *node)
 		spa_list_append(&this->ready, &b->link);
 		b->outstanding = false;
 		input->buffer_id = SPA_ID_INVALID;
-		input->status = SPA_RESULT_OK;
+		input->status = SPA_STATUS_OK;
 	}
-	return SPA_RESULT_OK;
+	return SPA_STATUS_OK;
 }
 
 static int impl_node_process_output(struct spa_node *node)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static const struct spa_dict_item node_info_items[] = {
@@ -644,22 +645,22 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 {
 	struct state *this;
 
-	spa_return_val_if_fail(handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	spa_return_val_if_fail(interface != NULL, -EINVAL);
 
 	this = (struct state *) handle;
 
 	if (interface_id == this->type.node)
 		*interface = &this->node;
 	else
-		return SPA_RESULT_UNKNOWN_INTERFACE;
+		return -ENOENT;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_clear(struct spa_handle *handle)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -669,8 +670,8 @@ impl_init(const struct spa_handle_factory *factory,
 	struct state *this;
 	uint32_t i;
 
-	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	handle->get_interface = impl_get_interface;
 	handle->clear = impl_clear;
@@ -689,15 +690,15 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	if (this->map == NULL) {
 		spa_log_error(this->log, "a type-map is needed");
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 	}
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data loop is needed");
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 	}
 	if (this->main_loop == NULL) {
 		spa_log_error(this->log, "a main loop is needed");
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 	}
 	init_type(&this->type, this->map);
 
@@ -713,7 +714,7 @@ impl_init(const struct spa_handle_factory *factory,
 		}
 	}
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
@@ -722,19 +723,21 @@ static const struct spa_interface_info impl_interfaces[] = {
 
 static int
 impl_enum_interface_info(const struct spa_handle_factory *factory,
-			 const struct spa_interface_info **info, uint32_t index)
+			 const struct spa_interface_info **info, uint32_t *index)
 {
-	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(info != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
 
-	switch (index) {
+	switch (*index) {
 	case 0:
-		*info = &impl_interfaces[index];
+		*info = &impl_interfaces[*index];
 		break;
 	default:
-		return SPA_RESULT_ENUM_END;
+		return 0;
 	}
-	return SPA_RESULT_OK;
+	(*index)++;
+	return 1;
 }
 
 static const struct spa_dict_item info_items[] = {

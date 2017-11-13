@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 #include <stdio.h>
 
 #include <spa/support/plugin.h>
@@ -36,13 +37,14 @@ spa_handle_factory_register(const struct spa_handle_factory *factory)
 }
 
 int
-spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t index)
+spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {
-	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
 
-	if (index >= n_factories)
-		return SPA_RESULT_ENUM_END;
+	if (*index >= n_factories)
+		return 0;
 
-	*factory = factories[index];
-	return SPA_RESULT_OK;
+	*factory = factories[(*index)++];
+	return 1;
 }

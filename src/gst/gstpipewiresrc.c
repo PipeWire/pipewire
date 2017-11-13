@@ -736,7 +736,7 @@ on_format_changed (void                  *data,
 
   if (format == NULL) {
     GST_DEBUG_OBJECT (pwsrc, "clear format");
-    pw_stream_finish_format (pwsrc->stream, SPA_RESULT_OK, 0, NULL);
+    pw_stream_finish_format (pwsrc->stream, 0, 0, NULL);
     return;
   }
 
@@ -764,10 +764,10 @@ on_format_changed (void                  *data,
         ":", t->param_meta.size, "i", sizeof (struct spa_meta_header));
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
-    pw_stream_finish_format (pwsrc->stream, SPA_RESULT_OK, 2, params);
+    pw_stream_finish_format (pwsrc->stream, 0, 2, params);
   } else {
     GST_WARNING_OBJECT (pwsrc, "finish format with error");
-    pw_stream_finish_format (pwsrc->stream, SPA_RESULT_INVALID_MEDIA_TYPE, 0, NULL);
+    pw_stream_finish_format (pwsrc->stream, -EINVAL, 0, NULL);
   }
 }
 
@@ -1021,7 +1021,7 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
   struct pw_properties *props;
   const char *error = NULL;
 
-  if (pw_thread_loop_start (pwsrc->main_loop) != SPA_RESULT_OK)
+  if (pw_thread_loop_start (pwsrc->main_loop) < 0)
     goto mainloop_failed;
 
   pw_thread_loop_lock (pwsrc->main_loop);

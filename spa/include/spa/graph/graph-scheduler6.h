@@ -55,7 +55,7 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 		}
 		pnode = pport->node;
 
-		if (pport->io->status == SPA_RESULT_NEED_BUFFER) {
+		if (pport->io->status == SPA_STATUS_NEED_BUFFER) {
 			pnode->ready[SPA_DIRECTION_OUTPUT]++;
 			node->required[SPA_DIRECTION_INPUT]++;
 		}
@@ -70,13 +70,13 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 			pnode->state = spa_node_process_output(pnode->implementation);
 
 			spa_debug("peer %p processed out %d", pnode, pnode->state);
-			if (pnode->state == SPA_RESULT_NEED_BUFFER)
+			if (pnode->state == SPA_STATUS_NEED_BUFFER)
 				spa_graph_need_input(pnode->graph, pnode);
-			else if (pnode->state == SPA_RESULT_HAVE_BUFFER)
+			else if (pnode->state == SPA_STATUS_HAVE_BUFFER)
 				spa_graph_have_output(pnode->graph, pnode);
 		}
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *node)
@@ -98,7 +98,7 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 		}
 		pnode = pport->node;
 
-		if (p->io->status == SPA_RESULT_HAVE_BUFFER) {
+		if (p->io->status == SPA_STATUS_HAVE_BUFFER) {
 			pnode->ready[SPA_DIRECTION_INPUT]++;
 			node->required[SPA_DIRECTION_OUTPUT]++;
 		}
@@ -113,13 +113,13 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 			pnode->state = spa_node_process_input(pnode->implementation);
 
 			spa_debug("node %p chain processed in %d", pnode, pnode->state);
-			if (pnode->state == SPA_RESULT_HAVE_BUFFER)
+			if (pnode->state == SPA_STATUS_HAVE_BUFFER)
 				spa_graph_have_output(pnode->graph, pnode);
-			else if (pnode->state == SPA_RESULT_NEED_BUFFER)
+			else if (pnode->state == SPA_STATUS_NEED_BUFFER)
 				spa_graph_need_input(pnode->graph, pnode);
 		}
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_graph_callbacks spa_graph_impl_default = {

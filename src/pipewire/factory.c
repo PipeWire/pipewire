@@ -17,6 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
+
 #include "pipewire/pipewire.h"
 #include "pipewire/factory.h"
 #include "pipewire/private.h"
@@ -103,13 +105,13 @@ factory_bind_func(struct pw_global *global,
 	pw_factory_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
-	return SPA_RESULT_OK;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create factory resource");
 	pw_core_resource_error(client->core_resource,
-			       client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
-	return SPA_RESULT_NO_MEMORY;
+			       client->core_resource->id, -ENOMEM, "no memory");
+	return -ENOMEM;
 }
 
 void pw_factory_register(struct pw_factory *factory,

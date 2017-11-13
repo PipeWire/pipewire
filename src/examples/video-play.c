@@ -246,7 +246,7 @@ on_stream_format_changed(void *_data, struct spa_pod_object *format)
 	void *d;
 
 	if (format == NULL) {
-		pw_stream_finish_format(stream, SPA_RESULT_OK, 0, NULL);
+		pw_stream_finish_format(stream, 0, 0, NULL);
 		return;
 	}
 
@@ -254,7 +254,7 @@ on_stream_format_changed(void *_data, struct spa_pod_object *format)
 
 	sdl_format = id_to_sdl_format(data, data->format.format);
 	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN) {
-		pw_stream_finish_format(stream, SPA_RESULT_ERROR, 0, NULL);
+		pw_stream_finish_format(stream, -EINVAL, 0, NULL);
 		return;
 	}
 
@@ -279,7 +279,7 @@ on_stream_format_changed(void *_data, struct spa_pod_object *format)
 		":", t->param_meta.type, "I", t->meta.Header,
 		":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 
-	pw_stream_finish_format(stream, SPA_RESULT_OK, 2, params);
+	pw_stream_finish_format(stream, 0, 2, params);
 }
 
 static const struct pw_stream_events stream_events = {

@@ -183,21 +183,21 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 	if (data->hnd == NULL) {
 		if ((data->hnd = dlopen(lib, RTLD_NOW)) == NULL) {
 			printf("can't load %s: %s\n", lib, dlerror());
-			return SPA_RESULT_ERROR;
+			return -errno;
 		}
 	}
 	if ((enum_func = dlsym(data->hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		printf("can't find enum function\n");
-		return SPA_RESULT_ERROR;
+		return -errno;
 	}
 
-	for (i = 0;; i++) {
+	for (i = 0;;) {
 		const struct spa_handle_factory *factory;
 		void *iface;
 
-		if ((res = enum_func(&factory, i)) < 0) {
-			if (res != SPA_RESULT_ENUM_END)
-				printf("can't enumerate factories: %d\n", res);
+		if ((res = enum_func(&factory, &i)) <= 0) {
+			if (res != 0)
+				printf("can't enumerate factories: %s\n", spa_strerror(res));
 			break;
 		}
 		if (strcmp(factory->name, name))
@@ -215,15 +215,15 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 			return res;
 		}
 		*node = iface;
-		return SPA_RESULT_OK;
+		return 0;
 	}
-	return SPA_RESULT_ERROR;
+	return -EBADF;
 }
 
 static void on_sink_pull(struct data *data)
 {
 	spa_log_trace(data->log, "do sink pull");
-	data->sink_node.state = SPA_RESULT_NEED_BUFFER;
+	data->sink_node.state = SPA_STATUS_NEED_BUFFER;
 	if (data->mode & MODE_DIRECT) {
 		spa_node_process_output(data->source);
 		spa_node_process_input(data->sink);
@@ -317,12 +317,12 @@ static int do_add_source(struct spa_loop *loop, struct spa_source *source)
 	data->n_sources++;
 	data->rebuild_fds = true;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_update_source(struct spa_source *source)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void do_remove_source(struct spa_source *source)
@@ -359,7 +359,7 @@ static int make_nodes(struct data *data)
 		spa_node_set_callbacks(data->source, &source_callbacks, data);
 
 	data->source_sink_io[0] = SPA_PORT_IO_INIT;
-	data->source_sink_io[0].status = SPA_RESULT_NEED_BUFFER;
+	data->source_sink_io[0].status = SPA_STATUS_NEED_BUFFER;
 
 	spa_node_port_set_io(data->source, SPA_DIRECTION_OUTPUT, 0, &data->source_sink_io[0]);
 	spa_node_port_set_io(data->sink, SPA_DIRECTION_INPUT, 0, &data->source_sink_io[0]);
@@ -421,7 +421,7 @@ static int negotiate_formats(struct data *data)
 				       1)) < 0)
 		return res;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void *loop(void *user_data)

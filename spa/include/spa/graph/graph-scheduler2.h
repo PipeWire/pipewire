@@ -36,7 +36,7 @@ static inline int spa_graph_scheduler_default(struct spa_graph_node *node)
 	else if (node->action == SPA_GRAPH_ACTION_OUT)
 		res = spa_node_process_output(n);
 	else
-		res = SPA_RESULT_ERROR;
+		res = -EBADF;
 
 	return res;
 }
@@ -45,7 +45,7 @@ static inline void spa_graph_port_check(struct spa_graph *graph, struct spa_grap
 {
 	struct spa_graph_node *node = port->node;
 
-	if (port->io->status == SPA_RESULT_HAVE_BUFFER)
+	if (port->io->status == SPA_STATUS_HAVE_BUFFER)
 		node->ready++;
 
 	spa_debug("port %p node %p check %d %d %d", port, node, port->io->status, node->ready, node->required);
@@ -65,7 +65,7 @@ static inline void spa_graph_node_update(struct spa_graph *graph, struct spa_gra
 
 	node->ready = 0;
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
-		if (p->io->status == SPA_RESULT_OK && !(node->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
+		if (p->io->status == SPA_STATUS_OK && !(node->flags & SPA_GRAPH_NODE_FLAG_ASYNC))
 			node->ready++;
 	}
 	spa_debug("node %p update %d ready", node, node->ready);
@@ -111,11 +111,11 @@ next:
 
 		if (n->state != SPA_GRAPH_STATE_END) {
 			spa_debug("node %p add ready for CHECK", n);
-			if (state == SPA_RESULT_NEED_BUFFER)
+			if (state == SPA_STATUS_NEED_BUFFER)
 				n->state = SPA_GRAPH_STATE_CHECK_IN;
-			else if (state == SPA_RESULT_HAVE_BUFFER)
+			else if (state == SPA_STATUS_HAVE_BUFFER)
 				n->state = SPA_GRAPH_STATE_CHECK_OUT;
-			else if (state == SPA_RESULT_OK)
+			else if (state == SPA_STATUS_OK)
 				n->state = SPA_GRAPH_STATE_CHECK_OK;
 			spa_list_append(&graph->ready, &n->ready_link);
 		}
@@ -128,14 +128,14 @@ next:
 		n->ready = 0;
 		spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
 			struct spa_graph_node *pn = p->peer->node;
-			if (p->io->status == SPA_RESULT_NEED_BUFFER) {
+			if (p->io->status == SPA_STATUS_NEED_BUFFER) {
 				if (pn != graph->node
 				    || pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC) {
 					pn->state = SPA_GRAPH_STATE_OUT;
 					spa_debug("node %p add ready OUT", n);
 					spa_list_append(&graph->ready, &pn->ready_link);
 				}
-			} else if (p->io->status == SPA_RESULT_OK)
+			} else if (p->io->status == SPA_STATUS_OK)
 				n->ready++;
 		}
 		break;
@@ -162,7 +162,7 @@ next:
 static inline void spa_graph_scheduler_pull(struct spa_graph *graph, struct spa_graph_node *node)
 {
 	node->action = SPA_GRAPH_ACTION_CHECK;
-	node->state = SPA_RESULT_NEED_BUFFER;
+	node->state = SPA_STATUS_NEED_BUFFER;
 	graph->node = node;
 	spa_debug("node %p start pull", node);
 	if (node->ready_link.next == NULL)

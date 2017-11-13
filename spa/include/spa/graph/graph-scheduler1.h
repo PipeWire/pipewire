@@ -50,7 +50,7 @@ static inline void spa_graph_data_port_check(struct spa_graph_data *data, struct
 	struct spa_graph_node *node = port->node;
 	uint32_t required = node->required[SPA_DIRECTION_INPUT];
 
-	if (port->io->status == SPA_RESULT_HAVE_BUFFER)
+	if (port->io->status == SPA_STATUS_HAVE_BUFFER)
 		node->ready[SPA_DIRECTION_INPUT]++;
 
 	spa_debug("port %p node %p check %d %d %d", port, node,
@@ -85,9 +85,9 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 		switch (n->state) {
 		case SPA_GRAPH_STATE_IN:
 			state = spa_node_process_input(n->implementation);
-			if (state == SPA_RESULT_NEED_BUFFER)
+			if (state == SPA_STATUS_NEED_BUFFER)
 				n->state = SPA_GRAPH_STATE_CHECK_IN;
-			else if (state == SPA_RESULT_HAVE_BUFFER)
+			else if (state == SPA_STATUS_HAVE_BUFFER)
 				n->state = SPA_GRAPH_STATE_CHECK_OUT;
 			spa_debug("node %p processed input state %d", n, n->state);
 			if (n == data->node)
@@ -97,9 +97,9 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 
 		case SPA_GRAPH_STATE_OUT:
 			state = spa_node_process_output(n->implementation);
-			if (state == SPA_RESULT_NEED_BUFFER)
+			if (state == SPA_STATUS_NEED_BUFFER)
 				n->state = SPA_GRAPH_STATE_CHECK_IN;
-			else if (state == SPA_RESULT_HAVE_BUFFER)
+			else if (state == SPA_STATUS_HAVE_BUFFER)
 				n->state = SPA_GRAPH_STATE_CHECK_OUT;
 			spa_debug("node %p processed output state %d", n, n->state);
 			spa_list_append(&data->ready, &n->ready_link);
@@ -109,14 +109,14 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 			n->ready[SPA_DIRECTION_INPUT] = 0;
 			spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
 				struct spa_graph_node *pn = p->peer->node;
-				if (p->io->status == SPA_RESULT_NEED_BUFFER) {
+				if (p->io->status == SPA_STATUS_NEED_BUFFER) {
 					if (pn != data->node
 					    || pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC) {
 						pn->state = SPA_GRAPH_STATE_OUT;
 						spa_list_append(&data->ready,
 								&pn->ready_link);
 					}
-				} else if (p->io->status == SPA_RESULT_OK)
+				} else if (p->io->status == SPA_STATUS_OK)
 					n->ready[SPA_DIRECTION_INPUT]++;
 			}
 		case SPA_GRAPH_STATE_CHECK_OUT:
@@ -143,7 +143,7 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 
 	while(spa_graph_data_iterate(data));
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *node)
@@ -157,7 +157,7 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 
 	while(spa_graph_data_iterate(data));
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_graph_callbacks spa_graph_impl_default = {

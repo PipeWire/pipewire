@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -144,7 +145,7 @@ filter_prop(struct spa_pod_builder *b,
 
 	/* incompatible property types */
 	if (p1->body.value.type != p2->body.value.type)
-		return SPA_RESULT_INCOMPATIBLE;
+		return -EINVAL;
 
 	rt1 = p1->body.flags & SPA_POD_PROP_RANGE_MASK;
 	rt2 = p2->body.flags & SPA_POD_PROP_RANGE_MASK;
@@ -192,7 +193,7 @@ filter_prop(struct spa_pod_builder *b,
 			}
 		}
 		if (n_copied == 0)
-			return SPA_RESULT_INCOMPATIBLE;
+			return -EINVAL;
 		np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
 	}
 
@@ -209,13 +210,13 @@ filter_prop(struct spa_pod_builder *b,
 			n_copied++;
 		}
 		if (n_copied == 0)
-			return SPA_RESULT_INCOMPATIBLE;
+			return -EINVAL;
 		np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
 	}
 
 	if ((rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_STEP) ||
 	    (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_STEP)) {
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 	}
 
 	if ((rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_NONE) ||
@@ -231,7 +232,7 @@ filter_prop(struct spa_pod_builder *b,
 			n_copied++;
 		}
 		if (n_copied == 0)
-			return SPA_RESULT_INCOMPATIBLE;
+			return -EINVAL;
 		np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
 	}
 
@@ -253,44 +254,44 @@ filter_prop(struct spa_pod_builder *b,
 	}
 
 	if (rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_FLAGS)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 
 	if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_STEP)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 
 	if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_FLAGS)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 
 	if (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_FLAGS)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 
 	if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_NONE)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 	if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_MIN_MAX)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 
 	if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_STEP)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 	if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_ENUM)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 	if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_FLAGS)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 
 	if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_NONE)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 	if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_MIN_MAX)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 	if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_STEP)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 	if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_ENUM)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 	if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_FLAGS)
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 
 	spa_pod_builder_pop(b);
 	fix_default(np);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 int pod_filter(struct spa_pod_builder *b,
@@ -300,7 +301,7 @@ int pod_filter(struct spa_pod_builder *b,
 	       uint32_t filter_size)
 {
 	const struct spa_pod *pp, *pf, *tmp;
-	int res = SPA_RESULT_OK;
+	int res = 0;
 
 	pf = filter;
 
@@ -313,7 +314,7 @@ int pod_filter(struct spa_pod_builder *b,
 		case SPA_POD_TYPE_STRUCT:
 			if (pf != NULL) {
 				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE_STRUCT)
-					return SPA_RESULT_INCOMPATIBLE;
+					return -EINVAL;
 
 				pc = SPA_POD_CONTENTS(struct spa_pod_struct, pp);
 				pcs = SPA_POD_CONTENTS_SIZE(struct spa_pod_struct, pp);
@@ -334,7 +335,7 @@ int pod_filter(struct spa_pod_builder *b,
 				p1 = (struct spa_pod_object *) pp;
 
 				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE_OBJECT)
-					return SPA_RESULT_INCOMPATIBLE;
+					return -EINVAL;
 
 				pc = SPA_POD_CONTENTS(struct spa_pod_object, pp);
 				pcs = SPA_POD_CONTENTS_SIZE(struct spa_pod_object, pp);
@@ -365,9 +366,9 @@ int pod_filter(struct spa_pod_builder *b,
 		default:
 			if (pf != NULL) {
 				if (SPA_POD_SIZE(pp) != SPA_POD_SIZE(pf))
-					return SPA_RESULT_INCOMPATIBLE;
+					return -EINVAL;
 				if (memcmp(pp, pf, SPA_POD_SIZE(pp)) != 0)
-					return SPA_RESULT_INCOMPATIBLE;
+					return -EINVAL;
 				do_advance = true;
 			}
 			do_copy = true;
@@ -396,12 +397,12 @@ spa_pod_filter(struct spa_pod_builder *b,
 	       const struct spa_pod *pod,
 	       const struct spa_pod *filter)
 {
-        spa_return_val_if_fail(pod != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-        spa_return_val_if_fail(b != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+        spa_return_val_if_fail(pod != NULL, -EINVAL);
+        spa_return_val_if_fail(b != NULL, -EINVAL);
 
 	if (filter == NULL) {
 		spa_pod_builder_raw_padded(b, pod, SPA_POD_SIZE(pod));
-		return SPA_RESULT_OK;
+		return 0;
 	}
 	return pod_filter(b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter));
 
@@ -424,12 +425,12 @@ int pod_compare(const struct spa_pod *pod1,
 		uint32_t p1cs, p2cs;
 
 		if (p2 == NULL)
-			return SPA_RESULT_INCOMPATIBLE;
+			return -EINVAL;
 
 		switch (SPA_POD_TYPE(p1)) {
 		case SPA_POD_TYPE_STRUCT:
 			if (SPA_POD_TYPE(p2) != SPA_POD_TYPE_STRUCT)
-				return SPA_RESULT_INCOMPATIBLE;
+				return -EINVAL;
 
 			p1c = SPA_POD_CONTENTS(struct spa_pod_struct, p1);
 			p1cs = SPA_POD_CONTENTS_SIZE(struct spa_pod_struct, p1);
@@ -440,7 +441,7 @@ int pod_compare(const struct spa_pod *pod1,
 			break;
 		case SPA_POD_TYPE_OBJECT:
 			if (SPA_POD_TYPE(p2) != SPA_POD_TYPE_OBJECT)
-				return SPA_RESULT_INCOMPATIBLE;
+				return -EINVAL;
 
 			p1c = SPA_POD_CONTENTS(struct spa_pod_object, p1);
 			p1cs = SPA_POD_CONTENTS_SIZE(struct spa_pod_object, p1);
@@ -457,15 +458,15 @@ int pod_compare(const struct spa_pod *pod1,
 			pr2 = find_prop(pod2, pod2_size, pr1->body.key);
 
 			if (pr2 == NULL)
-				return SPA_RESULT_INCOMPATIBLE;
+				return -EINVAL;
 
 			/* incompatible property types */
 			if (pr1->body.value.type != pr2->body.value.type)
-				return SPA_RESULT_INCOMPATIBLE;
+				return -EINVAL;
 
 			if (pr1->body.flags & SPA_POD_PROP_FLAG_UNSET ||
 			    pr2->body.flags & SPA_POD_PROP_FLAG_UNSET)
-				return SPA_RESULT_INCOMPATIBLE;
+				return -EINVAL;
 
 			a1 = SPA_MEMBER(pr1, sizeof(struct spa_pod_prop), void);
 			a2 = SPA_MEMBER(pr2, sizeof(struct spa_pod_prop), void);
@@ -475,7 +476,7 @@ int pod_compare(const struct spa_pod *pod1,
 		}
 		default:
 			if (SPA_POD_TYPE(p1) != SPA_POD_TYPE(p2))
-				return SPA_RESULT_INCOMPATIBLE;
+				return -EINVAL;
 
 			res = compare_value(SPA_POD_TYPE(p1), SPA_POD_BODY(p1), SPA_POD_BODY(p2));
 			do_advance = true;
@@ -493,16 +494,16 @@ int pod_compare(const struct spa_pod *pod1,
 			return res;
 	}
 	if (p2 != NULL)
-		return SPA_RESULT_INCOMPATIBLE;
+		return -EINVAL;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 int spa_pod_compare(const struct spa_pod *pod1,
                     const struct spa_pod *pod2)
 {
-        spa_return_val_if_fail(pod1 != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-        spa_return_val_if_fail(pod2 != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+        spa_return_val_if_fail(pod1 != NULL, -EINVAL);
+        spa_return_val_if_fail(pod2 != NULL, -EINVAL);
 
 	return pod_compare(pod1, SPA_POD_SIZE(pod1), pod2, SPA_POD_SIZE(pod2));
 }

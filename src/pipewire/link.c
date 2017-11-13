@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -113,7 +114,7 @@ static void complete_streaming(void *obj, void *data, int res, uint32_t id)
 static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_state)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	int res = SPA_RESULT_ERROR, res2;
+	int res = -EIO, res2;
 	struct spa_pod_object *format = NULL, *current;
 	char *error = NULL;
 	struct pw_resource *resource;
@@ -125,7 +126,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	uint32_t index = 0;
 
 	if (in_state != PW_PORT_STATE_CONFIGURE && out_state != PW_PORT_STATE_CONFIGURE)
-		return SPA_RESULT_OK;
+		return 0;
 
 	pw_link_update_state(this, PW_LINK_STATE_NEGOTIATING, NULL);
 
@@ -142,8 +143,10 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
 						     t->param.idFormat, &index,
-						     NULL, &b)) < 0) {
-			asprintf(&error, "error get output format: %d", res);
+						     NULL, &b)) <= 0) {
+			if (res == 0)
+				res = -EBADF;
+			asprintf(&error, "error get output format: %s", spa_strerror(res));
 			goto error;
 		}
 		current = spa_pod_builder_deref(&b, 0);
@@ -161,8 +164,10 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
 						     t->param.idFormat, &index,
-						     NULL, &b)) < 0) {
-			asprintf(&error, "error get input format: %d", res);
+						     NULL, &b)) <= 0) {
+			if (res == 0)
+				res = -EBADF;
+			asprintf(&error, "error get input format: %s", spa_strerror(res));
 			goto error;
 		}
 		current = spa_pod_builder_deref(&b, 0);
@@ -219,7 +224,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		this->info.change_mask = 0;
 	}
 
-	return SPA_RESULT_OK;
+	return 0;
 
       error:
 	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
@@ -407,7 +412,7 @@ param_filter(struct pw_link *this,
 	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));
 		pw_log_debug("iparam %d", iidx);
 		if (spa_node_port_enum_params(in_port->node->node, in_port->direction, in_port->port_id,
-					      id, &iidx, NULL, &ib) < 0)
+					      id, &iidx, NULL, &ib) <= 0)
 			break;
 		iparam = spa_pod_builder_deref(&ib, 0);
 
@@ -422,7 +427,7 @@ param_filter(struct pw_link *this,
 			pw_log_debug("oparam %d %d", oidx, offset);
 			if (spa_node_port_enum_params(out_port->node->node, out_port->direction,
 						      out_port->port_id, id, &oidx,
-						      iparam, result) < 0) {
+						      iparam, result) <= 0) {
 				break;
 			}
 			oparam = spa_pod_builder_deref(result, offset);
@@ -447,7 +452,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	struct pw_type *t = &this->core->type;
 
 	if (in_state != PW_PORT_STATE_READY && out_state != PW_PORT_STATE_READY)
-		return SPA_RESULT_OK;
+		return 0;
 
 	pw_link_update_state(this, PW_LINK_STATE_ALLOCATING, NULL);
 
@@ -495,7 +500,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			in_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
 		} else {
 			asprintf(&error, "no common buffer alloc found");
-			res = SPA_RESULT_ERROR;
+			res = -EIO;
 			goto error;
 		}
 	} else if (in_state == PW_PORT_STATE_READY && out_state > PW_PORT_STATE_READY) {
@@ -506,7 +511,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		out_flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
 	} else {
 		pw_log_debug("link %p: delay allocation, state %d %d", this, in_state, out_state);
-		return SPA_RESULT_OK;
+		return 0;
 	}
 
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
@@ -667,7 +672,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		goto error;
 	}
 
-	return SPA_RESULT_OK;
+	return 0;
 
       error:
 	output->buffers = NULL;
@@ -686,7 +691,7 @@ do_activate_link(struct spa_loop *loop,
 {
         struct pw_link *this = user_data;
 	spa_graph_port_link(&this->rt.out_port, &this->rt.in_port);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_start(struct pw_link *this, uint32_t in_state, uint32_t out_state)
@@ -697,7 +702,7 @@ static int do_start(struct pw_link *this, uint32_t in_state, uint32_t out_state)
 	struct pw_port *input, *output;
 
 	if (in_state < PW_PORT_STATE_PAUSED || out_state < PW_PORT_STATE_PAUSED)
-		return SPA_RESULT_OK;
+		return 0;
 
 	pw_link_update_state(this, PW_LINK_STATE_PAUSED, NULL);
 
@@ -729,7 +734,7 @@ static int do_start(struct pw_link *this, uint32_t in_state, uint32_t out_state)
 		else
 			complete_streaming(output->node, output, res, 0);
 	}
-	return SPA_RESULT_OK;
+	return 0;
 
       error:
 	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
@@ -743,17 +748,17 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 	struct pw_port *input, *output;
 
 	if (this->state == PW_LINK_STATE_ERROR)
-		return SPA_RESULT_ERROR;
+		return -EIO;
 
 	input = this->input;
 	output = this->output;
 
 	if (input == NULL || output == NULL)
-		return SPA_RESULT_OK;
+		return 0;
 
 	if (input->node->info.state == PW_NODE_STATE_ERROR ||
 	    output->node->info.state == PW_NODE_STATE_ERROR)
-		return SPA_RESULT_ERROR;
+		return -EIO;
 
 	in_state = input->state;
 	out_state = output->state;
@@ -762,21 +767,21 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 
 	if (in_state == PW_PORT_STATE_ERROR || out_state == PW_PORT_STATE_ERROR) {
 		pw_link_update_state(this, PW_LINK_STATE_ERROR, NULL);
-		return SPA_RESULT_ERROR;
+		return -EIO;
 	}
 
 	if (in_state == PW_PORT_STATE_STREAMING && out_state == PW_PORT_STATE_STREAMING) {
 		pw_link_update_state(this, PW_LINK_STATE_RUNNING, NULL);
-		return SPA_RESULT_OK;
+		return 0;
 	}
 
-	if ((res = do_negotiate(this, in_state, out_state)) != SPA_RESULT_OK)
+	if ((res = do_negotiate(this, in_state, out_state)) != 0)
 		goto exit;
 
-	if ((res = do_allocation(this, in_state, out_state)) != SPA_RESULT_OK)
+	if ((res = do_allocation(this, in_state, out_state)) != 0)
 		goto exit;
 
-	if ((res = do_start(this, in_state, out_state)) != SPA_RESULT_OK)
+	if ((res = do_start(this, in_state, out_state)) != 0)
 		goto exit;
 
       exit:
@@ -786,7 +791,7 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 	}
 
 	pw_work_queue_add(impl->work,
-			  this, SPA_RESULT_WAIT_SYNC, (pw_work_func_t) check_states, this);
+			  this, -EBUSY, (pw_work_func_t) check_states, this);
 	return res;
 }
 
@@ -822,7 +827,7 @@ do_remove_input(struct spa_loop *loop,
 {
 	struct pw_link *this = user_data;
 	spa_graph_port_remove(&this->rt.in_port);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void input_remove(struct pw_link *this, struct pw_port *port)
@@ -845,7 +850,7 @@ do_remove_output(struct spa_loop *loop,
 {
 	struct pw_link *this = user_data;
 	spa_graph_port_remove(&this->rt.out_port);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void output_remove(struct pw_link *this, struct pw_port *port)
@@ -916,7 +921,7 @@ bool pw_link_activate(struct pw_link *this)
 	this->input->node->n_used_input_links++;
 
 	pw_work_queue_add(impl->work,
-			  this, SPA_RESULT_WAIT_SYNC, (pw_work_func_t) check_states, this);
+			  this, -EBUSY, (pw_work_func_t) check_states, this);
 
 	return true;
 }
@@ -927,7 +932,7 @@ do_deactivate_link(struct spa_loop *loop,
 {
         struct pw_link *this = user_data;
 	spa_graph_port_unlink(&this->rt.out_port);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 bool pw_link_deactivate(struct pw_link *this)
@@ -1011,13 +1016,13 @@ link_bind_func(struct pw_global *global,
 	pw_link_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
-	return SPA_RESULT_OK;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create link resource");
 	pw_core_resource_error(client->core_resource,
-			       client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
-	return SPA_RESULT_NO_MEMORY;
+			       client->core_resource->id, -ENOMEM, "no memory");
+	return -ENOMEM;
 }
 
 static int
@@ -1033,7 +1038,7 @@ do_add_link(struct spa_loop *loop,
                 spa_graph_port_add(&port->rt.mix_node, &this->rt.in_port);
         }
 
-        return SPA_RESULT_OK;
+        return 0;
 }
 
 static const struct pw_port_events input_port_events = {

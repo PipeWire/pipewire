@@ -484,7 +484,7 @@ do {										\
 
 static inline void *
 spa_pod_builder_addv(struct spa_pod_builder *builder,
-		    const char *format, va_list args)
+		     const char *format, va_list args)
 {
 	while (format) {
 		switch (*format) {

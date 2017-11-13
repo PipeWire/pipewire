@@ -163,9 +163,9 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 	uint8_t buf[2048];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
-	if ((res = spa_node_enum_params(spa_node, t->param.idProps, &index, NULL, &b)) != SPA_RESULT_OK) {
+	if ((res = spa_node_enum_params(spa_node, t->param.idProps, &index, NULL, &b)) <= 0) {
 		pw_log_debug("spa_node_get_props failed: %d", res);
-		return SPA_RESULT_ERROR;
+		return res;
 	}
 	props = spa_pod_builder_deref(&b, 0);
 
@@ -218,11 +218,11 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 		}
 	}
 
-	if ((res = spa_node_set_param(spa_node, t->param.idProps, 0, props)) != SPA_RESULT_OK) {
+	if ((res = spa_node_set_param(spa_node, t->param.idProps, 0, props)) < 0) {
 		pw_log_debug("spa_node_set_props failed: %d", res);
-		return SPA_RESULT_ERROR;
+		return res;
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 
@@ -266,10 +266,10 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 		goto no_symbol;
 	}
 
-	for (index = 0;; index++) {
-		if ((res = enum_func(&factory, index)) < 0) {
-			if (res != SPA_RESULT_ENUM_END)
-				pw_log_error("can't enumerate factories: %d", res);
+	for (index = 0;;) {
+		if ((res = enum_func(&factory, &index)) <= 0) {
+			if (res != 0)
+				pw_log_error("can't enumerate factories: %s", spa_strerror(res));
 			goto enum_failed;
 		}
 		if (strcmp(factory->name, factory_name) == 0)
@@ -294,7 +294,7 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	spa_node = iface;
 
 	if (properties != NULL) {
-		if (setup_props(core, spa_node, properties) != SPA_RESULT_OK) {
+		if (setup_props(core, spa_node, properties) < 0) {
 			pw_log_debug("Unrecognized properties");
 		}
 	}

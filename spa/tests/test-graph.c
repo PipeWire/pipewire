@@ -187,20 +187,20 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 
 	if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
 		printf("can't load %s: %s\n", lib, dlerror());
-		return SPA_RESULT_ERROR;
+		return -errno;
 	}
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		printf("can't find enum function\n");
-		return SPA_RESULT_ERROR;
+		return -errno;
 	}
 
-	for (i = 0;; i++) {
+	for (i = 0;;) {
 		const struct spa_handle_factory *factory;
 		void *iface;
 
-		if ((res = enum_func(&factory, i)) < 0) {
-			if (res != SPA_RESULT_ENUM_END)
-				printf("can't enumerate factories: %d\n", res);
+		if ((res = enum_func(&factory, &i)) <= 0) {
+			if (res != 0)
+				printf("can't enumerate factories: %s\n", spa_strerror(res));
 			break;
 		}
 		if (strcmp(factory->name, name))
@@ -218,9 +218,9 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 			return res;
 		}
 		*node = iface;
-		return SPA_RESULT_OK;
+		return 0;
 	}
-	return SPA_RESULT_ERROR;
+	return -EBADF;
 }
 
 static void on_sink_done(void *data, int seq, int res)
@@ -263,12 +263,12 @@ static int do_add_source(struct spa_loop *loop, struct spa_source *source)
 	data->n_sources++;
 	data->rebuild_fds = true;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_update_source(struct spa_source *source)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void do_remove_source(struct spa_source *source)
@@ -392,8 +392,8 @@ static int negotiate_formats(struct data *data)
 	if ((res = spa_node_port_enum_params(data->sink,
 					     SPA_DIRECTION_INPUT, 0,
 					     data->type.param.idEnumFormat, &state,
-					     filter, &b)) < 0)
-		return res;
+					     filter, &b)) <= 0)
+		return -EBADF;
 
 	format = spa_pod_builder_deref(&b, ref);
 	spa_debug_pod(&format->pod, 0);
@@ -439,7 +439,7 @@ static int negotiate_formats(struct data *data)
 				       1)) < 0)
 		return res;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void *loop(void *user_data)

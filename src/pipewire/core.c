@@ -16,6 +16,7 @@
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+#include <errno.h>
 #include <unistd.h>
 #include <time.h>
 #include <stdio.h>
@@ -158,7 +159,7 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
       no_mem:
 	pw_log_error("can't create registry resource");
 	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+			       resource->id, -ENOMEM, "no memory");
 }
 
 static void
@@ -205,20 +206,20 @@ core_create_object(void *object,
       no_factory:
 	pw_log_error("can't find node factory %s", factory_name);
 	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown factory name %s", factory_name);
+			       resource->id, -EINVAL, "unknown factory name %s", factory_name);
 	goto done;
       wrong_version:
       wrong_type:
 	pw_log_error("invalid resource type/version");
 	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_INCOMPATIBLE_VERSION, "wrong resource type/version");
+			       resource->id, -EINVAL, "wrong resource type/version");
 	goto done;
       no_properties:
 	pw_log_error("can't create properties");
 	goto no_mem;
       no_mem:
 	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+			       resource->id, -ENOMEM, "no memory");
 	goto done;
 }
 
@@ -283,23 +284,23 @@ core_create_link(void *object,
 
       no_output:
 	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown output node");
+			       resource->id, -EINVAL, "unknown output node");
 	goto done;
       no_input:
 	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown input node");
+			       resource->id, -EINVAL, "unknown input node");
 	goto done;
       no_output_port:
 	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown output port");
+			       resource->id, -EINVAL, "unknown output port");
 	goto done;
       no_input_port:
 	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown input port");
+			       resource->id, -EINVAL, "unknown input port");
 	goto done;
       no_link:
 	pw_core_resource_error(client->core_resource,
-			       resource->id, SPA_RESULT_ERROR, "can't create link: %s, error");
+			       resource->id, -ENOMEM, "can't create link: %s, error");
 	free(error);
 	goto done;
       no_bind:
@@ -375,11 +376,11 @@ core_bind_func(struct pw_global *global,
 	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
 	pw_core_resource_info(resource, &this->info);
 
-	return SPA_RESULT_OK;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create core resource");
-	return SPA_RESULT_NO_MEMORY;
+	return -ENOMEM;
 }
 
 /** Create a new core object
@@ -738,8 +739,10 @@ int pw_core_find_format(struct pw_core *core,
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
 						     t->param.idFormat, &oidx,
-						     NULL, builder)) < 0) {
-			asprintf(error, "error get output format: %d", res);
+						     NULL, builder)) <= 0) {
+			if (res == 0)
+				res = -EBADF;
+			asprintf(error, "error get output format: %s", spa_strerror(res));
 			goto error;
 		}
 	} else if (out_state == PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
@@ -747,8 +750,10 @@ int pw_core_find_format(struct pw_core *core,
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
 						     t->param.idFormat, &iidx,
-						     NULL, builder)) < 0) {
-			asprintf(error, "error get input format: %d", res);
+						     NULL, builder)) <= 0) {
+			if (res == 0)
+				res = -EBADF;
+			asprintf(error, "error get input format: %s", spa_strerror(res));
 			goto error;
 		}
 	} else if (in_state == PW_PORT_STATE_CONFIGURE && out_state == PW_PORT_STATE_CONFIGURE) {
@@ -762,9 +767,9 @@ int pw_core_find_format(struct pw_core *core,
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
 						     t->param.idEnumFormat, &iidx,
-						     NULL, &fb)) < 0) {
-			if (res == SPA_RESULT_ENUM_END && iidx == 0) {
-				asprintf(error, "error input enum formats: %d", res);
+						     NULL, &fb)) <= 0) {
+			if (res == 0 && iidx == 0) {
+				asprintf(error, "error input enum formats: %s", spa_strerror(res));
 				goto error;
 			}
 			asprintf(error, "no more input formats");
@@ -778,8 +783,8 @@ int pw_core_find_format(struct pw_core *core,
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
 						     t->param.idEnumFormat, &oidx,
-						     format, builder)) < 0) {
-			if (res == SPA_RESULT_ENUM_END) {
+						     format, builder)) <= 0) {
+			if (res == 0) {
 				oidx = 0;
 				goto again;
 			}
@@ -792,13 +797,15 @@ int pw_core_find_format(struct pw_core *core,
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_pod(&format->pod, SPA_DEBUG_FLAG_FORMAT);
 	} else {
-		res = SPA_RESULT_ERROR;
+		res = -EBADF;
 		asprintf(error, "error node state");
 		goto error;
 	}
 	return res;
 
       error:
+	if (res == 0)
+		res = -EBADF;
 	return res;
 }
 

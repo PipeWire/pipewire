@@ -87,11 +87,11 @@ static void transport_reset_area(struct pw_client_node_transport *trans)
 	struct pw_client_node_area *a = trans->area;
 
 	for (i = 0; i < a->max_input_ports; i++) {
-		trans->inputs[i].status = SPA_RESULT_OK;
+		trans->inputs[i].status = SPA_STATUS_OK;
 		trans->inputs[i].buffer_id = SPA_ID_INVALID;
 	}
 	for (i = 0; i < a->max_output_ports; i++) {
-		trans->outputs[i].status = SPA_RESULT_OK;
+		trans->outputs[i].status = SPA_STATUS_OK;
 		trans->outputs[i].buffer_id = SPA_ID_INVALID;
 	}
 	spa_ringbuffer_init(trans->input_buffer, INPUT_BUFFER_SIZE);
@@ -115,20 +115,20 @@ static int add_message(struct pw_client_node_transport *trans, struct pw_client_
 	uint32_t size, index;
 
 	if (impl == NULL || message == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	filled = spa_ringbuffer_get_write_index(trans->output_buffer, &index);
 	avail = trans->output_buffer->size - filled;
 	size = SPA_POD_SIZE(message);
 	if (avail < size)
-		return SPA_RESULT_ERROR;
+		return -ENOSPC;
 
 	spa_ringbuffer_write_data(trans->output_buffer,
 				  trans->output_data,
 				  index & trans->output_buffer->mask, message, size);
 	spa_ringbuffer_write_update(trans->output_buffer, index + size);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int next_message(struct pw_client_node_transport *trans, struct pw_client_node_message *message)
@@ -137,11 +137,11 @@ static int next_message(struct pw_client_node_transport *trans, struct pw_client
 	int32_t avail;
 
 	if (impl == NULL || message == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	avail = spa_ringbuffer_get_read_index(trans->input_buffer, &impl->current_index);
 	if (avail < sizeof(struct pw_client_node_message))
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	spa_ringbuffer_read_data(trans->input_buffer,
 				 trans->input_data,
@@ -150,7 +150,7 @@ static int next_message(struct pw_client_node_transport *trans, struct pw_client
 
 	*message = impl->current;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int parse_message(struct pw_client_node_transport *trans, void *message)
@@ -159,7 +159,7 @@ static int parse_message(struct pw_client_node_transport *trans, void *message)
 	uint32_t size;
 
 	if (impl == NULL || message == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	size = SPA_POD_SIZE(&impl->current);
 
@@ -168,7 +168,7 @@ static int parse_message(struct pw_client_node_transport *trans, void *message)
 				 impl->current_index & trans->input_buffer->mask, message, size);
 	spa_ringbuffer_read_update(trans->input_buffer, impl->current_index + size);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 /** Create a new transport
@@ -229,7 +229,7 @@ pw_client_node_transport_new_from_info(struct pw_client_node_transport_info *inf
 	impl->mem.fd = info->memfd;
 	impl->mem.offset = info->offset;
 	impl->mem.size = info->size;
-	if (pw_memblock_map(&impl->mem) != SPA_RESULT_OK) {
+	if (pw_memblock_map(&impl->mem) < 0) {
 		pw_log_warn("transport %p: failed to map fd %d: %s", impl, info->memfd,
 			    strerror(errno));
 		goto mmap_failed;
@@ -278,5 +278,5 @@ int pw_client_node_transport_get_info(struct pw_client_node_transport *trans,
 	info->offset = impl->offset;
 	info->size = impl->mem.size;
 
-	return SPA_RESULT_OK;
+	return 0;
 }

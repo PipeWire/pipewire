@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <sys/mman.h>
 
@@ -179,7 +180,7 @@ static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
 
 static int impl_send_command(struct spa_node *node, const struct spa_command *command)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_set_callbacks(struct spa_node *node,
@@ -188,7 +189,7 @@ static int impl_set_callbacks(struct spa_node *node,
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	d->callbacks = callbacks;
 	d->callbacks_data = data;
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_get_n_ports(struct spa_node *node,
@@ -199,7 +200,7 @@ static int impl_get_n_ports(struct spa_node *node,
 {
 	*n_input_ports = *max_input_ports = 1;
 	*n_output_ports = *max_output_ports = 0;
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_get_port_ids(struct spa_node *node,
@@ -210,7 +211,7 @@ static int impl_get_port_ids(struct spa_node *node,
 {
 	if (n_input_ports > 0)
                 input_ids[0] = 0;
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -218,7 +219,7 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	d->io = io;
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_port_get_info(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -232,7 +233,7 @@ static int impl_port_get_info(struct spa_node *node, enum spa_direction directio
 
 	*info = &d->port_info;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int port_enum_formats(struct spa_node *node,
@@ -246,7 +247,7 @@ static int port_enum_formats(struct spa_node *node,
 	int i, c;
 
 	if (*index != 0)
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	SDL_GetRendererInfo(d->renderer, &info);
 
@@ -287,7 +288,7 @@ static int port_enum_formats(struct spa_node *node,
 
 	(*index)++;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int port_get_format(struct spa_node *node,
@@ -299,7 +300,7 @@ static int port_get_format(struct spa_node *node,
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
 	if (*index != 0 || d->format.format == 0)
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	spa_pod_builder_object(builder,
 		d->t->param.idFormat, d->type.format,
@@ -311,7 +312,7 @@ static int port_get_format(struct spa_node *node,
 
 	(*index)++;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int impl_port_enum_params(struct spa_node *node,
@@ -334,7 +335,7 @@ static int impl_port_enum_params(struct spa_node *node,
 				id, t->param.List,
 				":", t->param.listId, "I", list[*index]);
 		else
-			return SPA_RESULT_ENUM_END;
+			return 0;
 	}
 	else if (id == t->param.idEnumFormat) {
 		return port_enum_formats(node, direction, port_id, index, filter, builder);
@@ -344,7 +345,7 @@ static int impl_port_enum_params(struct spa_node *node,
 	}
 	else if (id == t->param.idBuffers) {
 		if (*index != 0)
-			return SPA_RESULT_ENUM_END;
+			return 0;
 
 		spa_pod_builder_object(builder,
 			id, t->param_buffers.Buffers,
@@ -356,7 +357,7 @@ static int impl_port_enum_params(struct spa_node *node,
 	}
 	else if (id == t->param.idMeta) {
 		if (*index != 0)
-			return SPA_RESULT_ENUM_END;
+			return 0;
 
 		spa_pod_builder_object(builder,
 			id, t->param_meta.Meta,
@@ -364,11 +365,11 @@ static int impl_port_enum_params(struct spa_node *node,
 			":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 
 	(*index)++;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int port_set_format(struct spa_node *node,
@@ -380,7 +381,7 @@ static int port_set_format(struct spa_node *node,
 	void *dest;
 
 	if (format == NULL)
-		return SPA_RESULT_OK;
+		return 0;
 
 	spa_debug_pod(&format->pod, SPA_DEBUG_FLAG_FORMAT);
 
@@ -388,7 +389,7 @@ static int port_set_format(struct spa_node *node,
 
 	sdl_format = id_to_sdl_format(d, d->format.format);
 	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN)
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 
 	d->texture = SDL_CreateTexture(d->renderer,
 					  sdl_format,
@@ -398,7 +399,7 @@ static int port_set_format(struct spa_node *node,
 	SDL_LockTexture(d->texture, NULL, &dest, &d->stride);
 	SDL_UnlockTexture(d->texture);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_port_set_param(struct spa_node *node,
@@ -413,7 +414,7 @@ static int impl_port_set_param(struct spa_node *node,
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 }
 
 static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -424,7 +425,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 	for (i = 0; i < n_buffers; i++)
 		d->buffers[i] = buffers[i];
 	d->n_buffers = n_buffers;
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_node_process_input(struct spa_node *node)
@@ -437,7 +438,7 @@ static int impl_node_process_input(struct spa_node *node)
 	int i;
 	uint8_t *src, *dst;
 
-	if (d->io->status != SPA_RESULT_HAVE_BUFFER)
+	if (d->io->status != SPA_STATUS_HAVE_BUFFER)
 		goto done;
 
 	if (d->io->buffer_id > d->n_buffers)
@@ -454,11 +455,11 @@ static int impl_node_process_input(struct spa_node *node)
 		map = NULL;
 		sdata = buf->datas[0].data;
 	} else
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 
 	if (SDL_LockTexture(d->texture, NULL, &ddata, &dstride) < 0) {
 		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-		return SPA_RESULT_ERROR;
+		return -EIO;
 	}
 	sstride = buf->datas[0].chunk->stride;
 	ostride = SPA_MIN(sstride, dstride);
@@ -482,7 +483,7 @@ static int impl_node_process_input(struct spa_node *node)
 done:
 	handle_events(d);
 
-	return d->io->status = SPA_RESULT_NEED_BUFFER;
+	return d->io->status = SPA_STATUS_NEED_BUFFER;
 }
 
 static const struct spa_node impl_node = {

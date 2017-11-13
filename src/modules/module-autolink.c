@@ -124,7 +124,7 @@ link_state_changed(void *data, enum pw_link_state old, enum pw_link_state state,
 
 		pw_log_debug("module %p: link %p: state error: %s", impl, link, error);
 		if (owner)
-			pw_resource_error(pw_client_get_core_resource(owner), SPA_RESULT_ERROR, error);
+			pw_resource_error(pw_client_get_core_resource(owner), -ENODEV, error);
 
 		break;
 	}
@@ -218,7 +218,7 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 		struct pw_global *global = pw_node_get_global(info->node);
 		struct pw_client *owner = pw_global_get_owner(global);
 		if (owner)
-			pw_resource_error(pw_client_get_core_resource(owner), SPA_RESULT_ERROR, error);
+			pw_resource_error(pw_client_get_core_resource(owner), -EINVAL, error);
 	}
 	free(error);
 	return;

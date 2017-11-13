@@ -525,7 +525,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
   }
   self->type = pw_core_get_type (self->core);
 
-  if (pw_thread_loop_start (self->main_loop) != SPA_RESULT_OK) {
+  if (pw_thread_loop_start (self->main_loop) < 0) {
     GST_ERROR_OBJECT (self, "Could not start PipeWire mainloop");
     goto failed_start;
   }

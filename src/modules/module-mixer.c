@@ -74,10 +74,10 @@ static const struct spa_handle_factory *find_factory(struct impl *impl)
 		goto no_symbol;
 	}
 
-	for (index = 0;; index++) {
-		if ((res = enum_func(&factory, index)) < 0) {
-			if (res != SPA_RESULT_ENUM_END)
-				pw_log_error("can't enumerate factories: %d", res);
+	for (index = 0;;) {
+		if ((res = enum_func(&factory, &index)) <= 0) {
+			if (res != 0)
+				pw_log_error("can't enumerate factories: %s", spa_strerror(res));
 			goto enum_failed;
 		}
 		if (strcmp(factory->name, "audiomixer") == 0)

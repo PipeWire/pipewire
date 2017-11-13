@@ -17,6 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
+
 #include <spa/support/plugin.h>
 
 extern const struct spa_handle_factory spa_v4l2_source_factory;
@@ -24,12 +26,12 @@ extern const struct spa_handle_factory spa_v4l2_monitor_factory;
 
 int
 spa_handle_factory_enum(const struct spa_handle_factory **factory,
-			uint32_t index)
+			uint32_t *index)
 {
-	spa_return_val_if_fail(factory != NULL,
-			       SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
 
-	switch (index) {
+	switch (*index) {
 	case 0:
 		*factory = &spa_v4l2_source_factory;
 		break;
@@ -37,7 +39,8 @@ spa_handle_factory_enum(const struct spa_handle_factory **factory,
 		*factory = &spa_v4l2_monitor_factory;
 		break;
 	default:
-		return SPA_RESULT_ENUM_END;
+		return 0;
 	}
-	return SPA_RESULT_OK;
+	(*index)++;
+	return 1;
 }

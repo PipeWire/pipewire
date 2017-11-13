@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -79,11 +80,13 @@ struct impl {
 static int impl_udev_open(struct impl *this)
 {
 	if (this->udev != NULL)
-		return SPA_RESULT_OK;
+		return 0;
 
 	this->udev = udev_new();
+	if (this->udev == NULL)
+		return -ENOMEM;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void fill_item(struct impl *this, struct item *item, struct udev_device *udevice)
@@ -216,7 +219,7 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 	int res;
 	struct impl *this;
 
-	spa_return_val_if_fail(monitor != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(monitor != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(monitor, struct impl, monitor);
 
@@ -230,7 +233,7 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 			udev_monitor_unref(this->umonitor);
 		this->umonitor = udev_monitor_new_from_netlink(this->udev, "udev");
 		if (this->umonitor == NULL)
-			return SPA_RESULT_ERROR;
+			return -ENOMEM;
 
 		udev_monitor_filter_add_match_subsystem_devtype(this->umonitor,
 								"video4linux", NULL);
@@ -246,25 +249,26 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 		spa_loop_remove_source(this->main_loop, &this->source);
 	}
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
-impl_monitor_enum_items(struct spa_monitor *monitor, struct spa_monitor_item **item, uint32_t index)
+impl_monitor_enum_items(struct spa_monitor *monitor, struct spa_monitor_item **item, uint32_t *index)
 {
 	int res;
 	struct impl *this;
 	struct udev_device *dev;
 
-	spa_return_val_if_fail(monitor != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(item != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(monitor != NULL, -EINVAL);
+	spa_return_val_if_fail(item != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(monitor, struct impl, monitor);
 
 	if ((res = impl_udev_open(this)) < 0)
 		return res;
 
-	if (index == 0) {
+	if (*index == 0) {
 		if (this->enumerate)
 			udev_enumerate_unref(this->enumerate);
 		this->enumerate = udev_enumerate_new(this->udev);
@@ -275,27 +279,28 @@ impl_monitor_enum_items(struct spa_monitor *monitor, struct spa_monitor_item **i
 		this->devices = udev_enumerate_get_list_entry(this->enumerate);
 		this->index = 0;
 	}
-	while (index > this->index && this->devices) {
+	while (*index > this->index && this->devices) {
 		this->devices = udev_list_entry_get_next(this->devices);
 		this->index++;
 	}
 	if (this->devices == NULL) {
 		fill_item(this, &this->uitem, NULL);
-		return SPA_RESULT_ENUM_END;
+		return 0;
 	}
 
 	dev = udev_device_new_from_syspath(this->udev, udev_list_entry_get_name(this->devices));
 
 	fill_item(this, &this->uitem, dev);
 	if (dev == NULL)
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	*item = this->uitem.item;
 
 	this->devices = udev_list_entry_get_next(this->devices);
 	this->index++;
+	(*index)++;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static const struct spa_monitor impl_monitor = {
@@ -309,17 +314,17 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 {
 	struct impl *this;
 
-	spa_return_val_if_fail(handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	spa_return_val_if_fail(interface != NULL, -EINVAL);
 
 	this = (struct impl *) handle;
 
 	if (interface_id == this->type.monitor.Monitor)
 		*interface = &this->monitor;
 	else
-		return SPA_RESULT_UNKNOWN_INTERFACE;
+		return -ENOENT;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_clear(struct spa_handle *handle)
@@ -333,7 +338,7 @@ static int impl_clear(struct spa_handle *handle)
 	if (this->udev)
 		udev_unref(this->udev);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -346,8 +351,8 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *this;
 	uint32_t i;
 
-	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	handle->get_interface = impl_get_interface;
 	handle->clear = impl_clear;
@@ -364,17 +369,17 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	if (this->map == NULL) {
 		spa_log_error(this->log, "a type-map is needed");
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 	}
 	if (this->main_loop == NULL) {
 		spa_log_error(this->log, "a main-loop is needed");
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 	}
 	init_type(&this->type, this->map);
 
 	this->monitor = impl_monitor;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
@@ -384,17 +389,18 @@ static const struct spa_interface_info impl_interfaces[] = {
 static int
 impl_enum_interface_info(const struct spa_handle_factory *factory,
 			 const struct spa_interface_info **info,
-			 uint32_t index)
+			 uint32_t *index)
 {
-	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(info != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
 
-	if (index >= SPA_N_ELEMENTS(impl_interfaces))
-		return SPA_RESULT_ENUM_END;
+	if (*index >= SPA_N_ELEMENTS(impl_interfaces))
+		return 0;
 
-	*info = &impl_interfaces[index];
+	*info = &impl_interfaces[(*index)++];
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 const struct spa_handle_factory spa_v4l2_monitor_factory = {

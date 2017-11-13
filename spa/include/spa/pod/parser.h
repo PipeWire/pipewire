@@ -24,6 +24,7 @@
 extern "C" {
 #endif
 
+#include <errno.h>
 #include <stdarg.h>
 
 #include <spa/pod/iter.h>
@@ -206,27 +207,27 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 		switch (*format) {
 		case '<':
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_POD_TYPE_OBJECT)
-				return SPA_RESULT_INCOMPATIBLE;
+				return -EINVAL;
 			if (++parser->depth >= SPA_POD_MAX_DEPTH)
-				return SPA_RESULT_INVALID_ARGUMENTS;
+				return -EINVAL;
 
 			it = &parser->iter[parser->depth];
 			spa_pod_iter_init(it, pod, SPA_POD_SIZE(pod), sizeof(struct spa_pod_object));
 			goto read_pod;
 		case '[':
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_POD_TYPE_STRUCT)
-				return SPA_RESULT_INCOMPATIBLE;
+				return -EINVAL;
 			if (++parser->depth >= SPA_POD_MAX_DEPTH)
-				return SPA_RESULT_INVALID_ARGUMENTS;
+				return -EINVAL;
 
 			it = &parser->iter[parser->depth];
 			spa_pod_iter_init(it, pod, SPA_POD_SIZE(pod), sizeof(struct spa_pod_struct));
 			goto read_pod;
 		case ']': case '>':
 			if (current != NULL)
-				return SPA_RESULT_INCOMPATIBLE;
+				return -EINVAL;
 			if (--parser->depth < 0)
-				return SPA_RESULT_INVALID_ARGUMENTS;
+				return -EINVAL;
 
 			it = &parser->iter[parser->depth];
 			current = spa_pod_iter_current(it);
@@ -268,12 +269,12 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 		case 'V':
 			pod = (struct spa_pod *) prop;
 			if (pod == NULL && required)
-				return SPA_RESULT_NOT_FOUND;
+				return -ENOENT;
 			goto collect;
 		default:
 			if (pod == NULL || !spa_pod_parser_can_collect(pod, *format)) {
 				if (required)
-					return SPA_RESULT_NOT_FOUND;
+					return -ENOENT;
 				skip = true;
 			}
 		collect:

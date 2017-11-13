@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <error.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,9 +70,9 @@ inspect_node_params(struct data *data, struct spa_node *node)
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if ((res = spa_node_enum_params(node,
 						data->type.param.idList, &idx1,
-						NULL, &b)) < 0) {
-			if (res != SPA_RESULT_ENUM_END)
-				printf("enum_params error %d\n", res);
+						NULL, &b)) <= 0) {
+			if (res != 0)
+				error(0, -res, "enum_params");
 			break;
 		}
 		param = spa_pod_builder_deref(&b, 0);
@@ -87,9 +88,9 @@ inspect_node_params(struct data *data, struct spa_node *node)
 			spa_pod_builder_init(&b, buffer, sizeof(buffer));
 			if ((res = spa_node_enum_params(node,
 							id, &idx2,
-							NULL, &b)) < 0) {
-				if (res != SPA_RESULT_ENUM_END)
-					printf("enum_params %id error %d\n", id, res);
+							NULL, &b)) <= 0) {
+				if (res != 0)
+					error(0, -res, "enum_params %d", id);
 				break;
 			}
 			param = spa_pod_builder_deref(&b, 0);
@@ -115,9 +116,9 @@ inspect_port_params(struct data *data, struct spa_node *node,
 		if ((res = spa_node_port_enum_params(node,
 						     direction, port_id,
 						     data->type.param.idList, &idx1,
-						     NULL, &b)) < 0) {
-			if (res != SPA_RESULT_ENUM_END)
-				printf("port_enum_params error %d\n", res);
+						     NULL, &b)) <= 0) {
+			if (res != 0)
+				error(0, -res, "port_enum_params");
 			break;
 		}
 		param = spa_pod_builder_deref(&b, 0);
@@ -133,9 +134,9 @@ inspect_port_params(struct data *data, struct spa_node *node,
 			if ((res = spa_node_port_enum_params(node,
 							     direction, port_id,
 							     id, &idx2,
-							     NULL, &b)) < 0) {
-				if (res != SPA_RESULT_ENUM_END)
-					printf("port_enum_params error %d\n", res);
+							     NULL, &b)) <= 0) {
+				if (res != 0)
+					error(0, -res, "port_enum_params");
 				break;
 			}
 			param = spa_pod_builder_deref(&b, 0);
@@ -191,7 +192,7 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 	int res;
 	struct spa_handle *handle;
 	void *interface;
-	uint32_t index = 0;
+	uint32_t index;
 
 	printf("factory name:\t\t'%s'\n", factory->name);
 	printf("factory info:\n");
@@ -209,17 +210,16 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 
 	printf("factory interfaces:\n");
 
-	while (true) {
+	for (index = 0;;) {
 		const struct spa_interface_info *info;
 		uint32_t interface_id;
 
-		if ((res = spa_handle_factory_enum_interface_info(factory, &info, index)) < 0) {
-			if (res == SPA_RESULT_ENUM_END)
+		if ((res = spa_handle_factory_enum_interface_info(factory, &info, &index)) <= 0) {
+			if (res == 0)
 				break;
 			else
-				printf("can't enumerate interfaces: %d\n", res);
+				error(0, -res, "spa_handle_factory_enum_interface_info");
 		}
-		index++;
 		printf(" interface: '%s'\n", info->type);
 
 		interface_id = spa_type_map_get_id(data->map, info->type);
@@ -238,12 +238,12 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 
 static int do_add_source(struct spa_loop *loop, struct spa_source *source)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_update_source(struct spa_source *source)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void do_remove_source(struct spa_source *source)
@@ -256,7 +256,7 @@ int main(int argc, char *argv[])
 	int res;
 	void *handle;
 	spa_handle_factory_enum_func_t enum_func;
-	uint32_t index = 0;
+	uint32_t index;
 
 	if (argc < 2) {
 		printf("usage: %s <plugin.so>\n", argv[0]);
@@ -296,16 +296,15 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	while (true) {
+	for (index = 0;;) {
 		const struct spa_handle_factory *factory;
 
-		if ((res = enum_func(&factory, index)) < 0) {
-			if (res != SPA_RESULT_ENUM_END)
-				printf("can't enumerate factories: %d\n", res);
+		if ((res = enum_func(&factory, &index)) <= 0) {
+			if (res != 0)
+				error(0, -res, "enum_func");
 			break;
 		}
 		inspect_factory(&data, factory);
-		index++;
 	}
 
 	return 0;

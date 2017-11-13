@@ -295,7 +295,7 @@ do_remove_sources(struct spa_loop *loop,
 		close(impl->rtwritefd);
 		impl->rtwritefd = -1;
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void unhandle_socket(struct pw_stream *stream)
@@ -492,7 +492,7 @@ static void do_node_init(struct pw_stream *stream)
 	add_port_update(stream, PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 				PW_CLIENT_NODE_PORT_UPDATE_INFO);
 
-	add_async_complete(stream, 0, SPA_RESULT_OK);
+	add_async_complete(stream, 0, 0);
 	if (!(impl->flags & PW_STREAM_FLAG_INACTIVE))
 		pw_client_node_proxy_set_active(impl->node_proxy, true);
 }
@@ -570,7 +570,7 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 			if (impl->client_reuse)
 				input->buffer_id = SPA_ID_INVALID;
 
-			if (input->status == SPA_RESULT_HAVE_BUFFER) {
+			if (input->status == SPA_STATUS_HAVE_BUFFER) {
 				bid->used = true;
 				impl->in_new_buffer = true;
 				spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
@@ -578,7 +578,7 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 				impl->in_new_buffer = false;
 			}
 
-			input->status = SPA_RESULT_NEED_BUFFER;
+			input->status = SPA_STATUS_NEED_BUFFER;
 		}
 		send_need_input(stream);
 	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT) {
@@ -631,7 +631,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
 			pw_log_warn("stream %p: read failed %m", impl);
 
-		while (pw_client_node_transport_next_message(impl->trans, &message) == SPA_RESULT_OK) {
+		while (pw_client_node_transport_next_message(impl->trans, &message) == 1) {
 			struct pw_client_node_message *msg = alloca(SPA_POD_SIZE(&message));
 			pw_client_node_transport_parse_message(impl->trans, msg);
 			handle_rtnode_message(stream, msg);
@@ -676,7 +676,7 @@ static void client_node_command(void *data, uint32_t seq, const struct spa_comma
 	struct pw_remote *remote = stream->remote;
 
 	if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Pause) {
-		add_async_complete(stream, seq, SPA_RESULT_OK);
+		add_async_complete(stream, seq, 0);
 
 		if (stream->state == PW_STREAM_STATE_STREAMING) {
 			pw_log_debug("stream %p: pause %d", stream, seq);
@@ -687,7 +687,7 @@ static void client_node_command(void *data, uint32_t seq, const struct spa_comma
 			stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
 		}
 	} else if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Start) {
-		add_async_complete(stream, seq, SPA_RESULT_OK);
+		add_async_complete(stream, seq, 0);
 
 		if (stream->state == PW_STREAM_STATE_PAUSED) {
 			int i;
@@ -700,7 +700,7 @@ static void client_node_command(void *data, uint32_t seq, const struct spa_comma
 
 			if (impl->direction == SPA_DIRECTION_INPUT) {
 				for (i = 0; i < impl->trans->area->max_input_ports; i++)
-					impl->trans->inputs[i].status = SPA_RESULT_NEED_BUFFER;
+					impl->trans->inputs[i].status = SPA_STATUS_NEED_BUFFER;
 				send_need_input(stream);
 			}
 			else {
@@ -725,7 +725,7 @@ static void client_node_command(void *data, uint32_t seq, const struct spa_comma
 		impl->last_monotonic = cu->body.monotonic_time.value;
 	} else {
 		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
-		add_async_complete(stream, seq, SPA_RESULT_NOT_IMPLEMENTED);
+		add_async_complete(stream, seq, -ENOTSUP);
 	}
 }
 
@@ -912,7 +912,7 @@ client_node_port_use_buffers(void *data,
 		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, add_buffer, bid->id);
 	}
 
-	add_async_complete(stream, seq, SPA_RESULT_OK);
+	add_async_complete(stream, seq, 0);
 
 	if (n_buffers)
 		stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
@@ -1158,7 +1158,7 @@ bool pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
 		bid->used = true;
 		spa_list_remove(&bid->link);
 		impl->trans->outputs[0].buffer_id = id;
-		impl->trans->outputs[0].status = SPA_RESULT_HAVE_BUFFER;
+		impl->trans->outputs[0].status = SPA_STATUS_HAVE_BUFFER;
 		pw_log_trace("stream %p: send buffer %d", stream, id);
 		if (!impl->in_need_buffer)
 			send_have_output(stream);

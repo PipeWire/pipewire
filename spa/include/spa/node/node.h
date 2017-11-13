@@ -51,12 +51,18 @@ struct spa_range {
  * by the host and configured on all ports for which IO is requested.
  */
 struct spa_port_io {
-	uint32_t status;		/**< the status code */
+#define SPA_STATUS_OK			0
+#define SPA_STATUS_NEED_BUFFER		1
+#define SPA_STATUS_HAVE_BUFFER		2
+#define SPA_STATUS_FORMAT_CHANGED	3
+#define SPA_STATUS_PORTS_CHANGED	4
+#define SPA_STATUS_PARAM_CHANGED	5
+	int32_t status;			/**< the status code */
 	uint32_t buffer_id;		/**< a buffer id */
 	struct spa_range range;		/**< the requested range */
 };
 
-#define SPA_PORT_IO_INIT  (struct spa_port_io) { SPA_RESULT_OK, SPA_ID_INVALID, }
+#define SPA_PORT_IO_INIT  (struct spa_port_io) { SPA_STATUS_OK, SPA_ID_INVALID, }
 
 /**
  * struct spa_port_info

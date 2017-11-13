@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 #include <string.h>
 
 #include "pipewire/pipewire.h"
@@ -72,12 +73,12 @@ client_bind_func(struct pw_global *global,
 	pw_client_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
-	return SPA_RESULT_OK;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create client resource");
-	pw_resource_error(client->core_resource, SPA_RESULT_NO_MEMORY, "no memory");
-	return SPA_RESULT_NO_MEMORY;
+	pw_resource_error(client->core_resource, -ENOMEM, "no memory");
+	return -ENOMEM;
 }
 
 /** Make a new client object

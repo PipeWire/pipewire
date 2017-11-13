@@ -131,7 +131,7 @@ static inline int spa_pod_object_fixate(struct spa_pod_object *obj)
 		if (res->type == SPA_POD_TYPE_PROP)
 			((struct spa_pod_prop *) res)->body.flags &= ~SPA_POD_PROP_FLAG_UNSET;
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 #ifdef __cplusplus

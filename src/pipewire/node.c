@@ -48,10 +48,10 @@ struct resource_data {
 
 static int pause_node(struct pw_node *this)
 {
-	int res = SPA_RESULT_OK;
+	int res = 0;
 
 	if (this->info.state <= PW_NODE_STATE_IDLE)
-		return SPA_RESULT_OK;
+		return 0;
 
 	pw_log_debug("node %p: pause node", this);
 	res = spa_node_send_command(this->node,
@@ -64,7 +64,7 @@ static int pause_node(struct pw_node *this)
 
 static int start_node(struct pw_node *this)
 {
-	int res = SPA_RESULT_OK;
+	int res = 0;
 
 	pw_log_debug("node %p: start node", this);
 	res = spa_node_send_command(this->node,
@@ -77,7 +77,7 @@ static int start_node(struct pw_node *this)
 
 static int suspend_node(struct pw_node *this)
 {
-	int res = SPA_RESULT_OK;
+	int res = 0;
 	struct pw_port *p;
 
 	pw_log_debug("node %p: suspend node", this);
@@ -216,7 +216,7 @@ static int update_port_ids(struct pw_node *node)
 	update_port_map(node, PW_DIRECTION_INPUT, &node->input_port_map, input_port_ids, n_input_ports);
 	update_port_map(node, PW_DIRECTION_OUTPUT, &node->output_port_map, output_port_ids, n_output_ports);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void
@@ -237,7 +237,7 @@ update_info(struct pw_node *this)
 			if (spa_node_port_enum_params(port->node->node,
 						      port->direction, port->port_id,
 						      this->core->type.param.idEnumFormat, &state,
-						      NULL, &b) < 0)
+						      NULL, &b) <= 0)
 				break;
 			fmt = spa_pod_builder_deref(&b, 0);
 
@@ -260,7 +260,7 @@ update_info(struct pw_node *this)
 			if (spa_node_port_enum_params(port->node->node,
 						      port->direction, port->port_id,
 						      this->core->type.param.idEnumFormat, &state,
-						      NULL, &b) < 0)
+						      NULL, &b) <= 0)
 				break;
 			fmt = spa_pod_builder_deref(&b, 0);
 
@@ -322,13 +322,13 @@ node_bind_func(struct pw_global *global,
 	pw_node_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
-	return SPA_RESULT_OK;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create node resource");
 	pw_core_resource_error(client->core_resource,
-			       client->core_resource->id, SPA_RESULT_NO_MEMORY, "no memory");
-	return SPA_RESULT_NO_MEMORY;
+			       client->core_resource->id, -ENOMEM, "no memory");
+	return -ENOMEM;
 }
 
 static int
@@ -339,7 +339,7 @@ do_node_add(struct spa_loop *loop,
 
 	spa_graph_node_add(this->rt.graph, &this->rt.node);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 
@@ -562,7 +562,7 @@ do_node_remove(struct spa_loop *loop,
 
 	spa_graph_node_remove(&this->rt.node);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 /** Destroy a node
@@ -784,7 +784,7 @@ static void node_activate(struct pw_node *this)
  */
 int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 {
-	int res = SPA_RESULT_OK;
+	int res = 0;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, state_request, state);
@@ -793,7 +793,7 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 
 	switch (state) {
 	case PW_NODE_STATE_CREATING:
-		return SPA_RESULT_ERROR;
+		return -EIO;
 
 	case PW_NODE_STATE_SUSPENDED:
 		res = suspend_node(node);

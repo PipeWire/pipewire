@@ -55,7 +55,7 @@ static inline void check_input(struct spa_graph_node *node)
 		debug("node %p input peer %p io %d %d\n", node, pnode, pport->io->status, pport->io->buffer_id);
 
 		pnode->ready[SPA_DIRECTION_OUTPUT]++;
-		if (pport->io->status == SPA_RESULT_OK)
+		if (pport->io->status == SPA_STATUS_OK)
 			node->ready[SPA_DIRECTION_INPUT]++;
 
 		debug("node %p input peer %p out %d %d\n", node, pnode,
@@ -81,7 +81,7 @@ static inline void check_output(struct spa_graph_node *node)
 		pnode = pport->node;
 		debug("node %p output peer %p io %d %d\n", node, pnode, pport->io->status, pport->io->buffer_id);
 
-		if (pport->io->status == SPA_RESULT_HAVE_BUFFER) {
+		if (pport->io->status == SPA_STATUS_HAVE_BUFFER) {
 			pnode->ready[SPA_DIRECTION_INPUT]++;
 			node->required[SPA_DIRECTION_OUTPUT]++;
 		}
@@ -97,21 +97,21 @@ static inline void spa_graph_impl_activate(void *data, struct spa_graph_node *no
 	int res;
 
 	debug("node %p activate %d\n", node, node->state);
-	if (node->state == SPA_RESULT_NEED_BUFFER) {
+	if (node->state == SPA_STATUS_NEED_BUFFER) {
                 res = spa_node_process_input(node->implementation);
 		debug("node %p process in %d\n", node, res);
 	}
-	else if (node->state == SPA_RESULT_HAVE_BUFFER) {
+	else if (node->state == SPA_STATUS_HAVE_BUFFER) {
                 res = spa_node_process_output(node->implementation);
 		debug("node %p process out %d\n", node, res);
 	}
 	else
 		return;
 
-	if (res == SPA_RESULT_NEED_BUFFER || (res == SPA_RESULT_OK && node->state == SPA_RESULT_NEED_BUFFER)) {
+	if (res == SPA_STATUS_NEED_BUFFER || (res == SPA_STATUS_OK && node->state == SPA_STATUS_NEED_BUFFER)) {
 		check_input(node);
 	}
-	else if (res == SPA_RESULT_HAVE_BUFFER) {
+	else if (res == SPA_STATUS_HAVE_BUFFER) {
 		check_output(node);
 	}
 	node->state = res;
@@ -125,7 +125,7 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 
 	debug("node %p start pull\n", node);
 
-	node->state = SPA_RESULT_NEED_BUFFER;
+	node->state = SPA_STATUS_NEED_BUFFER;
 	node->ready[SPA_DIRECTION_INPUT] = 0;
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
@@ -140,19 +140,19 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 		debug("node %p pull peer %p io %d %d\n", node, pnode, pport->io->status, pport->io->buffer_id);
 
 		pnode->ready[SPA_DIRECTION_OUTPUT]++;
-		if (pport->io->status == SPA_RESULT_OK)
+		if (pport->io->status == SPA_STATUS_OK)
 			node->ready[SPA_DIRECTION_INPUT]++;
 
 		debug("node %p pull peer %p out %d %d\n", node, pnode, prequired, pnode->ready[SPA_DIRECTION_OUTPUT]);
 		if (prequired > 0 && pnode->ready[SPA_DIRECTION_OUTPUT] >= prequired) {
-			pnode->state = SPA_RESULT_HAVE_BUFFER;
+			pnode->state = SPA_STATUS_HAVE_BUFFER;
 			spa_graph_impl_activate(data, pnode);
 		}
 	}
 
 	debug("node %p end pull\n", node);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *node)
@@ -162,7 +162,7 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 
 	debug("node %p start push\n", node);
 
-	node->state = SPA_RESULT_HAVE_BUFFER;
+	node->state = SPA_STATUS_HAVE_BUFFER;
 
 	node->ready[SPA_DIRECTION_OUTPUT] = 0;
 	node->required[SPA_DIRECTION_OUTPUT] = 0;
@@ -179,13 +179,13 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 		prequired = pnode->required[SPA_DIRECTION_INPUT];
 		debug("node %p push peer %p io %d %d\n", node, pnode, pport->io->status, pport->io->buffer_id);
 
-		if (pport->io->status == SPA_RESULT_HAVE_BUFFER) {
+		if (pport->io->status == SPA_STATUS_HAVE_BUFFER) {
 			pnode->ready[SPA_DIRECTION_INPUT]++;
 			node->required[SPA_DIRECTION_OUTPUT]++;
 		}
 		debug("node %p push peer %p in %d %d\n", node, pnode, prequired, pnode->ready[SPA_DIRECTION_INPUT]);
 		if (prequired > 0 && pnode->ready[SPA_DIRECTION_INPUT] >= prequired) {
-			pnode->state = SPA_RESULT_NEED_BUFFER;
+			pnode->state = SPA_STATUS_NEED_BUFFER;
 			spa_graph_impl_activate(data, pnode);
 		}
 	}
@@ -195,7 +195,7 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 	}
 	debug("node %p end push\n", node);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_graph_callbacks spa_graph_impl_default = {

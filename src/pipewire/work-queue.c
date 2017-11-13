@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -58,7 +59,7 @@ static void process_work_queue(void *data, uint64_t count)
 			continue;
 		}
 
-		if (item->res == SPA_RESULT_WAIT_SYNC &&
+		if (item->res == -EBUSY &&
 		    item != spa_list_first(&this->work_list, struct work_item, link)) {
 			pw_log_debug("work-queue %p: %d sync item %p not head", this,
 				     this->n_queued, item->obj);
@@ -158,7 +159,7 @@ pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_
 		item->seq = SPA_RESULT_ASYNC_SEQ(res);
 		item->res = res;
 		pw_log_debug("work-queue %p: defer async %d for object %p", queue, item->seq, obj);
-	} else if (res == SPA_RESULT_WAIT_SYNC) {
+	} else if (res == -EBUSY) {
 		pw_log_debug("work-queue %p: wait sync object %p", queue, obj);
 		item->seq = SPA_ID_INVALID;
 		item->res = res;

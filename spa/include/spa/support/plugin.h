@@ -158,14 +158,13 @@ struct spa_handle_factory {
 	 *
 	 * Enumerate the interface information for @factory.
 	 *
-	 * Returns: #SPA_RESULT_OK on success
-	 *          #SPA_RESULT_NOT_IMPLEMENTED when there are no interfaces
-	 *          #SPA_RESULT_INVALID_ARGUMENTS when handle or info is %NULL
-	 *          #SPA_RESULT_ENUM_END when there are no more infos
+	 * Returns: 1 when an item is available
+	 *	    0 when no more items are available
+	 *	    -errno on error
 	 */
 	int (*enum_interface_info) (const struct spa_handle_factory *factory,
 				    const struct spa_interface_info **info,
-				    uint32_t index);
+				    uint32_t *index);
 };
 
 #define spa_handle_factory_init(h,...)			(h)->init((h),__VA_ARGS__)
@@ -183,7 +182,7 @@ struct spa_handle_factory {
  *          #SPA_RESULT_ENUM_END when there are no more factories
  */
 typedef int (*spa_handle_factory_enum_func_t) (const struct spa_handle_factory **factory,
-					       uint32_t index);
+					       uint32_t *index);
 
 #define SPA_HANDLE_FACTORY_ENUM_FUNC_NAME "spa_handle_factory_enum"
 
@@ -194,11 +193,11 @@ typedef int (*spa_handle_factory_enum_func_t) (const struct spa_handle_factory *
  *
  * The entry point in a plugin.
  *
- * Returns: #SPA_RESULT_OK on success
- *          #SPA_RESULT_INVALID_ARGUMENTS when factory is %NULL
- *          #SPA_RESULT_ENUM_END when there are no more factories
+ * Returns: 1 on success
+ *	    0 when no more items are available
+ *	    -errno on error
  */
-int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t index);
+int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index);
 
 void spa_handle_factory_register(const struct spa_handle_factory *factory);
 

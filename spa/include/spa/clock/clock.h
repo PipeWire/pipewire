@@ -70,9 +70,9 @@ struct spa_clock {
 	 * can be modified. The modifications will take effect after a call
 	 * to spa_clock::set_props.
 	 *
-	 * Returns: #SPA_RESULT_OK on success
-	 *          #SPA_RESULT_INVALID_ARGUMENTS when clock or props are %NULL
-	 *          #SPA_RESULT_NOT_IMPLEMENTED when there are no properties
+	 * Returns: 0 on success
+	 *          -EINVAL when clock or props are %NULL
+	 *          -ENOTSUP when there are no properties
 	 *                 implemented on @clock
 	 */
 	int (*enum_params) (struct spa_clock *clock,
@@ -93,12 +93,11 @@ struct spa_clock {
 	 *
 	 * If @props is NULL, all the properties are reset to their defaults.
 	 *
-	 * Returns: #SPA_RESULT_OK on success
-	 *          #SPA_RESULT_INVALID_ARGUMENTS when clock is %NULL
-	 *          #SPA_RESULT_NOT_IMPLEMENTED when no properties can be
+	 * Returns: 0 on success
+	 *          -EINVAL when clock is %NULL
+	 *          -ENOTSUP when no properties can be
 	 *                 modified on @clock.
-	 *          #SPA_RESULT_WRONG_PROPERTY_TYPE when a property has the wrong
-	 *                 type.
+	 *          -ENOENT when the param with id is not supported
 	 */
 	int (*set_param) (struct spa_clock *clock,
 			  uint32_t id, uint32_t flags,

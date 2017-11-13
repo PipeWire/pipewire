@@ -178,9 +178,9 @@ static int impl_node_enum_params(struct spa_node *node,
 	struct spa_pod *param;
 	uint32_t offset;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(index != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(builder != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+	spa_return_val_if_fail(builder != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	t = &this->type;
@@ -190,7 +190,7 @@ static int impl_node_enum_params(struct spa_node *node,
       next:
 	if (id == t->param.idList) {
 		if (*index > 0)
-			return SPA_RESULT_ENUM_END;
+			return 0;
 
 		param = spa_pod_builder_object(builder,
 			id, t->param.List,
@@ -200,7 +200,7 @@ static int impl_node_enum_params(struct spa_node *node,
 		struct props *p = &this->props;
 
 		if (*index > 0)
-			return SPA_RESULT_ENUM_END;
+			return 0;
 
 		param = spa_pod_builder_object(builder, t->param.idProps, t->props,
 			":", t->prop_device,      "S", p->device, sizeof(p->device),
@@ -208,7 +208,7 @@ static int impl_node_enum_params(struct spa_node *node,
 			":", t->prop_device_fd,   "i-r", p->device_fd);
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 
 	(*index)++;
 
@@ -216,7 +216,7 @@ static int impl_node_enum_params(struct spa_node *node,
 	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
 		goto next;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int impl_node_set_param(struct spa_node *node,
@@ -226,7 +226,7 @@ static int impl_node_set_param(struct spa_node *node,
 	struct impl *this;
 	struct type *t;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	t = &this->type;
@@ -236,15 +236,15 @@ static int impl_node_set_param(struct spa_node *node,
 
 		if (param == NULL) {
 			reset_props(p);
-			return SPA_RESULT_OK;
+			return 0;
 		}
 		spa_pod_object_parse(param,
 			":", t->prop_device, "?S", p->device, sizeof(p->device), NULL);
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_pause_done(struct spa_loop *loop,
@@ -262,7 +262,7 @@ static int do_pause_done(struct spa_loop *loop,
 
 	this->callbacks->done(this->callbacks_data, seq, res);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_pause(struct spa_loop *loop,
@@ -302,7 +302,7 @@ static int do_start_done(struct spa_loop *loop,
 
 	this->callbacks->done(this->callbacks_data, seq, res);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_start(struct spa_loop *loop,
@@ -327,15 +327,15 @@ static int do_start(struct spa_loop *loop,
 				false,
 				this);
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	struct impl *this;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(command != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(command != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
@@ -344,10 +344,9 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		int res;
 
 		if (!port->have_format)
-			return SPA_RESULT_NO_FORMAT;
-
+			return -EIO;
 		if (port->n_buffers == 0)
-			return SPA_RESULT_NO_BUFFERS;
+			return -EIO;
 
 		if ((res = spa_v4l2_stream_on(this)) < 0)
 			return res;
@@ -363,10 +362,9 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		struct port *port = &this->out_ports[0];
 
 		if (!port->have_format)
-			return SPA_RESULT_NO_FORMAT;
-
+			return -EIO;
 		if (port->n_buffers == 0)
-			return SPA_RESULT_NO_BUFFERS;
+			return -EIO;
 
 		return spa_loop_invoke(this->out_ports[0].data_loop,
 				       do_pause,
@@ -376,9 +374,9 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 				       false,
 				       this);
 	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.ClockUpdate) {
-		return SPA_RESULT_OK;
+		return 0;
 	} else
-		return SPA_RESULT_NOT_IMPLEMENTED;
+		return -ENOTSUP;
 }
 
 static int impl_node_set_callbacks(struct spa_node *node,
@@ -387,14 +385,14 @@ static int impl_node_set_callbacks(struct spa_node *node,
 {
 	struct impl *this;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	this->callbacks = callbacks;
 	this->callbacks_data = data;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -404,7 +402,7 @@ impl_node_get_n_ports(struct spa_node *node,
 		      uint32_t *n_output_ports,
 		      uint32_t *max_output_ports)
 {
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	if (n_input_ports)
 		*n_input_ports = 0;
@@ -415,7 +413,7 @@ impl_node_get_n_ports(struct spa_node *node,
 	if (max_output_ports)
 		*max_output_ports = 1;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_node_get_port_ids(struct spa_node *node,
@@ -424,12 +422,12 @@ static int impl_node_get_port_ids(struct spa_node *node,
 				  uint32_t n_output_ports,
 				  uint32_t *output_ids)
 {
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	if (n_output_ports > 0 && output_ids != NULL)
 		output_ids[0] = 0;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 
@@ -437,14 +435,14 @@ static int impl_node_add_port(struct spa_node *node,
 			      enum spa_direction direction,
 			      uint32_t port_id)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int impl_node_remove_port(struct spa_node *node,
 		                 enum spa_direction direction,
 				 uint32_t port_id)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int impl_node_port_get_info(struct spa_node *node,
@@ -454,16 +452,16 @@ static int impl_node_port_get_info(struct spa_node *node,
 {
 	struct impl *this;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(info != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	*info = &this->out_ports[port_id].info;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int port_get_format(struct spa_node *node,
@@ -478,9 +476,9 @@ static int port_get_format(struct spa_node *node,
 	struct port *port = &this->out_ports[port_id];
 
 	if (!port->have_format)
-		return SPA_RESULT_NO_FORMAT;
+		return -EIO;
 	if (*index > 0)
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	spa_pod_builder_push_object(builder, t->param.idFormat, t->format);
 
@@ -503,11 +501,11 @@ static int port_get_format(struct spa_node *node,
 			":", t->format_video.size,      "R", &port->current_format.info.h264.size,
 			":", t->format_video.framerate, "F", &port->current_format.info.h264.framerate, 0);
 	} else
-		return SPA_RESULT_NO_FORMAT;
+		return -EIO;
 
 	*param = spa_pod_builder_pop_deref(builder);
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int impl_node_port_enum_params(struct spa_node *node,
@@ -525,14 +523,14 @@ static int impl_node_port_enum_params(struct spa_node *node,
 	uint32_t offset;
 	int res;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(index != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(builder != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+	spa_return_val_if_fail(builder != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	t = &this->type;
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = &this->out_ports[port_id];
 
@@ -549,20 +547,20 @@ static int impl_node_port_enum_params(struct spa_node *node,
 			param = spa_pod_builder_object(builder, id, t->param.List,
 				":", t->param.listId, "I", list[*index]);
 		else
-			return SPA_RESULT_ENUM_END;
+			return 0;
 	}
 	else if (id == t->param.idEnumFormat) {
 		return spa_v4l2_enum_format(this, index, filter, builder);
 	}
 	else if (id == t->param.idFormat) {
-		if((res = port_get_format(node, direction, port_id, index, filter, builder, &param)) < 0)
+		if((res = port_get_format(node, direction, port_id, index, filter, builder, &param)) <= 0)
 			return res;
 	}
 	else if (id == t->param.idBuffers) {
 		if (!port->have_format)
-			return SPA_RESULT_NO_FORMAT;
+			return -EIO;
 		if (*index > 0)
-			return SPA_RESULT_ENUM_END;
+			return 0;
 
 		param = spa_pod_builder_object(builder,
 			id, t->param_buffers.Buffers,
@@ -581,11 +579,11 @@ static int impl_node_port_enum_params(struct spa_node *node,
 				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 			break;
 		default:
-			return SPA_RESULT_ENUM_END;
+			return 0;
 		}
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 
 	(*index)++;
 
@@ -593,7 +591,7 @@ static int impl_node_port_enum_params(struct spa_node *node,
 	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
 		goto next;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int port_set_format(struct spa_node *node,
@@ -611,7 +609,7 @@ static int port_set_format(struct spa_node *node,
 		spa_v4l2_clear_buffers(this);
 		spa_v4l2_close(this);
 		port->have_format = false;
-		return SPA_RESULT_OK;
+		return 0;
 	} else {
 		spa_pod_object_parse(format,
 			"I", &info.media_type,
@@ -619,13 +617,13 @@ static int port_set_format(struct spa_node *node,
 
 		if (info.media_type != t->media_type.video) {
 			spa_log_error(this->log, "media type must be video");
-			return SPA_RESULT_INVALID_MEDIA_TYPE;
+			return -EINVAL;
 		}
 
 		if (info.media_subtype == t->media_subtype.raw) {
 			if (spa_format_video_raw_parse(format, &info.info.raw, &t->format_video) < 0) {
 				spa_log_error(this->log, "can't parse video raw");
-				return SPA_RESULT_INVALID_MEDIA_TYPE;
+				return -EINVAL;
 			}
 
 			if (port->have_format && info.media_type == port->current_format.media_type &&
@@ -633,25 +631,25 @@ static int port_set_format(struct spa_node *node,
 			    info.info.raw.format == port->current_format.info.raw.format &&
 			    info.info.raw.size.width == port->current_format.info.raw.size.width &&
 			    info.info.raw.size.height == port->current_format.info.raw.size.height)
-				return SPA_RESULT_OK;
+				return 0;
 		} else if (info.media_subtype == t->media_subtype_video.mjpg) {
 			if (spa_format_video_mjpg_parse(format, &info.info.mjpg, &t->format_video) < 0)
-				return SPA_RESULT_INVALID_MEDIA_TYPE;
+				return -EINVAL;
 
 			if (port->have_format && info.media_type == port->current_format.media_type &&
 			    info.media_subtype == port->current_format.media_subtype &&
 			    info.info.mjpg.size.width == port->current_format.info.mjpg.size.width &&
 			    info.info.mjpg.size.height == port->current_format.info.mjpg.size.height)
-				return SPA_RESULT_OK;
+				return 0;
 		} else if (info.media_subtype == t->media_subtype_video.h264) {
 			if (spa_format_video_h264_parse(format, &info.info.h264, &t->format_video) < 0)
-				return SPA_RESULT_INVALID_MEDIA_TYPE;
+				return -EINVAL;
 
 			if (port->have_format && info.media_type == port->current_format.media_type &&
 			    info.media_subtype == port->current_format.media_subtype &&
 			    info.info.h264.size.width == port->current_format.info.h264.size.width &&
 			    info.info.h264.size.height == port->current_format.info.h264.size.height)
-				return SPA_RESULT_OK;
+				return 0;
 		}
 	}
 
@@ -661,14 +659,14 @@ static int port_set_format(struct spa_node *node,
 	}
 
 	if (spa_v4l2_set_format(this, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) < 0)
-		return SPA_RESULT_INVALID_MEDIA_TYPE;
+		return -EINVAL;
 
 	if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
 		port->current_format = info;
 		port->have_format = true;
 	}
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_node_port_set_param(struct spa_node *node,
@@ -679,18 +677,18 @@ static int impl_node_port_set_param(struct spa_node *node,
 	struct impl *this;
 	struct type *t;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	t = &this->type;
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	if (id == t->param.idFormat) {
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 }
 
 static int impl_node_port_use_buffers(struct spa_node *node,
@@ -703,16 +701,16 @@ static int impl_node_port_use_buffers(struct spa_node *node,
 	struct port *port;
 	int res;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = &this->out_ports[port_id];
 
 	if (!port->have_format)
-		return SPA_RESULT_NO_FORMAT;
+		return -EIO;
 
 	if (port->n_buffers) {
 		spa_v4l2_stream_off(this);
@@ -723,7 +721,7 @@ static int impl_node_port_use_buffers(struct spa_node *node,
 		if ((res = spa_v4l2_use_buffers(this, buffers, n_buffers)) < 0)
 			return res;
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -739,17 +737,17 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 	struct port *port;
 	int res;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(buffers != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(buffers != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = &this->out_ports[port_id];
 
 	if (!port->have_format)
-		return SPA_RESULT_NO_FORMAT;
+		return -EIO;
 
 	res = spa_v4l2_alloc_buffers(this, params, n_params, buffers, n_buffers);
 
@@ -763,15 +761,15 @@ static int impl_node_port_set_io(struct spa_node *node,
 {
 	struct impl *this;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	this->out_ports[port_id].io = io;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_node_port_reuse_buffer(struct spa_node *node,
@@ -782,14 +780,13 @@ static int impl_node_port_reuse_buffer(struct spa_node *node,
 	struct port *port;
 	int res;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(port_id == 0, SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(port_id == 0, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	port = &this->out_ports[port_id];
 
-	spa_return_val_if_fail(port->n_buffers > 0, SPA_RESULT_NO_BUFFERS);
-	spa_return_val_if_fail(buffer_id < port->n_buffers, SPA_RESULT_INVALID_BUFFER_ID);
+	spa_return_val_if_fail(buffer_id < port->n_buffers, -EINVAL);
 
 	res = spa_v4l2_buffer_recycle(this, buffer_id);
 
@@ -804,44 +801,44 @@ static int impl_node_port_send_command(struct spa_node *node,
 	struct impl *this;
 	int res;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), SPA_RESULT_INVALID_PORT);
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	if (SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
 		res = spa_v4l2_port_set_enabled(this, false);
 	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.Start) {
 		res = spa_v4l2_port_set_enabled(this, true);
 	} else
-		res = SPA_RESULT_NOT_IMPLEMENTED;
+		res = -ENOTSUP;
 
 	return res;
 }
 
 static int impl_node_process_input(struct spa_node *node)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int impl_node_process_output(struct spa_node *node)
 {
 	struct impl *this;
-	int res = SPA_RESULT_OK;
+	int res = SPA_STATUS_OK;
 	struct spa_port_io *io;
 	struct port *port;
 
-	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	port = &this->out_ports[0];
 	io = port->io;
-	spa_return_val_if_fail(io != NULL, SPA_RESULT_UNEXPECTED);
+	spa_return_val_if_fail(io != NULL, -EIO);
 
-	if (io->status == SPA_RESULT_HAVE_BUFFER)
-		return SPA_RESULT_HAVE_BUFFER;
+	if (io->status == SPA_STATUS_HAVE_BUFFER)
+		return SPA_STATUS_HAVE_BUFFER;
 
 	if (io->buffer_id < this->out_ports[0].n_buffers) {
 		res = spa_v4l2_buffer_recycle(this, io->buffer_id);
@@ -885,14 +882,14 @@ static const struct spa_node impl_node = {
 static int impl_clock_enum_params(struct spa_clock *clock, uint32_t id, uint32_t *index,
 				  struct spa_pod_builder *builder)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int impl_clock_set_param(struct spa_clock *clock,
 				uint32_t id, uint32_t flags,
 				const struct spa_pod_object *param)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int impl_clock_get_time(struct spa_clock *clock,
@@ -903,7 +900,7 @@ static int impl_clock_get_time(struct spa_clock *clock,
 	struct impl *this;
 	struct port *port;
 
-	spa_return_val_if_fail(clock != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(clock != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(clock, struct impl, clock);
 	port = &this->out_ports[0];
@@ -915,7 +912,7 @@ static int impl_clock_get_time(struct spa_clock *clock,
 	if (monotonic_time)
 		*monotonic_time = port->last_monotonic;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_clock impl_clock = {
@@ -931,8 +928,8 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 {
 	struct impl *this;
 
-	spa_return_val_if_fail(handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	spa_return_val_if_fail(interface != NULL, -EINVAL);
 
 	this = (struct impl *) handle;
 
@@ -941,14 +938,14 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 	else if (interface_id == this->type.clock)
 		*interface = &this->clock;
 	else
-		return SPA_RESULT_UNKNOWN_INTERFACE;
+		return -ENOENT;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_clear(struct spa_handle *handle)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -962,8 +959,8 @@ impl_init(const struct spa_handle_factory *factory,
 	uint32_t i;
 	const char *str;
 
-	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	handle->get_interface = impl_get_interface;
 	handle->clear = impl_clear, this = (struct impl *) handle;
@@ -980,15 +977,15 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	if (this->map == NULL) {
 		spa_log_error(this->log, "a type-map is needed");
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 	}
 	if (this->out_ports[0].main_loop == NULL) {
 		spa_log_error(this->log, "a main_loop is needed");
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 	}
 	if (this->out_ports[0].data_loop == NULL) {
 		spa_log_error(this->log, "a data_loop is needed");
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 	}
 	init_type(&this->type, this->map);
 
@@ -1006,7 +1003,7 @@ impl_init(const struct spa_handle_factory *factory,
 		strncpy(this->props.device, str, 63);
 	}
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
@@ -1016,17 +1013,18 @@ static const struct spa_interface_info impl_interfaces[] = {
 
 static int impl_enum_interface_info(const struct spa_handle_factory *factory,
 				    const struct spa_interface_info **info,
-				    uint32_t index)
+				    uint32_t *index)
 {
-	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(info != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
 
-	if (index >= SPA_N_ELEMENTS(impl_interfaces))
-		return SPA_RESULT_ENUM_END;
+	if (*index >= SPA_N_ELEMENTS(impl_interfaces))
+		return 0;
 
-	*info = &impl_interfaces[index];
+	*info = &impl_interfaces[(*index)++];
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 const struct spa_handle_factory spa_v4l2_source_factory = {

@@ -128,26 +128,26 @@ static int node_enum_params(struct spa_node *node,
 			    const struct spa_pod_object *filter,
 			    struct spa_pod_builder *builder)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int node_set_param(struct spa_node *node,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod_object *param)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int node_send_command(struct spa_node *node,
                              const struct spa_command *command)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int node_set_callbacks(struct spa_node *node,
                               const struct spa_node_callbacks *callbacks, void *data)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int node_get_n_ports(struct spa_node *node,
@@ -167,7 +167,7 @@ static int node_get_n_ports(struct spa_node *node,
 	if (max_output_ports)
 		*max_output_ports = PORT_NUM_FOR_CLIENT / 2;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int node_get_port_ids(struct spa_node *node,
@@ -187,17 +187,17 @@ static int node_get_port_ids(struct spa_node *node,
 		if (nd->port_data[SPA_DIRECTION_OUTPUT][i])
 			output_ids[c++] = nd->port_data[SPA_DIRECTION_OUTPUT][i]->port.port->port_id;
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static int node_remove_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static struct buffer *buffer_dequeue(struct pw_jack_node *this, struct port_data *pd)
@@ -222,7 +222,7 @@ static void recycle_buffer(struct pw_jack_node *this, struct port_data *pd, uint
 
 static int driver_process_input(struct spa_node *node)
 {
-	return SPA_RESULT_NOT_IMPLEMENTED;
+	return -ENOTSUP;
 }
 
 static void conv_f32_s16(int16_t *out, float *in, int n_samples, int stride)
@@ -267,8 +267,8 @@ static int driver_process_output(struct spa_node *node)
 
 	pw_log_trace(NAME "%p: process output", this);
 
-	if (out_io->status == SPA_RESULT_HAVE_BUFFER)
-		return SPA_RESULT_HAVE_BUFFER;
+	if (out_io->status == SPA_STATUS_HAVE_BUFFER)
+		return SPA_STATUS_HAVE_BUFFER;
 
 	if (out_io->buffer_id < opd->n_buffers) {
                 recycle_buffer(this, opd, out_io->buffer_id);
@@ -277,10 +277,10 @@ static int driver_process_output(struct spa_node *node)
 
 	out = buffer_dequeue(this, opd);
 	if (out == NULL)
-		return SPA_RESULT_OUT_OF_BUFFERS;
+		return -EPIPE;
 
 	out_io->buffer_id = out->outbuf->id;
-	out_io->status = SPA_RESULT_HAVE_BUFFER;
+	out_io->status = SPA_STATUS_HAVE_BUFFER;
 
 	op = out->ptr;
 
@@ -293,7 +293,7 @@ static int driver_process_output(struct spa_node *node)
 		struct buffer *in;
 		int stride = 2;
 
-		if (in_io->buffer_id < ipd->n_buffers && in_io->status == SPA_RESULT_HAVE_BUFFER) {
+		if (in_io->buffer_id < ipd->n_buffers && in_io->status == SPA_STATUS_HAVE_BUFFER) {
 			in = &ipd->buffers[in_io->buffer_id];
 			conv_f32_s16(op, in->ptr, ctrl->buffer_size, stride);
 		}
@@ -301,14 +301,14 @@ static int driver_process_output(struct spa_node *node)
 			fill_s16(op, ctrl->buffer_size, stride);
 		}
 		op++;
-		in_io->status = SPA_RESULT_NEED_BUFFER;
+		in_io->status = SPA_STATUS_NEED_BUFFER;
 	}
 	out->outbuf->datas[0].chunk->size = ctrl->buffer_size * sizeof(int16_t) * 2;
 
 	spa_hook_list_call(&nd->listener_list, struct pw_jack_node_events, push);
 	gn->ready[SPA_DIRECTION_INPUT] = gn->required[SPA_DIRECTION_OUTPUT] = 0;
 
-	return SPA_RESULT_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_BUFFER;
 }
 
 static int node_process_input(struct spa_node *node)
@@ -324,8 +324,8 @@ static int node_process_input(struct spa_node *node)
 	int ref_num = this->control->ref_num;
 
 	pw_log_trace(NAME " %p: process input", nd);
-	if (nd->status == SPA_RESULT_HAVE_BUFFER)
-                return SPA_RESULT_HAVE_BUFFER;
+	if (nd->status == SPA_STATUS_HAVE_BUFFER)
+                return SPA_STATUS_HAVE_BUFFER;
 
 	mgr->client_timing[ref_num].status = Triggered;
 	mgr->client_timing[ref_num].signaled_at = current_date;
@@ -340,10 +340,10 @@ static int node_process_input(struct spa_node *node)
 		struct port_data *opd = pw_port_get_user_data(port);
 		struct spa_port_io *out_io = opd->io;
 		out_io->buffer_id = 0;
-		out_io->status = SPA_RESULT_HAVE_BUFFER;
+		out_io->status = SPA_STATUS_HAVE_BUFFER;
 		pw_log_trace(NAME " %p: port %p: %d %d", nd, p, out_io->buffer_id, out_io->status);
 	}
-	return nd->status = SPA_RESULT_HAVE_BUFFER;
+	return nd->status = SPA_STATUS_HAVE_BUFFER;
 }
 
 static int node_process_output(struct spa_node *node)
@@ -359,10 +359,10 @@ static int node_process_output(struct spa_node *node)
 		struct port_data *ipd = pw_port_get_user_data(port);
 		struct spa_port_io *in_io = ipd->io;
 		in_io->buffer_id = 0;
-		in_io->status = SPA_RESULT_NEED_BUFFER;
+		in_io->status = SPA_STATUS_NEED_BUFFER;
 		pw_log_trace(NAME " %p: port %p: %d %d", nd, p, in_io->buffer_id, in_io->status);
 	}
-	return nd->status = SPA_RESULT_NEED_BUFFER;
+	return nd->status = SPA_STATUS_NEED_BUFFER;
 }
 
 
@@ -372,7 +372,7 @@ static int port_set_io(struct spa_node *node, enum spa_direction direction, uint
 	struct node_data *nd = SPA_CONTAINER_OF(node, struct node_data, node_impl);
 	struct port_data *pd = nd->port_data[direction][port_id];
 	pd->io = io;
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int port_get_info(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -389,7 +389,7 @@ static int port_get_info(struct spa_node *node, enum spa_direction direction, ui
 	pd->info.rate = pd->node->node.server->engine_control->sample_rate;
 	*info = &pd->info;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int port_enum_formats(struct spa_node *node,
@@ -405,7 +405,7 @@ static int port_enum_formats(struct spa_node *node,
 	struct jack_engine_control *ctrl = pd->node->node.server->engine_control;
 
 	if (index > 0)
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	if (pd->port.jack_port) {
 		if (pd->port.jack_port->type_id == 0) {
@@ -424,7 +424,7 @@ static int port_enum_formats(struct spa_node *node,
 				"I", t->media_subtype_audio.midi);
 		}
 		else
-			return SPA_RESULT_ENUM_END;
+			return 0;
 	}
 	else {
                 *param = spa_pod_builder_object(builder,
@@ -435,7 +435,7 @@ static int port_enum_formats(struct spa_node *node,
                         ":", t->format_audio.rate,     "i", ctrl->sample_rate,
                         ":", t->format_audio.channels, "i", 2);
 	}
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int port_enum_params(struct spa_node *node,
@@ -454,15 +454,15 @@ static int port_enum_params(struct spa_node *node,
 
       next:
 	if (id == t->param.idEnumFormat) {
-		if ((res = port_enum_formats(node, direction, port_id, index, filter, builder, &param)) < 0)
+		if ((res = port_enum_formats(node, direction, port_id, index, filter, builder, &param)) <= 0)
 			return res;
 	}
 	else if (id == t->param.idFormat) {
-		if ((res = port_enum_formats(node, direction, port_id, index, filter, builder, &param)) < 0)
+		if ((res = port_enum_formats(node, direction, port_id, index, filter, builder, &param)) <= 0)
 			return res;
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 
 	(*index)++;
 
@@ -470,7 +470,7 @@ static int port_enum_params(struct spa_node *node,
         if ((res = spa_pod_filter(builder, param, (struct spa_pod*)filter)) < 0)
                 goto next;
 
-	return SPA_RESULT_ENUM_END;
+	return 1;
 }
 
 static int port_set_param(struct spa_node *node,
@@ -478,7 +478,7 @@ static int port_set_param(struct spa_node *node,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod_object *param)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int port_use_buffers(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -490,7 +490,7 @@ static int port_use_buffers(struct spa_node *node, enum spa_direction direction,
 	int i;
 
 	if (pd->have_buffers)
-		return SPA_RESULT_OK;
+		return 0;
 
 	pw_log_debug("use_buffers %d", n_buffers);
 	for (i = 0; i < n_buffers; i++) {
@@ -505,13 +505,13 @@ static int port_use_buffers(struct spa_node *node, enum spa_direction direction,
 			b->ptr = d[0].data;
 		} else {
 			pw_log_error(NAME " %p: invalid memory on buffer %p", pd, buffers[i]);
-			return SPA_RESULT_ERROR;
+			return -EINVAL;
 		}
                 spa_list_append(&pd->empty, &b->link);
 	}
 	pd->n_buffers = n_buffers;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int port_alloc_buffers(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -537,12 +537,12 @@ static int port_alloc_buffers(struct spa_node *node, enum spa_direction directio
 	}
 	pd->n_buffers = *n_buffers;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int driver_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
@@ -553,13 +553,13 @@ static int driver_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t
 
 	recycle_buffer(this, opd, buffer_id);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int port_send_command(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
 			     const struct spa_command *command)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_node driver_impl = {
@@ -624,7 +624,7 @@ static int schedule_mix_input(struct spa_node *_node)
 
 		pw_log_trace("mix %p: input %d %d", node, p->io->buffer_id, link->output->n_buffers);
 
-		if (!(p->io->buffer_id < link->output->n_buffers && p->io->status == SPA_RESULT_HAVE_BUFFER))
+		if (!(p->io->buffer_id < link->output->n_buffers && p->io->status == SPA_STATUS_HAVE_BUFFER))
 			continue;
 
 		inbuf = link->output->buffers[p->io->buffer_id];
@@ -638,10 +638,10 @@ static int schedule_mix_input(struct spa_node *_node)
 				p, p->io, io, p->io->status, p->io->buffer_id);
 		*io = *p->io;
 		io->buffer_id = 0;
-		p->io->status = SPA_RESULT_OK;
+		p->io->status = SPA_STATUS_OK;
 		p->io->buffer_id = SPA_ID_INVALID;
 	}
-	return SPA_RESULT_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_BUFFER;
 }
 
 static int schedule_mix_output(struct spa_node *_node)

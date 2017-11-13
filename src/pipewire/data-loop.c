@@ -174,15 +174,15 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 		if ((err = pthread_create(&loop->thread, NULL, do_loop, loop)) != 0) {
 			pw_log_warn("data-loop %p: can't create thread: %s", loop, strerror(err));
 			loop->running = false;
-			return SPA_RESULT_ERROR;
+			return -err;
 		}
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 /** Stop a data loop
  * \param loop the data loop to Stop
- * \return \ref SPA_RESULT_OK
+ * \return 0
  *
  * This will stop and join the realtime thread that manages the loop.
  *
@@ -195,7 +195,7 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
 
 		pthread_join(loop->thread, NULL);
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 /** Check if we are inside the data loop

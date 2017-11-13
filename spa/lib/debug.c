@@ -39,12 +39,12 @@ void spa_debug_set_type_map(const struct spa_type_map *m)
 int spa_debug_port_info(const struct spa_port_info *info)
 {
 	if (info == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	fprintf(stderr, "struct spa_port_info %p:\n", info);
 	fprintf(stderr, " flags: \t%08x\n", info->flags);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 int spa_debug_buffer(const struct spa_buffer *buffer)
@@ -52,7 +52,7 @@ int spa_debug_buffer(const struct spa_buffer *buffer)
 	int i;
 
 	if (buffer == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	fprintf(stderr, "spa_buffer %p:\n", buffer);
 	fprintf(stderr, " id:      %08X\n", buffer->id);
@@ -119,7 +119,7 @@ int spa_debug_buffer(const struct spa_buffer *buffer)
 		fprintf(stderr, "    size:   %u\n", d->chunk->size);
 		fprintf(stderr, "    stride: %d\n", d->chunk->stride);
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 int spa_debug_dump_mem(const void *mem, size_t size)
@@ -128,7 +128,7 @@ int spa_debug_dump_mem(const void *mem, size_t size)
 	int i;
 
 	if (mem == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	for (i = 0; i < size; i++) {
 		if (i % 16 == 0)
@@ -137,7 +137,7 @@ int spa_debug_dump_mem(const void *mem, size_t size)
 		if (i % 16 == 15 || i == size - 1)
 			printf("\n");
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const char *pod_type_names[] = {
@@ -384,11 +384,11 @@ static int spa_debug_format(const struct spa_pod_object *format)
 	uint32_t mtype, mstype;
 
 	if (format == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	if (spa_pod_object_parse(format, "I", &mtype,
 					 "I", &mstype) < 0)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	media_type = spa_type_map_get_type(map, mtype);
 	media_subtype = spa_type_map_get_type(map, mstype);
@@ -451,12 +451,12 @@ static int spa_debug_format(const struct spa_pod_object *format)
 		}
 		fprintf(stderr, "\n");
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 int spa_debug_pod(const struct spa_pod *pod, uint32_t flags)
 {
-	int res = SPA_RESULT_OK;
+	int res = 0;
 
 	if (flags & SPA_DEBUG_FLAG_FORMAT)
 		res = spa_debug_format((struct spa_pod_object*)pod);
@@ -472,11 +472,11 @@ int spa_debug_dict(const struct spa_dict *dict)
 	unsigned int i;
 
 	if (dict == NULL)
-		return SPA_RESULT_INVALID_ARGUMENTS;
+		return -EINVAL;
 
 	for (i = 0; i < dict->n_items; i++)
 		fprintf(stderr, "          %s = \"%s\"\n", dict->items[i].key,
 			dict->items[i].value);
 
-	return SPA_RESULT_OK;
+	return 0;
 }

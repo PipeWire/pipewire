@@ -265,7 +265,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
       ":", t->param_meta.ringbufferAlign,  "i", 16);
 
   pw_thread_loop_lock (sink->main_loop);
-  pw_stream_finish_format (sink->stream, SPA_RESULT_OK, 2, port_params);
+  pw_stream_finish_format (sink->stream, 0, 2, port_params);
   pw_thread_loop_unlock (sink->main_loop);
 }
 
@@ -803,7 +803,7 @@ gst_pipewire_sink_open (GstPipeWireSink * pwsink)
 {
   const char *error = NULL;
 
-  if (pw_thread_loop_start (pwsink->main_loop) != SPA_RESULT_OK)
+  if (pw_thread_loop_start (pwsink->main_loop) < 0)
     goto mainloop_error;
 
   pw_thread_loop_lock (pwsink->main_loop);

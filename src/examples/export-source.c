@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <math.h>
 #include <sys/mman.h>
@@ -96,7 +97,7 @@ struct data {
 
 static int impl_send_command(struct spa_node *node, const struct spa_command *command)
 {
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_set_callbacks(struct spa_node *node,
@@ -105,7 +106,7 @@ static int impl_set_callbacks(struct spa_node *node,
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	d->callbacks = callbacks;
 	d->callbacks_data = data;
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_get_n_ports(struct spa_node *node,
@@ -116,7 +117,7 @@ static int impl_get_n_ports(struct spa_node *node,
 {
 	*n_input_ports = *max_input_ports = 0;
 	*n_output_ports = *max_output_ports = 1;
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_get_port_ids(struct spa_node *node,
@@ -127,7 +128,7 @@ static int impl_get_port_ids(struct spa_node *node,
 {
 	if (n_output_ports > 0)
                 output_ids[0] = 0;
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -135,7 +136,7 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	d->io = io;
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_port_get_info(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -149,7 +150,7 @@ static int impl_port_get_info(struct spa_node *node, enum spa_direction directio
 
 	*info = &d->port_info;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int port_enum_formats(struct spa_node *node,
@@ -161,7 +162,7 @@ static int port_enum_formats(struct spa_node *node,
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
 	if (*index != 0)
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	spa_pod_builder_object(builder,
 		d->t->param.idEnumFormat, d->type.format,
@@ -173,7 +174,7 @@ static int port_enum_formats(struct spa_node *node,
 
 	(*index)++;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int port_get_format(struct spa_node *node,
@@ -185,10 +186,10 @@ static int port_get_format(struct spa_node *node,
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
 	if (*index != 0)
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	if (d->format.format == 0)
-		return SPA_RESULT_ENUM_END;
+		return 0;
 
 	spa_pod_builder_object(builder,
 		d->t->param.idFormat, d->type.format,
@@ -200,7 +201,7 @@ static int port_get_format(struct spa_node *node,
 
 	(*index)++;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int impl_port_enum_params(struct spa_node *node,
@@ -223,7 +224,7 @@ static int impl_port_enum_params(struct spa_node *node,
 				id, t->param.List,
 				":", t->param.listId, "I", list[*index]);
 		else
-			return SPA_RESULT_ENUM_END;
+			return 0;
 	}
 	else if (id == t->param.idEnumFormat) {
 		return port_enum_formats(node, direction, port_id, index, filter, builder);
@@ -233,7 +234,7 @@ static int impl_port_enum_params(struct spa_node *node,
 	}
 	else if (id == t->param.idBuffers) {
 		if (*index > 0)
-			return SPA_RESULT_ENUM_END;
+			return 0;
 
 		spa_pod_builder_object(builder,
 			id, t->param_buffers.Buffers,
@@ -264,15 +265,15 @@ static int impl_port_enum_params(struct spa_node *node,
 				":", t->param_meta.ringbufferAlign,  "i", 16);
 			break;
 		default:
-			return SPA_RESULT_ENUM_END;
+			return 0;
 		}
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 
 	(*index)++;
 
-	return SPA_RESULT_OK;
+	return 1;
 }
 
 static int port_set_format(struct spa_node *node,
@@ -283,18 +284,18 @@ static int port_set_format(struct spa_node *node,
 
 	if (format == NULL) {
 		d->format.format = 0;
-		return SPA_RESULT_OK;
+		return 0;
 	}
 
 	spa_debug_pod(&format->pod, SPA_DEBUG_FLAG_FORMAT);
 
 	if (spa_format_audio_raw_parse(format, &d->format, &d->type.format_audio) < 0)
-		return SPA_RESULT_INVALID_MEDIA_TYPE;
+		return -EINVAL;
 
 	if (d->format.format != d->type.audio_format.S16)
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_port_set_param(struct spa_node *node,
@@ -309,7 +310,7 @@ static int impl_port_set_param(struct spa_node *node,
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else
-		return SPA_RESULT_UNKNOWN_PARAM;
+		return -ENOENT;
 }
 
 static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -331,7 +332,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 				      MAP_SHARED, datas[0].fd, 0);
 			if (b->ptr == MAP_FAILED) {
 				pw_log_error("failed to buffer mem");
-				return SPA_RESULT_ERROR;
+				return -errno;
 
 			}
 			b->ptr = SPA_MEMBER(b->ptr, datas[0].mapoffset, void);
@@ -339,7 +340,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		}
 		else {
 			pw_log_error("invalid buffer mem");
-			return SPA_RESULT_ERROR;
+			return -EINVAL;
 		}
 		b->buffer = buffers[i];
 		b->rb = spa_buffer_find_meta(buffers[i], d->type.meta.Ringbuffer);
@@ -347,7 +348,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		spa_list_append(&d->empty, &b->link);
 	}
 	d->n_buffers = n_buffers;
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static inline void reuse_buffer(struct data *d, uint32_t id)
@@ -360,7 +361,7 @@ static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint3
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	reuse_buffer(d, buffer_id);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_node_process_output(struct spa_node *node)
@@ -378,7 +379,7 @@ static int impl_node_process_output(struct spa_node *node)
 	}
 	if (spa_list_is_empty(&d->empty)) {
                 pw_log_error("sine-source %p: out of buffers", d);
-                return SPA_RESULT_OUT_OF_BUFFERS;
+                return -EPIPE;
         }
         b = spa_list_first(&d->empty, struct buffer, link);
         spa_list_remove(&b->link);
@@ -424,9 +425,9 @@ static int impl_node_process_output(struct spa_node *node)
 	}
 
 	io->buffer_id = b->buffer->id;
-	io->status = SPA_RESULT_HAVE_BUFFER;
+	io->status = SPA_STATUS_HAVE_BUFFER;
 
-	return SPA_RESULT_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_BUFFER;
 }
 
 static const struct spa_node impl_node = {

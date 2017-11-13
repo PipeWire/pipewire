@@ -176,7 +176,7 @@ on_stream_format_changed(void *_data, struct spa_pod_object *format)
 	struct spa_pod_object *params[2];
 
 	if (format == NULL) {
-		pw_stream_finish_format(stream, SPA_RESULT_OK, 0, NULL);
+		pw_stream_finish_format(stream, 0, 0, NULL);
 		return;
 	}
 	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
@@ -196,7 +196,7 @@ on_stream_format_changed(void *_data, struct spa_pod_object *format)
 		":", t->param_meta.type, "I", t->meta.Header,
 		":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 
-	pw_stream_finish_format(stream, SPA_RESULT_OK, 2, params);
+	pw_stream_finish_format(stream, 0, 2, params);
 }
 
 static const struct pw_stream_events stream_events = {

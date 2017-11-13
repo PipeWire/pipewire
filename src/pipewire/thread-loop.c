@@ -168,7 +168,7 @@ static void *do_loop(void *user_data)
 /** Start the thread to handle \a loop
  *
  * \param loop a \ref pw_thread_loop
- * \return \ref SPA_RESULT_OK on success
+ * \return 0 on success
  *
  * \memberof pw_thread_loop
  */
@@ -182,10 +182,10 @@ int pw_thread_loop_start(struct pw_thread_loop *loop)
 			pw_log_warn("thread-loop %p: can't create thread: %s", loop,
 				    strerror(err));
 			loop->running = false;
-			return SPA_RESULT_ERROR;
+			return -err;
 		}
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 /** Quit the loop and stop its thread

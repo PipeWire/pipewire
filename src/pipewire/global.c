@@ -16,6 +16,8 @@
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
+#include <errno.h>
 #include <unistd.h>
 #include <time.h>
 #include <stdio.h>
@@ -179,14 +181,14 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 	return res;
 
      wrong_version:
-	res = SPA_RESULT_INCOMPATIBLE_VERSION;
+	res = -EINVAL;
 	pw_core_resource_error(client->core_resource,
 			       client->core_resource->id,
 			     res, "id %d: interface version %d < %d",
 			     id, global->version, version);
 	return res;
      no_bind:
-	res = SPA_RESULT_NOT_IMPLEMENTED;
+	res = -ENOTSUP;
 	pw_core_resource_error(client->core_resource,
 			       client->core_resource->id,
 			     res, "can't bind object id %d to interface", id);

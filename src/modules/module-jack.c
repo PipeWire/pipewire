@@ -330,7 +330,7 @@ static int do_add_node(struct spa_loop *loop, bool async, uint32_t seq, size_t s
 	struct jack_client *jc = user_data;
 	struct impl *impl = jc->data;
 	spa_list_append(&impl->rt.nodes, &jc->node->graph_link);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int do_remove_node(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data,
@@ -338,7 +338,7 @@ static int do_remove_node(struct spa_loop *loop, bool async, uint32_t seq, size_
 {
 	struct jack_client *jc = user_data;
 	spa_list_remove(&jc->node->graph_link);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -1102,7 +1102,7 @@ static int do_graph_order_changed(struct spa_loop *loop,
 	}
 
 	notify_clients(impl, jack_notify_GraphOrderCallback, false, "", 0, 0);
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void jack_node_pull(void *data)
@@ -1328,7 +1328,7 @@ static bool on_global(void *data, struct pw_global *global)
 		return true;
 	}
 
-	if (spa_node_enum_params(node->node, SPA_ID_INVALID, &index, NULL, &b) == SPA_RESULT_OK) {
+	if (spa_node_enum_params(node->node, SPA_ID_INVALID, &index, NULL, &b) == 1) {
 		int min_latency = -1;
 		struct spa_pod_object *props = spa_pod_builder_deref(&b, 0);
 

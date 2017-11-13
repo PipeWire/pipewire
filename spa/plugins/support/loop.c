@@ -157,9 +157,9 @@ static int loop_add_source(struct spa_loop *loop, struct spa_source *source)
 		ep.data.ptr = source;
 
 		if (epoll_ctl(impl->epoll_fd, EPOLL_CTL_ADD, source->fd, &ep) < 0)
-			return SPA_RESULT_ERRNO;
+			return errno;
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int loop_update_source(struct spa_source *source)
@@ -175,9 +175,9 @@ static int loop_update_source(struct spa_source *source)
 		ep.data.ptr = source;
 
 		if (epoll_ctl(impl->epoll_fd, EPOLL_CTL_MOD, source->fd, &ep) < 0)
-			return SPA_RESULT_ERRNO;
+			return errno;
 	}
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void loop_remove_source(struct spa_source *source)
@@ -215,12 +215,12 @@ loop_invoke(struct spa_loop *loop,
 		filled = spa_ringbuffer_get_write_index(&impl->buffer, &idx);
 		if (filled < 0 || filled > impl->buffer.size) {
 			spa_log_warn(impl->log, NAME " %p: queue xrun %d", impl, filled);
-			return SPA_RESULT_ERROR;
+			return -EPIPE;
 		}
 		avail = impl->buffer.size - filled;
 		if (avail < sizeof(struct invoke_item)) {
 			spa_log_warn(impl->log, NAME " %p: queue full %d", impl, avail);
-			return SPA_RESULT_ERROR;
+			return -EPIPE;
 		}
 		offset = idx & impl->buffer.mask;
 
@@ -258,7 +258,7 @@ loop_invoke(struct spa_loop *loop,
 			if (seq != SPA_ID_INVALID)
 				res = SPA_RESULT_RETURN_ASYNC(seq);
 			else
-				res = SPA_RESULT_OK;
+				res = 0;
 		}
 	}
 	return res;
@@ -329,10 +329,8 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 
 	spa_hook_list_call(&impl->hooks_list, struct spa_loop_control_hooks, after);
 
-	if (SPA_UNLIKELY(nfds < 0)) {
-		errno = save_errno;
-		return SPA_RESULT_ERRNO;
-	}
+	if (SPA_UNLIKELY(nfds < 0))
+		return save_errno;
 
 	/* first we set all the rmasks, then call the callbacks. The reason is that
 	 * some callback might also want to look at other sources it manages and
@@ -352,7 +350,7 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 
 	spa_list_init(&impl->destroy_list);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void source_io_func(struct spa_source *source)
@@ -555,9 +553,9 @@ loop_update_timer(struct spa_source *source,
 		flags |= TFD_TIMER_ABSTIME;
 
 	if (timerfd_settime(source->fd, flags, &its, NULL) < 0)
-		return SPA_RESULT_ERRNO;
+		return errno;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static void source_signal_func(struct spa_source *source)
@@ -660,8 +658,8 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 {
 	struct impl *impl;
 
-	spa_return_val_if_fail(handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	spa_return_val_if_fail(interface != NULL, -EINVAL);
 
 	impl = (struct impl *) handle;
 
@@ -672,9 +670,9 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 	else if (interface_id == impl->type.loop_utils)
 		*interface = &impl->utils;
 	else
-		return SPA_RESULT_UNKNOWN_INTERFACE;
+		return -ENOENT;
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int impl_clear(struct spa_handle *handle)
@@ -682,7 +680,7 @@ static int impl_clear(struct spa_handle *handle)
 	struct impl *impl;
 	struct source_impl *source, *tmp;
 
-	spa_return_val_if_fail(handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	impl = (struct impl *) handle;
 
@@ -694,7 +692,7 @@ static int impl_clear(struct spa_handle *handle)
 	close(impl->ack_fd);
 	close(impl->epoll_fd);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static int
@@ -707,8 +705,8 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *impl;
 	uint32_t i;
 
-	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	handle->get_interface = impl_get_interface;
 	handle->clear = impl_clear;
@@ -726,13 +724,13 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	if (impl->map == NULL) {
 		spa_log_error(impl->log, NAME " %p: a type-map is needed", impl);
-		return SPA_RESULT_ERROR;
+		return -EINVAL;
 	}
 	init_type(&impl->type, impl->map);
 
 	impl->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
 	if (impl->epoll_fd == -1)
-		return SPA_RESULT_ERRNO;
+		return errno;
 
 	spa_list_init(&impl->source_list);
 	spa_list_init(&impl->destroy_list);
@@ -745,7 +743,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_log_info(impl->log, NAME " %p: initialized", impl);
 
-	return SPA_RESULT_OK;
+	return 0;
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
@@ -757,16 +755,17 @@ static const struct spa_interface_info impl_interfaces[] = {
 static int
 impl_enum_interface_info(const struct spa_handle_factory *factory,
 			 const struct spa_interface_info **info,
-			 uint32_t index)
+			 uint32_t *index)
 {
-	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
-	spa_return_val_if_fail(info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(info != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
 
-	if (index >= SPA_N_ELEMENTS(impl_interfaces))
-		return SPA_RESULT_ENUM_END;
+	if (*index >= SPA_N_ELEMENTS(impl_interfaces))
+		return 0;
 
-	*info = &impl_interfaces[index];
-	return SPA_RESULT_OK;
+	*info = &impl_interfaces[(*index)++];
+	return 1;
 }
 
 static const struct spa_handle_factory loop_factory = {

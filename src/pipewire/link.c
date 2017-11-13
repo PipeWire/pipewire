@@ -422,7 +422,7 @@ param_filter(struct pw_link *this,
 		for (oidx = 0;;) {
 			uint32_t offset;
 
-			offset = result->offset;
+			offset = result->state.offset;
 
 			pw_log_debug("oparam %d %d", oidx, offset);
 			if (spa_node_port_enum_params(out_port->node->node, out_port->direction,

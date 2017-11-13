@@ -468,7 +468,7 @@ static int negotiate_formats(struct data *data)
 		":", data->type.format_audio.rate,     "i", 44100,
 		":", data->type.format_audio.channels, "i", 2);
 
-	ref = b.offset;
+	ref = b.state.offset;
 
 	if ((res =
 	     spa_node_port_enum_params(data->sink,

@@ -384,7 +384,7 @@ static int negotiate_formats(struct data *data)
 		":", data->type.format_audio.rate,     "i", 44100,
 		":", data->type.format_audio.channels, "i", 2);
 
-	ref = b.offset;
+	ref = b.state.offset;
 
 	spa_debug_pod(&filter->pod, 0);
 

@@ -275,11 +275,11 @@ spa_ffmpeg_dec_node_port_enum_params(struct spa_node *node,
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct type *t = &this->type;
-	uint32_t offset;
+	struct spa_pod_builder_state state;
 	struct spa_pod *param;
 	int res;
 
-	offset = builder->offset;
+	spa_pod_builder_get_state(builder, &state);
 
       next:
 	if (id == t->param.idList) {
@@ -305,7 +305,7 @@ spa_ffmpeg_dec_node_port_enum_params(struct spa_node *node,
 
 	(*index)++;
 
-	spa_pod_builder_reset(builder, offset);
+	spa_pod_builder_reset(builder, &state);
 	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
 		goto next;
 

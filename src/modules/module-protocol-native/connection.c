@@ -348,12 +348,10 @@ static inline void *begin_write(struct pw_protocol_native_connection *conn, uint
 static uint32_t write_pod(struct spa_pod_builder *b, const void *data, uint32_t size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(b, struct impl, builder);
-	uint32_t ref = b->offset;
+	uint32_t ref = b->state.offset;
 
-	ref = b->offset;
-
-        if (b->size <= b->offset) {
-                b->size = SPA_ROUND_UP_N(b->offset + size, 4096);
+        if (b->size <= ref) {
+                b->size = SPA_ROUND_UP_N(ref + size, 4096);
                 b->data = begin_write(&impl->this, b->size);
         }
         memcpy(b->data + ref, data, size);
@@ -385,7 +383,7 @@ pw_protocol_native_connection_begin_resource(struct pw_protocol_native_connectio
 
 	impl->dest_id = resource->id;
 	impl->opcode = opcode;
-	impl->builder = (struct spa_pod_builder) { NULL, 0, 0, write_pod };
+	impl->builder = (struct spa_pod_builder) { NULL, 0, write_pod };
 
 	return &impl->builder;
 }
@@ -414,7 +412,7 @@ pw_protocol_native_connection_begin_proxy(struct pw_protocol_native_connection *
 
 	impl->dest_id = proxy->id;
 	impl->opcode = opcode;
-	impl->builder = (struct spa_pod_builder) { NULL, 0, 0, write_pod };
+	impl->builder = (struct spa_pod_builder) { NULL, 0, write_pod };
 
 	return &impl->builder;
 }
@@ -424,7 +422,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 				  struct spa_pod_builder *builder)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
-	uint32_t *p, size = builder->offset;
+	uint32_t *p, size = builder->state.offset;
 	struct buffer *buf = &impl->out;
 
 	if ((p = connection_ensure_size(conn, buf, 8 + size)) == NULL)

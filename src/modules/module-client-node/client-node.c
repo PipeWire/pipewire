@@ -156,7 +156,7 @@ static int spa_proxy_node_enum_params(struct spa_node *node,
 				      struct spa_pod_builder *builder)
 {
 	struct proxy *this;
-	uint32_t offset;
+	struct spa_pod_builder_state state;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
@@ -164,7 +164,7 @@ static int spa_proxy_node_enum_params(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
 
-	offset = builder->offset;
+	spa_pod_builder_get_state(builder, &state);
 
 	while (true) {
 		struct spa_pod_object *param;
@@ -180,7 +180,7 @@ static int spa_proxy_node_enum_params(struct spa_node *node,
 		if (spa_pod_filter(builder, &param->pod, &filter->pod) == 0)
 			break;
 
-		spa_pod_builder_reset(builder, offset);
+		spa_pod_builder_reset(builder, &state);
 	}
 	return 1;
 }
@@ -456,7 +456,7 @@ spa_proxy_node_port_enum_params(struct spa_node *node,
 {
 	struct proxy *this;
 	struct proxy_port *port;
-	uint32_t offset;
+	struct spa_pod_builder_state state;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
@@ -468,7 +468,8 @@ spa_proxy_node_port_enum_params(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	offset = builder->offset;
+	spa_pod_builder_get_state(builder, &state);
+
 	while (true) {
 		struct spa_pod_object *param;
 
@@ -483,7 +484,7 @@ spa_proxy_node_port_enum_params(struct spa_node *node,
 		if (spa_pod_filter(builder, &param->pod, &filter->pod) == 0)
 			break;
 
-		spa_pod_builder_reset(builder, offset);
+		spa_pod_builder_reset(builder, &state);
 	}
 	return 1;
 }

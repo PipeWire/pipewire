@@ -531,10 +531,10 @@ handle_audio_fields (ConvertData *d)
 static uint32_t
 write_pod (struct spa_pod_builder *b, const void *data, uint32_t size)
 {
-  uint32_t ref = b->offset;
+  uint32_t ref = b->state.offset;
 
-  if (b->size <= b->offset) {
-    b->size = SPA_ROUND_UP_N (b->offset + size, 512);
+  if (b->size <= ref) {
+    b->size = SPA_ROUND_UP_N (ref + size, 512);
     b->data = realloc (b->data, b->size);
     if (b->data == NULL)
 	    return -1;

@@ -176,7 +176,7 @@ static int impl_node_enum_params(struct spa_node *node,
 	struct impl *this;
 	struct type *t;
 	struct spa_pod *param;
-	uint32_t offset;
+	struct spa_pod_builder_state state;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
@@ -185,7 +185,7 @@ static int impl_node_enum_params(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	t = &this->type;
 
-	offset = builder->offset;
+	spa_pod_builder_get_state(builder, &state);
 
       next:
 	if (id == t->param.idList) {
@@ -212,7 +212,7 @@ static int impl_node_enum_params(struct spa_node *node,
 
 	(*index)++;
 
-	spa_pod_builder_reset(builder, offset);
+	spa_pod_builder_reset(builder, &state);
 	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
 		goto next;
 
@@ -520,7 +520,7 @@ static int impl_node_port_enum_params(struct spa_node *node,
 	struct port *port;
 	struct type *t;
 	struct spa_pod *param;
-	uint32_t offset;
+	struct spa_pod_builder_state state;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
@@ -534,7 +534,7 @@ static int impl_node_port_enum_params(struct spa_node *node,
 
 	port = &this->out_ports[port_id];
 
-	offset = builder->offset;
+	spa_pod_builder_get_state(builder, &state);
 
      next:
 	if (id == t->param.idList) {
@@ -587,7 +587,7 @@ static int impl_node_port_enum_params(struct spa_node *node,
 
 	(*index)++;
 
-	spa_pod_builder_reset(builder, offset);
+	spa_pod_builder_reset(builder, &state);
 	if (spa_pod_filter(builder, param, (struct spa_pod*)filter) < 0)
 		goto next;
 

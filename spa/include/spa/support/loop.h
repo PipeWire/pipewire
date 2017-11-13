@@ -67,8 +67,6 @@ typedef int (*spa_invoke_func_t) (struct spa_loop *loop,
 				  void *user_data);
 
 /**
- * spa_loop:
- *
  * Register sources and work items to an event loop
  */
 struct spa_loop {
@@ -114,8 +112,6 @@ struct spa_loop_control_hooks {
 };
 
 /**
- * spa_loop_control:
- *
  * Control an event loop
  */
 struct spa_loop_control {
@@ -154,8 +150,6 @@ typedef void (*spa_source_timer_func_t) (void *data, uint64_t expirations);
 typedef void (*spa_source_signal_func_t) (void *data, int signal_number);
 
 /**
- * struct spa_loop_utils:
- *
  * Create sources for an event loop
  */
 struct spa_loop_utils {

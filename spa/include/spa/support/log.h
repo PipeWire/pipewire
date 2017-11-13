@@ -41,40 +41,33 @@ enum spa_log_level {
 };
 
 /**
- * struct spa_log:
- *
  * The Log interface
  */
 struct spa_log {
-	/* the version of this log. This can be used to expand this
+	/** the version of this log. This can be used to expand this
 	 * structure in the future */
 #define SPA_VERSION_LOG	0
 	uint32_t version;
 	/**
-	 * struct spa_log::info
-	 *
 	 * Extra information about the log
 	 */
 	const struct spa_dict *info;
 
 	/**
-	 * struct spa_log::level
-	 *
 	 * Logging level, everything above this level is not logged
 	 */
 	enum spa_log_level level;
 
 	/**
-	 * struct spa_log::log
-	 * @log: a #struct spa_log
-	 * @level: a #enum spa_log_level
-	 * @file: the file name
-	 * @line: the line number
-	 * @func: the function name
-	 * @fmt: printf style format
-	 * @...: format arguments
-	 *
 	 * Log a message with the given log level.
+	 *
+	 * \param log a spa_log
+	 * \param level a spa_log_level
+	 * \param file the file name
+	 * \param line the line number
+	 * \param func the function name
+	 * \param fmt printf style format
+	 * \param ... format arguments
 	 */
 	void (*log) (struct spa_log *log,
 		     enum spa_log_level level,
@@ -84,16 +77,15 @@ struct spa_log {
 		     const char *fmt, ...) SPA_PRINTF_FUNC(6, 7);
 
 	/**
-	 * struct spa_log::logv
-	 * @log: a #struct spa_log
-	 * @level: a #enum spa_log_level
-	 * @file: the file name
-	 * @line: the line number
-	 * @func: the function name
-	 * @fmt: printf style format
-	 * @args: format arguments
-	 *
 	 * Log a message with the given log level.
+	 *
+	 * \param log a spa_log
+	 * \param level a spa_log_level
+	 * \param file the file name
+	 * \param line the line number
+	 * \param func the function name
+	 * \param fmt printf style format
+	 * \param args format arguments
 	 */
 	void (*logv) (struct spa_log *log,
 		      enum spa_log_level level,

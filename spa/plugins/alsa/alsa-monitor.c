@@ -68,9 +68,6 @@ struct impl {
 	uint32_t index;
 	struct udev_list_entry *devices;
 
-//	uint8_t item_buffer[4096];
-//	struct spa_monitor_item *item;
-
 	snd_ctl_t *ctl_hndl;
 	struct udev_device *dev;
 	char card_name[16];

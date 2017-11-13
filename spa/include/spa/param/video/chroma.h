@@ -24,8 +24,7 @@
 extern "C" {
 #endif
 
-/**
- * spa_video_chroma_site:
+/** Various Chroma sitings.
  * @SPA_VIDEO_CHROMA_SITE_UNKNOWN: unknown cositing
  * @SPA_VIDEO_CHROMA_SITE_NONE: no cositing
  * @SPA_VIDEO_CHROMA_SITE_H_COSITED: chroma is horizontally cosited
@@ -35,8 +34,6 @@ extern "C" {
  * @SPA_VIDEO_CHROMA_SITE_JPEG: jpeg style cositing, also for mpeg1 and mjpeg
  * @SPA_VIDEO_CHROMA_SITE_MPEG2: mpeg2 style cositing
  * @SPA_VIDEO_CHROMA_SITE_DV: DV style cositing
- *
- * Various Chroma sitings.
  */
 enum spa_video_chroma_site {
 	SPA_VIDEO_CHROMA_SITE_UNKNOWN = 0,

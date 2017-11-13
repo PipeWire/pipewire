@@ -137,21 +137,14 @@ configure_file(input : 'Makefile.in',
   configuration : makedata)
 
 # Find dependencies
-glib_dep = dependency('glib-2.0', version : '>=2.32.0')
-gobject_dep = dependency('gobject-2.0')
-gmodule_dep = dependency('gmodule-2.0')
-gio_dep = [dependency('gio-2.0'), dependency('gio-unix-2.0')]
-jack_dep = dependency('jack', version : '>= 1.9.10', required : false)
-mathlib = cc.find_library('m', required : false)
-rt_lib = cc.find_library('rt', required : false) # clock_gettime
-dl_lib = cc.find_library('dl', required : false)
+mathlib = cc.find_library('m', required : true)
+rt_lib = cc.find_library('rt', required : true) # clock_gettime
+dl_lib = cc.find_library('dl', required : true)
 pthread_lib = cc.find_library('pthread', required : true)
 dbus_dep = dependency('dbus-1')
-gst_dep = [dependency('gstreamer-1.0'),
-           dependency('gstreamer-plugins-base-1.0'),
-           dependency('gstreamer-video-1.0'),
-           dependency('gstreamer-audio-1.0'),
-           dependency('gstreamer-allocators-1.0'),]
+
+#optional dependencies
+jack_dep = dependency('jack', version : '>= 1.9.10', required : false)
 
 subdir('spa')
 subdir('src')
@@ -169,4 +162,16 @@ if get_option('enable_man')
   if xmltoman.found()
     subdir('man')
   endif
+endif
+
+if get_option('enable_gstreamer')
+  glib_dep = dependency('glib-2.0', version : '>=2.32.0')
+  gobject_dep = dependency('gobject-2.0')
+  gmodule_dep = dependency('gmodule-2.0')
+  gio_dep = [dependency('gio-2.0'), dependency('gio-unix-2.0')]
+  gst_dep = [dependency('gstreamer-1.0'),
+             dependency('gstreamer-plugins-base-1.0'),
+             dependency('gstreamer-video-1.0'),
+             dependency('gstreamer-audio-1.0'),
+             dependency('gstreamer-allocators-1.0'),]
 endif

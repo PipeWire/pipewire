@@ -6,3 +6,7 @@ option('enable_man',
        description: 'Build manpages',
        type: 'boolean',
        value: false)
+option('enable_gstreamer',
+       description: 'Build GStreamer plugins',
+       type: 'boolean',
+       value: false)

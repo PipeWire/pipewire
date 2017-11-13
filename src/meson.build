@@ -4,5 +4,8 @@ subdir('extensions')
 subdir('daemon')
 subdir('tools')
 subdir('modules')
-subdir('gst')
 subdir('examples')
+
+if get_option('enable_gstreamer')
+  subdir('gst')
+endif

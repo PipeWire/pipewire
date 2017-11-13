@@ -348,7 +348,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 									2, &SPA_RECTANGLE(0,1),
 									   &SPA_RECTANGLE(30,1),
 			NULL);
-		params[0] = spa_pod_builder_pop_deref(&b);
+		params[0] = spa_pod_builder_pop(&b);
 
 		printf("supported formats:\n");
 		spa_debug_pod(&params[0]->pod, SPA_DEBUG_FLAG_FORMAT);

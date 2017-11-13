@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
 	spa_pod_builder_raw(&b, rate_min_max, sizeof(rate_min_max));
 	spa_pod_builder_pop(&b);
 
-	fmt = spa_pod_builder_pop_deref(&b);
+	fmt = spa_pod_builder_pop(&b);
 
 	spa_debug_pod(&fmt->pod, 0);
 

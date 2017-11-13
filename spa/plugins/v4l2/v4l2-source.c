@@ -503,7 +503,7 @@ static int port_get_format(struct spa_node *node,
 	} else
 		return -EIO;
 
-	*param = spa_pod_builder_pop_deref(builder);
+	*param = spa_pod_builder_pop(builder);
 
 	return 1;
 }

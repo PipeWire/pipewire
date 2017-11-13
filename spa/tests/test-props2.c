@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 	spa_pod_builder_pop(&b);
 	spa_pod_builder_pop(&b);
 	spa_pod_builder_pop(&b);
-	obj = spa_pod_builder_pop_deref(&b);
+	obj = spa_pod_builder_pop(&b);
 
 	spa_debug_pod(obj, 0);
 

@@ -390,7 +390,7 @@ handle_video_fields (ConvertData *d)
       if (idx < SPA_N_ELEMENTS (video_format_map))
         spa_pod_builder_id (&d->b, *video_format_map[idx]);
     }
-    prop = spa_pod_builder_pop_deref(&d->b);
+    prop = spa_pod_builder_pop(&d->b);
     if (i > 1)
       prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
@@ -406,7 +406,7 @@ handle_video_fields (ConvertData *d)
 
       spa_pod_builder_rectangle (&d->b, v.width, v.height);
     }
-    prop = spa_pod_builder_pop_deref(&d->b);
+    prop = spa_pod_builder_pop(&d->b);
     if (i > 1)
       prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
@@ -422,7 +422,7 @@ handle_video_fields (ConvertData *d)
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
     }
-    prop = spa_pod_builder_pop_deref(&d->b);
+    prop = spa_pod_builder_pop(&d->b);
     if (i > 1)
       prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
@@ -438,7 +438,7 @@ handle_video_fields (ConvertData *d)
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
     }
-    prop = spa_pod_builder_pop_deref(&d->b);
+    prop = spa_pod_builder_pop(&d->b);
     if (i > 1)
       prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
@@ -466,7 +466,7 @@ handle_audio_fields (ConvertData *d)
       if (idx < SPA_N_ELEMENTS (audio_format_map))
         spa_pod_builder_id (&d->b, *audio_format_map[idx]);
     }
-    prop = spa_pod_builder_pop_deref(&d->b);
+    prop = spa_pod_builder_pop(&d->b);
     if (i > 1)
       prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
@@ -491,7 +491,7 @@ handle_audio_fields (ConvertData *d)
 
       spa_pod_builder_int (&d->b, layout);
     }
-    prop = spa_pod_builder_pop_deref(&d->b);
+    prop = spa_pod_builder_pop(&d->b);
     if (i > 1)
       prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
@@ -506,7 +506,7 @@ handle_audio_fields (ConvertData *d)
 
       spa_pod_builder_int (&d->b, v);
     }
-    prop = spa_pod_builder_pop_deref(&d->b);
+    prop = spa_pod_builder_pop(&d->b);
     if (i > 1)
       prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
@@ -521,7 +521,7 @@ handle_audio_fields (ConvertData *d)
 
       spa_pod_builder_int (&d->b, v);
     }
-    prop = spa_pod_builder_pop_deref(&d->b);
+    prop = spa_pod_builder_pop(&d->b);
     if (i > 1)
       prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
   }
@@ -536,6 +536,8 @@ write_pod (struct spa_pod_builder *b, const void *data, uint32_t size)
   if (b->size <= b->offset) {
     b->size = SPA_ROUND_UP_N (b->offset + size, 512);
     b->data = realloc (b->data, b->size);
+    if (b->data == NULL)
+	    return -1;
   }
   memcpy (b->data + ref, data, size);
   return ref;

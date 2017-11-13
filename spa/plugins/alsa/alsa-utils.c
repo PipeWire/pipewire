@@ -189,7 +189,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	}
 	spa_pod_builder_pop(&b);
 
-	fmt = spa_pod_builder_pop_deref(&b);
+	fmt = spa_pod_builder_pop(&b);
 
 	(*index)++;
 

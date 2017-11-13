@@ -67,10 +67,16 @@ static inline void spa_pod_builder_init(struct spa_pod_builder *builder, void *d
 static inline void *
 spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t ref)
 {
-	if (builder->deref)
+	if (ref == -1)
+		return NULL;
+	else if (builder->deref)
 		return builder->deref(builder, ref);
-	else
-		return SPA_MEMBER(builder->data, ref, void);
+	else if (ref + 8 <= builder->size) {
+		struct spa_pod *pod = SPA_MEMBER(builder->data, ref, struct spa_pod);
+		if (SPA_POD_SIZE(pod) <= builder->size)
+			return pod;
+	}
+	return NULL;
 }
 
 static inline uint32_t
@@ -126,24 +132,22 @@ spa_pod_builder_raw_padded(struct spa_pod_builder *builder, const void *data, ui
 	return ref;
 }
 
-static inline uint32_t spa_pod_builder_pop(struct spa_pod_builder *builder)
+static inline void *spa_pod_builder_pop(struct spa_pod_builder *builder)
 {
-	struct spa_pod_frame *frame = &builder->frame[--builder->depth], *top;
+	struct spa_pod_frame *frame, *top;
+	struct spa_pod *pod;
 
-	if (frame->ref != -1) {
-		struct spa_pod *pod = spa_pod_builder_deref(builder, frame->ref);
+	frame = &builder->frame[--builder->depth];
+	if ((pod = spa_pod_builder_deref(builder, frame->ref)) != NULL)
 		*pod = frame->pod;
-	}
+
 	top = builder->depth > 0 ? &builder->frame[builder->depth-1] : NULL;
 	builder->in_array = (top && (top->pod.type == SPA_POD_TYPE_ARRAY ||
 				     top->pod.type == SPA_POD_TYPE_PROP));
 	spa_pod_builder_pad(builder, builder->offset);
 
-	return frame->ref;
+	return pod;
 }
-
-#define spa_pod_builder_pop_deref(b)				\
-	spa_pod_builder_deref((b), spa_pod_builder_pop(b))
 
 static inline uint32_t
 spa_pod_builder_primitive(struct spa_pod_builder *builder, const struct spa_pod *p)

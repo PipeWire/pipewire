@@ -247,7 +247,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 							       max_buffers ? max_buffers : INT32_MAX),
       ":", t->param_buffers.align,   "i", 16,
       NULL);
-  port_params[0] = spa_pod_builder_pop_deref (&b);
+  port_params[0] = spa_pod_builder_pop (&b);
 
   port_params[1] = spa_pod_builder_object (&b,
       t->param.idMeta, t->param_meta.Meta,

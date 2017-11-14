@@ -119,7 +119,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	int err, i, j, dir;
 	unsigned int min, max;
 	uint8_t buffer[4096];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct spa_pod_builder b = { 0 };
 	struct spa_pod_prop *prop;
 	struct spa_pod *fmt;
 	int res;
@@ -130,6 +130,8 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 		return err;
 
       next:
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
 	if (*index > 0)
 		return 0;
 

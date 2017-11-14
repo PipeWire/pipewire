@@ -277,29 +277,30 @@ spa_ffmpeg_dec_node_port_enum_params(struct spa_node *node,
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct type *t = &this->type;
-	struct spa_pod_builder_state state;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
 	struct spa_pod *param;
 	int res;
 
-	spa_pod_builder_get_state(builder, &state);
-
       next:
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
 	if (id == t->param.idList) {
 		uint32_t list[] = { t->param.idEnumFormat,
 				    t->param.idFormat };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(builder, id, t->param.List,
+			param = spa_pod_builder_object(&b, id, t->param.List,
 				":", t->param.listId, "I", list[*index]);
 		else
 			return 0;
 	}
 	else if (id == t->param.idEnumFormat) {
-		if ((res = port_enum_formats(node, direction, port_id, index, filter, &param, builder)) <= 0)
+		if ((res = port_enum_formats(node, direction, port_id, index, filter, &param, &b)) <= 0)
 			return res;
 	}
 	else if (id == t->param.idFormat) {
-		if ((res = port_get_format(node, direction, port_id, index, filter, &param, builder)) <= 0)
+		if ((res = port_get_format(node, direction, port_id, index, filter, &param, &b)) <= 0)
 			return res;
 	}
 	else
@@ -307,7 +308,6 @@ spa_ffmpeg_dec_node_port_enum_params(struct spa_node *node,
 
 	(*index)++;
 
-	spa_pod_builder_reset(builder, &state);
 	if (spa_pod_filter(builder, result, param, filter) < 0)
 		goto next;
 

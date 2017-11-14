@@ -295,10 +295,8 @@ filter_prop(struct spa_pod_builder *b,
 }
 
 int pod_filter(struct spa_pod_builder *b,
-	       const struct spa_pod *pod,
-	       uint32_t pod_size,
-	       const struct spa_pod *filter,
-	       uint32_t filter_size)
+	       const struct spa_pod *pod, uint32_t pod_size,
+	       const struct spa_pod *filter, uint32_t filter_size)
 {
 	const struct spa_pod *pp, *pf, *tmp;
 	int res = 0;
@@ -306,42 +304,24 @@ int pod_filter(struct spa_pod_builder *b,
 	pf = filter;
 
 	SPA_POD_FOREACH_SAFE(pod, pod_size, pp, tmp) {
-		bool do_copy = false, do_filter = false, do_advance = false;
-		void *pc, *fc;
-		uint32_t pcs, fcs;
+		bool do_copy = false, do_advance = false;
+		uint32_t filter_offset = 0;
 
 		switch (SPA_POD_TYPE(pp)) {
 		case SPA_POD_TYPE_STRUCT:
-			if (pf != NULL) {
-				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE_STRUCT)
-					return -EINVAL;
-
-				pc = SPA_POD_CONTENTS(struct spa_pod_struct, pp);
-				pcs = SPA_POD_CONTENTS_SIZE(struct spa_pod_struct, pp);
-				fc = SPA_POD_CONTENTS(struct spa_pod_struct, pf);
-				fcs = SPA_POD_CONTENTS_SIZE(struct spa_pod_struct, pf);
-
-			        spa_pod_builder_push_struct(b);
-				do_filter = true;
-				do_advance = true;
-			}
-			else
-				do_copy = true;
-			break;
 		case SPA_POD_TYPE_OBJECT:
 			if (pf != NULL) {
-				struct spa_pod_object *p1 = (struct spa_pod_object *) pp;
-
-				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE_OBJECT)
+				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE(pp))
 					return -EINVAL;
 
-				pc = SPA_POD_CONTENTS(struct spa_pod_object, pp);
-				pcs = SPA_POD_CONTENTS_SIZE(struct spa_pod_object, pp);
-				fc = SPA_POD_CONTENTS(struct spa_pod_object, pf);
-				fcs = SPA_POD_CONTENTS_SIZE(struct spa_pod_object, pf);
-
-			        spa_pod_builder_push_object(b, p1->body.id, p1->body.type);
-				do_filter = true;
+				if (SPA_POD_TYPE(pp) == SPA_POD_TYPE_STRUCT) {
+					filter_offset = sizeof(struct spa_pod_struct);
+					spa_pod_builder_push_struct(b);
+				} else {
+					struct spa_pod_object *p1 = (struct spa_pod_object *) pp;
+					filter_offset = sizeof(struct spa_pod_object);
+					spa_pod_builder_push_object(b, p1->body.id, p1->body.type);
+				}
 				do_advance = true;
 			}
 			else
@@ -374,8 +354,12 @@ int pod_filter(struct spa_pod_builder *b,
 		}
 		if (do_copy)
 			spa_pod_builder_raw_padded(b, pp, SPA_POD_SIZE(pp));
-		else if (do_filter) {
-			res = pod_filter(b, pc, pcs, fc, fcs);
+		else if (filter_offset) {
+			res = pod_filter(b,
+					SPA_MEMBER(pp,filter_offset,void),
+					SPA_POD_SIZE(pp) - filter_offset,
+					SPA_MEMBER(pf,filter_offset,void),
+					SPA_POD_SIZE(pf) - filter_offset);
 		        spa_pod_builder_pop(b);
 		}
 		if (do_advance) {
@@ -397,7 +381,7 @@ spa_pod_filter(struct spa_pod_builder *b,
 	       const struct spa_pod *filter)
 {
 	int res;
-	uint32_t offset;
+	struct spa_pod_builder_state state;
 
         spa_return_val_if_fail(pod != NULL, -EINVAL);
         spa_return_val_if_fail(b != NULL, -EINVAL);
@@ -408,18 +392,17 @@ spa_pod_filter(struct spa_pod_builder *b,
 		return 0;
 	}
 
-	offset = b->state.offset;
-
-	if ((res = pod_filter(b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter))) == 0)
-		*result = spa_pod_builder_deref(b, offset);
+	spa_pod_builder_get_state(b, &state);
+	if ((res = pod_filter(b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter))) < 0)
+		spa_pod_builder_reset(b, &state);
+	else
+		*result = spa_pod_builder_deref(b, state.offset);
 
 	return res;
 }
 
-int pod_compare(const struct spa_pod *pod1,
-		uint32_t pod1_size,
-		const struct spa_pod *pod2,
-		uint32_t pod2_size)
+int pod_compare(const struct spa_pod *pod1, uint32_t pod1_size,
+		const struct spa_pod *pod2, uint32_t pod2_size)
 {
 	const struct spa_pod *p1, *p2;
 	int res;
@@ -427,40 +410,29 @@ int pod_compare(const struct spa_pod *pod1,
 	p2 = pod2;
 
 	SPA_POD_FOREACH(pod1, pod1_size, p1) {
-		bool do_recurse = false, do_advance = true;
-		void *a1, *a2;
-		void *p1c, *p2c;
-		uint32_t p1cs, p2cs;
+		bool do_advance = true;
+		uint32_t recurse_offset = 0;
 
 		if (p2 == NULL)
 			return -EINVAL;
 
 		switch (SPA_POD_TYPE(p1)) {
 		case SPA_POD_TYPE_STRUCT:
-			if (SPA_POD_TYPE(p2) != SPA_POD_TYPE_STRUCT)
-				return -EINVAL;
-
-			p1c = SPA_POD_CONTENTS(struct spa_pod_struct, p1);
-			p1cs = SPA_POD_CONTENTS_SIZE(struct spa_pod_struct, p1);
-			p2c = SPA_POD_CONTENTS(struct spa_pod_struct, p2);
-			p2cs = SPA_POD_CONTENTS_SIZE(struct spa_pod_struct, p2);
-			do_recurse = true;
-			do_advance = true;
-			break;
 		case SPA_POD_TYPE_OBJECT:
-			if (SPA_POD_TYPE(p2) != SPA_POD_TYPE_OBJECT)
+			if (SPA_POD_TYPE(p2) != SPA_POD_TYPE(p1))
 				return -EINVAL;
 
-			p1c = SPA_POD_CONTENTS(struct spa_pod_object, p1);
-			p1cs = SPA_POD_CONTENTS_SIZE(struct spa_pod_object, p1);
-			p2c = SPA_POD_CONTENTS(struct spa_pod_object, p2);
-			p2cs = SPA_POD_CONTENTS_SIZE(struct spa_pod_object, p2);
-			do_recurse = true;
+			if (SPA_POD_TYPE(p1) == SPA_POD_TYPE_STRUCT)
+				recurse_offset = sizeof(struct spa_pod_struct);
+			else
+				recurse_offset = sizeof(struct spa_pod_object);
+
 			do_advance = true;
 			break;
 		case SPA_POD_TYPE_PROP:
 		{
 			struct spa_pod_prop *pr1, *pr2;
+			void *a1, *a2;
 
 			pr1 = (struct spa_pod_prop *) p1;
 			pr2 = find_prop(pod2, pod2_size, pr1->body.key);
@@ -495,8 +467,11 @@ int pod_compare(const struct spa_pod *pod1,
 			if (!spa_pod_is_inside(pod2, pod2_size, p2))
 				p2 = NULL;
 		}
-		if (do_recurse) {
-			res = pod_compare(p1c, p1cs, p2c, p2cs);
+		if (recurse_offset) {
+			res = pod_compare(SPA_MEMBER(p1,recurse_offset,void),
+					  SPA_POD_SIZE(p1) - recurse_offset,
+					  SPA_MEMBER(p2,recurse_offset,void),
+					  SPA_POD_SIZE(p2) - recurse_offset);
 		}
 		if (res != 0)
 			return res;

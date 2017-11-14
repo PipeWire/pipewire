@@ -157,15 +157,12 @@ static int spa_proxy_node_enum_params(struct spa_node *node,
 				      struct spa_pod_builder *builder)
 {
 	struct proxy *this;
-	struct spa_pod_builder_state state;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
 	spa_return_val_if_fail(builder != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
-
-	spa_pod_builder_get_state(builder, &state);
 
 	while (true) {
 		struct spa_pod *param;
@@ -180,8 +177,6 @@ static int spa_proxy_node_enum_params(struct spa_node *node,
 
 		if (spa_pod_filter(builder, result, param, filter) == 0)
 			break;
-
-		spa_pod_builder_reset(builder, &state);
 	}
 	return 1;
 }
@@ -458,7 +453,6 @@ spa_proxy_node_port_enum_params(struct spa_node *node,
 {
 	struct proxy *this;
 	struct proxy_port *port;
-	struct spa_pod_builder_state state;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
@@ -469,8 +463,6 @@ spa_proxy_node_port_enum_params(struct spa_node *node,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
-
-	spa_pod_builder_get_state(builder, &state);
 
 	while (true) {
 		struct spa_pod *param;
@@ -485,8 +477,6 @@ spa_proxy_node_port_enum_params(struct spa_node *node,
 
 		if (spa_pod_filter(builder, result, param, filter) == 0)
 			break;
-
-		spa_pod_builder_reset(builder, &state);
 	}
 	return 1;
 }

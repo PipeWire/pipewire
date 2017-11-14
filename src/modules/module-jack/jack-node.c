@@ -449,18 +449,19 @@ static int port_enum_params(struct spa_node *node,
 	struct node_data *nd = SPA_CONTAINER_OF(node, struct node_data, node_impl);
 	struct type *t = &nd->type;
 	struct spa_pod *param;
-	struct spa_pod_builder_state state;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
 	int res;
 
-	spa_pod_builder_get_state(builder, &state);
-
       next:
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
 	if (id == t->param.idEnumFormat) {
-		if ((res = port_enum_formats(node, direction, port_id, index, filter, &param, builder)) <= 0)
+		if ((res = port_enum_formats(node, direction, port_id, index, filter, &param, &b)) <= 0)
 			return res;
 	}
 	else if (id == t->param.idFormat) {
-		if ((res = port_enum_formats(node, direction, port_id, index, filter, &param, builder)) <= 0)
+		if ((res = port_enum_formats(node, direction, port_id, index, filter, &param, &b)) <= 0)
 			return res;
 	}
 	else
@@ -468,7 +469,6 @@ static int port_enum_params(struct spa_node *node,
 
 	(*index)++;
 
-	spa_pod_builder_reset(builder, &state);
         if ((res = spa_pod_filter(builder, result, param, filter)) < 0)
                 goto next;
 

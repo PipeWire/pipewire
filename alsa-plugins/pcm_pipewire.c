@@ -204,12 +204,13 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct buffer *b)
 	const snd_pcm_channel_area_t *areas;
 	snd_pcm_channel_area_t *pwareas;
 	snd_pcm_uframes_t xfer = 0;
-	unsigned int channel, bps;
+	unsigned int channel, bps, bpf;
 	snd_pcm_uframes_t nframes;
 	uint32_t index = 0, nbytes, maxsize, avail;
 	void *ptr;
 
 	bps = io->channels * pw->sample_bits;
+	bpf = bps / 8;
 
 	pwareas = alloca(io->channels * sizeof(snd_pcm_channel_area_t));
 
@@ -219,23 +220,24 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct buffer *b)
 		int32_t filled;
                 uint32_t offset;
 
-                filled = spa_ringbuffer_get_write_index(&b->rb->ringbuffer, &index);
-                avail = b->rb->ringbuffer.size - filled;
+		filled = spa_ringbuffer_get_write_index(&b->rb->ringbuffer, &index);
+		avail = b->rb->ringbuffer.size - filled;
 		offset = index % b->rb->ringbuffer.size;
-                nbytes = SPA_MIN(avail, b->rb->ringbuffer.size - offset);
-                nbytes = SPA_MIN(nbytes, pw->min_avail);
+		avail = SPA_MIN(avail, b->rb->ringbuffer.size - offset);
+		avail = SPA_MIN(avail, pw->min_avail * bpf);
+		nbytes = avail;
 
 		ptr = SPA_MEMBER(b->ptr, offset, void);
 		pw_log_trace("%d %d %d %d %p", nbytes, avail, filled, offset, ptr);
 	}
 	else {
 		avail = b->buffer->datas[0].chunk->size;
+		avail = SPA_MIN(avail, pw->min_avail * bpf);
 		maxsize = b->buffer->datas[0].maxsize;
-                nbytes = SPA_MIN(avail, maxsize);
+		nbytes = SPA_MIN(avail, maxsize);
 		ptr = b->ptr;
 	}
-	nframes = nbytes / (bps / 8);
-	nframes = SPA_MIN(nframes, pw->min_avail);
+	nframes = nbytes / bpf;
 
 	for (channel = 0; channel < io->channels; channel++) {
 		pwareas[channel].addr = ptr;

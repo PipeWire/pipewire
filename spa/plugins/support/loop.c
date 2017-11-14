@@ -210,7 +210,6 @@ loop_invoke(struct spa_loop *loop,
 	} else {
 		int32_t filled, avail;
 		uint32_t idx, offset, l0;
-		uint64_t count = 1;
 
 		filled = spa_ringbuffer_get_write_index(&impl->buffer, &idx);
 		if (filled < 0 || filled > impl->buffer.size) {
@@ -249,9 +248,11 @@ loop_invoke(struct spa_loop *loop,
 		spa_loop_utils_signal_event(&impl->utils, impl->wakeup);
 
 		if (block) {
+			uint64_t count = 1;
 			if (read(impl->ack_fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
 				spa_log_warn(impl->log, NAME " %p: failed to read event fd: %s",
 						impl, strerror(errno));
+
 			res = item->res;
 		}
 		else {

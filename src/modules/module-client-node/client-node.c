@@ -683,7 +683,7 @@ spa_proxy_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32
 	spa_log_trace(this->log, "reuse buffer %d", buffer_id);
 
 	pw_client_node_transport_add_message(impl->transport, (struct pw_client_node_message *)
-			&PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER_INIT(port_id, buffer_id));
+			&PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER_INIT(port_id, buffer_id));
 
 	return 0;
 }
@@ -694,14 +694,27 @@ spa_proxy_node_port_send_command(struct spa_node *node,
 				 uint32_t port_id, const struct spa_command *command)
 {
 	struct proxy *this;
+	struct impl *impl;
+	struct pw_type *t;
 
 	if (node == NULL || command == NULL)
 		return -EINVAL;
 
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
 
-	spa_log_warn(this->log, "unhandled command %d", SPA_COMMAND_TYPE(command));
-	return -ENOTSUP;
+	if (this->resource == NULL)
+		return 0;
+
+	impl = this->impl;
+	t = impl->t;
+
+	spa_log_trace(this->log, "send command %s",
+			spa_type_map_get_type(t->map, SPA_COMMAND_TYPE(command)));
+
+	pw_client_node_resource_port_command(this->resource,
+					     direction, port_id,
+					     command);
+	return 0;
 }
 
 static int spa_proxy_node_process_input(struct spa_node *node)
@@ -783,27 +796,37 @@ static int handle_node_message(struct proxy *this, struct pw_client_node_message
 
 	n = &impl->this.node->rt.node;
 
-	if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT) {
+	switch (PW_CLIENT_NODE_MESSAGE_TYPE(message)) {
+	case PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT:
 		spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link) {
 			*p->io = impl->transport->outputs[p->port_id];
 			pw_log_trace("have output %d %d", p->io->status, p->io->buffer_id);
 		}
 		impl->out_pending = false;
 		this->callbacks->have_output(this->callbacks_data);
-	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_NEED_INPUT) {
+		break;
+
+	case PW_CLIENT_NODE_MESSAGE_NEED_INPUT:
 		spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
 			*p->io = impl->transport->inputs[p->port_id];
 			pw_log_trace("need input %d %d", p->io->status, p->io->buffer_id);
 		}
 		impl->input_ready++;
 		this->callbacks->need_input(this->callbacks_data);
-	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {
+		break;
+
+	case PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER:
 		if (impl->client_reuse) {
-			struct pw_client_node_message_reuse_buffer *p =
-			    (struct pw_client_node_message_reuse_buffer *) message;
+			struct pw_client_node_message_port_reuse_buffer *p =
+			    (struct pw_client_node_message_port_reuse_buffer *) message;
 			this->callbacks->reuse_buffer(this->callbacks_data, p->body.port_id.value,
 						     p->body.buffer_id.value);
 		}
+		break;
+
+	default:
+		pw_log_warn("unhandled message %d", PW_CLIENT_NODE_MESSAGE_TYPE(message));
+		return -ENOTSUP;
 	}
 	return 0;
 }

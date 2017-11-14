@@ -108,15 +108,15 @@ struct pw_client_node_transport {
 #define pw_client_node_transport_parse_message(t,m)	((t)->parse_message((t), (m)))
 
 enum pw_client_node_message_type {
-	PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT,
-	PW_CLIENT_NODE_MESSAGE_NEED_INPUT,
-	PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER,
-	PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT,
-	PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT,
+	PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT,		/*< signal that the node has output */
+	PW_CLIENT_NODE_MESSAGE_NEED_INPUT,		/*< signal that the node needs input */
+	PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT,		/*< instruct the node to process input */
+	PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT,		/*< instruct the node output is processed */
+	PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER,	/*< reuse a buffer */
 };
 
 struct pw_client_node_message_body {
-	struct spa_pod_int type		SPA_ALIGNED(8);
+	struct spa_pod_int type		SPA_ALIGNED(8);	/*< one of enum pw_client_node_message_type */
 };
 
 struct pw_client_node_message {
@@ -124,15 +124,15 @@ struct pw_client_node_message {
 	struct pw_client_node_message_body body;
 };
 
-struct pw_client_node_message_reuse_buffer_body {
-	struct spa_pod_int type		SPA_ALIGNED(8);
-	struct spa_pod_int port_id	SPA_ALIGNED(8);
-	struct spa_pod_int buffer_id	SPA_ALIGNED(8);
+struct pw_client_node_message_port_reuse_buffer_body {
+	struct spa_pod_int type		SPA_ALIGNED(8);	/*< PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER */
+	struct spa_pod_int port_id	SPA_ALIGNED(8);	/*< port id */
+	struct spa_pod_int buffer_id	SPA_ALIGNED(8); /*< buffer id to reuse */
 };
 
-struct pw_client_node_message_reuse_buffer {
+struct pw_client_node_message_port_reuse_buffer {
 	struct spa_pod_struct pod;
-	struct pw_client_node_message_reuse_buffer_body body;
+	struct pw_client_node_message_port_reuse_buffer_body body;
 };
 
 #define PW_CLIENT_NODE_MESSAGE_TYPE(message)	(((struct pw_client_node_message*)(message))->body.type.value)
@@ -145,13 +145,12 @@ struct pw_client_node_message_reuse_buffer {
 	{ { { size, SPA_POD_TYPE_STRUCT } },						\
 	  { SPA_POD_INT_INIT(message), __VA_ARGS__ } }					\
 
-#define PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER_INIT(port_id,buffer_id)			\
-	PW_CLIENT_NODE_MESSAGE_INIT_VA(struct pw_client_node_message_reuse_buffer,	\
-		sizeof(struct pw_client_node_message_reuse_buffer_body),		\
-		PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER,					\
+#define PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER_INIT(port_id,buffer_id)		\
+	PW_CLIENT_NODE_MESSAGE_INIT_VA(struct pw_client_node_message_port_reuse_buffer,	\
+		sizeof(struct pw_client_node_message_port_reuse_buffer_body),		\
+		PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER,				\
 		SPA_POD_INT_INIT(port_id),						\
 		SPA_POD_INT_INIT(buffer_id))
-
 
 /** information about a buffer */
 struct pw_client_node_buffer {
@@ -434,7 +433,6 @@ struct pw_client_node_proxy_events {
 			      enum spa_direction direction,
 			      uint32_t port_id,
 			      const struct spa_command *command);
-
 };
 
 static inline void

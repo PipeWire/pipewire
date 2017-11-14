@@ -457,7 +457,7 @@ static inline void send_reuse_buffer(struct pw_stream *stream, uint32_t id)
 	uint64_t cmd = 1;
 
 	pw_client_node_transport_add_message(impl->trans, (struct pw_client_node_message*)
-			       &PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER_INIT(impl->port_id, id));
+			       &PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER_INIT(impl->port_id, id));
 	write(impl->rtwritefd, &cmd, 8);
 }
 
@@ -551,7 +551,9 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT) {
+	switch (PW_CLIENT_NODE_MESSAGE_TYPE(message)) {
+	case PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT:
+	{
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
@@ -581,7 +583,10 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 			input->status = SPA_STATUS_NEED_BUFFER;
 		}
 		send_need_input(stream);
-	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT) {
+		break;
+	}
+	case PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT:
+	{
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_output_ports; i++) {
@@ -597,9 +602,12 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 		impl->in_need_buffer = true;
 		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, need_buffer);
 		impl->in_need_buffer = false;
-	} else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {
-		struct pw_client_node_message_reuse_buffer *p =
-		    (struct pw_client_node_message_reuse_buffer *) message;
+		break;
+	}
+	case PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER:
+	{
+		struct pw_client_node_message_port_reuse_buffer *p =
+		    (struct pw_client_node_message_port_reuse_buffer *) message;
 
 		if (p->body.port_id.value != impl->port_id)
 			return;
@@ -607,8 +615,11 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 			return;
 
 		reuse_buffer(stream, p->body.buffer_id.value);
-	} else {
+		break;
+	}
+	default:
 		pw_log_warn("unexpected node message %d", PW_CLIENT_NODE_MESSAGE_TYPE(message));
+		break;
 	}
 }
 

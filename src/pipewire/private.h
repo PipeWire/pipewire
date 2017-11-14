@@ -441,6 +441,12 @@ int pw_port_alloc_buffers(struct pw_port *port,
 			  struct spa_pod **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers);
 
+/** Send a command to a port */
+int pw_port_send_command(struct pw_port *port, bool block, const struct spa_command *command);
+
+/** pause the port */
+int pw_port_pause(struct pw_port *port);
+
 /** Change the state of the node */
 int pw_node_set_state(struct pw_node *node, enum pw_node_state state);
 

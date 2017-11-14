@@ -452,17 +452,21 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 {
 	struct node_data *data = proxy->user_data;
 
-        if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT) {
+	switch (PW_CLIENT_NODE_MESSAGE_TYPE(message)) {
+	case PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT:
 		pw_log_trace("remote %p: process input", data->remote);
 		spa_graph_have_output(data->node->rt.graph, &data->in_node);
-        }
-	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT) {
+		break;
+
+	case PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT:
 		pw_log_trace("remote %p: process output", data->remote);
 		spa_graph_need_input(data->node->rt.graph, &data->out_node);
-	}
-	else if (PW_CLIENT_NODE_MESSAGE_TYPE(message) == PW_CLIENT_NODE_MESSAGE_REUSE_BUFFER) {
-		struct pw_client_node_message_reuse_buffer *rb =
-		    (struct pw_client_node_message_reuse_buffer *) message;
+		break;
+
+	case PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER:
+	{
+		struct pw_client_node_message_port_reuse_buffer *rb =
+		    (struct pw_client_node_message_port_reuse_buffer *) message;
 		uint32_t port_id = rb->body.port_id.value;
 		uint32_t buffer_id = rb->body.buffer_id.value;
 		struct spa_graph_port *p, *pp;
@@ -475,9 +479,11 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 						   pp->port_id, buffer_id);
 			break;
 		}
+		break;
 	}
-	else {
+	default:
 		pw_log_warn("unexpected node message %d", PW_CLIENT_NODE_MESSAGE_TYPE(message));
+		break;
 	}
 }
 
@@ -817,6 +823,8 @@ client_node_port_set_param(void *object,
 		goto done;
 	}
 
+	pw_port_pause(port->port);
+
 	res = pw_port_set_param(port->port, id, flags, param);
 	if (res < 0)
 		goto done;
@@ -926,6 +934,8 @@ client_node_port_use_buffers(void *object,
 		res = -EINVAL;
 		goto done;
 	}
+
+	pw_port_pause(port->port);
 
 	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
 
@@ -1041,7 +1051,15 @@ client_node_port_command(void *object,
                          uint32_t port_id,
                          const struct spa_command *command)
 {
-	pw_log_warn("port command not supported");
+	struct pw_proxy *proxy = object;
+	struct node_data *data = proxy->user_data;
+	static struct port *port;
+
+	port = find_port(data, direction, port_id);
+	if (port == NULL)
+		return;
+
+	pw_port_send_command(port->port, true, command);
 }
 
 static const struct pw_client_node_proxy_events client_node_events = {

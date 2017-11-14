@@ -35,6 +35,16 @@ struct factory_data {
 	struct pw_core *core;
 	struct pw_factory *this;
 	struct pw_properties *properties;
+
+	struct spa_hook factory_listener;
+	struct spa_hook module_listener;
+
+	struct spa_list node_list;
+};
+
+struct node_data {
+	struct spa_list link;
+	struct pw_node *node;
 };
 
 static void *create_object(void *_data,
@@ -47,6 +57,7 @@ static void *create_object(void *_data,
 	struct factory_data *data = _data;
 	struct pw_node *node;
 	const char *lib, *factory_name, *name;
+	struct node_data *nd;
 
 	if (properties == NULL)
 		goto no_properties;
@@ -68,9 +79,14 @@ static void *create_object(void *_data,
 				factory_name,
 				name,
 				0,
-				properties, 0);
+				properties,
+				sizeof(struct node_data));
 	if (node == NULL)
 		goto no_mem;
+
+	nd = pw_spa_node_get_user_data(node);
+	nd->node = node;
+	spa_list_append(&data->node_list, &nd->link);
 
 	if (resource)
 		pw_global_bind(pw_node_get_global(node),
@@ -97,9 +113,39 @@ static void *create_object(void *_data,
 	return NULL;
 }
 
-static const struct pw_factory_implementation impl_factory = {
+static const struct pw_factory_implementation factory_impl = {
 	PW_VERSION_FACTORY_IMPLEMENTATION,
 	.create_object = create_object,
+};
+
+static void factory_destroy(void *_data)
+{
+	struct factory_data *data = _data;
+	struct node_data *nd, *t;
+
+	spa_hook_remove(&data->module_listener);
+
+	spa_list_for_each_safe(nd, t, &data->node_list, link)
+		pw_node_destroy(nd->node);
+
+	if (data->properties)
+		pw_properties_free(data->properties);
+}
+
+static const struct pw_factory_events factory_events = {
+	PW_VERSION_FACTORY_IMPLEMENTATION,
+	.destroy = factory_destroy,
+};
+
+static void module_destroy(void *_data)
+{
+	struct factory_data *data = _data;
+	pw_factory_destroy(data->this);
+}
+
+static const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
+	.destroy = module_destroy,
 };
 
 static bool module_init(struct pw_module *module, struct pw_properties *properties)
@@ -122,12 +168,13 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	data->this = factory;
 	data->core = core;
 	data->properties = properties;
+	spa_list_init(&data->node_list);
+
+	pw_factory_add_listener(factory, &data->factory_listener, &factory_events, data);
+	pw_factory_set_implementation(factory, &factory_impl, data);
 
 	pw_log_debug("module %p: new", module);
-
-	pw_factory_set_implementation(factory,
-				      &impl_factory,
-				      data);
+	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
 	pw_factory_register(factory, NULL, pw_module_get_global(module));
 

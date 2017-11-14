@@ -41,6 +41,15 @@ struct pw_factory;
 #include <pipewire/properties.h>
 #include <pipewire/resource.h>
 
+/** Factory events, listen to them with \ref pw_factory_add_listener */
+struct pw_factory_events {
+#define PW_VERSION_FACRORY_EVENTS	0
+	uint32_t version;
+
+	/** the factory is destroyed */
+        void (*destroy) (void *data);
+};
+
 struct pw_factory_implementation {
 #define PW_VERSION_FACTORY_IMPLEMENTATION	0
 	uint32_t version;
@@ -71,6 +80,12 @@ void *pw_factory_get_user_data(struct pw_factory *factory);
 
 /** Get the global of this factory */
 struct pw_global *pw_factory_get_global(struct pw_factory *factory);
+
+/** Add an event listener */
+void pw_factory_add_listener(struct pw_factory *factory,
+			     struct spa_hook *listener,
+			     const struct pw_factory_events *events,
+			     void *data);
 
 void pw_factory_set_implementation(struct pw_factory *factory,
 				   const struct pw_factory_implementation *implementation,

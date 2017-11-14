@@ -45,6 +45,7 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 	this->info.type = type;
 	this->info.version = version;
 	this->info.props = properties ? &properties->dict : NULL;
+	spa_hook_list_init(&this->listener_list);
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(this, sizeof(*this), void);
@@ -57,6 +58,7 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 void pw_factory_destroy(struct pw_factory *factory)
 {
 	pw_log_debug("factory %p: destroy", factory);
+	spa_hook_list_call(&factory->listener_list, struct pw_factory_events, destroy);
 
 	if (factory->global) {
 		spa_list_remove(&factory->link);
@@ -132,6 +134,14 @@ void *pw_factory_get_user_data(struct pw_factory *factory)
 struct pw_global *pw_factory_get_global(struct pw_factory *factory)
 {
 	return factory->global;
+}
+
+void pw_factory_add_listener(struct pw_factory *factory,
+			     struct spa_hook *listener,
+			     const struct pw_factory_events *events,
+			     void *data)
+{
+	spa_hook_list_append(&factory->listener_list, listener, events, data);
 }
 
 void pw_factory_set_implementation(struct pw_factory *factory,

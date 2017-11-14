@@ -381,6 +381,8 @@ struct pw_factory {
 	struct pw_factory_info info;	/**< introspectable factory info */
 	struct pw_properties *properties;	/**< properties of the factory */
 
+	struct spa_hook_list listener_list;	/**< event listeners */
+
 	const struct pw_factory_implementation *implementation;
 	void *implementation_data;
 

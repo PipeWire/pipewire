@@ -367,7 +367,6 @@ int pod_filter(struct spa_pod_builder *b,
 			if (!spa_pod_is_inside(filter, filter_size, pf))
 				pf = NULL;
 		}
-
 		if (res < 0)
 			break;
 	}
@@ -462,16 +461,16 @@ int pod_compare(const struct spa_pod *pod1, uint32_t pod1_size,
 			do_advance = true;
 			break;
 		}
-		if (do_advance) {
-			p2 = spa_pod_next(p2);
-			if (!spa_pod_is_inside(pod2, pod2_size, p2))
-				p2 = NULL;
-		}
 		if (recurse_offset) {
 			res = pod_compare(SPA_MEMBER(p1,recurse_offset,void),
 					  SPA_POD_SIZE(p1) - recurse_offset,
 					  SPA_MEMBER(p2,recurse_offset,void),
 					  SPA_POD_SIZE(p2) - recurse_offset);
+		}
+		if (do_advance) {
+			p2 = spa_pod_next(p2);
+			if (!spa_pod_is_inside(pod2, pod2_size, p2))
+				p2 = NULL;
 		}
 		if (res != 0)
 			return res;

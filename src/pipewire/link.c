@@ -155,6 +155,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			out_state = PW_PORT_STATE_CONFIGURE;
 		}
 		else {
+			pw_log_debug("link %p: format was already set", this);
 			pw_node_update_state(output->node, PW_NODE_STATE_RUNNING, NULL);
 			changed = false;
 		}
@@ -175,6 +176,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			in_state = PW_PORT_STATE_CONFIGURE;
 		}
 		else {
+			pw_log_debug("link %p: format was already set", this);
 			pw_node_update_state(input->node, PW_NODE_STATE_RUNNING, NULL);
 			changed = false;
 		}

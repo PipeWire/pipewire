@@ -57,7 +57,7 @@ static int pause_node(struct pw_node *this)
 	res = spa_node_send_command(this->node,
 				    &SPA_COMMAND_INIT(this->core->type.command_node.Pause));
 	if (res < 0)
-		pw_log_debug("node %p: send command error %d", this, res);
+		pw_log_debug("node %p: pause node error %s", this, spa_strerror(res));
 
 	return res;
 }
@@ -70,7 +70,7 @@ static int start_node(struct pw_node *this)
 	res = spa_node_send_command(this->node,
 				    &SPA_COMMAND_INIT(this->core->type.command_node.Start));
 	if (res < 0)
-		pw_log_debug("node %p: send command error %d", this, res);
+		pw_log_debug("node %p: start node error %s", this, spa_strerror(res));
 
 	return res;
 }
@@ -84,14 +84,14 @@ static int suspend_node(struct pw_node *this)
 
 	spa_list_for_each(p, &this->input_ports, link) {
 		if ((res = pw_port_set_param(p, this->core->type.param.idFormat, 0, NULL)) < 0)
-			pw_log_warn("error unset format input: %d", res);
+			pw_log_warn("error unset format input: %s", spa_strerror(res));
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 
 	spa_list_for_each(p, &this->output_ports, link) {
 		if ((res = pw_port_set_param(p, this->core->type.param.idFormat, 0, NULL)) < 0)
-			pw_log_warn("error unset format output: %d", res);
+			pw_log_warn("error unset format output: %s", spa_strerror(res));
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
 	}
@@ -125,7 +125,7 @@ static void send_clock_update(struct pw_node *this)
 	}
 	res = spa_node_send_command(this->node, (struct spa_command *) &cu);
 	if (res < 0)
-		pw_log_debug("node %p: send clock update error %d", this, res);
+		pw_log_debug("node %p: send clock update error %s", this, spa_strerror(res));
 }
 
 static void node_unbind_func(void *data)
@@ -707,7 +707,7 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 		pw_log_debug("node %p: creating port direction %d %u", node, direction, port_id);
 
 		if ((res = spa_node_add_port(node->node, direction, port_id)) < 0) {
-			pw_log_error("node %p: could not add port %d %d", node, port_id, res);
+			pw_log_error("node %p: could not add port %d %s", node, port_id, spa_strerror(res));
 			goto no_mem;
 		}
 		port = pw_port_new(direction, port_id, NULL, 0);

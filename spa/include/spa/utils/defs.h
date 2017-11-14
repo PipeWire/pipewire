@@ -143,7 +143,13 @@ struct spa_fraction {
 #define spa_memzero(x,l) (memset((x), 0, (l)))
 #define spa_zero(x) (spa_memzero(&(x), sizeof(x)))
 
-#define spa_strerror(err)	strerror(-(err))
+#define spa_strerror(err)		\
+({					\
+	int __err = -err;		\
+	if (SPA_RESULT_IS_ASYNC(err))	\
+		__err = EINPROGRESS;	\
+	strerror(__err);		\
+})
 
 #ifdef __cplusplus
 } /* extern "C" */

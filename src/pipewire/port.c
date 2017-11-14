@@ -385,7 +385,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 	int res;
 
 	res = spa_node_port_set_param(port->node->node, port->direction, port->port_id, id, flags, param);
-	pw_log_debug("port %p: set param %d %d", port, id, res);
+	pw_log_debug("port %p: set param %d: %d (%s)", port, id, res, spa_strerror(res));
 
 	if (!SPA_RESULT_IS_ASYNC(res) && id == port->node->core->type.param.idFormat) {
 		if (param == NULL || res < 0) {
@@ -418,8 +418,8 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 
 	pw_port_pause(port);
 
-	pw_log_debug("port %p: use %d buffers", port, n_buffers);
 	res = spa_node_port_use_buffers(node->node, port->direction, port->port_id, buffers, n_buffers);
+	pw_log_debug("port %p: use %d buffers: %d (%s)", port, n_buffers, res, spa_strerror(res));
 
 	if (port->allocated) {
 		free(port->buffers);
@@ -449,11 +449,11 @@ int pw_port_alloc_buffers(struct pw_port *port,
 
 	pw_port_pause(port);
 
-	pw_log_debug("port %p: alloc %d buffers", port, *n_buffers);
-
 	res = spa_node_port_alloc_buffers(node->node, port->direction, port->port_id,
 							  params, n_params,
 							  buffers, n_buffers);
+	pw_log_debug("port %p: alloc %d buffers: %d (%s)", port, *n_buffers, res, spa_strerror(res));
+
 	if (port->allocated) {
 		free(port->buffers);
 		pw_memblock_free(&port->buffer_mem);

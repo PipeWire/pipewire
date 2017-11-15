@@ -279,8 +279,7 @@ static int make_buffer(struct impl *this)
 
 	fill_buffer(this, b);
 
-	b->outbuf->datas[0].chunk->offset = 0;
-	b->outbuf->datas[0].chunk->size = n_bytes;
+	spa_ringbuffer_set_avail(&b->outbuf->datas[0].chunk->area, n_bytes);
 	b->outbuf->datas[0].chunk->stride = n_bytes;
 
 	if (b->h) {

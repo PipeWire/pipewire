@@ -212,18 +212,18 @@ loop_invoke(struct spa_loop *loop,
 		uint32_t idx, offset, l0;
 
 		filled = spa_ringbuffer_get_write_index(&impl->buffer, &idx);
-		if (filled < 0 || filled > impl->buffer.size) {
+		if (filled < 0 || filled > DATAS_SIZE) {
 			spa_log_warn(impl->log, NAME " %p: queue xrun %d", impl, filled);
 			return -EPIPE;
 		}
-		avail = impl->buffer.size - filled;
+		avail = DATAS_SIZE - filled;
 		if (avail < sizeof(struct invoke_item)) {
 			spa_log_warn(impl->log, NAME " %p: queue full %d", impl, avail);
 			return -EPIPE;
 		}
-		offset = idx & impl->buffer.mask;
+		offset = idx & (DATAS_SIZE - 1);
 
-		l0 = impl->buffer.size - offset;
+		l0 = DATAS_SIZE - offset;
 
 		item = SPA_MEMBER(impl->buffer_data, offset, struct invoke_item);
 		item->func = func;
@@ -272,7 +272,7 @@ static void wakeup_func(void *data, uint64_t count)
 
 	while (spa_ringbuffer_get_read_index(&impl->buffer, &index) > 0) {
 		struct invoke_item *item =
-		    SPA_MEMBER(impl->buffer_data, index & impl->buffer.mask, struct invoke_item);
+		    SPA_MEMBER(impl->buffer_data, index & (DATAS_SIZE - 1), struct invoke_item);
 		item->res = item->func(&impl->loop, true, item->seq, item->size, item->data,
 			   item->user_data);
 		spa_ringbuffer_read_update(&impl->buffer, index + item->item_size);
@@ -737,7 +737,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&impl->destroy_list);
 	spa_hook_list_init(&impl->hooks_list);
 
-	spa_ringbuffer_init(&impl->buffer, DATAS_SIZE);
+	spa_ringbuffer_init(&impl->buffer);
 
 	impl->wakeup = spa_loop_utils_add_event(&impl->utils, wakeup_func, impl);
 	impl->ack_fd = eventfd(0, EFD_CLOEXEC);

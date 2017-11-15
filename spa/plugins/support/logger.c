@@ -86,8 +86,8 @@ impl_log_logv(struct spa_log *log,
 		uint64_t count = 1;
 
 		spa_ringbuffer_get_write_index(&impl->trace_rb, &index);
-		spa_ringbuffer_write_data(&impl->trace_rb, impl->trace_data,
-					  index & impl->trace_rb.mask, location, size);
+		spa_ringbuffer_write_data(&impl->trace_rb, impl->trace_data, TRACE_BUFFER,
+					  index & (TRACE_BUFFER - 1), location, size);
 		spa_ringbuffer_write_update(&impl->trace_rb, index + size);
 
 		if (write(impl->source.fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
@@ -124,12 +124,12 @@ static void on_trace_event(struct spa_source *source)
 	while ((avail = spa_ringbuffer_get_read_index(&impl->trace_rb, &index)) > 0) {
 		uint32_t offset, first;
 
-		if (avail > impl->trace_rb.size) {
-			index += avail - impl->trace_rb.size;
-			avail = impl->trace_rb.size;
+		if (avail > TRACE_BUFFER) {
+			index += avail - TRACE_BUFFER;
+			avail = TRACE_BUFFER;
 		}
-		offset = index & impl->trace_rb.mask;
-		first = SPA_MIN(avail, impl->trace_rb.size - offset);
+		offset = index & (TRACE_BUFFER - 1);
+		first = SPA_MIN(avail, TRACE_BUFFER - offset);
 
 		fwrite(impl->trace_data + offset, first, 1, stderr);
 		if (SPA_UNLIKELY(avail > first)) {
@@ -223,7 +223,7 @@ impl_init(const struct spa_handle_factory *factory,
 		this->have_source = true;
 	}
 
-	spa_ringbuffer_init(&this->trace_rb, TRACE_BUFFER);
+	spa_ringbuffer_init(&this->trace_rb);
 
 	spa_log_debug(&this->log, NAME " %p: initialized", this);
 

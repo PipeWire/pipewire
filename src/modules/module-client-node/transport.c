@@ -94,8 +94,8 @@ static void transport_reset_area(struct pw_client_node_transport *trans)
 		trans->outputs[i].status = SPA_STATUS_OK;
 		trans->outputs[i].buffer_id = SPA_ID_INVALID;
 	}
-	spa_ringbuffer_init(trans->input_buffer, INPUT_BUFFER_SIZE);
-	spa_ringbuffer_init(trans->output_buffer, OUTPUT_BUFFER_SIZE);
+	spa_ringbuffer_init(trans->input_buffer);
+	spa_ringbuffer_init(trans->output_buffer);
 }
 
 static void destroy(struct pw_client_node_transport *trans)
@@ -118,14 +118,14 @@ static int add_message(struct pw_client_node_transport *trans, struct pw_client_
 		return -EINVAL;
 
 	filled = spa_ringbuffer_get_write_index(trans->output_buffer, &index);
-	avail = trans->output_buffer->size - filled;
+	avail = OUTPUT_BUFFER_SIZE - filled;
 	size = SPA_POD_SIZE(message);
 	if (avail < size)
 		return -ENOSPC;
 
 	spa_ringbuffer_write_data(trans->output_buffer,
-				  trans->output_data,
-				  index & trans->output_buffer->mask, message, size);
+				  trans->output_data, OUTPUT_BUFFER_SIZE,
+				  index & (OUTPUT_BUFFER_SIZE - 1), message, size);
 	spa_ringbuffer_write_update(trans->output_buffer, index + size);
 
 	return 0;
@@ -144,8 +144,8 @@ static int next_message(struct pw_client_node_transport *trans, struct pw_client
 		return 0;
 
 	spa_ringbuffer_read_data(trans->input_buffer,
-				 trans->input_data,
-				 impl->current_index & trans->input_buffer->mask,
+				 trans->input_data, INPUT_BUFFER_SIZE,
+				 impl->current_index & (INPUT_BUFFER_SIZE - 1),
 				 &impl->current, sizeof(struct pw_client_node_message));
 
 	*message = impl->current;
@@ -164,8 +164,8 @@ static int parse_message(struct pw_client_node_transport *trans, void *message)
 	size = SPA_POD_SIZE(&impl->current);
 
 	spa_ringbuffer_read_data(trans->input_buffer,
-				 trans->input_data,
-				 impl->current_index & trans->input_buffer->mask, message, size);
+				 trans->input_data, INPUT_BUFFER_SIZE,
+				 impl->current_index & (INPUT_BUFFER_SIZE - 1), message, size);
 	spa_ringbuffer_read_update(trans->input_buffer, impl->current_index + size);
 
 	return 0;

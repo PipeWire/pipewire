@@ -85,7 +85,6 @@ struct buffer {
 	struct spa_buffer buffer;
 	struct spa_meta metas[2];
 	struct spa_meta_header header;
-	struct spa_meta_ringbuffer rb;
 	struct spa_data datas[1];
 	struct spa_chunk chunks[1];
 };
@@ -143,11 +142,6 @@ init_buffer(struct data *data, struct spa_buffer **bufs, struct buffer *ba, int 
 		b->metas[0].data = &b->header;
 		b->metas[0].size = sizeof(b->header);
 
-		spa_ringbuffer_init(&b->rb.ringbuffer, size);
-		b->metas[1].type = data->type.meta.Ringbuffer;
-		b->metas[1].data = &b->rb;
-		b->metas[1].size = sizeof(b->rb);
-
 		b->datas[0].type = data->type.data.MemPtr;
 		b->datas[0].flags = 0;
 		b->datas[0].fd = -1;
@@ -155,8 +149,7 @@ init_buffer(struct data *data, struct spa_buffer **bufs, struct buffer *ba, int 
 		b->datas[0].maxsize = size;
 		b->datas[0].data = malloc(size);
 		b->datas[0].chunk = &b->chunks[0];
-		b->datas[0].chunk->offset = 0;
-		b->datas[0].chunk->size = size;
+		spa_ringbuffer_set_avail(&b->datas[0].chunk->area, 0);
 		b->datas[0].chunk->stride = 0;
 	}
 }

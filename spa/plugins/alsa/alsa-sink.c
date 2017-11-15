@@ -335,12 +335,12 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(&b,
 			id, t->param_buffers.Buffers,
-			":", t->param_buffers.size,    "iru", this->props.min_latency * this->frame_size,
+			":", t->param_buffers.size,    "iru", this->props.max_latency * this->frame_size,
 							2, this->props.min_latency * this->frame_size,
 							   INT32_MAX,
 			":", t->param_buffers.stride,  "i", 0,
-			":", t->param_buffers.buffers, "ir", 2,
-								2, 2, MAX_BUFFERS,
+			":", t->param_buffers.buffers, "ir", 1,
+								2, 1, MAX_BUFFERS,
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
@@ -353,19 +353,6 @@ impl_node_port_enum_params(struct spa_node *node,
 				id, t->param_meta.Meta,
 				":", t->param_meta.type, "I", t->meta.Header,
 				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
-			break;
-		case 1:
-			param = spa_pod_builder_object(&b,
-				id, t->param_meta.Meta,
-				":", t->param_meta.type,	  "I", t->meta.Ringbuffer,
-				":", t->param_meta.size,	  "i", sizeof(struct spa_meta_ringbuffer),
-				":", t->param_meta.ringbufferSize,	  "iru",
-								  this->props.max_latency * this->frame_size,
-								2, this->props.min_latency * this->frame_size,
-								   this->period_frames * this->frame_size,
-				":", t->param_meta.ringbufferStride, "i", 0,
-				":", t->param_meta.ringbufferBlocks, "i", 1,
-				":", t->param_meta.ringbufferAlign,  "i", 16);
 			break;
 		default:
 			return 0;
@@ -491,7 +478,6 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->outstanding = true;
 
 		b->h = spa_buffer_find_meta(b->outbuf, this->type.meta.Header);
-		b->rb = spa_buffer_find_meta(b->outbuf, this->type.meta.Ringbuffer);
 
 		type = buffers[i]->datas[0].type;
 		if ((type == this->type.data.MemFd ||

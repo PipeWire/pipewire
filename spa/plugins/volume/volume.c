@@ -703,10 +703,10 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 		sd = &sbuf->datas[si];
 		dd = &dbuf->datas[di];
 
-		src = (int16_t *) ((uint8_t *) sd->data + sd->chunk->offset + soff);
+		src = (int16_t *) ((uint8_t *) sd->data + sd->chunk->area.readindex + soff);
 		dst = (int16_t *) ((uint8_t *) dd->data + doff);
 
-		n_bytes = SPA_MIN(sd->chunk->size - soff, dd->maxsize - doff);
+		n_bytes = SPA_MIN(sd->chunk->area.writeindex - soff, dd->maxsize - doff);
 		n_samples = n_bytes / sizeof(uint16_t);
 
 		for (i = 0; i < n_samples; i++)
@@ -715,10 +715,9 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 		soff += n_bytes;
 		doff += n_bytes;
 
-		dd->chunk->offset = 0;
-		dd->chunk->size = doff;
+		spa_ringbuffer_set_avail(&dd->chunk->area, doff);
 
-		if (soff >= sd->chunk->size) {
+		if (soff >= sd->chunk->area.writeindex) {
 			si++;
 			soff = 0;
 		}

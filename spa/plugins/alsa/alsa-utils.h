@@ -53,7 +53,6 @@ struct props {
 struct buffer {
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
-	struct spa_meta_ringbuffer *rb;
 	bool outstanding;
 	struct spa_list link;
 };
@@ -150,8 +149,6 @@ struct state {
 
 	struct spa_list free;
 	struct spa_list ready;
-
-	size_t ready_offset;
 
 	bool started;
 	struct spa_source source;

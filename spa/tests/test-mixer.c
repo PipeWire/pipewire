@@ -182,8 +182,7 @@ init_buffer(struct data *data, struct spa_buffer **bufs, struct buffer *ba, int 
 		b->datas[0].maxsize = size;
 		b->datas[0].data = malloc(size);
 		b->datas[0].chunk = &b->chunks[0];
-		b->datas[0].chunk->offset = 0;
-		b->datas[0].chunk->size = size;
+		spa_ringbuffer_init(&b->datas[0].chunk->area);
 		b->datas[0].chunk->stride = 0;
 	}
 }

@@ -343,56 +343,40 @@ pull_frames(struct state *state,
 	try_pull(state, frames, do_pull);
 
 	while (!spa_list_is_empty(&state->ready) && to_write > 0) {
-		uint8_t *src, *dst;
-		size_t n_bytes, n_frames, size;
-		off_t offs;
+		uint8_t *dst;
+		size_t n_bytes, n_frames;
 		struct buffer *b;
-		bool reuse = false;
 		struct spa_data *d;
+		struct spa_ringbuffer *ringbuffer;
+		uint32_t index;
+		int32_t avail;
 
 		b = spa_list_first(&state->ready, struct buffer, link);
 		d = b->outbuf->datas;
 
 		dst = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
 
-		if (b->rb) {
-			struct spa_ringbuffer *ringbuffer = &b->rb->ringbuffer;
-			uint32_t index;
-			int32_t avail;
+		ringbuffer = &d[0].chunk->area;
 
-			avail = spa_ringbuffer_get_read_index(ringbuffer, &index);
-			avail /= state->frame_size;
+		avail = spa_ringbuffer_get_read_index(ringbuffer, &index);
+		avail /= state->frame_size;
 
-			n_frames = SPA_MIN(avail, to_write);
-			n_bytes = n_frames * state->frame_size;
+		n_frames = SPA_MIN(avail, to_write);
+		n_bytes = n_frames * state->frame_size;
 
-			spa_ringbuffer_read_data(ringbuffer, d[0].data, index % ringbuffer->size, dst, n_bytes);
+		spa_ringbuffer_read_data(ringbuffer, d[0].data, d[0].maxsize,
+					 index % d[0].maxsize, dst, n_bytes);
+		spa_ringbuffer_read_update(ringbuffer, index + n_bytes);
 
-			spa_ringbuffer_read_update(ringbuffer, index + n_bytes);
-
-			reuse = avail == n_frames || state->n_buffers == 1;
-		} else {
-			offs = SPA_MIN(d[0].chunk->offset + state->ready_offset, d[0].maxsize);
-			size = SPA_MIN(d[0].chunk->size + offs, d[0].maxsize) - offs;
-			src = SPA_MEMBER(d[0].data, offs, uint8_t);
-
-			n_bytes = SPA_MIN(size, to_write * state->frame_size);
-			n_frames = SPA_MIN(to_write, n_bytes / state->frame_size);
-
-			memcpy(dst, src, n_bytes);
-
-			state->ready_offset += n_bytes;
-			reuse = (state->ready_offset >= size);
-		}
-		if (reuse) {
+		if (avail == n_frames || state->n_buffers == 1) {
 			spa_list_remove(&b->link);
 			b->outstanding = true;
 			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
 			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->outbuf->id);
-			state->ready_offset = 0;
 		}
 		total_frames += n_frames;
 		to_write -= n_frames;
+
 		spa_log_trace(state->log, "alsa-util %p: written %lu frames, left %ld", state, total_frames, to_write);
 	}
 
@@ -430,6 +414,8 @@ push_frames(struct state *state,
 		size_t n_bytes;
 		struct buffer *b;
 		struct spa_data *d;
+		uint32_t index, avail;
+		int32_t filled;
 
 		b = spa_list_first(&state->free, struct buffer, link);
 		spa_list_remove(&b->link);
@@ -442,15 +428,18 @@ push_frames(struct state *state,
 
 		d = b->outbuf->datas;
 
-		total_frames = SPA_MIN(frames, d[0].maxsize / state->frame_size);
 		src = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
+
+		filled = spa_ringbuffer_get_write_index(&d[0].chunk->area, &index);
+		avail = (d[0].maxsize - filled) / state->frame_size;
+		total_frames = SPA_MIN(avail, frames);
 		n_bytes = total_frames * state->frame_size;
 
-		memcpy(d[0].data, src, n_bytes);
+		spa_ringbuffer_write_data(&d[0].chunk->area, d[0].data, d[0].maxsize,
+					index % d[0].maxsize, src, n_bytes);
 
-		d[0].chunk->offset = 0;
-		d[0].chunk->size = n_bytes;
-		d[0].chunk->stride = 0;
+		spa_ringbuffer_write_update(&d[0].chunk->area, index + n_bytes);
+		d[0].chunk->stride = state->frame_size;
 
 		b->outstanding = true;
 		io->buffer_id = b->outbuf->id;

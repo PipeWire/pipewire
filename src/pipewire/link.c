@@ -244,26 +244,6 @@ static struct spa_pod *find_param(struct spa_pod **params, int n_params, uint32_
 	return NULL;
 }
 
-static struct spa_pod *find_meta(struct pw_core *core, struct spa_pod **params,
-				 int n_params, uint32_t type)
-{
-	uint32_t i;
-
-	for (i = 0; i < n_params; i++) {
-		if (spa_pod_is_object_type (params[i], core->type.param_meta.Meta)) {
-			uint32_t qtype;
-
-			if (spa_pod_object_parse(params[i],
-				":", core->type.param_meta.type, "I", &qtype, NULL) < 0)
-				continue;
-
-			if (qtype == type)
-				return params[i];
-		}
-	}
-	return NULL;
-}
-
 static struct spa_buffer **alloc_buffers(struct pw_link *this,
 					 uint32_t n_buffers,
 					 uint32_t n_params,
@@ -357,9 +337,6 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 				msh->fd = mem->fd;
 				msh->offset = data_size * i;
 				msh->size = data_size;
-			} else if (m->type == this->core->type.meta.Ringbuffer) {
-				struct spa_meta_ringbuffer *rb = p;
-				spa_ringbuffer_init(&rb->ringbuffer, data_sizes[0]);
 			}
 			p += m->size;
 		}
@@ -381,8 +358,7 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 				d->mapoffset = SPA_PTRDIFF(ddp, mem->ptr);
 				d->maxsize = data_sizes[j];
 				d->data = SPA_MEMBER(mem->ptr, d->mapoffset, void);
-				d->chunk->offset = 0;
-				d->chunk->size = data_sizes[j];
+				spa_ringbuffer_set_avail(&d->chunk->area, 0);
 				d->chunk->stride = data_strides[j];
 				ddp += data_sizes[j];
 			} else {
@@ -532,43 +508,29 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 		}
 
-		param = find_meta(this->core, params, n_params, t->meta.Ringbuffer);
+		max_buffers = MAX_BUFFERS;
+		minsize = stride = 0;
+		param = find_param(params, n_params, t->param_buffers.Buffers);
 		if (param) {
-			uint32_t ms, s;
-			max_buffers = 1;
+			uint32_t qmax_buffers = max_buffers,
+			    qminsize = minsize, qstride = stride;
 
-			if (spa_pod_object_parse(param,
-				":", t->param_meta.ringbufferSize,   "i", &ms,
-				":", t->param_meta.ringbufferStride, "i", &s, NULL) >= 0) {
-				minsize = ms;
-				stride = s;
-			}
+			spa_pod_object_parse(param,
+				":", t->param_buffers.size, "i", &qminsize,
+				":", t->param_buffers.stride, "i", &qstride,
+				":", t->param_buffers.buffers, "i", &qmax_buffers, NULL);
+
+			max_buffers =
+			    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,
+								      max_buffers);
+			minsize = SPA_MAX(minsize, qminsize);
+			stride = SPA_MAX(stride, qstride);
+
+			pw_log_debug("%d %d %d -> %zd %zd %d", qminsize, qstride, qmax_buffers,
+				     minsize, stride, max_buffers);
 		} else {
-			max_buffers = MAX_BUFFERS;
-			minsize = stride = 0;
-			param = find_param(params, n_params,
-					   t->param_buffers.Buffers);
-			if (param) {
-				uint32_t qmax_buffers = max_buffers,
-				    qminsize = minsize, qstride = stride;
-
-				spa_pod_object_parse(param,
-					":", t->param_buffers.size, "i", &qminsize,
-					":", t->param_buffers.stride, "i", &qstride,
-					":", t->param_buffers.buffers, "i", &qmax_buffers, NULL);
-
-				max_buffers =
-				    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,
-									      max_buffers);
-				minsize = SPA_MAX(minsize, qminsize);
-				stride = SPA_MAX(stride, qstride);
-
-				pw_log_debug("%d %d %d -> %zd %zd %d", qminsize, qstride, qmax_buffers,
-					     minsize, stride, max_buffers);
-			} else {
-				pw_log_warn("no buffers param");
-				minsize = 1024;
-			}
+			pw_log_warn("no buffers param");
+			minsize = 1024;
 		}
 
 		if ((in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) ||

@@ -10,6 +10,7 @@
 #define MAX_VALUE 0x10000
 
 struct spa_ringbuffer rb;
+uint32_t size;
 uint8_t *data;
 
 static int fill_int_array(int *array, int start, int count)
@@ -47,7 +48,7 @@ static void *reader_start(void *arg)
 		uint32_t index;
 
 		if (spa_ringbuffer_get_read_index(&rb, &index) >= ARRAY_SIZE * sizeof(int)) {
-			spa_ringbuffer_read_data(&rb, data, index & rb.mask, b,
+			spa_ringbuffer_read_data(&rb, data, size, index & (size - 1), b,
 						 ARRAY_SIZE * sizeof(int));
 
 			if (!cmp_array(a, b, ARRAY_SIZE)) {
@@ -78,7 +79,7 @@ static void *writer_start(void *arg)
 		uint32_t index;
 
 		if (spa_ringbuffer_get_write_index(&rb, &index) >= ARRAY_SIZE * sizeof(int)) {
-			spa_ringbuffer_write_data(&rb, data, index & rb.mask, a,
+			spa_ringbuffer_write_data(&rb, data, size, index & (size - 1), a,
 						  ARRAY_SIZE * sizeof(int));
 			spa_ringbuffer_write_update(&rb, index + ARRAY_SIZE * sizeof(int));
 
@@ -91,8 +92,6 @@ static void *writer_start(void *arg)
 
 int main(int argc, char *argv[])
 {
-	int size;
-
 	printf("starting ringbuffer stress test\n");
 
 	sscanf(argv[1], "%d", &size);
@@ -100,7 +99,7 @@ int main(int argc, char *argv[])
 	printf("buffer size (bytes): %d\n", size);
 	printf("array size (bytes): %ld\n", sizeof(int) * ARRAY_SIZE);
 
-	spa_ringbuffer_init(&rb, size);
+	spa_ringbuffer_init(&rb);
 	data = malloc(size);
 
 	pthread_t reader_thread, writer_thread;

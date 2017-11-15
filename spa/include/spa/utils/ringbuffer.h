@@ -38,12 +38,9 @@ struct spa_ringbuffer;
 struct spa_ringbuffer {
 	uint32_t readindex;	/*< the current read index */
 	uint32_t writeindex;	/*< the current write index */
-	uint32_t size;		/*< the size of the ringbuffer */
-	uint32_t mask;		/*< mask as \a size - 1, only valid if \a size is
-				 *  a power of 2. */
 };
 
-#define SPA_RINGBUFFER_INIT(size)	(struct spa_ringbuffer) { 0, 0, (size), (size)-1 }
+#define SPA_RINGBUFFER_INIT()	(struct spa_ringbuffer) { 0, 0 }
 
 /**
  * Initialize a spa_ringbuffer with \a size.
@@ -51,28 +48,28 @@ struct spa_ringbuffer {
  * \param rbuf a spa_ringbuffer
  * \param size the number of elements in the ringbuffer
  */
-static inline void spa_ringbuffer_init(struct spa_ringbuffer *rbuf, uint32_t size)
+static inline void spa_ringbuffer_init(struct spa_ringbuffer *rbuf)
 {
-	*rbuf = SPA_RINGBUFFER_INIT(size);
+	*rbuf = SPA_RINGBUFFER_INIT();
 }
 
 /**
- * Clear \a rbuf, sets the pointers so that the ringbuffer is empty.
+ * Sets the pointers so that the ringbuffer contains \a size bytes.
  *
  * \param rbuf a spa_ringbuffer
  */
-static inline void spa_ringbuffer_clear(struct spa_ringbuffer *rbuf)
+static inline void spa_ringbuffer_set_avail(struct spa_ringbuffer *rbuf, uint32_t size)
 {
 	rbuf->readindex = 0;
-	rbuf->writeindex = 0;
+	rbuf->writeindex = size;
 }
 
 /**
  * Get the read index and available bytes for reading.
  *
  * \param rbuf a  spa_ringbuffer
- * \param index the value of readindex, should be masked to get the
- *         offset in the ringbuffer memory
+ * \param index the value of readindex, should be taken modulo the size of the
+ *         ringbuffer memory to get the offset in the ringbuffer memory
  * \return number of available bytes to read. values < 0 mean
  *         there was an underrun. values > rbuf->size means there
  *         was an overrun.
@@ -84,20 +81,22 @@ static inline int32_t spa_ringbuffer_get_read_index(struct spa_ringbuffer *rbuf,
 }
 
 /**
- * Read \a len bytes from \a rbuf starting \a offset. \a offset must be masked
- * with the size of \a rbuf and len should be smaller than the size.
+ * Read \a len bytes from \a rbuf starting \a offset. \a offset must be taken
+ * modulo \a size and len should be smaller than \a size.
  *
  * \param rbuf a #struct spa_ringbuffer
  * \param buffer memory to read from
- * \param offset offset in \a buffer to read from
+ * \param size the size of \a memory
+ * \param offset offset in \a memory to read from
  * \param data destination memory
  * \param len number of bytes to read
  */
 static inline void
 spa_ringbuffer_read_data(struct spa_ringbuffer *rbuf,
-			 const void *buffer, uint32_t offset, void *data, uint32_t len)
+			 const void *buffer, uint32_t size,
+			 uint32_t offset, void *data, uint32_t len)
 {
-	uint32_t first = SPA_MIN(len, rbuf->size - offset);
+	uint32_t first = SPA_MIN(len, size - offset);
 	memcpy(data, buffer + offset, first);
 	if (SPA_UNLIKELY(len > first))
 		memcpy(data + first, buffer, len - first);
@@ -118,8 +117,8 @@ static inline void spa_ringbuffer_read_update(struct spa_ringbuffer *rbuf, int32
  * Get the write index and the number of bytes inside the ringbuffer.
  *
  * \param rbuf a  spa_ringbuffer
- * \param index the value of writeindex, should be masked to get the
- *         offset in the ringbuffer memory
+ * \param index the value of writeindex, should be taken modulo the size of the
+ *         ringbuffer memory to get the offset in the ringbuffer memory
  * \return the fill level of \a rbuf. values < 0 mean
  *         there was an underrun. values > rbuf->size means there
  *         was an overrun. Subtract from the buffer size to get
@@ -132,20 +131,22 @@ static inline int32_t spa_ringbuffer_get_write_index(struct spa_ringbuffer *rbuf
 }
 
 /**
- * Write \a len bytes to \a rbuf starting \a offset. \a offset must be masked
- * with the size of \a rbuf and len should be smaller than the size.
+ * Write \a len bytes to \a buffer starting \a offset. \a offset must be taken
+ * modulo \a size and len should be smaller than \a size.
  *
  * \param rbuf a spa_ringbuffer
  * \param buffer memory to write to
- * \param offset offset in \a buffer to write to
+ * \param size the size of \a memory
+ * \param offset offset in \a memory to write to
  * \param data source memory
  * \param len number of bytes to write
  */
 static inline void
 spa_ringbuffer_write_data(struct spa_ringbuffer *rbuf,
-			  void *buffer, uint32_t offset, const void *data, uint32_t len)
+			  void *buffer, uint32_t size,
+			  uint32_t offset, const void *data, uint32_t len)
 {
-	uint32_t first = SPA_MIN(len, rbuf->size - offset);
+	uint32_t first = SPA_MIN(len, size - offset);
 	memcpy(buffer + offset, data, first);
 	if (SPA_UNLIKELY(len > first))
 		memcpy(buffer, data + first, len - first);

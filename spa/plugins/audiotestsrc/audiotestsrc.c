@@ -105,7 +105,6 @@ struct buffer {
 	struct spa_buffer *outbuf;
 	bool outstanding;
 	struct spa_meta_header *h;
-	struct spa_meta_ringbuffer *rb;
 	struct spa_list link;
 };
 
@@ -298,6 +297,12 @@ static int make_buffer(struct impl *this)
 	struct buffer *b;
 	struct spa_port_io *io = this->io;
 	int n_bytes, n_samples;
+	uint32_t maxsize;
+	void *data;
+	struct spa_ringbuffer *rb;
+	struct spa_data *d;
+	int32_t filled, avail;
+	uint32_t index, offset, l0, l1;
 
 	read_timer(this);
 
@@ -310,7 +315,11 @@ static int make_buffer(struct impl *this)
 	spa_list_remove(&b->link);
 	b->outstanding = true;
 
-	n_bytes = b->outbuf->datas[0].maxsize;
+	d = b->outbuf->datas;
+	maxsize = d[0].maxsize;
+	data = d[0].data;
+
+	n_bytes = maxsize;
 	if (io->range.min_size != 0) {
 		n_bytes = SPA_MIN(n_bytes, io->range.min_size);
 		if (io->range.max_size < n_bytes)
@@ -318,41 +327,32 @@ static int make_buffer(struct impl *this)
 	}
 
 	spa_log_trace(this->log, NAME " %p: dequeue buffer %d %d %d", this, b->outbuf->id,
-		      b->outbuf->datas[0].maxsize, n_bytes);
+		      maxsize, n_bytes);
 
-	if (b->rb) {
-		int32_t filled, avail;
-		uint32_t index, offset, l0, l1;
+	rb = &d[0].chunk->area;
 
-		filled = spa_ringbuffer_get_write_index(&b->rb->ringbuffer, &index);
-		avail = b->rb->ringbuffer.size - filled;
-		n_bytes = SPA_MIN(avail, n_bytes);
+	filled = spa_ringbuffer_get_write_index(rb, &index);
+	avail = maxsize - filled;
+	n_bytes = SPA_MIN(avail, n_bytes);
 
-		n_samples = n_bytes / this->bpf;
+	n_samples = n_bytes / this->bpf;
 
-		offset = index & b->rb->ringbuffer.mask;
+	offset = index % maxsize;
 
-		if (offset + n_bytes > b->rb->ringbuffer.size) {
-			l0 = (b->rb->ringbuffer.size - offset) / this->bpf;
-			l1 = n_samples - l0;
-		}
-		else {
-			l0 = n_samples;
-			l1 = 0;
-		}
-
-		this->render_func(this, SPA_MEMBER(b->outbuf->datas[0].data, offset, void), l0);
-		if (l1)
-			this->render_func(this, b->outbuf->datas[0].data, l1);
-
-		spa_ringbuffer_write_update(&b->rb->ringbuffer, index + n_bytes);
-	} else {
-		n_samples = n_bytes / this->bpf;
-		this->render_func(this, b->outbuf->datas[0].data, n_samples);
-		b->outbuf->datas[0].chunk->size = n_bytes;
-		b->outbuf->datas[0].chunk->offset = 0;
-		b->outbuf->datas[0].chunk->stride = 0;
+	if (offset + n_bytes > maxsize) {
+		l0 = (maxsize - offset) / this->bpf;
+		l1 = n_samples - l0;
 	}
+	else {
+		l0 = n_samples;
+		l1 = 0;
+	}
+
+	this->render_func(this, SPA_MEMBER(data, offset, void), l0);
+	if (l1)
+		this->render_func(this, data, l1);
+
+	spa_ringbuffer_write_update(rb, index + n_bytes);
 
 	if (b->h) {
 		b->h->seq = this->sample_count;
@@ -628,7 +628,7 @@ impl_node_port_enum_params(struct spa_node *node,
 									2, 16 * this->bpf,
 									   INT32_MAX / this->bpf,
 			":", t->param_buffers.stride,  "i",   0,
-			":", t->param_buffers.buffers, "iru", 2,
+			":", t->param_buffers.buffers, "iru", 1,
 									2, 1, 32,
 			":", t->param_buffers.align,   "i",   16);
 	}
@@ -642,17 +642,6 @@ impl_node_port_enum_params(struct spa_node *node,
 				id, t->param_meta.Meta,
 				":", t->param_meta.type, "I", t->meta.Header,
 				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
-			break;
-		case 1:
-			param = spa_pod_builder_object(&b,
-				id, t->param_meta.Meta,
-				":", t->param_meta.type,	"I", t->meta.Ringbuffer,
-				":", t->param_meta.size,	"i", sizeof(struct spa_meta_ringbuffer),
-				":", t->param_meta.ringbufferSize,   "ir", 5512 * this->bpf,
-								2, 16 * this->bpf, INT32_MAX / this->bpf,
-				":", t->param_meta.ringbufferStride, "i", 0,
-				":", t->param_meta.ringbufferBlocks, "i", 1,
-				":", t->param_meta.ringbufferAlign,  "i", 16);
 			break;
 		default:
 			return 0;
@@ -783,7 +772,6 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->outbuf = buffers[i];
 		b->outstanding = false;
 		b->h = spa_buffer_find_meta(buffers[i], this->type.meta.Header);
-		b->rb = spa_buffer_find_meta(buffers[i], this->type.meta.Ringbuffer);
 
 		if ((d[0].type == this->type.data.MemPtr ||
 		     d[0].type == this->type.data.MemFd ||

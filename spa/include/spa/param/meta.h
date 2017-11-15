@@ -33,21 +33,10 @@ extern "C" {
 #define SPA_TYPE_PARAM_META__type		SPA_TYPE_PARAM_META_BASE "type"
 #define SPA_TYPE_PARAM_META__size		SPA_TYPE_PARAM_META_BASE "size"
 
-#define SPA_TYPE_PARAM_META__ringbufferSize	SPA_TYPE_PARAM_META_BASE "ringbufferSize"
-#define SPA_TYPE_PARAM_META__ringbufferMinAvail	SPA_TYPE_PARAM_META_BASE "ringbufferMinAvail"
-#define SPA_TYPE_PARAM_META__ringbufferStride	SPA_TYPE_PARAM_META_BASE "ringbufferStride"
-#define SPA_TYPE_PARAM_META__ringbufferBlocks	SPA_TYPE_PARAM_META_BASE "ringbufferBlocks"
-#define SPA_TYPE_PARAM_META__ringbufferAlign	SPA_TYPE_PARAM_META_BASE "ringbufferAlign"
-
 struct spa_type_param_meta {
 	uint32_t Meta;
 	uint32_t type;
 	uint32_t size;
-	uint32_t ringbufferSize;
-	uint32_t ringbufferMinAvail;
-	uint32_t ringbufferStride;
-	uint32_t ringbufferBlocks;
-	uint32_t ringbufferAlign;
 };
 
 static inline void
@@ -61,11 +50,6 @@ spa_type_param_meta_map(struct spa_type_map *map,
 			{ OFF(Meta), SPA_TYPE_PARAM__Meta },
 			{ OFF(type), SPA_TYPE_PARAM_META__type },
 			{ OFF(size), SPA_TYPE_PARAM_META__size },
-			{ OFF(ringbufferSize), SPA_TYPE_PARAM_META__ringbufferSize },
-			{ OFF(ringbufferMinAvail), SPA_TYPE_PARAM_META__ringbufferMinAvail },
-			{ OFF(ringbufferStride), SPA_TYPE_PARAM_META__ringbufferStride },
-			{ OFF(ringbufferBlocks), SPA_TYPE_PARAM_META__ringbufferBlocks },
-			{ OFF(ringbufferAlign), SPA_TYPE_PARAM_META__ringbufferAlign },
 		};
 #undef OFF
 		for (i = 0; i < SPA_N_ELEMENTS(tab); i++)

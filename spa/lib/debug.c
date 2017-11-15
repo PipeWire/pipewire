@@ -85,13 +85,6 @@ int spa_debug_buffer(const struct spa_buffer *buffer)
 			fprintf(stderr, "      y:      %d\n", h->y);
 			fprintf(stderr, "      width:  %d\n", h->width);
 			fprintf(stderr, "      height: %d\n", h->height);
-		} else if (!strcmp(type_name, SPA_TYPE_META__Ringbuffer)) {
-			struct spa_meta_ringbuffer *h = m->data;
-			fprintf(stderr, "    struct spa_meta_ringbuffer:\n");
-			fprintf(stderr, "      readindex:   %d\n", h->ringbuffer.readindex);
-			fprintf(stderr, "      writeindex:  %d\n", h->ringbuffer.writeindex);
-			fprintf(stderr, "      size:        %d\n", h->ringbuffer.size);
-			fprintf(stderr, "      mask:        %d\n", h->ringbuffer.mask);
 		} else if (!strcmp(type_name, SPA_TYPE_META__Shared)) {
 			struct spa_meta_shared *h = m->data;
 			fprintf(stderr, "    struct spa_meta_shared:\n");
@@ -115,8 +108,8 @@ int spa_debug_buffer(const struct spa_buffer *buffer)
 		fprintf(stderr, "   offset:  %d\n", d->mapoffset);
 		fprintf(stderr, "   maxsize: %u\n", d->maxsize);
 		fprintf(stderr, "   chunk:   %p\n", d->chunk);
-		fprintf(stderr, "    offset: %d\n", d->chunk->offset);
-		fprintf(stderr, "    size:   %u\n", d->chunk->size);
+		fprintf(stderr, "    read:   %d\n", d->chunk->area.readindex);
+		fprintf(stderr, "    write:  %u\n", d->chunk->area.writeindex);
 		fprintf(stderr, "    stride: %d\n", d->chunk->stride);
 	}
 	return 0;

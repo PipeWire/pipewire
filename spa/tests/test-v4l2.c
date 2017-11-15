@@ -235,8 +235,7 @@ static void on_source_have_output(void *_data)
 		datas[0].mapoffset = 0;
 		datas[0].maxsize = sstride * 240;
 		datas[0].data = sdata;
-		datas[0].chunk->offset = 0;
-		datas[0].chunk->size = sstride * 240;
+		spa_ringbuffer_set_avail(&datas[0].chunk->area, sstride * 240);
 		datas[0].chunk->stride = sstride;
 	} else {
 		if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
@@ -376,8 +375,7 @@ static int alloc_buffers(struct data *data)
 		b->datas[0].maxsize = stride * 240;
 		b->datas[0].data = ptr;
 		b->datas[0].chunk = &b->chunks[0];
-		b->datas[0].chunk->offset = 0;
-		b->datas[0].chunk->size = stride * 240;
+		spa_ringbuffer_set_avail(&b->datas[0].chunk->area, stride * 240);
 		b->datas[0].chunk->stride = stride;
 	}
 	data->n_buffers = MAX_BUFFERS;

@@ -25,6 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
+#include <spa/utils/ringbuffer.h>
 #include <spa/buffer/meta.h>
 #include <spa/support/type-map.h>
 
@@ -64,9 +65,8 @@ static inline void spa_type_data_map(struct spa_type_map *map, struct spa_type_d
 
 /** Chunk of memory */
 struct spa_chunk {
-	uint32_t offset;		/**< offset of valid data */
-	uint32_t size;			/**< size of valid data */
-	int32_t stride;			/**< stride of valid data */
+	struct spa_ringbuffer area;	/**< ringbuffer with valid memory */
+	int32_t stride;			/**< stride of ringbuffer increment */
 };
 
 /** Data for a buffer */

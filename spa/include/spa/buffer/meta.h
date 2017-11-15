@@ -38,14 +38,12 @@ extern "C" {
 #define SPA_TYPE_META__Header		SPA_TYPE_META_BASE "Header"
 #define SPA_TYPE_META__Pointer		SPA_TYPE_META_BASE "Pointer"
 #define SPA_TYPE_META__VideoCrop	SPA_TYPE_META_BASE "VideoCrop"
-#define SPA_TYPE_META__Ringbuffer	SPA_TYPE_META_BASE "Ringbuffer"
 #define SPA_TYPE_META__Shared		SPA_TYPE_META_BASE "Shared"
 
 struct spa_type_meta {
 	uint32_t Header;
 	uint32_t Pointer;
 	uint32_t VideoCrop;
-	uint32_t Ringbuffer;
 	uint32_t Shared;
 };
 
@@ -55,7 +53,6 @@ static inline void spa_type_meta_map(struct spa_type_map *map, struct spa_type_m
 		type->Header = spa_type_map_get_id(map, SPA_TYPE_META__Header);
 		type->Pointer = spa_type_map_get_id(map, SPA_TYPE_META__Pointer);
 		type->VideoCrop = spa_type_map_get_id(map, SPA_TYPE_META__VideoCrop);
-		type->Ringbuffer = spa_type_map_get_id(map, SPA_TYPE_META__Ringbuffer);
 		type->Shared = spa_type_map_get_id(map, SPA_TYPE_META__Shared);
 	}
 }
@@ -85,11 +82,6 @@ struct spa_meta_pointer {
 struct spa_meta_video_crop {
 	int32_t x, y;		/**< x and y offsets */
 	int32_t width, height;	/**< width and height */
-};
-
-/** Ringbuffer metadata */
-struct spa_meta_ringbuffer {
-	struct spa_ringbuffer ringbuffer;	/**< the ringbuffer */
 };
 
 /** Describes the shared memory of a buffer is stored */

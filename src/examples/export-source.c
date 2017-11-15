@@ -60,7 +60,6 @@ struct buffer {
 	struct spa_list link;
 	void *ptr;
 	bool mapped;
-	struct spa_meta_ringbuffer *rb;
 };
 
 struct data {
@@ -245,8 +244,8 @@ static int impl_port_enum_params(struct spa_node *node,
 			":", t->param_buffers.size,    "iru", 1024,
 										2, 32, 4096,
 			":", t->param_buffers.stride,  "i",   0,
-			":", t->param_buffers.buffers, "iru", 2,
-										2, 2, 32,
+			":", t->param_buffers.buffers, "iru", 1,
+										2, 1, 32,
 			":", t->param_buffers.align,   "i",  16);
 	}
 	else if (id == t->param.idMeta) {
@@ -256,17 +255,6 @@ static int impl_port_enum_params(struct spa_node *node,
 				id, t->param_meta.Meta,
 				":", t->param_meta.type, "I", t->meta.Header,
 				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
-			break;
-		case 1:
-			param = spa_pod_builder_object(builder,
-				id, t->param_meta.Meta,
-				":", t->param_meta.type,	"I", t->meta.Ringbuffer,
-				":", t->param_meta.size,	"i", sizeof(struct spa_meta_ringbuffer),
-				":", t->param_meta.ringbufferSize,   "ir", 1024 * 4,
-									2, 16 * 4, INT32_MAX / 4,
-				":", t->param_meta.ringbufferStride, "i", 0,
-				":", t->param_meta.ringbufferBlocks, "i", 1,
-				":", t->param_meta.ringbufferAlign,  "i", 16);
 			break;
 		default:
 			return 0;
@@ -348,7 +336,6 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 			return -EINVAL;
 		}
 		b->buffer = buffers[i];
-		b->rb = spa_buffer_find_meta(buffers[i], d->type.meta.Ringbuffer);
 		pw_log_info("got buffer %d size %d", i, datas[0].maxsize);
 		spa_list_append(&d->empty, &b->link);
 	}
@@ -376,7 +363,9 @@ static int impl_node_process_output(struct spa_node *node)
 	int i, c, n_samples, avail;
 	int16_t *dst;
         struct spa_port_io *io = d->io;
-	uint32_t index = 0;
+	uint32_t maxsize, index = 0;
+	struct spa_ringbuffer *rb;
+	uint32_t filled, offset;
 
 	if (io->buffer_id < d->n_buffers) {
 		reuse_buffer(d, io->buffer_id);
@@ -389,22 +378,17 @@ static int impl_node_process_output(struct spa_node *node)
         b = spa_list_first(&d->empty, struct buffer, link);
         spa_list_remove(&b->link);
 
-	if (b->rb) {
-		uint32_t filled, offset;
+	maxsize = b->buffer->datas[0].maxsize;
+	rb = &b->buffer->datas[0].chunk->area;
 
-		filled = spa_ringbuffer_get_write_index(&b->rb->ringbuffer, &index);
-		avail = b->rb->ringbuffer.size - filled;
-		offset = index % b->rb->ringbuffer.size;
+	filled = spa_ringbuffer_get_write_index(rb, &index);
+	avail = maxsize - filled;
+	offset = index % maxsize;
 
-		if (offset + avail > b->rb->ringbuffer.size)
-			avail = b->rb->ringbuffer.size - offset;
+	if (offset + avail > maxsize)
+		avail = maxsize - offset;
 
-		dst = SPA_MEMBER(b->ptr, offset, void);
-	}
-	else {
-		dst = b->ptr;
-		avail = b->buffer->datas[0].maxsize;
-	}
+	dst = SPA_MEMBER(b->ptr, offset, void);
         n_samples = avail / (sizeof(int16_t) * d->format.channels);
 
         for (i = 0; i < n_samples; i++) {
@@ -420,14 +404,7 @@ static int impl_node_process_output(struct spa_node *node)
                         *dst++ = val;
         }
 
-	if (b->rb) {
-		spa_ringbuffer_write_update(&b->rb->ringbuffer, index + avail);
-	}
-	else {
-		b->buffer->datas[0].chunk->offset = 0;
-		b->buffer->datas[0].chunk->size = avail;
-		b->buffer->datas[0].chunk->stride = 0;
-	}
+	spa_ringbuffer_write_update(rb, index + avail);
 
 	io->buffer_id = b->buffer->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;

@@ -43,12 +43,8 @@ struct buffer {
 	bool outstanding;
 
 	struct spa_buffer *outbuf;
-	struct spa_ringbuffer *rb;
 
 	struct spa_meta_header *h;
-
-	bool have_ringbuffer;
-	struct spa_ringbuffer ringbuffer;
 };
 
 struct port {
@@ -439,8 +435,8 @@ impl_node_port_enum_params(struct spa_node *node,
 									2, 16 * this->bpf,
 									   INT32_MAX / this->bpf,
 			":", t->param_buffers.stride,  "i", 0,
-			":", t->param_buffers.buffers, "iru", 2,
-									2, 2, MAX_BUFFERS,
+			":", t->param_buffers.buffers, "iru", 1,
+									2, 1, MAX_BUFFERS,
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
@@ -453,17 +449,6 @@ impl_node_port_enum_params(struct spa_node *node,
 				id, t->param_meta.Meta,
 				":", t->param_meta.type, "I", t->meta.Header,
 				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
-			break;
-		case 1:
-			param = spa_pod_builder_object(&b,
-				id, t->param_meta.Meta,
-				":", t->param_meta.type,	"I", t->meta.Ringbuffer,
-				":", t->param_meta.size,	"i", sizeof(struct spa_meta_ringbuffer),
-				":", t->param_meta.ringbufferSize,   "iru", 1024 * this->bpf,
-									2, 16 * this->bpf, INT32_MAX / this->bpf,
-				":", t->param_meta.ringbufferStride, "i", 0,
-				":", t->param_meta.ringbufferBlocks, "i", 1,
-				":", t->param_meta.ringbufferAlign,  "i", 16);
 			break;
 		default:
 			return 0;
@@ -605,23 +590,11 @@ impl_node_port_use_buffers(struct spa_node *node,
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
 		struct spa_data *d = buffers[i]->datas;
-		struct spa_meta_ringbuffer *rb;
 
 		b = &port->buffers[i];
 		b->outbuf = buffers[i];
 		b->outstanding = (direction == SPA_DIRECTION_INPUT);
 		b->h = spa_buffer_find_meta(buffers[i], t->meta.Header);
-
-		if ((rb = spa_buffer_find_meta(buffers[i], t->meta.Ringbuffer))) {
-			b->rb = &rb->ringbuffer;
-			b->have_ringbuffer = true;
-		}
-		else {
-			b->rb = &b->ringbuffer;
-			b->rb->size = d[0].maxsize;
-			b->rb->mask = d[0].maxsize - 1;
-			b->have_ringbuffer = false;
-		}
 
 		if (!((d[0].type == t->data.MemPtr ||
 		       d[0].type == t->data.MemFd ||
@@ -715,17 +688,23 @@ add_port_data(struct impl *this, void *out, size_t outsize, size_t next, struct 
 {
 	size_t insize;
 	struct buffer *b;
-	uint32_t index = 0, offset, len1, len2;
+	uint32_t index = 0, offset, len1, len2, maxsize;
 	mix_func_t mix = layer == 0 ? this->copy : this->add;
+	void *data;
+	struct spa_ringbuffer *rb;
 
 	b = spa_list_first(&port->queue, struct buffer, link);
 
-	insize = spa_ringbuffer_get_read_index(b->rb, &index);
+	maxsize = b->outbuf->datas[0].maxsize;
+	data = b->outbuf->datas[0].data;
+	rb = &b->outbuf->datas[0].chunk->area,
+
+	insize = spa_ringbuffer_get_read_index(rb, &index);
 	outsize = SPA_MIN(outsize, insize);
 
-	offset = index % b->rb->size;
-	if (offset + outsize > b->rb->size) {
-		len1 = b->rb->size - offset;
+	offset = index % maxsize;
+	if (offset + outsize > maxsize) {
+		len1 = maxsize - offset;
 		len2 = outsize - len1;
 	}
 	else {
@@ -733,15 +712,15 @@ add_port_data(struct impl *this, void *out, size_t outsize, size_t next, struct 
 		len2 = 0;
 	}
 
-	mix(out, SPA_MEMBER(b->outbuf->datas[0].data, offset, void), len1);
+	mix(out, SPA_MEMBER(data, offset, void), len1);
 	if (len2 > 0)
-		mix(out + len1, b->outbuf->datas[0].data, len2);
+		mix(out + len1, data, len2);
 
-	spa_ringbuffer_read_update(b->rb, index + outsize);
+	spa_ringbuffer_read_update(rb, index + outsize);
 
 	port->queued_bytes -= outsize;
 
-	if (outsize == insize || (b->have_ringbuffer && next == 0)) {
+	if (outsize == insize || next == 0) {
 		spa_log_trace(this->log, NAME " %p: return buffer %d on port %p %zd",
 			      this, b->outbuf->id, port, outsize);
 		port->io->buffer_id = b->outbuf->id;
@@ -761,8 +740,9 @@ static int mix_output(struct impl *this, size_t n_bytes)
 	struct port *outport;
 	struct spa_port_io *outio;
 	struct spa_data *od;
-	int32_t filled, avail;
+	int32_t filled, avail, maxsize;
 	uint32_t index = 0, len1, len2, offset;
+	struct spa_ringbuffer *rb;
 
 	outport = GET_OUT_PORT(this, 0);
 	outio = outport->io;
@@ -777,22 +757,18 @@ static int mix_output(struct impl *this, size_t n_bytes)
 	outbuf->outstanding = true;
 
 	od = outbuf->outbuf->datas;
+	maxsize = od[0].maxsize;
 
-	if (!outbuf->have_ringbuffer) {
-		outbuf->rb->readindex = outbuf->rb->writeindex = 0;
-		od[0].chunk->offset = 0;
-		od[0].chunk->size = n_bytes;
-		od[0].chunk->stride = 0;
-	}
+	rb = &od[0].chunk->area;
 
-	filled = spa_ringbuffer_get_write_index(outbuf->rb, &index);
-	avail = outbuf->rb->size - filled;
-	offset = index % outbuf->rb->size;
+	filled = spa_ringbuffer_get_write_index(rb, &index);
+	avail = maxsize - filled;
+	offset = index % maxsize;
 
 	n_bytes = SPA_MIN(n_bytes, avail);
 
-	if (offset + n_bytes > outbuf->rb->size) {
-		len1 = outbuf->rb->size - offset;
+	if (offset + n_bytes > maxsize) {
+		len1 = maxsize - offset;
 		len2 = n_bytes - len1;
 	}
 	else {
@@ -820,7 +796,7 @@ static int mix_output(struct impl *this, size_t n_bytes)
 		layer++;
 	}
 
-	spa_ringbuffer_write_update(outbuf->rb, index + n_bytes);
+	spa_ringbuffer_write_update(rb, index + n_bytes);
 
 	outio->buffer_id = outbuf->outbuf->id;
 	outio->status = SPA_STATUS_HAVE_BUFFER;
@@ -858,6 +834,7 @@ static int impl_node_process_input(struct spa_node *node)
 		    inio->status == SPA_STATUS_HAVE_BUFFER && inio->buffer_id < inport->n_buffers) {
 			struct buffer *b = &inport->buffers[inio->buffer_id];
 			uint32_t index;
+			struct spa_ringbuffer *rb;
 
 			if (!b->outstanding) {
 				spa_log_warn(this->log, NAME " %p: buffer %u in use", this,
@@ -872,11 +849,8 @@ static int impl_node_process_input(struct spa_node *node)
 
 			spa_list_append(&inport->queue, &b->link);
 
-			if (!b->have_ringbuffer) {
-				b->rb->readindex = 0;
-				b->rb->writeindex = b->outbuf->datas[0].chunk->size;
-			}
-			inport->queued_bytes += spa_ringbuffer_get_read_index(b->rb, &index);
+			rb = &b->outbuf->datas[0].chunk->area;
+			inport->queued_bytes += spa_ringbuffer_get_read_index(rb, &index);
 
 			spa_log_trace(this->log, NAME " %p: queue buffer %d on port %d %zd %zd",
 				      this, b->outbuf->id, i, inport->queued_bytes, min_queued);

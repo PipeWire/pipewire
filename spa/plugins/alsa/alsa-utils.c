@@ -377,7 +377,7 @@ pull_frames(struct state *state,
 		total_frames += n_frames;
 		to_write -= n_frames;
 
-		spa_log_trace(state->log, "alsa-util %p: written %lu frames, left %ld", state, total_frames, to_write);
+		spa_log_trace(state->log, "alsa-util %p: %u written %lu frames, left %ld", state, index, total_frames, to_write);
 	}
 
 	try_pull(state, frames, do_pull);

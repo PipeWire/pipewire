@@ -686,46 +686,47 @@ static struct spa_buffer *find_free_buffer(struct impl *this, struct port *port)
 
 static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buffer *sbuf)
 {
-	uint32_t si, di, i, n_samples, n_bytes, soff, doff;
+	uint32_t i, n_samples, n_bytes;
 	struct spa_data *sd, *dd;
 	int16_t *src, *dst;
 	double volume;
+	uint32_t towrite, savail, davail;
+	uint32_t sindex, dindex;
 
 	volume = this->props.volume;
 
-	si = di = 0;
-	soff = doff = 0;
+	sd = sbuf->datas;
+	dd = dbuf->datas;
 
-	while (true) {
-		if (si == sbuf->n_datas || di == dbuf->n_datas)
-			break;
+	savail = spa_ringbuffer_get_read_index(&sd[0].chunk->area, &sindex);
+	davail = spa_ringbuffer_get_write_index(&dd[0].chunk->area, &dindex);
+	davail = dd[0].maxsize - davail;
 
-		sd = &sbuf->datas[si];
-		dd = &dbuf->datas[di];
+	towrite = SPA_MIN(savail, davail);
 
-		src = (int16_t *) ((uint8_t *) sd->data + sd->chunk->area.readindex + soff);
-		dst = (int16_t *) ((uint8_t *) dd->data + doff);
+	while (towrite > 0) {
+		uint32_t soffset = sindex % sd[0].maxsize;
+		uint32_t doffset = dindex % dd[0].maxsize;
 
-		n_bytes = SPA_MIN(sd->chunk->area.writeindex - soff, dd->maxsize - doff);
-		n_samples = n_bytes / sizeof(uint16_t);
+		src = SPA_MEMBER(sd[0].data, soffset, int16_t);
+		dst = SPA_MEMBER(dd[0].data, doffset, int16_t);
 
+		n_bytes = towrite;
+		if (soffset + n_bytes > sd[0].maxsize)
+			n_bytes = sd[0].maxsize - soffset;
+		if (doffset + n_bytes > dd[0].maxsize)
+			n_bytes = dd[0].maxsize - doffset;
+
+		n_samples = n_bytes / sizeof(int16_t);
 		for (i = 0; i < n_samples; i++)
 			dst[i] = src[i] * volume;
 
-		soff += n_bytes;
-		doff += n_bytes;
-
-		spa_ringbuffer_set_avail(&dd->chunk->area, doff);
-
-		if (soff >= sd->chunk->area.writeindex) {
-			si++;
-			soff = 0;
-		}
-		if (doff >= dd->maxsize) {
-			di++;
-			doff = 0;
-		}
+		sindex += n_bytes;
+		dindex += n_bytes;
+		towrite -= n_bytes;
 	}
+	spa_ringbuffer_read_update(&sd[0].chunk->area, sindex);
+	spa_ringbuffer_write_update(&dd[0].chunk->area, dindex);
 }
 
 static int impl_node_process_input(struct spa_node *node)
@@ -751,8 +752,10 @@ static int impl_node_process_input(struct spa_node *node)
 	input = in_port->io;
 	spa_return_val_if_fail(input != NULL, -EIO);
 
-	if (input->buffer_id >= in_port->n_buffers)
-		return SPA_STATUS_NEED_BUFFER;
+	if (input->buffer_id >= in_port->n_buffers) {
+		input->status = -EINVAL;
+		return -EINVAL;
+	}
 
 	if ((dbuf = find_free_buffer(this, out_port)) == NULL) {
                 spa_log_error(this->log, NAME " %p: out of buffers", this);

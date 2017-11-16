@@ -139,6 +139,8 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	format = pw_spa_pod_copy(format);
 	spa_pod_fixate(format);
 
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
 	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE) {
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,

@@ -703,17 +703,10 @@ add_port_data(struct impl *this, void *out, size_t outsize, size_t next, struct 
 	outsize = SPA_MIN(outsize, insize);
 
 	offset = index % maxsize;
-	if (offset + outsize > maxsize) {
-		len1 = maxsize - offset;
-		len2 = outsize - len1;
-	}
-	else {
-		len1 = outsize;
-		len2 = 0;
-	}
 
+	len1 = SPA_MIN(outsize, maxsize - offset);
 	mix(out, SPA_MEMBER(data, offset, void), len1);
-	if (len2 > 0)
+	if ((len2 = outsize - len1) > 0)
 		mix(out + len1, data, len2);
 
 	spa_ringbuffer_read_update(rb, index + outsize);
@@ -763,18 +756,11 @@ static int mix_output(struct impl *this, size_t n_bytes)
 
 	filled = spa_ringbuffer_get_write_index(rb, &index);
 	avail = maxsize - filled;
-	offset = index % maxsize;
-
 	n_bytes = SPA_MIN(n_bytes, avail);
 
-	if (offset + n_bytes > maxsize) {
-		len1 = maxsize - offset;
-		len2 = n_bytes - len1;
-	}
-	else {
-		len1 = n_bytes;
-		len2 = 0;
-	}
+	offset = index % maxsize;
+	len1 = SPA_MIN(n_bytes, maxsize - offset);
+	len2 = n_bytes - len1;
 
 	spa_log_trace(this->log, NAME " %p: dequeue output buffer %d %zd %d %d %d",
 		      this, outbuf->outbuf->id, n_bytes, offset, len1, len2);

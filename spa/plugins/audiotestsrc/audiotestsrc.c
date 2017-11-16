@@ -335,21 +335,15 @@ static int make_buffer(struct impl *this)
 	avail = maxsize - filled;
 	n_bytes = SPA_MIN(avail, n_bytes);
 
-	n_samples = n_bytes / this->bpf;
-
 	offset = index % maxsize;
 
-	if (offset + n_bytes > maxsize) {
-		l0 = (maxsize - offset) / this->bpf;
-		l1 = n_samples - l0;
-	}
-	else {
-		l0 = n_samples;
-		l1 = 0;
-	}
+	n_samples = n_bytes / this->bpf;
+
+	l0 = SPA_MIN(n_bytes, maxsize - offset) / this->bpf;
+	l1 = n_samples - l0;
 
 	this->render_func(this, SPA_MEMBER(data, offset, void), l0);
-	if (l1)
+	if (l1 > 0)
 		this->render_func(this, data, l1);
 
 	spa_ringbuffer_write_update(rb, index + n_bytes);

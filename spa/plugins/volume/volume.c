@@ -711,11 +711,8 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 		src = SPA_MEMBER(sd[0].data, soffset, int16_t);
 		dst = SPA_MEMBER(dd[0].data, doffset, int16_t);
 
-		n_bytes = towrite;
-		if (soffset + n_bytes > sd[0].maxsize)
-			n_bytes = sd[0].maxsize - soffset;
-		if (doffset + n_bytes > dd[0].maxsize)
-			n_bytes = dd[0].maxsize - doffset;
+		n_bytes = SPA_MIN(towrite, sd[0].maxsize - soffset);
+		n_bytes = SPA_MIN(n_bytes, dd[0].maxsize - doffset);
 
 		n_samples = n_bytes / sizeof(int16_t);
 		for (i = 0; i < n_samples; i++)

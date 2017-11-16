@@ -96,10 +96,10 @@ spa_ringbuffer_read_data(struct spa_ringbuffer *rbuf,
 			 const void *buffer, uint32_t size,
 			 uint32_t offset, void *data, uint32_t len)
 {
-	uint32_t first = SPA_MIN(len, size - offset);
-	memcpy(data, buffer + offset, first);
-	if (SPA_UNLIKELY(len > first))
-		memcpy(data + first, buffer, len - first);
+	uint32_t l0 = SPA_MIN(len, size - offset), l1 = len - l0;
+	memcpy(data, buffer + offset, l0);
+	if (SPA_UNLIKELY(l1 > 0))
+		memcpy(data + l0, buffer, l1);
 }
 
 /**
@@ -146,10 +146,10 @@ spa_ringbuffer_write_data(struct spa_ringbuffer *rbuf,
 			  void *buffer, uint32_t size,
 			  uint32_t offset, const void *data, uint32_t len)
 {
-	uint32_t first = SPA_MIN(len, size - offset);
-	memcpy(buffer + offset, data, first);
-	if (SPA_UNLIKELY(len > first))
-		memcpy(buffer, data + first, len - first);
+	uint32_t l0 = SPA_MIN(len, size - offset), l1 = len - l0;
+	memcpy(buffer + offset, data, l0);
+	if (SPA_UNLIKELY(l1 > 0))
+		memcpy(buffer, data + l0, l1);
 }
 
 /**

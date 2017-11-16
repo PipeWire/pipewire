@@ -61,10 +61,26 @@ struct spa_fraction {
 };
 
 #define SPA_N_ELEMENTS(arr)  (sizeof(arr) / sizeof((arr)[0]))
-#define SPA_MIN(a,b)  ((a)<(b) ? (a) : (b))
-#define SPA_MAX(a,b)  ((a)>(b) ? (a) : (b))
-#define SPA_ABS(a)    ((a)>0 ? (a) : -(a))
-#define SPA_CLAMP(v,a,b)  ((v)>(b) ? (b) : ((v) < (a) ? (a) : (v)))
+
+#define SPA_MIN(a,b)		\
+({				\
+	typeof(a) _a = (a);	\
+	typeof(b) _b = (b);	\
+	_a < _b ? _a : _b;	\
+})
+#define SPA_MAX(a,b)		\
+({				\
+	typeof(a) _a = (a);	\
+	typeof(b) _b = (b);	\
+	_a > _b ? _a : _b;	\
+})
+#define SPA_CLAMP(v,low,high)				\
+({							\
+	typeof(v) _v = (v);				\
+	typeof(low) _low = (low);			\
+	typeof(high) _high = (high);			\
+	_v > _high ? _high : ( _v < _low ? _low : _v);	\
+})
 
 #define SPA_MEMBER(b,o,t) ((t*)((uint8_t*)(b) + (o)))
 

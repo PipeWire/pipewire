@@ -540,7 +540,7 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 	struct proxy *this;
 	struct impl *impl;
 	struct proxy_port *port;
-	uint32_t i, j;
+	uint32_t i, j, k;
 	size_t n_mem;
 	struct pw_client_node_buffer *mb;
 	struct spa_meta_shared *msh;
@@ -600,9 +600,11 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 						     t->data.MemFd,
 						     msh->fd, msh->flags, msh->offset, msh->size);
 
-		for (j = 0; j < buffers[i]->n_metas; j++) {
-			memcpy(&b->buffer.metas[j], &buffers[i]->metas[j], sizeof(struct spa_meta));
+		for (j = 0, k = 0; j < buffers[i]->n_metas; j++) {
+			if (buffers[i]->metas[j].type != t->meta.Shared)
+				memcpy(&b->buffer.metas[k++], &buffers[i]->metas[j], sizeof(struct spa_meta));
 		}
+		b->buffer.n_metas = k;
 
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = &buffers[i]->datas[j];

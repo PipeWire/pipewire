@@ -72,12 +72,6 @@ int spa_debug_buffer(const struct spa_buffer *buffer)
 			fprintf(stderr, "      seq:        %u\n", h->seq);
 			fprintf(stderr, "      pts:        %" PRIi64 "\n", h->pts);
 			fprintf(stderr, "      dts_offset: %" PRIi64 "\n", h->dts_offset);
-		} else if (!strcmp(type_name, SPA_TYPE_META__Pointer)) {
-			struct spa_meta_pointer *h = m->data;
-			fprintf(stderr, "    struct spa_meta_pointer:\n");
-			fprintf(stderr, "      type:       %s\n",
-				spa_type_map_get_type(map, h->type));
-			fprintf(stderr, "      ptr:        %p\n", h->ptr);
 		} else if (!strcmp(type_name, SPA_TYPE_META__VideoCrop)) {
 			struct spa_meta_video_crop *h = m->data;
 			fprintf(stderr, "    struct spa_meta_video_crop:\n");

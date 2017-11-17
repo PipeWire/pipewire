@@ -246,6 +246,78 @@ static struct spa_pod *find_param(struct spa_pod **params, int n_params, uint32_
 	return NULL;
 }
 
+/* Allocate an array of buffers that can be shared.
+ *
+ * All information will be allocated in \a mem. A pointer to a
+ * newly allocated memory with an array of buffer pointers is
+ * returned.
+ *
+ * \return an array of freshly allocated buffer pointers. free()
+ *         after usage.
+ *
+ * Array of allocated buffers:
+ *
+ *      +==============================+
+ *    +-| struct spa_buffer  *         | array of n_buffers of pointers
+ *    | | ... <n_buffers>              |
+ *    | +==============================+
+ *    +>| struct spa_buffer            |
+ *      |   uint32_t id                | id of buffer
+ *      |   uint32_t n_metas           | number of metas
+ *    +-|   struct spa_meta *metas     | pointer to array of metas
+ *    | |   uint32_t n_datas           | number of datas
+ *   +|-|   struct spa_data *datas     | pointer to array of datas
+ *   || +------------------------------+
+ *   |+>| struct spa_meta              |
+ *   |  |   uint32_t type              | Shared meta type, first one always shared
+ *   |+-|   void *data                 | pointer to inlined shared metadata
+ *   || |   uint32_t size              | sizeof(struct spa_meta_shared)
+ *   || | struct spa_meta              |
+ *   || |   uint32_t type              | more metadata
+ *  +||-|   void *data                 | pointer to mmaped metadata in shared memory
+ *  ||| |   uint32_t size              | size of metadata
+ *  ||| | ... <n_metas>                | more metas follow
+ *  ||| +------------------------------+
+ *  ||+>| struct spa_meta_shared       | inlined shared metadata
+ *  ||  |   uint32_t flags             |
+ *  ||  |   int fd                     | fd of the shared memory block
+ *  ||  |   uint32_t offset            | offset of meta/chunk/data for this buffer
+ *  ||  |   uint32_t size              | size of meta/chunk/data for this buffer
+ *  ||  +------------------------------+
+ *  |+->| struct spa_data              |
+ *  |   |   uint32_t type              | memory type, either MemFd or INVALID
+ *  |   |   uint32_t flags             |
+ *  |   |   int fd                     | fd of shared memory block
+ *  |   |   uint32_t mapoffset         | offset in shared memory of data
+ *  |   |   uint32_t maxsize           | size of data block
+ *  | +-|   void *data                 | pointer to mmaped data in shared memory
+ *  |+|-|   struct spa_chunk *chunk    | pointer to mmaped chunk in shared memory
+ *  ||| | ... <n_datas>                | more datas follow
+ *  ||| +==============================+
+ *  ||| | ... <n_buffers>              | more buffer/meta/data definitions follow
+ *  ||| +==============================+
+ *  |||
+ *  |||
+ *  |||  shared memory block:
+ *  |||
+ *  ||| +==============================+
+ *  +-->| meta data memory             | metadata memory
+ *   || | ... <n_metas>                |
+ *   || +------------------------------+
+ *   +->| struct spa_chunk             | memory for n_datas chunks
+ *    | |   struct spa_ringbuffer area |
+ *    | |   int32_t stride             |
+ *    | | ... <n_datas> chunks         |
+ *    | +------------------------------+
+ *    +>| data                         | memory for n_datas data
+ *      | ... <n_datas> blocks         |
+ *      +==============================+
+ *      | ... <n_buffers>              | repeated for each buffer
+ *      +==============================+
+ *
+ * The shared memory block should not contain any types or structure,
+ * just the actual metadata contents.
+ */
 static struct spa_buffer **alloc_buffers(struct pw_link *this,
 					 uint32_t n_buffers,
 					 uint32_t n_params,
@@ -265,17 +337,19 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 
 	n_metas = data_size = meta_size = 0;
 
-	/* each buffer */
+	/* each buffer has 1 meta shared */
 	skel_size = sizeof(struct spa_buffer);
+	skel_size += sizeof(struct spa_meta);
+	skel_size += sizeof(struct spa_meta_shared);
 
 	metas = alloca(sizeof(struct spa_meta) * (n_params + 1));
 
-	/* add shared metadata */
+	/* add shared metadata this should not go into shared
+	 * memory or else a client can damage it so we inline it after
+	 * the array of spa_meta. */
 	metas[n_metas].type = this->core->type.meta.Shared;
 	metas[n_metas].size = sizeof(struct spa_meta_shared);
-	meta_size += metas[n_metas].size;
 	n_metas++;
-	skel_size += sizeof(struct spa_meta);
 
 	/* collect metadata */
 	for (i = 0; i < n_params; i++) {
@@ -316,31 +390,35 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 	for (i = 0; i < n_buffers; i++) {
 		int j;
 		struct spa_buffer *b;
+		struct spa_meta_shared *msh;
 		void *p;
 
 		buffers[i] = b = SPA_MEMBER(bp, skel_size * i, struct spa_buffer);
 
 		p = SPA_MEMBER(mem->ptr, data_size * i, void);
 
+		msh = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta_shared);
+		msh->flags = 0;
+		msh->fd = mem->fd;
+		msh->offset = data_size * i;
+		msh->size = data_size;
+
 		b->id = i;
 		b->n_metas = n_metas;
-		b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
+		b->metas = SPA_MEMBER(msh, sizeof(struct spa_meta_shared), struct spa_meta);
 		for (j = 0; j < n_metas; j++) {
 			struct spa_meta *m = &b->metas[j];
 
 			m->type = metas[j].type;
-			m->data = p;
 			m->size = metas[j].size;
 
 			if (m->type == this->core->type.meta.Shared) {
-				struct spa_meta_shared *msh = p;
-
-				msh->flags = 0;
-				msh->fd = mem->fd;
-				msh->offset = data_size * i;
-				msh->size = data_size;
+				m->data = msh;
 			}
-			p += m->size;
+			else {
+				m->data = p;
+				p += m->size;
+			}
 		}
 		/* pointer to data structure */
 		b->n_datas = n_datas;
@@ -364,6 +442,7 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 				d->chunk->stride = data_strides[j];
 				ddp += data_sizes[j];
 			} else {
+				/* needs to be allocated by a node */
 				d->type = SPA_ID_INVALID;
 				d->data = NULL;
 			}
@@ -535,6 +614,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			minsize = 1024;
 		}
 
+		/* when one of the ports can allocate buffer memory, set the minsize to
+		 * 0 to make sure we don't allocate memory in the shared memory */
 		if ((in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) ||
 		    (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS))
 			minsize = 0;

@@ -405,8 +405,8 @@ struct spa_node {
 	 * Tell the port to allocate memory for \a buffers.
 	 *
 	 * \a buffers should contain an array of pointers to buffers. The data
-	 * in the buffers should point to an array of at least 1 SPA_DATA_TYPE_INVALID
-	 * data pointers that will be filled by this function.
+	 * in the buffers should point to an array of at least 1 data entry
+	 * with a 0 type that will be filled by this function.
 	 *
 	 * For input ports, the buffers will be dequeued and ready to be filled
 	 * and pushed into the port. A notify should be configured so that you can

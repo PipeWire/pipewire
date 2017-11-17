@@ -25,6 +25,7 @@
 #include <poll.h>
 #include <pthread.h>
 #include <errno.h>
+#include <sys/mman.h>
 
 #include <SDL2/SDL.h>
 
@@ -81,11 +82,11 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 
 struct buffer {
 	struct spa_buffer buffer;
-	struct spa_meta metas[2];
+	struct spa_meta metas[1];
 	struct spa_meta_header header;
-	struct spa_meta_pointer ptr;
 	struct spa_data datas[1];
 	struct spa_chunk chunks[1];
+	SDL_Texture *texture;
 };
 
 struct data {
@@ -198,26 +199,22 @@ static void on_source_have_output(void *_data)
 {
 	struct data *data = _data;
 	int res;
-	struct spa_buffer *b;
+	struct buffer *b;
 	void *sdata, *ddata;
 	int sstride, dstride;
 	int i;
 	uint8_t *src, *dst;
-	struct spa_meta *metas;
 	struct spa_data *datas;
 	struct spa_port_io *io = &data->source_output[0];
 
 	handle_events(data);
 
-	b = data->bp[io->buffer_id];
+	b = &data->buffers[io->buffer_id];
 
-	metas = b->metas;
-	datas = b->datas;
+	datas = b->buffer.datas;
 
-	if (metas[1].type == data->type.meta.Pointer &&
-	    ((struct spa_meta_pointer *) metas[1].data)->type == data->type.SDL_Texture) {
-		SDL_Texture *texture;
-		texture = ((struct spa_meta_pointer *) metas[1].data)->ptr;
+	if (b->texture) {
+		SDL_Texture *texture = b->texture;
 
 		SDL_UnlockTexture(texture);
 
@@ -238,11 +235,24 @@ static void on_source_have_output(void *_data)
 		spa_ringbuffer_set_avail(&datas[0].chunk->area, sstride * 240);
 		datas[0].chunk->stride = sstride;
 	} else {
+		uint8_t *map;
+
 		if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
 			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
 			return;
 		}
 		sdata = datas[0].data;
+		if (datas[0].type == data->type.data.MemFd ||
+		    datas[0].type == data->type.data.DmaBuf) {
+			map = mmap(NULL, datas[0].maxsize + datas[0].mapoffset, PROT_READ,
+				   MAP_PRIVATE, datas[0].fd, 0);
+			sdata = SPA_MEMBER(map, datas[0].mapoffset, uint8_t);
+		} else if (datas[0].type == data->type.data.MemPtr) {
+			map = NULL;
+			sdata = datas[0].data;
+		} else
+			return;
+
 		sstride = datas[0].chunk->stride;
 
 		for (i = 0; i < 240; i++) {
@@ -255,6 +265,9 @@ static void on_source_have_output(void *_data)
 		SDL_RenderClear(data->renderer);
 		SDL_RenderCopy(data->renderer, data->texture, NULL, NULL);
 		SDL_RenderPresent(data->renderer);
+
+		if (map)
+			munmap(map, datas[0].maxsize + datas[0].mapoffset);
 	}
 
 	io->status = SPA_STATUS_NEED_BUFFER;
@@ -324,32 +337,19 @@ static int make_nodes(struct data *data, const char *device)
 	return res;
 }
 
-static int alloc_buffers(struct data *data)
+static int setup_buffers(struct data *data)
 {
 	int i;
 
 	for (i = 0; i < MAX_BUFFERS; i++) {
 		struct buffer *b = &data->buffers[i];
-		SDL_Texture *texture;
-		void *ptr;
-		int stride;
 
 		data->bp[i] = &b->buffer;
 
-		texture = SDL_CreateTexture(data->renderer,
-					    SDL_PIXELFORMAT_YUY2,
-					    SDL_TEXTUREACCESS_STREAMING, 320, 240);
-		if (!texture) {
-			printf("can't create texture: %s\n", SDL_GetError());
-			return -ENOMEM;
-		}
-		if (SDL_LockTexture(texture, NULL, &ptr, &stride) < 0) {
-			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-			return -EIO;
-		}
+		b->texture = NULL;
 
 		b->buffer.id = i;
-		b->buffer.n_metas = 2;
+		b->buffer.n_metas = 1;
 		b->buffer.metas = b->metas;
 		b->buffer.n_datas = 1;
 		b->buffer.datas = b->datas;
@@ -362,26 +362,50 @@ static int alloc_buffers(struct data *data)
 		b->metas[0].data = &b->header;
 		b->metas[0].size = sizeof(b->header);
 
-		b->ptr.type = data->type.SDL_Texture;
-		b->ptr.ptr = texture;
-		b->metas[1].type = data->type.meta.Pointer;
-		b->metas[1].data = &b->ptr;
-		b->metas[1].size = sizeof(b->ptr);
-
-		b->datas[0].type = data->type.data.MemPtr;
+		b->datas[0].type = 0;
 		b->datas[0].flags = 0;
 		b->datas[0].fd = -1;
 		b->datas[0].mapoffset = 0;
+		b->datas[0].maxsize = 0;
+		b->datas[0].data = NULL;
+		b->datas[0].chunk = &b->chunks[0];
+		spa_ringbuffer_set_avail(&b->datas[0].chunk->area, 0);
+		b->datas[0].chunk->stride = 0;
+	}
+	data->n_buffers = MAX_BUFFERS;
+	return 0;
+}
+
+static int sdl_alloc_buffers(struct data *data)
+{
+	int i;
+
+	for (i = 0; i < MAX_BUFFERS; i++) {
+		struct buffer *b = &data->buffers[i];
+		SDL_Texture *texture;
+		void *ptr;
+		int stride;
+
+		texture = SDL_CreateTexture(data->renderer,
+					    SDL_PIXELFORMAT_YUY2,
+					    SDL_TEXTUREACCESS_STREAMING, 320, 240);
+		if (!texture) {
+			printf("can't create texture: %s\n", SDL_GetError());
+			return -ENOMEM;
+		}
+		if (SDL_LockTexture(texture, NULL, &ptr, &stride) < 0) {
+			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+			return -EIO;
+		}
+		b->texture = texture;
+
+		b->datas[0].type = data->type.data.MemPtr;
 		b->datas[0].maxsize = stride * 240;
 		b->datas[0].data = ptr;
-		b->datas[0].chunk = &b->chunks[0];
 		spa_ringbuffer_set_avail(&b->datas[0].chunk->area, stride * 240);
 		b->datas[0].chunk->stride = stride;
 	}
-	data->n_buffers = MAX_BUFFERS;
-
-	return spa_node_port_use_buffers(data->source, SPA_DIRECTION_OUTPUT, 0, data->bp,
-					 data->n_buffers);
+	return 0;
 }
 
 static int negotiate_formats(struct data *data)
@@ -399,13 +423,6 @@ static int negotiate_formats(struct data *data)
 				  &data->source_output[0])) < 0)
 		return res;
 
-#if 0
-	void *state = NULL;
-
-	if ((res = spa_node_port_enum_formats(data->source, 0, &format, NULL, &state)) <= 0)
-		return -EBADF;
-#else
-
 	format = spa_pod_builder_object(&b,
 			0, data->type.format,
 			"I", data->type.media_type.video,
@@ -413,7 +430,6 @@ static int negotiate_formats(struct data *data)
 			":", data->type.format_video.format,    "I", data->type.video_format.YUY2,
 			":", data->type.format_video.size,      "R", &SPA_RECTANGLE(320, 240),
 			":", data->type.format_video.framerate, "F", &SPA_FRACTION(25,1));
-#endif
 
 	if ((res = spa_node_port_set_param(data->source,
 					   SPA_DIRECTION_OUTPUT, 0,
@@ -424,9 +440,18 @@ static int negotiate_formats(struct data *data)
 	if ((res = spa_node_port_get_info(data->source, SPA_DIRECTION_OUTPUT, 0, &info)) < 0)
 		return res;
 
+
+	setup_buffers(data);
+
 	if (data->use_buffer) {
-		if ((res = alloc_buffers(data)) < 0)
+		if ((res = sdl_alloc_buffers(data)) < 0)
 			return res;
+
+		if ((res = spa_node_port_use_buffers(data->source, SPA_DIRECTION_OUTPUT, 0, data->bp,
+					 data->n_buffers)) < 0) {
+			printf("can't allocate buffers: %s\n", spa_strerror(res));
+			return -1;
+		}
 	} else {
 		unsigned int n_buffers;
 
@@ -441,7 +466,7 @@ static int negotiate_formats(struct data *data)
 		if ((res =
 		     spa_node_port_alloc_buffers(data->source, SPA_DIRECTION_OUTPUT, 0, NULL, 0,
 						 data->bp, &n_buffers)) < 0) {
-			printf("can't allocate buffers: %s\n", SDL_GetError());
+			printf("can't allocate buffers: %s\n", spa_strerror(res));
 			return -1;
 		}
 		data->n_buffers = n_buffers;

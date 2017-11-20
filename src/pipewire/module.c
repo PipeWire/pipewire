@@ -222,7 +222,8 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 					  core->type.module, PW_VERSION_MODULE,
 					  module_bind_func, this);
 
-	this->info.id = this->global->id;
+	if (this->global != NULL)
+		this->info.id = this->global->id;
 
 	if (!init_func(this, args))
 		goto init_failed;
@@ -273,7 +274,8 @@ void pw_module_destroy(struct pw_module *module)
 		free((char *) module->info.args);
 
 	spa_list_remove(&module->link);
-	pw_global_destroy(module->global);
+	if (module->global)
+		pw_global_destroy(module->global);
 	dlclose(impl->hnd);
 	free(impl);
 }

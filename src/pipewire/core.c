@@ -465,7 +465,8 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 					  PW_VERSION_CORE,
 					  core_bind_func,
 					  this);
-	this->info.id = this->global->id;
+	if (this->global != NULL)
+		this->info.id = this->global->id;
 
 	return this;
 

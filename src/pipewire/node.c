@@ -358,8 +358,9 @@ void pw_node_register(struct pw_node *this,
 	this->global = pw_core_add_global(core, owner, parent,
 					  core->type.node, PW_VERSION_NODE,
 					  node_bind_func, this);
+	if (this->global != NULL)
+		this->info.id = this->global->id;
 
-	this->info.id = this->global->id;
 	spa_hook_list_call(&this->listener_list, struct pw_node_events, initialized);
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);

@@ -124,6 +124,8 @@ void pw_factory_register(struct pw_factory *factory,
 	spa_list_append(&core->factory_list, &factory->link);
         factory->global = pw_core_add_global(core, owner, parent,
 					     core->type.factory, 0, factory_bind_func, factory);
+	if (factory->global != NULL)
+		factory->info.id = factory->global->id;
 }
 
 void *pw_factory_get_user_data(struct pw_factory *factory)

@@ -39,6 +39,9 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 	struct pw_protocol *protocol;
 
 	protocol = calloc(1, sizeof(struct impl) + user_data_size);
+	if (protocol == NULL)
+		return NULL;
+
 	protocol->core = core;
 	protocol->name = strdup(name);
 

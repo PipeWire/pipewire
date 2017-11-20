@@ -1221,9 +1221,11 @@ void pw_link_register(struct pw_link *link,
 	struct pw_node *input_node, *output_node;
 
 	spa_list_append(&core->link_list, &link->link);
+
 	link->global = pw_core_add_global(core, owner, parent, core->type.link, PW_VERSION_LINK,
 			   link_bind_func, link);
-	link->info.id = link->global->id;
+	if (link->global != NULL)
+		link->info.id = link->global->id;
 
 	input_node = link->input->node;
 	output_node = link->output->node;

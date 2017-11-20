@@ -146,7 +146,8 @@ void pw_client_register(struct pw_client *client,
 	spa_list_append(&core->client_list, &client->link);
 	client->global = pw_core_add_global(core, owner, parent, core->type.client, PW_VERSION_CLIENT,
 			   client_bind_func, client);
-	client->info.id = client->global->id;
+	if (client->global != NULL)
+		client->info.id = client->global->id;
 }
 
 struct pw_core *pw_client_get_core(struct pw_client *client)

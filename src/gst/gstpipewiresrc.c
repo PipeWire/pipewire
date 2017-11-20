@@ -384,12 +384,12 @@ on_add_buffer (void *_data, guint id)
     if (d->type == t->data.MemFd || d->type == t->data.DmaBuf) {
       gmem = gst_fd_allocator_alloc (pwsrc->fd_allocator, dup (d->fd),
                 d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
-      gst_memory_resize (gmem, d->chunk->offset + d->mapoffset, d->chunk->size);
+      gst_memory_resize (gmem, d->mapoffset, d->maxsize);
       data.offset = d->mapoffset;
     }
     else if (d->type == t->data.MemPtr) {
-      gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, d->chunk->offset + d->mapoffset,
-                d->chunk->size, NULL, NULL);
+      gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, 0,
+                d->maxsize, NULL, NULL);
       data.offset = 0;
     }
     if (gmem)
@@ -464,9 +464,11 @@ on_new_buffer (void *_data,
   }
   for (i = 0; i < data->buf->n_datas; i++) {
     struct spa_data *d = &data->buf->datas[i];
+    uint32_t index;
     GstMemory *mem = gst_buffer_peek_memory (buf, i);
-    mem->offset = d->chunk->offset + data->offset;
-    mem->size = d->chunk->size;
+    mem->size = spa_ringbuffer_get_read_index(&d->chunk->area, &index);
+    mem->offset = index % d->maxsize;
+    spa_ringbuffer_set_avail(&d->chunk->area, 0);
   }
 
   if (pwsrc->always_copy)
@@ -633,7 +635,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, caps);
 
   /* open a connection with these caps */
-  possible = gst_caps_to_format_all (caps, pwsrc->type->map);
+  possible = gst_caps_to_format_all (caps, pwsrc->type->param.idEnumFormat, pwsrc->type->map);
   gst_caps_unref (caps);
 
   /* first disconnect */

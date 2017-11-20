@@ -200,8 +200,10 @@ static const uint32_t *audio_format_map[] = {
 typedef struct {
   struct spa_pod_builder b;
   const struct media_type *type;
+  uint32_t id;
   const GstCapsFeatures *cf;
   const GstStructure *cs;
+  GPtrArray *array;
 } ConvertData;
 
 static const struct media_type *
@@ -544,38 +546,31 @@ write_pod (struct spa_pod_builder *b, const void *data, uint32_t size)
 }
 
 static struct spa_pod *
-convert_1 (GstCapsFeatures *cf, GstStructure *cs)
+convert_1 (ConvertData *d)
 {
-  ConvertData d;
-
-  spa_zero (d);
-  d.cf = cf;
-  d.cs = cs;
-
-  if (!(d.type = find_media_types (gst_structure_get_name (cs))))
+  if (!(d->type = find_media_types (gst_structure_get_name (d->cs))))
     return NULL;
 
-  d.b.write = write_pod;
+  d->b.write = write_pod;
 
-  spa_pod_builder_push_object (&d.b, 0, type.format);
-  spa_pod_builder_id(&d.b, *d.type->media_type);
-  spa_pod_builder_id(&d.b, *d.type->media_subtype);
+  spa_pod_builder_push_object (&d->b, d->id, type.format);
+  spa_pod_builder_id(&d->b, *d->type->media_type);
+  spa_pod_builder_id(&d->b, *d->type->media_subtype);
 
-  if (*d.type->media_type == type.media_type.video)
-    handle_video_fields (&d);
-  else if (*d.type->media_type == type.media_type.audio)
-    handle_audio_fields (&d);
+  if (*d->type->media_type == type.media_type.video)
+    handle_video_fields (d);
+  else if (*d->type->media_type == type.media_type.audio)
+    handle_audio_fields (d);
 
-  spa_pod_builder_pop (&d.b);
+  spa_pod_builder_pop (&d->b);
 
-  return SPA_MEMBER (d.b.data, 0, struct spa_pod);
+  return SPA_MEMBER (d->b.data, 0, struct spa_pod);
 }
 
 struct spa_pod *
-gst_caps_to_format (GstCaps *caps, guint index, struct spa_type_map *map)
+gst_caps_to_format (GstCaps *caps, guint index, uint32_t id, struct spa_type_map *map)
 {
-  GstCapsFeatures *f;
-  GstStructure *s;
+  ConvertData d;
   struct spa_pod *res;
 
   g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
@@ -583,10 +578,12 @@ gst_caps_to_format (GstCaps *caps, guint index, struct spa_type_map *map)
 
   ensure_types(map);
 
-  f = gst_caps_get_features (caps, index);
-  s = gst_caps_get_structure (caps, index);
+  spa_zero (d);
+  d.cf = gst_caps_get_features (caps, index);
+  d.cs = gst_caps_get_structure (caps, index);
+  d.id = id;
 
-  res = convert_1 (f, s);
+  res = convert_1 (&d);
 
   return res;
 }
@@ -594,28 +591,35 @@ gst_caps_to_format (GstCaps *caps, guint index, struct spa_type_map *map)
 static gboolean
 foreach_func (GstCapsFeatures *features,
               GstStructure    *structure,
-              GPtrArray       *array)
+              ConvertData     *d)
 {
   struct spa_pod *fmt;
 
-  if ((fmt = convert_1 (features, structure)))
-    g_ptr_array_insert (array, -1, fmt);
+  spa_zero(d->b);
+  d->cf = features;
+  d->cs = structure;
+
+  if ((fmt = convert_1 (d)))
+    g_ptr_array_insert (d->array, -1, fmt);
 
   return TRUE;
 }
 
 
 GPtrArray *
-gst_caps_to_format_all (GstCaps *caps, struct spa_type_map *map)
+gst_caps_to_format_all (GstCaps *caps, uint32_t id, struct spa_type_map *map)
 {
-  GPtrArray *res;
+  ConvertData d;
 
   ensure_types(map);
 
-  res = g_ptr_array_new_full (gst_caps_get_size (caps), (GDestroyNotify)g_free);
-  gst_caps_foreach (caps, (GstCapsForeachFunc) foreach_func, res);
+  spa_zero (d);
+  d.id = id;
+  d.array = g_ptr_array_new_full (gst_caps_get_size (caps), (GDestroyNotify)g_free);
 
-  return res;
+  gst_caps_foreach (caps, (GstCapsForeachFunc) foreach_func, &d);
+
+  return d.array;
 }
 
 static void

@@ -224,7 +224,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   guint size;
   guint min_buffers;
   guint max_buffers;
-  struct spa_pod *port_params[3];
+  struct spa_pod *port_params[2];
   struct spa_pod_builder b = { NULL };
   uint8_t buffer[1024];
 
@@ -254,15 +254,6 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
       ":", t->param_meta.type, "I", t->meta.Header,
       ":", t->param_meta.size, "i", sizeof (struct spa_meta_header));
 
-  port_params[2] = spa_pod_builder_object (&b,
-      t->param.idMeta, t->param_meta.Meta,
-      ":", t->param_meta.type, "I", t->meta.Ringbuffer,
-      ":", t->param_meta.size, "i", sizeof (struct spa_meta_ringbuffer),
-      ":", t->param_meta.ringbufferSize,   "i", size * SPA_MAX (4,
-                                                                    SPA_MAX (min_buffers, max_buffers)),
-      ":", t->param_meta.ringbufferStride, "i", 0,
-      ":", t->param_meta.ringbufferBlocks, "i", 1,
-      ":", t->param_meta.ringbufferAlign,  "i", 16);
 
   pw_thread_loop_lock (sink->main_loop);
   pw_stream_finish_format (sink->stream, 0, 2, port_params);
@@ -448,12 +439,12 @@ on_add_buffer (void     *_data,
         d->type == t->data.DmaBuf) {
       gmem = gst_fd_allocator_alloc (pwsink->allocator, dup (d->fd),
                 d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
-      gst_memory_resize (gmem, d->chunk->offset + d->mapoffset, d->chunk->size);
+      gst_memory_resize (gmem, d->mapoffset, d->maxsize);
       data.offset = d->mapoffset;
     }
     else if (d->type == t->data.MemPtr) {
-      gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, d->chunk->offset,
-                                     d->chunk->size, NULL, NULL);
+      gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, 0,
+                                     d->maxsize, NULL, NULL);
       data.offset = 0;
     }
     if (gmem)
@@ -535,8 +526,8 @@ do_send_buffer (GstPipeWireSink *pwsink)
   for (i = 0; i < data->buf->n_datas; i++) {
     struct spa_data *d = &data->buf->datas[i];
     GstMemory *mem = gst_buffer_peek_memory (buffer, i);
-    d->chunk->offset = mem->offset - data->offset;
-    d->chunk->size = mem->size;
+    d->chunk->area.readindex = mem->offset - data->offset;
+    d->chunk->area.writeindex = d->chunk->area.readindex + mem->size;
   }
 
   if (!(res = pw_stream_send_buffer (pwsink->stream, data->id))) {
@@ -596,10 +587,12 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   enum pw_stream_state state;
   const char *error = NULL;
   gboolean res = FALSE;
+  struct pw_type *t;
 
   pwsink = GST_PIPEWIRE_SINK (bsink);
+  t = pwsink->type;
 
-  possible = gst_caps_to_format_all (caps, pwsink->type->map);
+  possible = gst_caps_to_format_all (caps, t->param.idEnumFormat, t->map);
 
   pw_thread_loop_lock (pwsink->main_loop);
   state = pw_stream_get_state (pwsink->stream, &error);

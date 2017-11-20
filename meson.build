@@ -146,6 +146,18 @@ dbus_dep = dependency('dbus-1')
 #optional dependencies
 jack_dep = dependency('jack', version : '>= 1.9.10', required : false)
 
+if get_option('enable_gstreamer')
+  glib_dep = dependency('glib-2.0', version : '>=2.32.0')
+  gobject_dep = dependency('gobject-2.0')
+  gmodule_dep = dependency('gmodule-2.0')
+  gio_dep = [dependency('gio-2.0'), dependency('gio-unix-2.0')]
+  gst_dep = [dependency('gstreamer-1.0'),
+             dependency('gstreamer-plugins-base-1.0'),
+             dependency('gstreamer-video-1.0'),
+             dependency('gstreamer-audio-1.0'),
+             dependency('gstreamer-allocators-1.0'),]
+endif
+
 subdir('spa')
 subdir('src')
 subdir('pkgconfig')
@@ -162,16 +174,4 @@ if get_option('enable_man')
   if xmltoman.found()
     subdir('man')
   endif
-endif
-
-if get_option('enable_gstreamer')
-  glib_dep = dependency('glib-2.0', version : '>=2.32.0')
-  gobject_dep = dependency('gobject-2.0')
-  gmodule_dep = dependency('gmodule-2.0')
-  gio_dep = [dependency('gio-2.0'), dependency('gio-unix-2.0')]
-  gst_dep = [dependency('gstreamer-1.0'),
-             dependency('gstreamer-plugins-base-1.0'),
-             dependency('gstreamer-video-1.0'),
-             dependency('gstreamer-audio-1.0'),
-             dependency('gstreamer-allocators-1.0'),]
 endif

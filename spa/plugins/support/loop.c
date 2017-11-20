@@ -46,8 +46,8 @@ struct invoke_item {
 	size_t item_size;
 	spa_invoke_func_t func;
 	uint32_t seq;
-	size_t size;
 	void *data;
+	size_t size;
 	bool block;
 	void *user_data;
 	int res;
@@ -195,8 +195,8 @@ static int
 loop_invoke(struct spa_loop *loop,
 	    spa_invoke_func_t func,
 	    uint32_t seq,
-	    size_t size,
 	    const void *data,
+	    size_t size,
 	    bool block,
 	    void *user_data)
 {
@@ -206,7 +206,7 @@ loop_invoke(struct spa_loop *loop,
 	int res;
 
 	if (in_thread) {
-		res = func(loop, false, seq, size, data, user_data);
+		res = func(loop, false, seq, data, size, user_data);
 	} else {
 		int32_t filled, avail;
 		uint32_t idx, offset, l0;
@@ -273,7 +273,7 @@ static void wakeup_func(void *data, uint64_t count)
 	while (spa_ringbuffer_get_read_index(&impl->buffer, &index) > 0) {
 		struct invoke_item *item =
 		    SPA_MEMBER(impl->buffer_data, index & (DATAS_SIZE - 1), struct invoke_item);
-		item->res = item->func(&impl->loop, true, item->seq, item->size, item->data,
+		item->res = item->func(&impl->loop, true, item->seq, item->data, item->size,
 			   item->user_data);
 		spa_ringbuffer_read_update(&impl->buffer, index + item->item_size);
 

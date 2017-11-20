@@ -35,7 +35,8 @@ struct spa_pod_iter {
 	uint32_t offset;
 };
 
-static inline void spa_pod_iter_init(struct spa_pod_iter *iter, const void *data, uint32_t size, uint32_t offset)
+static inline void spa_pod_iter_init(struct spa_pod_iter *iter,
+				     const void *data, uint32_t size, uint32_t offset)
 {
 	iter->data = data;
 	iter->size = size;

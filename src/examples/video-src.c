@@ -176,7 +176,7 @@ on_stream_format_changed(void *_data, struct spa_pod *format)
 	struct spa_pod *params[2];
 
 	if (format == NULL) {
-		pw_stream_finish_format(stream, 0, 0, NULL);
+		pw_stream_finish_format(stream, 0, NULL, 0);
 		return;
 	}
 	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
@@ -196,7 +196,7 @@ on_stream_format_changed(void *_data, struct spa_pod *format)
 		":", t->param_meta.type, "I", t->meta.Header,
 		":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 
-	pw_stream_finish_format(stream, 0, 2, params);
+	pw_stream_finish_format(stream, 0, params, 2);
 }
 
 static const struct pw_stream_events stream_events = {
@@ -245,7 +245,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_OUTPUT,
 				  NULL, PW_STREAM_FLAG_NONE,
-				  1, params);
+				  params, 1);
 		break;
 	}
 	default:

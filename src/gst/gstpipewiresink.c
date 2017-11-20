@@ -213,7 +213,7 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
   process_mem_data_quark = g_quark_from_static_string ("GstPipeWireSinkProcessMemQuark");
 }
 
-#define SPA_PROP_RANGE(min,max)	2,min,max
+#define PROP_RANGE(min,max)	2,min,max
 
 static void
 pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
@@ -235,15 +235,15 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   spa_pod_builder_push_object (&b, t->param.idBuffers, t->param_buffers.Buffers);
   if (size == 0)
     spa_pod_builder_add (&b,
-        ":", t->param_buffers.size, "iru", 0, SPA_PROP_RANGE(0, INT32_MAX), NULL);
+        ":", t->param_buffers.size, "iru", 0, PROP_RANGE(0, INT32_MAX), NULL);
   else
     spa_pod_builder_add (&b,
-        ":", t->param_buffers.size, "ir", size, SPA_PROP_RANGE(size, INT32_MAX), NULL);
+        ":", t->param_buffers.size, "ir", size, PROP_RANGE(size, INT32_MAX), NULL);
 
   spa_pod_builder_add (&b,
-      ":", t->param_buffers.stride,  "ir", 0, SPA_PROP_RANGE(0, INT32_MAX),
+      ":", t->param_buffers.stride,  "ir", 0, PROP_RANGE(0, INT32_MAX),
       ":", t->param_buffers.buffers, "iru", min_buffers,
-						SPA_PROP_RANGE(min_buffers,
+						PROP_RANGE(min_buffers,
 							       max_buffers ? max_buffers : INT32_MAX),
       ":", t->param_buffers.align,   "i", 16,
       NULL);
@@ -256,7 +256,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 
 
   pw_thread_loop_lock (sink->main_loop);
-  pw_stream_finish_format (sink->stream, 0, 2, port_params);
+  pw_stream_finish_format (sink->stream, 0, port_params, 2);
   pw_thread_loop_unlock (sink->main_loop);
 }
 
@@ -610,8 +610,8 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
                           PW_DIRECTION_OUTPUT,
                           pwsink->path,
                           flags,
-                          possible->len,
-                          (const struct spa_pod **) possible->pdata);
+                          (const struct spa_pod **) possible->pdata,
+                          possible->len);
 
     while (TRUE) {
       state = pw_stream_get_state (pwsink->stream, &error);

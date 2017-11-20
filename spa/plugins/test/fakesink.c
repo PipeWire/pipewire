@@ -385,14 +385,14 @@ impl_node_get_n_ports(struct spa_node *node,
 
 static int
 impl_node_get_port_ids(struct spa_node *node,
-		       uint32_t n_input_ports,
 		       uint32_t *input_ids,
-		       uint32_t n_output_ports,
-		       uint32_t *output_ids)
+		       uint32_t n_input_ids,
+		       uint32_t *output_ids,
+		       uint32_t n_output_ids)
 {
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
-	if (n_input_ports > 0 && input_ids != NULL)
+	if (n_input_ids > 0 && input_ids != NULL)
 		input_ids[0] = 0;
 
 	return 0;

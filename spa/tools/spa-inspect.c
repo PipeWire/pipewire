@@ -169,7 +169,7 @@ static void inspect_node(struct data *data, struct spa_node *node)
 	in_ports = alloca(n_input * sizeof(uint32_t));
 	out_ports = alloca(n_output * sizeof(uint32_t));
 
-	if ((res = spa_node_get_port_ids(node, n_input, in_ports, n_output, out_ports)) < 0)
+	if ((res = spa_node_get_port_ids(node, in_ports, n_input, out_ports, n_output)) < 0)
 		printf("can't get port ids: %d\n", res);
 
 	for (i = 0; i < n_input; i++) {

@@ -251,8 +251,8 @@ static int impl_node_set_param(struct spa_node *node,
 static int do_pause_done(struct spa_loop *loop,
 			 bool async,
 			 uint32_t seq,
-			 size_t size,
 			 const void *data,
+			 size_t size,
 			 void *user_data)
 {
 	struct impl *this = user_data;
@@ -269,8 +269,8 @@ static int do_pause_done(struct spa_loop *loop,
 static int do_pause(struct spa_loop *loop,
 		    bool async,
 		    uint32_t seq,
-		    size_t size,
 		    const void *data,
+		    size_t size,
 		    void *user_data)
 {
 	struct impl *this = user_data;
@@ -283,8 +283,8 @@ static int do_pause(struct spa_loop *loop,
 		spa_loop_invoke(this->out_ports[0].main_loop,
 				do_pause_done,
 				seq,
-				sizeof(res),
 				&res,
+				sizeof(res),
 				false,
 				this);
 	}
@@ -294,8 +294,8 @@ static int do_pause(struct spa_loop *loop,
 static int do_start_done(struct spa_loop *loop,
 			 bool async,
 			 uint32_t seq,
-			 size_t size,
 			 const void *data,
+			 size_t size,
 			 void *user_data)
 {
 	struct impl *this = user_data;
@@ -309,8 +309,8 @@ static int do_start_done(struct spa_loop *loop,
 static int do_start(struct spa_loop *loop,
 		    bool async,
 		    uint32_t seq,
-		    size_t size,
 		    const void *data,
+		    size_t size,
 		    void *user_data)
 {
 	struct impl *this = user_data;
@@ -323,8 +323,8 @@ static int do_start(struct spa_loop *loop,
 		spa_loop_invoke(this->out_ports[0].main_loop,
 				do_start_done,
 				seq,
-				sizeof(res),
 				&res,
+				sizeof(res),
 				false,
 				this);
 	}
@@ -355,8 +355,8 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		return spa_loop_invoke(this->out_ports[0].data_loop,
 				       do_start,
 				       ++this->seq,
-				       SPA_POD_SIZE(command),
 				       command,
+				       SPA_POD_SIZE(command),
 				       false,
 				       this);
 	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
@@ -370,8 +370,8 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		return spa_loop_invoke(this->out_ports[0].data_loop,
 				       do_pause,
 				       ++this->seq,
-				       SPA_POD_SIZE(command),
 				       command,
+				       SPA_POD_SIZE(command),
 				       false,
 				       this);
 	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.ClockUpdate) {
@@ -418,14 +418,14 @@ impl_node_get_n_ports(struct spa_node *node,
 }
 
 static int impl_node_get_port_ids(struct spa_node *node,
-				  uint32_t n_input_ports,
 				  uint32_t *input_ids,
-				  uint32_t n_output_ports,
-				  uint32_t *output_ids)
+				  uint32_t n_input_ids,
+				  uint32_t *output_ids,
+				  uint32_t n_output_ids)
 {
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
-	if (n_output_ports > 0 && output_ids != NULL)
+	if (n_output_ids > 0 && output_ids != NULL)
 		output_ids[0] = 0;
 
 	return 0;
@@ -854,8 +854,8 @@ static const struct spa_dict_item info_items[] = {
 };
 
 static const struct spa_dict info = {
-	SPA_N_ELEMENTS(info_items),
-	info_items
+	info_items,
+	SPA_N_ELEMENTS(info_items)
 };
 
 static const struct spa_node impl_node = {

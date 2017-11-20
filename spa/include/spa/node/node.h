@@ -272,18 +272,18 @@ struct spa_node {
 	 * This function must be called from the main thread.
 	 *
 	 * \param node a #struct spa_node
-	 * \param n_input_ports size of the \a input_ids array
 	 * \param input_ids array to store the input stream ids
-	 * \param n_output_ports size of the \a output_ids array
+	 * \param n_input_ids size of the \a input_ids array
 	 * \param output_ids array to store the output stream ids
+	 * \param n_output_ids size of the \a output_ids array
 	 * \return 0 on success
 	 *         -EINVAL when node is NULL
 	 */
 	int (*get_port_ids) (struct spa_node *node,
-			     uint32_t n_input_ports,
 			     uint32_t *input_ids,
-			     uint32_t n_output_ports,
-			     uint32_t *output_ids);
+			     uint32_t n_input_ids,
+			     uint32_t *output_ids,
+			     uint32_t n_output_ids);
 
 	/**
 	 * Make a new port with \a port_id. The caller should use get_port_ids() to

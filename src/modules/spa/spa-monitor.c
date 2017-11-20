@@ -194,7 +194,7 @@ static void update_monitor(struct pw_core *core, const char *name)
 	const char *monitors;
 	struct spa_dict_item item;
 	const struct pw_properties *props;
-	struct spa_dict dict = SPA_DICT_INIT(1, &item);
+	struct spa_dict dict = SPA_DICT_INIT(&item, 1);
 
 	props = pw_core_get_properties(core);
 

@@ -209,10 +209,10 @@ impl_node_get_n_ports(struct spa_node *node,
 
 static int
 impl_node_get_port_ids(struct spa_node *node,
-		       uint32_t n_input_ports,
 		       uint32_t *input_ids,
-		       uint32_t n_output_ports,
-		       uint32_t *output_ids)
+		       uint32_t n_input_ids,
+		       uint32_t *output_ids,
+		       uint32_t n_output_ids)
 {
 	struct impl *this;
 	int i, idx;
@@ -222,12 +222,12 @@ impl_node_get_port_ids(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	if (input_ids) {
-		for (i = 0, idx = 0; i < this->last_port && idx < n_input_ports; i++) {
+		for (i = 0, idx = 0; i < this->last_port && idx < n_input_ids; i++) {
 			if (this->in_ports[i].valid)
 				input_ids[idx++] = i;
 		}
 	}
-	if (n_output_ports > 0 && output_ids)
+	if (n_output_ids > 0 && output_ids)
 		output_ids[0] = 0;
 
 	return 0;

@@ -185,7 +185,7 @@ static void core_event_remove_id(void *data, uint32_t id)
 }
 
 static void
-core_event_update_types(void *data, uint32_t first_id, uint32_t n_types, const char **types)
+core_event_update_types(void *data, uint32_t first_id, const char **types, uint32_t n_types)
 {
 	struct pw_remote *this = data;
 	int i;
@@ -428,7 +428,7 @@ void pw_remote_disconnect(struct pw_remote *remote)
 
 static int
 do_remove_source(struct spa_loop *loop,
-                 bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct node_data *d = user_data;
 
@@ -445,7 +445,7 @@ static void unhandle_socket(struct pw_proxy *proxy)
 	struct node_data *data = proxy->user_data;
 
         pw_loop_invoke(data->core->data_loop,
-                       do_remove_source, 1, 0, NULL, true, data);
+                       do_remove_source, 1, NULL, 0, true, data);
 }
 
 static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_message *message)

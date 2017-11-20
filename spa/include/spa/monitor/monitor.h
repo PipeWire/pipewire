@@ -144,7 +144,7 @@ struct spa_monitor {
 	 * first item and is updated with an opaque value that should be passed
 	 * unmodified to get the next items.
 	 *
-	 * \param monito: a spa_monitor
+	 * \param monitor a spa_monitor
 	 * \param index state, use 0 for the first item
 	 * \param item result item
 	 * \param builder builder for \a item

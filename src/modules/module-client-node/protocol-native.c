@@ -817,12 +817,12 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_
 const struct pw_protocol_marshal pw_protocol_native_client_node_marshal = {
 	PW_TYPE_INTERFACE__ClientNode,
 	PW_VERSION_CLIENT_NODE,
-	PW_CLIENT_NODE_PROXY_METHOD_NUM,
 	&pw_protocol_native_client_node_method_marshal,
 	&pw_protocol_native_client_node_method_demarshal,
-	PW_CLIENT_NODE_PROXY_EVENT_NUM,
+	PW_CLIENT_NODE_PROXY_METHOD_NUM,
 	&pw_protocol_native_client_node_event_marshal,
 	pw_protocol_native_client_node_event_demarshal,
+	PW_CLIENT_NODE_PROXY_EVENT_NUM,
 };
 
 struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core)

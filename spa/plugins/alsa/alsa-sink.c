@@ -128,7 +128,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	return 0;
 }
 
-static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct state *this = user_data;
 
@@ -137,7 +137,7 @@ static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, size_t 
 	return 0;
 }
 
-static int do_command(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+static int do_command(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct state *this = user_data;
 	int res;
@@ -153,8 +153,8 @@ static int do_command(struct spa_loop *loop, bool async, uint32_t seq, size_t si
 		spa_loop_invoke(this->main_loop,
 				do_send_done,
 				seq,
-				sizeof(res),
 				&res,
+				sizeof(res),
 				false,
 				this);
 	}
@@ -180,8 +180,8 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		return spa_loop_invoke(this->data_loop,
 				       do_command,
 				       ++this->seq,
-				       SPA_POD_SIZE(command),
 				       command,
+				       SPA_POD_SIZE(command),
 				       false,
 				       this);
 
@@ -229,14 +229,14 @@ impl_node_get_n_ports(struct spa_node *node,
 
 static int
 impl_node_get_port_ids(struct spa_node *node,
-		       uint32_t n_input_ports,
 		       uint32_t *input_ids,
-		       uint32_t n_output_ports,
-		       uint32_t *output_ids)
+		       uint32_t n_input_ids,
+		       uint32_t *output_ids,
+		       uint32_t n_output_ids)
 {
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
-	if (n_input_ports > 0 && input_ids != NULL)
+	if (n_input_ids > 0 && input_ids != NULL)
 		input_ids[0] = 0;
 
 	return 0;
@@ -600,8 +600,8 @@ static const struct spa_dict_item node_info_items[] = {
 };
 
 static const struct spa_dict node_info = {
-	SPA_N_ELEMENTS(node_info_items),
-	node_info_items
+	node_info_items,
+	SPA_N_ELEMENTS(node_info_items)
 };
 
 static const struct spa_node impl_node = {
@@ -732,8 +732,8 @@ static const struct spa_dict_item info_items[] = {
 };
 
 static const struct spa_dict info = {
+	info_items,
 	SPA_N_ELEMENTS(info_items),
-	info_items
 };
 
 const struct spa_handle_factory spa_alsa_sink_factory = {

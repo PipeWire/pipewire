@@ -278,7 +278,7 @@ void pw_stream_add_listener(struct pw_stream *stream,
 
 static int
 do_remove_sources(struct spa_loop *loop,
-                  bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
 	struct pw_stream *stream = &impl->this;
@@ -303,7 +303,7 @@ static void unhandle_socket(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
         pw_loop_invoke(stream->remote->core->data_loop,
-                       do_remove_sources, 1, 0, NULL, true, impl);
+                       do_remove_sources, 1, NULL, 0, true, impl);
 }
 
 static void
@@ -999,8 +999,8 @@ pw_stream_connect(struct pw_stream *stream,
 		  enum pw_direction direction,
 		  const char *port_path,
 		  enum pw_stream_flags flags,
-		  uint32_t n_params,
-		  const struct spa_pod **params)
+		  const struct spa_pod **params,
+		  uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
@@ -1045,8 +1045,8 @@ pw_stream_get_node_id(struct pw_stream *stream)
 void
 pw_stream_finish_format(struct pw_stream *stream,
 			int res,
-			uint32_t n_params,
-			struct spa_pod **params)
+			struct spa_pod **params,
+			uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 

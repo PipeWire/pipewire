@@ -264,10 +264,10 @@ pw_stream_connect(struct pw_stream *stream,		/**< a \ref pw_stream */
 		  const char *port_path,		/**< the port path to connect to or NULL
 							  *  to let the server choose a port */
 		  enum pw_stream_flags flags,		/**< stream flags */
-		  uint32_t n_params,			/**< number of items in \a params */
-		  const struct spa_pod **params		/**< an array with params. The params
+		  const struct spa_pod **params,	/**< an array with params. The params
 							  *  should ideally contain supported
-							  *  formats. */);
+							  *  formats. */
+		  uint32_t n_params			/**< number of items in \a params */);
 
 /** Get the node ID of the stream. \memberof pw_stream
  * \return node ID. */
@@ -286,10 +286,10 @@ void pw_stream_disconnect(struct pw_stream *stream);
 void
 pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 			int res,			/**< a result code */
-			uint32_t n_params,		/**< number of elements in \a params */
-			struct spa_pod **params		/**< an array of params. The params should
+			struct spa_pod **params,	/**< an array of params. The params should
 							  *  ideally contain parameters for doing
-							  *  buffer allocation. */);
+							  *  buffer allocation. */
+			uint32_t n_params		/**< number of elements in \a params */);
 
 /** Activate or deactivate the stream \memberof pw_stream */
 void pw_stream_set_active(struct pw_stream *stream, bool active);

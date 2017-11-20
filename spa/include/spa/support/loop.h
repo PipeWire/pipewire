@@ -62,8 +62,8 @@ struct spa_source {
 typedef int (*spa_invoke_func_t) (struct spa_loop *loop,
 				  bool async,
 				  uint32_t seq,
-				  size_t size,
 				  const void *data,
+				  size_t size,
 				  void *user_data);
 
 /**
@@ -89,8 +89,8 @@ struct spa_loop {
 	int (*invoke) (struct spa_loop *loop,
 		       spa_invoke_func_t func,
 		       uint32_t seq,
-		       size_t size,
 		       const void *data,
+		       size_t size,
 		       bool block,
 		       void *user_data);
 };

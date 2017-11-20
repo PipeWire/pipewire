@@ -172,19 +172,19 @@ static int node_get_n_ports(struct spa_node *node,
 }
 
 static int node_get_port_ids(struct spa_node *node,
-			     uint32_t n_input_ports,
 			     uint32_t *input_ids,
-			     uint32_t n_output_ports,
-			     uint32_t *output_ids)
+			     uint32_t n_input_ids,
+			     uint32_t *output_ids,
+			     uint32_t n_output_ids)
 {
 	struct node_data *nd = SPA_CONTAINER_OF(node, struct node_data, node_impl);
 	int i, c;
 
-	for (c = i = 0; i < PORT_NUM_FOR_CLIENT && c < n_input_ports; i++) {
+	for (c = i = 0; i < PORT_NUM_FOR_CLIENT && c < n_input_ids; i++) {
 		if (nd->port_data[SPA_DIRECTION_INPUT][i])
 			input_ids[c++] = nd->port_data[SPA_DIRECTION_INPUT][i]->port.port->port_id;
 	}
-	for (c = i = 0; i < PORT_NUM_FOR_CLIENT && c < n_output_ports; i++) {
+	for (c = i = 0; i < PORT_NUM_FOR_CLIENT && c < n_output_ids; i++) {
 		if (nd->port_data[SPA_DIRECTION_OUTPUT][i])
 			output_ids[c++] = nd->port_data[SPA_DIRECTION_OUTPUT][i]->port.port->port_id;
 	}

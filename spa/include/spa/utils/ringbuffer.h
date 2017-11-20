@@ -86,8 +86,8 @@ static inline int32_t spa_ringbuffer_get_read_index(struct spa_ringbuffer *rbuf,
  *
  * \param rbuf a #struct spa_ringbuffer
  * \param buffer memory to read from
- * \param size the size of \a memory
- * \param offset offset in \a memory to read from
+ * \param size the size of \a buffer
+ * \param offset offset in \a buffer to read from
  * \param data destination memory
  * \param len number of bytes to read
  */
@@ -136,8 +136,8 @@ static inline int32_t spa_ringbuffer_get_write_index(struct spa_ringbuffer *rbuf
  *
  * \param rbuf a spa_ringbuffer
  * \param buffer memory to write to
- * \param size the size of \a memory
- * \param offset offset in \a memory to write to
+ * \param size the size of \a buffer
+ * \param offset offset in \a buffer to write to
  * \param data source memory
  * \param len number of bytes to write
  */

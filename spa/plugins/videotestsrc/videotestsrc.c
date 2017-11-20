@@ -411,14 +411,14 @@ impl_node_get_n_ports(struct spa_node *node,
 
 static int
 impl_node_get_port_ids(struct spa_node *node,
-		       uint32_t n_input_ports,
 		       uint32_t *input_ids,
-		       uint32_t n_output_ports,
-		       uint32_t *output_ids)
+		       uint32_t n_input_ids,
+		       uint32_t *output_ids,
+		       uint32_t n_output_ids)
 {
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
-	if (n_output_ports > 0 && output_ids != NULL)
+	if (n_output_ids > 0 && output_ids != NULL)
 		output_ids[0] = 0;
 
 	return 0;
@@ -841,8 +841,8 @@ static const struct spa_dict_item node_info_items[] = {
 };
 
 static const struct spa_dict node_info = {
+	node_info_items,
 	SPA_N_ELEMENTS(node_info_items),
-	node_info_items
 };
 
 static const struct spa_node impl_node = {
@@ -1040,8 +1040,8 @@ static const struct spa_dict_item info_items[] = {
 };
 
 static const struct spa_dict info = {
-	SPA_N_ELEMENTS(info_items),
-	info_items
+	info_items,
+	SPA_N_ELEMENTS(info_items)
 };
 
 const struct spa_handle_factory spa_videotestsrc_factory = {

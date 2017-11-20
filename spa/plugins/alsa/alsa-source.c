@@ -125,7 +125,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	return 0;
 }
 
-static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct state *this = user_data;
 
@@ -134,7 +134,7 @@ static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, size_t 
 	return 0;
 }
 
-static int do_start(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+static int do_start(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct state *this = user_data;
 	int res;
@@ -145,15 +145,15 @@ static int do_start(struct spa_loop *loop, bool async, uint32_t seq, size_t size
 		spa_loop_invoke(this->main_loop,
 				do_send_done,
 				seq,
-				sizeof(res),
 				&res,
+				sizeof(res),
 				false,
 				this);
 	}
 	return res;
 }
 
-static int do_pause(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+static int do_pause(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct state *this = user_data;
 	int res;
@@ -164,8 +164,8 @@ static int do_pause(struct spa_loop *loop, bool async, uint32_t seq, size_t size
 		spa_loop_invoke(this->main_loop,
 				do_send_done,
 				seq,
-				sizeof(res),
 				&res,
+				sizeof(res),
 				false,
 				this);
 	}
@@ -187,14 +187,14 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		if (this->n_buffers == 0)
 			return -EIO;
 
-		return spa_loop_invoke(this->data_loop, do_start, ++this->seq, 0, NULL, false, this);
+		return spa_loop_invoke(this->data_loop, do_start, ++this->seq, NULL, 0, false, this);
 	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
 		if (!this->have_format)
 			return -EIO;
 		if (this->n_buffers == 0)
 			return -EIO;
 
-		return spa_loop_invoke(this->data_loop, do_pause, ++this->seq, 0, NULL, false, this);
+		return spa_loop_invoke(this->data_loop, do_pause, ++this->seq, NULL, 0, false, this);
 	} else
 		return -ENOTSUP;
 
@@ -241,14 +241,14 @@ impl_node_get_n_ports(struct spa_node *node,
 
 static int
 impl_node_get_port_ids(struct spa_node *node,
-		       uint32_t n_input_ports,
 		       uint32_t *input_ids,
-		       uint32_t n_output_ports,
-		       uint32_t *output_ids)
+		       uint32_t n_input_ids,
+		       uint32_t *output_ids,
+		       uint32_t n_output_ids)
 {
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
-	if (n_output_ports > 0 && output_ids != NULL)
+	if (n_output_ids > 0 && output_ids != NULL)
 		output_ids[0] = 0;
 
 	return 0;
@@ -642,8 +642,8 @@ static const struct spa_dict_item node_info_items[] = {
 };
 
 static const struct spa_dict node_info = {
-	SPA_N_ELEMENTS(node_info_items),
-	node_info_items
+	node_info_items,
+	SPA_N_ELEMENTS(node_info_items)
 };
 
 static const struct spa_node impl_node = {
@@ -823,8 +823,8 @@ static const struct spa_dict_item info_items[] = {
 };
 
 static const struct spa_dict info = {
-	SPA_N_ELEMENTS(info_items),
-	info_items
+	info_items,
+	SPA_N_ELEMENTS(info_items)
 };
 
 const struct spa_handle_factory spa_alsa_source_factory = {

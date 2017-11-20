@@ -203,10 +203,10 @@ static int update_port_ids(struct pw_node *node)
 	output_port_ids = alloca(sizeof(uint32_t) * n_output_ports);
 
 	res = spa_node_get_port_ids(node->node,
-				    max_input_ports,
 				    input_port_ids,
-				    max_output_ports,
-				    output_port_ids);
+				    max_input_ports,
+				    output_port_ids,
+				    max_output_ports);
 	if (res < 0)
 		return res;
 
@@ -331,7 +331,7 @@ node_bind_func(struct pw_global *global,
 
 static int
 do_node_add(struct spa_loop *loop,
-	    bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+	    bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_node *this = user_data;
 
@@ -352,7 +352,7 @@ void pw_node_register(struct pw_node *this,
 	update_port_ids(this);
 	update_info(this);
 
-	pw_loop_invoke(this->data_loop, do_node_add, 1, 0, NULL, false, this);
+	pw_loop_invoke(this->data_loop, do_node_add, 1, NULL, 0, false, this);
 
 	spa_list_append(&core->node_list, &this->link);
 	this->global = pw_core_add_global(core, owner, parent,
@@ -552,7 +552,7 @@ void pw_node_add_listener(struct pw_node *node,
 
 static int
 do_node_remove(struct spa_loop *loop,
-	       bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+	       bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_node *this = user_data;
 
@@ -580,7 +580,7 @@ void pw_node_destroy(struct pw_node *node)
 	pw_log_debug("node %p: destroy", impl);
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, destroy);
 
-	pw_loop_invoke(node->data_loop, do_node_remove, 1, 0, NULL, true, node);
+	pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
 
 	if (node->global) {
 		spa_list_remove(&node->link);

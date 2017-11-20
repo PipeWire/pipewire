@@ -162,10 +162,10 @@ init_buffer(struct data *data, struct spa_buffer **bufs, struct buffer *ba, int 
 		bufs[i] = &b->buffer;
 
 		b->buffer.id = i;
-		b->buffer.n_metas = 1;
 		b->buffer.metas = b->metas;
-		b->buffer.n_datas = 1;
+		b->buffer.n_metas = 1;
 		b->buffer.datas = b->datas;
+		b->buffer.n_datas = 1;
 
 		b->header.flags = 0;
 		b->header.seq = 0;
@@ -320,9 +320,9 @@ static void do_remove_source(struct spa_source *source)
 
 static int
 do_invoke(struct spa_loop *loop,
-	  spa_invoke_func_t func, uint32_t seq, size_t size, const void *data, bool block, void *user_data)
+	  spa_invoke_func_t func, uint32_t seq, const void *data, size_t size, bool block, void *user_data)
 {
-	return func(loop, false, seq, size, data, user_data);
+	return func(loop, false, seq, data, size, user_data);
 }
 
 static int make_nodes(struct data *data, const char *device)

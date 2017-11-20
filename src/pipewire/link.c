@@ -724,7 +724,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 static int
 do_activate_link(struct spa_loop *loop,
-		 bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+		 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
 	spa_graph_port_link(&this->rt.out_port, &this->rt.in_port);
@@ -747,7 +747,7 @@ static int do_start(struct pw_link *this, uint32_t in_state, uint32_t out_state)
 	output = this->output;
 
 	pw_loop_invoke(output->node->data_loop,
-		       do_activate_link, SPA_ID_INVALID, 0, NULL, false, this);
+		       do_activate_link, SPA_ID_INVALID, NULL, 0, false, this);
 
 	if (in_state == PW_PORT_STATE_PAUSED) {
 		if  ((res = pw_node_set_state(input->node, PW_NODE_STATE_RUNNING)) < 0) {
@@ -860,7 +860,7 @@ static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 
 static int
 do_remove_input(struct spa_loop *loop,
-	        bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+	        bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_link *this = user_data;
 	spa_graph_port_remove(&this->rt.in_port);
@@ -876,14 +876,14 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	spa_hook_remove(&impl->input_node_listener);
 
 	pw_loop_invoke(port->node->data_loop,
-		       do_remove_input, 1, 0, NULL, true, this);
+		       do_remove_input, 1, NULL, 0, true, this);
 
 	clear_port_buffers(this, this->input);
 }
 
 static int
 do_remove_output(struct spa_loop *loop,
-	         bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+	         bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_link *this = user_data;
 	spa_graph_port_remove(&this->rt.out_port);
@@ -899,7 +899,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	spa_hook_remove(&impl->output_node_listener);
 
 	pw_loop_invoke(port->node->data_loop,
-		       do_remove_output, 1, 0, NULL, true, this);
+		       do_remove_output, 1, NULL, 0, true, this);
 
 	clear_port_buffers(this, this->output);
 }
@@ -965,7 +965,7 @@ bool pw_link_activate(struct pw_link *this)
 
 static int
 do_deactivate_link(struct spa_loop *loop,
-		   bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+		   bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
 	spa_graph_port_unlink(&this->rt.out_port);
@@ -983,7 +983,7 @@ bool pw_link_deactivate(struct pw_link *this)
 	impl->active = false;
 	pw_log_debug("link %p: deactivate", this);
 	pw_loop_invoke(this->output->node->data_loop,
-		       do_deactivate_link, SPA_ID_INVALID, 0, NULL, true, this);
+		       do_deactivate_link, SPA_ID_INVALID, NULL, 0, true, this);
 
 	input_node = this->input->node;
 	output_node = this->output->node;
@@ -1064,7 +1064,7 @@ link_bind_func(struct pw_global *global,
 
 static int
 do_add_link(struct spa_loop *loop,
-            bool async, uint32_t seq, size_t size, const void *data, void *user_data)
+            bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
         struct pw_port *port = ((struct pw_port **) data)[0];
@@ -1193,9 +1193,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	/* nodes can be in different data loops so we do this twice */
 	pw_loop_invoke(output_node->data_loop, do_add_link,
-		       SPA_ID_INVALID, sizeof(struct pw_port *), &output, false, this);
+		       SPA_ID_INVALID, &output, sizeof(struct pw_port *), false, this);
 	pw_loop_invoke(input_node->data_loop, do_add_link,
-		       SPA_ID_INVALID, sizeof(struct pw_port *), &input, false, this);
+		       SPA_ID_INVALID, &input, sizeof(struct pw_port *), false, this);
 
 	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, this);
 	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, this);

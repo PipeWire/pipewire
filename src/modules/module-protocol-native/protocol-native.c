@@ -151,7 +151,7 @@ core_marshal_create_link(void *object,
 }
 
 static void
-core_marshal_update_types_client(void *object, uint32_t first_id, uint32_t n_types, const char **types)
+core_marshal_update_types_client(void *object, uint32_t first_id, const char **types, uint32_t n_types)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
@@ -272,7 +272,7 @@ static bool core_demarshal_update_types_client(void *object, void *data, size_t 
 		if (spa_pod_parser_get(&prs, "s", &types[i], NULL) < 0)
 			return false;
 	}
-	pw_proxy_notify(proxy, struct pw_core_proxy_events, update_types, first_id, n_types, types);
+	pw_proxy_notify(proxy, struct pw_core_proxy_events, update_types, first_id, types, n_types);
 	return true;
 }
 
@@ -353,7 +353,7 @@ static void core_marshal_remove_id(void *object, uint32_t id)
 }
 
 static void
-core_marshal_update_types_server(void *object, uint32_t first_id, uint32_t n_types, const char **types)
+core_marshal_update_types_server(void *object, uint32_t first_id, const char **types, uint32_t n_types)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -516,7 +516,7 @@ static bool core_demarshal_update_types_server(void *object, void *data, size_t 
 		if (spa_pod_parser_get(&prs, "s", &types[i], NULL) < 0)
 			return false;
 	}
-	pw_resource_do(resource, struct pw_core_proxy_methods, update_types, first_id, n_types, types);
+	pw_resource_do(resource, struct pw_core_proxy_methods, update_types, first_id, types, n_types);
 	return true;
 }
 
@@ -993,12 +993,12 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_core_event_d
 static const struct pw_protocol_marshal pw_protocol_native_core_marshal = {
 	PW_TYPE_INTERFACE__Core,
 	PW_VERSION_CORE,
-	PW_CORE_PROXY_METHOD_NUM,
 	&pw_protocol_native_core_method_marshal,
 	pw_protocol_native_core_method_demarshal,
-	PW_CORE_PROXY_EVENT_NUM,
+	PW_CORE_PROXY_METHOD_NUM,
 	&pw_protocol_native_core_event_marshal,
-	pw_protocol_native_core_event_demarshal
+	pw_protocol_native_core_event_demarshal,
+	PW_CORE_PROXY_EVENT_NUM
 };
 
 static const struct pw_registry_proxy_methods pw_protocol_native_registry_method_marshal = {
@@ -1024,12 +1024,12 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_registry_eve
 const struct pw_protocol_marshal pw_protocol_native_registry_marshal = {
 	PW_TYPE_INTERFACE__Registry,
 	PW_VERSION_REGISTRY,
-	PW_REGISTRY_PROXY_METHOD_NUM,
 	&pw_protocol_native_registry_method_marshal,
 	pw_protocol_native_registry_method_demarshal,
-	PW_REGISTRY_PROXY_EVENT_NUM,
+	PW_REGISTRY_PROXY_METHOD_NUM,
 	&pw_protocol_native_registry_event_marshal,
 	pw_protocol_native_registry_event_demarshal,
+	PW_REGISTRY_PROXY_EVENT_NUM,
 };
 
 static const struct pw_module_proxy_events pw_protocol_native_module_event_marshal = {
@@ -1044,10 +1044,10 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_module_event
 const struct pw_protocol_marshal pw_protocol_native_module_marshal = {
 	PW_TYPE_INTERFACE__Module,
 	PW_VERSION_MODULE,
-	0, NULL, NULL,
-	PW_MODULE_PROXY_EVENT_NUM,
+	NULL, NULL, 0,
 	&pw_protocol_native_module_event_marshal,
 	pw_protocol_native_module_event_demarshal,
+	PW_MODULE_PROXY_EVENT_NUM,
 };
 
 static const struct pw_factory_proxy_events pw_protocol_native_factory_event_marshal = {
@@ -1062,10 +1062,10 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_factory_even
 const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
 	PW_TYPE_INTERFACE__Factory,
 	PW_VERSION_FACTORY,
-	0, NULL, NULL,
-	PW_FACTORY_PROXY_EVENT_NUM,
+	NULL, NULL, 0,
 	&pw_protocol_native_factory_event_marshal,
 	pw_protocol_native_factory_event_demarshal,
+	PW_FACTORY_PROXY_EVENT_NUM,
 };
 
 static const struct pw_node_proxy_events pw_protocol_native_node_event_marshal = {
@@ -1080,10 +1080,10 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_node_event_d
 static const struct pw_protocol_marshal pw_protocol_native_node_marshal = {
 	PW_TYPE_INTERFACE__Node,
 	PW_VERSION_NODE,
-	0, NULL, NULL,
-	PW_NODE_PROXY_EVENT_NUM,
+	NULL, NULL, 0,
 	&pw_protocol_native_node_event_marshal,
 	pw_protocol_native_node_event_demarshal,
+	PW_NODE_PROXY_EVENT_NUM,
 };
 
 static const struct pw_client_proxy_events pw_protocol_native_client_event_marshal = {
@@ -1098,10 +1098,10 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_client_event
 static const struct pw_protocol_marshal pw_protocol_native_client_marshal = {
 	PW_TYPE_INTERFACE__Client,
 	PW_VERSION_CLIENT,
-	0, NULL, NULL,
-	PW_CLIENT_PROXY_EVENT_NUM,
+	NULL, NULL, 0,
 	&pw_protocol_native_client_event_marshal,
 	pw_protocol_native_client_event_demarshal,
+	PW_CLIENT_PROXY_EVENT_NUM,
 };
 
 static const struct pw_link_proxy_events pw_protocol_native_link_event_marshal = {
@@ -1116,10 +1116,10 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_link_event_d
 static const struct pw_protocol_marshal pw_protocol_native_link_marshal = {
 	PW_TYPE_INTERFACE__Link,
 	PW_VERSION_LINK,
-	0, NULL, NULL,
-	PW_LINK_PROXY_EVENT_NUM,
+	NULL, NULL, 0,
 	&pw_protocol_native_link_event_marshal,
 	pw_protocol_native_link_event_demarshal,
+	PW_LINK_PROXY_EVENT_NUM,
 };
 
 void pw_protocol_native_init(struct pw_protocol *protocol)

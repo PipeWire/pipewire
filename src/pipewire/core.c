@@ -310,7 +310,7 @@ core_create_link(void *object,
 
 }
 
-static void core_update_types(void *object, uint32_t first_id, uint32_t n_types, const char **types)
+static void core_update_types(void *object, uint32_t first_id, const char **types, uint32_t n_types)
 {
 	struct pw_resource *resource = object;
 	struct pw_core *this = resource->core;

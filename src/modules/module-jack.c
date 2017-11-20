@@ -324,7 +324,7 @@ handle_register_port(struct client *client)
 	return 0;
 }
 
-static int do_add_node(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data,
+static int do_add_node(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size,
 		     void *user_data)
 {
 	struct jack_client *jc = user_data;
@@ -333,7 +333,7 @@ static int do_add_node(struct spa_loop *loop, bool async, uint32_t seq, size_t s
 	return 0;
 }
 
-static int do_remove_node(struct spa_loop *loop, bool async, uint32_t seq, size_t size, const void *data,
+static int do_remove_node(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size,
 		     void *user_data)
 {
 	struct jack_client *jc = user_data;
@@ -380,7 +380,7 @@ handle_activate_client(struct client *client)
 		jc->realtime = is_real_time;
 		if (is_real_time)
 			pw_loop_invoke(jc->node->node->data_loop,
-				do_add_node, 0, 0, NULL, false, jc);
+				do_add_node, 0, NULL, 0, false, jc);
 	}
 
 	for (i = 0; (i < PORT_NUM_FOR_CLIENT) && (input_ports[i] != EMPTY); i++)
@@ -407,7 +407,7 @@ static int client_deactivate(struct impl *impl, int ref_num)
 		jc->activated = false;
 		if (jc->realtime)
 			pw_loop_invoke(jc->node->node->data_loop,
-					do_remove_node, 0, 0, NULL, false, jc);
+					do_remove_node, 0, NULL, 0, false, jc);
 	}
 
 	conn = jack_graph_manager_next_start(mgr);
@@ -1078,8 +1078,8 @@ static struct client *client_new(struct impl *impl, int fd)
 static int do_graph_order_changed(struct spa_loop *loop,
 		     bool async,
 		     uint32_t seq,
-		     size_t size,
 		     const void *data,
+		     size_t size,
 		     void *user_data)
 {
 	struct impl *impl = user_data;
@@ -1118,7 +1118,7 @@ static void jack_node_pull(void *data)
 	jack_graph_manager_try_switch(mgr, &res);
 	if (res) {
 		pw_loop_invoke(pw_core_get_main_loop(impl->core),
-                       do_graph_order_changed, 0, 0, NULL, false, impl);
+                       do_graph_order_changed, 0, NULL, 0, false, impl);
 	}
 
 	/* mix all input */

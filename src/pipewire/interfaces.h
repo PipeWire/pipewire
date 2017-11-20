@@ -91,13 +91,13 @@ struct pw_core_proxy_methods {
 	 * Send a type map update to the PipeWire server. The server uses this
 	 * information to keep a mapping between client types and the server types.
 	 * \param first_id the id of the first type
-	 * \param n_types the number of types
 	 * \param types the types as a string
+	 * \param n_types the number of types
 	 */
 	void (*update_types) (void *object,
 			      uint32_t first_id,
-			      uint32_t n_types,
-			      const char **types);
+			      const char **types,
+			      uint32_t n_types);
 	/**
 	 * Do server roundtrip
 	 *
@@ -161,9 +161,9 @@ struct pw_core_proxy_methods {
 };
 
 static inline void
-pw_core_proxy_update_types(struct pw_core_proxy *core, uint32_t first_id, uint32_t n_types, const char **types)
+pw_core_proxy_update_types(struct pw_core_proxy *core, uint32_t first_id, const char **types, uint32_t n_types)
 {
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, update_types, first_id, n_types, types);
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, update_types, first_id, types, n_types);
 }
 
 static inline void
@@ -238,13 +238,13 @@ struct pw_core_proxy_events {
 	 * Send a type map update to the client. The client uses this
 	 * information to keep a mapping between server types and the client types.
 	 * \param first_id the id of the first type
-	 * \param n_types the number of types
 	 * \param types the types as a string
+	 * \param n_types the number of \a types
 	 */
 	void (*update_types) (void *object,
 			      uint32_t first_id,
-			      uint32_t n_types,
-			      const char **types);
+			      const char **types,
+			      uint32_t n_types);
 	/**
 	 * Emit a done event
 	 *

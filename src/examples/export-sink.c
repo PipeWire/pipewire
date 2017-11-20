@@ -204,12 +204,12 @@ static int impl_get_n_ports(struct spa_node *node,
 }
 
 static int impl_get_port_ids(struct spa_node *node,
-                             uint32_t n_input_ports,
                              uint32_t *input_ids,
-                             uint32_t n_output_ports,
-                             uint32_t *output_ids)
+                             uint32_t n_input_ids,
+                             uint32_t *output_ids,
+                             uint32_t n_output_ids)
 {
-	if (n_input_ports > 0)
+	if (n_input_ids > 0)
                 input_ids[0] = 0;
 	return 0;
 }

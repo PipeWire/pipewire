@@ -246,7 +246,7 @@ on_stream_format_changed(void *_data, struct spa_pod *format)
 	void *d;
 
 	if (format == NULL) {
-		pw_stream_finish_format(stream, 0, 0, NULL);
+		pw_stream_finish_format(stream, 0, NULL, 0);
 		return;
 	}
 
@@ -254,7 +254,7 @@ on_stream_format_changed(void *_data, struct spa_pod *format)
 
 	sdl_format = id_to_sdl_format(data, data->format.format);
 	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN) {
-		pw_stream_finish_format(stream, -EINVAL, 0, NULL);
+		pw_stream_finish_format(stream, -EINVAL, NULL, 0);
 		return;
 	}
 
@@ -279,7 +279,7 @@ on_stream_format_changed(void *_data, struct spa_pod *format)
 		":", t->param_meta.type, "I", t->meta.Header,
 		":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 
-	pw_stream_finish_format(stream, 0, 2, params);
+	pw_stream_finish_format(stream, 0, params, 2);
 }
 
 static const struct pw_stream_events stream_events = {
@@ -362,7 +362,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 				  PW_DIRECTION_INPUT,
 				  data->path,
 				  PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_INACTIVE,
-				  1, params);
+				  params, 1);
 		break;
 	}
 	default:

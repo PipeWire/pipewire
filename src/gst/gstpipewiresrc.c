@@ -664,8 +664,8 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
                      PW_DIRECTION_INPUT,
                      pwsrc->path,
                      PW_STREAM_FLAG_AUTOCONNECT,
-                     possible->len,
-                     (const struct spa_pod **)possible->pdata);
+                     (const struct spa_pod **)possible->pdata,
+                     possible->len);
   g_ptr_array_free (possible, TRUE);
 
   while (TRUE) {
@@ -738,7 +738,7 @@ on_format_changed (void           *data,
 
   if (format == NULL) {
     GST_DEBUG_OBJECT (pwsrc, "clear format");
-    pw_stream_finish_format (pwsrc->stream, 0, 0, NULL);
+    pw_stream_finish_format (pwsrc->stream, 0, NULL, 0);
     return;
   }
 
@@ -766,10 +766,10 @@ on_format_changed (void           *data,
         ":", t->param_meta.size, "i", sizeof (struct spa_meta_header));
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
-    pw_stream_finish_format (pwsrc->stream, 0, 2, params);
+    pw_stream_finish_format (pwsrc->stream, 0, params, 2);
   } else {
     GST_WARNING_OBJECT (pwsrc, "finish format with error");
-    pw_stream_finish_format (pwsrc->stream, -EINVAL, 0, NULL);
+    pw_stream_finish_format (pwsrc->stream, -EINVAL, NULL, 0);
   }
 }
 

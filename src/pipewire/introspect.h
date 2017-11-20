@@ -152,12 +152,12 @@ struct pw_node_info {
 	const char *name;                       /**< name the node, suitable for display */
 	uint32_t max_input_ports;		/**< maximum number of inputs */
 	uint32_t n_input_ports;			/**< number of inputs */
-	uint32_t n_input_params;		/**< number of input params */
 	struct spa_pod **input_params;		/**< array of input params */
+	uint32_t n_input_params;		/**< number of input params */
 	uint32_t max_output_ports;		/**< maximum number of outputs */
 	uint32_t n_output_ports;		/**< number of outputs */
-	uint32_t n_output_params;		/**< number of output params */
 	struct spa_pod **output_params;		/**< array of output params */
+	uint32_t n_output_params;		/**< number of output params */
 	enum pw_node_state state;		/**< the current state of the node */
 	const char *error;			/**< an error reason if \a state is error */
 	struct spa_dict *props;			/**< the properties of the node */

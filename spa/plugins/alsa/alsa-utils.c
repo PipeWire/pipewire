@@ -316,12 +316,29 @@ static int set_swparams(struct state *state)
 	return 0;
 }
 
-static inline void try_pull(struct state *state, snd_pcm_uframes_t frames, bool do_pull)
+static inline void calc_timeout(size_t target, size_t current,
+				size_t rate, snd_htimestamp_t *now,
+				struct timespec *ts)
+{
+	ts->tv_sec = now->tv_sec;
+	ts->tv_nsec = now->tv_nsec;
+	if (target > current)
+		ts->tv_nsec += ((target - current) * SPA_NSEC_PER_SEC) / rate;
+
+	while (ts->tv_nsec >= SPA_NSEC_PER_SEC) {
+		ts->tv_sec++;
+		ts->tv_nsec -= SPA_NSEC_PER_SEC;
+	}
+}
+
+static inline void try_pull(struct state *state, snd_pcm_uframes_t frames,
+		snd_pcm_uframes_t written, bool do_pull)
 {
 	struct spa_port_io *io = state->io;
 
 	if (spa_list_is_empty(&state->ready) && do_pull) {
-		spa_log_trace(state->log, "alsa-util %p: %d", state, io->status);
+		spa_log_trace(state->log, "alsa-util %p: %d %lu", state, io->status,
+				state->filled + written);
 		io->status = SPA_STATUS_NEED_BUFFER;
 		io->range.offset = state->sample_count * state->frame_size;
 		io->range.min_size = state->threshold * state->frame_size;
@@ -340,47 +357,53 @@ pull_frames(struct state *state,
 	snd_pcm_uframes_t total_frames = 0, to_write = SPA_MIN(frames, state->props.max_latency);
 	bool underrun = false;
 
-	try_pull(state, frames, do_pull);
+	try_pull(state, frames, 0, do_pull);
 
 	while (!spa_list_is_empty(&state->ready) && to_write > 0) {
-		uint8_t *dst;
+		uint8_t *dst, *src;
 		size_t n_bytes, n_frames;
 		struct buffer *b;
 		struct spa_data *d;
-		struct spa_ringbuffer *ringbuffer;
-		uint32_t index;
-		int32_t avail;
+		uint32_t index, offs, avail, l0, l1;
 
 		b = spa_list_first(&state->ready, struct buffer, link);
 		d = b->outbuf->datas;
 
 		dst = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
+		src = d[0].data;
 
-		ringbuffer = &d[0].chunk->area;
-
-		avail = spa_ringbuffer_get_read_index(ringbuffer, &index);
+		index = d[0].chunk->offset + state->ready_offset;
+		avail = d[0].chunk->size - state->ready_offset;
 		avail /= state->frame_size;
 
 		n_frames = SPA_MIN(avail, to_write);
 		n_bytes = n_frames * state->frame_size;
 
-		spa_ringbuffer_read_data(ringbuffer, d[0].data, d[0].maxsize,
-					 index % d[0].maxsize, dst, n_bytes);
-		spa_ringbuffer_read_update(ringbuffer, index + n_bytes);
+		offs = index % d[0].maxsize;
+		l0 = SPA_MIN(n_bytes, d[0].maxsize - offs);
+		l1 = n_bytes - l0;
 
-		if (avail == n_frames || state->n_buffers == 1) {
+		memcpy(dst, src + offs, l0);
+		if (l1 > 0)
+			memcpy(dst + l0, src, l1);
+
+		state->ready_offset += n_bytes;
+
+		if (state->ready_offset >= d[0].chunk->size) {
 			spa_list_remove(&b->link);
 			b->outstanding = true;
 			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
 			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->outbuf->id);
+			state->ready_offset = 0;
 		}
 		total_frames += n_frames;
 		to_write -= n_frames;
 
-		spa_log_trace(state->log, "alsa-util %p: %u written %lu frames, left %ld", state, index, total_frames, to_write);
+		spa_log_trace(state->log, "alsa-util %p: written %lu frames, left %ld",
+				state, total_frames, to_write);
 	}
 
-	try_pull(state, frames, do_pull);
+	try_pull(state, frames, total_frames, do_pull);
 
 	if (total_frames == 0 && do_pull) {
 		total_frames = SPA_MIN(frames, state->threshold);
@@ -414,8 +437,7 @@ push_frames(struct state *state,
 		size_t n_bytes;
 		struct buffer *b;
 		struct spa_data *d;
-		uint32_t index, avail;
-		int32_t filled;
+		uint32_t index, offs, avail, l0, l1;
 
 		b = spa_list_first(&state->free, struct buffer, link);
 		spa_list_remove(&b->link);
@@ -430,15 +452,21 @@ push_frames(struct state *state,
 
 		src = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
 
-		filled = spa_ringbuffer_get_write_index(&d[0].chunk->area, &index);
-		avail = (d[0].maxsize - filled) / state->frame_size;
+		avail = d[0].maxsize / state->frame_size;
+		index = 0;
 		total_frames = SPA_MIN(avail, frames);
 		n_bytes = total_frames * state->frame_size;
 
-		spa_ringbuffer_write_data(&d[0].chunk->area, d[0].data, d[0].maxsize,
-					index % d[0].maxsize, src, n_bytes);
+		offs = index % d[0].maxsize;
+		l0 = SPA_MIN(n_bytes, d[0].maxsize - offs);
+		l1 = n_bytes - l0;
 
-		spa_ringbuffer_write_update(&d[0].chunk->area, index + n_bytes);
+		memcpy(src, d[0].data + offs, l0);
+		if (l1 > 0)
+			memcpy(src + l0, d[0].data, l1);
+
+		d[0].chunk->offset = index;
+		d[0].chunk->size = n_bytes;
 		d[0].chunk->stride = state->frame_size;
 
 		b->outstanding = true;
@@ -464,21 +492,6 @@ static int alsa_try_resume(struct state *state)
 	return res;
 }
 
-static inline void calc_timeout(size_t target, size_t current,
-				size_t rate, snd_htimestamp_t *now,
-				struct timespec *ts)
-{
-	ts->tv_sec = now->tv_sec;
-	ts->tv_nsec = now->tv_nsec;
-	if (target > current)
-		ts->tv_nsec += ((target - current) * SPA_NSEC_PER_SEC) / rate;
-
-	while (ts->tv_nsec >= SPA_NSEC_PER_SEC) {
-		ts->tv_sec++;
-		ts->tv_nsec -= SPA_NSEC_PER_SEC;
-	}
-}
-
 static void alsa_on_playback_timeout_event(struct spa_source *source)
 {
 	uint64_t exp;
@@ -487,10 +500,9 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	snd_pcm_t *hndl = state->hndl;
 	snd_pcm_sframes_t avail;
 	struct itimerspec ts;
-	snd_pcm_uframes_t total_written = 0, filled;
+	snd_pcm_uframes_t total_written = 0;
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_status_t *status;
-	snd_htimestamp_t htstamp;
 
 	if (state->started && read(state->timerfd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(state->log, "error reading timerfd: %s", strerror(errno));
@@ -503,27 +515,27 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	}
 
 	avail = snd_pcm_status_get_avail(status);
-	snd_pcm_status_get_htstamp(status, &htstamp);
+	snd_pcm_status_get_htstamp(status, &state->now);
 
 	if (avail > state->buffer_frames)
 		avail = state->buffer_frames;
 
-	filled = state->buffer_frames - avail;
+	state->filled = state->buffer_frames - avail;
 
-	state->last_ticks = state->sample_count - filled;
-	state->last_monotonic = (int64_t) htstamp.tv_sec * SPA_NSEC_PER_SEC + (int64_t) htstamp.tv_nsec;
+	state->last_ticks = state->sample_count - state->filled;
+	state->last_monotonic = (int64_t) state->now.tv_sec * SPA_NSEC_PER_SEC + (int64_t) state->now.tv_nsec;
 
-	spa_log_trace(state->log, "timeout %ld %d %ld %ld %ld", filled, state->threshold,
-		      state->sample_count, htstamp.tv_sec, htstamp.tv_nsec);
+	spa_log_trace(state->log, "timeout %ld %d %ld %ld %ld", state->filled, state->threshold,
+		      state->sample_count, state->now.tv_sec, state->now.tv_nsec);
 
-	if (filled > state->threshold) {
+	if (state->filled > state->threshold) {
 		if (snd_pcm_state(hndl) == SND_PCM_STATE_SUSPENDED) {
 			spa_log_error(state->log, "suspended: try resume");
 			if ((res = alsa_try_resume(state)) < 0)
 				return;
 		}
 	} else {
-		snd_pcm_uframes_t to_write = state->buffer_frames - filled;
+		snd_pcm_uframes_t to_write = avail;
 		bool do_pull = true;
 
 		while (total_written < to_write) {
@@ -547,9 +559,10 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 					return;
 			}
 			total_written += written;
+			state->sample_count += written;
+			state->filled += written;
 			do_pull = false;
 		}
-		state->sample_count += total_written;
 	}
 	if (!state->alsa_started && total_written > 0) {
 		spa_log_debug(state->log, "snd_pcm_start");
@@ -560,7 +573,7 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 		state->alsa_started = true;
 	}
 
-	calc_timeout(total_written + filled, state->threshold, state->rate, &htstamp, &ts.it_value);
+	calc_timeout(state->filled, state->threshold, state->rate, &state->now, &ts.it_value);
 
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;

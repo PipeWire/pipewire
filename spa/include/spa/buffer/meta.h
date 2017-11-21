@@ -25,7 +25,6 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
-#include <spa/utils/ringbuffer.h>
 #include <spa/support/type-map.h>
 
 /** \page page_meta Metadata

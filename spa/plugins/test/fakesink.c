@@ -267,7 +267,8 @@ static int consume_buffer(struct impl *this)
 
 	render_buffer(this, b);
 
-	spa_ringbuffer_set_avail(&b->outbuf->datas[0].chunk->area, n_bytes);
+	b->outbuf->datas[0].chunk->offset = 0;
+	b->outbuf->datas[0].chunk->size = n_bytes;
 	b->outbuf->datas[0].chunk->stride = n_bytes;
 
 	if (b->h) {

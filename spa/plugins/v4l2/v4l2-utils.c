@@ -930,7 +930,8 @@ static int mmap_read(struct impl *this)
 	}
 
 	d = b->outbuf->datas;
-	spa_ringbuffer_set_avail(&d[0].chunk->area, buf.bytesused);
+	d[0].chunk->offset = 0;
+	d[0].chunk->size = buf.bytesused;
 	d[0].chunk->stride = port->fmt.fmt.pix.bytesperline;
 
 	b->outstanding = true;
@@ -1090,7 +1091,8 @@ mmap_init(struct impl *this,
 		d = buffers[i]->datas;
 		d[0].mapoffset = 0;
 		d[0].maxsize = b->v4l2_buffer.length;
-		spa_ringbuffer_set_avail(&d[0].chunk->area, 0);
+		d[0].chunk->offset = 0;
+		d[0].chunk->size = 0;
 		d[0].chunk->stride = state->fmt.fmt.pix.bytesperline;
 
 		if (state->export_buf) {

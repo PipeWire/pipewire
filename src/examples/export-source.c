@@ -364,8 +364,8 @@ static int impl_node_process_output(struct spa_node *node)
 	int16_t *dst;
         struct spa_port_io *io = d->io;
 	uint32_t maxsize, index = 0;
-	struct spa_ringbuffer *rb;
 	uint32_t filled, offset;
+	struct spa_data *od;
 
 	if (io->buffer_id < d->n_buffers) {
 		reuse_buffer(d, io->buffer_id);
@@ -378,10 +378,12 @@ static int impl_node_process_output(struct spa_node *node)
         b = spa_list_first(&d->empty, struct buffer, link);
         spa_list_remove(&b->link);
 
-	maxsize = b->buffer->datas[0].maxsize;
-	rb = &b->buffer->datas[0].chunk->area;
+	od = b->buffer->datas;
 
-	filled = spa_ringbuffer_get_write_index(rb, &index);
+	maxsize = od[0].maxsize;
+
+	filled = 0;
+	index = 0;
 	avail = maxsize - filled;
 	offset = index % maxsize;
 
@@ -404,7 +406,9 @@ static int impl_node_process_output(struct spa_node *node)
                         *dst++ = val;
         }
 
-	spa_ringbuffer_write_update(rb, index + avail);
+	od[0].chunk->offset = 0;
+	od[0].chunk->size = avail;
+	od[0].chunk->stride = 0;
 
 	io->buffer_id = b->buffer->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;

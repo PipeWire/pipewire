@@ -102,8 +102,8 @@ int spa_debug_buffer(const struct spa_buffer *buffer)
 		fprintf(stderr, "   offset:  %d\n", d->mapoffset);
 		fprintf(stderr, "   maxsize: %u\n", d->maxsize);
 		fprintf(stderr, "   chunk:   %p\n", d->chunk);
-		fprintf(stderr, "    read:   %d\n", d->chunk->area.readindex);
-		fprintf(stderr, "    write:  %u\n", d->chunk->area.writeindex);
+		fprintf(stderr, "    offset: %d\n", d->chunk->offset);
+		fprintf(stderr, "    size:   %u\n", d->chunk->size);
 		fprintf(stderr, "    stride: %d\n", d->chunk->stride);
 	}
 	return 0;

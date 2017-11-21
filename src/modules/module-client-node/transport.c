@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <sys/mman.h>
 
+#include <spa/utils/ringbuffer.h>
 #include <pipewire/log.h>
 #include <extensions/client-node.h>
 

@@ -305,7 +305,8 @@ static struct spa_pod *find_param(struct spa_pod **params, int n_params, uint32_
  *   || | ... <n_metas>                |
  *   || +------------------------------+
  *   +->| struct spa_chunk             | memory for n_datas chunks
- *    | |   struct spa_ringbuffer area |
+ *    | |   uint32_t offset            |
+ *    | |   uint32_t size              |
  *    | |   int32_t stride             |
  *    | | ... <n_datas> chunks         |
  *    | +------------------------------+
@@ -438,7 +439,8 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 				d->mapoffset = SPA_PTRDIFF(ddp, mem->ptr);
 				d->maxsize = data_sizes[j];
 				d->data = SPA_MEMBER(mem->ptr, d->mapoffset, void);
-				spa_ringbuffer_set_avail(&d->chunk->area, 0);
+				d->chunk->offset = 0;
+				d->chunk->size = 0;
 				d->chunk->stride = data_strides[j];
 				ddp += data_sizes[j];
 			} else {

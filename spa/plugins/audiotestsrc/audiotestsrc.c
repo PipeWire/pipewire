@@ -299,7 +299,6 @@ static int make_buffer(struct impl *this)
 	int n_bytes, n_samples;
 	uint32_t maxsize;
 	void *data;
-	struct spa_ringbuffer *rb;
 	struct spa_data *d;
 	int32_t filled, avail;
 	uint32_t index, offset, l0, l1;
@@ -329,9 +328,8 @@ static int make_buffer(struct impl *this)
 	spa_log_trace(this->log, NAME " %p: dequeue buffer %d %d %d", this, b->outbuf->id,
 		      maxsize, n_bytes);
 
-	rb = &d[0].chunk->area;
-
-	filled = spa_ringbuffer_get_write_index(rb, &index);
+	filled = 0;
+	index = 0;
 	avail = maxsize - filled;
 	n_bytes = SPA_MIN(avail, n_bytes);
 
@@ -346,7 +344,9 @@ static int make_buffer(struct impl *this)
 	if (l1 > 0)
 		this->render_func(this, data, l1);
 
-	spa_ringbuffer_write_update(rb, index + n_bytes);
+	d[0].chunk->offset = index;
+	d[0].chunk->size = n_bytes;
+	d[0].chunk->stride = this->bpf;
 
 	if (b->h) {
 		b->h->seq = this->sample_count;

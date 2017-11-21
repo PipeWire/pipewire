@@ -526,8 +526,8 @@ do_send_buffer (GstPipeWireSink *pwsink)
   for (i = 0; i < data->buf->n_datas; i++) {
     struct spa_data *d = &data->buf->datas[i];
     GstMemory *mem = gst_buffer_peek_memory (buffer, i);
-    d->chunk->area.readindex = mem->offset - data->offset;
-    d->chunk->area.writeindex = d->chunk->area.readindex + mem->size;
+    d->chunk->offset = mem->offset - data->offset;
+    d->chunk->size = mem->size;
   }
 
   if (!(res = pw_stream_send_buffer (pwsink->stream, data->id))) {

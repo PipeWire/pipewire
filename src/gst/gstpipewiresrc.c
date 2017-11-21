@@ -464,11 +464,9 @@ on_new_buffer (void *_data,
   }
   for (i = 0; i < data->buf->n_datas; i++) {
     struct spa_data *d = &data->buf->datas[i];
-    uint32_t index;
     GstMemory *mem = gst_buffer_peek_memory (buf, i);
-    mem->size = spa_ringbuffer_get_read_index(&d->chunk->area, &index);
-    mem->offset = index % d->maxsize;
-    spa_ringbuffer_set_avail(&d->chunk->area, 0);
+    mem->offset = SPA_MIN(d->chunk->offset, d->maxsize);
+    mem->size = SPA_MIN(d->chunk->size, d->maxsize - mem->offset);
   }
 
   if (pwsrc->always_copy)
@@ -663,7 +661,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   pw_stream_connect (pwsrc->stream,
                      PW_DIRECTION_INPUT,
                      pwsrc->path,
-                     PW_STREAM_FLAG_AUTOCONNECT,
+                     PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_CLOCK_UPDATE,
                      (const struct spa_pod **)possible->pdata,
                      possible->len);
   g_ptr_array_free (possible, TRUE);

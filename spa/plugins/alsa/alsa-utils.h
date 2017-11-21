@@ -32,7 +32,6 @@ extern "C" {
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
-#include <spa/utils/ringbuffer.h>
 
 #include <spa/clock/clock.h>
 #include <spa/node/node.h>
@@ -150,13 +149,17 @@ struct state {
 	struct spa_list free;
 	struct spa_list ready;
 
+	size_t ready_offset;
+
 	bool started;
 	struct spa_source source;
 	int timerfd;
 	bool alsa_started;
 	int threshold;
 
+	snd_htimestamp_t now;
 	int64_t sample_count;
+	int64_t filled;
 	int64_t last_ticks;
 	int64_t last_monotonic;
 

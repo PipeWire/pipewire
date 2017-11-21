@@ -690,7 +690,7 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 	struct spa_data *sd, *dd;
 	int16_t *src, *dst;
 	double volume;
-	uint32_t towrite, savail, davail;
+	uint32_t written, towrite, savail, davail;
 	uint32_t sindex, dindex;
 
 	volume = this->props.volume;
@@ -698,13 +698,16 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 	sd = sbuf->datas;
 	dd = dbuf->datas;
 
-	savail = spa_ringbuffer_get_read_index(&sd[0].chunk->area, &sindex);
-	davail = spa_ringbuffer_get_write_index(&dd[0].chunk->area, &dindex);
+	savail = SPA_MIN(sd[0].chunk->size, sd[0].maxsize);
+	sindex = sd[0].chunk->offset;
+	davail = 0;
+	dindex = 0;
 	davail = dd[0].maxsize - davail;
 
 	towrite = SPA_MIN(savail, davail);
+	written = 0;
 
-	while (towrite > 0) {
+	while (written < towrite) {
 		uint32_t soffset = sindex % sd[0].maxsize;
 		uint32_t doffset = dindex % dd[0].maxsize;
 
@@ -720,10 +723,11 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 
 		sindex += n_bytes;
 		dindex += n_bytes;
-		towrite -= n_bytes;
+		written += n_bytes;
 	}
-	spa_ringbuffer_read_update(&sd[0].chunk->area, sindex);
-	spa_ringbuffer_write_update(&dd[0].chunk->area, dindex);
+	dd[0].chunk->offset = 0;
+	dd[0].chunk->size = written;
+	dd[0].chunk->stride = 0;
 }
 
 static int impl_node_process_input(struct spa_node *node)

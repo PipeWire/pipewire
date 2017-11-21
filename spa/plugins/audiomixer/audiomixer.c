@@ -688,20 +688,22 @@ add_port_data(struct impl *this, void *out, size_t outsize, size_t next, struct 
 {
 	size_t insize;
 	struct buffer *b;
-	uint32_t index = 0, offset, len1, len2, maxsize;
+	uint32_t index, offset, len1, len2, maxsize;
 	mix_func_t mix = layer == 0 ? this->copy : this->add;
+	struct spa_data *d;
 	void *data;
-	struct spa_ringbuffer *rb;
 
 	b = spa_list_first(&port->queue, struct buffer, link);
 
-	maxsize = b->outbuf->datas[0].maxsize;
-	data = b->outbuf->datas[0].data;
-	rb = &b->outbuf->datas[0].chunk->area,
+	d = b->outbuf->datas;
 
-	insize = spa_ringbuffer_get_read_index(rb, &index);
+	maxsize = d[0].maxsize;
+	data = d[0].data;
+
+	insize = SPA_MIN(d[0].chunk->size, maxsize);
 	outsize = SPA_MIN(outsize, insize);
 
+	index = d[0].chunk->offset + (insize - port->queued_bytes);
 	offset = index % maxsize;
 
 	len1 = SPA_MIN(outsize, maxsize - offset);
@@ -709,17 +711,14 @@ add_port_data(struct impl *this, void *out, size_t outsize, size_t next, struct 
 	if ((len2 = outsize - len1) > 0)
 		mix(out + len1, data, len2);
 
-	spa_ringbuffer_read_update(rb, index + outsize);
-
 	port->queued_bytes -= outsize;
 
-	if (outsize == insize || next == 0) {
+	if (port->queued_bytes == 0) {
 		spa_log_trace(this->log, NAME " %p: return buffer %d on port %p %zd",
 			      this, b->outbuf->id, port, outsize);
 		port->io->buffer_id = b->outbuf->id;
 		spa_list_remove(&b->link);
 		b->outstanding = true;
-		port->queued_bytes = 0;
 	} else {
 		spa_log_trace(this->log, NAME " %p: keeping buffer %d on port %p %zd %zd",
 			      this, b->outbuf->id, port, port->queued_bytes, outsize);
@@ -733,9 +732,7 @@ static int mix_output(struct impl *this, size_t n_bytes)
 	struct port *outport;
 	struct spa_port_io *outio;
 	struct spa_data *od;
-	int32_t filled, avail, maxsize;
-	uint32_t index = 0, len1, len2, offset;
-	struct spa_ringbuffer *rb;
+	uint32_t avail, index, maxsize, len1, len2, offset;
 
 	outport = GET_OUT_PORT(this, 0);
 	outio = outport->io;
@@ -752,10 +749,8 @@ static int mix_output(struct impl *this, size_t n_bytes)
 	od = outbuf->outbuf->datas;
 	maxsize = od[0].maxsize;
 
-	rb = &od[0].chunk->area;
-
-	filled = spa_ringbuffer_get_write_index(rb, &index);
-	avail = maxsize - filled;
+	avail = maxsize;
+	index = 0;
 	n_bytes = SPA_MIN(n_bytes, avail);
 
 	offset = index % maxsize;
@@ -782,7 +777,9 @@ static int mix_output(struct impl *this, size_t n_bytes)
 		layer++;
 	}
 
-	spa_ringbuffer_write_update(rb, index + n_bytes);
+	od[0].chunk->offset = index;
+	od[0].chunk->size = n_bytes;
+	od[0].chunk->stride = 0;
 
 	outio->buffer_id = outbuf->outbuf->id;
 	outio->status = SPA_STATUS_HAVE_BUFFER;
@@ -819,8 +816,7 @@ static int impl_node_process_input(struct spa_node *node)
 		if (inport->queued_bytes == 0 &&
 		    inio->status == SPA_STATUS_HAVE_BUFFER && inio->buffer_id < inport->n_buffers) {
 			struct buffer *b = &inport->buffers[inio->buffer_id];
-			uint32_t index;
-			struct spa_ringbuffer *rb;
+			struct spa_data *d = b->outbuf->datas;
 
 			if (!b->outstanding) {
 				spa_log_warn(this->log, NAME " %p: buffer %u in use", this,
@@ -835,8 +831,7 @@ static int impl_node_process_input(struct spa_node *node)
 
 			spa_list_append(&inport->queue, &b->link);
 
-			rb = &b->outbuf->datas[0].chunk->area;
-			inport->queued_bytes += spa_ringbuffer_get_read_index(rb, &index);
+			inport->queued_bytes = SPA_MIN(d[0].chunk->size, d[0].maxsize);
 
 			spa_log_trace(this->log, NAME " %p: queue buffer %d on port %d %zd %zd",
 				      this, b->outbuf->id, i, inport->queued_bytes, min_queued);

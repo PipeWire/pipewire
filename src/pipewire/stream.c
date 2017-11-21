@@ -661,10 +661,12 @@ static void handle_socket(struct pw_stream *stream, int rtreadfd, int rtwritefd)
 					       SPA_IO_ERR | SPA_IO_HUP,
 					       true, on_rtsocket_condition, stream);
 
-	impl->timeout_source = pw_loop_add_timer(stream->remote->core->main_loop, on_timeout, stream);
-	interval.tv_sec = 0;
-	interval.tv_nsec = 100000000;
-	pw_loop_update_timer(stream->remote->core->main_loop, impl->timeout_source, NULL, &interval, false);
+	if (impl->flags & PW_STREAM_FLAG_CLOCK_UPDATE) {
+		impl->timeout_source = pw_loop_add_timer(stream->remote->core->main_loop, on_timeout, stream);
+		interval.tv_sec = 0;
+		interval.tv_nsec = 100000000;
+		pw_loop_update_timer(stream->remote->core->main_loop, impl->timeout_source, NULL, &interval, false);
+	}
 	return;
 }
 
@@ -830,6 +832,9 @@ client_node_port_use_buffers(void *data,
 	struct buffer_id *bid;
 	uint32_t i, j, len;
 	struct spa_buffer *b;
+	int prot;
+
+	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
 
 	/* clear previous buffers */
 	clear_buffers(stream);
@@ -845,8 +850,7 @@ client_node_port_use_buffers(void *data,
 
 		if (mid->ptr == NULL) {
 			mid->ptr =
-			    mmap(NULL, mid->size + mid->offset, PROT_READ | PROT_WRITE, MAP_SHARED,
-				 mid->fd, 0);
+			    mmap(NULL, mid->size + mid->offset, prot, MAP_SHARED, mid->fd, 0);
 			if (mid->ptr == MAP_FAILED) {
 				mid->ptr = NULL;
 				pw_log_warn("Failed to mmap memory %d %p: %s", mid->size, mid,

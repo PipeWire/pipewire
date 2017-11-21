@@ -955,8 +955,7 @@ client_node_port_use_buffers(void *object,
 
 		if (mid->ptr == NULL) {
 			mid->ptr =
-			    mmap(NULL, mid->size + mid->offset, prot, MAP_SHARED,
-				 mid->fd, 0);
+			    mmap(NULL, mid->size + mid->offset, prot, MAP_SHARED, mid->fd, 0);
 			if (mid->ptr == MAP_FAILED) {
 				mid->ptr = NULL;
 				pw_log_warn("Failed to mmap memory %d %p: %s", mid->size, mid,

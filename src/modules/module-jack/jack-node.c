@@ -305,7 +305,9 @@ static int driver_process_output(struct spa_node *node)
 		in_io->status = SPA_STATUS_NEED_BUFFER;
 	}
 
-	spa_ringbuffer_set_avail(&out->outbuf->datas[0].chunk->area, ctrl->buffer_size * sizeof(int16_t) * 2);
+	out->outbuf->datas[0].chunk->offset = 0;
+	out->outbuf->datas[0].chunk->size = ctrl->buffer_size * sizeof(int16_t) * 2;
+	out->outbuf->datas[0].chunk->stride = 0;
 
 	spa_hook_list_call(&nd->listener_list, struct pw_jack_node_events, push);
 	gn->ready[SPA_DIRECTION_INPUT] = gn->required[SPA_DIRECTION_OUTPUT] = 0;

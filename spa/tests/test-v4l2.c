@@ -232,7 +232,8 @@ static void on_source_have_output(void *_data)
 		datas[0].mapoffset = 0;
 		datas[0].maxsize = sstride * 240;
 		datas[0].data = sdata;
-		spa_ringbuffer_set_avail(&datas[0].chunk->area, sstride * 240);
+		datas[0].chunk->offset = 0;
+		datas[0].chunk->size = sstride * 240;
 		datas[0].chunk->stride = sstride;
 	} else {
 		uint8_t *map;
@@ -369,7 +370,8 @@ static int setup_buffers(struct data *data)
 		b->datas[0].maxsize = 0;
 		b->datas[0].data = NULL;
 		b->datas[0].chunk = &b->chunks[0];
-		spa_ringbuffer_set_avail(&b->datas[0].chunk->area, 0);
+		b->datas[0].chunk->offset = 0;
+		b->datas[0].chunk->size = 0;
 		b->datas[0].chunk->stride = 0;
 	}
 	data->n_buffers = MAX_BUFFERS;
@@ -402,7 +404,8 @@ static int sdl_alloc_buffers(struct data *data)
 		b->datas[0].type = data->type.data.MemPtr;
 		b->datas[0].maxsize = stride * 240;
 		b->datas[0].data = ptr;
-		spa_ringbuffer_set_avail(&b->datas[0].chunk->area, stride * 240);
+		b->datas[0].chunk->offset = 0;
+		b->datas[0].chunk->size = stride * 240;
 		b->datas[0].chunk->stride = stride;
 	}
 	return 0;

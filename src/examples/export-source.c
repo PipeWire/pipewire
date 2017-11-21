@@ -26,6 +26,7 @@
 #include <spa/param/format-utils.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
+#include <spa/node/io.h>
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
@@ -81,7 +82,7 @@ struct data {
 	struct spa_node impl_node;
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
 
 	uint8_t buffer[1024];
 
@@ -131,10 +132,15 @@ static int impl_get_port_ids(struct spa_node *node,
 }
 
 static int impl_port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-			    struct spa_port_io *io)
+			    uint32_t id, void *io)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	d->io = io;
+
+	if (id == d->t->io.Buffers)
+		d->io = io;
+	else
+		return -ENOENT;
+
 	return 0;
 }
 
@@ -241,7 +247,7 @@ static int impl_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(builder,
 			id, t->param_buffers.Buffers,
-			":", t->param_buffers.size,    "iru", 1024,
+			":", t->param_buffers.size,    "iru", 256,
 										2, 32, 4096,
 			":", t->param_buffers.stride,  "i",   0,
 			":", t->param_buffers.buffers, "iru", 1,
@@ -362,7 +368,7 @@ static int impl_node_process_output(struct spa_node *node)
 	struct buffer *b;
 	int i, c, n_samples, avail;
 	int16_t *dst;
-        struct spa_port_io *io = d->io;
+        struct spa_io_buffers *io = d->io;
 	uint32_t maxsize, index = 0;
 	uint32_t filled, offset;
 	struct spa_data *od;

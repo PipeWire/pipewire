@@ -27,6 +27,7 @@
 #include <spa/param/format-utils.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
+#include <spa/node/io.h>
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
@@ -83,7 +84,7 @@ struct data {
 	struct spa_node impl_node;
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
 
 	uint8_t buffer[1024];
 
@@ -214,11 +215,17 @@ static int impl_get_port_ids(struct spa_node *node,
 	return 0;
 }
 
-static int impl_port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-			    struct spa_port_io *io)
+static int impl_port_set_io(struct spa_node *node,
+			    enum spa_direction direction, uint32_t port_id,
+			    uint32_t id, void *io)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	d->io = io;
+
+	if (id == d->t->io.Buffers)
+		d->io = io;
+	else
+		return -ENOENT;
+
 	return 0;
 }
 

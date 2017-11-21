@@ -80,7 +80,7 @@ struct proxy_port {
 	bool have_format;
 	uint32_t n_params;
 	struct spa_pod **params;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
 
 	uint32_t n_buffers;
 	struct proxy_buffer buffers[MAX_BUFFERS];
@@ -511,21 +511,30 @@ spa_proxy_node_port_set_param(struct spa_node *node,
 
 static int
 spa_proxy_node_port_set_io(struct spa_node *node,
-			   enum spa_direction direction, uint32_t port_id, struct spa_port_io *io)
+			   enum spa_direction direction,
+			   uint32_t port_id,
+			   uint32_t id,
+			   void *io)
 {
 	struct proxy *this;
 	struct proxy_port *port;
+	struct pw_type *t;
 
 	if (node == NULL)
 		return -EINVAL;
 
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	t = this->impl->t;
 
 	if (!CHECK_PORT(this, direction, port_id))
 		return -EINVAL;
 
 	port = GET_PORT(this, direction, port_id);
-	port->io = io;
+
+	if (id == t->io.Buffers)
+		port->io = io;
+	else
+		return -ENOENT;
 
 	return 0;
 }
@@ -737,7 +746,7 @@ static int spa_proxy_node_process_input(struct spa_node *node)
 	}
 	else {
 		spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
-			struct spa_port_io *io = p->io;
+			struct spa_io_buffers *io = p->io;
 
 			pw_log_trace("set io status to %d %d", io->status, io->buffer_id);
 			impl->transport->inputs[p->port_id] = *io;
@@ -773,7 +782,7 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 	impl->out_pending = true;
 
 	spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link) {
-		struct spa_port_io *io = p->io;
+		struct spa_io_buffers *io = p->io;
 
 		impl->transport->outputs[p->port_id] = *io;
 

@@ -26,11 +26,16 @@
 #include <spa/support/type-map.h>
 #include <spa/support/log.h>
 #include <spa/node/node.h>
+#include <spa/node/io.h>
 #include <spa/param/video/format-utils.h>
 
 #include <lib/pod.h>
 
-#define IS_VALID_PORT(this,d,id) ((id) == 0)
+#define IS_VALID_PORT(this,d,id)	((id) == 0)
+#define GET_IN_PORT(this,p)		(&this->in_ports[p])
+#define GET_OUT_PORT(this,p)		(&this->out_ports[p])
+#define GET_PORT(this,d,p)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
+
 #define MAX_BUFFERS    32
 
 struct buffer {
@@ -45,11 +50,12 @@ struct port {
 	bool have_buffers;
 	struct buffer buffers[MAX_BUFFERS];
 	struct spa_port_info info;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
 };
 
 struct type {
 	uint32_t node;
+	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_media_type media_type;
 	struct spa_type_media_subtype media_subtype;
@@ -60,6 +66,7 @@ struct type {
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
+	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_media_type_map(map, &type->media_type);
 	spa_type_media_subtype_map(map, &type->media_subtype);
@@ -209,8 +216,8 @@ spa_ffmpeg_dec_node_port_get_info(struct spa_node *node,
 	if (!IS_VALID_PORT(this, direction, port_id))
 		return -EINVAL;
 
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+	port = GET_PORT(this, direction, port_id);
+
 	*info = &port->info;
 
 	return 0;
@@ -253,8 +260,7 @@ static int port_get_format(struct spa_node *node,
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct port *port;
 
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+	port = GET_PORT(this, direction, port_id);
 
 	if (!port->have_format)
 		return -EIO;
@@ -330,8 +336,7 @@ static int port_set_format(struct spa_node *node,
 	if (!IS_VALID_PORT(this, direction, port_id))
 		return -EINVAL;
 
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+	port = GET_PORT(this, direction, port_id);
 
 	if (format == NULL) {
 		port->have_format = false;
@@ -406,22 +411,28 @@ static int
 spa_ffmpeg_dec_node_port_set_io(struct spa_node *node,
 				enum spa_direction direction,
 				uint32_t port_id,
-				struct spa_port_io *io)
+				uint32_t id,
+				void *io)
 {
 	struct impl *this;
 	struct port *port;
+	struct type *t;
 
 	if (node == NULL)
 		return -EINVAL;
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	if (!IS_VALID_PORT(this, direction, port_id))
 		return -EINVAL;
 
-	port =
-	    direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
-	port->io = io;
+	port = GET_PORT(this, direction, port_id);
+
+	if (id == t->io.Buffers)
+		port->io = io;
+	else
+		return -ENOENT;
 
 	return 0;
 }
@@ -435,7 +446,7 @@ static int spa_ffmpeg_dec_node_process_output(struct spa_node *node)
 {
 	struct impl *this;
 	struct port *port;
-	struct spa_port_io *output;
+	struct spa_io_buffers *output;
 
 	if (node == NULL)
 		return -EINVAL;

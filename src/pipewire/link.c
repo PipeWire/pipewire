@@ -1177,7 +1177,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->info.format = NULL;
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
-	this->io = SPA_PORT_IO_INIT;
+	this->io = SPA_IO_BUFFERS_INIT;
 
 	spa_graph_port_init(&this->rt.out_port,
 			    PW_DIRECTION_OUTPUT,

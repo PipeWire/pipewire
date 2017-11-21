@@ -30,6 +30,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/type-map-impl.h>
 #include <spa/node/node.h>
+#include <spa/node/io.h>
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
@@ -54,6 +55,7 @@ struct type {
 	uint32_t props_volume;
 	uint32_t props_min_latency;
 	uint32_t props_live;
+	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
@@ -75,6 +77,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->props_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
 	type->props_min_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__minLatency);
 	type->props_live = spa_type_map_get_id(map, SPA_TYPE_PROPS__live);
+	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
@@ -114,14 +117,14 @@ struct data {
 	struct spa_graph_node sink_node;
 
 	struct spa_node *sink;
-	struct spa_port_io volume_sink_io[1];
+	struct spa_io_buffers volume_sink_io[1];
 
 	struct spa_node *volume;
 	struct spa_buffer *volume_buffers[1];
 	struct buffer volume_buffer[1];
 
 	struct spa_node *source;
-	struct spa_port_io source_volume_io[1];
+	struct spa_io_buffers source_volume_io[1];
 	struct spa_buffer *source_buffers[1];
 	struct buffer source_buffer[1];
 
@@ -330,13 +333,21 @@ static int make_nodes(struct data *data, const char *device)
 	if ((res = spa_node_set_param(data->source, data->type.param.idProps, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
 
-	data->source_volume_io[0] = SPA_PORT_IO_INIT;
-	data->volume_sink_io[0] = SPA_PORT_IO_INIT;
+	data->source_volume_io[0] = SPA_IO_BUFFERS_INIT;
+	data->volume_sink_io[0] = SPA_IO_BUFFERS_INIT;
 
-	spa_node_port_set_io(data->source, SPA_DIRECTION_OUTPUT, 0, &data->source_volume_io[0]);
-	spa_node_port_set_io(data->volume, SPA_DIRECTION_INPUT, 0, &data->source_volume_io[0]);
-	spa_node_port_set_io(data->volume, SPA_DIRECTION_OUTPUT, 0, &data->volume_sink_io[0]);
-	spa_node_port_set_io(data->sink, SPA_DIRECTION_INPUT, 0, &data->volume_sink_io[0]);
+	spa_node_port_set_io(data->source,
+			     SPA_DIRECTION_OUTPUT, 0,
+			     data->type.io.Buffers, &data->source_volume_io[0]);
+	spa_node_port_set_io(data->volume,
+			     SPA_DIRECTION_INPUT, 0,
+			     data->type.io.Buffers, &data->source_volume_io[0]);
+	spa_node_port_set_io(data->volume,
+			     SPA_DIRECTION_OUTPUT, 0,
+			     data->type.io.Buffers, &data->volume_sink_io[0]);
+	spa_node_port_set_io(data->sink,
+			     SPA_DIRECTION_INPUT, 0,
+			     data->type.io.Buffers, &data->volume_sink_io[0]);
 
 	spa_graph_node_init(&data->source_node);
 	spa_graph_node_set_implementation(&data->source_node, data->source);

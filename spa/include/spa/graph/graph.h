@@ -27,6 +27,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 #include <spa/node/node.h>
+#include <spa/node/io.h>
 
 #ifndef spa_debug
 #define spa_debug(...)
@@ -74,7 +75,7 @@ struct spa_graph_port {
 	enum spa_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
 	uint32_t flags;			/**< port flags */
-	struct spa_port_io *io;		/**< io area of the port */
+	struct spa_io_buffers *io;	/**< io area of the port */
 	struct spa_graph_port *peer;	/**< peer */
 	void *scheduler_data;		/**< scheduler private data */
 };
@@ -127,7 +128,7 @@ spa_graph_port_init(struct spa_graph_port *port,
 		    enum spa_direction direction,
 		    uint32_t port_id,
 		    uint32_t flags,
-		    struct spa_port_io *io)
+		    struct spa_io_buffers *io)
 {
 	spa_debug("port %p init type %d id %d", port, direction, port_id);
 	port->direction = direction;

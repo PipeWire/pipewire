@@ -38,32 +38,6 @@ struct spa_node;
 #include <spa/node/event.h>
 #include <spa/node/command.h>
 
-/** A range */
-struct spa_range {
-	uint64_t offset;	/**< offset in range */
-	uint32_t min_size;	/**< minimum size of data */
-	uint32_t max_size;	/**< maximum size of data */
-};
-
-/** Port IO area
- *
- * IO information for a port on a node. This is allocated
- * by the host and configured on all ports for which IO is requested.
- */
-struct spa_port_io {
-#define SPA_STATUS_OK			0
-#define SPA_STATUS_NEED_BUFFER		1
-#define SPA_STATUS_HAVE_BUFFER		2
-#define SPA_STATUS_FORMAT_CHANGED	3
-#define SPA_STATUS_PORTS_CHANGED	4
-#define SPA_STATUS_PARAM_CHANGED	5
-	int32_t status;			/**< the status code */
-	uint32_t buffer_id;		/**< a buffer id */
-	struct spa_range range;		/**< the requested range */
-};
-
-#define SPA_PORT_IO_INIT  (struct spa_port_io) { SPA_STATUS_OK, SPA_ID_INVALID, }
-
 /**
  * Port information structure
  *
@@ -350,6 +324,7 @@ struct spa_node {
 	 * \param node a #struct spa_node
 	 * \param direction a #enum spa_direction
 	 * \param port_id the port to configure
+	 * \param id the parameter id to set
 	 * \param flags optional flags
 	 * \param param a #struct spa_pod with the parameter to set
 	 * \return 0 on success
@@ -372,16 +347,19 @@ struct spa_node {
 	/**
 	 * Tell the port to use the given buffers
 	 *
+	 * The port should also have a spa_io_buffers io area configured to exchange
+	 * the buffers with the port.
+	 *
 	 * For an input port, all the buffers will remain dequeued. Once a buffer
 	 * has been pushed on a port with port_push_input, it should not be reused
 	 * until the reuse_buffer event is notified or when the buffer has been
-	 * returned in the spa_port_io of the port.
+	 * returned in the spa_io_buffers of the port.
 	 *
 	 * For output ports, all buffers will be queued in the port. When process_input
 	 * or process_output return SPA_STATUS_HAVE_BUFFER, buffers are available in
-	 * one or more of the spa_port_io areas.
+	 * one or more of the spa_io_buffers areas.
 	 * When a buffer can be reused, port_reuse_buffer() should be called or the
-	 * buffer_id should be placed in the spa_port_io area before calling
+	 * buffer_id should be placed in the spa_io_buffers area before calling
 	 * process_output.
 	 *
 	 * Passing NULL as \a buffers will remove the reference that the port has
@@ -403,6 +381,9 @@ struct spa_node {
 				 uint32_t n_buffers);
 	/**
 	 * Tell the port to allocate memory for \a buffers.
+	 *
+	 * The port should also have a spa_io_buffers io area configured to exchange
+	 * the buffers with the port.
 	 *
 	 * \a buffers should contain an array of pointers to buffers. The data
 	 * in the buffers should point to an array of at least 1 data entry
@@ -439,23 +420,28 @@ struct spa_node {
 				   uint32_t *n_buffers);
 
 	/**
-	 * Configure the given io structure on \a port_id. This
-	 * structure is allocated by the host and is used to query the state
-	 * of the port and exchange buffers with the port.
+	 * Configure the given memory area with \a id on \a port_id. This
+	 * structure is allocated by the host and is used to exchange
+	 * data and parameters with the port.
 	 *
-	 * Setting an \a io of NULL will disable the port.
+	 * Setting an \a io of NULL will disable the port io.
 	 *
 	 * This function must be called from the main thread.
 	 *
 	 * \param direction a spa_direction
 	 * \param port_id a port id
-	 * \param io a spa_port_io
+	 * \param id the id of the io area, the available ids can be
+	 *        enumerated with the port parameters.
+	 * \param io a io area memory
 	 * \return 0 on success
+	 *         -EINVAL when node is NULL the port is not valid
+	 *         -ENOENT when \id is unknown
 	 */
 	int (*port_set_io) (struct spa_node *node,
 			    enum spa_direction direction,
 			    uint32_t port_id,
-			    struct spa_port_io *io);
+			    uint32_t id,
+			    void *io);
 
 	/**
 	 * Tell an output port to reuse a buffer.

@@ -47,6 +47,7 @@
 
 struct type {
         uint32_t format;
+	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_data data;
 	struct spa_type_media_type media_type;
@@ -59,6 +60,7 @@ struct type {
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
         type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
+        spa_type_io_map(map, &type->io);
         spa_type_param_map(map, &type->param);
         spa_type_data_map(map, &type->data);
         spa_type_media_type_map(map, &type->media_type);
@@ -106,7 +108,7 @@ struct port_data {
 
 	struct spa_port_info info;
 
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
 
 	bool have_buffers;
 	struct buffer buffers[64];
@@ -261,7 +263,7 @@ static int driver_process_output(struct spa_node *node)
 	struct spa_graph_node *gn = &this->node->rt.node;
 	struct spa_graph_port *p;
 	struct port_data *opd = SPA_CONTAINER_OF(this->driver_out, struct port_data, port);
-	struct spa_port_io *out_io = opd->io;
+	struct spa_io_buffers *out_io = opd->io;
 	struct jack_engine_control *ctrl = this->server->engine_control;
 	struct buffer *out;
 	int16_t *op;
@@ -290,7 +292,7 @@ static int driver_process_output(struct spa_node *node)
 	spa_list_for_each(p, &gn->ports[SPA_DIRECTION_INPUT], link) {
 		struct pw_port *port = p->scheduler_data;
 		struct port_data *ipd = pw_port_get_user_data(port);
-		struct spa_port_io *in_io = ipd->io;
+		struct spa_io_buffers *in_io = ipd->io;
 		struct buffer *in;
 		int stride = 2;
 
@@ -342,7 +344,7 @@ static int node_process_input(struct spa_node *node)
 	spa_list_for_each(p, &gn->ports[SPA_DIRECTION_OUTPUT], link) {
 		struct pw_port *port = p->scheduler_data;
 		struct port_data *opd = pw_port_get_user_data(port);
-		struct spa_port_io *out_io = opd->io;
+		struct spa_io_buffers *out_io = opd->io;
 		out_io->buffer_id = 0;
 		out_io->status = SPA_STATUS_HAVE_BUFFER;
 		pw_log_trace(NAME " %p: port %p: %d %d", nd, p, out_io->buffer_id, out_io->status);
@@ -361,7 +363,7 @@ static int node_process_output(struct spa_node *node)
 	spa_list_for_each(p, &gn->ports[SPA_DIRECTION_INPUT], link) {
 		struct pw_port *port = p->scheduler_data;
 		struct port_data *ipd = pw_port_get_user_data(port);
-		struct spa_port_io *in_io = ipd->io;
+		struct spa_io_buffers *in_io = ipd->io;
 		in_io->buffer_id = 0;
 		in_io->status = SPA_STATUS_NEED_BUFFER;
 		pw_log_trace(NAME " %p: port %p: %d %d", nd, p, in_io->buffer_id, in_io->status);
@@ -370,12 +372,19 @@ static int node_process_output(struct spa_node *node)
 }
 
 
-static int port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-		       struct spa_port_io *io)
+static int port_set_io(struct spa_node *node,
+		       enum spa_direction direction, uint32_t port_id,
+		       uint32_t id, void *io)
 {
 	struct node_data *nd = SPA_CONTAINER_OF(node, struct node_data, node_impl);
 	struct port_data *pd = nd->port_data[direction][port_id];
-	pd->io = io;
+	struct type *t = &pd->node->type;
+
+	if (id == t->io.Buffers)
+		pd->io = io;
+	else
+		return -ENOENT;
+
 	return 0;
 }
 
@@ -619,7 +628,7 @@ static int schedule_mix_input(struct spa_node *_node)
 	struct pw_jack_port *this = &pd->port;
 	struct spa_graph_node *node = &this->port->rt.mix_node;
 	struct spa_graph_port *p;
-	struct spa_port_io *io = this->port->rt.mix_port.io;
+	struct spa_io_buffers *io = this->port->rt.mix_port.io;
 	size_t buffer_size = pd->node->node.server->engine_control->buffer_size;
 	int layer = 0;
 
@@ -655,7 +664,7 @@ static int schedule_mix_output(struct spa_node *_node)
 	struct pw_jack_port *this = &pd->port;
 	struct spa_graph_node *node = &this->port->rt.mix_node;
 	struct spa_graph_port *p;
-	struct spa_port_io *io = this->port->rt.mix_port.io;
+	struct spa_io_buffers *io = this->port->rt.mix_port.io;
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
 		*p->io = *io;

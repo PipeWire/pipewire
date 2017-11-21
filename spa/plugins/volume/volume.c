@@ -25,9 +25,11 @@
 #include <spa/support/type-map.h>
 #include <spa/utils/list.h>
 #include <spa/node/node.h>
+#include <spa/node/io.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
+#include <spa/param/io.h>
 
 #include <lib/pod.h>
 
@@ -56,7 +58,8 @@ struct port {
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
+	struct spa_io_control_range *range;
 
 	struct spa_list empty;
 };
@@ -67,6 +70,7 @@ struct type {
 	uint32_t props;
 	uint32_t prop_volume;
 	uint32_t prop_mute;
+	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
@@ -78,6 +82,7 @@ struct type {
 	struct spa_type_command_node command_node;
 	struct spa_type_param_buffers param_buffers;
 	struct spa_type_param_meta param_meta;
+	struct spa_type_param_io param_io;
 };
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
@@ -87,6 +92,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
 	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
 	type->prop_mute = spa_type_map_get_id(map, SPA_TYPE_PROPS__mute);
+	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
@@ -98,6 +104,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_command_node_map(map, &type->command_node);
 	spa_type_param_buffers_map(map, &type->param_buffers);
 	spa_type_param_meta_map(map, &type->param_meta);
+	spa_type_param_io_map(map, &type->param_io);
 }
 
 struct impl {
@@ -417,7 +424,8 @@ impl_node_port_enum_params(struct spa_node *node,
 		uint32_t list[] = { t->param.idEnumFormat,
 				    t->param.idFormat,
 				    t->param.idBuffers,
-				    t->param.idMeta };
+				    t->param.idMeta,
+				    t->param.idIO };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, t->param.List,
@@ -456,6 +464,24 @@ impl_node_port_enum_params(struct spa_node *node,
 				id, t->param_meta.Meta,
 				":", t->param_meta.type, "I", t->meta.Header,
 				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+			break;
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param.idIO) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.IO,
+				":", t->param_io.id, "I", t->io.Buffers,
+				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
+			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.IO,
+				":", t->param_io.id, "I", t->io.ControlRange,
+				":", t->param_io.size, "i", sizeof(struct spa_io_control_range));
 			break;
 		default:
 			return 0;
@@ -607,19 +633,28 @@ static int
 impl_node_port_set_io(struct spa_node *node,
 		      enum spa_direction direction,
 		      uint32_t port_id,
-		      struct spa_port_io *io)
+		      uint32_t id,
+		      void *io)
 {
 	struct impl *this;
 	struct port *port;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
-	port->io = io;
+
+	if (id == t->io.Buffers)
+		port->io = io;
+	else if (id == t->io.ControlRange)
+		port->range = io;
+	else
+		return -ENOENT;
 
 	return 0;
 }
@@ -733,8 +768,7 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 static int impl_node_process_input(struct spa_node *node)
 {
 	struct impl *this;
-	struct spa_port_io *input;
-	struct spa_port_io *output;
+	struct spa_io_buffers *input, *output;
 	struct port *in_port, *out_port;
 	struct spa_buffer *dbuf, *sbuf;
 
@@ -780,7 +814,7 @@ static int impl_node_process_output(struct spa_node *node)
 {
 	struct impl *this;
 	struct port *in_port, *out_port;
-	struct spa_port_io *input, *output;
+	struct spa_io_buffers *input, *output;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -803,7 +837,8 @@ static int impl_node_process_output(struct spa_node *node)
 	input = in_port->io;
 	spa_return_val_if_fail(input != NULL, -EIO);
 
-	input->range = output->range;
+	if (in_port->range && out_port->range)
+		*in_port->range = *out_port->range;
 	input->status = SPA_STATUS_NEED_BUFFER;
 
 	return SPA_STATUS_NEED_BUFFER;

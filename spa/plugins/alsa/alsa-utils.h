@@ -35,6 +35,7 @@ extern "C" {
 
 #include <spa/clock/clock.h>
 #include <spa/node/node.h>
+#include <spa/node/io.h>
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
 #include <spa/param/audio/format-utils.h>
@@ -66,6 +67,7 @@ struct type {
 	uint32_t prop_card_name;
 	uint32_t prop_min_latency;
 	uint32_t prop_max_latency;
+	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
@@ -92,6 +94,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->prop_min_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__minLatency);
 	type->prop_max_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__maxLatency);
 
+	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
@@ -141,7 +144,8 @@ struct state {
 	size_t frame_size;
 
 	struct spa_port_info info;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
+	struct spa_io_control_range *range;
 
 	struct buffer buffers[MAX_BUFFERS];
 	unsigned int n_buffers;

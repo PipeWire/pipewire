@@ -557,7 +557,7 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
-			struct spa_port_io *input = &impl->trans->inputs[i];
+			struct spa_io_buffers *input = &impl->trans->inputs[i];
 			struct buffer_id *bid;
 			uint32_t buffer_id;
 
@@ -590,7 +590,7 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_output_ports; i++) {
-			struct spa_port_io *output = &impl->trans->outputs[i];
+			struct spa_io_buffers *output = &impl->trans->outputs[i];
 
 			if (output->buffer_id == SPA_ID_INVALID)
 				continue;
@@ -1139,7 +1139,7 @@ bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
-			struct spa_port_io *input = &impl->trans->inputs[i];
+			struct spa_io_buffers *input = &impl->trans->inputs[i];
 			input->buffer_id = id;
 		}
 	} else {

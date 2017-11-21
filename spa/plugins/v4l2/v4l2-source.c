@@ -30,6 +30,7 @@
 #include <spa/utils/list.h>
 #include <spa/clock/clock.h>
 #include <spa/node/node.h>
+#include <spa/node/io.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
@@ -70,6 +71,7 @@ struct type {
 	uint32_t prop_device;
 	uint32_t prop_device_name;
 	uint32_t prop_device_fd;
+	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_media_type media_type;
 	struct spa_type_media_subtype media_subtype;
@@ -93,6 +95,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->prop_device = spa_type_map_get_id(map, SPA_TYPE_PROPS__device);
 	type->prop_device_name = spa_type_map_get_id(map, SPA_TYPE_PROPS__deviceName);
 	type->prop_device_fd = spa_type_map_get_id(map, SPA_TYPE_PROPS__deviceFd);
+	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_media_type_map(map, &type->media_type);
 	spa_type_media_subtype_map(map, &type->media_subtype);
@@ -138,7 +141,7 @@ struct port {
 	struct spa_source source;
 
 	struct spa_port_info info;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
 
 	int64_t last_ticks;
 	int64_t last_monotonic;
@@ -759,17 +762,23 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 static int impl_node_port_set_io(struct spa_node *node,
 				 enum spa_direction direction,
 				 uint32_t port_id,
-				 struct spa_port_io *io)
+				 uint32_t id,
+				 void *io)
 {
 	struct impl *this;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	this->out_ports[port_id].io = io;
+	if (id == t->io.Buffers)
+		this->out_ports[port_id].io = io;
+	else
+		return -ENOENT;
 
 	return 0;
 }
@@ -828,7 +837,7 @@ static int impl_node_process_output(struct spa_node *node)
 {
 	struct impl *this;
 	int res = SPA_STATUS_OK;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
 	struct port *port;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);

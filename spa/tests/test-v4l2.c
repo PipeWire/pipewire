@@ -33,6 +33,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/type-map-impl.h>
 #include <spa/node/node.h>
+#include <spa/node/io.h>
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/video/format-utils.h>
@@ -49,6 +50,7 @@ struct type {
 	uint32_t format;
 	uint32_t props_device;
 	uint32_t SDL_Texture;
+	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
@@ -67,6 +69,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props_device = spa_type_map_get_id(map, SPA_TYPE_PROPS__device);
 	type->SDL_Texture = spa_type_map_get_id(map, SPA_TYPE_POINTER_BASE "SDL_Texture");
+	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
@@ -100,7 +103,7 @@ struct data {
 	uint32_t n_support;
 
 	struct spa_node *source;
-	struct spa_port_io source_output[1];
+	struct spa_io_buffers source_output[1];
 
 	SDL_Renderer *renderer;
 	SDL_Window *window;
@@ -205,7 +208,7 @@ static void on_source_have_output(void *_data)
 	int i;
 	uint8_t *src, *dst;
 	struct spa_data *datas;
-	struct spa_port_io *io = &data->source_output[0];
+	struct spa_io_buffers *io = &data->source_output[0];
 
 	handle_events(data);
 
@@ -419,11 +422,12 @@ static int negotiate_formats(struct data *data)
 	uint8_t buffer[256];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-	data->source_output[0] = SPA_PORT_IO_INIT;
+	data->source_output[0] = SPA_IO_BUFFERS_INIT;
 
 	if ((res =
-	     spa_node_port_set_io(data->source, SPA_DIRECTION_OUTPUT, 0,
-				  &data->source_output[0])) < 0)
+	     spa_node_port_set_io(data->source,
+				  SPA_DIRECTION_OUTPUT, 0,
+				  data->type.io.Buffers, &data->source_output[0])) < 0)
 		return res;
 
 	format = spa_pod_builder_object(&b,

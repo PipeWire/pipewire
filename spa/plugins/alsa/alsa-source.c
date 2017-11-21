@@ -552,17 +552,26 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 }
 
 static int
-impl_node_port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id, struct spa_port_io *io)
+impl_node_port_set_io(struct spa_node *node,
+		      enum spa_direction direction,
+		      uint32_t port_id,
+		      uint32_t id,
+		      void *io)
 {
 	struct state *this;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	this->io = io;
+	if (id == t->io.Buffers)
+		this->io = io;
+	else
+		return -ENOENT;
 
 	return 0;
 }
@@ -619,7 +628,7 @@ static int impl_node_process_input(struct spa_node *node)
 static int impl_node_process_output(struct spa_node *node)
 {
 	struct state *this;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 

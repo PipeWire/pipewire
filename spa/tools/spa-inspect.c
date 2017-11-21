@@ -249,7 +249,7 @@ static void do_remove_source(struct spa_source *source)
 
 int main(int argc, char *argv[])
 {
-	struct data data;
+	struct data data = { 0 };
 	int res;
 	void *handle;
 	spa_handle_factory_enum_func_t enum_func;

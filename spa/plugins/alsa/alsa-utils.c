@@ -334,15 +334,17 @@ static inline void calc_timeout(size_t target, size_t current,
 static inline void try_pull(struct state *state, snd_pcm_uframes_t frames,
 		snd_pcm_uframes_t written, bool do_pull)
 {
-	struct spa_port_io *io = state->io;
+	struct spa_io_buffers *io = state->io;
 
 	if (spa_list_is_empty(&state->ready) && do_pull) {
 		spa_log_trace(state->log, "alsa-util %p: %d %lu", state, io->status,
 				state->filled + written);
 		io->status = SPA_STATUS_NEED_BUFFER;
-		io->range.offset = state->sample_count * state->frame_size;
-		io->range.min_size = state->threshold * state->frame_size;
-		io->range.max_size = frames * state->frame_size;
+		if (state->range) {
+			state->range->offset = state->sample_count * state->frame_size;
+			state->range->min_size = state->threshold * state->frame_size;
+			state->range->max_size = frames * state->frame_size;
+		}
 		state->callbacks->need_input(state->callbacks_data);
 	}
 }
@@ -428,7 +430,7 @@ push_frames(struct state *state,
 	    snd_pcm_uframes_t frames)
 {
 	snd_pcm_uframes_t total_frames = 0;
-	struct spa_port_io *io = state->io;
+	struct spa_io_buffers *io = state->io;
 
 	if (spa_list_is_empty(&state->free)) {
 		spa_log_trace(state->log, "no more buffers");

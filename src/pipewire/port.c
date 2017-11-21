@@ -49,7 +49,7 @@ static int schedule_tee_input(struct spa_node *data)
         struct pw_port *this = &impl->this;
 	struct spa_graph_node *node = &this->rt.mix_node;
 	struct spa_graph_port *p;
-	struct spa_port_io *io = this->rt.mix_port.io;
+	struct spa_io_buffers *io = this->rt.mix_port.io;
 
 	if (!spa_list_is_empty(&node->ports[SPA_DIRECTION_OUTPUT])) {
 		pw_log_trace("tee input %d %d", io->status, io->buffer_id);
@@ -68,7 +68,7 @@ static int schedule_tee_output(struct spa_node *data)
         struct pw_port *this = &impl->this;
 	struct spa_graph_node *node = &this->rt.mix_node;
 	struct spa_graph_port *p;
-	struct spa_port_io *io = this->rt.mix_port.io;
+	struct spa_io_buffers *io = this->rt.mix_port.io;
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link)
 		*io = *p->io;
@@ -103,7 +103,7 @@ static int schedule_mix_input(struct spa_node *data)
         struct pw_port *this = &impl->this;
 	struct spa_graph_node *node = &this->rt.mix_node;
 	struct spa_graph_port *p;
-	struct spa_port_io *io = this->rt.mix_port.io;
+	struct spa_io_buffers *io = this->rt.mix_port.io;
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
 		pw_log_trace("mix %p: input %p %p->%p %d %d", node,
@@ -121,7 +121,7 @@ static int schedule_mix_output(struct spa_node *data)
         struct pw_port *this = &impl->this;
 	struct spa_graph_node *node = &this->rt.mix_node;
 	struct spa_graph_port *p;
-	struct spa_port_io *io = this->rt.mix_port.io;
+	struct spa_io_buffers *io = this->rt.mix_port.io;
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
 		*p->io = *io;
@@ -177,7 +177,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	this->port_id = port_id;
 	this->properties = properties;
 	this->state = PW_PORT_STATE_INIT;
-	this->io = SPA_PORT_IO_INIT;
+	this->io = SPA_IO_BUFFERS_INIT;
 
         if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
@@ -287,7 +287,9 @@ bool pw_port_add(struct pw_port *port, struct pw_node *node)
 		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
 	}
 
-	spa_node_port_set_io(node->node, port->direction, port_id, port->rt.port.io);
+	spa_node_port_set_io(node->node,
+			     port->direction, port_id,
+			     node->core->type.io.Buffers, port->rt.port.io);
 
 	port->rt.graph = node->rt.graph;
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);

@@ -31,6 +31,7 @@ spa_node_headers = [
   'node/command.h',
   'node/event.h',
   'node/node.h',
+  'node/io.h',
 ]
 
 install_headers(spa_node_headers,
@@ -41,6 +42,7 @@ spa_param_headers = [
   'param/props.h',
   'param/buffers.h',
   'param/meta.h',
+  'param/io.h',
   'param/format.h',
   'param/format-utils.h',
 ]

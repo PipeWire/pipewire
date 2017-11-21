@@ -31,6 +31,7 @@
 #include <spa/utils/list.h>
 #include <spa/clock/clock.h>
 #include <spa/node/node.h>
+#include <spa/node/io.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
@@ -51,6 +52,7 @@ struct type {
 	uint32_t prop_pattern;
 	uint32_t pattern_smpte_snow;
 	uint32_t pattern_snow;
+	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
@@ -74,6 +76,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->prop_pattern = spa_type_map_get_id(map, SPA_TYPE_PROPS__patternType);
 	type->pattern_smpte_snow = spa_type_map_get_id(map, SPA_TYPE_PROPS__patternType ":smpte-snow");
 	type->pattern_snow = spa_type_map_get_id(map, SPA_TYPE_PROPS__patternType ":snow");
+	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
@@ -122,7 +125,7 @@ struct impl {
 	struct itimerspec timerspec;
 
 	struct spa_port_info info;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
 
 	bool have_format;
 	struct spa_video_info current_format;
@@ -274,7 +277,7 @@ static void read_timer(struct impl *this)
 static int make_buffer(struct impl *this)
 {
 	struct buffer *b;
-	struct spa_port_io *io = this->io;
+	struct spa_io_buffers *io = this->io;
 	uint32_t n_bytes;
 
 	read_timer(this);
@@ -753,17 +756,23 @@ static int
 impl_node_port_set_io(struct spa_node *node,
 		      enum spa_direction direction,
 		      uint32_t port_id,
-		      struct spa_port_io *io)
+		      uint32_t id,
+		      void *io)
 {
 	struct impl *this;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	this->io = io;
+	if (id == t->io.Buffers)
+		this->io = io;
+	else
+		return -ENOENT;
 
 	return 0;
 }
@@ -815,7 +824,7 @@ static int impl_node_process_input(struct spa_node *node)
 static int impl_node_process_output(struct spa_node *node)
 {
 	struct impl *this;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 

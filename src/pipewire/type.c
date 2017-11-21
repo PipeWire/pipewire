@@ -54,6 +54,7 @@ void pw_type_init(struct pw_type *type)
 	type->spa_format = spa_type_map_get_id(type->map, SPA_TYPE__Format);
 	type->spa_props = spa_type_map_get_id(type->map, SPA_TYPE__Props);
 
+	spa_type_io_map(type->map, &type->io);
 	spa_type_param_map(type->map, &type->param);
 	spa_type_meta_map(type->map, &type->meta);
 	spa_type_data_map(type->map, &type->data);

@@ -30,6 +30,7 @@ extern "C" {
 #include <spa/monitor/monitor.h>
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
+#include <spa/node/io.h>
 
 #include <pipewire/map.h>
 
@@ -64,6 +65,7 @@ struct pw_type {
 	uint32_t spa_format;
 	uint32_t spa_props;
 
+	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;

@@ -185,7 +185,7 @@ struct pw_link {
 
 	struct spa_list resource_list;	/**< list of bound resources */
 
-	struct spa_port_io io;		/**< link io area */
+	struct spa_io_buffers io;	/**< link io area */
 
 	struct pw_port *output;		/**< output port */
 	struct spa_list output_link;	/**< link in output port links */
@@ -270,7 +270,7 @@ struct pw_port {
 
 	enum pw_port_state state;	/**< state of the port */
 
-	struct spa_port_io io;		/**< io area of the port */
+	struct spa_io_buffers io;	/**< io area of the port */
 
 	bool allocated;			/**< if buffers are allocated */
 	struct pw_memblock buffer_mem;	/**< allocated buffer memory */

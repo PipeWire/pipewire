@@ -592,7 +592,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 
 	for (i = 0; i < data->trans->area->max_input_ports; i++) {
 		port_init(&data->in_ports[i]);
-		data->trans->inputs[i] = SPA_PORT_IO_INIT;
+		data->trans->inputs[i] = SPA_IO_BUFFERS_INIT;
 		spa_graph_port_init(&data->in_ports[i].input,
 				    SPA_DIRECTION_INPUT,
 				    i,
@@ -614,7 +614,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 
 	for (i = 0; i < data->trans->area->max_output_ports; i++) {
 		port_init(&data->out_ports[i]);
-		data->trans->outputs[i] = SPA_PORT_IO_INIT;
+		data->trans->outputs[i] = SPA_IO_BUFFERS_INIT;
 		spa_graph_port_init(&data->out_ports[i].output,
 				    SPA_DIRECTION_OUTPUT,
 				    i,

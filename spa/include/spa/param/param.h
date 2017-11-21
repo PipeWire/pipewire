@@ -59,6 +59,9 @@ extern "C" {
 /** The supported metadata */
 #define SPA_TYPE_PARAM_ID__Meta		SPA_TYPE_PARAM_ID_BASE "Meta"
 
+/** The supported io types */
+#define SPA_TYPE_PARAM_ID__IO		SPA_TYPE_PARAM_ID_BASE "IO"
+
 struct spa_type_param {
         uint32_t idList;	/**< id of the list param */
         uint32_t List;		/**< list object type */
@@ -68,6 +71,7 @@ struct spa_type_param {
         uint32_t idFormat;	/**< id to get/set format parameter */
         uint32_t idBuffers;	/**< id to enumerate buffer requirements */
         uint32_t idMeta;	/**< id to enumerate supported metadata */
+        uint32_t idIO;		/**< id to enumerate supported io types */
 };
 
 static inline void
@@ -83,6 +87,7 @@ spa_type_param_map(struct spa_type_map *map,
                 type->idFormat = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__Format);
                 type->idBuffers = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__Buffers);
                 type->idMeta = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__Meta);
+                type->idIO = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__IO);
         }
 }
 

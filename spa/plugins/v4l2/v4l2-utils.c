@@ -902,7 +902,7 @@ static int mmap_read(struct impl *this)
 	struct buffer *b;
 	struct spa_data *d;
 	int64_t pts;
-	struct spa_port_io *io = port->io;
+	struct spa_io_buffers *io = port->io;
 
 	spa_zero(buf);
 	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;

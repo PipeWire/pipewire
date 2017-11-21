@@ -56,8 +56,8 @@ struct pw_client_node_area {
  */
 struct pw_client_node_transport {
 	struct pw_client_node_area *area;	/**< the transport area */
-	struct spa_port_io *inputs;		/**< array of input port io */
-	struct spa_port_io *outputs;		/**< array of output port io */
+	struct spa_io_buffers *inputs;		/**< array of buffer input io */
+	struct spa_io_buffers *outputs;		/**< array of buffer output io */
 	void *input_data;			/**< input memory for ringbuffer */
 	struct spa_ringbuffer *input_buffer;	/**< ringbuffer for input memory */
 	void *output_data;			/**< output memory for ringbuffer */

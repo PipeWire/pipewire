@@ -22,6 +22,7 @@
 #include <sys/mman.h>
 
 #include <spa/utils/ringbuffer.h>
+#include <spa/node/io.h>
 #include <pipewire/log.h>
 #include <extensions/client-node.h>
 
@@ -47,8 +48,8 @@ static size_t area_get_size(struct pw_client_node_area *area)
 {
 	size_t size;
 	size = sizeof(struct pw_client_node_area);
-	size += area->max_input_ports * sizeof(struct spa_port_io);
-	size += area->max_output_ports * sizeof(struct spa_port_io);
+	size += area->max_input_ports * sizeof(struct spa_io_buffers);
+	size += area->max_output_ports * sizeof(struct spa_io_buffers);
 	size += sizeof(struct spa_ringbuffer);
 	size += INPUT_BUFFER_SIZE;
 	size += sizeof(struct spa_ringbuffer);
@@ -61,13 +62,13 @@ static void transport_setup_area(void *p, struct pw_client_node_transport *trans
 	struct pw_client_node_area *a;
 
 	trans->area = a = p;
-	p = SPA_MEMBER(p, sizeof(struct pw_client_node_area), struct spa_port_io);
+	p = SPA_MEMBER(p, sizeof(struct pw_client_node_area), struct spa_io_buffers);
 
 	trans->inputs = p;
-	p = SPA_MEMBER(p, a->max_input_ports * sizeof(struct spa_port_io), void);
+	p = SPA_MEMBER(p, a->max_input_ports * sizeof(struct spa_io_buffers), void);
 
 	trans->outputs = p;
-	p = SPA_MEMBER(p, a->max_output_ports * sizeof(struct spa_port_io), void);
+	p = SPA_MEMBER(p, a->max_output_ports * sizeof(struct spa_io_buffers), void);
 
 	trans->input_buffer = p;
 	p = SPA_MEMBER(p, sizeof(struct spa_ringbuffer), void);

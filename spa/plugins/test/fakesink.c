@@ -30,6 +30,7 @@
 #include <spa/utils/list.h>
 #include <spa/clock/clock.h>
 #include <spa/node/node.h>
+#include <spa/node/io.h>
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
 #include <spa/param/format.h>
@@ -45,6 +46,7 @@ struct type {
 	uint32_t format;
 	uint32_t props;
 	uint32_t prop_live;
+	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
@@ -61,6 +63,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
 	type->prop_live = spa_type_map_get_id(map, SPA_TYPE_PROPS__live);
+	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
@@ -103,7 +106,7 @@ struct impl {
 	struct itimerspec timerspec;
 
 	struct spa_port_info info;
-	struct spa_port_io *io;
+	struct spa_io_buffers *io;
 
 	bool have_format;
 	uint8_t format_buffer[1024];
@@ -243,7 +246,7 @@ static void render_buffer(struct impl *this, struct buffer *b)
 static int consume_buffer(struct impl *this)
 {
 	struct buffer *b;
-	struct spa_port_io *io = this->io;
+	struct spa_io_buffers *io = this->io;
 	int n_bytes;
 
 	read_timer(this);
@@ -665,17 +668,23 @@ static int
 impl_node_port_set_io(struct spa_node *node,
 		      enum spa_direction direction,
 		      uint32_t port_id,
-		      struct spa_port_io *io)
+		      uint32_t id,
+		      void *io)
 {
 	struct impl *this;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	this->io = io;
+	if (id == t->io.Buffers)
+		this->io = io;
+	else
+		return -ENOENT;
 
 	return 0;
 }
@@ -697,7 +706,7 @@ impl_node_port_send_command(struct spa_node *node,
 static int impl_node_process_input(struct spa_node *node)
 {
 	struct impl *this;
-	struct spa_port_io *input;
+	struct spa_io_buffers *input;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 

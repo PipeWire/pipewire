@@ -211,12 +211,12 @@ static int impl_get_port_ids(struct spa_node *node,
 }
 
 static int impl_port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-			    uint32_t id, void *io)
+			    uint32_t id, void *data, size_t size)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
 	if (id == d->t->io.Buffers)
-		d->io = io;
+		d->io = data;
 	else
 		return -ENOENT;
 

@@ -374,14 +374,14 @@ static int node_process_output(struct spa_node *node)
 
 static int port_set_io(struct spa_node *node,
 		       enum spa_direction direction, uint32_t port_id,
-		       uint32_t id, void *io)
+		       uint32_t id, void *data, size_t size)
 {
 	struct node_data *nd = SPA_CONTAINER_OF(node, struct node_data, node_impl);
 	struct port_data *pd = nd->port_data[direction][port_id];
 	struct type *t = &pd->node->type;
 
 	if (id == t->io.Buffers)
-		pd->io = io;
+		pd->io = data;
 	else
 		return -ENOENT;
 

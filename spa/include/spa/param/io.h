@@ -31,15 +31,21 @@ extern "C" {
 #define SPA_TYPE_PARAM__IO		SPA_TYPE_PARAM_BASE "IO"
 #define SPA_TYPE_PARAM_IO_BASE		SPA_TYPE_PARAM__IO ":"
 
+/** type ID of property, uniquely identifies the io area for a port */
 #define SPA_TYPE_PARAM_IO__id		SPA_TYPE_PARAM_IO_BASE "id"
+/** size of the io area for a port */
 #define SPA_TYPE_PARAM_IO__size		SPA_TYPE_PARAM_IO_BASE "size"
+/** associated property if any */
 #define SPA_TYPE_PARAM_IO__propId	SPA_TYPE_PARAM_IO_BASE "propId"
+/** associated type of property if any */
+#define SPA_TYPE_PARAM_IO__propType	SPA_TYPE_PARAM_IO_BASE "propType"
 
 struct spa_type_param_io {
 	uint32_t IO;
 	uint32_t id;
 	uint32_t size;
 	uint32_t propId;
+	uint32_t propType;
 };
 
 static inline void
@@ -51,6 +57,7 @@ spa_type_param_io_map(struct spa_type_map *map,
 		type->id = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__id);
 		type->size = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__size);
 		type->propId = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__propId);
+		type->propType = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__propType);
 	}
 }
 

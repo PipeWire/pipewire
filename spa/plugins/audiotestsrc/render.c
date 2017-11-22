@@ -27,10 +27,12 @@ audio_test_src_create_sine_##type (struct impl *this, type *samples, size_t n_sa
 {											\
 	int i, c, channels;								\
 	double step, amp;								\
+	double freq = *this->io_freq;							\
+	double volume = *this->io_volume;						\
 											\
 	channels = this->current_format.info.raw.channels;				\
-	step = M_PI_M2 * this->props.freq / this->current_format.info.raw.rate;		\
-	amp = this->props.volume * scale;						\
+	step = M_PI_M2 * freq / this->current_format.info.raw.rate;			\
+	amp = volume * scale;								\
 											\
 	for (i = 0; i < n_samples; i++) {						\
 		type val;								\

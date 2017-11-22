@@ -289,7 +289,8 @@ bool pw_port_add(struct pw_port *port, struct pw_node *node)
 
 	spa_node_port_set_io(node->node,
 			     port->direction, port_id,
-			     node->core->type.io.Buffers, port->rt.port.io);
+			     node->core->type.io.Buffers,
+			     port->rt.port.io, sizeof(*port->rt.port.io));
 
 	port->rt.graph = node->rt.graph;
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);

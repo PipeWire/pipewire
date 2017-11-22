@@ -34,6 +34,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
+#include <spa/param/io.h>
 
 #include <lib/pod.h>
 
@@ -52,6 +53,9 @@ struct type {
 	uint32_t prop_wave;
 	uint32_t prop_freq;
 	uint32_t prop_volume;
+	uint32_t io_prop_wave;
+	uint32_t io_prop_freq;
+	uint32_t io_prop_volume;
 	uint32_t wave_sine;
 	uint32_t wave_square;
 	struct spa_type_io io;
@@ -66,6 +70,7 @@ struct type {
 	struct spa_type_command_node command_node;
 	struct spa_type_param_buffers param_buffers;
 	struct spa_type_param_meta param_meta;
+	struct spa_type_param_io param_io;
 };
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
@@ -78,6 +83,9 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->prop_wave = spa_type_map_get_id(map, SPA_TYPE_PROPS__waveType);
 	type->prop_freq = spa_type_map_get_id(map, SPA_TYPE_PROPS__frequency);
 	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
+	type->io_prop_wave = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "waveType");
+	type->io_prop_freq = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "frequency");
+	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "volume");
 	type->wave_sine = spa_type_map_get_id(map, SPA_TYPE_PROPS__waveType ":sine");
 	type->wave_square = spa_type_map_get_id(map, SPA_TYPE_PROPS__waveType ":square");
 	spa_type_io_map(map, &type->io);
@@ -92,6 +100,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_command_node_map(map, &type->command_node);
 	spa_type_param_buffers_map(map, &type->param_buffers);
 	spa_type_param_meta_map(map, &type->param_meta);
+	spa_type_param_io_map(map, &type->param_io);
 }
 
 struct props {
@@ -136,7 +145,11 @@ struct impl {
 
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
-	struct spa_io_control_range *range;
+	struct spa_io_control_range *io_range;
+
+	uint32_t *io_wave;
+	double *io_freq;
+	double *io_volume;
 
 	bool have_format;
 	struct spa_audio_info current_format;
@@ -300,7 +313,7 @@ static int make_buffer(struct impl *this)
 {
 	struct buffer *b;
 	struct spa_io_buffers *io = this->io;
-	struct spa_io_control_range *range = this->range;
+	struct spa_io_control_range *range = this->io_range;
 	int n_bytes, n_samples;
 	uint32_t maxsize;
 	void *data;
@@ -599,7 +612,8 @@ impl_node_port_enum_params(struct spa_node *node,
 		uint32_t list[] = { t->param.idEnumFormat,
 				    t->param.idFormat,
 				    t->param.idBuffers,
-				    t->param.idMeta };
+				    t->param.idMeta,
+				    t->param.idIO };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, t->param.List,
@@ -641,6 +655,52 @@ impl_node_port_enum_params(struct spa_node *node,
 				id, t->param_meta.Meta,
 				":", t->param_meta.type, "I", t->meta.Header,
 				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+			break;
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param.idIO) {
+		struct props *p = &this->props;
+
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.IO,
+				":", t->param_io.id, "I", t->io.Buffers,
+				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
+			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.IO,
+				":", t->param_io.id, "I", t->io.ControlRange,
+				":", t->param_io.size, "i", sizeof(struct spa_io_control_range));
+			break;
+		case 2:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.IO,
+				":", t->param_io.id, "I", t->io_prop_wave,
+				":", t->param_io.size, "i", sizeof(uint32_t),
+				":", t->param_io.propId, "I", t->prop_wave,
+				":", t->param_io.propType, "Ie", p->wave,
+								2, t->wave_sine,
+								   t->wave_square);
+			break;
+		case 3:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.IO,
+				":", t->param_io.id, "I", t->io_prop_freq,
+				":", t->param_io.size, "i", sizeof(double),
+				":", t->param_io.propId, "I", t->prop_freq,
+				":", t->param_io.propType, "dr", p->freq, 2, 0.0, 50000000.0);
+			break;
+		case 4:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.IO,
+				":", t->param_io.id, "I", t->io_prop_volume,
+				":", t->param_io.size, "i", sizeof(double),
+				":", t->param_io.propId, "I", t->prop_volume,
+				":", t->param_io.propType, "dr", p->volume, 2, 0.0, 10.0);
 			break;
 		default:
 			return 0;
@@ -814,7 +874,7 @@ impl_node_port_set_io(struct spa_node *node,
 		      enum spa_direction direction,
 		      uint32_t port_id,
 		      uint32_t id,
-		      void *io)
+		      void *data, size_t size)
 {
 	struct impl *this;
 	struct type *t;
@@ -827,9 +887,15 @@ impl_node_port_set_io(struct spa_node *node,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	if (id == t->io.Buffers)
-		this->io = io;
+		this->io = data;
 	else if (id == t->io.ControlRange)
-		this->range = io;
+		this->io_range = data;
+	else if (id == t->io_prop_wave)
+		this->io_wave = data;
+	else if (id == t->io_prop_freq)
+		this->io_freq = data;
+	else if (id == t->io_prop_volume)
+		this->io_volume = data;
 	else
 		return -ENOENT;
 
@@ -1052,6 +1118,10 @@ impl_init(const struct spa_handle_factory *factory,
 	this->node = impl_node;
 	this->clock = impl_clock;
 	reset_props(this, &this->props);
+
+	this->io_wave = &this->props.wave;
+	this->io_freq = &this->props.freq;
+	this->io_volume = &this->props.volume;
 
 	spa_list_init(&this->empty);
 

@@ -338,16 +338,20 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_node_port_set_io(data->source,
 			     SPA_DIRECTION_OUTPUT, 0,
-			     data->type.io.Buffers, &data->source_volume_io[0]);
+			     data->type.io.Buffers,
+			     &data->source_volume_io[0], sizeof(data->source_volume_io[0]));
 	spa_node_port_set_io(data->volume,
 			     SPA_DIRECTION_INPUT, 0,
-			     data->type.io.Buffers, &data->source_volume_io[0]);
+			     data->type.io.Buffers,
+			     &data->source_volume_io[0], sizeof(data->source_volume_io[0]));
 	spa_node_port_set_io(data->volume,
 			     SPA_DIRECTION_OUTPUT, 0,
-			     data->type.io.Buffers, &data->volume_sink_io[0]);
+			     data->type.io.Buffers,
+			     &data->volume_sink_io[0], sizeof(data->volume_sink_io[0]));
 	spa_node_port_set_io(data->sink,
 			     SPA_DIRECTION_INPUT, 0,
-			     data->type.io.Buffers, &data->volume_sink_io[0]);
+			     data->type.io.Buffers,
+			     &data->volume_sink_io[0], sizeof(data->volume_sink_io[0]));
 
 	spa_graph_node_init(&data->source_node);
 	spa_graph_node_set_implementation(&data->source_node, data->source);

@@ -427,7 +427,8 @@ static int negotiate_formats(struct data *data)
 	if ((res =
 	     spa_node_port_set_io(data->source,
 				  SPA_DIRECTION_OUTPUT, 0,
-				  data->type.io.Buffers, &data->source_output[0])) < 0)
+				  data->type.io.Buffers,
+				  &data->source_output[0], sizeof(data->source_output[0]))) < 0)
 		return res;
 
 	format = spa_pod_builder_object(&b,

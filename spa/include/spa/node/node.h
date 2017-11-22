@@ -432,16 +432,18 @@ struct spa_node {
 	 * \param port_id a port id
 	 * \param id the id of the io area, the available ids can be
 	 *        enumerated with the port parameters.
-	 * \param io a io area memory
+	 * \param data a io area memory
+	 * \param size the size of \a data
 	 * \return 0 on success
-	 *         -EINVAL when node is NULL the port is not valid
-	 *         -ENOENT when \id is unknown
+	 *         -EINVAL when invalid input is given
+	 *         -ENOENT when \a id is unknown
+	 *         -ENOSPC when \a size is too small
 	 */
 	int (*port_set_io) (struct spa_node *node,
 			    enum spa_direction direction,
 			    uint32_t port_id,
 			    uint32_t id,
-			    void *io);
+			    void *data, size_t size);
 
 	/**
 	 * Tell an output port to reuse a buffer.

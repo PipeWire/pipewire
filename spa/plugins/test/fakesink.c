@@ -669,7 +669,7 @@ impl_node_port_set_io(struct spa_node *node,
 		      enum spa_direction direction,
 		      uint32_t port_id,
 		      uint32_t id,
-		      void *io)
+		      void *data, size_t size)
 {
 	struct impl *this;
 	struct type *t;
@@ -682,7 +682,7 @@ impl_node_port_set_io(struct spa_node *node,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	if (id == t->io.Buffers)
-		this->io = io;
+		this->io = data;
 	else
 		return -ENOENT;
 

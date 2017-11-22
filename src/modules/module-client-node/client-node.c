@@ -514,7 +514,7 @@ spa_proxy_node_port_set_io(struct spa_node *node,
 			   enum spa_direction direction,
 			   uint32_t port_id,
 			   uint32_t id,
-			   void *io)
+			   void *data, size_t size)
 {
 	struct proxy *this;
 	struct proxy_port *port;
@@ -532,7 +532,7 @@ spa_proxy_node_port_set_io(struct spa_node *node,
 	port = GET_PORT(this, direction, port_id);
 
 	if (id == t->io.Buffers)
-		port->io = io;
+		port->io = data;
 	else
 		return -ENOENT;
 

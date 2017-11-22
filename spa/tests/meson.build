@@ -55,3 +55,8 @@ executable('test-props5', 'test-props5.c',
            dependencies : [],
            link_with : spalib,
            install : false)
+executable('test-control', 'test-control.c',
+           include_directories : [spa_inc, spa_libinc ],
+           dependencies : [dl_lib, pthread_lib, libm],
+           link_with : spalib,
+           install : false)

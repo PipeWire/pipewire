@@ -823,18 +823,18 @@ add_port_data(struct impl *this, void *out, size_t outsize, struct port *port, i
 		}
 	}
 	else if (volume < 0.999 || volume > 1.001) {
-		mix_func_t mix = layer == 0 ? this->copy : this->add;
-
-		mix(out, SPA_MEMBER(data, offset, void), len1);
-		if (len2 > 0)
-			mix(out + len1, data, len2);
-	}
-	else {
 		mix_scale_func_t mix = layer == 0 ? this->copy_scale : this->add_scale;
 
 		mix(out, SPA_MEMBER(data, offset, void), volume, len1);
 		if (len2 > 0)
 			mix(out + len1, data, volume, len2);
+	}
+	else {
+		mix_func_t mix = layer == 0 ? this->copy : this->add;
+
+		mix(out, SPA_MEMBER(data, offset, void), len1);
+		if (len2 > 0)
+			mix(out + len1, data, len2);
 	}
 
 	port->queued_bytes -= outsize;

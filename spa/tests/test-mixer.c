@@ -17,6 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <math.h>
+#include <error.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,6 +42,8 @@
 
 #define USE_GRAPH
 
+#define M_PI_M2 ( M_PI + M_PI )
+
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
 
@@ -57,6 +61,7 @@ struct type {
 	uint32_t props_volume;
 	uint32_t props_min_latency;
 	uint32_t props_live;
+	uint32_t io_inprop_volume;
 	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_meta meta;
@@ -79,6 +84,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->props_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
 	type->props_min_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__minLatency);
 	type->props_live = spa_type_map_get_id(map, SPA_TYPE_PROPS__live);
+	type->io_inprop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "volume");
 	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
@@ -127,6 +133,8 @@ struct data {
 	uint32_t mix_ports[2];
 	struct spa_buffer *mix_buffers[1];
 	struct buffer mix_buffer[1];
+	struct spa_pod_double ctrl_volume[2];
+	double volume_accum;
 
 	struct spa_node *source1;
 	struct spa_io_buffers source1_mix_io[1];
@@ -247,9 +255,20 @@ static void on_sink_event(void *data, struct spa_event *event)
 	printf("got event %d\n", SPA_EVENT_TYPE(event));
 }
 
+static void update_props(struct data *data)
+{
+	data->ctrl_volume[0].value = ((sin(data->volume_accum) + 1.0) * 0.5);
+	data->volume_accum += M_PI_M2 / 8800.0;
+	if (data->volume_accum >= M_PI_M2)
+		data->volume_accum -= M_PI_M2;
+
+	data->ctrl_volume[1].value = 1.0 - data->ctrl_volume[0].value;
+}
+
 static void on_sink_need_input(void *_data)
 {
 	struct data *data = _data;
+
 #ifdef USE_GRAPH
 	spa_graph_need_input(&data->graph, &data->sink_node);
 #else
@@ -283,6 +302,7 @@ static void on_sink_need_input(void *_data)
 		printf("got process_output error from mixer %d\n", res);
 	}
 #endif
+	update_props(data);
 }
 
 static void
@@ -350,7 +370,7 @@ static int make_nodes(struct data *data, const char *device)
 		":", data->type.props_min_latency, "i", MIN_LATENCY);
 
 	if ((res = spa_node_set_param(data->sink, data->type.param.idProps, 0, props)) < 0)
-		printf("got set_props error %d\n", res);
+		error(0, -res, "set_param props");
 
 	if ((res = make_node(data, &data->mix,
 			     "build/spa/plugins/audiomixer/libspa-audiomixer.so",
@@ -370,7 +390,7 @@ static int make_nodes(struct data *data, const char *device)
 	props = spa_pod_builder_object(&b,
 		0, data->type.props,
 		":", data->type.props_freq,   "d", 600.0,
-		":", data->type.props_volume, "d", 0.5,
+		":", data->type.props_volume, "d", 1.0,
 		":", data->type.props_live,   "b", false);
 
 	if ((res = spa_node_set_param(data->source1, data->type.param.idProps, 0, props)) < 0)
@@ -387,7 +407,7 @@ static int make_nodes(struct data *data, const char *device)
 	props = spa_pod_builder_object(&b,
 		0, data->type.props,
 		":", data->type.props_freq,   "d", 440.0,
-		":", data->type.props_volume, "d", 0.5,
+		":", data->type.props_volume, "d", 1.0,
 		":", data->type.props_live,   "b", false);
 
 	if ((res = spa_node_set_param(data->source2, data->type.param.idProps, 0, props)) < 0)
@@ -414,11 +434,11 @@ static int make_nodes(struct data *data, const char *device)
 			     data->type.io.Buffers,
 			     &data->source2_mix_io[0], sizeof(data->source2_mix_io[0]));
 	spa_node_port_set_io(data->mix,
-			     SPA_DIRECTION_INPUT, 0,
+			     SPA_DIRECTION_INPUT, data->mix_ports[0],
 			     data->type.io.Buffers,
 			     &data->source1_mix_io[0], sizeof(data->source1_mix_io[0]));
 	spa_node_port_set_io(data->mix,
-			     SPA_DIRECTION_INPUT, 1,
+			     SPA_DIRECTION_INPUT, data->mix_ports[1],
 			     data->type.io.Buffers,
 			     &data->source2_mix_io[0], sizeof(data->source2_mix_io[0]));
 	spa_node_port_set_io(data->mix,
@@ -429,6 +449,22 @@ static int make_nodes(struct data *data, const char *device)
 			     SPA_DIRECTION_INPUT, 0,
 			     data->type.io.Buffers,
 			     &data->mix_sink_io[0], sizeof(data->mix_sink_io[0]));
+
+	data->ctrl_volume[0] = SPA_POD_DOUBLE_INIT(0.5);
+	data->ctrl_volume[1] = SPA_POD_DOUBLE_INIT(0.5);
+
+	if ((res = spa_node_port_set_io(data->mix,
+				     SPA_DIRECTION_INPUT, data->mix_ports[0],
+				     data->type.io_inprop_volume,
+				     &data->ctrl_volume[0], sizeof(data->ctrl_volume[0]))) < 0)
+				error(0, -res, "set_io volume 0");
+
+	if ((res = spa_node_port_set_io(data->mix,
+				     SPA_DIRECTION_INPUT, data->mix_ports[1],
+				     data->type.io_inprop_volume,
+				     &data->ctrl_volume[1], sizeof(data->ctrl_volume[1]))) < 0)
+				error(0, -res, "set_io volume 1");
+
 
 #ifdef USE_GRAPH
 	spa_graph_node_init(&data->source1_node);
@@ -513,13 +549,11 @@ static int negotiate_formats(struct data *data)
 	     spa_node_port_use_buffers(data->sink, SPA_DIRECTION_INPUT, 0, data->mix_buffers,
 				       1)) < 0)
 		return res;
-	if ((res =
-	     spa_node_port_use_buffers(data->mix, SPA_DIRECTION_OUTPUT, 0, data->mix_buffers,
-				       1)) < 0)
+	if ((res = spa_node_port_use_buffers(data->mix,
+				SPA_DIRECTION_OUTPUT, 0, data->mix_buffers, 1)) < 0)
 		return res;
 
-	if ((res =
-	     spa_node_port_set_param(data->mix,
+	if ((res = spa_node_port_set_param(data->mix,
 				     SPA_DIRECTION_INPUT, data->mix_ports[0],
 				     data->type.param.idFormat, 0,
 				     format)) < 0)

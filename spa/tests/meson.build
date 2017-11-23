@@ -1,6 +1,6 @@
 executable('test-mixer', 'test-mixer.c',
            include_directories : [spa_inc ],
-           dependencies : [dl_lib, pthread_lib],
+           dependencies : [dl_lib, pthread_lib, libm],
            link_with : spalib,
            install : false)
 executable('test-ringbuffer', 'test-ringbuffer.c',

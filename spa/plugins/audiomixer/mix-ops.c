@@ -17,22 +17,34 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "conv.h"
+#include "mix-ops.h"
 
 static void
-copy_s16_s16(void *dst, const void *src, int n_bytes)
+clear_s16(void *dst, int n_bytes)
+{
+	memset(dst, 0, n_bytes);
+}
+
+static void
+clear_f32(void *dst, int n_bytes)
+{
+	memset(dst, 0, n_bytes);
+}
+
+static void
+copy_s16(void *dst, const void *src, int n_bytes)
 {
 	memcpy(dst, src, n_bytes);
 }
 
 static void
-copy_f32_f32(void *dst, const void *src, int n_bytes)
+copy_f32(void *dst, const void *src, int n_bytes)
 {
 	memcpy(dst, src, n_bytes);
 }
 
 static void
-add_s16_s16(void *dst, const void *src, int n_bytes)
+add_s16(void *dst, const void *src, int n_bytes)
 {
 	const int16_t *s = src;
 	int16_t *d = dst;
@@ -48,7 +60,7 @@ add_s16_s16(void *dst, const void *src, int n_bytes)
 }
 
 static void
-add_f32_f32(void *dst, const void *src, int n_bytes)
+add_f32(void *dst, const void *src, int n_bytes)
 {
 	const float *s = src;
 	float *d = dst;
@@ -62,15 +74,15 @@ add_f32_f32(void *dst, const void *src, int n_bytes)
 }
 
 static void
-copy_scale_s16_s16(void *dst, const void *src, const void *scale, int n_bytes)
+copy_scale_s16(void *dst, const void *src, const double scale, int n_bytes)
 {
 	const int16_t *s = src;
 	int16_t *d = dst;;
-	int32_t v = *(int16_t*)scale, t;
+	int32_t v = scale * (1 << 11), t;
 
 	n_bytes /= sizeof(int16_t);
 	while (n_bytes--) {
-		t = (*s * v) >> 16;
+		t = (*s * v) >> 11;
 		*d = SPA_CLAMP(t, INT16_MIN, INT16_MAX);
 		d++;
 		s++;
@@ -78,11 +90,11 @@ copy_scale_s16_s16(void *dst, const void *src, const void *scale, int n_bytes)
 }
 
 static void
-copy_scale_f32_f32(void *dst, const void *src, const void *scale, int n_bytes)
+copy_scale_f32(void *dst, const void *src, const double scale, int n_bytes)
 {
 	const float *s = src;
 	float *d = dst;
-	float v = *(float*)scale;
+	float v = scale;
 
 	n_bytes /= sizeof(float);
 	while (n_bytes--) {
@@ -93,15 +105,15 @@ copy_scale_f32_f32(void *dst, const void *src, const void *scale, int n_bytes)
 }
 
 static void
-add_scale_s16_s16(void *dst, const void *src, const void *scale, int n_bytes)
+add_scale_s16(void *dst, const void *src, const double scale, int n_bytes)
 {
 	const int16_t *s = src;
 	int16_t *d = dst;
-	int32_t v = *(int16_t*)scale, t;
+	int32_t v = scale * (1 << 11), t;
 
 	n_bytes /= sizeof(int16_t);
 	while (n_bytes--) {
-		t = *d + ((*s * v) >> 16);
+		t = *d + ((*s * v) >> 11);
 		*d = SPA_CLAMP(t, INT16_MIN, INT16_MAX);
 		d++;
 		s++;
@@ -109,11 +121,11 @@ add_scale_s16_s16(void *dst, const void *src, const void *scale, int n_bytes)
 }
 
 static void
-add_scale_f32_f32(void *dst, const void *src, const void *scale, int n_bytes)
+add_scale_f32(void *dst, const void *src, const double scale, int n_bytes)
 {
 	const float *s = src;
 	float *d = dst;
-	float v = *(float*)scale;
+	float v = scale;
 
 	n_bytes /= sizeof(float);
 	while (n_bytes--) {
@@ -124,7 +136,7 @@ add_scale_f32_f32(void *dst, const void *src, const void *scale, int n_bytes)
 }
 
 static void
-copy_s16_s16_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
+copy_s16_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
 {
 	const int16_t *s = src;
 	int16_t *d = dst;
@@ -138,7 +150,7 @@ copy_s16_s16_i(void *dst, int dst_stride, const void *src, int src_stride, int n
 }
 
 static void
-copy_f32_f32_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
+copy_f32_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
 {
 	const float *s = src;
 	float *d = dst;
@@ -152,7 +164,7 @@ copy_f32_f32_i(void *dst, int dst_stride, const void *src, int src_stride, int n
 }
 
 static void
-add_s16_s16_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
+add_s16_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
 {
 	const int16_t *s = src;
 	int16_t *d = dst;
@@ -168,7 +180,7 @@ add_s16_s16_i(void *dst, int dst_stride, const void *src, int src_stride, int n_
 }
 
 static void
-add_f32_f32_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
+add_f32_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
 {
 	const float *s = src;
 	float *d = dst;
@@ -182,15 +194,15 @@ add_f32_f32_i(void *dst, int dst_stride, const void *src, int src_stride, int n_
 }
 
 static void
-copy_scale_s16_s16_i(void *dst, int dst_stride, const void *src, int src_stride, const void *scale, int n_bytes)
+copy_scale_s16_i(void *dst, int dst_stride, const void *src, int src_stride, const double scale, int n_bytes)
 {
 	const int16_t *s = src;
 	int16_t *d = dst;
-	int32_t v = *(int16_t*)scale, t;
+	int32_t v = scale * (1 << 11), t;
 
 	n_bytes /= sizeof(int16_t);
 	while (n_bytes--) {
-		t = (*s * v) >> 16;
+		t = (*s * v) >> 11;
 		*d = SPA_CLAMP(t, INT16_MIN, INT16_MAX);
 		d += dst_stride;
 		s += src_stride;
@@ -198,11 +210,11 @@ copy_scale_s16_s16_i(void *dst, int dst_stride, const void *src, int src_stride,
 }
 
 static void
-copy_scale_f32_f32_i(void *dst, int dst_stride, const void *src, int src_stride, const void *scale, int n_bytes)
+copy_scale_f32_i(void *dst, int dst_stride, const void *src, int src_stride, const double scale, int n_bytes)
 {
 	const float *s = src;
 	float *d = dst;
-	float v = *(float*)scale;
+	float v = scale;
 
 	n_bytes /= sizeof(float);
 	while (n_bytes--) {
@@ -213,15 +225,15 @@ copy_scale_f32_f32_i(void *dst, int dst_stride, const void *src, int src_stride,
 }
 
 static void
-add_scale_s16_s16_i(void *dst, int dst_stride, const void *src, int src_stride, const void *scale, int n_bytes)
+add_scale_s16_i(void *dst, int dst_stride, const void *src, int src_stride, const double scale, int n_bytes)
 {
 	const int16_t *s = src;
 	int16_t *d = dst;
-	int32_t v = *(int16_t*)scale, t;
+	int32_t v = scale * (1 << 11), t;
 
 	n_bytes /= sizeof(int16_t);
 	while (n_bytes--) {
-		t = *d + ((*s * v) >> 16);
+		t = *d + ((*s * v) >> 11);
 		*d = SPA_CLAMP(t, INT16_MIN, INT16_MAX);
 		d += dst_stride;
 		s += src_stride;
@@ -229,11 +241,11 @@ add_scale_s16_s16_i(void *dst, int dst_stride, const void *src, int src_stride, 
 }
 
 static void
-add_scale_f32_f32_i(void *dst, int dst_stride, const void *src, int src_stride, const void *scale, int n_bytes)
+add_scale_f32_i(void *dst, int dst_stride, const void *src, int src_stride, const double scale, int n_bytes)
 {
 	const float *s = src;
 	float *d = dst;
-	float v = *(float*)scale;
+	float v = scale;
 
 	n_bytes /= sizeof(float);
 	while (n_bytes--) {
@@ -245,20 +257,22 @@ add_scale_f32_f32_i(void *dst, int dst_stride, const void *src, int src_stride, 
 
 void spa_audiomixer_get_ops(struct spa_audiomixer_ops *ops)
 {
-	ops->copy[CONV_S16_S16] = copy_s16_s16;
-	ops->copy[CONV_F32_F32] = copy_f32_f32;
-        ops->add[CONV_S16_S16] = add_s16_s16;
-        ops->add[CONV_F32_F32] = add_f32_f32;
-        ops->copy_scale[CONV_S16_S16] = copy_scale_s16_s16;
-        ops->copy_scale[CONV_F32_F32] = copy_scale_f32_f32;
-        ops->add_scale[CONV_S16_S16] = add_scale_s16_s16;
-        ops->add_scale[CONV_F32_F32] = add_scale_f32_f32;
-        ops->copy_i[CONV_S16_S16] = copy_s16_s16_i;
-        ops->copy_i[CONV_F32_F32] = copy_f32_f32_i;
-        ops->add_i[CONV_S16_S16] = add_s16_s16_i;
-        ops->add_i[CONV_F32_F32] = add_f32_f32_i;
-        ops->copy_scale_i[CONV_S16_S16] = copy_scale_s16_s16_i;
-        ops->copy_scale_i[CONV_F32_F32] = copy_scale_f32_f32_i;
-        ops->add_scale_i[CONV_S16_S16] = add_scale_s16_s16_i;
-        ops->add_scale_i[CONV_F32_F32] = add_scale_f32_f32_i;
+	ops->clear[FMT_S16] = clear_s16;
+	ops->clear[FMT_F32] = clear_f32;
+	ops->copy[FMT_S16] = copy_s16;
+	ops->copy[FMT_F32] = copy_f32;
+        ops->add[FMT_S16] = add_s16;
+        ops->add[FMT_F32] = add_f32;
+        ops->copy_scale[FMT_S16] = copy_scale_s16;
+        ops->copy_scale[FMT_F32] = copy_scale_f32;
+        ops->add_scale[FMT_S16] = add_scale_s16;
+        ops->add_scale[FMT_F32] = add_scale_f32;
+        ops->copy_i[FMT_S16] = copy_s16_i;
+        ops->copy_i[FMT_F32] = copy_f32_i;
+        ops->add_i[FMT_S16] = add_s16_i;
+        ops->add_i[FMT_F32] = add_f32_i;
+        ops->copy_scale_i[FMT_S16] = copy_scale_s16_i;
+        ops->copy_scale_i[FMT_F32] = copy_scale_f32_i;
+        ops->add_scale_i[FMT_S16] = add_scale_s16_i;
+        ops->add_scale_i[FMT_F32] = add_scale_f32_i;
 }

@@ -29,15 +29,30 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
+#include <spa/param/io.h>
 
 #include <lib/pod.h>
 
-#include "conv.h"
+#include "mix-ops.h"
 
 #define NAME "audiomixer"
 
 #define MAX_BUFFERS     64
 #define MAX_PORTS       128
+
+#define PORT_DEFAULT_VOLUME	1.0
+#define PORT_DEFAULT_MUTE	false
+
+struct port_props {
+	double volume;
+	int32_t mute;
+};
+
+static void port_props_reset(struct port_props *props)
+{
+	props->volume = PORT_DEFAULT_VOLUME;
+	props->mute = PORT_DEFAULT_MUTE;
+}
 
 struct buffer {
 	struct spa_list link;
@@ -51,8 +66,12 @@ struct buffer {
 struct port {
 	bool valid;
 
+	struct port_props props;
+
 	struct spa_io_buffers *io;
-	struct spa_io_control_range *range;
+	struct spa_io_control_range *io_range;
+	double *io_volume;
+	int32_t *io_mute;
 
 	struct spa_port_info info;
 
@@ -68,6 +87,10 @@ struct port {
 struct type {
 	uint32_t node;
 	uint32_t format;
+	uint32_t prop_volume;
+	uint32_t prop_mute;
+	uint32_t io_prop_volume;
+	uint32_t io_prop_mute;
 	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_media_type media_type;
@@ -79,12 +102,17 @@ struct type {
 	struct spa_type_data data;
 	struct spa_type_param_buffers param_buffers;
 	struct spa_type_param_meta param_meta;
+	struct spa_type_param_io param_io;
 };
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
+	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
+	type->prop_mute = spa_type_map_get_id(map, SPA_TYPE_PROPS__mute);
+	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "volume");
+	type->io_prop_mute = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "mute");
 	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_media_type_map(map, &type->media_type);
@@ -96,6 +124,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_data_map(map, &type->data);
 	spa_type_param_buffers_map(map, &type->param_buffers);
 	spa_type_param_meta_map(map, &type->param_meta);
+	spa_type_param_io_map(map, &type->param_io);
 }
 
 struct impl {
@@ -121,8 +150,11 @@ struct impl {
 	struct spa_audio_info format;
 	uint32_t bpf;
 
+	mix_clear_func_t clear;
 	mix_func_t copy;
 	mix_func_t add;
+	mix_scale_func_t copy_scale;
+	mix_scale_func_t add_scale;
 
 	bool started;
 };
@@ -250,6 +282,11 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 
 	port = GET_IN_PORT (this, port_id);
 	port->valid = true;
+
+	port_props_reset(&port->props);
+	port->io_volume = &port->props.volume;
+	port->io_mute = &port->props.mute;
+
 	spa_list_init(&port->queue);
 	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
 			   SPA_PORT_INFO_FLAG_REMOVABLE |
@@ -411,7 +448,8 @@ impl_node_port_enum_params(struct spa_node *node,
 		uint32_t list[] = { t->param.idEnumFormat,
 				    t->param.idFormat,
 				    t->param.idBuffers,
-				    t->param.idMeta };
+				    t->param.idMeta,
+				    t->param.idIO };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, t->param.List,
@@ -453,6 +491,45 @@ impl_node_port_enum_params(struct spa_node *node,
 				id, t->param_meta.Meta,
 				":", t->param_meta.type, "I", t->meta.Header,
 				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+			break;
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param.idIO) {
+		struct port_props *p = &port->props;
+
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.IO,
+				":", t->param_io.id, "I", t->io.Buffers,
+				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
+			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.IO,
+				":", t->param_io.id, "I", t->io.ControlRange,
+				":", t->param_io.size, "i", sizeof(struct spa_io_control_range));
+			break;
+		case 2:
+			if (direction == SPA_DIRECTION_OUTPUT)
+				return 0;
+
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.IO,
+				":", t->param_io.id, "I", t->io_prop_volume,
+				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
+				":", t->param_io.propId, "I", t->prop_volume,
+				":", t->param_io.propType, "dr", p->volume, 2, 0.0, 10.0);
+			break;
+		case 3:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.IO,
+				":", t->param_io.id, "I", t->io_prop_mute,
+				":", t->param_io.size, "i", sizeof(struct spa_pod_bool),
+				":", t->param_io.propId, "I", t->prop_mute,
+				":", t->param_io.propType, "b", p->mute);
 			break;
 		default:
 			return 0;
@@ -517,13 +594,19 @@ static int port_set_format(struct spa_node *node,
 				return -EINVAL;
 		} else {
 			if (info.info.raw.format == t->audio_format.S16) {
-				this->copy = this->ops.copy[CONV_S16_S16];
-				this->add = this->ops.add[CONV_S16_S16];
+				this->clear = this->ops.clear[FMT_S16];
+				this->copy = this->ops.copy[FMT_S16];
+				this->add = this->ops.add[FMT_S16];
+				this->copy_scale = this->ops.copy_scale[FMT_S16];
+				this->add_scale = this->ops.add_scale[FMT_S16];
 				this->bpf = sizeof(int16_t) * info.info.raw.channels;
 			}
 			else if (info.info.raw.format == t->audio_format.F32) {
-				this->copy = this->ops.copy[CONV_F32_F32];
-				this->add = this->ops.add[CONV_F32_F32];
+				this->clear = this->ops.clear[FMT_F32];
+				this->copy = this->ops.copy[FMT_F32];
+				this->add = this->ops.add[FMT_F32];
+				this->copy_scale = this->ops.copy_scale[FMT_F32];
+				this->add_scale = this->ops.add_scale[FMT_F32];
 				this->bpf = sizeof(float) * info.info.raw.channels;
 			}
 			else
@@ -648,7 +731,17 @@ impl_node_port_set_io(struct spa_node *node,
 	if (id == t->io.Buffers)
 		port->io = data;
 	else if (id == t->io.ControlRange)
-		port->range = data;
+		port->io_range = data;
+	else if (id == t->io_prop_volume && direction == SPA_DIRECTION_INPUT)
+		if (SPA_POD_TYPE(data) == SPA_POD_TYPE_DOUBLE)
+			port->io_volume = &SPA_POD_VALUE(struct spa_pod_double, data);
+		else
+			return -EINVAL;
+	else if (id == t->io_prop_mute && direction == SPA_DIRECTION_INPUT)
+		if (SPA_POD_TYPE(data) == SPA_POD_TYPE_BOOL)
+			port->io_mute = &SPA_POD_VALUE(struct spa_pod_bool, data);
+		else
+			return -EINVAL;
 	else
 		return -ENOENT;
 
@@ -695,14 +788,15 @@ impl_node_port_send_command(struct spa_node *node,
 }
 
 static inline void
-add_port_data(struct impl *this, void *out, size_t outsize, size_t next, struct port *port, int layer)
+add_port_data(struct impl *this, void *out, size_t outsize, struct port *port, int layer)
 {
 	size_t insize;
 	struct buffer *b;
 	uint32_t index, offset, len1, len2, maxsize;
-	mix_func_t mix = layer == 0 ? this->copy : this->add;
 	struct spa_data *d;
 	void *data;
+	double volume = *port->io_volume;
+	bool mute = *port->io_mute;
 
 	b = spa_list_first(&port->queue, struct buffer, link);
 
@@ -718,9 +812,30 @@ add_port_data(struct impl *this, void *out, size_t outsize, size_t next, struct 
 	offset = index % maxsize;
 
 	len1 = SPA_MIN(outsize, maxsize - offset);
-	mix(out, SPA_MEMBER(data, offset, void), len1);
-	if ((len2 = outsize - len1) > 0)
-		mix(out + len1, data, len2);
+	len2 = outsize - len1;
+
+	if (volume < 0.001 || mute) {
+		/* silence, for the first layer clear, otherwise do nothing */
+		if (layer == 0) {
+			this->clear(out, len1);
+			if (len2 > 0)
+				this->clear(out + len1, len2);
+		}
+	}
+	else if (volume < 0.999 || volume > 1.001) {
+		mix_func_t mix = layer == 0 ? this->copy : this->add;
+
+		mix(out, SPA_MEMBER(data, offset, void), len1);
+		if (len2 > 0)
+			mix(out + len1, data, len2);
+	}
+	else {
+		mix_scale_func_t mix = layer == 0 ? this->copy_scale : this->add_scale;
+
+		mix(out, SPA_MEMBER(data, offset, void), volume, len1);
+		if (len2 > 0)
+			mix(out + len1, data, volume, len2);
+	}
 
 	port->queued_bytes -= outsize;
 
@@ -777,14 +892,14 @@ static int mix_output(struct impl *this, size_t n_bytes)
 		if (in_port->io == NULL || in_port->n_buffers == 0)
 			continue;
 
-		if (spa_list_is_empty(&in_port->queue)) {
+		if (in_port->queued_bytes == 0) {
 			spa_log_warn(this->log, NAME " %p: underrun stream %d", this, i);
-			in_port->queued_bytes = 0;
 			continue;
 		}
-		add_port_data(this, SPA_MEMBER(od[0].data, offset, void), len1, len2, in_port, layer);
+
+		add_port_data(this, SPA_MEMBER(od[0].data, offset, void), len1, in_port, layer);
 		if (len2 > 0)
-			add_port_data(this, od[0].data, len2, 0, in_port, layer);
+			add_port_data(this, od[0].data, len2, in_port, layer);
 		layer++;
 	}
 
@@ -905,8 +1020,8 @@ static int impl_node_process_output(struct spa_node *node)
 				continue;
 
 			if (inport->queued_bytes == 0) {
-				if (inport->range && outport->range)
-					*inport->range = *outport->range;
+				if (inport->io_range && outport->io_range)
+					*inport->io_range = *outport->io_range;
 				inio->status = SPA_STATUS_NEED_BUFFER;
 			} else {
 				inio->status = SPA_STATUS_OK;

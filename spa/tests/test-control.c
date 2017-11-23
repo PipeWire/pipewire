@@ -368,16 +368,19 @@ static int make_nodes(struct data *data, const char *device)
 				NULL);
 
 		if (propId == data->type.props_freq) {
-			spa_node_port_set_io(data->source,
+			if ((res = spa_node_port_set_io(data->source,
 				     SPA_DIRECTION_OUTPUT, 0,
 				     id,
-				     &data->ctrl_source_freq, sizeof(data->ctrl_source_freq));
+				     &data->ctrl_source_freq, sizeof(data->ctrl_source_freq))) < 0)
+				error(0, -res, "set_io freq");
+
 		}
 		else if (propId == data->type.props_volume) {
-			spa_node_port_set_io(data->source,
+			if ((res = spa_node_port_set_io(data->source,
 				     SPA_DIRECTION_OUTPUT, 0,
 				     id,
-				     &data->ctrl_source_volume, sizeof(data->ctrl_source_volume));
+				     &data->ctrl_source_volume, sizeof(data->ctrl_source_volume))) < 0)
+				error(0, -res, "set_io volume");
 		}
 	}
 

@@ -46,7 +46,7 @@ struct pw_map {
 	uint32_t free_list;	/**< the free items */
 };
 
-#define PW_MAP_INIT(extend) { PW_ARRAY_INIT(extend), 0 }
+#define PW_MAP_INIT(extend) (struct pw_map) { PW_ARRAY_INIT(extend), 0 }
 
 #define pw_map_get_size(m)            pw_array_get_len(&(m)->items, union pw_map_item)
 #define pw_map_get_item(m,id)         pw_array_get_unchecked(&(m)->items,id,union pw_map_item)

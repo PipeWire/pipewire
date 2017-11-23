@@ -95,7 +95,7 @@ struct spa_command_node_clock_update {
 };
 
 #define SPA_COMMAND_NODE_CLOCK_UPDATE_INIT(type,change_mask,rate,ticks,monotonic_time,offset,scale,state,flags,latency)  \
-	SPA_COMMAND_INIT_COMPLEX(struct spa_command_node_clock_update,			\
+	SPA_COMMAND_INIT_FULL(struct spa_command_node_clock_update,			\
 			sizeof(struct spa_command_node_clock_update_body), type,	\
 			SPA_POD_INT_INIT(change_mask),					\
 			SPA_POD_INT_INIT(rate),						\

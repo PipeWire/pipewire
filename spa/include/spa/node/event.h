@@ -71,7 +71,7 @@ struct spa_event_node_request_clock_update {
 };
 
 #define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT(type,update_mask,timestamp,offset)	\
-	SPA_EVENT_INIT_COMPLEX(struct spa_event_node_request_clock_update,		\
+	SPA_EVENT_INIT_FULL(struct spa_event_node_request_clock_update,		\
 		sizeof(struct spa_event_node_request_clock_update_body), type,		\
 		SPA_POD_INT_INIT(update_mask),						\
 		SPA_POD_LONG_INIT(timestamp),						\

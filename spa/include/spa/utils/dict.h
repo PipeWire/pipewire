@@ -41,7 +41,7 @@ struct spa_dict {
 	uint32_t n_items;
 };
 
-#define SPA_DICT_INIT(items,n_items) { items, n_items }
+#define SPA_DICT_INIT(items,n_items) (struct spa_dict) { items, n_items }
 
 #define spa_dict_for_each(item, dict)				\
 	for ((item) = (dict)->items;				\

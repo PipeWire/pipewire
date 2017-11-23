@@ -44,9 +44,9 @@ struct spa_event {
 	{ { sizeof(struct spa_event_body), SPA_POD_TYPE_OBJECT },	\
 	  { { 0, type } } }						\
 
-#define SPA_EVENT_INIT_COMPLEX(t,size,type,...) (t)			\
+#define SPA_EVENT_INIT_FULL(t,size,type,...) (t)			\
 	{ { size, SPA_POD_TYPE_OBJECT },				\
-	  { { 0, type }, __VA_ARGS__ } }				\
+	  { { 0, type }, ##__VA_ARGS__ } }				\
 
 #ifdef __cplusplus
 }  /* extern "C" */

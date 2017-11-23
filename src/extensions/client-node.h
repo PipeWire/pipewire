@@ -137,19 +137,19 @@ struct pw_client_node_message_port_reuse_buffer {
 
 #define PW_CLIENT_NODE_MESSAGE_TYPE(message)	(((struct pw_client_node_message*)(message))->body.type.value)
 
-#define PW_CLIENT_NODE_MESSAGE_INIT(ev) (struct pw_client_node_message) \
-	{ { { sizeof(struct pw_client_node_message_body), SPA_POD_TYPE_STRUCT } },	\
-	  { SPA_POD_INT_INIT(ev) } }
+#define PW_CLIENT_NODE_MESSAGE_INIT(message) (struct pw_client_node_message)			\
+	{ { { sizeof(struct pw_client_node_message_body), SPA_POD_TYPE_STRUCT } },		\
+	  { SPA_POD_INT_INIT(message) } }
 
-#define PW_CLIENT_NODE_MESSAGE_INIT_VA(type,size,message,...) (type)			\
-	{ { { size, SPA_POD_TYPE_STRUCT } },						\
-	  { SPA_POD_INT_INIT(message), __VA_ARGS__ } }					\
+#define PW_CLIENT_NODE_MESSAGE_INIT_FULL(type,size,message,...) (type)				\
+	{ { { size, SPA_POD_TYPE_STRUCT } },							\
+	  { SPA_POD_INT_INIT(message), ##__VA_ARGS__ } }					\
 
-#define PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER_INIT(port_id,buffer_id)		\
-	PW_CLIENT_NODE_MESSAGE_INIT_VA(struct pw_client_node_message_port_reuse_buffer,	\
-		sizeof(struct pw_client_node_message_port_reuse_buffer_body),		\
-		PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER,				\
-		SPA_POD_INT_INIT(port_id),						\
+#define PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER_INIT(port_id,buffer_id)			\
+	PW_CLIENT_NODE_MESSAGE_INIT_FULL(struct pw_client_node_message_port_reuse_buffer,	\
+		sizeof(struct pw_client_node_message_port_reuse_buffer_body),			\
+		PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER,					\
+		SPA_POD_INT_INIT(port_id),							\
 		SPA_POD_INT_INIT(buffer_id))
 
 /** information about a buffer */

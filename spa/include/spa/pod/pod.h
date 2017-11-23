@@ -101,7 +101,7 @@ struct spa_pod_bool {
 
 struct spa_pod_id {
 	struct spa_pod pod;
-	int32_t value;
+	uint32_t value;
 	int32_t __padding;
 };
 

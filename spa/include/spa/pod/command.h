@@ -45,9 +45,9 @@ struct spa_command {
 	{ { sizeof(struct spa_command_body), SPA_POD_TYPE_OBJECT },	\
 	  { { 0, type } } }						\
 
-#define SPA_COMMAND_INIT_COMPLEX(t,size,type,...) (t)			\
+#define SPA_COMMAND_INIT_FULL(t,size,type,...) (t)			\
 	{ { size, SPA_POD_TYPE_OBJECT },				\
-	  { { 0, type }, __VA_ARGS__ } }				\
+	  { { 0, type }, ##__VA_ARGS__ } }				\
 
 #ifdef __cplusplus
 }  /* extern "C" */

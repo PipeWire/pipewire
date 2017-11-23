@@ -127,9 +127,9 @@ struct data {
 	struct spa_buffer *source_buffers[1];
 	struct buffer source_buffer[1];
 
-	double ctrl_source_freq;
+	struct spa_pod_double ctrl_source_freq;
 	double freq_accum;
-	double ctrl_source_volume;
+	struct spa_pod_double ctrl_source_volume;
 	double volume_accum;
 
 	bool running;
@@ -242,12 +242,12 @@ static void on_sink_event(void *data, struct spa_event *event)
 
 static void update_props(struct data *data)
 {
-	data->ctrl_source_freq = ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0;
+	data->ctrl_source_freq.value = ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0;
 	data->freq_accum += M_PI_M2 / 880.0;
 	if (data->freq_accum >= M_PI_M2)
 		data->freq_accum -= M_PI_M2;
 
-	data->ctrl_source_volume = (sin(data->volume_accum) / 2.0) + 0.5;
+	data->ctrl_source_volume.value = (sin(data->volume_accum) / 2.0) + 0.5;
 	data->volume_accum += M_PI_M2 / 2000.0;
 	if (data->volume_accum >= M_PI_M2)
 		data->volume_accum -= M_PI_M2;
@@ -345,7 +345,8 @@ static int make_nodes(struct data *data, const char *device)
 		":", data->type.props_volume, "d", 0.5,
 		":", data->type.props_live,   "b", false);
 
-	data->ctrl_source_freq = 600.0;
+	data->ctrl_source_freq = SPA_POD_DOUBLE_INIT(600.0);
+	data->ctrl_source_volume = SPA_POD_DOUBLE_INIT(0.5);
 
 	if ((res = spa_node_set_param(data->source, data->type.param.idProps, 0, props)) < 0)
 		printf("got set_props error %d\n", res);

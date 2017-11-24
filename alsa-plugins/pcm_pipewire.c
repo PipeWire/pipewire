@@ -35,6 +35,7 @@
 #include <spa/param/format-utils.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
+#include <spa/node/io.h>
 #include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
@@ -42,8 +43,6 @@
 struct type {
 	uint32_t format;
 	uint32_t props;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
 	struct spa_type_media_type media_type;
 	struct spa_type_media_subtype media_subtype;
 	struct spa_type_format_audio format_audio;
@@ -54,8 +53,6 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
 	spa_type_media_subtype_map(map, &type->media_subtype);
 	spa_type_format_audio_map(map, &type->format_audio);
@@ -66,9 +63,7 @@ struct buffer {
 	struct spa_buffer *buffer;
 	struct spa_list link;
         struct spa_meta_header *h;
-	struct spa_meta_ringbuffer *rb;
 	void *ptr;
-	size_t size;
 	bool mapped;
 	bool used;
 };
@@ -103,7 +98,7 @@ typedef struct {
         struct spa_node impl_node;
         const struct spa_node_callbacks *callbacks;
         void *callbacks_data;
-        struct spa_port_io *port_io;
+        struct spa_io_buffers *port_io;
         struct spa_port_info port_info;
 
         struct spa_audio_info_raw format;
@@ -198,7 +193,7 @@ static snd_pcm_sframes_t snd_pcm_pipewire_pointer(snd_pcm_ioplug_t *io)
 }
 
 static int
-snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct buffer *b)
+snd_pcm_pipewire_process_playback(snd_pcm_pipewire_t *pw, struct buffer *b)
 {
 	snd_pcm_ioplug_t *io = &pw->io;
 	const snd_pcm_channel_area_t *areas;
@@ -206,7 +201,92 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct buffer *b)
 	snd_pcm_uframes_t xfer = 0;
 	unsigned int channel, bps, bpf;
 	snd_pcm_uframes_t nframes;
-	uint32_t index = 0, nbytes, maxsize, avail;
+	uint32_t offset, index = 0, nbytes, avail, maxsize;
+	int32_t filled;
+	void *ptr;
+	struct spa_data *d;
+
+	bps = io->channels * pw->sample_bits;
+	bpf = bps / 8;
+
+	pwareas = alloca(io->channels * sizeof(snd_pcm_channel_area_t));
+
+	d = b->buffer->datas;
+
+	maxsize = d[0].maxsize;
+
+	filled = 0;
+	index = 0;
+	avail = maxsize - filled;
+	avail = SPA_MIN(avail, pw->min_avail * bpf);
+
+	do {
+	offset = index % maxsize;
+	nbytes = SPA_MIN(avail, maxsize - offset);
+
+	ptr = SPA_MEMBER(b->ptr, offset, void);
+	pw_log_trace("%d %d %d %d %p", nbytes, avail, filled, offset, ptr);
+
+	nframes = nbytes / bpf;
+
+	for (channel = 0; channel < io->channels; channel++) {
+		pwareas[channel].addr = ptr;
+		pwareas[channel].first = channel * pw->sample_bits;
+		pwareas[channel].step = bps;
+	}
+
+	if (io->state != SND_PCM_STATE_RUNNING) {
+		pw_log_trace("silence %lu frames", nframes);
+		for (channel = 0; channel < io->channels; channel++)
+			snd_pcm_area_silence(&pwareas[channel], 0, nframes, io->format);
+		goto done;
+	}
+
+	areas = snd_pcm_ioplug_mmap_areas(io);
+
+	xfer = 0;
+	while (xfer < nframes) {
+		snd_pcm_uframes_t frames = nframes - xfer;
+		snd_pcm_uframes_t offset = pw->hw_ptr;
+		snd_pcm_uframes_t cont = io->buffer_size - offset;
+
+		if (cont < frames)
+			frames = cont;
+
+		snd_pcm_areas_copy(pwareas, xfer,
+				   areas, offset,
+				   io->channels, frames, io->format);
+
+		pw->hw_ptr += frames;
+		pw->hw_ptr %= io->buffer_size;
+		xfer += frames;
+	}
+
+	pcm_poll_unblock_check(io); /* unblock socket for polling if needed */
+
+      done:
+	index += nbytes;
+	avail -= nbytes;
+	} while (avail > 0);
+
+	d[0].chunk->offset = 0;
+	d[0].chunk->size = index;
+	d[0].chunk->stride = 0;
+
+	return 0;
+}
+
+static int
+snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct buffer *b)
+{
+	snd_pcm_ioplug_t *io = &pw->io;
+	const snd_pcm_channel_area_t *areas;
+	snd_pcm_channel_area_t *pwareas;
+	snd_pcm_uframes_t xfer = 0;
+	unsigned int channel, bps, bpf;
+	snd_pcm_uframes_t nframes;
+	uint32_t offset, index = 0, nbytes, avail, maxsize;
+	struct spa_data *d;
 	void *ptr;
 
 	bps = io->channels * pw->sample_bits;
@@ -214,29 +294,19 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct buffer *b)
 
 	pwareas = alloca(io->channels * sizeof(snd_pcm_channel_area_t));
 
+	d = b->buffer->datas;
+
+	maxsize = d[0].chunk->size;
+	avail = maxsize;
+	index = d[0].chunk->offset;
+
 	do {
+	avail = SPA_MIN(avail, pw->min_avail * bpf);
+	offset = index % maxsize;
+	nbytes = SPA_MIN(avail, maxsize - offset);
+	ptr = SPA_MEMBER(b->ptr, offset, void);
 
-	if (b->rb) {
-		int32_t filled;
-                uint32_t offset;
-
-		filled = spa_ringbuffer_get_write_index(&b->rb->ringbuffer, &index);
-		avail = b->rb->ringbuffer.size - filled;
-		offset = index % b->rb->ringbuffer.size;
-		avail = SPA_MIN(avail, b->rb->ringbuffer.size - offset);
-		avail = SPA_MIN(avail, pw->min_avail * bpf);
-		nbytes = avail;
-
-		ptr = SPA_MEMBER(b->ptr, offset, void);
-		pw_log_trace("%d %d %d %d %p", nbytes, avail, filled, offset, ptr);
-	}
-	else {
-		avail = b->buffer->datas[0].chunk->size;
-		avail = SPA_MIN(avail, pw->min_avail * bpf);
-		maxsize = b->buffer->datas[0].maxsize;
-		nbytes = SPA_MIN(avail, maxsize);
-		ptr = b->ptr;
-	}
+	pw_log_trace("%d %d %d %p", nbytes, avail, offset, ptr);
 	nframes = nbytes / bpf;
 
 	for (channel = 0; channel < io->channels; channel++) {
@@ -282,10 +352,8 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct buffer *b)
 	pcm_poll_unblock_check(io); /* unblock socket for polling if needed */
 
       done:
-	if (b->rb)
-                spa_ringbuffer_write_update(&b->rb->ringbuffer, index + nbytes);
-
 	avail -= nbytes;
+	index += nbytes;
 	} while (avail > 0);
 
 	return 0;
@@ -347,10 +415,13 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.poll_revents = snd_pcm_pipewire_poll_revents,
 };
 
-#define ARRAY_SIZE(ary)	(sizeof(ary)/sizeof(ary[0]))
-
 static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 {
+	/* period and buffer bytes must be power of two */
+	static const unsigned int bytes_list[] = {
+		1U<<5, 1U<<6, 1U<<7, 1U<<8, 1U<<9, 1U<<10, 1U<<11, 1U<<12, 1U<<13,
+		1U<<14, 1U<<15, 1U<<16, 1U<<17,1U<<18, 1U<<19, 1U<<20
+	};
 	unsigned int access_list[] = {
 		SND_PCM_ACCESS_MMAP_INTERLEAVED,
 		SND_PCM_ACCESS_MMAP_NONINTERLEAVED,
@@ -363,15 +434,17 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 
 	pw->sample_bits = snd_pcm_format_physical_width(format);
 	if ((err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_ACCESS,
-						 ARRAY_SIZE(access_list), access_list)) < 0 ||
+						 SPA_N_ELEMENTS(access_list), access_list)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_FORMAT,
 						 1, &format)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_CHANNELS,
 						   2, 2)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_RATE,
 						   rate, rate)) < 0 ||
-	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIOD_BYTES,
-						   128, 64*1024)) < 0 ||
+	    (err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_BUFFER_BYTES,
+						SPA_N_ELEMENTS(bytes_list), bytes_list)) < 0 ||
+	    (err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_PERIOD_BYTES,
+						SPA_N_ELEMENTS(bytes_list), bytes_list)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIODS,
 						   2, 64)) < 0)
 		return err;
@@ -414,30 +487,35 @@ static int impl_get_n_ports(struct spa_node *node,
 }
 
 static int impl_get_port_ids(struct spa_node *node,
-                             uint32_t n_input_ports,
                              uint32_t *input_ids,
-                             uint32_t n_output_ports,
-                             uint32_t *output_ids)
+                             uint32_t n_input_ids,
+                             uint32_t *output_ids,
+                             uint32_t n_output_ids)
 {
 	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
 
 	pw_log_debug("%d %d", d->io.stream, SND_PCM_STREAM_PLAYBACK);
 	if (d->io.stream == SND_PCM_STREAM_PLAYBACK) {
-		if (n_output_ports > 0)
+		if (n_output_ids > 0)
 	                output_ids[0] = 0;
 	}
 	else {
-		if (n_input_ports > 0)
+		if (n_input_ids > 0)
 	                input_ids[0] = 0;
 	}
 	return 0;
 }
 
 static int impl_port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-			    struct spa_port_io *io)
+			    uint32_t id, void *data, size_t size)
 {
 	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-	d->port_io = io;
+
+	if (id == d->t->io.Buffers)
+		d->port_io = data;
+	else
+		return -ENOENT;
+
 	return 0;
 }
 
@@ -511,11 +589,11 @@ static int impl_port_enum_params(struct spa_node *node,
 
 		*result = spa_pod_builder_object(builder,
 			id, t->param_buffers.Buffers,
-			":", t->param_buffers.size,    "iru", d->min_avail * bps,
+			":", t->param_buffers.size,    "iru", d->io.buffer_size * bps,
 									2, d->min_avail * bps, INT32_MAX / bps,
 			":", t->param_buffers.stride,  "i",   0,
-			":", t->param_buffers.buffers, "iru", d->io.buffer_size / d->min_avail,
-									2, 2, 32,
+			":", t->param_buffers.buffers, "iru", 1,
+									2, 1, 32,
 			":", t->param_buffers.align,   "i",  16);
 	}
 	else if (id == t->param.idMeta) {
@@ -528,18 +606,6 @@ static int impl_port_enum_params(struct spa_node *node,
 				id, t->param_meta.Meta,
 				":", t->param_meta.type, "I", t->meta.Header,
 				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
-			break;
-		case 1:
-			*result = spa_pod_builder_object(builder,
-				id, t->param_meta.Meta,
-				":", t->param_meta.type,             "I", t->meta.Ringbuffer,
-				":", t->param_meta.size,             "i", sizeof(struct spa_meta_ringbuffer),
-				":", t->param_meta.ringbufferSize,   "iru", d->io.buffer_size * bps,
-									2, d->min_avail * bps, INT32_MAX / bps,
-				":", t->param_meta.ringbufferStride, "i", 0,
-				":", t->param_meta.ringbufferBlocks, "i", 1,
-				":", t->param_meta.ringbufferAlign,  "i", 16);
-                break;
 			break;
 		default:
 	                return 0;
@@ -601,8 +667,8 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 			b->ptr = datas[0].data;
 			b->mapped = false;
 		}
-		else if (datas[0].type == d->type.data.MemFd ||
-			 datas[0].type == d->type.data.DmaBuf) {
+		else if (datas[0].type == d->t->data.MemFd ||
+			 datas[0].type == d->t->data.DmaBuf) {
 			b->ptr = mmap(NULL, datas[0].maxsize + datas[0].mapoffset, PROT_WRITE,
 				      MAP_SHARED, datas[0].fd, 0);
 			if (b->ptr == MAP_FAILED) {
@@ -617,11 +683,10 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 			pw_log_error("invalid buffer mem");
 			return -EINVAL;
 		}
-		b->size = datas[0].maxsize;
 		b->buffer = buffers[i];
-                b->h = spa_buffer_find_meta(b->buffer, d->type.meta.Header);
-                b->rb = spa_buffer_find_meta(b->buffer, d->type.meta.Ringbuffer);
-		pw_log_info("got buffer %d size %zd", i, b->size);
+                b->h = spa_buffer_find_meta(b->buffer, d->t->meta.Header);
+
+		pw_log_info("got buffer %d size %d", i, datas[0].maxsize);
 		spa_list_append(&d->empty, &b->link);
 		b->used = false;
 	}
@@ -649,7 +714,7 @@ static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint3
 static int impl_node_process_input(struct spa_node *node)
 {
 	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-        struct spa_port_io *io = d->port_io;
+        struct spa_io_buffers *io = d->port_io;
 	struct buffer *b;
 
 	if (io->buffer_id >= d->n_buffers) {
@@ -658,7 +723,7 @@ static int impl_node_process_input(struct spa_node *node)
 	}
 	b = &d->buffers[io->buffer_id];
 
-	snd_pcm_pipewire_process(d, b);
+	snd_pcm_pipewire_process_record(d, b);
 
 	return io->status = SPA_STATUS_NEED_BUFFER;
 }
@@ -667,7 +732,7 @@ static int impl_node_process_output(struct spa_node *node)
 {
 	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
 	struct buffer *b;
-        struct spa_port_io *io = d->port_io;
+        struct spa_io_buffers *io = d->port_io;
 
 	if (io->buffer_id < d->n_buffers) {
 		reuse_buffer(d, io->buffer_id);
@@ -683,8 +748,7 @@ static int impl_node_process_output(struct spa_node *node)
 	b->used = true;
 	io->buffer_id = b->buffer->id;
 
-	pw_log_trace("alsa-pipewire %p: process buffer %d", d, io->buffer_id);
-	snd_pcm_pipewire_process(d, b);
+	snd_pcm_pipewire_process_playback(d, b);
 
 	return io->status = SPA_STATUS_HAVE_BUFFER;
 }

@@ -752,14 +752,14 @@ on_format_changed (void           *data,
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
     params[0] = spa_pod_builder_object (&b,
-	0, t->param_buffers.Buffers,
+	t->param.idBuffers, t->param_buffers.Buffers,
 	":", t->param_buffers.size,    "ir", 0,  SPA_PROP_RANGE(0, INT32_MAX),
 	":", t->param_buffers.stride,  "ir", 0,  SPA_PROP_RANGE(0, INT32_MAX),
 	":", t->param_buffers.buffers, "ir", 16, SPA_PROP_RANGE(1, INT32_MAX),
 	":", t->param_buffers.align,   "i", 16);
 
     params[1] = spa_pod_builder_object (&b,
-	0, t->param_meta.Meta,
+	t->param.idMeta, t->param_meta.Meta,
         ":", t->param_meta.type, "I", t->meta.Header,
         ":", t->param_meta.size, "i", sizeof (struct spa_meta_header));
 

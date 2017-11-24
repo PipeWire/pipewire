@@ -20,6 +20,7 @@
 #include <sys/syscall.h>
 #include <fcntl.h>
 
+#ifndef HAVE_MEMFD_CREATE
 /*
  * No glibc wrappers exist for memfd_create(2), so provide our own.
  *
@@ -32,6 +33,7 @@ static inline int
 memfd_create(const char *name, unsigned int flags) {
 	return syscall(SYS_memfd_create, name, flags);
 }
+#endif
 
 /* memfd_create(2) flags */
 

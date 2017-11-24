@@ -117,6 +117,10 @@ if cc.has_function('mkstemp', prefix : '#include <stdlib.h>')
   cdata.set('HAVE_MKSTEMP', 1)
 endif
 
+if cc.has_function('memfd_create', prefix : '#include <sys/mman.h>')
+  cdata.set('HAVE_MEMFD_CREATE', 1)
+endif
+
 configure_file(input : 'config.h.meson',
   output : 'config.h',
   configuration : cdata)

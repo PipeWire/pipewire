@@ -445,3 +445,4 @@
 #mesondefine HAVE_ALARM
 #mesondefine HAVE_DECL_LOCALTIME_R
 #mesondefine HAVE_DECL_STRSIGNAL
+#mesondefine HAVE_MEMFD_CREATE

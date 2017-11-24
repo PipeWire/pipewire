@@ -132,8 +132,10 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
       next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	if (*index > 0)
-		return 0;
+	if (*index > 0) {
+		res = 0;
+		goto exit;
+	}
 
 	hndl = state->hndl;
 	snd_pcm_hw_params_alloca(&params);
@@ -199,10 +201,12 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	if ((res = spa_pod_filter(builder, result, fmt, filter)) < 0)
 		goto next;
 
+	res = 1;
+
+      exit:
 	if (!opened)
 		spa_alsa_close(state);
-
-	return 1;
+	return res;
 }
 
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)

@@ -38,49 +38,54 @@ static int xioctl(int fd, int request, void *arg)
 	return err;
 }
 
+
 static int spa_v4l2_open(struct impl *this)
 {
 	struct port *port = &this->out_ports[0];
 	struct stat st;
 	struct props *props = &this->props;
+	int err;
 
 	if (port->opened)
 		return 0;
 
 	if (props->device[0] == '\0') {
 		spa_log_error(port->log, "v4l2: Device property not set");
-		return -1;
+		return -EIO;
 	}
 
 	spa_log_info(port->log, "v4l2: Playback device is '%s'", props->device);
 
 	if (stat(props->device, &st) < 0) {
+		err = errno;
 		spa_log_error(port->log, "v4l2: Cannot identify '%s': %d, %s",
-			      props->device, errno, strerror(errno));
-		return -1;
+			      props->device, err, strerror(err));
+		return -err;
 	}
 
 	if (!S_ISCHR(st.st_mode)) {
 		spa_log_error(port->log, "v4l2: %s is no device", props->device);
-		return -1;
+		return -ENODEV;
 	}
 
 	port->fd = open(props->device, O_RDWR | O_NONBLOCK, 0);
 
 	if (port->fd == -1) {
+		err = errno;
 		spa_log_error(port->log, "v4l2: Cannot open '%s': %d, %s",
-			      props->device, errno, strerror(errno));
-		return -1;
+			      props->device, err, strerror(err));
+		return -err;
 	}
 
 	if (xioctl(port->fd, VIDIOC_QUERYCAP, &port->cap) < 0) {
+		err = errno;
 		perror("QUERYCAP");
-		return -1;
+		return -err;
 	}
 
 	if ((port->cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) == 0) {
 		spa_log_error(port->log, "v4l2: %s is no video capture device", props->device);
-		return -1;
+		return -ENODEV;
 	}
 
 	port->source.func = v4l2_on_fd_events;
@@ -98,6 +103,7 @@ static int spa_v4l2_buffer_recycle(struct impl *this, uint32_t buffer_id)
 {
 	struct port *port = &this->out_ports[0];
 	struct buffer *b = &port->buffers[buffer_id];
+	int err;
 
 	if (!b->outstanding)
 		return 0;
@@ -106,8 +112,9 @@ static int spa_v4l2_buffer_recycle(struct impl *this, uint32_t buffer_id)
 	spa_log_trace(port->log, "v4l2 %p: recycle buffer %d", this, buffer_id);
 
 	if (xioctl(port->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
+		err = errno;
 		perror("VIDIOC_QBUF");
-		return errno;
+		return -err;
 	}
 	return 0;
 }
@@ -570,7 +577,7 @@ spa_v4l2_enum_format(struct impl *this,
 					    filter, port->fmtdesc.index);
 
 			if (video_format == t->video_format.UNKNOWN)
-				return 0;
+				goto enum_end;
 
 			info = find_format_info_by_media_type(t,
 							      filter_media_type,
@@ -582,9 +589,10 @@ spa_v4l2_enum_format(struct impl *this,
 			port->fmtdesc.pixelformat = info->fourcc;
 		} else {
 			if ((res = xioctl(port->fd, VIDIOC_ENUM_FMT, &port->fmtdesc)) < 0) {
+				res = -errno;
 				if (errno != EINVAL)
 					perror("VIDIOC_ENUM_FMT");
-				return 0;
+				goto exit;
 			}
 		}
 		port->next_fmtdesc = false;
@@ -604,8 +612,9 @@ spa_v4l2_enum_format(struct impl *this,
 			if (!(p = spa_pod_find_prop(filter, t->format_video.size)))
 				goto do_frmsize;
 
-			if (p->body.value.type != SPA_POD_TYPE_RECTANGLE)
-				return 0;
+			if (p->body.value.type != SPA_POD_TYPE_RECTANGLE) {
+				goto enum_end;
+			}
 
 			if (!(p->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
 				const struct spa_rectangle *values =
@@ -625,8 +634,9 @@ spa_v4l2_enum_format(struct impl *this,
 			if (errno == EINVAL)
 				goto next_fmtdesc;
 
+			res = -errno;
 			perror("VIDIOC_ENUM_FRAMESIZES");
-			return 0;
+			goto exit;
 		}
 		if (filter) {
 			struct spa_pod_prop *p;
@@ -707,6 +717,7 @@ spa_v4l2_enum_format(struct impl *this,
 
 	while (true) {
 		if ((res = xioctl(port->fd, VIDIOC_ENUM_FRAMEINTERVALS, &port->frmival)) < 0) {
+			res = -errno;
 			if (errno == EINVAL) {
 				port->frmsize.index++;
 				port->next_frmsize = true;
@@ -715,7 +726,7 @@ spa_v4l2_enum_format(struct impl *this,
 				break;
 			}
 			perror("VIDIOC_ENUM_FRAMEINTERVALS");
-			return 0;
+			goto exit;
 		}
 		if (filter) {
 			struct spa_pod_prop *p;
@@ -727,7 +738,7 @@ spa_v4l2_enum_format(struct impl *this,
 				goto have_framerate;
 
 			if (p->body.value.type != SPA_POD_TYPE_FRACTION)
-				return 0;
+				goto enum_end;
 
 			range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
 			values = SPA_POD_BODY_CONST(&p->body.value);
@@ -795,7 +806,16 @@ spa_v4l2_enum_format(struct impl *this,
 
 	(*index)++;
 
-	return 1;
+	res = 1;
+
+      exit:
+	spa_v4l2_close(this);
+
+	return res;
+
+     enum_end:
+	res = 0;
+	goto exit;
 }
 
 static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format, bool try_only)

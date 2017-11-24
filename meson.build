@@ -165,7 +165,6 @@ endif
 subdir('spa')
 subdir('src')
 subdir('pkgconfig')
-subdir('alsa-plugins')
 
 if get_option('enable_docs')
   doxygen = find_program('doxygen')

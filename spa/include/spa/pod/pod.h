@@ -66,6 +66,7 @@ enum spa_pod_type {
 	SPA_POD_TYPE_ARRAY,
 	SPA_POD_TYPE_STRUCT,
 	SPA_POD_TYPE_OBJECT,
+	SPA_POD_TYPE_SEQUENCE,
 
 	SPA_POD_TYPE_POINTER,
 	SPA_POD_TYPE_FD,
@@ -228,6 +229,26 @@ struct spa_pod_prop {
 	struct spa_pod pod;
 	struct spa_pod_prop_body body;
 };
+
+/* events can be inside an event array and mark timed values */
+struct spa_pod_event {
+	uint64_t offset;
+	struct spa_pod value;
+	/* value contents follow */
+};
+
+struct spa_pod_sequence_body {
+	uint32_t unit;
+	uint32_t pad;
+	/* array of struct spa_pod_event follows */
+};
+
+/** a sequence of timed events */
+struct spa_pod_sequence {
+	struct spa_pod pod;
+	struct spa_pod_sequence_body body;
+};
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

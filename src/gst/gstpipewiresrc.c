@@ -467,6 +467,7 @@ on_new_buffer (void *_data,
     GstMemory *mem = gst_buffer_peek_memory (buf, i);
     mem->offset = SPA_MIN(d->chunk->offset, d->maxsize);
     mem->size = SPA_MIN(d->chunk->size, d->maxsize - mem->offset);
+    mem->offset += data->offset;
   }
 
   if (pwsrc->always_copy)

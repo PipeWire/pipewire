@@ -464,15 +464,22 @@ param_filter(struct pw_link *this,
         struct spa_pod_builder ib = { 0 };
 	struct spa_pod *oparam, *iparam;
 	uint32_t iidx, oidx, num = 0;
+	int res;
 
 	for (iidx = 0;;) {
 	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));
 		pw_log_debug("iparam %d", iidx);
-		if (spa_node_port_enum_params(in_port->node->node, in_port->direction, in_port->port_id,
-					      id, &iidx, NULL, &iparam, &ib) <= 0)
+		if ((res = spa_node_port_enum_params(in_port->node->node,
+						     in_port->direction, in_port->port_id,
+						     id, &iidx, NULL, &iparam, &ib)) < 0)
 			break;
 
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		if (res == 0 && num > 0)
+			break;
+		else
+			iparam = NULL;
+
+		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG) && iparam != NULL)
 			spa_debug_pod(iparam, 0);
 
 		for (oidx = 0;;) {
@@ -488,6 +495,8 @@ param_filter(struct pw_link *this,
 
 			num++;
 		}
+		if (iparam == NULL && num == 0)
+			break;
 	}
 	return num;
 }

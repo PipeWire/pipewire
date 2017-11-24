@@ -33,11 +33,33 @@
 #include "spa-monitor.h"
 #include "spa-node.h"
 
+struct node_data {
+	struct pw_node *this;
+	struct pw_core *core;
+	struct pw_properties *properties;
+
+	struct spa_hook module_listener;
+};
+
+static void module_destroy(void *_data)
+{
+	struct node_data *data = _data;
+	pw_node_destroy(data->this);
+}
+
+static const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
+	.destroy = module_destroy,
+};
+
 bool pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_properties *props = NULL;
 	char **argv;
 	int i, n_tokens;
+	struct pw_core *core = pw_module_get_core(module);
+	struct pw_node *node;
+        struct node_data *data;
 
 	if (args == NULL)
 		goto wrong_arguments;
@@ -59,14 +81,26 @@ bool pipewire__module_init(struct pw_module *module, const char *args)
 		pw_free_strv(prop);
 	}
 
-	pw_spa_node_load(pw_module_get_core(module),
-			 NULL,
-			 pw_module_get_global(module),
-			 argv[0], argv[1], argv[2],
-			 PW_SPA_NODE_FLAG_ACTIVATE,
-			 props, 0);
+	node = pw_spa_node_load(core,
+				NULL,
+				pw_module_get_global(module),
+				argv[0], argv[1], argv[2],
+				PW_SPA_NODE_FLAG_ACTIVATE,
+				props,
+				sizeof(struct node_data));
 
 	pw_free_strv(argv);
+
+	if (node == NULL)
+		return false;
+
+	data = pw_spa_node_get_user_data(node);
+	data->this = node;
+	data->core = core;
+	data->properties = props;
+
+	pw_log_debug("module %p: new", module);
+	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
 	return true;
 

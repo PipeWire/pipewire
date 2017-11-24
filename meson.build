@@ -1,5 +1,5 @@
 project('pipewire', 'c',
-  version : '0.1.7',
+  version : '0.1.7.1',
   meson_version : '>= 0.36.0',
   default_options : [ 'warning_level=1',
                       'c_std=gnu99',
@@ -161,6 +161,7 @@ endif
 subdir('spa')
 subdir('src')
 subdir('pkgconfig')
+subdir('alsa-plugins')
 
 if get_option('enable_docs')
   doxygen = find_program('doxygen')

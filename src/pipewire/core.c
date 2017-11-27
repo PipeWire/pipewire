@@ -583,7 +583,8 @@ void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict
 	core->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
 	core->info.props = &core->properties->dict;
 
-	spa_hook_list_call(&core->listener_list, struct pw_core_events, info_changed, &core->info);
+	spa_hook_list_call(&core->listener_list, struct pw_core_events,
+			info_changed, &core->info);
 
 	spa_list_for_each(resource, &core->resource_list, link)
 		pw_core_resource_info(resource, &core->info);

@@ -456,7 +456,8 @@ void pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict
 	node->info.props = &node->properties->dict;
 
 	node->info.change_mask = PW_NODE_CHANGE_MASK_PROPS;
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, info_changed, &node->info);
+	spa_hook_list_call(&node->listener_list, struct pw_node_events,
+			info_changed, &node->info);
 
 	spa_list_for_each(resource, &node->resource_list, link)
 		pw_node_resource_info(resource, &node->info);
@@ -856,7 +857,8 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 				 old, state, error);
 
 		node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;
-		spa_hook_list_call(&node->listener_list, struct pw_node_events, info_changed, &node->info);
+		spa_hook_list_call(&node->listener_list, struct pw_node_events,
+				info_changed, &node->info);
 
 		spa_list_for_each(resource, &node->resource_list, link)
 			pw_node_resource_info(resource, &node->info);

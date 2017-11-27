@@ -524,6 +524,9 @@ impl_node_port_enum_params(struct spa_node *node,
 				":", t->param_io.propType, "dr", p->volume, 2, 0.0, 10.0);
 			break;
 		case 3:
+			if (direction == SPA_DIRECTION_OUTPUT)
+				return 0;
+
 			param = spa_pod_builder_object(&b,
 				id, t->param_io.IO,
 				":", t->param_io.id, "I", t->io_prop_mute,

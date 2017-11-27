@@ -220,6 +220,9 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	if (changed) {
 		this->info.change_mask |= PW_LINK_CHANGE_MASK_FORMAT;
 
+		spa_hook_list_call(&this->listener_list, struct pw_link_events,
+				info_changed, &this->info);
+
 		spa_list_for_each(resource, &this->resource_list, link)
 			pw_link_resource_info(resource, &this->info);
 
@@ -335,6 +338,7 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 	void *ddp;
 	uint32_t n_metas;
 	struct spa_meta *metas;
+	struct pw_type *t = &this->core->type;
 
 	n_metas = data_size = meta_size = 0;
 
@@ -348,18 +352,18 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 	/* add shared metadata this should not go into shared
 	 * memory or else a client can damage it so we inline it after
 	 * the array of spa_meta. */
-	metas[n_metas].type = this->core->type.meta.Shared;
+	metas[n_metas].type = t->meta.Shared;
 	metas[n_metas].size = sizeof(struct spa_meta_shared);
 	n_metas++;
 
 	/* collect metadata */
 	for (i = 0; i < n_params; i++) {
-		if (spa_pod_is_object_type (params[i], this->core->type.param_meta.Meta)) {
+		if (spa_pod_is_object_type (params[i], t->param_meta.Meta)) {
 			uint32_t type, size;
 
 			if (spa_pod_object_parse(params[i],
-				":", this->core->type.param_meta.type, "I", &type,
-				":", this->core->type.param_meta.size, "i", &size, NULL) < 0)
+				":", t->param_meta.type, "I", &type,
+				":", t->param_meta.size, "i", &size, NULL) < 0)
 				continue;
 
 			pw_log_debug("link %p: enable meta %d %d", this, type, size);
@@ -413,7 +417,7 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 			m->type = metas[j].type;
 			m->size = metas[j].size;
 
-			if (m->type == this->core->type.meta.Shared) {
+			if (m->type == t->meta.Shared) {
 				m->data = msh;
 			}
 			else {
@@ -433,7 +437,7 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 
 			d->chunk = &cdp[j];
 			if (data_sizes[j] > 0) {
-				d->type = this->core->type.data.MemFd;
+				d->type = t->data.MemFd;
 				d->flags = 0;
 				d->fd = mem->fd;
 				d->mapoffset = SPA_PTRDIFF(ddp, mem->ptr);

@@ -152,7 +152,8 @@ static void core_event_info(void *data, struct pw_core_info *info)
 
 	pw_log_debug("remote %p: got core info", this);
 	this->info = pw_core_info_update(this->info, info);
-	spa_hook_list_call(&this->listener_list, struct pw_remote_events, info_changed, this->info);
+	spa_hook_list_call(&this->listener_list, struct pw_remote_events,
+			info_changed, this->info);
 }
 
 static void core_event_done(void *data, uint32_t seq)

@@ -272,7 +272,8 @@ void pw_client_update_properties(struct pw_client *client, const struct spa_dict
 	client->info.change_mask |= PW_CLIENT_CHANGE_MASK_PROPS;
 	client->info.props = client->properties ? &client->properties->dict : NULL;
 
-	spa_hook_list_call(&client->listener_list, struct pw_client_events, info_changed, &client->info);
+	spa_hook_list_call(&client->listener_list, struct pw_client_events,
+			info_changed, &client->info);
 
 	spa_list_for_each(resource, &client->resource_list, link)
 		pw_client_resource_info(resource, &client->info);

@@ -21,6 +21,8 @@
 #define _GNU_SOURCE
 #endif
 
+#include "config.h"
+
 #include <string.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -34,6 +36,7 @@
 #include <pipewire/log.h>
 #include <pipewire/mem.h>
 
+#ifndef HAVE_MEMFD_CREATE
 /*
  * No glibc wrappers exist for memfd_create(2), so provide our own.
  *
@@ -46,6 +49,7 @@ static inline int memfd_create(const char *name, unsigned int flags)
 {
 	return syscall(SYS_memfd_create, name, flags);
 }
+#endif
 
 /* memfd_create(2) flags */
 

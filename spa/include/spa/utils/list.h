@@ -29,10 +29,11 @@ struct spa_list {
 	struct spa_list *prev;
 };
 
+#define SPA_LIST_INIT(list) (struct spa_list){ list, list };
+
 static inline void spa_list_init(struct spa_list *list)
 {
-	list->next = list;
-	list->prev = list;
+	*list = SPA_LIST_INIT(list);
 }
 
 static inline void spa_list_insert(struct spa_list *list, struct spa_list *elem)

@@ -348,7 +348,7 @@ void pw_port_destroy(struct pw_port *port)
 
 	if (port->allocated) {
 		free(port->buffers);
-		pw_memblock_free(&port->buffer_mem);
+		pw_memblock_free(port->buffer_mem);
 	}
 
 	if (port->properties)
@@ -394,7 +394,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 		if (param == NULL || res < 0) {
 			if (port->allocated) {
 				free(port->buffers);
-				pw_memblock_free(&port->buffer_mem);
+				pw_memblock_free(port->buffer_mem);
 			}
 			port->buffers = NULL;
 			port->n_buffers = 0;
@@ -426,7 +426,7 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 
 	if (port->allocated) {
 		free(port->buffers);
-		pw_memblock_free(&port->buffer_mem);
+		pw_memblock_free(port->buffer_mem);
 	}
 	port->buffers = buffers;
 	port->n_buffers = n_buffers;
@@ -459,7 +459,7 @@ int pw_port_alloc_buffers(struct pw_port *port,
 
 	if (port->allocated) {
 		free(port->buffers);
-		pw_memblock_free(&port->buffer_mem);
+		pw_memblock_free(port->buffer_mem);
 	}
 	port->buffers = buffers;
 	port->n_buffers = *n_buffers;

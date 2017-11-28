@@ -195,7 +195,7 @@ struct pw_link {
 	struct spa_hook_list listener_list;
 
 	void *buffer_owner;
-	struct pw_memblock buffer_mem;
+	struct pw_memblock *buffer_mem;
 	struct spa_buffer **buffers;
 	uint32_t n_buffers;
 
@@ -273,7 +273,7 @@ struct pw_port {
 	struct spa_io_buffers io;	/**< io area of the port */
 
 	bool allocated;			/**< if buffers are allocated */
-	struct pw_memblock buffer_mem;	/**< allocated buffer memory */
+	struct pw_memblock *buffer_mem;	/**< allocated buffer memory */
 	struct spa_buffer **buffers;	/**< port buffers */
 	uint32_t n_buffers;		/**< number of port buffers */
 

@@ -36,7 +36,6 @@ extern "C" {
 
 #define SPA_TYPE_META__Header		SPA_TYPE_META_BASE "Header"
 #define SPA_TYPE_META__VideoCrop	SPA_TYPE_META_BASE "VideoCrop"
-#define SPA_TYPE_META__Shared		SPA_TYPE_META_BASE "Shared"
 
 /**
  * A metadata element.
@@ -78,16 +77,6 @@ struct spa_meta_video_crop {
 };
 
 /**
- * Describes the shared memory that holds buffer meta/chunk/data
- */
-struct spa_meta_shared {
-	uint32_t flags;		/**< flags */
-	int fd;			/**< file descriptor of memory */
-	uint32_t offset;	/**< offset in memory */
-	uint32_t size;		/**< size of memory */
-};
-
-/**
  * Describes a control location in the buffer.
  */
 struct spa_meta_control {
@@ -98,7 +87,6 @@ struct spa_meta_control {
 struct spa_type_meta {
 	uint32_t Header;
 	uint32_t VideoCrop;
-	uint32_t Shared;
 };
 
 static inline void spa_type_meta_map(struct spa_type_map *map, struct spa_type_meta *type)
@@ -106,7 +94,6 @@ static inline void spa_type_meta_map(struct spa_type_map *map, struct spa_type_m
 	if (type->Header == 0) {
 		type->Header = spa_type_map_get_id(map, SPA_TYPE_META__Header);
 		type->VideoCrop = spa_type_map_get_id(map, SPA_TYPE_META__VideoCrop);
-		type->Shared = spa_type_map_get_id(map, SPA_TYPE_META__Shared);
 	}
 }
 

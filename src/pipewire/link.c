@@ -272,20 +272,10 @@ static struct spa_pod *find_param(struct spa_pod **params, int n_params, uint32_
  *   +|-|   struct spa_data *datas     | pointer to array of datas
  *   || +------------------------------+
  *   |+>| struct spa_meta              |
- *   |  |   uint32_t type              | Shared meta type, first one always shared
- *   |+-|   void *data                 | pointer to inlined shared metadata
- *   || |   uint32_t size              | sizeof(struct spa_meta_shared)
- *   || | struct spa_meta              |
- *   || |   uint32_t type              | more metadata
- *  +||-|   void *data                 | pointer to mmaped metadata in shared memory
- *  ||| |   uint32_t size              | size of metadata
- *  ||| | ... <n_metas>                | more metas follow
- *  ||| +------------------------------+
- *  ||+>| struct spa_meta_shared       | inlined shared metadata
- *  ||  |   uint32_t flags             |
- *  ||  |   int fd                     | fd of the shared memory block
- *  ||  |   uint32_t offset            | offset of meta/chunk/data for this buffer
- *  ||  |   uint32_t size              | size of meta/chunk/data for this buffer
+ *   |  |   uint32_t type              | metadata
+ *  +|--|   void *data                 | pointer to mmaped metadata in shared memory
+ *  ||  |   uint32_t size              | size of metadata
+ *  ||  | ... <n_metas>                | more metas follow
  *  ||  +------------------------------+
  *  |+->| struct spa_data              |
  *  |   |   uint32_t type              | memory type, either MemFd or INVALID
@@ -329,7 +319,7 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 					 uint32_t n_datas,
 					 size_t *data_sizes,
 					 ssize_t *data_strides,
-					 struct pw_memblock *mem)
+					 struct pw_memblock **mem)
 {
 	struct spa_buffer **buffers, *bp;
 	uint32_t i;
@@ -338,23 +328,14 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 	void *ddp;
 	uint32_t n_metas;
 	struct spa_meta *metas;
+	struct pw_memblock *m;
 	struct pw_type *t = &this->core->type;
 
 	n_metas = data_size = meta_size = 0;
 
-	/* each buffer has 1 meta shared */
 	skel_size = sizeof(struct spa_buffer);
-	skel_size += sizeof(struct spa_meta);
-	skel_size += sizeof(struct spa_meta_shared);
 
-	metas = alloca(sizeof(struct spa_meta) * (n_params + 1));
-
-	/* add shared metadata this should not go into shared
-	 * memory or else a client can damage it so we inline it after
-	 * the array of spa_meta. */
-	metas[n_metas].type = t->meta.Shared;
-	metas[n_metas].size = sizeof(struct spa_meta_shared);
-	n_metas++;
+	metas = alloca(sizeof(struct spa_meta) * n_params);
 
 	/* collect metadata */
 	for (i = 0; i < n_params; i++) {
@@ -390,40 +371,27 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 
 	pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 			  PW_MEMBLOCK_FLAG_MAP_READWRITE |
-			  PW_MEMBLOCK_FLAG_SEAL, n_buffers * data_size, mem);
+			  PW_MEMBLOCK_FLAG_SEAL, n_buffers * data_size, &m);
 
 	for (i = 0; i < n_buffers; i++) {
 		int j;
 		struct spa_buffer *b;
-		struct spa_meta_shared *msh;
 		void *p;
 
 		buffers[i] = b = SPA_MEMBER(bp, skel_size * i, struct spa_buffer);
 
-		p = SPA_MEMBER(mem->ptr, data_size * i, void);
-
-		msh = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta_shared);
-		msh->flags = 0;
-		msh->fd = mem->fd;
-		msh->offset = data_size * i;
-		msh->size = data_size;
+		p = SPA_MEMBER(m->ptr, data_size * i, void);
 
 		b->id = i;
 		b->n_metas = n_metas;
-		b->metas = SPA_MEMBER(msh, sizeof(struct spa_meta_shared), struct spa_meta);
+		b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
 		for (j = 0; j < n_metas; j++) {
 			struct spa_meta *m = &b->metas[j];
 
 			m->type = metas[j].type;
 			m->size = metas[j].size;
-
-			if (m->type == t->meta.Shared) {
-				m->data = msh;
-			}
-			else {
-				m->data = p;
-				p += m->size;
-			}
+			m->data = p;
+			p += m->size;
 		}
 		/* pointer to data structure */
 		b->n_datas = n_datas;
@@ -439,10 +407,10 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 			if (data_sizes[j] > 0) {
 				d->type = t->data.MemFd;
 				d->flags = 0;
-				d->fd = mem->fd;
-				d->mapoffset = SPA_PTRDIFF(ddp, mem->ptr);
+				d->fd = m->fd;
+				d->mapoffset = SPA_PTRDIFF(ddp, m->ptr);
 				d->maxsize = data_sizes[j];
-				d->data = SPA_MEMBER(mem->ptr, d->mapoffset, void);
+				d->data = SPA_MEMBER(m->ptr, d->mapoffset, void);
 				d->chunk->offset = 0;
 				d->chunk->size = 0;
 				d->chunk->stride = data_strides[j];
@@ -454,6 +422,7 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 			}
 		}
 	}
+	*mem = m;
 	return buffers;
 }
 
@@ -1302,7 +1271,7 @@ void pw_link_destroy(struct pw_link *link)
 
 	if (link->buffer_owner == link) {
 		free(link->buffers);
-		pw_memblock_free(&link->buffer_mem);
+		pw_memblock_free(link->buffer_mem);
 	}
 	free(impl);
 }

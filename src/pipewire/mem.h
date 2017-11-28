@@ -49,13 +49,21 @@ struct pw_memblock {
 };
 
 int
-pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_memblock *mem);
+pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_memblock **mem);
+
+int
+pw_memblock_import(enum pw_memblock_flags flags,
+		   int fd, off_t offset, size_t size,
+		   struct pw_memblock **mem);
 
 int
 pw_memblock_map(struct pw_memblock *mem);
 
 void
 pw_memblock_free(struct pw_memblock *mem);
+
+/** Find memblock for given \a ptr */
+struct pw_memblock * pw_memblock_find(const void *ptr);
 
 #ifdef __cplusplus
 }

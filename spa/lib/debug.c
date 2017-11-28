@@ -79,13 +79,6 @@ int spa_debug_buffer(const struct spa_buffer *buffer)
 			fprintf(stderr, "      y:      %d\n", h->y);
 			fprintf(stderr, "      width:  %d\n", h->width);
 			fprintf(stderr, "      height: %d\n", h->height);
-		} else if (!strcmp(type_name, SPA_TYPE_META__Shared)) {
-			struct spa_meta_shared *h = m->data;
-			fprintf(stderr, "    struct spa_meta_shared:\n");
-			fprintf(stderr, "      flags:  %d\n", h->flags);
-			fprintf(stderr, "      fd:     %d\n", h->fd);
-			fprintf(stderr, "      offset: %d\n", h->offset);
-			fprintf(stderr, "      size:   %d\n", h->size);
 		} else {
 			fprintf(stderr, "    Unknown:\n");
 			spa_debug_dump_mem(m->data, m->size);

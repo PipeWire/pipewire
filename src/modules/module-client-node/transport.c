@@ -36,7 +36,7 @@
 struct transport {
 	struct pw_client_node_transport trans;
 
-	struct pw_memblock mem;
+	struct pw_memblock *mem;
 	size_t offset;
 
 	struct pw_client_node_message current;
@@ -106,7 +106,7 @@ static void destroy(struct pw_client_node_transport *trans)
 
 	pw_log_debug("transport %p: destroy", trans);
 
-	pw_memblock_free(&impl->mem);
+	pw_memblock_free(impl->mem);
 	free(impl);
 }
 
@@ -184,7 +184,7 @@ pw_client_node_transport_new(uint32_t max_input_ports, uint32_t max_output_ports
 {
 	struct transport *impl;
 	struct pw_client_node_transport *trans;
-	struct pw_client_node_area area;
+	struct pw_client_node_area area = { 0 };
 
 	area.max_input_ports = max_input_ports;
 	area.n_input_ports = 0;
@@ -198,12 +198,14 @@ pw_client_node_transport_new(uint32_t max_input_ports, uint32_t max_output_ports
 	trans = &impl->trans;
 	impl->offset = 0;
 
-	pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
+	if (pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 			  PW_MEMBLOCK_FLAG_MAP_READWRITE |
-			  PW_MEMBLOCK_FLAG_SEAL, area_get_size(&area), &impl->mem);
+			  PW_MEMBLOCK_FLAG_SEAL, area_get_size(&area),
+			  &impl->mem) < 0)
+		return NULL;
 
-	memcpy(impl->mem.ptr, &area, sizeof(struct pw_client_node_area));
-	transport_setup_area(impl->mem.ptr, trans);
+	memcpy(impl->mem->ptr, &area, sizeof(struct pw_client_node_area));
+	transport_setup_area(impl->mem->ptr, trans);
 	transport_reset_area(trans);
 
 	trans->destroy = destroy;
@@ -220,6 +222,7 @@ pw_client_node_transport_new_from_info(struct pw_client_node_transport_info *inf
 	struct transport *impl;
 	struct pw_client_node_transport *trans;
 	void *tmp;
+	int res;
 
 	impl = calloc(1, sizeof(struct transport));
 	if (impl == NULL)
@@ -227,19 +230,19 @@ pw_client_node_transport_new_from_info(struct pw_client_node_transport_info *inf
 
 	trans = &impl->trans;
 
-	impl->mem.flags = PW_MEMBLOCK_FLAG_MAP_READWRITE | PW_MEMBLOCK_FLAG_WITH_FD;
-	impl->mem.fd = info->memfd;
-	impl->mem.offset = info->offset;
-	impl->mem.size = info->size;
-	if (pw_memblock_map(&impl->mem) < 0) {
+	if ((res = pw_memblock_import(PW_MEMBLOCK_FLAG_MAP_READWRITE |
+				      PW_MEMBLOCK_FLAG_WITH_FD,
+				      info->memfd,
+				      info->offset,
+				      info->size, &impl->mem)) < 0) {
 		pw_log_warn("transport %p: failed to map fd %d: %s", impl, info->memfd,
-			    strerror(errno));
+			    spa_strerror(res));
 		goto mmap_failed;
 	}
 
 	impl->offset = info->offset;
 
-	transport_setup_area(impl->mem.ptr, trans);
+	transport_setup_area(impl->mem->ptr, trans);
 
 	tmp = trans->output_buffer;
 	trans->output_buffer = trans->input_buffer;
@@ -258,6 +261,7 @@ pw_client_node_transport_new_from_info(struct pw_client_node_transport_info *inf
 
       mmap_failed:
 	free(impl);
+	errno = -res;
 	return NULL;
 }
 
@@ -276,9 +280,9 @@ int pw_client_node_transport_get_info(struct pw_client_node_transport *trans,
 {
 	struct transport *impl = (struct transport *) trans;
 
-	info->memfd = impl->mem.fd;
+	info->memfd = impl->mem->fd;
 	info->offset = impl->offset;
-	info->size = impl->mem.size;
+	info->size = impl->mem->size;
 
 	return 0;
 }

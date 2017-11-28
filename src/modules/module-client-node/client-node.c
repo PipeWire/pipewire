@@ -550,10 +550,9 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 	struct proxy *this;
 	struct impl *impl;
 	struct port *port;
-	uint32_t i, j, k;
+	uint32_t i, j;
 	size_t n_mem;
 	struct pw_client_node_buffer *mb;
-	struct spa_meta_shared *msh;
 	struct pw_type *t;
 
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
@@ -586,35 +585,53 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 	n_mem = 0;
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &port->buffers[i];
-
-		msh = spa_buffer_find_meta(buffers[i], t->meta.Shared);
-		if (msh == NULL) {
-			spa_log_error(this->log, "missing shared metadata on buffer %d", i);
-			return -EINVAL;
-		}
+		struct pw_memblock *m;
+		size_t data_size;
+		void *baseptr;
 
 		b->outbuf = buffers[i];
 		memcpy(&b->buffer, buffers[i], sizeof(struct spa_buffer));
 		b->buffer.datas = b->datas;
 		b->buffer.metas = b->metas;
 
+		if (buffers[i]->n_metas > 0)
+			baseptr = buffers[i]->metas[0].data;
+		else if (buffers[i]->n_datas > 0)
+			baseptr = buffers[i]->datas[0].chunk;
+		else
+			return -EINVAL;
+
+		if ((m = pw_memblock_find(baseptr)) == NULL)
+			return -EINVAL;
+
+		data_size = 0;
+		for (j = 0; j < buffers[i]->n_metas; j++) {
+			data_size += buffers[i]->metas[j].size;
+		}
+		for (j = 0; j < buffers[i]->n_datas; j++) {
+			struct spa_data *d = buffers[i]->datas;
+			data_size += sizeof(struct spa_chunk);
+			if (d->type == t->data.MemPtr)
+				data_size += d->maxsize;
+		}
+
 		mb[i].buffer = &b->buffer;
 		mb[i].mem_id = n_mem++;
 		mb[i].offset = 0;
-		mb[i].size = msh->size;
+		mb[i].size = data_size;
 
 		pw_client_node_resource_port_add_mem(this->resource,
 						     direction,
 						     port_id,
 						     mb[i].mem_id,
 						     t->data.MemFd,
-						     msh->fd, msh->flags, msh->offset, msh->size);
+						     m->fd, m->flags,
+						     SPA_PTRDIFF(baseptr, m->ptr + m->offset),
+						     data_size);
 
-		for (j = 0, k = 0; j < buffers[i]->n_metas; j++) {
-			if (buffers[i]->metas[j].type != t->meta.Shared)
-				memcpy(&b->buffer.metas[k++], &buffers[i]->metas[j], sizeof(struct spa_meta));
-		}
-		b->buffer.n_metas = k;
+		for (j = 0; j < buffers[i]->n_metas; j++)
+			memcpy(&b->buffer.metas[j], &buffers[i]->metas[j], sizeof(struct spa_meta));
+		b->buffer.n_metas = j;
 
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = &buffers[i]->datas[j];

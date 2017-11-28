@@ -63,7 +63,7 @@
 
 #define CHECK_PORT_BUFFER(this,b,p)      (b < p->n_buffers)
 
-struct proxy_buffer {
+struct buffer {
 	struct spa_buffer *outbuf;
 	struct spa_buffer buffer;
 	struct spa_meta metas[4];
@@ -73,7 +73,7 @@ struct proxy_buffer {
 	bool outstanding;
 };
 
-struct proxy_port {
+struct port {
 	bool valid;
 	struct spa_port_info info;
 
@@ -83,7 +83,7 @@ struct proxy_port {
 	struct spa_io_buffers *io;
 
 	uint32_t n_buffers;
-	struct proxy_buffer buffers[MAX_BUFFERS];
+	struct buffer buffers[MAX_BUFFERS];
 };
 
 struct proxy {
@@ -107,8 +107,8 @@ struct proxy {
 	uint32_t n_inputs;
 	uint32_t max_outputs;
 	uint32_t n_outputs;
-	struct proxy_port in_ports[MAX_INPUTS];
-	struct proxy_port out_ports[MAX_OUTPUTS];
+	struct port in_ports[MAX_INPUTS];
+	struct port out_ports[MAX_OUTPUTS];
 
 	uint32_t n_params;
 	struct spa_pod **params;
@@ -141,7 +141,7 @@ struct impl {
 
 /** \endcond */
 
-static int clear_buffers(struct proxy *this, struct proxy_port *port)
+static int clear_buffers(struct proxy *this, struct port *port)
 {
 	if (port->n_buffers) {
 		spa_log_info(this->log, "proxy %p: clear buffers", this);
@@ -315,7 +315,7 @@ do_update_port(struct proxy *this,
 	       const struct spa_pod **params,
 	       const struct spa_port_info *info)
 {
-	struct proxy_port *port;
+	struct port *port;
 	struct pw_type *t = this->impl->t;
 
 	port = GET_PORT(this, direction, port_id);
@@ -333,6 +333,7 @@ do_update_port(struct proxy *this,
 
 		for (i = 0; i < port->n_params; i++) {
 			port->params[i] = pw_spa_pod_copy(params[i]);
+
 			if (spa_pod_is_object_id(port->params[i], t->param.idFormat))
 				port->have_format = true;
 		}
@@ -356,7 +357,7 @@ do_update_port(struct proxy *this,
 
 static void
 clear_port(struct proxy *this,
-	   struct proxy_port *port, enum spa_direction direction, uint32_t port_id)
+	   struct port *port, enum spa_direction direction, uint32_t port_id)
 {
 	do_update_port(this,
 		       direction,
@@ -368,7 +369,7 @@ clear_port(struct proxy *this,
 
 static void do_uninit_port(struct proxy *this, enum spa_direction direction, uint32_t port_id)
 {
-	struct proxy_port *port;
+	struct port *port;
 
 	spa_log_info(this->log, "proxy %p: removing port %d", this, port_id);
 
@@ -387,7 +388,7 @@ static int
 spa_proxy_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
 	struct proxy *this;
-	struct proxy_port *port;
+	struct port *port;
 
 	if (node == NULL)
 		return -EINVAL;
@@ -427,7 +428,7 @@ spa_proxy_node_port_get_info(struct spa_node *node,
 			     uint32_t port_id, const struct spa_port_info **info)
 {
 	struct proxy *this;
-	struct proxy_port *port;
+	struct port *port;
 
 	if (node == NULL || info == NULL)
 		return -EINVAL;
@@ -452,7 +453,7 @@ spa_proxy_node_port_enum_params(struct spa_node *node,
 				struct spa_pod_builder *builder)
 {
 	struct proxy *this;
-	struct proxy_port *port;
+	struct port *port;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
@@ -517,7 +518,7 @@ spa_proxy_node_port_set_io(struct spa_node *node,
 			   void *data, size_t size)
 {
 	struct proxy *this;
-	struct proxy_port *port;
+	struct port *port;
 	struct pw_type *t;
 
 	if (node == NULL)
@@ -548,7 +549,7 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 {
 	struct proxy *this;
 	struct impl *impl;
-	struct proxy_port *port;
+	struct port *port;
 	uint32_t i, j, k;
 	size_t n_mem;
 	struct pw_client_node_buffer *mb;
@@ -584,7 +585,7 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 
 	n_mem = 0;
 	for (i = 0; i < n_buffers; i++) {
-		struct proxy_buffer *b = &port->buffers[i];
+		struct buffer *b = &port->buffers[i];
 
 		msh = spa_buffer_find_meta(buffers[i], t->meta.Shared);
 		if (msh == NULL) {
@@ -661,7 +662,7 @@ spa_proxy_node_port_alloc_buffers(struct spa_node *node,
 				  uint32_t *n_buffers)
 {
 	struct proxy *this;
-	struct proxy_port *port;
+	struct port *port;
 
 	if (node == NULL || buffers == NULL)
 		return -EINVAL;
@@ -846,7 +847,7 @@ static void setup_transport(struct impl *impl)
 {
 	uint32_t max_inputs = 0, max_outputs = 0, n_inputs = 0, n_outputs = 0;
 
-	spa_proxy_node_get_n_ports(&impl->proxy.node, &n_inputs, &max_inputs, &n_outputs, &max_outputs);
+	spa_node_get_n_ports(&impl->proxy.node, &n_inputs, &max_inputs, &n_outputs, &max_outputs);
 
 	impl->transport = pw_client_node_transport_new(max_inputs, max_outputs);
 	impl->transport->area->n_input_ports = n_inputs;

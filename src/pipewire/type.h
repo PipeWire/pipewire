@@ -30,6 +30,7 @@ extern "C" {
 #include <spa/monitor/monitor.h>
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
+#include <spa/param/io.h>
 #include <spa/node/io.h>
 
 #include <pipewire/map.h>
@@ -74,6 +75,7 @@ struct pw_type {
 	struct spa_type_monitor monitor;
 	struct spa_type_param_buffers param_buffers;
 	struct spa_type_param_meta param_meta;
+	struct spa_type_param_io param_io;
 };
 
 void

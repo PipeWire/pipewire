@@ -63,4 +63,5 @@ void pw_type_init(struct pw_type *type)
 	spa_type_monitor_map(type->map, &type->monitor);
 	spa_type_param_buffers_map(type->map, &type->param_buffers);
 	spa_type_param_meta_map(type->map, &type->param_meta);
+	spa_type_param_io_map(type->map, &type->param_io);
 }

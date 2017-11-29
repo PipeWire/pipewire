@@ -357,7 +357,7 @@ static int make_nodes(struct data *data, const char *device)
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if ((res = spa_node_port_enum_params(data->source, SPA_DIRECTION_OUTPUT, 0,
-					   data->type.param.idIO, &idx, NULL, &param, &b)) < 1) {
+					   data->type.param_io.idPropsIn, &idx, NULL, &param, &b)) < 1) {
 			if (res < 0)
 				error(0, -res, "port_enum_params");
 			break;

@@ -36,6 +36,8 @@
 struct type {
 	uint32_t format;
 	uint32_t props;
+	uint32_t prop_volume;
+	uint32_t io_prop_volume;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
 	struct spa_type_media_type media_type;
@@ -48,12 +50,25 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
+	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
+	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
 	spa_type_media_subtype_map(map, &type->media_subtype);
 	spa_type_format_audio_map(map, &type->format_audio);
 	spa_type_audio_format_map(map, &type->audio_format);
+}
+
+#define DEFAULT_VOLUME 1.0
+
+struct props {
+	double volume;
+};
+
+static void reset_props(struct props *props)
+{
+	props->volume = DEFAULT_VOLUME;
 }
 
 struct buffer {
@@ -65,6 +80,8 @@ struct buffer {
 
 struct data {
 	struct type type;
+
+	struct props props;
 
 	const char *path;
 
@@ -83,6 +100,8 @@ struct data {
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 	struct spa_io_buffers *io;
+
+	double *io_volume;
 
 	uint8_t buffer[1024];
 
@@ -138,6 +157,12 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 
 	if (id == d->t->io.Buffers)
 		d->io = data;
+	else if (id == d->type.io_prop_volume) {
+		if (SPA_POD_TYPE(data) == SPA_POD_TYPE_ID)
+			d->io_volume = &SPA_POD_VALUE(struct spa_pod_double, data);
+		else
+			return -EINVAL;
+	}
 	else
 		return -ENOENT;
 
@@ -226,7 +251,9 @@ static int impl_port_enum_params(struct spa_node *node,
 		uint32_t list[] = { t->param.idEnumFormat,
 				    t->param.idFormat,
 				    t->param.idBuffers,
-				    t->param.idMeta };
+				    t->param.idMeta,
+				    t->param_io.idBuffers,
+				    t->param_io.idPropsOut };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(builder,
@@ -261,6 +288,34 @@ static int impl_port_enum_params(struct spa_node *node,
 				id, t->param_meta.Meta,
 				":", t->param_meta.type, "I", t->meta.Header,
 				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+			break;
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param_io.idBuffers) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(builder,
+				id, t->param_io.Buffers,
+				":", t->param_io.id, "I", t->io.Buffers,
+				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
+			break;
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param_io.idPropsOut) {
+		struct props *p = &d->props;
+
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(builder,
+				id, t->param_io.Prop,
+				":", t->param_io.id, "I", d->type.io_prop_volume,
+				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
+				":", t->param_io.propId, "I", d->type.prop_volume,
+				":", t->param_io.propType, "dr", p->volume, 2, 0.0, 10.0);
 			break;
 		default:
 			return 0;
@@ -495,6 +550,8 @@ int main(int argc, char *argv[])
 
 	spa_list_init(&data.empty);
 	init_type(&data.type, data.t->map);
+	reset_props(&data.props);
+	data.io_volume = &data.props.volume;
 	spa_debug_set_type_map(data.t->map);
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);

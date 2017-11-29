@@ -219,54 +219,48 @@ static int update_port_ids(struct pw_node *node)
 	return 0;
 }
 
+static int collect_params(struct pw_port *port, uint32_t param_id, struct spa_pod ***result)
+{
+	int res;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
+	uint32_t state = 0;
+
+	for (res = 0;; res++) {
+		struct spa_pod *fmt;
+
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if (spa_node_port_enum_params(port->node->node,
+					      port->direction, port->port_id,
+					      param_id, &state,
+					      NULL, &fmt, &b) <= 0)
+			break;
+
+		*result = realloc(*result, sizeof(struct spa_pod *) * (res + 1));
+		(*result)[res] = pw_spa_pod_copy(fmt);
+	}
+	return res;
+}
+
 static void
 update_info(struct pw_node *this)
 {
-	uint8_t buffer[4096];
-	struct spa_pod_builder b = { 0 };
+	struct pw_type *t = &this->core->type;
 
 	this->info.input_params = NULL;
 	if (!spa_list_is_empty(&this->input_ports)) {
 		struct pw_port *port = spa_list_first(&this->input_ports, struct pw_port, link);
-		uint32_t state = 0;
-
-		for (this->info.n_input_params = 0;; this->info.n_input_params++) {
-			struct spa_pod *fmt;
-
-			spa_pod_builder_init(&b, buffer, sizeof(buffer));
-			if (spa_node_port_enum_params(port->node->node,
-						      port->direction, port->port_id,
-						      this->core->type.param.idEnumFormat, &state,
-						      NULL, &fmt, &b) <= 0)
-				break;
-
-			this->info.input_params =
-			    realloc(this->info.input_params,
-				    sizeof(struct spa_pod *) * (this->info.n_input_params + 1));
-			this->info.input_params[this->info.n_input_params] = pw_spa_pod_copy(fmt);
-		}
+		this->info.n_input_params = collect_params(port,
+							   t->param.idEnumFormat,
+							   &this->info.input_params);
 	}
 
 	this->info.output_params = NULL;
 	if (!spa_list_is_empty(&this->output_ports)) {
 		struct pw_port *port = spa_list_first(&this->output_ports, struct pw_port, link);
-		uint32_t state = 0;
-
-		for (this->info.n_output_params = 0;; this->info.n_output_params++) {
-			struct spa_pod *fmt;
-
-			spa_pod_builder_init(&b, buffer, sizeof(buffer));
-			if (spa_node_port_enum_params(port->node->node,
-						      port->direction, port->port_id,
-						      this->core->type.param.idEnumFormat, &state,
-						      NULL, &fmt, &b) <= 0)
-				break;
-
-			this->info.output_params =
-			    realloc(this->info.output_params,
-				    sizeof(struct spa_pod *) * (this->info.n_output_params + 1));
-			this->info.output_params[this->info.n_output_params] = pw_spa_pod_copy(fmt);
-		}
+		this->info.n_output_params = collect_params(port,
+							    t->param.idEnumFormat,
+							    &this->info.output_params);
 	}
 }
 

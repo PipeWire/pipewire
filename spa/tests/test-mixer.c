@@ -84,7 +84,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->props_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
 	type->props_min_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__minLatency);
 	type->props_live = spa_type_map_get_id(map, SPA_TYPE_PROPS__live);
-	type->io_inprop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "volume");
+	type->io_inprop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
 	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);

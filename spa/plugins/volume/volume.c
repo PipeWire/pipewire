@@ -425,7 +425,8 @@ impl_node_port_enum_params(struct spa_node *node,
 				    t->param.idFormat,
 				    t->param.idBuffers,
 				    t->param.idMeta,
-				    t->param.idIO };
+				    t->param_io.idBuffers,
+				    t->param_io.idControl };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, t->param.List,
@@ -469,17 +470,23 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 		}
 	}
-	else if (id == t->param.idIO) {
+	else if (id == t->param_io.idBuffers) {
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, t->param_io.IO,
+				id, t->param_io.Buffers,
 				":", t->param_io.id, "I", t->io.Buffers,
 				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
 			break;
-		case 1:
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param_io.idControl) {
+		switch (*index) {
+		case 0:
 			param = spa_pod_builder_object(&b,
-				id, t->param_io.IO,
+				id, t->param_io.Control,
 				":", t->param_io.id, "I", t->io.ControlRange,
 				":", t->param_io.size, "i", sizeof(struct spa_io_control_range));
 			break;

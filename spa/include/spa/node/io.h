@@ -34,13 +34,9 @@ extern "C" {
 #define SPA_TYPE_IO__Control		SPA_TYPE_IO_BASE "Control"
 #define SPA_TYPE_IO_CONTROL_BASE	SPA_TYPE_IO__Control ":"
 
-/** Base for controlable input properties */
-#define SPA_TYPE_IO__InputProp		SPA_TYPE_IO_BASE "InputProp"
-#define SPA_TYPE_IO_INPUT_PROP_BASE	SPA_TYPE_IO__InputProp ":"
-
-/** Base for controlable output properties */
-#define SPA_TYPE_IO__OutputProp		SPA_TYPE_IO_BASE "OutputProp"
-#define SPA_TYPE_IO_OUTPUT_PROP_BASE	SPA_TYPE_IO__OutputProp ":"
+/** Base for controlable properties */
+#define SPA_TYPE_IO__Prop		SPA_TYPE_IO_BASE "Prop"
+#define SPA_TYPE_IO_PROP_BASE		SPA_TYPE_IO__Prop ":"
 
 /** An io area to exchange buffers with a port */
 #define SPA_TYPE_IO__Buffers		SPA_TYPE_IO_BASE "Buffers"
@@ -76,8 +72,7 @@ struct spa_io_control_range {
 struct spa_type_io {
 	uint32_t Buffers;
 	uint32_t ControlRange;
-	uint32_t InputProp;
-	uint32_t OutputProp;
+	uint32_t Prop;
 };
 
 static inline void spa_type_io_map(struct spa_type_map *map, struct spa_type_io *type)
@@ -85,8 +80,7 @@ static inline void spa_type_io_map(struct spa_type_map *map, struct spa_type_io 
 	if (type->Buffers == 0) {
 		type->Buffers = spa_type_map_get_id(map, SPA_TYPE_IO__Buffers);
 		type->ControlRange = spa_type_map_get_id(map, SPA_TYPE_IO_CONTROL__Range);
-		type->InputProp = spa_type_map_get_id(map, SPA_TYPE_IO__InputProp);
-		type->OutputProp = spa_type_map_get_id(map, SPA_TYPE_IO__OutputProp);
+		type->Prop = spa_type_map_get_id(map, SPA_TYPE_IO__Prop);
 	}
 }
 

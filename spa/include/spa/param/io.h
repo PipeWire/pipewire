@@ -28,36 +28,69 @@ extern "C" {
 #include <spa/param/param.h>
 #include <spa/support/type-map.h>
 
-#define SPA_TYPE_PARAM__IO		SPA_TYPE_PARAM_BASE "IO"
-#define SPA_TYPE_PARAM_IO_BASE		SPA_TYPE_PARAM__IO ":"
-
 /** type ID of property, uniquely identifies the io area for a port */
 #define SPA_TYPE_PARAM_IO__id		SPA_TYPE_PARAM_IO_BASE "id"
 /** size of the io area for a port */
 #define SPA_TYPE_PARAM_IO__size		SPA_TYPE_PARAM_IO_BASE "size"
+
+/** enumerate buffer io areas */
+#define SPA_TYPE_PARAM_ID_IO__Buffers	SPA_TYPE_PARAM_ID_IO_BASE "Buffers"
+/* an io area to exchange buffers */
+#define SPA_TYPE_PARAM_IO__Buffers	SPA_TYPE_PARAM_IO_BASE "Buffers"
+
+/** enumerate Control io areas */
+#define SPA_TYPE_PARAM_ID_IO__Control	SPA_TYPE_PARAM_ID_IO_BASE "Control"
+/* an io area to exchange control information */
+#define SPA_TYPE_PARAM_IO__Control	SPA_TYPE_PARAM_IO_BASE "Control"
+
+/** enumerate input or output properties */
+#define SPA_TYPE_PARAM_ID_IO__Props	SPA_TYPE_PARAM_ID_IO_BASE "Props"
+#define SPA_TYPE_PARAM_ID_IO_PROPS_BASE	SPA_TYPE_PARAM_ID_IO__Props ":"
+/** enumerate input property io areas */
+#define SPA_TYPE_PARAM_ID_IO_PROPS__In	SPA_TYPE_PARAM_ID_IO_PROPS_BASE "In"
+/** enumerate output property io areas */
+#define SPA_TYPE_PARAM_ID_IO_PROPS__Out	SPA_TYPE_PARAM_ID_IO_PROPS_BASE "Out"
+
+/* an io area to exchange properties */
+#define SPA_TYPE_PARAM_IO__Prop		SPA_TYPE_PARAM_IO_BASE "Prop"
+#define SPA_TYPE_PARAM_IO_PROP_BASE	SPA_TYPE_PARAM_IO__Prop ":"
+
 /** associated property if any */
-#define SPA_TYPE_PARAM_IO__propId	SPA_TYPE_PARAM_IO_BASE "propId"
+#define SPA_TYPE_PARAM_IO_PROP__id	SPA_TYPE_PARAM_IO_PROP_BASE "id"
 /** associated type of property if any */
-#define SPA_TYPE_PARAM_IO__propType	SPA_TYPE_PARAM_IO_BASE "propType"
+#define SPA_TYPE_PARAM_IO_PROP__type	SPA_TYPE_PARAM_IO_PROP_BASE "type"
+
 
 struct spa_type_param_io {
-	uint32_t IO;
-	uint32_t id;
-	uint32_t size;
-	uint32_t propId;
-	uint32_t propType;
+	uint32_t id;		/**< id to configure the io area */
+	uint32_t size;		/**< size of io area */
+	uint32_t idBuffers;	/**< id to enumerate buffer io */
+	uint32_t Buffers;	/**< object type of buffer io area */
+	uint32_t idControl;	/**< id to enumerate control io */
+	uint32_t Control;	/**< object type of Control area */
+	uint32_t idPropsIn;	/**< id to enumerate input properties io */
+	uint32_t idPropsOut;	/**< id to enumerate output properties io */
+	uint32_t Prop;		/**< object type of property area */
+	uint32_t propId;	/**< property id */
+	uint32_t propType;	/**< property type */
 };
 
 static inline void
 spa_type_param_io_map(struct spa_type_map *map,
 		      struct spa_type_param_io *type)
 {
-	if (type->IO == 0) {
-		type->IO = spa_type_map_get_id(map, SPA_TYPE_PARAM__IO);
+	if (type->id == 0) {
 		type->id = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__id);
 		type->size = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__size);
-		type->propId = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__propId);
-		type->propType = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__propType);
+		type->idBuffers = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID_IO__Buffers);
+		type->Buffers = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__Buffers);
+		type->idControl = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID_IO__Control);
+		type->Control = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__Control);
+		type->idPropsIn = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID_IO_PROPS__In);
+		type->idPropsOut = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID_IO_PROPS__Out);
+		type->Prop = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__Prop);
+		type->propId = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO_PROP__id);
+		type->propType = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO_PROP__type);
 	}
 }
 

@@ -111,8 +111,8 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
 	type->prop_mute = spa_type_map_get_id(map, SPA_TYPE_PROPS__mute);
-	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "volume");
-	type->io_prop_mute = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "mute");
+	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
+	type->io_prop_mute = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "mute");
 	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_media_type_map(map, &type->media_type);
@@ -449,7 +449,9 @@ impl_node_port_enum_params(struct spa_node *node,
 				    t->param.idFormat,
 				    t->param.idBuffers,
 				    t->param.idMeta,
-				    t->param.idIO };
+				    t->param_io.idBuffers,
+				    t->param_io.idControl,
+				    t->param_io.idPropsIn };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, t->param.List,
@@ -496,39 +498,48 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 		}
 	}
-	else if (id == t->param.idIO) {
+	else if (id == t->param_io.idBuffers) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.Buffers,
+				":", t->param_io.id, "I", t->io.Buffers,
+				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
+			break;
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param_io.idControl) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.Control,
+				":", t->param_io.id, "I", t->io.ControlRange,
+				":", t->param_io.size, "i", sizeof(struct spa_io_control_range));
+			break;
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param_io.idPropsIn) {
 		struct port_props *p = &port->props;
+
+		if (direction == SPA_DIRECTION_OUTPUT)
+			return 0;
 
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, t->param_io.IO,
-				":", t->param_io.id, "I", t->io.Buffers,
-				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
-			break;
-		case 1:
-			param = spa_pod_builder_object(&b,
-				id, t->param_io.IO,
-				":", t->param_io.id, "I", t->io.ControlRange,
-				":", t->param_io.size, "i", sizeof(struct spa_io_control_range));
-			break;
-		case 2:
-			if (direction == SPA_DIRECTION_OUTPUT)
-				return 0;
-
-			param = spa_pod_builder_object(&b,
-				id, t->param_io.IO,
+				id, t->param_io.Prop,
 				":", t->param_io.id, "I", t->io_prop_volume,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
 				":", t->param_io.propId, "I", t->prop_volume,
 				":", t->param_io.propType, "dr", p->volume, 2, 0.0, 10.0);
 			break;
-		case 3:
-			if (direction == SPA_DIRECTION_OUTPUT)
-				return 0;
-
+		case 1:
 			param = spa_pod_builder_object(&b,
-				id, t->param_io.IO,
+				id, t->param_io.Prop,
 				":", t->param_io.id, "I", t->io_prop_mute,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_bool),
 				":", t->param_io.propId, "I", t->prop_mute,

@@ -771,7 +771,8 @@ static int spa_proxy_node_process_input(struct spa_node *node)
 
 			/* explicitly recycle buffers when the client is not going to do it */
 			if (!client_reuse && (pp = p->peer))
-		                spa_node_port_reuse_buffer(pp->node->implementation, pp->port_id, io->buffer_id);
+		                spa_node_port_reuse_buffer(pp->node->implementation,
+						pp->port_id, io->buffer_id);
 		}
 		pw_client_node_transport_add_message(impl->transport,
 			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT));

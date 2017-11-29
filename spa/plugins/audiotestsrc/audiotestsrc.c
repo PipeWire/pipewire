@@ -83,9 +83,9 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->prop_wave = spa_type_map_get_id(map, SPA_TYPE_PROPS__waveType);
 	type->prop_freq = spa_type_map_get_id(map, SPA_TYPE_PROPS__frequency);
 	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
-	type->io_prop_wave = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "waveType");
-	type->io_prop_freq = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "frequency");
-	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_INPUT_PROP_BASE "volume");
+	type->io_prop_wave = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "waveType");
+	type->io_prop_freq = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "frequency");
+	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
 	type->wave_sine = spa_type_map_get_id(map, SPA_TYPE_PROPS__waveType ":sine");
 	type->wave_square = spa_type_map_get_id(map, SPA_TYPE_PROPS__waveType ":square");
 	spa_type_io_map(map, &type->io);
@@ -613,7 +613,9 @@ impl_node_port_enum_params(struct spa_node *node,
 				    t->param.idFormat,
 				    t->param.idBuffers,
 				    t->param.idMeta,
-				    t->param.idIO };
+				    t->param_io.idBuffers,
+				    t->param_io.idControl,
+				    t->param_io.idPropsIn };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, t->param.List,
@@ -660,25 +662,37 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 		}
 	}
-	else if (id == t->param.idIO) {
+	else if (id == t->param_io.idBuffers) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.Buffers,
+				":", t->param_io.id, "I", t->io.Buffers,
+				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
+			break;
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param_io.idControl) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.Control,
+				":", t->param_io.id, "I", t->io.ControlRange,
+				":", t->param_io.size, "i", sizeof(struct spa_io_control_range));
+			break;
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param_io.idPropsIn) {
 		struct props *p = &this->props;
 
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, t->param_io.IO,
-				":", t->param_io.id, "I", t->io.Buffers,
-				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
-			break;
-		case 1:
-			param = spa_pod_builder_object(&b,
-				id, t->param_io.IO,
-				":", t->param_io.id, "I", t->io.ControlRange,
-				":", t->param_io.size, "i", sizeof(struct spa_io_control_range));
-			break;
-		case 2:
-			param = spa_pod_builder_object(&b,
-				id, t->param_io.IO,
+				id, t->param_io.Prop,
 				":", t->param_io.id, "I", t->io_prop_wave,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_id),
 				":", t->param_io.propId, "I", t->prop_wave,
@@ -686,17 +700,17 @@ impl_node_port_enum_params(struct spa_node *node,
 								2, t->wave_sine,
 								   t->wave_square);
 			break;
-		case 3:
+		case 1:
 			param = spa_pod_builder_object(&b,
-				id, t->param_io.IO,
+				id, t->param_io.Prop,
 				":", t->param_io.id, "I", t->io_prop_freq,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
 				":", t->param_io.propId, "I", t->prop_freq,
 				":", t->param_io.propType, "dr", p->freq, 2, 0.0, 50000000.0);
 			break;
-		case 4:
+		case 2:
 			param = spa_pod_builder_object(&b,
-				id, t->param_io.IO,
+				id, t->param_io.Prop,
 				":", t->param_io.id, "I", t->io_prop_volume,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
 				":", t->param_io.propId, "I", t->prop_volume,

@@ -48,11 +48,11 @@ struct spa_port_info {
 #define SPA_PORT_INFO_FLAG_OPTIONAL		(1<<1)	/**< processing on port is optional */
 #define SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS	(1<<2)	/**< the port can allocate buffer data */
 #define SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS	(1<<3)	/**< the port can use a provided buffer */
-#define SPA_PORT_INFO_FLAG_IN_PLACE		(1<<4)	/**< the port can process data in-place and will need
-							 *   a writable input buffer */
+#define SPA_PORT_INFO_FLAG_IN_PLACE		(1<<4)	/**< the port can process data in-place and
+							 *   will need a writable input buffer */
 #define SPA_PORT_INFO_FLAG_NO_REF		(1<<5)	/**< the port does not keep a ref on the buffer */
-#define SPA_PORT_INFO_FLAG_LIVE			(1<<6)	/**< output buffers from this port are timestamped against
-							 *   a live clock. */
+#define SPA_PORT_INFO_FLAG_LIVE			(1<<6)	/**< output buffers from this port are
+							 *   timestamped against a live clock. */
 	uint32_t flags;				/**< port flags */
 	uint32_t rate;				/**< rate of sequence numbers on port */
 	const struct spa_dict *props;		/**< extra port properties */

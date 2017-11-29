@@ -79,12 +79,6 @@ static inline struct spa_pod *spa_pod_next(const struct spa_pod *iter)
 	     spa_pod_is_inside(pod, size, iter);							\
 	     (iter) = spa_pod_next(iter))
 
-#define SPA_POD_FOREACH_SAFE(pod, size, iter, tmp)							\
-	for ((iter) = (pod), (tmp) = spa_pod_next(iter);						\
-	     spa_pod_is_inside(pod, size, iter);							\
-	     (iter) = (tmp),										\
-	     (tmp) = spa_pod_next(iter))
-
 #define SPA_POD_CONTENTS_FOREACH(pod, offset, iter)						\
 	SPA_POD_FOREACH(SPA_MEMBER((pod), (offset), struct spa_pod),SPA_POD_SIZE (pod)-(offset),iter)
 

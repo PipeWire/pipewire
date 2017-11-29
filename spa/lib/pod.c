@@ -132,7 +132,7 @@ static inline struct spa_pod_prop *find_prop(const struct spa_pod *pod, uint32_t
 	return NULL;
 }
 
-static int
+static inline int
 filter_prop(struct spa_pod_builder *b,
 	    const struct spa_pod_prop *p1,
 	    const struct spa_pod_prop *p2)
@@ -298,12 +298,12 @@ int pod_filter(struct spa_pod_builder *b,
 	       const struct spa_pod *pod, uint32_t pod_size,
 	       const struct spa_pod *filter, uint32_t filter_size)
 {
-	const struct spa_pod *pp, *pf, *tmp;
+	const struct spa_pod *pp, *pf;
 	int res = 0;
 
 	pf = filter;
 
-	SPA_POD_FOREACH_SAFE(pod, pod_size, pp, tmp) {
+	SPA_POD_FOREACH(pod, pod_size, pp) {
 		bool do_copy = false, do_advance = false;
 		uint32_t filter_offset = 0;
 

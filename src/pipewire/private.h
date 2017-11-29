@@ -429,6 +429,15 @@ bool pw_port_add(struct pw_port *port, struct pw_node *node);
 /** Destroy a port \memberof pw_port */
 void pw_port_destroy(struct pw_port *port);
 
+/** Iterate the params of the given port. The callback should return
+ * 1 to fetch the next item, 0 to stop iteration or <0 on error.
+ * The function returns 0 on success or the error returned by the callback. */
+int pw_port_for_each_param(struct pw_port *port,
+			   uint32_t param_id,
+			   const struct spa_pod *filter,
+			   int (*callback) (void *data, struct spa_pod *param),
+			   void *data);
+
 /** Set a param on a port \memberof pw_port */
 int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 		      const struct spa_pod *param);

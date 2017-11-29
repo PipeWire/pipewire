@@ -138,11 +138,14 @@ void pw_node_add_listener(struct pw_node *node,
 			  const struct pw_node_events *events,
 			  void *data);
 
-/** iterate the ports in the given direction */
-bool pw_node_for_each_port(struct pw_node *node,
-			   enum pw_direction direction,
-			   bool (*callback) (void *data, struct pw_port *port),
-			   void *data);
+/** Iterate the ports in the given direction. The callback should return
+ * 0 to fetch the next item, any other value stops the iteration and returns
+ * the value. When all callbacks return 0, this function returns 0 when all
+ * items are iterated. */
+int pw_node_for_each_port(struct pw_node *node,
+			  enum pw_direction direction,
+			  int (*callback) (void *data, struct pw_port *port),
+			  void *data);
 
 
 /** Find the port with direction and port_id or NULL when not found */

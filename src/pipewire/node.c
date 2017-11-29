@@ -219,49 +219,43 @@ static int update_port_ids(struct pw_node *node)
 	return 0;
 }
 
-static int collect_params(struct pw_port *port, uint32_t param_id, struct spa_pod ***result)
+struct param_array {
+	struct spa_pod **params;
+	uint32_t n_params;
+};
+
+static int add_param(void *data, struct spa_pod *param)
 {
-	int res;
-	uint8_t buffer[4096];
-	struct spa_pod_builder b = { 0 };
-	uint32_t state = 0;
+	struct param_array *arr = data;
+	uint32_t idx = arr->n_params++;
 
-	for (res = 0;; res++) {
-		struct spa_pod *fmt;
-
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if (spa_node_port_enum_params(port->node->node,
-					      port->direction, port->port_id,
-					      param_id, &state,
-					      NULL, &fmt, &b) <= 0)
-			break;
-
-		*result = realloc(*result, sizeof(struct spa_pod *) * (res + 1));
-		(*result)[res] = pw_spa_pod_copy(fmt);
-	}
-	return res;
+	arr->params = realloc(arr->params, sizeof(struct spa_pod *) * arr->n_params);
+	arr->params[idx] = pw_spa_pod_copy(param);
+	return 0;
 }
 
 static void
 update_info(struct pw_node *this)
 {
 	struct pw_type *t = &this->core->type;
+	struct param_array params;
+	struct pw_port *port;
 
-	this->info.input_params = NULL;
+	params = (struct param_array) { NULL };
 	if (!spa_list_is_empty(&this->input_ports)) {
-		struct pw_port *port = spa_list_first(&this->input_ports, struct pw_port, link);
-		this->info.n_input_params = collect_params(port,
-							   t->param.idEnumFormat,
-							   &this->info.input_params);
+		port = spa_list_first(&this->input_ports, struct pw_port, link);
+		pw_port_for_each_param(port, t->param.idEnumFormat, NULL, add_param, &params);
 	}
+	this->info.input_params = params.params;
+	this->info.n_input_params = params.n_params;
 
-	this->info.output_params = NULL;
+	params = (struct param_array) { NULL };
 	if (!spa_list_is_empty(&this->output_ports)) {
-		struct pw_port *port = spa_list_first(&this->output_ports, struct pw_port, link);
-		this->info.n_output_params = collect_params(port,
-							    t->param.idEnumFormat,
-							    &this->info.output_params);
+		port = spa_list_first(&this->output_ports, struct pw_port, link);
+		pw_port_for_each_param(port, t->param.idEnumFormat, NULL, add_param, &params);
 	}
+	this->info.output_params = params.params;
+	this->info.n_output_params = params.n_params;
 }
 
 static void
@@ -614,13 +608,14 @@ void pw_node_destroy(struct pw_node *node)
 	free(impl);
 }
 
-bool pw_node_for_each_port(struct pw_node *node,
-			   enum pw_direction direction,
-			   bool (*callback) (void *data, struct pw_port *port),
-			   void *data)
+int pw_node_for_each_port(struct pw_node *node,
+			  enum pw_direction direction,
+			  int (*callback) (void *data, struct pw_port *port),
+			  void *data)
 {
 	struct spa_list *ports;
 	struct pw_port *p, *t;
+	int res;
 
 	if (direction == PW_DIRECTION_INPUT)
 		ports = &node->input_ports;
@@ -628,9 +623,9 @@ bool pw_node_for_each_port(struct pw_node *node,
 		ports = &node->output_ports;
 
 	spa_list_for_each_safe(p, t, ports, link)
-		if (!callback(data, p))
-			return false;
-	return true;
+		if ((res = callback(data, p)) != 0)
+			return res;
+	return 0;
 }
 
 struct pw_port *

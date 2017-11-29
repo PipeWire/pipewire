@@ -1067,16 +1067,16 @@ struct find_data {
 	struct pw_jack_port *result;
 };
 
-static bool find_port(void *data, struct pw_port *port)
+static int find_port(void *data, struct pw_port *port)
 {
 	struct find_data *d = data;
 	struct port_data *pd = pw_port_get_user_data(port);
 
 	if (pd->port.port_id == d->port_id) {
 		d->result = &pd->port;
-		return false;
+		return 1;
 	}
-	return true;
+	return 0;
 }
 
 struct pw_jack_port *
@@ -1085,7 +1085,7 @@ pw_jack_node_find_port(struct pw_jack_node *node,
 		       jack_port_id_t port_id)
 {
 	struct find_data data = { port_id, };
-	if (!pw_node_for_each_port(node->node, direction, find_port, &data))
+	if (pw_node_for_each_port(node->node, direction, find_port, &data) == 1)
 		return data.result;
 	return NULL;
 }

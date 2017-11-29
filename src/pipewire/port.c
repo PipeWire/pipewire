@@ -382,6 +382,33 @@ int pw_port_pause(struct pw_port *port)
 	return 0;
 }
 
+int pw_port_for_each_param(struct pw_port *port,
+			   uint32_t param_id,
+			   const struct spa_pod *filter,
+			   int (*callback) (void *data, struct spa_pod *param),
+			   void *data)
+{
+	int res;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
+	uint32_t state;
+	struct spa_pod *param;
+
+	for (state = 0;;) {
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if ((res = spa_node_port_enum_params(port->node->node,
+						     port->direction,
+						     port->port_id,
+						     param_id, &state,
+						     filter, &param, &b)) <= 0)
+			break;
+
+		if ((res = callback(data, param)) != 0)
+			break;
+	}
+	return res;
+}
+
 int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 		      const struct spa_pod *param)
 {

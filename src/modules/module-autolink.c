@@ -234,10 +234,10 @@ static void node_port_removed(void *data, struct pw_port *port)
 {
 }
 
-static bool on_node_port_added(void *data, struct pw_port *port)
+static int on_node_port_added(void *data, struct pw_port *port)
 {
 	node_port_added(data, port);
-	return true;
+	return 0;
 }
 
 static void on_node_created(struct pw_node *node, struct node_info *info)

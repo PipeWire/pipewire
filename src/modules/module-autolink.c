@@ -28,6 +28,7 @@
 #include "pipewire/link.h"
 #include "pipewire/log.h"
 #include "pipewire/module.h"
+#include "pipewire/control.h"
 #include "pipewire/private.h"
 
 struct impl {
@@ -142,6 +143,23 @@ link_state_changed(void *data, enum pw_link_state old, enum pw_link_state state,
 	}
 }
 
+static void try_link_controls(struct impl *impl, struct pw_port *port, struct pw_port *target)
+{
+	struct pw_control *cin, *cout;
+	int res;
+
+	spa_list_for_each(cout, &port->control_list[SPA_DIRECTION_OUTPUT], port_link) {
+		spa_list_for_each(cin, &target->control_list[SPA_DIRECTION_INPUT], port_link) {
+			pw_log_debug("controls %d <-> %d", cin->id, cout->id);
+			if (cin->id == cout->id) {
+				if ((res = pw_control_link(cout, cin)) < 0)
+					pw_log_error("failed to link controls: %s", spa_strerror(res));
+			}
+		}
+	}
+
+}
+
 static void
 link_destroy(void *data)
 {
@@ -209,6 +227,8 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 
 	spa_list_append(&info->links, &ld->l);
 	pw_link_register(link, NULL, pw_module_get_global(impl->module));
+
+	try_link_controls(impl, port, target);
 
 	return;
 

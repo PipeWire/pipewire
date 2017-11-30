@@ -101,7 +101,7 @@ struct data {
 	void *callbacks_data;
 	struct spa_io_buffers *io;
 
-	double *io_volume;
+	struct spa_pod_double *ctrl_volume;
 
 	uint8_t buffer[1024];
 
@@ -112,7 +112,19 @@ struct data {
 	struct spa_list empty;
 
 	double accumulator;
+	double volume_accum;
 };
+
+static void update_volume(struct data *data)
+{
+	if (data->ctrl_volume == NULL)
+		return;
+
+        data->ctrl_volume->value = (sin(data->volume_accum) / 2.0) + 0.5;
+        data->volume_accum += M_PI_M2 / 1000.0;
+        if (data->volume_accum >= M_PI_M2)
+                data->volume_accum -= M_PI_M2;
+}
 
 static int impl_send_command(struct spa_node *node, const struct spa_command *command)
 {
@@ -158,10 +170,8 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 	if (id == d->t->io.Buffers)
 		d->io = data;
 	else if (id == d->type.io_prop_volume) {
-		if (SPA_POD_TYPE(data) == SPA_POD_TYPE_ID)
-			d->io_volume = &SPA_POD_VALUE(struct spa_pod_double, data);
-		else
-			return -EINVAL;
+		d->ctrl_volume = data;
+		*d->ctrl_volume = SPA_POD_DOUBLE_INIT(1.0);
 	}
 	else
 		return -ENOENT;
@@ -315,7 +325,7 @@ static int impl_port_enum_params(struct spa_node *node,
 				":", t->param_io.id, "I", d->type.io_prop_volume,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
 				":", t->param_io.propId, "I", d->type.prop_volume,
-				":", t->param_io.propType, "dr", p->volume, 2, 0.0, 10.0);
+				":", t->param_io.propType, "dru", p->volume, 2, 0.0, 10.0);
 			break;
 		default:
 			return 0;
@@ -406,7 +416,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 
 static inline void reuse_buffer(struct data *d, uint32_t id)
 {
-	pw_log_trace("sine-source %p: recycle buffer %d", d, id);
+	pw_log_trace("export-source %p: recycle buffer %d", d, id);
         spa_list_append(&d->empty, &d->buffers[id].link);
 }
 
@@ -433,7 +443,7 @@ static int impl_node_process_output(struct spa_node *node)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 	if (spa_list_is_empty(&d->empty)) {
-                pw_log_error("sine-source %p: out of buffers", d);
+                pw_log_error("export-source %p: out of buffers", d);
                 return -EPIPE;
         }
         b = spa_list_first(&d->empty, struct buffer, link);
@@ -474,6 +484,8 @@ static int impl_node_process_output(struct spa_node *node)
 	io->buffer_id = b->buffer->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;
 
+	update_volume(d);
+
 	return SPA_STATUS_HAVE_BUFFER;
 }
 
@@ -500,7 +512,7 @@ static void make_node(struct data *data)
 	if (data->path)
 		pw_properties_set(props, PW_NODE_PROP_TARGET_NODE, data->path);
 
-	data->node = pw_node_new(data->core, "sine-source", props, 0);
+	data->node = pw_node_new(data->core, "export-source", props, 0);
 	data->impl_node = impl_node;
 	pw_node_set_implementation(data->node, &data->impl_node);
 
@@ -551,7 +563,6 @@ int main(int argc, char *argv[])
 	spa_list_init(&data.empty);
 	init_type(&data.type, data.t->map);
 	reset_props(&data.props);
-	data.io_volume = &data.props.volume;
 	spa_debug_set_type_map(data.t->map);
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);

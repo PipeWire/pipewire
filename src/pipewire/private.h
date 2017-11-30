@@ -137,6 +137,7 @@ struct pw_core {
 	struct spa_list node_list;		/**< list of nodes */
 	struct spa_list factory_list;		/**< list of factories */
 	struct spa_list link_list;		/**< list of links */
+	struct spa_list control_list[2];	/**< list of controls, indexed by direction */
 
 	struct spa_hook_list listener_list;
 
@@ -267,6 +268,7 @@ struct pw_port {
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
 	struct pw_properties *properties;
+	const struct spa_port_info *info;
 
 	enum pw_port_state state;	/**< state of the port */
 
@@ -278,6 +280,8 @@ struct pw_port {
 	uint32_t n_buffers;		/**< number of port buffers */
 
 	struct spa_list links;		/**< list of \ref pw_link */
+
+	struct spa_list control_list[2];	/**< list of \ref pw_control indexed by direction */
 
 	struct spa_hook_list listener_list;
 
@@ -391,6 +395,24 @@ struct pw_factory {
 	void *user_data;
 };
 
+struct pw_control {
+	struct spa_list link;		/**< link in core control_list */
+	struct pw_core *core;		/**< the core */
+
+	struct pw_port *port;		/**< owner port or NULL */
+	struct spa_list port_link;	/**< link in port control_list */
+
+	enum spa_direction direction;	/**< the direction */
+	struct spa_pod *param;		/**< control params */
+
+	uint32_t id;
+	int32_t size;
+
+	struct spa_hook_list listener_list;
+
+	void *user_data;
+};
+
 /** Find a good format between 2 ports */
 int pw_core_find_format(struct pw_core *core,
 			struct pw_port *output,
@@ -438,6 +460,13 @@ int pw_port_for_each_param(struct pw_port *port,
 			   int (*callback) (void *data, struct spa_pod *param),
 			   void *data);
 
+int pw_port_for_each_filtered_param(struct pw_port *in_port,
+				    struct pw_port *out_port,
+				    uint32_t in_param_id,
+				    uint32_t out_param_id,
+				    int (*callback) (void *data, struct spa_pod *param),
+				    void *data);
+
 /** Set a param on a port \memberof pw_port */
 int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 		      const struct spa_pod *param);
@@ -469,6 +498,14 @@ bool pw_link_activate(struct pw_link *link);
 
 /** Deactivate a link \memberof pw_link */
 bool pw_link_deactivate(struct pw_link *link);
+
+struct pw_control *
+pw_control_new(struct pw_core *core,
+	       struct pw_port *owner,		/**< can be NULL */
+	       const struct spa_pod *param,	/**< copy is taken */
+	       size_t user_data_size		/**< extra user data */);
+
+void pw_control_destroy(struct pw_control *control);
 
 /** \endcond */
 

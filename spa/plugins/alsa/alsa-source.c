@@ -793,6 +793,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->stream = SND_PCM_STREAM_CAPTURE;
 	reset_props(&this->props);
 
+	this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+
 	spa_list_init(&this->free);
 	spa_list_init(&this->ready);
 

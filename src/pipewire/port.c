@@ -183,6 +183,8 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	spa_list_init(&this->links);
+	spa_list_init(&this->control_list[0]);
+	spa_list_init(&this->control_list[1]);
 
 	spa_hook_list_init(&this->listener_list);
 
@@ -267,13 +269,29 @@ static int do_add_port(struct spa_loop *loop,
 	return 0;
 }
 
+static int make_control(void *data, struct spa_pod *param)
+{
+	struct pw_port *port = data;
+	struct pw_node *node = port->node;
+	pw_control_new(node->core, port, param, 0);
+	return 0;
+}
+
 bool pw_port_add(struct pw_port *port, struct pw_node *node)
 {
 	uint32_t port_id = port->port_id;
+	struct pw_type *t = &node->core->type;
 
 	port->node = node;
 
-	pw_log_debug("port %p: add to node %p", port, node);
+	spa_node_port_get_info(node->node,
+			       port->direction, port_id,
+			       &port->info);
+
+	if (port->info->props)
+		pw_port_update_properties(port, port->info->props);
+
+	pw_log_debug("port %p: add to node %p %08x", port, node, port->info->flags);
 	if (port->direction == PW_DIRECTION_INPUT) {
 		spa_list_insert(&node->input_ports, &port->link);
 		pw_map_insert_at(&node->input_port_map, port_id, port);
@@ -287,6 +305,10 @@ bool pw_port_add(struct pw_port *port, struct pw_node *node)
 		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
 	}
 
+	pw_port_for_each_param(port, t->param_io.idPropsOut, NULL, make_control, port);
+	pw_port_for_each_param(port, t->param_io.idPropsIn, NULL, make_control, port);
+
+	pw_log_debug("port %p: setting node io", port);
 	spa_node_port_set_io(node->node,
 			     port->direction, port_id,
 			     node->core->type.io.Buffers,
@@ -329,7 +351,9 @@ void pw_port_destroy(struct pw_port *port)
 	spa_hook_list_call(&port->listener_list, struct pw_port_events, destroy);
 
 	if (node) {
-		pw_loop_invoke(port->node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
+		if (port->rt.graph)
+			pw_loop_invoke(port->node->data_loop, do_remove_port,
+				       SPA_ID_INVALID, NULL, 0, true, port);
 
 		if (port->direction == PW_DIRECTION_INPUT) {
 			pw_map_remove(&node->input_port_map, port->port_id);
@@ -406,6 +430,42 @@ int pw_port_for_each_param(struct pw_port *port,
 		if ((res = callback(data, param)) != 0)
 			break;
 	}
+	return res;
+}
+
+struct param_filter {
+	struct pw_port *in_port;
+	struct pw_port *out_port;
+	uint32_t in_param_id;
+	uint32_t out_param_id;
+	int (*callback) (void *data, struct spa_pod *param);
+	void *data;
+	uint32_t n_params;
+};
+
+static int do_filter(void *data, struct spa_pod *param)
+{
+	struct param_filter *f = data;
+	f->n_params++;
+	return pw_port_for_each_param(f->out_port, f->out_param_id, param, f->callback, f->data);
+}
+
+int pw_port_for_each_filtered_param(struct pw_port *in_port,
+				    struct pw_port *out_port,
+				    uint32_t in_param_id,
+				    uint32_t out_param_id,
+				    int (*callback) (void *data, struct spa_pod *param),
+				    void *data)
+{
+	int res;
+	struct param_filter filter = { in_port, out_port, in_param_id, out_param_id, callback, data, 0 };
+
+	if ((res = pw_port_for_each_param(in_port, in_param_id, NULL, do_filter, &filter)) < 0)
+		return res;
+
+	if (filter.n_params == 0)
+		res = do_filter(&filter, NULL);
+
 	return res;
 }
 

@@ -32,6 +32,8 @@ extern "C" {
 #define SPA_TYPE_PARAM_IO__id		SPA_TYPE_PARAM_IO_BASE "id"
 /** size of the io area for a port */
 #define SPA_TYPE_PARAM_IO__size		SPA_TYPE_PARAM_IO_BASE "size"
+/** type of the io area for a port, this is an enum spa_pod_type */
+#define SPA_TYPE_PARAM_IO__type		SPA_TYPE_PARAM_IO_BASE "type"
 
 /** enumerate buffer io areas */
 #define SPA_TYPE_PARAM_ID_IO__Buffers	SPA_TYPE_PARAM_ID_IO_BASE "Buffers"
@@ -64,6 +66,7 @@ extern "C" {
 struct spa_type_param_io {
 	uint32_t id;		/**< id to configure the io area */
 	uint32_t size;		/**< size of io area */
+	uint32_t type;		/**< type of io area */
 	uint32_t idBuffers;	/**< id to enumerate buffer io */
 	uint32_t Buffers;	/**< object type of buffer io area */
 	uint32_t idControl;	/**< id to enumerate control io */
@@ -82,6 +85,7 @@ spa_type_param_io_map(struct spa_type_map *map,
 	if (type->id == 0) {
 		type->id = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__id);
 		type->size = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__size);
+		type->type = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__type);
 		type->idBuffers = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID_IO__Buffers);
 		type->Buffers = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__Buffers);
 		type->idControl = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID_IO__Control);

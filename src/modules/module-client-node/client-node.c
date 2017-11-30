@@ -113,7 +113,7 @@ struct proxy {
 	uint32_t n_params;
 	struct spa_pod **params;
 
-	uint8_t format_buffer[1024];
+	uint32_t membase;
 	uint32_t seq;
 };
 
@@ -337,7 +337,6 @@ do_update_port(struct proxy *this,
 			if (spa_pod_is_object_id(port->params[i], t->param.idFormat))
 				port->have_format = true;
 		}
-
 	}
 
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO && info)
@@ -534,9 +533,27 @@ spa_proxy_node_port_set_io(struct spa_node *node,
 
 	if (id == t->io.Buffers)
 		port->io = data;
-	else
-		return -ENOENT;
+	else {
+		struct pw_memblock *mem;
+		uint32_t memid = this->membase++;
 
+		if ((mem = pw_memblock_find(data)) == NULL)
+			return -EINVAL;
+
+		pw_client_node_resource_port_add_mem(this->resource,
+						     direction, port_id,
+						     memid,
+						     t->data.MemFd,
+						     mem->fd, mem->flags,
+						     0, mem->offset + mem->size);
+
+		pw_client_node_resource_port_set_io(this->resource,
+						    this->seq,
+						    direction, port_id,
+						    id,
+						    memid,
+						    mem->offset, mem->size);
+	}
 	return 0;
 }
 
@@ -582,7 +599,7 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 	if (this->resource == NULL)
 		return 0;
 
-	n_mem = 0;
+	n_mem = this->membase;
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &port->buffers[i];
 		struct pw_memblock *m;
@@ -1109,10 +1126,13 @@ static void node_initialized(void *data)
 	impl->other_fds[1] = impl->fds[0];
 
 	spa_loop_add_source(impl->proxy.data_loop, &impl->proxy.data_source);
-	pw_log_debug("client-node %p: add data fd %d", node, impl->proxy.data_source.fd);
+	pw_log_debug("client-node %p: transport fd %d %d", node, impl->fds[0], impl->fds[1]);
 
-	pw_client_node_resource_transport(this->resource, pw_global_get_id(pw_node_get_global(node)),
-					  impl->other_fds[0], impl->other_fds[1], impl->transport);
+	pw_client_node_resource_transport(this->resource,
+					  pw_global_get_id(pw_node_get_global(node)),
+					  impl->other_fds[0],
+					  impl->other_fds[1],
+					  impl->transport);
 }
 
 static void node_free(void *data)

@@ -195,12 +195,15 @@ pw_client_node_transport_new(uint32_t max_input_ports, uint32_t max_output_ports
 	if (impl == NULL)
 		return NULL;
 
+	pw_log_debug("transport %p: new %d %d", impl, max_input_ports, max_output_ports);
+
 	trans = &impl->trans;
 	impl->offset = 0;
 
 	if (pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 			  PW_MEMBLOCK_FLAG_MAP_READWRITE |
-			  PW_MEMBLOCK_FLAG_SEAL, area_get_size(&area),
+			  PW_MEMBLOCK_FLAG_SEAL,
+			  area_get_size(&area),
 			  &impl->mem) < 0)
 		return NULL;
 
@@ -229,6 +232,7 @@ pw_client_node_transport_new_from_info(struct pw_client_node_transport_info *inf
 		return NULL;
 
 	trans = &impl->trans;
+	pw_log_debug("transport %p: new from info", impl);
 
 	if ((res = pw_memblock_import(PW_MEMBLOCK_FLAG_MAP_READWRITE |
 				      PW_MEMBLOCK_FLAG_WITH_FD,

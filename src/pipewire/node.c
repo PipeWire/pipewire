@@ -23,6 +23,7 @@
 #include <errno.h>
 
 #include <spa/clock/clock.h>
+#include <spa/lib/debug.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"
@@ -327,7 +328,6 @@ do_node_add(struct spa_loop *loop,
 
 	return 0;
 }
-
 
 void pw_node_register(struct pw_node *this,
 		      struct pw_client *owner,

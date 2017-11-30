@@ -1053,7 +1053,7 @@ client_node_port_command(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	static struct port *port;
+	struct port *port;
 
 	port = find_port(data, direction, port_id);
 	if (port == NULL)
@@ -1061,6 +1061,51 @@ client_node_port_command(void *object,
 
 	pw_port_send_command(port->port, true, command);
 }
+
+static void
+client_node_port_set_io(void *object,
+                        uint32_t seq,
+                        uint32_t direction,
+                        uint32_t port_id,
+                        uint32_t id,
+                        uint32_t memid,
+                        uint32_t offset,
+                        uint32_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct node_data *data = proxy->user_data;
+	struct port *port;
+	struct mem_id *mid;
+
+	port = find_port(data, direction, port_id);
+	if (port == NULL)
+		return;
+
+	mid = find_mem(port, memid);
+	if (mid == NULL) {
+		pw_log_warn("unknown memory id %u", memid);
+		return;
+	}
+
+	if (mid->ptr == NULL) {
+		mid->ptr =
+		    mmap(NULL, mid->size + mid->offset, PROT_READ|PROT_WRITE, MAP_SHARED, mid->fd, 0);
+		if (mid->ptr == MAP_FAILED) {
+			mid->ptr = NULL;
+			pw_log_warn("Failed to mmap memory %d %p: %s", mid->size, mid,
+				    strerror(errno));
+			return;
+		}
+	}
+
+	spa_node_port_set_io(port->port->node->node,
+			     direction, port_id,
+			     id,
+			     SPA_MEMBER(mid->ptr, offset, void),
+			     size);
+
+}
+
 
 static const struct pw_client_node_proxy_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
@@ -1074,6 +1119,7 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.port_add_mem = client_node_port_add_mem,
 	.port_use_buffers = client_node_port_use_buffers,
 	.port_command = client_node_port_command,
+	.port_set_io = client_node_port_set_io,
 };
 
 static void do_node_init(struct pw_proxy *proxy)

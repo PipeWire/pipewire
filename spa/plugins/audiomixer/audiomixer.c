@@ -535,7 +535,7 @@ impl_node_port_enum_params(struct spa_node *node,
 				":", t->param_io.id, "I", t->io_prop_volume,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
 				":", t->param_io.propId, "I", t->prop_volume,
-				":", t->param_io.propType, "dr", p->volume, 2, 0.0, 10.0);
+				":", t->param_io.propType, "dru", p->volume, 2, 0.0, 10.0);
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
@@ -747,15 +747,9 @@ impl_node_port_set_io(struct spa_node *node,
 	else if (id == t->io.ControlRange)
 		port->io_range = data;
 	else if (id == t->io_prop_volume && direction == SPA_DIRECTION_INPUT)
-		if (SPA_POD_TYPE(data) == SPA_POD_TYPE_DOUBLE)
-			port->io_volume = &SPA_POD_VALUE(struct spa_pod_double, data);
-		else
-			return -EINVAL;
+		port->io_volume = &SPA_POD_VALUE(struct spa_pod_double, data);
 	else if (id == t->io_prop_mute && direction == SPA_DIRECTION_INPUT)
-		if (SPA_POD_TYPE(data) == SPA_POD_TYPE_BOOL)
-			port->io_mute = &SPA_POD_VALUE(struct spa_pod_bool, data);
-		else
-			return -EINVAL;
+		port->io_mute = &SPA_POD_VALUE(struct spa_pod_bool, data);
 	else
 		return -ENOENT;
 

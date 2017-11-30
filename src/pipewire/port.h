@@ -41,6 +41,7 @@ extern "C" {
  */
 struct pw_port;
 struct pw_link;
+struct pw_control;
 
 #include <pipewire/core.h>
 #include <pipewire/introspect.h>
@@ -77,6 +78,12 @@ struct pw_port_events {
 
 	/** the properties of the port changed */
 	void (*properties_changed) (void *data, const struct pw_properties *properties);
+
+	/** a control was added to the port */
+	void (*control_added) (void *data, struct pw_control *control);
+
+	/** a control was removed from the port */
+	void (*control_removed) (void *data, struct pw_control *control);
 };
 
 /** Get the port direction */

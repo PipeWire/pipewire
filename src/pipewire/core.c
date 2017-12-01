@@ -460,6 +460,8 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->info.props = &properties->dict;
 	this->info.name = name;
 
+	this->sc_pagesize = sysconf(_SC_PAGESIZE);
+
 	this->global = pw_core_add_global(this,
 					  NULL,
 					  NULL,

@@ -148,6 +148,8 @@ struct pw_core {
 	struct spa_support support[4];	/**< support for spa plugins */
 	uint32_t n_support;		/**< number of support items */
 
+	long sc_pagesize;
+
 	struct {
 		struct spa_graph graph;
 	} rt;

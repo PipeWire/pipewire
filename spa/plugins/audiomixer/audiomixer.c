@@ -753,9 +753,15 @@ impl_node_port_set_io(struct spa_node *node,
 	else if (id == t->io.ControlRange)
 		port->io_range = data;
 	else if (id == t->io_prop_volume && direction == SPA_DIRECTION_INPUT)
-		port->io_volume = &SPA_POD_VALUE(struct spa_pod_double, data);
+		if (data && size >= sizeof(struct spa_pod_double))
+			port->io_volume = &SPA_POD_VALUE(struct spa_pod_double, data);
+		else
+			port->io_volume = &port->props.volume;
 	else if (id == t->io_prop_mute && direction == SPA_DIRECTION_INPUT)
-		port->io_mute = &SPA_POD_VALUE(struct spa_pod_bool, data);
+		if (data && size >= sizeof(struct spa_pod_bool))
+			port->io_mute = &SPA_POD_VALUE(struct spa_pod_bool, data);
+		else
+			port->io_mute = &port->props.mute;
 	else
 		return -ENOENT;
 

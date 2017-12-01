@@ -905,21 +905,21 @@ impl_node_port_set_io(struct spa_node *node,
 	else if (id == t->io.ControlRange)
 		this->io_range = data;
 	else if (id == t->io_prop_wave) {
-		if (SPA_POD_TYPE(data) == SPA_POD_TYPE_ID)
+		if (data && size >= sizeof(struct spa_pod_id))
 			this->io_wave = &SPA_POD_VALUE(struct spa_pod_id, data);
 		else
-			return -EINVAL;
+			this->io_wave = &this->props.wave;
 	}
 	else if (id == t->io_prop_freq)
-		if (SPA_POD_TYPE(data) == SPA_POD_TYPE_DOUBLE)
+		if (data && size >= sizeof(struct spa_pod_double))
 			this->io_freq = &SPA_POD_VALUE(struct spa_pod_double, data);
 		else
-			return -EINVAL;
+			this->io_freq = &this->props.freq;
 	else if (id == t->io_prop_volume)
-		if (SPA_POD_TYPE(data) == SPA_POD_TYPE_DOUBLE)
+		if (data && size >= sizeof(struct spa_pod_double))
 			this->io_volume = &SPA_POD_VALUE(struct spa_pod_double, data);
 		else
-			return -EINVAL;
+			this->io_volume = &this->props.volume;
 	else
 		return -ENOENT;
 

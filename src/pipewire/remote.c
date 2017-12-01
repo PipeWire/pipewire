@@ -57,8 +57,7 @@ struct buffer_id {
 	uint32_t id;
 	struct spa_buffer *buf;
 	void *ptr;
-	uint32_t offset;
-	uint32_t size;
+	struct pw_map_range map;
 };
 
 struct port {
@@ -870,7 +869,7 @@ static void clear_buffers(struct port *port)
 
         pw_array_for_each(bid, &port->buffer_ids) {
 		if (bid->ptr != NULL) {
-			if (munmap(bid->ptr, bid->size + bid->offset) < 0)
+			if (munmap(bid->ptr, bid->map.size) < 0)
 				pw_log_warn("failed to unmap: %m");
 		}
 		bid->ptr = NULL;
@@ -926,7 +925,8 @@ client_node_port_use_buffers(void *object,
 	uint32_t i, j, len;
 	struct spa_buffer *b, **bufs;
 	struct port *port;
-	struct pw_type *t = &proxy->remote->core->type;
+	struct pw_core *core = proxy->remote->core;
+	struct pw_type *t = &core->type;
 	int res, prot;
 
 	port = find_port(data, direction, port_id);
@@ -956,17 +956,18 @@ client_node_port_use_buffers(void *object,
 		len = pw_array_get_len(&port->buffer_ids, struct buffer_id);
 		bid = pw_array_add(&port->buffer_ids, sizeof(struct buffer_id));
 
-		bid->offset = buffers[i].offset;
-		bid->size = buffers[i].size;
-		bid->ptr = mmap(NULL, bid->offset + bid->size, prot, MAP_SHARED, mid->fd, 0);
+		pw_map_range_init(&bid->map, buffers[i].offset, buffers[i].size, core->sc_pagesize);
+
+		bid->ptr = mmap(NULL, bid->map.size, prot, MAP_SHARED, mid->fd, bid->map.offset);
 		if (bid->ptr == MAP_FAILED) {
 			bid->ptr = NULL;
-			pw_log_warn("Failed to mmap memory %u %p: %s", bid->size, mid,
-				    strerror(errno));
+			pw_log_warn("Failed to mmap memory %u %u: %m",
+					bid->map.offset, bid->map.size);
 			continue;
 		}
-		if (mlock(bid->ptr, bid->offset + bid->size) < 0)
-			pw_log_warn("Failed to lock memory %u %s", bid->offset + bid->size, strerror(errno));
+		if (mlock(bid->ptr, bid->map.size) < 0)
+			pw_log_warn("Failed to mlock memory %u %u: %m",
+					bid->map.offset, bid->map.size);
 
 		b = buffers[i].buffer;
 
@@ -992,9 +993,9 @@ client_node_port_use_buffers(void *object,
 		if (bid->id != len) {
 			pw_log_warn("unexpected id %u found, expected %u", bid->id, len);
 		}
-		pw_log_debug("add buffer %d %d %u %u", mid->id, bid->id, bid->offset, bid->size);
+		pw_log_debug("add buffer %d %d %u %u", mid->id, bid->id, bid->map.offset, bid->map.size);
 
-		offset = bid->offset;
+		offset = bid->map.start;
 		for (j = 0; j < b->n_metas; j++) {
 			struct spa_meta *m = &b->metas[j];
 			memcpy(m, &buffers[i].buffer->metas[j], sizeof(struct spa_meta));
@@ -1017,7 +1018,8 @@ client_node_port_use_buffers(void *object,
 				d->fd = bmid->fd;
 				pw_log_debug(" data %d %u -> fd %d", j, bmid->id, bmid->fd);
 			} else if (d->type == t->data.MemPtr) {
-				d->data = SPA_MEMBER(bid->ptr, bid->offset + SPA_PTR_TO_INT(d->data), void);
+				d->data = SPA_MEMBER(bid->ptr,
+						bid->map.start + SPA_PTR_TO_INT(d->data), void);
 				d->fd = -1;
 				pw_log_debug(" data %d %u -> mem %p", j, bid->id, d->data);
 			} else {
@@ -1066,8 +1068,10 @@ client_node_port_set_io(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
+	struct pw_core *core = proxy->remote->core;
 	struct port *port;
 	struct mem_id *mid;
+	struct pw_map_range r;
 	void *ptr;
 
 	port = find_port(data, direction, port_id);
@@ -1079,8 +1083,9 @@ client_node_port_set_io(void *object,
 		pw_log_warn("unknown memory id %u", memid);
 		return;
 	}
+	pw_map_range_init(&r, offset, size, core->sc_pagesize);
 
-	ptr = mmap(NULL, offset + size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_LOCKED, mid->fd, 0);
+	ptr = mmap(NULL, r.size, PROT_READ|PROT_WRITE, MAP_SHARED, mid->fd, r.offset);
 	if (ptr == MAP_FAILED) {
 		pw_log_warn("Failed to mmap memory %d %p: %s", size, mid,
 			    strerror(errno));
@@ -1090,7 +1095,7 @@ client_node_port_set_io(void *object,
 	spa_node_port_set_io(port->port->node->node,
 			     direction, port_id,
 			     id,
-			     SPA_MEMBER(ptr, offset, void),
+			     SPA_MEMBER(ptr, r.start, void),
 			     size);
 
 }

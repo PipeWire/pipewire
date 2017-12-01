@@ -686,6 +686,8 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	spa_return_val_if_fail(port->have_format, -EIO);
 
+	spa_log_info(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
+
 	clear_buffers(this, port);
 
 	for (i = 0; i < n_buffers; i++) {
@@ -706,6 +708,10 @@ impl_node_port_use_buffers(struct spa_node *node,
 		}
 		if (!b->outstanding)
 			spa_list_append(&port->queue, &b->link);
+
+		port->queued_bytes = 0;
+		if (port->io)
+			*port->io = SPA_IO_BUFFERS_INIT;
 	}
 	port->n_buffers = n_buffers;
 

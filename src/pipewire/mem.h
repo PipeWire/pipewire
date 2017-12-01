@@ -65,6 +65,25 @@ pw_memblock_free(struct pw_memblock *mem);
 /** Find memblock for given \a ptr */
 struct pw_memblock * pw_memblock_find(const void *ptr);
 
+/** parameters to map a memory range */
+struct pw_map_range {
+	uint32_t start;		/** offset in first page with start of data */
+	uint32_t offset;	/** page aligned offset to map */
+	uint32_t size;		/** size to map */
+};
+
+/** Calculate parameters to mmap() memory into \a range so that
+ * \a size bytes at \a offset can be mapped with mmap().  */
+static inline void pw_map_range_init(struct pw_map_range *range,
+				     uint32_t offset, uint32_t size,
+				     uint32_t page_size)
+{
+	range->offset = SPA_ROUND_DOWN_N(offset, page_size);
+	range->start = offset - range->offset;
+	range->size = offset + size - range->offset;
+}
+
+
 #ifdef __cplusplus
 }
 #endif

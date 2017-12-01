@@ -118,7 +118,8 @@ struct spa_fraction {
 #define SPA_DEPRECATED
 #endif
 
-#define SPA_ROUND_UP_N(num,align) ((((num) + ((align) - 1)) & ~((align) - 1)))
+#define SPA_ROUND_DOWN_N(num,align)	((num) & ~((align) - 1))
+#define SPA_ROUND_UP_N(num,align)	SPA_ROUND_DOWN_N((num) + ((align) - 1),align)
 
 #ifndef SPA_LIKELY
 #ifdef __GNUC__

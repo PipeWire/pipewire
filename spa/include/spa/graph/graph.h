@@ -160,8 +160,10 @@ static inline void spa_graph_port_remove(struct spa_graph_port *port)
 {
 	spa_debug("port %p remove", port);
 	spa_list_remove(&port->link);
-	if (!(port->flags & SPA_PORT_INFO_FLAG_OPTIONAL))
+	if (!(port->flags & SPA_PORT_INFO_FLAG_OPTIONAL) &&
+	    port->node->required[port->direction] > 0) {
 		port->node->required[port->direction]--;
+	}
 }
 
 static inline void

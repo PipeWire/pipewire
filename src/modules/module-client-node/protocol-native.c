@@ -298,7 +298,7 @@ static bool client_node_demarshal_port_add_mem(void *object, void *data, size_t 
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
-	uint32_t direction, port_id, mem_id, type, memfd_idx, flags, offset, sz;
+	uint32_t direction, port_id, mem_id, type, memfd_idx, flags;
 	int memfd;
 
 	spa_pod_parser_init(&prs, data, size, 0);
@@ -309,9 +309,7 @@ static bool client_node_demarshal_port_add_mem(void *object, void *data, size_t 
 			"i", &mem_id,
 			"I", &type,
 			"i", &memfd_idx,
-			"i", &flags,
-			"i", &offset,
-			"i", &sz, NULL) < 0)
+			"i", &flags, NULL) < 0)
 		return false;
 
 	memfd = pw_protocol_native_get_proxy_fd(proxy, memfd_idx);
@@ -320,7 +318,7 @@ static bool client_node_demarshal_port_add_mem(void *object, void *data, size_t 
 								      port_id,
 								      mem_id,
 								      type,
-								      memfd, flags, offset, sz);
+								      memfd, flags);
 	return true;
 }
 
@@ -564,7 +562,7 @@ client_node_marshal_port_add_mem(void *object,
 				 uint32_t port_id,
 				 uint32_t mem_id,
 				 uint32_t type,
-				 int memfd, uint32_t flags, uint32_t offset, uint32_t size)
+				 int memfd, uint32_t flags)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -577,9 +575,7 @@ client_node_marshal_port_add_mem(void *object,
 			       "i", mem_id,
 			       "I", type,
 			       "i", pw_protocol_native_add_resource_fd(resource, memfd),
-			       "i", flags,
-			       "i", offset,
-			       "i", size);
+			       "i", flags);
 
 	pw_protocol_native_end_resource(resource, b);
 }

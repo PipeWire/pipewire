@@ -405,9 +405,7 @@ struct pw_client_node_proxy_events {
 			      uint32_t mem_id,
 			      uint32_t type,
 			      int memfd,
-			      uint32_t flags,
-			      uint32_t offset,
-			      uint32_t size);
+			      uint32_t flags);
 	/**
 	 * Notify the port of buffers
 	 *

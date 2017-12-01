@@ -50,16 +50,15 @@ struct mem_id {
 	uint32_t id;
 	int fd;
 	uint32_t flags;
-	void *ptr;
-	uint32_t offset;
-	uint32_t size;
 };
 
 struct buffer_id {
 	struct spa_list link;
 	uint32_t id;
-	void *buf_ptr;
 	struct spa_buffer *buf;
+	void *ptr;
+	uint32_t offset;
+	uint32_t size;
 };
 
 struct port {
@@ -851,9 +850,6 @@ static struct mem_id *find_mem(struct port *port, uint32_t id)
 
 static void clear_memid(struct mem_id *mid)
 {
-	if (mid->ptr != NULL)
-		munmap(mid->ptr, mid->size + mid->offset);
-	mid->ptr = NULL;
 	close(mid->fd);
 }
 
@@ -873,6 +869,11 @@ static void clear_buffers(struct port *port)
         pw_log_debug("port %p: clear buffers", port);
 
         pw_array_for_each(bid, &port->buffer_ids) {
+		if (bid->ptr != NULL) {
+			if (munmap(bid->ptr, bid->size + bid->offset) < 0)
+				pw_log_warn("failed to unmap: %m");
+		}
+		bid->ptr = NULL;
                 free(bid->buf);
                 bid->buf = NULL;
         }
@@ -891,7 +892,7 @@ static void
 client_node_port_add_mem(void *object,
 			 enum spa_direction direction, uint32_t port_id,
 			 uint32_t mem_id,
-			 uint32_t type, int memfd, uint32_t flags, uint32_t offset, uint32_t size)
+			 uint32_t type, int memfd, uint32_t flags)
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
@@ -900,20 +901,17 @@ client_node_port_add_mem(void *object,
 
 	m = find_mem(port, mem_id);
 	if (m) {
-		pw_log_debug("update mem %u, fd %d, flags %d, off %d, size %d",
-			     mem_id, memfd, flags, offset, size);
+		pw_log_debug("update mem %u, fd %d, flags %d",
+			     mem_id, memfd, flags);
 		clear_memid(m);
 	} else {
 		m = pw_array_add(&port->mem_ids, sizeof(struct mem_id));
-		pw_log_debug("add mem %u, fd %d, flags %d, off %d, size %d",
-			     mem_id, memfd, flags, offset, size);
+		pw_log_debug("add mem %u, fd %d, flags %d",
+			     mem_id, memfd, flags);
 	}
 	m->id = mem_id;
 	m->fd = memfd;
 	m->flags = flags;
-	m->ptr = NULL;
-	m->offset = offset;
-	m->size = size;
 }
 
 static void
@@ -928,6 +926,7 @@ client_node_port_use_buffers(void *object,
 	uint32_t i, j, len;
 	struct spa_buffer *b, **bufs;
 	struct port *port;
+	struct pw_type *t = &proxy->remote->core->type;
 	int res, prot;
 
 	port = find_port(data, direction, port_id);
@@ -954,22 +953,23 @@ client_node_port_use_buffers(void *object,
 			continue;
 		}
 
-		if (mid->ptr == NULL) {
-			mid->ptr =
-			    mmap(NULL, mid->size + mid->offset, prot, MAP_SHARED, mid->fd, 0);
-			if (mid->ptr == MAP_FAILED) {
-				mid->ptr = NULL;
-				pw_log_warn("Failed to mmap memory %d %p: %s", mid->size, mid,
-					    strerror(errno));
-				continue;
-			}
-		}
 		len = pw_array_get_len(&port->buffer_ids, struct buffer_id);
 		bid = pw_array_add(&port->buffer_ids, sizeof(struct buffer_id));
 
+		bid->offset = buffers[i].offset;
+		bid->size = buffers[i].size;
+		bid->ptr = mmap(NULL, bid->offset + bid->size, prot, MAP_SHARED, mid->fd, 0);
+		if (bid->ptr == MAP_FAILED) {
+			bid->ptr = NULL;
+			pw_log_warn("Failed to mmap memory %u %p: %s", bid->size, mid,
+				    strerror(errno));
+			continue;
+		}
+		if (mlock(bid->ptr, bid->offset + bid->size) < 0)
+			pw_log_warn("Failed to lock memory %u %s", bid->offset + bid->size, strerror(errno));
+
 		b = buffers[i].buffer;
 
-		bid->buf_ptr = SPA_MEMBER(mid->ptr, mid->offset + buffers[i].offset, void);
 		{
 			size_t size;
 
@@ -992,13 +992,13 @@ client_node_port_use_buffers(void *object,
 		if (bid->id != len) {
 			pw_log_warn("unexpected id %u found, expected %u", bid->id, len);
 		}
-		pw_log_debug("add buffer %d %d %u", mid->id, bid->id, buffers[i].offset);
+		pw_log_debug("add buffer %d %d %u %u", mid->id, bid->id, bid->offset, bid->size);
 
-		offset = 0;
+		offset = bid->offset;
 		for (j = 0; j < b->n_metas; j++) {
 			struct spa_meta *m = &b->metas[j];
 			memcpy(m, &buffers[i].buffer->metas[j], sizeof(struct spa_meta));
-			m->data = SPA_MEMBER(bid->buf_ptr, offset, void);
+			m->data = SPA_MEMBER(bid->ptr, offset, void);
 			offset += m->size;
 		}
 
@@ -1007,25 +1007,17 @@ client_node_port_use_buffers(void *object,
 
 			memcpy(d, &buffers[i].buffer->datas[j], sizeof(struct spa_data));
 			d->chunk =
-			    SPA_MEMBER(bid->buf_ptr, offset + sizeof(struct spa_chunk) * j,
+			    SPA_MEMBER(bid->ptr, offset + sizeof(struct spa_chunk) * j,
 				       struct spa_chunk);
 
-			if (d->type == proxy->remote->core->type.data.Id) {
+			if (d->type == t->data.MemFd || d->type == t->data.DmaBuf) {
 				struct mem_id *bmid = find_mem(port, SPA_PTR_TO_UINT32(d->data));
-				void *map;
 
-				d->type = proxy->remote->core->type.data.MemFd;
+				d->data = NULL;
 				d->fd = bmid->fd;
-				map = mmap(NULL, d->maxsize + d->mapoffset, prot, MAP_SHARED, d->fd, 0);
-				if (map == MAP_FAILED) {
-					pw_log_error("data %d failed to mmap memory %m", j);
-					res = errno;
-					goto done;
-				}
-				d->data = SPA_MEMBER(map, d->mapoffset, uint8_t);
-				pw_log_debug(" data %d %u -> fd %d mem %p", j, bmid->id, bmid->fd, map);
-			} else if (d->type == proxy->remote->core->type.data.MemPtr) {
-				d->data = SPA_MEMBER(bid->buf_ptr, SPA_PTR_TO_INT(d->data), void);
+				pw_log_debug(" data %d %u -> fd %d", j, bmid->id, bmid->fd);
+			} else if (d->type == t->data.MemPtr) {
+				d->data = SPA_MEMBER(bid->ptr, bid->offset + SPA_PTR_TO_INT(d->data), void);
 				d->fd = -1;
 				pw_log_debug(" data %d %u -> mem %p", j, bid->id, d->data);
 			} else {
@@ -1076,6 +1068,7 @@ client_node_port_set_io(void *object,
 	struct node_data *data = proxy->user_data;
 	struct port *port;
 	struct mem_id *mid;
+	void *ptr;
 
 	port = find_port(data, direction, port_id);
 	if (port == NULL)
@@ -1087,21 +1080,17 @@ client_node_port_set_io(void *object,
 		return;
 	}
 
-	if (mid->ptr == NULL) {
-		mid->ptr =
-		    mmap(NULL, mid->size + mid->offset, PROT_READ|PROT_WRITE, MAP_SHARED, mid->fd, 0);
-		if (mid->ptr == MAP_FAILED) {
-			mid->ptr = NULL;
-			pw_log_warn("Failed to mmap memory %d %p: %s", mid->size, mid,
-				    strerror(errno));
-			return;
-		}
+	ptr = mmap(NULL, offset + size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_LOCKED, mid->fd, 0);
+	if (ptr == MAP_FAILED) {
+		pw_log_warn("Failed to mmap memory %d %p: %s", size, mid,
+			    strerror(errno));
+		return;
 	}
 
 	spa_node_port_set_io(port->port->node->node,
 			     direction, port_id,
 			     id,
-			     SPA_MEMBER(mid->ptr, offset, void),
+			     SPA_MEMBER(ptr, offset, void),
 			     size);
 
 }

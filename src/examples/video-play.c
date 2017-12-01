@@ -111,7 +111,8 @@ on_stream_new_buffer(void *_data, uint32_t id)
 
 	buf = pw_stream_peek_buffer(stream, id);
 
-	if (buf->datas[0].type == data->type.data.MemFd) {
+	if (buf->datas[0].type == data->type.data.MemFd ||
+	    buf->datas[0].type == data->type.data.DmaBuf) {
 		map = mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ,
 			   MAP_PRIVATE, buf->datas[0].fd, 0);
 		sdata = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);

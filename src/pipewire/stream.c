@@ -46,17 +46,16 @@ struct mem_id {
 	uint32_t id;
 	int fd;
 	uint32_t flags;
-	void *ptr;
-	uint32_t offset;
-	uint32_t size;
 };
 
 struct buffer_id {
 	struct spa_list link;
 	uint32_t id;
 	bool used;
-	void *buf_ptr;
 	struct spa_buffer *buf;
+	void *ptr;
+	uint32_t offset;
+	uint32_t size;
 };
 
 struct stream {
@@ -109,9 +108,6 @@ struct stream {
 
 static void clear_memid(struct stream *impl, struct mem_id *mid)
 {
-	if (mid->ptr != NULL)
-		munmap(mid->ptr, mid->size + mid->offset);
-	mid->ptr = NULL;
 	if (mid->fd != -1) {
 		bool has_ref = false;
 		int fd;
@@ -149,6 +145,10 @@ static void clear_buffers(struct pw_stream *stream)
 
 	pw_array_for_each(bid, &impl->buffer_ids) {
 		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, remove_buffer, bid->id);
+		if (bid->ptr != NULL)
+			if (munmap(bid->ptr, bid->size + bid->offset) < 0)
+				pw_log_warn("failed to unmap buffer: %m");
+		bid->ptr = NULL;
 		free(bid->buf);
 		bid->buf = NULL;
 		bid->used = false;
@@ -797,7 +797,7 @@ static void
 client_node_port_add_mem(void *data,
 			 enum spa_direction direction, uint32_t port_id,
 			 uint32_t mem_id,
-			 uint32_t type, int memfd, uint32_t flags, uint32_t offset, uint32_t size)
+			 uint32_t type, int memfd, uint32_t flags)
 {
 	struct stream *impl = data;
 	struct pw_stream *stream = &impl->this;
@@ -805,20 +805,17 @@ client_node_port_add_mem(void *data,
 
 	m = find_mem(stream, mem_id);
 	if (m) {
-		pw_log_debug("update mem %u, fd %d, flags %d, off %d, size %d",
-			     mem_id, memfd, flags, offset, size);
+		pw_log_debug("update mem %u, fd %d, flags %d",
+			     mem_id, memfd, flags);
 		clear_memid(impl, m);
 	} else {
 		m = pw_array_add(&impl->mem_ids, sizeof(struct mem_id));
-		pw_log_debug("add mem %u, fd %d, flags %d, off %d, size %d",
-			     mem_id, memfd, flags, offset, size);
+		pw_log_debug("add mem %u, fd %d, flags %d",
+			     mem_id, memfd, flags);
 	}
 	m->id = mem_id;
 	m->fd = memfd;
 	m->flags = flags;
-	m->ptr = NULL;
-	m->offset = offset;
-	m->size = size;
 }
 
 static void
@@ -829,6 +826,7 @@ client_node_port_use_buffers(void *data,
 {
 	struct stream *impl = data;
 	struct pw_stream *stream = &impl->this;
+	struct pw_type *t = &stream->remote->core->type;
 	struct buffer_id *bid;
 	uint32_t i, j, len;
 	struct spa_buffer *b;
@@ -848,16 +846,6 @@ client_node_port_use_buffers(void *data,
 			continue;
 		}
 
-		if (mid->ptr == NULL) {
-			mid->ptr =
-			    mmap(NULL, mid->size + mid->offset, prot, MAP_SHARED, mid->fd, 0);
-			if (mid->ptr == MAP_FAILED) {
-				mid->ptr = NULL;
-				pw_log_warn("Failed to mmap memory %d %p: %s", mid->size, mid,
-					    strerror(errno));
-				continue;
-			}
-		}
 		len = pw_array_get_len(&impl->buffer_ids, struct buffer_id);
 		bid = pw_array_add(&impl->buffer_ids, sizeof(struct buffer_id));
 		if (impl->direction == SPA_DIRECTION_OUTPUT) {
@@ -869,7 +857,17 @@ client_node_port_use_buffers(void *data,
 
 		b = buffers[i].buffer;
 
-		bid->buf_ptr = SPA_MEMBER(mid->ptr, mid->offset + buffers[i].offset, void);
+		bid->offset = buffers[i].offset;
+		bid->size = buffers[i].size;
+
+		bid->ptr = mmap(NULL, bid->offset + bid->size, prot, MAP_SHARED, mid->fd, 0);
+		if (bid->ptr == MAP_FAILED) {
+			bid->ptr = NULL;
+			pw_log_warn("Failed to mmap memory %d %p: %s", bid->size, mid,
+				    strerror(errno));
+			continue;
+		}
+
 		{
 			size_t size;
 
@@ -893,13 +891,13 @@ client_node_port_use_buffers(void *data,
 			pw_log_warn("unexpected id %u found, expected %u", bid->id, len);
 			impl->in_order = false;
 		}
-		pw_log_debug("add buffer %d %d %u", mid->id, bid->id, buffers[i].offset);
+		pw_log_debug("add buffer %d %d %u %u", mid->id, bid->id, bid->offset, bid->size);
 
-		offset = 0;
+		offset = bid->offset;
 		for (j = 0; j < b->n_metas; j++) {
 			struct spa_meta *m = &b->metas[j];
 			memcpy(m, &buffers[i].buffer->metas[j], sizeof(struct spa_meta));
-			m->data = SPA_MEMBER(bid->buf_ptr, offset, void);
+			m->data = SPA_MEMBER(bid->ptr, offset, void);
 			offset += m->size;
 		}
 
@@ -908,17 +906,16 @@ client_node_port_use_buffers(void *data,
 
 			memcpy(d, &buffers[i].buffer->datas[j], sizeof(struct spa_data));
 			d->chunk =
-			    SPA_MEMBER(bid->buf_ptr, offset + sizeof(struct spa_chunk) * j,
+			    SPA_MEMBER(bid->ptr, offset + sizeof(struct spa_chunk) * j,
 				       struct spa_chunk);
 
-			if (d->type == stream->remote->core->type.data.Id) {
+			if (d->type == t->data.MemFd || d->type == t->data.DmaBuf) {
 				struct mem_id *bmid = find_mem(stream, SPA_PTR_TO_UINT32(d->data));
-				d->type = stream->remote->core->type.data.MemFd;
 				d->data = NULL;
 				d->fd = bmid->fd;
 				pw_log_debug(" data %d %u -> fd %d", j, bmid->id, bmid->fd);
-			} else if (d->type == stream->remote->core->type.data.MemPtr) {
-				d->data = SPA_MEMBER(bid->buf_ptr, SPA_PTR_TO_INT(d->data), void);
+			} else if (d->type == t->data.MemPtr) {
+				d->data = SPA_MEMBER(bid->ptr, bid->offset + SPA_PTR_TO_INT(d->data), void);
 				d->fd = -1;
 				pw_log_debug(" data %d %u -> mem %p", j, bid->id, d->data);
 			} else {

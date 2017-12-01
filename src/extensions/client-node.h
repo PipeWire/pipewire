@@ -288,14 +288,14 @@ pw_client_node_proxy_destroy(struct pw_client_node_proxy *p)
 }
 
 
-#define PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT		0
-#define PW_CLIENT_NODE_PROXY_EVENT_SET_PARAM		1
-#define PW_CLIENT_NODE_PROXY_EVENT_EVENT		2
-#define PW_CLIENT_NODE_PROXY_EVENT_COMMAND		3
-#define PW_CLIENT_NODE_PROXY_EVENT_ADD_PORT		4
-#define PW_CLIENT_NODE_PROXY_EVENT_REMOVE_PORT		5
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_PARAM	6
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_ADD_MEM		7
+#define PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM		0
+#define PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT		1
+#define PW_CLIENT_NODE_PROXY_EVENT_SET_PARAM		2
+#define PW_CLIENT_NODE_PROXY_EVENT_EVENT		3
+#define PW_CLIENT_NODE_PROXY_EVENT_COMMAND		4
+#define PW_CLIENT_NODE_PROXY_EVENT_ADD_PORT		5
+#define PW_CLIENT_NODE_PROXY_EVENT_REMOVE_PORT		6
+#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_PARAM	7
 #define PW_CLIENT_NODE_PROXY_EVENT_PORT_USE_BUFFERS	8
 #define PW_CLIENT_NODE_PROXY_EVENT_PORT_COMMAND		9
 #define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO		10
@@ -305,6 +305,19 @@ pw_client_node_proxy_destroy(struct pw_client_node_proxy *p)
 struct pw_client_node_proxy_events {
 #define PW_VERSION_CLIENT_NODE_PROXY_EVENTS		0
 	uint32_t version;
+	/**
+	 * Memory was added to a node
+	 *
+	 * \param mem_id the id of the memory
+	 * \param type the memory type
+	 * \param memfd the fd of the memory
+	 * \param flags flags for the \a memfd
+	 */
+	void (*add_mem) (void *object,
+			 uint32_t mem_id,
+			 uint32_t type,
+			 int memfd,
+			 uint32_t flags);
 	/**
 	 * Notify of a new transport area
 	 *
@@ -388,25 +401,6 @@ struct pw_client_node_proxy_events {
 				uint32_t id, uint32_t flags,
 				const struct spa_pod *param);
 	/**
-	 * Memory was added for a port
-	 *
-	 * \param direction a port direction
-	 * \param port_id the port id
-	 * \param mem_id the id of the memory
-	 * \param type the memory type
-	 * \param memfd the fd of the memory
-	 * \param flags flags for the \a memfd
-	 * \param offset valid offset of mapped memory from \a memfd
-	 * \param size valid size of mapped memory from \a memfd
-	 */
-	void (*port_add_mem) (void *object,
-			      enum spa_direction direction,
-			      uint32_t port_id,
-			      uint32_t mem_id,
-			      uint32_t type,
-			      int memfd,
-			      uint32_t flags);
-	/**
 	 * Notify the port of buffers
 	 *
 	 * \param seq a sequence number
@@ -463,6 +457,8 @@ pw_client_node_proxy_add_listener(struct pw_client_node_proxy *p,
         pw_proxy_add_proxy_listener((struct pw_proxy*)p, listener, events, data);
 }
 
+#define pw_client_node_resource_add_mem(r,...)	\
+	pw_resource_notify(r,struct pw_client_node_proxy_events,add_mem,__VA_ARGS__)
 #define pw_client_node_resource_transport(r,...)	\
 	pw_resource_notify(r,struct pw_client_node_proxy_events,transport,__VA_ARGS__)
 #define pw_client_node_resource_set_param(r,...)	\
@@ -477,8 +473,6 @@ pw_client_node_proxy_add_listener(struct pw_client_node_proxy *p,
 	pw_resource_notify(r,struct pw_client_node_proxy_events,remove_port,__VA_ARGS__)
 #define pw_client_node_resource_port_set_param(r,...)	\
 	pw_resource_notify(r,struct pw_client_node_proxy_events,port_set_param,__VA_ARGS__)
-#define pw_client_node_resource_port_add_mem(r,...)	\
-	pw_resource_notify(r,struct pw_client_node_proxy_events,port_add_mem,__VA_ARGS__)
 #define pw_client_node_resource_port_use_buffers(r,...)	\
 	pw_resource_notify(r,struct pw_client_node_proxy_events,port_use_buffers,__VA_ARGS__)
 #define pw_client_node_resource_port_command(r,...)	\

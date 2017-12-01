@@ -132,7 +132,7 @@ static inline bool pw_map_insert_at(struct pw_map *map, uint32_t id, void *data)
 	return true;
 }
 
-/** Remove and item at index
+/** Remove an item at index
  * \param map the map to remove from
  * \param id the index to remove
  * \memberof pw_map

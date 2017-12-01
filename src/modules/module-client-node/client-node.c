@@ -68,8 +68,6 @@ struct buffer {
 	struct spa_buffer buffer;
 	struct spa_meta metas[4];
 	struct spa_data datas[4];
-	off_t offset;
-	size_t size;
 	bool outstanding;
 };
 
@@ -540,11 +538,10 @@ spa_proxy_node_port_set_io(struct spa_node *node,
 		if ((mem = pw_memblock_find(data)) == NULL)
 			return -EINVAL;
 
-		pw_client_node_resource_port_add_mem(this->resource,
-						     direction, port_id,
-						     memid,
-						     t->data.MemFd,
-						     mem->fd, mem->flags);
+		pw_client_node_resource_add_mem(this->resource,
+						memid,
+						t->data.MemFd,
+						mem->fd, mem->flags);
 
 		pw_client_node_resource_port_set_io(this->resource,
 						    this->seq,
@@ -567,7 +564,6 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 	struct impl *impl;
 	struct port *port;
 	uint32_t i, j;
-	size_t n_mem;
 	struct pw_client_node_buffer *mb;
 	struct pw_type *t;
 
@@ -598,11 +594,10 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 	if (this->resource == NULL)
 		return 0;
 
-	n_mem = this->membase;
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &port->buffers[i];
 		struct pw_memblock *m;
-		size_t data_size;
+		size_t data_size, size;
 		void *baseptr;
 
 		b->outbuf = buffers[i];
@@ -632,21 +627,20 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 		}
 
 		mb[i].buffer = &b->buffer;
-		mb[i].mem_id = n_mem++;
+		mb[i].mem_id = this->membase++;
 		mb[i].offset = SPA_PTRDIFF(baseptr, m->ptr + m->offset);
 		mb[i].size = data_size;
 
-		pw_client_node_resource_port_add_mem(this->resource,
-						     direction,
-						     port_id,
-						     mb[i].mem_id,
-						     t->data.MemFd,
-						     m->fd, m->flags);
+		pw_client_node_resource_add_mem(this->resource,
+						mb[i].mem_id,
+						t->data.MemFd,
+						m->fd, m->flags);
 
 		for (j = 0; j < buffers[i]->n_metas; j++)
 			memcpy(&b->buffer.metas[j], &buffers[i]->metas[j], sizeof(struct spa_meta));
 		b->buffer.n_metas = j;
 
+		size = 0;
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = &buffers[i]->datas[j];
 
@@ -654,18 +648,16 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 
 			if (d->type == t->data.DmaBuf ||
 			    d->type == t->data.MemFd) {
-				pw_client_node_resource_port_add_mem(this->resource,
-								     direction,
-								     port_id,
-								     n_mem,
-								     d->type,
-								     d->fd,
-								     d->flags);
-				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(n_mem);
-				n_mem++;
+				pw_client_node_resource_add_mem(this->resource,
+								this->membase,
+								d->type,
+								d->fd,
+								d->flags);
+				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(this->membase);
+				this->membase++;
 			} else if (d->type == t->data.MemPtr) {
-				b->buffer.datas[j].data = SPA_INT_TO_PTR(b->size);
-				b->size += d->maxsize;
+				b->buffer.datas[j].data = SPA_INT_TO_PTR(size);
+				size += d->maxsize;
 			} else {
 				b->buffer.datas[j].type = SPA_ID_INVALID;
 				b->buffer.datas[j].data = 0;

@@ -50,6 +50,7 @@ struct mem_id {
 	uint32_t id;
 	int fd;
 	uint32_t flags;
+	uint32_t ref;
 };
 
 struct buffer_id {
@@ -58,6 +59,8 @@ struct buffer_id {
 	struct spa_buffer *buf;
 	void *ptr;
 	struct pw_map_range map;
+	uint32_t n_mem;
+	struct mem_id **mem;
 };
 
 struct port {
@@ -66,7 +69,6 @@ struct port {
 
 	struct pw_port *port;
 
-        struct pw_array mem_ids;
 	struct pw_array buffer_ids;
 	bool in_order;
 };
@@ -87,6 +89,8 @@ struct node_data {
 	struct spa_node in_node_impl;
 	struct spa_graph_node in_node;
 	struct port *in_ports;
+
+        struct pw_array mem_ids;
 
 	struct pw_node *node;
 	struct spa_hook node_listener;
@@ -411,7 +415,7 @@ void pw_remote_disconnect(struct pw_remote *remote)
 	pw_protocol_client_disconnect (remote->conn);
 
 	spa_list_for_each_safe(proxy, t2, &remote->proxy_list, link)
-	    pw_proxy_destroy(proxy);
+		pw_proxy_destroy(proxy);
 	remote->core_proxy = NULL;
 
 	pw_map_clear(&remote->objects);
@@ -517,10 +521,42 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 	}
 }
 
+static struct mem_id *find_mem(struct pw_array *mem_ids, uint32_t id)
+{
+	struct mem_id *mid;
+
+	pw_array_for_each(mid, mem_ids) {
+		if (mid->id == id)
+			return mid;
+	}
+	return NULL;
+}
+
+static void clear_memid(struct node_data *data, struct mem_id *mid)
+{
+	if (mid->fd != -1) {
+		bool has_ref = false;
+		int fd;
+
+		fd = mid->fd;
+		mid->fd = -1;
+
+		pw_array_for_each(mid, &data->mem_ids) {
+			if (mid->fd == fd) {
+				has_ref = true;
+				break;
+			}
+		}
+		if (!has_ref)
+			close(fd);
+	}
+}
+
 static void clean_transport(struct pw_proxy *proxy)
 {
 	struct node_data *data = proxy->user_data;
 	struct pw_port *port;
+	struct mem_id *mid;
 
 	if (data->trans == NULL)
 		return;
@@ -536,6 +572,10 @@ static void clean_transport(struct pw_proxy *proxy)
 		spa_graph_port_remove(&data->out_ports[port->port_id].input);
 	}
 
+	pw_array_for_each(mid, &data->mem_ids)
+		clear_memid(data, mid);
+	pw_array_clear(&data->mem_ids);
+
 	free(data->in_ports);
 	free(data->out_ports);
 	pw_client_node_transport_destroy(data->trans);
@@ -546,8 +586,6 @@ static void clean_transport(struct pw_proxy *proxy)
 
 static void port_init(struct port *port)
 {
-        pw_array_init(&port->mem_ids, 64);
-        pw_array_ensure_size(&port->mem_ids, sizeof(struct mem_id) * 64);
         pw_array_init(&port->buffer_ids, 32);
         pw_array_ensure_size(&port->buffer_ids, sizeof(struct buffer_id) * 64);
 	port->in_order = true;
@@ -565,6 +603,30 @@ static struct port *find_port(struct node_data *data, enum spa_direction directi
 			return NULL;
 		return &data->out_ports[port_id];
 	}
+}
+
+static void client_node_add_mem(void *object,
+				uint32_t mem_id,
+				uint32_t type, int memfd, uint32_t flags)
+{
+	struct pw_proxy *proxy = object;
+	struct node_data *data = proxy->user_data;
+	struct mem_id *m;
+
+	m = find_mem(&data->mem_ids, mem_id);
+	if (m) {
+		pw_log_debug("update mem %u, fd %d, flags %d",
+			     mem_id, memfd, flags);
+		clear_memid(data, m);
+	} else {
+		m = pw_array_add(&data->mem_ids, sizeof(struct mem_id));
+		pw_log_debug("add mem %u, fd %d, flags %d",
+			     mem_id, memfd, flags);
+	}
+	m->id = mem_id;
+	m->fd = memfd;
+	m->flags = flags;
+	m->ref = 0;
 }
 
 static void client_node_transport(void *object, uint32_t node_id,
@@ -836,34 +898,10 @@ client_node_port_set_param(void *object,
 	pw_client_node_proxy_done(data->node_proxy, seq, res);
 }
 
-static struct mem_id *find_mem(struct port *port, uint32_t id)
-{
-	struct mem_id *mid;
-
-	pw_array_for_each(mid, &port->mem_ids) {
-		if (mid->id == id)
-			return mid;
-	}
-	return NULL;
-}
-
-static void clear_memid(struct mem_id *mid)
-{
-	close(mid->fd);
-}
-
-static void clear_mems(struct port *port)
-{
-	struct mem_id *mid;
-
-	pw_array_for_each(mid, &port->mem_ids)
-		clear_memid(mid);
-	port->mem_ids.size = 0;
-}
-
-static void clear_buffers(struct port *port)
+static void clear_buffers(struct node_data *data, struct port *port)
 {
         struct buffer_id *bid;
+	int i;
 
         pw_log_debug("port %p: clear buffers", port);
 
@@ -872,45 +910,19 @@ static void clear_buffers(struct port *port)
 			if (munmap(bid->ptr, bid->map.size) < 0)
 				pw_log_warn("failed to unmap: %m");
 		}
+		if (bid->mem != NULL) {
+			for (i = 0; i < bid->n_mem; i++) {
+				if (--bid->mem[i]->ref == 0)
+					clear_memid(data, bid->mem[i]);
+			}
+			bid->mem = NULL;
+			bid->n_mem = 0;
+		}
 		bid->ptr = NULL;
                 free(bid->buf);
                 bid->buf = NULL;
         }
         port->buffer_ids.size = 0;
-}
-
-static void clear_port(struct port *port)
-{
-	clear_buffers(port);
-	clear_mems(port);
-	pw_array_clear(&port->mem_ids);
-	pw_array_clear(&port->buffer_ids);
-}
-
-static void
-client_node_port_add_mem(void *object,
-			 enum spa_direction direction, uint32_t port_id,
-			 uint32_t mem_id,
-			 uint32_t type, int memfd, uint32_t flags)
-{
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
-	struct mem_id *m;
-	struct port *port = find_port(data, direction, port_id);
-
-	m = find_mem(port, mem_id);
-	if (m) {
-		pw_log_debug("update mem %u, fd %d, flags %d",
-			     mem_id, memfd, flags);
-		clear_memid(m);
-	} else {
-		m = pw_array_add(&port->mem_ids, sizeof(struct mem_id));
-		pw_log_debug("add mem %u, fd %d, flags %d",
-			     mem_id, memfd, flags);
-	}
-	m->id = mem_id;
-	m->fd = memfd;
-	m->flags = flags;
 }
 
 static void
@@ -940,14 +952,14 @@ client_node_port_use_buffers(void *object,
 	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
 
 	/* clear previous buffers */
-	clear_buffers(port);
+	clear_buffers(data, port);
 
 	bufs = alloca(n_buffers * sizeof(struct spa_buffer *));
 
 	for (i = 0; i < n_buffers; i++) {
 		off_t offset;
 
-		struct mem_id *mid = find_mem(port, buffers[i].mem_id);
+		struct mem_id *mid = find_mem(&data->mem_ids, buffers[i].mem_id);
 		if (mid == NULL) {
 			pw_log_warn("unknown memory id %u", buffers[i].mem_id);
 			continue;
@@ -975,18 +987,26 @@ client_node_port_use_buffers(void *object,
 			size_t size;
 
 			size = sizeof(struct spa_buffer);
+			size += sizeof(struct mem_id *);
 			for (j = 0; j < buffers[i].buffer->n_metas; j++)
 				size += sizeof(struct spa_meta);
-			for (j = 0; j < buffers[i].buffer->n_datas; j++)
+			for (j = 0; j < buffers[i].buffer->n_datas; j++) {
 				size += sizeof(struct spa_data);
+				size += sizeof(struct mem_id *);
+			}
 
 			b = bid->buf = malloc(size);
 			memcpy(b, buffers[i].buffer, sizeof(struct spa_buffer));
 
 			b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
-			b->datas =
-			    SPA_MEMBER(b->metas, sizeof(struct spa_meta) * b->n_metas,
+			b->datas = SPA_MEMBER(b->metas, sizeof(struct spa_meta) * b->n_metas,
 				       struct spa_data);
+			bid->mem = SPA_MEMBER(b->datas, sizeof(struct spa_data) * b->n_datas,
+				       struct mem_id*);
+			bid->n_mem = 0;
+
+			mid->ref++;
+			bid->mem[bid->n_mem++] = mid;
 		}
 		bid->id = b->id;
 
@@ -1012,10 +1032,13 @@ client_node_port_use_buffers(void *object,
 				       struct spa_chunk);
 
 			if (d->type == t->data.MemFd || d->type == t->data.DmaBuf) {
-				struct mem_id *bmid = find_mem(port, SPA_PTR_TO_UINT32(d->data));
+				struct mem_id *bmid = find_mem(&data->mem_ids,
+						SPA_PTR_TO_UINT32(d->data));
 
 				d->data = NULL;
 				d->fd = bmid->fd;
+				bmid->ref++;
+				bid->mem[bid->n_mem++] = bmid;
 				pw_log_debug(" data %d %u -> fd %d", j, bmid->id, bmid->fd);
 			} else if (d->type == t->data.MemPtr) {
 				d->data = SPA_MEMBER(bid->ptr,
@@ -1030,9 +1053,6 @@ client_node_port_use_buffers(void *object,
 	}
 
 	res = pw_port_use_buffers(port->port, bufs, n_buffers);
-
-	if (n_buffers == 0)
-		clear_mems(port);
 
       done:
 	pw_client_node_proxy_done(data->node_proxy, seq, res);
@@ -1078,7 +1098,7 @@ client_node_port_set_io(void *object,
 	if (port == NULL)
 		return;
 
-	mid = find_mem(port, memid);
+	mid = find_mem(&data->mem_ids, memid);
 	if (mid == NULL) {
 		pw_log_warn("unknown memory id %u", memid);
 		return;
@@ -1097,12 +1117,12 @@ client_node_port_set_io(void *object,
 			     id,
 			     SPA_MEMBER(ptr, r.start, void),
 			     size);
-
 }
 
 
 static const struct pw_client_node_proxy_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
+	.add_mem = client_node_add_mem,
 	.transport = client_node_transport,
 	.set_param = client_node_set_param,
 	.event = client_node_event,
@@ -1110,7 +1130,6 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.add_port = client_node_add_port,
 	.remove_port = client_node_remove_port,
 	.port_set_param = client_node_port_set_param,
-	.port_add_mem = client_node_port_add_mem,
 	.port_use_buffers = client_node_port_use_buffers,
 	.port_command = client_node_port_command,
 	.port_set_io = client_node_port_set_io,
@@ -1166,6 +1185,12 @@ static const struct pw_node_events node_events = {
 	.have_output = node_have_output,
 };
 
+static void clear_port(struct node_data *data, struct port *port)
+{
+	clear_buffers(data, port);
+	pw_array_clear(&port->buffer_ids);
+}
+
 static void node_proxy_destroy(void *_data)
 {
 	struct node_data *data = _data;
@@ -1174,9 +1199,9 @@ static void node_proxy_destroy(void *_data)
 
 	if (data->trans) {
 		for (i = 0; i < data->trans->area->max_input_ports; i++)
-			clear_port(&data->in_ports[i]);
+			clear_port(data, &data->in_ports[i]);
 		for (i = 0; i < data->trans->area->max_output_ports; i++)
-			clear_port(&data->out_ports[i]);
+			clear_port(data, &data->out_ports[i]);
 	}
 	clean_transport(proxy);
 
@@ -1242,6 +1267,9 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;
 	data->in_node_impl = node_impl;
 	data->out_node_impl = node_impl;
+
+        pw_array_init(&data->mem_ids, 64);
+        pw_array_ensure_size(&data->mem_ids, sizeof(struct mem_id) * 64);
 
 	spa_graph_node_init(&data->in_node);
 	spa_graph_node_set_implementation(&data->in_node, &data->in_node_impl);

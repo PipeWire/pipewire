@@ -46,6 +46,7 @@ struct mem_id {
 	uint32_t id;
 	int fd;
 	uint32_t flags;
+	uint32_t ref;
 };
 
 struct buffer_id {
@@ -55,6 +56,8 @@ struct buffer_id {
 	struct spa_buffer *buf;
 	void *ptr;
 	struct pw_map_range map;
+	uint32_t n_mem;
+	struct mem_id **mem;
 };
 
 struct stream {
@@ -131,7 +134,7 @@ static void clear_mems(struct pw_stream *stream)
 	struct mem_id *mid;
 
 	pw_array_for_each(mid, &impl->mem_ids)
-	    clear_memid(impl, mid);
+		clear_memid(impl, mid);
 	impl->mem_ids.size = 0;
 }
 
@@ -793,10 +796,9 @@ client_node_port_set_param(void *data,
 }
 
 static void
-client_node_port_add_mem(void *data,
-			 enum spa_direction direction, uint32_t port_id,
-			 uint32_t mem_id,
-			 uint32_t type, int memfd, uint32_t flags)
+client_node_add_mem(void *data,
+		    uint32_t mem_id,
+		    uint32_t type, int memfd, uint32_t flags)
 {
 	struct stream *impl = data;
 	struct pw_stream *stream = &impl->this;
@@ -871,18 +873,26 @@ client_node_port_use_buffers(void *data,
 			size_t size;
 
 			size = sizeof(struct spa_buffer);
+			size += sizeof(struct mem_id *);
 			for (j = 0; j < buffers[i].buffer->n_metas; j++)
 				size += sizeof(struct spa_meta);
-			for (j = 0; j < buffers[i].buffer->n_datas; j++)
+			for (j = 0; j < buffers[i].buffer->n_datas; j++) {
 				size += sizeof(struct spa_data);
+				size += sizeof(struct mem_id *);
+			}
 
 			b = bid->buf = malloc(size);
 			memcpy(b, buffers[i].buffer, sizeof(struct spa_buffer));
 
 			b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
-			b->datas =
-			    SPA_MEMBER(b->metas, sizeof(struct spa_meta) * b->n_metas,
+			b->datas = SPA_MEMBER(b->metas, sizeof(struct spa_meta) * b->n_metas,
 				       struct spa_data);
+			bid->mem = SPA_MEMBER(b->datas, sizeof(struct spa_data) * b->n_datas,
+				       struct mem_id*);
+			bid->n_mem = 0;
+
+			mid->ref++;
+			bid->mem[bid->n_mem++] = mid;
 		}
 		bid->id = b->id;
 
@@ -913,6 +923,8 @@ client_node_port_use_buffers(void *data,
 				struct mem_id *bmid = find_mem(stream, SPA_PTR_TO_UINT32(d->data));
 				d->data = NULL;
 				d->fd = bmid->fd;
+				bmid->ref++;
+				bid->mem[bid->n_mem++] = bmid;
 				pw_log_debug(" data %d %u -> fd %d", j, bmid->id, bmid->fd);
 			} else if (d->type == t->data.MemPtr) {
 				d->data = SPA_MEMBER(bid->ptr,
@@ -967,6 +979,7 @@ static void client_node_transport(void *data, uint32_t node_id,
 
 static const struct pw_client_node_proxy_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
+	.add_mem = client_node_add_mem,
 	.transport = client_node_transport,
 	.set_param = client_node_set_param,
 	.event = client_node_event,
@@ -974,7 +987,6 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.add_port = client_node_add_port,
 	.remove_port = client_node_remove_port,
 	.port_set_param = client_node_port_set_param,
-	.port_add_mem = client_node_port_add_mem,
 	.port_use_buffers = client_node_port_use_buffers,
 	.port_command = client_node_port_command,
 };

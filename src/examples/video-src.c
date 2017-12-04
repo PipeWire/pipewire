@@ -60,8 +60,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 struct data {
 	struct type type;
 
-	bool running;
-	struct pw_loop *loop;
+	struct pw_main_loop *loop;
 	struct spa_source *timer;
 
 	struct pw_core *core;
@@ -145,7 +144,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 
 	switch (state) {
 	case PW_STREAM_STATE_PAUSED:
-		pw_loop_update_timer(data->loop, data->timer, NULL, NULL, false);
+		pw_loop_update_timer(pw_main_loop_get_loop(data->loop), data->timer, NULL, NULL, false);
 		break;
 
 	case PW_STREAM_STATE_STREAMING:
@@ -157,7 +156,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 		interval.tv_sec = 0;
 		interval.tv_nsec = 40 * SPA_NSEC_PER_MSEC;
 
-		pw_loop_update_timer(data->loop, data->timer, &timeout, &interval, false);
+		pw_loop_update_timer(pw_main_loop_get_loop(data->loop), data->timer, &timeout, &interval, false);
 		break;
 	}
 	default:
@@ -213,7 +212,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
 		printf("remote error: %s\n", error);
-		data->running = false;
+		pw_main_loop_quit(data->loop);
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
@@ -265,29 +264,23 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
-	data.loop = pw_loop_new(NULL);
-	data.running = true;
-	data.core = pw_core_new(data.loop, NULL);
+	data.loop = pw_main_loop_new(NULL);
+	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL);
 	data.t = pw_core_get_type(data.core);
 	data.remote = pw_remote_new(data.core, NULL, 0);
 
 	init_type(&data.type, data.t->map);
 
-	data.timer = pw_loop_add_timer(data.loop, on_timeout, &data);
+	data.timer = pw_loop_add_timer(pw_main_loop_get_loop(data.loop), on_timeout, &data);
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 
 	pw_remote_connect(data.remote);
 
-	pw_loop_enter(data.loop);
-	while (data.running) {
-		pw_loop_iterate(data.loop, -1);
-	}
-	pw_loop_leave(data.loop);
+	pw_main_loop_run(data.loop);
 
-	pw_remote_destroy(data.remote);
 	pw_core_destroy(data.core);
-	pw_loop_destroy(data.loop);
+	pw_main_loop_destroy(data.loop);
 
 	return 0;
 }

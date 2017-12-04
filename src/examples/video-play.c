@@ -68,8 +68,7 @@ struct data {
 	SDL_Window *window;
 	SDL_Texture *texture;
 
-	bool running;
-	struct pw_loop *loop;
+	struct pw_main_loop *loop;
 
 	struct pw_core *core;
 	struct pw_type *t;
@@ -91,7 +90,7 @@ static void handle_events(struct data *data)
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
 		case SDL_QUIT:
-			data->running = false;
+			pw_main_loop_quit(data->loop);
 			break;
 		}
 	}
@@ -298,7 +297,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
 		printf("remote error: %s\n", error);
-		data->running = false;
+		pw_main_loop_quit(data->loop);
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
@@ -383,9 +382,8 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
-	data.loop = pw_loop_new(NULL);
-	data.running = true;
-	data.core = pw_core_new(data.loop, NULL);
+	data.loop = pw_main_loop_new(NULL);
+	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL);
 	data.t = pw_core_get_type(data.core);
 	data.remote = pw_remote_new(data.core, NULL, 0);
 	data.path = argc > 1 ? argv[1] : NULL;
@@ -409,15 +407,10 @@ int main(int argc, char *argv[])
 
 	pw_remote_connect(data.remote);
 
-	pw_loop_enter(data.loop);
-	while (data.running) {
-		pw_loop_iterate(data.loop, -1);
-	}
-	pw_loop_leave(data.loop);
+	pw_main_loop_run(data.loop);
 
-	pw_remote_destroy(data.remote);
 	pw_core_destroy(data.core);
-	pw_loop_destroy(data.loop);
+	pw_main_loop_destroy(data.loop);
 
 	return 0;
 }

@@ -537,6 +537,8 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 			if (type == '{' || type == '[')
 				continue;
 
+			format = spec;
+
 			n_values = -1;
 	                while (n_values-- != 0) {
 				SPA_POD_BUILDER_COLLECT(builder, type, args);
@@ -548,7 +550,8 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 	                                n_values = va_arg(args, int);
 			}
 			spa_pod_builder_pop(builder);
-			break;
+			/* don't advance format */
+			continue;
 		}
 		case ']': case ')': case '>':
 			spa_pod_builder_pop(builder);

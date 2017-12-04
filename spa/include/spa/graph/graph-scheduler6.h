@@ -57,7 +57,8 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 
 		if (pport->io->status == SPA_STATUS_NEED_BUFFER) {
 			pnode->ready[SPA_DIRECTION_OUTPUT]++;
-			node->required[SPA_DIRECTION_INPUT]++;
+			if (!(p->flags & SPA_PORT_INFO_FLAG_OPTIONAL))
+				node->required[SPA_DIRECTION_INPUT]++;
 		}
 
 		pready = pnode->ready[SPA_DIRECTION_OUTPUT];
@@ -70,12 +71,13 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 			pnode->state = spa_node_process_output(pnode->implementation);
 
 			spa_debug("peer %p processed out %d", pnode, pnode->state);
-			if (pnode->state == SPA_STATUS_NEED_BUFFER)
-				spa_graph_need_input(pnode->graph, pnode);
-			else if (pnode->state == SPA_STATUS_HAVE_BUFFER)
+			if (pnode->state == SPA_STATUS_HAVE_BUFFER)
 				spa_graph_have_output(pnode->graph, pnode);
+			else if (pnode->state == SPA_STATUS_NEED_BUFFER)
+				spa_graph_need_input(pnode->graph, pnode);
 		}
 	}
+	spa_debug("node %p end pull", node);
 	return 0;
 }
 
@@ -98,27 +100,29 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 		}
 		pnode = pport->node;
 
-		if (p->io->status == SPA_STATUS_HAVE_BUFFER) {
+		if (pport->io->status == SPA_STATUS_HAVE_BUFFER) {
 			pnode->ready[SPA_DIRECTION_INPUT]++;
-			node->required[SPA_DIRECTION_OUTPUT]++;
+			if (!(p->flags & SPA_PORT_INFO_FLAG_OPTIONAL))
+				node->required[SPA_DIRECTION_OUTPUT]++;
 		}
 
 		pready = pnode->ready[SPA_DIRECTION_INPUT];
 		prequired = pnode->required[SPA_DIRECTION_INPUT];
 
-		spa_debug("node %p peer %p io %d %d %d", node, pnode, pport->io->status,
-				pready, prequired);
+		spa_debug("node %p peer %p io %d %d %d %d", node, pnode, pport->io->status,
+				pport->io->buffer_id, pready, prequired);
 
 		if (prequired > 0 && pready >= prequired) {
 			pnode->state = spa_node_process_input(pnode->implementation);
 
-			spa_debug("node %p chain processed in %d", pnode, pnode->state);
+			spa_debug("peer %p processed in %d", pnode, pnode->state);
 			if (pnode->state == SPA_STATUS_HAVE_BUFFER)
 				spa_graph_have_output(pnode->graph, pnode);
 			else if (pnode->state == SPA_STATUS_NEED_BUFFER)
 				spa_graph_need_input(pnode->graph, pnode);
 		}
 	}
+	spa_debug("node %p end push", node);
 	return 0;
 }
 

@@ -123,8 +123,13 @@ static int schedule_mix_output(struct spa_node *data)
 	struct spa_graph_port *p;
 	struct spa_io_buffers *io = this->rt.mix_port.io;
 
-	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
-		*p->io = *io;
+	if (!spa_list_is_empty(&node->ports[SPA_DIRECTION_INPUT])) {
+		spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
+			*p->io = *io;
+	}
+	else {
+		io->status = SPA_STATUS_OK;
+	}
 	pw_log_trace("mix output %d %d", io->status, io->buffer_id);
 	return io->status;
 }

@@ -189,6 +189,7 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 	int res;
 	struct spa_handle *handle;
 	void *interface;
+	const struct spa_interface_info *info;
 	uint32_t index;
 
 	printf("factory name:\t\t'%s'\n", factory->name);
@@ -198,6 +199,17 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 	else
 		printf("  none\n");
 
+	printf("factory interfaces:\n");
+	for (index = 0;;) {
+		if ((res = spa_handle_factory_enum_interface_info(factory, &info, &index)) <= 0) {
+			if (res == 0)
+				break;
+			else
+				error(0, -res, "spa_handle_factory_enum_interface_info");
+		}
+		printf(" interface: '%s'\n", info->type);
+	}
+
 	handle = calloc(1, factory->size);
 	if ((res =
 	     spa_handle_factory_init(factory, handle, NULL, data->support, data->n_support)) < 0) {
@@ -205,10 +217,9 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 		return;
 	}
 
-	printf("factory interfaces:\n");
+	printf("factory instance:\n");
 
 	for (index = 0;;) {
-		const struct spa_interface_info *info;
 		uint32_t interface_id;
 
 		if ((res = spa_handle_factory_enum_interface_info(factory, &info, &index)) <= 0) {
@@ -219,10 +230,13 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 		}
 		printf(" interface: '%s'\n", info->type);
 
-		interface_id = spa_type_map_get_id(data->map, info->type);
+		if (strcmp(info->type, SPA_TYPE__TypeMap) == 0)
+			interface_id = 0;
+		else
+			interface_id = spa_type_map_get_id(data->map, info->type);
 
 		if ((res = spa_handle_get_interface(handle, interface_id, &interface)) < 0) {
-			printf("can't get interface: %d\n", res);
+			printf("can't get interface: %d %d\n", interface_id, res);
 			continue;
 		}
 
@@ -254,6 +268,7 @@ int main(int argc, char *argv[])
 	void *handle;
 	spa_handle_factory_enum_func_t enum_func;
 	uint32_t index;
+	const char *str;
 
 	if (argc < 2) {
 		printf("usage: %s <plugin.so>\n", argv[0]);
@@ -266,6 +281,9 @@ int main(int argc, char *argv[])
 	data.loop.add_source = do_add_source;
 	data.loop.update_source = do_update_source;
 	data.loop.remove_source = do_remove_source;
+
+	if ((str = getenv("SPA_DEBUG")))
+		data.log->level = atoi(str);
 
 	spa_debug_set_type_map(data.map);
 
@@ -303,6 +321,5 @@ int main(int argc, char *argv[])
 		}
 		inspect_factory(&data, factory);
 	}
-
 	return 0;
 }

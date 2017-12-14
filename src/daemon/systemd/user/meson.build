@@ -1,7 +1,4 @@
-systemd = dependency('systemd', required: true)
-if systemd.found()
-    systemd_user_services_dir = systemd.get_pkgconfig_variable('systemduserunitdir')
-endif
+systemd_user_services_dir = systemd.get_pkgconfig_variable('systemduserunitdir')
 
 install_data(sources : 'pipewire.socket', install_dir : systemd_user_services_dir)
 

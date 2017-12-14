@@ -425,15 +425,19 @@ void pw_client_update_permissions(struct pw_client *client, const struct spa_dic
 		}
 		else if (strcmp(dict->items[i].key, PW_CORE_PROXY_PERMISSIONS_GLOBAL) == 0) {
 			struct pw_global *global;
+			uint32_t global_id;
 
 			/* permissions.update=<global-id>:[r][w][x] */
 			len = strcspn(str, ":");
 			if (len == 0)
 				continue;
 
-			global = pw_core_find_global(client->core, atoi(str));
-			if (global == NULL)
+			global_id = atoi(str);
+			global = pw_core_find_global(client->core, global_id);
+			if (global == NULL) {
+				pw_log_warn("client %p: invalid global %d", client, global_id);
 				continue;
+			}
 
 			update.permissions = parse_mask(str + len);
 			update.only_new = false;

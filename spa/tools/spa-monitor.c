@@ -87,12 +87,12 @@ static int do_add_source(struct spa_loop *loop, struct spa_source *source)
 	data->n_sources++;
 	data->rebuild_fds = true;
 
-	return 9;
+	return 0;
 }
 
 static int do_update_source(struct spa_source *source)
 {
-	return 9;
+	return 0;
 }
 
 static void do_remove_source(struct spa_source *source)

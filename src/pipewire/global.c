@@ -38,11 +38,14 @@ struct global_impl {
 uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client)
 {
 	struct pw_core *core = client->core;
+	uint32_t perms = PW_PERM_RWX;
 
-	if (core->permission_func == NULL)
-		return PW_PERM_RWX;
+	if (core->permission_func != NULL)
+		perms &= core->permission_func(global, client, core->permission_data);
+	if ((perms & PW_PERM_R) && client->permission_func != NULL)
+		perms &= client->permission_func(global, client, client->permission_data);
 
-	return core->permission_func(global, client, core->permission_data);
+	return perms;
 }
 
 /** Create and add a new global to the core

@@ -73,6 +73,9 @@ struct pw_client {
 	struct spa_list link;		/**< link in core object client list */
 	struct pw_global *global;	/**< global object created for this client */
 
+	pw_permission_func_t permission_func;	/**< get permissions of an object */
+	void *permission_data;			/**< data passed to permission function */
+
 	struct pw_properties *properties;	/**< Client properties */
 
 	struct pw_client_info info;	/**< client info */

@@ -144,6 +144,9 @@ const struct pw_client_info *pw_client_get_info(struct pw_client *client);
 /** Update the client properties */
 void pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
 
+/** Update the client permissions */
+void pw_client_update_permissions(struct pw_client *client, const struct spa_dict *dict);
+
 /** Get the client properties */
 const struct pw_properties *pw_client_get_properties(struct pw_client *client);
 

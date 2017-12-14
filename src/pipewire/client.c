@@ -27,16 +27,55 @@
 #include "pipewire/private.h"
 #include "pipewire/resource.h"
 
+struct permission {
+	uint32_t id;
+	uint32_t permissions;
+};
+
 /** \cond */
 struct impl {
 	struct pw_client this;
+	uint32_t permissions_default;
+	struct spa_hook core_listener;
+	struct pw_array permissions;
 };
 
 struct resource_data {
 	struct spa_hook resource_listener;
 };
 
+/** find a specific permission for a global or NULL when there is none */
+static struct permission *
+find_permission(struct pw_client *client, struct pw_global *global)
+{
+	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
+	struct permission *p;
+
+	if (!pw_array_check_index(&impl->permissions, global->id, struct permission))
+		return NULL;
+
+	p = pw_array_get_unchecked(&impl->permissions, global->id, struct permission);
+	if (p->permissions == -1)
+		return NULL;
+	else
+		return p;
+}
+
 /** \endcond */
+
+static uint32_t
+client_permission_func(struct pw_global *global,
+		       struct pw_client *client, void *data)
+{
+	struct impl *impl = data;
+	struct permission *p;
+
+	p = find_permission(client, global);
+	if (p == NULL)
+		return impl->permissions_default;
+	else
+		return p->permissions;
+}
 
 static void client_unbind_func(void *data)
 {
@@ -48,6 +87,7 @@ static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = client_unbind_func,
 };
+
 
 static int
 client_bind_func(struct pw_global *global,
@@ -80,6 +120,24 @@ client_bind_func(struct pw_global *global,
 	pw_resource_error(client->core_resource, -ENOMEM, "no memory");
 	return -ENOMEM;
 }
+
+static void
+core_global_removed(void *data, struct pw_global *global)
+{
+	struct impl *impl = data;
+	struct pw_client *client = &impl->this;
+	struct permission *p;
+
+	p = find_permission(client, global);
+	pw_log_debug("client %p: global %d removed, %p", client, global->id, p);
+	if (p != NULL)
+		p->permissions = -1;
+}
+
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.global_removed = core_global_removed,
+};
 
 /** Make a new client object
  *
@@ -120,7 +178,12 @@ struct pw_client *pw_client_new(struct pw_core *core,
 		pw_properties_setf(properties, PW_CLIENT_PROP_UCRED_GID, "%d", ucred->gid);
 	}
 
+	pw_array_init(&impl->permissions, 1024);
+
 	this->properties = properties;
+	this->permission_func = client_permission_func;
+	this->permission_data = impl;
+	impl->permissions_default = PW_PERM_RWX;
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
@@ -130,6 +193,8 @@ struct pw_client *pw_client_new(struct pw_core *core,
 
 	pw_map_init(&this->objects, 0, 32);
 	pw_map_init(&this->types, 0, 32);
+
+	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
@@ -208,13 +273,15 @@ void pw_client_destroy(struct pw_client *client)
 	pw_log_debug("client %p: destroy", client);
 	spa_hook_list_call(&client->listener_list, struct pw_client_events, destroy);
 
+	spa_hook_remove(&impl->core_listener);
+
 	if (client->global) {
 		spa_list_remove(&client->link);
 		pw_global_destroy(client->global);
 	}
 
 	spa_list_for_each_safe(resource, tmp, &client->resource_list, link)
-	    pw_resource_destroy(resource);
+		pw_resource_destroy(resource);
 
 	pw_map_for_each(&client->objects, destroy_resource, client);
 
@@ -223,6 +290,7 @@ void pw_client_destroy(struct pw_client *client)
 
 	pw_map_clear(&client->objects);
 	pw_map_clear(&client->types);
+	pw_array_clear(&impl->permissions);
 
 	if (client->properties)
 		pw_properties_free(client->properties);
@@ -279,6 +347,104 @@ void pw_client_update_properties(struct pw_client *client, const struct spa_dict
 		pw_client_resource_info(resource, &client->info);
 
 	client->info.change_mask = 0;
+}
+
+struct permissions_update {
+	struct pw_client *client;
+	uint32_t permissions;
+	bool only_new;
+};
+
+static int do_permissions(void *data, struct pw_global *global)
+{
+	struct permissions_update *update = data;
+	struct pw_client *client = update->client;
+	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
+	struct permission *p;
+	size_t len, i;
+
+	len = pw_array_get_len(&impl->permissions, struct permission);
+	if (len <= global->id) {
+		size_t diff = global->id - len + 1;
+
+		p = pw_array_add(&impl->permissions, diff * sizeof(struct permission));
+		if (p == NULL)
+			return -ENOMEM;
+
+		for (i = 0; i < diff; i++)
+			p[i].permissions = -1;
+	}
+
+	p = pw_array_get_unchecked(&impl->permissions, global->id, struct permission);
+	if (p->permissions == -1)
+		p->permissions = impl->permissions_default;
+	else if (update->only_new)
+		return 0;
+
+	p->permissions &= update->permissions;
+	pw_log_debug("client %p: set global %d permissions to %08x", client, global->id, p->permissions);
+
+	return 0;
+}
+
+static uint32_t parse_mask(const char *str)
+{
+	uint32_t mask = 0;
+
+	while (*str != '\0') {
+		switch (*str++) {
+		case 'r':
+			mask |= PW_PERM_R;
+			break;
+		case 'w':
+			mask |= PW_PERM_W;
+			break;
+		case 'x':
+			mask |= PW_PERM_X;
+			break;
+		}
+	}
+	return mask;
+}
+
+void pw_client_update_permissions(struct pw_client *client, const struct spa_dict *dict)
+{
+	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
+	int i;
+	const char *str;
+	size_t len;
+	struct permissions_update update = { client, 0 };
+
+	for (i = 0; i < dict->n_items; i++) {
+		str = dict->items[i].value;
+
+		if (strcmp(dict->items[i].key, PW_CORE_PROXY_PERMISSIONS_DEFAULT) == 0) {
+			impl->permissions_default &= parse_mask(str);
+			pw_log_debug("client %p: set default permissions to %08x",
+					client, impl->permissions_default);
+		}
+		else if (strcmp(dict->items[i].key, PW_CORE_PROXY_PERMISSIONS_GLOBAL) == 0) {
+			struct pw_global *global;
+
+			/* permissions.update=<global-id>:[r][w][x] */
+			len = strcspn(str, ":");
+			if (len == 0)
+				continue;
+
+			global = pw_core_find_global(client->core, atoi(str));
+			if (global == NULL)
+				continue;
+
+			update.permissions = parse_mask(str + len);
+			update.only_new = false;
+			do_permissions(&update, global);
+		}
+		else if (strcmp(dict->items[i].key, PW_CORE_PROXY_PERMISSIONS_EXISTING) == 0) {
+			update.permissions = parse_mask(str);
+			update.only_new = true;
+			pw_core_for_each_global(client->core, do_permissions, &update);
+		}
+	}
 }
 
 void pw_client_set_busy(struct pw_client *client, bool busy)

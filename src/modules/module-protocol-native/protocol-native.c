@@ -52,6 +52,28 @@ static void core_marshal_client_update(void *object, const struct spa_dict *prop
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
+static void core_marshal_permissions(void *object, const struct spa_dict *props)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+	int i, n_items;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_PERMISSIONS);
+
+	n_items = props ? props->n_items : 0;
+
+	spa_pod_builder_add(b, "[ i", n_items, NULL);
+
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_add(b,
+				    "s", props->items[i].key,
+				    "s", props->items[i].value, NULL);
+	}
+	spa_pod_builder_add(b, "]", NULL);
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
 static void core_marshal_sync(void *object, uint32_t seq)
 {
 	struct pw_proxy *proxy = object;
@@ -394,6 +416,29 @@ static bool core_demarshal_client_update(void *object, void *data, size_t size)
 			return false;
 	}
 	pw_resource_do(resource, struct pw_core_proxy_methods, client_update, &props);
+	return true;
+}
+
+static bool core_demarshal_permissions(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_dict props;
+	struct spa_pod_parser prs;
+	uint32_t i;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs, "[ i", &props.n_items, NULL) < 0)
+		return false;
+
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (spa_pod_parser_get(&prs,
+				"s", &props.items[i].key,
+				"s", &props.items[i].value,
+				NULL) < 0)
+			return false;
+	}
+	pw_resource_do(resource, struct pw_core_proxy_methods, permissions, &props);
 	return true;
 }
 
@@ -960,6 +1005,7 @@ static const struct pw_core_proxy_methods pw_protocol_native_core_method_marshal
 	&core_marshal_sync,
 	&core_marshal_get_registry,
 	&core_marshal_client_update,
+	&core_marshal_permissions,
 	&core_marshal_create_object,
 	&core_marshal_create_link
 };
@@ -969,6 +1015,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_
 	{ &core_demarshal_sync, 0, },
 	{ &core_demarshal_get_registry, 0, },
 	{ &core_demarshal_client_update, 0, },
+	{ &core_demarshal_permissions, 0, },
 	{ &core_demarshal_create_object, PW_PROTOCOL_NATIVE_REMAP, },
 	{ &core_demarshal_create_link, PW_PROTOCOL_NATIVE_REMAP, }
 };
@@ -1003,11 +1050,11 @@ static const struct pw_protocol_marshal pw_protocol_native_core_marshal = {
 
 static const struct pw_registry_proxy_methods pw_protocol_native_registry_method_marshal = {
 	PW_VERSION_REGISTRY_PROXY_METHODS,
-	&registry_marshal_bind
+	&registry_marshal_bind,
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_registry_method_demarshal[] = {
-	{ &registry_demarshal_bind, PW_PROTOCOL_NATIVE_REMAP, }
+	{ &registry_demarshal_bind, PW_PROTOCOL_NATIVE_REMAP, },
 };
 
 static const struct pw_registry_proxy_events pw_protocol_native_registry_event_marshal = {

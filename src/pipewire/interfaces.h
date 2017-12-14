@@ -70,9 +70,30 @@ struct pw_link_proxy;
 #define PW_CORE_PROXY_METHOD_SYNC		1
 #define PW_CORE_PROXY_METHOD_GET_REGISTRY	2
 #define PW_CORE_PROXY_METHOD_CLIENT_UPDATE	3
-#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	4
-#define PW_CORE_PROXY_METHOD_CREATE_LINK	5
-#define PW_CORE_PROXY_METHOD_NUM		6
+#define PW_CORE_PROXY_METHOD_PERMISSIONS	4
+#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	5
+#define PW_CORE_PROXY_METHOD_CREATE_LINK	6
+#define PW_CORE_PROXY_METHOD_NUM		7
+
+/**
+ * Key to update default permissions of globals without specific
+ * permissions. value is "[r][w][x]" */
+#define PW_CORE_PROXY_PERMISSIONS_DEFAULT	"permissions.default"
+
+/**
+ * Key to update specific permissions of a global. If the global
+ * did not have specific permissions, it will first be assigned
+ * the default permissions before it is updated.
+ * Value is "<global-id>:[r][w][x]"*/
+#define PW_CORE_PROXY_PERMISSIONS_GLOBAL	"permissions.global"
+
+/**
+ * Key to update specific permissions of all existing globals.
+ * This is equivalent to using \ref PW_CORE_PROXY_PERMISSIONS_GLOBAL
+ * on each global id individually that did not have specific
+ * permissions.
+ * Value is "[r][w][x]" */
+#define PW_CORE_PROXY_PERMISSIONS_EXISTING	"permissions.existing"
 
 /**
  * \struct pw_core_proxy_methods
@@ -122,6 +143,19 @@ struct pw_core_proxy_methods {
 	 * \param props the new client properties
 	 */
 	void (*client_update) (void *object, const struct spa_dict *props);
+	/**
+	 * Manage the permissions of the global objects
+	 *
+	 * Update the permissions of the global objects using the
+	 * dictionary with properties.
+	 *
+	 * Globals can use the default permissions or can have specific
+	 * permissions assigned to them.
+	 *
+	 * \param id the global id to change
+	 * \param props dictionary with permission properties
+	 */
+	void (*permissions) (void *object, const struct spa_dict *props);
 	/**
 	 * Create a new object on the PipeWire server from a factory.
 	 * Use a \a factory_name of "client-node" to create a
@@ -184,6 +218,12 @@ static inline void
 pw_core_proxy_client_update(struct pw_core_proxy *core, const struct spa_dict *props)
 {
 	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, client_update, props);
+}
+
+static inline void
+pw_core_proxy_permissions(struct pw_core_proxy *core, const struct spa_dict *props)
+{
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, permissions, props);
 }
 
 static inline void *
@@ -328,8 +368,13 @@ pw_core_proxy_add_listener(struct pw_core_proxy *core,
  * request.  This creates a client-side proxy that lets the object
  * emit events to the client and lets the client invoke methods on
  * the object. See \ref page_proxy
+ *
+ * Clients can also change the permissions of the global objects that
+ * it can see. This is interesting when you want to configure a
+ * pipewire session before handing it to another application. You
+ * can, for example, hide certain existing or new objects or limit
+ * the access permissions on an object.
  */
-
 #define PW_REGISTRY_PROXY_METHOD_BIND		0
 #define PW_REGISTRY_PROXY_METHOD_NUM		1
 

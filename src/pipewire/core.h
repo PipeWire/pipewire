@@ -151,10 +151,13 @@ const struct spa_support *pw_core_get_support(struct pw_core *core, uint32_t *n_
 /** get the core main loop */
 struct pw_loop *pw_core_get_main_loop(struct pw_core *core);
 
-/** iterate the globals */
-bool pw_core_for_each_global(struct pw_core *core,
-			     bool (*callback) (void *data, struct pw_global *global),
-			     void *data);
+/** Iterate the globals of the core. The callback should return
+ * 0 to fetch the next item, any other value stops the iteration and returns
+ * the value. When all callbacks return 0, this function returns 0 when all
+ * globals are iterated. */
+int pw_core_for_each_global(struct pw_core *core,
+			    int (*callback) (void *data, struct pw_global *global),
+			    void *data);
 
 /** Find a core global by id */
 struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id);

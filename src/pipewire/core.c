@@ -596,16 +596,17 @@ void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict
 	core->info.change_mask = 0;
 }
 
-bool pw_core_for_each_global(struct pw_core *core,
-			     bool (*callback) (void *data, struct pw_global *global),
-			     void *data)
+int pw_core_for_each_global(struct pw_core *core,
+			    int (*callback) (void *data, struct pw_global *global),
+			    void *data)
 {
 	struct pw_global *g, *t;
+	int res;
 
 	spa_list_for_each_safe(g, t, &core->global_list, link)
-		if (!callback(data, g))
-			return false;
-	return true;
+		if ((res = callback(data, g)) != 0)
+			return res;
+	return 0;
 }
 
 struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id)

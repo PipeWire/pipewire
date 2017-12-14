@@ -138,7 +138,7 @@ static struct pw_node *make_node(struct impl *impl)
 	return NULL;
 }
 
-static bool on_global(void *data, struct pw_global *global)
+static int on_global(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 	struct pw_node *n, *node;
@@ -149,24 +149,24 @@ static bool on_global(void *data, struct pw_global *global)
 	struct pw_link *link;
 
 	if (pw_global_get_type(global) != impl->t->node)
-		return true;
+		return 0;
 
 	n = pw_global_get_object(global);
 
 	properties = pw_node_get_properties(n);
 	if ((str = pw_properties_get(properties, "media.class")) == NULL)
-		return true;
+		return 0;
 
 	if (strcmp(str, "Audio/Sink") != 0)
-		return true;
+		return 0;
 
 	if ((ip = pw_node_get_free_port(n, PW_DIRECTION_INPUT)) == NULL)
-		return true;
+		return 0;
 
 	node = make_node(impl);
 	op = pw_node_get_free_port(node, PW_DIRECTION_OUTPUT);
 	if (op == NULL)
-		return true;
+		return 0;
 
 	link = pw_link_new(impl->core,
 			   op,
@@ -176,7 +176,7 @@ static bool on_global(void *data, struct pw_global *global)
 			   &error, 0);
 	pw_link_register(link, NULL, pw_module_get_global(impl->module));
 
-	return true;
+	return 0;
 }
 
 static void module_destroy(void *data)

@@ -1286,7 +1286,7 @@ make_freewheel_client(struct impl *impl)
 	return 0;
 }
 
-static bool on_global(void *data, struct pw_global *global)
+static int on_global(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 	struct pw_node *node;
@@ -1300,21 +1300,21 @@ static bool on_global(void *data, struct pw_global *global)
 	struct spa_pod *props;
 
 	if (pw_global_get_type(global) != impl->t->node)
-		return true;
+		return 0;
 
 	node = pw_global_get_object(global);
 
 	properties = pw_node_get_properties(node);
 	if ((str = pw_properties_get(properties, "media.class")) == NULL)
-		return true;
+		return 0;
 
 	if (strcmp(str, "Audio/Sink") != 0)
-		return true;
+		return 0;
 
 	out_port = pw_node_get_free_port(impl->server.audio_node->node, PW_DIRECTION_OUTPUT);
 	in_port = pw_node_get_free_port(node, PW_DIRECTION_INPUT);
 	if (out_port == NULL || in_port == NULL)
-		return true;
+		return 0;
 
 	impl->sink_link = pw_link_new(impl->core,
 		    out_port,
@@ -1326,7 +1326,7 @@ static bool on_global(void *data, struct pw_global *global)
 	if (impl->sink_link == NULL) {
 		pw_log_warn("can't link ports: %s", error);
 		free(error);
-		return true;
+		return 0;
 	}
 
 	if (spa_node_enum_params(node->node, impl->t->param.idProps, &index, NULL, &props, &b) == 1) {
@@ -1343,7 +1343,7 @@ static bool on_global(void *data, struct pw_global *global)
 
 	pw_link_register(impl->sink_link, NULL, pw_module_get_global(impl->module));
 
-	return false;
+	return 1;
 }
 
 static bool init_nodes(struct impl *impl)

@@ -339,12 +339,12 @@ static void module_destroy(void *data)
 	free(impl);
 }
 
-const struct pw_module_events module_events = {
+static const struct pw_module_events module_events = {
 	PW_VERSION_MODULE_EVENTS,
         .destroy = module_destroy,
 };
 
-const struct pw_core_events core_events = {
+static const struct pw_core_events core_events = {
 	PW_VERSION_CORE_EVENTS,
         .global_added = core_global_added,
         .global_removed = core_global_removed,

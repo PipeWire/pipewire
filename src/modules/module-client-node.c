@@ -96,7 +96,7 @@ static void module_destroy(void *data)
 	pw_factory_destroy(d->this);
 }
 
-const struct pw_module_events module_events = {
+static const struct pw_module_events module_events = {
 	PW_VERSION_MODULE_EVENTS,
 	.destroy = module_destroy,
 };

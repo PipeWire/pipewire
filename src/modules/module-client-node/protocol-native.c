@@ -858,7 +858,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_
 	{ &client_node_demarshal_port_set_io, PW_PROTOCOL_NATIVE_REMAP },
 };
 
-const struct pw_protocol_marshal pw_protocol_native_client_node_marshal = {
+static const struct pw_protocol_marshal pw_protocol_native_client_node_marshal = {
 	PW_TYPE_INTERFACE__ClientNode,
 	PW_VERSION_CLIENT_NODE,
 	&pw_protocol_native_client_node_method_marshal,

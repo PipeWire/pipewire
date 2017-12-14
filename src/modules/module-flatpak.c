@@ -488,7 +488,7 @@ static void client_resource_impl(void *data, struct pw_resource *resource)
 	}
 }
 
-const struct pw_client_events client_events = {
+static const struct pw_client_events client_events = {
 	PW_VERSION_CLIENT_EVENTS,
 	.resource_impl = client_resource_impl,
 };
@@ -537,7 +537,7 @@ core_global_removed(void *data, struct pw_global *global)
 	}
 }
 
-const struct pw_core_events core_events = {
+static const struct pw_core_events core_events = {
 	PW_VERSION_CORE_EVENTS,
 	.global_added = core_global_added,
 	.global_removed = core_global_removed,
@@ -747,7 +747,7 @@ static void module_destroy(void *data)
 	free(impl);
 }
 
-const struct pw_module_events module_events = {
+static const struct pw_module_events module_events = {
 	PW_VERSION_MODULE_EVENTS,
 	.destroy = module_destroy,
 };

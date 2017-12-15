@@ -53,15 +53,10 @@ extern "C" {
 /** enumerate output property io areas */
 #define SPA_TYPE_PARAM_ID_IO_PROPS__Out	SPA_TYPE_PARAM_ID_IO_PROPS_BASE "Out"
 
-/* an io area to exchange properties */
+/* an io area to exchange properties. Contents can include
+ * SPA_TYPE_PARAM__PropInfo */
 #define SPA_TYPE_PARAM_IO__Prop		SPA_TYPE_PARAM_IO_BASE "Prop"
 #define SPA_TYPE_PARAM_IO_PROP_BASE	SPA_TYPE_PARAM_IO__Prop ":"
-
-/** associated property if any */
-#define SPA_TYPE_PARAM_IO_PROP__id	SPA_TYPE_PARAM_IO_PROP_BASE "id"
-/** associated type of property if any */
-#define SPA_TYPE_PARAM_IO_PROP__type	SPA_TYPE_PARAM_IO_PROP_BASE "type"
-
 
 struct spa_type_param_io {
 	uint32_t id;		/**< id to configure the io area */
@@ -74,8 +69,6 @@ struct spa_type_param_io {
 	uint32_t idPropsIn;	/**< id to enumerate input properties io */
 	uint32_t idPropsOut;	/**< id to enumerate output properties io */
 	uint32_t Prop;		/**< object type of property area */
-	uint32_t propId;	/**< property id */
-	uint32_t propType;	/**< property type */
 };
 
 static inline void
@@ -93,8 +86,6 @@ spa_type_param_io_map(struct spa_type_map *map,
 		type->idPropsIn = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID_IO_PROPS__In);
 		type->idPropsOut = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID_IO_PROPS__Out);
 		type->Prop = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__Prop);
-		type->propId = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO_PROP__id);
-		type->propType = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO_PROP__type);
 	}
 }
 

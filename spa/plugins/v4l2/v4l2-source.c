@@ -34,6 +34,7 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
+#include <spa/param/io.h>
 
 #include <lib/debug.h>
 #include <lib/pod.h>
@@ -82,6 +83,7 @@ struct type {
 	struct spa_type_command_node command_node;
 	struct spa_type_param_buffers param_buffers;
 	struct spa_type_param_meta param_meta;
+	struct spa_type_param_io param_io;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
 };
@@ -95,8 +97,8 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->prop_device = spa_type_map_get_id(map, SPA_TYPE_PROPS__device);
 	type->prop_device_name = spa_type_map_get_id(map, SPA_TYPE_PROPS__deviceName);
 	type->prop_device_fd = spa_type_map_get_id(map, SPA_TYPE_PROPS__deviceFd);
-	spa_type_io_map(map, &type->io);
-	spa_type_param_map(map, &type->param);
+	spa_type_meta_map(map, &type->meta);
+	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
 	spa_type_media_subtype_map(map, &type->media_subtype);
 	spa_type_media_subtype_video_map(map, &type->media_subtype_video);
@@ -104,10 +106,11 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_video_format_map(map, &type->video_format);
 	spa_type_event_node_map(map, &type->event_node);
 	spa_type_command_node_map(map, &type->command_node);
+	spa_type_param_map(map, &type->param);
 	spa_type_param_buffers_map(map, &type->param_buffers);
 	spa_type_param_meta_map(map, &type->param_meta);
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
+	spa_type_io_map(map, &type->io);
+	spa_type_param_io_map(map, &type->param_io);
 }
 
 struct port {
@@ -129,6 +132,7 @@ struct port {
 
 	int fd;
 	bool opened;
+	bool have_query_ext_ctrl;
 	struct v4l2_capability cap;
 	struct v4l2_format fmt;
 	enum v4l2_buf_type type;
@@ -194,23 +198,58 @@ static int impl_node_enum_params(struct spa_node *node,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	if (id == t->param.idList) {
-		if (*index > 0)
-			return 0;
+		uint32_t list[] = { t->param.idPropInfo,
+				    t->param.idProps };
 
-		param = spa_pod_builder_object(&b,
-			id, t->param.List,
-			":", t->param.listId,   "I",  t->param.idProps);
+		if (*index < SPA_N_ELEMENTS(list))
+			param = spa_pod_builder_object(&b, id, t->param.List,
+				":", t->param.listId, "I", list[*index]);
+		else
+			return 0;
+	}
+	else if (id == t->param.idPropInfo) {
+		struct props *p = &this->props;
+
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId, "I", t->prop_device,
+				":", t->param.propName, "s", "The V4L2 device",
+				":", t->param.propType, "S", p->device, sizeof(p->device));
+			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId, "I", t->prop_device_name,
+				":", t->param.propName, "s", "The V4L2 device name",
+				":", t->param.propType, "S-r", p->device_name, sizeof(p->device_name));
+			break;
+		case 2:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId, "I", t->prop_device_fd,
+				":", t->param.propName, "s", "The V4L2 fd",
+				":", t->param.propType, "i-r", p->device_fd);
+			break;
+		default:
+			return 0;
+		}
 	}
 	else if (id == t->param.idProps) {
 		struct props *p = &this->props;
 
-		if (*index > 0)
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->props,
+				":", t->prop_device,      "S", p->device, sizeof(p->device),
+				":", t->prop_device_name, "S-r", p->device_name, sizeof(p->device_name),
+				":", t->prop_device_fd,   "i-r", p->device_fd);
+			break;
+		default:
 			return 0;
-
-		param = spa_pod_builder_object(&b, t->param.idProps, t->props,
-			":", t->prop_device,      "S", p->device, sizeof(p->device),
-			":", t->prop_device_name, "S-r", p->device_name, sizeof(p->device_name),
-			":", t->prop_device_fd,   "i-r", p->device_fd);
+		}
 	}
 	else
 		return -ENOENT;
@@ -547,7 +586,8 @@ static int impl_node_port_enum_params(struct spa_node *node,
 		uint32_t list[] = { t->param.idEnumFormat,
 				    t->param.idFormat,
 				    t->param.idBuffers,
-				    t->param.idMeta };
+				    t->param.idMeta,
+				    t->param_io.idPropsIn };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, t->param.List,
@@ -587,6 +627,9 @@ static int impl_node_port_enum_params(struct spa_node *node,
 		default:
 			return 0;
 		}
+	}
+	else if (id == t->param_io.idPropsIn) {
+		return spa_v4l2_enum_controls(this, index, filter, result, builder);
 	}
 	else
 		return -ENOENT;
@@ -1010,6 +1053,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_LIVE;
 
 	this->out_ports[0].export_buf = true;
+	this->out_ports[0].have_query_ext_ctrl = true;
 
 	if (info && (str = spa_dict_lookup(info, "device.path"))) {
 		strncpy(this->props.device, str, 63);

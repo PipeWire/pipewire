@@ -35,12 +35,21 @@
 
 #define NAME "volume"
 
-#define MAX_BUFFERS     16
+#define DEFAULT_VOLUME 1.0
+#define DEFAULT_MUTE false
 
 struct props {
 	double volume;
 	bool mute;
 };
+
+static void reset_props(struct props *props)
+{
+	props->volume = DEFAULT_VOLUME;
+	props->mute = DEFAULT_MUTE;
+}
+
+#define MAX_BUFFERS     16
 
 struct buffer {
 	struct spa_buffer *outbuf;
@@ -136,15 +145,6 @@ struct impl {
 #define GET_OUT_PORT(this,p)	 (&this->out_ports[p])
 #define GET_PORT(this,d,p)	 (d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
 
-#define DEFAULT_VOLUME 1.0
-#define DEFAULT_MUTE false
-
-static void reset_props(struct props *props)
-{
-	props->volume = DEFAULT_VOLUME;
-	props->mute = DEFAULT_MUTE;
-}
-
 static int impl_node_enum_params(struct spa_node *node,
 				 uint32_t id, uint32_t *index,
 				 const struct spa_pod *filter,
@@ -156,6 +156,7 @@ static int impl_node_enum_params(struct spa_node *node,
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 	struct spa_pod *param;
+	struct props *p;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
@@ -163,28 +164,52 @@ static int impl_node_enum_params(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	t = &this->type;
+	p = &this->props;
 
       next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	if (id == t->param.idList) {
-		if (*index > 0)
-			return 0;
+		uint32_t list[] = { t->param.idPropInfo,
+				    t->param.idProps };
 
-		param = spa_pod_builder_object(&b,
-			id, t->param.List,
-			":", t->param.listId,   "I",  t->param.idProps);
+		if (*index < SPA_N_ELEMENTS(list))
+			param = spa_pod_builder_object(&b, id, t->param.List,
+				":", t->param.listId, "I", list[*index]);
+		else
+			return 0;
+	}
+	else if (id == t->param.idPropInfo) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId,   "I", t->prop_volume,
+				":", t->param.propName, "s", "The volume",
+				":", t->param.propType, "dr", p->volume, 2, 0.0, 10.0);
+			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId,   "I", t->prop_mute,
+				":", t->param.propName, "s", "Mute",
+				":", t->param.propType, "b", p->mute);
+			break;
+		default:
+			return 0;
+		}
 	}
 	else if (id == t->param.idProps) {
-		struct props *p = &this->props;
-
-		if(*index > 0)
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->props,
+				":", t->prop_volume, "d", p->volume,
+				":", t->prop_mute,   "b", p->mute);
+			break;
+		default:
 			return 0;
-
-		param = spa_pod_builder_object(&b,
-			id, t->props,
-			":", t->prop_volume, "dr", p->volume, 2, 0.0, 10.0,
-			":", t->prop_mute,   "b",  p->mute);
+		}
 	}
 	else
 		return -ENOENT;

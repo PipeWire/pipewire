@@ -53,6 +53,8 @@ static int impl_node_enum_params(struct spa_node *node,
 	struct spa_pod *param;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
+	struct props *p;
+
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
@@ -60,31 +62,69 @@ static int impl_node_enum_params(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 	t = &this->type;
+	p = &this->props;
 
       next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	if (id == t->param.idList) {
-		if (*index > 0)
-			return 0;
+		uint32_t list[] = { t->param.idPropInfo,
+				    t->param.idProps };
 
-		param = spa_pod_builder_object(&b,
-			id, t->param.List,
-			":", t->param.listId, "I", t->param.idProps);
+		if (*index < SPA_N_ELEMENTS(list))
+			param = spa_pod_builder_object(&b, id, t->param.List,
+				":", t->param.listId, "I", list[*index]);
+		else
+			return 0;
+	}
+	else if (id == t->param.idPropInfo) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId, "I", t->prop_device,
+				":", t->param.propName, "s", "The ALSA device",
+				":", t->param.propType, "S", p->device, sizeof(p->device));
+			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId, "I", t->prop_device_name,
+				":", t->param.propName, "s", "The ALSA device name",
+				":", t->param.propType, "S-r", p->device_name, sizeof(p->device_name));
+			break;
+		case 2:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId, "I", t->prop_card_name,
+				":", t->param.propName, "s", "The ALSA card name",
+				":", t->param.propType, "S-r", p->card_name, sizeof(p->card_name));
+			break;
+		case 3:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId, "I", t->prop_min_latency,
+				":", t->param.propName, "s", "The minimum latency",
+				":", t->param.propType, "ir", p->min_latency,
+							2, 1, INT32_MAX);
+			break;
+		default:
+			return 0;
+		}
 	}
 	else if (id == t->param.idProps) {
-		struct props *p = &this->props;
-
-		if (*index > 0)
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->props,
+				":", t->prop_device,      "S",   p->device, sizeof(p->device),
+				":", t->prop_device_name, "S-r", p->device_name, sizeof(p->device_name),
+				":", t->prop_card_name,   "S-r", p->card_name, sizeof(p->card_name),
+				":", t->prop_min_latency, "i",   p->min_latency);
+			break;
+		default:
 			return 0;
-
-		param = spa_pod_builder_object(&b,
-			id, t->props,
-			":", t->prop_device,      "S",   p->device, sizeof(p->device),
-			":", t->prop_device_name, "S-r", p->device_name, sizeof(p->device_name),
-			":", t->prop_card_name,   "S-r", p->card_name, sizeof(p->card_name),
-			":", t->prop_min_latency, "ir",  p->min_latency,
-								2, 1, INT32_MAX);
+		}
 	}
 	else
 		return -ENOENT;

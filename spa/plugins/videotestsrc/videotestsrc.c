@@ -50,8 +50,6 @@ struct type {
 	uint32_t props;
 	uint32_t prop_live;
 	uint32_t prop_pattern;
-	uint32_t pattern_smpte_snow;
-	uint32_t pattern_snow;
 	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_meta meta;
@@ -74,8 +72,6 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
 	type->prop_live = spa_type_map_get_id(map, SPA_TYPE_PROPS__live);
 	type->prop_pattern = spa_type_map_get_id(map, SPA_TYPE_PROPS__patternType);
-	type->pattern_smpte_snow = spa_type_map_get_id(map, SPA_TYPE_PROPS__patternType ":smpte-snow");
-	type->pattern_snow = spa_type_map_get_id(map, SPA_TYPE_PROPS__patternType ":snow");
 	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
@@ -90,10 +86,24 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_param_meta_map(map, &type->param_meta);
 }
 
+enum pattern {
+	PATTERN_SMPTE_SNOW,
+	PATTERN_SNOW,
+};
+
+#define DEFAULT_LIVE false
+#define DEFAULT_PATTERN PATTERN_SMPTE_SNOW
+
 struct props {
 	bool live;
 	uint32_t pattern;
 };
+
+static void reset_props(struct props *props)
+{
+	props->live = DEFAULT_LIVE;
+	props->pattern = DEFAULT_PATTERN;
+}
 
 #define MAX_BUFFERS 16
 #define MAX_PORTS 1
@@ -145,15 +155,6 @@ struct impl {
 
 #define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) < MAX_PORTS)
 
-#define DEFAULT_LIVE false
-#define DEFAULT_PATTERN pattern_smpte_snow
-
-static void reset_props(struct impl *this, struct props *props)
-{
-	props->live = DEFAULT_LIVE;
-	props->pattern = this->type.DEFAULT_PATTERN;
-}
-
 static int impl_node_enum_params(struct spa_node *node,
 				 uint32_t id, uint32_t *index,
 				 const struct spa_pod *filter,
@@ -176,25 +177,53 @@ static int impl_node_enum_params(struct spa_node *node,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	if (id == t->param.idList) {
-		if (*index > 0)
-			return 0;
+		uint32_t list[] = { t->param.idPropInfo,
+				    t->param.idProps };
 
-		param = spa_pod_builder_object(&b,
-			id, t->param.List,
-			":", t->param.listId,   "I",  t->param.idProps);
+		if (*index < SPA_N_ELEMENTS(list))
+			param = spa_pod_builder_object(&b, id, t->param.List,
+				":", t->param.listId, "I", list[*index]);
+		else
+			return 0;
+	}
+	else if (id == t->param.idPropInfo) {
+		struct props *p = &this->props;
+
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId,   "I", t->prop_live,
+				":", t->param.propName, "s", "Configure live mode of the source",
+				":", t->param.propType, "b", p->live);
+			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId,   "I", t->prop_pattern,
+				":", t->param.propName, "s", "The pattern",
+				":", t->param.propType, "i", p->pattern,
+				":", t->param.propLabels, "[-i",
+					"i", PATTERN_SMPTE_SNOW, "s", "SMPTE snow",
+					"i", PATTERN_SNOW, "s", "Snow", "]");
+			break;
+		default:
+			return 0;
+		}
 	}
 	else if (id == t->param.idProps) {
 		struct props *p = &this->props;
 
-		if (*index > 0)
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->props,
+				":", t->prop_live,    "b", p->live,
+				":", t->prop_pattern, "i", p->pattern);
+			break;
+		default:
 			return 0;
-
-		param = spa_pod_builder_object(&b,
-			id, t->props,
-			":", t->prop_live,    "b",  p->live,
-			":", t->prop_pattern, "Ie", p->pattern,
-							2, t->pattern_smpte_snow,
-							   t->pattern_snow);
+		}
 	}
 	else
 		return -ENOENT;
@@ -221,9 +250,13 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	if (id == t->param.idProps) {
 		struct props *p = &this->props;
 
+		if (param == NULL) {
+			reset_props(p);
+			return 0;
+		}
 		spa_pod_object_parse(param,
 			":", t->prop_live,    "?b", &p->live,
-			":", t->prop_pattern, "?I", &p->pattern,
+			":", t->prop_pattern, "?i", &p->pattern,
 			NULL);
 
 		if (p->live)
@@ -993,7 +1026,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->node = impl_node;
 	this->clock = impl_clock;
-	reset_props(this, &this->props);
+	reset_props(&this->props);
 
 	spa_list_init(&this->empty);
 

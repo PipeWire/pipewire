@@ -262,20 +262,21 @@ static int draw(struct impl *this, char *data)
 {
 	DrawingData dd;
 	int res;
-	uint32_t pattern;
 
 	init_colors();
 
 	if ((res = drawing_data_init(&dd, this, data)) < 0)
 		return res;
 
-	pattern = this->props.pattern;
-	if (pattern == this->type.pattern_smpte_snow)
+	switch (this->props.pattern) {
+	case PATTERN_SMPTE_SNOW:
 		draw_smpte_snow(&dd);
-	else if (pattern == this->type.pattern_snow)
+		break;
+	case PATTERN_SNOW:
 		draw_snow(&dd);
-	else
+		break;
+	default:
 		return -ENOTSUP;
-
+	}
 	return 0;
 }

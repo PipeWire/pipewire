@@ -56,8 +56,6 @@ struct type {
 	uint32_t io_prop_wave;
 	uint32_t io_prop_freq;
 	uint32_t io_prop_volume;
-	uint32_t wave_sine;
-	uint32_t wave_square;
 	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_meta meta;
@@ -86,8 +84,6 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->io_prop_wave = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "waveType");
 	type->io_prop_freq = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "frequency");
 	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
-	type->wave_sine = spa_type_map_get_id(map, SPA_TYPE_PROPS__waveType ":sine");
-	type->wave_square = spa_type_map_get_id(map, SPA_TYPE_PROPS__waveType ":square");
 	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_meta_map(map, &type->meta);
@@ -103,12 +99,30 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_param_io_map(map, &type->param_io);
 }
 
+enum wave_type {
+	WAVE_SINE,
+	WAVE_SQUARE,
+};
+
+#define DEFAULT_LIVE false
+#define DEFAULT_WAVE WAVE_SINE
+#define DEFAULT_FREQ 440.0
+#define DEFAULT_VOLUME 1.0
+
 struct props {
 	bool live;
 	uint32_t wave;
 	double freq;
 	double volume;
 };
+
+static void reset_props(struct props *props)
+{
+	props->live = DEFAULT_LIVE;
+	props->wave = DEFAULT_WAVE;
+	props->freq = DEFAULT_FREQ;
+	props->volume = DEFAULT_VOLUME;
+}
 
 #define MAX_BUFFERS 16
 #define MAX_PORTS 1
@@ -170,19 +184,6 @@ struct impl {
 
 #define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) < MAX_PORTS)
 
-#define DEFAULT_LIVE false
-#define DEFAULT_WAVE wave_sine
-#define DEFAULT_FREQ 440.0
-#define DEFAULT_VOLUME 1.0
-
-static void reset_props(struct impl *this, struct props *props)
-{
-	props->live = DEFAULT_LIVE;
-	props->wave = this->type.DEFAULT_WAVE;
-	props->freq = DEFAULT_FREQ;
-	props->volume = DEFAULT_VOLUME;
-}
-
 static int impl_node_enum_params(struct spa_node *node,
 				 uint32_t id, uint32_t *index,
 				 const struct spa_pod *filter,
@@ -206,29 +207,71 @@ static int impl_node_enum_params(struct spa_node *node,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	if (id == t->param.idList) {
-		if (*index > 0)
-			return 0;
+		uint32_t list[] = { t->param.idPropInfo,
+				    t->param.idProps };
 
-		param = spa_pod_builder_object(&b,
-			id, t->param.List,
-			":", t->param.listId,   "I",  t->param.idProps);
+		if (*index < SPA_N_ELEMENTS(list))
+			param = spa_pod_builder_object(&b, id, t->param.List,
+				":", t->param.listId, "I", list[*index]);
+		else
+			return 0;
+	}
+	else if (id == t->param.idPropInfo) {
+		struct props *p = &this->props;
+
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId,   "I", t->prop_live,
+				":", t->param.propName, "s", "Configure live mode of the source",
+				":", t->param.propType, "b", p->live);
+			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId,   "I", t->prop_wave,
+				":", t->param.propName, "s", "Select the waveform",
+				":", t->param.propType, "i", p->wave,
+				":", t->param.propLabels, "[-i",
+					"i", WAVE_SINE, "s", "Sine wave",
+					"i", WAVE_SQUARE, "s", "Square wave", "]");
+			break;
+		case 2:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId,   "I", t->prop_freq,
+				":", t->param.propName, "s", "Select the frequency",
+				":", t->param.propType, "dr", p->freq,
+							2, 0.0, 50000000.0);
+			break;
+		case 3:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId,   "I", t->prop_volume,
+				":", t->param.propName, "s", "Select the volume",
+				":", t->param.propType, "dr", p->volume,
+							2, 0.0, 10.0);
+			break;
+		default:
+			return 0;
+		}
 	}
 	else if (id == t->param.idProps) {
 		struct props *p = &this->props;
 
-		if (*index > 0)
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->props,
+				":", t->prop_live,   "b", p->live,
+				":", t->prop_wave,   "i", p->wave,
+				":", t->prop_freq,   "d", p->freq,
+				":", t->prop_volume, "d", p->volume);
+			break;
+		default:
 			return 0;
-
-		param = spa_pod_builder_object(&b,
-			id, t->props,
-			":", t->prop_live,   "b",  p->live,
-			":", t->prop_wave,   "Ie", p->wave,
-							2, t->wave_sine,
-							   t->wave_square,
-			":", t->prop_freq,   "dr", p->freq,
-							2, 0.0, 50000000.0,
-			":", t->prop_volume, "dr", p->volume,
-							2, 0.0, 10.0);
+		}
 	}
 	else
 		return -ENOENT;
@@ -256,12 +299,12 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		struct props *p = &this->props;
 
 		if (param == NULL) {
-			reset_props(this, p);
+			reset_props(p);
 			return 0;
 		}
 		spa_pod_object_parse(param,
 			":",t->prop_live,   "?b", &p->live,
-			":",t->prop_wave,   "?I", &p->wave,
+			":",t->prop_wave,   "?i", &p->wave,
 			":",t->prop_freq,   "?d", &p->freq,
 			":",t->prop_volume, "?d", &p->volume,
 			NULL);
@@ -695,26 +738,27 @@ impl_node_port_enum_params(struct spa_node *node,
 				id, t->param_io.Prop,
 				":", t->param_io.id, "I", t->io_prop_wave,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_id),
-				":", t->param_io.propId, "I", t->prop_wave,
-				":", t->param_io.propType, "Ie", p->wave,
-								2, t->wave_sine,
-								   t->wave_square);
+				":", t->param.propId, "I", t->prop_wave,
+				":", t->param.propType, "i", p->wave,
+				":", t->param.propLabels, "[-i",
+					"i", WAVE_SINE, "s", "Sine wave",
+					"i", WAVE_SQUARE, "s", "Square wave", "]");
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
 				id, t->param_io.Prop,
 				":", t->param_io.id, "I", t->io_prop_freq,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
-				":", t->param_io.propId, "I", t->prop_freq,
-				":", t->param_io.propType, "dr", p->freq, 2, 0.0, 50000000.0);
+				":", t->param.propId, "I", t->prop_freq,
+				":", t->param.propType, "dr", p->freq, 2, 0.0, 50000000.0);
 			break;
 		case 2:
 			param = spa_pod_builder_object(&b,
 				id, t->param_io.Prop,
 				":", t->param_io.id, "I", t->io_prop_volume,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
-				":", t->param_io.propId, "I", t->prop_volume,
-				":", t->param_io.propType, "dr", p->volume, 2, 0.0, 10.0);
+				":", t->param.propId, "I", t->prop_volume,
+				":", t->param.propType, "dr", p->volume, 2, 0.0, 10.0);
 			break;
 		default:
 			return 0;
@@ -1141,7 +1185,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->node = impl_node;
 	this->clock = impl_clock;
-	reset_props(this, &this->props);
+	reset_props(&this->props);
 
 	this->io_wave = &this->props.wave;
 	this->io_freq = &this->props.freq;

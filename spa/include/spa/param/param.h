@@ -44,6 +44,23 @@ extern "C" {
 #define SPA_TYPE_PARAM_LIST_BASE	SPA_TYPE_PARAM__List ":"
 #define SPA_TYPE_PARAM_LIST__id		SPA_TYPE_PARAM_LIST_BASE "id"
 
+/** Enum Property info */
+#define SPA_TYPE_PARAM_ID__PropInfo	SPA_TYPE_PARAM_ID_BASE "PropInfo"
+
+#define SPA_TYPE_PARAM__PropInfo	SPA_TYPE_PARAM_BASE "PropInfo"
+#define SPA_TYPE_PARAM_PROP_INFO_BASE	SPA_TYPE_PARAM__PropInfo ":"
+
+/** associated id of the property */
+#define SPA_TYPE_PARAM_PROP_INFO__id		SPA_TYPE_PARAM_PROP_INFO_BASE "id"
+/** name of property */
+#define SPA_TYPE_PARAM_PROP_INFO__name		SPA_TYPE_PARAM_PROP_INFO_BASE "name"
+/** associated type and range/enums of property */
+#define SPA_TYPE_PARAM_PROP_INFO__type		SPA_TYPE_PARAM_PROP_INFO_BASE "type"
+/** associated labels of property if any, this is a struct with pairs of values,
+ * the first one is of the type of the property, the second one is a string with
+ * a user readable label for the value. */
+#define SPA_TYPE_PARAM_PROP_INFO__labels	SPA_TYPE_PARAM_PROP_INFO_BASE "labels"
+
 /** Property parameter id, deals with SPA_TYPE__Props */
 #define SPA_TYPE_PARAM_ID__Props	SPA_TYPE_PARAM_ID_BASE "Props"
 
@@ -73,6 +90,12 @@ struct spa_type_param {
         uint32_t idList;	/**< id of the list param */
         uint32_t List;		/**< list object type */
         uint32_t listId;	/**< id in the list object */
+        uint32_t idPropInfo;	/**< id to enumerate property info */
+        uint32_t PropInfo;	/**< property info object */
+	uint32_t propId;	/**< property id */
+	uint32_t propName;	/**< property name */
+	uint32_t propType;	/**< property type */
+	uint32_t propLabels;	/**< property labels */
         uint32_t idProps;	/**< id to enumerate properties */
         uint32_t idEnumFormat;	/**< id to enumerate formats */
         uint32_t idFormat;	/**< id to get/set format parameter */
@@ -88,6 +111,12 @@ spa_type_param_map(struct spa_type_map *map,
                 type->idList = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__List);
                 type->List = spa_type_map_get_id(map, SPA_TYPE_PARAM__List);
                 type->listId = spa_type_map_get_id(map, SPA_TYPE_PARAM_LIST__id);
+                type->idPropInfo = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__PropInfo);
+                type->PropInfo = spa_type_map_get_id(map, SPA_TYPE_PARAM__PropInfo);
+		type->propId = spa_type_map_get_id(map, SPA_TYPE_PARAM_PROP_INFO__id);
+		type->propName = spa_type_map_get_id(map, SPA_TYPE_PARAM_PROP_INFO__name);
+		type->propType = spa_type_map_get_id(map, SPA_TYPE_PARAM_PROP_INFO__type);
+		type->propLabels = spa_type_map_get_id(map, SPA_TYPE_PARAM_PROP_INFO__labels);
                 type->idProps = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__Props);
                 type->idEnumFormat = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__EnumFormat);
                 type->idFormat = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID__Format);

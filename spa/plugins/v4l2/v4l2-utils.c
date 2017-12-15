@@ -821,7 +821,7 @@ spa_v4l2_enum_format(struct impl *this,
 static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format, bool try_only)
 {
 	struct port *port = &this->out_ports[0];
-	int cmd;
+	int res, cmd;
 	struct v4l2_format reqfmt, fmt;
 	struct v4l2_streamparm streamparm;
 	const struct format_info *info = NULL;
@@ -858,7 +858,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	if (info == NULL || size == NULL || framerate == NULL) {
 		spa_log_error(port->log, "v4l2: unknown media type %d %d %d", format->media_type,
 			      format->media_subtype, video_format);
-		return -1;
+		return -EINVAL;
 	}
 
 
@@ -876,13 +876,14 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 
 	reqfmt = fmt;
 
-	if (spa_v4l2_open(this) < 0)
-		return -1;
+	if ((res = spa_v4l2_open(this)) < 0)
+		return res;
 
 	cmd = try_only ? VIDIOC_TRY_FMT : VIDIOC_S_FMT;
 	if (xioctl(port->fd, cmd, &fmt) < 0) {
+		res = -errno;
 		perror("VIDIOC_S_FMT");
-		return -1;
+		return res;
 	}
 
 	/* some cheap USB cam's won't accept any change */
@@ -897,7 +898,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	if (reqfmt.fmt.pix.pixelformat != fmt.fmt.pix.pixelformat ||
 	    reqfmt.fmt.pix.width != fmt.fmt.pix.width ||
 	    reqfmt.fmt.pix.height != fmt.fmt.pix.height)
-		return -1;
+		return -EINVAL;
 
 	if (try_only)
 		return 0;
@@ -913,6 +914,185 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	port->info.rate = streamparm.parm.capture.timeperframe.denominator;
 
 	return 0;
+}
+
+static int query_ext_ctrl_ioctl(struct port *port, struct v4l2_query_ext_ctrl *qctrl)
+{
+	struct v4l2_queryctrl qc;
+	int res;
+
+	if (port->have_query_ext_ctrl) {
+		res = ioctl(port->fd, VIDIOC_QUERY_EXT_CTRL, qctrl);
+		if (errno != ENOTTY)
+			return res;
+		port->have_query_ext_ctrl = false;
+	}
+	qc.id = qctrl->id;
+	res = ioctl(port->fd, VIDIOC_QUERYCTRL, &qc);
+	if (res == 0) {
+		qctrl->type = qc.type;
+		memcpy(qctrl->name, qc.name, sizeof(qctrl->name));
+		qctrl->minimum = qc.minimum;
+		if (qc.type == V4L2_CTRL_TYPE_BITMASK) {
+			qctrl->maximum = (__u32)qc.maximum;
+			qctrl->default_value = (__u32)qc.default_value;
+		} else {
+			qctrl->maximum = qc.maximum;
+			qctrl->default_value = qc.default_value;
+		}
+		qctrl->step = qc.step;
+		qctrl->flags = qc.flags;
+		qctrl->elems = 1;
+		qctrl->nr_of_dims = 0;
+		memset(qctrl->dims, 0, sizeof(qctrl->dims));
+		switch (qctrl->type) {
+		case V4L2_CTRL_TYPE_INTEGER64:
+			qctrl->elem_size = sizeof(__s64);
+			break;
+		case V4L2_CTRL_TYPE_STRING:
+			qctrl->elem_size = qc.maximum + 1;
+			break;
+		default:
+			qctrl->elem_size = sizeof(__s32);
+			break;
+		}
+		memset(qctrl->reserved, 0, sizeof(qctrl->reserved));
+	}
+	qctrl->id = qc.id;
+	return res;
+}
+
+static int
+spa_v4l2_enum_controls(struct impl *this,
+		       uint32_t *index,
+		       const struct spa_pod *filter,
+		       struct spa_pod **result,
+		       struct spa_pod_builder *builder)
+{
+	struct port *port = &this->out_ports[0];
+	struct type *t = &this->type;
+	struct v4l2_query_ext_ctrl queryctrl;
+	struct spa_pod *param;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+	int res;
+        const unsigned next_fl = V4L2_CTRL_FLAG_NEXT_CTRL | V4L2_CTRL_FLAG_NEXT_COMPOUND;
+
+	if ((res = spa_v4l2_open(this)) < 0)
+		return res;
+
+      next:
+	spa_zero(queryctrl);
+
+	if (*index == 0)
+		*index |= next_fl;
+
+	queryctrl.id = *index;
+	spa_log_debug(port->log, "test control %08x", queryctrl.id);
+
+	if (query_ext_ctrl_ioctl(port, &queryctrl) != 0) {
+		if (errno == EINVAL) {
+			if (queryctrl.id != next_fl)
+				goto enum_end;
+
+			if (*index & next_fl)
+				*index = V4L2_CID_USER_BASE;
+			else if (*index >= V4L2_CID_USER_BASE && *index < V4L2_CID_LASTP1)
+				(*index)++;
+			else if (*index >= V4L2_CID_LASTP1)
+				*index = V4L2_CID_PRIVATE_BASE;
+			else
+				goto enum_end;
+			goto next;
+		}
+		res = -errno;
+		perror("VIDIOC_QUERYCTRL");
+		return res;
+	}
+	if (*index & next_fl)
+		(*index) = queryctrl.id | next_fl;
+	else
+		(*index)++;
+
+	if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED)
+		goto next;
+
+	spa_log_debug(port->log, "Control %s", queryctrl.name);
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	switch (queryctrl.type) {
+	case V4L2_CTRL_TYPE_INTEGER:
+		param = spa_pod_builder_object(&b,
+			t->param_io.idPropsIn, t->param_io.Prop,
+			":", t->param_io.size, "i", sizeof(struct spa_pod_int),
+			":", t->param.propType, "isu", queryctrl.default_value,
+						3, queryctrl.minimum,
+						   queryctrl.maximum,
+						   queryctrl.step,
+			":", t->param.propName, "s", queryctrl.name);
+		break;
+	case V4L2_CTRL_TYPE_BOOLEAN:
+		param = spa_pod_builder_object(&b,
+			t->param_io.idPropsIn, t->param_io.Prop,
+			":", t->param_io.size, "i", sizeof(struct spa_pod_bool),
+			":", t->param.propType, "b-u", queryctrl.default_value,
+			":", t->param.propName, "s", queryctrl.name);
+		break;
+	case V4L2_CTRL_TYPE_MENU:
+	{
+		struct v4l2_querymenu querymenu;
+
+		spa_pod_builder_push_object(&b, t->param_io.idPropsIn, t->param_io.Prop);
+		spa_pod_builder_add(&b,
+			":", t->param_io.size, "i", sizeof(struct spa_pod_int),
+			":", t->param.propName, "s", queryctrl.name,
+			NULL);
+
+		spa_pod_builder_push_prop(&b, t->param.propType, SPA_POD_PROP_FLAG_UNSET);
+		spa_pod_builder_int(&b, queryctrl.default_value);
+		spa_pod_builder_pop(&b);
+
+		spa_zero(querymenu);
+		querymenu.id = queryctrl.id;
+
+		spa_pod_builder_push_prop(&b, t->param.propLabels, 0);
+		spa_pod_builder_push_struct(&b);
+		for (querymenu.index = queryctrl.minimum;
+		    querymenu.index <= queryctrl.maximum;
+		    querymenu.index++) {
+			if (ioctl(port->fd, VIDIOC_QUERYMENU, &querymenu) == 0) {
+				spa_pod_builder_int(&b, querymenu.index);
+				spa_pod_builder_string(&b, (const char *)querymenu.name);
+			}
+		}
+		spa_pod_builder_pop(&b);
+		spa_pod_builder_pop(&b);
+		param = spa_pod_builder_pop(&b);
+		break;
+	}
+	case V4L2_CTRL_TYPE_INTEGER_MENU:
+	case V4L2_CTRL_TYPE_BITMASK:
+	case V4L2_CTRL_TYPE_BUTTON:
+	case V4L2_CTRL_TYPE_INTEGER64:
+	case V4L2_CTRL_TYPE_STRING:
+	default:
+		goto next;
+
+	}
+	if (spa_pod_filter(builder, result, param, filter) < 0)
+		goto next;
+
+	res = 1;
+
+      exit:
+	spa_v4l2_close(this);
+
+	return res;
+
+     enum_end:
+	res = 0;
+	goto exit;
 }
 
 static int mmap_read(struct impl *this)

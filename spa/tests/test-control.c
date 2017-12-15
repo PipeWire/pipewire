@@ -365,7 +365,7 @@ static int make_nodes(struct data *data, const char *device)
 
 		spa_pod_object_parse(param,
 				":", data->type.param_io.id, "I", &id,
-				":", data->type.param_io.propId, "?I", &propId,
+				":", data->type.param.propId, "?I", &propId,
 				NULL);
 
 		if (propId == data->type.props_freq) {

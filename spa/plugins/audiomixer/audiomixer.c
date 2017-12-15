@@ -534,16 +534,16 @@ impl_node_port_enum_params(struct spa_node *node,
 				id, t->param_io.Prop,
 				":", t->param_io.id, "I", t->io_prop_volume,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
-				":", t->param_io.propId, "I", t->prop_volume,
-				":", t->param_io.propType, "dru", p->volume, 2, 0.0, 10.0);
+				":", t->param.propId, "I", t->prop_volume,
+				":", t->param.propType, "dru", p->volume, 2, 0.0, 10.0);
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
 				id, t->param_io.Prop,
 				":", t->param_io.id, "I", t->io_prop_mute,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_bool),
-				":", t->param_io.propId, "I", t->prop_mute,
-				":", t->param_io.propType, "b", p->mute);
+				":", t->param.propId, "I", t->prop_mute,
+				":", t->param.propType, "b", p->mute);
 			break;
 		default:
 			return 0;

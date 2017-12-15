@@ -209,16 +209,18 @@ struct spa_pod_fd {
 
 struct spa_pod_prop_body {
 	uint32_t key;
-#define SPA_POD_PROP_RANGE_NONE		0
-#define SPA_POD_PROP_RANGE_MIN_MAX	1
-#define SPA_POD_PROP_RANGE_STEP		2
-#define SPA_POD_PROP_RANGE_ENUM		3
-#define SPA_POD_PROP_RANGE_FLAGS	4
-#define SPA_POD_PROP_RANGE_MASK		0xf
-#define SPA_POD_PROP_FLAG_UNSET		(1 << 4)
-#define SPA_POD_PROP_FLAG_OPTIONAL	(1 << 5)
-#define SPA_POD_PROP_FLAG_READONLY	(1 << 6)
-#define SPA_POD_PROP_FLAG_DEPRECATED	(1 << 7)
+#define SPA_POD_PROP_RANGE_NONE		0	/**< no range */
+#define SPA_POD_PROP_RANGE_MIN_MAX	1	/**< property has range */
+#define SPA_POD_PROP_RANGE_STEP		2	/**< property has range with step */
+#define SPA_POD_PROP_RANGE_ENUM		3	/**< property has enumeration */
+#define SPA_POD_PROP_RANGE_FLAGS	4	/**< property has flags */
+#define SPA_POD_PROP_RANGE_MASK		0xf	/**< mask to select range type */
+#define SPA_POD_PROP_FLAG_UNSET		(1 << 4)	/**< property value is unset */
+#define SPA_POD_PROP_FLAG_OPTIONAL	(1 << 5)	/**< property value is optional */
+#define SPA_POD_PROP_FLAG_READONLY	(1 << 6)	/**< property is readonly */
+#define SPA_POD_PROP_FLAG_DEPRECATED	(1 << 7)	/**< property is deprecated */
+#define SPA_POD_PROP_FLAG_INFO		(1 << 8)	/**< property is informational and is not
+							  *  used when filtering */
 	uint32_t flags;
 	struct spa_pod value;
 	/* array with elements of value.size follows,

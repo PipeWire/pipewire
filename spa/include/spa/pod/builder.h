@@ -398,6 +398,8 @@ static inline uint32_t spa_pod_flag_from_id(char id)
 		return SPA_POD_PROP_FLAG_READONLY;
 	case 'd':
 		return SPA_POD_PROP_FLAG_DEPRECATED;
+	case 'i':
+		return SPA_POD_PROP_FLAG_INFO;
 	default:
 		return 0;
 	}
@@ -500,7 +502,9 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 		     const char *format, va_list args)
 {
 	while (format) {
-		switch (*format) {
+		char t = *format;
+	      next:
+		switch (t) {
 		case '<':
 		{
 			uint32_t id = va_arg(args, uint32_t);
@@ -516,32 +520,28 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 			break;
 		case ':':
 		{
-			const char *spec;
-			char type;
 			int n_values;
 			uint32_t key, flags;
 
 			key = va_arg(args, uint32_t);
-			format = spec = va_arg(args, const char *);
-			type = *spec;
-			if (*spec != '\0')
-				spec++;
-			flags = spa_pod_range_from_id(*spec);
-			if (*spec != '\0')
-				spec++;
-			for (;*spec;spec++)
-				flags |= spa_pod_flag_from_id(*spec);
+			format = va_arg(args, const char *);
+			t = *format;
+			if (*format != '\0')
+				format++;
+			flags = spa_pod_range_from_id(*format);
+			if (*format != '\0')
+				format++;
+			for (;*format;format++)
+				flags |= spa_pod_flag_from_id(*format);
 
 			spa_pod_builder_push_prop(builder, key, flags);
 
-			if (type == '{' || type == '[')
-				continue;
-
-			format = spec;
+			if (t == '<' || t == '[')
+				goto next;
 
 			n_values = -1;
 	                while (n_values-- != 0) {
-				SPA_POD_BUILDER_COLLECT(builder, type, args);
+				SPA_POD_BUILDER_COLLECT(builder, t, args);
 
 	                        if ((flags & SPA_POD_PROP_RANGE_MASK) == 0)
 					break;
@@ -565,10 +565,11 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 			format = va_arg(args, const char *);
 			continue;
 		default:
-			SPA_POD_BUILDER_COLLECT(builder,*format,args);
+			SPA_POD_BUILDER_COLLECT(builder, t, args);
 			break;;
 		}
-		format++;
+		if (*format != '\0')
+			format++;
 	}
 	return spa_pod_builder_deref(builder, builder->frame[builder->state.depth].ref);
 }

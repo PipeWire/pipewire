@@ -27,7 +27,7 @@
 
 #include "config.h"
 
-#include <dbus/dbus.h>
+#include <spa/support/dbus.h>
 
 #include "pipewire/core.h"
 #include "pipewire/interfaces.h"
@@ -41,14 +41,13 @@ struct impl {
 	struct pw_type *type;
 	struct pw_properties *properties;
 
+	struct spa_dbus_connection *conn;
 	DBusConnection *bus;
 
 	struct spa_hook core_listener;
 	struct spa_hook module_listener;
 
 	struct spa_list client_list;
-
-	struct spa_source *dispatch_event;
 };
 
 struct resource;
@@ -543,188 +542,6 @@ static const struct pw_core_events core_events = {
 	.global_removed = core_global_removed,
 };
 
-static void dispatch_cb(void *userdata)
-{
-	struct impl *impl = userdata;
-
-	if (dbus_connection_dispatch(impl->bus) == DBUS_DISPATCH_COMPLETE)
-		pw_loop_enable_idle(pw_core_get_main_loop(impl->core), impl->dispatch_event, false);
-}
-
-static void dispatch_status(DBusConnection *conn, DBusDispatchStatus status, void *userdata)
-{
-	struct impl *impl = userdata;
-
-	pw_loop_enable_idle(pw_core_get_main_loop(impl->core),
-			    impl->dispatch_event, status == DBUS_DISPATCH_COMPLETE ? false : true);
-}
-
-static inline enum spa_io dbus_to_io(DBusWatch *watch)
-{
-	enum spa_io mask;
-	unsigned int flags;
-
-	/* no watch flags for disabled watches */
-	if (!dbus_watch_get_enabled(watch))
-		return 0;
-
-	flags = dbus_watch_get_flags(watch);
-	mask = SPA_IO_HUP | SPA_IO_ERR;
-
-	if (flags & DBUS_WATCH_READABLE)
-		mask |= SPA_IO_IN;
-	if (flags & DBUS_WATCH_WRITABLE)
-		mask |= SPA_IO_OUT;
-
-	return mask;
-}
-
-static inline unsigned int io_to_dbus(enum spa_io mask)
-{
-	unsigned int flags = 0;
-
-	if (mask & SPA_IO_IN)
-		flags |= DBUS_WATCH_READABLE;
-	if (mask & SPA_IO_OUT)
-		flags |= DBUS_WATCH_WRITABLE;
-	if (mask & SPA_IO_HUP)
-		flags |= DBUS_WATCH_HANGUP;
-	if (mask & SPA_IO_ERR)
-		flags |= DBUS_WATCH_ERROR;
-	return flags;
-}
-
-static void
-handle_io_event(void *userdata, int fd, enum spa_io mask)
-{
-	DBusWatch *watch = userdata;
-
-	if (!dbus_watch_get_enabled(watch)) {
-		pw_log_warn("Asked to handle disabled watch: %p %i", (void *) watch, fd);
-		return;
-	}
-	dbus_watch_handle(watch, io_to_dbus(mask));
-}
-
-static dbus_bool_t add_watch(DBusWatch *watch, void *userdata)
-{
-	struct impl *impl = userdata;
-	struct spa_source *source;
-
-	pw_log_debug("add watch %p %d", watch, dbus_watch_get_unix_fd(watch));
-
-	/* we dup because dbus tends to add the same fd multiple times and our epoll
-	 * implementation does not like that */
-	source = pw_loop_add_io(pw_core_get_main_loop(impl->core),
-				dup(dbus_watch_get_unix_fd(watch)),
-				dbus_to_io(watch), true, handle_io_event, watch);
-
-	dbus_watch_set_data(watch, source, NULL);
-	return TRUE;
-}
-
-static void remove_watch(DBusWatch *watch, void *userdata)
-{
-	struct impl *impl = userdata;
-	struct spa_source *source;
-
-	if ((source = dbus_watch_get_data(watch)))
-		pw_loop_destroy_source(pw_core_get_main_loop(impl->core), source);
-}
-
-static void toggle_watch(DBusWatch *watch, void *userdata)
-{
-	struct impl *impl = userdata;
-	struct spa_source *source;
-
-	source = dbus_watch_get_data(watch);
-
-	pw_loop_update_io(pw_core_get_main_loop(impl->core), source, dbus_to_io(watch));
-}
-struct timeout_data {
-	struct spa_source *source;
-	struct impl *impl;
-};
-
-static void
-handle_timer_event(void *userdata, uint64_t expirations)
-{
-	DBusTimeout *timeout = userdata;
-	uint64_t t;
-	struct timespec ts;
-	struct timeout_data *data = dbus_timeout_get_data(timeout);
-	struct impl *impl = data->impl;
-
-	if (dbus_timeout_get_enabled(timeout)) {
-		t = dbus_timeout_get_interval(timeout) * SPA_NSEC_PER_MSEC;
-		ts.tv_sec = t / SPA_NSEC_PER_SEC;
-		ts.tv_nsec = t % SPA_NSEC_PER_SEC;
-		pw_loop_update_timer(pw_core_get_main_loop(impl->core),
-				     data->source, &ts, NULL, false);
-		dbus_timeout_handle(timeout);
-	}
-}
-
-static dbus_bool_t add_timeout(DBusTimeout *timeout, void *userdata)
-{
-	struct impl *impl = userdata;
-	struct timespec ts;
-	struct timeout_data *data;
-	uint64_t t;
-
-	if (!dbus_timeout_get_enabled(timeout))
-		return FALSE;
-
-	data = calloc(1, sizeof(struct timeout_data));
-	data->impl = impl;
-	data->source = pw_loop_add_timer(pw_core_get_main_loop(impl->core), handle_timer_event, timeout);
-	dbus_timeout_set_data(timeout, data, NULL);
-
-	t = dbus_timeout_get_interval(timeout) * SPA_NSEC_PER_MSEC;
-	ts.tv_sec = t / SPA_NSEC_PER_SEC;
-	ts.tv_nsec = t % SPA_NSEC_PER_SEC;
-	pw_loop_update_timer(pw_core_get_main_loop(impl->core), data->source, &ts, NULL, false);
-
-	return TRUE;
-}
-
-static void remove_timeout(DBusTimeout *timeout, void *userdata)
-{
-	struct impl *impl = userdata;
-	struct timeout_data *data;
-
-	if ((data = dbus_timeout_get_data(timeout))) {
-		pw_loop_destroy_source(pw_core_get_main_loop(impl->core), data->source);
-		free(data);
-	}
-}
-
-static void toggle_timeout(DBusTimeout *timeout, void *userdata)
-{
-	struct impl *impl = userdata;
-	struct timeout_data *data;
-	struct timespec ts, *tsp;
-
-	data = dbus_timeout_get_data(timeout);
-
-	if (dbus_timeout_get_enabled(timeout)) {
-		uint64_t t = dbus_timeout_get_interval(timeout) * SPA_NSEC_PER_MSEC;
-		ts.tv_sec = t / SPA_NSEC_PER_SEC;
-		ts.tv_nsec = t % SPA_NSEC_PER_SEC;
-		tsp = &ts;
-	} else {
-		tsp = NULL;
-	}
-	pw_loop_update_timer(pw_core_get_main_loop(impl->core), data->source, tsp, NULL, false);
-}
-
-static void wakeup_main(void *userdata)
-{
-	struct impl *impl = userdata;
-
-	pw_loop_enable_idle(pw_core_get_main_loop(impl->core), impl->dispatch_event, true);
-}
-
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
@@ -733,13 +550,10 @@ static void module_destroy(void *data)
 	spa_hook_remove(&impl->core_listener);
 	spa_hook_remove(&impl->module_listener);
 
-	dbus_connection_close(impl->bus);
-	dbus_connection_unref(impl->bus);
+	spa_dbus_connection_destroy(impl->conn);
 
 	spa_list_for_each_safe(info, t, &impl->client_list, link)
 		client_info_free(info);
-
-	pw_loop_destroy_source(pw_core_get_main_loop(impl->core), impl->dispatch_event);
 
 	if (impl->properties)
 		pw_properties_free(impl->properties);
@@ -757,8 +571,15 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	struct pw_core *core = pw_module_get_core(module);
 	struct impl *impl;
 	DBusError error;
+	struct spa_dbus *dbus;
+	const struct spa_support *support;
+	uint32_t n_support;
 
-	dbus_error_init(&error);
+	support = pw_core_get_support(core, &n_support);
+
+	dbus = spa_support_find(support, n_support, SPA_TYPE__DBus);
+        if (dbus == NULL)
+                return -ENOTSUP;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -770,19 +591,13 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	impl->type = pw_core_get_type(core);
 	impl->properties = properties;
 
-	impl->bus = dbus_bus_get_private(DBUS_BUS_SESSION, &error);
-	if (impl->bus == NULL)
+	dbus_error_init(&error);
+
+	impl->conn = spa_dbus_get_connection(dbus, DBUS_BUS_SESSION, &error);
+	if (impl->conn == NULL)
 		goto error;
 
-	impl->dispatch_event = pw_loop_add_idle(pw_core_get_main_loop(core), false, dispatch_cb, impl);
-
-	dbus_connection_set_exit_on_disconnect(impl->bus, false);
-	dbus_connection_set_dispatch_status_function(impl->bus, dispatch_status, impl, NULL);
-	dbus_connection_set_watch_functions(impl->bus, add_watch, remove_watch, toggle_watch, impl,
-					    NULL);
-	dbus_connection_set_timeout_functions(impl->bus, add_timeout, remove_timeout,
-					      toggle_timeout, impl, NULL);
-	dbus_connection_set_wakeup_main_function(impl->bus, wakeup_main, impl, NULL);
+	impl->bus = spa_dbus_connection_get(impl->conn);
 
 	spa_list_init(&impl->client_list);
 

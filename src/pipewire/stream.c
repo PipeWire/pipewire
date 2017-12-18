@@ -1008,7 +1008,7 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = on_node_proxy_destroy,
 };
 
-bool
+int
 pw_stream_connect(struct pw_stream *stream,
 		  enum pw_direction direction,
 		  const char *port_path,
@@ -1040,14 +1040,14 @@ pw_stream_connect(struct pw_stream *stream,
 			       PW_VERSION_CLIENT_NODE,
 			       &stream->properties->dict, 0);
 	if (impl->node_proxy == NULL)
-		return false;
+		return -ENOMEM;
 
 	pw_client_node_proxy_add_listener(impl->node_proxy, &impl->node_listener, &client_node_events, impl);
 	pw_proxy_add_listener((struct pw_proxy*)impl->node_proxy, &impl->proxy_listener, &proxy_events, impl);
 
 	do_node_init(stream);
 
-	return true;
+	return 0;
 }
 
 uint32_t
@@ -1105,7 +1105,7 @@ void pw_stream_set_active(struct pw_stream *stream, bool active)
 	pw_client_node_proxy_set_active(impl->node_proxy, active);
 }
 
-bool pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
+int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int64_t elapsed;
@@ -1118,7 +1118,7 @@ bool pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	time->ticks = impl->last_ticks + (elapsed * impl->last_rate) / SPA_USEC_PER_SEC;
 	time->rate = impl->last_rate;
 
-	return true;
+	return 0;
 }
 
 uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream)
@@ -1134,13 +1134,13 @@ uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream)
 	return bid->id;
 }
 
-bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
+int pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer_id *bid;
 
 	if ((bid = find_buffer(stream, id)) == NULL || !bid->used)
-		return false;
+		return -EINVAL;
 
 	bid->used = false;
 	spa_list_append(&impl->free, &bid->link);
@@ -1156,7 +1156,7 @@ bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 		send_reuse_buffer(stream, id);
 	}
 
-	return true;
+	return 0;
 }
 
 struct spa_buffer *pw_stream_peek_buffer(struct pw_stream *stream, uint32_t id)
@@ -1169,7 +1169,7 @@ struct spa_buffer *pw_stream_peek_buffer(struct pw_stream *stream, uint32_t id)
 	return NULL;
 }
 
-bool pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
+int pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer_id *bid;
@@ -1177,7 +1177,7 @@ bool pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
 	if (impl->trans->outputs[0].buffer_id != SPA_ID_INVALID) {
 		pw_log_debug("can't send %u, pending buffer %u", id,
 			     impl->trans->outputs[0].buffer_id);
-		return false;
+		return -EIO;
 	}
 
 	if ((bid = find_buffer(stream, id)) && !bid->used) {
@@ -1192,5 +1192,5 @@ bool pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
 		pw_log_debug("stream %p: output %u was used", stream, id);
 	}
 
-	return true;
+	return 0;
 }

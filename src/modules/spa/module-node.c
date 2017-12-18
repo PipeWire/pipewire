@@ -22,6 +22,7 @@
 #include "config.h"
 #endif
 
+#include <errno.h>
 #include <getopt.h>
 #include <limits.h>
 
@@ -52,7 +53,7 @@ static const struct pw_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-bool pipewire__module_init(struct pw_module *module, const char *args)
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_properties *props = NULL;
 	char **argv;
@@ -69,6 +70,8 @@ bool pipewire__module_init(struct pw_module *module, const char *args)
 		goto not_enough_arguments;
 
 	props = pw_properties_new(NULL, NULL);
+	if (props == NULL)
+		return -ENOMEM;
 
 	for (i = 3; i < n_tokens; i++) {
 		char **prop;
@@ -92,7 +95,7 @@ bool pipewire__module_init(struct pw_module *module, const char *args)
 	pw_free_strv(argv);
 
 	if (node == NULL)
-		return false;
+		return -ENOMEM;
 
 	data = pw_spa_node_get_user_data(node);
 	data->this = node;
@@ -102,11 +105,11 @@ bool pipewire__module_init(struct pw_module *module, const char *args)
 	pw_log_debug("module %p: new", module);
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
-	return true;
+	return 0;
 
       not_enough_arguments:
 	pw_free_strv(argv);
       wrong_arguments:
 	pw_log_error("usage: module-spa-node <plugin> <factory> <name> [key=value ...]");
-	return false;
+	return -EINVAL;
 }

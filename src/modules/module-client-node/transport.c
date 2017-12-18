@@ -150,6 +150,9 @@ static int next_message(struct pw_client_node_transport *trans, struct pw_client
 				 impl->current_index & (INPUT_BUFFER_SIZE - 1),
 				 &impl->current, sizeof(struct pw_client_node_message));
 
+	if (avail < SPA_POD_SIZE(&impl->current))
+		return 0;
+
 	*message = impl->current;
 
 	return 1;

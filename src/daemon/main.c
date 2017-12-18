@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 
 	/* parse configuration */
 	config = pw_daemon_config_new();
-	if (!pw_daemon_config_load(config, &err)) {
+	if (pw_daemon_config_load(config, &err) < 0) {
 		pw_log_error("failed to parse config: %s", err);
 		free(err);
 		return -1;
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
 
 	core = pw_core_new(pw_main_loop_get_loop(loop), props);
 
-	if (!pw_daemon_config_run_commands(config, core)) {
+	if (pw_daemon_config_run_commands(config, core) < 0) {
 		pw_log_error("failed to run config commands");
 		return -1;
 	}

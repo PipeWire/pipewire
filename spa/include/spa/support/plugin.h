@@ -177,8 +177,6 @@ typedef int (*spa_handle_factory_enum_func_t) (const struct spa_handle_factory *
  */
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index);
 
-void spa_handle_factory_register(const struct spa_handle_factory *factory);
-
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

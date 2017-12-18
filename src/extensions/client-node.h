@@ -81,8 +81,8 @@ struct pw_client_node_transport {
 	/** Get next message from a transport
 	 * \param trans the transport to get the message of
 	 * \param[out] message the message to read
-	 * \return 0 on success, < 0 on error, SPA_RESULT_ENUM_END when no more messages
-	 *      are available.
+	 * \return < 0 on error, 1 when a message is available,
+	 *           0 when no more messages are available.
 	 *
 	 * Get the skeleton next message from \a trans into \a message. This function will
 	 * only read the head and object body of the message.

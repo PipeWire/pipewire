@@ -161,7 +161,7 @@ struct pw_port * pw_node_get_free_port(struct pw_node *node, enum pw_direction d
 
 /** Set a node active. This will start negotiation with all linked active
   * nodes and start data transport */
-bool pw_node_set_active(struct pw_node *node, bool active);
+int pw_node_set_active(struct pw_node *node, bool active);
 
 /** Check is a node is active */
 bool pw_node_is_active(struct pw_node *node);

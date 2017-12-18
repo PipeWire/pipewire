@@ -27,13 +27,15 @@
 static const struct spa_handle_factory *factories[MAX_FACTORIES];
 static int n_factories;
 
-void
-spa_handle_factory_register(const struct spa_handle_factory *factory)
+int spa_handle_factory_register(const struct spa_handle_factory *factory)
 {
 	if (n_factories < MAX_FACTORIES)
 		factories[n_factories++] = factory;
-	else
+	else {
 		fprintf(stderr, "too many factories\n");
+		return -ENOMEM;
+	}
+	return 0;
 }
 
 int

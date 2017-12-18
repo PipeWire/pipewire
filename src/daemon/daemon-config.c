@@ -34,13 +34,13 @@
 
 #define DEFAULT_CONFIG_FILE PIPEWIRE_CONFIG_DIR "/pipewire.conf"
 
-static bool
+static int
 parse_line(struct pw_daemon_config *config,
 	   const char *filename, char *line, unsigned int lineno, char **err)
 {
 	struct pw_command *command = NULL;
 	char *p;
-	bool ret = true;
+	int ret = 0;
 	char *local_err = NULL;
 
 	/* search for comments */
@@ -51,12 +51,12 @@ parse_line(struct pw_daemon_config *config,
 	pw_strip(line, "\n\r \t");
 
 	if (*line == '\0')	/* empty line */
-		return true;
+		return 0;
 
 	if ((command = pw_command_parse(line, &local_err)) == NULL) {
 		asprintf(err, "%s:%u: %s", filename, lineno, local_err);
 		free(local_err);
-		ret = false;
+		ret = -EINVAL;
 	} else {
 		spa_list_append(&config->commands, &command->link);
 	}
@@ -103,9 +103,9 @@ void pw_daemon_config_free(struct pw_daemon_config *config)
  *
  * Loads PipeWire config from @filename.
  *
- * Returns: %true on success, otherwise %false and @err is set.
+ * Returns: 0 on success, otherwise < 0 and @err is set.
  */
-bool pw_daemon_config_load_file(struct pw_daemon_config *config, const char *filename, char **err)
+int pw_daemon_config_load_file(struct pw_daemon_config *config, const char *filename, char **err)
 {
 	unsigned int line;
 	FILE *f;
@@ -133,18 +133,18 @@ bool pw_daemon_config_load_file(struct pw_daemon_config *config, const char *fil
 
 		line++;
 
-		if (!parse_line(config, filename, buf, line, err))
+		if (parse_line(config, filename, buf, line, err) != 0)
 			goto parse_failed;
 	}
 	fclose(f);
 
-	return true;
+	return 0;
 
       parse_failed:
       read_error:
 	fclose(f);
       open_error:
-	return false;
+	return -EINVAL;
 }
 
 /**
@@ -155,9 +155,9 @@ bool pw_daemon_config_load_file(struct pw_daemon_config *config, const char *fil
  * Loads the default config file for PipeWire. The filename can be overridden with
  * an evironment variable PIPEWIRE_CONFIG_FILE.
  *
- * Return: %true on success, otherwise %false and @err is set.
+ * Return: 0 on success, otherwise < 0 and @err is set.
  */
-bool pw_daemon_config_load(struct pw_daemon_config *config, char **err)
+int pw_daemon_config_load(struct pw_daemon_config *config, char **err)
 {
 	const char *filename;
 
@@ -178,19 +178,18 @@ bool pw_daemon_config_load(struct pw_daemon_config *config, char **err)
  * Run all commands that have been parsed. The list of commands will be cleared
  * when this function has been called.
  *
- * Returns: %true if all commands where executed with success, otherwise %false.
+ * Returns: 0 if all commands where executed with success, otherwise < 0.
  */
-bool pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_core *core)
+int pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_core *core)
 {
 	char *err = NULL;
-	bool ret = true;
+	int ret = 0;
 	struct pw_command *command, *tmp;
 
 	spa_list_for_each(command, &config->commands, link) {
-		if (!pw_command_run(command, core, &err)) {
+		if ((ret = pw_command_run(command, core, &err)) < 0) {
 			pw_log_warn("could not run command %s: %s", command->args[0], err);
 			free(err);
-			ret = false;
 		}
 	}
 

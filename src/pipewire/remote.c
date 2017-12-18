@@ -1111,6 +1111,7 @@ client_node_port_set_io(void *object,
 			    strerror(errno));
 		return;
 	}
+	pw_log_debug("port %p: set io %s", port, spa_type_map_get_type(core->type.map, id));
 
 	spa_node_port_set_io(port->port->node->node,
 			     direction, port_id,

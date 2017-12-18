@@ -149,7 +149,7 @@ static void client_node_marshal_destroy(void *object)
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
-static bool client_node_demarshal_add_mem(void *object, void *data, size_t size)
+static int client_node_demarshal_add_mem(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -163,7 +163,7 @@ static bool client_node_demarshal_add_mem(void *object, void *data, size_t size)
 			"I", &type,
 			"i", &memfd_idx,
 			"i", &flags, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	memfd = pw_protocol_native_get_proxy_fd(proxy, memfd_idx);
 
@@ -171,10 +171,10 @@ static bool client_node_demarshal_add_mem(void *object, void *data, size_t size)
 								      mem_id,
 								      type,
 								      memfd, flags);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_transport(void *object, void *data, size_t size)
+static int client_node_demarshal_transport(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -192,23 +192,23 @@ static bool client_node_demarshal_transport(void *object, void *data, size_t siz
 			"i", &memfd_idx,
 			"i", &info.offset,
 			"i", &info.size, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	readfd = pw_protocol_native_get_proxy_fd(proxy, ridx);
 	writefd = pw_protocol_native_get_proxy_fd(proxy, widx);
 	info.memfd = pw_protocol_native_get_proxy_fd(proxy, memfd_idx);
 
 	if (readfd == -1 || writefd == -1 || info.memfd == -1)
-		return false;
+		return -EINVAL;
 
 	transport = pw_client_node_transport_new_from_info(&info);
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, transport, node_id,
 								   readfd, writefd, transport);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_set_param(void *object, void *data, size_t size)
+static int client_node_demarshal_set_param(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -222,13 +222,13 @@ static bool client_node_demarshal_set_param(void *object, void *data, size_t siz
 			"I", &id,
 			"i", &flags,
 			"O", &param, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, set_param, seq, id, flags, param);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_event_event(void *object, void *data, size_t size)
+static int client_node_demarshal_event_event(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -236,13 +236,13 @@ static bool client_node_demarshal_event_event(void *object, void *data, size_t s
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs, "[ O", &event, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, event, event);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_command(void *object, void *data, size_t size)
+static int client_node_demarshal_command(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -254,13 +254,13 @@ static bool client_node_demarshal_command(void *object, void *data, size_t size)
 			"["
 			"i", &seq,
 			"O", &command, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, command, seq, command);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_add_port(void *object, void *data, size_t size)
+static int client_node_demarshal_add_port(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -272,13 +272,13 @@ static bool client_node_demarshal_add_port(void *object, void *data, size_t size
 			"i", &seq,
 			"i", &direction,
 			"i", &port_id, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, add_port, seq, direction, port_id);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_remove_port(void *object, void *data, size_t size)
+static int client_node_demarshal_remove_port(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -290,13 +290,13 @@ static bool client_node_demarshal_remove_port(void *object, void *data, size_t s
 			"i", &seq,
 			"i", &direction,
 			"i", &port_id, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, remove_port, seq, direction, port_id);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_port_set_param(void *object, void *data, size_t size)
+static int client_node_demarshal_port_set_param(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -312,14 +312,14 @@ static bool client_node_demarshal_port_set_param(void *object, void *data, size_
 			"I", &id,
 			"i", &flags,
 			"O", &param, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_set_param,
 			seq, direction, port_id, id, flags, param);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_port_use_buffers(void *object, void *data, size_t size)
+static int client_node_demarshal_port_use_buffers(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -334,7 +334,7 @@ static bool client_node_demarshal_port_use_buffers(void *object, void *data, siz
 			"i", &direction,
 			"i", &port_id,
 			"i", &n_buffers, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	buffers = alloca(sizeof(struct pw_client_node_buffer) * n_buffers);
 	for (i = 0; i < n_buffers; i++) {
@@ -346,7 +346,7 @@ static bool client_node_demarshal_port_use_buffers(void *object, void *data, siz
 				      "i", &buffers[i].size,
 				      "i", &buf->id,
 				      "i", &buf->n_metas, NULL) < 0)
-			return false;
+			return -EINVAL;
 
 		buf->metas = alloca(sizeof(struct spa_meta) * buf->n_metas);
 		for (j = 0; j < buf->n_metas; j++) {
@@ -355,10 +355,10 @@ static bool client_node_demarshal_port_use_buffers(void *object, void *data, siz
 			if (spa_pod_parser_get(&prs,
 					      "I", &m->type,
 					      "i", &m->size, NULL) < 0)
-				return false;
+				return -EINVAL;
 		}
 		if (spa_pod_parser_get(&prs, "i", &buf->n_datas, NULL) < 0)
-			return false;
+			return -EINVAL;
 
 		buf->datas = alloca(sizeof(struct spa_data) * buf->n_datas);
 		for (j = 0; j < buf->n_datas; j++) {
@@ -370,7 +370,7 @@ static bool client_node_demarshal_port_use_buffers(void *object, void *data, siz
 					      "i", &d->flags,
 					      "i", &d->mapoffset,
 					      "i", &d->maxsize, NULL) < 0)
-				return false;
+				return -EINVAL;
 
 			d->data = SPA_UINT32_TO_PTR(data_id);
 		}
@@ -379,10 +379,10 @@ static bool client_node_demarshal_port_use_buffers(void *object, void *data, siz
 									  direction,
 									  port_id,
 									  n_buffers, buffers);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_port_command(void *object, void *data, size_t size)
+static int client_node_demarshal_port_command(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -395,15 +395,15 @@ static bool client_node_demarshal_port_command(void *object, void *data, size_t 
 			"i", &direction,
 			"i", &port_id,
 			"O", &command, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_command, direction,
 									   port_id,
 									   command);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_port_set_io(void *object, void *data, size_t size)
+static int client_node_demarshal_port_set_io(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -419,14 +419,14 @@ static bool client_node_demarshal_port_set_io(void *object, void *data, size_t s
 			"i", &memid,
 			"i", &off,
 			"i", &sz, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_set_io,
 							seq,
 							direction, port_id,
 							id, memid,
 							off, sz);
-	return true;
+	return 0;
 }
 
 static void
@@ -672,7 +672,7 @@ client_node_marshal_port_set_io(void *object,
 }
 
 
-static bool client_node_demarshal_done(void *object, void *data, size_t size)
+static int client_node_demarshal_done(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
@@ -683,13 +683,13 @@ static bool client_node_demarshal_done(void *object, void *data, size_t size)
 			"["
 			"i", &seq,
 			"i", &res, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_resource_do(resource, struct pw_client_node_proxy_methods, done, seq, res);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_update(void *object, void *data, size_t size)
+static int client_node_demarshal_update(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
@@ -704,22 +704,22 @@ static bool client_node_demarshal_update(void *object, void *data, size_t size)
 			"i", &max_input_ports,
 			"i", &max_output_ports,
 			"i", &n_params, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0; i < n_params; i++)
 		if (spa_pod_parser_get(&prs, "O", &params[i], NULL) < 0)
-			return false;
+			return -EINVAL;
 
 	pw_resource_do(resource, struct pw_client_node_proxy_methods, update, change_mask,
 									max_input_ports,
 									max_output_ports,
 									n_params,
 									params);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_port_update(void *object, void *data, size_t size)
+static int client_node_demarshal_port_update(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
@@ -735,15 +735,15 @@ static bool client_node_demarshal_port_update(void *object, void *data, size_t s
 			"i", &port_id,
 			"i", &change_mask,
 			"i", &n_params, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0; i < n_params; i++)
 		if (spa_pod_parser_get(&prs, "O", &params[i], NULL) < 0)
-			return false;
+			return -EINVAL;
 
 	if (spa_pod_parser_get(&prs, "T", &ipod, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	if (ipod) {
 		struct spa_pod_parser p2;
@@ -754,7 +754,7 @@ static bool client_node_demarshal_port_update(void *object, void *data, size_t s
 				"["
 				"i", &info.flags,
 				"i", &info.rate, NULL) < 0)
-			return false;
+			return -EINVAL;
 	}
 
 	pw_resource_do(resource, struct pw_client_node_proxy_methods, port_update, direction,
@@ -762,26 +762,26 @@ static bool client_node_demarshal_port_update(void *object, void *data, size_t s
 									     change_mask,
 									     n_params,
 									     params, infop);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_set_active(void *object, void *data, size_t size)
+static int client_node_demarshal_set_active(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
-	bool active;
+	int active;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
 			"["
 			"b", &active, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_resource_do(resource, struct pw_client_node_proxy_methods, set_active, active);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_event_method(void *object, void *data, size_t size)
+static int client_node_demarshal_event_method(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
@@ -791,23 +791,23 @@ static bool client_node_demarshal_event_method(void *object, void *data, size_t 
 	if (spa_pod_parser_get(&prs,
 			"["
 			"O", &event, NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_resource_do(resource, struct pw_client_node_proxy_methods, event, event);
-	return true;
+	return 0;
 }
 
-static bool client_node_demarshal_destroy(void *object, void *data, size_t size)
+static int client_node_demarshal_destroy(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs, "[", NULL) < 0)
-		return false;
+		return -EINVAL;
 
 	pw_resource_do(resource, struct pw_client_node_proxy_methods, destroy);
-	return true;
+	return 0;
 }
 
 static const struct pw_client_node_proxy_methods pw_protocol_native_client_node_method_marshal = {

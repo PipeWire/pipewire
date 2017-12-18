@@ -928,12 +928,12 @@ static void output_port_destroy(void *data)
 	on_port_destroy(&impl->this, impl->this.output);
 }
 
-bool pw_link_activate(struct pw_link *this)
+int pw_link_activate(struct pw_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
 	if (impl->active)
-		return true;
+		return 0;
 
 	impl->active = true;
 
@@ -944,7 +944,7 @@ bool pw_link_activate(struct pw_link *this)
 	pw_work_queue_add(impl->work,
 			  this, -EBUSY, (pw_work_func_t) check_states, this);
 
-	return true;
+	return 0;
 }
 
 static int
@@ -956,13 +956,13 @@ do_deactivate_link(struct spa_loop *loop,
 	return 0;
 }
 
-bool pw_link_deactivate(struct pw_link *this)
+int pw_link_deactivate(struct pw_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_node *input_node, *output_node;
 
 	if (!impl->active)
-		return true;
+		return 0;
 
 	impl->active = false;
 	pw_log_debug("link %p: deactivate", this);
@@ -999,7 +999,7 @@ bool pw_link_deactivate(struct pw_link *this)
 		this->output->state = PW_PORT_STATE_PAUSED;
 	}
 
-	return true;
+	return 0;
 }
 
 static void link_unbind_func(void *data)

@@ -359,12 +359,15 @@ static const struct pw_core_events core_events = {
  *
  * Returns: a new #struct impl
  */
-static bool module_init(struct pw_module *module, struct pw_properties *properties)
+static int module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct impl *impl;
 
 	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		return -ENOMEM;
+
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = core;
@@ -377,10 +380,10 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
-	return impl;
+	return 0;
 }
 
-bool pipewire__module_init(struct pw_module *module, const char *args)
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	return module_init(module, NULL);
 }

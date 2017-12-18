@@ -225,7 +225,7 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 	if (this->global != NULL)
 		this->info.id = this->global->id;
 
-	if (!init_func(this, args))
+	if (init_func(this, args) < 0)
 		goto init_failed;
 
 	pw_log_debug("loaded module: %s", this->info.name);

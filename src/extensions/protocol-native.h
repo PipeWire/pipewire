@@ -32,7 +32,7 @@ extern "C" {
 #define PW_TYPE_PROTOCOL_NATIVE_BASE	PW_TYPE_PROTOCOL__Native ":"
 
 struct pw_protocol_native_demarshal {
-	bool (*func) (void *object, void *data, size_t size);
+	int (*func) (void *object, void *data, size_t size);
 
 #define PW_PROTOCOL_NATIVE_REMAP	(1<<0)
 #define PW_PROTOCOL_NATIVE_PERM_W	(1<<1)

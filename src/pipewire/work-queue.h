@@ -45,10 +45,10 @@ pw_work_queue_add(struct pw_work_queue *queue,
 		  void *obj, int res,
 		  pw_work_func_t func, void *data);
 
-void
+int
 pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id);
 
-bool
+int
 pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq, int res);
 
 #ifdef __cplusplus

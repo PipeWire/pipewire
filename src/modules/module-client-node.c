@@ -101,7 +101,7 @@ static const struct pw_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static bool module_init(struct pw_module *module, struct pw_properties *properties)
+static int module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_type *t = pw_core_get_type(core);
@@ -118,7 +118,7 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 				 NULL,
 				 sizeof(*data));
 	if (factory == NULL)
-		return false;
+		return -ENOMEM;
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
@@ -137,10 +137,10 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
-	return true;
+	return 0;
 }
 
-bool pipewire__module_init(struct pw_module *module, const char *args)
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	return module_init(module, NULL);
 }

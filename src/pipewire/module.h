@@ -44,14 +44,14 @@ struct pw_module;
  *
  * \param module A \ref pw_module
  * \param args Arguments to the module
- * \return true on success, false otherwise
+ * \return 0 on success, < 0 otherwise with an errno style error
  *
  * A module should provide an init function with this signature. This function
  * will be called when a module is loaded.
  *
  * \memberof pw_module
  */
-typedef bool (*pw_module_init_func_t) (struct pw_module *module, const char *args);
+typedef int (*pw_module_init_func_t) (struct pw_module *module, const char *args);
 
 /** Module events added with \ref pw_module_add_listener */
 struct pw_module_events {

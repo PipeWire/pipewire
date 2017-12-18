@@ -219,7 +219,7 @@ process_messages(struct client_data *data)
 			if (!pod_remap_data(SPA_POD_TYPE_STRUCT, message, size, &client->types))
 				goto invalid_message;
 
-		if (!demarshal[opcode].func(resource, message, size))
+		if (demarshal[opcode].func(resource, message, size) < 0)
 			goto invalid_message;
 	}
 	return;
@@ -587,7 +587,7 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 					continue;
 				}
 			}
-			if (!demarshal[opcode].func(proxy, message, size)) {
+			if (demarshal[opcode].func(proxy, message, size) < 0) {
 				pw_log_error ("protocol-native %p: invalid message received %u for %u", this,
 					opcode, id);
 				continue;
@@ -891,7 +891,7 @@ static const struct pw_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static bool module_init(struct pw_module *module, struct pw_properties *properties)
+static int module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_protocol *this;
@@ -899,11 +899,11 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	struct protocol_data *d;
 
 	if (pw_core_find_protocol(core, PW_TYPE_PROTOCOL__Native) != NULL)
-		return true;
+		return 0;
 
 	this = pw_protocol_new(core, PW_TYPE_PROTOCOL__Native, sizeof(struct protocol_data));
 	if (this == NULL)
-		return false;
+		return -ENOMEM;
 
 	this->implementation = &protocol_impl;
 	this->extension = &protocol_ext_impl;
@@ -922,15 +922,15 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 		val = pw_properties_get(pw_core_get_properties(core), PW_CORE_PROP_DAEMON);
 	if (val && pw_properties_parse_bool(val)) {
 		if (impl_add_server(this, core, properties) == NULL)
-			return false;
+			return -ENOMEM;
 	}
 
 	pw_module_add_listener(module, &d->module_listener, &module_events, d);
 
-	return true;
+	return 0;
 }
 
-bool pipewire__module_init(struct pw_module *module, const char *args)
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	return module_init(module, NULL);
 }

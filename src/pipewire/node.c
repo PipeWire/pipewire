@@ -856,7 +856,7 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 	}
 }
 
-bool pw_node_set_active(struct pw_node *node, bool active)
+int pw_node_set_active(struct pw_node *node, bool active)
 {
 	bool old = node->active;
 
@@ -869,7 +869,7 @@ bool pw_node_set_active(struct pw_node *node, bool active)
 		else
 			pw_node_set_state(node, PW_NODE_STATE_IDLE);
 	}
-	return true;
+	return 0;
 }
 
 bool pw_node_is_active(struct pw_node *node)

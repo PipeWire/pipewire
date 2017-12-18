@@ -264,6 +264,8 @@ static const struct spa_handle_factory logger_factory = {
 	impl_enum_interface_info,
 };
 
+int spa_handle_factory_register(const struct spa_handle_factory *factory);
+
 static void reg(void) __attribute__ ((constructor));
 static void reg(void)
 {

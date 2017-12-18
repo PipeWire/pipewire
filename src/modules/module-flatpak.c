@@ -752,7 +752,7 @@ static const struct pw_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static bool module_init(struct pw_module *module, struct pw_properties *properties)
+static int module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct impl *impl;
@@ -761,6 +761,9 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 	dbus_error_init(&error);
 
 	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		return -ENOMEM;
+
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = core;
@@ -788,27 +791,16 @@ static bool module_init(struct pw_module *module, struct pw_properties *properti
 
 	pw_core_set_permission_callback(core, do_permission, impl);
 
-	return true;
+	return 0;
 
       error:
 	free(impl);
 	pw_log_error("Failed to connect to system bus: %s", error.message);
 	dbus_error_free(&error);
-	return false;
+	return -ENOMEM;
 }
 
-#if 0
-static void module_destroy(struct impl *impl)
-{
-	pw_log_debug("module %p: destroy", impl);
-
-	dbus_connection_close(impl->bus);
-	dbus_connection_unref(impl->bus);
-	free(impl);
-}
-#endif
-
-bool pipewire__module_init(struct pw_module *module, const char *args)
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	return module_init(module, NULL);
 }

@@ -18,6 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -54,7 +55,7 @@ static const struct command_parse parsers[] = {
 static const char whitespace[] = " \t";
 /** \endcond */
 
-static bool
+static int
 execute_command_help(struct pw_command *command, struct pw_core *core, char **err)
 {
 	int i;
@@ -63,7 +64,7 @@ execute_command_help(struct pw_command *command, struct pw_core *core, char **er
 	for (i = 0; parsers[i].name; i++)
 		fprintf(stdout, "    %20.20s\t%s\n", parsers[i].name, parsers[i].description);
 
-	return true;
+	return 0;
 }
 
 static struct pw_command *parse_command_help(const char *line, char **err)
@@ -86,7 +87,7 @@ static struct pw_command *parse_command_help(const char *line, char **err)
 	return NULL;
 }
 
-static bool
+static int
 execute_command_module_load(struct pw_command *command, struct pw_core *core, char **err)
 {
 	struct pw_module *module;
@@ -94,9 +95,9 @@ execute_command_module_load(struct pw_command *command, struct pw_core *core, ch
 	module = pw_module_load(core, command->args[1], command->args[2]);
 	if (module == NULL) {
 		asprintf(err, "could not load module \"%s\"", command->args[1]);
-		return false;
+		return -ENOMEM;
 	}
-	return true;
+	return 0;
 }
 
 static struct pw_command *parse_command_module_load(const char *line, char **err)
@@ -179,14 +180,14 @@ struct pw_command *pw_command_parse(const char *line, char **err)
 
 /** Run a command
  *
- * \param command: A \ref pw_command
- * \param core: A \ref pw_core
- * \param err: Return location for an error string, or NULL
- * \return a result object or NULL when there was an error
+ * \param command A \ref pw_command
+ * \param core A \ref pw_core
+ * \param err Return location for an error string, or NULL
+ * \return 0 on success, < 0 on error
  *
  * \memberof pw_command
  */
-bool pw_command_run(struct pw_command *command, struct pw_core *core, char **err)
+int pw_command_run(struct pw_command *command, struct pw_core *core, char **err)
 {
 	return command->func(command, core, err);
 }

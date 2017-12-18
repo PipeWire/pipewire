@@ -22,6 +22,7 @@
 #include "config.h"
 #endif
 
+#include <errno.h>
 #include <getopt.h>
 #include <limits.h>
 
@@ -51,7 +52,7 @@ const struct pw_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-bool pipewire__module_init(struct pw_module *module, const char *args)
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	const char *dir;
 	char **argv;
@@ -73,6 +74,8 @@ bool pipewire__module_init(struct pw_module *module, const char *args)
 				      pw_module_get_global(module),
 				      dir, argv[0], argv[1], argv[2],
 				      sizeof(struct data));
+	if (monitor == NULL)
+		return -ENOMEM;
 
 	data = monitor->user_data;
 	data->monitor = monitor;
@@ -81,11 +84,11 @@ bool pipewire__module_init(struct pw_module *module, const char *args)
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
-	return true;
+	return 0;
 
       not_enough_arguments:
 	pw_free_strv(argv);
       wrong_arguments:
 	pw_log_error("usage: module-spa-monitor <plugin> <factory> <name>");
-	return false;
+	return -EINVAL;
 }

@@ -282,7 +282,7 @@ static int make_control(void *data, struct spa_pod *param)
 	return 0;
 }
 
-bool pw_port_add(struct pw_port *port, struct pw_node *node)
+int pw_port_add(struct pw_port *port, struct pw_node *node)
 {
 	uint32_t port_id = port->port_id;
 	struct pw_type *t = &node->core->type;
@@ -326,7 +326,7 @@ bool pw_port_add(struct pw_port *port, struct pw_node *node)
 		port_update_state(port, PW_PORT_STATE_CONFIGURE);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, port_added, port);
-	return true;
+	return 0;
 }
 
 static int do_remove_port(struct spa_loop *loop,
@@ -480,7 +480,8 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 	int res;
 
 	res = spa_node_port_set_param(port->node->node, port->direction, port->port_id, id, flags, param);
-	pw_log_debug("port %p: set param %d: %d (%s)", port, id, res, spa_strerror(res));
+	pw_log_debug("port %p: set param %s: %d (%s)", port,
+			spa_type_map_get_type(port->node->core->type.map, id), res, spa_strerror(res));
 
 	if (!SPA_RESULT_IS_ASYNC(res) && id == port->node->core->type.param.idFormat) {
 		if (param == NULL || res < 0) {

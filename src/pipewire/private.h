@@ -39,7 +39,7 @@ extern "C" {
 
 struct pw_command;
 
-typedef bool (*pw_command_func_t) (struct pw_command *command, struct pw_core *core, char **err);
+typedef int (*pw_command_func_t) (struct pw_command *command, struct pw_core *core, char **err);
 
 /** \cond */
 struct pw_command {
@@ -451,7 +451,7 @@ pw_port_new(enum pw_direction direction,
 void * pw_port_get_user_data(struct pw_port *port);
 
 /** Add a port to a node \memberof pw_port */
-bool pw_port_add(struct pw_port *port, struct pw_node *node);
+int pw_port_add(struct pw_port *port, struct pw_node *node);
 
 /** Destroy a port \memberof pw_port */
 void pw_port_destroy(struct pw_port *port);
@@ -499,10 +499,10 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 /** Activate a link \memberof pw_link
   * Starts the negotiation of formats and buffers on \a link and then
   * starts data streaming */
-bool pw_link_activate(struct pw_link *link);
+int pw_link_activate(struct pw_link *link);
 
 /** Deactivate a link \memberof pw_link */
-bool pw_link_deactivate(struct pw_link *link);
+int pw_link_deactivate(struct pw_link *link);
 
 struct pw_control *
 pw_control_new(struct pw_core *core,

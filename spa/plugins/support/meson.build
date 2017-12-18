@@ -9,3 +9,12 @@ spa_support_lib = shared_library('spa-support',
                           dependencies : threads_dep,
                           install : true,
                           install_dir : '@0@/spa/support'.format(get_option('libdir')))
+
+spa_dbus_sources = ['dbus.c']
+
+spa_dbus_lib = shared_library('spa-dbus',
+                          spa_dbus_sources,
+                          include_directories : [ spa_inc, spa_libinc],
+                          dependencies : dbus_dep,
+                          install : true,
+                          install_dir : '@0@/spa/support'.format(get_option('libdir')))

@@ -29,6 +29,8 @@
 #include <errno.h>
 #include <dlfcn.h>
 
+#include <spa/support/dbus.h>
+
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 
@@ -37,7 +39,7 @@ static char **categories = NULL;
 static struct support_info {
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
-	struct spa_support support[4];
+	struct spa_support support[16];
 	uint32_t n_support;
 } support_info;
 
@@ -71,6 +73,24 @@ open_support(const char *path,
 	return false;
 }
 
+static const struct spa_handle_factory *get_factory(struct support_info *info, const char *factory_name)
+{
+	int res;
+	uint32_t index;
+        const struct spa_handle_factory *factory;
+
+        for (index = 0;;) {
+                if ((res = info->enum_func(&factory, &index)) <= 0) {
+                        if (res != 0)
+                                fprintf(stderr, "can't enumerate factories: %s\n", spa_strerror(res));
+                        break;
+                }
+                if (strcmp(factory->name, factory_name) == 0)
+                        return factory;
+	}
+	return NULL;
+}
+
 static void *
 load_interface(struct support_info *info,
 	       const char *factory_name,
@@ -83,7 +103,7 @@ load_interface(struct support_info *info,
         void *iface;
 	struct spa_type_map *map = NULL;
 
-	factory = pw_get_support_factory(factory_name);
+	factory = get_factory(info, factory_name);
 	if (factory == NULL)
 		goto not_found;
 
@@ -101,6 +121,8 @@ load_interface(struct support_info *info,
                 fprintf(stderr, "can't get %s interface %d\n", type, res);
                 goto interface_failed;
         }
+	fprintf(stderr, "loaded interface %s from %s\n", type, factory_name);
+
         return iface;
 
       interface_failed:
@@ -124,22 +146,6 @@ static void configure_debug(const char *str)
 		categories = pw_split_strv(level[1], ",", INT_MAX, &n_tokens);
 }
 
-static void configure_support(struct support_info *info)
-{
-	void *iface;
-
-	iface = load_interface(info, "mapper", SPA_TYPE__TypeMap);
-	if (iface != NULL) {
-		info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, iface);
-	}
-
-	iface = load_interface(info, "logger", SPA_TYPE__Log);
-	if (iface != NULL) {
-		info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__Log, iface);
-		pw_log_set(iface);
-	}
-}
-
 /** Get a support interface
  * \param type the interface type
  * \return the interface or NULL when not configured
@@ -157,26 +163,34 @@ void *pw_get_support_interface(const char *type)
 
 const struct spa_handle_factory *pw_get_support_factory(const char *factory_name)
 {
-	int res;
-	uint32_t index;
-        const struct spa_handle_factory *factory;
-
-        for (index = 0;;) {
-                if ((res = support_info.enum_func(&factory, &index)) <= 0) {
-                        if (res != 0)
-                                fprintf(stderr, "can't enumerate factories: %s\n", spa_strerror(res));
-                        break;
-                }
-                if (strcmp(factory->name, factory_name) == 0)
-                        return factory;
-	}
-	return NULL;
+	return get_factory(&support_info, factory_name);
 }
 
 const struct spa_support *pw_get_support(uint32_t *n_support)
 {
 	*n_support = support_info.n_support;
 	return support_info.support;
+}
+
+void *pw_get_spa_dbus(struct pw_loop *loop)
+{
+	struct support_info dbus_support_info;
+	const char *str;
+
+	dbus_support_info.n_support = support_info.n_support;
+	memcpy(dbus_support_info.support, support_info.support,
+			sizeof(struct spa_support) * dbus_support_info.n_support);
+
+	dbus_support_info.support[dbus_support_info.n_support++] =
+			SPA_SUPPORT_INIT(SPA_TYPE__LoopUtils, loop->utils);
+
+	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
+		str = PLUGINDIR;
+
+	if (open_support(str, "support/libspa-dbus", &dbus_support_info))
+		return load_interface(&dbus_support_info, "dbus", SPA_TYPE__DBus);
+
+	return NULL;
 }
 
 /** Initialize PipeWire
@@ -194,6 +208,8 @@ const struct spa_support *pw_get_support(uint32_t *n_support)
 void pw_init(int *argc, char **argv[])
 {
 	const char *str;
+	void *iface;
+	struct support_info *info = &support_info;
 
 	if ((str = getenv("PIPEWIRE_DEBUG")))
 		configure_debug(str);
@@ -204,8 +220,17 @@ void pw_init(int *argc, char **argv[])
 	if (support_info.n_support > 0)
 		return;
 
-	if (open_support(str, "support/libspa-support", &support_info))
-		configure_support(&support_info);
+	if (open_support(str, "support/libspa-support", info)) {
+		iface = load_interface(info, "mapper", SPA_TYPE__TypeMap);
+		if (iface != NULL)
+			info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, iface);
+
+		iface = load_interface(info, "logger", SPA_TYPE__Log);
+		if (iface != NULL) {
+			info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__Log, iface);
+			pw_log_set(iface);
+		}
+	}
 }
 
 /** Check if a debug category is enabled

@@ -24,6 +24,7 @@
 #define spa_debug pw_log_trace
 
 #include <spa/lib/debug.h>
+#include <spa/support/dbus.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
@@ -407,6 +408,8 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	if (this == NULL)
 		return NULL;
 
+	pw_log_debug("core %p: new", this);
+
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
@@ -432,8 +435,12 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->support[0] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, this->type.map);
 	this->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__DataLoop, this->data_loop->loop);
 	this->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__MainLoop, this->main_loop->loop);
-	this->support[3] = SPA_SUPPORT_INIT(SPA_TYPE__Log, pw_log_get());
-	this->n_support = 4;
+	this->support[3] = SPA_SUPPORT_INIT(SPA_TYPE__LoopUtils, this->main_loop->utils);
+	this->support[4] = SPA_SUPPORT_INIT(SPA_TYPE__Log, pw_log_get());
+	this->support[5] = SPA_SUPPORT_INIT(SPA_TYPE__DBus, pw_get_spa_dbus(this->main_loop));
+	this->n_support = 6;
+
+	pw_log_debug("%p", this->support[5].data);
 
 	pw_data_loop_start(this->data_loop_impl);
 

@@ -165,6 +165,7 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 	void *hnd;
 	char *filename = NULL;
 	const char *module_dir;
+	int res;
 	pw_module_init_func_t init_func;
 
 	module_dir = getenv("PIPEWIRE_MODULE_DIR");
@@ -225,7 +226,7 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 	if (this->global != NULL)
 		this->info.id = this->global->id;
 
-	if (init_func(this, args) < 0)
+	if ((res = init_func(this, args)) < 0)
 		goto init_failed;
 
 	pw_log_debug("loaded module: %s", this->info.name);
@@ -246,7 +247,7 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 	free(filename);
 	return NULL;
       init_failed:
-	pw_log_error("\"%s\" failed to initialize", filename);
+	pw_log_error("\"%s\" failed to initialize: %s", filename, spa_strerror(res));
 	pw_module_destroy(this);
 	return NULL;
 }

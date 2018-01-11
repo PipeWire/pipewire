@@ -447,10 +447,11 @@ param_filter(struct pw_link *this,
 						     id, &iidx, NULL, &iparam, &ib)) < 0)
 			break;
 
-		if (res == 0 && num > 0)
-			break;
-		else
+		if (res == 0) {
+			if (num > 0)
+				break;
 			iparam = NULL;
+		}
 
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG) && iparam != NULL)
 			spa_debug_pod(iparam, 0);

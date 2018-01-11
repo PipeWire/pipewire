@@ -8,6 +8,7 @@ avcodec_dep = dependency('libavcodec', required : false)
 avformat_dep = dependency('libavformat', required : false)
 avfilter_dep = dependency('libavfilter', required : false)
 libva_dep = dependency('libva', required : false)
+sbc_dep = dependency('sbc')
 libudev_dep = dependency('libudev')
 threads_dep = dependency('threads')
 

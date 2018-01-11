@@ -210,8 +210,8 @@ static int port_enum_formats(struct spa_node *node,
 		"I", d->type.media_type.audio,
 		"I", d->type.media_subtype.raw,
 		":", d->type.format_audio.format,   "I", d->type.audio_format.S16,
-		":", d->type.format_audio.channels, "i", 2,
-		":", d->type.format_audio.rate,     "i", 44100);
+		":", d->type.format_audio.channels, "iru", 2, 2, 1, INT32_MAX,
+		":", d->type.format_audio.rate,     "iru", 44100, 2, 1, INT32_MAX);
 
 	(*index)++;
 

@@ -112,10 +112,10 @@ int spa_debug_dump_mem(const void *mem, size_t size)
 
 	for (i = 0; i < size; i++) {
 		if (i % 16 == 0)
-			printf("%p: ", &t[i]);
-		printf("%02x ", t[i]);
+			fprintf(stderr,"%p: ", &t[i]);
+		fprintf(stderr,"%02x ", t[i]);
 		if (i % 16 == 15 || i == size - 1)
-			printf("\n");
+			fprintf(stderr,"\n");
 	}
 	return 0;
 }
@@ -148,57 +148,57 @@ print_pod_value(uint32_t size, uint32_t type, void *body, int prefix)
 {
 	switch (type) {
 	case SPA_POD_TYPE_BOOL:
-		printf("%-*sBool %d\n", prefix, "", *(int32_t *) body);
+		fprintf(stderr,"%-*sBool %d\n", prefix, "", *(int32_t *) body);
 		break;
 	case SPA_POD_TYPE_ID:
-		printf("%-*sId %d %s\n", prefix, "", *(int32_t *) body,
+		fprintf(stderr,"%-*sId %d %s\n", prefix, "", *(int32_t *) body,
 		       spa_type_map_get_type(map, *(int32_t *) body));
 		break;
 	case SPA_POD_TYPE_INT:
-		printf("%-*sInt %d\n", prefix, "", *(int32_t *) body);
+		fprintf(stderr,"%-*sInt %d\n", prefix, "", *(int32_t *) body);
 		break;
 	case SPA_POD_TYPE_LONG:
-		printf("%-*sLong %" PRIi64 "\n", prefix, "", *(int64_t *) body);
+		fprintf(stderr,"%-*sLong %" PRIi64 "\n", prefix, "", *(int64_t *) body);
 		break;
 	case SPA_POD_TYPE_FLOAT:
-		printf("%-*sFloat %f\n", prefix, "", *(float *) body);
+		fprintf(stderr,"%-*sFloat %f\n", prefix, "", *(float *) body);
 		break;
 	case SPA_POD_TYPE_DOUBLE:
-		printf("%-*sDouble %f\n", prefix, "", *(double *) body);
+		fprintf(stderr,"%-*sDouble %f\n", prefix, "", *(double *) body);
 		break;
 	case SPA_POD_TYPE_STRING:
-		printf("%-*sString \"%s\"\n", prefix, "", (char *) body);
+		fprintf(stderr,"%-*sString \"%s\"\n", prefix, "", (char *) body);
 		break;
 	case SPA_POD_TYPE_FD:
-		printf("%-*sFd %d\n", prefix, "", *(int *) body);
+		fprintf(stderr,"%-*sFd %d\n", prefix, "", *(int *) body);
 		break;
 	case SPA_POD_TYPE_POINTER:
 	{
 		struct spa_pod_pointer_body *b = body;
-		printf("%-*sPointer %s %p\n", prefix, "",
+		fprintf(stderr,"%-*sPointer %s %p\n", prefix, "",
 		       map ? spa_type_map_get_type(map, b->type) : "*no map*", b->value);
 		break;
 	}
 	case SPA_POD_TYPE_RECTANGLE:
 	{
 		struct spa_rectangle *r = body;
-		printf("%-*sRectangle %dx%d\n", prefix, "", r->width, r->height);
+		fprintf(stderr,"%-*sRectangle %dx%d\n", prefix, "", r->width, r->height);
 		break;
 	}
 	case SPA_POD_TYPE_FRACTION:
 	{
 		struct spa_fraction *f = body;
-		printf("%-*sFraction %d/%d\n", prefix, "", f->num, f->denom);
+		fprintf(stderr,"%-*sFraction %d/%d\n", prefix, "", f->num, f->denom);
 		break;
 	}
 	case SPA_POD_TYPE_BITMAP:
-		printf("%-*sBitmap\n", prefix, "");
+		fprintf(stderr,"%-*sBitmap\n", prefix, "");
 		break;
 	case SPA_POD_TYPE_ARRAY:
 	{
 		struct spa_pod_array_body *b = body;
 		void *p;
-		printf("%-*sArray: child.size %d, child.type %d\n", prefix, "",
+		fprintf(stderr,"%-*sArray: child.size %d, child.type %d\n", prefix, "",
 		       b->child.size, b->child.type);
 
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p)
@@ -208,7 +208,7 @@ print_pod_value(uint32_t size, uint32_t type, void *body, int prefix)
 	case SPA_POD_TYPE_STRUCT:
 	{
 		struct spa_pod *b = body, *p;
-		printf("%-*sStruct: size %d\n", prefix, "", size);
+		fprintf(stderr,"%-*sStruct: size %d\n", prefix, "", size);
 		SPA_POD_FOREACH(b, size, p)
 			print_pod_value(p->size, p->type, SPA_POD_BODY(p), prefix + 2);
 		break;
@@ -218,7 +218,7 @@ print_pod_value(uint32_t size, uint32_t type, void *body, int prefix)
 		struct spa_pod_object_body *b = body;
 		struct spa_pod *p;
 
-		printf("%-*sObject: size %d, id %s, type %s\n", prefix, "", size,
+		fprintf(stderr,"%-*sObject: size %d, id %s, type %s\n", prefix, "", size,
 		       map ? spa_type_map_get_type(map, b->id) : "*no map*",
 		       map ? spa_type_map_get_type(map, b->type) : "*no map*");
 		SPA_POD_OBJECT_BODY_FOREACH(b, size, p)
@@ -231,12 +231,12 @@ print_pod_value(uint32_t size, uint32_t type, void *body, int prefix)
 		void *alt;
 		int i;
 
-		printf("%-*sProp: key %s, flags %d\n", prefix, "",
+		fprintf(stderr,"%-*sProp: key %s, flags %d\n", prefix, "",
 		       map ? spa_type_map_get_type(map, b->key) : "*no map*", b->flags);
 		if (b->flags & SPA_POD_PROP_FLAG_UNSET)
-			printf("%-*sUnset (Default):\n", prefix + 2, "");
+			fprintf(stderr,"%-*sUnset (Default):\n", prefix + 2, "");
 		else
-			printf("%-*sValue: size %u\n", prefix + 2, "", b->value.size);
+			fprintf(stderr,"%-*sValue: size %u\n", prefix + 2, "", b->value.size);
 		print_pod_value(b->value.size, b->value.type, SPA_POD_BODY(&b->value),
 				prefix + 4);
 
@@ -247,9 +247,9 @@ print_pod_value(uint32_t size, uint32_t type, void *body, int prefix)
 		case SPA_POD_PROP_RANGE_MIN_MAX:
 			SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
 				if (i == 0)
-					printf("%-*sMin: ", prefix + 2, "");
+					fprintf(stderr,"%-*sMin: ", prefix + 2, "");
 				else if (i == 1)
-					printf("%-*sMax: ", prefix + 2, "");
+					fprintf(stderr,"%-*sMax: ", prefix + 2, "");
 				else
 					break;
 				print_pod_value(b->value.size, b->value.type, alt, 0);
@@ -259,11 +259,11 @@ print_pod_value(uint32_t size, uint32_t type, void *body, int prefix)
 		case SPA_POD_PROP_RANGE_STEP:
 			SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
 				if (i == 0)
-					printf("%-*sMin:  ", prefix + 2, "");
+					fprintf(stderr,"%-*sMin:  ", prefix + 2, "");
 				else if (i == 1)
-					printf("%-*sMax:  ", prefix + 2, "");
+					fprintf(stderr,"%-*sMax:  ", prefix + 2, "");
 				else if (i == 2)
-					printf("%-*sStep: ", prefix + 2, "");
+					fprintf(stderr,"%-*sStep: ", prefix + 2, "");
 				else
 					break;
 				print_pod_value(b->value.size, b->value.type, alt, 0);
@@ -273,7 +273,7 @@ print_pod_value(uint32_t size, uint32_t type, void *body, int prefix)
 		case SPA_POD_PROP_RANGE_ENUM:
 			SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
 				if (i == 0)
-					printf("%-*sEnum:\n", prefix + 2, "");
+					fprintf(stderr,"%-*sEnum:\n", prefix + 2, "");
 				print_pod_value(b->value.size, b->value.type, alt, prefix + 4);
 				i++;
 			}
@@ -284,15 +284,15 @@ print_pod_value(uint32_t size, uint32_t type, void *body, int prefix)
 		break;
 	}
 	case SPA_POD_TYPE_BYTES:
-		printf("%-*sBytes\n", prefix, "");
+		fprintf(stderr,"%-*sBytes\n", prefix, "");
 		spa_debug_dump_mem(body, size);
 		break;
 	case SPA_POD_TYPE_NONE:
-		printf("%-*sNone\n", prefix, "");
+		fprintf(stderr,"%-*sNone\n", prefix, "");
 		spa_debug_dump_mem(body, size);
 		break;
 	default:
-		printf("unhandled POD type %d\n", type);
+		fprintf(stderr,"unhandled POD type %d\n", type);
 		break;
 	}
 }

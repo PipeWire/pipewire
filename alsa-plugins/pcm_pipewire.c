@@ -936,6 +936,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 {
 	snd_config_iterator_t i, next;
 	const char *node_name = NULL;
+	const char *server_name = NULL;
 	const char *playback_node = NULL;
 	const char *capture_node = NULL;
 	int err;
@@ -951,6 +952,10 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 			continue;
 		if (strcmp(id, "name") == 0) {
 			snd_config_get_string(n, &node_name);
+			continue;
+		}
+		if (strcmp(id, "server") == 0) {
+			snd_config_get_string(n, &server_name);
 			continue;
 		}
 		if (strcmp(id, "playback_node") == 0) {

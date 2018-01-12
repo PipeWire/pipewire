@@ -96,19 +96,17 @@ static void handle_events(struct data *data)
 	}
 }
 
-static void
-on_stream_new_buffer(void *_data, uint32_t id)
+static int
+do_render(struct spa_loop *loop, bool async, uint32_t seq,
+	  const void *_data, size_t size, void *user_data)
 {
-	struct data *data = _data;
-	struct pw_stream *stream = data->stream;
-	struct spa_buffer *buf;
+	struct data *data = user_data;
+	struct spa_buffer *buf = ((struct spa_buffer **) _data)[0];
 	uint8_t *map;
 	void *sdata, *ddata;
 	int sstride, dstride, ostride;
 	int i;
 	uint8_t *src, *dst;
-
-	buf = pw_stream_peek_buffer(stream, id);
 
 	if (buf->datas[0].type == data->type.data.MemFd ||
 	    buf->datas[0].type == data->type.data.DmaBuf) {
@@ -119,11 +117,11 @@ on_stream_new_buffer(void *_data, uint32_t id)
 		map = NULL;
 		sdata = buf->datas[0].data;
 	} else
-		return;
+		return -EINVAL;
 
 	if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
 		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-		return;
+		return -EIO;
 	}
 	sstride = buf->datas[0].chunk->stride;
 	ostride = SPA_MIN(sstride, dstride);
@@ -143,6 +141,22 @@ on_stream_new_buffer(void *_data, uint32_t id)
 
 	if (map)
 		munmap(map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
+
+	return 0;
+}
+
+static void
+on_stream_new_buffer(void *_data, uint32_t id)
+{
+	struct data *data = _data;
+	struct pw_stream *stream = data->stream;
+	struct spa_buffer *buf;
+
+	buf = pw_stream_peek_buffer(stream, id);
+
+	pw_loop_invoke(pw_main_loop_get_loop(data->loop), do_render,
+		       SPA_ID_INVALID, &buf, sizeof(struct spa_buffer *),
+		       true, data);
 
 	pw_stream_recycle_buffer(stream, id);
 

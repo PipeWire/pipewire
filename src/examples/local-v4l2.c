@@ -390,9 +390,10 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 	return 0;
 }
 
-static int impl_node_process_input(struct spa_node *node)
+static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
+		     const void *_data, size_t size, void *user_data)
 {
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct data *d = user_data;
 	struct spa_buffer *buf;
 	uint8_t *map;
 	void *sdata, *ddata;
@@ -435,6 +436,18 @@ static int impl_node_process_input(struct spa_node *node)
 
 	if (map)
 		munmap(map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
+
+	return 0;
+}
+
+static int impl_node_process_input(struct spa_node *node)
+{
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	int res;
+
+	if ((res = pw_loop_invoke(pw_main_loop_get_loop(d->loop), do_render,
+				  SPA_ID_INVALID, NULL, 0, true, d)) < 0)
+		return res;
 
 	handle_events(d);
 

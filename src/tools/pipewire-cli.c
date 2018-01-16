@@ -934,11 +934,18 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	}
 	if (n == 5)
 		props = parse_props(a[4]);
+	else
+		props = pw_properties_new(NULL, NULL);
 
-	proxy = (struct pw_proxy*)pw_core_proxy_create_link(rd->core_proxy, t->link,
-					  atoi(a[0]), atoi(a[1]),
-					  atoi(a[2]), atoi(a[3]),
-					  NULL,
+	pw_properties_set(props, PW_LINK_OUTPUT_NODE_ID, a[0]);
+	pw_properties_set(props, PW_LINK_OUTPUT_PORT_ID, a[1]);
+	pw_properties_set(props, PW_LINK_INPUT_NODE_ID, a[2]);
+	pw_properties_set(props, PW_LINK_INPUT_PORT_ID, a[3]);
+
+	proxy = (struct pw_proxy*)pw_core_proxy_create_object(rd->core_proxy,
+					  "link-factory",
+					  t->link,
+					  PW_VERSION_LINK,
 					  props ? &props->dict : NULL,
 					  sizeof(struct proxy_data));
 
@@ -1098,6 +1105,8 @@ int main(int argc, char *argv[])
 	data.core = pw_core_new(l, pw_properties_new(PW_CORE_PROP_DAEMON, "1", NULL));
 	data.t = pw_core_get_type(data.core);
 	info = pw_core_get_info(data.core);
+
+	pw_module_load(data.core, "libpipewire-module-link-factory", NULL);
 
 	pw_loop_add_io(l, STDIN_FILENO, SPA_IO_IN|SPA_IO_HUP, false, do_input, &data);
 

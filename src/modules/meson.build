@@ -48,6 +48,16 @@ pipewire_module_client_node = shared_library('pipewire-module-client-node',
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
+pipewire_module_link_factory = shared_library('pipewire-module-link-factory',
+  [ 'module-link-factory.c' ],
+  c_args : pipewire_module_c_args,
+  include_directories : [configinc, spa_inc],
+  link_with : spalib,
+  install : true,
+  install_dir : modules_install_dir,
+  dependencies : [mathlib, dl_lib, pipewire_dep],
+)
+
 #pipewire_module_protocol_dbus = shared_library('pipewire-module-protocol-dbus', [ 'module-protocol-dbus.c', gdbus_target ],
 #  c_args : pipewire_module_c_args,
 #  include_directories : [configinc, spa_inc],

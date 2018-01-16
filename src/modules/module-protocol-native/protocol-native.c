@@ -134,45 +134,6 @@ core_marshal_create_object(void *object,
 }
 
 static void
-core_marshal_create_link(void *object,
-			 uint32_t output_node_id,
-			 uint32_t output_port_id,
-			 uint32_t input_node_id,
-			 uint32_t input_port_id,
-			 const struct spa_pod *filter,
-			 const struct spa_dict *props,
-			 uint32_t new_id)
-{
-	struct pw_proxy *proxy = object;
-	struct spa_pod_builder *b;
-	uint32_t i, n_items;
-
-	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_CREATE_LINK);
-
-	n_items = props ? props->n_items : 0;
-
-	spa_pod_builder_add(b,
-			    "["
-			    "i", output_node_id,
-			    "i", output_port_id,
-			    "i", input_node_id,
-			    "i", input_port_id,
-			    "P", filter,
-			    "i", n_items, NULL);
-
-	for (i = 0; i < n_items; i++) {
-		spa_pod_builder_add(b,
-				    "s", props->items[i].key,
-				    "s", props->items[i].value, NULL);
-	}
-	spa_pod_builder_add(b,
-			    "i", new_id,
-			    "]", NULL);
-
-	pw_protocol_native_end_proxy(proxy, b);
-}
-
-static void
 core_marshal_update_types_client(void *object, uint32_t first_id, const char **types, uint32_t n_types)
 {
 	struct pw_proxy *proxy = object;
@@ -499,45 +460,6 @@ static int core_demarshal_create_object(void *object, void *data, size_t size)
 	pw_resource_do(resource, struct pw_core_proxy_methods, create_object, factory_name,
 								      type, version,
 								      &props, new_id);
-	return 0;
-}
-
-static int core_demarshal_create_link(void *object, void *data, size_t size)
-{
-	struct pw_resource *resource = object;
-	struct spa_pod_parser prs;
-	uint32_t new_id, i;
-	uint32_t output_node_id, output_port_id, input_node_id, input_port_id;
-	struct spa_pod *filter = NULL;
-	struct spa_dict props;
-
-	spa_pod_parser_init(&prs, data, size, 0);
-	if (spa_pod_parser_get(&prs,
-			"["
-			"i", &output_node_id,
-			"i", &output_port_id,
-			"i", &input_node_id,
-			"i", &input_port_id,
-			"P", &filter,
-			"i", &props.n_items, NULL) < 0)
-		return -EINVAL;
-
-	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-	for (i = 0; i < props.n_items; i++) {
-		if (spa_pod_parser_get(&prs, "ss",
-					&props.items[i].key, &props.items[i].value, NULL) < 0)
-			return -EINVAL;
-	}
-	if (spa_pod_parser_get(&prs, "i", &new_id, NULL) < 0)
-		return -EINVAL;
-
-	pw_resource_do(resource, struct pw_core_proxy_methods, create_link, output_node_id,
-								      output_port_id,
-								      input_node_id,
-								      input_port_id,
-								      filter,
-								      &props,
-								      new_id);
 	return 0;
 }
 
@@ -1006,8 +928,7 @@ static const struct pw_core_proxy_methods pw_protocol_native_core_method_marshal
 	&core_marshal_get_registry,
 	&core_marshal_client_update,
 	&core_marshal_permissions,
-	&core_marshal_create_object,
-	&core_marshal_create_link
+	&core_marshal_create_object
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_demarshal[PW_CORE_PROXY_METHOD_NUM] = {
@@ -1016,8 +937,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_
 	{ &core_demarshal_get_registry, 0, },
 	{ &core_demarshal_client_update, 0, },
 	{ &core_demarshal_permissions, 0, },
-	{ &core_demarshal_create_object, PW_PROTOCOL_NATIVE_REMAP, },
-	{ &core_demarshal_create_link, PW_PROTOCOL_NATIVE_REMAP, }
+	{ &core_demarshal_create_object, PW_PROTOCOL_NATIVE_REMAP, }
 };
 
 static const struct pw_core_proxy_events pw_protocol_native_core_event_marshal = {

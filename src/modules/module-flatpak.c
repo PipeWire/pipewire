@@ -427,40 +427,9 @@ static void do_create_object(void *data,
 	return;
 }
 
-static void
-do_create_link(void *data,
-	       uint32_t output_node_id,
-	       uint32_t output_port_id,
-	       uint32_t input_node_id,
-	       uint32_t input_port_id,
-	       const struct spa_pod *filter,
-	       const struct spa_dict *props,
-	       uint32_t new_id)
-{
-	struct resource *resource = data;
-	struct client_info *cinfo = resource->cinfo;
-
-	if (cinfo->is_sandboxed) {
-		pw_resource_error(resource->resource, -EPERM, "not allowed");
-		return;
-	}
-	pw_resource_do_parent(resource->resource,
-			      &resource->override,
-			      struct pw_core_proxy_methods,
-			      create_link,
-			      output_node_id,
-			      output_port_id,
-			      input_node_id,
-			      input_port_id,
-			      filter,
-			      props,
-			      new_id);
-}
-
 static const struct pw_core_proxy_methods core_override = {
 	PW_VERSION_CORE_PROXY_METHODS,
 	.create_object = do_create_object,
-	.create_link = do_create_link,
 };
 
 static void client_resource_impl(void *data, struct pw_resource *resource)

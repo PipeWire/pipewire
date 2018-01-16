@@ -72,8 +72,7 @@ struct pw_link_proxy;
 #define PW_CORE_PROXY_METHOD_CLIENT_UPDATE	3
 #define PW_CORE_PROXY_METHOD_PERMISSIONS	4
 #define PW_CORE_PROXY_METHOD_CREATE_OBJECT	5
-#define PW_CORE_PROXY_METHOD_CREATE_LINK	6
-#define PW_CORE_PROXY_METHOD_NUM		7
+#define PW_CORE_PROXY_METHOD_NUM		6
 
 /**
  * Key to update default permissions of globals without specific
@@ -94,6 +93,11 @@ struct pw_link_proxy;
  * permissions.
  * Value is "[r][w][x]" */
 #define PW_CORE_PROXY_PERMISSIONS_EXISTING	"permissions.existing"
+
+#define PW_LINK_OUTPUT_NODE_ID	"link.output_node.id"
+#define PW_LINK_OUTPUT_PORT_ID	"link.output_port.id"
+#define PW_LINK_INPUT_NODE_ID	"link.input_node.id"
+#define PW_LINK_INPUT_PORT_ID	"link.input_port.id"
 
 /**
  * \struct pw_core_proxy_methods
@@ -173,25 +177,6 @@ struct pw_core_proxy_methods {
 			       uint32_t version,
 			       const struct spa_dict *props,
 			       uint32_t new_id);
-	/**
-	 * Create a new link between two node ports
-	 *
-	 * \param output_node_id the global id of the output node
-	 * \param output_port_id the id of the output port
-	 * \param input_node_id the global id of the input node
-	 * \param input_port_id the id of the input port
-	 * \param filter an optional format filter
-	 * \param props optional properties
-	 * \param new_id the client proxy id
-	 */
-	void (*create_link) (void *object,
-			     uint32_t output_node_id,
-			     uint32_t output_port_id,
-			     uint32_t input_node_id,
-			     uint32_t input_port_id,
-			     const struct spa_pod *filter,
-			     const struct spa_dict *props,
-			     uint32_t new_id);
 };
 
 static inline void
@@ -239,24 +224,6 @@ pw_core_proxy_create_object(struct pw_core_proxy *core,
 			type, version, props, pw_proxy_get_id(p));
 	return p;
 }
-
-static inline struct pw_link_proxy *
-pw_core_proxy_create_link(struct pw_core_proxy *core,
-			  uint32_t type,
-			  uint32_t output_node_id,
-                          uint32_t output_port_id,
-                          uint32_t input_node_id,
-                          uint32_t input_port_id,
-                          const struct spa_pod *filter,
-                          const struct spa_dict *prop,
-			  size_t user_data_size)
-{
-	struct pw_proxy *p = pw_proxy_new((struct pw_proxy*)core, type, user_data_size);
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, create_link, output_node_id, output_port_id,
-			input_node_id, input_port_id, filter, prop, pw_proxy_get_id(p));
-	return (struct pw_link_proxy*) p;
-}
-
 
 #define PW_CORE_PROXY_EVENT_UPDATE_TYPES 0
 #define PW_CORE_PROXY_EVENT_DONE         1

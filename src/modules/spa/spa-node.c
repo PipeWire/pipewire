@@ -279,7 +279,10 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 
 	handle = calloc(1, factory->size);
 	if ((res = spa_handle_factory_init(factory,
-					   handle, NULL, support, n_support)) < 0) {
+					   handle,
+					   properties ? &properties->dict : NULL,
+					   support,
+					   n_support)) < 0) {
 		pw_log_error("can't make factory instance: %d", res);
 		goto init_failed;
 	}

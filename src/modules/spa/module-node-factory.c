@@ -78,7 +78,7 @@ static void *create_object(void *_data,
 				lib,
 				factory_name,
 				name,
-				0,
+				PW_SPA_NODE_FLAG_ACTIVATE,
 				properties,
 				sizeof(struct node_data));
 	if (node == NULL)

@@ -42,6 +42,10 @@ extern "C" {
 #define SPA_RESULT_ASYNC_SEQ(res)	((res) & SPA_ASYNC_SEQ_MASK)
 #define SPA_RESULT_RETURN_ASYNC(seq)	(SPA_ASYNC_BIT | ((seq) & SPA_ASYNC_SEQ_MASK))
 
+#define SPA_FLAG_CHECK(field,flag)	(((field) & (flag)) == (flag))
+#define SPA_FLAG_SET(field,flag)	((field) |= (flag))
+#define SPA_FLAG_UNSET(field,flag)	((field) &= ~(flag))
+
 enum spa_direction {
 	SPA_DIRECTION_INPUT = 0,
 	SPA_DIRECTION_OUTPUT = 1,

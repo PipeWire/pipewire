@@ -305,7 +305,7 @@ static inline void try_pull(struct impl *this, uint32_t frames, bool do_pull)
 	struct spa_io_buffers *io = this->io;
 
 	if (spa_list_is_empty(&this->ready) && do_pull) {
-		spa_log_trace(this->log, "alsa-util %p: %d", this, io->status);
+		spa_log_trace(this->log, "a2dp-sink %p: %d", this, io->status);
 		io->status = SPA_STATUS_NEED_BUFFER;
 		if (this->range) {
 			this->range->offset = this->sample_count * this->frame_size;

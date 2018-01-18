@@ -413,7 +413,6 @@ pull_frames(struct state *state,
 
 	if (total_frames == 0 && do_pull) {
 		total_frames = SPA_MIN(frames, state->threshold);
-		spa_log_warn(state->log, "write %zd frames of silence", total_frames);
 		snd_pcm_areas_silence(my_areas, offset, state->channels, total_frames, state->format);
 		state->underrun += total_frames;
 		underrun = true;

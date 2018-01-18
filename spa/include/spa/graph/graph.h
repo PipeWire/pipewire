@@ -60,7 +60,7 @@ struct spa_graph_node {
 	struct spa_graph *graph;	/**< owner graph */
 	struct spa_list ports[2];	/**< list of input and output ports */
 	struct spa_list ready_link;	/**< link for scheduler */
-#define SPA_GRAPH_NODE_FLAG_ASYNC       (1 << 0)
+#define SPA_GRAPH_NODE_FLAG_ASYNC	(1 << 0)
 	uint32_t flags;			/**< node flags */
 	uint32_t required[2];		/**< required number of ports */
 	uint32_t ready[2];		/**< number of ports with data */
@@ -74,6 +74,7 @@ struct spa_graph_port {
 	struct spa_graph_node *node;	/**< owner node */
 	enum spa_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
+#define SPA_GRAPH_PORT_FLAG_DISABLED	(1 << 0)
 	uint32_t flags;			/**< port flags */
 	struct spa_io_buffers *io;	/**< io area of the port */
 	struct spa_graph_port *peer;	/**< peer */

@@ -712,7 +712,8 @@ do_activate_link(struct spa_loop *loop,
 		 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
-	spa_graph_port_link(&this->rt.out_port, &this->rt.in_port);
+	SPA_FLAG_UNSET(this->rt.out_port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+	SPA_FLAG_UNSET(this->rt.in_port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
 	return 0;
 }
 
@@ -953,7 +954,8 @@ do_deactivate_link(struct spa_loop *loop,
 		   bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
-	spa_graph_port_unlink(&this->rt.out_port);
+	SPA_FLAG_SET(this->rt.out_port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+	SPA_FLAG_SET(this->rt.in_port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
 	return 0;
 }
 
@@ -1165,13 +1167,14 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	spa_graph_port_init(&this->rt.out_port,
 			    PW_DIRECTION_OUTPUT,
 			    this->rt.out_port.port_id,
-			    0,
+			    SPA_GRAPH_PORT_FLAG_DISABLED,
 			    &this->io);
 	spa_graph_port_init(&this->rt.in_port,
 			    PW_DIRECTION_INPUT,
 			    this->rt.in_port.port_id,
-			    0,
+			    SPA_GRAPH_PORT_FLAG_DISABLED,
 			    &this->io);
+	spa_graph_port_link(&this->rt.out_port, &this->rt.in_port);
 
 	this->rt.in_port.scheduler_data = this;
 	this->rt.out_port.scheduler_data = this;

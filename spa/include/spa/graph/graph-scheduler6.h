@@ -49,7 +49,7 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 		struct spa_graph_node *pnode;
 		uint32_t prequired, pready;
 
-		if ((pport = p->peer) == NULL) {
+		if ((pport = p->peer) == NULL || (pport->flags & SPA_GRAPH_PORT_FLAG_DISABLED)) {
 			spa_debug("node %p port %p has no peer", node, p);
 			continue;
 		}
@@ -94,7 +94,7 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 		struct spa_graph_node *pnode;
 		uint32_t prequired, pready;
 
-		if ((pport = p->peer) == NULL) {
+		if ((pport = p->peer) == NULL || (pport->flags & SPA_GRAPH_PORT_FLAG_DISABLED)) {
 			spa_debug("node %p port %p has no peer", node, p);
 			continue;
 		}

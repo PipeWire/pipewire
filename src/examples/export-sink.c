@@ -452,6 +452,8 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	int i;
 	uint8_t *src, *dst;
 
+	handle_events(d);
+
 	if (d->io->status != SPA_STATUS_HAVE_BUFFER)
 		return 0;
 
@@ -505,8 +507,6 @@ static int impl_node_process_input(struct spa_node *node)
 	if ((res = pw_loop_invoke(pw_main_loop_get_loop(d->loop), do_render,
 				  SPA_ID_INVALID, NULL, 0, true, d)) < 0)
 		return res;
-
-	handle_events(d);
 
 	return d->io->status = SPA_STATUS_NEED_BUFFER;
 }

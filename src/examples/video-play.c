@@ -108,6 +108,8 @@ do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	int i;
 	uint8_t *src, *dst;
 
+	handle_events(data);
+
 	if (buf->datas[0].type == data->type.data.MemFd ||
 	    buf->datas[0].type == data->type.data.DmaBuf) {
 		map = mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ,
@@ -159,8 +161,6 @@ on_stream_new_buffer(void *_data, uint32_t id)
 		       true, data);
 
 	pw_stream_recycle_buffer(stream, id);
-
-	handle_events(data);
 }
 
 static void on_stream_state_changed(void *_data, enum pw_stream_state old,

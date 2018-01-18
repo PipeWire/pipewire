@@ -37,6 +37,7 @@ struct impl {
 	struct pw_core *core;
 	struct pw_type *t;
 	struct pw_module *module;
+	struct spa_hook core_listener;
 	struct spa_hook module_listener;
 	struct pw_properties *properties;
 
@@ -185,6 +186,7 @@ static void module_destroy(void *data)
 	struct node_data *nd, *t;
 
 	spa_hook_remove(&impl->module_listener);
+	spa_hook_remove(&impl->core_listener);
 
 	spa_list_for_each_safe(nd, t, &impl->node_list, link)
 		pw_node_destroy(nd->node);
@@ -198,6 +200,17 @@ static void module_destroy(void *data)
 static const struct pw_module_events module_events = {
 	PW_VERSION_MODULE_EVENTS,
 	.destroy = module_destroy,
+};
+
+static void
+core_global_added(void *data, struct pw_global *global)
+{
+	on_global(data, global);
+}
+
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+        .global_added = core_global_added,
 };
 
 static int module_init(struct pw_module *module, struct pw_properties *properties)
@@ -222,6 +235,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_core_for_each_global(core, on_global, impl);
 
+	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	return 0;

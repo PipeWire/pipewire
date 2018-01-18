@@ -370,17 +370,27 @@ static int port_enum_formats(struct spa_node *node,
 
 	switch (*index) {
 	case 0:
-		*param = spa_pod_builder_object(builder,
-			t->param.idEnumFormat, t->format,
-			"I", t->media_type.audio,
-			"I", t->media_subtype.raw,
-			":", t->format_audio.format,   "Ieu", t->audio_format.S16,
-								2, t->audio_format.S16,
-								   t->audio_format.F32,
-			":", t->format_audio.rate,     "iru", 44100,
-								2, 1, INT32_MAX,
-			":", t->format_audio.channels, "iru", 2,
-								2, 1, INT32_MAX);
+		if (this->have_format) {
+			*param = spa_pod_builder_object(builder,
+				t->param.idEnumFormat, t->format,
+				"I", t->media_type.audio,
+				"I", t->media_subtype.raw,
+				":", t->format_audio.format,   "I", this->format.info.raw.format,
+				":", t->format_audio.rate,     "i", this->format.info.raw.rate,
+				":", t->format_audio.channels, "i", this->format.info.raw.channels);
+		} else {
+			*param = spa_pod_builder_object(builder,
+				t->param.idEnumFormat, t->format,
+				"I", t->media_type.audio,
+				"I", t->media_subtype.raw,
+				":", t->format_audio.format,   "Ieu", t->audio_format.S16,
+									2, t->audio_format.S16,
+									   t->audio_format.F32,
+				":", t->format_audio.rate,     "iru", 44100,
+									2, 1, INT32_MAX,
+				":", t->format_audio.channels, "iru", 2,
+									2, 1, INT32_MAX);
+		}
 		break;
 	default:
 		return 0;

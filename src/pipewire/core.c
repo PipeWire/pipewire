@@ -388,15 +388,15 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	this->sc_pagesize = sysconf(_SC_PAGESIZE);
 
-	this->global = pw_core_add_global(this,
-					  NULL,
-					  NULL,
-					  this->type.core,
-					  PW_VERSION_CORE,
-					  core_bind_func,
-					  this);
-	if (this->global != NULL)
+	this->global = pw_global_new(this,
+				     this->type.core,
+				     PW_VERSION_CORE,
+				     core_bind_func,
+				     this);
+	if (this->global != NULL) {
+		pw_global_register(this->global, NULL, NULL);
 		this->info.id = this->global->id;
+	}
 
 	return this;
 

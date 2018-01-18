@@ -343,11 +343,12 @@ void pw_node_register(struct pw_node *this,
 	pw_loop_invoke(this->data_loop, do_node_add, 1, NULL, 0, false, this);
 
 	spa_list_append(&core->node_list, &this->link);
-	this->global = pw_core_add_global(core, owner, parent,
-					  core->type.node, PW_VERSION_NODE,
+	this->global = pw_global_new(core, core->type.node, PW_VERSION_NODE,
 					  node_bind_func, this);
-	if (this->global != NULL)
+	if (this->global != NULL) {
+		pw_global_register(this->global, owner, parent);
 		this->info.id = this->global->id;
+	}
 
 	spa_hook_list_call(&this->listener_list, struct pw_node_events, initialized);
 

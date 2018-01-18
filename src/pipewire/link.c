@@ -1207,10 +1207,12 @@ void pw_link_register(struct pw_link *link,
 
 	spa_list_append(&core->link_list, &link->link);
 
-	link->global = pw_core_add_global(core, owner, parent, core->type.link, PW_VERSION_LINK,
+	link->global = pw_global_new(core, core->type.link, PW_VERSION_LINK,
 			   link_bind_func, link);
-	if (link->global != NULL)
+	if (link->global != NULL) {
+		pw_global_register(link->global, owner, parent);
 		link->info.id = link->global->id;
+	}
 
 	input_node = link->input->node;
 	output_node = link->output->node;

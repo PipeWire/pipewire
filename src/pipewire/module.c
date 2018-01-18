@@ -219,12 +219,13 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 	this->info.props = NULL;
 
 	spa_list_append(&core->module_list, &this->link);
-	this->global = pw_core_add_global(core, NULL, core->global,
-					  core->type.module, PW_VERSION_MODULE,
+	this->global = pw_global_new(core, core->type.module, PW_VERSION_MODULE,
 					  module_bind_func, this);
 
-	if (this->global != NULL)
+	if (this->global != NULL) {
+		pw_global_register(this->global, NULL, core->global);
 		this->info.id = this->global->id;
+	}
 
 	if ((res = init_func(this, args)) < 0)
 		goto init_failed;

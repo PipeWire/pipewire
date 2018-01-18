@@ -48,32 +48,26 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *c
 	return perms;
 }
 
-/** Create and add a new global to the core
+/** Create a new global
  *
- * \param core a core
- * \param owner an optional owner of the global
+ * \param core a core object
  * \param type the type of the global
- * \param n_ifaces number of interfaces
- * \param ifaces interface information
- * \param object the associated object
+ * \param version the version of the type
  * \param bind a function to bind to this global
- * \param[out] global a result global
- * \return true on success
+ * \param object the associated object
+ * \return a result global
  *
- * \memberof pw_core
+ * \memberof pw_global
  */
 struct pw_global *
-pw_core_add_global(struct pw_core *core,
-	           struct pw_client *owner,
-	           struct pw_global *parent,
-		   uint32_t type,
-		   uint32_t version,
-		   pw_bind_func_t bind,
-		   void *object)
+pw_global_new(struct pw_core *core,
+	      uint32_t type,
+	      uint32_t version,
+	      pw_bind_func_t bind,
+	      void *object)
 {
 	struct global_impl *impl;
 	struct pw_global *this;
-	struct pw_resource *registry;
 
 	impl = calloc(1, sizeof(struct global_impl));
 	if (impl == NULL)
@@ -82,47 +76,68 @@ pw_core_add_global(struct pw_core *core,
 	this = &impl->this;
 
 	this->core = core;
-	this->owner = owner;
 	this->type = type;
 	this->version = version;
 	this->bind = bind;
 	this->object = object;
 
-	this->id = pw_map_insert_new(&core->globals, this);
+	pw_log_debug("global %p: new %s", this,
+			spa_type_map_get_type(core->type.map, this->type));
 
+	return this;
+}
+
+/** register a global to the core registry
+ *
+ * \param global a global to add
+ * \param owner an optional owner client of the global
+ * \param parent an optional parent of the global
+ * \return 0 on success < 0 errno value on failure
+ *
+ * \memberof pw_global
+ */
+int
+pw_global_register(struct pw_global *global,
+		   struct pw_client *owner,
+		   struct pw_global *parent)
+{
+	struct pw_resource *registry;
+	struct pw_core *core = global->core;
+
+	global->owner = owner;
 	if (owner)
 		parent = owner->global;
 	if (parent == NULL)
 		parent = core->global;
 	if (parent == NULL)
-		parent = this;
-	this->parent = parent;
+		parent = global;
+	global->parent = parent;
 
-	spa_list_append(&core->global_list, &this->link);
+	global->id = pw_map_insert_new(&core->globals, global);
 
-	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_added, this);
+	spa_list_append(&core->global_list, &global->link);
 
-	pw_log_debug("global %p: new %u %s, owner %p", this, this->id,
-			spa_type_map_get_type(core->type.map, this->type), owner);
+	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_added, global);
+
+	pw_log_debug("global %p: add %u owner %p parent %p", global, global->id, owner, parent);
 
 	spa_list_for_each(registry, &core->registry_resource_list, link) {
-		uint32_t permissions = pw_global_get_permissions(this, registry->client);
+		uint32_t permissions = pw_global_get_permissions(global, registry->client);
 		if (PW_PERM_IS_R(permissions))
 			pw_registry_resource_global(registry,
-						    this->id,
-						    this->parent->id,
+						    global->id,
+						    global->parent->id,
 						    permissions,
-						    this->type,
-						    this->version);
+						    global->type,
+						    global->version);
 	}
-	return this;
+	return 0;
 }
 
 struct pw_core *pw_global_get_core(struct pw_global *global)
 {
 	return global->core;
 }
-
 
 struct pw_client *pw_global_get_owner(struct pw_global *global)
 {

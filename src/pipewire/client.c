@@ -209,10 +209,13 @@ void pw_client_register(struct pw_client *client,
 
 	pw_log_debug("client %p: register parent %d", client, parent ? parent->id : SPA_ID_INVALID);
 	spa_list_append(&core->client_list, &client->link);
-	client->global = pw_core_add_global(core, owner, parent, core->type.client, PW_VERSION_CLIENT,
+
+	client->global = pw_global_new(core, core->type.client, PW_VERSION_CLIENT,
 			   client_bind_func, client);
-	if (client->global != NULL)
+	if (client->global != NULL) {
+		pw_global_register(client->global, owner, parent);
 		client->info.id = client->global->id;
+	}
 }
 
 struct pw_core *pw_client_get_core(struct pw_client *client)

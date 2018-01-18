@@ -61,15 +61,18 @@ typedef int (*pw_bind_func_t) (struct pw_global *global,	/**< the global to bind
 			       uint32_t version,		/**< client interface version */
 			       uint32_t id			/**< client proxy id */);
 
-/** Add a new global object to the core registry */
+/** Create a new global object */
 struct pw_global *
-pw_core_add_global(struct pw_core *core,
-                   struct pw_client *owner,
-                   struct pw_global *parent,
-                   uint32_t type,
-                   uint32_t version,
-                   pw_bind_func_t bind,
-                   void *object);
+pw_global_new(struct pw_core *core,
+              uint32_t type,
+              uint32_t version,
+              pw_bind_func_t bind,
+              void *object);
+
+/** Register a global object to the core registry */
+int pw_global_register(struct pw_global *global,
+		       struct pw_client *owner,
+		       struct pw_global *parent);
 
 /** Get the permissions of the global for a given client */
 uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client);

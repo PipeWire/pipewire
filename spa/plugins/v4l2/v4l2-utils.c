@@ -158,20 +158,6 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 	return 0;
 }
 
-static int spa_v4l2_port_set_enabled(struct impl *this, bool enabled)
-{
-	struct port *port = &this->out_ports[0];
-	if (port->source_enabled != enabled) {
-		spa_log_info(port->log, "v4l2: enabled %d", enabled);
-		port->source_enabled = enabled;
-		if (enabled)
-			spa_loop_add_source(port->data_loop, &port->source);
-		else
-			spa_loop_remove_source(port->data_loop, &port->source);
-	}
-	return 0;
-}
-
 static int spa_v4l2_close(struct impl *this)
 {
 	struct port *port = &this->out_ports[0];
@@ -181,8 +167,6 @@ static int spa_v4l2_close(struct impl *this)
 
 	if (port->n_buffers > 0)
 		return 0;
-
-	spa_v4l2_port_set_enabled(this, false);
 
 	spa_log_info(port->log, "v4l2: close");
 
@@ -1148,11 +1132,15 @@ static void v4l2_on_fd_events(struct spa_source *source)
 {
 	struct impl *this = source->data;
 
-	if (source->rmask & SPA_IO_ERR)
+	if (source->rmask & SPA_IO_ERR) {
+		spa_log_warn(this->log, "v4l2 %p: error %d", this, source->rmask);
 		return;
+	}
 
-	if (!(source->rmask & SPA_IO_IN))
+	if (!(source->rmask & SPA_IO_IN)) {
+		spa_log_warn(this->log, "v4l2 %p: spurious wakeup %d", this, source->rmask);
 		return;
+	}
 
 	if (mmap_read(this) < 0)
 		return;
@@ -1370,16 +1358,36 @@ static int spa_v4l2_stream_on(struct impl *this)
 	struct port *state = &this->out_ports[0];
 	enum v4l2_buf_type type;
 
+	if (!state->opened)
+		return -EIO;
+
 	if (state->started)
 		return 0;
+
+	spa_log_debug(this->log, "starting");
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (xioctl(state->fd, VIDIOC_STREAMON, &type) < 0) {
 		spa_log_error(this->log, "VIDIOC_STREAMON: %s", strerror(errno));
 		return errno;
 	}
+
+	spa_loop_add_source(state->data_loop, &state->source);
+
 	state->started = true;
 
+	return 0;
+}
+
+static int do_remove_source(struct spa_loop *loop,
+			    bool async,
+			    uint32_t seq,
+			    const void *data,
+			    size_t size,
+			    void *user_data)
+{
+	struct port *state = user_data;
+	spa_loop_remove_source(state->data_loop, &state->source);
 	return 0;
 }
 
@@ -1389,10 +1397,15 @@ static int spa_v4l2_stream_off(struct impl *this)
 	enum v4l2_buf_type type;
 	int i;
 
+	if (!state->opened)
+		return -EIO;
+
 	if (!state->started)
 		return 0;
 
-	spa_v4l2_port_set_enabled(this, false);
+	spa_log_debug(this->log, "stopping");
+
+	spa_loop_invoke(state->data_loop, do_remove_source, 0, NULL, 0, true, state);
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (xioctl(state->fd, VIDIOC_STREAMOFF, &type) < 0) {

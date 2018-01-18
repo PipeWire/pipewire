@@ -413,6 +413,7 @@ pull_frames(struct state *state,
 
 	if (total_frames == 0 && do_pull) {
 		total_frames = SPA_MIN(frames, state->threshold);
+		spa_log_warn(state->log, "write %zd frames of silence", total_frames);
 		snd_pcm_areas_silence(my_areas, offset, state->channels, total_frames, state->format);
 		state->underrun += total_frames;
 		underrun = true;
@@ -660,6 +661,7 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 int spa_alsa_start(struct state *state, bool xrun_recover)
 {
 	int err;
+	struct itimerspec ts;
 
 	if (state->started)
 		return 0;
@@ -697,7 +699,12 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 		}
 		state->alsa_started = true;
 	}
-	state->source.func(&state->source);
+
+	ts.it_value.tv_sec = 0;
+	ts.it_value.tv_nsec = 1;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	timerfd_settime(state->timerfd, 0, &ts, NULL);
 
 	state->started = true;
 
@@ -712,7 +719,15 @@ static int do_remove_source(struct spa_loop *loop,
 			    void *user_data)
 {
 	struct state *state = user_data;
+	struct itimerspec ts;
+
 	spa_loop_remove_source(state->data_loop, &state->source);
+	ts.it_value.tv_sec = 0;
+	ts.it_value.tv_nsec = 0;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	timerfd_settime(state->timerfd, 0, &ts, NULL);
+
 	return 0;
 }
 

@@ -177,65 +177,31 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	return 0;
 }
 
-static int do_send_done(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct state *this = user_data;
-
-	this->callbacks->done(this->callbacks_data, seq, *(int*)data);
-
-	return 0;
-}
-
-static int do_command(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct state *this = user_data;
-	int res;
-	const struct spa_command *cmd = data;
-
-	if (SPA_COMMAND_TYPE(cmd) == this->type.command_node.Start ||
-	    SPA_COMMAND_TYPE(cmd) == this->type.command_node.Pause) {
-		res = spa_node_port_send_command(&this->node, SPA_DIRECTION_INPUT, 0, cmd);
-	} else
-		res = -ENOTSUP;
-
-	if (async) {
-		spa_loop_invoke(this->main_loop,
-				do_send_done,
-				seq,
-				&res,
-				sizeof(res),
-				false,
-				this);
-	}
-	return res;
-}
-
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	struct state *this;
+	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 
-	if (SPA_COMMAND_TYPE(command) == this->type.command_node.Start ||
-	    SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
+	if (SPA_COMMAND_TYPE(command) == this->type.command_node.Start) {
 		if (!this->have_format)
 			return -EIO;
 		if (this->n_buffers == 0)
 			return -EIO;
 
-		return spa_loop_invoke(this->data_loop,
-				       do_command,
-				       ++this->seq,
-				       command,
-				       SPA_POD_SIZE(command),
-				       false,
-				       this);
-
+		if ((res = spa_alsa_start(this, false)) < 0)
+			return res;
+	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
+		if ((res = spa_alsa_pause(this, false)) < 0)
+			return res;
 	} else
 		return -ENOTSUP;
+
+	return 0;
 }
 
 static int
@@ -601,23 +567,8 @@ static int
 impl_node_port_send_command(struct spa_node *node,
 			    enum spa_direction direction, uint32_t port_id, const struct spa_command *command)
 {
-	struct state *this;
-	int res;
-
 	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct state, node);
-
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
-
-	if (SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
-		res = spa_alsa_pause(this, false);
-	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.Start) {
-		res = spa_alsa_start(this, false);
-	} else
-		res = -ENOTSUP;
-
-	return res;
+	return -ENOTSUP;
 }
 
 static int impl_node_process_input(struct spa_node *node)

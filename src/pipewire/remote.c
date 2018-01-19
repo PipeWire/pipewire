@@ -404,6 +404,11 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 	return do_connect(remote);
 }
 
+int pw_remote_get_fd(struct pw_remote *remote)
+{
+	return pw_protocol_client_get_fd(remote->conn);
+}
+
 int pw_remote_disconnect(struct pw_remote *remote)
 {
 	struct pw_proxy *proxy, *t2;

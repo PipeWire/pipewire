@@ -527,6 +527,15 @@ static int impl_connect(struct pw_protocol_client *client)
         return -1;
 }
 
+static int impl_get_fd(struct pw_protocol_client *client)
+{
+	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
+
+	if (impl->source == NULL)
+		return -EIO;
+
+	return impl->source->fd;
+}
 
 static void
 on_remote_data(void *data, int fd, enum spa_io mask)
@@ -698,6 +707,7 @@ impl_new_client(struct pw_protocol *protocol,
 	impl->properties = properties ? pw_properties_copy(properties) : NULL;
 
 	this->connect = impl_connect;
+	this->get_fd = impl_get_fd;
 	this->connect_fd = impl_connect_fd;
 	this->disconnect = impl_disconnect;
 	this->destroy = impl_destroy;

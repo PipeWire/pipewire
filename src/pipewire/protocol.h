@@ -42,12 +42,14 @@ struct pw_protocol_client {
 	struct pw_remote *remote;	/**< the associated remote */
 
 	int (*connect) (struct pw_protocol_client *client);
+	int (*get_fd) (struct pw_protocol_client *client);
 	int (*connect_fd) (struct pw_protocol_client *client, int fd);
 	void (*disconnect) (struct pw_protocol_client *client);
 	void (*destroy) (struct pw_protocol_client *client);
 };
 
 #define pw_protocol_client_connect(c)		((c)->connect(c))
+#define pw_protocol_client_get_fd(c)		((c)->get_fd(c))
 #define pw_protocol_client_connect_fd(c,fd)	((c)->connect_fd(c,fd))
 #define pw_protocol_client_disconnect(c)	((c)->disconnect(c))
 #define pw_protocol_client_destroy(c)		((c)->destroy(c))

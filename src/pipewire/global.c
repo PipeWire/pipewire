@@ -127,6 +127,7 @@ pw_global_register(struct pw_global *global,
 
 	spa_list_for_each(registry, &core->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, registry->client);
+		pw_log_debug("registry %p: global %d %08x", registry, global->id, permissions);
 		if (PW_PERM_IS_R(permissions))
 			pw_registry_resource_global(registry,
 						    global->id,
@@ -240,6 +241,7 @@ void pw_global_destroy(struct pw_global *global)
 	if (global->id != SPA_ID_INVALID) {
 		spa_list_for_each(registry, &core->registry_resource_list, link) {
 			uint32_t permissions = pw_global_get_permissions(global, registry->client);
+			pw_log_debug("registry %p: global %d %08x", registry, global->id, permissions);
 			if (PW_PERM_IS_R(permissions))
 				pw_registry_resource_global_remove(registry, global->id);
 		}

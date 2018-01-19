@@ -83,6 +83,7 @@ pw_global_new(struct pw_core *core,
 	this->bind = bind;
 	this->object = object;
 	this->properties = properties;
+	this->id = SPA_ID_INVALID;
 
 	pw_log_debug("global %p: new %s", this,
 			spa_type_map_get_type(core->type.map, this->type));
@@ -236,16 +237,18 @@ void pw_global_destroy(struct pw_global *global)
 
 	pw_log_debug("global %p: destroy %u", global, global->id);
 
-	spa_list_for_each(registry, &core->registry_resource_list, link) {
-		uint32_t permissions = pw_global_get_permissions(global, registry->client);
-		if (PW_PERM_IS_R(permissions))
-			pw_registry_resource_global_remove(registry, global->id);
+	if (global->id != SPA_ID_INVALID) {
+		spa_list_for_each(registry, &core->registry_resource_list, link) {
+			uint32_t permissions = pw_global_get_permissions(global, registry->client);
+			if (PW_PERM_IS_R(permissions))
+				pw_registry_resource_global_remove(registry, global->id);
+		}
+
+		pw_map_remove(&core->globals, global->id);
+
+		spa_list_remove(&global->link);
+		spa_hook_list_call(&core->listener_list, struct pw_core_events, global_removed, global);
 	}
-
-	pw_map_remove(&core->globals, global->id);
-
-	spa_list_remove(&global->link);
-	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_removed, global);
 
 	if (global->properties)
 		pw_properties_free(global->properties);

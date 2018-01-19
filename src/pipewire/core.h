@@ -105,6 +105,10 @@ struct pw_core_events {
 	void (*global_removed) (void *data, struct pw_global *global);
 };
 
+/** The user name that started the core */
+#define PW_CORE_PROP_USER_NAME	"pipewire.core.user-name"
+/** The host name of the machine */
+#define PW_CORE_PROP_HOST_NAME	"pipewire.core.host-name"
 /** The name of the core. Default is pipewire-<user-name>-<pid> */
 #define PW_CORE_PROP_NAME	"pipewire.core.name"
 /** The version of the core. */

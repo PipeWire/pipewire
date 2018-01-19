@@ -393,7 +393,12 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->global = pw_global_new(this,
 				     this->type.core,
 				     PW_VERSION_CORE,
-				     NULL,
+				     pw_properties_new(
+					     PW_CORE_PROP_USER_NAME, this->info.user_name,
+					     PW_CORE_PROP_HOST_NAME, this->info.host_name,
+					     PW_CORE_PROP_NAME, this->info.name,
+					     PW_CORE_PROP_VERSION, this->info.version,
+					     NULL),
 				     core_bind_func,
 				     this);
 	if (this->global != NULL) {

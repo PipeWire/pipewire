@@ -125,6 +125,16 @@ int pw_factory_register(struct pw_factory *factory,
 
 	spa_list_append(&core->factory_list, &factory->link);
 
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		return -ENOMEM;
+
+	pw_properties_set(properties, "factory.name", factory->info.name);
+	pw_properties_setf(properties, "factory.type.name", "%s",
+			spa_type_map_get_type(core->type.map, factory->info.type));
+	pw_properties_setf(properties, "factory.type.version", "%d", factory->info.version);
+
         factory->global = pw_global_new(core,
 					core->type.factory, PW_VERSION_FACTORY,
 					properties,

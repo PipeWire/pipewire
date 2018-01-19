@@ -188,10 +188,10 @@ const struct pw_core_info *pw_remote_get_core_info(struct pw_remote *remote);
 struct pw_proxy *pw_remote_find_proxy(struct pw_remote *remote, uint32_t id);
 
 /** Disconnect from the remote PipeWire. \memberof pw_remote */
-void pw_remote_disconnect(struct pw_remote *remote);
+int pw_remote_disconnect(struct pw_remote *remote);
 
 /** Update the state of the remote, mostly used by protocols */
-void pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, const char *fmt, ...);
+int pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, const char *fmt, ...);
 
 /** run a local node in a remote graph */
 struct pw_proxy *pw_remote_export(struct pw_remote *remote, struct pw_node *node);

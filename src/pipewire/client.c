@@ -201,21 +201,28 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	return this;
 }
 
-void pw_client_register(struct pw_client *client,
-			struct pw_client *owner,
-			struct pw_global *parent)
+int pw_client_register(struct pw_client *client,
+		       struct pw_client *owner,
+		       struct pw_global *parent,
+		       struct pw_properties *properties)
 {
 	struct pw_core *core = client->core;
 
 	pw_log_debug("client %p: register parent %d", client, parent ? parent->id : SPA_ID_INVALID);
+
 	spa_list_append(&core->client_list, &client->link);
 
-	client->global = pw_global_new(core, core->type.client, PW_VERSION_CLIENT,
-			   client_bind_func, client);
-	if (client->global != NULL) {
-		pw_global_register(client->global, owner, parent);
-		client->info.id = client->global->id;
-	}
+	client->global = pw_global_new(core,
+				       core->type.client, PW_VERSION_CLIENT,
+				       properties,
+				       client_bind_func, client);
+	if (client->global == NULL)
+		return -ENOMEM;
+
+	pw_global_register(client->global, owner, parent);
+	client->info.id = client->global->id;
+
+	return 0;
 }
 
 struct pw_core *pw_client_get_core(struct pw_client *client)
@@ -325,7 +332,7 @@ const struct pw_client_info *pw_client_get_info(struct pw_client *client)
  *
  * \memberof pw_client
  */
-void pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict)
+int pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
 
@@ -350,6 +357,8 @@ void pw_client_update_properties(struct pw_client *client, const struct spa_dict
 		pw_client_resource_info(resource, &client->info);
 
 	client->info.change_mask = 0;
+
+	return 0;
 }
 
 struct permissions_update {
@@ -410,7 +419,7 @@ static uint32_t parse_mask(const char *str)
 	return mask;
 }
 
-void pw_client_update_permissions(struct pw_client *client, const struct spa_dict *dict)
+int pw_client_update_permissions(struct pw_client *client, const struct spa_dict *dict)
 {
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 	int i;
@@ -452,6 +461,7 @@ void pw_client_update_permissions(struct pw_client *client, const struct spa_dic
 			pw_core_for_each_global(client->core, do_permissions, &update);
 		}
 	}
+	return 0;
 }
 
 void pw_client_set_busy(struct pw_client *client, bool busy)

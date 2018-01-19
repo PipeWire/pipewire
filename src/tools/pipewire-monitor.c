@@ -53,7 +53,7 @@ struct proxy_data {
 	struct spa_hook proxy_proxy_listener;
 };
 
-static void print_properties(struct spa_dict *props, char mark)
+static void print_properties(const struct spa_dict *props, char mark)
 {
 	const struct spa_dict_item *item;
 
@@ -314,7 +314,8 @@ static const struct pw_proxy_events proxy_events = {
 };
 
 static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
-				  uint32_t permissions, uint32_t type, uint32_t version)
+				  uint32_t permissions, uint32_t type, uint32_t version,
+				  const struct spa_dict *props)
 {
         struct data *d = data;
         struct pw_proxy *proxy;
@@ -358,6 +359,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 						  permissions & PW_PERM_W ? 'w' : '-',
 						  permissions & PW_PERM_X ? 'x' : '-');
 		printf("\ttype: %s (version %d)\n", spa_type_map_get_type(t->map, type), version);
+		print_properties(props, ' ');
 		return;
 	}
 

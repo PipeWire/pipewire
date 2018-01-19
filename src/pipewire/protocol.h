@@ -119,8 +119,8 @@ void pw_protocol_add_listener(struct pw_protocol *protocol,
  *
  * \brief Manages protocols and their implementation
  */
-void pw_protocol_add_marshal(struct pw_protocol *protocol,
-			      const struct pw_protocol_marshal *marshal);
+int pw_protocol_add_marshal(struct pw_protocol *protocol,
+			    const struct pw_protocol_marshal *marshal);
 
 const struct pw_protocol_marshal *
 pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type);

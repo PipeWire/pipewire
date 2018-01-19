@@ -176,7 +176,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	pw_log_debug("module %p: new", module);
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
-	pw_factory_register(factory, NULL, pw_module_get_global(module));
+	pw_factory_register(factory, NULL, pw_module_get_global(module), NULL);
 
 	return 0;
 }

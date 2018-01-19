@@ -109,6 +109,8 @@ struct pw_global {
 	uint32_t id;			/**< server id of the object */
 	struct pw_global *parent;	/**< parent global */
 
+	struct pw_properties *properties;	/**< properties of the global */
+
 	uint32_t type;			/**< type of interface */
 	uint32_t version;		/**< version of interface */
 	pw_bind_func_t bind;		/**< function to bind to the interface */

@@ -35,7 +35,7 @@
  * \param type a type structure
  * \memberof pw_type
  */
-void pw_type_init(struct pw_type *type)
+int pw_type_init(struct pw_type *type)
 {
 	type->map = pw_get_support_interface(SPA_TYPE__TypeMap);
 
@@ -64,4 +64,5 @@ void pw_type_init(struct pw_type *type)
 	spa_type_param_buffers_map(type->map, &type->param_buffers);
 	spa_type_param_meta_map(type->map, &type->param_meta);
 	spa_type_param_io_map(type->map, &type->param_io);
+	return 0;
 }

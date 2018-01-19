@@ -233,7 +233,7 @@ const struct pw_properties *pw_port_get_properties(struct pw_port *port)
 	return port->properties;
 }
 
-void pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
+int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 {
 	uint32_t i;
 	for (i = 0; i < dict->n_items; i++)
@@ -241,6 +241,8 @@ void pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict
 
 	spa_hook_list_call(&port->listener_list, struct pw_port_events,
 			   properties_changed, port->properties);
+
+	return 0;
 }
 
 struct pw_node *pw_port_get_node(struct pw_port *port)

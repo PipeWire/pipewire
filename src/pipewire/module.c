@@ -218,15 +218,6 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 	this->info.args = args ? strdup(args) : NULL;
 	this->info.props = NULL;
 
-	spa_list_append(&core->module_list, &this->link);
-	this->global = pw_global_new(core, core->type.module, PW_VERSION_MODULE,
-					  module_bind_func, this);
-
-	if (this->global != NULL) {
-		pw_global_register(this->global, NULL, core->global);
-		this->info.id = this->global->id;
-	}
-
 	if ((res = init_func(this, args)) < 0)
 		goto init_failed;
 
@@ -251,6 +242,30 @@ struct pw_module *pw_module_load(struct pw_core *core, const char *name, const c
 	pw_log_error("\"%s\" failed to initialize: %s", filename, spa_strerror(res));
 	pw_module_destroy(this);
 	return NULL;
+}
+
+int pw_module_register(struct pw_module *module,
+		       struct pw_client *owner,
+		       struct pw_global *parent,
+		       struct pw_properties *properties)
+{
+	struct pw_core *core = module->core;
+
+	spa_list_append(&core->module_list, &module->link);
+
+	module->global = pw_global_new(core,
+				       core->type.module, PW_VERSION_MODULE,
+				       properties,
+				       module_bind_func, module);
+
+	if (module->global == NULL)
+		return -ENOMEM;
+
+	pw_global_register(module->global, owner, parent);
+
+	module->info.id = module->global->id;
+
+	return 0;
 }
 
 /** Destroy a module

@@ -813,7 +813,7 @@ handle_connect_name_ports(struct client *client)
 	ld->in_port = in_port;
 	spa_list_append(&impl->link_list, &ld->link_link);
 	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
-	pw_link_register(link, NULL, pw_module_get_global(impl->module));
+	pw_link_register(link, NULL, pw_module_get_global(impl->module), NULL);
 
 	notify_clients(impl, jack_notify_PortConnectCallback, false, "", src_id, dst_id);
 
@@ -1060,7 +1060,7 @@ static struct client *client_new(struct impl *impl, int fd)
 
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
 
-	pw_client_register(client, NULL, pw_module_get_global(impl->module));
+	pw_client_register(client, NULL, pw_module_get_global(impl->module), NULL);
 
 	pw_log_debug("module-jack %p: added new client", impl);
 
@@ -1339,7 +1339,7 @@ static int on_global(void *data, struct pw_global *global)
 	pw_log_debug("module-jack %p: using buffer_size %d", impl,
 			impl->server.engine_control->buffer_size);
 
-	pw_link_register(impl->sink_link, NULL, pw_module_get_global(impl->module));
+	pw_link_register(impl->sink_link, NULL, pw_module_get_global(impl->module), NULL);
 
 	return 1;
 }

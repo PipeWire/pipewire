@@ -143,7 +143,7 @@ struct pw_global *pw_core_get_global(struct pw_core *core);
 const struct pw_properties *pw_core_get_properties(struct pw_core *core);
 
 /** Update the core properties */
-void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict);
+int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict);
 
 /** Get the core support objects */
 const struct spa_support *pw_core_get_support(struct pw_core *core, uint32_t *n_support);

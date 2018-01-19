@@ -17,6 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <errno.h>
+
 #include <pipewire/protocol.h>
 #include <pipewire/private.h>
 
@@ -111,13 +113,16 @@ void pw_protocol_add_listener(struct pw_protocol *protocol,
 	spa_hook_list_append(&protocol->listener_list, listener, events, data);
 }
 
-void
+int
 pw_protocol_add_marshal(struct pw_protocol *protocol,
 			const struct pw_protocol_marshal *marshal)
 {
 	struct marshal *impl;
 
 	impl = calloc(1, sizeof(struct marshal));
+	if (impl == NULL)
+		return -ENOMEM;
+
 	impl->marshal = marshal;
 	impl->type = spa_type_map_get_id (protocol->core->type.map, marshal->type);
 
@@ -125,6 +130,8 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 
 	pw_log_info("Add marshal %s:%d to protocol %s", marshal->type, marshal->version,
 			protocol->name);
+
+	return 0;
 }
 
 const struct pw_protocol_marshal *

@@ -56,6 +56,7 @@ struct global {
 	uint32_t version;
 	struct pw_proxy *proxy;
 	bool info_pending;
+	struct pw_properties *properties;
 };
 
 struct remote_data {
@@ -137,6 +138,23 @@ static struct pw_properties *parse_props(char *str)
 		}
 	}
 	return props;
+}
+
+static void print_properties(struct spa_dict *props, char mark, bool header)
+{
+	const struct spa_dict_item *item;
+
+	if (header)
+		fprintf(stdout, "%c\tproperties:\n", mark);
+	if (props == NULL || props->n_items == 0) {
+		if (header)
+			fprintf(stdout, "\t\tnone\n");
+		return;
+	}
+
+	spa_dict_for_each(item, props) {
+		fprintf(stdout, "%c\t\t%s = \"%s\"\n", mark, item->key, item->value);
+	}
 }
 
 static bool do_not_implemented(struct data *data, const char *cmd, char *args, char **error)
@@ -251,10 +269,14 @@ static void print_global(void *obj, void *data)
 	fprintf(stdout, "\tid %d, parent %d, type %s/%d\n", global->id, global->parent_id,
 					spa_type_map_get_type(t->map, global->type),
 					global->version);
+	if (global->properties)
+		print_properties(&global->properties->dict, ' ', false);
+
 }
 
 static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
-				  uint32_t permissions, uint32_t type, uint32_t version)
+				  uint32_t permissions, uint32_t type, uint32_t version,
+				  const struct spa_dict *props)
 {
 	struct remote_data *rd = data;
 	struct global *global;
@@ -267,6 +289,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	global->permissions = permissions;
 	global->type = type;
 	global->version = version;
+	global->properties = props ? pw_properties_new_dict(props) : NULL;
 
 	fprintf(stdout, "remote %d added global: ", rd->id);
 	print_global(global, NULL);
@@ -285,6 +308,8 @@ static void destroy_global(void *obj, void *data)
 		return;
 
 	pw_map_remove(&global->rd->globals, global->id);
+	if (global->properties)
+		pw_properties_free(global->properties);
 	free(global);
 }
 
@@ -462,21 +487,6 @@ static bool do_switch_remote(struct data *data, const char *cmd, char *args, cha
 	return false;
 }
 
-static void print_properties(struct spa_dict *props, char mark)
-{
-	const struct spa_dict_item *item;
-
-	fprintf(stdout, "%c\tproperties:\n", mark);
-	if (props == NULL || props->n_items == 0) {
-		fprintf(stdout, "\t\tnone\n");
-		return;
-	}
-
-	spa_dict_for_each(item, props) {
-		fprintf(stdout, "%c\t\t%s = \"%s\"\n", mark, item->key, item->value);
-	}
-}
-
 #define MARK_CHANGE(f) ((((info)->change_mask & (1 << (f)))) ? '*' : ' ')
 
 static void info_global(struct proxy_data *pd)
@@ -505,7 +515,7 @@ static void info_core(struct proxy_data *pd)
 	fprintf(stdout, "%c\tversion: \"%s\"\n", MARK_CHANGE(2), info->version);
 	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(3), info->name);
 	fprintf(stdout, "%c\tcookie: %u\n", MARK_CHANGE(4), info->cookie);
-	print_properties(info->props, MARK_CHANGE(5));
+	print_properties(info->props, MARK_CHANGE(5), true);
 	info->change_mask = 0;
 }
 
@@ -517,7 +527,7 @@ static void info_module(struct proxy_data *pd)
 	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 	fprintf(stdout, "%c\tfilename: \"%s\"\n", MARK_CHANGE(1), info->filename);
 	fprintf(stdout, "%c\targs: \"%s\"\n", MARK_CHANGE(2), info->args);
-	print_properties(info->props, MARK_CHANGE(3));
+	print_properties(info->props, MARK_CHANGE(3), true);
 	info->change_mask = 0;
 }
 
@@ -551,7 +561,7 @@ static void info_node(struct proxy_data *pd)
 		fprintf(stdout, " \"%s\"\n", info->error);
 	else
 		fprintf(stdout, "\n");
-	print_properties(info->props, MARK_CHANGE(6));
+	print_properties(info->props, MARK_CHANGE(6), true);
 	info->change_mask = 0;
 }
 
@@ -563,7 +573,7 @@ static void info_factory(struct proxy_data *pd)
 	info_global(pd);
 	fprintf(stdout, "\tname: \"%s\"\n", info->name);
 	fprintf(stdout, "\tobject-type: %s/%d\n", spa_type_map_get_type(t->map, info->type), info->version);
-	print_properties(info->props, MARK_CHANGE(0));
+	print_properties(info->props, MARK_CHANGE(0), true);
 	info->change_mask = 0;
 }
 
@@ -572,7 +582,7 @@ static void info_client(struct proxy_data *pd)
 	struct pw_client_info *info = pd->info;
 
 	info_global(pd);
-	print_properties(info->props, MARK_CHANGE(0));
+	print_properties(info->props, MARK_CHANGE(0), true);
 	info->change_mask = 0;
 }
 
@@ -590,7 +600,7 @@ static void info_link(struct proxy_data *pd)
 		spa_debug_pod(info->format, SPA_DEBUG_FLAG_FORMAT);
 	else
 		fprintf(stdout, "\t\tnone\n");
-	print_properties(info->props, MARK_CHANGE(3));
+	print_properties(info->props, MARK_CHANGE(3), true);
 	info->change_mask = 0;
 }
 

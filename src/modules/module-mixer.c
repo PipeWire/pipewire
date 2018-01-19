@@ -175,7 +175,7 @@ static int on_global(void *data, struct pw_global *global)
 			   NULL,
 			   pw_properties_new(PW_LINK_PROP_PASSIVE, "true", NULL),
 			   &error, 0);
-	pw_link_register(link, NULL, pw_module_get_global(impl->module));
+	pw_link_register(link, NULL, pw_module_get_global(impl->module), NULL);
 
 	return 0;
 }

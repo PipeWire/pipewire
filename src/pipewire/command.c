@@ -97,6 +97,7 @@ execute_command_module_load(struct pw_command *command, struct pw_core *core, ch
 		asprintf(err, "could not load module \"%s\"", command->args[1]);
 		return -ENOMEM;
 	}
+	pw_module_register(module, NULL, NULL, NULL);
 	return 0;
 }
 

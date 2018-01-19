@@ -117,7 +117,7 @@ const char *pw_remote_state_as_string(enum pw_remote_state state)
 	return "invalid-state";
 }
 
-void
+int
 pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, const char *fmt, ...)
 {
 	enum pw_remote_state old = remote->state;
@@ -146,6 +146,7 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 		spa_hook_list_call(&remote->listener_list, struct pw_remote_events, state_changed,
 				 old, state, remote->error);
 	}
+	return 0;
 }
 
 static void core_event_info(void *data, struct pw_core_info *info)
@@ -403,14 +404,14 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 	return do_connect(remote);
 }
 
-void pw_remote_disconnect(struct pw_remote *remote)
+int pw_remote_disconnect(struct pw_remote *remote)
 {
 	struct pw_proxy *proxy, *t2;
 	struct pw_stream *stream, *s2;
 
 	pw_log_debug("remote %p: disconnect", remote);
 	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
-	    pw_stream_disconnect(stream);
+		pw_stream_disconnect(stream);
 
 	pw_protocol_client_disconnect (remote->conn);
 
@@ -427,6 +428,8 @@ void pw_remote_disconnect(struct pw_remote *remote)
 		remote->info = NULL;
 	}
         pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
+
+	return 0;
 }
 
 static int

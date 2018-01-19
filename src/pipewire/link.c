@@ -1201,21 +1201,25 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	return NULL;
 }
 
-void pw_link_register(struct pw_link *link,
-		      struct pw_client *owner,
-		      struct pw_global *parent)
+int pw_link_register(struct pw_link *link,
+		     struct pw_client *owner,
+		     struct pw_global *parent,
+		     struct pw_properties *properties)
 {
 	struct pw_core *core = link->core;
 	struct pw_node *input_node, *output_node;
 
 	spa_list_append(&core->link_list, &link->link);
 
-	link->global = pw_global_new(core, core->type.link, PW_VERSION_LINK,
-			   link_bind_func, link);
-	if (link->global != NULL) {
-		pw_global_register(link->global, owner, parent);
-		link->info.id = link->global->id;
-	}
+	link->global = pw_global_new(core,
+				     core->type.link, PW_VERSION_LINK,
+				     properties,
+				     link_bind_func, link);
+	if (link->global == NULL)
+		return -ENOMEM;
+
+	pw_global_register(link->global, owner, parent);
+	link->info.id = link->global->id;
 
 	input_node = link->input->node;
 	output_node = link->output->node;
@@ -1234,8 +1238,9 @@ void pw_link_register(struct pw_link *link,
 	    output_node->n_used_output_links + 1 > output_node->idle_used_output_links) &&
 	    input_node->active && output_node->active)
 		pw_link_activate(link);
-}
 
+	return 0;
+}
 
 void pw_link_destroy(struct pw_link *link)
 {

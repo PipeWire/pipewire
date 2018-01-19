@@ -131,9 +131,10 @@ pw_client_new(struct pw_core *core,		/**< the core object */
 void pw_client_destroy(struct pw_client *client);
 
 /** Finish configuration and register a client */
-void pw_client_register(struct pw_client *client,	/**< the client to register */
-			struct pw_client *owner,	/**< optional owner */
-			struct pw_global *parent	/**< the client parent */);
+int pw_client_register(struct pw_client *client,	/**< the client to register */
+		       struct pw_client *owner,	/**< optional owner */
+		       struct pw_global *parent,	/**< the client parent */
+		       struct pw_properties *properties/**< extra properties */);
 
 /** Get the client user data */
 void *pw_client_get_user_data(struct pw_client *client);
@@ -142,10 +143,10 @@ void *pw_client_get_user_data(struct pw_client *client);
 const struct pw_client_info *pw_client_get_info(struct pw_client *client);
 
 /** Update the client properties */
-void pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
+int pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
 
 /** Update the client permissions */
-void pw_client_update_permissions(struct pw_client *client, const struct spa_dict *dict);
+int pw_client_update_permissions(struct pw_client *client, const struct spa_dict *dict);
 
 /** Get the client properties */
 const struct pw_properties *pw_client_get_properties(struct pw_client *client);

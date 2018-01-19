@@ -53,6 +53,7 @@ struct pw_global;
 
 #include <pipewire/core.h>
 #include <pipewire/client.h>
+#include <pipewire/properties.h>
 
 /** The function to let a client bind to a global */
 typedef int (*pw_bind_func_t) (struct pw_global *global,	/**< the global to bind */
@@ -63,11 +64,12 @@ typedef int (*pw_bind_func_t) (struct pw_global *global,	/**< the global to bind
 
 /** Create a new global object */
 struct pw_global *
-pw_global_new(struct pw_core *core,
-              uint32_t type,
-              uint32_t version,
-              pw_bind_func_t bind,
-              void *object);
+pw_global_new(struct pw_core *core,		/**< the core */
+	      uint32_t type,			/**< the interface type of the global */
+	      uint32_t version,			/**< the interface version of the global */
+	      struct pw_properties *properties,	/**< extra properties */
+	      pw_bind_func_t bind,		/**< function to bind to the global */
+	      void *object			/**< global object */);
 
 /** Register a global object to the core registry */
 int pw_global_register(struct pw_global *global,
@@ -91,6 +93,9 @@ uint32_t pw_global_get_type(struct pw_global *global);
 
 /** Get the global version */
 uint32_t pw_global_get_version(struct pw_global *global);
+
+/** Get the global properties */
+const struct pw_properties *pw_global_get_properties(struct pw_global *global);
 
 /** Get the object associated with the global. This depends on the type of the
   * global */

@@ -30,7 +30,7 @@ struct properties {
 };
 /** \endcond */
 
-static void add_func(struct pw_properties *this, char *key, char *value)
+static int add_func(struct pw_properties *this, char *key, char *value)
 {
 	struct spa_dict_item *item;
 	struct properties *impl = SPA_CONTAINER_OF(this, struct properties, this);
@@ -41,6 +41,7 @@ static void add_func(struct pw_properties *this, char *key, char *value)
 
 	this->dict.items = impl->items.data;
 	this->dict.n_items = pw_array_get_len(&impl->items, struct spa_dict_item);
+	return 0;
 }
 
 static void clear_item(struct spa_dict_item *item)
@@ -200,7 +201,7 @@ void pw_properties_free(struct pw_properties *properties)
 	free(impl);
 }
 
-static void do_replace(struct pw_properties *properties, char *key, char *value)
+static int do_replace(struct pw_properties *properties, char *key, char *value)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
 	int index = find_index(properties, key);
@@ -224,6 +225,7 @@ static void do_replace(struct pw_properties *properties, char *key, char *value)
 			item->value = value;
 		}
 	}
+	return 0;
 }
 
 /** Set a property value
@@ -238,9 +240,9 @@ static void do_replace(struct pw_properties *properties, char *key, char *value)
  *
  * \memberof pw_properties
  */
-void pw_properties_set(struct pw_properties *properties, const char *key, const char *value)
+int pw_properties_set(struct pw_properties *properties, const char *key, const char *value)
 {
-	do_replace(properties, strdup(key), value ? strdup(value) : NULL);
+	return do_replace(properties, strdup(key), value ? strdup(value) : NULL);
 }
 
 /** Set a property value by format
@@ -255,7 +257,7 @@ void pw_properties_set(struct pw_properties *properties, const char *key, const 
  *
  * \memberof pw_properties
  */
-void pw_properties_setf(struct pw_properties *properties, const char *key, const char *format, ...)
+int pw_properties_setf(struct pw_properties *properties, const char *key, const char *format, ...)
 {
 	va_list varargs;
 	char *value;
@@ -264,7 +266,7 @@ void pw_properties_setf(struct pw_properties *properties, const char *key, const
 	vasprintf(&value, format, varargs);
 	va_end(varargs);
 
-	do_replace(properties, strdup(key), value);
+	return do_replace(properties, strdup(key), value);
 }
 
 /** Get a property

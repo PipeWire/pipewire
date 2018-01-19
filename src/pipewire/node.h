@@ -102,9 +102,10 @@ pw_node_new(struct pw_core *core,		/**< the core */
 	    size_t user_data_size		/**< user data size */);
 
 /** Complete initialization of the node and register */
-void pw_node_register(struct pw_node *node,	/**< node to register */
-		      struct pw_client *owner,	/**< optional owner */
-		      struct pw_global *parent	/**< optional parent */);
+int pw_node_register(struct pw_node *node,		/**< node to register */
+		     struct pw_client *owner,		/**< optional owner */
+		     struct pw_global *parent,		/**< optional parent */
+		     struct pw_properties *properties	/**< extra properties */);
 
 /** Destroy a node */
 void pw_node_destroy(struct pw_node *node);
@@ -125,7 +126,7 @@ struct pw_global *pw_node_get_global(struct pw_node *node);
 const struct pw_properties *pw_node_get_properties(struct pw_node *node);
 
 /** Update the node properties */
-void pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict);
+int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict);
 
 /** Set the node implementation */
 void pw_node_set_implementation(struct pw_node *node, struct spa_node *spa_node);

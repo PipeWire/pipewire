@@ -1081,7 +1081,7 @@ pw_stream_finish_format(struct pw_stream *stream,
 	impl->pending_seq = SPA_ID_INVALID;
 }
 
-void pw_stream_disconnect(struct pw_stream *stream)
+int pw_stream_disconnect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
@@ -1097,12 +1097,14 @@ void pw_stream_disconnect(struct pw_stream *stream)
 		pw_client_node_transport_destroy(impl->trans);
 		impl->trans = NULL;
 	}
+	return 0;
 }
 
-void pw_stream_set_active(struct pw_stream *stream, bool active)
+int pw_stream_set_active(struct pw_stream *stream, bool active)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	pw_client_node_proxy_set_active(impl->node_proxy, active);
+	return 0;
 }
 
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)

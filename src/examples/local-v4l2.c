@@ -480,7 +480,7 @@ static void make_nodes(struct data *data)
 	data->impl_node = impl_node;
 	pw_node_set_implementation(data->node, &data->impl_node);
 
-	pw_node_register(data->node, NULL, NULL);
+	pw_node_register(data->node, NULL, NULL, NULL);
 
 	factory = pw_core_find_factory(data->core, "spa-node-factory");
 	props = pw_properties_new("spa.library.name", "v4l2/libspa-v4l2",
@@ -498,7 +498,7 @@ static void make_nodes(struct data *data)
 				 NULL,
 				 NULL,
 				 0);
-	pw_link_register(data->link, NULL, NULL);
+	pw_link_register(data->link, NULL, NULL, NULL);
 
 	pw_node_set_active(data->node, true);
 	pw_node_set_active(data->v4l2, true);

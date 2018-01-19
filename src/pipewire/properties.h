@@ -55,10 +55,10 @@ pw_properties_merge(const struct pw_properties *oldprops,
 void
 pw_properties_free(struct pw_properties *properties);
 
-void
+int
 pw_properties_set(struct pw_properties *properties, const char *key, const char *value);
 
-void
+int
 pw_properties_setf(struct pw_properties *properties,
 		   const char *key, const char *format, ...) SPA_PRINTF_FUNC(3, 4);
 const char *

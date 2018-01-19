@@ -133,7 +133,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_protocol_native_ext_client_node_init(core);
 
-	pw_factory_register(factory, NULL, pw_module_get_global(module));
+	pw_factory_register(factory, NULL, pw_module_get_global(module), NULL);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 

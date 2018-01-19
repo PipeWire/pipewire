@@ -113,7 +113,7 @@ static void *create_object(void *_data,
 	if (link == NULL)
 		goto no_mem;
 
-	pw_link_register(link, client, pw_client_get_global(client));
+	pw_link_register(link, client, pw_client_get_global(client), NULL);
 
 	res = pw_global_bind(pw_link_get_global(link), client, PW_PERM_RWX, PW_VERSION_LINK, new_id);
 	if (res < 0)
@@ -206,7 +206,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 				      &impl_factory,
 				      data);
 
-	pw_factory_register(factory, NULL, pw_module_get_global(module));
+	pw_factory_register(factory, NULL, pw_module_get_global(module), NULL);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 

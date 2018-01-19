@@ -66,6 +66,12 @@ struct pw_module_events {
 struct pw_module *
 pw_module_load(struct pw_core *core, const char *name, const char *args);
 
+/** Finish module configuration and register */
+int pw_module_register(struct pw_module *module,	/**< the module to register */
+		       struct pw_client *owner,		/**< optional owner */
+		       struct pw_global *parent,	/**< parent global */
+		       struct pw_properties *properties	/**< extra global properties */);
+
 /** Get the core of a module */
 struct pw_core * pw_module_get_core(struct pw_module *module);
 

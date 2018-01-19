@@ -116,18 +116,26 @@ factory_bind_func(struct pw_global *global,
 	return -ENOMEM;
 }
 
-void pw_factory_register(struct pw_factory *factory,
+int pw_factory_register(struct pw_factory *factory,
 			 struct pw_client *owner,
-			 struct pw_global *parent)
+			 struct pw_global *parent,
+			 struct pw_properties *properties)
 {
 	struct pw_core *core = factory->core;
+
 	spa_list_append(&core->factory_list, &factory->link);
+
         factory->global = pw_global_new(core,
-				     core->type.factory, 0, factory_bind_func, factory);
-	if (factory->global != NULL) {
-		pw_global_register(factory->global, owner, parent);
-		factory->info.id = factory->global->id;
-	}
+					core->type.factory, PW_VERSION_FACTORY,
+					properties,
+					factory_bind_func, factory);
+	if (factory->global == NULL)
+		return -ENOMEM;
+
+	pw_global_register(factory->global, owner, parent);
+	factory->info.id = factory->global->id;
+
+	return 0;
 }
 
 void *pw_factory_get_user_data(struct pw_factory *factory)

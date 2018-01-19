@@ -78,8 +78,7 @@ struct pw_type {
 	struct spa_type_param_io param_io;
 };
 
-void
-pw_type_init(struct pw_type *type);
+int pw_type_init(struct pw_type *type);
 
 #ifdef __cplusplus
 }

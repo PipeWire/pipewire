@@ -226,7 +226,7 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
 
 	spa_list_append(&info->links, &ld->l);
-	pw_link_register(link, NULL, pw_module_get_global(impl->module));
+	pw_link_register(link, NULL, pw_module_get_global(impl->module), NULL);
 
 	try_link_controls(impl, port, target);
 

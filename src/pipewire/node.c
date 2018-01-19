@@ -329,11 +329,13 @@ do_node_add(struct spa_loop *loop,
 	return 0;
 }
 
-void pw_node_register(struct pw_node *this,
-		      struct pw_client *owner,
-		      struct pw_global *parent)
+int pw_node_register(struct pw_node *this,
+		     struct pw_client *owner,
+		     struct pw_global *parent,
+		     struct pw_properties *properties)
 {
 	struct pw_core *core = this->core;
+	const char *str;
 
 	pw_log_debug("node %p: register", this);
 
@@ -342,17 +344,30 @@ void pw_node_register(struct pw_node *this,
 
 	pw_loop_invoke(this->data_loop, do_node_add, 1, NULL, 0, false, this);
 
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		return -ENOMEM;
+
+	if ((str = pw_properties_get(this->properties, "media.class")) != NULL)
+		pw_properties_set(properties, "media.class", str);
+
 	spa_list_append(&core->node_list, &this->link);
-	this->global = pw_global_new(core, core->type.node, PW_VERSION_NODE,
-					  node_bind_func, this);
-	if (this->global != NULL) {
-		pw_global_register(this->global, owner, parent);
-		this->info.id = this->global->id;
-	}
+	this->global = pw_global_new(core,
+				     core->type.node, PW_VERSION_NODE,
+				     properties,
+				     node_bind_func, this);
+	if (this->global == NULL)
+		return -ENOMEM;
+
+	pw_global_register(this->global, owner, parent);
+	this->info.id = this->global->id;
 
 	spa_hook_list_call(&this->listener_list, struct pw_node_events, initialized);
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
+
+	return 0;
 }
 
 struct pw_node *pw_node_new(struct pw_core *core,
@@ -434,7 +449,7 @@ const struct pw_properties *pw_node_get_properties(struct pw_node *node)
 	return node->properties;
 }
 
-void pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
+int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
 	uint32_t i;
@@ -452,6 +467,8 @@ void pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict
 		pw_node_resource_info(resource, &node->info);
 
 	node->info.change_mask = 0;
+
+	return 0;
 }
 
 static void node_done(void *data, int seq, int res)

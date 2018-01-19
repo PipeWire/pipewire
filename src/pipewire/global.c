@@ -53,6 +53,7 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *c
  * \param core a core object
  * \param type the type of the global
  * \param version the version of the type
+ * \param properties extra properties
  * \param bind a function to bind to this global
  * \param object the associated object
  * \return a result global
@@ -63,6 +64,7 @@ struct pw_global *
 pw_global_new(struct pw_core *core,
 	      uint32_t type,
 	      uint32_t version,
+	      struct pw_properties *properties,
 	      pw_bind_func_t bind,
 	      void *object)
 {
@@ -80,6 +82,7 @@ pw_global_new(struct pw_core *core,
 	this->version = version;
 	this->bind = bind;
 	this->object = object;
+	this->properties = properties;
 
 	pw_log_debug("global %p: new %s", this,
 			spa_type_map_get_type(core->type.map, this->type));
@@ -129,7 +132,9 @@ pw_global_register(struct pw_global *global,
 						    global->parent->id,
 						    permissions,
 						    global->type,
-						    global->version);
+						    global->version,
+						    global->properties ?
+						        &global->properties->dict : NULL);
 	}
 	return 0;
 }
@@ -157,6 +162,11 @@ uint32_t pw_global_get_type(struct pw_global *global)
 uint32_t pw_global_get_version(struct pw_global *global)
 {
 	return global->version;
+}
+
+const struct pw_properties *pw_global_get_properties(struct pw_global *global)
+{
+	return global->properties;
 }
 
 void * pw_global_get_object(struct pw_global *global)
@@ -236,6 +246,9 @@ void pw_global_destroy(struct pw_global *global)
 
 	spa_list_remove(&global->link);
 	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_removed, global);
+
+	if (global->properties)
+		pw_properties_free(global->properties);
 
 	pw_log_debug("global %p: free", global);
 	free(global);

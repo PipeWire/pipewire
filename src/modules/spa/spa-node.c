@@ -75,7 +75,7 @@ static void pw_spa_node_destroy(void *data)
 static void complete_init(struct impl *impl)
 {
         struct pw_node *this = impl->this;
-	pw_node_register(this, impl->owner, impl->parent);
+	pw_node_register(this, impl->owner, impl->parent, NULL);
 	if (impl->flags & PW_SPA_NODE_FLAG_ACTIVATE)
 		pw_node_set_active(this, true);
 }

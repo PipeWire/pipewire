@@ -157,7 +157,9 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 						    global->parent->id,
 						    permissions,
 						    global->type,
-						    global->version);
+						    global->version,
+						    global->properties ?
+						        &global->properties->dict : NULL);
 		}
 	}
 
@@ -391,6 +393,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->global = pw_global_new(this,
 				     this->type.core,
 				     PW_VERSION_CORE,
+				     NULL,
 				     core_bind_func,
 				     this);
 	if (this->global != NULL) {
@@ -502,7 +505,7 @@ const struct pw_properties *pw_core_get_properties(struct pw_core *core)
  *
  * \memberof pw_core
  */
-void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
+int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
 	uint32_t i;
@@ -520,6 +523,8 @@ void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict
 		pw_core_resource_info(resource, &core->info);
 
 	core->info.change_mask = 0;
+
+	return 0;
 }
 
 int pw_core_for_each_global(struct pw_core *core,

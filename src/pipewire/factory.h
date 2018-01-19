@@ -70,9 +70,10 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 				  struct pw_properties *properties,
 				  size_t user_data_size);
 
-void pw_factory_register(struct pw_factory *factory,
-			 struct pw_client *owner,
-			 struct pw_global *parent);
+int pw_factory_register(struct pw_factory *factory,
+			struct pw_client *owner,
+			struct pw_global *parent,
+			struct pw_properties *properties);
 
 void pw_factory_destroy(struct pw_factory *factory);
 

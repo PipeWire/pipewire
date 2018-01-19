@@ -366,7 +366,8 @@ static const struct pw_node_proxy_events node_events = {
 
 
 static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, uint32_t permissions,
-				  uint32_t type, uint32_t version)
+				  uint32_t type, uint32_t version,
+				  const struct spa_dict *props)
 {
   struct registry_data *rd = data;
   GstPipeWireDeviceProvider *self = rd->self;

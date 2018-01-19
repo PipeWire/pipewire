@@ -488,19 +488,31 @@ static int core_demarshal_update_types_server(void *object, void *data, size_t s
 }
 
 static void registry_marshal_global(void *object, uint32_t id, uint32_t parent_id, uint32_t permissions,
-				    uint32_t type, uint32_t version)
+				    uint32_t type, uint32_t version, const struct spa_dict *props)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
+	uint32_t i, n_items;
 
 	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_PROXY_EVENT_GLOBAL);
 
-	spa_pod_builder_struct(b,
-			       "i", id,
-			       "i", parent_id,
-			       "i", permissions,
-			       "I", type,
-			       "i", version);
+	n_items = props ? props->n_items : 0;
+
+	spa_pod_builder_add(b,
+			    "[",
+			    "i", id,
+			    "i", parent_id,
+			    "i", permissions,
+			    "I", type,
+			    "i", version,
+			    "i", n_items, NULL);
+
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_add(b,
+				    "s", props->items[i].key,
+				    "s", props->items[i].value, NULL);
+	}
+	spa_pod_builder_add(b, "]", NULL);
 
 	pw_protocol_native_end_resource(resource, b);
 }
@@ -874,7 +886,8 @@ static int registry_demarshal_global(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
-	uint32_t id, parent_id, permissions, type, version;
+	uint32_t id, parent_id, permissions, type, version, i;
+	struct spa_dict props;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -883,10 +896,21 @@ static int registry_demarshal_global(void *object, void *data, size_t size)
 			"i", &parent_id,
 			"i", &permissions,
 			"I", &type,
-			"i", &version, NULL) < 0)
+			"i", &version,
+			"i", &props.n_items, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_registry_proxy_events, global, id, parent_id, permissions, type, version);
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (spa_pod_parser_get(&prs,
+				       "s", &props.items[i].key,
+				       "s", &props.items[i].value, NULL) < 0)
+			return -EINVAL;
+	}
+
+	pw_proxy_notify(proxy, struct pw_registry_proxy_events,
+			global, id, parent_id, permissions, type, version,
+			props.n_items > 0 ? &props : NULL);
 	return 0;
 }
 

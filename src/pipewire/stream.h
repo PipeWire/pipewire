@@ -275,7 +275,7 @@ uint32_t
 pw_stream_get_node_id(struct pw_stream *stream);
 
 /** Disconnect \a stream \memberof pw_stream */
-void pw_stream_disconnect(struct pw_stream *stream);
+int pw_stream_disconnect(struct pw_stream *stream);
 
 /** Complete the negotiation process with result code \a res \memberof pw_stream
  *
@@ -292,7 +292,7 @@ pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 			uint32_t n_params		/**< number of elements in \a params */);
 
 /** Activate or deactivate the stream \memberof pw_stream */
-void pw_stream_set_active(struct pw_stream *stream, bool active);
+int pw_stream_set_active(struct pw_stream *stream, bool active);
 
 /** Query the time on the stream \memberof pw_stream */
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);

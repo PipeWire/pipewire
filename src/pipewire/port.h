@@ -93,7 +93,7 @@ enum pw_direction pw_port_get_direction(struct pw_port *port);
 const struct pw_properties *pw_port_get_properties(struct pw_port *port);
 
 /** Update the port properties */
-void pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict);
+int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict);
 
 /** Get the port id */
 uint32_t pw_port_get_id(struct pw_port *port);

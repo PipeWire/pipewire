@@ -73,6 +73,7 @@ struct _GstPipeWireSink {
   /*< private >*/
   gchar *path;
   gchar *client_name;
+  int fd;
 
   /* video state */
   gboolean negotiated;

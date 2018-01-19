@@ -56,7 +56,8 @@ enum
   PROP_PATH,
   PROP_CLIENT_NAME,
   PROP_STREAM_PROPERTIES,
-  PROP_MODE
+  PROP_MODE,
+  PROP_FD
 };
 
 GType
@@ -191,6 +192,15 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
+   g_object_class_install_property (gobject_class,
+                                    PROP_FD,
+                                    g_param_spec_int ("fd",
+                                                      "Fd",
+                                                      "The fd to connect with",
+                                                      0, G_MAXINT, -1,
+                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_STATIC_STRINGS));
+
   gstelement_class->change_state = gst_pipewire_sink_change_state;
 
   gst_element_class_set_static_metadata (gstelement_class,
@@ -267,6 +277,7 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
   sink->pool =  gst_pipewire_pool_new ();
   sink->client_name = pw_get_client_name();
   sink->mode = DEFAULT_PROP_MODE;
+  sink->fd = -1;
 
   g_signal_connect (sink->pool, "activated", G_CALLBACK (pool_activated), sink);
 
@@ -353,6 +364,10 @@ gst_pipewire_sink_set_property (GObject * object, guint prop_id,
       pwsink->mode = g_value_get_enum (value);
       break;
 
+    case PROP_FD:
+      pwsink->fd = g_value_get_int (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -380,6 +395,10 @@ gst_pipewire_sink_get_property (GObject * object, guint prop_id,
 
     case PROP_MODE:
       g_value_set_enum (value, pwsink->mode);
+      break;
+
+    case PROP_FD:
+      g_value_set_int (value, pwsink->fd);
       break;
 
     default:
@@ -806,7 +825,10 @@ gst_pipewire_sink_open (GstPipeWireSink * pwsink)
 			  &pwsink->remote_listener,
 			  &remote_events, pwsink);
 
-  pw_remote_connect (pwsink->remote);
+  if (pwsink->fd == -1)
+    pw_remote_connect (pwsink->remote);
+  else
+    pw_remote_connect_fd (pwsink->remote, pwsink->fd);
 
   while (TRUE) {
     enum pw_remote_state state = pw_remote_get_state (pwsink->remote, &error);

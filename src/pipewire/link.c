@@ -864,7 +864,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_input, 1, NULL, 0, true, this);
 
-	clear_port_buffers(this, this->input);
+	clear_port_buffers(this, port);
 }
 
 static int
@@ -887,31 +887,11 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_output, 1, NULL, 0, true, this);
 
-	clear_port_buffers(this, this->output);
+	clear_port_buffers(this, port);
 }
 
 static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 {
-	struct pw_port *other;
-
-	if (port == this->input) {
-		input_remove(this, port);
-		other = this->output;
-	} else if (port == this->output) {
-		output_remove(this, port);
-		other = this->input;
-	} else
-		return;
-
-	if (this->buffer_owner == port) {
-		this->buffers = NULL;
-		this->n_buffers = 0;
-
-		pw_log_debug("link %p: clear allocated buffers on port %p", this, other);
-		pw_port_use_buffers(other, NULL, 0);
-		this->buffer_owner = NULL;
-	}
-
 	spa_hook_list_call(&this->listener_list, struct pw_link_events, port_unlinked, port);
 
 	pw_link_update_state(this, PW_LINK_STATE_UNLINKED, NULL);
@@ -1270,6 +1250,7 @@ void pw_link_destroy(struct pw_link *link)
 	spa_hook_list_call(&link->output->listener_list, struct pw_port_events, link_removed, link);
 	link->output = NULL;
 
+	pw_log_debug("link %p: free", impl);
 	spa_hook_list_call(&link->listener_list, struct pw_link_events, free);
 
 	pw_work_queue_destroy(impl->work);

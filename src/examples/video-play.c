@@ -18,6 +18,7 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>
 #include <sys/mman.h>
 
 #include <SDL2/SDL.h>
@@ -390,6 +391,48 @@ static const struct pw_remote_events remote_events = {
 	.state_changed = on_state_changed,
 };
 
+
+static void connect_state_changed(void *_data, enum pw_remote_state old,
+				  enum pw_remote_state state, const char *error)
+{
+	struct data *data = _data;
+
+	printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
+
+	switch (state) {
+	case PW_REMOTE_STATE_ERROR:
+	case PW_REMOTE_STATE_CONNECTED:
+		pw_main_loop_quit(data->loop);
+		break;
+	default:
+		break;
+	}
+}
+
+static int get_fd(struct data *data)
+{
+	int fd;
+	struct pw_remote *remote = pw_remote_new(data->core, NULL, 0);
+	struct spa_hook remote_listener;
+	const struct pw_remote_events revents = {
+		PW_VERSION_REMOTE_EVENTS,
+		.state_changed = connect_state_changed,
+	};
+
+	pw_remote_add_listener(remote, &remote_listener, &revents, data);
+
+	if (pw_remote_connect(remote) < 0)
+		return -1;
+
+	pw_main_loop_run(data->loop);
+
+	fd = pw_remote_steal_fd(remote);
+
+	pw_remote_destroy(remote);
+
+	return fd;
+}
+
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
@@ -419,7 +462,7 @@ int main(int argc, char *argv[])
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 
-	pw_remote_connect(data.remote);
+	pw_remote_connect_fd(data.remote, get_fd(&data));
 
 	pw_main_loop_run(data.loop);
 

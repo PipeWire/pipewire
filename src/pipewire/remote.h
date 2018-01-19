@@ -178,8 +178,9 @@ int pw_remote_connect(struct pw_remote *remote);
  * \return 0 on success, < 0 on error */
 int pw_remote_connect_fd(struct pw_remote *remote, int fd);
 
-/** Get the fd of the remote connection or < 0 on error */
-int pw_remote_get_fd(struct pw_remote *remote);
+/** Steal the fd of the remote connection or < 0 on error. The remote
+  * will be in the unconnected state after this call. */
+int pw_remote_steal_fd(struct pw_remote *remote);
 
 /** Get the core proxy, can only be called when connected */
 struct pw_core_proxy * pw_remote_get_core_proxy(struct pw_remote *remote);

@@ -30,6 +30,18 @@
 
 #include "connection.h"
 
+static void core_marshal_hello(void *object)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_HELLO);
+
+	spa_pod_builder_struct(b, "P", NULL);
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
 static void core_marshal_client_update(void *object, const struct spa_dict *props)
 {
 	struct pw_proxy *proxy = object;
@@ -400,6 +412,20 @@ static int core_demarshal_permissions(void *object, void *data, size_t size)
 			return -EINVAL;
 	}
 	pw_resource_do(resource, struct pw_core_proxy_methods, permissions, &props);
+	return 0;
+}
+
+static int core_demarshal_hello(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	void *ptr;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs, "[P]", &ptr, NULL) < 0)
+		return -EINVAL;
+
+	pw_resource_do(resource, struct pw_core_proxy_methods, hello);
 	return 0;
 }
 
@@ -947,6 +973,7 @@ static void registry_marshal_bind(void *object, uint32_t id,
 
 static const struct pw_core_proxy_methods pw_protocol_native_core_method_marshal = {
 	PW_VERSION_CORE_PROXY_METHODS,
+	&core_marshal_hello,
 	&core_marshal_update_types_client,
 	&core_marshal_sync,
 	&core_marshal_get_registry,
@@ -956,6 +983,7 @@ static const struct pw_core_proxy_methods pw_protocol_native_core_method_marshal
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_demarshal[PW_CORE_PROXY_METHOD_NUM] = {
+	{ &core_demarshal_hello, 0, },
 	{ &core_demarshal_update_types_server, 0, },
 	{ &core_demarshal_sync, 0, },
 	{ &core_demarshal_get_registry, 0, },

@@ -99,6 +99,18 @@ static const struct pw_resource_events resource_events = {
 	.destroy = destroy_registry_resource
 };
 
+static void core_hello(void *object)
+{
+	struct pw_resource *resource = object;
+	struct pw_core *this = resource->core;
+
+	pw_log_debug("core %p: hello from source %p", this, resource);
+	resource->client->n_types = 0;
+
+	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
+	pw_core_resource_info(resource, &this->info);
+}
+
 static void core_client_update(void *object, const struct spa_dict *props)
 {
 	struct pw_resource *resource = object;
@@ -248,6 +260,7 @@ static void core_update_types(void *object, uint32_t first_id, const char **type
 
 static const struct pw_core_proxy_methods core_methods = {
 	PW_VERSION_CORE_PROXY_METHODS,
+	.hello = core_hello,
 	.update_types = core_update_types,
 	.sync = core_sync,
 	.get_registry = core_get_registry,
@@ -295,8 +308,6 @@ core_bind_func(struct pw_global *global,
 
 	pw_log_debug("core %p: bound to %d", this, resource->id);
 
-	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
-	pw_core_resource_info(resource, &this->info);
 
 	return 0;
 

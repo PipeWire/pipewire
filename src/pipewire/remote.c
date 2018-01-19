@@ -350,6 +350,7 @@ static int do_connect(struct pw_remote *remote)
 
 	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_proxy_events, remote);
 
+	pw_core_proxy_hello(remote->core_proxy);
 	pw_core_proxy_client_update(remote->core_proxy, &remote->properties->dict);
 	pw_core_proxy_sync(remote->core_proxy, 0);
 
@@ -404,9 +405,14 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 	return do_connect(remote);
 }
 
-int pw_remote_get_fd(struct pw_remote *remote)
+int pw_remote_steal_fd(struct pw_remote *remote)
 {
-	return pw_protocol_client_get_fd(remote->conn);
+	int fd;
+
+	fd = pw_protocol_client_steal_fd(remote->conn);
+	pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
+
+	return fd;
 }
 
 int pw_remote_disconnect(struct pw_remote *remote)

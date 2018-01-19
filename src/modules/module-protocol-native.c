@@ -527,14 +527,19 @@ static int impl_connect(struct pw_protocol_client *client)
         return -1;
 }
 
-static int impl_get_fd(struct pw_protocol_client *client)
+static int impl_steal_fd(struct pw_protocol_client *client)
 {
 	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
+	int fd;
 
 	if (impl->source == NULL)
 		return -EIO;
 
-	return impl->source->fd;
+	fd = dup(impl->source->fd);
+
+	pw_protocol_client_disconnect(client);
+
+	return fd;
 }
 
 static void
@@ -636,6 +641,8 @@ static int impl_connect_fd(struct pw_protocol_client *client, int fd)
 	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
 	struct pw_remote *remote = client->remote;
 
+	impl->disconnecting = false;
+
 	impl->connection = pw_protocol_native_connection_new(fd);
 	if (impl->connection == NULL)
                 goto error_close;
@@ -707,7 +714,7 @@ impl_new_client(struct pw_protocol *protocol,
 	impl->properties = properties ? pw_properties_copy(properties) : NULL;
 
 	this->connect = impl_connect;
-	this->get_fd = impl_get_fd;
+	this->steal_fd = impl_steal_fd;
 	this->connect_fd = impl_connect_fd;
 	this->disconnect = impl_disconnect;
 	this->destroy = impl_destroy;

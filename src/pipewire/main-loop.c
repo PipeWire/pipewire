@@ -24,6 +24,7 @@
 static void do_stop(void *data, uint64_t count)
 {
 	struct pw_main_loop *this = data;
+	pw_log_debug("main-loop %p: do stop", this);
 	this->running = false;
 }
 

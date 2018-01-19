@@ -66,13 +66,14 @@ struct pw_link_proxy;
 
 #define PW_VERSION_CORE				0
 
-#define PW_CORE_PROXY_METHOD_UPDATE_TYPES	0
-#define PW_CORE_PROXY_METHOD_SYNC		1
-#define PW_CORE_PROXY_METHOD_GET_REGISTRY	2
-#define PW_CORE_PROXY_METHOD_CLIENT_UPDATE	3
-#define PW_CORE_PROXY_METHOD_PERMISSIONS	4
-#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	5
-#define PW_CORE_PROXY_METHOD_NUM		6
+#define PW_CORE_PROXY_METHOD_HELLO		0
+#define PW_CORE_PROXY_METHOD_UPDATE_TYPES	1
+#define PW_CORE_PROXY_METHOD_SYNC		2
+#define PW_CORE_PROXY_METHOD_GET_REGISTRY	3
+#define PW_CORE_PROXY_METHOD_CLIENT_UPDATE	4
+#define PW_CORE_PROXY_METHOD_PERMISSIONS	5
+#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	6
+#define PW_CORE_PROXY_METHOD_NUM		7
 
 /**
  * Key to update default permissions of globals without specific
@@ -110,6 +111,11 @@ struct pw_link_proxy;
 struct pw_core_proxy_methods {
 #define PW_VERSION_CORE_PROXY_METHODS	0
 	uint32_t version;
+	/**
+	 * Start a conversation with the server. This will send
+	 * the core info and server types.
+	 */
+	void (*hello) (void *object);
 	/**
 	 * Update the type map
 	 *
@@ -178,6 +184,12 @@ struct pw_core_proxy_methods {
 			       const struct spa_dict *props,
 			       uint32_t new_id);
 };
+
+static inline void
+pw_core_proxy_hello(struct pw_core_proxy *core)
+{
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, hello);
+}
 
 static inline void
 pw_core_proxy_update_types(struct pw_core_proxy *core, uint32_t first_id, const char **types, uint32_t n_types)

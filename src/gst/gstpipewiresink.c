@@ -197,7 +197,7 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
                                     g_param_spec_int ("fd",
                                                       "Fd",
                                                       "The fd to connect with",
-                                                      0, G_MAXINT, -1,
+                                                      -1, G_MAXINT, -1,
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
 

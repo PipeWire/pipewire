@@ -55,6 +55,7 @@ struct _GstPipeWireSrc {
   gchar *path;
   gchar *client_name;
   gboolean always_copy;
+  int fd;
 
   gboolean negotiated;
   gboolean flushing;

@@ -60,6 +60,7 @@ enum
   PROP_CLIENT_NAME,
   PROP_STREAM_PROPERTIES,
   PROP_ALWAYS_COPY,
+  PROP_FD,
 };
 
 
@@ -115,6 +116,10 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
       pwsrc->always_copy = g_value_get_boolean (value);
       break;
 
+    case PROP_FD:
+      pwsrc->fd = g_value_get_int (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -142,6 +147,10 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
 
     case PROP_ALWAYS_COPY:
       g_value_set_boolean (value, pwsrc->always_copy);
+      break;
+
+    case PROP_FD:
+      g_value_set_int (value, pwsrc->fd);
       break;
 
     default:
@@ -264,6 +273,15 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
 
+   g_object_class_install_property (gobject_class,
+                                    PROP_FD,
+                                    g_param_spec_int ("fd",
+                                                      "Fd",
+                                                      "The fd to connect with",
+                                                      -1, G_MAXINT, -1,
+                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_STATIC_STRINGS));
+
   gstelement_class->provide_clock = gst_pipewire_src_provide_clock;
   gstelement_class->change_state = gst_pipewire_src_change_state;
 
@@ -298,6 +316,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   GST_OBJECT_FLAG_SET (src, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
 
   src->always_copy = DEFAULT_ALWAYS_COPY;
+  src->fd = -1;
 
   g_queue_init (&src->queue);
 

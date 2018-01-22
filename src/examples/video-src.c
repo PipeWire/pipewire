@@ -132,6 +132,8 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	if (map)
 		munmap(map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
 
+	buf->datas[0].chunk->size = buf->datas[0].maxsize;
+
 	pw_stream_send_buffer(data->stream, id);
 }
 

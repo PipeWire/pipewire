@@ -58,19 +58,20 @@ struct pw_module_events {
 #define PW_VERSION_MODULE_EVENTS	0
 	uint32_t version;
 
-	/** The module id destroyed */
+	/** The module is destroyed */
 	void (*destroy) (void *data);
 };
 
-/** Load a module by name and arguments and register it */
-struct pw_module *
-pw_module_load(struct pw_core *core, const char *name, const char *args);
+/** The name of the module */
+#define PW_MODULE_PROP_NAME	"pipewire.module.name"
 
-/** Finish module configuration and register */
-int pw_module_register(struct pw_module *module,	/**< the module to register */
-		       struct pw_client *owner,		/**< optional owner */
-		       struct pw_global *parent,	/**< parent global */
-		       struct pw_properties *properties	/**< extra global properties */);
+struct pw_module *
+pw_module_load(struct pw_core *core,
+	       const char *name,		/**< name of the module */
+	       const char *args			/**< arguments of the module */,
+	       struct pw_client *owner,		/**< optional owner */
+	       struct pw_global *parent,	/**< parent global */
+	       struct pw_properties *properties	/**< extra global properties */);
 
 /** Get the core of a module */
 struct pw_core * pw_module_get_core(struct pw_module *module);

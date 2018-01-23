@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
 	if (argc > 3)
 		data.path = argv[3];
 
-	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL);
+	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL, NULL, NULL);
 
 	spa_debug_set_type_map(data.t->map);
 

@@ -218,7 +218,7 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 
-	module = pw_module_load(data->core, a[0], n == 2 ? a[1] : NULL);
+	module = pw_module_load(data->core, a[0], n == 2 ? a[1] : NULL, NULL, NULL, NULL);
 	if (module == NULL) {
 		asprintf(error, "Could not load module");
 		return false;
@@ -1116,7 +1116,7 @@ int main(int argc, char *argv[])
 	data.t = pw_core_get_type(data.core);
 	info = pw_core_get_info(data.core);
 
-	pw_module_load(data.core, "libpipewire-module-link-factory", NULL);
+	pw_module_load(data.core, "libpipewire-module-link-factory", NULL, NULL, NULL, NULL);
 
 	pw_loop_add_io(l, STDIN_FILENO, SPA_IO_IN|SPA_IO_HUP, false, do_input, &data);
 

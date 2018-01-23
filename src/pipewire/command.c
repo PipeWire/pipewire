@@ -92,12 +92,11 @@ execute_command_module_load(struct pw_command *command, struct pw_core *core, ch
 {
 	struct pw_module *module;
 
-	module = pw_module_load(core, command->args[1], command->args[2]);
+	module = pw_module_load(core, command->args[1], command->args[2], NULL, NULL, NULL);
 	if (module == NULL) {
 		asprintf(err, "could not load module \"%s\"", command->args[1]);
 		return -ENOMEM;
 	}
-	pw_module_register(module, NULL, NULL, NULL);
 	return 0;
 }
 

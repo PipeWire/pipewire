@@ -1,7 +1,9 @@
 subdir('alsa')
 subdir('audiomixer')
 subdir('audiotestsrc')
-subdir('bluez5')
+if sbc_dep.found()
+  subdir('bluez5')
+endif
 if avcodec_dep.found()
   subdir('ffmpeg')
 endif

@@ -68,6 +68,11 @@ struct pw_protocol {
 	void *user_data;        /**< user data for the implementation */
 };
 
+/** the permission function. It returns the allowed access permissions for \a global
+  * for \a client */
+typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
+					  struct pw_client *client, void *data);
+
 struct pw_client {
 	struct pw_core *core;		/**< core object */
 	struct spa_list link;		/**< link in core object client list */
@@ -126,9 +131,6 @@ struct pw_core {
 	struct pw_properties *properties;	/**< properties of the core */
 
 	struct pw_type type;			/**< type map and common types */
-
-	pw_permission_func_t permission_func;	/**< get permissions of an object */
-	void *permission_data;			/**< data passed to permission function */
 
 	struct pw_map globals;			/**< map of globals */
 
@@ -421,6 +423,7 @@ struct pw_control {
 
 	void *user_data;
 };
+
 
 /** Find a good format between 2 ports */
 int pw_core_find_format(struct pw_core *core,

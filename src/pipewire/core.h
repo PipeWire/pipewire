@@ -79,11 +79,6 @@ struct pw_core;
 				  *  present in order to call methods that modify the object. */
 #define PW_PERM_RWX	(PW_PERM_R|PW_PERM_W|PW_PERM_X)
 
-/** the permission function. It returns the allowed access permissions for \a global
-  * for \a client */
-typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
-					  struct pw_client *client, void *data);
-
 #define PW_PERM_IS_R(p) (((p)&PW_PERM_R) == PW_PERM_R)
 #define PW_PERM_IS_W(p) (((p)&PW_PERM_W) == PW_PERM_W)
 #define PW_PERM_IS_X(p) (((p)&PW_PERM_X) == PW_PERM_X)
@@ -127,12 +122,6 @@ void pw_core_add_listener(struct pw_core *core,
 			  struct spa_hook *listener,
 			  const struct pw_core_events *events,
 			  void *data);
-
-/** Set a callback that will be called to check the permissions of a global
-  * object for a client */
-void pw_core_set_permission_callback(struct pw_core *core,
-				     pw_permission_func_t callback,
-				     void *data);
 
 /** Get the type object of a core */
 struct pw_type *pw_core_get_type(struct pw_core *core);

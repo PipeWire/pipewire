@@ -37,12 +37,9 @@ struct global_impl {
 
 uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client)
 {
-	struct pw_core *core = client->core;
 	uint32_t perms = PW_PERM_RWX;
 
-	if (core->permission_func != NULL)
-		perms &= core->permission_func(global, client, core->permission_data);
-	if ((perms & PW_PERM_R) && client->permission_func != NULL)
+	if (client->permission_func != NULL)
 		perms &= client->permission_func(global, client, client->permission_data);
 
 	return perms;
@@ -121,9 +118,8 @@ pw_global_register(struct pw_global *global,
 
 	spa_list_append(&core->global_list, &global->link);
 
-	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_added, global);
-
 	pw_log_debug("global %p: add %u owner %p parent %p", global, global->id, owner, parent);
+	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_added, global);
 
 	spa_list_for_each(registry, &core->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, registry->client);

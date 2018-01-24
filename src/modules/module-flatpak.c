@@ -50,36 +50,20 @@ struct impl {
 	struct spa_list client_list;
 };
 
-struct resource;
-
 struct client_info {
 	struct spa_list link;
 	struct impl *impl;
 	struct pw_client *client;
-	struct spa_hook client_listener;
-	bool is_sandboxed;
         struct spa_list resources;
-	struct resource *core_resource;
 	struct spa_list async_pending;
-};
-
-struct resource {
-        struct spa_list link;
-	struct client_info *cinfo;
-	struct pw_resource *resource;
-	struct spa_hook override;
+	bool camera_allowed;
 };
 
 struct async_pending {
 	struct spa_list link;
-	struct resource *resource;
+	struct client_info *cinfo;
 	bool handled;
 	char *handle;
-	char *factory_name;
-	uint32_t type;
-	uint32_t version;
-	struct pw_properties *properties;
-	uint32_t new_id;
 };
 
 static struct client_info *find_client_info(struct impl *impl, struct pw_client *client)
@@ -96,7 +80,7 @@ static struct client_info *find_client_info(struct impl *impl, struct pw_client 
 static void close_request(struct async_pending *p)
 {
 	DBusMessage *m = NULL;
-	struct impl *impl = p->resource->cinfo->impl;
+	struct impl *impl = p->cinfo->impl;
 
 	pw_log_debug("pending %p: handle %s", p, p->handle);
 
@@ -132,50 +116,34 @@ static void free_pending(struct async_pending *p)
 	pw_log_debug("pending %p: handle %s", p, p->handle);
 	spa_list_remove(&p->link);
 	free(p->handle);
-	free(p->factory_name);
-	if (p->properties)
-		pw_properties_free(p->properties);
 	free(p);
-}
-
-static void free_resource(struct resource *r)
-{
-	spa_list_remove(&r->link);
-	free(r);
 }
 
 static void client_info_free(struct client_info *cinfo)
 {
 	struct async_pending *p, *tp;
-	struct resource *r, *tr;
 
 	spa_list_for_each_safe(p, tp, &cinfo->async_pending, link)
 		free_pending(p);
-	spa_list_for_each_safe(r, tr, &cinfo->resources, link)
-		free_resource(r);
 
-	spa_hook_remove(&cinfo->client_listener);
 	spa_list_remove(&cinfo->link);
 	free(cinfo);
 }
 
-static bool check_sandboxed(struct client_info *cinfo, char **error)
+static int check_sandboxed(struct pw_client *client)
 {
 	char root_path[2048];
-	int root_fd, info_fd;
+	int root_fd, info_fd, res;
 	const struct ucred *ucred;
 	struct stat stat_buf;
 
-	ucred = pw_client_get_ucred(cinfo->client);
-
-	cinfo->is_sandboxed = true;
+	ucred = pw_client_get_ucred(client);
 
 	if (ucred) {
 		pw_log_info("client has trusted pid %d", ucred->pid);
 	} else {
-		cinfo->is_sandboxed = false;
 		pw_log_info("no trusted pid found, assuming not sandboxed\n");
-		return true;
+		return 0;
 	}
 
 	sprintf(root_path, "/proc/%u/root", ucred->pid);
@@ -184,32 +152,32 @@ static bool check_sandboxed(struct client_info *cinfo, char **error)
 		/* Not able to open the root dir shouldn't happen. Probably the app died and
 		 * we're failing due to /proc/$pid not existing. In that case fail instead
 		 * of treating this as privileged. */
-		asprintf(error, "failed to open \"%s\": %m", root_path);
-		return false;
+		res = -errno;
+		pw_log_error("failed to open \"%s\": %m", root_path);
+		return res;
 	}
 	info_fd = openat (root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);
 	close (root_fd);
 	if (info_fd == -1) {
 		if (errno == ENOENT) {
 			pw_log_debug("no .flatpak-info, client on the host");
-			cinfo->is_sandboxed = false;
 			/* No file => on the host */
-			return true;
+			return 0;
 		}
-		asprintf(error, "error opening .flatpak-info: %m");
-		return false;
+		res = -errno;
+		pw_log_error("error opening .flatpak-info: %m");
+		return res;
         }
 	if (fstat (info_fd, &stat_buf) != 0 || !S_ISREG (stat_buf.st_mode)) {
-		/* Some weird fd => failure */
+		/* Some weird fd => failure, assume sandboxed */
 		close(info_fd);
-		asprintf(error, "error fstat .flatpak-info: %m");
-		return false;
+		pw_log_error("error fstat .flatpak-info: %m");
 	}
-	return true;
+	return 1;
 }
 
 static bool
-check_global_owner(struct pw_core *core, struct pw_client *client, struct pw_global *global)
+check_global_owner(struct pw_client *client, struct pw_global *global)
 {
 	struct pw_client *owner;
 	const struct ucred *owner_ucred, *client_ucred;
@@ -219,48 +187,64 @@ check_global_owner(struct pw_core *core, struct pw_client *client, struct pw_glo
 
 	owner = pw_global_get_owner(global);
 	if (owner == NULL)
-		return true;
+		return false;
 
 	owner_ucred = pw_client_get_ucred(owner);
 	client_ucred = pw_client_get_ucred(client);
 
 	if (owner_ucred == NULL || client_ucred == NULL)
-		return true;
+		return false;
 
+	/* same user can see eachothers objects */
 	return owner_ucred->uid == client_ucred->uid;
 }
 
-static uint32_t
-do_permission(struct pw_global *global, struct pw_client *client, void *data)
+static int
+set_global_permissions(void *data, struct pw_global *global)
 {
-	struct impl *impl = data;
+	struct client_info *cinfo = data;
+	struct impl *impl = cinfo->impl;
+	struct pw_client *client = cinfo->client;
+	const struct pw_properties *props;
+	const char *str;
+	struct spa_dict_item items[1];
+	int n_items = 0;
+	char perms[16];
+	bool allowed = false;
 
-	if (pw_global_get_type(global) == impl->type->link) {
-		struct pw_link *link = pw_global_get_object(global);
-		struct pw_port *port;
-		struct pw_node *node;
+	props = pw_global_get_properties(global);
 
-		port = pw_link_get_output(link);
-		node = pw_port_get_node(port);
-		/* we must be able to see both nodes */
-		if (port && node && !check_global_owner(impl->core, client, pw_node_get_global(node)))
-			 return 0;
-
-		port = pw_link_get_input(link);
-		node = pw_port_get_node(port);
-		if (port && node && !check_global_owner(impl->core, client, pw_node_get_global(node)))
-			 return 0;
+	if (pw_global_get_type(global) == impl->type->core) {
+		allowed = true;
 	}
-	else if (!check_global_owner(impl->core, client, global))
-		return 0;
+	else if (pw_global_get_type(global) == impl->type->factory) {
+		if (props && (str = pw_properties_get(props, "factory.name"))) {
+			if (strcmp(str, "client-node") == 0)
+				allowed = true;
+		}
+	}
+	else if (pw_global_get_type(global) == impl->type->node) {
+		if (props && (str = pw_properties_get(props, "media.class"))) {
+			if (strcmp(str, "Video/Source") == 0 && cinfo->camera_allowed)
+				allowed = true;
+		}
+		allowed |= check_global_owner(client, global);
+	}
+	else
+		allowed = check_global_owner(client, global);
 
-	return PW_PERM_RWX;
+	snprintf(perms, sizeof(perms), "%d:%c--", pw_global_get_id(global), allowed ? 'r' : '-');
+	items[n_items++] = SPA_DICT_ITEM_INIT(PW_CORE_PROXY_PERMISSIONS_GLOBAL, perms);
+	pw_client_update_permissions(client, &SPA_DICT_INIT(items, n_items));
+
+	return 0;
 }
 
 static DBusHandlerResult
 portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 {
 	struct client_info *cinfo = user_data;
+	struct pw_client *client = cinfo->client;
 
 	if (dbus_message_is_signal(msg, "org.freedesktop.portal.Request", "Response")) {
 		uint32_t response = 2;
@@ -286,21 +270,17 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 		pw_log_debug("portal check result: %d", response);
 
 		if (response == 0) {
-			pw_resource_do_parent(p->resource->resource,
-					      &p->resource->override,
-					      struct pw_core_proxy_methods,
-					      create_object,
-					      p->factory_name,
-					      p->type,
-					      p->version,
-					      &p->properties->dict,
-					      p->new_id);
+			/* allowed */
+			cinfo->camera_allowed = true;
+			pw_log_debug("camera access allowed");
 		} else {
-			pw_resource_error(p->resource->resource, -EPERM, "not allowed");
-
+			cinfo->camera_allowed = false;
+			pw_log_debug("camera access not allowed");
 		}
+		pw_core_for_each_global(cinfo->impl->core, set_global_permissions, cinfo);
+
 		free_pending(p);
-		pw_client_set_busy(cinfo->client, false);
+		pw_client_set_busy(client, false);
 
 		return DBUS_HANDLER_RESULT_HANDLED;
 	}
@@ -308,15 +288,8 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 }
 
 
-static void do_create_object(void *data,
-			     const char *factory_name,
-			     uint32_t type,
-			     uint32_t version,
-			     const struct spa_dict *props,
-			     uint32_t new_id)
+static void do_portal_check(struct client_info *cinfo)
 {
-	struct resource *resource = data;
-	struct client_info *cinfo = resource->cinfo;
 	struct impl *impl = cinfo->impl;
 	struct pw_client *client = cinfo->client;
 	DBusMessage *m = NULL, *r = NULL;
@@ -328,24 +301,7 @@ static void do_create_object(void *data,
 	const char *device;
 	struct async_pending *p;
 
-	if (!cinfo->is_sandboxed) {
-		pw_resource_do_parent(resource->resource,
-				      &resource->override,
-				      struct pw_core_proxy_methods,
-				      create_object,
-				      factory_name,
-				      type,
-				      version,
-				      props,
-				      new_id);
-		return;
-	}
-	if (strcmp(factory_name, "client-node") != 0) {
-		pw_log_error("can only allow client-node");
-		goto not_allowed;
-	}
-
-	pw_log_info("ask portal for client %p", cinfo->client);
+	pw_log_info("ask portal for client %p", client);
 	pw_client_set_busy(client, true);
 
 	dbus_error_init(&error);
@@ -357,7 +313,7 @@ static void do_create_object(void *data,
 
 	device = "camera";
 
-	pid = pw_client_get_ucred(cinfo->client)->pid;
+	pid = pw_client_get_ucred(client)->pid;
 	if (!dbus_message_append_args(m, DBUS_TYPE_UINT32, &pid, DBUS_TYPE_INVALID))
 		goto message_failed;
 
@@ -388,14 +344,9 @@ static void do_create_object(void *data,
 	dbus_connection_add_filter(impl->bus, portal_response, cinfo, NULL);
 
 	p = calloc(1, sizeof(struct async_pending));
-	p->resource = resource;
+	p->cinfo = cinfo;
 	p->handle = strdup(handle);
 	p->handled = false;
-	p->factory_name = strdup(factory_name);
-	p->type = type;
-	p->version = version;
-	p->properties = props ? pw_properties_new_dict(props) : NULL;
-	p->new_id = new_id;
 
 	pw_log_debug("pending %p: handle %s", p, handle);
 	spa_list_append(&cinfo->async_pending, &p->link);
@@ -423,69 +374,48 @@ static void do_create_object(void *data,
 	dbus_error_free(&error);
 	goto not_allowed;
       not_allowed:
-	pw_resource_error(cinfo->core_resource->resource, -EPERM, "not allowed");
+	pw_resource_error(pw_client_get_core_resource(client), -EPERM, "not allowed");
 	return;
 }
-
-static const struct pw_core_proxy_methods core_override = {
-	PW_VERSION_CORE_PROXY_METHODS,
-	.create_object = do_create_object,
-};
-
-static void client_resource_impl(void *data, struct pw_resource *resource)
-{
-	struct client_info *cinfo = data;
-	struct impl *impl = cinfo->impl;
-
-	if (pw_resource_get_type(resource) == impl->type->core) {
-		struct resource *r;
-
-		r = calloc(1, sizeof(struct resource));
-		r->cinfo = cinfo;
-		r->resource = resource;
-		spa_list_append(&cinfo->resources, &r->link);
-
-		if (pw_resource_get_id(resource) == 0)
-			cinfo->core_resource = r;
-
-		pw_log_debug("module %p: add core override", impl);
-		pw_resource_add_override(resource,
-					 &r->override,
-					 &core_override,
-					 r);
-	}
-}
-
-static const struct pw_client_events client_events = {
-	PW_VERSION_CLIENT_EVENTS,
-	.resource_impl = client_resource_impl,
-};
 
 static void
 core_global_added(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
+	struct client_info *cinfo;
+	int res;
 
 	if (pw_global_get_type(global) == impl->type->client) {
 		struct pw_client *client = pw_global_get_object(global);
-		struct client_info *cinfo;
-		char *error;
 
+		res = check_sandboxed(client);
+		if (res == 0) {
+			pw_log_debug("module %p: non sandboxed client %p", impl, client);
+			return;
+		}
+
+		if (res < 0) {
+			pw_log_warn("module %p: client %p sandbox check failed: %s",
+					impl, client, spa_strerror(res));
+		}
+		else {
+			pw_log_debug("module %p: sandboxed client %p added", impl, client);
+		}
+
+		/* sandboxed clients are placed in a list and we do a portal check */
 		cinfo = calloc(1, sizeof(struct client_info));
 		cinfo->impl = impl;
 		cinfo->client = client;
-		if (!check_sandboxed(cinfo, &error)) {
-			pw_log_warn("module %p: client %p sandbox check failed: %s", impl, client, error);
-			free(error);
-		}
-		spa_list_init(&cinfo->async_pending);
-		spa_list_init(&cinfo->resources);
 
-		pw_client_add_listener(client, &cinfo->client_listener, &client_events, cinfo);
+		spa_list_init(&cinfo->async_pending);
 
 		spa_list_append(&impl->client_list, &cinfo->link);
 
-		pw_log_debug("module %p: client %p added", impl, client);
+		do_portal_check(cinfo);
+	}
+	else {
+		spa_list_for_each(cinfo, &impl->client_list, link)
+			set_global_permissions(cinfo, global);
 	}
 }
 
@@ -572,8 +502,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
-
-	pw_core_set_permission_callback(core, do_permission, impl);
 
 	return 0;
 

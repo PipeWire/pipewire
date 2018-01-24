@@ -257,7 +257,7 @@ static void core_update_types(void *object, uint32_t first_id, const char **type
 	for (i = 0; i < n_types; i++, first_id++) {
 		uint32_t this_id = spa_type_map_get_id(this->type.map, types[i]);
 		if (!pw_map_insert_at(&client->types, first_id, PW_MAP_ID_TO_PTR(this_id)))
-			pw_log_error("can't add type for client");
+			pw_log_error("can't add type %d->%d for client", first_id, this_id);
 	}
 }
 
@@ -484,14 +484,6 @@ void pw_core_add_listener(struct pw_core *core,
 			  void *data)
 {
 	spa_hook_list_append(&core->listener_list, listener, events, data);
-}
-
-void pw_core_set_permission_callback(struct pw_core *core,
-				     pw_permission_func_t callback,
-				     void *data)
-{
-	core->permission_func = callback;
-	core->permission_data = data;
 }
 
 struct pw_type *pw_core_get_type(struct pw_core *core)

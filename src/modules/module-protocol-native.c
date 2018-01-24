@@ -170,21 +170,20 @@ process_messages(struct client_data *data)
 	struct pw_client *client = data->client;
 	struct pw_core *core = client->core;
 	uint8_t opcode;
-	uint32_t id;
-	uint32_t size;
+	uint32_t id, size;
 	void *message;
 
 	core->current_client = client;
 
-	while (pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size)) {
+	/* when the client is busy processing an async action, stop processing messages
+	 * for the client until it finishes the action */
+	while (!data->busy) {
 		struct pw_resource *resource;
 		const struct pw_protocol_native_demarshal *demarshal;
 	        const struct pw_protocol_marshal *marshal;
 		uint32_t permissions;
 
-		/* when the client is busy processing an async action, stop processing messages
-		 * for the client until it finishes the action */
-		if (data->busy)
+		if (!pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size))
 			break;
 
 		pw_log_trace("protocol-native %p: got message %d from %u", client->protocol,
@@ -339,7 +338,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 	spa_list_append(&s->this.client_list, &client->protocol_link);
 
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
-	pw_client_register(client, NULL, pw_module_get_global(pd->module), NULL);
+	pw_client_register(client, client, pw_module_get_global(pd->module), NULL);
 
 	pw_global_bind(pw_core_get_global(core), client, PW_PERM_RWX, PW_VERSION_CORE, 0);
 

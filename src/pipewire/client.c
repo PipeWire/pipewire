@@ -449,7 +449,7 @@ int pw_client_update_permissions(struct pw_client *client, const struct spa_dict
 				continue;
 
 			global_id = atoi(str);
-			global = pw_core_find_global(client->core, client, global_id);
+			global = pw_core_find_global(client->core, global_id);
 			if (global == NULL) {
 				pw_log_warn("client %p: invalid global %d", client, global_id);
 				continue;
@@ -473,7 +473,7 @@ int pw_client_update_permissions(struct pw_client *client, const struct spa_dict
 	if (permissions_existing != -1) {
 		update.permissions = permissions_existing;
 		update.only_new = true;
-		pw_core_for_each_global(client->core, client, do_permissions, &update);
+		pw_core_for_each_global(client->core, do_permissions, &update);
 	}
 	impl->permissions_default = permissions_default;
 

@@ -160,13 +160,11 @@ struct pw_loop *pw_core_get_main_loop(struct pw_core *core);
  * the value. When all callbacks return 0, this function returns 0 when all
  * globals are iterated. */
 int pw_core_for_each_global(struct pw_core *core,	/**< the core */
-			    struct pw_client *client,	/**< optional client */
 			    int (*callback) (void *data, struct pw_global *global),
 			    void *data);
 
 /** Find a core global by id */
 struct pw_global *pw_core_find_global(struct pw_core *core,	/**< the core */
-				      struct pw_client *client,	/**< optional client */
 				      uint32_t id		/**< the global id */);
 
 /** Find a factory by name */

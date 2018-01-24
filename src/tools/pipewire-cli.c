@@ -1001,7 +1001,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 			goto no_remote;
 	}
 
-	global = pw_core_find_global(data->core, NULL, atoi(a[0]));
+	global = pw_core_find_global(data->core, atoi(a[0]));
 	if (global == NULL) {
 		asprintf(error, "object %d does not exist", atoi(a[0]));
 		return false;

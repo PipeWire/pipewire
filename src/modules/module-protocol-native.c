@@ -168,10 +168,13 @@ process_messages(struct client_data *data)
 {
 	struct pw_protocol_native_connection *conn = data->connection;
 	struct pw_client *client = data->client;
+	struct pw_core *core = client->core;
 	uint8_t opcode;
 	uint32_t id;
 	uint32_t size;
 	void *message;
+
+	core->current_client = client;
 
 	while (pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size)) {
 		struct pw_resource *resource;
@@ -222,18 +225,20 @@ process_messages(struct client_data *data)
 		if (demarshal[opcode].func(resource, message, size) < 0)
 			goto invalid_message;
 	}
+      done:
+	core->current_client = NULL;
 	return;
 
       invalid_method:
 	pw_log_error("protocol-native %p: invalid method %u on resource %u",
 		     client->protocol, opcode, id);
 	pw_client_destroy(client);
-	return;
+	goto done;
       invalid_message:
 	pw_log_error("protocol-native %p: invalid message received %u %u",
 		     client->protocol, id, opcode);
 	pw_client_destroy(client);
-	return;
+	goto done;
 }
 
 static void

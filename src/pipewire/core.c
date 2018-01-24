@@ -51,7 +51,7 @@ static void registry_bind(void *object, uint32_t id,
 	struct pw_global *global;
 	uint32_t permissions;
 
-	if ((global = pw_core_find_global(core, NULL, id)) == NULL)
+	if ((global = pw_core_find_global(core, id)) == NULL)
 		goto no_id;
 
 	permissions = pw_global_get_permissions(global, client);
@@ -547,7 +547,6 @@ int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 }
 
 int pw_core_for_each_global(struct pw_core *core,
-			    struct pw_client *client,
 			    int (*callback) (void *data, struct pw_global *global),
 			    void *data)
 {
@@ -555,7 +554,8 @@ int pw_core_for_each_global(struct pw_core *core,
 	int res;
 
 	spa_list_for_each_safe(g, t, &core->global_list, link) {
-		if (client && !PW_PERM_IS_R(pw_global_get_permissions(g, client)))
+		if (core->current_client &&
+		    !PW_PERM_IS_R(pw_global_get_permissions(g, core->current_client)))
 			continue;
 		if ((res = callback(data, g)) != 0)
 			return res;
@@ -563,7 +563,7 @@ int pw_core_for_each_global(struct pw_core *core,
 	return 0;
 }
 
-struct pw_global *pw_core_find_global(struct pw_core *core, struct pw_client *client, uint32_t id)
+struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id)
 {
 	struct pw_global *global;
 
@@ -571,7 +571,8 @@ struct pw_global *pw_core_find_global(struct pw_core *core, struct pw_client *cl
 	if (global == NULL)
 		return NULL;
 
-	if (client && !PW_PERM_IS_R(pw_global_get_permissions(global, client)))
+	if (core->current_client &&
+	    !PW_PERM_IS_R(pw_global_get_permissions(global, core->current_client)))
 		return NULL;
 
 	return global;
@@ -591,7 +592,6 @@ struct pw_global *pw_core_find_global(struct pw_core *core, struct pw_client *cl
  * \memberof pw_core
  */
 struct pw_port *pw_core_find_port(struct pw_core *core,
-				  struct pw_client *client,
 				  struct pw_port *other_port,
 				  uint32_t id,
 				  struct pw_properties *props,
@@ -614,7 +614,8 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 		if (other_port->node == n)
 			continue;
 
-		if (!PW_PERM_IS_R(pw_global_get_permissions(n->global, client)))
+		if (core->current_client &&
+		    !PW_PERM_IS_R(pw_global_get_permissions(n->global, core->current_client)))
 			continue;
 
 		pw_log_debug("node id \"%d\"", n->global->id);

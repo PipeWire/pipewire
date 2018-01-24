@@ -153,6 +153,8 @@ struct pw_core {
 	struct spa_support support[16];	/**< support for spa plugins */
 	uint32_t n_support;		/**< number of support items */
 
+	struct pw_client *current_client;	/**< client currently executing code in mainloop */
+
 	long sc_pagesize;
 
 	struct {
@@ -434,7 +436,6 @@ int pw_core_find_format(struct pw_core *core,
 /** Find a ports compatible with \a other_port and the format filters */
 struct pw_port *
 pw_core_find_port(struct pw_core *core,
-		  struct pw_client *client,
 		  struct pw_port *other_port,
 		  uint32_t id,
 		  struct pw_properties *props,

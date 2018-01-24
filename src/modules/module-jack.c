@@ -874,7 +874,10 @@ static int
 process_messages(struct client *client)
 {
 	struct pw_client *c = client->client;
+	struct pw_core *core = c->core;
 	int type, res = -1;
+
+	core->current_client = c;
 
 	if (read(client->fd, &type, sizeof(enum jack_request_type)) != sizeof(enum jack_request_type)) {
 		pw_log_error("protocol-jack %p: failed to read type", client->impl);
@@ -951,12 +954,15 @@ process_messages(struct client *client)
 	if (res != 0)
 		goto error;
 
+      exit:
+	core->current_client = NULL;
 	return res;
 
       error:
 	pw_log_error("protocol-jack %p: error handling type %d", client->impl, type);
 	pw_client_destroy(c);
-	return -1;
+	res = -EIO;
+	goto exit;
 
 }
 
@@ -1351,7 +1357,7 @@ static bool init_nodes(struct impl *impl)
 	make_audio_client(impl);
 	make_freewheel_client(impl);
 
-	pw_core_for_each_global(core, NULL, on_global, impl);
+	pw_core_for_each_global(core, on_global, impl);
 
 	return true;
 }

@@ -204,7 +204,7 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 
 	pw_log_debug("module %p: try to find and link to node '%d'", impl, path_id);
 
-	target = pw_core_find_port(impl->core, owner, port, path_id, NULL, 0, NULL, &error);
+	target = pw_core_find_port(impl->core, port, path_id, NULL, 0, NULL, &error);
 	if (target == NULL)
 		goto error;
 

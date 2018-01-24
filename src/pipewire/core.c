@@ -51,7 +51,7 @@ static void registry_bind(void *object, uint32_t id,
 	struct pw_global *global;
 	uint32_t permissions;
 
-	if ((global = pw_core_find_global(core, id)) == NULL)
+	if ((global = pw_core_find_global(core, NULL, id)) == NULL)
 		goto no_id;
 
 	permissions = pw_global_get_permissions(global, client);
@@ -198,7 +198,10 @@ core_create_object(void *object,
 	struct pw_properties *properties;
 
 	factory = pw_core_find_factory(client->core, factory_name);
-	if (factory == NULL)
+	if (factory == NULL || factory->global == NULL)
+		goto no_factory;
+
+	if (!PW_PERM_IS_R(pw_global_get_permissions(factory->global, client)))
 		goto no_factory;
 
 	if (factory->info.type != type)
@@ -544,21 +547,34 @@ int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 }
 
 int pw_core_for_each_global(struct pw_core *core,
+			    struct pw_client *client,
 			    int (*callback) (void *data, struct pw_global *global),
 			    void *data)
 {
 	struct pw_global *g, *t;
 	int res;
 
-	spa_list_for_each_safe(g, t, &core->global_list, link)
+	spa_list_for_each_safe(g, t, &core->global_list, link) {
+		if (client && !PW_PERM_IS_R(pw_global_get_permissions(g, client)))
+			continue;
 		if ((res = callback(data, g)) != 0)
 			return res;
+	}
 	return 0;
 }
 
-struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id)
+struct pw_global *pw_core_find_global(struct pw_core *core, struct pw_client *client, uint32_t id)
 {
-	return pw_map_lookup(&core->globals, id);
+	struct pw_global *global;
+
+	global = pw_map_lookup(&core->globals, id);
+	if (global == NULL)
+		return NULL;
+
+	if (client && !PW_PERM_IS_R(pw_global_get_permissions(global, client)))
+		return NULL;
+
+	return global;
 }
 
 /** Find a port to link with
@@ -575,6 +591,7 @@ struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id)
  * \memberof pw_core
  */
 struct pw_port *pw_core_find_port(struct pw_core *core,
+				  struct pw_client *client,
 				  struct pw_port *other_port,
 				  uint32_t id,
 				  struct pw_properties *props,
@@ -595,6 +612,9 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 			continue;
 
 		if (other_port->node == n)
+			continue;
+
+		if (!PW_PERM_IS_R(pw_global_get_permissions(n->global, client)))
 			continue;
 
 		pw_log_debug("node id \"%d\"", n->global->id);
@@ -774,7 +794,8 @@ int pw_core_find_format(struct pw_core *core,
  *
  * \memberof pw_core
  */
-struct pw_factory *pw_core_find_factory(struct pw_core *core, const char *name)
+struct pw_factory *pw_core_find_factory(struct pw_core *core,
+					const char *name)
 {
 	struct pw_factory *factory;
 

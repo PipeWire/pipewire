@@ -83,13 +83,13 @@ static void *create_object(void *_data,
 	core = pw_client_get_core(client);
 	t = pw_core_get_type(core);
 
-	global = pw_core_find_global(core, output_node_id);
+	global = pw_core_find_global(core, client, output_node_id);
 	if (global == NULL || pw_global_get_type(global) != t->node)
 		goto no_output;
 
 	output_node = pw_global_get_object(global);
 
-	global = pw_core_find_global(core, input_node_id);
+	global = pw_core_find_global(core, client, input_node_id);
 	if (global == NULL || pw_global_get_type(global) != t->node)
 		goto no_input;
 

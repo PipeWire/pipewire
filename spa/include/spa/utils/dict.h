@@ -36,6 +36,8 @@ struct spa_dict_item {
 	const char *value;
 };
 
+#define SPA_DICT_ITEM_INIT(key,value) (struct spa_dict_item) { key, value }
+
 struct spa_dict {
 	const struct spa_dict_item *items;
 	uint32_t n_items;

@@ -233,7 +233,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	spa_list_init(&impl->node_list);
 
-	pw_core_for_each_global(core, on_global, impl);
+	pw_core_for_each_global(core, NULL, on_global, impl);
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);

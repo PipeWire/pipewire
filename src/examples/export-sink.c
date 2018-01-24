@@ -554,22 +554,21 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 	case PW_REMOTE_STATE_CONNECTED:
 	{
-		struct spa_dict_item items[3];
+		struct spa_dict_item items[5];
+		int i = 0;
 
+		/* set specific permissions on all existing objects without permissions */
+		items[i++] = SPA_DICT_ITEM_INIT(PW_CORE_PROXY_PERMISSIONS_EXISTING, "r--");
+		/* set default permission for new objects and objects without
+		 * specific permissions */
+		items[i++] = SPA_DICT_ITEM_INIT(PW_CORE_PROXY_PERMISSIONS_DEFAULT, "---");
 		/* an example, set specific permissions on one object, this is the
 		 * core object, we already have a binding to it that is not affected
 		 * by the removal of X permissions, only future bindings. */
-		items[0].key = PW_CORE_PROXY_PERMISSIONS_GLOBAL;
-		items[0].value = "0:rw-";
-		/* set specific permissions on all existing objects without permissions */
-		items[1].key = PW_CORE_PROXY_PERMISSIONS_EXISTING;
-		items[1].value = "r--";
-		/* set default permission for new objects and objects without
-		 * specific permissions */
-		items[2].key = PW_CORE_PROXY_PERMISSIONS_DEFAULT;
-		items[2].value = "---";
+		items[i++] = SPA_DICT_ITEM_INIT(PW_CORE_PROXY_PERMISSIONS_GLOBAL, "0:rw-");
+
 		pw_core_proxy_permissions(pw_remote_get_core_proxy(data->remote),
-					  &SPA_DICT_INIT(items, SPA_N_ELEMENTS(items)));
+					  &SPA_DICT_INIT(items, i));
 
 		make_node(data);
 		break;

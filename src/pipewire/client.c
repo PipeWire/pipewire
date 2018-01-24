@@ -426,14 +426,18 @@ int pw_client_update_permissions(struct pw_client *client, const struct spa_dict
 	const char *str;
 	size_t len;
 	struct permissions_update update = { client, 0 };
+	uint32_t permissions_existing, permissions_default;
+
+	permissions_default = impl->permissions_default;
+	permissions_existing = -1;
 
 	for (i = 0; i < dict->n_items; i++) {
 		str = dict->items[i].value;
 
 		if (strcmp(dict->items[i].key, PW_CORE_PROXY_PERMISSIONS_DEFAULT) == 0) {
-			impl->permissions_default &= parse_mask(str);
+			permissions_default &= parse_mask(str);
 			pw_log_debug("client %p: set default permissions to %08x",
-					client, impl->permissions_default);
+					client, permissions_default);
 		}
 		else if (strcmp(dict->items[i].key, PW_CORE_PROXY_PERMISSIONS_GLOBAL) == 0) {
 			struct pw_global *global;
@@ -445,22 +449,34 @@ int pw_client_update_permissions(struct pw_client *client, const struct spa_dict
 				continue;
 
 			global_id = atoi(str);
-			global = pw_core_find_global(client->core, global_id);
+			global = pw_core_find_global(client->core, client, global_id);
 			if (global == NULL) {
 				pw_log_warn("client %p: invalid global %d", client, global_id);
 				continue;
 			}
 
+			/* apply the specific updates in order. This is ok for now, we could add
+			 * a field to the permission struct later to accumulate the changes
+			 * and apply them out of this loop */
 			update.permissions = parse_mask(str + len);
 			update.only_new = false;
 			do_permissions(&update, global);
 		}
 		else if (strcmp(dict->items[i].key, PW_CORE_PROXY_PERMISSIONS_EXISTING) == 0) {
-			update.permissions = parse_mask(str);
-			update.only_new = true;
-			pw_core_for_each_global(client->core, do_permissions, &update);
+			permissions_existing = parse_mask(str);
+			pw_log_debug("client %p: set existing permissions to %08x",
+					client, permissions_existing);
 		}
 	}
+	/* apply default and existing permissions after specific ones to make the
+	 * permission update look like an atomic unordered set of changes. */
+	if (permissions_existing != -1) {
+		update.permissions = permissions_existing;
+		update.only_new = true;
+		pw_core_for_each_global(client->core, client, do_permissions, &update);
+	}
+	impl->permissions_default = permissions_default;
+
 	return 0;
 }
 

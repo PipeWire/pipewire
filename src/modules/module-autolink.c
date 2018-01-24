@@ -185,6 +185,8 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 	struct pw_link *link;
 	struct pw_port *target;
 	struct link_data *ld;
+	struct pw_global *global = pw_node_get_global(info->node);
+	struct pw_client *owner = pw_global_get_owner(global);
 
 	props = pw_node_get_properties(node);
 
@@ -202,7 +204,7 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 
 	pw_log_debug("module %p: try to find and link to node '%d'", impl, path_id);
 
-	target = pw_core_find_port(impl->core, port, path_id, NULL, 0, NULL, &error);
+	target = pw_core_find_port(impl->core, owner, port, path_id, NULL, 0, NULL, &error);
 	if (target == NULL)
 		goto error;
 
@@ -234,12 +236,8 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 
       error:
 	pw_log_error("module %p: can't link node '%s'", impl, error);
-	{
-		struct pw_global *global = pw_node_get_global(info->node);
-		struct pw_client *owner = pw_global_get_owner(global);
-		if (owner)
-			pw_resource_error(pw_client_get_core_resource(owner), -EINVAL, error);
-	}
+	if (owner)
+		pw_resource_error(pw_client_get_core_resource(owner), -EINVAL, error);
 	free(error);
 	return;
 }

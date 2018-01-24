@@ -1351,7 +1351,7 @@ static bool init_nodes(struct impl *impl)
 	make_audio_client(impl);
 	make_freewheel_client(impl);
 
-	pw_core_for_each_global(core, on_global, impl);
+	pw_core_for_each_global(core, NULL, on_global, impl);
 
 	return true;
 }

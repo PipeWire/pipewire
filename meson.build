@@ -141,10 +141,10 @@ configure_file(input : 'Makefile.in',
   configuration : makedata)
 
 # Find dependencies
-mathlib = cc.find_library('m', required : true)
-rt_lib = cc.find_library('rt', required : true) # clock_gettime
-dl_lib = cc.find_library('dl', required : true)
-pthread_lib = cc.find_library('pthread', required : true)
+mathlib = cc.find_library('m', required : false)
+rt_lib = cc.find_library('rt', required : false) # clock_gettime
+dl_lib = cc.find_library('dl', required : false)
+pthread_lib = dependency('threads')
 dbus_dep = dependency('dbus-1')
 
 #optional dependencies

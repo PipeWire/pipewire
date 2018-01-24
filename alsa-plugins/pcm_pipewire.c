@@ -827,7 +827,7 @@ static int pipewire_node_create(snd_pcm_pipewire_t *pw,
 			       0);
 	pw->impl_node = impl_node;
         pw_node_set_implementation(pw->node, &pw->impl_node);
-        pw_node_register(pw->node, NULL, NULL);
+        pw_node_register(pw->node, NULL, NULL, NULL);
 
         pw_remote_export(pw->remote, pw->node);
 	pw_thread_loop_unlock(pw->main_loop);

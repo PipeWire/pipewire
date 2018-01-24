@@ -1,11 +1,11 @@
 executable('test-mixer', 'test-mixer.c',
            include_directories : [spa_inc ],
-           dependencies : [dl_lib, pthread_lib, libm],
+           dependencies : [dl_lib, pthread_lib, mathlib],
            link_with : spalib,
            install : false)
 executable('test-bluez5', 'test-bluez5.c',
            include_directories : [spa_inc, spa_libinc ],
-           dependencies : [dl_lib, pthread_lib, libm, dbus_dep],
+           dependencies : [dl_lib, pthread_lib, mathlib, dbus_dep],
            link_with : spalib,
            install : false)
 executable('test-ringbuffer', 'test-ringbuffer.c',
@@ -62,6 +62,6 @@ executable('test-props5', 'test-props5.c',
            install : false)
 executable('test-control', 'test-control.c',
            include_directories : [spa_inc, spa_libinc ],
-           dependencies : [dl_lib, pthread_lib, libm],
+           dependencies : [dl_lib, pthread_lib, mathlib],
            link_with : spalib,
            install : false)

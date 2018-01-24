@@ -167,15 +167,19 @@ subdir('src')
 subdir('pkgconfig')
 
 if get_option('enable_docs')
-  doxygen = find_program('doxygen')
+  doxygen = find_program('doxygen', required : false)
   if doxygen.found()
     subdir('doc')
+  else
+    warning('Documentation was enabled, but doxygen is not available')
   endif
 endif
 
 if get_option('enable_man')
-  xmltoman = find_program('xmltoman')
+  xmltoman = find_program('xmltoman', required : false)
   if xmltoman.found()
     subdir('man')
+  else
+    warning('Man page generation was enabled, but xmltoman is not available')
   endif
 endif

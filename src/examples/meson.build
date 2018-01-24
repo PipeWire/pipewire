@@ -6,13 +6,13 @@ executable('video-src',
 executable('export-source',
   'export-source.c',
   install: false,
-  dependencies : [pipewire_dep, libm],
+  dependencies : [pipewire_dep, mathlib],
 )
 
 executable('export-spa',
   'export-spa.c',
   install: false,
-  dependencies : [pipewire_dep, libm],
+  dependencies : [pipewire_dep, mathlib],
 )
 
 if sdl_dep.found()

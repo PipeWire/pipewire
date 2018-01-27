@@ -33,6 +33,7 @@
 #include <spa/param/audio/format-utils.h>
 
 #include <spa/lib/pod.h>
+#include <spa/lib/debug.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/core.h"
@@ -417,7 +418,7 @@ static int port_enum_formats(struct spa_node *node,
 	struct type *t = &pd->node->type;
 	struct jack_engine_control *ctrl = pd->node->node.server->engine_control;
 
-	if (index > 0)
+	if (*index > 0)
 		return 0;
 
 	if (pd->port.jack_port) {
@@ -448,6 +449,7 @@ static int port_enum_formats(struct spa_node *node,
                         ":", t->format_audio.rate,     "i", ctrl->sample_rate,
                         ":", t->format_audio.channels, "i", 2);
 	}
+
 	return 1;
 }
 

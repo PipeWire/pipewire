@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+#include <fcntl.h> /* for off_t */
+
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
 #include <spa/support/type-map.h>

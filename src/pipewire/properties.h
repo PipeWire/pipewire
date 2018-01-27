@@ -46,6 +46,9 @@ struct pw_properties *
 pw_properties_new_dict(const struct spa_dict *dict);
 
 struct pw_properties *
+pw_properties_new_string(const char *args);
+
+struct pw_properties *
 pw_properties_copy(const struct pw_properties *properties);
 
 struct pw_properties *

@@ -64,6 +64,19 @@ static int find_index(const struct pw_properties *this, const char *key)
 	return -1;
 }
 
+static struct properties *properties_new(int prealloc)
+{
+	struct properties *impl;
+
+	impl = calloc(1, sizeof(struct properties));
+	if (impl == NULL)
+		return NULL;
+
+	pw_array_init(&impl->items, prealloc);
+
+	return impl;
+}
+
 /** Make a new properties object
  *
  * \param key a first key
@@ -78,11 +91,9 @@ struct pw_properties *pw_properties_new(const char *key, ...)
 	va_list varargs;
 	const char *value;
 
-	impl = calloc(1, sizeof(struct properties));
+	impl = properties_new(16);
 	if (impl == NULL)
 		return NULL;
-
-	pw_array_init(&impl->items, 16);
 
 	va_start(varargs, key);
 	while (key != NULL) {
@@ -107,11 +118,9 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 	uint32_t i;
 	struct properties *impl;
 
-	impl = calloc(1, sizeof(struct properties));
+	impl = properties_new(16);
 	if (impl == NULL)
 		return NULL;
-
-	pw_array_init(&impl->items, 16);
 
 	for (i = 0; i < dict->n_items; i++) {
 		if (dict->items[i].key != NULL)
@@ -119,6 +128,43 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 				 dict->items[i].value ? strdup(dict->items[i].value) : NULL);
 	}
 
+	return &impl->this;
+}
+
+/** Make a new properties object from the given str
+ *
+ * \a str should be a whitespace separated list of key=value
+ * strings.
+ *
+ * \param args a property description
+ * \return a new properties object
+ *
+ * \memberof pw_properties
+ */
+struct pw_properties *
+pw_properties_new_string(const char *str)
+{
+
+	struct properties *impl;
+        const char *state = NULL, *s = NULL;
+	size_t len;
+
+	impl = properties_new(16);
+	if (impl == NULL)
+		return NULL;
+
+	s = pw_split_walk(str, " \t\n\r", &len, &state);
+	while (s) {
+		char *val, *eq;
+
+		val = strndup(s, len);
+		eq = strchr(val, '=');
+		if (eq) {
+			*eq = '\0';
+			add_func(&impl->this, val, strdup(eq+1));
+		}
+		s = pw_split_walk(str, " \t\n\r", &len, &state);
+	}
 	return &impl->this;
 }
 

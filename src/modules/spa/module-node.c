@@ -57,7 +57,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_properties *props = NULL;
 	char **argv;
-	int i, n_tokens;
+	int n_tokens;
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_node *node;
         struct node_data *data;
@@ -65,23 +65,14 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	if (args == NULL)
 		goto wrong_arguments;
 
-	argv = pw_split_strv(args, " \t", INT_MAX, &n_tokens);
+	argv = pw_split_strv(args, " \t", 4, &n_tokens);
 	if (n_tokens < 3)
 		goto not_enough_arguments;
 
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL)
-		return -ENOMEM;
-
-	for (i = 3; i < n_tokens; i++) {
-		char **prop;
-		int n_props;
-
-		prop = pw_split_strv(argv[i], "=", INT_MAX, &n_props);
-		if (n_props >= 2)
-			pw_properties_set(props, prop[0], prop[1]);
-
-		pw_free_strv(prop);
+	if (n_tokens == 4) {
+		props = pw_properties_new_string(argv[3]);
+		if (props == NULL)
+			return -ENOMEM;
 	}
 
 	node = pw_spa_node_load(core,

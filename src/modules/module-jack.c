@@ -1308,12 +1308,20 @@ static int on_global(void *data, struct pw_global *global)
 
 	node = pw_global_get_object(global);
 
-	properties = pw_node_get_properties(node);
-	if ((str = pw_properties_get(properties, "media.class")) == NULL)
-		return 0;
+	if (impl->properties &&
+	    (str = pw_properties_get(impl->properties, "jack.node"))) {
+		if (pw_global_get_id(global) != atoi(str))
+			return 0;
+	} else {
+		properties = pw_node_get_properties(node);
+		if ((str = pw_properties_get(properties, "media.class")) == NULL)
+			return 0;
 
-	if (strcmp(str, "Audio/Sink") != 0)
-		return 0;
+		if (strcmp(str, "Audio/Sink") != 0)
+			return 0;
+	}
+
+	pw_log_debug("try link with node %d", pw_global_get_id(global));
 
 	out_port = pw_node_get_free_port(impl->server.audio_node->node, PW_DIRECTION_OUTPUT);
 	in_port = pw_node_get_free_port(node, PW_DIRECTION_INPUT);
@@ -1547,6 +1555,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	if (str == NULL)
 		str = getenv("JACK_PROMISCUOUS_SERVER");
 
+
 	promiscuous = str ? atoi(str) != 0 : false;
 
 	if (init_server(impl, name, promiscuous) < 0)
@@ -1563,5 +1572,10 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	return module_init(module, NULL);
+	struct pw_properties *props = NULL;
+
+	if (args)
+		props = pw_properties_new_string(args);
+
+	return module_init(module, props);
 }

@@ -25,6 +25,7 @@ extern "C" {
 #endif
 
 #include <sys/socket.h>
+#include <sys/types.h> /* for pthread_t */
 
 
 #include "pipewire/mem.h"

@@ -42,8 +42,12 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 
 	spa_debug("node %p start pull", node);
 
-	node->ready[SPA_DIRECTION_INPUT] = 0;
 	node->required[SPA_DIRECTION_INPUT] = 0;
+	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
+		if (p->io->status == SPA_STATUS_NEED_BUFFER)
+			node->required[SPA_DIRECTION_INPUT]++;
+	}
+	node->ready[SPA_DIRECTION_INPUT] = 0;
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
 		struct spa_graph_port *pport;
 		struct spa_graph_node *pnode;
@@ -55,11 +59,8 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
 		}
 		pnode = pport->node;
 
-		if (pport->io->status == SPA_STATUS_NEED_BUFFER) {
+		if (pport->io->status == SPA_STATUS_NEED_BUFFER)
 			pnode->ready[SPA_DIRECTION_OUTPUT]++;
-			if (!(p->flags & SPA_PORT_INFO_FLAG_OPTIONAL))
-				node->required[SPA_DIRECTION_INPUT]++;
-		}
 
 		pready = pnode->ready[SPA_DIRECTION_OUTPUT];
 		prequired = pnode->required[SPA_DIRECTION_OUTPUT];
@@ -87,8 +88,14 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 
 	spa_debug("node %p start push", node);
 
-	node->ready[SPA_DIRECTION_OUTPUT] = 0;
 	node->required[SPA_DIRECTION_OUTPUT] = 0;
+	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
+		if (p->io->status == SPA_STATUS_HAVE_BUFFER) {
+			if (!(p->flags & SPA_PORT_INFO_FLAG_OPTIONAL))
+				node->required[SPA_DIRECTION_OUTPUT]++;
+		}
+	}
+	node->ready[SPA_DIRECTION_OUTPUT] = 0;
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
 		struct spa_graph_port *pport;
 		struct spa_graph_node *pnode;
@@ -100,11 +107,8 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 		}
 		pnode = pport->node;
 
-		if (pport->io->status == SPA_STATUS_HAVE_BUFFER) {
+		if (pport->io->status == SPA_STATUS_HAVE_BUFFER)
 			pnode->ready[SPA_DIRECTION_INPUT]++;
-			if (!(p->flags & SPA_PORT_INFO_FLAG_OPTIONAL))
-				node->required[SPA_DIRECTION_OUTPUT]++;
-		}
 
 		pready = pnode->ready[SPA_DIRECTION_INPUT];
 		prequired = pnode->required[SPA_DIRECTION_INPUT];

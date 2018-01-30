@@ -1049,15 +1049,14 @@ static int impl_node_process_output(struct spa_node *node)
 			if ((inio = inport->io) == NULL || inport->n_buffers == 0)
 				continue;
 
-			if (inport->queued_bytes == 0) {
+			spa_log_trace(this->log, NAME " %p: port %d queued %zd, res %d", this,
+				      i, inport->queued_bytes, inio->status);
+
+			if (inport->queued_bytes == 0 && inio->status == SPA_STATUS_OK) {
 				if (inport->io_range && outport->io_range)
 					*inport->io_range = *outport->io_range;
 				inio->status = SPA_STATUS_NEED_BUFFER;
-			} else {
-				inio->status = SPA_STATUS_OK;
 			}
-			spa_log_trace(this->log, NAME " %p: port %d queued %zd, res %d", this,
-				      i, inport->queued_bytes, inio->status);
 		}
 	}
 	return outio->status;

@@ -243,6 +243,7 @@ struct pw_node {
 
 	struct pw_node_info info;		/**< introspectable node info */
 
+	bool enabled;			/**< if the node is enabled */
 	bool active;			/**< if the node is active */
 	bool live;			/**< if the node is live */
 	struct spa_clock *clock;	/**< handle to SPA clock if any */

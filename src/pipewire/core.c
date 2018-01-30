@@ -610,6 +610,9 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 		    !PW_PERM_IS_R(pw_global_get_permissions(n->global, core->current_client)))
 			continue;
 
+		if (!n->enabled)
+			continue;
+
 		pw_log_debug("node id \"%d\"", n->global->id);
 
 		if (have_id) {

@@ -68,6 +68,8 @@ struct pw_node_events {
 	void (*info_changed) (void *data, struct pw_node_info *info);
 	/** the node active state changed */
 	void (*active_changed) (void *data, bool active);
+	/** the node enabled state changed */
+	void (*enabled_changed) (void *data, bool enabled);
 
 	/** a new state is requested on the node */
 	void (*state_request) (void *data, enum pw_node_state state);
@@ -164,8 +166,14 @@ struct pw_port * pw_node_get_free_port(struct pw_node *node, enum pw_direction d
   * nodes and start data transport */
 int pw_node_set_active(struct pw_node *node, bool active);
 
-/** Check is a node is active */
+/** Check if a node is active */
 bool pw_node_is_active(struct pw_node *node);
+
+/** Set a node enabled. The node will be able to be activated */
+int pw_node_set_enabled(struct pw_node *node, bool enabled);
+
+/** Check if a node is enabled */
+bool pw_node_is_enabled(struct pw_node *node);
 
 #ifdef __cplusplus
 }

@@ -394,6 +394,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	if (properties == NULL)
 		goto no_mem;
 
+	this->enabled = true;
 	this->properties = properties;
 
 	impl->work = pw_work_queue_new(this->core->main_loop);
@@ -882,8 +883,10 @@ int pw_node_set_active(struct pw_node *node, bool active)
 		pw_log_debug("node %p: %s", node, active ? "activate" : "deactivate");
 		node->active = active;
 		spa_hook_list_call(&node->listener_list, struct pw_node_events, active_changed, active);
-		if (active)
-			node_activate(node);
+		if (active) {
+			if (node->enabled)
+				node_activate(node);
+		}
 		else
 			pw_node_set_state(node, PW_NODE_STATE_IDLE);
 	}
@@ -893,4 +896,29 @@ int pw_node_set_active(struct pw_node *node, bool active)
 bool pw_node_is_active(struct pw_node *node)
 {
 	return node->active;
+}
+
+int pw_node_set_enabled(struct pw_node *node, bool enabled)
+{
+	bool old = node->enabled;
+
+	if (old != enabled) {
+		pw_log_debug("node %p: %s", node, enabled ? "enable" : "disable");
+		node->enabled = enabled;
+		spa_hook_list_call(&node->listener_list, struct pw_node_events, enabled_changed, enabled);
+
+		if (enabled) {
+			if (node->active)
+				node_activate(node);
+		}
+		else {
+			pw_node_set_state(node, PW_NODE_STATE_SUSPENDED);
+		}
+	}
+	return 0;
+}
+
+bool pw_node_is_enabled(struct pw_node *node)
+{
+	return node->enabled;
 }

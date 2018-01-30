@@ -157,6 +157,9 @@ void pw_remote_destroy(struct pw_remote *remote);
 /** Get the core used to construct this remote */
 struct pw_core *pw_remote_get_core(struct pw_remote *remote);
 
+/** Get the remote properties */
+const struct pw_properties *pw_remote_get_properties(struct pw_remote *remote);
+
 /** Get the user_data. The size was given in \ref pw_remote_new */
 void *pw_remote_get_user_data(struct pw_remote *remote);
 

@@ -317,6 +317,11 @@ struct pw_core *pw_remote_get_core(struct pw_remote *remote)
 	return remote->core;
 }
 
+const struct pw_properties *pw_remote_get_properties(struct pw_remote *remote)
+{
+	return remote->properties;
+}
+
 void *pw_remote_get_user_data(struct pw_remote *remote)
 {
 	return remote->user_data;

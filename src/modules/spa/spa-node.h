@@ -32,7 +32,8 @@ extern "C" {
 
 enum pw_spa_node_flags {
 	PW_SPA_NODE_FLAG_ASYNC		= (1 << 0),
-	PW_SPA_NODE_FLAG_ACTIVATE	= (1 << 1),
+	PW_SPA_NODE_FLAG_DISABLE	= (1 << 1),
+	PW_SPA_NODE_FLAG_ACTIVATE	= (1 << 2),
 };
 
 struct pw_node *

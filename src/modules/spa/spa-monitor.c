@@ -67,14 +67,17 @@ static void add_item(struct pw_spa_monitor *this, struct spa_pod *item)
 	struct pw_properties *props = NULL;
 	const char *name, *id, *klass;
 	struct spa_handle_factory *factory;
+	enum spa_monitor_item_state state;
 	struct spa_pod *info = NULL;
 	struct pw_type *t = pw_core_get_type(impl->core);
 	const struct spa_support *support;
+	enum pw_spa_node_flags flags;
 	uint32_t n_support;
 
 	if (spa_pod_object_parse(item,
-			":",t->monitor.name,    "s", &name,
 			":",t->monitor.id,      "s", &id,
+			":",t->monitor.state,   "i", &state,
+			":",t->monitor.name,    "s", &name,
 			":",t->monitor.klass,   "s", &klass,
 			":",t->monitor.factory, "p", &factory,
 			":",t->monitor.info,    "T", &info, NULL) < 0)
@@ -114,11 +117,14 @@ static void add_item(struct pw_spa_monitor *this, struct spa_pod *item)
 		return;
 	}
 
+	flags = PW_SPA_NODE_FLAG_ACTIVATE;
+	flags |= (state == SPA_MONITOR_ITEM_STATE_AVAILABLE) ? 0 : PW_SPA_NODE_FLAG_DISABLE;
+
 	mitem = calloc(1, sizeof(struct monitor_item));
 	mitem->id = strdup(id);
 	mitem->handle = handle;
 	mitem->node = pw_spa_node_new(impl->core, NULL, impl->parent, name,
-				      PW_SPA_NODE_FLAG_ACTIVATE,
+				      flags,
 				      node_iface, handle, props, 0);
 
 	spa_list_append(&impl->item_list, &mitem->link);
@@ -165,6 +171,36 @@ static void remove_item(struct pw_spa_monitor *this, struct spa_pod *item)
 		destroy_item(mitem);
 }
 
+static void change_item(struct pw_spa_monitor *this, struct spa_pod *item)
+{
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	struct monitor_item *mitem;
+	const char *name, *id;
+	struct pw_type *t = pw_core_get_type(impl->core);
+	enum spa_monitor_item_state state;
+
+	if (spa_pod_object_parse(item,
+			":",t->monitor.name,  "s", &name,
+			":",t->monitor.state, "i", &state,
+			":",t->monitor.id,    "s", &id, NULL) < 0)
+		return;
+
+	pw_log_debug("monitor %p: change: \"%s\" (%s)", this, name, id);
+	mitem = find_item(this, id);
+	if (mitem == NULL)
+		return;
+
+	switch (state) {
+	case SPA_MONITOR_ITEM_STATE_AVAILABLE:
+		pw_node_set_enabled(mitem->node, true);
+		break;
+	case SPA_MONITOR_ITEM_STATE_DISABLED:
+	case SPA_MONITOR_ITEM_STATE_UNAVAILABLE:
+		pw_node_set_enabled(mitem->node, false);
+		break;
+	}
+}
+
 static void on_monitor_event(void *data, struct spa_event *event)
 {
 	struct impl *impl = data;
@@ -179,13 +215,7 @@ static void on_monitor_event(void *data, struct spa_event *event)
 		remove_item(this, item);
 	} else if (SPA_EVENT_TYPE(event) == t->monitor.Changed) {
 		struct spa_pod *item = SPA_POD_CONTENTS(struct spa_event, event);
-		const char *name;
-
-		if (spa_pod_object_parse(item,
-				":",t->monitor.name, "s", &name, NULL) < 0)
-			return;
-
-		pw_log_debug("monitor %p: changed: \"%s\"", this, name);
+		change_item(this, item);
 	}
 }
 

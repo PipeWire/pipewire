@@ -69,6 +69,8 @@ pipewire_module_link_factory = shared_library('pipewire-module-link-factory',
 
 pipewire_module_protocol_native = shared_library('pipewire-module-protocol-native',
   [ 'module-protocol-native.c',
+    'module-protocol-native/local-socket.c',
+    'module-protocol-native/portal-screencast.c',
     'module-protocol-native/protocol-native.c',
     'module-protocol-native/connection.c' ],
   c_args : pipewire_module_c_args,

@@ -47,6 +47,7 @@
 
 #include "extensions/protocol-native.h"
 #include "modules/module-protocol-native/connection.h"
+#include "modules/module-protocol-native/defs.h"
 
 #ifndef UNIX_PATH_MAX
 #define UNIX_PATH_MAX   108
@@ -477,60 +478,6 @@ static bool add_socket(struct pw_protocol *protocol, struct server *s)
 
 }
 
-static const char *
-get_remote(const struct pw_properties *properties)
-{
-	const char *name = NULL;
-
-	if (properties)
-		name = pw_properties_get(properties, PW_REMOTE_PROP_REMOTE_NAME);
-	if (name == NULL)
-		name = getenv("PIPEWIRE_REMOTE");
-	if (name == NULL)
-		name = "pipewire-0";
-	return name;
-}
-
-static int impl_connect(struct pw_protocol_client *client)
-{
-	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
-	struct sockaddr_un addr;
-	socklen_t size;
-	const char *runtime_dir, *name = NULL;
-	int name_size, fd;
-
-	if ((runtime_dir = getenv("XDG_RUNTIME_DIR")) == NULL) {
-		pw_log_error("connect failed: XDG_RUNTIME_DIR not set in the environment");
-		return -1;
-        }
-
-	name = get_remote(impl->properties);
-
-        if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0)
-                return -1;
-
-        memset(&addr, 0, sizeof(addr));
-        addr.sun_family = AF_LOCAL;
-        name_size = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", runtime_dir, name) + 1;
-
-        if (name_size > (int) sizeof addr.sun_path) {
-                pw_log_error("socket path \"%s/%s\" plus null terminator exceeds 108 bytes",
-                             runtime_dir, name);
-                goto error_close;
-        };
-
-        size = offsetof(struct sockaddr_un, sun_path) + name_size;
-
-        if (connect(fd, (struct sockaddr *) &addr, size) < 0)
-                goto error_close;
-
-	return pw_protocol_client_connect_fd(client, fd);
-
-      error_close:
-        close(fd);
-        return -1;
-}
-
 static int impl_steal_fd(struct pw_protocol_client *client)
 {
 	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
@@ -660,12 +607,14 @@ static int impl_connect_fd(struct pw_protocol_client *client, int fd)
                                       fd,
                                       SPA_IO_IN | SPA_IO_HUP | SPA_IO_ERR,
                                       true, on_remote_data, impl);
+	if (impl->source == NULL)
+		goto error_close;
 
 	return 0;
 
       error_close:
         close(fd);
-        return -1;
+        return -ENOMEM;
 }
 
 static void impl_disconnect(struct pw_protocol_client *client)
@@ -707,6 +656,7 @@ impl_new_client(struct pw_protocol *protocol,
 {
 	struct client *impl;
 	struct pw_protocol_client *this;
+	const char *str = NULL;
 
 	if ((impl = calloc(1, sizeof(struct client))) == NULL)
 		return NULL;
@@ -717,7 +667,16 @@ impl_new_client(struct pw_protocol *protocol,
 
 	impl->properties = properties ? pw_properties_copy(properties) : NULL;
 
-	this->connect = impl_connect;
+	if (properties)
+		str = pw_properties_get(properties, "remote.intention");
+	if (str == NULL)
+		str = "generic";
+
+	if (!strcmp(str, "screencast"))
+		this->connect = pw_protocol_native_connect_portal_screencast;
+	else
+		this->connect = pw_protocol_native_connect_local_socket;
+
 	this->steal_fd = impl_steal_fd;
 	this->connect_fd = impl_connect_fd;
 	this->disconnect = impl_disconnect;

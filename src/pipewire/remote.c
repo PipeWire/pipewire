@@ -364,7 +364,7 @@ static int do_connect(struct pw_remote *remote)
       no_proxy:
 	pw_protocol_client_disconnect(remote->conn);
 	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: no memory");
-	return -1;
+	return -ENOMEM;
 }
 
 struct pw_core_proxy * pw_remote_get_core_proxy(struct pw_remote *remote)
@@ -382,18 +382,30 @@ struct pw_proxy *pw_remote_find_proxy(struct pw_remote *remote, uint32_t id)
 	return pw_map_lookup(&remote->objects, id);
 }
 
+static void done_connect(void *data, int result)
+{
+	struct pw_remote *remote = data;
+	if (result < 0) {
+		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: %s",
+				spa_strerror(result));
+		return;
+	}
+
+	do_connect(remote);
+}
+
 int pw_remote_connect(struct pw_remote *remote)
 {
 	int res;
 
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
-	if ((res = pw_protocol_client_connect (remote->conn)) < 0) {
-		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "connect failed");
+	if ((res = pw_protocol_client_connect (remote->conn, done_connect, remote)) < 0) {
+		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR,
+				"connect failed %s", spa_strerror(res));
 		return res;
 	}
-
-	return do_connect(remote);
+	return remote->state == PW_REMOTE_STATE_ERROR ? -EIO : 0;
 }
 
 int pw_remote_connect_fd(struct pw_remote *remote, int fd)
@@ -403,7 +415,8 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
 	if ((res = pw_protocol_client_connect_fd (remote->conn, fd)) < 0) {
-		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "connect_fd failed");
+		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR,
+				"connect_fd failed %s", spa_strerror(res));
 		return res;
 	}
 

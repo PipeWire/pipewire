@@ -70,25 +70,31 @@ static inline void spa_list_remove(struct spa_list *elem)
 	spa_list_insert((list)->prev, item);
 
 #define spa_list_prepend(list, item)					\
-	spa_list_insert(list, item);
+	spa_list_insert(list, item)
 
-#define spa_list_for_each_next(pos, head, curr, member)					\
-	for (pos = SPA_CONTAINER_OF((curr)->next, __typeof__(*pos), member);		\
-	     &pos->member != (head);							\
-	     pos = SPA_CONTAINER_OF(pos->member.next, __typeof__(*pos), member))
+#define spa_list_is_end(pos, head, member)				\
+	(&(pos)->member == (head))
 
-#define spa_list_for_each(pos, head, member)						\
-	spa_list_for_each_next(pos, head, head, member)					\
+#define spa_list_next(pos, member)					\
+	SPA_CONTAINER_OF((pos)->member.next, __typeof__(*pos), member)
 
-#define spa_list_for_each_safe_next(pos, tmp, head, curr, member)			\
-	for (pos = SPA_CONTAINER_OF((curr)->next, __typeof__(*pos), member),		\
-	     tmp = SPA_CONTAINER_OF((pos)->member.next, __typeof__(*tmp), member);	\
-	     &pos->member != (head);							\
-	     pos = tmp,									\
-	     tmp = SPA_CONTAINER_OF(pos->member.next, __typeof__(*tmp), member))
+#define spa_list_for_each_next(pos, head, curr, member)			\
+	for (pos = spa_list_first(curr, __typeof__(*pos), member);	\
+	     !spa_list_is_end(pos, head, member);			\
+	     pos = spa_list_next(pos, member))
 
-#define spa_list_for_each_safe(pos, tmp, head, member)					\
-	spa_list_for_each_safe_next(pos, tmp, head, head, member)			\
+#define spa_list_for_each(pos, head, member)				\
+	spa_list_for_each_next(pos, head, head, member)			\
+
+#define spa_list_for_each_safe_next(pos, tmp, head, curr, member)	\
+	for (pos = spa_list_first(curr, __typeof__(*pos), member),	\
+	     tmp = spa_list_next(pos, member);				\
+	     !spa_list_is_end(pos, head, member);			\
+	     pos = tmp,							\
+	     tmp = spa_list_next(pos, member))
+
+#define spa_list_for_each_safe(pos, tmp, head, member)			\
+	spa_list_for_each_safe_next(pos, tmp, head, head, member)	\
 
 #ifdef __cplusplus
 }  /* extern "C" */

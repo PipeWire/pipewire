@@ -348,7 +348,11 @@ static void node_event_info(void *data, struct pw_node_info *info)
 {
   struct node_data *node_data = data;
   GstPipeWireDeviceProvider *self = node_data->self;
+  GstDeviceProvider *provider = GST_DEVICE_PROVIDER (self);
   GstDevice *dev;
+
+  if (find_device (provider, node_data->id) != NULL)
+    return;
 
   dev = new_node (self, info, node_data->id);
   if (dev) {

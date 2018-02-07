@@ -192,6 +192,7 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 	spa_list_append(&control->inputs, &other->inputs_link);
 
 	spa_hook_list_call(&control->listener_list, struct pw_control_events, linked, other);
+	spa_hook_list_call(&other->listener_list, struct pw_control_events, linked, control);
 
      exit:
 	return res;
@@ -237,6 +238,7 @@ int pw_control_unlink(struct pw_control *control, struct pw_control *other)
 	}
 
 	spa_hook_list_call(&control->listener_list, struct pw_control_events, unlinked, other);
+	spa_hook_list_call(&other->listener_list, struct pw_control_events, unlinked, control);
 
       exit:
 	return res;

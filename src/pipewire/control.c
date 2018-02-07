@@ -50,10 +50,11 @@ pw_control_new(struct pw_core *core,
 
 	if (spa_pod_object_parse(param,
 				":", t->param_io.id, "I", &this->id,
-				":", t->param_io.size, "i", &this->size) < 0)
+				":", t->param_io.size, "i", &this->size,
+				":", t->param.propId, "I", &this->prop_id) < 0)
 		goto exit_free;
 
-	pw_log_debug("control %p: new %s %d", this, spa_type_map_get_type(t->map, this->id), direction);
+	pw_log_debug("control %p: new %s %d", this, spa_type_map_get_type(t->map, this->prop_id), direction);
 
 	this->core = core;
 	this->port = port;
@@ -78,7 +79,6 @@ pw_control_new(struct pw_core *core,
     exit_free:
 	free(impl);
     exit:
-	pw_log_error("control failed");
 	return NULL;
 }
 
@@ -154,7 +154,8 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 
 	impl = SPA_CONTAINER_OF(control, struct impl, this);
 
-	pw_log_debug("control %p: link to %p", control, other);
+	pw_log_debug("control %p: link to %p %s", control, other,
+			spa_type_map_get_type(control->core->type.map, control->prop_id));
 
 	if (impl->mem == NULL) {
 		if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
@@ -224,7 +225,7 @@ int pw_control_unlink(struct pw_control *control, struct pw_control *other)
 		if ((res = spa_node_port_set_io(port->node->node,
 				     port->direction, port->port_id,
 				     control->id, NULL, 0)) < 0) {
-			goto exit;
+			pw_log_warn("control %p: can't unset port control io", control);
 		}
 	}
 
@@ -233,13 +234,12 @@ int pw_control_unlink(struct pw_control *control, struct pw_control *other)
 		if ((res = spa_node_port_set_io(port->node->node,
 				     port->direction, port->port_id,
 				     other->id, NULL, 0)) < 0) {
-			goto exit;
+			pw_log_warn("control %p: can't unset port control io", control);
 		}
 	}
 
 	spa_hook_list_call(&control->listener_list, struct pw_control_events, unlinked, other);
 	spa_hook_list_call(&other->listener_list, struct pw_control_events, unlinked, control);
 
-      exit:
 	return res;
 }

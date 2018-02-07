@@ -1029,6 +1029,9 @@ spa_v4l2_enum_controls(struct impl *this,
 	if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED)
 		goto next;
 
+	if (port->n_controls >= MAX_CONTROLS)
+		goto enum_end;
+
 	ctrl_id = queryctrl.id & ~next_fl;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));

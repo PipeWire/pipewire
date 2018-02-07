@@ -352,6 +352,7 @@ static int do_remove_port(struct spa_loop *loop,
 void pw_port_destroy(struct pw_port *port)
 {
 	struct pw_node *node = port->node;
+	struct pw_control *control, *ctemp;
 
 	pw_log_debug("port %p: destroy", port);
 
@@ -373,6 +374,11 @@ void pw_port_destroy(struct pw_port *port)
 		spa_list_remove(&port->link);
 		spa_hook_list_call(&node->listener_list, struct pw_node_events, port_removed, port);
 	}
+
+	spa_list_for_each_safe(control, ctemp, &port->control_list[0], port_link)
+		pw_control_destroy(control);
+	spa_list_for_each_safe(control, ctemp, &port->control_list[1], port_link)
+		pw_control_destroy(control);
 
 	pw_log_debug("port %p: free", port);
 	spa_hook_list_call(&port->listener_list, struct pw_port_events, free);

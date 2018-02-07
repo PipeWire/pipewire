@@ -55,6 +55,12 @@ struct pw_control_events {
 
 	/** The control is freed */
 	void (*free) (void *data);
+
+	/** control is linked to another control */
+	void (*linked) (void *data, struct pw_control *other);
+	/** control is unlinked from another control */
+	void (*unlinked) (void *data, struct pw_control *other);
+
 };
 
 /** Get the control parent port or NULL when not set */

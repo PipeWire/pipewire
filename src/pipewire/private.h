@@ -418,6 +418,11 @@ struct pw_control {
 	enum spa_direction direction;	/**< the direction */
 	struct spa_pod *param;		/**< control params */
 
+	struct pw_control *output;	/**< pointer to linked output control */
+
+	struct spa_list inputs;		/**< list of linked input controls */
+	struct spa_list inputs_link;	/**< link in linked input control */
+
 	uint32_t id;
 	int32_t size;
 

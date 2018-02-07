@@ -60,6 +60,8 @@ pw_control_new(struct pw_core *core,
 	this->param = pw_spa_pod_copy(param);
 	this->direction = direction;
 
+	spa_list_init(&this->inputs);
+
         if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
@@ -83,10 +85,20 @@ pw_control_new(struct pw_core *core,
 void pw_control_destroy(struct pw_control *control)
 {
 	struct impl *impl = SPA_CONTAINER_OF(control, struct impl, this);
+	struct pw_control *other;
 
 	pw_log_debug("control %p: destroy", control);
 
 	spa_hook_list_call(&control->listener_list, struct pw_control_events, destroy);
+
+	if (control->direction == SPA_DIRECTION_OUTPUT) {
+		spa_list_for_each(other, &control->inputs, inputs_link)
+			pw_control_unlink(control, other);
+	}
+	else {
+		if (control->output)
+			pw_control_unlink(control->output, control);
+	}
 
 	spa_list_remove(&control->link);
 
@@ -99,9 +111,10 @@ void pw_control_destroy(struct pw_control *control)
 	pw_log_debug("control %p: free", control);
 	spa_hook_list_call(&control->listener_list, struct pw_control_events, free);
 
-	if (control->direction == SPA_DIRECTION_OUTPUT)
+	if (control->direction == SPA_DIRECTION_OUTPUT) {
 		if (impl->mem)
 			pw_memblock_free(impl->mem);
+	}
 
 	free(control->param);
 
@@ -135,6 +148,10 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 	    other->direction != SPA_DIRECTION_INPUT)
 		return -EINVAL;
 
+	/* input control already has a linked output control */
+	if (other->output != NULL)
+		return -EEXIST;
+
 	impl = SPA_CONTAINER_OF(control, struct impl, this);
 
 	pw_log_debug("control %p: link to %p", control, other);
@@ -147,15 +164,6 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 					     &impl->mem)) < 0)
 			goto exit;
 
-		if (control->port) {
-			struct pw_port *port = control->port;
-			if ((res = spa_node_port_set_io(port->node->node,
-					     port->direction, port->port_id,
-					     control->id,
-					     impl->mem->ptr, control->size)) < 0) {
-				goto exit;
-			}
-		}
 	}
 
 	if (other->port) {
@@ -168,11 +176,68 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 		}
 	}
 
+	if (spa_list_is_empty(&control->inputs)) {
+		if (control->port) {
+			struct pw_port *port = control->port;
+			if ((res = spa_node_port_set_io(port->node->node,
+					     port->direction, port->port_id,
+					     control->id,
+					     impl->mem->ptr, control->size)) < 0) {
+				goto exit;
+			}
+		}
+	}
+
+	other->output = control;
+	spa_list_append(&control->inputs, &other->inputs_link);
+
+	spa_hook_list_call(&control->listener_list, struct pw_control_events, linked, other);
+
      exit:
 	return res;
 }
 
 int pw_control_unlink(struct pw_control *control, struct pw_control *other)
 {
-	return -ENOTSUP;
+	int res = 0;
+
+	if (control->direction == SPA_DIRECTION_INPUT) {
+		struct pw_control *tmp = control;
+		control = other;
+		other = tmp;
+	}
+	if (control->direction != SPA_DIRECTION_OUTPUT ||
+	    other->direction != SPA_DIRECTION_INPUT)
+		return -EINVAL;
+
+	if (other->output != control)
+		return -EINVAL;
+
+	pw_log_debug("control %p: unlink from %p", control, other);
+
+	other->output = NULL;
+	spa_list_remove(&other->inputs_link);
+
+	if (spa_list_is_empty(&control->inputs)) {
+		struct pw_port *port = control->port;
+		if ((res = spa_node_port_set_io(port->node->node,
+				     port->direction, port->port_id,
+				     control->id, NULL, 0)) < 0) {
+			goto exit;
+		}
+	}
+
+	if (other->port) {
+		struct pw_port *port = other->port;
+		if ((res = spa_node_port_set_io(port->node->node,
+				     port->direction, port->port_id,
+				     other->id, NULL, 0)) < 0) {
+			goto exit;
+		}
+	}
+
+	spa_hook_list_call(&control->listener_list, struct pw_control_events, unlinked, other);
+
+      exit:
+	return res;
 }

@@ -69,9 +69,18 @@ struct type {
 	uint32_t clock;
 	uint32_t format;
 	uint32_t props;
+	uint32_t prop_unknown;
 	uint32_t prop_device;
 	uint32_t prop_device_name;
 	uint32_t prop_device_fd;
+	uint32_t prop_brightness;
+	uint32_t prop_contrast;
+	uint32_t prop_saturation;
+	uint32_t prop_hue;
+	uint32_t prop_gamma;
+	uint32_t prop_exposure;
+	uint32_t prop_gain;
+	uint32_t prop_sharpness;
 	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_media_type media_type;
@@ -94,9 +103,18 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->clock = spa_type_map_get_id(map, SPA_TYPE__Clock);
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
+	type->prop_unknown = spa_type_map_get_id(map, SPA_TYPE_PROPS__unknown);
 	type->prop_device = spa_type_map_get_id(map, SPA_TYPE_PROPS__device);
 	type->prop_device_name = spa_type_map_get_id(map, SPA_TYPE_PROPS__deviceName);
 	type->prop_device_fd = spa_type_map_get_id(map, SPA_TYPE_PROPS__deviceFd);
+	type->prop_brightness = spa_type_map_get_id(map, SPA_TYPE_PROPS__brightness);
+	type->prop_contrast = spa_type_map_get_id(map, SPA_TYPE_PROPS__contrast);
+	type->prop_saturation = spa_type_map_get_id(map, SPA_TYPE_PROPS__saturation);
+	type->prop_hue = spa_type_map_get_id(map, SPA_TYPE_PROPS__hue);
+	type->prop_gamma = spa_type_map_get_id(map, SPA_TYPE_PROPS__gamma);
+	type->prop_exposure = spa_type_map_get_id(map, SPA_TYPE_PROPS__exposure);
+	type->prop_gain = spa_type_map_get_id(map, SPA_TYPE_PROPS__gain);
+	type->prop_sharpness = spa_type_map_get_id(map, SPA_TYPE_PROPS__sharpness);
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
@@ -112,6 +130,15 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_io_map(map, &type->io);
 	spa_type_param_io_map(map, &type->param_io);
 }
+
+#define MAX_CONTROLS	64
+
+struct control {
+	uint32_t id;
+	uint32_t ctrl_id;
+	double value;
+	double *io;
+};
 
 struct port {
 	struct spa_log *log;
@@ -137,6 +164,9 @@ struct port {
 	struct v4l2_format fmt;
 	enum v4l2_buf_type type;
 	enum v4l2_memory memtype;
+
+	struct control controls[MAX_CONTROLS];
+	uint32_t n_controls;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -171,6 +201,8 @@ struct impl {
 
 #define CHECK_PORT(this,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
 
+#define GET_OUT_PORT(this,p)         (&this->out_ports[p])
+#define GET_PORT(this,d,p)           GET_OUT_PORT(this,p)
 
 #include "v4l2-utils.c"
 
@@ -300,7 +332,7 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	if (SPA_COMMAND_TYPE(command) == this->type.command_node.Start) {
-		struct port *port = &this->out_ports[0];
+		struct port *port = GET_OUT_PORT(this, 0);
 
 		if (!port->have_format)
 			return -EIO;
@@ -399,7 +431,7 @@ static int impl_node_port_get_info(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	*info = &this->out_ports[port_id].info;
+	*info = &GET_PORT(this, direction, port_id)->info;
 
 	return 0;
 }
@@ -413,7 +445,7 @@ static int port_get_format(struct spa_node *node,
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct type *t = &this->type;
-	struct port *port = &this->out_ports[port_id];
+	struct port *port = GET_PORT(this, direction, port_id);
 
 	if (!port->have_format)
 		return -EIO;
@@ -474,7 +506,7 @@ static int impl_node_port_enum_params(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	port = &this->out_ports[port_id];
+	port = GET_PORT(this, direction, port_id);
 
      next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -547,7 +579,7 @@ static int port_set_format(struct spa_node *node,
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct spa_video_info info;
 	struct type *t = &this->type;
-	struct port *port = &this->out_ports[port_id];
+	struct port *port = GET_PORT(this, direction, port_id);
 
 	if (format == NULL) {
 		spa_v4l2_stream_off(this);
@@ -652,7 +684,7 @@ static int impl_node_port_use_buffers(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	port = &this->out_ports[port_id];
+	port = GET_PORT(this, direction, port_id);
 
 	if (!port->have_format)
 		return -EIO;
@@ -689,7 +721,7 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	port = &this->out_ports[port_id];
+	port = GET_PORT(this, direction, port_id);
 
 	if (!port->have_format)
 		return -EIO;
@@ -697,6 +729,17 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 	res = spa_v4l2_alloc_buffers(this, params, n_params, buffers, n_buffers);
 
 	return res;
+}
+
+static struct control *find_control(struct port *port, uint32_t id)
+{
+	int i;
+
+	for (i = 0; i < port->n_controls; i++) {
+		if (port->controls[i].id == id)
+			return &port->controls[i];
+	}
+	return NULL;
 }
 
 static int impl_node_port_set_io(struct spa_node *node,
@@ -707,6 +750,8 @@ static int impl_node_port_set_io(struct spa_node *node,
 {
 	struct impl *this;
 	struct type *t;
+	struct port *port;
+	struct control *control;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -715,8 +760,17 @@ static int impl_node_port_set_io(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	if (id == t->io.Buffers)
-		this->out_ports[port_id].io = data;
+	port = GET_PORT(this, direction, port_id);
+
+	if (id == t->io.Buffers) {
+		port->io = data;
+	}
+	else if ((control = find_control(port, id))) {
+		if (data && size >= sizeof(struct spa_pod_double))
+			control->io = &SPA_POD_VALUE(struct spa_pod_double, data);
+		else
+			control->io = &control->value;
+	}
 	else
 		return -ENOENT;
 
@@ -735,7 +789,7 @@ static int impl_node_port_reuse_buffer(struct spa_node *node,
 	spa_return_val_if_fail(port_id == 0, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
-	port = &this->out_ports[port_id];
+	port = GET_OUT_PORT(this, port_id);
 
 	spa_return_val_if_fail(buffer_id < port->n_buffers, -EINVAL);
 
@@ -760,7 +814,7 @@ static int impl_node_process_input(struct spa_node *node)
 static int impl_node_process_output(struct spa_node *node)
 {
 	struct impl *this;
-	int res = SPA_STATUS_OK;
+	int i, res = SPA_STATUS_OK;
 	struct spa_io_buffers *io;
 	struct port *port;
 
@@ -768,16 +822,35 @@ static int impl_node_process_output(struct spa_node *node)
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	port = &this->out_ports[0];
+	port = GET_OUT_PORT(this, 0);
 	io = port->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
 	if (io->status == SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_HAVE_BUFFER;
 
-	if (io->buffer_id < this->out_ports[0].n_buffers) {
+	if (io->buffer_id < port->n_buffers) {
 		res = spa_v4l2_buffer_recycle(this, io->buffer_id);
 		io->buffer_id = SPA_ID_INVALID;
+	}
+	for (i = 0; i < port->n_controls; i++) {
+		struct control *control = &port->controls[i];
+
+		if (control->io == NULL)
+			continue;
+
+		if (control->value != *control->io) {
+			struct v4l2_control c;
+
+			memset (&c, 0, sizeof (c));
+			c.id = control->ctrl_id;
+			c.value = *control->io;
+
+			if (ioctl(port->fd, VIDIOC_S_CTRL, &c) < 0)
+				spa_log_error(port->log, "VIDIOC_S_CTRL %m");
+
+			control->value = *control->io = c.value;
+		}
 	}
 	return res;
 }
@@ -839,7 +912,7 @@ static int impl_clock_get_time(struct spa_clock *clock,
 	spa_return_val_if_fail(clock != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(clock, struct impl, clock);
-	port = &this->out_ports[0];
+	port = GET_OUT_PORT(this, 0);
 
 	if (rate)
 		*rate = SPA_USEC_PER_SEC;
@@ -894,6 +967,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *this;
 	uint32_t i;
 	const char *str;
+	struct port *port;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -901,25 +975,27 @@ impl_init(const struct spa_handle_factory *factory,
 	handle->get_interface = impl_get_interface;
 	handle->clear = impl_clear, this = (struct impl *) handle;
 
+	port = GET_OUT_PORT(this, 0);
+
 	for (i = 0; i < n_support; i++) {
 		if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
 			this->map = support[i].data;
 		else if (strcmp(support[i].type, SPA_TYPE__Log) == 0)
 			this->log = support[i].data;
 		else if (strcmp(support[i].type, SPA_TYPE_LOOP__MainLoop) == 0)
-			this->out_ports[0].main_loop = support[i].data;
+			port->main_loop = support[i].data;
 		else if (strcmp(support[i].type, SPA_TYPE_LOOP__DataLoop) == 0)
-			this->out_ports[0].data_loop = support[i].data;
+			port->data_loop = support[i].data;
 	}
 	if (this->map == NULL) {
 		spa_log_error(this->log, "a type-map is needed");
 		return -EINVAL;
 	}
-	if (this->out_ports[0].main_loop == NULL) {
+	if (port->main_loop == NULL) {
 		spa_log_error(this->log, "a main_loop is needed");
 		return -EINVAL;
 	}
-	if (this->out_ports[0].data_loop == NULL) {
+	if (port->data_loop == NULL) {
 		spa_log_error(this->log, "a data_loop is needed");
 		return -EINVAL;
 	}
@@ -930,11 +1006,10 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reset_props(&this->props);
 
-	this->out_ports[0].log = this->log;
-	this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_LIVE;
-
-	this->out_ports[0].export_buf = true;
-	this->out_ports[0].have_query_ext_ctrl = true;
+	port->log = this->log;
+	port->info.flags = SPA_PORT_INFO_FLAG_LIVE;
+	port->export_buf = true;
+	port->have_query_ext_ctrl = true;
 
 	if (info && (str = spa_dict_lookup(info, "device.path"))) {
 		strncpy(this->props.device, str, 63);

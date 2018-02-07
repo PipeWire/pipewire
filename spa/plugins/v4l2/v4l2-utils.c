@@ -946,6 +946,30 @@ static int query_ext_ctrl_ioctl(struct port *port, struct v4l2_query_ext_ctrl *q
 	return res;
 }
 
+static uint32_t control_to_prop_id(struct impl *impl, uint32_t control_id)
+{
+	switch (control_id) {
+	case V4L2_CID_BRIGHTNESS:
+		return impl->type.prop_brightness;
+	case V4L2_CID_CONTRAST:
+		return impl->type.prop_contrast;
+	case V4L2_CID_SATURATION:
+		return impl->type.prop_saturation;
+	case V4L2_CID_HUE:
+		return impl->type.prop_hue;
+	case V4L2_CID_GAMMA:
+		return impl->type.prop_gamma;
+	case V4L2_CID_EXPOSURE:
+		return impl->type.prop_exposure;
+	case V4L2_CID_GAIN:
+		return impl->type.prop_gain;
+	case V4L2_CID_SHARPNESS:
+		return impl->type.prop_sharpness;
+	default:
+		return impl->type.prop_unknown;
+	}
+}
+
 static int
 spa_v4l2_enum_controls(struct impl *this,
 		       uint32_t *index,
@@ -959,7 +983,7 @@ spa_v4l2_enum_controls(struct impl *this,
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	char type_id[128];
-	uint32_t id;
+	uint32_t id, prop_id, ctrl_id;
 	uint8_t buffer[1024];
 	int res;
         const unsigned next_fl = V4L2_CTRL_FLAG_NEXT_CTRL | V4L2_CTRL_FLAG_NEXT_COMPOUND;
@@ -970,8 +994,10 @@ spa_v4l2_enum_controls(struct impl *this,
       next:
 	spa_zero(queryctrl);
 
-	if (*index == 0)
+	if (*index == 0) {
 		*index |= next_fl;
+		port->n_controls = 0;
+	}
 
 	queryctrl.id = *index;
 	spa_log_debug(port->log, "test control %08x", queryctrl.id);
@@ -1003,12 +1029,22 @@ spa_v4l2_enum_controls(struct impl *this,
 	if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED)
 		goto next;
 
-	spa_log_debug(port->log, "Control %s", queryctrl.name);
+	ctrl_id = queryctrl.id & ~next_fl;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	snprintf(type_id, sizeof(type_id), SPA_TYPE_PARAM_IO_PROP_BASE"%08x", queryctrl.id & ~next_fl);
+	snprintf(type_id, sizeof(type_id), SPA_TYPE_PARAM_IO_PROP_BASE"%08x", ctrl_id);
 	id = spa_type_map_get_id(this->map, type_id);
+
+	prop_id = control_to_prop_id(this, ctrl_id);
+
+	port->controls[port->n_controls].id = id;
+	port->controls[port->n_controls].ctrl_id = ctrl_id;
+	port->controls[port->n_controls].value = queryctrl.default_value;
+
+	spa_log_debug(port->log, "Control %s %d %d", queryctrl.name, prop_id, ctrl_id);
+
+	port->n_controls++;
 
 	switch (queryctrl.type) {
 	case V4L2_CTRL_TYPE_INTEGER:
@@ -1016,6 +1052,7 @@ spa_v4l2_enum_controls(struct impl *this,
 			t->param_io.idPropsIn, t->param_io.Prop,
 			":", t->param_io.id, "I", id,
 			":", t->param_io.size, "i", sizeof(struct spa_pod_int),
+			":", t->param.propId, "I", prop_id,
 			":", t->param.propType, "isu", queryctrl.default_value,
 						3, queryctrl.minimum,
 						   queryctrl.maximum,
@@ -1027,6 +1064,7 @@ spa_v4l2_enum_controls(struct impl *this,
 			t->param_io.idPropsIn, t->param_io.Prop,
 			":", t->param_io.id, "I", id,
 			":", t->param_io.size, "i", sizeof(struct spa_pod_bool),
+			":", t->param.propId, "I", prop_id,
 			":", t->param.propType, "b-u", queryctrl.default_value,
 			":", t->param.propName, "s", queryctrl.name);
 		break;
@@ -1037,13 +1075,11 @@ spa_v4l2_enum_controls(struct impl *this,
 		spa_pod_builder_push_object(&b, t->param_io.idPropsIn, t->param_io.Prop);
 		spa_pod_builder_add(&b,
 			":", t->param_io.id, "I", id,
-			":", t->param_io.size, "i", sizeof(struct spa_pod_int),
+			":", t->param_io.size, "i", sizeof(struct spa_pod_double),
+			":", t->param.propId, "I", prop_id,
 			":", t->param.propName, "s", queryctrl.name,
+			":", t->param.propType, "i-u", queryctrl.default_value,
 			NULL);
-
-		spa_pod_builder_push_prop(&b, t->param.propType, SPA_POD_PROP_FLAG_UNSET);
-		spa_pod_builder_int(&b, queryctrl.default_value);
-		spa_pod_builder_pop(&b);
 
 		spa_zero(querymenu);
 		querymenu.id = queryctrl.id;

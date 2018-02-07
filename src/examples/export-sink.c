@@ -34,9 +34,13 @@
 #include <pipewire/module.h>
 #include <pipewire/factory.h>
 
+#define M_PI_M2 ( M_PI + M_PI )
+
 struct type {
 	uint32_t format;
 	uint32_t props;
+	uint32_t prop_param;
+	uint32_t io_prop_param;
 	struct spa_type_meta meta;
 	struct spa_type_data data;
 	struct spa_type_media_type media_type;
@@ -49,6 +53,8 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
+	type->prop_param = spa_type_map_get_id(map, SPA_TYPE_PROPS__contrast);
+	type->io_prop_param = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "contrast");
 	spa_type_meta_map(map, &type->meta);
 	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
@@ -57,12 +63,24 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_video_format_map(map, &type->video_format);
 }
 
+#define DEFAULT_PARAM 0.1
+
+struct props {
+	double param;
+};
+
+static void reset_props(struct props *props)
+{
+	props->param = DEFAULT_PARAM;
+}
+
 #define WIDTH   640
 #define HEIGHT  480
 #define BPP    3
 
 struct data {
 	struct type type;
+	struct props props;
 
 	const char *path;
 
@@ -85,6 +103,8 @@ struct data {
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 	struct spa_io_buffers *io;
+	struct spa_pod_double *ctrl_param;
+	double param_accum;
 
 	uint8_t buffer[1024];
 
@@ -179,6 +199,17 @@ static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
 	return SDL_PIXELFORMAT_UNKNOWN;
 }
 
+static void update_param(struct data *data)
+{
+	if (data->ctrl_param == NULL)
+		return;
+
+        data->ctrl_param->value = (sin(data->param_accum) * 127.0) + 127.0;
+        data->param_accum += M_PI_M2 / 30.0;
+        if (data->param_accum >= M_PI_M2)
+                data->param_accum -= M_PI_M2;
+}
+
 static int impl_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	return 0;
@@ -223,6 +254,10 @@ static int impl_port_set_io(struct spa_node *node,
 
 	if (id == d->t->io.Buffers)
 		d->io = data;
+	else if (id == d->type.io_prop_param) {
+		d->ctrl_param = data;
+		*d->ctrl_param = SPA_POD_DOUBLE_INIT(DEFAULT_PARAM);
+	}
 	else
 		return -ENOENT;
 
@@ -339,7 +374,8 @@ static int impl_port_enum_params(struct spa_node *node,
 		uint32_t list[] = { t->param.idEnumFormat,
 				    t->param.idFormat,
 				    t->param.idBuffers,
-				    t->param.idMeta };
+				    t->param.idMeta,
+				    t->param_io.idPropsOut };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(builder,
@@ -374,6 +410,22 @@ static int impl_port_enum_params(struct spa_node *node,
 			id, t->param_meta.Meta,
 			":", t->param_meta.type, "I", t->meta.Header,
 			":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+	}
+	else if (id == t->param_io.idPropsOut) {
+		struct props *p = &d->props;
+
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(builder,
+				id, t->param_io.Prop,
+				":", t->param_io.id, "I", d->type.io_prop_param,
+				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
+				":", t->param.propId, "I", d->type.prop_param,
+				":", t->param.propType, "dru", p->param, 2, 0.0, 10.0);
+			break;
+		default:
+			return 0;
+		}
 	}
 	else
 		return -ENOENT;
@@ -508,6 +560,8 @@ static int impl_node_process_input(struct spa_node *node)
 				  SPA_ID_INVALID, NULL, 0, true, d)) < 0)
 		return res;
 
+	update_param(d);
+
 	return d->io->status = SPA_STATUS_NEED_BUFFER;
 }
 
@@ -597,6 +651,7 @@ int main(int argc, char *argv[])
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	init_type(&data.type, data.t->map);
+	reset_props(&data.props);
 
 	spa_debug_set_type_map(data.t->map);
 

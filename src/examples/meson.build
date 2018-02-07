@@ -29,6 +29,6 @@ if sdl_dep.found()
   executable('export-sink',
     'export-sink.c',
     install: false,
-    dependencies : [pipewire_dep, sdl_dep],
+    dependencies : [pipewire_dep, sdl_dep, mathlib],
   )
 endif

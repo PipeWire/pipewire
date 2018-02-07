@@ -958,6 +958,8 @@ spa_v4l2_enum_controls(struct impl *this,
 	struct v4l2_query_ext_ctrl queryctrl;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
+	char type_id[128];
+	uint32_t id;
 	uint8_t buffer[1024];
 	int res;
         const unsigned next_fl = V4L2_CTRL_FLAG_NEXT_CTRL | V4L2_CTRL_FLAG_NEXT_COMPOUND;
@@ -1005,10 +1007,14 @@ spa_v4l2_enum_controls(struct impl *this,
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
+	snprintf(type_id, sizeof(type_id), SPA_TYPE_PARAM_IO_PROP_BASE"%08x", queryctrl.id & ~next_fl);
+	id = spa_type_map_get_id(this->map, type_id);
+
 	switch (queryctrl.type) {
 	case V4L2_CTRL_TYPE_INTEGER:
 		param = spa_pod_builder_object(&b,
 			t->param_io.idPropsIn, t->param_io.Prop,
+			":", t->param_io.id, "I", id,
 			":", t->param_io.size, "i", sizeof(struct spa_pod_int),
 			":", t->param.propType, "isu", queryctrl.default_value,
 						3, queryctrl.minimum,
@@ -1019,6 +1025,7 @@ spa_v4l2_enum_controls(struct impl *this,
 	case V4L2_CTRL_TYPE_BOOLEAN:
 		param = spa_pod_builder_object(&b,
 			t->param_io.idPropsIn, t->param_io.Prop,
+			":", t->param_io.id, "I", id,
 			":", t->param_io.size, "i", sizeof(struct spa_pod_bool),
 			":", t->param.propType, "b-u", queryctrl.default_value,
 			":", t->param.propName, "s", queryctrl.name);
@@ -1029,6 +1036,7 @@ spa_v4l2_enum_controls(struct impl *this,
 
 		spa_pod_builder_push_object(&b, t->param_io.idPropsIn, t->param_io.Prop);
 		spa_pod_builder_add(&b,
+			":", t->param_io.id, "I", id,
 			":", t->param_io.size, "i", sizeof(struct spa_pod_int),
 			":", t->param.propName, "s", queryctrl.name,
 			NULL);

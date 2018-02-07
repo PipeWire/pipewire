@@ -524,31 +524,46 @@ spa_proxy_node_port_set_io(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct proxy, node);
 	t = this->impl->t;
 
+	if (this->resource == NULL)
+		return 0;
+
 	if (!CHECK_PORT(this, direction, port_id))
 		return -EINVAL;
 
 	port = GET_PORT(this, direction, port_id);
 
+
 	if (id == t->io.Buffers)
 		port->io = data;
 	else {
 		struct pw_memblock *mem;
-		uint32_t memid = this->membase++;
+		uint32_t memid, offset, size;
 
-		if ((mem = pw_memblock_find(data)) == NULL)
-			return -EINVAL;
+		if (data) {
 
-		pw_client_node_resource_add_mem(this->resource,
-						memid,
-						t->data.MemFd,
-						mem->fd, mem->flags);
+			if ((mem = pw_memblock_find(data)) == NULL)
+				return -EINVAL;
+
+			memid = this->membase++;
+			offset = mem->offset;
+			size = mem->size;
+
+			pw_client_node_resource_add_mem(this->resource,
+							memid,
+							t->data.MemFd,
+							mem->fd, mem->flags);
+		}
+		else {
+			memid = SPA_ID_INVALID;
+			offset = size = 0;
+		}
 
 		pw_client_node_resource_port_set_io(this->resource,
 						    this->seq,
 						    direction, port_id,
 						    id,
 						    memid,
-						    mem->offset, mem->size);
+						    offset, size);
 	}
 	return 0;
 }

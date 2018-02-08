@@ -29,7 +29,7 @@ extern "C" {
 struct spa_type_map_impl_data {
 	struct spa_type_map map;
 	unsigned int n_types;
-	char **types;
+	char *types[1];
 };
 
 static inline uint32_t

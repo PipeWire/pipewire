@@ -143,4 +143,5 @@ pw_get_support(uint32_t *n_support);
 #ifdef __cplusplus
 }
 #endif
+
 #endif /* __PIPEWIRE_H__ */

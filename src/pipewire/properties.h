@@ -21,7 +21,7 @@
 #define __PIPEWIRE_PROPERTIES_H__
 
 #ifdef __cplusplus
-//extern "C" {
+extern "C" {
 #endif
 
 #include <spa/utils/dict.h>

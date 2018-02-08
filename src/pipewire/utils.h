@@ -51,7 +51,9 @@ pw_strip(char *str, const char *whitespace);
 static inline struct spa_pod *
 pw_spa_pod_copy(const struct spa_pod *pod)
 {
-	return pod ? memcpy(malloc(SPA_POD_SIZE(pod)), pod, SPA_POD_SIZE(pod)) : NULL;
+	return pod ?
+		(struct spa_pod *) memcpy(malloc(SPA_POD_SIZE(pod)), pod, SPA_POD_SIZE(pod))
+		: NULL;
 }
 
 #ifdef __cplusplus

@@ -84,7 +84,7 @@ spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t ref)
 	else if (ref + 8 <= builder->size) {
 		struct spa_pod *pod = SPA_MEMBER(builder->data, ref, struct spa_pod);
 		if (SPA_POD_SIZE(pod) <= builder->size)
-			return pod;
+			return (void *) pod;
 	}
 	return NULL;
 }
@@ -115,7 +115,7 @@ spa_pod_builder_raw(struct spa_pod_builder *builder, const void *data, uint32_t 
 		if (ref + size > builder->size)
 			ref = -1;
 		else
-			memcpy(builder->data + ref, data, size);
+			memcpy(SPA_MEMBER(builder->data, ref, void), data, size);
 	}
 
 	builder->state.offset += size;
@@ -148,7 +148,7 @@ static inline void *spa_pod_builder_pop(struct spa_pod_builder *builder)
 	struct spa_pod *pod;
 
 	frame = &builder->frame[--builder->state.depth];
-	if ((pod = spa_pod_builder_deref(builder, frame->ref)) != NULL)
+	if ((pod = (struct spa_pod *) spa_pod_builder_deref(builder, frame->ref)) != NULL)
 		*pod = frame->pod;
 
 	top = builder->state.depth > 0 ? &builder->frame[builder->state.depth-1] : NULL;
@@ -328,7 +328,7 @@ spa_pod_builder_array(struct spa_pod_builder *builder,
 		      uint32_t child_size, uint32_t child_type, uint32_t n_elems, const void *elems)
 {
 	const struct spa_pod_array p = {
-		{sizeof(struct spa_pod_array_body) + n_elems * child_size, SPA_POD_TYPE_ARRAY},
+		{(uint32_t)(sizeof(struct spa_pod_array_body) + n_elems * child_size), SPA_POD_TYPE_ARRAY},
 		{{child_size, child_type}}
 	};
 	uint32_t ref = spa_pod_builder_raw(builder, &p, sizeof(p));

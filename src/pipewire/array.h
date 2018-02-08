@@ -54,7 +54,7 @@ struct pw_array {
 #define pw_array_check_index(a,idx,t)		pw_array_check_index_s(a,idx,sizeof(t))
 
 #define pw_array_for_each(pos, array)							\
-	for (pos = (array)->data;							\
+	for (pos = (__typeof__(pos)) (array)->data;							\
 	     (const uint8_t *) pos < ((const uint8_t *) (array)->data + (array)->size);	\
 	     (pos)++)
 
@@ -102,7 +102,7 @@ static inline void *pw_array_add(struct pw_array *arr, size_t size)
 	if (!pw_array_ensure_size(arr, size))
 		return NULL;
 
-	p = arr->data + arr->size;
+	p = SPA_MEMBER(arr->data, arr->size, void);
 	arr->size += size;
 
 	return p;
@@ -117,7 +117,7 @@ static inline void *pw_array_add_fixed(struct pw_array *arr, size_t size)
 	if (SPA_UNLIKELY(arr->alloc < arr->size + size))
 		return NULL;
 
-	p = arr->data + arr->size;
+	p = SPA_MEMBER(arr->data, arr->size, void);
 	arr->size += size;
 
 	return p;

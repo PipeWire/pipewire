@@ -78,7 +78,7 @@ pw_log_logv(enum spa_log_level level,
 #include <stdarg.h>
 
 #define PW_LOG_FUNC(name,lev)								\
-static inline void pw_log_##name (const char *format, ...) SPA_PRINTF_FUNC(1, 0);	\
+static inline void pw_log_##name (const char *format, ...)				\
 {											\
 	if (SPA_UNLIKELY(pw_log_level_enabled(lev))) {					\
 		va_list varargs;							\

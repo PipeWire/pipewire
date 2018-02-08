@@ -95,14 +95,14 @@ static inline uint32_t pw_map_insert_new(struct pw_map *map, void *data)
 	uint32_t id;
 
 	if (map->free_list) {
-		start = map->items.data;
+		start = (union pw_map_item *) map->items.data;
 		item = &start[map->free_list >> 1];
 		map->free_list = item->next;
 	} else {
-		item = pw_array_add(&map->items, sizeof(union pw_map_item));
+		item = (union pw_map_item *) pw_array_add(&map->items, sizeof(union pw_map_item));
 		if (!item)
 			return SPA_ID_INVALID;
-		start = map->items.data;
+		start = (union pw_map_item *) map->items.data;
 	}
 	item->data = data;
 	id = (item - start);
@@ -124,7 +124,7 @@ static inline bool pw_map_insert_at(struct pw_map *map, uint32_t id, void *data)
 	if (id > size)
 		return false;
 	else if (id == size)
-		item = pw_array_add(&map->items, sizeof(union pw_map_item));
+		item = (union pw_map_item *) pw_array_add(&map->items, sizeof(union pw_map_item));
 	else
 		item = pw_map_get_item(map, id);
 

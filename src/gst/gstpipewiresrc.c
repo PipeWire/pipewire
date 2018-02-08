@@ -42,6 +42,7 @@
 
 #include <gst/net/gstnetclientclock.h>
 #include <gst/allocators/gstfdmemory.h>
+#include <gst/allocators/gstdmabuf.h>
 #include <gst/video/video.h>
 
 #include "gstpipewireclock.h"
@@ -211,6 +212,7 @@ gst_pipewire_src_finalize (GObject * object)
   if (pwsrc->properties)
     gst_structure_free (pwsrc->properties);
   g_object_unref (pwsrc->fd_allocator);
+  g_object_unref (pwsrc->dmabuf_allocator);
   if (pwsrc->clock)
     gst_object_unref (pwsrc->clock);
   g_free (pwsrc->path);
@@ -321,6 +323,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   g_queue_init (&src->queue);
 
   src->fd_allocator = gst_fd_allocator_new ();
+  src->dmabuf_allocator = gst_dmabuf_allocator_new ();
   src->client_name = pw_get_client_name ();
   src->buf_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) gst_buffer_unref);
 
@@ -400,9 +403,15 @@ on_add_buffer (void *_data, guint id)
     struct spa_data *d = &b->datas[i];
     GstMemory *gmem = NULL;
 
-    if (d->type == t->data.MemFd || d->type == t->data.DmaBuf) {
+    if (d->type == t->data.MemFd) {
       gmem = gst_fd_allocator_alloc (pwsrc->fd_allocator, dup (d->fd),
                 d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
+      gst_memory_resize (gmem, d->mapoffset, d->maxsize);
+      data.offset = d->mapoffset;
+    }
+    else if(d->type == t->data.DmaBuf) {
+      gmem = gst_dmabuf_allocator_alloc (pwsrc->dmabuf_allocator, dup (d->fd),
+                d->mapoffset + d->maxsize);
       gst_memory_resize (gmem, d->mapoffset, d->maxsize);
       data.offset = d->mapoffset;
     }

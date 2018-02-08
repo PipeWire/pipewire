@@ -77,6 +77,7 @@ struct _GstPipeWireSrc {
   struct spa_hook stream_listener;
 
   GstAllocator *fd_allocator;
+  GstAllocator *dmabuf_allocator;
   GstStructure *properties;
 
   GHashTable *buf_ids;

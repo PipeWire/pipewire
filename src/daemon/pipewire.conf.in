@@ -1,4 +1,5 @@
 #load-module libpipewire-module-protocol-dbus
+load-module libpipewire-module-rtkit
 load-module libpipewire-module-protocol-native
 load-module libpipewire-module-suspend-on-idle
 #load-module libpipewire-module-spa-monitor alsa/libspa-alsa alsa-monitor alsa

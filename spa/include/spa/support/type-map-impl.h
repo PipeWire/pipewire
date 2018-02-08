@@ -26,10 +26,16 @@ extern "C" {
 
 #include <spa/support/type-map.h>
 
+struct spa_type_map_impl_data {
+	struct spa_type_map map;
+	unsigned int n_types;
+	char **types;
+};
+
 static inline uint32_t
 spa_type_map_impl_get_id (struct spa_type_map *map, const char *type)
 {
-	struct { struct spa_type_map map; uint32_t n_types; char *types[1]; } *impl = (void*) map;
+	struct spa_type_map_impl_data *impl = (struct spa_type_map_impl_data *) map;
 	uint32_t i = 0;
 
 	for (i = 1; i <= impl->n_types; i++) {
@@ -44,7 +50,7 @@ spa_type_map_impl_get_id (struct spa_type_map *map, const char *type)
 static inline const char *
 spa_type_map_impl_get_type (const struct spa_type_map *map, uint32_t id)
 {
-	struct { struct spa_type_map map; uint32_t n_types; char *types[1]; } *impl = (void*) map;
+	struct spa_type_map_impl_data *impl = (struct spa_type_map_impl_data *) map;
         if (id <= impl->n_types)
                 return impl->types[id];
         return NULL;
@@ -52,7 +58,7 @@ spa_type_map_impl_get_type (const struct spa_type_map *map, uint32_t id)
 
 static inline size_t spa_type_map_impl_get_size (const struct spa_type_map *map)
 {
-	struct { struct spa_type_map map; uint32_t n_types; char *types[1]; } *impl = (void*) map;
+	struct spa_type_map_impl_data *impl = (struct spa_type_map_impl_data *) map;
 	return impl->n_types;
 }
 

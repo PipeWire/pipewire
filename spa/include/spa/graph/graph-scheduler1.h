@@ -134,28 +134,28 @@ static inline bool spa_graph_data_iterate(struct spa_graph_data *data)
 
 static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *node)
 {
-	struct spa_graph_data *d = data;
+	struct spa_graph_data *d = (struct spa_graph_data *) data;
 	spa_debug("node %p start pull", node);
 	node->state = SPA_GRAPH_STATE_CHECK_IN;
 	d->node = node;
 	if (node->ready_link.next == NULL)
 		spa_list_append(&d->ready, &node->ready_link);
 
-	while(spa_graph_data_iterate(data));
+	while(spa_graph_data_iterate(d));
 
 	return 0;
 }
 
 static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *node)
 {
-	struct spa_graph_data *d = data;
+	struct spa_graph_data *d = (struct spa_graph_data *) data;
 	spa_debug("node %p start push", node);
 	node->state = SPA_GRAPH_STATE_OUT;
 	d->node = node;
 	if (node->ready_link.next == NULL)
 		spa_list_append(&d->ready, &node->ready_link);
 
-	while(spa_graph_data_iterate(data));
+	while(spa_graph_data_iterate(d));
 
 	return 0;
 }

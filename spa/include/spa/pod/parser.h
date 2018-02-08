@@ -116,13 +116,14 @@ do {											\
 	case 's':									\
 		*va_arg(args, char**) =							\
 			(pod == NULL || (SPA_POD_TYPE(pod) == SPA_POD_TYPE_NONE)	\
-				? NULL : SPA_POD_CONTENTS(struct spa_pod_string, pod));	\
+				? NULL							\
+				: (char *)SPA_POD_CONTENTS(struct spa_pod_string, pod));	\
 		break;									\
 	case 'S':									\
 	{										\
 		char *dest = va_arg(args, char*);					\
 		uint32_t maxlen = va_arg(args, uint32_t);				\
-		strncpy(dest, SPA_POD_CONTENTS(struct spa_pod_string, pod), maxlen-1);	\
+		strncpy(dest, (char *)SPA_POD_CONTENTS(struct spa_pod_string, pod), maxlen-1);	\
 		break;									\
 	}										\
 	case 'z':									\
@@ -139,11 +140,12 @@ do {											\
 		break;									\
 	case 'B':									\
 		*va_arg(args, uint32_t **) =						\
-				SPA_POD_CONTENTS(struct spa_pod_bitmap, pod);		\
+			(uint32_t *) SPA_POD_CONTENTS(struct spa_pod_bitmap, pod);	\
 		break;									\
 	case 'p':									\
 	{										\
-		struct spa_pod_pointer_body *b = SPA_POD_BODY(pod);			\
+		struct spa_pod_pointer_body *b =					\
+				(struct spa_pod_pointer_body *) SPA_POD_BODY(pod);	\
 		*(va_arg(args, void **)) = b->value;					\
 		break;									\
 	}										\
@@ -247,7 +249,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 		case ':':
 		{
 			uint32_t key = va_arg(args, uint32_t);
-			const struct spa_pod *obj = parser->iter[parser->depth].data;
+			const struct spa_pod *obj = (const struct spa_pod *) parser->iter[parser->depth].data;
 
 			prop = spa_pod_find_prop(obj, key);
 			if (prop != NULL && (prop->body.flags & SPA_POD_PROP_FLAG_UNSET) == 0)

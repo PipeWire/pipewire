@@ -24,14 +24,18 @@
 extern "C" {
 #endif
 
-#include <dbus/dbus.h>
-
 #include <spa/support/loop.h>
 
 #define SPA_TYPE__DBus		SPA_TYPE_INTERFACE_BASE "DBus"
 #define SPA_TYPE_DBUS_BASE	SPA_TYPE__DBus ":"
 
 #define SPA_TYPE_DBUS__Connection	SPA_TYPE_DBUS_BASE "Connection"
+
+enum spa_dbus_type {
+	SPA_DBUS_TYPE_SESSION,	/**< The login session bus */
+	SPA_DBUS_TYPE_SYSTEM,	/**< The systemwide bus */
+	SPA_DBUS_TYPE_STARTER	/**< The bus that started us, if any */
+};
 
 struct spa_dbus_connection {
 #define SPA_VERSION_DBUS_CONNECTION	0
@@ -40,9 +44,9 @@ struct spa_dbus_connection {
 	 * Get the DBusConnection from a wraper
 	 *
 	 * \param conn the spa_dbus_connection wrapper
-	 * \return a DBusConnection
+	 * \return a pointer of type DBusConnection
 	 */
-	DBusConnection *(*get) (struct spa_dbus_connection *conn);
+	void *(*get) (struct spa_dbus_connection *conn);
 	/**
 	 * Destroy a dbus connection wrapper
 	 *
@@ -69,13 +73,11 @@ struct spa_dbus {
 	 *
 	 * \param dbus the dbus manager
 	 * \param type the bus type to wrap
-	 * \param error location for the error
-	 * \return a new dbus connection wrapper or NULL and \a error is
-	 *         set.
+	 * \param error location for the DBusError
+	 * \return a new dbus connection wrapper or NULL on error
 	 */
 	struct spa_dbus_connection * (*get_connection) (struct spa_dbus *dbus,
-							DBusBusType type,
-							DBusError *error);
+							enum spa_dbus_type type);
 };
 
 #define spa_dbus_get_connection(d,...)	(d)->get_connection((d),__VA_ARGS__)

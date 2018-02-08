@@ -1,5 +1,5 @@
 /* PipeWire
- * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
+ * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -16,6 +16,42 @@
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
+#include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/resource.h>
+#include <sys/eventfd.h>
+
+#include "config.h"
+
+#include <spa/support/dbus.h>
+
+#include "pipewire/core.h"
+#include "pipewire/interfaces.h"
+#include "pipewire/link.h"
+#include "pipewire/log.h"
+#include "pipewire/module.h"
+#include "pipewire/utils.h"
+
+struct impl {
+	struct pw_core *core;
+	struct pw_type *type;
+	struct pw_properties *properties;
+
+	struct spa_loop *loop;
+	struct spa_source source;
+
+	struct spa_hook module_listener;
+};
+
 /***
   Copyright 2009 Lennart Poettering
   Copyright 2010 David Henningsson <diwic@ubuntu.com>
@@ -41,15 +77,23 @@
   SOFTWARE.
 ***/
 
-#include <errno.h>
-#include <stdlib.h>
-#include <stdbool.h>
-
 #include <dbus/dbus.h>
 
-#include <pipewire/log.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
-#include "rtkit.h"
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/syscall.h>
+
+#define RTKIT_SERVICE_NAME "org.freedesktop.RealtimeKit1"
+#define RTKIT_OBJECT_PATH "/org/freedesktop/RealtimeKit1"
 
 /** \cond */
 struct pw_rtkit_bus {
@@ -89,22 +133,6 @@ void pw_rtkit_bus_free(struct pw_rtkit_bus *system_bus)
 	dbus_connection_unref(system_bus->bus);
 	free(system_bus);
 }
-
-#if defined(__linux__) && !defined(__ANDROID__)
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/syscall.h>
-
 
 static pid_t _gettid(void)
 {
@@ -349,31 +377,108 @@ int pw_rtkit_make_high_priority(struct pw_rtkit_bus *connection, pid_t thread, i
 	return ret;
 }
 
-#else
-
-int pw_rtkit_make_realtime(struct pw_rtkit_bus *connection, pid_t thread, int priority)
+static void module_destroy(void *data)
 {
-	return -ENOTSUP;
+	struct impl *impl = data;
+
+	spa_hook_remove(&impl->module_listener);
+
+	if (impl->properties)
+		pw_properties_free(impl->properties);
+
+	free(impl);
 }
 
-int pw_rtkit_make_high_priority(struct pw_rtkit_bus *connection, pid_t thread, int nice_level)
+static const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
+	.destroy = module_destroy,
+};
+
+static void idle_func(struct spa_source *source)
 {
-	return -ENOTSUP;
+	struct impl *impl = source->data;
+	struct sched_param sp;
+	struct pw_rtkit_bus *system_bus;
+	struct rlimit rl;
+	int r, rtprio;
+	long long rttime;
+	uint64_t count;
+
+	rtprio = 20;
+	rttime = 20000;
+
+	spa_zero(sp);
+	sp.sched_priority = rtprio;
+
+	if (pthread_setschedparam(pthread_self(), SCHED_OTHER | SCHED_RESET_ON_FORK, &sp) == 0) {
+		pw_log_debug("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
+		return;
+	}
+	system_bus = pw_rtkit_bus_get_system();
+
+	rl.rlim_cur = rl.rlim_max = rttime;
+	if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
+		pw_log_debug("setrlimit() failed: %s", strerror(errno));
+
+	if (rttime >= 0) {
+		r = getrlimit(RLIMIT_RTTIME, &rl);
+		if (r >= 0 && (long long) rl.rlim_max > rttime) {
+			pw_log_debug("Clamping rlimit-rttime to %lld for RealtimeKit", rttime);
+			rl.rlim_cur = rl.rlim_max = rttime;
+
+			if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
+				pw_log_debug("setrlimit() failed: %s", strerror(errno));
+		}
+	}
+
+	if ((r = pw_rtkit_make_realtime(system_bus, 0, rtprio)) < 0) {
+		pw_log_debug("could not make thread realtime: %s", strerror(r));
+	} else {
+		pw_log_debug("thread made realtime");
+	}
+	pw_rtkit_bus_free(system_bus);
+
+	read(impl->source.fd, &count, sizeof(uint64_t));
 }
 
-int pw_rtkit_get_max_realtime_priority(struct pw_rtkit_bus *connection)
+static int module_init(struct pw_module *module, struct pw_properties *properties)
 {
-	return -ENOTSUP;
+	struct pw_core *core = pw_module_get_core(module);
+	struct impl *impl;
+	struct spa_loop *loop;
+	const struct spa_support *support;
+	uint32_t n_support;
+
+	support = pw_core_get_support(core, &n_support);
+
+	loop = spa_support_find(support, n_support, SPA_TYPE_LOOP__DataLoop);
+        if (loop == NULL)
+                return -ENOTSUP;
+
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		return -ENOMEM;
+
+	pw_log_debug("module %p: new", impl);
+
+	impl->core = core;
+	impl->type = pw_core_get_type(core);
+	impl->properties = properties;
+	impl->loop = loop;
+
+	impl->source.loop = loop;
+	impl->source.func = idle_func;
+	impl->source.data = impl;
+	impl->source.fd = eventfd(1, EFD_CLOEXEC | EFD_NONBLOCK);
+	impl->source.mask = SPA_IO_IN;
+	spa_loop_add_source(impl->loop, &impl->source);
+
+	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
+
+	return 0;
 }
 
-int pw_rtkit_get_min_nice_level(struct pw_rtkit_bus *connection, int *min_nice_level)
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	return -ENOTSUP;
+	return module_init(module, NULL);
 }
-
-long long pw_rtkit_get_rttime_usec_max(struct pw_rtkit_bus *connection)
-{
-	return -ENOTSUP;
-}
-
-#endif

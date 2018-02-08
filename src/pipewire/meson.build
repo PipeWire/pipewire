@@ -24,7 +24,6 @@ pipewire_headers = [
   'proxy.h',
   'remote.h',
   'resource.h',
-  'rtkit.h',
   'stream.h',
   'thread-loop.h',
   'type.h',
@@ -56,7 +55,6 @@ pipewire_sources = [
   'remote.c',
   'resource.c',
   'stream.c',
-  'rtkit.c',
   'thread-loop.c',
   'type.c',
   'utils.c',
@@ -78,7 +76,7 @@ libpipewire = shared_library('pipewire-@0@'.format(apiversion), pipewire_sources
   include_directories : [pipewire_inc, configinc, spa_inc],
   link_with : spalib,
   install : true,
-  dependencies : [dbus_dep, dl_lib, mathlib, pthread_lib],
+  dependencies : [dl_lib, mathlib, pthread_lib],
 )
 
 pipewire_dep = declare_dependency(link_with : libpipewire,

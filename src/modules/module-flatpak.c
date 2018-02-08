@@ -27,6 +27,8 @@
 
 #include "config.h"
 
+#include <dbus/dbus.h>
+
 #include <spa/support/dbus.h>
 
 #include "pipewire/core.h"
@@ -469,7 +471,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct impl *impl;
-	DBusError error;
 	struct spa_dbus *dbus;
 	const struct spa_support *support;
 	uint32_t n_support;
@@ -490,9 +491,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	impl->type = pw_core_get_type(core);
 	impl->properties = properties;
 
-	dbus_error_init(&error);
-
-	impl->conn = spa_dbus_get_connection(dbus, DBUS_BUS_SESSION, &error);
+	impl->conn = spa_dbus_get_connection(dbus, SPA_DBUS_TYPE_SESSION);
 	if (impl->conn == NULL)
 		goto error;
 
@@ -507,8 +506,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
       error:
 	free(impl);
-	pw_log_error("Failed to connect to system bus: %s", error.message);
-	dbus_error_free(&error);
+	pw_log_error("Failed to connect to system bus");
 	return -ENOMEM;
 }
 

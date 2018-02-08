@@ -25,6 +25,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <dbus/dbus.h>
+
 #include <spa/support/type-map.h>
 #include <spa/support/log.h>
 #include <spa/support/plugin.h>
@@ -255,7 +257,7 @@ static void wakeup_main(void *userdata)
 	spa_loop_utils_enable_idle(impl->utils, this->dispatch_event, true);
 }
 
-static DBusConnection *
+static void *
 impl_connection_get(struct spa_dbus_connection *conn)
 {
 	struct connection *this = SPA_CONTAINER_OF(conn, struct connection, this);
@@ -286,18 +288,18 @@ static const struct spa_dbus_connection impl_connection = {
 
 static struct spa_dbus_connection *
 impl_get_connection(struct spa_dbus *dbus,
-		    DBusBusType type,
-		    DBusError *error)
+		    enum spa_dbus_type type)
 {
         struct impl *impl = SPA_CONTAINER_OF(dbus, struct impl, dbus);
 	struct connection *conn;
+        DBusError error;
 
-	dbus_error_init(error);
+	dbus_error_init(&error);
 
 	conn = calloc(1, sizeof(struct connection));
 	conn->this = impl_connection;
 	conn->impl = impl;
-	conn->conn = dbus_bus_get_private(type, error);
+	conn->conn = dbus_bus_get_private(type, &error);
 	if (conn->conn == NULL)
 		goto error;
 
@@ -317,6 +319,8 @@ impl_get_connection(struct spa_dbus *dbus,
 	return &conn->this;
 
       error:
+	spa_log_error(impl->log, "Failed to connect to system bus: %s", error.message);
+	dbus_error_free(&error);
 	free(conn);
 	return NULL;
 }

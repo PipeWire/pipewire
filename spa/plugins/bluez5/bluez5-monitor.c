@@ -27,6 +27,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <dbus/dbus.h>
+
 #include <spa/support/log.h>
 #include <spa/support/type-map.h>
 #include <spa/support/loop.h>
@@ -1187,7 +1189,6 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct spa_bt_monitor *this;
 	uint32_t i;
-	DBusError err;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1215,11 +1216,9 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	init_type(&this->type, this->map);
 
-	dbus_error_init(&err);
-
-	this->dbus_connection = spa_dbus_get_connection(this->dbus, DBUS_BUS_SYSTEM, &err);
+	this->dbus_connection = spa_dbus_get_connection(this->dbus, DBUS_BUS_SYSTEM);
 	if (this->dbus_connection == NULL) {
-		spa_log_error(this->log, "no dbus connection: %s", err.message);
+		spa_log_error(this->log, "no dbus connection");
 		return -EIO;
 	}
 	this->conn = spa_dbus_connection_get(this->dbus_connection);

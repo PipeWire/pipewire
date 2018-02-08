@@ -22,59 +22,13 @@
 #include <sys/resource.h>
 
 #include "pipewire/log.h"
-#include "pipewire/rtkit.h"
 #include "pipewire/data-loop.h"
 #include "pipewire/private.h"
-
-static void make_realtime(struct pw_data_loop *this)
-{
-	struct sched_param sp;
-	struct pw_rtkit_bus *system_bus;
-	struct rlimit rl;
-	int r, rtprio;
-	long long rttime;
-
-	rtprio = 20;
-	rttime = 20000;
-
-	spa_zero(sp);
-	sp.sched_priority = rtprio;
-
-	if (pthread_setschedparam(pthread_self(), SCHED_OTHER | SCHED_RESET_ON_FORK, &sp) == 0) {
-		pw_log_debug("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
-		return;
-	}
-	system_bus = pw_rtkit_bus_get_system();
-
-	rl.rlim_cur = rl.rlim_max = rttime;
-	if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
-		pw_log_debug("setrlimit() failed: %s", strerror(errno));
-
-	if (rttime >= 0) {
-		r = getrlimit(RLIMIT_RTTIME, &rl);
-		if (r >= 0 && (long long) rl.rlim_max > rttime) {
-			pw_log_debug("Clamping rlimit-rttime to %lld for RealtimeKit", rttime);
-			rl.rlim_cur = rl.rlim_max = rttime;
-
-			if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
-				pw_log_debug("setrlimit() failed: %s", strerror(errno));
-		}
-	}
-
-	if ((r = pw_rtkit_make_realtime(system_bus, 0, rtprio)) < 0) {
-		pw_log_debug("could not make thread realtime: %s", strerror(r));
-	} else {
-		pw_log_debug("thread made realtime");
-	}
-	pw_rtkit_bus_free(system_bus);
-}
 
 static void *do_loop(void *user_data)
 {
 	struct pw_data_loop *this = user_data;
 	int res;
-
-	make_realtime(this);
 
 	pw_log_debug("data-loop %p: enter thread", this);
 	pw_loop_enter(this->loop);

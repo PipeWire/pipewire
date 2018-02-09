@@ -287,7 +287,9 @@ static int make_control(void *data, struct spa_pod *param)
 int pw_port_add(struct pw_port *port, struct pw_node *node)
 {
 	uint32_t port_id = port->port_id;
-	struct pw_type *t = &node->core->type;
+	struct pw_core *core = node->core;
+	struct pw_type *t = &core->type;
+	const char *str, *dir;
 
 	port->node = node;
 
@@ -297,6 +299,18 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 
 	if (port->info->props)
 		pw_port_update_properties(port, port->info->props);
+
+	dir = port->direction == PW_DIRECTION_INPUT ?  "in" : "out";
+
+	if ((str = pw_properties_get(port->properties, "port.name")) == NULL) {
+		pw_properties_setf(port->properties, "port.name", "%s_%d", dir, port_id);
+	}
+	pw_properties_set(port->properties, "port.direction", dir);
+
+	if (SPA_FLAG_CHECK(port->info->flags, SPA_PORT_INFO_FLAG_PHYSICAL))
+		pw_properties_set(port->properties, "port.physical", "1");
+	if (SPA_FLAG_CHECK(port->info->flags, SPA_PORT_INFO_FLAG_TERMINAL))
+		pw_properties_set(port->properties, "port.terminal", "1");
 
 	pw_log_debug("port %p: add to node %p %08x", port, node, port->info->flags);
 	if (port->direction == PW_DIRECTION_INPUT) {
@@ -328,6 +342,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		port_update_state(port, PW_PORT_STATE_CONFIGURE);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, port_added, port);
+
 	return 0;
 }
 

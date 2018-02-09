@@ -74,6 +74,7 @@ struct buffer {
 struct port {
 	bool valid;
 	struct spa_port_info info;
+	struct pw_properties *properties;
 
 	bool have_format;
 	uint32_t n_params;
@@ -337,8 +338,20 @@ do_update_port(struct proxy *this,
 		}
 	}
 
-	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO && info)
-		port->info = *info;
+	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO) {
+		if (port->properties)
+			pw_properties_free(port->properties);
+		port->properties = NULL;
+		port->info.props = NULL;
+
+		if (info) {
+			port->info = *info;
+			if (info->props) {
+				port->properties = pw_properties_new_dict(info->props);
+				port->info.props = &port->properties->dict;
+			}
+		}
+	}
 
 	if (!port->valid) {
 		spa_log_info(this->log, "proxy %p: adding port %d", this, port_id);
@@ -1188,7 +1201,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	struct pw_core *core = pw_client_get_core(client);
 	const struct spa_support *support;
 	uint32_t n_support;
-	const char *name = "client-node";
+	const char *name;
 	const char *str;
 
 	impl = calloc(1, sizeof(struct impl));
@@ -1206,6 +1219,9 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 
 	proxy_init(&impl->proxy, NULL, support, n_support);
 	impl->proxy.impl = impl;
+
+	if ((name = pw_properties_get(properties, "node.name")) == NULL)
+		name = "client-node";
 
 	this->resource = resource;
 	this->node = pw_spa_node_new(core,

@@ -87,7 +87,7 @@ client_node_marshal_port_update(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int i;
+	int i, n_items;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE);
 
@@ -102,9 +102,19 @@ client_node_marshal_port_update(void *object,
 		spa_pod_builder_add(b, "P", params[i], NULL);
 
 	if (info) {
-		spa_pod_builder_struct(b,
-				      "i", info->flags,
-				      "i", info->rate);
+		n_items = info->props ? info->props->n_items : 0;
+
+		spa_pod_builder_add(b,
+				    "[",
+				    "i", info->flags,
+				    "i", info->rate,
+				    "i", n_items, NULL);
+		for (i = 0; i < n_items; i++) {
+			spa_pod_builder_add(b,
+					    "s", info->props->items[i].key,
+					    "s", info->props->items[i].value, NULL);
+		}
+		spa_pod_builder_add(b, "]", NULL);
 	} else {
 		spa_pod_builder_add(b, "P", NULL, NULL);
 	}
@@ -727,6 +737,7 @@ static int client_node_demarshal_port_update(void *object, void *data, size_t si
 	const struct spa_pod **params = NULL;
 	struct spa_port_info info = { 0 }, *infop = NULL;
 	struct spa_pod *ipod;
+	struct spa_dict props;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -753,8 +764,22 @@ static int client_node_demarshal_port_update(void *object, void *data, size_t si
 		if (spa_pod_parser_get(&p2,
 				"["
 				"i", &info.flags,
-				"i", &info.rate, NULL) < 0)
+				"i", &info.rate,
+				"i", &props.n_items, NULL) < 0)
 			return -EINVAL;
+
+		if (props.n_items > 0) {
+			info.props = &props;
+
+			props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+			for (i = 0; i < props.n_items; i++) {
+				if (spa_pod_parser_get(&p2,
+						"s", &props.items[i].key,
+						"s", &props.items[i].value,
+						NULL) < 0)
+					return -EINVAL;
+			}
+		}
 	}
 
 	pw_resource_do(resource, struct pw_client_node_proxy_methods, port_update, direction,

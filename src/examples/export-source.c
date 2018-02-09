@@ -34,12 +34,8 @@
 #define M_PI_M2 ( M_PI + M_PI )
 
 struct type {
-	uint32_t format;
-	uint32_t props;
 	uint32_t prop_volume;
 	uint32_t io_prop_volume;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
 	struct spa_type_media_type media_type;
 	struct spa_type_media_subtype media_subtype;
 	struct spa_type_format_audio format_audio;
@@ -48,12 +44,8 @@ struct type {
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
 	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
 	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
 	spa_type_media_subtype_map(map, &type->media_subtype);
 	spa_type_format_audio_map(map, &type->format_audio);
@@ -206,7 +198,7 @@ static int port_enum_formats(struct spa_node *node,
 		return 0;
 
 	*param = spa_pod_builder_object(builder,
-		d->t->param.idEnumFormat, d->type.format,
+		d->t->param.idEnumFormat, d->t->spa_format,
 		"I", d->type.media_type.audio,
 		"I", d->type.media_subtype.raw,
 		":", d->type.format_audio.format,   "I", d->type.audio_format.S16,
@@ -234,7 +226,7 @@ static int port_get_format(struct spa_node *node,
 		return 0;
 
 	*param = spa_pod_builder_object(builder,
-		d->t->param.idFormat, d->type.format,
+		d->t->param.idFormat, d->t->spa_format,
 		"I", d->type.media_type.audio,
 		"I", d->type.media_subtype.raw,
 		":", d->type.format_audio.format,   "I",  d->format.format,
@@ -390,8 +382,8 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 			b->ptr = datas[0].data;
 			b->mapped = false;
 		}
-		else if (datas[0].type == d->type.data.MemFd ||
-			 datas[0].type == d->type.data.DmaBuf) {
+		else if (datas[0].type == d->t->data.MemFd ||
+			 datas[0].type == d->t->data.DmaBuf) {
 			b->ptr = mmap(NULL, datas[0].maxsize + datas[0].mapoffset, PROT_WRITE,
 				      MAP_SHARED, datas[0].fd, 0);
 			if (b->ptr == MAP_FAILED) {

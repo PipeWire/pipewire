@@ -31,11 +31,6 @@
 #include <pipewire/pipewire.h>
 
 struct type {
-	uint32_t format;
-	uint32_t props;
-	struct spa_type_param param;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
 	struct spa_type_media_type media_type;
 	struct spa_type_media_subtype media_subtype;
 	struct spa_type_format_video format_video;
@@ -44,11 +39,6 @@ struct type {
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
-	spa_type_param_map(map, &type->param);
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
 	spa_type_media_subtype_map(map, &type->media_subtype);
 	spa_type_format_video_map(map, &type->format_video);
@@ -93,7 +83,8 @@ static void on_timeout(void *userdata, uint64_t expirations)
 
 	buf = pw_stream_peek_buffer(data->stream, id);
 
-	if (buf->datas[0].type == data->type.data.MemFd) {
+	if (buf->datas[0].type == data->t->data.MemFd ||
+	    buf->datas[0].type == data->t->data.DmaBuf) {
 		map =
 		    mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset,
 			 PROT_READ | PROT_WRITE, MAP_SHARED, buf->datas[0].fd, 0);
@@ -102,13 +93,13 @@ static void on_timeout(void *userdata, uint64_t expirations)
 			return;
 		}
 		p = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);
-	} else if (buf->datas[0].type == data->type.data.MemPtr) {
+	} else if (buf->datas[0].type == data->t->data.MemPtr) {
 		map = NULL;
 		p = buf->datas[0].data;
 	} else
 		return;
 
-	if ((h = spa_buffer_find_meta(buf, data->type.meta.Header))) {
+	if ((h = spa_buffer_find_meta(buf, data->t->meta.Header))) {
 #if 0
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC, &now);
@@ -229,7 +220,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		data->stream = pw_stream_new(remote, "video-src", NULL);
 
 		params[0] = spa_pod_builder_object(&b,
-			data->type.param.idEnumFormat, data->type.format,
+			data->t->param.idEnumFormat, data->t->spa_format,
 			"I", data->type.media_type.video,
 			"I", data->type.media_subtype.raw,
 			":", data->type.format_video.format,    "I", data->type.video_format.RGB,

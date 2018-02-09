@@ -37,12 +37,8 @@
 #define M_PI_M2 ( M_PI + M_PI )
 
 struct type {
-	uint32_t format;
-	uint32_t props;
 	uint32_t prop_param;
 	uint32_t io_prop_param;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
 	struct spa_type_media_type media_type;
 	struct spa_type_media_subtype media_subtype;
 	struct spa_type_format_video format_video;
@@ -51,12 +47,8 @@ struct type {
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
 	type->prop_param = spa_type_map_get_id(map, SPA_TYPE_PROPS__contrast);
 	type->io_prop_param = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "contrast");
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
 	spa_type_media_type_map(map, &type->media_type);
 	spa_type_media_subtype_map(map, &type->media_subtype);
 	spa_type_format_video_map(map, &type->format_video);
@@ -295,7 +287,7 @@ static int port_enum_formats(struct spa_node *node,
 	SDL_GetRendererInfo(d->renderer, &info);
 
 	spa_pod_builder_push_object(builder,
-				    d->t->param.idEnumFormat, d->type.format);
+				    d->t->param.idEnumFormat, d->t->spa_format);
 	spa_pod_builder_id(builder, d->type.media_type.video);
 	spa_pod_builder_id(builder, d->type.media_subtype.raw);
 
@@ -347,7 +339,7 @@ static int port_get_format(struct spa_node *node,
 		return 0;
 
 	*result = spa_pod_builder_object(builder,
-		d->t->param.idFormat, d->type.format,
+		d->t->param.idFormat, d->t->spa_format,
 		"I", d->type.media_type.video,
 		"I", d->type.media_subtype.raw,
 		":", d->type.format_video.format,    "I", d->format.format,
@@ -514,12 +506,12 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 
 	buf = d->buffers[d->io->buffer_id];
 
-	if (buf->datas[0].type == d->type.data.MemFd ||
-	    buf->datas[0].type == d->type.data.DmaBuf) {
+	if (buf->datas[0].type == d->t->data.MemFd ||
+	    buf->datas[0].type == d->t->data.DmaBuf) {
 		map = mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ,
 			   MAP_PRIVATE, buf->datas[0].fd, 0);
 		sdata = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);
-	} else if (buf->datas[0].type == d->type.data.MemPtr) {
+	} else if (buf->datas[0].type == d->t->data.MemPtr) {
 		map = NULL;
 		sdata = buf->datas[0].data;
 	} else

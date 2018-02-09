@@ -106,7 +106,7 @@ pw_global_register(struct pw_global *global,
 	struct pw_core *core = global->core;
 
 	global->owner = owner;
-	if (owner)
+	if (owner && parent == NULL)
 		parent = owner->global;
 	if (parent == NULL)
 		parent = core->global;

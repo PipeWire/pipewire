@@ -442,7 +442,6 @@ static int port_set_format(struct spa_node *node,
 	}
 
 	if (this->have_format) {
-		this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS | SPA_PORT_INFO_FLAG_LIVE;
 		this->info.rate = this->rate;
 	}
 
@@ -769,7 +768,10 @@ impl_init(const struct spa_handle_factory *factory,
 	this->stream = SND_PCM_STREAM_CAPTURE;
 	reset_props(&this->props);
 
-	this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+	this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
+			   SPA_PORT_INFO_FLAG_LIVE |
+			   SPA_PORT_INFO_FLAG_PHYSICAL |
+			   SPA_PORT_INFO_FLAG_TERMINAL;
 
 	spa_list_init(&this->free);
 	spa_list_init(&this->ready);

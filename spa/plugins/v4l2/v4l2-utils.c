@@ -894,7 +894,10 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 
 	port->fmt = fmt;
 	port->info.flags = (port->export_buf ? SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS : 0) |
-	    SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS | SPA_PORT_INFO_FLAG_LIVE;
+		SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
+		SPA_PORT_INFO_FLAG_LIVE |
+		SPA_PORT_INFO_FLAG_PHYSICAL |
+		SPA_PORT_INFO_FLAG_TERMINAL;
 	port->info.rate = streamparm.parm.capture.timeperframe.denominator;
 
 	return 0;

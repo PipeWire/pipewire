@@ -1007,7 +1007,9 @@ impl_init(const struct spa_handle_factory *factory,
 	reset_props(&this->props);
 
 	port->log = this->log;
-	port->info.flags = SPA_PORT_INFO_FLAG_LIVE;
+	port->info.flags = SPA_PORT_INFO_FLAG_LIVE |
+			   SPA_PORT_INFO_FLAG_PHYSICAL |
+			   SPA_PORT_INFO_FLAG_TERMINAL;
 	port->export_buf = true;
 	port->have_query_ext_ctrl = true;
 

@@ -53,6 +53,10 @@ struct spa_port_info {
 #define SPA_PORT_INFO_FLAG_NO_REF		(1<<5)	/**< the port does not keep a ref on the buffer */
 #define SPA_PORT_INFO_FLAG_LIVE			(1<<6)	/**< output buffers from this port are
 							 *   timestamped against a live clock. */
+#define SPA_PORT_INFO_FLAG_PHYSICAL		(1<<7)	/**< connects to some device */
+#define SPA_PORT_INFO_FLAG_TERMINAL		(1<<8)	/**< data was not created from this port
+							 *   or will not be made available on another
+							 *   port */
 	uint32_t flags;				/**< port flags */
 	uint32_t rate;				/**< rate of sequence numbers on port */
 	const struct spa_dict *props;		/**< extra port properties */

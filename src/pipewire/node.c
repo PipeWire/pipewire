@@ -589,9 +589,8 @@ void pw_node_destroy(struct pw_node *node)
 	pw_log_debug("node %p: destroy", impl);
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, destroy);
 
-	pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
-
 	if (node->global) {
+		pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
 		spa_list_remove(&node->link);
 		pw_global_destroy(node->global);
 		node->global = NULL;

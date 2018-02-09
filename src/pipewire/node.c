@@ -162,9 +162,12 @@ static void update_port_map(struct pw_node *node, enum pw_direction direction,
 			pw_log_debug("node %p: %s port %d added", node,
 					pw_direction_as_string(direction), ids[n]);
 
-			if (port == NULL)
+			if (port == NULL) {
 				if ((port = pw_port_new(direction, ids[n], NULL, 0)))
 					pw_port_add(port, node);
+				o = ids[n] + 1;
+				os++;
+			}
 
 			n++;
 		}

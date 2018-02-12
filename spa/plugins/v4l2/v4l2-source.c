@@ -56,11 +56,14 @@ static void reset_props(struct props *props)
 
 #define MAX_BUFFERS     64
 
+#define BUFFER_FLAG_OUTSTANDING	(1<<0)
+#define BUFFER_FLAG_ALLOCATED	(1<<1)
+#define BUFFER_FLAG_MAPPED	(1<<2)
+
 struct buffer {
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
-	bool outstanding;
-	bool allocated;
+	uint32_t flags;
 	struct v4l2_buffer v4l2_buffer;
 };
 

@@ -65,6 +65,7 @@ struct buffer {
 	struct spa_meta_header *h;
 	uint32_t flags;
 	struct v4l2_buffer v4l2_buffer;
+	void *ptr;
 };
 
 struct type {

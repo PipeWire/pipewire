@@ -150,6 +150,7 @@ static bool refill_buffer(struct pw_protocol_native_connection *conn, struct buf
 				continue;
 			if (errno != EAGAIN || errno != EWOULDBLOCK)
 				goto recv_error;
+			return false;
 		}
 		break;
 	}

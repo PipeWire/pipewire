@@ -51,14 +51,16 @@ struct mem_id {
 	int fd;
 	uint32_t flags;
 	uint32_t ref;
+	struct pw_map_range map;
+	void *ptr;
 };
 
 struct buffer_id {
 	struct spa_list link;
 	uint32_t id;
 	struct spa_buffer *buf;
-	void *ptr;
 	struct pw_map_range map;
+	void *ptr;
 	uint32_t n_mem;
 	struct mem_id **mem;
 };
@@ -564,6 +566,30 @@ static struct mem_id *find_mem(struct pw_array *mem_ids, uint32_t id)
 	return NULL;
 }
 
+static void *mem_map(struct node_data *data, struct mem_id *mid, uint32_t offset, uint32_t size)
+{
+	if (mid->ptr == NULL) {
+		pw_map_range_init(&mid->map, offset, size, data->core->sc_pagesize);
+
+		mid->ptr = mmap(NULL, mid->map.size, PROT_READ|PROT_WRITE,
+				MAP_SHARED, mid->fd, mid->map.offset);
+
+		if (mid->ptr == MAP_FAILED) {
+			pw_log_error("Failed to mmap memory %d %p: %m", size, mid);
+			mid->ptr = NULL;
+			return NULL;
+		}
+	}
+	return SPA_MEMBER(mid->ptr, mid->map.start, void);
+}
+static void mem_unmap(struct node_data *data, struct mem_id *mid)
+{
+	if (mid->ptr) {
+		if (munmap(mid->ptr, mid->map.size) < 0)
+			pw_log_warn("failed to unmap: %m");
+	}
+}
+
 static void clear_memid(struct node_data *data, struct mem_id *mid)
 {
 	if (mid->fd != -1) {
@@ -579,8 +605,10 @@ static void clear_memid(struct node_data *data, struct mem_id *mid)
 				break;
 			}
 		}
-		if (!has_ref)
+		if (!has_ref) {
+			mem_unmap(data, mid);
 			close(fd);
+		}
 	}
 }
 
@@ -659,6 +687,7 @@ static void client_node_add_mem(void *object,
 	m->fd = memfd;
 	m->flags = flags;
 	m->ref = 0;
+	m->ptr = NULL;
 }
 
 static void client_node_transport(void *object, uint32_t node_id,
@@ -1123,32 +1152,34 @@ client_node_port_set_io(void *object,
 	struct pw_core *core = proxy->remote->core;
 	struct port *port;
 	struct mem_id *mid;
-	struct pw_map_range r;
 	void *ptr;
 
 	port = find_port(data, direction, port_id);
 	if (port == NULL)
 		return;
 
-	mid = find_mem(&data->mem_ids, memid);
-	if (mid == NULL) {
-		pw_log_warn("unknown memory id %u", memid);
-		return;
+	if (memid == SPA_ID_INVALID) {
+		ptr = NULL;
+		size = 0;
 	}
-	pw_map_range_init(&r, offset, size, core->sc_pagesize);
+	else {
+		mid = find_mem(&data->mem_ids, memid);
+		if (mid == NULL) {
+			pw_log_warn("unknown memory id %u", memid);
+			return;
+		}
 
-	ptr = mmap(NULL, r.size, PROT_READ|PROT_WRITE, MAP_SHARED, mid->fd, r.offset);
-	if (ptr == MAP_FAILED) {
-		pw_log_warn("Failed to mmap memory %d %p: %s", size, mid,
-			    strerror(errno));
-		return;
+		if ((ptr = mem_map(data, mid, offset, size)) == NULL)
+			return;
 	}
-	pw_log_debug("port %p: set io %s", port, spa_type_map_get_type(core->type.map, id));
+
+
+	pw_log_debug("port %p: set io %s %p", port, spa_type_map_get_type(core->type.map, id), ptr);
 
 	spa_node_port_set_io(port->port->node->node,
 			     direction, port_id,
 			     id,
-			     SPA_MEMBER(ptr, r.start, void),
+			     ptr,
 			     size);
 }
 

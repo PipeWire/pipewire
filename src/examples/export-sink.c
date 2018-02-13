@@ -247,8 +247,10 @@ static int impl_port_set_io(struct spa_node *node,
 	if (id == d->t->io.Buffers)
 		d->io = data;
 	else if (id == d->type.io_prop_param) {
-		d->ctrl_param = data;
-		*d->ctrl_param = SPA_POD_DOUBLE_INIT(DEFAULT_PARAM);
+		if (data && size >= sizeof(struct spa_pod_double))
+			d->ctrl_param = data;
+		else
+			d->ctrl_param = NULL;
 	}
 	else
 		return -ENOENT;

@@ -162,8 +162,10 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 	if (id == d->t->io.Buffers)
 		d->io = data;
 	else if (id == d->type.io_prop_volume) {
-		d->ctrl_volume = data;
-		*d->ctrl_volume = SPA_POD_DOUBLE_INIT(1.0);
+		if (data && size >= sizeof(struct spa_pod_double))
+			d->ctrl_volume = data;
+		else
+			d->ctrl_volume = NULL;
 	}
 	else
 		return -ENOENT;

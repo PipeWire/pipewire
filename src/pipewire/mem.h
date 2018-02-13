@@ -72,6 +72,8 @@ struct pw_map_range {
 	uint32_t size;		/** size to map */
 };
 
+#define PW_MAP_RANGE_INIT (struct pw_map_range){ 0, }
+
 /** Calculate parameters to mmap() memory into \a range so that
  * \a size bytes at \a offset can be mapped with mmap().  */
 static inline void pw_map_range_init(struct pw_map_range *range,

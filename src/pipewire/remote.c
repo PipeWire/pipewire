@@ -584,9 +584,10 @@ static void *mem_map(struct node_data *data, struct mem_id *mid, uint32_t offset
 }
 static void mem_unmap(struct node_data *data, struct mem_id *mid)
 {
-	if (mid->ptr) {
+	if (mid->ptr != NULL) {
 		if (munmap(mid->ptr, mid->map.size) < 0)
 			pw_log_warn("failed to unmap: %m");
+		mid->ptr = NULL;
 	}
 }
 
@@ -595,12 +596,13 @@ static void clear_memid(struct node_data *data, struct mem_id *mid)
 	if (mid->fd != -1) {
 		bool has_ref = false;
 		int fd;
+		struct mem_id *m;
 
 		fd = mid->fd;
 		mid->fd = -1;
 
-		pw_array_for_each(mid, &data->mem_ids) {
-			if (mid->fd == fd) {
+		pw_array_for_each(m, &data->mem_ids) {
+			if (m->fd == fd) {
 				has_ref = true;
 				break;
 			}
@@ -687,6 +689,7 @@ static void client_node_add_mem(void *object,
 	m->fd = memfd;
 	m->flags = flags;
 	m->ref = 0;
+	m->map = PW_MAP_RANGE_INIT;
 	m->ptr = NULL;
 }
 

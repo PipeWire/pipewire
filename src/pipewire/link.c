@@ -552,14 +552,31 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		spa_debug_port_info(oinfo);
 		spa_debug_port_info(iinfo);
 	}
-
-	if (this->buffers == NULL) {
+	if (this->buffers == NULL && output->n_buffers) {
+		out_flags = 0;
+		in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+		this->n_buffers = output->n_buffers;
+		this->buffers = output->buffers;
+		this->buffer_owner = output;
+		pw_log_debug("link %p: reusing %d output buffers %p", this, this->n_buffers,
+			     this->buffers);
+	} else if (this->buffers == NULL && input->n_buffers && input->mix == NULL) {
+		out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+		in_flags = 0;
+		this->n_buffers = input->n_buffers;
+		this->buffers = input->buffers;
+		this->buffer_owner = input;
+		pw_log_debug("link %p: reusing %d input buffers %p", this, this->n_buffers,
+			     this->buffers);
+	} else if (this->buffers == NULL) {
 		struct spa_pod **params, *param;
 		uint8_t buffer[4096];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 		int i, offset, n_params;
 		uint32_t max_buffers;
 		size_t minsize = 1024, stride = 0;
+		size_t data_sizes[1];
+		ssize_t data_strides[1];
 
 		n_params = param_filter(this, input, output, t->param.idBuffers, &b);
 		n_params += param_filter(this, input, output, t->param.idMeta, &b);
@@ -588,7 +605,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 			max_buffers =
 			    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,
-								      max_buffers);
+							      max_buffers);
 			minsize = SPA_MAX(minsize, qminsize);
 			stride = SPA_MAX(stride, qstride);
 
@@ -605,42 +622,21 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		    (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS))
 			minsize = 0;
 
-		if (output->n_buffers) {
-			out_flags = 0;
-			in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-			this->n_buffers = output->n_buffers;
-			this->buffers = output->buffers;
-			this->buffer_owner = output;
-			pw_log_debug("link %p: reusing %d output buffers %p", this, this->n_buffers,
-				     this->buffers);
-		} else if (input->n_buffers && input->mix == NULL) {
-			out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-			in_flags = 0;
-			this->n_buffers = input->n_buffers;
-			this->buffers = input->buffers;
-			this->buffer_owner = input;
-			pw_log_debug("link %p: reusing %d input buffers %p", this, this->n_buffers,
-				     this->buffers);
-		} else {
-			size_t data_sizes[1];
-			ssize_t data_strides[1];
+		data_sizes[0] = minsize;
+		data_strides[0] = stride;
 
-			data_sizes[0] = minsize;
-			data_strides[0] = stride;
+		this->buffer_owner = this;
+		this->n_buffers = max_buffers;
+		this->buffers = alloc_buffers(this,
+					      this->n_buffers,
+					      n_params,
+					      params,
+					      1,
+					      data_sizes, data_strides,
+					      &this->buffer_mem);
 
-			this->buffer_owner = this;
-			this->n_buffers = max_buffers;
-			this->buffers = alloc_buffers(this,
-						      this->n_buffers,
-						      n_params,
-						      params,
-						      1,
-						      data_sizes, data_strides,
-						      &this->buffer_mem);
-
-			pw_log_debug("link %p: allocating %d buffers %p %zd %zd", this,
-				     this->n_buffers, this->buffers, minsize, stride);
-		}
+		pw_log_debug("link %p: allocating %d buffers %p %zd %zd", this,
+			     this->n_buffers, this->buffers, minsize, stride);
 
 		if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(output,

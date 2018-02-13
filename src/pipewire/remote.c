@@ -945,8 +945,6 @@ client_node_port_set_param(void *object,
 		goto done;
 	}
 
-	pw_port_pause(port->port);
-
 	res = pw_port_set_param(port->port, id, flags, param);
 	if (res < 0)
 		goto done;
@@ -965,6 +963,7 @@ static void clear_buffers(struct node_data *data, struct port *port)
 	int i;
 
         pw_log_debug("port %p: clear buffers", port);
+	pw_port_use_buffers(port->port, NULL, 0);
 
         pw_array_for_each(bid, &port->buffer_ids) {
 		if (bid->ptr != NULL) {
@@ -1007,8 +1006,6 @@ client_node_port_use_buffers(void *object,
 		res = -EINVAL;
 		goto done;
 	}
-
-	pw_port_pause(port->port);
 
 	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
 

@@ -78,6 +78,8 @@ struct pw_client {
 	struct pw_core *core;		/**< core object */
 	struct spa_list link;		/**< link in core object client list */
 	struct pw_global *global;	/**< global object created for this client */
+	struct spa_hook global_listener;
+	bool registered;
 
 	pw_permission_func_t permission_func;	/**< get permissions of an object */
 	void *permission_data;			/**< data passed to permission function */
@@ -117,15 +119,17 @@ struct pw_global {
 
 	struct pw_properties *properties;	/**< properties of the global */
 
+	struct spa_hook_list listener_list;
+
 	uint32_t type;			/**< type of interface */
 	uint32_t version;		/**< version of interface */
-	pw_bind_func_t bind;		/**< function to bind to the interface */
 
 	void *object;			/**< object associated with the interface */
 };
 
 struct pw_core {
 	struct pw_global *global;	/**< the global of the core */
+	struct spa_hook global_listener;
 
 	struct pw_core_info info;	/**< info about the core */
 
@@ -189,6 +193,8 @@ struct pw_link {
 	struct pw_core *core;		/**< core object */
 	struct spa_list link;		/**< link in core link_list */
 	struct pw_global *global;	/**< global for this link */
+	struct spa_hook global_listener;
+	bool registered;
 
         struct pw_link_info info;		/**< introspectable link info */
 	struct pw_properties *properties;	/**< extra link properties */
@@ -224,6 +230,7 @@ struct pw_module {
 	struct pw_core *core;           /**< the core object */
 	struct spa_list link;           /**< link in the core module_list */
 	struct pw_global *global;       /**< global object for this module */
+	struct spa_hook global_listener;
 
 	struct pw_module_info info;     /**< introspectable module info */
 
@@ -238,6 +245,8 @@ struct pw_node {
 	struct pw_core *core;		/**< core object */
 	struct spa_list link;		/**< link in core node_list */
 	struct pw_global *global;	/**< global for this node */
+	struct spa_hook global_listener;
+	bool registered;
 
 	struct pw_properties *properties;	/**< properties of the node */
 
@@ -277,6 +286,9 @@ struct pw_port {
 	struct spa_list link;		/**< link in node port_list */
 
 	struct pw_node *node;		/**< owner node */
+	struct pw_global *global;	/**< global for this port */
+	struct spa_hook global_listener;
+	bool registered;
 
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
@@ -394,6 +406,7 @@ struct pw_factory {
 	struct pw_core *core;		/**< the core */
 	struct spa_list link;		/**< link in core node_factory_list */
 	struct pw_global *global;	/**< global for this factory */
+	struct spa_hook global_listener;
 
 	struct pw_factory_info info;	/**< introspectable factory info */
 	struct pw_properties *properties;	/**< properties of the factory */
@@ -461,6 +474,11 @@ pw_port_new(enum pw_direction direction,
 	    uint32_t port_id,
 	    struct pw_properties *properties,
 	    size_t user_data_size);
+
+int pw_port_register(struct pw_port *port,
+		     struct pw_client *owner,
+		     struct pw_global *parent,
+		     struct pw_properties *properties);
 
 /** Get the user data of a port, the size of the memory was given \ref in pw_port_new */
 void * pw_port_get_user_data(struct pw_port *port);

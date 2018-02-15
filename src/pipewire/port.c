@@ -284,6 +284,47 @@ static int make_control(void *data, struct spa_pod *param)
 	return 0;
 }
 
+static void
+global_bind(void *_data, struct pw_client *client, uint32_t permissions,
+	       uint32_t version, uint32_t id)
+{
+	return;
+}
+
+static void global_destroy(void *object)
+{
+	struct pw_port *port = object;
+	spa_hook_remove(&port->global_listener);
+	port->global = NULL;
+	pw_port_destroy(port);
+}
+
+static const struct pw_global_events global_events = {
+	PW_VERSION_GLOBAL_EVENTS,
+	.destroy = global_destroy,
+	.bind = global_bind,
+};
+
+int pw_port_register(struct pw_port *port,
+		     struct pw_client *owner,
+		     struct pw_global *parent,
+		     struct pw_properties *properties)
+{
+	struct pw_node *node = port->node;
+	struct pw_core *core = node->core;
+
+	port->global = pw_global_new(core,
+				core->type.port, PW_VERSION_PORT,
+				properties,
+				port);
+	if (port->global == NULL)
+		return -ENOMEM;
+
+	pw_global_add_listener(port->global, &port->global_listener, &global_events, port);
+
+	return pw_global_register(port->global, owner, parent);
+}
+
 int pw_port_add(struct pw_port *port, struct pw_node *node)
 {
 	uint32_t port_id = port->port_id;
@@ -314,13 +355,13 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 
 	pw_log_debug("port %p: add to node %p %08x", port, node, port->info->flags);
 	if (port->direction == PW_DIRECTION_INPUT) {
-		spa_list_insert(&node->input_ports, &port->link);
+		spa_list_append(&node->input_ports, &port->link);
 		pw_map_insert_at(&node->input_port_map, port_id, port);
 		node->info.n_input_ports++;
 		node->info.change_mask |= PW_NODE_CHANGE_MASK_INPUT_PORTS;
 	}
 	else {
-		spa_list_insert(&node->output_ports, &port->link);
+		spa_list_append(&node->output_ports, &port->link);
 		pw_map_insert_at(&node->output_port_map, port_id, port);
 		node->info.n_output_ports++;
 		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
@@ -334,6 +375,10 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 			     port->direction, port_id,
 			     node->core->type.io.Buffers,
 			     port->rt.port.io, sizeof(*port->rt.port.io));
+
+	if (node->global)
+		pw_port_register(port, node->global->owner, node->global,
+				pw_properties_copy(port->properties));
 
 	port->rt.graph = node->rt.graph;
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);
@@ -372,6 +417,11 @@ void pw_port_destroy(struct pw_port *port)
 	pw_log_debug("port %p: destroy", port);
 
 	spa_hook_list_call(&port->listener_list, struct pw_port_events, destroy);
+
+	if (port->global) {
+		spa_hook_remove(&port->global_listener);
+		pw_global_destroy(port->global);
+	}
 
 	if (node) {
 		if (port->rt.graph)

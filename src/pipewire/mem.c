@@ -212,7 +212,7 @@ int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_membl
 
 	p = calloc(1, sizeof(struct memblock));
 	*p = tmp;
-	spa_list_prepend(&_memblocks, &p->link);
+	spa_list_append(&_memblocks, &p->link);
 	*mem = &p->mem;
 
 	return 0;

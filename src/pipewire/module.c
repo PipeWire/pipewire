@@ -105,12 +105,12 @@ static const struct pw_resource_events resource_events = {
 	.destroy = module_unbind_func,
 };
 
-static int
-module_bind_func(struct pw_global *global,
-		 struct pw_client *client, uint32_t permissions,
+static void
+global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 		 uint32_t version, uint32_t id)
 {
-	struct pw_module *this = global->object;
+	struct pw_module *this = _data;
+	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
 
@@ -129,14 +129,28 @@ module_bind_func(struct pw_global *global,
 	pw_module_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
-	return 0;
+	return;
 
       no_mem:
 	pw_log_error("can't create module resource");
 	pw_core_resource_error(client->core_resource,
 			       client->core_resource->id, -ENOMEM, "no memory");
-	return -ENOMEM;
+	return;
 }
+
+static void global_destroy(void *object)
+{
+	struct pw_module *module = object;
+	spa_hook_remove(&module->global_listener);
+	module->global = NULL;
+	pw_module_destroy(module);
+}
+
+static const struct pw_global_events global_events = {
+	PW_VERSION_GLOBAL_EVENTS,
+	.destroy = global_destroy,
+	.bind = global_bind,
+};
 
 struct pw_module * pw_core_find_module(struct pw_core *core, const char *filename)
 {
@@ -235,11 +249,12 @@ pw_module_load(struct pw_core *core,
 	this->global = pw_global_new(core,
 				     core->type.module, PW_VERSION_MODULE,
 				     properties,
-				     module_bind_func, this);
+				     this);
 
 	if (this->global == NULL)
 		goto no_global;
 
+	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 	pw_global_register(this->global, owner, parent);
 	this->info.id = this->global->id;
 
@@ -296,8 +311,11 @@ void pw_module_destroy(struct pw_module *module)
 		free((char *) module->info.args);
 
 	spa_list_remove(&module->link);
-	if (module->global)
+
+	if (module->global) {
+		spa_hook_remove(&module->global_listener);
 		pw_global_destroy(module->global);
+	}
 	dlclose(impl->hnd);
 	free(impl);
 }

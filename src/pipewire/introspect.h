@@ -170,6 +170,10 @@ pw_node_info_update(struct pw_node_info *info,
 void
 pw_node_info_free(struct pw_node_info *info);
 
+struct pw_port_info {
+	uint32_t id;				/**< id of the global */
+};
+
 /** The factory information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_factory_info {
 	uint32_t id;			/**< id of the global */

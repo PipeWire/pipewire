@@ -83,12 +83,12 @@ static const struct pw_resource_events resource_events = {
 	.destroy = factory_unbind_func,
 };
 
-static int
-factory_bind_func(struct pw_global *global,
-		  struct pw_client *client, uint32_t permissions,
+static void
+global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 		  uint32_t version, uint32_t id)
 {
-	struct pw_factory *this = global->object;
+	struct pw_factory *this = _data;
+	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
 
@@ -107,14 +107,28 @@ factory_bind_func(struct pw_global *global,
 	pw_factory_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
-	return 0;
+	return;
 
       no_mem:
 	pw_log_error("can't create factory resource");
 	pw_core_resource_error(client->core_resource,
 			       client->core_resource->id, -ENOMEM, "no memory");
-	return -ENOMEM;
+	return;
 }
+
+static void global_destroy(void *object)
+{
+	struct pw_factory *factory = object;
+	spa_hook_remove(&factory->global_listener);
+	factory->global = NULL;
+	pw_factory_destroy(factory);
+}
+
+static const struct pw_global_events global_events = {
+	PW_VERSION_GLOBAL_EVENTS,
+	.destroy = global_destroy,
+	.bind = global_bind,
+};
 
 int pw_factory_register(struct pw_factory *factory,
 			 struct pw_client *owner,
@@ -138,10 +152,11 @@ int pw_factory_register(struct pw_factory *factory,
         factory->global = pw_global_new(core,
 					core->type.factory, PW_VERSION_FACTORY,
 					properties,
-					factory_bind_func, factory);
+					factory);
 	if (factory->global == NULL)
 		return -ENOMEM;
 
+	pw_global_add_listener(factory->global, &factory->global_listener, &global_events, factory);
 	pw_global_register(factory->global, owner, parent);
 	factory->info.id = factory->global->id;
 

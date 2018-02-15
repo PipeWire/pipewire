@@ -146,6 +146,19 @@ core_marshal_create_object(void *object,
 }
 
 static void
+core_marshal_destroy(void *object, uint32_t id)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_DESTROY);
+
+	spa_pod_builder_struct(b, "i", id);
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static void
 core_marshal_update_types_client(void *object, uint32_t first_id, const char **types, uint32_t n_types)
 {
 	struct pw_proxy *proxy = object;
@@ -486,6 +499,20 @@ static int core_demarshal_create_object(void *object, void *data, size_t size)
 	pw_resource_do(resource, struct pw_core_proxy_methods, create_object, factory_name,
 								      type, version,
 								      &props, new_id);
+	return 0;
+}
+
+static int core_demarshal_destroy(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	uint32_t id;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs, "[i]", &id, NULL) < 0)
+		return -EINVAL;
+
+	pw_resource_do(resource, struct pw_core_proxy_methods, destroy, id);
 	return 0;
 }
 
@@ -979,7 +1006,8 @@ static const struct pw_core_proxy_methods pw_protocol_native_core_method_marshal
 	&core_marshal_get_registry,
 	&core_marshal_client_update,
 	&core_marshal_permissions,
-	&core_marshal_create_object
+	&core_marshal_create_object,
+	&core_marshal_destroy,
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_demarshal[PW_CORE_PROXY_METHOD_NUM] = {
@@ -989,7 +1017,8 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_
 	{ &core_demarshal_get_registry, 0, },
 	{ &core_demarshal_client_update, 0, },
 	{ &core_demarshal_permissions, 0, },
-	{ &core_demarshal_create_object, PW_PROTOCOL_NATIVE_REMAP, }
+	{ &core_demarshal_create_object, PW_PROTOCOL_NATIVE_REMAP, },
+	{ &core_demarshal_destroy, 0, }
 };
 
 static const struct pw_core_proxy_events pw_protocol_native_core_event_marshal = {

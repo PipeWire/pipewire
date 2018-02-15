@@ -42,6 +42,7 @@ int pw_type_init(struct pw_type *type)
 	type->core = spa_type_map_get_id(type->map, PW_TYPE_INTERFACE__Core);
 	type->registry = spa_type_map_get_id(type->map, PW_TYPE_INTERFACE__Registry);
 	type->node = spa_type_map_get_id(type->map, PW_TYPE_INTERFACE__Node);
+	type->port = spa_type_map_get_id(type->map, PW_TYPE_INTERFACE__Port);
 	type->factory = spa_type_map_get_id(type->map, PW_TYPE_INTERFACE__Factory);
 	type->link = spa_type_map_get_id(type->map, PW_TYPE_INTERFACE__Link);
 	type->client = spa_type_map_get_id(type->map, PW_TYPE_INTERFACE__Client);

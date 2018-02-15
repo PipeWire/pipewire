@@ -992,12 +992,12 @@ static const struct pw_resource_events resource_events = {
 	.destroy = link_unbind_func,
 };
 
-static int
-link_bind_func(struct pw_global *global,
-	       struct pw_client *client, uint32_t permissions,
+static void
+global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
 {
-	struct pw_link *this = global->object;
+	struct pw_link *this = _data;
+	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
 
@@ -1016,13 +1016,13 @@ link_bind_func(struct pw_global *global,
 	pw_link_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
-	return 0;
+	return;
 
       no_mem:
 	pw_log_error("can't create link resource");
 	pw_core_resource_error(client->core_resource,
 			       client->core_resource->id, -ENOMEM, "no memory");
-	return -ENOMEM;
+	return;
 }
 
 static int
@@ -1132,9 +1132,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	spa_list_append(&input->links, &this->input_link);
 
 	this->info.output_node_id = output_node->global->id;
-	this->info.output_port_id = output->port_id;
+	this->info.output_port_id = output->global->id;
 	this->info.input_node_id = input_node->global->id;
-	this->info.input_port_id = input->port_id;
+	this->info.input_port_id = input->global->id;
 	this->info.format = NULL;
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
@@ -1177,6 +1177,20 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	return NULL;
 }
 
+static void global_destroy(void *object)
+{
+	struct pw_link *link = object;
+	spa_hook_remove(&link->global_listener);
+	link->global = NULL;
+	pw_link_destroy(link);
+}
+
+static const struct pw_global_events global_events = {
+	PW_VERSION_GLOBAL_EVENTS,
+	.destroy = global_destroy,
+	.bind = global_bind,
+};
+
 int pw_link_register(struct pw_link *link,
 		     struct pw_client *owner,
 		     struct pw_global *parent,
@@ -1185,14 +1199,25 @@ int pw_link_register(struct pw_link *link,
 	struct pw_core *core = link->core;
 	struct pw_node *input_node, *output_node;
 
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		return -ENOMEM;
+
+	pw_properties_setf(properties, "link.output", "%d", link->info.output_port_id);
+	pw_properties_setf(properties, "link.input", "%d", link->info.input_port_id);
+
 	spa_list_append(&core->link_list, &link->link);
+	link->registered = true;
 
 	link->global = pw_global_new(core,
 				     core->type.link, PW_VERSION_LINK,
 				     properties,
-				     link_bind_func, link);
+				     link);
 	if (link->global == NULL)
 		return -ENOMEM;
+
+	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);
 
 	pw_global_register(link->global, owner, parent);
 	link->info.id = link->global->id;
@@ -1228,8 +1253,12 @@ void pw_link_destroy(struct pw_link *link)
 
 	pw_link_deactivate(link);
 
-	if (link->global) {
+	if (link->registered) {
 		spa_list_remove(&link->link);
+	}
+
+	if (link->global) {
+		spa_hook_remove(&link->global_listener);
 		pw_global_destroy(link->global);
 	}
 

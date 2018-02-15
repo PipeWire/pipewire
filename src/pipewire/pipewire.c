@@ -121,8 +121,6 @@ load_interface(struct support_info *info,
                 fprintf(stderr, "can't get %s interface %d\n", type, res);
                 goto interface_failed;
         }
-	fprintf(stderr, "loaded interface %s from %s\n", type, factory_name);
-
         return iface;
 
       interface_failed:

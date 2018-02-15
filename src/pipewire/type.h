@@ -54,6 +54,7 @@ struct pw_type {
 	uint32_t core;
 	uint32_t registry;
 	uint32_t node;
+	uint32_t port;
 	uint32_t factory;
 	uint32_t link;
 	uint32_t client;

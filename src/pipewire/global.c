@@ -62,7 +62,6 @@ pw_global_new(struct pw_core *core,
 	      uint32_t type,
 	      uint32_t version,
 	      struct pw_properties *properties,
-	      pw_bind_func_t bind,
 	      void *object)
 {
 	struct global_impl *impl;
@@ -77,10 +76,11 @@ pw_global_new(struct pw_core *core,
 	this->core = core;
 	this->type = type;
 	this->version = version;
-	this->bind = bind;
 	this->object = object;
 	this->properties = properties;
 	this->id = SPA_ID_INVALID;
+
+	spa_hook_list_init(&this->listener_list);
 
 	pw_log_debug("global %p: new %s", this,
 			spa_type_map_get_type(core->type.map, this->type));
@@ -177,6 +177,14 @@ uint32_t pw_global_get_id(struct pw_global *global)
 	return global->id;
 }
 
+void pw_global_add_listener(struct pw_global *global,
+			    struct spa_hook *listener,
+			    const struct pw_global_events *events,
+			    void *data)
+{
+	spa_hook_list_append(&global->listener_list, listener, events, data);
+}
+
 /** Bind to a global
  *
  * \param global the global to bind to
@@ -196,15 +204,13 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 {
 	int res;
 
-	if (global->bind == NULL)
-		goto no_bind;
-
 	if (global->version < version)
 		goto wrong_version;
 
-	res = global->bind(global, client, permissions, version, id);
+	spa_hook_list_call(&global->listener_list, struct pw_global_events, bind,
+			client, permissions, version, id);
 
-	return res;
+	return 0;
 
      wrong_version:
 	res = -EINVAL;
@@ -212,12 +218,6 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 			       client->core_resource->id,
 			     res, "id %d: interface version %d < %d",
 			     id, global->version, version);
-	return res;
-     no_bind:
-	res = -ENOTSUP;
-	pw_core_resource_error(client->core_resource,
-			       client->core_resource->id,
-			     res, "can't bind object id %d to interface", id);
 	return res;
 }
 
@@ -233,6 +233,7 @@ void pw_global_destroy(struct pw_global *global)
 	struct pw_resource *registry;
 
 	pw_log_debug("global %p: destroy %u", global, global->id);
+	spa_hook_list_call(&global->listener_list, struct pw_global_events, destroy);
 
 	if (global->id != SPA_ID_INVALID) {
 		spa_list_for_each(registry, &core->registry_resource_list, link) {
@@ -248,9 +249,11 @@ void pw_global_destroy(struct pw_global *global)
 		spa_hook_list_call(&core->listener_list, struct pw_core_events, global_removed, global);
 	}
 
+	pw_log_debug("global %p: free", global);
+	spa_hook_list_call(&global->listener_list, struct pw_global_events, free);
+
 	if (global->properties)
 		pw_properties_free(global->properties);
 
-	pw_log_debug("global %p: free", global);
 	free(global);
 }

@@ -288,12 +288,12 @@ static const struct pw_resource_events resource_events = {
 	.destroy = node_unbind_func,
 };
 
-static int
-node_bind_func(struct pw_global *global,
-	       struct pw_client *client, uint32_t permissions,
-	       uint32_t version, uint32_t id)
+static void
+global_bind(void *_data, struct pw_client *client, uint32_t permissions,
+	    uint32_t version, uint32_t id)
 {
-	struct pw_node *this = global->object;
+	struct pw_node *this = _data;
+	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
 
@@ -311,14 +311,13 @@ node_bind_func(struct pw_global *global,
 	this->info.change_mask = ~0;
 	pw_node_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
-
-	return 0;
+	return;
 
       no_mem:
 	pw_log_error("can't create node resource");
 	pw_core_resource_error(client->core_resource,
 			       client->core_resource->id, -ENOMEM, "no memory");
-	return -ENOMEM;
+	return;
 }
 
 static int
@@ -332,6 +331,20 @@ do_node_add(struct spa_loop *loop,
 	return 0;
 }
 
+static void global_destroy(void *data)
+{
+	struct pw_node *this = data;
+	spa_hook_remove(&this->global_listener);
+	this->global = NULL;
+	pw_node_destroy(this);
+}
+
+static const struct pw_global_events global_events = {
+	PW_VERSION_GLOBAL_EVENTS,
+	.destroy = global_destroy,
+	.bind = global_bind,
+};
+
 int pw_node_register(struct pw_node *this,
 		     struct pw_client *owner,
 		     struct pw_global *parent,
@@ -339,33 +352,43 @@ int pw_node_register(struct pw_node *this,
 {
 	struct pw_core *core = this->core;
 	const char *str;
+	struct pw_port *port;
 
 	pw_log_debug("node %p: register", this);
-
-	update_port_ids(this);
-	update_info(this);
-
-	pw_loop_invoke(this->data_loop, do_node_add, 1, NULL, 0, false, this);
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
 		return -ENOMEM;
 
+	update_port_ids(this);
+	update_info(this);
+
+	pw_loop_invoke(this->data_loop, do_node_add, 1, NULL, 0, false, this);
+
 	if ((str = pw_properties_get(this->properties, "media.class")) != NULL)
 		pw_properties_set(properties, "media.class", str);
 	pw_properties_set(properties, "node.name", this->info.name);
 
 	spa_list_append(&core->node_list, &this->link);
+	this->registered = true;
+
 	this->global = pw_global_new(core,
 				     core->type.node, PW_VERSION_NODE,
 				     properties,
-				     node_bind_func, this);
+				     this);
 	if (this->global == NULL)
 		return -ENOMEM;
 
+	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
+
 	pw_global_register(this->global, owner, parent);
 	this->info.id = this->global->id;
+
+	spa_list_for_each(port, &this->input_ports, link)
+		pw_port_register(port, owner, this->global, pw_properties_copy(port->properties));
+	spa_list_for_each(port, &this->output_ports, link)
+		pw_port_register(port, owner, this->global, pw_properties_copy(port->properties));
 
 	spa_hook_list_call(&this->listener_list, struct pw_node_events, initialized);
 
@@ -593,11 +616,14 @@ void pw_node_destroy(struct pw_node *node)
 	pw_log_debug("node %p: destroy", impl);
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, destroy);
 
-	if (node->global) {
+	if (node->registered) {
 		pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
 		spa_list_remove(&node->link);
+	}
+
+	if (node->global) {
+		spa_hook_remove(&node->global_listener);
 		pw_global_destroy(node->global);
-		node->global = NULL;
 	}
 
 	spa_list_for_each_safe(resource, tmp, &node->resource_list, link)

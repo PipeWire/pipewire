@@ -502,10 +502,16 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 	struct pw_core *core = pw_remote_get_core(this);
 
         if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
+		enum pw_remote_state state;
+
 		pw_log_error("protocol-native %p: got connection error", impl);
 		pw_loop_destroy_source(pw_core_get_main_loop(core), impl->source);
 		impl->source = NULL;
-		pw_remote_update_state(this, PW_REMOTE_STATE_ERROR, "connection error");
+		if (mask & SPA_IO_HUP)
+			state = PW_REMOTE_STATE_UNCONNECTED;
+		else
+			state = PW_REMOTE_STATE_ERROR;
+		pw_remote_update_state(this, state, "connection error");
 		return;
         }
 

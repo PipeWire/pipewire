@@ -47,6 +47,7 @@ static void *do_loop(void *user_data)
 static void do_stop(void *data, uint64_t count)
 {
 	struct pw_data_loop *this = data;
+	pw_log_debug("data-loop %p: stopping", this);
 	this->running = false;
 }
 

@@ -324,7 +324,7 @@ do_update_port(struct proxy *this,
 
 		port->have_format = false;
 
-		spa_log_info(this->log, "proxy %p: update %d params", this, n_params);
+		spa_log_info(this->log, "proxy %p: port %u update %d params", this, port_id, n_params);
 		for (i = 0; i < port->n_params; i++)
 			free(port->params[i]);
 		port->n_params = n_params;

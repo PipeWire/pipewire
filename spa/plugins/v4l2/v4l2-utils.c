@@ -1187,7 +1187,9 @@ static void v4l2_on_fd_events(struct spa_source *source)
 	struct impl *this = source->data;
 
 	if (source->rmask & SPA_IO_ERR) {
-		spa_log_warn(this->log, "v4l2 %p: error %d", this, source->rmask);
+		struct port *port = &this->out_ports[0];
+		spa_log_error(this->log, "v4l2 %p: error %d", this, source->rmask);
+		spa_loop_remove_source(port->data_loop, &port->source);
 		return;
 	}
 

@@ -600,7 +600,6 @@ static void handle_rtnode_message(struct client *c, struct pw_client_node_messag
 			if (!p->valid)
 				continue;
 
-			pw_log_trace("%d %d", i, p->id);
 			output = &c->trans->outputs[p->id];
 			if (output->buffer_id == SPA_ID_INVALID)
 				continue;
@@ -809,7 +808,7 @@ static void client_node_port_set_param(void *object,
 static void clear_buffers(struct client *c, struct port *p)
 {
         struct buffer *b;
-	int i;
+	int i, j;
 
         pw_log_debug(NAME" %p: port %p clear buffers", c, p);
 
@@ -820,17 +819,18 @@ static void clear_buffers(struct client *c, struct port *p)
 			if (munmap(b->ptr, b->map.size) < 0)
 				pw_log_warn("failed to unmap: %m");
 		}
-		for (i = 0; i < b->n_datas; i++) {
-			struct spa_data *d = &b->datas[i];
+		for (j = 0; j < b->n_datas; j++) {
+			struct spa_data *d = &b->datas[j];
 			if (d->fd != -1 && d->data) {
 				if (munmap(SPA_MEMBER(d->data, -d->mapoffset, void),
 							d->maxsize + d->mapoffset) < 0)
 					pw_log_warn("failed to unmap: %m");
 			}
+			d->fd = -1;
 		}
-		for (i = 0; i < b->n_mem; i++) {
-			if (--b->mem[i]->ref == 0)
-				clear_mem(c, b->mem[i]);
+		for (j = 0; j < b->n_mem; j++) {
+			if (--b->mem[j]->ref == 0)
+				clear_mem(c, b->mem[j]);
 		}
 		b->n_mem = 0;
 		b->ptr = NULL;

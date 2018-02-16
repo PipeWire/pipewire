@@ -301,9 +301,8 @@ void pw_client_destroy(struct pw_client *client)
 
 	spa_hook_remove(&impl->core_listener);
 
-	if (client->registered) {
+	if (client->registered)
 		spa_list_remove(&client->link);
-	}
 
 	if (client->global) {
 		spa_hook_remove(&client->global_listener);

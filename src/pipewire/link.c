@@ -1253,17 +1253,8 @@ void pw_link_destroy(struct pw_link *link)
 
 	pw_link_deactivate(link);
 
-	if (link->registered) {
+	if (link->registered)
 		spa_list_remove(&link->link);
-	}
-
-	if (link->global) {
-		spa_hook_remove(&link->global_listener);
-		pw_global_destroy(link->global);
-	}
-
-	spa_list_for_each_safe(resource, tmp, &link->resource_list, link)
-	    pw_resource_destroy(resource);
 
 	input_remove(link, link->input);
 	spa_list_remove(&link->input_link);
@@ -1274,6 +1265,14 @@ void pw_link_destroy(struct pw_link *link)
 	spa_list_remove(&link->output_link);
 	spa_hook_list_call(&link->output->listener_list, struct pw_port_events, link_removed, link);
 	link->output = NULL;
+
+	if (link->global) {
+		spa_hook_remove(&link->global_listener);
+		pw_global_destroy(link->global);
+	}
+
+	spa_list_for_each_safe(resource, tmp, &link->resource_list, link)
+	    pw_resource_destroy(resource);
 
 	pw_log_debug("link %p: free", impl);
 	spa_hook_list_call(&link->listener_list, struct pw_link_events, free);

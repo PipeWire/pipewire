@@ -487,6 +487,9 @@ void * pw_port_get_user_data(struct pw_port *port);
 /** Add a port to a node \memberof pw_port */
 int pw_port_add(struct pw_port *port, struct pw_node *node);
 
+/** Unlink a port \memberof pw_port */
+void pw_port_unlink(struct pw_port *port);
+
 /** Destroy a port \memberof pw_port */
 void pw_port_destroy(struct pw_port *port);
 

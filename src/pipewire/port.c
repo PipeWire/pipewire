@@ -391,6 +391,20 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	return 0;
 }
 
+void pw_port_unlink(struct pw_port *port)
+{
+	struct pw_link *l, *t;
+
+	if (port->direction == PW_DIRECTION_OUTPUT) {
+		spa_list_for_each_safe(l, t, &port->links, output_link)
+			pw_link_destroy(l);
+	}
+	else {
+		spa_list_for_each_safe(l, t, &port->links, input_link)
+			pw_link_destroy(l);
+	}
+}
+
 static int do_remove_port(struct spa_loop *loop,
 			  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
@@ -409,6 +423,28 @@ static int do_remove_port(struct spa_loop *loop,
 	return 0;
 }
 
+static void pw_port_remove(struct pw_port *port)
+{
+	struct pw_node *node = port->node;
+
+	pw_log_debug("port %p: remove", port);
+
+	if (port->rt.graph)
+		pw_loop_invoke(port->node->data_loop, do_remove_port,
+			       SPA_ID_INVALID, NULL, 0, true, port);
+
+	if (port->direction == PW_DIRECTION_INPUT) {
+		pw_map_remove(&node->input_port_map, port->port_id);
+		node->info.n_input_ports--;
+	}
+	else {
+		pw_map_remove(&node->output_port_map, port->port_id);
+		node->info.n_output_ports--;
+	}
+	spa_list_remove(&port->link);
+	spa_hook_list_call(&node->listener_list, struct pw_node_events, port_removed, port);
+}
+
 void pw_port_destroy(struct pw_port *port)
 {
 	struct pw_node *node = port->node;
@@ -418,32 +454,18 @@ void pw_port_destroy(struct pw_port *port)
 
 	spa_hook_list_call(&port->listener_list, struct pw_port_events, destroy);
 
-	if (port->global) {
-		spa_hook_remove(&port->global_listener);
-		pw_global_destroy(port->global);
-	}
-
-	if (node) {
-		if (port->rt.graph)
-			pw_loop_invoke(port->node->data_loop, do_remove_port,
-				       SPA_ID_INVALID, NULL, 0, true, port);
-
-		if (port->direction == PW_DIRECTION_INPUT) {
-			pw_map_remove(&node->input_port_map, port->port_id);
-			node->info.n_input_ports--;
-		}
-		else {
-			pw_map_remove(&node->output_port_map, port->port_id);
-			node->info.n_output_ports--;
-		}
-		spa_list_remove(&port->link);
-		spa_hook_list_call(&node->listener_list, struct pw_node_events, port_removed, port);
-	}
+	if (node)
+		pw_port_remove(port);
 
 	spa_list_for_each_safe(control, ctemp, &port->control_list[0], port_link)
 		pw_control_destroy(control);
 	spa_list_for_each_safe(control, ctemp, &port->control_list[1], port_link)
 		pw_control_destroy(control);
+
+	if (port->global) {
+		spa_hook_remove(&port->global_listener);
+		pw_global_destroy(port->global);
+	}
 
 	pw_log_debug("port %p: free", port);
 	spa_hook_list_call(&port->listener_list, struct pw_port_events, free);

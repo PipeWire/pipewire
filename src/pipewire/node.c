@@ -621,24 +621,28 @@ void pw_node_destroy(struct pw_node *node)
 		spa_list_remove(&node->link);
 	}
 
-	if (node->global) {
-		spa_hook_remove(&node->global_listener);
-		pw_global_destroy(node->global);
-	}
-
-	spa_list_for_each_safe(resource, tmp, &node->resource_list, link)
-		pw_resource_destroy(resource);
+	pw_log_debug("node %p: unlink ports", node);
+	spa_list_for_each(port, &node->input_ports, link)
+		pw_port_unlink(port);
+	spa_list_for_each(port, &node->output_ports, link)
+		pw_port_unlink(port);
 
 	pw_log_debug("node %p: destroy ports", node);
 	spa_list_for_each_safe(port, tmpp, &node->input_ports, link) {
 		spa_hook_list_call(&node->listener_list, struct pw_node_events, port_removed, port);
 		pw_port_destroy(port);
 	}
-
 	spa_list_for_each_safe(port, tmpp, &node->output_ports, link) {
 		spa_hook_list_call(&node->listener_list, struct pw_node_events, port_removed, port);
 		pw_port_destroy(port);
 	}
+
+	if (node->global) {
+		spa_hook_remove(&node->global_listener);
+		pw_global_destroy(node->global);
+	}
+	spa_list_for_each_safe(resource, tmp, &node->resource_list, link)
+		pw_resource_destroy(resource);
 
 	pw_log_debug("node %p: free", node);
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, free);

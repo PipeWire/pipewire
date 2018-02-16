@@ -300,6 +300,12 @@ void pw_module_destroy(struct pw_module *module)
 	pw_log_debug("module %p: destroy", module);
 	spa_hook_list_call(&module->listener_list, struct pw_module_events, destroy);
 
+	spa_list_remove(&module->link);
+
+	if (module->global) {
+		spa_hook_remove(&module->global_listener);
+		pw_global_destroy(module->global);
+	}
 	spa_list_for_each_safe(resource, tmp, &module->resource_list, link)
 		pw_resource_destroy(resource);
 
@@ -310,12 +316,6 @@ void pw_module_destroy(struct pw_module *module)
 	if (module->info.args)
 		free((char *) module->info.args);
 
-	spa_list_remove(&module->link);
-
-	if (module->global) {
-		spa_hook_remove(&module->global_listener);
-		pw_global_destroy(module->global);
-	}
 	dlclose(impl->hnd);
 	free(impl);
 }

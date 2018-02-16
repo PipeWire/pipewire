@@ -407,6 +407,7 @@ struct pw_factory {
 	struct spa_list link;		/**< link in core node_factory_list */
 	struct pw_global *global;	/**< global for this factory */
 	struct spa_hook global_listener;
+	bool registered;
 
 	struct pw_factory_info info;	/**< introspectable factory info */
 	struct pw_properties *properties;	/**< properties of the factory */

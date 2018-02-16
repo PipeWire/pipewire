@@ -60,8 +60,11 @@ void pw_factory_destroy(struct pw_factory *factory)
 	pw_log_debug("factory %p: destroy", factory);
 	spa_hook_list_call(&factory->listener_list, struct pw_factory_events, destroy);
 
-	if (factory->global) {
+	if (factory->registered)
 		spa_list_remove(&factory->link);
+
+	if (factory->global) {
+		spa_hook_remove(&factory->global_listener);
 		pw_global_destroy(factory->global);
 	}
 	if (factory->info.name)
@@ -137,8 +140,6 @@ int pw_factory_register(struct pw_factory *factory,
 {
 	struct pw_core *core = factory->core;
 
-	spa_list_append(&core->factory_list, &factory->link);
-
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
@@ -149,12 +150,16 @@ int pw_factory_register(struct pw_factory *factory,
 			spa_type_map_get_type(core->type.map, factory->info.type));
 	pw_properties_setf(properties, "factory.type.version", "%d", factory->info.version);
 
+	spa_list_append(&core->factory_list, &factory->link);
+	factory->registered = true;
+
         factory->global = pw_global_new(core,
 					core->type.factory, PW_VERSION_FACTORY,
 					properties,
 					factory);
 	if (factory->global == NULL)
 		return -ENOMEM;
+
 
 	pw_global_add_listener(factory->global, &factory->global_listener, &global_events, factory);
 	pw_global_register(factory->global, owner, parent);

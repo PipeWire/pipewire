@@ -438,7 +438,7 @@ static int port_enum_params(struct spa_node *node,
 			    struct spa_pod_builder *builder)
 {
 	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
-	struct pw_type *type = n->impl->t;
+	struct pw_type *t = n->impl->t;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
@@ -447,13 +447,24 @@ static int port_enum_params(struct spa_node *node,
       next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	if (id == type->param.idEnumFormat) {
+	if (id == t->param.idEnumFormat) {
 		if ((res = port_enum_formats(node, direction, port_id, index, filter, &param, &b)) <= 0)
 			return res;
 	}
-	else if (id == type->param.idFormat) {
+	else if (id == t->param.idFormat) {
 		if ((res = port_enum_formats(node, direction, port_id, index, filter, &param, &b)) <= 0)
 			return res;
+	}
+	else if (id == t->param.idBuffers) {
+		if (*index > 0)
+			return 0;
+
+		param = spa_pod_builder_object(&b,
+			id, t->param_buffers.Buffers,
+			":", t->param_buffers.size,    "i", n->buffer_size * sizeof(float),
+			":", t->param_buffers.stride,  "i", 0,
+			":", t->param_buffers.buffers, "ir", 2, 2, 1, 2,
+			":", t->param_buffers.align,   "i", 16);
 	}
 	else
 		return -ENOENT;

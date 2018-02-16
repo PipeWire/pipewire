@@ -758,6 +758,40 @@ static void client_node_remove_port(void *object,
 	pw_client_node_proxy_done(c->node_proxy, seq, -ENOTSUP);
 }
 
+static void clear_buffers(struct client *c, struct port *p)
+{
+        struct buffer *b;
+	int i, j;
+
+        pw_log_debug(NAME" %p: port %p clear buffers", c, p);
+
+	for (i = 0; i < p->n_buffers; i++) {
+		b = &p->buffers[i];
+
+		if (b->ptr != NULL) {
+			if (munmap(b->ptr, b->map.size) < 0)
+				pw_log_warn("failed to unmap: %m");
+		}
+		for (j = 0; j < b->n_datas; j++) {
+			struct spa_data *d = &b->datas[j];
+			if (d->fd != -1 && d->data) {
+				if (munmap(SPA_MEMBER(d->data, -d->mapoffset, void),
+							d->maxsize + d->mapoffset) < 0)
+					pw_log_warn("failed to unmap: %m");
+			}
+			d->fd = -1;
+		}
+		for (j = 0; j < b->n_mem; j++) {
+			if (--b->mem[j]->ref == 0)
+				clear_mem(c, b->mem[j]);
+		}
+		b->n_mem = 0;
+		b->ptr = NULL;
+        }
+        p->n_buffers = 0;
+	spa_list_init(&p->queue);
+}
+
 static void client_node_port_set_param(void *object,
                                 uint32_t seq,
                                 enum spa_direction direction,
@@ -766,10 +800,14 @@ static void client_node_port_set_param(void *object,
                                 const struct spa_pod *param)
 {
 	struct client *c = (struct client *) object;
+	struct port *p = GET_PORT(c, direction, port_id);
         struct pw_type *t = c->context.t;
 	struct spa_pod *params[4];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+
+        if (id == t->param.idFormat && param == NULL)
+		clear_buffers(c, p);
 
 	params[0] = spa_pod_builder_object(&b,
 		t->param.idEnumFormat, t->spa_format,
@@ -803,40 +841,6 @@ static void client_node_port_set_param(void *object,
 					 NULL);
 
 	pw_client_node_proxy_done(c->node_proxy, seq, 0);
-}
-
-static void clear_buffers(struct client *c, struct port *p)
-{
-        struct buffer *b;
-	int i, j;
-
-        pw_log_debug(NAME" %p: port %p clear buffers", c, p);
-
-	for (i = 0; i < p->n_buffers; i++) {
-		b = &p->buffers[i];
-
-		if (b->ptr != NULL) {
-			if (munmap(b->ptr, b->map.size) < 0)
-				pw_log_warn("failed to unmap: %m");
-		}
-		for (j = 0; j < b->n_datas; j++) {
-			struct spa_data *d = &b->datas[j];
-			if (d->fd != -1 && d->data) {
-				if (munmap(SPA_MEMBER(d->data, -d->mapoffset, void),
-							d->maxsize + d->mapoffset) < 0)
-					pw_log_warn("failed to unmap: %m");
-			}
-			d->fd = -1;
-		}
-		for (j = 0; j < b->n_mem; j++) {
-			if (--b->mem[j]->ref == 0)
-				clear_mem(c, b->mem[j]);
-		}
-		b->n_mem = 0;
-		b->ptr = NULL;
-        }
-        p->n_buffers = 0;
-	spa_list_init(&p->queue);
 }
 
 static void client_node_port_use_buffers(void *object,
@@ -1085,7 +1089,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 			goto exit_free;
 		o->port_link.dst = pw_properties_parse_int(str);
 
-		pw_log_debug("add link %d %d", o->port_link.src, o->port_link.dst);
+		pw_log_debug("add link %d %d->%d", o->id, o->port_link.src, o->port_link.dst);
 	}
 	else
 		goto exit;

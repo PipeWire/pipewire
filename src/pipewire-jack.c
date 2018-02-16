@@ -1725,17 +1725,18 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		return NULL;
 	}
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
+	if (p->n_buffers == 0)
+		return c->empty;
 
 	if (p->direction == SPA_DIRECTION_INPUT) {
 		io = &c->trans->inputs[p->id];
 		if (io->status != SPA_STATUS_HAVE_BUFFER)
-			return NULL;
+			return c->empty;
 
 		b = &p->buffers[io->buffer_id];
 		io->status = SPA_STATUS_NEED_BUFFER;
 	} else {
-		b = dequeue_buffer(p);
-		if (b == NULL) {
+		if ((b = dequeue_buffer(p)) == NULL) {
 			pw_log_warn("port %p: out of buffers", p);
 			return c->empty;
 		}

@@ -68,7 +68,7 @@ struct impl {
 	struct spa_hook module_listener;
 	struct pw_properties *properties;
 
-	int port_count[2];
+	int node_count;
 
 	struct spa_list node_list;
 };
@@ -125,6 +125,8 @@ struct node {
 	int n_in_ports;
 	struct port *out_ports[MAX_PORTS];
 	int n_out_ports;
+
+	int port_count[2];
 };
 
 /** \endcond */
@@ -714,14 +716,19 @@ static struct port *make_port(struct node *n, enum pw_direction direction,
 	return p;
 }
 
-static struct pw_node *make_node(struct impl *impl, enum pw_direction direction)
+static struct pw_node *make_node(struct impl *impl, const struct pw_properties *props,
+		enum pw_direction direction)
 {
 	struct pw_node *node;
 	struct node *n;
 	struct port *p;
+	const char *alias;
+	char node_name[128];
 	int i;
 
-	node = pw_node_new(impl->core, "dsp", NULL, sizeof(struct node));
+	snprintf(node_name, sizeof(node_name), "system%d", impl->node_count++);
+
+	node = pw_node_new(impl->core, node_name, NULL, sizeof(struct node));
         if (node == NULL)
 		goto error;
 
@@ -734,6 +741,9 @@ static struct pw_node *make_node(struct impl *impl, enum pw_direction direction)
 	n->buffer_size = 1024 / sizeof(float);
 	pw_node_set_implementation(node, &n->node_impl);
 
+	if ((alias = pw_properties_get(props, "alsa.card")) == NULL)
+		goto error;
+
 	p = make_port(n, direction, 0, 0, NULL);
 	if (p == NULL)
 		goto error_free_node;
@@ -741,16 +751,23 @@ static struct pw_node *make_node(struct impl *impl, enum pw_direction direction)
 	direction = pw_direction_reverse(direction);
 
 	for (i = 0; i < n->channels; i++) {
-		char port_name[128];
+		char port_name[128], alias_name[128];
 
 		snprintf(port_name, sizeof(port_name), "%s_%d",
 				direction == PW_DIRECTION_INPUT ? "playback" : "capture",
-				impl->port_count[direction]++);
+				n->port_count[direction]);
+		snprintf(alias_name, sizeof(alias_name), "alsa_pcm:%s:%s%d",
+				alias,
+				direction == PW_DIRECTION_INPUT ? "in" : "out",
+				n->port_count[direction]);
+		n->port_count[direction]++;
+
 		p = make_port(n, direction, i,
 				PORT_FLAG_DSP | PORT_FLAG_RAW_F32,
 				pw_properties_new(
 					"port.dsp", "1",
 					"port.name", port_name,
+					"port.alias1", alias_name,
 					NULL));
 	        if (p == NULL)
 			goto error_free_node;
@@ -788,15 +805,23 @@ static int on_global(void *data, struct pw_global *global)
 	if ((str = pw_properties_get(properties, "media.class")) == NULL)
 		return 0;
 
-	if (strcmp(str, "Audio/Sink") != 0)
-		return 0;
-
-	if ((ip = pw_node_get_free_port(n, PW_DIRECTION_INPUT)) == NULL)
-		return 0;
-
-	node = make_node(impl, PW_DIRECTION_OUTPUT);
-	op = pw_node_get_free_port(node, PW_DIRECTION_OUTPUT);
-	if (op == NULL)
+	if (strcmp(str, "Audio/Sink") == 0) {
+		if ((ip = pw_node_get_free_port(n, PW_DIRECTION_INPUT)) == NULL)
+			return 0;
+		if ((node = make_node(impl, properties, PW_DIRECTION_OUTPUT)) == NULL)
+			return 0;
+		if ((op = pw_node_get_free_port(node, PW_DIRECTION_OUTPUT)) == NULL)
+			return 0;
+	}
+	else if (strcmp(str, "Audio/Source") == 0) {
+		if ((op = pw_node_get_free_port(n, PW_DIRECTION_OUTPUT)) == NULL)
+			return 0;
+		if ((node = make_node(impl, properties, PW_DIRECTION_INPUT)) == NULL)
+			return 0;
+		if ((ip = pw_node_get_free_port(node, PW_DIRECTION_INPUT)) == NULL)
+			return 0;
+	}
+	else
 		return 0;
 
 	link = pw_link_new(impl->core,
@@ -805,6 +830,12 @@ static int on_global(void *data, struct pw_global *global)
 			   NULL,
 			   pw_properties_new(PW_LINK_PROP_PASSIVE, "true", NULL),
 			   &error, 0);
+	if (link == NULL) {
+		pw_log_error("can't create link: %s", error);
+		free(error);
+		return 0;
+	}
+
 	pw_link_register(link, NULL, pw_module_get_global(impl->module), NULL);
 
 	return 0;

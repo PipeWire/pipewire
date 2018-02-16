@@ -588,8 +588,8 @@ static int port_set_format(struct spa_node *node,
 	if (format == NULL) {
 		spa_v4l2_stream_off(this);
 		spa_v4l2_clear_buffers(this);
-		spa_v4l2_close(this);
 		port->have_format = false;
+		spa_v4l2_close(this);
 		return 0;
 	} else {
 		spa_pod_object_parse(format,

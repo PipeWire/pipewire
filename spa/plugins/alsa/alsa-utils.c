@@ -401,6 +401,8 @@ pull_frames(struct state *state,
 			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
 			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->outbuf->id);
 			state->ready_offset = 0;
+
+			try_pull(state, frames, total_frames, do_pull);
 		}
 		total_frames += n_frames;
 		to_write -= n_frames;
@@ -409,7 +411,6 @@ pull_frames(struct state *state,
 				state, total_frames, to_write);
 	}
 
-	try_pull(state, frames, total_frames, do_pull);
 
 	if (total_frames == 0 && do_pull) {
 		total_frames = SPA_MIN(frames, state->threshold);

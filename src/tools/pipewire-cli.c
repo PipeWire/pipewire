@@ -172,9 +172,8 @@ static bool do_list_remotes(struct data *data, const char *cmd, char *args, char
 static bool do_switch_remote(struct data *data, const char *cmd, char *args, char **error);
 static bool do_info(struct data *data, const char *cmd, char *args, char **error);
 static bool do_create_node(struct data *data, const char *cmd, char *args, char **error);
-static bool do_destroy_node(struct data *data, const char *cmd, char *args, char **error);
+static bool do_destroy(struct data *data, const char *cmd, char *args, char **error);
 static bool do_create_link(struct data *data, const char *cmd, char *args, char **error);
-static bool do_destroy_link(struct data *data, const char *cmd, char *args, char **error);
 static bool do_export_node(struct data *data, const char *cmd, char *args, char **error);
 
 static struct command command_list[] = {
@@ -188,9 +187,8 @@ static struct command command_list[] = {
 	{ "list-objects", "List objects or current remote.", do_list_objects },
 	{ "info", "Get info about an object. <object-id>|all", do_info },
 	{ "create-node", "Create a node from a factory. <factory-name> [<properties>]", do_create_node },
-	{ "destroy-node", "Destroy a node. <node-var>", do_destroy_node },
+	{ "destroy", "Destroy a global object. <object-id>", do_destroy },
 	{ "create-link", "Create a link between nodes. <node-id> <port-id> <node-id> <port-id> [<properties>]", do_create_link },
-	{ "destroy-link", "Destroy a link. <link-var>", do_destroy_link },
 	{ "export-node", "Export a local node to the current remote. <node-id> [remote-var]", do_export_node },
 };
 
@@ -920,10 +918,28 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 	return true;
 }
 
-static bool do_destroy_node(struct data *data, const char *cmd, char *args, char **error)
+static bool do_destroy(struct data *data, const char *cmd, char *args, char **error)
 {
-        asprintf(error, "Command \"%s\" not yet implemented", cmd);
-	return false;
+	struct remote_data *rd = data->current;
+	char *a[1];
+        int n;
+	uint32_t id;
+	struct global *global;
+
+	n = pw_split_ip(args, WHITESPACE, 1, a);
+	if (n < 1) {
+		asprintf(error, "%s <object-id>", cmd);
+		return false;
+	}
+	id = atoi(a[0]);
+	global = pw_map_lookup(&rd->globals, id);
+	if (global == NULL) {
+		asprintf(error, "%s: unknown global %d", cmd, id);
+		return false;
+	}
+	pw_core_proxy_destroy(rd->core_proxy, id);
+
+	return true;
 }
 
 static bool do_create_link(struct data *data, const char *cmd, char *args, char **error)
@@ -970,12 +986,6 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
 
 	return true;
-}
-
-static bool do_destroy_link(struct data *data, const char *cmd, char *args, char **error)
-{
-        asprintf(error, "Command \"%s\" not yet implemented", cmd);
-	return false;
 }
 
 static bool do_export_node(struct data *data, const char *cmd, char *args, char **error)

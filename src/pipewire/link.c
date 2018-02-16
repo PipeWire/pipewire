@@ -840,7 +840,7 @@ output_node_async_complete(void *data, uint32_t seq, int res)
 
 static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 {
-	if (link->buffer_owner != port)
+	if (spa_list_is_empty(&port->links) && link->buffer_owner != port)
 		pw_port_use_buffers(port, NULL, 0);
 }
 
@@ -864,6 +864,10 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_input, 1, NULL, 0, true, this);
 
+	spa_list_remove(&this->input_link);
+	spa_hook_list_call(&this->input->listener_list, struct pw_port_events, link_removed, this);
+
+	this->input = NULL;
 	clear_port_buffers(this, port);
 }
 
@@ -887,6 +891,10 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_output, 1, NULL, 0, true, this);
 
+	spa_list_remove(&this->output_link);
+	spa_hook_list_call(&this->output->listener_list, struct pw_port_events, link_removed, this);
+
+	this->output = NULL;
 	clear_port_buffers(this, port);
 }
 
@@ -934,6 +942,7 @@ do_deactivate_link(struct spa_loop *loop,
 		   bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
+	pw_log_trace("link %p: disable %p and %p", this, &this->rt.out_port, &this->rt.in_port);
 	SPA_FLAG_SET(this->rt.out_port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
 	SPA_FLAG_SET(this->rt.in_port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
 	return 0;
@@ -1261,14 +1270,8 @@ void pw_link_destroy(struct pw_link *link)
 		spa_list_remove(&link->link);
 
 	input_remove(link, link->input);
-	spa_list_remove(&link->input_link);
-	spa_hook_list_call(&link->input->listener_list, struct pw_port_events, link_removed, link);
-	link->input = NULL;
 
 	output_remove(link, link->output);
-	spa_list_remove(&link->output_link);
-	spa_hook_list_call(&link->output->listener_list, struct pw_port_events, link_removed, link);
-	link->output = NULL;
 
 	if (link->global) {
 		spa_hook_remove(&link->global_listener);

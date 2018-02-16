@@ -685,6 +685,10 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		}
 		if (SPA_RESULT_IS_ASYNC(res))
 			pw_work_queue_add(impl->work, output->node, res, complete_paused, output);
+
+		output->buffer_mem = this->buffer_mem;
+		output->allocated = false;
+		this->buffer_owner = output;
 	} else {
 		asprintf(&error, "no common buffer alloc found");
 		goto error;

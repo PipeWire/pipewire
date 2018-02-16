@@ -96,6 +96,8 @@ struct object {
 		struct {
 			unsigned long flags;
 			char name[REAL_JACK_PORT_NAME_SIZE];
+			char alias1[REAL_JACK_PORT_NAME_SIZE];
+			char alias2[REAL_JACK_PORT_NAME_SIZE];
 			uint32_t type_id;
 			uint32_t port_id;
 		} port;
@@ -213,6 +215,8 @@ struct client {
 	void *portregistration_arg;
 	JackPortConnectCallback connect_callback;
 	void *connect_arg;
+	JackGraphOrderCallback graph_callback;
+	void *graph_arg;
 
 	uint32_t sample_rate;
 	uint32_t buffer_size;
@@ -324,9 +328,21 @@ static struct object *find_port(struct client *c, const char *name)
 	struct object *o;
 
 	spa_list_for_each(o, &c->context.ports, link) {
-		pw_log_debug("%s", o->port.name);
 		if (!strcmp(o->port.name, name))
 			return o;
+	}
+	return NULL;
+}
+
+static struct object *find_link(struct client *c, uint32_t src, uint32_t dst)
+{
+	struct object *l;
+
+	spa_list_for_each(l, &c->context.links, link) {
+		if (l->port_link.src == src &&
+		    l->port_link.dst == dst) {
+			return l;
+		}
 	}
 	return NULL;
 }
@@ -987,8 +1003,6 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	if (props == NULL)
 		return;
 
-	pw_log_debug("added: %u %u %u", id, type, parent_id);
-
 	if (type == t->node) {
 		if ((str = spa_dict_lookup(props, "node.name")) == NULL)
 			goto exit;
@@ -997,6 +1011,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		spa_list_append(&c->context.nodes, &o->link);
 
 		strncpy(o->node.name, str, sizeof(o->node.name));
+		pw_log_debug("add node %d", id);
 	}
 	else if (type == t->port) {
 		const struct spa_dict_item *item;
@@ -1045,7 +1060,18 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 			snprintf(o->port.name, sizeof(o->port.name), "%s:%s", ot->node.name, str);
 			o->port.port_id = SPA_ID_INVALID;
 		}
+
+		if ((str = spa_dict_lookup(props, "port.alias1")) != NULL)
+			snprintf(o->port.alias1, sizeof(o->port.alias1), "%s", str);
+		else
+			o->port.alias1[0] = '\0';
+
+		if ((str = spa_dict_lookup(props, "port.alias2")) != NULL)
+			snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", str);
+		else
+			o->port.alias2[0] = '\0';
 		o->port.flags = flags;
+		pw_log_debug("add port %d", id);
 	}
 	else if (type == t->link) {
 		o = alloc_object(c);
@@ -1117,6 +1143,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 		if (c->connect_callback)
 			c->connect_callback(o->port_link.src, o->port_link.dst, 0, c->connect_arg);
 	}
+
 	pw_map_insert_at(&c->context.globals, id, NULL);
 	free_object(c, o);
 }
@@ -1509,6 +1536,9 @@ int jack_set_graph_order_callback (jack_client_t *client,
                                    JackGraphOrderCallback graph_callback,
                                    void *data)
 {
+	struct client *c = (struct client *) client;
+	c->graph_callback = graph_callback;
+	c->graph_arg = data;
 	return 0;
 }
 
@@ -1805,14 +1835,9 @@ int jack_port_connected_to (const jack_port_t *port,
 		p = o;
 		o = l;
 	}
+	if (find_link(c, o->id, p->id))
+		res = 1;
 
-	spa_list_for_each(l, &c->context.links, link) {
-		if (l->port_link.src == o->id &&
-		    l->port_link.dst == p->id) {
-			res = 1;
-			break;
-		}
-	}
      exit:
 	pw_thread_loop_unlock(c->context.loop);
 
@@ -1833,7 +1858,7 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 	struct client *c = (struct client *) client;
 	struct object *o = (struct object *) port;
 	struct object *p, *l;
-	const char **res = malloc(sizeof(char*) * CONNECTION_NUM_FOR_PORT);
+	const char **res = malloc(sizeof(char*) * (CONNECTION_NUM_FOR_PORT + 1));
 	int count = 0;
 
 	pw_thread_loop_lock(c->context.loop);
@@ -1850,10 +1875,16 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 			continue;
 
 		res[count++] = p->port.name;
+		if (count == CONNECTION_NUM_FOR_PORT)
+			break;
 	}
 	pw_thread_loop_unlock(c->context.loop);
 
-	res[count] = NULL;
+	if (count == 0) {
+		free(res);
+		res = NULL;
+	} else
+		res[count] = NULL;
 
 	return res;
 }
@@ -1885,7 +1916,23 @@ int jack_port_unset_alias (jack_port_t *port, const char *alias)
 
 int jack_port_get_aliases (const jack_port_t *port, char* const aliases[2])
 {
-	return 0;
+	struct object *o = (struct object *) port;
+	struct client *c = o->client;
+	int res = 0;
+
+	pw_thread_loop_lock(c->context.loop);
+
+	if (o->port.alias1[0] != '\0') {
+		snprintf(aliases[0], REAL_JACK_PORT_NAME_SIZE, "%s", o->port.alias1);
+		res++;
+	}
+	if (o->port.alias2[0] != '\0') {
+		snprintf(aliases[1], REAL_JACK_PORT_NAME_SIZE, "%s", o->port.alias2);
+		res++;
+	}
+	pw_thread_loop_unlock(c->context.loop);
+
+	return res;
 }
 
 int jack_port_request_monitor (jack_port_t *port, int onoff)
@@ -1931,7 +1978,7 @@ int jack_connect (jack_client_t *client,
 	if (src == NULL || dst == NULL ||
 	    !(src->port.flags & JackPortIsOutput) ||
 	    !(dst->port.flags & JackPortIsInput)) {
-		res = -ENOENT;
+		res = -EINVAL;
 		goto exit;
 	}
 
@@ -1965,7 +2012,7 @@ int jack_disconnect (jack_client_t *client,
                      const char *destination_port)
 {
 	struct client *c = (struct client *) client;
-	struct object *src, *dst, *l, *found = NULL;
+	struct object *src, *dst, *l;
 	int res;
 
 	pw_log_debug("client %p: disconnect %s %s", client, source_port, destination_port);
@@ -1980,19 +2027,11 @@ int jack_disconnect (jack_client_t *client,
 	if (src == NULL || dst == NULL ||
 	    !(src->port.flags & JackPortIsOutput) ||
 	    !(dst->port.flags & JackPortIsInput)) {
-		res = -ENOENT;
+		res = -EINVAL;
 		goto exit;
 	}
 
-	spa_list_for_each(l, &c->context.links, link) {
-		pw_log_debug("%d %d", l->port_link.src, l->port_link.dst);
-		if (l->port_link.src == src->id &&
-		    l->port_link.dst == dst->id) {
-			found = l;
-			break;
-		}
-	}
-	if (found == NULL) {
+	if ((l = find_link(c, src->id, dst->id)) == NULL) {
 		res = -ENOENT;
 		goto exit;
 	}
@@ -2085,7 +2124,7 @@ const char ** jack_get_ports (jack_client_t *client,
                               unsigned long flags)
 {
 	struct client *c = (struct client *) client;
-	const char **res = malloc(sizeof(char*) * JACK_PORT_MAX);
+	const char **res = malloc(sizeof(char*) * (JACK_PORT_MAX + 1));
 	int count = 0;
 	struct object *o;
 
@@ -2096,10 +2135,16 @@ const char ** jack_get_ports (jack_client_t *client,
 			continue;
 
 		res[count++] = o->port.name;
+		if (count == JACK_PORT_MAX)
+			break;
 	}
-	res[count] = NULL;
-
 	pw_thread_loop_unlock(c->context.loop);
+
+	if (count == 0) {
+		free(res);
+		res = NULL;
+	} else
+		res[count] = NULL;
 
 	return res;
 }

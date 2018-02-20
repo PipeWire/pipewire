@@ -102,20 +102,6 @@ pipewire_module_audio_dsp = shared_library('pipewire-module-audio-dsp',
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
 )
 
-if jack_dep.found()
-pipewire_module_jack = shared_library('pipewire-module-jack',
-  [ 'module-jack.c',
-    'module-jack/shm.c',
-    'module-jack/jack-node.c' ],
-  c_args : pipewire_module_c_args,
-  include_directories : [configinc, spa_inc],
-  link_with : spalib,
-  install : true,
-  install_dir : modules_install_dir,
-  dependencies : [jack_dep, mathlib, dl_lib, rt_lib, pipewire_dep],
-)
-endif
-
 pipewire_module_suspend_on_idle = shared_library('pipewire-module-suspend-on-idle', [ 'module-suspend-on-idle.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],

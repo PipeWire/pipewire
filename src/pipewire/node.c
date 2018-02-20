@@ -50,12 +50,10 @@ struct resource_data {
 
 /** \endcond */
 
-static int pause_node(struct pw_node *this)
+
+static int do_pause_node(struct pw_node *this)
 {
 	int res = 0;
-
-	if (this->info.state <= PW_NODE_STATE_IDLE)
-		return 0;
 
 	pw_log_debug("node %p: pause node", this);
 	res = spa_node_send_command(this->node,
@@ -64,6 +62,14 @@ static int pause_node(struct pw_node *this)
 		pw_log_debug("node %p: pause node error %s", this, spa_strerror(res));
 
 	return res;
+}
+
+static int pause_node(struct pw_node *this)
+{
+	if (this->info.state <= PW_NODE_STATE_IDLE)
+		return 0;
+
+	return do_pause_node(this);
 }
 
 static int start_node(struct pw_node *this)
@@ -911,16 +917,16 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 		pw_log_debug("node %p: update state from %s -> %s", node,
 			     pw_node_state_as_string(old), pw_node_state_as_string(state));
 
-		if (state == PW_NODE_STATE_IDLE) {
-			if (impl->pause_on_idle)
-				pause_node(node);
-			node_deactivate(node);
-		}
-
 		if (node->info.error)
 			free((char*)node->info.error);
 		node->info.error = error;
 		node->info.state = state;
+
+		if (state == PW_NODE_STATE_IDLE) {
+			if (impl->pause_on_idle)
+				do_pause_node(node);
+			node_deactivate(node);
+		}
 
 		spa_hook_list_call(&node->listener_list, struct pw_node_events, state_changed,
 				 old, state, error);

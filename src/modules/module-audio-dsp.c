@@ -767,6 +767,7 @@ static struct pw_node *make_node(struct impl *impl, const struct pw_properties *
 	for (i = 0; i < n->channels; i++) {
 		char port_name[128], alias_name[128];
 
+		n->port_count[direction]++;
 		snprintf(port_name, sizeof(port_name), "%s_%d",
 				direction == PW_DIRECTION_INPUT ? "playback" : "capture",
 				n->port_count[direction]);
@@ -774,7 +775,6 @@ static struct pw_node *make_node(struct impl *impl, const struct pw_properties *
 				alias,
 				direction == PW_DIRECTION_INPUT ? "in" : "out",
 				n->port_count[direction]);
-		n->port_count[direction]++;
 
 		p = make_port(n, direction, i,
 				PORT_FLAG_DSP | PORT_FLAG_RAW_F32,

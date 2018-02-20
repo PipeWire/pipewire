@@ -110,7 +110,7 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info, snd_pcm_info_t *dev
 {
 	const char *str, *name, *klass = NULL;
 	const struct spa_handle_factory *factory = NULL;
-	char card_name[64];
+	char device_name[64];
 	struct type *t = &this->type;
 
 	switch (snd_pcm_info_get_stream(dev_info)) {
@@ -136,7 +136,7 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info, snd_pcm_info_t *dev
 	if (!(name && *name))
 		name = "Unknown";
 
-	snprintf(card_name, 64, "%s,%d", this->card_name, snd_pcm_info_get_device(dev_info));
+	snprintf(device_name, 64, "%s,%d", this->card_name, snd_pcm_info_get_device(dev_info));
 
 	spa_pod_builder_add(builder,
 		"<", 0, t->monitor.MonitorItem,
@@ -151,7 +151,8 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info, snd_pcm_info_t *dev
 		":", t->monitor.info,    "[", NULL);
 
 	spa_pod_builder_add(builder,
-		"s", "alsa.card",            "s", card_name,
+		"s", "alsa.card",            "s", this->card_name,
+		"s", "alsa.device",          "s", device_name,
 		"s", "alsa.card.id",         "s", snd_ctl_card_info_get_id(card_info),
 		"s", "alsa.card.components", "s", snd_ctl_card_info_get_components(card_info),
 		"s", "alsa.card.driver",     "s", snd_ctl_card_info_get_driver(card_info),

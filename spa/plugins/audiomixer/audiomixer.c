@@ -384,12 +384,12 @@ static int port_enum_formats(struct spa_node *node,
 				"I", t->media_type.audio,
 				"I", t->media_subtype.raw,
 				":", t->format_audio.format,   "Ieu", t->audio_format.S16,
-									2, t->audio_format.S16,
-									   t->audio_format.F32,
+					SPA_POD_PROP_ENUM(2, t->audio_format.S16,
+							     t->audio_format.F32),
 				":", t->format_audio.rate,     "iru", 44100,
-									2, 1, INT32_MAX,
+					SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
 				":", t->format_audio.channels, "iru", 2,
-									2, 1, INT32_MAX);
+					SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
 		}
 		break;
 	default:
@@ -486,11 +486,10 @@ impl_node_port_enum_params(struct spa_node *node,
 		param = spa_pod_builder_object(&b,
 			id, t->param_buffers.Buffers,
 			":", t->param_buffers.size,    "iru", 1024 * this->bpf,
-									2, 16 * this->bpf,
-									   INT32_MAX / this->bpf,
+				SPA_POD_PROP_MIN_MAX(16 * this->bpf, INT32_MAX / this->bpf),
 			":", t->param_buffers.stride,  "i", 0,
 			":", t->param_buffers.buffers, "iru", 1,
-									2, 1, MAX_BUFFERS,
+				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
@@ -513,7 +512,7 @@ impl_node_port_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				id, t->param_io.Buffers,
-				":", t->param_io.id, "I", t->io.Buffers,
+				":", t->param_io.id,   "I", t->io.Buffers,
 				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
 			break;
 		default:
@@ -525,7 +524,7 @@ impl_node_port_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				id, t->param_io.Control,
-				":", t->param_io.id, "I", t->io.ControlRange,
+				":", t->param_io.id,   "I", t->io.ControlRange,
 				":", t->param_io.size, "i", sizeof(struct spa_io_control_range));
 			break;
 		default:
@@ -542,17 +541,18 @@ impl_node_port_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				id, t->param_io.Prop,
-				":", t->param_io.id, "I", t->io_prop_volume,
-				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
-				":", t->param.propId, "I", t->prop_volume,
-				":", t->param.propType, "dru", p->volume, 2, 0.0, 10.0);
+				":", t->param_io.id,    "I", t->io_prop_volume,
+				":", t->param_io.size,  "i", sizeof(struct spa_pod_double),
+				":", t->param.propId,   "I", t->prop_volume,
+				":", t->param.propType, "dru", p->volume,
+					SPA_POD_PROP_MIN_MAX(0.0, 10.0));
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
 				id, t->param_io.Prop,
-				":", t->param_io.id, "I", t->io_prop_mute,
-				":", t->param_io.size, "i", sizeof(struct spa_pod_bool),
-				":", t->param.propId, "I", t->prop_mute,
+				":", t->param_io.id,    "I", t->io_prop_mute,
+				":", t->param_io.size,  "i", sizeof(struct spa_pod_bool),
+				":", t->param.propId,   "I", t->prop_mute,
 				":", t->param.propType, "b", p->mute);
 			break;
 		default:

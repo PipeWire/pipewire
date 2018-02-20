@@ -509,14 +509,14 @@ static int port_enum_formats(struct spa_node *node,
 			"I", t->media_type.video,
 			"I", t->media_subtype.raw,
 			":", t->format_video.format,    "Ieu", t->video_format.RGB,
-								2, t->video_format.RGB,
-								   t->video_format.UYVY,
+				SPA_POD_PROP_ENUM(2, t->video_format.RGB,
+						     t->video_format.UYVY),
 			":", t->format_video.size,      "Rru", &SPA_RECTANGLE(320, 240),
-								2, &SPA_RECTANGLE(1, 1),
-								   &SPA_RECTANGLE(INT32_MAX, INT32_MAX),
+				SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1, 1),
+						     &SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
 			":", t->format_video.framerate, "Fru", &SPA_FRACTION(25,1),
-								2, &SPA_FRACTION(0, 1),
-								   &SPA_FRACTION(INT32_MAX, 1));
+				SPA_POD_PROP_MIN_MAX(&SPA_FRACTION(0, 1),
+						     &SPA_FRACTION(INT32_MAX, 1)));
 		break;
 	default:
 		return 0;
@@ -610,7 +610,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			":", t->param_buffers.size,    "i", this->stride * raw_info->size.height,
 			":", t->param_buffers.stride,  "i", this->stride,
 			":", t->param_buffers.buffers, "ir", 2,
-								2, 1, 32,
+				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {

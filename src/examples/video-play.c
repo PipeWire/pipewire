@@ -275,9 +275,9 @@ on_stream_format_changed(void *_data, struct spa_pod *format)
 		t->param.idBuffers, t->param_buffers.Buffers,
 		":", t->param_buffers.size,    "i", data->stride * data->format.size.height,
 		":", t->param_buffers.stride,  "i", data->stride,
-		":", t->param_buffers.buffers, "iru", 32,
-								2, 2, 32,
-		":", t->param_buffers.align,    "i", 16);
+		":", t->param_buffers.buffers, "iru", 8,
+			SPA_POD_PROP_MIN_MAX(2, 32),
+		":", t->param_buffers.align,   "i", 16);
 
 	params[1] = spa_pod_builder_object(&b,
 		t->param.idMeta, t->param_meta.Meta,
@@ -346,12 +346,12 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		spa_pod_builder_pop(&b);
 		spa_pod_builder_add(&b,
 			":", data->type.format_video.size,      "Rru", &SPA_RECTANGLE(WIDTH, HEIGHT),
-									2, &SPA_RECTANGLE(1,1),
-									   &SPA_RECTANGLE(info.max_texture_width,
-										          info.max_texture_height),
+				SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1,1),
+						     &SPA_RECTANGLE(info.max_texture_width,
+								    info.max_texture_height)),
 			":", data->type.format_video.framerate, "Fru", &SPA_FRACTION(25,1),
-									2, &SPA_RECTANGLE(0,1),
-									   &SPA_RECTANGLE(30,1),
+				SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(0,1),
+						     &SPA_RECTANGLE(30,1)),
 			NULL);
 		params[0] = spa_pod_builder_pop(&b);
 

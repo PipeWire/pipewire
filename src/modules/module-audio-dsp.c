@@ -38,8 +38,10 @@
 #include "pipewire/type.h"
 #include "pipewire/private.h"
 
-#define MAX_PORTS 256
 #define NAME "dsp"
+
+#define MAX_PORTS	256
+#define MAX_BUFFERS	8
 
 struct type {
 	struct spa_type_media_type media_type;
@@ -95,7 +97,7 @@ struct port {
 
 	struct spa_io_buffers *io;
 
-	struct buffer buffers[64];
+	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
         struct spa_list queue;
 
@@ -463,7 +465,8 @@ static int port_enum_params(struct spa_node *node,
 			id, t->param_buffers.Buffers,
 			":", t->param_buffers.size,    "i", n->buffer_size * sizeof(float),
 			":", t->param_buffers.stride,  "i", 0,
-			":", t->param_buffers.buffers, "ir", 2, 2, 1, 2,
+			":", t->param_buffers.buffers, "ir", 2,
+				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else

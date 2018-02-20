@@ -595,6 +595,10 @@ static inline void *spa_pod_builder_add(struct spa_pod_builder *builder, const c
 #define SPA_POD_PROP(key,spec,type,value,...)		\
 	":", key, spec, value, ##__VA_ARGS__
 
+#define SPA_POD_PROP_MIN_MAX(min,max)	2,(min),(max)
+#define SPA_POD_PROP_STEP(min,max,step)	3,(min),(max),(step)
+#define SPA_POD_PROP_ENUM(n_vals,...)	(n_vals),__VA_ARGS__
+
 #define spa_pod_builder_object(b,id,type,...)					\
 	spa_pod_builder_add(b, SPA_POD_OBJECT(id,type,##__VA_ARGS__), NULL)
 

@@ -272,12 +272,12 @@ static int port_enum_formats(struct spa_node *node,
 
 	spa_pod_builder_add(builder,
 		":", d->type.format_video.size,      "Rru", &SPA_RECTANGLE(WIDTH, HEIGHT),
-								2, &SPA_RECTANGLE(1,1),
-								   &SPA_RECTANGLE(info.max_texture_width,
-									          info.max_texture_height),
+			SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1,1),
+					     &SPA_RECTANGLE(info.max_texture_width,
+							    info.max_texture_height)),
 		":", d->type.format_video.framerate, "Fru", &SPA_FRACTION(25,1),
-								2, &SPA_FRACTION(0,1),
-								   &SPA_FRACTION(30,1),
+			SPA_POD_PROP_MIN_MAX(&SPA_FRACTION(0,1),
+					     &SPA_FRACTION(30,1)),
 		NULL);
 	*result = spa_pod_builder_pop(builder);
 
@@ -308,7 +308,7 @@ static int impl_port_enum_params(struct spa_node *node,
 			":", t->param_buffers.size,    "i", d->stride * d->format.size.height,
 			":", t->param_buffers.stride,  "i", d->stride,
 			":", t->param_buffers.buffers, "iru", 2,
-									2, 1, 32,
+				SPA_POD_PROP_MIN_MAX(1, 32),
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {

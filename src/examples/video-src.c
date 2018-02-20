@@ -180,7 +180,7 @@ on_stream_format_changed(void *_data, struct spa_pod *format)
 		":", t->param_buffers.size,    "i", data->stride * data->format.size.height,
 		":", t->param_buffers.stride,  "i", data->stride,
 		":", t->param_buffers.buffers, "iru", 2,
-								2, 1, 32,
+			SPA_POD_PROP_MIN_MAX(1, 32),
 		":", t->param_buffers.align,   "i", 16);
 
 	params[1] = spa_pod_builder_object(&b,
@@ -225,8 +225,8 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 			"I", data->type.media_subtype.raw,
 			":", data->type.format_video.format,    "I", data->type.video_format.RGB,
 			":", data->type.format_video.size,      "Rru", &SPA_RECTANGLE(320, 240),
-									2, &SPA_RECTANGLE(1, 1),
-									   &SPA_RECTANGLE(4096, 4096),
+				SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1, 1),
+						     &SPA_RECTANGLE(4096, 4096)),
 			":", data->type.format_video.framerate, "F", &SPA_FRACTION(25, 1));
 
 		pw_stream_add_listener(data->stream,

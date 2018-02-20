@@ -106,7 +106,7 @@ static int impl_node_enum_params(struct spa_node *node,
 				":", t->param.propId, "I", t->prop_min_latency,
 				":", t->param.propName, "s", "The minimum latency",
 				":", t->param.propType, "ir", p->min_latency,
-							2, 1, INT32_MAX);
+					SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
 			break;
 		default:
 			return 0;
@@ -369,7 +369,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			":", t->param_buffers.size,    "i", this->props.min_latency * this->frame_size,
 			":", t->param_buffers.stride,  "i", 0,
 			":", t->param_buffers.buffers, "ir", 2,
-								2, 1, 32,
+				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {

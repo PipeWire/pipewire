@@ -249,21 +249,21 @@ static int impl_node_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				id, t->param.PropInfo,
-				":", t->param.propId, "I", t->prop_device,
+				":", t->param.propId,   "I", t->prop_device,
 				":", t->param.propName, "s", "The V4L2 device",
 				":", t->param.propType, "S", p->device, sizeof(p->device));
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
 				id, t->param.PropInfo,
-				":", t->param.propId, "I", t->prop_device_name,
+				":", t->param.propId,   "I", t->prop_device_name,
 				":", t->param.propName, "s", "The V4L2 device name",
 				":", t->param.propType, "S-r", p->device_name, sizeof(p->device_name));
 			break;
 		case 2:
 			param = spa_pod_builder_object(&b,
 				id, t->param.PropInfo,
-				":", t->param.propId, "I", t->prop_device_fd,
+				":", t->param.propId,   "I", t->prop_device_fd,
 				":", t->param.propName, "s", "The V4L2 fd",
 				":", t->param.propType, "i-r", p->device_fd);
 			break;
@@ -546,7 +546,7 @@ static int impl_node_port_enum_params(struct spa_node *node,
 			":", t->param_buffers.size,    "i", port->fmt.fmt.pix.sizeimage,
 			":", t->param_buffers.stride,  "i", port->fmt.fmt.pix.bytesperline,
 			":", t->param_buffers.buffers, "iru", MAX_BUFFERS,
-									2, 2, MAX_BUFFERS,
+				SPA_POD_PROP_MIN_MAX(2, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {

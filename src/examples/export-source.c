@@ -204,8 +204,10 @@ static int port_enum_formats(struct spa_node *node,
 		"I", d->type.media_type.audio,
 		"I", d->type.media_subtype.raw,
 		":", d->type.format_audio.format,   "I", d->type.audio_format.S16,
-		":", d->type.format_audio.channels, "iru", 2, 2, 1, INT32_MAX,
-		":", d->type.format_audio.rate,     "iru", 44100, 2, 1, INT32_MAX);
+		":", d->type.format_audio.channels, "iru", 2,
+			SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
+		":", d->type.format_audio.rate,     "iru", 44100,
+			SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
 
 	(*index)++;
 
@@ -279,10 +281,10 @@ static int impl_port_enum_params(struct spa_node *node,
 		param = spa_pod_builder_object(builder,
 			id, t->param_buffers.Buffers,
 			":", t->param_buffers.size,    "iru", 256,
-										2, 32, 4096,
+				SPA_POD_PROP_MIN_MAX(32, 4096),
 			":", t->param_buffers.stride,  "i",   0,
 			":", t->param_buffers.buffers, "iru", 1,
-										2, 1, 32,
+				SPA_POD_PROP_MIN_MAX(1, 32),
 			":", t->param_buffers.align,   "i",  16);
 	}
 	else if (id == t->param.idMeta) {
@@ -319,7 +321,8 @@ static int impl_port_enum_params(struct spa_node *node,
 				":", t->param_io.id, "I", d->type.io_prop_volume,
 				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
 				":", t->param.propId, "I", d->type.prop_volume,
-				":", t->param.propType, "dru", p->volume, 2, 0.0, 10.0);
+				":", t->param.propType, "dru", p->volume,
+					SPA_POD_PROP_MIN_MAX(0.0, 10.0));
 			break;
 		default:
 			return 0;

@@ -136,10 +136,6 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 	printf("stream state: \"%s\"\n", pw_stream_state_as_string(state));
 
 	switch (state) {
-	case PW_STREAM_STATE_PAUSED:
-		pw_loop_update_timer(pw_main_loop_get_loop(data->loop), data->timer, NULL, NULL, false);
-		break;
-
 	case PW_STREAM_STATE_STREAMING:
 	{
 		struct timespec timeout, interval;
@@ -149,10 +145,13 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 		interval.tv_sec = 0;
 		interval.tv_nsec = 40 * SPA_NSEC_PER_MSEC;
 
-		pw_loop_update_timer(pw_main_loop_get_loop(data->loop), data->timer, &timeout, &interval, false);
+		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
+				data->timer, &timeout, &interval, false);
 		break;
 	}
 	default:
+		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
+				data->timer, NULL, NULL, false);
 		break;
 	}
 }

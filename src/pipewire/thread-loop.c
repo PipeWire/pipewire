@@ -89,6 +89,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 {
 	struct pw_thread_loop *this;
 	pthread_mutexattr_t attr;
+	pthread_condattr_t cattr;
 
 	this = calloc(1, sizeof(struct pw_thread_loop));
 	if (this == NULL)
@@ -106,8 +107,10 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 	pthread_mutexattr_init(&attr);
 	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
 	pthread_mutex_init(&this->lock, &attr);
-	pthread_cond_init(&this->cond, NULL);
-	pthread_cond_init(&this->accept_cond, NULL);
+	pthread_condattr_init(&cattr);
+	pthread_condattr_setclock(&cattr, CLOCK_REALTIME);
+	pthread_cond_init(&this->cond, &cattr);
+	pthread_cond_init(&this->accept_cond, &cattr);
 
 	this->event = pw_loop_add_event(this->loop, do_stop, this);
 
@@ -278,12 +281,12 @@ void pw_thread_loop_wait(struct pw_thread_loop *loop)
  */
 int pw_thread_loop_timed_wait(struct pw_thread_loop *loop, int wait_max_sec)
 {
-	struct timeval now;
-	gettimeofday(&now, NULL);
 	struct timespec timeout;
-	timeout.tv_sec = now.tv_sec + wait_max_sec;
-	timeout.tv_nsec = now.tv_usec * 1000;
 	int ret = 0;
+
+	clock_gettime(CLOCK_REALTIME, &timeout);
+
+	timeout.tv_sec += wait_max_sec;
 
 	loop->n_waiting++;
 	ret = pthread_cond_timedwait(&loop->cond, &loop->lock, &timeout);

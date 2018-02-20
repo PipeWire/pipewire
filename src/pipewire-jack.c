@@ -46,7 +46,7 @@
 
 #define MAX_OBJECTS			8192
 #define MAX_PORTS			(PORT_NUM_FOR_CLIENT/2)
-#define MAX_BUFFERS			64
+#define MAX_BUFFERS			2
 #define MAX_BUFFER_DATAS		4
 #define MAX_BUFFER_MEMS			4
 
@@ -450,6 +450,7 @@ static struct mem *find_mem(struct pw_array *mems, uint32_t id)
 	return NULL;
 }
 
+#if 0
 static void *mem_map(struct client *c, struct mem *m, uint32_t offset, uint32_t size)
 {
 	if (m->ptr == NULL) {
@@ -466,6 +467,7 @@ static void *mem_map(struct client *c, struct mem *m, uint32_t offset, uint32_t 
 	}
 	return SPA_MEMBER(m->ptr, m->map.start, void);
 }
+#endif
 
 static void mem_unmap(struct client *c, struct mem *m)
 {
@@ -806,8 +808,10 @@ static void client_node_port_set_param(void *object,
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-        if (id == t->param.idFormat && param == NULL)
+        if (id == t->param.idFormat && param == NULL) {
+		pw_log_debug(NAME" %p: port %p clear format", c, p);
 		clear_buffers(c, p);
+	}
 
 	params[0] = spa_pod_builder_object(&b,
 		t->param.idEnumFormat, t->spa_format,
@@ -815,7 +819,8 @@ static void client_node_port_set_param(void *object,
 		"I", c->type.media_subtype.raw,
                 ":", c->type.format_audio.format,   "I", c->type.audio_format.F32,
                 ":", c->type.format_audio.channels, "i", 1,
-                ":", c->type.format_audio.rate,     "iru", c->sample_rate, 2, 1, INT32_MAX);
+                ":", c->type.format_audio.rate,     "iru", c->sample_rate,
+			SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
 
 	params[1] = spa_pod_builder_object(&b,
 		t->param.idFormat, t->spa_format,
@@ -827,9 +832,11 @@ static void client_node_port_set_param(void *object,
 
 	params[2] = spa_pod_builder_object(&b,
 		t->param.idBuffers, t->param_buffers.Buffers,
-		":", t->param_buffers.size,    "isu", 1024, 3, 4, INT32_MAX, 4,
+		":", t->param_buffers.size,    "isu", 1024,
+			SPA_POD_PROP_STEP(4, INT32_MAX, 4),
 		":", t->param_buffers.stride,  "i", 4,
-		":", t->param_buffers.buffers, "iru", 1, 2, 1, 2,
+		":", t->param_buffers.buffers, "iru", 2,
+			SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 		":", t->param_buffers.align,   "i", 16);
 
 	pw_client_node_proxy_port_update(c->node_proxy,
@@ -1654,13 +1661,16 @@ jack_port_t * jack_port_register (jack_client_t *client,
 		"I", c->type.media_subtype.raw,
                 ":", c->type.format_audio.format,   "I", c->type.audio_format.F32,
                 ":", c->type.format_audio.channels, "i", 1,
-                ":", c->type.format_audio.rate,     "iru", 44100, 2, 1, INT32_MAX);
+                ":", c->type.format_audio.rate,     "iru", 44100,
+			SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
 
 	params[1] = spa_pod_builder_object(&b,
 		t->param.idBuffers, t->param_buffers.Buffers,
-		":", t->param_buffers.size,    "isu", 1024, 3, 4, INT32_MAX, 4,
+		":", t->param_buffers.size,    "isu", 1024,
+			SPA_POD_PROP_STEP(4, INT32_MAX, 4),
 		":", t->param_buffers.stride,  "i", 4,
-		":", t->param_buffers.buffers, "iru", 1, 2, 1, 2,
+		":", t->param_buffers.buffers, "iru", 1,
+			SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 		":", t->param_buffers.align,   "i", 16);
 
 	pw_thread_loop_lock(c->context.loop);

@@ -129,6 +129,10 @@ void pw_thread_loop_unlock(struct pw_thread_loop *loop);
 /** Release the lock and wait until some thread calls \ref pw_thread_loop_signal */
 void pw_thread_loop_wait(struct pw_thread_loop *loop);
 
+/** Release the lock and wait a maximum of 'wait_max_sec' seconds
+ *  until some thread calls \ref pw_thread_loop_signal or time out */
+int pw_thread_loop_timed_wait(struct pw_thread_loop *loop, int wait_max_sec);
+
 /** Signal all threads waiting with \ref pw_thread_loop_wait */
 void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept);
 

@@ -18,6 +18,7 @@
  */
 
 #include <pthread.h>
+#include <sys/time.h>
 
 #include "pipewire.h"
 #include "thread-loop.h"
@@ -264,6 +265,30 @@ void pw_thread_loop_wait(struct pw_thread_loop *loop)
 	loop->n_waiting++;
 	pthread_cond_wait(&loop->cond, &loop->lock);
 	loop->n_waiting--;
+}
+
+/** Wait for the loop thread to call \ref pw_thread_loop_signal()
+ *  or time out.
+ *
+ * \param loop a \ref pw_thread_loop to signal
+ * \param wait_max_sec the maximum number of seconds to wait for a \ref pw_thread_loop_signal()
+ * \return 0 on success or ETIMEDOUT on timeout
+ *
+ * \memberof pw_thread_loop
+ */
+int pw_thread_loop_timed_wait(struct pw_thread_loop *loop, int wait_max_sec)
+{
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	struct timespec timeout;
+	timeout.tv_sec = now.tv_sec + wait_max_sec;
+	timeout.tv_nsec = now.tv_usec * 1000;
+	int ret = 0;
+
+	loop->n_waiting++;
+	ret = pthread_cond_timedwait(&loop->cond, &loop->lock, &timeout);
+	loop->n_waiting--;
+	return ret;
 }
 
 /** Signal the loop thread waiting for accept with \ref pw_thread_loop_signal()

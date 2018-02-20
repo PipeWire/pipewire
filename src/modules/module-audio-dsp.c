@@ -785,7 +785,7 @@ static struct pw_node *make_node(struct impl *impl, const struct pw_properties *
 		p = make_port(n, direction, i,
 				PORT_FLAG_DSP | PORT_FLAG_RAW_F32,
 				pw_properties_new(
-					"port.dsp", "1",
+					"port.dsp", "32 bit float mono audio",
 					"port.name", port_name,
 					"port.alias1", alias_name,
 					NULL));

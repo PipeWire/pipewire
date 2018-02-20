@@ -175,6 +175,8 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 static bool do_destroy(struct data *data, const char *cmd, char *args, char **error);
 static bool do_create_link(struct data *data, const char *cmd, char *args, char **error);
 static bool do_export_node(struct data *data, const char *cmd, char *args, char **error);
+static bool do_node_params(struct data *data, const char *cmd, char *args, char **error);
+static bool do_port_params(struct data *data, const char *cmd, char *args, char **error);
 
 static struct command command_list[] = {
 	{ "help", "Show this help", do_help },
@@ -190,6 +192,8 @@ static struct command command_list[] = {
 	{ "destroy", "Destroy a global object. <object-id>", do_destroy },
 	{ "create-link", "Create a link between nodes. <node-id> <port-id> <node-id> <port-id> [<properties>]", do_create_link },
 	{ "export-node", "Export a local node to the current remote. <node-id> [remote-var]", do_export_node },
+	{ "node-params", "Enumerate params of a node <node-id> [<param-id-name>]", do_node_params },
+	{ "port-params", "Enumerate params of a port <port-id> [<param-id-name>]", do_port_params },
 };
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error)
@@ -532,34 +536,31 @@ static void info_module(struct proxy_data *pd)
 static void info_node(struct proxy_data *pd)
 {
 	struct pw_node_info *info = pd->info;
-	struct pw_type *t = pd->rd->data->t;
-	int i;
 
 	info_global(pd);
 	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
-	fprintf(stdout, "%c\tinput ports: %u/%u\n", MARK_CHANGE(1), info->n_input_ports, info->max_input_ports);
-	fprintf(stdout, "%c\tinput params:\n", MARK_CHANGE(2));
-	for (i = 0; i < info->n_input_params; i++) {
-		uint32_t flags = 0;
-		if (spa_pod_is_object_type(info->input_params[i], t->spa_format))
-			flags |= SPA_DEBUG_FLAG_FORMAT;
-		spa_debug_pod(info->input_params[i], flags);
-	}
-
-	fprintf(stdout, "%c\toutput ports: %u/%u\n", MARK_CHANGE(3), info->n_output_ports, info->max_output_ports);
-	fprintf(stdout, "%c\toutput params:\n", MARK_CHANGE(4));
-	for (i = 0; i < info->n_output_params; i++) {
-		uint32_t flags = 0;
-		if (spa_pod_is_object_type(info->output_params[i], t->spa_format))
-			flags |= SPA_DEBUG_FLAG_FORMAT;
-		spa_debug_pod(info->output_params[i], flags);
-	}
-	fprintf(stdout, "%c\tstate: \"%s\"", MARK_CHANGE(5), pw_node_state_as_string(info->state));
+	fprintf(stdout, "%c\tinput ports: %u/%u\n", MARK_CHANGE(1),
+			info->n_input_ports, info->max_input_ports);
+	fprintf(stdout, "%c\toutput ports: %u/%u\n", MARK_CHANGE(2),
+			info->n_output_ports, info->max_output_ports);
+	fprintf(stdout, "%c\tstate: \"%s\"", MARK_CHANGE(3), pw_node_state_as_string(info->state));
 	if (info->state == PW_NODE_STATE_ERROR && info->error)
 		fprintf(stdout, " \"%s\"\n", info->error);
 	else
 		fprintf(stdout, "\n");
-	print_properties(info->props, MARK_CHANGE(6), true);
+	print_properties(info->props, MARK_CHANGE(4), true);
+	fprintf(stdout, "%c\tenum_params\n", MARK_CHANGE(5));
+	info->change_mask = 0;
+}
+
+static void info_port(struct proxy_data *pd)
+{
+	struct pw_port_info *info = pd->info;
+
+	info_global(pd);
+	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
+	print_properties(info->props, MARK_CHANGE(1), true);
+	fprintf(stdout, "%c\tenum_params\n", MARK_CHANGE(2));
 	info->change_mask = 0;
 }
 
@@ -659,9 +660,64 @@ static void node_event_info(void *object, struct pw_node_info *info)
 	}
 }
 
+static void node_event_param(void *object, uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+        struct proxy_data *data = object;
+	struct remote_data *rd = data->rd;
+	struct pw_type *t = rd->data->t;
+	uint32_t flags = 0;
+
+	fprintf(stdout, "remote %d node %d param %d index %d\n",
+			rd->id, data->global->id, id, index);
+
+	if (spa_pod_is_object_type(param, t->spa_format))
+		flags |= SPA_DEBUG_FLAG_FORMAT;
+	spa_debug_pod(param, flags);
+}
+
 static const struct pw_node_proxy_events node_events = {
 	PW_VERSION_NODE_PROXY_EVENTS,
-	.info = node_event_info
+	.info = node_event_info,
+	.param = node_event_param
+};
+
+
+static void port_event_info(void *object, struct pw_port_info *info)
+{
+	struct proxy_data *pd = object;
+	struct remote_data *rd = pd->rd;
+	if (pd->info)
+		fprintf(stdout, "remote %d port %d changed\n", rd->id, info->id);
+	pd->info = pw_port_info_update(pd->info, info);
+	if (pd->global == NULL)
+		pd->global = pw_map_lookup(&rd->globals, info->id);
+	if (pd->global && pd->global->info_pending) {
+		info_port(pd);
+		pd->global->info_pending = false;
+	}
+}
+
+static void port_event_param(void *object, uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+        struct proxy_data *data = object;
+	struct remote_data *rd = data->rd;
+	struct pw_type *t = rd->data->t;
+	uint32_t flags = 0;
+
+	fprintf(stdout, "remote %d port %d param %d index %d\n",
+			rd->id, data->global->id, id, index);
+
+	if (spa_pod_is_object_type(param, t->spa_format))
+		flags |= SPA_DEBUG_FLAG_FORMAT;
+	spa_debug_pod(param, flags);
+}
+
+static const struct pw_port_proxy_events port_events = {
+	PW_VERSION_PORT_PROXY_EVENTS,
+	.info = port_event_info,
+	.param = port_event_param
 };
 
 static void factory_event_info(void *object, struct pw_factory_info *info)
@@ -779,6 +835,12 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		info_func = info_node;
+	}
+	else if (global->type == t->port) {
+		events = &port_events;
+		client_version = PW_VERSION_PORT;
+		destroy = (pw_destroy_t) pw_port_info_free;
+		info_func = info_port;
 	}
 	else if (global->type == t->factory) {
 		events = &factory_events;
@@ -1031,6 +1093,81 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
       no_remote:
         asprintf(error, "Remote %d does not exist", idx);
 	return false;
+}
+
+static bool do_node_params(struct data *data, const char *cmd, char *args, char **error)
+{
+	struct pw_type *t = data->t;
+	struct remote_data *rd = data->current;
+	char *a[2];
+        int n;
+	uint32_t id, param_id;
+	struct global *global;
+
+	n = pw_split_ip(args, WHITESPACE, 2, a);
+	if (n < 1) {
+		asprintf(error, "%s <object-id> [<param-id-name>]", cmd);
+		return false;
+	}
+	if (n == 2)
+		param_id = spa_type_map_get_id(t->map, a[1]);
+	else
+		param_id = t->param.idList;
+
+	id = atoi(a[0]);
+	global = pw_map_lookup(&rd->globals, id);
+	if (global == NULL) {
+		asprintf(error, "%s: unknown global %d", cmd, id);
+		return false;
+	}
+	if (global->type != t->node) {
+		asprintf(error, "object %d is not a node", atoi(a[0]));
+		return false;
+	}
+	pw_node_proxy_enum_params((struct pw_node_proxy*)global->proxy,
+			param_id, 0, 0, NULL);
+
+	return true;
+}
+
+static bool do_port_params(struct data *data, const char *cmd, char *args, char **error)
+{
+	struct pw_type *t = data->t;
+	struct remote_data *rd = data->current;
+	char *a[2];
+        int n;
+	uint32_t id, param_id;
+	struct global *global;
+
+	n = pw_split_ip(args, WHITESPACE, 2, a);
+	if (n < 1) {
+		asprintf(error, "%s <object-id> [<param-id-name>]", cmd);
+		return false;
+	}
+	if (n == 2)
+		param_id = spa_type_map_get_id(t->map, a[1]);
+	else
+		param_id = t->param.idList;
+
+	id = atoi(a[0]);
+	global = pw_map_lookup(&rd->globals, id);
+	if (global == NULL) {
+		asprintf(error, "%s: unknown global %d", cmd, id);
+		return false;
+	}
+	if (global->type != t->port) {
+		asprintf(error, "object %d is not a port", atoi(a[0]));
+		return false;
+	}
+	if (global->proxy == NULL) {
+		if (!bind_global(rd, global, error))
+			return false;
+	}
+
+	pw_port_proxy_enum_params((struct pw_port_proxy*)global->proxy,
+			param_id, 0, 0, NULL);
+
+	return true;
 }
 
 static bool parse(struct data *data, char *buf, size_t size, char **error)

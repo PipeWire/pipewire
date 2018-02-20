@@ -143,21 +143,16 @@ struct pw_node_info {
 	uint32_t id;				/**< id of the global */
 #define PW_NODE_CHANGE_MASK_NAME		(1 << 0)
 #define PW_NODE_CHANGE_MASK_INPUT_PORTS		(1 << 1)
-#define PW_NODE_CHANGE_MASK_INPUT_PARAMS	(1 << 2)
-#define PW_NODE_CHANGE_MASK_OUTPUT_PORTS	(1 << 3)
-#define PW_NODE_CHANGE_MASK_OUTPUT_PARAMS	(1 << 4)
-#define PW_NODE_CHANGE_MASK_STATE		(1 << 5)
-#define PW_NODE_CHANGE_MASK_PROPS		(1 << 6)
+#define PW_NODE_CHANGE_MASK_OUTPUT_PORTS	(1 << 2)
+#define PW_NODE_CHANGE_MASK_STATE		(1 << 3)
+#define PW_NODE_CHANGE_MASK_PROPS		(1 << 4)
+#define PW_NODE_CHANGE_MASK_ENUM_PARAMS		(1 << 5)
 	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	const char *name;                       /**< name the node, suitable for display */
 	uint32_t max_input_ports;		/**< maximum number of inputs */
 	uint32_t n_input_ports;			/**< number of inputs */
-	struct spa_pod **input_params;		/**< array of input params */
-	uint32_t n_input_params;		/**< number of input params */
 	uint32_t max_output_ports;		/**< maximum number of outputs */
 	uint32_t n_output_ports;		/**< number of outputs */
-	struct spa_pod **output_params;		/**< array of output params */
-	uint32_t n_output_params;		/**< number of output params */
 	enum pw_node_state state;		/**< the current state of the node */
 	const char *error;			/**< an error reason if \a state is error */
 	struct spa_dict *props;			/**< the properties of the node */
@@ -172,7 +167,20 @@ pw_node_info_free(struct pw_node_info *info);
 
 struct pw_port_info {
 	uint32_t id;				/**< id of the global */
+#define PW_PORT_CHANGE_MASK_NAME		(1 << 0)
+#define PW_PORT_CHANGE_MASK_PROPS		(1 << 1)
+#define PW_PORT_CHANGE_MASK_ENUM_PARAMS		(1 << 2)
+	uint64_t change_mask;			/**< bitfield of changed fields since last call */
+	const char *name;                       /**< name the port, suitable for display */
+	struct spa_dict *props;			/**< the properties of the port */
 };
+
+struct pw_port_info *
+pw_port_info_update(struct pw_port_info *info,
+		    const struct pw_port_info *update);
+
+void
+pw_port_info_free(struct pw_port_info *info);
 
 /** The factory information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_factory_info {

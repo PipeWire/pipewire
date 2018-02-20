@@ -24,6 +24,7 @@
 
 #include <spa/clock/clock.h>
 #include <spa/lib/debug.h>
+#include <spa/pod/parser.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"
@@ -43,6 +44,7 @@ struct impl {
 
 struct resource_data {
 	struct spa_hook resource_listener;
+	struct pw_node *node;
 };
 
 /** \endcond */
@@ -223,69 +225,38 @@ static int update_port_ids(struct pw_node *node)
 	return 0;
 }
 
-struct param_array {
-	struct spa_pod **params;
-	uint32_t n_params;
-};
-
-static int add_param(void *data, struct spa_pod *param)
-{
-	struct param_array *arr = data;
-	uint32_t idx = arr->n_params++;
-
-	arr->params = realloc(arr->params, sizeof(struct spa_pod *) * arr->n_params);
-	arr->params[idx] = pw_spa_pod_copy(param);
-	return 0;
-}
-
-static void
-update_info(struct pw_node *this)
-{
-	struct pw_type *t = &this->core->type;
-	struct param_array params;
-	struct pw_port *port;
-
-	params = (struct param_array) { NULL };
-	if (!spa_list_is_empty(&this->input_ports)) {
-		port = spa_list_first(&this->input_ports, struct pw_port, link);
-		pw_port_for_each_param(port, t->param.idEnumFormat, NULL, add_param, &params);
-	}
-	this->info.input_params = params.params;
-	this->info.n_input_params = params.n_params;
-
-	params = (struct param_array) { NULL };
-	if (!spa_list_is_empty(&this->output_ports)) {
-		port = spa_list_first(&this->output_ports, struct pw_port, link);
-		pw_port_for_each_param(port, t->param.idEnumFormat, NULL, add_param, &params);
-	}
-	this->info.output_params = params.params;
-	this->info.n_output_params = params.n_params;
-}
-
 static void
 clear_info(struct pw_node *this)
 {
-	int i;
-
 	free((char*)this->info.name);
-	if (this->info.input_params) {
-		for (i = 0; i < this->info.n_input_params; i++)
-			free(this->info.input_params[i]);
-		free(this->info.input_params);
-	}
-
-	if (this->info.output_params) {
-		for (i = 0; i < this->info.n_output_params; i++)
-			free(this->info.output_params[i]);
-		free(this->info.output_params);
-	}
 	free((char*)this->info.error);
-
 }
 
 static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = node_unbind_func,
+};
+
+static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+{
+	struct pw_resource *resource = data;
+	pw_node_resource_param(resource, id, index, next, param);
+	return 0;
+}
+
+static void node_enum_params(void *object, uint32_t id, uint32_t index, uint32_t num,
+		const struct spa_pod *filter)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct pw_node *node = data->node;
+
+	pw_node_for_each_param(node, id, index, num, filter, reply_param, resource);
+}
+
+static const struct pw_node_proxy_methods node_methods = {
+	PW_VERSION_NODE_PROXY_METHODS,
+	.enum_params = node_enum_params
 };
 
 static void
@@ -302,7 +273,10 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 		goto no_mem;
 
 	data = pw_resource_get_user_data(resource);
+	data->node = this;
 	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
+
+	pw_resource_set_implementation(resource, &node_methods, resource);
 
 	pw_log_debug("node %p: bound to %d", this, resource->id);
 
@@ -362,7 +336,6 @@ int pw_node_register(struct pw_node *this,
 		return -ENOMEM;
 
 	update_port_ids(this);
-	update_info(this);
 
 	pw_loop_invoke(this->data_loop, do_node_add, 1, NULL, 0, false, this);
 
@@ -386,9 +359,11 @@ int pw_node_register(struct pw_node *this,
 	this->info.id = this->global->id;
 
 	spa_list_for_each(port, &this->input_ports, link)
-		pw_port_register(port, owner, this->global, pw_properties_copy(port->properties));
+		pw_port_register(port, owner, this->global,
+				 pw_properties_copy(port->properties));
 	spa_list_for_each(port, &this->output_ports, link)
-		pw_port_register(port, owner, this->global, pw_properties_copy(port->properties));
+		pw_port_register(port, owner, this->global,
+				 pw_properties_copy(port->properties));
 
 	spa_hook_list_call(&this->listener_list, struct pw_node_events, initialized);
 
@@ -487,7 +462,7 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 
 	node->info.props = &node->properties->dict;
 
-	node->info.change_mask = PW_NODE_CHANGE_MASK_PROPS;
+	node->info.change_mask |= PW_NODE_CHANGE_MASK_PROPS;
 	spa_hook_list_call(&node->listener_list, struct pw_node_events,
 			info_changed, &node->info);
 
@@ -504,7 +479,7 @@ static void node_done(void *data, int seq, int res)
 	struct pw_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
-	pw_log_debug("node %p: async complete event %d %d", node, seq, res);
+	pw_log_debug("node %p: async complete event %d %d %s", node, seq, res, spa_strerror(res));
 	pw_work_queue_complete(impl->work, node, seq, res);
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, async_complete, seq, res);
 }
@@ -678,6 +653,39 @@ int pw_node_for_each_port(struct pw_node *node,
 		if ((res = callback(data, p)) != 0)
 			return res;
 	return 0;
+}
+
+int pw_node_for_each_param(struct pw_node *node,
+			   uint32_t param_id,
+			   uint32_t index, uint32_t max,
+			   const struct spa_pod *filter,
+			   int (*callback) (void *data,
+					    uint32_t id, uint32_t index, uint32_t next,
+					    struct spa_pod *param),
+			   void *data)
+{
+	int res = 0;
+	uint32_t idx, count;
+	uint8_t buf[4096];
+	struct spa_pod_builder b = { 0 };
+	struct spa_pod *param;
+
+	if (max == 0)
+		max = UINT32_MAX;
+
+	for (count = 0; count < max; count++) {
+		spa_pod_builder_init(&b, buf, sizeof(buf));
+
+		idx = index;
+		if ((res = spa_node_enum_params(node->node,
+						param_id, &index,
+						filter, &param, &b)) <= 0)
+			break;
+
+		if ((res = callback(data, param_id, idx, index, param)) != 0)
+			break;
+	}
+	return res;
 }
 
 struct pw_port *

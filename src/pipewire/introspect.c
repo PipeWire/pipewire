@@ -177,7 +177,6 @@ void pw_core_info_free(struct pw_core_info *info)
 struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 					 const struct pw_node_info *update)
 {
-	int i;
 
 	if (update == NULL)
 		return info;
@@ -199,41 +198,9 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 		info->max_input_ports = update->max_input_ports;
 		info->n_input_ports = update->n_input_ports;
 	}
-	if (update->change_mask & PW_NODE_CHANGE_MASK_INPUT_PARAMS) {
-		for (i = 0; i < info->n_input_params; i++)
-			free(info->input_params[i]);
-		info->n_input_params = update->n_input_params;
-		if (info->n_input_params)
-			info->input_params =
-			    realloc(info->input_params,
-				    info->n_input_params * sizeof(struct spa_pod *));
-		else {
-			free(info->input_params);
-			info->input_params = NULL;
-		}
-		for (i = 0; i < info->n_input_params; i++) {
-			info->input_params[i] = pw_spa_pod_copy(update->input_params[i]);
-		}
-	}
 	if (update->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS) {
 		info->max_output_ports = update->max_output_ports;
 		info->n_output_ports = update->n_output_ports;
-	}
-	if (update->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PARAMS) {
-		for (i = 0; i < info->n_output_params; i++)
-			free(info->output_params[i]);
-		info->n_output_params = update->n_output_params;
-		if (info->n_output_params)
-			info->output_params =
-			    realloc(info->output_params,
-				    info->n_output_params * sizeof(struct spa_pod *));
-		else {
-			free(info->output_params);
-			info->output_params = NULL;
-		}
-		for (i = 0; i < info->n_output_params; i++) {
-			info->output_params[i] = pw_spa_pod_copy(update->output_params[i]);
-		}
 	}
 
 	if (update->change_mask & PW_NODE_CHANGE_MASK_STATE) {
@@ -252,22 +219,49 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 
 void pw_node_info_free(struct pw_node_info *info)
 {
-	int i;
 
 	if (info->name)
 		free((void *) info->name);
-	if (info->input_params) {
-		for (i = 0; i < info->n_input_params; i++)
-			free(info->input_params[i]);
-		free(info->input_params);
-	}
-	if (info->output_params) {
-		for (i = 0; i < info->n_output_params; i++)
-			free(info->output_params[i]);
-		free(info->output_params);
-	}
 	if (info->error)
 		free((void *) info->error);
+	if (info->props)
+		pw_spa_dict_destroy(info->props);
+	free(info);
+}
+
+struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
+					 const struct pw_port_info *update)
+{
+
+	if (update == NULL)
+		return info;
+
+	if (info == NULL) {
+		info = calloc(1, sizeof(struct pw_port_info));
+		if (info == NULL)
+			return NULL;
+	}
+	info->id = update->id;
+	info->change_mask = update->change_mask;
+
+	if (update->change_mask & PW_PORT_CHANGE_MASK_NAME) {
+		if (info->name)
+			free((void *) info->name);
+		info->name = update->name ? strdup(update->name) : NULL;
+	}
+	if (update->change_mask & PW_PORT_CHANGE_MASK_PROPS) {
+		if (info->props)
+			pw_spa_dict_destroy(info->props);
+		info->props = pw_spa_dict_copy(update->props);
+	}
+	return info;
+}
+
+void pw_port_info_free(struct pw_port_info *info)
+{
+
+	if (info->name)
+		free((void *) info->name);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free(info);

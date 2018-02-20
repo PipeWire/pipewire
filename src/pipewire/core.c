@@ -65,7 +65,8 @@ static void registry_bind(void *object, uint32_t id,
 	pw_log_debug("global %p: bind global id %d, iface %s to %d", global, id,
 		     spa_type_map_get_type(core->type.map, type), new_id);
 
-	pw_global_bind(global, client, permissions, version, new_id);
+	if (pw_global_bind(global, client, permissions, version, new_id) < 0)
+		goto exit;
 
 	return;
 

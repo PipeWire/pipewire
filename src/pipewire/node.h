@@ -150,6 +150,14 @@ int pw_node_for_each_port(struct pw_node *node,
 			  int (*callback) (void *data, struct pw_port *port),
 			  void *data);
 
+int pw_node_for_each_param(struct pw_node *node,
+			   uint32_t param_id,
+			   uint32_t index, uint32_t max,
+			   const struct spa_pod *filter,
+			   int (*callback) (void *data,
+					    uint32_t id, uint32_t index, uint32_t next,
+					    struct spa_pod *param),
+			   void *data);
 
 /** Find the port with direction and port_id or NULL when not found */
 struct pw_port *

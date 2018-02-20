@@ -292,8 +292,12 @@ struct pw_port {
 
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
-	struct pw_properties *properties;
-	const struct spa_port_info *info;
+	const struct spa_port_info *spa_info;
+
+	struct pw_properties *properties;	/**< properties of the port */
+	struct pw_port_info info;
+
+	struct spa_list resource_list;	/**< list of resources for this port */
 
 	enum pw_port_state state;	/**< state of the port */
 
@@ -498,15 +502,20 @@ void pw_port_destroy(struct pw_port *port);
  * The function returns 0 on success or the error returned by the callback. */
 int pw_port_for_each_param(struct pw_port *port,
 			   uint32_t param_id,
+			   uint32_t index, uint32_t max,
 			   const struct spa_pod *filter,
-			   int (*callback) (void *data, struct spa_pod *param),
+			   int (*callback) (void *data,
+					    uint32_t id, uint32_t index, uint32_t next,
+					    struct spa_pod *param),
 			   void *data);
 
 int pw_port_for_each_filtered_param(struct pw_port *in_port,
 				    struct pw_port *out_port,
 				    uint32_t in_param_id,
 				    uint32_t out_param_id,
-				    int (*callback) (void *data, struct spa_pod *param),
+				    int (*callback) (void *data,
+						     uint32_t id, uint32_t index, uint32_t next,
+						     struct spa_pod *param),
 				    void *data);
 
 /** Set a param on a port \memberof pw_port */

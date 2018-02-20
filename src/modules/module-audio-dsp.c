@@ -740,7 +740,16 @@ static struct pw_node *make_node(struct impl *impl, const struct pw_properties *
 	char node_name[128];
 	int i;
 
-	snprintf(node_name, sizeof(node_name), "system%d", impl->node_count++);
+	if ((alias = pw_properties_get(props, "alsa.device")) == NULL)
+		goto error;
+
+	snprintf(node_name, sizeof(node_name), "system_%s", alias);
+	for (i = 0; node_name[i]; i++) {
+		if (node_name[i] == ':')
+			node_name[i] = '_';
+	}
+	if ((alias = pw_properties_get(props, "alsa.card")) == NULL)
+		goto error;
 
 	node = pw_node_new(impl->core, node_name, NULL, sizeof(struct node));
         if (node == NULL)
@@ -754,9 +763,6 @@ static struct pw_node *make_node(struct impl *impl, const struct pw_properties *
 	n->sample_rate = 44100;
 	n->buffer_size = 1024 / sizeof(float);
 	pw_node_set_implementation(node, &n->node_impl);
-
-	if ((alias = pw_properties_get(props, "alsa.card")) == NULL)
-		goto error;
 
 	p = make_port(n, direction, 0, 0, NULL);
 	if (p == NULL)

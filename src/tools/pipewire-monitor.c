@@ -26,6 +26,10 @@
 #include <pipewire/interfaces.h>
 #include <pipewire/type.h>
 
+struct proxy_data;
+
+typedef void (*print_func_t) (struct proxy_data *data);
+
 struct data {
 	struct pw_main_loop *loop;
 	struct pw_core *core;
@@ -37,10 +41,14 @@ struct data {
 
 	struct pw_registry_proxy *registry_proxy;
 	struct spa_hook registry_listener;
+
+	uint32_t seq;
+	struct spa_list pending_list;
 };
 
 struct proxy_data {
 	struct data *data;
+	bool first;
 	struct pw_proxy *proxy;
 	uint32_t id;
 	uint32_t parent_id;
@@ -51,7 +59,55 @@ struct proxy_data {
 	pw_destroy_t destroy;
 	struct spa_hook proxy_listener;
 	struct spa_hook proxy_proxy_listener;
+	uint32_t pending_seq;
+	struct spa_list pending_link;
+	print_func_t print_func;
+	uint32_t n_params;
+	struct spa_pod **params;
 };
+
+static void add_pending(struct proxy_data *pd)
+{
+	struct data *d = pd->data;
+
+	spa_list_append(&d->pending_list, &pd->pending_link);
+	pd->pending_seq = ++d->seq;
+	pw_core_proxy_sync(d->core_proxy, pd->pending_seq);
+}
+
+static void on_sync_reply(void *data, uint32_t seq)
+{
+	struct data *d = data;
+	struct proxy_data *pd;
+
+	spa_list_for_each(pd, &d->pending_list, pending_link) {
+		if (pd->pending_seq == seq) {
+			spa_list_remove(&pd->pending_link);
+			pd->pending_seq = SPA_ID_INVALID;
+			pd->print_func(pd);
+		}
+	}
+}
+
+static void clear_params(struct proxy_data *data)
+{
+	int i;
+
+	for (i = 0; i < data->n_params; i++)
+		free(data->params[i]);
+	free(data->params);
+
+	data->n_params = 0;
+	data->params = NULL;
+}
+
+static void add_param(struct proxy_data *data, const struct spa_pod *param)
+{
+        uint32_t idx = data->n_params++;
+
+        data->params = realloc(data->params, sizeof(struct spa_pod *) * data->n_params);
+        data->params[idx] = pw_spa_pod_copy(param);
+}
 
 static void print_properties(const struct spa_dict *props, char mark)
 {
@@ -124,23 +180,22 @@ static const struct pw_module_proxy_events module_events = {
         .info = module_event_info,
 };
 
-static void node_event_info(void *object, struct pw_node_info *info)
+static void print_node(struct proxy_data *data)
 {
-        struct proxy_data *data = object;
+	struct pw_node_info *info = data->info;
 	bool print_all, print_mark;
 	struct pw_type *t = pw_core_get_type(data->data->core);
 
 	print_all = true;
-        if (data->info == NULL) {
+        if (data->first) {
 		printf("added:\n");
 		print_mark = false;
+		data->first = false;
 	}
         else {
 		printf("changed:\n");
 		print_mark = true;
 	}
-
-	info = data->info = pw_node_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
 	printf("\tparent_id: %d\n", data->parent_id);
@@ -152,36 +207,122 @@ static void node_event_info(void *object, struct pw_node_info *info)
 		int i;
 
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
-		printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(1), info->n_input_ports, info->max_input_ports);
-		printf("%c\tinput params:\n", MARK_CHANGE(2));
-		for (i = 0; i < info->n_input_params; i++) {
+		printf("%c\tparams:\n", MARK_CHANGE(5));
+		for (i = 0; i < data->n_params; i++) {
 			uint32_t flags = 0;
-			if (spa_pod_is_object_type(info->input_params[i], t->spa_format))
+			if (spa_pod_is_object_type(data->params[i], t->spa_format))
 				flags |= SPA_DEBUG_FLAG_FORMAT;
-			spa_debug_pod(info->input_params[i], flags);
+			spa_debug_pod(data->params[i], flags);
 		}
-
-		printf("%c\toutput ports: %u/%u\n", MARK_CHANGE(3), info->n_output_ports, info->max_output_ports);
-		printf("%c\toutput params:\n", MARK_CHANGE(4));
-		for (i = 0; i < info->n_output_params; i++) {
-			uint32_t flags = 0;
-			if (spa_pod_is_object_type(info->output_params[i], t->spa_format))
-				flags |= SPA_DEBUG_FLAG_FORMAT;
-			spa_debug_pod(info->output_params[i], flags);
-		}
-
-		printf("%c\tstate: \"%s\"", MARK_CHANGE(5), pw_node_state_as_string(info->state));
+		printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(1),
+				info->n_input_ports, info->max_input_ports);
+		printf("%c\toutput ports: %u/%u\n", MARK_CHANGE(2),
+				info->n_output_ports, info->max_output_ports);
+		printf("%c\tstate: \"%s\"", MARK_CHANGE(3), pw_node_state_as_string(info->state));
 		if (info->state == PW_NODE_STATE_ERROR && info->error)
 			printf(" \"%s\"\n", info->error);
 		else
 			printf("\n");
-		print_properties(info->props, MARK_CHANGE(6));
+		print_properties(info->props, MARK_CHANGE(4));
+
+
 	}
+}
+
+static void node_event_info(void *object, struct pw_node_info *info)
+{
+        struct proxy_data *data = object;
+	struct pw_type *t = pw_core_get_type(data->data->core);
+
+	data->info = pw_node_info_update(data->info, info);
+
+	if (info->change_mask & PW_NODE_CHANGE_MASK_ENUM_PARAMS) {
+		pw_node_proxy_enum_params((struct pw_node_proxy*)data->proxy,
+				t->param.idList, 0, 0, NULL);
+		add_pending(data);
+	}
+	if (data->pending_seq == SPA_ID_INVALID)
+		data->print_func(data);
+}
+
+static void node_event_param(void *object, uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+        struct proxy_data *data = object;
+	add_param(data, param);
 }
 
 static const struct pw_node_proxy_events node_events = {
 	PW_VERSION_NODE_PROXY_EVENTS,
-        .info = node_event_info
+        .info = node_event_info,
+        .param = node_event_param
+};
+
+static void print_port(struct proxy_data *data)
+{
+	struct pw_port_info *info = data->info;
+	bool print_all, print_mark;
+	struct pw_type *t = pw_core_get_type(data->data->core);
+
+	print_all = true;
+        if (data->first) {
+		printf("added:\n");
+		print_mark = false;
+		data->first = false;
+	}
+        else {
+		printf("changed:\n");
+		print_mark = true;
+	}
+
+	printf("\tid: %d\n", data->id);
+	printf("\tparent_id: %d\n", data->parent_id);
+	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
+					  data->permissions & PW_PERM_W ? 'w' : '-',
+					  data->permissions & PW_PERM_X ? 'x' : '-');
+	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Port, data->version);
+	if (print_all) {
+		int i;
+		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
+		printf("%c\tparams:\n", MARK_CHANGE(2));
+		for (i = 0; i < data->n_params; i++) {
+			uint32_t flags = 0;
+			if (spa_pod_is_object_type(data->params[i], t->spa_format))
+				flags |= SPA_DEBUG_FLAG_FORMAT;
+			spa_debug_pod(data->params[i], flags);
+		}
+		print_properties(info->props, MARK_CHANGE(1));
+	}
+}
+
+static void port_event_info(void *object, struct pw_port_info *info)
+{
+
+        struct proxy_data *data = object;
+	struct pw_type *t = pw_core_get_type(data->data->core);
+
+	data->info = pw_port_info_update(data->info, info);
+
+	if (info->change_mask & PW_PORT_CHANGE_MASK_ENUM_PARAMS) {
+		pw_port_proxy_enum_params((struct pw_port_proxy*)data->proxy,
+				t->param.idEnumFormat, 0, 0, NULL);
+		add_pending(data);
+	}
+	if (data->pending_seq == SPA_ID_INVALID)
+		data->print_func(data);
+}
+
+static void port_event_param(void *object, uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+        struct proxy_data *data = object;
+	add_param(data, param);
+}
+
+static const struct pw_port_proxy_events port_events = {
+	PW_VERSION_PORT_PROXY_EVENTS,
+        .info = port_event_info,
+        .param = port_event_param
 };
 
 static void factory_event_info(void *object, struct pw_factory_info *info)
@@ -300,6 +441,8 @@ destroy_proxy (void *data)
 {
         struct proxy_data *user_data = data;
 
+	clear_params(user_data);
+
         if (user_data->info == NULL)
                 return;
 
@@ -325,11 +468,19 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	struct pw_type *t = pw_core_get_type(core);
 	struct proxy_data *pd;
 	pw_destroy_t destroy;
+	print_func_t print_func = NULL;
 
 	if (type == t->node) {
 		events = &node_events;
 		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
+		print_func = print_node;
+	}
+	else if (type == t->port) {
+		events = &port_events;
+		client_version = PW_VERSION_PORT;
+		destroy = (pw_destroy_t) pw_port_info_free;
+		print_func = print_port;
 	}
 	else if (type == t->module) {
 		events = &module_events;
@@ -371,12 +522,15 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->data = d;
+	pd->first = true;
 	pd->proxy = proxy;
 	pd->id = id;
 	pd->parent_id = parent_id;
 	pd->permissions = permissions;
 	pd->version = version;
 	pd->destroy = destroy;
+	pd->pending_seq = SPA_ID_INVALID;
+	pd->print_func = print_func;
         pw_proxy_add_proxy_listener(proxy, &pd->proxy_proxy_listener, events, pd);
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
@@ -433,6 +587,7 @@ static const struct pw_remote_events remote_events = {
 	PW_VERSION_REMOTE_EVENTS,
 	.info_changed = on_info_changed,
 	.state_changed = on_state_changed,
+	.sync_reply = on_sync_reply,
 };
 
 static void do_quit(void *data, int signal_number)
@@ -471,6 +626,9 @@ int main(int argc, char *argv[])
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 	if (pw_remote_connect(data.remote) < 0)
 		return -1;
+
+	data.seq = 1;
+	spa_list_init(&data.pending_list);
 
 	pw_main_loop_run(data.loop);
 

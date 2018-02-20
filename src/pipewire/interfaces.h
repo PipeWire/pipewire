@@ -484,7 +484,8 @@ pw_module_proxy_add_listener(struct pw_module_proxy *module,
 #define PW_VERSION_NODE			0
 
 #define PW_NODE_PROXY_EVENT_INFO	0
-#define PW_NODE_PROXY_EVENT_NUM		1
+#define PW_NODE_PROXY_EVENT_PARAM	1
+#define PW_NODE_PROXY_EVENT_NUM		2
 
 /** Node events */
 struct pw_node_proxy_events {
@@ -496,6 +497,19 @@ struct pw_node_proxy_events {
 	 * \param info info about the node
 	 */
 	void (*info) (void *object, struct pw_node_info *info);
+	/**
+	 * Notify a node param
+	 *
+	 * Event emited as a result of the enum_params method.
+	 *
+	 * \param id the param id
+	 * \param index the param index
+	 * \param next the param index of the next param
+	 * \param param the parameter
+	 */
+	void (*param) (void *object,
+		       uint32_t id, uint32_t index, uint32_t next,
+		       const struct spa_pod *param);
 };
 
 static inline void
@@ -508,12 +522,44 @@ pw_node_proxy_add_listener(struct pw_node_proxy *node,
 }
 
 #define pw_node_resource_info(r,...) pw_resource_notify(r,struct pw_node_proxy_events,info,__VA_ARGS__)
+#define pw_node_resource_param(r,...) pw_resource_notify(r,struct pw_node_proxy_events,param,__VA_ARGS__)
 
+#define PW_NODE_PROXY_METHOD_ENUM_PARAMS	0
+#define PW_NODE_PROXY_METHOD_NUM		1
+
+/** Node methods */
+struct pw_node_proxy_methods {
+#define PW_VERSION_NODE_PROXY_METHODS	0
+	uint32_t version;
+	/**
+	 * Enumerate node parameters
+	 *
+	 * Start enumeration of node parameters. For each param, a
+	 * param event will be emited.
+	 *
+	 * \param id the parameter id to enum or SPA_ID_INVALID for all
+	 * \param start the start index or 0 for the first param
+	 * \param num the maximum number of params to retrieve
+	 * \param filter a param filter or NULL
+	 */
+	void (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
+			const struct spa_pod *filter);
+};
+
+/** Registry */
+static inline void
+pw_node_proxy_enum_params(struct pw_node_proxy *node, uint32_t id, uint32_t index,
+		uint32_t num, const struct spa_pod *filter)
+{
+	pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, enum_params,
+			id, index, num, filter);
+}
 
 #define PW_VERSION_PORT			0
 
 #define PW_PORT_PROXY_EVENT_INFO	0
-#define PW_PORT_PROXY_EVENT_NUM		1
+#define PW_PORT_PROXY_EVENT_PARAM	1
+#define PW_PORT_PROXY_EVENT_NUM		2
 
 /** Port events */
 struct pw_port_proxy_events {
@@ -525,6 +571,19 @@ struct pw_port_proxy_events {
 	 * \param info info about the port
 	 */
 	void (*info) (void *object, struct pw_port_info *info);
+	/**
+	 * Notify a port param
+	 *
+	 * Event emited as a result of the enum_params method.
+	 *
+	 * \param id the param id
+	 * \param index the param index
+	 * \param next the param index of the next param
+	 * \param param the parameter
+	 */
+	void (*param) (void *object,
+		       uint32_t id, uint32_t index, uint32_t next,
+		       const struct spa_pod *param);
 };
 
 static inline void
@@ -537,6 +596,38 @@ pw_port_proxy_add_listener(struct pw_port_proxy *port,
 }
 
 #define pw_port_resource_info(r,...) pw_resource_notify(r,struct pw_port_proxy_events,info,__VA_ARGS__)
+#define pw_port_resource_param(r,...) pw_resource_notify(r,struct pw_port_proxy_events,param,__VA_ARGS__)
+
+#define PW_PORT_PROXY_METHOD_ENUM_PARAMS	0
+#define PW_PORT_PROXY_METHOD_NUM		1
+
+/** Port methods */
+struct pw_port_proxy_methods {
+#define PW_VERSION_PORT_PROXY_METHODS	0
+	uint32_t version;
+	/**
+	 * Enumerate port parameters
+	 *
+	 * Start enumeration of port parameters. For each param, a
+	 * param event will be emited.
+	 *
+	 * \param id the parameter id to enumerate
+	 * \param start the start index or 0 for the first param
+	 * \param num the maximum number of params to retrieve
+	 * \param filter a param filter or NULL
+	 */
+	void (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
+			const struct spa_pod *filter);
+};
+
+/** Registry */
+static inline void
+pw_port_proxy_enum_params(struct pw_port_proxy *port, uint32_t id, uint32_t index,
+		uint32_t num, const struct spa_pod *filter)
+{
+	pw_proxy_do((struct pw_proxy*)port, struct pw_port_proxy_methods, enum_params,
+			id, index, num, filter);
+}
 
 #define PW_VERSION_FACTORY			0
 

@@ -67,6 +67,9 @@ struct pw_port_events {
 	/** The port is freed */
 	void (*free) (void *data);
 
+	/** the port info changed */
+	void (*info_changed) (void *data, struct pw_port_info *info);
+
 	/** a new link is added on this port */
 	void (*link_added) (void *data, struct pw_link *link);
 
@@ -75,9 +78,6 @@ struct pw_port_events {
 
 	/** the state of the port changed */
 	void (*state_changed) (void *data, enum pw_port_state state);
-
-	/** the properties of the port changed */
-	void (*properties_changed) (void *data, const struct pw_properties *properties);
 
 	/** a control was added to the port */
 	void (*control_added) (void *data, struct pw_control *control);

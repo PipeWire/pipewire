@@ -63,6 +63,7 @@ struct type {
 	struct spa_type_media_subtype media_subtype;
 	struct spa_type_format_audio format_audio;
 	struct spa_type_audio_format audio_format;
+	struct spa_type_media_subtype_audio media_subtype_audio;
 };
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
@@ -72,6 +73,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
         spa_type_media_subtype_map(map, &type->media_subtype);
         spa_type_format_audio_map(map, &type->format_audio);
         spa_type_audio_format_map(map, &type->audio_format);
+	spa_type_media_subtype_audio_map(map, &type->media_subtype_audio);
 }
 
 #define OBJECT_CHUNK	8
@@ -794,6 +796,78 @@ static void clear_buffers(struct client *c, struct port *p)
 	spa_list_init(&p->queue);
 }
 
+static int param_enum_format(struct client *c, struct port *p,
+		struct spa_pod **param, struct spa_pod_builder *b)
+{
+        struct pw_type *t = c->context.t;
+
+	switch (p->object->port.type_id) {
+	case 0:
+		*param = spa_pod_builder_object(b,
+			t->param.idEnumFormat, t->spa_format,
+			"I", c->type.media_type.audio,
+			"I", c->type.media_subtype.raw,
+	                ":", c->type.format_audio.format,   "I", c->type.audio_format.F32,
+	                ":", c->type.format_audio.channels, "i", 1,
+	                ":", c->type.format_audio.rate,     "iru", 44100,
+				SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
+		break;
+	case 1:
+		*param = spa_pod_builder_object(b,
+			t->param.idEnumFormat, t->spa_format,
+			"I", c->type.media_type.audio,
+			"I", c->type.media_subtype_audio.midi);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 1;
+}
+
+static int param_format(struct client *c, struct port *p,
+		struct spa_pod **param, struct spa_pod_builder *b)
+{
+        struct pw_type *t = c->context.t;
+
+	switch (p->object->port.type_id) {
+	case 0:
+		*param = spa_pod_builder_object(b,
+			t->param.idFormat, t->spa_format,
+			"I", c->type.media_type.audio,
+			"I", c->type.media_subtype.raw,
+	                ":", c->type.format_audio.format,   "I", c->type.audio_format.F32,
+	                ":", c->type.format_audio.channels, "i", 1,
+	                ":", c->type.format_audio.rate,     "i", c->sample_rate);
+		break;
+	case 1:
+		*param = spa_pod_builder_object(b,
+			t->param.idFormat, t->spa_format,
+			"I", c->type.media_type.audio,
+			"I", c->type.media_subtype_audio.midi);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 1;
+}
+
+static int param_buffers(struct client *c, struct port *p,
+		struct spa_pod **param, struct spa_pod_builder *b)
+{
+        struct pw_type *t = c->context.t;
+
+	*param = spa_pod_builder_object(b,
+		t->param.idBuffers, t->param_buffers.Buffers,
+		":", t->param_buffers.size,    "isu", 1024,
+			SPA_POD_PROP_STEP(4, INT32_MAX, 4),
+		":", t->param_buffers.stride,  "i", 4,
+		":", t->param_buffers.buffers, "iru", 1,
+			SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
+		":", t->param_buffers.align,   "i", 16);
+
+	return 1;
+}
+
 static void client_node_port_set_param(void *object,
                                 uint32_t seq,
                                 enum spa_direction direction,
@@ -805,7 +879,7 @@ static void client_node_port_set_param(void *object,
 	struct port *p = GET_PORT(c, direction, port_id);
         struct pw_type *t = c->context.t;
 	struct spa_pod *params[4];
-	uint8_t buffer[1024];
+	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
         if (id == t->param.idFormat && param == NULL) {
@@ -813,31 +887,9 @@ static void client_node_port_set_param(void *object,
 		clear_buffers(c, p);
 	}
 
-	params[0] = spa_pod_builder_object(&b,
-		t->param.idEnumFormat, t->spa_format,
-		"I", c->type.media_type.audio,
-		"I", c->type.media_subtype.raw,
-                ":", c->type.format_audio.format,   "I", c->type.audio_format.F32,
-                ":", c->type.format_audio.channels, "i", 1,
-                ":", c->type.format_audio.rate,     "iru", c->sample_rate,
-			SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
-
-	params[1] = spa_pod_builder_object(&b,
-		t->param.idFormat, t->spa_format,
-		"I", c->type.media_type.audio,
-		"I", c->type.media_subtype.raw,
-                ":", c->type.format_audio.format,   "I", c->type.audio_format.F32,
-                ":", c->type.format_audio.channels, "i", 1,
-                ":", c->type.format_audio.rate,     "i", c->sample_rate);
-
-	params[2] = spa_pod_builder_object(&b,
-		t->param.idBuffers, t->param_buffers.Buffers,
-		":", t->param_buffers.size,    "isu", 1024,
-			SPA_POD_PROP_STEP(4, INT32_MAX, 4),
-		":", t->param_buffers.stride,  "i", 4,
-		":", t->param_buffers.buffers, "iru", 2,
-			SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
-		":", t->param_buffers.align,   "i", 16);
+	param_enum_format(c, p, &params[0], &b);
+	param_format(c, p, &params[1], &b);
+	param_buffers(c, p, &params[2], &b);
 
 	pw_client_node_proxy_port_update(c->node_proxy,
 					 direction,
@@ -1001,6 +1053,16 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.port_set_io = client_node_port_set_io,
 };
 
+static jack_port_type_id_t string_to_type(const char *port_type)
+{
+	if (!strcmp(JACK_DEFAULT_AUDIO_TYPE, port_type))
+		return 0;
+	else if (!strcmp(JACK_DEFAULT_MIDI_TYPE, port_type))
+		return 1;
+	else
+		return SPA_ID_INVALID;
+}
+
 static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
                                   uint32_t permissions, uint32_t type, uint32_t version,
                                   const struct spa_dict *props)
@@ -1027,10 +1089,13 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	else if (type == t->port) {
 		const struct spa_dict_item *item;
 		unsigned long flags = 0;
+		jack_port_type_id_t type_id;
 		char full_name[1024];
 
-		if ((str = spa_dict_lookup(props, "port.dsp")) == NULL ||
-		    !pw_properties_parse_bool(str))
+		if ((str = spa_dict_lookup(props, "port.dsp")) == NULL)
+			goto exit;
+
+		if ((type_id = string_to_type(str)) == SPA_ID_INVALID)
 			goto exit;
 
 		if ((str = spa_dict_lookup(props, "port.name")) == NULL)
@@ -1081,7 +1146,10 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 			snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", str);
 		else
 			o->port.alias2[0] = '\0';
+
 		o->port.flags = flags;
+		o->port.type_id = type_id;
+
 		pw_log_debug("add port %d", id);
 	}
 	else if (type == t->link) {
@@ -1096,7 +1164,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 			goto exit_free;
 		o->port_link.dst = pw_properties_parse_int(str);
 
-		pw_log_debug("add link %d %d->%d", o->id, o->port_link.src, o->port_link.dst);
+		pw_log_debug("add link %d %d->%d", id, o->port_link.src, o->port_link.dst);
 	}
 	else
 		goto exit;
@@ -1155,7 +1223,11 @@ static void registry_event_global_remove(void *object, uint32_t id)
 			c->connect_callback(o->port_link.src, o->port_link.dst, 0, c->connect_arg);
 	}
 
-	pw_map_insert_at(&c->context.globals, id, NULL);
+	/* JACK clients expect the objects to hang around after
+	 * they are unregistered. We keep them in the map but reuse the
+	 * object when we can
+	 * pw_map_insert_at(&c->context.globals, id, NULL);
+	 **/
 	free_object(c, o);
 }
 
@@ -1613,7 +1685,6 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	jack_port_type_id_t type_id;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-        struct pw_type *t = c->context.t;
 	struct spa_pod *params[4];
 	struct port *p;
 	int res;
@@ -1628,11 +1699,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	else
 		return NULL;
 
-	if (!strcmp(JACK_DEFAULT_AUDIO_TYPE, port_type))
-		type_id = 0;
-	else if (!strcmp(JACK_DEFAULT_MIDI_TYPE, port_type))
-		type_id = 1;
-	else
+	if ((type_id = string_to_type(port_type)) == SPA_ID_INVALID)
 		return NULL;
 
 	if ((p = alloc_port(c, direction)) == NULL)
@@ -1651,29 +1718,14 @@ jack_port_t * jack_port_register (jack_client_t *client,
 
 	port_info.props = &dict;
 	dict = SPA_DICT_INIT(items, 0);
-	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.dsp", "1");
+	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.dsp", port_type);
 	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.name", port_name);
-	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.type", port_type);
 
-	params[0] = spa_pod_builder_object(&b,
-		t->param.idEnumFormat, t->spa_format,
-		"I", c->type.media_type.audio,
-		"I", c->type.media_subtype.raw,
-                ":", c->type.format_audio.format,   "I", c->type.audio_format.F32,
-                ":", c->type.format_audio.channels, "i", 1,
-                ":", c->type.format_audio.rate,     "iru", 44100,
-			SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
-
-	params[1] = spa_pod_builder_object(&b,
-		t->param.idBuffers, t->param_buffers.Buffers,
-		":", t->param_buffers.size,    "isu", 1024,
-			SPA_POD_PROP_STEP(4, INT32_MAX, 4),
-		":", t->param_buffers.stride,  "i", 4,
-		":", t->param_buffers.buffers, "iru", 1,
-			SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
-		":", t->param_buffers.align,   "i", 16);
+	param_enum_format(c, p, &params[0], &b);
+	param_buffers(c, p, &params[1], &b);
 
 	pw_thread_loop_lock(c->context.loop);
+
 	pw_client_node_proxy_port_update(c->node_proxy,
 					 direction,
 					 p->id,
@@ -2187,6 +2239,7 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 	pw_thread_loop_lock(c->context.loop);
 
 	o = pw_map_lookup(&c->context.globals, port_id);
+	pw_log_debug("client %p: port %d -> %p", c, port_id, o);
 
 	if (o == NULL || o->type != c->context.t->port)
 		goto exit;

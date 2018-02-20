@@ -96,7 +96,7 @@ do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	uint8_t *map;
 	void *sdata, *ddata;
 	int sstride, dstride, ostride;
-	int i;
+	uint32_t i;
 	uint8_t *src, *dst;
 
 	handle_events(data);
@@ -218,7 +218,7 @@ static struct {
 
 static uint32_t sdl_format_to_id(struct data *data, Uint32 format)
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
 		if (video_formats[i].format == format)
@@ -229,7 +229,7 @@ static uint32_t sdl_format_to_id(struct data *data, Uint32 format)
 
 static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
 		if (*SPA_MEMBER(&data->type.video_format, video_formats[i].id, uint32_t) == id)
@@ -311,7 +311,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		uint8_t buffer[1024];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 		SDL_RendererInfo info;
-		int i, c;
+		uint32_t i, c;
 
 		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
 

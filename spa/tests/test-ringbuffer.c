@@ -378,7 +378,8 @@ static void *loop(void *user_data)
 
 	printf("enter thread %d\n", data->n_sources);
 	while (data->running) {
-		int i, r;
+		uint32_t i;
+		int r;
 
 		/* rebuild */
 		if (data->rebuild_fds) {

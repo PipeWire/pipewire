@@ -174,6 +174,7 @@ do {											\
 		break;									\
 	case 'z':									\
 		va_arg(args, void**);							\
+		/* fallthrough */							\
 	case 'b':									\
 	case 'I':									\
 	case 'i':									\

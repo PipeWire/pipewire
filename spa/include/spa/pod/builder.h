@@ -77,7 +77,7 @@ static inline void spa_pod_builder_init(struct spa_pod_builder *builder, void *d
 static inline void *
 spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t ref)
 {
-	if (ref == -1)
+	if (ref == SPA_ID_INVALID)
 		return NULL;
 	else if (builder->deref)
 		return builder->deref(builder, ref);
@@ -137,7 +137,7 @@ static inline void spa_pod_builder_pad(struct spa_pod_builder *builder, uint32_t
 static inline uint32_t
 spa_pod_builder_raw_padded(struct spa_pod_builder *builder, const void *data, uint32_t size)
 {
-	uint32_t ref = size ? spa_pod_builder_raw(builder, data, size) : -1;
+	uint32_t ref = size ? spa_pod_builder_raw(builder, data, size) : SPA_ID_INVALID;
 	spa_pod_builder_pad(builder, size);
 	return ref;
 }
@@ -187,7 +187,7 @@ static inline uint32_t spa_pod_builder_none(struct spa_pod_builder *builder)
 	return spa_pod_builder_primitive(builder, &p);
 }
 
-#define SPA_POD_BOOL_INIT(val) (struct spa_pod_bool){ { sizeof(uint32_t), SPA_POD_TYPE_BOOL }, val ? 1 : 0 }
+#define SPA_POD_BOOL_INIT(val) (struct spa_pod_bool){ { sizeof(uint32_t), SPA_POD_TYPE_BOOL }, val ? 1 : 0, 0 }
 
 static inline uint32_t spa_pod_builder_bool(struct spa_pod_builder *builder, bool val)
 {
@@ -195,7 +195,7 @@ static inline uint32_t spa_pod_builder_bool(struct spa_pod_builder *builder, boo
 	return spa_pod_builder_primitive(builder, &p.pod);
 }
 
-#define SPA_POD_ID_INIT(val) (struct spa_pod_id){ { sizeof(uint32_t), SPA_POD_TYPE_ID }, val }
+#define SPA_POD_ID_INIT(val) (struct spa_pod_id){ { sizeof(uint32_t), SPA_POD_TYPE_ID }, val, 0 }
 
 static inline uint32_t spa_pod_builder_id(struct spa_pod_builder *builder, uint32_t val)
 {
@@ -203,7 +203,7 @@ static inline uint32_t spa_pod_builder_id(struct spa_pod_builder *builder, uint3
 	return spa_pod_builder_primitive(builder, &p.pod);
 }
 
-#define SPA_POD_INT_INIT(val) (struct spa_pod_int){ { sizeof(uint32_t), SPA_POD_TYPE_INT }, val }
+#define SPA_POD_INT_INIT(val) (struct spa_pod_int){ { sizeof(uint32_t), SPA_POD_TYPE_INT }, val, 0 }
 
 static inline uint32_t spa_pod_builder_int(struct spa_pod_builder *builder, int32_t val)
 {
@@ -241,10 +241,10 @@ static inline uint32_t
 spa_pod_builder_write_string(struct spa_pod_builder *builder, const char *str, uint32_t len)
 {
 	uint32_t ref = 0;
-	if (spa_pod_builder_raw(builder, str, len) == -1)
-		ref = -1;
-	if (spa_pod_builder_raw(builder, "", 1) == -1)
-		ref = -1;
+	if (spa_pod_builder_raw(builder, str, len) == SPA_ID_INVALID)
+		ref = SPA_ID_INVALID;
+	if (spa_pod_builder_raw(builder, "", 1) == SPA_ID_INVALID)
+		ref = SPA_ID_INVALID;
 	spa_pod_builder_pad(builder, builder->state.offset);
 	return ref;
 }
@@ -254,8 +254,8 @@ spa_pod_builder_string_len(struct spa_pod_builder *builder, const char *str, uin
 {
 	const struct spa_pod_string p = SPA_POD_STRING_INIT(len+1);
 	uint32_t ref = spa_pod_builder_raw(builder, &p, sizeof(p));
-	if (spa_pod_builder_write_string(builder, str, len) == -1)
-		ref = -1;
+	if (spa_pod_builder_write_string(builder, str, len) == SPA_ID_INVALID)
+		ref = SPA_ID_INVALID;
 	return ref;
 }
 
@@ -272,8 +272,8 @@ spa_pod_builder_bytes(struct spa_pod_builder *builder, const void *bytes, uint32
 {
 	const struct spa_pod_bytes p = SPA_POD_BYTES_INIT(len);
 	uint32_t ref = spa_pod_builder_raw(builder, &p, sizeof(p));
-	if (spa_pod_builder_raw_padded(builder, bytes, len) == -1)
-		ref = -1;
+	if (spa_pod_builder_raw_padded(builder, bytes, len) == SPA_ID_INVALID)
+		ref = SPA_ID_INVALID;
 	return ref;
 }
 
@@ -332,8 +332,8 @@ spa_pod_builder_array(struct spa_pod_builder *builder,
 		{{child_size, child_type}}
 	};
 	uint32_t ref = spa_pod_builder_raw(builder, &p, sizeof(p));
-	if (spa_pod_builder_raw_padded(builder, elems, child_size * n_elems) == -1)
-		ref = -1;
+	if (spa_pod_builder_raw_padded(builder, elems, child_size * n_elems) == SPA_ID_INVALID)
+		ref = SPA_ID_INVALID;
 	return ref;
 }
 

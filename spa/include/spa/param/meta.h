@@ -46,7 +46,7 @@ spa_type_param_meta_map(struct spa_type_map *map,
 			struct spa_type_param_meta *type)
 {
 	if (type->Meta == 0) {
-		int i;
+		size_t i;
 #define OFF(n) offsetof(struct spa_type_param_meta, n)
 		static struct { off_t offset; const char *type; } tab[] = {
 			{ OFF(Meta), SPA_TYPE_PARAM__Meta },

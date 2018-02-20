@@ -186,7 +186,7 @@ static int core_demarshal_info(void *object, void *data, size_t size)
 	struct spa_dict props;
 	struct pw_core_info info;
 	struct spa_pod_parser prs;
-	int i;
+	uint32_t i;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -266,7 +266,7 @@ static int core_demarshal_update_types_client(void *object, void *data, size_t s
 	struct spa_pod_parser prs;
 	uint32_t first_id, n_types;
 	const char **types;
-	int i;
+	uint32_t i;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -522,7 +522,7 @@ static int core_demarshal_update_types_server(void *object, void *data, size_t s
 	struct spa_pod_parser prs;
 	uint32_t first_id, n_types;
 	const char **types;
-	int i;
+	uint32_t i;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -636,7 +636,7 @@ static int module_demarshal_info(void *object, void *data, size_t size)
 	struct spa_pod_parser prs;
 	struct spa_dict props;
 	struct pw_module_info info;
-	int i;
+	uint32_t i;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -695,7 +695,7 @@ static int factory_demarshal_info(void *object, void *data, size_t size)
 	struct spa_pod_parser prs;
 	struct spa_dict props;
 	struct pw_factory_info info;
-	int i;
+	uint32_t i;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -759,7 +759,7 @@ static int node_demarshal_info(void *object, void *data, size_t size)
 	struct spa_pod_parser prs;
 	struct spa_dict props;
 	struct pw_node_info info;
-	int i;
+	uint32_t i;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -889,7 +889,7 @@ static int port_demarshal_info(void *object, void *data, size_t size)
 	struct spa_pod_parser prs;
 	struct spa_dict props;
 	struct pw_port_info info;
-	int i;
+	uint32_t i;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -1071,7 +1071,7 @@ static int link_demarshal_info(void *object, void *data, size_t size)
 	struct spa_pod_parser prs;
 	struct spa_dict props;
 	struct pw_link_info info = { 0, };
-	int i;
+	uint32_t i;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,

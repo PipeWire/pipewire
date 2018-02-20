@@ -146,7 +146,7 @@ static struct {
 
 static uint32_t sdl_format_to_id(struct data *data, Uint32 format)
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
 		if (video_formats[i].format == format)
@@ -157,7 +157,7 @@ static uint32_t sdl_format_to_id(struct data *data, Uint32 format)
 
 static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
 		if (*SPA_MEMBER(&data->type.video_format, video_formats[i].id, uint32_t) == id)
@@ -238,7 +238,7 @@ static int port_enum_formats(struct spa_node *node,
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	SDL_RendererInfo info;
-	int i, c;
+	uint32_t i, c;
 
 	if (*index != 0)
 		return 0;
@@ -375,7 +375,8 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 				 struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	int i;
+	uint32_t i;
+
 	for (i = 0; i < n_buffers; i++)
 		d->buffers[i] = buffers[i];
 	d->n_buffers = n_buffers;
@@ -390,7 +391,7 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	uint8_t *map;
 	void *sdata, *ddata;
 	int sstride, dstride, ostride;
-	int i;
+	uint32_t i;
 	uint8_t *src, *dst;
 
 	buf = d->buffers[d->io->buffer_id];

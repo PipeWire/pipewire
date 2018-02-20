@@ -44,7 +44,7 @@ struct buffer {
 	int fds[MAX_FDS];
 	uint32_t n_fds;
 
-	off_t offset;
+	size_t offset;
 	void *data;
 	size_t size;
 
@@ -413,7 +413,7 @@ pw_protocol_native_connection_begin_proxy(struct pw_protocol_native_connection *
 
 	impl->dest_id = proxy->id;
 	impl->opcode = opcode;
-	impl->builder = (struct spa_pod_builder) { NULL, 0, write_pod };
+	impl->builder = (struct spa_pod_builder) { NULL, 0, write_pod, };
 
 	return &impl->builder;
 }
@@ -458,7 +458,8 @@ bool pw_protocol_native_connection_flush(struct pw_protocol_native_connection *c
 	struct iovec iov[1];
 	struct cmsghdr *cmsg;
 	char cmsgbuf[CMSG_SPACE(MAX_FDS * sizeof(int))];
-	int *cm, i, fds_len;
+	int *cm;
+	uint32_t i, fds_len;
 	struct buffer *buf;
 
 	buf = &impl->out;

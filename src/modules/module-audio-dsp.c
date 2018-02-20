@@ -188,7 +188,7 @@ static int node_get_port_ids(struct spa_node *node,
 			     uint32_t n_output_ids)
 {
 	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
-	int i, c;
+	uint32_t i, c;
 
 	for (c = i = 0; i < n->n_in_ports && c < n_input_ids; i++) {
 		if (GET_IN_PORT(n, i))

@@ -40,6 +40,7 @@ struct impl {
 	struct pw_node this;
 
 	struct pw_work_queue *work;
+	bool pause_on_idle;
 };
 
 struct resource_data {
@@ -372,6 +373,17 @@ int pw_node_register(struct pw_node *this,
 	return 0;
 }
 
+static void check_properties(struct pw_node *node)
+{
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+	const char *str;
+
+	if ((str = pw_properties_get(node->properties, "node.pause-on-idle")))
+		impl->pause_on_idle = pw_properties_parse_bool(str);
+	else
+		impl->pause_on_idle = true;
+}
+
 struct pw_node *pw_node_new(struct pw_core *core,
 			    const char *name,
 			    struct pw_properties *properties,
@@ -398,6 +410,8 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this->enabled = true;
 	this->properties = properties;
+
+	check_properties(this);
 
 	impl->work = pw_work_queue_new(this->core->main_loop);
 	this->info.name = strdup(name);
@@ -459,6 +473,8 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 
 	for (i = 0; i < dict->n_items; i++)
 		pw_properties_set(node->properties, dict->items[i].key, dict->items[i].value);
+
+	check_properties(node);
 
 	node->info.props = &node->properties->dict;
 
@@ -885,6 +901,7 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
  */
 void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *error)
 {
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	enum pw_node_state old;
 
 	old = node->info.state;
@@ -894,13 +911,16 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 		pw_log_debug("node %p: update state from %s -> %s", node,
 			     pw_node_state_as_string(old), pw_node_state_as_string(state));
 
+		if (state == PW_NODE_STATE_IDLE) {
+			if (impl->pause_on_idle)
+				pause_node(node);
+			node_deactivate(node);
+		}
+
 		if (node->info.error)
 			free((char*)node->info.error);
 		node->info.error = error;
 		node->info.state = state;
-
-		if (state == PW_NODE_STATE_IDLE)
-			node_deactivate(node);
 
 		spa_hook_list_call(&node->listener_list, struct pw_node_events, state_changed,
 				 old, state, error);

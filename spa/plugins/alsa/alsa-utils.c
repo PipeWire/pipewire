@@ -572,7 +572,7 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 		}
 	}
 	if (!state->alsa_started && total_written > 0) {
-		spa_log_debug(state->log, "snd_pcm_start");
+		spa_log_trace(state->log, "snd_pcm_start");
 		if ((res = snd_pcm_start(state->hndl)) < 0) {
 			spa_log_error(state->log, "snd_pcm_start: %s", snd_strerror(res));
 			return;
@@ -666,7 +666,7 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 	if (state->started)
 		return 0;
 
-	spa_log_trace(state->log, "alsa %p: start", state);
+	spa_log_debug(state->log, "alsa %p: start", state);
 
 	CHECK(set_swparams(state), "swparams");
 	if (!xrun_recover)
@@ -738,7 +738,7 @@ int spa_alsa_pause(struct state *state, bool xrun_recover)
 	if (!state->started)
 		return 0;
 
-	spa_log_trace(state->log, "alsa %p: pause", state);
+	spa_log_debug(state->log, "alsa %p: pause", state);
 
 	spa_loop_invoke(state->data_loop, do_remove_source, 0, NULL, 0, true, state);
 

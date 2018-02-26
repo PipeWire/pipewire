@@ -28,6 +28,7 @@
 #include <sys/file.h>
 
 #include <spa/pod/iter.h>
+#include <spa/lib/debug.h>
 
 #include "config.h"
 
@@ -52,6 +53,8 @@
 #ifndef UNIX_PATH_MAX
 #define UNIX_PATH_MAX   108
 #endif
+
+static bool debug_messages = 0;
 
 #define LOCK_SUFFIX     ".lock"
 #define LOCK_SUFFIXLEN  5
@@ -222,6 +225,10 @@ process_messages(struct client_data *data)
 			if (!pod_remap_data(SPA_POD_TYPE_STRUCT, message, size, &client->types))
 				goto invalid_message;
 
+		if (debug_messages) {
+			printf("<<<<<<<<< in: %d %d %d\n", id, opcode, size);
+		        spa_debug_pod((struct spa_pod *)message, 0);
+		}
 		if (demarshal[opcode].func(resource, message, size) < 0)
 			goto invalid_message;
 	}
@@ -884,6 +891,8 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	this = pw_protocol_new(core, PW_TYPE_PROTOCOL__Native, sizeof(struct protocol_data));
 	if (this == NULL)
 		return -ENOMEM;
+
+	debug_messages = pw_debug_is_category_enabled("connection");
 
 	this->implementation = &protocol_impl;
 	this->extension = &protocol_ext_impl;

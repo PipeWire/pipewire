@@ -326,11 +326,6 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 	*dt = buf->data;
 	*sz = buf->size;
 
-	if (debug_messages) {
-		printf("<<<<<<<<< in: %d %d %zd\n", *dest_id, *opcode, len);
-	        spa_debug_pod((struct spa_pod *)data, 0);
-	}
-
 	return true;
 }
 

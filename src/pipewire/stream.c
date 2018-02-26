@@ -47,6 +47,8 @@ struct mem_id {
 	int fd;
 	uint32_t flags;
 	uint32_t ref;
+	struct pw_map_range map;
+	void *ptr;
 };
 
 struct buffer_id {
@@ -95,6 +97,7 @@ struct stream {
 	struct pw_array mem_ids;
 	struct pw_array buffer_ids;
 	bool in_order;
+	struct spa_io_buffers *io;
 
 	bool client_reuse;
 
@@ -108,23 +111,64 @@ struct stream {
 };
 /** \endcond */
 
+static struct mem_id *find_mem(struct pw_stream *stream, uint32_t id)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	struct mem_id *mid;
+
+	pw_array_for_each(mid, &impl->mem_ids) {
+		if (mid->id == id)
+			return mid;
+	}
+	return NULL;
+}
+
+static void *mem_map(struct pw_stream *stream, struct mem_id *m, uint32_t offset, uint32_t size)
+{
+	if (m->ptr == NULL) {
+		pw_map_range_init(&m->map, offset, size, stream->remote->core->sc_pagesize);
+
+		m->ptr = mmap(NULL, m->map.size, PROT_READ|PROT_WRITE,
+				MAP_SHARED, m->fd, m->map.offset);
+
+		if (m->ptr == MAP_FAILED) {
+			pw_log_error("stream %p: Failed to mmap memory %d %p: %m", stream, size, m);
+			m->ptr = NULL;
+			return NULL;
+		}
+	}
+	return SPA_MEMBER(m->ptr, m->map.start, void);
+}
+
+static void mem_unmap(struct stream *impl, struct mem_id *m)
+{
+	if (m->ptr != NULL) {
+		if (munmap(m->ptr, m->map.size) < 0)
+			pw_log_warn("stream %p: failed to unmap: %m", impl);
+		m->ptr = NULL;
+	}
+}
+
 static void clear_memid(struct stream *impl, struct mem_id *mid)
 {
 	if (mid->fd != -1) {
 		bool has_ref = false;
+		struct mem_id *m2;
 		int fd;
 
 		fd = mid->fd;
 		mid->fd = -1;
 
-		pw_array_for_each(mid, &impl->mem_ids) {
-			if (mid->fd == fd) {
+		pw_array_for_each(m2, &impl->mem_ids) {
+			if (m2->fd == fd) {
 				has_ref = true;
 				break;
 			}
 		}
-		if (!has_ref)
+		if (!has_ref) {
+			mem_unmap(impl, mid);
 			close(fd);
+		}
 	}
 }
 
@@ -505,18 +549,6 @@ static void on_timeout(void *data, uint64_t expirations)
 	add_request_clock_update(stream);
 }
 
-static struct mem_id *find_mem(struct pw_stream *stream, uint32_t id)
-{
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct mem_id *mid;
-
-	pw_array_for_each(mid, &impl->mem_ids) {
-		if (mid->id == id)
-			return mid;
-	}
-	return NULL;
-}
-
 static struct buffer_id *find_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -817,6 +849,8 @@ client_node_add_mem(void *data,
 	m->id = mem_id;
 	m->fd = memfd;
 	m->flags = flags;
+	m->map = PW_MAP_RANGE_INIT;
+	m->ptr = NULL;
 }
 
 static void
@@ -977,6 +1011,51 @@ static void client_node_transport(void *data, uint32_t node_id,
 	stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
 }
 
+static void client_node_port_set_io(void *data,
+				    uint32_t seq,
+				    enum spa_direction direction,
+				    uint32_t port_id,
+				    uint32_t id,
+				    uint32_t mem_id,
+				    uint32_t offset,
+				    uint32_t size)
+{
+	struct stream *impl = data;
+	struct pw_stream *stream = &impl->this;
+	struct pw_core *core = stream->remote->core;
+	struct pw_type *t = &core->type;
+	struct mem_id *m;
+	void *ptr;
+	int res;
+
+	if (mem_id == SPA_ID_INVALID) {
+		ptr = NULL;
+		size = 0;
+	}
+	else {
+		m = find_mem(stream, mem_id);
+		if (m == NULL) {
+			pw_log_warn("unknown memory id %u", mem_id);
+			res = -EINVAL;
+			goto exit;
+		}
+		if ((ptr = mem_map(stream, m, offset, size)) == NULL) {
+			res = -errno;
+			goto exit;
+		}
+	}
+
+	if (id == t->io.Buffers) {
+		impl->io = ptr;
+		pw_log_debug("stream %p: set io id %u %p", stream, id, ptr);
+	}
+
+	res = 0;
+
+      exit:
+	add_async_complete(stream, seq, res);
+}
+
 static const struct pw_client_node_proxy_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
 	.add_mem = client_node_add_mem,
@@ -989,6 +1068,7 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.port_set_param = client_node_port_set_param,
 	.port_use_buffers = client_node_port_use_buffers,
 	.port_command = client_node_port_command,
+	.port_set_io = client_node_port_set_io,
 };
 
 static void on_node_proxy_destroy(void *data)

@@ -329,6 +329,7 @@ struct pw_port {
 	struct spa_hook_list listener_list;
 
 	struct spa_node *mix;		/**< optional port buffer mix/split */
+	struct spa_node mix_node;	/**< mix node implementation */
 
 	struct {
 		struct spa_graph *graph;

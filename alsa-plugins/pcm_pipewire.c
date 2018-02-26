@@ -104,7 +104,7 @@ typedef struct {
         struct spa_audio_info_raw format;
 
         struct buffer buffers[32];
-        int n_buffers;
+        uint32_t n_buffers;
         struct spa_list empty;
 
 } snd_pcm_pipewire_t;
@@ -120,7 +120,7 @@ static int pcm_poll_block_check(snd_pcm_ioplug_t *io)
 	if (io->state == SND_PCM_STATE_RUNNING ||
 	    (io->state == SND_PCM_STATE_PREPARED && io->stream == SND_PCM_STREAM_CAPTURE)) {
 		avail = snd_pcm_avail_update(io->pcm);
-		if (avail >= 0 && avail < pw->min_avail) {
+		if (avail >= 0 && avail < (snd_pcm_sframes_t)pw->min_avail) {
 			read(io->poll_fd, &val, sizeof(val));
 			return 1;
 		}
@@ -136,7 +136,7 @@ static int pcm_poll_unblock_check(snd_pcm_ioplug_t *io)
 	snd_pcm_pipewire_t *pw = io->private_data;
 
 	avail = snd_pcm_avail_update(io->pcm);
-	if (avail < 0 || avail >= pw->min_avail || pw->error) {
+	if (avail < 0 || avail >= (snd_pcm_sframes_t)pw->min_avail || pw->error) {
 		write(pw->fd, &val, sizeof(val));
 		return 1;
 	}
@@ -658,7 +658,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 				 struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-	int i;
+	uint32_t i;
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &d->buffers[i];
 		struct spa_data *datas = buffers[i]->datas;
@@ -673,6 +673,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 				      MAP_SHARED, datas[0].fd, 0);
 			if (b->ptr == MAP_FAILED) {
 				pw_log_error("failed to buffer mem");
+				b->ptr = NULL;
 				return -errno;
 
 			}
@@ -779,7 +780,7 @@ static void on_state_changed(void *data, enum pw_remote_state old,
         case PW_REMOTE_STATE_ERROR:
 		pw->error = true;
 		pcm_poll_unblock_check(&pw->io);
-		/** FALLTHROUGH */
+		/* fallthrough */
         case PW_REMOTE_STATE_CONNECTED:
                 pw_thread_loop_signal(pw->main_loop, false);
                 break;

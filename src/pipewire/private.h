@@ -189,6 +189,24 @@ struct pw_main_loop {
         bool running;
 };
 
+struct allocation {
+	struct pw_memblock *mem;	/**< allocated buffer memory */
+	struct spa_buffer **buffers;	/**< port buffers */
+	uint32_t n_buffers;		/**< number of port buffers */
+};
+
+static inline void drop_allocation(struct allocation *alloc)
+{
+	alloc->buffers = NULL;
+	alloc->n_buffers = 0;
+}
+
+static inline void free_allocation(struct allocation *alloc)
+{
+	pw_memblock_free(alloc->mem);
+	free(alloc->buffers);
+}
+
 struct pw_link {
 	struct pw_core *core;		/**< core object */
 	struct spa_list link;		/**< link in core link_list */
@@ -213,10 +231,8 @@ struct pw_link {
 
 	struct spa_hook_list listener_list;
 
-	void *buffer_owner;
-	struct pw_memblock *buffer_mem;
-	struct spa_buffer **buffers;
-	uint32_t n_buffers;
+	void *allocation_owner;
+	struct allocation allocation;
 
 	struct {
 		struct spa_graph_port out_port;
@@ -304,9 +320,7 @@ struct pw_port {
 	struct spa_io_buffers io;	/**< io area of the port */
 
 	bool allocated;			/**< if buffers are allocated */
-	struct pw_memblock *buffer_mem;	/**< allocated buffer memory */
-	struct spa_buffer **buffers;	/**< port buffers */
-	uint32_t n_buffers;		/**< number of port buffers */
+	struct allocation allocation;
 
 	struct spa_list links;		/**< list of \ref pw_link */
 

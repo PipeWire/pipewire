@@ -528,8 +528,9 @@ spa_proxy_node_port_set_io(struct spa_node *node,
 			   void *data, size_t size)
 {
 	struct proxy *this;
-	struct port *port;
 	struct pw_type *t;
+	struct pw_memblock *mem;
+	uint32_t memid, mem_offset, mem_size;
 
 	if (node == NULL)
 		return -EINVAL;
@@ -543,42 +544,35 @@ spa_proxy_node_port_set_io(struct spa_node *node,
 	if (!CHECK_PORT(this, direction, port_id))
 		return -EINVAL;
 
-	port = GET_PORT(this, direction, port_id);
+	if (data) {
+		if ((mem = pw_memblock_find(data)) == NULL)
+			return -EINVAL;
 
+		memid = this->membase++;
+		mem_offset = mem->offset;
+		if (mem->size - mem_offset < size)
+			return -EINVAL;
 
-	if (id == t->io.Buffers)
-		port->io = data;
-	else {
-		struct pw_memblock *mem;
-		uint32_t memid, offset, size;
+		mem_size = mem->size;
 
-		if (data) {
-
-			if ((mem = pw_memblock_find(data)) == NULL)
-				return -EINVAL;
-
-			memid = this->membase++;
-			offset = mem->offset;
-			size = mem->size;
-
-			pw_client_node_resource_add_mem(this->resource,
-							memid,
-							t->data.MemFd,
-							mem->fd, mem->flags);
-		}
-		else {
-			memid = SPA_ID_INVALID;
-			offset = size = 0;
-		}
-
-		pw_client_node_resource_port_set_io(this->resource,
-						    this->seq,
-						    direction, port_id,
-						    id,
-						    memid,
-						    offset, size);
+		pw_client_node_resource_add_mem(this->resource,
+						memid,
+						t->data.MemFd,
+						mem->fd, mem->flags);
 	}
-	return 0;
+	else {
+		memid = SPA_ID_INVALID;
+		mem_offset = mem_size = 0;
+	}
+
+	pw_client_node_resource_port_set_io(this->resource,
+					    this->seq,
+					    direction, port_id,
+					    id,
+					    memid,
+					    mem_offset, mem_size);
+
+	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
 
 static int
@@ -746,6 +740,7 @@ spa_proxy_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32
 
 	pw_client_node_transport_add_message(impl->transport, (struct pw_client_node_message *)
 			&PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER_INIT(port_id, buffer_id));
+	do_flush(this);
 
 	return 0;
 }

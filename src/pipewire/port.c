@@ -459,7 +459,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	pw_log_debug("port %p: setting node io", port);
 	spa_node_port_set_io(node->node,
 			     port->direction, port_id,
-			     node->core->type.io.Buffers,
+			     t->io.Buffers,
 			     port->rt.port.io, sizeof(*port->rt.port.io));
 
 	if (node->global)
@@ -535,6 +535,7 @@ void pw_port_destroy(struct pw_port *port)
 {
 	struct pw_node *node = port->node;
 	struct pw_control *control, *ctemp;
+	struct pw_resource *resource, *tmp;
 
 	pw_log_debug("port %p: destroy", port);
 
@@ -552,6 +553,8 @@ void pw_port_destroy(struct pw_port *port)
 		spa_hook_remove(&port->global_listener);
 		pw_global_destroy(port->global);
 	}
+	spa_list_for_each_safe(resource, tmp, &port->resource_list, link)
+		pw_resource_destroy(resource);
 
 	pw_log_debug("port %p: free", port);
 	spa_hook_list_call(&port->listener_list, struct pw_port_events, free);

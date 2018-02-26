@@ -262,12 +262,14 @@ static void fill_s16(int16_t *out, int n_samples, int stride)
 		out += stride;
 	}
 }
+#if 0
 static void add_f32(float *out, float *in, int n_samples)
 {
 	int i;
 	for (i = 0; i < n_samples; i++)
 		out[i] += in[i];
 }
+#endif
 
 static int node_process_input(struct spa_node *node)
 {
@@ -626,6 +628,7 @@ static const struct spa_node node_impl = {
 	.process_output = node_process_output,
 };
 
+#if 0
 static int schedule_mix_input(struct spa_node *_node)
 {
 	struct port *p = SPA_CONTAINER_OF(_node, struct port, mix_node);
@@ -681,6 +684,7 @@ static const struct spa_node schedule_mix_node = {
 	.process_input = schedule_mix_input,
 	.process_output = schedule_mix_output,
 };
+#endif
 
 static void port_free(void *data)
 {
@@ -725,6 +729,7 @@ static struct port *make_port(struct node *n, enum pw_direction direction,
 		n->out_ports[id] = p;
 		n->n_out_ports++;
 	}
+	pw_port_add_listener(port, &p->port_listener, &port_events, p);
 	pw_port_add(port, n->node);
 
 	return p;

@@ -195,16 +195,21 @@ struct allocation {
 	uint32_t n_buffers;		/**< number of port buffers */
 };
 
-static inline void drop_allocation(struct allocation *alloc)
+static inline void move_allocation(struct allocation *alloc, struct allocation *dest)
 {
-	alloc->buffers = NULL;
-	alloc->n_buffers = 0;
+	*dest = *alloc;
+	alloc->mem = NULL;
 }
 
 static inline void free_allocation(struct allocation *alloc)
 {
-	pw_memblock_free(alloc->mem);
-	free(alloc->buffers);
+	if (alloc->mem) {
+		pw_memblock_free(alloc->mem);
+		free(alloc->buffers);
+	}
+	alloc->mem = NULL;
+	alloc->buffers = NULL;
+	alloc->n_buffers = 0;
 }
 
 struct pw_link {
@@ -231,7 +236,6 @@ struct pw_link {
 
 	struct spa_hook_list listener_list;
 
-	void *allocation_owner;
 	struct allocation allocation;
 
 	struct {

@@ -556,8 +556,7 @@ void pw_port_destroy(struct pw_port *port)
 	pw_log_debug("port %p: free", port);
 	spa_hook_list_call(&port->listener_list, struct pw_port_events, free);
 
-	if (port->allocated)
-		free_allocation(&port->allocation);
+	free_allocation(&port->allocation);
 
 	if (port->properties)
 		pw_properties_free(port->properties);
@@ -666,11 +665,8 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 
 	if (id == t->param.idFormat) {
 		if (param == NULL || res < 0) {
-			if (port->allocated) {
-				free_allocation(&port->allocation);
-				port->allocated = false;
-			}
-			drop_allocation(&port->allocation);
+			free_allocation(&port->allocation);
+			port->allocated = false;
 			port_update_state (port, PW_PORT_STATE_CONFIGURE);
 		}
 		else if (!SPA_RESULT_IS_ASYNC(res)) {
@@ -694,18 +690,16 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 	res = spa_node_port_use_buffers(node->node, port->direction, port->port_id, buffers, n_buffers);
 	pw_log_debug("port %p: use %d buffers: %d (%s)", port, n_buffers, res, spa_strerror(res));
 
-	if (port->allocated) {
-		free_allocation(&port->allocation);
-		port->allocated = false;
-	}
+	port->allocated = false;
+
+	free_allocation(&port->allocation);
+
 	if (res < 0) {
-		drop_allocation(&port->allocation);
-	} else {
-		port->allocation.buffers = buffers;
-		port->allocation.n_buffers = n_buffers;
+		n_buffers = 0;
+		buffers = NULL;
 	}
 
-	if (port->allocation.n_buffers == 0)
+	if (n_buffers == 0)
 		port_update_state (port, PW_PORT_STATE_READY);
 	else if (!SPA_RESULT_IS_ASYNC(res))
 		port_update_state (port, PW_PORT_STATE_PAUSED);
@@ -728,20 +722,18 @@ int pw_port_alloc_buffers(struct pw_port *port,
 					  buffers, n_buffers);
 	pw_log_debug("port %p: alloc %d buffers: %d (%s)", port, *n_buffers, res, spa_strerror(res));
 
-	if (port->allocated) {
-		free_allocation(&port->allocation);
-	}
+	free_allocation(&port->allocation);
+
 	if (res < 0) {
-		drop_allocation(&port->allocation);
+		n_buffers = 0;
+		buffers = NULL;
 		port->allocated = false;
 	}
 	else {
-		port->allocation.buffers = buffers;
-		port->allocation.n_buffers = *n_buffers;
 		port->allocated = true;
 	}
 
-	if (port->allocation.n_buffers == 0)
+	if (n_buffers == 0)
 		port_update_state (port, PW_PORT_STATE_READY);
 	else if (!SPA_RESULT_IS_ASYNC(res))
 		port_update_state (port, PW_PORT_STATE_PAUSED);

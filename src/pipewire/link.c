@@ -489,6 +489,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	char *error = NULL;
 	struct pw_port *input, *output;
 	struct pw_type *t = &this->core->type;
+	struct allocation allocation;
 
 	if (in_state != PW_PORT_STATE_READY && out_state != PW_PORT_STATE_READY)
 		return 0;
@@ -557,21 +558,23 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		spa_debug_port_info(oinfo);
 		spa_debug_port_info(iinfo);
 	}
-	if (this->allocation.buffers == NULL && output->allocation.n_buffers) {
+	if (output->allocation.n_buffers) {
 		out_flags = 0;
 		in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-		this->allocation = output->allocation;
-		this->allocation_owner = output;
+
+		allocation = output->allocation;
+
 		pw_log_debug("link %p: reusing %d output buffers %p", this,
-				this->allocation.n_buffers, this->allocation.buffers);
-	} else if (this->allocation.buffers == NULL && input->allocation.n_buffers && input->mix == NULL) {
+				allocation.n_buffers, allocation.buffers);
+	} else if (input->allocation.n_buffers && input->mix == NULL) {
 		out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 		in_flags = 0;
-		this->allocation = input->allocation;
-		this->allocation_owner = input;
+
+		allocation = input->allocation;
+
 		pw_log_debug("link %p: reusing %d input buffers %p", this,
-				this->allocation.n_buffers, this->allocation.buffers);
-	} else if (this->allocation.buffers == NULL) {
+				allocation.n_buffers, allocation.buffers);
+	} else {
 		struct spa_pod **params, *param;
 		uint8_t buffer[4096];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -634,88 +637,82 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 					 params,
 					 1,
 					 data_sizes, data_strides,
-					 &this->allocation)) < 0) {
+					 &allocation)) < 0) {
 			asprintf(&error, "error alloc buffers: %d", res);
 			goto error;
 		}
-		this->allocation_owner = this;
 
 		pw_log_debug("link %p: allocating %d buffers %p %zd %zd", this,
-			     this->allocation.n_buffers, this->allocation.buffers, minsize, stride);
+			     allocation.n_buffers, allocation.buffers, minsize, stride);
 
 		if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(output,
 							 params, n_params,
-							 this->allocation.buffers,
-							 &this->allocation.n_buffers)) < 0) {
+							 allocation.buffers,
+							 &allocation.n_buffers)) < 0) {
 				asprintf(&error, "error alloc output buffers: %d", res);
 				goto error;
 			}
 			if (SPA_RESULT_IS_ASYNC(res))
 				pw_work_queue_add(impl->work, output->node, res, complete_paused, output);
 
-			output->allocation = this->allocation;
-			this->allocation_owner = output;
+			move_allocation(&allocation, &output->allocation);
 
 			pw_log_debug("link %p: allocated %d buffers %p from output port", this,
-				     this->allocation.n_buffers, this->allocation.buffers);
+				     allocation.n_buffers, allocation.buffers);
 		} else if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(input,
 							 params, n_params,
-							 this->allocation.buffers,
-							 &this->allocation.n_buffers)) < 0) {
+							 allocation.buffers,
+							 &allocation.n_buffers)) < 0) {
 				asprintf(&error, "error alloc input buffers: %d", res);
 				goto error;
 			}
 			if (SPA_RESULT_IS_ASYNC(res))
 				pw_work_queue_add(impl->work, input->node, res, complete_paused, input);
 
-			input->allocation = this->allocation;
-			this->allocation_owner = input;
-
 			pw_log_debug("link %p: allocated %d buffers %p from input port", this,
-				     this->allocation.n_buffers, this->allocation.buffers);
+				     allocation.n_buffers, allocation.buffers);
 		}
 	}
 
-	if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
-		pw_log_debug("link %p: using %d buffers %p on input port", this,
-			     this->allocation.n_buffers, this->allocation.buffers);
-		if ((res = pw_port_use_buffers(input,
-					       this->allocation.buffers,
-					       this->allocation.n_buffers)) < 0) {
-			asprintf(&error, "error use input buffers: %d", res);
-			goto error;
-		}
-		if (SPA_RESULT_IS_ASYNC(res))
-			pw_work_queue_add(impl->work, input->node, res, complete_paused, input);
-	} else if (out_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
+	if (out_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
 		pw_log_debug("link %p: using %d buffers %p on output port", this,
-			     this->allocation.n_buffers, this->allocation.buffers);
+			     allocation.n_buffers, allocation.buffers);
 		if ((res = pw_port_use_buffers(output,
-					       this->allocation.buffers,
-					       this->allocation.n_buffers)) < 0) {
+					       allocation.buffers,
+					       allocation.n_buffers)) < 0) {
 			asprintf(&error, "error use output buffers: %d", res);
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res))
 			pw_work_queue_add(impl->work, output->node, res, complete_paused, output);
 
-		output->allocation = this->allocation;
-		output->allocated = false;
-		this->allocation_owner = output;
+		move_allocation(&allocation, &output->allocation);
+
+	} else if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
+		pw_log_debug("link %p: using %d buffers %p on input port", this,
+			     allocation.n_buffers, allocation.buffers);
+		if ((res = pw_port_use_buffers(input,
+					       allocation.buffers,
+					       allocation.n_buffers)) < 0) {
+			asprintf(&error, "error use input buffers: %d", res);
+			goto error;
+		}
+		if (SPA_RESULT_IS_ASYNC(res))
+			pw_work_queue_add(impl->work, input->node, res, complete_paused, input);
+
 	} else {
 		asprintf(&error, "no common buffer alloc found");
 		goto error;
 	}
 
+
 	return 0;
 
       error:
-	drop_allocation(&output->allocation);
-	output->allocated = false;
-	drop_allocation(&input->allocation);
-	input->allocated = false;
+	free_allocation(&output->allocation);
+	free_allocation(&input->allocation);
 	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
 	return res;
 }
@@ -853,7 +850,7 @@ output_node_async_complete(void *data, uint32_t seq, int res)
 
 static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 {
-	if (spa_list_is_empty(&port->links) && link->allocation_owner != port)
+	if (spa_list_is_empty(&port->links) && port->allocation.mem == NULL)
 		pw_port_use_buffers(port, NULL, 0);
 }
 
@@ -1305,8 +1302,7 @@ void pw_link_destroy(struct pw_link *link)
 	if (link->info.format)
 		free(link->info.format);
 
-	if (link->allocation_owner == link)
-		free_allocation(&link->allocation);
+	free_allocation(&link->allocation);
 
 	free(impl);
 }

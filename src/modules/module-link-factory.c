@@ -119,9 +119,11 @@ static void *create_object(void *_data,
 	if (inport == NULL)
 		goto no_input_port;
 
-	link = pw_link_new(core, outport, inport, NULL, NULL, &error, 0);
+	link = pw_link_new(core, outport, inport, NULL, properties, &error, 0);
 	if (link == NULL)
 		goto no_mem;
+
+	properties = NULL;
 
 	pw_link_register(link, client, pw_client_get_global(client), NULL);
 

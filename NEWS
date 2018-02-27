@@ -1,1 +1,14 @@
-PipeWire 0.1
+PipeWire 0.1.9
+
+- Various build fixes
+- Do more permission checks
+- Add support for doing async connections. This can be used to
+  make connections through the portal later.
+- Fix device creation from the GStreamer device monitor
+- v4l2 experiment with controls
+- move rtkit to a module to avoid dbus dependency
+- use dmabuf allocator in gstreamer elements
+- Add DSP module for pro audio cases, remove jack module. The
+  idea is to make a replacement jack client library that talks
+  pipewire directly instead of trying to emulate a jack server.
+- Various memory handling improvements

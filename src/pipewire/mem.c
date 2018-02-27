@@ -138,6 +138,7 @@ int pw_memblock_map(struct pw_memblock *mem)
 	} else {
 		mem->ptr = NULL;
 	}
+	pw_log_debug("mem %p: map", mem);
 	return 0;
 }
 
@@ -214,6 +215,7 @@ int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_membl
 	*p = tmp;
 	spa_list_append(&_memblocks, &p->link);
 	*mem = &p->mem;
+	pw_log_debug("mem %p: alloc", *mem);
 
 	return 0;
 
@@ -237,6 +239,8 @@ pw_memblock_import(enum pw_memblock_flags flags,
 	(*mem)->offset = offset;
 	(*mem)->size = size;
 
+	pw_log_debug("mem %p: import", *mem);
+
 	return pw_memblock_map(*mem);
 }
 
@@ -251,6 +255,7 @@ void pw_memblock_free(struct pw_memblock *mem)
 	if (mem == NULL)
 		return;
 
+	pw_log_debug("mem %p: free", mem);
 	if (mem->flags & PW_MEMBLOCK_FLAG_WITH_FD) {
 		if (mem->ptr)
 			munmap(mem->ptr, mem->size);

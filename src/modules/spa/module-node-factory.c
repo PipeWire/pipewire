@@ -45,6 +45,18 @@ struct factory_data {
 struct node_data {
 	struct spa_list link;
 	struct pw_node *node;
+	struct spa_hook node_listener;
+};
+
+static void node_destroy(void *data)
+{
+	struct node_data *nd = data;
+	spa_list_remove(&nd->link);
+}
+
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
+	.destroy = node_destroy,
 };
 
 static void *create_object(void *_data,
@@ -87,6 +99,8 @@ static void *create_object(void *_data,
 	nd = pw_spa_node_get_user_data(node);
 	nd->node = node;
 	spa_list_append(&data->node_list, &nd->link);
+
+	pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
 
 	if (resource)
 		pw_global_bind(pw_node_get_global(node),

@@ -559,6 +559,10 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 					continue;
 				}
 			}
+			if (debug_messages) {
+				printf("<<<<<<<<< in: %d %d %d\n", id, opcode, size);
+			        spa_debug_pod((struct spa_pod *)message, 0);
+			}
 			if (demarshal[opcode].func(proxy, message, size) < 0) {
 				pw_log_error ("protocol-native %p: invalid message received %u for %u", this,
 					opcode, id);

@@ -677,14 +677,14 @@ static void client_node_add_mem(void *object,
 
 	m = find_mem(&data->mem_ids, mem_id);
 	if (m) {
-		pw_log_debug("update mem %u, fd %d, flags %d",
+		pw_log_warn("duplicate mem %u, fd %d, flags %d",
 			     mem_id, memfd, flags);
-		clear_memid(data, m);
-	} else {
-		m = pw_array_add(&data->mem_ids, sizeof(struct mem_id));
-		pw_log_debug("add mem %u, fd %d, flags %d",
-			     mem_id, memfd, flags);
+		return;
 	}
+
+	m = pw_array_add(&data->mem_ids, sizeof(struct mem_id));
+	pw_log_debug("add mem %u, fd %d, flags %d", mem_id, memfd, flags);
+
 	m->id = mem_id;
 	m->fd = memfd;
 	m->flags = flags;

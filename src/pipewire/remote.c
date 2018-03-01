@@ -1022,8 +1022,9 @@ client_node_port_use_buffers(void *object,
 
 		struct mem_id *mid = find_mem(&data->mem_ids, buffers[i].mem_id);
 		if (mid == NULL) {
-			pw_log_warn("unknown memory id %u", buffers[i].mem_id);
-			continue;
+			pw_log_error("unknown memory id %u", buffers[i].mem_id);
+			res = -EINVAL;
+			goto cleanup;
 		}
 
 		len = pw_array_get_len(&port->buffer_ids, struct buffer_id);
@@ -1034,9 +1035,10 @@ client_node_port_use_buffers(void *object,
 		bid->ptr = mmap(NULL, bid->map.size, prot, MAP_SHARED, mid->fd, bid->map.offset);
 		if (bid->ptr == MAP_FAILED) {
 			bid->ptr = NULL;
-			pw_log_warn("Failed to mmap memory %u %u %u %d: %m",
-					bid->map.offset, bid->map.size, buffers[i].mem_id, mid->fd);
-			continue;
+			pw_log_error("Failed to mmap memory %u %u %u %d: %m",
+				bid->map.offset, bid->map.size, buffers[i].mem_id, mid->fd);
+			res = -errno;
+			goto cleanup;
 		}
 		if (mlock(bid->ptr, bid->map.size) < 0)
 			pw_log_warn("Failed to mlock memory %u %u: %m",
@@ -1093,8 +1095,14 @@ client_node_port_use_buffers(void *object,
 				       struct spa_chunk);
 
 			if (d->type == t->data.MemFd || d->type == t->data.DmaBuf) {
-				struct mem_id *bmid = find_mem(&data->mem_ids,
-						SPA_PTR_TO_UINT32(d->data));
+				uint32_t id = SPA_PTR_TO_UINT32(d->data);
+				struct mem_id *bmid = find_mem(&data->mem_ids, id);
+
+				if (bmid == NULL) {
+					pw_log_error("unknown buffer mem %u", id);
+					res = -EINVAL;
+					goto cleanup;
+				}
 
 				d->data = NULL;
 				d->fd = bmid->fd;
@@ -1117,6 +1125,11 @@ client_node_port_use_buffers(void *object,
 
       done:
 	pw_client_node_proxy_done(data->node_proxy, seq, res);
+	return;
+
+     cleanup:
+	clear_buffers(data, port);
+	goto done;
 
 }
 

@@ -590,6 +590,48 @@ impl_node_port_set_param(struct spa_node *node,
 	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
 
+static int do_port_set_io(struct impl *impl,
+			   enum spa_direction direction, uint32_t port_id, uint32_t mix_id,
+			   uint32_t id, void *data, size_t size)
+{
+	struct node *this = &impl->node;
+	struct pw_type *t = impl->t;
+	struct pw_memblock *mem;
+	struct mem *m;
+	uint32_t memid, mem_offset, mem_size;
+
+	pw_log_debug("client-node %p: port %d.%d set io %p %zd", impl, port_id, mix_id, data, size);
+
+	if (this->resource == NULL)
+		return 0;
+
+	if (data) {
+		if ((mem = pw_memblock_find(data)) == NULL)
+			return -EINVAL;
+
+		mem_offset = mem->offset;
+		mem_size = mem->size;
+		if (mem_size - mem_offset < size)
+			return -EINVAL;
+
+		m = ensure_mem(impl, mem->fd, t->data.MemFd, mem->flags);
+		memid = m->id;
+	}
+	else {
+		memid = SPA_ID_INVALID;
+		mem_offset = mem_size = 0;
+	}
+
+	pw_client_node_resource_port_set_io(this->resource,
+					    this->seq,
+					    direction, port_id, mix_id,
+					    id,
+					    memid,
+					    mem_offset, mem_size);
+
+	return SPA_RESULT_RETURN_ASYNC(this->seq++);
+}
+
 static int
 impl_node_port_set_io(struct spa_node *node,
 		      enum spa_direction direction,
@@ -597,7 +639,14 @@ impl_node_port_set_io(struct spa_node *node,
 		      uint32_t id,
 		      void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct node *this;
+
+	this = SPA_CONTAINER_OF(node, struct node, node);
+
+	if (!CHECK_PORT(this, direction, port_id))
+		return -EINVAL;
+
+	return do_port_set_io(this->impl, direction, port_id, 0, id, data, size);
 }
 
 static int
@@ -1216,47 +1265,18 @@ static int mix_port_set_io(struct spa_node *node,
 	struct pw_port *p = SPA_CONTAINER_OF(node, struct pw_port, mix_node);
 	struct impl *impl = p->owner_data;
 	struct node *this = &impl->node;
-	struct pw_type *t = impl->t;
-	struct pw_memblock *mem;
-	struct mem *m;
-	uint32_t memid, mem_offset, mem_size;
 
 	pw_log_debug("client-node %p: mix port %d set io %p, %zd", impl, port_id, data, size);
 
 	p->rt.port.io = data;
 	p->rt.mix_port.io = data;
 
-	if (this->resource == NULL)
-		return 0;
-
 	if (!CHECK_PORT(this, direction, port_id))
 		return -EINVAL;
 
-	if (data) {
-		if ((mem = pw_memblock_find(data)) == NULL)
-			return -EINVAL;
-
-		mem_offset = mem->offset;
-		mem_size = mem->size;
-		if (mem_size - mem_offset < size)
-			return -EINVAL;
-
-		m = ensure_mem(impl, mem->fd, t->data.MemFd, mem->flags);
-		memid = m->id;
-	}
-	else {
-		memid = SPA_ID_INVALID;
-		mem_offset = mem_size = 0;
-	}
-
-	pw_client_node_resource_port_set_io(this->resource,
-					    this->seq,
-					    direction, port_id, 0,
-					    id,
-					    memid,
-					    mem_offset, mem_size);
-
-	return SPA_RESULT_RETURN_ASYNC(this->seq++);
+	return do_port_set_io(impl,
+			      direction, p->port_id, port_id,
+			      id, data, size);
 }
 
 static int mix_port_process_input(struct spa_node *data)

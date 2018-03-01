@@ -2,7 +2,7 @@
 load-module libpipewire-module-rtkit
 load-module libpipewire-module-protocol-native
 load-module libpipewire-module-suspend-on-idle
-#load-module libpipewire-module-spa-monitor alsa/libspa-alsa alsa-monitor alsa
+load-module libpipewire-module-spa-monitor alsa/libspa-alsa alsa-monitor alsa
 load-module libpipewire-module-spa-monitor v4l2/libspa-v4l2 v4l2-monitor v4l2
 #load-module libpipewire-module-spa-monitor bluez5/libspa-bluez5 bluez5-monitor bluez5
 #load-module libpipewire-module-spa-node videotestsrc/libspa-videotestsrc videotestsrc videotestsrc Spa:POD:Object:Props:patternType=Spa:POD:Object:Props:patternType:snow
@@ -10,6 +10,5 @@ load-module libpipewire-module-autolink
 #load-module libpipewire-module-mixer
 load-module libpipewire-module-client-node
 load-module libpipewire-module-flatpak
-#load-module libpipewire-module-audio-dsp
-#load-module libpipewire-module-link-factory
-#load-module libpipewire-module-jack
+load-module libpipewire-module-audio-dsp
+load-module libpipewire-module-link-factory

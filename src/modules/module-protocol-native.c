@@ -903,7 +903,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_protocol_native_init(this);
 
-	pw_log_debug("protocol-native %p: new", this);
+	pw_log_debug("protocol-native %p: new %d", this, debug_messages);
 
 	d = pw_protocol_get_user_data(this);
 	d->protocol = this;

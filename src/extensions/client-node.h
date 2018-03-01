@@ -56,8 +56,6 @@ struct pw_client_node_area {
  */
 struct pw_client_node_transport {
 	struct pw_client_node_area *area;	/**< the transport area */
-	struct spa_io_buffers *inputs;		/**< array of buffer input io */
-	struct spa_io_buffers *outputs;		/**< array of buffer output io */
 	void *input_data;			/**< input memory for ringbuffer */
 	struct spa_ringbuffer *input_buffer;	/**< ringbuffer for input memory */
 	void *output_data;			/**< output memory for ringbuffer */
@@ -308,6 +306,15 @@ struct pw_client_node_proxy_events {
 	/**
 	 * Memory was added to a node
 	 *
+	 * Memory is given to a node as an fd in \a memfd of a certain
+	 * memory \a type.
+	 *
+	 * Further references to this fd will be made with the per memory
+	 * unique identifier \a mem_id.
+	 *
+	 * Buffers or controls will reference the memory by \a mem_id and
+	 * mapping the specified area will give access to the memory.
+	 *
 	 * \param mem_id the id of the memory
 	 * \param type the memory type
 	 * \param memfd the fd of the memory
@@ -406,6 +413,7 @@ struct pw_client_node_proxy_events {
 	 * \param seq a sequence number
 	 * \param direction a port direction
 	 * \param port_id the port id
+	 * \param mix_id the mixer port id
 	 * \param n_buffer the number of buffers
 	 * \param buffers and array of buffer descriptions
 	 */
@@ -413,6 +421,7 @@ struct pw_client_node_proxy_events {
 				  uint32_t seq,
 				  enum spa_direction direction,
 				  uint32_t port_id,
+				  uint32_t mix_id,
 				  uint32_t n_buffers,
 				  struct pw_client_node_buffer *buffers);
 	/**
@@ -433,6 +442,7 @@ struct pw_client_node_proxy_events {
 	 * \param seq a sequence number
 	 * \param direction the direction of the port
 	 * \param port_id the port id
+	 * \param mix_id the mixer port id
 	 * \param id the id of the io area to set
 	 * \param mem_id the id of the memory to use
 	 * \param offset offset of io area in memory
@@ -442,6 +452,7 @@ struct pw_client_node_proxy_events {
 			     uint32_t seq,
 			     enum spa_direction direction,
 			     uint32_t port_id,
+			     uint32_t mix_id,
 			     uint32_t id,
 			     uint32_t mem_id,
 			     uint32_t offset,

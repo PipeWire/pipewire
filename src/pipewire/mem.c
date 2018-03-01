@@ -138,7 +138,9 @@ int pw_memblock_map(struct pw_memblock *mem)
 	} else {
 		mem->ptr = NULL;
 	}
-	pw_log_debug("mem %p: map", mem);
+
+	pw_log_debug("mem %p: map to %p", mem, mem->ptr);
+
 	return 0;
 }
 

@@ -333,7 +333,7 @@ static int client_node_demarshal_port_use_buffers(void *object, void *data, size
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
-	uint32_t seq, direction, port_id, n_buffers, data_id;
+	uint32_t seq, direction, port_id, mix_id, n_buffers, data_id;
 	struct pw_client_node_buffer *buffers;
 	int i, j;
 
@@ -343,6 +343,7 @@ static int client_node_demarshal_port_use_buffers(void *object, void *data, size
 			"i", &seq,
 			"i", &direction,
 			"i", &port_id,
+			"i", &mix_id,
 			"i", &n_buffers, NULL) < 0)
 		return -EINVAL;
 
@@ -388,6 +389,7 @@ static int client_node_demarshal_port_use_buffers(void *object, void *data, size
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_use_buffers, seq,
 									  direction,
 									  port_id,
+									  mix_id,
 									  n_buffers, buffers);
 	return 0;
 }
@@ -417,7 +419,7 @@ static int client_node_demarshal_port_set_io(void *object, void *data, size_t si
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
-	uint32_t seq, direction, port_id, id, memid, off, sz;
+	uint32_t seq, direction, port_id, mix_id, id, memid, off, sz;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -425,6 +427,7 @@ static int client_node_demarshal_port_set_io(void *object, void *data, size_t si
 			"i", &seq,
 			"i", &direction,
 			"i", &port_id,
+			"i", &mix_id,
 			"I", &id,
 			"i", &memid,
 			"i", &off,
@@ -433,7 +436,7 @@ static int client_node_demarshal_port_set_io(void *object, void *data, size_t si
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_set_io,
 							seq,
-							direction, port_id,
+							direction, port_id, mix_id,
 							id, memid,
 							off, sz);
 	return 0;
@@ -588,6 +591,7 @@ client_node_marshal_port_use_buffers(void *object,
 				     uint32_t seq,
 				     enum spa_direction direction,
 				     uint32_t port_id,
+				     uint32_t mix_id,
 				     uint32_t n_buffers, struct pw_client_node_buffer *buffers)
 {
 	struct pw_resource *resource = object;
@@ -601,6 +605,7 @@ client_node_marshal_port_use_buffers(void *object,
 			    "i", seq,
 			    "i", direction,
 			    "i", port_id,
+			    "i", mix_id,
 			    "i", n_buffers, NULL);
 
 	for (i = 0; i < n_buffers; i++) {
@@ -659,6 +664,7 @@ client_node_marshal_port_set_io(void *object,
 				uint32_t seq,
 				uint32_t direction,
 				uint32_t port_id,
+				uint32_t mix_id,
 				uint32_t id,
 				uint32_t memid,
 				uint32_t offset,
@@ -673,6 +679,7 @@ client_node_marshal_port_set_io(void *object,
 			       "i", seq,
 			       "i", direction,
 			       "i", port_id,
+			       "i", mix_id,
 			       "I", id,
 			       "i", memid,
 			       "i", offset,

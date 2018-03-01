@@ -591,22 +591,22 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
-			struct spa_io_buffers *input = &impl->trans->inputs[i];
+			struct spa_io_buffers *io = impl->io;
 			struct buffer_id *bid;
 			uint32_t buffer_id;
 
-			buffer_id = input->buffer_id;
+			buffer_id = io->buffer_id;
 
-			pw_log_trace("stream %p: process input %d %d", stream, input->status,
+			pw_log_trace("stream %p: process input %d %d", stream, io->status,
 				     buffer_id);
 
 			if ((bid = find_buffer(stream, buffer_id)) == NULL)
 				continue;
 
 			if (impl->client_reuse)
-				input->buffer_id = SPA_ID_INVALID;
+				io->buffer_id = SPA_ID_INVALID;
 
-			if (input->status == SPA_STATUS_HAVE_BUFFER) {
+			if (io->status == SPA_STATUS_HAVE_BUFFER) {
 				bid->used = true;
 				impl->in_new_buffer = true;
 				spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
@@ -614,7 +614,7 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 				impl->in_new_buffer = false;
 			}
 
-			input->status = SPA_STATUS_NEED_BUFFER;
+			io->status = SPA_STATUS_NEED_BUFFER;
 		}
 		send_need_input(stream);
 		break;
@@ -624,13 +624,13 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_output_ports; i++) {
-			struct spa_io_buffers *output = &impl->trans->outputs[i];
+			struct spa_io_buffers *io = impl->io;
 
-			if (output->buffer_id == SPA_ID_INVALID)
+			if (io->buffer_id == SPA_ID_INVALID)
 				continue;
 
-			reuse_buffer(stream, output->buffer_id);
-			output->buffer_id = SPA_ID_INVALID;
+			reuse_buffer(stream, io->buffer_id);
+			io->buffer_id = SPA_ID_INVALID;
 		}
 		pw_log_trace("stream %p: process output", stream);
 		impl->in_need_buffer = true;
@@ -747,7 +747,7 @@ static void client_node_command(void *data, uint32_t seq, const struct spa_comma
 
 			if (impl->direction == SPA_DIRECTION_INPUT) {
 				for (i = 0; i < impl->trans->area->max_input_ports; i++)
-					impl->trans->inputs[i].status = SPA_STATUS_NEED_BUFFER;
+					impl->io->status = SPA_STATUS_NEED_BUFFER;
 				send_need_input(stream);
 			}
 			else {
@@ -861,7 +861,7 @@ client_node_add_mem(void *data,
 static void
 client_node_port_use_buffers(void *data,
 			     uint32_t seq,
-			     enum spa_direction direction, uint32_t port_id,
+			     enum spa_direction direction, uint32_t port_id, uint32_t mix_id,
 			     uint32_t n_buffers, struct pw_client_node_buffer *buffers)
 {
 	struct stream *impl = data;
@@ -1020,6 +1020,7 @@ static void client_node_port_set_io(void *data,
 				    uint32_t seq,
 				    enum spa_direction direction,
 				    uint32_t port_id,
+				    uint32_t mix_id,
 				    uint32_t id,
 				    uint32_t mem_id,
 				    uint32_t offset,
@@ -1052,7 +1053,8 @@ static void client_node_port_set_io(void *data,
 
 	if (id == t->io.Buffers) {
 		impl->io = ptr;
-		pw_log_debug("stream %p: set io id %u %p", stream, id, ptr);
+		pw_log_debug("stream %p: %u.%u set io id %u %p", stream,
+				port_id, mix_id, id, ptr);
 	}
 
 	res = 0;
@@ -1236,8 +1238,8 @@ int pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 		int i;
 
 		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
-			struct spa_io_buffers *input = &impl->trans->inputs[i];
-			input->buffer_id = id;
+			struct spa_io_buffers *io = impl->io;
+			io->buffer_id = id;
 		}
 	} else {
 		send_reuse_buffer(stream, id);
@@ -1261,17 +1263,17 @@ int pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer_id *bid;
 
-	if (impl->trans->outputs[0].buffer_id != SPA_ID_INVALID) {
+	if (impl->io->buffer_id != SPA_ID_INVALID) {
 		pw_log_debug("can't send %u, pending buffer %u", id,
-			     impl->trans->outputs[0].buffer_id);
+			     impl->io->buffer_id);
 		return -EIO;
 	}
 
 	if ((bid = find_buffer(stream, id)) && !bid->used) {
 		bid->used = true;
 		spa_list_remove(&bid->link);
-		impl->trans->outputs[0].buffer_id = id;
-		impl->trans->outputs[0].status = SPA_STATUS_HAVE_BUFFER;
+		impl->io->buffer_id = id;
+		impl->io->status = SPA_STATUS_HAVE_BUFFER;
 		pw_log_trace("stream %p: send buffer %d", stream, id);
 		if (!impl->in_need_buffer)
 			send_have_output(stream);

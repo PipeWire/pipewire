@@ -480,6 +480,47 @@ param_filter(struct pw_link *this,
 	return num;
 }
 
+static void port_set_io(struct pw_link *this, struct pw_port *port, void *data, size_t size,
+		struct spa_graph_port *p)
+{
+	struct pw_type *t = &this->core->type;
+	int res;
+
+	p->io = data;
+	pw_log_debug("link %p: port %p %d.%d set io: %p", this, port, port->port_id, p->port_id, data);
+	if (port->mix_node.port_set_io) {
+		if ((res = spa_node_port_set_io(&port->mix_node,
+				     p->direction,
+				     p->port_id,
+				     t->io.Buffers,
+				     data, size)) < 0)
+			pw_log_warn("port %p: can't set io: %s", port, spa_strerror(res));
+	}
+}
+
+static int select_io(struct pw_link *this)
+{
+	struct spa_io_buffers *io;
+	struct pw_type *t = &this->core->type;
+
+	if (this->output->implementation && this->output->implementation->get_io)
+		io = this->output->implementation->get_io(this->output->implementation_data,
+				t->io.Buffers, sizeof(struct spa_io_buffers));
+	else if (this->input->implementation && this->input->implementation->get_io)
+		io = this->input->implementation->get_io(this->input->implementation_data,
+				t->io.Buffers, sizeof(struct spa_io_buffers));
+	else
+		io = &this->io;
+
+	if (io == NULL)
+		return -EIO;
+
+	port_set_io(this, this->input, io, sizeof(struct spa_io_buffers), &this->rt.in_port);
+	port_set_io(this, this->output, io, sizeof(struct spa_io_buffers), &this->rt.out_port);
+
+	return 0;
+}
+
 static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_state)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
@@ -500,17 +541,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	output = this->output;
 
 	pw_log_debug("link %p: doing alloc buffers %p %p", this, output->node, input->node);
-	/* find out what's possible */
-	if ((res = spa_node_port_get_info(output->node->node, output->direction, output->port_id,
-					  &oinfo)) < 0) {
-		asprintf(&error, "error get output port info: %d", res);
-		goto error;
-	}
-	if ((res = spa_node_port_get_info(input->node->node, input->direction, input->port_id,
-					  &iinfo)) < 0) {
-		asprintf(&error, "error get input port info: %d", res);
-		goto error;
-	}
+	oinfo = output->spa_info;
+	iinfo = input->spa_info;
 
 	in_flags = iinfo->flags;
 	out_flags = oinfo->flags;
@@ -706,6 +738,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		asprintf(&error, "no common buffer alloc found");
 		goto error;
 	}
+
+	select_io(this);
 
 	return 0;
 
@@ -1287,7 +1321,6 @@ void pw_link_destroy(struct pw_link *link)
 		spa_list_remove(&link->link);
 
 	input_remove(link, link->input);
-
 	output_remove(link, link->output);
 
 	if (link->global) {

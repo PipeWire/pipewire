@@ -48,8 +48,6 @@ static size_t area_get_size(struct pw_client_node_area *area)
 {
 	size_t size;
 	size = sizeof(struct pw_client_node_area);
-	size += area->max_input_ports * sizeof(struct spa_io_buffers);
-	size += area->max_output_ports * sizeof(struct spa_io_buffers);
 	size += sizeof(struct spa_ringbuffer);
 	size += INPUT_BUFFER_SIZE;
 	size += sizeof(struct spa_ringbuffer);
@@ -63,12 +61,6 @@ static void transport_setup_area(void *p, struct pw_client_node_transport *trans
 
 	trans->area = a = p;
 	p = SPA_MEMBER(p, sizeof(struct pw_client_node_area), struct spa_io_buffers);
-
-	trans->inputs = p;
-	p = SPA_MEMBER(p, a->max_input_ports * sizeof(struct spa_io_buffers), void);
-
-	trans->outputs = p;
-	p = SPA_MEMBER(p, a->max_output_ports * sizeof(struct spa_io_buffers), void);
 
 	trans->input_buffer = p;
 	p = SPA_MEMBER(p, sizeof(struct spa_ringbuffer), void);
@@ -85,17 +77,6 @@ static void transport_setup_area(void *p, struct pw_client_node_transport *trans
 
 static void transport_reset_area(struct pw_client_node_transport *trans)
 {
-	int i;
-	struct pw_client_node_area *a = trans->area;
-
-	for (i = 0; i < a->max_input_ports; i++) {
-		trans->inputs[i].status = SPA_STATUS_OK;
-		trans->inputs[i].buffer_id = SPA_ID_INVALID;
-	}
-	for (i = 0; i < a->max_output_ports; i++) {
-		trans->outputs[i].status = SPA_STATUS_OK;
-		trans->outputs[i].buffer_id = SPA_ID_INVALID;
-	}
 	spa_ringbuffer_init(trans->input_buffer);
 	spa_ringbuffer_init(trans->output_buffer);
 }

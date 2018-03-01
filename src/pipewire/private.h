@@ -300,6 +300,13 @@ struct pw_node {
         void *user_data;                /**< extra user data */
 };
 
+struct pw_port_implementation {
+#define PW_VERSION_PORT_IMPLEMENTATION       0
+	uint32_t version;
+
+	void *(*get_io) (void *data, uint32_t id, size_t size);
+};
+
 struct pw_port {
 	struct spa_list link;		/**< link in node port_list */
 
@@ -330,6 +337,9 @@ struct pw_port {
 
 	struct spa_hook_list listener_list;
 
+	const struct pw_port_implementation *implementation;
+	void *implementation_data;
+
 	struct spa_node *mix;		/**< optional port buffer mix/split */
 	struct spa_node mix_node;	/**< mix node implementation */
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */
@@ -341,6 +351,7 @@ struct pw_port {
 		struct spa_graph_node mix_node;	/**< mixer node */
 	} rt;					/**< data only accessed from the data thread */
 
+        void *owner_data;		/**< extra owner data */
         void *user_data;                /**< extra user data */
 };
 

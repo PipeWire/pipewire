@@ -718,20 +718,16 @@ static void client_node_transport(void *object, uint32_t node_id,
 
 	for (i = 0; i < data->trans->area->max_input_ports; i++) {
 		port_init(&data->in_ports[i]);
-		data->trans->inputs[i] = SPA_IO_BUFFERS_INIT;
 		spa_graph_port_init(&data->in_ports[i].input,
-				    SPA_DIRECTION_INPUT,
-				    i,
+				    SPA_DIRECTION_INPUT, i,
 				    0,
-				    &data->trans->inputs[i]);
+				    NULL);
 		spa_graph_port_init(&data->in_ports[i].output,
-				    SPA_DIRECTION_OUTPUT,
-				    i,
+				    SPA_DIRECTION_OUTPUT, i,
 				    0,
-				    &data->trans->inputs[i]);
+				    NULL);
 		spa_graph_port_add(&data->in_node, &data->in_ports[i].output);
 		spa_graph_port_link(&data->in_ports[i].output, &data->in_ports[i].input);
-		pw_log_info("transport in %d %p", i, &data->trans->inputs[i]);
 	}
 	spa_list_for_each(port, &data->node->input_ports, link) {
 		spa_graph_port_add(&port->rt.mix_node, &data->in_ports[port->port_id].input);
@@ -740,20 +736,16 @@ static void client_node_transport(void *object, uint32_t node_id,
 
 	for (i = 0; i < data->trans->area->max_output_ports; i++) {
 		port_init(&data->out_ports[i]);
-		data->trans->outputs[i] = SPA_IO_BUFFERS_INIT;
 		spa_graph_port_init(&data->out_ports[i].output,
-				    SPA_DIRECTION_OUTPUT,
-				    i,
+				    SPA_DIRECTION_OUTPUT, i,
 				    0,
-				    &data->trans->outputs[i]);
+				    NULL);
 		spa_graph_port_init(&data->out_ports[i].input,
-				    SPA_DIRECTION_INPUT,
-				    i,
+				    SPA_DIRECTION_INPUT, i,
 				    0,
-				    &data->trans->outputs[i]);
+				    NULL);
 		spa_graph_port_add(&data->out_node, &data->out_ports[i].input);
 		spa_graph_port_link(&data->out_ports[i].output, &data->out_ports[i].input);
-		pw_log_info("transport out %d %p", i, &data->trans->inputs[i]);
 	}
 	spa_list_for_each(port, &data->node->output_ports, link) {
 		spa_graph_port_add(&port->rt.mix_node, &data->out_ports[port->port_id].output);
@@ -893,7 +885,7 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 		/* FIXME we should call process_output on the node and see what its
 		 * status is */
 		for (i = 0; i < data->trans->area->max_input_ports; i++)
-			data->trans->inputs[i].status = SPA_STATUS_NEED_BUFFER;
+			data->in_ports[i].input.io->status = SPA_STATUS_NEED_BUFFER;
 		node_need_input(data);
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
@@ -992,7 +984,7 @@ static void clear_buffers(struct node_data *data, struct port *port)
 static void
 client_node_port_use_buffers(void *object,
 			     uint32_t seq,
-			     enum spa_direction direction, uint32_t port_id,
+			     enum spa_direction direction, uint32_t port_id, uint32_t mix_id,
 			     uint32_t n_buffers, struct pw_client_node_buffer *buffers)
 {
 	struct pw_proxy *proxy = object;
@@ -1156,6 +1148,7 @@ client_node_port_set_io(void *object,
                         uint32_t seq,
                         uint32_t direction,
                         uint32_t port_id,
+                        uint32_t mix_id,
                         uint32_t id,
                         uint32_t memid,
                         uint32_t offset,
@@ -1164,6 +1157,7 @@ client_node_port_set_io(void *object,
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
 	struct pw_core *core = proxy->remote->core;
+	struct pw_type *t = &core->type;
 	struct port *port;
 	struct mem_id *mid;
 	void *ptr;
@@ -1190,11 +1184,16 @@ client_node_port_set_io(void *object,
 
 	pw_log_debug("port %p: set io %s %p", port, spa_type_map_get_type(core->type.map, id), ptr);
 
-	spa_node_port_set_io(port->port->node->node,
-			     direction, port_id,
-			     id,
-			     ptr,
-			     size);
+	if (id == t->io.Buffers) {
+		port->input.io = ptr;
+		port->output.io = ptr;
+	} else {
+		spa_node_port_set_io(port->port->node->node,
+				     direction, port_id,
+				     id,
+				     ptr,
+				     size);
+	}
 }
 
 

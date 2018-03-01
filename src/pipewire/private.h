@@ -236,8 +236,6 @@ struct pw_link {
 
 	struct spa_hook_list listener_list;
 
-	struct allocation allocation;
-
 	struct {
 		struct spa_graph_port out_port;
 		struct spa_graph_port in_port;

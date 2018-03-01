@@ -707,7 +707,6 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		goto error;
 	}
 
-
 	return 0;
 
       error:
@@ -1309,8 +1308,6 @@ void pw_link_destroy(struct pw_link *link)
 
 	if (link->info.format)
 		free(link->info.format);
-
-	free_allocation(&link->allocation);
 
 	free(impl);
 }

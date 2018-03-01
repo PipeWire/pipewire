@@ -77,7 +77,7 @@ struct buffer {
 	struct spa_meta metas[4];
 	struct spa_data datas[4];
 	bool outstanding;
-	struct mem *mem;
+	uint32_t memid;
 };
 
 struct port {
@@ -192,6 +192,7 @@ static int clear_buffers(struct node *this, struct port *port)
 
 	for (i = 0; i < port->n_buffers; i++) {
 		struct buffer *b = &port->buffers[i];
+		struct mem *m;
 
 		spa_log_debug(this->log, "node %p: clear buffer %d", this, i);
 
@@ -201,14 +202,14 @@ static int clear_buffers(struct node *this, struct port *port)
 			if (d->type == t->data.DmaBuf ||
 			    d->type == t->data.MemFd) {
 				uint32_t id;
-				struct mem *m;
 
 				id = SPA_PTR_TO_UINT32(b->buffer.datas[j].data);
 				m = pw_array_get_unchecked(&impl->mems, id, struct mem);
 				m->ref--;
 			}
 		}
-		b->mem->ref--;
+		m = pw_array_get_unchecked(&impl->mems, b->memid, struct mem);
+		m->ref--;
 	}
 	port->n_buffers = 0;
 	return 0;
@@ -713,10 +714,11 @@ impl_node_port_use_buffers(struct spa_node *node,
 				data_size += d->maxsize;
 		}
 
-		b->mem = m = ensure_mem(impl, mem->fd, t->data.MemFd, mem->flags);
+		m = ensure_mem(impl, mem->fd, t->data.MemFd, mem->flags);
+		b->memid = m->id;
 
 		mb[i].buffer = &b->buffer;
-		mb[i].mem_id = m->id;
+		mb[i].mem_id = b->memid;
 		mb[i].offset = SPA_PTRDIFF(baseptr, mem->ptr + mem->offset);
 		mb[i].size = data_size;
 

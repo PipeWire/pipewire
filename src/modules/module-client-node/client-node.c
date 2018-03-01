@@ -1187,6 +1187,8 @@ static void node_free(void *data)
 	spa_hook_remove(&impl->node_listener);
 
 	pw_array_clear(&impl->mems);
+	if (impl->io_areas)
+		pw_memblock_free(impl->io_areas);
 
 	if (impl->fds[0] != -1)
 		close(impl->fds[0]);

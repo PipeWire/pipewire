@@ -85,7 +85,7 @@ struct port {
 	struct buffer buffers[MAX_BUFFERS];
 };
 
-struct proxy {
+struct node {
 	struct spa_node node;
 
 	struct impl *impl;
@@ -124,7 +124,7 @@ struct impl {
 	struct pw_core *core;
 	struct pw_type *t;
 
-	struct proxy proxy;
+	struct node node;
 
 	struct pw_client_node_transport *transport;
 
@@ -140,28 +140,28 @@ struct impl {
 
 /** \endcond */
 
-static int clear_buffers(struct proxy *this, struct port *port)
+static int clear_buffers(struct node *this, struct port *port)
 {
 	if (port->n_buffers) {
-		spa_log_info(this->log, "proxy %p: clear buffers", this);
+		spa_log_info(this->log, "node %p: clear buffers", this);
 		port->n_buffers = 0;
 	}
 	return 0;
 }
 
-static int spa_proxy_node_enum_params(struct spa_node *node,
-				      uint32_t id, uint32_t *index,
-				      const struct spa_pod *filter,
-				      struct spa_pod **result,
-				      struct spa_pod_builder *builder)
+static int impl_node_enum_params(struct spa_node *node,
+				 uint32_t id, uint32_t *index,
+				 const struct spa_pod *filter,
+				 struct spa_pod **result,
+				 struct spa_pod_builder *builder)
 {
-	struct proxy *this;
+	struct node *this;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
 	spa_return_val_if_fail(builder != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	while (true) {
 		struct spa_pod *param;
@@ -180,15 +180,15 @@ static int spa_proxy_node_enum_params(struct spa_node *node,
 	return 1;
 }
 
-static int spa_proxy_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
-				    const struct spa_pod *param)
+static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
+			       const struct spa_pod *param)
 {
-	struct proxy *this;
+	struct node *this;
 
 	if (node == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (this->resource == NULL)
 		return 0;
@@ -198,24 +198,24 @@ static int spa_proxy_node_set_param(struct spa_node *node, uint32_t id, uint32_t
 	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
 
-static inline void do_flush(struct proxy *this)
+static inline void do_flush(struct node *this)
 {
 	uint64_t cmd = 1;
 	if (write(this->writefd, &cmd, 8) != 8)
-		spa_log_warn(this->log, "proxy %p: error flushing : %s", this, strerror(errno));
+		spa_log_warn(this->log, "node %p: error flushing : %s", this, strerror(errno));
 
 }
 
-static int spa_proxy_node_send_command(struct spa_node *node, const struct spa_command *command)
+static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
 {
-	struct proxy *this;
+	struct node *this;
 	int res = 0;
 	struct pw_type *t;
 
 	if (node == NULL || command == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (this->resource == NULL)
 		return 0;
@@ -233,16 +233,16 @@ static int spa_proxy_node_send_command(struct spa_node *node, const struct spa_c
 }
 
 static int
-spa_proxy_node_set_callbacks(struct spa_node *node,
-			     const struct spa_node_callbacks *callbacks,
-			     void *data)
+impl_node_set_callbacks(struct spa_node *node,
+			const struct spa_node_callbacks *callbacks,
+			void *data)
 {
-	struct proxy *this;
+	struct node *this;
 
 	if (node == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 	this->callbacks = callbacks;
 	this->callbacks_data = data;
 
@@ -250,18 +250,18 @@ spa_proxy_node_set_callbacks(struct spa_node *node,
 }
 
 static int
-spa_proxy_node_get_n_ports(struct spa_node *node,
-			   uint32_t *n_input_ports,
-			   uint32_t *max_input_ports,
-			   uint32_t *n_output_ports,
-			   uint32_t *max_output_ports)
+impl_node_get_n_ports(struct spa_node *node,
+		      uint32_t *n_input_ports,
+		      uint32_t *max_input_ports,
+		      uint32_t *n_output_ports,
+		      uint32_t *max_output_ports)
 {
-	struct proxy *this;
+	struct node *this;
 
 	if (node == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (n_input_ports)
 		*n_input_ports = this->n_inputs;
@@ -276,19 +276,19 @@ spa_proxy_node_get_n_ports(struct spa_node *node,
 }
 
 static int
-spa_proxy_node_get_port_ids(struct spa_node *node,
-			    uint32_t *input_ids,
-			    uint32_t n_input_ids,
-			    uint32_t *output_ids,
-			    uint32_t n_output_ids)
+impl_node_get_port_ids(struct spa_node *node,
+		       uint32_t *input_ids,
+		       uint32_t n_input_ids,
+		       uint32_t *output_ids,
+		       uint32_t n_output_ids)
 {
-	struct proxy *this;
+	struct node *this;
 	int c, i;
 
 	if (node == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (input_ids) {
 		for (c = 0, i = 0; i < MAX_INPUTS && c < n_input_ids; i++) {
@@ -306,7 +306,7 @@ spa_proxy_node_get_port_ids(struct spa_node *node,
 }
 
 static void
-do_update_port(struct proxy *this,
+do_update_port(struct node *this,
 	       enum spa_direction direction,
 	       uint32_t port_id,
 	       uint32_t change_mask,
@@ -324,7 +324,7 @@ do_update_port(struct proxy *this,
 
 		port->have_format = false;
 
-		spa_log_info(this->log, "proxy %p: port %u update %d params", this, port_id, n_params);
+		spa_log_info(this->log, "node %p: port %u update %d params", this, port_id, n_params);
 		for (i = 0; i < port->n_params; i++)
 			free(port->params[i]);
 		port->n_params = n_params;
@@ -354,7 +354,7 @@ do_update_port(struct proxy *this,
 	}
 
 	if (!port->valid) {
-		spa_log_info(this->log, "proxy %p: adding port %d", this, port_id);
+		spa_log_info(this->log, "node %p: adding port %d", this, port_id);
 		port->have_format = false;
 		port->valid = true;
 
@@ -366,7 +366,7 @@ do_update_port(struct proxy *this,
 }
 
 static void
-clear_port(struct proxy *this,
+clear_port(struct node *this,
 	   struct port *port, enum spa_direction direction, uint32_t port_id)
 {
 	do_update_port(this,
@@ -377,11 +377,11 @@ clear_port(struct proxy *this,
 	clear_buffers(this, port);
 }
 
-static void do_uninit_port(struct proxy *this, enum spa_direction direction, uint32_t port_id)
+static void do_uninit_port(struct node *this, enum spa_direction direction, uint32_t port_id)
 {
 	struct port *port;
 
-	spa_log_info(this->log, "proxy %p: removing port %d", this, port_id);
+	spa_log_info(this->log, "node %p: removing port %d", this, port_id);
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		port = GET_IN_PORT(this, port_id);
@@ -395,15 +395,15 @@ static void do_uninit_port(struct proxy *this, enum spa_direction direction, uin
 }
 
 static int
-spa_proxy_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
+impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-	struct proxy *this;
+	struct node *this;
 	struct port *port;
 
 	if (node == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (!CHECK_FREE_PORT(this, direction, port_id))
 		return -EINVAL;
@@ -415,14 +415,14 @@ spa_proxy_node_add_port(struct spa_node *node, enum spa_direction direction, uin
 }
 
 static int
-spa_proxy_node_remove_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
+impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-	struct proxy *this;
+	struct node *this;
 
 	if (node == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (!CHECK_PORT(this, direction, port_id))
 		return -EINVAL;
@@ -433,17 +433,17 @@ spa_proxy_node_remove_port(struct spa_node *node, enum spa_direction direction, 
 }
 
 static int
-spa_proxy_node_port_get_info(struct spa_node *node,
-			     enum spa_direction direction,
-			     uint32_t port_id, const struct spa_port_info **info)
+impl_node_port_get_info(struct spa_node *node,
+			enum spa_direction direction,
+			uint32_t port_id, const struct spa_port_info **info)
 {
-	struct proxy *this;
+	struct node *this;
 	struct port *port;
 
 	if (node == NULL || info == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (!CHECK_PORT(this, direction, port_id))
 		return -EINVAL;
@@ -455,21 +455,21 @@ spa_proxy_node_port_get_info(struct spa_node *node,
 }
 
 static int
-spa_proxy_node_port_enum_params(struct spa_node *node,
-				enum spa_direction direction, uint32_t port_id,
-				uint32_t id, uint32_t *index,
-				const struct spa_pod *filter,
-				struct spa_pod **result,
-				struct spa_pod_builder *builder)
+impl_node_port_enum_params(struct spa_node *node,
+			   enum spa_direction direction, uint32_t port_id,
+			   uint32_t id, uint32_t *index,
+			   const struct spa_pod *filter,
+			   struct spa_pod **result,
+			   struct spa_pod_builder *builder)
 {
-	struct proxy *this;
+	struct node *this;
 	struct port *port;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
 	spa_return_val_if_fail(builder != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
@@ -493,17 +493,17 @@ spa_proxy_node_port_enum_params(struct spa_node *node,
 }
 
 static int
-spa_proxy_node_port_set_param(struct spa_node *node,
-			      enum spa_direction direction, uint32_t port_id,
-			      uint32_t id, uint32_t flags,
-			      const struct spa_pod *param)
+impl_node_port_set_param(struct spa_node *node,
+			 enum spa_direction direction, uint32_t port_id,
+			 uint32_t id, uint32_t flags,
+			 const struct spa_pod *param)
 {
-	struct proxy *this;
+	struct node *this;
 
 	if (node == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (!CHECK_PORT(this, direction, port_id))
 		return -EINVAL;
@@ -521,13 +521,13 @@ spa_proxy_node_port_set_param(struct spa_node *node,
 }
 
 static int
-spa_proxy_node_port_set_io(struct spa_node *node,
-			   enum spa_direction direction,
-			   uint32_t port_id,
-			   uint32_t id,
-			   void *data, size_t size)
+impl_node_port_set_io(struct spa_node *node,
+		      enum spa_direction direction,
+		      uint32_t port_id,
+		      uint32_t id,
+		      void *data, size_t size)
 {
-	struct proxy *this;
+	struct node *this;
 	struct pw_type *t;
 	struct pw_memblock *mem;
 	uint32_t memid, mem_offset, mem_size;
@@ -535,7 +535,7 @@ spa_proxy_node_port_set_io(struct spa_node *node,
 	if (node == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 	t = this->impl->t;
 
 	if (this->resource == NULL)
@@ -576,22 +576,22 @@ spa_proxy_node_port_set_io(struct spa_node *node,
 }
 
 static int
-spa_proxy_node_port_use_buffers(struct spa_node *node,
-				enum spa_direction direction,
-				uint32_t port_id,
-				struct spa_buffer **buffers,
-				uint32_t n_buffers)
+impl_node_port_use_buffers(struct spa_node *node,
+			   enum spa_direction direction,
+			   uint32_t port_id,
+			   struct spa_buffer **buffers,
+			   uint32_t n_buffers)
 {
-	struct proxy *this;
+	struct node *this;
 	struct impl *impl;
 	struct port *port;
 	uint32_t i, j;
 	struct pw_client_node_buffer *mb;
 	struct pw_type *t;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
-	spa_log_info(this->log, "proxy %p: use buffers %p %u", this, buffers, n_buffers);
+	spa_log_info(this->log, "node %p: use buffers %p %u", this, buffers, n_buffers);
 
 	t = impl->t;
 
@@ -697,21 +697,21 @@ spa_proxy_node_port_use_buffers(struct spa_node *node,
 }
 
 static int
-spa_proxy_node_port_alloc_buffers(struct spa_node *node,
-				  enum spa_direction direction,
-				  uint32_t port_id,
-				  struct spa_pod **params,
-				  uint32_t n_params,
-				  struct spa_buffer **buffers,
-				  uint32_t *n_buffers)
+impl_node_port_alloc_buffers(struct spa_node *node,
+			     enum spa_direction direction,
+			     uint32_t port_id,
+			     struct spa_pod **params,
+			     uint32_t n_params,
+			     struct spa_buffer **buffers,
+			     uint32_t *n_buffers)
 {
-	struct proxy *this;
+	struct node *this;
 	struct port *port;
 
 	if (node == NULL || buffers == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (!CHECK_PORT(this, direction, port_id))
 		return -EINVAL;
@@ -725,12 +725,12 @@ spa_proxy_node_port_alloc_buffers(struct spa_node *node,
 }
 
 static int
-spa_proxy_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
 {
-	struct proxy *this;
+	struct node *this;
 	struct impl *impl;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	if (!CHECK_OUT_PORT(this, SPA_DIRECTION_OUTPUT, port_id))
@@ -746,18 +746,18 @@ spa_proxy_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32
 }
 
 static int
-spa_proxy_node_port_send_command(struct spa_node *node,
-				 enum spa_direction direction,
-				 uint32_t port_id, const struct spa_command *command)
+impl_node_port_send_command(struct spa_node *node,
+			    enum spa_direction direction,
+			    uint32_t port_id, const struct spa_command *command)
 {
-	struct proxy *this;
+	struct node *this;
 	struct impl *impl;
 	struct pw_type *t;
 
 	if (node == NULL || command == NULL)
 		return -EINVAL;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (this->resource == NULL)
 		return 0;
@@ -774,9 +774,9 @@ spa_proxy_node_port_send_command(struct spa_node *node,
 	return 0;
 }
 
-static int spa_proxy_node_process_input(struct spa_node *node)
+static int impl_node_process_input(struct spa_node *node)
 {
-	struct proxy *this = SPA_CONTAINER_OF(node, struct proxy, node);
+	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
 	struct impl *impl = this->impl;
 	struct spa_graph_node *n = &impl->this.node->rt.node;
 	bool client_reuse = impl->client_reuse;
@@ -812,14 +812,14 @@ static int spa_proxy_node_process_input(struct spa_node *node)
 	return res;
 }
 
-static int spa_proxy_node_process_output(struct spa_node *node)
+static int impl_node_process_output(struct spa_node *node)
 {
-	struct proxy *this;
+	struct node *this;
 	struct impl *impl;
 	struct spa_graph_node *n;
 	struct spa_graph_port *p;
 
-	this = SPA_CONTAINER_OF(node, struct proxy, node);
+	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 	n = &impl->this.node->rt.node;
 
@@ -846,9 +846,9 @@ static int spa_proxy_node_process_output(struct spa_node *node)
 	return SPA_STATUS_OK;
 }
 
-static int handle_node_message(struct proxy *this, struct pw_client_node_message *message)
+static int handle_node_message(struct node *this, struct pw_client_node_message *message)
 {
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, proxy);
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, node);
 	struct spa_graph_node *n;
 	struct spa_graph_port *p;
 
@@ -893,7 +893,7 @@ static void setup_transport(struct impl *impl)
 {
 	uint32_t max_inputs = 0, max_outputs = 0, n_inputs = 0, n_outputs = 0;
 
-	spa_node_get_n_ports(&impl->proxy.node, &n_inputs, &max_inputs, &n_outputs, &max_outputs);
+	spa_node_get_n_ports(&impl->node.node, &n_inputs, &max_inputs, &n_outputs, &max_outputs);
 
 	impl->transport = pw_client_node_transport_new(max_inputs, max_outputs);
 	impl->transport->area->n_input_ports = n_inputs;
@@ -904,7 +904,7 @@ static void
 client_node_done(void *data, int seq, int res)
 {
 	struct impl *impl = data;
-	struct proxy *this = &impl->proxy;
+	struct node *this = &impl->node;
 
 	if (seq == 0 && res == 0)
 		setup_transport(impl);
@@ -921,7 +921,7 @@ client_node_update(void *data,
 		   const struct spa_pod **params)
 {
 	struct impl *impl = data;
-	struct proxy *this = &impl->proxy;
+	struct node *this = &impl->node;
 
 	if (change_mask & PW_CLIENT_NODE_UPDATE_MAX_INPUTS)
 		this->max_inputs = max_input_ports;
@@ -929,7 +929,7 @@ client_node_update(void *data,
 		this->max_outputs = max_output_ports;
 	if (change_mask & PW_CLIENT_NODE_UPDATE_PARAMS) {
 		int i;
-		spa_log_info(this->log, "proxy %p: update %d params", this, n_params);
+		spa_log_info(this->log, "node %p: update %d params", this, n_params);
 
 		for (i = 0; i < this->n_params; i++)
 			free(this->params[i]);
@@ -939,7 +939,7 @@ client_node_update(void *data,
 		for (i = 0; i < this->n_params; i++)
 			this->params[i] = pw_spa_pod_copy(params[i]);
 	}
-	spa_log_info(this->log, "proxy %p: got node update max_in %u, max_out %u", this,
+	spa_log_info(this->log, "node %p: got node update max_in %u, max_out %u", this,
 		     this->max_inputs, this->max_outputs);
 }
 
@@ -953,10 +953,10 @@ client_node_port_update(void *data,
 			const struct spa_port_info *info)
 {
 	struct impl *impl = data;
-	struct proxy *this = &impl->proxy;
+	struct node *this = &impl->node;
 	bool remove;
 
-	spa_log_info(this->log, "proxy %p: got port update", this);
+	spa_log_info(this->log, "node %p: got port update", this);
 	if (!CHECK_PORT_ID(this, direction, port_id))
 		return;
 
@@ -982,7 +982,7 @@ static void client_node_set_active(void *data, bool active)
 static void client_node_event(void *data, struct spa_event *event)
 {
 	struct impl *impl = data;
-	struct proxy *this = &impl->proxy;
+	struct node *this = &impl->node;
 	this->callbacks->event(this->callbacks_data, event);
 }
 
@@ -1002,13 +1002,13 @@ static struct pw_client_node_proxy_methods client_node_methods = {
 	.destroy = client_node_destroy,
 };
 
-static void proxy_on_data_fd_events(struct spa_source *source)
+static void node_on_data_fd_events(struct spa_source *source)
 {
-	struct proxy *this = source->data;
+	struct node *this = source->data;
 	struct impl *impl = this->impl;
 
 	if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
-		spa_log_warn(this->log, "proxy %p: got error", this);
+		spa_log_warn(this->log, "node %p: got error", this);
 		return;
 	}
 
@@ -1017,7 +1017,7 @@ static void proxy_on_data_fd_events(struct spa_source *source)
 		uint64_t cmd;
 
 		if (read(this->data_source.fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
-			spa_log_warn(this->log, "proxy %p: error reading message: %s",
+			spa_log_warn(this->log, "node %p: error reading message: %s",
 					this, strerror(errno));
 
 		while (pw_client_node_transport_next_message(impl->transport, &message) == 1) {
@@ -1028,31 +1028,31 @@ static void proxy_on_data_fd_events(struct spa_source *source)
 	}
 }
 
-static const struct spa_node proxy_node = {
+static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
 	NULL,
-	spa_proxy_node_enum_params,
-	spa_proxy_node_set_param,
-	spa_proxy_node_send_command,
-	spa_proxy_node_set_callbacks,
-	spa_proxy_node_get_n_ports,
-	spa_proxy_node_get_port_ids,
-	spa_proxy_node_add_port,
-	spa_proxy_node_remove_port,
-	spa_proxy_node_port_get_info,
-	spa_proxy_node_port_enum_params,
-	spa_proxy_node_port_set_param,
-	spa_proxy_node_port_use_buffers,
-	spa_proxy_node_port_alloc_buffers,
-	spa_proxy_node_port_set_io,
-	spa_proxy_node_port_reuse_buffer,
-	spa_proxy_node_port_send_command,
-	spa_proxy_node_process_input,
-	spa_proxy_node_process_output,
+	impl_node_enum_params,
+	impl_node_set_param,
+	impl_node_send_command,
+	impl_node_set_callbacks,
+	impl_node_get_n_ports,
+	impl_node_get_port_ids,
+	impl_node_add_port,
+	impl_node_remove_port,
+	impl_node_port_get_info,
+	impl_node_port_enum_params,
+	impl_node_port_set_param,
+	impl_node_port_use_buffers,
+	impl_node_port_alloc_buffers,
+	impl_node_port_set_io,
+	impl_node_port_reuse_buffer,
+	impl_node_port_send_command,
+	impl_node_process_input,
+	impl_node_process_output,
 };
 
 static int
-proxy_init(struct proxy *this,
+node_init(struct node *this,
 	   struct spa_dict *info,
 	   const struct spa_support *support,
 	   uint32_t n_support)
@@ -1076,9 +1076,9 @@ proxy_init(struct proxy *this,
 		return -EINVAL;
 	}
 
-	this->node = proxy_node;
+	this->node = impl_node;
 
-	this->data_source.func = proxy_on_data_fd_events;
+	this->data_source.func = node_on_data_fd_events;
 	this->data_source.data = this;
 	this->data_source.fd = -1;
 	this->data_source.mask = SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP;
@@ -1087,7 +1087,7 @@ proxy_init(struct proxy *this,
 	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
 
-static int proxy_clear(struct proxy *this)
+static int node_clear(struct node *this)
 {
 	uint32_t i;
 
@@ -1107,14 +1107,14 @@ static void client_node_resource_destroy(void *data)
 {
 	struct impl *impl = data;
 	struct pw_client_node *this = &impl->this;
-	struct proxy *proxy = &impl->proxy;
+	struct node *node = &impl->node;
 
 	pw_log_debug("client-node %p: destroy", impl);
 
-	impl->proxy.resource = this->resource = NULL;
+	impl->node.resource = this->resource = NULL;
 
-	if (proxy->data_source.fd != -1)
-		spa_loop_remove_source(proxy->data_loop, &proxy->data_source);
+	if (node->data_source.fd != -1)
+		spa_loop_remove_source(node->data_loop, &node->data_source);
 
 	pw_node_destroy(this->node);
 }
@@ -1131,12 +1131,12 @@ static void node_initialized(void *data)
 
 	impl->fds[0] = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 	impl->fds[1] = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-	impl->proxy.data_source.fd = impl->fds[0];
-	impl->proxy.writefd = impl->fds[1];
+	impl->node.data_source.fd = impl->fds[0];
+	impl->node.writefd = impl->fds[1];
 	impl->other_fds[0] = impl->fds[1];
 	impl->other_fds[1] = impl->fds[0];
 
-	spa_loop_add_source(impl->proxy.data_loop, &impl->proxy.data_source);
+	spa_loop_add_source(impl->node.data_loop, &impl->node.data_source);
 	pw_log_debug("client-node %p: transport fd %d %d", node, impl->fds[0], impl->fds[1]);
 
 	pw_client_node_resource_transport(this->resource,
@@ -1151,7 +1151,7 @@ static void node_free(void *data)
 	struct impl *impl = data;
 
 	pw_log_debug("client-node %p: free", &impl->this);
-	proxy_clear(&impl->proxy);
+	node_clear(&impl->node);
 
 	if (impl->transport)
 		pw_client_node_transport_destroy(impl->transport);
@@ -1212,8 +1212,8 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 
 	support = pw_core_get_support(impl->core, &n_support);
 
-	proxy_init(&impl->proxy, NULL, support, n_support);
-	impl->proxy.impl = impl;
+	node_init(&impl->node, NULL, support, n_support);
+	impl->node.impl = impl;
 
 	if ((name = pw_properties_get(properties, "node.name")) == NULL)
 		name = "client-node";
@@ -1224,7 +1224,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 				     NULL,
 				     name,
 				     PW_SPA_NODE_FLAG_ASYNC,
-				     &impl->proxy.node,
+				     &impl->node.node,
 				     NULL,
 				     properties, 0);
 	if (this->node == NULL)
@@ -1241,7 +1241,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 				       &client_node_methods,
 				       impl);
 
-	impl->proxy.resource = this->resource;
+	impl->node.resource = this->resource;
 
 	pw_node_add_listener(this->node, &impl->node_listener, &node_events, impl);
 
@@ -1249,7 +1249,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 
       error_no_node:
 	pw_resource_destroy(this->resource);
-	proxy_clear(&impl->proxy);
+	node_clear(&impl->node);
 	free(impl);
 	return NULL;
 }

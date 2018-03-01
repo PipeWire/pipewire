@@ -600,6 +600,7 @@ static void clear_memid(struct node_data *data, struct mem_id *mid)
 
 		fd = mid->fd;
 		mid->fd = -1;
+		mid->id = SPA_ID_INVALID;
 
 		pw_array_for_each(m, &data->mem_ids) {
 			if (m->fd == fd) {

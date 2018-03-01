@@ -57,7 +57,7 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 
 	spa_list_append(&core->protocol_list, &protocol->link);
 
-	pw_log_info("protocol %p: Created protocol %s", protocol, name);
+	pw_log_debug("protocol %p: Created protocol %s", protocol, name);
 
 	return protocol;
 }
@@ -86,7 +86,7 @@ void pw_protocol_destroy(struct pw_protocol *protocol)
 	struct pw_protocol_server *server, *t2;
 	struct pw_protocol_client *client, *t3;
 
-	pw_log_info("protocol %p: destroy", protocol);
+	pw_log_debug("protocol %p: destroy", protocol);
 	spa_hook_list_call(&protocol->listener_list, struct pw_protocol_events, destroy);
 
 	spa_list_remove(&protocol->link);
@@ -128,7 +128,7 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 
 	spa_list_append(&protocol->marshal_list, &impl->link);
 
-	pw_log_info("Add marshal %s:%d to protocol %s", marshal->type, marshal->version,
+	pw_log_debug("Add marshal %s:%d to protocol %s", marshal->type, marshal->version,
 			protocol->name);
 
 	return 0;

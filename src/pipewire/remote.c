@@ -1034,8 +1034,8 @@ client_node_port_use_buffers(void *object,
 		bid->ptr = mmap(NULL, bid->map.size, prot, MAP_SHARED, mid->fd, bid->map.offset);
 		if (bid->ptr == MAP_FAILED) {
 			bid->ptr = NULL;
-			pw_log_warn("Failed to mmap memory %u %u: %m",
-					bid->map.offset, bid->map.size);
+			pw_log_warn("Failed to mmap memory %u %u %u %d: %m",
+					bid->map.offset, bid->map.size, buffers[i].mem_id, mid->fd);
 			continue;
 		}
 		if (mlock(bid->ptr, bid->map.size) < 0)

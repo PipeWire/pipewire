@@ -742,7 +742,7 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->wakeup = spa_loop_utils_add_event(&impl->utils, wakeup_func, impl);
 	impl->ack_fd = eventfd(0, EFD_CLOEXEC);
 
-	spa_log_info(impl->log, NAME " %p: initialized", impl);
+	spa_log_debug(impl->log, NAME " %p: initialized", impl);
 
 	return 0;
 }

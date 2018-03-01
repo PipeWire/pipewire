@@ -211,6 +211,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 				schedule_mix_node :
 				schedule_tee_node;
 	spa_graph_node_set_implementation(&this->rt.mix_node, &this->mix_node);
+	pw_map_init(&this->mix_port_map, 64, 64);
 
 	spa_graph_port_init(&this->rt.mix_port,
 			    pw_direction_reverse(this->direction),
@@ -557,6 +558,8 @@ void pw_port_destroy(struct pw_port *port)
 	spa_hook_list_call(&port->listener_list, struct pw_port_events, free);
 
 	free_allocation(&port->allocation);
+
+	pw_map_clear(&port->mix_port_map);
 
 	if (port->properties)
 		pw_properties_free(port->properties);

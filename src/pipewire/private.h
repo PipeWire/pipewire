@@ -334,6 +334,7 @@ struct pw_port {
 
 	struct spa_node *mix;		/**< optional port buffer mix/split */
 	struct spa_node mix_node;	/**< mix node implementation */
+	struct pw_map mix_port_map;	/**< map from port_id from mixer */
 
 	struct {
 		struct spa_graph *graph;

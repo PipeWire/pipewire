@@ -874,6 +874,8 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_input, 1, NULL, 0, true, this);
 
+	pw_map_remove(&port->mix_port_map, this->rt.in_port.port_id);
+
 	spa_list_remove(&this->input_link);
 	spa_hook_list_call(&this->input->listener_list, struct pw_port_events, link_removed, this);
 
@@ -900,6 +902,8 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_output, 1, NULL, 0, true, this);
+
+	pw_map_remove(&port->mix_port_map, this->rt.out_port.port_id);
 
 	spa_list_remove(&this->output_link);
 	spa_hook_list_call(&this->output->listener_list, struct pw_port_events, link_removed, this);
@@ -1141,9 +1145,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	pw_port_add_listener(output, &impl->output_port_listener, &output_port_events, impl);
 	pw_node_add_listener(output_node, &impl->output_node_listener, &output_node_events, impl);
 
-	pw_log_debug("link %p: constructed %p:%d -> %p:%d", impl,
-		     output_node, output->port_id, input_node, input->port_id);
-
 	input_node->live = output_node->live;
 	if (output_node->clock)
 		input_node->clock = output_node->clock;
@@ -1162,6 +1163,13 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
 	this->io = SPA_IO_BUFFERS_INIT;
+
+	this->rt.out_port.port_id = pw_map_insert_new(&output->mix_port_map, NULL);
+	this->rt.in_port.port_id = pw_map_insert_new(&input->mix_port_map, NULL);
+
+	pw_log_debug("link %p: constructed %p:%d.%d -> %p:%d.%d", impl,
+		     output_node, output->port_id, this->rt.out_port.port_id,
+		     input_node, input->port_id, this->rt.in_port.port_id);
 
 	spa_graph_port_init(&this->rt.out_port,
 			    PW_DIRECTION_OUTPUT,

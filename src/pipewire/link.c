@@ -40,6 +40,7 @@ struct impl {
 	struct pw_link this;
 
 	bool active;
+	bool have_io;
 
 	struct pw_work_queue *work;
 
@@ -480,14 +481,17 @@ param_filter(struct pw_link *this,
 	return num;
 }
 
-static void port_set_io(struct pw_link *this, struct pw_port *port, void *data, size_t size,
+static int port_set_io(struct pw_link *this, struct pw_port *port, void *data, size_t size,
 		struct spa_graph_port *p)
 {
 	struct pw_type *t = &this->core->type;
-	int res;
+	int res = 0;
 
 	p->io = data;
-	pw_log_debug("link %p: port %p %d.%d set io: %p", this, port, port->port_id, p->port_id, data);
+	pw_log_debug("link %p: %s port %p %d.%d set io: %p", this,
+			pw_direction_as_string(port->direction),
+			port, port->port_id, p->port_id, data);
+
 	if (port->mix_node.port_set_io) {
 		if ((res = spa_node_port_set_io(&port->mix_node,
 				     p->direction,
@@ -496,27 +500,33 @@ static void port_set_io(struct pw_link *this, struct pw_port *port, void *data, 
 				     data, size)) < 0)
 			pw_log_warn("port %p: can't set io: %s", port, spa_strerror(res));
 	}
+	return res;
 }
 
 static int select_io(struct pw_link *this)
 {
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct spa_io_buffers *io;
-	struct pw_type *t = &this->core->type;
+	int res;
 
-	if (this->output->implementation && this->output->implementation->get_io)
-		io = this->output->implementation->get_io(this->output->implementation_data,
-				t->io.Buffers, sizeof(struct spa_io_buffers));
-	else if (this->input->implementation && this->input->implementation->get_io)
-		io = this->input->implementation->get_io(this->input->implementation_data,
-				t->io.Buffers, sizeof(struct spa_io_buffers));
-	else
-		io = &this->io;
+	if (impl->have_io)
+		return 0;
 
+	io = this->rt.in_port.port.io;
+	if (io == NULL)
+		io = this->rt.out_port.port.io;
 	if (io == NULL)
 		return -EIO;
 
-	port_set_io(this, this->input, io, sizeof(struct spa_io_buffers), &this->rt.in_port);
-	port_set_io(this, this->output, io, sizeof(struct spa_io_buffers), &this->rt.out_port);
+	if ((res = port_set_io(this, this->input, io,
+			sizeof(struct spa_io_buffers), &this->rt.in_port.port)) < 0)
+		return res;
+
+	if ((res = port_set_io(this, this->output, io,
+			sizeof(struct spa_io_buffers), &this->rt.out_port.port)) < 0)
+		return res;
+
+	impl->have_io = true;
 
 	return 0;
 }
@@ -714,7 +724,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		if ((res = pw_port_use_buffers(output,
 					       allocation.buffers,
 					       allocation.n_buffers)) < 0) {
-			asprintf(&error, "error use output buffers: %d", res);
+			asprintf(&error, "link %p: error use output buffers: %s", this,
+					spa_strerror(res));
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res))
@@ -728,7 +739,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		if ((res = pw_port_use_buffers(input,
 					       allocation.buffers,
 					       allocation.n_buffers)) < 0) {
-			asprintf(&error, "error use input buffers: %d", res);
+			asprintf(&error, "link %p: error use input buffers: %s", this,
+					spa_strerror(res));
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res))
@@ -739,8 +751,10 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		goto error;
 	}
 
-	select_io(this);
-
+	if ((res = select_io(this)) < 0) {
+		asprintf(&error, "link %p: error can set io: %s", this, spa_strerror(res));
+		goto error;
+	}
 	return 0;
 
       error:
@@ -755,8 +769,8 @@ do_activate_link(struct spa_loop *loop,
 		 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
-	SPA_FLAG_UNSET(this->rt.out_port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
-	SPA_FLAG_UNSET(this->rt.in_port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+	SPA_FLAG_UNSET(this->rt.out_port.port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+	SPA_FLAG_UNSET(this->rt.in_port.port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
 	return 0;
 }
 
@@ -892,7 +906,7 @@ do_remove_input(struct spa_loop *loop,
 	        bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_link *this = user_data;
-	spa_graph_port_remove(&this->rt.in_port);
+	spa_graph_port_remove(&this->rt.in_port.port);
 	return 0;
 }
 
@@ -907,7 +921,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_input, 1, NULL, 0, true, this);
 
-	pw_map_remove(&port->mix_port_map, this->rt.in_port.port_id);
+	pw_port_release_mix(port, &this->rt.in_port);
 
 	spa_list_remove(&this->input_link);
 	spa_hook_list_call(&this->input->listener_list, struct pw_port_events, link_removed, this);
@@ -921,7 +935,7 @@ do_remove_output(struct spa_loop *loop,
 	         bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_link *this = user_data;
-	spa_graph_port_remove(&this->rt.out_port);
+	spa_graph_port_remove(&this->rt.out_port.port);
 	return 0;
 }
 
@@ -936,7 +950,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_output, 1, NULL, 0, true, this);
 
-	pw_map_remove(&port->mix_port_map, this->rt.out_port.port_id);
+	pw_port_release_mix(port, &this->rt.out_port);
 
 	spa_list_remove(&this->output_link);
 	spa_hook_list_call(&this->output->listener_list, struct pw_port_events, link_removed, this);
@@ -990,8 +1004,8 @@ do_deactivate_link(struct spa_loop *loop,
 {
         struct pw_link *this = user_data;
 	pw_log_trace("link %p: disable %p and %p", this, &this->rt.out_port, &this->rt.in_port);
-	SPA_FLAG_SET(this->rt.out_port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
-	SPA_FLAG_SET(this->rt.in_port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+	SPA_FLAG_SET(this->rt.out_port.port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+	SPA_FLAG_SET(this->rt.in_port.port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
 	return 0;
 }
 
@@ -1093,9 +1107,9 @@ do_add_link(struct spa_loop *loop,
         struct pw_port *port = ((struct pw_port **) data)[0];
 
         if (port->direction == PW_DIRECTION_OUTPUT) {
-                spa_graph_port_add(&port->rt.mix_node, &this->rt.out_port);
+                spa_graph_port_add(&port->rt.mix_node, &this->rt.out_port.port);
         } else {
-                spa_graph_port_add(&port->rt.mix_node, &this->rt.in_port);
+                spa_graph_port_add(&port->rt.mix_node, &this->rt.in_port.port);
         }
 
         return 0;
@@ -1197,27 +1211,14 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	this->io = SPA_IO_BUFFERS_INIT;
 
-	this->rt.out_port.port_id = pw_map_insert_new(&output->mix_port_map, NULL);
-	this->rt.in_port.port_id = pw_map_insert_new(&input->mix_port_map, NULL);
+	pw_port_init_mix(output, &this->rt.out_port);
+	pw_port_init_mix(input, &this->rt.in_port);
 
 	pw_log_debug("link %p: constructed %p:%d.%d -> %p:%d.%d", impl,
-		     output_node, output->port_id, this->rt.out_port.port_id,
-		     input_node, input->port_id, this->rt.in_port.port_id);
+		     output_node, output->port_id, this->rt.out_port.port.port_id,
+		     input_node, input->port_id, this->rt.in_port.port.port_id);
 
-	spa_graph_port_init(&this->rt.out_port,
-			    PW_DIRECTION_OUTPUT,
-			    this->rt.out_port.port_id,
-			    SPA_GRAPH_PORT_FLAG_DISABLED,
-			    &this->io);
-	spa_graph_port_init(&this->rt.in_port,
-			    PW_DIRECTION_INPUT,
-			    this->rt.in_port.port_id,
-			    SPA_GRAPH_PORT_FLAG_DISABLED,
-			    &this->io);
-	spa_graph_port_link(&this->rt.out_port, &this->rt.in_port);
-
-	this->rt.in_port.scheduler_data = this;
-	this->rt.out_port.scheduler_data = this;
+	spa_graph_port_link(&this->rt.out_port.port, &this->rt.in_port.port);
 
 	/* nodes can be in different data loops so we do this twice */
 	pw_loop_invoke(output_node->data_loop, do_add_link,

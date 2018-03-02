@@ -137,6 +137,7 @@ struct impl {
 
 	struct pw_client_node_transport *transport;
 
+	struct pw_map io_map;
 	struct pw_memblock *io_areas;
 	uint32_t io_memid;
 
@@ -600,7 +601,12 @@ static int do_port_set_io(struct impl *impl,
 	struct mem *m;
 	uint32_t memid, mem_offset, mem_size;
 
-	pw_log_debug("client-node %p: port %d.%d set io %p %zd", impl, port_id, mix_id, data, size);
+	pw_log_debug("client-node %p: %s port %d.%d set io %p %zd", impl,
+			direction == SPA_DIRECTION_INPUT ? "input" : "output",
+			port_id, mix_id, data, size);
+
+	if (!CHECK_PORT(this, direction, port_id))
+		return -EINVAL;
 
 	if (this->resource == NULL)
 		return 0;
@@ -642,9 +648,6 @@ impl_node_port_set_io(struct spa_node *node,
 	struct node *this;
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
-
-	if (!CHECK_PORT(this, direction, port_id))
-		return -EINVAL;
 
 	return do_port_set_io(this->impl, direction, port_id, 0, id, data, size);
 }
@@ -1215,6 +1218,7 @@ static void node_initialized(void *data)
 
 	m = ensure_mem(impl, impl->io_areas->fd, t->data.MemFd, impl->io_areas->flags);
 	impl->io_memid = m->id;
+	pw_log_debug("client-node %p: io areas %p", node, impl->io_areas->ptr);
 
 	pw_client_node_resource_transport(this->resource,
 					  pw_global_get_id(pw_node_get_global(node)),
@@ -1246,16 +1250,35 @@ static void node_free(void *data)
 	free(impl);
 }
 
-static void *port_get_io(void *data, uint32_t id, size_t size)
+static int port_init_mix(void *data, struct pw_port_mix *mix)
 {
 	struct impl *impl = data;
+	uint32_t ioid;
 
-	return impl->io_areas->ptr;
+	ioid = pw_map_insert_new(&impl->io_map, NULL);
+
+	mix->port.io = SPA_MEMBER(impl->io_areas->ptr, ioid * sizeof(struct spa_io_buffers), void);
+
+	pw_log_debug("client-node %p: init mix io %d %p", impl, ioid, mix->port.io);
+
+	return 0;
+}
+
+static int port_release_mix(void *data, struct pw_port_mix *mix)
+{
+	struct impl *impl = data;
+	uint32_t id;
+
+	id = (mix->port.io - (struct spa_io_buffers*)impl->io_areas->ptr);
+
+	pw_map_remove(&impl->io_map, id);
+	return 0;
 }
 
 static const struct pw_port_implementation port_impl = {
 	PW_VERSION_PORT_IMPLEMENTATION,
-	.get_io = port_get_io,
+	.init_mix = port_init_mix,
+	.release_mix = port_release_mix,
 };
 
 static int mix_port_set_io(struct spa_node *node,
@@ -1264,15 +1287,11 @@ static int mix_port_set_io(struct spa_node *node,
 {
 	struct pw_port *p = SPA_CONTAINER_OF(node, struct pw_port, mix_node);
 	struct impl *impl = p->owner_data;
-	struct node *this = &impl->node;
 
 	pw_log_debug("client-node %p: mix port %d set io %p, %zd", impl, port_id, data, size);
 
 	p->rt.port.io = data;
 	p->rt.mix_port.io = data;
-
-	if (!CHECK_PORT(this, direction, port_id))
-		return -EINVAL;
 
 	return do_port_set_io(impl,
 			      direction, p->port_id, port_id,
@@ -1355,6 +1374,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	node_init(&impl->node, NULL, support, n_support);
 	impl->node.impl = impl;
 
+	pw_map_init(&impl->io_map, 64, 64);
 	pw_array_init(&impl->mems, 64);
 
 	if ((name = pw_properties_get(properties, "node.name")) == NULL)

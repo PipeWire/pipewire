@@ -212,38 +212,6 @@ static inline void free_allocation(struct allocation *alloc)
 	alloc->n_buffers = 0;
 }
 
-struct pw_link {
-	struct pw_core *core;		/**< core object */
-	struct spa_list link;		/**< link in core link_list */
-	struct pw_global *global;	/**< global for this link */
-	struct spa_hook global_listener;
-	bool registered;
-
-        struct pw_link_info info;		/**< introspectable link info */
-	struct pw_properties *properties;	/**< extra link properties */
-
-	enum pw_link_state state;	/**< link state */
-	char *error;			/**< error message when state error */
-
-	struct spa_list resource_list;	/**< list of bound resources */
-
-	struct spa_io_buffers io;	/**< link io area */
-
-	struct pw_port *output;		/**< output port */
-	struct spa_list output_link;	/**< link in output port links */
-	struct pw_port *input;		/**< input port */
-	struct spa_list input_link;	/**< link in input port links */
-
-	struct spa_hook_list listener_list;
-
-	struct {
-		struct spa_graph_port out_port;
-		struct spa_graph_port in_port;
-	} rt;
-
-	void *user_data;
-};
-
 struct pw_module {
 	struct pw_core *core;           /**< the core object */
 	struct spa_list link;           /**< link in the core module_list */
@@ -300,11 +268,18 @@ struct pw_node {
         void *user_data;                /**< extra user data */
 };
 
+struct pw_port_mix {
+	struct spa_graph_port port;
+	struct spa_buffer *buffers;
+	uint32_t n_buffers;
+};
+
 struct pw_port_implementation {
 #define PW_VERSION_PORT_IMPLEMENTATION       0
 	uint32_t version;
 
-	void *(*get_io) (void *data, uint32_t id, size_t size);
+	int (*init_mix) (void *data, struct pw_port_mix *mix);
+	int (*release_mix) (void *data, struct pw_port_mix *mix);
 };
 
 struct pw_port {
@@ -326,8 +301,6 @@ struct pw_port {
 
 	enum pw_port_state state;	/**< state of the port */
 
-	struct spa_io_buffers io;	/**< io area of the port */
-
 	bool allocated;			/**< if buffers are allocated */
 	struct allocation allocation;
 
@@ -346,6 +319,7 @@ struct pw_port {
 
 	struct {
 		struct spa_graph *graph;
+		struct spa_io_buffers io;	/**< io area of the port */
 		struct spa_graph_port port;	/**< this graph port, linked to mix_port */
 		struct spa_graph_port mix_port;	/**< port from the mixer */
 		struct spa_graph_node mix_node;	/**< mixer node */
@@ -355,6 +329,37 @@ struct pw_port {
         void *user_data;                /**< extra user data */
 };
 
+struct pw_link {
+	struct pw_core *core;		/**< core object */
+	struct spa_list link;		/**< link in core link_list */
+	struct pw_global *global;	/**< global for this link */
+	struct spa_hook global_listener;
+	bool registered;
+
+        struct pw_link_info info;		/**< introspectable link info */
+	struct pw_properties *properties;	/**< extra link properties */
+
+	enum pw_link_state state;	/**< link state */
+	char *error;			/**< error message when state error */
+
+	struct spa_list resource_list;	/**< list of bound resources */
+
+	struct spa_io_buffers io;	/**< link io area if not provided by ports */
+
+	struct pw_port *output;		/**< output port */
+	struct spa_list output_link;	/**< link in output port links */
+	struct pw_port *input;		/**< input port */
+	struct spa_list input_link;	/**< link in input port links */
+
+	struct spa_hook_list listener_list;
+
+	struct {
+		struct pw_port_mix out_port;
+		struct pw_port_mix in_port;
+	} rt;
+
+	void *user_data;
+};
 
 struct pw_resource {
 	struct pw_core *core;		/**< the core object */
@@ -519,6 +524,9 @@ void * pw_port_get_user_data(struct pw_port *port);
 
 /** Add a port to a node \memberof pw_port */
 int pw_port_add(struct pw_port *port, struct pw_node *node);
+
+int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix);
+int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix);
 
 /** Unlink a port \memberof pw_port */
 void pw_port_unlink(struct pw_port *port);

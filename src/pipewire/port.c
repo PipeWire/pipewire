@@ -160,6 +160,45 @@ static const struct spa_node schedule_mix_node = {
 	.port_reuse_buffer = schedule_mix_reuse_buffer,
 };
 
+int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
+{
+	uint32_t id;
+	int res = 0;
+	const struct pw_port_implementation *pi = port->implementation;
+
+	id = pw_map_insert_new(&port->mix_port_map, NULL);
+
+	spa_graph_port_init(&mix->port,
+			    port->direction, id,
+			    SPA_GRAPH_PORT_FLAG_DISABLED,
+			    NULL);
+
+	mix->port.scheduler_data = port;
+
+	if (pi && pi->init_mix)
+		res = pi->init_mix(port->implementation_data, mix);
+
+	pw_log_debug("port %p: init mix %d.%d io %p", port,
+			port->port_id, mix->port.port_id, mix->port.io);
+
+	return res;
+}
+int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
+{
+	int res = 0;
+	const struct pw_port_implementation *pi = port->implementation;
+
+	pw_map_remove(&port->mix_port_map, mix->port.port_id);
+
+	if (pi && pi->release_mix)
+		res = pi->release_mix(port->implementation_data, mix);
+
+	pw_log_debug("port %p: release mix %d.%d", port,
+			port->port_id, mix->port.port_id);
+
+	return res;
+}
+
 struct pw_port *pw_port_new(enum pw_direction direction,
 			    uint32_t port_id,
 			    struct pw_properties *properties,
@@ -185,7 +224,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	this->port_id = port_id;
 	this->properties = properties;
 	this->state = PW_PORT_STATE_INIT;
-	this->io = SPA_IO_BUFFERS_INIT;
+	this->rt.io = SPA_IO_BUFFERS_INIT;
 
         if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
@@ -204,7 +243,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 			    this->direction,
 			    this->port_id,
 			    0,
-			    &this->io);
+			    &this->rt.io);
 	spa_graph_node_init(&this->rt.mix_node);
 
 	this->mix_node = this->direction == PW_DIRECTION_INPUT ?
@@ -217,7 +256,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 			    pw_direction_reverse(this->direction),
 			    0,
 			    0,
-			    &this->io);
+			    &this->rt.io);
 
 	this->rt.mix_port.scheduler_data = this;
 	this->rt.port.scheduler_data = this;

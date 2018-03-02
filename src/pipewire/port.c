@@ -58,8 +58,11 @@ static int schedule_tee_input(struct spa_node *data)
 
 	if (!spa_list_is_empty(&node->ports[SPA_DIRECTION_OUTPUT])) {
 		pw_log_trace("node %p: tee input %d %d", node, io->status, io->buffer_id);
-		spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link)
+		spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
+			if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
+				continue;
 			*p->io = *io;
+		}
 		io->buffer_id = SPA_ID_INVALID;
 	}
 	else
@@ -74,8 +77,11 @@ static int schedule_tee_output(struct spa_node *data)
 	struct spa_graph_port *p;
 	struct spa_io_buffers *io = this->rt.mix_port.io;
 
-	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link)
+	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
+		if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
+			continue;
 		*io = *p->io;
+	}
 	pw_log_trace("node %p: tee output %d %d", node, io->status, io->buffer_id);
 	return io->status;
 }
@@ -109,6 +115,8 @@ static int schedule_mix_input(struct spa_node *data)
 	struct spa_io_buffers *io = this->rt.mix_port.io;
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
+		if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
+			continue;
 		pw_log_trace("mix %p: input %p %p->%p %d %d", node,
 				p, p->io, io, p->io->status, p->io->buffer_id);
 		*io = *p->io;
@@ -126,8 +134,11 @@ static int schedule_mix_output(struct spa_node *data)
 	struct spa_io_buffers *io = this->rt.mix_port.io;
 
 	if (!spa_list_is_empty(&node->ports[SPA_DIRECTION_INPUT])) {
-		spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link)
+		spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
+			if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
+				continue;
 			*p->io = *io;
+		}
 	}
 	else {
 		io->status = SPA_STATUS_HAVE_BUFFER;

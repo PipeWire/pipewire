@@ -67,7 +67,7 @@ static inline void spa_list_remove(struct spa_list *elem)
 	SPA_CONTAINER_OF((head)->prev, type, member)
 
 #define spa_list_append(list, item)					\
-	spa_list_insert((list)->prev, item);
+	spa_list_insert((list)->prev, item)
 
 #define spa_list_prepend(list, item)					\
 	spa_list_insert(list, item)

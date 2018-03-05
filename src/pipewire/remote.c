@@ -48,7 +48,7 @@ struct remote {
 	struct spa_hook core_listener;
 };
 
-struct mem_id {
+struct mem {
 	uint32_t id;
 	int fd;
 	uint32_t flags;
@@ -57,21 +57,20 @@ struct mem_id {
 	void *ptr;
 };
 
-struct buffer_id {
-	struct spa_list link;
+struct buffer {
 	uint32_t id;
 	struct spa_buffer *buf;
 	struct pw_map_range map;
 	void *ptr;
 	uint32_t n_mem;
-	struct mem_id **mem;
+	uint32_t *mem;
 };
 
 struct mix {
 	struct pw_port *port;
 	uint32_t mix_id;
 	struct pw_port_mix mix;
-	struct pw_array buffer_ids;
+	struct pw_array buffers;
 };
 
 struct node_data {
@@ -86,7 +85,7 @@ struct node_data {
 
 	struct mix mix[MAX_MIX];
 
-        struct pw_array mem_ids;
+        struct pw_array mems;
 
 	struct pw_node *node;
 	struct spa_hook node_listener;
@@ -517,7 +516,6 @@ static void node_have_output(void *data)
 	struct node_data *d = data;
 	uint64_t cmd = 1;
 
-	pw_log_trace("remote %p: have output", data);
 	do_push(data, SPA_DIRECTION_OUTPUT);
 	pw_client_node_transport_add_message(d->trans,
                                &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT));
@@ -633,61 +631,61 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 	}
 }
 
-static struct mem_id *find_mem(struct pw_array *mem_ids, uint32_t id)
+static struct mem *find_mem(struct pw_array *mems, uint32_t id)
 {
-	struct mem_id *mid;
+	struct mem *m;
 
-	pw_array_for_each(mid, mem_ids) {
-		if (mid->id == id)
-			return mid;
+	pw_array_for_each(m, mems) {
+		if (m->id == id)
+			return m;
 	}
 	return NULL;
 }
 
-static void *mem_map(struct node_data *data, struct mem_id *mid, uint32_t offset, uint32_t size)
+static void *mem_map(struct node_data *data, struct mem *m, uint32_t offset, uint32_t size)
 {
-	if (mid->ptr == NULL) {
-		pw_map_range_init(&mid->map, offset, size, data->core->sc_pagesize);
+	if (m->ptr == NULL) {
+		pw_map_range_init(&m->map, offset, size, data->core->sc_pagesize);
 
-		mid->ptr = mmap(NULL, mid->map.size, PROT_READ|PROT_WRITE,
-				MAP_SHARED, mid->fd, mid->map.offset);
+		m->ptr = mmap(NULL, m->map.size, PROT_READ|PROT_WRITE,
+				MAP_SHARED, m->fd, m->map.offset);
 
-		if (mid->ptr == MAP_FAILED) {
-			pw_log_error("Failed to mmap memory %d %p: %m", size, mid);
-			mid->ptr = NULL;
+		if (m->ptr == MAP_FAILED) {
+			pw_log_error("Failed to mmap memory %d %p: %m", size, m);
+			m->ptr = NULL;
 			return NULL;
 		}
 	}
-	return SPA_MEMBER(mid->ptr, mid->map.start, void);
+	return SPA_MEMBER(m->ptr, m->map.start, void);
 }
-static void mem_unmap(struct node_data *data, struct mem_id *mid)
+static void mem_unmap(struct node_data *data, struct mem *m)
 {
-	if (mid->ptr != NULL) {
-		if (munmap(mid->ptr, mid->map.size) < 0)
+	if (m->ptr != NULL) {
+		if (munmap(m->ptr, m->map.size) < 0)
 			pw_log_warn("failed to unmap: %m");
-		mid->ptr = NULL;
+		m->ptr = NULL;
 	}
 }
 
-static void clear_memid(struct node_data *data, struct mem_id *mid)
+static void clear_mem(struct node_data *data, struct mem *m)
 {
-	if (mid->fd != -1) {
+	if (m->fd != -1) {
 		bool has_ref = false;
 		int fd;
-		struct mem_id *m;
+		struct mem *m2;
 
-		fd = mid->fd;
-		mid->fd = -1;
-		mid->id = SPA_ID_INVALID;
+		fd = m->fd;
+		m->fd = -1;
+		m->id = SPA_ID_INVALID;
 
-		pw_array_for_each(m, &data->mem_ids) {
-			if (m->fd == fd) {
+		pw_array_for_each(m2, &data->mems) {
+			if (m2->fd == fd) {
 				has_ref = true;
 				break;
 			}
 		}
 		if (!has_ref) {
-			mem_unmap(data, mid);
+			mem_unmap(data, m);
 			close(fd);
 		}
 	}
@@ -696,16 +694,16 @@ static void clear_memid(struct node_data *data, struct mem_id *mid)
 static void clean_transport(struct pw_proxy *proxy)
 {
 	struct node_data *data = proxy->user_data;
-	struct mem_id *mid;
+	struct mem *m;
 
 	if (data->trans == NULL)
 		return;
 
 	unhandle_socket(proxy);
 
-	pw_array_for_each(mid, &data->mem_ids)
-		clear_memid(data, mid);
-	pw_array_clear(&data->mem_ids);
+	pw_array_for_each(m, &data->mems)
+		clear_mem(data, m);
+	pw_array_clear(&data->mems);
 
 	pw_client_node_transport_destroy(data->trans);
 	close(data->rtwritefd);
@@ -718,8 +716,8 @@ static void mix_init(struct mix *mix, struct pw_port *port, uint32_t mix_id)
 	mix->port = port;
 	mix->mix_id = mix_id;
 	pw_port_init_mix(port, &mix->mix);
-	pw_array_init(&mix->buffer_ids, 32);
-	pw_array_ensure_size(&mix->buffer_ids, sizeof(struct buffer_id) * 64);
+	pw_array_init(&mix->buffers, 32);
+	pw_array_ensure_size(&mix->buffers, sizeof(struct buffer) * 64);
 }
 
 static int
@@ -772,16 +770,16 @@ static void client_node_add_mem(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct mem_id *m;
+	struct mem *m;
 
-	m = find_mem(&data->mem_ids, mem_id);
+	m = find_mem(&data->mems, mem_id);
 	if (m) {
 		pw_log_warn("duplicate mem %u, fd %d, flags %d",
 			     mem_id, memfd, flags);
 		return;
 	}
 
-	m = pw_array_add(&data->mem_ids, sizeof(struct mem_id));
+	m = pw_array_add(&data->mems, sizeof(struct mem));
 	pw_log_debug("add mem %u, fd %d, flags %d", mem_id, memfd, flags);
 
 	m->id = mem_id;
@@ -887,6 +885,24 @@ static void client_node_event(void *object, const struct spa_event *event)
 	pw_log_warn("unhandled node event %d", SPA_EVENT_TYPE(event));
 }
 
+static void do_start(struct node_data *data)
+{
+	int i;
+	uint64_t cmd = 1;
+
+	for (i = 0; i < MAX_MIX; i++) {
+		struct mix *mix = &data->mix[i];
+
+		if (mix->port == NULL)
+			continue;
+
+		mix->mix.port.io->status = SPA_STATUS_NEED_BUFFER;
+		mix->mix.port.io->buffer_id = SPA_ID_INVALID;
+	}
+	pw_client_node_transport_add_message(data->trans,
+				&PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
+	write(data->rtwritefd, &cmd, 8);
+}
 
 static void client_node_command(void *object, uint32_t seq, const struct spa_command *command)
 {
@@ -917,7 +933,8 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 		if ((res = spa_node_send_command(data->node->node, command)) < 0)
 			pw_log_warn("node %p: start failed", proxy);
 
-		process_output(data);
+		do_start(data);
+
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
 	}
 	else if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.ClockUpdate) {
@@ -986,21 +1003,23 @@ client_node_port_set_param(void *object,
 static void clear_buffers(struct node_data *data, struct mix *mix)
 {
 	struct pw_port *port = mix->port;
-        struct buffer_id *bid;
+        struct buffer *bid;
 	int i;
 
         pw_log_debug("port %p: clear buffers", port);
 	pw_port_use_buffers(port, NULL, 0);
 
-        pw_array_for_each(bid, &mix->buffer_ids) {
+        pw_array_for_each(bid, &mix->buffers) {
 		if (bid->ptr != NULL) {
 			if (munmap(bid->ptr, bid->map.size) < 0)
 				pw_log_warn("failed to unmap: %m");
 		}
 		if (bid->mem != NULL) {
 			for (i = 0; i < bid->n_mem; i++) {
-				if (--bid->mem[i]->ref == 0)
-					clear_memid(data, bid->mem[i]);
+				struct mem *m;
+				m = find_mem(&data->mems, bid->mem[i]);
+				if (--m->ref == 0)
+					clear_mem(data, m);
 			}
 			bid->mem = NULL;
 			bid->n_mem = 0;
@@ -1009,7 +1028,7 @@ static void clear_buffers(struct node_data *data, struct mix *mix)
                 free(bid->buf);
                 bid->buf = NULL;
         }
-	mix->buffer_ids.size = 0;
+	mix->buffers.size = 0;
 }
 
 static void
@@ -1020,7 +1039,7 @@ client_node_port_use_buffers(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct buffer_id *bid;
+	struct buffer *bid;
 	uint32_t i, j, len;
 	struct spa_buffer *b, **bufs;
 	struct mix *mix;
@@ -1044,23 +1063,23 @@ client_node_port_use_buffers(void *object,
 	for (i = 0; i < n_buffers; i++) {
 		off_t offset;
 
-		struct mem_id *mid = find_mem(&data->mem_ids, buffers[i].mem_id);
-		if (mid == NULL) {
+		struct mem *m = find_mem(&data->mems, buffers[i].mem_id);
+		if (m == NULL) {
 			pw_log_error("unknown memory id %u", buffers[i].mem_id);
 			res = -EINVAL;
 			goto cleanup;
 		}
 
-		len = pw_array_get_len(&mix->buffer_ids, struct buffer_id);
-		bid = pw_array_add(&mix->buffer_ids, sizeof(struct buffer_id));
+		len = pw_array_get_len(&mix->buffers, struct buffer);
+		bid = pw_array_add(&mix->buffers, sizeof(struct buffer));
 
 		pw_map_range_init(&bid->map, buffers[i].offset, buffers[i].size, core->sc_pagesize);
 
-		bid->ptr = mmap(NULL, bid->map.size, prot, MAP_SHARED, mid->fd, bid->map.offset);
+		bid->ptr = mmap(NULL, bid->map.size, prot, MAP_SHARED, m->fd, bid->map.offset);
 		if (bid->ptr == MAP_FAILED) {
 			bid->ptr = NULL;
 			pw_log_error("Failed to mmap memory %u %u %u %d: %m",
-				bid->map.offset, bid->map.size, buffers[i].mem_id, mid->fd);
+				bid->map.offset, bid->map.size, buffers[i].mem_id, m->fd);
 			res = -errno;
 			goto cleanup;
 		}
@@ -1074,12 +1093,12 @@ client_node_port_use_buffers(void *object,
 			size_t size;
 
 			size = sizeof(struct spa_buffer);
-			size += sizeof(struct mem_id *);
+			size += sizeof(uint32_t);
 			for (j = 0; j < buffers[i].buffer->n_metas; j++)
 				size += sizeof(struct spa_meta);
 			for (j = 0; j < buffers[i].buffer->n_datas; j++) {
 				size += sizeof(struct spa_data);
-				size += sizeof(struct mem_id *);
+				size += sizeof(uint32_t);
 			}
 
 			b = bid->buf = malloc(size);
@@ -1089,18 +1108,18 @@ client_node_port_use_buffers(void *object,
 			b->datas = SPA_MEMBER(b->metas, sizeof(struct spa_meta) * b->n_metas,
 				       struct spa_data);
 			bid->mem = SPA_MEMBER(b->datas, sizeof(struct spa_data) * b->n_datas,
-				       struct mem_id*);
+				       uint32_t);
 			bid->n_mem = 0;
 
-			mid->ref++;
-			bid->mem[bid->n_mem++] = mid;
+			m->ref++;
+			bid->mem[bid->n_mem++] = m->id;
 		}
 		bid->id = b->id;
 
 		if (bid->id != len) {
 			pw_log_warn("unexpected id %u found, expected %u", bid->id, len);
 		}
-		pw_log_debug("add buffer %d %d %u %u", mid->id, bid->id, bid->map.offset, bid->map.size);
+		pw_log_debug("add buffer %d %d %u %u", m->id, bid->id, bid->map.offset, bid->map.size);
 
 		offset = bid->map.start;
 		for (j = 0; j < b->n_metas; j++) {
@@ -1120,19 +1139,19 @@ client_node_port_use_buffers(void *object,
 
 			if (d->type == t->data.MemFd || d->type == t->data.DmaBuf) {
 				uint32_t id = SPA_PTR_TO_UINT32(d->data);
-				struct mem_id *bmid = find_mem(&data->mem_ids, id);
+				struct mem *bm = find_mem(&data->mems, id);
 
-				if (bmid == NULL) {
+				if (bm == NULL) {
 					pw_log_error("unknown buffer mem %u", id);
 					res = -EINVAL;
 					goto cleanup;
 				}
 
 				d->data = NULL;
-				d->fd = bmid->fd;
-				bmid->ref++;
-				bid->mem[bid->n_mem++] = bmid;
-				pw_log_debug(" data %d %u -> fd %d", j, bmid->id, bmid->fd);
+				d->fd = bm->fd;
+				bm->ref++;
+				bid->mem[bid->n_mem++] = bm->id;
+				pw_log_debug(" data %d %u -> fd %d", j, bm->id, bm->fd);
 			} else if (d->type == t->data.MemPtr) {
 				d->data = SPA_MEMBER(bid->ptr,
 						bid->map.start + SPA_PTR_TO_INT(d->data), void);
@@ -1190,7 +1209,7 @@ client_node_port_set_io(void *object,
 	struct pw_core *core = proxy->remote->core;
 	struct pw_type *t = &core->type;
 	struct mix *mix;
-	struct mem_id *mid;
+	struct mem *mid;
 	void *ptr;
 
 	mix = find_mix(data, direction, port_id, mix_id);
@@ -1202,7 +1221,7 @@ client_node_port_set_io(void *object,
 		size = 0;
 	}
 	else {
-		mid = find_mem(&data->mem_ids, memid);
+		mid = find_mem(&data->mems, memid);
 		if (mid == NULL) {
 			pw_log_warn("unknown memory id %u", memid);
 			return;
@@ -1220,10 +1239,7 @@ client_node_port_set_io(void *object,
 		mix->mix.port.io = ptr;
 		if (ptr) {
 			mix->mix.port.io->buffer_id = SPA_ID_INVALID;
-			if (direction == SPA_DIRECTION_INPUT)
-				mix->mix.port.io->status = SPA_STATUS_NEED_BUFFER;
-			else
-				mix->mix.port.io->status = SPA_STATUS_OK;
+			mix->mix.port.io->status = SPA_STATUS_NEED_BUFFER;
 		}
 	} else {
 		spa_node_port_set_io(mix->port->node->node,
@@ -1305,7 +1321,7 @@ static void clear_mix(struct node_data *data, struct mix *mix)
 {
 	if (mix->port) {
 		clear_buffers(data, mix);
-		pw_array_clear(&mix->buffer_ids);
+		pw_array_clear(&mix->buffers);
 		mix->port = NULL;
 	}
 }
@@ -1353,8 +1369,8 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	data->t = pw_core_get_type(data->core);
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;
 
-        pw_array_init(&data->mem_ids, 64);
-        pw_array_ensure_size(&data->mem_ids, sizeof(struct mem_id) * 64);
+        pw_array_init(&data->mems, 64);
+        pw_array_ensure_size(&data->mems, sizeof(struct mem) * 64);
 
 	pw_proxy_add_listener(proxy, &data->proxy_listener, &proxy_events, data);
 	pw_node_add_listener(node, &data->node_listener, &node_events, data);

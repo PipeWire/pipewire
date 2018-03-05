@@ -203,7 +203,9 @@ static int port_enum_formats(struct spa_node *node,
 		d->t->param.idEnumFormat, d->t->spa_format,
 		"I", d->type.media_type.audio,
 		"I", d->type.media_subtype.raw,
-		":", d->type.format_audio.format,   "I", d->type.audio_format.S16,
+		":", d->type.format_audio.format,   "Ieu", d->type.audio_format.S16,
+			SPA_POD_PROP_ENUM(2, d->type.audio_format.S16,
+					     d->type.audio_format.F32),
 		":", d->type.format_audio.channels, "iru", 2,
 			SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
 		":", d->type.format_audio.rate,     "iru", 44100,
@@ -353,7 +355,8 @@ static int port_set_format(struct spa_node *node,
 	if (spa_format_audio_raw_parse(format, &d->format, &d->type.format_audio) < 0)
 		return -EINVAL;
 
-	if (d->format.format != d->type.audio_format.S16)
+	if (d->format.format != d->type.audio_format.S16 &&
+	    d->format.format != d->type.audio_format.F32)
 		return -EINVAL;
 
 	return 0;
@@ -424,12 +427,51 @@ static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint3
 	return 0;
 }
 
+static void fill_f32(struct data *d, void *dest, int avail)
+{
+	float *dst = dest;
+	int n_samples = avail / (sizeof(float) * d->format.channels);
+	int i, c;
+
+        for (i = 0; i < n_samples; i++) {
+		float val;
+
+                d->accumulator += M_PI_M2 * 440 / d->format.rate;
+                if (d->accumulator >= M_PI_M2)
+                        d->accumulator -= M_PI_M2;
+
+                val = sin(d->accumulator);
+
+                for (c = 0; c < d->format.channels; c++)
+                        *dst++ = val;
+        }
+}
+
+static void fill_s16(struct data *d, void *dest, int avail)
+{
+	int16_t *dst = dest;
+	int n_samples = avail / (sizeof(int16_t) * d->format.channels);
+	int i, c;
+
+        for (i = 0; i < n_samples; i++) {
+                int16_t val;
+
+                d->accumulator += M_PI_M2 * 440 / d->format.rate;
+                if (d->accumulator >= M_PI_M2)
+                        d->accumulator -= M_PI_M2;
+
+                val = (int16_t) (sin(d->accumulator) * 32767.0);
+
+                for (c = 0; c < d->format.channels; c++)
+                        *dst++ = val;
+        }
+}
+
 static int impl_node_process_output(struct spa_node *node)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct buffer *b;
-	int i, c, n_samples, avail;
-	int16_t *dst;
+	int avail;
         struct spa_io_buffers *io = d->io;
 	uint32_t maxsize, index = 0;
 	uint32_t filled, offset;
@@ -458,21 +500,10 @@ static int impl_node_process_output(struct spa_node *node)
 	if (offset + avail > maxsize)
 		avail = maxsize - offset;
 
-	dst = SPA_MEMBER(b->ptr, offset, void);
-        n_samples = avail / (sizeof(int16_t) * d->format.channels);
-
-        for (i = 0; i < n_samples; i++) {
-                int16_t val;
-
-                d->accumulator += M_PI_M2 * 440 / d->format.rate;
-                if (d->accumulator >= M_PI_M2)
-                        d->accumulator -= M_PI_M2;
-
-                val = (int16_t) (sin(d->accumulator) * 32767.0);
-
-                for (c = 0; c < d->format.channels; c++)
-                        *dst++ = val;
-        }
+	if (d->format.format == d->type.audio_format.S16)
+		fill_s16(d, SPA_MEMBER(b->ptr, offset, void), avail);
+	else if (d->format.format == d->type.audio_format.F32)
+		fill_f32(d, SPA_MEMBER(b->ptr, offset, void), avail);
 
 	od[0].chunk->offset = 0;
 	od[0].chunk->size = avail;

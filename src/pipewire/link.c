@@ -516,6 +516,8 @@ static int select_io(struct pw_link *this)
 	if (io == NULL)
 		io = this->rt.out_port.port.io;
 	if (io == NULL)
+		io = &this->io;
+	if (io == NULL)
 		return -EIO;
 
 	if ((res = port_set_io(this, this->input, io,

@@ -59,6 +59,7 @@ static int schedule_tee_input(struct spa_node *data)
 	if (!spa_list_is_empty(&node->ports[SPA_DIRECTION_OUTPUT])) {
 		pw_log_trace("node %p: tee input %d %d", node, io->status, io->buffer_id);
 		spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
+			pw_log_trace("node %p: port %p %d %p->%p", node, p, p->flags, io, p->io);
 			if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
 				continue;
 			*p->io = *io;
@@ -78,6 +79,7 @@ static int schedule_tee_output(struct spa_node *data)
 	struct spa_io_buffers *io = this->rt.mix_port.io;
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
+		pw_log_trace("node %p: port %p %d %p->%p", node, p, p->flags, p->io, io);
 		if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
 			continue;
 		*io = *p->io;

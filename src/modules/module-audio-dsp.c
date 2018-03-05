@@ -303,6 +303,7 @@ static int node_process_input(struct spa_node *node)
 		struct buffer *in;
 		int stride = 2;
 
+		pw_log_trace(NAME" %p: mix %d %p %d %d", this, i, inio, inio->buffer_id, n->buffer_size);
 		if (inio->buffer_id < inp->n_buffers && inio->status == SPA_STATUS_HAVE_BUFFER) {
 			in = &inp->buffers[inio->buffer_id];
 			conv_f32_s16(op, in->ptr, n->buffer_size, stride);

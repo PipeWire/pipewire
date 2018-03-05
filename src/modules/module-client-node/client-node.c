@@ -872,6 +872,7 @@ static int impl_node_process_input(struct spa_node *node)
 		                spa_node_port_reuse_buffer(pp->node->implementation,
 						pp->port_id, io->buffer_id);
 		}
+		pw_log_trace("client-node %p: send process input", this);
 		pw_client_node_transport_add_message(impl->transport,
 			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT));
 		do_flush(this);
@@ -890,6 +891,12 @@ static int impl_node_process_output(struct spa_node *node)
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
+	if (impl->out_pending)
+		return SPA_STATUS_OK;
+
+	impl->out_pending = true;
+
+	pw_log_trace("client-node %p: send process output", this);
 	pw_client_node_transport_add_message(impl->transport,
 			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT));
 	do_flush(this);
@@ -900,23 +907,16 @@ static int impl_node_process_output(struct spa_node *node)
 static int handle_node_message(struct node *this, struct pw_client_node_message *message)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, node);
-	struct spa_graph_node *n;
-	struct spa_graph_port *p;
-
-	n = &impl->this.node->rt.node;
 
 	switch (PW_CLIENT_NODE_MESSAGE_TYPE(message)) {
 	case PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT:
 		impl->out_pending = false;
+		pw_log_trace("have output");
 		this->callbacks->have_output(this->callbacks_data);
 		break;
 
 	case PW_CLIENT_NODE_MESSAGE_NEED_INPUT:
-		spa_list_for_each(p, &n->ports[SPA_DIRECTION_OUTPUT], link) {
-			struct spa_graph_node *ni = p->peer->node;
-			spa_node_process_output(ni->implementation);
-			pw_log_trace("need input %p %d %d", p->io, p->io->status, p->io->buffer_id);
-		}
+		pw_log_trace("need input");
 		impl->input_ready++;
 		this->callbacks->need_input(this->callbacks_data);
 		break;
@@ -1288,8 +1288,6 @@ static int mix_port_set_io(struct spa_node *node,
 	struct pw_port *p = SPA_CONTAINER_OF(node, struct pw_port, mix_node);
 	struct impl *impl = p->owner_data;
 
-	pw_log_debug("client-node %p: mix port %d set io %p, %zd", impl, port_id, data, size);
-
 	p->rt.port.io = data;
 	p->rt.mix_port.io = data;
 
@@ -1300,11 +1298,13 @@ static int mix_port_set_io(struct spa_node *node,
 
 static int mix_port_process_input(struct spa_node *data)
 {
+	pw_log_trace("client-node %p: pass", data);
 	return SPA_STATUS_HAVE_BUFFER;
 }
 
 static int mix_port_process_output(struct spa_node *data)
 {
+	pw_log_trace("client-node %p: pass", data);
 	return SPA_STATUS_NEED_BUFFER;
 }
 

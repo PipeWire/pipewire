@@ -557,6 +557,8 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state);
 /** Update the state of the node, mostly used by node implementations */
 void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *error);
 
+int pw_node_update_ports(struct pw_node *node);
+
 /** Activate a link \memberof pw_link
   * Starts the negotiation of formats and buffers on \a link and then
   * starts data streaming */

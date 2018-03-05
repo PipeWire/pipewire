@@ -1030,6 +1030,7 @@ client_node_port_update(void *data,
 			       change_mask,
 			       n_params, params, info);
 	}
+	pw_node_update_ports(impl->this.node);
 }
 
 static void client_node_set_active(void *data, bool active)

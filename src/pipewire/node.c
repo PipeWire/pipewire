@@ -189,7 +189,7 @@ static void update_port_map(struct pw_node *node, enum pw_direction direction,
 	}
 }
 
-static int update_port_ids(struct pw_node *node)
+int pw_node_update_ports(struct pw_node *node)
 {
 	uint32_t *input_port_ids, *output_port_ids;
 	uint32_t n_input_ports, n_output_ports, max_input_ports, max_output_ports;
@@ -337,12 +337,15 @@ int pw_node_register(struct pw_node *this,
 
 	pw_log_debug("node %p: register", this);
 
+	if (this->registered)
+		return -EEXIST;
+
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
 		return -ENOMEM;
 
-	update_port_ids(this);
+	pw_node_update_ports(this);
 
 	pw_loop_invoke(this->data_loop, do_node_add, 1, NULL, 0, false, this);
 

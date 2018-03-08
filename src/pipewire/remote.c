@@ -67,6 +67,7 @@ struct buffer {
 };
 
 struct mix {
+	struct spa_list link;
 	struct pw_port *port;
 	uint32_t mix_id;
 	struct pw_port_mix mix;
@@ -83,7 +84,9 @@ struct node_data {
 	struct spa_source *rtsocket_source;
         struct pw_client_node_transport *trans;
 
-	struct mix mix[MAX_MIX];
+	struct mix mix_pool[MAX_MIX];
+	struct spa_list mix[2];
+	struct spa_list free_mix;
 
         struct pw_array mems;
 
@@ -470,10 +473,8 @@ do_remove_source(struct spa_loop *loop,
 }
 
 
-static void unhandle_socket(struct pw_proxy *proxy)
+static void unhandle_socket(struct node_data *data)
 {
-	struct node_data *data = proxy->user_data;
-
         pw_loop_invoke(data->core->data_loop,
                        do_remove_source, 1, NULL, 0, true, data);
 }
@@ -504,8 +505,8 @@ static void node_need_input(void *data)
 {
 	struct node_data *d = data;
 	uint64_t cmd = 1;
-	pw_log_trace("remote %p: send need input", data);
 	do_pull(data, SPA_DIRECTION_INPUT);
+	pw_log_trace("remote %p: send need input", data);
 	pw_client_node_transport_add_message(d->trans,
 				&PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
 	write(d->rtwritefd, &cmd, 8);
@@ -517,6 +518,7 @@ static void node_have_output(void *data)
 	uint64_t cmd = 1;
 
 	do_push(data, SPA_DIRECTION_OUTPUT);
+	pw_log_trace("remote %p: send have output", data);
 	pw_client_node_transport_add_message(d->trans,
                                &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT));
 	write(d->rtwritefd, &cmd, 8);
@@ -608,7 +610,7 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn("got error");
-		unhandle_socket(proxy);
+		unhandle_socket(data);
 		return;
 	}
 
@@ -691,15 +693,14 @@ static void clear_mem(struct node_data *data, struct mem *m)
 	}
 }
 
-static void clean_transport(struct pw_proxy *proxy)
+static void clean_transport(struct node_data *data)
 {
-	struct node_data *data = proxy->user_data;
 	struct mem *m;
 
 	if (data->trans == NULL)
 		return;
 
-	unhandle_socket(proxy);
+	unhandle_socket(data);
 
 	pw_array_for_each(m, &data->mems)
 		clear_mem(data, m);
@@ -733,35 +734,43 @@ do_activate_mix(struct spa_loop *loop,
 static struct mix *find_mix(struct node_data *data,
 		enum spa_direction direction, uint32_t port_id, uint32_t mix_id)
 {
-	struct mix *mix, *empty = NULL;
-	struct pw_port *port;
-	int i;
+	struct mix *mix;
 
-	for (i = 0; i < MAX_MIX; i++) {
-		mix = &data->mix[i];
-
-		if (mix->port == NULL) {
-			empty = mix;
-			continue;
-		}
-		if (mix->port->direction == (enum pw_direction) direction &&
-		    mix->port->port_id == port_id &&
+	spa_list_for_each(mix, &data->mix[direction], link) {
+		if (mix->port->port_id == port_id &&
 		    mix->mix_id == mix_id)
 			return mix;
 	}
-	if (empty == NULL)
+	return NULL;
+}
+
+static struct mix *ensure_mix(struct node_data *data,
+		enum spa_direction direction, uint32_t port_id, uint32_t mix_id)
+{
+	struct mix *mix;
+	struct pw_port *port;
+
+	if ((mix = find_mix(data, direction, port_id, mix_id)))
+		return mix;
+
+	if (spa_list_is_empty(&data->free_mix))
 		return NULL;
 
 	port = pw_node_find_port(data->node, direction, port_id);
 	if (port == NULL)
 		return NULL;
 
-	mix_init(empty, port, mix_id);
+	mix = spa_list_first(&data->free_mix, struct mix, link);
+	spa_list_remove(&mix->link);
+
+	mix_init(mix, port, mix_id);
+
+	spa_list_append(&data->mix[direction], &mix->link);
 
 	pw_loop_invoke(data->core->data_loop,
-                       do_activate_mix, SPA_ID_INVALID, NULL, 0, false, empty);
+                       do_activate_mix, SPA_ID_INVALID, NULL, 0, false, mix);
 
-	return empty;
+	return mix;
 }
 
 static void client_node_add_mem(void *object,
@@ -797,7 +806,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
 
-	clean_transport(proxy);
+	clean_transport(data);
 
 	data->node_id = node_id;
 	data->trans = transport;
@@ -887,21 +896,22 @@ static void client_node_event(void *object, const struct spa_event *event)
 
 static void do_start(struct node_data *data)
 {
-	int i;
 	uint64_t cmd = 1;
+	struct mix *mix;
 
-	for (i = 0; i < MAX_MIX; i++) {
-		struct mix *mix = &data->mix[i];
-
-		if (mix->port == NULL)
-			continue;
-
+	spa_list_for_each(mix, &data->mix[SPA_DIRECTION_INPUT], link) {
 		mix->mix.port.io->status = SPA_STATUS_NEED_BUFFER;
 		mix->mix.port.io->buffer_id = SPA_ID_INVALID;
 	}
-	pw_client_node_transport_add_message(data->trans,
+	spa_list_for_each(mix, &data->mix[SPA_DIRECTION_OUTPUT], link) {
+		mix->mix.port.io->status = SPA_STATUS_NEED_BUFFER;
+		mix->mix.port.io->buffer_id = SPA_ID_INVALID;
+	}
+	if (!spa_list_is_empty(&data->mix[SPA_DIRECTION_INPUT])) {
+		pw_client_node_transport_add_message(data->trans,
 				&PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
-	write(data->rtwritefd, &cmd, 8);
+		write(data->rtwritefd, &cmd, 8);
+	}
 }
 
 static void client_node_command(void *object, uint32_t seq, const struct spa_command *command)
@@ -1007,7 +1017,7 @@ static void clear_buffers(struct node_data *data, struct mix *mix)
 	int i;
 
         pw_log_debug("port %p: clear buffers", port);
-	pw_port_use_buffers(port, NULL, 0);
+	pw_port_use_buffers(port, mix->mix_id, NULL, 0);
 
         pw_array_for_each(bid, &mix->buffers) {
 		if (bid->ptr != NULL) {
@@ -1047,7 +1057,7 @@ client_node_port_use_buffers(void *object,
 	struct pw_type *t = &core->type;
 	int res, prot;
 
-	mix = find_mix(data, direction, port_id, mix_id);
+	mix = ensure_mix(data, direction, port_id, mix_id);
 	if (mix == NULL) {
 		res = -EINVAL;
 		goto done;
@@ -1164,7 +1174,7 @@ client_node_port_use_buffers(void *object,
 		bufs[i] = b;
 	}
 
-	res = pw_port_use_buffers(mix->port, bufs, n_buffers);
+	res = pw_port_use_buffers(mix->port, mix->mix_id, bufs, n_buffers);
 
       done:
 	pw_client_node_proxy_done(data->node_proxy, seq, res);
@@ -1212,7 +1222,7 @@ client_node_port_set_io(void *object,
 	struct mem *mid;
 	void *ptr;
 
-	mix = find_mix(data, direction, port_id, mix_id);
+	mix = ensure_mix(data, direction, port_id, mix_id);
 	if (mix == NULL)
 		return;
 
@@ -1317,26 +1327,40 @@ static const struct pw_node_events node_events = {
 	.have_output = node_have_output,
 };
 
+static int
+do_deactivate_mix(struct spa_loop *loop,
+                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct mix *mix = user_data;
+        SPA_FLAG_SET(mix->mix.port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+	spa_graph_port_remove(&mix->mix.port);
+        return 0;
+}
+
 static void clear_mix(struct node_data *data, struct mix *mix)
 {
-	if (mix->port) {
-		clear_buffers(data, mix);
-		pw_array_clear(&mix->buffers);
-		mix->port = NULL;
-	}
+	clear_buffers(data, mix);
+	pw_array_clear(&mix->buffers);
+
+	pw_loop_invoke(data->core->data_loop,
+                       do_deactivate_mix, SPA_ID_INVALID, NULL, 0, true, mix);
+
+	spa_list_remove(&mix->link);
+	spa_list_append(&data->free_mix, &mix->link);
 }
 
 static void node_proxy_destroy(void *_data)
 {
 	struct node_data *data = _data;
-	struct pw_proxy *proxy = (struct pw_proxy*) data->node_proxy;
-	int i;
+	struct mix *mix, *tmp;
 
 	if (data->trans) {
-		for (i = 0; i < MAX_MIX; i++)
-			clear_mix(data, &data->mix[i]);
+		spa_list_for_each_safe(mix, tmp, &data->mix[SPA_DIRECTION_INPUT], link)
+			clear_mix(data, mix);
+		spa_list_for_each_safe(mix, tmp, &data->mix[SPA_DIRECTION_OUTPUT], link)
+			clear_mix(data, mix);
 	}
-	clean_transport(proxy);
+	clean_transport(data);
 
 	spa_hook_remove(&data->node_listener);
 }
@@ -1352,6 +1376,7 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
 	struct pw_proxy *proxy;
 	struct node_data *data;
+	int i;
 
 	proxy = pw_core_proxy_create_object(remote->core_proxy,
 					    "client-node",
@@ -1368,6 +1393,12 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	data->core = pw_node_get_core(node);
 	data->t = pw_core_get_type(data->core);
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;
+
+	spa_list_init(&data->free_mix);
+	spa_list_init(&data->mix[0]);
+	spa_list_init(&data->mix[1]);
+	for (i = 0; i < MAX_MIX; i++)
+		spa_list_append(&data->free_mix, &data->mix_pool[i].link);
 
         pw_array_init(&data->mems, 64);
         pw_array_ensure_size(&data->mems, sizeof(struct mem) * 64);

@@ -33,8 +33,6 @@
 #include <pipewire/core.h>
 #include <pipewire/data-loop.h>
 
-#include <spa/graph/graph-scheduler6.h>
-
 /** \cond */
 struct resource_data {
 	struct spa_hook resource_listener;
@@ -385,9 +383,6 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	pw_type_init(&this->type);
 	pw_map_init(&this->globals, 128, 32);
-
-	spa_graph_init(&this->rt.graph);
-	spa_graph_set_callbacks(&this->rt.graph, &spa_graph_impl_default, NULL);
 
 	spa_debug_set_type_map(this->type.map);
 

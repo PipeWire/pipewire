@@ -163,10 +163,6 @@ struct pw_core {
 	struct pw_client *current_client;	/**< client currently executing code in mainloop */
 
 	long sc_pagesize;
-
-	struct {
-		struct spa_graph graph;
-	} rt;
 };
 
 struct pw_data_loop {
@@ -227,6 +223,22 @@ struct pw_module {
 	void *user_data;                /**< module user_data */
 };
 
+struct pw_node_activation {
+#define NOT_TRIGGERED	0
+#define TRIGGERED	1
+#define AWAKE		2
+#define FINISHED	3
+	int state;
+
+	uint64_t signal_time;
+	uint64_t awake_time;
+	uint64_t finish_time;
+
+	int status;
+	uint32_t required;
+	uint32_t pending;
+};
+
 struct pw_node {
 	struct pw_core *core;		/**< core object */
 	struct spa_list link;		/**< link in core node_list */
@@ -260,9 +272,13 @@ struct pw_node {
 
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
+	int (*process) (struct pw_node *node);
+
 	struct {
-		struct spa_graph *graph;
 		struct spa_graph_node node;
+		struct spa_list links[2];
+		struct pw_node_activation *activation;
+		struct spa_list sched_link;
 	} rt;
 
         void *user_data;                /**< extra user data */
@@ -270,7 +286,7 @@ struct pw_node {
 
 struct pw_port_mix {
 	struct spa_graph_port port;
-	struct spa_buffer *buffers;
+	struct spa_buffer **buffers;
 	uint32_t n_buffers;
 };
 
@@ -318,7 +334,6 @@ struct pw_port {
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */
 
 	struct {
-		struct spa_graph *graph;
 		struct spa_io_buffers io;	/**< io area of the port */
 		struct spa_graph_port port;	/**< this graph port, linked to mix_port */
 		struct spa_graph_port mix_port;	/**< port from the mixer */
@@ -344,7 +359,7 @@ struct pw_link {
 
 	struct spa_list resource_list;	/**< list of bound resources */
 
-	struct spa_io_buffers io;	/**< link io area if not provided by ports */
+	struct spa_io_buffers *io;	/**< link io area */
 
 	struct pw_port *output;		/**< output port */
 	struct spa_list output_link;	/**< link in output port links */
@@ -354,8 +369,9 @@ struct pw_link {
 	struct spa_hook_list listener_list;
 
 	struct {
-		struct pw_port_mix out_port;
-		struct pw_port_mix in_port;
+		struct pw_port_mix mix[2];
+		struct spa_list in_node_link;
+		struct spa_list out_node_link;
 	} rt;
 
 	void *user_data;
@@ -560,10 +576,11 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 		      const struct spa_pod *param);
 
 /** Use buffers on a port \memberof pw_port */
-int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers);
+int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
+		struct spa_buffer **buffers, uint32_t n_buffers);
 
 /** Allocate memory for buffers on a port \memberof pw_port */
-int pw_port_alloc_buffers(struct pw_port *port,
+int pw_port_alloc_buffers(struct pw_port *port, uint32_t mix_id,
 			  struct spa_pod **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers);
 

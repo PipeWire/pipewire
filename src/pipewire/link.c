@@ -41,6 +41,7 @@ struct impl {
 
 	bool active;
 	bool have_io;
+	bool activated;
 
 	struct pw_work_queue *work;
 
@@ -51,6 +52,8 @@ struct impl {
 	struct spa_hook input_node_listener;
 	struct spa_hook output_port_listener;
 	struct spa_hook output_node_listener;
+
+	struct spa_io_buffers io;
 };
 
 struct resource_data {
@@ -512,21 +515,23 @@ static int select_io(struct pw_link *this)
 	if (impl->have_io)
 		return 0;
 
-	io = this->rt.in_port.port.io;
+	io = this->rt.mix[SPA_DIRECTION_INPUT].port.io;
 	if (io == NULL)
-		io = this->rt.out_port.port.io;
+		io = this->rt.mix[SPA_DIRECTION_OUTPUT].port.io;
 	if (io == NULL)
-		io = &this->io;
+		io = &impl->io;
 	if (io == NULL)
 		return -EIO;
 
 	if ((res = port_set_io(this, this->input, io,
-			sizeof(struct spa_io_buffers), &this->rt.in_port.port)) < 0)
+			sizeof(struct spa_io_buffers), &this->rt.mix[SPA_DIRECTION_INPUT].port)) < 0)
 		return res;
 
 	if ((res = port_set_io(this, this->output, io,
-			sizeof(struct spa_io_buffers), &this->rt.out_port.port)) < 0)
+			sizeof(struct spa_io_buffers), &this->rt.mix[SPA_DIRECTION_OUTPUT].port)) < 0)
 		return res;
+
+	this->io = io;
 
 	impl->have_io = true;
 
@@ -588,11 +593,11 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			goto error;
 		}
 	} else if (in_state == PW_PORT_STATE_READY && out_state > PW_PORT_STATE_READY) {
-		out_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-		in_flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+		SPA_FLAG_SET(out_flags, SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS);
+		SPA_FLAG_UNSET(in_flags, SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
 	} else if (out_state == PW_PORT_STATE_READY && in_state > PW_PORT_STATE_READY) {
-		in_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-		out_flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+		SPA_FLAG_SET(in_flags, SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS);
+		SPA_FLAG_UNSET(out_flags, SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
 	} else {
 		pw_log_debug("link %p: delay allocation, state %d %d", this, in_state, out_state);
 		return 0;
@@ -612,7 +617,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				allocation.n_buffers, allocation.buffers);
 	} else if (input->allocation.n_buffers && input->mix == NULL) {
 		out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-		in_flags = 0;
+		in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 
 		allocation = input->allocation;
 
@@ -691,6 +696,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 		if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(output,
+							 this->rt.mix[SPA_DIRECTION_OUTPUT].port.port_id,
 							 params, n_params,
 							 allocation.buffers,
 							 &allocation.n_buffers)) < 0) {
@@ -706,6 +712,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				     allocation.n_buffers, allocation.buffers);
 		} else if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(input,
+							 this->rt.mix[SPA_DIRECTION_INPUT].port.port_id,
 							 params, n_params,
 							 allocation.buffers,
 							 &allocation.n_buffers)) < 0) {
@@ -724,6 +731,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		pw_log_debug("link %p: using %d buffers %p on output port", this,
 			     allocation.n_buffers, allocation.buffers);
 		if ((res = pw_port_use_buffers(output,
+					       this->rt.mix[SPA_DIRECTION_OUTPUT].port.port_id,
 					       allocation.buffers,
 					       allocation.n_buffers)) < 0) {
 			asprintf(&error, "link %p: error use output buffers: %s", this,
@@ -735,10 +743,12 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 		move_allocation(&allocation, &output->allocation);
 
-	} else if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
+	}
+	if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
 		pw_log_debug("link %p: using %d buffers %p on input port", this,
 			     allocation.n_buffers, allocation.buffers);
 		if ((res = pw_port_use_buffers(input,
+					       this->rt.mix[SPA_DIRECTION_INPUT].port.port_id,
 					       allocation.buffers,
 					       allocation.n_buffers)) < 0) {
 			asprintf(&error, "link %p: error use input buffers: %s", this,
@@ -757,7 +767,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		asprintf(&error, "link %p: error can set io: %s", this, spa_strerror(res));
 		goto error;
 	}
-	return 0;
+
+	return res;
 
       error:
 	free_allocation(&output->allocation);
@@ -771,8 +782,18 @@ do_activate_link(struct spa_loop *loop,
 		 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
-	SPA_FLAG_UNSET(this->rt.out_port.port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
-	SPA_FLAG_UNSET(this->rt.in_port.port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+
+	pw_log_trace("link %p: activate", this);
+	SPA_FLAG_UNSET(this->rt.mix[0].port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+	SPA_FLAG_UNSET(this->rt.mix[1].port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+
+	spa_list_append(&this->output->node->rt.links[SPA_DIRECTION_OUTPUT],
+			&this->rt.out_node_link);
+	spa_list_append(&this->input->node->rt.links[SPA_DIRECTION_INPUT],
+			&this->rt.in_node_link);
+
+	__atomic_add_fetch(&this->input->node->rt.activation->required, 1, __ATOMIC_SEQ_CST);
+
 	return 0;
 }
 
@@ -791,8 +812,12 @@ static int do_start(struct pw_link *this, uint32_t in_state, uint32_t out_state)
 	input = this->input;
 	output = this->output;
 
-	pw_loop_invoke(output->node->data_loop,
+	if (!impl->activated) {
+		pw_loop_invoke(output->node->data_loop,
 		       do_activate_link, SPA_ID_INVALID, NULL, 0, false, this);
+		impl->activated = true;
+	}
+
 
 	if (in_state == PW_PORT_STATE_PAUSED) {
 		if  ((res = pw_node_set_state(input->node, PW_NODE_STATE_RUNNING)) < 0) {
@@ -899,8 +924,13 @@ output_node_async_complete(void *data, uint32_t seq, int res)
 
 static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 {
-	if (spa_list_is_empty(&port->links) && port->allocation.mem == NULL)
-		pw_port_use_buffers(port, NULL, 0);
+	int res;
+
+	pw_log_debug("%d %p", spa_list_is_empty(&port->links), port->allocation.mem);
+
+	if ((res = pw_port_use_buffers(port,
+			link->rt.mix[SPA_DIRECTION_INPUT].port.port_id, NULL, 0)) < 0)
+		pw_log_warn("link %p: port %p clear error %s", link, port, spa_strerror(res));
 }
 
 static int
@@ -908,7 +938,8 @@ do_remove_input(struct spa_loop *loop,
 	        bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_link *this = user_data;
-	spa_graph_port_remove(&this->rt.in_port.port);
+	spa_graph_port_unlink(&this->rt.mix[SPA_DIRECTION_INPUT].port);
+	spa_graph_port_remove(&this->rt.mix[SPA_DIRECTION_INPUT].port);
 	return 0;
 }
 
@@ -923,12 +954,12 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_input, 1, NULL, 0, true, this);
 
-	pw_port_release_mix(port, &this->rt.in_port);
-
 	spa_list_remove(&this->input_link);
 	spa_hook_list_call(&this->input->listener_list, struct pw_port_events, link_removed, this);
 
 	clear_port_buffers(this, port);
+
+	pw_port_release_mix(port, &this->rt.mix[SPA_DIRECTION_INPUT]);
 	this->input = NULL;
 }
 
@@ -937,7 +968,8 @@ do_remove_output(struct spa_loop *loop,
 	         bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_link *this = user_data;
-	spa_graph_port_remove(&this->rt.out_port.port);
+	spa_graph_port_unlink(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);
+	spa_graph_port_remove(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);
 	return 0;
 }
 
@@ -952,12 +984,12 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	pw_loop_invoke(port->node->data_loop,
 		       do_remove_output, 1, NULL, 0, true, this);
 
-	pw_port_release_mix(port, &this->rt.out_port);
-
 	spa_list_remove(&this->output_link);
 	spa_hook_list_call(&this->output->listener_list, struct pw_port_events, link_removed, this);
 
 	clear_port_buffers(this, port);
+
+	pw_port_release_mix(port, &this->rt.mix[SPA_DIRECTION_OUTPUT]);
 	this->output = NULL;
 }
 
@@ -985,12 +1017,13 @@ int pw_link_activate(struct pw_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
+	pw_log_debug("link %p: activate %d", this, impl->active);
+
 	if (impl->active)
 		return 0;
 
 	impl->active = true;
 
-	pw_log_debug("link %p: activate", this);
 	this->output->node->n_used_output_links++;
 	this->input->node->n_used_input_links++;
 
@@ -1005,9 +1038,16 @@ do_deactivate_link(struct spa_loop *loop,
 		   bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
-	pw_log_trace("link %p: disable %p and %p", this, &this->rt.out_port, &this->rt.in_port);
-	SPA_FLAG_SET(this->rt.out_port.port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
-	SPA_FLAG_SET(this->rt.in_port.port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+	pw_log_debug("link %p: disable %p and %p", this, &this->rt.mix[0], &this->rt.mix[1]);
+
+	__atomic_sub_fetch(&this->input->node->rt.activation->required, 1, __ATOMIC_SEQ_CST);
+
+	SPA_FLAG_SET(this->rt.mix[0].port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+	SPA_FLAG_SET(this->rt.mix[1].port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
+
+	spa_list_remove(&this->rt.out_node_link);
+	spa_list_remove(&this->rt.in_node_link);
+
 	return 0;
 }
 
@@ -1016,13 +1056,17 @@ int pw_link_deactivate(struct pw_link *this)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_node *input_node, *output_node;
 
+	pw_log_debug("link %p: deactivate %d", this, impl->active);
+
 	if (!impl->active)
 		return 0;
 
 	impl->active = false;
-	pw_log_debug("link %p: deactivate", this);
-	pw_loop_invoke(this->output->node->data_loop,
-		       do_deactivate_link, SPA_ID_INVALID, NULL, 0, true, this);
+	if (impl->activated) {
+		pw_loop_invoke(this->output->node->data_loop,
+			       do_deactivate_link, SPA_ID_INVALID, NULL, 0, true, this);
+		impl->activated = false;
+	}
 
 	input_node = this->input->node;
 	output_node = this->output->node;
@@ -1108,11 +1152,7 @@ do_add_link(struct spa_loop *loop,
         struct pw_link *this = user_data;
         struct pw_port *port = ((struct pw_port **) data)[0];
 
-        if (port->direction == PW_DIRECTION_OUTPUT) {
-                spa_graph_port_add(&port->rt.mix_node, &this->rt.out_port.port);
-        } else {
-                spa_graph_port_add(&port->rt.mix_node, &this->rt.in_port.port);
-        }
+	spa_graph_port_add(&port->rt.mix_node, &this->rt.mix[port->direction].port);
 
         return 0;
 }
@@ -1211,16 +1251,17 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->info.format = NULL;
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
-	this->io = SPA_IO_BUFFERS_INIT;
+	impl->io = SPA_IO_BUFFERS_INIT;
 
-	pw_port_init_mix(output, &this->rt.out_port);
-	pw_port_init_mix(input, &this->rt.in_port);
+	pw_port_init_mix(output, &this->rt.mix[SPA_DIRECTION_OUTPUT]);
+	pw_port_init_mix(input, &this->rt.mix[SPA_DIRECTION_INPUT]);
 
 	pw_log_debug("link %p: constructed %p:%d.%d -> %p:%d.%d", impl,
-		     output_node, output->port_id, this->rt.out_port.port.port_id,
-		     input_node, input->port_id, this->rt.in_port.port.port_id);
+		     output_node, output->port_id, this->rt.mix[SPA_DIRECTION_OUTPUT].port.port_id,
+		     input_node, input->port_id, this->rt.mix[SPA_DIRECTION_INPUT].port.port_id);
 
-	spa_graph_port_link(&this->rt.out_port.port, &this->rt.in_port.port);
+	spa_graph_port_link(&this->rt.mix[SPA_DIRECTION_OUTPUT].port,
+			    &this->rt.mix[SPA_DIRECTION_INPUT].port);
 
 	/* nodes can be in different data loops so we do this twice */
 	pw_loop_invoke(output_node->data_loop, do_add_link,

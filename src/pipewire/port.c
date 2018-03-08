@@ -57,18 +57,15 @@ static int schedule_tee_input(struct spa_node *data)
 	struct spa_io_buffers *io = this->rt.mix_port.io;
 
 	if (!spa_list_is_empty(&node->ports[SPA_DIRECTION_OUTPUT])) {
-		pw_log_trace("node %p: tee input %d %d", node, io->status, io->buffer_id);
+		pw_log_trace("port %p: tee input %d %d", this, io->status, io->buffer_id);
 		spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
-			pw_log_trace("node %p: port %p %d %p->%p", node, p, p->flags, io, p->io);
+			pw_log_trace("port %p: port %d %d %p->%p", this,
+					p->port_id, p->flags, io, p->io);
 			if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
 				continue;
 			*p->io = *io;
 		}
-		io->buffer_id = SPA_ID_INVALID;
 	}
-	else
-		io->status = SPA_STATUS_NEED_BUFFER;
-
         return io->status;
 }
 static int schedule_tee_output(struct spa_node *data)
@@ -79,23 +76,24 @@ static int schedule_tee_output(struct spa_node *data)
 	struct spa_io_buffers *io = this->rt.mix_port.io;
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
-		pw_log_trace("node %p: port %p %d %p->%p", node, p, p->flags, p->io, io);
+		pw_log_trace("port %p: port %d %d %p->%p %d %d",
+				this, p->port_id, p->flags, p->io, io,
+				p->io->status, p->io->buffer_id);
 		if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
 			continue;
 		*io = *p->io;
 	}
-	pw_log_trace("node %p: tee output %d %d", node, io->status, io->buffer_id);
+	pw_log_trace("port %p: tee output %d %d", this, io->status, io->buffer_id);
 	return io->status;
 }
 
 static int schedule_tee_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)
 {
 	struct pw_port *this = SPA_CONTAINER_OF(data, struct pw_port, mix_node);
-	struct spa_graph_node *node = &this->rt.mix_node;
 	struct spa_graph_port *p = &this->rt.mix_port, *pp;
 
 	if ((pp = p->peer) != NULL) {
-		pw_log_trace("node %p: tee reuse buffer %d %d", node, port_id, buffer_id);
+		pw_log_trace("port %p: tee reuse buffer %d %d", this, port_id, buffer_id);
 		spa_node_port_reuse_buffer(pp->node->implementation, port_id, buffer_id);
 	}
 	return 0;
@@ -119,10 +117,9 @@ static int schedule_mix_input(struct spa_node *data)
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
 		if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
 			continue;
-		pw_log_trace("mix %p: input %p %p->%p %d %d", node,
-				p, p->io, io, p->io->status, p->io->buffer_id);
+		pw_log_trace("port %p: mix input %d %p->%p %d %d", this,
+				p->port_id, p->io, io, p->io->status, p->io->buffer_id);
 		*io = *p->io;
-		p->io->buffer_id = SPA_ID_INVALID;
 		break;
 	}
 	return io->status;
@@ -137,6 +134,8 @@ static int schedule_mix_output(struct spa_node *data)
 
 	if (!spa_list_is_empty(&node->ports[SPA_DIRECTION_INPUT])) {
 		spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
+			pw_log_trace("port %p: port %d %d %p->%p", this,
+					p->port_id, p->flags, io, p->io);
 			if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
 				continue;
 			*p->io = *io;
@@ -146,7 +145,7 @@ static int schedule_mix_output(struct spa_node *data)
 		io->status = SPA_STATUS_HAVE_BUFFER;
 		io->buffer_id = SPA_ID_INVALID;
 	}
-	pw_log_trace("mix %p: output %d %d", node, io->status, io->buffer_id);
+	pw_log_trace("port %p: output %d %d", this, io->status, io->buffer_id);
 	return io->status;
 }
 
@@ -158,7 +157,7 @@ static int schedule_mix_reuse_buffer(struct spa_node *data, uint32_t port_id, ui
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
 		if ((pp = p->peer) != NULL) {
-			pw_log_trace("mix %p: reuse buffer %d %d", node, port_id, buffer_id);
+			pw_log_trace("port %p: reuse buffer %d %d", this, port_id, buffer_id);
 			spa_node_port_reuse_buffer(pp->node->implementation, port_id, buffer_id);
 		}
 	}
@@ -179,7 +178,7 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 	int res = 0;
 	const struct pw_port_implementation *pi = port->implementation;
 
-	id = pw_map_insert_new(&port->mix_port_map, NULL);
+	id = pw_map_insert_new(&port->mix_port_map, mix);
 
 	spa_graph_port_init(&mix->port,
 			    port->direction, id,
@@ -343,7 +342,6 @@ static int do_add_port(struct spa_loop *loop,
 
 	this->rt.port.flags = this->spa_info->flags;
 	spa_graph_port_add(&this->node->rt.node, &this->rt.port);
-	spa_graph_node_add(this->rt.graph, &this->rt.mix_node);
 	spa_graph_port_add(&this->rt.mix_node, &this->rt.mix_port);
 	spa_graph_port_link(&this->rt.port, &this->rt.mix_port);
 
@@ -468,6 +466,9 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	struct pw_type *t = &core->type;
 	const char *str, *dir;
 
+	if (port->node != NULL)
+		return -EEXIST;
+
 	port->node = node;
 
 	spa_node_port_get_info(node->node,
@@ -516,7 +517,6 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		pw_port_register(port, node->global->owner, node->global,
 				pw_properties_copy(port->properties));
 
-	port->rt.graph = node->rt.graph;
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);
 
 	if (port->state <= PW_PORT_STATE_INIT)
@@ -554,7 +554,6 @@ static int do_remove_port(struct spa_loop *loop,
 		spa_graph_port_remove(p);
 
 	spa_graph_port_remove(&this->rt.mix_port);
-	spa_graph_node_remove(&this->rt.mix_node);
 
 	return 0;
 }
@@ -563,11 +562,13 @@ static void pw_port_remove(struct pw_port *port)
 {
 	struct pw_node *node = port->node;
 
+	if (node == NULL)
+		return;
+
 	pw_log_debug("port %p: remove", port);
 
-	if (port->rt.graph)
-		pw_loop_invoke(port->node->data_loop, do_remove_port,
-			       SPA_ID_INVALID, NULL, 0, true, port);
+	pw_loop_invoke(port->node->data_loop, do_remove_port,
+		       SPA_ID_INVALID, NULL, 0, true, port);
 
 	if (port->direction == PW_DIRECTION_INPUT) {
 		pw_map_remove(&node->input_port_map, port->port_id);
@@ -583,7 +584,6 @@ static void pw_port_remove(struct pw_port *port)
 
 void pw_port_destroy(struct pw_port *port)
 {
-	struct pw_node *node = port->node;
 	struct pw_control *control, *ctemp;
 	struct pw_resource *resource, *tmp;
 
@@ -591,8 +591,7 @@ void pw_port_destroy(struct pw_port *port)
 
 	spa_hook_list_call(&port->listener_list, struct pw_port_events, destroy);
 
-	if (node)
-		pw_port_remove(port);
+	pw_port_remove(port);
 
 	spa_list_for_each_safe(control, ctemp, &port->control_list[0], port_link)
 		pw_control_destroy(control);
@@ -731,10 +730,15 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 	return res;
 }
 
-int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint32_t n_buffers)
+int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
+		struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	int res;
 	struct pw_node *node = port->node;
+	struct pw_port_mix *mix;
+	struct spa_graph_port *p;
+
+	pw_log_debug("port %p: %d.%d: %d buffers ", port, port->port_id, mix_id, n_buffers);
 
 	if (n_buffers == 0 && port->state <= PW_PORT_STATE_READY)
 		return 0;
@@ -742,8 +746,18 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 	if (n_buffers > 0 && port->state < PW_PORT_STATE_READY)
 		return -EIO;
 
-	res = spa_node_port_use_buffers(node->node, port->direction, port->port_id, buffers, n_buffers);
-	pw_log_debug("port %p: use %d buffers: %d (%s)", port, n_buffers, res, spa_strerror(res));
+	if ((mix = pw_map_lookup(&port->mix_port_map, mix_id)) == NULL)
+		return -EIO;
+
+	p = &mix->port;
+
+	if (port->mix_node.port_use_buffers)
+		res = spa_node_port_use_buffers(&port->mix_node, p->direction, p->port_id, buffers, n_buffers);
+	else
+		res = spa_node_port_use_buffers(node->node, port->direction, port->port_id, buffers, n_buffers);
+
+	pw_log_debug("port %p: %d.%d: use %d buffers: %d (%s)", port,
+			port->port_id, mix_id, n_buffers, res, spa_strerror(res));
 
 	port->allocated = false;
 
@@ -753,6 +767,8 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 		n_buffers = 0;
 		buffers = NULL;
 	}
+	mix->n_buffers = n_buffers;
+	mix->buffers = buffers;
 
 	if (n_buffers == 0)
 		port_update_state (port, PW_PORT_STATE_READY);
@@ -762,33 +778,49 @@ int pw_port_use_buffers(struct pw_port *port, struct spa_buffer **buffers, uint3
 	return res;
 }
 
-int pw_port_alloc_buffers(struct pw_port *port,
+int pw_port_alloc_buffers(struct pw_port *port, uint32_t mix_id,
 			  struct spa_pod **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers)
 {
 	int res;
 	struct pw_node *node = port->node;
+	struct pw_port_mix *mix;
+	struct spa_graph_port *p;
 
 	if (port->state < PW_PORT_STATE_READY)
 		return -EIO;
 
-	res = spa_node_port_alloc_buffers(node->node, port->direction, port->port_id,
-					  params, n_params,
-					  buffers, n_buffers);
-	pw_log_debug("port %p: alloc %d buffers: %d (%s)", port, *n_buffers, res, spa_strerror(res));
+	if ((mix = pw_map_lookup(&port->mix_port_map, mix_id)) == NULL)
+		return -EIO;
+
+	p = &mix->port;
+
+	if (port->mix_node.port_use_buffers)
+		res = spa_node_port_alloc_buffers(&port->mix_node, p->direction, p->port_id,
+						  params, n_params,
+						  buffers, n_buffers);
+	else
+		res = spa_node_port_alloc_buffers(node->node, port->direction, port->port_id,
+						  params, n_params,
+						  buffers, n_buffers);
+
+	pw_log_debug("port %p: %d.%d alloc %d buffers: %d (%s)", port,
+			port->port_id, mix_id, *n_buffers, res, spa_strerror(res));
 
 	free_allocation(&port->allocation);
 
 	if (res < 0) {
-		n_buffers = 0;
+		*n_buffers = 0;
 		buffers = NULL;
 		port->allocated = false;
 	}
 	else {
 		port->allocated = true;
 	}
+	mix->n_buffers = *n_buffers;
+	mix->buffers = buffers;
 
-	if (n_buffers == 0)
+	if (*n_buffers == 0)
 		port_update_state (port, PW_PORT_STATE_READY);
 	else if (!SPA_RESULT_IS_ASYNC(res))
 		port_update_state (port, PW_PORT_STATE_PAUSED);

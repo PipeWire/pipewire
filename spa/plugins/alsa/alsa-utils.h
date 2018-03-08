@@ -53,7 +53,8 @@ struct props {
 struct buffer {
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
-	bool outstanding;
+#define BUFFER_FLAG_OUT	(1<<0)
+	uint32_t flags;
 	struct spa_list link;
 };
 

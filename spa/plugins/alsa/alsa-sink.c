@@ -490,7 +490,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		uint32_t type;
 
 		b->outbuf = buffers[i];
-		b->outstanding = true;
+		b->flags = BUFFER_FLAG_OUT;
 
 		b->h = spa_buffer_find_meta(b->outbuf, this->type.meta.Header);
 
@@ -582,10 +582,12 @@ static int impl_node_process_input(struct spa_node *node)
 	input = this->io;
 	spa_return_val_if_fail(input != NULL, -EIO);
 
+	spa_log_trace(this->log, NAME " %p: process input %d %d", this, input->status, input->buffer_id);
+
 	if (input->status == SPA_STATUS_HAVE_BUFFER && input->buffer_id < this->n_buffers) {
 		struct buffer *b = &this->buffers[input->buffer_id];
 
-		if (!b->outstanding) {
+		if (!SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
 			spa_log_warn(this->log, NAME " %p: buffer %u in use", this, input->buffer_id);
 			input->status = -EINVAL;
 			return -EINVAL;
@@ -594,10 +596,11 @@ static int impl_node_process_input(struct spa_node *node)
 		spa_log_trace(this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
 
 		spa_list_append(&this->ready, &b->link);
-		b->outstanding = false;
-		input->buffer_id = SPA_ID_INVALID;
-		input->status = SPA_STATUS_OK;
+		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
 	}
+	input->buffer_id = SPA_ID_INVALID;
+	input->status = SPA_STATUS_OK;
+
 	return SPA_STATUS_OK;
 }
 

@@ -276,15 +276,13 @@ impl_node_port_get_info(struct spa_node *node,
 
 static void recycle_buffer(struct state *this, uint32_t buffer_id)
 {
-	struct buffer *b;
+	struct buffer *b = &this->buffers[buffer_id];
 
-	spa_log_trace(this->log, NAME " %p: recycle buffer %u", this, buffer_id);
-
-	b = &this->buffers[buffer_id];
-	spa_return_if_fail(b->outstanding);
-
-	b->outstanding = false;
-	spa_list_append(&this->free, &b->link);
+	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
+		spa_log_trace(this->log, NAME " %p: recycle buffer %u", this, buffer_id);
+		spa_list_append(&this->free, &b->link);
+		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+	}
 }
 
 static int port_get_format(struct spa_node *node,
@@ -499,7 +497,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		struct spa_data *d = buffers[i]->datas;
 
 		b->outbuf = buffers[i];
-		b->outstanding = false;
+		b->flags = 0;
 
 		b->h = spa_buffer_find_meta(b->outbuf, this->type.meta.Header);
 

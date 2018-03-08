@@ -397,7 +397,7 @@ pull_frames(struct state *state,
 
 		if (state->ready_offset >= d[0].chunk->size) {
 			spa_list_remove(&b->link);
-			b->outstanding = true;
+			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
 			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->outbuf->id);
 			state->ready_offset = 0;
@@ -477,7 +477,7 @@ push_frames(struct state *state,
 		d[0].chunk->size = n_bytes;
 		d[0].chunk->stride = state->frame_size;
 
-		b->outstanding = true;
+		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		io->buffer_id = b->outbuf->id;
 		io->status = SPA_STATUS_HAVE_BUFFER;
 		state->callbacks->have_output(state->callbacks_data);
@@ -706,6 +706,9 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;
 	timerfd_settime(state->timerfd, 0, &ts, NULL);
+
+	state->io->status = SPA_STATUS_OK;
+	state->io->buffer_id = SPA_ID_INVALID;
 
 	state->started = true;
 

@@ -783,10 +783,8 @@ static void recycle_buffer(struct impl *this, uint32_t id)
 	struct port *port = GET_OUT_PORT(this, 0);
 	struct buffer *b = &port->buffers[id];
 
-	if (!b->outstanding) {
-		spa_log_warn(this->log, NAME "%p: buffer %d not outstanding", this, id);
+	if (!b->outstanding)
 		return;
-	}
 
 	spa_list_append(&port->queue, &b->link);
 	b->outstanding = false;
@@ -1009,7 +1007,7 @@ static int impl_node_process_output(struct spa_node *node)
 	struct impl *this;
 	struct port *outport;
 	struct spa_io_buffers *outio;
-	int i;
+	int i, res;
 	size_t min_queued = SIZE_MAX;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
@@ -1020,8 +1018,10 @@ static int impl_node_process_output(struct spa_node *node)
 	outio = outport->io;
 	spa_return_val_if_fail(outio != NULL, -EIO);
 
-	if (outio->status == SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_HAVE_BUFFER;
+	if (outio->status == SPA_STATUS_HAVE_BUFFER) {
+		res = SPA_STATUS_HAVE_BUFFER;
+		goto done;
+	}
 
 	/* recycle */
 	if (outio->buffer_id < outport->n_buffers) {
@@ -1039,7 +1039,7 @@ static int impl_node_process_output(struct spa_node *node)
 			min_queued = inport->queued_bytes;
 	}
 	if (min_queued != SIZE_MAX && min_queued > 0) {
-		outio->status = mix_output(this, min_queued);
+		res = outio->status = mix_output(this, min_queued);
 	} else {
 		/* take requested output range and apply to input */
 		for (i = 0; i < this->last_port; i++) {
@@ -1058,8 +1058,11 @@ static int impl_node_process_output(struct spa_node *node)
 				inio->status = SPA_STATUS_NEED_BUFFER;
 			}
 		}
+		outio->status = SPA_STATUS_OK;
+		res = SPA_STATUS_NEED_BUFFER;
 	}
-	return outio->status;
+      done:
+	return res;
 }
 
 static const struct spa_node impl_node = {

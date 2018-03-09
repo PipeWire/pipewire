@@ -96,7 +96,7 @@ static const struct spa_handle_factory *find_factory(struct impl *impl)
 	return NULL;
 }
 
-static struct pw_node *make_node(struct impl *impl)
+static struct pw_node *make_node(struct impl *impl, struct pw_properties *properties)
 {
 	struct spa_handle *handle;
 	int res;
@@ -122,8 +122,12 @@ static struct pw_node *make_node(struct impl *impl)
 	}
 	spa_node = iface;
 
+	pw_properties_set(properties, "media.class", "Audio/Mixer");
+
 	node = pw_spa_node_new(impl->core, NULL, pw_module_get_global(impl->module),
-			       "audiomixer", PW_SPA_NODE_FLAG_ACTIVATE, spa_node, handle, NULL,
+			       "audiomixer", PW_SPA_NODE_FLAG_ACTIVATE,
+			       spa_node, handle,
+			       properties,
 			       sizeof(struct node_data));
 
 	nd = pw_spa_node_get_user_data(node);
@@ -155,16 +159,14 @@ static int on_global(void *data, struct pw_global *global)
 	n = pw_global_get_object(global);
 
 	properties = pw_node_get_properties(n);
-	if ((str = pw_properties_get(properties, "media.class")) == NULL)
-		return 0;
-
-	if (strcmp(str, "Audio/Sink") != 0)
+	if ((str = pw_properties_get(properties, "media.class")) == NULL ||
+	    strcmp(str, "Audio/Sink") != 0)
 		return 0;
 
 	if ((ip = pw_node_get_free_port(n, PW_DIRECTION_INPUT)) == NULL)
 		return 0;
 
-	node = make_node(impl);
+	node = make_node(impl, pw_properties_copy(properties));
 	op = pw_node_get_free_port(node, PW_DIRECTION_OUTPUT);
 	if (op == NULL)
 		return 0;

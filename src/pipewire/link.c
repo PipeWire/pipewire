@@ -929,8 +929,11 @@ static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 
 	pw_log_debug("%d %p", spa_list_is_empty(&port->links), port->allocation.mem);
 
+	if (port->direction == PW_DIRECTION_OUTPUT && !spa_list_is_empty(&port->links))
+		return;
+
 	if ((res = pw_port_use_buffers(port,
-			link->rt.mix[SPA_DIRECTION_INPUT].port.port_id, NULL, 0)) < 0)
+			link->rt.mix[port->direction].port.port_id, NULL, 0)) < 0)
 		pw_log_warn("link %p: port %p clear error %s", link, port, spa_strerror(res));
 }
 

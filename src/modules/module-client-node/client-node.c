@@ -892,12 +892,12 @@ static int impl_node_process_output(struct spa_node *node)
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
+	pw_log_trace("client-node %p: process output %d", this, impl->out_pending);
 	if (impl->out_pending)
 		return SPA_STATUS_OK;
 
 	impl->out_pending = true;
 
-	pw_log_trace("client-node %p: send process output", this);
 	pw_client_node_transport_add_message(impl->transport,
 			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT));
 	do_flush(this);

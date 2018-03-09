@@ -65,6 +65,7 @@ struct buffer {
 
 struct port {
 	bool valid;
+	uint32_t id;
 
 	struct port_props props;
 
@@ -282,6 +283,7 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 
 	port = GET_IN_PORT (this, port_id);
 	port->valid = true;
+	port->id = port_id;
 
 	port_props_reset(&port->props);
 	port->io_volume = &port->props.volume;
@@ -868,14 +870,14 @@ add_port_data(struct impl *this, void *out, size_t outsize, struct port *port, i
 	port->queued_bytes -= outsize;
 
 	if (port->queued_bytes == 0) {
-		spa_log_trace(this->log, NAME " %p: return buffer %d on port %p %zd",
-			      this, b->outbuf->id, port, outsize);
+		spa_log_trace(this->log, NAME " %p: return buffer %d on port %d %zd",
+			      this, b->outbuf->id, port->id, outsize);
 		port->io->buffer_id = b->outbuf->id;
 		spa_list_remove(&b->link);
 		b->outstanding = true;
 	} else {
-		spa_log_trace(this->log, NAME " %p: keeping buffer %d on port %p %zd %zd",
-			      this, b->outbuf->id, port, port->queued_bytes, outsize);
+		spa_log_trace(this->log, NAME " %p: keeping buffer %d on port %d %zd %zd",
+			      this, b->outbuf->id, port->id, port->queued_bytes, outsize);
 	}
 }
 
@@ -957,6 +959,8 @@ static int impl_node_process_input(struct spa_node *node)
 	outio = outport->io;
 	spa_return_val_if_fail(outio != NULL, -EIO);
 
+	spa_log_trace(this->log, NAME " %p: status %d", this, outio->status);
+
 	if (outio->status == SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_HAVE_BUFFER;
 
@@ -1007,7 +1011,7 @@ static int impl_node_process_output(struct spa_node *node)
 	struct impl *this;
 	struct port *outport;
 	struct spa_io_buffers *outio;
-	int i, res;
+	int i;
 	size_t min_queued = SIZE_MAX;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
@@ -1018,10 +1022,10 @@ static int impl_node_process_output(struct spa_node *node)
 	outio = outport->io;
 	spa_return_val_if_fail(outio != NULL, -EIO);
 
-	if (outio->status == SPA_STATUS_HAVE_BUFFER) {
-		res = SPA_STATUS_HAVE_BUFFER;
+	spa_log_trace(this->log, NAME " %p: status %d", this, outio->status);
+
+	if (outio->status == SPA_STATUS_HAVE_BUFFER)
 		goto done;
-	}
 
 	/* recycle */
 	if (outio->buffer_id < outport->n_buffers) {
@@ -1039,7 +1043,7 @@ static int impl_node_process_output(struct spa_node *node)
 			min_queued = inport->queued_bytes;
 	}
 	if (min_queued != SIZE_MAX && min_queued > 0) {
-		res = outio->status = mix_output(this, min_queued);
+		outio->status = mix_output(this, min_queued);
 	} else {
 		/* take requested output range and apply to input */
 		for (i = 0; i < this->last_port; i++) {
@@ -1052,17 +1056,16 @@ static int impl_node_process_output(struct spa_node *node)
 			spa_log_trace(this->log, NAME " %p: port %d queued %zd, res %d", this,
 				      i, inport->queued_bytes, inio->status);
 
-			if (inport->queued_bytes == 0 && inio->status == SPA_STATUS_OK) {
+			if (inport->queued_bytes == 0) {
 				if (inport->io_range && outport->io_range)
 					*inport->io_range = *outport->io_range;
 				inio->status = SPA_STATUS_NEED_BUFFER;
 			}
 		}
-		outio->status = SPA_STATUS_OK;
-		res = SPA_STATUS_NEED_BUFFER;
+		outio->status = SPA_STATUS_NEED_BUFFER;
 	}
       done:
-	return res;
+	return outio->status;
 }
 
 static const struct spa_node impl_node = {
@@ -1145,6 +1148,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	port = GET_OUT_PORT(this, 0);
 	port->valid = true;
+	port->id = 0;
 	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
 	    SPA_PORT_INFO_FLAG_NO_REF;
 	spa_list_init(&port->queue);

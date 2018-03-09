@@ -42,6 +42,7 @@ struct impl {
 	bool active;
 	bool have_io;
 	bool activated;
+	bool passive;
 
 	struct pw_work_queue *work;
 
@@ -1027,6 +1028,11 @@ int pw_link_activate(struct pw_link *this)
 	this->output->node->n_used_output_links++;
 	this->input->node->n_used_input_links++;
 
+	if (impl->passive) {
+		this->input->node->idle_used_input_links++;
+		this->output->node->idle_used_output_links++;
+	}
+
 	pw_work_queue_add(impl->work,
 			  this, -EBUSY, (pw_work_func_t) check_states, this);
 
@@ -1073,6 +1079,11 @@ int pw_link_deactivate(struct pw_link *this)
 
 	input_node->n_used_input_links--;
 	output_node->n_used_output_links--;
+
+	if (impl->passive) {
+		input_node->idle_used_input_links--;
+		output_node->idle_used_output_links--;
+	}
 
 	pw_log_debug("link %p: in %d %d, out %d %d, %d %d %d %d", this,
 			input_node->n_used_input_links,
@@ -1219,10 +1230,8 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	if (properties) {
 		const char *str = pw_properties_get(properties, PW_LINK_PROP_PASSIVE);
-		if (str && pw_properties_parse_bool(str)) {
-			input_node->idle_used_input_links++;
-			output_node->idle_used_output_links++;
-		}
+		if (str && pw_properties_parse_bool(str))
+			impl->passive = true;
 	}
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
@@ -1304,6 +1313,7 @@ int pw_link_register(struct pw_link *link,
 		     struct pw_global *parent,
 		     struct pw_properties *properties)
 {
+	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
 	struct pw_core *core = link->core;
 	struct pw_node *input_node, *output_node;
 
@@ -1343,9 +1353,9 @@ int pw_link_register(struct pw_link *link,
 			output_node->idle_used_input_links,
 			output_node->idle_used_output_links);
 
-	if ((input_node->n_used_input_links + 1 > input_node->idle_used_input_links ||
-	    output_node->n_used_output_links + 1 > output_node->idle_used_output_links) &&
-	    input_node->active && output_node->active)
+	if ((input_node->n_used_input_links >= input_node->idle_used_input_links ||
+	    output_node->n_used_output_links >= output_node->idle_used_output_links) &&
+	    input_node->active && output_node->active && !impl->passive)
 		pw_link_activate(link);
 
 	return 0;

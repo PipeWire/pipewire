@@ -98,7 +98,8 @@ struct spa_log {
 
 #define spa_log_level_enabled(l,lev) ((l) && (l)->level >= (lev))
 
-#if __STDC_VERSION__ >= 199901L
+#if defined(__USE_ISOC11) || defined(__USE_ISOC99) || \
+    (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
 
 #define spa_log_log(l,lev,...)					\
 	if (SPA_UNLIKELY (spa_log_level_enabled (l, lev)))	\

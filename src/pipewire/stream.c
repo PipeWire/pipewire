@@ -800,6 +800,8 @@ client_node_port_set_param(void *data,
 	struct pw_type *t = &stream->remote->core->type;
 
 	if (id == t->param.idFormat) {
+		int count;
+
 		pw_log_debug("stream %p: format changed %d", stream, seq);
 
 		if (impl->format)
@@ -814,9 +816,12 @@ client_node_port_set_param(void *data,
 
 		impl->pending_seq = seq;
 
-		spa_hook_list_call(&stream->listener_list,
-					struct pw_stream_events,
-					format_changed, impl->format);
+		count = spa_hook_list_call(&stream->listener_list,
+				   struct pw_stream_events,
+				   format_changed, impl->format);
+
+		if (count == 0)
+			pw_stream_finish_format(stream, 0, NULL, 0);
 
 		if (impl->format)
 			stream_set_state(stream, PW_STREAM_STATE_READY, NULL);

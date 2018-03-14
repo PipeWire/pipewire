@@ -78,19 +78,23 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 }
 
 /** Call all hooks in a list, starting from the given one and optionally stopping
- * after calling the first non-NULL function */
+ * after calling the first non-NULL function, returns the number of methods
+ * called */
 #define spa_hook_list_do_call(l,start,type,method,once,...) ({			\
 	struct spa_hook_list *list = l;						\
 	struct spa_list *s = start ? (struct spa_list *)start : &list->list;	\
 	struct spa_hook *ci, *t;						\
+	int count = 0;								\
 	spa_list_for_each_safe_next(ci, t, &list->list, s, link) {		\
 		const type *cb = ci->funcs;					\
 		if (cb->method)	{						\
 			cb->method(ci->data, ## __VA_ARGS__);			\
+			count++;						\
 			if (once)						\
 				break;						\
 		}								\
 	}									\
+	count;									\
 })
 
 #define spa_hook_list_call(l,t,m,...)			spa_hook_list_do_call(l,NULL,t,m,false,##__VA_ARGS__)

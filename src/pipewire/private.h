@@ -291,6 +291,7 @@ struct pw_port_mix {
 	struct spa_graph_port port;
 	struct spa_buffer **buffers;
 	uint32_t n_buffers;
+	uint32_t id;
 };
 
 struct pw_port_implementation {

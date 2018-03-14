@@ -493,7 +493,7 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 		     const void *_data, size_t size, void *user_data)
 {
 	struct data *d = user_data;
-	struct spa_buffer *buf;
+	const struct spa_buffer *buf = *(struct spa_buffer**)_data;
 	uint8_t *map;
 	void *sdata, *ddata;
 	int sstride, dstride, ostride;
@@ -501,14 +501,6 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	uint8_t *src, *dst;
 
 	handle_events(d);
-
-	if (d->io->status != SPA_STATUS_HAVE_BUFFER)
-		return 0;
-
-	if (d->io->buffer_id > d->n_buffers)
-		return 0;
-
-	buf = d->buffers[d->io->buffer_id];
 
 	if (buf->datas[0].type == d->t->data.MemFd ||
 	    buf->datas[0].type == d->t->data.DmaBuf) {
@@ -550,10 +542,20 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 static int impl_node_process_input(struct spa_node *node)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct spa_buffer *buf;
 	int res;
 
+	if (d->io->status != SPA_STATUS_HAVE_BUFFER)
+		return SPA_STATUS_NEED_BUFFER;
+
+	if (d->io->buffer_id > d->n_buffers)
+		return SPA_STATUS_NEED_BUFFER;
+
+	buf = d->buffers[d->io->buffer_id];
+
 	if ((res = pw_loop_invoke(pw_main_loop_get_loop(d->loop), do_render,
-				  SPA_ID_INVALID, NULL, 0, true, d)) < 0)
+				  SPA_ID_INVALID, &buf, sizeof(struct spa_buffer *),
+				  false, d)) < 0)
 		return res;
 
 	update_param(d);

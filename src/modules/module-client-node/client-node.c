@@ -646,11 +646,7 @@ impl_node_port_set_io(struct spa_node *node,
 		      uint32_t id,
 		      void *data, size_t size)
 {
-	struct node *this;
-
-	this = SPA_CONTAINER_OF(node, struct node, node);
-
-	return do_port_set_io(this->impl, direction, port_id, 0, id, data, size);
+	return -ENOTSUP;
 }
 
 static int

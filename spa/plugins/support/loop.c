@@ -79,7 +79,6 @@ struct impl {
         struct spa_type_map *map;
 
 	struct spa_list source_list;
-	struct spa_list destroy_list;
 	struct spa_hook_list hooks_list;
 
 	int epoll_fd;
@@ -269,7 +268,6 @@ static void wakeup_func(void *data, uint64_t count)
 {
 	struct impl *impl = data;
 	uint32_t index;
-
 	while (spa_ringbuffer_get_read_index(&impl->buffer, &index) > 0) {
 		struct invoke_item *item =
 		    SPA_MEMBER(impl->buffer_data, index & (DATAS_SIZE - 1), struct invoke_item);
@@ -319,9 +317,9 @@ static void loop_leave(struct spa_loop_control *ctrl)
 static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 {
 	struct impl *impl = SPA_CONTAINER_OF(ctrl, struct impl, control);
+	struct spa_loop *loop = &impl->loop;
 	struct epoll_event ep[32];
 	int i, nfds, save_errno = 0;
-	struct source_impl *source, *tmp;
 
 	spa_hook_list_call(&impl->hooks_list, struct spa_loop_control_hooks, before);
 
@@ -342,15 +340,9 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 	}
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data.ptr;
-		if (s->rmask && s->fd != -1) {
+		if (s->rmask && s->fd != -1 && s->loop == loop)
 			s->func(s);
-		}
 	}
-	spa_list_for_each_safe(source, tmp, &impl->destroy_list, link)
-		free(source);
-
-	spa_list_init(&impl->destroy_list);
-
 	return 0;
 }
 
@@ -610,18 +602,17 @@ static struct spa_source *loop_add_signal(struct spa_loop_utils *utils,
 static void loop_destroy_source(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
-	struct impl *loop_impl = SPA_CONTAINER_OF(source->loop, struct impl, loop);
 
 	spa_list_remove(&impl->link);
 
-	spa_loop_remove_source(source->loop, source);
+	if (source->loop)
+		spa_loop_remove_source(source->loop, source);
 
 	if (source->fd != -1 && impl->close) {
 		close(source->fd);
 		source->fd = -1;
 	}
-
-	spa_list_insert(&loop_impl->destroy_list, &impl->link);
+	free(impl);
 }
 
 static const struct spa_loop impl_loop = {
@@ -687,8 +678,6 @@ static int impl_clear(struct spa_handle *handle)
 
 	spa_list_for_each_safe(source, tmp, &impl->source_list, link)
 		loop_destroy_source(&source->source);
-	spa_list_for_each_safe(source, tmp, &impl->destroy_list, link)
-		free(source);
 
 	close(impl->ack_fd);
 	close(impl->epoll_fd);
@@ -734,7 +723,6 @@ impl_init(const struct spa_handle_factory *factory,
 		return errno;
 
 	spa_list_init(&impl->source_list);
-	spa_list_init(&impl->destroy_list);
 	spa_hook_list_init(&impl->hooks_list);
 
 	spa_ringbuffer_init(&impl->buffer);

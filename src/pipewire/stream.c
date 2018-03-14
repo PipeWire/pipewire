@@ -140,7 +140,11 @@ static void *mem_map(struct pw_stream *stream, struct pw_map_range *range,
 		pw_log_error("stream %p: Failed to mmap memory %d: %m", stream, size);
 		return NULL;
 	}
-	return SPA_MEMBER(ptr, range->start, void);
+
+	ptr = SPA_MEMBER(ptr, range->start, void);
+	pw_log_debug("stream %p: fd %d mapped %d %d %p", stream, fd, offset, size, ptr);
+
+	return ptr;
 }
 
 static void *mem_unmap(struct stream *impl, void *ptr, struct pw_map_range *range)
@@ -193,7 +197,10 @@ static void clear_buffers(struct pw_stream *stream)
 		for (i = 0; i < b->n_mem; i++) {
 			struct buffer_mem *bm = &b->mem[i];
 			struct mem *m;
-			pw_log_debug("stream %p: clear buffer mem %d", stream, bm->mem_id);
+
+			pw_log_debug("stream %p: clear buffer %d mem %d",
+					stream, b->id, bm->mem_id);
+
 			m = find_mem(stream, bm->mem_id);
 			if (m && --m->ref == 0)
 				clear_mem(impl, m);

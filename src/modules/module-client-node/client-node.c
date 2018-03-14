@@ -1287,13 +1287,17 @@ static int mix_port_set_io(struct spa_node *node,
 
 static int mix_port_process_input(struct spa_node *data)
 {
-	pw_log_trace("client-node %p: pass", data);
+	struct pw_port *p = SPA_CONTAINER_OF(data, struct pw_port, mix_node);
+	struct spa_io_buffers *io = p->rt.mix_port.io;
+	pw_log_trace("client-node %p: pass %d %d", data, io->status, io->buffer_id);
 	return SPA_STATUS_HAVE_BUFFER;
 }
 
 static int mix_port_process_output(struct spa_node *data)
 {
-	pw_log_trace("client-node %p: pass", data);
+	struct pw_port *p = SPA_CONTAINER_OF(data, struct pw_port, mix_node);
+	struct spa_io_buffers *io = p->rt.mix_port.io;
+	pw_log_trace("client-node %p: pass %d %d", data, io->status, io->buffer_id);
 	return SPA_STATUS_NEED_BUFFER;
 }
 

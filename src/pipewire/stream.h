@@ -215,6 +215,7 @@ enum pw_stream_flags {
 	PW_STREAM_FLAG_CLOCK_UPDATE	= (1 << 1),	/**< request periodic clock updates for
 							  *  this stream */
 	PW_STREAM_FLAG_INACTIVE		= (1 << 2),	/**< start the stream inactive */
+	PW_STREAM_FLAG_MAP_BUFFERS	= (1 << 3),	/**< mmap the buffers */
 };
 
 /** A time structure \memberof pw_stream */

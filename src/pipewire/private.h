@@ -274,8 +274,6 @@ struct pw_node {
 
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
-	int (*process) (struct pw_node *node);
-
 	struct {
 		struct spa_graph *graph;
 		struct spa_graph_node node;

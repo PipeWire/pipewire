@@ -384,47 +384,6 @@ int pw_node_register(struct pw_node *this,
 	return 0;
 }
 
-static void node_have_output(void *data);
-static void node_need_input(void *data);
-
-static int impl_node_process(struct pw_node *node)
-{
-	struct spa_graph_port *p;
-	int res = 0, old;
-
-	old = node->rt.activation->state.status;
-
-	pw_log_trace("node %p: process %d", node, old);
-
-	if (old == SPA_STATUS_NEED_BUFFER) {
-		if (!spa_list_is_empty(&node->rt.node.ports[SPA_DIRECTION_INPUT])) {
-			spa_list_for_each(p, &node->rt.node.ports[SPA_DIRECTION_INPUT], link)
-				spa_node_process_input(p->peer->node->implementation);
-
-			if (node->node->process_input)
-				res = spa_node_process_input(node->node);
-		}
-		else {
-			if (node->node->process_output)
-				res = spa_node_process_output(node->node);
-		}
-	}
-	pw_log_trace("node %p: process %d", node, res);
-
-	if (res == SPA_STATUS_HAVE_BUFFER) {
-		node_have_output(node);
-	}
-	else if (res == SPA_STATUS_NEED_BUFFER) {
-		spa_list_for_each(p, &node->rt.node.ports[SPA_DIRECTION_INPUT], link)
-			spa_node_process_output(p->peer->node->implementation);
-	}
-	pw_log_trace("node %p: process %d", node, res);
-
-	node->rt.activation->state.status = res;
-
-	return res;
-}
-
 static void check_properties(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
@@ -490,8 +449,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_list_init(&this->rt.links[SPA_DIRECTION_INPUT]);
 	spa_list_init(&this->rt.links[SPA_DIRECTION_OUTPUT]);
 	impl->activation.state.status = SPA_STATUS_NEED_BUFFER;
-
-	this->process = impl_node_process;
 
 	return this;
 

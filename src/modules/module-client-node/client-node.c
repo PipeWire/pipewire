@@ -1162,6 +1162,18 @@ static int node_clear(struct node *this)
 	return 0;
 }
 
+static int do_remove_source(struct spa_loop *loop,
+			    bool async,
+			    uint32_t seq,
+			    const void *data,
+			    size_t size,
+			    void *user_data)
+{
+	struct spa_source *source = user_data;
+	spa_loop_remove_source(loop, source);
+	return 0;
+}
+
 static void client_node_resource_destroy(void *data)
 {
 	struct impl *impl = data;
@@ -1172,12 +1184,17 @@ static void client_node_resource_destroy(void *data)
 
 	impl->node.resource = this->resource = NULL;
 
-	if (node->data_source.fd != -1)
-		spa_loop_remove_source(node->data_loop, &node->data_source);
-
+	if (node->data_source.fd != -1) {
+		spa_loop_invoke(node->data_loop,
+				do_remove_source,
+				SPA_ID_INVALID,
+				NULL,
+				0,
+				true,
+				&node->data_source);
+	}
 	pw_node_destroy(this->node);
 }
-
 
 static void node_initialized(void *data)
 {

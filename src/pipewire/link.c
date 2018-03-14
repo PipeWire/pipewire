@@ -786,6 +786,8 @@ do_activate_link(struct spa_loop *loop,
 
 	pw_log_trace("link %p: activate", this);
 
+	spa_graph_port_add(&this->output->rt.mix_node, &this->rt.mix[SPA_DIRECTION_OUTPUT].port);
+	spa_graph_port_add(&this->input->rt.mix_node, &this->rt.mix[SPA_DIRECTION_INPUT].port);
 	spa_graph_port_link(&this->rt.mix[SPA_DIRECTION_OUTPUT].port,
 			    &this->rt.mix[SPA_DIRECTION_INPUT].port);
 
@@ -931,63 +933,43 @@ static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 		pw_log_warn("link %p: port %p clear error %s", link, port, spa_strerror(res));
 }
 
-static int
-do_remove_input(struct spa_loop *loop,
-	        bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct pw_link *this = user_data;
-	spa_graph_port_unlink(&this->rt.mix[SPA_DIRECTION_INPUT].port);
-	spa_graph_port_remove(&this->rt.mix[SPA_DIRECTION_INPUT].port);
-	return 0;
-}
-
 static void input_remove(struct pw_link *this, struct pw_port *port)
 {
 	struct impl *impl = (struct impl *) this;
+	struct pw_port_mix *mix = &this->rt.mix[SPA_DIRECTION_INPUT];
+	struct spa_graph_port *p = &mix->port;
 
 	pw_log_debug("link %p: remove input port %p", this, port);
 	spa_hook_remove(&impl->input_port_listener);
 	spa_hook_remove(&impl->input_node_listener);
-
-	pw_loop_invoke(port->node->data_loop,
-		       do_remove_input, 1, NULL, 0, true, this);
 
 	spa_list_remove(&this->input_link);
 	spa_hook_list_call(&this->input->listener_list, struct pw_port_events, link_removed, this);
 
 	clear_port_buffers(this, port);
 
-	pw_port_release_mix(port, &this->rt.mix[SPA_DIRECTION_INPUT]);
+	port_set_io(this, this->input, NULL, 0, p);
+	pw_port_release_mix(port, mix);
 	this->input = NULL;
-}
-
-static int
-do_remove_output(struct spa_loop *loop,
-	         bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct pw_link *this = user_data;
-	spa_graph_port_unlink(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);
-	spa_graph_port_remove(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);
-	return 0;
 }
 
 static void output_remove(struct pw_link *this, struct pw_port *port)
 {
 	struct impl *impl = (struct impl *) this;
+	struct pw_port_mix *mix = &this->rt.mix[SPA_DIRECTION_OUTPUT];
+	struct spa_graph_port *p = &mix->port;
 
 	pw_log_debug("link %p: remove output port %p", this, port);
 	spa_hook_remove(&impl->output_port_listener);
 	spa_hook_remove(&impl->output_node_listener);
-
-	pw_loop_invoke(port->node->data_loop,
-		       do_remove_output, 1, NULL, 0, true, this);
 
 	spa_list_remove(&this->output_link);
 	spa_hook_list_call(&this->output->listener_list, struct pw_port_events, link_removed, this);
 
 	clear_port_buffers(this, port);
 
-	pw_port_release_mix(port, &this->rt.mix[SPA_DIRECTION_OUTPUT]);
+	port_set_io(this, this->output, NULL, 0, p);
+	pw_port_release_mix(port, mix);
 	this->output = NULL;
 }
 
@@ -1046,6 +1028,8 @@ do_deactivate_link(struct spa_loop *loop,
 			this->io->status);
 
 	spa_graph_port_unlink(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);
+	spa_graph_port_remove(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);
+	spa_graph_port_remove(&this->rt.mix[SPA_DIRECTION_INPUT].port);
 
 	return 0;
 }
@@ -1149,18 +1133,6 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	return;
 }
 
-static int
-do_add_link(struct spa_loop *loop,
-            bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-        struct pw_link *this = user_data;
-        struct pw_port *port = ((struct pw_port **) data)[0];
-
-	spa_graph_port_add(&port->rt.mix_node, &this->rt.mix[port->direction].port);
-
-        return 0;
-}
-
 static const struct pw_port_events input_port_events = {
 	PW_VERSION_PORT_EVENTS,
 	.destroy = input_port_destroy,
@@ -1262,12 +1234,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	pw_log_debug("link %p: constructed %p:%d.%d -> %p:%d.%d", impl,
 		     output_node, output->port_id, this->rt.mix[SPA_DIRECTION_OUTPUT].port.port_id,
 		     input_node, input->port_id, this->rt.mix[SPA_DIRECTION_INPUT].port.port_id);
-
-	/* nodes can be in different data loops so we do this twice */
-	pw_loop_invoke(output_node->data_loop, do_add_link,
-		       SPA_ID_INVALID, &output, sizeof(struct pw_port *), false, this);
-	pw_loop_invoke(input_node->data_loop, do_add_link,
-		       SPA_ID_INVALID, &input, sizeof(struct pw_port *), true, this);
 
 	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, this);
 	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, this);

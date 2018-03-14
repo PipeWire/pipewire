@@ -1247,10 +1247,6 @@ client_node_port_set_io(void *object,
 
 	if (id == t->io.Buffers) {
 		mix->mix.port.io = ptr;
-		if (ptr) {
-			mix->mix.port.io->buffer_id = SPA_ID_INVALID;
-			mix->mix.port.io->status = SPA_STATUS_NEED_BUFFER;
-		}
 	} else {
 		spa_node_port_set_io(mix->port->node->node,
 				     direction, port_id,

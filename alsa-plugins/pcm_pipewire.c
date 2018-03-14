@@ -40,6 +40,8 @@
 
 #include <pipewire/pipewire.h>
 
+#define MAX_BUFFERS	8
+
 struct type {
 	uint32_t format;
 	uint32_t props;
@@ -103,7 +105,7 @@ typedef struct {
 
         struct spa_audio_info_raw format;
 
-        struct buffer buffers[32];
+        struct buffer buffers[MAX_BUFFERS];
         uint32_t n_buffers;
         struct spa_list empty;
 
@@ -590,10 +592,10 @@ static int impl_port_enum_params(struct spa_node *node,
 		*result = spa_pod_builder_object(builder,
 			id, t->param_buffers.Buffers,
 			":", t->param_buffers.size,    "iru", d->io.buffer_size * bps,
-									2, d->min_avail * bps, INT32_MAX / bps,
+				SPA_POD_PROP_MIN_MAX(d->min_avail * bps, INT32_MAX / bps),
 			":", t->param_buffers.stride,  "i",   0,
-			":", t->param_buffers.buffers, "iru", 1,
-									2, 1, 32,
+			":", t->param_buffers.buffers, "iru", 2,
+				SPA_POD_PROP_MIN_MAX(2, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i",  16);
 	}
 	else if (id == t->param.idMeta) {

@@ -93,7 +93,6 @@ do_render(struct spa_loop *loop, bool async, uint32_t seq,
 {
 	struct data *data = user_data;
 	struct spa_buffer *buf = ((struct spa_buffer **) _data)[0];
-	uint8_t *map;
 	void *sdata, *ddata;
 	int sstride, dstride, ostride;
 	uint32_t i;
@@ -101,15 +100,7 @@ do_render(struct spa_loop *loop, bool async, uint32_t seq,
 
 	handle_events(data);
 
-	if (buf->datas[0].type == data->t->data.MemFd ||
-	    buf->datas[0].type == data->t->data.DmaBuf) {
-		map = mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ,
-			   MAP_PRIVATE, buf->datas[0].fd, 0);
-		sdata = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);
-	} else if (buf->datas[0].type == data->t->data.MemPtr) {
-		map = NULL;
-		sdata = buf->datas[0].data;
-	} else
+	if ((sdata = buf->datas[0].data) == NULL)
 		return -EINVAL;
 
 	if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
@@ -131,9 +122,6 @@ do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	SDL_RenderClear(data->renderer);
 	SDL_RenderCopy(data->renderer, data->texture, NULL, NULL);
 	SDL_RenderPresent(data->renderer);
-
-	if (map)
-		munmap(map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
 
 	return 0;
 }
@@ -366,7 +354,9 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_INPUT,
 				  data->path,
-				  PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_INACTIVE,
+				  PW_STREAM_FLAG_AUTOCONNECT |
+				  PW_STREAM_FLAG_INACTIVE |
+				  PW_STREAM_FLAG_MAP_BUFFERS,
 				  params, 1);
 		break;
 	}

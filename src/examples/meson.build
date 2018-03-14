@@ -3,6 +3,11 @@ executable('video-src',
   install: false,
   dependencies : [pipewire_dep],
 )
+executable('audio-src',
+  'audio-src.c',
+  install: false,
+  dependencies : [pipewire_dep, mathlib],
+)
 executable('export-source',
   'export-source.c',
   install: false,

@@ -597,7 +597,6 @@ static int impl_node_process_input(struct spa_node *node)
 		spa_list_append(&this->ready, &b->link);
 		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
 
-		input->buffer_id = SPA_ID_INVALID;
 		input->status = SPA_STATUS_OK;
 	}
 

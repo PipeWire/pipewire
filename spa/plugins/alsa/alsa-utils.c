@@ -343,6 +343,8 @@ static inline void try_pull(struct state *state, snd_pcm_uframes_t frames,
 	if (spa_list_is_empty(&state->ready) && do_pull) {
 		spa_log_trace(state->log, "alsa-util %p: %d %lu", state, io->status,
 				state->filled + written);
+		if (io->status == SPA_STATUS_NEED_BUFFER)
+			return;
 		io->status = SPA_STATUS_NEED_BUFFER;
 		if (state->range) {
 			state->range->offset = state->sample_count * state->frame_size;

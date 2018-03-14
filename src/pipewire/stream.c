@@ -128,6 +128,18 @@ static struct mem *find_mem(struct pw_stream *stream, uint32_t id)
 	return NULL;
 }
 
+static struct mem *find_mem_ptr(struct pw_stream *stream, void *ptr)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	struct mem *m;
+
+	pw_array_for_each(m, &impl->mems) {
+		if (m->ptr == ptr)
+			return m;
+	}
+	return NULL;
+}
+
 static void *mem_map(struct pw_stream *stream, struct pw_map_range *range,
 		int fd, int prot, uint32_t offset, uint32_t size)
 {
@@ -1091,10 +1103,16 @@ static void client_node_port_set_io(void *data,
 				goto exit;
 			}
 		}
+		m->ref++;
 		ptr = m->ptr;
 	}
 
 	if (id == t->io.Buffers) {
+		if (ptr == NULL && impl->io) {
+			m = find_mem_ptr(stream, impl->io);
+			if (m && --m->ref == 0)
+				clear_mem(impl, m);
+		}
 		impl->io = ptr;
 		pw_log_debug("stream %p: %u.%u set io id %u %p", stream,
 				port_id, mix_id, id, ptr);
@@ -1304,18 +1322,19 @@ int pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer *b;
+	struct spa_io_buffers *io = impl->io;
 
-	if (impl->io->buffer_id != SPA_ID_INVALID) {
+	if (io->buffer_id != SPA_ID_INVALID) {
 		pw_log_debug("can't send %u, pending buffer %u", id,
-			     impl->io->buffer_id);
+			     io->buffer_id);
 		return -EIO;
 	}
 
 	if ((b = find_buffer(stream, id)) && !SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		spa_list_remove(&b->link);
-		impl->io->buffer_id = id;
-		impl->io->status = SPA_STATUS_HAVE_BUFFER;
+		io->buffer_id = id;
+		io->status = SPA_STATUS_HAVE_BUFFER;
 		pw_log_trace("stream %p: send buffer %d", stream, id);
 		send_have_output(stream);
 	} else {

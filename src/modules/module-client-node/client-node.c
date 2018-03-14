@@ -938,17 +938,6 @@ static int handle_node_message(struct node *this, struct pw_client_node_message 
 	return 0;
 }
 
-static void setup_transport(struct impl *impl)
-{
-	uint32_t max_inputs = 0, max_outputs = 0, n_inputs = 0, n_outputs = 0;
-
-	spa_node_get_n_ports(&impl->node.node, &n_inputs, &max_inputs, &n_outputs, &max_outputs);
-
-	impl->transport = pw_client_node_transport_new(max_inputs, max_outputs);
-	impl->transport->area->n_input_ports = n_inputs;
-	impl->transport->area->n_output_ports = n_outputs;
-}
-
 static void
 client_node_done(void *data, int seq, int res)
 {
@@ -956,7 +945,7 @@ client_node_done(void *data, int seq, int res)
 	struct node *this = &impl->node;
 
 	if (seq == 0 && res == 0 && impl->transport == NULL)
-		setup_transport(impl);
+		impl->transport = pw_client_node_transport_new();
 
 	this->callbacks->done(this->callbacks_data, seq, res);
 }
@@ -1259,6 +1248,8 @@ static int port_init_mix(void *data, struct pw_port_mix *mix)
 	ioid = pw_map_insert_new(&impl->io_map, NULL);
 
 	mix->port.io = SPA_MEMBER(impl->io_areas->ptr, ioid * sizeof(struct spa_io_buffers), void);
+	mix->port.io->buffer_id = SPA_ID_INVALID;
+	mix->port.io->status = SPA_STATUS_NEED_BUFFER;
 
 	pw_log_debug("client-node %p: init mix io %d %p", impl, ioid, mix->port.io);
 

@@ -38,14 +38,6 @@ struct pw_client_node_proxy;
 
 struct pw_client_node_message;
 
-/** Shared structure between client and server \memberof pw_client_node */
-struct pw_client_node_area {
-	uint32_t max_input_ports;	/**< max input ports of the node */
-	uint32_t n_input_ports;		/**< number of input ports of the node */
-	uint32_t max_output_ports;	/**< max output ports of the node */
-	uint32_t n_output_ports;	/**< number of output ports of the node */
-};
-
 /** \class pw_client_node_transport
  *
  * \brief Transport object
@@ -55,7 +47,6 @@ struct pw_client_node_area {
  * lockfree way.
  */
 struct pw_client_node_transport {
-	struct pw_client_node_area *area;	/**< the transport area */
 	void *input_data;			/**< input memory for ringbuffer */
 	struct spa_ringbuffer *input_buffer;	/**< ringbuffer for input memory */
 	void *output_data;			/**< output memory for ringbuffer */

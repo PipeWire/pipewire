@@ -44,11 +44,10 @@ struct transport {
 };
 /** \endcond */
 
-static size_t area_get_size(struct pw_client_node_area *area)
+static size_t area_get_size(void)
 {
 	size_t size;
-	size = sizeof(struct pw_client_node_area);
-	size += sizeof(struct spa_ringbuffer);
+	size = sizeof(struct spa_ringbuffer);
 	size += INPUT_BUFFER_SIZE;
 	size += sizeof(struct spa_ringbuffer);
 	size += OUTPUT_BUFFER_SIZE;
@@ -57,11 +56,6 @@ static size_t area_get_size(struct pw_client_node_area *area)
 
 static void transport_setup_area(void *p, struct pw_client_node_transport *trans)
 {
-	struct pw_client_node_area *a;
-
-	trans->area = a = p;
-	p = SPA_MEMBER(p, sizeof(struct pw_client_node_area), struct spa_io_buffers);
-
 	trans->input_buffer = p;
 	p = SPA_MEMBER(p, sizeof(struct spa_ringbuffer), void);
 
@@ -158,28 +152,20 @@ static int parse_message(struct pw_client_node_transport *trans, void *message)
 }
 
 /** Create a new transport
- * \param max_input_ports maximum number of input_ports
- * \param max_output_ports maximum number of output_ports
  * \return a newly allocated \ref pw_client_node_transport
  * \memberof pw_client_node_transport
  */
 struct pw_client_node_transport *
-pw_client_node_transport_new(uint32_t max_input_ports, uint32_t max_output_ports)
+pw_client_node_transport_new(void)
 {
 	struct transport *impl;
 	struct pw_client_node_transport *trans;
-	struct pw_client_node_area area = { 0 };
-
-	area.max_input_ports = max_input_ports;
-	area.n_input_ports = 0;
-	area.max_output_ports = max_output_ports;
-	area.n_output_ports = 0;
 
 	impl = calloc(1, sizeof(struct transport));
 	if (impl == NULL)
 		return NULL;
 
-	pw_log_debug("transport %p: new %d %d", impl, max_input_ports, max_output_ports);
+	pw_log_debug("transport %p: new", impl);
 
 	trans = &impl->trans;
 	impl->offset = 0;
@@ -187,11 +173,10 @@ pw_client_node_transport_new(uint32_t max_input_ports, uint32_t max_output_ports
 	if (pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 			  PW_MEMBLOCK_FLAG_MAP_READWRITE |
 			  PW_MEMBLOCK_FLAG_SEAL,
-			  area_get_size(&area),
+			  area_get_size(),
 			  &impl->mem) < 0)
 		return NULL;
 
-	memcpy(impl->mem->ptr, &area, sizeof(struct pw_client_node_area));
 	transport_setup_area(impl->mem->ptr, trans);
 	transport_reset_area(trans);
 

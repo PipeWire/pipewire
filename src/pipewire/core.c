@@ -33,7 +33,16 @@
 #include <pipewire/core.h>
 #include <pipewire/data-loop.h>
 
+#include <spa/graph/graph-scheduler1.h>
+
 /** \cond */
+struct impl {
+	struct pw_core this;
+
+	struct spa_graph_data data;
+};
+
+
 struct resource_data {
 	struct spa_hook resource_listener;
 };
@@ -358,12 +367,15 @@ static const struct pw_global_events global_events = {
  */
 struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *properties)
 {
+	struct impl *impl;
 	struct pw_core *this;
 	const char *name;
 
-	this = calloc(1, sizeof(struct pw_core));
-	if (this == NULL)
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
 		return NULL;
+
+	this = &impl->this;
 
 	pw_log_debug("core %p: new", this);
 
@@ -383,6 +395,10 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	pw_type_init(&this->type);
 	pw_map_init(&this->globals, 128, 32);
+
+	spa_graph_init(&this->rt.graph);
+	spa_graph_data_init(&impl->data, &this->rt.graph);
+	spa_graph_set_callbacks(&this->rt.graph, &spa_graph_impl_default, &impl->data);
 
 	spa_debug_set_type_map(this->type.map);
 
@@ -686,6 +702,7 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 				continue;
 			}
 			best = p;
+			break;
 		}
 	}
 	if (best == NULL) {
@@ -747,6 +764,9 @@ int pw_core_find_format(struct pw_core *core,
 			asprintf(error, "error get output format: %s", spa_strerror(res));
 			goto error;
 		}
+		pw_log_debug("Got output format:");
+		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+			spa_debug_pod(*format, SPA_DEBUG_FLAG_FORMAT);
 	} else if (out_state == PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
 		/* only output needs format */
 		if ((res = spa_node_port_enum_params(input->node->node,
@@ -758,6 +778,9 @@ int pw_core_find_format(struct pw_core *core,
 			asprintf(error, "error get input format: %s", spa_strerror(res));
 			goto error;
 		}
+		pw_log_debug("Got input format:");
+		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+			spa_debug_pod(*format, SPA_DEBUG_FLAG_FORMAT);
 	} else if (in_state == PW_PORT_STATE_CONFIGURE && out_state == PW_PORT_STATE_CONFIGURE) {
 		struct spa_pod_builder fb = { 0 };
 		uint8_t fbuf[4096];

@@ -47,7 +47,7 @@ static SPA_LOG_IMPL(default_log);
 #define spa_debug(f,...) spa_log_trace(&default_log.log, f, __VA_ARGS__)
 
 #include <spa/graph/graph.h>
-#include <spa/graph/graph-scheduler6.h>
+#include <spa/graph/graph-scheduler1.h>
 
 #include <lib/debug.h>
 
@@ -116,9 +116,11 @@ struct data {
 	struct spa_graph graph;
 	struct spa_graph_data graph_data;
 	struct spa_graph_node source_node;
+	struct spa_graph_state source_state;
 	struct spa_graph_port source_out;
 	struct spa_graph_port sink_in;
 	struct spa_graph_node sink_node;
+	struct spa_graph_state sink_state;
 
 	struct spa_node *sink;
 
@@ -396,13 +398,13 @@ static int make_nodes(struct data *data, const char *device)
 			     data->type.io.Buffers,
 			     &data->source_sink_io[0], sizeof(data->source_sink_io[0]));
 
-	spa_graph_node_init(&data->source_node);
+	spa_graph_node_init(&data->source_node, &data->source_state);
 	spa_graph_node_set_implementation(&data->source_node, data->source);
 	spa_graph_node_add(&data->graph, &data->source_node);
 	spa_graph_port_init(&data->source_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->source_sink_io[0]);
 	spa_graph_port_add(&data->source_node, &data->source_out);
 
-	spa_graph_node_init(&data->sink_node);
+	spa_graph_node_init(&data->sink_node, &data->sink_state);
 	spa_graph_node_set_implementation(&data->sink_node, data->sink);
 	spa_graph_node_add(&data->graph, &data->sink_node);
 	spa_graph_port_init(&data->sink_in, SPA_DIRECTION_INPUT, 0, 0, &data->source_sink_io[0]);

@@ -61,8 +61,6 @@ static int schedule_tee_input(struct spa_node *data)
 		spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
 			pw_log_trace("port %p: port %d %d %p->%p", this,
 					p->port_id, p->flags, io, p->io);
-			if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
-				continue;
 			*p->io = *io;
 		}
 	}
@@ -79,8 +77,6 @@ static int schedule_tee_output(struct spa_node *data)
 		pw_log_trace("port %p: port %d %d %p->%p %d %d",
 				this, p->port_id, p->flags, p->io, io,
 				p->io->status, p->io->buffer_id);
-		if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
-			continue;
 		*io = *p->io;
 	}
 	pw_log_trace("port %p: tee output %d %d", this, io->status, io->buffer_id);
@@ -115,8 +111,6 @@ static int schedule_mix_input(struct spa_node *data)
 	struct spa_io_buffers *io = this->rt.mix_port.io;
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
-		if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
-			continue;
 		pw_log_trace("port %p: mix input %d %p->%p %d %d", this,
 				p->port_id, p->io, io, p->io->status, p->io->buffer_id);
 		*io = *p->io;
@@ -136,14 +130,8 @@ static int schedule_mix_output(struct spa_node *data)
 		spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
 			pw_log_trace("port %p: port %d %d %p->%p", this,
 					p->port_id, p->flags, io, p->io);
-			if (p->flags & SPA_GRAPH_PORT_FLAG_DISABLED)
-				continue;
 			*p->io = *io;
 		}
-	}
-	else {
-		io->status = SPA_STATUS_HAVE_BUFFER;
-		io->buffer_id = SPA_ID_INVALID;
 	}
 	pw_log_trace("port %p: output %d %d", this, io->status, io->buffer_id);
 	return io->status;
@@ -182,7 +170,7 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 
 	spa_graph_port_init(&mix->port,
 			    port->direction, id,
-			    SPA_GRAPH_PORT_FLAG_DISABLED,
+			    0,
 			    NULL);
 
 	mix->port.scheduler_data = port;
@@ -256,7 +244,8 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 			    this->port_id,
 			    0,
 			    &this->rt.io);
-	spa_graph_node_init(&this->rt.mix_node);
+	spa_graph_node_init(&this->rt.mix_node, &this->rt.mix_state);
+	this->rt.mix_state.status = SPA_STATUS_NEED_BUFFER;
 
 	this->mix_node = this->direction == PW_DIRECTION_INPUT ?
 				schedule_mix_node :
@@ -269,6 +258,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 			    0,
 			    0,
 			    &this->rt.io);
+	this->rt.io.status = SPA_STATUS_NEED_BUFFER;
 
 	this->rt.mix_port.scheduler_data = this;
 	this->rt.port.scheduler_data = this;
@@ -342,6 +332,7 @@ static int do_add_port(struct spa_loop *loop,
 
 	this->rt.port.flags = this->spa_info->flags;
 	spa_graph_port_add(&this->node->rt.node, &this->rt.port);
+	spa_graph_node_add(this->rt.graph, &this->rt.mix_node);
 	spa_graph_port_add(&this->rt.mix_node, &this->rt.mix_port);
 	spa_graph_port_link(&this->rt.port, &this->rt.mix_port);
 
@@ -517,6 +508,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		pw_port_register(port, node->global->owner, node->global,
 				pw_properties_copy(port->properties));
 
+	port->rt.graph = node->rt.graph;
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);
 
 	if (port->state <= PW_PORT_STATE_INIT)
@@ -554,6 +546,7 @@ static int do_remove_port(struct spa_loop *loop,
 		spa_graph_port_remove(p);
 
 	spa_graph_port_remove(&this->rt.mix_port);
+	spa_graph_node_remove(&this->rt.mix_node);
 
 	return 0;
 }

@@ -317,6 +317,17 @@ static const struct pw_global_events global_events = {
 	.bind = global_bind,
 };
 
+static int
+do_node_add(struct spa_loop *loop,
+	    bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct pw_node *this = user_data;
+
+	spa_graph_node_add(this->rt.graph, &this->rt.node);
+
+	return 0;
+}
+
 int pw_node_register(struct pw_node *this,
 		     struct pw_client *owner,
 		     struct pw_global *parent,
@@ -337,6 +348,8 @@ int pw_node_register(struct pw_node *this,
 		return -ENOMEM;
 
 	pw_node_update_ports(this);
+
+	pw_loop_invoke(this->data_loop, do_node_add, 1, NULL, 0, false, this);
 
 	if ((str = pw_properties_get(this->properties, "media.class")) != NULL)
 		pw_properties_set(properties, "media.class", str);
@@ -379,7 +392,7 @@ static int impl_node_process(struct pw_node *node)
 	struct spa_graph_port *p;
 	int res = 0, old;
 
-	old = node->rt.activation->status;
+	old = node->rt.activation->state.status;
 
 	pw_log_trace("node %p: process %d", node, old);
 
@@ -407,7 +420,7 @@ static int impl_node_process(struct pw_node *node)
 	}
 	pw_log_trace("node %p: process %d", node, res);
 
-	node->rt.activation->status = res;
+	node->rt.activation->state.status = res;
 
 	return res;
 }
@@ -457,6 +470,8 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this->data_loop = core->data_loop;
 
+	this->rt.graph = &core->rt.graph;
+
 	spa_list_init(&this->resource_list);
 
 	spa_hook_list_init(&this->listener_list);
@@ -469,11 +484,12 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_list_init(&this->output_ports);
 	pw_map_init(&this->output_port_map, 64, 64);
 
-	spa_graph_node_init(&this->rt.node);
+	this->rt.activation = &impl->activation;
+
+	spa_graph_node_init(&this->rt.node, &this->rt.activation->state);
 	spa_list_init(&this->rt.links[SPA_DIRECTION_INPUT]);
 	spa_list_init(&this->rt.links[SPA_DIRECTION_OUTPUT]);
-	this->rt.activation = &impl->activation;
-	impl->activation.status = SPA_STATUS_NEED_BUFFER;
+	impl->activation.state.status = SPA_STATUS_NEED_BUFFER;
 
 	this->process = impl_node_process;
 
@@ -554,116 +570,24 @@ static void node_event(void *data, struct spa_event *event)
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, event, event);
 }
 
-
-static void node_process(struct pw_node *node)
-{
-	pw_log_trace("node %p: pending %d required %d %d", node,
-			node->rt.activation->pending, node->rt.activation->required,
-			node->rt.activation->status);
-
-	if (--node->rt.activation->pending == 0) {
-		if (node->process)
-			node->rt.activation->status = node->process(node);
-		else
-			node->rt.activation->status = SPA_STATUS_OK;
-
-		pw_log_trace("node %p: %d", node, node->rt.activation->status);
-	}
-}
-
 static void node_need_input(void *data)
 {
-	struct pw_node *node = data, *n, *pn;
-	struct spa_list queue, pending;
-	struct spa_graph_port *p;
+	struct pw_node *node = data;
 
-	pw_log_trace("node %p: need input", node);
-
-	spa_list_for_each(p, &node->rt.node.ports[SPA_DIRECTION_INPUT], link)
-		spa_node_process_output(p->peer->node->implementation);
+	pw_log_trace("node %p: need input %d", node, node->rt.activation->state.status);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, need_input);
-
-	spa_list_init(&queue);
-	spa_list_init(&pending);
-
-	node->rt.activation->status = SPA_STATUS_NEED_BUFFER;
-
-	if (node->rt.sched_link.next == NULL)
-		spa_list_append(&queue, &node->rt.sched_link);
-
-	while (!spa_list_is_empty(&queue)) {
-		struct pw_link *l;
-
-		n = spa_list_first(&queue, struct pw_node, rt.sched_link);
-		spa_list_remove(&n->rt.sched_link);
-		n->rt.sched_link.next = NULL;
-
-		n->rt.activation->pending = n->rt.activation->required + 1;
-		pw_log_trace("node %p: add %d %d status %d", n,
-				n->rt.activation->pending, n->rt.activation->required,
-				n->rt.activation->status);
-
-		spa_list_prepend(&pending, &n->rt.sched_link);
-
-		if (n->rt.activation->status == SPA_STATUS_HAVE_BUFFER)
-			continue;
-
-		spa_list_for_each(l, &n->rt.links[SPA_DIRECTION_INPUT], rt.in_node_link) {
-			pn = l->output->node;
-
-	                pw_log_trace("node %p: %p in %p %d %d", n, pn, l, l->io->status,
-					pn->rt.activation->status);
-
-			if (pn->rt.sched_link.next != NULL)
-				continue;
-
-			if (l->io->status == SPA_STATUS_NEED_BUFFER) {
-				spa_list_for_each(p, &pn->rt.node.ports[SPA_DIRECTION_OUTPUT], link)
-					spa_node_process_output(p->peer->node->implementation);
-
-				if (pn->node->process_output)
-					pn->rt.activation->status = spa_node_process_output(pn->node);
-
-				if (pn->rt.activation->status == SPA_STATUS_NEED_BUFFER) {
-					spa_list_for_each(p, &pn->rt.node.ports[SPA_DIRECTION_INPUT], link)
-						spa_node_process_output(p->peer->node->implementation);
-				}
-
-			} else {
-				n->rt.activation->pending--;
-			}
-
-			spa_list_append(&queue, &pn->rt.sched_link);
-		}
-	}
-	while (!spa_list_is_empty(&pending)) {
-		n = spa_list_first(&pending, struct pw_node, rt.sched_link);
-		spa_list_remove(&n->rt.sched_link);
-		n->rt.sched_link.next = NULL;
-
-                pw_log_trace("schedule node %p: %d", n, n->rt.activation->status);
-		node_process(n);
-	}
+	spa_graph_need_input(node->rt.graph, &node->rt.node);
 }
 
 static void node_have_output(void *data)
 {
-	struct pw_node *node = data, *pn;
-	struct pw_link *l;
-	struct spa_graph_port *p;
+	struct pw_node *node = data;
 
 	pw_log_trace("node %p: have output", node);
-	spa_list_for_each(p, &node->rt.node.ports[SPA_DIRECTION_OUTPUT], link)
-		spa_node_process_input(p->peer->node->implementation);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, have_output);
-
-	spa_list_for_each(l, &node->rt.links[SPA_DIRECTION_OUTPUT], rt.out_node_link) {
-		pn = l->input->node;
-                pw_log_trace("node %p: %p out %p %d", node, pn, l, l->io->status);
-		node_process(pn);
-	}
+	spa_graph_have_output(node->rt.graph, &node->rt.node);
 }
 
 static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
@@ -680,7 +604,6 @@ static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 		break;
 	}
 }
-
 
 static const struct spa_node_callbacks node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
@@ -715,6 +638,19 @@ void pw_node_add_listener(struct pw_node *node,
 	spa_hook_list_append(&node->listener_list, listener, events, data);
 }
 
+static int
+do_node_remove(struct spa_loop *loop,
+	       bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct pw_node *this = user_data;
+
+	pause_node(this);
+
+	spa_graph_node_remove(&this->rt.node);
+
+	return 0;
+}
+
 /** Destroy a node
  * \param node a node to destroy
  *
@@ -735,6 +671,7 @@ void pw_node_destroy(struct pw_node *node)
 	pause_node(node);
 
 	if (node->registered) {
+		pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
 		spa_list_remove(&node->link);
 	}
 
@@ -910,6 +847,7 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 	} else {
 		port = mixport;
 	}
+	pw_log_debug("node %p: return port %p", node, port);
 	return port;
 
       no_mem:

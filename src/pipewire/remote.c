@@ -726,7 +726,6 @@ do_activate_mix(struct spa_loop *loop,
                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct mix *mix = user_data;
-        SPA_FLAG_UNSET(mix->mix.port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
 	spa_graph_port_add(&mix->port->rt.mix_node, &mix->mix.port);
         return 0;
 }
@@ -908,6 +907,7 @@ static void do_start(struct node_data *data)
 		mix->mix.port.io->buffer_id = SPA_ID_INVALID;
 	}
 	if (!spa_list_is_empty(&data->mix[SPA_DIRECTION_INPUT])) {
+		pw_log_trace("remote %p: send need input", data);
 		pw_client_node_transport_add_message(data->trans,
 				&PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
 		write(data->rtwritefd, &cmd, 8);
@@ -1332,7 +1332,6 @@ do_deactivate_mix(struct spa_loop *loop,
                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct mix *mix = user_data;
-        SPA_FLAG_SET(mix->mix.port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
 	spa_graph_port_remove(&mix->mix.port);
         return 0;
 }

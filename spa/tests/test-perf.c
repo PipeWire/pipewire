@@ -111,9 +111,11 @@ struct data {
 	struct spa_graph graph;
 	struct spa_graph_data graph_data;
 	struct spa_graph_node source_node;
+	struct spa_graph_state source_state;
 	struct spa_graph_port source_out;
 	struct spa_graph_port sink_in;
 	struct spa_graph_node sink_node;
+	struct spa_graph_state sink_state;
 
 	struct spa_node *sink;
 	struct spa_io_buffers source_sink_io[1];
@@ -226,7 +228,6 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 static void on_sink_pull(struct data *data)
 {
 	spa_log_trace(data->log, "do sink pull");
-	data->sink_node.state = SPA_STATUS_NEED_BUFFER;
 	if (data->mode & MODE_DIRECT) {
 		spa_node_process_output(data->source);
 		spa_node_process_input(data->sink);
@@ -373,7 +374,7 @@ static int make_nodes(struct data *data)
 			     data->type.io.Buffers,
 			     &data->source_sink_io[0], sizeof(data->source_sink_io[0]));
 
-	spa_graph_node_init(&data->source_node);
+	spa_graph_node_init(&data->source_node, &data->source_state);
 	spa_graph_node_set_implementation(&data->source_node, data->source);
 	spa_graph_node_add(&data->graph, &data->source_node);
 
@@ -381,7 +382,7 @@ static int make_nodes(struct data *data)
 	spa_graph_port_init( &data->source_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->source_sink_io[0]);
 	spa_graph_port_add(&data->source_node, &data->source_out);
 
-	spa_graph_node_init(&data->sink_node);
+	spa_graph_node_init(&data->sink_node, &data->sink_state);
 	spa_graph_node_set_implementation(&data->sink_node, data->sink);
 	spa_graph_node_add(&data->graph, &data->sink_node);
 

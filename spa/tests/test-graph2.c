@@ -170,11 +170,11 @@ static int make_graph1(struct data *data)
 {
 	int v = start_write(data);
 
-	spa_graph_node_init(&data->source_node[v]);
+	spa_graph_node_init(&data->source_node[v], NULL);
 	spa_graph_node_add(&data->graph[v], &data->source_node[v]);
 	spa_graph_port_add(&data->source_node[v], &data->source_out[v]);
 
-	spa_graph_node_init(&data->volume_node[v]);
+	spa_graph_node_init(&data->volume_node[v], NULL);
 	spa_graph_node_add(&data->graph[v], &data->volume_node[v]);
 	spa_graph_port_add(&data->volume_node[v], &data->volume_in[v]);
 
@@ -182,7 +182,7 @@ static int make_graph1(struct data *data)
 
 	spa_graph_port_add(&data->volume_node[v], &data->volume_out[v]);
 
-	spa_graph_node_init(&data->sink_node[v]);
+	spa_graph_node_init(&data->sink_node[v], NULL);
 	spa_graph_node_add(&data->graph[v], &data->sink_node[v]);
 	spa_graph_port_add(&data->sink_node[v], &data->sink_in[v]);
 

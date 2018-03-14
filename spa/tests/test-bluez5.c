@@ -48,7 +48,7 @@ static struct spa_log *logger;
 #define spa_debug(f,...) spa_log_trace(logger, f, __VA_ARGS__)
 
 #include <spa/graph/graph.h>
-#include <spa/graph/graph-scheduler6.h>
+#include <spa/graph/graph-scheduler1.h>
 
 #include <lib/debug.h>
 

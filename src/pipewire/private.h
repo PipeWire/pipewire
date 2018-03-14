@@ -163,6 +163,10 @@ struct pw_core {
 	struct pw_client *current_client;	/**< client currently executing code in mainloop */
 
 	long sc_pagesize;
+
+	struct {
+		struct spa_graph graph;
+	} rt;
 };
 
 struct pw_data_loop {
@@ -228,15 +232,13 @@ struct pw_node_activation {
 #define TRIGGERED	1
 #define AWAKE		2
 #define FINISHED	3
-	int state;
+	int status;
 
 	uint64_t signal_time;
 	uint64_t awake_time;
 	uint64_t finish_time;
 
-	int status;
-	uint32_t required;
-	uint32_t pending;
+	struct spa_graph_state state;
 };
 
 struct pw_node {
@@ -275,6 +277,7 @@ struct pw_node {
 	int (*process) (struct pw_node *node);
 
 	struct {
+		struct spa_graph *graph;
 		struct spa_graph_node node;
 		struct spa_list links[2];
 		struct pw_node_activation *activation;
@@ -334,10 +337,12 @@ struct pw_port {
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */
 
 	struct {
+		struct spa_graph *graph;
 		struct spa_io_buffers io;	/**< io area of the port */
 		struct spa_graph_port port;	/**< this graph port, linked to mix_port */
 		struct spa_graph_port mix_port;	/**< port from the mixer */
 		struct spa_graph_node mix_node;	/**< mixer node */
+		struct spa_graph_state mix_state;	/**< mixer state */
 	} rt;					/**< data only accessed from the data thread */
 
         void *owner_data;		/**< extra owner data */

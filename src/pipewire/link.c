@@ -785,15 +785,9 @@ do_activate_link(struct spa_loop *loop,
         struct pw_link *this = user_data;
 
 	pw_log_trace("link %p: activate", this);
-	SPA_FLAG_UNSET(this->rt.mix[0].port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
-	SPA_FLAG_UNSET(this->rt.mix[1].port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
 
-	spa_list_append(&this->output->node->rt.links[SPA_DIRECTION_OUTPUT],
-			&this->rt.out_node_link);
-	spa_list_append(&this->input->node->rt.links[SPA_DIRECTION_INPUT],
-			&this->rt.in_node_link);
-
-	__atomic_add_fetch(&this->input->node->rt.activation->required, 1, __ATOMIC_SEQ_CST);
+	spa_graph_port_link(&this->rt.mix[SPA_DIRECTION_OUTPUT].port,
+			    &this->rt.mix[SPA_DIRECTION_INPUT].port);
 
 	return 0;
 }
@@ -1047,15 +1041,11 @@ do_deactivate_link(struct spa_loop *loop,
 		   bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
-	pw_log_debug("link %p: disable %p and %p", this, &this->rt.mix[0], &this->rt.mix[1]);
 
-	__atomic_sub_fetch(&this->input->node->rt.activation->required, 1, __ATOMIC_SEQ_CST);
+	pw_log_trace("link %p: disable %p and %p %d", this, &this->rt.mix[0], &this->rt.mix[1],
+			this->io->status);
 
-	SPA_FLAG_SET(this->rt.mix[0].port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
-	SPA_FLAG_SET(this->rt.mix[1].port.flags, SPA_GRAPH_PORT_FLAG_DISABLED);
-
-	spa_list_remove(&this->rt.out_node_link);
-	spa_list_remove(&this->rt.in_node_link);
+	spa_graph_port_unlink(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);
 
 	return 0;
 }
@@ -1264,6 +1254,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
 	impl->io = SPA_IO_BUFFERS_INIT;
+	impl->io.status = SPA_STATUS_NEED_BUFFER;
 
 	pw_port_init_mix(output, &this->rt.mix[SPA_DIRECTION_OUTPUT]);
 	pw_port_init_mix(input, &this->rt.mix[SPA_DIRECTION_INPUT]);
@@ -1272,14 +1263,11 @@ struct pw_link *pw_link_new(struct pw_core *core,
 		     output_node, output->port_id, this->rt.mix[SPA_DIRECTION_OUTPUT].port.port_id,
 		     input_node, input->port_id, this->rt.mix[SPA_DIRECTION_INPUT].port.port_id);
 
-	spa_graph_port_link(&this->rt.mix[SPA_DIRECTION_OUTPUT].port,
-			    &this->rt.mix[SPA_DIRECTION_INPUT].port);
-
 	/* nodes can be in different data loops so we do this twice */
 	pw_loop_invoke(output_node->data_loop, do_add_link,
 		       SPA_ID_INVALID, &output, sizeof(struct pw_port *), false, this);
 	pw_loop_invoke(input_node->data_loop, do_add_link,
-		       SPA_ID_INVALID, &input, sizeof(struct pw_port *), false, this);
+		       SPA_ID_INVALID, &input, sizeof(struct pw_port *), true, this);
 
 	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, this);
 	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, this);

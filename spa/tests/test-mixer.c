@@ -117,14 +117,18 @@ struct data {
 	struct spa_graph graph;
 	struct spa_graph_data graph_data;
 	struct spa_graph_node source1_node;
+	struct spa_graph_state source1_state;
 	struct spa_graph_port source1_out;
 	struct spa_graph_node source2_node;
+	struct spa_graph_state source2_state;
 	struct spa_graph_port source2_out;
 	struct spa_graph_port mix_in[2];
 	struct spa_graph_node mix_node;
+	struct spa_graph_state mix_state;
 	struct spa_graph_port mix_out;
 	struct spa_graph_port sink_in;
 	struct spa_graph_node sink_node;
+	struct spa_graph_state sink_state;
 
 	struct spa_node *sink;
 	struct spa_io_buffers mix_sink_io[1];
@@ -157,7 +161,7 @@ struct data {
 	unsigned int n_fds;
 };
 
-#define MIN_LATENCY     64
+#define MIN_LATENCY     512
 
 #define BUFFER_SIZE1    MIN_LATENCY
 #define BUFFER_SIZE2    MIN_LATENCY - 4
@@ -467,19 +471,19 @@ static int make_nodes(struct data *data, const char *device)
 
 
 #ifdef USE_GRAPH
-	spa_graph_node_init(&data->source1_node);
+	spa_graph_node_init(&data->source1_node, &data->source1_state);
 	spa_graph_node_set_implementation(&data->source1_node, data->source1);
 	spa_graph_port_init(&data->source1_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->source1_mix_io[0]);
 	spa_graph_port_add(&data->source1_node, &data->source1_out);
 	spa_graph_node_add(&data->graph, &data->source1_node);
 
-	spa_graph_node_init(&data->source2_node);
+	spa_graph_node_init(&data->source2_node, &data->source2_state);
 	spa_graph_node_set_implementation(&data->source2_node, data->source2);
 	spa_graph_port_init(&data->source2_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->source2_mix_io[0]);
 	spa_graph_port_add(&data->source2_node, &data->source2_out);
 	spa_graph_node_add(&data->graph, &data->source2_node);
 
-	spa_graph_node_init(&data->mix_node);
+	spa_graph_node_init(&data->mix_node, &data->mix_state);
 	spa_graph_node_set_implementation(&data->mix_node, data->mix);
 	spa_graph_port_init(&data->mix_in[0], SPA_DIRECTION_INPUT,
 			    data->mix_ports[0], 0, &data->source1_mix_io[0]);
@@ -495,7 +499,7 @@ static int make_nodes(struct data *data, const char *device)
 	spa_graph_port_init(&data->mix_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->mix_sink_io[0]);
 	spa_graph_port_add(&data->mix_node, &data->mix_out);
 
-	spa_graph_node_init(&data->sink_node);
+	spa_graph_node_init(&data->sink_node, &data->sink_state);
 	spa_graph_node_set_implementation(&data->sink_node, data->sink);
 	spa_graph_port_init(&data->sink_in, SPA_DIRECTION_INPUT, 0, 0, &data->mix_sink_io[0]);
 	spa_graph_port_add(&data->sink_node, &data->sink_in);

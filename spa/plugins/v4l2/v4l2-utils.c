@@ -118,6 +118,7 @@ static int spa_v4l2_buffer_recycle(struct impl *this, uint32_t buffer_id)
 		spa_log_error(port->log, "VIDIOC_QBUF: %m");
 		return -err;
 	}
+
 	return 0;
 }
 
@@ -1145,7 +1146,6 @@ static int mmap_read(struct impl *this)
 	struct buffer *b;
 	struct spa_data *d;
 	int64_t pts;
-	struct spa_io_buffers *io = port->io;
 
 	spa_zero(buf);
 	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -1178,10 +1178,9 @@ static int mmap_read(struct impl *this)
 	d[0].chunk->stride = port->fmt.fmt.pix.bytesperline;
 
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
-	io->buffer_id = b->outbuf->id;
-	io->status = SPA_STATUS_HAVE_BUFFER;
+	spa_list_append(&port->queue, &b->link);
 
-	spa_log_trace(port->log, "v4l2 %p: have output %d", this, io->buffer_id);
+	spa_log_trace(port->log, "v4l2 %p: have output %d", this, buf.index);
 	this->callbacks->have_output(this->callbacks_data);
 
 	return 0;
@@ -1499,10 +1498,12 @@ static int spa_v4l2_stream_off(struct impl *this)
 		struct buffer *b;
 
 		b = &port->buffers[i];
-		if (!SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUTSTANDING))
+		if (!SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUTSTANDING)) {
 			if (xioctl(port->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0)
 				spa_log_warn(this->log, "VIDIOC_QBUF: %s", strerror(errno));
+		}
 	}
+	spa_list_init(&port->queue);
 	port->started = false;
 
 	return 0;

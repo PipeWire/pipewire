@@ -229,8 +229,8 @@ static void on_sink_pull(struct data *data)
 {
 	spa_log_trace(data->log, "do sink pull");
 	if (data->mode & MODE_DIRECT) {
-		spa_node_process_output(data->source);
-		spa_node_process_input(data->sink);
+		spa_node_process(data->source);
+		spa_node_process(data->sink);
 	} else {
 		spa_graph_need_input(&data->graph, &data->sink_node);
 	}
@@ -240,8 +240,8 @@ static void on_source_push(struct data *data)
 {
 	spa_log_trace(data->log, "do source push");
 	if (data->mode & MODE_DIRECT) {
-		spa_node_process_output(data->source);
-		spa_node_process_input(data->sink);
+		spa_node_process(data->source);
+		spa_node_process(data->sink);
 	} else {
 		spa_graph_have_output(&data->graph, &data->source_node);
 	}

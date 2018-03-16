@@ -842,63 +842,18 @@ impl_node_port_send_command(struct spa_node *node,
 	return 0;
 }
 
-static int impl_node_process_input(struct spa_node *node)
+static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
 	struct impl *impl = this->impl;
-	struct spa_graph_node *n = &impl->this.node->rt.node;
-	bool client_reuse = impl->client_reuse;
-	struct spa_graph_port *p, *pp;
 	int res;
 
-	if (impl->input_ready == 0) {
-		/* the client is not ready to receive our buffers, recycle them */
-		pw_log_trace("node not ready, recycle buffers");
-		spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link)
-			p->io->status = SPA_STATUS_NEED_BUFFER;
-		res = SPA_STATUS_NEED_BUFFER;
-	}
-	else {
-		spa_list_for_each(p, &n->ports[SPA_DIRECTION_INPUT], link) {
-			struct spa_io_buffers *io = p->io;
-
-			pw_log_trace("set io status to %d %d", io->status, io->buffer_id);
-
-			/* explicitly recycle buffers when the client is not going to do it */
-			if (!client_reuse && (pp = p->peer))
-		                spa_graph_node_reuse_buffer(pp->node,
-						pp->port_id, io->buffer_id);
-		}
-		pw_log_trace("client-node %p: send process input", this);
-		pw_client_node_transport_add_message(impl->transport,
-			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT));
-		do_flush(this);
-
-		impl->input_ready--;
-		res = SPA_STATUS_OK;
-	}
-	return res;
-}
-
-static int impl_node_process_output(struct spa_node *node)
-{
-	struct node *this;
-	struct impl *impl;
-
-	this = SPA_CONTAINER_OF(node, struct node, node);
-	impl = this->impl;
-
-	pw_log_trace("client-node %p: process output %d", this, impl->out_pending);
-	if (impl->out_pending)
-		return SPA_STATUS_OK;
-
-	impl->out_pending = true;
-
+	pw_log_trace("client-node %p: send process input", this);
 	pw_client_node_transport_add_message(impl->transport,
-			       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT));
+		       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT));
 	do_flush(this);
-
-	return SPA_STATUS_OK;
+	res = SPA_STATUS_OK;
+	return res;
 }
 
 static int handle_node_message(struct node *this, struct pw_client_node_message *message)
@@ -1082,8 +1037,7 @@ static const struct spa_node impl_node = {
 	impl_node_port_set_io,
 	impl_node_port_reuse_buffer,
 	impl_node_port_send_command,
-	impl_node_process_input,
-	impl_node_process_output,
+	impl_node_process,
 };
 
 static int
@@ -1285,20 +1239,12 @@ static int mix_port_set_io(struct spa_node *node,
 			      id, data, size);
 }
 
-static int mix_port_process_input(struct spa_node *data)
+static int mix_port_process(struct spa_node *data)
 {
 	struct pw_port *p = SPA_CONTAINER_OF(data, struct pw_port, mix_node);
 	struct spa_io_buffers *io = p->rt.mix_port.io;
 	pw_log_trace("client-node %p: pass %d %d", data, io->status, io->buffer_id);
 	return SPA_STATUS_HAVE_BUFFER;
-}
-
-static int mix_port_process_output(struct spa_node *data)
-{
-	struct pw_port *p = SPA_CONTAINER_OF(data, struct pw_port, mix_node);
-	struct spa_io_buffers *io = p->rt.mix_port.io;
-	pw_log_trace("client-node %p: pass %d %d", data, io->status, io->buffer_id);
-	return SPA_STATUS_NEED_BUFFER;
 }
 
 static void node_port_added(void *data, struct pw_port *port)
@@ -1307,8 +1253,7 @@ static void node_port_added(void *data, struct pw_port *port)
 
 	pw_log_debug("client-node %p: port %p added", &impl->this, port);
 	port->mix_node.port_set_io = mix_port_set_io;
-	port->mix_node.process_input = mix_port_process_input;
-	port->mix_node.process_output = mix_port_process_output;
+	port->mix_node.process = mix_port_process;
 
 	port->implementation = &port_impl;
 	port->implementation_data = impl;

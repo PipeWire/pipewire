@@ -392,6 +392,11 @@ static void check_properties(struct pw_node *node)
 		node->driver = pw_properties_parse_bool(str);
 	else
 		node->driver = false;
+
+	if (node->driver)
+		SPA_FLAG_SET(impl->graph.flags, SPA_GRAPH_FLAG_DRIVER);
+	else
+		SPA_FLAG_UNSET(impl->graph.flags, SPA_GRAPH_FLAG_DRIVER);
 }
 
 static int
@@ -458,7 +463,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this->rt.activation = &impl->activation;
 	spa_graph_node_init(&this->rt.node, &this->rt.activation->state);
 
-	pw_loop_invoke(this->data_loop, do_node_join, 1, NULL, 0, false, this);
+	pw_loop_invoke(this->data_loop, do_node_join, 1, NULL, 0, true, this);
 
 	spa_list_init(&this->rt.links[SPA_DIRECTION_INPUT]);
 	spa_list_init(&this->rt.links[SPA_DIRECTION_OUTPUT]);
@@ -628,7 +633,12 @@ do_node_remove(struct spa_loop *loop,
 	       bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_node *this = user_data;
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+
+	if (impl->graph.parent)
+		spa_graph_remove_subgraph(&impl->graph);
 	spa_graph_node_remove(&this->rt.node);
+
 	return 0;
 }
 

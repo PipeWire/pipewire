@@ -48,31 +48,14 @@ struct spa_graph_callbacks {
 
 struct spa_graph {
 	struct spa_list link;		/* link for subgraph */
+#define SPA_GRAPH_FLAG_DRIVER		(1 << 0)
+	uint32_t flags;			/* flags */
 	struct spa_graph *parent;	/* parent graph or NULL when driver */
 	struct spa_list nodes;		/* list of nodes of this graph */
 	struct spa_list subgraphs;	/* list of subgraphs */
 	const struct spa_graph_callbacks *callbacks;
 	void *callbacks_data;
 };
-
-static inline struct spa_graph * spa_graph_find_root(struct spa_graph *graph)
-{
-	while (graph->parent)
-		graph = graph->parent;
-	return graph;
-}
-
-static inline void spa_graph_add_subgraph(struct spa_graph *graph, struct spa_graph *subgraph)
-{
-	subgraph->parent = graph;
-	spa_list_append(&graph->subgraphs, &subgraph->link);
-}
-
-static inline void spa_graph_remove_subgraph(struct spa_graph *subgraph)
-{
-	subgraph->parent = NULL;
-	spa_list_remove(&subgraph->link);
-}
 
 #define spa_graph_need_input(g,n)	((g)->callbacks->need_input((g)->callbacks_data, (n)))
 #define spa_graph_have_output(g,n)	((g)->callbacks->have_output((g)->callbacks_data, (n)))
@@ -124,6 +107,8 @@ static inline void spa_graph_init(struct spa_graph *graph)
 {
 	spa_list_init(&graph->nodes);
 	spa_list_init(&graph->subgraphs);
+	graph->flags = 0;
+	spa_debug("graph %p init", graph);
 }
 
 static inline void
@@ -133,6 +118,27 @@ spa_graph_set_callbacks(struct spa_graph *graph,
 {
 	graph->callbacks = callbacks;
 	graph->callbacks_data = data;
+}
+
+static inline struct spa_graph *spa_graph_find_root(struct spa_graph *graph)
+{
+	while (graph->parent)
+		graph = graph->parent;
+	return graph;
+}
+
+static inline void spa_graph_add_subgraph(struct spa_graph *graph, struct spa_graph *subgraph)
+{
+	subgraph->parent = graph;
+	spa_list_append(&graph->subgraphs, &subgraph->link);
+	spa_debug("graph %p add subgraph %p", graph, subgraph);
+}
+
+static inline void spa_graph_remove_subgraph(struct spa_graph *subgraph)
+{
+	subgraph->parent = NULL;
+	spa_list_remove(&subgraph->link);
+	spa_debug("graph %p remove subgraph", subgraph);
 }
 
 static inline void
@@ -163,7 +169,7 @@ spa_graph_node_add(struct spa_graph *graph,
 	node->graph = graph;
 	node->sched_link.next = NULL;
 	spa_list_append(&graph->nodes, &node->link);
-	spa_debug("node %p add", node);
+	spa_debug("node %p add to graph %p", node, graph);
 }
 
 static inline void
@@ -241,15 +247,9 @@ static inline int spa_graph_node_impl_process(void *data, struct spa_graph_node 
 {
 	struct spa_graph *g = node->graph;
 	struct spa_node *n = data;
-	//int old = node->state->status, res = 0;
 	int res = 0;
 
-//	if (old == SPA_STATUS_NEED_BUFFER && n->process_input &&
-	if (n->process_input &&
-	    !spa_list_is_empty(&node->ports[SPA_DIRECTION_INPUT]))
-		res = spa_node_process_input(n);
-	else
-		res = spa_node_process_output(n);
+	res = spa_node_process(n);
 
 	spa_debug("node %p: process %d", node, res);
 
@@ -257,8 +257,6 @@ static inline int spa_graph_node_impl_process(void *data, struct spa_graph_node 
 
 	if (res == SPA_STATUS_HAVE_BUFFER)
 		spa_graph_have_output(g, node);
-
-	spa_debug("node %p: end %d", node, res);
 
         return res;
 }

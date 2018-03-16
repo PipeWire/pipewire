@@ -612,41 +612,37 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 		struct buffer *b;
 		uint32_t buffer_id;
 
-		buffer_id = io->buffer_id;
+		if (impl->direction == SPA_DIRECTION_INPUT) {
+			buffer_id = io->buffer_id;
 
-		pw_log_trace("stream %p: process input %d %d", stream, io->status,
+			pw_log_trace("stream %p: process input %d %d", stream, io->status,
 			     buffer_id);
 
-		if ((b = find_buffer(stream, buffer_id)) == NULL)
-			return;
+			if ((b = find_buffer(stream, buffer_id)) == NULL)
+				return;
 
-		if (impl->client_reuse)
+			if (impl->client_reuse)
+				io->buffer_id = SPA_ID_INVALID;
+
+			if (io->status == SPA_STATUS_HAVE_BUFFER) {
+		                SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+
+				impl->in_new_buffer = true;
+				spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
+					 new_buffer, buffer_id);
+				impl->in_new_buffer = false;
+			}
+			io->status = SPA_STATUS_NEED_BUFFER;
+		} else {
+			reuse_buffer(stream, io->buffer_id);
 			io->buffer_id = SPA_ID_INVALID;
 
-		if (io->status == SPA_STATUS_HAVE_BUFFER) {
-	                SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-
-			impl->in_new_buffer = true;
+			pw_log_trace("stream %p: process output", stream);
+			impl->in_need_buffer = true;
 			spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
-				 new_buffer, buffer_id);
-			impl->in_new_buffer = false;
+					need_buffer);
+			impl->in_need_buffer = false;
 		}
-
-		io->status = SPA_STATUS_NEED_BUFFER;
-		send_need_input(stream);
-		break;
-	}
-	case PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT:
-	{
-		struct spa_io_buffers *io = impl->io;
-
-		reuse_buffer(stream, io->buffer_id);
-		io->buffer_id = SPA_ID_INVALID;
-
-		pw_log_trace("stream %p: process output", stream);
-		impl->in_need_buffer = true;
-		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, need_buffer);
-		impl->in_need_buffer = false;
 		break;
 	}
 	case PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER:

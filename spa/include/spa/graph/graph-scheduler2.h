@@ -136,21 +136,35 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 	return 0;
 }
 
+static inline void spa_graph_impl_add_graph(struct spa_graph *g, struct spa_list *pending)
+{
+	struct spa_graph_node *n;
+	struct spa_graph *sg;
+
+	spa_list_for_each(n, &g->nodes, link) {
+		n->state->pending = n->state->required + 1;
+		spa_debug("graph %p node %p: add %d %d status %d", g, n,
+			n->state->pending, n->state->required, n->state->status);
+		spa_list_append(pending, &n->sched_link);
+	}
+	spa_list_for_each(sg, &g->subgraphs, link)
+		spa_graph_impl_add_graph(sg, pending);
+}
+
 static inline int spa_graph_impl_run(void *data)
 {
 	struct spa_graph_data *d = (struct spa_graph_data *) data;
 	struct spa_graph *g = d->graph;
-	struct spa_graph_node *n;
+	struct spa_graph_node *n, *tmp;
+	struct spa_list pending;
 
 	spa_debug("graph %p run", d->graph);
 
-	spa_list_for_each(n, &g->nodes, link) {
-		n->state->pending = n->state->required + 1;
-                spa_debug("node %p: add %d %d status %d", n,
-                                n->state->pending, n->state->required,
-                                n->state->status);
-	}
-	spa_list_for_each(n, &g->nodes, link)
+	spa_list_init(&pending);
+
+	spa_graph_impl_add_graph(g, &pending);
+
+	spa_list_for_each_safe(n, tmp, &pending, sched_link)
 		spa_graph_trigger(d->graph, n);
 
 	return 0;

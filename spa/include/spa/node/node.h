@@ -479,81 +479,21 @@ struct spa_node {
 				  uint32_t port_id,
 				  const struct spa_command *command);
 	/**
-	 * Process the input area of the node.
+	 * Process the node
 	 *
-	 * For synchronous nodes, this function is called to start processing data
-	 * or when process_output returned SPA_STATUS_NEED_BUFFER
+	 * Output io areas with SPA_STATUS_NEED_BUFFER will recycle the
+	 * buffers if any.
 	 *
-	 * For Asynchronous nodes, this function is called when a need_input event
-	 * is received from the node.
+	 * Input areas with SPA_STATUS_HAVE_BUFFER are consumed if possible
+	 * and the status is set to SPA_STATUS_NEED_BUFFER or SPA_STATUS_OK.
 	 *
-	 * Before calling this function, you must configure spa_port_io structures
-	 * on the input ports you want to process data on.
+	 * When the node has new output buffers, SPA_STATUS_HAVE_BUFFER
+	 * is returned.
 	 *
-	 * The node will loop through all spa_port_io structures and will
-	 * process the buffers. For each port, the port io will be used as:
-	 *
-	 *  - if status is set to SPA_STATUS_HAVE_BUFFER, buffer_id is read and processed.
-	 *
-	 * The spa_port_io of the port is then updated as follows.
-	 *
-	 *  - buffer_id is set to a buffer id that should be reused. SPA_ID_INVALID
-	 *    is set when there is no buffer to reuse
-	 *
-	 *  - status is set to SPA_STATUS_OK when no new buffer is needed on the port
-	 *
-	 *  - status is set to SPA_STATUS_NEED_BUFFER when a new buffer is needed
-	 *    on the port.
-	 *
-	 *  - status is set to a negative errno style error code when the buffer_id
-	 *    was invalid or any processing error happened on the port.
-	 *
-	 * This function must be called from the data thread.
-	 *
-	 * \param node a spa_node
-	 * \return SPA_STATUS_OK on success or when the node is asynchronous
-	 *         SPA_STATUS_HAVE_BUFFER for synchronous nodes when output
-	 *                                  can be consumed.
-	 *	   < 0 for errno style errors. One or more of the spa_port_io
-	 *	     areas has an error.
+	 * When no new output could be produced, SPA_STATUS_NEED_BUFFER is
+	 * returned.
 	 */
-	int (*process_input) (struct spa_node *node);
-
-	/**
-	 * Tell the node that output is consumed.
-	 *
-	 * For synchronous nodes, this function can be called when process_input
-	 * returned SPA_STATUS_HAVE_BUFFER and the output on the spa_port_io
-	 * areas has been consumed.
-	 *
-	 * For Asynchronous node, this function is called when a have_output event
-	 * is received from the node.
-	 *
-	 * Before calling this function you must process the buffers
-	 * in each of the output ports spa_port_io structure as follows:
-	 *
-	 * - use the buffer_id from the io for all the ports where the status is
-	 *   SPA_STATUS_HAVE_BUFFER
-	 *
-	 * - set buffer_id to a buffer_id you would like to reuse or SPA_ID_INVALID
-	 *   when no buffer is to be reused.
-	 *
-	 * - set the status to SPA_STATUS_NEED_BUFFER for all port you want more
-	 *   output from
-	 *
-	 * - set the status to SPA_STATUS_OK for the port you don't want more
-	 *   buffers from.
-	 *
-	 * This function must be called from the data thread.
-	 *
-	 * \param node a spa_node
-	 * \return SPA_STATUS_OK on success or when the node is asynchronous
-	 *         SPA_STATUS_NEED_BUFFER for synchronous nodes when input
-	 *                                 is needed.
-	 *	   < 0 for errno style errors. One or more of the spa_port_io
-	 *	     areas has an error.
-	 */
-	int (*process_output) (struct spa_node *node);
+	int (*process) (struct spa_node *node);
 };
 
 #define spa_node_enum_params(n,...)		(n)->enum_params((n),__VA_ARGS__)
@@ -572,8 +512,7 @@ struct spa_node {
 #define spa_node_port_set_io(n,...)		(n)->port_set_io((n),__VA_ARGS__)
 #define spa_node_port_reuse_buffer(n,...)	(n)->port_reuse_buffer((n),__VA_ARGS__)
 #define spa_node_port_send_command(n,...)	(n)->port_send_command((n),__VA_ARGS__)
-#define spa_node_process_input(n)		(n)->process_input((n))
-#define spa_node_process_output(n)		(n)->process_output((n))
+#define spa_node_process(n)			(n)->process((n))
 
 #ifdef __cplusplus
 }  /* extern "C" */

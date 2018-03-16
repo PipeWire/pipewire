@@ -467,7 +467,7 @@ static void fill_s16(struct data *d, void *dest, int avail)
         }
 }
 
-static int impl_node_process_output(struct spa_node *node)
+static int impl_node_process(struct spa_node *node)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct buffer *b;
@@ -529,7 +529,7 @@ static const struct spa_node impl_node = {
 	.port_set_param = impl_port_set_param,
 	.port_use_buffers = impl_port_use_buffers,
 	.port_reuse_buffer = impl_port_reuse_buffer,
-	.process_output = impl_node_process_output,
+	.process = impl_node_process,
 };
 
 static void make_node(struct data *data)

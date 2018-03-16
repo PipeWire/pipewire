@@ -61,6 +61,7 @@ static void reset_props(struct props *props)
 #define BUFFER_FLAG_MAPPED	(1<<2)
 
 struct buffer {
+	struct spa_list link;
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
 	uint32_t flags;
@@ -174,6 +175,7 @@ struct port {
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
+	struct spa_list queue;
 
 	struct spa_source source;
 
@@ -810,17 +812,13 @@ static int impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
-static int impl_node_process_input(struct spa_node *node)
-{
-	return -ENOTSUP;
-}
-
-static int impl_node_process_output(struct spa_node *node)
+static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
-	int i, res = SPA_STATUS_OK;
+	int i, res;
 	struct spa_io_buffers *io;
 	struct port *port;
+	struct buffer *b;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -834,7 +832,9 @@ static int impl_node_process_output(struct spa_node *node)
 		return SPA_STATUS_HAVE_BUFFER;
 
 	if (io->buffer_id < port->n_buffers) {
-		res = spa_v4l2_buffer_recycle(this, io->buffer_id);
+		if ((res = spa_v4l2_buffer_recycle(this, io->buffer_id)) < 0)
+			return res;
+
 		io->buffer_id = SPA_ID_INVALID;
 	}
 	for (i = 0; i < port->n_controls; i++) {
@@ -856,7 +856,16 @@ static int impl_node_process_output(struct spa_node *node)
 			control->value = *control->io = c.value;
 		}
 	}
-	return res;
+	if (spa_list_is_empty(&port->queue))
+		return -EPIPE;
+
+	b = spa_list_first(&port->queue, struct buffer, link);
+	spa_list_remove(&b->link);
+
+	io->buffer_id = b->outbuf->id;
+	io->status = SPA_STATUS_HAVE_BUFFER;
+
+	return SPA_STATUS_HAVE_BUFFER;
 }
 
 static const struct spa_dict_item info_items[] = {
@@ -889,8 +898,7 @@ static const struct spa_node impl_node = {
 	impl_node_port_set_io,
 	impl_node_port_reuse_buffer,
 	impl_node_port_send_command,
-	impl_node_process_input,
-	impl_node_process_output,
+	impl_node_process,
 };
 
 static int impl_clock_enum_params(struct spa_clock *clock, uint32_t id, uint32_t *index,
@@ -1011,6 +1019,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->clock = impl_clock;
 
 	reset_props(&this->props);
+
+	spa_list_init(&port->queue);
 
 	port->log = this->log;
 	port->info.flags = SPA_PORT_INFO_FLAG_LIVE |

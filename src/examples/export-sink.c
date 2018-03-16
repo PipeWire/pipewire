@@ -539,7 +539,7 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	return 0;
 }
 
-static int impl_node_process_input(struct spa_node *node)
+static int impl_node_process(struct spa_node *node)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct spa_buffer *buf;
@@ -574,7 +574,7 @@ static const struct spa_node impl_node = {
 	.port_enum_params = impl_port_enum_params,
 	.port_set_param = impl_port_set_param,
 	.port_use_buffers = impl_port_use_buffers,
-	.process_input = impl_node_process_input,
+	.process = impl_node_process,
 };
 
 static void make_node(struct data *data)

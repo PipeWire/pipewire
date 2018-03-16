@@ -257,7 +257,7 @@ void pw_memblock_free(struct pw_memblock *mem)
 	if (mem == NULL)
 		return;
 
-	pw_log_debug("mem %p: free", mem);
+	pw_log_debug("mem %p: free %p %d", mem, mem->ptr, mem->fd);
 	if (mem->flags & PW_MEMBLOCK_FLAG_WITH_FD) {
 		if (mem->ptr)
 			munmap(mem->ptr, mem->size);

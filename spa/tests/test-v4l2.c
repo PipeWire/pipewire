@@ -276,7 +276,7 @@ static void on_source_have_output(void *_data)
 
 	io->status = SPA_STATUS_NEED_BUFFER;
 
-	if ((res = spa_node_process_output(data->source)) < 0)
+	if ((res = spa_node_process(data->source)) < 0)
 		printf("got pull error %d\n", res);
 }
 

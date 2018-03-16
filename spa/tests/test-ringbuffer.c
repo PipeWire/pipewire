@@ -219,12 +219,12 @@ static void on_sink_need_input(void *_data)
 	struct data *data = _data;
 	int res;
 
-	res = spa_node_process_output(data->source);
+	res = spa_node_process(data->source);
 	if (res != SPA_STATUS_HAVE_BUFFER)
-		printf("got process_output error from source %d\n", res);
+		printf("got process error from source %d\n", res);
 
-	if ((res = spa_node_process_input(data->sink)) < 0)
-		printf("got process_input error from sink %d\n", res);
+	if ((res = spa_node_process(data->sink)) < 0)
+		printf("got process error from sink %d\n", res);
 }
 
 static void

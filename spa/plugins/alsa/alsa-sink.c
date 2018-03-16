@@ -571,7 +571,7 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
-static int impl_node_process_input(struct spa_node *node)
+static int impl_node_process(struct spa_node *node)
 {
 	struct state *this;
 	struct spa_io_buffers *input;
@@ -582,13 +582,15 @@ static int impl_node_process_input(struct spa_node *node)
 	input = this->io;
 	spa_return_val_if_fail(input != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: process input %d %d", this, input->status, input->buffer_id);
+	spa_log_trace(this->log, NAME " %p: process %d %d", this, input->status, input->buffer_id);
 
-	if (input->status == SPA_STATUS_HAVE_BUFFER && input->buffer_id < this->n_buffers) {
+	if (input->status == SPA_STATUS_HAVE_BUFFER &&
+	    input->buffer_id < this->n_buffers) {
 		struct buffer *b = &this->buffers[input->buffer_id];
 
 		if (!SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
-			spa_log_warn(this->log, NAME " %p: buffer %u in use", this, input->buffer_id);
+			spa_log_warn(this->log, NAME " %p: buffer %u in use",
+					this, input->buffer_id);
 			input->status = -EINVAL;
 			return -EINVAL;
 		}
@@ -599,17 +601,12 @@ static int impl_node_process_input(struct spa_node *node)
 
 		input->status = SPA_STATUS_OK;
 	}
-
 	return SPA_STATUS_OK;
-}
-
-static int impl_node_process_output(struct spa_node *node)
-{
-	return -ENOTSUP;
 }
 
 static const struct spa_dict_item node_info_items[] = {
 	{ "media.class", "Audio/Sink" },
+	{ "node.driver", "true" },
 };
 
 static const struct spa_dict node_info = {
@@ -636,8 +633,7 @@ static const struct spa_node impl_node = {
 	impl_node_port_set_io,
 	impl_node_port_reuse_buffer,
 	impl_node_port_send_command,
-	impl_node_process_input,
-	impl_node_process_output,
+	impl_node_process,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)

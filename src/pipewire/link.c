@@ -1154,6 +1154,30 @@ static const struct pw_node_events output_node_events = {
 	.async_complete = output_node_async_complete,
 };
 
+static int
+do_join_graphs(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+        struct pw_link *this = user_data;
+	struct spa_graph *in_graph, *out_graph;
+	struct spa_graph *in_root, *out_root;
+
+	in_graph = this->input->node->rt.node.graph;
+	out_graph = this->output->node->rt.node.graph;
+
+	in_root = spa_graph_find_root(in_graph);
+	out_root = spa_graph_find_root(out_graph);
+
+	if (out_root == in_root)
+		return 0;
+
+	if (SPA_FLAG_CHECK(in_root->flags, SPA_GRAPH_FLAG_DRIVER))
+		spa_graph_add_subgraph(in_root, out_root);
+	else
+		spa_graph_add_subgraph(out_root, in_root);
+	return 0;
+}
+
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *output,
 			    struct pw_port *input,
@@ -1166,6 +1190,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	struct pw_link *this;
 	struct pw_node *input_node, *output_node;
 	struct spa_graph *in_graph, *out_graph;
+	struct spa_graph *in_root, *out_root;
 
 	if (output == input)
 		goto same_ports;
@@ -1179,7 +1204,16 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	in_graph = input_node->rt.node.graph;
 	out_graph = output_node->rt.node.graph;
 
-	if (in_graph != NULL && out_graph != NULL && in_graph != out_graph)
+	pw_log_debug("link new %p %p", in_graph, out_graph);
+
+	in_root = spa_graph_find_root(in_graph);
+	out_root = spa_graph_find_root(out_graph);
+
+	pw_log_debug("link new %p %p", in_root, out_root);
+
+	if (SPA_FLAG_CHECK(in_root->flags, SPA_GRAPH_FLAG_DRIVER) &&
+	    SPA_FLAG_CHECK(out_root->flags, SPA_GRAPH_FLAG_DRIVER) &&
+	    in_root != out_root)
 		goto link_not_supported;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
@@ -1243,10 +1277,8 @@ struct pw_link *pw_link_new(struct pw_core *core,
 		     output_node, output->port_id, this->rt.mix[SPA_DIRECTION_OUTPUT].port.port_id,
 		     input_node, input->port_id, this->rt.mix[SPA_DIRECTION_INPUT].port.port_id);
 
-	if (out_graph != NULL)
-		pw_node_join_graph(input_node, out_graph);
-	else if (in_graph != NULL)
-		pw_node_join_graph(output_node, in_graph);
+	pw_loop_invoke(output->node->data_loop,
+		       do_join_graphs, SPA_ID_INVALID, NULL, 0, false, this);
 
 	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, this);
 	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, this);

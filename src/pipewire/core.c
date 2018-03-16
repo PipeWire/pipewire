@@ -21,8 +21,6 @@
 #include <time.h>
 #include <stdio.h>
 
-#define spa_debug pw_log_trace
-
 #include <spa/lib/debug.h>
 #include <spa/support/dbus.h>
 
@@ -33,13 +31,9 @@
 #include <pipewire/core.h>
 #include <pipewire/data-loop.h>
 
-#include <spa/graph/graph-scheduler1.h>
-
 /** \cond */
 struct impl {
 	struct pw_core this;
-
-	struct spa_graph_data data;
 };
 
 
@@ -395,10 +389,6 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	pw_type_init(&this->type);
 	pw_map_init(&this->globals, 128, 32);
-
-	spa_graph_init(&this->rt.graph);
-	spa_graph_data_init(&impl->data, &this->rt.graph);
-	spa_graph_set_callbacks(&this->rt.graph, &spa_graph_impl_default, &impl->data);
 
 	spa_debug_set_type_map(this->type.map);
 

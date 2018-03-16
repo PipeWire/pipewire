@@ -35,12 +35,19 @@
 #include "pipewire/main-loop.h"
 #include "pipewire/work-queue.h"
 
+#define spa_debug pw_log_trace
+
+#include <spa/graph/graph-scheduler2.h>
+
 /** \cond */
 struct impl {
 	struct pw_node this;
 
 	struct pw_work_queue *work;
 	bool pause_on_idle;
+
+	struct spa_graph graph_driver;
+	struct spa_graph_data graph_data;
 
 	struct pw_node_activation activation;
 };
@@ -318,13 +325,38 @@ static const struct pw_global_events global_events = {
 };
 
 static int
-do_node_add(struct spa_loop *loop,
+do_node_join(struct spa_loop *loop,
 	    bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_node *this = user_data;
+	struct spa_graph *graph = *(struct spa_graph **)data;
+	struct spa_graph_port *p;
 
-	spa_graph_node_add(this->rt.graph, &this->rt.node);
+	if (this->rt.node.graph != NULL) {
+		spa_graph_node_remove(&this->rt.node);
+		spa_list_for_each(p, &this->rt.node.ports[SPA_DIRECTION_INPUT], link)
+			spa_graph_node_remove(p->peer->node);
+		spa_list_for_each(p, &this->rt.node.ports[SPA_DIRECTION_OUTPUT], link)
+			spa_graph_node_remove(p->peer->node);
+	}
 
+	if (graph) {
+		spa_graph_node_add(graph, &this->rt.node);
+		spa_list_for_each(p, &this->rt.node.ports[SPA_DIRECTION_INPUT], link)
+			spa_graph_node_add(graph, p->peer->node);
+		spa_list_for_each(p, &this->rt.node.ports[SPA_DIRECTION_OUTPUT], link)
+			spa_graph_node_add(graph, p->peer->node);
+	}
+	else
+		this->rt.node.graph = NULL;
+
+	return 0;
+}
+
+int pw_node_join_graph(struct pw_node *node, struct spa_graph *graph)
+{
+	pw_loop_invoke(node->data_loop, do_node_join, 1,
+			graph, sizeof(struct spa_graph *), false, node);
 	return 0;
 }
 
@@ -348,8 +380,6 @@ int pw_node_register(struct pw_node *this,
 		return -ENOMEM;
 
 	pw_node_update_ports(this);
-
-	pw_loop_invoke(this->data_loop, do_node_add, 1, NULL, 0, false, this);
 
 	if ((str = pw_properties_get(this->properties, "media.class")) != NULL)
 		pw_properties_set(properties, "media.class", str);
@@ -393,6 +423,20 @@ static void check_properties(struct pw_node *node)
 		impl->pause_on_idle = pw_properties_parse_bool(str);
 	else
 		impl->pause_on_idle = true;
+
+	if ((str = pw_properties_get(node->properties, "node.driver")))
+		node->driver = pw_properties_parse_bool(str);
+	else
+		node->driver = false;
+
+	if (node->driver) {
+		spa_graph_init(&impl->graph_driver);
+		spa_graph_data_init(&impl->graph_data, &impl->graph_driver);
+		spa_graph_set_callbacks(&impl->graph_driver,
+				&spa_graph_impl_default, &impl->graph_data);
+		pw_node_join_graph(node, &impl->graph_driver);
+	}
+
 }
 
 struct pw_node *pw_node_new(struct pw_core *core,
@@ -428,8 +472,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this->info.name = strdup(name);
 
 	this->data_loop = core->data_loop;
-
-	this->rt.graph = &core->rt.graph;
 
 	spa_list_init(&this->resource_list);
 
@@ -530,21 +572,37 @@ static void node_event(void *data, struct spa_event *event)
 static void node_need_input(void *data)
 {
 	struct pw_node *node = data;
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
 	pw_log_trace("node %p: need input %d", node, node->rt.activation->state.status);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, need_input);
-	spa_graph_need_input(node->rt.graph, &node->rt.node);
+
+	if (node->driver)
+		spa_graph_run(&impl->graph_driver);
+	else if (node->rt.node.graph)
+		spa_graph_need_input(node->rt.node.graph, &node->rt.node);
+	else
+		pw_log_error("node %p: not added in graph", node);
 }
 
 static void node_have_output(void *data)
 {
 	struct pw_node *node = data;
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
-	pw_log_trace("node %p: have output", node);
+	pw_log_trace("node %p: have output %d", node, node->driver);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, have_output);
-	spa_graph_have_output(node->rt.graph, &node->rt.node);
+
+	if (node->driver)
+		spa_graph_run(&impl->graph_driver);
+
+	if (node->rt.node.graph)
+		spa_graph_have_output(node->rt.node.graph, &node->rt.node);
+	else
+		pw_log_error("node %p: not added in graph", node);
+
 }
 
 static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
@@ -557,7 +615,7 @@ static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 			continue;
 
 		if ((pp = p->peer) != NULL)
-			spa_node_port_reuse_buffer(pp->node->implementation, pp->port_id, buffer_id);
+			spa_graph_node_reuse_buffer(pp->node, pp->port_id, buffer_id);
 		break;
 	}
 }
@@ -576,7 +634,7 @@ void pw_node_set_implementation(struct pw_node *node,
 {
 	node->node = spa_node;
 	spa_node_set_callbacks(node->node, &node_callbacks, node);
-	spa_graph_node_set_implementation(&node->rt.node, spa_node);
+	spa_graph_node_set_callbacks(&node->rt.node, &spa_graph_node_impl_default, spa_node);
 
 	if (spa_node->info)
 		pw_node_update_properties(node, spa_node->info);
@@ -600,11 +658,7 @@ do_node_remove(struct spa_loop *loop,
 	       bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_node *this = user_data;
-
-	pause_node(this);
-
 	spa_graph_node_remove(&this->rt.node);
-
 	return 0;
 }
 

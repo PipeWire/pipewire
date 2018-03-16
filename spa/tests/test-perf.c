@@ -375,7 +375,7 @@ static int make_nodes(struct data *data)
 			     &data->source_sink_io[0], sizeof(data->source_sink_io[0]));
 
 	spa_graph_node_init(&data->source_node, &data->source_state);
-	spa_graph_node_set_implementation(&data->source_node, data->source);
+	spa_graph_node_set_callbacks(&data->source_node, &spa_graph_node_impl_default, data->source);
 	spa_graph_node_add(&data->graph, &data->source_node);
 
 	data->source_node.flags = (data->mode & MODE_ASYNC_PUSH) ? SPA_GRAPH_NODE_FLAG_ASYNC : 0;
@@ -383,7 +383,7 @@ static int make_nodes(struct data *data)
 	spa_graph_port_add(&data->source_node, &data->source_out);
 
 	spa_graph_node_init(&data->sink_node, &data->sink_state);
-	spa_graph_node_set_implementation(&data->sink_node, data->sink);
+	spa_graph_node_set_callbacks(&data->sink_node, &spa_graph_node_impl_default, data->sink);
 	spa_graph_node_add(&data->graph, &data->sink_node);
 
 	data->sink_node.flags = (data->mode & MODE_ASYNC_PULL) ? SPA_GRAPH_NODE_FLAG_ASYNC : 0;

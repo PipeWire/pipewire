@@ -36,15 +36,12 @@ static inline void spa_graph_data_init(struct spa_graph_data *data,
 	data->graph = graph;
 }
 
-static inline int spa_graph_impl_process(void *data, struct spa_graph_node *node)
+static inline int spa_graph_trigger(struct spa_graph *g, struct spa_graph_node *node)
 {
-	struct spa_graph_data *d = (struct spa_graph_data *) data;
-	struct spa_graph *g = d->graph;
-	int old = node->state->status, res = 0;
 	uint32_t val;
 
-	spa_debug("node %p: pending %d required %d %d", node,
-                        node->state->pending, node->state->required, old);
+	spa_debug("node %p: pending %d required %d", node,
+                        node->state->pending, node->state->required);
 
 	if (node->state->pending == 0) {
 		spa_debug("node %p: nothing pending", node);
@@ -52,25 +49,10 @@ static inline int spa_graph_impl_process(void *data, struct spa_graph_node *node
 	}
 
 	val = __atomic_sub_fetch(&node->state->pending, 1, __ATOMIC_SEQ_CST);
-        if (val == 0) {
-		if (old == SPA_STATUS_NEED_BUFFER &&
-		    node->implementation->process_input) {
-			res = spa_node_process_input(node->implementation);
-		}
-		else {
-			res = spa_node_process_output(node->implementation);
-		}
-		spa_debug("node %p: process %d", node, res);
+        if (val == 0)
+		spa_graph_node_process(node);
 
-		if (res == SPA_STATUS_HAVE_BUFFER)
-			spa_graph_have_output(g, node);
-
-		node->state->status = res;
-
-                spa_debug("node %p: end %d", node, res);
-        }
         return node->state->status;
-
 }
 
 static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *node)
@@ -118,8 +100,9 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
                         if (pn->sched_link.next != NULL)
                                 continue;
 
-                        if (pp->io->status == SPA_STATUS_NEED_BUFFER) {
-				pn->state->status = spa_node_process_output(pn->implementation);
+                        if (pp->io->status == SPA_STATUS_NEED_BUFFER &&
+			    pn->state->status == SPA_STATUS_HAVE_BUFFER) {
+				pn->state->status = spa_graph_node_process(pn);
                         } else {
                                 n->state->pending--;
                         }
@@ -132,7 +115,7 @@ static inline int spa_graph_impl_need_input(void *data, struct spa_graph_node *n
                 n->sched_link.next = NULL;
 
                 spa_debug("schedule node %p: %d", n, n->state->status);
-		spa_graph_process(d->graph, n);
+		spa_graph_trigger(d->graph, n);
         }
 	return 0;
 }
@@ -145,8 +128,13 @@ static inline int spa_graph_impl_have_output(void *data, struct spa_graph_node *
 	spa_debug("node %p start push", node);
 
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link)
-		spa_graph_process(d->graph, p->peer->node);
+		spa_graph_trigger(d->graph, p->peer->node);
 
+	return 0;
+}
+
+static inline int spa_graph_impl_run(void *data)
+{
 	return 0;
 }
 
@@ -154,9 +142,7 @@ static const struct spa_graph_callbacks spa_graph_impl_default = {
 	SPA_VERSION_GRAPH_CALLBACKS,
 	.need_input = spa_graph_impl_need_input,
 	.have_output = spa_graph_impl_have_output,
-	.process = spa_graph_impl_process,
 };
-
 
 #ifdef __cplusplus
 }  /* extern "C" */

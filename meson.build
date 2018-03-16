@@ -165,6 +165,8 @@ endif
 subdir('spa')
 subdir('src')
 subdir('pkgconfig')
+subdir('pipewire-jack')
+subdir('alsa-plugins')
 
 if get_option('enable_docs')
   doxygen = find_program('doxygen', required : false)

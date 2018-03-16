@@ -399,13 +399,13 @@ static int make_nodes(struct data *data, const char *device)
 			     &data->source_sink_io[0], sizeof(data->source_sink_io[0]));
 
 	spa_graph_node_init(&data->source_node, &data->source_state);
-	spa_graph_node_set_implementation(&data->source_node, data->source);
+	spa_graph_node_set_callbacks(&data->source_node, &spa_graph_node_impl_default, data->source);
 	spa_graph_node_add(&data->graph, &data->source_node);
 	spa_graph_port_init(&data->source_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->source_sink_io[0]);
 	spa_graph_port_add(&data->source_node, &data->source_out);
 
 	spa_graph_node_init(&data->sink_node, &data->sink_state);
-	spa_graph_node_set_implementation(&data->sink_node, data->sink);
+	spa_graph_node_set_callbacks(&data->sink_node, &spa_graph_node_impl_default, data->sink);
 	spa_graph_node_add(&data->graph, &data->sink_node);
 	spa_graph_port_init(&data->sink_in, SPA_DIRECTION_INPUT, 0, 0, &data->source_sink_io[0]);
 	spa_graph_port_add(&data->sink_node, &data->sink_in);

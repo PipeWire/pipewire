@@ -866,7 +866,7 @@ static int impl_node_process_input(struct spa_node *node)
 
 			/* explicitly recycle buffers when the client is not going to do it */
 			if (!client_reuse && (pp = p->peer))
-		                spa_node_port_reuse_buffer(pp->node->implementation,
+		                spa_graph_node_reuse_buffer(pp->node,
 						pp->port_id, io->buffer_id);
 		}
 		pw_log_trace("client-node %p: send process input", this);

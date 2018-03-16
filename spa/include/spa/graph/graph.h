@@ -43,9 +43,7 @@ struct spa_graph_callbacks {
 
 	int (*need_input) (void *data, struct spa_graph_node *node);
 	int (*have_output) (void *data, struct spa_graph_node *node);
-	int (*process) (void *data, struct spa_graph_node *node);
-	int (*reuse_buffer) (void *data, struct spa_graph_node *node,
-			uint32_t port_id, uint32_t buffer_id);
+	int (*run) (void *data);
 };
 
 struct spa_graph {
@@ -56,13 +54,21 @@ struct spa_graph {
 
 #define spa_graph_need_input(g,n)	((g)->callbacks->need_input((g)->callbacks_data, (n)))
 #define spa_graph_have_output(g,n)	((g)->callbacks->have_output((g)->callbacks_data, (n)))
-#define spa_graph_process(g,n)		((g)->callbacks->process((g)->callbacks_data, (n)))
-#define spa_graph_reuse_buffer(g,n,p,i)	((g)->callbacks->reuse_buffer((g)->callbacks_data, (n),(p),(i)))
+#define spa_graph_run(g)		((g)->callbacks->run((g)->callbacks_data))
 
 struct spa_graph_state {
 	int status;			/**< status of the node */
 	uint32_t required;		/**< required number of input nodes */
 	uint32_t pending;		/**< number of input nodes pending */
+};
+
+struct spa_graph_node_callbacks {
+#define SPA_VERSION_GRAPH_NODE_CALLBACKS	0
+	uint32_t version;
+
+	int (*process) (void *data, struct spa_graph_node *node);
+	int (*reuse_buffer) (void *data, struct spa_graph_node *node,
+			uint32_t port_id, uint32_t buffer_id);
 };
 
 struct spa_graph_node {
@@ -71,11 +77,15 @@ struct spa_graph_node {
 	struct spa_list ports[2];	/**< list of input and output ports */
 #define SPA_GRAPH_NODE_FLAG_ASYNC	(1 << 0)
 	uint32_t flags;			/**< node flags */
-	struct spa_node *implementation;/**< node implementation */
 	struct spa_graph_state *state;	/**< state of the node */
+	const struct spa_graph_node_callbacks *callbacks;
+	void *callbacks_data;
 	struct spa_list sched_link;	/**< link for scheduler */
 	void *scheduler_data;		/**< scheduler private data */
 };
+
+#define spa_graph_node_process(n)	((n)->callbacks->process((n)->callbacks_data, (n)))
+#define spa_graph_node_reuse_buffer(n,p,i) ((n)->callbacks->reuse_buffer((n)->callbacks_data, (n),(p),(i)))
 
 struct spa_graph_port {
 	struct spa_list link;		/**< link in node port list */
@@ -115,10 +125,12 @@ spa_graph_node_init(struct spa_graph_node *node, struct spa_graph_state *state)
 }
 
 static inline void
-spa_graph_node_set_implementation(struct spa_graph_node *node,
-				  struct spa_node *implementation)
+spa_graph_node_set_callbacks(struct spa_graph_node *node,
+		const struct spa_graph_node_callbacks *callbacks,
+		void *callbacks_data)
 {
-	node->implementation = implementation;
+	node->callbacks = callbacks;
+	node->callbacks_data = callbacks_data;
 }
 
 static inline void
@@ -201,6 +213,45 @@ spa_graph_port_unlink(struct spa_graph_port *port)
 		in->peer = NULL;
 	}
 }
+
+static inline int spa_graph_node_impl_process(void *data, struct spa_graph_node *node)
+{
+	struct spa_graph *g = node->graph;
+	struct spa_node *n = data;
+	//int old = node->state->status, res = 0;
+	int res = 0;
+
+//	if (old == SPA_STATUS_NEED_BUFFER && n->process_input &&
+	if (n->process_input &&
+	    !spa_list_is_empty(&node->ports[SPA_DIRECTION_INPUT]))
+		res = spa_node_process_input(n);
+	else
+		res = spa_node_process_output(n);
+
+	spa_debug("node %p: process %d", node, res);
+
+	node->state->status = res;
+
+	if (res == SPA_STATUS_HAVE_BUFFER)
+		spa_graph_have_output(g, node);
+
+	spa_debug("node %p: end %d", node, res);
+
+        return res;
+}
+
+static inline int spa_graph_node_impl_reuse_buffer(void *data, struct spa_graph_node *node,
+		uint32_t port_id, uint32_t buffer_id)
+{
+	struct spa_node *n = data;
+	return spa_node_port_reuse_buffer(n, port_id, buffer_id);
+}
+
+static const struct spa_graph_node_callbacks spa_graph_node_impl_default = {
+	SPA_VERSION_GRAPH_NODE_CALLBACKS,
+	.process = spa_graph_node_impl_process,
+	.reuse_buffer = spa_graph_node_impl_reuse_buffer,
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -685,11 +685,14 @@ static int schedule_mix_output(struct spa_node *_node)
 	struct spa_graph_port *gp;
 	struct spa_io_buffers *io = port->rt.mix_port.io;
 
+	pw_log_trace("port %p", port);
+
 	spa_list_for_each(gp, &node->ports[SPA_DIRECTION_INPUT], link) {
 		pw_log_trace("port %p: port %d %d %p->%p %d %d", port,
 				gp->port_id, gp->flags, io, gp->io, io->status, io->buffer_id);
 		gp->io->status = io->status;
 	}
+	io->status =  SPA_STATUS_HAVE_BUFFER;
 	return io->status;
 }
 

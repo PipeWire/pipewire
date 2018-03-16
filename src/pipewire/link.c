@@ -925,7 +925,8 @@ static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 
 	pw_log_debug("%d %p", spa_list_is_empty(&port->links), port->allocation.mem);
 
-	if (port->direction == PW_DIRECTION_OUTPUT && !spa_list_is_empty(&port->links))
+//	if (port->direction == PW_DIRECTION_OUTPUT && !spa_list_is_empty(&port->links))
+	if (port->direction == PW_DIRECTION_OUTPUT)
 		return;
 
 	if ((res = pw_port_use_buffers(port,
@@ -1164,12 +1165,22 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	struct impl *impl;
 	struct pw_link *this;
 	struct pw_node *input_node, *output_node;
+	struct spa_graph *in_graph, *out_graph;
 
 	if (output == input)
 		goto same_ports;
 
 	if (pw_link_find(output, input))
 		goto link_exists;
+
+	input_node = input->node;
+	output_node = output->node;
+
+	in_graph = input_node->rt.node.graph;
+	out_graph = output_node->rt.node.graph;
+
+	if (in_graph != NULL && out_graph != NULL && in_graph != out_graph)
+		goto link_not_supported;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -1189,9 +1200,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	this->input = input;
 	this->output = output;
-
-	input_node = input->node;
-	output_node = output->node;
 
 	if (properties) {
 		const char *str = pw_properties_get(properties, PW_LINK_PROP_PASSIVE);
@@ -1235,6 +1243,11 @@ struct pw_link *pw_link_new(struct pw_core *core,
 		     output_node, output->port_id, this->rt.mix[SPA_DIRECTION_OUTPUT].port.port_id,
 		     input_node, input->port_id, this->rt.mix[SPA_DIRECTION_INPUT].port.port_id);
 
+	if (out_graph != NULL)
+		pw_node_join_graph(input_node, out_graph);
+	else if (in_graph != NULL)
+		pw_node_join_graph(output_node, in_graph);
+
 	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, this);
 	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, this);
 
@@ -1245,6 +1258,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	return NULL;
       link_exists:
 	asprintf(error, "link already exists");
+	return NULL;
+      link_not_supported:
+	asprintf(error, "link between drivers not yet supported");
 	return NULL;
       no_mem:
 	asprintf(error, "no memory");

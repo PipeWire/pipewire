@@ -486,7 +486,7 @@ static void do_push(struct node_data *data, enum spa_direction direction)
 
 	spa_list_for_each(p, &node->ports[direction], link) {
 		if (p->peer)
-			spa_node_process_input(p->peer->node->implementation);
+			spa_graph_node_process(p->peer->node);
 	}
 }
 
@@ -497,7 +497,7 @@ static void do_pull(struct node_data *data, enum spa_direction direction)
 
 	spa_list_for_each(p, &node->ports[direction], link) {
 		if (p->peer)
-			spa_node_process_output(p->peer->node->implementation);
+			spa_graph_node_process(p->peer->node);
 	}
 }
 
@@ -532,17 +532,14 @@ static int process_input(struct node_data *data)
 	pw_log_trace("remote %p: process input", data->remote);
 	do_push(data, SPA_DIRECTION_INPUT);
 
-	if (node->implementation->process_input == NULL)
-		res = SPA_STATUS_HAVE_BUFFER;
-	else
-		res = spa_node_process_input(node->implementation);
+	res = spa_graph_node_process(node);
 
 	switch (res) {
 	case SPA_STATUS_HAVE_BUFFER:
 		node_have_output(data);
 		break;
 	case SPA_STATUS_NEED_BUFFER:
-		node_need_input(data);
+//		node_need_input(data);
 		break;
 	}
 	return res;
@@ -556,17 +553,14 @@ static int process_output(struct node_data *data)
 	pw_log_trace("remote %p: process output", data->remote);
 	do_pull(data, SPA_DIRECTION_OUTPUT);
 
-	if (node->implementation->process_output == NULL)
-		res = SPA_STATUS_NEED_BUFFER;
-	else
-		res = spa_node_process_output(node->implementation);
+	res = spa_graph_node_process(node);
 
 	switch (res) {
 	case SPA_STATUS_HAVE_BUFFER:
 		node_have_output(data);
 		break;
 	case SPA_STATUS_NEED_BUFFER:
-		node_need_input(data);
+//		node_need_input(data);
 		break;
 	}
 	return res;
@@ -593,7 +587,7 @@ static void handle_rtnode_message(struct pw_proxy *proxy, struct pw_client_node_
 		uint32_t buffer_id = rb->body.buffer_id.value;
 		struct spa_graph_node *node = &data->node->rt.node;
 
-		spa_node_port_reuse_buffer(node->implementation, port_id, buffer_id);
+		spa_graph_node_reuse_buffer(node, port_id, buffer_id);
 		break;
 	}
 	default:
@@ -895,7 +889,6 @@ static void client_node_event(void *object, const struct spa_event *event)
 
 static void do_start(struct node_data *data)
 {
-	uint64_t cmd = 1;
 	struct mix *mix;
 
 	spa_list_for_each(mix, &data->mix[SPA_DIRECTION_INPUT], link) {
@@ -906,12 +899,15 @@ static void do_start(struct node_data *data)
 		mix->mix.port.io->status = SPA_STATUS_NEED_BUFFER;
 		mix->mix.port.io->buffer_id = SPA_ID_INVALID;
 	}
+#if 0
 	if (!spa_list_is_empty(&data->mix[SPA_DIRECTION_INPUT])) {
+		uint64_t cmd = 1;
 		pw_log_trace("remote %p: send need input", data);
 		pw_client_node_transport_add_message(data->trans,
 				&PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_NEED_INPUT));
 		write(data->rtwritefd, &cmd, 8);
 	}
+#endif
 }
 
 static void client_node_command(void *object, uint32_t seq, const struct spa_command *command)

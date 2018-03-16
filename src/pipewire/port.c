@@ -90,7 +90,7 @@ static int schedule_tee_reuse_buffer(struct spa_node *data, uint32_t port_id, ui
 
 	if ((pp = p->peer) != NULL) {
 		pw_log_trace("port %p: tee reuse buffer %d %d", this, port_id, buffer_id);
-		spa_node_port_reuse_buffer(pp->node->implementation, port_id, buffer_id);
+		spa_graph_node_reuse_buffer(pp->node, port_id, buffer_id);
 	}
 	return 0;
 }
@@ -146,7 +146,7 @@ static int schedule_mix_reuse_buffer(struct spa_node *data, uint32_t port_id, ui
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
 		if ((pp = p->peer) != NULL) {
 			pw_log_trace("port %p: reuse buffer %d %d", this, port_id, buffer_id);
-			spa_node_port_reuse_buffer(pp->node->implementation, port_id, buffer_id);
+			spa_graph_node_reuse_buffer(pp->node, port_id, buffer_id);
 		}
 	}
 	return 0;
@@ -250,7 +250,8 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	this->mix_node = this->direction == PW_DIRECTION_INPUT ?
 				schedule_mix_node :
 				schedule_tee_node;
-	spa_graph_node_set_implementation(&this->rt.mix_node, &this->mix_node);
+	spa_graph_node_set_callbacks(&this->rt.mix_node,
+			&spa_graph_node_impl_default, &this->mix_node);
 	pw_map_init(&this->mix_port_map, 64, 64);
 
 	spa_graph_port_init(&this->rt.mix_port,
@@ -332,9 +333,11 @@ static int do_add_port(struct spa_loop *loop,
 
 	this->rt.port.flags = this->spa_info->flags;
 	spa_graph_port_add(&this->node->rt.node, &this->rt.port);
-	spa_graph_node_add(this->rt.graph, &this->rt.mix_node);
 	spa_graph_port_add(&this->rt.mix_node, &this->rt.mix_port);
 	spa_graph_port_link(&this->rt.port, &this->rt.mix_port);
+
+	if (this->rt.mix_node.graph)
+		spa_graph_node_add(this->rt.mix_node.graph, &this->rt.mix_node);
 
 	return 0;
 }
@@ -508,7 +511,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		pw_port_register(port, node->global->owner, node->global,
 				pw_properties_copy(port->properties));
 
-	port->rt.graph = node->rt.graph;
+	port->rt.mix_node.graph = node->rt.node.graph;
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);
 
 	if (port->state <= PW_PORT_STATE_INIT)
@@ -546,7 +549,9 @@ static int do_remove_port(struct spa_loop *loop,
 		spa_graph_port_remove(p);
 
 	spa_graph_port_remove(&this->rt.mix_port);
-	spa_graph_node_remove(&this->rt.mix_node);
+	if (this->rt.mix_node.graph)
+		spa_graph_node_remove(&this->rt.mix_node);
+	this->rt.mix_node.graph = NULL;
 
 	return 0;
 }

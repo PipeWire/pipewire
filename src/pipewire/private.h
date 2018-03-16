@@ -163,10 +163,6 @@ struct pw_core {
 	struct pw_client *current_client;	/**< client currently executing code in mainloop */
 
 	long sc_pagesize;
-
-	struct {
-		struct spa_graph graph;
-	} rt;
 };
 
 struct pw_data_loop {
@@ -255,6 +251,7 @@ struct pw_node {
 	bool enabled;			/**< if the node is enabled */
 	bool active;			/**< if the node is active */
 	bool live;			/**< if the node is live */
+	bool driver;			/**< if the node drives the graph */
 	struct spa_clock *clock;	/**< handle to SPA clock if any */
 	struct spa_node *node;		/**< SPA node implementation */
 
@@ -275,7 +272,6 @@ struct pw_node {
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
 	struct {
-		struct spa_graph *graph;
 		struct spa_graph_node node;
 		struct spa_list links[2];
 		struct pw_node_activation *activation;
@@ -336,7 +332,6 @@ struct pw_port {
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */
 
 	struct {
-		struct spa_graph *graph;
 		struct spa_io_buffers io;	/**< io area of the port */
 		struct spa_graph_port port;	/**< this graph port, linked to mix_port */
 		struct spa_graph_port mix_port;	/**< port from the mixer */
@@ -598,6 +593,8 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state);
 void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *error);
 
 int pw_node_update_ports(struct pw_node *node);
+
+int pw_node_join_graph(struct pw_node *node, struct spa_graph *graph);
 
 /** Activate a link \memberof pw_link
   * Starts the negotiation of formats and buffers on \a link and then

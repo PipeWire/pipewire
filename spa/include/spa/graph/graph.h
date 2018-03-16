@@ -47,10 +47,32 @@ struct spa_graph_callbacks {
 };
 
 struct spa_graph {
-	struct spa_list nodes;
+	struct spa_list link;		/* link for subgraph */
+	struct spa_graph *parent;	/* parent graph or NULL when driver */
+	struct spa_list nodes;		/* list of nodes of this graph */
+	struct spa_list subgraphs;	/* list of subgraphs */
 	const struct spa_graph_callbacks *callbacks;
 	void *callbacks_data;
 };
+
+static inline struct spa_graph * spa_graph_find_root(struct spa_graph *graph)
+{
+	while (graph->parent)
+		graph = graph->parent;
+	return graph;
+}
+
+static inline void spa_graph_add_subgraph(struct spa_graph *graph, struct spa_graph *subgraph)
+{
+	subgraph->parent = graph;
+	spa_list_append(&graph->subgraphs, &subgraph->link);
+}
+
+static inline void spa_graph_remove_subgraph(struct spa_graph *subgraph)
+{
+	subgraph->parent = NULL;
+	spa_list_remove(&subgraph->link);
+}
 
 #define spa_graph_need_input(g,n)	((g)->callbacks->need_input((g)->callbacks_data, (n)))
 #define spa_graph_have_output(g,n)	((g)->callbacks->have_output((g)->callbacks_data, (n)))
@@ -101,6 +123,7 @@ struct spa_graph_port {
 static inline void spa_graph_init(struct spa_graph *graph)
 {
 	spa_list_init(&graph->nodes);
+	spa_list_init(&graph->subgraphs);
 }
 
 static inline void

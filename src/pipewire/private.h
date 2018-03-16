@@ -594,8 +594,6 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 
 int pw_node_update_ports(struct pw_node *node);
 
-int pw_node_join_graph(struct pw_node *node, struct spa_graph *graph);
-
 /** Activate a link \memberof pw_link
   * Starts the negotiation of formats and buffers on \a link and then
   * starts data streaming */

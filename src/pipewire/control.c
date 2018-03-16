@@ -54,7 +54,8 @@ pw_control_new(struct pw_core *core,
 				":", t->param.propId, "I", &this->prop_id) < 0)
 		goto exit_free;
 
-	pw_log_debug("control %p: new %s %d", this, spa_type_map_get_type(t->map, this->prop_id), direction);
+	pw_log_debug("control %p: new %s %d", this,
+			spa_type_map_get_type(t->map, this->prop_id), direction);
 
 	this->core = core;
 	this->port = port;
@@ -184,6 +185,12 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 					     port->direction, port->port_id,
 					     control->id,
 					     impl->mem->ptr, control->size)) < 0) {
+				/* undo */
+				port = other->port;
+				spa_node_port_set_io(port->node->node,
+	                                     port->direction, port->port_id,
+	                                     other->id,
+	                                     NULL, 0);
 				goto exit;
 			}
 		}
@@ -203,6 +210,8 @@ int pw_control_unlink(struct pw_control *control, struct pw_control *other)
 {
 	int res = 0;
 
+	pw_log_debug("control %p: unlink from %p", control, other);
+
 	if (control->direction == SPA_DIRECTION_INPUT) {
 		struct pw_control *tmp = control;
 		control = other;
@@ -214,8 +223,6 @@ int pw_control_unlink(struct pw_control *control, struct pw_control *other)
 
 	if (other->output != control)
 		return -EINVAL;
-
-	pw_log_debug("control %p: unlink from %p", control, other);
 
 	other->output = NULL;
 	spa_list_remove(&other->inputs_link);

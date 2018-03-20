@@ -35,7 +35,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/format-utils.h>
 #include <spa/graph/graph.h>
-#include <spa/graph/graph-scheduler1.h>
+#include <spa/graph/graph-scheduler2.h>
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
@@ -63,6 +63,7 @@ struct data {
 	int writers;
 	struct version version;
 	struct spa_graph graph[2];
+	struct spa_graph_state graph_state[2];
 
 	struct spa_graph_node source_node[2];
 	struct spa_graph_port source_out[2];
@@ -229,8 +230,8 @@ int main(int argc, char *argv[])
 	struct data data = { NULL };
 	const char *str;
 
-	spa_graph_init(&data.graph[0]);
-	spa_graph_init(&data.graph[1]);
+	spa_graph_init(&data.graph[0], &data.graph_state[0]);
+	spa_graph_init(&data.graph[1], &data.graph_state[1]);
 
 	data.map = &default_map.map;
 	data.log = &default_log.log;

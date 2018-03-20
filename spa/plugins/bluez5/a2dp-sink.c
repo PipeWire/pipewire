@@ -312,7 +312,7 @@ static inline void try_pull(struct impl *this, uint32_t frames, bool do_pull)
 			this->range->min_size = this->threshold * this->frame_size;
 			this->range->max_size = frames * this->frame_size;
 		}
-		this->callbacks->need_input(this->callbacks_data);
+		this->callbacks->process(this->callbacks_data, SPA_STATUS_NEED_BUFFER);
 	}
 }
 
@@ -1257,7 +1257,7 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
-static int impl_node_process_input(struct spa_node *node)
+static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
 	struct spa_io_buffers *input;
@@ -1285,11 +1285,6 @@ static int impl_node_process_input(struct spa_node *node)
 		input->status = SPA_STATUS_OK;
 	}
 	return SPA_STATUS_OK;
-}
-
-static int impl_node_process_output(struct spa_node *node)
-{
-	return -ENOTSUP;
 }
 
 static const struct spa_dict_item node_info_items[] = {
@@ -1320,8 +1315,7 @@ static const struct spa_node impl_node = {
 	impl_node_port_set_io,
 	impl_node_port_reuse_buffer,
 	impl_node_port_send_command,
-	impl_node_process_input,
-	impl_node_process_output,
+	impl_node_process,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)

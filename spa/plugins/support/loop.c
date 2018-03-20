@@ -269,15 +269,20 @@ static void wakeup_func(void *data, uint64_t count)
 	struct impl *impl = data;
 	uint32_t index;
 	while (spa_ringbuffer_get_read_index(&impl->buffer, &index) > 0) {
-		struct invoke_item *item =
-		    SPA_MEMBER(impl->buffer_data, index & (DATAS_SIZE - 1), struct invoke_item);
+		struct invoke_item *item;
+		bool block;
+
+		item = SPA_MEMBER(impl->buffer_data, index & (DATAS_SIZE - 1), struct invoke_item);
+		block = item->block;
+
 		item->res = item->func(&impl->loop, true, item->seq, item->data, item->size,
 			   item->user_data);
+
 		spa_ringbuffer_read_update(&impl->buffer, index + item->item_size);
 
-		if (item->block) {
-			uint64_t count = 1;
-			if (write(impl->ack_fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+		if (block) {
+			uint64_t c = 1;
+			if (write(impl->ack_fd, &c, sizeof(uint64_t)) != sizeof(uint64_t))
 				spa_log_warn(impl->log, NAME " %p: failed to write event fd: %s",
 						impl, strerror(errno));
 		}

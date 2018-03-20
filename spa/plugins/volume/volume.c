@@ -799,56 +799,12 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 	dd[0].chunk->stride = 0;
 }
 
-static int impl_node_process_input(struct spa_node *node)
+static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
-	struct spa_io_buffers *input, *output;
 	struct port *in_port, *out_port;
+	struct spa_io_buffers *input, *output;
 	struct spa_buffer *dbuf, *sbuf;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	out_port = GET_OUT_PORT(this, 0);
-	output = out_port->io;
-	spa_return_val_if_fail(output != NULL, -EIO);
-
-	if (output->status == SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_HAVE_BUFFER;
-
-	in_port = GET_IN_PORT(this, 0);
-	input = in_port->io;
-	spa_return_val_if_fail(input != NULL, -EIO);
-
-	if (input->buffer_id >= in_port->n_buffers) {
-		input->status = -EINVAL;
-		return -EINVAL;
-	}
-
-	if ((dbuf = find_free_buffer(this, out_port)) == NULL) {
-                spa_log_error(this->log, NAME " %p: out of buffers", this);
-		return -EPIPE;
-	}
-
-	sbuf = in_port->buffers[input->buffer_id].outbuf;
-
-	input->status = SPA_STATUS_OK;
-
-	spa_log_trace(this->log, NAME " %p: do volume %d -> %d", this, sbuf->id, dbuf->id);
-	do_volume(this, dbuf, sbuf);
-
-	output->buffer_id = dbuf->id;
-	output->status = SPA_STATUS_HAVE_BUFFER;
-
-	return SPA_STATUS_HAVE_BUFFER;
-}
-
-static int impl_node_process_output(struct spa_node *node)
-{
-	struct impl *this;
-	struct port *in_port, *out_port;
-	struct spa_io_buffers *input, *output;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -871,11 +827,32 @@ static int impl_node_process_output(struct spa_node *node)
 	input = in_port->io;
 	spa_return_val_if_fail(input != NULL, -EIO);
 
+	if (input->status != SPA_STATUS_HAVE_BUFFER)
+		return SPA_STATUS_NEED_BUFFER;
+
+	if (input->buffer_id >= in_port->n_buffers) {
+		input->status = -EINVAL;
+		return -EINVAL;
+	}
+
+	if ((dbuf = find_free_buffer(this, out_port)) == NULL) {
+                spa_log_error(this->log, NAME " %p: out of buffers", this);
+		return -EPIPE;
+	}
+
+	sbuf = in_port->buffers[input->buffer_id].outbuf;
+
+	spa_log_trace(this->log, NAME " %p: do volume %d -> %d", this, sbuf->id, dbuf->id);
+	do_volume(this, dbuf, sbuf);
+
+	output->buffer_id = dbuf->id;
+	output->status = SPA_STATUS_HAVE_BUFFER;
+
 	if (in_port->range && out_port->range)
 		*in_port->range = *out_port->range;
 	input->status = SPA_STATUS_NEED_BUFFER;
 
-	return SPA_STATUS_NEED_BUFFER;
+	return SPA_STATUS_HAVE_BUFFER;
 }
 
 static const struct spa_node impl_node = {
@@ -897,8 +874,7 @@ static const struct spa_node impl_node = {
 	impl_node_port_set_io,
 	impl_node_port_reuse_buffer,
 	impl_node_port_send_command,
-	impl_node_process_input,
-	impl_node_process_output,
+	impl_node_process,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)

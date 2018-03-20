@@ -943,6 +943,7 @@ static int mix_output(struct impl *this, size_t n_bytes)
 	return SPA_STATUS_HAVE_BUFFER;
 }
 
+#if 0
 static int impl_node_process_input(struct spa_node *node)
 {
 	struct impl *this;
@@ -1005,8 +1006,9 @@ static int impl_node_process_input(struct spa_node *node)
 	}
 	return outio->status;
 }
+#endif
 
-static int impl_node_process_output(struct spa_node *node)
+static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
 	struct port *outport;
@@ -1087,8 +1089,7 @@ static const struct spa_node impl_node = {
 	impl_node_port_set_io,
 	impl_node_port_reuse_buffer,
 	impl_node_port_send_command,
-	impl_node_process_input,
-	impl_node_process_output,
+	impl_node_process,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)

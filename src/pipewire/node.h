@@ -83,10 +83,8 @@ struct pw_node_events {
         /** an event is emited */
 	void (*event) (void *data, const struct spa_event *event);
 
-        /** the node wants input */
-	void (*need_input) (void *data);
-        /** the node has output */
-	void (*have_output) (void *data);
+        /** the node wants to process the graph */
+	void (*process) (void *data);
         /** the node has a buffer to reuse */
 	void (*reuse_buffer) (void *data, uint32_t port_id, uint32_t buffer_id);
 };

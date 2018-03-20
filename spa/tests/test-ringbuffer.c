@@ -214,7 +214,7 @@ static void on_sink_event(void *data, struct spa_event *event)
 	printf("got event %d\n", SPA_EVENT_TYPE(event));
 }
 
-static void on_sink_need_input(void *_data)
+static void on_sink_process(void *_data, int status)
 {
 	struct data *data = _data;
 	int res;
@@ -222,7 +222,6 @@ static void on_sink_need_input(void *_data)
 	res = spa_node_process(data->source);
 	if (res != SPA_STATUS_HAVE_BUFFER)
 		printf("got process error from source %d\n", res);
-
 	if ((res = spa_node_process(data->sink)) < 0)
 		printf("got process error from sink %d\n", res);
 }
@@ -240,7 +239,7 @@ static const struct spa_node_callbacks sink_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.done = on_sink_done,
 	.event = on_sink_event,
-	.need_input = on_sink_need_input,
+	.process = on_sink_process,
 	.reuse_buffer = on_sink_reuse_buffer
 };
 

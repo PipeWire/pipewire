@@ -349,7 +349,7 @@ static inline void try_pull(struct state *state, snd_pcm_uframes_t frames,
 			state->range->min_size = state->threshold * state->frame_size;
 			state->range->max_size = frames * state->frame_size;
 		}
-		state->callbacks->need_input(state->callbacks_data);
+		state->callbacks->process(state->callbacks_data, SPA_STATUS_NEED_BUFFER);
 	}
 }
 
@@ -480,7 +480,7 @@ push_frames(struct state *state,
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		io->buffer_id = b->outbuf->id;
 		io->status = SPA_STATUS_HAVE_BUFFER;
-		state->callbacks->have_output(state->callbacks_data);
+		state->callbacks->process(state->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 	}
 	return total_frames;
 }

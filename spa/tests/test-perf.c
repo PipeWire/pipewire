@@ -36,7 +36,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/format-utils.h>
 #include <spa/graph/graph.h>
-#include <spa/graph/graph-scheduler1.h>
+#include <spa/graph/graph-scheduler2.h>
 
 #define MODE_SYNC_PUSH          (1<<0)
 #define MODE_SYNC_PULL          (1<<1)
@@ -109,6 +109,7 @@ struct data {
 	int iterations;
 
 	struct spa_graph graph;
+	struct spa_graph_state graph_state;
 	struct spa_graph_data graph_data;
 	struct spa_graph_node source_node;
 	struct spa_graph_state source_state;
@@ -232,7 +233,7 @@ static void on_sink_pull(struct data *data)
 		spa_node_process(data->source);
 		spa_node_process(data->sink);
 	} else {
-		spa_graph_need_input(&data->graph, &data->sink_node);
+		spa_graph_node_trigger(&data->sink_node);
 	}
 }
 
@@ -243,7 +244,7 @@ static void on_source_push(struct data *data)
 		spa_node_process(data->source);
 		spa_node_process(data->sink);
 	} else {
-		spa_graph_have_output(&data->graph, &data->source_node);
+		spa_graph_node_trigger(&data->source_node);
 	}
 }
 
@@ -259,7 +260,7 @@ static void on_sink_event(void *_data, struct spa_event *event)
 	spa_log_trace(data->log, "got sink event %d", SPA_EVENT_TYPE(event));
 }
 
-static void on_sink_need_input(void *_data)
+static void on_sink_process(void *_data, int status)
 {
 	struct data *data = _data;
 	spa_log_trace(data->log, "need input");
@@ -280,7 +281,7 @@ static const struct spa_node_callbacks sink_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.done = on_sink_done,
 	.event = on_sink_event,
-	.need_input = on_sink_need_input,
+	.process = on_sink_process,
 	.reuse_buffer = on_sink_reuse_buffer
 };
 
@@ -296,7 +297,7 @@ static void on_source_event(void *_data, struct spa_event *event)
 	spa_log_trace(data->log, "got source event %d", SPA_EVENT_TYPE(event));
 }
 
-static void on_source_have_output(void *_data)
+static void on_source_process(void *_data, int status)
 {
 	struct data *data = _data;
 	spa_log_trace(data->log, "have_output");
@@ -309,7 +310,7 @@ static const struct spa_node_callbacks source_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.done = on_source_done,
 	.event = on_source_event,
-	.have_output = on_source_have_output
+	.process = on_source_process
 };
 
 
@@ -378,7 +379,6 @@ static int make_nodes(struct data *data)
 	spa_graph_node_set_callbacks(&data->source_node, &spa_graph_node_impl_default, data->source);
 	spa_graph_node_add(&data->graph, &data->source_node);
 
-	data->source_node.flags = (data->mode & MODE_ASYNC_PUSH) ? SPA_GRAPH_NODE_FLAG_ASYNC : 0;
 	spa_graph_port_init( &data->source_out, SPA_DIRECTION_OUTPUT, 0, 0, &data->source_sink_io[0]);
 	spa_graph_port_add(&data->source_node, &data->source_out);
 
@@ -386,7 +386,6 @@ static int make_nodes(struct data *data)
 	spa_graph_node_set_callbacks(&data->sink_node, &spa_graph_node_impl_default, data->sink);
 	spa_graph_node_add(&data->graph, &data->sink_node);
 
-	data->sink_node.flags = (data->mode & MODE_ASYNC_PULL) ? SPA_GRAPH_NODE_FLAG_ASYNC : 0;
 	spa_graph_port_init(&data->sink_in, SPA_DIRECTION_INPUT, 0, 0, &data->source_sink_io[0]);
 	spa_graph_port_add(&data->sink_node, &data->sink_in);
 
@@ -545,7 +544,7 @@ int main(int argc, char *argv[])
 	int res;
 	const char *str;
 
-	spa_graph_init(&data.graph);
+	spa_graph_init(&data.graph, &data.graph_state);
 	spa_graph_data_init(&data.graph_data, &data.graph);
 	spa_graph_set_callbacks(&data.graph, &spa_graph_impl_default, &data.graph_data);
 

@@ -138,8 +138,6 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 			    0,
 			    NULL);
 
-	mix->port.scheduler_data = port;
-
 	if (pi && pi->init_mix)
 		res = pi->init_mix(port->implementation_data, mix);
 
@@ -226,8 +224,6 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 			    &this->rt.io);
 	this->rt.io.status = SPA_STATUS_NEED_BUFFER;
 
-	this->rt.mix_port.scheduler_data = this;
-	this->rt.port.scheduler_data = this;
 
 	return this;
 
@@ -295,12 +291,24 @@ static int do_add_port(struct spa_loop *loop,
 		       bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_port *this = user_data;
+	struct spa_graph_node *out, *in;
 
 	this->rt.port.flags = this->spa_info->flags;
 	spa_graph_port_add(&this->node->rt.node, &this->rt.port);
 	spa_graph_port_add(&this->rt.mix_node, &this->rt.mix_port);
 	spa_graph_port_link(&this->rt.port, &this->rt.mix_port);
 	spa_graph_node_add(this->node->rt.node.graph, &this->rt.mix_node);
+
+	if (this->direction == PW_DIRECTION_INPUT) {
+		out = &this->rt.mix_node;
+		in = &this->node->rt.node;
+	} else {
+		out = &this->node->rt.node;
+		in = &this->rt.mix_node;
+	}
+	spa_graph_link_add(out, in->state, &this->rt.mix_link);
+	this->rt.mix_link.signal = spa_graph_link_signal_node;
+	this->rt.mix_link.signal_data = in;
 
 	return 0;
 }
@@ -474,7 +482,6 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		pw_port_register(port, node->global->owner, node->global,
 				pw_properties_copy(port->properties));
 
-	port->rt.mix_node.graph = node->rt.node.graph;
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);
 
 	if (port->state <= PW_PORT_STATE_INIT)
@@ -503,14 +510,10 @@ static int do_remove_port(struct spa_loop *loop,
 			  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_port *this = user_data;
-	struct spa_graph_port *p;
 
+	spa_graph_link_remove(&this->rt.mix_link);
 	spa_graph_port_unlink(&this->rt.port);
 	spa_graph_port_remove(&this->rt.port);
-
-	spa_list_for_each(p, &this->rt.mix_node.ports[this->direction], link)
-		spa_graph_port_remove(p);
-
 	spa_graph_port_remove(&this->rt.mix_port);
 	spa_graph_node_remove(&this->rt.mix_node);
 
@@ -552,6 +555,7 @@ void pw_port_destroy(struct pw_port *port)
 
 	pw_port_remove(port);
 
+	pw_log_debug("port %p: control destroy", port);
 	spa_list_for_each_safe(control, ctemp, &port->control_list[0], port_link)
 		pw_control_destroy(control);
 	spa_list_for_each_safe(control, ctemp, &port->control_list[1], port_link)

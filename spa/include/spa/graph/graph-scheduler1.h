@@ -140,8 +140,7 @@ static inline int spa_graph_impl_run(void *data)
 
 static const struct spa_graph_callbacks spa_graph_impl_default = {
 	SPA_VERSION_GRAPH_CALLBACKS,
-	.need_input = spa_graph_impl_need_input,
-	.have_output = spa_graph_impl_have_output,
+	.trigger = spa_graph_impl_have_output,
 };
 
 #ifdef __cplusplus

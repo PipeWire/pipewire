@@ -790,7 +790,9 @@ do_activate_link(struct spa_loop *loop,
 	spa_graph_port_add(&this->input->rt.mix_node, &this->rt.mix[SPA_DIRECTION_INPUT].port);
 	spa_graph_port_link(&this->rt.mix[SPA_DIRECTION_OUTPUT].port,
 			    &this->rt.mix[SPA_DIRECTION_INPUT].port);
-
+	spa_graph_link_add(&this->output->node->rt.root,
+			   this->input->node->rt.root.state,
+			   &this->rt.link);
 	return 0;
 }
 
@@ -1031,6 +1033,7 @@ do_deactivate_link(struct spa_loop *loop,
 	spa_graph_port_unlink(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);
 	spa_graph_port_remove(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);
 	spa_graph_port_remove(&this->rt.mix[SPA_DIRECTION_INPUT].port);
+	spa_graph_link_remove(&this->rt.link);
 
 	return 0;
 }
@@ -1160,21 +1163,23 @@ do_join_graphs(struct spa_loop *loop,
 {
         struct pw_link *this = user_data;
 	struct spa_graph *in_graph, *out_graph;
-	struct spa_graph *in_root, *out_root;
 
-	in_graph = this->input->node->rt.node.graph;
-	out_graph = this->output->node->rt.node.graph;
+	in_graph = this->input->node->rt.root.graph;
+	out_graph = this->output->node->rt.root.graph;
 
-	in_root = spa_graph_find_root(in_graph);
-	out_root = spa_graph_find_root(out_graph);
+	if (in_graph != out_graph) {
+		if (SPA_FLAG_CHECK(in_graph->flags, SPA_GRAPH_FLAG_DRIVER)) {
+			spa_graph_node_remove(&this->output->node->rt.root);
+			spa_graph_node_add(in_graph, &this->output->node->rt.root);
+		}
+		else {
+			spa_graph_node_remove(&this->input->node->rt.root);
+			spa_graph_node_add(out_graph, &this->input->node->rt.root);
+		}
+	}
+	this->rt.link.signal = spa_graph_link_signal_node;
+	this->rt.link.signal_data = &this->input->node->rt.root;
 
-	if (out_root == in_root)
-		return 0;
-
-	if (SPA_FLAG_CHECK(in_root->flags, SPA_GRAPH_FLAG_DRIVER))
-		spa_graph_add_subgraph(in_root, out_root);
-	else
-		spa_graph_add_subgraph(out_root, in_root);
 	return 0;
 }
 
@@ -1189,8 +1194,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	struct impl *impl;
 	struct pw_link *this;
 	struct pw_node *input_node, *output_node;
-	struct spa_graph *in_graph, *out_graph;
-	struct spa_graph *in_root, *out_root;
 
 	if (output == input)
 		goto same_ports;
@@ -1200,21 +1203,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	input_node = input->node;
 	output_node = output->node;
-
-	in_graph = input_node->rt.node.graph;
-	out_graph = output_node->rt.node.graph;
-
-	pw_log_debug("link new %p %p", in_graph, out_graph);
-
-	in_root = spa_graph_find_root(in_graph);
-	out_root = spa_graph_find_root(out_graph);
-
-	pw_log_debug("link new %p %p", in_root, out_root);
-
-	if (SPA_FLAG_CHECK(in_root->flags, SPA_GRAPH_FLAG_DRIVER) &&
-	    SPA_FLAG_CHECK(out_root->flags, SPA_GRAPH_FLAG_DRIVER) &&
-	    in_root != out_root)
-		goto link_not_supported;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -1290,9 +1278,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	return NULL;
       link_exists:
 	asprintf(error, "link already exists");
-	return NULL;
-      link_not_supported:
-	asprintf(error, "link between drivers not yet supported");
 	return NULL;
       no_mem:
 	asprintf(error, "no memory");

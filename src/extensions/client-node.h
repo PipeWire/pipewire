@@ -97,10 +97,7 @@ struct pw_client_node_transport {
 #define pw_client_node_transport_parse_message(t,m)	((t)->parse_message((t), (m)))
 
 enum pw_client_node_message_type {
-	PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT,		/*< signal that the node has output */
-	PW_CLIENT_NODE_MESSAGE_NEED_INPUT,		/*< signal that the node needs input */
-	PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT,		/*< instruct the node to process input */
-	PW_CLIENT_NODE_MESSAGE_PROCESS_OUTPUT,		/*< instruct the node output is processed */
+	PW_CLIENT_NODE_MESSAGE_PROCESS,			/*< instruct the node to process */
 	PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER,	/*< reuse a buffer */
 };
 

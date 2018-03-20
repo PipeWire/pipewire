@@ -437,12 +437,7 @@ spa_ffmpeg_dec_node_port_set_io(struct spa_node *node,
 	return 0;
 }
 
-static int spa_ffmpeg_dec_node_process_input(struct spa_node *node)
-{
-	return -EINVAL;
-}
-
-static int spa_ffmpeg_dec_node_process_output(struct spa_node *node)
+static int spa_ffmpeg_dec_node_process(struct spa_node *node)
 {
 	struct impl *this;
 	struct port *port;
@@ -508,8 +503,7 @@ static const struct spa_node ffmpeg_dec_node = {
 	spa_ffmpeg_dec_node_port_set_io,
 	spa_ffmpeg_dec_node_port_reuse_buffer,
 	spa_ffmpeg_dec_node_port_send_command,
-	spa_ffmpeg_dec_node_process_input,
-	spa_ffmpeg_dec_node_process_output,
+	spa_ffmpeg_dec_node_process,
 };
 
 static int

@@ -433,7 +433,7 @@ static void on_output(struct spa_source *source)
 	res = make_buffer(this);
 
 	if (res == SPA_STATUS_HAVE_BUFFER)
-		this->callbacks->have_output(this->callbacks_data);
+		this->callbacks->process(this->callbacks_data, res);
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -1010,12 +1010,7 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
-static int impl_node_process_input(struct spa_node *node)
-{
-	return -ENOTSUP;
-}
-
-static int impl_node_process_output(struct spa_node *node)
+static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
 	struct spa_io_buffers *io;
@@ -1068,8 +1063,7 @@ static const struct spa_node impl_node = {
 	impl_node_port_set_io,
 	impl_node_port_reuse_buffer,
 	impl_node_port_send_command,
-	impl_node_process_input,
-	impl_node_process_output,
+	impl_node_process,
 };
 
 static int impl_clock_enum_params(struct spa_clock *clock, uint32_t id, uint32_t *index,

@@ -593,12 +593,7 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
-static int impl_node_process_input(struct spa_node *node)
-{
-	return -ENOTSUP;
-}
-
-static int impl_node_process_output(struct spa_node *node)
+static int impl_node_process(struct spa_node *node)
 {
 	struct state *this;
 	struct spa_io_buffers *io;
@@ -647,8 +642,7 @@ static const struct spa_node impl_node = {
 	impl_node_port_set_io,
 	impl_node_port_reuse_buffer,
 	impl_node_port_send_command,
-	impl_node_process_input,
-	impl_node_process_output,
+	impl_node_process,
 };
 
 static int impl_clock_enum_params(struct spa_clock *clock, uint32_t id, uint32_t *index,

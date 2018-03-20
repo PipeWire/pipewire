@@ -42,7 +42,7 @@ static SPA_LOG_IMPL(default_log);
 #define spa_debug(f,...) spa_log_trace(&default_log.log, f, __VA_ARGS__)
 
 #include <spa/graph/graph.h>
-#include <spa/graph/graph-scheduler1.h>
+#include <spa/graph/graph-scheduler2.h>
 
 #include <lib/debug.h>
 
@@ -107,6 +107,7 @@ struct data {
 	uint32_t n_support;
 
 	struct spa_graph graph;
+	struct spa_graph_state graph_state;
 	struct spa_graph_data graph_data;
 	struct spa_graph_node source_node;
 	struct spa_graph_state source_state;
@@ -239,17 +240,16 @@ static void on_sink_event(void *data, struct spa_event *event)
 	printf("got event %d\n", SPA_EVENT_TYPE(event));
 }
 
-static void on_sink_need_input(void *_data)
+static void on_sink_process(void *_data, int status)
 {
 	struct data *data = _data;
-	spa_graph_need_input(&data->graph, &data->sink_node);
+	spa_graph_node_process(&data->sink_node);
 }
 
 static void
 on_sink_reuse_buffer(void *_data, uint32_t port_id, uint32_t buffer_id)
 {
 	struct data *data = _data;
-
 	data->volume_sink_io[0].buffer_id = buffer_id;
 }
 
@@ -257,7 +257,7 @@ static const struct spa_node_callbacks sink_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.done = on_sink_done,
 	.event = on_sink_event,
-	.need_input = on_sink_need_input,
+	.process = on_sink_process,
 	.reuse_buffer = on_sink_reuse_buffer
 };
 
@@ -557,7 +557,7 @@ int main(int argc, char *argv[])
 	int res;
 	const char *str;
 
-	spa_graph_init(&data.graph);
+	spa_graph_init(&data.graph, &data.graph_state);
 	spa_graph_data_init(&data.graph_data, &data.graph);
 	spa_graph_set_callbacks(&data.graph, &spa_graph_impl_default, &data.graph_data);
 

@@ -828,6 +828,8 @@ static int impl_node_process(struct spa_node *node)
 	io = port->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
+	spa_log_trace(port->log, NAME " %p; status %d", node, io->status);
+
 	if (io->status == SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_HAVE_BUFFER;
 
@@ -861,6 +863,8 @@ static int impl_node_process(struct spa_node *node)
 
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
+
+	spa_log_trace(port->log, NAME " %p: dequeue buffer %d", node, b->outbuf->id);
 
 	io->buffer_id = b->outbuf->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;

@@ -272,10 +272,11 @@ struct pw_node {
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
 	struct {
-		struct spa_graph_node node;
-		struct spa_list links[2];
+		struct spa_graph_node root;
 		struct pw_node_activation *activation;
-		struct spa_list sched_link;
+		struct spa_graph_node node;
+		struct spa_graph_node subnode;
+		struct spa_graph_link sublink;
 	} rt;
 
         void *user_data;                /**< extra user data */
@@ -336,6 +337,7 @@ struct pw_port {
 		struct spa_graph_port port;	/**< this graph port, linked to mix_port */
 		struct spa_graph_port mix_port;	/**< port from the mixer */
 		struct spa_graph_node mix_node;	/**< mixer node */
+		struct spa_graph_link mix_link;	/**< mixer link */
 		struct spa_graph_state mix_state;	/**< mixer state */
 	} rt;					/**< data only accessed from the data thread */
 
@@ -369,8 +371,7 @@ struct pw_link {
 
 	struct {
 		struct pw_port_mix mix[2];
-		struct spa_list in_node_link;
-		struct spa_list out_node_link;
+		struct spa_graph_link link;	/**< nodes link */
 	} rt;
 
 	void *user_data;

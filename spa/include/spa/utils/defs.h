@@ -29,6 +29,7 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdio.h>
 
 
 #define SPA_ASYNC_BIT			(1 << 30)
@@ -155,8 +156,20 @@ struct spa_fraction {
 #define spa_assert_se(expr)						\
 	do {								\
 		if (SPA_UNLIKELY(!(expr)))				\
+			fprintf(stderr, "'%s' failed at %s:%u %s()",	\
+				#expr , __FILE__, __LINE__, __func__);	\
 			abort();					\
 	} while (false)
+
+#define spa_assert(expr)						\
+	do {								\
+		if (SPA_UNLIKELY(!(expr))) {				\
+			fprintf(stderr, "'%s' failed at %s:%u %s()",	\
+				#expr , __FILE__, __LINE__, __func__);	\
+			abort();					\
+		}							\
+	} while (false)
+
 
 /* Does exactly nothing */
 #define spa_nop() do {} while (false)

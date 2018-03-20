@@ -1181,7 +1181,7 @@ static int mmap_read(struct impl *this)
 	spa_list_append(&port->queue, &b->link);
 
 	spa_log_trace(port->log, "v4l2 %p: have output %d", this, buf.index);
-	this->callbacks->have_output(this->callbacks_data);
+	this->callbacks->process(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 
 	return 0;
 }

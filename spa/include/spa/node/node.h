@@ -83,23 +83,13 @@ struct spa_node_callbacks {
 	/**
 	 * \param node a spa_node
 	 *
-	 * The node needs more input. This callback is called from the
+	 * The node is ready for processing. This callback is called from the
 	 * data thread.
 	 *
 	 * When this function is NULL, synchronous operation is requested
-	 * on the input ports.
+	 * on the ports.
 	 */
-	void (*need_input) (void *data);
-	/**
-	 * \param node a spa_node
-	 *
-	 * The node has output input. This callback is called from the
-	 * data thread.
-	 *
-	 * When this function is NULL, synchronous operation is requested
-	 * on the output ports.
-	 */
-	void (*have_output) (void *data);
+	void (*process) (void *data, int state);
 
 	/**
 	 * \param node a spa_node

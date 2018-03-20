@@ -148,9 +148,6 @@ struct impl {
 
 	int fds[2];
 	int other_fds[2];
-
-	uint32_t input_ready;
-	bool out_pending;
 };
 
 /** \endcond */
@@ -845,48 +842,14 @@ impl_node_port_send_command(struct spa_node *node,
 static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
-	struct impl *impl = this->impl;
-	int res;
+	uint64_t cmd = 1;
 
-	pw_log_trace("client-node %p: send process input", this);
-	pw_client_node_transport_add_message(impl->transport,
-		       &PW_CLIENT_NODE_MESSAGE_INIT(PW_CLIENT_NODE_MESSAGE_PROCESS_INPUT));
-	do_flush(this);
-	res = SPA_STATUS_OK;
-	return res;
-}
+	pw_log_trace("client-node %p: send process", this);
 
-static int handle_node_message(struct node *this, struct pw_client_node_message *message)
-{
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, node);
+	if (write(this->writefd, &cmd, 8) != 8)
+		spa_log_warn(this->log, "node %p: error flushing : %s", this, strerror(errno));
 
-	switch (PW_CLIENT_NODE_MESSAGE_TYPE(message)) {
-	case PW_CLIENT_NODE_MESSAGE_HAVE_OUTPUT:
-		impl->out_pending = false;
-		pw_log_trace("have output");
-		this->callbacks->have_output(this->callbacks_data);
-		break;
-
-	case PW_CLIENT_NODE_MESSAGE_NEED_INPUT:
-		pw_log_trace("need input");
-		impl->input_ready++;
-		this->callbacks->need_input(this->callbacks_data);
-		break;
-
-	case PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER:
-		if (impl->client_reuse) {
-			struct pw_client_node_message_port_reuse_buffer *p =
-			    (struct pw_client_node_message_port_reuse_buffer *) message;
-			this->callbacks->reuse_buffer(this->callbacks_data, p->body.port_id.value,
-						     p->body.buffer_id.value);
-		}
-		break;
-
-	default:
-		pw_log_warn("unhandled message %d", PW_CLIENT_NODE_MESSAGE_TYPE(message));
-		return -ENOTSUP;
-	}
-	return 0;
+	return SPA_STATUS_OK;
 }
 
 static void
@@ -995,7 +958,6 @@ static struct pw_client_node_proxy_methods client_node_methods = {
 static void node_on_data_fd_events(struct spa_source *source)
 {
 	struct node *this = source->data;
-	struct impl *impl = this->impl;
 
 	if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		spa_log_warn(this->log, "node %p: got error", this);
@@ -1003,18 +965,13 @@ static void node_on_data_fd_events(struct spa_source *source)
 	}
 
 	if (source->rmask & SPA_IO_IN) {
-		struct pw_client_node_message message;
 		uint64_t cmd;
 
 		if (read(this->data_source.fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
 			spa_log_warn(this->log, "node %p: error reading message: %s",
 					this, strerror(errno));
 
-		while (pw_client_node_transport_next_message(impl->transport, &message) == 1) {
-			struct pw_client_node_message *msg = alloca(SPA_POD_SIZE(&message));
-			pw_client_node_transport_parse_message(impl->transport, msg);
-			handle_node_message(this, msg);
-		}
+		this->callbacks->process(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 	}
 }
 

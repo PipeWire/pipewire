@@ -405,6 +405,23 @@ static void check_properties(struct pw_node *node)
 		SPA_FLAG_UNSET(impl->driver_graph.flags, SPA_GRAPH_FLAG_DRIVER);
 }
 
+static inline int driver_impl_finish(void *data)
+{
+	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, driver_data);
+	struct spa_graph_data *d = &impl->graph_data;
+	struct pw_node *this = &impl->this;
+
+	pw_log_trace("graph %p finish %p", d->graph, impl);
+	spa_hook_list_call(&this->listener_list, struct pw_node_events, finish);
+        return 0;
+}
+
+static const struct spa_graph_callbacks driver_impl_default = {
+        SPA_VERSION_GRAPH_CALLBACKS,
+        .run = spa_graph_impl_run,
+        .finish = driver_impl_finish,
+};
+
 struct pw_node *pw_node_new(struct pw_core *core,
 			    const char *name,
 			    struct pw_properties *properties,
@@ -454,7 +471,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_graph_init(&impl->driver_graph, &impl->driver_state);
 	spa_graph_data_init(&impl->driver_data, &impl->driver_graph);
 	spa_graph_set_callbacks(&impl->driver_graph,
-			&spa_graph_impl_default, &impl->driver_data);
+			&driver_impl_default, &impl->driver_data);
 
 	this->rt.activation = &impl->root_activation;
 	spa_graph_node_init(&this->rt.root, &this->rt.activation->state);

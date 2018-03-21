@@ -110,7 +110,7 @@ struct spa_graph_node {
 	struct spa_list link;		/**< link in graph nodes list */
 	struct spa_graph *graph;	/**< owner graph */
 	struct spa_list ports[2];	/**< list of input and output ports */
-	struct spa_list links;		/**< list of links */
+	struct spa_list links;		/**< list of links to next nodes */
 	uint32_t flags;			/**< node flags */
 	struct spa_graph_state *state;	/**< state of the node */
 	struct spa_graph_link graph_link;	/**< link in graph */

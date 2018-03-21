@@ -772,20 +772,6 @@ static void client_node_event(void *object, const struct spa_event *event)
 	pw_log_warn("unhandled node event %d", SPA_EVENT_TYPE(event));
 }
 
-static void do_start(struct node_data *data)
-{
-	struct mix *mix;
-
-	spa_list_for_each(mix, &data->mix[SPA_DIRECTION_INPUT], link) {
-		mix->mix.port.io->status = SPA_STATUS_NEED_BUFFER;
-		mix->mix.port.io->buffer_id = SPA_ID_INVALID;
-	}
-	spa_list_for_each(mix, &data->mix[SPA_DIRECTION_OUTPUT], link) {
-		mix->mix.port.io->status = SPA_STATUS_NEED_BUFFER;
-		mix->mix.port.io->buffer_id = SPA_ID_INVALID;
-	}
-}
-
 static void client_node_command(void *object, uint32_t seq, const struct spa_command *command)
 {
 	struct pw_proxy *proxy = object;
@@ -814,8 +800,6 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 
 		if ((res = spa_node_send_command(data->node->node, command)) < 0)
 			pw_log_warn("node %p: start failed", proxy);
-
-		do_start(data);
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
 	}

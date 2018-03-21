@@ -95,8 +95,6 @@ struct data {
 
 	struct spa_pod_double *ctrl_volume;
 
-	uint8_t buffer[1024];
-
 	struct spa_audio_info_raw format;
 
 	struct buffer buffers[32];

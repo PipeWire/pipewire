@@ -135,6 +135,8 @@ on_stream_new_buffer(void *_data, uint32_t id)
 
 	buf = pw_stream_peek_buffer(stream, id);
 
+	pw_log_trace("new buffer %d", id);
+
 	pw_loop_invoke(pw_main_loop_get_loop(data->loop), do_render,
 		       SPA_ID_INVALID, &buf, sizeof(struct spa_buffer *),
 		       true, data);

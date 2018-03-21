@@ -408,7 +408,7 @@ static void check_properties(struct pw_node *node)
 static inline int driver_impl_finish(void *data)
 {
 	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, driver_data);
-	struct spa_graph_data *d = &impl->graph_data;
+	struct spa_graph_data *d = &impl->driver_data;
 	struct pw_node *this = &impl->this;
 
 	pw_log_trace("graph %p finish %p", d->graph, impl);
@@ -572,12 +572,18 @@ static void node_process(void *data, int status)
 	struct pw_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
-	pw_log_trace("node %p: process %d", node, node->driver);
+	pw_log_trace("node %p: process %d %d", node, node->driver, node->exported);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, process);
 
-	if (node->driver)
-		spa_graph_run(&impl->driver_graph);
+	if (node->driver) {
+		if (!node->exported) {
+			if (impl->driver_graph.state->pending == 0 || !node->remote)
+				spa_graph_run(&impl->driver_graph);
+			else
+				spa_graph_node_trigger(&node->rt.node);
+		}
+	}
 	else
 		spa_graph_node_trigger(&node->rt.node);
 }

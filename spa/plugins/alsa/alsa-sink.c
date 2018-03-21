@@ -601,7 +601,7 @@ static int impl_node_process(struct spa_node *node)
 
 		input->status = SPA_STATUS_OK;
 	}
-	return SPA_STATUS_OK;
+	return SPA_STATUS_HAVE_BUFFER;
 }
 
 static const struct spa_dict_item node_info_items[] = {

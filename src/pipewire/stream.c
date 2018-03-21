@@ -52,7 +52,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 struct buffer {
 	struct spa_list link;
 	uint32_t id;
-#define BUFFER_FLAG_OUT		(1 << 0)
+#define BUFFER_FLAG_READY	(1 << 0)
 #define BUFFER_FLAG_MAPPED	(1 << 1)
 	uint32_t flags;
 	struct spa_buffer *buffer;
@@ -81,7 +81,9 @@ struct stream {
 
 	struct buffer buffers[MAX_BUFFERS];
 	int n_buffers;
-	struct spa_list queue;
+	struct spa_list free;
+	struct spa_list ready;
+
 	bool in_need_buffer;
 	bool in_new_buffer;
 
@@ -101,6 +103,36 @@ struct stream {
 	int32_t last_rate;
 	int64_t last_monotonic;
 };
+
+static inline void queue_free(struct stream *stream, struct buffer *buffer)
+{
+	spa_list_append(&stream->free, &buffer->link);
+}
+
+static inline struct buffer *dequeue_free(struct stream *stream)
+{
+	struct buffer *b = NULL;
+	if (!spa_list_is_empty(&stream->free)) {
+		b = spa_list_first(&stream->free, struct buffer, link);
+		spa_list_remove(&b->link);
+	}
+	return b;
+}
+
+static inline void queue_ready(struct stream *stream, struct buffer *buffer)
+{
+	spa_list_append(&stream->ready, &buffer->link);
+}
+
+static inline struct buffer *dequeue_ready(struct stream *stream)
+{
+	struct buffer *b = NULL;
+	if (!spa_list_is_empty(&stream->ready)) {
+		b = spa_list_first(&stream->ready, struct buffer, link);
+		spa_list_remove(&b->link);
+	}
+	return b;
+}
 
 static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state state, char *error)
 {
@@ -125,7 +157,9 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 static struct buffer *find_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	return &impl->buffers[id];
+	if (id < impl->n_buffers)
+		return &impl->buffers[id];
+	return NULL;
 }
 
 static int impl_send_command(struct spa_node *node, const struct spa_command *command)
@@ -249,19 +283,15 @@ static int impl_port_enum_params(struct spa_node *node,
 	struct spa_pod *param;
 	uint32_t last_id = SPA_ID_INVALID;
 
-	pw_log_debug("start %d", *index);
 	while (true) {
 		if (*index < d->n_init_params) {
 			param = d->init_params[*index];
-			pw_log_debug("init params %d", *index);
 		}
 		else if (*index < d->n_init_params + d->n_params) {
 			param = d->params[*index - d->n_init_params];
-			pw_log_debug("params %d", *index);
 		}
 		else if (*index == (d->n_params + d->n_init_params) && d->format) {
 			param = d->format;
-			pw_log_debug("format %d", *index);
 		}
 		else if (last_id != SPA_ID_INVALID)
 			return 1;
@@ -291,9 +321,6 @@ static int impl_port_enum_params(struct spa_node *node,
 				break;
 		}
 	}
-	pw_log_debug("result %d", *index);
-	spa_debug_pod(*result, 0);
-
 	return 1;
 }
 
@@ -384,8 +411,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		}
 		b->buffer = buffers[i];
 		pw_log_info("got buffer %d size %d", i, datas[0].maxsize);
-		spa_list_append(&d->queue, &b->link);
-		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+		queue_free(d, b);
 	}
 	d->n_buffers = n_buffers;
 
@@ -400,11 +426,8 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 static inline void reuse_buffer(struct stream *d, uint32_t id)
 {
 	pw_log_trace("export-source %p: recycle buffer %d", d, id);
-	if (id < d->n_buffers) {
-		struct buffer *b = &d->buffers[id];
-	        spa_list_append(&d->queue, &b->link);
-		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
-	}
+	if (id < d->n_buffers)
+		queue_free(d, &d->buffers[id]);
 }
 
 static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
@@ -432,12 +455,12 @@ static int impl_node_process(struct spa_node *node)
 		if ((b = find_buffer(stream, buffer_id)) == NULL)
 			return SPA_STATUS_NEED_BUFFER;
 
+		queue_ready(impl, b);
+
 		if (impl->client_reuse)
 			io->buffer_id = SPA_ID_INVALID;
 
 		if (io->status == SPA_STATUS_HAVE_BUFFER) {
-	                SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-
 			impl->in_new_buffer = true;
 			spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
 				 new_buffer, buffer_id);
@@ -450,11 +473,18 @@ static int impl_node_process(struct spa_node *node)
 		io->buffer_id = SPA_ID_INVALID;
 
 		pw_log_trace("stream %p: process output", stream);
-		impl->in_need_buffer = true;
-		spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
-				need_buffer);
-		impl->in_need_buffer = false;
 
+		if ((b = dequeue_ready(impl)) == NULL) {
+			impl->in_need_buffer = true;
+			spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
+					need_buffer);
+			impl->in_need_buffer = false;
+			b = dequeue_ready(impl);
+		}
+		if (b != NULL) {
+			io->buffer_id = b->id;
+			io->status = SPA_STATUS_HAVE_BUFFER;
+		}
 		res = SPA_STATUS_HAVE_BUFFER;
 	}
 	return res;
@@ -535,7 +565,8 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	str = pw_properties_get(props, "pipewire.client.reuse");
 	impl->client_reuse = str && pw_properties_parse_bool(str);
 
-	spa_list_init(&impl->queue);
+	spa_list_init(&impl->free);
+	spa_list_init(&impl->ready);
 
 	spa_hook_list_init(&this->listener_list);
 
@@ -798,12 +829,8 @@ uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer *b;
-
-	if (spa_list_is_empty(&impl->queue))
+	if ((b = dequeue_free(impl)) == NULL)
 		return SPA_ID_INVALID;
-
-	b = spa_list_first(&impl->queue, struct buffer, link);
-
 	return b->id;
 }
 
@@ -812,12 +839,10 @@ int pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer *b;
 
-	if ((b = find_buffer(stream, id)) == NULL ||
-	    !SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT))
+	if ((b = find_buffer(stream, id)) == NULL)
 		return -EINVAL;
 
-	SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
-	spa_list_append(&impl->queue, &b->link);
+	queue_free(impl, b);
 
 	if (impl->in_new_buffer) {
 		struct spa_io_buffers *io = impl->io;
@@ -852,18 +877,10 @@ int pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
 	struct buffer *b;
 	struct spa_io_buffers *io = impl->io;
 
-	if (io->buffer_id != SPA_ID_INVALID) {
-		pw_log_debug("can't send %u, pending buffer %u", id,
-			     io->buffer_id);
-		return -EIO;
-	}
+	if ((b = find_buffer(stream, id))) {
+		queue_ready(impl, b);
+		pw_log_trace("stream %p: send buffer %d %p", stream, id, io);
 
-	if ((b = find_buffer(stream, id)) && !SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
-		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-		spa_list_remove(&b->link);
-		io->buffer_id = id;
-		io->status = SPA_STATUS_HAVE_BUFFER;
-		pw_log_trace("stream %p: send buffer %d", stream, id);
 		if (!impl->in_need_buffer)
 			pw_loop_invoke(impl->core->data_loop,
 	                       do_process, 1, NULL, 0, false, impl);

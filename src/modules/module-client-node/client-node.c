@@ -901,14 +901,9 @@ impl_node_port_send_command(struct spa_node *node,
 static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
-	struct impl *impl = this->impl;
-
-	if (impl->this.node->driver)
-		return SPA_STATUS_HAVE_BUFFER;
-	else {
-		send_process(this);
-		return SPA_STATUS_OK;
-	}
+	spa_log_trace(this->log, "%p: process", this);
+	send_process(this);
+	return SPA_STATUS_OK;
 }
 
 static void
@@ -1030,6 +1025,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 			spa_log_warn(this->log, "node %p: error reading message: %s",
 					this, strerror(errno));
 
+		spa_log_trace(this->log, "node %p: got process", this);
 		this->callbacks->process(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 	}
 }
@@ -1275,18 +1271,11 @@ static void node_port_added(void *data, struct pw_port *port)
 	port->owner_data = impl;
 }
 
-static void node_finish(void *data)
-{
-	struct impl *impl = data;
-	send_process(&impl->node);
-}
-
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.free = node_free,
 	.initialized = node_initialized,
 	.port_added = node_port_added,
-	.finish = node_finish,
 };
 
 static const struct pw_resource_events resource_events = {
@@ -1350,6 +1339,8 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 				     properties, 0);
 	if (this->node == NULL)
 		goto error_no_node;
+
+	this->node->remote = true;
 
 	str = pw_properties_get(properties, "pipewire.client.reuse");
 	impl->client_reuse = str && pw_properties_parse_bool(str);

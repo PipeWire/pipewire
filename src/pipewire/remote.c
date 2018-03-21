@@ -483,7 +483,15 @@ static void node_process(void *data)
 {
 	struct node_data *d = data;
 	uint64_t cmd = 1;
-	pw_log_trace("remote %p: process", data);
+	pw_log_trace("remote %p: send process", data);
+	write(d->rtwritefd, &cmd, 8);
+}
+
+static void node_finish(void *data)
+{
+	struct node_data *d = data;
+	uint64_t cmd = 1;
+	pw_log_trace("remote %p: send process", data);
 	write(d->rtwritefd, &cmd, 8);
 }
 
@@ -507,8 +515,7 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 			pw_log_warn("proxy %p: read failed %m", proxy);
 
 		pw_log_trace("remote %p: process", data->remote);
-		spa_graph_run(node->graph);
-		node_process(data);
+		spa_graph_run(node->graph->parent->graph);
 	}
 }
 
@@ -1160,7 +1167,6 @@ static void node_destroy(void *data)
 	pw_log_debug("%p: destroy", d);
 	pw_client_node_proxy_destroy(d->node_proxy);
 	pw_proxy_destroy((struct pw_proxy *)d->node_proxy);
-	d->node_proxy = NULL;
 }
 
 static void node_active_changed(void *data, bool active)
@@ -1176,6 +1182,7 @@ static const struct pw_node_events node_events = {
 	.destroy = node_destroy,
 	.active_changed = node_active_changed,
 	.process = node_process,
+	.finish = node_finish,
 };
 
 static int
@@ -1243,6 +1250,8 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	data->core = pw_node_get_core(node);
 	data->t = pw_core_get_type(data->core);
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;
+
+	node->exported = true;
 
 	spa_list_init(&data->free_mix);
 	spa_list_init(&data->mix[0]);

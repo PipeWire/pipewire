@@ -52,13 +52,13 @@ static inline void spa_graph_state_reset(struct spa_graph_state *state)
 struct spa_graph_link {
 	struct spa_list link;
 	struct spa_graph_state *state;
-	int (*signal) (void *data, void *target);
+	int (*signal) (void *data);
 	void *signal_data;
 };
 
-#define spa_graph_link_signal(l,t)	((l)->signal((l)->signal_data,(t)))
+#define spa_graph_link_signal(l)	((l)->signal((l)->signal_data))
 
-static inline int spa_graph_link_trigger(struct spa_graph_link *link, void *target)
+static inline int spa_graph_link_trigger(struct spa_graph_link *link)
 {
 	struct spa_graph_state *state = link->state;
 
@@ -68,7 +68,7 @@ static inline int spa_graph_link_trigger(struct spa_graph_link *link, void *targ
 		spa_debug("link %p: pending %d required %d", link,
 	                        state->pending, state->required);
 		if (__atomic_sub_fetch(&state->pending, 1, __ATOMIC_SEQ_CST) == 0)
-			spa_graph_link_signal(link, target);
+			spa_graph_link_signal(link);
 	}
         return state->status;
 }
@@ -131,13 +131,13 @@ struct spa_graph_port {
 	struct spa_graph_port *peer;	/**< peer */
 };
 
-static inline int spa_graph_link_signal_node(void *data, void *arg)
+static inline int spa_graph_link_signal_node(void *data)
 {
 	struct spa_graph_node *node = data;
 	return spa_graph_node_process(node);
 }
 
-static inline int spa_graph_link_signal_graph(void *data, void *arg)
+static inline int spa_graph_link_signal_graph(void *data)
 {
 	struct spa_graph_node *node = data;
 	if (node->graph)
@@ -201,7 +201,7 @@ static inline int spa_graph_node_impl_trigger(void *data, struct spa_graph_node 
 	struct spa_graph_link *l, *t;
 	spa_debug("node %p trigger", node);
 	spa_list_for_each_safe(l, t, &node->links, link)
-		spa_graph_link_trigger(l, node);
+		spa_graph_link_trigger(l);
 	return 0;
 }
 
@@ -305,7 +305,7 @@ static inline int spa_graph_node_impl_process(void *data, struct spa_graph_node 
 	struct spa_node *n = data;
 
 	spa_debug("node %p: process %d", node, node->state->status);
-	if ((node->state->status = spa_node_process(n)) == SPA_STATUS_HAVE_BUFFER)
+	if ((node->state->status = spa_node_process(n)) != SPA_STATUS_OK)
 		spa_graph_node_trigger(node);
 
         return node->state->status;

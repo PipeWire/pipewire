@@ -77,9 +77,13 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	uint8_t *p, *map;
 	struct spa_meta_header *h;
 
+	pw_log_trace("timeout");
+
 	id = pw_stream_get_empty_buffer(data->stream);
-	if (id == SPA_ID_INVALID)
+	if (id == SPA_ID_INVALID) {
+		pw_log_warn("out of buffers");
 		return;
+	}
 
 	buf = pw_stream_peek_buffer(data->stream, id);
 

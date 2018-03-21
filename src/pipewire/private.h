@@ -323,7 +323,7 @@ struct pw_port {
 
 	struct spa_list links;		/**< list of \ref pw_link */
 
-	struct spa_list control_list[2];	/**< list of \ref pw_control indexed by direction */
+	struct spa_list control_list[2];/**< list of \ref pw_control indexed by direction */
 
 	struct spa_hook_list listener_list;
 

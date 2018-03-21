@@ -47,7 +47,7 @@
 
 #define MAX_BUFFERS	64
 #define MAX_AREAS	1024
-#define MAX_IO		16
+#define MAX_IO		32
 
 #define CHECK_IN_PORT_ID(this,d,p)       ((d) == SPA_DIRECTION_INPUT && (p) < MAX_INPUTS)
 #define CHECK_OUT_PORT_ID(this,d,p)      ((d) == SPA_DIRECTION_OUTPUT && (p) < MAX_OUTPUTS)
@@ -85,6 +85,7 @@ struct buffer {
 struct io {
 	uint32_t id;
 	uint32_t memid;
+	uint32_t mix_id;
 };
 
 struct port {
@@ -199,7 +200,8 @@ static void clear_io(struct node *node, struct io *io)
 	io->id = SPA_ID_INVALID;
 }
 
-static struct io *update_io(struct impl *impl, struct port *port, uint32_t id, uint32_t memid)
+static struct io *update_io(struct impl *impl, struct port *port,
+		uint32_t mix_id, uint32_t id, uint32_t memid)
 {
 	int i;
 	struct io *io, *f = NULL;
@@ -208,7 +210,7 @@ static struct io *update_io(struct impl *impl, struct port *port, uint32_t id, u
 		io = &port->ios[i];
 		if (io->id == SPA_ID_INVALID)
 			f = io;
-		else if (io->id == id) {
+		else if (io->id == id && io->mix_id == mix_id) {
 			if (io->memid != memid) {
 				clear_io(&impl->node, io);
 				if (memid == SPA_ID_INVALID)
@@ -223,6 +225,7 @@ static struct io *update_io(struct impl *impl, struct port *port, uint32_t id, u
 	io = f;
 	io->id = id;
 	io->memid = memid;
+	io->mix_id = mix_id;
 
      found:
 	return io;
@@ -644,7 +647,8 @@ impl_node_port_set_param(struct spa_node *node,
 }
 
 static int do_port_set_io(struct impl *impl,
-			   enum spa_direction direction, uint32_t port_id, uint32_t mix_id,
+			   enum spa_direction direction, uint32_t port_id,
+			   struct pw_port_mix *mix,
 			   uint32_t id, void *data, size_t size)
 {
 	struct node *this = &impl->node;
@@ -656,7 +660,7 @@ static int do_port_set_io(struct impl *impl,
 
 	pw_log_debug("client-node %p: %s port %d.%d set io %p %zd", impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
-			port_id, mix_id, data, size);
+			port_id, mix->port.port_id, data, size);
 
 	if (!CHECK_PORT(this, direction, port_id))
 		return -EINVAL;
@@ -683,11 +687,12 @@ static int do_port_set_io(struct impl *impl,
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
-	update_io(impl, port, id, memid);
+	update_io(impl, port, mix->port.port_id, id, memid);
 
 	pw_client_node_resource_port_set_io(this->resource,
 					    this->seq,
-					    direction, port_id, mix_id,
+					    direction, port_id,
+					    mix->port.port_id,
 					    id,
 					    memid,
 					    mem_offset, mem_size);
@@ -1240,12 +1245,17 @@ static int mix_port_set_io(struct spa_node *node,
 {
 	struct pw_port *p = SPA_CONTAINER_OF(node, struct pw_port, mix_node);
 	struct impl *impl = p->owner_data;
+	struct pw_port_mix *mix;
 
 	p->rt.port.io = data;
 	p->rt.mix_port.io = data;
 
+	mix = pw_map_lookup(&p->mix_port_map, port_id);
+	if (mix == NULL)
+		return -EIO;
+
 	return do_port_set_io(impl,
-			      direction, p->port_id, port_id,
+			      direction, p->port_id, mix,
 			      id, data, size);
 }
 

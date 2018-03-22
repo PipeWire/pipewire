@@ -89,18 +89,17 @@ static void fill_f32(struct data *d, void *dest, int avail)
         }
 }
 
-static void on_need_buffer(void *userdata)
+static void on_process(void *userdata)
 {
 	struct data *data = userdata;
-	uint32_t id;
+	struct pw_buffer *b;
 	struct spa_buffer *buf;
 	uint8_t *p;
 
-	id = pw_stream_get_empty_buffer(data->stream);
-	if (id == SPA_ID_INVALID)
+	if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL)
 		return;
 
-	buf = pw_stream_peek_buffer(data->stream, id);
+	buf = b->buffer;
 
 	if ((p = buf->datas[0].data) == NULL)
 		return;
@@ -109,12 +108,12 @@ static void on_need_buffer(void *userdata)
 
 	buf->datas[0].chunk->size = buf->datas[0].maxsize;
 
-	pw_stream_send_buffer(data->stream, id);
+	pw_stream_queue_buffer(data->stream, b);
 }
 
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
-	.need_buffer = on_need_buffer,
+	.process = on_process,
 };
 
 static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
@@ -159,7 +158,8 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 				  PW_DIRECTION_OUTPUT,
 				  NULL,
 				  PW_STREAM_FLAG_AUTOCONNECT |
-				  PW_STREAM_FLAG_MAP_BUFFERS,
+				  PW_STREAM_FLAG_MAP_BUFFERS |
+				  PW_STREAM_FLAG_RT_PROCESS,
 				  params, 1);
 		break;
 	}

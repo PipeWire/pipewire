@@ -89,12 +89,10 @@ struct _GstPipeWireSink {
   struct pw_stream *stream;
   struct spa_hook stream_listener;
 
-  GstAllocator *allocator;
   GstStructure *properties;
   GstPipeWireSinkMode mode;
 
   GstPipeWirePool *pool;
-  GHashTable *buf_ids;
   GQueue queue;
   guint need_ready;
 };

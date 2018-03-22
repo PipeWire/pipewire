@@ -37,13 +37,8 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/socket.h>
-#include <unistd.h>
-
-#include <gst/allocators/gstfdmemory.h>
 
 #include "gstpipewireformat.h"
-
-static GQuark process_mem_data_quark;
 
 GST_DEBUG_CATEGORY_STATIC (pipewire_sink_debug);
 #define GST_CAT_DEFAULT pipewire_sink_debug
@@ -123,10 +118,8 @@ gst_pipewire_sink_finalize (GObject * object)
 
   if (pwsink->properties)
     gst_structure_free (pwsink->properties);
-  g_object_unref (pwsink->allocator);
   g_free (pwsink->path);
   g_free (pwsink->client_name);
-  g_hash_table_unref (pwsink->buf_ids);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -219,8 +212,6 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
 
   GST_DEBUG_CATEGORY_INIT (pipewire_sink_debug, "pipewiresink", 0,
       "PipeWire Sink");
-
-  process_mem_data_quark = g_quark_from_static_string ("GstPipeWireSinkProcessMemQuark");
 }
 
 #define PROP_RANGE(min,max)	2,min,max
@@ -273,7 +264,6 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 static void
 gst_pipewire_sink_init (GstPipeWireSink * sink)
 {
-  sink->allocator = gst_fd_allocator_new ();
   sink->pool =  gst_pipewire_pool_new ();
   sink->client_name = pw_get_client_name();
   sink->mode = DEFAULT_PROP_MODE;
@@ -281,15 +271,13 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
 
   g_signal_connect (sink->pool, "activated", G_CALLBACK (pool_activated), sink);
 
-  sink->buf_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
-      (GDestroyNotify) gst_buffer_unref);
-
   g_queue_init (&sink->queue);
 
   sink->loop = pw_loop_new (NULL);
   sink->main_loop = pw_thread_loop_new (sink->loop, "pipewire-sink-loop");
   sink->core = pw_core_new (sink->loop, NULL);
   sink->type = pw_core_get_type (sink->core);
+  sink->pool->t = sink->type;
   GST_DEBUG ("loop %p %p", sink->loop, sink->main_loop);
 }
 
@@ -407,126 +395,35 @@ gst_pipewire_sink_get_property (GObject * object, guint prop_id,
   }
 }
 
-typedef struct {
-  GstPipeWireSink *sink;
-  guint id;
-  struct spa_buffer *buf;
-  struct spa_meta_header *header;
-  guint flags;
-  goffset offset;
-} ProcessMemData;
-
 static void
-process_mem_data_destroy (gpointer user_data)
-{
-  ProcessMemData *data = user_data;
-
-  gst_object_unref (data->sink);
-  g_slice_free (ProcessMemData, data);
-}
-
-static void
-on_add_buffer (void     *_data,
-               uint32_t  id)
+on_add_buffer (void *_data, struct pw_buffer *b)
 {
   GstPipeWireSink *pwsink = _data;
-  struct spa_buffer *b;
-  GstBuffer *buf;
-  uint32_t i;
-  ProcessMemData data;
-  struct pw_type *t = pwsink->type;
-
-  GST_LOG_OBJECT (pwsink, "add buffer");
-
-  if (!(b = pw_stream_peek_buffer (pwsink->stream, id))) {
-    g_warning ("failed to peek buffer");
-    return;
-  }
-
-  buf = gst_buffer_new ();
-
-  data.sink = gst_object_ref (pwsink);
-  data.id = id;
-  data.buf = b;
-  data.header = spa_buffer_find_meta (b, t->meta.Header);
-
-  for (i = 0; i < b->n_datas; i++) {
-    struct spa_data *d = &b->datas[i];
-    GstMemory *gmem = NULL;
-
-    if (d->type == t->data.MemFd ||
-        d->type == t->data.DmaBuf) {
-      gmem = gst_fd_allocator_alloc (pwsink->allocator, dup (d->fd),
-                d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
-      gst_memory_resize (gmem, d->mapoffset, d->maxsize);
-      data.offset = d->mapoffset;
-    }
-    else if (d->type == t->data.MemPtr) {
-      gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, 0,
-                                     d->maxsize, NULL, NULL);
-      data.offset = 0;
-    }
-    if (gmem)
-      gst_buffer_append_memory (buf, gmem);
-  }
-  data.flags = GST_BUFFER_FLAGS (buf);
-  gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buf),
-                             process_mem_data_quark,
-                             g_slice_dup (ProcessMemData, &data),
-                             process_mem_data_destroy);
-
-  gst_pipewire_pool_add_buffer (pwsink->pool, buf);
-  g_hash_table_insert (pwsink->buf_ids, GINT_TO_POINTER (id), buf);
-
+  gst_pipewire_pool_wrap_buffer (pwsink->pool, b);
   pw_thread_loop_signal (pwsink->main_loop, FALSE);
 }
 
 static void
-on_remove_buffer (void     *data,
-                  uint32_t  id)
+on_remove_buffer (void *_data, struct pw_buffer *b)
 {
-  GstPipeWireSink *pwsink = data;
-  GstBuffer *buf;
+  GstPipeWireSink *pwsink = _data;
+  GstPipeWirePoolData *data = b->user_data;
 
   GST_LOG_OBJECT (pwsink, "remove buffer");
-  buf = g_hash_table_lookup (pwsink->buf_ids, GINT_TO_POINTER (id));
-  if (buf) {
-    GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
-    if (!gst_pipewire_pool_remove_buffer (pwsink->pool, buf))
-      gst_buffer_ref (buf);
-    if (g_queue_remove (&pwsink->queue, buf))
-      gst_buffer_unref (buf);
-    g_hash_table_remove (pwsink->buf_ids, GINT_TO_POINTER (id));
-  }
-}
 
-static void
-on_new_buffer (void     *data,
-               uint32_t  id)
-{
-  GstPipeWireSink *pwsink = data;
-  GstBuffer *buf;
-
-  GST_LOG_OBJECT (pwsink, "got new buffer %u", id);
-  if (pwsink->stream == NULL) {
-    GST_LOG_OBJECT (pwsink, "no stream");
-    return;
-  }
-  buf = g_hash_table_lookup (pwsink->buf_ids, GINT_TO_POINTER (id));
-
-  if (buf) {
-    gst_buffer_unref (buf);
-    pw_thread_loop_signal (pwsink->main_loop, FALSE);
-  }
+  if (g_queue_remove (&pwsink->queue, data->buf))
+    gst_buffer_unref (data->buf);
+  gst_buffer_unref (data->buf);
 }
 
 static void
 do_send_buffer (GstPipeWireSink *pwsink)
 {
   GstBuffer *buffer;
-  ProcessMemData *data;
+  GstPipeWirePoolData *data;
   gboolean res;
   guint i;
+  struct spa_buffer *b;
 
   buffer = g_queue_pop_head (&pwsink->queue);
   if (buffer == NULL) {
@@ -534,23 +431,24 @@ do_send_buffer (GstPipeWireSink *pwsink)
     return;
   }
 
-  data = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buffer),
-                                    process_mem_data_quark);
+  data = gst_pipewire_pool_get_data(buffer);
+
+  b = data->b->buffer;
 
   if (data->header) {
     data->header->seq = GST_BUFFER_OFFSET (buffer);
     data->header->pts = GST_BUFFER_PTS (buffer);
     data->header->dts_offset = GST_BUFFER_DTS (buffer);
   }
-  for (i = 0; i < data->buf->n_datas; i++) {
-    struct spa_data *d = &data->buf->datas[i];
+  for (i = 0; i < b->n_datas; i++) {
+    struct spa_data *d = &b->datas[i];
     GstMemory *mem = gst_buffer_peek_memory (buffer, i);
     d->chunk->offset = mem->offset - data->offset;
     d->chunk->size = mem->size;
   }
 
-  if (!(res = pw_stream_send_buffer (pwsink->stream, data->id))) {
-    g_warning ("can't send buffer");
+  if ((res = pw_stream_queue_buffer (pwsink->stream, data->b)) < 0) {
+    g_warning ("can't send buffer %s", spa_strerror(res));
     pw_thread_loop_signal (pwsink->main_loop, FALSE);
   } else
     pwsink->need_ready--;
@@ -558,9 +456,17 @@ do_send_buffer (GstPipeWireSink *pwsink)
 
 
 static void
-on_need_buffer (void *data)
+on_process (void *data)
 {
   GstPipeWireSink *pwsink = data;
+
+  if (pwsink->stream == NULL) {
+    GST_LOG_OBJECT (pwsink, "no stream");
+    return;
+  }
+
+  g_cond_signal (&pwsink->pool->cond);
+
   pwsink->need_ready++;
   GST_DEBUG ("need buffer %u", pwsink->need_ready);
   do_send_buffer (pwsink);
@@ -733,8 +639,7 @@ static const struct pw_stream_events stream_events = {
 	.format_changed = on_format_changed,
 	.add_buffer = on_add_buffer,
 	.remove_buffer = on_remove_buffer,
-	.new_buffer = on_new_buffer,
-	.need_buffer = on_need_buffer,
+	.process = on_process,
 };
 
 static gboolean

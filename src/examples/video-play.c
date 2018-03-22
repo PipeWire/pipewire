@@ -87,25 +87,31 @@ static void handle_events(struct data *data)
 	}
 }
 
-static int
-do_render(struct spa_loop *loop, bool async, uint32_t seq,
-	  const void *_data, size_t size, void *user_data)
+static void
+on_process(void *_data)
 {
-	struct data *data = user_data;
-	struct spa_buffer *buf = ((struct spa_buffer **) _data)[0];
+	struct data *data = _data;
+	struct pw_stream *stream = data->stream;
+	struct pw_buffer *b;
+	struct spa_buffer *buf;
 	void *sdata, *ddata;
 	int sstride, dstride, ostride;
 	uint32_t i;
 	uint8_t *src, *dst;
 
+	b = pw_stream_dequeue_buffer(stream);
+	buf = b->buffer;
+
+	pw_log_trace("new buffer %d", buf->id);
+
 	handle_events(data);
 
 	if ((sdata = buf->datas[0].data) == NULL)
-		return -EINVAL;
+		return;
 
 	if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
 		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-		return -EIO;
+		return;
 	}
 	sstride = buf->datas[0].chunk->stride;
 	ostride = SPA_MIN(sstride, dstride);
@@ -123,25 +129,8 @@ do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	SDL_RenderCopy(data->renderer, data->texture, NULL, NULL);
 	SDL_RenderPresent(data->renderer);
 
-	return 0;
-}
 
-static void
-on_stream_new_buffer(void *_data, uint32_t id)
-{
-	struct data *data = _data;
-	struct pw_stream *stream = data->stream;
-	struct spa_buffer *buf;
-
-	buf = pw_stream_peek_buffer(stream, id);
-
-	pw_log_trace("new buffer %d", id);
-
-	pw_loop_invoke(pw_main_loop_get_loop(data->loop), do_render,
-		       SPA_ID_INVALID, &buf, sizeof(struct spa_buffer *),
-		       true, data);
-
-	pw_stream_recycle_buffer(stream, id);
+	pw_stream_queue_buffer(stream, b);
 }
 
 static void on_stream_state_changed(void *_data, enum pw_stream_state old,
@@ -281,7 +270,7 @@ static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_stream_state_changed,
 	.format_changed = on_stream_format_changed,
-	.new_buffer = on_stream_new_buffer,
+	.process = on_process,
 };
 
 static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)

@@ -71,7 +71,7 @@ struct data {
 static void on_timeout(void *userdata, uint64_t expirations)
 {
 	struct data *data = userdata;
-	uint32_t id;
+	struct pw_buffer *b;
 	struct spa_buffer *buf;
 	int i, j;
 	uint8_t *p, *map;
@@ -79,13 +79,12 @@ static void on_timeout(void *userdata, uint64_t expirations)
 
 	pw_log_trace("timeout");
 
-	id = pw_stream_get_empty_buffer(data->stream);
-	if (id == SPA_ID_INVALID) {
+	b = pw_stream_dequeue_buffer(data->stream);
+	if (b == NULL) {
 		pw_log_warn("out of buffers");
 		return;
 	}
-
-	buf = pw_stream_peek_buffer(data->stream, id);
+	buf = b->buffer;
 
 	if (buf->datas[0].type == data->t->data.MemFd ||
 	    buf->datas[0].type == data->t->data.DmaBuf) {
@@ -129,7 +128,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 
 	buf->datas[0].chunk->size = buf->datas[0].maxsize;
 
-	pw_stream_send_buffer(data->stream, id);
+	pw_stream_queue_buffer(data->stream, b);
 }
 
 static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum pw_stream_state state,
@@ -240,7 +239,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_OUTPUT,
-				  NULL, PW_STREAM_FLAG_NONE,
+				  NULL, PW_STREAM_FLAG_DRIVER,
 				  params, 1);
 		break;
 	}

@@ -139,6 +139,9 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 	struct data *data = _data;
 	printf("stream state: \"%s\"\n", pw_stream_state_as_string(state));
 	switch (state) {
+	case PW_STREAM_STATE_UNCONNECTED:
+		pw_main_loop_quit(data->loop);
+		break;
 	case PW_STREAM_STATE_CONFIGURE:
 		pw_stream_set_active(data->stream, true);
 		break;
@@ -273,151 +276,78 @@ static const struct pw_stream_events stream_events = {
 	.process = on_process,
 };
 
-static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
+static int build_format(struct data *data, struct spa_pod_builder *b, const struct spa_pod **params)
 {
-	struct data *data = _data;
-	struct pw_remote *remote = data->remote;
+	uint32_t i, c;
+	SDL_RendererInfo info;
 
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		printf("remote error: %s\n", error);
-		pw_main_loop_quit(data->loop);
-		break;
+	SDL_GetRendererInfo(data->renderer, &info);
 
-	case PW_REMOTE_STATE_CONNECTED:
-	{
-		const struct spa_pod *params[1];
-		uint8_t buffer[1024];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-		SDL_RendererInfo info;
-		uint32_t i, c;
+	spa_pod_builder_push_object(b,
+		    data->t->param.idEnumFormat, data->t->spa_format);
+	spa_pod_builder_id(b, data->type.media_type.video);
+	spa_pod_builder_id(b, data->type.media_subtype.raw);
 
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-
-		data->stream = pw_stream_new(remote, "video-play",
-				pw_properties_new("pipewire.client.reuse", "1", NULL));
-
-		SDL_GetRendererInfo(data->renderer, &info);
-
-		spa_pod_builder_push_object(&b,
-					    data->t->param.idEnumFormat, data->t->spa_format);
-		spa_pod_builder_id(&b, data->type.media_type.video);
-		spa_pod_builder_id(&b, data->type.media_subtype.raw);
-
-		spa_pod_builder_push_prop(&b, data->type.format_video.format,
-					  SPA_POD_PROP_FLAG_UNSET |
-					  SPA_POD_PROP_RANGE_ENUM);
-		for (i = 0, c = 0; i < info.num_texture_formats; i++) {
-			uint32_t id = sdl_format_to_id(data, info.texture_formats[i]);
-			if (id == 0)
-				continue;
-			if (c++ == 0)
-				spa_pod_builder_id(&b, id);
-			spa_pod_builder_id(&b, id);
-		}
-		for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
-			uint32_t id =
-			    *SPA_MEMBER(&data->type.video_format, video_formats[i].id,
-					uint32_t);
-			if (id != data->type.video_format.UNKNOWN)
-				spa_pod_builder_id(&b, id);
-		}
-		spa_pod_builder_pop(&b);
-		spa_pod_builder_add(&b,
-			":", data->type.format_video.size,      "Rru", &SPA_RECTANGLE(WIDTH, HEIGHT),
-				SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1,1),
-						     &SPA_RECTANGLE(info.max_texture_width,
-								    info.max_texture_height)),
-			":", data->type.format_video.framerate, "Fru", &SPA_FRACTION(25,1),
-				SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(0,1),
-						     &SPA_RECTANGLE(30,1)),
-			NULL);
-		params[0] = spa_pod_builder_pop(&b);
-
-		printf("supported formats:\n");
-		spa_debug_pod(params[0], SPA_DEBUG_FLAG_FORMAT);
-
-		pw_stream_add_listener(data->stream,
-				       &data->stream_listener,
-				       &stream_events,
-				       data);
-
-		pw_stream_connect(data->stream,
-				  PW_DIRECTION_INPUT,
-				  data->path,
-				  PW_STREAM_FLAG_AUTOCONNECT |
-				  PW_STREAM_FLAG_INACTIVE |
-				  PW_STREAM_FLAG_MAP_BUFFERS,
-				  params, 1);
-		break;
+	spa_pod_builder_push_prop(b, data->type.format_video.format,
+				  SPA_POD_PROP_FLAG_UNSET |
+				  SPA_POD_PROP_RANGE_ENUM);
+	for (i = 0, c = 0; i < info.num_texture_formats; i++) {
+		uint32_t id = sdl_format_to_id(data, info.texture_formats[i]);
+		if (id == 0)
+			continue;
+		if (c++ == 0)
+			spa_pod_builder_id(b, id);
+		spa_pod_builder_id(b, id);
 	}
-	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-		break;
+	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
+		uint32_t id =
+		    *SPA_MEMBER(&data->type.video_format, video_formats[i].id,
+				uint32_t);
+		if (id != data->type.video_format.UNKNOWN)
+			spa_pod_builder_id(b, id);
 	}
-}
+	spa_pod_builder_pop(b);
+	spa_pod_builder_add(b,
+		":", data->type.format_video.size,      "Rru", &SPA_RECTANGLE(WIDTH, HEIGHT),
+			SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1,1),
+					     &SPA_RECTANGLE(info.max_texture_width,
+							    info.max_texture_height)),
+		":", data->type.format_video.framerate, "Fru", &SPA_FRACTION(25,1),
+			SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(0,1),
+					     &SPA_RECTANGLE(30,1)),
+		NULL);
+	params[0] = spa_pod_builder_pop(b);
 
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_state_changed,
-};
+	printf("supported formats:\n");
+	spa_debug_pod(params[0], SPA_DEBUG_FLAG_FORMAT);
 
-
-static void connect_state_changed(void *_data, enum pw_remote_state old,
-				  enum pw_remote_state state, const char *error)
-{
-	struct data *data = _data;
-
-	printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-	case PW_REMOTE_STATE_CONNECTED:
-		pw_main_loop_quit(data->loop);
-		break;
-	default:
-		break;
-	}
-}
-
-static int get_fd(struct data *data)
-{
-	int fd;
-	struct pw_remote *remote = pw_remote_new(data->core, NULL, 0);
-	struct spa_hook remote_listener;
-	const struct pw_remote_events revents = {
-		PW_VERSION_REMOTE_EVENTS,
-		.state_changed = connect_state_changed,
-	};
-
-	pw_remote_add_listener(remote, &remote_listener, &revents, data);
-
-	if (pw_remote_connect(remote) < 0)
-		return -1;
-
-	pw_main_loop_run(data->loop);
-
-	fd = pw_remote_steal_fd(remote);
-
-	pw_remote_destroy(remote);
-
-	return fd;
+	return 0;
 }
 
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
+	const struct spa_pod *params[1];
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
 	pw_init(&argc, &argv);
 
 	data.loop = pw_main_loop_new(NULL);
-	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL);
+
+	data.stream = pw_stream_new_simple(
+			pw_main_loop_get_loop(data.loop),
+			"video-play",
+			pw_properties_new("pipewire.client.reuse", "1", NULL),
+			&stream_events,
+			&data);
+
+	data.remote = pw_stream_get_remote(data.stream);
+	data.core = pw_remote_get_core(data.remote);
 	data.t = pw_core_get_type(data.core);
-	data.remote = pw_remote_new(data.core, NULL, 0);
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	init_type(&data.type, data.t->map);
-
 	spa_debug_set_type_map(data.t->map);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -431,13 +361,19 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
+	build_format(&data, &b, params);
 
-	pw_remote_connect_fd(data.remote, get_fd(&data));
+	pw_stream_connect(data.stream,
+			  PW_DIRECTION_INPUT,
+			  data.path,
+			  PW_STREAM_FLAG_AUTOCONNECT |
+			  PW_STREAM_FLAG_INACTIVE |
+			  PW_STREAM_FLAG_MAP_BUFFERS,
+			  params, 1);
 
 	pw_main_loop_run(data.loop);
 
-	pw_core_destroy(data.core);
+	pw_stream_destroy(data.stream);
 	pw_main_loop_destroy(data.loop);
 
 	return 0;

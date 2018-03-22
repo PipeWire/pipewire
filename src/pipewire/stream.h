@@ -224,6 +224,13 @@ pw_stream_new(struct pw_remote *remote,		/**< a \ref pw_remote */
 	      const char *name,			/**< a stream name */
 	      struct pw_properties *props	/**< stream properties, ownership is taken */);
 
+struct pw_stream *
+pw_stream_new_simple(struct pw_loop *loop,	/**< a \ref pw_loop to use */
+		     const char *name,		/**< a stream name */
+		     struct pw_properties *props,/**< stream properties, ownership is taken */
+		     const struct pw_stream_events *events,	/**< stream events */
+		     void *data					/**< data passed to events */);
+
 /** Destroy a stream \memberof pw_stream */
 void pw_stream_destroy(struct pw_stream *stream);
 
@@ -235,6 +242,8 @@ void pw_stream_add_listener(struct pw_stream *stream,
 enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **error);
 
 const char *pw_stream_get_name(struct pw_stream *stream);
+
+struct pw_remote *pw_stream_get_remote(struct pw_stream *stream);
 
 /** Indicates that the stream is live, boolean default false */
 #define PW_STREAM_PROP_IS_LIVE		"pipewire.latency.is-live"

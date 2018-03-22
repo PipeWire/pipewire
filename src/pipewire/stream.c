@@ -62,6 +62,13 @@ struct queue {
 	struct spa_ringbuffer ring;
 };
 
+struct data {
+	struct pw_core *core;
+	struct pw_remote *remote;
+	struct spa_hook remote_listener;
+	struct spa_hook stream_listener;
+};
+
 struct stream {
 	struct pw_stream this;
 
@@ -104,7 +111,11 @@ struct stream {
 	int64_t last_ticks;
 	int32_t last_rate;
 	int64_t last_monotonic;
+
+	bool free_data;
+	struct data data;
 };
+
 
 static inline void push_queue(struct stream *stream, struct queue *queue, struct buffer *buffer)
 {
@@ -129,14 +140,14 @@ static inline struct buffer *pop_queue(struct stream *stream, struct queue *queu
 	return &stream->buffers[id];
 }
 
-static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state state, char *error)
+static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state state, const char *error)
 {
 	enum pw_stream_state old = stream->state;
 	bool res = old != state;
 	if (res) {
 		if (stream->error)
 			free(stream->error);
-		stream->error = error;
+		stream->error = error ? strdup(error) : NULL;
 
 		pw_log_debug("stream %p: update state from %s -> %s (%s)", stream,
 			     pw_stream_state_as_string(old),
@@ -575,34 +586,6 @@ static const struct spa_node impl_node = {
 	.port_reuse_buffer = impl_port_reuse_buffer,
 };
 
-#if 0
-static void on_state_changed(void *_data, enum pw_remote_state old,
-			     enum pw_remote_state state, const char *error)
-{
-	struct stream *data = _data;
-
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		printf("remote error: %s\n", error);
-		pw_main_loop_quit(data->loop);
-		break;
-
-	case PW_REMOTE_STATE_CONNECTED:
-		make_node(data);
-		break;
-
-	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-		break;
-	}
-}
-
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_state_changed,
-};
-#endif
-
 struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	      struct pw_properties *props)
 {
@@ -655,36 +638,89 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	return NULL;
 }
 
-#if 0
-struct pw_stream * pw_stream_new_simple(const char *name, struct pw_properties *props)
+static int handle_connect(struct pw_stream *stream)
 {
-	struct stream data = { 0, };
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	pw_init(&argc, &argv);
+	impl->node = pw_node_new(impl->core, "export-source",
+			pw_properties_copy(stream->properties), 0);
+	impl->impl_node = impl_node;
 
-	data.loop = pw_main_loop_new(NULL);
-	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL);
-	data.t = pw_core_get_type(data.core);
-        data.remote = pw_remote_new(data.core, NULL, 0);
-	data.path = argc > 1 ? argv[1] : NULL;
+	if (impl->direction == SPA_DIRECTION_INPUT)
+		impl->impl_node.process = impl_node_process_input;
+	else
+		impl->impl_node.process = impl_node_process_output;
 
-	spa_list_init(&data.empty);
-	init_type(&data.type, data.t->map);
-	reset_props(&data.props);
-	spa_debug_set_type_map(data.t->map);
+	pw_node_set_implementation(impl->node, &impl->impl_node);
 
-	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
+	pw_node_register(impl->node, NULL, NULL, NULL);
+	pw_node_set_active(impl->node, true);
 
-        pw_remote_connect(data.remote);
-
-	pw_main_loop_run(data.loop);
-
-	pw_core_destroy(data.core);
-	pw_main_loop_destroy(data.loop);
-
+	pw_remote_export(stream->remote, impl->node);
 	return 0;
 }
-#endif
+
+static void on_remote_state_changed(void *_data, enum pw_remote_state old,
+		enum pw_remote_state state, const char *error)
+{
+	struct pw_stream *stream = _data;
+
+	switch (state) {
+	case PW_REMOTE_STATE_ERROR:
+		stream_set_state(stream, PW_STREAM_STATE_ERROR, error);
+		break;
+	case PW_REMOTE_STATE_UNCONNECTED:
+		stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, "remote unconnected");
+		break;
+
+	case PW_REMOTE_STATE_CONNECTED:
+		handle_connect(stream);
+		break;
+
+	default:
+		break;
+	}
+}
+
+static const struct pw_remote_events remote_events = {
+	PW_VERSION_REMOTE_EVENTS,
+	.state_changed = on_remote_state_changed,
+};
+
+struct pw_stream *
+pw_stream_new_simple(struct pw_loop *loop,
+		     const char *name,
+		     struct pw_properties *props,
+		     const struct pw_stream_events *events,
+		     void *data)
+{
+	struct pw_stream *stream;
+	struct stream *impl;
+	struct pw_core *core;
+	struct pw_remote *remote;
+
+	core = pw_core_new(loop, NULL);
+        remote = pw_remote_new(core, NULL, 0);
+
+	stream = pw_stream_new(remote, name, props);
+	if (stream == NULL)
+		goto cleanup;
+
+	impl = SPA_CONTAINER_OF(stream, struct stream, this);
+
+	impl->free_data = true;
+	impl->data.core = core;
+	impl->data.remote = remote;
+
+	pw_remote_add_listener(remote, &impl->data.remote_listener, &remote_events, stream);
+	pw_stream_add_listener(stream, &impl->data.stream_listener, events, data);
+
+	return stream;
+
+      cleanup:
+	pw_core_destroy(core);
+	return NULL;
+}
 
 const char *pw_stream_state_as_string(enum pw_stream_state state)
 {
@@ -774,6 +810,9 @@ void pw_stream_destroy(struct pw_stream *stream)
 	if (stream->name)
 		free(stream->name);
 
+	if (impl->free_data)
+		pw_core_destroy(impl->data.core);
+
 	free(impl);
 }
 
@@ -802,6 +841,11 @@ const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream)
 	return stream->properties;
 }
 
+struct pw_remote *pw_stream_get_remote(struct pw_stream *stream)
+{
+	return stream->remote;
+}
+
 int
 pw_stream_connect(struct pw_stream *stream,
 		  enum pw_direction direction,
@@ -811,6 +855,7 @@ pw_stream_connect(struct pw_stream *stream,
 		  uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	int res;
 
 	impl->direction =
 	    direction == PW_DIRECTION_INPUT ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT;
@@ -827,22 +872,12 @@ pw_stream_connect(struct pw_stream *stream,
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
 		pw_properties_set(stream->properties, PW_NODE_PROP_AUTOCONNECT, "1");
 
-	impl->node = pw_node_new(impl->core, "export-source",
-			pw_properties_copy(stream->properties), 0);
-	impl->impl_node = impl_node;
-
-	if (impl->direction == SPA_DIRECTION_INPUT)
-		impl->impl_node.process = impl_node_process_input;
+	if (pw_remote_get_state(stream->remote, NULL) == PW_REMOTE_STATE_UNCONNECTED)
+		res = pw_remote_connect(stream->remote);
 	else
-		impl->impl_node.process = impl_node_process_output;
+		res = handle_connect(stream);
 
-	pw_node_set_implementation(impl->node, &impl->impl_node);
-
-	pw_node_register(impl->node, NULL, NULL, NULL);
-	pw_node_set_active(impl->node, true);
-
-	pw_remote_export(stream->remote, impl->node);
-	return 0;
+	return res;
 }
 
 uint32_t pw_stream_get_node_id(struct pw_stream *stream)

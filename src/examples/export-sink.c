@@ -548,7 +548,7 @@ static int impl_node_process(struct spa_node *node)
 	if (d->io->status != SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_NEED_BUFFER;
 
-	if (d->io->buffer_id > d->n_buffers)
+	if (d->io->buffer_id >= d->n_buffers)
 		return SPA_STATUS_NEED_BUFFER;
 
 	buf = d->buffers[d->io->buffer_id];

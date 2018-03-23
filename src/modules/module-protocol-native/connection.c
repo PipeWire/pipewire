@@ -158,6 +158,7 @@ static bool refill_buffer(struct pw_protocol_native_connection *conn, struct buf
 	buf->buffer_size += len;
 
 	/* handle control messages */
+	buf->n_fds = 0;
 	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != NULL; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
 		if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS)
 			continue;

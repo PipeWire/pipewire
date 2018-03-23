@@ -189,6 +189,7 @@ static void core_event_remove_id(void *data, uint32_t id)
 		pw_log_debug("remote %p: object remove %u", this, id);
 		pw_proxy_destroy(proxy);
 	}
+	pw_map_remove(&this->objects, id);
 }
 
 static void

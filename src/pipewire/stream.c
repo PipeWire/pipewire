@@ -642,6 +642,8 @@ static int handle_connect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
+	pw_log_debug("stream %p: creating proxy", stream);
+
 	impl->node = pw_node_new(impl->core, "export-source",
 			pw_properties_copy(stream->properties), 0);
 	impl->impl_node = impl_node;
@@ -857,6 +859,7 @@ pw_stream_connect(struct pw_stream *stream,
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int res;
 
+	pw_log_debug("stream %p: connect", stream);
 	impl->direction =
 	    direction == PW_DIRECTION_INPUT ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT;
 	impl->flags = flags;
@@ -890,6 +893,7 @@ int pw_stream_disconnect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
+	pw_log_debug("stream %p: disconnect", stream);
 	impl->disconnecting = true;
 
 	if (impl->node) {

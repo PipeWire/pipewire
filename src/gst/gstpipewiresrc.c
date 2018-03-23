@@ -682,8 +682,8 @@ connect_error:
 #define SPA_PROP_RANGE(min,max)	2,min,max
 
 static void
-on_format_changed (void           *data,
-                   struct spa_pod *format)
+on_format_changed (void *data,
+                   const struct spa_pod *format)
 {
   GstPipeWireSrc *pwsrc = data;
   GstCaps *caps;

@@ -160,7 +160,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 }
 
 static void
-on_stream_format_changed(void *_data, struct spa_pod *format)
+on_stream_format_changed(void *_data, const struct spa_pod *format)
 {
 	struct data *data = _data;
 	struct pw_stream *stream = data->stream;

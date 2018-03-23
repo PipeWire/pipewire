@@ -180,7 +180,7 @@ struct pw_stream_events {
 	/** when the format changed. The listener should call
 	 * pw_stream_finish_format() from within this callback or later to complete
 	 * the format negotiation and start the buffer negotiation. */
-	void (*format_changed) (void *data, struct spa_pod *format);
+	void (*format_changed) (void *data, const struct spa_pod *format);
 
         /** when a new buffer was created for this stream */
         void (*add_buffer) (void *data, struct pw_buffer *buffer);

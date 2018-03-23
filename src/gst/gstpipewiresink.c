@@ -496,7 +496,7 @@ on_state_changed (void *data, enum pw_stream_state old, enum pw_stream_state sta
 }
 
 static void
-on_format_changed (void *data, struct spa_pod *format)
+on_format_changed (void *data, const struct spa_pod *format)
 {
   GstPipeWireSink *pwsink = data;
 

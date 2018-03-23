@@ -221,7 +221,7 @@ static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
 }
 
 static void
-on_stream_format_changed(void *_data, struct spa_pod *format)
+on_stream_format_changed(void *_data, const struct spa_pod *format)
 {
 	struct data *data = _data;
 	struct pw_stream *stream = data->stream;

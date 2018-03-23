@@ -20,6 +20,7 @@
  */
 
 #define __USE_GNU
+#define _GNU_SOURCE
 
 #include <byteswap.h>
 #include <sys/shm.h>
@@ -41,10 +42,10 @@
 #include <pipewire/pipewire.h>
 
 #define MAX_BUFFERS	8
+#define MAX_CHANNELS	32
+#define MAX_RATE	(48000*8)
 
 struct type {
-	uint32_t format;
-	uint32_t props;
 	struct spa_type_media_type media_type;
 	struct spa_type_media_subtype media_subtype;
 	struct spa_type_format_audio format_audio;
@@ -53,22 +54,11 @@ struct type {
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
 	spa_type_media_type_map(map, &type->media_type);
 	spa_type_media_subtype_map(map, &type->media_subtype);
 	spa_type_format_audio_map(map, &type->format_audio);
 	spa_type_audio_format_map(map, &type->audio_format);
 }
-
-struct buffer {
-	struct spa_buffer *buffer;
-	struct spa_list link;
-        struct spa_meta_header *h;
-	void *ptr;
-	bool mapped;
-	bool used;
-};
 
 typedef enum _pipewire_format {
 	SND_PCM_PIPEWIRE_FORMAT_RAW
@@ -77,8 +67,11 @@ typedef enum _pipewire_format {
 typedef struct {
 	snd_pcm_ioplug_t io;
 
+	char *node_name;
+	char *target;
+
 	int fd;
-	int activated;		/* PipeWire is activated? */
+	bool activated;		/* PipeWire is activated? */
 	bool error;
 
 	unsigned int num_ports;
@@ -87,27 +80,20 @@ typedef struct {
 	snd_pcm_uframes_t min_avail;
 
 	struct type type;
+
 	struct pw_loop *loop;
 	struct pw_thread_loop *main_loop;
+
 	struct pw_core *core;
 	struct pw_type *t;
 
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
 
-	struct pw_node *node;
-
-        struct spa_node impl_node;
-        const struct spa_node_callbacks *callbacks;
-        void *callbacks_data;
-        struct spa_io_buffers *port_io;
-        struct spa_port_info port_info;
+	struct pw_stream *stream;
+	struct spa_hook stream_listener;
 
         struct spa_audio_info_raw format;
-
-        struct buffer buffers[MAX_BUFFERS];
-        uint32_t n_buffers;
-        struct spa_list empty;
 
 } snd_pcm_pipewire_t;
 
@@ -191,11 +177,15 @@ static int snd_pcm_pipewire_poll_revents(snd_pcm_ioplug_t *io,
 static snd_pcm_sframes_t snd_pcm_pipewire_pointer(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
+
+	if (pw->error)
+		return -EBADFD;
+
 	return pw->hw_ptr;
 }
 
 static int
-snd_pcm_pipewire_process_playback(snd_pcm_pipewire_t *pw, struct buffer *b)
+snd_pcm_pipewire_process_playback(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 {
 	snd_pcm_ioplug_t *io = &pw->io;
 	const snd_pcm_channel_area_t *areas;
@@ -226,7 +216,7 @@ snd_pcm_pipewire_process_playback(snd_pcm_pipewire_t *pw, struct buffer *b)
 	offset = index % maxsize;
 	nbytes = SPA_MIN(avail, maxsize - offset);
 
-	ptr = SPA_MEMBER(b->ptr, offset, void);
+	ptr = SPA_MEMBER(d[0].data, offset, void);
 	pw_log_trace("%d %d %d %d %p", nbytes, avail, filled, offset, ptr);
 
 	nframes = nbytes / bpf;
@@ -279,7 +269,7 @@ snd_pcm_pipewire_process_playback(snd_pcm_pipewire_t *pw, struct buffer *b)
 }
 
 static int
-snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct buffer *b)
+snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 {
 	snd_pcm_ioplug_t *io = &pw->io;
 	const snd_pcm_channel_area_t *areas;
@@ -306,7 +296,7 @@ snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct buffer *b)
 	avail = SPA_MIN(avail, pw->min_avail * bpf);
 	offset = index % maxsize;
 	nbytes = SPA_MIN(avail, maxsize - offset);
-	ptr = SPA_MEMBER(b->ptr, offset, void);
+	ptr = SPA_MEMBER(d[0].data, offset, void);
 
 	pw_log_trace("%d %d %d %p", nbytes, avail, offset, ptr);
 	nframes = nbytes / bpf;
@@ -361,39 +351,97 @@ snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct buffer *b)
 	return 0;
 }
 
+static void on_stream_process(void *data)
+{
+	snd_pcm_pipewire_t *pw = data;
+	snd_pcm_ioplug_t *io = &pw->io;
+	struct pw_buffer *b;
+
+	b = pw_stream_dequeue_buffer(pw->stream);
+	if (b == NULL)
+		return;
+
+	if (io->stream == SND_PCM_STREAM_PLAYBACK)
+		snd_pcm_pipewire_process_playback(pw, b);
+	else
+		snd_pcm_pipewire_process_record(pw, b);
+
+	pw_stream_queue_buffer(pw->stream, b);
+}
+
+static const struct pw_stream_events stream_events = {
+	PW_VERSION_STREAM_EVENTS,
+        .process = on_stream_process,
+};
+
 static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	snd_pcm_sw_params_t *swparams;
-	int err;
+	const struct spa_pod *params[1];
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct pw_type *t = pw->t;
+	int res;
+
+	pw_thread_loop_lock(pw->main_loop);
+
+	if (pw->stream) {
+		pw_stream_destroy(pw->stream);
+		pw->stream = NULL;
+	}
+
+        pw->stream = pw_stream_new(pw->remote, pw->node_name, NULL);
+	if (pw->stream == NULL)
+		goto error;
+
+	pw_stream_add_listener(pw->stream, &pw->stream_listener, &stream_events, pw);
+
+	params[0] = spa_pod_builder_object(&b,
+		t->param.idEnumFormat, t->spa_format,
+		"I", pw->type.media_type.audio,
+		"I", pw->type.media_subtype.raw,
+		":", pw->type.format_audio.format,     "I", pw->format.format,
+		":", pw->type.format_audio.channels,   "i", pw->format.channels,
+		":", pw->type.format_audio.rate,       "i", pw->format.rate);
+
+	spa_debug_pod(params[0], SPA_DEBUG_FLAG_FORMAT);
+
+	pw_stream_connect(pw->stream,
+			  PW_DIRECTION_OUTPUT,
+			  pw->target,
+			  PW_STREAM_FLAG_AUTOCONNECT |
+			  PW_STREAM_FLAG_MAP_BUFFERS |
+			  PW_STREAM_FLAG_RT_PROCESS,
+			  params, 1);
 
 	pw->hw_ptr = 0;
 
-	pw->min_avail = io->period_size;
 	snd_pcm_sw_params_alloca(&swparams);
-	err = snd_pcm_sw_params_current(io->pcm, swparams);
-	if (err == 0) {
+	if ((res = snd_pcm_sw_params_current(io->pcm, swparams)) == 0)
 		snd_pcm_sw_params_get_avail_min(swparams, &pw->min_avail);
-	}
-
-	/* deactivate PipeWire connections if this is XRUN recovery */
-	snd_pcm_pipewire_stop(io);
-
-	if (io->stream == SND_PCM_STREAM_PLAYBACK)
-		pcm_poll_unblock_check(io); /* playback pcm initially accepts writes */
 	else
-		pcm_poll_block_check(io); /* block capture pcm if that's XRUN recovery */
+		pw->min_avail = io->period_size;
+
+	pw_thread_loop_unlock(pw->main_loop);
 
 	return 0;
+
+      error:
+	pw_thread_loop_unlock(pw->main_loop);
+	return -ENOMEM;
 }
 
 static int snd_pcm_pipewire_start(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 
-	pw_node_set_active(pw->node, true);
-	pw->activated = 1;
-
+	pw_thread_loop_lock(pw->main_loop);
+	if (!pw->activated) {
+		pw_stream_set_active(pw->stream, true);
+		pw->activated = true;
+	}
+	pw_thread_loop_unlock(pw->main_loop);
 	return 0;
 }
 
@@ -401,10 +449,91 @@ static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 
+	pw_thread_loop_lock(pw->main_loop);
 	if (pw->activated) {
-		pw_node_set_active(pw->node, false);
-		pw->activated = 0;
+		pw_stream_set_active(pw->stream, false);
+		pw->activated = false;
 	}
+	pw_thread_loop_unlock(pw->main_loop);
+	return 0;
+}
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define _FORMAT_LE(s, fmt)  s . fmt ## _OE
+#define _FORMAT_BE(s, fmt)  s . fmt
+#elif __BYTE_ORDER == __LITTLE_ENDIAN
+#define _FORMAT_LE(s, fmt)  s . fmt
+#define _FORMAT_BE(s, fmt)  s . fmt ## _OE
+#endif
+
+static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
+				snd_pcm_hw_params_t * params)
+{
+	snd_pcm_pipewire_t *pw = io->private_data;
+
+	switch (io->format) {
+	case SND_PCM_FORMAT_S8:
+		pw->format.format = pw->type.audio_format.S8;
+		break;
+	case SND_PCM_FORMAT_U8:
+		pw->format.format = pw->type.audio_format.U8;
+		break;
+        case SND_PCM_FORMAT_S16_LE:
+		pw->format.format = _FORMAT_LE(pw->type.audio_format, S16);
+		break;
+	case SND_PCM_FORMAT_S16_BE:
+		pw->format.format = _FORMAT_BE(pw->type.audio_format, S16);
+		break;
+	case SND_PCM_FORMAT_U16_LE:
+		pw->format.format = _FORMAT_LE(pw->type.audio_format, U16);
+		break;
+	case SND_PCM_FORMAT_U16_BE:
+		pw->format.format = _FORMAT_BE(pw->type.audio_format, U16);
+		break;
+	case SND_PCM_FORMAT_S24_LE:
+		pw->format.format = _FORMAT_LE(pw->type.audio_format, S24_32);
+		break;
+	case SND_PCM_FORMAT_S24_BE:
+		pw->format.format = _FORMAT_BE(pw->type.audio_format, S24_32);
+		break;
+	case SND_PCM_FORMAT_U24_LE:
+		pw->format.format = _FORMAT_LE(pw->type.audio_format, U24_32);
+		break;
+	case SND_PCM_FORMAT_U24_BE:
+		pw->format.format = _FORMAT_BE(pw->type.audio_format, U24_32);
+		break;
+	case SND_PCM_FORMAT_S32_LE:
+		pw->format.format = _FORMAT_LE(pw->type.audio_format, S32);
+		break;
+	case SND_PCM_FORMAT_S32_BE:
+		pw->format.format = _FORMAT_BE(pw->type.audio_format, S32);
+		break;
+	case SND_PCM_FORMAT_U32_LE:
+		pw->format.format = _FORMAT_LE(pw->type.audio_format, U32);
+		break;
+	case SND_PCM_FORMAT_U32_BE:
+		pw->format.format = _FORMAT_BE(pw->type.audio_format, U32);
+		break;
+	case SND_PCM_FORMAT_FLOAT_LE:
+		pw->format.format = _FORMAT_LE(pw->type.audio_format, F32);
+		break;
+	case SND_PCM_FORMAT_FLOAT_BE:
+		pw->format.format = _FORMAT_BE(pw->type.audio_format, F32);
+		break;
+	case SND_PCM_FORMAT_FLOAT64_LE:
+		pw->format.format = _FORMAT_LE(pw->type.audio_format, F64);
+		break;
+	case SND_PCM_FORMAT_FLOAT64_BE:
+		pw->format.format = _FORMAT_BE(pw->type.audio_format, F64);
+		break;
+	default:
+		return -EINVAL;
+	}
+	pw->format.channels = io->channels;
+	pw->format.rate = io->rate;
+
+	pw->sample_bits = snd_pcm_format_physical_width(io->format);
+
 	return 0;
 }
 
@@ -415,6 +544,7 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.pointer = snd_pcm_pipewire_pointer,
 	.prepare = snd_pcm_pipewire_prepare,
 	.poll_revents = snd_pcm_pipewire_poll_revents,
+	.hw_params = snd_pcm_pipewire_hw_params,
 };
 
 static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
@@ -430,19 +560,40 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 		SND_PCM_ACCESS_RW_INTERLEAVED,
 		SND_PCM_ACCESS_RW_NONINTERLEAVED
 	};
-	unsigned int format = SND_PCM_FORMAT_S16_LE;
-	unsigned int rate = 44100;
+	unsigned int format_list[] = {
+		SND_PCM_FORMAT_S16_LE,
+#if 0
+		SND_PCM_FORMAT_S8,
+		SND_PCM_FORMAT_U8,
+		SND_PCM_FORMAT_S16_LE,
+		SND_PCM_FORMAT_S16_BE,
+		SND_PCM_FORMAT_U16_LE,
+		SND_PCM_FORMAT_U16_BE,
+		SND_PCM_FORMAT_S24_LE,
+		SND_PCM_FORMAT_S24_BE,
+		SND_PCM_FORMAT_U24_LE,
+		SND_PCM_FORMAT_U24_BE,
+		SND_PCM_FORMAT_S32_LE,
+		SND_PCM_FORMAT_S32_BE,
+		SND_PCM_FORMAT_U32_LE,
+		SND_PCM_FORMAT_U32_BE,
+		SND_PCM_FORMAT_FLOAT_LE,
+		SND_PCM_FORMAT_FLOAT_BE,
+		SND_PCM_FORMAT_FLOAT64_LE,
+		SND_PCM_FORMAT_FLOAT64_BE,
+#endif
+	};
+
 	int err;
 
-	pw->sample_bits = snd_pcm_format_physical_width(format);
 	if ((err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_ACCESS,
 						 SPA_N_ELEMENTS(access_list), access_list)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_FORMAT,
-						 1, &format)) < 0 ||
+						 SPA_N_ELEMENTS(format_list), format_list)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_CHANNELS,
-						   2, 2)) < 0 ||
+						   1, MAX_CHANNELS)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_RATE,
-						   rate, rate)) < 0 ||
+						   1, MAX_RATE)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_BUFFER_BYTES,
 						SPA_N_ELEMENTS(bytes_list), bytes_list)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_PERIOD_BYTES,
@@ -454,327 +605,8 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 	return 0;
 }
 
-static int impl_send_command(struct spa_node *node, const struct spa_command *command)
-{
-	return 0;
-}
-
-static int impl_set_callbacks(struct spa_node *node,
-			      const struct spa_node_callbacks *callbacks, void *data)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-	d->callbacks = callbacks;
-	d->callbacks_data = data;
-	return 0;
-}
-
-static int impl_get_n_ports(struct spa_node *node,
-			    uint32_t *n_input_ports,
-			    uint32_t *max_input_ports,
-			    uint32_t *n_output_ports,
-			    uint32_t *max_output_ports)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-
-	pw_log_debug("%d %d", d->io.stream, SND_PCM_STREAM_PLAYBACK);
-	if (d->io.stream == SND_PCM_STREAM_PLAYBACK) {
-		*n_input_ports = *max_input_ports = 0;
-		*n_output_ports = *max_output_ports = 1;
-	}
-	else {
-		*n_input_ports = *max_input_ports = 1;
-		*n_output_ports = *max_output_ports = 0;
-	}
-	return 0;
-}
-
-static int impl_get_port_ids(struct spa_node *node,
-                             uint32_t *input_ids,
-                             uint32_t n_input_ids,
-                             uint32_t *output_ids,
-                             uint32_t n_output_ids)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-
-	pw_log_debug("%d %d", d->io.stream, SND_PCM_STREAM_PLAYBACK);
-	if (d->io.stream == SND_PCM_STREAM_PLAYBACK) {
-		if (n_output_ids > 0)
-	                output_ids[0] = 0;
-	}
-	else {
-		if (n_input_ids > 0)
-	                input_ids[0] = 0;
-	}
-	return 0;
-}
-
-static int impl_port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-			    uint32_t id, void *data, size_t size)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-
-	if (id == d->t->io.Buffers)
-		d->port_io = data;
-	else
-		return -ENOENT;
-
-	return 0;
-}
-
-static int impl_port_get_info(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-			      const struct spa_port_info **info)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-
-	d->port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-	d->port_info.rate = 0;
-	d->port_info.props = NULL;
-
-	*info = &d->port_info;
-
-	return 0;
-}
-
-static int impl_port_enum_params(struct spa_node *node,
-				 enum spa_direction direction, uint32_t port_id,
-				 uint32_t id, uint32_t *index,
-				 const struct spa_pod *filter,
-				 struct spa_pod **result,
-				 struct spa_pod_builder *builder)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-	struct pw_type *t = d->t;
-	int bps;
-
-	bps = d->io.channels * (d->sample_bits / 8);
-
-	if (id == t->param.idList) {
-		uint32_t list[] = { t->param.idEnumFormat,
-				    t->param.idFormat,
-				    t->param.idBuffers,
-				    t->param.idMeta };
-
-		if (*index < SPA_N_ELEMENTS(list))
-			*result = spa_pod_builder_object(builder,
-				id, t->param.List,
-				":", t->param.listId, "I", list[*index]);
-		else
-			return 0;
-	}
-	else if (id == t->param.idEnumFormat) {
-		if (*index != 0)
-			return 0;
-
-		*result = spa_pod_builder_object(builder,
-			id, d->type.format,
-			"I", d->type.media_type.audio,
-			"I", d->type.media_subtype.raw,
-			":", d->type.format_audio.format,   "I", d->type.audio_format.S16,
-			":", d->type.format_audio.channels, "i", 2,
-			":", d->type.format_audio.rate,     "i", 44100);
-	}
-	else if (id == t->param.idFormat) {
-		if (*index != 0 || d->format.format == 0)
-			return 0;
-
-		*result = spa_pod_builder_object(builder,
-			id, d->type.format,
-			"I", d->type.media_type.audio,
-			"I", d->type.media_subtype.raw,
-			":", d->type.format_audio.format,   "I", d->format.format,
-			":", d->type.format_audio.channels, "i", d->format.channels,
-			":", d->type.format_audio.rate,     "i", d->format.rate);
-	}
-	else if (id == t->param.idBuffers) {
-		if (*index != 0 || d->format.format == 0)
-			return 0;
-
-		*result = spa_pod_builder_object(builder,
-			id, t->param_buffers.Buffers,
-			":", t->param_buffers.size,    "iru", d->io.buffer_size * bps,
-				SPA_POD_PROP_MIN_MAX(d->min_avail * bps, INT32_MAX / bps),
-			":", t->param_buffers.stride,  "i",   0,
-			":", t->param_buffers.buffers, "iru", 2,
-				SPA_POD_PROP_MIN_MAX(2, MAX_BUFFERS),
-			":", t->param_buffers.align,   "i",  16);
-	}
-	else if (id == t->param.idMeta) {
-		if (d->format.format == 0)
-			return 0;
-
-		switch (*index) {
-		case 0:
-			*result = spa_pod_builder_object(builder,
-				id, t->param_meta.Meta,
-				":", t->param_meta.type, "I", t->meta.Header,
-				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
-			break;
-		default:
-	                return 0;
-		}
-	}
-	else
-		return -ENOENT;
-
-	(*index)++;
-
-        return 1;
-}
-
-static int port_set_format(struct spa_node *node,
-			   enum spa_direction direction, uint32_t port_id,
-			   uint32_t flags, const struct spa_pod *format)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-
-	if (format == NULL) {
-		d->format.format = 0;
-		return 0;
-	}
-
-	if (spa_format_audio_raw_parse(format, &d->format, &d->type.format_audio) < 0)
-		return -EINVAL;
-
-	if (d->format.format != d->type.audio_format.S16)
-		return -EINVAL;
-
-	return 0;
-}
-
-static int impl_port_set_param(struct spa_node *node,
-			       enum spa_direction direction, uint32_t port_id,
-			       uint32_t id, uint32_t flags,
-			       const struct spa_pod *param)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-	struct pw_type *t = d->t;
-
-	if (id == t->param.idFormat) {
-		return port_set_format(node, direction, port_id, flags, param);
-	}
-	else
-		return -ENOENT;
-}
-
-static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-				 struct spa_buffer **buffers, uint32_t n_buffers)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-	uint32_t i;
-	for (i = 0; i < n_buffers; i++) {
-		struct buffer *b = &d->buffers[i];
-		struct spa_data *datas = buffers[i]->datas;
-
-		if (datas[0].data != NULL) {
-			b->ptr = datas[0].data;
-			b->mapped = false;
-		}
-		else if (datas[0].type == d->t->data.MemFd ||
-			 datas[0].type == d->t->data.DmaBuf) {
-			b->ptr = mmap(NULL, datas[0].maxsize + datas[0].mapoffset, PROT_WRITE,
-				      MAP_SHARED, datas[0].fd, 0);
-			if (b->ptr == MAP_FAILED) {
-				pw_log_error("failed to buffer mem");
-				b->ptr = NULL;
-				return -errno;
-
-			}
-			b->ptr = SPA_MEMBER(b->ptr, datas[0].mapoffset, void);
-			b->mapped = true;
-		}
-		else {
-			pw_log_error("invalid buffer mem");
-			return -EINVAL;
-		}
-		b->buffer = buffers[i];
-                b->h = spa_buffer_find_meta(b->buffer, d->t->meta.Header);
-
-		pw_log_info("got buffer %d size %d", i, datas[0].maxsize);
-		spa_list_append(&d->empty, &b->link);
-		b->used = false;
-	}
-	d->n_buffers = n_buffers;
-	return 0;
-}
-
-static inline void reuse_buffer(snd_pcm_pipewire_t *d, uint32_t id)
-{
-	struct buffer *b = &d->buffers[id];
-	if (b->used) {
-		pw_log_trace("reuse buffer %d", id);
-	        spa_list_append(&d->empty, &b->link);
-		b->used = false;
-	}
-}
-
-static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-	reuse_buffer(d, buffer_id);
-	return 0;
-}
-
-static int impl_node_process_input(struct spa_node *node)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-        struct spa_io_buffers *io = d->port_io;
-	struct buffer *b;
-
-	if (io->buffer_id >= d->n_buffers) {
-		io->status = -EINVAL;
-		return -EINVAL;
-	}
-	b = &d->buffers[io->buffer_id];
-
-	snd_pcm_pipewire_process_record(d, b);
-
-	return io->status = SPA_STATUS_NEED_BUFFER;
-}
-
-static int impl_node_process_output(struct spa_node *node)
-{
-	snd_pcm_pipewire_t *d = SPA_CONTAINER_OF(node, snd_pcm_pipewire_t, impl_node);
-	struct buffer *b;
-        struct spa_io_buffers *io = d->port_io;
-
-	if (io->buffer_id < d->n_buffers) {
-		reuse_buffer(d, io->buffer_id);
-		io->buffer_id = SPA_ID_INVALID;
-	}
-	if (spa_list_is_empty(&d->empty)) {
-                pw_log_error("alsa-pipewire %p: out of buffers", d);
-                return -EPIPE;
-        }
-        b = spa_list_first(&d->empty, struct buffer, link);
-        spa_list_remove(&b->link);
-
-	b->used = true;
-	io->buffer_id = b->buffer->id;
-
-	snd_pcm_pipewire_process_playback(d, b);
-
-	return io->status = SPA_STATUS_HAVE_BUFFER;
-}
-
-static const struct spa_node impl_node = {
-	SPA_VERSION_NODE,
-	.send_command = impl_send_command,
-	.set_callbacks = impl_set_callbacks,
-	.get_n_ports = impl_get_n_ports,
-	.get_port_ids = impl_get_port_ids,
-	.port_set_io = impl_port_set_io,
-	.port_get_info = impl_port_get_info,
-	.port_enum_params = impl_port_enum_params,
-	.port_set_param = impl_port_set_param,
-	.port_use_buffers = impl_port_use_buffers,
-	.port_reuse_buffer = impl_port_reuse_buffer,
-	.process_output = impl_node_process_output,
-	.process_input = impl_node_process_input,
-};
-
-
-static void on_state_changed(void *data, enum pw_remote_state old,
-                             enum pw_remote_state state, const char *error)
+static void on_remote_state_changed(void *data, enum pw_remote_state old,
+			enum pw_remote_state state, const char *error)
 {
 	snd_pcm_pipewire_t *pw = data;
 
@@ -792,22 +624,20 @@ static void on_state_changed(void *data, enum pw_remote_state old,
 }
 
 static const struct pw_remote_events remote_events = {
-        PW_VERSION_REMOTE_EVENTS,
-        .state_changed = on_state_changed,
+	PW_VERSION_REMOTE_EVENTS,
+        .state_changed = on_remote_state_changed,
 };
 
-static int pipewire_node_create(snd_pcm_pipewire_t *pw,
-				const char *node_name,
-				const char *target,
-				bool can_fallback)
+static int remote_connect_sync(snd_pcm_pipewire_t *pw)
 {
 	const char *error = NULL;
 	enum pw_remote_state state;
+	int res;
 
 	pw_thread_loop_lock(pw->main_loop);
 
-	if (pw_remote_connect(pw->remote) < 0) {
-		error = "connect failed";
+	if ((res = pw_remote_connect(pw->remote)) < 0) {
+		error = spa_strerror(res);
 		goto error;
 	}
 
@@ -821,30 +651,14 @@ static int pipewire_node_create(snd_pcm_pipewire_t *pw,
 
 		pw_thread_loop_wait(pw->main_loop);
 	}
-	pw_log_debug("node %s", target);
-        pw->node = pw_node_new(pw->core,
-			       node_name,
-			       pw_properties_new(PW_NODE_PROP_AUTOCONNECT, "1",
-						 PW_NODE_PROP_TARGET_NODE, target,
-						 NULL),
-			       0);
-	pw->impl_node = impl_node;
-        pw_node_set_implementation(pw->node, &pw->impl_node);
-        pw_node_register(pw->node, NULL, NULL, NULL);
-
-        pw_remote_export(pw->remote, pw->node);
+     exit:
 	pw_thread_loop_unlock(pw->main_loop);
 
-	return 0;
+	return res;
 
-      error:
-        if (!can_fallback)
-                SNDERR("PipeWire: Unable to connect: %s\n", error);
-
-        pw_thread_loop_unlock(pw->main_loop);
-
-        return -ECONNREFUSED;
-
+     error:
+	SNDERR("PipeWire: Unable to connect: %s\n", error);
+	goto exit;
 }
 
 static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
@@ -856,8 +670,6 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	snd_pcm_pipewire_t *pw;
 	int err;
 	static unsigned int num = 0;
-	char pipewire_node_name[32];
-	const char *target;
 
 	assert(pcmp);
 	pw = calloc(1, sizeof(*pw));
@@ -868,21 +680,19 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
 	pw->fd = -1;
 	pw->io.poll_fd = -1;
-	spa_list_init(&pw->empty);
 
 	if (node_name == NULL)
-		err = snprintf(pipewire_node_name, sizeof(pipewire_node_name),
+		err = asprintf(&pw->node_name,
 			       "alsa-pipewire.%s%s.%d.%d", name,
 			       stream == SND_PCM_STREAM_PLAYBACK ? "P" : "C",
 			       getpid(), num++);
 	else
-		err = snprintf(pipewire_node_name, sizeof(pipewire_node_name),
-			       "%s", node_name);
+		pw->node_name = strdup(node_name);
 
 	if (stream == SND_PCM_STREAM_PLAYBACK)
-		target = playback_node;
+		pw->target = playback_node ? strdup(playback_node) : NULL;
 	else
-		target = capture_node;
+		pw->target = capture_node ? strdup(capture_node) : NULL;
 
         pw->loop = pw_loop_new(NULL);
         pw->main_loop = pw_thread_loop_new(pw->loop, "alsa-pipewire");
@@ -891,14 +701,14 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
         init_type(&pw->type, pw->t->map);
         spa_debug_set_type_map(pw->t->map);
 
-        pw->remote = pw_remote_new(pw->core, NULL, 0);
-        pw_remote_add_listener(pw->remote, &pw->remote_listener, &remote_events, pw);
+	pw->remote = pw_remote_new(pw->core, NULL, 0);
+	pw_remote_add_listener(pw->remote, &pw->remote_listener, &remote_events, pw);
 
-	err = pw_thread_loop_start(pw->main_loop);
-	if (err < 0) {
-		snd_pcm_pipewire_free(pw);
-		return err;
-	}
+	if ((err = pw_thread_loop_start(pw->main_loop)) < 0)
+		goto error;
+
+	if ((err = remote_connect_sync(pw)) < 0)
+		goto error;
 
 	pw->fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 
@@ -910,28 +720,21 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	pw->io.poll_events = POLLIN;
 	pw->io.mmap_rw = 1;
 
-	err = snd_pcm_ioplug_create(&pw->io, name, stream, mode);
-	if (err < 0) {
-		snd_pcm_pipewire_free(pw);
-		return err;
-	}
+	if ((err = snd_pcm_ioplug_create(&pw->io, name, stream, mode)) < 0)
+		goto error;
+
 	pw_log_debug("open %s %d %d", name, pw->io.stream, mode);
 
-	err = pipewire_set_hw_constraint(pw);
-	if (err < 0) {
-		snd_pcm_ioplug_delete(&pw->io);
-		return err;
-	}
-
-	err = pipewire_node_create(pw, pipewire_node_name, target, false);
-	if (err < 0) {
-		snd_pcm_pipewire_free(pw);
-		return err;
-	}
+	if ((err = pipewire_set_hw_constraint(pw)) < 0)
+		goto error;
 
 	*pcmp = pw->io.pcm;
 
 	return 0;
+
+      error:
+	snd_pcm_pipewire_free(pw);
+	return err;
 }
 
 

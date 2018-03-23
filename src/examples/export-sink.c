@@ -36,6 +36,8 @@
 
 #define M_PI_M2 ( M_PI + M_PI )
 
+#define MAX_BUFFERS	32
+
 struct type {
 	uint32_t prop_param;
 	uint32_t io_prop_param;
@@ -105,7 +107,7 @@ struct data {
 
 	struct spa_param *params[2];
 
-	struct spa_buffer *buffers[32];
+	struct spa_buffer *buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 };
 
@@ -392,8 +394,8 @@ static int impl_port_enum_params(struct spa_node *node,
 			id, t->param_buffers.Buffers,
 			":", t->param_buffers.size,    "i", d->stride * d->format.size.height,
 			":", t->param_buffers.stride,  "i", d->stride,
-			":", t->param_buffers.buffers, "iru", 32,
-				SPA_POD_PROP_MIN_MAX(2, 32),
+			":", t->param_buffers.buffers, "iru", 2,
+				SPA_POD_PROP_MIN_MAX(2, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {

@@ -782,6 +782,9 @@ spa_v4l2_enum_format(struct impl *this,
 							 port->frmival.stepwise.step.denominator,
 							 port->frmival.stepwise.step.numerator);
 			}
+
+			port->frmsize.index++;
+			port->next_frmsize = true;
 			break;
 		}
 		n_fractions++;

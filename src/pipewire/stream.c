@@ -659,6 +659,7 @@ static int handle_connect(struct pw_stream *stream)
 	pw_node_set_active(impl->node, true);
 
 	pw_remote_export(stream->remote, impl->node);
+
 	return 0;
 }
 
@@ -887,7 +888,6 @@ uint32_t pw_stream_get_node_id(struct pw_stream *stream)
 {
 	return stream->node_id;
 }
-
 
 int pw_stream_disconnect(struct pw_stream *stream)
 {

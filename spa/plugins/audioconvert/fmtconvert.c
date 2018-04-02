@@ -40,6 +40,8 @@
 #define PROP_DEFAULT_TRUNCATE	false
 #define PROP_DEFAULT_DITHER	0
 
+struct impl;
+
 struct props {
 	bool truncate;
 	uint32_t dither;
@@ -57,6 +59,7 @@ struct buffer {
 	uint32_t flags;
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
+	size_t n_bytes;
 };
 
 struct port {
@@ -114,6 +117,36 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_param_io_map(map, &type->param_io);
 }
 
+
+#include "fmt-ops.c"
+
+static const struct pack_info {
+	off_t format;
+	void (*unpack_func) (int n_dst, void *dst[n_dst], const void *src, int n_bytes);
+	void (*unpack_func_1) (void *dst, const void *src, int n_bytes);
+	void (*pack_func) (void *dst, int n_src, const void *src[n_src], int n_bytes);
+	void (*pack_func_1) (void *dst, const void *src, int n_bytes);
+} pack_table[] =
+{
+	{ offsetof(struct spa_type_audio_format, U8),
+		conv_u8_to_f32d, conv_u8_to_f32, conv_f32d_to_u8, conv_f32_to_u8 },
+	{ offsetof(struct spa_type_audio_format, S16),
+		conv_s16_to_f32d, conv_s16_to_f32, conv_f32d_to_s16, conv_f32_to_s16 },
+	{ offsetof(struct spa_type_audio_format, F32),
+		deinterleave_32, NULL, interleave_32, NULL },
+};
+
+struct chain {
+	struct chain *prev;
+
+	uint32_t flags;
+	const struct pack_info *pack;
+
+	struct buffer *dst;
+
+	int (*process) (struct impl *impl, struct chain *chain);
+};
+
 struct impl {
 	struct spa_handle handle;
 	struct spa_node node;
@@ -132,13 +165,195 @@ struct impl {
 
 	bool started;
 
+	struct chain chains[10];
+	struct chain *start;
+
+	const struct buffer *src;
+
 	int (*convert) (struct impl *impl, const struct buffer *src, struct buffer *dst);
+
 };
 
 #define CHECK_PORT(this,d,id)		(id == 0)
 #define GET_IN_PORT(this,id)		(&this->in_port)
 #define GET_OUT_PORT(this,id)		(&this->out_port)
 #define GET_PORT(this,d,id)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,id) : GET_OUT_PORT(this,id))
+
+static const struct pack_info *find_pack_info(struct impl *this, uint32_t format)
+{
+	struct type *t = &this->type;
+	int i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(pack_table); i++) {
+		if (*SPA_MEMBER(&t->audio_format, pack_table[i].format, uint32_t) == format)
+			return &pack_table[i];
+	}
+	return NULL;
+}
+
+static int convert_generic(struct impl *this, const struct buffer *src, struct buffer *dst)
+{
+	struct chain *start = this->start;
+
+	this->src = src;
+	start->dst = dst;
+
+	spa_log_trace(this->log, NAME " %p", this);
+
+	return start->process(this, start);
+}
+
+static int do_unpack(struct impl *this, struct chain *chain)
+{
+	struct spa_buffer *src, *dst;
+	uint32_t i, size;
+
+	src = this->src->outbuf;
+	dst = chain->dst->outbuf;
+
+	spa_log_trace(this->log, NAME " %p: %d->%d", this, src->n_datas, dst->n_datas);
+
+	if (src->n_datas == dst->n_datas) {
+		for (i = 0; i < dst->n_datas; i++) {
+			size = src->datas[i].chunk->size;
+			chain->pack->unpack_func_1(dst->datas[i].data,
+						   src->datas[i].data, size);
+			dst->datas[i].chunk->size = size;
+		}
+	}
+	else {
+		void *datas[dst->n_datas];
+
+		for (i = 0; i < dst->n_datas; i++)
+			datas[i] = dst->datas[i].data;
+
+		chain->pack->unpack_func(dst->n_datas,
+				         datas,
+				         src->datas[0].data,
+					 src->datas[0].chunk->size);
+	}
+	return 0;
+}
+
+static int do_pack(struct impl *this, struct chain *chain)
+{
+	struct chain *prev = chain->prev;
+	struct spa_buffer *src, *dst;
+	uint32_t i, size;
+
+	if (prev) {
+		prev->dst = chain->dst;
+		prev->process(this, prev);
+		src = prev->dst->outbuf;
+	} else {
+		src = this->src->outbuf;
+	}
+	dst = chain->dst->outbuf;
+
+	spa_log_trace(this->log, NAME " %p: %d->%d", this, src->n_datas, dst->n_datas);
+
+	if (src->n_datas == dst->n_datas) {
+		for (i = 0; i < dst->n_datas; i++) {
+			size = src->datas[i].chunk->size;
+			chain->pack->pack_func_1(dst->datas[i].data,
+						 src->datas[i].data, size);
+			dst->datas[i].chunk->size = size;
+		}
+	}
+	else {
+		const void *datas[src->n_datas];
+
+		for (i = 0; i < src->n_datas; i++)
+			datas[i] = src->datas[i].data;
+
+		chain->pack->pack_func(dst->datas[0].data,
+				       src->n_datas,
+				       datas,
+				       src->datas[0].chunk->size);
+	}
+	return 0;
+}
+
+static struct chain *alloc_chain(struct impl *this, struct chain *prev)
+{
+	struct chain *chain;
+	if (prev == NULL)
+		chain = this->chains;
+	else
+		chain = prev + 1;
+	chain->prev = prev;
+	return chain;
+}
+
+static int setup_convert(struct impl *this)
+{
+	struct port *inport, *outport;
+	const struct pack_info *pack_info;
+	struct chain *chain = NULL;
+	struct type *t = &this->type;
+	uint32_t channels, rate;
+
+	inport = GET_PORT(this, SPA_DIRECTION_INPUT, 0);
+	outport = GET_PORT(this, SPA_DIRECTION_OUTPUT, 0);
+
+	spa_log_info(this->log, NAME " %p: %d/%d@%d->%d/%d@%d", this,
+			inport->format.info.raw.format,
+			inport->format.info.raw.channels,
+			inport->format.info.raw.rate,
+			outport->format.info.raw.format,
+			outport->format.info.raw.channels,
+			outport->format.info.raw.rate);
+
+	channels = inport->format.info.raw.channels;
+	rate = inport->format.info.raw.rate;
+
+	/* unpack */
+	if (inport->format.info.raw.format != t->audio_format.F32 ||
+	    (inport->format.info.raw.channels > 1 &&
+	     inport->format.info.raw.layout != SPA_AUDIO_LAYOUT_NON_INTERLEAVED)) {
+		if ((pack_info = find_pack_info(this, inport->format.info.raw.format)) == NULL)
+			return -EINVAL;
+
+		spa_log_info(this->log, NAME " %p: setup unpack", this);
+		chain = alloc_chain(this, chain);
+		chain->pack = pack_info;
+		chain->process = do_unpack;
+	}
+
+	/* down mix */
+	if (channels > outport->format.info.raw.channels) {
+		spa_log_info(this->log, NAME " %p: setup downmix", this);
+		channels = outport->format.info.raw.channels;
+	}
+	/* resample */
+	if (rate != outport->format.info.raw.rate) {
+		spa_log_info(this->log, NAME " %p: setup resample", this);
+		rate = outport->format.info.raw.rate;
+	}
+
+	/* up mix */
+	if (channels < outport->format.info.raw.channels) {
+		spa_log_info(this->log, NAME " %p: setup upmix", this);
+		channels = outport->format.info.raw.channels;
+	}
+
+	/* pack */
+	if (outport->format.info.raw.format != t->audio_format.F32 ||
+	    (outport->format.info.raw.channels > 1 &&
+	     outport->format.info.raw.layout != SPA_AUDIO_LAYOUT_NON_INTERLEAVED)) {
+		if ((pack_info = find_pack_info(this, outport->format.info.raw.format)) == NULL)
+			return -EINVAL;
+		spa_log_info(this->log, NAME " %p: setup pack", this);
+		chain = alloc_chain(this, chain);
+		chain->pack = pack_info;
+		chain->process = do_pack;
+	}
+
+	this->start = chain;
+	this->convert = convert_generic;
+
+	return 0;
+}
 
 static int impl_node_enum_params(struct spa_node *node,
 				 uint32_t id, uint32_t *index,
@@ -320,7 +535,6 @@ static int port_enum_formats(struct spa_node *node,
 				":", t->format_audio.layout,   "ieu", SPA_AUDIO_LAYOUT_INTERLEAVED,
 					SPA_POD_PROP_ENUM(2, SPA_AUDIO_LAYOUT_INTERLEAVED,
 							     SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
-				":", t->format_audio.rate,     "i", other->format.info.raw.rate,
 				":", t->format_audio.rate,     "iru", 44100,
 					SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
 				":", t->format_audio.channels, "iru", 2,
@@ -481,16 +695,19 @@ static int port_set_format(struct spa_node *node,
 			   const struct spa_pod *format)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
-	struct port *port;
+	struct port *port, *other;
 	struct type *t = &this->type;
+	int res = 0;
 
 	port = GET_PORT(this, direction, port_id);
+	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), port_id);
 
 	if (format == NULL) {
 		if (port->have_format) {
 			port->have_format = false;
 			clear_buffers(this, port);
 		}
+		this->convert = NULL;
 	} else {
 		struct spa_audio_info info = { 0 };
 
@@ -508,12 +725,13 @@ static int port_set_format(struct spa_node *node,
 		port->have_format = true;
 		port->format = info;
 
-		spa_log_info(this->log, NAME " %p: set format on port %d", this, port_id);
+		if (other->have_format)
+			res = setup_convert(this);
+
+		spa_log_info(this->log, NAME " %p: set format on port %d %d", this, port_id, res);
 	}
-
-	return 0;
+	return res;
 }
-
 
 static int
 impl_node_port_set_param(struct spa_node *node,

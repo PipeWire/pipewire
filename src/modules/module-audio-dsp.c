@@ -633,9 +633,8 @@ static int schedule_mix(struct spa_node *_node)
 
 	if (layer > 0)
 		conv_f32_s16(outb->ptr, port->port_id, out, buffer_size, stride);
-	else {
+	else
 		fill_s16(outb->ptr, port->port_id, buffer_size, stride);
-	}
 
 	return SPA_STATUS_HAVE_BUFFER;
 }
@@ -909,7 +908,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
-
 
 	return 0;
 }

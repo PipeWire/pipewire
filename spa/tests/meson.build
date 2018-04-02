@@ -3,6 +3,11 @@ executable('test-mixer', 'test-mixer.c',
            dependencies : [dl_lib, pthread_lib, mathlib],
            link_with : spalib,
            install : false)
+executable('test-convert', 'test-convert.c',
+           include_directories : [spa_inc, spa_libinc ],
+           dependencies : [dl_lib, pthread_lib, mathlib],
+           link_with : spalib,
+           install : false)
 executable('test-bluez5', 'test-bluez5.c',
            include_directories : [spa_inc, spa_libinc ],
            dependencies : [dl_lib, pthread_lib, mathlib, dbus_dep],

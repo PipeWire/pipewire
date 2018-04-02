@@ -51,6 +51,8 @@ extern "C" {
 #define SPA_TYPE_PROPS__volume		SPA_TYPE_PROPS_BASE "volume"
 #define SPA_TYPE_PROPS__mute		SPA_TYPE_PROPS_BASE "mute"
 #define SPA_TYPE_PROPS__patternType	SPA_TYPE_PROPS_BASE "patternType"
+#define SPA_TYPE_PROPS__ditherType	SPA_TYPE_PROPS_BASE "ditherType"
+#define SPA_TYPE_PROPS__truncate	SPA_TYPE_PROPS_BASE "truncate"
 
 #define SPA_TYPE_PROPS__brightness	SPA_TYPE_PROPS_BASE "brightness"
 #define SPA_TYPE_PROPS__contrast	SPA_TYPE_PROPS_BASE "contrast"

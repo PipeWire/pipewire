@@ -1,4 +1,5 @@
 subdir('alsa')
+subdir('audioconvert')
 subdir('audiomixer')
 subdir('audiotestsrc')
 if sbc_dep.found()

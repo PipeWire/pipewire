@@ -39,6 +39,7 @@
 #include "extensions/client-node.h"
 
 #define MAX_BUFFERS	64
+#define MASK_BUFFERS	(MAX_BUFFERS-1)
 
 struct type {
 	uint32_t client_node;
@@ -54,6 +55,7 @@ struct buffer {
 	struct pw_buffer this;
 	uint32_t id;
 #define BUFFER_FLAG_MAPPED	(1 << 0)
+#define BUFFER_FLAG_QUEUED	(1 << 1)
 	uint32_t flags;
 };
 
@@ -96,6 +98,7 @@ struct stream {
 	struct queue dequeued;
 	struct queue queued;
 
+	uint32_t n_orig_params;
 	uint32_t n_init_params;
 	struct spa_pod **init_params;
 
@@ -114,6 +117,12 @@ struct stream {
 
 	bool free_data;
 	struct data data;
+
+	bool use_converter;
+	struct spa_node *fmtconvert;
+	struct spa_node *resample;
+	struct spa_node *remix;
+	struct spa_io_buffers conv_io;
 };
 
 
@@ -121,8 +130,13 @@ static inline void push_queue(struct stream *stream, struct queue *queue, struct
 {
 	uint32_t index;
 
+	if (SPA_FLAG_CHECK(buffer->flags, BUFFER_FLAG_QUEUED))
+		return;
+
+	SPA_FLAG_SET(buffer->flags, BUFFER_FLAG_QUEUED);
+
 	spa_ringbuffer_get_write_index(&queue->ring, &index);
-	queue->ids[index & (MAX_BUFFERS-1)] = buffer->id;
+	queue->ids[index & MASK_BUFFERS] = buffer->id;
 	spa_ringbuffer_write_update(&queue->ring, index + 1);
 }
 
@@ -130,14 +144,84 @@ static inline struct buffer *pop_queue(struct stream *stream, struct queue *queu
 {
 	int32_t avail;
 	uint32_t index, id;
+	struct buffer *buffer;
 
 	if ((avail = spa_ringbuffer_get_read_index(&queue->ring, &index)) <= 0)
 		return NULL;
 
-	id = queue->ids[index & (MAX_BUFFERS-1)];
+	id = queue->ids[index & MASK_BUFFERS];
 	spa_ringbuffer_read_update(&queue->ring, index + 1);
 
-	return &stream->buffers[id];
+	buffer = &stream->buffers[id];
+	SPA_FLAG_UNSET(buffer->flags, BUFFER_FLAG_QUEUED);
+
+	return buffer;
+}
+
+/* check if the server format is compatible with the requested
+ * formats, if not, set up converters when allowed */
+static int configure_converter(struct stream *impl)
+{
+	struct pw_type *t = impl->t;
+	int i, res;
+	struct spa_pod *param;
+
+	impl->use_converter = false;
+
+	/* check if format compatible with filter */
+	for (i = 0; i < impl->n_orig_params; i++) {
+		uint8_t buffer[4096];
+		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, 4096);
+		struct spa_pod *filtered;
+
+		param = impl->init_params[i];
+
+		if (spa_pod_is_object_type(param, t->spa_format)) {
+			if (spa_pod_filter(&b, &filtered, impl->format, param) >= 0)
+				return 0;
+		}
+	}
+
+	/* configure the converter */
+	if ((res = spa_node_port_set_param(impl->fmtconvert,
+					   impl->direction, 0,
+					   t->param.idFormat, 0,
+					   impl->format)) < 0)
+		return res;
+
+
+	/* try to configure the other end */
+	for (i = 0; i < impl->n_orig_params; i++) {
+		param = impl->init_params[i];
+
+		if (spa_pod_is_object_type(param, t->spa_format)) {
+			if ((res = spa_node_port_set_param(impl->fmtconvert,
+					   SPA_DIRECTION_REVERSE(impl->direction), 0,
+					   t->param.idFormat,
+					   SPA_NODE_PARAM_FLAG_FIXATE,
+					   param)) < 0)
+				continue;
+
+			/* other end set and fixated */
+			impl->use_converter = true;
+			break;
+		}
+	}
+	/* when we get here without valid configured converter we fail */
+	if (!impl->use_converter)
+		return -ENOTSUP;
+
+	res = spa_node_port_set_io(impl->fmtconvert,
+				impl->direction, 0,
+				t->io.Buffers,
+				impl->io, sizeof(struct spa_io_buffers));
+	impl->io = &impl->conv_io;
+	res = spa_node_port_set_io(impl->fmtconvert,
+				SPA_DIRECTION_REVERSE(impl->direction), 0,
+				t->io.Buffers,
+				impl->io, sizeof(struct spa_io_buffers));
+
+	return 0;
 }
 
 static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state state, const char *error)
@@ -160,7 +244,7 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 	return res;
 }
 
-static struct buffer *find_buffer(struct pw_stream *stream, uint32_t id)
+static struct buffer *get_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	if (id < impl->n_buffers)
@@ -206,6 +290,9 @@ static int impl_send_command(struct spa_node *node, const struct spa_command *co
 
 			if (impl->direction == SPA_DIRECTION_INPUT) {
 				impl->io->status = SPA_STATUS_NEED_BUFFER;
+				impl->io->buffer_id = SPA_ID_INVALID;
+				impl->conv_io.status = SPA_STATUS_NEED_BUFFER;
+				impl->conv_io.buffer_id = SPA_ID_INVALID;
 			}
 			else {
 				call_process(impl);
@@ -271,15 +358,28 @@ static int impl_get_port_ids(struct spa_node *node,
 static int impl_port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
 			    uint32_t id, void *data, size_t size)
 {
-	struct stream *d = SPA_CONTAINER_OF(node, struct stream, impl_node);
-	struct pw_type *t = d->t;
+	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
+	struct pw_type *t = impl->t;
+	int res = 0;
 
-	if (id == t->io.Buffers)
-		d->io = data;
+	if (id == t->io.Buffers) {
+		pw_log_debug("stream %p: set io %d %p %zd", impl, id, data, size);
+
+		if (impl->use_converter) {
+			impl->io = &impl->conv_io;
+			res = spa_node_port_set_io(impl->fmtconvert,
+					     direction, 0, id, data, size);
+			res = spa_node_port_set_io(impl->fmtconvert,
+					     SPA_DIRECTION_REVERSE(direction), 0,
+					     id, impl->io, size);
+		}
+		else
+			impl->io = data;
+	}
 	else
-		return -ENOENT;
+		res = -ENOENT;
 
-	return 0;
+	return res;
 }
 
 static int impl_port_get_info(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -355,7 +455,7 @@ static int port_set_format(struct spa_node *node,
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
 	struct pw_stream *stream = &impl->this;
 	struct pw_type *t = impl->t;
-	int count;
+	int res, count;
 
 	pw_log_debug("stream %p: format changed", impl);
 
@@ -368,6 +468,12 @@ static int port_set_format(struct spa_node *node,
 	}
 	else
 		impl->format = NULL;
+
+
+	if ((res = configure_converter(impl)) < 0) {
+		pw_stream_finish_format(stream, res, NULL, 0);
+		return res;
+	}
 
 	count = spa_hook_list_call(&stream->listener_list,
 			   struct pw_stream_events,
@@ -458,6 +564,81 @@ static void clear_buffers(struct pw_stream *stream)
 	spa_ringbuffer_init(&impl->queued.ring);
 }
 
+static struct spa_buffer ** alloc_buffers(struct stream *impl,
+					  uint32_t n_buffers,
+					  uint32_t n_metas,
+					  uint32_t meta_sizes[n_metas],
+					  uint32_t n_datas,
+					  uint32_t data_sizes[n_datas])
+{
+	struct spa_buffer **buffers;
+	size_t skel_size, data_size = 0;
+	struct spa_buffer *bp, *b;
+	void *dp, *d, *ddp;
+	struct spa_chunk *cdp;
+	int i, j;
+	struct pw_type *t = impl->t;
+
+	skel_size = sizeof(struct spa_buffer *);
+	skel_size += sizeof(struct spa_buffer);
+	skel_size += n_metas * sizeof(struct spa_meta);
+	for (i = 0; i < n_metas; i++)
+		data_size += meta_sizes[i];
+	skel_size += n_datas * sizeof(struct spa_data);
+	data_size += n_datas * sizeof(struct spa_chunk);
+	for (i = 0; i < n_datas; i++)
+		data_size += data_sizes[i];
+
+	buffers = malloc((skel_size + data_size) * n_buffers);
+
+	bp = SPA_MEMBER(buffers, n_buffers * sizeof(struct spa_buffer *), struct spa_buffer);
+	dp = SPA_MEMBER(bp, n_buffers * skel_size, void);
+
+	for (i = 0; i < n_buffers; i++) {
+		b = SPA_MEMBER(bp, skel_size * i, struct spa_buffer);
+		d = SPA_MEMBER(dp, data_size * i, void);
+
+                buffers[i] = b;
+		b->id = i;
+		b->n_metas = n_metas;
+		b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
+		for (j = 0; j < n_metas; j++) {
+			struct spa_meta *m = &b->metas[j];
+			m->size = meta_sizes[j];
+			m->data = d;
+			d += m->size;
+		}
+		b->n_datas = n_datas;
+		b->datas = SPA_MEMBER(b->metas, n_metas * sizeof(struct spa_meta), struct spa_data);
+
+		cdp = d;
+		ddp = SPA_MEMBER(cdp, n_datas * sizeof(struct spa_chunk), void);
+
+		for (j = 0; j < n_datas; j++) {
+			struct spa_data *d = &b->datas[j];
+
+			d->chunk = &cdp[j];
+			if (data_sizes[j] > 0) {
+				d->type = t->data.MemPtr;
+				d->flags = 0;
+				d->fd = -1;
+				d->mapoffset = 0;
+				d->maxsize = data_sizes[j];
+				d->data = ddp;
+				d->chunk->offset = 0;
+				d->chunk->size = data_sizes[j];
+				d->chunk->stride = 0;
+				ddp += data_sizes[j];
+			} else {
+				/* needs to be allocated by a node */
+				d->type = SPA_ID_INVALID;
+				d->data = NULL;
+			}
+		}
+	}
+	return buffers;
+}
+
 static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
 			struct spa_buffer **buffers, uint32_t n_buffers)
 {
@@ -465,14 +646,15 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 	struct pw_stream *stream = &impl->this;
 	struct pw_type *t = impl->t;
 	int i, j, prot, res;
+	int size = 0;
 
 	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
 
 	clear_buffers(stream);
 
 	for (i = 0; i < n_buffers; i++) {
+		int buf_size = 0;
 		struct buffer *b = &impl->buffers[i];
-		int size = 0;
 
 		b->flags = 0;
 		b->id = buffers[i]->id;
@@ -489,13 +671,43 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 					pw_log_error("invalid buffer mem");
 					return -EINVAL;
 				}
-				size += d->maxsize;
+				buf_size += d->maxsize;
 			}
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
+
+			if (size > 0 && buf_size != size) {
+				pw_log_error("invalid buffer size %d", buf_size);
+				return -EINVAL;
+			} else
+				size = buf_size;
 		}
-		b->this.buffer = buffers[i];
 		pw_log_info("got buffer %d %d datas, total size %d", i,
 				buffers[i]->n_datas, size);
+	}
+	impl->n_buffers = n_buffers;
+
+	if (impl->use_converter) {
+		uint32_t data_sizes[1];
+
+		spa_node_port_use_buffers(impl->fmtconvert,
+					  impl->direction, 0,
+					  buffers,
+					  n_buffers);
+
+		data_sizes[0] = size * 2;
+		buffers = alloc_buffers(impl, n_buffers, 0, NULL, 1, data_sizes);
+
+		spa_node_port_use_buffers(impl->fmtconvert,
+					  SPA_DIRECTION_REVERSE(impl->direction), 0,
+					  buffers,
+					  n_buffers);
+
+	}
+
+	for (i = 0; i < n_buffers; i++) {
+		struct buffer *b = &impl->buffers[i];
+
+		b->this.buffer = buffers[i];
 
 		if (impl->direction == SPA_DIRECTION_OUTPUT)
 			push_queue(impl, &impl->dequeued, b);
@@ -503,7 +715,6 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
 				add_buffer, &b->this);
 	}
-	impl->n_buffers = n_buffers;
 
 	if (n_buffers > 0)
 		stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
@@ -534,7 +745,7 @@ static int impl_node_process_input(struct spa_node *node)
 	if (io->status != SPA_STATUS_HAVE_BUFFER)
 		goto done;
 
-	if ((b = find_buffer(stream, io->buffer_id)) == NULL)
+	if ((b = get_buffer(stream, io->buffer_id)) == NULL)
 		goto done;
 
 	push_queue(impl, &impl->dequeued, b);
@@ -554,15 +765,21 @@ static int impl_node_process_output(struct spa_node *node)
 	struct pw_stream *stream = &impl->this;
 	struct spa_io_buffers *io = impl->io;
 	struct buffer *b;
+	int res = 0;
 
 	pw_log_trace("stream %p: process out %d %d", stream, io->status, io->buffer_id);
 
-	if ((b = find_buffer(stream, io->buffer_id)) != NULL)
+	if ((b = get_buffer(stream, io->buffer_id)) != NULL)
 		push_queue(impl, &impl->dequeued, b);
 
 	if ((b = pop_queue(impl, &impl->queued)) != NULL) {
 		io->buffer_id = b->id;
 		io->status = SPA_STATUS_HAVE_BUFFER;
+
+		if (impl->use_converter)
+			res = spa_node_process(impl->fmtconvert);
+
+		pw_log_trace("stream %p: pop %d %s", stream, b->id, spa_strerror(res));
 	} else {
 		io->buffer_id = SPA_ID_INVALID;
 		io->status = SPA_STATUS_NEED_BUFFER;
@@ -607,6 +824,9 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	}
 	if (props == NULL)
 		goto no_mem;
+
+	impl->fmtconvert = pw_load_spa_interface("audioconvert/libspa-audioconvert",
+			"fmtconvert", SPA_TYPE__Node, NULL, 0);
 
 	this->properties = props;
 
@@ -748,10 +968,12 @@ const char *pw_stream_state_as_string(enum pw_stream_state state)
 
 static void
 set_init_params(struct pw_stream *stream,
-		     int n_init_params,
-		     const struct spa_pod **init_params)
+		int n_init_params,
+		const struct spa_pod **init_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	struct pw_type *t = impl->t;
+	bool add_audio = false;
 	int i;
 
 	if (impl->init_params) {
@@ -760,12 +982,38 @@ set_init_params(struct pw_stream *stream,
 		free(impl->init_params);
 		impl->init_params = NULL;
 	}
-	impl->n_init_params = n_init_params;
 	if (n_init_params > 0) {
 		impl->init_params = malloc(n_init_params * sizeof(struct spa_pod *));
-		for (i = 0; i < n_init_params; i++)
+		for (i = 0; i < n_init_params; i++) {
 			impl->init_params[i] = pw_spa_pod_copy(init_params[i]);
+
+			if (spa_pod_is_object_type(impl->init_params[i], t->spa_format))
+				add_audio = true;
+		}
 	}
+	impl->n_orig_params = n_init_params;
+
+	if (add_audio) {
+		uint32_t state = 0;
+		int res;
+
+		while (true) {
+			uint8_t buffer[4096];
+			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, 4096);
+			struct spa_pod *param;
+
+			if ((res = spa_node_port_enum_params(impl->fmtconvert,
+				       impl->direction, 0,
+				       t->param.idEnumFormat, &state,
+				       NULL, &param, &b)) <= 0)
+				break;
+
+			impl->init_params = realloc(impl->init_params,
+					(n_init_params + 1) * sizeof(struct spa_pod *));
+			impl->init_params[n_init_params++] = pw_spa_pod_copy(param);
+		}
+	}
+	impl->n_init_params = n_init_params;
 }
 
 static void set_params(struct pw_stream *stream, int n_params, struct spa_pod **params)
@@ -968,7 +1216,7 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer *b;
 
-	if ((b = find_buffer(stream, buffer->buffer->id)) == NULL)
+	if ((b = get_buffer(stream, buffer->buffer->id)) == NULL)
 		return -EINVAL;
 
 	pw_log_trace("stream %p: queue buffer %d", stream, b->id);

@@ -31,16 +31,23 @@ extern "C" {
 #define SPA_TYPE_PARAM__Buffers			SPA_TYPE_PARAM_BASE "Buffers"
 #define SPA_TYPE_PARAM_BUFFERS_BASE		SPA_TYPE_PARAM__Buffers ":"
 
-#define SPA_TYPE_PARAM_BUFFERS__size		SPA_TYPE_PARAM_BUFFERS_BASE "size"
-#define SPA_TYPE_PARAM_BUFFERS__stride		SPA_TYPE_PARAM_BUFFERS_BASE "stride"
 #define SPA_TYPE_PARAM_BUFFERS__buffers		SPA_TYPE_PARAM_BUFFERS_BASE "buffers"
-#define SPA_TYPE_PARAM_BUFFERS__align		SPA_TYPE_PARAM_BUFFERS_BASE "align"
+#define SPA_TYPE_PARAM_BUFFERS__blocks		SPA_TYPE_PARAM_BUFFERS_BASE "blocks"
+
+#define SPA_TYPE_PARAM__BlockInfo		SPA_TYPE_PARAM_BASE "BlockInfo"
+#define SPA_TYPE_PARAM_BLOCK_INFO_BASE		SPA_TYPE_PARAM__BlockInfo ":"
+
+#define SPA_TYPE_PARAM_BLOCK_INFO__size		SPA_TYPE_PARAM_BLOCK_INFO_BASE "size"
+#define SPA_TYPE_PARAM_BLOCK_INFO__stride	SPA_TYPE_PARAM_BLOCK_INFO_BASE "stride"
+#define SPA_TYPE_PARAM_BLOCK_INFO__align	SPA_TYPE_PARAM_BLOCK_INFO_BASE "align"
 
 struct spa_type_param_buffers {
 	uint32_t Buffers;
+	uint32_t buffers;
+	uint32_t blocks;
+	uint32_t BlockInfo;
 	uint32_t size;
 	uint32_t stride;
-	uint32_t buffers;
 	uint32_t align;
 };
 
@@ -50,10 +57,12 @@ spa_type_param_buffers_map(struct spa_type_map *map,
 {
 	if (type->Buffers == 0) {
 		type->Buffers = spa_type_map_get_id(map, SPA_TYPE_PARAM__Buffers);
-		type->size = spa_type_map_get_id(map, SPA_TYPE_PARAM_BUFFERS__size);
-		type->stride = spa_type_map_get_id(map, SPA_TYPE_PARAM_BUFFERS__stride);
 		type->buffers = spa_type_map_get_id(map, SPA_TYPE_PARAM_BUFFERS__buffers);
-		type->align = spa_type_map_get_id(map, SPA_TYPE_PARAM_BUFFERS__align);
+		type->blocks = spa_type_map_get_id(map, SPA_TYPE_PARAM_BUFFERS__blocks);
+		type->BlockInfo = spa_type_map_get_id(map, SPA_TYPE_PARAM__BlockInfo);
+		type->size = spa_type_map_get_id(map, SPA_TYPE_PARAM_BLOCK_INFO__size);
+		type->stride = spa_type_map_get_id(map, SPA_TYPE_PARAM_BLOCK_INFO__stride);
+		type->align = spa_type_map_get_id(map, SPA_TYPE_PARAM_BLOCK_INFO__align);
 	}
 }
 

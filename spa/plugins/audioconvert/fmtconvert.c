@@ -69,7 +69,8 @@ struct port {
 
 	bool have_format;
 	struct spa_audio_info format;
-	int bpf;
+	int stride;
+	int blocks;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -119,31 +120,79 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 
 #include "fmt-ops.c"
 
-static const struct pack_info {
-	off_t format;
-	void (*unpack_func) (int n_dst, void *dst[n_dst], const void *src, int n_bytes);
-	void (*unpack_func_1) (void *dst, const void *src, int n_bytes);
-	void (*pack_func) (void *dst, int n_src, const void *src[n_src], int n_bytes);
-	void (*pack_func_1) (void *dst, const void *src, int n_bytes);
-} pack_table[] =
+typedef void (*convert_func_t) (void *data, int n_dst, void *dst[n_dst],
+				int n_src, const void *src[n_src], int n_bytes);
+
+static const struct conv_info {
+	off_t src_fmt;
+	off_t dst_fmt;
+
+	convert_func_t i2i;
+	convert_func_t i2d;
+	convert_func_t d2i;
+} conv_table[] =
 {
+	/* to f32 */
 	{ offsetof(struct spa_type_audio_format, U8),
-		conv_u8_to_f32d, conv_u8_to_f32, conv_f32d_to_u8, conv_f32_to_u8 },
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_u8_to_f32, conv_u8_to_f32d, conv_u8d_to_f32 },
 	{ offsetof(struct spa_type_audio_format, S16),
-		conv_s16_to_f32d, conv_s16_to_f32, conv_f32d_to_s16, conv_f32_to_s16 },
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_s16_to_f32, conv_s16_to_f32d, conv_s16d_to_f32 },
 	{ offsetof(struct spa_type_audio_format, F32),
-		deinterleave_32, NULL, interleave_32, NULL },
-};
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_copy, deinterleave_32, interleave_32 },
+	{ offsetof(struct spa_type_audio_format, S32),
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_s32_to_f32, conv_s32_to_f32d, conv_s32d_to_f32 },
+	{ offsetof(struct spa_type_audio_format, S24),
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_s24_to_f32, conv_s24_to_f32d, conv_s24d_to_f32 },
+	{ offsetof(struct spa_type_audio_format, S24_32),
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_s24_32_to_f32, conv_s24_32_to_f32d, conv_s24_32d_to_f32 },
 
-struct chain {
-	struct chain *prev;
+	/* from f32 */
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, U8),
+		conv_f32_to_u8, conv_f32_to_u8d, conv_f32d_to_u8 },
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, S16),
+		conv_f32_to_s16, conv_f32_to_s16d, conv_f32d_to_s16 },
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, S32),
+		conv_f32_to_s32, conv_f32_to_s32d, conv_f32d_to_s32 },
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, S24),
+		conv_f32_to_s24, conv_f32_to_s24d, conv_f32d_to_s24 },
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, S24_32),
+		conv_f32_to_s24_32, conv_f32_to_s24_32d, conv_f32d_to_s24_32 },
 
-	uint32_t flags;
-	const struct pack_info *pack;
+	/* u8 */
+	{ offsetof(struct spa_type_audio_format, U8),
+	  offsetof(struct spa_type_audio_format, U8),
+		conv_copy, deinterleave_8, interleave_8 },
 
-	struct buffer *dst;
+	/* s16 */
+	{ offsetof(struct spa_type_audio_format, S16),
+	  offsetof(struct spa_type_audio_format, S16),
+		conv_copy, deinterleave_16, interleave_16 },
 
-	int (*process) (struct impl *impl, struct chain *chain);
+	/* s32 */
+	{ offsetof(struct spa_type_audio_format, S32),
+	  offsetof(struct spa_type_audio_format, S32),
+		conv_copy, deinterleave_32, interleave_32 },
+
+	/* s24 */
+	{ offsetof(struct spa_type_audio_format, S24),
+	  offsetof(struct spa_type_audio_format, S24),
+		conv_copy, deinterleave_24, interleave_24 },
+
+	/* s24_32 */
+	{ offsetof(struct spa_type_audio_format, S24_32),
+	  offsetof(struct spa_type_audio_format, S24_32),
+		conv_copy, deinterleave_32, interleave_32 },
 };
 
 struct impl {
@@ -164,13 +213,13 @@ struct impl {
 
 	bool started;
 
-	struct chain chains[10];
-	struct chain *start;
-
 	const struct buffer *src;
 
-	int (*convert) (struct impl *impl, const struct buffer *src, struct buffer *dst);
+	const struct conv_info *conv[2];
 
+	convert_func_t convert;
+
+	uint8_t temp[8192];
 };
 
 #define CHECK_PORT(this,d,id)		(id == 0)
@@ -178,177 +227,87 @@ struct impl {
 #define GET_OUT_PORT(this,id)		(&this->out_port)
 #define GET_PORT(this,d,id)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,id) : GET_OUT_PORT(this,id))
 
-static const struct pack_info *find_pack_info(struct impl *this, uint32_t format)
+static const struct conv_info *find_conv_info(struct impl *this, uint32_t src_fmt, uint32_t dst_fmt)
 {
 	struct type *t = &this->type;
 	int i;
 
-	for (i = 0; i < SPA_N_ELEMENTS(pack_table); i++) {
-		if (*SPA_MEMBER(&t->audio_format, pack_table[i].format, uint32_t) == format)
-			return &pack_table[i];
+	for (i = 0; i < SPA_N_ELEMENTS(conv_table); i++) {
+		if (*SPA_MEMBER(&t->audio_format, conv_table[i].src_fmt, uint32_t) == src_fmt &&
+		    *SPA_MEMBER(&t->audio_format, conv_table[i].dst_fmt, uint32_t) == dst_fmt)
+			return &conv_table[i];
 	}
 	return NULL;
 }
 
-static int convert_generic(struct impl *this, const struct buffer *src, struct buffer *dst)
+static void convert_generic (void *data, int n_dst, void *dst[n_dst],
+			     int n_src, const void *src[n_src], int n_bytes)
 {
-	struct chain *start = this->start;
+#if 0
+	struct port *inport, *outport;
 
-	this->src = src;
-	start->dst = dst;
+	inport = GET_PORT(this, SPA_DIRECTION_INPUT, 0);
+	outport = GET_PORT(this, SPA_DIRECTION_OUTPUT, 0);
 
-	spa_log_trace(this->log, NAME " %p", this);
-
-	return start->process(this, start);
-}
-
-static int do_unpack(struct impl *this, struct chain *chain)
-{
-	struct spa_buffer *src, *dst;
-	uint32_t i, size;
-
-	src = this->src->outbuf;
-	dst = chain->dst->outbuf;
-
-	spa_log_trace(this->log, NAME " %p: %d->%d", this, src->n_datas, dst->n_datas);
-
-	if (src->n_datas == dst->n_datas) {
-		for (i = 0; i < dst->n_datas; i++) {
-			size = src->datas[i].chunk->size;
-			chain->pack->unpack_func_1(dst->datas[i].data,
-						   src->datas[i].data, size);
-			dst->datas[i].chunk->size = size;
-		}
+	if (inport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED) {
 	}
 	else {
-		void *datas[dst->n_datas];
-
-		for (i = 0; i < dst->n_datas; i++)
-			datas[i] = dst->datas[i].data;
-
-		chain->pack->unpack_func(dst->n_datas,
-				         datas,
-				         src->datas[0].data,
-					 src->datas[0].chunk->size);
 	}
-	return 0;
-}
-
-static int do_pack(struct impl *this, struct chain *chain)
-{
-	struct chain *prev = chain->prev;
-	struct spa_buffer *src, *dst;
-	uint32_t i, size;
-
-	if (prev) {
-		prev->dst = chain->dst;
-		prev->process(this, prev);
-		src = prev->dst->outbuf;
-	} else {
-		src = this->src->outbuf;
-	}
-	dst = chain->dst->outbuf;
-
-	spa_log_trace(this->log, NAME " %p: %d->%d", this, src->n_datas, dst->n_datas);
-
-	if (src->n_datas == dst->n_datas) {
-		for (i = 0; i < dst->n_datas; i++) {
-			size = src->datas[i].chunk->size;
-			chain->pack->pack_func_1(dst->datas[i].data,
-						 src->datas[i].data, size);
-			dst->datas[i].chunk->size = size;
-		}
-	}
-	else {
-		const void *datas[src->n_datas];
-
-		for (i = 0; i < src->n_datas; i++)
-			datas[i] = src->datas[i].data;
-
-		chain->pack->pack_func(dst->datas[0].data,
-				       src->n_datas,
-				       datas,
-				       src->datas[0].chunk->size);
-	}
-	return 0;
-}
-
-static struct chain *alloc_chain(struct impl *this, struct chain *prev)
-{
-	struct chain *chain;
-	if (prev == NULL)
-		chain = this->chains;
-	else
-		chain = prev + 1;
-	chain->prev = prev;
-	return chain;
+#endif
 }
 
 static int setup_convert(struct impl *this)
 {
 	struct port *inport, *outport;
-	const struct pack_info *pack_info;
-	struct chain *chain = NULL;
+	uint32_t src_fmt, dst_fmt;
 	struct type *t = &this->type;
-	uint32_t channels, rate;
 
 	inport = GET_PORT(this, SPA_DIRECTION_INPUT, 0);
 	outport = GET_PORT(this, SPA_DIRECTION_OUTPUT, 0);
 
-	spa_log_info(this->log, NAME " %p: %d/%d@%d->%d/%d@%d", this,
-			inport->format.info.raw.format,
+	src_fmt = inport->format.info.raw.format;
+	dst_fmt = outport->format.info.raw.format;
+
+	spa_log_info(this->log, NAME " %p: %d/%d@%d.%d->%d/%d@%d.%d", this,
+			src_fmt,
 			inport->format.info.raw.channels,
 			inport->format.info.raw.rate,
-			outport->format.info.raw.format,
+			inport->format.info.raw.layout,
+			dst_fmt,
 			outport->format.info.raw.channels,
-			outport->format.info.raw.rate);
+			outport->format.info.raw.rate,
+			outport->format.info.raw.layout);
 
-	channels = inport->format.info.raw.channels;
-	rate = inport->format.info.raw.rate;
+	if (inport->format.info.raw.channels != outport->format.info.raw.channels)
+		return -EINVAL;
 
-	/* unpack */
-	if (inport->format.info.raw.format != t->audio_format.F32 ||
-	    (inport->format.info.raw.channels > 1 &&
-	     inport->format.info.raw.layout != SPA_AUDIO_LAYOUT_NON_INTERLEAVED)) {
-		if ((pack_info = find_pack_info(this, inport->format.info.raw.format)) == NULL)
-			return -EINVAL;
+	if (inport->format.info.raw.rate != outport->format.info.raw.rate)
+		return -EINVAL;
 
-		spa_log_info(this->log, NAME " %p: setup unpack", this);
-		chain = alloc_chain(this, chain);
-		chain->pack = pack_info;
-		chain->process = do_unpack;
+	/* find fast path */
+	this->conv[0] = find_conv_info(this, src_fmt, dst_fmt);
+	if (this->conv[0] != NULL) {
+		if (inport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED) {
+			if (outport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
+				this->convert = this->conv[0]->i2i;
+			else
+				this->convert = this->conv[0]->i2d;
+		}
+		else {
+			if (outport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
+				this->convert = this->conv[0]->d2i;
+			else
+				this->convert = this->conv[0]->i2i;
+		}
+		return 0;
 	}
 
-	/* down mix */
-	if (channels > outport->format.info.raw.channels) {
-		spa_log_info(this->log, NAME " %p: setup downmix", this);
-		channels = outport->format.info.raw.channels;
-	}
-	/* resample */
-	if (rate != outport->format.info.raw.rate) {
-		spa_log_info(this->log, NAME " %p: setup resample", this);
-		rate = outport->format.info.raw.rate;
-	}
+	/* go through intermediate format */
+	this->conv[0] = find_conv_info(this, src_fmt, t->audio_format.F32);
+	this->conv[1] = find_conv_info(this, t->audio_format.F32, dst_fmt);
+	if (this->conv[0] == NULL || this->conv[1] == NULL)
+		return -ENOTSUP;
 
-	/* up mix */
-	if (channels < outport->format.info.raw.channels) {
-		spa_log_info(this->log, NAME " %p: setup upmix", this);
-		channels = outport->format.info.raw.channels;
-	}
-
-	/* pack */
-	if (outport->format.info.raw.format != t->audio_format.F32 ||
-	    (outport->format.info.raw.channels > 1 &&
-	     outport->format.info.raw.layout != SPA_AUDIO_LAYOUT_NON_INTERLEAVED)) {
-		if ((pack_info = find_pack_info(this, outport->format.info.raw.format)) == NULL)
-			return -EINVAL;
-		spa_log_info(this->log, NAME " %p: setup pack", this);
-		chain = alloc_chain(this, chain);
-		chain->pack = pack_info;
-		chain->process = do_pack;
-	}
-
-	this->start = chain;
 	this->convert = convert_generic;
 
 	return 0;
@@ -496,7 +455,7 @@ static int port_enum_formats(struct spa_node *node,
 				"I", t->media_type.audio,
 				"I", t->media_subtype.raw,
 				":", t->format_audio.format,   "Ieu", t->audio_format.S16,
-					SPA_POD_PROP_ENUM(12, t->audio_format.U8,
+					SPA_POD_PROP_ENUM(11, t->audio_format.U8,
 							      t->audio_format.S16,
 							      t->audio_format.S16_OE,
 							      t->audio_format.F32,
@@ -505,7 +464,6 @@ static int port_enum_formats(struct spa_node *node,
 							      t->audio_format.S32_OE,
 							      t->audio_format.S24,
 							      t->audio_format.S24_OE,
-							      t->audio_format.S24,
 							      t->audio_format.S24_32,
 							      t->audio_format.S24_32_OE),
 				":", t->format_audio.layout,   "ieu", SPA_AUDIO_LAYOUT_INTERLEAVED,
@@ -519,7 +477,7 @@ static int port_enum_formats(struct spa_node *node,
 				"I", t->media_type.audio,
 				"I", t->media_subtype.raw,
 				":", t->format_audio.format,   "Ieu", t->audio_format.S16,
-					SPA_POD_PROP_ENUM(12, t->audio_format.U8,
+					SPA_POD_PROP_ENUM(11, t->audio_format.U8,
 							      t->audio_format.S16,
 							      t->audio_format.S16_OE,
 							      t->audio_format.F32,
@@ -528,7 +486,6 @@ static int port_enum_formats(struct spa_node *node,
 							      t->audio_format.S32_OE,
 							      t->audio_format.S24,
 							      t->audio_format.S24_OE,
-							      t->audio_format.S24,
 							      t->audio_format.S24_32,
 							      t->audio_format.S24_32_OE),
 				":", t->format_audio.layout,   "ieu", SPA_AUDIO_LAYOUT_INTERLEAVED,
@@ -632,11 +589,12 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(&b,
 			id, t->param_buffers.Buffers,
-			":", t->param_buffers.size,    "iru", 1024 * port->bpf,
-				SPA_POD_PROP_MIN_MAX(16 * port->bpf, INT32_MAX / port->bpf),
-			":", t->param_buffers.stride,  "i", 0,
 			":", t->param_buffers.buffers, "iru", 1,
 				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
+			":", t->param_buffers.blocks,  "i", port->blocks,
+			":", t->param_buffers.size,    "iru", 1024 * port->stride,
+				SPA_POD_PROP_MIN_MAX(16 * port->stride, INT32_MAX / port->stride),
+			":", t->param_buffers.stride,  "i", port->stride,
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
@@ -675,6 +633,20 @@ impl_node_port_enum_params(struct spa_node *node,
 		goto next;
 
 	return 1;
+}
+
+static int calc_width(struct spa_audio_info *info, struct type *t)
+{
+	if (info->info.raw.format == t->audio_format.U8)
+		return 1;
+	else if (info->info.raw.format == t->audio_format.S16 ||
+	    info->info.raw.format == t->audio_format.S16_OE)
+		return 2;
+	else if (info->info.raw.format == t->audio_format.S24 ||
+	    info->info.raw.format == t->audio_format.S24_OE)
+		return 3;
+	else
+		return 4;
 }
 
 static int clear_buffers(struct impl *this, struct port *port)
@@ -723,6 +695,16 @@ static int port_set_format(struct spa_node *node,
 
 		port->have_format = true;
 		port->format = info;
+
+		port->stride = calc_width(&info, t);
+
+		if (info.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED) {
+			port->stride *= info.info.raw.channels;
+			port->blocks = 1;
+		}
+		else {
+			port->blocks = info.info.raw.channels;
+		}
 
 		if (other->have_format)
 			res = setup_convert(this);
@@ -939,7 +921,24 @@ static int impl_node_process(struct spa_node *node)
 
 	sbuf = &inport->buffers[inio->buffer_id];
 
-	this->convert(this, sbuf, dbuf);
+	{
+		int i, n_bytes;
+		uint32_t n_src_datas = sbuf->outbuf->n_datas;
+		uint32_t n_dst_datas = dbuf->outbuf->n_datas;
+		const void *src_datas[n_src_datas];
+		void *dst_datas[n_dst_datas];
+
+		n_bytes = sbuf->outbuf->datas[0].chunk->size;
+
+		for (i = 0; i < n_src_datas; i++)
+			src_datas[i] = sbuf->outbuf->datas[i].data;
+		for (i = 0; i < n_dst_datas; i++)
+			dst_datas[i] = dbuf->outbuf->datas[i].data;
+
+		this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
+
+		dbuf->outbuf->datas[0].chunk->size = n_bytes / 2;
+	}
 
 	outio->status = SPA_STATUS_HAVE_BUFFER;
 	outio->buffer_id = dbuf->outbuf->id;

@@ -298,13 +298,46 @@ static int negotiate_formats(struct data *data)
 					   format)) < 0)
 		return res;
 
+
+	return 0;
+}
+
+static int negotiate_buffers(struct data *data)
+{
+	int res;
+	uint32_t state;
+	struct spa_pod *param;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[4096];
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	state = 0;
+	if ((res = spa_node_port_enum_params(data->conv,
+				       SPA_DIRECTION_INPUT, 0,
+				       data->type.param.idBuffers, &state,
+				       NULL, &param, &b)) <= 0)
+		return -EBADF;
+
+	spa_debug_pod(param, 0);
+
 	init_buffer(data, data->in_buffers, data->in_buffer, 1, BUFFER_SIZE, 1);
 	if ((res =
 	     spa_node_port_use_buffers(data->conv, SPA_DIRECTION_INPUT, 0, data->in_buffers,
 				       1)) < 0)
 		return res;
 
-	init_buffer(data, data->out_buffers, data->out_buffer, 1, BUFFER_SIZE / 2, 2);
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	state = 0;
+	if ((res = spa_node_port_enum_params(data->conv,
+				       SPA_DIRECTION_OUTPUT, 0,
+				       data->type.param.idBuffers, &state,
+				       NULL, &param, &b)) <= 0)
+		return -EBADF;
+
+	spa_debug_pod(param, 0);
+
+	init_buffer(data, data->out_buffers, data->out_buffer, 1, BUFFER_SIZE, 2);
 	if ((res =
 	     spa_node_port_use_buffers(data->conv, SPA_DIRECTION_OUTPUT, 0, data->out_buffers,
 				       1)) < 0)
@@ -346,8 +379,8 @@ static void run_convert(struct data *data)
 	res = spa_node_process(data->conv);
 	printf("called process %d\n", res);
 
-	spa_debug_dump_mem(data->out_buffers[0]->datas[0].data, BUFFER_SIZE / 2);
-	spa_debug_dump_mem(data->out_buffers[0]->datas[1].data, BUFFER_SIZE / 2);
+	spa_debug_dump_mem(data->out_buffers[0]->datas[0].data, BUFFER_SIZE);
+	spa_debug_dump_mem(data->out_buffers[0]->datas[1].data, BUFFER_SIZE);
 
 	{
 		struct spa_command cmd = SPA_COMMAND_INIT(data->type.command_node.Pause);
@@ -383,6 +416,10 @@ int main(int argc, char *argv[])
 	}
 	if ((res = negotiate_formats(&data)) < 0) {
 		printf("can't negotiate nodes: %d\n", res);
+		return -1;
+	}
+	if ((res = negotiate_buffers(&data)) < 0) {
+		printf("can't negotiate buffers: %d\n", res);
 		return -1;
 	}
 

@@ -170,25 +170,38 @@ const struct spa_support *pw_get_support(uint32_t *n_support)
 	return support_info.support;
 }
 
-void *pw_get_spa_dbus(struct pw_loop *loop)
+void *pw_load_spa_interface(const char *lib, const char *factory_name, const char *type,
+			    struct spa_support *support, uint32_t n_support)
 {
-	struct support_info dbus_support_info;
+	struct support_info extra_support_info;
 	const char *str;
+	int i;
 
-	dbus_support_info.n_support = support_info.n_support;
-	memcpy(dbus_support_info.support, support_info.support,
-			sizeof(struct spa_support) * dbus_support_info.n_support);
+	extra_support_info.n_support = support_info.n_support;
+	memcpy(extra_support_info.support, support_info.support,
+			sizeof(struct spa_support) * extra_support_info.n_support);
 
-	dbus_support_info.support[dbus_support_info.n_support++] =
-			SPA_SUPPORT_INIT(SPA_TYPE__LoopUtils, loop->utils);
-
+	for (i = 0; i < n_support; i++) {
+		extra_support_info.support[extra_support_info.n_support++] =
+			SPA_SUPPORT_INIT(support[i].type, support[i].data);
+	}
 	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
 		str = PLUGINDIR;
 
-	if (open_support(str, "support/libspa-dbus", &dbus_support_info))
-		return load_interface(&dbus_support_info, "dbus", SPA_TYPE__DBus);
+	pw_log_debug("load \"%s\", \"%s\"", lib, factory_name);
+
+	if (open_support(str, lib, &extra_support_info))
+		return load_interface(&extra_support_info, factory_name, type);
 
 	return NULL;
+}
+
+void *pw_get_spa_dbus(struct pw_loop *loop)
+{
+	struct spa_support support = SPA_SUPPORT_INIT(SPA_TYPE__LoopUtils, loop->utils);
+
+	return pw_load_spa_interface("support/libspa-dbus", "dbus", SPA_TYPE__DBus,
+			&support, 1);
 }
 
 /** Initialize PipeWire

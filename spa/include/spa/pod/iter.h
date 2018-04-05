@@ -136,7 +136,8 @@ static inline int spa_pod_fixate(struct spa_pod *pod)
 
 	SPA_POD_CONTENTS_FOREACH(pod, offset, res) {
 		if (res->type == SPA_POD_TYPE_PROP)
-			((struct spa_pod_prop *) res)->body.flags &= ~SPA_POD_PROP_FLAG_UNSET;
+			SPA_FLAG_UNSET (((struct spa_pod_prop *) res)->body.flags,
+					SPA_POD_PROP_FLAG_UNSET);
 	}
 	return 0;
 }

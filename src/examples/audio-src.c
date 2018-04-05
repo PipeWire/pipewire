@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
 
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_OUTPUT,
-			  NULL,
+			  argc > 1 ? argv[1] : NULL,
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_MAP_BUFFERS |
 			  PW_STREAM_FLAG_RT_PROCESS,

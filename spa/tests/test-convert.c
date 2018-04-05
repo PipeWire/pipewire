@@ -110,7 +110,7 @@ struct data {
 	struct buffer out_buffer[1];
 };
 
-#define BUFFER_SIZE     4096
+#define BUFFER_SIZE     128
 
 static void
 init_buffer(struct data *data, struct spa_buffer **bufs, struct buffer *ba, int n_buffers,
@@ -375,6 +375,7 @@ int main(int argc, char *argv[])
 	data.n_support = 2;
 
 	init_type(&data.type, data.map);
+	spa_debug_set_type_map(data.map);
 
 	if ((res = make_nodes(&data, argc > 1 ? argv[1] : NULL)) < 0) {
 		printf("can't make nodes: %d\n", res);

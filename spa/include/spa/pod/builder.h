@@ -532,7 +532,7 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 			if (*format != '\0')
 				format++;
 			for (;*format;format++)
-				flags |= spa_pod_flag_from_id(*format);
+				SPA_FLAG_SET(flags, spa_pod_flag_from_id(*format));
 
 			spa_pod_builder_push_prop(builder, key, flags);
 

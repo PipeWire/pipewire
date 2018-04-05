@@ -869,7 +869,7 @@ impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t bu
 
 	pw_client_node_transport_add_message(impl->transport, (struct pw_client_node_message *)
 			&PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER_INIT(port_id, buffer_id));
-	send_process(this);
+	//send_process(this);
 
 	return 0;
 }

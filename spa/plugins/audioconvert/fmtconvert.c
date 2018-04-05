@@ -59,7 +59,6 @@ struct buffer {
 	uint32_t flags;
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
-	size_t n_bytes;
 };
 
 struct port {

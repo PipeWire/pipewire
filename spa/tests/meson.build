@@ -8,6 +8,11 @@ executable('test-convert', 'test-convert.c',
            dependencies : [dl_lib, pthread_lib, mathlib],
            link_with : spalib,
            install : false)
+executable('test-convert2', 'test-convert2.c',
+           include_directories : [spa_inc, spa_libinc ],
+           dependencies : [dl_lib, pthread_lib, mathlib],
+           link_with : spalib,
+           install : false)
 executable('test-bluez5', 'test-bluez5.c',
            include_directories : [spa_inc, spa_libinc ],
            dependencies : [dl_lib, pthread_lib, mathlib, dbus_dep],

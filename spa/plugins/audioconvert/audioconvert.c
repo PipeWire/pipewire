@@ -33,7 +33,7 @@
 
 #include <lib/pod.h>
 
-#define NAME "fmtconvert"
+#define NAME "audioconvert"
 
 #define MAX_BUFFERS     32
 
@@ -69,9 +69,8 @@ struct port {
 
 	bool have_format;
 	struct spa_audio_info format;
-	uint32_t stride;
-	uint32_t blocks;
-	uint32_t size;
+	int stride;
+	int blocks;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -120,6 +119,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 
 
 #include "fmt-ops.c"
+#include "channelmix-ops.c"
 
 struct impl {
 	struct spa_handle handle;
@@ -141,7 +141,8 @@ struct impl {
 
 	const struct buffer *src;
 
-	const struct conv_info *conv[2];
+	int n_conv;
+	const struct conv_info *conv[5];
 
 	convert_func_t convert;
 
@@ -172,6 +173,7 @@ static void convert_generic (void *data, int n_dst, void *dst[n_dst],
 static int setup_convert(struct impl *this)
 {
 	struct port *inport, *outport;
+	const struct conv_info *conv;
 	uint32_t src_fmt, dst_fmt;
 	struct type *t = &this->type;
 
@@ -191,35 +193,55 @@ static int setup_convert(struct impl *this)
 			outport->format.info.raw.rate,
 			outport->format.info.raw.layout);
 
-	if (inport->format.info.raw.channels != outport->format.info.raw.channels)
-		return -EINVAL;
-
-	if (inport->format.info.raw.rate != outport->format.info.raw.rate)
-		return -EINVAL;
-
 	/* find fast path */
-	this->conv[0] = find_conv_info(&t->audio_format, src_fmt, dst_fmt);
-	if (this->conv[0] != NULL) {
-		if (inport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED) {
-			if (outport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
-				this->convert = this->conv[0]->i2i;
-			else
-				this->convert = this->conv[0]->i2d;
+	if (inport->format.info.raw.channels == outport->format.info.raw.channels &&
+	    inport->format.info.raw.rate == outport->format.info.raw.rate) {
+		this->conv[0] = find_conv_info(&t->audio_format, src_fmt, dst_fmt);
+		if (this->conv[0] != NULL) {
+			if (inport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED) {
+				if (outport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
+					this->convert = this->conv[0]->i2i;
+				else
+					this->convert = this->conv[0]->i2d;
+			}
+			else {
+				if (outport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
+					this->convert = this->conv[0]->d2i;
+				else
+					this->convert = this->conv[0]->i2i;
+			}
+			return 0;
 		}
-		else {
-			if (outport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
-				this->convert = this->conv[0]->d2i;
-			else
-				this->convert = this->conv[0]->i2i;
-		}
-		return 0;
 	}
 
-	/* go through intermediate format */
-	this->conv[0] = find_conv_info(&t->audio_format, src_fmt, t->audio_format.F32);
-	this->conv[1] = find_conv_info(&t->audio_format, t->audio_format.F32, dst_fmt);
-	if (this->conv[0] == NULL || this->conv[1] == NULL)
+	this->n_conv = 0;
+
+	/* unpack */
+	if ((conv = find_conv_info(&t->audio_format, src_fmt, t->audio_format.F32)) == NULL)
 		return -ENOTSUP;
+
+	this->conv[this->n_conv++] = conv;
+
+	/* down mix */
+	if (inport->format.info.raw.channels > outport->format.info.raw.channels) {
+		this->conv[this->n_conv++] = conv;
+	}
+
+	/* resample */
+	if (inport->format.info.raw.rate != outport->format.info.raw.rate) {
+		this->conv[this->n_conv++] = conv;
+	}
+
+	/* up mix */
+	if (inport->format.info.raw.channels < outport->format.info.raw.channels) {
+		this->conv[this->n_conv++] = conv;
+	}
+
+	/* pack */
+	if ((conv = find_conv_info(&t->audio_format, t->audio_format.F32, dst_fmt)) == NULL)
+		return -ENOTSUP;
+
+	this->conv[this->n_conv++] = conv;
 
 	this->convert = convert_generic;
 
@@ -356,59 +378,32 @@ static int port_enum_formats(struct spa_node *node,
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct type *t = &this->type;
-	struct port *other;
-
-	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), 0);
 
 	switch (*index) {
 	case 0:
-		if (other->have_format) {
-			*param = spa_pod_builder_object(builder,
-				t->param.idEnumFormat, t->format,
-				"I", t->media_type.audio,
-				"I", t->media_subtype.raw,
-				":", t->format_audio.format,   "Ieu", other->format.info.raw.format,
-					SPA_POD_PROP_ENUM(11, t->audio_format.U8,
-							      t->audio_format.S16,
-							      t->audio_format.S16_OE,
-							      t->audio_format.F32,
-							      t->audio_format.F32_OE,
-							      t->audio_format.S32,
-							      t->audio_format.S32_OE,
-							      t->audio_format.S24,
-							      t->audio_format.S24_OE,
-							      t->audio_format.S24_32,
-							      t->audio_format.S24_32_OE),
-				":", t->format_audio.layout,   "ieu", other->format.info.raw.layout,
-					SPA_POD_PROP_ENUM(2, SPA_AUDIO_LAYOUT_INTERLEAVED,
-							     SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
-				":", t->format_audio.rate,     "i", other->format.info.raw.rate,
-				":", t->format_audio.channels, "i", other->format.info.raw.channels);
-		} else {
-			*param = spa_pod_builder_object(builder,
-				t->param.idEnumFormat, t->format,
-				"I", t->media_type.audio,
-				"I", t->media_subtype.raw,
-				":", t->format_audio.format,   "Ieu", t->audio_format.S16,
-					SPA_POD_PROP_ENUM(11, t->audio_format.U8,
-							      t->audio_format.S16,
-							      t->audio_format.S16_OE,
-							      t->audio_format.F32,
-							      t->audio_format.F32_OE,
-							      t->audio_format.S32,
-							      t->audio_format.S32_OE,
-							      t->audio_format.S24,
-							      t->audio_format.S24_OE,
-							      t->audio_format.S24_32,
-							      t->audio_format.S24_32_OE),
-				":", t->format_audio.layout,   "ieu", SPA_AUDIO_LAYOUT_INTERLEAVED,
-					SPA_POD_PROP_ENUM(2, SPA_AUDIO_LAYOUT_INTERLEAVED,
-							     SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
-				":", t->format_audio.rate,     "iru", 44100,
-					SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
-				":", t->format_audio.channels, "iru", 2,
-					SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
-		}
+		*param = spa_pod_builder_object(builder,
+			t->param.idEnumFormat, t->format,
+			"I", t->media_type.audio,
+			"I", t->media_subtype.raw,
+			":", t->format_audio.format,   "Ieu", t->audio_format.S16,
+				SPA_POD_PROP_ENUM(11, t->audio_format.U8,
+						      t->audio_format.S16,
+						      t->audio_format.S16_OE,
+						      t->audio_format.F32,
+						      t->audio_format.F32_OE,
+						      t->audio_format.S32,
+						      t->audio_format.S32_OE,
+						      t->audio_format.S24,
+						      t->audio_format.S24_OE,
+						      t->audio_format.S24_32,
+						      t->audio_format.S24_32_OE),
+			":", t->format_audio.layout,   "ieu", SPA_AUDIO_LAYOUT_INTERLEAVED,
+				SPA_POD_PROP_ENUM(2, SPA_AUDIO_LAYOUT_INTERLEAVED,
+						     SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
+			":", t->format_audio.rate,     "iru", 44100,
+				SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
+			":", t->format_audio.channels, "iru", 2,
+				SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
 		break;
 	default:
 		return 0;
@@ -453,8 +448,7 @@ impl_node_port_enum_params(struct spa_node *node,
 {
 	struct impl *this;
 	struct type *t;
-	struct port *port, *other;
-
+	struct port *port;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
@@ -470,7 +464,6 @@ impl_node_port_enum_params(struct spa_node *node,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
-	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), port_id);
 
       next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -502,28 +495,15 @@ impl_node_port_enum_params(struct spa_node *node,
 		if (*index > 0)
 			return 0;
 
-		if (other->n_buffers > 0) {
-			param = spa_pod_builder_object(&b,
-				id, t->param_buffers.Buffers,
-				":", t->param_buffers.buffers, "iru", other->n_buffers,
-					SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
-				":", t->param_buffers.blocks,  "i", port->blocks,
-				":", t->param_buffers.size,    "i", (other->size / other->stride) *
-								    port->stride,
-				":", t->param_buffers.stride,  "i", port->stride,
-				":", t->param_buffers.align,   "i", 16);
-		}
-		else {
-			param = spa_pod_builder_object(&b,
-				id, t->param_buffers.Buffers,
-				":", t->param_buffers.buffers, "iru", 1,
-					SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
-				":", t->param_buffers.blocks,  "i", port->blocks,
-				":", t->param_buffers.size,    "iru", 1024 * port->stride,
-					SPA_POD_PROP_MIN_MAX(16 * port->stride, INT32_MAX / port->stride),
-				":", t->param_buffers.stride,  "i", port->stride,
-				":", t->param_buffers.align,   "i", 16);
-		}
+		param = spa_pod_builder_object(&b,
+			id, t->param_buffers.Buffers,
+			":", t->param_buffers.buffers, "iru", 1,
+				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
+			":", t->param_buffers.blocks,  "i", port->blocks,
+			":", t->param_buffers.size,    "iru", 1024 * port->stride,
+				SPA_POD_PROP_MIN_MAX(16 * port->stride, INT32_MAX / port->stride),
+			":", t->param_buffers.stride,  "i", port->stride,
+			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
 		if (!port->have_format)
@@ -674,7 +654,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 {
 	struct impl *this;
 	struct port *port;
-	uint32_t i, size = SPA_ID_INVALID;
+	uint32_t i;
 	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
@@ -701,12 +681,6 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->outbuf = buffers[i];
 		b->h = spa_buffer_find_meta(buffers[i], t->meta.Header);
 
-		if (size == SPA_ID_INVALID)
-			size = d[0].maxsize;
-		else
-			if (size != d[0].maxsize)
-				return -EINVAL;
-
 		if (!((d[0].type == t->data.MemPtr ||
 		       d[0].type == t->data.MemFd ||
 		       d[0].type == t->data.DmaBuf) && d[0].data != NULL)) {
@@ -720,7 +694,6 @@ impl_node_port_use_buffers(struct spa_node *node,
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 	}
 	port->n_buffers = n_buffers;
-	port->size = size;
 
 	return 0;
 }
@@ -872,8 +845,7 @@ static int impl_node_process(struct spa_node *node)
 
 		this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
 
-		for (i = 0; i < n_dst_datas; i++)
-			dbuf->outbuf->datas[i].chunk->size = (n_bytes / inport->stride) * outport->stride;
+		dbuf->outbuf->datas[0].chunk->size = n_bytes / 2;
 	}
 
 	outio->status = SPA_STATUS_HAVE_BUFFER;
@@ -998,7 +970,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
-const struct spa_handle_factory spa_fmtconvert_factory = {
+const struct spa_handle_factory spa_audioconvert_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,

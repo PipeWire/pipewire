@@ -545,7 +545,7 @@ deinterleave_8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *s
 	uint8_t **d = (uint8_t **) dst;
 	int i, j;
 
-	n_bytes /= n_dst;
+	n_bytes /= (sizeof(uint8_t) * n_dst);
 	for (j = 0; j < n_bytes; j++) {
 		for (i = 0; i < n_dst; i++)
 			d[i][j] = *s++;
@@ -604,7 +604,7 @@ interleave_8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src
 	uint8_t *d = dst[0];
 	int i, j;
 
-	n_bytes /= (sizeof(uint8_t) * n_src);
+	n_bytes /= sizeof(uint8_t);
 	for (j = 0; j < n_bytes; j++) {
 		for (i = 0; i < n_src; i++)
 			*d++ = s[i][j];
@@ -618,7 +618,7 @@ interleave_16(void *data, int n_dst, void *dst[n_dst], int n_src, const void *sr
 	uint16_t *d = dst[0];
 	int i, j;
 
-	n_bytes /= (sizeof(uint16_t) * n_src);
+	n_bytes /= sizeof(uint16_t);
 	for (j = 0; j < n_bytes; j++) {
 		for (i = 0; i < n_src; i++)
 			*d++ = s[i][j];
@@ -632,7 +632,7 @@ interleave_24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *sr
 	uint8_t *d = dst[0];
 	int i, j;
 
-	n_bytes /= (3 * n_src);
+	n_bytes /= 3;
 	for (j = 0; j < n_bytes; j++) {
 		for (i = 0; i < n_src; i++) {
 			WRITE24(d, READ24(s[i]));
@@ -649,9 +649,97 @@ interleave_32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *sr
 	uint32_t *d = dst[0];
 	int i, j;
 
-	n_bytes /= (sizeof(uint32_t) * n_src);
+	n_bytes /= sizeof(uint32_t);
 	for (j = 0; j < n_bytes; j++) {
 		for (i = 0; i < n_src; i++)
 			*d++ = s[i][j];
 	}
+}
+
+typedef void (*convert_func_t) (void *data, int n_dst, void *dst[n_dst],
+				int n_src, const void *src[n_src], int n_bytes);
+
+static const struct conv_info {
+	off_t src_fmt;
+	off_t dst_fmt;
+
+	convert_func_t i2i;
+	convert_func_t i2d;
+	convert_func_t d2i;
+} conv_table[] =
+{
+	/* to f32 */
+	{ offsetof(struct spa_type_audio_format, U8),
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_u8_to_f32, conv_u8_to_f32d, conv_u8d_to_f32 },
+	{ offsetof(struct spa_type_audio_format, S16),
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_s16_to_f32, conv_s16_to_f32d, conv_s16d_to_f32 },
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_copy, deinterleave_32, interleave_32 },
+	{ offsetof(struct spa_type_audio_format, S32),
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_s32_to_f32, conv_s32_to_f32d, conv_s32d_to_f32 },
+	{ offsetof(struct spa_type_audio_format, S24),
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_s24_to_f32, conv_s24_to_f32d, conv_s24d_to_f32 },
+	{ offsetof(struct spa_type_audio_format, S24_32),
+	  offsetof(struct spa_type_audio_format, F32),
+		conv_s24_32_to_f32, conv_s24_32_to_f32d, conv_s24_32d_to_f32 },
+
+	/* from f32 */
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, U8),
+		conv_f32_to_u8, conv_f32_to_u8d, conv_f32d_to_u8 },
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, S16),
+		conv_f32_to_s16, conv_f32_to_s16d, conv_f32d_to_s16 },
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, S32),
+		conv_f32_to_s32, conv_f32_to_s32d, conv_f32d_to_s32 },
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, S24),
+		conv_f32_to_s24, conv_f32_to_s24d, conv_f32d_to_s24 },
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, S24_32),
+		conv_f32_to_s24_32, conv_f32_to_s24_32d, conv_f32d_to_s24_32 },
+
+	/* u8 */
+	{ offsetof(struct spa_type_audio_format, U8),
+	  offsetof(struct spa_type_audio_format, U8),
+		conv_copy, deinterleave_8, interleave_8 },
+
+	/* s16 */
+	{ offsetof(struct spa_type_audio_format, S16),
+	  offsetof(struct spa_type_audio_format, S16),
+		conv_copy, deinterleave_16, interleave_16 },
+
+	/* s32 */
+	{ offsetof(struct spa_type_audio_format, S32),
+	  offsetof(struct spa_type_audio_format, S32),
+		conv_copy, deinterleave_32, interleave_32 },
+
+	/* s24 */
+	{ offsetof(struct spa_type_audio_format, S24),
+	  offsetof(struct spa_type_audio_format, S24),
+		conv_copy, deinterleave_24, interleave_24 },
+
+	/* s24_32 */
+	{ offsetof(struct spa_type_audio_format, S24_32),
+	  offsetof(struct spa_type_audio_format, S24_32),
+		conv_copy, deinterleave_32, interleave_32 },
+};
+
+static const struct conv_info *find_conv_info(struct spa_type_audio_format *audio_format,
+		uint32_t src_fmt, uint32_t dst_fmt)
+{
+	int i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(conv_table); i++) {
+		if (*SPA_MEMBER(audio_format, conv_table[i].src_fmt, uint32_t) == src_fmt &&
+		    *SPA_MEMBER(audio_format, conv_table[i].dst_fmt, uint32_t) == dst_fmt)
+			return &conv_table[i];
+	}
+	return NULL;
 }

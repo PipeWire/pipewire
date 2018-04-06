@@ -22,6 +22,8 @@
 #include <spa/support/plugin.h>
 
 extern const struct spa_handle_factory spa_audioconvert_factory;
+extern const struct spa_handle_factory spa_fmtconvert_factory;
+extern const struct spa_handle_factory spa_channelmix_factory;
 
 int
 spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
@@ -32,6 +34,12 @@ spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *ind
 	switch (*index) {
 	case 0:
 		*factory = &spa_audioconvert_factory;
+		break;
+	case 1:
+		*factory = &spa_fmtconvert_factory;
+		break;
+	case 2:
+		*factory = &spa_channelmix_factory;
 		break;
 	default:
 		return 0;

@@ -1,4 +1,4 @@
-audioconvert_sources = ['fmtconvert.c', 'plugin.c']
+audioconvert_sources = ['fmtconvert.c', 'audioconvert.c', 'channelmix.c', 'plugin.c']
 
 audioconvertlib = shared_library('spa-audioconvert',
                           audioconvert_sources,

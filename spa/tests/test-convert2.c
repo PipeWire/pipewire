@@ -93,8 +93,10 @@ struct node {
 struct link {
 	struct node *out_node;
 	uint32_t out_port;
+	const struct spa_port_info *out_info;
 	struct node *in_node;
 	uint32_t in_port;
+	const struct spa_port_info *in_info;
 	struct spa_io_buffers io;
 	uint32_t n_buffers;
 	struct spa_buffer **buffers;
@@ -198,14 +200,22 @@ static int make_link(struct data *data, struct link *link,
 	link->io = SPA_IO_BUFFERS_INIT;
 	link->n_buffers = 0;
 	link->buffers = NULL;
+	link->in_info = NULL;
+	link->out_info = NULL;
 
 	if (out_node != NULL) {
+		spa_node_port_get_info(out_node->node,
+				       SPA_DIRECTION_OUTPUT, out_port,
+				       &link->out_info);
 		spa_node_port_set_io(out_node->node,
 				     SPA_DIRECTION_OUTPUT, out_port,
 				     t->io.Buffers,
 				     &link->io, sizeof(link->io));
 	}
 	if (in_node != NULL) {
+		spa_node_port_get_info(in_node->node,
+				       SPA_DIRECTION_INPUT, in_port,
+				       &link->in_info);
 		spa_node_port_set_io(in_node->node,
 				     SPA_DIRECTION_INPUT, in_port,
 				     t->io.Buffers,
@@ -326,8 +336,10 @@ static int negotiate_link_buffers(struct data *data, struct link *link)
 	uint32_t state;
 	struct spa_pod *param = NULL;
 	int res, i;
-	int32_t size, stride, buffers, blocks, align;
-	uint32_t *sizes, *aligns;
+	bool in_alloc, out_alloc;
+	int32_t size, buffers, blocks, align, flags;
+	uint32_t *aligns;
+	struct spa_data *datas;
 
 	if (link->out_node != NULL) {
 		state = 0;
@@ -349,40 +361,74 @@ static int negotiate_link_buffers(struct data *data, struct link *link)
 	spa_pod_fixate(param);
 	spa_debug_pod(param, 0);
 
+	if (link->in_info)
+		in_alloc = SPA_FLAG_CHECK(link->in_info->flags, SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
+	else
+		in_alloc = false;
+
+	if (link->out_info)
+		out_alloc = SPA_FLAG_CHECK(link->out_info->flags, SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
+	else
+		out_alloc = false;
+
+	flags = 0;
+	if (out_alloc || in_alloc) {
+		flags |= SPA_BUFFER_ALLOC_FLAG_NO_DATA;
+		if (out_alloc)
+			in_alloc = false;
+	}
+
 	if (spa_pod_object_parse(param,
 		":", t->param_buffers.buffers, "i", &buffers,
 		":", t->param_buffers.blocks, "i", &blocks,
 		":", t->param_buffers.size, "i", &size,
-		":", t->param_buffers.stride, "i", &stride,
 		":", t->param_buffers.align, "i", &align,
 		NULL) < 0)
 		return -EINVAL;
 
-	sizes = alloca(sizeof(uint32_t) * blocks);
+	datas = alloca(sizeof(struct spa_data) * blocks);
 	aligns = alloca(sizeof(uint32_t) * blocks);
 	for (i = 0; i < blocks; i++) {
-		sizes[i] = size;
+		datas[i].type = t->data.MemPtr;
+		datas[i].maxsize = size;
 		aligns[i] = align;
 	}
 
-	link->buffers = spa_buffer_alloc_array(buffers, t->data.MemPtr,
-			0, NULL, blocks, sizes, aligns);
+	link->buffers = spa_buffer_alloc_array(buffers, flags, 0, NULL, blocks, datas, aligns);
 	if (link->buffers == NULL)
 		return -ENOMEM;
 
 	link->n_buffers = buffers;
 
 	if (link->out_node != NULL) {
-		if ((res = spa_node_port_use_buffers(link->out_node->node,
+		if (out_alloc) {
+			if ((res = spa_node_port_alloc_buffers(link->out_node->node,
+				       SPA_DIRECTION_OUTPUT, link->out_port,
+				       NULL, 0,
+				       link->buffers, &link->n_buffers)) < 0)
+				return res;
+		}
+		else {
+			if ((res = spa_node_port_use_buffers(link->out_node->node,
 				       SPA_DIRECTION_OUTPUT, link->out_port,
 				       link->buffers, link->n_buffers)) < 0)
-			return res;
+				return res;
+		}
 	}
 	if (link->in_node != NULL) {
-		if ((res = spa_node_port_use_buffers(link->in_node->node,
+		if (in_alloc) {
+			if ((res = spa_node_port_alloc_buffers(link->in_node->node,
+				       SPA_DIRECTION_INPUT, link->in_port,
+				       NULL, 0,
+				       link->buffers, &link->n_buffers)) < 0)
+				return res;
+		}
+		else {
+			if ((res = spa_node_port_use_buffers(link->in_node->node,
 				       SPA_DIRECTION_INPUT, link->in_port,
 				       link->buffers, link->n_buffers)) < 0)
-			return res;
+				return res;
+		}
 	}
 
 	return 0;

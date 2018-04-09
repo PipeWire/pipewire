@@ -614,7 +614,8 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 	impl->n_buffers = n_buffers;
 
 	if (impl->use_converter) {
-		uint32_t data_sizes[1], data_aligns[1];
+		struct spa_data datas[1];
+		uint32_t data_aligns[1];
 
 		if ((res = spa_node_port_use_buffers(impl->convert,
 					  impl->direction, 0,
@@ -622,12 +623,13 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 					  n_buffers)) < 0)
 			return res;
 
-		data_sizes[0] = size * 2;
+		datas[0].type = t->data.MemPtr;
+		datas[0].maxsize = size * 2;
 		data_aligns[0] = 16;
 
-		buffers = spa_buffer_alloc_array(n_buffers, t->data.MemPtr,
+		buffers = spa_buffer_alloc_array(n_buffers, 0,
 						 0, NULL,
-						 1, data_sizes, data_aligns);
+						 1, datas, data_aligns);
 		if (buffers == NULL)
 			return -ENOMEM;
 

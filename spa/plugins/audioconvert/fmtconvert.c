@@ -858,22 +858,23 @@ static int impl_node_process(struct spa_node *node)
 
 	{
 		int i, n_bytes;
-		uint32_t n_src_datas = sbuf->outbuf->n_datas;
-		uint32_t n_dst_datas = dbuf->outbuf->n_datas;
+		struct spa_buffer *sb = sbuf->outbuf, *db = dbuf->outbuf;
+		uint32_t n_src_datas = sb->n_datas;
+		uint32_t n_dst_datas = db->n_datas;
 		const void *src_datas[n_src_datas];
 		void *dst_datas[n_dst_datas];
 
-		n_bytes = sbuf->outbuf->datas[0].chunk->size;
+		n_bytes = sb->datas[0].chunk->size;
 
 		for (i = 0; i < n_src_datas; i++)
-			src_datas[i] = sbuf->outbuf->datas[i].data;
-		for (i = 0; i < n_dst_datas; i++)
-			dst_datas[i] = dbuf->outbuf->datas[i].data;
+			src_datas[i] = sb->datas[i].data;
+		for (i = 0; i < n_dst_datas; i++) {
+			dst_datas[i] = db->datas[i].data;
+			db->datas[i].chunk->size =
+				(n_bytes / inport->stride) * outport->stride;
+		}
 
 		this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
-
-		for (i = 0; i < n_dst_datas; i++)
-			dbuf->outbuf->datas[i].chunk->size = (n_bytes / inport->stride) * outport->stride;
 	}
 
 	outio->status = SPA_STATUS_HAVE_BUFFER;

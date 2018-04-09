@@ -55,7 +55,7 @@ conv_u8_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *s
 	int i, j;
 
 	for (i = 0; i < n_src; i++) {
-		const int8_t *s = src[i];
+		const uint8_t *s = src[i];
 		float *d = dst[i];
 
 		for (j = 0; j < n_bytes; j++)
@@ -66,7 +66,7 @@ conv_u8_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *s
 static void
 conv_u8_to_f32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
 {
-	const int8_t *s = src[0];
+	const uint8_t *s = src[0];
 	float **d = (float **) dst;
 	int i, j;
 
@@ -80,7 +80,7 @@ conv_u8_to_f32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 static void
 conv_u8d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
 {
-	const int8_t **s = (const int8_t **) src;
+	const uint8_t **s = (const uint8_t **) src;
 	float *d = dst[0];
 	int i, j;
 

@@ -30,28 +30,32 @@ struct spa_buffer_alloc_info {
 #define SPA_BUFFER_ALLOC_FLAG_INLINE_META	(1<<0)	/**< add metadata data in the skeleton */
 #define SPA_BUFFER_ALLOC_FLAG_INLINE_CHUNK	(1<<1)	/**< add chunk data in the skeleton */
 #define SPA_BUFFER_ALLOC_FLAG_INLINE_DATA	(1<<2)	/**< add buffer data to the skeleton */
+#define SPA_BUFFER_ALLOC_FLAG_INLINE_ALL	0b111
+#define SPA_BUFFER_ALLOC_FLAG_NO_DATA		(1<<3)	/**< don't set data pointers */
 	uint32_t flags;
 	uint32_t n_metas;
-	uint32_t *meta_sizes;
+	struct spa_meta *metas;
 	uint32_t n_datas;
-	uint32_t *data_sizes;
+	struct spa_data *datas;
 	uint32_t *data_aligns;
-	size_t skel_size;	/**< size of the struct spa_buffer */
-	size_t data_size;	/**< size of the metadata/chunk/data if not inlined */
+	size_t skel_size;	/**< size of the struct spa_buffer and inlined meta/chunk/data */
+	size_t meta_size;	/**< size of the meta if not inlined */
+	size_t chunk_size;	/**< size of the chunk if not inlined */
+	size_t data_size;	/**< size of the data if not inlined */
 };
 
 static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
-					     uint32_t n_metas, uint32_t meta_sizes[n_metas],
-					     uint32_t n_datas, uint32_t data_sizes[n_datas],
+					     uint32_t n_metas, struct spa_meta metas[n_metas],
+					     uint32_t n_datas, struct spa_data datas[n_datas],
 					     uint32_t data_aligns[n_datas])
 {
 	size_t size;
 	int i;
 
 	info->n_metas = n_metas;
-	info->meta_sizes = meta_sizes;
+	info->metas = metas;
 	info->n_datas = n_datas;
-	info->data_sizes = data_sizes;
+	info->datas = datas;
 	info->data_aligns = data_aligns;
 
 	info->skel_size = sizeof(struct spa_buffer);
@@ -59,33 +63,30 @@ static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
         info->skel_size += n_datas * sizeof(struct spa_data);
 
 	for (i = 0, size = 0; i < n_metas; i++)
-		size += meta_sizes[i];
+		size += metas[i].size;
+	info->meta_size = size;
 
 	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_META))
-		info->skel_size += size;
-	else
-		info->data_size += size;
+		info->skel_size += info->meta_size;
 
-	size = n_datas * sizeof(struct spa_chunk);
+	info->chunk_size = n_datas * sizeof(struct spa_chunk);
 	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_CHUNK))
-	        info->skel_size += size;
-	else
-	        info->data_size += size;
+	        info->skel_size += info->chunk_size;
 
 	for (i = 0, size = 0; i < n_datas; i++)
-		size += data_sizes[i];
+		size += datas[i].maxsize;
+	info->data_size = size;
 
-	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_DATA))
+	if (!SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_NO_DATA) &&
+	    SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_DATA))
 		info->skel_size += size;
-	else
-		info->data_size += size;
 
 	return 0;
 }
 
 static inline struct spa_buffer *
 spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
-			void *skel_mem, void *data_mem, uint32_t id, uint32_t mem_type)
+			void *skel_mem, void *data_mem, uint32_t id)
 {
 	struct spa_buffer *b = skel_mem;
 	size_t size;
@@ -109,7 +110,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 
 	for (i = 0; i < info->n_metas; i++) {
 		struct spa_meta *m = &b->metas[i];
-		m->size = info->meta_sizes[i];
+		*m = info->metas[i];
 		m->data = *dp;
 		*dp += m->size;
 	}
@@ -132,11 +133,10 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 	for (i = 0; i < info->n_datas; i++) {
 		struct spa_data *d = &b->datas[i];
 
+		*d = info->datas[i];
 		d->chunk = &cp[i];
-		d->type = mem_type;
-		if (info->data_sizes[i] > 0) {
+		if (!SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_NO_DATA)) {
 			d->data = *dp;
-			d->maxsize = info->data_sizes[i];
 			*dp += d->maxsize;
 		}
 	}
@@ -146,11 +146,11 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 static inline int
 spa_buffer_alloc_layout_array(struct spa_buffer_alloc_info *info,
 			      uint32_t n_buffers, struct spa_buffer *buffers[n_buffers],
-			      void *skel_mem, void *data_mem, uint32_t mem_type)
+			      void *skel_mem, void *data_mem)
 {
 	int i;
 	for (i = 0; i < n_buffers; i++) {
-		buffers[i] = spa_buffer_alloc_layout(info, skel_mem, data_mem, i, mem_type);
+		buffers[i] = spa_buffer_alloc_layout(info, skel_mem, data_mem, i);
                 skel_mem = SPA_MEMBER(skel_mem, info->skel_size, void);
                 data_mem = SPA_MEMBER(data_mem, info->data_size, void);
         }
@@ -158,31 +158,25 @@ spa_buffer_alloc_layout_array(struct spa_buffer_alloc_info *info,
 }
 
 static inline struct spa_buffer **
-spa_buffer_alloc_array(uint32_t n_buffers, uint32_t mem_type,
-		       uint32_t n_metas, uint32_t meta_sizes[n_metas],
-		       uint32_t n_datas, uint32_t data_sizes[n_datas],
+spa_buffer_alloc_array(uint32_t n_buffers, uint32_t flags,
+		       uint32_t n_metas, struct spa_meta metas[n_metas],
+		       uint32_t n_datas, struct spa_data datas[n_datas],
 		       uint32_t data_aligns[n_datas])
 {
 
-        size_t size;
         struct spa_buffer **buffers;
-        struct spa_buffer_alloc_info info = { 0, };
+        struct spa_buffer_alloc_info info = { flags | SPA_BUFFER_ALLOC_FLAG_INLINE_ALL, };
         void *skel;
 
-        info.flags = SPA_BUFFER_ALLOC_FLAG_INLINE_META |
-                     SPA_BUFFER_ALLOC_FLAG_INLINE_CHUNK |
-                     SPA_BUFFER_ALLOC_FLAG_INLINE_DATA;
+        spa_buffer_alloc_fill_info(&info, n_metas, metas, n_datas, datas, data_aligns);
 
-        spa_buffer_alloc_fill_info(&info, n_metas, meta_sizes, n_datas, data_sizes, data_aligns);
+	info.skel_size = SPA_ROUND_UP_N(info.skel_size, 16);
 
-        info.skel_size = SPA_ROUND_UP_N(info.skel_size, 16);
-
-        size = sizeof(struct spa_buffer *) + info.skel_size;
-        buffers = calloc(n_buffers, size);
+        buffers = calloc(n_buffers, sizeof(struct spa_buffer *) + info.skel_size);
 
         skel = SPA_MEMBER(buffers, sizeof(struct spa_buffer *) * n_buffers, void);
 
-        spa_buffer_alloc_layout_array(&info, n_buffers, buffers, skel, NULL, mem_type);
+        spa_buffer_alloc_layout_array(&info, n_buffers, buffers, skel, NULL);
 
         return buffers;
 }

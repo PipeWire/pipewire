@@ -107,7 +107,7 @@ load_interface(struct support_info *info,
 	if (factory == NULL)
 		goto not_found;
 
-        handle = calloc(1, factory->size);
+        handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
         if ((res = spa_handle_factory_init(factory,
                                            handle, NULL, info->support, info->n_support)) < 0) {
                 fprintf(stderr, "can't make factory instance: %d\n", res);

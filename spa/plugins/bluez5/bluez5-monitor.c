@@ -1180,6 +1180,13 @@ static int impl_clear(struct spa_handle *handle)
 	return 0;
 }
 
+static size_t
+impl_get_size(const struct spa_handle_factory *factory,
+	      const struct spa_dict *params)
+{
+	return sizeof(struct spa_bt_monitor);
+}
+
 static int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
@@ -1257,7 +1264,7 @@ static const struct spa_handle_factory spa_bluez5_monitor_factory = {
 	SPA_VERSION_MONITOR,
 	NAME,
 	NULL,
-	sizeof(struct spa_bt_monitor),
+	impl_get_size,
 	impl_init,
 	impl_enum_interface_info,
 };

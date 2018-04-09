@@ -279,7 +279,10 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 
 	support = pw_core_get_support(core, &n_support);
 
-	handle = calloc(1, factory->size);
+        handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
+	if (handle == NULL)
+		goto no_mem;
+
 	if ((res = spa_handle_factory_init(factory,
 					   handle,
 					   properties ? &properties->dict : NULL,
@@ -319,6 +322,7 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
       init_failed:
 	free(handle);
       enum_failed:
+      no_mem:
       no_symbol:
 	dlclose(hnd);
       open_failed:

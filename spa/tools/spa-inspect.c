@@ -210,7 +210,7 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 		printf(" interface: '%s'\n", info->type);
 	}
 
-	handle = calloc(1, factory->size);
+	handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
 	if ((res =
 	     spa_handle_factory_init(factory, handle, NULL, data->support, data->n_support)) < 0) {
 		printf("can't make factory instance: %d\n", res);

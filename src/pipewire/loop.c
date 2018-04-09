@@ -64,7 +64,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	if (factory == NULL)
 		return NULL;
 
-	impl = calloc(1, sizeof(struct impl) + factory->size);
+	impl = calloc(1, sizeof(struct impl) + spa_handle_factory_get_size(factory, NULL));
 	if (impl == NULL)
 		return NULL;
 

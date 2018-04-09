@@ -986,6 +986,13 @@ static int impl_clear(struct spa_handle *handle)
 	return 0;
 }
 
+static size_t
+impl_get_size(const struct spa_handle_factory *factory,
+	      const struct spa_dict *params)
+{
+	return sizeof(struct impl);
+}
+
 static int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
@@ -1085,7 +1092,7 @@ const struct spa_handle_factory spa_videotestsrc_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	&info,
-	sizeof(struct impl),
+	impl_get_size,
 	impl_init,
 	impl_enum_interface_info,
 };

@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
 				struct spa_handle *handle;
 				void *interface;
 
-				handle = calloc(1, factory->size);
+				handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
 				if ((res =
 				     spa_handle_factory_init(factory, handle, NULL, data.support,
 							     data.n_support)) < 0) {

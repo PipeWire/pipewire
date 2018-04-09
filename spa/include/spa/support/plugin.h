@@ -107,9 +107,14 @@ struct spa_handle_factory {
 	 */
 	const struct spa_dict *info;
 	/**
-	 * The size of handles from this factory
+	 * Get the size of handles from this factory.
+	 *
+	 * \param factory a spa_handle_factory
+	 * \param params extra parameters that determine the size of the
+	 * handle.
 	 */
-	const size_t size;
+	size_t (*get_size) (const struct spa_handle_factory *factory,
+			    const struct spa_dict *params);
 
 	/**
 	 * Initialize an instance of this factory. The caller should allocate
@@ -150,6 +155,7 @@ struct spa_handle_factory {
 				    uint32_t *index);
 };
 
+#define spa_handle_factory_get_size(h,...)		(h)->get_size((h),__VA_ARGS__)
 #define spa_handle_factory_init(h,...)			(h)->init((h),__VA_ARGS__)
 #define spa_handle_factory_enum_interface_info(h,...)	(h)->enum_interface_info((h),__VA_ARGS__)
 

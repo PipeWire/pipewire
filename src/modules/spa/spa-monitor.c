@@ -103,7 +103,7 @@ static void add_item(struct pw_spa_monitor *this, struct spa_pod *item)
 
 	support = pw_core_get_support(impl->core, &n_support);
 
-	handle = calloc(1, factory->size);
+        handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
 	if ((res = spa_handle_factory_init(factory,
 					   handle,
 					   &props->dict,
@@ -292,8 +292,12 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 		if (strcmp(factory->name, factory_name) == 0)
 			break;
 	}
+	handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
+	if (handle == NULL)
+		goto no_mem;
+
 	support = pw_core_get_support(core, &n_support);
-	handle = calloc(1, factory->size);
+
 	if ((res = spa_handle_factory_init(factory,
 					   handle, NULL, support, n_support)) < 0) {
 		pw_log_error("can't make factory instance: %d", res);
@@ -345,6 +349,7 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	spa_handle_clear(handle);
       init_failed:
 	free(handle);
+      no_mem:
       enum_failed:
       no_symbol:
 	dlclose(hnd);

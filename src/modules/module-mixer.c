@@ -109,7 +109,10 @@ static struct pw_node *make_node(struct impl *impl, struct pw_properties *proper
 
 	support = pw_core_get_support(impl->core, &n_support);
 
-	handle = calloc(1, impl->factory->size);
+        handle = calloc(1, spa_handle_factory_get_size(impl->factory, NULL));
+	if (handle == NULL)
+		goto no_mem;
+
 	if ((res = spa_handle_factory_init(impl->factory,
 					   handle,
 					   NULL, support, n_support)) < 0) {
@@ -140,6 +143,7 @@ static struct pw_node *make_node(struct impl *impl, struct pw_properties *proper
 	spa_handle_clear(handle);
       init_failed:
 	free(handle);
+      no_mem:
 	return NULL;
 }
 

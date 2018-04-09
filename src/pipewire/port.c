@@ -651,18 +651,19 @@ int pw_port_for_each_filtered_param(struct pw_port *in_port,
 				    struct pw_port *out_port,
 				    uint32_t in_param_id,
 				    uint32_t out_param_id,
+				    const struct spa_pod *filter,
 				    int (*callback) (void *data,
 						     uint32_t id, uint32_t index, uint32_t next,
 						     struct spa_pod *param),
 				    void *data)
 {
 	int res;
-	struct param_filter filter = { in_port, out_port, in_param_id, out_param_id, callback, data, 0 };
+	struct param_filter fd = { in_port, out_port, in_param_id, out_param_id, callback, data, 0 };
 
-	if ((res = pw_port_for_each_param(in_port, in_param_id, 0, 0, NULL, do_filter, &filter)) < 0)
+	if ((res = pw_port_for_each_param(in_port, in_param_id, 0, 0, filter, do_filter, &fd)) < 0)
 		return res;
 
-	if (filter.n_params == 0)
+	if (fd.n_params == 0)
 		res = do_filter(&filter, 0, 0, 0, NULL);
 
 	return res;

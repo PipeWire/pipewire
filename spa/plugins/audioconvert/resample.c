@@ -21,6 +21,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <speex/speex_resampler.h>
+
 #include <spa/support/log.h>
 #include <spa/support/type-map.h>
 #include <spa/utils/list.h>
@@ -130,6 +132,8 @@ struct impl {
 	struct port out_port;
 
 	bool started;
+
+	SpeexResamplerState *state;
 };
 
 #define CHECK_PORT(this,d,id)		(id == 0)
@@ -142,6 +146,7 @@ static int setup_convert(struct impl *this,
 		const struct spa_audio_info *info)
 {
 	const struct spa_audio_info *src_info, *dst_info;
+	int err;
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		src_info = info;
@@ -163,6 +168,17 @@ static int setup_convert(struct impl *this,
 
 	if (src_info->info.raw.channels != dst_info->info.raw.channels)
 		return -EINVAL;
+
+	if (this->state)
+		speex_resampler_destroy(this->state);
+
+	this->state = speex_resampler_init(src_info->info.raw.channels,
+					   src_info->info.raw.rate,
+					   dst_info->info.raw.rate,
+					   SPEEX_RESAMPLER_QUALITY_DEFAULT,
+					   &err);
+	if (this->state == NULL)
+		return -ENOMEM;
 
 	return 0;
 }
@@ -755,29 +771,21 @@ static int impl_node_process(struct spa_node *node)
 	sbuf = &inport->buffers[inio->buffer_id];
 
 	{
-		int i, n_bytes;
+		int i;
 		struct spa_buffer *sb = sbuf->outbuf, *db = dbuf->outbuf;
-		uint32_t n_src_datas = sb->n_datas;
-		uint32_t n_dst_datas = db->n_datas;
-		const void *src_datas[n_src_datas];
-		void *dst_datas[n_dst_datas];
 
-		n_bytes = sb->datas[0].chunk->size;
+		for (i = 0; i < sb->n_datas; i++) {
+			uint32_t in_len, out_len;
 
-		for (i = 0; i < n_src_datas; i++)
-			src_datas[i] = sb->datas[i].data;
-		for (i = 0; i < n_dst_datas; i++) {
-			dst_datas[i] = db->datas[i].data;
-			db->datas[i].chunk->size =
-				(n_bytes / inport->stride) * outport->stride;
+			in_len = sb->datas[i].chunk->size / sizeof(float);
+			out_len = db->datas[i].maxsize / sizeof(float);
+
+			speex_resampler_process_float(this->state, i,
+					sb->datas[i].data, &in_len,
+					db->datas[i].data, &out_len);
+
+			db->datas[i].chunk->size = out_len * sizeof(float);
 		}
-
-		for (i = 0; i < n_src_datas; i++)
-			memcpy(dst_datas[i], src_datas[i], n_bytes);
-
-//		this->convert(this, n_dst_datas, dst_datas,
-//				    n_src_datas, src_datas,
-//				    n_bytes);
 	}
 
 	outio->status = SPA_STATUS_HAVE_BUFFER;
@@ -829,6 +837,14 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+
+	this = (struct impl *) handle;
+
+	if (this->state)
+		speex_resampler_destroy(this->state);
 	return 0;
 }
 

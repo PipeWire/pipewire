@@ -11,6 +11,7 @@ libva_dep = dependency('libva', required : false)
 sbc_dep = dependency('sbc', required : false)
 libudev_dep = dependency('libudev')
 threads_dep = dependency('threads')
+speexdsp_dep = dependency('speexdsp')
 
 #cc = meson.get_compiler('c')
 #dl_lib = cc.find_library('dl', required : false)

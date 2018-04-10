@@ -117,19 +117,12 @@ static int pcm_poll_block_check(snd_pcm_ioplug_t *io)
 	return 0;
 }
 
-static int pcm_poll_unblock_check(snd_pcm_ioplug_t *io)
+static inline int pcm_poll_unblock_check(snd_pcm_ioplug_t *io)
 {
 	uint64_t val = 1;
-	snd_pcm_sframes_t avail;
 	snd_pcm_pipewire_t *pw = io->private_data;
-
-	avail = snd_pcm_avail_update(io->pcm);
-	if (avail < 0 || avail >= (snd_pcm_sframes_t)pw->min_avail || pw->error) {
-		write(pw->fd, &val, sizeof(val));
-		return 1;
-	}
-
-	return 0;
+	write(pw->fd, &val, sizeof(val));
+	return 1;
 }
 
 static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
@@ -327,14 +320,9 @@ snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 		if (cont < frames)
 			frames = cont;
 
-		if (io->stream == SND_PCM_STREAM_PLAYBACK)
-			snd_pcm_areas_copy(pwareas, xfer,
-					   areas, offset,
-					   io->channels, frames, io->format);
-		else
-			snd_pcm_areas_copy(areas, offset,
-					   pwareas, xfer,
-					   io->channels, frames, io->format);
+		snd_pcm_areas_copy(areas, offset,
+				   pwareas, xfer,
+				   io->channels, frames, io->format);
 
 		pw->hw_ptr += frames;
 		pw->hw_ptr %= io->buffer_size;
@@ -472,9 +460,6 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	snd_pcm_pipewire_t *pw = io->private_data;
 
 	switch (io->format) {
-	case SND_PCM_FORMAT_S8:
-		pw->format.format = pw->type.audio_format.S8;
-		break;
 	case SND_PCM_FORMAT_U8:
 		pw->format.format = pw->type.audio_format.U8;
 		break;
@@ -484,23 +469,11 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	case SND_PCM_FORMAT_S16_BE:
 		pw->format.format = _FORMAT_BE(pw->type.audio_format, S16);
 		break;
-	case SND_PCM_FORMAT_U16_LE:
-		pw->format.format = _FORMAT_LE(pw->type.audio_format, U16);
-		break;
-	case SND_PCM_FORMAT_U16_BE:
-		pw->format.format = _FORMAT_BE(pw->type.audio_format, U16);
-		break;
 	case SND_PCM_FORMAT_S24_LE:
 		pw->format.format = _FORMAT_LE(pw->type.audio_format, S24_32);
 		break;
 	case SND_PCM_FORMAT_S24_BE:
 		pw->format.format = _FORMAT_BE(pw->type.audio_format, S24_32);
-		break;
-	case SND_PCM_FORMAT_U24_LE:
-		pw->format.format = _FORMAT_LE(pw->type.audio_format, U24_32);
-		break;
-	case SND_PCM_FORMAT_U24_BE:
-		pw->format.format = _FORMAT_BE(pw->type.audio_format, U24_32);
 		break;
 	case SND_PCM_FORMAT_S32_LE:
 		pw->format.format = _FORMAT_LE(pw->type.audio_format, S32);
@@ -508,11 +481,11 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	case SND_PCM_FORMAT_S32_BE:
 		pw->format.format = _FORMAT_BE(pw->type.audio_format, S32);
 		break;
-	case SND_PCM_FORMAT_U32_LE:
-		pw->format.format = _FORMAT_LE(pw->type.audio_format, U32);
+	case SND_PCM_FORMAT_S24_3LE:
+		pw->format.format = _FORMAT_LE(pw->type.audio_format, S24);
 		break;
-	case SND_PCM_FORMAT_U32_BE:
-		pw->format.format = _FORMAT_BE(pw->type.audio_format, U32);
+	case SND_PCM_FORMAT_S24_3BE:
+		pw->format.format = _FORMAT_BE(pw->type.audio_format, S24);
 		break;
 	case SND_PCM_FORMAT_FLOAT_LE:
 		pw->format.format = _FORMAT_LE(pw->type.audio_format, F32);
@@ -520,13 +493,8 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	case SND_PCM_FORMAT_FLOAT_BE:
 		pw->format.format = _FORMAT_BE(pw->type.audio_format, F32);
 		break;
-	case SND_PCM_FORMAT_FLOAT64_LE:
-		pw->format.format = _FORMAT_LE(pw->type.audio_format, F64);
-		break;
-	case SND_PCM_FORMAT_FLOAT64_BE:
-		pw->format.format = _FORMAT_BE(pw->type.audio_format, F64);
-		break;
 	default:
+		SNDERR("PipeWire: invalid format: %d\n", io->format);
 		return -EINVAL;
 	}
 	pw->format.channels = io->channels;
@@ -562,26 +530,16 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 	};
 	unsigned int format_list[] = {
 		SND_PCM_FORMAT_S16_LE,
-#if 0
-		SND_PCM_FORMAT_S8,
-		SND_PCM_FORMAT_U8,
-		SND_PCM_FORMAT_S16_LE,
 		SND_PCM_FORMAT_S16_BE,
-		SND_PCM_FORMAT_U16_LE,
-		SND_PCM_FORMAT_U16_BE,
 		SND_PCM_FORMAT_S24_LE,
 		SND_PCM_FORMAT_S24_BE,
-		SND_PCM_FORMAT_U24_LE,
-		SND_PCM_FORMAT_U24_BE,
 		SND_PCM_FORMAT_S32_LE,
 		SND_PCM_FORMAT_S32_BE,
-		SND_PCM_FORMAT_U32_LE,
-		SND_PCM_FORMAT_U32_BE,
+		SND_PCM_FORMAT_S24_3LE,
+		SND_PCM_FORMAT_S24_3BE,
 		SND_PCM_FORMAT_FLOAT_LE,
 		SND_PCM_FORMAT_FLOAT_BE,
-		SND_PCM_FORMAT_FLOAT64_LE,
-		SND_PCM_FORMAT_FLOAT64_BE,
-#endif
+		SND_PCM_FORMAT_U8,
 	};
 
 	int err;

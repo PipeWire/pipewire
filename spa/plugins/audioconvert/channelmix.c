@@ -133,8 +133,6 @@ struct impl {
 
 	bool started;
 
-	const struct buffer *src;
-
 	channelmix_func_t convert;
 	float matrix[4096];
 };
@@ -776,7 +774,7 @@ static int impl_node_process(struct spa_node *node)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: status %d", this, outio->status);
+	spa_log_trace(this->log, NAME " %p: status %d %d", this, inio->status, outio->status);
 
 	if (outio->status == SPA_STATUS_HAVE_BUFFER)
 		return outio->status;
@@ -823,6 +821,8 @@ static int impl_node_process(struct spa_node *node)
 
 	outio->status = SPA_STATUS_HAVE_BUFFER;
 	outio->buffer_id = dbuf->outbuf->id;
+
+	inio->status = SPA_STATUS_NEED_BUFFER;
 
 	return outio->status;
 }

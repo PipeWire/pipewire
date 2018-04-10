@@ -127,12 +127,12 @@ conv_s16d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 {
 	const int16_t **s = (const int16_t **) src;
 	float *d = dst[0];
-	int i, j;
+	int i, n, n_samples;
 
-	n_bytes /= (sizeof(int16_t) * n_src);
-	for (j = 0; j < n_bytes; j++) {
+	n_samples = n_bytes / sizeof(int16_t);
+	for (n = 0; n < n_samples; n++) {
 		for (i = 0; i < n_src; i++)
-			*d++ = S16_TO_F32(s[i][j]);
+			*d++ = S16_TO_F32(s[i][n]);
 	}
 }
 
@@ -172,12 +172,12 @@ conv_s32d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 {
 	const int32_t **s = (const int32_t **) src;
 	float *d = dst[0];
-	int i, j;
+	int i, n, n_samples;
 
-	n_bytes /= (sizeof(int32_t) * n_src);
-	for (j = 0; j < n_bytes; j++) {
+	n_samples = n_bytes / sizeof(int32_t);
+	for (n = 0; n < n_samples; n++) {
 		for (i = 0; i < n_src; i++)
-			*d++ = S32_TO_F32(s[i][j]);
+			*d++ = S32_TO_F32(s[i][n]);
 	}
 }
 
@@ -223,10 +223,10 @@ conv_s24d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 {
 	const int8_t **s = (const int8_t **) src;
 	float *d = dst[0];
-	int i, j;
+	int i, n, n_samples;
 
-	n_bytes /= (3 * n_src);
-	for (j = 0; j < n_bytes; j++) {
+	n_samples = n_bytes / 3;
+	for (n = 0; n < n_samples; n++) {
 		for (i = 0; i < n_src; i++) {
 			*d++ = S24_TO_F32(READ24(s[i]));
 			s += 3;
@@ -268,12 +268,12 @@ conv_s24_32d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const vo
 {
 	const int32_t **s = (const int32_t **) src;
 	float *d = dst[0];
-	int i, j;
+	int i, n, n_samples;
 
-	n_bytes /= (sizeof(int32_t) * n_src);
-	for (j = 0; j < n_bytes; j++) {
+	n_samples = n_bytes / sizeof(int32_t);
+	for (n = 0; n < n_samples; n++) {
 		for (i = 0; i < n_src; i++)
-			*d++ = S24_TO_F32(s[i][j]);
+			*d++ = S24_TO_F32(s[i][n]);
 	}
 }
 
@@ -319,12 +319,12 @@ conv_f32d_to_u8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 {
 	const int8_t **s = (const int8_t **) src;
 	float *d = dst[0];
-	int i, j;
+	int i, n, n_samples;
 
-	n_bytes /= (sizeof(float) * n_src);
-	for (j = 0; j < n_bytes; j++) {
+	n_samples = n_bytes / sizeof(float);
+	for (n = 0; n < n_samples; n++) {
 		for (i = 0; i < n_src; i++)
-			*d++ = F32_TO_U8(s[i][j]);
+			*d++ = F32_TO_U8(s[i][n]);
 	}
 }
 
@@ -370,12 +370,12 @@ conv_f32d_to_s16(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 {
 	const float **s = (const float **) src;
 	int16_t *d = dst[0];
-	int i, j;
+	int i, n, n_samples;
 
-	n_bytes /= (sizeof(float) * n_src);
-	for (j = 0; j < n_bytes; j++) {
+	n_samples = n_bytes / sizeof(float);
+	for (n = 0; n < n_samples; n++) {
 		for (i = 0; i < n_src; i++)
-			*d++ = F32_TO_S16(s[i][j]);
+			*d++ = F32_TO_S16(s[i][n]);
 	}
 }
 
@@ -421,12 +421,12 @@ conv_f32d_to_s32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 {
 	const float **s = (const float **) src;
 	int32_t *d = dst[0];
-	int i, j;
+	int i, n, n_samples;
 
-	n_bytes /= (sizeof(float) * n_src);
-	for (j = 0; j < n_bytes; j++) {
+	n_samples = n_bytes / sizeof(float);
+	for (n = 0; n < n_samples; n++) {
 		for (i = 0; i < n_src; i++)
-			*d++ = F32_TO_S32(s[i][j]);
+			*d++ = F32_TO_S32(s[i][n]);
 	}
 }
 
@@ -483,12 +483,12 @@ conv_f32d_to_s24(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 {
 	const float **s = (const float **) src;
 	int8_t *d = dst[0];
-	int i, j;
+	int i, n, n_samples;
 
-	n_bytes /= (sizeof(float) * n_src);
-	for (j = 0; j < n_bytes; j++) {
+	n_samples = n_bytes / sizeof(float);
+	for (n = 0; n < n_samples; n++) {
 		for (i = 0; i < n_src; i++) {
-			WRITE24(d, F32_TO_S24(s[i][j]));
+			WRITE24(d, F32_TO_S24(s[i][n]));
 			d += 3;
 		}
 	}
@@ -529,12 +529,12 @@ conv_f32d_to_s24_32(void *data, int n_dst, void *dst[n_dst], int n_src, const vo
 {
 	const float **s = (const float **) src;
 	int32_t *d = dst[0];
-	int i, j;
+	int i, n, n_samples;
 
-	n_bytes /= (sizeof(float) * n_src);
-	for (j = 0; j < n_bytes; j++) {
+	n_samples = n_bytes / sizeof(float);
+	for (n = 0; n < n_samples; n++) {
 		for (i = 0; i < n_src; i++)
-			*d++ = F32_TO_S24(s[i][j]);
+			*d++ = F32_TO_S24(s[i][n]);
 	}
 }
 

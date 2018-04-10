@@ -24,6 +24,7 @@
 extern const struct spa_handle_factory spa_audioconvert_factory;
 extern const struct spa_handle_factory spa_fmtconvert_factory;
 extern const struct spa_handle_factory spa_channelmix_factory;
+extern const struct spa_handle_factory spa_resample_factory;
 
 int
 spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
@@ -40,6 +41,9 @@ spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *ind
 		break;
 	case 2:
 		*factory = &spa_channelmix_factory;
+		break;
+	case 3:
+		*factory = &spa_resample_factory;
 		break;
 	default:
 		return 0;

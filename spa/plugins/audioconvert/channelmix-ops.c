@@ -59,12 +59,12 @@ channelmix_f32_1_2(void *data, int n_dst, void *dst[n_dst],
 {
 	int n, n_samples;
 	float **d = (float **) dst;
-	float **s = (float **) src;
+	const float *s = src[0];
 
 	n_samples = n_bytes / sizeof(float);
 	for (n = 0; n < n_samples; n++) {
-		d[0][n] = s[0][n];
-		d[1][n] = s[0][n];
+		d[0][n] = s[n];
+		d[1][n] = s[n];
 	}
 }
 
@@ -73,12 +73,12 @@ channelmix_f32_2_1(void *data, int n_dst, void *dst[n_dst],
 		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
 {
 	int n, n_samples;
-	float **d = (float **) dst;
+	float *d = dst[0];
 	float **s = (float **) src;
 
 	n_samples = n_bytes / sizeof(float);
 	for (n = 0; n < n_samples; n++)
-		d[0][n] = (s[0][n] + s[1][n]) * 0.5f;
+		d[n] = (s[0][n] + s[1][n]) * 0.5f;
 }
 
 typedef void (*channelmix_func_t) (void *data, int n_dst, void *dst[n_dst],
@@ -95,6 +95,7 @@ static const struct channelmix_info {
 	uint32_t flags;
 } channelmix_table[] =
 {
+	{ -2, -2, channelmix_copy, CHANNELMIX_INFO_FLAG_NO_MATRIX },
 	{ 1, 2, channelmix_f32_1_2, CHANNELMIX_INFO_FLAG_NO_MATRIX },
 	{ 2, 1, channelmix_f32_2_1, CHANNELMIX_INFO_FLAG_NO_MATRIX },
 	{ -1, -1, channelmix_f32_n_m, 0 },
@@ -106,7 +107,10 @@ static const struct channelmix_info *find_channelmix_info(uint32_t src_chan, uin
 {
 	int i;
 
-	for (i = 0; i < SPA_N_ELEMENTS(channelmix_table); i++) {
+	if (src_chan == dst_chan)
+		return &channelmix_table[0];
+
+	for (i = 1; i < SPA_N_ELEMENTS(channelmix_table); i++) {
 		if (MATCH_CHAN(channelmix_table[i].src_chan, src_chan) &&
 		    MATCH_CHAN(channelmix_table[i].dst_chan, dst_chan))
 			return &channelmix_table[i];

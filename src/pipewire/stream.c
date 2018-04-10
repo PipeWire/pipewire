@@ -125,18 +125,19 @@ struct stream {
 };
 
 
-static inline void push_queue(struct stream *stream, struct queue *queue, struct buffer *buffer)
+static inline int push_queue(struct stream *stream, struct queue *queue, struct buffer *buffer)
 {
 	uint32_t index;
 
 	if (SPA_FLAG_CHECK(buffer->flags, BUFFER_FLAG_QUEUED))
-		return;
+		return -EINVAL;
 
 	SPA_FLAG_SET(buffer->flags, BUFFER_FLAG_QUEUED);
 
 	spa_ringbuffer_get_write_index(&queue->ring, &index);
 	queue->ids[index & MASK_BUFFERS] = buffer->id;
 	spa_ringbuffer_write_update(&queue->ring, index + 1);
+	return 0;
 }
 
 static inline struct buffer *pop_queue(struct stream *stream, struct queue *queue)
@@ -624,7 +625,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 			return res;
 
 		datas[0].type = t->data.MemPtr;
-		datas[0].maxsize = size * 2;
+		datas[0].maxsize = size * 4;
 		data_aligns[0] = 16;
 
 		buffers = spa_buffer_alloc_array(n_buffers, 0,
@@ -701,25 +702,33 @@ static int impl_node_process_output(struct spa_node *node)
 	struct spa_io_buffers *io = impl->io;
 	struct buffer *b;
 	int res = 0;
+	bool do_call = true;
 
 	pw_log_trace("stream %p: process out %d %d", stream, io->status, io->buffer_id);
 
-	if ((b = get_buffer(stream, io->buffer_id)) != NULL)
-		push_queue(impl, &impl->dequeued, b);
-
-	if ((b = pop_queue(impl, &impl->queued)) != NULL) {
-		io->buffer_id = b->id;
-		io->status = SPA_STATUS_HAVE_BUFFER;
-
-		if (impl->use_converter)
-			res = spa_node_process(impl->convert);
-
-		pw_log_trace("stream %p: pop %d %s", stream, b->id, spa_strerror(res));
-	} else {
-		io->buffer_id = SPA_ID_INVALID;
-		io->status = SPA_STATUS_NEED_BUFFER;
+	if (io->status != SPA_STATUS_HAVE_BUFFER) {
+		/* recycle old buffer */
+		if ((b = get_buffer(stream, io->buffer_id)) != NULL) {
+			push_queue(impl, &impl->dequeued, b);
+		}
+		/* pop new buffer */
+		if ((b = pop_queue(impl, &impl->queued)) != NULL) {
+			io->buffer_id = b->id;
+			io->status = SPA_STATUS_HAVE_BUFFER;
+			pw_log_trace("stream %p: pop %d %s", stream, b->id, spa_strerror(res));
+		} else {
+			io->buffer_id = SPA_ID_INVALID;
+			io->status = SPA_STATUS_NEED_BUFFER;
+		}
 	}
-	call_process(impl);
+	if (io->status == SPA_STATUS_HAVE_BUFFER && impl->use_converter) {
+		res = spa_node_process(impl->convert);
+		if (io->status == SPA_STATUS_HAVE_BUFFER)
+			do_call = false;
+	}
+
+	if (do_call)
+		call_process(impl);
 
 	return SPA_STATUS_HAVE_BUFFER;
 }
@@ -1153,8 +1162,10 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer *b;
 
-	if ((b = get_buffer(stream, buffer->buffer->id)) == NULL)
+	if ((b = get_buffer(stream, buffer->buffer->id)) == NULL) {
+		pw_log_error("stream %p: invalid buffer %d", stream, buffer->buffer->id);
 		return -EINVAL;
+	}
 
 	pw_log_trace("stream %p: queue buffer %d", stream, b->id);
 	push_queue(impl, &impl->queued, b);

@@ -811,7 +811,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 				size += d->maxsize;
 			} else {
 				b->buffer.datas[j].type = SPA_ID_INVALID;
-				b->buffer.datas[j].data = 0;
+				b->buffer.datas[j].data = NULL;
 				spa_log_error(this->log, "invalid memory type %d", d->type);
 			}
 		}

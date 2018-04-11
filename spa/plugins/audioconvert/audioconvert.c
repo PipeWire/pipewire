@@ -226,9 +226,6 @@ static int negotiate_link_format(struct impl *this, struct link *link)
 	else
 		filter = NULL;
 
-	if (filter)
-		spa_debug_pod(filter, SPA_DEBUG_FLAG_FORMAT);
-
 	if (link->out_node != NULL) {
 		state = 0;
 		if ((res = spa_node_port_enum_params(link->out_node,
@@ -239,8 +236,6 @@ static int negotiate_link_format(struct impl *this, struct link *link)
 
 		filter = format;
 	}
-	if (filter)
-		spa_debug_pod(filter, SPA_DEBUG_FLAG_FORMAT);
 	if (link->in_node != NULL) {
 		state = 0;
 		if ((res = spa_node_port_enum_params(link->in_node,
@@ -253,7 +248,6 @@ static int negotiate_link_format(struct impl *this, struct link *link)
 	}
 
 	spa_pod_fixate(filter);
-	spa_debug_pod(filter, SPA_DEBUG_FLAG_FORMAT);
 
 	if (link->out_node != NULL) {
 		if ((res = spa_node_port_set_param(link->out_node,

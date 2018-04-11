@@ -353,8 +353,16 @@ static int impl_get_port_ids(struct spa_node *node,
                              uint32_t *output_ids,
                              uint32_t n_output_ids)
 {
-	if (n_output_ids > 0)
-                output_ids[0] = 0;
+	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
+
+	if (impl->direction == SPA_DIRECTION_INPUT) {
+		if (n_input_ids > 0)
+	                input_ids[0] = 0;
+	}
+	else {
+		if (n_output_ids > 0)
+	                output_ids[0] = 0;
+	}
 	return 0;
 }
 

@@ -48,19 +48,23 @@ struct remote {
 	struct spa_hook core_listener;
 };
 
+struct mapping {
+	void *ptr;
+	struct pw_map_range map;
+	int prot;
+};
+
 struct mem {
 	uint32_t id;
 	int fd;
 	uint32_t flags;
 	uint32_t ref;
-	struct pw_map_range map;
-	void *ptr;
+	struct mapping map;
 };
 
 struct buffer_mem {
-	void *ptr;
-	struct pw_map_range map;
 	uint32_t mem_id;
+	struct mapping map;
 };
 
 struct buffer {
@@ -539,25 +543,29 @@ static struct mem *find_mem_ptr(struct node_data *data, void *ptr)
 {
 	struct mem *m;
 	pw_array_for_each(m, &data->mems) {
-		if (m->ptr == ptr)
+		if (m->map.ptr == ptr)
 			return m;
 	}
 	return NULL;
 }
 
-static void *mem_map(struct node_data *data, struct pw_map_range *range,
+static void *mem_map(struct node_data *data, struct mapping *map,
 		int fd, int prot, uint32_t offset, uint32_t size)
 {
+	struct mapping m;
 	void *ptr;
 
-	pw_map_range_init(range, offset, size, data->core->sc_pagesize);
+	pw_map_range_init(&m.map, offset, size, data->core->sc_pagesize);
 
-	ptr = mmap(NULL, range->size, prot, MAP_SHARED, fd, range->offset);
-	if (ptr == MAP_FAILED) {
-		pw_log_error("remote %p: Failed to mmap memory %d: %m", data, size);
-		return NULL;
+	if (map->ptr == NULL || map->map.offset != m.map.offset || map->map.size != m.map.size) {
+		map->ptr = mmap(map->ptr, m.map.size, prot, MAP_SHARED, fd, m.map.offset);
+		if (map->ptr == MAP_FAILED) {
+			pw_log_error("remote %p: Failed to mmap memory %d: %m", data, size);
+			return NULL;
+		}
+		map->map = m.map;
 	}
-	ptr = SPA_MEMBER(ptr, range->start, void);
+	ptr = SPA_MEMBER(map->ptr, map->map.start, void);
 	pw_log_debug("remote %p: fd %d mapped %d %d %p", data, fd, offset, size, ptr);
 
 	return ptr;
@@ -592,7 +600,7 @@ static void clear_mem(struct node_data *data, struct mem *m)
 			}
 		}
 		if (!has_ref) {
-			m->ptr = mem_unmap(data, m->ptr, &m->map);
+			m->map.ptr = mem_unmap(data, m->map.ptr, &m->map.map);
 			close(fd);
 		}
 	}
@@ -730,8 +738,8 @@ static void client_node_add_mem(void *object,
 	m->fd = memfd;
 	m->flags = flags;
 	m->ref = 0;
-	m->map = PW_MAP_RANGE_INIT;
-	m->ptr = NULL;
+	m->map.map = PW_MAP_RANGE_INIT;
+	m->map.ptr = NULL;
 }
 
 static void client_node_transport(void *object, uint32_t node_id,
@@ -1006,15 +1014,15 @@ client_node_port_use_buffers(void *object,
 		bid = pw_array_add(&mix->buffers, sizeof(struct buffer));
 
 		bmem.mem_id = m->id;
-		bmem.ptr = mem_map(data, &bmem.map, m->fd, prot,
+		bmem.map.ptr = mem_map(data, &bmem.map, m->fd, prot,
 				buffers[i].offset, buffers[i].size);
-		if (bmem.ptr == NULL) {
+		if (bmem.map.ptr == NULL) {
 			res = -errno;
 			goto cleanup;
 		}
-		if (mlock(bmem.ptr, bmem.map.size) < 0)
+		if (mlock(bmem.map.ptr, bmem.map.map.size) < 0)
 			pw_log_warn("Failed to mlock memory %u %u: %m",
-					bmem.map.offset, bmem.map.size);
+					bmem.map.map.offset, bmem.map.map.size);
 
 		size = sizeof(struct spa_buffer);
 		size += sizeof(struct buffer_mem);
@@ -1048,13 +1056,13 @@ client_node_port_use_buffers(void *object,
 			pw_log_warn("unexpected id %u found, expected %u", bid->id, len);
 		}
 		pw_log_debug("add buffer %d %d %u %u", m->id,
-				bid->id, bmem.map.offset, bmem.map.size);
+				bid->id, bmem.map.map.offset, bmem.map.map.size);
 
 		offset = 0;
 		for (j = 0; j < b->n_metas; j++) {
 			struct spa_meta *m = &b->metas[j];
 			memcpy(m, &buffers[i].buffer->metas[j], sizeof(struct spa_meta));
-			m->data = SPA_MEMBER(bmem.ptr, offset, void);
+			m->data = SPA_MEMBER(bmem.map.ptr, offset, void);
 			offset += m->size;
 		}
 
@@ -1063,7 +1071,7 @@ client_node_port_use_buffers(void *object,
 
 			memcpy(d, &buffers[i].buffer->datas[j], sizeof(struct spa_data));
 			d->chunk =
-			    SPA_MEMBER(bmem.ptr, offset + sizeof(struct spa_chunk) * j,
+			    SPA_MEMBER(bmem.map.ptr, offset + sizeof(struct spa_chunk) * j,
 				       struct spa_chunk);
 
 			if (d->type == t->data.MemFd || d->type == t->data.DmaBuf) {
@@ -1080,15 +1088,15 @@ client_node_port_use_buffers(void *object,
 				d->fd = bm->fd;
 				bm->ref++;
 				bm2.mem_id = bm->id;
-				bm2.ptr = NULL;
-				d->data = bm2.ptr;
+				bm2.map.ptr = NULL;
+				d->data = bm2.map.ptr;
 
 				bid->mem[bid->n_mem++] = bm2;
 
 				pw_log_debug(" data %d %u -> fd %d", j, bm->id, bm->fd);
 			} else if (d->type == t->data.MemPtr) {
 				int offs = SPA_PTR_TO_INT(d->data);
-				d->data = SPA_MEMBER(bmem.ptr, offs, void);
+				d->data = SPA_MEMBER(bmem.map.ptr, offs, void);
 				d->fd = -1;
 				pw_log_debug(" data %d %u -> mem %p", j, bid->id, d->data);
 			} else {
@@ -1160,14 +1168,12 @@ client_node_port_set_io(void *object,
 			pw_log_warn("unknown memory id %u", memid);
 			return;
 		}
-		if (m->ptr == NULL) {
-			m->ptr = mem_map(data, &m->map, m->fd,
-				PROT_READ|PROT_WRITE, offset, size);
-			if (m->ptr == NULL)
-				return;
-		}
+		ptr = mem_map(data, &m->map, m->fd,
+			PROT_READ|PROT_WRITE, offset, size);
+		if (ptr == NULL)
+			return;
+
 		m->ref++;
-		ptr = m->ptr;
 	}
 
 	pw_log_debug("port %p: set io %s %p", mix->port,

@@ -44,12 +44,15 @@
 
 struct type {
 	uint32_t client_node;
+	struct spa_type_media_type media_type;
+        struct spa_type_media_subtype media_subtype;
 };
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->client_node = spa_type_map_get_id(map, PW_TYPE_INTERFACE__ClientNode);
-
+	spa_type_media_type_map(map, &type->media_type);
+	spa_type_media_subtype_map(map, &type->media_subtype);
 }
 
 struct buffer {
@@ -927,7 +930,9 @@ set_init_params(struct pw_stream *stream,
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct pw_type *t = impl->t;
-	bool add_audio = false;
+#define CONVERT_AUDIO	(1<<0)
+#define CONVERT_VIDEO	(1<<1)
+	uint32_t convert_mask = 0;
 	int i;
 
 	if (impl->init_params) {
@@ -941,19 +946,38 @@ set_init_params(struct pw_stream *stream,
 		for (i = 0; i < n_init_params; i++) {
 			impl->init_params[i] = pw_spa_pod_copy(init_params[i]);
 
-			if (spa_pod_is_object_type(impl->init_params[i], t->spa_format))
-				add_audio = true;
+			if (spa_pod_is_object_type(impl->init_params[i], t->spa_format)) {
+				uint32_t media_type, media_subtype;
+
+				spa_pod_object_parse(impl->init_params[i],
+					"I", &media_type,
+					"I", &media_subtype);
+
+				if (media_type == impl->type.media_type.audio &&
+				    media_subtype == impl->type.media_subtype.raw)
+					SPA_FLAG_SET(convert_mask, CONVERT_AUDIO);
+				else if (media_type == impl->type.media_type.video &&
+				    media_subtype == impl->type.media_subtype.raw)
+					SPA_FLAG_SET(convert_mask, CONVERT_VIDEO);
+			}
 		}
 	}
 	impl->n_orig_params = n_init_params;
 
-	if (add_audio && !SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_NO_CONVERT)) {
+	if (convert_mask && !SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_NO_CONVERT)) {
 		uint32_t state = 0;
 		int res;
 
-		if ((impl->convert = pw_load_spa_interface("audioconvert/libspa-audioconvert",
-				"audioconvert", SPA_TYPE__Node, NULL, 0)) == NULL)
-			goto done;
+		if (SPA_FLAG_CHECK(convert_mask, CONVERT_AUDIO)) {
+			if ((impl->convert = pw_load_spa_interface("audioconvert/libspa-audioconvert",
+					"audioconvert", SPA_TYPE__Node, NULL, 0)) == NULL)
+				goto done;
+		}
+		if (SPA_FLAG_CHECK(convert_mask, CONVERT_VIDEO)) {
+			if ((impl->convert = pw_load_spa_interface("videoconvert/libspa-videoconvert",
+					"videoconvert", SPA_TYPE__Node, NULL, 0)) == NULL)
+				goto done;
+		}
 
 		while (true) {
 			uint8_t buffer[4096];

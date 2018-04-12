@@ -36,108 +36,6 @@ struct pw_client_node_proxy;
 
 #define PW_VERSION_CLIENT_NODE			0
 
-struct pw_client_node_message;
-
-/** \class pw_client_node_transport
- *
- * \brief Transport object
- *
- * The transport object contains shared data and ringbuffers to exchange
- * events and data between the server and the client in a low-latency and
- * lockfree way.
- */
-struct pw_client_node_transport {
-	void *input_data;			/**< input memory for ringbuffer */
-	struct spa_ringbuffer *input_buffer;	/**< ringbuffer for input memory */
-	void *output_data;			/**< output memory for ringbuffer */
-	struct spa_ringbuffer *output_buffer;	/**< ringbuffer for output memory */
-
-	/** Destroy a transport
-	 * \param trans a transport to destroy
-	 * \memberof pw_client_node_transport
-	 */
-	void (*destroy) (struct pw_client_node_transport *trans);
-
-	/** Add a message to the transport
-	 * \param trans the transport to send the message on
-	 * \param message the message to add
-	 * \return 0 on success, < 0 on error
-	 *
-	 * Write \a message to the shared ringbuffer.
-	 */
-	int (*add_message) (struct pw_client_node_transport *trans, struct pw_client_node_message *message);
-
-	/** Get next message from a transport
-	 * \param trans the transport to get the message of
-	 * \param[out] message the message to read
-	 * \return < 0 on error, 1 when a message is available,
-	 *           0 when no more messages are available.
-	 *
-	 * Get the skeleton next message from \a trans into \a message. This function will
-	 * only read the head and object body of the message.
-	 *
-	 * After the complete size of the message has been calculated, you should call
-	 * \ref parse_message() to read the complete message contents.
-	 */
-	int (*next_message) (struct pw_client_node_transport *trans, struct pw_client_node_message *message);
-
-	/** Parse the complete message on transport
-	 * \param trans the transport to read from
-	 * \param[out] message memory that can hold the complete message
-	 * \return 0 on success, < 0 on error
-	 *
-	 * Use this function after \ref next_message().
-	 */
-	int (*parse_message) (struct pw_client_node_transport *trans, void *message);
-};
-
-#define pw_client_node_transport_destroy(t)		((t)->destroy((t)))
-#define pw_client_node_transport_add_message(t,m)	((t)->add_message((t), (m)))
-#define pw_client_node_transport_next_message(t,m)	((t)->next_message((t), (m)))
-#define pw_client_node_transport_parse_message(t,m)	((t)->parse_message((t), (m)))
-
-enum pw_client_node_message_type {
-	PW_CLIENT_NODE_MESSAGE_PROCESS,			/*< instruct the node to process */
-	PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER,	/*< reuse a buffer */
-};
-
-struct pw_client_node_message_body {
-	struct spa_pod_int type		SPA_ALIGNED(8);	/*< one of enum pw_client_node_message_type */
-};
-
-struct pw_client_node_message {
-	struct spa_pod_struct pod;
-	struct pw_client_node_message_body body;
-};
-
-struct pw_client_node_message_port_reuse_buffer_body {
-	struct spa_pod_int type		SPA_ALIGNED(8);	/*< PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER */
-	struct spa_pod_int port_id	SPA_ALIGNED(8);	/*< port id */
-	struct spa_pod_int buffer_id	SPA_ALIGNED(8); /*< buffer id to reuse */
-};
-
-struct pw_client_node_message_port_reuse_buffer {
-	struct spa_pod_struct pod;
-	struct pw_client_node_message_port_reuse_buffer_body body;
-};
-
-#define PW_CLIENT_NODE_MESSAGE_TYPE(message)	(((struct pw_client_node_message*)(message))->body.type.value)
-
-#define PW_CLIENT_NODE_MESSAGE_INIT(message) (struct pw_client_node_message)			\
-	{ { { sizeof(struct pw_client_node_message_body), SPA_POD_TYPE_STRUCT } },		\
-	  { SPA_POD_INT_INIT(message) } }
-
-#define PW_CLIENT_NODE_MESSAGE_INIT_FULL(type,size,message,...) (type)				\
-	{ { { size, SPA_POD_TYPE_STRUCT } },							\
-	  { SPA_POD_INT_INIT(message), ##__VA_ARGS__ } }					\
-
-#define PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER_INIT(port_id,buffer_id)			\
-	PW_CLIENT_NODE_MESSAGE_INIT_FULL(struct pw_client_node_message_port_reuse_buffer,	\
-		sizeof(struct pw_client_node_message_port_reuse_buffer_body),			\
-		PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER,					\
-		SPA_POD_INT_INIT(port_id),							\
-		SPA_POD_INT_INIT(buffer_id))
-
 /** information about a buffer */
 struct pw_client_node_buffer {
 	uint32_t mem_id;		/**< the memory id for the metadata */
@@ -316,19 +214,16 @@ struct pw_client_node_proxy_events {
 	/**
 	 * Notify of a new transport area
 	 *
-	 * The transport area is used to exchange real-time commands between
-	 * the client and the server.
+	 * The transport area is used to signal the client and the server.
 	 *
 	 * \param node_id the node id created for this client node
 	 * \param readfd fd for signal data can be read
 	 * \param writefd fd for signal data can be written
-	 * \param transport the shared transport area
 	 */
 	void (*transport) (void *object,
 			   uint32_t node_id,
 			   int readfd,
-			   int writefd,
-			   struct pw_client_node_transport *transport);
+			   int writefd);
 	/**
 	 * Notify of a property change
 	 *

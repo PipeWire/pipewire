@@ -38,7 +38,6 @@
 #include "pipewire/core.h"
 #include "modules/spa/spa-node.h"
 #include "client-node.h"
-#include "transport.h"
 
 /** \cond */
 
@@ -140,8 +139,6 @@ struct impl {
 	struct pw_type *t;
 
 	struct node node;
-
-	struct pw_client_node_transport *transport;
 
 	struct pw_map io_map;
 	struct pw_memblock *io_areas;
@@ -855,21 +852,15 @@ static int
 impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
 {
 	struct node *this;
-	struct impl *impl;
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
-	impl = this->impl;
 
 	if (!CHECK_OUT_PORT(this, SPA_DIRECTION_OUTPUT, port_id))
 		return -EINVAL;
 
 	spa_log_trace(this->log, "reuse buffer %d", buffer_id);
 
-	pw_client_node_transport_add_message(impl->transport, (struct pw_client_node_message *)
-			&PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER_INIT(port_id, buffer_id));
-	//send_process(this);
-
-	return 0;
+	return -ENOTSUP;
 }
 
 static int
@@ -914,9 +905,6 @@ client_node_done(void *data, int seq, int res)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-
-	if (seq == 0 && res == 0 && impl->transport == NULL)
-		impl->transport = pw_client_node_transport_new();
 
 	this->callbacks->done(this->callbacks_data, seq, res);
 }
@@ -1176,8 +1164,7 @@ static void node_initialized(void *data)
 	pw_client_node_resource_transport(this->resource,
 					  pw_global_get_id(pw_node_get_global(node)),
 					  impl->other_fds[0],
-					  impl->other_fds[1],
-					  impl->transport);
+					  impl->other_fds[1]);
 }
 
 static void node_free(void *data)
@@ -1186,9 +1173,6 @@ static void node_free(void *data)
 
 	pw_log_debug("client-node %p: free", &impl->this);
 	node_clear(&impl->node);
-
-	if (impl->transport)
-		pw_client_node_transport_destroy(impl->transport);
 
 	spa_hook_remove(&impl->node_listener);
 

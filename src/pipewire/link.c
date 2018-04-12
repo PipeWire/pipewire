@@ -1198,6 +1198,10 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	if (output == input)
 		goto same_ports;
 
+	if (output->direction != PW_DIRECTION_OUTPUT ||
+	    input->direction != PW_DIRECTION_INPUT)
+		goto wrong_direction;
+
 	if (pw_link_find(output, input))
 		goto link_exists;
 
@@ -1275,6 +1279,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
       same_ports:
 	asprintf(error, "can't link the same ports");
+	return NULL;
+      wrong_direction:
+	asprintf(error, "ports have wrong direction");
 	return NULL;
       link_exists:
 	asprintf(error, "link already exists");

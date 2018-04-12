@@ -287,6 +287,9 @@ static int setup_convert(struct impl *this)
 			outport->format.info.raw.rate,
 			outport->format.info.raw.layout);
 
+	if (this->n_links > 0)
+		return 0;
+
 	/* unpack */
 	make_link(this, NULL, 0, this->fmt_in, 0, &inport->format);
 	prev = this->fmt_in;

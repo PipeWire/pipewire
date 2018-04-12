@@ -815,8 +815,10 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 
 	/* first try to find an unlinked port */
 	spa_list_for_each(p, ports, link) {
-		if (spa_list_is_empty(&p->links))
-			return p;
+		if (spa_list_is_empty(&p->links)) {
+			port = p;
+			goto found;
+		}
 		/* for output we can reuse an existing port, for input only
 		 * when there is a multiplex */
 		if (direction == PW_DIRECTION_OUTPUT || p->mix != NULL)
@@ -841,6 +843,7 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 	} else {
 		port = mixport;
 	}
+      found:
 	pw_log_debug("node %p: return port %p", node, port);
 	return port;
 

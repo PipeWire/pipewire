@@ -100,6 +100,9 @@ on_process(void *_data)
 	uint8_t *src, *dst;
 
 	b = pw_stream_dequeue_buffer(stream);
+	if (b == NULL)
+		return;
+
 	buf = b->buffer;
 
 	pw_log_trace("new buffer %d", buf->id);

@@ -213,15 +213,17 @@ static int configure_converter(struct stream *impl)
 	if (!impl->use_converter)
 		return -ENOTSUP;
 
-	res = spa_node_port_set_io(impl->convert,
-				impl->direction, 0,
-				t->io.Buffers,
-				impl->io, sizeof(struct spa_io_buffers));
-	impl->io = &impl->conv_io;
-	res = spa_node_port_set_io(impl->convert,
-				SPA_DIRECTION_REVERSE(impl->direction), 0,
-				t->io.Buffers,
-				impl->io, sizeof(struct spa_io_buffers));
+	if (impl->io != &impl->conv_io) {
+		res = spa_node_port_set_io(impl->convert,
+					impl->direction, 0,
+					t->io.Buffers,
+					impl->io, sizeof(struct spa_io_buffers));
+		impl->io = &impl->conv_io;
+		res = spa_node_port_set_io(impl->convert,
+					SPA_DIRECTION_REVERSE(impl->direction), 0,
+					t->io.Buffers,
+					impl->io, sizeof(struct spa_io_buffers));
+	}
 
 	return 0;
 }

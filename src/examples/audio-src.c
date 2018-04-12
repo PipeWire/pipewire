@@ -122,7 +122,11 @@ int main(int argc, char *argv[])
 	data.stream = pw_stream_new_simple(
 			pw_main_loop_get_loop(data.loop),
 			"audio-src",
-			NULL,
+			pw_properties_new(
+				PW_NODE_PROP_MEDIA, "Audio",
+				PW_NODE_PROP_CATEGORY, "Playback",
+				PW_NODE_PROP_ROLE, "Music",
+				NULL),
 			&stream_events,
 			&data);
 

@@ -741,7 +741,15 @@ static struct pw_node *make_node(struct impl *impl, const struct pw_properties *
 	if ((alias = pw_properties_get(props, "alsa.card")) == NULL)
 		goto error;
 
-	node = pw_node_new(impl->core, node_name, NULL, sizeof(struct node));
+	node = pw_node_new(impl->core, node_name,
+				pw_properties_new(
+					"alsa.card", alias,
+					"media.class",
+						direction == PW_DIRECTION_OUTPUT ?
+							"Audio/DSP/Playback" :
+							"Audio/DSP/Capture",
+					NULL),
+				sizeof(struct node));
         if (node == NULL)
 		goto error;
 
@@ -815,7 +823,7 @@ static int on_global(void *data, struct pw_global *global)
 	if ((str = pw_properties_get(properties, "media.class")) == NULL)
 		return 0;
 
-	if (strcmp(str, "Audio/Sink") == 0 || strcmp(str, "Audio/Mixer") == 0) {
+	if (strcmp(str, "Audio/Sink") == 0) {
 		if ((ip = pw_node_get_free_port(n, PW_DIRECTION_INPUT)) == NULL)
 			return 0;
 		if ((node = make_node(impl, properties, PW_DIRECTION_OUTPUT)) == NULL)

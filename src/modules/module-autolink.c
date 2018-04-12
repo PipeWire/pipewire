@@ -92,8 +92,6 @@ static void node_info_free(struct node_info *info)
 	free(info);
 }
 
-static void try_link_port(struct pw_node *node, struct pw_port *port, struct node_info *info);
-
 static void
 link_port_unlinked(void *data, struct pw_port *port)
 {
@@ -101,12 +99,8 @@ link_port_unlinked(void *data, struct pw_port *port)
 	struct node_info *info = ld->node_info;
 	struct pw_link *link = ld->link;
 	struct impl *impl = info->impl;
-	struct pw_port *input = pw_link_get_input(link);
 
 	pw_log_debug("module %p: link %p: port %p unlinked", impl, link, port);
-
-	if (pw_port_get_direction(port) == PW_DIRECTION_OUTPUT && input)
-		try_link_port(pw_port_get_node(input), input, info);
 }
 
 static void
@@ -184,38 +178,12 @@ static const struct pw_link_events link_events = {
 	.state_changed = link_state_changed,
 };
 
-static void try_link_port(struct pw_node *node, struct pw_port *port, struct node_info *info)
+static int link_ports(struct node_info *info, struct pw_port *port, struct pw_port *target)
 {
 	struct impl *impl = info->impl;
-	const struct pw_properties *props;
-	const char *str;
-	uint32_t path_id;
-	char *error = NULL;
 	struct pw_link *link;
-	struct pw_port *target;
 	struct link_data *ld;
-	struct pw_global *global = pw_node_get_global(info->node);
-	struct pw_client *owner = pw_global_get_owner(global);
-
-	props = pw_node_get_properties(node);
-
-	str = pw_properties_get(props, PW_NODE_PROP_TARGET_NODE);
-	if (str != NULL)
-		path_id = atoi(str);
-	else {
-		str = pw_properties_get(props, PW_NODE_PROP_AUTOCONNECT);
-		if (str == NULL || !pw_properties_parse_bool(str)) {
-			pw_log_debug("module %p: node does not need autoconnect", impl);
-			return;
-		}
-		path_id = SPA_ID_INVALID;
-	}
-
-	pw_log_debug("module %p: try to find and link to node '%d'", impl, path_id);
-
-	target = pw_core_find_port(impl->core, port, path_id, NULL, 0, NULL, &error);
-	if (target == NULL)
-		goto error;
+	char *error = NULL;
 
 	if (pw_port_get_direction(port) == PW_DIRECTION_INPUT) {
 	        struct pw_port *tmp = target;
@@ -229,7 +197,7 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 			   &error,
 			   sizeof(struct link_data));
 	if (link == NULL)
-		goto error;
+		return -ENOMEM;
 
 	ld = pw_link_get_user_data(link);
 	ld->link = link;
@@ -240,37 +208,153 @@ static void try_link_port(struct pw_node *node, struct pw_port *port, struct nod
 	pw_link_register(link, NULL, pw_module_get_global(impl->module), NULL);
 
 	try_link_controls(impl, port, target);
-
-	return;
-
-      error:
-	pw_log_error("module %p: can't link node '%s'", impl, error);
-	if (owner)
-		pw_resource_error(pw_client_get_core_resource(owner), -EINVAL, error);
-	free(error);
-	return;
+	return 0;
 }
 
 static void node_port_added(void *data, struct pw_port *port)
 {
-	struct node_info *info = data;
-	try_link_port(info->node, port, info);
 }
 
 static void node_port_removed(void *data, struct pw_port *port)
 {
 }
 
+#if 0
 static int on_node_port_added(void *data, struct pw_port *port)
 {
 	node_port_added(data, port);
 	return 0;
 }
+#endif
 
-static void on_node_created(struct pw_node *node, struct node_info *info)
+static int on_peer_port(void *data, struct pw_port *port)
 {
-	pw_node_for_each_port(node, PW_DIRECTION_INPUT, on_node_port_added, info);
-	pw_node_for_each_port(node, PW_DIRECTION_OUTPUT, on_node_port_added, info);
+	struct node_info *info = data;
+	struct pw_port *p;
+
+	p = pw_node_get_free_port(info->node, pw_direction_reverse(port->direction));
+	if (p == NULL)
+		return 0;
+
+	return link_ports(info, p, port);
+}
+
+struct find_data {
+	struct node_info *info;
+	uint32_t path_id;
+	const char *media_class;
+	struct pw_global *global;
+};
+
+static int find_global(void *data, struct pw_global *global)
+{
+	struct find_data *find = data;
+	struct node_info *info = find->info;
+	struct impl *impl = info->impl;
+	struct pw_node *node;
+	const struct pw_properties *props;
+	const char *str;
+
+	if (pw_global_get_type(global) != impl->t->node)
+		return 0;
+
+	pw_log_debug("module %p: looking at node '%d'", impl, pw_global_get_id(global));
+
+	node = pw_global_get_object(global);
+
+	if ((props = pw_node_get_properties(node)) == NULL)
+		return 0;
+
+	if ((str = pw_properties_get(props, "media.class")) == NULL)
+		return 0;
+
+	if (strcmp(str, find->media_class) != 0)
+		return 0;
+
+	pw_log_debug("module %p: found node '%d'", impl, pw_global_get_id(global));
+
+	find->global = global;
+	return 1;
+}
+
+static void on_node_created(struct node_info *info)
+{
+	struct impl *impl = info->impl;
+	const struct pw_properties *props;
+	struct pw_node *peer;
+	const char *media, *category, *role, *str;
+	bool exclusive;
+	struct find_data find;
+
+	find.info = info;
+
+	props = pw_node_get_properties(info->node);
+	if (props == NULL)
+		return;
+
+	str = pw_properties_get(props, PW_NODE_PROP_AUTOCONNECT);
+	if (str == NULL || !pw_properties_parse_bool(str))
+		return;
+
+	if ((media = pw_properties_get(props, PW_NODE_PROP_MEDIA)) == NULL)
+		media = "Audio";
+
+	if ((category = pw_properties_get(props, PW_NODE_PROP_CATEGORY)) == NULL) {
+		if (strcmp(media, "Video") == 0)
+			category = "Capture";
+		else
+			category = "Playback";
+	}
+
+	if ((role = pw_properties_get(props, PW_NODE_PROP_ROLE)) == NULL) {
+		if (strcmp(media, "Audio") == 0)
+			role = "Music";
+		else if (strcmp(media, "Video") == 0)
+			role = "Camera";
+
+	}
+	if ((str = pw_properties_get(props, PW_NODE_PROP_EXCLUSIVE)) != NULL)
+		exclusive = pw_properties_parse_bool(str);
+	else
+		exclusive = false;
+
+	pw_log_debug("module %p: '%s' '%s' '%s' %d", impl, media, category, role, exclusive);
+
+	if (strcmp(media, "Audio") == 0) {
+		if (strcmp(category, "Playback") == 0)
+			find.media_class = exclusive ? "Audio/Sink" : "Audio/DSP/Playback";
+		else if (strcmp(category, "Capture") == 0)
+			find.media_class = exclusive ? "Audio/Source" : "Audio/DSP/Capture";
+		else
+			return;
+	}
+	else if (strcmp(media, "Video") == 0) {
+		if (strcmp(category, "Capture") == 0)
+			find.media_class = "Video/Source";
+		else
+			return;
+	}
+	else
+		return;
+
+	str = pw_properties_get(props, PW_NODE_PROP_TARGET_NODE);
+	if (str != NULL)
+		find.path_id = atoi(str);
+	else
+		find.path_id = SPA_ID_INVALID;
+
+	pw_log_debug("module %p: try to find and link to node '%d'", impl, find.path_id);
+
+	find.global = NULL;
+	if (pw_core_for_each_global(impl->core, find_global, &find) != 1)
+		return;
+
+	peer = pw_global_get_object(find.global);
+
+	if (strcmp(category, "Capture") == 0)
+		pw_node_for_each_port(peer, PW_DIRECTION_OUTPUT, on_peer_port, info);
+	if (strcmp(category, "Playback") == 0)
+		pw_node_for_each_port(peer, PW_DIRECTION_INPUT, on_peer_port, info);
 }
 
 static void
@@ -279,7 +363,7 @@ node_state_changed(void *data, enum pw_node_state old, enum pw_node_state state,
 	struct node_info *info = data;
 
 	if (old == PW_NODE_STATE_CREATING && state == PW_NODE_STATE_SUSPENDED)
-		on_node_created(info->node, info);
+		on_node_created(info);
 }
 
 static const struct pw_node_events node_events = {
@@ -309,7 +393,7 @@ core_global_added(void *data, struct pw_global *global)
 		pw_log_debug("module %p: node %p added", impl, node);
 
 		if (pw_node_get_info(node)->state > PW_NODE_STATE_CREATING)
-			on_node_created(node, ninfo);
+			on_node_created(ninfo);
 	}
 }
 

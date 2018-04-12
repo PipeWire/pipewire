@@ -586,6 +586,9 @@ static void make_node(struct data *data)
 	props = pw_properties_new(PW_NODE_PROP_AUTOCONNECT, "1", NULL);
 	if (data->path)
 		pw_properties_set(props, PW_NODE_PROP_TARGET_NODE, data->path);
+	pw_properties_set(props, PW_NODE_PROP_MEDIA, "Video");
+	pw_properties_set(props, PW_NODE_PROP_CATEGORY, "Capture");
+	pw_properties_set(props, PW_NODE_PROP_ROLE, "Camera");
 
 	data->node = pw_node_new(data->core, "SDL-sink", props, 0);
 	data->impl_node = impl_node;

@@ -136,8 +136,6 @@ struct node {
 struct impl {
 	struct pw_client_node this;
 
-	bool client_reuse;
-
 	struct pw_core *core;
 	struct pw_type *t;
 
@@ -1314,7 +1312,6 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	const struct spa_support *support;
 	uint32_t n_support;
 	const char *name;
-	const char *str;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -1351,9 +1348,6 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 		goto error_no_node;
 
 	this->node->remote = true;
-
-	str = pw_properties_get(properties, "pipewire.client.reuse");
-	impl->client_reuse = str && pw_properties_parse_bool(str);
 
 	pw_resource_add_listener(this->resource,
 				 &impl->resource_listener,

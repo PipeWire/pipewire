@@ -108,7 +108,6 @@ struct stream {
 
 	struct spa_pod *format;
 
-	bool client_reuse;
 	uint32_t pending_seq;
 	bool disconnecting;
 
@@ -692,13 +691,17 @@ static int impl_node_process_input(struct spa_node *node)
 	if ((b = get_buffer(stream, io->buffer_id)) == NULL)
 		goto done;
 
-	push_queue(impl, &impl->dequeued, b);
-	call_process(impl);
-
-	if (impl->client_reuse)
-		io->buffer_id = SPA_ID_INVALID;
+	/* push new buffer */
+	if (push_queue(impl, &impl->dequeued, b) == 0)
+		call_process(impl);
 
       done:
+	/* pop buffer to recycle */
+	if ((b = pop_queue(impl, &impl->queued)) != NULL)
+		io->buffer_id = b->id;
+	else
+		io->buffer_id = SPA_ID_INVALID;
+
 	io->status = SPA_STATUS_NEED_BUFFER;
 	return SPA_STATUS_HAVE_BUFFER;
 }
@@ -760,7 +763,6 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 {
 	struct stream *impl;
 	struct pw_stream *this;
-	const char *str;
 
 	impl = calloc(1, sizeof(struct stream));
 	if (impl == NULL)
@@ -783,9 +785,6 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	this->name = strdup(name);
 
 	init_type(&impl->type, remote->core->type.map);
-
-	str = pw_properties_get(props, "pipewire.client.reuse");
-	impl->client_reuse = str && pw_properties_parse_bool(str);
 
 	spa_ringbuffer_init(&impl->dequeued.ring);
 	spa_ringbuffer_init(&impl->queued.ring);
@@ -1169,6 +1168,7 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer *b;
+	int res;
 
 	if ((b = get_buffer(stream, buffer->buffer->id)) == NULL) {
 		pw_log_error("stream %p: invalid buffer %d", stream, buffer->buffer->id);
@@ -1176,7 +1176,8 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	}
 
 	pw_log_trace("stream %p: queue buffer %d", stream, b->id);
-	push_queue(impl, &impl->queued, b);
+	if ((res = push_queue(impl, &impl->queued, b)) < 0)
+		return res;
 
 	if (SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_DRIVER)) {
 		pw_loop_invoke(impl->core->data_loop,

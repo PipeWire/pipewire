@@ -582,12 +582,16 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
 	struct pw_stream *stream = &impl->this;
 	struct pw_type *t = impl->t;
+	uint32_t flags = impl->flags;
 	int i, j, prot, res;
 	int size = 0;
 
 	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
 
 	clear_buffers(stream);
+
+	if (impl->use_converter)
+		SPA_FLAG_SET(flags, PW_STREAM_FLAG_MAP_BUFFERS);
 
 	for (i = 0; i < n_buffers; i++) {
 		int buf_size = 0;
@@ -596,7 +600,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		b->flags = 0;
 		b->id = buffers[i]->id;
 
-		if (SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_MAP_BUFFERS)) {
+		if (SPA_FLAG_CHECK(flags, PW_STREAM_FLAG_MAP_BUFFERS)) {
 			for (j = 0; j < buffers[i]->n_datas; j++) {
 				struct spa_data *d = &buffers[i]->datas[j];
 				if (d->type == t->data.MemFd ||
@@ -618,7 +622,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 			} else
 				size = buf_size;
 		}
-		pw_log_info("got buffer %d %d datas, total size %d", i,
+		pw_log_info("got buffer %d %d datas, mapped size %d", i,
 				buffers[i]->n_datas, size);
 	}
 	impl->n_buffers = n_buffers;

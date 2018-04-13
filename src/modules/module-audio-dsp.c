@@ -368,6 +368,7 @@ static int port_enum_formats(struct spa_node *node,
 				"I", t->media_type.audio,
 				"I", t->media_subtype.raw,
 	                        ":", t->format_audio.format,   "I", t->audio_format.F32,
+	                        ":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
 	                        ":", t->format_audio.rate,     "i", n->sample_rate,
 	                        ":", t->format_audio.channels, "i", 1);
 		}
@@ -426,8 +427,9 @@ static int port_enum_params(struct spa_node *node,
 			id, t->param_buffers.Buffers,
 			":", t->param_buffers.size,    "i", n->buffer_size * sizeof(float),
 //				SPA_POD_PROP_MIN_MAX(24, 4096),
+			":", t->param_buffers.blocks,  "i", 1,
 			":", t->param_buffers.stride,  "i", 0,
-			":", t->param_buffers.buffers, "ir", 2,
+			":", t->param_buffers.buffers, "ir", 1,
 				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i", 16);
 	}

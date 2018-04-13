@@ -139,6 +139,7 @@ int main(int argc, char *argv[])
 		"I", data.type.media_type.audio,
 		"I", data.type.media_subtype.raw,
 		":", data.type.format_audio.format,	"I", data.type.audio_format.F32,
+		":", data.type.format_audio.layout,	"i", SPA_AUDIO_LAYOUT_INTERLEAVED,
 		":", data.type.format_audio.channels,	"i", DEFAULT_CHANNELS,
 		":", data.type.format_audio.rate,	"i", DEFAULT_RATE);
 

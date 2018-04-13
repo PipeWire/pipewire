@@ -788,7 +788,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 			memcpy(&b->buffer.metas[j], &buffers[i]->metas[j], sizeof(struct spa_meta));
 		b->buffer.n_metas = j;
 
-		size = 0;
+		size = buffers[i]->n_datas * sizeof(struct spa_chunk);
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = &buffers[i]->datas[j];
 

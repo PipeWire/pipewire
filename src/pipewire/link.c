@@ -1259,7 +1259,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->info.format = NULL;
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
-	impl->io = SPA_IO_BUFFERS_INIT;
+	impl->io.buffer_id = SPA_ID_INVALID;
 	impl->io.status = SPA_STATUS_NEED_BUFFER;
 
 	pw_port_init_mix(output, &this->rt.mix[SPA_DIRECTION_OUTPUT]);

@@ -430,15 +430,17 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	struct pw_core *core = node->core;
 	struct pw_type *t = &core->type;
 	const char *str, *dir;
+	int res;
 
 	if (port->node != NULL)
 		return -EEXIST;
 
-	port->node = node;
-
-	spa_node_port_get_info(node->node,
+	if ((res = spa_node_port_get_info(node->node,
 			       port->direction, port_id,
-			       &port->spa_info);
+			       &port->spa_info)) < 0)
+		return res;
+
+	port->node = node;
 
 	if (port->spa_info->props)
 		pw_port_update_properties(port, port->spa_info->props);

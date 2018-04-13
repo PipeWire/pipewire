@@ -141,13 +141,9 @@ struct impl {
 
 	bool started;
 
-	const struct buffer *src;
-
 	const struct conv_info *conv[2];
 
 	convert_func_t convert;
-
-	uint8_t temp[8192];
 };
 
 #define CHECK_PORT(this,d,id)		(id == 0)
@@ -606,7 +602,8 @@ static int port_set_format(struct spa_node *node,
 		if (other->have_format)
 			res = setup_convert(this);
 
-		spa_log_info(this->log, NAME " %p: set format on port %d %d", this, port_id, res);
+		spa_log_info(this->log, NAME " %p: set format on port %d %d %d %d",
+				this, port_id, res, port->stride, other->stride);
 	}
 	return res;
 }
@@ -844,6 +841,9 @@ static int impl_node_process(struct spa_node *node)
 			dst_datas[i] = db->datas[i].data;
 			db->datas[i].chunk->size = (n_bytes / inport->stride) * outport->stride;
 		}
+
+		spa_log_trace(this->log, NAME " %p: %d %d %d %d", this,
+				n_src_datas, n_dst_datas, n_bytes, inport->offset);
 
 		this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
 

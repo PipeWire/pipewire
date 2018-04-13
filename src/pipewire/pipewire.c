@@ -36,7 +36,7 @@
 
 static char **categories = NULL;
 
-static struct support_info {
+static struct plugin_info {
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
 	struct spa_support support[16];
@@ -44,9 +44,9 @@ static struct support_info {
 } support_info;
 
 static bool
-open_support(const char *path,
-	     const char *lib,
-	     struct support_info *info)
+open_plugin(const char *path,
+	    const char *lib,
+	    struct plugin_info *info)
 {
 	char *filename;
 
@@ -73,7 +73,7 @@ open_support(const char *path,
 	return false;
 }
 
-static const struct spa_handle_factory *get_factory(struct support_info *info, const char *factory_name)
+static const struct spa_handle_factory *get_factory(struct plugin_info *info, const char *factory_name)
 {
 	int res;
 	uint32_t index;
@@ -92,7 +92,7 @@ static const struct spa_handle_factory *get_factory(struct support_info *info, c
 }
 
 static void *
-load_interface(struct support_info *info,
+load_interface(struct plugin_info *info,
 	       const char *factory_name,
 	       const char *type)
 {
@@ -173,7 +173,7 @@ const struct spa_support *pw_get_support(uint32_t *n_support)
 void *pw_load_spa_interface(const char *lib, const char *factory_name, const char *type,
 			    struct spa_support *support, uint32_t n_support)
 {
-	struct support_info extra_support_info;
+	struct plugin_info extra_support_info;
 	const char *str;
 	int i;
 
@@ -190,7 +190,7 @@ void *pw_load_spa_interface(const char *lib, const char *factory_name, const cha
 
 	pw_log_debug("load \"%s\", \"%s\"", lib, factory_name);
 
-	if (open_support(str, lib, &extra_support_info))
+	if (open_plugin(str, lib, &extra_support_info))
 		return load_interface(&extra_support_info, factory_name, type);
 
 	return NULL;
@@ -220,7 +220,7 @@ void pw_init(int *argc, char **argv[])
 {
 	const char *str;
 	void *iface;
-	struct support_info *info = &support_info;
+	struct plugin_info *info = &support_info;
 
 	if ((str = getenv("PIPEWIRE_DEBUG")))
 		configure_debug(str);
@@ -231,7 +231,7 @@ void pw_init(int *argc, char **argv[])
 	if (support_info.n_support > 0)
 		return;
 
-	if (open_support(str, "support/libspa-support", info)) {
+	if (open_plugin(str, "support/libspa-support", info)) {
 		iface = load_interface(info, "mapper", SPA_TYPE__TypeMap);
 		if (iface != NULL)
 			info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, iface);

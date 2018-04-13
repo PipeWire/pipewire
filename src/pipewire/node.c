@@ -165,6 +165,7 @@ static void update_port_map(struct pw_node *node, enum pw_direction direction,
 	uint32_t o, n;
 	size_t os, ns;
 	struct pw_port *port;
+	int res;
 
 	o = n = 0;
 	os = pw_map_get_size(portmap);
@@ -187,8 +188,13 @@ static void update_port_map(struct pw_node *node, enum pw_direction direction,
 					pw_direction_as_string(direction), ids[n]);
 
 			if (port == NULL) {
-				if ((port = pw_port_new(direction, ids[n], NULL, 0)))
-					pw_port_add(port, node);
+				if ((port = pw_port_new(direction, ids[n], NULL, 0))) {
+					if ((res = pw_port_add(port, node)) < 0) {
+						pw_log_error("node %p: can't add port %p: %d, %s",
+								node, port, res, spa_strerror(res));
+						pw_port_destroy(port);
+					}
+				}
 				o = ids[n] + 1;
 				os++;
 			}
@@ -238,7 +244,7 @@ int pw_node_update_ports(struct pw_node *node)
 	if (res < 0)
 		return res;
 
-	pw_log_debug("node %p: update_port ids %u/%u, %u/%u", node,
+	pw_log_debug("node %p: update_port ids input %u/%u, outputs %u/%u", node,
 		     n_input_ports, max_input_ports, n_output_ports, max_output_ports);
 
 	update_port_map(node, PW_DIRECTION_INPUT, &node->input_port_map, input_port_ids, n_input_ports);
@@ -798,6 +804,7 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 	struct spa_list *ports;
 	struct pw_port *port = NULL, *p, *mixport = NULL;
 	struct pw_map *portmap;
+	int res;
 
 	if (direction == PW_DIRECTION_INPUT) {
 		max_ports = node->info.max_input_ports;
@@ -828,18 +835,19 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 	/* no port, can we create one ? */
 	if (n_ports < max_ports) {
 		uint32_t port_id = pw_map_insert_new(portmap, NULL);
-		int res;
 
 		pw_log_debug("node %p: creating port direction %d %u", node, direction, port_id);
 
 		if ((res = spa_node_add_port(node->node, direction, port_id)) < 0) {
-			pw_log_error("node %p: could not add port %d %s", node, port_id, spa_strerror(res));
+			pw_log_error("node %p: could not add port %d %s", node, port_id,
+					spa_strerror(res));
 			goto no_mem;
 		}
 		port = pw_port_new(direction, port_id, NULL, 0);
 		if (port == NULL)
 			goto no_mem;
-		pw_port_add(port, node);
+		if ((res = pw_port_add(port, node)) < 0)
+			goto add_failed;
 	} else {
 		port = mixport;
 	}
@@ -849,6 +857,10 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 
       no_mem:
 	pw_log_error("node %p: can't create new port", node);
+	return NULL;
+      add_failed:
+	pw_log_error("node %p: can't add new port: %s", node, spa_strerror(res));
+	pw_port_destroy(port);
 	return NULL;
 }
 

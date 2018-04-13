@@ -41,6 +41,7 @@
 
 #define MAX_BUFFERS	64
 #define MASK_BUFFERS	(MAX_BUFFERS-1)
+#define MAX_PORTS	1
 
 struct type {
 	uint32_t client_node;
@@ -179,8 +180,10 @@ static int configure_converter(struct stream *impl)
 		param = impl->init_params[i];
 
 		if (spa_pod_is_object_type(param, t->spa_format)) {
-			if (spa_pod_filter(&b, &filtered, impl->format, param) >= 0)
+			if (spa_pod_filter(&b, &filtered, impl->format, param) >= 0) {
+				pw_log_debug("stream %p: format matches filter", impl);
 				return 0;
+			}
 		}
 	}
 
@@ -341,12 +344,14 @@ static int impl_get_n_ports(struct spa_node *node,
 {
 	struct stream *d = SPA_CONTAINER_OF(node, struct stream, impl_node);
 	if (d->direction == SPA_DIRECTION_INPUT) {
-		*n_input_ports = *max_input_ports = 1;
+		*n_input_ports = 1;
+		*max_input_ports = MAX_PORTS;
 		*n_output_ports = *max_output_ports = 0;
 	}
 	else {
 		*n_input_ports = *max_input_ports = 0;
-		*n_output_ports = *max_output_ports = 1;
+		*n_output_ports = 1;
+		*max_output_ports = MAX_PORTS;
 	}
 	return 0;
 }
@@ -483,7 +488,6 @@ static int port_set_format(struct spa_node *node,
 	}
 	else
 		impl->format = NULL;
-
 
 	if ((res = configure_converter(impl)) < 0) {
 		pw_stream_finish_format(stream, res, NULL, 0);

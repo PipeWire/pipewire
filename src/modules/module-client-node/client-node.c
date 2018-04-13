@@ -317,14 +317,6 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
 
-static inline void send_process(struct node *this)
-{
-	uint64_t cmd = 1;
-	pw_log_trace("client-node %p: send process", this);
-	if (write(this->writefd, &cmd, 8) != 8)
-		spa_log_warn(this->log, "node %p: error %s", this, strerror(errno));
-}
-
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	struct node *this;
@@ -895,8 +887,13 @@ impl_node_port_send_command(struct spa_node *node,
 static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
-	spa_log_trace(this->log, "%p: process", this);
-	send_process(this);
+	uint64_t cmd = 1;
+
+	spa_log_trace(this->log, "%p: send process", this);
+
+	if (write(this->writefd, &cmd, 8) != 8)
+		spa_log_warn(this->log, "node %p: error %s", this, strerror(errno));
+
 	return SPA_STATUS_OK;
 }
 
@@ -1137,6 +1134,8 @@ static void node_initialized(void *data)
 	struct pw_client_node *this = &impl->this;
 	struct pw_node *node = this->node;
 	struct pw_type *t = impl->t;
+	struct pw_global *global;
+	uint32_t node_id;
 
 	if (this->resource == NULL)
 		return;
@@ -1161,8 +1160,13 @@ static void node_initialized(void *data)
 	ensure_mem(impl, impl->io_areas->fd, t->data.MemFd, impl->io_areas->flags);
 	pw_log_debug("client-node %p: io areas %p", node, impl->io_areas->ptr);
 
+	if ((global = pw_node_get_global(node)) != NULL)
+		node_id = pw_global_get_id(global);
+	else
+		node_id = SPA_ID_INVALID;
+
 	pw_client_node_resource_transport(this->resource,
-					  pw_global_get_id(pw_node_get_global(node)),
+					  node_id,
 					  impl->other_fds[0],
 					  impl->other_fds[1]);
 }

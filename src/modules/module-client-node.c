@@ -30,6 +30,7 @@
 #include "pipewire/module.h"
 
 #include "module-client-node/client-node.h"
+#include "module-client-node/client-stream.h"
 
 struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core);
 
@@ -48,7 +49,7 @@ static void *create_object(void *_data,
 			   struct pw_properties *properties,
 			   uint32_t new_id)
 {
-	struct pw_client_node *node;
+	void *result;
 	struct pw_resource *node_resource;
 
 	if (resource == NULL)
@@ -59,11 +60,16 @@ static void *create_object(void *_data,
 	if (node_resource == NULL)
 		goto no_mem;
 
-	node = pw_client_node_new(node_resource, properties);
-	if (node == NULL)
+	if (properties && pw_properties_get(properties, "node.stream") != NULL) {
+		result = pw_client_stream_new(node_resource, properties);
+	}
+	else {
+		result = pw_client_node_new(node_resource, properties, true);
+	}
+	if (result == NULL)
 		goto no_mem;
 
-	return node;
+	return result;
 
       no_resource:
 	pw_log_error("client-node needs a resource");

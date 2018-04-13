@@ -1110,6 +1110,7 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, PW_NODE_PROP_TARGET_NODE, port_path);
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
 		pw_properties_set(stream->properties, PW_NODE_PROP_AUTOCONNECT, "1");
+	pw_properties_set(stream->properties, "node.stream", "1");
 
 	if (pw_remote_get_state(stream->remote, NULL) == PW_REMOTE_STATE_UNCONNECTED)
 		res = pw_remote_connect(stream->remote);

@@ -1298,7 +1298,8 @@ static const struct pw_resource_events resource_events = {
  * \memberof pw_client_node
  */
 struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
-					  struct pw_properties *properties)
+					  struct pw_properties *properties,
+					  bool do_register)
 {
 	struct impl *impl;
 	struct pw_client_node *this;
@@ -1335,7 +1336,8 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 				     pw_resource_get_client(this->resource),
 				     NULL,
 				     name,
-				     PW_SPA_NODE_FLAG_ASYNC,
+				     PW_SPA_NODE_FLAG_ASYNC |
+				     (do_register ? 0 : PW_SPA_NODE_FLAG_NO_REGISTER),
 				     &impl->node.node,
 				     NULL,
 				     properties, 0);

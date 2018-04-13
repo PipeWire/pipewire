@@ -383,10 +383,13 @@ int pw_node_register(struct pw_node *this,
 		pw_port_register(port, owner, this->global,
 				 pw_properties_copy(port->properties));
 
+	return pw_node_initialized(this);
+}
+
+int pw_node_initialized(struct pw_node *this)
+{
 	spa_hook_list_call(&this->listener_list, struct pw_node_events, initialized);
-
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
-
 	return 0;
 }
 

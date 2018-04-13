@@ -39,7 +39,8 @@ struct pw_client_node {
 
 struct pw_client_node *
 pw_client_node_new(struct pw_resource *resource,
-		   struct pw_properties *properties);
+		   struct pw_properties *properties,
+		   bool do_register);
 
 void
 pw_client_node_destroy(struct pw_client_node *node);

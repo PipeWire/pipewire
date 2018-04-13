@@ -518,13 +518,16 @@ impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 
+	port = GET_PORT(this, direction, port_id);
+
 	if (!CHECK_FREE_PORT(this, direction, port_id))
 		return -EINVAL;
 
-	port = GET_PORT(this, direction, port_id);
-	clear_port(this, port, direction, port_id);
+	pw_client_node_resource_add_port(this->resource,
+					 this->seq,
+					 direction, port_id);
 
-	return 0;
+	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
 
 static int
@@ -540,9 +543,11 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 	if (!CHECK_PORT(this, direction, port_id))
 		return -EINVAL;
 
-	do_uninit_port(this, direction, port_id);
+	pw_client_node_resource_remove_port(this->resource,
+					    this->seq,
+					    direction, port_id);
 
-	return 0;
+	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
 
 static int

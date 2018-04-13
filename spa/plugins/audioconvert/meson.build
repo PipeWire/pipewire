@@ -1,6 +1,7 @@
 audioconvert_sources = ['fmtconvert.c',
 			'channelmix.c',
 			'resample.c',
+			'splitter.c',
 			'audioconvert.c',
 			'plugin.c']
 

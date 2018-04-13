@@ -286,6 +286,7 @@ struct pw_node {
 
 struct pw_port_mix {
 	struct spa_graph_port port;
+	struct spa_io_buffers *io;
 	struct spa_buffer **buffers;
 	uint32_t n_buffers;
 	uint32_t id;

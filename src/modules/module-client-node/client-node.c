@@ -1202,12 +1202,14 @@ static int port_init_mix(void *data, struct pw_port_mix *mix)
 
 	mix->id = pw_map_insert_new(&impl->io_map, NULL);
 
-	mix->port.io = SPA_MEMBER(impl->io_areas->ptr,
+	mix->io = SPA_MEMBER(impl->io_areas->ptr,
 			mix->id * sizeof(struct spa_io_buffers), void);
-	mix->port.io->buffer_id = SPA_ID_INVALID;
-	mix->port.io->status = SPA_STATUS_NEED_BUFFER;
+	mix->io->buffer_id = SPA_ID_INVALID;
+	mix->io->status = SPA_STATUS_NEED_BUFFER;
 
-	pw_log_debug("client-node %p: init mix io %d %p %p", impl, mix->id, mix->port.io,
+	mix->port.io = mix->io;
+
+	pw_log_debug("client-node %p: init mix io %d %p %p", impl, mix->id, mix->io,
 			impl->io_areas->ptr);
 
 	return 0;
@@ -1217,7 +1219,7 @@ static int port_release_mix(void *data, struct pw_port_mix *mix)
 {
 	struct impl *impl = data;
 
-	pw_log_debug("client-node %p: remove mix io %d %p %p", impl, mix->id, mix->port.io,
+	pw_log_debug("client-node %p: remove mix io %d %p %p", impl, mix->id, mix->io,
 			impl->io_areas->ptr);
 
 	pw_map_remove(&impl->io_map, mix->id);

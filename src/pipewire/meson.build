@@ -19,6 +19,7 @@ pipewire_headers = [
   'factory.h',
   'pipewire.h',
   'port.h',
+  'private.h',
   'properties.h',
   'protocol.h',
   'proxy.h',

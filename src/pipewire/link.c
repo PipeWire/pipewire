@@ -1014,7 +1014,6 @@ int pw_link_activate(struct pw_link *this)
 		this->input->node->idle_used_input_links++;
 		this->output->node->idle_used_output_links++;
 	}
-
 	pw_work_queue_add(impl->work,
 			  this, -EBUSY, (pw_work_func_t) check_states, this);
 

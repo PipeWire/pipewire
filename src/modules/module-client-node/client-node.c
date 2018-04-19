@@ -511,14 +511,11 @@ static int
 impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
 	struct node *this;
-	struct port *port;
 
 	if (node == NULL)
 		return -EINVAL;
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
-
-	port = GET_PORT(this, direction, port_id);
 
 	if (!CHECK_FREE_PORT(this, direction, port_id))
 		return -EINVAL;
@@ -1256,7 +1253,9 @@ static int mix_port_process(struct spa_node *data)
 {
 	struct pw_port *p = SPA_CONTAINER_OF(data, struct pw_port, mix_node);
 	struct spa_io_buffers *io = p->rt.mix_port.io;
-	pw_log_trace("client-node %p: pass %d %d", data, io->status, io->buffer_id);
+	if (io != NULL) {
+		pw_log_trace("client-node %p: pass %d %d", data, io->status, io->buffer_id);
+	}
 	return SPA_STATUS_HAVE_BUFFER;
 }
 

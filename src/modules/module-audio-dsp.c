@@ -83,7 +83,7 @@ struct buffer {
 #define BUFFER_FLAG_OUT		(1<<0)
 	uint32_t flags;
         struct spa_list link;
-	struct spa_buffer *outbuf;
+	struct spa_buffer *buf;
 	void *ptr;
 };
 
@@ -215,16 +215,6 @@ static int node_remove_port(struct spa_node *node, enum spa_direction direction,
 	return -ENOTSUP;
 }
 
-static void recycle_buffer(struct node *n, struct port *p, uint32_t id)
-{
-        struct buffer *b = &p->buffers[id];
-	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
-		pw_log_trace("recycle buffer %d", id);
-	        spa_list_append(&p->queue, &b->link);
-		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
-	}
-}
-
 static int clear_buffers(struct node *n, struct port *p)
 {
 	if (p->n_buffers > 0) {
@@ -275,8 +265,19 @@ static struct buffer * peek_buffer(struct node *n, struct port *p)
 
 static void dequeue_buffer(struct node *n, struct buffer *b)
 {
+	pw_log_trace("dequeue buffer %d", b->buf->id);
         spa_list_remove(&b->link);
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+}
+
+static void queue_buffer(struct node *n, struct port *p, uint32_t id)
+{
+        struct buffer *b = &p->buffers[id];
+	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
+		pw_log_trace("queue buffer %d", id);
+	        spa_list_append(&p->queue, &b->link);
+		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+	}
 }
 
 static int node_process(struct spa_node *node)
@@ -292,6 +293,11 @@ static int node_process(struct spa_node *node)
         if (outio->status == SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_HAVE_BUFFER;
 
+	if (outio->buffer_id < outp->n_buffers) {
+		queue_buffer(n, outp, outio->buffer_id);
+		outio->buffer_id = SPA_ID_INVALID;
+	}
+
 	out = peek_buffer(n, outp);
 	if (out == NULL) {
 		pw_log_warn(NAME " %p: out of buffers", this);
@@ -299,14 +305,14 @@ static int node_process(struct spa_node *node)
 	}
 
 	dequeue_buffer(n, out);
-	outio->buffer_id = out->outbuf->id;
+	outio->buffer_id = out->buf->id;
 	outio->status = SPA_STATUS_HAVE_BUFFER;
 
-	pw_log_trace(NAME " %p: output buffer %d %d", this, out->outbuf->id, out->flags);
+	pw_log_trace(NAME " %p: output buffer %d %d", this, out->buf->id, out->flags);
 
-	out->outbuf->datas[0].chunk->offset = 0;
-	out->outbuf->datas[0].chunk->size = n->buffer_size * sizeof(int16_t) * n->channels;
-	out->outbuf->datas[0].chunk->stride = 0;
+	out->buf->datas[0].chunk->offset = 0;
+	out->buf->datas[0].chunk->size = n->buffer_size * sizeof(int16_t) * n->channels;
+	out->buf->datas[0].chunk->stride = 0;
 
 	return outio->status;
 }
@@ -509,7 +515,7 @@ static int port_use_buffers(struct spa_node *node, enum spa_direction direction,
 
                 b = &p->buffers[i];
 		b->flags = 0;
-		b->outbuf = buffers[i];
+		b->buf = buffers[i];
 
 		if ((d[0].type == t->data.MemPtr ||
 		     d[0].type == t->data.MemFd ||
@@ -542,7 +548,7 @@ static int port_alloc_buffers(struct spa_node *node, enum spa_direction directio
 		struct spa_data *d = buffers[i]->datas;
 
                 b = &p->buffers[i];
-		b->outbuf = buffers[i];
+		b->buf = buffers[i];
 		d[0].type = t->data.MemPtr;
 		d[0].maxsize = n->buffer_size;
 		b->ptr = d[0].data = p->buffer;
@@ -560,7 +566,7 @@ static int port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t b
 {
 	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
 	struct port *p = GET_OUT_PORT(n, port_id);
-	recycle_buffer(n, p, buffer_id);
+	queue_buffer(n, p, buffer_id);
 	return 0;
 }
 

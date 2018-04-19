@@ -91,11 +91,12 @@ struct pw_node_events {
 	void (*finish) (void *data);
 };
 
-/** Media type of the node, Audio, Video */
+/** Media type of the node, Audio, Video, Midi */
 #define PW_NODE_PROP_MEDIA		"pipewire.media"
 /** Category: Playback, Capture, Duplex */
 #define PW_NODE_PROP_CATEGORY		"pipewire.category"
-/** Role: Movie, Music, Camera, Screen, Chat, Game, Speech, DSP */
+/** Role: Movie,Music, Camera, Screen, Communication, Game, Notification, DSP,
+ *        Production, Accessibility, Test */
 #define PW_NODE_PROP_ROLE		"pipewire.role"
 /** exclusive access to device */
 #define PW_NODE_PROP_EXCLUSIVE		"pipewire.exclusive"

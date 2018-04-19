@@ -140,6 +140,9 @@ static inline int push_queue(struct stream *stream, struct queue *queue, struct 
 	spa_ringbuffer_get_write_index(&queue->ring, &index);
 	queue->ids[index & MASK_BUFFERS] = buffer->id;
 	spa_ringbuffer_write_update(&queue->ring, index + 1);
+
+	pw_log_trace("stream %p: queued buffer %d", stream, buffer->id);
+
 	return 0;
 }
 
@@ -632,7 +635,6 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		pw_log_info("got buffer %d %d datas, mapped size %d", i,
 				buffers[i]->n_datas, size);
 	}
-	impl->n_buffers = n_buffers;
 
 	if (impl->use_converter) {
 		struct spa_data datas[1];
@@ -644,13 +646,16 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 					  n_buffers)) < 0)
 			return res;
 
+		n_buffers = 6;
+
 		datas[0].type = t->data.MemPtr;
-		datas[0].maxsize = size * 4;
+		datas[0].maxsize = size;
 		data_aligns[0] = 16;
 
 		buffers = spa_buffer_alloc_array(n_buffers, 0,
 						 0, NULL,
-						 1, datas, data_aligns);
+						 1, datas,
+						 data_aligns);
 		if (buffers == NULL)
 			return -ENOMEM;
 
@@ -663,6 +668,8 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &impl->buffers[i];
 
+		b->flags = 0;
+		b->id = i;
 		b->this.buffer = buffers[i];
 
 		if (impl->direction == SPA_DIRECTION_OUTPUT)
@@ -671,6 +678,8 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
 				add_buffer, &b->this);
 	}
+
+	impl->n_buffers = n_buffers;
 
 	if (n_buffers > 0)
 		stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
@@ -725,11 +734,13 @@ static int impl_node_process_output(struct spa_node *node)
 	struct pw_stream *stream = &impl->this;
 	struct spa_io_buffers *io = impl->io;
 	struct buffer *b;
-	int res = 0;
-	bool do_call = true;
+	int res;
+	uint32_t index;
 
+     again:
 	pw_log_trace("stream %p: process out %d %d", stream, io->status, io->buffer_id);
 
+	res = 0;
 	if (io->status != SPA_STATUS_HAVE_BUFFER) {
 		/* recycle old buffer */
 		if ((b = get_buffer(stream, io->buffer_id)) != NULL) {
@@ -739,22 +750,30 @@ static int impl_node_process_output(struct spa_node *node)
 		if ((b = pop_queue(impl, &impl->queued)) != NULL) {
 			io->buffer_id = b->id;
 			io->status = SPA_STATUS_HAVE_BUFFER;
-			pw_log_trace("stream %p: pop %d %s", stream, b->id, spa_strerror(res));
+			pw_log_trace("stream %p: pop %d", stream, b->id);
 		} else {
 			io->buffer_id = SPA_ID_INVALID;
 			io->status = SPA_STATUS_NEED_BUFFER;
+			pw_log_trace("stream %p: no more buffers", stream);
 		}
 	}
 	if (io->status == SPA_STATUS_HAVE_BUFFER && impl->use_converter) {
 		res = spa_node_process(impl->convert);
-		if (io->status == SPA_STATUS_HAVE_BUFFER)
-			do_call = false;
+		if (SPA_FLAG_CHECK(res, SPA_STATUS_NEED_BUFFER))
+			call_process(impl);
+
+		if (!SPA_FLAG_CHECK(res, SPA_STATUS_HAVE_BUFFER))
+			goto again;
+	} else {
+		call_process(impl);
+		if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0)
+			goto again;
 	}
 
-	if (do_call)
-		call_process(impl);
+	pw_log_trace("stream %p: res %d", stream, res);
 
-	return SPA_STATUS_HAVE_BUFFER;
+
+	return res;
 }
 
 static const struct spa_node impl_node = {
@@ -823,7 +842,7 @@ static int handle_connect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	pw_log_debug("stream %p: creating proxy", stream);
+	pw_log_debug("stream %p: creating node", stream);
 
 	impl->node = pw_node_new(impl->core, "export-source",
 			pw_properties_copy(stream->properties), 0);
@@ -839,6 +858,7 @@ static int handle_connect(struct pw_stream *stream)
 	pw_node_register(impl->node, NULL, NULL, NULL);
 	pw_node_set_active(impl->node, true);
 
+	pw_log_debug("stream %p: export node %p", stream, impl->node);
 	pw_remote_export(stream->remote, impl->node);
 
 	return 0;
@@ -1093,6 +1113,7 @@ pw_stream_connect(struct pw_stream *stream,
 		  uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	enum pw_remote_state state;
 	int res;
 
 	pw_log_debug("stream %p: connect", stream);
@@ -1112,7 +1133,9 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, PW_NODE_PROP_AUTOCONNECT, "1");
 	pw_properties_set(stream->properties, "node.stream", "1");
 
-	if (pw_remote_get_state(stream->remote, NULL) == PW_REMOTE_STATE_UNCONNECTED)
+	state = pw_remote_get_state(stream->remote, NULL);
+	if (state == PW_REMOTE_STATE_UNCONNECTED ||
+	    state == PW_REMOTE_STATE_ERROR)
 		res = pw_remote_connect(stream->remote);
 	else
 		res = handle_connect(stream);
@@ -1156,7 +1179,8 @@ void pw_stream_finish_format(struct pw_stream *stream,
 int pw_stream_set_active(struct pw_stream *stream, bool active)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	pw_node_set_active(impl->node, active);
+	if (impl->node)
+		pw_node_set_active(impl->node, active);
 	return 0;
 }
 

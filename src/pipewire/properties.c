@@ -186,7 +186,7 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
 		return NULL;
 
 	pw_array_for_each(item, &impl->items)
-	    add_func(copy, strdup(item->key), item->value ? strdup(item->value) : NULL);
+		add_func(copy, strdup(item->key), item->value ? strdup(item->value) : NULL);
 
 	return copy;
 }
@@ -241,7 +241,7 @@ void pw_properties_free(struct pw_properties *properties)
 	struct spa_dict_item *item;
 
 	pw_array_for_each(item, &impl->items)
-	    clear_item(item);
+		clear_item(item);
 
 	pw_array_clear(&impl->items);
 	free(impl);

@@ -456,7 +456,9 @@ int pw_remote_disconnect(struct pw_remote *remote)
 	remote->core_proxy = NULL;
 
 	pw_map_clear(&remote->objects);
+	pw_map_init(&remote->objects, 64, 32);
 	pw_map_clear(&remote->types);
+	pw_map_init(&remote->types, 64, 32);
 	remote->n_types = 0;
 
 	if (remote->info) {
@@ -609,7 +611,7 @@ static void clean_transport(struct node_data *data)
 {
 	struct mem *m;
 
-	if (data->node_id == SPA_ID_INVALID)
+	if (data->rtsocket_source == NULL)
 		return;
 
 	unhandle_socket(data);
@@ -619,8 +621,6 @@ static void clean_transport(struct node_data *data)
 	pw_array_clear(&data->mems);
 
 	close(data->rtwritefd);
-
-	data->node_id = SPA_ID_INVALID;
 }
 
 static void mix_init(struct mix *mix, struct pw_port *port, uint32_t mix_id)
@@ -994,7 +994,7 @@ client_node_port_use_buffers(void *object,
 	bufs = alloca(n_buffers * sizeof(struct spa_buffer *));
 
 	for (i = 0; i < n_buffers; i++) {
-		struct buffer_mem bmem;
+		struct buffer_mem bmem = { 0, };
 		size_t size;
 		off_t offset;
 		struct mem *m;
@@ -1089,12 +1089,14 @@ client_node_port_use_buffers(void *object,
 
 				bid->mem[bid->n_mem++] = bm2;
 
-				pw_log_debug(" data %d %u -> fd %d", j, bm->id, bm->fd);
+				pw_log_debug(" data %d %u -> fd %d maxsize %d",
+						j, bm->id, bm->fd, d->maxsize);
 			} else if (d->type == t->data.MemPtr) {
 				int offs = SPA_PTR_TO_INT(d->data);
 				d->data = SPA_MEMBER(bmem.map.ptr, offs, void);
 				d->fd = -1;
-				pw_log_debug(" data %d %u -> mem %p", j, bid->id, d->data);
+				pw_log_debug(" data %d %u -> mem %p maxsize %d",
+						j, bid->id, d->data, d->maxsize);
 			} else {
 				pw_log_warn("unknown buffer data type %d", d->type);
 			}
@@ -1215,6 +1217,7 @@ static void do_node_init(struct pw_proxy *proxy)
 	struct node_data *data = proxy->user_data;
 	struct pw_port *port;
 
+	pw_log_debug("%p: init", data);
         pw_client_node_proxy_update(data->node_proxy,
                                     PW_CLIENT_NODE_UPDATE_MAX_INPUTS |
 				    PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS |
@@ -1300,14 +1303,21 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	struct node_data *data;
 	int i;
 
+	if (remote->core_proxy == NULL) {
+		pw_log_error("node core proxy");
+		return NULL;
+	}
+
 	proxy = pw_core_proxy_create_object(remote->core_proxy,
 					    "client-node",
 					    impl->type_client_node,
 					    PW_VERSION_CLIENT_NODE,
 					    &node->properties->dict,
 					    sizeof(struct node_data));
-        if (proxy == NULL)
+        if (proxy == NULL) {
+		pw_log_error("failed to create proxy");
                 return NULL;
+	}
 
 	data = pw_proxy_get_user_data(proxy);
 	data->remote = remote;

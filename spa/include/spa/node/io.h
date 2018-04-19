@@ -48,11 +48,11 @@ extern "C" {
  */
 struct spa_io_buffers {
 #define SPA_STATUS_OK			0
-#define SPA_STATUS_NEED_BUFFER		1
-#define SPA_STATUS_HAVE_BUFFER		2
-#define SPA_STATUS_FORMAT_CHANGED	3
-#define SPA_STATUS_PORTS_CHANGED	4
-#define SPA_STATUS_PARAM_CHANGED	5
+#define SPA_STATUS_NEED_BUFFER		(1<<0)
+#define SPA_STATUS_HAVE_BUFFER		(1<<1)
+#define SPA_STATUS_FORMAT_CHANGED	(1<<2)
+#define SPA_STATUS_PORTS_CHANGED	(1<<3)
+#define SPA_STATUS_PARAM_CHANGED	(1<<4)
 	int32_t status;			/**< the status code */
 	uint32_t buffer_id;		/**< a buffer id */
 };

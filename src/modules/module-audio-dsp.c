@@ -387,6 +387,7 @@ static int port_enum_formats(struct spa_node *node,
 			"I", t->media_type.audio,
 			"I", t->media_subtype.raw,
                         ":", t->format_audio.format,   "I", t->audio_format.S16,
+                        ":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
                         ":", t->format_audio.rate,     "i", n->sample_rate,
                         ":", t->format_audio.channels, "i", n->channels);
 	}

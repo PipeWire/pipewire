@@ -56,10 +56,10 @@ spa_format_audio_raw_parse(const struct spa_pod *format,
 {
 	return spa_pod_object_parse(format,
 		":",type->format,	"I", &info->format,
+		":",type->layout,	"i", &info->layout,
 		":",type->rate,		"i", &info->rate,
 		":",type->channels,	"i", &info->channels,
 		":",type->flags,	"?i", &info->flags,
-		":",type->layout,	"?i", &info->layout,
 		":",type->channel_mask,	"?i", &info->channel_mask, NULL);
 }
 

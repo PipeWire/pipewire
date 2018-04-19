@@ -339,6 +339,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			"I", t->media_type.audio,
 			"I", t->media_subtype.raw,
 			":", t->format_audio.format,   "I", this->current_format.info.raw.format,
+			":", t->format_audio.layout,   "i", this->current_format.info.raw.layout,
 			":", t->format_audio.rate,     "i", this->current_format.info.raw.rate,
 			":", t->format_audio.channels, "i", this->current_format.info.raw.channels);
 	}

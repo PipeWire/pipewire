@@ -578,7 +578,7 @@ static void do_flush_event(void *data, uint64_t count)
         struct client *impl = data;
 	impl->flush_signaled = false;
         if (impl->connection)
-                if (!pw_protocol_native_connection_flush(impl->connection))
+                if (pw_protocol_native_connection_flush(impl->connection) < 0)
                         impl->this.disconnect(&impl->this);
 }
 

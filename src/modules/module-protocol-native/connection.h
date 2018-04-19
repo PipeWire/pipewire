@@ -87,10 +87,10 @@ void
 pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
                                   struct spa_pod_builder *builder);
 
-bool
+int
 pw_protocol_native_connection_flush(struct pw_protocol_native_connection *conn);
 
-bool
+int
 pw_protocol_native_connection_clear(struct pw_protocol_native_connection *conn);
 
 #ifdef __cplusplus

@@ -440,13 +440,13 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 /** Flush the connection object
  *
  * \param conn the connection object
- * \return true on success
+ * \return 0 on success < 0 error code on error
  *
  * Write the queued messages on the connection to the socket
  *
  * \memberof pw_protocol_native_connection
  */
-bool pw_protocol_native_connection_flush(struct pw_protocol_native_connection *conn)
+int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *conn)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	ssize_t len;
@@ -454,14 +454,14 @@ bool pw_protocol_native_connection_flush(struct pw_protocol_native_connection *c
 	struct iovec iov[1];
 	struct cmsghdr *cmsg;
 	char cmsgbuf[CMSG_SPACE(MAX_FDS * sizeof(int))];
-	int *cm;
+	int *cm, res = 0;
 	uint32_t i, fds_len;
 	struct buffer *buf;
 
 	buf = &impl->out;
 
 	if (buf->buffer_size == 0)
-		return true;
+		return 0;
 
 	fds_len = buf->n_fds * sizeof(int);
 
@@ -502,24 +502,25 @@ bool pw_protocol_native_connection_flush(struct pw_protocol_native_connection *c
 	buf->buffer_size -= len;
 	buf->n_fds = 0;
 
-	return true;
+	return 0;
 
 	/* ERRORS */
       send_error:
+	res = -errno;
 	pw_log_error("could not sendmsg: %s", strerror(errno));
-	return false;
+	return res;
 }
 
 /** Clear the connection object
  *
  * \param conn the connection object
- * \return true on success
+ * \return 0 on success
  *
  * Remove all queued messages from \a conn
  *
  * \memberof pw_protocol_native_connection
  */
-bool pw_protocol_native_connection_clear(struct pw_protocol_native_connection *conn)
+int pw_protocol_native_connection_clear(struct pw_protocol_native_connection *conn)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 
@@ -527,5 +528,5 @@ bool pw_protocol_native_connection_clear(struct pw_protocol_native_connection *c
 	clear_buffer(&impl->in);
 	impl->in.update = true;
 
-	return true;
+	return 0;
 }

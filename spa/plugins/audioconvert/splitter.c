@@ -114,6 +114,8 @@ struct port {
 	int32_t *io_mute;
 
 	struct spa_port_info info;
+	struct spa_dict info_props;
+	struct spa_dict_item info_props_items[2];
 
 	bool have_format;
 
@@ -282,6 +284,10 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 	spa_list_init(&port->queue);
 	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
 			   SPA_PORT_INFO_FLAG_REMOVABLE;
+
+	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
+	port->info_props = SPA_DICT_INIT(port->info_props_items, 1);
+	port->info.props = &port->info_props;
 
 	this->port_count++;
 	if (this->last_port <= port_id)
@@ -588,15 +594,16 @@ static int port_set_format(struct spa_node *node,
 		    info.info.raw.rate != this->format.info.raw.rate)
 			return -EINVAL;
 
+		this->bpf = sizeof(float);
 		if (direction == SPA_DIRECTION_INPUT) {
 			if (info.info.raw.channels != this->port_count)
 				return -EINVAL;
+			this->bpf *= this->port_count;
 		} else {
 			if (info.info.raw.channels != 1)
 				return -EINVAL;
 		}
 
-		this->bpf = sizeof(float);
 		this->have_format = true;
 		this->format = info;
 
@@ -779,7 +786,7 @@ static int impl_node_process(struct spa_node *node)
 	struct impl *this;
 	struct port *inport;
 	struct spa_io_buffers *inio;
-	int i, size = 0;
+	int i, size = 0, res = 0;
 	struct spa_data *sd, *dd;
 	struct buffer *sbuf, *dbuf;
 
@@ -791,6 +798,8 @@ static int impl_node_process(struct spa_node *node)
 	inio = inport->io;
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
+	spa_log_trace(this->log, NAME " %p: status %d", this, inio->status);
+
 	if (inio->status != SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_NEED_BUFFER;
 
@@ -798,8 +807,6 @@ static int impl_node_process(struct spa_node *node)
 		return -EINVAL;
 
 	sbuf = &inport->buffers[inio->buffer_id];
-
-	spa_log_trace(this->log, NAME " %p: status %d", this, inio->status);
 
 	/* produce more output if possible */
 	for (i = 0; i < this->last_port; i++) {
@@ -831,14 +838,16 @@ static int impl_node_process(struct spa_node *node)
 
 		outio->buffer_id = dbuf->buf->id;
 		outio->status = SPA_STATUS_HAVE_BUFFER;
+		SPA_FLAG_SET(res, SPA_STATUS_HAVE_BUFFER);
 
 	}
 	inport->offset += size;
 	if (inport->offset >= sbuf->buf->datas[0].chunk->size) {
 		inport->offset = 0;
 		inio->status = SPA_STATUS_NEED_BUFFER;
+		SPA_FLAG_SET(res, SPA_STATUS_NEED_BUFFER);
 	}
-	return SPA_STATUS_HAVE_BUFFER;
+	return res;
 }
 
 static const struct spa_node impl_node = {

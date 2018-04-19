@@ -852,7 +852,6 @@ static int impl_node_process(struct spa_node *node)
 			inio->status = SPA_STATUS_NEED_BUFFER;
 			inport->offset = 0;
 		}
-
 	}
 
 	outio->status = SPA_STATUS_HAVE_BUFFER;

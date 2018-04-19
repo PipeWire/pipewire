@@ -783,7 +783,7 @@ impl_node_port_send_command(struct spa_node *node,
 static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
-	int i;
+	int i, res = SPA_STATUS_OK;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -791,10 +791,19 @@ static int impl_node_process(struct spa_node *node)
 
 	spa_log_trace(this->log, NAME " %p: process %d", this, this->n_links);
 
-	for (i = 1; i < this->n_links; i++)
-		spa_node_process(this->links[i].out_node);
+	for (i = 1; i < this->n_links; i++) {
+		res = spa_node_process(this->links[i].out_node);
+		if (!SPA_FLAG_CHECK(res, SPA_STATUS_HAVE_BUFFER)) {
+			if (SPA_FLAG_CHECK(res, SPA_STATUS_NEED_BUFFER) && i == 1)
+				break;
+			i = 0;
+			continue;
+		}
+	}
 
-	return SPA_STATUS_OK;
+	spa_log_trace(this->log, NAME " %p: process result: %d", this, res);
+
+	return res;
 }
 
 static const struct spa_node impl_node = {

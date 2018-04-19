@@ -33,7 +33,7 @@
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_min_latency = 128;
+static const uint32_t default_min_latency = 1024;
 static const uint32_t default_max_latency = 1024;
 
 static void reset_props(struct props *props)
@@ -599,6 +599,8 @@ static int impl_node_process(struct spa_node *node)
 		spa_log_trace(this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
 		spa_list_append(&this->ready, &b->link);
 		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+
+		spa_alsa_write(this, 0);
 
 		input->status = SPA_STATUS_OK;
 	}

@@ -184,6 +184,8 @@ int spa_alsa_start(struct state *state, bool xrun_recover);
 int spa_alsa_pause(struct state *state, bool xrun_recover);
 int spa_alsa_close(struct state *state);
 
+int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

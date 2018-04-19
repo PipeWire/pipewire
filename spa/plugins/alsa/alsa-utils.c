@@ -358,42 +358,42 @@ static inline void calc_timeout(size_t target, size_t current,
 	}
 }
 
-static inline void try_pull(struct state *state, snd_pcm_uframes_t frames,
-		snd_pcm_uframes_t written, bool do_pull)
+static int set_timeout(struct state *state, size_t extra)
 {
-	struct spa_io_buffers *io = state->io;
+	struct itimerspec ts;
 
-	if (spa_list_is_empty(&state->ready) && do_pull) {
-		spa_log_trace(state->log, "alsa-util %p: %d %lu", state, io->status,
-				state->filled + written);
-		io->status = SPA_STATUS_NEED_BUFFER;
-		if (state->range) {
-			state->range->offset = state->sample_count * state->frame_size;
-			state->range->min_size = state->threshold * state->frame_size;
-			state->range->max_size = frames * state->frame_size;
-		}
-		state->callbacks->process(state->callbacks_data, SPA_STATUS_NEED_BUFFER);
-	}
+	calc_timeout(state->filled + extra, state->threshold, state->rate, &state->now, &ts.it_value);
+
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	timerfd_settime(state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);
+
+	return 0;
 }
 
-static inline snd_pcm_uframes_t
-pull_frames(struct state *state,
-	    const snd_pcm_channel_area_t *my_areas,
-	    snd_pcm_uframes_t offset,
-	    snd_pcm_uframes_t frames,
-	    bool do_pull)
+int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 {
-	snd_pcm_uframes_t total_frames = 0, to_write = SPA_MIN(frames, state->props.max_latency);
-	bool underrun = false;
+	snd_pcm_t *hndl = state->hndl;
+	const snd_pcm_channel_area_t *my_areas;
+	snd_pcm_uframes_t written, frames, offset, to_write;
+	int res;
 
-	try_pull(state, frames, 0, do_pull);
+	if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0) {
+		spa_log_error(state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(res));
+		return res;
+	}
+	spa_log_trace(state->log, "begin %ld %ld", offset, frames);
+
+	silence = SPA_MIN(silence, frames);
+	to_write = frames;
+	written = 0;
 
 	while (!spa_list_is_empty(&state->ready) && to_write > 0) {
 		uint8_t *dst, *src;
 		size_t n_bytes, n_frames;
 		struct buffer *b;
 		struct spa_data *d;
-		uint32_t index, offs, avail, l0, l1;
+		uint32_t index, offs, avail, size, maxsize, l0, l1;
 
 		b = spa_list_first(&state->ready, struct buffer, link);
 		d = b->outbuf->datas;
@@ -401,15 +401,18 @@ pull_frames(struct state *state,
 		dst = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
 		src = d[0].data;
 
+		size = d[0].chunk->size;
+		maxsize = d[0].maxsize;
+
 		index = d[0].chunk->offset + state->ready_offset;
-		avail = d[0].chunk->size - state->ready_offset;
+		avail = size - state->ready_offset;
 		avail /= state->frame_size;
 
 		n_frames = SPA_MIN(avail, to_write);
 		n_bytes = n_frames * state->frame_size;
 
-		offs = index % d[0].maxsize;
-		l0 = SPA_MIN(n_bytes, d[0].maxsize - offs);
+		offs = index % maxsize;
+		l0 = SPA_MIN(n_bytes, maxsize - offs);
 		l1 = n_bytes - l0;
 
 		memcpy(dst, src + offs, l0);
@@ -418,38 +421,46 @@ pull_frames(struct state *state,
 
 		state->ready_offset += n_bytes;
 
-		if (state->ready_offset >= d[0].chunk->size) {
+		if (state->ready_offset >= size) {
 			spa_list_remove(&b->link);
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
 			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->outbuf->id);
 			state->ready_offset = 0;
-
-			try_pull(state, frames, total_frames, do_pull);
 		}
-		total_frames += n_frames;
+		written += n_frames;
 		to_write -= n_frames;
-		offset += n_frames;
-
-		spa_log_trace(state->log, "alsa-util %p: written %lu frames, left %ld",
-				state, total_frames, to_write);
+		if (silence > n_frames)
+			silence -= n_frames;
+		else
+			silence = 0;
 	}
 
-
-	if (total_frames == 0 && do_pull) {
-		total_frames = SPA_MIN(frames, state->threshold);
-		snd_pcm_areas_silence(my_areas, offset, state->channels, total_frames, state->format);
-		state->underrun += total_frames;
-		underrun = true;
+	if (silence > 0) {
+		snd_pcm_areas_silence(my_areas, offset, state->channels, silence, state->format);
+		written += silence;
 	}
 
-	if (state->underrun > 0) {
-		if (state->underrun >= state->rate || !underrun) {
-			spa_log_warn(state->log, "underrun, for %zd frames", state->underrun);
-			state->underrun = 0;
+	spa_log_trace(state->log, "commit %ld %ld", offset, written);
+	if ((res = snd_pcm_mmap_commit(hndl, offset, written)) < 0) {
+		spa_log_error(state->log, "snd_pcm_mmap_commit error: %s", snd_strerror(res));
+		if (res != -EPIPE && res != -ESTRPIPE)
+			return res;
+	}
+	state->sample_count += written;
+	state->filled += written;
+
+	if (!state->alsa_started && written > 0) {
+		spa_log_trace(state->log, "snd_pcm_start");
+		if ((res = snd_pcm_start(hndl)) < 0) {
+			spa_log_error(state->log, "snd_pcm_start: %s", snd_strerror(res));
+			return res;
 		}
+		state->alsa_started = true;
 	}
-	return total_frames;
+	set_timeout(state, 0);
+
+	return 0;
 }
 
 static snd_pcm_uframes_t
@@ -530,9 +541,6 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	struct state *state = source->data;
 	snd_pcm_t *hndl = state->hndl;
 	snd_pcm_sframes_t avail;
-	struct itimerspec ts;
-	snd_pcm_uframes_t total_written = 0;
-	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_status_t *status;
 
 	if (state->started && read(state->timerfd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
@@ -565,50 +573,31 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 			if ((res = alsa_try_resume(state)) < 0)
 				return;
 		}
+		set_timeout(state, 0);
 	} else {
-		snd_pcm_uframes_t to_write = avail;
-		bool do_pull = true;
+		if (spa_list_is_empty(&state->ready)) {
+			struct spa_io_buffers *io = state->io;
 
-		while (total_written < to_write) {
-			snd_pcm_uframes_t written, frames, offset;
+			if (state->filled < 128)
+				spa_alsa_write(state, state->threshold);
+			else
+				set_timeout(state, state->threshold - 128);
 
-			frames = to_write - total_written;
-			if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0) {
-				spa_log_error(state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(res));
-				return;
+			spa_log_trace(state->log, "alsa-util %p: %d %lu", state, io->status,
+					state->filled);
+
+			io->status = SPA_STATUS_NEED_BUFFER;
+			if (state->range) {
+				state->range->offset = state->sample_count * state->frame_size;
+				state->range->min_size = state->threshold * state->frame_size;
+				state->range->max_size = avail * state->frame_size;
 			}
-			spa_log_trace(state->log, "begin %ld %ld", offset, frames);
-
-			written = pull_frames(state, my_areas, offset, frames, do_pull);
-			if (written < frames)
-				to_write = 0;
-
-			spa_log_trace(state->log, "commit %ld %ld", offset, written);
-			if ((res = snd_pcm_mmap_commit(hndl, offset, written)) < 0) {
-				spa_log_error(state->log, "snd_pcm_mmap_commit error: %s", snd_strerror(res));
-				if (res != -EPIPE && res != -ESTRPIPE)
-					return;
-			}
-			total_written += written;
-			state->sample_count += written;
-			state->filled += written;
-			do_pull = false;
+			state->callbacks->process(state->callbacks_data, SPA_STATUS_NEED_BUFFER);
+		}
+		else {
+			spa_alsa_write(state, 0);
 		}
 	}
-	if (!state->alsa_started && total_written > 0) {
-		spa_log_trace(state->log, "snd_pcm_start");
-		if ((res = snd_pcm_start(state->hndl)) < 0) {
-			spa_log_error(state->log, "snd_pcm_start: %s", snd_strerror(res));
-			return;
-		}
-		state->alsa_started = true;
-	}
-
-	calc_timeout(state->filled, state->threshold, state->rate, &state->now, &ts.it_value);
-
-	ts.it_interval.tv_sec = 0;
-	ts.it_interval.tv_nsec = 0;
-	timerfd_settime(state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);
 }
 
 

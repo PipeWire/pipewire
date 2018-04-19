@@ -111,7 +111,7 @@ struct data {
 	uint32_t n_support;
 
 	struct node nodes[4];
-	struct link links[4];
+	struct link links[5];
 };
 
 static int make_node(struct data *data, struct spa_node **node, const char *lib, const char *name)
@@ -179,6 +179,12 @@ static int make_nodes(struct data *data, const char *device)
 	}
 	if ((res = make_node(data, &data->nodes[2].node,
 			     "build/spa/plugins/audioconvert/libspa-audioconvert.so",
+			     "resample")) < 0) {
+		printf("can't create resample: %d\n", res);
+		return res;
+	}
+	if ((res = make_node(data, &data->nodes[3].node,
+			     "build/spa/plugins/audioconvert/libspa-audioconvert.so",
 			     "fmtconvert")) < 0) {
 		printf("can't create fmtconvert: %d\n", res);
 		return res;
@@ -229,7 +235,8 @@ static int link_nodes(struct data *data)
 	make_link(data, &data->links[0], NULL, 0, &data->nodes[0], 0);
 	make_link(data, &data->links[1], &data->nodes[0], 0, &data->nodes[1], 0);
 	make_link(data, &data->links[2], &data->nodes[1], 0, &data->nodes[2], 0);
-	make_link(data, &data->links[3], &data->nodes[2], 0, NULL, 0);
+	make_link(data, &data->links[3], &data->nodes[2], 0, &data->nodes[3], 0);
+	make_link(data, &data->links[4], &data->nodes[3], 0, NULL, 0);
 	return 0;
 }
 
@@ -313,10 +320,13 @@ static int negotiate_formats(struct data *data)
 		"I", t->media_subtype.raw,
 		":", t->format_audio.format,   "I", t->audio_format.F32,
 		":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
-		":", t->format_audio.rate,     "i", 44100,
+		":", t->format_audio.rate,     "i", 48000,
 		":", t->format_audio.channels, "i", 1);
 
-	if ((res = negotiate_link_format(data, &data->links[3], format)) < 0)
+	if ((res = negotiate_link_format(data, &data->links[4], format)) < 0)
+		return res;
+
+	if ((res = negotiate_link_format(data, &data->links[3], NULL)) < 0)
 		return res;
 
 	if ((res = negotiate_link_format(data, &data->links[1], NULL)) < 0)
@@ -446,6 +456,8 @@ static int negotiate_buffers(struct data *data)
 		return res;
 	if ((res = negotiate_link_buffers(data, &data->links[3])) < 0)
 		return res;
+	if ((res = negotiate_link_buffers(data, &data->links[4])) < 0)
+		return res;
 
 	return 0;
 }
@@ -465,56 +477,47 @@ static void run_convert(struct data *data)
 {
 	struct type *t = &data->type;
 	struct spa_buffer *b;
-	int res, i;
+	int res, i, j;
 
 	{
 		struct spa_command cmd = SPA_COMMAND_INIT(t->command_node.Start);
-
-		if ((res = spa_node_send_command(data->nodes[0].node, &cmd)) < 0)
-			printf("got command error %d\n", res);
-		if ((res = spa_node_send_command(data->nodes[1].node, &cmd)) < 0)
-			printf("got command error %d\n", res);
-		if ((res = spa_node_send_command(data->nodes[2].node, &cmd)) < 0)
-			printf("got command error %d\n", res);
+		for (i = 0; i < 4; i++) {
+			if ((res = spa_node_send_command(data->nodes[i].node, &cmd)) < 0)
+				printf("got command error %d\n", res);
+		}
 	}
 
 	fill_buffer(data, data->links[0].buffers, 0);
 
-	data->links[0].io.status = SPA_STATUS_HAVE_BUFFER;
-	data->links[0].io.buffer_id = 0;
+	for (i = 0; i < 5; i++) {
+		data->links[i].io.status = SPA_STATUS_NEED_BUFFER;
+		data->links[i].io.buffer_id = SPA_ID_INVALID;
+	}
 
-	data->links[1].io.status = SPA_STATUS_NEED_BUFFER;
-	data->links[1].io.buffer_id = SPA_ID_INVALID;
-	data->links[2].io.status = SPA_STATUS_NEED_BUFFER;
-	data->links[2].io.buffer_id = SPA_ID_INVALID;
-	data->links[3].io.status = SPA_STATUS_NEED_BUFFER;
-	data->links[3].io.buffer_id = SPA_ID_INVALID;
 
 	b = data->links[0].buffers[0];
 	for (i = 0; i < b->n_datas; i++)
 		spa_debug_dump_mem(b->datas[i].data, b->datas[i].maxsize);
 
-	res = spa_node_process(data->nodes[0].node);
-	printf("called process %d\n", res);
-	res = spa_node_process(data->nodes[1].node);
-	printf("called process %d\n", res);
-	res = spa_node_process(data->nodes[2].node);
-	printf("called process %d\n", res);
+	for (j = 0; j < 2; j++) {
+		data->links[0].io.status = SPA_STATUS_HAVE_BUFFER;
+		data->links[0].io.buffer_id = 0;
+		for (i = 0; i < 4; i++) {
+			res = spa_node_process(data->nodes[i].node);
+			printf("called process %d\n", res);
+		}
+	}
 
 	b = data->links[3].buffers[0];
 	for (i = 0; i < b->n_datas; i++)
 		spa_debug_dump_mem(b->datas[i].data, b->datas[i].maxsize);
 
-
 	{
 		struct spa_command cmd = SPA_COMMAND_INIT(t->command_node.Pause);
-
-		if ((res = spa_node_send_command(data->nodes[0].node, &cmd)) < 0)
-			printf("got command error %d\n", res);
-		if ((res = spa_node_send_command(data->nodes[1].node, &cmd)) < 0)
-			printf("got command error %d\n", res);
-		if ((res = spa_node_send_command(data->nodes[2].node, &cmd)) < 0)
-			printf("got command error %d\n", res);
+		for (i = 0; i < 4; i++) {
+			if ((res = spa_node_send_command(data->nodes[i].node, &cmd)) < 0)
+				printf("got command error %d\n", res);
+		}
 	}
 }
 

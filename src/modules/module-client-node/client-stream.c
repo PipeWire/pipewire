@@ -31,6 +31,8 @@
 #include <spa/node/node.h>
 #include <spa/buffer/alloc.h>
 #include <spa/pod/parser.h>
+#include <spa/param/audio/format-utils.h>
+
 #include <spa/lib/pod.h>
 
 #include "pipewire/pipewire.h"
@@ -45,6 +47,17 @@
 #include <spa/lib/debug.h>
 
 /** \cond */
+
+struct type {
+	struct spa_type_media_type media_type;
+	struct spa_type_media_subtype media_subtype;
+};
+
+static inline void init_type(struct type *type, struct spa_type_map *map)
+{
+	spa_type_media_type_map(map, &type->media_type);
+	spa_type_media_subtype_map(map, &type->media_subtype);
+}
 
 struct node {
 	struct spa_node node;
@@ -63,6 +76,8 @@ struct node {
 struct impl {
 	struct pw_client_stream this;
 
+	struct type type;
+
 	struct pw_core *core;
 	struct pw_type *t;
 
@@ -77,6 +92,7 @@ struct impl {
 	struct spa_node *cnode;
 	struct spa_node *adapter;
 
+	bool use_converter;
 	struct pw_client_node *client_node;
 	struct pw_port *client_port;
 	struct pw_port_mix client_port_mix;
@@ -120,7 +136,7 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	if ((res = spa_node_send_command(impl->cnode, command)) < 0)
 		return res;
 
-	return res;
+	return 0;
 }
 
 static int
@@ -322,8 +338,6 @@ static int negotiate_format(struct impl *impl)
 			       NULL, &format, &b)) <= 0)
 		return -ENOTSUP;
 
-	spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
-
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->cnode,
 				       SPA_DIRECTION_OUTPUT, 0,
@@ -332,7 +346,6 @@ static int negotiate_format(struct impl *impl)
 			return -ENOTSUP;
 
 	spa_pod_fixate(format);
-	spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
 
 	if ((res = spa_node_port_set_param(impl->adapter,
 				   SPA_DIRECTION_INPUT, 0,
@@ -380,8 +393,6 @@ static int negotiate_buffers(struct impl *impl)
 
 	if (res == 0)
 		param = NULL;
-	else
-		spa_debug_pod(param, 0);
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->adapter,
@@ -391,7 +402,6 @@ static int negotiate_buffers(struct impl *impl)
 		return -ENOTSUP;
 
 	spa_pod_fixate(param);
-	spa_debug_pod(param, 0);
 
 	if ((res = spa_node_port_get_info(impl->cnode,
 					SPA_DIRECTION_OUTPUT, 0,
@@ -419,8 +429,6 @@ static int negotiate_buffers(struct impl *impl)
 			":", t->param_buffers.align, "i", &align,
 			NULL) < 0)
 		return -EINVAL;
-
-	size *= 4;
 
 	datas = alloca(sizeof(struct spa_data) * blocks);
 	memset(datas, 0, sizeof(struct spa_data) * blocks);
@@ -508,7 +516,7 @@ impl_node_port_set_param(struct spa_node *node,
 			flags, param)) < 0)
 		return res;
 
-	if (id == t->param.idFormat) {
+	if (id == t->param.idFormat && impl->use_converter) {
 		if (param == NULL) {
 		}
 		else {
@@ -566,12 +574,10 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	spa_log_info(this->log, "%p: %d %d", impl, n_buffers, port_id);
 
-	if (n_buffers > 0) {
+	if (n_buffers > 0 && impl->use_converter) {
 		if (port_id == 0)
 			res = negotiate_buffers(impl);
 	}
-
-
 	return res;
 }
 
@@ -645,15 +651,20 @@ static int impl_node_process(struct spa_node *node)
 
 	spa_log_trace(this->log, "%p: process", this);
 
-	status = spa_node_process(impl->adapter);
+	if (impl->use_converter)
+		status = spa_node_process(impl->adapter);
+	else
+		status = SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 
-	if (impl->client_port_mix.io->status == SPA_STATUS_NEED_BUFFER)
+	spa_log_trace(this->log, "%p: process %d", this, status);
+
+//	if (SPA_FLAG_CHECK(status, SPA_STATUS_HAVE_BUFFER))
+//		spa_graph_node_trigger(&impl->this.node->rt.node);
+
+	if (SPA_FLAG_CHECK(status, SPA_STATUS_NEED_BUFFER))
 		spa_graph_run(impl->client_node->node->rt.node.graph);
 
-	if (status == SPA_STATUS_HAVE_BUFFER)
-		spa_graph_node_trigger(&impl->this.node->rt.node);
-
-	return SPA_STATUS_OK;
+	return status;
 }
 
 static const struct spa_node impl_node = {
@@ -717,10 +728,6 @@ static void client_node_initialized(void *data)
 
 	pw_log_debug("client-stream %p: initialized", &impl->this);
 
-//	impl->client_node->node->rt.node.graph->parent = &impl->this.node->rt.node;
-
-	spa_graph_node_trigger(&impl->this.node->rt.node);
-
 	impl->cnode = pw_node_get_implementation(impl->client_node->node);
 
 	if ((res = spa_node_get_n_ports(impl->cnode,
@@ -751,30 +758,40 @@ static void client_node_initialized(void *data)
 			spa_type_map_get_type(t->map, media_type),
 			spa_type_map_get_type(t->map, media_subtype));
 
-	if ((impl->adapter = pw_load_spa_interface("audioconvert/libspa-audioconvert",
-			"splitter", SPA_TYPE__Node, NULL, 0)) == NULL)
-		return;
+	if (media_type == impl->type.media_type.audio &&
+	    media_subtype == impl->type.media_subtype.raw) {
+		if ((impl->adapter = pw_load_spa_interface("audioconvert/libspa-audioconvert",
+				"splitter", SPA_TYPE__Node, NULL, 0)) == NULL)
+			return;
 
-	impl->client_port = pw_node_find_port(impl->client_node->node, impl->direction, 0);
-	if (impl->client_port == NULL)
-		return;
+		impl->client_port = pw_node_find_port(impl->client_node->node, impl->direction, 0);
+		if (impl->client_port == NULL)
+			return;
 
-	if ((res = pw_port_init_mix(impl->client_port, &impl->client_port_mix)) < 0)
-		return;
+		if ((res = pw_port_init_mix(impl->client_port, &impl->client_port_mix)) < 0)
+			return;
 
-	if ((res = spa_node_port_set_io(impl->adapter,
-				SPA_DIRECTION_INPUT, 0,
-				t->io.Buffers,
-				impl->client_port_mix.io,
-				sizeof(impl->client_port_mix.io))) < 0)
-		return;
+		if ((res = spa_node_port_set_io(impl->adapter,
+					SPA_DIRECTION_INPUT, 0,
+					t->io.Buffers,
+					impl->client_port_mix.io,
+					sizeof(impl->client_port_mix.io))) < 0)
+			return;
 
-	if ((res = spa_node_port_set_io(&impl->client_port->mix_node,
-				SPA_DIRECTION_OUTPUT, 0,
-				t->io.Buffers,
-				impl->client_port_mix.io,
-				sizeof(impl->client_port_mix.io))) < 0)
-		return;
+		if ((res = spa_node_port_set_io(&impl->client_port->mix_node,
+					SPA_DIRECTION_OUTPUT, 0,
+					t->io.Buffers,
+					impl->client_port_mix.io,
+					sizeof(impl->client_port_mix.io))) < 0)
+			return;
+
+		impl->use_converter = true;
+	}
+	else {
+		impl->adapter = impl->cnode;
+		impl->use_converter = false;
+	}
+
 
 	pw_node_register(impl->this.node, NULL, NULL, NULL);
 
@@ -783,14 +800,19 @@ static void client_node_initialized(void *data)
 	pw_node_set_active(impl->this.node, true);
 }
 
-static void client_node_free(void *data)
+static void client_node_destroy(void *data)
 {
 	struct impl *impl = data;
-	pw_log_debug("client-stream %p: free", &impl->this);
-	spa_hook_remove(&impl->client_node_listener);
-	impl->client_node = NULL;
-}
 
+	pw_log_debug("client-stream %p: destroy", &impl->this);
+
+	spa_hook_remove(&impl->client_node_listener);
+
+	spa_hook_remove(&impl->node_listener);
+	pw_node_destroy(impl->this.node);
+
+	free(impl);
+}
 
 static void client_node_async_complete(void *data, uint32_t seq, int res)
 {
@@ -801,29 +823,37 @@ static void client_node_async_complete(void *data, uint32_t seq, int res)
 	node->callbacks->done(node->callbacks_data, seq, res);
 }
 
-static const struct pw_node_events client_node_events = {
-	PW_VERSION_NODE_EVENTS,
-	.free = client_node_free,
-	.initialized = client_node_initialized,
-	.async_complete = client_node_async_complete,
-};
-
-static void node_free(void *data)
+static void client_node_active_changed(void *data, bool active)
 {
 	struct impl *impl = data;
 
-	pw_log_debug("client-stream %p: free", &impl->this);
-	spa_hook_remove(&impl->client_node_listener);
+	pw_log_debug("client-stream %p: active %d", &impl->this, active);
+	pw_node_set_active(impl->this.node, active);
+}
 
-	if (impl->client_node)
-		pw_client_node_destroy(impl->client_node);
+static const struct pw_node_events client_node_events = {
+	PW_VERSION_NODE_EVENTS,
+	.destroy = client_node_destroy,
+	.initialized = client_node_initialized,
+	.async_complete = client_node_async_complete,
+	.active_changed = client_node_active_changed,
+};
+
+static void node_destroy(void *data)
+{
+	struct impl *impl = data;
+
+	pw_log_debug("client-stream %p: destroy", &impl->this);
+
+	spa_hook_remove(&impl->client_node_listener);
+	pw_client_node_destroy(impl->client_node);
 
 	free(impl);
 }
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
-	.free = node_free,
+	.destroy = node_destroy,
 };
 
 /** Create a new client stream
@@ -857,9 +887,14 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 	impl->core = core;
 	impl->t = pw_core_get_type(core);
 
+	init_type(&impl->type, impl->t->map);
+
 	pw_log_debug("client-stream %p: new", impl);
 
-	impl->client_node = pw_client_node_new(resource, properties, false);
+	impl->client_node = pw_client_node_new(
+			resource,
+			pw_properties_copy(properties),
+			false);
 	if (impl->client_node == NULL)
 		goto error_no_node;
 
@@ -884,7 +919,9 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 
 	this->node->remote = true;
 
-	pw_node_add_listener(impl->client_node->node, &impl->client_node_listener, &client_node_events, impl);
+	pw_node_add_listener(impl->client_node->node,
+			     &impl->client_node_listener,
+			     &client_node_events, impl);
 	pw_node_add_listener(this->node, &impl->node_listener, &node_events, impl);
 
 	return this;

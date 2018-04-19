@@ -248,9 +248,14 @@ loop_invoke(struct spa_loop *loop,
 
 		if (block) {
 			uint64_t count = 1;
+
+			spa_hook_list_call(&impl->hooks_list, struct spa_loop_control_hooks, before);
+
 			if (read(impl->ack_fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
 				spa_log_warn(impl->log, NAME " %p: failed to read event fd: %s",
 						impl, strerror(errno));
+
+			spa_hook_list_call(&impl->hooks_list, struct spa_loop_control_hooks, after);
 
 			res = item->res;
 		}
@@ -740,7 +745,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_ringbuffer_init(&impl->buffer);
 
 	impl->wakeup = spa_loop_utils_add_event(&impl->utils, wakeup_func, impl);
-	impl->ack_fd = eventfd(0, EFD_CLOEXEC);
+	impl->ack_fd = eventfd(0, EFD_SEMAPHORE | EFD_CLOEXEC);
 
 	spa_log_debug(impl->log, NAME " %p: initialized", impl);
 

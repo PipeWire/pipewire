@@ -75,15 +75,22 @@ static void add_pending(struct proxy_data *pd)
 	pw_core_proxy_sync(d->core_proxy, pd->pending_seq);
 }
 
+static void remove_pending(struct proxy_data *pd)
+{
+	if (pd->pending_seq != SPA_ID_INVALID) {
+		spa_list_remove(&pd->pending_link);
+		pd->pending_seq = SPA_ID_INVALID;
+	}
+}
+
 static void on_sync_reply(void *data, uint32_t seq)
 {
 	struct data *d = data;
-	struct proxy_data *pd;
+	struct proxy_data *pd, *t;
 
-	spa_list_for_each(pd, &d->pending_list, pending_link) {
+	spa_list_for_each_safe(pd, t, &d->pending_list, pending_link) {
 		if (pd->pending_seq == seq) {
-			spa_list_remove(&pd->pending_link);
-			pd->pending_seq = SPA_ID_INVALID;
+			remove_pending(pd);
 			pd->print_func(pd);
 		}
 	}
@@ -439,16 +446,17 @@ static const struct pw_link_proxy_events link_events = {
 static void
 destroy_proxy (void *data)
 {
-        struct proxy_data *user_data = data;
+        struct proxy_data *pd = data;
 
-	clear_params(user_data);
+	clear_params(pd);
+	remove_pending(pd);
 
-        if (user_data->info == NULL)
+        if (pd->info == NULL)
                 return;
 
-	if (user_data->destroy)
-		user_data->destroy(user_data->info);
-        user_data->info = NULL;
+	if (pd->destroy)
+		pd->destroy(pd->info);
+        pd->info = NULL;
 }
 
 static const struct pw_proxy_events proxy_events = {

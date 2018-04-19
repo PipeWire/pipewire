@@ -116,6 +116,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	snd_pcm_t *hndl;
 	snd_pcm_hw_params_t *params;
 	snd_pcm_format_mask_t *fmask;
+	snd_pcm_access_mask_t *amask;
 	int err, i, j, dir;
 	unsigned int min, max;
 	uint8_t buffer[4096];
@@ -150,7 +151,8 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	snd_pcm_hw_params_get_format_mask(params, fmask);
 
 	prop = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_prop(&b, state->type.format_audio.format, SPA_POD_PROP_RANGE_NONE));
+		spa_pod_builder_push_prop(&b, state->type.format_audio.format,
+			SPA_POD_PROP_RANGE_NONE));
 
 	for (i = 1, j = 0; i < SPA_N_ELEMENTS(format_info); i++) {
 		const struct format_info *fi = &format_info[i];
@@ -161,6 +163,27 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 				spa_pod_builder_id(&b, f);
 			spa_pod_builder_id(&b, f);
 		}
+	}
+	if (j > 1)
+		prop->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
+	spa_pod_builder_pop(&b);
+
+	snd_pcm_access_mask_alloca(&amask);
+	snd_pcm_hw_params_get_access_mask(params, amask);
+
+	prop = spa_pod_builder_deref(&b,
+		spa_pod_builder_push_prop(&b, state->type.format_audio.layout,
+			SPA_POD_PROP_RANGE_NONE));
+	j = 0;
+	if (snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_INTERLEAVED)) {
+		if (j++ == 0)
+			spa_pod_builder_int(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
+		spa_pod_builder_int(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
+	}
+	if (snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_NONINTERLEAVED)) {
+		if (j++ == 0)
+			spa_pod_builder_int(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
+		spa_pod_builder_int(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
 	}
 	if (j > 1)
 		prop->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;

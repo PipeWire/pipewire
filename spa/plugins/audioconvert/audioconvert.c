@@ -200,6 +200,13 @@ static int make_link(struct impl *this,
 	return 0;
 }
 
+static void clean_link(struct impl *this, struct link *link)
+{
+	if (link->buffers)
+		free(link->buffers);
+	link->buffers = NULL;
+}
+
 static int negotiate_link_format(struct impl *this, struct link *link)
 {
 	struct type *t = &this->type;
@@ -398,6 +405,8 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 		aligns[i] = align;
 	}
 
+	if (link->buffers)
+		free(link->buffers);
 	link->buffers = spa_buffer_alloc_array(buffers, flags, 0, NULL, blocks, datas, aligns);
 	if (link->buffers == NULL)
 		return -ENOMEM;
@@ -435,6 +444,13 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 		}
 	}
 	return 0;
+}
+
+static void clean_buffers(struct impl *this)
+{
+	int i;
+	for (i = 0; i < this->n_links; i++)
+		clean_link(this, &this->links[i]);
 }
 
 static int setup_buffers(struct impl *this, enum spa_direction direction)
@@ -847,6 +863,13 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+
+	this = (struct impl *) handle;
+
+	clean_buffers(this);
 	return 0;
 }
 

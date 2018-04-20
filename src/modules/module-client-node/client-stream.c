@@ -442,13 +442,19 @@ static int negotiate_buffers(struct impl *impl)
 	spa_buffer_alloc_fill_info(&info, 0, NULL, blocks, datas, aligns);
 	info.skel_size = SPA_ROUND_UP_N(info.skel_size, 16);
 
+	if (impl->buffers)
+		free(impl->buffers);
 	impl->buffers = calloc(blocks, sizeof(struct spa_buffer *) + info.skel_size);
 	if (impl->buffers == NULL)
 		return -ENOMEM;
 
-
         skel = SPA_MEMBER(impl->buffers, sizeof(struct spa_buffer *) * blocks, void);
 	data_size = info.meta_size + info.chunk_size + info.data_size;
+
+	if (impl->mem) {
+		pw_memblock_free(impl->mem);
+		impl->mem = NULL;
+	}
 
 	if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 				     PW_MEMBLOCK_FLAG_MAP_READWRITE |
@@ -800,18 +806,32 @@ static void client_node_initialized(void *data)
 	pw_node_set_active(impl->this.node, true);
 }
 
+static void cleanup(struct impl *impl)
+{
+	if (impl->use_converter) {
+		if (impl->adapter)
+			pw_unload_spa_interface(impl->adapter);
+	}
+
+	if (impl->buffers)
+		free(impl->buffers);
+	if (impl->mem) {
+		pw_memblock_free(impl->mem);
+		impl->mem = NULL;
+	}
+	free(impl);
+}
+
 static void client_node_destroy(void *data)
 {
 	struct impl *impl = data;
-
 	pw_log_debug("client-stream %p: destroy", &impl->this);
 
 	spa_hook_remove(&impl->client_node_listener);
 
 	spa_hook_remove(&impl->node_listener);
 	pw_node_destroy(impl->this.node);
-
-	free(impl);
+	cleanup(impl);
 }
 
 static void client_node_async_complete(void *data, uint32_t seq, int res)
@@ -847,8 +867,7 @@ static void node_destroy(void *data)
 
 	spa_hook_remove(&impl->client_node_listener);
 	pw_client_node_destroy(impl->client_node);
-
-	free(impl);
+	cleanup(impl);
 }
 
 static const struct pw_node_events node_events = {

@@ -1084,6 +1084,10 @@ static int node_clear(struct node *this)
 {
 	uint32_t i;
 
+	for (i = 0; i < this->n_params; i++)
+		free(this->params[i]);
+	free(this->params);
+
 	for (i = 0; i < MAX_INPUTS; i++) {
 		if (this->in_ports[i].valid)
 			clear_port(this, &this->in_ports[i], SPA_DIRECTION_INPUT, i);
@@ -1185,6 +1189,8 @@ static void node_free(void *data)
 	pw_array_clear(&impl->mems);
 	if (impl->io_areas)
 		pw_memblock_free(impl->io_areas);
+
+	pw_map_clear(&impl->io_map);
 
 	if (impl->fds[0] != -1)
 		close(impl->fds[0]);

@@ -34,53 +34,130 @@
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 
-static char **categories = NULL;
+#define MAX_SUPPORT	32
 
-static struct plugin_info {
+struct plugin {
+	int ref;
+	struct spa_list link;
+	char *filename;
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
-	struct spa_support support[16];
-	uint32_t n_support;
-} support_info;
+	struct spa_list handles;
+};
 
-static bool
-open_plugin(const char *path,
-	    const char *lib,
-	    struct plugin_info *info)
+struct handle {
+	int ref;
+	struct spa_list link;
+	struct plugin *plugin;
+	const char *factory_name;
+	struct spa_handle *handle;
+	struct spa_list interfaces;
+};
+
+struct interface {
+	int ref;
+	struct spa_list link;
+	struct handle *handle;
+	const char *type;
+	void *iface;
+};
+
+struct registry {
+	struct spa_list plugins;
+};
+
+struct support {
+	char **categories;
+	const char *plugin_dir;
+	struct plugin *support_plugin;
+	struct spa_support support[MAX_SUPPORT];
+	uint32_t n_support;
+	struct registry *registry;
+};
+
+static struct registry global_registry;
+static struct support global_support;
+
+static struct plugin *
+find_plugin(struct registry *registry, const char *filename)
 {
+	struct plugin *p;
+	spa_list_for_each(p, &registry->plugins, link) {
+		if (!strcmp(p->filename, filename))
+			return p;
+	}
+	return NULL;
+}
+
+static struct plugin *
+open_plugin(struct registry *registry,
+	    const char *path,
+	    const char *lib)
+{
+	struct plugin *plugin;
 	char *filename;
+	void *hnd;
+	spa_handle_factory_enum_func_t enum_func;
 
         if (asprintf(&filename, "%s/%s.so", path, lib) < 0)
 		goto no_filename;
 
-        if ((info->hnd = dlopen(filename, RTLD_NOW)) == NULL) {
+	if ((plugin = find_plugin(registry, filename)) != NULL) {
+		free(filename);
+		plugin->ref++;
+		return plugin;
+	}
+
+        if ((hnd = dlopen(filename, RTLD_NOW)) == NULL) {
                 fprintf(stderr, "can't load %s: %s\n", filename, dlerror());
                 goto open_failed;
         }
-        if ((info->enum_func = dlsym(info->hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
+        if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
                 fprintf(stderr, "can't find enum function\n");
                 goto no_symbol;
         }
-	free(filename);
-	return true;
 
-      no_filename:
-	return false;
+	if ((plugin = calloc(1, sizeof(struct plugin))) == NULL)
+		goto alloc_failed;
+
+	plugin->ref = 1;
+	plugin->filename = filename;
+	plugin->hnd = hnd;
+	plugin->enum_func = enum_func;
+	spa_list_init(&plugin->handles);
+
+	spa_list_append(&registry->plugins, &plugin->link);
+
+	return plugin;
+
+      alloc_failed:
       no_symbol:
-	dlclose(info->hnd);
+	dlclose(hnd);
       open_failed:
         free(filename);
-	return false;
+      no_filename:
+	return NULL;
 }
 
-static const struct spa_handle_factory *get_factory(struct plugin_info *info, const char *factory_name)
+static void
+unref_plugin(struct plugin *plugin)
+{
+	if (--plugin->ref == 0) {
+		spa_list_remove(&plugin->link);
+		dlclose(plugin->hnd);
+		free(plugin->filename);
+		free(plugin);
+	}
+}
+
+static const struct spa_handle_factory *find_factory(struct plugin *plugin, const char *factory_name)
 {
 	int res;
 	uint32_t index;
         const struct spa_handle_factory *factory;
 
         for (index = 0;;) {
-                if ((res = info->enum_func(&factory, &index)) <= 0) {
+                if ((res = plugin->enum_func(&factory, &index)) <= 0) {
                         if (res != 0)
                                 fprintf(stderr, "can't enumerate factories: %s\n", spa_strerror(res));
                         break;
@@ -91,47 +168,121 @@ static const struct spa_handle_factory *get_factory(struct plugin_info *info, co
 	return NULL;
 }
 
-static void *
-load_interface(struct plugin_info *info,
-	       const char *factory_name,
-	       const char *type)
+static struct handle *
+load_handle(struct plugin *plugin,
+	    const char *factory_name,
+	    uint32_t n_support,
+	    struct spa_support support[n_support])
 {
         int res;
-        struct spa_handle *handle;
-        uint32_t type_id;
+        struct handle *handle;
+        struct spa_handle *hnd;
         const struct spa_handle_factory *factory;
-        void *iface;
-	struct spa_type_map *map = NULL;
 
-	factory = get_factory(info, factory_name);
+	factory = find_factory(plugin, factory_name);
 	if (factory == NULL)
 		goto not_found;
 
-        handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
+	hnd = calloc(1, spa_handle_factory_get_size(factory, NULL));
+	if (hnd == NULL)
+		goto alloc_failed;
+
         if ((res = spa_handle_factory_init(factory,
-                                           handle, NULL, info->support, info->n_support)) < 0) {
+                                           hnd, NULL,
+					   support, n_support)) < 0) {
                 fprintf(stderr, "can't make factory instance: %d\n", res);
                 goto init_failed;
         }
 
-	map = pw_get_support_interface(SPA_TYPE__TypeMap);
+	if ((handle = calloc(1, sizeof(struct handle))) == NULL)
+		goto handle_failed;
+
+	handle->ref = 1;
+	handle->plugin = plugin;
+	handle->factory_name = factory_name;
+	handle->handle = hnd;
+	spa_list_init(&handle->interfaces);
+
+	spa_list_append(&plugin->handles, &handle->link);
+
+	return handle;
+
+      handle_failed:
+	spa_handle_clear(hnd);
+      init_failed:
+	free(hnd);
+      alloc_failed:
+      not_found:
+	return NULL;
+}
+
+static void unref_handle(struct handle *handle)
+{
+	if (--handle->ref == 0) {
+		spa_list_remove(&handle->link);
+		spa_handle_clear(handle->handle);
+		free(handle->handle);
+		unref_plugin(handle->plugin);
+		free(handle);
+	}
+}
+
+static struct interface *
+load_interface(struct plugin *plugin,
+	       const char *factory_name,
+	       const char *type,
+	       uint32_t n_support,
+	       struct spa_support support[n_support])
+{
+        int res;
+        struct handle *handle;
+        uint32_t type_id;
+        void *ptr;
+	struct spa_type_map *map = NULL;
+	struct interface *iface;
+
+        handle = load_handle(plugin, factory_name, n_support, support);
+	if (handle == NULL)
+		goto not_found;
+
+	map = spa_support_find(support, n_support, SPA_TYPE__TypeMap);
 	type_id = map ? spa_type_map_get_id(map, type) : 0;
 
-        if ((res = spa_handle_get_interface(handle, type_id, &iface)) < 0) {
+        if ((res = spa_handle_get_interface(handle->handle, type_id, &ptr)) < 0) {
                 fprintf(stderr, "can't get %s interface %d\n", type, res);
                 goto interface_failed;
         }
+
+	if ((iface = calloc(1, sizeof(struct interface))) == NULL)
+		goto alloc_failed;
+
+	iface->ref = 1;
+	iface->handle = handle;
+	iface->type = type;
+	iface->iface = ptr;
+	spa_list_append(&handle->interfaces, &iface->link);
+
         return iface;
 
+      alloc_failed:
       interface_failed:
-	spa_handle_clear(handle);
-      init_failed:
+	unref_handle(handle);
 	free(handle);
       not_found:
 	return NULL;
 }
 
-static void configure_debug(const char *str)
+static void
+unref_interface(struct interface *iface)
+{
+	if (--iface->ref == 0) {
+		spa_list_remove(&iface->link);
+		unref_handle(iface->handle);
+		free(iface);
+	}
+}
+
+static void configure_debug(struct support *support, const char *str)
 {
 	char **level;
 	int n_tokens;
@@ -141,7 +292,7 @@ static void configure_debug(const char *str)
 		pw_log_set_level(atoi(level[0]));
 
 	if (n_tokens > 1)
-		categories = pw_split_strv(level[1], ",", INT_MAX, &n_tokens);
+		support->categories = pw_split_strv(level[1], ",", INT_MAX, &n_tokens);
 }
 
 /** Get a support interface
@@ -150,50 +301,78 @@ static void configure_debug(const char *str)
  */
 void *pw_get_support_interface(const char *type)
 {
-	int i;
-
-	for (i = 0; i < support_info.n_support; i++) {
-		if (strcmp(support_info.support->type, type) == 0)
-			return support_info.support->data;
-	}
-	return NULL;
+	return spa_support_find(global_support.support, global_support.n_support, type);
 }
 
 const struct spa_handle_factory *pw_get_support_factory(const char *factory_name)
 {
-	return get_factory(&support_info, factory_name);
+	struct plugin *plugin = global_support.support_plugin;
+	return find_factory(plugin, factory_name);
 }
 
 const struct spa_support *pw_get_support(uint32_t *n_support)
 {
-	*n_support = support_info.n_support;
-	return support_info.support;
+	*n_support = global_support.n_support;
+	return global_support.support;
 }
 
 void *pw_load_spa_interface(const char *lib, const char *factory_name, const char *type,
 			    struct spa_support *support, uint32_t n_support)
 {
-	struct plugin_info extra_support_info;
-	const char *str;
+	struct support *sup = &global_support;
+	struct spa_support extra_support[MAX_SUPPORT];
+	uint32_t extra_n_support;
+	struct plugin *plugin;
+	struct interface *iface;
 	int i;
 
-	extra_support_info.n_support = support_info.n_support;
-	memcpy(extra_support_info.support, support_info.support,
-			sizeof(struct spa_support) * extra_support_info.n_support);
+	extra_n_support = sup->n_support;
+	memcpy(extra_support, sup->support,
+			sizeof(struct spa_support) * sup->n_support);
 
 	for (i = 0; i < n_support; i++) {
-		extra_support_info.support[extra_support_info.n_support++] =
+		extra_support[extra_n_support++] =
 			SPA_SUPPORT_INIT(support[i].type, support[i].data);
 	}
-	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
-		str = PLUGINDIR;
-
 	pw_log_debug("load \"%s\", \"%s\"", lib, factory_name);
+	if ((plugin = open_plugin(sup->registry, sup->plugin_dir, lib)) == NULL)
+		return NULL;
 
-	if (open_plugin(str, lib, &extra_support_info))
-		return load_interface(&extra_support_info, factory_name, type);
+	if ((iface = load_interface(plugin, factory_name,
+					type, extra_n_support, extra_support)) == NULL)
+		return NULL;
 
+	return iface->iface;
+}
+
+static struct interface *find_interface(void *iface)
+{
+	struct registry *registry = global_support.registry;
+	struct plugin *p;
+	struct handle *h;
+	struct interface *i;
+
+	spa_list_for_each(p, &registry->plugins, link) {
+		spa_list_for_each(h, &p->handles, link) {
+			spa_list_for_each(i, &h->interfaces, link) {
+				if (i->iface == iface)
+					return i;
+			}
+		}
+	}
 	return NULL;
+}
+
+int pw_unload_spa_interface(void *iface)
+{
+	struct interface *i;
+
+	if ((i = find_interface(iface)) == NULL)
+		return -ENOENT;
+
+	unref_interface(i);
+
+	return 0;
 }
 
 void *pw_get_spa_dbus(struct pw_loop *loop)
@@ -219,28 +398,43 @@ void *pw_get_spa_dbus(struct pw_loop *loop)
 void pw_init(int *argc, char **argv[])
 {
 	const char *str;
-	void *iface;
-	struct plugin_info *info = &support_info;
+	struct interface *iface;
+	struct support *support = &global_support;
+	struct plugin *plugin;
 
 	if ((str = getenv("PIPEWIRE_DEBUG")))
-		configure_debug(str);
+		configure_debug(support, str);
 
 	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
 		str = PLUGINDIR;
 
-	if (support_info.n_support > 0)
+	support->plugin_dir = str;
+	spa_list_init(&global_registry.plugins);
+	support->registry = &global_registry;
+
+	if (support->n_support > 0)
 		return;
 
-	if (open_plugin(str, "support/libspa-support", info)) {
-		iface = load_interface(info, "mapper", SPA_TYPE__TypeMap);
-		if (iface != NULL)
-			info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, iface);
+	plugin = open_plugin(support->registry, support->plugin_dir, "support/libspa-support");
+	if (plugin == NULL) {
+		fprintf(stderr, "can't open support library");
+		return;
+	}
 
-		iface = load_interface(info, "logger", SPA_TYPE__Log);
-		if (iface != NULL) {
-			info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__Log, iface);
-			pw_log_set(iface);
-		}
+	support->support_plugin = plugin;
+
+	iface = load_interface(plugin, "mapper", SPA_TYPE__TypeMap,
+			support->n_support, support->support);
+	if (iface != NULL)
+		support->support[support->n_support++] =
+			SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, iface->iface);
+
+	iface = load_interface(plugin, "logger", SPA_TYPE__Log,
+			support->n_support, support->support);
+	if (iface != NULL) {
+		support->support[support->n_support++] =
+			SPA_SUPPORT_INIT(SPA_TYPE__Log, iface->iface);
+		pw_log_set(iface->iface);
 	}
 }
 
@@ -258,11 +452,11 @@ bool pw_debug_is_category_enabled(const char *name)
 {
 	int i;
 
-	if (categories == NULL)
+	if (global_support.categories == NULL)
 		return false;
 
-	for (i = 0; categories[i]; i++) {
-		if (strcmp (categories[i], name) == 0)
+	for (i = 0; global_support.categories[i]; i++) {
+		if (strcmp(global_support.categories[i], name) == 0)
 			return true;
 	}
 	return false;

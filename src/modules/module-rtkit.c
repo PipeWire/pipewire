@@ -377,11 +377,35 @@ int pw_rtkit_make_high_priority(struct pw_rtkit_bus *connection, pid_t thread, i
 	return ret;
 }
 
+static int do_remove_source(struct spa_loop *loop,
+			    bool async,
+			    uint32_t seq,
+			    const void *data,
+			    size_t size,
+			    void *user_data)
+{
+	struct spa_source *source = user_data;
+	spa_loop_remove_source(loop, source);
+	return 0;
+}
+
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
 
 	spa_hook_remove(&impl->module_listener);
+
+	if (impl->source.fd != -1) {
+		spa_loop_invoke(impl->loop,
+				do_remove_source,
+				SPA_ID_INVALID,
+				NULL,
+				0,
+				true,
+				&impl->source);
+		close(impl->source.fd);
+		impl->source.fd = -1;
+	}
 
 	if (impl->properties)
 		pw_properties_free(impl->properties);
@@ -448,6 +472,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	struct spa_loop *loop;
 	const struct spa_support *support;
 	uint32_t n_support;
+	int res;
 
 	support = pw_core_get_support(core, &n_support);
 
@@ -471,11 +496,21 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	impl->source.data = impl;
 	impl->source.fd = eventfd(1, EFD_CLOEXEC | EFD_NONBLOCK);
 	impl->source.mask = SPA_IO_IN;
+	if (impl->source.fd == -1) {
+		res = -errno;
+		goto error;
+	}
+
 	spa_loop_add_source(impl->loop, &impl->source);
 
 	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	return 0;
+
+      error:
+	free(impl);
+	return res;
+
 }
 
 int pipewire__module_init(struct pw_module *module, const char *args)

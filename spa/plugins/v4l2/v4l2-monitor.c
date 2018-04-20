@@ -327,6 +327,8 @@ static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this = (struct impl *) handle;
 
+	if (this->uitem.udevice)
+		udev_device_unref(this->uitem.udevice);
 	if (this->enumerate)
 		udev_enumerate_unref(this->enumerate);
 	if (this->umonitor)

@@ -79,6 +79,7 @@ struct impl {
         struct spa_type_map *map;
 
 	struct spa_list source_list;
+	struct spa_list destroy_list;
 	struct spa_hook_list hooks_list;
 
 	int epoll_fd;
@@ -324,6 +325,14 @@ static void loop_leave(struct spa_loop_control *ctrl)
 	impl->thread = 0;
 }
 
+static void process_destroy(struct impl *impl)
+{
+	struct source_impl *source, *tmp;
+	spa_list_for_each_safe(source, tmp, &impl->destroy_list, link)
+		free(source);
+	spa_list_init(&impl->destroy_list);
+}
+
 static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 {
 	struct impl *impl = SPA_CONTAINER_OF(ctrl, struct impl, control);
@@ -353,6 +362,8 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 		if (s->rmask && s->fd != -1 && s->loop == loop)
 			s->func(s);
 	}
+	process_destroy(impl);
+
 	return 0;
 }
 
@@ -622,7 +633,7 @@ static void loop_destroy_source(struct spa_source *source)
 		close(source->fd);
 		source->fd = -1;
 	}
-	free(impl);
+	spa_list_insert(&impl->impl->destroy_list, &impl->link);
 }
 
 static const struct spa_loop impl_loop = {
@@ -689,6 +700,8 @@ static int impl_clear(struct spa_handle *handle)
 	spa_list_for_each_safe(source, tmp, &impl->source_list, link)
 		loop_destroy_source(&source->source);
 
+	process_destroy(impl);
+
 	close(impl->ack_fd);
 	close(impl->epoll_fd);
 
@@ -740,6 +753,7 @@ impl_init(const struct spa_handle_factory *factory,
 		return errno;
 
 	spa_list_init(&impl->source_list);
+	spa_list_init(&impl->destroy_list);
 	spa_hook_list_init(&impl->hooks_list);
 
 	spa_ringbuffer_init(&impl->buffer);

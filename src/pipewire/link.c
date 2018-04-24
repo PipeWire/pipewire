@@ -1079,15 +1079,19 @@ int pw_link_deactivate(struct pw_link *this)
 	    input_node->n_used_output_links <= input_node->idle_used_output_links &&
 	    input_node->info.state > PW_NODE_STATE_IDLE) {
 		pw_node_update_state(input_node, PW_NODE_STATE_IDLE, NULL);
-		this->input->state = PW_PORT_STATE_PAUSED;
+		pw_log_debug("port %p: state %d -> %d", this->input,
+				this->input->state, PW_PORT_STATE_PAUSED);
 	}
+	this->input->state = PW_PORT_STATE_PAUSED;
 
 	if (output_node->n_used_input_links <= output_node->idle_used_input_links &&
 	    output_node->n_used_output_links <= output_node->idle_used_output_links &&
 	    output_node->info.state > PW_NODE_STATE_IDLE) {
 		pw_node_update_state(output_node, PW_NODE_STATE_IDLE, NULL);
-		this->output->state = PW_PORT_STATE_PAUSED;
+		pw_log_debug("port %p: state %d -> %d", this->output,
+				this->output->state, PW_PORT_STATE_PAUSED);
 	}
+	this->output->state = PW_PORT_STATE_PAUSED;
 
 	return 0;
 }

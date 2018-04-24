@@ -244,6 +244,7 @@ struct find_data {
 	uint32_t path_id;
 	const char *media_class;
 	struct pw_global *global;
+	uint64_t plugged;
 };
 
 static int find_global(void *data, struct pw_global *global)
@@ -254,6 +255,7 @@ static int find_global(void *data, struct pw_global *global)
 	struct pw_node *node;
 	const struct pw_properties *props;
 	const char *str;
+	uint64_t plugged;
 
 	if (pw_global_get_type(global) != impl->t->node)
 		return 0;
@@ -271,10 +273,23 @@ static int find_global(void *data, struct pw_global *global)
 	if (strcmp(str, find->media_class) != 0)
 		return 0;
 
-	pw_log_debug("module %p: found node '%d'", impl, pw_global_get_id(global));
+	if (find->path_id != SPA_ID_INVALID && global->id != find->path_id)
+		return 0;
 
-	find->global = global;
-	return 1;
+	if ((str = pw_properties_get(props, "node.plugged")) != NULL)
+		plugged = pw_properties_parse_uint64(str);
+	else
+		plugged = 0;
+
+	pw_log_debug("module %p: found node '%d' %" PRIu64, impl,
+			pw_global_get_id(global), plugged);
+
+	if (find->global == NULL || plugged > find->plugged) {
+		pw_log_debug("module %p: new best %" PRIu64, impl, plugged);
+		find->global = global;
+		find->plugged = plugged;
+	}
+	return 0;
 }
 
 static void on_node_created(struct node_info *info)
@@ -285,6 +300,7 @@ static void on_node_created(struct node_info *info)
 	const char *media, *category, *role, *str;
 	bool exclusive;
 	struct find_data find;
+	enum pw_direction direction;
 
 	find.info = info;
 
@@ -346,15 +362,22 @@ static void on_node_created(struct node_info *info)
 	pw_log_debug("module %p: try to find and link to node '%d'", impl, find.path_id);
 
 	find.global = NULL;
-	if (pw_core_for_each_global(impl->core, find_global, &find) != 1)
+	if (pw_core_for_each_global(impl->core, find_global, &find) < 0)
+		return;
+
+	if (find.global == NULL)
 		return;
 
 	peer = pw_global_get_object(find.global);
 
 	if (strcmp(category, "Capture") == 0)
-		pw_node_for_each_port(peer, PW_DIRECTION_OUTPUT, on_peer_port, info);
+		direction = PW_DIRECTION_OUTPUT;
 	if (strcmp(category, "Playback") == 0)
-		pw_node_for_each_port(peer, PW_DIRECTION_INPUT, on_peer_port, info);
+		direction = PW_DIRECTION_INPUT;
+	else
+		return;
+
+	pw_node_for_each_port(peer, direction, on_peer_port, info);
 }
 
 static void

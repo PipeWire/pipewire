@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <math.h>
+#include <time.h>
 
 #include "config.h"
 
@@ -117,7 +118,9 @@ struct port {
 
 struct node {
 	struct spa_list link;
+
 	struct pw_node *node;
+	struct spa_hook node_listener;
 
 	struct impl *impl;
 
@@ -394,8 +397,10 @@ static int port_enum_formats(struct spa_node *node,
 			"I", t->media_subtype.raw,
                         ":", t->format_audio.format,   "I", t->audio_format.S16,
                         ":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
-                        ":", t->format_audio.rate,     "i", n->sample_rate,
-                        ":", t->format_audio.channels, "i", n->channels);
+                        ":", t->format_audio.rate,     "iru", n->sample_rate,
+				SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
+                        ":", t->format_audio.channels, "iru", n->channels,
+				SPA_POD_PROP_MIN_MAX(1, MAX_PORTS));
 	}
 
 	return 1;
@@ -475,6 +480,8 @@ static int port_set_format(struct spa_node *node, struct port *p,
 		return -EINVAL;
 
 	pw_log_info(NAME " %p: set format on port %p", n, p);
+	n->sample_rate = info.info.raw.rate;
+	n->channels = info.info.raw.channels;
 
 	return 0;
 }
@@ -729,36 +736,42 @@ static struct port *make_port(struct node *n, enum pw_direction direction,
 	return p;
 }
 
-static struct pw_node *make_node(struct impl *impl, const struct pw_properties *props,
+static struct node *make_node(struct impl *impl, const struct pw_properties *props,
 		enum pw_direction direction)
 {
 	struct pw_node *node;
 	struct node *n;
 	struct port *p;
-	const char *alias;
+	const char *api, *alias, *plugged;
 	char node_name[128];
+	struct pw_properties *pr;
 	int i;
 
-	if ((alias = pw_properties_get(props, "alsa.device")) == NULL)
+	if ((api = pw_properties_get(props, "device.api")) == NULL)
 		goto error;
+
+	if ((alias = pw_properties_get(props, "device.name")) == NULL)
+		goto error;
+
 
 	snprintf(node_name, sizeof(node_name), "system_%s", alias);
 	for (i = 0; node_name[i]; i++) {
 		if (node_name[i] == ':' || node_name[i] == ',')
 			node_name[i] = '_';
 	}
-	if ((alias = pw_properties_get(props, "alsa.card")) == NULL)
-		goto error;
 
-	node = pw_node_new(impl->core, node_name,
-				pw_properties_new(
-					"alsa.card", alias,
-					"media.class",
-						direction == PW_DIRECTION_OUTPUT ?
-							"Audio/DSP/Playback" :
-							"Audio/DSP/Capture",
-					NULL),
-				sizeof(struct node));
+	pr = pw_properties_new(
+			"media.class",
+			direction == PW_DIRECTION_OUTPUT ?
+				"Audio/DSP/Playback" :
+				"Audio/DSP/Capture",
+			"device.name", alias,
+			NULL);
+
+	if ((plugged = pw_properties_get(props, "node.plugged")) != NULL)
+		pw_properties_set(pr, "node.plugged", plugged);
+
+	node = pw_node_new(impl->core, node_name, pr, sizeof(struct node));
         if (node == NULL)
 		goto error;
 
@@ -784,7 +797,8 @@ static struct pw_node *make_node(struct impl *impl, const struct pw_properties *
 		snprintf(port_name, sizeof(port_name), "%s_%d",
 				direction == PW_DIRECTION_INPUT ? "playback" : "capture",
 				n->port_count[direction]);
-		snprintf(alias_name, sizeof(alias_name), "alsa_pcm:%s:%s%d",
+		snprintf(alias_name, sizeof(alias_name), "%s_pcm:%s:%s%d",
+				api,
 				alias,
 				direction == PW_DIRECTION_INPUT ? "in" : "out",
 				n->port_count[direction]);
@@ -805,7 +819,7 @@ static struct pw_node *make_node(struct impl *impl, const struct pw_properties *
 	pw_node_register(node, NULL, pw_module_get_global(impl->module), NULL);
 	pw_node_set_active(node, true);
 
-	return node;
+	return n;
 
      error_free_node:
 	pw_node_destroy(node);
@@ -813,15 +827,30 @@ static struct pw_node *make_node(struct impl *impl, const struct pw_properties *
 	return NULL;
 }
 
+static void node_destroy(void *data)
+{
+	struct node *node = data;
+
+	spa_list_remove(&node->link);
+	pw_node_destroy(node->node);
+}
+
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
+	.destroy = node_destroy,
+};
+
 static int on_global(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
-	struct pw_node *n, *node;
+	struct pw_node *n;
+	struct node *node;
 	const struct pw_properties *properties;
 	const char *str;
 	char *error;
 	struct pw_port *ip, *op;
 	struct pw_link *link;
+
 
 	if (pw_global_get_type(global) != impl->t->node)
 		return 0;
@@ -832,12 +861,14 @@ static int on_global(void *data, struct pw_global *global)
 	if ((str = pw_properties_get(properties, "media.class")) == NULL)
 		return 0;
 
+	pw_log_debug("global added %s", str);
+
 	if (strcmp(str, "Audio/Sink") == 0) {
 		if ((ip = pw_node_get_free_port(n, PW_DIRECTION_INPUT)) == NULL)
 			return 0;
 		if ((node = make_node(impl, properties, PW_DIRECTION_OUTPUT)) == NULL)
 			return 0;
-		if ((op = pw_node_get_free_port(node, PW_DIRECTION_OUTPUT)) == NULL)
+		if ((op = pw_node_get_free_port(node->node, PW_DIRECTION_OUTPUT)) == NULL)
 			return 0;
 	}
 	else if (strcmp(str, "Audio/Source") == 0) {
@@ -845,7 +876,7 @@ static int on_global(void *data, struct pw_global *global)
 			return 0;
 		if ((node = make_node(impl, properties, PW_DIRECTION_INPUT)) == NULL)
 			return 0;
-		if ((ip = pw_node_get_free_port(node, PW_DIRECTION_INPUT)) == NULL)
+		if ((ip = pw_node_get_free_port(node->node, PW_DIRECTION_INPUT)) == NULL)
 			return 0;
 	}
 	else
@@ -862,8 +893,9 @@ static int on_global(void *data, struct pw_global *global)
 		free(error);
 		return 0;
 	}
-
 	pw_link_register(link, NULL, pw_module_get_global(impl->module), NULL);
+
+	pw_node_add_listener(n, &node->node_listener, &node_events, node);
 
 	return 0;
 }

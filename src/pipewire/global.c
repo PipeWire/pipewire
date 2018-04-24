@@ -29,8 +29,9 @@
 #include <pipewire/global.h>
 
 /** \cond */
-struct global_impl {
+struct impl {
 	struct pw_global this;
+	bool registered;
 };
 
 /** \endcond */
@@ -64,10 +65,10 @@ pw_global_new(struct pw_core *core,
 	      struct pw_properties *properties,
 	      void *object)
 {
-	struct global_impl *impl;
+	struct impl *impl;
 	struct pw_global *this;
 
-	impl = calloc(1, sizeof(struct global_impl));
+	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return NULL;
 
@@ -78,12 +79,13 @@ pw_global_new(struct pw_core *core,
 	this->version = version;
 	this->object = object;
 	this->properties = properties;
-	this->id = SPA_ID_INVALID;
+	this->id = pw_map_insert_new(&core->globals, this);
 
 	spa_hook_list_init(&this->listener_list);
 
-	pw_log_debug("global %p: new %s", this,
-			spa_type_map_get_type(core->type.map, this->type));
+	pw_log_debug("global %p: new %s %d", this,
+			spa_type_map_get_type(core->type.map, this->type),
+			this->id);
 
 	return this;
 }
@@ -102,6 +104,7 @@ pw_global_register(struct pw_global *global,
 		   struct pw_client *owner,
 		   struct pw_global *parent)
 {
+	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
 	struct pw_resource *registry;
 	struct pw_core *core = global->core;
 
@@ -114,12 +117,8 @@ pw_global_register(struct pw_global *global,
 		parent = global;
 	global->parent = parent;
 
-	global->id = pw_map_insert_new(&core->globals, global);
-
 	spa_list_append(&core->global_list, &global->link);
-
-	pw_log_debug("global %p: add %u owner %p parent %p", global, global->id, owner, parent);
-	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_added, global);
+	impl->registered = true;
 
 	spa_list_for_each(registry, &core->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, registry->client);
@@ -134,6 +133,37 @@ pw_global_register(struct pw_global *global,
 						    global->properties ?
 						        &global->properties->dict : NULL);
 	}
+
+	spa_hook_list_call(&global->listener_list, struct pw_global_events, registering);
+
+	pw_log_debug("global %p: add %u owner %p parent %p", global, global->id, owner, parent);
+	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_added, global);
+
+	return 0;
+}
+
+static int global_unregister(struct pw_global *global)
+{
+	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
+	struct pw_core *core = global->core;
+	struct pw_resource *registry;
+
+	if (!impl->registered)
+		return 0;
+
+	spa_list_for_each(registry, &core->registry_resource_list, link) {
+		uint32_t permissions = pw_global_get_permissions(global, registry->client);
+		pw_log_debug("registry %p: global %d %08x", registry, global->id, permissions);
+		if (PW_PERM_IS_R(permissions))
+			pw_registry_resource_global_remove(registry, global->id);
+	}
+
+	spa_list_remove(&global->link);
+	spa_hook_list_call(&core->listener_list, struct pw_core_events,
+			global_removed, global);
+
+	impl->registered = false;
+
 	return 0;
 }
 
@@ -230,24 +260,13 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 void pw_global_destroy(struct pw_global *global)
 {
 	struct pw_core *core = global->core;
-	struct pw_resource *registry;
+
+	global_unregister(global);
 
 	pw_log_debug("global %p: destroy %u", global, global->id);
 	spa_hook_list_call(&global->listener_list, struct pw_global_events, destroy);
 
-	if (global->id != SPA_ID_INVALID) {
-		spa_list_for_each(registry, &core->registry_resource_list, link) {
-			uint32_t permissions = pw_global_get_permissions(global, registry->client);
-			pw_log_debug("registry %p: global %d %08x", registry, global->id, permissions);
-			if (PW_PERM_IS_R(permissions))
-				pw_registry_resource_global_remove(registry, global->id);
-		}
-
-		pw_map_remove(&core->globals, global->id);
-
-		spa_list_remove(&global->link);
-		spa_hook_list_call(&core->listener_list, struct pw_core_events, global_removed, global);
-	}
+	pw_map_remove(&core->globals, global->id);
 
 	pw_log_debug("global %p: free", global);
 	spa_hook_list_call(&global->listener_list, struct pw_global_events, free);

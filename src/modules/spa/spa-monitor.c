@@ -26,10 +26,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <time.h>
 
 #include <spa/node/node.h>
 #include <spa/monitor/monitor.h>
 #include <spa/pod/parser.h>
+#include <spa/lib/debug.h>
 
 #include <pipewire/log.h>
 #include <pipewire/type.h>
@@ -57,7 +59,8 @@ struct impl {
 	struct spa_list item_list;
 };
 
-static void add_item(struct pw_spa_monitor *this, struct spa_pod *item)
+static struct monitor_item *add_item(struct pw_spa_monitor *this,
+		struct spa_pod *item, uint64_t now)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res;
@@ -65,7 +68,7 @@ static void add_item(struct pw_spa_monitor *this, struct spa_pod *item)
 	struct monitor_item *mitem;
 	void *node_iface;
 	struct pw_properties *props = NULL;
-	const char *name, *id, *klass;
+	const char *name, *id, *klass, *str;
 	struct spa_handle_factory *factory;
 	enum spa_monitor_item_state state;
 	struct spa_pod *info = NULL;
@@ -81,7 +84,7 @@ static void add_item(struct pw_spa_monitor *this, struct spa_pod *item)
 			":",t->monitor.klass,   "s", &klass,
 			":",t->monitor.factory, "p", &factory,
 			":",t->monitor.info,    "T", &info, NULL) < 0)
-		return;
+		return NULL;
 
 	pw_log_debug("monitor %p: add: \"%s\" (%s)", this, name, id);
 
@@ -101,6 +104,12 @@ static void add_item(struct pw_spa_monitor *this, struct spa_pod *item)
 		}
 	}
 
+	if ((str = pw_properties_get(props, "device.form_factor")) != NULL)
+		if (strcmp(str, "internal") == 0)
+			now = 0;
+	if (now != 0)
+		pw_properties_setf(props, "node.plugged", "%"PRIu64, now);
+
 	support = pw_core_get_support(impl->core, &n_support);
 
         handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
@@ -110,11 +119,11 @@ static void add_item(struct pw_spa_monitor *this, struct spa_pod *item)
 					   support,
 					   n_support)) < 0) {
 		pw_log_error("can't make factory instance: %d", res);
-		return;
+		return NULL;
 	}
 	if ((res = spa_handle_get_interface(handle, t->spa_node, &node_iface)) < 0) {
 		pw_log_error("can't get NODE interface: %d", res);
-		return;
+		return NULL;
 	}
 
 	flags = PW_SPA_NODE_FLAG_ACTIVATE;
@@ -128,6 +137,8 @@ static void add_item(struct pw_spa_monitor *this, struct spa_pod *item)
 				      node_iface, handle, props, 0);
 
 	spa_list_append(&impl->item_list, &mitem->link);
+
+	return mitem;
 }
 
 static struct monitor_item *find_item(struct pw_spa_monitor *this, const char *id)
@@ -153,7 +164,7 @@ void destroy_item(struct monitor_item *mitem)
 	free(mitem);
 }
 
-static void remove_item(struct pw_spa_monitor *this, struct spa_pod *item)
+static void remove_item(struct pw_spa_monitor *this, struct spa_pod *item, uint64_t now)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct monitor_item *mitem;
@@ -171,7 +182,7 @@ static void remove_item(struct pw_spa_monitor *this, struct spa_pod *item)
 		destroy_item(mitem);
 }
 
-static void change_item(struct pw_spa_monitor *this, struct spa_pod *item)
+static void change_item(struct pw_spa_monitor *this, struct spa_pod *item, uint64_t now)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct monitor_item *mitem;
@@ -187,6 +198,8 @@ static void change_item(struct pw_spa_monitor *this, struct spa_pod *item)
 
 	pw_log_debug("monitor %p: change: \"%s\" (%s)", this, name, id);
 	mitem = find_item(this, id);
+	if (mitem == NULL)
+		mitem = add_item(this, item, now);
 	if (mitem == NULL)
 		return;
 
@@ -206,16 +219,21 @@ static void on_monitor_event(void *data, struct spa_event *event)
 	struct impl *impl = data;
 	struct pw_spa_monitor *this = &impl->this;
 	struct pw_type *t = pw_core_get_type(impl->core);
+	struct timespec now;
+	uint64_t now_nsec;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	now_nsec = now.tv_sec * SPA_NSEC_PER_SEC + now.tv_nsec;
 
 	if (SPA_EVENT_TYPE(event) == t->monitor.Added) {
 		struct spa_pod *item = SPA_POD_CONTENTS(struct spa_event, event);
-		add_item(this, item);
+		add_item(this, item, now_nsec);
 	} else if (SPA_EVENT_TYPE(event) == t->monitor.Removed) {
 		struct spa_pod *item = SPA_POD_CONTENTS(struct spa_event, event);
-		remove_item(this, item);
+		remove_item(this, item, now_nsec);
 	} else if (SPA_EVENT_TYPE(event) == t->monitor.Changed) {
 		struct spa_pod *item = SPA_POD_CONTENTS(struct spa_event, event);
-		change_item(this, item);
+		change_item(this, item, now_nsec);
 	}
 }
 
@@ -339,7 +357,7 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 				pw_log_debug("spa_monitor_enum_items: %s\n", spa_strerror(res));
 			break;
 		}
-		add_item(this, item);
+		add_item(this, item, 0);
 	}
 	spa_monitor_set_callbacks(this->monitor, &callbacks, impl);
 

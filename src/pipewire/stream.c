@@ -72,7 +72,6 @@ struct queue {
 struct data {
 	struct pw_core *core;
 	struct pw_remote *remote;
-	struct spa_hook remote_listener;
 	struct spa_hook stream_listener;
 };
 
@@ -88,6 +87,8 @@ struct stream {
 
 	enum spa_direction direction;
 	enum pw_stream_flags flags;
+
+	struct spa_hook remote_listener;
 
 	struct pw_node *node;
 	struct spa_port_info port_info;
@@ -790,54 +791,6 @@ static const struct spa_node impl_node = {
 	.port_reuse_buffer = impl_port_reuse_buffer,
 };
 
-struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
-	      struct pw_properties *props)
-{
-	struct stream *impl;
-	struct pw_stream *this;
-
-	impl = calloc(1, sizeof(struct stream));
-	if (impl == NULL)
-		return NULL;
-
-	this = &impl->this;
-	pw_log_debug("stream %p: new", impl);
-
-	if (props == NULL) {
-		props = pw_properties_new("media.name", name, NULL);
-	} else if (!pw_properties_get(props, "media.name")) {
-		pw_properties_set(props, "media.name", name);
-	}
-	if (props == NULL)
-		goto no_mem;
-
-	this->properties = props;
-
-	this->remote = remote;
-	this->name = strdup(name);
-
-	init_type(&impl->type, remote->core->type.map);
-
-	spa_ringbuffer_init(&impl->dequeued.ring);
-	spa_ringbuffer_init(&impl->queued.ring);
-
-	spa_hook_list_init(&this->listener_list);
-
-	this->state = PW_STREAM_STATE_UNCONNECTED;
-
-	impl->core = remote->core;
-	impl->t = &remote->core->type;
-	impl->pending_seq = SPA_ID_INVALID;
-
-	spa_list_append(&remote->stream_list, &this->link);
-
-	return this;
-
-      no_mem:
-	free(impl);
-	return NULL;
-}
-
 static int handle_connect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -891,6 +844,56 @@ static const struct pw_remote_events remote_events = {
 	.state_changed = on_remote_state_changed,
 };
 
+struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
+	      struct pw_properties *props)
+{
+	struct stream *impl;
+	struct pw_stream *this;
+
+	impl = calloc(1, sizeof(struct stream));
+	if (impl == NULL)
+		return NULL;
+
+	this = &impl->this;
+	pw_log_debug("stream %p: new", impl);
+
+	if (props == NULL) {
+		props = pw_properties_new("media.name", name, NULL);
+	} else if (!pw_properties_get(props, "media.name")) {
+		pw_properties_set(props, "media.name", name);
+	}
+	if (props == NULL)
+		goto no_mem;
+
+	this->properties = props;
+
+	this->remote = remote;
+	this->name = strdup(name);
+
+	init_type(&impl->type, remote->core->type.map);
+
+	spa_ringbuffer_init(&impl->dequeued.ring);
+	spa_ringbuffer_init(&impl->queued.ring);
+
+	spa_hook_list_init(&this->listener_list);
+
+	this->state = PW_STREAM_STATE_UNCONNECTED;
+
+	impl->core = remote->core;
+	impl->t = &remote->core->type;
+	impl->pending_seq = SPA_ID_INVALID;
+
+	pw_remote_add_listener(remote, &impl->remote_listener, &remote_events, this);
+
+	spa_list_append(&remote->stream_list, &this->link);
+
+	return this;
+
+      no_mem:
+	free(impl);
+	return NULL;
+}
+
 struct pw_stream *
 pw_stream_new_simple(struct pw_loop *loop,
 		     const char *name,
@@ -916,7 +919,6 @@ pw_stream_new_simple(struct pw_loop *loop,
 	impl->data.core = core;
 	impl->data.remote = remote;
 
-	pw_remote_add_listener(remote, &impl->data.remote_listener, &remote_events, stream);
 	pw_stream_add_listener(stream, &impl->data.stream_listener, events, data);
 
 	return stream;
@@ -1051,6 +1053,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	pw_stream_disconnect(stream);
 
+	spa_hook_remove(&impl->remote_listener);
 	spa_list_remove(&stream->link);
 
 	set_init_params(stream, 0, NULL);

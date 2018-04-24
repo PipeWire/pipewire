@@ -36,6 +36,9 @@
 
 #define NAME  "alsa-monitor"
 
+#define MAX_CARDS	32
+#define MAX_DEVICES	64
+
 extern const struct spa_handle_factory spa_alsa_sink_factory;
 extern const struct spa_handle_factory spa_alsa_source_factory;
 
@@ -49,6 +52,26 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	type->handle_factory = spa_type_map_get_id(map, SPA_TYPE__HandleFactory);
 	spa_type_monitor_map(map, &type->monitor);
 }
+
+struct device {
+	int id;
+#define DEVICE_FLAG_VALID	(1<<0)
+#define DEVICE_FLAG_PLAYBACK	(1<<1)
+#define DEVICE_FLAG_RECORD	(1<<2)
+	uint32_t flags;
+};
+
+struct card {
+	int id;
+	struct udev_device *dev;
+	snd_ctl_t *ctl_hndl;
+	char name[16];
+	struct device devices[MAX_DEVICES];
+	int n_devices;
+
+	int device_idx;
+	int stream_idx;
+};
 
 struct impl {
 	struct spa_handle handle;
@@ -68,11 +91,10 @@ struct impl {
 	uint32_t index;
 	struct udev_list_entry *devices;
 
-	snd_ctl_t *ctl_hndl;
-	struct udev_device *dev;
-	char card_name[16];
-	int dev_idx;
-	int stream_idx;
+	struct card cards[MAX_CARDS];
+	int n_cards;
+
+	int card_idx;
 
 	int fd;
 	struct spa_source source;
@@ -105,22 +127,39 @@ static const char *path_get_card_id(const char *path)
 }
 
 static int
-fill_item(struct impl *this, snd_ctl_card_info_t *card_info, snd_pcm_info_t *dev_info, struct udev_device *dev,
+fill_item(struct impl *this, snd_ctl_card_info_t *card_info,
+		snd_pcm_info_t *dev_info, struct card *card,
 		struct spa_pod **item, struct spa_pod_builder *builder)
 {
 	const char *str, *name, *klass = NULL;
 	const struct spa_handle_factory *factory = NULL;
-	char device_name[64];
+	char device_name[64], id[64];
 	struct type *t = &this->type;
+	struct udev_device *dev = card->dev;
+	struct device *device;
+	int device_idx = snd_pcm_info_get_device(dev_info);
+	int stream = snd_pcm_info_get_stream(dev_info);
 
-	switch (snd_pcm_info_get_stream(dev_info)) {
+	if (device_idx < 0 || device_idx >= MAX_DEVICES)
+		return -1;
+
+	device = &card->devices[device_idx];
+	device->id = device_idx;
+
+	snprintf(device_name, 64, "%s,%d", card->name, device_idx);
+
+	switch (stream) {
 	case SND_PCM_STREAM_PLAYBACK:
 		factory = &spa_alsa_sink_factory;
 		klass = "Audio/Sink";
+		SPA_FLAG_SET(device->flags, DEVICE_FLAG_PLAYBACK);
+		snprintf(id, 64, "%s/P", device_name);
 		break;
 	case SND_PCM_STREAM_CAPTURE:
 		factory = &spa_alsa_source_factory;
 		klass = "Audio/Source";
+		SPA_FLAG_SET(device->flags, DEVICE_FLAG_RECORD);
+		snprintf(id, 64, "%s/C", device_name);
 		break;
 	default:
 		return -1;
@@ -136,11 +175,9 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info, snd_pcm_info_t *dev
 	if (!(name && *name))
 		name = "Unknown";
 
-	snprintf(device_name, 64, "%s,%d", this->card_name, snd_pcm_info_get_device(dev_info));
-
 	spa_pod_builder_add(builder,
 		"<", 0, t->monitor.MonitorItem,
-		":", t->monitor.id,      "s", name,
+		":", t->monitor.id,      "s", id,
 		":", t->monitor.flags,   "i", 0,
 		":", t->monitor.state,   "i", SPA_MONITOR_ITEM_STATE_AVAILABLE,
 		":", t->monitor.name,    "s", name,
@@ -151,7 +188,7 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info, snd_pcm_info_t *dev
 		":", t->monitor.info,    "[", NULL);
 
 	spa_pod_builder_add(builder,
-		"s", "alsa.card",            "s", this->card_name,
+		"s", "alsa.card",            "s", card->name,
 		"s", "alsa.device",          "s", device_name,
 		"s", "alsa.card.id",         "s", snd_ctl_card_info_get_id(card_info),
 		"s", "alsa.card.components", "s", snd_ctl_card_info_get_components(card_info),
@@ -161,6 +198,7 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info, snd_pcm_info_t *dev
 		"s", "alsa.card.mixername",  "s", snd_ctl_card_info_get_mixername(card_info),
 		"s", "udev-probed",          "s", "1",
 		"s", "device.api",           "s", "alsa",
+		"s", "device.name",          "s", snd_ctl_card_info_get_id(card_info),
 		"s", "alsa.pcm.id",          "s", snd_pcm_info_get_id(dev_info),
 		"s", "alsa.pcm.name",        "s", snd_pcm_info_get_name(dev_info),
 		"s", "alsa.pcm.subname",     "s", snd_pcm_info_get_subdevice_name(dev_info),
@@ -217,67 +255,87 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info, snd_pcm_info_t *dev
 	return 0;
 }
 
-static void close_card(struct impl *this)
+static struct card *find_card(struct impl *this, struct udev_device *dev)
 {
-	if (this->ctl_hndl)
-		snd_ctl_close(this->ctl_hndl);
-	this->ctl_hndl = NULL;
-}
-
-static int open_card(struct impl *this, struct udev_device *dev)
-{
-	int err;
+	int id;
 	const char *str;
-
-	if (this->ctl_hndl)
-		return 0;
+	struct card *card;
 
 	if (udev_device_get_property_value(dev, "PULSE_IGNORE"))
-		return -1;
+		return NULL;
 
 	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && strcmp(str, "modem") == 0)
-		return -1;
+		return NULL;
 
 	if ((str = path_get_card_id(udev_device_get_property_value(dev, "DEVPATH"))) == NULL)
-		return -1;
+		return NULL;
 
-	snprintf(this->card_name, 16, "hw:%s", str);
+	id = atoi(str);
+	if (id < 0 || id >= MAX_CARDS)
+		return NULL;
 
-	if ((err = snd_ctl_open(&this->ctl_hndl, this->card_name, 0)) < 0) {
-		spa_log_error(this->log, "can't open control for card %s: %s", this->card_name, snd_strerror(err));
+	card = &this->cards[id];
+	card->id = id;
+	card->dev = dev;
+
+	return card;
+}
+
+static int open_card(struct impl *this, struct card *card)
+{
+	int err;
+
+	if (card->ctl_hndl)
+		return 0;
+
+	snprintf(card->name, 16, "hw:%d", card->id);
+
+	if ((err = snd_ctl_open(&card->ctl_hndl, card->name, 0)) < 0) {
+		spa_log_error(this->log, "can't open control for card %s: %s",
+				card->name, snd_strerror(err));
 		return err;
 	}
-	this->dev_idx = -1;
-	this->stream_idx = -1;
+	card->device_idx = -1;
+	card->stream_idx = -1;
 
 	return 0;
 }
 
-static int get_next_device(struct impl *this, struct udev_device *dev,
+static void close_card(struct card *card)
+{
+	if (card->ctl_hndl == NULL)
+		return;
+
+	udev_device_unref(card->dev);
+	snd_ctl_close(card->ctl_hndl);
+	card->ctl_hndl = NULL;
+}
+
+static int get_next_device(struct impl *this, struct card *card,
 			   struct spa_pod **item, struct spa_pod_builder *builder)
 {
 	int err;
 	snd_pcm_info_t *dev_info;
 	snd_ctl_card_info_t *card_info;
 
-	if (this->stream_idx == -1) {
+	if (card->stream_idx == -1) {
 	      next_device:
-		if ((err = snd_ctl_pcm_next_device(this->ctl_hndl, &this->dev_idx)) < 0) {
+		if ((err = snd_ctl_pcm_next_device(card->ctl_hndl, &card->device_idx)) < 0) {
 			spa_log_error(this->log, "error iterating devices: %s", snd_strerror(err));
 			return err;
 		}
-		if (this->dev_idx < 0)
+		if (card->device_idx < 0)
 			return -1;
 
-		this->stream_idx = 0;
+		card->stream_idx = 0;
 	}
 
 	snd_pcm_info_alloca(&dev_info);
-	snd_pcm_info_set_device(dev_info, this->dev_idx);
+	snd_pcm_info_set_device(dev_info, card->device_idx);
 	snd_pcm_info_set_subdevice(dev_info, 0);
 
       again:
-	switch (this->stream_idx++) {
+	switch (card->stream_idx++) {
 	case 0:
 		snd_pcm_info_set_stream(dev_info, SND_PCM_STREAM_PLAYBACK);
 		break;
@@ -290,15 +348,15 @@ static int get_next_device(struct impl *this, struct udev_device *dev,
 
 	snd_ctl_card_info_alloca(&card_info);
 
-	if ((err = snd_ctl_card_info(this->ctl_hndl, card_info)) < 0) {
+	if ((err = snd_ctl_card_info(card->ctl_hndl, card_info)) < 0) {
 		spa_log_error(this->log, "can't get card info for device: %s", snd_strerror(err));
 		return err;
 	}
 
-	if ((err = snd_ctl_pcm_info(this->ctl_hndl, dev_info)) < 0)
+	if ((err = snd_ctl_pcm_info(card->ctl_hndl, dev_info)) < 0)
 		goto again;
 
-	return fill_item(this, card_info, dev_info, dev, item, builder);
+	return fill_item(this, card_info, dev_info, card, item, builder);
 }
 
 static void impl_on_fd_events(struct spa_source *source)
@@ -307,6 +365,9 @@ static void impl_on_fd_events(struct spa_source *source)
 	struct udev_device *dev;
 	const char *action;
 	uint32_t type;
+	struct card *card;
+	struct spa_event *event;
+	struct type *t = &this->type;
 
 	dev = udev_monitor_receive_device(this->umonitor);
 
@@ -322,22 +383,57 @@ static void impl_on_fd_events(struct spa_source *source)
 	} else
 		return;
 
-	if (open_card(this, dev) < 0)
+	if ((card = find_card(this, dev)) == NULL)
 		return;
 
-	while (true) {
-		uint8_t buffer[4096];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-		struct spa_event *event;
-		struct spa_pod *item;
+	if (type == this->type.monitor.Removed) {
+		int i;
 
-		event = spa_pod_builder_object(&b, 0, type);
-		if (get_next_device(this, dev, &item, &b) < 0)
-			break;
+		for (i = 0; i < MAX_DEVICES; i++) {
+			struct device *device = &card->devices[i];
+			uint8_t buffer[4096];
+			char id[64];
+			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-		this->callbacks->event(this->callbacks_data, event);
+
+			if (SPA_FLAG_CHECK(device->flags, DEVICE_FLAG_PLAYBACK)) {
+				snprintf(id, 64, "%s,%d/P", card->name, device->id);
+				event = spa_pod_builder_object(&b, 0, type);
+				spa_pod_builder_object(&b,
+					0, t->monitor.MonitorItem,
+					":", t->monitor.id,      "s", id,
+					":", t->monitor.name,    "s", id);
+				this->callbacks->event(this->callbacks_data, event);
+			}
+			if (SPA_FLAG_CHECK(device->flags, DEVICE_FLAG_RECORD)) {
+				snprintf(id, 64, "%s,%d/C", card->name, device->id);
+				event = spa_pod_builder_object(&b, 0, type);
+				spa_pod_builder_object(&b,
+					0, t->monitor.MonitorItem,
+					":", t->monitor.id,      "s", id,
+					":", t->monitor.name,    "s", id);
+				this->callbacks->event(this->callbacks_data, event);
+			}
+			device->flags = 0;
+		}
 	}
-	close_card(this);
+	else {
+		if (open_card(this, card) < 0)
+			return;
+
+		while (true) {
+			uint8_t buffer[4096];
+			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+			struct spa_pod *item;
+
+			event = spa_pod_builder_object(&b, 0, type);
+			if (get_next_device(this, card, &item, &b) < 0)
+				break;
+
+			this->callbacks->event(this->callbacks_data, event);
+		}
+	}
+	close_card(card);
 }
 
 static int
@@ -388,6 +484,8 @@ static int impl_monitor_enum_items(struct spa_monitor *monitor,
 {
 	int res;
 	struct impl *this;
+	struct udev_device *dev;
+	struct card *card;
 
 	spa_return_val_if_fail(monitor != NULL, -EINVAL);
 	spa_return_val_if_fail(item != NULL, -EINVAL);
@@ -406,6 +504,7 @@ static int impl_monitor_enum_items(struct spa_monitor *monitor,
 		udev_enumerate_scan_devices(this->enumerate);
 
 		this->devices = udev_enumerate_get_list_entry(this->enumerate);
+		this->card_idx = -1;
 		this->index = 0;
 	}
 	while (*index > this->index && this->devices) {
@@ -416,20 +515,28 @@ static int impl_monitor_enum_items(struct spa_monitor *monitor,
 	if (this->devices == NULL)
 		return 0;
 
-	if (this->dev == NULL) {
-		this->dev = udev_device_new_from_syspath(this->udev, udev_list_entry_get_name(this->devices));
+	if (this->card_idx == -1) {
+		dev = udev_device_new_from_syspath(this->udev,
+				udev_list_entry_get_name(this->devices));
 
-		if (open_card(this, this->dev) < 0) {
-			udev_device_unref(this->dev);
+		if ((card = find_card(this, dev)) == NULL) {
+			udev_device_unref(dev);
+			goto next;
+		}
+
+		if (open_card(this, card) < 0) {
 		      next:
-			this->dev = NULL;
+			this->card_idx = -1;
 			this->devices = udev_list_entry_get_next(this->devices);
 			goto again;
 		}
+		this->card_idx = card->id;
 	}
-	if (get_next_device(this, this->dev, item, builder) < 0) {
-		udev_device_unref(this->dev);
-		close_card(this);
+	else
+		card = &this->cards[this->card_idx];
+
+	if (get_next_device(this, card, item, builder) < 0) {
+		close_card(card);
 		goto next;
 	}
 
@@ -466,9 +573,11 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 static int impl_clear(struct spa_handle *handle)
 {
         struct impl *this = (struct impl *) handle;
+	int i;
 
-	if (this->dev)
-		udev_device_unref(this->dev);
+	for (i = 0; i < MAX_CARDS; i++)
+		close_card(&this->cards[i]);
+
         if (this->enumerate)
                 udev_enumerate_unref(this->enumerate);
         if (this->umonitor)

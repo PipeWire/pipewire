@@ -79,13 +79,13 @@ static void complete_init(struct impl *impl)
 	if (SPA_FLAG_CHECK(impl->flags, PW_SPA_NODE_FLAG_DISABLE))
 		pw_node_set_enabled(this, false);
 
+	if (SPA_FLAG_CHECK(impl->flags, PW_SPA_NODE_FLAG_ACTIVATE))
+		pw_node_set_active(this, true);
+
 	if (!SPA_FLAG_CHECK(impl->flags, PW_SPA_NODE_FLAG_NO_REGISTER))
 		pw_node_register(this, impl->owner, impl->parent, NULL);
 	else
 		pw_node_initialized(this);
-
-	if (SPA_FLAG_CHECK(impl->flags, PW_SPA_NODE_FLAG_ACTIVATE))
-		pw_node_set_active(this, true);
 }
 
 static void on_node_done(void *data, uint32_t seq, int res)

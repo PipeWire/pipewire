@@ -663,6 +663,22 @@ static struct spa_bt_node *node_create(struct spa_bt_monitor *monitor, struct sp
 	return NULL;
 }
 
+static struct spa_bt_node *node_destroy(struct spa_bt_monitor *monitor, struct spa_bt_transport *transport)
+{
+	struct spa_event *event;
+	struct spa_pod_builder b = { NULL, };
+	uint8_t buffer[4096];
+	struct spa_pod *item;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	event = spa_pod_builder_object(&b, 0, monitor->type.monitor.Removed);
+	fill_item(monitor, transport, &item, &b);
+
+	monitor->callbacks->event(monitor->callbacks_data, event);
+
+	return NULL;
+}
+
 static int transport_acquire(struct spa_bt_transport *transport, bool optional)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
@@ -819,7 +835,26 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 
 static DBusHandlerResult endpoint_clear_configuration(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
+	struct spa_bt_monitor *monitor = userdata;
+	DBusError err;
 	DBusMessage *r;
+	const char *transport_path;
+	struct spa_bt_transport *transport;
+
+	dbus_error_init(&err);
+
+	if (!dbus_message_get_args(m, &err,
+				   DBUS_TYPE_OBJECT_PATH, &transport_path,
+				   DBUS_TYPE_INVALID)) {
+		spa_log_warn(monitor->log, "Bad ClearConfiguration method call: %s",
+			err.message);
+		dbus_error_free(&err);
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	}
+
+	transport = transport_find(monitor, transport_path);
+	if (transport != NULL)
+		node_destroy(monitor, transport);
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;

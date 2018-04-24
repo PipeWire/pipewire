@@ -300,22 +300,6 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	return 0;
 }
 
-static inline void try_pull(struct impl *this, uint32_t frames, bool do_pull)
-{
-	struct spa_io_buffers *io = this->io;
-
-	if (spa_list_is_empty(&this->ready) && do_pull) {
-		spa_log_trace(this->log, "a2dp-sink %p: %d", this, io->status);
-		io->status = SPA_STATUS_NEED_BUFFER;
-		if (this->range) {
-			this->range->offset = this->sample_count * this->frame_size;
-			this->range->min_size = this->threshold * this->frame_size;
-			this->range->max_size = frames * this->frame_size;
-		}
-		this->callbacks->process(this->callbacks_data, SPA_STATUS_NEED_BUFFER);
-	}
-}
-
 static inline void calc_timeout(size_t target, size_t current,
 				size_t rate, struct timespec *now,
 				struct timespec *ts)
@@ -549,8 +533,6 @@ static int flush_data(struct impl *this, uint64_t now_time)
 			spa_log_trace(this->log, "a2dp-sink %p: reuse buffer %u", this, b->outbuf->id);
 			this->callbacks->reuse_buffer(this->callbacks_data, 0, b->outbuf->id);
 			this->ready_offset = 0;
-
-			try_pull(this, this->write_samples, true);
 		}
 		total_frames += n_frames;
 
@@ -647,6 +629,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 	struct impl *this = source->data;
 	int err;
 	uint64_t exp, now_time;
+	struct spa_io_buffers *io = this->io;
 
 	if (this->started && read(this->timerfd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(this->log, "error reading timerfd: %s", strerror(errno));
@@ -657,16 +640,27 @@ static void a2dp_on_timeout(struct spa_source *source)
 	spa_log_trace(this->log, "timeout %ld %ld", now_time, now_time - this->last_time);
 	this->last_time = now_time;
 
-	try_pull(this, this->write_samples, true);
-
 	if (this->start_time == 0) {
 		if ((err = fill_socket(this, now_time)) < 0)
 			spa_log_error(this->log, "error fill socket %s", spa_strerror(err));
 		this->start_time = now_time;
 	}
 
-	flush_data(this, now_time);
+	if (spa_list_is_empty(&this->ready)) {
+		spa_log_trace(this->log, "a2dp-sink %p: %d", this, io->status);
+		io->status = SPA_STATUS_NEED_BUFFER;
+		if (this->range) {
+			this->range->offset = this->sample_count * this->frame_size;
+			this->range->min_size = this->threshold * this->frame_size;
+			this->range->max_size = this->write_samples * this->frame_size;
+		}
+		this->callbacks->process(this->callbacks_data, SPA_STATUS_NEED_BUFFER);
+	}
+	else {
+		flush_data(this, now_time);
+	}
 }
+
 
 static int init_sbc(struct impl *this)
 {
@@ -1270,6 +1264,7 @@ static int impl_node_process(struct spa_node *node)
 
 	if (input->status == SPA_STATUS_HAVE_BUFFER && input->buffer_id < this->n_buffers) {
 		struct buffer *b = &this->buffers[input->buffer_id];
+		uint64_t now_time;
 
 		if (!b->outstanding) {
 			spa_log_warn(this->log, NAME " %p: buffer %u in use", this, input->buffer_id);
@@ -1281,7 +1276,12 @@ static int impl_node_process(struct spa_node *node)
 
 		spa_list_append(&this->ready, &b->link);
 		b->outstanding = false;
-		input->buffer_id = SPA_ID_INVALID;
+
+		clock_gettime(CLOCK_MONOTONIC, &this->now);
+		now_time = this->now.tv_sec * SPA_NSEC_PER_SEC + this->now.tv_nsec;
+
+		flush_data(this, now_time);
+
 		input->status = SPA_STATUS_OK;
 	}
 	return SPA_STATUS_OK;
@@ -1289,6 +1289,7 @@ static int impl_node_process(struct spa_node *node)
 
 static const struct spa_dict_item node_info_items[] = {
 	{ "media.class", "Audio/Sink" },
+        { "node.driver", "true" },
 };
 
 static const struct spa_dict node_info = {

@@ -612,7 +612,8 @@ static void a2dp_on_flush(struct spa_source *source)
 
 	if ((source->rmask & SPA_IO_OUT) == 0) {
 		spa_log_warn(this->log, "error %d", source->rmask);
-		spa_loop_remove_source(this->data_loop, &this->flush_source);
+		if (this->flush_source.loop)
+			spa_loop_remove_source(this->data_loop, &this->flush_source);
 		this->source.mask = 0;
 		spa_loop_update_source(this->data_loop, &this->source);
 		return;
@@ -812,13 +813,15 @@ static int do_remove_source(struct spa_loop *loop,
 	struct impl *this = user_data;
 	struct itimerspec ts;
 
-	spa_loop_remove_source(this->data_loop, &this->source);
+	if (this->source.loop)
+		spa_loop_remove_source(this->data_loop, &this->source);
 	ts.it_value.tv_sec = 0;
 	ts.it_value.tv_nsec = 0;
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;
 	timerfd_settime(this->timerfd, 0, &ts, NULL);
-	spa_loop_remove_source(this->data_loop, &this->flush_source);
+	if (this->flush_source.loop)
+		spa_loop_remove_source(this->data_loop, &this->flush_source);
 
 	return 0;
 }

@@ -1255,10 +1255,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	spa_list_append(&output->links, &this->output_link);
 	spa_list_append(&input->links, &this->input_link);
 
-	this->info.output_node_id = output_node->global->id;
-	this->info.output_port_id = output->global->id;
-	this->info.input_node_id = input_node->global->id;
-	this->info.input_port_id = input->global->id;
 	this->info.format = NULL;
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 
@@ -1322,6 +1318,14 @@ int pw_link_register(struct pw_link *link,
 	if (properties == NULL)
 		return -ENOMEM;
 
+	input_node = link->input->node;
+	output_node = link->output->node;
+
+	link->info.output_node_id = output_node->global->id;
+	link->info.output_port_id = link->output->global->id;
+	link->info.input_node_id = input_node->global->id;
+	link->info.input_port_id = link->input->global->id;
+
 	pw_properties_setf(properties, "link.output", "%d", link->info.output_port_id);
 	pw_properties_setf(properties, "link.input", "%d", link->info.input_port_id);
 
@@ -1337,11 +1341,8 @@ int pw_link_register(struct pw_link *link,
 
 	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);
 
-	pw_global_register(link->global, owner, parent);
 	link->info.id = link->global->id;
-
-	input_node = link->input->node;
-	output_node = link->output->node;
+	pw_global_register(link->global, owner, parent);
 
 	pw_log_debug("link %p: in %d %d, out %d %d, %d %d %d %d", link,
 			input_node->n_used_input_links,

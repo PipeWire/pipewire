@@ -330,8 +330,22 @@ static void global_destroy(void *data)
 	pw_node_destroy(this);
 }
 
+static void global_registering(void *data)
+{
+	struct pw_node *this = data;
+	struct pw_port *port;
+
+	spa_list_for_each(port, &this->input_ports, link)
+		pw_port_register(port, this->global->owner, this->global,
+				 pw_properties_copy(port->properties));
+	spa_list_for_each(port, &this->output_ports, link)
+		pw_port_register(port, this->global->owner, this->global,
+				 pw_properties_copy(port->properties));
+}
+
 static const struct pw_global_events global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
+	.registering = global_registering,
 	.destroy = global_destroy,
 	.bind = global_bind,
 };
@@ -343,7 +357,6 @@ int pw_node_register(struct pw_node *this,
 {
 	struct pw_core *core = this->core;
 	const char *str;
-	struct pw_port *port;
 
 	pw_log_debug("node %p: register", this);
 
@@ -373,15 +386,8 @@ int pw_node_register(struct pw_node *this,
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 
-	pw_global_register(this->global, owner, parent);
 	this->info.id = this->global->id;
-
-	spa_list_for_each(port, &this->input_ports, link)
-		pw_port_register(port, owner, this->global,
-				 pw_properties_copy(port->properties));
-	spa_list_for_each(port, &this->output_ports, link)
-		pw_port_register(port, owner, this->global,
-				 pw_properties_copy(port->properties));
+	pw_global_register(this->global, owner, parent);
 
 	return pw_node_initialized(this);
 }

@@ -372,7 +372,7 @@ static void on_node_created(struct node_info *info)
 
 	if (strcmp(category, "Capture") == 0)
 		direction = PW_DIRECTION_OUTPUT;
-	if (strcmp(category, "Playback") == 0)
+	else if (strcmp(category, "Playback") == 0)
 		direction = PW_DIRECTION_INPUT;
 	else
 		return;

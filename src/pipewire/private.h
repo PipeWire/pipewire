@@ -274,6 +274,7 @@ struct pw_node {
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
 	struct {
+		struct spa_graph *driver;
 		struct spa_graph_node root;
 		struct pw_node_activation *activation;
 		struct spa_graph_node node;

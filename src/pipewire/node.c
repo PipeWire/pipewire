@@ -488,6 +488,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_graph_set_callbacks(&impl->driver_graph,
 			&driver_impl_default, &impl->driver_data);
 
+	this->rt.driver = &impl->driver_graph;
 	this->rt.activation = &impl->root_activation;
 	spa_graph_node_init(&this->rt.root, &this->rt.activation->state);
 	spa_graph_node_add(&impl->driver_graph, &this->rt.root);
@@ -587,14 +588,14 @@ static void node_process(void *data, int status)
 	struct pw_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
-	pw_log_trace("node %p: process %d %d", node, node->driver, node->exported);
+	pw_log_trace("node %p: process driver:%d exported:%d", node, node->driver, node->exported);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, process);
 
 	if (node->driver) {
 		if (!node->exported) {
-			if (impl->driver_graph.state->pending == 0 || !node->remote)
-				spa_graph_run(&impl->driver_graph);
+			if (node->rt.driver->state->pending == 0 || !node->remote)
+				spa_graph_run(node->rt.driver);
 			else
 				spa_graph_node_trigger(&node->rt.node);
 		}

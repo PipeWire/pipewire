@@ -63,9 +63,9 @@ static inline int spa_graph_link_trigger(struct spa_graph_link *link)
 	struct spa_graph_state *state = link->state;
 
 	if (state->pending == 0) {
-		spa_debug("link %p: nothing pending", link);
+		spa_debug("link %p: state %p: nothing pending", link, state);
 	} else {
-		spa_debug("link %p: pending %d required %d", link,
+		spa_debug("link %p: state %p: pending %d required %d", link, state,
 	                        state->pending, state->required);
 		if (__atomic_sub_fetch(&state->pending, 1, __ATOMIC_SEQ_CST) == 0)
 			spa_graph_link_signal(link);
@@ -134,6 +134,7 @@ struct spa_graph_port {
 static inline int spa_graph_link_signal_node(void *data)
 {
 	struct spa_graph_node *node = data;
+	spa_debug("node %p call process", node);
 	return spa_graph_node_process(node);
 }
 
@@ -150,7 +151,7 @@ static inline void spa_graph_init(struct spa_graph *graph, struct spa_graph_stat
 	spa_list_init(&graph->nodes);
 	graph->flags = 0;
 	graph->state = state;
-	spa_debug("graph %p init", graph);
+	spa_debug("graph %p init state %p", graph, state);
 }
 
 static inline void
@@ -167,7 +168,7 @@ spa_graph_link_add(struct spa_graph_node *out,
 		   struct spa_graph_state *state,
 		   struct spa_graph_link *link)
 {
-	spa_debug("node %p add link %p to node %p", out, link, state);
+	spa_debug("node %p add link %p to state %p", out, link, state);
 	link->state = state;
 	state->required++;
 	spa_list_append(&out->links, &link->link);
@@ -193,7 +194,7 @@ spa_graph_node_init(struct spa_graph_node *node, struct spa_graph_state *state)
 	node->state->status = SPA_STATUS_OK;
 	node->graph_link.signal = spa_graph_link_signal_graph;
 	node->graph_link.signal_data = node;
-	spa_debug("node %p init", node);
+	spa_debug("node %p init state %p", node, state);
 }
 
 static inline int spa_graph_node_impl_trigger(void *data, struct spa_graph_node *node)
@@ -303,12 +304,13 @@ spa_graph_port_unlink(struct spa_graph_port *port)
 static inline int spa_graph_node_impl_process(void *data, struct spa_graph_node *node)
 {
 	struct spa_node *n = data;
+	struct spa_graph_state *state = node->state;
 
-	spa_debug("node %p: process %d", node, node->state->status);
-	if ((node->state->status = spa_node_process(n)) != SPA_STATUS_OK)
+	spa_debug("node %p: process state %p: %d", node, state, state->status);
+	if ((state->status = spa_node_process(n)) != SPA_STATUS_OK)
 		spa_graph_node_trigger(node);
 
-        return node->state->status;
+        return state->status;
 }
 
 static inline int spa_graph_node_impl_reuse_buffer(void *data, struct spa_graph_node *node,

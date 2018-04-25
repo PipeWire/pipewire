@@ -255,31 +255,31 @@ static int find_global(void *data, struct pw_global *global)
 	struct pw_node *node;
 	const struct pw_properties *props;
 	const char *str;
-	uint64_t plugged;
+	uint64_t plugged = 0;
 
 	if (pw_global_get_type(global) != impl->t->node)
 		return 0;
 
 	pw_log_debug("module %p: looking at node '%d'", impl, pw_global_get_id(global));
 
-	node = pw_global_get_object(global);
-
-	if ((props = pw_node_get_properties(node)) == NULL)
-		return 0;
-
-	if ((str = pw_properties_get(props, "media.class")) == NULL)
-		return 0;
-
-	if (strcmp(str, find->media_class) != 0)
-		return 0;
-
 	if (find->path_id != SPA_ID_INVALID && global->id != find->path_id)
 		return 0;
 
-	if ((str = pw_properties_get(props, "node.plugged")) != NULL)
-		plugged = pw_properties_parse_uint64(str);
-	else
-		plugged = 0;
+	if (find->path_id == SPA_ID_INVALID) {
+		node = pw_global_get_object(global);
+
+		if ((props = pw_node_get_properties(node)) == NULL)
+			return 0;
+
+		if ((str = pw_properties_get(props, "media.class")) == NULL)
+			return 0;
+
+		if (strcmp(str, find->media_class) != 0)
+			return 0;
+
+		if ((str = pw_properties_get(props, "node.plugged")) != NULL)
+			plugged = pw_properties_parse_uint64(str);
+	}
 
 	pw_log_debug("module %p: found node '%d' %" PRIu64, impl,
 			pw_global_get_id(global), plugged);

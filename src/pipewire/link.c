@@ -1166,22 +1166,31 @@ do_join_graphs(struct spa_loop *loop,
 {
         struct pw_link *this = user_data;
 	struct spa_graph *in_graph, *out_graph;
+	struct spa_graph_node *in_root, *out_root;
 
-	in_graph = this->input->node->rt.root.graph;
-	out_graph = this->output->node->rt.root.graph;
+	in_root = &this->input->node->rt.root;
+	out_root = &this->output->node->rt.root;
+
+	in_graph = in_root->graph;
+	out_graph = out_root->graph;
+
+	pw_log_debug("link %p: roots %p/%p graphs %p/%p", this,
+			in_root, out_root, in_graph, out_graph);
 
 	if (in_graph != out_graph) {
 		if (SPA_FLAG_CHECK(in_graph->flags, SPA_GRAPH_FLAG_DRIVER)) {
-			spa_graph_node_remove(&this->output->node->rt.root);
-			spa_graph_node_add(in_graph, &this->output->node->rt.root);
+			pw_log_debug("link %p: out_root to in_graph", this);
+			spa_graph_node_remove(out_root);
+			spa_graph_node_add(in_graph, out_root);
 		}
 		else {
-			spa_graph_node_remove(&this->input->node->rt.root);
-			spa_graph_node_add(out_graph, &this->input->node->rt.root);
+			pw_log_debug("link %p: in_root to out_graph", this);
+			spa_graph_node_remove(in_root);
+			spa_graph_node_add(out_graph, in_root);
 		}
 	}
 	this->rt.link.signal = spa_graph_link_signal_node;
-	this->rt.link.signal_data = &this->input->node->rt.root;
+	this->rt.link.signal_data = in_root;
 
 	return 0;
 }

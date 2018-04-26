@@ -52,6 +52,8 @@ struct impl {
 	struct type type;
 	struct spa_type_map *map;
 
+	bool colors;
+
 	struct spa_ringbuffer trace_rb;
 	uint8_t trace_data[TRACE_BUFFER];
 
@@ -71,15 +73,25 @@ impl_log_logv(struct spa_log *log,
 	struct impl *impl = SPA_CONTAINER_OF(log, struct impl, log);
 	char text[512], location[1024];
 	static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
+	const char *prefix = "", *suffix = "";
 	int size;
 	bool do_trace;
 
 	if ((do_trace = (level == SPA_LOG_LEVEL_TRACE && impl->have_source)))
 		level++;
 
+	if (impl->colors) {
+		if (level <= SPA_LOG_LEVEL_ERROR)
+			prefix = "\x1B[1;31m";
+		else if (level <= SPA_LOG_LEVEL_WARN)
+			prefix = "\x1B[1;33m";
+		if (prefix[0])
+			suffix = "\x1B[0m";
+	}
+
 	vsnprintf(text, sizeof(text), fmt, args);
-	size = snprintf(location, sizeof(location), "[%s][%s:%i %s()] %s\n",
-		levels[level], strrchr(file, '/') + 1, line, func, text);
+	size = snprintf(location, sizeof(location), "%s[%s][%s:%i %s()] %s%s\n",
+		prefix, levels[level], strrchr(file, '/') + 1, line, func, text, suffix);
 
 	if (SPA_UNLIKELY(do_trace)) {
 		uint32_t index;
@@ -197,6 +209,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *this;
 	uint32_t i;
 	struct spa_loop *loop = NULL;
+	const char *str;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -219,6 +232,9 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 	init_type(&this->type, this->map);
+
+	if (info && (str = spa_dict_lookup(info, "log.colors")) != NULL)
+		this->colors = (strcmp(str, "true") == 0 || atoi(str) == 1);
 
 	if (loop) {
 		this->source.func = on_trace_event;

@@ -420,6 +420,7 @@ static int port_get_format(struct spa_node *node,
 		"I", t->media_type.audio,
 		"I", t->media_subtype.raw,
 		":", t->format_audio.format,   "I", this->format.info.raw.format,
+		":", t->format_audio.layout,   "i", this->format.info.raw.layout,
 		":", t->format_audio.rate,     "i", this->format.info.raw.rate,
 		":", t->format_audio.channels, "i", this->format.info.raw.channels);
 
@@ -598,7 +599,6 @@ static int port_set_format(struct spa_node *node,
 		if (direction == SPA_DIRECTION_INPUT) {
 			if (info.info.raw.channels != this->port_count)
 				return -EINVAL;
-			this->bpf *= this->port_count;
 		} else {
 			if (info.info.raw.channels != 1)
 				return -EINVAL;

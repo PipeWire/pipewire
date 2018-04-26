@@ -598,6 +598,7 @@ static int impl_node_process(struct spa_node *node)
 {
 	struct state *this;
 	struct spa_io_buffers *io;
+	struct buffer *b;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -612,11 +613,24 @@ static int impl_node_process(struct spa_node *node)
 		recycle_buffer(this, io->buffer_id);
 		io->buffer_id = SPA_ID_INVALID;
 	}
-	return 0;
+
+	if (spa_list_is_empty(&this->ready))
+		return -EPIPE;
+
+	b = spa_list_first(&this->ready, struct buffer, link);
+	spa_list_remove(&b->link);
+
+	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", node, b->outbuf->id);
+
+	io->buffer_id = b->outbuf->id;
+	io->status = SPA_STATUS_HAVE_BUFFER;
+
+	return SPA_STATUS_HAVE_BUFFER;
 }
 
 static const struct spa_dict_item node_info_items[] = {
 	{ "media.class", "Audio/Source" },
+	{ "node.driver", "true" },
 };
 
 static const struct spa_dict node_info = {

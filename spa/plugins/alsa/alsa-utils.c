@@ -470,7 +470,6 @@ push_frames(struct state *state,
 	    snd_pcm_uframes_t frames)
 {
 	snd_pcm_uframes_t total_frames = 0;
-	struct spa_io_buffers *io = state->io;
 
 	if (spa_list_is_empty(&state->free)) {
 		spa_log_trace(state->log, "no more buffers");
@@ -503,17 +502,17 @@ push_frames(struct state *state,
 		l0 = SPA_MIN(n_bytes, d[0].maxsize - offs);
 		l1 = n_bytes - l0;
 
-		memcpy(src, d[0].data + offs, l0);
+		memcpy(d[0].data + offs, src, l0);
 		if (l1 > 0)
-			memcpy(src + l0, d[0].data, l1);
+			memcpy(d[0].data, src + l0, l1);
 
 		d[0].chunk->offset = index;
 		d[0].chunk->size = n_bytes;
 		d[0].chunk->stride = state->frame_size;
 
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-		io->buffer_id = b->outbuf->id;
-		io->status = SPA_STATUS_HAVE_BUFFER;
+		spa_list_append(&state->ready, &b->link);
+
 		state->callbacks->process(state->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 	}
 	return total_frames;

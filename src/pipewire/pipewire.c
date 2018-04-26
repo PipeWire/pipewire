@@ -171,6 +171,7 @@ static const struct spa_handle_factory *find_factory(struct plugin *plugin, cons
 static struct handle *
 load_handle(struct plugin *plugin,
 	    const char *factory_name,
+	    const struct spa_dict *info,
 	    uint32_t n_support,
 	    struct spa_support support[n_support])
 {
@@ -188,7 +189,7 @@ load_handle(struct plugin *plugin,
 		goto alloc_failed;
 
         if ((res = spa_handle_factory_init(factory,
-                                           hnd, NULL,
+                                           hnd, info,
 					   support, n_support)) < 0) {
                 fprintf(stderr, "can't make factory instance: %d\n", res);
                 goto init_failed;
@@ -231,6 +232,7 @@ static struct interface *
 load_interface(struct plugin *plugin,
 	       const char *factory_name,
 	       const char *type,
+	       const struct spa_dict *info,
 	       uint32_t n_support,
 	       struct spa_support support[n_support])
 {
@@ -241,7 +243,7 @@ load_interface(struct plugin *plugin,
 	struct spa_type_map *map = NULL;
 	struct interface *iface;
 
-        handle = load_handle(plugin, factory_name, n_support, support);
+        handle = load_handle(plugin, factory_name, info, n_support, support);
 	if (handle == NULL)
 		goto not_found;
 
@@ -317,7 +319,9 @@ const struct spa_support *pw_get_support(uint32_t *n_support)
 }
 
 void *pw_load_spa_interface(const char *lib, const char *factory_name, const char *type,
-			    struct spa_support *support, uint32_t n_support)
+			    const struct spa_dict *info,
+			    uint32_t n_support,
+			    struct spa_support support[n_support])
 {
 	struct support *sup = &global_support;
 	struct spa_support extra_support[MAX_SUPPORT];
@@ -335,11 +339,13 @@ void *pw_load_spa_interface(const char *lib, const char *factory_name, const cha
 			SPA_SUPPORT_INIT(support[i].type, support[i].data);
 	}
 	pw_log_debug("load \"%s\", \"%s\"", lib, factory_name);
-	if ((plugin = open_plugin(sup->registry, sup->plugin_dir, lib)) == NULL)
+	if ((plugin = open_plugin(sup->registry, sup->plugin_dir, lib)) == NULL) {
+		pw_log_warn("can't load '%s'", lib);
 		return NULL;
+	}
 
-	if ((iface = load_interface(plugin, factory_name,
-					type, extra_n_support, extra_support)) == NULL)
+	if ((iface = load_interface(plugin, factory_name, type, info,
+					extra_n_support, extra_support)) == NULL)
 		return NULL;
 
 	return iface->iface;
@@ -380,7 +386,7 @@ void *pw_get_spa_dbus(struct pw_loop *loop)
 	struct spa_support support = SPA_SUPPORT_INIT(SPA_TYPE__LoopUtils, loop->utils);
 
 	return pw_load_spa_interface("support/libspa-dbus", "dbus", SPA_TYPE__DBus,
-			&support, 1);
+			NULL, 1, &support);
 }
 
 /** Initialize PipeWire
@@ -401,6 +407,8 @@ void pw_init(int *argc, char **argv[])
 	struct interface *iface;
 	struct support *support = &global_support;
 	struct plugin *plugin;
+	struct spa_dict info;
+	struct spa_dict_item items[1];
 
 	if ((str = getenv("PIPEWIRE_DEBUG")))
 		configure_debug(support, str);
@@ -423,13 +431,16 @@ void pw_init(int *argc, char **argv[])
 
 	support->support_plugin = plugin;
 
-	iface = load_interface(plugin, "mapper", SPA_TYPE__TypeMap,
+	items[0] = SPA_DICT_ITEM_INIT("log.colors", "1");
+	info = SPA_DICT_INIT(items, 1);
+
+	iface = load_interface(plugin, "mapper", SPA_TYPE__TypeMap, NULL,
 			support->n_support, support->support);
 	if (iface != NULL)
 		support->support[support->n_support++] =
 			SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, iface->iface);
 
-	iface = load_interface(plugin, "logger", SPA_TYPE__Log,
+	iface = load_interface(plugin, "logger", SPA_TYPE__Log, &info,
 			support->n_support, support->support);
 	if (iface != NULL) {
 		support->support[support->n_support++] =

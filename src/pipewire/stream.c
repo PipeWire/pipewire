@@ -998,12 +998,12 @@ set_init_params(struct pw_stream *stream,
 
 		if (SPA_FLAG_CHECK(convert_mask, CONVERT_AUDIO)) {
 			if ((impl->convert = pw_load_spa_interface("audioconvert/libspa-audioconvert",
-					"audioconvert", SPA_TYPE__Node, NULL, 0)) == NULL)
+					"audioconvert", SPA_TYPE__Node, NULL, 0, NULL)) == NULL)
 				goto done;
 		}
 		if (SPA_FLAG_CHECK(convert_mask, CONVERT_VIDEO)) {
 			if ((impl->convert = pw_load_spa_interface("videoconvert/libspa-videoconvert",
-					"videoconvert", SPA_TYPE__Node, NULL, 0)) == NULL)
+					"videoconvert", SPA_TYPE__Node, NULL, 0, NULL)) == NULL)
 				goto done;
 		}
 

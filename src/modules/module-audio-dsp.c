@@ -243,6 +243,17 @@ static void conv_f32_s16(int16_t *out, int index, float *in, int n_samples, int 
 		out += stride;
 	}
 }
+
+static void conv_s16_f32(float *out, int16_t *in, int index, int n_samples, int stride)
+{
+	int i;
+	in += index;
+	for (i = 0; i < n_samples; i++) {
+		out[i] = *in * (1.0 / ((1U << 15) - 1));
+		in += stride;
+	}
+}
+
 static void fill_s16(int16_t *out, int index, int n_samples, int stride)
 {
 	int i;
@@ -283,7 +294,7 @@ static void queue_buffer(struct node *n, struct port *p, uint32_t id)
 	}
 }
 
-static int node_process(struct spa_node *node)
+static int node_process_mix(struct spa_node *node)
 {
 	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
 	struct pw_node *this = n->node;
@@ -315,9 +326,62 @@ static int node_process(struct spa_node *node)
 
 	out->buf->datas[0].chunk->offset = 0;
 	out->buf->datas[0].chunk->size = n->buffer_size * sizeof(int16_t) * n->channels;
-	out->buf->datas[0].chunk->stride = 0;
+	out->buf->datas[0].chunk->stride = sizeof(int16_t) * n->channels;
 
 	return outio->status;
+}
+
+static int node_process_split(struct spa_node *node)
+{
+	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
+	struct pw_node *this = n->node;
+	struct port *inp = GET_IN_PORT(n, 0);
+	struct spa_io_buffers *inio = inp->io;
+	struct buffer *in;
+	int i, res, channels = n->n_out_ports;
+	size_t buffer_size = n->buffer_size;
+
+        if (inio->status != SPA_STATUS_HAVE_BUFFER)
+		return SPA_STATUS_NEED_BUFFER;
+
+	if (inio->buffer_id >= inp->n_buffers)
+		return inio->status = -EINVAL;
+
+	in = &inp->buffers[inio->buffer_id];
+	res = SPA_STATUS_NEED_BUFFER;
+
+	for (i = 0; i < channels; i++) {
+		struct port *outp = GET_OUT_PORT(n, i);
+		struct spa_io_buffers *outio = outp->io;
+		struct buffer *out;
+
+		if (outio == NULL || outp->n_buffers == 0 ||
+		    outio->status != SPA_STATUS_NEED_BUFFER)
+			continue;
+
+		if (outio->buffer_id < outp->n_buffers) {
+			queue_buffer(n, outp, outio->buffer_id);
+			outio->buffer_id = SPA_ID_INVALID;
+		}
+
+		if ((out = peek_buffer(n, outp)) == NULL) {
+			pw_log_warn(NAME " %p: out of buffers on port %d", this, i);
+			outp->io->status = -EPIPE;
+			continue;
+		}
+		dequeue_buffer(n, out);
+		outio->status = SPA_STATUS_HAVE_BUFFER;
+		outio->buffer_id = out->buf->id;
+
+		conv_s16_f32(out->ptr, in->ptr, i, buffer_size, channels);
+
+		out->buf->datas[0].chunk->offset = 0;
+		out->buf->datas[0].chunk->size = buffer_size * sizeof(float);
+		out->buf->datas[0].chunk->stride = sizeof(float);
+
+		res |= SPA_STATUS_HAVE_BUFFER;
+	}
+	return res;
 }
 
 static int port_set_io(struct spa_node *node,
@@ -441,7 +505,7 @@ static int port_enum_params(struct spa_node *node,
 //				SPA_POD_PROP_MIN_MAX(24, 4096),
 			":", t->param_buffers.blocks,  "i", 1,
 			":", t->param_buffers.stride,  "i", 0,
-			":", t->param_buffers.buffers, "ir", 1,
+			":", t->param_buffers.buffers, "ir", 2,
 				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i", 16);
 	}
@@ -602,7 +666,6 @@ static const struct spa_node node_impl = {
 	.port_set_io = port_set_io,
 	.port_reuse_buffer = port_reuse_buffer,
 	.port_send_command = port_send_command,
-	.process = node_process,
 };
 
 
@@ -779,6 +842,10 @@ static struct node *make_node(struct impl *impl, const struct pw_properties *pro
 	n->node = node;
 	n->impl = impl;
 	n->node_impl = node_impl;
+	if (direction == PW_DIRECTION_OUTPUT)
+		n->node_impl.process = node_process_mix;
+	else
+		n->node_impl.process = node_process_split;
 	n->channels = DEFAULT_CHANNELS;
 	n->sample_rate = DEFAULT_SAMPLE_RATE;
 	n->buffer_size = DEFAULT_BUFFER_SIZE;

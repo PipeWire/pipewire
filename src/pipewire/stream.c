@@ -851,6 +851,7 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 {
 	struct stream *impl;
 	struct pw_stream *this;
+	const char *str;
 
 	impl = calloc(1, sizeof(struct stream));
 	if (impl == NULL)
@@ -866,6 +867,17 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	}
 	if (props == NULL)
 		goto no_mem;
+
+	if (!pw_properties_get(props, "node.name")) {
+		const struct pw_properties *p = pw_remote_get_properties(remote);
+
+		if ((str = pw_properties_get(p, "application.name")) != NULL)
+			pw_properties_set(props, "node.name", str);
+		else if ((str = pw_properties_get(p, "application.prgname")) != NULL)
+			pw_properties_set(props, "node.name", str);
+		else
+			pw_properties_set(props, "node.name", name);
+	}
 
 	this->properties = props;
 

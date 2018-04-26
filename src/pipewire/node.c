@@ -586,7 +586,6 @@ static void node_event(void *data, struct spa_event *event)
 static void node_process(void *data, int status)
 {
 	struct pw_node *node = data;
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
 	pw_log_trace("node %p: process driver:%d exported:%d", node, node->driver, node->exported);
 

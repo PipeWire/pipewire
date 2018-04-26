@@ -35,6 +35,8 @@ struct pw_client_node {
 	struct pw_node *node;
 
 	struct pw_resource *resource;
+
+	int status;
 };
 
 struct pw_client_node *

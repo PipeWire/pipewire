@@ -891,6 +891,11 @@ static int impl_node_process(struct spa_node *node)
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
 	uint64_t cmd = 1;
 
+	if (this->impl->this.status != SPA_ID_INVALID) {
+		spa_log_trace(this->log, "%p: return %d", this, this->impl->this.status);
+		return this->impl->this.status;
+	}
+
 	spa_log_trace(this->log, "%p: send process", this);
 
 	if (write(this->writefd, &cmd, 8) != 8)
@@ -1319,6 +1324,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 		return NULL;
 
 	this = &impl->this;
+	this->status = SPA_ID_INVALID;
 
 	impl->core = core;
 	impl->t = pw_core_get_type(core);

@@ -688,6 +688,11 @@ static int impl_node_process(struct spa_node *node)
 	}
 	spa_log_trace(this->log, "%p: process %d", this, status);
 
+	if (status & SPA_STATUS_NEED_BUFFER)
+		impl->client_node->status = SPA_ID_INVALID;
+	else
+		impl->client_node->status = SPA_STATUS_HAVE_BUFFER;
+
 	return status;
 }
 

@@ -325,7 +325,7 @@ static void loop_leave(struct spa_loop_control *ctrl)
 	impl->thread = 0;
 }
 
-static void process_destroy(struct impl *impl)
+static inline void process_destroy(struct impl *impl)
 {
 	struct source_impl *source, *tmp;
 	spa_list_for_each_safe(source, tmp, &impl->destroy_list, link)

@@ -611,7 +611,8 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 	struct itimerspec ts;
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_status_t *status;
-	snd_htimestamp_t htstamp;
+	struct timespec now;
+
 
 	if (state->started && read(state->timerfd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(state->log, "error reading timerfd: %s", strerror(errno));
@@ -624,13 +625,17 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 	}
 
 	avail = snd_pcm_status_get_avail(status);
-	snd_pcm_status_get_htstamp(status, &htstamp);
+	snd_pcm_status_get_htstamp(status, &state->now);
+	clock_gettime(CLOCK_MONOTONIC, &now);
 
 	state->last_ticks = state->sample_count + avail;
-	state->last_monotonic = (int64_t) htstamp.tv_sec * SPA_NSEC_PER_SEC + (int64_t) htstamp.tv_nsec;
+	state->last_monotonic = (int64_t) state->now.tv_sec * SPA_NSEC_PER_SEC + (int64_t) state->now.tv_nsec;
 
-	spa_log_trace(state->log, "timeout %ld %d %ld %ld %ld", avail, state->threshold,
-		      state->sample_count, htstamp.tv_sec, htstamp.tv_nsec);
+	spa_log_trace(state->log, "timeout %ld %d %ld %ld %ld %ld %ld", avail, state->threshold,
+		      state->sample_count, state->now.tv_sec, state->now.tv_nsec,
+		      now.tv_sec, now.tv_nsec);
+
+	state->now = now;
 
 	if (avail < state->threshold) {
 		if (snd_pcm_state(hndl) == SND_PCM_STATE_SUSPENDED) {
@@ -639,7 +644,7 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 				return;
 		}
 	} else {
-		snd_pcm_uframes_t to_read = avail;
+		snd_pcm_uframes_t to_read = SPA_MIN(avail, state->threshold);
 
 		while (total_read < to_read) {
 			snd_pcm_uframes_t read, frames, offset;
@@ -663,7 +668,7 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 		}
 		state->sample_count += total_read;
 	}
-	calc_timeout(state->threshold, avail - total_read, state->rate, &htstamp, &ts.it_value);
+	calc_timeout(state->threshold, avail - total_read, state->rate, &state->now, &ts.it_value);
 
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;

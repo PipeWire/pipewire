@@ -33,7 +33,7 @@
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_min_latency = 1024;
+static const uint32_t default_min_latency = 64;
 static const uint32_t default_max_latency = 1024;
 
 static void reset_props(struct props *props)
@@ -488,6 +488,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &this->buffers[i];
+		struct spa_data *d = buffers[i]->datas;
 		uint32_t type;
 
 		b->outbuf = buffers[i];
@@ -495,13 +496,14 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 		b->h = spa_buffer_find_meta(b->outbuf, this->type.meta.Header);
 
-		type = buffers[i]->datas[0].type;
+		type = d[0].type;
 		if ((type == this->type.data.MemFd ||
 		     type == this->type.data.DmaBuf ||
-		     type == this->type.data.MemPtr) && buffers[i]->datas[0].data == NULL) {
+		     type == this->type.data.MemPtr) && d[0].data == NULL) {
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return -EINVAL;
 		}
+		this->threshold = d[0].maxsize / this->frame_size;
 	}
 	this->n_buffers = n_buffers;
 

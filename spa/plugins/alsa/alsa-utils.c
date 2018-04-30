@@ -705,8 +705,6 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 	state->source.rmask = 0;
 	spa_loop_add_source(state->data_loop, &state->source);
 
-	state->threshold = state->props.min_latency;
-
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->alsa_started = false;
 	} else {

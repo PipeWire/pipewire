@@ -34,12 +34,14 @@
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_min_latency = 1024;
+static const uint32_t default_min_latency = 64;
+static const uint32_t default_max_latency = 1024;
 
 static void reset_props(struct props *props)
 {
 	strncpy(props->device, default_device, 64);
 	props->min_latency = default_min_latency;
+	props->max_latency = default_max_latency;
 }
 
 static int impl_node_enum_params(struct spa_node *node,
@@ -108,6 +110,14 @@ static int impl_node_enum_params(struct spa_node *node,
 				":", t->param.propType, "ir", p->min_latency,
 					SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
 			break;
+		case 4:
+			param = spa_pod_builder_object(&b,
+				id, t->param.PropInfo,
+				":", t->param.propId,   "I", t->prop_max_latency,
+				":", t->param.propName, "s", "The maximum latency",
+				":", t->param.propType, "ir", p->max_latency,
+					SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
+			break;
 		default:
 			return 0;
 		}
@@ -120,7 +130,8 @@ static int impl_node_enum_params(struct spa_node *node,
 				":", t->prop_device,      "S",   p->device, sizeof(p->device),
 				":", t->prop_device_name, "S-r", p->device_name, sizeof(p->device_name),
 				":", t->prop_card_name,   "S-r", p->card_name, sizeof(p->card_name),
-				":", t->prop_min_latency, "i",   p->min_latency);
+				":", t->prop_min_latency, "i",   p->min_latency,
+				":", t->prop_max_latency, "i",   p->max_latency);
 			break;
 		default:
 			return 0;
@@ -157,7 +168,8 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		}
 		spa_pod_object_parse(param,
 			":", t->prop_device,      "?S", p->device, sizeof(p->device),
-			":", t->prop_min_latency, "?i", &p->min_latency, NULL);
+			":", t->prop_min_latency, "?i", &p->min_latency,
+			":", t->prop_max_latency, "?i", &p->max_latency, NULL);
 	}
 	else
 		return -ENOENT;
@@ -365,8 +377,11 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(&b,
 			id, t->param_buffers.Buffers,
-			":", t->param_buffers.size,    "i", this->props.min_latency * this->frame_size,
-			":", t->param_buffers.stride,  "i", 0,
+			":", t->param_buffers.size,    "iru", this->props.max_latency *
+							      this->frame_size,
+				SPA_POD_PROP_MIN_MAX(this->props.min_latency * this->frame_size,
+						     INT32_MAX),
+			":", t->param_buffers.stride,  "i", this->frame_size,
 			":", t->param_buffers.buffers, "ir", 2,
 				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i", 16);
@@ -509,6 +524,8 @@ impl_node_port_use_buffers(struct spa_node *node,
 			return -EINVAL;
 		}
 		spa_list_append(&this->free, &b->link);
+
+		this->threshold = d[0].maxsize / this->frame_size;
 	}
 	this->n_buffers = n_buffers;
 

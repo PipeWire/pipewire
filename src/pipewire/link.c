@@ -1160,6 +1160,16 @@ static const struct pw_node_events output_node_events = {
 	.async_complete = output_node_async_complete,
 };
 
+static inline void
+move_graph(struct spa_graph *dst, struct spa_graph *src)
+{
+	struct spa_graph_node *n, *t;
+	spa_list_for_each_safe(n, t, &src->nodes, link) {
+		spa_graph_node_remove(n);
+		spa_graph_node_add(dst, n);
+	}
+}
+
 static int
 do_join_graphs(struct spa_loop *loop,
 		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
@@ -1178,16 +1188,22 @@ do_join_graphs(struct spa_loop *loop,
 			in_root, out_root, in_graph, out_graph);
 
 	if (in_graph != out_graph) {
-		if (SPA_FLAG_CHECK(in_graph->flags, SPA_GRAPH_FLAG_DRIVER)) {
-			pw_log_debug("link %p: out_root to in_graph", this);
-			spa_graph_node_remove(out_root);
-			spa_graph_node_add(in_graph, out_root);
+		struct spa_graph *src, *dst;
+		bool out_driver;
+
+		out_driver = SPA_FLAG_CHECK(out_graph->flags, SPA_GRAPH_FLAG_DRIVER);
+
+		if (out_driver) {
+			pw_log_debug("link %p: in_graph to out_graph", this);
+			src = in_graph;
+			dst = out_graph;
 		}
 		else {
-			pw_log_debug("link %p: in_root to out_graph", this);
-			spa_graph_node_remove(in_root);
-			spa_graph_node_add(out_graph, in_root);
+			pw_log_debug("link %p: out_graph to in_graph", this);
+			src = out_graph;
+			dst = in_graph;
 		}
+		move_graph(dst, src);
 	}
 	this->rt.link.signal = spa_graph_link_signal_node;
 	this->rt.link.signal_data = in_root;

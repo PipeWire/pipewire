@@ -251,9 +251,12 @@ struct pw_node {
 	bool enabled;			/**< if the node is enabled */
 	bool active;			/**< if the node is active */
 	bool live;			/**< if the node is live */
-	bool driver;			/**< if the node drives the graph */
+	bool driver;			/**< if the node can drive the graph */
 	bool exported;			/**< if the node is exported */
 	bool remote;			/**< if the node is implemented remotely */
+	bool master;			/**< a master node is one of the driver nodes that
+					  *  is selected to drive the graph */
+
 	struct spa_clock *clock;	/**< handle to SPA clock if any */
 	struct spa_node *node;		/**< SPA node implementation */
 

@@ -464,8 +464,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this->enabled = true;
 	this->properties = properties;
 
-	check_properties(this);
-
 	impl->work = pw_work_queue_new(this->core->main_loop);
 	this->info.name = strdup(name);
 
@@ -505,6 +503,8 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	impl->node_activation.state.status = SPA_STATUS_NEED_BUFFER;
 	spa_graph_node_init(&this->rt.node, &impl->node_activation.state);
 	spa_graph_node_add(&impl->graph, &this->rt.node);
+
+	check_properties(this);
 
 	return this;
 

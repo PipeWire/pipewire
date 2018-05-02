@@ -21,7 +21,6 @@
 #define __PIPEWIRE_CLIENT_STREAM_H__
 
 #include <pipewire/node.h>
-#include <extensions/client-stream.h>
 
 #ifdef __cplusplus
 extern "C" {

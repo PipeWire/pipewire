@@ -1149,6 +1149,8 @@ pw_stream_connect(struct pw_stream *stream,
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
 		pw_properties_set(stream->properties, PW_NODE_PROP_AUTOCONNECT, "1");
 	pw_properties_set(stream->properties, "node.stream", "1");
+	if (flags & PW_STREAM_FLAG_DRIVER)
+		pw_properties_set(stream->properties, "node.driver", "1");
 
 	state = pw_remote_get_state(stream->remote, NULL);
 	if (state == PW_REMOTE_STATE_UNCONNECTED ||

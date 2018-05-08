@@ -133,7 +133,7 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info,
 {
 	const char *str, *name, *klass = NULL;
 	const struct spa_handle_factory *factory = NULL;
-	char device_name[64], id[64];
+	char device_name[64], id[66];
 	struct type *t = &this->type;
 	struct udev_device *dev = card->dev;
 	struct device *device;
@@ -153,13 +153,13 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info,
 		factory = &spa_alsa_sink_factory;
 		klass = "Audio/Sink";
 		SPA_FLAG_SET(device->flags, DEVICE_FLAG_PLAYBACK);
-		snprintf(id, 64, "%s/P", device_name);
+		snprintf(id, 66, "%s/P", device_name);
 		break;
 	case SND_PCM_STREAM_CAPTURE:
 		factory = &spa_alsa_source_factory;
 		klass = "Audio/Source";
 		SPA_FLAG_SET(device->flags, DEVICE_FLAG_RECORD);
-		snprintf(id, 64, "%s/C", device_name);
+		snprintf(id, 66, "%s/C", device_name);
 		break;
 	default:
 		return -1;

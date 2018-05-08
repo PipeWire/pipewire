@@ -786,6 +786,7 @@ static int impl_node_process(struct spa_node *node)
 	struct port *outport, *inport;
 	struct spa_io_buffers *outio, *inio;
 	struct buffer *sbuf, *dbuf;
+	int res = 0;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -851,13 +852,15 @@ static int impl_node_process(struct spa_node *node)
 		if (inport->offset >= size) {
 			inio->status = SPA_STATUS_NEED_BUFFER;
 			inport->offset = 0;
+			res |= SPA_STATUS_NEED_BUFFER;
 		}
 	}
 
 	outio->status = SPA_STATUS_HAVE_BUFFER;
 	outio->buffer_id = dbuf->outbuf->id;
+	res |= SPA_STATUS_HAVE_BUFFER;
 
-	return outio->status;
+	return res;
 }
 
 static const struct spa_node impl_node = {

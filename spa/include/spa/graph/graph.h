@@ -125,7 +125,6 @@ struct spa_graph_port {
 	enum spa_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
 	uint32_t flags;			/**< port flags */
-	struct spa_io_buffers *io;	/**< io area of the port */
 	struct spa_graph_port *peer;	/**< peer */
 };
 
@@ -255,14 +254,12 @@ static inline void
 spa_graph_port_init(struct spa_graph_port *port,
 		    enum spa_direction direction,
 		    uint32_t port_id,
-		    uint32_t flags,
-		    struct spa_io_buffers *io)
+		    uint32_t flags)
 {
 	spa_debug("port %p init type %d id %d", port, direction, port_id);
 	port->direction = direction;
 	port->port_id = port_id;
 	port->flags = flags;
-	port->io = io;
 }
 
 static inline void

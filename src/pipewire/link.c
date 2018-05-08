@@ -486,12 +486,13 @@ param_filter(struct pw_link *this,
 }
 
 static int port_set_io(struct pw_link *this, struct pw_port *port, void *data, size_t size,
-		struct spa_graph_port *p)
+		struct pw_port_mix *mix)
 {
 	struct pw_type *t = &this->core->type;
+	struct spa_graph_port *p = &mix->port;
 	int res = 0;
 
-	p->io = data;
+	mix->io = data;
 	pw_log_debug("link %p: %s port %p %d.%d set io: %p", this,
 			pw_direction_as_string(port->direction),
 			port, port->port_id, p->port_id, data);
@@ -516,20 +517,20 @@ static int select_io(struct pw_link *this)
 	if (impl->have_io)
 		return 0;
 
-	io = this->rt.mix[SPA_DIRECTION_INPUT].port.io;
+	io = this->rt.mix[SPA_DIRECTION_INPUT].io;
 	if (io == NULL)
-		io = this->rt.mix[SPA_DIRECTION_OUTPUT].port.io;
+		io = this->rt.mix[SPA_DIRECTION_OUTPUT].io;
 	if (io == NULL)
 		io = &impl->io;
 	if (io == NULL)
 		return -EIO;
 
 	if ((res = port_set_io(this, this->input, io,
-			sizeof(struct spa_io_buffers), &this->rt.mix[SPA_DIRECTION_INPUT].port)) < 0)
+			sizeof(struct spa_io_buffers), &this->rt.mix[SPA_DIRECTION_INPUT])) < 0)
 		return res;
 
 	if ((res = port_set_io(this, this->output, io,
-			sizeof(struct spa_io_buffers), &this->rt.mix[SPA_DIRECTION_OUTPUT].port)) < 0)
+			sizeof(struct spa_io_buffers), &this->rt.mix[SPA_DIRECTION_OUTPUT])) < 0)
 		return res;
 
 	this->io = io;
@@ -940,7 +941,6 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 {
 	struct impl *impl = (struct impl *) this;
 	struct pw_port_mix *mix = &this->rt.mix[SPA_DIRECTION_INPUT];
-	struct spa_graph_port *p = &mix->port;
 
 	pw_log_debug("link %p: remove input port %p", this, port);
 	spa_hook_remove(&impl->input_port_listener);
@@ -951,7 +951,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 
 	clear_port_buffers(this, port);
 
-	port_set_io(this, this->input, NULL, 0, p);
+	port_set_io(this, this->input, NULL, 0, mix);
 	pw_port_release_mix(port, mix);
 	this->input = NULL;
 }
@@ -960,7 +960,6 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 {
 	struct impl *impl = (struct impl *) this;
 	struct pw_port_mix *mix = &this->rt.mix[SPA_DIRECTION_OUTPUT];
-	struct spa_graph_port *p = &mix->port;
 
 	pw_log_debug("link %p: remove output port %p", this, port);
 	spa_hook_remove(&impl->output_port_listener);
@@ -971,7 +970,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 
 	clear_port_buffers(this, port);
 
-	port_set_io(this, this->output, NULL, 0, p);
+	port_set_io(this, this->output, NULL, 0, mix);
 	pw_port_release_mix(port, mix);
 	this->output = NULL;
 }

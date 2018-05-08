@@ -676,6 +676,7 @@ static int do_port_set_io(struct impl *impl,
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
+	mix->io = data;
 	update_io(impl, port, mix->port.port_id, id, memid);
 
 	pw_client_node_resource_port_set_io(this->resource,
@@ -1215,8 +1216,6 @@ static int port_init_mix(void *data, struct pw_port_mix *mix)
 	mix->io->buffer_id = SPA_ID_INVALID;
 	mix->io->status = SPA_STATUS_NEED_BUFFER;
 
-	mix->port.io = mix->io;
-
 	pw_log_debug("client-node %p: init mix io %d %p %p", impl, mix->id, mix->io,
 			impl->io_areas->ptr);
 
@@ -1248,9 +1247,6 @@ static int mix_port_set_io(struct spa_node *node,
 	struct impl *impl = p->owner_data;
 	struct pw_port_mix *mix;
 
-	p->rt.port.io = data;
-	p->rt.mix_port.io = data;
-
 	mix = pw_map_lookup(&p->mix_port_map, port_id);
 	if (mix == NULL)
 		return -EIO;
@@ -1262,11 +1258,6 @@ static int mix_port_set_io(struct spa_node *node,
 
 static int mix_port_process(struct spa_node *data)
 {
-	struct pw_port *p = SPA_CONTAINER_OF(data, struct pw_port, mix_node);
-	struct spa_io_buffers *io = p->rt.mix_port.io;
-	if (io != NULL) {
-		pw_log_trace("client-node %p: pass %d %d", data, io->status, io->buffer_id);
-	}
 	return SPA_STATUS_HAVE_BUFFER;
 }
 

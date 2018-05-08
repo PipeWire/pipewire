@@ -1178,13 +1178,13 @@ client_node_port_set_io(void *object,
 			spa_type_map_get_type(core->type.map, id), ptr);
 
 	if (id == t->io.Buffers) {
-		if (ptr == NULL && mix->mix.port.io) {
+		if (ptr == NULL && mix->mix.io) {
 			deactivate_mix(data, mix);
-                        m = find_mem_ptr(data, mix->mix.port.io);
+                        m = find_mem_ptr(data, mix->mix.io);
                         if (m && --m->ref == 0)
                                 clear_mem(data, m);
                 }
-		mix->mix.port.io = ptr;
+		mix->mix.io = ptr;
 		if (ptr)
 			activate_mix(data, mix);
 	} else {

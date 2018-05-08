@@ -746,7 +746,6 @@ static int schedule_mix(struct spa_node *_node)
 	struct port *outp = GET_OUT_PORT(n, 0);
 	struct spa_graph_node *node = &port->rt.mix_node;
 	struct spa_graph_port *gp;
-	struct spa_io_buffers *io = port->rt.mix_port.io;
 	size_t buffer_size = 0;
 	struct buffer *outb;
 	float *out = NULL;
@@ -760,7 +759,7 @@ static int schedule_mix(struct spa_node *_node)
 		struct spa_io_buffers *inio;
 		struct spa_buffer *inb;
 
-		if ((inio = gp->io) == NULL ||
+		if ((inio = mix->io) == NULL ||
 		    inio->buffer_id >= mix->n_buffers ||
 		    inio->status != SPA_STATUS_HAVE_BUFFER)
 			continue;
@@ -778,7 +777,7 @@ static int schedule_mix(struct spa_node *_node)
 			add_f32(out, inb->datas[0].data, buffer_size);
 		}
 
-		pw_log_trace("mix %p: input %p %p %zd", node, inio, io, buffer_size);
+		pw_log_trace("mix %p: input %p %p %zd", node, inio, mix->io, buffer_size);
 	}
 
 	outb = peek_buffer(n, outp);

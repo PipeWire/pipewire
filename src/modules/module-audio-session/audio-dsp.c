@@ -44,9 +44,7 @@
 #define MAX_PORTS	256
 #define MAX_BUFFERS	8
 
-#define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLE_RATE	44100
-#define DEFAULT_BUFFER_SIZE	1024
 
 struct type {
 	struct spa_type_media_type media_type;
@@ -64,21 +62,6 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
         spa_type_audio_format_map(map, &type->audio_format);
         spa_type_media_subtype_audio_map(map, &type->media_subtype_audio);
 }
-
-struct impl {
-	struct type type;
-
-	struct pw_core *core;
-	struct pw_type *t;
-	struct pw_module *module;
-	struct spa_hook core_listener;
-	struct spa_hook module_listener;
-	struct pw_properties *properties;
-
-	int node_count;
-
-	struct spa_list node_list;
-};
 
 struct buffer {
 #define BUFFER_FLAG_OUT		(1<<0)
@@ -117,16 +100,17 @@ typedef void (*conv_func_t)(void *dst, void *src, int index, int n_samples, int 
 typedef void (*fill_func_t)(void *dst, int index, int n_samples, int stride);
 
 struct node {
-	struct spa_list link;
+	struct type type;
 
+	struct pw_core *core;
+	struct pw_type *t;
 	struct pw_node *node;
-	struct spa_hook node_listener;
 
-	struct impl *impl;
+	void *user_data;
 
 	int channels;
 	int sample_rate;
-	int buffer_size;
+	int max_buffer_size;
 
 	conv_func_t conv_func;
 	fill_func_t fill_func;
@@ -374,10 +358,6 @@ static int node_process_mix(struct spa_node *node)
 	outio->buffer_id = out->buf->id;
 	outio->status = SPA_STATUS_HAVE_BUFFER;
 
-	out->buf->datas[0].chunk->offset = 0;
-	out->buf->datas[0].chunk->size = n->buffer_size * outp->stride;
-	out->buf->datas[0].chunk->stride = outp->stride;
-
 	pw_log_trace(NAME " %p: output buffer %d %d %d", this,
 			out->buf->id, out->flags, out->buf->datas[0].chunk->size);
 
@@ -392,7 +372,7 @@ static int node_process_split(struct spa_node *node)
 	struct spa_io_buffers *inio = inp->io;
 	struct buffer *in;
 	int i, res, channels = n->channels;
-	size_t buffer_size = n->buffer_size;
+	size_t buffer_size;
 
         if (inio->status != SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_NEED_BUFFER;
@@ -401,6 +381,7 @@ static int node_process_split(struct spa_node *node)
 		return inio->status = -EINVAL;
 
 	in = &inp->buffers[inio->buffer_id];
+	buffer_size = in->buf->datas[0].chunk->size / inp->stride;
 	res = SPA_STATUS_NEED_BUFFER;
 
 	for (i = 0; i < channels; i++) {
@@ -447,7 +428,7 @@ static int port_set_io(struct spa_node *node,
 		       uint32_t id, void *data, size_t size)
 {
 	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
-	struct pw_type *t = n->impl->t;
+	struct pw_type *t = n->t;
 	struct port *p = GET_PORT(n, direction, port_id);
 
 	if (id == t->io.Buffers)
@@ -485,8 +466,8 @@ static int port_enum_formats(struct spa_node *node,
                              struct spa_pod_builder *builder)
 {
 	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
-	struct pw_type *type = n->impl->t;
-	struct type *t = &n->impl->type;
+	struct pw_type *type = n->t;
+	struct type *t = &n->type;
 
 	if (*index > 0)
 		return 0;
@@ -522,8 +503,7 @@ static int port_enum_formats(struct spa_node *node,
                         ":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
                         ":", t->format_audio.rate,     "iru", n->sample_rate,
 				SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
-                        ":", t->format_audio.channels, "iru", n->channels,
-				SPA_POD_PROP_MIN_MAX(1, MAX_PORTS));
+                        ":", t->format_audio.channels, "i", n->channels);
 	}
 
 	return 1;
@@ -538,7 +518,7 @@ static int port_enum_params(struct spa_node *node,
 {
 	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
 	struct port *p = GET_PORT(n, direction, port_id);
-	struct pw_type *t = n->impl->t;
+	struct pw_type *t = n->t;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
@@ -558,11 +538,12 @@ static int port_enum_params(struct spa_node *node,
 	else if (id == t->param.idBuffers) {
 		if (*index > 0)
 			return 0;
+		if (p->stride == 0)
+			return -EIO;
 
 		param = spa_pod_builder_object(&b,
 			id, t->param_buffers.Buffers,
-			":", t->param_buffers.size,    "i", n->buffer_size * p->stride,
-//				SPA_POD_PROP_MIN_MAX(24, 4096),
+			":", t->param_buffers.size,    "i", n->max_buffer_size * p->stride,
 			":", t->param_buffers.blocks,  "i", 1,
 			":", t->param_buffers.stride,  "i", p->stride,
 			":", t->param_buffers.buffers, "ir", 2,
@@ -586,10 +567,11 @@ static int port_set_format(struct spa_node *node, struct port *p,
 {
 	struct spa_audio_info info = { 0 };
 	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
-	struct type *t = &n->impl->type;
+	struct type *t = &n->type;
 
 	if (format == NULL) {
 		clear_buffers(n, p);
+		p->stride = 0;
 		return 0;
 	}
 
@@ -644,7 +626,7 @@ static int port_set_param(struct spa_node *node,
 {
 	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
 	struct port *p = GET_PORT(n, direction, port_id);
-	struct pw_type *t = n->impl->t;
+	struct pw_type *t = n->t;
 
 	if (id == t->param.idFormat) {
 		return port_set_format(node, p, direction, flags, param);
@@ -660,7 +642,7 @@ static int port_use_buffers(struct spa_node *node, enum spa_direction direction,
 {
 	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
 	struct port *p = GET_PORT(n, direction, port_id);
-	struct pw_type *t = n->impl->t;
+	struct pw_type *t = n->t;
 	int i;
 
 	pw_log_debug("use_buffers %d", n_buffers);
@@ -697,7 +679,7 @@ static int port_alloc_buffers(struct spa_node *node, enum spa_direction directio
 #if 0
 	struct node *n = SPA_CONTAINER_OF(node, struct node, node_impl);
 	struct port *p = GET_PORT(n, direction, port_id);
-	struct pw_type *t = n->impl->t;
+	struct pw_type *t = n->t;
 	int i;
 
 	pw_log_debug("alloc %d", *n_buffers);
@@ -765,7 +747,7 @@ static int schedule_mix(struct spa_node *_node)
 	struct spa_graph_node *node = &port->rt.mix_node;
 	struct spa_graph_port *gp;
 	struct spa_io_buffers *io = port->rt.mix_port.io;
-	size_t buffer_size = n->buffer_size;
+	size_t buffer_size = 0;
 	struct buffer *outb;
 	float *out = NULL;
 	int layer = 0;
@@ -775,60 +757,54 @@ static int schedule_mix(struct spa_node *_node)
 
 	spa_list_for_each(gp, &node->ports[SPA_DIRECTION_INPUT], link) {
 		struct pw_port_mix *mix = SPA_CONTAINER_OF(gp, struct pw_port_mix, port);
+		struct spa_io_buffers *inio;
+		struct spa_buffer *inb;
 
-		pw_log_trace("mix %p: input %d %d/%d", node,
-				gp->io->status, gp->io->buffer_id, mix->n_buffers);
-
-		if (!(gp->io->buffer_id < mix->n_buffers && gp->io->status == SPA_STATUS_HAVE_BUFFER))
+		if ((inio = gp->io) == NULL ||
+		    inio->buffer_id >= mix->n_buffers ||
+		    inio->status != SPA_STATUS_HAVE_BUFFER)
 			continue;
 
+		pw_log_trace("mix %p: input %d %d/%d", node,
+				inio->status, inio->buffer_id, mix->n_buffers);
+
+		inb = mix->buffers[inio->buffer_id];
+		buffer_size = inb->datas[0].chunk->size / sizeof(float);
+
 		if (layer++ == 0) {
-			out = mix->buffers[gp->io->buffer_id]->datas[0].data;
+			out = inb->datas[0].data;
 		}
 		else {
-			add_f32(out, mix->buffers[gp->io->buffer_id]->datas[0].data, buffer_size);
+			add_f32(out, inb->datas[0].data, buffer_size);
 		}
 
-		pw_log_trace("mix %p: input %p %p->%p %d %d %zd", node,
-				gp, gp->io, io, gp->io->status, gp->io->buffer_id, buffer_size);
+		pw_log_trace("mix %p: input %p %p %zd", node, inio, io, buffer_size);
 	}
 
 	outb = peek_buffer(n, outp);
 	if (outb == NULL)
 		return -EPIPE;
 
-	if (layer > 0)
+	if (layer > 0) {
 		n->conv_func(outb->ptr, out, port->port_id, buffer_size, stride);
-	else
+
+		outb->buf->datas[0].chunk->offset = 0;
+		outb->buf->datas[0].chunk->size = buffer_size * outp->stride;
+		outb->buf->datas[0].chunk->stride = outp->stride;
+	}
+	else {
+		buffer_size = outb->buf->datas[0].maxsize / outp->stride;
 		n->fill_func(outb->ptr, port->port_id, buffer_size, stride);
+	}
+
+	pw_log_trace("mix %p: layer %d %zd %d", node, layer, buffer_size, outp->stride);
 
 	return SPA_STATUS_HAVE_BUFFER;
 }
 
-static int schedule_mix_use_buffers(struct spa_node *_node,
-				    enum spa_direction direction,
-				    uint32_t port_id,
-				    struct spa_buffer **buffers,
-				    uint32_t n_buffers)
-{
-	struct pw_port *port = SPA_CONTAINER_OF(_node, struct pw_port, mix_node);
-	struct port *p = port->owner_data;
-	struct node *n = p->node;
-
-	pw_log_debug("port %p: %d use buffers %d %p", port, port_id, n_buffers, buffers);
-
-	if (n_buffers > 0) {
-		n->buffer_size = buffers[0]->datas[0].maxsize / p->stride;
-	}
-
-	return 0;
-}
-
-
 static const struct spa_node schedule_mix_node = {
 	SPA_VERSION_NODE,
 	NULL,
-	.port_use_buffers = schedule_mix_use_buffers,
 	.process = schedule_mix,
 };
 
@@ -886,8 +862,12 @@ static struct port *make_port(struct node *n, enum pw_direction direction,
 	return p;
 }
 
-static struct node *make_node(struct impl *impl, const struct pw_properties *props,
-		enum pw_direction direction)
+struct pw_node *pw_audio_dsp_new(struct pw_core *core,
+		const struct pw_properties *props,
+		enum pw_direction direction,
+		uint32_t channels,
+		uint32_t max_buffer_size,
+		size_t user_data_size)
 {
 	struct pw_node *node;
 	struct node *n;
@@ -902,7 +882,6 @@ static struct node *make_node(struct impl *impl, const struct pw_properties *pro
 
 	if ((alias = pw_properties_get(props, "device.name")) == NULL)
 		goto error;
-
 
 	snprintf(node_name, sizeof(node_name), "system_%s", alias);
 	for (i = 0; node_name[i]; i++) {
@@ -921,22 +900,29 @@ static struct node *make_node(struct impl *impl, const struct pw_properties *pro
 	if ((plugged = pw_properties_get(props, "node.plugged")) != NULL)
 		pw_properties_set(pr, "node.plugged", plugged);
 
-	node = pw_node_new(impl->core, node_name, pr, sizeof(struct node));
+	node = pw_node_new(core, node_name, pr, sizeof(struct node) + user_data_size);
         if (node == NULL)
 		goto error;
 
 	n = pw_node_get_user_data(node);
+	n->core = core;
+	n->t = pw_core_get_type(core);
+	init_type(&n->type, n->t->map);
 	n->node = node;
-	n->impl = impl;
 	n->node_impl = node_impl;
 	if (direction == PW_DIRECTION_OUTPUT)
 		n->node_impl.process = node_process_mix;
 	else
 		n->node_impl.process = node_process_split;
-	n->channels = DEFAULT_CHANNELS;
+
+	n->channels = channels;
 	n->sample_rate = DEFAULT_SAMPLE_RATE;
-	n->buffer_size = DEFAULT_BUFFER_SIZE;
+	n->max_buffer_size = max_buffer_size;
+
 	pw_node_set_implementation(node, &n->node_impl);
+
+	if (user_data_size > 0)
+		n->user_data = SPA_MEMBER(n, sizeof(struct node), void);
 
 	p = make_port(n, direction, 0, 0, NULL);
 	if (p == NULL)
@@ -967,13 +953,7 @@ static struct node *make_node(struct impl *impl, const struct pw_properties *pro
 	        if (p == NULL)
 			goto error_free_node;
 	}
-
-	spa_list_append(&impl->node_list, &n->link);
-
-	pw_node_register(node, NULL, pw_module_get_global(impl->module), NULL);
-	pw_node_set_active(node, true);
-
-	return n;
+	return node;
 
      error_free_node:
 	pw_node_destroy(node);
@@ -981,141 +961,8 @@ static struct node *make_node(struct impl *impl, const struct pw_properties *pro
 	return NULL;
 }
 
-static void node_destroy(void *data)
+void *pw_audio_dsp_get_user_data(struct pw_node *node)
 {
-	struct node *node = data;
-
-	spa_list_remove(&node->link);
-	pw_node_destroy(node->node);
-}
-
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
-	.destroy = node_destroy,
-};
-
-static int on_global(void *data, struct pw_global *global)
-{
-	struct impl *impl = data;
-	struct pw_node *n;
-	struct node *node;
-	const struct pw_properties *properties;
-	const char *str;
-	char *error;
-	struct pw_port *ip, *op;
-	struct pw_link *link;
-
-
-	if (pw_global_get_type(global) != impl->t->node)
-		return 0;
-
-	n = pw_global_get_object(global);
-
-	properties = pw_node_get_properties(n);
-	if ((str = pw_properties_get(properties, "media.class")) == NULL)
-		return 0;
-
-	pw_log_debug("global added %s", str);
-
-	if (strcmp(str, "Audio/Sink") == 0) {
-		if ((ip = pw_node_get_free_port(n, PW_DIRECTION_INPUT)) == NULL)
-			return 0;
-		if ((node = make_node(impl, properties, PW_DIRECTION_OUTPUT)) == NULL)
-			return 0;
-		if ((op = pw_node_get_free_port(node->node, PW_DIRECTION_OUTPUT)) == NULL)
-			return 0;
-	}
-	else if (strcmp(str, "Audio/Source") == 0) {
-		if ((op = pw_node_get_free_port(n, PW_DIRECTION_OUTPUT)) == NULL)
-			return 0;
-		if ((node = make_node(impl, properties, PW_DIRECTION_INPUT)) == NULL)
-			return 0;
-		if ((ip = pw_node_get_free_port(node->node, PW_DIRECTION_INPUT)) == NULL)
-			return 0;
-	}
-	else
-		return 0;
-
-	link = pw_link_new(impl->core,
-			   op,
-			   ip,
-			   NULL,
-			   pw_properties_new(PW_LINK_PROP_PASSIVE, "true", NULL),
-			   &error, 0);
-	if (link == NULL) {
-		pw_log_error("can't create link: %s", error);
-		free(error);
-		return 0;
-	}
-	pw_link_register(link, NULL, pw_module_get_global(impl->module), NULL);
-
-	pw_node_add_listener(n, &node->node_listener, &node_events, node);
-
-	return 0;
-}
-
-static void module_destroy(void *data)
-{
-	struct impl *impl = data;
-	struct node *n, *t;
-
-	spa_hook_remove(&impl->module_listener);
-	spa_hook_remove(&impl->core_listener);
-
-	spa_list_for_each_safe(n, t, &impl->node_list, link)
-		pw_node_destroy(n->node);
-
-	if (impl->properties)
-		pw_properties_free(impl->properties);
-
-	free(impl);
-}
-
-static const struct pw_module_events module_events = {
-	PW_VERSION_MODULE_EVENTS,
-	.destroy = module_destroy,
-};
-
-static void
-core_global_added(void *data, struct pw_global *global)
-{
-	on_global(data, global);
-}
-
-static const struct pw_core_events core_events = {
-	PW_VERSION_CORE_EVENTS,
-        .global_added = core_global_added,
-};
-
-static int module_init(struct pw_module *module, struct pw_properties *properties)
-{
-	struct pw_core *core = pw_module_get_core(module);
-	struct impl *impl;
-
-	impl = calloc(1, sizeof(struct impl));
-	if (impl == NULL)
-		return -ENOMEM;
-
-	pw_log_debug("module %p: new", impl);
-
-	impl->core = core;
-	impl->t = pw_core_get_type(core);
-	impl->module = module;
-	impl->properties = properties;
-
-	init_type(&impl->type, core->type.map);
-
-	spa_list_init(&impl->node_list);
-
-	pw_core_for_each_global(core, on_global, impl);
-
-	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
-	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
-
-	return 0;
-}
-
-int pipewire__module_init(struct pw_module *module, const char *args)
-{
-	return module_init(module, NULL);
+	struct node *n = pw_node_get_user_data(node);
+	return n->user_data;
 }

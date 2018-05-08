@@ -754,10 +754,18 @@ static void client_node_initialized(void *data)
 	uint8_t buffer[4096];
 	struct spa_pod_builder b;
 	int res;
+	const struct pw_properties *props;
+	const char *str;
+	bool exclusive;
 
 	pw_log_debug("client-stream %p: initialized", &impl->this);
 
 	impl->cnode = pw_node_get_implementation(impl->client_node->node);
+	props = pw_node_get_properties(impl->client_node->node);
+	if (props != NULL && (str = pw_properties_get(props, PW_NODE_PROP_EXCLUSIVE)) != NULL)
+		exclusive = pw_properties_parse_bool(str);
+	else
+		exclusive = false;
 
 	spa_graph_node_remove(&impl->client_node->node->rt.root);
 	spa_graph_node_add(impl->this.node->rt.node.graph, &impl->client_node->node->rt.root);
@@ -811,7 +819,9 @@ static void client_node_initialized(void *data)
 			spa_type_map_get_type(t->map, media_type),
 			spa_type_map_get_type(t->map, media_subtype));
 
-	if (media_type == impl->type.media_type.audio &&
+
+	if (!exclusive &&
+	    media_type == impl->type.media_type.audio &&
 	    media_subtype == impl->type.media_subtype.raw) {
 		if ((impl->adapter = pw_load_spa_interface("audioconvert/libspa-audioconvert",
 				"splitter", SPA_TYPE__Node, NULL, 0, NULL)) == NULL)

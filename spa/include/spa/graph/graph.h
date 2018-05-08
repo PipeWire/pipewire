@@ -97,12 +97,10 @@ struct spa_graph_node_callbacks {
 #define SPA_VERSION_GRAPH_NODE_CALLBACKS	0
 	uint32_t version;
 
-	int (*trigger) (void *data, struct spa_graph_node *node);
 	int (*process) (void *data, struct spa_graph_node *node);
 	int (*reuse_buffer) (void *data, struct spa_graph_node *node,
 			uint32_t port_id, uint32_t buffer_id);
 };
-#define spa_graph_node_trigger(n)	((n)->callbacks->trigger((n)->callbacks_data,(n)))
 #define spa_graph_node_process(n)	((n)->callbacks->process((n)->callbacks_data,(n)))
 #define spa_graph_node_reuse_buffer(n,p,i) ((n)->callbacks->reuse_buffer((n)->callbacks_data,(n),(p),(i)))
 
@@ -197,7 +195,7 @@ spa_graph_node_init(struct spa_graph_node *node, struct spa_graph_state *state)
 	spa_debug("node %p init state %p", node, state);
 }
 
-static inline int spa_graph_node_impl_trigger(void *data, struct spa_graph_node *node)
+static inline int spa_graph_node_trigger(struct spa_graph_node *node)
 {
 	struct spa_graph_link *l, *t;
 	spa_debug("node %p trigger", node);
@@ -215,7 +213,6 @@ static inline int spa_graph_node_impl_sub_process(void *data, struct spa_graph_n
 
 static const struct spa_graph_node_callbacks spa_graph_node_sub_impl_default = {
 	SPA_VERSION_GRAPH_NODE_CALLBACKS,
-	.trigger = spa_graph_node_impl_trigger,
 	.process = spa_graph_node_impl_sub_process,
 };
 
@@ -322,7 +319,6 @@ static inline int spa_graph_node_impl_reuse_buffer(void *data, struct spa_graph_
 
 static const struct spa_graph_node_callbacks spa_graph_node_impl_default = {
 	SPA_VERSION_GRAPH_NODE_CALLBACKS,
-	.trigger = spa_graph_node_impl_trigger,
 	.process = spa_graph_node_impl_process,
 	.reuse_buffer = spa_graph_node_impl_reuse_buffer,
 };

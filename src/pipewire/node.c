@@ -384,12 +384,14 @@ int pw_node_register(struct pw_node *this,
 	if (this->global == NULL)
 		return -ENOMEM;
 
-	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
-
 	this->info.id = this->global->id;
+
+	pw_node_initialized(this);
+
+	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 	pw_global_register(this->global, owner, parent);
 
-	return pw_node_initialized(this);
+	return 0;
 }
 
 int pw_node_initialized(struct pw_node *this)

@@ -33,6 +33,8 @@
 
 #define M_PI_M2 ( M_PI + M_PI )
 
+#define BUFFER_SAMPLES	48
+
 struct type {
 	uint32_t prop_volume;
 	uint32_t io_prop_volume;
@@ -282,7 +284,7 @@ static int impl_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(builder,
 			id, t->param_buffers.Buffers,
-			":", t->param_buffers.size,    "iru", 32,
+			":", t->param_buffers.size,    "iru", BUFFER_SAMPLES * sizeof(float),
 				SPA_POD_PROP_MIN_MAX(32, 4096),
 			":", t->param_buffers.stride,  "i",   0,
 			":", t->param_buffers.buffers, "iru", 1,

@@ -23,21 +23,21 @@
 #include <spa/utils/defs.h>
 
 #define U8_MIN		0
-#define U8_MAX		((1U << 8) - 1)
-#define U8_SCALE	((1U << 7) - 1)
-#define U8_OFFS		(1U << 7)
+#define U8_MAX		255
+#define U8_SCALE	127
+#define U8_OFFS		128
 
-#define S16_MIN		-((1U << 15) - 1)
-#define S16_MAX		((1U << 15) - 1)
-#define S16_SCALE	((1U << 15) - 1)
+#define S16_MIN		-32767
+#define S16_MAX		32767
+#define S16_SCALE	32767
 
-#define S24_MIN		-((1U << 23) - 1)
-#define S24_MAX		((1U << 23) - 1)
-#define S24_SCALE	((1U << 23) - 1)
+#define S24_MIN		-8388607
+#define S24_MAX		8388607
+#define S24_SCALE	8388607
 
-#define S32_MIN		-((1U << 31) - 1)
-#define S32_MAX		((1U << 31) - 1)
-#define S32_SCALE	((1U << 31) - 1)
+#define S32_MIN		-2147483647
+#define S32_MAX		2147483647
+#define S32_SCALE	2147483647
 
 static void
 conv_copy(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)

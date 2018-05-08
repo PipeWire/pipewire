@@ -1184,8 +1184,9 @@ do_join_graphs(struct spa_loop *loop,
 	in_graph = in_root->graph;
 	out_graph = out_root->graph;
 
-	pw_log_debug("link %p: roots %p/%p graphs %p/%p", this,
-			in_root, out_root, in_graph, out_graph);
+	pw_log_debug("link %p: roots %p/%p graphs %p/%p %d/%d", this,
+			in_root, out_root, in_graph, out_graph,
+			in_graph->flags, out_graph->flags);
 
 	if (in_graph != out_graph) {
 		struct spa_graph *src, *dst;

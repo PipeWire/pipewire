@@ -418,6 +418,9 @@ static void check_properties(struct pw_node *node)
 		SPA_FLAG_SET(impl->driver_graph.flags, SPA_GRAPH_FLAG_DRIVER);
 	else
 		SPA_FLAG_UNSET(impl->driver_graph.flags, SPA_GRAPH_FLAG_DRIVER);
+
+	pw_log_debug("node %p: graph %p driver:%d", node, &impl->driver_graph, node->driver);
+
 }
 
 static inline int driver_impl_finish(void *data)

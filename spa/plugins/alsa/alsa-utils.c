@@ -577,10 +577,10 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 		if (spa_list_is_empty(&state->ready)) {
 			struct spa_io_buffers *io = state->io;
 
-			if (state->filled < 128)
+			if (state->filled == 0)
 				spa_alsa_write(state, state->threshold);
 			else
-				set_timeout(state, state->threshold - 128);
+				set_timeout(state, state->threshold);
 
 			spa_log_trace(state->log, "alsa-util %p: %d %lu", state, io->status,
 					state->filled);
@@ -683,7 +683,7 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 	if (state->started)
 		return 0;
 
-	spa_log_debug(state->log, "alsa %p: start", state);
+	spa_log_debug(state->log, "alsa %p: start %d", state, state->threshold);
 
 	CHECK(set_swparams(state), "swparams");
 	if (!xrun_recover)

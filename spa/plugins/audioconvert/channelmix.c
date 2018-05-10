@@ -824,7 +824,7 @@ static int impl_node_process(struct spa_node *node)
 
 	inio->status = SPA_STATUS_NEED_BUFFER;
 
-	return outio->status;
+	return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 }
 
 static const struct spa_node impl_node = {

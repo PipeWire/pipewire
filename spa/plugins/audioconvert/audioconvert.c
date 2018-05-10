@@ -808,11 +808,16 @@ static int impl_node_process(struct spa_node *node)
 	spa_log_trace(this->log, NAME " %p: process %d", this, this->n_links);
 
 	for (i = 1; i < this->n_links; i++) {
-		res = spa_node_process(this->links[i].out_node);
-		if (!SPA_FLAG_CHECK(res, SPA_STATUS_HAVE_BUFFER)) {
-			if (SPA_FLAG_CHECK(res, SPA_STATUS_NEED_BUFFER) && i == 1)
+		int r = spa_node_process(this->links[i].out_node);
+		if (i == 1)
+			res |= r & SPA_STATUS_NEED_BUFFER;
+		if (i == this->n_links - 1)
+			res |= r & SPA_STATUS_HAVE_BUFFER;
+
+		if (!SPA_FLAG_CHECK(r, SPA_STATUS_HAVE_BUFFER)) {
+			if (SPA_FLAG_CHECK(r, SPA_STATUS_NEED_BUFFER) && i == 1)
 				break;
-			i = 0;
+			i = res = SPA_STATUS_OK;
 			continue;
 		}
 	}

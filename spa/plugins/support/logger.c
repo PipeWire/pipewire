@@ -85,6 +85,8 @@ impl_log_logv(struct spa_log *log,
 			prefix = "\x1B[1;31m";
 		else if (level <= SPA_LOG_LEVEL_WARN)
 			prefix = "\x1B[1;33m";
+		else if (level <= SPA_LOG_LEVEL_INFO)
+			prefix = "\x1B[1;32m";
 		if (prefix[0])
 			suffix = "\x1B[0m";
 	}

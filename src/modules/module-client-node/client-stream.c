@@ -335,7 +335,7 @@ static int negotiate_format(struct impl *impl)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	spa_log_info(this->log, "%p: negiotiate", impl);
+	spa_log_debug(this->log, "%p: negiotiate", impl);
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->adapter,
@@ -385,7 +385,7 @@ static int negotiate_buffers(struct impl *impl)
         struct spa_buffer_alloc_info info = { 0, };
         void *skel;
 
-	spa_log_info(this->log, "%p: %d", impl, impl->n_buffers);
+	spa_log_debug(this->log, "%p: %d", impl, impl->n_buffers);
 
 	if (impl->n_buffers > 0)
 		return 0;
@@ -593,7 +593,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		return res;
 
 
-	spa_log_info(this->log, "%p: %d %d", impl, n_buffers, port_id);
+	spa_log_debug(this->log, "%p: %d %d", impl, n_buffers, port_id);
 
 	if (n_buffers > 0 && impl->use_converter) {
 		if (port_id == 0)

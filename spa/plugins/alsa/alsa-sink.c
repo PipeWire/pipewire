@@ -404,7 +404,7 @@ static int port_set_format(struct spa_node *node,
 	int err;
 
 	if (format == NULL) {
-		spa_log_info(this->log, "clear format");
+		spa_log_debug(this->log, "clear format");
 		spa_alsa_pause(this, false);
 		clear_buffers(this);
 		spa_alsa_close(this);
@@ -475,7 +475,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	spa_log_info(this->log, "use buffers %d", n_buffers);
+	spa_log_debug(this->log, "use buffers %d", n_buffers);
 
 	if (!this->have_format)
 		return -EIO;

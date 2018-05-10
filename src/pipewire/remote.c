@@ -750,7 +750,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 
 	data->node_id = node_id;
 
-	pw_log_info("remote-node %p: create transport with fds %d %d for node %u",
+	pw_log_debug("remote-node %p: create transport with fds %d %d for node %u",
 		proxy, readfd, writefd, node_id);
 
         data->rtwritefd = writefd;

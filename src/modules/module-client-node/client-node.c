@@ -434,7 +434,7 @@ do_update_port(struct node *this,
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
 		port->have_format = false;
 
-		spa_log_info(this->log, "node %p: port %u update %d params", this, port_id, n_params);
+		spa_log_debug(this->log, "node %p: port %u update %d params", this, port_id, n_params);
 		for (i = 0; i < port->n_params; i++)
 			free(port->params[i]);
 		port->n_params = n_params;
@@ -464,7 +464,7 @@ do_update_port(struct node *this,
 	}
 
 	if (!port->valid) {
-		spa_log_info(this->log, "node %p: adding port %d", this, port_id);
+		spa_log_debug(this->log, "node %p: adding port %d", this, port_id);
 		port->have_format = false;
 		port->valid = true;
 		for (i = 0; i < MAX_IO; i++)
@@ -494,7 +494,7 @@ static void do_uninit_port(struct node *this, enum spa_direction direction, uint
 {
 	struct port *port;
 
-	spa_log_info(this->log, "node %p: removing port %d", this, port_id);
+	spa_log_debug(this->log, "node %p: removing port %d", this, port_id);
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		port = GET_IN_PORT(this, port_id);
@@ -716,7 +716,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
-	spa_log_info(this->log, "node %p: use buffers %p %u", this, buffers, n_buffers);
+	spa_log_debug(this->log, "node %p: use buffers %p %u", this, buffers, n_buffers);
 
 	t = impl->t;
 
@@ -931,7 +931,7 @@ client_node_update(void *data,
 		this->max_outputs = max_output_ports;
 	if (change_mask & PW_CLIENT_NODE_UPDATE_PARAMS) {
 		int i;
-		spa_log_info(this->log, "node %p: update %d params", this, n_params);
+		spa_log_debug(this->log, "node %p: update %d params", this, n_params);
 
 		for (i = 0; i < this->n_params; i++)
 			free(this->params[i]);
@@ -941,7 +941,7 @@ client_node_update(void *data,
 		for (i = 0; i < this->n_params; i++)
 			this->params[i] = pw_spa_pod_copy(params[i]);
 	}
-	spa_log_info(this->log, "node %p: got node update max_in %u, max_out %u", this,
+	spa_log_debug(this->log, "node %p: got node update max_in %u, max_out %u", this,
 		     this->max_inputs, this->max_outputs);
 }
 
@@ -958,7 +958,7 @@ client_node_port_update(void *data,
 	struct node *this = &impl->node;
 	bool remove;
 
-	spa_log_info(this->log, "node %p: got port update", this);
+	spa_log_debug(this->log, "node %p: got port update", this);
 	if (!CHECK_PORT_ID(this, direction, port_id))
 		return;
 

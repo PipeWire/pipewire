@@ -273,7 +273,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	rchannels = info->channels;
 	CHECK(snd_pcm_hw_params_set_channels_near(hndl, params, &rchannels), "set_channels");
 	if (rchannels != info->channels) {
-		spa_log_info(state->log, "Channels doesn't match (requested %u, get %u", info->channels, rchannels);
+		spa_log_warn(state->log, "Channels doesn't match (requested %u, get %u", info->channels, rchannels);
 		if (flags & SPA_NODE_PARAM_FLAG_NEAREST)
 			info->channels = rchannels;
 		else
@@ -284,7 +284,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	rrate = info->rate;
 	CHECK(snd_pcm_hw_params_set_rate_near(hndl, params, &rrate, 0), "set_rate_near");
 	if (rrate != info->rate) {
-		spa_log_info(state->log, "Rate doesn't match (requested %iHz, get %iHz)", info->rate, rrate);
+		spa_log_warn(state->log, "Rate doesn't match (requested %iHz, get %iHz)", info->rate, rrate);
 		if (flags & SPA_NODE_PARAM_FLAG_NEAREST)
 			info->rate = rrate;
 		else

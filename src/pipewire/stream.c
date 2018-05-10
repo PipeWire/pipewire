@@ -633,7 +633,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 			} else
 				size = buf_size;
 		}
-		pw_log_info("got buffer %d %d datas, mapped size %d", i,
+		pw_log_debug("got buffer %d %d datas, mapped size %d", i,
 				buffers[i]->n_datas, size);
 	}
 

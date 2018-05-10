@@ -118,9 +118,6 @@ enum spa_node_param_flags {
 
 /**
  * A spa_node is a component that can consume and produce buffers.
- *
- *
- *
  */
 struct spa_node {
 	/* the version of this node. This can be used to expand this
@@ -477,11 +474,11 @@ struct spa_node {
 	 * Input areas with SPA_STATUS_HAVE_BUFFER are consumed if possible
 	 * and the status is set to SPA_STATUS_NEED_BUFFER or SPA_STATUS_OK.
 	 *
-	 * When the node has new output buffers, SPA_STATUS_HAVE_BUFFER
-	 * is returned.
+	 * When the node has new output buffers, the SPA_STATUS_HAVE_BUFFER
+	 * bit will be set.
 	 *
-	 * When no new output could be produced, SPA_STATUS_NEED_BUFFER is
-	 * returned.
+	 * When the node can accept new input in the next cycle, the
+	 * SPA_STATUS_NEED_BUFFER bit will be set.
 	 */
 	int (*process) (struct spa_node *node);
 };

@@ -163,7 +163,7 @@ static int setup_convert(struct impl *this)
 	src_fmt = inport->format.info.raw.format;
 	dst_fmt = outport->format.info.raw.format;
 
-	spa_log_info(this->log, NAME " %p: %s/%d@%d.%d->%s/%d@%d.%d", this,
+	spa_log_debug(this->log, NAME " %p: %s/%d@%d.%d->%s/%d@%d.%d", this,
 			spa_type_map_get_type(this->map, src_fmt),
 			inport->format.info.raw.channels,
 			inport->format.info.raw.rate,
@@ -545,7 +545,7 @@ static int calc_width(struct spa_audio_info *info, struct type *t)
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_info(this->log, NAME " %p: clear buffers %p", this, port);
+		spa_log_debug(this->log, NAME " %p: clear buffers %p", this, port);
 		port->n_buffers = 0;
 		spa_list_init(&port->queue);
 	}
@@ -602,7 +602,7 @@ static int port_set_format(struct spa_node *node,
 		if (other->have_format)
 			res = setup_convert(this);
 
-		spa_log_info(this->log, NAME " %p: set format on port %d %d %d %d",
+		spa_log_debug(this->log, NAME " %p: set format on port %d %d %d %d",
 				this, port_id, res, port->stride, other->stride);
 	}
 	return res;
@@ -654,7 +654,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	spa_return_val_if_fail(port->have_format, -EIO);
 
-	spa_log_info(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
+	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
 
 	clear_buffers(this, port);
 

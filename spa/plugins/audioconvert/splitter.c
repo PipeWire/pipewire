@@ -39,16 +39,9 @@
 #define MAX_BUFFERS     64
 #define MAX_PORTS       128
 
-#define PORT_DEFAULT_VOLUME	1.0
-#define PORT_DEFAULT_MUTE	false
-
 struct type {
 	uint32_t node;
 	uint32_t format;
-	uint32_t prop_volume;
-	uint32_t prop_mute;
-	uint32_t io_prop_volume;
-	uint32_t io_prop_mute;
 	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_media_type media_type;
@@ -67,10 +60,6 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
-	type->prop_mute = spa_type_map_get_id(map, SPA_TYPE_PROPS__mute);
-	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
-	type->io_prop_mute = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "mute");
 	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_media_type_map(map, &type->media_type);
@@ -85,17 +74,6 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_param_io_map(map, &type->param_io);
 }
 
-struct port_props {
-	double volume;
-	int32_t mute;
-};
-
-static void port_props_reset(struct port_props *props)
-{
-	props->volume = PORT_DEFAULT_VOLUME;
-	props->mute = PORT_DEFAULT_MUTE;
-}
-
 struct buffer {
 #define BUFFER_FLAG_QUEUED	(1<<0)
 	uint32_t flags;
@@ -107,11 +85,8 @@ struct port {
 	bool valid;
 	uint32_t id;
 
-	struct port_props props;
-
 	struct spa_io_buffers *io;
-	double *io_volume;
-	int32_t *io_mute;
+	struct spa_io_control_range *ctrl;
 
 	struct spa_port_info info;
 	struct spa_dict info_props;
@@ -277,10 +252,6 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 	port->valid = true;
 	port->id = port_id;
 
-	port_props_reset(&port->props);
-	port->io_volume = &port->props.volume;
-	port->io_mute = &port->props.mute;
-
 	spa_list_init(&port->queue);
 	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
 			   SPA_PORT_INFO_FLAG_REMOVABLE;
@@ -293,7 +264,7 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 	if (this->last_port <= port_id)
 		this->last_port = port_id + 1;
 
-	spa_log_info(this->log, NAME " %p: add port %d %d", this, port_id, this->have_format);
+	spa_log_debug(this->log, NAME " %p: add port %d %d", this, port_id, this->have_format);
 
 	return 0;
 }
@@ -328,7 +299,7 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 
 		this->last_port = i + 1;
 	}
-	spa_log_info(this->log, NAME " %p: remove port %d", this, port_id);
+	spa_log_debug(this->log, NAME " %p: remove port %d", this, port_id);
 
 	return 0;
 }
@@ -457,7 +428,7 @@ impl_node_port_enum_params(struct spa_node *node,
       next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	spa_log_info(this->log, NAME " %p: enum param %d %d", this, id, this->have_format);
+	spa_log_debug(this->log, NAME " %p: enum param %d %d", this, id, this->have_format);
 
 	if (id == t->param.idList) {
 		uint32_t list[] = { t->param.idEnumFormat,
@@ -544,7 +515,7 @@ impl_node_port_enum_params(struct spa_node *node,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_info(this->log, NAME " %p: clear buffers %p", this, port);
+		spa_log_debug(this->log, NAME " %p: clear buffers %p", this, port);
 		port->n_buffers = 0;
 		spa_list_init(&port->queue);
 	}
@@ -563,7 +534,7 @@ static int port_set_format(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_log_info(this->log, NAME " %p: set format %d", this, this->have_format);
+	spa_log_debug(this->log, NAME " %p: set format %d", this, this->have_format);
 
 	if (format == NULL) {
 		if (port->have_format) {
@@ -610,7 +581,7 @@ static int port_set_format(struct spa_node *node,
 		if (!port->have_format) {
 			this->n_formats++;
 			port->have_format = true;
-			spa_log_info(this->log, NAME " %p: set format on port %d", this, port_id);
+			spa_log_debug(this->log, NAME " %p: set format on port %d", this, port_id);
 		}
 	}
 
@@ -690,7 +661,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	spa_return_val_if_fail(port->have_format, -EIO);
 
-	spa_log_info(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
+	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
 
 	clear_buffers(this, port);
 
@@ -749,6 +720,8 @@ impl_node_port_set_io(struct spa_node *node,
 
 	if (id == t->io.Buffers)
 		port->io = data;
+	else if (id == t->io.ControlRange)
+		port->ctrl = data;
 	else
 		return -ENOENT;
 
@@ -829,7 +802,12 @@ static int impl_node_process(struct spa_node *node)
 		spa_log_trace(this->log, NAME " %p: %d %d %d", this,
 				sd->chunk->size, dd->maxsize, inport->offset);
 
-		size = SPA_MIN(sd->chunk->size - inport->offset, dd->maxsize);
+		if (outport->ctrl)
+			size = SPA_MIN(outport->ctrl->max_size, dd->maxsize);
+		else
+			size = dd->maxsize;
+
+		size = SPA_MIN(size, sd->chunk->size - inport->offset);
 
 		memcpy(dd->data, SPA_MEMBER(sd->data, inport->offset, void), size);
 
@@ -839,7 +817,6 @@ static int impl_node_process(struct spa_node *node)
 		outio->buffer_id = dbuf->buf->id;
 		outio->status = SPA_STATUS_HAVE_BUFFER;
 		SPA_FLAG_SET(res, SPA_STATUS_HAVE_BUFFER);
-
 	}
 	inport->offset += size;
 	if (inport->offset >= sbuf->buf->datas[0].chunk->size) {

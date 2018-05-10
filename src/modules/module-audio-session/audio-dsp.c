@@ -208,7 +208,7 @@ static int node_remove_port(struct spa_node *node, enum spa_direction direction,
 static int clear_buffers(struct node *n, struct port *p)
 {
 	if (p->n_buffers > 0) {
-		pw_log_info(NAME " %p: clear buffers %p", n, p);
+		pw_log_debug(NAME " %p: clear buffers %p", n, p);
 		p->n_buffers = 0;
 		spa_list_init(&p->queue);
 	}
@@ -586,7 +586,7 @@ static int port_set_format(struct spa_node *node, struct port *p,
 	if (spa_format_audio_raw_parse(format, &info.info.raw, &t->format_audio) < 0)
 		return -EINVAL;
 
-	pw_log_info(NAME " %p: set format on port %p", n, p);
+	pw_log_debug(NAME " %p: set format on port %p", n, p);
 	n->sample_rate = info.info.raw.rate;
 
 	if (!SPA_FLAG_CHECK(p->flags, PORT_FLAG_DSP)) {

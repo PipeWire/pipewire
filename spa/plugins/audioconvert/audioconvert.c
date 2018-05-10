@@ -457,7 +457,7 @@ static int setup_buffers(struct impl *this, enum spa_direction direction)
 {
 	int i, res;
 
-	spa_log_info(this->log, NAME " %p: %d", this, direction);
+	spa_log_debug(this->log, NAME " %p: %d", this, direction);
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		for (i = 1; i < this->n_links-1; i++) {
@@ -656,7 +656,7 @@ static int port_set_format(struct spa_node *node,
 		if (other->have_format)
 			res = setup_convert(this);
 
-		spa_log_info(this->log, NAME " %p: set format on port %d %d", this, port_id, res);
+		spa_log_debug(this->log, NAME " %p: set format on port %d %d", this, port_id, res);
 	}
 	return res;
 }

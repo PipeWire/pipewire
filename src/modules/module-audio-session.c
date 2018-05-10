@@ -44,8 +44,8 @@
 
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLE_RATE	44100
-#define DEFAULT_BUFFER_SIZE	64
-#define MAX_BUFFER_SIZE		2048
+#define DEFAULT_BUFFER_SIZE	(64 * sizeof(float))
+#define MAX_BUFFER_SIZE		(1024 * sizeof(float))
 
 struct type {
 	struct spa_type_media_type media_type;

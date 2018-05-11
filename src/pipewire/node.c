@@ -56,6 +56,8 @@ struct impl {
 
 	struct pw_node_activation root_activation;
 	struct pw_node_activation node_activation;
+
+	struct pw_driver_quantum quantum;
 };
 
 struct resource_data {
@@ -421,6 +423,8 @@ static void check_properties(struct pw_node *node)
 	else
 		SPA_FLAG_UNSET(impl->driver_graph.flags, SPA_GRAPH_FLAG_DRIVER);
 
+	node->driver_node = node;
+
 	pw_log_debug("node %p: graph %p driver:%d", node, &impl->driver_graph, node->driver);
 
 }
@@ -508,6 +512,8 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	impl->node_activation.state.status = SPA_STATUS_NEED_BUFFER;
 	spa_graph_node_init(&this->rt.node, &impl->node_activation.state);
 	spa_graph_node_add(&impl->graph, &this->rt.node);
+
+	this->rt.quantum = &impl->quantum;
 
 	check_properties(this);
 

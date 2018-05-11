@@ -1194,14 +1194,16 @@ do_join_graphs(struct spa_loop *loop,
 		out_driver = SPA_FLAG_CHECK(out_graph->flags, SPA_GRAPH_FLAG_DRIVER);
 
 		if (out_driver) {
-			pw_log_debug("link %p: in_graph to out_graph", this);
 			src = in_graph;
 			dst = out_graph;
+			this->input->node->driver_node = this->output->node->driver_node;
+			pw_log_debug("link %p: in_graph to out_graph %p", this, this->output->node);
 		}
 		else {
-			pw_log_debug("link %p: out_graph to in_graph", this);
 			src = out_graph;
 			dst = in_graph;
+			this->output->node->driver_node = this->input->node->driver_node;
+			pw_log_debug("link %p: out_graph to in_graph %p", this, this->input->node);
 		}
 		move_graph(dst, src);
 	}

@@ -104,6 +104,8 @@ struct node_data {
         struct pw_client_node_proxy *node_proxy;
 	struct spa_hook node_proxy_listener;
 	struct spa_hook proxy_listener;
+
+	struct pw_client_node_position *position;
 };
 
 /** \endcond */
@@ -525,7 +527,7 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
 			pw_log_warn("proxy %p: read failed %m", proxy);
 
-		pw_log_trace("remote %p: process", data->remote);
+		pw_log_trace("remote %p: process %d", data->remote, data->position->duration);
 		spa_graph_run(node->graph->parent->graph);
 	}
 }
@@ -1196,6 +1198,37 @@ client_node_port_set_io(void *object,
 	}
 }
 
+static void
+client_node_set_position(void *object,
+                         uint32_t memid,
+                         uint32_t offset,
+                         uint32_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct node_data *data = proxy->user_data;
+	struct mem *m;
+	void *ptr;
+
+	if (memid == SPA_ID_INVALID) {
+		ptr = NULL;
+		size = 0;
+	}
+	else {
+		m = find_mem(data, memid);
+		if (m == NULL) {
+			pw_log_warn("unknown memory id %u", memid);
+			return;
+		}
+		ptr = mem_map(data, &m->map, m->fd,
+			PROT_READ|PROT_WRITE, offset, size);
+		if (ptr == NULL)
+			return;
+		m->ref++;
+	}
+
+	pw_log_debug("node %p: set position %p", proxy, ptr);
+	data->position = ptr;
+}
 
 static const struct pw_client_node_proxy_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
@@ -1210,6 +1243,7 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.port_use_buffers = client_node_port_use_buffers,
 	.port_command = client_node_port_command,
 	.port_set_io = client_node_port_set_io,
+	.set_position = client_node_set_position,
 };
 
 static void do_node_init(struct pw_proxy *proxy)

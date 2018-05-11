@@ -298,6 +298,13 @@ static void reconfigure_session(struct session *sess)
 	}
 
 	sess->buffer_size = buffer_size;
+
+	sess->node->rt.quantum->rate.num = 1;
+	sess->node->rt.quantum->rate.denom = sess->sample_rate;
+	sess->node->rt.quantum->size = buffer_size;
+
+	pw_log_info("module %p: driver node:%p quantum:%d/%d",
+			impl, sess->node, sess->sample_rate, buffer_size);
 }
 
 static void node_info_destroy(void *data)

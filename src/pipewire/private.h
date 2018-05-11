@@ -223,6 +223,13 @@ struct pw_module {
 	void *user_data;                /**< module user_data */
 };
 
+struct pw_driver_quantum {
+	uint64_t time;			/**< time in nanoseconds */
+	struct spa_fraction rate;	/**< rate */
+	uint32_t position;		/**< current position expressed in rate */
+	uint32_t size;			/**< size of one period expressed in rate */
+};
+
 struct pw_node_activation {
 #define NOT_TRIGGERED	0
 #define TRIGGERED	1
@@ -257,6 +264,8 @@ struct pw_node {
 	bool master;			/**< a master node is one of the driver nodes that
 					  *  is selected to drive the graph */
 
+	struct pw_node *driver_node;
+
 	struct spa_clock *clock;	/**< handle to SPA clock if any */
 	struct spa_node *node;		/**< SPA node implementation */
 
@@ -277,6 +286,7 @@ struct pw_node {
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
 	struct {
+		struct pw_driver_quantum *quantum;
 		struct spa_graph *driver;
 		struct spa_graph_node root;
 		struct pw_node_activation *activation;

@@ -432,6 +432,25 @@ static int client_node_demarshal_port_set_io(void *object, void *data, size_t si
 	return 0;
 }
 
+static int client_node_demarshal_set_position(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t memid, off, sz;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs,
+			"["
+			"i", &memid,
+			"i", &off,
+			"i", &sz, NULL) < 0)
+		return -EINVAL;
+
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, set_position,
+							memid, off, sz);
+	return 0;
+}
+
 static void
 client_node_marshal_add_mem(void *object,
 			    uint32_t mem_id,
@@ -671,6 +690,22 @@ client_node_marshal_port_set_io(void *object,
 	pw_protocol_native_end_resource(resource, b);
 }
 
+static void
+client_node_marshal_set_position(void *object,
+			         uint32_t memid,
+			         uint32_t offset,
+			         uint32_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_POSITION);
+	spa_pod_builder_struct(b,
+			       "i", memid,
+			       "i", offset,
+			       "i", size);
+	pw_protocol_native_end_resource(resource, b);
+}
 
 static int client_node_demarshal_done(void *object, void *data, size_t size)
 {
@@ -857,6 +892,7 @@ static const struct pw_client_node_proxy_events pw_protocol_native_client_node_e
 	&client_node_marshal_port_use_buffers,
 	&client_node_marshal_port_command,
 	&client_node_marshal_port_set_io,
+	&client_node_marshal_set_position,
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_event_demarshal[] = {
@@ -871,6 +907,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_
 	{ &client_node_demarshal_port_use_buffers, PW_PROTOCOL_NATIVE_REMAP },
 	{ &client_node_demarshal_port_command, PW_PROTOCOL_NATIVE_REMAP },
 	{ &client_node_demarshal_port_set_io, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_set_position, PW_PROTOCOL_NATIVE_REMAP },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_client_node_marshal = {

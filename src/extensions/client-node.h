@@ -44,6 +44,16 @@ struct pw_client_node_buffer {
 	struct spa_buffer *buffer;	/**< buffer describing metadata and buffer memory */
 };
 
+struct pw_client_node_position {
+#define PW_VERSION_CLIENT_NODE_POSITION		0
+	uint32_t version;
+	uint32_t seq1, seq2;		/**< valid contents when equal */
+	uint64_t nsec;			/**< time in nanoseconds */
+	struct spa_fraction rate;	/**< rate of the clock */
+	uint32_t position;		/**< current position expressed in rate */
+	uint32_t duration;		/**< duration of cycle expressed in rate */
+};
+
 #define PW_CLIENT_NODE_PROXY_METHOD_DONE		0
 #define PW_CLIENT_NODE_PROXY_METHOD_UPDATE		1
 #define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE		2
@@ -183,7 +193,8 @@ pw_client_node_proxy_destroy(struct pw_client_node_proxy *p)
 #define PW_CLIENT_NODE_PROXY_EVENT_PORT_USE_BUFFERS	8
 #define PW_CLIENT_NODE_PROXY_EVENT_PORT_COMMAND		9
 #define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO		10
-#define PW_CLIENT_NODE_PROXY_EVENT_NUM			11
+#define PW_CLIENT_NODE_PROXY_EVENT_SET_POSITION		11
+#define PW_CLIENT_NODE_PROXY_EVENT_NUM			12
 
 /** \ref pw_client_node events */
 struct pw_client_node_proxy_events {
@@ -340,6 +351,11 @@ struct pw_client_node_proxy_events {
 			     uint32_t mem_id,
 			     uint32_t offset,
 			     uint32_t size);
+
+	void (*set_position) (void *object,
+			      uint32_t mem_id,
+			      uint32_t offset,
+			      uint32_t size);
 };
 
 static inline void
@@ -373,6 +389,8 @@ pw_client_node_proxy_add_listener(struct pw_client_node_proxy *p,
 	pw_resource_notify(r,struct pw_client_node_proxy_events,port_command,__VA_ARGS__)
 #define pw_client_node_resource_port_set_io(r,...)	\
 	pw_resource_notify(r,struct pw_client_node_proxy_events,port_set_io,__VA_ARGS__)
+#define pw_client_node_resource_set_position(r,...)	\
+	pw_resource_notify(r,struct pw_client_node_proxy_events,set_position,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

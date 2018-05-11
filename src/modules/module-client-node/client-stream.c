@@ -98,6 +98,7 @@ struct impl {
 	struct pw_port_mix client_port_mix;
 
 	struct spa_io_buffers *io;
+	struct spa_io_control_range ctrl;
 
 	struct spa_buffer **buffers;
 	uint32_t n_buffers;
@@ -249,16 +250,29 @@ impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t
 {
 	struct node *this;
 	struct impl *impl;
+	struct pw_type *t;
+	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
+	t = impl->t;
 
 	if (direction != impl->direction)
 		return -EINVAL;
 
-	return spa_node_add_port(impl->adapter, direction, port_id);
+	if ((res = spa_node_add_port(impl->adapter, direction, port_id)) < 0)
+		return res;
+
+	if ((res = spa_node_port_set_io(impl->adapter,
+					direction, port_id,
+					t->io.ControlRange,
+					&impl->ctrl,
+					sizeof(&impl->ctrl))) < 0)
+			return res;
+
+	return res;
 }
 
 static int
@@ -670,10 +684,16 @@ static int impl_node_process(struct spa_node *node)
 	struct impl *impl = this->impl;
 	int status;
 
-	spa_log_trace(this->log, "%p: process", this);
+	impl->client_node->node->driver_node = impl->this.node->driver_node;
+	impl->ctrl.min_size = impl->ctrl.max_size =
+		impl->this.node->driver_node->rt.quantum->size;
 
-	if (impl->use_converter)
+
+	spa_log_trace(this->log, "%p: process %d", this, impl->ctrl.max_size);
+
+	if (impl->use_converter) {
 		status = spa_node_process(impl->adapter);
+	}
 	else {
 		status = SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 		spa_log_trace(this->log, "%p: process %d/%d %d/%d", this,
@@ -841,6 +861,7 @@ static void client_node_initialized(void *data)
 					impl->client_port_mix.io,
 					sizeof(impl->client_port_mix.io))) < 0)
 			return;
+
 	}
 
 	pw_node_register(impl->this.node, NULL, NULL, NULL);

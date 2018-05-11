@@ -60,10 +60,6 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_audio_format_map(map, &type->audio_format);
 }
 
-typedef enum _pipewire_format {
-	SND_PCM_PIPEWIRE_FORMAT_RAW
-} snd_pcm_pipewire_format_t;
-
 typedef struct {
 	snd_pcm_ioplug_t io;
 
@@ -302,7 +298,7 @@ snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 
 	if (io->state != SND_PCM_STATE_RUNNING) {
 		if (io->stream == SND_PCM_STREAM_PLAYBACK) {
-			pw_log_trace("slience %lu frames", nframes);
+			pw_log_trace("silence %lu frames", nframes);
 			for (channel = 0; channel < io->channels; channel++)
 				snd_pcm_area_silence(&pwareas[channel], 0, nframes, io->format);
 			goto done;
@@ -370,16 +366,24 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct pw_type *t = pw->t;
+	struct pw_properties *props;
 	int res;
 
 	pw_thread_loop_lock(pw->main_loop);
 
-	if (pw->stream) {
+	pw_log_debug("prepare %d %p %lu", pw->error, pw->stream, io->period_size);
+	if (!pw->error && pw->stream != NULL)
+		goto done;
+
+	if (pw->stream != NULL) {
 		pw_stream_destroy(pw->stream);
 		pw->stream = NULL;
 	}
 
-        pw->stream = pw_stream_new(pw->remote, pw->node_name, NULL);
+	props = pw_properties_new(NULL, NULL);
+	pw_properties_setf(props, "node.latency", "%lu", io->period_size);
+
+	pw->stream = pw_stream_new(pw->remote, pw->node_name, props);
 	if (pw->stream == NULL)
 		goto error;
 
@@ -390,10 +394,11 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		"I", pw->type.media_type.audio,
 		"I", pw->type.media_subtype.raw,
 		":", pw->type.format_audio.format,     "I", pw->format.format,
+		":", pw->type.format_audio.layout,     "i", pw->format.layout,
 		":", pw->type.format_audio.channels,   "i", pw->format.channels,
 		":", pw->type.format_audio.rate,       "i", pw->format.rate);
 
-	spa_debug_pod(params[0], SPA_DEBUG_FLAG_FORMAT);
+	pw->error = false;
 
 	pw_stream_connect(pw->stream,
 			  PW_DIRECTION_OUTPUT,
@@ -403,6 +408,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 			  PW_STREAM_FLAG_RT_PROCESS,
 			  params, 1);
 
+done:
 	pw->hw_ptr = 0;
 
 	snd_pcm_sw_params_alloca(&swparams);
@@ -425,7 +431,7 @@ static int snd_pcm_pipewire_start(snd_pcm_ioplug_t *io)
 	snd_pcm_pipewire_t *pw = io->private_data;
 
 	pw_thread_loop_lock(pw->main_loop);
-	if (!pw->activated) {
+	if (!pw->activated && pw->stream != NULL) {
 		pw_stream_set_active(pw->stream, true);
 		pw->activated = true;
 	}
@@ -438,7 +444,7 @@ static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io)
 	snd_pcm_pipewire_t *pw = io->private_data;
 
 	pw_thread_loop_lock(pw->main_loop);
-	if (pw->activated) {
+	if (pw->activated && pw->stream != NULL) {
 		pw_stream_set_active(pw->stream, false);
 		pw->activated = false;
 	}
@@ -459,7 +465,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 
-	switch (io->format) {
+	switch(io->format) {
 	case SND_PCM_FORMAT_U8:
 		pw->format.format = pw->type.audio_format.U8;
 		break;
@@ -500,6 +506,19 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	pw->format.channels = io->channels;
 	pw->format.rate = io->rate;
 
+	switch(io->access) {
+	case SND_PCM_ACCESS_MMAP_INTERLEAVED:
+	case SND_PCM_ACCESS_RW_INTERLEAVED:
+		pw->format.layout = SPA_AUDIO_LAYOUT_INTERLEAVED;
+		break;
+	case SND_PCM_ACCESS_MMAP_NONINTERLEAVED:
+	case SND_PCM_ACCESS_RW_NONINTERLEAVED:
+		pw->format.layout = SPA_AUDIO_LAYOUT_NON_INTERLEAVED;
+		break;
+	default:
+		SNDERR("PipeWire: invalid access: %d\n", io->access);
+		return -EINVAL;
+	}
 	pw->sample_bits = snd_pcm_format_physical_width(io->format);
 
 	return 0;
@@ -519,7 +538,8 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 {
 	/* period and buffer bytes must be power of two */
 	static const unsigned int bytes_list[] = {
-		1U<<5, 1U<<6, 1U<<7, 1U<<8, 1U<<9, 1U<<10, 1U<<11, 1U<<12, 1U<<13,
+		1U<<5, 1U<<6, 1U<<7, 1U<<8, 1U<<9, 1U<<10, 1U<<11, 1U<<12,
+		1U<<13,
 		1U<<14, 1U<<15, 1U<<16, 1U<<17,1U<<18, 1U<<19, 1U<<20
 	};
 	unsigned int access_list[] = {
@@ -570,6 +590,8 @@ static void on_remote_state_changed(void *data, enum pw_remote_state old,
 
         switch (state) {
         case PW_REMOTE_STATE_ERROR:
+		pw_log_error("error %s", error);
+        case PW_REMOTE_STATE_UNCONNECTED:
 		pw->error = true;
 		pcm_poll_unblock_check(&pw->io);
 		/* fallthrough */
@@ -628,13 +650,16 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	snd_pcm_pipewire_t *pw;
 	int err;
 	static unsigned int num = 0;
+	const char *str;
 
 	assert(pcmp);
 	pw = calloc(1, sizeof(*pw));
 	if (!pw)
 		return -ENOMEM;
 
-	pw_log_debug("open %s %d %d", name, stream, mode);
+	str = getenv("PIPEWIRE_NODE");
+
+	pw_log_debug("open %s %d %d '%s'", name, stream, mode, str);
 
 	pw->fd = -1;
 	pw->io.poll_fd = -1;
@@ -647,10 +672,14 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	else
 		pw->node_name = strdup(node_name);
 
-	if (stream == SND_PCM_STREAM_PLAYBACK)
-		pw->target = playback_node ? strdup(playback_node) : NULL;
-	else
-		pw->target = capture_node ? strdup(capture_node) : NULL;
+	if (str != NULL)
+		pw->target = strdup(str);
+	else {
+		if (stream == SND_PCM_STREAM_PLAYBACK)
+			pw->target = playback_node ? strdup(playback_node) : NULL;
+		else
+			pw->target = capture_node ? strdup(capture_node) : NULL;
+	}
 
         pw->loop = pw_loop_new(NULL);
         pw->main_loop = pw_thread_loop_new(pw->loop, "alsa-pipewire");

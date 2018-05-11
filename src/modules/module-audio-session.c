@@ -289,10 +289,13 @@ static int on_peer_port(void *data, struct pw_port *port)
 static void reconfigure_session(struct session *sess)
 {
 	struct node_info *ni;
-	uint32_t buffer_size = 1024;
+	struct impl *impl = sess->impl;
+	uint32_t buffer_size = MAX_BUFFER_SIZE;
 
-	spa_list_for_each(ni, &sess->node_list, l)
-		buffer_size = SPA_MIN(buffer_size, ni->buffer_size);
+	spa_list_for_each(ni, &sess->node_list, l) {
+		if (ni->buffer_size > 0)
+			buffer_size = SPA_MIN(buffer_size, ni->buffer_size);
+	}
 
 	sess->buffer_size = buffer_size;
 }
@@ -402,8 +405,7 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 	struct node_info *info;
 	uint32_t sample_rate, buffer_size;
 
-	sample_rate = 44100;
-	buffer_size = 1024;
+	sample_rate = DEFAULT_SAMPLE_RATE;
 
 	if ((media = pw_properties_get(props, PW_NODE_PROP_MEDIA)) == NULL)
 		media = "Audio";
@@ -421,7 +423,14 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 	else
 		exclusive = false;
 
-	pw_log_debug("module %p: '%s' '%s' '%s' %d", impl, media, category, role, exclusive);
+	if ((str = pw_properties_get(props, "node.latency")) != NULL)
+		buffer_size = atoi(str) * sizeof(float);
+	else
+		buffer_size = MAX_BUFFER_SIZE;
+
+	pw_log_info("module %p: '%s' '%s' '%s' exclusive:%d quantum:%d/%d", impl,
+			media, category, role, exclusive,
+			sample_rate, buffer_size);
 
 	if (strcmp(category, "Playback") == 0)
 		find.media_class = "Audio/Sink";
@@ -471,8 +480,6 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 				return;
 		}
 		peer = session->dsp;
-		sample_rate = session->sample_rate;
-		buffer_size = session->buffer_size;
 	}
 
 	pw_log_debug("module %p: linking to session '%d'", impl, session->id);
@@ -490,6 +497,8 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 	pw_node_add_listener(node, &info->node_listener, &node_info_events, info);
 
 	pw_node_for_each_port(peer, direction, on_peer_port, info);
+
+	reconfigure_session(session);
 }
 
 static void node_destroy(void *data)
@@ -536,6 +545,7 @@ static const struct pw_node_events dsp_events = {
 struct channel_data {
 	struct impl *impl;
 	uint32_t channels;
+	uint32_t rate;
 };
 
 static int collect_channel(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
@@ -559,17 +569,19 @@ static int collect_channel(void *data, uint32_t id, uint32_t index, uint32_t nex
 	if (spa_format_audio_raw_parse(param, &info, &impl->type.format_audio) < 0)
 		return 0;
 
-	if (info.channels > d->channels)
+	if (info.channels > d->channels) {
 		d->channels = info.channels;
-
+		d->rate = info.rate;
+	}
 	return 0;
 }
 
 
-static uint32_t find_port_channels(struct impl *impl, struct pw_port *port)
+static int find_port_channels(struct impl *impl, struct pw_port *port,
+		uint32_t *channels, uint32_t *rate)
 {
 	struct pw_type *t = impl->t;
-	struct channel_data data = { impl, 0, };
+	struct channel_data data = { impl, 0, 0 };
 
 	pw_port_for_each_param(port,
 			t->param.idEnumFormat,
@@ -577,7 +589,10 @@ static uint32_t find_port_channels(struct impl *impl, struct pw_port *port)
 			collect_channel, &data);
 
 	pw_log_debug("port channels %d", data.channels);
-	return data.channels;
+	*channels = data.channels;
+	*rate = data.rate;
+
+	return channels > 0 ? 0 : -1;
 }
 
 static int on_global(void *data, struct pw_global *global)
@@ -589,7 +604,7 @@ static int on_global(void *data, struct pw_global *global)
 	const char *str;
 	enum pw_direction direction;
 	struct pw_port *node_port, *dsp_port;
-	uint32_t id, channels;
+	uint32_t id, channels, rate;
 
 	if (pw_global_get_type(global) != impl->t->node)
 		return 0;
@@ -619,14 +634,14 @@ static int on_global(void *data, struct pw_global *global)
 	if ((node_port = pw_node_get_free_port(node, pw_direction_reverse(direction))) == NULL)
 		return 0;
 
-	channels = find_port_channels(impl, node_port);
-	if (channels == 0)
+	if (find_port_channels(impl, node_port, &channels, &rate) < 0)
 		return 0;
 
 	dsp = pw_audio_dsp_new(impl->core,
 			properties,
 			direction,
 			channels,
+			rate,
 			MAX_BUFFER_SIZE,
 			sizeof(struct session));
 	if (dsp == NULL)
@@ -643,6 +658,8 @@ static int on_global(void *data, struct pw_global *global)
 	sess->node_port = node_port;
 	sess->dsp = dsp;
 	sess->dsp_port = dsp_port;
+	sess->sample_rate = rate;
+	sess->buffer_size = MAX_BUFFER_SIZE;
 	spa_list_init(&sess->node_list);
 
 	spa_list_append(&impl->session_list, &sess->l);

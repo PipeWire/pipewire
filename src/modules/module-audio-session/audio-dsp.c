@@ -44,8 +44,6 @@
 #define MAX_PORTS	256
 #define MAX_BUFFERS	8
 
-#define DEFAULT_SAMPLE_RATE	44100
-
 struct type {
 	struct spa_type_media_type media_type;
         struct spa_type_media_subtype media_subtype;
@@ -865,6 +863,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 		const struct pw_properties *props,
 		enum pw_direction direction,
 		uint32_t channels,
+		uint32_t sample_rate,
 		uint32_t max_buffer_size,
 		size_t user_data_size)
 {
@@ -915,7 +914,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 		n->node_impl.process = node_process_split;
 
 	n->channels = channels;
-	n->sample_rate = DEFAULT_SAMPLE_RATE;
+	n->sample_rate = sample_rate;
 	n->max_buffer_size = max_buffer_size;
 
 	pw_node_set_implementation(node, &n->node_impl);

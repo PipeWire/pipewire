@@ -1011,6 +1011,7 @@ impl_node_port_enum_params(struct spa_node *node,
 				"I", t->media_type.audio,
 				"I", t->media_subtype.raw,
 				":", t->format_audio.format,   "I", t->audio_format.S16,
+				":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
 				":", t->format_audio.rate,     "i", rate,
 				":", t->format_audio.channels, "i", channels);
 		}

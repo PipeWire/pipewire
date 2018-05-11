@@ -365,7 +365,7 @@ static int set_timeout(struct state *state, size_t extra)
 	calc_timeout(state->filled + extra, state->threshold, state->rate, &state->now, &ts.it_value);
 
 	ts.it_interval.tv_sec = 0;
-	ts.it_interval.tv_nsec = 0;
+	ts.it_interval.tv_nsec = ((size_t)state->threshold * SPA_NSEC_PER_SEC) / state->rate;
 	timerfd_settime(state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);
 
 	return 0;
@@ -396,7 +396,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		uint32_t index, offs, avail, size, maxsize, l0, l1;
 
 		b = spa_list_first(&state->ready, struct buffer, link);
-		d = b->outbuf->datas;
+		d = b->buf->datas;
 
 		dst = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
 		src = d[0].data;
@@ -424,8 +424,8 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		if (state->ready_offset >= size) {
 			spa_list_remove(&b->link);
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
-			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->outbuf->id);
+			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->buf->id);
+			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->buf->id);
 			state->ready_offset = 0;
 		}
 		written += n_frames;
@@ -489,7 +489,7 @@ push_frames(struct state *state,
 			b->h->dts_offset = 0;
 		}
 
-		d = b->outbuf->datas;
+		d = b->buf->datas;
 
 		src = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
 
@@ -577,11 +577,12 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 		if (spa_list_is_empty(&state->ready)) {
 			struct spa_io_buffers *io = state->io;
 
-			if (state->filled == 0)
+			if (state->filled == 0) {
+				if (state->alsa_started)
+					spa_log_warn(state->log,
+							"alsa-util %p: underrun", state);
 				spa_alsa_write(state, state->threshold);
-			else
-				set_timeout(state, state->threshold);
-
+			}
 			spa_log_trace(state->log, "alsa-util %p: %d %lu", state, io->status,
 					state->filled);
 

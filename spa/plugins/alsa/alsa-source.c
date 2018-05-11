@@ -512,10 +512,10 @@ impl_node_port_use_buffers(struct spa_node *node,
 		struct buffer *b = &this->buffers[i];
 		struct spa_data *d = buffers[i]->datas;
 
-		b->outbuf = buffers[i];
+		b->buf = buffers[i];
 		b->flags = 0;
 
-		b->h = spa_buffer_find_meta(b->outbuf, this->type.meta.Header);
+		b->h = spa_buffer_find_meta(b->buf, this->type.meta.Header);
 
 		if (!((d[0].type == this->type.data.MemFd ||
 		       d[0].type == this->type.data.DmaBuf ||
@@ -637,9 +637,9 @@ static int impl_node_process(struct spa_node *node)
 	b = spa_list_first(&this->ready, struct buffer, link);
 	spa_list_remove(&b->link);
 
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", node, b->outbuf->id);
+	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", node, b->buf->id);
 
-	io->buffer_id = b->outbuf->id;
+	io->buffer_id = b->buf->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;
 
 	return SPA_STATUS_HAVE_BUFFER;

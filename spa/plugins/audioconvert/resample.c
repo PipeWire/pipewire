@@ -497,7 +497,7 @@ impl_node_port_enum_params(struct spa_node *node,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_info(this->log, NAME " %p: clear buffers %p", this, port);
+		spa_log_debug(this->log, NAME " %p: clear buffers %p", this, port);
 		port->n_buffers = 0;
 		spa_list_init(&port->queue);
 	}
@@ -552,7 +552,7 @@ static int port_set_format(struct spa_node *node,
 		port->format = info;
 		port->have_format = true;
 
-		spa_log_info(this->log, NAME " %p: set format on port %d %d", this, port_id, res);
+		spa_log_debug(this->log, NAME " %p: set format on port %d %d", this, port_id, res);
 	}
 	return res;
 }
@@ -603,7 +603,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	spa_return_val_if_fail(port->have_format, -EIO);
 
-	spa_log_info(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
+	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
 
 	clear_buffers(this, port);
 

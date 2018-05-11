@@ -163,7 +163,7 @@ static int setup_convert(struct impl *this)
 	src_fmt = inport->format.info.raw.format;
 	dst_fmt = outport->format.info.raw.format;
 
-	spa_log_debug(this->log, NAME " %p: %s/%d@%d.%d->%s/%d@%d.%d", this,
+	spa_log_info(this->log, NAME " %p: %s/%d@%d.%d->%s/%d@%d.%d", this,
 			spa_type_map_get_type(this->map, src_fmt),
 			inport->format.info.raw.channels,
 			inport->format.info.raw.rate,

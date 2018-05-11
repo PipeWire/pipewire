@@ -491,10 +491,10 @@ impl_node_port_use_buffers(struct spa_node *node,
 		struct spa_data *d = buffers[i]->datas;
 		uint32_t type;
 
-		b->outbuf = buffers[i];
+		b->buf = buffers[i];
 		b->flags = BUFFER_FLAG_OUT;
 
-		b->h = spa_buffer_find_meta(b->outbuf, this->type.meta.Header);
+		b->h = spa_buffer_find_meta(b->buf, this->type.meta.Header);
 
 		type = d[0].type;
 		if ((type == this->type.data.MemFd ||
@@ -597,10 +597,11 @@ static int impl_node_process(struct spa_node *node)
 			input->status = -EINVAL;
 			return -EINVAL;
 		}
-
 		spa_log_trace(this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
 		spa_list_append(&this->ready, &b->link);
 		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+
+		this->threshold = b->buf->datas[0].chunk->size / this->frame_size;
 
 		spa_alsa_write(this, 0);
 

@@ -87,6 +87,8 @@ static int spa_v4l2_open(struct impl *this)
 	    ((port->cap.capabilities & V4L2_CAP_DEVICE_CAPS) &&
 	     (port->cap.device_caps & V4L2_CAP_VIDEO_CAPTURE) == 0)) {
 		spa_log_error(port->log, "v4l2: %s is no video capture device", props->device);
+		close(port->fd);
+		port->fd = -1;
 		return -ENODEV;
 	}
 

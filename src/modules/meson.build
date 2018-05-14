@@ -91,9 +91,9 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
-pipewire_module_audio_session = shared_library('pipewire-module-audio-session',
-  [ 'module-audio-session.c',
-    'module-audio-session/audio-dsp.c',
+pipewire_module_audio_session = shared_library('pipewire-module-media-session',
+  [ 'module-media-session.c',
+    'module-media-session/audio-dsp.c',
     'spa/spa-node.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],

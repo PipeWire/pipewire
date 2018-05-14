@@ -40,7 +40,7 @@
 #include "pipewire/type.h"
 #include "pipewire/private.h"
 
-#include "module-audio-session/audio-dsp.h"
+#include "module-media-session/audio-dsp.h"
 
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLE_RATE	44100
@@ -96,6 +96,7 @@ struct session {
 
 	struct pw_link *link;
 
+	bool exclusive;
 	int sample_rate;
 	int buffer_size;
 
@@ -152,7 +153,9 @@ static void session_destroy(struct session *sess)
 	spa_hook_remove(&sess->node_listener);
 	spa_list_for_each_safe(ni, t, &sess->node_list, l)
 		node_info_free(ni);
-	pw_node_destroy(sess->dsp);
+	if (sess->dsp)
+		pw_node_destroy(sess->dsp);
+	free(sess);
 }
 
 static void
@@ -296,6 +299,8 @@ static void reconfigure_session(struct session *sess)
 		if (ni->buffer_size > 0)
 			buffer_size = SPA_MIN(buffer_size, ni->buffer_size);
 	}
+	if (spa_list_is_empty(&sess->node_list))
+		sess->exclusive = false;
 
 	sess->buffer_size = buffer_size;
 
@@ -387,6 +392,11 @@ static int find_session(void *data, struct session *sess)
 
 		if ((str = pw_properties_get(props, "node.plugged")) != NULL)
 			plugged = pw_properties_parse_uint64(str);
+
+		if (sess->exclusive) {
+			pw_log_debug("module %p: session in use", impl);
+			return 0;
+		}
 	}
 
 	pw_log_debug("module %p: found session '%d' %" PRIu64, impl,
@@ -416,8 +426,6 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 
 	if ((media = pw_properties_get(props, PW_NODE_PROP_MEDIA)) == NULL)
 		media = "Audio";
-	if (strcmp(media, "Audio"))
-		return;
 
 	if ((category = pw_properties_get(props, PW_NODE_PROP_CATEGORY)) == NULL)
 		category = "Playback";
@@ -439,10 +447,20 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 			media, category, role, exclusive,
 			sample_rate, buffer_size);
 
-	if (strcmp(category, "Playback") == 0)
-		find.media_class = "Audio/Sink";
-	else if (strcmp(category, "Capture") == 0)
-		find.media_class = "Audio/Source";
+	if (strcmp(media, "Audio") == 0) {
+		if (strcmp(category, "Playback") == 0)
+			find.media_class = "Audio/Sink";
+		else if (strcmp(category, "Capture") == 0)
+			find.media_class = "Audio/Source";
+		else
+			return;
+	}
+	else if (strcmp(media, "Video") == 0) {
+		if (strcmp(category, "Capture") == 0)
+			find.media_class = "Video/Source";
+		else
+			return;
+	}
 	else
 		return;
 
@@ -470,8 +488,8 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 	else
 		return;
 
-	if (exclusive) {
-		if (!spa_list_is_empty(&session->node_list)) {
+	if (exclusive || session->dsp == NULL) {
+		if (exclusive && !spa_list_is_empty(&session->node_list)) {
 			pw_log_warn("session busy, can't get exclusive access");
 			return;
 		}
@@ -480,6 +498,7 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 			return;
 		}
 		peer = session->node;
+		session->exclusive = exclusive;
 	}
 	else {
 		if (session->link == NULL) {
@@ -555,7 +574,8 @@ struct channel_data {
 	uint32_t rate;
 };
 
-static int collect_channel(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+static int collect_audio_format(void *data, uint32_t id,
+		uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct channel_data *d = data;
 	struct impl *impl = d->impl;
@@ -584,7 +604,7 @@ static int collect_channel(void *data, uint32_t id, uint32_t index, uint32_t nex
 }
 
 
-static int find_port_channels(struct impl *impl, struct pw_port *port,
+static int find_port_format(struct impl *impl, struct pw_port *port,
 		uint32_t *channels, uint32_t *rate)
 {
 	struct pw_type *t = impl->t;
@@ -593,9 +613,10 @@ static int find_port_channels(struct impl *impl, struct pw_port *port,
 	pw_port_for_each_param(port,
 			t->param.idEnumFormat,
 			0, 0, NULL,
-			collect_channel, &data);
+			collect_audio_format, &data);
 
-	pw_log_debug("port channels %d", data.channels);
+	pw_log_debug("port channels %d rate %d", data.channels, data.rate);
+
 	*channels = data.channels;
 	*rate = data.rate;
 
@@ -612,12 +633,15 @@ static int on_global(void *data, struct pw_global *global)
 	enum pw_direction direction;
 	struct pw_port *node_port, *dsp_port;
 	uint32_t id, channels, rate;
+	bool need_dsp;
 
 	if (pw_global_get_type(global) != impl->t->node)
 		return 0;
 
 	node = pw_global_get_object(global);
 	id = pw_global_get_id(global);
+
+	pw_log_debug("global added %d", id);
 
 	properties = pw_node_get_properties(node);
 
@@ -629,11 +653,20 @@ static int on_global(void *data, struct pw_global *global)
 	else if ((str = pw_properties_get(properties, "media.class")) == NULL)
 		return 0;
 
-	pw_log_debug("global added %s (%d)", str, id);
+	if (strstr(str, "Audio/") == str) {
+		need_dsp = true;
+		str += strlen("Audio/");
+	}
+	else if (strstr(str, "Video/") == str) {
+		need_dsp = false;
+		str += strlen("Video/");
+	}
+	else
+		return 0;
 
-	if (strcmp(str, "Audio/Sink") == 0)
+	if (strcmp(str, "Sink") == 0)
 		direction = PW_DIRECTION_OUTPUT;
-	else if (strcmp(str, "Audio/Source") == 0)
+	else if (strcmp(str, "Source") == 0)
 		direction = PW_DIRECTION_INPUT;
 	else
 		return 0;
@@ -641,41 +674,45 @@ static int on_global(void *data, struct pw_global *global)
 	if ((node_port = pw_node_get_free_port(node, pw_direction_reverse(direction))) == NULL)
 		return 0;
 
-	if (find_port_channels(impl, node_port, &channels, &rate) < 0)
-		return 0;
-
-	dsp = pw_audio_dsp_new(impl->core,
-			properties,
-			direction,
-			channels,
-			rate,
-			MAX_BUFFER_SIZE,
-			sizeof(struct session));
-	if (dsp == NULL)
-		return 0;
-
-	if ((dsp_port = pw_node_get_free_port(dsp, direction)) == NULL)
-		return 0;
-
-	sess = pw_audio_dsp_get_user_data(dsp);
+	sess = calloc(1, sizeof(struct session));
 	sess->impl = impl;
 	sess->direction = direction;
 	sess->id = id;
 	sess->node = node;
 	sess->node_port = node_port;
-	sess->dsp = dsp;
-	sess->dsp_port = dsp_port;
-	sess->sample_rate = rate;
-	sess->buffer_size = MAX_BUFFER_SIZE;
 	spa_list_init(&sess->node_list);
-
 	spa_list_append(&impl->session_list, &sess->l);
 
-	pw_node_add_listener(dsp, &sess->dsp_listener, &dsp_events, sess);
 	pw_node_add_listener(node, &sess->node_listener, &node_events, sess);
 
-	pw_node_register(dsp, NULL, pw_module_get_global(impl->module), NULL);
-	pw_node_set_active(dsp, true);
+	if (need_dsp) {
+		if (find_port_format(impl, node_port, &channels, &rate) < 0)
+			return 0;
+
+		dsp = pw_audio_dsp_new(impl->core,
+				properties,
+				direction,
+				channels,
+				rate,
+				MAX_BUFFER_SIZE,
+				0);
+		if (dsp == NULL)
+			return 0;
+
+		if ((dsp_port = pw_node_get_free_port(dsp, direction)) == NULL)
+			return 0;
+
+		pw_node_add_listener(dsp, &sess->dsp_listener, &dsp_events, sess);
+
+		sess->dsp = dsp;
+		sess->dsp_port = dsp_port;
+		sess->sample_rate = rate;
+		sess->buffer_size = MAX_BUFFER_SIZE;
+
+		pw_node_register(dsp, NULL, pw_module_get_global(impl->module), NULL);
+		pw_node_set_active(dsp, true);
+
+	}
 
 	return 0;
 }

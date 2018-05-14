@@ -375,6 +375,7 @@ int main(int argc, char *argv[])
 			  data.path,
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_INACTIVE |
+			  PW_STREAM_FLAG_EXCLUSIVE |
 			  PW_STREAM_FLAG_MAP_BUFFERS,
 			  params, 1);
 

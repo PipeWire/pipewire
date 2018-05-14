@@ -10,5 +10,5 @@ load-module libpipewire-module-spa-monitor v4l2/libspa-v4l2 v4l2-monitor v4l2
 #load-module libpipewire-module-mixer
 load-module libpipewire-module-client-node
 load-module libpipewire-module-flatpak
-load-module libpipewire-module-audio-session
+load-module libpipewire-module-media-session
 load-module libpipewire-module-link-factory

@@ -206,7 +206,7 @@ static int port_enum_formats(struct spa_node *node,
 		":", d->type.format_audio.format,   "Ieu", d->type.audio_format.S16,
 			SPA_POD_PROP_ENUM(2, d->type.audio_format.S16,
 					     d->type.audio_format.F32),
-		":", d->type.format_audio.layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
+		":", d->type.format_audio.layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
 		":", d->type.format_audio.channels, "iru", 2,
 			SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
 		":", d->type.format_audio.rate,     "iru", 44100,
@@ -538,7 +538,9 @@ static void make_node(struct data *data)
 {
 	struct pw_properties *props;
 
-	props = pw_properties_new(PW_NODE_PROP_AUTOCONNECT, "1", NULL);
+	props = pw_properties_new(PW_NODE_PROP_AUTOCONNECT, "1",
+				  PW_NODE_PROP_EXCLUSIVE, "1",
+				  NULL);
 	if (data->path)
 		pw_properties_set(props, PW_NODE_PROP_TARGET_NODE, data->path);
 

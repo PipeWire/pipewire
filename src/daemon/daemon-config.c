@@ -190,6 +190,7 @@ int pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_cor
 		if ((ret = pw_command_run(command, core, &err)) < 0) {
 			pw_log_warn("could not run command %s: %s", command->args[0], err);
 			free(err);
+			break;
 		}
 	}
 

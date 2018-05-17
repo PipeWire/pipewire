@@ -226,7 +226,7 @@ process_messages(struct client_data *data)
 				goto invalid_message;
 
 		if (debug_messages) {
-			printf("<<<<<<<<< in: %d %d %d\n", id, opcode, size);
+			fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
 		        spa_debug_pod((struct spa_pod *)message, 0);
 		}
 		if (demarshal[opcode].func(resource, message, size) < 0)
@@ -560,7 +560,7 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 				}
 			}
 			if (debug_messages) {
-				printf("<<<<<<<<< in: %d %d %d\n", id, opcode, size);
+				fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
 			        spa_debug_pod((struct spa_pod *)message, 0);
 			}
 			if (demarshal[opcode].func(proxy, message, size) < 0) {

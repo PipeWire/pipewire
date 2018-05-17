@@ -372,12 +372,14 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	spa_pod_fixate(param);
 
 	if (link->in_info)
-		in_alloc = SPA_FLAG_CHECK(link->in_info->flags, SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
+		in_alloc = SPA_FLAG_CHECK(link->in_info->flags,
+				SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
 	else
 		in_alloc = false;
 
 	if (link->out_info)
-		out_alloc = SPA_FLAG_CHECK(link->out_info->flags, SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
+		out_alloc = SPA_FLAG_CHECK(link->out_info->flags,
+				SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
 	else
 		out_alloc = false;
 

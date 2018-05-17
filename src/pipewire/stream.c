@@ -224,6 +224,7 @@ static int configure_converter(struct stream *impl)
 		return -ENOTSUP;
 
 	if (impl->io != &impl->conv_io) {
+		pw_log_debug("stream %p: update io %p %p", impl, impl->io, &impl->conv_io);
 		res = spa_node_port_set_io(impl->convert,
 					impl->direction, 0,
 					t->io.Buffers,
@@ -751,11 +752,11 @@ static int impl_node_process_output(struct spa_node *node)
 		if ((b = pop_queue(impl, &impl->queued)) != NULL) {
 			io->buffer_id = b->id;
 			io->status = SPA_STATUS_HAVE_BUFFER;
-			pw_log_trace("stream %p: pop %d", stream, b->id);
+			pw_log_trace("stream %p: pop %d %p", stream, b->id, io);
 		} else {
 			io->buffer_id = SPA_ID_INVALID;
 			io->status = SPA_STATUS_NEED_BUFFER;
-			pw_log_trace("stream %p: no more buffers", stream);
+			pw_log_trace("stream %p: no more buffers %p", stream, io);
 		}
 	}
 	if (io->status == SPA_STATUS_HAVE_BUFFER && impl->use_converter) {

@@ -721,8 +721,11 @@ impl_node_port_set_io(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	if (id == t->io.Buffers)
+	if (id == t->io.Buffers) {
+		spa_log_trace(this->log, NAME " %p: port %d update buffer io %p",
+				this, port_id, data);
 		port->io = data;
+	}
 	else
 		return -ENOENT;
 
@@ -801,7 +804,8 @@ static int impl_node_process(struct spa_node *node)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: status %d %d", this, inio->status, outio->status);
+	spa_log_trace(this->log, NAME " %p: status %p %d %p %d", this,
+			inio, inio->status, outio, outio->status);
 
 	if (outio->status != SPA_STATUS_NEED_BUFFER)
 		return outio->status;

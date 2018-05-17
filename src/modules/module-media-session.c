@@ -333,6 +333,8 @@ static int link_session_dsp(struct session *session)
 	struct pw_port *op, *ip;
 	char *error = NULL;
 
+	pw_log_debug("module %p: link session dsp '%d'", impl, session->id);
+
 	if (session->direction == PW_DIRECTION_OUTPUT) {
 		op = session->dsp_port;
 		ip = session->node_port;

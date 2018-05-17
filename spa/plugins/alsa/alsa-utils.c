@@ -47,7 +47,7 @@ int spa_alsa_close(struct state *state)
 	if (!state->opened)
 		return 0;
 
-	spa_log_info(state->log, "Device closing");
+	spa_log_info(state->log, "Device '%s' closing", state->props.device);
 	CHECK(snd_pcm_close(state->hndl), "close failed");
 
 	close(state->timerfd);

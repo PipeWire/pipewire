@@ -54,7 +54,7 @@ struct props {
 #define MAX_BUFFERS 32
 
 struct buffer {
-	struct spa_buffer *outbuf;
+	struct spa_buffer *buf;
 	struct spa_meta_header *h;
 	bool outstanding;
 	struct spa_list link;
@@ -182,7 +182,7 @@ struct impl {
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
-static const uint32_t default_min_latency = 1024;
+static const uint32_t default_min_latency = 128;
 static const uint32_t default_max_latency = 1024;
 
 static void reset_props(struct props *props)
@@ -502,7 +502,7 @@ static int flush_data(struct impl *this, uint64_t now_time)
 		uint32_t index, offs, avail, l0, l1;
 
 		b = spa_list_first(&this->ready, struct buffer, link);
-		d = b->outbuf->datas;
+		d = b->buf->datas;
 
 		src = d[0].data;
 
@@ -530,8 +530,8 @@ static int flush_data(struct impl *this, uint64_t now_time)
 		if (this->ready_offset >= d[0].chunk->size) {
 			spa_list_remove(&b->link);
 			b->outstanding = true;
-			spa_log_trace(this->log, "a2dp-sink %p: reuse buffer %u", this, b->outbuf->id);
-			this->callbacks->reuse_buffer(this->callbacks_data, 0, b->outbuf->id);
+			spa_log_trace(this->log, "a2dp-sink %p: reuse buffer %u", this, b->buf->id);
+			this->callbacks->reuse_buffer(this->callbacks_data, 0, b->buf->id);
 			this->ready_offset = 0;
 		}
 		total_frames += n_frames;
@@ -1174,10 +1174,10 @@ impl_node_port_use_buffers(struct spa_node *node,
 		struct buffer *b = &this->buffers[i];
 		uint32_t type;
 
-		b->outbuf = buffers[i];
+		b->buf = buffers[i];
 		b->outstanding = true;
 
-		b->h = spa_buffer_find_meta(b->outbuf, this->type.meta.Header);
+		b->h = spa_buffer_find_meta(b->buf, this->type.meta.Header);
 
 		type = buffers[i]->datas[0].type;
 		if ((type == this->type.data.MemFd ||
@@ -1186,6 +1186,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return -EINVAL;
 		}
+		this->threshold = buffers[i]->datas[0].maxsize / this->frame_size;
 	}
 	this->n_buffers = n_buffers;
 
@@ -1280,6 +1281,9 @@ static int impl_node_process(struct spa_node *node)
 
 		spa_list_append(&this->ready, &b->link);
 		b->outstanding = false;
+
+		this->threshold = SPA_MIN(b->buf->datas[0].chunk->size / this->frame_size,
+				this->props.max_latency);
 
 		clock_gettime(CLOCK_MONOTONIC, &this->now);
 		now_time = this->now.tv_sec * SPA_NSEC_PER_SEC + this->now.tv_nsec;

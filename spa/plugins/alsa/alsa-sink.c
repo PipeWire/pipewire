@@ -601,7 +601,8 @@ static int impl_node_process(struct spa_node *node)
 		spa_list_append(&this->ready, &b->link);
 		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
 
-		this->threshold = b->buf->datas[0].chunk->size / this->frame_size;
+		this->threshold = SPA_MIN(b->buf->datas[0].chunk->size / this->frame_size,
+				this->props.max_latency);
 
 		spa_alsa_write(this, 0);
 

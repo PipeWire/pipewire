@@ -52,6 +52,7 @@ static void node_destroy(void *data)
 {
 	struct node_data *nd = data;
 	spa_list_remove(&nd->link);
+	spa_hook_remove(&nd->node_listener);
 }
 
 static const struct pw_node_events node_events = {

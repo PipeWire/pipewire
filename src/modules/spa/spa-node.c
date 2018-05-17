@@ -62,6 +62,7 @@ static void pw_spa_node_destroy(void *data)
 
 	pw_log_debug("spa-node %p: destroy", node);
 
+	spa_hook_remove(&impl->node_listener);
 	if (impl->handle) {
 		spa_handle_clear(impl->handle);
 		free(impl->handle);

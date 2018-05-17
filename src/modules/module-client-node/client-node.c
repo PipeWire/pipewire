@@ -1136,6 +1136,7 @@ static void client_node_resource_destroy(void *data)
 	pw_log_debug("client-node %p: destroy", impl);
 
 	impl->node.resource = this->resource = NULL;
+	spa_hook_remove(&impl->resource_listener);
 
 	if (node->data_source.fd != -1) {
 		spa_loop_invoke(node->data_loop,

@@ -544,6 +544,11 @@ impl_node_port_set_param(struct spa_node *node,
 
 	if (id == t->param.idFormat && impl->use_converter) {
 		if (param == NULL) {
+			if ((res = spa_node_port_set_param(impl->adapter,
+				SPA_DIRECTION_REVERSE(direction), 0, id,
+					0, NULL)) < 0)
+				return res;
+			impl->n_buffers = 0;
 		}
 		else {
 			if (port_id == 0)

@@ -202,6 +202,18 @@ static int make_link(struct impl *this,
 
 static void clean_link(struct impl *this, struct link *link)
 {
+	struct type *t = &this->type;
+
+	if (link->in_node) {
+		spa_node_port_set_param(link->in_node,
+					SPA_DIRECTION_INPUT, link->in_port,
+					t->param.idFormat, 0, NULL);
+	}
+	if (link->out_node) {
+		spa_node_port_set_param(link->out_node,
+					SPA_DIRECTION_OUTPUT, link->out_port,
+					t->param.idFormat, 0, NULL);
+	}
 	if (link->buffers)
 		free(link->buffers);
 	link->buffers = NULL;
@@ -280,6 +292,7 @@ static int setup_convert(struct impl *this)
 	struct port *inport, *outport;
 	struct spa_node *prev = NULL;
 	int i, res;
+	struct type *t = &this->type;
 
 	inport = GET_PORT(this, SPA_DIRECTION_INPUT, 0);
 	outport = GET_PORT(this, SPA_DIRECTION_OUTPUT, 0);
@@ -332,6 +345,11 @@ static int setup_convert(struct impl *this)
 	for (i = 1; i < this->n_links-1; i++)
 		if ((res = negotiate_link_format(this, &this->links[i])) < 0)
 			return res;
+
+	spa_node_port_set_io(inport->node, SPA_DIRECTION_INPUT, 0,
+			t->io.Buffers, inport->io, sizeof(struct spa_io_buffers));
+	spa_node_port_set_io(outport->node, SPA_DIRECTION_OUTPUT, 0,
+			t->io.Buffers, outport->io, sizeof(struct spa_io_buffers));
 
 	return 0;
 }
@@ -448,11 +466,12 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	return 0;
 }
 
-static void clean_buffers(struct impl *this)
+static void clean_convert(struct impl *this)
 {
 	int i;
 	for (i = 0; i < this->n_links; i++)
 		clean_link(this, &this->links[i]);
+	this->n_links = 0;
 }
 
 static int setup_buffers(struct impl *this, enum spa_direction direction)
@@ -637,6 +656,7 @@ static int port_set_format(struct spa_node *node,
 	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), port_id);
 
 	if (format == NULL) {
+		clean_convert(this);
 		port->have_format = false;
 	} else {
 		struct spa_audio_info info = { 0 };
@@ -652,6 +672,7 @@ static int port_set_format(struct spa_node *node,
 		if (spa_format_audio_raw_parse(format, &info.info.raw, &t->format_audio) < 0)
 			return -EINVAL;
 
+		clean_convert(this);
 		port->have_format = true;
 		port->format = info;
 
@@ -876,7 +897,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	clean_buffers(this);
+	clean_convert(this);
 	return 0;
 }
 

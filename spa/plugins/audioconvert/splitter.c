@@ -264,6 +264,9 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 	if (this->last_port <= port_id)
 		this->last_port = port_id + 1;
 
+	port->have_format = false;
+	this->have_format = false;
+
 	spa_log_debug(this->log, NAME " %p: add port %d %d", this, port_id, this->have_format);
 
 	return 0;
@@ -334,7 +337,7 @@ static int port_enum_formats(struct spa_node *node,
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct type *t = &this->type;
-	uint32_t channels;
+	uint32_t channels, rate;
 
 	switch (*index) {
 	case 0:
@@ -343,6 +346,11 @@ static int port_enum_formats(struct spa_node *node,
 		else
 			channels = 1;
 
+		if (this->have_format)
+			rate = this->format.info.raw.rate;
+		else
+			rate = 44100;
+
 		if (this->have_format) {
 			*param = spa_pod_builder_object(builder,
 				t->param.idEnumFormat, t->format,
@@ -350,7 +358,7 @@ static int port_enum_formats(struct spa_node *node,
 				"I", t->media_subtype.raw,
 				":", t->format_audio.format,   "I", t->audio_format.F32,
 				":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
-				":", t->format_audio.rate,     "i", this->format.info.raw.rate,
+				":", t->format_audio.rate,     "i", rate,
 				":", t->format_audio.channels, "i", channels);
 		}
 		else {
@@ -360,7 +368,7 @@ static int port_enum_formats(struct spa_node *node,
 				"I", t->media_subtype.raw,
 				":", t->format_audio.format,   "I", t->audio_format.F32,
 				":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
-				":", t->format_audio.rate,     "iru", 44100,
+				":", t->format_audio.rate,     "iru", rate,
 					SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
 				":", t->format_audio.channels, "i", channels);
 		}

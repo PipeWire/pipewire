@@ -946,12 +946,10 @@ client_node_port_set_param(void *object,
 	}
 
         if (id == t->param.idFormat) {
-		if (param == NULL) {
-			struct mix *mix;
-			spa_list_for_each(mix, &data->mix[direction], link) {
-				if (mix->port->port_id == port_id)
-					clear_buffers(data, mix);
-			}
+		struct mix *mix;
+		spa_list_for_each(mix, &data->mix[direction], link) {
+			if (mix->port->port_id == port_id)
+				clear_buffers(data, mix);
 		}
 	}
 

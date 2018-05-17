@@ -25,15 +25,6 @@ pipewire_module_rtkit = shared_library('pipewire-module-rtkit', [ 'module-rtkit.
 )
 endif
 
-pipewire_module_autolink = shared_library('pipewire-module-autolink', [ 'module-autolink.c' ],
-  c_args : pipewire_module_c_args,
-  include_directories : [configinc, spa_inc],
-  link_with : spalib,
-  install : true,
-  install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
-)
-
 pipewire_module_mixer = shared_library('pipewire-module-mixer',
   [ 'module-mixer.c', 'spa/spa-node.c' ],
   c_args : pipewire_module_c_args,

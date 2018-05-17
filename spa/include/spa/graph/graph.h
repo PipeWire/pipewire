@@ -84,7 +84,6 @@ struct spa_graph_callbacks {
 #define spa_graph_finish(g)		((g)->callbacks->finish((g)->callbacks_data))
 
 struct spa_graph {
-#define SPA_GRAPH_FLAG_DRIVER		(1 << 0)
 	uint32_t flags;			/* flags */
 	struct spa_graph_node *parent;	/* parent node or NULL when driver */
 	struct spa_graph_state *state;	/* state of graph */

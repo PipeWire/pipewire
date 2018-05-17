@@ -791,9 +791,11 @@ do_activate_link(struct spa_loop *loop,
 	spa_graph_port_add(&this->input->rt.mix_node, &this->rt.mix[SPA_DIRECTION_INPUT].port);
 	spa_graph_port_link(&this->rt.mix[SPA_DIRECTION_OUTPUT].port,
 			    &this->rt.mix[SPA_DIRECTION_INPUT].port);
+	this->rt.link.signal_data = &this->input->node->rt.root;
 	spa_graph_link_add(&this->output->node->rt.root,
 			   this->input->node->rt.root.state,
 			   &this->rt.link);
+
 	return 0;
 }
 
@@ -1032,6 +1034,7 @@ do_deactivate_link(struct spa_loop *loop,
 	spa_graph_port_remove(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);
 	spa_graph_port_remove(&this->rt.mix[SPA_DIRECTION_INPUT].port);
 	spa_graph_link_remove(&this->rt.link);
+	this->rt.link.signal_data = NULL;
 
 	return 0;
 }
@@ -1169,46 +1172,22 @@ move_graph(struct spa_graph *dst, struct spa_graph *src)
 	}
 }
 
-static int
-do_join_graphs(struct spa_loop *loop,
-		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+static int find_driver(struct pw_link *this)
 {
-        struct pw_link *this = user_data;
-	struct spa_graph *in_graph, *out_graph;
-	struct spa_graph_node *in_root, *out_root;
+	struct pw_node *out_driver, *in_driver;
 
-	in_root = &this->input->node->rt.root;
-	out_root = &this->output->node->rt.root;
+	out_driver = this->output->node->driver_node;
+	in_driver = this->input->node->driver_node;
 
-	in_graph = in_root->graph;
-	out_graph = out_root->graph;
+	pw_log_debug("link %p: drivers %p/%p", this, out_driver, in_driver);
 
-	pw_log_debug("link %p: roots %p/%p graphs %p/%p %d/%d", this,
-			in_root, out_root, in_graph, out_graph,
-			in_graph->flags, out_graph->flags);
+	if (out_driver == in_driver)
+		return 0;
 
-	if (in_graph != out_graph) {
-		struct spa_graph *src, *dst;
-		bool out_driver;
-
-		out_driver = SPA_FLAG_CHECK(out_graph->flags, SPA_GRAPH_FLAG_DRIVER);
-
-		if (out_driver) {
-			src = in_graph;
-			dst = out_graph;
-			this->input->node->driver_node = this->output->node->driver_node;
-			pw_log_debug("link %p: in_graph to out_graph %p", this, this->output->node);
-		}
-		else {
-			src = out_graph;
-			dst = in_graph;
-			this->output->node->driver_node = this->input->node->driver_node;
-			pw_log_debug("link %p: out_graph to in_graph %p", this, this->input->node);
-		}
-		move_graph(dst, src);
-	}
-	this->rt.link.signal = spa_graph_link_signal_node;
-	this->rt.link.signal_data = in_root;
+	if (out_driver->driver)
+		pw_node_set_driver(in_driver, out_driver);
+	else
+		pw_node_set_driver(out_driver, in_driver);
 
 	return 0;
 }
@@ -1291,12 +1270,13 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	pw_port_init_mix(output, &this->rt.mix[SPA_DIRECTION_OUTPUT]);
 	pw_port_init_mix(input, &this->rt.mix[SPA_DIRECTION_INPUT]);
 
+	this->rt.link.signal = spa_graph_link_signal_node;
+
 	pw_log_debug("link %p: constructed %p:%d.%d -> %p:%d.%d", impl,
 		     output_node, output->port_id, this->rt.mix[SPA_DIRECTION_OUTPUT].port.port_id,
 		     input_node, input->port_id, this->rt.mix[SPA_DIRECTION_INPUT].port.port_id);
 
-	pw_loop_invoke(output->node->data_loop,
-		       do_join_graphs, SPA_ID_INVALID, NULL, 0, false, this);
+	find_driver(this);
 
 	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, this);
 	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, this);

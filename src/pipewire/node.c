@@ -403,6 +403,58 @@ int pw_node_initialized(struct pw_node *this)
 	return 0;
 }
 
+static int
+do_move_nodes(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct impl *src = user_data;
+	struct pw_node *this = &src->this;
+	struct impl *dst = *(struct impl **)data;
+	struct spa_graph_node *n, *t;
+
+	spa_graph_node_remove(&this->rt.root);
+	spa_graph_node_add(&src->driver_graph, &this->rt.root);
+
+	spa_list_for_each_safe(n, t, &src->driver_graph.nodes, link) {
+		spa_graph_node_remove(n);
+		spa_graph_node_add(&dst->driver_graph, n);
+	}
+	return 0;
+}
+
+int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
+{
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+	struct pw_node *n, *t;
+
+	pw_log_debug("node %p: driver:%p current:%p", node, driver, node->driver_node);
+
+	if (driver == NULL)
+		driver = node;
+	if (node->driver_node == driver)
+		return 0;
+
+	spa_list_remove(&node->driver_link);
+	spa_list_append(&driver->driver_list, &node->driver_link);
+	node->driver_node = driver;
+
+	spa_list_for_each_safe(n, t, &node->driver_list, driver_link) {
+		spa_list_remove(&n->driver_link);
+		spa_list_append(&driver->driver_list, &n->driver_link);
+		n->driver_node = driver;
+		spa_hook_list_call(&n->listener_list, struct pw_node_events,
+				driver_changed, driver);
+		pw_log_debug("node %p: add %p", driver, n);
+	}
+	pw_loop_invoke(node->data_loop,
+		       do_move_nodes, SPA_ID_INVALID, &driver, sizeof(struct pw_node *),
+		       true, impl);
+
+	spa_hook_list_call(&node->listener_list, struct pw_node_events, driver_changed, driver);
+
+	return 0;
+}
+
 static void check_properties(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
@@ -417,13 +469,6 @@ static void check_properties(struct pw_node *node)
 		node->driver = pw_properties_parse_bool(str);
 	else
 		node->driver = false;
-
-	if (node->driver)
-		SPA_FLAG_SET(impl->driver_graph.flags, SPA_GRAPH_FLAG_DRIVER);
-	else
-		SPA_FLAG_UNSET(impl->driver_graph.flags, SPA_GRAPH_FLAG_DRIVER);
-
-	node->driver_node = node;
 
 	pw_log_debug("node %p: graph %p driver:%d", node, &impl->driver_graph, node->driver);
 
@@ -478,6 +523,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this->data_loop = core->data_loop;
 
+	spa_list_init(&this->driver_list);
 	spa_list_init(&this->resource_list);
 
 	spa_hook_list_init(&this->listener_list);
@@ -490,6 +536,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_list_init(&this->output_ports);
 	pw_map_init(&this->output_port_map, 64, 64);
 
+
 	spa_graph_init(&impl->driver_graph, &impl->driver_state);
 	spa_graph_data_init(&impl->driver_data, &impl->driver_graph);
 	spa_graph_set_callbacks(&impl->driver_graph,
@@ -498,7 +545,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this->rt.driver = &impl->driver_graph;
 	this->rt.activation = &impl->root_activation;
 	spa_graph_node_init(&this->rt.root, &this->rt.activation->state);
-	spa_graph_node_add(&impl->driver_graph, &this->rt.root);
 
 	spa_graph_init(&impl->graph, &impl->graph_state);
 	spa_graph_data_init(&impl->graph_data, &impl->graph);
@@ -516,6 +562,10 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this->rt.quantum = &impl->quantum;
 
 	check_properties(this);
+
+	this->driver_node = this;
+	spa_list_append(&this->driver_list, &this->driver_link);
+	spa_graph_node_add(&impl->driver_graph, &this->rt.root);
 
 	return this;
 
@@ -682,6 +732,7 @@ void pw_node_destroy(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_resource *resource, *tmp;
+	struct pw_node *n, *t;
 	struct pw_port *port, *tmpp;
 
 	pw_log_debug("node %p: destroy", impl);
@@ -689,11 +740,20 @@ void pw_node_destroy(struct pw_node *node)
 
 	pause_node(node);
 
-	pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
+	pw_log_debug("node %p: driver node %p", impl, node->driver_node);
 
-	if (node->registered) {
-		spa_list_remove(&node->link);
+	/* move all nodes driven by us to their own driver */
+	spa_list_for_each_safe(n, t, &node->driver_list, driver_link)
+		pw_node_set_driver(n, NULL);
+
+	if (node->driver_node != node) {
+		/* remove ourself from the (other) driver node */
+		spa_list_remove(&node->driver_link);
+		pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
 	}
+
+	if (node->registered)
+		spa_list_remove(&node->link);
 
 	pw_log_debug("node %p: unlink ports", node);
 	spa_list_for_each(port, &node->input_ports, link)
@@ -703,11 +763,13 @@ void pw_node_destroy(struct pw_node *node)
 
 	pw_log_debug("node %p: destroy ports", node);
 	spa_list_for_each_safe(port, tmpp, &node->input_ports, link) {
-		spa_hook_list_call(&node->listener_list, struct pw_node_events, port_removed, port);
+		spa_hook_list_call(&node->listener_list, struct pw_node_events,
+				port_removed, port);
 		pw_port_destroy(port);
 	}
 	spa_list_for_each_safe(port, tmpp, &node->output_ports, link) {
-		spa_hook_list_call(&node->listener_list, struct pw_node_events, port_removed, port);
+		spa_hook_list_call(&node->listener_list, struct pw_node_events,
+				port_removed, port);
 		pw_port_destroy(port);
 	}
 

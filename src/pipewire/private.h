@@ -265,6 +265,8 @@ struct pw_node {
 					  *  is selected to drive the graph */
 
 	struct pw_node *driver_node;
+	struct spa_list driver_list;
+	struct spa_list driver_link;
 
 	struct spa_clock *clock;	/**< handle to SPA clock if any */
 	struct spa_node *node;		/**< SPA node implementation */
@@ -614,6 +616,8 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 int pw_node_update_ports(struct pw_node *node);
 
 int pw_node_initialized(struct pw_node *node);
+
+int pw_node_set_driver(struct pw_node *node, struct pw_node *driver);
 
 /** Activate a link \memberof pw_link
   * Starts the negotiation of formats and buffers on \a link and then

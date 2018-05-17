@@ -126,6 +126,9 @@ struct link_data {
 };
 
 
+static int handle_autoconnect(struct impl *impl, struct pw_node *node,
+		const struct pw_properties *props);
+
 /** \endcond */
 
 static void link_data_remove(struct link_data *data)
@@ -151,10 +154,17 @@ static void session_destroy(struct session *sess)
 
 	spa_list_remove(&sess->l);
 	spa_hook_remove(&sess->node_listener);
-	spa_list_for_each_safe(ni, t, &sess->node_list, l)
-		node_info_free(ni);
-	if (sess->dsp)
+	if (sess->dsp) {
+		spa_hook_remove(&sess->dsp_listener);
 		pw_node_destroy(sess->dsp);
+	}
+	spa_list_for_each_safe(ni, t, &sess->node_list, l) {
+		pw_node_set_state(ni->node, PW_NODE_STATE_SUSPENDED);
+		pw_node_set_driver(ni->node, NULL);
+		handle_autoconnect(ni->impl, ni->node,
+			pw_node_get_properties(ni->node));
+		node_info_free(ni);
+	}
 	free(sess);
 }
 
@@ -306,7 +316,7 @@ static void reconfigure_session(struct session *sess)
 
 	sess->node->rt.quantum->rate.num = 1;
 	sess->node->rt.quantum->rate.denom = sess->sample_rate;
-	sess->node->rt.quantum->size = buffer_size;
+	sess->node->rt.quantum->size = sess->buffer_size;
 
 	pw_log_info("module %p: driver node:%p quantum:%d/%d",
 			impl, sess->node, sess->sample_rate, buffer_size);
@@ -357,6 +367,8 @@ static int link_session_dsp(struct session *session)
 		return -ENOMEM;
 	}
 	pw_link_register(session->link, NULL, pw_module_get_global(impl->module), NULL);
+
+	reconfigure_session(session);
 
 	return 0;
 }
@@ -412,7 +424,7 @@ static int find_session(void *data, struct session *sess)
 	return 0;
 }
 
-static void handle_autoconnect(struct impl *impl, struct pw_node *node,
+static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 		const struct pw_properties *props)
 {
         struct pw_node *peer;
@@ -423,6 +435,11 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 	struct session *session;
 	struct node_info *info;
 	uint32_t sample_rate, buffer_size;
+	int res;
+
+	str = pw_properties_get(props, PW_NODE_PROP_AUTOCONNECT);
+        if (str == NULL || !pw_properties_parse_bool(str))
+		return 0;
 
 	sample_rate = DEFAULT_SAMPLE_RATE;
 
@@ -455,16 +472,16 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 		else if (strcmp(category, "Capture") == 0)
 			find.media_class = "Audio/Source";
 		else
-			return;
+			return -EINVAL;
 	}
 	else if (strcmp(media, "Video") == 0) {
 		if (strcmp(category, "Capture") == 0)
 			find.media_class = "Video/Source";
 		else
-			return;
+			return -EINVAL;
 	}
 	else
-		return;
+		return -EINVAL;
 
 	str = pw_properties_get(props, PW_NODE_PROP_TARGET_NODE);
 	if (str != NULL)
@@ -479,7 +496,7 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 	spa_list_for_each(session, &impl->session_list, l)
 		find_session(&find, session);
 	if (find.sess == NULL)
-		return;
+		return -ENOENT;
 
 	session = find.sess;
 
@@ -488,24 +505,24 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 	else if (strcmp(category, "Playback") == 0)
 		direction = PW_DIRECTION_INPUT;
 	else
-		return;
+		return -EINVAL;
 
 	if (exclusive || session->dsp == NULL) {
 		if (exclusive && !spa_list_is_empty(&session->node_list)) {
 			pw_log_warn("session busy, can't get exclusive access");
-			return;
+			return -EBUSY;
 		}
 		if (session->link != NULL) {
 			pw_log_warn("session busy with DSP");
-			return;
+			return -EBUSY;
 		}
 		peer = session->node;
 		session->exclusive = exclusive;
 	}
 	else {
 		if (session->link == NULL) {
-			if (link_session_dsp(session) < 0)
-				return;
+			if ((res = link_session_dsp(session)) < 0)
+				return res;
 		}
 		peer = session->dsp;
 	}
@@ -520,13 +537,15 @@ static void handle_autoconnect(struct impl *impl, struct pw_node *node,
 	info->buffer_size = buffer_size;
 	spa_list_init(&info->links);
 
-	spa_list_append(&info->session->node_list, &info->l);
+	spa_list_append(&session->node_list, &info->l);
 
 	pw_node_add_listener(node, &info->node_listener, &node_info_events, info);
 
 	pw_node_for_each_port(peer, direction, on_peer_port, info);
 
 	reconfigure_session(session);
+
+	return 1;
 }
 
 static void node_destroy(void *data)
@@ -647,9 +666,7 @@ static int on_global(void *data, struct pw_global *global)
 
 	properties = pw_node_get_properties(node);
 
-	str = pw_properties_get(properties, PW_NODE_PROP_AUTOCONNECT);
-        if (str != NULL && pw_properties_parse_bool(str)) {
-		handle_autoconnect(impl, node, properties);
+	if (handle_autoconnect(impl, node, properties) == 1) {
 		return 0;
 	}
 	else if ((str = pw_properties_get(properties, "media.class")) == NULL)

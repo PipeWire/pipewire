@@ -689,10 +689,8 @@ static int impl_node_process(struct spa_node *node)
 	struct impl *impl = this->impl;
 	int status;
 
-	impl->client_node->node->driver_node = impl->this.node->driver_node;
 	impl->ctrl.min_size = impl->ctrl.max_size =
 		impl->this.node->driver_node->rt.quantum->size;
-
 
 	spa_log_trace(this->log, "%p: process %d", this, impl->ctrl.max_size);
 
@@ -897,8 +895,9 @@ static void client_node_destroy(void *data)
 	struct impl *impl = data;
 	pw_log_debug("client-stream %p: destroy", &impl->this);
 
-	spa_hook_remove(&impl->client_node_listener);
+	pw_node_set_driver(impl->client_node->node, NULL);
 
+	spa_hook_remove(&impl->client_node_listener);
 	spa_hook_remove(&impl->node_listener);
 	pw_node_destroy(impl->this.node);
 	cleanup(impl);
@@ -935,14 +934,22 @@ static void node_destroy(void *data)
 
 	pw_log_debug("client-stream %p: destroy", &impl->this);
 
+	spa_hook_remove(&impl->node_listener);
 	spa_hook_remove(&impl->client_node_listener);
 	pw_client_node_destroy(impl->client_node);
 	cleanup(impl);
 }
 
+static void node_driver_changed(void *data, struct pw_node *driver)
+{
+	struct impl *impl = data;
+	impl->client_node->node->driver_node = driver;
+}
+
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.destroy = node_destroy,
+	.driver_changed = node_driver_changed,
 };
 
 /** Create a new client stream

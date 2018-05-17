@@ -83,6 +83,9 @@ struct pw_node_events {
         /** an event is emited */
 	void (*event) (void *data, const struct spa_event *event);
 
+	/** the driver of the node changed */
+	void (*driver_changed) (void *data, struct pw_node *driver);
+
         /** the node wants to process the graph */
 	void (*process) (void *data);
         /** the node has a buffer to reuse */

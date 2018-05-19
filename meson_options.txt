@@ -10,3 +10,7 @@ option('enable_gstreamer',
        description: 'Build GStreamer plugins',
        type: 'boolean',
        value: false)
+option('systemd',
+       description: 'Enable systemd integration',
+       type: 'boolean',
+       value: true)

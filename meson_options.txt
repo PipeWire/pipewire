@@ -1,12 +1,12 @@
-option('enable_docs',
+option('docs',
        description: 'Build documentation',
        type: 'boolean',
        value: false)
-option('enable_man',
+option('man',
        description: 'Build manpages',
        type: 'boolean',
        value: false)
-option('enable_gstreamer',
+option('gstreamer',
        description: 'Build GStreamer plugins',
        type: 'boolean',
        value: false)

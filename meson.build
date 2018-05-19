@@ -150,7 +150,7 @@ dbus_dep = dependency('dbus-1')
 #optional dependencies
 jack_dep = dependency('jack', version : '>= 1.9.10', required : false)
 
-if get_option('enable_gstreamer')
+if get_option('gstreamer')
   glib_dep = dependency('glib-2.0', version : '>=2.32.0')
   gobject_dep = dependency('gobject-2.0')
   gmodule_dep = dependency('gmodule-2.0')
@@ -166,7 +166,7 @@ subdir('spa')
 subdir('src')
 subdir('pkgconfig')
 
-if get_option('enable_docs')
+if get_option('docs')
   doxygen = find_program('doxygen', required : false)
   if doxygen.found()
     subdir('doc')
@@ -175,7 +175,7 @@ if get_option('enable_docs')
   endif
 endif
 
-if get_option('enable_man')
+if get_option('man')
   xmltoman = find_program('xmltoman', required : false)
   if xmltoman.found()
     subdir('man')

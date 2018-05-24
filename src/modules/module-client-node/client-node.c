@@ -152,6 +152,7 @@ struct impl {
 	int other_fds[2];
 
 	struct pw_client_node_position *position;
+	uint32_t next_position;
 };
 
 /** \endcond */
@@ -905,8 +906,11 @@ static int impl_node_process(struct spa_node *node)
 
 	q = impl->this.node->driver_node->rt.quantum;
 
+	impl->position->nsec = q->time;
 	impl->position->duration = q->size;
+	impl->position->position = impl->next_position;
 	impl->position->rate = q->rate;
+	impl->next_position += q->size;
 
 	if (write(this->writefd, &cmd, 8) != 8)
 		spa_log_warn(this->log, "node %p: error %s", this, strerror(errno));

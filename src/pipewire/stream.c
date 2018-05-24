@@ -769,7 +769,8 @@ static int impl_node_process_output(struct spa_node *node)
 	} else {
 		if (!SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_DRIVER)) {
 			call_process(impl);
-			if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0)
+			if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0 &&
+			    io->status == SPA_STATUS_NEED_BUFFER)
 				goto again;
 		}
 		res = io->status;

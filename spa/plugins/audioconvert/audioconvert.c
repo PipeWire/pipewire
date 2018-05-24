@@ -141,7 +141,7 @@ struct impl {
 	struct port out_port;
 
 	int n_links;
-	struct link links[4];
+	struct link links[8];
 
 	bool started;
 

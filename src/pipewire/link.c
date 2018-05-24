@@ -631,7 +631,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 		uint32_t i, offset, n_params;
 		uint32_t max_buffers;
-		size_t minsize = 1024, stride = 0;
+		size_t minsize = 8192, stride = 0;
 		size_t data_sizes[1];
 		ssize_t data_strides[1];
 
@@ -670,7 +670,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				     minsize, stride, max_buffers);
 		} else {
 			pw_log_warn("no buffers param");
-			minsize = 1024;
+			minsize = 8192;
+			max_buffers = 4;
 		}
 
 		/* when one of the ports can allocate buffer memory, set the minsize to

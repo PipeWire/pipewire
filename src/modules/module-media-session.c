@@ -43,7 +43,7 @@
 #include "module-media-session/audio-dsp.h"
 
 #define DEFAULT_CHANNELS	2
-#define DEFAULT_SAMPLE_RATE	44100
+#define DEFAULT_SAMPLE_RATE	48000
 #define DEFAULT_BUFFER_SIZE	(64 * sizeof(float))
 #define MAX_BUFFER_SIZE		(1024 * sizeof(float))
 

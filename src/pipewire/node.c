@@ -654,8 +654,9 @@ static void node_process(void *data, int status)
 
 	if (node->driver) {
 		if (!node->exported) {
-			if (node->rt.driver->state->pending == 0 || !node->remote)
+			if (node->rt.driver->state->pending == 0 || !node->remote) {
 				spa_graph_run(node->rt.driver);
+			}
 			else
 				spa_graph_node_trigger(&node->rt.node);
 		}

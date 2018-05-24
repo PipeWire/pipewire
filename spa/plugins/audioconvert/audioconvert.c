@@ -291,7 +291,7 @@ static int setup_convert(struct impl *this)
 {
 	struct port *inport, *outport;
 	struct spa_node *prev = NULL;
-	int i, res;
+	int i, j, res;
 	struct type *t = &this->type;
 
 	inport = GET_PORT(this, SPA_DIRECTION_INPUT, 0);
@@ -331,20 +331,19 @@ static int setup_convert(struct impl *this)
 		make_link(this, prev, 0, this->channelmix, 0, NULL);
 		prev = this->channelmix;
 	}
+
 	make_link(this, prev, 0, this->fmt_out, 0, NULL);
 
 	/* pack */
 	make_link(this, this->fmt_out, 0, NULL, 0, &outport->format);
 
-
-	if ((res = negotiate_link_format(this, &this->links[0])) < 0)
-		return res;
-	if ((res = negotiate_link_format(this, &this->links[this->n_links-1])) < 0)
-		return res;
-
-	for (i = 1; i < this->n_links-1; i++)
+	for (i = 0, j = this->n_links - 1; j >= i; i++, j--) {
 		if ((res = negotiate_link_format(this, &this->links[i])) < 0)
 			return res;
+		if ((res = negotiate_link_format(this, &this->links[j])) < 0)
+			return res;
+	}
+
 
 	spa_node_port_set_io(inport->node, SPA_DIRECTION_INPUT, 0,
 			t->io.Buffers, inport->io, sizeof(struct spa_io_buffers));

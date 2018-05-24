@@ -128,6 +128,16 @@ struct mem {
 	void *ptr;
 };
 
+struct midi_buffer {
+#define MIDI_BUFFER_MAGIC 0x900df00d
+	uint32_t magic;
+	int32_t buffer_size;
+	uint32_t nframes;
+	int32_t write_pos;
+	uint32_t event_count;
+	uint32_t lost_events;
+};
+
 struct buffer {
 	struct spa_list link;
 #define BUFFER_FLAG_OUT		(1<<0)
@@ -918,6 +928,19 @@ static void client_node_port_set_param(void *object,
 	pw_client_node_proxy_done(c->node_proxy, seq, 0);
 }
 
+static void init_buffer(struct port *p, struct buffer *b)
+{
+	if (p->object->port.type_id == 1) {
+		struct midi_buffer *mb = b->datas[0].data;
+		mb->magic = MIDI_BUFFER_MAGIC;
+		mb->buffer_size = b->datas[0].maxsize;
+		mb->nframes = b->datas[0].maxsize / sizeof(float);
+		mb->write_pos = 0;
+		mb->event_count = 0;
+		mb->lost_events = 0;
+	}
+}
+
 static void client_node_port_use_buffers(void *object,
                                   uint32_t seq,
                                   enum spa_direction direction,
@@ -1016,12 +1039,14 @@ static void client_node_port_use_buffers(void *object,
 				d->fd = bm->fd;
 				bm->ref++;
 				b->mem[b->n_mem++] = bm->id;
-				pw_log_debug(NAME" %p: data %d %u -> fd %d", c, j, bm->id, bm->fd);
+				pw_log_debug(NAME" %p: data %d %u -> fd %d %d",
+						c, j, bm->id, bm->fd, d->maxsize);
 			} else if (d->type == t->data.MemPtr) {
 				d->data = SPA_MEMBER(b->ptr,
 						b->map.start + SPA_PTR_TO_INT(d->data), void);
 				d->fd = -1;
-				pw_log_debug(NAME" %p: data %d %u -> mem %p", c, j, b->id, d->data);
+				pw_log_debug(NAME" %p: data %d %u -> mem %p %d",
+						c, j, b->id, d->data, d->maxsize);
 			} else {
 				pw_log_warn("unknown buffer data type %d", d->type);
 			}
@@ -1029,9 +1054,13 @@ static void client_node_port_use_buffers(void *object,
 				pw_log_warn(NAME" %p: Failed to mlock memory %p %u: %m", c,
 						d->data, d->maxsize);
 		}
+
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-		if (direction == SPA_DIRECTION_OUTPUT)
+		if (direction == SPA_DIRECTION_OUTPUT) {
+			init_buffer(p, b);
 			reuse_buffer(c, mix, b->id);
+		}
+
 	}
 	pw_log_debug("have %d buffers", n_buffers);
 	mix->n_buffers = n_buffers;
@@ -1940,7 +1969,8 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 
 	if (p->direction == SPA_DIRECTION_INPUT) {
 		spa_list_for_each(mix, &p->mix, port_link) {
-			pw_log_trace("port %p: mix %d.%d get buffer", p, p->id, mix->id);
+			pw_log_trace("port %p: mix %d.%d get buffer %d",
+					p, p->id, mix->id, frames);
 			io = mix->io;
 			if (io == NULL || io->buffer_id >= mix->n_buffers)
 				continue;
@@ -1954,7 +1984,8 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		}
 	} else {
 		spa_list_for_each(mix, &p->mix, port_link) {
-			pw_log_trace("port %p: mix %d.%d get buffer", p, p->id, mix->id);
+			pw_log_trace("port %p: mix %d.%d get buffer %d",
+					p, p->id, mix->id, frames);
 			io = mix->io;
 
 			if (mix->n_buffers == 0 || io == NULL)

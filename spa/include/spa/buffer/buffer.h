@@ -74,6 +74,7 @@ struct spa_chunk {
 	uint32_t size;			/**< size of valid data. Should be clamped to
 					  *  maxsize. */
 	int32_t stride;			/**< stride of valid data */
+	int32_t dummy;			/**< dummy field for alignment */
 };
 
 /** Data for a buffer */

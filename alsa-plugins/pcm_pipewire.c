@@ -206,7 +206,7 @@ snd_pcm_pipewire_process_playback(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 	nbytes = SPA_MIN(avail, maxsize - offset);
 
 	ptr = SPA_MEMBER(d[0].data, offset, void);
-	pw_log_trace("%d %d %d %d %p", nbytes, avail, filled, offset, ptr);
+	pw_log_trace("%d %d %d %d %p %d", nbytes, avail, filled, offset, ptr, io->state);
 
 	nframes = nbytes / bpf;
 
@@ -216,8 +216,8 @@ snd_pcm_pipewire_process_playback(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 		pwareas[channel].step = bps;
 	}
 
-	if (io->state != SND_PCM_STATE_RUNNING) {
-		pw_log_trace("silence %lu frames", nframes);
+	if (io->state != SND_PCM_STATE_RUNNING && io->state != SND_PCM_STATE_DRAINING) {
+		pw_log_trace("silence %lu frames %d", nframes, io->state);
 		for (channel = 0; channel < io->channels; channel++)
 			snd_pcm_area_silence(&pwareas[channel], 0, nframes, io->format);
 		goto done;
@@ -296,15 +296,6 @@ snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 		pwareas[channel].step = bps;
 	}
 
-	if (io->state != SND_PCM_STATE_RUNNING) {
-		if (io->stream == SND_PCM_STREAM_PLAYBACK) {
-			pw_log_trace("silence %lu frames", nframes);
-			for (channel = 0; channel < io->channels; channel++)
-				snd_pcm_area_silence(&pwareas[channel], 0, nframes, io->format);
-			goto done;
-		}
-	}
-
 	areas = snd_pcm_ioplug_mmap_areas(io);
 
 	xfer = 0;
@@ -327,7 +318,6 @@ snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 
 	pcm_poll_unblock_check(io); /* unblock socket for polling if needed */
 
-      done:
 	avail -= nbytes;
 	index += nbytes;
 	} while (avail > 0);
@@ -549,16 +539,16 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 		SND_PCM_ACCESS_RW_NONINTERLEAVED
 	};
 	unsigned int format_list[] = {
+		SND_PCM_FORMAT_FLOAT_LE,
+		SND_PCM_FORMAT_FLOAT_BE,
+		SND_PCM_FORMAT_S32_LE,
+		SND_PCM_FORMAT_S32_BE,
 		SND_PCM_FORMAT_S16_LE,
 		SND_PCM_FORMAT_S16_BE,
 		SND_PCM_FORMAT_S24_LE,
 		SND_PCM_FORMAT_S24_BE,
-		SND_PCM_FORMAT_S32_LE,
-		SND_PCM_FORMAT_S32_BE,
 		SND_PCM_FORMAT_S24_3LE,
 		SND_PCM_FORMAT_S24_3BE,
-		SND_PCM_FORMAT_FLOAT_LE,
-		SND_PCM_FORMAT_FLOAT_BE,
 		SND_PCM_FORMAT_U8,
 	};
 

@@ -251,6 +251,10 @@ struct client {
 	void *connect_arg;
 	JackGraphOrderCallback graph_callback;
 	void *graph_arg;
+	JackSyncCallback sync_callback;
+	void *sync_arg;
+	JackTimebaseCallback timebase_callback;
+	void *timebase_arg;
 
 	struct pw_client_node_position *position;
 	uint32_t sample_rate;
@@ -270,6 +274,8 @@ struct client {
 
 	bool started;
 	int status;
+
+	jack_position_t jack_position;
 };
 
 static void init_port_pool(struct client *c, enum spa_direction direction)
@@ -667,9 +673,26 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 				c->srate_callback(c->sample_rate, c->srate_arg);
 		}
 
+		c->jack_position.usecs = c->position->nsec/1000;
+		c->jack_position.frame_rate = c->sample_rate;
+		c->jack_position.frame = c->position->position / sizeof(float);
+
+		if (c->sync_callback) {
+			c->sync_callback(JackTransportRolling,
+					 &c->jack_position, c->sync_arg);
+		}
+
 		pw_log_trace("do process %d %d", c->buffer_size, c->sample_rate);
 		if (c->process_callback)
 			c->process_callback(c->buffer_size, c->process_arg);
+
+		if (c->timebase_callback) {
+			c->timebase_callback(JackTransportRolling,
+					     buffer_size,
+					     &c->jack_position,
+					     false,
+					     c->timebase_arg);
+		}
 
 		cmd = 1;
 		write(c->writefd, &cmd, 8);
@@ -1817,12 +1840,16 @@ int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	if (c->sample_rate == -1)
+		return DEFAULT_SAMPLE_RATE;
 	return c->sample_rate;
 }
 
 jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	if (c->buffer_size == -1)
+		return DEFAULT_BUFFER_SIZE;
 	return c->buffer_size;
 }
 
@@ -2514,14 +2541,14 @@ jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 
 jack_nframes_t jack_frame_time (const jack_client_t *client)
 {
-	pw_log_warn("not implemented");
-	return 0;
+	struct client *c = (struct client *) client;
+	return c->jack_position.frame;
 }
 
 jack_nframes_t jack_last_frame_time (const jack_client_t *client)
 {
-	pw_log_warn("not implemented");
-	return 0;
+	struct client *c = (struct client *) client;
+	return c->jack_position.frame;
 }
 
 int jack_get_cycle_times(const jack_client_t *client,
@@ -2577,8 +2604,10 @@ int jack_set_sync_callback (jack_client_t *client,
 			    JackSyncCallback sync_callback,
 			    void *arg)
 {
-	pw_log_warn("not implemented");
-	return -ENOTSUP;
+	struct client *c = (struct client *) client;
+	c->sync_callback = sync_callback;
+	c->sync_arg = arg;
+	return 0;
 }
 
 int jack_set_sync_timeout (jack_client_t *client,
@@ -2593,8 +2622,10 @@ int  jack_set_timebase_callback (jack_client_t *client,
 				 JackTimebaseCallback timebase_callback,
 				 void *arg)
 {
-	pw_log_warn("not implemented");
-	return -ENOTSUP;
+	struct client *c = (struct client *) client;
+	c->timebase_callback = timebase_callback;
+	c->timebase_arg = arg;
+	return 0;
 }
 
 int  jack_transport_locate (jack_client_t *client,
@@ -2607,7 +2638,9 @@ int  jack_transport_locate (jack_client_t *client,
 jack_transport_state_t jack_transport_query (const jack_client_t *client,
 					     jack_position_t *pos)
 {
-	pw_log_warn("not implemented");
+	struct client *c = (struct client *) client;
+	if (pos != NULL)
+		memcpy(pos, &c->jack_position, sizeof(jack_position_t));
 	return JackTransportRolling;
 }
 

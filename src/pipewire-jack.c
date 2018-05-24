@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <regex.h>
 
 #include <jack/jack.h>
 #include <jack/session.h>
@@ -2381,28 +2382,41 @@ const char ** jack_get_ports (jack_client_t *client,
 	struct object *o;
 	const char *str;
 	uint32_t id;
+	regex_t port_regex, type_regex;
 
 	if ((str = getenv("PIPEWIRE_NODE")) != NULL)
 		id = pw_properties_parse_int(str);
 	else
 		id = SPA_ID_INVALID;
 
+	if (port_name_pattern && port_name_pattern[0])
+		regcomp(&port_regex, port_name_pattern, REG_EXTENDED | REG_NOSUB);
+	if (type_name_pattern && type_name_pattern[0])
+		regcomp(&type_regex, type_name_pattern, REG_EXTENDED | REG_NOSUB);
+
 	pw_thread_loop_lock(c->context.loop);
 
 	pw_log_debug("ports %d %s %s %08lx", id, port_name_pattern, type_name_pattern, flags);
 
 	spa_list_for_each(o, &c->context.ports, link) {
-		pw_log_debug("check port %s", o->port.name);
+		pw_log_debug("check port %s %d %lu",
+				o->port.name, o->port.type_id, o->port.flags);
 		if (o->port.type_id == 2)
 			continue;
 		if (!SPA_FLAG_CHECK(o->port.flags, flags))
 			continue;
 		if (id != SPA_ID_INVALID && o->parent_id != id)
 			continue;
-		if (type_name_pattern && strcmp(type_to_string(o->port.type_id), type_name_pattern))
-			continue;
-		if (port_name_pattern && strcmp(o->port.name, port_name_pattern))
-			continue;
+
+		if (port_name_pattern && port_name_pattern[0]) {
+			if (regexec(&port_regex, o->port.name, 0, NULL, 0) == REG_NOMATCH)
+				continue;
+		}
+		if (type_name_pattern && type_name_pattern[0]) {
+			if (regexec(&type_regex, type_to_string(o->port.type_id),
+						0, NULL, 0) == REG_NOMATCH)
+				continue;
+		}
 
 		pw_log_debug("add port %d %s", count, o->port.name);
 		res[count++] = o->port.name;
@@ -2416,6 +2430,11 @@ const char ** jack_get_ports (jack_client_t *client,
 		res = NULL;
 	} else
 		res[count] = NULL;
+
+	if (port_name_pattern && port_name_pattern[0])
+		regfree(&port_regex);
+	if (type_name_pattern && type_name_pattern[0])
+		regfree(&type_regex);
 
 	return res;
 }

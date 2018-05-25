@@ -52,6 +52,7 @@
 #define MAX_BUFFER_DATAS		4u
 #define MAX_BUFFER_MEMS			4
 #define MAX_MIX				4096
+#define MAX_IO				32
 
 #define DEFAULT_SAMPLE_RATE	44100
 #define DEFAULT_BUFFER_SIZE	1024
@@ -154,14 +155,20 @@ struct buffer {
 	uint32_t n_mem;
 };
 
+struct io {
+	uint32_t id;
+	uint32_t memid;
+};
+
 struct mix {
 	struct spa_list link;
 	struct spa_list port_link;
 	uint32_t id;
 	struct port *port;
 
+	struct io ios[MAX_IO];
+
 	struct spa_io_buffers *io;
-	struct spa_io_control_range *ctrl;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -320,6 +327,7 @@ static void free_object(struct client *c, struct object *o)
 static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_id)
 {
 	struct mix *mix;
+	int i;
 
 	spa_list_for_each(mix, &port->mix, port_link) {
 		if (mix->id == mix_id)
@@ -338,6 +346,8 @@ static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_
 	mix->port = port;
 	mix->io = NULL;
 	mix->n_buffers = 0;
+	for (i = 0; i < MAX_IO; i++)
+		mix->ios[i].id = SPA_ID_INVALID;
 
 	return mix;
 }
@@ -1100,6 +1110,41 @@ static void client_node_port_command(void *object,
 {
 }
 
+static void clear_io(struct client *c, struct io *io)
+{
+	struct mem *m;
+	m = find_mem(&c->mems, io->memid);
+	if (--m->ref == 0)
+		clear_mem(c, m);
+	io->id = SPA_ID_INVALID;
+}
+
+static struct io *update_io(struct client *c, struct mix *mix,
+		uint32_t id, uint32_t memid)
+{
+	int i;
+	struct io *io, *f = NULL;
+
+	for (i = 0; i < MAX_IO; i++) {
+		io = &mix->ios[i];
+		if (io->id == SPA_ID_INVALID)
+			f = io;
+		else if (io->id == id) {
+			if (io->memid != memid)
+				clear_io(c, io);
+			f = io;
+			break;
+		}
+	}
+	if (f == NULL)
+		return NULL;
+
+	io = f;
+	io->id = id;
+	io->memid = memid;
+	return io;
+}
+
 static void client_node_port_set_io(void *object,
                              uint32_t seq,
                              enum spa_direction direction,
@@ -1118,6 +1163,11 @@ static void client_node_port_set_io(void *object,
         void *ptr;
 	int res = 0;
 
+	if ((mix = ensure_mix(c, p, mix_id)) == NULL) {
+		res = -ENOMEM;
+		goto exit;
+	}
+
         if (mem_id == SPA_ID_INVALID) {
                 ptr = NULL;
                 size = 0;
@@ -1133,19 +1183,14 @@ static void client_node_port_set_io(void *object,
 			res = -errno;
                         goto exit;
 		}
+		m->ref++;
         }
 
-	if ((mix = ensure_mix(c, p, mix_id)) == NULL) {
-		res = -ENOMEM;
-		goto exit;
-	}
+	update_io(c, mix, id, mem_id);
 
-        if (id == t->io.Buffers) {
+        if (id == t->io.Buffers)
                 mix->io = ptr;
-        }
-	else if (id == t->io.ControlRange) {
-                mix->ctrl = ptr;
-	}
+
 	pw_log_debug("port %p: set io id %u %u %u %u %p", p, id, mem_id, offset, size, ptr);
 
       exit:

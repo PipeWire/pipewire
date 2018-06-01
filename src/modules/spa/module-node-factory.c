@@ -31,6 +31,12 @@
 
 #include "spa-node.h"
 
+static const struct spa_dict_item module_props[] = {
+	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_MODULE_PROP_DESCRIPTION, "Provide a factory to make SPA nodes" },
+	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+};
+
 struct factory_data {
 	struct pw_core *core;
 	struct pw_factory *this;
@@ -190,6 +196,8 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_log_debug("module %p: new", module);
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
+
+	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	pw_factory_register(factory, NULL, pw_module_get_global(module), NULL);
 

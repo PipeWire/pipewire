@@ -42,6 +42,12 @@
 
 #include "module-media-session/audio-dsp.h"
 
+static const struct spa_dict_item module_props[] = {
+	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_MODULE_PROP_DESCRIPTION, "Manage media sessions" },
+	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+};
+
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLE_RATE	48000
 #define DEFAULT_BUFFER_SIZE	(64 * sizeof(float))
@@ -793,6 +799,8 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
+
+	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
 }

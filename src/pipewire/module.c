@@ -233,33 +233,37 @@ pw_module_load(struct pw_core *core,
 
 	this = &impl->this;
 	this->core = core;
+	this->properties = properties;
 
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
 
+	pw_properties_set(properties, PW_MODULE_PROP_NAME, name);
+
 	this->info.name = name ? strdup(name) : NULL;
 	this->info.filename = filename;
 	this->info.args = args ? strdup(args) : NULL;
-	this->info.props = NULL;
-
-	pw_properties_set(properties, PW_MODULE_PROP_NAME, name);
+	this->info.props = &this->properties->dict;
 
 	spa_list_append(&core->module_list, &this->link);
 
 	this->global = pw_global_new(core,
 				     core->type.module, PW_VERSION_MODULE,
-				     properties,
+				     pw_properties_new(
+					     PW_MODULE_PROP_NAME, name,
+					     NULL),
 				     this);
 
 	if (this->global == NULL)
 		goto no_global;
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
-	pw_global_register(this->global, owner, parent);
 	this->info.id = this->global->id;
 
 	if ((res = init_func(this, args)) < 0)
 		goto init_failed;
+
+	pw_global_register(this->global, owner, parent);
 
 	pw_log_debug("loaded module: %s", this->info.name);
 
@@ -329,6 +333,29 @@ pw_module_get_core(struct pw_module *module)
 struct pw_global * pw_module_get_global(struct pw_module *module)
 {
 	return module->global;
+}
+
+const struct pw_properties *pw_module_get_properties(struct pw_module *module)
+{
+	return module->properties;
+}
+
+int pw_module_update_properties(struct pw_module *module, const struct spa_dict *dict)
+{
+	struct pw_resource *resource;
+	uint32_t i;
+
+	for (i = 0; i < dict->n_items; i++)
+		pw_properties_set(module->properties, dict->items[i].key, dict->items[i].value);
+
+	module->info.props = &module->properties->dict;
+
+	module->info.change_mask |= PW_MODULE_CHANGE_MASK_PROPS;
+	spa_list_for_each(resource, &module->resource_list, link)
+		pw_module_resource_info(resource, &module->info);
+	module->info.change_mask = 0;
+
+	return 0;
 }
 
 const struct pw_module_info *

@@ -63,7 +63,10 @@ struct pw_module_events {
 };
 
 /** The name of the module */
-#define PW_MODULE_PROP_NAME	"pipewire.module.name"
+#define PW_MODULE_PROP_NAME		"pipewire.module.name"
+#define PW_MODULE_PROP_AUTHOR		"pipewire.module.author"
+#define PW_MODULE_PROP_DESCRIPTION	"pipewire.module.description"
+#define PW_MODULE_PROP_VERSION		"pipewire.module.version"
 
 struct pw_module *
 pw_module_load(struct pw_core *core,
@@ -78,6 +81,12 @@ struct pw_core * pw_module_get_core(struct pw_module *module);
 
 /** Get the global of a module */
 struct pw_global * pw_module_get_global(struct pw_module *module);
+
+/** Get the node properties */
+const struct pw_properties *pw_module_get_properties(struct pw_module *module);
+
+/** Update the module properties */
+int pw_module_update_properties(struct pw_module *module, const struct spa_dict *dict);
 
 /** Get the module info */
 const struct pw_module_info *pw_module_get_info(struct pw_module *module);

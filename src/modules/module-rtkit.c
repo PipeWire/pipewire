@@ -41,6 +41,12 @@
 #include "pipewire/module.h"
 #include "pipewire/utils.h"
 
+static const struct spa_dict_item module_props[] = {
+	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_MODULE_PROP_DESCRIPTION, "Use RTKit to raise thread priorities" },
+	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+};
+
 struct impl {
 	struct pw_core *core;
 	struct pw_type *type;
@@ -504,6 +510,8 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	spa_loop_add_source(impl->loop, &impl->source);
 
 	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
+
+	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
 

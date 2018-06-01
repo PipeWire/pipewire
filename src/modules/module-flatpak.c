@@ -38,6 +38,12 @@
 #include "pipewire/module.h"
 #include "pipewire/utils.h"
 
+static const struct spa_dict_item module_props[] = {
+	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_MODULE_PROP_DESCRIPTION, "Perform portal queries to check permissions" },
+	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+};
+
 struct impl {
 	struct pw_core *core;
 	struct pw_type *type;
@@ -501,6 +507,8 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
+
+	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
 

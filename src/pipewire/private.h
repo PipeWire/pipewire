@@ -214,6 +214,7 @@ struct pw_module {
 	struct pw_global *global;       /**< global object for this module */
 	struct spa_hook global_listener;
 
+	struct pw_properties *properties;	/**< properties of the module */
 	struct pw_module_info info;     /**< introspectable module info */
 
 	struct spa_list resource_list;	/**< list of resources for this module */

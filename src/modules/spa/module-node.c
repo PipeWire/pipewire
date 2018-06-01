@@ -34,6 +34,12 @@
 #include "spa-monitor.h"
 #include "spa-node.h"
 
+static const struct spa_dict_item module_props[] = {
+	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_MODULE_PROP_DESCRIPTION, "Load and manage an SPA node" },
+	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+};
+
 struct node_data {
 	struct pw_node *this;
 	struct pw_core *core;
@@ -95,6 +101,8 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	pw_log_debug("module %p: new", module);
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
+
+	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
 

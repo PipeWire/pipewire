@@ -54,6 +54,12 @@
 #define UNIX_PATH_MAX   108
 #endif
 
+static const struct spa_dict_item module_props[] = {
+	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_MODULE_PROP_DESCRIPTION, "Native protocol using unix sockets" },
+	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+};
+
 static bool debug_messages = 0;
 
 #define LOCK_SUFFIX     ".lock"
@@ -921,6 +927,8 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	}
 
 	pw_module_add_listener(module, &d->module_listener, &module_events, d);
+
+	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
 }

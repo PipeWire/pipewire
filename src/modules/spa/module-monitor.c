@@ -33,6 +33,12 @@
 
 #include "spa-monitor.h"
 
+static const struct spa_dict_item module_props[] = {
+	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_MODULE_PROP_DESCRIPTION, "Manage SPA monitors" },
+	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+};
+
 struct data {
 	struct pw_spa_monitor *monitor;
 	struct spa_hook module_listener;
@@ -83,6 +89,8 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	pw_free_strv(argv);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
+
+	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
 

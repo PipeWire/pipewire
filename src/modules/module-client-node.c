@@ -32,6 +32,12 @@
 #include "module-client-node/client-node.h"
 #include "module-client-node/client-stream.h"
 
+static const struct spa_dict_item module_props[] = {
+	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_MODULE_PROP_DESCRIPTION, "Allow clients to create and control remote nodes" },
+	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+};
+
 struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core);
 
 struct factory_data {
@@ -142,6 +148,8 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	pw_factory_register(factory, NULL, pw_module_get_global(module), NULL);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
+
+	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
 }

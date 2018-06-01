@@ -172,6 +172,12 @@ struct spa_fraction {
 		}							\
 	} while (false)
 
+#define spa_assert_not_reached()						\
+	do {									\
+		fprintf(stderr, "Code should not be reached at %s:%u %s()",	\
+				__FILE__, __LINE__, __func__);			\
+		abort();							\
+	} while (false)
 
 /* Does exactly nothing */
 #define spa_nop() do {} while (false)

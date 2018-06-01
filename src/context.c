@@ -122,8 +122,8 @@ static void registry_event_global_remove(void *object, uint32_t id)
 		return;
 
 	spa_list_remove(&g->link);
-	pw_properties_free(g->props);
-
+	if (g->props)
+		pw_properties_free(g->props);
 	if (g->destroy && g->info)
 		g->destroy(g->info);
 	free(g);

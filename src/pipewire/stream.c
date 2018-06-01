@@ -88,6 +88,7 @@ struct stream {
 	enum spa_direction direction;
 	enum pw_stream_flags flags;
 
+	bool async_connect;
 	struct spa_hook remote_listener;
 
 	struct pw_node *node;
@@ -800,7 +801,6 @@ static int handle_connect(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
 	pw_log_debug("stream %p: creating node", stream);
-
 	impl->node = pw_node_new(impl->core, "export-source",
 			pw_properties_copy(stream->properties), 0);
 	impl->impl_node = impl_node;
@@ -825,6 +825,9 @@ static void on_remote_state_changed(void *_data, enum pw_remote_state old,
 		enum pw_remote_state state, const char *error)
 {
 	struct pw_stream *stream = _data;
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+
+	pw_log_debug("stream %p: remote state %d", stream, state);
 
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
@@ -835,7 +838,8 @@ static void on_remote_state_changed(void *_data, enum pw_remote_state old,
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
-		handle_connect(stream);
+		if (impl->async_connect)
+			handle_connect(stream);
 		break;
 
 	default:
@@ -884,7 +888,7 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	this->properties = props;
 
 	this->remote = remote;
-	this->name = strdup(name);
+	this->name = name ? strdup(name) : NULL;
 
 	init_type(&impl->type, remote->core->type.map);
 
@@ -1157,8 +1161,10 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, PW_NODE_PROP_EXCLUSIVE, "1");
 
 	state = pw_remote_get_state(stream->remote, NULL);
-	if (state == PW_REMOTE_STATE_UNCONNECTED ||
-	    state == PW_REMOTE_STATE_ERROR)
+	impl->async_connect = (state == PW_REMOTE_STATE_UNCONNECTED ||
+			 state == PW_REMOTE_STATE_ERROR);
+
+	if (impl->async_connect)
 		res = pw_remote_connect(stream->remote);
 	else
 		res = handle_connect(stream);

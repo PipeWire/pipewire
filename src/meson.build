@@ -1,0 +1,47 @@
+pipewire_pulseaudio_sources = [
+  'bitset.c',
+  'channelmap.c',
+  'context.c',
+  'core-format.c',
+  'direction.c',
+  'error.c',
+  'ext-device-manager.c',
+  'ext-device-restore.c',
+  'format.c',
+  'introspect.c',
+  'json.c',
+  'mainloop.c',
+  'mainloop-signal.c',
+  'operation.c',
+  'proplist.c',
+  'rtclock.c',
+  'sample.c',
+  'scache.c',
+  'stream.c',
+  'strbuf.c',
+  'subscribe.c',
+  'utf8.c',
+  'util.c',
+  'version.c',
+  'volume.c',
+  'xmalloc.c',
+  'pipewire-pulseaudio.c',
+]
+
+pipewire_pulseaudio_c_args = [
+  '-DHAVE_CONFIG_H',
+  '-DPIC',
+]
+
+mapfile = 'map-file'
+vflag = '-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(), mapfile)
+
+pipewire_pulseaudio = shared_library('pulse',
+    pipewire_pulseaudio_sources,
+    soversion : '0',
+    c_args : pipewire_pulseaudio_c_args,
+    link_args : vflag,
+    include_directories : [configinc],
+    dependencies : [pipewire_dep, pulseaudio_dep, mathlib],
+    install : false,
+)

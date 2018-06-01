@@ -191,7 +191,7 @@ load_handle(struct plugin *plugin,
         if ((res = spa_handle_factory_init(factory,
                                            hnd, info,
 					   support, n_support)) < 0) {
-                fprintf(stderr, "can't make factory instance: %d\n", res);
+                fprintf(stderr, "can't make factory instance %s: %d\n", factory_name, res);
                 goto init_failed;
         }
 
@@ -548,7 +548,7 @@ void pw_fill_remote_properties(struct pw_core *core, struct pw_properties *prope
 	const char *val;
 
 	if (!pw_properties_get(properties, "application.name"))
-		pw_properties_set(properties, "application.name", pw_get_application_name());
+		pw_properties_set(properties, "application.name", pw_get_client_name());
 
 	if (!pw_properties_get(properties, "application.prgname"))
 		pw_properties_set(properties, "application.prgname", pw_get_prgname());

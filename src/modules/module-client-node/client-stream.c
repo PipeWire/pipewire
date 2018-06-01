@@ -831,8 +831,12 @@ static void client_node_initialized(void *data)
 	if ((res = spa_node_port_enum_params(impl->cnode,
 				impl->direction, 0,
 				t->param.idEnumFormat, &state,
-				NULL, &format, &b)) <= 0)
+				NULL, &format, &b)) <= 0) {
+		pw_log_warn("client-stream %p: no format given", &impl->this);
+		impl->adapter = impl->cnode;
+		impl->use_converter = false;
 		return;
+	}
 
 	spa_pod_object_parse(format,
 			"I", &media_type,

@@ -679,7 +679,9 @@ static int do_port_set_io(struct impl *impl,
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
-	mix->io = data;
+	if (id == t->io.Buffers)
+		mix->io = data;
+
 	update_io(impl, port, mix->port.port_id, id, memid);
 
 	pw_client_node_resource_port_set_io(this->resource,

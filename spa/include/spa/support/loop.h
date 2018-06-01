@@ -105,9 +105,11 @@ struct spa_loop {
 struct spa_loop_control_hooks {
 #define SPA_VERSION_LOOP_CONTROL_HOOKS	0
 	uint32_t version;
-	/** Executed right before waiting for events */
+	/** Executed right before waiting for events. It is typically used to
+	 * release locks. */
 	void (*before) (void *data);
-	/** Executed right after waiting for events */
+	/** Executed right after waiting for events. It is typically used to
+	 * reacquire locks. */
 	void (*after) (void *data);
 };
 
@@ -124,15 +126,40 @@ struct spa_loop_control {
 
 	/** Add a hook
 	 * \param ctrl the control to change
-	 * \param hooks the hooks to add */
+	 * \param hooks the hooks to add
+	 *
+	 * Adds hooks to the loop controlled by \a ctrl.
+	 */
 	void (*add_hook) (struct spa_loop_control *ctrl,
 			  struct spa_hook *hook,
 			  const struct spa_loop_control_hooks *hooks,
 			  void *data);
 
+	/** Enter a loop
+	 * \param ctrl the control
+	 *
+	 * Start an interation of the loop. This function should be called
+	 * before calling iterate and is typically used to capture the thread
+	 * that this loop will run in.
+	 */
 	void (*enter) (struct spa_loop_control *ctrl);
+	/** Leave a loop
+	 * \param ctrl the control
+	 *
+	 * Ends the iteration of a loop. This should be called after calling
+	 * iterate.
+	 */
 	void (*leave) (struct spa_loop_control *ctrl);
 
+	/** Perform one iteration of the loop.
+	 * \param ctrl the control
+	 * \param timeout an optional timeout. 0 for no timeout, -1 for infinte
+	 *		timeout.
+	 *
+	 * This function will block
+	 * up to \a timeout and then dispatch the fds with activity.
+	 * The number of dispatched fds is returned.
+	 */
 	int (*iterate) (struct spa_loop_control *ctrl, int timeout);
 };
 

@@ -364,7 +364,7 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 	}
 	process_destroy(impl);
 
-	return 0;
+	return nfds;
 }
 
 static void source_io_func(struct spa_source *source)

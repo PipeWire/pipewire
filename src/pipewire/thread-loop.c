@@ -156,6 +156,7 @@ static void *do_loop(void *user_data)
 
 	pthread_mutex_lock(&this->lock);
 	pw_log_debug("thread-loop %p: enter thread", this);
+	pthread_setname_np(this->thread, this->name ? this->name : "pipewire-thread");
 	pw_loop_enter(this->loop);
 
 	while (this->running) {

@@ -85,8 +85,13 @@ int pa_proplist_setp(pa_proplist *p, const char *pair)
 
 int pa_proplist_setf(pa_proplist *p, const char *key, const char *format, ...)
 {
-	pw_log_warn("Not Implemented");
-	return -1;
+	va_list varargs;
+
+	va_start(varargs, format);
+	pw_properties_setva(p->props, key, format, varargs);
+	va_end(varargs);
+
+	return 0;
 }
 
 int pa_proplist_set(pa_proplist *p, const char *key, const void *data, size_t nbytes)

@@ -24,11 +24,13 @@
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/ringbuffer.h>
 #include <spa/param/format-utils.h>
 #include <spa/param/audio/format-utils.h>
 
 #include <pulse/stream.h>
 #include <pulse/format.h>
+#include <pulse/subscribe.h>
 
 #include <pipewire/utils.h>
 #include <pipewire/interfaces.h>
@@ -44,13 +46,28 @@ extern "C" {
 #define pa_strneq(a,b,n)	(!strncmp((a),(b),(n)))
 
 #define PA_UNLIKELY		SPA_UNLIKELY
+#define PA_LIKELY		SPA_LIKELY
 #define PA_MIN			SPA_MIN
 #define PA_MAX			SPA_MAX
 #define pa_assert		spa_assert
+#define pa_assert_se		spa_assert
 #define pa_return_val_if_fail	spa_return_val_if_fail
 #define pa_assert_not_reached	spa_assert_not_reached
 
-#define PA_USEC_PER_MSEC	SPA_USEC_PER_MSEC
+#define PA_INT_TYPE_SIGNED(type) (!!((type) 0 > (type) -1))
+
+#define PA_INT_TYPE_HALF(type) ((type) 1 << (sizeof(type)*8 - 2))
+
+#define PA_INT_TYPE_MAX(type)                                          \
+    ((type) (PA_INT_TYPE_SIGNED(type)                                  \
+             ? (PA_INT_TYPE_HALF(type) - 1 + PA_INT_TYPE_HALF(type))   \
+             : (type) -1))
+
+#define PA_INT_TYPE_MIN(type)                                          \
+    ((type) (PA_INT_TYPE_SIGNED(type)                                  \
+             ? (-1 - PA_INT_TYPE_MAX(type))                            \
+             : (type) 0))
+
 
 #ifdef __GNUC__
 #define PA_CLAMP_UNLIKELY(x, low, high)                                 \
@@ -183,6 +200,9 @@ struct pa_context {
 	void *state_userdata;
 	pa_context_event_cb_t event_callback;
 	void *event_userdata;
+	pa_context_subscribe_cb_t subscribe_callback;
+	void *subscribe_userdata;
+	pa_subscription_mask_t subscribe_mask;
 
 	bool no_fail;
 	uint32_t client_index;
@@ -209,6 +229,9 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_format_audio_map(map, &type->format_audio);
 	spa_type_audio_format_map(map, &type->audio_format);
 }
+
+#define MAX_BUFFERS     64
+#define MASK_BUFFERS    (MAX_BUFFERS-1)
 
 struct pa_stream {
 	struct spa_list link;
@@ -270,7 +293,17 @@ struct pa_stream {
 	pa_stream_notify_cb_t buffer_attr_callback;
 	void *buffer_attr_userdata;
 
+	int64_t offset;
+
+	struct pw_buffer *dequeued[MAX_BUFFERS];
+	struct spa_ringbuffer dequeued_ring;
+	size_t dequeued_size;
+
 	struct pw_buffer *buffer;
+	void *buffer_data;
+	uint32_t buffer_index;
+	int64_t buffer_size;
+	int64_t buffer_offset;
 };
 
 void pa_stream_set_state(pa_stream *s, pa_stream_state_t st);

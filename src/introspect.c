@@ -25,12 +25,12 @@
 
 #include "internal.h"
 
-typedef int (*global_filter_t)(pa_context *c, struct global *g);
+typedef int (*global_filter_t)(pa_context *c, struct global *g, bool full);
 
 static void node_event_info(void *object, struct pw_node_info *info)
 {
 	struct global *g = object;
-	pw_log_debug("update");
+	pw_log_debug("update %d", g->id);
 	g->info = pw_node_info_update(g->info, info);
 }
 
@@ -42,7 +42,7 @@ static const struct pw_node_proxy_events node_events = {
 static void module_event_info(void *object, struct pw_module_info *info)
 {
         struct global *g = object;
-	pw_log_debug("update");
+	pw_log_debug("update %d", g->id);
         g->info = pw_module_info_update(g->info, info);
 }
 
@@ -54,7 +54,7 @@ static const struct pw_module_proxy_events module_events = {
 static void client_event_info(void *object, struct pw_client_info *info)
 {
         struct global *g = object;
-	pw_log_debug("update");
+	pw_log_debug("update %d", g->id);
         g->info = pw_client_info_update(g->info, info);
 }
 
@@ -91,6 +91,8 @@ static int ensure_global(pa_context *c, struct global *g)
 	else
 		return -EINVAL;
 
+	pw_log_debug("bind %d", g->id);
+
 	g->proxy = pw_registry_proxy_bind(c->registry_proxy, g->id, g->type,
                                       client_version, 0);
 	if (g->proxy == NULL)
@@ -106,7 +108,7 @@ static void ensure_types(pa_context *c, uint32_t type, global_filter_t filter)
 {
 	struct global *g;
 	spa_list_for_each(g, &c->globals, link) {
-		if (!filter(c, g))
+		if (!filter(c, g, false))
 			continue;
 		ensure_global(c, g);
 	}
@@ -124,6 +126,8 @@ static void sink_callback(struct sink_data *d)
 	struct global *g = d->global;
 	struct pw_node_info *info = g->info;
 	pa_sink_info i;
+	pa_format_info ii[1];
+	pa_format_info *ip[1];
 
 	spa_zero(i);
 	i.index = g->id;
@@ -132,7 +136,11 @@ static void sink_callback(struct sink_data *d)
 	i.owner_module = g->parent_id;
 	i.base_volume = PA_VOLUME_NORM;
 	i.n_volume_steps = PA_VOLUME_NORM+1;
-
+	i.n_formats = 1;
+	ii[0].encoding = PA_ENCODING_PCM;
+	ii[0].plist = pa_proplist_new();
+	ip[0] = ii;
+	i.formats = ip;
 	d->cb(d->context, &i, 0, d->userdata);
 }
 
@@ -141,9 +149,10 @@ static void sink_info(pa_operation *o, void *userdata)
 	struct sink_data *d = userdata;
 	sink_callback(d);
 	d->cb(d->context, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
-static int sink_filter(pa_context *c, struct global *g)
+static int sink_filter(pa_context *c, struct global *g, bool full)
 {
 	const char *str;
 
@@ -158,10 +167,41 @@ static int sink_filter(pa_context *c, struct global *g)
 	return 1;
 }
 
+static struct global *find_sink_by_name(pa_context *c, const char *name)
+{
+	struct global *g;
+	spa_list_for_each(g, &c->globals, link) {
+		if (sink_filter(c, g, true))
+			return g;
+	}
+	return NULL;
+}
+
 pa_operation* pa_context_get_sink_info_by_name(pa_context *c, const char *name, pa_sink_info_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct sink_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(cb);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
+
+	if ((g = find_sink_by_name(c, name)) == NULL)
+		return NULL;
+
+	ensure_global(c, g);
+
+	o = pa_operation_new(c, NULL, sink_info, sizeof(struct sink_data));
+	d = o->userdata;
+	d->context = c;
+	d->cb = cb;
+	d->userdata = userdata;
+	d->global = g;
+	return o;
 }
 
 pa_operation* pa_context_get_sink_info_by_index(pa_context *c, uint32_t idx, pa_sink_info_cb_t cb, void *userdata)
@@ -174,17 +214,21 @@ pa_operation* pa_context_get_sink_info_by_index(pa_context *c, uint32_t idx, pa_
 	pa_assert(c->refcount >= 1);
 	pa_assert(cb);
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
 	if ((g = pa_context_find_global(c, idx)) == NULL)
 		return NULL;
-	if (!sink_filter(c, g))
+	if (!sink_filter(c, g, false))
 		return NULL;
 
 	ensure_global(c, g);
 
 	o = pa_operation_new(c, NULL, sink_info, sizeof(struct sink_data));
 	d = o->userdata;
+	d->context = c;
+	d->cb = cb;
+	d->userdata = userdata;
 	d->global = g;
 	return o;
 }
@@ -196,12 +240,13 @@ static void sink_info_list(pa_operation *o, void *userdata)
 	struct global *g;
 
 	spa_list_for_each(g, &c->globals, link) {
-		if (!sink_filter(c, g))
+		if (!sink_filter(c, g, true))
 			continue;
 		d->global = g;
 		sink_callback(d);
 	}
 	d->cb(c, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation* pa_context_get_sink_info_list(pa_context *c, pa_sink_info_cb_t cb, void *userdata)
@@ -305,7 +350,7 @@ static void source_info(pa_operation *o, void *userdata)
 	d->cb(d->context, NULL, 1, d->userdata);
 }
 
-static int source_filter(pa_context *c, struct global *g)
+static int source_filter(pa_context *c, struct global *g, bool full)
 {
 	const char *str;
 
@@ -340,7 +385,7 @@ pa_operation* pa_context_get_source_info_by_index(pa_context *c, uint32_t idx, p
 
 	if ((g = pa_context_find_global(c, idx)) == NULL)
 		return NULL;
-	if (!source_filter(c, g))
+	if (!source_filter(c, g, false))
 		return NULL;
 
 	ensure_global(c, g);
@@ -358,7 +403,7 @@ static void source_info_list(pa_operation *o, void *userdata)
 	struct global *g;
 
 	spa_list_for_each(g, &c->globals, link) {
-		if (!source_filter(c, g))
+		if (!source_filter(c, g, true))
 			continue;
 		d->global = g;
 		source_callback(d);
@@ -471,7 +516,7 @@ static void module_info(pa_operation *o, void *userdata)
 	d->cb(d->context, NULL, 1, d->userdata);
 }
 
-static int module_filter(pa_context *c, struct global *g)
+static int module_filter(pa_context *c, struct global *g, bool full)
 {
 	if (g->type != c->t->module)
 		return 0;
@@ -492,7 +537,7 @@ pa_operation* pa_context_get_module_info(pa_context *c, uint32_t idx, pa_module_
 
 	if ((g = pa_context_find_global(c, idx)) == NULL)
 		return NULL;
-	if (!module_filter(c, g))
+	if (!module_filter(c, g, false))
 		return NULL;
 
 	ensure_global(c, g);
@@ -511,7 +556,7 @@ static void module_info_list(pa_operation *o, void *userdata)
 	struct global *g;
 
 	spa_list_for_each(g, &c->globals, link) {
-		if (!module_filter(c, g))
+		if (!module_filter(c, g, true))
 			continue;
 		d->global = g;
 		module_callback(d);
@@ -583,7 +628,7 @@ static void client_info(pa_operation *o, void *userdata)
 	d->cb(d->context, NULL, 1, d->userdata);
 }
 
-static int client_filter(pa_context *c, struct global *g)
+static int client_filter(pa_context *c, struct global *g, bool full)
 {
 	if (g->type != c->t->client)
 		return 0;
@@ -604,7 +649,7 @@ pa_operation* pa_context_get_client_info(pa_context *c, uint32_t idx, pa_client_
 
 	if ((g = pa_context_find_global(c, idx)) == NULL)
 		return NULL;
-	if (!client_filter(c, g))
+	if (!client_filter(c, g, false))
 		return NULL;
 
 	ensure_global(c, g);
@@ -623,7 +668,7 @@ static void client_info_list(pa_operation *o, void *userdata)
 	struct global *g;
 
 	spa_list_for_each(g, &c->globals, link) {
-		if (!client_filter(c, g))
+		if (!client_filter(c, g, true))
 			continue;
 		d->global = g;
 		client_callback(d);
@@ -694,16 +739,118 @@ pa_operation* pa_context_set_port_latency_offset(pa_context *c, const char *card
 	return NULL;
 }
 
+struct sink_input_data {
+	pa_context *context;
+	pa_sink_input_info_cb_t cb;
+	void *userdata;
+	struct global *global;
+};
+
+static void sink_input_callback(struct sink_input_data *d)
+{
+	struct global *g = d->global;
+	struct pw_node_info *info = g->info;
+	pa_sink_input_info i;
+	pa_format_info ii[1];
+
+	spa_zero(i);
+	i.index = g->id;
+	i.name = info->name;
+	i.proplist = pa_proplist_new_dict(info->props);
+	i.owner_module = g->parent_id;
+	ii[0].encoding = PA_ENCODING_PCM;
+	ii[0].plist = pa_proplist_new();
+	i.format = ii;
+
+	d->cb(d->context, &i, 0, d->userdata);
+}
+
+static void sink_input_info(pa_operation *o, void *userdata)
+{
+	struct sink_input_data *d = userdata;
+	sink_input_callback(d);
+	d->cb(d->context, NULL, 1, d->userdata);
+}
+
+static int sink_input_filter(pa_context *c, struct global *g, bool full)
+{
+	const char *str;
+	struct pw_node_info *info = g->info;
+
+	if (g->type != c->t->node)
+		return 0;
+
+	if (full) {
+		if (info == NULL || info->props == NULL)
+			return 0;
+		if ((str = spa_dict_lookup(info->props, "node.stream")) == NULL)
+			return 0;
+		if (pw_properties_parse_bool(str) == false)
+			return 0;
+		if (info->n_output_ports == 0)
+			return 0;
+	}
+	return 1;
+}
+
 pa_operation* pa_context_get_sink_input_info(pa_context *c, uint32_t idx, pa_sink_input_info_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct sink_input_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(cb);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
+
+	if ((g = pa_context_find_global(c, idx)) == NULL)
+		return NULL;
+	if (!sink_input_filter(c, g, false))
+		return NULL;
+
+	ensure_global(c, g);
+
+	o = pa_operation_new(c, NULL, sink_input_info, sizeof(struct sink_input_data));
+	d = o->userdata;
+	d->global = g;
+	return o;
+}
+
+static void sink_input_info_list(pa_operation *o, void *userdata)
+{
+	struct sink_input_data *d = userdata;
+	pa_context *c = d->context;
+	struct global *g;
+
+	spa_list_for_each(g, &c->globals, link) {
+		if (!sink_input_filter(c, g, true))
+			continue;
+		d->global = g;
+		sink_input_callback(d);
+	}
+	d->cb(c, NULL, 1, d->userdata);
 }
 
 pa_operation* pa_context_get_sink_input_info_list(pa_context *c, pa_sink_input_info_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct sink_input_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(cb);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	ensure_types(c, c->t->node, sink_input_filter);
+	o = pa_operation_new(c, NULL, sink_input_info_list, sizeof(struct sink_input_data));
+	d = o->userdata;
+	d->context = c;
+	d->cb = cb;
+	d->userdata = userdata;
+	return o;
 }
 
 pa_operation* pa_context_move_sink_input_by_name(pa_context *c, uint32_t idx, const char *sink_name, pa_context_success_cb_t cb, void* userdata)

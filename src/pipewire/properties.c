@@ -291,6 +291,15 @@ int pw_properties_set(struct pw_properties *properties, const char *key, const c
 	return do_replace(properties, strdup(key), value ? strdup(value) : NULL);
 }
 
+int
+pw_properties_setva(struct pw_properties *properties,
+		   const char *key, const char *format, va_list args)
+{
+	char *value;
+	vasprintf(&value, format, args);
+	return do_replace(properties, strdup(key), value);
+}
+
 /** Set a property value by format
  *
  * \param properties a \ref pw_properties
@@ -305,14 +314,14 @@ int pw_properties_set(struct pw_properties *properties, const char *key, const c
  */
 int pw_properties_setf(struct pw_properties *properties, const char *key, const char *format, ...)
 {
+	int res;
 	va_list varargs;
-	char *value;
 
 	va_start(varargs, format);
-	vasprintf(&value, format, varargs);
+	res = pw_properties_setva(properties, key, format, varargs);
 	va_end(varargs);
 
-	return do_replace(properties, strdup(key), value);
+	return res;
 }
 
 /** Get a property

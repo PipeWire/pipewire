@@ -935,7 +935,8 @@ client_node_update(void *data,
 		   uint32_t max_input_ports,
 		   uint32_t max_output_ports,
 		   uint32_t n_params,
-		   const struct spa_pod **params)
+		   const struct spa_pod **params,
+		   const struct spa_dict *props)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
@@ -955,6 +956,9 @@ client_node_update(void *data,
 
 		for (i = 0; i < this->n_params; i++)
 			this->params[i] = pw_spa_pod_copy(params[i]);
+	}
+	if (change_mask & PW_CLIENT_NODE_UPDATE_PROPS) {
+		pw_node_update_properties(impl->this.node, props);
 	}
 	spa_log_debug(this->log, "node %p: got node update max_in %u, max_out %u", this,
 		     this->max_inputs, this->max_outputs);

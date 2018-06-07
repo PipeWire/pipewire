@@ -160,6 +160,9 @@ struct pw_core *pw_remote_get_core(struct pw_remote *remote);
 /** Get the remote properties */
 const struct pw_properties *pw_remote_get_properties(struct pw_remote *remote);
 
+/** Update properties */
+int pw_remote_update_properties(struct pw_remote *remote, const struct spa_dict *dict);
+
 /** Get the user_data. The size was given in \ref pw_remote_new */
 void *pw_remote_get_user_data(struct pw_remote *remote);
 

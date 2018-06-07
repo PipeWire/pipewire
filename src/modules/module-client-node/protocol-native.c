@@ -51,11 +51,12 @@ client_node_marshal_update(void *object,
 			   uint32_t max_input_ports,
 			   uint32_t max_output_ports,
 			   uint32_t n_params,
-			   const struct spa_pod **params)
+			   const struct spa_pod **params,
+			   const struct spa_dict *props)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int i;
+	int i, n_items;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_UPDATE);
 
@@ -69,6 +70,13 @@ client_node_marshal_update(void *object,
 	for (i = 0; i < n_params; i++)
 		spa_pod_builder_add(b, "P", params[i], NULL);
 
+	n_items = props ? props->n_items : 0;
+	spa_pod_builder_add(b, "i", n_items, NULL);
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_add(b,
+			    "s", props->items[i].key,
+			    "s", props->items[i].value, NULL);
+	}
 	spa_pod_builder_add(b, "]", NULL);
 
 	pw_protocol_native_end_proxy(proxy, b);
@@ -730,6 +738,7 @@ static int client_node_demarshal_update(void *object, void *data, size_t size)
 	struct spa_pod_parser prs;
 	uint32_t change_mask, max_input_ports, max_output_ports, n_params;
 	const struct spa_pod **params;
+	struct spa_dict props;
 	int i;
 
 	spa_pod_parser_init(&prs, data, size, 0);
@@ -746,11 +755,26 @@ static int client_node_demarshal_update(void *object, void *data, size_t size)
 		if (spa_pod_parser_get(&prs, "O", &params[i], NULL) < 0)
 			return -EINVAL;
 
+	if (spa_pod_parser_get(&prs,
+			"i", &props.n_items, NULL) < 0)
+		return -EINVAL;
+
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (spa_pod_parser_get(&prs,
+				"s", &props.items[i].key,
+				"s", &props.items[i].value,
+				NULL) < 0)
+			return -EINVAL;
+	}
+
 	pw_resource_do(resource, struct pw_client_node_proxy_methods, update, change_mask,
 									max_input_ports,
 									max_output_ports,
 									n_params,
-									params);
+									params,
+									props.n_items > 0 ?
+										&props : NULL);
 	return 0;
 }
 

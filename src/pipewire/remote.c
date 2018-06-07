@@ -331,6 +331,18 @@ const struct pw_properties *pw_remote_get_properties(struct pw_remote *remote)
 	return remote->properties;
 }
 
+int pw_remote_update_properties(struct pw_remote *remote, const struct spa_dict *dict)
+{
+	uint32_t i;
+
+	for (i = 0; i < dict->n_items; i++)
+		pw_properties_set(remote->properties, dict->items[i].key, dict->items[i].value);
+
+	if (remote->core_proxy)
+		pw_core_proxy_client_update(remote->core_proxy, &remote->properties->dict);
+
+	return 0;
+}
 void *pw_remote_get_user_data(struct pw_remote *remote)
 {
 	return remote->user_data;
@@ -1256,7 +1268,7 @@ static void do_node_init(struct pw_proxy *proxy)
 				    PW_CLIENT_NODE_UPDATE_PARAMS,
 				    data->node->info.max_input_ports,
 				    data->node->info.max_output_ports,
-				    0, NULL);
+				    0, NULL, NULL);
 
 	spa_list_for_each(port, &data->node->input_ports, link) {
 		add_port_update(proxy, port,
@@ -1279,6 +1291,26 @@ static void node_destroy(void *data)
 	pw_proxy_destroy((struct pw_proxy *)d->node_proxy);
 }
 
+static void node_info_changed(void *data, struct pw_node_info *info)
+{
+	struct node_data *d = data;
+	uint32_t change_mask = 0;
+
+	pw_log_debug("info changed %p", d);
+
+	if (info->change_mask & PW_NODE_CHANGE_MASK_ENUM_PARAMS) {
+		change_mask |= PW_CLIENT_NODE_UPDATE_PARAMS;
+	}
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
+		change_mask |= PW_CLIENT_NODE_UPDATE_PROPS;
+	}
+        pw_client_node_proxy_update(d->node_proxy,
+				    change_mask,
+				    0, 0,
+				    0, NULL,
+				    info->props);
+}
+
 static void node_active_changed(void *data, bool active)
 {
 	struct node_data *d = data;
@@ -1290,6 +1322,7 @@ static void node_active_changed(void *data, bool active)
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.destroy = node_destroy,
+	.info_changed = node_info_changed,
 	.active_changed = node_active_changed,
 	.process = node_process,
 	.finish = node_finish,

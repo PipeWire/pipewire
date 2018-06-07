@@ -26,12 +26,13 @@
 #include <pipewire/remote.h>
 
 #include <pulse/context.h>
+#include <pulse/timeval.h>
 
 #include "internal.h"
 
 int pa_context_set_error(pa_context *c, int error) {
-	spa_assert(error >= 0);
-	spa_assert(error < PA_ERR_MAX);
+	pa_assert(error >= 0);
+	pa_assert(error < PA_ERR_MAX);
 	if (c)
 		c->error = error;
 	return error;
@@ -52,8 +53,8 @@ static void context_unlink(pa_context *c)
 }
 
 void pa_context_set_state(pa_context *c, pa_context_state_t st) {
-	spa_assert(c);
-	spa_assert(c->refcount >= 1);
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
 
 	if (c->state == st)
 		return;
@@ -72,8 +73,8 @@ void pa_context_set_state(pa_context *c, pa_context_state_t st) {
 }
 
 static void context_fail(pa_context *c, int error) {
-	spa_assert(c);
-	spa_assert(c->refcount >= 1);
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
 
 	pa_context_set_error(c, error);
 	pa_context_set_state(c, PA_CONTEXT_FAILED);
@@ -178,6 +179,7 @@ static void remote_state_changed(void *data, enum pw_remote_state old,
 		o = pa_operation_new(c, NULL, on_ready, sizeof(struct ready_data));
 		d = o->userdata;
 		d->context = c;
+		pa_operation_unref(o);
 		break;
 	}
 }
@@ -213,11 +215,12 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	struct pw_properties *props;
 	pa_context *c;
 
-	spa_assert(mainloop);
+	pa_assert(mainloop);
 
 	props = pw_properties_new(NULL, NULL);
 	if (name)
 		pw_properties_set(props, PA_PROP_APPLICATION_NAME, name);
+	pw_properties_set(props, "client.api", "pulseaudio");
 
 	loop = mainloop->userdata;
 	core = pw_core_new(loop, NULL);
@@ -264,8 +267,8 @@ static void context_free(pa_context *c)
 
 void pa_context_unref(pa_context *c)
 {
-	spa_assert(c);
-	spa_assert(c->refcount >= 1);
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
 
 	if (--c->refcount == 0)
 		context_free(c);
@@ -273,16 +276,16 @@ void pa_context_unref(pa_context *c)
 
 pa_context* pa_context_ref(pa_context *c)
 {
-	spa_assert(c);
-	spa_assert(c->refcount >= 1);
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
 	c->refcount++;
 	return c;
 }
 
 void pa_context_set_state_callback(pa_context *c, pa_context_notify_cb_t cb, void *userdata)
 {
-	spa_assert(c);
-	spa_assert(c->refcount >= 1);
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
 
 	if (c->state == PA_CONTEXT_TERMINATED || c->state == PA_CONTEXT_FAILED)
 		return;
@@ -293,8 +296,8 @@ void pa_context_set_state_callback(pa_context *c, pa_context_notify_cb_t cb, voi
 
 void pa_context_set_event_callback(pa_context *c, pa_context_event_cb_t cb, void *userdata)
 {
-	spa_assert(c);
-	spa_assert(c->refcount >= 1);
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
 
 	if (c->state == PA_CONTEXT_TERMINATED || c->state == PA_CONTEXT_FAILED)
 		return;
@@ -308,21 +311,25 @@ int pa_context_errno(pa_context *c)
 	if (!c)
 		return PA_ERR_INVALID;
 
-	spa_assert(c->refcount >= 1);
+	pa_assert(c->refcount >= 1);
 
 	return c->error;
 }
 
 int pa_context_is_pending(pa_context *c)
 {
-	pw_log_warn("Not Implemented");
-	return 0;
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY(c, PA_CONTEXT_IS_GOOD(c->state), PA_ERR_BADSTATE);
+
+	return !spa_list_is_empty(&c->operations);
 }
 
 pa_context_state_t pa_context_get_state(pa_context *c)
 {
-	spa_assert(c);
-	spa_assert(c->refcount >= 1);
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
 	return c->state;
 }
 
@@ -330,8 +337,8 @@ int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t fla
 {
 	int res;
 
-	spa_assert(c);
-	spa_assert(c->refcount >= 1);
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
 
 	PA_CHECK_VALIDITY(c, c->state == PA_CONTEXT_UNCONNECTED, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY(c, !(flags & ~(PA_CONTEXT_NOAUTOSPAWN|PA_CONTEXT_NOFAIL)), PA_ERR_INVALID);
@@ -350,8 +357,8 @@ int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t fla
 
 void pa_context_disconnect(pa_context *c)
 {
-	spa_assert(c);
-	spa_assert(c->refcount >= 1);
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
 
 	pw_remote_disconnect(c->remote);
 
@@ -359,16 +366,58 @@ void pa_context_disconnect(pa_context *c)
 		pa_context_set_state(c, PA_CONTEXT_TERMINATED);
 }
 
+struct notify_data {
+	pa_context_notify_cb_t cb;
+	void *userdata;
+};
+
+static void on_notify(pa_operation *o, void *userdata)
+{
+	struct notify_data *d = userdata;
+	pa_operation_done(o);
+	if (d->cb)
+		d->cb(o->context, d->userdata);
+}
+
 pa_operation* pa_context_drain(pa_context *c, pa_context_notify_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct notify_data *d;
+
+	o = pa_operation_new(c, NULL, on_notify, sizeof(struct notify_data));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+
+	return o;
+}
+
+struct success_data {
+	pa_context_success_cb_t cb;
+	void *userdata;
+	int ret;
+};
+
+static void on_success(pa_operation *o, void *userdata)
+{
+	struct success_data *d = userdata;
+	pa_operation_done(o);
+	if (d->cb)
+		d->cb(o->context, d->ret, d->userdata);
 }
 
 pa_operation* pa_context_exit_daemon(pa_context *c, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct success_data *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
+	d = o->userdata;
+	d->ret = PA_ERR_ACCESS;
+	d->cb = cb;
+	d->userdata = userdata;
+
+	return o;
 }
 
 pa_operation* pa_context_set_default_sink(pa_context *c, const char *name, pa_context_success_cb_t cb, void *userdata)
@@ -385,20 +434,51 @@ pa_operation* pa_context_set_default_source(pa_context *c, const char *name, pa_
 
 int pa_context_is_local(pa_context *c)
 {
-	pw_log_warn("Not Implemented");
-	return 0;
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_ANY(c, PA_CONTEXT_IS_GOOD(c->state), PA_ERR_BADSTATE, -1);
+
+	return 1;
 }
 
 pa_operation* pa_context_set_name(pa_context *c, const char *name, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	struct spa_dict dict;
+	struct spa_dict_item items[1];
+	pa_operation *o;
+	struct success_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(name);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	items[0] = SPA_DICT_ITEM_INIT(PA_PROP_APPLICATION_NAME, name);
+	dict = SPA_DICT_INIT(items, 1);
+	pw_remote_update_properties(c->remote, &dict);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
+	d = o->userdata;
+	d->ret = PA_ERR_ACCESS;
+	d->cb = cb;
+	d->userdata = userdata;
+
+	return o;
 }
 
 const char* pa_context_get_server(pa_context *c)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	const struct pw_core_info *info;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	info = pw_remote_get_core_info(c->remote);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, info && info->name, PA_ERR_NOENTITY);
+
+	return info->name;
 }
 
 uint32_t pa_context_get_protocol_version(pa_context *c)
@@ -408,6 +488,11 @@ uint32_t pa_context_get_protocol_version(pa_context *c)
 
 uint32_t pa_context_get_server_protocol_version(pa_context *c)
 {
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_ANY(c, PA_CONTEXT_IS_GOOD(c->state), PA_ERR_BADSTATE, PA_INVALID_INDEX);
+
 	return PA_PROTOCOL_VERSION;
 }
 
@@ -430,13 +515,34 @@ uint32_t pa_context_get_index(pa_context *c)
 
 pa_time_event* pa_context_rttime_new(pa_context *c, pa_usec_t usec, pa_time_event_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	struct timeval tv;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(c->mainloop);
+
+	if (usec == PA_USEC_INVALID)
+		return c->mainloop->time_new(c->mainloop, NULL, cb, userdata);
+
+	pa_timeval_store(&tv, usec);
+
+	return c->mainloop->time_new(c->mainloop, &tv, cb, userdata);
 }
 
 void pa_context_rttime_restart(pa_context *c, pa_time_event *e, pa_usec_t usec)
 {
-	pw_log_warn("Not Implemented");
+	struct timeval tv;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(c->mainloop);
+
+	if (usec == PA_USEC_INVALID)
+		c->mainloop->time_restart(e, NULL);
+	else {
+		pa_timeval_store(&tv, usec);
+		c->mainloop->time_restart(e, &tv);
+	}
 }
 
 size_t pa_context_get_tile_size(pa_context *c, const pa_sample_spec *ss)

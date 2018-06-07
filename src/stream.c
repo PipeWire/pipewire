@@ -39,7 +39,8 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		pa_stream_set_state(s, PA_STREAM_FAILED);
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
-		pa_stream_set_state(s, PA_STREAM_UNCONNECTED);
+		if (!s->disconnecting)
+			pa_stream_set_state(s, PA_STREAM_UNCONNECTED);
 		break;
 	case PW_STREAM_STATE_CONNECTING:
 		pa_stream_set_state(s, PA_STREAM_CREATING);
@@ -71,26 +72,28 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
 static void stream_process(void *data)
 {
 	pa_stream *s = data;
+	struct pw_buffer *buf;
+	uint32_t index;
+
+	s->timing_info_valid = true;
+
+	buf = pw_stream_dequeue_buffer(s->stream);
+	if (buf == NULL)
+		return;
+
+	spa_ringbuffer_get_write_index(&s->dequeued_ring, &index);
+	s->dequeued[index & MASK_BUFFERS] = buf;
+	spa_ringbuffer_write_update(&s->dequeued_ring, index + 1);
 
 	if (s->direction == PA_STREAM_PLAYBACK) {
-		struct pw_buffer *buf;
-		uint32_t index;
-
-		buf = pw_stream_dequeue_buffer(s->stream);
-		if (buf != NULL) {
-			spa_ringbuffer_get_write_index(&s->dequeued_ring, &index);
-			s->dequeued[index & MASK_BUFFERS] = buf;
-			spa_ringbuffer_write_update(&s->dequeued_ring, index + 1);
-
-			s->dequeued_size += buf->buffer->datas[0].maxsize;
-		}
-
+		s->dequeued_size += buf->buffer->datas[0].maxsize;
 		if (s->write_callback)
 			s->write_callback(s, s->dequeued_size, s->write_userdata);
 	}
 	else {
+		s->dequeued_size += buf->buffer->datas[0].chunk->size;
 		if (s->read_callback)
-			s->read_callback(s, 4096, s->read_userdata);
+			s->read_callback(s, s->dequeued_size, s->read_userdata);
 	}
 }
 
@@ -122,7 +125,11 @@ pa_stream* stream_new(pa_context *c, const char *name,
 	if (s == NULL)
 		return NULL;
 
-	s->stream = pw_stream_new(c->remote, name, NULL);
+
+	s->stream = pw_stream_new(c->remote, name,
+			pw_properties_new(
+				"client.api", "pulseaudio",
+				NULL));
 	s->refcount = 1;
 	s->context = c;
 	init_type(&s->type, pw_core_get_type(c->core)->map);
@@ -177,8 +184,6 @@ pa_stream* stream_new(pa_context *c, const char *name,
 	s->buffer_attr.fragsize = (uint32_t) -1;
 
 	s->device_index = PA_INVALID_INDEX;
-
-	s->timing_info_valid = false;
 
 	spa_ringbuffer_init(&s->dequeued_ring);
 
@@ -341,6 +346,97 @@ int pa_stream_is_corked(pa_stream *s)
 	return s->corked;
 }
 
+static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flags_t *flags) {
+	const char *e;
+
+	pa_assert(s);
+	pa_assert(attr);
+
+	if ((e = getenv("PULSE_LATENCY_MSEC"))) {
+		uint32_t ms;
+		pa_sample_spec ss;
+
+		pa_sample_spec_init(&ss);
+
+		if (pa_sample_spec_valid(&s->sample_spec))
+			ss = s->sample_spec;
+		else if (s->n_formats == 1)
+			pa_format_info_to_sample_spec(s->req_formats[0], &ss, NULL);
+
+		if ((ms = atoi(e)) < 0 || ms <= 0) {
+			pa_log_debug("Failed to parse $PULSE_LATENCY_MSEC: %s", e);
+		}
+		else if (!pa_sample_spec_valid(&s->sample_spec)) {
+			pa_log_debug("Ignoring $PULSE_LATENCY_MSEC: %s (invalid sample spec)", e);
+		}
+		else {
+			attr->maxlength = (uint32_t) -1;
+			attr->tlength = pa_usec_to_bytes(ms * PA_USEC_PER_MSEC, &ss);
+			attr->minreq = (uint32_t) -1;
+			attr->prebuf = (uint32_t) -1;
+			attr->fragsize = attr->tlength;
+
+			if (flags)
+				*flags |= PA_STREAM_ADJUST_LATENCY;
+		}
+	}
+
+	if (attr->maxlength == (uint32_t) -1)
+		attr->maxlength = 4*1024*1024; /* 4MB is the maximum queue length PulseAudio <= 0.9.9 supported. */
+
+	if (attr->tlength == (uint32_t) -1)
+		attr->tlength = (uint32_t) pa_usec_to_bytes(250*PA_USEC_PER_MSEC, &s->sample_spec); /* 250ms of buffering */
+
+	if (attr->minreq == (uint32_t) -1)
+		attr->minreq = (attr->tlength)/5; /* Ask for more data when there are only 200ms left in the playback buffer */
+
+	if (attr->prebuf == (uint32_t) -1)
+		attr->prebuf = attr->tlength; /* Start to play only when the playback is fully filled up once */
+
+	if (attr->fragsize == (uint32_t) -1)
+		attr->fragsize = attr->tlength; /* Pass data to the app only when the buffer is filled up once */
+}
+
+static const uint32_t audio_formats[] = {
+	[PA_SAMPLE_U8] = offsetof(struct spa_type_audio_format, U8),
+	[PA_SAMPLE_ALAW] = offsetof(struct spa_type_audio_format, UNKNOWN),
+	[PA_SAMPLE_ULAW] = offsetof(struct spa_type_audio_format, UNKNOWN),
+	[PA_SAMPLE_S16NE] = offsetof(struct spa_type_audio_format, S16),
+	[PA_SAMPLE_S16RE] = offsetof(struct spa_type_audio_format, S16_OE),
+	[PA_SAMPLE_FLOAT32NE] = offsetof(struct spa_type_audio_format, F32),
+	[PA_SAMPLE_FLOAT32RE] = offsetof(struct spa_type_audio_format, F32_OE),
+	[PA_SAMPLE_S32NE] = offsetof(struct spa_type_audio_format, S32),
+	[PA_SAMPLE_S32RE] = offsetof(struct spa_type_audio_format, S32_OE),
+	[PA_SAMPLE_S24NE] = offsetof(struct spa_type_audio_format, S24),
+	[PA_SAMPLE_S24RE] = offsetof(struct spa_type_audio_format, S24_OE),
+	[PA_SAMPLE_S24_32NE] = offsetof(struct spa_type_audio_format, S24_32),
+	[PA_SAMPLE_S24_32RE] = offsetof(struct spa_type_audio_format, S24_32_OE),
+};
+
+static inline uint32_t get_format(pa_stream *s, pa_sample_format_t format)
+{
+	if (format < 0 || format >= SPA_N_ELEMENTS(audio_formats))
+		return s->type.audio_format.UNKNOWN;
+	return *SPA_MEMBER(&s->type.audio_format, audio_formats[format], uint32_t);
+}
+
+static const struct spa_pod *get_param(pa_stream *s, pa_sample_spec *ss, pa_channel_map *map,
+		struct spa_pod_builder *b)
+{
+	const struct spa_pod *param;
+	struct pw_type *t = pw_core_get_type(s->context->core);
+
+	param = spa_pod_builder_object(b,
+	                t->param.idEnumFormat, t->spa_format,
+	                "I", s->type.media_type.audio,
+	                "I", s->type.media_subtype.raw,
+	                ":", s->type.format_audio.format,     "I", get_format(s, ss->format),
+	                ":", s->type.format_audio.layout,     "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
+	                ":", s->type.format_audio.channels,   "i", ss->channels,
+	                ":", s->type.format_audio.rate,       "i", ss->rate);
+	return param;
+}
+
 static int create_stream(pa_stream_direction_t direction,
         pa_stream *s,
         const char *dev,
@@ -351,41 +447,60 @@ static int create_stream(pa_stream_direction_t direction,
 {
 	int res;
 	enum pw_stream_flags fl;
-	const struct spa_pod *params[1];
-        uint8_t buffer[1024];
+	const struct spa_pod *params[16];
+	uint32_t n_params = 0;
+        uint8_t buffer[4096];
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	struct pw_type *t;
+	struct pw_properties *props;
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
 	s->direction = direction;
-
-	t = pw_core_get_type(s->context->core);
+	s->timing_info_valid = false;
+	s->disconnecting = false;
 
 	pa_stream_set_state(s, PA_STREAM_CREATING);
 
 	fl = PW_STREAM_FLAG_AUTOCONNECT |
-		PW_STREAM_FLAG_MAP_BUFFERS |
-		PW_STREAM_FLAG_RT_PROCESS;
+		PW_STREAM_FLAG_MAP_BUFFERS;
 
+	s->corked = SPA_FLAG_CHECK(flags, PA_STREAM_START_CORKED);
+
+	if (s->corked)
+		fl |= PW_STREAM_FLAG_INACTIVE;
 	if (flags & PA_STREAM_PASSTHROUGH)
 		fl |= PW_STREAM_FLAG_EXCLUSIVE;
 
-	params[0] = spa_pod_builder_object(&b,
-                t->param.idEnumFormat, t->spa_format,
-                "I", s->type.media_type.audio,
-                "I", s->type.media_subtype.raw,
-                ":", s->type.format_audio.format,     "I", s->type.audio_format.S16,
-                ":", s->type.format_audio.layout,     "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
-                ":", s->type.format_audio.channels,   "i", 2,
-                ":", s->type.format_audio.rate,       "i", 44100);
+	if (pa_sample_spec_valid(&s->sample_spec)) {
+		params[n_params++] = get_param(s, &s->sample_spec, &s->channel_map, &b);
+	}
+	else {
+		pa_sample_spec ss;
+		pa_channel_map map;
+		int i;
+
+		for (i = 0; i < s->n_formats; i++) {
+			if (pa_format_info_to_sample_spec(s->req_formats[i], &ss, NULL) < 0) {
+				char buf[4096];
+				pw_log_warn("can't convert format %s",
+						pa_format_info_snprint(buf,4096,s->req_formats[i]));
+				continue;
+			}
+
+			params[n_params++] = get_param(s, &ss, &map, &b);
+		}
+	}
 
 	if (attr)
 		s->buffer_attr = *attr;
+	patch_buffer_attr(s, &s->buffer_attr, &flags);
 
 	if (dev == NULL)
 		dev = getenv("PIPEWIRE_NODE");
+
+	props = (struct pw_properties *) pw_stream_get_properties(s->stream);
+	pw_properties_setf(props, "node.latency", "%u", s->buffer_attr.minreq);
 
 	res = pw_stream_connect(s->stream,
 				direction == PA_STREAM_PLAYBACK ?
@@ -393,7 +508,7 @@ static int create_stream(pa_stream_direction_t direction,
 					PW_DIRECTION_INPUT,
 				dev,
 				fl,
-				params, 1);
+				params, n_params);
 
 	return res;
 }
@@ -420,7 +535,7 @@ int pa_stream_connect_record(
 
 static void on_disconnected(pa_operation *o, void *userdata)
 {
-	pa_stream_set_state(o->stream, PA_STREAM_TERMINATED);
+       pa_stream_set_state(o->stream, PA_STREAM_TERMINATED);
 }
 
 int pa_stream_disconnect(pa_stream *s)
@@ -432,9 +547,49 @@ int pa_stream_disconnect(pa_stream *s)
 
 	PA_CHECK_VALIDITY(s->context, s->context->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
+	s->disconnecting = true;
 	pw_stream_disconnect(s->stream);
 	o = pa_operation_new(s->context, s, on_disconnected, 0);
 	pa_operation_unref(o);
+
+	return 0;
+}
+
+int peek_buffer(pa_stream *s)
+{
+	int32_t avail;
+	uint32_t index;
+
+	if (s->buffer != NULL)
+		return 0;
+
+	if ((avail = spa_ringbuffer_get_read_index(&s->dequeued_ring, &index)) <= 0)
+		return -EPIPE;
+
+	s->buffer = s->dequeued[index & MASK_BUFFERS];
+	s->buffer_index = index;
+	s->buffer_data = s->buffer->buffer->datas[0].data;
+	if (s->direction == PA_STREAM_RECORD) {
+		s->buffer_size = s->buffer->buffer->datas[0].chunk->size;
+		s->buffer_offset = s->buffer->buffer->datas[0].chunk->offset;
+	}
+	else {
+		s->buffer_size = s->buffer->buffer->datas[0].maxsize;
+		s->buffer_offset = 0;
+	}
+	return 0;
+}
+
+int queue_buffer(pa_stream *s)
+{
+	if (s->buffer == NULL)
+		return 0;
+
+	s->dequeued_size -= s->buffer_size;
+	spa_ringbuffer_read_update(&s->dequeued_ring, s->buffer_index + 1);
+
+	pw_stream_queue_buffer(s->stream, s->buffer);
+	s->buffer = NULL;
 	return 0;
 }
 
@@ -443,8 +598,6 @@ int pa_stream_begin_write(
         void **data,
         size_t *nbytes)
 {
-	int32_t avail;
-	uint32_t index;
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -455,19 +608,11 @@ int pa_stream_begin_write(
 	PA_CHECK_VALIDITY(s->context, data, PA_ERR_INVALID);
 	PA_CHECK_VALIDITY(s->context, nbytes && *nbytes != 0, PA_ERR_INVALID);
 
-	if (s->buffer == NULL) {
-		if ((avail = spa_ringbuffer_get_read_index(&s->dequeued_ring, &index)) <= 0) {
-			*data = NULL;
-			*nbytes = 0;
-			return 0;
-		}
-		s->buffer = s->dequeued[index & MASK_BUFFERS];
-		s->buffer_index = index;
-		s->buffer_data = s->buffer->buffer->datas[0].data;
-		s->buffer_size = s->buffer->buffer->datas[0].maxsize;
-		s->buffer_offset = 0;
+	if (peek_buffer(s) < 0) {
+		*data = NULL;
+		*nbytes = 0;
+		return 0;
 	}
-
 	*data = SPA_MEMBER(s->buffer_data, s->buffer_offset, void);
 	*nbytes = s->buffer_size - s->buffer_offset;
 
@@ -516,23 +661,26 @@ int pa_stream_write_ext_free(pa_stream *s,
 	PA_CHECK_VALIDITY(s->context, seek <= PA_SEEK_RELATIVE_END, PA_ERR_INVALID);
 	PA_CHECK_VALIDITY(s->context, s->direction == PA_STREAM_PLAYBACK ||
 			(seek == PA_SEEK_RELATIVE && offset == 0), PA_ERR_INVALID);
+	PA_CHECK_VALIDITY(s->context,
+			!s->buffer ||
+			((data >= s->buffer_data) &&
+			((const char*) data + nbytes <= (const char*) s->buffer_data + s->buffer_size)),
+			PA_ERR_INVALID);
 	PA_CHECK_VALIDITY(s->context, offset % pa_frame_size(&s->sample_spec) == 0, PA_ERR_INVALID);
 	PA_CHECK_VALIDITY(s->context, nbytes % pa_frame_size(&s->sample_spec) == 0, PA_ERR_INVALID);
+	PA_CHECK_VALIDITY(s->context, !free_cb || !s->buffer, PA_ERR_INVALID);
 
 	if (s->buffer == NULL) {
 		pw_log_warn("Not Implemented");
+		if (free_cb)
+			free_cb(free_cb_data);
+
 		return PA_ERR_INVALID;
+	} else {
+		s->buffer->buffer->datas[0].chunk->offset = data - s->buffer_data;
+		s->buffer->buffer->datas[0].chunk->size = nbytes;
+		queue_buffer(s);
 	}
-
-	s->buffer->buffer->datas[0].chunk->offset = 0;
-	s->buffer->buffer->datas[0].chunk->size = nbytes;
-
-	s->dequeued_size -= s->buffer_size;
-	spa_ringbuffer_read_update(&s->dequeued_ring, s->buffer_index + 1);
-
-	pw_stream_queue_buffer(s->stream, s->buffer);
-	s->buffer = NULL;
-
 	return 0;
 }
 
@@ -548,7 +696,14 @@ int pa_stream_peek(pa_stream *s,
 	PA_CHECK_VALIDITY(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY(s->context, s->direction == PA_STREAM_RECORD, PA_ERR_BADSTATE);
 
-	pw_log_warn("Not Implemented");
+	if (peek_buffer(s) < 0) {
+		*data = NULL;
+		*nbytes = 0;
+		return 0;
+	}
+	*data = SPA_MEMBER(s->buffer_data, s->buffer_offset, void);
+	*nbytes = s->buffer_size;
+
 	return 0;
 }
 
@@ -559,7 +714,10 @@ int pa_stream_drop(pa_stream *s)
 
 	PA_CHECK_VALIDITY(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY(s->context, s->direction == PA_STREAM_RECORD, PA_ERR_BADSTATE);
-	pw_log_warn("Not Implemented");
+	PA_CHECK_VALIDITY(s->context, s->buffer, PA_ERR_BADSTATE);
+
+	queue_buffer(s);
+
 	return 0;
 }
 
@@ -585,32 +743,59 @@ size_t pa_stream_readable_size(pa_stream *s)
 			PA_ERR_BADSTATE, (size_t) -1);
 	PA_CHECK_VALIDITY_RETURN_ANY(s->context, s->direction == PA_STREAM_RECORD,
 			PA_ERR_BADSTATE, (size_t) -1);
-	pw_log_warn("Not Implemented");
-	return 0;
+
+	return s->dequeued_size;
+}
+
+struct success_ack {
+	pa_stream_success_cb_t cb;
+	void *userdata;
+};
+
+static void on_success(pa_operation *o, void *userdata)
+{
+	struct success_ack *d = userdata;
+	pa_operation_done(o);
+	if (d->cb)
+		d->cb(o->stream, PA_OK, d->userdata);
 }
 
 pa_operation* pa_stream_drain(pa_stream *s, pa_stream_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction == PA_STREAM_PLAYBACK, PA_ERR_BADSTATE);
 
-	pw_log_warn("Not Implemented");
-	return NULL;
+	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+
+	return o;
 }
 
 pa_operation* pa_stream_update_timing_info(pa_stream *s, pa_stream_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
-	pw_log_warn("Not Implemented");
-	return NULL;
+	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+
+	return o;
 }
 
 void pa_stream_set_state_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *userdata)
@@ -751,18 +936,6 @@ void pa_stream_set_buffer_attr_callback(pa_stream *s, pa_stream_notify_cb_t cb, 
 	s->buffer_attr_userdata = userdata;
 }
 
-struct success_ack {
-	pa_stream_success_cb_t cb;
-	void *userdata;
-};
-
-static void on_success(pa_operation *o, void *userdata)
-{
-	struct success_ack *d = userdata;
-	if (d->cb)
-		d->cb(o->stream, PA_OK, d->userdata);
-}
-
 pa_operation* pa_stream_cork(pa_stream *s, int b, pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -870,6 +1043,9 @@ pa_operation* pa_stream_set_name(pa_stream *s, const char *name, pa_stream_succe
 
 int pa_stream_get_time(pa_stream *s, pa_usec_t *r_usec)
 {
+	struct pw_time t;
+	pa_usec_t res;
+
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
@@ -877,7 +1053,12 @@ int pa_stream_get_time(pa_stream *s, pa_usec_t *r_usec)
 	PA_CHECK_VALIDITY(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY(s->context, s->timing_info_valid, PA_ERR_NODATA);
 
-	pw_log_warn("Not Implemented");
+	pw_stream_get_time(s->stream, &t);
+
+	res = (t.ticks * t.rate.num * PA_USEC_PER_SEC) / t.rate.denom;
+
+	if (r_usec)
+		*r_usec = res;
 
 	return 0;
 }
@@ -893,6 +1074,10 @@ int pa_stream_get_latency(pa_stream *s, pa_usec_t *r_usec, int *negative)
 	PA_CHECK_VALIDITY(s->context, s->timing_info_valid, PA_ERR_NODATA);
 
 	pw_log_warn("Not Implemented");
+	if (r_usec)
+		*r_usec = 0;
+	if (negative)
+		*negative = 0;
 
 	return 0;
 }
@@ -946,6 +1131,9 @@ const pa_buffer_attr* pa_stream_get_buffer_attr(pa_stream *s)
 
 pa_operation *pa_stream_set_buffer_attr(pa_stream *s, const pa_buffer_attr *attr, pa_stream_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 	spa_assert(attr);
@@ -953,11 +1141,19 @@ pa_operation *pa_stream_set_buffer_attr(pa_stream *s, const pa_buffer_attr *attr
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
-	return NULL;
+	pw_log_warn("Not Implemented");
+	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	return o;
 }
 
 pa_operation *pa_stream_update_sample_rate(pa_stream *s, uint32_t rate, pa_stream_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
@@ -966,11 +1162,19 @@ pa_operation *pa_stream_update_sample_rate(pa_stream *s, uint32_t rate, pa_strea
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->flags & PA_STREAM_VARIABLE_RATE, PA_ERR_BADSTATE);
 
-	return NULL;
+	pw_log_warn("Not Implemented");
+	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	return o;
 }
 
 pa_operation *pa_stream_proplist_update(pa_stream *s, pa_update_mode_t mode, pa_proplist *p, pa_stream_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
@@ -979,11 +1183,19 @@ pa_operation *pa_stream_proplist_update(pa_stream *s, pa_update_mode_t mode, pa_
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
-	return NULL;
+	pw_log_warn("Not Implemented");
+	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	return o;
 }
 
 pa_operation *pa_stream_proplist_remove(pa_stream *s, const char *const keys[], pa_stream_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
@@ -991,7 +1203,12 @@ pa_operation *pa_stream_proplist_remove(pa_stream *s, const char *const keys[], 
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
-	return NULL;
+	pw_log_warn("Not Implemented");
+	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	return o;
 }
 
 int pa_stream_set_monitor_stream(pa_stream *s, uint32_t sink_input_idx)

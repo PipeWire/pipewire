@@ -146,6 +146,32 @@ struct pa_proplist {
 pa_proplist* pa_proplist_new_props(struct pw_properties *props);
 pa_proplist* pa_proplist_new_dict(struct spa_dict *dict);
 
+struct pa_io_event {
+	struct spa_source *source;
+	struct pa_mainloop *mainloop;
+	int fd;
+	pa_io_event_flags_t events;
+	pa_io_event_cb_t cb;
+	void *userdata;
+	pa_io_event_destroy_cb_t destroy;
+};
+
+struct pa_time_event {
+	struct spa_source *source;
+	struct pa_mainloop *mainloop;
+	pa_time_event_cb_t cb;
+	void *userdata;
+	pa_time_event_destroy_cb_t destroy;
+};
+
+struct pa_defer_event {
+	struct spa_source *source;
+	struct pa_mainloop *mainloop;
+	pa_defer_event_cb_t cb;
+	void *userdata;
+	pa_defer_event_destroy_cb_t destroy;
+};
+
 struct pa_mainloop {
 	struct pw_loop *loop;
 	struct spa_source *event;
@@ -248,6 +274,7 @@ struct pa_stream {
 	pa_stream_direction_t direction;
 	pa_stream_state_t state;
 	pa_stream_flags_t flags;
+	bool disconnecting;
 
 	pa_sample_spec sample_spec;
 	pa_channel_map channel_map;
@@ -300,10 +327,10 @@ struct pa_stream {
 	size_t dequeued_size;
 
 	struct pw_buffer *buffer;
-	void *buffer_data;
 	uint32_t buffer_index;
-	int64_t buffer_size;
-	int64_t buffer_offset;
+	void *buffer_data;
+	uint32_t buffer_size;
+	uint32_t buffer_offset;
 };
 
 void pa_stream_set_state(pa_stream *s, pa_stream_state_t st);

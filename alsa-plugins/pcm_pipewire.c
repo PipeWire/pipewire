@@ -370,7 +370,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		pw->stream = NULL;
 	}
 
-	props = pw_properties_new(NULL, NULL);
+	props = pw_properties_new("client.api", "alsa", NULL);
 	pw_properties_setf(props, "node.latency", "%lu", io->period_size);
 
 	pw->stream = pw_stream_new(pw->remote, pw->node_name, props);
@@ -583,7 +583,8 @@ static void on_remote_state_changed(void *data, enum pw_remote_state old,
 		pw_log_error("error %s", error);
         case PW_REMOTE_STATE_UNCONNECTED:
 		pw->error = true;
-		pcm_poll_unblock_check(&pw->io);
+		if (pw->fd != -1)
+			pcm_poll_unblock_check(&pw->io);
 		/* fallthrough */
         case PW_REMOTE_STATE_CONNECTED:
                 pw_thread_loop_signal(pw->main_loop, false);

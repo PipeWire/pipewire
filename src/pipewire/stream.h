@@ -202,23 +202,21 @@ enum pw_stream_flags {
 	PW_STREAM_FLAG_NONE = 0,			/**< no flags */
 	PW_STREAM_FLAG_AUTOCONNECT	= (1 << 0),	/**< try to automatically connect
 							  *  this stream */
-	PW_STREAM_FLAG_CLOCK_UPDATE	= (1 << 1),	/**< request periodic clock updates for
-							  *  this stream */
-	PW_STREAM_FLAG_INACTIVE		= (1 << 2),	/**< start the stream inactive */
-	PW_STREAM_FLAG_MAP_BUFFERS	= (1 << 3),	/**< mmap the buffers */
-	PW_STREAM_FLAG_DRIVER		= (1 << 4),	/**< be a driver */
-	PW_STREAM_FLAG_RT_PROCESS	= (1 << 5),	/**< call process from the realtime
+	PW_STREAM_FLAG_INACTIVE		= (1 << 1),	/**< start the stream inactive */
+	PW_STREAM_FLAG_MAP_BUFFERS	= (1 << 2),	/**< mmap the buffers */
+	PW_STREAM_FLAG_DRIVER		= (1 << 3),	/**< be a driver */
+	PW_STREAM_FLAG_RT_PROCESS	= (1 << 4),	/**< call process from the realtime
 							  *  thread */
-	PW_STREAM_FLAG_NO_CONVERT	= (1 << 6),	/**< don't convert format */
-	PW_STREAM_FLAG_EXCLUSIVE	= (1 << 7),	/**< require exclusive access to the
+	PW_STREAM_FLAG_NO_CONVERT	= (1 << 5),	/**< don't convert format */
+	PW_STREAM_FLAG_EXCLUSIVE	= (1 << 6),	/**< require exclusive access to the
 							  *  device */
 };
 
 /** A time structure \memberof pw_stream */
 struct pw_time {
-	int64_t now;		/**< the monotonic time */
-	int64_t ticks;		/**< the ticks at \a now */
-	int32_t rate;		/**< the rate of \a ticks */
+	int64_t now;			/**< the monotonic time */
+	int64_t ticks;			/**< the ticks at \a now */
+	struct spa_fraction rate;	/**< the rate of \a ticks */
 };
 
 /** Create a new unconneced \ref pw_stream \memberof pw_stream

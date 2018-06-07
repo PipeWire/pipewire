@@ -48,10 +48,7 @@ struct pw_client_node_position {
 #define PW_VERSION_CLIENT_NODE_POSITION		0
 	uint32_t version;
 	uint32_t seq1, seq2;		/**< valid contents when equal */
-	uint64_t nsec;			/**< time in nanoseconds */
-	struct spa_fraction rate;	/**< rate of the clock */
-	uint32_t position;		/**< current position expressed in rate */
-	uint32_t duration;		/**< duration of cycle expressed in rate */
+	/* position info follows */
 };
 
 #define PW_CLIENT_NODE_PROXY_METHOD_DONE		0

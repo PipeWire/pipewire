@@ -539,7 +539,7 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
 			pw_log_warn("proxy %p: read failed %m", proxy);
 
-		pw_log_trace("remote %p: process %d", data->remote, data->position->duration);
+		pw_log_trace("remote %p: process", data->remote);
 		spa_graph_run(node->graph->parent->graph);
 	}
 }
@@ -1237,7 +1237,17 @@ client_node_set_position(void *object,
 	}
 
 	pw_log_debug("node %p: set position %p", proxy, ptr);
+	if (ptr == NULL && data->position) {
+		m = find_mem_ptr(data, data->position);
+		if (m && --m->ref == 0)
+			clear_mem(data, m);
+	}
 	data->position = ptr;
+	if (ptr)
+		data->node->rt.quantum = SPA_MEMBER(ptr,
+				sizeof(struct pw_client_node_position), void);
+	else
+		data->node->rt.quantum = NULL;
 }
 
 static const struct pw_client_node_proxy_events client_node_events = {

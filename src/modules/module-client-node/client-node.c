@@ -896,7 +896,7 @@ static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
 	struct impl *impl = this->impl;
-	struct pw_driver_quantum *q;
+	struct pw_driver_quantum *q, *rq;
 	uint64_t cmd = 1;
 
 	if (this->impl->this.status != SPA_ID_INVALID) {
@@ -907,12 +907,12 @@ static int impl_node_process(struct spa_node *node)
 	spa_log_trace(this->log, "%p: send process %p", this, impl->this.node->driver_node);
 
 	q = impl->this.node->driver_node->rt.quantum;
+	rq = SPA_MEMBER(impl->position, sizeof(struct pw_client_node_position),
+			struct pw_driver_quantum);
 
-	impl->position->nsec = q->time;
-	impl->position->duration = q->size;
-	impl->position->position = impl->next_position;
-	impl->position->rate = q->rate;
-	impl->next_position += q->size;
+	*rq = *q;
+	rq->position = impl->next_position;
+	impl->next_position += rq->size;
 
 	if (write(this->writefd, &cmd, 8) != 8)
 		spa_log_warn(this->log, "node %p: error %s", this, strerror(errno));
@@ -1185,7 +1185,7 @@ static void node_initialized(void *data)
 	pw_log_debug("client-node %p: transport fd %d %d", node, impl->fds[0], impl->fds[1]);
 
 	area_size = sizeof(struct spa_io_buffers) * MAX_AREAS;
-	size = area_size + sizeof(struct pw_client_node_position);
+	size = area_size + sizeof(struct pw_client_node_position) + sizeof(struct pw_driver_quantum);
 
 	if (pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 			      PW_MEMBLOCK_FLAG_MAP_READWRITE |

@@ -1216,15 +1216,13 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	int64_t elapsed;
-	struct timespec ts;
+	struct pw_driver_quantum *q;
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	time->now = SPA_TIMESPEC_TO_TIME(&ts);
-	elapsed = (time->now - impl->last_monotonic) / 1000;
+	q = impl->node->rt.quantum;
 
-	time->ticks = impl->last_ticks + (elapsed * impl->last_rate) / SPA_USEC_PER_SEC;
-	time->rate = impl->last_rate;
+	time->now = q->nsec;
+	time->ticks = q->position / sizeof(float);
+	time->rate = q->rate;
 
 	return 0;
 }

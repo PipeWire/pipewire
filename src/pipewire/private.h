@@ -225,7 +225,7 @@ struct pw_module {
 };
 
 struct pw_driver_quantum {
-	uint64_t time;			/**< time in nanoseconds */
+	uint64_t nsec;			/**< time in nanoseconds */
 	struct spa_fraction rate;	/**< rate */
 	uint32_t position;		/**< current position expressed in rate */
 	uint32_t size;			/**< size of one period expressed in rate */

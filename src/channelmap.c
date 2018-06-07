@@ -584,7 +584,7 @@ pa_channel_map *pa_channel_map_parse(pa_channel_map *rmap, const char *s) {
 
     map.channels = 0;
 
-    tokens = pw_split_strv(s, ",", -1, &n_tokens);
+    tokens = pw_split_strv(s, ",", INT_MAX, &n_tokens);
 
     for (i = 0; i < n_tokens; i++) {
         pa_channel_position_t f;

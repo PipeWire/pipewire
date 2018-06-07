@@ -264,6 +264,7 @@ struct client {
 	void *timebase_arg;
 
 	struct pw_client_node_position *position;
+	struct pw_driver_quantum *quantum;
 	uint32_t sample_rate;
 	uint32_t buffer_size;
 
@@ -667,7 +668,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
 			pw_log_warn("jack %p: read failed %m", c);
 
-		buffer_size = c->position->duration / sizeof(float);
+		buffer_size = c->quantum->size / sizeof(float);
 		if (buffer_size != c->buffer_size) {
 			pw_log_info("jack %p: buffersize %d", c, buffer_size);
 			c->buffer_size = buffer_size;
@@ -675,7 +676,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 				c->bufsize_callback(c->buffer_size, c->bufsize_arg);
 		}
 
-		sample_rate = c->position->rate.denom;
+		sample_rate = c->quantum->rate.denom;
 		if (sample_rate != c->sample_rate) {
 			pw_log_info("jack %p: sample_rate %d", c, sample_rate);
 			c->sample_rate = sample_rate;
@@ -683,9 +684,9 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 				c->srate_callback(c->sample_rate, c->srate_arg);
 		}
 
-		c->jack_position.usecs = c->position->nsec/1000;
+		c->jack_position.usecs = c->quantum->nsec/1000;
 		c->jack_position.frame_rate = c->sample_rate;
-		c->jack_position.frame = c->position->position / sizeof(float);
+		c->jack_position.frame = c->quantum->position / sizeof(float);
 
 		if (c->sync_callback) {
 			c->sync_callback(JackTransportRolling,
@@ -1222,6 +1223,7 @@ static void client_node_set_position(void *object,
         }
 	pw_log_debug("client %p: set position %p", c, ptr);
 	c->position = ptr;
+	c->quantum = SPA_MEMBER(ptr, sizeof(struct pw_client_node_position), void);
 }
 
 
@@ -1495,6 +1497,7 @@ jack_client_t * jack_client_open (const char *client_name,
         client->remote = pw_remote_new(client->context.core,
 				pw_properties_new(
 					"client.name", client_name,
+					"client.api", "jack",
 					NULL),
 				0);
 
@@ -1549,7 +1552,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_client_node_proxy_update(client->node_proxy,
                                     PW_CLIENT_NODE_UPDATE_MAX_INPUTS |
 				    PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS,
-				    0, 0, 0, NULL);
+				    0, 0, 0, NULL, NULL);
 
 	pw_client_node_proxy_done(client->node_proxy, 0, 0);
 

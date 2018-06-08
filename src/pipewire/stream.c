@@ -1045,7 +1045,7 @@ set_init_params(struct pw_stream *stream,
 	impl->n_init_params = n_init_params;
 }
 
-static void set_params(struct pw_stream *stream, int n_params, struct spa_pod **params)
+static void set_params(struct pw_stream *stream, int n_params, const struct spa_pod **params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int i;
@@ -1193,7 +1193,7 @@ int pw_stream_disconnect(struct pw_stream *stream)
 
 void pw_stream_finish_format(struct pw_stream *stream,
 			int res,
-			struct spa_pod **params,
+			const struct spa_pod **params,
 			uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);

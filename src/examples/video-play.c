@@ -231,7 +231,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	struct pw_type *t = data->t;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	struct spa_pod *params[2];
+	const struct spa_pod *params[2];
 	Uint32 sdl_format;
 	void *d;
 

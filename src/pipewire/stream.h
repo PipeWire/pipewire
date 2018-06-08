@@ -289,7 +289,7 @@ int pw_stream_disconnect(struct pw_stream *stream);
 void
 pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 			int res,			/**< a result code */
-			struct spa_pod **params,	/**< an array of params. The params should
+			const struct spa_pod **params,	/**< an array of params. The params should
 							  *  ideally contain parameters for doing
 							  *  buffer allocation. */
 			uint32_t n_params		/**< number of elements in \a params */);

@@ -740,7 +740,7 @@ static int impl_node_process(struct spa_node *node)
 	struct spa_io_buffers *outio, *inio;
 	struct buffer *sbuf, *dbuf;
 	struct spa_buffer *sb, *db;
-	uint32_t i, size, in_len, out_len, maxsize;
+	uint32_t i, size, in_len, out_len, pin_len, pout_len, maxsize;
 	int res = 0;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
@@ -784,10 +784,13 @@ static int impl_node_process(struct spa_node *node)
 	size = sb->datas[0].chunk->size;
 	maxsize = db->datas[0].maxsize;
 
-	in_len = (size - inport->offset) / sizeof(float);
-	out_len = (maxsize - outport->offset) / sizeof(float);
+	pin_len = in_len = (size - inport->offset) / sizeof(float);
+	pout_len = out_len = (maxsize - outport->offset) / sizeof(float);
 
 	for (i = 0; i < sb->n_datas; i++) {
+		in_len = pin_len;
+		out_len = pout_len;
+
 		speex_resampler_process_float(this->state, i,
 				SPA_MEMBER(sb->datas[i].data, inport->offset, void), &in_len,
 				SPA_MEMBER(db->datas[i].data, outport->offset, void), &out_len);

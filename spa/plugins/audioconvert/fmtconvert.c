@@ -39,6 +39,7 @@
 #define DEFAULT_CHANNELS	2
 
 #define MAX_BUFFERS     32
+#define MAX_PORTS	128
 
 #define PROP_DEFAULT_TRUNCATE	false
 #define PROP_DEFAULT_DITHER	0
@@ -64,10 +65,19 @@ struct buffer {
 	struct spa_meta_header *h;
 };
 
+struct format {
+	struct spa_audio_info format;
+	uint32_t stride;
+	uint32_t blocks;
+	uint32_t size;
+};
+
 struct port {
 	uint32_t id;
+	bool valid;
 
 	struct spa_io_buffers *io;
+	struct spa_io_control_range *ctrl;
 	struct spa_port_info info;
 
 	bool have_format;
@@ -139,8 +149,11 @@ struct impl {
 	const struct spa_node_callbacks *callbacks;
 	void *user_data;
 
-	struct port in_port;
-	struct port out_port;
+	struct port ports[2][MAX_PORTS];
+	uint32_t n_ports[2];
+
+	struct format formats[2];
+	uint32_t n_formats[2];
 
 	bool started;
 
@@ -149,50 +162,73 @@ struct impl {
 	convert_func_t convert;
 };
 
-#define CHECK_PORT(this,d,id)		(id == 0)
-#define GET_IN_PORT(this,id)		(&this->in_port)
-#define GET_OUT_PORT(this,id)		(&this->out_port)
-#define GET_PORT(this,d,id)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,id) : GET_OUT_PORT(this,id))
+#define CHECK_FREE_PORT(this,d,id)	(id < MAX_PORTS && !GET_PORT(this,d,id)->valid)
+#define CHECK_PORT(this,d,id)		(id < MAX_PORTS && GET_PORT(this,d,id)->valid)
+#define GET_PORT(this,d,id)		(&this->ports[d][id])
+#define GET_IN_PORT(this,id)		GET_PORT(this,SPA_DIRECTION_INPUT,id)
+#define GET_OUT_PORT(this,id)		GET_PORT(this,SPA_DIRECTION_OUTPUT,id)
+
+static int collect_format(struct impl *this, enum spa_direction direction, struct format *fmt)
+{
+	int i, idx, ch = 0;
+
+	*fmt = this->formats[direction];
+	for (i = 0, idx = 0; idx < this->n_ports[direction] && i < MAX_PORTS; i++) {
+		struct port *p = GET_PORT(this, direction, i);
+		if (!p->valid)
+			continue;
+		idx++;
+		if (!p->have_format)
+			return -1;
+		fmt->format = p->format;
+		ch += p->format.info.raw.channels;
+	}
+	fmt->format.info.raw.channels = ch;
+
+	return 0;
+}
 
 static int setup_convert(struct impl *this)
 {
-	struct port *inport, *outport;
 	uint32_t src_fmt, dst_fmt;
 	struct type *t = &this->type;
+	struct format informat, outformat;
 
-	inport = GET_PORT(this, SPA_DIRECTION_INPUT, 0);
-	outport = GET_PORT(this, SPA_DIRECTION_OUTPUT, 0);
+	if (collect_format(this, SPA_DIRECTION_INPUT, &informat) < 0)
+		return -1;
+	if (collect_format(this, SPA_DIRECTION_OUTPUT, &outformat) < 0)
+		return -1;
 
-	src_fmt = inport->format.info.raw.format;
-	dst_fmt = outport->format.info.raw.format;
+	src_fmt = informat.format.info.raw.format;
+	dst_fmt = outformat.format.info.raw.format;
 
 	spa_log_info(this->log, NAME " %p: %s/%d@%d.%d->%s/%d@%d.%d", this,
 			spa_type_map_get_type(this->map, src_fmt),
-			inport->format.info.raw.channels,
-			inport->format.info.raw.rate,
-			inport->format.info.raw.layout,
+			informat.format.info.raw.channels,
+			informat.format.info.raw.rate,
+			informat.format.info.raw.layout,
 			spa_type_map_get_type(this->map, dst_fmt),
-			outport->format.info.raw.channels,
-			outport->format.info.raw.rate,
-			outport->format.info.raw.layout);
+			outformat.format.info.raw.channels,
+			outformat.format.info.raw.rate,
+			outformat.format.info.raw.layout);
 
-	if (inport->format.info.raw.channels != outport->format.info.raw.channels)
+	if (informat.format.info.raw.channels != outformat.format.info.raw.channels)
 		return -EINVAL;
 
-	if (inport->format.info.raw.rate != outport->format.info.raw.rate)
+	if (informat.format.info.raw.rate != outformat.format.info.raw.rate)
 		return -EINVAL;
 
 	/* find fast path */
 	this->conv[0] = find_conv_info(&t->audio_format, src_fmt, dst_fmt);
 	if (this->conv[0] != NULL) {
-		if (inport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED) {
-			if (outport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
+		if (informat.format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED) {
+			if (outformat.format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
 				this->convert = this->conv[0]->i2i;
 			else
 				this->convert = this->conv[0]->i2d;
 		}
 		else {
-			if (outport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
+			if (outformat.format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
 				this->convert = this->conv[0]->d2i;
 			else
 				this->convert = this->conv[0]->i2i;
@@ -260,17 +296,43 @@ impl_node_get_n_ports(struct spa_node *node,
 		      uint32_t *n_output_ports,
 		      uint32_t *max_output_ports)
 {
+	struct impl *this;
+
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
-	if (n_input_ports)
-		*n_input_ports = 1;
-	if (max_input_ports)
-		*max_input_ports = 1;
-	if (n_output_ports)
-		*n_output_ports = 1;
-	if (max_output_ports)
-		*max_output_ports = 1;
+	this = SPA_CONTAINER_OF(node, struct impl, node);
 
+	if (n_input_ports)
+		*n_input_ports = this->n_ports[SPA_DIRECTION_INPUT];
+	if (max_input_ports)
+		*max_input_ports = MAX_PORTS;
+	if (n_output_ports)
+		*n_output_ports = this->n_ports[SPA_DIRECTION_OUTPUT];
+	if (max_output_ports)
+		*max_output_ports = MAX_PORTS;
+
+	return 0;
+}
+
+static inline struct port *iterate_ports(struct impl *this, enum spa_direction direction, uint32_t max, uint32_t *state)
+{
+	for (; (*state & 0xffff) < MAX_PORTS && (*state >> 16) < max; (*state)++) {
+		struct port *p = &this->ports[direction][(*state) & 0xffff];
+		if (p->valid) {
+			(*state) += 0x10001;
+			return p;
+		}
+	}
+	return NULL;
+}
+
+static int collect_ports(struct impl *this, enum spa_direction direction, uint32_t *ids, uint32_t n_ids)
+{
+	int i, idx;
+	for (i = 0, idx = 0; i < MAX_PORTS && idx < n_ids; i++) {
+		if (this->ports[direction][i].valid)
+			ids[idx++] = i;
+	}
 	return 0;
 }
 
@@ -281,25 +343,76 @@ impl_node_get_port_ids(struct spa_node *node,
 		       uint32_t *output_ids,
 		       uint32_t n_output_ids)
 {
+	struct impl *this;
+
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
-	if (n_input_ids && input_ids)
-		input_ids[0] = 0;
-	if (n_output_ids > 0 && output_ids)
-		output_ids[0] = 0;
+	this = SPA_CONTAINER_OF(node, struct impl, node);
 
+	if (input_ids)
+		collect_ports(this, SPA_DIRECTION_INPUT, input_ids, n_input_ids);
+	if (output_ids)
+		collect_ports(this, SPA_DIRECTION_OUTPUT, output_ids, n_output_ids);
+
+	return 0;
+}
+
+static int init_port(struct impl *this, enum spa_direction direction, uint32_t port_id, uint32_t flags)
+{
+        struct port *port;
+
+        port = GET_PORT(this, direction, port_id);
+        port->valid = true;
+        port->id = port_id;
+
+        spa_list_init(&port->queue);
+        port->info.flags = flags;
+        this->n_ports[direction]++;
+        port->have_format = false;
 	return 0;
 }
 
 static int impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-	return -ENOTSUP;
+        struct impl *this;
+
+        spa_return_val_if_fail(node != NULL, -EINVAL);
+
+        this = SPA_CONTAINER_OF(node, struct impl, node);
+
+        spa_return_val_if_fail(CHECK_FREE_PORT(this, direction, port_id), -EINVAL);
+
+	init_port(this, direction, port_id,
+			SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
+			SPA_PORT_INFO_FLAG_REMOVABLE);
+
+        spa_log_debug(this->log, NAME " %p: add port %d", this, port_id);
+
+        return 0;
 }
 
 static int
 impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-	return -ENOTSUP;
+	struct impl *this;
+        struct port *port;
+
+        spa_return_val_if_fail(node != NULL, -EINVAL);
+
+        this = SPA_CONTAINER_OF(node, struct impl, node);
+
+        spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
+
+        port = GET_PORT (this, direction, port_id);
+
+        this->n_ports[direction]--;
+        if (port->have_format)
+		this->n_formats[direction]--;
+        spa_memzero(port, sizeof(struct port));
+
+        spa_log_debug(this->log, NAME " %p: remove port %d", this, port_id);
+
+        return 0;
 }
 
 static int
@@ -332,26 +445,26 @@ static int port_enum_formats(struct spa_node *node,
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct type *t = &this->type;
-	struct port *other;
+	struct spa_audio_info *other;
 
-	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), 0);
+	other = &this->formats[SPA_DIRECTION_REVERSE(direction)].format;
 
 	switch (*index) {
 	case 0:
-		if (other->have_format) {
+		if (other->info.raw.channels > 0) {
 			*param = spa_pod_builder_object(builder,
 				t->param.idEnumFormat, t->format,
 				"I", t->media_type.audio,
 				"I", t->media_subtype.raw,
-				":", t->format_audio.format,   "Ieu", other->format.info.raw.format,
-					SPA_POD_PROP_ENUM(3, other->format.info.raw.format,
+				":", t->format_audio.format,   "Ieu", other->info.raw.format,
+					SPA_POD_PROP_ENUM(3, other->info.raw.format,
 							     t->audio_format.F32,
 							     t->audio_format.F32_OE),
-				":", t->format_audio.layout,   "ieu", other->format.info.raw.layout,
+				":", t->format_audio.layout,   "ieu", other->info.raw.layout,
 					SPA_POD_PROP_ENUM(2, SPA_AUDIO_LAYOUT_INTERLEAVED,
 							     SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
-				":", t->format_audio.rate,     "i", other->format.info.raw.rate,
-				":", t->format_audio.channels, "i", other->format.info.raw.channels);
+				":", t->format_audio.rate,     "i", other->info.raw.rate,
+				":", t->format_audio.channels, "i", other->info.raw.channels);
 		} else {
 			*param = spa_pod_builder_object(builder,
 				t->param.idEnumFormat, t->format,
@@ -465,33 +578,30 @@ impl_node_port_enum_params(struct spa_node *node,
 			return res;
 	}
 	else if (id == t->param.idBuffers) {
+		uint32_t buffers, size;
+
 		if (!port->have_format)
 			return -EIO;
 		if (*index > 0)
 			return 0;
 
 		if (other->n_buffers > 0) {
-			param = spa_pod_builder_object(&b,
-				id, t->param_buffers.Buffers,
-				":", t->param_buffers.buffers, "iru", other->n_buffers,
-					SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
-				":", t->param_buffers.blocks,  "i", port->blocks,
-				":", t->param_buffers.size,    "i", (other->size / other->stride) *
-								    port->stride,
-				":", t->param_buffers.stride,  "i", port->stride,
-				":", t->param_buffers.align,   "i", 16);
+			buffers = other->n_buffers;
+			size = other->size / other->stride;
+		} else {
+			buffers = 1;
+			size = 1024;
 		}
-		else {
-			param = spa_pod_builder_object(&b,
-				id, t->param_buffers.Buffers,
-				":", t->param_buffers.buffers, "iru", 1,
-					SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
-				":", t->param_buffers.blocks,  "i", port->blocks,
-				":", t->param_buffers.size,    "iru", 1024 * port->stride,
-					SPA_POD_PROP_MIN_MAX(16 * port->stride, INT32_MAX / port->stride),
-				":", t->param_buffers.stride,  "i", port->stride,
-				":", t->param_buffers.align,   "i", 16);
-		}
+
+		param = spa_pod_builder_object(&b,
+			id, t->param_buffers.Buffers,
+			":", t->param_buffers.buffers, "iru", buffers,
+				SPA_POD_PROP_MIN_MAX(2, MAX_BUFFERS),
+			":", t->param_buffers.blocks,  "i", port->blocks,
+			":", t->param_buffers.size,    "iru", size * port->stride,
+				SPA_POD_PROP_MIN_MAX(16 * port->stride, INT32_MAX / port->stride),
+			":", t->param_buffers.stride,  "i", port->stride,
+			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
 		if (!port->have_format)
@@ -554,6 +664,14 @@ static int clear_buffers(struct impl *this, struct port *port)
 	}
 	return 0;
 }
+static int compatible_format(struct spa_audio_info *info, struct spa_audio_info *info2)
+{
+	if (info->info.raw.format != info2->info.raw.format ||
+	    info->info.raw.layout != info2->info.raw.layout ||
+	    info->info.raw.rate != info2->info.raw.rate)
+		return -EINVAL;
+	return 0;
+}
 
 static int port_set_format(struct spa_node *node,
 			   enum spa_direction direction,
@@ -562,19 +680,20 @@ static int port_set_format(struct spa_node *node,
 			   const struct spa_pod *format)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
-	struct port *port, *other;
+	struct port *port;
 	struct type *t = &this->type;
 	int res = 0;
 
 	port = GET_PORT(this, direction, port_id);
-	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), port_id);
 
 	if (format == NULL) {
 		if (port->have_format) {
 			port->have_format = false;
+			this->n_formats[direction]--;
+			this->formats[direction].format.info.raw.channels -= port->format.info.raw.channels;
 			clear_buffers(this, port);
+			this->convert = NULL;
 		}
-		this->convert = NULL;
 	} else {
 		struct spa_audio_info info = { 0 };
 
@@ -589,6 +708,16 @@ static int port_set_format(struct spa_node *node,
 		if (spa_format_audio_raw_parse(format, &info.info.raw, &t->format_audio) < 0)
 			return -EINVAL;
 
+		if (this->n_formats[direction] > 0) {
+			if (compatible_format(&info, &this->formats[direction].format) < 0)
+				return -EINVAL;
+			this->formats[direction].format.info.raw.channels += info.info.raw.channels;
+		}
+		else {
+			this->formats[direction].format = info;
+		}
+		this->n_formats[direction]++;
+
 		port->have_format = true;
 		port->format = info;
 
@@ -602,11 +731,12 @@ static int port_set_format(struct spa_node *node,
 			port->blocks = info.info.raw.channels;
 		}
 
-		if (other->have_format)
+		if (this->n_formats[SPA_DIRECTION_INPUT] == this->n_ports[SPA_DIRECTION_INPUT] &&
+		    this->n_formats[SPA_DIRECTION_OUTPUT] == this->n_ports[SPA_DIRECTION_OUTPUT])
 			res = setup_convert(this);
 
-		spa_log_debug(this->log, NAME " %p: set format on port %d %d %d %d",
-				this, port_id, res, port->stride, other->stride);
+		spa_log_debug(this->log, NAME " %p: set format on port %d %d %d",
+				this, port_id, res, port->stride);
 	}
 	return res;
 }
@@ -724,20 +854,21 @@ impl_node_port_set_io(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	if (id == t->io.Buffers) {
-		spa_log_trace(this->log, NAME " %p: port %d update buffer io %p",
-				this, port_id, data);
+	spa_log_trace(this->log, NAME " %p: port %d:%d update io %d %p",
+			this, direction, port_id, id, data);
+
+	if (id == t->io.Buffers)
 		port->io = data;
-	}
+	else if (id == t->io.ControlRange)
+		port->ctrl = data;
 	else
 		return -ENOENT;
 
 	return 0;
 }
 
-static void recycle_buffer(struct impl *this, uint32_t id)
+static void recycle_buffer(struct impl *this, struct port *port, uint32_t id)
 {
-	struct port *port = GET_OUT_PORT(this, 0);
 	struct buffer *b = &port->buffers[id];
 
 	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
@@ -765,6 +896,7 @@ static struct buffer *dequeue_buffer(struct impl *this, struct port *port)
 static int impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
 {
 	struct impl *this;
+	struct port *port;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -772,7 +904,9 @@ static int impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, 
 
 	spa_return_val_if_fail(CHECK_PORT(this, SPA_DIRECTION_OUTPUT, port_id), -EINVAL);
 
-	recycle_buffer(this, buffer_id);
+	port = GET_OUT_PORT(this, port_id);
+
+	recycle_buffer(this, port, buffer_id);
 
 	return 0;
 }
@@ -786,18 +920,119 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
+static int process_split(struct impl *this)
+{
+	struct port *inport, *outport;
+	struct spa_io_buffers *inio, *outio;
+	struct buffer *inbuf, *outbuf;
+	struct spa_buffer *inb, *outb;
+	const void **src_datas;
+	void **dst_datas;
+	uint32_t n_src_datas, n_outs, n_dst_datas;
+	int i, j, res = 0, n_bytes = 0, maxsize;
+	uint32_t size;
+
+	inport = GET_IN_PORT(this, 0);
+	inio = inport->io;
+	spa_return_val_if_fail(inio != NULL, -EIO);
+
+	spa_log_trace(this->log, NAME " %p: status %p %d", this, inio, inio->status);
+
+	if (inio->status != SPA_STATUS_HAVE_BUFFER)
+		return SPA_STATUS_NEED_BUFFER;
+	if (inio->buffer_id >= inport->n_buffers)
+		return inio->status = -EINVAL;
+
+	inbuf = &inport->buffers[inio->buffer_id];
+	inb = inbuf->outbuf;
+
+	n_src_datas = inb->n_datas;
+	src_datas = alloca(sizeof(void*) * n_src_datas);
+
+	size = inb->datas[0].chunk->size;
+	for (i = 0; i < n_src_datas; i++)
+		src_datas[i] = SPA_MEMBER(inb->datas[i].data, inport->offset, void);
+
+	n_outs = this->n_ports[SPA_DIRECTION_OUTPUT];
+	dst_datas = alloca(sizeof(void*) * MAX_PORTS);
+	n_dst_datas = 0;
+
+	for (i = 0; i < n_outs; i++) {
+		outport = GET_OUT_PORT(this, i);
+		outio = outport->io;
+		if (outio == NULL)
+			continue;
+		spa_log_trace(this->log, NAME " %p: %d %p %d %d %d", this, i,
+				outio, outio->status, outio->buffer_id, outport->stride);
+
+		if (outio->status == SPA_STATUS_HAVE_BUFFER) {
+			res |= SPA_STATUS_HAVE_BUFFER;
+			continue;
+		}
+
+		if (outio->buffer_id < outport->n_buffers) {
+			recycle_buffer(this, outport, outio->buffer_id);
+			outio->buffer_id = SPA_ID_INVALID;
+		}
+
+		if ((outbuf = dequeue_buffer(this, outport)) == NULL)
+			return outio->status = -EPIPE;
+
+		outb = outbuf->outbuf;
+
+		maxsize = outb->datas[0].maxsize;
+		if (outport->ctrl)
+			maxsize = SPA_MIN(outport->ctrl->max_size, maxsize);
+		maxsize = (maxsize / outport->stride) * inport->stride;
+		n_bytes = SPA_MIN(size - inport->offset, maxsize);
+
+		for (j = 0; j < outb->n_datas; j++) {
+			dst_datas[n_dst_datas++] = outb->datas[j].data;
+			outb->datas[j].chunk->offset = 0;
+			outb->datas[j].chunk->size = (n_bytes / inport->stride) * outport->stride;
+		}
+
+		outio->status = SPA_STATUS_HAVE_BUFFER;
+		outio->buffer_id = outb->id;
+		res |= SPA_STATUS_HAVE_BUFFER;
+	}
+
+	spa_log_trace(this->log, NAME " %p: %d %d %d %d %d %d", this,
+			n_src_datas, n_dst_datas, n_bytes, inport->offset, size, inport->stride);
+
+	if (n_dst_datas > 0) {
+		this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
+
+		inport->offset += n_bytes;
+		if (inport->offset >= size) {
+			inio->status = SPA_STATUS_NEED_BUFFER;
+			inport->offset = 0;
+			res |= SPA_STATUS_NEED_BUFFER;
+		}
+	}
+	return res;
+}
+
 static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
+#if 0
 	struct port *outport, *inport;
 	struct spa_io_buffers *outio, *inio;
 	struct buffer *sbuf, *dbuf;
 	int res = 0;
+#endif
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
+	if (this->n_ports[SPA_DIRECTION_OUTPUT] >= 1)
+		return process_split(this);
+	else
+		return -ENOTSUP;
+
+#if 0
 	outport = GET_OUT_PORT(this, 0);
 	inport = GET_IN_PORT(this, 0);
 
@@ -818,7 +1053,7 @@ static int impl_node_process(struct spa_node *node)
 
 	/* recycle */
 	if (outio->buffer_id < outport->n_buffers) {
-		recycle_buffer(this, outio->buffer_id);
+		recycle_buffer(this, outport, outio->buffer_id);
 		outio->buffer_id = SPA_ID_INVALID;
 	}
 
@@ -832,12 +1067,12 @@ static int impl_node_process(struct spa_node *node)
 
 	{
 		int i, n_bytes, maxsize;
+		uint32_t size;
 		struct spa_buffer *sb = sbuf->outbuf, *db = dbuf->outbuf;
 		uint32_t n_src_datas = sb->n_datas;
 		uint32_t n_dst_datas = db->n_datas;
 		const void *src_datas[n_src_datas];
 		void *dst_datas[n_dst_datas];
-		uint32_t size;
 
 		size = sb->datas[0].chunk->size;
 		maxsize = (db->datas[0].maxsize / outport->stride) * inport->stride;
@@ -868,6 +1103,7 @@ static int impl_node_process(struct spa_node *node)
 	res |= SPA_STATUS_HAVE_BUFFER;
 
 	return res;
+#endif
 }
 
 static const struct spa_node impl_node = {
@@ -929,7 +1165,6 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *this;
-	struct port *port;
 	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -954,15 +1189,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->node = impl_node;
 
-	port = GET_OUT_PORT(this, 0);
-	port->id = 0;
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-	spa_list_init(&port->queue);
-
-	port = GET_IN_PORT(this, 0);
-	port->id = 0;
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-	spa_list_init(&port->queue);
+	init_port(this, SPA_DIRECTION_OUTPUT, 0, SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS);
+	init_port(this, SPA_DIRECTION_INPUT, 0, SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS);
 
 	props_reset(&this->props);
 

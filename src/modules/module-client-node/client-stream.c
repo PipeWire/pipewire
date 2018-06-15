@@ -906,7 +906,7 @@ static void client_node_initialized(void *data)
 	    media_type == impl->type.media_type.audio &&
 	    media_subtype == impl->type.media_subtype.raw) {
 		if ((impl->adapter = pw_load_spa_interface("audioconvert/libspa-audioconvert",
-				"splitter", SPA_TYPE__Node, NULL, 0, NULL)) == NULL)
+				"audioconvert", SPA_TYPE__Node, NULL, 0, NULL)) == NULL)
 			return;
 
 		impl->use_converter = true;

@@ -105,7 +105,6 @@ struct stream {
 	struct queue dequeued;
 	struct queue queued;
 
-	uint32_t n_orig_params;
 	uint32_t n_init_params;
 	struct spa_pod **init_params;
 
@@ -113,6 +112,7 @@ struct stream {
 	struct spa_pod **params;
 
 	struct spa_pod *format;
+	struct spa_pod *conv_format;
 
 	uint32_t pending_seq;
 	bool disconnecting;
@@ -123,10 +123,6 @@ struct stream {
 
 	bool free_data;
 	struct data data;
-
-	bool use_converter;
-	struct spa_node *convert;
-	struct spa_io_buffers conv_io;
 };
 
 
@@ -164,80 +160,6 @@ static inline struct buffer *pop_queue(struct stream *stream, struct queue *queu
 	SPA_FLAG_UNSET(buffer->flags, BUFFER_FLAG_QUEUED);
 
 	return buffer;
-}
-
-/* check if the server format is compatible with the requested
- * formats, if not, set up converters when allowed */
-static int configure_converter(struct stream *impl)
-{
-	struct pw_type *t = impl->t;
-	int i, res;
-	struct spa_pod *param;
-
-	impl->use_converter = false;
-
-	/* check if format compatible with filter */
-	for (i = 0; i < impl->n_orig_params; i++) {
-		uint8_t buffer[4096];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, 4096);
-		struct spa_pod *filtered;
-
-		param = impl->init_params[i];
-
-		if (spa_pod_is_object_type(param, t->spa_format)) {
-			if (spa_pod_filter(&b, &filtered, impl->format, param) >= 0) {
-				pw_log_debug("stream %p: format matches filter", impl);
-				return 0;
-			}
-		}
-	}
-
-	if (impl->convert == NULL)
-		return -ENOTSUP;
-
-	/* configure the converter */
-	if ((res = spa_node_port_set_param(impl->convert,
-					   impl->direction, 0,
-					   t->param.idFormat, 0,
-					   impl->format)) < 0)
-		return res;
-
-
-	/* try to configure the other end */
-	for (i = 0; i < impl->n_orig_params; i++) {
-		param = impl->init_params[i];
-
-		if (spa_pod_is_object_type(param, t->spa_format)) {
-			if ((res = spa_node_port_set_param(impl->convert,
-					   SPA_DIRECTION_REVERSE(impl->direction), 0,
-					   t->param.idFormat,
-					   SPA_NODE_PARAM_FLAG_FIXATE,
-					   param)) < 0)
-				continue;
-
-			/* other end set and fixated */
-			impl->use_converter = true;
-			break;
-		}
-	}
-	/* when we get here without valid configured converter we fail */
-	if (!impl->use_converter)
-		return -ENOTSUP;
-
-	if (impl->io != &impl->conv_io) {
-		pw_log_debug("stream %p: update io %p %p", impl, impl->io, &impl->conv_io);
-		res = spa_node_port_set_io(impl->convert,
-					impl->direction, 0,
-					t->io.Buffers,
-					impl->io, sizeof(struct spa_io_buffers));
-		impl->io = &impl->conv_io;
-		res = spa_node_port_set_io(impl->convert,
-					SPA_DIRECTION_REVERSE(impl->direction), 0,
-					t->io.Buffers,
-					impl->io, sizeof(struct spa_io_buffers));
-	}
-
-	return 0;
 }
 
 static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state state, const char *error)
@@ -307,8 +229,6 @@ static int impl_send_command(struct spa_node *node, const struct spa_command *co
 			if (impl->direction == SPA_DIRECTION_INPUT) {
 				impl->io->status = SPA_STATUS_NEED_BUFFER;
 				impl->io->buffer_id = SPA_ID_INVALID;
-				impl->conv_io.status = SPA_STATUS_NEED_BUFFER;
-				impl->conv_io.buffer_id = SPA_ID_INVALID;
 			}
 			else {
 				call_process(impl);
@@ -390,17 +310,7 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 
 	if (id == t->io.Buffers && size >= sizeof(struct spa_io_buffers)) {
 		pw_log_debug("stream %p: set io %d %p %zd", impl, id, data, size);
-
-		if (impl->use_converter) {
-			impl->io = &impl->conv_io;
-			res = spa_node_port_set_io(impl->convert,
-					     direction, 0, id, data, size);
-			res = spa_node_port_set_io(impl->convert,
-					     SPA_DIRECTION_REVERSE(direction), 0,
-					     id, impl->io, size);
-		}
-		else
-			impl->io = data;
+		impl->io = data;
 	}
 	else
 		res = -ENOENT;
@@ -481,9 +391,11 @@ static int port_set_format(struct spa_node *node,
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
 	struct pw_stream *stream = &impl->this;
 	struct pw_type *t = impl->t;
-	int res, count;
+	int count;
 
-	pw_log_debug("stream %p: format changed", impl);
+	pw_log_debug("stream %p: format changed:", impl);
+	if (pw_log_level >= SPA_LOG_LEVEL_DEBUG)
+		spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
 
 	if (impl->format)
 		free(impl->format);
@@ -491,18 +403,14 @@ static int port_set_format(struct spa_node *node,
 	if (spa_pod_is_object_type(format, t->spa_format)) {
 		impl->format = pw_spa_pod_copy(format);
 		((struct spa_pod_object*)impl->format)->body.id = t->param.idFormat;
-
-		if ((res = configure_converter(impl)) < 0) {
-			pw_stream_finish_format(stream, res, NULL, 0);
-			return res;
-		}
 	}
 	else
 		impl->format = NULL;
 
 	count = spa_hook_list_call(&stream->listener_list,
 			   struct pw_stream_events,
-			   format_changed, impl->format);
+			   format_changed,
+			   impl->format);
 
 	if (count == 0)
 		pw_stream_finish_format(stream, 0, NULL, 0);
@@ -603,9 +511,6 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 
 	clear_buffers(stream);
 
-	if (impl->use_converter)
-		SPA_FLAG_SET(flags, PW_STREAM_FLAG_MAP_BUFFERS);
-
 	for (i = 0; i < n_buffers; i++) {
 		int buf_size = 0;
 		struct buffer *b = &impl->buffers[i];
@@ -637,35 +542,6 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		}
 		pw_log_debug("got buffer %d %d datas, mapped size %d", i,
 				buffers[i]->n_datas, size);
-	}
-
-	if (impl->use_converter) {
-		struct spa_data datas[1];
-		uint32_t data_aligns[1];
-
-		if ((res = spa_node_port_use_buffers(impl->convert,
-					  impl->direction, 0,
-					  buffers,
-					  n_buffers)) < 0)
-			return res;
-
-		n_buffers = 6;
-
-		datas[0].type = t->data.MemPtr;
-		datas[0].maxsize = size;
-		data_aligns[0] = 16;
-
-		buffers = spa_buffer_alloc_array(n_buffers, 0,
-						 0, NULL,
-						 1, datas,
-						 data_aligns);
-		if (buffers == NULL)
-			return -ENOMEM;
-
-		if ((res = spa_node_port_use_buffers(impl->convert,
-					  SPA_DIRECTION_REVERSE(impl->direction), 0,
-					  buffers, n_buffers)) < 0)
-			return res;
 	}
 
 	for (i = 0; i < n_buffers; i++) {
@@ -760,23 +636,13 @@ static int impl_node_process_output(struct spa_node *node)
 			pw_log_trace("stream %p: no more buffers %p", stream, io);
 		}
 	}
-	if (io->status == SPA_STATUS_HAVE_BUFFER && impl->use_converter) {
-		res = spa_node_process(impl->convert);
-		if (SPA_FLAG_CHECK(res, SPA_STATUS_NEED_BUFFER))
-			call_process(impl);
-
-		if (!SPA_FLAG_CHECK(res, SPA_STATUS_HAVE_BUFFER))
+	if (!SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_DRIVER)) {
+		call_process(impl);
+		if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0 &&
+		    io->status == SPA_STATUS_NEED_BUFFER)
 			goto again;
-	} else {
-		if (!SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_DRIVER)) {
-			call_process(impl);
-			if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0 &&
-			    io->status == SPA_STATUS_NEED_BUFFER)
-				goto again;
-		}
-		res = io->status;
 	}
-
+	res = io->status;
 	pw_log_trace("stream %p: res %d", stream, res);
 
 	return res;
@@ -975,10 +841,6 @@ set_init_params(struct pw_stream *stream,
 		const struct spa_pod **init_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct pw_type *t = impl->t;
-#define CONVERT_AUDIO	(1<<0)
-#define CONVERT_VIDEO	(1<<1)
-	uint32_t convert_mask = 0;
 	int i;
 
 	if (impl->init_params) {
@@ -989,59 +851,9 @@ set_init_params(struct pw_stream *stream,
 	}
 	if (n_init_params > 0) {
 		impl->init_params = malloc(n_init_params * sizeof(struct spa_pod *));
-		for (i = 0; i < n_init_params; i++) {
+		for (i = 0; i < n_init_params; i++)
 			impl->init_params[i] = pw_spa_pod_copy(init_params[i]);
-
-			if (spa_pod_is_object_type(impl->init_params[i], t->spa_format)) {
-				uint32_t media_type, media_subtype;
-
-				spa_pod_object_parse(impl->init_params[i],
-					"I", &media_type,
-					"I", &media_subtype);
-
-				if (media_type == impl->type.media_type.audio &&
-				    media_subtype == impl->type.media_subtype.raw)
-					SPA_FLAG_SET(convert_mask, CONVERT_AUDIO);
-				else if (media_type == impl->type.media_type.video &&
-				    media_subtype == impl->type.media_subtype.raw)
-					SPA_FLAG_SET(convert_mask, CONVERT_VIDEO);
-			}
-		}
 	}
-	impl->n_orig_params = n_init_params;
-
-	if (convert_mask && !SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_NO_CONVERT)) {
-		uint32_t state = 0;
-		int res;
-
-		if (SPA_FLAG_CHECK(convert_mask, CONVERT_AUDIO)) {
-			if ((impl->convert = pw_load_spa_interface("audioconvert/libspa-audioconvert",
-					"audioconvert", SPA_TYPE__Node, NULL, 0, NULL)) == NULL)
-				goto done;
-		}
-		if (SPA_FLAG_CHECK(convert_mask, CONVERT_VIDEO)) {
-			if ((impl->convert = pw_load_spa_interface("videoconvert/libspa-videoconvert",
-					"videoconvert", SPA_TYPE__Node, NULL, 0, NULL)) == NULL)
-				goto done;
-		}
-
-		while (true) {
-			uint8_t buffer[4096];
-			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, 4096);
-			struct spa_pod *param;
-
-			if ((res = spa_node_port_enum_params(impl->convert,
-				       impl->direction, 0,
-				       t->param.idEnumFormat, &state,
-				       NULL, &param, &b)) <= 0)
-				break;
-
-			impl->init_params = realloc(impl->init_params,
-					(n_init_params + 1) * sizeof(struct spa_pod *));
-			impl->init_params[n_init_params++] = pw_spa_pod_copy(param);
-		}
-	}
-      done:
 	impl->n_init_params = n_init_params;
 }
 

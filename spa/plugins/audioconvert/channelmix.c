@@ -474,7 +474,7 @@ impl_node_port_enum_params(struct spa_node *node,
 				":", t->param_buffers.buffers, "iru", 1,
 					SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 				":", t->param_buffers.blocks,  "i", port->blocks,
-				":", t->param_buffers.size,    "iru", 1024 * port->stride,
+				":", t->param_buffers.size,    "iru", 2048 * port->stride,
 					SPA_POD_PROP_MIN_MAX(16 * port->stride, INT32_MAX / port->stride),
 				":", t->param_buffers.stride,  "i", port->stride,
 				":", t->param_buffers.align,   "i", 16);

@@ -40,6 +40,9 @@ extern "C" {
 #include <spa/param/meta.h>
 #include <spa/param/audio/format-utils.h>
 
+#define DEFAULT_RATE		48000
+#define DEFAULT_CHANNELS	2
+
 struct props {
 	char device[64];
 	char device_name[128];

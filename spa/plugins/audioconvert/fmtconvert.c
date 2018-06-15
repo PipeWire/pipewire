@@ -35,6 +35,9 @@
 
 #define NAME "fmtconvert"
 
+#define DEFAULT_RATE		44100
+#define DEFAULT_CHANNELS	2
+
 #define MAX_BUFFERS     32
 
 #define PROP_DEFAULT_TRUNCATE	false
@@ -369,9 +372,9 @@ static int port_enum_formats(struct spa_node *node,
 				":", t->format_audio.layout,   "ieu", SPA_AUDIO_LAYOUT_INTERLEAVED,
 					SPA_POD_PROP_ENUM(2, SPA_AUDIO_LAYOUT_INTERLEAVED,
 							     SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
-				":", t->format_audio.rate,     "iru", 44100,
+				":", t->format_audio.rate,     "iru", DEFAULT_RATE,
 					SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
-				":", t->format_audio.channels, "iru", 2,
+				":", t->format_audio.channels, "iru", DEFAULT_CHANNELS,
 					SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
 		}
 		break;

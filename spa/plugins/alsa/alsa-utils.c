@@ -195,7 +195,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	prop = spa_pod_builder_deref(&b,
 		spa_pod_builder_push_prop(&b, state->type.format_audio.rate, SPA_POD_PROP_RANGE_NONE));
 
-	spa_pod_builder_int(&b, SPA_CLAMP(48000, min, max));
+	spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_RATE, min, max));
 	if (min != max) {
 		spa_pod_builder_int(&b, min);
 		spa_pod_builder_int(&b, max);
@@ -209,7 +209,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	prop = spa_pod_builder_deref(&b,
 		spa_pod_builder_push_prop(&b, state->type.format_audio.channels, SPA_POD_PROP_RANGE_NONE));
 
-	spa_pod_builder_int(&b, SPA_CLAMP(2, min, max));
+	spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_CHANNELS, min, max));
 	if (min != max) {
 		spa_pod_builder_int(&b, min);
 		spa_pod_builder_int(&b, max);

@@ -520,11 +520,11 @@ static int negotiate_buffers(struct impl *impl)
 
 	if (impl->buffers)
 		free(impl->buffers);
-	impl->buffers = calloc(blocks, sizeof(struct spa_buffer *) + info.skel_size);
+	impl->buffers = calloc(buffers, sizeof(struct spa_buffer *) + info.skel_size);
 	if (impl->buffers == NULL)
 		return -ENOMEM;
 
-        skel = SPA_MEMBER(impl->buffers, sizeof(struct spa_buffer *) * blocks, void);
+        skel = SPA_MEMBER(impl->buffers, sizeof(struct spa_buffer *) * buffers, void);
 	data_size = info.meta_size + info.chunk_size + info.data_size;
 
 	if (impl->mem) {
@@ -534,15 +534,14 @@ static int negotiate_buffers(struct impl *impl)
 
 	if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 				     PW_MEMBLOCK_FLAG_MAP_READWRITE |
-				     PW_MEMBLOCK_FLAG_SEAL, blocks * data_size,
+				     PW_MEMBLOCK_FLAG_SEAL, buffers * data_size,
 				     &impl->mem)) < 0)
 		return res;
 
-	impl->n_buffers = blocks;
+	impl->n_buffers = buffers;
 
         spa_buffer_alloc_layout_array(&info, impl->n_buffers, impl->buffers,
 			skel, impl->mem->ptr);
-
 
 	if (in_alloc) {
 		if ((res = spa_node_port_alloc_buffers(impl->adapter,

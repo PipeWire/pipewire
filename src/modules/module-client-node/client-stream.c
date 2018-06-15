@@ -140,8 +140,10 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	if ((res = spa_node_send_command(impl->adapter, command)) < 0)
 		return res;
 
-	if ((res = spa_node_send_command(impl->cnode, command)) < 0)
-		return res;
+	if (impl->adapter != impl->cnode) {
+		if ((res = spa_node_send_command(impl->cnode, command)) < 0)
+			return res;
+	}
 
 	return 0;
 }
@@ -337,6 +339,44 @@ impl_node_port_enum_params(struct spa_node *node,
 			index, filter, result, builder);
 }
 
+static int debug_params(struct impl *impl, struct spa_node *node,
+                enum spa_direction direction, uint32_t port_id, uint32_t id, struct spa_pod *filter)
+{
+	struct node *this = &impl->node;
+	struct pw_type *t = impl->t;
+        struct spa_pod_builder b = { 0 };
+        uint8_t buffer[4096];
+        uint32_t state, flag;
+        struct spa_pod *format;
+        int res;
+
+        flag = 0;
+        if (id == t->param.idEnumFormat)
+                flag |= SPA_DEBUG_FLAG_FORMAT;
+
+        spa_log_error(this->log, "formats:");
+
+        state = 0;
+        while (true) {
+                spa_pod_builder_init(&b, buffer, sizeof(buffer));
+                res = spa_node_port_enum_params(node,
+                                       direction, port_id,
+                                       id, &state,
+                                       NULL, &format, &b);
+                if (res <= 0)
+                        break;
+
+                spa_debug_pod(format, flag);
+        }
+
+        spa_log_error(this->log, "failed filter:");
+        if (filter)
+                spa_debug_pod(filter, flag);
+
+        return 0;
+}
+
+
 static int negotiate_format(struct impl *impl)
 {
 	struct node *this = &impl->node;
@@ -353,19 +393,26 @@ static int negotiate_format(struct impl *impl)
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->adapter,
-			       SPA_DIRECTION_INPUT, 0,
-			       t->param.idEnumFormat, &state,
-			       NULL, &format, &b)) <= 0)
+				SPA_DIRECTION_INPUT, 0,
+				t->param.idEnumFormat, &state,
+				NULL, &format, &b)) <= 0) {
+		debug_params(impl, impl->adapter, SPA_DIRECTION_INPUT, 0,
+				t->param.idEnumFormat, NULL);
 		return -ENOTSUP;
+	}
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->cnode,
 				       SPA_DIRECTION_OUTPUT, 0,
 				       t->param.idEnumFormat, &state,
-				       format, &format, &b)) <= 0)
-			return -ENOTSUP;
+				       format, &format, &b)) <= 0) {
+		debug_params(impl, impl->cnode, SPA_DIRECTION_OUTPUT, 0,
+				t->param.idEnumFormat, format);
+		return -ENOTSUP;
+	}
 
 	spa_pod_fixate(format);
+	spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
 
 	if ((res = spa_node_port_set_param(impl->adapter,
 				   SPA_DIRECTION_INPUT, 0,
@@ -408,8 +455,11 @@ static int negotiate_buffers(struct impl *impl)
 	if ((res = spa_node_port_enum_params(impl->cnode,
 			       SPA_DIRECTION_OUTPUT, 0,
 			       t->param.idBuffers, &state,
-			       param, &param, &b)) < 0)
+			       param, &param, &b)) < 0) {
+		debug_params(impl, impl->cnode, SPA_DIRECTION_OUTPUT, 0,
+				t->param.idBuffers, param);
 		return res;
+	}
 
 	if (res == 0)
 		param = NULL;
@@ -418,8 +468,11 @@ static int negotiate_buffers(struct impl *impl)
 	if ((res = spa_node_port_enum_params(impl->adapter,
 			       SPA_DIRECTION_INPUT, 0,
 			       t->param.idBuffers, &state,
-			       param, &param, &b)) <= 0)
+			       param, &param, &b)) <= 0) {
+		debug_params(impl, impl->adapter, SPA_DIRECTION_INPUT, 0,
+				t->param.idBuffers, param);
 		return -ENOTSUP;
+	}
 
 	spa_pod_fixate(param);
 
@@ -449,6 +502,9 @@ static int negotiate_buffers(struct impl *impl)
 			":", t->param_buffers.align, "i", &align,
 			NULL) < 0)
 		return -EINVAL;
+
+	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d",
+			impl, buffers, blocks, size, align);
 
 	datas = alloca(sizeof(struct spa_data) * blocks);
 	memset(datas, 0, sizeof(struct spa_data) * blocks);

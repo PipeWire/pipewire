@@ -149,10 +149,11 @@ spa_buffer_alloc_layout_array(struct spa_buffer_alloc_info *info,
 			      void *skel_mem, void *data_mem)
 {
 	int i;
+	size_t data_size = info->data_size + info->meta_size + info->chunk_size;
 	for (i = 0; i < n_buffers; i++) {
 		buffers[i] = spa_buffer_alloc_layout(info, skel_mem, data_mem, i);
                 skel_mem = SPA_MEMBER(skel_mem, info->skel_size, void);
-                data_mem = SPA_MEMBER(data_mem, info->data_size, void);
+                data_mem = SPA_MEMBER(data_mem, data_size, void);
         }
 	return 0;
 }

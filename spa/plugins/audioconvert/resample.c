@@ -61,6 +61,7 @@ struct port {
 	uint32_t id;
 
 	struct spa_io_buffers *io;
+	struct spa_io_control_range *ctrl;
 	struct spa_port_info info;
 
 	bool have_format;
@@ -675,6 +676,8 @@ impl_node_port_set_io(struct spa_node *node,
 
 	if (id == t->io.Buffers)
 		port->io = data;
+	else if (id == t->io.ControlRange)
+		port->ctrl = data;
 	else
 		return -ENOENT;
 
@@ -784,6 +787,8 @@ static int impl_node_process(struct spa_node *node)
 
 	size = sb->datas[0].chunk->size;
 	maxsize = db->datas[0].maxsize;
+	if (outport->ctrl)
+		maxsize = SPA_MIN(outport->ctrl->max_size, maxsize);
 
 	pin_len = in_len = (size - inport->offset) / sizeof(float);
 	pout_len = out_len = (maxsize - outport->offset) / sizeof(float);

@@ -713,10 +713,15 @@ impl_node_port_set_io(struct spa_node *node,
 		      uint32_t id, void *data, size_t size)
 {
 	struct impl *this;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	t = &this->type;
+
+	if (id == t->io.ControlRange)
+		spa_node_port_set_io(this->resample, direction, 0, id, data, size);
 
 	return spa_node_port_set_io(this->fmt[direction], direction, port_id, id, data, size);
 }

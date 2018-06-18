@@ -219,7 +219,10 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		printf("remote state: \"%s\"\n",
 		       pw_remote_state_as_string(state));
 
-		data->stream = pw_stream_new(remote, "video-src", NULL);
+		data->stream = pw_stream_new(remote, "video-src",
+			pw_properties_new(
+				"media.class", "Video/Source",
+				NULL));
 
 		params[0] = spa_pod_builder_object(&b,
 			data->t->param.idEnumFormat, data->t->spa_format,

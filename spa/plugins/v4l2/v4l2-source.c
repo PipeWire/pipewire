@@ -993,6 +993,7 @@ impl_init(const struct spa_handle_factory *factory,
 	uint32_t i;
 	const char *str;
 	struct port *port;
+	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1042,6 +1043,9 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (info && (str = spa_dict_lookup(info, "device.path"))) {
 		strncpy(this->props.device, str, 63);
+		if ((res = spa_v4l2_open(this)) < 0)
+			return res;
+		spa_v4l2_close(this);
 	}
 
 	return 0;

@@ -73,6 +73,8 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 struct impl {
 	struct type type;
 
+	struct timespec now;
+
 	struct pw_core *core;
 	struct pw_type *t;
 	struct pw_module *module;
@@ -91,6 +93,7 @@ struct session {
 	struct impl *impl;
 
 	enum pw_direction direction;
+	uint64_t plugged;
 
 	struct pw_node *node;
 	struct spa_hook node_listener;
@@ -410,13 +413,11 @@ static int find_session(void *data, struct session *sess)
 		if (strcmp(str, find->media_class) != 0)
 			return 0;
 
-		if ((str = pw_properties_get(props, "node.plugged")) != NULL)
-			plugged = pw_properties_parse_uint64(str);
-
 		if (sess->exclusive) {
 			pw_log_debug("module %p: session in use", impl);
 			return 0;
 		}
+		plugged = sess->plugged;
 	}
 
 	pw_log_debug("module %p: found session '%d' %" PRIu64, impl,
@@ -661,6 +662,7 @@ static int on_global(void *data, struct pw_global *global)
 	struct pw_port *node_port, *dsp_port;
 	uint32_t id, channels, rate;
 	bool need_dsp;
+	uint64_t plugged;
 
 	if (pw_global_get_type(global) != impl->t->node)
 		return 0;
@@ -671,6 +673,11 @@ static int on_global(void *data, struct pw_global *global)
 	pw_log_debug("global added %d", id);
 
 	properties = pw_node_get_properties(node);
+
+	if ((str = pw_properties_get(properties, "node.plugged")) != NULL)
+		plugged = pw_properties_parse_uint64(str);
+	else
+		plugged = impl->now.tv_sec * SPA_NSEC_PER_SEC + impl->now.tv_nsec;
 
 	if (handle_autoconnect(impl, node, properties) == 1) {
 		return 0;
@@ -705,8 +712,11 @@ static int on_global(void *data, struct pw_global *global)
 	sess->id = id;
 	sess->node = node;
 	sess->node_port = node_port;
+	sess->plugged = plugged;
+
 	spa_list_init(&sess->node_list);
 	spa_list_append(&impl->session_list, &sess->l);
+	pw_log_debug("new session %p for node %d", sess, id);
 
 	pw_node_add_listener(node, &sess->node_listener, &node_events, sess);
 
@@ -767,6 +777,8 @@ static const struct pw_module_events module_events = {
 static void
 core_global_added(void *data, struct pw_global *global)
 {
+	struct impl *impl = data;
+	clock_gettime(CLOCK_MONOTONIC, &impl->now);
 	on_global(data, global);
 }
 
@@ -795,6 +807,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	spa_list_init(&impl->session_list);
 
+	clock_gettime(CLOCK_MONOTONIC, &impl->now);
 	pw_core_for_each_global(core, on_global, impl);
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);

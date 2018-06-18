@@ -105,6 +105,7 @@ struct session {
 
 	struct pw_link *link;
 
+	bool busy;
 	bool exclusive;
 	int sample_rate;
 	int buffer_size;
@@ -318,8 +319,10 @@ static void reconfigure_session(struct session *sess)
 		if (ni->buffer_size > 0)
 			buffer_size = SPA_MIN(buffer_size, ni->buffer_size);
 	}
-	if (spa_list_is_empty(&sess->node_list))
+	if (spa_list_is_empty(&sess->node_list)) {
 		sess->exclusive = false;
+		sess->busy = false;
+	}
 
 	sess->buffer_size = buffer_size;
 
@@ -387,6 +390,7 @@ struct find_data {
 	uint32_t path_id;
 	const char *media_class;
 	struct session *sess;
+	bool exclusive;
 	uint64_t plugged;
 };
 
@@ -413,7 +417,7 @@ static int find_session(void *data, struct session *sess)
 		if (strcmp(str, find->media_class) != 0)
 			return 0;
 
-		if (sess->exclusive) {
+		if ((find->exclusive && sess->busy) || sess->exclusive) {
 			pw_log_debug("module %p: session in use", impl);
 			return 0;
 		}
@@ -500,6 +504,7 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 
 	find.impl = impl;
 	find.sess = NULL;
+	find.exclusive = exclusive;
 	spa_list_for_each(session, &impl->session_list, l)
 		find_session(&find, session);
 	if (find.sess == NULL)
@@ -515,7 +520,7 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 		return -EINVAL;
 
 	if (exclusive || session->dsp == NULL) {
-		if (exclusive && !spa_list_is_empty(&session->node_list)) {
+		if (exclusive && session->busy) {
 			pw_log_warn("session busy, can't get exclusive access");
 			return -EBUSY;
 		}
@@ -545,6 +550,7 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 	spa_list_init(&info->links);
 
 	spa_list_append(&session->node_list, &info->l);
+	session->busy = true;
 
 	pw_node_add_listener(node, &info->node_listener, &node_info_events, info);
 

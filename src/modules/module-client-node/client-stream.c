@@ -839,21 +839,6 @@ static void client_node_initialized(void *data)
 	pw_log_debug("client-stream %p: initialized", &impl->this);
 
 	impl->cnode = pw_node_get_implementation(impl->client_node->node);
-	props = pw_node_get_properties(impl->client_node->node);
-	if (props != NULL && (str = pw_properties_get(props, PW_NODE_PROP_EXCLUSIVE)) != NULL)
-		exclusive = pw_properties_parse_bool(str);
-	else
-		exclusive = false;
-
-	spa_graph_node_remove(&impl->client_node->node->rt.root);
-	spa_graph_node_add(impl->this.node->rt.node.graph, &impl->client_node->node->rt.root);
-
-	spa_graph_link_add(&impl->client_node->node->rt.root,
-			impl->this.node->rt.node.state,
-			&impl->rt.link);
-	impl->rt.link.signal = spa_graph_link_signal_node;
-	impl->rt.link.signal_data = &impl->this.node->rt.node;
-	impl->client_node->node->rt.driver = impl->this.node->rt.driver;
 
 	if ((res = spa_node_get_n_ports(impl->cnode,
 			     &n_input_ports,
@@ -866,6 +851,31 @@ static void client_node_initialized(void *data)
 		impl->direction = SPA_DIRECTION_INPUT;
 	else
 		impl->direction = SPA_DIRECTION_OUTPUT;
+
+	props = pw_node_get_properties(impl->client_node->node);
+	if (props != NULL && (str = pw_properties_get(props, PW_NODE_PROP_EXCLUSIVE)) != NULL)
+		exclusive = pw_properties_parse_bool(str);
+	else
+		exclusive = false;
+
+	spa_graph_node_remove(&impl->client_node->node->rt.root);
+	spa_graph_node_add(impl->this.node->rt.node.graph, &impl->client_node->node->rt.root);
+
+	if (impl->direction == SPA_DIRECTION_OUTPUT) {
+		spa_graph_link_add(&impl->client_node->node->rt.root,
+				impl->this.node->rt.node.state,
+				&impl->rt.link);
+		impl->rt.link.signal_data = &impl->this.node->rt.node;
+	}
+	else {
+		spa_graph_link_add(&impl->this.node->rt.node,
+				impl->client_node->node->rt.node.state,
+				&impl->rt.link);
+		impl->rt.link.signal_data = &impl->client_node->node->rt.node;
+	}
+	impl->rt.link.signal = spa_graph_link_signal_node;
+
+	impl->client_node->node->rt.driver = impl->this.node->rt.driver;
 
 	impl->client_port = pw_node_find_port(impl->client_node->node, impl->direction, 0);
 	if (impl->client_port == NULL)

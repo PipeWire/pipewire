@@ -938,6 +938,8 @@ static void client_node_initialized(void *data)
 
 	pw_node_register(impl->this.node, NULL, NULL, NULL);
 
+	pw_client_node_registered(impl->client_node, impl->this.node->global->id);
+
 	pw_log_debug("client-stream %p: activating", &impl->this);
 
 	pw_node_set_active(impl->this.node, true);

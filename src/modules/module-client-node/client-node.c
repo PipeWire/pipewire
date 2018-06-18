@@ -1160,6 +1160,16 @@ static void client_node_resource_destroy(void *data)
 	pw_node_destroy(this->node);
 }
 
+void pw_client_node_registered(struct pw_client_node *this, uint32_t node_id)
+{
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+
+	pw_client_node_resource_transport(this->resource,
+					  node_id,
+					  impl->other_fds[0],
+					  impl->other_fds[1]);
+}
+
 static void node_initialized(void *data)
 {
 	struct impl *impl = data;
@@ -1167,7 +1177,6 @@ static void node_initialized(void *data)
 	struct pw_node *node = this->node;
 	struct pw_type *t = impl->t;
 	struct pw_global *global;
-	uint32_t node_id;
 	uint32_t area_size, size;
 	struct mem *m;
 
@@ -1200,20 +1209,13 @@ static void node_initialized(void *data)
 	m = ensure_mem(impl, impl->io_areas->fd, t->data.MemFd, impl->io_areas->flags);
 	pw_log_debug("client-node %p: io areas %p", node, impl->io_areas->ptr);
 
-	if ((global = pw_node_get_global(node)) != NULL)
-		node_id = pw_global_get_id(global);
-	else
-		node_id = SPA_ID_INVALID;
-
-	pw_client_node_resource_transport(this->resource,
-					  node_id,
-					  impl->other_fds[0],
-					  impl->other_fds[1]);
-
 	pw_client_node_resource_set_position(this->resource,
 					     m->id,
 					     area_size,
 					     sizeof(struct pw_client_node_position));
+
+	if ((global = pw_node_get_global(node)) != NULL)
+		pw_client_node_registered(this, pw_global_get_id(global));
 }
 
 static void node_free(void *data)

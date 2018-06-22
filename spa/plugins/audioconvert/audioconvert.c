@@ -756,6 +756,7 @@ static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
 	int r, i, res = SPA_STATUS_OK;
+	int ready;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -763,22 +764,25 @@ static int impl_node_process(struct spa_node *node)
 
 	spa_log_trace(this->log, NAME " %p: process %d", this, this->n_links);
 
-	for (i = 0; i < this->n_nodes; i++) {
-		r = spa_node_process(this->nodes[i]);
-		spa_log_trace(this->log, NAME " %p: process %d %d", this, i, r);
+	while (1) {
+		res = SPA_STATUS_OK;
+		ready = 0;
+		for (i = 0; i < this->n_nodes; i++) {
+			r = spa_node_process(this->nodes[i]);
+			spa_log_trace(this->log, NAME " %p: process %d %d", this, i, r);
 
-		if (i == 0)
-			res |= r & SPA_STATUS_NEED_BUFFER;
-		if (i == this->n_nodes-1)
-			res |= r & SPA_STATUS_HAVE_BUFFER;
+			if (r & SPA_STATUS_HAVE_BUFFER)
+				ready++;
 
-		if (!SPA_FLAG_CHECK(r, SPA_STATUS_HAVE_BUFFER)) {
-			if (SPA_FLAG_CHECK(r, SPA_STATUS_NEED_BUFFER) && i == 0)
-				break;
-			res = SPA_STATUS_OK;
-			i = -1;
-			continue;
+			if (i == 0)
+				res |= r & SPA_STATUS_NEED_BUFFER;
+			if (i == this->n_nodes-1)
+				res |= r & SPA_STATUS_HAVE_BUFFER;
 		}
+		if (res & SPA_STATUS_HAVE_BUFFER)
+			break;
+		if (ready == 0)
+			break;
 	}
 
 	spa_log_trace(this->log, NAME " %p: process result: %d", this, res);

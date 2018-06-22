@@ -78,7 +78,10 @@ struct port {
 
 	struct spa_io_buffers *io;
 	struct spa_io_control_range *ctrl;
+
 	struct spa_port_info info;
+	struct spa_dict info_props;
+	struct spa_dict_item info_props_items[2];
 
 	bool have_format;
 	struct spa_audio_info format;
@@ -367,8 +370,14 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 
         spa_list_init(&port->queue);
         port->info.flags = flags;
+
+	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
+	port->info_props = SPA_DICT_INIT(port->info_props_items, 1);
+	port->info.props = &port->info_props;
+
         this->n_ports[direction]++;
         port->have_format = false;
+
 	return 0;
 }
 

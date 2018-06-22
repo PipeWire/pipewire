@@ -777,7 +777,7 @@ static int impl_node_process(struct spa_node *node)
 	spa_log_trace(this->log, NAME " %p: status %d %d", this, inio->status, outio->status);
 
 	if (outio->status == SPA_STATUS_HAVE_BUFFER)
-		return outio->status;
+		goto done;
 
 	if (inio->status != SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_NEED_BUFFER;
@@ -824,6 +824,7 @@ static int impl_node_process(struct spa_node *node)
 
 	inio->status = SPA_STATUS_NEED_BUFFER;
 
+      done:
 	return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 }
 

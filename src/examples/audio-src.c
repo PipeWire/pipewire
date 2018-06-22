@@ -35,6 +35,7 @@
 
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
+#define DEFAULT_VOLUME		0.7
 
 struct type {
 	struct spa_type_media_type media_type;
@@ -76,7 +77,7 @@ static void fill_f32(struct data *d, void *dest, int avail)
                 if (d->accumulator >= M_PI_M2)
                         d->accumulator -= M_PI_M2;
 
-                val = sin(d->accumulator);
+                val = sin(d->accumulator) * DEFAULT_VOLUME;
                 for (c = 0; c < DEFAULT_CHANNELS; c++)
                         *dst++ = val;
         }

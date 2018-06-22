@@ -435,6 +435,16 @@ static int find_session(void *data, struct session *sess)
 	return 0;
 }
 
+static uint32_t flp2(uint32_t x)
+{
+	x = x | (x >> 1);
+	x = x | (x >> 2);
+	x = x | (x >> 4);
+	x = x | (x >> 8);
+	x = x | (x >> 16);
+	return x - (x >> 1);
+}
+
 static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 		const struct pw_properties *props)
 {
@@ -474,10 +484,14 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 	else
 		exclusive = false;
 
-	if ((str = pw_properties_get(props, "node.latency")) != NULL)
-		buffer_size = atoi(str) * sizeof(float);
-	else
-		buffer_size = MAX_BUFFER_SIZE;
+	buffer_size = MAX_BUFFER_SIZE;
+	if ((str = pw_properties_get(props, "node.latency")) != NULL) {
+		uint32_t num, denom;
+		pw_log_info("module %p: '%s'", impl, str);
+		if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
+			buffer_size = flp2((num * denom / sample_rate) * sizeof(float));
+		}
+	}
 
 	pw_log_info("module %p: '%s' '%s' '%s' exclusive:%d quantum:%d/%d", impl,
 			media, category, role, exclusive,

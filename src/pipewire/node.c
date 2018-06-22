@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <time.h>
 
 #include <spa/clock/clock.h>
 #include <spa/lib/debug.h>
@@ -58,6 +59,7 @@ struct impl {
 	struct pw_node_activation node_activation;
 
 	struct pw_driver_quantum quantum;
+	uint32_t next_position;
 };
 
 struct resource_data {
@@ -647,6 +649,7 @@ static void node_event(void *data, struct spa_event *event)
 static void node_process(void *data, int status)
 {
 	struct pw_node *node = data;
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
 	pw_log_trace("node %p: process driver:%d exported:%d", node, node->driver, node->exported);
 
@@ -655,6 +658,16 @@ static void node_process(void *data, int status)
 	if (node->driver) {
 		if (!node->exported) {
 			if (node->rt.driver->state->pending == 0 || !node->remote) {
+				struct timespec ts;
+				struct pw_driver_quantum *q;
+				q = node->rt.quantum;
+
+				q->position = impl->next_position;
+				impl->next_position += q->size;
+
+				clock_gettime(CLOCK_MONOTONIC, &ts);
+				q->nsec = ts.tv_sec * SPA_NSEC_PER_SEC + ts.tv_nsec;
+
 				spa_graph_run(node->rt.driver);
 			}
 			else

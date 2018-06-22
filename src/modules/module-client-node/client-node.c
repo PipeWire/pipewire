@@ -152,7 +152,6 @@ struct impl {
 	int other_fds[2];
 
 	struct pw_client_node_position *position;
-	uint32_t next_position;
 };
 
 /** \endcond */
@@ -899,11 +898,6 @@ static int impl_node_process(struct spa_node *node)
 	struct pw_driver_quantum *q, *rq;
 	uint64_t cmd = 1;
 
-	if (this->impl->this.status != SPA_ID_INVALID) {
-		spa_log_trace(this->log, "%p: return %d", this, this->impl->this.status);
-		return impl->this.status;
-	}
-
 	spa_log_trace(this->log, "%p: send process %p", this, impl->this.node->driver_node);
 
 	q = impl->this.node->driver_node->rt.quantum;
@@ -911,8 +905,6 @@ static int impl_node_process(struct spa_node *node)
 			struct pw_driver_quantum);
 
 	*rq = *q;
-	rq->position = impl->next_position;
-	impl->next_position += rq->size;
 
 	if (write(this->writefd, &cmd, 8) != 8)
 		spa_log_warn(this->log, "node %p: error %s", this, strerror(errno));
@@ -1350,7 +1342,6 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 		return NULL;
 
 	this = &impl->this;
-	this->status = SPA_ID_INVALID;
 
 	impl->core = core;
 	impl->t = pw_core_get_type(core);

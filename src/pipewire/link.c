@@ -1028,8 +1028,7 @@ do_deactivate_link(struct spa_loop *loop,
 {
         struct pw_link *this = user_data;
 
-	pw_log_trace("link %p: disable %p and %p %d", this, &this->rt.mix[0], &this->rt.mix[1],
-			this->io->status);
+	pw_log_trace("link %p: disable %p and %p", this, &this->rt.mix[0], &this->rt.mix[1]);
 
 	spa_graph_port_unlink(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);
 	spa_graph_port_remove(&this->rt.mix[SPA_DIRECTION_OUTPUT].port);

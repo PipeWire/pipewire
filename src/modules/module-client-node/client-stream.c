@@ -393,20 +393,20 @@ static int negotiate_format(struct impl *impl)
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->adapter,
-				SPA_DIRECTION_INPUT, 0,
+				SPA_DIRECTION_REVERSE(impl->direction), 0,
 				t->param.idEnumFormat, &state,
 				NULL, &format, &b)) <= 0) {
-		debug_params(impl, impl->adapter, SPA_DIRECTION_INPUT, 0,
+		debug_params(impl, impl->adapter, SPA_DIRECTION_REVERSE(impl->direction), 0,
 				t->param.idEnumFormat, NULL);
 		return -ENOTSUP;
 	}
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->cnode,
-				       SPA_DIRECTION_OUTPUT, 0,
+				       impl->direction, 0,
 				       t->param.idEnumFormat, &state,
 				       format, &format, &b)) <= 0) {
-		debug_params(impl, impl->cnode, SPA_DIRECTION_OUTPUT, 0,
+		debug_params(impl, impl->cnode, impl->direction, 0,
 				t->param.idEnumFormat, format);
 		return -ENOTSUP;
 	}
@@ -415,13 +415,13 @@ static int negotiate_format(struct impl *impl)
 	spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
 
 	if ((res = spa_node_port_set_param(impl->adapter,
-				   SPA_DIRECTION_INPUT, 0,
+				   SPA_DIRECTION_REVERSE(impl->direction), 0,
 				   t->param.idFormat, 0,
 				   format)) < 0)
 			return res;
 
 	if ((res = spa_node_port_set_param(impl->cnode,
-					   SPA_DIRECTION_OUTPUT, 0,
+					   impl->direction, 0,
 					   t->param.idFormat, 0,
 					   format)) < 0)
 			return res;
@@ -453,10 +453,10 @@ static int negotiate_buffers(struct impl *impl)
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->cnode,
-			       SPA_DIRECTION_OUTPUT, 0,
+			       impl->direction, 0,
 			       t->param.idBuffers, &state,
 			       param, &param, &b)) < 0) {
-		debug_params(impl, impl->cnode, SPA_DIRECTION_OUTPUT, 0,
+		debug_params(impl, impl->cnode, impl->direction, 0,
 				t->param.idBuffers, param);
 		return res;
 	}
@@ -466,10 +466,10 @@ static int negotiate_buffers(struct impl *impl)
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->adapter,
-			       SPA_DIRECTION_INPUT, 0,
+			       SPA_DIRECTION_REVERSE(impl->direction), 0,
 			       t->param.idBuffers, &state,
 			       param, &param, &b)) <= 0) {
-		debug_params(impl, impl->adapter, SPA_DIRECTION_INPUT, 0,
+		debug_params(impl, impl->adapter, SPA_DIRECTION_REVERSE(impl->direction), 0,
 				t->param.idBuffers, param);
 		return -ENOTSUP;
 	}
@@ -477,11 +477,11 @@ static int negotiate_buffers(struct impl *impl)
 	spa_pod_fixate(param);
 
 	if ((res = spa_node_port_get_info(impl->cnode,
-					SPA_DIRECTION_OUTPUT, 0,
+					impl->direction, 0,
 					&out_info)) < 0)
 		return res;
 	if ((res = spa_node_port_get_info(impl->adapter,
-					SPA_DIRECTION_INPUT, 0,
+					SPA_DIRECTION_REVERSE(impl->direction), 0,
 					&in_info)) < 0)
 		return res;
 
@@ -545,27 +545,27 @@ static int negotiate_buffers(struct impl *impl)
 
 	if (in_alloc) {
 		if ((res = spa_node_port_alloc_buffers(impl->adapter,
-			       SPA_DIRECTION_INPUT, 0,
+			       SPA_DIRECTION_REVERSE(impl->direction), 0,
 			       NULL, 0,
 			       impl->buffers, &impl->n_buffers)) < 0)
 			return res;
 	}
 	else {
 		if ((res = spa_node_port_use_buffers(impl->adapter,
-			       SPA_DIRECTION_INPUT, 0,
+			       SPA_DIRECTION_REVERSE(impl->direction), 0,
 			       impl->buffers, impl->n_buffers)) < 0)
 			return res;
 	}
 	if (out_alloc) {
 		if ((res = spa_node_port_alloc_buffers(impl->cnode,
-			       SPA_DIRECTION_OUTPUT, 0,
+			       impl->direction, 0,
 			       NULL, 0,
 			       impl->buffers, &impl->n_buffers)) < 0)
 			return res;
 	}
 	else {
 		if ((res = spa_node_port_use_buffers(impl->cnode,
-			       SPA_DIRECTION_OUTPUT, 0,
+			       impl->direction, 0,
 			       impl->buffers, impl->n_buffers)) < 0)
 			return res;
 	}

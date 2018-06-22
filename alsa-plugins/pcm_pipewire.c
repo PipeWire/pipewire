@@ -22,6 +22,7 @@
 #define __USE_GNU
 #define _GNU_SOURCE
 
+#include <limits.h>
 #include <byteswap.h>
 #include <sys/shm.h>
 #include <sys/types.h>
@@ -325,6 +326,30 @@ snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 	return 0;
 }
 
+static void on_stream_format_changed(void *data, const struct spa_pod *format)
+{
+	snd_pcm_pipewire_t *pw = data;
+	struct pw_type *t = pw->t;
+	snd_pcm_ioplug_t *io = &pw->io;
+	const struct spa_pod *params[4];
+	uint32_t n_params = 0;
+        uint8_t buffer[4096];
+        struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	uint32_t stride = (io->channels * pw->sample_bits) / 8;
+
+	params[n_params++] = spa_pod_builder_object(&b,
+	                t->param.idBuffers, t->param_buffers.Buffers,
+			":", t->param_buffers.buffers, "iru", io->buffer_size / io->period_size,
+					SPA_POD_PROP_MIN_MAX(3, 64),
+			":", t->param_buffers.blocks,  "i", 1,
+			":", t->param_buffers.size,    "ir", io->period_size * stride,
+					SPA_POD_PROP_MIN_MAX(io->period_size * stride, INT_MAX),
+			":", t->param_buffers.stride,  "i", stride,
+			":", t->param_buffers.align,   "i", 16);
+
+	pw_stream_finish_format(pw->stream, 0, params, n_params);
+}
+
 static void on_stream_process(void *data)
 {
 	snd_pcm_pipewire_t *pw = data;
@@ -345,6 +370,7 @@ static void on_stream_process(void *data)
 
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
+        .format_changed = on_stream_format_changed,
         .process = on_stream_process,
 };
 
@@ -371,7 +397,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	}
 
 	props = pw_properties_new("client.api", "alsa", NULL);
-	pw_properties_setf(props, "node.latency", "%lu", io->period_size);
+	pw_properties_setf(props, "node.latency", "%lu/%u", io->period_size, io->rate);
 
 	pw->stream = pw_stream_new(pw->remote, pw->node_name, props);
 	if (pw->stream == NULL)

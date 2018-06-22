@@ -66,7 +66,7 @@ static int tee_process(struct spa_node *data)
 		}
 	}
 	io->status = SPA_STATUS_NEED_BUFFER;
-        return SPA_STATUS_HAVE_BUFFER;
+        return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 }
 
 static int tee_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)
@@ -102,7 +102,7 @@ static int schedule_mix_input(struct spa_node *data)
 		*io = *mix->io;
 		break;
 	}
-	return io->status;
+        return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 }
 
 static int schedule_mix_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)

@@ -354,7 +354,7 @@ static int debug_params(struct impl *impl, struct spa_node *node,
         if (id == t->param.idEnumFormat)
                 flag |= SPA_DEBUG_FLAG_FORMAT;
 
-        spa_log_error(this->log, "formats:");
+        spa_log_error(this->log, "params %s:", spa_type_map_get_type(t->map, id));
 
         state = 0;
         while (true) {
@@ -363,8 +363,11 @@ static int debug_params(struct impl *impl, struct spa_node *node,
                                        direction, port_id,
                                        id, &state,
                                        NULL, &format, &b);
-                if (res <= 0)
+                if (res <= 0) {
+			if (res < 0)
+				spa_log_error(this->log, "  error: %s", spa_strerror(res));
                         break;
+		}
 
                 spa_debug_pod(format, flag);
         }
@@ -742,7 +745,7 @@ static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
 	struct impl *impl = this->impl;
-	int status;
+	int status, trigger = 1;
 
 	impl->ctrl.min_size = impl->ctrl.max_size =
 		impl->this.node->driver_node->rt.quantum->size;
@@ -751,9 +754,13 @@ static int impl_node_process(struct spa_node *node)
 
 	if (impl->use_converter) {
 		status = spa_node_process(impl->adapter);
-	}
+
+		if (impl->direction == SPA_DIRECTION_OUTPUT)
+			trigger = status & SPA_STATUS_NEED_BUFFER;
+		else
+			trigger = status & SPA_STATUS_HAVE_BUFFER;
+		}
 	else {
-		status = SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 		spa_log_trace(this->log, "%p: process %d/%d %d/%d", this,
 				impl->io->status, impl->io->buffer_id,
 				impl->client_port_mix.io->status,
@@ -763,13 +770,13 @@ static int impl_node_process(struct spa_node *node)
 			*impl->client_port_mix.io = *impl->io;
 		else
 			*impl->io = *impl->client_port_mix.io;
+
+		status = impl->io->status;
 	}
 	spa_log_trace(this->log, "%p: process %d", this, status);
 
-	if (status & SPA_STATUS_NEED_BUFFER)
-		impl->client_node->status = SPA_ID_INVALID;
-	else
-		impl->client_node->status = SPA_STATUS_HAVE_BUFFER;
+	if (trigger)
+		spa_graph_run(impl->client_node->node->rt.root.graph);
 
 	return status;
 }
@@ -857,23 +864,6 @@ static void client_node_initialized(void *data)
 		exclusive = pw_properties_parse_bool(str);
 	else
 		exclusive = false;
-
-	spa_graph_node_remove(&impl->client_node->node->rt.root);
-	spa_graph_node_add(impl->this.node->rt.node.graph, &impl->client_node->node->rt.root);
-
-	if (impl->direction == SPA_DIRECTION_OUTPUT) {
-		spa_graph_link_add(&impl->client_node->node->rt.root,
-				impl->this.node->rt.node.state,
-				&impl->rt.link);
-		impl->rt.link.signal_data = &impl->this.node->rt.node;
-	}
-	else {
-		spa_graph_link_add(&impl->this.node->rt.node,
-				impl->client_node->node->rt.node.state,
-				&impl->rt.link);
-		impl->rt.link.signal_data = &impl->client_node->node->rt.node;
-	}
-	impl->rt.link.signal = spa_graph_link_signal_node;
 
 	impl->client_node->node->rt.driver = impl->this.node->rt.driver;
 

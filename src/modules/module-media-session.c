@@ -457,8 +457,14 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 	if ((media = pw_properties_get(props, PW_NODE_PROP_MEDIA)) == NULL)
 		media = "Audio";
 
-	if ((category = pw_properties_get(props, PW_NODE_PROP_CATEGORY)) == NULL)
-		category = "Playback";
+	if ((category = pw_properties_get(props, PW_NODE_PROP_CATEGORY)) == NULL) {
+		if (node->info.n_input_ports > 0 && node->info.n_output_ports == 0)
+			category = "Capture";
+		else if (node->info.n_output_ports > 0 && node->info.n_input_ports == 0)
+			category = "Playback";
+		else
+			return -EINVAL;
+	}
 
 	if ((role = pw_properties_get(props, PW_NODE_PROP_ROLE)) == NULL)
 		role = "Music";

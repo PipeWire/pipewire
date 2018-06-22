@@ -21,14 +21,17 @@
 
 #include <spa/utils/defs.h>
 
+#include <pipewire/log.h>
+
 #include <pulse/rtclock.h>
 
 pa_usec_t pa_rtclock_now(void)
 {
 	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return ts.tv_sec * SPA_USEC_PER_SEC +
-	       ts.tv_nsec * SPA_NSEC_PER_USEC;
+	pa_usec_t res;
 
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	res = (ts.tv_sec * SPA_USEC_PER_SEC) + (ts.tv_nsec / SPA_NSEC_PER_USEC);
+	return res;
 }
 

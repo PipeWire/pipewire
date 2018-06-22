@@ -108,19 +108,24 @@ static inline const char *pa_strnull(const char *x) {
 
 int pa_context_set_error(pa_context *c, int error);
 
-#define PA_CHECK_VALIDITY(context, expression, error)         \
-    do {                                                      \
-        if (!(expression))                                    \
-            return -pa_context_set_error((context), (error));    \
-    } while(false)
+#define PA_CHECK_VALIDITY(context, expression, error)			\
+do {									\
+	if (!(expression)) {						\
+		fprintf(stderr, "'%s' failed at %s:%u %s()",		\
+			#expression , __FILE__, __LINE__, __func__);	\
+		return -pa_context_set_error((context), (error));	\
+	}								\
+} while(false)
 
-#define PA_CHECK_VALIDITY_RETURN_ANY(context, expression, error, value) \
-    do {                                                                \
-        if (!(expression)) {                                            \
-            pa_context_set_error((context), (error));                      \
-            return value;                                               \
-        }                                                               \
-    } while(false)
+#define PA_CHECK_VALIDITY_RETURN_ANY(context, expression, error, value)	\
+do {									\
+	if (!(expression)) {						\
+		fprintf(stderr, "'%s' failed at %s:%u %s()",		\
+			#expression , __FILE__, __LINE__, __func__);	\
+		pa_context_set_error((context), (error));		\
+		return value;						\
+	}								\
+} while(false)
 
 #define PA_CHECK_VALIDITY_RETURN_NULL(context, expression, error)       \
     PA_CHECK_VALIDITY_RETURN_ANY(context, expression, error, NULL)

@@ -129,6 +129,7 @@ static pa_time_event* api_time_new(pa_mainloop_api*a, const struct timeval *tv, 
 		ts.tv_sec = tv->tv_sec;
 		ts.tv_nsec = tv->tv_usec * 1000LL;
 	}
+	pw_log_debug("new timer %p %ld %ld", ev, ts.tv_sec, ts.tv_nsec);
 	pw_loop_update_timer(mainloop->loop, ev->source, &ts, NULL, true);
 
 	return ev;

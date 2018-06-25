@@ -503,7 +503,8 @@ impl_node_port_use_buffers(struct spa_node *node,
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return -EINVAL;
 		}
-		this->threshold = d[0].maxsize / this->frame_size;
+		this->threshold = SPA_MIN(d[0].maxsize / this->frame_size,
+				this->props.max_latency);
 	}
 	this->n_buffers = n_buffers;
 

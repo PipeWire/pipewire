@@ -100,6 +100,7 @@ static int schedule_mix_input(struct spa_node *data)
 		pw_log_trace("port %p: mix input %d %p->%p %d %d", this,
 				p->port_id, mix->io, io, mix->io->status, mix->io->buffer_id);
 		*io = *mix->io;
+		mix->io->status = SPA_STATUS_NEED_BUFFER;
 		break;
 	}
         return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;

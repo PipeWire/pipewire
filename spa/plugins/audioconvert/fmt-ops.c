@@ -317,8 +317,8 @@ conv_f32_to_u8d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 static void
 conv_f32d_to_u8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
 {
-	const int8_t **s = (const int8_t **) src;
-	float *d = dst[0];
+	const float **s = (const float **) src;
+	int8_t *d = dst[0];
 	int i, n, n_samples;
 
 	n_samples = n_bytes / sizeof(float);

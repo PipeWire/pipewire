@@ -462,8 +462,6 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
         if (str == NULL || !pw_properties_parse_bool(str))
 		return 0;
 
-	sample_rate = DEFAULT_SAMPLE_RATE;
-
 	if ((media = pw_properties_get(props, PW_NODE_PROP_MEDIA)) == NULL)
 		media = "Audio";
 
@@ -483,19 +481,6 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 		exclusive = pw_properties_parse_bool(str);
 	else
 		exclusive = false;
-
-	buffer_size = MAX_BUFFER_SIZE;
-	if ((str = pw_properties_get(props, "node.latency")) != NULL) {
-		uint32_t num, denom;
-		pw_log_info("module %p: '%s'", impl, str);
-		if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
-			buffer_size = flp2((num * denom / sample_rate) * sizeof(float));
-		}
-	}
-
-	pw_log_info("module %p: '%s' '%s' '%s' exclusive:%d quantum:%d/%d", impl,
-			media, category, role, exclusive,
-			sample_rate, buffer_size);
 
 	if (strcmp(media, "Audio") == 0) {
 		if (strcmp(category, "Playback") == 0)
@@ -520,6 +505,7 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 	else
 		find.path_id = SPA_ID_INVALID;
 
+
 	pw_log_debug("module %p: try to find and link to node '%d'", impl, find.path_id);
 
 	find.impl = impl;
@@ -531,6 +517,21 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 		return -ENOENT;
 
 	session = find.sess;
+
+	sample_rate = session->sample_rate;
+	buffer_size = session->buffer_size;
+
+	if ((str = pw_properties_get(props, "node.latency")) != NULL) {
+		uint32_t num, denom;
+		pw_log_info("module %p: '%s'", impl, str);
+		if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
+			buffer_size = flp2((num * sample_rate / denom) * sizeof(float));
+		}
+	}
+
+	pw_log_info("module %p: '%s' '%s' '%s' exclusive:%d quantum:%d/%d", impl,
+			media, category, role, exclusive,
+			sample_rate, buffer_size);
 
 	if (strcmp(category, "Capture") == 0)
 		direction = PW_DIRECTION_OUTPUT;

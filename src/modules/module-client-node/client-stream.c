@@ -761,15 +761,16 @@ static int impl_node_process(struct spa_node *node)
 			trigger = status & SPA_STATUS_HAVE_BUFFER;
 		}
 	else {
+		struct spa_io_buffers tmp;
+
 		spa_log_trace(this->log, "%p: process %d/%d %d/%d", this,
 				impl->io->status, impl->io->buffer_id,
 				impl->client_port_mix.io->status,
 				impl->client_port_mix.io->buffer_id);
 
-		if (impl->direction == SPA_DIRECTION_INPUT)
-			*impl->client_port_mix.io = *impl->io;
-		else
-			*impl->io = *impl->client_port_mix.io;
+		tmp = *impl->io;
+		*impl->io = *impl->client_port_mix.io;
+		*impl->client_port_mix.io = tmp;
 
 		status = impl->io->status;
 	}

@@ -806,6 +806,7 @@ static int impl_node_process(struct spa_node *node)
 				this, in_len, size / sizeof(float), inport->offset,
 				out_len, maxsize / sizeof(float), outport->offset);
 
+		db->datas[i].chunk->offset = 0;
 		db->datas[i].chunk->size = outport->offset + (out_len * sizeof(float));
 	}
 
@@ -814,6 +815,8 @@ static int impl_node_process(struct spa_node *node)
 		inio->status = SPA_STATUS_NEED_BUFFER;
 		inport->offset = 0;
 		SPA_FLAG_SET(res, SPA_STATUS_NEED_BUFFER);
+		if (outport->ctrl == NULL)
+			maxsize = 0;
 	}
 	outport->offset += out_len * sizeof(float);
 	if (outport->offset >= maxsize) {

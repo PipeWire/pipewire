@@ -37,6 +37,9 @@
 
 #define NAME "resample"
 
+#define DEFAULT_RATE		44100
+#define DEFAULT_CHANNELS	2
+
 #define MAX_BUFFERS     32
 
 struct impl;
@@ -338,9 +341,9 @@ static int port_enum_formats(struct spa_node *node,
 				"I", t->media_subtype.raw,
 				":", t->format_audio.format,   "I", t->audio_format.F32,
 				":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
-				":", t->format_audio.rate,     "iru", 44100,
+				":", t->format_audio.rate,     "iru", DEFAULT_RATE,
 					SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
-				":", t->format_audio.channels, "iru", 2,
+				":", t->format_audio.channels, "iru", DEFAULT_CHANNELS,
 					SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
 		}
 		break;
@@ -430,33 +433,31 @@ impl_node_port_enum_params(struct spa_node *node,
 			return res;
 	}
 	else if (id == t->param.idBuffers) {
+		uint32_t buffers, size;
+
 		if (!port->have_format)
 			return -EIO;
 		if (*index > 0)
 			return 0;
 
 		if (other->n_buffers > 0) {
-			param = spa_pod_builder_object(&b,
-				id, t->param_buffers.Buffers,
-				":", t->param_buffers.buffers, "iru", other->n_buffers,
-					SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
-				":", t->param_buffers.blocks,  "i", port->blocks,
-				":", t->param_buffers.size,    "iru", (other->size / other->stride) *
-								    port->stride,
-					SPA_POD_PROP_MIN_MAX(16 * port->stride, INT32_MAX / port->stride),
-				":", t->param_buffers.stride,  "i", port->stride,
-				":", t->param_buffers.align,   "i", 16);
-		} else {
-			param = spa_pod_builder_object(&b,
-				id, t->param_buffers.Buffers,
-				":", t->param_buffers.buffers, "iru", 1,
-					SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
-				":", t->param_buffers.blocks,  "i", port->blocks,
-				":", t->param_buffers.size,    "iru", 1024 * port->stride,
-					SPA_POD_PROP_MIN_MAX(16 * port->stride, INT32_MAX / port->stride),
-				":", t->param_buffers.stride,  "i", port->stride,
-				":", t->param_buffers.align,   "i", 16);
+			buffers = other->n_buffers;
+			size = other->size / other->stride;
 		}
+		else {
+			buffers = 1;
+			size = port->format.info.raw.rate * 1024 / DEFAULT_RATE;
+		}
+
+		param = spa_pod_builder_object(&b,
+			id, t->param_buffers.Buffers,
+			":", t->param_buffers.buffers, "iru", buffers,
+				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
+			":", t->param_buffers.blocks,  "i", port->blocks,
+			":", t->param_buffers.size,    "iru", size * port->stride,
+				SPA_POD_PROP_MIN_MAX(16 * port->stride, INT32_MAX / port->stride),
+			":", t->param_buffers.stride,  "i", port->stride,
+			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
 		if (!port->have_format)

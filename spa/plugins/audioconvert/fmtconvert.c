@@ -599,7 +599,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			size = other->size / other->stride;
 		} else {
 			buffers = 1;
-			size = 1024;
+			size = port->format.info.raw.rate * 1024 / DEFAULT_RATE;
 		}
 
 		param = spa_pod_builder_object(&b,

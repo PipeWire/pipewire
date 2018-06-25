@@ -108,7 +108,6 @@ struct link {
 	uint32_t in_port;
 	const struct spa_port_info *in_info;
 	struct spa_io_buffers io;
-	struct spa_audio_info *info;
 	bool negotiated;
 	uint32_t n_buffers;
 	struct spa_buffer **buffers;
@@ -159,26 +158,21 @@ static int make_link(struct impl *this,
 	l->io.status = SPA_STATUS_NEED_BUFFER;
 	l->io.buffer_id = SPA_ID_INVALID;
 	l->n_buffers = 0;
-	l->info = info;
 
-	if (out_node != NULL) {
-		spa_node_port_get_info(out_node,
-				       SPA_DIRECTION_OUTPUT, out_port,
-				       &l->out_info);
-		spa_node_port_set_io(out_node,
-				     SPA_DIRECTION_OUTPUT, out_port,
-				     t->io.Buffers,
-				     &l->io, sizeof(l->io));
-	}
-	if (in_node != NULL) {
-		spa_node_port_get_info(in_node,
-				       SPA_DIRECTION_INPUT, in_port,
-				       &l->in_info);
-		spa_node_port_set_io(in_node,
-				     SPA_DIRECTION_INPUT, in_port,
-				     t->io.Buffers,
-				     &l->io, sizeof(l->io));
-	}
+	spa_node_port_get_info(out_node,
+			       SPA_DIRECTION_OUTPUT, out_port,
+			       &l->out_info);
+	spa_node_port_set_io(out_node,
+			     SPA_DIRECTION_OUTPUT, out_port,
+			     t->io.Buffers,
+			     &l->io, sizeof(l->io));
+	spa_node_port_get_info(in_node,
+			       SPA_DIRECTION_INPUT, in_port,
+			       &l->in_info);
+	spa_node_port_set_io(in_node,
+			     SPA_DIRECTION_INPUT, in_port,
+			     t->io.Buffers,
+			     &l->io, sizeof(l->io));
 	return 0;
 }
 
@@ -186,16 +180,12 @@ static void clean_link(struct impl *this, struct link *link)
 {
 	struct type *t = &this->type;
 
-	if (link->in_node) {
-		spa_node_port_set_param(link->in_node,
-					SPA_DIRECTION_INPUT, link->in_port,
-					t->param.idFormat, 0, NULL);
-	}
-	if (link->out_node) {
-		spa_node_port_set_param(link->out_node,
-					SPA_DIRECTION_OUTPUT, link->out_port,
-					t->param.idFormat, 0, NULL);
-	}
+	spa_node_port_set_param(link->in_node,
+				SPA_DIRECTION_INPUT, link->in_port,
+				t->param.idFormat, 0, NULL);
+	spa_node_port_set_param(link->out_node,
+				SPA_DIRECTION_OUTPUT, link->out_port,
+				t->param.idFormat, 0, NULL);
 	if (link->buffers)
 		free(link->buffers);
 	link->buffers = NULL;
@@ -250,62 +240,44 @@ static int negotiate_link_format(struct impl *this, struct link *link)
 		return 0;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	if (link->info) {
-		filter = spa_pod_builder_object(&b,
-			0, t->format,
-			"I", link->info->media_type,
-			"I", link->info->media_subtype,
-			":", t->format_audio.format,   "I", link->info->info.raw.format,
-			":", t->format_audio.layout,   "i", link->info->info.raw.layout,
-			":", t->format_audio.rate,     "i", link->info->info.raw.rate,
-			":", t->format_audio.channels, "i", link->info->info.raw.channels);
-	}
-	else
-		filter = NULL;
 
-	if (link->out_node != NULL) {
-		state = 0;
-		if ((res = spa_node_port_enum_params(link->out_node,
-				       SPA_DIRECTION_OUTPUT, link->out_port,
-				       t->param.idEnumFormat, &state,
-				       filter, &format, &b)) <= 0) {
-			debug_params(this, link->out_node, SPA_DIRECTION_OUTPUT, link->out_port,
-					t->param.idEnumFormat, filter);
-			return -ENOTSUP;
-		}
-
-		filter = format;
+	state = 0;
+	filter = NULL;
+	if ((res = spa_node_port_enum_params(link->out_node,
+			       SPA_DIRECTION_OUTPUT, link->out_port,
+			       t->param.idEnumFormat, &state,
+			       filter, &format, &b)) <= 0) {
+		debug_params(this, link->out_node, SPA_DIRECTION_OUTPUT, link->out_port,
+				t->param.idEnumFormat, filter);
+		return -ENOTSUP;
 	}
-	if (link->in_node != NULL) {
-		state = 0;
-		if ((res = spa_node_port_enum_params(link->in_node,
-				       SPA_DIRECTION_INPUT, link->in_port,
-				       t->param.idEnumFormat, &state,
-				       filter, &format, &b)) <= 0) {
-			debug_params(this, link->in_node, SPA_DIRECTION_INPUT, link->in_port,
-					t->param.idEnumFormat, filter);
-			return -ENOTSUP;
-		}
-		filter = format;
+	filter = format;
+	state = 0;
+	if ((res = spa_node_port_enum_params(link->in_node,
+			       SPA_DIRECTION_INPUT, link->in_port,
+			       t->param.idEnumFormat, &state,
+			       filter, &format, &b)) <= 0) {
+		debug_params(this, link->in_node, SPA_DIRECTION_INPUT, link->in_port,
+				t->param.idEnumFormat, filter);
+		return -ENOTSUP;
 	}
+	filter = format;
 
 	spa_pod_fixate(filter);
 	spa_debug_pod(filter, SPA_DEBUG_FLAG_FORMAT);
 
-	if (link->out_node != NULL) {
-		if ((res = spa_node_port_set_param(link->out_node,
-					   SPA_DIRECTION_OUTPUT, link->out_port,
-					   t->param.idFormat, 0,
-					   filter)) < 0)
-			return res;
-	}
-	if (link->in_node != NULL) {
-		if ((res = spa_node_port_set_param(link->in_node,
-					   SPA_DIRECTION_INPUT, link->in_port,
-					   t->param.idFormat, 0,
-					   filter)) < 0)
-			return res;
-	}
+	if ((res = spa_node_port_set_param(link->out_node,
+				   SPA_DIRECTION_OUTPUT, link->out_port,
+				   t->param.idFormat, 0,
+				   filter)) < 0)
+		return res;
+
+	if ((res = spa_node_port_set_param(link->in_node,
+				   SPA_DIRECTION_INPUT, link->in_port,
+				   t->param.idFormat, 0,
+				   filter)) < 0)
+		return res;
+
 	link->negotiated = true;
 
 	return 0;
@@ -314,17 +286,6 @@ static int negotiate_link_format(struct impl *this, struct link *link)
 static int setup_convert(struct impl *this)
 {
 	int i, j, res;
-	struct spa_audio_info informat, outformat;
-
-	spa_log_info(this->log, NAME " %p: %d/%d@%d.%d->%d/%d@%d.%d", this,
-			informat.info.raw.format,
-			informat.info.raw.channels,
-			informat.info.raw.rate,
-			informat.info.raw.layout,
-			outformat.info.raw.format,
-			outformat.info.raw.channels,
-			outformat.info.raw.rate,
-			outformat.info.raw.layout);
 
 	if (this->n_links > 0)
 		return 0;
@@ -367,27 +328,23 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	if (link->n_buffers > 0)
 		return 0;
 
-	if (link->out_node != NULL) {
-		state = 0;
-		if ((res = spa_node_port_enum_params(link->out_node,
-				       SPA_DIRECTION_OUTPUT, link->out_port,
-				       t->param.idBuffers, &state,
-				       param, &param, &b)) <= 0) {
-			debug_params(this, link->out_node, SPA_DIRECTION_OUTPUT, link->out_port,
-					t->param.idBuffers, param);
-			return -ENOTSUP;
-		}
+	state = 0;
+	if ((res = spa_node_port_enum_params(link->in_node,
+			       SPA_DIRECTION_INPUT, link->in_port,
+			       t->param.idBuffers, &state,
+			       param, &param, &b)) <= 0) {
+		debug_params(this, link->out_node, SPA_DIRECTION_OUTPUT, link->out_port,
+				t->param.idBuffers, param);
+		return -ENOTSUP;
 	}
-	if (link->in_node != NULL) {
-		state = 0;
-		if ((res = spa_node_port_enum_params(link->in_node,
-				       SPA_DIRECTION_INPUT, link->in_port,
-				       t->param.idBuffers, &state,
-				       param, &param, &b)) <= 0) {
-			debug_params(this, link->in_node, SPA_DIRECTION_INPUT, link->in_port,
-					t->param.idBuffers, param);
-			return -ENOTSUP;
-		}
+	state = 0;
+	if ((res = spa_node_port_enum_params(link->out_node,
+			       SPA_DIRECTION_OUTPUT, link->out_port,
+			       t->param.idBuffers, &state,
+			       param, &param, &b)) <= 0) {
+		debug_params(this, link->in_node, SPA_DIRECTION_INPUT, link->in_port,
+				t->param.idBuffers, param);
+		return -ENOTSUP;
 	}
 
 	spa_pod_fixate(param);
@@ -439,35 +396,31 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 
 	link->n_buffers = buffers;
 
-	if (link->out_node != NULL) {
-		if (out_alloc) {
-			if ((res = spa_node_port_alloc_buffers(link->out_node,
-				       SPA_DIRECTION_OUTPUT, link->out_port,
-				       NULL, 0,
-				       link->buffers, &link->n_buffers)) < 0)
-				return res;
-		}
-		else {
-			if ((res = spa_node_port_use_buffers(link->out_node,
-				       SPA_DIRECTION_OUTPUT, link->out_port,
-				       link->buffers, link->n_buffers)) < 0)
-				return res;
-		}
+	if (out_alloc) {
+		if ((res = spa_node_port_alloc_buffers(link->out_node,
+			       SPA_DIRECTION_OUTPUT, link->out_port,
+			       NULL, 0,
+			       link->buffers, &link->n_buffers)) < 0)
+			return res;
 	}
-	if (link->in_node != NULL) {
-		if (in_alloc) {
-			if ((res = spa_node_port_alloc_buffers(link->in_node,
-				       SPA_DIRECTION_INPUT, link->in_port,
-				       NULL, 0,
-				       link->buffers, &link->n_buffers)) < 0)
-				return res;
-		}
-		else {
-			if ((res = spa_node_port_use_buffers(link->in_node,
-				       SPA_DIRECTION_INPUT, link->in_port,
-				       link->buffers, link->n_buffers)) < 0)
-				return res;
-		}
+	else {
+		if ((res = spa_node_port_use_buffers(link->out_node,
+			       SPA_DIRECTION_OUTPUT, link->out_port,
+			       link->buffers, link->n_buffers)) < 0)
+			return res;
+	}
+	if (in_alloc) {
+		if ((res = spa_node_port_alloc_buffers(link->in_node,
+			       SPA_DIRECTION_INPUT, link->in_port,
+			       NULL, 0,
+			       link->buffers, &link->n_buffers)) < 0)
+			return res;
+	}
+	else {
+		if ((res = spa_node_port_use_buffers(link->in_node,
+			       SPA_DIRECTION_INPUT, link->in_port,
+			       link->buffers, link->n_buffers)) < 0)
+			return res;
 	}
 	return 0;
 }

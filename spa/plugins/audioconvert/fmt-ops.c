@@ -183,7 +183,7 @@ conv_s32d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 
 #define READ24(s) (((uint32_t)s[0] << 16) | ((uint32_t)s[1] << 8) | ((uint32_t)s[2]))
 
-#define S24_TO_F32(v)	((v) * (1.0f / S24_SCALE))
+#define S24_TO_F32(v)	((((int32_t)v)<<8) * (1.0f / S32_SCALE))
 
 static void
 conv_s24_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
@@ -205,7 +205,7 @@ conv_s24_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 static void
 conv_s24_to_f32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
 {
-	const int8_t *s = src[0];
+	const uint8_t *s = src[0];
 	float **d = (float **) dst;
 	int i, j;
 
@@ -221,7 +221,7 @@ conv_s24_to_f32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 static void
 conv_s24d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
 {
-	const int8_t **s = (const int8_t **) src;
+	const uint8_t **s = (const uint8_t **) src;
 	float *d = dst[0];
 	int i, n, n_samples;
 

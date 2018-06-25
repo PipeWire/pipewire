@@ -887,20 +887,18 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t id)
 	}
 }
 
-static struct buffer *dequeue_buffer(struct impl *this, struct port *port)
+static inline struct buffer *peek_buffer(struct impl *this, struct port *port)
 {
-	struct buffer *b;
-
 	if (spa_list_is_empty(&port->queue))
 		return NULL;
-
-	b = spa_list_first(&port->queue, struct buffer, link);
-	spa_list_remove(&b->link);
-	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-
-	return b;
+	return spa_list_first(&port->queue, struct buffer, link);
 }
 
+static inline void dequeue_buffer(struct impl *this, struct buffer *b)
+{
+	spa_list_remove(&b->link);
+	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+}
 
 static int impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
 {
@@ -929,6 +927,100 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
+static int process_merge(struct impl *this)
+{
+	struct port *inport, *outport;
+	struct spa_io_buffers *inio, *outio;
+	struct buffer *inbuf, *outbuf;
+	struct spa_buffer *inb, *outb;
+	const void **src_datas;
+	void **dst_datas;
+	uint32_t n_src_datas, n_ins, n_dst_datas;
+	int i, j, res = 0, n_bytes = 0, maxsize;
+	uint32_t size = 0;
+
+	outport = GET_OUT_PORT(this, 0);
+	outio = outport->io;
+	spa_return_val_if_fail(outio != NULL, -EIO);
+
+	spa_log_trace(this->log, NAME " %p: status %p %d %d", this,
+			outio, outio->status, outio->buffer_id);
+
+	if (outio->status == SPA_STATUS_HAVE_BUFFER)
+		return SPA_STATUS_HAVE_BUFFER;
+
+	if (outio->buffer_id < outport->n_buffers) {
+		recycle_buffer(this, outport, outio->buffer_id);
+		outio->buffer_id = SPA_ID_INVALID;
+	}
+
+	if ((outbuf = peek_buffer(this, outport)) == NULL)
+		return outio->status = -EPIPE;
+
+	outb = outbuf->outbuf;
+
+	n_dst_datas = outb->n_datas;
+	dst_datas = alloca(sizeof(void*) * n_dst_datas);
+
+	maxsize = outb->datas[0].maxsize;
+	if (outport->ctrl)
+		maxsize = SPA_MIN(outport->ctrl->max_size, maxsize);
+
+	n_ins = this->n_ports[SPA_DIRECTION_INPUT];
+	src_datas = alloca(sizeof(void*) * MAX_PORTS);
+	n_src_datas = 0;
+
+	for (i = 0; i < n_ins; i++) {
+		inport = GET_IN_PORT(this, i);
+		inio = inport->io;
+		if (inio == NULL)
+			continue;
+		spa_log_trace(this->log, NAME " %p: %d %p %d %d %d", this, i,
+				inio, inio->status, inio->buffer_id, inport->stride);
+
+		if (inio->status != SPA_STATUS_HAVE_BUFFER)
+			continue;
+
+		if (inio->buffer_id >= inport->n_buffers)
+			continue;
+
+		inbuf = &inport->buffers[inio->buffer_id];
+		inb = inbuf->outbuf;
+
+		size = inb->datas[0].chunk->size;
+		size = (size / inport->stride) * outport->stride;
+		n_bytes = SPA_MIN(size - outport->offset, maxsize);
+
+		for (j = 0; j < inb->n_datas; j++)
+			src_datas[n_src_datas++] = inb->datas[j].data;
+
+		inio->status = SPA_STATUS_NEED_BUFFER;
+		res |= SPA_STATUS_NEED_BUFFER;
+	}
+
+	spa_log_trace(this->log, NAME " %p: %d %d %d %d %d %d", this,
+			n_src_datas, n_dst_datas, n_bytes, outport->offset, size, outport->stride);
+
+	if (n_src_datas > 0) {
+		for (i = 0; i < n_dst_datas; i++) {
+			dst_datas[i] = SPA_MEMBER(outb->datas[i].data, outport->offset, void);
+			outb->datas[i].chunk->offset = 0;
+			outb->datas[i].chunk->size = n_bytes;
+		}
+
+		this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
+
+		outport->offset += n_bytes;
+		outport->offset = 0;
+
+		dequeue_buffer(this, outbuf);
+		outio->status = SPA_STATUS_HAVE_BUFFER;
+		outio->buffer_id = outb->id;
+		res |= SPA_STATUS_HAVE_BUFFER;
+	}
+	return res;
+}
+
 static int process_split(struct impl *this)
 {
 	struct port *inport, *outport;
@@ -945,7 +1037,8 @@ static int process_split(struct impl *this)
 	inio = inport->io;
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: status %p %d", this, inio, inio->status);
+	spa_log_trace(this->log, NAME " %p: status %p %d %d", this,
+			inio, inio->status, inio->buffer_id);
 
 	if (inio->status != SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_NEED_BUFFER;
@@ -984,7 +1077,7 @@ static int process_split(struct impl *this)
 			outio->buffer_id = SPA_ID_INVALID;
 		}
 
-		if ((outbuf = dequeue_buffer(this, outport)) == NULL)
+		if ((outbuf = peek_buffer(this, outport)) == NULL)
 			return outio->status = -EPIPE;
 
 		outb = outbuf->outbuf;
@@ -1001,6 +1094,7 @@ static int process_split(struct impl *this)
 			outb->datas[j].chunk->size = (n_bytes / inport->stride) * outport->stride;
 		}
 
+		dequeue_buffer(this, outbuf);
 		outio->status = SPA_STATUS_HAVE_BUFFER;
 		outio->buffer_id = outb->id;
 		res |= SPA_STATUS_HAVE_BUFFER;
@@ -1025,94 +1119,17 @@ static int process_split(struct impl *this)
 static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
-#if 0
-	struct port *outport, *inport;
-	struct spa_io_buffers *outio, *inio;
-	struct buffer *sbuf, *dbuf;
-	int res = 0;
-#endif
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	if (this->n_ports[SPA_DIRECTION_OUTPUT] >= 1)
+	if (this->n_ports[SPA_DIRECTION_INPUT] > 1)
+		return process_merge(this);
+	else if (this->n_ports[SPA_DIRECTION_OUTPUT] >= 1)
 		return process_split(this);
 	else
 		return -ENOTSUP;
-
-#if 0
-	outport = GET_OUT_PORT(this, 0);
-	inport = GET_IN_PORT(this, 0);
-
-	outio = outport->io;
-	inio = inport->io;
-
-	spa_return_val_if_fail(outio != NULL, -EIO);
-	spa_return_val_if_fail(inio != NULL, -EIO);
-
-	spa_log_trace(this->log, NAME " %p: status %p %d %p %d", this,
-			inio, inio->status, outio, outio->status);
-
-	if (outio->status != SPA_STATUS_NEED_BUFFER)
-		return outio->status;
-
-	if (inio->status != SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_NEED_BUFFER;
-
-	/* recycle */
-	if (outio->buffer_id < outport->n_buffers) {
-		recycle_buffer(this, outport, outio->buffer_id);
-		outio->buffer_id = SPA_ID_INVALID;
-	}
-
-	if (inio->buffer_id >= inport->n_buffers)
-		return inio->status = -EINVAL;
-
-	if ((dbuf = dequeue_buffer(this, outport)) == NULL)
-		return outio->status = -EPIPE;
-
-	sbuf = &inport->buffers[inio->buffer_id];
-
-	{
-		int i, n_bytes, maxsize;
-		uint32_t size;
-		struct spa_buffer *sb = sbuf->outbuf, *db = dbuf->outbuf;
-		uint32_t n_src_datas = sb->n_datas;
-		uint32_t n_dst_datas = db->n_datas;
-		const void *src_datas[n_src_datas];
-		void *dst_datas[n_dst_datas];
-
-		size = sb->datas[0].chunk->size;
-		maxsize = (db->datas[0].maxsize / outport->stride) * inport->stride;
-		n_bytes = SPA_MIN(size - inport->offset, maxsize);
-
-		for (i = 0; i < n_src_datas; i++)
-			src_datas[i] = SPA_MEMBER(sb->datas[i].data, inport->offset, void);
-		for (i = 0; i < n_dst_datas; i++) {
-			dst_datas[i] = db->datas[i].data;
-			db->datas[i].chunk->size = (n_bytes / inport->stride) * outport->stride;
-		}
-
-		spa_log_trace(this->log, NAME " %p: %d %d %d %d", this,
-				n_src_datas, n_dst_datas, n_bytes, inport->offset);
-
-		this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
-
-		inport->offset += n_bytes;
-		if (inport->offset >= size) {
-			inio->status = SPA_STATUS_NEED_BUFFER;
-			inport->offset = 0;
-			res |= SPA_STATUS_NEED_BUFFER;
-		}
-	}
-
-	outio->status = SPA_STATUS_HAVE_BUFFER;
-	outio->buffer_id = dbuf->outbuf->id;
-	res |= SPA_STATUS_HAVE_BUFFER;
-
-	return res;
-#endif
 }
 
 static const struct spa_node impl_node = {

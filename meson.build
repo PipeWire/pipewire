@@ -150,7 +150,7 @@ dbus_dep = dependency('dbus-1')
 #optional dependencies
 jack_dep = dependency('jack', version : '>= 1.9.10', required : false)
 
-pulseaudio_dep = dependency('pulseaudio', version : '>= 11.09', required : false)
+pulseaudio_dep = dependency('libpulse', version : '>= 11.1', required : false)
 
 if get_option('enable_gstreamer')
   glib_dep = dependency('glib-2.0', version : '>=2.32.0')

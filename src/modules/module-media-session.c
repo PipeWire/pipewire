@@ -105,6 +105,7 @@ struct session {
 
 	struct pw_link *link;
 
+	bool enabled;
 	bool busy;
 	bool exclusive;
 	int sample_rate;
@@ -402,7 +403,11 @@ static int find_session(void *data, struct session *sess)
 	const char *str;
 	uint64_t plugged = 0;
 
-	pw_log_debug("module %p: looking at session '%d'", impl, sess->id);
+	pw_log_debug("module %p: looking at session '%d' enabled:%d busy:%d exclusive:%d",
+			impl, sess->id, sess->enabled, sess->busy, sess->exclusive);
+
+	if (!sess->enabled)
+		return 0;
 
 	if (find->path_id != SPA_ID_INVALID && sess->id != find->path_id)
 		return 0;
@@ -675,7 +680,7 @@ static int find_port_format(struct impl *impl, struct pw_port *port,
 	*channels = data.channels;
 	*rate = data.rate;
 
-	return channels > 0 ? 0 : -1;
+	return data.channels > 0 ? 0 : -1;
 }
 
 static int on_global(void *data, struct pw_global *global)
@@ -770,12 +775,15 @@ static int on_global(void *data, struct pw_global *global)
 		sess->dsp_port = dsp_port;
 		sess->sample_rate = rate;
 		sess->buffer_size = MAX_BUFFER_SIZE;
+		sess->enabled = true;
 
 		pw_node_register(dsp, NULL, pw_module_get_global(impl->module), NULL);
 		pw_node_set_active(dsp, true);
 
 	}
-
+	else {
+		sess->enabled = true;
+	}
 	return 0;
 }
 

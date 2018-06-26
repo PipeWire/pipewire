@@ -141,6 +141,9 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 	else
 		buffers = SPA_CLAMP(attr->maxlength / (maxsize * stride), 3, 64);
 
+	pw_log_info("stream %p: stride %d maxsize %d size %u buffers %d", s, stride, maxsize,
+			size, buffers);
+
 	param = spa_pod_builder_object(b,
 	                t->param.idBuffers, t->param_buffers.Buffers,
 			":", t->param_buffers.buffers, "iru", buffers,
@@ -152,6 +155,64 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 			":", t->param_buffers.align,   "i", 16);
 	return param;
 }
+
+static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flags_t *flags) {
+	const char *e;
+
+	pa_assert(s);
+	pa_assert(attr);
+
+	if ((e = getenv("PULSE_LATENCY_MSEC"))) {
+		uint32_t ms;
+		pa_sample_spec ss;
+
+		pa_sample_spec_init(&ss);
+
+		if (pa_sample_spec_valid(&s->sample_spec))
+			ss = s->sample_spec;
+		else if (s->n_formats == 1)
+			pa_format_info_to_sample_spec(s->req_formats[0], &ss, NULL);
+
+		if ((ms = atoi(e)) < 0 || ms <= 0) {
+			pa_log_debug("Failed to parse $PULSE_LATENCY_MSEC: %s", e);
+		}
+		else if (!pa_sample_spec_valid(&s->sample_spec)) {
+			pa_log_debug("Ignoring $PULSE_LATENCY_MSEC: %s (invalid sample spec)", e);
+		}
+		else {
+			attr->maxlength = (uint32_t) -1;
+			attr->tlength = pa_usec_to_bytes(ms * PA_USEC_PER_MSEC, &ss);
+			attr->minreq = (uint32_t) -1;
+			attr->prebuf = (uint32_t) -1;
+			attr->fragsize = attr->tlength;
+
+			if (flags)
+				*flags |= PA_STREAM_ADJUST_LATENCY;
+		}
+	}
+
+	if (attr->maxlength == (uint32_t) -1)
+		attr->maxlength = 4*1024*1024; /* 4MB is the maximum queue length PulseAudio <= 0.9.9 supported. */
+
+	if (attr->tlength == (uint32_t) -1)
+		attr->tlength = (uint32_t) pa_usec_to_bytes(250*PA_USEC_PER_MSEC, &s->sample_spec); /* 250ms of buffering */
+
+	if (attr->minreq == (uint32_t) -1)
+		attr->minreq = (attr->tlength)/5; /* Ask for more data when there are only 200ms left in the playback buffer */
+
+	if (attr->prebuf == (uint32_t) -1)
+		attr->prebuf = attr->tlength; /* Start to play only when the playback is fully filled up once */
+
+	if (attr->fragsize == (uint32_t) -1)
+		attr->fragsize = attr->tlength; /* Pass data to the app only when the buffer is filled up once */
+
+	pw_log_info("stream %p: maxlength: %u", s, attr->maxlength);
+	pw_log_info("stream %p: tlength: %u", s, attr->tlength);
+	pw_log_info("stream %p: minreq: %u", s, attr->minreq);
+	pw_log_info("stream %p: prebuf: %u", s, attr->prebuf);
+	pw_log_info("stream %p: fragsize: %u", s, attr->fragsize);
+}
+
 
 static void stream_format_changed(void *data, const struct spa_pod *format)
 {
@@ -186,6 +247,8 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
 	if (s->format)
 		pa_format_info_free(s->format);
 	s->format = pa_format_info_from_sample_spec(&s->sample_spec, NULL);
+
+	patch_buffer_attr(s, &s->buffer_attr, NULL);
 
 	params[n_params++] = get_buffers_param(s, &s->buffer_attr, &b);
 
@@ -467,64 +530,6 @@ int pa_stream_is_corked(pa_stream *s)
 	return s->corked;
 }
 
-static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flags_t *flags) {
-	const char *e;
-
-	pa_assert(s);
-	pa_assert(attr);
-
-	if ((e = getenv("PULSE_LATENCY_MSEC"))) {
-		uint32_t ms;
-		pa_sample_spec ss;
-
-		pa_sample_spec_init(&ss);
-
-		if (pa_sample_spec_valid(&s->sample_spec))
-			ss = s->sample_spec;
-		else if (s->n_formats == 1)
-			pa_format_info_to_sample_spec(s->req_formats[0], &ss, NULL);
-
-		if ((ms = atoi(e)) < 0 || ms <= 0) {
-			pa_log_debug("Failed to parse $PULSE_LATENCY_MSEC: %s", e);
-		}
-		else if (!pa_sample_spec_valid(&s->sample_spec)) {
-			pa_log_debug("Ignoring $PULSE_LATENCY_MSEC: %s (invalid sample spec)", e);
-		}
-		else {
-			attr->maxlength = (uint32_t) -1;
-			attr->tlength = pa_usec_to_bytes(ms * PA_USEC_PER_MSEC, &ss);
-			attr->minreq = (uint32_t) -1;
-			attr->prebuf = (uint32_t) -1;
-			attr->fragsize = attr->tlength;
-
-			if (flags)
-				*flags |= PA_STREAM_ADJUST_LATENCY;
-		}
-	}
-
-	if (attr->maxlength == (uint32_t) -1)
-		attr->maxlength = 4*1024*1024; /* 4MB is the maximum queue length PulseAudio <= 0.9.9 supported. */
-
-	if (attr->tlength == (uint32_t) -1)
-		attr->tlength = (uint32_t) pa_usec_to_bytes(250*PA_USEC_PER_MSEC, &s->sample_spec); /* 250ms of buffering */
-
-	if (attr->minreq == (uint32_t) -1)
-		attr->minreq = (attr->tlength)/5; /* Ask for more data when there are only 200ms left in the playback buffer */
-
-	if (attr->prebuf == (uint32_t) -1)
-		attr->prebuf = attr->tlength; /* Start to play only when the playback is fully filled up once */
-
-	if (attr->fragsize == (uint32_t) -1)
-		attr->fragsize = attr->tlength; /* Pass data to the app only when the buffer is filled up once */
-
-	pw_log_info("stream %p: maxlength: %u", s, attr->maxlength);
-	pw_log_info("stream %p: tlength: %u", s, attr->tlength);
-	pw_log_info("stream %p: minreq: %u", s, attr->minreq);
-	pw_log_info("stream %p: prebuf: %u", s, attr->prebuf);
-	pw_log_info("stream %p: fragsize: %u", s, attr->fragsize);
-}
-
-
 static const struct spa_pod *get_param(pa_stream *s, pa_sample_spec *ss, pa_channel_map *map,
 		struct spa_pod_builder *b)
 {
@@ -557,6 +562,7 @@ static int create_stream(pa_stream_direction_t direction,
         uint8_t buffer[4096];
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct pw_properties *props;
+	uint32_t sample_rate = 0, stride = 0;
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -579,22 +585,31 @@ static int create_stream(pa_stream_direction_t direction,
 
 	if (pa_sample_spec_valid(&s->sample_spec)) {
 		params[n_params++] = get_param(s, &s->sample_spec, &s->channel_map, &b);
+		sample_rate = s->sample_spec.rate;
+		stride = pa_frame_size(&s->sample_spec);
 	}
 	else {
 		pa_sample_spec ss;
-		pa_channel_map map;
 		int i;
 
 		for (i = 0; i < s->n_formats; i++) {
-			if (pa_format_info_to_sample_spec(s->req_formats[i], &ss, &map) < 0) {
+			if ((res = pa_format_info_to_sample_spec(s->req_formats[i], &ss, NULL)) < 0) {
 				char buf[4096];
-				pw_log_warn("can't convert format %s",
+				pw_log_warn("can't convert format %d %s", res,
 						pa_format_info_snprint(buf,4096,s->req_formats[i]));
 				continue;
 			}
 
-			params[n_params++] = get_param(s, &ss, &map, &b);
+			params[n_params++] = get_param(s, &ss, NULL, &b);
+			if (ss.rate > sample_rate) {
+				sample_rate = ss.rate;
+				stride = pa_frame_size(&ss);
+			}
 		}
+	}
+	if (sample_rate == 0) {
+		sample_rate = 48000;
+		stride = sizeof(int16_t) * 2;
 	}
 
 	if (attr)
@@ -605,7 +620,8 @@ static int create_stream(pa_stream_direction_t direction,
 		dev = getenv("PIPEWIRE_NODE");
 
 	props = (struct pw_properties *) pw_stream_get_properties(s->stream);
-	pw_properties_setf(props, "node.latency", "%u/44100", s->buffer_attr.minreq);
+	pw_properties_setf(props, "node.latency", "%u/%u",
+			s->buffer_attr.minreq / stride, sample_rate);
 
 	res = pw_stream_connect(s->stream,
 				direction == PA_STREAM_PLAYBACK ?

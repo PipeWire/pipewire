@@ -213,6 +213,17 @@ static int clear_buffers(struct node *n, struct port *p)
 	return 0;
 }
 
+#define S16_MIN         -32767
+#define S16_MAX         32767
+#define S16_SCALE       32767
+
+#define F32_TO_S16(v)           \
+({                              \
+        typeof(v) _v = (v);     \
+        _v < -1.0f ? S16_MIN :  \
+        _v >= 1.0f ? S16_MAX :  \
+        _v * S16_SCALE;         \
+})
 
 static void conv_f32_s16(void *dst, void *src, int index, int n_samples, int stride)
 {
@@ -221,16 +232,12 @@ static void conv_f32_s16(void *dst, void *src, int index, int n_samples, int str
 	int i;
 	d += index;
 	for (i = 0; i < n_samples; i++) {
-		if (s[i] < -1.0f)
-			*d = -((1 << 15) - 1);
-		else if (s[i] >= 1.0f)
-			*d = (1U << 15) - 1;
-		else
-			//*out = lrintf(in[i] * 32767.0f);
-			*d = s[i] * (1.0f * ((1U << 15) - 1));
+		*d = F32_TO_S16(s[i]);
 		d += stride;
 	}
 }
+
+#define S16_TO_F32(v)   ((v) * (1.0f / S16_SCALE))
 
 static void conv_s16_f32(void *dst, void *src, int index, int n_samples, int stride)
 {
@@ -240,7 +247,7 @@ static void conv_s16_f32(void *dst, void *src, int index, int n_samples, int str
 
 	s += index;
 	for (i = 0; i < n_samples; i++) {
-		d[i] = *s * (1.0f / ((1U << 15) - 1));
+		d[i] = S16_TO_F32(*s);
 		s += stride;
 	}
 }
@@ -256,6 +263,18 @@ static void fill_s16(void *dst, int index, int n_samples, int stride)
 	}
 }
 
+#define S32_MIN         -2147483647
+#define S32_MAX         2147483647
+#define S32_SCALE       2147483647
+
+#define F32_TO_S32(v)           \
+({                              \
+        typeof(v) _v = (v);     \
+        _v < -1.0f ? S32_MIN :  \
+        _v >= 1.0f ? S32_MAX :  \
+        _v * S32_SCALE;         \
+})
+
 static void conv_f32_s32(void *dst, void *src, int index, int n_samples, int stride)
 {
 	int32_t *d = dst;
@@ -263,15 +282,12 @@ static void conv_f32_s32(void *dst, void *src, int index, int n_samples, int str
 	int i;
 	d += index;
 	for (i = 0; i < n_samples; i++) {
-		if (s[i] < -1.0f)
-			*d = -((1U << 31) - 1);
-		else if (s[i] >= 1.0f)
-			*d = (1U << 31) - 1;
-		else
-			*d = s[i] * (1.0f * ((1U << 31) - 1));
+		*d = F32_TO_S32(s[i]);
 		d += stride;
 	}
 }
+
+#define S32_TO_F32(v)   ((v) * (1.0f / S32_SCALE))
 
 static void conv_s32_f32(void *dst, void *src, int index, int n_samples, int stride)
 {
@@ -281,7 +297,7 @@ static void conv_s32_f32(void *dst, void *src, int index, int n_samples, int str
 
 	s += index;
 	for (i = 0; i < n_samples; i++) {
-		d[i] = *s * (1.0f / ((1U << 31) - 1));
+		d[i] = S32_TO_F32(*s);
 		s += stride;
 	}
 }

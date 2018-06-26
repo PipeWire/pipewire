@@ -33,7 +33,7 @@
 #include "link.h"
 #include "work-queue.h"
 
-#define MAX_BUFFERS     16
+#define MAX_BUFFERS     32
 
 /** \cond */
 struct impl {

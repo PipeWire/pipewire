@@ -38,7 +38,7 @@
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
 
-#define MAX_BUFFERS     32
+#define MAX_BUFFERS     64
 #define MAX_PORTS	128
 
 #define PROP_DEFAULT_TRUNCATE	false

@@ -684,8 +684,6 @@ int peek_buffer(pa_stream *s)
 	if (s->buffer != NULL)
 		return 0;
 
-	dequeue_buffer(s);
-
 	if ((avail = spa_ringbuffer_get_read_index(&s->dequeued_ring, &index)) <= 0)
 		return -EPIPE;
 

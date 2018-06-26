@@ -330,6 +330,7 @@ struct pa_stream {
 	struct pw_buffer *dequeued[MAX_BUFFERS];
 	struct spa_ringbuffer dequeued_ring;
 	size_t dequeued_size;
+	struct spa_list pending;
 
 	struct pw_buffer *buffer;
 	uint32_t buffer_index;

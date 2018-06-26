@@ -455,19 +455,6 @@ static int negotiate_buffers(struct impl *impl)
 		return 0;
 
 	state = 0;
-	if ((res = spa_node_port_enum_params(impl->cnode,
-			       impl->direction, 0,
-			       t->param.idBuffers, &state,
-			       param, &param, &b)) < 0) {
-		debug_params(impl, impl->cnode, impl->direction, 0,
-				t->param.idBuffers, param);
-		return res;
-	}
-
-	if (res == 0)
-		param = NULL;
-
-	state = 0;
 	if ((res = spa_node_port_enum_params(impl->adapter,
 			       SPA_DIRECTION_REVERSE(impl->direction), 0,
 			       t->param.idBuffers, &state,
@@ -475,6 +462,18 @@ static int negotiate_buffers(struct impl *impl)
 		debug_params(impl, impl->adapter, SPA_DIRECTION_REVERSE(impl->direction), 0,
 				t->param.idBuffers, param);
 		return -ENOTSUP;
+	}
+	if (res == 0)
+		param = NULL;
+
+	state = 0;
+	if ((res = spa_node_port_enum_params(impl->cnode,
+			       impl->direction, 0,
+			       t->param.idBuffers, &state,
+			       param, &param, &b)) < 0) {
+		debug_params(impl, impl->cnode, impl->direction, 0,
+				t->param.idBuffers, param);
+		return res;
 	}
 
 	spa_pod_fixate(param);

@@ -40,6 +40,8 @@
 #include "extensions/client-node.h"
 
 #define MAX_BUFFERS	64
+#define MIN_QUEUED	1
+
 #define MASK_BUFFERS	(MAX_BUFFERS-1)
 #define MAX_PORTS	1
 
@@ -150,7 +152,7 @@ static inline struct buffer *pop_queue(struct stream *stream, struct queue *queu
 	uint32_t index, id;
 	struct buffer *buffer;
 
-	if ((avail = spa_ringbuffer_get_read_index(&queue->ring, &index)) <= 0)
+	if ((avail = spa_ringbuffer_get_read_index(&queue->ring, &index)) < MIN_QUEUED)
 		return NULL;
 
 	id = queue->ids[index & MASK_BUFFERS];
@@ -638,7 +640,7 @@ static int impl_node_process_output(struct spa_node *node)
 	}
 	if (!SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_DRIVER)) {
 		call_process(impl);
-		if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0 &&
+		if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) >= MIN_QUEUED &&
 		    io->status == SPA_STATUS_NEED_BUFFER)
 			goto again;
 	}

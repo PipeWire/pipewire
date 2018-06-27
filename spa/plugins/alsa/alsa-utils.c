@@ -436,7 +436,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 			silence = 0;
 	}
 	if (written == 0)
-		silence = 4096;
+		silence = SPA_MIN(to_write, state->threshold);
 
 	if (silence > 0) {
 		snd_pcm_areas_silence(my_areas, offset, state->channels, silence, state->format);

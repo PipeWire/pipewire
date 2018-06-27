@@ -422,11 +422,12 @@ static int find_session(void *data, struct session *sess)
 		if (strcmp(str, find->media_class) != 0)
 			return 0;
 
-		if ((find->exclusive && sess->busy) || sess->exclusive) {
-			pw_log_debug("module %p: session in use", impl);
-			return 0;
-		}
 		plugged = sess->plugged;
+	}
+
+	if ((find->exclusive && sess->busy) || sess->exclusive) {
+		pw_log_debug("module %p: session in use", impl);
+		return 0;
 	}
 
 	pw_log_debug("module %p: found session '%d' %" PRIu64, impl,
@@ -515,6 +516,7 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 
 	find.impl = impl;
 	find.sess = NULL;
+	find.plugged = 0;
 	find.exclusive = exclusive;
 	spa_list_for_each(session, &impl->session_list, l)
 		find_session(&find, session);

@@ -620,9 +620,9 @@ int pw_node_initialized(struct pw_node *node);
 
 int pw_node_set_driver(struct pw_node *node, struct pw_node *driver);
 
-/** Activate a link \memberof pw_link
-  * Starts the negotiation of formats and buffers on \a link and then
-  * starts data streaming */
+void pw_node_process(struct pw_node *node, int status);
+
+/** starts streaming on a link */
 int pw_link_activate(struct pw_link *link);
 
 /** Deactivate a link \memberof pw_link */

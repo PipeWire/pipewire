@@ -504,14 +504,6 @@ static void unhandle_socket(struct node_data *data)
                        do_remove_source, 1, NULL, 0, true, data);
 }
 
-static void node_process(void *data)
-{
-	struct node_data *d = data;
-	uint64_t cmd = 1;
-	pw_log_trace("remote %p: send process", data);
-	write(d->rtwritefd, &cmd, 8);
-}
-
 static void node_finish(void *data)
 {
 	struct node_data *d = data;
@@ -1334,7 +1326,6 @@ static const struct pw_node_events node_events = {
 	.destroy = node_destroy,
 	.info_changed = node_info_changed,
 	.active_changed = node_active_changed,
-	.process = node_process,
 	.finish = node_finish,
 };
 

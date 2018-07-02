@@ -646,9 +646,8 @@ static void node_event(void *data, struct spa_event *event)
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, event, event);
 }
 
-static void node_process(void *data, int status)
+void pw_node_process(struct pw_node *node, int status)
 {
-	struct pw_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
 	pw_log_trace("node %p: process driver:%d exported:%d", node, node->driver, node->exported);
@@ -656,26 +655,30 @@ static void node_process(void *data, int status)
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, process);
 
 	if (node->driver) {
-		if (!node->exported) {
-			if (node->rt.driver->state->pending == 0 || !node->remote) {
-				struct timespec ts;
-				struct pw_driver_quantum *q;
-				q = node->rt.quantum;
+		if (node->rt.driver->state->pending == 0 || !node->remote) {
+			struct timespec ts;
+			struct pw_driver_quantum *q;
+			q = node->rt.quantum;
 
-				q->position = impl->next_position;
-				impl->next_position += q->size;
+			q->position = impl->next_position;
+			impl->next_position += q->size;
 
-				clock_gettime(CLOCK_MONOTONIC, &ts);
-				q->nsec = ts.tv_sec * SPA_NSEC_PER_SEC + ts.tv_nsec;
+			clock_gettime(CLOCK_MONOTONIC, &ts);
+			q->nsec = ts.tv_sec * SPA_NSEC_PER_SEC + ts.tv_nsec;
 
-				spa_graph_run(node->rt.driver);
-			}
-			else
-				spa_graph_node_trigger(&node->rt.node);
+			spa_graph_run(node->rt.driver);
 		}
+		else
+			spa_graph_node_trigger(&node->rt.node);
 	}
 	else
 		spa_graph_node_trigger(&node->rt.node);
+}
+
+static void node_process(void *data, int status)
+{
+	struct pw_node *node = data;
+	pw_node_process(node, status);
 }
 
 static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)

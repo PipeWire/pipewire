@@ -1021,6 +1021,9 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 	int res = 0;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
+	if (node->info.state == state)
+		return 0;
+
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, state_request, state);
 
 	pw_log_debug("node %p: set state %s", node, pw_node_state_as_string(state));
@@ -1072,37 +1075,37 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	enum pw_node_state old;
+	struct pw_resource *resource;
 
 	old = node->info.state;
-	if (old != state) {
-		struct pw_resource *resource;
+	if (old == state)
+		return;
 
-		pw_log_debug("node %p: update state from %s -> %s", node,
-			     pw_node_state_as_string(old), pw_node_state_as_string(state));
+	pw_log_debug("node %p: update state from %s -> %s", node,
+		     pw_node_state_as_string(old), pw_node_state_as_string(state));
 
-		if (node->info.error)
-			free((char*)node->info.error);
-		node->info.error = error;
-		node->info.state = state;
+	if (node->info.error)
+		free((char*)node->info.error);
+	node->info.error = error;
+	node->info.state = state;
 
-		if (state == PW_NODE_STATE_IDLE) {
-			if (impl->pause_on_idle)
-				do_pause_node(node);
-			node_deactivate(node);
-		}
-
-		spa_hook_list_call(&node->listener_list, struct pw_node_events, state_changed,
-				 old, state, error);
-
-		node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;
-		spa_hook_list_call(&node->listener_list, struct pw_node_events,
-				info_changed, &node->info);
-
-		spa_list_for_each(resource, &node->resource_list, link)
-			pw_node_resource_info(resource, &node->info);
-
-		node->info.change_mask = 0;
+	if (state == PW_NODE_STATE_IDLE) {
+		if (impl->pause_on_idle)
+			do_pause_node(node);
+		node_deactivate(node);
 	}
+
+	spa_hook_list_call(&node->listener_list, struct pw_node_events, state_changed,
+			 old, state, error);
+
+	node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;
+	spa_hook_list_call(&node->listener_list, struct pw_node_events,
+			info_changed, &node->info);
+
+	spa_list_for_each(resource, &node->resource_list, link)
+		pw_node_resource_info(resource, &node->info);
+
+	node->info.change_mask = 0;
 }
 
 int pw_node_set_active(struct pw_node *node, bool active)

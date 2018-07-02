@@ -261,7 +261,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		":", t->param_buffers.size,    "i", data->stride * data->format.size.height,
 		":", t->param_buffers.stride,  "i", data->stride,
 		":", t->param_buffers.buffers, "iru", 8,
-			SPA_POD_PROP_MIN_MAX(2, 32),
+			SPA_POD_PROP_MIN_MAX(2, 16),
 		":", t->param_buffers.align,   "i", 16);
 
 	params[1] = spa_pod_builder_object(&b,

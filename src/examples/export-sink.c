@@ -36,7 +36,7 @@
 
 #define M_PI_M2 ( M_PI + M_PI )
 
-#define MAX_BUFFERS	32
+#define MAX_BUFFERS	16
 
 struct type {
 	uint32_t prop_param;

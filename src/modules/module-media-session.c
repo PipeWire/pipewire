@@ -511,8 +511,8 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 	else
 		find.path_id = SPA_ID_INVALID;
 
-
-	pw_log_debug("module %p: try to find and link to node '%d'", impl, find.path_id);
+	pw_log_info("module %p: '%s' '%s' '%s' exclusive:%d target %d", impl,
+			media, category, role, exclusive, find.path_id);
 
 	find.impl = impl;
 	find.sess = NULL;
@@ -535,10 +535,6 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 			buffer_size = flp2((num * sample_rate / denom) * sizeof(float));
 		}
 	}
-
-	pw_log_info("module %p: '%s' '%s' '%s' exclusive:%d quantum:%d/%d", impl,
-			media, category, role, exclusive,
-			sample_rate, buffer_size);
 
 	if (strcmp(category, "Capture") == 0)
 		direction = PW_DIRECTION_OUTPUT;

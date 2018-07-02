@@ -1023,13 +1023,16 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 {
 	int res = 0;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+	enum pw_node_state old = node->info.state;
 
-	if (node->info.state == state)
+	pw_log_debug("node %p: set state %s -> %s", node,
+			pw_node_state_as_string(old),
+			pw_node_state_as_string(state));
+
+	if (old == state)
 		return 0;
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, state_request, state);
-
-	pw_log_debug("node %p: set state %s", node, pw_node_state_as_string(state));
 
 	switch (state) {
 	case PW_NODE_STATE_CREATING:

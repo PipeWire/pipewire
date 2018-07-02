@@ -81,12 +81,11 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 		spa_hook_list_call(&link->listener_list, struct pw_link_events,
 				state_changed, old, state, error);
 
+		pw_log_debug("link %p: %d %d %d %d", link,
+				out->n_ready_output_links, out->n_used_output_links,
+				in->n_ready_input_links, in->n_used_input_links);
+
 		if (old != PW_LINK_STATE_PAUSED && state == PW_LINK_STATE_PAUSED) {
-
-			pw_log_debug("link %p: %d %d %d %d", link,
-					out->n_ready_output_links, out->n_used_output_links,
-					in->n_ready_input_links, in->n_used_input_links);
-
 			if (++out->n_ready_output_links == out->n_used_output_links)
 				pw_node_set_state(out, PW_NODE_STATE_RUNNING);
 			if (++in->n_ready_input_links == in->n_used_input_links)
@@ -173,7 +172,6 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		}
 		else {
 			pw_log_debug("link %p: format was already set", this);
-			pw_node_update_state(output->node, PW_NODE_STATE_RUNNING, NULL);
 			changed = false;
 		}
 	}
@@ -194,7 +192,6 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		}
 		else {
 			pw_log_debug("link %p: format was already set", this);
-			pw_node_update_state(input->node, PW_NODE_STATE_RUNNING, NULL);
 			changed = false;
 		}
 	}

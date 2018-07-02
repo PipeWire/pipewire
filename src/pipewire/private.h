@@ -278,11 +278,13 @@ struct pw_node {
 	struct pw_map input_port_map;		/**< map from port_id to port */
 	uint32_t n_used_input_links;		/**< number of active input links */
 	uint32_t idle_used_input_links;		/**< number of active input to be idle */
+	uint32_t n_ready_input_links;		/**< number of ready input links */
 
 	struct spa_list output_ports;		/**< list of output ports */
 	struct pw_map output_port_map;		/**< map from port_id to port */
 	uint32_t n_used_output_links;		/**< number of active output links */
 	uint32_t idle_used_output_links;	/**< number of active output to be idle */
+	uint32_t n_ready_output_links;		/**< number of ready output links */
 
 	struct spa_hook_list listener_list;
 
@@ -622,6 +624,9 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver);
 
 void pw_node_process(struct pw_node *node, int status);
 
+/** Prepare a link \memberof pw_link
+  * Starts the negotiation of formats and buffers on \a link */
+int pw_link_prepare(struct pw_link *link);
 /** starts streaming on a link */
 int pw_link_activate(struct pw_link *link);
 

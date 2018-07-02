@@ -744,7 +744,7 @@ static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
 	struct impl *impl = this->impl;
-	int status, trigger = 1;
+	int status, trigger;
 
 	impl->ctrl.min_size = impl->ctrl.max_size =
 		impl->this.node->driver_node->rt.quantum->size;
@@ -753,12 +753,7 @@ static int impl_node_process(struct spa_node *node)
 
 	if (impl->use_converter) {
 		status = spa_node_process(impl->adapter);
-
-		if (impl->direction == SPA_DIRECTION_OUTPUT)
-			trigger = status & SPA_STATUS_NEED_BUFFER;
-		else
-			trigger = status & SPA_STATUS_HAVE_BUFFER;
-		}
+	}
 	else {
 		struct spa_io_buffers tmp;
 
@@ -771,9 +766,17 @@ static int impl_node_process(struct spa_node *node)
 		*impl->io = *impl->client_port_mix.io;
 		*impl->client_port_mix.io = tmp;
 
-		status = impl->io->status;
+		status = impl->client_port_mix.io->status | impl->io->status;
 	}
 	spa_log_trace(this->log, "%p: process %d", this, status);
+
+	if (impl->direction == SPA_DIRECTION_OUTPUT) {
+		if (!(status & SPA_STATUS_HAVE_BUFFER))
+			spa_log_warn(this->log, "%p: process underrun", this);
+		trigger = status & SPA_STATUS_NEED_BUFFER;
+	}
+	else
+		trigger = status & SPA_STATUS_HAVE_BUFFER;
 
 	if (trigger)
 		spa_graph_run(impl->client_node->node->rt.root.graph);

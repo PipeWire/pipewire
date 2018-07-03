@@ -638,9 +638,9 @@ impl_node_port_set_param(struct spa_node *node,
 }
 
 static int do_port_set_io(struct impl *impl,
-			   enum spa_direction direction, uint32_t port_id,
-			   struct pw_port_mix *mix,
-			   uint32_t id, void *data, size_t size)
+			  enum spa_direction direction, uint32_t port_id,
+			  uint32_t mix_port_id,
+			  uint32_t id, void *data, size_t size)
 {
 	struct node *this = &impl->node;
 	struct pw_type *t = impl->t;
@@ -651,7 +651,7 @@ static int do_port_set_io(struct impl *impl,
 
 	pw_log_debug("client-node %p: %s port %d.%d set io %p %zd", impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
-			port_id, mix->port.port_id, data, size);
+			port_id, mix_port_id, data, size);
 
 	if (!CHECK_PORT(this, direction, port_id))
 		return -EINVAL;
@@ -678,15 +678,13 @@ static int do_port_set_io(struct impl *impl,
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
-	if (id == t->io.Buffers)
-		mix->io = data;
 
-	update_io(impl, port, mix->port.port_id, id, memid);
+	update_io(impl, port, mix_port_id, id, memid);
 
 	pw_client_node_resource_port_set_io(this->resource,
 					    this->seq,
 					    direction, port_id,
-					    mix->port.port_id,
+					    mix_port_id,
 					    id,
 					    memid,
 					    mem_offset, mem_size);
@@ -701,7 +699,13 @@ impl_node_port_set_io(struct spa_node *node,
 		      uint32_t id,
 		      void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct node *this;
+	struct impl *impl;
+
+	this = SPA_CONTAINER_OF(node, struct node, node);
+	impl = this->impl;
+
+	return do_port_set_io(impl, direction, port_id, 0, id, data, size);
 }
 
 static int
@@ -1274,13 +1278,21 @@ static int mix_port_set_io(struct spa_node *node,
 	struct pw_port *p = SPA_CONTAINER_OF(node, struct pw_port, mix_node);
 	struct impl *impl = p->owner_data;
 	struct pw_port_mix *mix;
+	struct pw_type *t = impl->t;
 
 	mix = pw_map_lookup(&p->mix_port_map, port_id);
 	if (mix == NULL)
 		return -EIO;
 
+	if (id == t->io.Buffers) {
+		if (data && size >= sizeof(struct spa_io_buffers))
+			mix->io = data;
+		else
+			mix->io = NULL;
+	}
+
 	return do_port_set_io(impl,
-			      direction, p->port_id, mix,
+			      direction, p->port_id, mix->port.port_id,
 			      id, data, size);
 }
 

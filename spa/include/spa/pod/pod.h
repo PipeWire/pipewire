@@ -120,6 +120,7 @@ struct spa_pod_long {
 struct spa_pod_float {
 	struct spa_pod pod;
 	float value;
+	int32_t __padding;
 };
 
 struct spa_pod_double {

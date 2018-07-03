@@ -35,11 +35,12 @@
 
 #include <spa/lib/pod.h>
 
+#include "pipewire/core.h"
 #include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"
+#include "pipewire/control.h"
 #include "pipewire/private.h"
 
-#include "pipewire/core.h"
 #include "modules/spa/spa-node.h"
 #include "client-node.h"
 #include "client-stream.h"
@@ -93,6 +94,7 @@ struct impl {
 	struct spa_node *adapter;
 
 	bool use_converter;
+
 	struct pw_client_node *client_node;
 	struct pw_port *client_port;
 	struct pw_port_mix client_port_mix;
@@ -575,6 +577,30 @@ static int negotiate_buffers(struct impl *impl)
 	return 0;
 }
 
+static void try_link_controls(struct impl *impl, struct pw_port *port, struct pw_port *target)
+{
+	struct pw_control *cin, *cout;
+	int res;
+
+	pw_log_debug("module %p: trying controls", impl);
+	spa_list_for_each(cout, &port->control_list[SPA_DIRECTION_OUTPUT], port_link) {
+		spa_list_for_each(cin, &target->control_list[SPA_DIRECTION_INPUT], port_link) {
+			if (cin->prop_id == cout->prop_id) {
+				if ((res = pw_control_link(cout, cin)) < 0)
+					pw_log_error("failed to link controls: %s", spa_strerror(res));
+			}
+		}
+	}
+	spa_list_for_each(cin, &port->control_list[SPA_DIRECTION_INPUT], port_link) {
+		spa_list_for_each(cout, &target->control_list[SPA_DIRECTION_OUTPUT], port_link) {
+			if (cin->prop_id == cout->prop_id) {
+				if ((res = pw_control_link(cout, cin)) < 0)
+					pw_log_error("failed to link controls: %s", spa_strerror(res));
+			}
+		}
+	}
+}
+
 static int
 impl_node_port_set_param(struct spa_node *node,
 			 enum spa_direction direction, uint32_t port_id,
@@ -844,7 +870,8 @@ static void client_node_initialized(void *data)
 	struct spa_pod_builder b;
 	int res;
 	const struct pw_properties *props;
-	const char *str;
+	const char *str, *dir, *type;
+	char media_class[64];
 	bool exclusive;
 
 	pw_log_debug("client-stream %p: initialized", &impl->this);
@@ -858,10 +885,14 @@ static void client_node_initialized(void *data)
 			     &max_output_ports)) < 0)
 		return;
 
-	if (n_input_ports > 0)
+	if (n_input_ports > 0) {
 		impl->direction = SPA_DIRECTION_INPUT;
-	else
+		dir = "Input";
+	}
+	else {
 		impl->direction = SPA_DIRECTION_OUTPUT;
+		dir = "Output";
+	}
 
 	props = pw_node_get_properties(impl->client_node->node);
 	if (props != NULL && (str = pw_properties_get(props, PW_NODE_PROP_EXCLUSIVE)) != NULL)
@@ -928,11 +959,36 @@ static void client_node_initialized(void *data)
 					sizeof(impl->client_port_mix.io))) < 0)
 			return;
 
+
 	}
 
-	pw_node_register(impl->this.node, NULL, NULL, NULL);
+	if (media_type == impl->type.media_type.audio)
+		type = "Audio";
+	else if (media_type == impl->type.media_type.video)
+		type = "Video";
+	else
+		type = "Generic";
 
-	pw_client_node_registered(impl->client_node, impl->this.node->global->id);
+	snprintf(media_class, sizeof(media_class), "Stream/%s/%s", dir, type);
+
+	pw_node_register(impl->this.node,
+			pw_resource_get_client(impl->client_node->resource),
+			impl->client_node->parent,
+			pw_properties_new(
+				"media.class", media_class,
+				NULL));
+
+	if (impl->use_converter) {
+		struct pw_port *adapter_port;
+		adapter_port = pw_node_find_port(impl->this.node, impl->direction, 0);
+
+		if (adapter_port) {
+			try_link_controls(impl, impl->client_port, adapter_port);
+		}
+		else {
+			pw_log_warn("client-stream %p: can't link controls", &impl->this);
+		}
+	}
 
 	pw_log_debug("client-stream %p: activating", &impl->this);
 
@@ -1005,6 +1061,12 @@ static void node_destroy(void *data)
 	cleanup(impl);
 }
 
+static void node_initialized(void *data)
+{
+	struct impl *impl = data;
+	pw_client_node_registered(impl->client_node, impl->this.node->global->id);
+}
+
 static void node_driver_changed(void *data, struct pw_node *driver)
 {
 	struct impl *impl = data;
@@ -1014,6 +1076,7 @@ static void node_driver_changed(void *data, struct pw_node *driver)
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.destroy = node_destroy,
+	.initialized = node_initialized,
 	.driver_changed = node_driver_changed,
 };
 

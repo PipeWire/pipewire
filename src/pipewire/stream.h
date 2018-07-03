@@ -287,6 +287,21 @@ pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 							  *  buffer allocation. */
 			uint32_t n_params		/**< number of elements in \a params */);
 
+
+/** Audio controls */
+#define PW_STREAM_CONTROL_VOLUME	"volume"
+
+/** Video controls */
+#define PW_STREAM_CONTROL_CONTRAST	"contrast"
+#define PW_STREAM_CONTROL_BRIGHTNESS	"brightness"
+#define PW_STREAM_CONTROL_HUE		"hue"
+#define PW_STREAM_CONTROL_SATURATION	"saturation"
+
+/** Set a control value */
+int pw_stream_set_control(struct pw_stream *stream, const char *name, float value);
+/** Get a control value */
+int pw_stream_get_control(struct pw_stream *stream, const char *name, float *value);
+
 /** Activate or deactivate the stream \memberof pw_stream */
 int pw_stream_set_active(struct pw_stream *stream, bool active);
 
@@ -305,6 +320,7 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream);
 
 /** Submit a buffer for playback or recycle a buffer for capture. */
 int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer);
+
 
 #ifdef __cplusplus
 }

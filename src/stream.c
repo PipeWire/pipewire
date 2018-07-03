@@ -30,6 +30,8 @@
 #include <pipewire/stream.h>
 #include "internal.h"
 
+#define MIN_QUEUED	1
+
 struct pending_data {
 	struct spa_list link;
 
@@ -85,12 +87,11 @@ static int dequeue_buffer(pa_stream *s)
 
 	spa_ringbuffer_get_write_index(&s->dequeued_ring, &index);
 	s->dequeued[index & MASK_BUFFERS] = buf;
-	spa_ringbuffer_write_update(&s->dequeued_ring, index + 1);
-
 	if (s->direction == PA_STREAM_PLAYBACK)
 		s->dequeued_size += buf->buffer->datas[0].maxsize;
 	else
 		s->dequeued_size += buf->buffer->datas[0].chunk->size;
+	spa_ringbuffer_write_update(&s->dequeued_ring, index + 1);
 
 	return 0;
 }
@@ -151,7 +152,7 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 	if (attr->maxlength == -1)
 		buffers = 3;
 	else
-		buffers = SPA_CLAMP(attr->maxlength / (maxsize * stride), 3, 64);
+		buffers = SPA_CLAMP(attr->maxlength / (maxsize * stride), 3, MAX_BUFFERS);
 
 	pw_log_info("stream %p: stride %d maxsize %d size %u buffers %d", s, stride, maxsize,
 			size, buffers);
@@ -159,7 +160,7 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 	param = spa_pod_builder_object(b,
 	                t->param.idBuffers, t->param_buffers.Buffers,
 			":", t->param_buffers.buffers, "iru", buffers,
-					SPA_POD_PROP_MIN_MAX(3, 64),
+					SPA_POD_PROP_MIN_MAX(3, MAX_BUFFERS),
 			":", t->param_buffers.blocks,  "i", blocks,
 			":", t->param_buffers.size,    "iru", size * stride,
 					SPA_POD_PROP_MIN_MAX(size * stride, maxsize * stride),
@@ -210,7 +211,7 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 		attr->tlength = (uint32_t) pa_usec_to_bytes(250*PA_USEC_PER_MSEC, &s->sample_spec); /* 250ms of buffering */
 
 	if (attr->minreq == (uint32_t) -1)
-		attr->minreq = (attr->tlength)/5; /* Ask for more data when there are only 200ms left in the playback buffer */
+		attr->minreq = attr->tlength; /* Ask for more data when there are only 200ms left in the playback buffer */
 
 	if (attr->prebuf == (uint32_t) -1)
 		attr->prebuf = attr->tlength; /* Start to play only when the playback is fully filled up once */
@@ -276,7 +277,7 @@ static void stream_process(void *data)
 
 	s->timing_info_valid = true;
 
-	if (dequeue_buffer(s) < 0 && s->dequeued_size == 0)
+	if (dequeue_buffer(s) < 0 && s->dequeued_size <= 0)
 		return;
 
 	if (s->direction == PA_STREAM_PLAYBACK) {
@@ -466,10 +467,7 @@ uint32_t pa_stream_get_index(pa_stream *s)
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
-	PA_CHECK_VALIDITY_RETURN_ANY(s->context,
-			s->state == PA_STREAM_READY, PA_ERR_BADSTATE, PA_INVALID_INDEX);
-
-	return s->stream_index;
+	return pw_stream_get_node_id(s->stream);
 }
 
 void pa_stream_set_state(pa_stream *s, pa_stream_state_t st) {
@@ -583,6 +581,10 @@ static int create_stream(pa_stream_direction_t direction,
 	s->direction = direction;
 	s->timing_info_valid = false;
 	s->disconnecting = false;
+	if (volume)
+		s->volume = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
+	else
+		s->volume = 1.0;
 
 	pa_stream_set_state(s, PA_STREAM_CREATING);
 
@@ -697,7 +699,7 @@ int peek_buffer(pa_stream *s)
 	if (s->buffer != NULL)
 		return 0;
 
-	if ((avail = spa_ringbuffer_get_read_index(&s->dequeued_ring, &index)) <= 0)
+	if ((avail = spa_ringbuffer_get_read_index(&s->dequeued_ring, &index)) < MIN_QUEUED)
 		return -EPIPE;
 
 	s->buffer = s->dequeued[index & MASK_BUFFERS];
@@ -719,12 +721,11 @@ int queue_buffer(pa_stream *s)
 	if (s->buffer == NULL)
 		return 0;
 
-	spa_ringbuffer_read_update(&s->dequeued_ring, s->buffer_index + 1);
-
 	if (s->direction == PA_STREAM_PLAYBACK)
 		s->dequeued_size -= s->buffer->buffer->datas[0].maxsize;
 	else
 		s->dequeued_size -= s->buffer->buffer->datas[0].chunk->size;
+	spa_ringbuffer_read_update(&s->dequeued_ring, s->buffer_index + 1);
 
 	pw_stream_queue_buffer(s->stream, s->buffer);
 	s->buffer = NULL;

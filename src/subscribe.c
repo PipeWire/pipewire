@@ -44,6 +44,8 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
 
+	c->subscribe_mask = m;
+
 	o = pa_operation_new(c, NULL, on_subscribed, sizeof(struct subscribe_data));
 	d = o->userdata;
 	d->cb = cb;

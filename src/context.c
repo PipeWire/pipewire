@@ -86,6 +86,48 @@ pa_context *pa_context_new(pa_mainloop_api *mainloop, const char *name)
 	return pa_context_new_with_proplist(mainloop, name, NULL);
 }
 
+static int set_mask(pa_context *c, struct global *g)
+{
+	const char *str;
+
+	if (g->type == c->t->node) {
+		if (g->props == NULL)
+			return 0;
+		if ((str = pw_properties_get(g->props, "media.class")) == NULL)
+			return 0;
+
+		if (strcmp(str, "Audio/Sink") == 0) {
+			g->mask = PA_SUBSCRIPTION_MASK_SINK;
+			g->event = PA_SUBSCRIPTION_EVENT_SINK;
+		}
+		else if (strcmp(str, "Audio/Source") == 0) {
+			g->mask = PA_SUBSCRIPTION_MASK_SOURCE;
+			g->event = PA_SUBSCRIPTION_EVENT_SOURCE;
+		}
+		else if (strcmp(str, "Stream/Output/Audio") == 0) {
+			g->mask = PA_SUBSCRIPTION_MASK_SINK_INPUT;
+			g->event = PA_SUBSCRIPTION_EVENT_SINK_INPUT;
+		}
+		else if (strcmp(str, "Stream/Input/Audio") == 0) {
+			g->mask = PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT;
+			g->event = PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
+		}
+		else
+			return 0;
+	}
+	else if (g->type == c->t->module) {
+		g->mask = PA_SUBSCRIPTION_MASK_MODULE;
+		g->event = PA_SUBSCRIPTION_EVENT_MODULE;
+	}
+	else if (g->type == c->t->client) {
+		g->mask = PA_SUBSCRIPTION_MASK_CLIENT;
+		g->event = PA_SUBSCRIPTION_EVENT_CLIENT;
+	}
+	else
+		return 0;
+
+	return 1;
+}
 
 static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
                                   uint32_t permissions, uint32_t type, uint32_t version,
@@ -101,7 +143,18 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	g->type = type;
 	g->props = props ? pw_properties_new_dict(props) : NULL;
 
+	if (set_mask(c, g) == 0)
+		return;
+
 	spa_list_append(&c->globals, &g->link);
+
+	if (c->subscribe_mask & g->mask) {
+		if (c->subscribe_callback)
+			c->subscribe_callback(c,
+					PA_SUBSCRIPTION_EVENT_NEW | g->event,
+					g->id,
+					c->subscribe_userdata);
+	}
 }
 
 struct global *pa_context_find_global(pa_context *c, uint32_t id)
@@ -122,6 +175,14 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	pw_log_debug("remove %d", id);
 	if ((g = pa_context_find_global(c, id)) == NULL)
 		return;
+
+	if (c->subscribe_mask & g->mask) {
+		if (c->subscribe_callback)
+			c->subscribe_callback(c,
+					PA_SUBSCRIPTION_EVENT_REMOVE | g->event,
+					g->id,
+					c->subscribe_userdata);
+	}
 
 	spa_list_remove(&g->link);
 	if (g->props)

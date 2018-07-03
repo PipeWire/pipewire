@@ -197,6 +197,9 @@ struct global {
 	uint32_t type;
 	struct pw_properties *props;
 
+	pa_subscription_mask_t mask;
+	pa_subscription_event_type_t event;
+
 	void *info;
 	pw_destroy_t destroy;
 
@@ -337,6 +340,8 @@ struct pa_stream {
 	void *buffer_data;
 	uint32_t buffer_size;
 	uint32_t buffer_offset;
+
+	float volume;
 };
 
 void pa_stream_set_state(pa_stream *s, pa_stream_state_t st);

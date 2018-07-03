@@ -774,7 +774,7 @@ static int impl_node_process(struct spa_node *node)
 	int status, trigger;
 
 	impl->ctrl.min_size = impl->ctrl.max_size =
-		impl->this.node->driver_node->rt.quantum->size;
+		impl->this.node->driver_node->rt.quantum->size * sizeof(float);
 
 	spa_log_trace(this->log, "%p: process %d", this, impl->ctrl.max_size);
 

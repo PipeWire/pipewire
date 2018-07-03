@@ -1034,7 +1034,7 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	q = impl->node->rt.quantum;
 
 	time->now = q->nsec;
-	time->ticks = q->position / sizeof(float);
+	time->ticks = q->position;
 	time->rate = q->rate;
 
 	return 0;

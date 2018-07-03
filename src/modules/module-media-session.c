@@ -50,8 +50,9 @@ static const struct spa_dict_item module_props[] = {
 
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLE_RATE	48000
-#define DEFAULT_BUFFER_SIZE	(64 * sizeof(float))
-#define MAX_BUFFER_SIZE		(1024 * sizeof(float))
+
+#define MIN_QUANTUM_SIZE	64
+#define MAX_QUANTUM_SIZE	1024
 
 struct type {
 	struct spa_type_media_type media_type;
@@ -109,7 +110,7 @@ struct session {
 	bool busy;
 	bool exclusive;
 	int sample_rate;
-	int buffer_size;
+	int quantum_size;
 
 	struct spa_list node_list;
 };
@@ -123,7 +124,7 @@ struct node_info {
 	struct spa_hook node_listener;
 
 	uint32_t sample_rate;
-	uint32_t buffer_size;
+	uint32_t quantum_size;
 
 	struct spa_list links;
 };
@@ -314,25 +315,25 @@ static void reconfigure_session(struct session *sess)
 {
 	struct node_info *ni;
 	struct impl *impl = sess->impl;
-	uint32_t buffer_size = MAX_BUFFER_SIZE;
+	uint32_t quantum_size = MAX_QUANTUM_SIZE;
 
 	spa_list_for_each(ni, &sess->node_list, l) {
-		if (ni->buffer_size > 0)
-			buffer_size = SPA_MIN(buffer_size, ni->buffer_size);
+		if (ni->quantum_size > 0)
+			quantum_size = SPA_MIN(quantum_size, ni->quantum_size);
 	}
 	if (spa_list_is_empty(&sess->node_list)) {
 		sess->exclusive = false;
 		sess->busy = false;
 	}
 
-	sess->buffer_size = buffer_size;
+	sess->quantum_size = quantum_size;
 
 	sess->node->rt.quantum->rate.num = 1;
 	sess->node->rt.quantum->rate.denom = sess->sample_rate;
-	sess->node->rt.quantum->size = sess->buffer_size;
+	sess->node->rt.quantum->size = sess->quantum_size;
 
 	pw_log_info("module %p: driver node:%p quantum:%d/%d",
-			impl, sess->node, sess->sample_rate, buffer_size);
+			impl, sess->node, sess->sample_rate, quantum_size);
 }
 
 static void node_info_destroy(void *data)
@@ -461,7 +462,7 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
         enum pw_direction direction;
 	struct session *session;
 	struct node_info *info;
-	uint32_t sample_rate, buffer_size;
+	uint32_t sample_rate, quantum_size;
 	int res;
 
 	str = pw_properties_get(props, PW_NODE_PROP_AUTOCONNECT);
@@ -526,13 +527,13 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 	session = find.sess;
 
 	sample_rate = session->sample_rate;
-	buffer_size = session->buffer_size;
+	quantum_size = session->quantum_size;
 
 	if ((str = pw_properties_get(props, "node.latency")) != NULL) {
 		uint32_t num, denom;
 		pw_log_info("module %p: '%s'", impl, str);
 		if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
-			buffer_size = flp2((num * sample_rate / denom) * sizeof(float));
+			quantum_size = flp2((num * sample_rate / denom));
 		}
 	}
 
@@ -570,7 +571,7 @@ static int handle_autoconnect(struct impl *impl, struct pw_node *node,
 	info->session = session;
 	info->node = node;
 	info->sample_rate = sample_rate;
-	info->buffer_size = buffer_size;
+	info->quantum_size = quantum_size;
 	spa_list_init(&info->links);
 
 	spa_list_append(&session->node_list, &info->l);
@@ -759,7 +760,7 @@ static int on_global(void *data, struct pw_global *global)
 				direction,
 				channels,
 				rate,
-				MAX_BUFFER_SIZE,
+				MAX_QUANTUM_SIZE * sizeof(float),
 				0);
 		if (dsp == NULL)
 			return 0;
@@ -772,7 +773,7 @@ static int on_global(void *data, struct pw_global *global)
 		sess->dsp = dsp;
 		sess->dsp_port = dsp_port;
 		sess->sample_rate = rate;
-		sess->buffer_size = MAX_BUFFER_SIZE;
+		sess->quantum_size = MAX_QUANTUM_SIZE;
 		sess->enabled = true;
 
 		pw_node_register(dsp, NULL, pw_module_get_global(impl->module), NULL);

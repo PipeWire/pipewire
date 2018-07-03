@@ -668,7 +668,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
 			pw_log_warn("jack %p: read failed %m", c);
 
-		buffer_size = c->quantum->size / sizeof(float);
+		buffer_size = c->quantum->size;
 		if (buffer_size != c->buffer_size) {
 			pw_log_info("jack %p: buffersize %d", c, buffer_size);
 			c->buffer_size = buffer_size;
@@ -686,7 +686,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 
 		c->jack_position.usecs = c->quantum->nsec/1000;
 		c->jack_position.frame_rate = c->sample_rate;
-		c->jack_position.frame = c->quantum->position / sizeof(float);
+		c->jack_position.frame = c->quantum->position;
 
 		if (c->sync_callback) {
 			c->sync_callback(JackTransportRolling,

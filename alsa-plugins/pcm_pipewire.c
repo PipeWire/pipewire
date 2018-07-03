@@ -42,7 +42,9 @@
 
 #include <pipewire/pipewire.h>
 
-#define MAX_BUFFERS	8
+#define MIN_BUFFERS	3
+#define MAX_BUFFERS	64
+
 #define MAX_CHANNELS	32
 #define MAX_RATE	(48000*8)
 
@@ -336,14 +338,18 @@ static void on_stream_format_changed(void *data, const struct spa_pod *format)
         uint8_t buffer[4096];
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t stride = (io->channels * pw->sample_bits) / 8;
+	uint32_t buffers = SPA_CLAMP(io->buffer_size / io->period_size, MIN_BUFFERS, MAX_BUFFERS);
+	uint32_t size = io->period_size * stride;
+
+	pw_log_info("buffers %lu %lu %u %u %u", io->buffer_size, io->period_size, buffers, stride, size);
 
 	params[n_params++] = spa_pod_builder_object(&b,
 	                t->param.idBuffers, t->param_buffers.Buffers,
-			":", t->param_buffers.buffers, "iru", io->buffer_size / io->period_size,
-					SPA_POD_PROP_MIN_MAX(3, 64),
+			":", t->param_buffers.buffers, "iru", buffers,
+					SPA_POD_PROP_MIN_MAX(MIN_BUFFERS, MAX_BUFFERS),
 			":", t->param_buffers.blocks,  "i", 1,
-			":", t->param_buffers.size,    "ir", io->period_size * stride,
-					SPA_POD_PROP_MIN_MAX(io->period_size * stride, INT_MAX),
+			":", t->param_buffers.size,    "ir", size,
+					SPA_POD_PROP_MIN_MAX(size, INT_MAX),
 			":", t->param_buffers.stride,  "i", stride,
 			":", t->param_buffers.align,   "i", 16);
 
@@ -417,7 +423,9 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	pw->error = false;
 
 	pw_stream_connect(pw->stream,
-			  PW_DIRECTION_OUTPUT,
+			  io->stream == SND_PCM_STREAM_PLAYBACK ?
+				  PW_DIRECTION_OUTPUT :
+				  PW_DIRECTION_INPUT,
 			  pw->target,
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_MAP_BUFFERS |

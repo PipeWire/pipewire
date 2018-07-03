@@ -44,7 +44,9 @@ struct factory_data {
 	struct pw_factory *this;
 	struct pw_properties *properties;
 
+	struct pw_module *module;
 	struct spa_hook module_listener;
+
 	uint32_t type_client_node;
 };
 
@@ -55,8 +57,10 @@ static void *create_object(void *_data,
 			   struct pw_properties *properties,
 			   uint32_t new_id)
 {
+	struct factory_data *d = _data;
 	void *result;
 	struct pw_resource *node_resource;
+	struct pw_global *parent;
 
 	if (resource == NULL)
 		goto no_resource;
@@ -66,11 +70,13 @@ static void *create_object(void *_data,
 	if (node_resource == NULL)
 		goto no_mem;
 
+	parent = pw_module_get_global(d->module);
+
 	if (properties && pw_properties_get(properties, "node.stream") != NULL) {
-		result = pw_client_stream_new(node_resource, properties);
+		result = pw_client_stream_new(node_resource, parent, properties);
 	}
 	else {
-		result = pw_client_node_new(node_resource, properties, true);
+		result = pw_client_node_new(node_resource, parent, properties, true);
 	}
 	if (result == NULL)
 		goto no_mem;
@@ -134,6 +140,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
+	data->module = module;
 	data->properties = properties;
 	data->type_client_node = type_client_node;
 

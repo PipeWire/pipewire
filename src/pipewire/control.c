@@ -174,6 +174,8 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 				     port->direction, port->port_id,
 				     other->id,
 				     impl->mem->ptr, control->size)) < 0) {
+			pw_log_warn("control %p: set io failed %d %s", control,
+					res, spa_strerror(res));
 			goto exit;
 		}
 	}
@@ -185,6 +187,8 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 					     port->direction, port->port_id,
 					     control->id,
 					     impl->mem->ptr, control->size)) < 0) {
+				pw_log_warn("control %p: set io failed %d %s", control,
+					res, spa_strerror(res));
 				/* undo */
 				port = other->port;
 				spa_node_port_set_io(port->node->node,

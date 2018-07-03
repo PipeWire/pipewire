@@ -87,7 +87,6 @@ struct node_data {
 	struct pw_remote *remote;
 	struct pw_core *core;
 	struct pw_type *t;
-	uint32_t node_id;
 
 	int rtwritefd;
 	struct spa_source *rtsocket_source;
@@ -754,7 +753,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 
 	clean_transport(data);
 
-	data->node_id = node_id;
+	proxy->remote_id = node_id;
 
 	pw_log_debug("remote-node %p: create transport with fds %d %d for node %u",
 		proxy, readfd, writefd, node_id);
@@ -1343,9 +1342,10 @@ static void clear_mix(struct node_data *data, struct mix *mix)
 static void node_proxy_destroy(void *_data)
 {
 	struct node_data *data = _data;
+	struct pw_proxy *proxy = (struct pw_proxy*) data->node_proxy;
 	struct mix *mix, *tmp;
 
-	if (data->node_id != SPA_ID_INVALID) {
+	if (proxy->remote_id != SPA_ID_INVALID) {
 		spa_list_for_each_safe(mix, tmp, &data->mix[SPA_DIRECTION_INPUT], link)
 			clear_mix(data, mix);
 		spa_list_for_each_safe(mix, tmp, &data->mix[SPA_DIRECTION_OUTPUT], link)
@@ -1388,7 +1388,6 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	data = pw_proxy_get_user_data(proxy);
 	data->remote = remote;
 	data->node = node;
-	data->node_id = SPA_ID_INVALID;
 	data->core = pw_node_get_core(node);
 	data->t = pw_core_get_type(data->core);
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;

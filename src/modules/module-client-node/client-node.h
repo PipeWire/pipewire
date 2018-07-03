@@ -35,10 +35,12 @@ struct pw_client_node {
 	struct pw_node *node;
 
 	struct pw_resource *resource;
+	struct pw_global *parent;
 };
 
 struct pw_client_node *
 pw_client_node_new(struct pw_resource *resource,
+		   struct pw_global *parent,
 		   struct pw_properties *properties,
 		   bool do_register);
 

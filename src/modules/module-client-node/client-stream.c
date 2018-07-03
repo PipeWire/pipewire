@@ -633,6 +633,7 @@ impl_node_port_set_io(struct spa_node *node,
 	impl = this->impl;
 	t = impl->t;
 
+	spa_log_debug(this->log, "set io %d %d %d", id, direction, impl->direction);
 	if (direction != impl->direction)
 		return -EINVAL;
 
@@ -1028,6 +1029,7 @@ static const struct pw_node_events node_events = {
  * \memberof pw_client_stream
  */
 struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
+					  struct pw_global *parent,
 					  struct pw_properties *properties)
 {
 	struct impl *impl;
@@ -1053,6 +1055,7 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 
 	impl->client_node = pw_client_node_new(
 			resource,
+			parent,
 			pw_properties_copy(properties),
 			false);
 	if (impl->client_node == NULL)
@@ -1068,7 +1071,7 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 
 	this->node = pw_spa_node_new(core,
 				     client,
-				     NULL,
+				     parent,
 				     name,
 				     PW_SPA_NODE_FLAG_ASYNC,
 				     &impl->node.node,

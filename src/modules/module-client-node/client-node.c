@@ -1156,6 +1156,7 @@ void pw_client_node_registered(struct pw_client_node *this, uint32_t node_id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
+	pw_log_debug("client-node %p: %d", this, node_id);
 	pw_client_node_resource_transport(this->resource,
 					  node_id,
 					  impl->other_fds[0],
@@ -1326,6 +1327,7 @@ static const struct pw_resource_events resource_events = {
  * \memberof pw_client_node
  */
 struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
+					  struct pw_global *parent,
 					  struct pw_properties *properties,
 					  bool do_register)
 {
@@ -1360,9 +1362,10 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 		name = "client-node";
 
 	this->resource = resource;
+	this->parent = parent;
 	this->node = pw_spa_node_new(core,
 				     pw_resource_get_client(this->resource),
-				     NULL,
+				     parent,
 				     name,
 				     PW_SPA_NODE_FLAG_ASYNC |
 				     (do_register ? 0 : PW_SPA_NODE_FLAG_NO_REGISTER),

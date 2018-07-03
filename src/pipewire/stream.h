@@ -212,13 +212,6 @@ enum pw_stream_flags {
 							  *  device */
 };
 
-/** A time structure \memberof pw_stream */
-struct pw_time {
-	int64_t now;			/**< the monotonic time */
-	int64_t ticks;			/**< the ticks at \a now */
-	struct spa_fraction rate;	/**< the rate of \a ticks */
-};
-
 /** Create a new unconneced \ref pw_stream \memberof pw_stream
  * \return a newly allocated \ref pw_stream */
 struct pw_stream *
@@ -297,6 +290,12 @@ pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 /** Activate or deactivate the stream \memberof pw_stream */
 int pw_stream_set_active(struct pw_stream *stream, bool active);
 
+/** A time structure \memberof pw_stream */
+struct pw_time {
+	int64_t now;			/**< the monotonic time */
+	int64_t ticks;			/**< the ticks at \a now */
+	struct spa_fraction rate;	/**< the rate of \a ticks */
+};
 /** Query the time on the stream \memberof pw_stream */
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);
 

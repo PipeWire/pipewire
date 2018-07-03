@@ -62,6 +62,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 	spa_hook_list_init(&this->proxy_listener_list);
 
 	this->id = pw_map_insert_new(&remote->objects, this);
+	this->remote_id = SPA_ID_INVALID;
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct proxy), void);

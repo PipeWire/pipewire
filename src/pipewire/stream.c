@@ -26,7 +26,6 @@
 #include <spa/support/type-map.h>
 #include <spa/buffer/alloc.h>
 #include <spa/param/format-utils.h>
-#include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/node/io.h>
 #include <spa/utils/ringbuffer.h>
@@ -684,7 +683,7 @@ static int handle_connect(struct pw_stream *stream)
 	pw_node_set_active(impl->node, true);
 
 	pw_log_debug("stream %p: export node %p", stream, impl->node);
-	pw_remote_export(stream->remote, impl->node);
+	stream->proxy = pw_remote_export(stream->remote, impl->node);
 
 	return 0;
 }
@@ -988,7 +987,7 @@ pw_stream_connect(struct pw_stream *stream,
 
 uint32_t pw_stream_get_node_id(struct pw_stream *stream)
 {
-	return stream->node_id;
+	return stream->proxy->remote_id;
 }
 
 int pw_stream_disconnect(struct pw_stream *stream)

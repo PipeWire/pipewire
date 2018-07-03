@@ -426,6 +426,7 @@ struct pw_proxy {
 	struct spa_list link;		/**< link in the remote */
 
 	uint32_t id;			/**< client side id */
+	uint32_t remote_id;		/**< remote id */
 
 	struct spa_hook_list listener_list;
 	struct spa_hook_list proxy_listener_list;
@@ -476,6 +477,7 @@ struct pw_stream {
 	char *error;				/**< error reason when state is in error */
 
 	struct spa_hook_list listener_list;
+	struct pw_proxy *proxy;
 };
 
 struct pw_factory {

@@ -36,7 +36,8 @@ struct pw_client_stream {
 
 struct pw_client_stream *
 pw_client_stream_new(struct pw_resource *resource,
-		   struct pw_properties *properties);
+		     struct pw_global *parent,
+		     struct pw_properties *properties);
 
 void
 pw_client_stream_destroy(struct pw_client_stream *stream);

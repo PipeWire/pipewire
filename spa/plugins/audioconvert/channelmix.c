@@ -42,12 +42,15 @@
 
 struct impl;
 
+#define DEFAULT_VOLUME	1.0
+
 struct props {
-	int dummy;
+	float volume;
 };
 
 static void props_reset(struct props *props)
 {
+	props->volume = DEFAULT_VOLUME;
 }
 
 struct buffer {
@@ -58,11 +61,17 @@ struct buffer {
 	struct spa_meta_header *h;
 };
 
+struct control {
+	struct spa_pod_float *volume;
+};
+
 struct port {
 	uint32_t id;
 
 	struct spa_io_buffers *io;
 	struct spa_port_info info;
+
+	struct control control;
 
 	bool have_format;
 	struct spa_audio_info format;
@@ -79,8 +88,10 @@ struct port {
 struct type {
 	uint32_t node;
 	uint32_t format;
-	uint32_t prop_truncate;
-	uint32_t prop_dither;
+
+	uint32_t prop_volume;
+	uint32_t io_prop_volume;
+
 	struct spa_type_io io;
 	struct spa_type_param param;
 	struct spa_type_media_type media_type;
@@ -99,8 +110,10 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->prop_truncate = spa_type_map_get_id(map, SPA_TYPE_PROPS__truncate);
-	type->prop_dither = spa_type_map_get_id(map, SPA_TYPE_PROPS__ditherType);
+
+	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
+	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
+
 	spa_type_io_map(map, &type->io);
 	spa_type_param_map(map, &type->param);
 	spa_type_media_type_map(map, &type->media_type);
@@ -158,7 +171,7 @@ static void setup_matrix(struct impl *this,
 	for (i = 0; i < dst_chan; i++) {
 		for (j = 0; j < src_chan; j++) {
 			if (i == j)
-				this->matrix[i * src_chan + j] = 1.0f;
+				this->matrix[i * src_chan + j] = this->props.volume;
 			else
 				this->matrix[i * src_chan + j] = 0.0f;
 		}
@@ -204,9 +217,7 @@ static int setup_convert(struct impl *this,
 	this->convert = chanmix_info->func;
 
 	/* set up the matrix if needed */
-	if (!SPA_FLAG_CHECK(chanmix_info->flags, CHANNELMIX_INFO_FLAG_NO_MATRIX)) {
-		setup_matrix(this, src_info, dst_info);
-	}
+	setup_matrix(this, src_info, dst_info);
 
 	return 0;
 }
@@ -698,6 +709,8 @@ impl_node_port_set_io(struct spa_node *node,
 
 	if (id == t->io.Buffers)
 		port->io = data;
+	else if (id == t->io_prop_volume)
+		port->control.volume = data;
 	else
 		return -ENOENT;
 
@@ -794,6 +807,13 @@ static int impl_node_process(struct spa_node *node)
 
 	if ((dbuf = dequeue_buffer(this, outport)) == NULL)
 		return outio->status = -EPIPE;
+
+	if (outport->control.volume && outport->control.volume->value != this->props.volume) {
+		this->props.volume = outport->control.volume->value;
+		setup_matrix(this,
+				&GET_IN_PORT(this, 0)->format,
+				&GET_OUT_PORT(this, 0)->format);
+	}
 
 	sbuf = &inport->buffers[inio->buffer_id];
 

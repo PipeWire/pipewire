@@ -22,13 +22,34 @@
 
 #include <spa/utils/defs.h>
 
+#define VOLUME_MIN 0.0f
+#define VOLUME_NORM 1.0f
+
 static void
 channelmix_copy(void *data, int n_dst, void *dst[n_dst],
 	   int n_src, const void *src[n_src], void *matrix, int n_bytes)
 {
-	int i;
-	for (i = 0; i < n_src; i++)
-		memcpy(dst[i], src[i], n_bytes);
+	int i, j;
+	float *m = matrix;
+	float v = m[0];
+
+	if (v <= VOLUME_MIN) {
+		for (i = 0; i < n_src; i++)
+			memset(dst[i], 0, n_bytes);
+	}
+	else if (v == VOLUME_NORM) {
+		for (i = 0; i < n_src; i++)
+			memcpy(dst[i], src[i], n_bytes);
+	}
+	else {
+		float **d = (float **) dst;
+		float **s = (float **) src;
+		int n_samples = n_bytes / sizeof(float);
+
+		for (i = 0; i < n_src; i++)
+			for (j = 0; j < n_samples; j++)
+				d[i][j] = s[i][j] * v;
+	}
 }
 
 static void
@@ -60,11 +81,20 @@ channelmix_f32_1_2(void *data, int n_dst, void *dst[n_dst],
 	int n, n_samples;
 	float **d = (float **) dst;
 	const float *s = src[0];
+	float *m = matrix;
+	float v = m[0];
 
 	n_samples = n_bytes / sizeof(float);
-	for (n = 0; n < n_samples; n++) {
-		d[0][n] = s[n];
-		d[1][n] = s[n];
+	if (v <= VOLUME_MIN) {
+		memset(d[0], 0, n_bytes);
+	}
+	else if (v == VOLUME_NORM) {
+		for (n = 0; n < n_samples; n++)
+			d[0][n] = d[1][n] = s[n];
+	}
+	else {
+		for (n = 0; n < n_samples; n++)
+			d[0][n] = d[1][n] = s[n] * v;
 	}
 }
 
@@ -75,10 +105,22 @@ channelmix_f32_2_1(void *data, int n_dst, void *dst[n_dst],
 	int n, n_samples;
 	float *d = dst[0];
 	float **s = (float **) src;
+	float *m = matrix;
+	float v = m[0];
 
 	n_samples = n_bytes / sizeof(float);
-	for (n = 0; n < n_samples; n++)
-		d[n] = (s[0][n] + s[1][n]) * 0.5f;
+	if (v <= VOLUME_MIN) {
+		memset(d, 0, n_bytes);
+	}
+	else if (v == VOLUME_NORM) {
+		for (n = 0; n < n_samples; n++)
+			d[n] = (s[0][n] + s[1][n]) * 0.5f;
+	}
+	else {
+		v *= 0.5f;
+		for (n = 0; n < n_samples; n++)
+			d[n] = (s[0][n] + s[1][n]) * v;
+	}
 }
 
 typedef void (*channelmix_func_t) (void *data, int n_dst, void *dst[n_dst],
@@ -91,13 +133,12 @@ static const struct channelmix_info {
 	uint32_t dst_chan;
 
 	channelmix_func_t func;
-#define CHANNELMIX_INFO_FLAG_NO_MATRIX	(1 << 0)
 	uint32_t flags;
 } channelmix_table[] =
 {
-	{ -2, -2, channelmix_copy, CHANNELMIX_INFO_FLAG_NO_MATRIX },
-	{ 1, 2, channelmix_f32_1_2, CHANNELMIX_INFO_FLAG_NO_MATRIX },
-	{ 2, 1, channelmix_f32_2_1, CHANNELMIX_INFO_FLAG_NO_MATRIX },
+	{ -2, -2, channelmix_copy, 0 },
+	{ 1, 2, channelmix_f32_1_2, 0 },
+	{ 2, 1, channelmix_f32_2_1, 0 },
 	{ -1, -1, channelmix_f32_n_m, 0 },
 };
 

@@ -863,7 +863,7 @@ impl_node_port_set_io(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_log_trace(this->log, NAME " %p: port %d:%d update io %d %p",
+	spa_log_debug(this->log, NAME " %p: port %d:%d update io %d %p",
 			this, direction, port_id, id, data);
 
 	if (id == t->io.Buffers)

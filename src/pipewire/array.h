@@ -53,10 +53,19 @@ struct pw_array {
 /** Check if an item with index \a idx and type \a t exist in array \memberof pw_array */
 #define pw_array_check_index(a,idx,t)		pw_array_check_index_s(a,idx,sizeof(t))
 
-#define pw_array_for_each(pos, array)							\
-	for (pos = (__typeof__(pos)) (array)->data;							\
-	     (const uint8_t *) pos < ((const uint8_t *) (array)->data + (array)->size);	\
+#define pw_array_first(a)	((a)->data)
+#define pw_array_end(a)		((const uint8_t*)(a)->data + (a)->size)
+#define pw_array_check(a,p)	((const uint8_t*)(p) < pw_array_end(a))
+
+#define pw_array_for_each(pos, array)					\
+	for (pos = (__typeof__(pos)) pw_array_first(array);		\
+	     pw_array_check(array, pos);				\
 	     (pos)++)
+
+#define pw_array_remove(a,p)						\
+	memmove(p, SPA_MEMBER((p), sizeof(*(p)), void),			\
+                SPA_PTRDIFF((p), pw_array_end(a)) - sizeof(*(p)));
+
 
 /** Initialize the array with given extend \memberof pw_array */
 static inline void pw_array_init(struct pw_array *arr, size_t extend)

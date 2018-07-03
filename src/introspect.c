@@ -879,7 +879,6 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 	if ((s = find_stream(c, idx)) == NULL)
 		return NULL;
 
-	s->mute = mute;
 	if (mute)
 		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, 0.0);
 	else

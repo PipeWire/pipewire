@@ -1453,7 +1453,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	struct client *client;
 	bool busy = true;
 	struct spa_dict props;
-	struct spa_dict_item items[2];
+	struct spa_dict_item items[4];
 	int i;
 
 	pw_log_debug("client open %s %d", client_name, options);
@@ -1534,6 +1534,9 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	props = SPA_DICT_INIT(items, 0);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT("node.name", client_name);
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_MEDIA, "Audio");
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_CATEGORY, "Duplex");
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_ROLE, "DSP");
 
 	client->node_proxy = pw_core_proxy_create_object(client->core_proxy,
 				"client-node",

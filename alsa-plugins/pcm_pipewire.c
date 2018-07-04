@@ -404,6 +404,11 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 
 	props = pw_properties_new("client.api", "alsa", NULL);
 	pw_properties_setf(props, "node.latency", "%lu/%u", io->period_size, io->rate);
+	pw_properties_set(props, PW_NODE_PROP_MEDIA, "Audio");
+	pw_properties_set(props, PW_NODE_PROP_CATEGORY,
+			io->stream == SND_PCM_STREAM_PLAYBACK ?
+			"Playback" : "Capture");
+	pw_properties_set(props, PW_NODE_PROP_ROLE, "Music");
 
 	pw->stream = pw_stream_new(pw->remote, pw->node_name, props);
 	if (pw->stream == NULL)

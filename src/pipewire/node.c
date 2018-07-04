@@ -377,6 +377,8 @@ int pw_node_register(struct pw_node *this,
 	if ((str = pw_properties_get(this->properties, "media.class")) != NULL)
 		pw_properties_set(properties, "media.class", str);
 	pw_properties_set(properties, "node.name", this->info.name);
+	if ((str = pw_properties_get(this->properties, "node.session")) != NULL)
+		pw_properties_set(properties, "node.session", str);
 
 	spa_list_append(&core->node_list, &this->link);
 	this->registered = true;
@@ -389,6 +391,7 @@ int pw_node_register(struct pw_node *this,
 		return -ENOMEM;
 
 	this->info.id = this->global->id;
+	pw_properties_setf(this->properties, "node.id", "%d", this->info.id);
 
 	pw_node_initialized(this);
 

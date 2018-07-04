@@ -887,7 +887,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	struct pw_node *node;
 	struct node *n;
 	struct port *p;
-	const char *api, *alias, *plugged;
+	const char *api, *alias, *plugged, *str;
 	char node_name[128];
 	struct pw_properties *pr;
 	int i;
@@ -914,6 +914,8 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 
 	if ((plugged = pw_properties_get(props, "node.plugged")) != NULL)
 		pw_properties_set(pr, "node.plugged", plugged);
+	if ((str = pw_properties_get(props, "node.id")) != NULL)
+		pw_properties_set(pr, "node.session", str);
 
 	node = pw_node_new(core, node_name, pr, sizeof(struct node) + user_data_size);
         if (node == NULL)

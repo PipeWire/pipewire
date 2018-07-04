@@ -313,9 +313,11 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
 	s->sample_spec.rate = info.info.raw.rate;
 	s->sample_spec.channels = info.info.raw.channels;
 
+	pa_channel_map_init_auto(&s->channel_map, info.info.raw.channels, PA_CHANNEL_MAP_ALSA);
+
 	if (s->format)
 		pa_format_info_free(s->format);
-	s->format = pa_format_info_from_sample_spec(&s->sample_spec, NULL);
+	s->format = pa_format_info_from_sample_spec(&s->sample_spec, &s->channel_map);
 
 	patch_buffer_attr(s, &s->buffer_attr, NULL);
 
@@ -642,6 +644,7 @@ static int create_stream(pa_stream_direction_t direction,
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct pw_properties *props;
 	uint32_t sample_rate = 0, stride = 0;
+	const char *str;
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -705,6 +708,34 @@ static int create_stream(pa_stream_direction_t direction,
 	props = (struct pw_properties *) pw_stream_get_properties(s->stream);
 	pw_properties_setf(props, "node.latency", "%u/%u",
 			s->buffer_attr.minreq / stride, sample_rate);
+	pw_properties_set(props, PW_NODE_PROP_MEDIA, "Audio");
+	pw_properties_set(props, PW_NODE_PROP_CATEGORY,
+			direction == PA_STREAM_PLAYBACK ?
+				"Playback" : "Capture");
+
+	if ((str = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_ROLE)) == NULL)
+		str = "Music";
+	else if (strcmp(str, "video") == 0)
+		str = "Movie";
+	else if (strcmp(str, "music") == 0)
+		str = "Music";
+	else if (strcmp(str, "game") == 0)
+		str = "Game";
+	else if (strcmp(str, "event") == 0)
+		str = "Notification";
+	else if (strcmp(str, "phone") == 0)
+		str = "Communication";
+	else if (strcmp(str, "animation") == 0)
+		str = "Movie";
+	else if (strcmp(str, "production") == 0)
+		str = "Production";
+	else if (strcmp(str, "a11y") == 0)
+		str = "Accessibility";
+	else if (strcmp(str, "test") == 0)
+		str = "Test";
+	else
+		str = "Music";
+	pw_properties_set(props, PW_NODE_PROP_ROLE, str);
 
 	res = pw_stream_connect(s->stream,
 				direction == PA_STREAM_PLAYBACK ?

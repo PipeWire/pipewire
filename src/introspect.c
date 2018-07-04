@@ -119,6 +119,24 @@ struct sink_data {
 	struct global *global;
 };
 
+static pa_sink_state_t node_state_to_sink(enum pw_node_state s)
+{
+	switch(s) {
+	case PW_NODE_STATE_ERROR:
+		return PA_SINK_UNLINKED;
+	case PW_NODE_STATE_CREATING:
+		return PA_SINK_INIT;
+	case PW_NODE_STATE_SUSPENDED:
+		return PA_SINK_SUSPENDED;
+	case PW_NODE_STATE_IDLE:
+		return PA_SINK_IDLE;
+	case PW_NODE_STATE_RUNNING:
+		return PA_SINK_RUNNING;
+	default:
+		return PA_SINK_INVALID_STATE;
+	}
+}
+
 static void sink_callback(struct sink_data *d)
 {
 	struct global *g = d->global;
@@ -134,6 +152,7 @@ static void sink_callback(struct sink_data *d)
 	i.proplist = pa_proplist_new_dict(info->props);
 	i.owner_module = g->parent_id;
 	i.base_volume = PA_VOLUME_NORM;
+	i.state = node_state_to_sink(info->state);
 	i.n_volume_steps = PA_VOLUME_NORM+1;
 	i.n_formats = 1;
 	ii[0].encoding = PA_ENCODING_PCM;
@@ -318,20 +337,45 @@ struct source_data {
 	struct global *global;
 };
 
+static pa_source_state_t node_state_to_source(enum pw_node_state s)
+{
+	switch(s) {
+	case PW_NODE_STATE_ERROR:
+		return PA_SOURCE_UNLINKED;
+	case PW_NODE_STATE_CREATING:
+		return PA_SOURCE_INIT;
+	case PW_NODE_STATE_SUSPENDED:
+		return PA_SOURCE_SUSPENDED;
+	case PW_NODE_STATE_IDLE:
+		return PA_SOURCE_IDLE;
+	case PW_NODE_STATE_RUNNING:
+		return PA_SOURCE_RUNNING;
+	default:
+		return PA_SOURCE_INVALID_STATE;
+	}
+}
 static void source_callback(struct source_data *d)
 {
 	struct global *g = d->global;
 	struct pw_node_info *info = g->info;
 	pa_source_info i;
+	pa_format_info ii[1];
+	pa_format_info *ip[1];
 
 	spa_zero(i);
 	i.index = g->id;
 	i.name = info->name;
+	i.description = info->name;
 	i.proplist = pa_proplist_new_dict(info->props);
 	i.owner_module = g->parent_id;
 	i.base_volume = PA_VOLUME_NORM;
+	i.state = node_state_to_source(info->state);
 	i.n_volume_steps = PA_VOLUME_NORM+1;
-
+	i.n_formats = 1;
+	ii[0].encoding = PA_ENCODING_PCM;
+	ii[0].plist = pa_proplist_new();
+	ip[0] = ii;
+	i.formats = ip;
 	d->cb(d->context, &i, 0, d->userdata);
 }
 
@@ -748,23 +792,32 @@ static void sink_input_callback(struct sink_input_data *d)
 	spa_zero(i);
 	i.index = g->id;
 	i.name = info->name;
-	i.proplist = pa_proplist_new_dict(info->props);
 	i.owner_module = g->parent_id;
-	ii[0].encoding = PA_ENCODING_PCM;
-	ii[0].plist = pa_proplist_new();
-	i.format = ii;
+	i.client = PA_INVALID_INDEX;
+	i.sink = PA_INVALID_INDEX;
+	pa_cvolume_init(&i.volume);
+	if (s) {
+		i.sample_spec = s->sample_spec;
+		i.channel_map = s->channel_map;
+		pa_cvolume_set(&i.volume, 1, s->volume * PA_VOLUME_NORM);
+		i.format = s->format;
+	}
+	else {
+		pa_channel_map_init(&i.channel_map);
+		pa_sample_spec_init(&i.sample_spec);
+		ii[0].encoding = PA_ENCODING_PCM;
+		ii[0].plist = pa_proplist_new();
+		i.format = ii;
+	}
+	i.buffer_usec = 0;
+	i.sink_usec = 0;
 	i.resample_method = "PipeWire resampler";
 	i.driver = "PipeWire";
 	i.mute = false;
+	i.proplist = pa_proplist_new_dict(info->props);
 	i.corked = false;
 	i.has_volume = true;
 	i.volume_writable = true;
-	i.volume.channels = 1;
-	if (s)
-		i.volume.values[0] = s->volume * PA_VOLUME_NORM;
-	else
-		i.volume.values[0] = PA_VOLUME_NORM;
-
 	d->cb(d->context, &i, 0, d->userdata);
 }
 

@@ -760,13 +760,17 @@ static int schedule_mix(struct spa_node *_node)
 	struct port *outp = GET_OUT_PORT(n, 0);
 	struct spa_graph_node *node = &port->rt.mix_node;
 	struct spa_graph_port *gp;
-	size_t buffer_size = 0;
+	int n_samples;
 	struct buffer *outb;
 	float *out = NULL;
 	int layer = 0;
 	int stride = n->channels;
+	struct pw_driver_quantum *q;
 
-	pw_log_trace("port %p", port);
+	q = n->node->driver_node->rt.quantum;
+
+	n_samples = q->size;
+	pw_log_trace("port %p %d", port, n_samples);
 
 	spa_list_for_each(gp, &node->ports[SPA_DIRECTION_INPUT], link) {
 		struct pw_port_mix *mix = SPA_CONTAINER_OF(gp, struct pw_port_mix, port);
@@ -782,35 +786,32 @@ static int schedule_mix(struct spa_node *_node)
 				inio->status, inio->buffer_id, mix->n_buffers);
 
 		inb = mix->buffers[inio->buffer_id];
-		buffer_size = inb->datas[0].chunk->size / sizeof(float);
+		n_samples = SPA_MIN(n_samples, inb->datas[0].chunk->size / sizeof(float));
 
 		if (layer++ == 0) {
 			out = inb->datas[0].data;
 		}
 		else {
-			add_f32(out, inb->datas[0].data, buffer_size);
+			add_f32(out, inb->datas[0].data, n_samples);
 		}
 
-		pw_log_trace("mix %p: input %p %p %zd", node, inio, mix->io, buffer_size);
+		pw_log_trace("mix %p: input %p %p %d", node, inio, mix->io, n_samples);
 	}
 
 	outb = peek_buffer(n, outp);
 	if (outb == NULL)
 		return -EPIPE;
 
-	if (layer > 0) {
-		n->conv_func(outb->ptr, out, port->port_id, buffer_size, stride);
+	if (layer > 0)
+		n->conv_func(outb->ptr, out, port->port_id, n_samples, stride);
+	else
+		n->fill_func(outb->ptr, port->port_id, n_samples, stride);
 
-		outb->buf->datas[0].chunk->offset = 0;
-		outb->buf->datas[0].chunk->size = buffer_size * outp->stride;
-		outb->buf->datas[0].chunk->stride = outp->stride;
-	}
-	else {
-		buffer_size = outb->buf->datas[0].maxsize / outp->stride;
-		n->fill_func(outb->ptr, port->port_id, buffer_size, stride);
-	}
+	outb->buf->datas[0].chunk->offset = 0;
+	outb->buf->datas[0].chunk->size = n_samples * outp->stride;
+	outb->buf->datas[0].chunk->stride = outp->stride;
 
-	pw_log_trace("mix %p: layer %d %zd %d", node, layer, buffer_size, outp->stride);
+	pw_log_trace("mix %p: layers:%d %d %d", node, layer, n_samples, outp->stride);
 
 	return SPA_STATUS_HAVE_BUFFER;
 }

@@ -222,6 +222,7 @@ void pw_thread_loop_stop(struct pw_thread_loop *loop)
 void pw_thread_loop_lock(struct pw_thread_loop *loop)
 {
 	pthread_mutex_lock(&loop->lock);
+	pw_log_trace("thread-loop: %p", loop);
 }
 
 /** Unlock the mutex associated with \a loop
@@ -232,6 +233,7 @@ void pw_thread_loop_lock(struct pw_thread_loop *loop)
  */
 void pw_thread_loop_unlock(struct pw_thread_loop *loop)
 {
+	pw_log_trace("thread-loop: %p", loop);
 	pthread_mutex_unlock(&loop->lock);
 }
 
@@ -247,6 +249,7 @@ void pw_thread_loop_unlock(struct pw_thread_loop *loop)
  */
 void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept)
 {
+	pw_log_trace("thread-loop: %p, waiting %d", loop, loop->n_waiting);
 	if (loop->n_waiting > 0)
 		pthread_cond_broadcast(&loop->cond);
 
@@ -266,9 +269,11 @@ void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept)
  */
 void pw_thread_loop_wait(struct pw_thread_loop *loop)
 {
+	pw_log_trace("thread-loop: %p, waiting %d", loop, loop->n_waiting);
 	loop->n_waiting++;
 	pthread_cond_wait(&loop->cond, &loop->lock);
 	loop->n_waiting--;
+	pw_log_trace("thread-loop: %p, waiting done %d", loop, loop->n_waiting);
 }
 
 /** Wait for the loop thread to call \ref pw_thread_loop_signal()

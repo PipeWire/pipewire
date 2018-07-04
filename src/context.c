@@ -86,6 +86,16 @@ pa_context *pa_context_new(pa_mainloop_api *mainloop, const char *name)
 	return pa_context_new_with_proplist(mainloop, name, NULL);
 }
 
+struct global *pa_context_find_global(pa_context *c, uint32_t id)
+{
+	struct global *g;
+	spa_list_for_each(g, &c->globals, link) {
+		if (g->id == id)
+			return g;
+	}
+	return NULL;
+}
+
 static int set_mask(pa_context *c, struct global *g)
 {
 	const char *str;
@@ -100,9 +110,23 @@ static int set_mask(pa_context *c, struct global *g)
 			g->mask = PA_SUBSCRIPTION_MASK_SINK;
 			g->event = PA_SUBSCRIPTION_EVENT_SINK;
 		}
+		else if (strcmp(str, "Audio/DSP/Playback") == 0) {
+			if ((str = pw_properties_get(g->props, "node.session")) == NULL)
+				return 0;
+			g->mask = PA_SUBSCRIPTION_MASK_DSP_SINK;
+			g->dsp_info.session = pa_context_find_global(c,
+					pw_properties_parse_int(str));
+		}
 		else if (strcmp(str, "Audio/Source") == 0) {
 			g->mask = PA_SUBSCRIPTION_MASK_SOURCE;
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE;
+		}
+		else if (strcmp(str, "Audio/DSP/Capture") == 0) {
+			if ((str = pw_properties_get(g->props, "node.session")) == NULL)
+				return 0;
+			g->mask = PA_SUBSCRIPTION_MASK_DSP_SOURCE;
+			g->dsp_info.session = pa_context_find_global(c,
+					pw_properties_parse_int(str));
 		}
 		else if (strcmp(str, "Stream/Output/Audio") == 0) {
 			g->mask = PA_SUBSCRIPTION_MASK_SINK_INPUT;
@@ -112,8 +136,6 @@ static int set_mask(pa_context *c, struct global *g)
 			g->mask = PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT;
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
 		}
-		else
-			return 0;
 	}
 	else if (g->type == c->t->module) {
 		g->mask = PA_SUBSCRIPTION_MASK_MODULE;
@@ -122,6 +144,23 @@ static int set_mask(pa_context *c, struct global *g)
 	else if (g->type == c->t->client) {
 		g->mask = PA_SUBSCRIPTION_MASK_CLIENT;
 		g->event = PA_SUBSCRIPTION_EVENT_CLIENT;
+	}
+	else if (g->type == c->t->port) {
+		pw_log_debug("found port %d", g->id);
+	}
+	else if (g->type == c->t->link) {
+                if ((str = pw_properties_get(g->props, "link.output")) == NULL)
+			return 0;
+		g->link_info.src = pa_context_find_global(c, pw_properties_parse_int(str));
+                if ((str = pw_properties_get(g->props, "link.input")) == NULL)
+			return 0;
+		g->link_info.dst = pa_context_find_global(c, pw_properties_parse_int(str));
+
+		if (g->link_info.src == NULL || g->link_info.dst == NULL)
+			return 0;
+
+		pw_log_debug("link %d->%d", g->link_info.src->parent_id,
+				g->link_info.dst->parent_id);
 	}
 	else
 		return 0;
@@ -146,6 +185,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	if (set_mask(c, g) == 0)
 		return;
 
+	pw_log_debug("mask %d/%d", g->mask, g->event);
 	spa_list_append(&c->globals, &g->link);
 
 	if (c->subscribe_mask & g->mask) {
@@ -155,16 +195,6 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 					g->id,
 					c->subscribe_userdata);
 	}
-}
-
-struct global *pa_context_find_global(pa_context *c, uint32_t id)
-{
-	struct global *g;
-	spa_list_for_each(g, &c->globals, link) {
-		if (g->id == id)
-			return g;
-	}
-	return NULL;
 }
 
 static void registry_event_global_remove(void *object, uint32_t id)

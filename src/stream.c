@@ -96,10 +96,70 @@ static int dequeue_buffer(pa_stream *s)
 	return 0;
 }
 
+static void dump_buffer_attr(pa_stream *s, pa_buffer_attr *attr)
+{
+	pw_log_info("stream %p: maxlength: %u", s, attr->maxlength);
+	pw_log_info("stream %p: tlength: %u", s, attr->tlength);
+	pw_log_info("stream %p: minreq: %u", s, attr->minreq);
+	pw_log_info("stream %p: prebuf: %u", s, attr->prebuf);
+	pw_log_info("stream %p: fragsize: %u", s, attr->fragsize);
+}
+
 static void configure_buffers(pa_stream *s)
 {
-	s->buffer_attr.maxlength = 65536;
+	s->buffer_attr.maxlength = s->maxsize;
 	s->buffer_attr.prebuf = s->buffer_attr.minreq;
+	s->buffer_attr.fragsize = s->buffer_attr.minreq;
+	dump_buffer_attr(s, &s->buffer_attr);
+}
+
+static struct global *find_linked(pa_stream *s, uint32_t idx)
+{
+	struct global *g, *f;
+	pa_context *c = s->context;
+
+	spa_list_for_each(g, &c->globals, link) {
+		if (g->type != c->t->link)
+			continue;
+
+		pw_log_debug("%d %d %d", idx,
+				g->link_info.src->parent_id,
+				g->link_info.dst->parent_id);
+
+		if (g->link_info.src->parent_id == idx)
+			f = pa_context_find_global(c, g->link_info.dst->parent_id);
+		else if (g->link_info.dst->parent_id == idx)
+			f = pa_context_find_global(c, g->link_info.src->parent_id);
+		else
+			continue;
+
+		if (f == NULL)
+			continue;
+		if (f->mask & PA_SUBSCRIPTION_MASK_DSP) {
+			f = f->dsp_info.session;
+		}
+		return f;
+	}
+	return NULL;
+}
+static void configure_device(pa_stream *s)
+{
+	struct global *g;
+	const char *str;
+
+	g = find_linked(s, pa_stream_get_index(s));
+	if (g == NULL) {
+		s->device_index = PA_INVALID_INDEX;
+		s->device_name = NULL;
+	}
+	else {
+		s->device_index = g->id;
+		if ((str = pw_properties_get(g->props, "node.name")) == NULL)
+			s->device_name = strdup("unknown");
+		else
+			s->device_name = strdup(str);
+	}
+	pw_log_debug("linked to %d '%s'", s->device_index, s->device_name);
 }
 
 static void stream_state_changed(void *data, enum pw_stream_state old,
@@ -122,6 +182,7 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	case PW_STREAM_STATE_READY:
 		break;
 	case PW_STREAM_STATE_PAUSED:
+		configure_device(s);
 		configure_buffers(s);
 		pa_stream_set_state(s, PA_STREAM_READY);
 		break;
@@ -219,13 +280,8 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 	if (attr->fragsize == (uint32_t) -1)
 		attr->fragsize = attr->tlength; /* Pass data to the app only when the buffer is filled up once */
 
-	pw_log_info("stream %p: maxlength: %u", s, attr->maxlength);
-	pw_log_info("stream %p: tlength: %u", s, attr->tlength);
-	pw_log_info("stream %p: minreq: %u", s, attr->minreq);
-	pw_log_info("stream %p: prebuf: %u", s, attr->prebuf);
-	pw_log_info("stream %p: fragsize: %u", s, attr->fragsize);
+	dump_buffer_attr(s, attr);
 }
-
 
 static void stream_format_changed(void *data, const struct spa_pod *format)
 {
@@ -271,6 +327,17 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
 	pw_stream_finish_format(s->stream, res, params, n_params);
 }
 
+static void stream_add_buffer(void *data, struct pw_buffer *buffer)
+{
+	pa_stream *s = data;
+	s->maxsize += buffer->buffer->datas[0].maxsize;
+}
+static void stream_remove_buffer(void *data, struct pw_buffer *buffer)
+{
+	pa_stream *s = data;
+	s->maxsize -= buffer->buffer->datas[0].maxsize;
+}
+
 static void stream_process(void *data)
 {
 	pa_stream *s = data;
@@ -295,6 +362,8 @@ static const struct pw_stream_events stream_events =
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = stream_state_changed,
 	.format_changed = stream_format_changed,
+	.add_buffer = stream_add_buffer,
+	.remove_buffer = stream_remove_buffer,
 	.process = stream_process,
 };
 
@@ -378,9 +447,7 @@ pa_stream* stream_new(pa_context *c, const char *name,
 	s->buffer_attr.fragsize = (uint32_t) -1;
 
 	s->device_index = PA_INVALID_INDEX;
-
-	s->device_index = 0;
-	s->device_name = strdup("unknown");
+	s->device_name = NULL;
 
 	spa_ringbuffer_init(&s->dequeued_ring);
 
@@ -479,6 +546,7 @@ void pa_stream_set_state(pa_stream *s, pa_stream_state_t st) {
 
 	pa_stream_ref(s);
 
+	pw_log_debug("stream %p: state %d -> %d", s, s->state, st);
 	s->state = st;
 
 	if (s->state_callback)
@@ -1279,7 +1347,7 @@ int pa_stream_get_time(pa_stream *s, pa_usec_t *r_usec)
 	if (r_usec)
 		*r_usec = res;
 
-	pw_log_debug("stream %p: %ld %ld %ld %ld %d/%d %ld", s, now, t.now, delay, t.ticks, t.rate.num, t.rate.denom, res);
+	pw_log_trace("stream %p: %ld %ld %ld %ld %d/%d %ld", s, now, t.now, delay, t.ticks, t.rate.num, t.rate.denom, res);
 
 	return 0;
 }

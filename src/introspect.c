@@ -130,6 +130,7 @@ static void sink_callback(struct sink_data *d)
 	spa_zero(i);
 	i.index = g->id;
 	i.name = info->name;
+	i.description = info->name;
 	i.proplist = pa_proplist_new_dict(info->props);
 	i.owner_module = g->parent_id;
 	i.base_volume = PA_VOLUME_NORM;
@@ -339,6 +340,7 @@ static void source_info(pa_operation *o, void *userdata)
 	struct source_data *d = userdata;
 	source_callback(d);
 	d->cb(d->context, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation* pa_context_get_source_info_by_name(pa_context *c, const char *name, pa_source_info_cb_t cb, void *userdata)
@@ -388,6 +390,7 @@ static void source_info_list(pa_operation *o, void *userdata)
 		source_callback(d);
 	}
 	d->cb(c, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation* pa_context_get_source_info_list(pa_context *c, pa_source_info_cb_t cb, void *userdata)
@@ -493,6 +496,7 @@ static void module_info(pa_operation *o, void *userdata)
 	struct module_data *d = userdata;
 	module_callback(d);
 	d->cb(d->context, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation* pa_context_get_module_info(pa_context *c, uint32_t idx, pa_module_info_cb_t cb, void *userdata)
@@ -537,6 +541,7 @@ static void module_info_list(pa_operation *o, void *userdata)
 		module_callback(d);
 	}
 	d->cb(c, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation* pa_context_get_module_info_list(pa_context *c, pa_module_info_cb_t cb, void *userdata)
@@ -601,6 +606,7 @@ static void client_info(pa_operation *o, void *userdata)
 	struct client_data *d = userdata;
 	client_callback(d);
 	d->cb(d->context, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation* pa_context_get_client_info(pa_context *c, uint32_t idx, pa_client_info_cb_t cb, void *userdata)
@@ -645,6 +651,7 @@ static void client_info_list(pa_operation *o, void *userdata)
 		client_callback(d);
 	}
 	d->cb(c, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation* pa_context_get_client_info_list(pa_context *c, pa_client_info_cb_t cb, void *userdata)
@@ -717,14 +724,27 @@ struct sink_input_data {
 	struct global *global;
 };
 
+static pa_stream *find_stream(pa_context *c, uint32_t idx)
+{
+	pa_stream *s;
+	spa_list_for_each(s, &c->streams, link) {
+		if (pw_stream_get_node_id(s->stream) == idx)
+			return s;
+	}
+	return NULL;
+}
+
 static void sink_input_callback(struct sink_input_data *d)
 {
 	struct global *g = d->global;
 	struct pw_node_info *info = g->info;
 	pa_sink_input_info i;
 	pa_format_info ii[1];
+	pa_stream *s;
 
 	pw_log_debug("index %d", g->id);
+	s = find_stream(d->context, g->id);
+
 	spa_zero(i);
 	i.index = g->id;
 	i.name = info->name;
@@ -740,7 +760,11 @@ static void sink_input_callback(struct sink_input_data *d)
 	i.has_volume = true;
 	i.volume_writable = true;
 	i.volume.channels = 1;
-	i.volume.values[0] = PA_VOLUME_NORM;
+	if (s)
+		i.volume.values[0] = s->volume * PA_VOLUME_NORM;
+	else
+		i.volume.values[0] = PA_VOLUME_NORM;
+
 	d->cb(d->context, &i, 0, d->userdata);
 }
 
@@ -749,6 +773,7 @@ static void sink_input_info(pa_operation *o, void *userdata)
 	struct sink_input_data *d = userdata;
 	sink_input_callback(d);
 	d->cb(d->context, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation* pa_context_get_sink_input_info(pa_context *c, uint32_t idx, pa_sink_input_info_cb_t cb, void *userdata)
@@ -792,6 +817,7 @@ static void sink_input_info_list(pa_operation *o, void *userdata)
 		sink_input_callback(d);
 	}
 	d->cb(c, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation* pa_context_get_sink_input_info_list(pa_context *c, pa_sink_input_info_cb_t cb, void *userdata)
@@ -826,16 +852,6 @@ pa_operation* pa_context_move_sink_input_by_index(pa_context *c, uint32_t idx, u
 	return NULL;
 }
 
-static pa_stream *find_stream(pa_context *c, uint32_t idx)
-{
-	pa_stream *s;
-	spa_list_for_each(s, &c->streams, link) {
-		if (pw_stream_get_node_id(s->stream) == idx)
-			return s;
-	}
-	return NULL;
-}
-
 struct success_ack {
 	pa_context_success_cb_t cb;
 	void *userdata;
@@ -845,9 +861,9 @@ static void on_success(pa_operation *o, void *userdata)
 {
 	struct success_ack *d = userdata;
 	pa_context *c = o->context;
-	pa_operation_done(o);
 	if (d->cb)
 		d->cb(c, PA_OK, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)

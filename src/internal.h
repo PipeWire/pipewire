@@ -190,6 +190,10 @@ struct pa_mainloop {
 	int n_events;
 };
 
+#define PA_SUBSCRIPTION_MASK_DSP_SINK	0x1000U
+#define PA_SUBSCRIPTION_MASK_DSP_SOURCE	0x2000U
+#define PA_SUBSCRIPTION_MASK_DSP	(PA_SUBSCRIPTION_MASK_DSP_SINK | PA_SUBSCRIPTION_MASK_DSP_SOURCE)
+
 struct global {
 	struct spa_list link;
 	uint32_t id;
@@ -206,6 +210,17 @@ struct global {
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
         struct spa_hook proxy_proxy_listener;
+
+	/* for links */
+	union {
+		struct {
+			struct global *src;
+			struct global *dst;
+		} link_info;
+		struct {
+			struct global *session;
+		} dsp_info;
+	};
 };
 
 struct pa_context {
@@ -333,6 +348,7 @@ struct pa_stream {
 	struct pw_buffer *dequeued[MAX_BUFFERS];
 	struct spa_ringbuffer dequeued_ring;
 	size_t dequeued_size;
+	size_t maxsize;
 	struct spa_list pending;
 
 	struct pw_buffer *buffer;

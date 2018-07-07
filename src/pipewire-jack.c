@@ -534,6 +534,17 @@ static struct mem *find_mem(struct pw_array *mems, uint32_t id)
 	return NULL;
 }
 
+static struct mem *find_mem_ptr(struct pw_array *mems, void *ptr)
+{
+	struct mem *m;
+	pw_array_for_each(m, mems) {
+		if (m->ptr == ptr)
+			return m;
+	}
+	return NULL;
+}
+
+
 static void *mem_map(struct client *c, struct mem *m, uint32_t offset, uint32_t size)
 {
 	struct pw_map_range map;
@@ -1220,8 +1231,14 @@ static void client_node_set_position(void *object,
                 if ((ptr = mem_map(c, m, offset, size)) == NULL) {
 			return;
 		}
+		m->ref++;
         }
 	pw_log_debug("client %p: set position %p", c, ptr);
+	if (ptr == NULL && c->position) {
+		m = find_mem_ptr(&c->mems, c->position);
+		if (m && --m->ref == 0)
+			clear_mem(c, m);
+	}
 	c->position = ptr;
 	c->quantum = SPA_MEMBER(ptr, sizeof(struct pw_client_node_position), void);
 }

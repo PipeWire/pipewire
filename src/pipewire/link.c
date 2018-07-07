@@ -90,6 +90,7 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 				pw_node_set_state(out, PW_NODE_STATE_RUNNING);
 			if (++in->n_ready_input_links == in->n_used_input_links)
 				pw_node_set_state(in, PW_NODE_STATE_RUNNING);
+			pw_link_activate(link);
 		}
 		else if (old == PW_LINK_STATE_PAUSED && state < PW_LINK_STATE_PAUSED) {
 			if (--out->n_ready_output_links == 0)

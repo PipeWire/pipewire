@@ -1138,16 +1138,6 @@ static const struct pw_node_events output_node_events = {
 	.async_complete = output_node_async_complete,
 };
 
-static inline void
-move_graph(struct spa_graph *dst, struct spa_graph *src)
-{
-	struct spa_graph_node *n, *t;
-	spa_list_for_each_safe(n, t, &src->nodes, link) {
-		spa_graph_node_remove(n);
-		spa_graph_node_add(dst, n);
-	}
-}
-
 static int find_driver(struct pw_link *this)
 {
 	struct pw_node *out_driver, *in_driver;

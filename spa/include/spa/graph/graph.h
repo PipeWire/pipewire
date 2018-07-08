@@ -62,11 +62,10 @@ static inline int spa_graph_link_trigger(struct spa_graph_link *link)
 {
 	struct spa_graph_state *state = link->state;
 
-	if (state->pending == 0) {
-		spa_debug("link %p: state %p: nothing pending", link, state);
-	} else {
-		spa_debug("link %p: state %p: pending %d required %d", link, state,
-	                        state->pending, state->required);
+	spa_debug("link %p: state %p: pending %d required %d", link, state,
+                        state->pending, state->required);
+
+	if (state->pending != 0) {
 		if (__atomic_sub_fetch(&state->pending, 1, __ATOMIC_SEQ_CST) == 0)
 			spa_graph_link_signal(link);
 	}

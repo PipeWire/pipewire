@@ -24,6 +24,7 @@
 #include <gst/base/gstpushsrc.h>
 
 #include <pipewire/pipewire.h>
+#include <gst/gstpipewirepool.h>
 
 G_BEGIN_DECLS
 
@@ -76,11 +77,9 @@ struct _GstPipeWireSrc {
   struct pw_stream *stream;
   struct spa_hook stream_listener;
 
-  GstAllocator *fd_allocator;
-  GstAllocator *dmabuf_allocator;
   GstStructure *properties;
 
-  GHashTable *buf_ids;
+  GstPipeWirePool *pool;
   GQueue queue;
   GstClock *clock;
 };

@@ -42,7 +42,7 @@
 #define MAX_INPUTS      64
 #define MAX_OUTPUTS     64
 
-struct mem_id {
+struct mem {
 	uint32_t id;
 	int fd;
 	uint32_t flags;
@@ -51,15 +51,14 @@ struct mem_id {
 	void *ptr;
 };
 
-struct buffer_id {
+struct buffer {
+	struct pw_buffer buffer;
 	struct spa_list link;
-	uint32_t id;
-	bool used;
-	struct spa_buffer *buf;
+	bool queued;
 	void *ptr;
 	struct pw_map_range map;
 	uint32_t n_mem;
-	struct mem_id **mem;
+	struct mem **mem;
 };
 
 struct stream {
@@ -101,9 +100,8 @@ struct stream {
 
 	bool client_reuse;
 
-	struct spa_list free;
-	bool in_need_buffer;
-	bool in_new_buffer;
+	struct spa_list queue;
+	bool in_process;
 
 	int64_t last_ticks;
 	int32_t last_rate;
@@ -111,19 +109,19 @@ struct stream {
 };
 /** \endcond */
 
-static struct mem_id *find_mem(struct pw_stream *stream, uint32_t id)
+static struct mem *find_mem(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct mem_id *mid;
+	struct mem *m;
 
-	pw_array_for_each(mid, &impl->mem_ids) {
-		if (mid->id == id)
-			return mid;
+	pw_array_for_each(m, &impl->mem_ids) {
+		if (m->id == id)
+			return m;
 	}
 	return NULL;
 }
 
-static void *mem_map(struct pw_stream *stream, struct mem_id *m, uint32_t offset, uint32_t size)
+static void *mem_map(struct pw_stream *stream, struct mem *m, uint32_t offset, uint32_t size)
 {
 	if (m->ptr == NULL) {
 		pw_map_range_init(&m->map, offset, size, stream->remote->core->sc_pagesize);
@@ -140,7 +138,7 @@ static void *mem_map(struct pw_stream *stream, struct mem_id *m, uint32_t offset
 	return SPA_MEMBER(m->ptr, m->map.start, void);
 }
 
-static void mem_unmap(struct stream *impl, struct mem_id *m)
+static void mem_unmap(struct stream *impl, struct mem *m)
 {
 	if (m->ptr != NULL) {
 		if (munmap(m->ptr, m->map.size) < 0)
@@ -149,15 +147,15 @@ static void mem_unmap(struct stream *impl, struct mem_id *m)
 	}
 }
 
-static void clear_memid(struct stream *impl, struct mem_id *mid)
+static void clear_mem(struct stream *impl, struct mem *m)
 {
-	if (mid->fd != -1) {
+	if (m->fd != -1) {
 		bool has_ref = false;
-		struct mem_id *m2;
+		struct mem *m2;
 		int fd;
 
-		fd = mid->fd;
-		mid->fd = -1;
+		fd = m->fd;
+		m->fd = -1;
 
 		pw_array_for_each(m2, &impl->mem_ids) {
 			if (m2->fd == fd) {
@@ -166,7 +164,7 @@ static void clear_memid(struct stream *impl, struct mem_id *mid)
 			}
 		}
 		if (!has_ref) {
-			mem_unmap(impl, mid);
+			mem_unmap(impl, m);
 			close(fd);
 		}
 	}
@@ -175,33 +173,33 @@ static void clear_memid(struct stream *impl, struct mem_id *mid)
 static void clear_mems(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct mem_id *mid;
+	struct mem *m;
 
-	pw_array_for_each(mid, &impl->mem_ids)
-		clear_memid(impl, mid);
+	pw_array_for_each(m, &impl->mem_ids)
+		clear_mem(impl, m);
 	impl->mem_ids.size = 0;
 }
 
 static void clear_buffers(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct buffer_id *bid;
+	struct buffer *b;
 
 	pw_log_debug("stream %p: clear buffers", stream);
 
-	pw_array_for_each(bid, &impl->buffer_ids) {
-		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, remove_buffer, bid->id);
-		if (bid->ptr != NULL)
-			if (munmap(bid->ptr, bid->map.size) < 0)
+	pw_array_for_each(b, &impl->buffer_ids) {
+		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, remove_buffer, &b->buffer);
+		if (b->ptr != NULL)
+			if (munmap(b->ptr, b->map.size) < 0)
 				pw_log_warn("failed to unmap buffer: %m");
-		bid->ptr = NULL;
-		free(bid->buf);
-		bid->buf = NULL;
-		bid->used = false;
+		b->ptr = NULL;
+		free(b->buffer.buffer);
+		b->buffer.buffer = NULL;
+		b->queued = false;
 	}
 	impl->buffer_ids.size = 0;
 	impl->in_order = true;
-	spa_list_init(&impl->free);
+	spa_list_init(&impl->queue);
 }
 
 static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state state, char *error)
@@ -282,11 +280,11 @@ struct pw_stream *pw_stream_new(struct pw_remote *remote,
 	this->state = PW_STREAM_STATE_UNCONNECTED;
 
 	pw_array_init(&impl->mem_ids, 64);
-	pw_array_ensure_size(&impl->mem_ids, sizeof(struct mem_id) * 64);
+	pw_array_ensure_size(&impl->mem_ids, sizeof(struct mem) * 64);
 	pw_array_init(&impl->buffer_ids, 32);
-	pw_array_ensure_size(&impl->buffer_ids, sizeof(struct buffer_id) * 64);
+	pw_array_ensure_size(&impl->buffer_ids, sizeof(struct buffer) * 64);
 	impl->pending_seq = SPA_ID_INVALID;
-	spa_list_init(&impl->free);
+	spa_list_init(&impl->queue);
 
 	spa_list_append(&remote->stream_list, &this->link);
 
@@ -374,7 +372,7 @@ set_init_params(struct pw_stream *stream,
 	}
 }
 
-static void set_params(struct pw_stream *stream, int n_params, struct spa_pod **params)
+static void set_params(struct pw_stream *stream, int n_params, const struct spa_pod **params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int i;
@@ -549,18 +547,18 @@ static void on_timeout(void *data, uint64_t expirations)
 	add_request_clock_update(stream);
 }
 
-static struct buffer_id *find_buffer(struct pw_stream *stream, uint32_t id)
+static struct buffer *find_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	if (impl->in_order && pw_array_check_index(&impl->buffer_ids, id, struct buffer_id)) {
-		return pw_array_get_unchecked(&impl->buffer_ids, id, struct buffer_id);
+	if (impl->in_order && pw_array_check_index(&impl->buffer_ids, id, struct buffer)) {
+		return pw_array_get_unchecked(&impl->buffer_ids, id, struct buffer);
 	} else {
-		struct buffer_id *bid;
+		struct buffer *b;
 
-		pw_array_for_each(bid, &impl->buffer_ids) {
-			if (bid->id == id)
-				return bid;
+		pw_array_for_each(b, &impl->buffer_ids) {
+			if (b->buffer.buffer->id == id)
+				return b;
 		}
 	}
 	return NULL;
@@ -569,15 +567,12 @@ static struct buffer_id *find_buffer(struct pw_stream *stream, uint32_t id)
 static inline void reuse_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct buffer_id *bid;
+	struct buffer *b;
 
-	if ((bid = find_buffer(stream, id)) && bid->used) {
+	if ((b = find_buffer(stream, id)) && !b->queued) {
 		pw_log_trace("stream %p: reuse buffer %u", stream, id);
-		bid->used = false;
-		spa_list_append(&impl->free, &bid->link);
-		impl->in_new_buffer = true;
-		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, new_buffer, id);
-		impl->in_new_buffer = false;
+		spa_list_append(&impl->queue, &b->link);
+		b->queued = true;
 	}
 }
 
@@ -592,7 +587,7 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 
 		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
 			struct spa_io_buffers *input = &impl->trans->inputs[i];
-			struct buffer_id *bid;
+			struct buffer *b;
 			uint32_t buffer_id;
 
 			buffer_id = input->buffer_id;
@@ -600,20 +595,20 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 			pw_log_trace("stream %p: process input %d %d", stream, input->status,
 				     buffer_id);
 
-			if ((bid = find_buffer(stream, buffer_id)) == NULL)
+			if ((b = find_buffer(stream, buffer_id)) == NULL)
 				continue;
 
 			if (impl->client_reuse)
 				input->buffer_id = SPA_ID_INVALID;
 
 			if (input->status == SPA_STATUS_HAVE_BUFFER) {
-				bid->used = true;
-				impl->in_new_buffer = true;
+				spa_list_append(&impl->queue, &b->link);
+				b->queued = true;
+				impl->in_process = true;
 				spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
-					 new_buffer, buffer_id);
-				impl->in_new_buffer = false;
+					 process);
+				impl->in_process = false;
 			}
-
 			input->status = SPA_STATUS_NEED_BUFFER;
 		}
 		send_need_input(stream);
@@ -633,9 +628,9 @@ static void handle_rtnode_message(struct pw_stream *stream, struct pw_client_nod
 			output->buffer_id = SPA_ID_INVALID;
 		}
 		pw_log_trace("stream %p: process output", stream);
-		impl->in_need_buffer = true;
-		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, need_buffer);
-		impl->in_need_buffer = false;
+		impl->in_process = true;
+		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, process);
+		impl->in_process = false;
 		break;
 	}
 	case PW_CLIENT_NODE_MESSAGE_PORT_REUSE_BUFFER:
@@ -695,12 +690,11 @@ static void handle_socket(struct pw_stream *stream, int rtreadfd, int rtwritefd)
 					       SPA_IO_ERR | SPA_IO_HUP,
 					       true, on_rtsocket_condition, stream);
 
-	if (impl->flags & PW_STREAM_FLAG_CLOCK_UPDATE) {
-		impl->timeout_source = pw_loop_add_timer(stream->remote->core->main_loop, on_timeout, stream);
-		interval.tv_sec = 0;
-		interval.tv_nsec = 100000000;
-		pw_loop_update_timer(stream->remote->core->main_loop, impl->timeout_source, NULL, &interval, false);
-	}
+	impl->timeout_source = pw_loop_add_timer(stream->remote->core->main_loop, on_timeout, stream);
+	interval.tv_sec = 0;
+	interval.tv_nsec = 100000000;
+	pw_loop_update_timer(stream->remote->core->main_loop, impl->timeout_source, NULL, &interval, false);
+
 	return;
 }
 
@@ -751,10 +745,10 @@ static void client_node_command(void *data, uint32_t seq, const struct spa_comma
 				send_need_input(stream);
 			}
 			else {
-				impl->in_need_buffer = true;
+				impl->in_process = true;
 				spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
-						    need_buffer);
-				impl->in_need_buffer = false;
+						    process);
+				impl->in_process = false;
 			}
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, NULL);
 		}
@@ -839,15 +833,15 @@ client_node_add_mem(void *data,
 {
 	struct stream *impl = data;
 	struct pw_stream *stream = &impl->this;
-	struct mem_id *m;
+	struct mem *m;
 
 	m = find_mem(stream, mem_id);
 	if (m) {
 		pw_log_debug("update mem %u, fd %d, flags %d",
 			     mem_id, memfd, flags);
-		clear_memid(impl, m);
+		clear_mem(impl, m);
 	} else {
-		m = pw_array_add(&impl->mem_ids, sizeof(struct mem_id));
+		m = pw_array_add(&impl->mem_ids, sizeof(struct mem));
 		pw_log_debug("add mem %u, fd %d, flags %d",
 			     mem_id, memfd, flags);
 	}
@@ -868,7 +862,7 @@ client_node_port_use_buffers(void *data,
 	struct pw_stream *stream = &impl->this;
 	struct pw_core *core = stream->remote->core;
 	struct pw_type *t = &core->type;
-	struct buffer_id *bid;
+	struct buffer *bid;
 	uint32_t i, j, len;
 	struct spa_buffer *b;
 	int prot;
@@ -881,29 +875,29 @@ client_node_port_use_buffers(void *data,
 	for (i = 0; i < n_buffers; i++) {
 		off_t offset;
 
-		struct mem_id *mid = find_mem(stream, buffers[i].mem_id);
-		if (mid == NULL) {
+		struct mem *m = find_mem(stream, buffers[i].mem_id);
+		if (m == NULL) {
 			pw_log_warn("unknown memory id %u", buffers[i].mem_id);
 			continue;
 		}
 
-		len = pw_array_get_len(&impl->buffer_ids, struct buffer_id);
-		bid = pw_array_add(&impl->buffer_ids, sizeof(struct buffer_id));
+		len = pw_array_get_len(&impl->buffer_ids, struct buffer);
+		bid = pw_array_add(&impl->buffer_ids, sizeof(struct buffer));
 		if (impl->direction == SPA_DIRECTION_OUTPUT) {
-			bid->used = false;
-			spa_list_append(&impl->free, &bid->link);
+			bid->queued = true;
+			spa_list_append(&impl->queue, &bid->link);
 		} else {
-			bid->used = true;
+			bid->queued = false;
 		}
 
 		b = buffers[i].buffer;
 
 		pw_map_range_init(&bid->map, buffers[i].offset, buffers[i].size, core->sc_pagesize);
 
-		bid->ptr = mmap(NULL, bid->map.size, prot, MAP_SHARED, mid->fd, bid->map.offset);
+		bid->ptr = mmap(NULL, bid->map.size, prot, MAP_SHARED, m->fd, bid->map.offset);
 		if (bid->ptr == MAP_FAILED) {
 			bid->ptr = NULL;
-			pw_log_warn("Failed to mmap memory %d %p: %s", bid->map.size, mid,
+			pw_log_warn("Failed to mmap memory %d %p: %s", bid->map.size, m,
 				    strerror(errno));
 			continue;
 		}
@@ -912,35 +906,34 @@ client_node_port_use_buffers(void *data,
 			size_t size;
 
 			size = sizeof(struct spa_buffer);
-			size += sizeof(struct mem_id *);
+			size += sizeof(struct mem *);
 			for (j = 0; j < buffers[i].buffer->n_metas; j++)
 				size += sizeof(struct spa_meta);
 			for (j = 0; j < buffers[i].buffer->n_datas; j++) {
 				size += sizeof(struct spa_data);
-				size += sizeof(struct mem_id *);
+				size += sizeof(struct mem *);
 			}
 
-			b = bid->buf = malloc(size);
+			b = bid->buffer.buffer = malloc(size);
 			memcpy(b, buffers[i].buffer, sizeof(struct spa_buffer));
 
 			b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
 			b->datas = SPA_MEMBER(b->metas, sizeof(struct spa_meta) * b->n_metas,
 				       struct spa_data);
 			bid->mem = SPA_MEMBER(b->datas, sizeof(struct spa_data) * b->n_datas,
-				       struct mem_id*);
+				       struct mem*);
 			bid->n_mem = 0;
 
-			mid->ref++;
-			bid->mem[bid->n_mem++] = mid;
+			m->ref++;
+			bid->mem[bid->n_mem++] = m;
 		}
-		bid->id = b->id;
 
-		if (bid->id != len) {
-			pw_log_warn("unexpected id %u found, expected %u", bid->id, len);
+		if (b->id != len) {
+			pw_log_warn("unexpected id %u found, expected %u", b->id, len);
 			impl->in_order = false;
 		}
-		pw_log_debug("add buffer %d %d %u %u", mid->id,
-				bid->id, bid->map.offset, bid->map.size);
+		pw_log_debug("add buffer %d %d %u %u", m->id,
+				b->id, bid->map.offset, bid->map.size);
 
 		offset = bid->map.start;
 		for (j = 0; j < b->n_metas; j++) {
@@ -959,22 +952,23 @@ client_node_port_use_buffers(void *data,
 				       struct spa_chunk);
 
 			if (d->type == t->data.MemFd || d->type == t->data.DmaBuf) {
-				struct mem_id *bmid = find_mem(stream, SPA_PTR_TO_UINT32(d->data));
+				struct mem *bm = find_mem(stream, SPA_PTR_TO_UINT32(d->data));
 				d->data = NULL;
-				d->fd = bmid->fd;
-				bmid->ref++;
-				bid->mem[bid->n_mem++] = bmid;
-				pw_log_debug(" data %d %u -> fd %d", j, bmid->id, bmid->fd);
+				d->fd = bm->fd;
+				bm->ref++;
+				bid->mem[bid->n_mem++] = bm;
+				pw_log_debug(" data %d %u -> fd %d", j, bm->id, bm->fd);
 			} else if (d->type == t->data.MemPtr) {
 				d->data = SPA_MEMBER(bid->ptr,
 						bid->map.start + SPA_PTR_TO_INT(d->data), void);
 				d->fd = -1;
-				pw_log_debug(" data %d %u -> mem %p", j, bid->id, d->data);
+				pw_log_debug(" data %d %u -> mem %p", j, b->id, d->data);
 			} else {
 				pw_log_warn("unknown buffer data type %d", d->type);
 			}
 		}
-		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, add_buffer, bid->id);
+		spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
+				add_buffer, &bid->buffer);
 	}
 
 	add_async_complete(stream, seq, 0);
@@ -1029,7 +1023,7 @@ static void client_node_port_set_io(void *data,
 	struct pw_stream *stream = &impl->this;
 	struct pw_core *core = stream->remote->core;
 	struct pw_type *t = &core->type;
-	struct mem_id *m;
+	struct mem *m;
 	void *ptr;
 	int res;
 
@@ -1135,6 +1129,12 @@ pw_stream_connect(struct pw_stream *stream,
 	return 0;
 }
 
+struct pw_remote *
+pw_stream_get_remote(struct pw_stream *stream)
+{
+	return stream->remote;
+}
+
 uint32_t
 pw_stream_get_node_id(struct pw_stream *stream)
 {
@@ -1144,7 +1144,7 @@ pw_stream_get_node_id(struct pw_stream *stream)
 void
 pw_stream_finish_format(struct pw_stream *stream,
 			int res,
-			struct spa_pod **params,
+			const struct spa_pod **params,
 			uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1203,81 +1203,78 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	elapsed = (time->now - impl->last_monotonic) / 1000;
 
 	time->ticks = impl->last_ticks + (elapsed * impl->last_rate) / SPA_USEC_PER_SEC;
-	time->rate = impl->last_rate;
+	time->rate.num = 1;
+	time->rate.denom = impl->last_rate;
 
 	return 0;
 }
 
-uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream)
+int pw_stream_set_control(struct pw_stream *stream, const char *name, float value)
 {
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct buffer_id *bid;
-
-	if (spa_list_is_empty(&impl->free))
-		return SPA_ID_INVALID;
-
-	bid = spa_list_first(&impl->free, struct buffer_id, link);
-
-	return bid->id;
+	return -ENOTSUP;
 }
 
-int pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
+int pw_stream_get_control(struct pw_stream *stream, const char *name, float *value)
+{
+	return -ENOTSUP;
+}
+
+struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct buffer_id *bid;
+	struct buffer *b;
 
-	if ((bid = find_buffer(stream, id)) == NULL || !bid->used)
+	if (spa_list_is_empty(&impl->queue))
+		return NULL;
+
+	b = spa_list_first(&impl->queue, struct buffer, link);
+
+	b->queued = false;
+	spa_list_remove(&b->link);
+
+	return &b->buffer;
+}
+
+int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	struct buffer *b;
+	uint32_t id;
+
+	if ((b = find_buffer(stream, buffer->buffer->id)) == NULL)
 		return -EINVAL;
 
-	bid->used = false;
-	spa_list_append(&impl->free, &bid->link);
+	if (b->queued)
+		return -EINVAL;
 
-	if (impl->in_new_buffer) {
-		int i;
+	id = buffer->buffer->id;
 
-		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
-			struct spa_io_buffers *input = &impl->trans->inputs[i];
-			input->buffer_id = id;
+	if (impl->direction == SPA_DIRECTION_OUTPUT) {
+		if (impl->trans->outputs[0].buffer_id != SPA_ID_INVALID) {
+			pw_log_debug("can't send %u, pending buffer %u", id,
+				     impl->trans->outputs[0].buffer_id);
+			return -EIO;
 		}
-	} else {
-		send_reuse_buffer(stream, id);
-	}
-
-	return 0;
-}
-
-struct spa_buffer *pw_stream_peek_buffer(struct pw_stream *stream, uint32_t id)
-{
-	struct buffer_id *bid;
-
-	if ((bid = find_buffer(stream, id)))
-		return bid->buf;
-
-	return NULL;
-}
-
-int pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
-{
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct buffer_id *bid;
-
-	if (impl->trans->outputs[0].buffer_id != SPA_ID_INVALID) {
-		pw_log_debug("can't send %u, pending buffer %u", id,
-			     impl->trans->outputs[0].buffer_id);
-		return -EIO;
-	}
-
-	if ((bid = find_buffer(stream, id)) && !bid->used) {
-		bid->used = true;
-		spa_list_remove(&bid->link);
 		impl->trans->outputs[0].buffer_id = id;
 		impl->trans->outputs[0].status = SPA_STATUS_HAVE_BUFFER;
 		pw_log_trace("stream %p: send buffer %d", stream, id);
-		if (!impl->in_need_buffer)
+		if (!impl->in_process)
 			send_have_output(stream);
-	} else {
-		pw_log_debug("stream %p: output %u was used", stream, id);
 	}
+	else {
+		b->queued = true;
+		spa_list_append(&impl->queue, &b->link);
 
+		if (impl->in_process) {
+			int i;
+			for (i = 0; i < impl->trans->area->n_input_ports; i++) {
+				struct spa_io_buffers *input = &impl->trans->inputs[i];
+				input->buffer_id = id;
+			}
+		}
+		else {
+			send_reuse_buffer(stream, id);
+		}
+	}
 	return 0;
 }

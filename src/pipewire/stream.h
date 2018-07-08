@@ -59,18 +59,6 @@ extern "C" {
  * The stream is initially unconnected. To connect the stream, use
  * \ref pw_stream_connect(). Pass the desired direction as an argument.
  *
- * \subsection ssec_stream_mode Stream modes
- *
- * The stream mode specifies how the data will be exchanged with PipeWire.
- * The following stream modes are available
- *
- * \li \ref PW_STREAM_MODE_BUFFER: data is exchanged with fixed size
- *	buffers. This is ideal for video frames or equal sized audio
- *	frames.
- * \li \ref PW_STREAM_MODE_RINGBUFFER: data is exhanged with a fixed
- *	size ringbuffer. This is ideal for variable sized audio packets
- *	or compressed media.
- *
  * \subsection ssec_stream_target Stream target
  *
  * To make the newly connected stream automatically connect to an existing
@@ -107,7 +95,8 @@ extern "C" {
  * between client and server.
  *
  * With the add_buffer event, a stream will be notified of a new buffer
- * that can be used for data transport.
+ * that can be used for data transport. You can attach user_data to these
+ * buffers.
  *
  * Afer the buffers are negotiated, the stream will transition to the
  * \ref PW_STREAM_STATE_PAUSED state.
@@ -124,28 +113,23 @@ extern "C" {
  *
  * \subsection ssec_consume Consume data
  *
- * The new_buffer event is emited for each new buffer can can be
+ * The process event is emited for each new buffer that can can be
  * consumed.
  *
- * \ref pw_stream_peek_buffer() should be used to get the data and metadata
- * of the buffer.
+ * \ref pw_stream_dequeue_buffer() should be used to get the data and
+ * metadata of the buffer.
  *
- * When the buffer is no longer in use, call \ref pw_stream_recycle_buffer()
+ * When the buffer is no longer in use, call \ref pw_stream_queue_buffer()
  * to let PipeWire reuse the buffer.
  *
  * \subsection ssec_produce Produce data
  *
- * The need_buffer event is emited when PipeWire needs a new buffer for this
- * stream.
+ * \ref pw_stream_dequeue_buffer() gives an empty buffer that can be filled.
  *
- * \ref pw_stream_get_empty_buffer() gives the id of an empty buffer.
- * Use \ref pw_stream_peek_buffer() to get the data and metadata that should
- * be filled.
+ * Filled buffers should be queued with \ref pw_stream_queue_buffer().
  *
- * To send the filled buffer, use \ref pw_stream_send_buffer().
- *
- * The new_buffer event is emited when PipeWire no longer uses the buffer
- * and it can be safely reused.
+ * The process event is emited when PipeWire has emptied a buffer that
+ * can now be refilled.
  *
  * \section sec_stream_disconnect Disconnect
  *
@@ -179,6 +163,11 @@ enum pw_stream_state {
 	PW_STREAM_STATE_STREAMING = 5		/**< streaming */
 };
 
+struct pw_buffer {
+	struct spa_buffer *buffer;	/* the spa buffer */
+	void *user_data;		/* user data attached to the buffer */
+};
+
 /** Events for a stream */
 struct pw_stream_events {
 #define PW_VERSION_STREAM_EVENTS	0
@@ -191,17 +180,18 @@ struct pw_stream_events {
 	/** when the format changed. The listener should call
 	 * pw_stream_finish_format() from within this callback or later to complete
 	 * the format negotiation and start the buffer negotiation. */
-	void (*format_changed) (void *data, struct spa_pod *format);
+	void (*format_changed) (void *data, const struct spa_pod *format);
 
         /** when a new buffer was created for this stream */
-        void (*add_buffer) (void *data, uint32_t id);
+        void (*add_buffer) (void *data, struct pw_buffer *buffer);
         /** when a buffer was destroyed for this stream */
-        void (*remove_buffer) (void *data, uint32_t id);
-        /** when a buffer can be reused (for playback streams) or
-         *  is filled (for capture streams */
-        void (*new_buffer) (void *data, uint32_t id);
-        /** when a buffer is needed (for playback streams) */
-        void (*need_buffer) (void *data);
+        void (*remove_buffer) (void *data, struct pw_buffer *buffer);
+
+        /** when a buffer can be queued (for playback streams) or
+         *  dequeued (for capture streams). This is normally called from the
+	 *  mainloop but can also be called directly from the realtime data
+	 *  thread if the user is prepared to deal with this. */
+        void (*process) (void *data);
 };
 
 /** Convert a stream state to a readable string \memberof pw_stream */
@@ -212,16 +202,14 @@ enum pw_stream_flags {
 	PW_STREAM_FLAG_NONE = 0,			/**< no flags */
 	PW_STREAM_FLAG_AUTOCONNECT	= (1 << 0),	/**< try to automatically connect
 							  *  this stream */
-	PW_STREAM_FLAG_CLOCK_UPDATE	= (1 << 1),	/**< request periodic clock updates for
-							  *  this stream */
-	PW_STREAM_FLAG_INACTIVE		= (1 << 2),	/**< start the stream inactive */
-};
-
-/** A time structure \memberof pw_stream */
-struct pw_time {
-	int64_t now;		/**< the monotonic time */
-	int64_t ticks;		/**< the ticks at \a now */
-	int32_t rate;		/**< the rate of \a ticks */
+	PW_STREAM_FLAG_INACTIVE		= (1 << 1),	/**< start the stream inactive */
+	PW_STREAM_FLAG_MAP_BUFFERS	= (1 << 2),	/**< mmap the buffers */
+	PW_STREAM_FLAG_DRIVER		= (1 << 3),	/**< be a driver */
+	PW_STREAM_FLAG_RT_PROCESS	= (1 << 4),	/**< call process from the realtime
+							  *  thread */
+	PW_STREAM_FLAG_NO_CONVERT	= (1 << 5),	/**< don't convert format */
+	PW_STREAM_FLAG_EXCLUSIVE	= (1 << 6),	/**< require exclusive access to the
+							  *  device */
 };
 
 /** Create a new unconneced \ref pw_stream \memberof pw_stream
@@ -230,6 +218,13 @@ struct pw_stream *
 pw_stream_new(struct pw_remote *remote,		/**< a \ref pw_remote */
 	      const char *name,			/**< a stream name */
 	      struct pw_properties *props	/**< stream properties, ownership is taken */);
+
+struct pw_stream *
+pw_stream_new_simple(struct pw_loop *loop,	/**< a \ref pw_loop to use */
+		     const char *name,		/**< a stream name */
+		     struct pw_properties *props,/**< stream properties, ownership is taken */
+		     const struct pw_stream_events *events,	/**< stream events */
+		     void *data					/**< data passed to events */);
 
 /** Destroy a stream \memberof pw_stream */
 void pw_stream_destroy(struct pw_stream *stream);
@@ -243,6 +238,8 @@ enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **
 
 const char *pw_stream_get_name(struct pw_stream *stream);
 
+struct pw_remote *pw_stream_get_remote(struct pw_stream *stream);
+
 /** Indicates that the stream is live, boolean default false */
 #define PW_STREAM_PROP_IS_LIVE		"pipewire.latency.is-live"
 /** The minimum latency of the stream, int, default 0 */
@@ -255,9 +252,8 @@ const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream);
 /** Connect a stream for input or output on \a port_path. \memberof pw_stream
  * \return 0 on success < 0 on error.
  *
- * When \a mode is \ref PW_STREAM_MODE_BUFFER, you should connect to the new-buffer
- * event and use pw_stream_peek_buffer() to get the latest metadata and
- * data. */
+ * You should connect to the process event and use pw_stream_dequeue_buffer()
+ * to get the latest metadata and data. */
 int
 pw_stream_connect(struct pw_stream *stream,		/**< a \ref pw_stream */
 		  enum pw_direction direction,		/**< the stream direction */
@@ -286,40 +282,45 @@ int pw_stream_disconnect(struct pw_stream *stream);
 void
 pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 			int res,			/**< a result code */
-			struct spa_pod **params,	/**< an array of params. The params should
+			const struct spa_pod **params,	/**< an array of params. The params should
 							  *  ideally contain parameters for doing
 							  *  buffer allocation. */
 			uint32_t n_params		/**< number of elements in \a params */);
 
+
+/** Audio controls */
+#define PW_STREAM_CONTROL_VOLUME	"volume"
+
+/** Video controls */
+#define PW_STREAM_CONTROL_CONTRAST	"contrast"
+#define PW_STREAM_CONTROL_BRIGHTNESS	"brightness"
+#define PW_STREAM_CONTROL_HUE		"hue"
+#define PW_STREAM_CONTROL_SATURATION	"saturation"
+
+/** Set a control value */
+int pw_stream_set_control(struct pw_stream *stream, const char *name, float value);
+/** Get a control value */
+int pw_stream_get_control(struct pw_stream *stream, const char *name, float *value);
+
 /** Activate or deactivate the stream \memberof pw_stream */
 int pw_stream_set_active(struct pw_stream *stream, bool active);
 
+/** A time structure \memberof pw_stream */
+struct pw_time {
+	int64_t now;			/**< the monotonic time */
+	int64_t ticks;			/**< the ticks at \a now */
+	struct spa_fraction rate;	/**< the rate of \a ticks */
+};
 /** Query the time on the stream \memberof pw_stream */
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);
 
-/** Get the id of an empty buffer that can be filled \memberof pw_stream
- * \return the id of an empty buffer or \ref SPA_ID_INVALID when no buffer is
- * available.  */
-uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream);
+/** Get a buffer that can be filled for playback streams or consumed
+ * for capture streams.  */
+struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream);
 
-/** Recycle the buffer with \a id \memberof pw_stream
- * \return 0 on success, < 0 when \a id is invalid or not a used buffer
- * Let the PipeWire server know that it can reuse the buffer with \a id. */
-int pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id);
+/** Submit a buffer for playback or recycle a buffer for capture. */
+int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer);
 
-/** Get the buffer with \a id from \a stream \memberof pw_stream
- * \return a \ref spa_buffer or NULL when there is no buffer
- *
- * This function should be called from the new-buffer event. */
-struct spa_buffer *
-pw_stream_peek_buffer(struct pw_stream *stream, uint32_t id);
-
-/** Send a buffer with \a id to \a stream \memberof pw_stream
- * \return 0 when \a id was handled, < 0 on error
- *
- * For provider or playback streams, this function should be called whenever
- * there is a new buffer available. */
-int pw_stream_send_buffer(struct pw_stream *stream, uint32_t id);
 
 #ifdef __cplusplus
 }

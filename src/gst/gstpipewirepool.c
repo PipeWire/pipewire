@@ -21,7 +21,12 @@
 #include "config.h"
 #endif
 
+#include <unistd.h>
+
 #include <gst/gst.h>
+
+#include <gst/allocators/gstfdmemory.h>
+#include <gst/allocators/gstdmabuf.h>
 
 #include "gstpipewirepool.h"
 
@@ -40,6 +45,8 @@ enum
 
 static guint pool_signals[LAST_SIGNAL] = { 0 };
 
+static GQuark pool_data_quark;
+
 GstPipeWirePool *
 gst_pipewire_pool_new (void)
 {
@@ -50,6 +57,74 @@ gst_pipewire_pool_new (void)
   return pool;
 }
 
+static void
+pool_data_destroy (gpointer user_data)
+{
+  GstPipeWirePoolData *data = user_data;
+
+  gst_object_unref (data->pool);
+  g_slice_free (GstPipeWirePoolData, data);
+}
+
+void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
+{
+  GstBuffer *buf;
+  uint32_t i;
+  GstPipeWirePoolData *data;
+  struct pw_type *t = pool->t;
+
+  GST_LOG_OBJECT (pool, "wrap buffer");
+
+  data = g_slice_new (GstPipeWirePoolData);
+
+  buf = gst_buffer_new ();
+
+  for (i = 0; i < b->buffer->n_datas; i++) {
+    struct spa_data *d = &b->buffer->datas[i];
+    GstMemory *gmem = NULL;
+
+    GST_LOG_OBJECT (pool, "wrap buffer %d %d", d->mapoffset, d->maxsize);
+    if (d->type == t->data.MemFd) {
+      gmem = gst_fd_allocator_alloc (pool->fd_allocator, dup (d->fd),
+                d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
+      gst_memory_resize (gmem, d->mapoffset, d->maxsize);
+      data->offset = d->mapoffset;
+    }
+    else if(d->type == t->data.DmaBuf) {
+      gmem = gst_dmabuf_allocator_alloc (pool->dmabuf_allocator, dup (d->fd),
+                d->mapoffset + d->maxsize);
+      gst_memory_resize (gmem, d->mapoffset, d->maxsize);
+      data->offset = d->mapoffset;
+    }
+    else if (d->type == t->data.MemPtr) {
+      gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, 0,
+                                     d->maxsize, NULL, NULL);
+      data->offset = 0;
+    }
+    if (gmem)
+      gst_buffer_append_memory (buf, gmem);
+  }
+
+  data->pool = gst_object_ref (pool);
+  data->owner = NULL;
+  data->header = spa_buffer_find_meta (b->buffer, t->meta.Header);
+  data->flags = GST_BUFFER_FLAGS (buf);
+  data->b = b;
+  data->buf = buf;
+
+  gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buf),
+                             pool_data_quark,
+                             data,
+                             pool_data_destroy);
+  b->user_data = data;
+}
+
+GstPipeWirePoolData *gst_pipewire_pool_get_data (GstBuffer *buffer)
+{
+  return gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buffer), pool_data_quark);
+}
+
+#if 0
 gboolean
 gst_pipewire_pool_add_buffer (GstPipeWirePool *pool, GstBuffer *buffer)
 {
@@ -78,25 +153,31 @@ gst_pipewire_pool_remove_buffer (GstPipeWirePool *pool, GstBuffer *buffer)
 
   return res;
 }
+#endif
 
 static GstFlowReturn
 acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
         GstBufferPoolAcquireParams * params)
 {
   GstPipeWirePool *p = GST_PIPEWIRE_POOL (pool);
+  GstPipeWirePoolData *data;
+  struct pw_buffer *b;
 
   GST_OBJECT_LOCK (pool);
   while (TRUE) {
     if (G_UNLIKELY (GST_BUFFER_POOL_IS_FLUSHING (pool)))
       goto flushing;
 
-    if (p->available.length > 0)
+    if ((b = pw_stream_dequeue_buffer(p->stream)))
       break;
 
     GST_WARNING ("queue empty");
     g_cond_wait (&p->cond, GST_OBJECT_GET_LOCK (pool));
   }
-  *buffer = g_queue_pop_head (&p->available);
+
+  data = b->user_data;
+  *buffer = data->buf;
+
   GST_OBJECT_UNLOCK (pool);
   GST_DEBUG ("acquire buffer %p", *buffer);
 
@@ -123,13 +204,7 @@ flush_start (GstBufferPool * pool)
 static void
 release_buffer (GstBufferPool * pool, GstBuffer *buffer)
 {
-  GstPipeWirePool *p = GST_PIPEWIRE_POOL (pool);
-
   GST_DEBUG ("release buffer %p", buffer);
-  GST_OBJECT_LOCK (pool);
-  g_queue_push_tail (&p->available, buffer);
-  g_cond_signal (&p->cond);
-  GST_OBJECT_UNLOCK (pool);
 }
 
 static gboolean
@@ -145,6 +220,8 @@ gst_pipewire_pool_finalize (GObject * object)
   GstPipeWirePool *pool = GST_PIPEWIRE_POOL (object);
 
   GST_DEBUG_OBJECT (pool, "finalize");
+  g_object_unref (pool->fd_allocator);
+  g_object_unref (pool->dmabuf_allocator);
 
   G_OBJECT_CLASS (gst_pipewire_pool_parent_class)->finalize (object);
 }
@@ -168,11 +245,14 @@ gst_pipewire_pool_class_init (GstPipeWirePoolClass * klass)
 
   GST_DEBUG_CATEGORY_INIT (gst_pipewire_pool_debug_category, "pipewirepool", 0,
       "debug category for pipewirepool object");
+
+  pool_data_quark = g_quark_from_static_string ("GstPipeWirePoolDataQuark");
 }
 
 static void
 gst_pipewire_pool_init (GstPipeWirePool * pool)
 {
+  pool->fd_allocator = gst_fd_allocator_new ();
+  pool->dmabuf_allocator = gst_dmabuf_allocator_new ();
   g_cond_init (&pool->cond);
-  g_queue_init (&pool->available);
 }

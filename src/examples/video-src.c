@@ -71,35 +71,35 @@ struct data {
 static void on_timeout(void *userdata, uint64_t expirations)
 {
 	struct data *data = userdata;
-	uint32_t id;
-	struct spa_buffer *buf;
 	int i, j;
 	uint8_t *p, *map;
 	struct spa_meta_header *h;
+	struct pw_buffer *buf;
+	struct spa_buffer *b;
 
-	id = pw_stream_get_empty_buffer(data->stream);
-	if (id == SPA_ID_INVALID)
+	buf = pw_stream_dequeue_buffer(data->stream);
+	if (buf == NULL)
 		return;
 
-	buf = pw_stream_peek_buffer(data->stream, id);
+	b = buf->buffer;
 
-	if (buf->datas[0].type == data->t->data.MemFd ||
-	    buf->datas[0].type == data->t->data.DmaBuf) {
+	if (b->datas[0].type == data->t->data.MemFd ||
+	    b->datas[0].type == data->t->data.DmaBuf) {
 		map =
-		    mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset,
-			 PROT_READ | PROT_WRITE, MAP_SHARED, buf->datas[0].fd, 0);
+		    mmap(NULL, b->datas[0].maxsize + b->datas[0].mapoffset,
+			 PROT_READ | PROT_WRITE, MAP_SHARED, b->datas[0].fd, 0);
 		if (map == MAP_FAILED) {
 			printf("failed to mmap: %s\n", strerror(errno));
 			return;
 		}
-		p = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);
-	} else if (buf->datas[0].type == data->t->data.MemPtr) {
+		p = SPA_MEMBER(map, b->datas[0].mapoffset, uint8_t);
+	} else if (b->datas[0].type == data->t->data.MemPtr) {
 		map = NULL;
-		p = buf->datas[0].data;
+		p = b->datas[0].data;
 	} else
 		return;
 
-	if ((h = spa_buffer_find_meta(buf, data->t->meta.Header))) {
+	if ((h = spa_buffer_find_meta(b, data->t->meta.Header))) {
 #if 0
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC, &now);
@@ -116,16 +116,16 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		for (j = 0; j < data->format.size.width * BPP; j++) {
 			p[j] = data->counter + j * i;
 		}
-		p += buf->datas[0].chunk->stride;
+		p += b->datas[0].chunk->stride;
 		data->counter += 13;
 	}
 
 	if (map)
-		munmap(map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
+		munmap(map, b->datas[0].maxsize + b->datas[0].mapoffset);
 
-	buf->datas[0].chunk->size = buf->datas[0].maxsize;
+	b->datas[0].chunk->size = b->datas[0].maxsize;
 
-	pw_stream_send_buffer(data->stream, id);
+	pw_stream_queue_buffer(data->stream, buf);
 }
 
 static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum pw_stream_state state,
@@ -157,14 +157,14 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 }
 
 static void
-on_stream_format_changed(void *_data, struct spa_pod *format)
+on_stream_format_changed(void *_data, const struct spa_pod *format)
 {
 	struct data *data = _data;
 	struct pw_stream *stream = data->stream;
 	struct pw_type *t = data->t;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	struct spa_pod *params[2];
+	const struct spa_pod *params[2];
 
 	if (format == NULL) {
 		pw_stream_finish_format(stream, 0, NULL, 0);

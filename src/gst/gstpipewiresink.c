@@ -225,7 +225,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   guint size;
   guint min_buffers;
   guint max_buffers;
-  struct spa_pod *port_params[2];
+  const struct spa_pod *port_params[2];
   struct spa_pod_builder b = { NULL };
   uint8_t buffer[1024];
 

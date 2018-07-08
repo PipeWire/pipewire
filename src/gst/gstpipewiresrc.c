@@ -618,7 +618,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   pw_stream_connect (pwsrc->stream,
                      PW_DIRECTION_INPUT,
                      pwsrc->path,
-                     PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_CLOCK_UPDATE,
+                     PW_STREAM_FLAG_AUTOCONNECT,
                      (const struct spa_pod **)possible->pdata,
                      possible->len);
   g_ptr_array_free (possible, TRUE);
@@ -703,7 +703,7 @@ on_format_changed (void *data,
   gst_caps_unref (caps);
 
   if (res) {
-    struct spa_pod *params[2];
+    const struct spa_pod *params[2];
     struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
 

@@ -608,6 +608,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 {
 	struct impl *this;
 	uint32_t i;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -618,6 +619,8 @@ impl_node_port_use_buffers(struct spa_node *node,
 	if (!this->have_format)
 		return -EIO;
 
+	t = &this->type;
+
 	clear_buffers(this);
 
 	for (i = 0; i < n_buffers; i++) {
@@ -627,11 +630,11 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b = &this->buffers[i];
 		b->outbuf = buffers[i];
 		b->outstanding = true;
-		b->h = spa_buffer_find_meta(buffers[i], this->type.meta.Header);
+		b->h = spa_buffer_find_meta_data(buffers[i], t->meta.Header, sizeof(*b->h));
 
-		if ((d[0].type == this->type.data.MemPtr ||
-		     d[0].type == this->type.data.MemFd ||
-		     d[0].type == this->type.data.DmaBuf) && d[0].data == NULL) {
+		if ((d[0].type == t->data.MemPtr ||
+		     d[0].type == t->data.MemFd ||
+		     d[0].type == t->data.DmaBuf) && d[0].data == NULL) {
 			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
 				      buffers[i]);
 		}

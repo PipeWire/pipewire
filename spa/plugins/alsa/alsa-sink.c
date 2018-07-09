@@ -494,7 +494,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->buf = buffers[i];
 		b->flags = BUFFER_FLAG_OUT;
 
-		b->h = spa_buffer_find_meta(b->buf, this->type.meta.Header);
+		b->h = spa_buffer_find_meta_data(b->buf, this->type.meta.Header, sizeof(*b->h));
 
 		type = d[0].type;
 		if ((type == this->type.data.MemFd ||

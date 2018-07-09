@@ -1156,6 +1156,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 {
 	struct impl *this;
 	int i;
+	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -1168,6 +1169,8 @@ impl_node_port_use_buffers(struct spa_node *node,
 	if (!this->have_format)
 		return -EIO;
 
+	t = &this->type;
+
 	clear_buffers(this);
 
 	for (i = 0; i < n_buffers; i++) {
@@ -1177,12 +1180,12 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->buf = buffers[i];
 		b->outstanding = true;
 
-		b->h = spa_buffer_find_meta(b->buf, this->type.meta.Header);
+		b->h = spa_buffer_find_meta_data(buffers[i], t->meta.Header, sizeof(*b->h));
 
 		type = buffers[i]->datas[0].type;
-		if ((type == this->type.data.MemFd ||
-		     type == this->type.data.DmaBuf ||
-		     type == this->type.data.MemPtr) && buffers[i]->datas[0].data == NULL) {
+		if ((type == t->data.MemFd ||
+		     type == t->data.DmaBuf ||
+		     type == t->data.MemPtr) && buffers[i]->datas[0].data == NULL) {
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return -EINVAL;
 		}

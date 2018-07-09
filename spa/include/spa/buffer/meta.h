@@ -50,6 +50,10 @@ struct spa_meta {
 	uint32_t size;		/**< size of metadata */
 };
 
+#define spa_meta_first(m)	((m)->data)
+#define spa_meta_end(m)		((m)->data + (m)->size)
+#define spa_meta_check(p,m)	((void*)(p) + sizeof(*p) <= spa_meta_end(m))
+
 /**
  * Describes essential buffer header metadata such as flags and
  * timestamps.

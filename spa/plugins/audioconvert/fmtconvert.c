@@ -807,7 +807,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b = &port->buffers[i];
 		b->flags = 0;
 		b->outbuf = buffers[i];
-		b->h = spa_buffer_find_meta(buffers[i], t->meta.Header);
+		b->h = spa_buffer_find_meta_data(buffers[i], t->meta.Header, sizeof(*b->h));
 
 		if (size == SPA_ID_INVALID)
 			size = d[0].maxsize;

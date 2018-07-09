@@ -642,7 +642,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b = &this->buffers[i];
 		b->outbuf = buffers[i];
 		b->outstanding = false;
-		b->h = spa_buffer_find_meta(buffers[i], this->type.meta.Header);
+		b->h = spa_buffer_find_meta_data(buffers[i], this->type.meta.Header, sizeof(*b->h));
 
 		if ((d[0].type == this->type.data.MemPtr ||
 		     d[0].type == this->type.data.MemFd ||

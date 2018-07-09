@@ -107,7 +107,7 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
 
   data->pool = gst_object_ref (pool);
   data->owner = NULL;
-  data->header = spa_buffer_find_meta (b->buffer, t->meta.Header);
+  data->header = spa_buffer_find_meta_data (b->buffer, t->meta.Header, sizeof(*data->header));
   data->flags = GST_BUFFER_FLAGS (buf);
   data->b = b;
   data->buf = buf;

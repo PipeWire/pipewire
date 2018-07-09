@@ -1252,7 +1252,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		b = &port->buffers[i];
 		b->outbuf = buffers[i];
 		b->flags = BUFFER_FLAG_OUTSTANDING;
-		b->h = spa_buffer_find_meta(b->outbuf, this->type.meta.Header);
+		b->h = spa_buffer_find_meta_data(buffers[i], this->type.meta.Header, sizeof(*b->h));
 
 		spa_log_info(port->log, "v4l2: import buffer %p", buffers[i]);
 
@@ -1346,7 +1346,7 @@ mmap_init(struct impl *this,
 		b = &port->buffers[i];
 		b->outbuf = buffers[i];
 		b->flags = BUFFER_FLAG_OUTSTANDING;
-		b->h = spa_buffer_find_meta(b->outbuf, this->type.meta.Header);
+		b->h = spa_buffer_find_meta_data(buffers[i], this->type.meta.Header, sizeof(*b->h));
 
 		spa_zero(b->v4l2_buffer);
 		b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;

@@ -106,6 +106,7 @@ struct data {
 	int32_t stride;
 
 	struct spa_param *params[2];
+	struct spa_region region;
 
 	struct spa_buffer *buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -410,9 +411,7 @@ static int impl_port_enum_params(struct spa_node *node,
 			param = spa_pod_builder_object(builder,
 				id, t->param_meta.Meta,
 				":", t->param_meta.type, "I", t->meta.VideoDamage,
-				":", t->param_meta.size, "iru", sizeof(struct spa_meta_region),
-					SPA_POD_PROP_MIN_MAX(1 * sizeof(struct spa_meta_region),
-							16 * sizeof(struct spa_meta_region)));
+				":", t->param_meta.size, "i", sizeof(struct spa_meta_region));
 			break;
 		default:
 			return 0;
@@ -538,6 +537,9 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 		spa_meta_region_for_each(r, m) {
 			if (!spa_meta_region_is_valid(r))
 				break;
+			if (memcmp(&r->region, &d->region, sizeof(struct spa_region)) == 0)
+				break;
+			d->region = r->region;
 			fprintf(stderr, "region %dx%d->%dx%d\n",
 					r->region.position.x, r->region.position.y,
 					r->region.size.width, r->region.size.height);

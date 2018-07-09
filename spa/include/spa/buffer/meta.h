@@ -35,7 +35,14 @@ extern "C" {
 #define SPA_TYPE_META_BASE		SPA_TYPE__Meta ":"
 
 #define SPA_TYPE_META__Header		SPA_TYPE_META_BASE "Header"
-#define SPA_TYPE_META__VideoCrop	SPA_TYPE_META_BASE "VideoCrop"
+#define SPA_TYPE_META__Region		SPA_TYPE_META_BASE "Region"
+#define SPA_TYPE_META_REGION_BASE	SPA_TYPE_META__Region ":"
+
+#define SPA_TYPE_META__RegionArray	SPA_TYPE_META_BASE "RegionArray"
+#define SPA_TYPE_META_REGION_ARRAY_BASE	SPA_TYPE_META__RegionArray ":"
+
+#define SPA_TYPE_META__VideoCrop	SPA_TYPE_META_REGION_BASE "VideoCrop"
+#define SPA_TYPE_META__VideoDamage	SPA_TYPE_META_REGION_ARRAY_BASE "VideoDamage"
 
 /**
  * A metadata element.
@@ -72,25 +79,22 @@ struct spa_meta_header {
 	int64_t dts_offset;			/**< decoding timestamp and a difference with pts */
 };
 
-/**
- * Video cropping metadata
- * a */
-struct spa_meta_video_crop {
-	int32_t x, y;		/**< x and y offsets */
-	int32_t width, height;	/**< width and height */
+/** metadata structure for Region or an array of these for RegionArray */
+struct spa_meta_region {
+	struct spa_region region;
 };
 
-/**
- * Describes a control location in the buffer.
- */
-struct spa_meta_control {
-	uint32_t id;		/**< control id */
-	uint32_t offset;	/**< offset in buffer memory */
-};
+#define spa_meta_region_is_valid(m)	((m)->region.size.width != 0 && (m)->region.size.height != 0)
+
+#define spa_meta_region_for_each(pos,meta)				\
+	for (pos = spa_meta_first(meta);				\
+	    spa_meta_check(pos, meta);					\
+            (pos)++)
 
 struct spa_type_meta {
 	uint32_t Header;
 	uint32_t VideoCrop;
+	uint32_t VideoDamage;
 };
 
 static inline void spa_type_meta_map(struct spa_type_map *map, struct spa_type_meta *type)
@@ -98,6 +102,7 @@ static inline void spa_type_meta_map(struct spa_type_map *map, struct spa_type_m
 	if (type->Header == 0) {
 		type->Header = spa_type_map_get_id(map, SPA_TYPE_META__Header);
 		type->VideoCrop = spa_type_map_get_id(map, SPA_TYPE_META__VideoCrop);
+		type->VideoDamage = spa_type_map_get_id(map, SPA_TYPE_META__VideoDamage);
 	}
 }
 

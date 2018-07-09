@@ -399,13 +399,24 @@ static int impl_port_enum_params(struct spa_node *node,
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
-		if (*index != 0)
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(builder,
+				id, t->param_meta.Meta,
+				":", t->param_meta.type, "I", t->meta.Header,
+				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+			break;
+		case 1:
+			param = spa_pod_builder_object(builder,
+				id, t->param_meta.Meta,
+				":", t->param_meta.type, "I", t->meta.VideoDamage,
+				":", t->param_meta.size, "iru", sizeof(struct spa_meta_region),
+					SPA_POD_PROP_MIN_MAX(1 * sizeof(struct spa_meta_region),
+							16 * sizeof(struct spa_meta_region)));
+			break;
+		default:
 			return 0;
-
-		param = spa_pod_builder_object(builder,
-			id, t->param_meta.Meta,
-			":", t->param_meta.type, "I", t->meta.Header,
-			":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+		}
 	}
 	else if (id == t->param_io.idPropsOut) {
 		struct props *p = &d->props;
@@ -495,12 +506,15 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 		     const void *_data, size_t size, void *user_data)
 {
 	struct data *d = user_data;
+	struct pw_type *t = d->t;
 	const struct spa_buffer *buf = *(struct spa_buffer**)_data;
 	uint8_t *map;
 	void *sdata, *ddata;
 	int sstride, dstride, ostride;
 	uint32_t i;
 	uint8_t *src, *dst;
+	struct spa_meta *m;
+	struct spa_meta_region *r;
 
 	handle_events(d);
 
@@ -519,6 +533,17 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
 		return -EIO;
 	}
+
+	if ((m = spa_buffer_find_meta(buf, t->meta.VideoDamage))) {
+		spa_meta_region_for_each(r, m) {
+			if (!spa_meta_region_is_valid(r))
+				break;
+			fprintf(stderr, "region %dx%d->%dx%d\n",
+					r->region.position.x, r->region.position.y,
+					r->region.size.width, r->region.size.height);
+		}
+	}
+
 	sstride = buf->datas[0].chunk->stride;
 	ostride = SPA_MIN(sstride, dstride);
 

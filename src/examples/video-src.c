@@ -76,6 +76,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	int i, j;
 	uint8_t *p, *map;
 	struct spa_meta_header *h;
+	struct spa_meta *m;
 
 	pw_log_trace("timeout");
 
@@ -102,7 +103,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	} else
 		return;
 
-	if ((h = spa_buffer_find_meta(buf, data->t->meta.Header))) {
+	if ((h = spa_buffer_find_meta_data(buf, data->t->meta.Header, sizeof(*h)))) {
 #if 0
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC, &now);
@@ -113,6 +114,17 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		h->flags = 0;
 		h->seq = data->seq++;
 		h->dts_offset = 0;
+	}
+	if ((m = spa_buffer_find_meta(buf, data->t->meta.VideoDamage))) {
+		struct spa_meta_region *r = spa_meta_first(m);
+
+		if (spa_meta_check(r, m)) {
+			r->region.position = SPA_POINT(0,0);
+			r->region.size = data->format.size;
+			r++;
+		}
+		if (spa_meta_check(r, m))
+			r->region = SPA_REGION(0,0,0,0);
 	}
 
 	for (i = 0; i < data->format.size.height; i++) {
@@ -167,7 +179,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	struct pw_type *t = data->t;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	const struct spa_pod *params[2];
+	const struct spa_pod *params[3];
 
 	if (format == NULL) {
 		pw_stream_finish_format(stream, 0, NULL, 0);
@@ -190,7 +202,14 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		":", t->param_meta.type, "I", t->meta.Header,
 		":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
 
-	pw_stream_finish_format(stream, 0, params, 2);
+	params[2] = spa_pod_builder_object(&b,
+		t->param.idMeta, t->param_meta.Meta,
+		":", t->param_meta.type, "I", t->meta.VideoDamage,
+		":", t->param_meta.size, "iru", sizeof(struct spa_meta_region) * 16,
+			SPA_POD_PROP_MIN_MAX(sizeof(struct spa_meta_region) * 1,
+					     sizeof(struct spa_meta_region) * 16));
+
+	pw_stream_finish_format(stream, 0, params, 3);
 }
 
 static const struct pw_stream_events stream_events = {

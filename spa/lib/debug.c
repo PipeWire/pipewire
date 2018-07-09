@@ -72,13 +72,22 @@ int spa_debug_buffer(const struct spa_buffer *buffer)
 			fprintf(stderr, "      seq:        %u\n", h->seq);
 			fprintf(stderr, "      pts:        %" PRIi64 "\n", h->pts);
 			fprintf(stderr, "      dts_offset: %" PRIi64 "\n", h->dts_offset);
-		} else if (!strcmp(type_name, SPA_TYPE_META__VideoCrop)) {
-			struct spa_meta_video_crop *h = m->data;
-			fprintf(stderr, "    struct spa_meta_video_crop:\n");
-			fprintf(stderr, "      x:      %d\n", h->x);
-			fprintf(stderr, "      y:      %d\n", h->y);
-			fprintf(stderr, "      width:  %d\n", h->width);
-			fprintf(stderr, "      height: %d\n", h->height);
+		} else if (strstr(type_name, SPA_TYPE_META_REGION_BASE) == type_name) {
+			struct spa_meta_region *h = m->data;
+			fprintf(stderr, "    struct spa_meta_region:\n");
+			fprintf(stderr, "      x:      %d\n", h->region.position.x);
+			fprintf(stderr, "      y:      %d\n", h->region.position.y);
+			fprintf(stderr, "      width:  %d\n", h->region.size.width);
+			fprintf(stderr, "      height: %d\n", h->region.size.height);
+		} else if (strstr(type_name, SPA_TYPE_META_REGION_ARRAY_BASE) == type_name) {
+			struct spa_meta_region *p;
+			fprintf(stderr, "    struct spa_meta_region_array:\n");
+			spa_meta_region_for_each(p, m) {
+				fprintf(stderr, "      x:      %d\n", p->region.position.x);
+				fprintf(stderr, "      y:      %d\n", p->region.position.y);
+				fprintf(stderr, "      width:  %d\n", p->region.size.width);
+				fprintf(stderr, "      height: %d\n", p->region.size.height);
+			}
 		} else {
 			fprintf(stderr, "    Unknown:\n");
 			spa_debug_dump_mem(m->data, m->size);

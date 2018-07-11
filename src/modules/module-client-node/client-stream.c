@@ -805,7 +805,7 @@ static int impl_node_process(struct spa_node *node)
 	else
 		trigger = status & SPA_STATUS_HAVE_BUFFER;
 
-	if (trigger)
+	if (trigger && !impl->this.node->driver)
 		spa_graph_run(impl->client_node->node->rt.root.graph);
 
 	return status;

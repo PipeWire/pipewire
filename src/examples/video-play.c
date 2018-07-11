@@ -87,12 +87,13 @@ static void handle_events(struct data *data)
 	}
 }
 
-static int
-do_render(struct spa_loop *loop, bool async, uint32_t seq,
-	  const void *_data, size_t size, void *user_data)
+static void
+on_stream_process(void *_data)
 {
-	struct data *data = user_data;
-	struct spa_buffer *buf = ((struct spa_buffer **) _data)[0];
+	struct data *data = _data;
+	struct pw_stream *stream = data->stream;
+	struct pw_buffer *buf;
+	struct spa_buffer *b;
 	uint8_t *map;
 	void *sdata, *ddata;
 	int sstride, dstride, ostride;
@@ -101,22 +102,28 @@ do_render(struct spa_loop *loop, bool async, uint32_t seq,
 
 	handle_events(data);
 
-	if (buf->datas[0].type == data->t->data.MemFd ||
-	    buf->datas[0].type == data->t->data.DmaBuf) {
-		map = mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ,
-			   MAP_PRIVATE, buf->datas[0].fd, 0);
-		sdata = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);
-	} else if (buf->datas[0].type == data->t->data.MemPtr) {
+	buf = pw_stream_dequeue_buffer(stream);
+	if (buf == NULL)
+		return;
+
+	b = buf->buffer;
+
+	if (b->datas[0].type == data->t->data.MemFd ||
+	    b->datas[0].type == data->t->data.DmaBuf) {
+		map = mmap(NULL, b->datas[0].maxsize + b->datas[0].mapoffset, PROT_READ,
+			   MAP_PRIVATE, b->datas[0].fd, 0);
+		sdata = SPA_MEMBER(map, b->datas[0].mapoffset, uint8_t);
+	} else if (b->datas[0].type == data->t->data.MemPtr) {
 		map = NULL;
-		sdata = buf->datas[0].data;
+		sdata = b->datas[0].data;
 	} else
-		return -EINVAL;
+		return;
 
 	if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
 		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-		return -EIO;
+		return;
 	}
-	sstride = buf->datas[0].chunk->stride;
+	sstride = b->datas[0].chunk->stride;
 	ostride = SPA_MIN(sstride, dstride);
 
 	src = sdata;
@@ -133,23 +140,7 @@ do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	SDL_RenderPresent(data->renderer);
 
 	if (map)
-		munmap(map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
-
-	return 0;
-}
-
-static void
-on_stream_process(void *_data)
-{
-	struct data *data = _data;
-	struct pw_stream *stream = data->stream;
-	struct pw_buffer *buf;
-
-	buf = pw_stream_dequeue_buffer(stream);
-
-	pw_loop_invoke(pw_main_loop_get_loop(data->loop), do_render,
-		       SPA_ID_INVALID, &buf->buffer, sizeof(struct spa_buffer *),
-		       true, data);
+		munmap(map, b->datas[0].maxsize + b->datas[0].mapoffset);
 
 	pw_stream_queue_buffer(stream, buf);
 }
@@ -366,7 +357,8 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_INPUT,
 				  data->path,
-				  PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_INACTIVE,
+				  PW_STREAM_FLAG_AUTOCONNECT |
+				  PW_STREAM_FLAG_INACTIVE,
 				  params, 1);
 		break;
 	}

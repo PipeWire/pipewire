@@ -91,6 +91,15 @@ struct pw_node_events {
 	void (*reuse_buffer) (void *data, uint32_t port_id, uint32_t buffer_id);
 };
 
+/** Media type of the node, Audio, Video, Midi */
+#define PW_NODE_PROP_MEDIA		"pipewire.media"
+/** Category: Playback, Capture, Duplex, Sink, Source */
+#define PW_NODE_PROP_CATEGORY		"pipewire.category"
+/** Role: Movie, Music, Camera, Screen, Communication, Game, Notification, DSP,
+ *        Production, Accessibility, Test */
+#define PW_NODE_PROP_ROLE		"pipewire.role"
+/** exclusive access to device */
+#define PW_NODE_PROP_EXCLUSIVE		"pipewire.exclusive"
 /** Automatically connect this node to a compatible node */
 #define PW_NODE_PROP_AUTOCONNECT	"pipewire.autoconnect"
 /** Try to connect the node to this node id */

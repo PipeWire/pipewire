@@ -36,6 +36,8 @@
 
 #define M_PI_M2 ( M_PI + M_PI )
 
+#define MAX_BUFFERS	16
+
 struct type {
 	uint32_t prop_param;
 	uint32_t io_prop_param;
@@ -105,7 +107,7 @@ struct data {
 
 	struct spa_param *params[2];
 
-	struct spa_buffer *buffers[32];
+	struct spa_buffer *buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 };
 
@@ -392,8 +394,8 @@ static int impl_port_enum_params(struct spa_node *node,
 			id, t->param_buffers.Buffers,
 			":", t->param_buffers.size,    "i", d->stride * d->format.size.height,
 			":", t->param_buffers.stride,  "i", d->stride,
-			":", t->param_buffers.buffers, "iru", 32,
-				SPA_POD_PROP_MIN_MAX(2, 32),
+			":", t->param_buffers.buffers, "iru", 2,
+				SPA_POD_PROP_MIN_MAX(2, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i", 16);
 	}
 	else if (id == t->param.idMeta) {
@@ -548,7 +550,7 @@ static int impl_node_process_input(struct spa_node *node)
 	if (d->io->status != SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_NEED_BUFFER;
 
-	if (d->io->buffer_id > d->n_buffers)
+	if (d->io->buffer_id >= d->n_buffers)
 		return SPA_STATUS_NEED_BUFFER;
 
 	buf = d->buffers[d->io->buffer_id];
@@ -584,6 +586,9 @@ static void make_node(struct data *data)
 	props = pw_properties_new(PW_NODE_PROP_AUTOCONNECT, "1", NULL);
 	if (data->path)
 		pw_properties_set(props, PW_NODE_PROP_TARGET_NODE, data->path);
+	pw_properties_set(props, PW_NODE_PROP_MEDIA, "Video");
+	pw_properties_set(props, PW_NODE_PROP_CATEGORY, "Capture");
+	pw_properties_set(props, PW_NODE_PROP_ROLE, "Camera");
 
 	data->node = pw_node_new(data->core, "SDL-sink", props, 0);
 	data->impl_node = impl_node;

@@ -33,6 +33,9 @@
 
 #define M_PI_M2 ( M_PI + M_PI )
 
+#define MAX_BUFFERS	16
+#define BUFFER_SAMPLES	48
+
 struct type {
 	uint32_t prop_volume;
 	uint32_t io_prop_volume;
@@ -95,11 +98,9 @@ struct data {
 
 	struct spa_pod_double *ctrl_volume;
 
-	uint8_t buffer[1024];
-
 	struct spa_audio_info_raw format;
 
-	struct buffer buffers[32];
+	struct buffer buffers[MAX_BUFFERS];
 	int n_buffers;
 	struct spa_list empty;
 
@@ -235,7 +236,7 @@ static int port_get_format(struct spa_node *node,
 		d->t->param.idFormat, d->t->spa_format,
 		"I", d->type.media_type.audio,
 		"I", d->type.media_subtype.raw,
-		":", d->type.format_audio.format,   "I",  d->format.format,
+		":", d->type.format_audio.format,   "I", d->format.format,
 		":", d->type.format_audio.channels, "i", d->format.channels,
 		":", d->type.format_audio.rate,     "i", d->format.rate);
 
@@ -282,11 +283,11 @@ static int impl_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(builder,
 			id, t->param_buffers.Buffers,
-			":", t->param_buffers.size,    "iru", 256,
+			":", t->param_buffers.size,    "iru", BUFFER_SAMPLES * sizeof(float),
 				SPA_POD_PROP_MIN_MAX(32, 4096),
 			":", t->param_buffers.stride,  "i",   0,
 			":", t->param_buffers.buffers, "iru", 1,
-				SPA_POD_PROP_MIN_MAX(1, 32),
+				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 			":", t->param_buffers.align,   "i",  16);
 	}
 	else if (id == t->param.idMeta) {

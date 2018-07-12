@@ -425,6 +425,13 @@ struct pw_stream *pw_stream_new(struct pw_remote *remote,
 	return NULL;
 }
 
+struct pw_stream *
+pw_stream_new_simple(struct pw_loop *loop, const char *name, struct pw_properties *props,
+		     const struct pw_stream_events *events, void *data)
+{
+	return NULL;
+}
+
 enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **error)
 {
 	if (error)

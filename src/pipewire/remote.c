@@ -431,7 +431,7 @@ int pw_remote_steal_fd(struct pw_remote *remote)
 	int fd;
 
 	fd = pw_protocol_client_steal_fd(remote->conn);
-	pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
+	pw_remote_disconnect(remote);
 
 	return fd;
 }

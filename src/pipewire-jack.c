@@ -67,6 +67,7 @@ struct port;
 
 struct type {
 	uint32_t client_node;
+	uint32_t client_node_position;
 	struct spa_type_media_type media_type;
 	struct spa_type_media_subtype media_subtype;
 	struct spa_type_format_audio format_audio;
@@ -77,10 +78,11 @@ struct type {
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->client_node = spa_type_map_get_id(map, PW_TYPE_INTERFACE__ClientNode);
-        spa_type_media_type_map(map, &type->media_type);
-        spa_type_media_subtype_map(map, &type->media_subtype);
-        spa_type_format_audio_map(map, &type->format_audio);
-        spa_type_audio_format_map(map, &type->audio_format);
+	type->client_node_position = spa_type_map_get_id(map, PW_TYPE_CLIENT_NODE_IO__Position);
+	spa_type_media_type_map(map, &type->media_type);
+	spa_type_media_subtype_map(map, &type->media_subtype);
+	spa_type_format_audio_map(map, &type->format_audio);
+	spa_type_audio_format_map(map, &type->audio_format);
 	spa_type_media_subtype_audio_map(map, &type->media_subtype_audio);
 }
 
@@ -769,6 +771,49 @@ static void client_node_set_param(void *object, uint32_t seq,
 	pw_client_node_proxy_done(c->node_proxy, seq, -ENOTSUP);
 }
 
+static void client_node_set_io(void *object,
+			       uint32_t id,
+			       uint32_t mem_id,
+			       uint32_t offset,
+			       uint32_t size)
+{
+	struct client *c = (struct client *) object;
+	struct pw_type *t = c->context.t;
+        struct mem *m;
+        void *ptr;
+
+        if (mem_id == SPA_ID_INVALID) {
+                ptr = NULL;
+                size = 0;
+        }
+        else {
+                m = find_mem(&c->mems, mem_id);
+                if (m == NULL) {
+                        pw_log_warn("unknown memory id %u", mem_id);
+			return;
+                }
+                if ((ptr = mem_map(c, m, offset, size)) == NULL) {
+			return;
+		}
+		m->ref++;
+        }
+	pw_log_debug("client %p: set io %s %p", c,
+			spa_type_map_get_type(t->map, id), ptr);
+
+	if (id == c->type.client_node_position) {
+		if (ptr == NULL && c->position) {
+			m = find_mem_ptr(&c->mems, c->position);
+			if (m && --m->ref == 0)
+				clear_mem(c, m);
+		}
+		c->position = ptr;
+		if (ptr)
+			c->quantum = SPA_MEMBER(ptr, sizeof(struct pw_client_node_position), void);
+		else
+			c->quantum = NULL;
+	}
+}
+
 static void client_node_event(void *object, const struct spa_event *event)
 {
 }
@@ -1209,46 +1254,12 @@ static void client_node_port_set_io(void *object,
 	pw_client_node_proxy_done(c->node_proxy, seq, res);
 }
 
-static void client_node_set_position(void *object,
-				     uint32_t mem_id,
-				     uint32_t offset,
-				     uint32_t size)
-{
-	struct client *c = (struct client *) object;
-        struct mem *m;
-        void *ptr;
-
-        if (mem_id == SPA_ID_INVALID) {
-                ptr = NULL;
-                size = 0;
-        }
-        else {
-                m = find_mem(&c->mems, mem_id);
-                if (m == NULL) {
-                        pw_log_warn("unknown memory id %u", mem_id);
-			return;
-                }
-                if ((ptr = mem_map(c, m, offset, size)) == NULL) {
-			return;
-		}
-		m->ref++;
-        }
-	pw_log_debug("client %p: set position %p", c, ptr);
-	if (ptr == NULL && c->position) {
-		m = find_mem_ptr(&c->mems, c->position);
-		if (m && --m->ref == 0)
-			clear_mem(c, m);
-	}
-	c->position = ptr;
-	c->quantum = SPA_MEMBER(ptr, sizeof(struct pw_client_node_position), void);
-}
-
-
 static const struct pw_client_node_proxy_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
 	.add_mem = client_node_add_mem,
 	.transport = client_node_transport,
 	.set_param = client_node_set_param,
+	.set_io = client_node_set_io,
 	.event = client_node_event,
 	.command = client_node_command,
 	.add_port = client_node_add_port,
@@ -1257,7 +1268,6 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.port_use_buffers = client_node_port_use_buffers,
 	.port_command = client_node_port_command,
 	.port_set_io = client_node_port_set_io,
-	.set_position = client_node_set_position,
 };
 
 static jack_port_type_id_t string_to_type(const char *port_type)

@@ -42,6 +42,16 @@
 #define MAX_MIX	4096
 
 /** \cond */
+
+struct type {
+	uint32_t client_node_position;
+};
+
+static inline void init_type(struct type *type, struct spa_type_map *map)
+{
+	type->client_node_position = spa_type_map_get_id(map, PW_TYPE_CLIENT_NODE_IO__Position);
+}
+
 struct remote {
 	struct pw_remote this;
 	uint32_t type_client_node;
@@ -87,6 +97,8 @@ struct node_data {
 	struct pw_remote *remote;
 	struct pw_core *core;
 	struct pw_type *t;
+
+	struct type type;
 
 	int rtwritefd;
 	struct spa_source *rtsocket_source;
@@ -833,6 +845,58 @@ client_node_set_param(void *object, uint32_t seq, uint32_t id, uint32_t flags,
 	pw_log_warn("set param not implemented");
 }
 
+
+static void
+client_node_set_io(void *object,
+		   uint32_t id,
+		   uint32_t memid,
+		   uint32_t offset,
+		   uint32_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct node_data *data = proxy->user_data;
+	struct pw_type *t = data->t;
+	struct mem *m;
+	void *ptr;
+
+	if (memid == SPA_ID_INVALID) {
+		ptr = NULL;
+		size = 0;
+	}
+	else {
+		m = find_mem(data, memid);
+		if (m == NULL) {
+			pw_log_warn("unknown memory id %u", memid);
+			return;
+		}
+		ptr = mem_map(data, &m->map, m->fd,
+			PROT_READ|PROT_WRITE, offset, size);
+		if (ptr == NULL)
+			return;
+		m->ref++;
+	}
+
+	pw_log_debug("node %p: set io %s %p", proxy,
+			spa_type_map_get_type(t->map, id), ptr);
+
+	if (id == data->type.client_node_position) {
+		if (ptr == NULL && data->position) {
+			m = find_mem_ptr(data, data->position);
+			if (m && --m->ref == 0)
+				clear_mem(data, m);
+		}
+		data->position = ptr;
+		if (ptr)
+			data->node->rt.quantum = SPA_MEMBER(ptr,
+					sizeof(struct pw_client_node_position), void);
+		else
+			data->node->rt.quantum = NULL;
+	}
+	else {
+		pw_log_warn("unknown io id %u", id);
+	}
+}
+
 static void client_node_event(void *object, const struct spa_event *event)
 {
 	pw_log_warn("unhandled node event %d", SPA_EVENT_TYPE(event));
@@ -1184,53 +1248,12 @@ client_node_port_set_io(void *object,
 	}
 }
 
-static void
-client_node_set_position(void *object,
-                         uint32_t memid,
-                         uint32_t offset,
-                         uint32_t size)
-{
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
-	struct mem *m;
-	void *ptr;
-
-	if (memid == SPA_ID_INVALID) {
-		ptr = NULL;
-		size = 0;
-	}
-	else {
-		m = find_mem(data, memid);
-		if (m == NULL) {
-			pw_log_warn("unknown memory id %u", memid);
-			return;
-		}
-		ptr = mem_map(data, &m->map, m->fd,
-			PROT_READ|PROT_WRITE, offset, size);
-		if (ptr == NULL)
-			return;
-		m->ref++;
-	}
-
-	pw_log_debug("node %p: set position %p", proxy, ptr);
-	if (ptr == NULL && data->position) {
-		m = find_mem_ptr(data, data->position);
-		if (m && --m->ref == 0)
-			clear_mem(data, m);
-	}
-	data->position = ptr;
-	if (ptr)
-		data->node->rt.quantum = SPA_MEMBER(ptr,
-				sizeof(struct pw_client_node_position), void);
-	else
-		data->node->rt.quantum = NULL;
-}
-
 static const struct pw_client_node_proxy_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
 	.add_mem = client_node_add_mem,
 	.transport = client_node_transport,
 	.set_param = client_node_set_param,
+	.set_io = client_node_set_io,
 	.event = client_node_event,
 	.command = client_node_command,
 	.add_port = client_node_add_port,
@@ -1239,7 +1262,6 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.port_use_buffers = client_node_port_use_buffers,
 	.port_command = client_node_port_command,
 	.port_set_io = client_node_port_set_io,
-	.set_position = client_node_set_position,
 };
 
 static void do_node_init(struct pw_proxy *proxy)
@@ -1376,6 +1398,7 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	data->core = pw_node_get_core(node);
 	data->t = pw_core_get_type(data->core);
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;
+	init_type(&data->type, data->t->map);
 
 	node->exported = true;
 

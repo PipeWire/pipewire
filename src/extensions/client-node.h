@@ -44,6 +44,8 @@ struct pw_client_node_buffer {
 	struct spa_buffer *buffer;	/**< buffer describing metadata and buffer memory */
 };
 
+#define PW_TYPE_CLIENT_NODE_IO__Position	SPA_TYPE_IO_BASE "ClientNode:Position"
+
 struct pw_client_node_position {
 #define PW_VERSION_CLIENT_NODE_POSITION		0
 	uint32_t version;
@@ -184,15 +186,15 @@ pw_client_node_proxy_destroy(struct pw_client_node_proxy *p)
 #define PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM		0
 #define PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT		1
 #define PW_CLIENT_NODE_PROXY_EVENT_SET_PARAM		2
-#define PW_CLIENT_NODE_PROXY_EVENT_EVENT		3
-#define PW_CLIENT_NODE_PROXY_EVENT_COMMAND		4
-#define PW_CLIENT_NODE_PROXY_EVENT_ADD_PORT		5
-#define PW_CLIENT_NODE_PROXY_EVENT_REMOVE_PORT		6
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_PARAM	7
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_USE_BUFFERS	8
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_COMMAND		9
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO		10
-#define PW_CLIENT_NODE_PROXY_EVENT_SET_POSITION		11
+#define PW_CLIENT_NODE_PROXY_EVENT_SET_IO		3
+#define PW_CLIENT_NODE_PROXY_EVENT_EVENT		4
+#define PW_CLIENT_NODE_PROXY_EVENT_COMMAND		5
+#define PW_CLIENT_NODE_PROXY_EVENT_ADD_PORT		6
+#define PW_CLIENT_NODE_PROXY_EVENT_REMOVE_PORT		7
+#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_PARAM	8
+#define PW_CLIENT_NODE_PROXY_EVENT_PORT_USE_BUFFERS	9
+#define PW_CLIENT_NODE_PROXY_EVENT_PORT_COMMAND		10
+#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO		11
 #define PW_CLIENT_NODE_PROXY_EVENT_NUM			12
 
 /** \ref pw_client_node events */
@@ -248,6 +250,22 @@ struct pw_client_node_proxy_events {
 	void (*set_param) (void *object, uint32_t seq,
 			   uint32_t id, uint32_t flags,
 			   const struct spa_pod *param);
+	/**
+	 * Configure an IO area for the client
+	 *
+	 * IO areas are identified with an id and are used to
+	 * exchange state between client and server
+	 *
+	 * \param id the id of the io area
+	 * \param mem_id the id of the memory to use
+	 * \param offset offset of io area in memory
+	 * \param size size of the io area
+	 */
+	void (*set_io) (void *object,
+			uint32_t id,
+			uint32_t mem_id,
+			uint32_t offset,
+			uint32_t size);
 	/**
 	 * Receive an event from the client node
 	 * \param event the received event */
@@ -350,11 +368,6 @@ struct pw_client_node_proxy_events {
 			     uint32_t mem_id,
 			     uint32_t offset,
 			     uint32_t size);
-
-	void (*set_position) (void *object,
-			      uint32_t mem_id,
-			      uint32_t offset,
-			      uint32_t size);
 };
 
 static inline void
@@ -372,6 +385,8 @@ pw_client_node_proxy_add_listener(struct pw_client_node_proxy *p,
 	pw_resource_notify(r,struct pw_client_node_proxy_events,transport,__VA_ARGS__)
 #define pw_client_node_resource_set_param(r,...)	\
 	pw_resource_notify(r,struct pw_client_node_proxy_events,set_param,__VA_ARGS__)
+#define pw_client_node_resource_set_io(r,...)	\
+	pw_resource_notify(r,struct pw_client_node_proxy_events,set_io,__VA_ARGS__)
 #define pw_client_node_resource_event(r,...)	\
 	pw_resource_notify(r,struct pw_client_node_proxy_events,event,__VA_ARGS__)
 #define pw_client_node_resource_command(r,...)	\
@@ -388,8 +403,6 @@ pw_client_node_proxy_add_listener(struct pw_client_node_proxy *p,
 	pw_resource_notify(r,struct pw_client_node_proxy_events,port_command,__VA_ARGS__)
 #define pw_client_node_resource_port_set_io(r,...)	\
 	pw_resource_notify(r,struct pw_client_node_proxy_events,port_set_io,__VA_ARGS__)
-#define pw_client_node_resource_set_position(r,...)	\
-	pw_resource_notify(r,struct pw_client_node_proxy_events,set_position,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

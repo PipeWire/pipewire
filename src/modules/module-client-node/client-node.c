@@ -64,6 +64,15 @@
 
 #define CHECK_PORT_BUFFER(this,b,p)      (b < p->n_buffers)
 
+struct type {
+	uint32_t client_node_position;
+};
+
+static inline void init_type(struct type *type, struct spa_type_map *map)
+{
+	type->client_node_position = spa_type_map_get_id(map, PW_TYPE_CLIENT_NODE_IO__Position);
+}
+
 struct mem {
 	uint32_t id;
 	int ref;
@@ -134,6 +143,8 @@ struct node {
 
 struct impl {
 	struct pw_client_node this;
+
+	struct type type;
 
 	struct pw_core *core;
 	struct pw_type *t;
@@ -323,7 +334,6 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 {
 	struct node *this;
 	int res = 0;
-	struct pw_type *t;
 
 	if (node == NULL || command == NULL)
 		return -EINVAL;
@@ -332,8 +342,6 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 	if (this->resource == NULL)
 		return 0;
-
-	t = this->impl->t;
 
 	pw_client_node_resource_command(this->resource, this->seq, command);
 	res = SPA_RESULT_RETURN_ASYNC(this->seq++);
@@ -1202,10 +1210,11 @@ static void node_initialized(void *data)
 	m = ensure_mem(impl, impl->io_areas->fd, t->data.MemFd, impl->io_areas->flags);
 	pw_log_debug("client-node %p: io areas %p", node, impl->io_areas->ptr);
 
-	pw_client_node_resource_set_position(this->resource,
-					     m->id,
-					     area_size,
-					     sizeof(struct pw_client_node_position));
+	pw_client_node_resource_set_io(this->resource,
+				       impl->type.client_node_position,
+				       m->id,
+				       area_size,
+				       sizeof(struct pw_client_node_position));
 
 	if ((global = pw_node_get_global(node)) != NULL)
 		pw_client_node_registered(this, pw_global_get_id(global));
@@ -1358,8 +1367,9 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug("client-node %p: new", impl);
 
-	support = pw_core_get_support(impl->core, &n_support);
+	init_type(&impl->type, impl->t->map);
 
+	support = pw_core_get_support(impl->core, &n_support);
 	node_init(&impl->node, NULL, support, n_support);
 	impl->node.impl = impl;
 

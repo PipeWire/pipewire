@@ -45,7 +45,6 @@
 #define MAX_PORTS	1
 
 struct type {
-	uint32_t client_node;
 	uint32_t prop_volume;
         uint32_t io_prop_volume;
 	struct spa_type_media_type media_type;
@@ -54,8 +53,6 @@ struct type {
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
-	type->client_node = spa_type_map_get_id(map, PW_TYPE_INTERFACE__ClientNode);
-
 	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
         type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
 

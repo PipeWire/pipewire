@@ -249,6 +249,7 @@ do_call_process(struct spa_loop *loop,
 {
 	struct stream *impl = user_data;
 	struct pw_stream *stream = &impl->this;
+	pw_log_trace("do process");
 	spa_hook_list_call(&stream->listener_list, struct pw_stream_events, process);
 	return 0;
 }

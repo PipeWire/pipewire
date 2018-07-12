@@ -335,13 +335,9 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 	t = this->impl->t;
 
-	if (SPA_COMMAND_TYPE(command) == t->command_node.ClockUpdate) {
-		pw_client_node_resource_command(this->resource, this->seq++, command);
-	} else {
-		/* send start */
-		pw_client_node_resource_command(this->resource, this->seq, command);
-		res = SPA_RESULT_RETURN_ASYNC(this->seq++);
-	}
+	pw_client_node_resource_command(this->resource, this->seq, command);
+	res = SPA_RESULT_RETURN_ASYNC(this->seq++);
+
 	return res;
 }
 

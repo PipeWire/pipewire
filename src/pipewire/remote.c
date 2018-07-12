@@ -869,21 +869,6 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
 	}
-	else if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.ClockUpdate) {
-		struct spa_command_node_clock_update *cu = (__typeof__(cu)) command;
-
-#if 0
-		if (cu->body.flags.value & SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE) {
-			pw_properties_set(stream->properties, PW_STREAM_PROP_IS_LIVE, "1");
-			pw_properties_setf(stream->properties,
-					   PW_STREAM_PROP_LATENCY_MIN, "%" PRId64,
-					   cu->body.latency.value);
-		}
-		impl->last_ticks = cu->body.ticks.value;
-		impl->last_rate = cu->body.rate.value;
-		impl->last_monotonic = cu->body.monotonic_time.value;
-#endif
-	}
 	else {
 		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
 		pw_client_node_proxy_done(data->node_proxy, seq, -ENOTSUP);

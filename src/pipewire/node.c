@@ -127,36 +127,6 @@ static int suspend_node(struct pw_node *this)
 	return res;
 }
 
-static void send_clock_update(struct pw_node *this)
-{
-	int res;
-	struct spa_command_node_clock_update cu =
-		SPA_COMMAND_NODE_CLOCK_UPDATE_INIT(this->core->type.command_node.ClockUpdate,
-						SPA_COMMAND_NODE_CLOCK_UPDATE_TIME |
-						SPA_COMMAND_NODE_CLOCK_UPDATE_SCALE |
-						SPA_COMMAND_NODE_CLOCK_UPDATE_STATE |
-						SPA_COMMAND_NODE_CLOCK_UPDATE_LATENCY,   /* change_mask */
-						1,       /* rate */
-						0,       /* ticks */
-						0,       /* monotonic_time */
-						0,       /* offset */
-						(1 << 16) | 1,   /* scale */
-						SPA_CLOCK_STATE_RUNNING, /* state */
-						0,       /* flags */
-						0);      /* latency */
-
-	if (this->clock && this->live) {
-		cu.body.flags.value = SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE;
-		res = spa_clock_get_time(this->clock,
-					 &cu.body.rate.value,
-					 &cu.body.ticks.value,
-					 &cu.body.monotonic_time.value);
-	}
-	res = spa_node_send_command(this->node, (struct spa_command *) &cu);
-	if (res < 0)
-		pw_log_debug("node %p: send clock update error %s", this, spa_strerror(res));
-}
-
 static void node_unbind_func(void *data)
 {
 	struct pw_resource *resource = data;
@@ -643,9 +613,6 @@ static void node_event(void *data, struct spa_event *event)
 	struct pw_node *node = data;
 
 	pw_log_trace("node %p: event %d", node, SPA_EVENT_TYPE(event));
-        if (SPA_EVENT_TYPE(event) == node->core->type.event_node.RequestClockUpdate) {
-                send_clock_update(node);
-        }
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, event, event);
 }
 
@@ -1053,7 +1020,6 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 	case PW_NODE_STATE_RUNNING:
 		if (node->active) {
 			node_activate(node);
-			send_clock_update(node);
 			res = start_node(node);
 		}
 		break;

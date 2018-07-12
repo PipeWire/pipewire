@@ -72,7 +72,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 {
 	struct data *data = userdata;
 	int i, j;
-	uint8_t *p, *map;
+	uint8_t *p;
 	struct spa_meta_header *h;
 	struct pw_buffer *buf;
 	struct spa_buffer *b;
@@ -83,21 +83,8 @@ static void on_timeout(void *userdata, uint64_t expirations)
 
 	b = buf->buffer;
 
-	if (b->datas[0].type == data->t->data.MemFd ||
-	    b->datas[0].type == data->t->data.DmaBuf) {
-		map =
-		    mmap(NULL, b->datas[0].maxsize + b->datas[0].mapoffset,
-			 PROT_READ | PROT_WRITE, MAP_SHARED, b->datas[0].fd, 0);
-		if (map == MAP_FAILED) {
-			printf("failed to mmap: %s\n", strerror(errno));
-			return;
-		}
-		p = SPA_MEMBER(map, b->datas[0].mapoffset, uint8_t);
-	} else if (b->datas[0].type == data->t->data.MemPtr) {
-		map = NULL;
-		p = b->datas[0].data;
-	} else
-		return;
+	if ((p = b->datas[0].data) == NULL)
+		goto done;
 
 	if ((h = spa_buffer_find_meta(b, data->t->meta.Header))) {
 #if 0
@@ -120,11 +107,9 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		data->counter += 13;
 	}
 
-	if (map)
-		munmap(map, b->datas[0].maxsize + b->datas[0].mapoffset);
-
 	b->datas[0].chunk->size = b->datas[0].maxsize;
 
+      done:
 	pw_stream_queue_buffer(data->stream, buf);
 }
 
@@ -243,7 +228,8 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_OUTPUT,
 				  NULL,
-				  PW_STREAM_FLAG_DRIVER,
+				  PW_STREAM_FLAG_DRIVER |
+				  PW_STREAM_FLAG_MAP_BUFFERS,
 				  params, 1);
 		break;
 	}

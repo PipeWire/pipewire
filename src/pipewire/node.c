@@ -36,8 +36,6 @@
 #include "pipewire/main-loop.h"
 #include "pipewire/work-queue.h"
 
-#define spa_debug pw_log_trace
-
 #include <spa/graph/graph-scheduler2.h>
 
 /** \cond */
@@ -616,11 +614,13 @@ static void node_event(void *data, struct spa_event *event)
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, event, event);
 }
 
-void pw_node_process(struct pw_node *node, int status)
+static void node_process(void *data, int status)
 {
+	struct pw_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
-	pw_log_trace("node %p: process driver:%d exported:%d", node, node->driver, node->exported);
+	pw_log_trace("node %p: process driver:%d exported:%d", node,
+			node->driver, node->exported);
 
 	spa_hook_list_call(&node->listener_list, struct pw_node_events, process);
 
@@ -643,12 +643,6 @@ void pw_node_process(struct pw_node *node, int status)
 	}
 	else
 		spa_graph_node_trigger(&node->rt.node);
-}
-
-static void node_process(void *data, int status)
-{
-	struct pw_node *node = data;
-	pw_node_process(node, status);
 }
 
 static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)

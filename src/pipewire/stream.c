@@ -189,8 +189,6 @@ static inline int push_queue(struct stream *stream, struct queue *queue, struct 
 	queue->ids[index & MASK_BUFFERS] = buffer->id;
 	spa_ringbuffer_write_update(&queue->ring, index + 1);
 
-	pw_log_trace("stream %p: queued buffer %d", stream, buffer->id);
-
 	return 0;
 }
 
@@ -605,8 +603,10 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		b->id = i;
 		b->this.buffer = buffers[i];
 
-		if (impl->direction == SPA_DIRECTION_OUTPUT)
+		if (impl->direction == SPA_DIRECTION_OUTPUT) {
+			pw_log_trace("stream %p: recycle buffer %d", stream, b->id);
 			push_queue(impl, &impl->dequeued, b);
+		}
 
 		spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
 				add_buffer, &b->this);
@@ -653,7 +653,9 @@ static int impl_node_process_input(struct spa_node *node)
 
       done:
 	/* pop buffer to recycle */
-	b = pop_queue(impl, &impl->queued);
+	if ((b = pop_queue(impl, &impl->queued))) {
+		pw_log_trace("stream %p: recycle buffer %d", stream, b->id);
+	}
 
 	io->buffer_id = b ? b->id : SPA_ID_INVALID;
 	io->status = SPA_STATUS_NEED_BUFFER;
@@ -676,8 +678,10 @@ static int impl_node_process_output(struct spa_node *node)
 	res = 0;
 	if (io->status != SPA_STATUS_HAVE_BUFFER) {
 		/* recycle old buffer */
-		if ((b = get_buffer(stream, io->buffer_id)) != NULL)
+		if ((b = get_buffer(stream, io->buffer_id)) != NULL) {
+			pw_log_trace("stream %p: recycle buffer %d", stream, b->id);
 			push_queue(impl, &impl->dequeued, b);
+		}
 
 		/* pop new buffer */
 		if ((b = pop_queue(impl, &impl->queued)) != NULL) {

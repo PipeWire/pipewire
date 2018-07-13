@@ -624,8 +624,6 @@ int pw_node_initialized(struct pw_node *node);
 
 int pw_node_set_driver(struct pw_node *node, struct pw_node *driver);
 
-void pw_node_process(struct pw_node *node, int status);
-
 /** Prepare a link \memberof pw_link
   * Starts the negotiation of formats and buffers on \a link */
 int pw_link_prepare(struct pw_link *link);

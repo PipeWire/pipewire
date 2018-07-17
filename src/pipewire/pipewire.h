@@ -46,6 +46,7 @@ extern "C" {
 #include <pipewire/thread-loop.h>
 #include <pipewire/type.h>
 #include <pipewire/utils.h>
+#include <pipewire/version.h>
 
 /** \mainpage
  *

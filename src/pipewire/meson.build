@@ -61,6 +61,11 @@ pipewire_sources = [
   'work-queue.c',
 ]
 
+configure_file(input : 'version.h.in',
+  output : 'version.h',
+  install_dir : 'include/pipewire',
+  configuration : cdata)
+
 install_headers(pipewire_headers, subdir : 'pipewire')
 
 libpipewire_c_args = [

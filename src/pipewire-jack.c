@@ -2095,6 +2095,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 				add_f32(ptr, b->datas[0].data, frames);
 		}
 	} else {
+		b = NULL;
 		spa_list_for_each(mix, &p->mix, port_link) {
 			pw_log_trace("port %p: mix %d.%d get buffer %d",
 					p, p->id, mix->id, frames);
@@ -2103,21 +2104,27 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			if (mix->n_buffers == 0 || io == NULL)
 				continue;
 
-			io->status = SPA_STATUS_HAVE_BUFFER;
 			if ((b = dequeue_buffer(mix)) == NULL) {
 				pw_log_warn("port %p: out of buffers", p);
 				io->buffer_id = SPA_ID_INVALID;
 				goto done;
 			}
 			reuse_buffer(c, mix, b->id);
-			io->buffer_id = b->id;
 			ptr = b->datas[0].data;
 
 			b->datas[0].chunk->offset = 0;
 			b->datas[0].chunk->size = frames * sizeof(float);
 			b->datas[0].chunk->stride = sizeof(float);
 
+			io->status = SPA_STATUS_HAVE_BUFFER;
+			io->buffer_id = b->id;
 			break;
+		}
+		spa_list_for_each(mix, &p->mix, port_link) {
+			struct spa_io_buffers *mio = mix->io;
+			if (mio == NULL)
+				continue;
+			*mio = *io;
 		}
 	}
 

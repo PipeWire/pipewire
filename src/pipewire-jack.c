@@ -689,7 +689,11 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 				c->bufsize_callback(c->buffer_size, c->bufsize_arg);
 		}
 
-		sample_rate = c->quantum->rate.denom;
+		if (c->quantum->rate.denom != 0)
+			sample_rate = c->quantum->rate.num / c->quantum->rate.denom;
+		else
+			sample_rate = c->sample_rate;
+
 		if (sample_rate != c->sample_rate) {
 			pw_log_info("jack %p: sample_rate %d", c, sample_rate);
 			c->sample_rate = sample_rate;
@@ -697,9 +701,12 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 				c->srate_callback(c->sample_rate, c->srate_arg);
 		}
 
+		c->jack_position.unique_1++;
 		c->jack_position.usecs = c->quantum->nsec/1000;
 		c->jack_position.frame_rate = c->sample_rate;
 		c->jack_position.frame = c->quantum->position;
+		c->jack_position.valid = 0;
+		c->jack_position.unique_2 = c->jack_position.unique_1;
 
 		if (c->sync_callback) {
 			c->sync_callback(JackTransportRolling,

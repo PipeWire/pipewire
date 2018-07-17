@@ -31,8 +31,9 @@
 
 #include <spa/support/dbus.h>
 
-#include "pipewire/pipewire.h"
-#include "pipewire/private.h"
+#include "pipewire.h"
+#include "private.h"
+#include "version.h"
 
 static char **categories = NULL;
 
@@ -377,4 +378,10 @@ enum pw_direction pw_direction_reverse(enum pw_direction direction)
 	else if (direction == PW_DIRECTION_OUTPUT)
 		return PW_DIRECTION_INPUT;
 	return direction;
+}
+
+/** Get the currently running version */
+const char* pw_get_library_version(void)
+{
+	return pw_get_headers_version();
 }

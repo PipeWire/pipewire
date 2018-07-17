@@ -27,7 +27,6 @@
 #include <spa/support/type-map-impl.h>
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
-#include <spa/clock/clock.h>
 #include <spa/node/node.h>
 #include <spa/pod/parser.h>
 #include <spa/param/param.h>
@@ -40,7 +39,6 @@ static SPA_LOG_IMPL(default_log);
 
 struct type {
 	uint32_t node;
-	uint32_t clock;
 	uint32_t format;
 	struct spa_type_param param;
 };
@@ -298,7 +296,6 @@ int main(int argc, char *argv[])
 	data.n_support = 4;
 
 	data.type.node = spa_type_map_get_id(data.map, SPA_TYPE__Node);
-	data.type.clock = spa_type_map_get_id(data.map, SPA_TYPE__Clock);
 	data.type.format = spa_type_map_get_id(data.map, SPA_TYPE__Format);
 	spa_type_param_map(data.map, &data.type.param);
 

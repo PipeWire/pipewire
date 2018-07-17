@@ -29,7 +29,6 @@
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
 
-#include <spa/clock/clock.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/param/buffers.h>
@@ -62,7 +61,6 @@ struct buffer {
 
 struct type {
 	uint32_t node;
-	uint32_t clock;
 	uint32_t format;
 	uint32_t props;
 	uint32_t prop_min_latency;
@@ -85,7 +83,6 @@ struct type {
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
-	type->clock = spa_type_map_get_id(map, SPA_TYPE__Clock);
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
 	type->prop_min_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__minLatency);
@@ -109,7 +106,6 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 struct impl {
 	struct spa_handle handle;
 	struct spa_node node;
-	struct spa_clock clock;
 
 	uint32_t seq;
 

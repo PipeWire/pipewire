@@ -305,9 +305,9 @@ static int do_add_port(struct spa_loop *loop,
 		out = &this->node->rt.node;
 		in = &this->rt.mix_node;
 	}
-	spa_graph_link_add(out, in->state, &this->rt.mix_link);
 	this->rt.mix_link.signal = spa_graph_link_signal_node;
 	this->rt.mix_link.signal_data = in;
+	spa_graph_link_add(out, in->state, &this->rt.mix_link);
 
 	return 0;
 }

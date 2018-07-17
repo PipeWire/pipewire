@@ -21,7 +21,6 @@
 
 #include <spa/support/type-map.h>
 #include <spa/utils/defs.h>
-#include <spa/clock/clock.h>
 #include <spa/param/format.h>
 #include <spa/param/props.h>
 #include <spa/monitor/monitor.h>
@@ -50,7 +49,6 @@ int pw_type_init(struct pw_type *type)
 
 	type->spa_log = spa_type_map_get_id(type->map, SPA_TYPE__Log);
 	type->spa_node = spa_type_map_get_id(type->map, SPA_TYPE__Node);
-	type->spa_clock = spa_type_map_get_id(type->map, SPA_TYPE__Clock);
 	type->spa_monitor = spa_type_map_get_id(type->map, SPA_TYPE__Monitor);
 	type->spa_format = spa_type_map_get_id(type->map, SPA_TYPE__Format);
 	type->spa_props = spa_type_map_get_id(type->map, SPA_TYPE__Props);

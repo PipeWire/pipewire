@@ -33,7 +33,6 @@ extern "C" {
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
 
-#include <spa/clock/clock.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/param/buffers.h>
@@ -63,7 +62,6 @@ struct buffer {
 
 struct type {
 	uint32_t node;
-	uint32_t clock;
 	uint32_t format;
 	uint32_t props;
 	uint32_t prop_device;
@@ -89,7 +87,6 @@ struct type {
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
-	type->clock = spa_type_map_get_id(map, SPA_TYPE__Clock);
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
 	type->prop_device = spa_type_map_get_id(map, SPA_TYPE_PROPS__device);
@@ -116,7 +113,6 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 struct state {
 	struct spa_handle handle;
 	struct spa_node node;
-	struct spa_clock clock;
 
 	uint32_t seq;
 
@@ -150,6 +146,7 @@ struct state {
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
 	struct spa_io_control_range *range;
+	struct spa_io_clock *clock;
 
 	struct buffer buffers[MAX_BUFFERS];
 	unsigned int n_buffers;
@@ -168,8 +165,6 @@ struct state {
 	snd_htimestamp_t now;
 	int64_t sample_count;
 	int64_t filled;
-	int64_t last_ticks;
-	int64_t last_monotonic;
 
 	uint64_t underrun;
 };

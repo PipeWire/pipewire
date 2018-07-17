@@ -41,6 +41,9 @@ extern "C" {
 /** An io area to exchange buffers with a port */
 #define SPA_TYPE_IO__Buffers		SPA_TYPE_IO_BASE "Buffers"
 
+/** IO area with clock information */
+#define SPA_TYPE_IO__Clock		SPA_TYPE_IO_BASE "Clock"
+
 /** Buffers IO area
  *
  * IO information for a port on a node. This is allocated
@@ -69,10 +72,18 @@ struct spa_io_control_range {
 	uint32_t max_size;	/**< maximum size of data */
 };
 
+/** A time source */
+struct spa_io_clock {
+	uint64_t nsec;                  /**< time in nanoseconds */
+        struct spa_fraction rate;       /**< rate */
+        uint32_t position;              /**< current position expressed in rate */
+};
+
 struct spa_type_io {
 	uint32_t Buffers;
 	uint32_t ControlRange;
 	uint32_t Prop;
+	uint32_t Clock;
 };
 
 static inline void spa_type_io_map(struct spa_type_map *map, struct spa_type_io *type)
@@ -81,6 +92,7 @@ static inline void spa_type_io_map(struct spa_type_map *map, struct spa_type_io 
 		type->Buffers = spa_type_map_get_id(map, SPA_TYPE_IO__Buffers);
 		type->ControlRange = spa_type_map_get_id(map, SPA_TYPE_IO_CONTROL__Range);
 		type->Prop = spa_type_map_get_id(map, SPA_TYPE_IO__Prop);
+		type->Clock = spa_type_map_get_id(map, SPA_TYPE_IO__Clock);
 	}
 }
 

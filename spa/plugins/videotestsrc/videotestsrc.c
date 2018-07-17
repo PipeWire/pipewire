@@ -29,7 +29,6 @@
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
 #include <spa/utils/list.h>
-#include <spa/clock/clock.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/param/video/format-utils.h>
@@ -45,7 +44,6 @@
 
 struct type {
 	uint32_t node;
-	uint32_t clock;
 	uint32_t format;
 	uint32_t props;
 	uint32_t prop_live;
@@ -67,7 +65,6 @@ struct type {
 static inline void init_type(struct type *type, struct spa_type_map *map)
 {
 	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
-	type->clock = spa_type_map_get_id(map, SPA_TYPE__Clock);
 	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
 	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
 	type->prop_live = spa_type_map_get_id(map, SPA_TYPE_PROPS__live);
@@ -118,7 +115,6 @@ struct buffer {
 struct impl {
 	struct spa_handle handle;
 	struct spa_node node;
-	struct spa_clock clock;
 
 	struct type type;
 	struct spa_type_map *map;
@@ -908,53 +904,6 @@ static const struct spa_node impl_node = {
 	impl_node_process,
 };
 
-static int impl_clock_enum_params(struct spa_clock *clock, uint32_t id, uint32_t *index,
-				  struct spa_pod **param,
-				  struct spa_pod_builder *builder)
-{
-	return -ENOTSUP;
-}
-
-static int impl_clock_set_param(struct spa_clock *clock, uint32_t id, uint32_t flags,
-				const struct spa_pod *param)
-{
-	return -ENOTSUP;
-}
-
-static int
-impl_clock_get_time(struct spa_clock *clock,
-		    int32_t *rate,
-		    int64_t *ticks,
-		    int64_t *monotonic_time)
-{
-	struct timespec now;
-	uint64_t tnow;
-
-	spa_return_val_if_fail(clock != NULL, -EINVAL);
-
-	if (rate)
-		*rate = SPA_NSEC_PER_SEC;
-
-	clock_gettime(CLOCK_MONOTONIC, &now);
-	tnow = SPA_TIMESPEC_TO_TIME(&now);
-
-	if (ticks)
-		*ticks = tnow;
-	if (monotonic_time)
-		*monotonic_time = tnow;
-
-	return 0;
-}
-
-static const struct spa_clock impl_clock = {
-	SPA_VERSION_CLOCK,
-	NULL,
-	SPA_CLOCK_STATE_STOPPED,
-	impl_clock_enum_params,
-	impl_clock_set_param,
-	impl_clock_get_time,
-};
-
 static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
 {
 	struct impl *this;
@@ -966,8 +915,6 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	if (interface_id == this->type.node)
 		*interface = &this->node;
-	else if (interface_id == this->type.clock)
-		*interface = &this->clock;
 	else
 		return -ENOENT;
 
@@ -1029,7 +976,6 @@ impl_init(const struct spa_handle_factory *factory,
 	init_type(&this->type, this->map);
 
 	this->node = impl_node;
-	this->clock = impl_clock;
 	reset_props(&this->props);
 
 	spa_list_init(&this->empty);
@@ -1058,7 +1004,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 static const struct spa_interface_info impl_interfaces[] = {
 	{SPA_TYPE__Node,},
-	{SPA_TYPE__Clock,},
 };
 
 static int

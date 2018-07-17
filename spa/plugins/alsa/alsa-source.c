@@ -577,6 +577,8 @@ impl_node_port_set_io(struct spa_node *node,
 
 	if (id == t->io.Buffers)
 		this->io = data;
+	else if (id == t->io.Clock)
+		this->clock = data;
 	else
 		return -ENOENT;
 
@@ -678,50 +680,6 @@ static const struct spa_node impl_node = {
 	impl_node_process,
 };
 
-static int impl_clock_enum_params(struct spa_clock *clock, uint32_t id, uint32_t *index,
-				  struct spa_pod **param,
-				  struct spa_pod_builder *builder)
-{
-	return -ENOTSUP;
-}
-
-static int impl_clock_set_param(struct spa_clock *clock,
-				uint32_t id, uint32_t flags,
-				const struct spa_pod *param)
-{
-	return -ENOTSUP;
-}
-
-static int impl_clock_get_time(struct spa_clock *clock,
-			       int32_t *rate,
-			       int64_t *ticks,
-			       int64_t *monotonic_time)
-{
-	struct state *this;
-
-	spa_return_val_if_fail(clock != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(clock, struct state, clock);
-
-	if (rate)
-		*rate = SPA_USEC_PER_SEC;
-	if (ticks)
-		*ticks = this->last_ticks;
-	if (monotonic_time)
-		*monotonic_time = this->last_monotonic;
-
-	return 0;
-}
-
-static const struct spa_clock impl_clock = {
-	SPA_VERSION_CLOCK,
-	NULL,
-	SPA_CLOCK_STATE_STOPPED,
-	impl_clock_enum_params,
-	impl_clock_set_param,
-	impl_clock_get_time,
-};
-
 static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
 {
 	struct state *this;
@@ -733,8 +691,6 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	if (interface_id == this->type.node)
 		*interface = &this->node;
-	else if (interface_id == this->type.clock)
-		*interface = &this->clock;
 	else
 		return -ENOENT;
 
@@ -796,7 +752,6 @@ impl_init(const struct spa_handle_factory *factory,
 	init_type(&this->type, this->map);
 
 	this->node = impl_node;
-	this->clock = impl_clock;
 	this->stream = SND_PCM_STREAM_CAPTURE;
 	reset_props(&this->props);
 
@@ -818,7 +773,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 static const struct spa_interface_info impl_interfaces[] = {
 	{SPA_TYPE__Node,},
-	{SPA_TYPE__Clock,},
 };
 
 static int

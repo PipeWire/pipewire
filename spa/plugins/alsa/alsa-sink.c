@@ -556,6 +556,8 @@ impl_node_port_set_io(struct spa_node *node,
 		this->io = data;
 	else if (id == t->io.ControlRange)
 		this->range = data;
+	else if (id == t->io.Clock)
+		this->clock = data;
 	else
 		return -ENOENT;
 

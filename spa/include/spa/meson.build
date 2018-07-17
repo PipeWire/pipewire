@@ -6,13 +6,6 @@ spa_buffer_headers = [
 install_headers(spa_buffer_headers,
   subdir : 'spa/buffer')
 
-spa_clock_headers = [
-  'clock/clock.h',
-]
-
-install_headers(spa_clock_headers,
-  subdir : 'spa/clock')
-
 spa_graph_headers = [
   'graph/graph.h',
 ]

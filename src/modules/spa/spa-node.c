@@ -120,19 +120,10 @@ pw_spa_node_new(struct pw_core *core,
 {
 	struct pw_node *this;
 	struct impl *impl;
-	void *iface = NULL;
-	struct pw_type *t = pw_core_get_type(core);
-	int res;
 
 	this = pw_node_new(core, name, properties, sizeof(struct impl) + user_data_size);
 	if (this == NULL)
 		return NULL;
-
-	if (handle) {
-		if ((res = spa_handle_get_interface(handle, t->spa_clock, &iface)) < 0)
-			iface = NULL;
-		this->clock = iface;
-	}
 
 	impl = this->user_data;
 	impl->this = this;

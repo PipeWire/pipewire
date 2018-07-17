@@ -487,7 +487,7 @@ push_frames(struct state *state,
 
 		if (b->h) {
 			b->h->seq = state->sample_count;
-			b->h->pts = state->last_monotonic;
+			b->h->pts = SPA_TIMESPEC_TO_TIME(&state->now);
 			b->h->dts_offset = 0;
 		}
 
@@ -562,8 +562,11 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 
 	state->filled = state->buffer_frames - avail;
 
-	state->last_ticks = state->sample_count - state->filled;
-	state->last_monotonic = (int64_t) state->now.tv_sec * SPA_NSEC_PER_SEC + (int64_t) state->now.tv_nsec;
+	if (state->clock) {
+		state->clock->nsec = SPA_TIMESPEC_TO_TIME(&state->now);
+		state->clock->rate = SPA_FRACTION(state->rate, 1);
+		state->clock->position = state->sample_count - state->filled;
+	}
 
 	spa_log_trace(state->log, "timeout %ld %d %ld %ld %ld", state->filled, state->threshold,
 		      state->sample_count, state->now.tv_sec, state->now.tv_nsec);
@@ -616,7 +619,6 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 	snd_pcm_status_t *status;
 	struct timespec now;
 
-
 	if (state->started && read(state->timerfd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(state->log, "error reading timerfd: %s", strerror(errno));
 
@@ -631,8 +633,11 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 	snd_pcm_status_get_htstamp(status, &state->now);
 	clock_gettime(CLOCK_MONOTONIC, &now);
 
-	state->last_ticks = state->sample_count + avail;
-	state->last_monotonic = (int64_t) state->now.tv_sec * SPA_NSEC_PER_SEC + (int64_t) state->now.tv_nsec;
+	if (state->clock) {
+		state->clock->nsec = SPA_TIMESPEC_TO_TIME(&state->now);
+		state->clock->rate = SPA_FRACTION(state->rate, 1);
+		state->clock->position = state->sample_count + avail;
+	}
 
 	spa_log_trace(state->log, "timeout %ld %d %ld %ld %ld %ld %ld", avail, state->threshold,
 		      state->sample_count, state->now.tv_sec, state->now.tv_nsec,

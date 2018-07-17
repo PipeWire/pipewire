@@ -269,7 +269,6 @@ struct pw_node {
 	struct spa_list driver_list;
 	struct spa_list driver_link;
 
-	struct spa_clock *clock;	/**< handle to SPA clock if any */
 	struct spa_node *node;		/**< SPA node implementation */
 
 	struct spa_list resource_list;	/**< list of resources for this node */

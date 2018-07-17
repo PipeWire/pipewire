@@ -1218,11 +1218,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	pw_node_add_listener(output_node, &impl->output_node_listener, &output_node_events, impl);
 
 	input_node->live = output_node->live;
-	if (output_node->clock)
-		input_node->clock = output_node->clock;
 
-	pw_log_debug("link %p: output node %p clock %p, live %d",
-			this, output_node, output_node->clock, output_node->live);
+	pw_log_debug("link %p: output node %p live %d",
+			this, output_node, output_node->live);
 
 	spa_list_append(&output->links, &this->output_link);
 	spa_list_append(&input->links, &this->input_link);

@@ -401,6 +401,30 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 		}
 	}
+	else if (id == t->param_io.idBuffers) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.Buffers,
+				":", t->param_io.id,   "I", t->io.Buffers,
+				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
+			break;
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param_io.idClock) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.Clock,
+				":", t->param_io.id,   "I", t->io.Clock,
+				":", t->param_io.size, "i", sizeof(struct spa_io_clock));
+			break;
+		default:
+			return 0;
+		}
+	}
 	else
 		return -ENOENT;
 

@@ -33,7 +33,7 @@
 
 #define M_PI_M2 ( M_PI + M_PI )
 
-#define BUFFER_SAMPLES	48
+#define BUFFER_SAMPLES	128
 
 struct type {
 	uint32_t prop_volume;

@@ -629,11 +629,20 @@ static void node_process(void *data, int status)
 			struct pw_driver_quantum *q;
 			q = node->rt.quantum;
 
-			q->position = impl->next_position;
+			if (node->rt.clock) {
+				q->nsec = node->rt.clock->nsec;
+				q->rate = node->rt.clock->rate;
+				q->position = node->rt.clock->position;
+			}
+			else {
+				clock_gettime(CLOCK_MONOTONIC, &ts);
+				q->nsec = SPA_TIMESPEC_TO_TIME(&ts);
+				q->position = impl->next_position;
+			}
 			impl->next_position += q->size;
 
-			clock_gettime(CLOCK_MONOTONIC, &ts);
-			q->nsec = ts.tv_sec * SPA_NSEC_PER_SEC + ts.tv_nsec;
+			pw_log_trace("node %p: run %"PRIu64" %d %d", node,
+					q->nsec, q->position, q->size);
 
 			spa_graph_run(node->rt.driver);
 		}

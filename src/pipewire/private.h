@@ -290,6 +290,7 @@ struct pw_node {
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
 	struct {
+		struct spa_io_clock *clock;	/**< io area of the clock or NULL */
 		struct pw_driver_quantum *quantum;
 		struct spa_graph *driver;
 		struct spa_graph_node root;
@@ -355,6 +356,7 @@ struct pw_port {
 
 	struct {
 		struct spa_io_buffers io;	/**< io area of the port */
+		struct spa_io_clock clock;	/**< io area of the clock */
 		struct spa_graph_port port;	/**< this graph port, linked to mix_port */
 		struct spa_graph_port mix_port;	/**< port from the mixer */
 		struct spa_graph_node mix_node;	/**< mixer node */

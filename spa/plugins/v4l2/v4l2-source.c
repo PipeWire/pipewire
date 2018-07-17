@@ -158,6 +158,7 @@ struct port {
 
 	bool have_format;
 	struct spa_video_info current_format;
+	struct spa_fraction rate;
 
 	int fd;
 	bool opened;
@@ -178,9 +179,7 @@ struct port {
 
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
-
-	int64_t last_ticks;
-	int64_t last_monotonic;
+	struct spa_io_clock *clock;
 };
 
 struct impl {
@@ -562,6 +561,30 @@ static int impl_node_port_enum_params(struct spa_node *node,
 	else if (id == t->param_io.idPropsIn) {
 		return spa_v4l2_enum_controls(this, index, filter, result, builder);
 	}
+	else if (id == t->param_io.idBuffers) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.Buffers,
+				":", t->param_io.id,   "I", t->io.Buffers,
+				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
+			break;
+		default:
+			return 0;
+		}
+	}
+	else if (id == t->param_io.idClock) {
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				id, t->param_io.Clock,
+				":", t->param_io.id,   "I", t->io.Clock,
+				":", t->param_io.size, "i", sizeof(struct spa_io_clock));
+			break;
+		default:
+			return 0;
+		}
+	}
 	else
 		return -ENOENT;
 
@@ -766,6 +789,9 @@ static int impl_node_port_set_io(struct spa_node *node,
 
 	if (id == t->io.Buffers) {
 		port->io = data;
+	}
+	else if (id == t->io.Clock) {
+		port->clock = data;
 	}
 	else if ((control = find_control(port, id))) {
 		if (data && size >= sizeof(struct spa_pod_double))

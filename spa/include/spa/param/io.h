@@ -56,6 +56,11 @@ extern "C" {
 #define SPA_TYPE_PARAM_IO__Prop		SPA_TYPE_PARAM_IO_BASE "Prop"
 #define SPA_TYPE_PARAM_IO_PROP_BASE	SPA_TYPE_PARAM_IO__Prop ":"
 
+/** enumerate clock io areas */
+#define SPA_TYPE_PARAM_ID_IO__Clock	SPA_TYPE_PARAM_ID_IO_BASE "Clock"
+/* an io area to exchange clock information */
+#define SPA_TYPE_PARAM_IO__Clock	SPA_TYPE_PARAM_IO_BASE "Clock"
+
 struct spa_type_param_io {
 	uint32_t id;		/**< id to configure the io area */
 	uint32_t size;		/**< size of io area */
@@ -66,6 +71,8 @@ struct spa_type_param_io {
 	uint32_t idPropsIn;	/**< id to enumerate input properties io */
 	uint32_t idPropsOut;	/**< id to enumerate output properties io */
 	uint32_t Prop;		/**< object type of property area */
+	uint32_t idClock;	/**< id to enumerate clock io */
+	uint32_t Clock;		/**< object type of clock io area */
 };
 
 static inline void
@@ -82,6 +89,8 @@ spa_type_param_io_map(struct spa_type_map *map,
 		type->idPropsIn = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID_IO_PROPS__In);
 		type->idPropsOut = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID_IO_PROPS__Out);
 		type->Prop = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__Prop);
+		type->idClock = spa_type_map_get_id(map, SPA_TYPE_PARAM_ID_IO__Clock);
+		type->Clock = spa_type_map_get_id(map, SPA_TYPE_PARAM_IO__Clock);
 	}
 }
 

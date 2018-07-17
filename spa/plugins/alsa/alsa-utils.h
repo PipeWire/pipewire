@@ -36,6 +36,7 @@ extern "C" {
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/param/buffers.h>
+#include <spa/param/io.h>
 #include <spa/param/meta.h>
 #include <spa/param/audio/format-utils.h>
 
@@ -82,6 +83,7 @@ struct type {
 	struct spa_type_format_audio format_audio;
 	struct spa_type_param_buffers param_buffers;
 	struct spa_type_param_meta param_meta;
+	struct spa_type_param_io param_io;
 };
 
 static inline void init_type(struct type *type, struct spa_type_map *map)
@@ -108,6 +110,7 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_format_audio_map(map, &type->format_audio);
 	spa_type_param_buffers_map(map, &type->param_buffers);
 	spa_type_param_meta_map(map, &type->param_meta);
+	spa_type_param_io_map(map, &type->param_io);
 }
 
 struct state {

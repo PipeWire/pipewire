@@ -911,6 +911,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 		SPA_PORT_INFO_FLAG_PHYSICAL |
 		SPA_PORT_INFO_FLAG_TERMINAL;
 	port->info.rate = streamparm.parm.capture.timeperframe.denominator;
+	port->rate = *framerate;
 
 	return 0;
 }
@@ -1156,14 +1157,13 @@ static int mmap_read(struct impl *this)
 	if (xioctl(port->fd, VIDIOC_DQBUF, &buf) < 0)
 		return -errno;
 
-	port->last_ticks = (int64_t) buf.timestamp.tv_sec * SPA_USEC_PER_SEC +
-			    (uint64_t) buf.timestamp.tv_usec;
-	pts = port->last_ticks * 1000;
+	pts = SPA_TIMEVAL_TO_TIME(&buf.timestamp);
 
-	if (buf.flags & V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC)
-		port->last_monotonic = pts;
-	else
-		port->last_monotonic = SPA_TIME_INVALID;
+	if (port->clock) {
+		port->clock->nsec = pts;
+		port->clock->rate = port->rate;
+		port->clock->position = buf.sequence;
+	}
 
 	b = &port->buffers[buf.index];
 	if (b->h) {

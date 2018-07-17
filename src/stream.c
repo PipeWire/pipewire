@@ -1367,18 +1367,19 @@ int pa_stream_get_time(pa_stream *s, pa_usec_t *r_usec)
 	pw_stream_get_time(s->stream, &t);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	now = ts.tv_sec * SPA_NSEC_PER_SEC + ts.tv_nsec;
+	now = SPA_TIMESPEC_TO_TIME(&ts);
 	delay = (now - t.now) / PA_NSEC_PER_USEC;
 
-	if (t.rate.denom != 0)
-		res = delay + ((t.ticks * t.rate.num * PA_USEC_PER_SEC) / t.rate.denom);
+	if (t.rate.num != 0)
+		res = delay + ((t.ticks * t.rate.denom * PA_USEC_PER_SEC) / t.rate.num);
 	else
 		res = 0;
 
 	if (r_usec)
 		*r_usec = res;
 
-	pw_log_trace("stream %p: %ld %ld %ld %ld %d/%d %ld", s, now, t.now, delay, t.ticks, t.rate.num, t.rate.denom, res);
+	pw_log_debug("stream %p: %ld %ld %ld %ld %d/%d %ld",
+			s, now, t.now, delay, t.ticks, t.rate.num, t.rate.denom, res);
 
 	return 0;
 }

@@ -23,6 +23,13 @@
 #include <math.h>
 #include <time.h>
 
+#if defined (__SSE2__) && !defined (__sun__)
+#include <emmintrin.h>
+#ifdef __SSE4_1__
+#include <smmintrin.h>
+#endif
+#endif
+
 #include "config.h"
 
 #include <spa/node/node.h>
@@ -275,16 +282,69 @@ static void fill_s16(void *dst, int index, int n_samples, int stride)
         _v * S32_SCALE;         \
 })
 
+#define SAMPLE_24BIT_MAX_F  8388607.0f
+
 static void conv_f32_s32(void *dst, void *src, int index, int n_samples, int stride)
 {
 	int32_t *d = dst;
 	float *s = src;
-	int i;
+
 	d += index;
+
+#if defined (__SSE2__) && !defined (__sun__)
+        __m128 int_max = _mm_set1_ps(SAMPLE_24BIT_MAX_F);
+        __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
+        __m128 factor = int_max;
+
+        unsigned long unrolled = n_samples / 4;
+        n_samples = n_samples & 3;
+
+        while (unrolled--) {
+                __m128 in = _mm_load_ps(s);
+                __m128 scaled = _mm_mul_ps(in, factor);
+                __m128 clipped = _mm_min_ps(int_max, _mm_max_ps(scaled, int_min));
+
+                __m128i y = _mm_cvttps_epi32(clipped);
+                __m128i shifted = _mm_slli_epi32(y, 8);
+
+#ifdef __SSE4_1__
+                *d            = _mm_extract_epi32(shifted, 0);
+                *(d+stride)   = _mm_extract_epi32(shifted, 1);
+                *(d+2*stride) = _mm_extract_epi32(shifted, 2);
+                *(d+3*stride) = _mm_extract_epi32(shifted, 3);
+#else
+                __m128i shuffled1 = _mm_shuffle_epi32(shifted, _MM_SHUFFLE(0, 3, 2, 1));
+                __m128i shuffled2 = _mm_shuffle_epi32(shifted, _MM_SHUFFLE(1, 0, 3, 2));
+                __m128i shuffled3 = _mm_shuffle_epi32(shifted, _MM_SHUFFLE(2, 1, 0, 3));
+
+                _mm_store_ss((float*)d, (__m128)shifted);
+                _mm_store_ss((float*)(d+stride), (__m128)shuffled1);
+                _mm_store_ss((float*)(d+2*stride), (__m128)shuffled2);
+                _mm_store_ss((float*)(d+3*stride), (__m128)shuffled3);
+#endif
+                d += 4 * stride;
+                s += 4;
+        }
+
+
+        while (n_samples--) {
+                __m128 in = _mm_load_ss(s);
+                __m128 scaled = _mm_mul_ss(in, factor);
+                __m128 clipped = _mm_min_ss(int_max, _mm_max_ss(scaled, int_min));
+
+		*d = _mm_cvttss_si32(clipped) << 8;
+                d += stride;
+                s++;
+        }
+
+#else
+	int i;
+
 	for (i = 0; i < n_samples; i++) {
 		*d = F32_TO_S32(s[i]);
 		d += stride;
 	}
+#endif
 }
 
 #define S32_TO_F32(v)   ((v) * (1.0f / S32_SCALE))

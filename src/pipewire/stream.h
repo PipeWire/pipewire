@@ -166,6 +166,11 @@ enum pw_stream_state {
 struct pw_buffer {
 	struct spa_buffer *buffer;	/* the spa buffer */
 	void *user_data;		/* user data attached to the buffer */
+	uint64_t size;			/* For input streams, this field is set by pw_stream
+					   with the duration of the buffer in ticks.
+					   For output streams, this field is set by the user.
+					   This field is added for all queued buffers and
+					   returned in the time info. */
 };
 
 /** Events for a stream */
@@ -308,9 +313,17 @@ int pw_stream_set_active(struct pw_stream *stream, bool active);
 /** A time structure \memberof pw_stream */
 struct pw_time {
 	int64_t now;			/**< the monotonic time */
-	int64_t ticks;			/**< the ticks at \a now */
 	struct spa_fraction rate;	/**< the rate of \a ticks */
+	uint64_t ticks;			/**< the ticks at \a now. This is the current time that
+					     the remote end is reading/writing. */
+	uint64_t delay;			/**< delay to device, add to ticks for INPUT streams and
+					     subtract from ticks for OUTPUT streams to get the
+					     time of the device. */
+	uint64_t queued;		/**< data queued in the stream, this is the sum
+					     of the size fields in the pw_buffer that are
+					     currently queued */
 };
+
 /** Query the time on the stream \memberof pw_stream */
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);
 

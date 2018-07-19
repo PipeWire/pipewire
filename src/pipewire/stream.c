@@ -68,6 +68,8 @@ struct buffer {
 struct queue {
 	uint32_t ids[MAX_BUFFERS];
 	struct spa_ringbuffer ring;
+	uint64_t incount;
+	uint64_t outcount;
 };
 
 struct stream {
@@ -113,7 +115,6 @@ struct stream {
 
 	struct buffer buffers[MAX_BUFFERS];
 	int n_buffers;
-
 
 	int64_t last_ticks;
 	int32_t last_rate;
@@ -270,8 +271,10 @@ static inline int push_queue(struct stream *stream, struct queue *queue, struct 
 	if (SPA_FLAG_CHECK(buffer->flags, BUFFER_FLAG_QUEUED))
 		return -EINVAL;
 
-	filled = spa_ringbuffer_get_write_index(&queue->ring, &index);
 	SPA_FLAG_SET(buffer->flags, BUFFER_FLAG_QUEUED);
+	queue->incount += buffer->buffer.size;
+
+	filled = spa_ringbuffer_get_write_index(&queue->ring, &index);
 	queue->ids[index & MASK_BUFFERS] = buffer->id;
 	spa_ringbuffer_write_update(&queue->ring, index + 1);
 
@@ -293,6 +296,7 @@ static inline struct buffer *pop_queue(struct stream *stream, struct queue *queu
 	spa_ringbuffer_read_update(&queue->ring, index + 1);
 
 	buffer = &stream->buffers[id];
+	queue->outcount += buffer->buffer.size;
 	SPA_FLAG_UNSET(buffer->flags, BUFFER_FLAG_QUEUED);
 
 	pw_log_trace("stream %p: dequeued buffer %d %d", stream, id, avail);
@@ -1359,6 +1363,11 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 	return 0;
 }
 
+static inline int64_t get_queue_size(struct queue *queue)
+{
+	return (int64_t)(queue->incount - queue->outcount);
+}
+
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1370,8 +1379,15 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	elapsed = (time->now - impl->last_monotonic) / 1000;
 
 	time->ticks = impl->last_ticks + (elapsed * impl->last_rate) / SPA_USEC_PER_SEC;
-	time->rate.num = 1;
-	time->rate.denom = impl->last_rate;
+	time->rate.num = impl->last_rate;
+	time->rate.denom = 1;
+	time->delay = 0;
+	if (impl->direction == SPA_DIRECTION_INPUT)
+		time->queued = get_queue_size(&impl->dequeue);
+	else
+		time->queued = get_queue_size(&impl->queue);
+
+	pw_log_trace("%ld %d/%d %ld", time->ticks, time->rate.num, time->rate.denom, time->queued);
 
 	return 0;
 }

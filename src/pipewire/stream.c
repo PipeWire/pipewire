@@ -657,15 +657,20 @@ static int impl_node_process_input(struct spa_node *node)
 	struct pw_stream *stream = &impl->this;
 	struct spa_io_buffers *io = impl->io;
 	struct buffer *b;
+	uint64_t size;
 
-	pw_log_trace("stream %p: process in %d %d %"PRIu64" %"PRIi64, stream,
-			io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
+	size = impl->time.ticks - impl->dequeued.incount;
+
+	pw_log_trace("stream %p: process in %d %d %"PRIu64" %"PRIi64" %"PRIu64, stream,
+			io->status, io->buffer_id, impl->time.ticks, impl->time.delay, size);
 
 	if (io->status != SPA_STATUS_HAVE_BUFFER)
 		goto done;
 
 	if ((b = get_buffer(stream, io->buffer_id)) == NULL)
 		goto done;
+
+	b->this.size = size;
 
 	/* push new buffer */
 	if (push_queue(impl, &impl->dequeued, b) == 0)
@@ -1138,9 +1143,11 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	} while (impl->seq1 != seq);
 
 	if (impl->direction == SPA_DIRECTION_INPUT)
-		time->queued = time->queued - impl->dequeued.outcount;
+		time->queued = (int64_t)(time->queued - impl->dequeued.outcount);
 	else
-		time->queued = impl->queued.incount - time->queued;
+		time->queued = (int64_t)(impl->queued.incount - time->queued);
+
+	pw_log_trace("%ld %d/%d %ld", time->ticks, time->rate.num, time->rate.denom, time->queued);
 
 	return 0;
 }

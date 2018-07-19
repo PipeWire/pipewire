@@ -164,9 +164,13 @@ enum pw_stream_state {
 };
 
 struct pw_buffer {
-	struct spa_buffer *buffer;	/* the spa buffer */
-	void *user_data;		/* user data attached to the buffer */
-	uint64_t size;			/* size to keep track of queued size */
+	struct spa_buffer *buffer;	/**< the spa buffer */
+	void *user_data;		/**< user data attached to the buffer */
+	uint64_t size;			/**< For input streams, this field is set by pw_stream
+					  *  with the duration of the buffer in ticks.
+					  *  For output streams, this field is set by the user.
+					  *  This field is added for all queued buffers and
+					  *  returned in the time info. */
 };
 
 /** Events for a stream */

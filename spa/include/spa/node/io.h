@@ -44,6 +44,9 @@ extern "C" {
 /** IO area with clock information */
 #define SPA_TYPE_IO__Clock		SPA_TYPE_IO_BASE "Clock"
 
+/** IO area with latency information */
+#define SPA_TYPE_IO__Latency		SPA_TYPE_IO_BASE "Latency"
+
 /** Buffers IO area
  *
  * IO information for a port on a node. This is allocated
@@ -82,11 +85,19 @@ struct spa_io_clock {
 					     subtract for playback */
 };
 
+/** latency reporting */
+struct spa_io_latency {
+	struct spa_fraction rate;	/**< rate for min/max */
+	uint64_t min;			/**< min latency */
+	uint64_t max;			/**< max latency */
+};
+
 struct spa_type_io {
 	uint32_t Buffers;
 	uint32_t ControlRange;
 	uint32_t Prop;
 	uint32_t Clock;
+	uint32_t Latency;
 };
 
 static inline void spa_type_io_map(struct spa_type_map *map, struct spa_type_io *type)
@@ -96,6 +107,7 @@ static inline void spa_type_io_map(struct spa_type_map *map, struct spa_type_io 
 		type->ControlRange = spa_type_map_get_id(map, SPA_TYPE_IO_CONTROL__Range);
 		type->Prop = spa_type_map_get_id(map, SPA_TYPE_IO__Prop);
 		type->Clock = spa_type_map_get_id(map, SPA_TYPE_IO__Clock);
+		type->Latency = spa_type_map_get_id(map, SPA_TYPE_IO__Latency);
 	}
 }
 

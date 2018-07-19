@@ -71,6 +71,8 @@ struct buffer {
 struct queue {
 	uint32_t ids[MAX_BUFFERS];
 	struct spa_ringbuffer ring;
+	uint64_t incount;
+	uint64_t outcount;
 };
 
 struct data {
@@ -143,6 +145,9 @@ struct stream {
 
 	bool free_data;
 	struct data data;
+
+	uint32_t seq1, seq2;
+	struct pw_time time;
 };
 
 static struct param *add_param(struct pw_stream *stream,
@@ -184,6 +189,7 @@ static inline int push_queue(struct stream *stream, struct queue *queue, struct 
 		return -EINVAL;
 
 	SPA_FLAG_SET(buffer->flags, BUFFER_FLAG_QUEUED);
+	queue->incount += buffer->this.size;
 
 	spa_ringbuffer_get_write_index(&queue->ring, &index);
 	queue->ids[index & MASK_BUFFERS] = buffer->id;
@@ -205,6 +211,7 @@ static inline struct buffer *pop_queue(struct stream *stream, struct queue *queu
 	spa_ringbuffer_read_update(&queue->ring, index + 1);
 
 	buffer = &stream->buffers[id];
+	queue->outcount += buffer->this.size;
 	SPA_FLAG_UNSET(buffer->flags, BUFFER_FLAG_QUEUED);
 
 	return buffer;
@@ -632,6 +639,18 @@ static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint3
 	return 0;
 }
 
+static inline void copy_quantum(struct stream *impl, int64_t queued)
+{
+	struct pw_driver_quantum *q = impl->node->rt.quantum;
+	impl->seq1++;
+	impl->time.now = q->nsec;
+	impl->time.rate = q->rate;
+	impl->time.ticks = q->position;
+	impl->time.delay = q->delay;
+	impl->time.queued = queued;
+	impl->seq2 = impl->seq1;
+}
+
 static int impl_node_process_input(struct spa_node *node)
 {
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
@@ -639,7 +658,8 @@ static int impl_node_process_input(struct spa_node *node)
 	struct spa_io_buffers *io = impl->io;
 	struct buffer *b;
 
-	pw_log_trace("stream %p: process input %d %d", stream, io->status, io->buffer_id);
+	pw_log_trace("stream %p: process in %d %d %"PRIu64" %"PRIi64, stream,
+			io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
 
 	if (io->status != SPA_STATUS_HAVE_BUFFER)
 		goto done;
@@ -652,6 +672,8 @@ static int impl_node_process_input(struct spa_node *node)
 		call_process(impl);
 
       done:
+	copy_quantum(impl, impl->dequeued.incount);
+
 	/* pop buffer to recycle */
 	if ((b = pop_queue(impl, &impl->queued))) {
 		pw_log_trace("stream %p: recycle buffer %d", stream, b->id);
@@ -673,7 +695,8 @@ static int impl_node_process_output(struct spa_node *node)
 	uint32_t index;
 
      again:
-	pw_log_trace("stream %p: process out %d %d", stream, io->status, io->buffer_id);
+	pw_log_trace("stream %p: process out %d %d %"PRIu64" %"PRIi64, stream,
+			io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
 
 	res = 0;
 	if (io->status != SPA_STATUS_HAVE_BUFFER) {
@@ -694,12 +717,15 @@ static int impl_node_process_output(struct spa_node *node)
 			pw_log_trace("stream %p: no more buffers %p", stream, io);
 		}
 	}
+
 	if (!SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_DRIVER)) {
 		call_process(impl);
 		if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) >= MIN_QUEUED &&
 		    io->status == SPA_STATUS_NEED_BUFFER)
 			goto again;
 	}
+	copy_quantum(impl, impl->queued.outcount);
+
 	res = io->status;
 	pw_log_trace("stream %p: res %d", stream, res);
 
@@ -1104,13 +1130,17 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct pw_driver_quantum *q;
+	uint32_t seq;
 
-	q = impl->node->rt.quantum;
+	do {
+		seq = impl->seq2;
+		*time = impl->time;
+	} while (impl->seq1 != seq);
 
-	time->now = q->nsec;
-	time->ticks = q->position;
-	time->rate = q->rate;
+	if (impl->direction == SPA_DIRECTION_INPUT)
+		time->queued = time->queued - impl->dequeued.outcount;
+	else
+		time->queued = impl->queued.incount - time->queued;
 
 	return 0;
 }

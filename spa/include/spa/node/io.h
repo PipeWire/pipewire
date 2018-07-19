@@ -74,9 +74,12 @@ struct spa_io_control_range {
 
 /** A time source */
 struct spa_io_clock {
-	uint64_t nsec;                  /**< time in nanoseconds */
-        struct spa_fraction rate;       /**< rate */
-        uint32_t position;              /**< current position expressed in rate */
+	uint64_t nsec;			/**< time in nanoseconds */
+	struct spa_fraction rate;	/**< rate for position/delay */
+	uint64_t position;		/**< current position */
+	uint64_t delay;			/**< delay between position and hardware,
+					     add to position for capture,
+					     subtract for playback */
 };
 
 struct spa_type_io {

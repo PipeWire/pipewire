@@ -36,6 +36,7 @@ static int spa_alsa_open(struct state *state)
 
 	state->timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
 	state->opened = true;
+	state->sample_count = 0;
 
 	return 0;
 }
@@ -565,7 +566,8 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	if (state->clock) {
 		state->clock->nsec = SPA_TIMESPEC_TO_TIME(&state->now);
 		state->clock->rate = SPA_FRACTION(state->rate, 1);
-		state->clock->position = state->sample_count - state->filled;
+		state->clock->position = state->sample_count;
+		state->clock->delay = state->filled;
 	}
 
 	spa_log_trace(state->log, "timeout %ld %d %ld %ld %ld", state->filled, state->threshold,
@@ -636,7 +638,8 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 	if (state->clock) {
 		state->clock->nsec = SPA_TIMESPEC_TO_TIME(&state->now);
 		state->clock->rate = SPA_FRACTION(state->rate, 1);
-		state->clock->position = state->sample_count + avail;
+		state->clock->position = state->sample_count;
+		state->clock->delay = avail;
 	}
 
 	spa_log_trace(state->log, "timeout %ld %d %ld %ld %ld %ld %ld", avail, state->threshold,

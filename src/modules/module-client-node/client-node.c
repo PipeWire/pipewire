@@ -163,6 +163,7 @@ struct impl {
 	int other_fds[2];
 
 	struct pw_client_node_position *position;
+	uint64_t start;
 };
 
 /** \endcond */
@@ -818,6 +819,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 			}
 		}
 	}
+	impl->start = -1;
 
 	pw_client_node_resource_port_use_buffers(this->resource,
 						 this->seq,
@@ -912,7 +914,10 @@ static int impl_node_process(struct spa_node *node)
 	rq = SPA_MEMBER(impl->position, sizeof(struct pw_client_node_position),
 			struct pw_driver_quantum);
 
+	if (impl->start == -1)
+		impl->start = q->position;
 	*rq = *q;
+	rq->position -= impl->start;
 
 	if (write(this->writefd, &cmd, 8) != 8)
 		spa_log_warn(this->log, "node %p: error %s", this, strerror(errno));

@@ -626,23 +626,24 @@ static void node_process(void *data, int status)
 	if (node->driver) {
 		if (node->rt.driver->state->pending == 0 || !node->remote) {
 			struct timespec ts;
-			struct pw_driver_quantum *q;
-			q = node->rt.quantum;
+			struct pw_driver_quantum *q = node->rt.quantum;
 
 			if (node->rt.clock) {
 				q->nsec = node->rt.clock->nsec;
 				q->rate = node->rt.clock->rate;
 				q->position = node->rt.clock->position;
+				q->delay = node->rt.clock->delay;
 			}
 			else {
 				clock_gettime(CLOCK_MONOTONIC, &ts);
 				q->nsec = SPA_TIMESPEC_TO_TIME(&ts);
 				q->position = impl->next_position;
+				q->delay = 0;
 			}
 			impl->next_position += q->size;
 
-			pw_log_trace("node %p: run %"PRIu64" %d %d", node,
-					q->nsec, q->position, q->size);
+			pw_log_trace("node %p: run %"PRIu64" %"PRIu64" %"PRIi64" %d", node,
+					q->nsec, q->position, q->delay, q->size);
 
 			spa_graph_run(node->rt.driver);
 		}

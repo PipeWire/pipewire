@@ -771,10 +771,10 @@ static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
 	struct impl *impl = this->impl;
+	struct pw_driver_quantum *q = impl->this.node->driver_node->rt.quantum;
 	int status, trigger;
 
-	impl->ctrl.min_size = impl->ctrl.max_size =
-		impl->this.node->driver_node->rt.quantum->size * sizeof(float);
+	impl->ctrl.min_size = impl->ctrl.max_size = q->size * sizeof(float);
 
 	spa_log_trace(this->log, "%p: process %d", this, impl->ctrl.max_size);
 

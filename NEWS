@@ -1,14 +1,17 @@
-PipeWire 0.1.9
+PipeWire 0.2.1
 
-- Various build fixes
-- Do more permission checks
-- Add support for doing async connections. This can be used to
-  make connections through the portal later.
-- Fix device creation from the GStreamer device monitor
-- v4l2 experiment with controls
-- move rtkit to a module to avoid dbus dependency
-- use dmabuf allocator in gstreamer elements
-- Add DSP module for pro audio cases, remove jack module. The
-  idea is to make a replacement jack client library that talks
-  pipewire directly instead of trying to emulate a jack server.
-- Various memory handling improvements
+- Various fixes to memory handling
+- Fixes for shutdown
+- v4l2 fix enumeration of frame intervals
+- Make the daemon stop when the setup commands fail
+- Improve safety of hooks
+- Update stream API to more future proof version
+- Add more options to stream API such as scheduling in the
+  main thread and automatic mapping of buffers
+- Add version file and macros to check compile time and
+  runtime versions of pipewire
+- Future proof some structs
+
+Work is ongoing in the work branch that features a completely new
+scheduling method that will enable audio support. Some of these
+API changes are backported in this branch.

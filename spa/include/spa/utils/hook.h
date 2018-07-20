@@ -43,6 +43,7 @@ struct spa_hook {
 	struct spa_list link;
 	const void *funcs;
 	void *data;
+	void *priv[2];	/**< private data for the hook list */
 };
 
 /** Initialize a hook list */

@@ -74,7 +74,7 @@ libpipewire_c_args = [
   '-D_POSIX_C_SOURCE',
 ]
 
-libpipewire = shared_library('pipewire-@0@'.format(apiversion), pipewire_sources,
+libpipewire = shared_library('pipewire', pipewire_sources,
   version : libversion,
   soversion : soversion,
   c_args : libpipewire_c_args,

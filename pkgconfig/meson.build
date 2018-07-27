@@ -17,7 +17,7 @@ pkg_files = [
 
 foreach p : pkg_files
   infile = p + '.pc.in'
-  outfile = p + '.pc'
+  outfile = p + '-0.1.pc'
   configure_file(input : infile,
     output : outfile,
     configuration : pkgconf,

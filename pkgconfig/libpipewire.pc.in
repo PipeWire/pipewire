@@ -7,5 +7,5 @@ moduledir=@moduledir@
 Name: libpipewire
 Description: PipeWire Interface
 Version: @VERSION@
-Libs: -L${libdir} -lpipewire
+Libs: -L${libdir} -lpipewire-@PIPEWIRE_API_VERSION@
 Cflags: -I${includedir} -D_REENTRANT

@@ -9,7 +9,7 @@ pipewire_module_spa_monitor = shared_library('pipewire-module-spa-monitor',
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  install_dir : '@0@/pipewire'.format(get_option('libdir')),
+  install_dir : '@0@/pipewire-0.1'.format(get_option('libdir')),
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
@@ -19,7 +19,7 @@ pipewire_module_spa_node = shared_library('pipewire-module-spa-node',
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  install_dir : '@0@/pipewire'.format(get_option('libdir')),
+  install_dir : '@0@/pipewire-0.1'.format(get_option('libdir')),
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
@@ -29,6 +29,6 @@ pipewire_module_spa_node_factory = shared_library('pipewire-module-spa-node-fact
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  install_dir : '@0@/pipewire'.format(get_option('libdir')),
+  install_dir : '@0@/pipewire-0.1'.format(get_option('libdir')),
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )

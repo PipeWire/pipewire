@@ -376,7 +376,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 {
 	snd_pcm_t *hndl = state->hndl;
 	const snd_pcm_channel_area_t *my_areas;
-	snd_pcm_uframes_t written, frames, offset, to_write;
+	snd_pcm_uframes_t written, frames, offset, off, to_write;
 	int res;
 
 	if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0) {
@@ -387,6 +387,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 
 	silence = SPA_MIN(silence, frames);
 	to_write = frames;
+	off = offset;
 	written = 0;
 
 	while (!spa_list_is_empty(&state->ready) && to_write > 0) {
@@ -399,7 +400,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		b = spa_list_first(&state->ready, struct buffer, link);
 		d = b->buf->datas;
 
-		dst = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
+		dst = SPA_MEMBER(my_areas[0].addr, off * state->frame_size, uint8_t);
 		src = d[0].data;
 
 		size = d[0].chunk->size;
@@ -430,6 +431,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 			state->ready_offset = 0;
 		}
 		written += n_frames;
+		off += n_frames;
 		to_write -= n_frames;
 		if (silence > n_frames)
 			silence -= n_frames;
@@ -440,7 +442,8 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		silence = SPA_MIN(to_write, state->threshold);
 
 	if (silence > 0) {
-		snd_pcm_areas_silence(my_areas, offset, state->channels, silence, state->format);
+		spa_log_trace(state->log, "silence %ld", silence);
+		snd_pcm_areas_silence(my_areas, off, state->channels, silence, state->format);
 		written += silence;
 	}
 

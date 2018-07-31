@@ -54,7 +54,7 @@
 #define MAX_MIX				4096
 #define MAX_IO				32
 
-#define DEFAULT_SAMPLE_RATE	44100
+#define DEFAULT_SAMPLE_RATE	48000
 #define DEFAULT_BUFFER_SIZE	1024
 #define MAX_BUFFER_SIZE		2048
 
@@ -188,6 +188,11 @@ struct port {
 	struct object *object;
 
 	struct spa_list mix;
+
+	bool have_format;
+	uint32_t rate;
+
+	float empty[BUFFER_SIZE_MAX + 8];
 };
 
 struct context {
@@ -279,8 +284,6 @@ struct client {
 	struct spa_list free_ports[2];
 
         struct pw_array mems;
-
-	float empty[BUFFER_SIZE_MAX + 8];
 
 	bool started;
 	int status;
@@ -713,7 +716,9 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 					 &c->jack_position, c->sync_arg);
 		}
 
-		pw_log_trace("do process %d %d", c->buffer_size, c->sample_rate);
+		pw_log_trace("do process %d %d %d %"PRIi64, c->buffer_size, c->sample_rate,
+				c->jack_position.frame, c->quantum->delay);
+
 		if (c->process_callback)
 			c->process_callback(c->buffer_size, c->process_arg);
 
@@ -925,9 +930,9 @@ static int param_enum_format(struct client *c, struct port *p,
 			"I", c->type.media_subtype.raw,
 	                ":", c->type.format_audio.format,   "I", c->type.audio_format.F32,
 	                ":", c->type.format_audio.layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
-	                ":", c->type.format_audio.channels, "i", 1,
 	                ":", c->type.format_audio.rate,     "iru", DEFAULT_SAMPLE_RATE,
-				SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
+				SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
+	                ":", c->type.format_audio.channels, "i", 1);
 		break;
 	case 1:
 		*param = spa_pod_builder_object(b,
@@ -948,15 +953,17 @@ static int param_format(struct client *c, struct port *p,
 
 	switch (p->object->port.type_id) {
 	case 0:
+
 		*param = spa_pod_builder_object(b,
 			t->param.idFormat, t->spa_format,
 			"I", c->type.media_type.audio,
 			"I", c->type.media_subtype.raw,
 	                ":", c->type.format_audio.format,   "I", c->type.audio_format.F32,
 	                ":", c->type.format_audio.layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
-	                ":", c->type.format_audio.channels, "i", 1,
-	                ":", c->type.format_audio.rate,     "iru", 44100,
-				SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
+	                ":", c->type.format_audio.rate,     p->have_format ? "iru" : "ir",
+							p->have_format ? p->rate : DEFAULT_SAMPLE_RATE,
+				SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
+	                ":", c->type.format_audio.channels, "i", 1);
 		break;
 	case 1:
 		*param = spa_pod_builder_object(b,
@@ -987,6 +994,43 @@ static int param_buffers(struct client *c, struct port *p,
 	return 1;
 }
 
+static int port_set_format(struct client *c, struct port *p,
+		uint32_t flags, const struct spa_pod *param)
+{
+	if (param == NULL) {
+		struct mix *mix;
+
+		pw_log_debug(NAME" %p: port %p clear format", c, p);
+
+		spa_list_for_each(mix, &p->mix, port_link)
+			clear_buffers(c, mix);
+		p->have_format = false;
+	}
+	else {
+		struct spa_audio_info info = { 0 };
+
+		spa_pod_object_parse(param,
+			"I", &info.media_type,
+			"I", &info.media_subtype);
+
+		if (info.media_type != c->type.media_type.audio)
+			return -EINVAL;
+
+		if (info.media_subtype == c->type.media_subtype.raw) {
+			if (spa_format_audio_raw_parse(param, &info.info.raw,
+						&c->type.format_audio) < 0)
+				return -EINVAL;
+
+			p->rate = info.info.raw.rate;
+		}
+		if (info.media_subtype != c->type.media_subtype_audio.midi)
+			return -EINVAL;
+
+		p->have_format = true;
+	}
+	return 0;
+}
+
 static void client_node_port_set_param(void *object,
                                 uint32_t seq,
                                 enum spa_direction direction,
@@ -1001,13 +1045,8 @@ static void client_node_port_set_param(void *object,
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-        if (id == t->param.idFormat && param == NULL) {
-		struct mix *mix;
-
-		pw_log_debug(NAME" %p: port %p clear format", c, p);
-
-		spa_list_for_each(mix, &p->mix, port_link)
-			clear_buffers(c, mix);
+        if (id == t->param.idFormat) {
+		port_set_format(c, p, flags, param);
 	}
 
 	param_enum_format(c, p, &params[0], &b);
@@ -1178,7 +1217,7 @@ static void clear_io(struct client *c, struct io *io)
 {
 	struct mem *m;
 	m = find_mem(&c->mems, io->memid);
-	if (--m->ref == 0)
+	if (m && --m->ref == 0)
 		clear_mem(c, m);
 	io->id = SPA_ID_INVALID;
 }
@@ -1487,7 +1526,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	struct client *client;
 	bool busy = true;
 	struct spa_dict props;
-	struct spa_dict_item items[4];
+	struct spa_dict_item items[5];
 	int i;
 
 	pw_log_debug("client open %s %d", client_name, options);
@@ -1571,6 +1610,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_MEDIA, "Audio");
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_CATEGORY, "Duplex");
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_ROLE, "DSP");
+	items[props.n_items++] = SPA_DICT_ITEM_INIT("node.latency", "128/48000");
 
 	client->node_proxy = pw_core_proxy_create_object(client->core_proxy,
 				"client-node",
@@ -2055,11 +2095,11 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 	return res;
 }
 
-static void add_f32(float *out, float *in, int n_samples)
+static void add_f32(float *out, float *in1, float *in2, int n_samples)
 {
 	int i;
 	for (i = 0; i < n_samples; i++)
-		out[i] += in[i];
+		out[i] = in1[i] + in2[i];
 }
 
 void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
@@ -2070,14 +2110,15 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	struct buffer *b;
 	struct spa_io_buffers *io;
 	struct mix *mix;
-	void *ptr = c->empty;
 	int layer = 0;
+	void *ptr;
 
 	if (o->type != c->context.t->port || o->port.port_id == SPA_ID_INVALID) {
 		pw_log_error("client %p: invalid port %p", c, port);
 		return NULL;
 	}
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
+	ptr = p->empty;
 
 	if (p->direction == SPA_DIRECTION_INPUT) {
 		spa_list_for_each(mix, &p->mix, port_link) {
@@ -2091,8 +2132,10 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			b = &mix->buffers[io->buffer_id];
 			if (layer++ == 0)
 				ptr = b->datas[0].data;
-			else
-				add_f32(ptr, b->datas[0].data, frames);
+			else  {
+				add_f32(p->empty, ptr, b->datas[0].data, frames);
+				ptr = p->empty;
+			}
 		}
 	} else {
 		b = NULL;

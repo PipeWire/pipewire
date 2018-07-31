@@ -17,7 +17,7 @@ pkg_files = [
 
 foreach p : pkg_files
   infile = p + '.pc.in'
-  outfile = p + '-0.1.pc'
+  outfile = p + '-@0@.pc'.format(apiversion)
   configure_file(input : infile,
     output : outfile,
     configuration : pkgconf,

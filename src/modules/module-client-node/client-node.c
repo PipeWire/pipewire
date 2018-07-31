@@ -98,6 +98,7 @@ struct io {
 struct mix {
 	bool valid;
 	bool active;
+	uint32_t id;
 	struct port *port;
 	uint32_t n_buffers;
 	struct buffer buffers[MAX_BUFFERS];
@@ -179,6 +180,13 @@ struct impl {
 	uint64_t start;
 };
 
+static int
+do_port_use_buffers(struct impl *impl,
+		    enum spa_direction direction,
+		    uint32_t port_id,
+		    uint32_t mix_id,
+		    struct spa_buffer **buffers,
+		    uint32_t n_buffers);
 
 /** \endcond */
 
@@ -229,10 +237,11 @@ static struct mix *find_mix(struct port *p, uint32_t mix_id)
 	return mix;
 }
 
-static void mix_init(struct mix *mix, struct port *p)
+static void mix_init(struct mix *mix, struct port *p, uint32_t id)
 {
 	int i;
 	mix->valid = true;
+	mix->id = id;
 	mix->port = p;
 	mix->active = false;
 	mix->n_buffers = 0;
@@ -249,7 +258,7 @@ static struct mix *ensure_mix(struct impl *impl, struct port *p, uint32_t mix_id
 		return NULL;
 	if (mix->valid)
 		return mix;
-	mix_init(mix, p);
+	mix_init(mix, p, mix_id);
 	return mix;
 }
 
@@ -337,11 +346,14 @@ static int clear_buffers(struct node *this, struct mix *mix)
 
 static void mix_clear(struct node *this, struct mix *mix)
 {
+	struct port *port = mix->port;
+
 	if (!mix->valid)
 		return;
-	mix->valid = false;
-	clear_buffers(this, mix);
+	do_port_use_buffers(this->impl, port->direction, port->id,
+			mix->id, NULL, 0);
 	clear_ios(this, mix);
+	mix->valid = false;
 }
 
 static int impl_node_enum_params(struct spa_node *node,
@@ -1509,7 +1521,7 @@ static void node_port_init(void *data, struct pw_port *port)
 	p->id = port->port_id;
 	p->impl = impl;
 	p->mix_node = impl_port_mix;
-	mix_init(&p->mix[MAX_MIX], p);
+	mix_init(&p->mix[MAX_MIX], p, SPA_ID_INVALID);
 
 	if (p->direction == SPA_DIRECTION_INPUT)
 		this->in_ports[p->id] = p;

@@ -1,4 +1,4 @@
-PipeWire 0.2.1
+PipeWire 0.2.2
 
 - Various fixes to memory handling
 - Fixes for shutdown
@@ -11,6 +11,7 @@ PipeWire 0.2.1
 - Add version file and macros to check compile time and
   runtime versions of pipewire
 - Future proof some structs
+- Increment API version and .so version
 
 Work is ongoing in the work branch that features a completely new
 scheduling method that will enable audio support. Some of these

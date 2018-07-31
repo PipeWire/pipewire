@@ -61,41 +61,15 @@ pw_log_logv(enum spa_log_level level,
 /** Check if a loglevel is enabled \memberof pw_log */
 #define pw_log_level_enabled(lev) (pw_log_level >= (lev))
 
-#if defined(__USE_ISOC11) || defined(__USE_ISOC99) || \
-    (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
-
-#define pw_log_logc(lev,...)				\
+#define pw_log(lev,...)				\
 	if (SPA_UNLIKELY(pw_log_level_enabled (lev)))	\
-		pw_log_log(lev,__VA_ARGS__)
+		pw_log_log(lev,__FILE__,__LINE__,__func__,__VA_ARGS__)
 
-#define pw_log_error(...)   pw_log_logc(SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define pw_log_warn(...)    pw_log_logc(SPA_LOG_LEVEL_WARN,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define pw_log_info(...)    pw_log_logc(SPA_LOG_LEVEL_INFO,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define pw_log_debug(...)   pw_log_logc(SPA_LOG_LEVEL_DEBUG,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define pw_log_trace(...)   pw_log_logc(SPA_LOG_LEVEL_TRACE,__FILE__,__LINE__,__func__,__VA_ARGS__)
-
-#else
-
-#include <stdarg.h>
-
-#define PW_LOG_FUNC(name,lev)								\
-static inline void pw_log_##name (const char *format, ...)				\
-{											\
-	if (SPA_UNLIKELY(pw_log_level_enabled(lev))) {					\
-		va_list varargs;							\
-		va_start(varargs, format);						\
-		pw_log_logv(lev,__FILE__,__LINE__,__func__,format,varargs);		\
-		va_end(varargs);							\
-	}										\
-}
-
-PW_LOG_FUNC(error, SPA_LOG_LEVEL_ERROR)
-PW_LOG_FUNC(warn, SPA_LOG_LEVEL_WARN)
-PW_LOG_FUNC(info, SPA_LOG_LEVEL_INFO)
-PW_LOG_FUNC(debug, SPA_LOG_LEVEL_DEBUG)
-PW_LOG_FUNC(trace, SPA_LOG_LEVEL_TRACE)
-
-#endif
+#define pw_log_error(...)   pw_log(SPA_LOG_LEVEL_ERROR,__VA_ARGS__)
+#define pw_log_warn(...)    pw_log(SPA_LOG_LEVEL_WARN,__VA_ARGS__)
+#define pw_log_info(...)    pw_log(SPA_LOG_LEVEL_INFO,__VA_ARGS__)
+#define pw_log_debug(...)   pw_log(SPA_LOG_LEVEL_DEBUG,__VA_ARGS__)
+#define pw_log_trace(...)   pw_log(SPA_LOG_LEVEL_TRACE,__VA_ARGS__)
 
 #ifdef __cplusplus
 }

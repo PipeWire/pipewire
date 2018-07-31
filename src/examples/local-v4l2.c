@@ -485,7 +485,7 @@ static void make_nodes(struct data *data)
 					      props,
 					      SPA_ID_INVALID);
 	data->link = pw_link_new(data->core,
-				 pw_node_get_free_port(data->v4l2, PW_DIRECTION_OUTPUT),
+				 pw_node_find_port(data->v4l2, PW_DIRECTION_OUTPUT, 0),
 				 pw_node_find_port(data->node, PW_DIRECTION_INPUT, 0),
 				 NULL,
 				 NULL,

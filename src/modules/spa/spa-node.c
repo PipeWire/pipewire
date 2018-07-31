@@ -55,12 +55,12 @@ struct impl {
 	void *user_data;
 };
 
-static void pw_spa_node_destroy(void *data)
+static void pw_spa_node_free(void *data)
 {
 	struct impl *impl = data;
 	struct pw_node *node = impl->this;
 
-	pw_log_debug("spa-node %p: destroy", node);
+	pw_log_debug("spa-node %p: free", node);
 
 	spa_hook_remove(&impl->node_listener);
 	if (impl->handle) {
@@ -103,7 +103,7 @@ static void on_node_done(void *data, uint32_t seq, int res)
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
-	.destroy = pw_spa_node_destroy,
+	.free = pw_spa_node_free,
 	.async_complete = on_node_done,
 };
 

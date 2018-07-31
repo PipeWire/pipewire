@@ -109,14 +109,14 @@ static int suspend_node(struct pw_node *this)
 	pw_log_debug("node %p: suspend node", this);
 
 	spa_list_for_each(p, &this->input_ports, link) {
-		if ((res = pw_port_set_param(p, this->core->type.param.idFormat, 0, NULL)) < 0)
+		if ((res = pw_port_set_param(p, SPA_ID_INVALID, this->core->type.param.idFormat, 0, NULL)) < 0)
 			pw_log_warn("error unset format input: %s", spa_strerror(res));
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 
 	spa_list_for_each(p, &this->output_ports, link) {
-		if ((res = pw_port_set_param(p, this->core->type.param.idFormat, 0, NULL)) < 0)
+		if ((res = pw_port_set_param(p, SPA_ID_INVALID, this->core->type.param.idFormat, 0, NULL)) < 0)
 			pw_log_warn("error unset format output: %s", spa_strerror(res));
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
@@ -159,7 +159,7 @@ static void update_port_map(struct pw_node *node, enum pw_direction direction,
 					pw_direction_as_string(direction), ids[n]);
 
 			if (port == NULL) {
-				if ((port = pw_port_new(direction, ids[n], NULL, 0))) {
+				if ((port = pw_port_new(direction, ids[n], NULL, node->port_user_data_size))) {
 					if ((res = pw_port_add(port, node)) < 0) {
 						pw_log_error("node %p: can't add port %p: %d, %s",
 								node, port, res, spa_strerror(res));
@@ -370,6 +370,7 @@ int pw_node_register(struct pw_node *this,
 
 int pw_node_initialized(struct pw_node *this)
 {
+	pw_log_debug("node %p initialized", this);
 	spa_hook_list_call(&this->listener_list, struct pw_node_events, initialized);
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 	return 0;
@@ -753,13 +754,9 @@ void pw_node_destroy(struct pw_node *node)
 
 	pw_log_debug("node %p: destroy ports", node);
 	spa_list_for_each_safe(port, tmpp, &node->input_ports, link) {
-		spa_hook_list_call(&node->listener_list, struct pw_node_events,
-				port_removed, port);
 		pw_port_destroy(port);
 	}
 	spa_list_for_each_safe(port, tmpp, &node->output_ports, link) {
-		spa_hook_list_call(&node->listener_list, struct pw_node_events,
-				port_removed, port);
 		pw_port_destroy(port);
 	}
 
@@ -842,98 +839,69 @@ int pw_node_for_each_param(struct pw_node *node,
 struct pw_port *
 pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id)
 {
+	struct pw_port *port, *p;
 	struct pw_map *portmap;
+	struct spa_list *ports;
 
-	if (direction == PW_DIRECTION_INPUT)
+	if (direction == PW_DIRECTION_INPUT) {
 		portmap = &node->input_port_map;
-	else
+		ports = &node->input_ports;
+	} else {
 		portmap = &node->output_port_map;
+		ports = &node->output_ports;
+	}
 
-	return pw_map_lookup(portmap, port_id);
+	if (port_id != SPA_ID_INVALID)
+		port = pw_map_lookup(portmap, port_id);
+	else {
+		port = NULL;
+		/* try to find an unlinked port */
+		spa_list_for_each(p, ports, link) {
+			if (spa_list_is_empty(&p->links)) {
+				port = p;
+				break;
+			}
+			/* We can use this port if it can multiplex */
+			if (SPA_FLAG_CHECK(p->mix_flags, PW_PORT_MIX_FLAG_MULTI))
+				port = p;
+		}
+	}
+	pw_log_debug("node %p: return port %p", node, port);
+	return port;
 }
 
 uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direction)
 {
-	if (direction == PW_DIRECTION_INPUT)
-		return pw_map_insert_new(&node->input_port_map, NULL);
-	else
-		return pw_map_insert_new(&node->output_port_map, NULL);
-}
-
-/**
- * pw_node_get_free_port:
- * \param node a \ref pw_node
- * \param direction a \ref pw_direction
- * \return the new port or NULL on error
- *
- * Find a new unused port in \a node with \a direction
- *
- * \memberof pw_node
- */
-struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction direction)
-{
 	uint32_t n_ports, max_ports;
-	struct spa_list *ports;
-	struct pw_port *port = NULL, *p, *mixport = NULL;
 	struct pw_map *portmap;
-	int res;
+	uint32_t port_id;
 
 	if (direction == PW_DIRECTION_INPUT) {
 		max_ports = node->info.max_input_ports;
 		n_ports = node->info.n_input_ports;
-		ports = &node->input_ports;
 		portmap = &node->input_port_map;
 	} else {
 		max_ports = node->info.max_output_ports;
 		n_ports = node->info.n_output_ports;
-		ports = &node->output_ports;
 		portmap = &node->output_port_map;
 	}
+	pw_log_debug("node %p: direction %d %u %u",
+			node, direction, n_ports, max_ports);
 
-	pw_log_debug("node %p: direction %d max %u, n %u", node, direction, max_ports, n_ports);
+	if (n_ports >= max_ports)
+		goto no_mem;
 
-	/* first try to find an unlinked port */
-	spa_list_for_each(p, ports, link) {
-		if (spa_list_is_empty(&p->links)) {
-			port = p;
-			goto found;
-		}
-		/* for output we can reuse an existing port, for input only
-		 * when there is a multiplex */
-		if (direction == PW_DIRECTION_OUTPUT || p->mix != NULL)
-			mixport = p;
-	}
+	port_id = pw_map_insert_new(portmap, NULL);
+	if (port_id == SPA_ID_INVALID)
+		goto no_mem;
 
-	/* no port, can we create one ? */
-	if (n_ports < max_ports) {
-		uint32_t port_id = pw_map_insert_new(portmap, NULL);
+	pw_log_debug("node %p: free port %d", node, port_id);
 
-		pw_log_debug("node %p: creating port direction %d %u", node, direction, port_id);
-
-		if ((res = spa_node_add_port(node->node, direction, port_id)) < 0) {
-			pw_log_error("node %p: could not add port %d %s", node, port_id,
-					spa_strerror(res));
-			goto no_mem;
-		}
-		port = pw_port_new(direction, port_id, NULL, 0);
-		if (port == NULL)
-			goto no_mem;
-		if ((res = pw_port_add(port, node)) < 0)
-			goto add_failed;
-	} else {
-		port = mixport;
-	}
-      found:
-	pw_log_debug("node %p: return port %p", node, port);
-	return port;
+	return port_id;
 
       no_mem:
-	pw_log_error("node %p: can't create new port", node);
-	return NULL;
-      add_failed:
-	pw_log_error("node %p: can't add new port: %s", node, spa_strerror(res));
-	pw_port_destroy(port);
-	return NULL;
+	pw_log_warn("no more port available");
+	return SPA_ID_INVALID;
 }
 
 static void on_state_complete(struct pw_node *node, void *data, int res)
@@ -1059,8 +1027,13 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 	if (old == state)
 		return;
 
-	pw_log_debug("node %p: update state from %s -> %s", node,
+	if (state == PW_NODE_STATE_ERROR) {
+		pw_log_error("node %p: update state from %s -> error (%s)", node,
+		     pw_node_state_as_string(old), error);
+	} else {
+		pw_log_debug("node %p: update state from %s -> %s", node,
 		     pw_node_state_as_string(old), pw_node_state_as_string(state));
+	}
 
 	if (node->info.error)
 		free((char*)node->info.error);

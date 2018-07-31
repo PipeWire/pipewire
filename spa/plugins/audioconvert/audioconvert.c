@@ -774,6 +774,9 @@ static int impl_node_process(struct spa_node *node)
 			r = spa_node_process(this->nodes[i]);
 			spa_log_trace(this->log, NAME " %p: process %d %d", this, i, r);
 
+			if (r < 0)
+				return r;
+
 			if (r & SPA_STATUS_HAVE_BUFFER)
 				ready++;
 

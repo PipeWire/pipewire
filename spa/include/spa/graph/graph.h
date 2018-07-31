@@ -297,7 +297,7 @@ static inline int spa_graph_node_impl_process(void *data, struct spa_graph_node 
 	struct spa_node *n = data;
 	struct spa_graph_state *state = node->state;
 
-	spa_debug("node %p: process state %p: %d", node, state, state->status);
+	spa_debug("node %p: process state %p: %d, node %p", node, state, state->status, n);
 	if ((state->status = spa_node_process(n)) != SPA_STATUS_OK)
 		spa_graph_node_trigger(node);
 

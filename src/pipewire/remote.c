@@ -157,9 +157,15 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 		} else {
 			remote->error = NULL;
 		}
-		pw_log_debug("remote %p: update state from %s -> %s (%s)", remote,
-			     pw_remote_state_as_string(old),
-			     pw_remote_state_as_string(state), remote->error);
+		if (state == PW_REMOTE_STATE_ERROR) {
+			pw_log_error("remote %p: update state from %s -> %s (%s)", remote,
+				     pw_remote_state_as_string(old),
+				     pw_remote_state_as_string(state), remote->error);
+		} else {
+			pw_log_debug("remote %p: update state from %s -> %s", remote,
+				     pw_remote_state_as_string(old),
+				     pw_remote_state_as_string(state));
+		}
 
 		remote->state = state;
 		spa_hook_list_call(&remote->listener_list, struct pw_remote_events, state_changed,
@@ -646,6 +652,7 @@ static void mix_init(struct mix *mix, struct pw_port *port, uint32_t mix_id)
 	mix->port = port;
 	mix->mix_id = mix_id;
 	pw_port_init_mix(port, &mix->mix);
+	mix->active = false;
 	pw_array_init(&mix->buffers, 32);
 	pw_array_ensure_size(&mix->buffers, sizeof(struct buffer) * 64);
 }
@@ -725,9 +732,7 @@ static struct mix *ensure_mix(struct node_data *data,
 	spa_list_remove(&mix->link);
 
 	mix_init(mix, port, mix_id);
-
 	spa_list_append(&data->mix[direction], &mix->link);
-	mix->active = false;
 
 	return mix;
 }
@@ -1006,7 +1011,7 @@ client_node_port_set_param(void *object,
 		}
 	}
 
-	res = pw_port_set_param(port, id, flags, param);
+	res = pw_port_set_param(port, SPA_ID_INVALID, id, flags, param);
 	if (res < 0)
 		goto done;
 

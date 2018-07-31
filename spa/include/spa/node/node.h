@@ -57,6 +57,7 @@ struct spa_port_info {
 #define SPA_PORT_INFO_FLAG_TERMINAL		(1<<8)	/**< data was not created from this port
 							 *   or will not be made available on another
 							 *   port */
+#define SPA_PORT_INFO_FLAG_DYNAMIC_DATA		(1<<9)	/**< data pointer on buffers can be changed */
 	uint32_t flags;				/**< port flags */
 	uint32_t rate;				/**< rate of sequence numbers on port */
 	const struct spa_dict *props;		/**< extra port properties */

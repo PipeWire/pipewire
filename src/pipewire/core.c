@@ -655,9 +655,9 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 				pw_log_debug("id \"%u\" matches node %p", id, n);
 
 				best =
-				    pw_node_get_free_port(n,
-							  pw_direction_reverse(other_port->
-									       direction));
+				    pw_node_find_port(n,
+						pw_direction_reverse(other_port->direction),
+						SPA_ID_INVALID);
 				if (best)
 					break;
 			}
@@ -667,7 +667,9 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 			struct spa_pod *dummy;
 
-			p = pw_node_get_free_port(n, pw_direction_reverse(other_port->direction));
+			p = pw_node_find_port(n,
+					pw_direction_reverse(other_port->direction),
+					SPA_ID_INVALID);
 			if (p == NULL)
 				continue;
 
@@ -743,6 +745,8 @@ int pw_core_find_format(struct pw_core *core,
 	if (in_state > PW_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE)
 		in_state = PW_PORT_STATE_CONFIGURE;
 
+	pw_log_debug("core %p: states %d %d", core, out_state, in_state);
+
 	if (in_state == PW_PORT_STATE_CONFIGURE && out_state > PW_PORT_STATE_CONFIGURE) {
 		/* only input needs format */
 		if ((res = spa_node_port_enum_params(output->node->node,
@@ -757,7 +761,7 @@ int pw_core_find_format(struct pw_core *core,
 		pw_log_debug("Got output format:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_pod(*format, SPA_DEBUG_FLAG_FORMAT);
-	} else if (out_state == PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
+	} else if (out_state >= PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
 		/* only output needs format */
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,

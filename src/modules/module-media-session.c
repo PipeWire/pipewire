@@ -303,11 +303,27 @@ static int on_peer_port(void *data, struct pw_port *port)
 {
 	struct node_info *info = data;
 	struct pw_port *p;
+	enum pw_direction direction = pw_direction_reverse(port->direction);
+	int res;
 
-	p = pw_node_get_free_port(info->node, pw_direction_reverse(port->direction));
-	if (p == NULL)
-		return 0;
+	p = pw_node_find_port(info->node, direction, SPA_ID_INVALID);
 
+	if (p == NULL || pw_port_is_linked(p)) {
+		uint32_t port_id;
+
+		port_id = pw_node_get_free_port_id(info->node, direction);
+		if (port_id == SPA_ID_INVALID)
+			return 0;
+
+		p = pw_port_new(direction, port_id, NULL, 0);
+		if (p == NULL)
+			return -ENOMEM;
+
+		if ((res = pw_port_add(p, info->node)) < 0) {
+			pw_log_warn("can't add port: %s", spa_strerror(res));
+			return res;
+		}
+	}
 	return link_ports(info, p, port);
 }
 
@@ -734,7 +750,7 @@ static int on_global(void *data, struct pw_global *global)
 	else
 		return 0;
 
-	if ((node_port = pw_node_get_free_port(node, pw_direction_reverse(direction))) == NULL)
+	if ((node_port = pw_node_find_port(node, pw_direction_reverse(direction), SPA_ID_INVALID)) == NULL)
 		return 0;
 
 	sess = calloc(1, sizeof(struct session));
@@ -765,7 +781,7 @@ static int on_global(void *data, struct pw_global *global)
 		if (dsp == NULL)
 			return 0;
 
-		if ((dsp_port = pw_node_get_free_port(dsp, direction)) == NULL)
+		if ((dsp_port = pw_node_find_port(dsp, direction, SPA_ID_INVALID)) == NULL)
 			return 0;
 
 		pw_node_add_listener(dsp, &sess->dsp_listener, &dsp_events, sess);

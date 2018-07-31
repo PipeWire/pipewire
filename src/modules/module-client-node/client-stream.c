@@ -92,6 +92,7 @@ struct impl {
 
 	struct spa_node *cnode;
 	struct spa_node *adapter;
+	struct spa_node *adapter_mix;
 
 	bool use_converter;
 
@@ -266,10 +267,10 @@ impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t
 	if (direction != impl->direction)
 		return -EINVAL;
 
-	if ((res = spa_node_add_port(impl->adapter, direction, port_id)) < 0)
+	if ((res = spa_node_add_port(impl->adapter_mix, direction, port_id)) < 0)
 		return res;
 
-	if ((res = spa_node_port_set_io(impl->adapter,
+	if ((res = spa_node_port_set_io(impl->adapter_mix,
 					direction, port_id,
 					t->io.ControlRange,
 					&impl->ctrl,
@@ -293,7 +294,7 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 	if (direction != this->impl->direction)
 		return -EINVAL;
 
-	return spa_node_remove_port(impl->adapter, direction, port_id);
+	return spa_node_remove_port(impl->adapter_mix, direction, port_id);
 }
 
 static int
@@ -370,7 +371,6 @@ static int debug_params(struct impl *impl, struct spa_node *node,
 				spa_log_error(this->log, "  error: %s", spa_strerror(res));
                         break;
 		}
-
                 spa_debug_pod(format, flag);
         }
 
@@ -397,11 +397,11 @@ static int negotiate_format(struct impl *impl)
 	spa_log_debug(this->log, "%p: negiotiate", impl);
 
 	state = 0;
-	if ((res = spa_node_port_enum_params(impl->adapter,
+	if ((res = spa_node_port_enum_params(impl->adapter_mix,
 				SPA_DIRECTION_REVERSE(impl->direction), 0,
 				t->param.idEnumFormat, &state,
 				NULL, &format, &b)) <= 0) {
-		debug_params(impl, impl->adapter, SPA_DIRECTION_REVERSE(impl->direction), 0,
+		debug_params(impl, impl->adapter_mix, SPA_DIRECTION_REVERSE(impl->direction), 0,
 				t->param.idEnumFormat, NULL);
 		return -ENOTSUP;
 	}
@@ -419,7 +419,7 @@ static int negotiate_format(struct impl *impl)
 	spa_pod_fixate(format);
 	spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
 
-	if ((res = spa_node_port_set_param(impl->adapter,
+	if ((res = spa_node_port_set_param(impl->adapter_mix,
 				   SPA_DIRECTION_REVERSE(impl->direction), 0,
 				   t->param.idFormat, 0,
 				   format)) < 0)
@@ -457,11 +457,11 @@ static int negotiate_buffers(struct impl *impl)
 		return 0;
 
 	state = 0;
-	if ((res = spa_node_port_enum_params(impl->adapter,
+	if ((res = spa_node_port_enum_params(impl->adapter_mix,
 			       SPA_DIRECTION_REVERSE(impl->direction), 0,
 			       t->param.idBuffers, &state,
 			       param, &param, &b)) <= 0) {
-		debug_params(impl, impl->adapter, SPA_DIRECTION_REVERSE(impl->direction), 0,
+		debug_params(impl, impl->adapter_mix, SPA_DIRECTION_REVERSE(impl->direction), 0,
 				t->param.idBuffers, param);
 		return -ENOTSUP;
 	}
@@ -484,7 +484,7 @@ static int negotiate_buffers(struct impl *impl)
 					impl->direction, 0,
 					&out_info)) < 0)
 		return res;
-	if ((res = spa_node_port_get_info(impl->adapter,
+	if ((res = spa_node_port_get_info(impl->adapter_mix,
 					SPA_DIRECTION_REVERSE(impl->direction), 0,
 					&in_info)) < 0)
 		return res;
@@ -548,27 +548,27 @@ static int negotiate_buffers(struct impl *impl)
 			skel, impl->mem->ptr);
 
 	if (in_alloc) {
-		if ((res = spa_node_port_alloc_buffers(impl->adapter,
+		if ((res = spa_node_port_alloc_buffers(impl->adapter_mix,
 			       SPA_DIRECTION_REVERSE(impl->direction), 0,
 			       NULL, 0,
 			       impl->buffers, &impl->n_buffers)) < 0)
 			return res;
 	}
 	else {
-		if ((res = spa_node_port_use_buffers(impl->adapter,
+		if ((res = spa_node_port_use_buffers(impl->adapter_mix,
 			       SPA_DIRECTION_REVERSE(impl->direction), 0,
 			       impl->buffers, impl->n_buffers)) < 0)
 			return res;
 	}
 	if (out_alloc) {
-		if ((res = spa_node_port_alloc_buffers(impl->cnode,
+		if ((res = spa_node_port_alloc_buffers(impl->client_port->mix,
 			       impl->direction, 0,
 			       NULL, 0,
 			       impl->buffers, &impl->n_buffers)) < 0)
 			return res;
 	}
 	else {
-		if ((res = spa_node_port_use_buffers(impl->cnode,
+		if ((res = spa_node_port_use_buffers(impl->client_port->mix,
 			       impl->direction, 0,
 			       impl->buffers, impl->n_buffers)) < 0)
 			return res;
@@ -618,16 +618,19 @@ impl_node_port_set_param(struct spa_node *node,
 	impl = this->impl;
 	t = impl->t;
 
+	pw_log_debug(".");
 	if (direction != impl->direction)
 		return -EINVAL;
 
-	if ((res = spa_node_port_set_param(impl->adapter, direction, port_id, id,
+	pw_log_debug(".");
+	if ((res = spa_node_port_set_param(impl->adapter_mix, direction, port_id, id,
 			flags, param)) < 0)
 		return res;
 
+	pw_log_debug(".");
 	if (id == t->param.idFormat && impl->use_converter) {
 		if (param == NULL) {
-			if ((res = spa_node_port_set_param(impl->adapter,
+			if ((res = spa_node_port_set_param(impl->adapter_mix,
 				SPA_DIRECTION_REVERSE(direction), 0, id,
 					0, NULL)) < 0)
 				return res;
@@ -663,7 +666,7 @@ impl_node_port_set_io(struct spa_node *node,
 	if (direction != impl->direction)
 		return -EINVAL;
 
-	res = spa_node_port_set_io(impl->adapter, direction, port_id, id, data, size);
+	res = spa_node_port_set_io(impl->adapter_mix, direction, port_id, id, data, size);
 
 	if (id == t->io.Buffers && size >= sizeof(struct spa_io_buffers)) {
 		impl->io = data;
@@ -691,7 +694,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 	if (direction != impl->direction)
 		return -EINVAL;
 
-	if ((res = spa_node_port_use_buffers(impl->adapter,
+	if ((res = spa_node_port_use_buffers(impl->adapter_mix,
 					direction, port_id, buffers, n_buffers)) < 0)
 		return res;
 
@@ -725,7 +728,7 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 	if (direction != impl->direction)
 		return -EINVAL;
 
-	return spa_node_port_alloc_buffers(impl->adapter, direction, port_id,
+	return spa_node_port_alloc_buffers(impl->adapter_mix, direction, port_id,
 			params, n_params, buffers, n_buffers);
 }
 
@@ -909,7 +912,7 @@ static void client_node_initialized(void *data)
 	if ((res = pw_port_init_mix(impl->client_port, &impl->client_port_mix)) < 0)
 		return;
 
-	if ((res = spa_node_port_set_io(&impl->client_port->mix_node,
+	if ((res = spa_node_port_set_io(impl->client_port->mix,
 				impl->direction, 0,
 				t->io.Buffers,
 				impl->client_port_mix.io,
@@ -924,6 +927,7 @@ static void client_node_initialized(void *data)
 				NULL, &format, &b)) <= 0) {
 		pw_log_warn("client-stream %p: no format given", &impl->this);
 		impl->adapter = impl->cnode;
+		impl->adapter_mix = impl->client_port->mix;
 		impl->use_converter = false;
 		return;
 	}
@@ -948,11 +952,12 @@ static void client_node_initialized(void *data)
 	}
 	else {
 		impl->adapter = impl->cnode;
+		impl->adapter_mix = impl->client_port->mix;
 		impl->use_converter = false;
 	}
 
 	if (impl->use_converter) {
-		if ((res = spa_node_port_set_io(impl->adapter,
+		if ((res = spa_node_port_set_io(impl->adapter_mix,
 					SPA_DIRECTION_REVERSE(impl->direction), 0,
 					t->io.Buffers,
 					impl->client_port_mix.io,

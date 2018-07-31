@@ -273,6 +273,7 @@ struct pw_node {
 	struct spa_node *node;		/**< SPA node implementation */
 
 	struct spa_list resource_list;	/**< list of resources for this node */
+	uint32_t port_user_data_size;	/**< extra size for port user data */
 
 	struct spa_list input_ports;		/**< list of input ports */
 	struct pw_map input_port_map;		/**< map from port_id to port */
@@ -305,11 +306,11 @@ struct pw_node {
 };
 
 struct pw_port_mix {
+	struct pw_port *p;
 	struct spa_graph_port port;
 	struct spa_io_buffers *io;
-	struct spa_buffer **buffers;
-	uint32_t n_buffers;
 	uint32_t id;
+	enum pw_port_state state;	/**< state of the port */
 };
 
 struct pw_port_implementation {
@@ -318,6 +319,9 @@ struct pw_port_implementation {
 
 	int (*init_mix) (void *data, struct pw_port_mix *mix);
 	int (*release_mix) (void *data, struct pw_port_mix *mix);
+	int (*use_buffers) (void *data, struct spa_buffer **buffers, uint32_t n_buffers);
+	int (*alloc_buffers) (void *data, struct spa_pod **params, uint32_t n_params,
+			  struct spa_buffer **buffers, uint32_t *n_buffers);
 };
 
 struct pw_port {
@@ -327,6 +331,8 @@ struct pw_port {
 	struct pw_global *global;	/**< global for this port */
 	struct spa_hook global_listener;
 	bool registered;
+	bool to_remove;			/**< if the port should be removed from the
+					  *  implementation when destroyed */
 
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
@@ -351,8 +357,10 @@ struct pw_port {
 	const struct pw_port_implementation *implementation;
 	void *implementation_data;
 
-	struct spa_node *mix;		/**< optional port buffer mix/split */
-	struct spa_node mix_node;	/**< mix node implementation */
+	struct spa_node *mix;		/**< port buffer mix/split */
+#define PW_PORT_MIX_FLAG_MULTI		(1<<0)	/**< multi input or output */
+#define PW_PORT_MIX_FLAG_MIX_ONLY	(1<<1)	/**< only negotiate mix ports */
+	uint32_t mix_flags;		/**< flags for the mixing */
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */
 
 	struct {
@@ -394,7 +402,8 @@ struct pw_link {
 	struct spa_hook_list listener_list;
 
 	struct {
-		struct pw_port_mix mix[2];
+		struct pw_port_mix out_mix;	/**< port added to the output mixer */
+		struct pw_port_mix in_mix;	/**< port added to the input mixer */
 		struct spa_graph_link link;	/**< nodes link */
 	} rt;
 
@@ -564,6 +573,8 @@ int pw_port_register(struct pw_port *port,
 /** Get the user data of a port, the size of the memory was given \ref in pw_port_new */
 void * pw_port_get_user_data(struct pw_port *port);
 
+int pw_port_set_mix(struct pw_port *port, struct spa_node *node, uint32_t flags);
+
 /** Add a port to a node \memberof pw_port */
 int pw_port_add(struct pw_port *port, struct pw_node *node);
 
@@ -598,9 +609,21 @@ int pw_port_for_each_filtered_param(struct pw_port *in_port,
 						     struct spa_pod *param),
 				    void *data);
 
-/** Set a param on a port \memberof pw_port */
-int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
-		      const struct spa_pod *param);
+/** Iterate the links of the port. The callback should return
+ * 0 to fetch the next item, any other value stops the iteration and returns
+ * the value. When all callbacks return 0, this function returns 0 when all
+ * items are iterated. */
+int pw_port_for_each_link(struct pw_port *port,
+			   int (*callback) (void *data, struct pw_link *link),
+			   void *data);
+
+/** check is a port has links, return 0 if not, 1 if it is linked */
+int pw_port_is_linked(struct pw_port *port);
+
+/** Set a param on a port \memberof pw_port, use SPA_ID_INVALID for mix_id to set
+ * the param on all mix ports */
+int pw_port_set_param(struct pw_port *port, uint32_t mix_id,
+		uint32_t id, uint32_t flags, const struct spa_pod *param);
 
 /** Use buffers on a port \memberof pw_port */
 int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,

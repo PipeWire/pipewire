@@ -943,71 +943,6 @@ static int mix_output(struct impl *this, size_t n_bytes)
 	return SPA_STATUS_HAVE_BUFFER;
 }
 
-#if 0
-static int impl_node_process_input(struct spa_node *node)
-{
-	struct impl *this;
-	uint32_t i;
-	struct port *outport;
-	size_t min_queued = SIZE_MAX;
-	struct spa_io_buffers *outio;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	outport = GET_OUT_PORT(this, 0);
-	outio = outport->io;
-	spa_return_val_if_fail(outio != NULL, -EIO);
-
-	spa_log_trace(this->log, NAME " %p: status %d", this, outio->status);
-
-	if (outio->status == SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_HAVE_BUFFER;
-
-	for (i = 0; i < this->last_port; i++) {
-		struct port *inport = GET_IN_PORT(this, i);
-		struct spa_io_buffers *inio;
-
-		if ((inio = inport->io) == NULL)
-			continue;
-
-		if (inport->queued_bytes == 0 &&
-		    inio->status == SPA_STATUS_HAVE_BUFFER && inio->buffer_id < inport->n_buffers) {
-			struct buffer *b = &inport->buffers[inio->buffer_id];
-			struct spa_data *d = b->outbuf->datas;
-
-			if (!b->outstanding) {
-				spa_log_warn(this->log, NAME " %p: buffer %u in use", this,
-					     inio->buffer_id);
-				inio->status = -EINVAL;
-				continue;
-			}
-
-			b->outstanding = false;
-			inio->buffer_id = SPA_ID_INVALID;
-			inio->status = SPA_STATUS_OK;
-
-			spa_list_append(&inport->queue, &b->link);
-
-			inport->queued_bytes = SPA_MIN(d[0].chunk->size, d[0].maxsize);
-
-			spa_log_trace(this->log, NAME " %p: queue buffer %d on port %d %zd %zd",
-				      this, b->outbuf->id, i, inport->queued_bytes, min_queued);
-		}
-		if (inport->queued_bytes > 0 && inport->queued_bytes < min_queued)
-			min_queued = inport->queued_bytes;
-	}
-
-	if (min_queued != SIZE_MAX && min_queued > 0) {
-		outio->status = mix_output(this, min_queued);
-	} else {
-		outio->status = SPA_STATUS_NEED_BUFFER;
-	}
-	return outio->status;
-}
-#endif
-
 static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
@@ -1034,6 +969,7 @@ static int impl_node_process(struct spa_node *node)
 		recycle_buffer(this, outio->buffer_id);
 		outio->buffer_id = SPA_ID_INVALID;
 	}
+
 	/* produce more output if possible */
 	for (i = 0; i < this->last_port; i++) {
 		struct port *inport = GET_IN_PORT(this, i);

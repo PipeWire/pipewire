@@ -102,7 +102,7 @@ static void *create_object(void *_data,
 	input_node = pw_global_get_object(global);
 
 	if (output_port_id == -1)
-		outport = pw_node_get_free_port(output_node, SPA_DIRECTION_OUTPUT);
+		outport = pw_node_find_port(output_node, SPA_DIRECTION_OUTPUT, SPA_ID_INVALID);
 	else {
 		global = pw_core_find_global(core, output_port_id);
 		if (global == NULL || pw_global_get_type(global) != t->port)
@@ -114,7 +114,7 @@ static void *create_object(void *_data,
 		goto no_output_port;
 
 	if (input_port_id == -1)
-		inport = pw_node_get_free_port(input_node, SPA_DIRECTION_INPUT);
+		inport = pw_node_find_port(input_node, SPA_DIRECTION_INPUT, SPA_ID_INVALID);
 	else {
 		global = pw_core_find_global(core, input_port_id);
 		if (global == NULL || pw_global_get_type(global) != t->port)

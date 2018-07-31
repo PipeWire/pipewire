@@ -33,11 +33,16 @@
 
 #define S24_MIN		-8388607
 #define S24_MAX		8388607
+#define S24_MAX_F	8388607.0f
 #define S24_SCALE	8388607
 
 #define S32_MIN		-2147483647
 #define S32_MAX		2147483647
 #define S32_SCALE	2147483647
+
+#if defined (__SSE__)
+#include "fmt-ops-sse.c"
+#endif
 
 static void
 conv_copy(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
@@ -430,6 +435,7 @@ conv_f32d_to_s32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 	}
 }
 
+
 #define F32_TO_S24(v)			\
 ({					\
 	typeof(v) _v = (v);		\
@@ -662,6 +668,8 @@ typedef void (*convert_func_t) (void *data, int n_dst, void *dst[n_dst],
 static const struct conv_info {
 	off_t src_fmt;
 	off_t dst_fmt;
+#define FEATURE_SSE	(1<<0)
+	uint32_t features;
 
 	convert_func_t i2i;
 	convert_func_t i2d;
@@ -670,75 +678,86 @@ static const struct conv_info {
 {
 	/* to f32 */
 	{ offsetof(struct spa_type_audio_format, U8),
-	  offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, F32), 0,
 		conv_u8_to_f32, conv_u8_to_f32d, conv_u8d_to_f32 },
+#if defined (__SSE2__)
 	{ offsetof(struct spa_type_audio_format, S16),
-	  offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, F32), FEATURE_SSE,
+		conv_s16_to_f32, conv_s16_to_f32d_sse, conv_s16d_to_f32 },
+#endif
+	{ offsetof(struct spa_type_audio_format, S16),
+	  offsetof(struct spa_type_audio_format, F32), 0,
 		conv_s16_to_f32, conv_s16_to_f32d, conv_s16d_to_f32 },
 	{ offsetof(struct spa_type_audio_format, F32),
-	  offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, F32), 0,
 		conv_copy, deinterleave_32, interleave_32 },
 	{ offsetof(struct spa_type_audio_format, S32),
-	  offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, F32), 0,
 		conv_s32_to_f32, conv_s32_to_f32d, conv_s32d_to_f32 },
 	{ offsetof(struct spa_type_audio_format, S24),
-	  offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, F32), 0,
 		conv_s24_to_f32, conv_s24_to_f32d, conv_s24d_to_f32 },
 	{ offsetof(struct spa_type_audio_format, S24_32),
-	  offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, F32), 0,
 		conv_s24_32_to_f32, conv_s24_32_to_f32d, conv_s24_32d_to_f32 },
 
 	/* from f32 */
 	{ offsetof(struct spa_type_audio_format, F32),
-	  offsetof(struct spa_type_audio_format, U8),
+	  offsetof(struct spa_type_audio_format, U8), 0,
 		conv_f32_to_u8, conv_f32_to_u8d, conv_f32d_to_u8 },
 	{ offsetof(struct spa_type_audio_format, F32),
-	  offsetof(struct spa_type_audio_format, S16),
+	  offsetof(struct spa_type_audio_format, S16), 0,
 		conv_f32_to_s16, conv_f32_to_s16d, conv_f32d_to_s16 },
+#if defined (__SSE2__)
 	{ offsetof(struct spa_type_audio_format, F32),
-	  offsetof(struct spa_type_audio_format, S32),
+	  offsetof(struct spa_type_audio_format, S32), FEATURE_SSE,
+		conv_f32_to_s32, conv_f32_to_s32d, conv_f32d_to_s32_sse },
+#endif
+	{ offsetof(struct spa_type_audio_format, F32),
+	  offsetof(struct spa_type_audio_format, S32), 0,
 		conv_f32_to_s32, conv_f32_to_s32d, conv_f32d_to_s32 },
 	{ offsetof(struct spa_type_audio_format, F32),
-	  offsetof(struct spa_type_audio_format, S24),
+	  offsetof(struct spa_type_audio_format, S24), 0,
 		conv_f32_to_s24, conv_f32_to_s24d, conv_f32d_to_s24 },
 	{ offsetof(struct spa_type_audio_format, F32),
-	  offsetof(struct spa_type_audio_format, S24_32),
+	  offsetof(struct spa_type_audio_format, S24_32), 0,
 		conv_f32_to_s24_32, conv_f32_to_s24_32d, conv_f32d_to_s24_32 },
 
 	/* u8 */
 	{ offsetof(struct spa_type_audio_format, U8),
-	  offsetof(struct spa_type_audio_format, U8),
+	  offsetof(struct spa_type_audio_format, U8), 0,
 		conv_copy, deinterleave_8, interleave_8 },
 
 	/* s16 */
 	{ offsetof(struct spa_type_audio_format, S16),
-	  offsetof(struct spa_type_audio_format, S16),
+	  offsetof(struct spa_type_audio_format, S16), 0,
 		conv_copy, deinterleave_16, interleave_16 },
 
 	/* s32 */
 	{ offsetof(struct spa_type_audio_format, S32),
-	  offsetof(struct spa_type_audio_format, S32),
+	  offsetof(struct spa_type_audio_format, S32), 0,
 		conv_copy, deinterleave_32, interleave_32 },
 
 	/* s24 */
 	{ offsetof(struct spa_type_audio_format, S24),
-	  offsetof(struct spa_type_audio_format, S24),
+	  offsetof(struct spa_type_audio_format, S24), 0,
 		conv_copy, deinterleave_24, interleave_24 },
 
 	/* s24_32 */
 	{ offsetof(struct spa_type_audio_format, S24_32),
-	  offsetof(struct spa_type_audio_format, S24_32),
+	  offsetof(struct spa_type_audio_format, S24_32), 0,
 		conv_copy, deinterleave_32, interleave_32 },
 };
 
 static const struct conv_info *find_conv_info(struct spa_type_audio_format *audio_format,
-		uint32_t src_fmt, uint32_t dst_fmt)
+		uint32_t src_fmt, uint32_t dst_fmt, uint32_t features)
 {
 	int i;
 
 	for (i = 0; i < SPA_N_ELEMENTS(conv_table); i++) {
 		if (*SPA_MEMBER(audio_format, conv_table[i].src_fmt, uint32_t) == src_fmt &&
-		    *SPA_MEMBER(audio_format, conv_table[i].dst_fmt, uint32_t) == dst_fmt)
+		    *SPA_MEMBER(audio_format, conv_table[i].dst_fmt, uint32_t) == dst_fmt &&
+		    (conv_table[i].features == 0 || (conv_table[i].features & features) != 0))
 			return &conv_table[i];
 	}
 	return NULL;

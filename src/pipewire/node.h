@@ -59,6 +59,8 @@ struct pw_node_events {
 	/** the node is initialized */
         void (*initialized) (void *data);
 
+	/** a port is being initialized on the node */
+        void (*port_init) (void *data, struct pw_port *port);
 	/** a port was added */
         void (*port_added) (void *data, struct pw_port *port);
 	/** a port was removed */
@@ -171,16 +173,13 @@ int pw_node_for_each_param(struct pw_node *node,
 					    struct spa_pod *param),
 			   void *data);
 
-/** Find the port with direction and port_id or NULL when not found */
+/** Find the port with direction and port_id or NULL when not found. Passing
+ * SPA_ID_INVALID for port_id will return any port, preferably an unlinked one. */
 struct pw_port *
 pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id);
 
 /** Get a free unused port_id from the node */
 uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direction);
-
-/** Get a free unused port from the node, this can be an old unused existing port
-  * or a new port */
-struct pw_port * pw_node_get_free_port(struct pw_node *node, enum pw_direction direction);
 
 /** Set a node active. This will start negotiation with all linked active
   * nodes and start data transport */

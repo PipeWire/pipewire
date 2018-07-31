@@ -75,6 +75,7 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
 pipewire_module_audio_session = shared_library('pipewire-module-media-session',
   [ 'module-media-session.c',
     'module-media-session/audio-dsp.c',
+    'module-media-session/floatmix.c',
     'spa/spa-node.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],

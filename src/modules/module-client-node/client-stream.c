@@ -618,16 +618,13 @@ impl_node_port_set_param(struct spa_node *node,
 	impl = this->impl;
 	t = impl->t;
 
-	pw_log_debug(".");
 	if (direction != impl->direction)
 		return -EINVAL;
 
-	pw_log_debug(".");
 	if ((res = spa_node_port_set_param(impl->adapter_mix, direction, port_id, id,
 			flags, param)) < 0)
 		return res;
 
-	pw_log_debug(".");
 	if (id == t->param.idFormat && impl->use_converter) {
 		if (param == NULL) {
 			if ((res = spa_node_port_set_param(impl->adapter_mix,
@@ -654,7 +651,7 @@ impl_node_port_set_io(struct spa_node *node,
 	struct node *this;
 	struct impl *impl;
 	struct pw_type *t;
-	int res;
+	int res = 0;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -666,7 +663,8 @@ impl_node_port_set_io(struct spa_node *node,
 	if (direction != impl->direction)
 		return -EINVAL;
 
-	res = spa_node_port_set_io(impl->adapter_mix, direction, port_id, id, data, size);
+	if (impl->use_converter)
+		res = spa_node_port_set_io(impl->adapter_mix, direction, port_id, id, data, size);
 
 	if (id == t->io.Buffers && size >= sizeof(struct spa_io_buffers)) {
 		impl->io = data;
@@ -948,6 +946,7 @@ static void client_node_initialized(void *data)
 				"audioconvert", SPA_TYPE__Node, NULL, 0, NULL)) == NULL)
 			return;
 
+		impl->adapter_mix = impl->adapter;
 		impl->use_converter = true;
 	}
 	else {

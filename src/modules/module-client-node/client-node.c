@@ -106,12 +106,13 @@ struct mix {
 
 struct port {
 	struct pw_port *port;
+	struct node *node;
 	struct impl *impl;
 
 	enum spa_direction direction;
 	uint32_t id;
 
-	struct spa_node node;
+	struct spa_node mix_node;
 
 	struct spa_port_info info;
 	struct pw_properties *properties;
@@ -661,9 +662,7 @@ impl_node_port_set_param(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 
-	pw_log_debug(". %p %d %d", this, direction, port_id);
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
-	pw_log_debug(".");
 
 	if (this->resource == NULL)
 		return 0;
@@ -1364,9 +1363,33 @@ static const struct pw_port_implementation port_impl = {
 };
 
 static int
+impl_mix_port_enum_params(struct spa_node *node,
+			   enum spa_direction direction, uint32_t port_id,
+			   uint32_t id, uint32_t *index,
+			   const struct spa_pod *filter,
+			   struct spa_pod **result,
+			   struct spa_pod_builder *builder)
+{
+	struct port *port = SPA_CONTAINER_OF(node, struct port, mix_node);
+	return impl_node_port_enum_params(&port->node->node, direction, port->id,
+			id, index, filter, result, builder);
+}
+
+static int
+impl_mix_port_set_param(struct spa_node *node,
+			enum spa_direction direction, uint32_t port_id,
+			uint32_t id, uint32_t flags,
+			const struct spa_pod *param)
+{
+	struct port *port = SPA_CONTAINER_OF(node, struct port, mix_node);
+	return impl_node_port_set_param(&port->node->node, direction, port->id,
+			id, flags, param);
+}
+
+static int
 impl_mix_add_port(struct spa_node *node, enum spa_direction direction, uint32_t mix_id)
 {
-	struct port *port = SPA_CONTAINER_OF(node, struct port, node);
+	struct port *port = SPA_CONTAINER_OF(node, struct port, mix_node);
 	pw_log_debug("client-node %p: add port %d:%d.%d", node, direction, port->id, mix_id);
 	return 0;
 }
@@ -1374,7 +1397,7 @@ impl_mix_add_port(struct spa_node *node, enum spa_direction direction, uint32_t 
 static int
 impl_mix_remove_port(struct spa_node *node, enum spa_direction direction, uint32_t mix_id)
 {
-	struct port *port = SPA_CONTAINER_OF(node, struct port, node);
+	struct port *port = SPA_CONTAINER_OF(node, struct port, mix_node);
 	pw_log_debug("client-node %p: remove port %d:%d.%d", node, direction, port->id, mix_id);
 	return 0;
 }
@@ -1386,7 +1409,7 @@ impl_mix_port_use_buffers(struct spa_node *node,
 			   struct spa_buffer **buffers,
 			   uint32_t n_buffers)
 {
-	struct port *port = SPA_CONTAINER_OF(node, struct port, node);
+	struct port *port = SPA_CONTAINER_OF(node, struct port, mix_node);
 	struct impl *impl = port->impl;
 
 	return do_port_use_buffers(impl, direction, port->id, mix_id, buffers, n_buffers);
@@ -1408,7 +1431,7 @@ static int impl_mix_port_set_io(struct spa_node *node,
 			   enum spa_direction direction, uint32_t mix_id,
 			   uint32_t id, void *data, size_t size)
 {
-	struct port *p = SPA_CONTAINER_OF(node, struct port, node);
+	struct port *p = SPA_CONTAINER_OF(node, struct port, mix_node);
 	struct pw_port *port = p->port;
 	struct impl *impl = port->owner_data;
 	struct pw_port_mix *mix;
@@ -1430,6 +1453,22 @@ static int impl_mix_port_set_io(struct spa_node *node,
 			      id, data, size);
 }
 
+static int
+impl_mix_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+{
+	struct port *p = SPA_CONTAINER_OF(node, struct port, mix_node);
+	return impl_node_port_reuse_buffer(&p->node->node, p->id, buffer_id);
+}
+
+static int
+impl_mix_port_send_command(struct spa_node *node,
+			   enum spa_direction direction,
+			   uint32_t port_id, const struct spa_command *command)
+{
+	struct port *p = SPA_CONTAINER_OF(node, struct port, mix_node);
+	return impl_node_port_send_command(&p->node->node, direction, p->id, command);
+}
+
 static int impl_mix_process(struct spa_node *data)
 {
 	return SPA_STATUS_HAVE_BUFFER;
@@ -1438,21 +1477,15 @@ static int impl_mix_process(struct spa_node *data)
 static const struct spa_node impl_port_mix = {
 	SPA_VERSION_NODE,
 	NULL,
-	.enum_params = impl_node_enum_params,
-	.set_param = impl_node_set_param,
-	.send_command = impl_node_send_command,
-	.get_n_ports = impl_node_get_n_ports,
-	.get_port_ids = impl_node_get_port_ids,
-	.port_get_info = impl_node_port_get_info,
-	.port_enum_params = impl_node_port_enum_params,
-	.port_set_param = impl_node_port_set_param,
+	.port_enum_params = impl_mix_port_enum_params,
+	.port_set_param = impl_mix_port_set_param,
 	.add_port = impl_mix_add_port,
 	.remove_port = impl_mix_remove_port,
 	.port_use_buffers = impl_mix_port_use_buffers,
 	.port_alloc_buffers = impl_mix_port_alloc_buffers,
 	.port_set_io = impl_mix_port_set_io,
-	.port_reuse_buffer = impl_node_port_reuse_buffer,
-	.port_send_command = impl_node_port_send_command,
+	.port_reuse_buffer = impl_mix_port_reuse_buffer,
+	.port_send_command = impl_mix_port_send_command,
 	.process = impl_mix_process,
 };
 
@@ -1471,10 +1504,11 @@ static void node_port_init(void *data, struct pw_port *port)
 
 	*p = *dummy;
 	p->port = port;
+	p->node = this;
 	p->direction = port->direction;
 	p->id = port->port_id;
 	p->impl = impl;
-	p->node = impl_port_mix;
+	p->mix_node = impl_port_mix;
 	mix_init(&p->mix[MAX_MIX], p);
 
 	if (p->direction == SPA_DIRECTION_INPUT)
@@ -1490,7 +1524,7 @@ static void node_port_added(void *data, struct pw_port *port)
 	struct impl *impl = data;
 	struct port *p = pw_port_get_user_data(port);
 
-	pw_port_set_mix(port, &p->node,
+	pw_port_set_mix(port, &p->mix_node,
 			PW_PORT_MIX_FLAG_MULTI |
 			PW_PORT_MIX_FLAG_MIX_ONLY);
 

@@ -858,7 +858,8 @@ int queue_buffer(pa_stream *s)
 	spa_ringbuffer_read_update(&s->dequeued_ring, s->buffer_index + 1);
 
 	s->buffer->size = s->buffer->buffer->datas[0].chunk->size;
-	pw_log_debug("%d %"PRIu64, s->buffer->buffer->id, s->buffer->size);
+	pw_log_trace("%d %"PRIu64"/%d", s->buffer->buffer->id, s->buffer->size,
+			s->buffer->buffer->datas[0].chunk->offset);
 
 	pw_stream_queue_buffer(s->stream, s->buffer);
 	s->buffer = NULL;
@@ -890,7 +891,7 @@ int pa_stream_begin_write(
 		*data = SPA_MEMBER(s->buffer_data, s->buffer_offset, void);
 		*nbytes = *nbytes != -1 ? SPA_MIN(*nbytes, max) : max;
 	}
-	pw_log_debug("peek buffer %p %zd", *data, *nbytes);
+	pw_log_trace("peek buffer %p %zd", *data, *nbytes);
 
 	return 0;
 }
@@ -1004,7 +1005,7 @@ int pa_stream_peek(pa_stream *s,
 	}
 	*data = SPA_MEMBER(s->buffer_data, s->buffer_offset, void);
 	*nbytes = s->buffer_size;
-	pw_log_debug("stream %p: %p %zd", s, *data, *nbytes);
+	pw_log_trace("stream %p: %p %zd", s, *data, *nbytes);
 
 	return 0;
 }
@@ -1018,7 +1019,7 @@ int pa_stream_drop(pa_stream *s)
 	PA_CHECK_VALIDITY(s->context, s->direction == PA_STREAM_RECORD, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY(s->context, s->buffer, PA_ERR_BADSTATE);
 
-	pw_log_debug("stream %p", s);
+	pw_log_trace("stream %p", s);
 	queue_buffer(s);
 
 	return 0;
@@ -1383,7 +1384,7 @@ int pa_stream_get_time(pa_stream *s, pa_usec_t *r_usec)
 	if (r_usec)
 		*r_usec = res;
 
-	pw_log_debug("stream %p: %ld %ld %ld %ld %ld %ld %ld", s, now, delay, read_time,
+	pw_log_trace("stream %p: %ld %ld %ld %ld %ld %ld %ld", s, now, delay, read_time,
 			i->write_index, i->read_index,
 			i->write_index - i->read_index,
 			res);
@@ -1451,7 +1452,7 @@ const pa_timing_info* pa_stream_get_timing_info(pa_stream *s)
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->timing_info_valid, PA_ERR_NODATA);
 
-	pw_log_debug("stream %p: %ld %ld %ld", s,
+	pw_log_trace("stream %p: %ld %ld %ld", s,
 			s->timing_info.write_index, s->timing_info.read_index,
 			(s->timing_info.write_index - s->timing_info.read_index));
 

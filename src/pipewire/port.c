@@ -50,7 +50,7 @@ static void port_update_state(struct pw_port *port, struct pw_port_mix *mix, enu
 				SPA_LOG_LEVEL_ERROR : SPA_LOG_LEVEL_DEBUG,
 			"port %p: state %d -> %d", port, port->state, state);
 		port->state = state;
-		spa_hook_list_call(&port->listener_list, struct pw_port_events, state_changed, state);
+		pw_port_events_state_changed(port, state);
 	}
 }
 
@@ -286,8 +286,7 @@ int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 	port->info.props = &port->properties->dict;
 
 	port->info.change_mask |= PW_PORT_CHANGE_MASK_PROPS;
-	spa_hook_list_call(&port->listener_list, struct pw_port_events,
-			info_changed, &port->info);
+	pw_port_events_info_changed(port, &port->info);
 
 	spa_list_for_each(resource, &port->resource_list, link)
 		pw_port_resource_info(resource, &port->info);
@@ -478,7 +477,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	if (find != NULL)
 		return -EEXIST;
 
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, port_init, port);
+	pw_node_events_port_init(node, port);
 
 	if ((res = spa_node_port_get_info(node->node,
 			       port->direction, port_id,
@@ -559,7 +558,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	if (port->state <= PW_PORT_STATE_INIT)
 		port_update_state(port, NULL, PW_PORT_STATE_CONFIGURE);
 
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, port_added, port);
+	pw_node_events_port_added(node, port);
 
 	return 0;
 
@@ -624,7 +623,7 @@ static void pw_port_remove(struct pw_port *port)
 		node->info.n_output_ports--;
 	}
 	spa_list_remove(&port->link);
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, port_removed, port);
+	pw_node_events_port_removed(node, port);
 }
 
 void pw_port_destroy(struct pw_port *port)
@@ -634,7 +633,7 @@ void pw_port_destroy(struct pw_port *port)
 
 	pw_log_debug("port %p: destroy", port);
 
-	spa_hook_list_call(&port->listener_list, struct pw_port_events, destroy);
+	pw_port_events_destroy(port);
 
 	pw_log_debug("port %p: control destroy", port);
 	spa_list_for_each_safe(control, ctemp, &port->control_list[0], port_link)
@@ -652,7 +651,7 @@ void pw_port_destroy(struct pw_port *port)
 		pw_resource_destroy(resource);
 
 	pw_log_debug("port %p: free", port);
-	spa_hook_list_call(&port->listener_list, struct pw_port_events, free);
+	pw_port_events_free(port);
 
 	free_allocation(&port->allocation);
 

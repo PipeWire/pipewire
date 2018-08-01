@@ -58,7 +58,7 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 void pw_factory_destroy(struct pw_factory *factory)
 {
 	pw_log_debug("factory %p: destroy", factory);
-	spa_hook_list_call(&factory->listener_list, struct pw_factory_events, destroy);
+	pw_factory_events_destroy(factory);
 
 	if (factory->registered)
 		spa_list_remove(&factory->link);

@@ -83,8 +83,7 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 			free(link->error);
 		link->error = error;
 
-		spa_hook_list_call(&link->listener_list, struct pw_link_events,
-				state_changed, old, state, error);
+		pw_link_events_state_changed(link, old, state, error);
 
 		pw_log_debug("link %p: %d %d %d %d", link,
 				out->n_ready_output_links, out->n_used_output_links,
@@ -262,8 +261,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	if (changed) {
 		this->info.change_mask |= PW_LINK_CHANGE_MASK_FORMAT;
 
-		spa_hook_list_call(&this->listener_list, struct pw_link_events,
-				info_changed, &this->info);
+		pw_link_events_info_changed(this, &this->info);
 
 		spa_list_for_each(resource, &this->resource_list, link)
 			pw_link_resource_info(resource, &this->info);
@@ -942,7 +940,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	spa_hook_remove(&impl->input_node_listener);
 
 	spa_list_remove(&this->input_link);
-	spa_hook_list_call(&this->input->listener_list, struct pw_port_events, link_removed, this);
+	pw_port_events_link_removed(this->input, this);
 
 	clear_port_buffers(this, port);
 
@@ -961,7 +959,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	spa_hook_remove(&impl->output_node_listener);
 
 	spa_list_remove(&this->output_link);
-	spa_hook_list_call(&this->output->listener_list, struct pw_port_events, link_removed, this);
+	pw_port_events_link_removed(this->output, this);
 
 	clear_port_buffers(this, port);
 
@@ -972,7 +970,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 
 static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 {
-	spa_hook_list_call(&this->listener_list, struct pw_link_events, port_unlinked, port);
+	pw_link_events_port_unlinked(this, port);
 
 	pw_link_update_state(this, PW_LINK_STATE_UNLINKED, NULL);
 	pw_link_destroy(this);
@@ -1263,8 +1261,8 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	find_driver(this);
 
-	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, this);
-	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, this);
+	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, 0, this);
+	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, 0, this);
 
 	return this;
 
@@ -1360,7 +1358,7 @@ void pw_link_destroy(struct pw_link *link)
 	struct pw_resource *resource, *tmp;
 
 	pw_log_debug("link %p: destroy", impl);
-	spa_hook_list_call(&link->listener_list, struct pw_link_events, destroy);
+	pw_link_events_destroy(link);
 
 	pw_link_deactivate(link);
 
@@ -1379,7 +1377,7 @@ void pw_link_destroy(struct pw_link *link)
 	    pw_resource_destroy(resource);
 
 	pw_log_debug("link %p: free", impl);
-	spa_hook_list_call(&link->listener_list, struct pw_link_events, free);
+	pw_link_events_free(link);
 
 	pw_work_queue_destroy(impl->work);
 

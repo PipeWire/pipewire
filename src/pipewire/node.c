@@ -371,7 +371,7 @@ int pw_node_register(struct pw_node *this,
 int pw_node_initialized(struct pw_node *this)
 {
 	pw_log_debug("node %p initialized", this);
-	spa_hook_list_call(&this->listener_list, struct pw_node_events, initialized);
+	pw_node_events_initialized(this);
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 	return 0;
 }
@@ -415,15 +415,14 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 		spa_list_remove(&n->driver_link);
 		spa_list_append(&driver->driver_list, &n->driver_link);
 		n->driver_node = driver;
-		spa_hook_list_call(&n->listener_list, struct pw_node_events,
-				driver_changed, driver);
+		pw_node_events_driver_changed(n, driver);
 		pw_log_debug("node %p: add %p", driver, n);
 	}
 	pw_loop_invoke(node->data_loop,
 		       do_move_nodes, SPA_ID_INVALID, &driver, sizeof(struct pw_node *),
 		       true, impl);
 
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, driver_changed, driver);
+	pw_node_events_driver_changed(node, driver);
 
 	return 0;
 }
@@ -454,7 +453,7 @@ static inline int driver_impl_finish(void *data)
 	struct pw_node *this = &impl->this;
 
 	pw_log_trace("graph %p finish %p", d->graph, impl);
-	spa_hook_list_call(&this->listener_list, struct pw_node_events, finish);
+	pw_node_events_finish(this);
         return 0;
 }
 
@@ -585,8 +584,7 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 	node->info.props = &node->properties->dict;
 
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_PROPS;
-	spa_hook_list_call(&node->listener_list, struct pw_node_events,
-			info_changed, &node->info);
+	pw_node_events_info_changed(node, &node->info);
 
 	spa_list_for_each(resource, &node->resource_list, link)
 		pw_node_resource_info(resource, &node->info);
@@ -603,7 +601,7 @@ static void node_done(void *data, int seq, int res)
 
 	pw_log_debug("node %p: async complete event %d %d %s", node, seq, res, spa_strerror(res));
 	pw_work_queue_complete(impl->work, node, seq, res);
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, async_complete, seq, res);
+	pw_node_events_async_complete(node, seq, res);
 }
 
 static void node_event(void *data, struct spa_event *event)
@@ -611,7 +609,7 @@ static void node_event(void *data, struct spa_event *event)
 	struct pw_node *node = data;
 
 	pw_log_trace("node %p: event %d", node, SPA_EVENT_TYPE(event));
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, event, event);
+	pw_node_events_event(node, event);
 }
 
 static void node_process(void *data, int status)
@@ -622,7 +620,7 @@ static void node_process(void *data, int status)
 	pw_log_trace("node %p: process driver:%d exported:%d", node,
 			node->driver, node->exported);
 
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, process);
+	pw_node_events_process(node);
 
 	if (node->driver) {
 		if (node->rt.driver->state->pending == 0 || !node->remote) {
@@ -727,7 +725,7 @@ void pw_node_destroy(struct pw_node *node)
 	struct pw_port *port, *tmpp;
 
 	pw_log_debug("node %p: destroy", impl);
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, destroy);
+	pw_node_events_destroy(node);
 
 	pause_node(node);
 
@@ -768,7 +766,7 @@ void pw_node_destroy(struct pw_node *node)
 		pw_resource_destroy(resource);
 
 	pw_log_debug("node %p: free", node);
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, free);
+	pw_node_events_free(node);
 
 	pw_work_queue_destroy(impl->work);
 
@@ -973,7 +971,7 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 	if (old == state)
 		return 0;
 
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, state_request, state);
+	pw_node_events_state_request(node, state);
 
 	switch (state) {
 	case PW_NODE_STATE_CREATING:
@@ -1046,12 +1044,10 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 		node_deactivate(node);
 	}
 
-	spa_hook_list_call(&node->listener_list, struct pw_node_events, state_changed,
-			 old, state, error);
+	pw_node_events_state_changed(node, old, state, error);
 
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;
-	spa_hook_list_call(&node->listener_list, struct pw_node_events,
-			info_changed, &node->info);
+	pw_node_events_info_changed(node, &node->info);
 
 	spa_list_for_each(resource, &node->resource_list, link)
 		pw_node_resource_info(resource, &node->info);
@@ -1066,7 +1062,7 @@ int pw_node_set_active(struct pw_node *node, bool active)
 	if (old != active) {
 		pw_log_debug("node %p: %s", node, active ? "activate" : "deactivate");
 		node->active = active;
-		spa_hook_list_call(&node->listener_list, struct pw_node_events, active_changed, active);
+		pw_node_events_active_changed(node, active);
 		if (active) {
 			if (node->enabled)
 				node_activate(node);
@@ -1089,7 +1085,7 @@ int pw_node_set_enabled(struct pw_node *node, bool enabled)
 	if (old != enabled) {
 		pw_log_debug("node %p: %s", node, enabled ? "enable" : "disable");
 		node->enabled = enabled;
-		spa_hook_list_call(&node->listener_list, struct pw_node_events, enabled_changed, enabled);
+		pw_node_events_enabled_changed(node, enabled);
 
 		if (enabled) {
 			if (node->active)

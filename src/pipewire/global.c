@@ -134,10 +134,10 @@ pw_global_register(struct pw_global *global,
 						        &global->properties->dict : NULL);
 	}
 
-	spa_hook_list_call(&global->listener_list, struct pw_global_events, registering);
+	pw_global_events_registering(global);
 
 	pw_log_debug("global %p: add %u owner %p parent %p", global, global->id, owner, parent);
-	spa_hook_list_call(&core->listener_list, struct pw_core_events, global_added, global);
+	pw_core_events_global_added(core, global);
 
 	return 0;
 }
@@ -159,8 +159,7 @@ static int global_unregister(struct pw_global *global)
 	}
 
 	spa_list_remove(&global->link);
-	spa_hook_list_call(&core->listener_list, struct pw_core_events,
-			global_removed, global);
+	pw_core_events_global_removed(core, global);
 
 	impl->registered = false;
 
@@ -237,8 +236,7 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 	if (global->version < version)
 		goto wrong_version;
 
-	spa_hook_list_call(&global->listener_list, struct pw_global_events, bind,
-			client, permissions, version, id);
+	pw_global_events_bind(global, client, permissions, version, id);
 
 	return 0;
 
@@ -264,12 +262,12 @@ void pw_global_destroy(struct pw_global *global)
 	global_unregister(global);
 
 	pw_log_debug("global %p: destroy %u", global, global->id);
-	spa_hook_list_call(&global->listener_list, struct pw_global_events, destroy);
+	pw_global_events_destroy(global);
 
 	pw_map_remove(&core->globals, global->id);
 
 	pw_log_debug("global %p: free", global);
-	spa_hook_list_call(&global->listener_list, struct pw_global_events, free);
+	pw_global_events_free(global);
 
 	if (global->properties)
 		pw_properties_free(global->properties);

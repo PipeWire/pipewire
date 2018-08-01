@@ -23,6 +23,9 @@
 #include "pipewire.h"
 #include "thread-loop.h"
 
+#define pw_thread_loop_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_thread_loop_events, m, v, ##__VA_ARGS__)
+#define pw_thread_loop_events_destroy(o)	pw_thread_loop_events_emit(o, destroy, 0)
+
 /** \cond */
 struct pw_thread_loop {
 	struct pw_loop *loop;
@@ -120,7 +123,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 /** Destroy a threaded loop \memberof pw_thread_loop */
 void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 {
-	spa_hook_list_call(&loop->listener_list, struct pw_thread_loop_events, destroy);
+	pw_thread_loop_events_destroy(loop);
 
 	pw_thread_loop_stop(loop);
 

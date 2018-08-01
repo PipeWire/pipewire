@@ -210,7 +210,7 @@ static int core_demarshal_info(void *object, void *data, size_t size)
 				       NULL) < 0)
 			return -EINVAL;
 	}
-	pw_proxy_notify(proxy, struct pw_core_proxy_events, info, &info);
+	pw_proxy_notify(proxy, struct pw_core_proxy_events, info, 0, &info);
 	return 0;
 }
 
@@ -224,7 +224,7 @@ static int core_demarshal_done(void *object, void *data, size_t size)
 	if (spa_pod_parser_get(&prs, "[ i", &seq, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_core_proxy_events, done, seq);
+	pw_proxy_notify(proxy, struct pw_core_proxy_events, done, 0, seq);
 	return 0;
 }
 
@@ -242,7 +242,7 @@ static int core_demarshal_error(void *object, void *data, size_t size)
 			  "s", &error, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_core_proxy_events, error, id, res, error);
+	pw_proxy_notify(proxy, struct pw_core_proxy_events, error, 0, id, res, error);
 	return 0;
 }
 
@@ -256,7 +256,7 @@ static int core_demarshal_remove_id(void *object, void *data, size_t size)
 	if (spa_pod_parser_get(&prs, "[ i", &id, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_core_proxy_events, remove_id, id);
+	pw_proxy_notify(proxy, struct pw_core_proxy_events, remove_id, 0, id);
 	return 0;
 }
 
@@ -280,7 +280,7 @@ static int core_demarshal_update_types_client(void *object, void *data, size_t s
 		if (spa_pod_parser_get(&prs, "s", &types[i], NULL) < 0)
 			return -EINVAL;
 	}
-	pw_proxy_notify(proxy, struct pw_core_proxy_events, update_types, first_id, types, n_types);
+	pw_proxy_notify(proxy, struct pw_core_proxy_events, update_types, 0, first_id, types, n_types);
 	return 0;
 }
 
@@ -401,7 +401,7 @@ static int core_demarshal_client_update(void *object, void *data, size_t size)
 				NULL) < 0)
 			return -EINVAL;
 	}
-	pw_resource_do(resource, struct pw_core_proxy_methods, client_update, &props);
+	pw_resource_do(resource, struct pw_core_proxy_methods, client_update, 0, &props);
 	return 0;
 }
 
@@ -424,7 +424,7 @@ static int core_demarshal_permissions(void *object, void *data, size_t size)
 				NULL) < 0)
 			return -EINVAL;
 	}
-	pw_resource_do(resource, struct pw_core_proxy_methods, permissions, &props);
+	pw_resource_do(resource, struct pw_core_proxy_methods, permissions, 0, &props);
 	return 0;
 }
 
@@ -438,7 +438,7 @@ static int core_demarshal_hello(void *object, void *data, size_t size)
 	if (spa_pod_parser_get(&prs, "[P]", &ptr, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_core_proxy_methods, hello);
+	pw_resource_do(resource, struct pw_core_proxy_methods, hello, 0);
 	return 0;
 }
 
@@ -452,7 +452,7 @@ static int core_demarshal_sync(void *object, void *data, size_t size)
 	if (spa_pod_parser_get(&prs, "[i]", &seq, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_core_proxy_methods, sync, seq);
+	pw_resource_do(resource, struct pw_core_proxy_methods, sync, 0, seq);
 	return 0;
 }
 
@@ -466,7 +466,7 @@ static int core_demarshal_get_registry(void *object, void *data, size_t size)
 	if (spa_pod_parser_get(&prs, "[ii]", &version, &new_id, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_core_proxy_methods, get_registry, version, new_id);
+	pw_resource_do(resource, struct pw_core_proxy_methods, get_registry, 0, version, new_id);
 	return 0;
 }
 
@@ -496,7 +496,7 @@ static int core_demarshal_create_object(void *object, void *data, size_t size)
 	if (spa_pod_parser_get(&prs, "i", &new_id, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_core_proxy_methods, create_object, factory_name,
+	pw_resource_do(resource, struct pw_core_proxy_methods, create_object, 0, factory_name,
 								      type, version,
 								      &props, new_id);
 	return 0;
@@ -512,7 +512,7 @@ static int core_demarshal_destroy(void *object, void *data, size_t size)
 	if (spa_pod_parser_get(&prs, "[i]", &id, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_core_proxy_methods, destroy, id);
+	pw_resource_do(resource, struct pw_core_proxy_methods, destroy, 0, id);
 	return 0;
 }
 
@@ -536,7 +536,7 @@ static int core_demarshal_update_types_server(void *object, void *data, size_t s
 		if (spa_pod_parser_get(&prs, "s", &types[i], NULL) < 0)
 			return -EINVAL;
 	}
-	pw_resource_do(resource, struct pw_core_proxy_methods, update_types, first_id, types, n_types);
+	pw_resource_do(resource, struct pw_core_proxy_methods, update_types, 0, first_id, types, n_types);
 	return 0;
 }
 
@@ -597,7 +597,7 @@ static int registry_demarshal_bind(void *object, void *data, size_t size)
 			"i", &new_id, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_registry_proxy_methods, bind, id, type, version, new_id);
+	pw_resource_do(resource, struct pw_registry_proxy_methods, bind, 0, id, type, version, new_id);
 	return 0;
 }
 
@@ -656,7 +656,7 @@ static int module_demarshal_info(void *object, void *data, size_t size)
 					&props.items[i].key, &props.items[i].value, NULL) < 0)
 			return -EINVAL;
 	}
-	pw_proxy_notify(proxy, struct pw_module_proxy_events, info, &info);
+	pw_proxy_notify(proxy, struct pw_module_proxy_events, info, 0, &info);
 	return 0;
 }
 
@@ -716,7 +716,7 @@ static int factory_demarshal_info(void *object, void *data, size_t size)
 				       "s", &props.items[i].value, NULL) < 0)
 			return -EINVAL;
 	}
-	pw_proxy_notify(proxy, struct pw_factory_proxy_events, info, &info);
+	pw_proxy_notify(proxy, struct pw_factory_proxy_events, info, 0, &info);
 	return 0;
 }
 
@@ -784,7 +784,7 @@ static int node_demarshal_info(void *object, void *data, size_t size)
 				       "s", &props.items[i].value, NULL) < 0)
 			return -EINVAL;
 	}
-	pw_proxy_notify(proxy, struct pw_node_proxy_events, info, &info);
+	pw_proxy_notify(proxy, struct pw_node_proxy_events, info, 0, &info);
 	return 0;
 }
 
@@ -816,7 +816,7 @@ static int node_demarshal_param(void *object, void *data, size_t size)
 				"P", &param, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_node_proxy_events, param, id, index, next, param);
+	pw_proxy_notify(proxy, struct pw_node_proxy_events, param, 0, id, index, next, param);
 	return 0;
 }
 
@@ -852,7 +852,7 @@ static int node_demarshal_enum_params(void *object, void *data, size_t size)
 				"P", &filter, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_node_proxy_methods, enum_params, id, index, num, filter);
+	pw_resource_do(resource, struct pw_node_proxy_methods, enum_params, 0, id, index, num, filter);
 	return 0;
 }
 
@@ -908,7 +908,7 @@ static int port_demarshal_info(void *object, void *data, size_t size)
 				       "s", &props.items[i].value, NULL) < 0)
 			return -EINVAL;
 	}
-	pw_proxy_notify(proxy, struct pw_port_proxy_events, info, &info);
+	pw_proxy_notify(proxy, struct pw_port_proxy_events, info, 0, &info);
 	return 0;
 }
 
@@ -940,7 +940,7 @@ static int port_demarshal_param(void *object, void *data, size_t size)
 				"P", &param, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_port_proxy_events, param, id, index, next, param);
+	pw_proxy_notify(proxy, struct pw_port_proxy_events, param, 0, id, index, next, param);
 	return 0;
 }
 
@@ -976,7 +976,7 @@ static int port_demarshal_enum_params(void *object, void *data, size_t size)
 				"P", &filter, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_port_proxy_methods, enum_params, id, index, num, filter);
+	pw_resource_do(resource, struct pw_port_proxy_methods, enum_params, 0, id, index, num, filter);
 	return 0;
 }
 
@@ -1030,7 +1030,7 @@ static int client_demarshal_info(void *object, void *data, size_t size)
 				       "s", &props.items[i].value, NULL) < 0)
 			return -EINVAL;
 	}
-	pw_proxy_notify(proxy, struct pw_client_proxy_events, info, &info);
+	pw_proxy_notify(proxy, struct pw_client_proxy_events, info, 0, &info);
 	return 0;
 }
 
@@ -1094,7 +1094,7 @@ static int link_demarshal_info(void *object, void *data, size_t size)
 				       "s", &props.items[i].value, NULL) < 0)
 			return -EINVAL;
 	}
-	pw_proxy_notify(proxy, struct pw_link_proxy_events, info, &info);
+	pw_proxy_notify(proxy, struct pw_link_proxy_events, info, 0, &info);
 	return 0;
 }
 
@@ -1125,7 +1125,7 @@ static int registry_demarshal_global(void *object, void *data, size_t size)
 	}
 
 	pw_proxy_notify(proxy, struct pw_registry_proxy_events,
-			global, id, parent_id, permissions, type, version,
+			global, 0, id, parent_id, permissions, type, version,
 			props.n_items > 0 ? &props : NULL);
 	return 0;
 }
@@ -1140,7 +1140,7 @@ static int registry_demarshal_global_remove(void *object, void *data, size_t siz
 	if (spa_pod_parser_get(&prs, "[ i", &id, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_registry_proxy_events, global_remove, id);
+	pw_proxy_notify(proxy, struct pw_registry_proxy_events, global_remove, 0, id);
 	return 0;
 }
 

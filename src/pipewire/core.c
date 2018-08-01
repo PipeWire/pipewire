@@ -475,7 +475,7 @@ void pw_core_destroy(struct pw_core *core)
 	struct pw_node *node, *tn;
 
 	pw_log_debug("core %p: destroy", core);
-	spa_hook_list_call(&core->listener_list, struct pw_core_events, destroy);
+	pw_core_events_destroy(core);
 
 	spa_hook_remove(&core->global_listener);
 
@@ -491,7 +491,7 @@ void pw_core_destroy(struct pw_core *core)
 	spa_list_for_each_safe(global, t, &core->global_list, link)
 		pw_global_destroy(global);
 
-	spa_hook_list_call(&core->listener_list, struct pw_core_events, free);
+	pw_core_events_free(core);
 
 	pw_data_loop_destroy(core->data_loop_impl);
 
@@ -562,8 +562,7 @@ int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 	core->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
 	core->info.props = &core->properties->dict;
 
-	spa_hook_list_call(&core->listener_list, struct pw_core_events,
-			info_changed, &core->info);
+	pw_core_events_info_changed(core, &core->info);
 
 	spa_list_for_each(resource, &core->resource_list, link)
 		pw_core_resource_info(resource, &core->info);

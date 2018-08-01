@@ -68,7 +68,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	this->marshal = pw_protocol_get_marshal(client->protocol, type);
 
 	pw_log_debug("resource %p: new for client %p id %u", this, client, id);
-	spa_hook_list_call(&client->listener_list, struct pw_client_events, resource_added, this);
+	pw_client_events_resource_added(client, this);
 
 	return this;
 
@@ -125,7 +125,7 @@ void pw_resource_set_implementation(struct pw_resource *resource,
 	resource->implementation.funcs = implementation;
 	resource->implementation.data = data;
 
-	spa_hook_list_call(&client->listener_list, struct pw_client_events, resource_impl, resource);
+	pw_client_events_resource_impl(client, resource);
 }
 
 void pw_resource_add_override(struct pw_resource *resource,
@@ -157,10 +157,10 @@ void pw_resource_destroy(struct pw_resource *resource)
 	struct pw_client *client = resource->client;
 
 	pw_log_debug("resource %p: destroy %u", resource, resource->id);
-	spa_hook_list_call(&resource->listener_list, struct pw_resource_events, destroy);
+	pw_resource_events_destroy(resource);
 
 	pw_map_insert_at(&client->objects, resource->id, NULL);
-	spa_hook_list_call(&client->listener_list, struct pw_client_events, resource_removed, resource);
+	pw_client_events_resource_removed(client, resource);
 
 	if (client->core_resource)
 		pw_core_resource_remove_id(client->core_resource, resource->id);

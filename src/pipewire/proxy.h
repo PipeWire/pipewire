@@ -145,7 +145,7 @@ struct spa_hook_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy);
 /** Get the marshal functions for the proxy */
 const struct pw_protocol_marshal *pw_proxy_get_marshal(struct pw_proxy *proxy);
 
-#define pw_proxy_notify(p,type,event,...)	spa_hook_list_call(pw_proxy_get_proxy_listeners(p),type,event,## __VA_ARGS__)
+#define pw_proxy_notify(p,type,event,ver,...)	spa_hook_list_call(pw_proxy_get_proxy_listeners(p),type,event,ver,## __VA_ARGS__)
 #define pw_proxy_do(p,type,method,...)		((type*) pw_proxy_get_marshal(p)->method_marshal)->method(p, ## __VA_ARGS__)
 
 #ifdef __cplusplus

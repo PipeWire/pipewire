@@ -177,7 +177,7 @@ static int client_node_demarshal_add_mem(void *object, void *data, size_t size)
 
 	memfd = pw_protocol_native_get_proxy_fd(proxy, memfd_idx);
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, add_mem,
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, add_mem, 0,
 								      mem_id,
 								      type,
 								      memfd, flags);
@@ -213,7 +213,7 @@ static int client_node_demarshal_transport(void *object, void *data, size_t size
 
 	transport = pw_client_node_transport_new_from_info(&info);
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, transport, node_id,
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, transport, 0, node_id,
 								   readfd, writefd, transport);
 	return 0;
 }
@@ -234,7 +234,7 @@ static int client_node_demarshal_set_param(void *object, void *data, size_t size
 			"O", &param, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, set_param, seq, id, flags, param);
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, set_param, 0, seq, id, flags, param);
 	return 0;
 }
 
@@ -248,7 +248,7 @@ static int client_node_demarshal_event_event(void *object, void *data, size_t si
 	if (spa_pod_parser_get(&prs, "[ O", &event, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, event, event);
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, event, 0, event);
 	return 0;
 }
 
@@ -266,7 +266,7 @@ static int client_node_demarshal_command(void *object, void *data, size_t size)
 			"O", &command, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, command, seq, command);
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, command, 0, seq, command);
 	return 0;
 }
 
@@ -284,7 +284,7 @@ static int client_node_demarshal_add_port(void *object, void *data, size_t size)
 			"i", &port_id, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, add_port, seq, direction, port_id);
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, add_port, 0, seq, direction, port_id);
 	return 0;
 }
 
@@ -302,7 +302,7 @@ static int client_node_demarshal_remove_port(void *object, void *data, size_t si
 			"i", &port_id, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, remove_port, seq, direction, port_id);
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, remove_port, 0, seq, direction, port_id);
 	return 0;
 }
 
@@ -324,7 +324,7 @@ static int client_node_demarshal_port_set_param(void *object, void *data, size_t
 			"O", &param, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_set_param,
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_set_param, 0,
 			seq, direction, port_id, id, flags, param);
 	return 0;
 }
@@ -385,7 +385,7 @@ static int client_node_demarshal_port_use_buffers(void *object, void *data, size
 			d->data = SPA_UINT32_TO_PTR(data_id);
 		}
 	}
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_use_buffers, seq,
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_use_buffers, 0, seq,
 									  direction,
 									  port_id,
 									  n_buffers, buffers);
@@ -407,7 +407,7 @@ static int client_node_demarshal_port_command(void *object, void *data, size_t s
 			"O", &command, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_command, direction,
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_command, 0, direction,
 									   port_id,
 									   command);
 	return 0;
@@ -431,7 +431,7 @@ static int client_node_demarshal_port_set_io(void *object, void *data, size_t si
 			"i", &sz, NULL) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_set_io,
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_set_io, 0,
 							seq,
 							direction, port_id,
 							id, memid,
@@ -695,7 +695,7 @@ static int client_node_demarshal_done(void *object, void *data, size_t size)
 			"i", &res, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_client_node_proxy_methods, done, seq, res);
+	pw_resource_do(resource, struct pw_client_node_proxy_methods, done, 0, seq, res);
 	return 0;
 }
 
@@ -721,7 +721,7 @@ static int client_node_demarshal_update(void *object, void *data, size_t size)
 		if (spa_pod_parser_get(&prs, "O", &params[i], NULL) < 0)
 			return -EINVAL;
 
-	pw_resource_do(resource, struct pw_client_node_proxy_methods, update, change_mask,
+	pw_resource_do(resource, struct pw_client_node_proxy_methods, update, 0, change_mask,
 									max_input_ports,
 									max_output_ports,
 									n_params,
@@ -782,7 +782,7 @@ static int client_node_demarshal_port_update(void *object, void *data, size_t si
 		}
 	}
 
-	pw_resource_do(resource, struct pw_client_node_proxy_methods, port_update, direction,
+	pw_resource_do(resource, struct pw_client_node_proxy_methods, port_update, 0, direction,
 									     port_id,
 									     change_mask,
 									     n_params,
@@ -802,7 +802,7 @@ static int client_node_demarshal_set_active(void *object, void *data, size_t siz
 			"b", &active, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_client_node_proxy_methods, set_active, active);
+	pw_resource_do(resource, struct pw_client_node_proxy_methods, set_active, 0, active);
 	return 0;
 }
 
@@ -818,7 +818,7 @@ static int client_node_demarshal_event_method(void *object, void *data, size_t s
 			"O", &event, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_client_node_proxy_methods, event, event);
+	pw_resource_do(resource, struct pw_client_node_proxy_methods, event, 0, event);
 	return 0;
 }
 
@@ -831,7 +831,7 @@ static int client_node_demarshal_destroy(void *object, void *data, size_t size)
 	if (spa_pod_parser_get(&prs, "[", NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_client_node_proxy_methods, destroy);
+	pw_resource_do(resource, struct pw_client_node_proxy_methods, destroy, 0);
 	return 0;
 }
 

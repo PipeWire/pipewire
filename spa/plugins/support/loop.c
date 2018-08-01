@@ -250,13 +250,13 @@ loop_invoke(struct spa_loop *loop,
 		if (block) {
 			uint64_t count = 1;
 
-			spa_hook_list_call(&impl->hooks_list, struct spa_loop_control_hooks, before);
+			spa_loop_control_hook_before(&impl->hooks_list);
 
 			if (read(impl->ack_fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
 				spa_log_warn(impl->log, NAME " %p: failed to read event fd: %s",
 						impl, strerror(errno));
 
-			spa_hook_list_call(&impl->hooks_list, struct spa_loop_control_hooks, after);
+			spa_loop_control_hook_after(&impl->hooks_list);
 
 			res = item->res;
 		}
@@ -335,12 +335,12 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 	struct epoll_event ep[32];
 	int i, nfds, save_errno = 0;
 
-	spa_hook_list_call(&impl->hooks_list, struct spa_loop_control_hooks, before);
+	spa_loop_control_hook_before(&impl->hooks_list);
 
 	if (SPA_UNLIKELY((nfds = epoll_wait(impl->epoll_fd, ep, SPA_N_ELEMENTS(ep), timeout)) < 0))
 		save_errno = errno;
 
-	spa_hook_list_call(&impl->hooks_list, struct spa_loop_control_hooks, after);
+	spa_loop_control_hook_after(&impl->hooks_list);
 
 	if (SPA_UNLIKELY(nfds < 0))
 		return save_errno;

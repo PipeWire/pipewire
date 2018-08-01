@@ -87,7 +87,7 @@ void pw_protocol_destroy(struct pw_protocol *protocol)
 	struct pw_protocol_client *client, *t3;
 
 	pw_log_debug("protocol %p: destroy", protocol);
-	spa_hook_list_call(&protocol->listener_list, struct pw_protocol_events, destroy);
+	pw_protocol_events_destroy(protocol);
 
 	spa_list_remove(&protocol->link);
 

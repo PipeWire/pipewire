@@ -43,7 +43,9 @@ struct spa_hook {
 	struct spa_list link;
 	const void *funcs;
 	void *data;
-	void *priv[2];	/**< private data for the hook list */
+	void *priv;	/**< private data for the hook list */
+	void (*removed) (struct spa_hook *hook);
+
 };
 
 /** Initialize a hook list */
@@ -76,12 +78,14 @@ static inline void spa_hook_list_prepend(struct spa_hook_list *list,
 static inline void spa_hook_remove(struct spa_hook *hook)
 {
         spa_list_remove(&hook->link);
+	if (hook->removed)
+		hook->removed(hook);
 }
 
 /** Call all hooks in a list, starting from the given one and optionally stopping
  * after calling the first non-NULL function, returns the number of methods
  * called */
-#define spa_hook_list_do_call(l,start,type,method,once,...)			\
+#define spa_hook_list_do_call(l,start,type,method,vers,once,...)		\
 ({										\
 	struct spa_hook_list *list = l;						\
 	struct spa_list *s = start ? (struct spa_list *)start : &list->list;	\
@@ -90,7 +94,7 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 	spa_list_cursor_start(cursor, s, link);					\
 	spa_list_for_each_cursor(ci, cursor, &list->list, link) {		\
 		const type *cb = ci->funcs;					\
-		if (cb && cb->method)	{					\
+		if (cb && cb->version >= vers && cb->method) {			\
 			cb->method(ci->data, ## __VA_ARGS__);			\
 			count++;						\
 			if (once)						\
@@ -101,11 +105,11 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 	count;									\
 })
 
-#define spa_hook_list_call(l,t,m,...)			spa_hook_list_do_call(l,NULL,t,m,false,##__VA_ARGS__)
-#define spa_hook_list_call_once(l,t,m,...)		spa_hook_list_do_call(l,NULL,t,m,true,##__VA_ARGS__)
+#define spa_hook_list_call(l,t,m,v,...)			spa_hook_list_do_call(l,NULL,t,m,v,false,##__VA_ARGS__)
+#define spa_hook_list_call_once(l,t,m,v,...)		spa_hook_list_do_call(l,NULL,t,m,v,true,##__VA_ARGS__)
 
-#define spa_hook_list_call_start(l,s,t,m,...)		spa_hook_list_do_call(l,s,t,m,false,##__VA_ARGS__)
-#define spa_hook_list_call_once_start(l,s,t,m,...)	spa_hook_list_do_call(l,s,t,m,true,##__VA_ARGS__)
+#define spa_hook_list_call_start(l,s,t,m,v,...)		spa_hook_list_do_call(l,s,t,m,v,false,##__VA_ARGS__)
+#define spa_hook_list_call_once_start(l,s,t,m,v,...)	spa_hook_list_do_call(l,s,t,m,v,true,##__VA_ARGS__)
 
 #ifdef __cplusplus
 }

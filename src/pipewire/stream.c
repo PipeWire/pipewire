@@ -236,8 +236,7 @@ static void clear_buffers(struct pw_stream *stream)
 	for (i = 0; i < impl->n_buffers; i++) {
 		b = &impl->buffers[i];
 
-		spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
-				remove_buffer, &b->buffer);
+		pw_stream_events_remove_buffer(stream, &b->buffer);
 
 		if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_MAPPED)) {
 			for (j = 0; j < b->buffer.buffer->n_datas; j++) {
@@ -316,8 +315,7 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 			     pw_stream_state_as_string(state), stream->error);
 
 		stream->state = state;
-		spa_hook_list_call(&stream->listener_list, struct pw_stream_events, state_changed,
-				old, state, error);
+		pw_stream_events_state_changed(stream, old, state, error);
 	}
 	return res;
 }
@@ -337,7 +335,7 @@ do_call_process(struct spa_loop *loop,
 	struct stream *impl = user_data;
 	struct pw_stream *stream = &impl->this;
 	impl->in_process = true;
-	spa_hook_list_call(&stream->listener_list, struct pw_stream_events, process);
+	pw_stream_events_process(stream);
 	impl->in_process = false;
 	return 0;
 }
@@ -536,7 +534,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	pw_log_debug("stream %p: destroy", stream);
 
-	spa_hook_list_call(&stream->listener_list, struct pw_stream_events, destroy);
+	pw_stream_events_destroy(stream);
 
 	if (impl->node_proxy)
 		spa_hook_remove(&impl->proxy_listener);
@@ -978,9 +976,7 @@ client_node_port_set_param(void *data,
 
 		impl->pending_seq = seq;
 
-		count = spa_hook_list_call(&stream->listener_list,
-				   struct pw_stream_events,
-				   format_changed, impl->format);
+		count = pw_stream_events_format_changed(stream, impl->format);
 
 		if (count == 0)
 			pw_stream_finish_format(stream, 0, NULL, 0);
@@ -1136,8 +1132,7 @@ client_node_port_use_buffers(void *data,
 		if (impl->direction == SPA_DIRECTION_OUTPUT)
 			push_queue(impl, &impl->dequeue, bid);
 
-		spa_hook_list_call(&stream->listener_list, struct pw_stream_events,
-				add_buffer, &bid->buffer);
+		pw_stream_events_add_buffer(stream, &bid->buffer);
 	}
 
 	add_async_complete(stream, seq, 0);

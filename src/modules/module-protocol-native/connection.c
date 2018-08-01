@@ -120,7 +120,7 @@ static void *connection_ensure_size(struct pw_protocol_native_connection *conn, 
 		buf->buffer_data = realloc(buf->buffer_data, buf->buffer_maxsize);
 		if (buf->buffer_data == NULL) {
 			buf->buffer_maxsize = 0;
-			spa_hook_list_call(&conn->listener_list, struct pw_protocol_native_connection_events, error, -ENOMEM);
+			spa_hook_list_call(&conn->listener_list, struct pw_protocol_native_connection_events, error, 0, -ENOMEM);
 			return NULL;
 		}
 		pw_log_warn("connection %p: resize buffer to %zd %zd %zd",
@@ -244,7 +244,7 @@ void pw_protocol_native_connection_destroy(struct pw_protocol_native_connection 
 
 	pw_log_debug("connection %p: destroy", conn);
 
-	spa_hook_list_call(&conn->listener_list, struct pw_protocol_native_connection_events, destroy);
+	spa_hook_list_call(&conn->listener_list, struct pw_protocol_native_connection_events, destroy, 0);
 
 	free(impl->out.buffer_data);
 	free(impl->in.buffer_data);
@@ -437,7 +437,8 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 		printf(">>>>>>>>> out: %d %d %d\n", impl->dest_id, impl->opcode, size);
 	        spa_debug_pod(0, impl->core->type.map, (struct spa_pod *)p);
 	}
-	spa_hook_list_call(&conn->listener_list, struct pw_protocol_native_connection_events, need_flush);
+	spa_hook_list_call(&conn->listener_list,
+			struct pw_protocol_native_connection_events, need_flush, 0);
 }
 
 /** Flush the connection object

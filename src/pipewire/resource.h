@@ -123,11 +123,11 @@ struct spa_hook_list *pw_resource_get_implementation(struct pw_resource *resourc
 /** Get the marshal functions for the resource */
 const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *resource);
 
-#define pw_resource_do(r,type,method,...)		\
-	spa_hook_list_call_once(pw_resource_get_implementation(r),type,method,## __VA_ARGS__)
+#define pw_resource_do(r,type,method,v,...)		\
+	spa_hook_list_call_once(pw_resource_get_implementation(r),type,method,v,## __VA_ARGS__)
 
 #define pw_resource_do_parent(r,l,type,method,...)	\
-	spa_hook_list_call_once_start(pw_resource_get_implementation(r),l,type,method,## __VA_ARGS__)
+	spa_hook_list_call_once_start(pw_resource_get_implementation(r),l,type,method,v,## __VA_ARGS__)
 
 #define pw_resource_notify(r,type,event,...)		\
 	((type*) pw_resource_get_marshal(r)->event_marshal)->event(r, ## __VA_ARGS__)

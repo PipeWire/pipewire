@@ -66,7 +66,7 @@ struct pw_main_loop *pw_main_loop_new(struct pw_properties *properties)
 void pw_main_loop_destroy(struct pw_main_loop *loop)
 {
 	pw_log_debug("main-loop %p: destroy", loop);
-	spa_hook_list_call(&loop->listener_list, struct pw_main_loop_events, destroy);
+	pw_main_loop_events_destroy(loop);
 
 	pw_loop_destroy(loop->loop);
 

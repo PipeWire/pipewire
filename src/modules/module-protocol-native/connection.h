@@ -29,6 +29,8 @@ extern "C" {
 
 struct pw_protocol_native_connection_events {
 #define PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS	0
+	uint32_t version;
+
 	void (*destroy) (void *data);
 
 	void (*error) (void *data, int error);

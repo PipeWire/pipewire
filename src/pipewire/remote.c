@@ -144,8 +144,7 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 			     pw_remote_state_as_string(state), remote->error);
 
 		remote->state = state;
-		spa_hook_list_call(&remote->listener_list, struct pw_remote_events, state_changed,
-				 old, state, remote->error);
+		pw_remote_events_state_changed(remote, old, state, remote->error);
 	}
 	return 0;
 }
@@ -156,8 +155,7 @@ static void core_event_info(void *data, struct pw_core_info *info)
 
 	pw_log_debug("remote %p: got core info", this);
 	this->info = pw_core_info_update(this->info, info);
-	spa_hook_list_call(&this->listener_list, struct pw_remote_events,
-			info_changed, this->info);
+	pw_remote_events_info_changed(this, this->info);
 }
 
 static void core_event_done(void *data, uint32_t seq)
@@ -168,7 +166,7 @@ static void core_event_done(void *data, uint32_t seq)
 	if (seq == 0)
 		pw_remote_update_state(this, PW_REMOTE_STATE_CONNECTED, NULL);
 
-	spa_hook_list_call(&this->listener_list, struct pw_remote_events, sync_reply, seq);
+	pw_remote_events_sync_reply(this, seq);
 }
 
 static void core_event_error(void *data, uint32_t id, int res, const char *error, ...)
@@ -296,7 +294,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 	struct pw_stream *stream, *s2;
 
 	pw_log_debug("remote %p: destroy", remote);
-	spa_hook_list_call(&remote->listener_list, struct pw_remote_events, destroy);
+	pw_remote_events_destroy(remote);
 
 	if (remote->state != PW_REMOTE_STATE_UNCONNECTED)
 		pw_remote_disconnect(remote);

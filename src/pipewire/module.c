@@ -298,7 +298,7 @@ void pw_module_destroy(struct pw_module *module)
 	struct pw_resource *resource, *tmp;
 
 	pw_log_debug("module %p: destroy", module);
-	spa_hook_list_call(&module->listener_list, struct pw_module_events, destroy);
+	pw_module_events_destroy(module);
 
 	spa_list_remove(&module->link);
 

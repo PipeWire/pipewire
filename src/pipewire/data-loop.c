@@ -89,7 +89,7 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 {
 	pw_log_debug("data-loop %p: destroy", loop);
 
-	spa_hook_list_call(&loop->listener_list, struct pw_data_loop_events, destroy);
+	pw_data_loop_events_destroy(loop);
 
 	pw_data_loop_stop(loop);
 

@@ -286,6 +286,7 @@ static int destroy_resource(void *object, void *data)
 	return 0;
 }
 
+
 /** Destroy a client object
  *
  * \param client the client to destroy
@@ -298,7 +299,7 @@ void pw_client_destroy(struct pw_client *client)
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 
 	pw_log_debug("client %p: destroy", client);
-	spa_hook_list_call(&client->listener_list, struct pw_client_events, destroy);
+	pw_client_events_destroy(client);
 
 	spa_hook_remove(&impl->core_listener);
 
@@ -315,7 +316,7 @@ void pw_client_destroy(struct pw_client *client)
 
 	pw_map_for_each(&client->objects, destroy_resource, client);
 
-	spa_hook_list_call(&client->listener_list, struct pw_client_events, free);
+	pw_client_events_free(client);
 	pw_log_debug("client %p: free", impl);
 
 	pw_map_clear(&client->objects);
@@ -370,8 +371,7 @@ int pw_client_update_properties(struct pw_client *client, const struct spa_dict 
 	client->info.change_mask |= PW_CLIENT_CHANGE_MASK_PROPS;
 	client->info.props = client->properties ? &client->properties->dict : NULL;
 
-	spa_hook_list_call(&client->listener_list, struct pw_client_events,
-			info_changed, &client->info);
+	pw_client_events_info_changed(client, &client->info);
 
 	spa_list_for_each(resource, &client->resource_list, link)
 		pw_client_resource_info(resource, &client->info);
@@ -505,6 +505,6 @@ void pw_client_set_busy(struct pw_client *client, bool busy)
 	if (client->busy != busy) {
 		pw_log_debug("client %p: busy %d", client, busy);
 		client->busy = busy;
-		spa_hook_list_call(&client->listener_list, struct pw_client_events, busy_changed, busy);
+		pw_client_events_busy_changed(client, busy);
 	}
 }

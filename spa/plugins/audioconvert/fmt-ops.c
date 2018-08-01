@@ -186,7 +186,11 @@ conv_s32d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 	}
 }
 
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define READ24(s) (((uint32_t)s[2] << 16) | ((uint32_t)s[1] << 8) | ((uint32_t)s[0]))
+#else
 #define READ24(s) (((uint32_t)s[0] << 16) | ((uint32_t)s[1] << 8) | ((uint32_t)s[2]))
+#endif
 
 #define S24_TO_F32(v)	((((int32_t)v)<<8) * (1.0f / S32_SCALE))
 

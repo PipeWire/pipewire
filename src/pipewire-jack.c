@@ -192,6 +192,7 @@ struct port {
 	bool have_format;
 	uint32_t rate;
 
+	bool zeroed;
 	float empty[BUFFER_SIZE_MAX + 8];
 };
 
@@ -2111,14 +2112,13 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	struct spa_io_buffers *io;
 	struct mix *mix;
 	int layer = 0;
-	void *ptr;
+	void *ptr = NULL;
 
 	if (o->type != c->context.t->port || o->port.port_id == SPA_ID_INVALID) {
 		pw_log_error("client %p: invalid port %p", c, port);
 		return NULL;
 	}
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
-	ptr = p->empty;
 
 	if (p->direction == SPA_DIRECTION_INPUT) {
 		spa_list_for_each(mix, &p->mix, port_link) {
@@ -2135,6 +2135,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			else  {
 				add_f32(p->empty, ptr, b->datas[0].data, frames);
 				ptr = p->empty;
+				p->zeroed = false;
 			}
 		}
 	} else {
@@ -2172,6 +2173,13 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	}
 
       done:
+	if (ptr == NULL) {
+		ptr = p->empty;
+		if (!p->zeroed) {
+			memset(ptr, 0, sizeof(p->empty));
+			p->zeroed = true;
+		}
+	}
 	pw_log_trace("port %p: buffer %p", p, ptr);
 	return ptr;
 }

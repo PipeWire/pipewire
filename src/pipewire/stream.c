@@ -627,7 +627,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
 {
 	struct stream *d = SPA_CONTAINER_OF(node, struct stream, impl_node);
-	pw_log_trace("export-source %p: recycle buffer %d", d, buffer_id);
+	pw_log_trace("stream %p: recycle buffer %d", d, buffer_id);
 	if (buffer_id < d->n_buffers)
 		push_queue(d, &d->queued, &d->buffers[buffer_id]);
 	return 0;
@@ -750,7 +750,7 @@ static int handle_connect(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
 	pw_log_debug("stream %p: creating node", stream);
-	impl->node = pw_node_new(impl->core, "export-source",
+	impl->node = pw_node_new(impl->core, "PipeWire-stream",
 			pw_properties_copy(stream->properties), 0);
 	impl->impl_node = impl_node;
 

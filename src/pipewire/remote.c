@@ -544,8 +544,8 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 	if (mask & SPA_IO_IN) {
 		uint64_t cmd;
 
-		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
-			pw_log_warn("proxy %p: read failed %m", proxy);
+		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t) || cmd != 1)
+			pw_log_warn("proxy %p: read %"PRIu64" failed %m", proxy, cmd);
 
 		pw_log_trace("remote %p: process", data->remote);
 		spa_graph_run(node->graph->parent->graph);

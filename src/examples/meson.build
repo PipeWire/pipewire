@@ -20,6 +20,12 @@ executable('export-spa',
   dependencies : [pipewire_dep, mathlib],
 )
 
+executable('media-session',
+  'media-session.c',
+  install: false,
+  dependencies : [pipewire_dep, mathlib],
+)
+
 if sdl_dep.found()
   executable('video-play',
     'video-play.c',

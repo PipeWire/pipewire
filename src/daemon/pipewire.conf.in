@@ -8,5 +8,6 @@ load-module libpipewire-module-spa-monitor bluez5/libspa-bluez5 bluez5-monitor b
 #load-module libpipewire-module-spa-node videotestsrc/libspa-videotestsrc videotestsrc videotestsrc Spa:POD:Object:Props:patternType=Spa:POD:Object:Props:patternType:snow
 load-module libpipewire-module-client-node
 load-module libpipewire-module-flatpak
-load-module libpipewire-module-media-session
+#load-module libpipewire-module-media-session
+load-module libpipewire-module-audio-dsp
 load-module libpipewire-module-link-factory

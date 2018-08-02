@@ -212,6 +212,7 @@ pa_operation* pa_context_get_sink_info_by_name(pa_context *c, const char *name, 
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
+	pa_operation_sync(o);
 	return o;
 }
 
@@ -241,6 +242,7 @@ pa_operation* pa_context_get_sink_info_by_index(pa_context *c, uint32_t idx, pa_
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
+	pa_operation_sync(o);
 	return o;
 }
 
@@ -277,6 +279,7 @@ pa_operation* pa_context_get_sink_info_list(pa_context *c, pa_sink_info_cb_t cb,
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -418,6 +421,7 @@ pa_operation* pa_context_get_source_info_by_index(pa_context *c, uint32_t idx, p
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
+	pa_operation_sync(o);
 	return o;
 }
 
@@ -454,6 +458,7 @@ pa_operation* pa_context_get_source_info_list(pa_context *c, pa_source_info_cb_t
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -568,6 +573,7 @@ pa_operation* pa_context_get_module_info(pa_context *c, uint32_t idx, pa_module_
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -605,6 +611,7 @@ pa_operation* pa_context_get_module_info_list(pa_context *c, pa_module_info_cb_t
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -678,6 +685,7 @@ pa_operation* pa_context_get_client_info(pa_context *c, uint32_t idx, pa_client_
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -715,6 +723,7 @@ pa_operation* pa_context_get_client_info_list(pa_context *c, pa_client_info_cb_t
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -854,6 +863,7 @@ pa_operation* pa_context_get_sink_input_info(pa_context *c, uint32_t idx, pa_sin
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
+	pa_operation_sync(o);
 	return o;
 }
 
@@ -890,6 +900,7 @@ pa_operation* pa_context_get_sink_input_info_list(pa_context *c, pa_sink_input_i
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 	return o;
 }
 
@@ -935,6 +946,7 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -957,6 +969,7 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }

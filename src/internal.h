@@ -358,6 +358,8 @@ struct pa_stream {
 	uint32_t buffer_offset;
 
 	float volume;
+	pa_operation *drain;
+	uint64_t queued;
 };
 
 void pa_stream_set_state(pa_stream *s, pa_stream_state_t st);
@@ -385,6 +387,7 @@ struct pa_operation
 
 pa_operation *pa_operation_new(pa_context *c, pa_stream *s, pa_operation_cb_t cb, size_t userdata_size);
 void pa_operation_done(pa_operation *o);
+int pa_operation_sync(pa_operation *o);
 
 #ifdef __cplusplus
 }

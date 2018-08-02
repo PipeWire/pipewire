@@ -271,26 +271,30 @@ static void remote_state_changed(void *data, enum pw_remote_state old,
 		o = pa_operation_new(c, NULL, on_ready, sizeof(struct ready_data));
 		d = o->userdata;
 		d->context = c;
+		pa_operation_sync(o);
 		pa_operation_unref(o);
 		break;
 	}
 }
 
-static void remote_sync_reply(void *data, uint32_t seq)
+static void complete_operations(pa_context *c, uint32_t seq)
 {
-	pa_context *c = data;
-	pa_operation *o;
-
-	pw_log_debug("done %d", seq);
-	spa_list_for_each(o, &c->operations, link) {
+	pa_operation *o, *t;
+	spa_list_for_each_safe(o, t, &c->operations, link) {
 		if (o->seq != seq)
 			continue;
 		pa_operation_ref(o);
 		if (o->callback)
 			o->callback(o, o->userdata);
 		pa_operation_unref(o);
-		break;
 	}
+}
+
+static void remote_sync_reply(void *data, uint32_t seq)
+{
+	pa_context *c = data;
+	pw_log_debug("done %d", seq);
+	complete_operations(c, seq);
 }
 
 static const struct pw_remote_events remote_events = {
@@ -466,9 +470,10 @@ struct notify_data {
 static void on_notify(pa_operation *o, void *userdata)
 {
 	struct notify_data *d = userdata;
+	pa_context *c = o->context;
 	pa_operation_done(o);
 	if (d->cb)
-		d->cb(o->context, d->userdata);
+		d->cb(c, d->userdata);
 }
 
 pa_operation* pa_context_drain(pa_context *c, pa_context_notify_cb_t cb, void *userdata)
@@ -480,6 +485,7 @@ pa_operation* pa_context_drain(pa_context *c, pa_context_notify_cb_t cb, void *u
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -493,9 +499,10 @@ struct success_data {
 static void on_success(pa_operation *o, void *userdata)
 {
 	struct success_data *d = userdata;
+	pa_context *c = o->context;
 	pa_operation_done(o);
 	if (d->cb)
-		d->cb(o->context, d->ret, d->userdata);
+		d->cb(c, d->ret, d->userdata);
 }
 
 pa_operation* pa_context_exit_daemon(pa_context *c, pa_context_success_cb_t cb, void *userdata)
@@ -556,6 +563,7 @@ pa_operation* pa_context_set_name(pa_context *c, const char *name, pa_context_su
 	d->ret = PA_ERR_ACCESS;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }

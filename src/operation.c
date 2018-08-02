@@ -36,7 +36,7 @@ pa_operation *pa_operation_new(pa_context *c, pa_stream *s, pa_operation_cb_t cb
 	o->refcount = 1;
 	o->context = c;
 	o->stream = s;
-	o->seq = ++c->seq;
+	o->seq = SPA_ID_INVALID;
 
 	o->state = PA_OPERATION_RUNNING;
 	o->callback = cb;
@@ -44,13 +44,19 @@ pa_operation *pa_operation_new(pa_context *c, pa_stream *s, pa_operation_cb_t cb
 
 	spa_list_append(&c->operations, &o->link);
 	pa_operation_ref(o);
-
-	pw_log_debug("new %p %d", o, o->seq);
-        pw_core_proxy_sync(c->core_proxy, o->seq);
+	pw_log_debug("new %p", o);
 
 	return o;
 }
 
+int pa_operation_sync(pa_operation *o)
+{
+	pa_context *c = o->context;
+	o->seq = ++c->seq;
+	pw_log_debug("operation %p: sync %d", o, o->seq);
+        pw_core_proxy_sync(c->core_proxy, o->seq);
+	return 0;
+}
 
 pa_operation *pa_operation_ref(pa_operation *o)
 {

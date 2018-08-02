@@ -340,6 +340,8 @@ static void update_timing_info(pa_stream *s)
 
 	pw_stream_get_time(s->stream, &pwt);
 	s->timing_info_valid = false;
+	s->queued = pwt.queued;
+	pw_log_debug("stream %p: %"PRIu64, s, s->queued);
 
 	if (pwt.rate.num == 0)
 		return;
@@ -374,6 +376,15 @@ static void stream_process(void *data)
 	pa_stream *s = data;
 
 	update_timing_info(s);
+
+	if (s->drain && s->queued == 0) {
+		pa_operation *o = s->drain;
+		pa_operation_ref(o);
+		if (o->callback)
+			o->callback(o, o->userdata);
+		pa_operation_unref(o);
+		s->drain = NULL;
+	}
 
 	while (dequeue_buffer(s) == 0);
 
@@ -816,6 +827,7 @@ int pa_stream_disconnect(pa_stream *s)
 	s->disconnecting = true;
 	pw_stream_disconnect(s->stream);
 	o = pa_operation_new(s->context, s, on_disconnected, 0);
+	pa_operation_sync(o);
 	pa_operation_unref(o);
 
 	return 0;
@@ -1062,7 +1074,7 @@ static void on_success(pa_operation *o, void *userdata)
 	pa_stream *s = o->stream;
 	pa_operation_done(o);
 	if (d->cb)
-		d->cb(s, PA_OK, d->userdata);
+		d->cb(s, 1, d->userdata);
 }
 
 pa_operation* pa_stream_drain(pa_stream *s, pa_stream_success_cb_t cb, void *userdata)
@@ -1076,10 +1088,14 @@ pa_operation* pa_stream_drain(pa_stream *s, pa_stream_success_cb_t cb, void *use
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction == PA_STREAM_PLAYBACK, PA_ERR_BADSTATE);
 
+	pw_log_debug("stream %p", s);
 	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	if (s->drain)
+		pa_operation_cancel(s->drain);
+	s->drain = o;
 
 	return o;
 }
@@ -1111,6 +1127,7 @@ pa_operation* pa_stream_update_timing_info(pa_stream *s, pa_stream_success_cb_t 
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -1271,6 +1288,7 @@ pa_operation* pa_stream_cork(pa_stream *s, int b, pa_stream_success_cb_t cb, voi
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -1291,6 +1309,7 @@ pa_operation* pa_stream_flush(pa_stream *s, pa_stream_success_cb_t cb, void *use
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -1312,6 +1331,7 @@ pa_operation* pa_stream_prebuf(pa_stream *s, pa_stream_success_cb_t cb, void *us
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -1333,6 +1353,7 @@ pa_operation* pa_stream_trigger(pa_stream *s, pa_stream_success_cb_t cb, void *u
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -1354,6 +1375,7 @@ pa_operation* pa_stream_set_name(pa_stream *s, const char *name, pa_stream_succe
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 
 	return o;
 }
@@ -1511,6 +1533,7 @@ pa_operation *pa_stream_set_buffer_attr(pa_stream *s, const pa_buffer_attr *attr
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 	return o;
 }
 
@@ -1532,6 +1555,7 @@ pa_operation *pa_stream_update_sample_rate(pa_stream *s, uint32_t rate, pa_strea
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 	return o;
 }
 
@@ -1553,6 +1577,7 @@ pa_operation *pa_stream_proplist_update(pa_stream *s, pa_update_mode_t mode, pa_
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 	return o;
 }
 
@@ -1573,6 +1598,7 @@ pa_operation *pa_stream_proplist_remove(pa_stream *s, const char *const keys[], 
 	d = o->userdata;
 	d->cb = cb;
 	d->userdata = userdata;
+	pa_operation_sync(o);
 	return o;
 }
 

@@ -33,7 +33,7 @@
 #include "link.h"
 #include "work-queue.h"
 
-#define MAX_BUFFERS     32
+#define MAX_BUFFERS     64
 
 /** \cond */
 struct impl {
@@ -685,8 +685,12 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		/* when one of the ports can allocate buffer memory, set the minsize to
 		 * 0 to make sure we don't allocate memory in the shared memory */
 		if ((in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) ||
-		    (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS))
+		    (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS)) {
 			minsize = 0;
+			/* limit buffers to 16 because there is a limit on the number of
+			 * fds in a message for now */
+			max_buffers = 16;
+		}
 
 		data_sizes[0] = minsize;
 		data_strides[0] = stride;

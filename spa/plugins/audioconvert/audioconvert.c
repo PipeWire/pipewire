@@ -37,9 +37,6 @@
 
 #define NAME "audioconvert"
 
-#define MAX_BUFFERS     32
-#define MAX_PORTS	128
-
 #define PROP_DEFAULT_TRUNCATE	false
 #define PROP_DEFAULT_DITHER	0
 

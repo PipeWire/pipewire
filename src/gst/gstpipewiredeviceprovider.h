@@ -91,6 +91,9 @@ struct _GstPipeWireDeviceProvider {
   struct spa_hook remote_listener;
 
   struct pw_core_proxy *core_proxy;
+  struct spa_list pending;
+  uint32_t seq;
+
   struct pw_registry_proxy *registry;
 
   gboolean end;

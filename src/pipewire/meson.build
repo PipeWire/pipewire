@@ -63,7 +63,7 @@ pipewire_sources = [
 
 configure_file(input : 'version.h.in',
   output : 'version.h',
-  install_dir : 'include/pipewire',
+  install_dir : join_paths(get_option('includedir'), 'pipewire'),
   configuration : cdata)
 
 install_headers(pipewire_headers, subdir : 'pipewire')

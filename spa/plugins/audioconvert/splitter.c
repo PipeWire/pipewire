@@ -30,8 +30,8 @@
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
 #include <spa/param/io.h>
+#include <spa/pod/filter.h>
 
-#include <lib/pod.h>
 #include <lib/debug.h>
 
 #define NAME "splitter"

@@ -29,9 +29,8 @@
 #include <spa/param/props.h>
 #include <spa/node/io.h>
 #include <spa/utils/ringbuffer.h>
-
+#include <spa/pod/filter.h>
 #include <spa/lib/debug.h>
-#include <spa/lib/pod.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/stream.h"

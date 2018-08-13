@@ -25,7 +25,6 @@
 #include <sys/mman.h>
 
 #include <spa/pod/parser.h>
-#include <spa/lib/debug.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"

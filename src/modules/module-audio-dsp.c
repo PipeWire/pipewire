@@ -24,6 +24,11 @@
 
 #include "config.h"
 
+#include <spa/node/node.h>
+#include <spa/utils/hook.h>
+#include <spa/param/audio/format-utils.h>
+#include <spa/pod/filter.h>
+
 #include "pipewire/core.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/log.h"

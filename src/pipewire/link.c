@@ -22,10 +22,10 @@
 #include <stdio.h>
 
 #include <spa/pod/parser.h>
+#include <spa/pod/compare.h>
 #include <spa/param/param.h>
 
 #include <spa/lib/debug.h>
-#include <spa/lib/pod.h>
 
 #include "pipewire.h"
 #include "private.h"

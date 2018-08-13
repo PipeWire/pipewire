@@ -34,8 +34,7 @@
 #include <spa/param/meta.h>
 #include <spa/param/format.h>
 #include <spa/pod/parser.h>
-
-#include <lib/pod.h>
+#include <spa/pod/filter.h>
 
 #define NAME "fakesink"
 

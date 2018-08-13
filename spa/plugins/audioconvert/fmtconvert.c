@@ -30,8 +30,7 @@
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
 #include <spa/param/io.h>
-
-#include <lib/pod.h>
+#include <spa/pod/filter.h>
 
 #define NAME "fmtconvert"
 

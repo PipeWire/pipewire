@@ -29,7 +29,7 @@
 #include <sys/eventfd.h>
 
 #include <spa/node/node.h>
-#include <spa/lib/pod.h>
+#include <spa/pod/filter.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"

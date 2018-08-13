@@ -448,6 +448,7 @@ void pw_init(int *argc, char **argv[])
 			SPA_SUPPORT_INIT(SPA_TYPE__Log, iface->iface);
 		pw_log_set(iface->iface);
 	}
+	pw_log_info("version %s", pw_get_library_version());
 }
 
 /** Check if a debug category is enabled

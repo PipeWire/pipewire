@@ -215,6 +215,7 @@ gst_pipewire_src_finalize (GObject * object)
     gst_object_unref (pwsrc->clock);
   g_free (pwsrc->path);
   g_free (pwsrc->client_name);
+  g_object_unref(pwsrc->pool);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -372,7 +373,7 @@ on_remove_buffer (void *_data, struct pw_buffer *b)
   GstBuffer *buf = data->buf;
   GList *walk;
 
-  GST_LOG_OBJECT (pwsrc, "remove buffer");
+  GST_LOG_OBJECT (pwsrc, "remove buffer %p", buf);
 
   GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
 
@@ -386,6 +387,7 @@ on_remove_buffer (void *_data, struct pw_buffer *b)
     }
     walk = next;
   }
+  gst_buffer_unref (buf);
 }
 
 static void
@@ -426,11 +428,8 @@ on_process (void *_data)
     mem->offset += data->offset;
   }
 
-  if (pwsrc->always_copy)
-    buf = gst_buffer_copy_deep (buf);
-  else
-    gst_buffer_ref (buf);
 
+  gst_buffer_ref (buf);
   g_queue_push_tail (&pwsrc->queue, buf);
 
   pw_thread_loop_signal (pwsrc->main_loop, FALSE);
@@ -831,6 +830,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   GstPipeWireSrc *pwsrc;
   GstClockTime pts, dts, base_time;
   const char *error = NULL;
+  GstBuffer *buf;
 
   pwsrc = GST_PIPEWIRE_SRC (psrc);
 
@@ -854,14 +854,23 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     if (state != PW_STREAM_STATE_STREAMING)
       goto streaming_stopped;
 
-    *buffer = g_queue_pop_head (&pwsrc->queue);
-    GST_DEBUG ("popped buffer %p", *buffer);
-    if (*buffer != NULL)
+    buf = g_queue_pop_head (&pwsrc->queue);
+    GST_DEBUG ("popped buffer %p", buf);
+    if (buf != NULL)
       break;
 
     pw_thread_loop_wait (pwsrc->main_loop);
   }
   pw_thread_loop_unlock (pwsrc->main_loop);
+
+  gst_buffer_unref (buf);
+
+  if (pwsrc->always_copy) {
+    *buffer = gst_buffer_copy_deep (buf);
+    gst_buffer_unref (buf);
+  }
+  else
+    *buffer = buf;
 
   if (pwsrc->is_live)
     base_time = GST_ELEMENT_CAST (psrc)->base_time;
@@ -883,8 +892,6 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 
   GST_BUFFER_PTS (*buffer) = pts;
   GST_BUFFER_DTS (*buffer) = dts;
-
-  buffer_recycle (GST_MINI_OBJECT_CAST (*buffer));
 
   return GST_FLOW_OK;
 

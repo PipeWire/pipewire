@@ -932,6 +932,8 @@ static void client_node_command(void *data, uint32_t seq, const struct spa_comma
 		impl->last_ticks = cu->body.ticks.value;
 		impl->last_rate = cu->body.rate.value;
 		impl->last_monotonic = cu->body.monotonic_time.value;
+		pw_log_debug("clock update %ld %d %ld", impl->last_ticks,
+				impl->last_rate, impl->last_monotonic);
 	} else {
 		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
 		add_async_complete(stream, seq, -ENOTSUP);
@@ -1374,6 +1376,9 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	int64_t elapsed;
 	struct timespec ts;
 
+	if (impl->last_rate == 0)
+		return -EAGAIN;
+
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	time->now = SPA_TIMESPEC_TO_TIME(&ts);
 	elapsed = (time->now - impl->last_monotonic) / 1000;
@@ -1387,7 +1392,8 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	else
 		time->queued = get_queue_size(&impl->queue);
 
-	pw_log_trace("%ld %d/%d %ld", time->ticks, time->rate.num, time->rate.denom, time->queued);
+	pw_log_trace("stream %p: %ld %d/%d %ld", stream,
+			time->ticks, time->rate.num, time->rate.denom, time->queued);
 
 	return 0;
 }

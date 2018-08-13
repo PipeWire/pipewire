@@ -230,6 +230,7 @@ void pw_init(int *argc, char **argv[])
 			pw_log_set(iface);
 		}
 	}
+	pw_log_info("version %s", pw_get_library_version());
 }
 
 /** Check if a debug category is enabled

@@ -17,6 +17,7 @@ else
   pipewire_version_nano = 0
 endif
 
+spaversion = '0.1'
 apiversion = '0.2'
 soversion = 1
 libversion = '@0@.@1@.0'.format(soversion, pipewire_version_minor.to_int() * 100 + pipewire_version_micro.to_int())

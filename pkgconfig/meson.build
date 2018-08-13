@@ -11,13 +11,13 @@ pkgconf.set('VERSION', pipewire_version)
 pkg_install_dir = '@0@/pkgconfig'.format(get_option('libdir'))
 
 pkg_files = [
-  'libpipewire',
-  'libspa',
+  [ 'libpipewire', apiversion ],
+  [ 'libspa', spaversion ],
 ]
 
 foreach p : pkg_files
-  infile = p + '.pc.in'
-  outfile = p + '-@0@.pc'.format(apiversion)
+  infile = p.get(0) + '.pc.in'
+  outfile = p.get(0) + '-@0@.pc'.format(p.get(1))
   configure_file(input : infile,
     output : outfile,
     configuration : pkgconf,

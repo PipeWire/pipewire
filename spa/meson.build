@@ -1,5 +1,6 @@
 #project('spa', 'c')
 
+
 alsa_dep = dependency('alsa')
 v4l2_dep = dependency('libv4l2')
 x11_dep = dependency('x11', required : false)

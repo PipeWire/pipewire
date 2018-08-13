@@ -8,7 +8,7 @@ install_headers(spalib_headers, subdir : 'spa/lib')
 spalib_sources = ['debug.c',
                   'pod.c' ]
 
-spalib = shared_library('spa-lib',
+spalib = shared_library('spa-lib-@0@'.format(spaversion),
                          spalib_sources,
                          version : libversion,
                          soversion : soversion,

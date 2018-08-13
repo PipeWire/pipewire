@@ -1028,7 +1028,7 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
 			 pwsrc);
 
 
-  pwsrc->clock = gst_pipewire_clock_new (pwsrc->stream);
+  pwsrc->clock = gst_pipewire_clock_new (pwsrc->stream, pwsrc->last_time);
   pw_thread_loop_unlock (pwsrc->main_loop);
 
   return TRUE;
@@ -1071,7 +1071,13 @@ gst_pipewire_src_close (GstPipeWireSrc * pwsrc)
   pw_remote_destroy (pwsrc->remote);
   pwsrc->remote = NULL;
 
+  pwsrc->last_time = gst_clock_get_time (pwsrc->clock);
+
+  gst_element_post_message (GST_ELEMENT (pwsrc),
+    gst_message_new_clock_lost (GST_OBJECT_CAST (pwsrc), pwsrc->clock));
+
   GST_OBJECT_LOCK (pwsrc);
+  GST_PIPEWIRE_CLOCK (pwsrc->clock)->stream = NULL;
   g_clear_object (&pwsrc->clock);
   GST_OBJECT_UNLOCK (pwsrc);
 }

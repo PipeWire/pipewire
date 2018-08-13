@@ -31,12 +31,13 @@ GST_DEBUG_CATEGORY_STATIC (gst_pipewire_clock_debug_category);
 G_DEFINE_TYPE (GstPipeWireClock, gst_pipewire_clock, GST_TYPE_SYSTEM_CLOCK);
 
 GstClock *
-gst_pipewire_clock_new (struct pw_stream *stream)
+gst_pipewire_clock_new (struct pw_stream *stream, GstClockTime last_time)
 {
   GstPipeWireClock *clock;
 
   clock = g_object_new (GST_TYPE_PIPEWIRE_CLOCK, NULL);
   clock->stream = stream;
+  clock->last_time = last_time;
 
   return GST_CLOCK_CAST (clock);
 }
@@ -48,14 +49,14 @@ gst_pipewire_clock_get_internal_time (GstClock * clock)
   GstClockTime result;
   struct pw_time t;
 
-  pw_stream_get_time (pclock->stream, &t);
+  if (pclock->stream == NULL ||
+      pw_stream_get_time (pclock->stream, &t) < 0 ||
+      t.rate.denom == 0)
+    return pclock->last_time;
 
-  if (t.rate.denom)
-    result = gst_util_uint64_scale_int (t.ticks, GST_SECOND * t.rate.num, t.rate.denom);
-  else
-    result = GST_CLOCK_TIME_NONE;
+  result = gst_util_uint64_scale_int (t.ticks, GST_SECOND * t.rate.num, t.rate.denom);
 
-  GST_DEBUG ("%"PRId64", %d %"PRId64, t.ticks, t.rate.denom, result);
+  GST_DEBUG ("%"PRId64", %d/%d %"PRId64, t.ticks, t.rate.num, t.rate.denom, result);
 
   return result;
 }

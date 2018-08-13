@@ -46,6 +46,7 @@ struct _GstPipeWireClock {
   GstSystemClock parent;
 
   struct pw_stream *stream;
+  GstClockTime last_time;
 };
 
 struct _GstPipeWireClockClass {
@@ -54,8 +55,8 @@ struct _GstPipeWireClockClass {
 
 GType gst_pipewire_clock_get_type (void);
 
-GstClock *      gst_pipewire_clock_new           (struct pw_stream *stream);
-
+GstClock *      gst_pipewire_clock_new           (struct pw_stream *stream,
+					          GstClockTime last_time);
 
 G_END_DECLS
 

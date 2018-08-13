@@ -22,8 +22,6 @@
 #include <time.h>
 #include <stdio.h>
 
-#include <spa/lib/debug.h>
-
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
 #include <pipewire/global.h>

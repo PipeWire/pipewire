@@ -25,8 +25,6 @@
 #include <spa/support/loop.h>
 #include <spa/pod/parser.h>
 
-#include <lib/pod.h>
-
 #include "debug.h"
 
 static const struct spa_type_map *map;

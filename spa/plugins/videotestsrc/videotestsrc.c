@@ -35,8 +35,7 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/buffers.h>
 #include <spa/param/meta.h>
-
-#include <lib/pod.h>
+#include <spa/pod/filter.h>
 
 #define NAME "videotestsrc"
 

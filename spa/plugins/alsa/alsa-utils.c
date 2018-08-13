@@ -9,8 +9,7 @@
 #include <limits.h>
 #include <sys/timerfd.h>
 
-#include <lib/debug.h>
-#include <lib/pod.h>
+#include <spa/pod/filter.h>
 
 #include "alsa-utils.h"
 

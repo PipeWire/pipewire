@@ -36,8 +36,8 @@
 #include <spa/param/meta.h>
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/pod/filter.h>
 
-#include <lib/pod.h>
 #include <sbc/sbc.h>
 
 #include "defs.h"

@@ -23,7 +23,6 @@
 #include <errno.h>
 
 #include <spa/clock/clock.h>
-#include <spa/lib/debug.h>
 #include <spa/pod/parser.h>
 
 #include "pipewire/pipewire.h"

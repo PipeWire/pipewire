@@ -28,8 +28,8 @@
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/param/video/format-utils.h>
+#include <spa/pod/filter.h>
 
-#include <lib/pod.h>
 
 #define IS_VALID_PORT(this,d,id)	((id) == 0)
 #define GET_IN_PORT(this,p)		(&this->in_ports[p])

@@ -27,9 +27,7 @@
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
 #include <spa/param/audio/format-utils.h>
-
-#include <spa/lib/pod.h>
-#include <spa/lib/debug.h>
+#include <spa/pod/filter.h>
 
 #include "pipewire/core.h"
 #include "pipewire/link.h"

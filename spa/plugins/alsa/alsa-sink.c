@@ -23,8 +23,7 @@
 
 #include <spa/node/node.h>
 #include <spa/param/audio/format.h>
-
-#include <lib/pod.h>
+#include <spa/pod/filter.h>
 
 #define NAME "alsa-sink"
 

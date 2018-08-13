@@ -33,9 +33,8 @@
 #include <spa/support/type-map.h>
 #include <spa/support/loop.h>
 #include <spa/support/dbus.h>
+#include <spa/support/plugin.h>
 #include <spa/monitor/monitor.h>
-
-#include <lib/debug.h>
 
 #include "a2dp-codecs.h"
 #include "defs.h"

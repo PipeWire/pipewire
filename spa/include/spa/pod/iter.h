@@ -74,9 +74,9 @@ static inline struct spa_pod *spa_pod_next(const struct spa_pod *iter)
 	     (iter) < SPA_MEMBER((body), (_size), __typeof__(*(iter)));					\
 	     (iter) = SPA_MEMBER((iter), (body)->child.size, __typeof__(*(iter))))
 
-#define SPA_POD_FOREACH(pod, size, iter)								\
-	for ((iter) = (pod);										\
-	     spa_pod_is_inside(pod, size, iter);							\
+#define SPA_POD_FOREACH(pod, size, iter)					\
+	for ((iter) = (pod);							\
+	     spa_pod_is_inside(pod, size, iter);				\
 	     (iter) = spa_pod_next(iter))
 
 #define SPA_POD_CONTENTS_FOREACH(pod, offset, iter)						\
@@ -97,10 +97,10 @@ static inline struct spa_pod *spa_pod_next(const struct spa_pod *iter)
 	     (iter) = SPA_MEMBER((iter), (body)->value.size, __typeof__(*iter)))
 
 static inline struct spa_pod_prop *spa_pod_contents_find_prop(const struct spa_pod *pod,
-							      uint32_t offset, uint32_t key)
+							      uint32_t size, uint32_t key)
 {
-	struct spa_pod *res;
-	SPA_POD_CONTENTS_FOREACH(pod, offset, res) {
+	const struct spa_pod *res;
+	SPA_POD_FOREACH(pod, size, res) {
 		if (res->type == SPA_POD_TYPE_PROP
 		    && ((struct spa_pod_prop *) res)->body.key == key)
 			return (struct spa_pod_prop *) res;
@@ -119,7 +119,8 @@ static inline struct spa_pod_prop *spa_pod_find_prop(const struct spa_pod *pod, 
 	else
 		return NULL;
 
-	return spa_pod_contents_find_prop(pod, offset, key);
+	return spa_pod_contents_find_prop(SPA_MEMBER(pod, offset, const struct spa_pod),
+					  SPA_POD_SIZE(pod) - offset, key);
 }
 
 static inline int spa_pod_fixate(struct spa_pod *pod)

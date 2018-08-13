@@ -25,7 +25,6 @@
 #include <time.h>
 
 #include "spa/utils/ringbuffer.h"
-#include "spa/lib/debug.h"
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"

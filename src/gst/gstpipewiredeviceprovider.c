@@ -43,40 +43,6 @@ enum
   PROP_ID = 1,
 };
 
-static GstDevice *
-gst_pipewire_device_new (uint32_t id, const gchar * device_name,
-    GstCaps * caps, const gchar *klass,
-    GstPipeWireDeviceType type, GstStructure *props)
-{
-  GstPipeWireDevice *gstdev;
-  const gchar *element = NULL;
-
-  g_return_val_if_fail (device_name, NULL);
-  g_return_val_if_fail (caps, NULL);
-
-  switch (type) {
-    case GST_PIPEWIRE_DEVICE_TYPE_SOURCE:
-      element = "pipewiresrc";
-      break;
-    case GST_PIPEWIRE_DEVICE_TYPE_SINK:
-      element = "pipewiresink";
-      break;
-    default:
-      g_assert_not_reached ();
-      break;
-  }
-
-  gstdev = g_object_new (GST_TYPE_PIPEWIRE_DEVICE,
-      "display-name", device_name, "caps", caps, "device-class", klass,
-      "id", id, "properties", props, NULL);
-
-  gstdev->id = id;
-  gstdev->type = type;
-  gstdev->element = element;
-
-  return GST_DEVICE (gstdev);
-}
-
 static GstElement *
 gst_pipewire_device_create_element (GstDevice * device, const gchar * name)
 {
@@ -199,7 +165,7 @@ struct pending {
   void *data;
 };
 
-struct registry_data {
+struct remote_data {
   uint32_t seq;
   GstPipeWireDeviceProvider *self;
   struct pw_registry_proxy *registry;
@@ -212,6 +178,7 @@ struct node_data {
   struct spa_list link;
   GstPipeWireDeviceProvider *self;
   struct pw_node_proxy *proxy;
+  struct spa_hook proxy_listener;
   uint32_t id;
   uint32_t parent_id;
   struct spa_hook node_listener;
@@ -225,14 +192,14 @@ struct port_data {
   struct spa_list link;
   struct node_data *node_data;
   struct pw_port_proxy *proxy;
+  struct spa_hook proxy_listener;
   uint32_t id;
   struct spa_hook port_listener;
-  struct pw_port_info *info;
   struct pending pending;
   struct pending pending_param;
 };
 
-static struct node_data *find_node_data(struct registry_data *rd, uint32_t id)
+static struct node_data *find_node_data(struct remote_data *rd, uint32_t id)
 {
   struct node_data *n;
   spa_list_for_each(n, &rd->nodes, link) {
@@ -242,23 +209,6 @@ static struct node_data *find_node_data(struct registry_data *rd, uint32_t id)
   return NULL;
 }
 
-static void free_node_data(struct registry_data *rd, struct node_data *nd)
-{
-  GstPipeWireDeviceProvider *self = rd->self;
-  GstDeviceProvider *provider = GST_DEVICE_PROVIDER (self);
-
-  if (nd->dev != NULL) {
-    gst_device_provider_device_remove (provider, GST_DEVICE (nd->dev));
-    gst_object_unref (nd->dev);
-  }
-  if (nd->caps) {
-    gst_caps_unref(nd->caps);
-  }
-  if (nd->info)
-    pw_node_info_free(nd->info);
-  spa_list_remove(&nd->link);
-}
-
 static GstDevice *
 new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
 {
@@ -266,11 +216,15 @@ new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
   const gchar *klass = NULL;
   GstPipeWireDeviceType type;
   const struct pw_node_info *info = data->info;
+  const gchar *element = NULL;
+  GstPipeWireDevice *gstdev;
 
   if (info->max_input_ports > 0 && info->max_output_ports == 0) {
     type = GST_PIPEWIRE_DEVICE_TYPE_SINK;
+    element = "pipewiresink";
   } else if (info->max_output_ports > 0 && info->max_input_ports == 0) {
     type = GST_PIPEWIRE_DEVICE_TYPE_SOURCE;
+    element = "pipewiresrc";
   } else {
     return NULL;
   }
@@ -286,12 +240,17 @@ new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
   if (klass == NULL)
     klass = "unknown/unknown";
 
-  return gst_pipewire_device_new (data->id,
-                               info->name,
-                               data->caps,
-                               klass,
-                               type,
-                               props);
+  gstdev = g_object_new (GST_TYPE_PIPEWIRE_DEVICE,
+      "display-name", info->name, "caps", data->caps, "device-class", klass,
+      "id", data->id, "properties", props, NULL);
+
+  gstdev->id = data->id;
+  gstdev->type = type;
+  gstdev->element = element;
+  if (props)
+    gst_structure_free (props);
+
+  return GST_DEVICE (gstdev);
 }
 
 static void do_add_node(void *data)
@@ -340,9 +299,17 @@ get_core_info (struct pw_remote          *remote,
   }
 }
 
-static void add_pending(GstPipeWireDeviceProvider *self, struct pending *p)
+static void init_pending(GstPipeWireDeviceProvider *self, struct pending *p)
+{
+    p->seq = SPA_ID_INVALID;
+}
+
+static void add_pending(GstPipeWireDeviceProvider *self, struct pending *p,
+                        void (*callback) (void *data), void *data)
 {
   spa_list_append(&self->pending, &p->link);
+  p->callback = callback;
+  p->data = data;
   p->seq = ++self->seq;
   pw_log_debug("add pending %d", p->seq);
   pw_core_proxy_sync(self->core_proxy, p->seq);
@@ -406,12 +373,12 @@ static void port_event_info(void *data, struct pw_port_info *info)
   GstPipeWireDeviceProvider *self = node_data->self;
   struct pw_type *t = node_data->self->type;
 
+  pw_log_debug("%p", port_data);
+
   if (info->change_mask & PW_PORT_CHANGE_MASK_ENUM_PARAMS) {
     pw_port_proxy_enum_params((struct pw_port_proxy*)port_data->proxy,
 				t->param.idEnumFormat, 0, 0, NULL);
-    port_data->pending_param.callback = do_add_node;
-    port_data->pending_param.data = port_data;
-    add_pending(self, &port_data->pending_param);
+    add_pending(self, &port_data->pending_param, do_add_node, port_data);
   }
 }
 
@@ -423,6 +390,8 @@ static void port_event_param(void *data, uint32_t id, uint32_t index, uint32_t n
   GstPipeWireDeviceProvider *self = node_data->self;
   struct pw_type *t = self->type;
   GstCaps *c1;
+
+  pw_log_debug("%p", port_data);
 
   c1 = gst_caps_from_format (param, t->map);
   if (c1 && node_data->caps)
@@ -439,6 +408,7 @@ static const struct pw_port_proxy_events port_events = {
 static void node_event_info(void *data, struct pw_node_info *info)
 {
   struct node_data *node_data = data;
+  pw_log_debug("%p", node_data);
   node_data->info = pw_node_info_update(node_data->info, info);
 }
 
@@ -447,12 +417,53 @@ static const struct pw_node_proxy_events node_events = {
   .info = node_event_info
 };
 
+static void
+destroy_node_proxy (void *data)
+{
+  struct node_data *nd = data;
+  GstPipeWireDeviceProvider *self = nd->self;
+  GstDeviceProvider *provider = GST_DEVICE_PROVIDER (self);
+
+  pw_log_debug("destroy %p", nd);
+
+  remove_pending(&nd->pending);
+
+  if (nd->dev != NULL) {
+    gst_device_provider_device_remove (provider, GST_DEVICE (nd->dev));
+  }
+  if (nd->caps)
+    gst_caps_unref(nd->caps);
+  if (nd->info)
+    pw_node_info_free(nd->info);
+
+  spa_list_remove(&nd->link);
+}
+
+static const struct pw_proxy_events proxy_node_events = {
+  PW_VERSION_PROXY_EVENTS,
+  .destroy = destroy_node_proxy,
+};
+
+static void
+destroy_port_proxy (void *data)
+{
+  struct port_data *pd = data;
+  pw_log_debug("destroy %p", pd);
+  remove_pending(&pd->pending);
+  remove_pending(&pd->pending_param);
+  spa_list_remove(&pd->link);
+}
+
+static const struct pw_proxy_events proxy_port_events = {
+        PW_VERSION_PROXY_EVENTS,
+        .destroy = destroy_port_proxy,
+};
 
 static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, uint32_t permissions,
 				  uint32_t type, uint32_t version,
 				  const struct spa_dict *props)
 {
-  struct registry_data *rd = data;
+  struct remote_data *rd = data;
   GstPipeWireDeviceProvider *self = rd->self;
   struct node_data *nd;
 
@@ -473,8 +484,8 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
     nd->caps = gst_caps_new_empty ();
     spa_list_append(&rd->nodes, &nd->link);
     pw_node_proxy_add_listener(node, &nd->node_listener, &node_events, nd);
-    nd->pending.callback = NULL;
-    add_pending(self, &nd->pending);
+    pw_proxy_add_listener((struct pw_proxy*)node, &nd->proxy_listener, &proxy_node_events, nd);
+    add_pending(self, &nd->pending, NULL, NULL);
   }
   else if (type == self->type->port) {
     struct pw_port_proxy *port;
@@ -495,8 +506,9 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
     pd->id = id;
     spa_list_append(&rd->ports, &pd->link);
     pw_port_proxy_add_listener(port, &pd->port_listener, &port_events, pd);
-    pd->pending.callback = NULL;
-    add_pending(self, &pd->pending);
+    pw_proxy_add_listener((struct pw_proxy*)port, &pd->proxy_listener, &proxy_port_events, pd);
+    init_pending(self, &pd->pending_param);
+    add_pending(self, &pd->pending, NULL, NULL);
   }
 
   return;
@@ -508,13 +520,6 @@ no_mem:
 
 static void registry_event_global_remove(void *data, uint32_t id)
 {
-  struct registry_data *rd = data;
-  struct node_data *nd;
-
-  if ((nd = find_node_data(rd, id)) == NULL)
-    return;
-
-  free_node_data(rd, nd);
 }
 
 static const struct pw_registry_proxy_events registry_events = {
@@ -537,8 +542,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   struct pw_core *c = NULL;
   struct pw_type *t = NULL;
   struct pw_remote *r = NULL;
-  struct pw_registry_proxy *reg = NULL;
-  struct registry_data *data;
+  struct remote_data *data;
   struct spa_hook listener;
 
   GST_DEBUG_OBJECT (self, "starting probe");
@@ -551,8 +555,13 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
 
   t = pw_core_get_type(c);
 
-  if (!(r = pw_remote_new (c, NULL, 0)))
+  if (!(r = pw_remote_new (c, NULL, sizeof(*data))))
     goto failed;
+
+  data = pw_remote_get_user_data(r);
+  data->self = self;
+  spa_list_init(&data->nodes);
+  spa_list_init(&data->ports);
 
   spa_list_init(&self->pending);
   self->seq = 1;
@@ -586,14 +595,8 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   self->devices = NULL;
 
   self->core_proxy = pw_remote_get_core_proxy(r);
-  reg = pw_core_proxy_get_registry(self->core_proxy, t->registry, PW_VERSION_REGISTRY, sizeof(*data));
-
-  data = pw_proxy_get_user_data((struct pw_proxy*)reg);
-  data->self = self;
-  data->registry = reg;
-  spa_list_init(&data->nodes);
-  spa_list_init(&data->ports);
-  pw_registry_proxy_add_listener(reg, &data->registry_listener, &registry_events, data);
+  data->registry = pw_core_proxy_get_registry(self->core_proxy, t->registry, PW_VERSION_REGISTRY, 0);
+  pw_registry_proxy_add_listener(data->registry, &data->registry_listener, &registry_events, data);
   pw_core_proxy_sync(self->core_proxy, ++self->seq);
 
   for (;;) {
@@ -620,7 +623,7 @@ static gboolean
 gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 {
   GstPipeWireDeviceProvider *self = GST_PIPEWIRE_DEVICE_PROVIDER (provider);
-  struct registry_data *data;
+  struct remote_data *data;
 
   GST_DEBUG_OBJECT (self, "starting provider");
 
@@ -647,11 +650,14 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   pw_thread_loop_lock (self->main_loop);
 
-  if (!(self->remote = pw_remote_new (self->core, NULL, 0))) {
+  if (!(self->remote = pw_remote_new (self->core, NULL, sizeof(*data)))) {
     GST_ERROR_OBJECT (self, "Failed to create remote");
     goto failed_remote;
   }
-
+  data = pw_remote_get_user_data(self->remote);
+  data->self = self;
+  spa_list_init(&data->nodes);
+  spa_list_init(&data->ports);
   pw_remote_add_listener (self->remote, &self->remote_listener, &remote_events, self);
 
   pw_remote_connect (self->remote);
@@ -677,13 +683,9 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   self->core_proxy = pw_remote_get_core_proxy(self->remote);
   self->registry = pw_core_proxy_get_registry(self->core_proxy, self->type->registry,
-					      PW_VERSION_REGISTRY, sizeof(*data));
+					      PW_VERSION_REGISTRY, 0);
 
-  data = pw_proxy_get_user_data((struct pw_proxy*)self->registry);
-  data->self = self;
   data->registry = self->registry;
-  spa_list_init(&data->nodes);
-  spa_list_init(&data->ports);
 
   pw_registry_proxy_add_listener(self->registry, &data->registry_listener, &registry_events, data);
   pw_core_proxy_sync(self->core_proxy, ++self->seq);

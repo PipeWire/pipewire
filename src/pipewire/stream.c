@@ -33,7 +33,6 @@
 #include "pipewire/array.h"
 #include "pipewire/stream.h"
 #include "pipewire/utils.h"
-#include "pipewire/stream.h"
 #include "extensions/client-node.h"
 
 /** \cond */

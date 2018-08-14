@@ -31,8 +31,8 @@
 #include <spa/pod/parser.h>
 #include <spa/param/param.h>
 #include <spa/param/format.h>
-
-#include <lib/debug.h>
+#include <spa/debug/dict.h>
+#include <spa/debug/format.h>
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
@@ -80,8 +80,6 @@ inspect_node_params(struct data *data, struct spa_node *node)
 
 		printf("enumerating: %s:\n", spa_type_map_get_type(data->map, id));
 		for (idx2 = 0;;) {
-			uint32_t flags = 0;
-
 			spa_pod_builder_init(&b, buffer, sizeof(buffer));
 			if ((res = spa_node_enum_params(node,
 							id, &idx2,
@@ -90,7 +88,7 @@ inspect_node_params(struct data *data, struct spa_node *node)
 					error(0, -res, "enum_params %d", id);
 				break;
 			}
-			spa_debug_pod(param, flags);
+			spa_debug_pod(0, data->map, param);
 		}
 	}
 }
@@ -123,8 +121,6 @@ inspect_port_params(struct data *data, struct spa_node *node,
 
 		printf("enumerating: %s:\n", spa_type_map_get_type(data->map, id));
 		for (idx2 = 0;;) {
-			uint32_t flags = 0;
-
 			spa_pod_builder_init(&b, buffer, sizeof(buffer));
 			if ((res = spa_node_port_enum_params(node,
 							     direction, port_id,
@@ -136,8 +132,9 @@ inspect_port_params(struct data *data, struct spa_node *node,
 			}
 
 			if (spa_pod_is_object_type(param, data->type.format))
-				flags |= SPA_DEBUG_FLAG_FORMAT;
-			spa_debug_pod(param, flags);
+				spa_debug_format(0, data->map, param);
+			else
+				spa_debug_pod(0, data->map, param);
 		}
 	}
 }
@@ -150,7 +147,7 @@ static void inspect_node(struct data *data, struct spa_node *node)
 
 	printf("node info:\n");
 	if (node->info)
-		spa_debug_dict(node->info);
+		spa_debug_dict(2, node->info);
 	else
 		printf("  none\n");
 
@@ -193,7 +190,7 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 	printf("factory name:\t\t'%s'\n", factory->name);
 	printf("factory info:\n");
 	if (factory->info)
-		spa_debug_dict(factory->info);
+		spa_debug_dict(2, factory->info);
 	else
 		printf("  none\n");
 
@@ -282,8 +279,6 @@ int main(int argc, char *argv[])
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);
-
-	spa_debug_set_type_map(data.map);
 
 	data.support[0].type = SPA_TYPE__TypeMap;
 	data.support[0].data = data.map;

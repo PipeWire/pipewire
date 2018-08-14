@@ -34,6 +34,10 @@
 #include "pipewire/main-loop.h"
 #include "pipewire/work-queue.h"
 
+#ifndef spa_debug
+#define spa_debug pw_log_trace
+#endif
+
 #include <spa/graph/graph-scheduler2.h>
 
 /** \cond */

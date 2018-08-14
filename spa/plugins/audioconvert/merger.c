@@ -33,8 +33,6 @@
 #include <spa/param/io.h>
 #include <spa/pod/filter.h>
 
-#include <lib/debug.h>
-
 #define NAME "merger"
 
 #define DEFAULT_RATE	48000

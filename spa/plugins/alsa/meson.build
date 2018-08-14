@@ -6,7 +6,7 @@ spa_alsa_sources = ['alsa.c',
 
 spa_alsa = shared_library('spa-alsa',
                            spa_alsa_sources,
-                           include_directories : [spa_inc, spa_libinc],
+                           include_directories : [spa_inc],
                            dependencies : [ alsa_dep, libudev_dep ],
                            install : true,
                            install_dir : '@0@/spa/alsa'.format(get_option('libdir')))

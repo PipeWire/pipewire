@@ -50,7 +50,7 @@ static struct spa_log *logger;
 #include <spa/graph/graph.h>
 #include <spa/graph/graph-scheduler2.h>
 
-#include <lib/debug.h>
+#include <spa/debug/pod.h>
 
 struct type {
 	uint32_t log;
@@ -134,7 +134,7 @@ struct data {
 
 static void inspect_item(struct data *data, struct spa_pod *item)
 {
-        spa_debug_pod(item, 0);
+        spa_debug_pod(0, data->map, item);
 }
 
 static void monitor_event(void *_data, struct spa_event *event)
@@ -223,7 +223,6 @@ int main(int argc, char *argv[])
 	data.support[0].data = data.map;
 	data.n_support = 1;
 	init_type(&data.type, data.map);
-	spa_debug_set_type_map(data.map);
 
 	if ((res = get_handle(&data, &handle,
 			     "build/spa/plugins/support/libspa-support.so",

@@ -61,9 +61,11 @@ pw_log_logv(enum spa_log_level level,
 /** Check if a loglevel is enabled \memberof pw_log */
 #define pw_log_level_enabled(lev) (pw_log_level >= (lev))
 
-#define pw_log(lev,...)				\
-	if (SPA_UNLIKELY(pw_log_level_enabled (lev)))	\
-		pw_log_log(lev,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define pw_log(lev,...)							\
+({									\
+	if (SPA_UNLIKELY(pw_log_level_enabled (lev)))			\
+		pw_log_log(lev,__FILE__,__LINE__,__func__,__VA_ARGS__);	\
+})
 
 #define pw_log_error(...)   pw_log(SPA_LOG_LEVEL_ERROR,__VA_ARGS__)
 #define pw_log_warn(...)    pw_log(SPA_LOG_LEVEL_WARN,__VA_ARGS__)

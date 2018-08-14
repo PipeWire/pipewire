@@ -31,7 +31,6 @@
 #include <spa/node/node.h>
 #include <spa/monitor/monitor.h>
 #include <spa/pod/parser.h>
-#include <spa/lib/debug.h>
 
 #include <pipewire/log.h>
 #include <pipewire/type.h>

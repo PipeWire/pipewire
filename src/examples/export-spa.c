@@ -26,8 +26,6 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 
-#include <spa/lib/debug.h>
-
 #include <pipewire/pipewire.h>
 #include <pipewire/factory.h>
 
@@ -139,8 +137,6 @@ int main(int argc, char *argv[])
 		data.path = argv[3];
 
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL, NULL, NULL);
-
-	spa_debug_set_type_map(data.t->map);
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 

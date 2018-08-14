@@ -44,7 +44,7 @@ static SPA_LOG_IMPL(default_log);
 #include <spa/graph/graph.h>
 #include <spa/graph/graph-scheduler2.h>
 
-#include <lib/debug.h>
+#include <spa/debug/pod.h>
 
 struct type {
 	uint32_t node;
@@ -308,7 +308,7 @@ static int make_nodes(struct data *data, const char *device)
 		":", data->type.props_device,      "s", device ? device : "hw:0",
 		":", data->type.props_min_latency, "i", MIN_LATENCY);
 
-	spa_debug_pod(props, 0);
+	spa_debug_pod(0, data->map, props);
 
 	if ((res = spa_node_set_param(data->sink, data->type.param.idProps, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
@@ -402,7 +402,7 @@ static int negotiate_formats(struct data *data)
 		":", data->type.format_audio.rate,     "i", 44100,
 		":", data->type.format_audio.channels, "i", 2);
 
-	spa_debug_pod(filter, 0);
+	spa_debug_pod(0, data->map, filter);
 
 	spa_log_debug(&default_log.log, "enum_params");
 	if ((res = spa_node_port_enum_params(data->sink,
@@ -411,7 +411,7 @@ static int negotiate_formats(struct data *data)
 					     filter, &format, &b)) <= 0)
 		return -EBADF;
 
-	spa_debug_pod(format, 0);
+	spa_debug_pod(0, data->map, format);
 
 	spa_log_debug(&default_log.log, "sink set_param");
 	if ((res = spa_node_port_set_param(data->sink,
@@ -568,8 +568,6 @@ int main(int argc, char *argv[])
 	data.data_loop.update_source = do_update_source;
 	data.data_loop.remove_source = do_remove_source;
 	data.data_loop.invoke = do_invoke;
-
-	spa_debug_set_type_map(data.map);
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);

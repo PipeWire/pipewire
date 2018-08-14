@@ -39,8 +39,6 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/format-utils.h>
 
-#include <lib/debug.h>
-
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
 

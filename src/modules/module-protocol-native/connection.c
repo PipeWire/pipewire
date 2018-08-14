@@ -25,7 +25,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
-#include <spa/lib/debug.h>
+#include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
@@ -59,6 +59,8 @@ struct impl {
 	uint32_t dest_id;
 	uint8_t opcode;
 	struct spa_pod_builder builder;
+
+	struct pw_core *core;
 };
 
 /** \endcond */
@@ -193,7 +195,7 @@ static void clear_buffer(struct buffer *buf)
  *
  * \memberof pw_protocol_native_connection
  */
-struct pw_protocol_native_connection *pw_protocol_native_connection_new(int fd)
+struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct pw_core *core, int fd)
 {
 	struct impl *impl;
 	struct pw_protocol_native_connection *this;
@@ -216,6 +218,7 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(int fd)
 	impl->in.buffer_data = malloc(MAX_BUFFER_SIZE);
 	impl->in.buffer_maxsize = MAX_BUFFER_SIZE;
 	impl->in.update = true;
+	impl->core = core;
 
 	if (impl->out.buffer_data == NULL || impl->in.buffer_data == NULL)
 		goto no_mem;
@@ -432,7 +435,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 
 	if (debug_messages) {
 		fprintf(stderr, ">>>>>>>>> out: %d %d %d\n", impl->dest_id, impl->opcode, size);
-	        spa_debug_pod((struct spa_pod *)p, 0);
+	        spa_debug_pod(0, impl->core->type.map, (struct spa_pod *)p);
 	}
 	spa_hook_list_call(&conn->listener_list,
 			struct pw_protocol_native_connection_events, need_flush, 0);

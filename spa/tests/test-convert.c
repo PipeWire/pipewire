@@ -35,8 +35,8 @@
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/format-utils.h>
-
-#include <lib/debug.h>
+#include <spa/debug/pod.h>
+#include <spa/debug/mem.h>
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
@@ -318,7 +318,7 @@ static int negotiate_buffers(struct data *data)
 				       NULL, &param, &b)) <= 0)
 		return -EBADF;
 
-	spa_debug_pod(param, 0);
+	spa_debug_pod(0, data->map, param);
 
 	init_buffer(data, data->in_buffers, data->in_buffer, 1, BUFFER_SIZE, 1);
 	if ((res =
@@ -335,7 +335,7 @@ static int negotiate_buffers(struct data *data)
 				       NULL, &param, &b)) <= 0)
 		return -EBADF;
 
-	spa_debug_pod(param, 0);
+	spa_debug_pod(0, data->map, param);
 
 	init_buffer(data, data->out_buffers, data->out_buffer, 1, BUFFER_SIZE, 2);
 	if ((res =
@@ -374,13 +374,13 @@ static void run_convert(struct data *data)
 	data->io_out[0].status = SPA_STATUS_NEED_BUFFER;
 	data->io_out[0].buffer_id = 0;
 
-	spa_debug_dump_mem(data->in_buffers[0]->datas[0].data, BUFFER_SIZE);
+	spa_debug_mem(0, data->in_buffers[0]->datas[0].data, BUFFER_SIZE);
 
 	res = spa_node_process(data->conv);
 	printf("called process %d\n", res);
 
-	spa_debug_dump_mem(data->out_buffers[0]->datas[0].data, BUFFER_SIZE);
-	spa_debug_dump_mem(data->out_buffers[0]->datas[1].data, BUFFER_SIZE);
+	spa_debug_mem(0, data->out_buffers[0]->datas[0].data, BUFFER_SIZE);
+	spa_debug_mem(0, data->out_buffers[0]->datas[1].data, BUFFER_SIZE);
 
 	{
 		struct spa_command cmd = SPA_COMMAND_INIT(data->type.command_node.Pause);
@@ -408,7 +408,6 @@ int main(int argc, char *argv[])
 	data.n_support = 2;
 
 	init_type(&data.type, data.map);
-	spa_debug_set_type_map(data.map);
 
 	if ((res = make_nodes(&data, argc > 1 ? argv[1] : NULL)) < 0) {
 		printf("can't make nodes: %d\n", res);

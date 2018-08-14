@@ -79,12 +79,11 @@ libpipewire = shared_library('pipewire-@0@'.format(apiversion), pipewire_sources
   soversion : soversion,
   c_args : libpipewire_c_args,
   include_directories : [pipewire_inc, configinc, spa_inc],
-  link_with : spalib,
   install : true,
   dependencies : [dl_lib, mathlib, pthread_lib],
 )
 
 pipewire_dep = declare_dependency(link_with : libpipewire,
   include_directories : [pipewire_inc, configinc, spa_inc],
-  dependencies : [pthread_lib,spalib_dep],
+  dependencies : [pthread_lib],
 )

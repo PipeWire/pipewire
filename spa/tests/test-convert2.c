@@ -37,8 +37,9 @@
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/format-utils.h>
-
-#include <lib/debug.h>
+#include <spa/debug/pod.h>
+#include <spa/debug/format.h>
+#include <spa/debug/mem.h>
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
@@ -273,7 +274,7 @@ static int negotiate_link_format(struct data *data, struct link *link, struct sp
 	}
 
 	spa_pod_fixate(filter);
-	spa_debug_pod(filter, SPA_DEBUG_FLAG_FORMAT);
+	spa_debug_format(0, data->map, filter);
 
 	if (link->out_node != NULL) {
 		if ((res = spa_node_port_set_param(link->out_node->node,
@@ -369,7 +370,7 @@ static int negotiate_link_buffers(struct data *data, struct link *link)
 	}
 
 	spa_pod_fixate(param);
-	spa_debug_pod(param, 0);
+	spa_debug_pod(0, data->map, param);
 
 	if (link->in_info)
 		in_alloc = SPA_FLAG_CHECK(link->in_info->flags, SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
@@ -497,7 +498,7 @@ static void run_convert(struct data *data)
 
 	b = data->links[0].buffers[0];
 	for (i = 0; i < b->n_datas; i++)
-		spa_debug_dump_mem(b->datas[i].data, b->datas[i].maxsize);
+		spa_debug_mem(0, b->datas[i].data, b->datas[i].maxsize);
 
 	for (j = 0; j < 2; j++) {
 		data->links[0].io.status = SPA_STATUS_HAVE_BUFFER;
@@ -510,7 +511,7 @@ static void run_convert(struct data *data)
 
 	b = data->links[3].buffers[0];
 	for (i = 0; i < b->n_datas; i++)
-		spa_debug_dump_mem(b->datas[i].data, b->datas[i].maxsize);
+		spa_debug_mem(0, b->datas[i].data, b->datas[i].maxsize);
 
 	{
 		struct spa_command cmd = SPA_COMMAND_INIT(t->command_node.Pause);
@@ -540,7 +541,6 @@ int main(int argc, char *argv[])
 	data.n_support = 2;
 
 	init_type(&data.type, data.map);
-	spa_debug_set_type_map(data.map);
 
 	if ((res = make_nodes(&data, argc > 1 ? argv[1] : NULL)) < 0) {
 		printf("can't make nodes: %d\n", res);

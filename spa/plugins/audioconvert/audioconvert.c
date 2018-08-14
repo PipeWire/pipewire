@@ -32,8 +32,7 @@
 #include <spa/param/meta.h>
 #include <spa/param/io.h>
 #include <spa/pod/filter.h>
-
-#include <lib/debug.h>
+#include <spa/debug/pod.h>
 
 #define NAME "audioconvert"
 
@@ -204,18 +203,13 @@ static void clean_link(struct impl *this, struct link *link)
 static int debug_params(struct impl *this, struct spa_node *node,
 		enum spa_direction direction, uint32_t port_id, uint32_t id, struct spa_pod *filter)
 {
-	struct type *t = &this->type;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[4096];
-	uint32_t state, flag;
-	struct spa_pod *format;
+	uint32_t state;
+	struct spa_pod *param;
 	int res;
 
-	flag = 0;
-	if (id == t->param.idEnumFormat)
-		flag |= SPA_DEBUG_FLAG_FORMAT;
-
-	spa_log_error(this->log, "formats:");
+	spa_log_error(this->log, "params:");
 
 	state = 0;
 	while (true) {
@@ -223,16 +217,16 @@ static int debug_params(struct impl *this, struct spa_node *node,
 		res = spa_node_port_enum_params(node,
 				       direction, port_id,
 				       id, &state,
-				       NULL, &format, &b);
+				       NULL, &param, &b);
 		if (res <= 0)
 			break;
 
-		spa_debug_pod(format, flag);
+		spa_debug_pod(2, this->map, param);
 	}
 
 	spa_log_error(this->log, "failed filter:");
 	if (filter)
-		spa_debug_pod(filter, flag);
+		spa_debug_pod(2, this->map, filter);
 
 	return 0;
 }

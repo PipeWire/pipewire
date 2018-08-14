@@ -25,7 +25,7 @@
 #include <signal.h>
 #include <string.h>
 
-#include <spa/lib/debug.h>
+#include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/command.h>
@@ -596,7 +596,7 @@ static void info_link(struct proxy_data *pd)
 	fprintf(stdout, "%c\tinput-port-id: %u\n", MARK_CHANGE(1), info->input_port_id);
 	fprintf(stdout, "%c\tformat:\n", MARK_CHANGE(2));
 	if (info->format)
-		spa_debug_pod(info->format, SPA_DEBUG_FLAG_FORMAT);
+		spa_debug_format(2, pd->rd->data->t->map, info->format);
 	else
 		fprintf(stdout, "\t\tnone\n");
 	print_properties(info->props, MARK_CHANGE(3), true);
@@ -666,14 +666,14 @@ static void node_event_param(void *object, uint32_t id, uint32_t index, uint32_t
         struct proxy_data *data = object;
 	struct remote_data *rd = data->rd;
 	struct pw_type *t = rd->data->t;
-	uint32_t flags = 0;
 
 	fprintf(stdout, "remote %d node %d param %d index %d\n",
 			rd->id, data->global->id, id, index);
 
 	if (spa_pod_is_object_type(param, t->spa_format))
-		flags |= SPA_DEBUG_FLAG_FORMAT;
-	spa_debug_pod(param, flags);
+		spa_debug_format(2, t->map, param);
+	else
+		spa_debug_pod(2, t->map, param);
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -704,14 +704,14 @@ static void port_event_param(void *object, uint32_t id, uint32_t index, uint32_t
         struct proxy_data *data = object;
 	struct remote_data *rd = data->rd;
 	struct pw_type *t = rd->data->t;
-	uint32_t flags = 0;
 
 	fprintf(stdout, "remote %d port %d param %d index %d\n",
 			rd->id, data->global->id, id, index);
 
 	if (spa_pod_is_object_type(param, t->spa_format))
-		flags |= SPA_DEBUG_FLAG_FORMAT;
-	spa_debug_pod(param, flags);
+		spa_debug_format(2, t->map, param);
+	else
+		spa_debug_pod(2, t->map, param);
 }
 
 static const struct pw_port_proxy_events port_events = {

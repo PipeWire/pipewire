@@ -28,9 +28,11 @@
 #include <spa/support/log-impl.h>
 #include <spa/support/type-map-impl.h>
 #include <spa/support/loop.h>
+#include <spa/support/plugin.h>
 #include <spa/monitor/monitor.h>
 
-#include <lib/debug.h>
+#include <spa/debug/dict.h>
+#include <spa/debug/pod.h>
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
@@ -60,7 +62,7 @@ struct data {
 
 static void inspect_item(struct data *data, struct spa_pod *item)
 {
-	spa_debug_pod(item, 0);
+	spa_debug_pod(0, data->map, item);
 }
 
 static void on_monitor_event(void *_data, struct spa_event *event)
@@ -110,7 +112,7 @@ static void handle_monitor(struct data *data, struct spa_monitor *monitor)
 	uint32_t index;
 
 	if (monitor->info)
-		spa_debug_dict(monitor->info);
+		spa_debug_dict(0, monitor->info);
 
 	for (index = 0;;) {
 		struct spa_pod *item;
@@ -173,8 +175,6 @@ int main(int argc, char *argv[])
 	data.main_loop.add_source = do_add_source;
 	data.main_loop.update_source = do_update_source;
 	data.main_loop.remove_source = do_remove_source;
-
-	spa_debug_set_type_map(data.map);
 
 	data.support[0].type = SPA_TYPE__TypeMap;
 	data.support[0].data = data.map;

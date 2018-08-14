@@ -28,9 +28,7 @@
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
 #include <spa/param/audio/format-utils.h>
-
-#include <spa/lib/pod.h>
-#include <spa/lib/debug.h>
+#include <spa/debug/format.h>
 
 #include "pipewire/core.h"
 #include "pipewire/control.h"
@@ -666,7 +664,7 @@ static int collect_audio_format(void *data, uint32_t id,
 		return 0;
 
         spa_pod_fixate(param);
-        spa_debug_pod(param, SPA_DEBUG_FLAG_FORMAT);
+        spa_debug_format(0, impl->t->map, param);
 
 	if (spa_format_audio_raw_parse(param, &info, &impl->type.format_audio) < 0)
 		return 0;

@@ -29,8 +29,6 @@
 #include <fcntl.h>
 #include <sys/file.h>
 
-#include <spa/lib/debug.h>
-
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
 

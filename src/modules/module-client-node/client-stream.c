@@ -32,8 +32,8 @@
 #include <spa/buffer/alloc.h>
 #include <spa/pod/parser.h>
 #include <spa/param/audio/format-utils.h>
-
-#include <spa/lib/pod.h>
+#include <spa/debug/pod.h>
+#include <spa/debug/format.h>
 
 #include "pipewire/core.h"
 #include "pipewire/pipewire.h"
@@ -44,8 +44,6 @@
 #include "modules/spa/spa-node.h"
 #include "client-node.h"
 #include "client-stream.h"
-
-#include <spa/lib/debug.h>
 
 /** \cond */
 
@@ -349,13 +347,9 @@ static int debug_params(struct impl *impl, struct spa_node *node,
 	struct pw_type *t = impl->t;
         struct spa_pod_builder b = { 0 };
         uint8_t buffer[4096];
-        uint32_t state, flag;
-        struct spa_pod *format;
+        uint32_t state;
+        struct spa_pod *param;
         int res;
-
-        flag = 0;
-        if (id == t->param.idEnumFormat)
-                flag |= SPA_DEBUG_FLAG_FORMAT;
 
         spa_log_error(this->log, "params %s:", spa_type_map_get_type(t->map, id));
 
@@ -365,18 +359,18 @@ static int debug_params(struct impl *impl, struct spa_node *node,
                 res = spa_node_port_enum_params(node,
                                        direction, port_id,
                                        id, &state,
-                                       NULL, &format, &b);
+                                       NULL, &param, &b);
                 if (res <= 0) {
 			if (res < 0)
 				spa_log_error(this->log, "  error: %s", spa_strerror(res));
                         break;
 		}
-                spa_debug_pod(format, flag);
+                spa_debug_pod(2, t->map, param);
         }
 
         spa_log_error(this->log, "failed filter:");
         if (filter)
-                spa_debug_pod(filter, flag);
+                spa_debug_pod(2, t->map, filter);
 
         return 0;
 }
@@ -417,7 +411,7 @@ static int negotiate_format(struct impl *impl)
 	}
 
 	spa_pod_fixate(format);
-	spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
+	spa_debug_format(0, t->map, format);
 
 	if ((res = spa_node_port_set_param(impl->adapter_mix,
 				   SPA_DIRECTION_REVERSE(impl->direction), 0,

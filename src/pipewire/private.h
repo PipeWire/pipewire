@@ -27,10 +27,10 @@ extern "C" {
 #include <sys/socket.h>
 #include <sys/types.h> /* for pthread_t */
 
-
 #include "pipewire/mem.h"
 #include "pipewire/pipewire.h"
 #include "pipewire/introspect.h"
+#include "pipewire/log.h"
 
 #ifndef spa_debug
 #define spa_debug pw_log_trace

@@ -1,4 +1,4 @@
-/* PipeWire
+/* Simple Plugin API
  * Copyright (C) 2018 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -17,20 +17,38 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <stdint.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/socket.h>
+#ifndef __SPA_DEBUG_MEM_H__
+#define __SPA_DEBUG_MEM_H__
 
-#include <pipewire/pipewire.h>
-#include <pipewire/private.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-int pw_protocol_native_connect_portal_screencast(struct pw_protocol_client *client,
-					    void (*done_callback) (void *data, int res),
-					    void *data)
+#include <spa/utils/dict.h>
+
+#ifndef spa_debug
+#define spa_debug(...)	({ fprintf(stderr, __VA_ARGS__);fputc('\n', stderr); })
+#endif
+
+static inline int spa_debug_mem(int indent, const void *data, size_t size)
 {
-	return -ENOTSUP;
+	const uint8_t *t = data;
+	char buffer[512];
+	int i, pos = 0;
+
+	for (i = 0; i < size; i++) {
+		if (i % 16 == 0)
+			pos = sprintf(buffer, "%p: ", &t[i]);
+		pos += sprintf(buffer + pos, "%02x ", t[i]);
+		if (i % 16 == 15 || i == size - 1) {
+			spa_debug("%*s" "%s", indent, "", buffer);
+		}
+	}
+	return 0;
 }
+
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
+
+#endif /* __SPA_DEBUG_MEM_H__ */

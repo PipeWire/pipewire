@@ -30,7 +30,7 @@
 #include <spa/node/io.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/pod/filter.h>
-#include <spa/lib/debug.h>
+#include <spa/debug/format.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/stream.h"
@@ -446,7 +446,7 @@ static int port_set_format(struct spa_node *node,
 
 	pw_log_debug("stream %p: format changed:", impl);
 	if (pw_log_level >= SPA_LOG_LEVEL_DEBUG)
-		spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
+		spa_debug_format(2, t->map, format);
 
 	clear_params(stream, PARAM_TYPE_FORMAT);
 	if (spa_pod_is_object_type(format, t->spa_format)) {

@@ -1,5 +1,5 @@
 /* Simple Plugin API
- * Copyright (C) 2017 Wim Taymans <wim.taymans@gmail.com>
+ * Copyright (C) 2018 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,26 +17,36 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_LIBPOD_H__
-#define __SPA_LIBPOD_H__
+#ifndef __SPA_DEBUG_NODE_H__
+#define __SPA_DEBUG_NODE_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <spa/param/props.h>
-#include <spa/pod/builder.h>
+#include <spa/node/node.h>
+#include <spa/debug/dict.h>
 
-int spa_pod_filter(struct spa_pod_builder *b,
-		   struct spa_pod **result,
-		   const struct spa_pod *pod,
-		   const struct spa_pod *filter);
-
-int spa_pod_compare(const struct spa_pod *pod1,
-		    const struct spa_pod *pod2);
-
-#ifdef __cplusplus
-} /* extern "C" */
+#ifndef spa_debug
+#define spa_debug(...)	({ fprintf(stderr, __VA_ARGS__);fputc('\n', stderr); })
 #endif
 
-#endif /* __SPA_LIBPOD_H__ */
+int spa_debug_port_info(int indent, const struct spa_port_info *info)
+{
+        spa_debug("%*s" "struct spa_port_info %p:", indent, "", info);
+        spa_debug("%*s" " flags: \t%08x", indent, "", info->flags);
+        spa_debug("%*s" " rate: \t%u", indent, "", info->rate);
+        spa_debug("%*s" " props:", indent, "");
+        if (info->props)
+                spa_debug_dict(indent + 2, info->props);
+        else
+                spa_debug("%*s" "  none", indent, "");
+        return 0;
+}
+
+
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
+
+#endif /* __SPA_DEBUG_NODE_H__ */

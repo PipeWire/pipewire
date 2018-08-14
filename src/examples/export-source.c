@@ -27,7 +27,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/node/io.h>
-#include <spa/lib/debug.h>
+#include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>
 
@@ -359,7 +359,7 @@ static int port_set_format(struct spa_node *node,
 		return 0;
 	}
 
-	spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
+	spa_debug_format(0, d->t->map, format);
 
 	if (spa_format_audio_raw_parse(format, &d->format, &d->type.format_audio) < 0)
 		return -EINVAL;
@@ -602,7 +602,6 @@ int main(int argc, char *argv[])
 	spa_list_init(&data.empty);
 	init_type(&data.type, data.t->map);
 	reset_props(&data.props);
-	spa_debug_set_type_map(data.t->map);
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 

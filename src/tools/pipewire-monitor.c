@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <signal.h>
 
-#include <spa/lib/debug.h>
+#include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/interfaces.h>
@@ -216,10 +216,10 @@ static void print_node(struct proxy_data *data)
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 		printf("%c\tparams:\n", MARK_CHANGE(5));
 		for (i = 0; i < data->n_params; i++) {
-			uint32_t flags = 0;
 			if (spa_pod_is_object_type(data->params[i], t->spa_format))
-				flags |= SPA_DEBUG_FLAG_FORMAT;
-			spa_debug_pod(data->params[i], flags);
+				spa_debug_format(2, t->map, data->params[i]);
+			else
+				spa_debug_pod(2, t->map, data->params[i]);
 		}
 		printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(1),
 				info->n_input_ports, info->max_input_ports);
@@ -293,10 +293,10 @@ static void print_port(struct proxy_data *data)
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 		printf("%c\tparams:\n", MARK_CHANGE(2));
 		for (i = 0; i < data->n_params; i++) {
-			uint32_t flags = 0;
 			if (spa_pod_is_object_type(data->params[i], t->spa_format))
-				flags |= SPA_DEBUG_FLAG_FORMAT;
-			spa_debug_pod(data->params[i], flags);
+				spa_debug_format(2, t->map, data->params[i]);
+			else
+				spa_debug_pod(2, t->map, data->params[i]);
 		}
 		print_properties(info->props, MARK_CHANGE(1));
 	}
@@ -404,6 +404,7 @@ static const struct pw_client_proxy_events client_events = {
 static void link_event_info(void *object, struct pw_link_info *info)
 {
         struct proxy_data *data = object;
+	struct pw_type *t = pw_core_get_type(data->data->core);
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -431,7 +432,7 @@ static void link_event_info(void *object, struct pw_link_info *info)
 		printf("%c\tinput-port-id: %u\n", MARK_CHANGE(1), info->input_port_id);
 		printf("%c\tformat:\n", MARK_CHANGE(2));
 		if (info->format)
-			spa_debug_pod(info->format, SPA_DEBUG_FLAG_FORMAT);
+			spa_debug_format(2, t->map, info->format);
 		else
 			printf("\t\tnone\n");
 		print_properties(info->props, MARK_CHANGE(3));

@@ -21,8 +21,10 @@
 #include <time.h>
 #include <stdio.h>
 
-#include <spa/lib/debug.h>
+#include <pipewire/log.h>
+
 #include <spa/support/dbus.h>
+#include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
@@ -389,8 +391,6 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	pw_type_init(&this->type);
 	pw_map_init(&this->globals, 128, 32);
-
-	spa_debug_set_type_map(this->type.map);
 
 	this->support[0] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, this->type.map);
 	this->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__DataLoop, this->data_loop->loop);
@@ -759,7 +759,7 @@ int pw_core_find_format(struct pw_core *core,
 		}
 		pw_log_debug("Got output format:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(*format, SPA_DEBUG_FLAG_FORMAT);
+			spa_debug_format(2, t->map, *format);
 	} else if (out_state >= PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
 		/* only output needs format */
 		if ((res = spa_node_port_enum_params(input->node->node,
@@ -773,7 +773,7 @@ int pw_core_find_format(struct pw_core *core,
 		}
 		pw_log_debug("Got input format:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(*format, SPA_DEBUG_FLAG_FORMAT);
+			spa_debug_format(2, t->map, *format);
 	} else if (in_state == PW_PORT_STATE_CONFIGURE && out_state == PW_PORT_STATE_CONFIGURE) {
 		struct spa_pod_builder fb = { 0 };
 		uint8_t fbuf[4096];
@@ -795,7 +795,7 @@ int pw_core_find_format(struct pw_core *core,
 		}
 		pw_log_debug("enum output %d with filter: %p", oidx, filter);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(filter, SPA_DEBUG_FLAG_FORMAT);
+			spa_debug_format(2, t->map, filter);
 
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
@@ -811,7 +811,7 @@ int pw_core_find_format(struct pw_core *core,
 
 		pw_log_debug("Got filtered:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(*format, SPA_DEBUG_FLAG_FORMAT);
+			spa_debug_format(2, core->type.map, *format);
 	} else {
 		res = -EBADF;
 		asprintf(error, "error node state");

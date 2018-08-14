@@ -32,8 +32,6 @@
 #include <spa/param/io.h>
 #include <spa/pod/filter.h>
 
-#include <lib/debug.h>
-
 #define NAME "splitter"
 
 #define MAX_BUFFERS     64

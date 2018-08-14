@@ -1,4 +1,4 @@
-/* PipeWire
+/* Simple Plugin API
  * Copyright (C) 2018 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -17,20 +17,32 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <stdint.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/socket.h>
+#ifndef __SPA_DEBUG_FORMAT_H__
+#define __SPA_DEBUG_FORMAT_H__
 
-#include <pipewire/pipewire.h>
-#include <pipewire/private.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-int pw_protocol_native_connect_portal_screencast(struct pw_protocol_client *client,
-					    void (*done_callback) (void *data, int res),
-					    void *data)
+#include <spa/support/type-map.h>
+#include <spa/debug/mem.h>
+#include <spa/debug/pod.h>
+
+#ifndef spa_debug
+#define spa_debug(...)	({ fprintf(stderr, __VA_ARGS__);fputc('\n', stderr); })
+#endif
+
+static inline int spa_debug_format(int indent,
+		struct spa_type_map *map, const struct spa_pod *pod)
 {
-	return -ENOTSUP;
+	return spa_debug_pod_value(indent, map,
+			SPA_POD_TYPE(pod),
+			SPA_POD_BODY(pod),
+			SPA_POD_BODY_SIZE(pod));
 }
+
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
+
+#endif /* __SPA_DEBUG_FORMAT_H__ */

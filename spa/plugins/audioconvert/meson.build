@@ -8,8 +8,7 @@ audioconvert_sources = ['fmtconvert.c',
 
 audioconvertlib = shared_library('spa-audioconvert',
                           audioconvert_sources,
-                          include_directories : [spa_inc, spa_libinc],
+                          include_directories : [spa_inc],
                           dependencies : speexdsp_dep,
-                          link_with : spalib,
                           install : true,
                           install_dir : '@0@/spa/audioconvert/'.format(get_option('libdir')))

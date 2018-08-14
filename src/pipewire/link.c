@@ -25,6 +25,7 @@
 #include <spa/pod/compare.h>
 #include <spa/param/param.h>
 #include <spa/debug/node.h>
+#include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 
 #include "private.h"

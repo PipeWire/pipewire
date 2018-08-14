@@ -25,6 +25,7 @@
 #include <signal.h>
 #include <string.h>
 
+#include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>

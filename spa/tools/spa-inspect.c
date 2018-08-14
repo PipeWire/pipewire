@@ -33,6 +33,7 @@
 #include <spa/param/param.h>
 #include <spa/param/format.h>
 #include <spa/debug/dict.h>
+#include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);

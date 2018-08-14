@@ -427,7 +427,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->info.change_mask = 0;
 	this->info.user_name = pw_get_user_name();
 	this->info.host_name = pw_get_host_name();
-	this->info.version = SPA_STRINGIFY(PW_VERSION_CORE);
+	this->info.version = pw_get_library_version();
 	srandom(time(NULL));
 	this->info.cookie = random();
 	this->info.props = &properties->dict;

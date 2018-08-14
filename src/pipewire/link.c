@@ -32,6 +32,7 @@
 #include "work-queue.h"
 
 #include <spa/debug/node.h>
+#include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 
 #define MAX_BUFFERS     64

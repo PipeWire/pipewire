@@ -102,8 +102,10 @@ struct spa_log {
     (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
 
 #define spa_log_log(l,lev,...)					\
+({								\
 	if (SPA_UNLIKELY (spa_log_level_enabled (l, lev)))	\
-		(l)->log((l),lev,__VA_ARGS__)
+		(l)->log((l),lev,__VA_ARGS__);			\
+})
 
 #define spa_log_error(l,...)	spa_log_log(l,SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
 #define spa_log_warn(l,...)	spa_log_log(l,SPA_LOG_LEVEL_WARN,__FILE__,__LINE__,__func__,__VA_ARGS__)

@@ -21,10 +21,10 @@
 #include <time.h>
 #include <stdio.h>
 
-#define spa_debug pw_log_trace
+#include <pipewire/log.h>
 
-#include <spa/lib/debug.h>
 #include <spa/support/dbus.h>
+#include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
@@ -33,6 +33,8 @@
 #include <pipewire/core.h>
 #include <pipewire/data-loop.h>
 
+#undef spa_debug
+#define spa_debug pw_log_trace
 #include <spa/graph/graph-scheduler6.h>
 
 /** \cond */
@@ -388,8 +390,6 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	spa_graph_init(&this->rt.graph);
 	spa_graph_set_callbacks(&this->rt.graph, &spa_graph_impl_default, NULL);
-
-	spa_debug_set_type_map(this->type.map);
 
 	this->support[0] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, this->type.map);
 	this->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__DataLoop, this->data_loop->loop);
@@ -784,7 +784,7 @@ int pw_core_find_format(struct pw_core *core,
 		}
 		pw_log_debug("enum output %d with filter: %p", oidx, filter);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(filter, SPA_DEBUG_FLAG_FORMAT);
+			spa_debug_format(2, core->type.map, filter);
 
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
@@ -800,7 +800,7 @@ int pw_core_find_format(struct pw_core *core,
 
 		pw_log_debug("Got filtered:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(*format, SPA_DEBUG_FLAG_FORMAT);
+			spa_debug_format(2, core->type.map, *format);
 	} else {
 		res = -EBADF;
 		asprintf(error, "error node state");

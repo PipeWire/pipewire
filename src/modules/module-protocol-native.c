@@ -28,7 +28,7 @@
 #include <sys/file.h>
 
 #include <spa/pod/iter.h>
-#include <spa/lib/debug.h>
+#include <spa/debug/pod.h>
 
 #include "config.h"
 
@@ -227,7 +227,7 @@ process_messages(struct client_data *data)
 
 		if (debug_messages) {
 			printf("<<<<<<<<< in: %d %d %d\n", id, opcode, size);
-		        spa_debug_pod((struct spa_pod *)message, 0);
+		        spa_debug_pod(0, core->type.map, (struct spa_pod *)message);
 		}
 		if (demarshal[opcode].func(resource, message, size) < 0)
 			goto invalid_message;
@@ -338,7 +338,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 	if (this->source == NULL)
 		goto no_source;
 
-	this->connection = pw_protocol_native_connection_new(fd);
+	this->connection = pw_protocol_native_connection_new(protocol->core, fd);
 	if (this->connection == NULL)
 		goto no_connection;
 
@@ -561,7 +561,7 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 			}
 			if (debug_messages) {
 				printf("<<<<<<<<< in: %d %d %d\n", id, opcode, size);
-			        spa_debug_pod((struct spa_pod *)message, 0);
+			        spa_debug_pod(0, core->type.map, (struct spa_pod *)message);
 			}
 			if (demarshal[opcode].func(proxy, message, size) < 0) {
 				pw_log_error ("protocol-native %p: invalid message received %u for %u", this,
@@ -605,7 +605,7 @@ static int impl_connect_fd(struct pw_protocol_client *client, int fd)
 
 	impl->disconnecting = false;
 
-	impl->connection = pw_protocol_native_connection_new(fd);
+	impl->connection = pw_protocol_native_connection_new(remote->core, fd);
 	if (impl->connection == NULL)
                 goto error_close;
 

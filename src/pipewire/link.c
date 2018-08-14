@@ -24,11 +24,11 @@
 #include <spa/pod/parser.h>
 #include <spa/pod/compare.h>
 #include <spa/param/param.h>
+#include <spa/debug/node.h>
+#include <spa/debug/format.h>
 
-#include <spa/lib/debug.h>
-
-#include "pipewire.h"
 #include "private.h"
+#include "pipewire.h"
 #include "interfaces.h"
 #include "link.h"
 #include "work-queue.h"
@@ -186,7 +186,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 
 	pw_log_debug("link %p: doing set format %p", this, format);
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
+		spa_debug_format(2, t->map, format);
 
 	if (out_state == PW_PORT_STATE_CONFIGURE) {
 		pw_log_debug("link %p: doing set format on output", this);
@@ -459,7 +459,7 @@ param_filter(struct pw_link *this,
 		}
 
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG) && iparam != NULL)
-			spa_debug_pod(iparam, 0);
+			spa_debug_pod(2, this->core->type.map, iparam);
 
 		for (oidx = 0;;) {
 			pw_log_debug("oparam %d", oidx);
@@ -470,7 +470,7 @@ param_filter(struct pw_link *this,
 			}
 
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(oparam, 0);
+				spa_debug_pod(2, this->core->type.map, oparam);
 
 			num++;
 		}
@@ -555,8 +555,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	}
 
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
-		spa_debug_port_info(oinfo);
-		spa_debug_port_info(iinfo);
+		spa_debug_port_info(2, oinfo);
+		spa_debug_port_info(2, iinfo);
 	}
 	if (output->allocation.n_buffers) {
 		out_flags = 0;
@@ -593,7 +593,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			spa_pod_fixate(params[i]);
 			pw_log_debug("fixated param %d:", i);
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(params[i], 0);
+				spa_debug_pod(2, this->core->type.map, params[i]);
 			offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 		}
 

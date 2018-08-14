@@ -27,7 +27,7 @@
 #include <spa/param/format-utils.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
-#include <spa/lib/debug.h>
+#include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>
 
@@ -343,7 +343,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		params[0] = spa_pod_builder_pop(&b);
 
 		printf("supported formats:\n");
-		spa_debug_pod(params[0], SPA_DEBUG_FLAG_FORMAT);
+		spa_debug_format(2, data->t->map, params[0]);
 
 		pw_stream_add_listener(data->stream,
 				       &data->stream_listener,
@@ -425,8 +425,6 @@ int main(int argc, char *argv[])
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	init_type(&data.type, data.t->map);
-
-	spa_debug_set_type_map(data.t->map);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());

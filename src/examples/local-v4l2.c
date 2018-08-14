@@ -27,7 +27,7 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/node/io.h>
-#include <spa/lib/debug.h>
+#include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/module.h>
@@ -337,7 +337,7 @@ static int port_set_format(struct spa_node *node, enum spa_direction direction, 
 	if (format == NULL)
 		return 0;
 
-	spa_debug_pod(format, SPA_DEBUG_FLAG_FORMAT);
+	spa_debug_format(0, d->t->map, format);
 
 	spa_format_video_raw_parse(format, &d->format, &d->type.format_video);
 
@@ -510,8 +510,6 @@ int main(int argc, char *argv[])
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL, NULL, NULL);
 
 	init_type(&data.type, data.t->map);
-
-	spa_debug_set_type_map(data.t->map);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());

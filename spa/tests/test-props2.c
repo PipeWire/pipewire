@@ -30,7 +30,7 @@
 #include <spa/pod/parser.h>
 #include <spa/param/video/format.h>
 
-#include <lib/debug.h>
+#include <spa/debug/pod.h>
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 
@@ -42,8 +42,6 @@ int main(int argc, char *argv[])
 	struct spa_pod *obj;
 	struct spa_pod_parser prs;
 	struct spa_type_map *map = &default_map.map;
-
-	spa_debug_set_type_map(map);
 
 	b.data = buffer;
 	b.size = 1024;
@@ -86,11 +84,11 @@ int main(int argc, char *argv[])
 	spa_pod_builder_pop(&b);
 	obj = spa_pod_builder_pop(&b);
 
-	spa_debug_pod(obj, 0);
+	spa_debug_pod(0, map, obj);
 
 	struct spa_pod_prop *p = spa_pod_find_prop(obj, 4);
 	printf("%d %d\n", p->body.key, p->body.flags);
-	spa_debug_pod(&p->body.value, 0);
+	spa_debug_pod(0, map, &p->body.value);
 
 	obj = spa_pod_builder_deref(&b, ref);
 

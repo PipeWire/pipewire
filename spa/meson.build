@@ -19,10 +19,8 @@ threads_dep = dependency('threads')
 #mathlib = cc.find_library('m', required : false)
 
 spa_inc = include_directories('include')
-spa_libinc = include_directories('.')
 
 subdir('include')
-subdir('lib')
 subdir('plugins')
 subdir('tools')
 subdir('tests')

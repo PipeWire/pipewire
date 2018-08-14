@@ -140,8 +140,6 @@ int main(int argc, char *argv[])
 
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL, NULL, NULL);
 
-	spa_debug_set_type_map(data.t->map);
-
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 
         pw_remote_connect(data.remote);

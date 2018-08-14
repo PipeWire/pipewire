@@ -65,8 +65,10 @@ pw_log_logv(enum spa_log_level level,
     (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
 
 #define pw_log_logc(lev,...)				\
+({							\
 	if (SPA_UNLIKELY(pw_log_level_enabled (lev)))	\
-		pw_log_log(lev,__VA_ARGS__)
+		pw_log_log(lev,__VA_ARGS__);		\
+})
 
 #define pw_log_error(...)   pw_log_logc(SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
 #define pw_log_warn(...)    pw_log_logc(SPA_LOG_LEVEL_WARN,__FILE__,__LINE__,__func__,__VA_ARGS__)

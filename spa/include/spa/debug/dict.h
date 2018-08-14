@@ -1,5 +1,5 @@
 /* Simple Plugin API
- * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
+ * Copyright (C) 2018 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,26 +17,30 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_LIBDEBUG_H__
-#define __SPA_LIBDEBUG_H__
+#ifndef __SPA_DEBUG_DICT_H__
+#define __SPA_DEBUG_DICT_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <spa/node/node.h>
-#include <spa/pod/pod.h>
+#include <spa/utils/dict.h>
 
-void spa_debug_set_type_map(const struct spa_type_map *map);
+#ifndef spa_debug
+#define spa_debug(...)	({ fprintf(stderr, __VA_ARGS__);fputc('\n', stderr); })
+#endif
 
-int spa_debug_port_info(const struct spa_port_info *info);
-int spa_debug_buffer(const struct spa_buffer *buffer);
-#define SPA_DEBUG_FLAG_FORMAT	(1 << 0)
-int spa_debug_pod(const struct spa_pod *pod, uint32_t flags);
-int spa_debug_dump_mem(const void *data, size_t size);
-int spa_debug_dict(const struct spa_dict *dict);
+static inline int spa_debug_dict(int indent, const struct spa_dict *dict)
+{
+	const struct spa_dict_item *item;
+	spa_dict_for_each(item, dict) {
+		spa_debug("%*s%s = \"%s\"", indent, "", item->key, item->value);
+	}
+	return 0;
+}
 
 #ifdef __cplusplus
-} /* extern "C" */
+}  /* extern "C" */
 #endif
-#endif /* __SPA_LIBDEBUG_H__ */
+
+#endif /* __SPA_DEBUG_DICT_H__ */

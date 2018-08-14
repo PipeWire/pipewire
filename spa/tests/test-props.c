@@ -29,8 +29,8 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 #include <spa/param/video/format-utils.h>
-
-#include <lib/debug.h>
+#include <spa/debug/pod.h>
+#include <spa/debug/format.h>
 
 #if 0
 /* { video/raw,
@@ -250,8 +250,8 @@ static void do_static_struct(struct spa_type_map *map)
 		}
 	};
 
-	spa_debug_pod(&test_format.fmt.pod, 0);
-	spa_debug_pod(&test_format.fmt.pod, SPA_DEBUG_FLAG_FORMAT);
+	spa_debug_pod(0, map, &test_format.fmt.pod);
+	spa_debug_format(0, map, &test_format.fmt.pod);
 
 	{
 		uint32_t format = -1;
@@ -283,7 +283,6 @@ int main(int argc, char *argv[])
 	struct spa_type_map *map = &default_map.map;
 
 	type_init(map);
-	spa_debug_set_type_map(map);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -317,7 +316,7 @@ int main(int argc, char *argv[])
 
 	fmt = spa_pod_builder_pop(&b);
 
-	spa_debug_pod(&fmt->pod, 0);
+	spa_debug_pod(0, map, &fmt->pod);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -335,8 +334,8 @@ int main(int argc, char *argv[])
 								2, &SPA_FRACTION(0,1),
 								   &SPA_FRACTION(INT32_MAX,1));
 
-	spa_debug_pod(&fmt->pod, 0);
-	spa_debug_pod(&fmt->pod, SPA_DEBUG_FLAG_FORMAT);
+	spa_debug_pod(0, map, &fmt->pod);
+	spa_debug_format(0, map, &fmt->pod);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -365,8 +364,8 @@ int main(int argc, char *argv[])
 								   &SPA_FRACTION(INT32_MAX,1),
 		">", NULL);
 
-	spa_debug_pod(&fmt->pod, 0);
-	spa_debug_pod(&fmt->pod, SPA_DEBUG_FLAG_FORMAT);
+	spa_debug_pod(0, map, &fmt->pod);
+	spa_debug_format(0, map, &fmt->pod);
 
 	do_static_struct(map);
 

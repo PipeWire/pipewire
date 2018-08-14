@@ -139,7 +139,7 @@ static inline bool pw_map_insert_at(struct pw_map *map, uint32_t id, void *data)
  */
 static inline void pw_map_remove(struct pw_map *map, uint32_t id)
 {
-	pw_map_get_item(map, id)->next = map->free_list;
+	pw_map_get_item(map, id)->next = map->free_list | 1;
 	map->free_list = (id << 1) | 1;
 }
 

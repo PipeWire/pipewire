@@ -557,12 +557,16 @@ clear_port(struct node *this, struct port *port)
 	}
 
 	if (port->direction == SPA_DIRECTION_INPUT) {
-		this->in_ports[port->id] = NULL;
-		this->n_inputs--;
+		if (this->in_ports[port->id] == port) {
+			this->in_ports[port->id] = NULL;
+			this->n_inputs--;
+		}
 	}
 	else {
-		this->out_ports[port->id] = NULL;
-		this->n_outputs--;
+		if (this->out_ports[port->id] == port) {
+			this->out_ports[port->id] = NULL;
+			this->n_outputs--;
+		}
 	}
 }
 

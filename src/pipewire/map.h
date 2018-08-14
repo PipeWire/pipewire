@@ -71,7 +71,7 @@ static inline void pw_map_init(struct pw_map *map, size_t size, size_t extend)
 {
 	pw_array_init(&map->items, extend);
 	pw_array_ensure_size(&map->items, size * sizeof(union pw_map_item));
-	map->free_list = 0;
+	map->free_list = SPA_ID_INVALID;
 }
 
 /** Clear a map
@@ -94,7 +94,7 @@ static inline uint32_t pw_map_insert_new(struct pw_map *map, void *data)
 	union pw_map_item *start, *item;
 	uint32_t id;
 
-	if (map->free_list) {
+	if (map->free_list != SPA_ID_INVALID) {
 		start = (union pw_map_item *) map->items.data;
 		item = &start[map->free_list >> 1];
 		map->free_list = item->next;

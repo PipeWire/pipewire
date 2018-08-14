@@ -559,6 +559,10 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 
 	avail = snd_pcm_status_get_avail(status);
 	snd_pcm_status_get_htstamp(status, &state->now);
+	if (state->now.tv_sec == 0 && state->now.tv_nsec == 0) {
+		spa_log_warn(state->log, "0 from snd_pcm_status_get_htstamp %ld", avail);
+		clock_gettime(CLOCK_MONOTONIC, &state->now);
+	}
 
 	if (avail > state->buffer_frames)
 		avail = state->buffer_frames;

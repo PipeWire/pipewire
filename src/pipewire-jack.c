@@ -694,8 +694,8 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 				c->bufsize_callback(c->buffer_size, c->bufsize_arg);
 		}
 
-		if (c->quantum->rate.denom != 0)
-			sample_rate = c->quantum->rate.num / c->quantum->rate.denom;
+		if (c->quantum->rate.num != 0 && c->quantum->rate.denom != 0)
+			sample_rate = c->quantum->rate.denom / c->quantum->rate.num;
 		else
 			sample_rate = c->sample_rate;
 

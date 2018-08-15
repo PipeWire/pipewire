@@ -385,6 +385,7 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	spa_list_append(&c->context.ports, &o->link);
 
 	p->valid = true;
+	p->zeroed = false;
 	p->client = c;
 	p->object = o;
 	spa_list_init(&p->mix);
@@ -1065,17 +1066,19 @@ static void client_node_port_set_param(void *object,
 	pw_client_node_proxy_done(c->node_proxy, seq, 0);
 }
 
-static void init_buffer(struct port *p, struct buffer *b)
+static void init_buffer(struct port *p, void *data, size_t maxsize)
 {
 	if (p->object->port.type_id == 1) {
-		struct midi_buffer *mb = b->datas[0].data;
+		struct midi_buffer *mb = data;
 		mb->magic = MIDI_BUFFER_MAGIC;
-		mb->buffer_size = b->datas[0].maxsize;
-		mb->nframes = b->datas[0].maxsize / sizeof(float);
+		mb->buffer_size = maxsize;
+		mb->nframes = maxsize / sizeof(float);
 		mb->write_pos = 0;
 		mb->event_count = 0;
 		mb->lost_events = 0;
 	}
+	else
+		memset(data, 0, maxsize);
 }
 
 static void client_node_port_use_buffers(void *object,
@@ -1194,7 +1197,7 @@ static void client_node_port_use_buffers(void *object,
 
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		if (direction == SPA_DIRECTION_OUTPUT) {
-			init_buffer(p, b);
+			init_buffer(p, b->datas[0].data, b->datas[0].maxsize);
 			reuse_buffer(c, mix, b->id);
 		}
 
@@ -2176,7 +2179,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	if (ptr == NULL) {
 		ptr = p->empty;
 		if (!p->zeroed) {
-			memset(ptr, 0, sizeof(p->empty));
+			init_buffer(p, ptr, sizeof(p->empty));
 			p->zeroed = true;
 		}
 	}

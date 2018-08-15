@@ -24,15 +24,17 @@
 #include <spa/pod/parser.h>
 #include <spa/pod/compare.h>
 #include <spa/param/param.h>
-#include <spa/debug/node.h>
-#include <spa/debug/pod.h>
-#include <spa/debug/format.h>
 
 #include "private.h"
 #include "pipewire.h"
 #include "interfaces.h"
 #include "link.h"
 #include "work-queue.h"
+
+#undef spa_debug
+#include <spa/debug/node.h>
+#include <spa/debug/pod.h>
+#include <spa/debug/format.h>
 
 #define MAX_BUFFERS     16
 

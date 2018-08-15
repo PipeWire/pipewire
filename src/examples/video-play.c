@@ -140,7 +140,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 				    enum pw_stream_state state, const char *error)
 {
 	struct data *data = _data;
-	printf("stream state: \"%s\"\n", pw_stream_state_as_string(state));
+	fprintf(stderr, "stream state: \"%s\"\n", pw_stream_state_as_string(state));
 	switch (state) {
 	case PW_STREAM_STATE_UNCONNECTED:
 		pw_main_loop_quit(data->loop);
@@ -240,6 +240,9 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		return;
 	}
 
+	fprintf(stderr, "got format:\n");
+	spa_debug_format(2, data->t->map, format);
+
 	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
 
 	sdl_format = id_to_sdl_format(data, data->format.format);
@@ -321,7 +324,7 @@ static int build_format(struct data *data, struct spa_pod_builder *b, const stru
 		NULL);
 	params[0] = spa_pod_builder_pop(b);
 
-	printf("supported formats:\n");
+	fprintf(stderr, "supported formats:\n");
 	spa_debug_format(2, data->t->map, params[0]);
 
 	return 0;
@@ -357,13 +360,13 @@ int main(int argc, char *argv[])
 	init_type(&data.type, data.t->map);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-		printf("can't initialize SDL: %s\n", SDL_GetError());
+		fprintf(stderr, "can't initialize SDL: %s\n", SDL_GetError());
 		return -1;
 	}
 
 	if (SDL_CreateWindowAndRenderer
 	    (WIDTH, HEIGHT, SDL_WINDOW_RESIZABLE, &data.window, &data.renderer)) {
-		printf("can't create window: %s\n", SDL_GetError());
+		fprintf(stderr, "can't create window: %s\n", SDL_GetError());
 		return -1;
 	}
 

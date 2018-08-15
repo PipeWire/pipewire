@@ -242,7 +242,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
         ":", t->param_buffers.size, "ir", size, PROP_RANGE(size, INT32_MAX), NULL);
 
   spa_pod_builder_add (&b,
-      ":", t->param_buffers.stride,  "ir", 0, PROP_RANGE(0, INT32_MAX),
+      ":", t->param_buffers.stride,  "iru", 0, PROP_RANGE(0, INT32_MAX),
       ":", t->param_buffers.buffers, "iru", min_buffers,
 						PROP_RANGE(min_buffers,
 							       max_buffers ? max_buffers : INT32_MAX),
@@ -530,6 +530,8 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
     if (pwsink->mode != GST_PIPEWIRE_SINK_MODE_PROVIDE)
       flags |= PW_STREAM_FLAG_AUTOCONNECT;
+    else
+      flags |= PW_STREAM_FLAG_DRIVER;
 
     pw_stream_connect (pwsink->stream,
                           PW_DIRECTION_OUTPUT,
@@ -605,7 +607,7 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   GST_DEBUG ("push buffer in queue");
   g_queue_push_tail (&pwsink->queue, buffer);
 
-  if (pwsink->need_ready && pwsink->mode == GST_PIPEWIRE_SINK_MODE_PROVIDE)
+  if (pwsink->mode == GST_PIPEWIRE_SINK_MODE_PROVIDE)
     do_send_buffer (pwsink);
 
 done:

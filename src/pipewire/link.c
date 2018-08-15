@@ -31,6 +31,7 @@
 #include "link.h"
 #include "work-queue.h"
 
+#undef spa_debug
 #include <spa/debug/node.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>

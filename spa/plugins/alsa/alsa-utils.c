@@ -571,7 +571,7 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 
 	if (state->clock) {
 		state->clock->nsec = SPA_TIMESPEC_TO_TIME(&state->now);
-		state->clock->rate = SPA_FRACTION(state->rate, 1);
+		state->clock->rate = SPA_FRACTION(1, state->rate);
 		state->clock->position = state->sample_count;
 		state->clock->delay = state->filled;
 	}
@@ -643,7 +643,7 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 
 	if (state->clock) {
 		state->clock->nsec = SPA_TIMESPEC_TO_TIME(&state->now);
-		state->clock->rate = SPA_FRACTION(state->rate, 1);
+		state->clock->rate = SPA_FRACTION(1, state->rate);
 		state->clock->position = state->sample_count;
 		state->clock->delay = avail;
 	}

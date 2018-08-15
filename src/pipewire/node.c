@@ -644,8 +644,9 @@ static void node_process(void *data, int status)
 			}
 			impl->next_position += q->size;
 
-			pw_log_trace("node %p: run %"PRIu64" %"PRIu64" %"PRIi64" %d", node,
-					q->nsec, q->position, q->delay, q->size);
+			pw_log_trace("node %p: run %"PRIu64" %d/%d %"PRIu64" %"PRIi64" %d", node,
+					q->nsec, q->rate.num, q->rate.denom,
+					q->position, q->delay, q->size);
 
 			spa_graph_run(node->rt.driver);
 		}

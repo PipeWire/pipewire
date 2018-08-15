@@ -342,8 +342,7 @@ static void reconfigure_session(struct session *sess)
 
 	sess->quantum_size = quantum_size;
 
-	sess->node->rt.quantum->rate.num = 1;
-	sess->node->rt.quantum->rate.denom = sess->sample_rate;
+	sess->node->rt.quantum->rate = SPA_FRACTION(1, sess->sample_rate);
 	sess->node->rt.quantum->size = sess->quantum_size;
 
 	pw_log_info("module %p: driver node:%p quantum:%d/%d",

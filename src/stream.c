@@ -341,9 +341,9 @@ static void update_timing_info(pa_stream *s)
 	pw_stream_get_time(s->stream, &pwt);
 	s->timing_info_valid = false;
 	s->queued = pwt.queued;
-	pw_log_debug("stream %p: %"PRIu64, s, s->queued);
+	pw_log_trace("stream %p: %"PRIu64, s, s->queued);
 
-	if (pwt.rate.num == 0)
+	if (pwt.rate.denom == 0)
 		return;
 
 	pa_timeval_store(&ti->timestamp, pwt.now / SPA_NSEC_PER_USEC);
@@ -353,16 +353,16 @@ static void update_timing_info(pa_stream *s)
 	ti->write_index_corrupt = false;
 	ti->read_index_corrupt = false;
 
-	delay = pwt.delay * SPA_USEC_PER_SEC / pwt.rate.num;
+	delay = pwt.delay * SPA_USEC_PER_SEC / pwt.rate.denom;
 	if (s->direction == PA_STREAM_PLAYBACK) {
 		ti->sink_usec = delay;
-		ti->write_index = pwt.queued + (pwt.ticks * s->sample_spec.rate / pwt.rate.num) * stride;
-		ti->read_index = ((pwt.ticks - pwt.delay) * s->sample_spec.rate / pwt.rate.num) * stride;
+		ti->write_index = pwt.queued + (pwt.ticks * s->sample_spec.rate / pwt.rate.denom) * stride;
+		ti->read_index = ((pwt.ticks - pwt.delay) * s->sample_spec.rate / pwt.rate.denom) * stride;
 	}
 	else {
 		ti->source_usec = delay;
-		ti->read_index = pwt.queued + (pwt.ticks * s->sample_spec.rate / pwt.rate.num) * stride;
-		ti->write_index = ((pwt.ticks + pwt.delay) * s->sample_spec.rate / pwt.rate.num) * stride;
+		ti->read_index = pwt.queued + (pwt.ticks * s->sample_spec.rate / pwt.rate.denom) * stride;
+		ti->write_index = ((pwt.ticks + pwt.delay) * s->sample_spec.rate / pwt.rate.denom) * stride;
 	}
 
 	ti->configured_sink_usec = 0;

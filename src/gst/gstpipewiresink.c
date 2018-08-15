@@ -214,8 +214,6 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
       "PipeWire Sink");
 }
 
-#define PROP_RANGE(min,max)	2,min,max
-
 static void
 pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 {
@@ -236,16 +234,16 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   spa_pod_builder_push_object (&b, t->param.idBuffers, t->param_buffers.Buffers);
   if (size == 0)
     spa_pod_builder_add (&b,
-        ":", t->param_buffers.size, "iru", 0, PROP_RANGE(0, INT32_MAX), NULL);
+        ":", t->param_buffers.size, "iru", 0, SPA_POD_PROP_MIN_MAX(0, INT32_MAX), NULL);
   else
     spa_pod_builder_add (&b,
-        ":", t->param_buffers.size, "ir", size, PROP_RANGE(size, INT32_MAX), NULL);
+        ":", t->param_buffers.size, "iru", size, SPA_POD_PROP_MIN_MAX(size, INT32_MAX), NULL);
 
   spa_pod_builder_add (&b,
-      ":", t->param_buffers.stride,  "iru", 0, PROP_RANGE(0, INT32_MAX),
+      ":", t->param_buffers.stride,  "iru", 0, SPA_POD_PROP_MIN_MAX(0, INT32_MAX),
       ":", t->param_buffers.buffers, "iru", min_buffers,
-						PROP_RANGE(min_buffers,
-							       max_buffers ? max_buffers : INT32_MAX),
+				SPA_POD_PROP_MIN_MAX(min_buffers,
+					       max_buffers ? max_buffers : INT32_MAX),
       ":", t->param_buffers.align,   "i", 16,
       NULL);
   port_params[0] = spa_pod_builder_pop (&b);

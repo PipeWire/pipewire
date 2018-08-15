@@ -38,7 +38,6 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/node/io.h>
-#include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
 
@@ -716,7 +715,6 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
         pw->core = pw_core_new(pw->loop, NULL);
         pw->t = pw_core_get_type(pw->core);
         init_type(&pw->type, pw->t->map);
-        spa_debug_set_type_map(pw->t->map);
 
 	pw->remote = pw_remote_new(pw->core, NULL, 0);
 	pw_remote_add_listener(pw->remote, &pw->remote_listener, &remote_events, pw);

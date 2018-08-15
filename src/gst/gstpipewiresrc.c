@@ -767,25 +767,6 @@ gst_pipewire_src_event (GstBaseSrc * src, GstEvent * event)
         gst_video_event_parse_upstream_force_key_unit (event,
                 &running_time, &all_headers, &count);
 
-#if 0
-        pw_buffer_builder_init (&b);
-
-        refresh.last_id = 0;
-        refresh.request_type = all_headers ? 1 : 0;
-        refresh.pts = running_time;
-        pw_buffer_builder_add_refresh_request (&b, &refresh);
-
-        pw_buffer_builder_end (&b, &pbuf);
-
-        GST_OBJECT_LOCK (pwsrc);
-        if (pwsrc->stream_state == PW_STREAM_STATE_STREAMING) {
-          GST_DEBUG_OBJECT (pwsrc, "send refresh request");
-          pw_stream_send_buffer (pwsrc->stream, &pbuf);
-        }
-        GST_OBJECT_UNLOCK (pwsrc);
-
-        pw_buffer_unref (&pbuf);
-#endif
         res = TRUE;
       } else {
         res = GST_BASE_SRC_CLASS (parent_class)->event (src, event);
@@ -1063,12 +1044,6 @@ gst_pipewire_src_close (GstPipeWireSrc * pwsrc)
 
   pw_thread_loop_stop (pwsrc->main_loop);
 
-  pw_stream_destroy (pwsrc->stream);
-  pwsrc->stream = NULL;
-
-  pw_remote_destroy (pwsrc->remote);
-  pwsrc->remote = NULL;
-
   pwsrc->last_time = gst_clock_get_time (pwsrc->clock);
 
   gst_element_post_message (GST_ELEMENT (pwsrc),
@@ -1078,6 +1053,12 @@ gst_pipewire_src_close (GstPipeWireSrc * pwsrc)
   GST_PIPEWIRE_CLOCK (pwsrc->clock)->stream = NULL;
   g_clear_object (&pwsrc->clock);
   GST_OBJECT_UNLOCK (pwsrc);
+
+  pw_stream_destroy (pwsrc->stream);
+  pwsrc->stream = NULL;
+
+  pw_remote_destroy (pwsrc->remote);
+  pwsrc->remote = NULL;
 }
 
 static GstStateChangeReturn

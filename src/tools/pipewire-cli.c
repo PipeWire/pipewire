@@ -259,13 +259,13 @@ static void on_sync_reply(void *_data, uint32_t seq)
 	}
 }
 
-static void print_global(void *obj, void *data)
+static int print_global(void *obj, void *data)
 {
 	struct global *global = obj;
 	struct pw_type *t;
 
 	if (global == NULL)
-		return;
+		return 0;
 
 	t = global->rd->data->t;
 
@@ -275,6 +275,7 @@ static void print_global(void *obj, void *data)
 	if (global->properties)
 		print_properties(&global->properties->dict, ' ', false);
 
+	return 0;
 }
 
 static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
@@ -303,17 +304,18 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	pw_map_insert_at(&rd->globals, id, global);
 }
 
-static void destroy_global(void *obj, void *data)
+static int destroy_global(void *obj, void *data)
 {
 	struct global *global = obj;
 
 	if (global == NULL)
-		return;
+		return 0;
 
 	pw_map_remove(&global->rd->globals, global->id);
 	if (global->properties)
 		pw_properties_free(global->properties);
 	free(global);
+	return 0;
 }
 
 static void registry_event_global_remove(void *data, uint32_t id)
@@ -902,18 +904,19 @@ static bool do_global_info(struct global *global, char **error)
 	}
 	return true;
 }
-static void do_global_info_all(void *obj, void *data)
+static int do_global_info_all(void *obj, void *data)
 {
 	struct global *global = obj;
 	char *error;
 
 	if (global == NULL)
-		return;
+		return 0;
 
 	if (!do_global_info(global, &error)) {
 		fprintf(stderr, "info: %s\n", error);
 		free(error);
 	}
+	return 0;
 }
 
 static bool do_info(struct data *data, const char *cmd, char *args, char **error)

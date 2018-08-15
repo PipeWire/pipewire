@@ -161,18 +161,25 @@ static inline void *pw_map_lookup(struct pw_map *map, uint32_t id)
 
 /** Iterate all map items
  * \param map the map to iterate
- * \param func the function to call for each item
+ * \param func the function to call for each item, the item data and \a data is
+ *		passed to the function. When \a func returns a non-zero result,
+ *		iteration ends and the result is returned.
  * \param data data to pass to \a func
+ * \return the result of the last call to \a func or 0 when all callbacks returned 0.
  * \memberof pw_map
  */
-static inline void pw_map_for_each(struct pw_map *map, void (*func) (void *, void *), void *data)
+static inline int pw_map_for_each(struct pw_map *map,
+				   int (*func) (void *item_data, void *data), void *data)
 {
 	union pw_map_item *item;
+	int res = 0;
 
 	pw_array_for_each(item, &map->items) {
 		if (!pw_map_item_is_free(item))
-			func(item->data, data);
+			if ((res = func(item->data, data)) != 0)
+				break;
 	}
+	return res;
 }
 
 #ifdef __cplusplus

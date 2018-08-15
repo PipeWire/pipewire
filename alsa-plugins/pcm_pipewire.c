@@ -564,12 +564,6 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 
 static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 {
-	/* period and buffer bytes must be power of two */
-	static const unsigned int bytes_list[] = {
-		1U<<5, 1U<<6, 1U<<7, 1U<<8, 1U<<9, 1U<<10, 1U<<11, 1U<<12,
-		1U<<13,
-		1U<<14, 1U<<15, 1U<<16, 1U<<17,1U<<18, 1U<<19, 1U<<20
-	};
 	unsigned int access_list[] = {
 		SND_PCM_ACCESS_MMAP_INTERLEAVED,
 		SND_PCM_ACCESS_MMAP_NONINTERLEAVED,
@@ -600,10 +594,6 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 						   1, MAX_CHANNELS)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_RATE,
 						   1, MAX_RATE)) < 0 ||
-	    (err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_BUFFER_BYTES,
-						SPA_N_ELEMENTS(bytes_list), bytes_list)) < 0 ||
-	    (err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_PERIOD_BYTES,
-						SPA_N_ELEMENTS(bytes_list), bytes_list)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIODS,
 						   2, 64)) < 0)
 		return err;

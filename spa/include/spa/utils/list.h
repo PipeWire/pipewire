@@ -84,7 +84,7 @@ static inline void spa_list_remove(struct spa_list *elem)
 	     pos = spa_list_next(pos, member))
 
 #define spa_list_for_each(pos, head, member)				\
-	spa_list_for_each_next(pos, head, head, member)			\
+	spa_list_for_each_next(pos, head, head, member)
 
 #define spa_list_for_each_safe_next(pos, tmp, head, curr, member)	\
 	for (pos = spa_list_first(curr, __typeof__(*pos), member),	\
@@ -94,7 +94,20 @@ static inline void spa_list_remove(struct spa_list *elem)
 	     tmp = spa_list_next(pos, member))
 
 #define spa_list_for_each_safe(pos, tmp, head, member)			\
-	spa_list_for_each_safe_next(pos, tmp, head, head, member)	\
+	spa_list_for_each_safe_next(pos, tmp, head, head, member)
+
+#define spa_list_cursor_start(cursor, head, member)                     \
+        spa_list_prepend(head, &(cursor).member)
+
+#define spa_list_for_each_cursor(pos, cursor, head, member)             \
+        for(pos = spa_list_first(&(cursor).member, __typeof__(*(pos)), member); \
+            spa_list_remove(&(pos)->member),                            \
+            spa_list_append(&(cursor).member, &(pos)->member),          \
+            !spa_list_is_end(pos, head, member);                        \
+            pos = spa_list_next(&cursor, member))
+
+#define spa_list_cursor_end(cursor, member)                             \
+        spa_list_remove(&(cursor).member)
 
 #ifdef __cplusplus
 }  /* extern "C" */

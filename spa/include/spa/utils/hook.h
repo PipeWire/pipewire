@@ -89,16 +89,11 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 ({										\
 	struct spa_hook_list *list = l;						\
 	struct spa_list *s = start ? (struct spa_list *)start : &list->list;	\
-	struct spa_hook cursor = { 0, };					\
-	struct spa_hook *ci;							\
+	struct spa_hook cursor = { 0 }, *ci;					\
 	int count = 0;								\
-	spa_list_prepend(s, &cursor.link);					\
-	for(ci = spa_list_first(&cursor.link, struct spa_hook, link);		\
-	    &ci->link != s;							\
-	    ci = spa_list_next(&cursor, link)) {				\
+	spa_list_cursor_start(cursor, s, link);					\
+	spa_list_for_each_cursor(ci, cursor, &list->list, link) {		\
 		const type *cb = ci->funcs;					\
-		spa_list_remove(&ci->link);					\
-		spa_list_append(&cursor.link, &ci->link);			\
 		if (cb && cb->version >= vers && cb->method) {			\
 			cb->method(ci->data, ## __VA_ARGS__);			\
 			count++;						\
@@ -106,7 +101,7 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 				break;						\
 		}								\
 	}									\
-	spa_list_remove(&cursor.link);						\
+	spa_list_cursor_end(cursor, link);					\
 	count;									\
 })
 

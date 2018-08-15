@@ -54,7 +54,9 @@ gst_pipewire_clock_get_internal_time (GstClock * clock)
       t.rate.denom == 0)
     return pclock->last_time;
 
-  result = gst_util_uint64_scale_int (t.ticks, GST_SECOND * t.rate.num, t.rate.denom);
+  GST_DEBUG ("%"PRId64", %d/%d", t.ticks, t.rate.num, t.rate.denom);
+
+  result = gst_util_uint64_scale_int (t.ticks * GST_SECOND, t.rate.num, t.rate.denom);
 
   GST_DEBUG ("%"PRId64", %d/%d %"PRId64, t.ticks, t.rate.num, t.rate.denom, result);
 

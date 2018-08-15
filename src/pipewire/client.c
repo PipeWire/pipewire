@@ -279,10 +279,11 @@ void *pw_client_get_user_data(struct pw_client *client)
 	return client->user_data;
 }
 
-static void destroy_resource(void *object, void *data)
+static int destroy_resource(void *object, void *data)
 {
 	if (object)
 		pw_resource_destroy(object);
+	return 0;
 }
 
 /** Destroy a client object

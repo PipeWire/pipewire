@@ -138,7 +138,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 				    enum pw_stream_state state, const char *error)
 {
 	struct data *data = _data;
-	printf("stream state: \"%s\"\n", pw_stream_state_as_string(state));
+	fprintf(stderr, "stream state: \"%s\"\n", pw_stream_state_as_string(state));
 	switch (state) {
 	case PW_STREAM_STATE_CONFIGURE:
 		pw_stream_set_active(data->stream, true);
@@ -235,6 +235,9 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		return;
 	}
 
+	fprintf(stderr, "got format:\n");
+	spa_debug_format(2, data->t->map, format);
+
 	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
 
 	sdl_format = id_to_sdl_format(data, data->format.format);
@@ -281,7 +284,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
-		printf("remote error: %s\n", error);
+		fprintf(stderr, "remote error: %s\n", error);
 		pw_main_loop_quit(data->loop);
 		break;
 
@@ -293,7 +296,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		SDL_RendererInfo info;
 		uint32_t i, c;
 
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
+		fprintf(stderr, "remote state: \"%s\"\n", pw_remote_state_as_string(state));
 
 		data->stream = pw_stream_new(remote,
 				"video-play",
@@ -342,7 +345,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 			NULL);
 		params[0] = spa_pod_builder_pop(&b);
 
-		printf("supported formats:\n");
+		fprintf(stderr, "supported formats:\n");
 		spa_debug_format(2, data->t->map, params[0]);
 
 		pw_stream_add_listener(data->stream,
@@ -360,7 +363,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		break;
 	}
 	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
+		fprintf(stderr, "remote state: \"%s\"\n", pw_remote_state_as_string(state));
 		break;
 	}
 }
@@ -376,7 +379,7 @@ static void connect_state_changed(void *_data, enum pw_remote_state old,
 {
 	struct data *data = _data;
 
-	printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
+	fprintf(stderr, "remote state: \"%s\"\n", pw_remote_state_as_string(state));
 
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
@@ -427,13 +430,13 @@ int main(int argc, char *argv[])
 	init_type(&data.type, data.t->map);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-		printf("can't initialize SDL: %s\n", SDL_GetError());
+		fprintf(stderr, "can't initialize SDL: %s\n", SDL_GetError());
 		return -1;
 	}
 
 	if (SDL_CreateWindowAndRenderer
 	    (WIDTH, HEIGHT, SDL_WINDOW_RESIZABLE, &data.window, &data.renderer)) {
-		printf("can't create window: %s\n", SDL_GetError());
+		fprintf(stderr, "can't create window: %s\n", SDL_GetError());
 		return -1;
 	}
 

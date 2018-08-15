@@ -114,9 +114,7 @@ struct stream {
 	struct buffer buffers[MAX_BUFFERS];
 	int n_buffers;
 
-	int64_t last_ticks;
-	int32_t last_rate;
-	int64_t last_monotonic;
+	struct pw_time last_time;
 };
 /** \endcond */
 
@@ -468,10 +466,6 @@ do_remove_sources(struct spa_loop *loop,
 		pw_loop_destroy_source(stream->remote->core->data_loop, impl->rtsocket_source);
 		impl->rtsocket_source = NULL;
 	}
-	if (impl->timeout_source) {
-		pw_loop_destroy_source(stream->remote->core->data_loop, impl->timeout_source);
-		impl->timeout_source = NULL;
-	}
 	if (impl->rtwritefd != -1) {
 		close(impl->rtwritefd);
 		impl->rtwritefd = -1;
@@ -483,6 +477,10 @@ static void unhandle_socket(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
+	if (impl->timeout_source) {
+		pw_loop_destroy_source(stream->remote->core->main_loop, impl->timeout_source);
+		impl->timeout_source = NULL;
+	}
         pw_loop_invoke(stream->remote->core->data_loop,
                        do_remove_sources, 1, NULL, 0, true, impl);
 }
@@ -668,7 +666,6 @@ static void do_node_init(struct pw_stream *stream)
 		pw_client_node_proxy_set_active(impl->node_proxy, true);
 }
 
-#if 0
 static void add_request_clock_update(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -686,7 +683,6 @@ static void on_timeout(void *data, uint64_t expirations)
 	struct pw_stream *stream = data;
 	add_request_clock_update(stream);
 }
-#endif
 
 static inline void reuse_buffer(struct pw_stream *stream, uint32_t id)
 {
@@ -847,6 +843,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 static void handle_socket(struct pw_stream *stream, int rtreadfd, int rtwritefd)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	struct timespec interval;
 
 	impl->rtwritefd = rtwritefd;
 	impl->rtsocket_source = pw_loop_add_io(stream->remote->core->data_loop,
@@ -854,13 +851,10 @@ static void handle_socket(struct pw_stream *stream, int rtreadfd, int rtwritefd)
 					       SPA_IO_ERR | SPA_IO_HUP,
 					       true, on_rtsocket_condition, stream);
 
-#if 0
-	struct timespec interval;
 	impl->timeout_source = pw_loop_add_timer(stream->remote->core->main_loop, on_timeout, stream);
 	interval.tv_sec = 0;
 	interval.tv_nsec = 100000000;
 	pw_loop_update_timer(stream->remote->core->main_loop, impl->timeout_source, NULL, &interval, false);
-#endif
 
 	return;
 }
@@ -925,11 +919,13 @@ static void client_node_command(void *data, uint32_t seq, const struct spa_comma
 					   PW_STREAM_PROP_LATENCY_MIN, "%" PRId64,
 					   cu->body.latency.value);
 		}
-		impl->last_ticks = cu->body.ticks.value;
-		impl->last_rate = cu->body.rate.value;
-		impl->last_monotonic = cu->body.monotonic_time.value;
-		pw_log_debug("clock update %ld %d %ld", impl->last_ticks,
-				impl->last_rate, impl->last_monotonic);
+		impl->last_time.now = cu->body.monotonic_time.value;
+		impl->last_time.ticks = cu->body.ticks.value;
+		impl->last_time.rate.num = 1;
+		impl->last_time.rate.denom = cu->body.rate.value;
+		impl->last_time.delay = 0;
+		pw_log_debug("clock update %ld %d %ld", impl->last_time.ticks,
+				impl->last_time.rate.denom, impl->last_time.now);
 	} else {
 		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
 		add_async_complete(stream, seq, -ENOTSUP);
@@ -1366,20 +1362,11 @@ static inline int64_t get_queue_size(struct queue *queue)
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	int64_t elapsed;
-	struct timespec ts;
 
-	if (impl->last_rate == 0)
+	if (impl->last_time.rate.denom == 0)
 		return -EAGAIN;
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	time->now = SPA_TIMESPEC_TO_TIME(&ts);
-	elapsed = (time->now - impl->last_monotonic) / 1000;
-
-	time->ticks = impl->last_ticks + (elapsed * impl->last_rate) / SPA_USEC_PER_SEC;
-	time->rate.num = impl->last_rate;
-	time->rate.denom = 1;
-	time->delay = 0;
+	*time = impl->last_time;
 	if (impl->direction == SPA_DIRECTION_INPUT)
 		time->queued = get_queue_size(&impl->dequeue);
 	else

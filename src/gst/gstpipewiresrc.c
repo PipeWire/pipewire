@@ -1065,12 +1065,6 @@ gst_pipewire_src_close (GstPipeWireSrc * pwsrc)
 
   pw_thread_loop_stop (pwsrc->main_loop);
 
-  pw_stream_destroy (pwsrc->stream);
-  pwsrc->stream = NULL;
-
-  pw_remote_destroy (pwsrc->remote);
-  pwsrc->remote = NULL;
-
   pwsrc->last_time = gst_clock_get_time (pwsrc->clock);
 
   gst_element_post_message (GST_ELEMENT (pwsrc),
@@ -1080,6 +1074,13 @@ gst_pipewire_src_close (GstPipeWireSrc * pwsrc)
   GST_PIPEWIRE_CLOCK (pwsrc->clock)->stream = NULL;
   g_clear_object (&pwsrc->clock);
   GST_OBJECT_UNLOCK (pwsrc);
+
+  pw_stream_destroy (pwsrc->stream);
+  pwsrc->stream = NULL;
+
+  pw_remote_destroy (pwsrc->remote);
+  pwsrc->remote = NULL;
+
 }
 
 static GstStateChangeReturn

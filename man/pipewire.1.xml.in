@@ -22,7 +22,7 @@ License along with PipeWire; if not, see <http://www.gnu.org/licenses/>.
 <manpage name="pipewire" section="1" desc="The PipeWire media server">
 
   <synopsis>
-    <cmd>pipewire</cmd>
+    <cmd>pipewire [<arg>options</arg>]</cmd>
   </synopsis>
 
   <description>
@@ -39,9 +39,15 @@ License along with PipeWire; if not, see <http://www.gnu.org/licenses/>.
     </option>
 
     <option>
-      <p><opt>--version</opt></p>
+      <p><opt>-v | --version</opt></p>
 
       <optdesc><p>Show version information.</p></optdesc>
+    </option>
+
+    <option>
+      <p><opt>-n | --name</opt></p>
+
+      <optdesc><p>Set the daemon name (Default pipewire-1).</p></optdesc>
     </option>
 
   </options>

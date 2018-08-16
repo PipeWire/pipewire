@@ -26,8 +26,6 @@
 #include <spa/support/log.h>
 #include <spa/pod/iter.h>
 
-#include <lib/debug.h>
-
 #if 0
 /*
   ( "Format",

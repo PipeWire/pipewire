@@ -25,8 +25,6 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
-#include <spa/lib/debug.h>
-
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
 

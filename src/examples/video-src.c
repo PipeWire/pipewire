@@ -26,7 +26,6 @@
 #include <spa/param/format-utils.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
-#include <spa/lib/debug.h>
 
 #include <pipewire/pipewire.h>
 

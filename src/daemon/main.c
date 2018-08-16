@@ -18,17 +18,31 @@
  */
 
 #include <signal.h>
+#include <getopt.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/core.h>
 #include <pipewire/module.h>
 
+#include "config.h"
 #include "daemon-config.h"
+
+static const char *daemon_name = "pipewire-0";
 
 static void do_quit(void *data, int signal_number)
 {
 	struct pw_main_loop *loop = data;
 	pw_main_loop_quit(loop);
+}
+
+static void show_help(const char *name)
+{
+	fprintf(stdout, "%s [options]\n"
+             "  -h, --help                            Show this help\n"
+             "  -v, --version                         Show version\n"
+             "  -n, --name                            Daemon name (Default %s)\n",
+	     name,
+	     daemon_name);
 }
 
 int main(int argc, char *argv[])
@@ -38,8 +52,37 @@ int main(int argc, char *argv[])
 	struct pw_daemon_config *config;
 	char *err = NULL;
 	struct pw_properties *props;
+	static const struct option long_options[] = {
+		{"help",	0, NULL, 'h'},
+		{"version",	0, NULL, 'v'},
+		{"name",	1, NULL, 'n'},
+		{NULL,		0, NULL, 0}
+	};
+	char c;
 
 	pw_init(&argc, &argv);
+
+	while ((c = getopt_long(argc, argv, "hvn:", long_options, NULL)) != -1) {
+		switch (c) {
+		case 'h' :
+			show_help(argv[0]);
+			return 0;
+		case 'v' :
+			fprintf(stdout, "%s\n"
+				"Compiled with libpipewire %s\n"
+				"Linked with libpipewire %s\n",
+				argv[0],
+				pw_get_headers_version(),
+				pw_get_library_version());
+			return 0;
+		case 'n' :
+			daemon_name = optarg;
+			fprintf(stdout, "set name %s\n", daemon_name);
+			break;
+		default:
+			return -1;
+		}
+	}
 
 	/* parse configuration */
 	config = pw_daemon_config_new();
@@ -49,7 +92,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	props = pw_properties_new(PW_CORE_PROP_NAME, "pipewire-0",
+	props = pw_properties_new(PW_CORE_PROP_NAME, daemon_name,
 				  PW_CORE_PROP_DAEMON, "1", NULL);
 
 	loop = pw_main_loop_new(props);

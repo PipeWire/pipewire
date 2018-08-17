@@ -152,16 +152,6 @@ static const struct pw_global_events global_events = {
 	.bind = global_bind,
 };
 
-struct pw_module * pw_core_find_module(struct pw_core *core, const char *filename)
-{
-	struct pw_module *module;
-	spa_list_for_each(module, &core->module_list, link) {
-                if (strcmp(module->info.filename, filename) == 0)
-                        return module;
-        }
-	return NULL;
-}
-
 /** Load a module
  *
  * \param core a \ref pw_core

@@ -135,7 +135,7 @@ const char *pw_remote_state_as_string(enum pw_remote_state state)
 	return "invalid-state";
 }
 
-int
+static int
 pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, const char *fmt, ...)
 {
 	enum pw_remote_state old = remote->state;

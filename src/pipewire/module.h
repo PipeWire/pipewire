@@ -91,10 +91,6 @@ void pw_module_add_listener(struct pw_module *module,
 /** Destroy a module */
 void pw_module_destroy(struct pw_module *module);
 
-/** Find a module by filename */
-struct pw_module *
-pw_core_find_module(struct pw_core *core, const char *filename);
-
 #ifdef __cplusplus
 }
 #endif

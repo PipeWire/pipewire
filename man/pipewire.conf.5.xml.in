@@ -1,0 +1,68 @@
+<?xml version="1.0"?><!--*-nxml-*-->
+<!DOCTYPE manpage SYSTEM "xmltoman.dtd">
+<?xml-stylesheet type="text/xsl" href="xmltoman.xsl" ?>
+
+<!--
+This file is part of PipeWire.
+
+PipeWire is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as
+published by the Free Software Foundation; either version 2.1 of the
+License, or (at your option) any later version.
+
+PipeWire is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General
+Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with PipeWire; if not, see <http://www.gnu.org/licenses/>.
+-->
+
+<manpage name="pipewire.conf" section="5" desc="The PipeWire server configuration file">
+
+  <synopsis>
+    <p><file>@PIPEWIRE_CONFIG_DIR@/pipewire.conf</file></p>
+  </synopsis>
+
+  <description>
+    <p>PipeWire is a service that allows access to multimedia devices
+    and allows media sharing between applications. </p>
+
+    <p>On startup, the daemon reads a configuration file to configure
+    itself. It executes a series of commands listed in the config
+    file.</p>
+
+    <p>The config file in the default location is used but the
+    environment variable PIPEWIRE_CONFIG_FILE can be used to specify
+    an alternative config file.</p>
+  </description>
+
+  <section name="General Commands">
+
+    <option>
+      <p><opt>help</opt></p>
+      <optdesc><p>Show a quick help on the commands available.</p></optdesc>
+    </option>
+  </section>
+
+  <section name="Module Management">
+    <option>
+      <p><opt>load-module</opt> <arg>name</arg> [<arg>arguments...</arg>]</p>
+      <optdesc><p>Load a module specified by its name and arguments. For most
+      modules it is OK to be loaded more than once.</p></optdesc>
+    </option>
+  </section>
+
+  <section name="Authors">
+    <p>The PipeWire Developers &lt;@PACKAGE_BUGREPORT@&gt;; PipeWire is available from <url href="@PACKAGE_URL@"/></p>
+  </section>
+
+  <section name="See also">
+    <p>
+      <manref name="pipewire" section="1"/>,
+      <manref name="pipewire-monitor" section="1"/>,
+    </p>
+  </section>
+
+</manpage>

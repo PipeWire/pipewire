@@ -29,7 +29,9 @@ pipewire_libdir = join_paths(prefix, get_option('libdir'))
 pipewire_localedir = join_paths(prefix, get_option('localedir'))
 pipewire_sysconfdir = join_paths(prefix, get_option('sysconfdir'))
 
-modules_install_dir = join_paths(get_option('libdir'), 'pipewire-@0@'.format(apiversion))
+pipewire_configdir = join_paths(pipewire_sysconfdir, 'pipewire')
+modules_install_dir = join_paths(pipewire_libdir, 'pipewire-@0@'.format(apiversion))
+spa_plugindir = join_paths(pipewire_libdir, 'spa')
 
 gnome = import('gnome')
 
@@ -55,10 +57,10 @@ cdata.set('PACKAGE_STRING', '"PipeWire @0@"'.format(pipewire_version))
 cdata.set('PACKAGE_TARNAME', '"pipewire"')
 cdata.set('PACKAGE_URL', '"http://pipewire.org"')
 cdata.set('PACKAGE_VERSION', '"@0@"'.format(pipewire_version))
-cdata.set('MODULEDIR', '"@0@/pipewire-@1@"'.format(pipewire_libdir,apiversion))
-cdata.set('PIPEWIRE_CONFIG_DIR', '"@0@/pipewire"'.format(pipewire_sysconfdir))
+cdata.set('MODULEDIR', '"@0@"'.format(modules_install_dir))
+cdata.set('PIPEWIRE_CONFIG_DIR', '"@0@"'.format(pipewire_configdir))
 cdata.set('VERSION', '"@0@"'.format(pipewire_version))
-cdata.set('PLUGINDIR', '"@0@/spa"'.format(pipewire_libdir))
+cdata.set('PLUGINDIR', '"@0@"'.format(spa_plugindir))
 # FIXME: --with-memory-alignment],[8,N,malloc,pagesize (default is 32)]) option
 cdata.set('MEMORY_ALIGNMENT_MALLOC', 1)
 

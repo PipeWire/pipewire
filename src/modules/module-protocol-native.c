@@ -281,7 +281,7 @@ connection_data(void *data, int fd, enum spa_io mask)
 	struct pw_client *client = this->client;
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
-		pw_log_error("protocol-native %p: got connection error", client->protocol);
+		pw_log_info("protocol-native %p: client %p disconnected", client->protocol, client);
 		pw_client_destroy(client);
 		return;
 	}

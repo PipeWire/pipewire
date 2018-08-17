@@ -150,9 +150,6 @@ dl_lib = cc.find_library('dl', required : false)
 pthread_lib = dependency('threads')
 dbus_dep = dependency('dbus-1')
 
-#optional dependencies
-jack_dep = dependency('jack', version : '>= 1.9.10', required : false)
-
 if get_option('gstreamer')
   glib_dep = dependency('glib-2.0', version : '>=2.32.0')
   gobject_dep = dependency('gobject-2.0')

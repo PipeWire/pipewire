@@ -445,7 +445,7 @@ impl_node_port_enum_params(struct spa_node *node,
 		}
 		else {
 			buffers = 1;
-			size = port->format.info.raw.rate * 1024 / DEFAULT_RATE;
+			size = 1024;
 		}
 
 		param = spa_pod_builder_object(&b,

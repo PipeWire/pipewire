@@ -590,6 +590,7 @@ impl_node_port_enum_params(struct spa_node *node,
 	}
 	else if (id == t->param.idBuffers) {
 		uint32_t buffers, size;
+		const char *size_fmt;
 
 		if (!port->have_format)
 			return -EIO;
@@ -599,9 +600,11 @@ impl_node_port_enum_params(struct spa_node *node,
 		if (other->n_buffers > 0) {
 			buffers = other->n_buffers;
 			size = other->size / other->stride;
+			size_fmt = "ir";
 		} else {
 			buffers = 1;
-			size = port->format.info.raw.rate * 1024 / DEFAULT_RATE;
+			size = 1024;
+			size_fmt = "iru";
 		}
 
 		param = spa_pod_builder_object(&b,
@@ -609,7 +612,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			":", t->param_buffers.buffers, "iru", buffers,
 				SPA_POD_PROP_MIN_MAX(2, MAX_BUFFERS),
 			":", t->param_buffers.blocks,  "i", port->blocks,
-			":", t->param_buffers.size,    "iru", size * port->stride,
+			":", t->param_buffers.size,    size_fmt, size * port->stride,
 				SPA_POD_PROP_MIN_MAX(16 * port->stride, INT32_MAX / port->stride),
 			":", t->param_buffers.stride,  "i", port->stride,
 			":", t->param_buffers.align,   "i", 16);
@@ -831,6 +834,8 @@ impl_node_port_use_buffers(struct spa_node *node,
 	}
 	port->n_buffers = n_buffers;
 	port->size = size;
+
+	spa_log_debug(this->log, NAME " %p: buffer size %d", this, size);
 
 	return 0;
 }

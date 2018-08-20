@@ -192,7 +192,9 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 
 	node = pw_spa_node_load(core, NULL, NULL,
 			"audioconvert/libspa-audioconvert",
-			"merger",
+			direction == PW_DIRECTION_OUTPUT ?
+				"merger" :
+				"splitter",
 			node_name,
 			PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,
 			pr, sizeof(struct node) + user_data_size);
@@ -260,12 +262,13 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 
 		p->spa_node = iface;
 
-		pw_log_debug("mix node %p", p->spa_node);
+		if (direction == PW_DIRECTION_INPUT) {
+			pw_log_debug("mix node %p", p->spa_node);
 
-		pw_port_set_mix(port, p->spa_node, PW_PORT_MIX_FLAG_MULTI);
-		port->implementation = &port_implementation;
-		port->implementation_data = p;
-
+			pw_port_set_mix(port, p->spa_node, PW_PORT_MIX_FLAG_MULTI);
+			port->implementation = &port_implementation;
+			port->implementation_data = p;
+		}
 		if (pw_port_add(port, node) < 0)
 			goto error_free_port;
 	}

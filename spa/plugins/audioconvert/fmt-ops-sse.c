@@ -47,31 +47,33 @@ conv_s16_to_f32d_2_sse(void *data, int n_dst, void *dst[n_dst], const void *src,
 {
 	const int16_t *s = src;
 	float **d = (float **) dst;
-	int n, n_samples, unrolled;
+	int n = 0, n_samples, unrolled;
 	__m128i in, t[2];
 	__m128 out[2], factor = _mm_set1_ps(1.0f / S16_SCALE);
 
 	n_samples = n_bytes / (sizeof(int16_t) * n_dst);
 
-	unrolled = n_samples / 4;
-	n_samples = n_samples & 3;
+	if (n_dst == 2) {
+		unrolled = n_samples / 4;
+		n_samples = n_samples & 3;
 
-	for(n = 0; unrolled--; n += 4) {
-		in = _mm_loadu_si128((__m128i*)s);
+		for(; unrolled--; n += 4) {
+			in = _mm_loadu_si128((__m128i*)s);
 
-		t[0] = _mm_slli_epi32(in, 16);
-		t[0] = _mm_srai_epi32(t[0], 16);
-		t[1] = _mm_srai_epi32(in, 16);
+			t[0] = _mm_slli_epi32(in, 16);
+			t[0] = _mm_srai_epi32(t[0], 16);
+			t[1] = _mm_srai_epi32(in, 16);
 
-		out[0] = _mm_cvtepi32_ps(t[0]);
-		out[0] = _mm_mul_ps(out[0], factor);
-		out[1] = _mm_cvtepi32_ps(t[1]);
-		out[1] = _mm_mul_ps(out[1], factor);
+			out[0] = _mm_cvtepi32_ps(t[0]);
+			out[0] = _mm_mul_ps(out[0], factor);
+			out[1] = _mm_cvtepi32_ps(t[1]);
+			out[1] = _mm_mul_ps(out[1], factor);
 
-		_mm_storeu_ps(&d[0][n], out[0]);
-		_mm_storeu_ps(&d[1][n], out[1]);
+			_mm_storeu_ps(&d[0][n], out[0]);
+			_mm_storeu_ps(&d[1][n], out[1]);
 
-		s += 4*n_dst;
+			s += 4*n_dst;
+		}
 	}
 	for(; n_samples--; n++) {
 		out[0] = _mm_cvtsi32_ss(out[0], s[0]);
@@ -121,10 +123,10 @@ conv_f32d_to_s32_1_sse(void *data, void *dst, int n_src, const void *src[n_src],
 		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
 		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
 
-		*(d + 0*n_src) = _mm_cvtsi128_si32(out[0]);
-		*(d + 1*n_src) = _mm_cvtsi128_si32(out[1]);
-		*(d + 2*n_src) = _mm_cvtsi128_si32(out[2]);
-		*(d + 3*n_src) = _mm_cvtsi128_si32(out[3]);
+		d[0*n_src] = _mm_cvtsi128_si32(out[0]);
+		d[1*n_src] = _mm_cvtsi128_si32(out[1]);
+		d[2*n_src] = _mm_cvtsi128_si32(out[2]);
+		d[3*n_src] = _mm_cvtsi128_si32(out[3]);
 		d += 4*n_src;
 	}
 	for(; n_samples--; n++) {

@@ -24,98 +24,50 @@
 extern "C" {
 #endif
 
-#include <spa/param/param.h>
-#include <spa/param/format-utils.h>
+#include <spa/pod/parser.h>
 #include <spa/param/video/format.h>
-#include <spa/param/video/raw-utils.h>
-
-struct spa_type_format_video {
-	uint32_t format;
-	uint32_t size;
-	uint32_t framerate;
-	uint32_t max_framerate;
-	uint32_t views;
-	uint32_t interlace_mode;
-	uint32_t pixel_aspect_ratio;
-	uint32_t multiview_mode;
-	uint32_t multiview_flags;
-	uint32_t chroma_site;
-	uint32_t color_range;
-	uint32_t color_matrix;
-	uint32_t transfer_function;
-	uint32_t color_primaries;
-	uint32_t profile;
-	uint32_t level;
-	uint32_t stream_format;
-	uint32_t alignment;
-};
-
-static inline void
-spa_type_format_video_map(struct spa_type_map *map, struct spa_type_format_video *type)
-{
-	if (type->format == 0) {
-		type->format = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__format);
-		type->size = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__size);
-		type->framerate = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__framerate);
-		type->max_framerate = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__maxFramerate);
-		type->views = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__views);
-		type->interlace_mode = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__interlaceMode);
-		type->pixel_aspect_ratio = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__pixelAspectRatio);
-		type->multiview_mode = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__multiviewMode);
-		type->multiview_flags = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__multiviewFlags);
-		type->chroma_site = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__chromaSite);
-		type->color_range = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__colorRange);
-		type->color_matrix = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__colorMatrix);
-		type->transfer_function = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__transferFunction);
-		type->color_primaries = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__colorPrimaries);
-		type->profile = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__profile);
-		type->level = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__level);
-		type->stream_format = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__streamFormat);
-		type->alignment = spa_type_map_get_id(map, SPA_TYPE_FORMAT_VIDEO__alignment);
-	}
-}
 
 static inline int
 spa_format_video_raw_parse(const struct spa_pod *format,
-			   struct spa_video_info_raw *info, struct spa_type_format_video *type)
+			   struct spa_video_info_raw *info)
 {
 	return spa_pod_object_parse(format,
-		":",type->format,		"I", &info->format,
-		":",type->size,			"R", &info->size,
-		":",type->framerate,		"F", &info->framerate,
-		":",type->max_framerate,	"?F", &info->max_framerate,
-		":",type->views,		"?i", &info->views,
-		":",type->interlace_mode,	"?i", &info->interlace_mode,
-		":",type->pixel_aspect_ratio,	"?F", &info->pixel_aspect_ratio,
-		":",type->multiview_mode,	"?i", &info->multiview_mode,
-		":",type->multiview_flags,	"?i", &info->multiview_flags,
-		":",type->chroma_site,		"?i", &info->chroma_site,
-		":",type->color_range,		"?i", &info->color_range,
-		":",type->color_matrix,		"?i", &info->color_matrix,
-		":",type->transfer_function,	"?i", &info->transfer_function,
-		":",type->color_primaries,	"?i", &info->color_primaries, NULL);
+		":", SPA_FORMAT_VIDEO_format,		"I", &info->format,
+		":", SPA_FORMAT_VIDEO_size,		"R", &info->size,
+		":", SPA_FORMAT_VIDEO_framerate,	"F", &info->framerate,
+		":", SPA_FORMAT_VIDEO_maxFramerate,	"?F", &info->max_framerate,
+		":", SPA_FORMAT_VIDEO_views,		"?i", &info->views,
+		":", SPA_FORMAT_VIDEO_interlaceMode,	"?i", &info->interlace_mode,
+		":", SPA_FORMAT_VIDEO_pixelAspectRatio,	"?F", &info->pixel_aspect_ratio,
+		":", SPA_FORMAT_VIDEO_multiviewMode,	"?i", &info->multiview_mode,
+		":", SPA_FORMAT_VIDEO_multiviewFlags,	"?i", &info->multiview_flags,
+		":", SPA_FORMAT_VIDEO_chromaSite,	"?i", &info->chroma_site,
+		":", SPA_FORMAT_VIDEO_colorRange,	"?i", &info->color_range,
+		":", SPA_FORMAT_VIDEO_colorMatrix,	"?i", &info->color_matrix,
+		":", SPA_FORMAT_VIDEO_transferFunction,	"?i", &info->transfer_function,
+		":", SPA_FORMAT_VIDEO_colorPrimaries,	"?i", &info->color_primaries, NULL);
 }
 
 static inline int
 spa_format_video_h264_parse(const struct spa_pod *format,
-			    struct spa_video_info_h264 *info, struct spa_type_format_video *type)
+			    struct spa_video_info_h264 *info)
 {
 	return spa_pod_object_parse(format,
-		":",type->size,			"?R", &info->size,
-		":",type->framerate,		"?F", &info->framerate,
-		":",type->max_framerate,	"?F", &info->max_framerate,
-		":",type->stream_format,	"?i", &info->stream_format,
-		":",type->alignment,		"?i", &info->alignment, NULL);
+		":", SPA_FORMAT_VIDEO_size,		"?R", &info->size,
+		":", SPA_FORMAT_VIDEO_framerate,	"?F", &info->framerate,
+		":", SPA_FORMAT_VIDEO_maxFramerate,	"?F", &info->max_framerate,
+		":", SPA_FORMAT_VIDEO_streamFormat,	"?i", &info->stream_format,
+		":", SPA_FORMAT_VIDEO_alignment,	"?i", &info->alignment, NULL);
 }
 
 static inline int
 spa_format_video_mjpg_parse(const struct spa_pod *format,
-			    struct spa_video_info_mjpg *info, struct spa_type_format_video *type)
+			    struct spa_video_info_mjpg *info)
 {
 	return spa_pod_object_parse(format,
-		":",type->size,			"?R", &info->size,
-		":",type->framerate,		"?F", &info->framerate,
-		":",type->max_framerate,	"?F", &info->max_framerate, NULL);
+		":", SPA_FORMAT_VIDEO_size,		"?R", &info->size,
+		":", SPA_FORMAT_VIDEO_framerate,	"?F", &info->framerate,
+		":", SPA_FORMAT_VIDEO_maxFramerate,	"?F", &info->max_framerate, NULL);
 }
 
 #ifdef __cplusplus

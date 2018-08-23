@@ -37,7 +37,6 @@ spa_param_headers = [
   'param/meta.h',
   'param/io.h',
   'param/format.h',
-  'param/format-utils.h',
 ]
 
 install_headers(spa_param_headers,
@@ -60,8 +59,6 @@ spa_support_headers = [
   'support/log-impl.h',
   'support/loop.h',
   'support/plugin.h',
-  'support/type-map.h',
-  'support/type-map-impl.h',
 ]
 
 install_headers(spa_support_headers,
@@ -83,7 +80,6 @@ spa_audio_headers = [
   'param/audio/format.h',
   'param/audio/format-utils.h',
   'param/audio/raw.h',
-  'param/audio/raw-utils.h',
 ]
 
 install_headers(spa_audio_headers,
@@ -97,7 +93,6 @@ spa_video_headers = [
   'param/video/format-utils.h',
   'param/video/multiview.h',
   'param/video/raw.h',
-  'param/video/raw-utils.h',
 ]
 
 install_headers(spa_video_headers,

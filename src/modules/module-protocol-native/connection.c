@@ -365,21 +365,6 @@ pw_protocol_native_connection_begin_resource(struct pw_protocol_native_connectio
 					     uint8_t opcode)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
-        uint32_t diff, base, i, b;
-        struct pw_client *client = resource->client;
-        struct pw_core *core = client->core;
-        const char **types;
-
-        base = client->n_types;
-        diff = spa_type_map_get_size(core->type.map) - base;
-        if (diff > 0) {
-		types = alloca(diff * sizeof(char *));
-	        for (i = 0, b = base; i < diff; i++, b++)
-	                types[i] = spa_type_map_get_type(core->type.map, b);
-
-	        client->n_types += diff;
-		pw_core_resource_update_types(client->core_resource, base, types, diff);
-	}
 
 	impl->dest_id = resource->id;
 	impl->opcode = opcode;
@@ -394,21 +379,6 @@ pw_protocol_native_connection_begin_proxy(struct pw_protocol_native_connection *
 					  uint8_t opcode)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
-        uint32_t diff, base, i, b;
-        const char **types;
-        struct pw_remote *remote = proxy->remote;
-        struct pw_core *core = remote->core;
-
-        base = remote->n_types;
-        diff = spa_type_map_get_size(core->type.map) - base;
-        if (diff > 0) {
-		types = alloca(diff * sizeof(char *));
-	        for (i = 0, b = base; i < diff; i++, b++)
-	                types[i] = spa_type_map_get_type(core->type.map, b);
-
-	        remote->n_types += diff;
-	        pw_core_proxy_update_types(remote->core_proxy, base, types, diff);
-	}
 
 	impl->dest_id = proxy->id;
 	impl->opcode = opcode;
@@ -435,7 +405,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 
 	if (debug_messages) {
 		fprintf(stderr, ">>>>>>>>> out: %d %d %d\n", impl->dest_id, impl->opcode, size);
-	        spa_debug_pod(0, impl->core->type.map, (struct spa_pod *)p);
+	        spa_debug_pod(0, spa_debug_types, (struct spa_pod *)p);
 	}
 	spa_hook_list_call(&conn->listener_list,
 			struct pw_protocol_native_connection_events, need_flush, 0);

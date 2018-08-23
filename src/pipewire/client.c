@@ -228,7 +228,7 @@ int pw_client_register(struct pw_client *client,
 	client->registered = true;
 
 	client->global = pw_global_new(core,
-				       core->type.client, PW_VERSION_CLIENT,
+				       PW_ID_INTERFACE_Client, PW_VERSION_CLIENT,
 				       properties,
 				       client);
 	if (client->global == NULL)

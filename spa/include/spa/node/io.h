@@ -24,34 +24,14 @@
 extern "C" {
 #endif
 
-#include <spa/support/type-map.h>
-
-/** Base for IO structures to interface with node ports */
-#define SPA_TYPE__IO			SPA_TYPE_POINTER_BASE "IO"
-#define SPA_TYPE_IO_BASE		SPA_TYPE__IO ":"
-
-/** Base for control structures */
-#define SPA_TYPE_IO__Control		SPA_TYPE_IO_BASE "Control"
-#define SPA_TYPE_IO_CONTROL_BASE	SPA_TYPE_IO__Control ":"
-
-/** Base for controlable properties */
-#define SPA_TYPE_IO__Prop		SPA_TYPE_IO_BASE "Prop"
-#define SPA_TYPE_IO_PROP_BASE		SPA_TYPE_IO__Prop ":"
-
-/** An io area to exchange buffers with a port */
-#define SPA_TYPE_IO__Buffers		SPA_TYPE_IO_BASE "Buffers"
-
-/** IO area with clock information */
-#define SPA_TYPE_IO__Clock		SPA_TYPE_IO_BASE "Clock"
-
-/** IO area with latency information */
-#define SPA_TYPE_IO__Latency		SPA_TYPE_IO_BASE "Latency"
+#include <spa/utils/defs.h>
 
 /** Buffers IO area
  *
  * IO information for a port on a node. This is allocated
  * by the host and configured on all ports for which IO is requested.
  */
+
 struct spa_io_buffers {
 #define SPA_STATUS_OK			0
 #define SPA_STATUS_NEED_BUFFER		(1<<0)
@@ -64,9 +44,6 @@ struct spa_io_buffers {
 };
 
 #define SPA_IO_BUFFERS_INIT  (struct spa_io_buffers) { SPA_STATUS_OK, SPA_ID_INVALID, }
-
-/** Information about requested range */
-#define SPA_TYPE_IO_CONTROL__Range	SPA_TYPE_IO_CONTROL_BASE "Range"
 
 /** A range, suitable for input ports that can suggest a range to output ports */
 struct spa_io_control_range {
@@ -91,25 +68,6 @@ struct spa_io_latency {
 	uint64_t min;			/**< min latency */
 	uint64_t max;			/**< max latency */
 };
-
-struct spa_type_io {
-	uint32_t Buffers;
-	uint32_t ControlRange;
-	uint32_t Prop;
-	uint32_t Clock;
-	uint32_t Latency;
-};
-
-static inline void spa_type_io_map(struct spa_type_map *map, struct spa_type_io *type)
-{
-	if (type->Buffers == 0) {
-		type->Buffers = spa_type_map_get_id(map, SPA_TYPE_IO__Buffers);
-		type->ControlRange = spa_type_map_get_id(map, SPA_TYPE_IO_CONTROL__Range);
-		type->Prop = spa_type_map_get_id(map, SPA_TYPE_IO__Prop);
-		type->Clock = spa_type_map_get_id(map, SPA_TYPE_IO__Clock);
-		type->Latency = spa_type_map_get_id(map, SPA_TYPE_IO__Latency);
-	}
-}
 
 #ifdef __cplusplus
 }  /* extern "C" */

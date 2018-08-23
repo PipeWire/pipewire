@@ -19,6 +19,8 @@
 
 #include <errno.h>
 
+#include <spa/debug/types.h>
+
 #include "pipewire/pipewire.h"
 #include "pipewire/factory.h"
 #include "pipewire/private.h"
@@ -147,14 +149,14 @@ int pw_factory_register(struct pw_factory *factory,
 
 	pw_properties_set(properties, "factory.name", factory->info.name);
 	pw_properties_setf(properties, "factory.type.name", "%s",
-			spa_type_map_get_type(core->type.map, factory->info.type));
+			spa_debug_type_find_name(spa_debug_types, factory->info.type));
 	pw_properties_setf(properties, "factory.type.version", "%d", factory->info.version);
 
 	spa_list_append(&core->factory_list, &factory->link);
 	factory->registered = true;
 
         factory->global = pw_global_new(core,
-					core->type.factory, PW_VERSION_FACTORY,
+					PW_ID_INTERFACE_Factory, PW_VERSION_FACTORY,
 					properties,
 					factory);
 	if (factory->global == NULL)

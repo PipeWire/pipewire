@@ -30,34 +30,21 @@
 #include <dbus/dbus.h>
 
 #include <spa/support/log.h>
-#include <spa/support/type-map.h>
 #include <spa/support/loop.h>
 #include <spa/support/dbus.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/monitor.h>
+#include <spa/utils/type.h>
 
 #include "a2dp-codecs.h"
 #include "defs.h"
 
 #define NAME "bluez5-monitor"
 
-struct type {
-	uint32_t handle_factory;
-	struct spa_type_monitor monitor;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->handle_factory = spa_type_map_get_id(map, SPA_TYPE__HandleFactory);
-	spa_type_monitor_map(map, &type->monitor);
-}
-
 struct spa_bt_monitor {
 	struct spa_handle handle;
 	struct spa_monitor monitor;
 
-	struct type type;
-	struct spa_type_map *map;
 	struct spa_log *log;
 	struct spa_dbus *dbus;
 	struct spa_dbus_connection *dbus_connection;
@@ -80,18 +67,17 @@ struct spa_handle_factory spa_a2dp_sink_factory;
 static void fill_item(struct spa_bt_monitor *this, struct spa_bt_transport *transport,
 		struct spa_pod **result, struct spa_pod_builder *builder)
 {
-	struct type *t = &this->type;
 	char trans[16];
 
 	spa_pod_builder_add(builder,
-		"<", 0, t->monitor.MonitorItem,
-		":", t->monitor.id,      "s", transport->path,
-		":", t->monitor.flags,   "i", 0,
-		":", t->monitor.state,   "i", SPA_MONITOR_ITEM_STATE_AVAILABLE,
-		":", t->monitor.name,    "s", transport->path,
-		":", t->monitor.klass,   "s", "Adapter/Bluetooth",
-		":", t->monitor.factory, "p", t->handle_factory, &spa_a2dp_sink_factory,
-		":", t->monitor.info,    "[",
+		"<", 0, SPA_ID_OBJECT_MonitorItem,
+		":", SPA_MONITOR_ITEM_id,      "s", transport->path,
+		":", SPA_MONITOR_ITEM_flags,   "i", SPA_MONITOR_ITEM_FLAG_NONE,
+		":", SPA_MONITOR_ITEM_state,   "i", SPA_MONITOR_ITEM_STATE_AVAILABLE,
+		":", SPA_MONITOR_ITEM_name,    "s", transport->path,
+		":", SPA_MONITOR_ITEM_class,   "s", "Adapter/Bluetooth",
+		":", SPA_MONITOR_ITEM_factory, "p", SPA_ID_INTERFACE_HandleFactory, &spa_a2dp_sink_factory,
+		":", SPA_MONITOR_ITEM_info,    "[",
 		NULL);
 
 	snprintf(trans, sizeof(trans), "%p", transport);
@@ -654,7 +640,7 @@ static struct spa_bt_node *node_create(struct spa_bt_monitor *monitor, struct sp
 	struct spa_pod *item;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, 0, monitor->type.monitor.Added);
+	event = spa_pod_builder_object(&b, 0, SPA_ID_EVENT_MONITOR_Added);
 	fill_item(monitor, transport, &item, &b);
 
 	monitor->callbacks->event(monitor->callbacks_data, event);
@@ -670,7 +656,7 @@ static struct spa_bt_node *node_destroy(struct spa_bt_monitor *monitor, struct s
 	struct spa_pod *item;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, 0, monitor->type.monitor.Removed);
+	event = spa_pod_builder_object(&b, 0, SPA_ID_EVENT_MONITOR_Removed);
 	fill_item(monitor, transport, &item, &b);
 
 	monitor->callbacks->event(monitor->callbacks_data, event);
@@ -1201,7 +1187,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct spa_bt_monitor *) handle;
 
-	if (interface_id == this->type.monitor.Monitor)
+	if (interface_id == SPA_ID_INTERFACE_Monitor)
 		*interface = &this->monitor;
 	else
 		return -ENOENT;
@@ -1240,22 +1226,15 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct spa_bt_monitor *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
-			this->map = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE__Log) == 0)
+		if (support[i].type == SPA_ID_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE__DBus) == 0)
+		else if (support[i].type == SPA_ID_INTERFACE_DBus)
 			this->dbus = support[i].data;
-	}
-	if (this->map == NULL) {
-		spa_log_error(this->log, "a type-map is needed");
-		return -EINVAL;
 	}
 	if (this->dbus == NULL) {
 		spa_log_error(this->log, "a dbus is needed");
 		return -EINVAL;
 	}
-	init_type(&this->type, this->map);
 
 	this->dbus_connection = spa_dbus_get_connection(this->dbus, DBUS_BUS_SYSTEM);
 	if (this->dbus_connection == NULL) {
@@ -1274,7 +1253,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_TYPE__Monitor,},
+	{SPA_ID_INTERFACE_Monitor,},
 };
 
 static int

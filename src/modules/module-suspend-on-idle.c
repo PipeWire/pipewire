@@ -37,7 +37,6 @@ static const struct spa_dict_item module_props[] = {
 
 struct impl {
 	struct pw_core *core;
-	struct pw_type *t;
 	struct pw_properties *properties;
 
 	struct spa_hook module_listener;
@@ -128,7 +127,7 @@ core_global_added(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 
-	if (pw_global_get_type(global) == impl->t->node) {
+	if (pw_global_get_type(global) == PW_ID_INTERFACE_Node) {
 		struct pw_node *node = pw_global_get_object(global);
 		struct node_info *info;
 
@@ -148,7 +147,7 @@ core_global_removed(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 
-	if (pw_global_get_type(global) == impl->t->node) {
+	if (pw_global_get_type(global) == PW_ID_INTERFACE_Node) {
 		struct pw_node *node = pw_global_get_object(global);
 		struct node_info *info;
 
@@ -207,7 +206,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = pw_module_get_core(module);
-	impl->t = pw_core_get_type(impl->core);
 	impl->properties = properties;
 
 	spa_list_init(&impl->node_list);

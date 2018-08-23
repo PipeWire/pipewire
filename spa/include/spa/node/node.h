@@ -24,12 +24,10 @@
 extern "C" {
 #endif
 
-#define SPA_TYPE__Node		SPA_TYPE_INTERFACE_BASE "Node"
-#define SPA_TYPE_NODE_BASE	SPA_TYPE__Node ":"
-
 struct spa_node;
 
 #include <spa/utils/defs.h>
+#include <spa/utils/type.h>
 
 #include <spa/support/plugin.h>
 

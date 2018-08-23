@@ -28,15 +28,6 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
-#define SPA_TYPE__POD			SPA_TYPE_BASE "POD"
-#define SPA_TYPE_POD_BASE		SPA_TYPE__POD ":"
-
-#define SPA_TYPE_POD__Object		SPA_TYPE_POD_BASE "Object"
-#define SPA_TYPE_POD_OBJECT_BASE	SPA_TYPE_POD__Object ":"
-
-#define SPA_TYPE_POD__Struct		SPA_TYPE_POD_BASE "Struct"
-#define SPA_TYPE_POD_STRUCT_BASE	SPA_TYPE_POD__Struct ":"
-
 #ifndef SPA_POD_MAX_DEPTH
 #define SPA_POD_MAX_DEPTH       16
 #endif

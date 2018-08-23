@@ -25,6 +25,7 @@
 
 #include <spa/support/dbus.h>
 #include <spa/debug/format.h>
+#include <spa/debug/types.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
@@ -66,7 +67,7 @@ static void registry_bind(void *object, uint32_t id,
 		goto wrong_interface;
 
 	pw_log_debug("global %p: bind global id %d, iface %s to %d", global, id,
-		     spa_type_map_get_type(core->type.map, type), new_id);
+		     spa_debug_type_find_name(spa_debug_types, type), new_id);
 
 	if (pw_global_bind(global, client, permissions, version, new_id) < 0)
 		goto exit;
@@ -147,7 +148,7 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 	registry_resource = pw_resource_new(client,
 					    new_id,
 					    PW_PERM_RWX,
-					    this->type.registry,
+					    PW_ID_INTERFACE_Registry,
 					    version,
 					    sizeof(*data));
 	if (registry_resource == NULL)
@@ -266,24 +267,9 @@ static void core_destroy(void *object, uint32_t id)
 	pw_global_destroy(global);
 }
 
-static void core_update_types(void *object, uint32_t first_id, const char **types, uint32_t n_types)
-{
-	struct pw_resource *resource = object;
-	struct pw_core *this = resource->core;
-	struct pw_client *client = resource->client;
-	int i;
-
-	for (i = 0; i < n_types; i++, first_id++) {
-		uint32_t this_id = spa_type_map_get_id(this->type.map, types[i]);
-		if (!pw_map_insert_at(&client->types, first_id, PW_MAP_ID_TO_PTR(this_id)))
-			pw_log_error("can't add type %d->%d for client", first_id, this_id);
-	}
-}
-
 static const struct pw_core_proxy_methods core_methods = {
 	PW_VERSION_CORE_PROXY_METHODS,
 	.hello = core_hello,
-	.update_types = core_update_types,
 	.sync = core_sync,
 	.get_registry = core_get_registry,
 	.client_update = core_client_update,
@@ -389,18 +375,14 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->data_loop = pw_data_loop_get_loop(this->data_loop_impl);
 	this->main_loop = main_loop;
 
-	pw_type_init(&this->type);
 	pw_map_init(&this->globals, 128, 32);
 
-	this->support[0] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, this->type.map);
-	this->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__DataLoop, this->data_loop->loop);
-	this->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__MainLoop, this->main_loop->loop);
-	this->support[3] = SPA_SUPPORT_INIT(SPA_TYPE__LoopUtils, this->main_loop->utils);
-	this->support[4] = SPA_SUPPORT_INIT(SPA_TYPE__Log, pw_log_get());
-	this->support[5] = SPA_SUPPORT_INIT(SPA_TYPE__DBus, pw_get_spa_dbus(this->main_loop));
-	this->n_support = 6;
-
-	pw_log_debug("%p", this->support[5].data);
+	this->support[0] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DataLoop, this->data_loop->loop);
+	this->support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, this->main_loop->loop);
+	this->support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_LoopUtils, this->main_loop->utils);
+	this->support[3] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, pw_log_get());
+	this->support[4] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DBus, pw_get_spa_dbus(this->main_loop));
+	this->n_support = 5;
 
 	pw_data_loop_start(this->data_loop_impl);
 
@@ -437,7 +419,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->sc_pagesize = sysconf(_SC_PAGESIZE);
 
 	this->global = pw_global_new(this,
-				     this->type.core,
+				     PW_ID_INTERFACE_Core,
 				     PW_VERSION_CORE,
 				     pw_properties_new(
 					     PW_CORE_PROP_USER_NAME, this->info.user_name,
@@ -519,11 +501,6 @@ void pw_core_add_listener(struct pw_core *core,
 			  void *data)
 {
 	spa_hook_list_append(&core->listener_list, listener, events, data);
-}
-
-struct pw_type *pw_core_get_type(struct pw_core *core)
-{
-	return &core->type;
 }
 
 const struct spa_support *pw_core_get_support(struct pw_core *core, uint32_t *n_support)
@@ -731,7 +708,6 @@ int pw_core_find_format(struct pw_core *core,
 	uint32_t out_state, in_state;
 	int res;
 	uint32_t iidx = 0, oidx = 0;
-	struct pw_type *t = &core->type;
 
 	out_state = output->state;
 	in_state = input->state;
@@ -750,7 +726,7 @@ int pw_core_find_format(struct pw_core *core,
 		/* only input needs format */
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
-						     t->param.idFormat, &oidx,
+						     SPA_ID_PARAM_Format, &oidx,
 						     NULL, format, builder)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
@@ -759,12 +735,12 @@ int pw_core_find_format(struct pw_core *core,
 		}
 		pw_log_debug("Got output format:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(2, t->map, *format);
+			spa_debug_format(2, NULL, *format);
 	} else if (out_state >= PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
 		/* only output needs format */
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
-						     t->param.idFormat, &iidx,
+						     SPA_ID_PARAM_Format, &iidx,
 						     NULL, format, builder)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
@@ -773,7 +749,7 @@ int pw_core_find_format(struct pw_core *core,
 		}
 		pw_log_debug("Got input format:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(2, t->map, *format);
+			spa_debug_format(2, NULL, *format);
 	} else if (in_state == PW_PORT_STATE_CONFIGURE && out_state == PW_PORT_STATE_CONFIGURE) {
 		struct spa_pod_builder fb = { 0 };
 		uint8_t fbuf[4096];
@@ -784,7 +760,7 @@ int pw_core_find_format(struct pw_core *core,
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
-						     t->param.idEnumFormat, &iidx,
+						     SPA_ID_PARAM_EnumFormat, &iidx,
 						     NULL, &filter, &fb)) <= 0) {
 			if (res == 0 && iidx == 0) {
 				asprintf(error, "error input enum formats: %s", spa_strerror(res));
@@ -795,11 +771,11 @@ int pw_core_find_format(struct pw_core *core,
 		}
 		pw_log_debug("enum output %d with filter: %p", oidx, filter);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(2, t->map, filter);
+			spa_debug_format(2, NULL, filter);
 
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
-						     t->param.idEnumFormat, &oidx,
+						     SPA_ID_PARAM_EnumFormat, &oidx,
 						     filter, format, builder)) <= 0) {
 			if (res == 0) {
 				oidx = 0;
@@ -811,7 +787,7 @@ int pw_core_find_format(struct pw_core *core,
 
 		pw_log_debug("Got filtered:");
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(2, core->type.map, *format);
+			spa_debug_format(2, NULL, *format);
 	} else {
 		res = -EBADF;
 		asprintf(error, "error node state");

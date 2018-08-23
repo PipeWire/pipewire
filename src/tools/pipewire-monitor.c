@@ -22,6 +22,7 @@
 
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
+#include <spa/debug/types.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/interfaces.h>
@@ -192,7 +193,6 @@ static void print_node(struct proxy_data *data)
 {
 	struct pw_node_info *info = data->info;
 	bool print_all, print_mark;
-	struct pw_type *t = pw_core_get_type(data->data->core);
 
 	print_all = true;
         if (data->first) {
@@ -217,10 +217,10 @@ static void print_node(struct proxy_data *data)
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 		printf("%c\tparams:\n", MARK_CHANGE(5));
 		for (i = 0; i < data->n_params; i++) {
-			if (spa_pod_is_object_type(data->params[i], t->spa_format))
-				spa_debug_format(2, t->map, data->params[i]);
+			if (spa_pod_is_object_type(data->params[i], SPA_ID_OBJECT_Format))
+				spa_debug_format(2, NULL, data->params[i]);
 			else
-				spa_debug_pod(2, t->map, data->params[i]);
+				spa_debug_pod(2, spa_debug_types, data->params[i]);
 		}
 		printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(1),
 				info->n_input_ports, info->max_input_ports);
@@ -240,13 +240,12 @@ static void print_node(struct proxy_data *data)
 static void node_event_info(void *object, struct pw_node_info *info)
 {
         struct proxy_data *data = object;
-	struct pw_type *t = pw_core_get_type(data->data->core);
 
 	data->info = pw_node_info_update(data->info, info);
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_ENUM_PARAMS) {
 		pw_node_proxy_enum_params((struct pw_node_proxy*)data->proxy,
-				t->param.idList, 0, 0, NULL);
+				SPA_ID_PARAM_List, 0, 0, NULL);
 		add_pending(data);
 	}
 	if (data->pending_seq == SPA_ID_INVALID)
@@ -270,7 +269,6 @@ static void print_port(struct proxy_data *data)
 {
 	struct pw_port_info *info = data->info;
 	bool print_all, print_mark;
-	struct pw_type *t = pw_core_get_type(data->data->core);
 
 	print_all = true;
         if (data->first) {
@@ -294,10 +292,10 @@ static void print_port(struct proxy_data *data)
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 		printf("%c\tparams:\n", MARK_CHANGE(2));
 		for (i = 0; i < data->n_params; i++) {
-			if (spa_pod_is_object_type(data->params[i], t->spa_format))
-				spa_debug_format(2, t->map, data->params[i]);
+			if (spa_pod_is_object_type(data->params[i], SPA_ID_OBJECT_Format))
+				spa_debug_format(2, NULL, data->params[i]);
 			else
-				spa_debug_pod(2, t->map, data->params[i]);
+				spa_debug_pod(2, spa_debug_types, data->params[i]);
 		}
 		print_properties(info->props, MARK_CHANGE(1));
 	}
@@ -307,13 +305,12 @@ static void port_event_info(void *object, struct pw_port_info *info)
 {
 
         struct proxy_data *data = object;
-	struct pw_type *t = pw_core_get_type(data->data->core);
 
 	data->info = pw_port_info_update(data->info, info);
 
 	if (info->change_mask & PW_PORT_CHANGE_MASK_ENUM_PARAMS) {
 		pw_port_proxy_enum_params((struct pw_port_proxy*)data->proxy,
-				t->param.idEnumFormat, 0, 0, NULL);
+				SPA_ID_PARAM_EnumFormat, 0, 0, NULL);
 		add_pending(data);
 	}
 	if (data->pending_seq == SPA_ID_INVALID)
@@ -336,7 +333,6 @@ static const struct pw_port_proxy_events port_events = {
 static void factory_event_info(void *object, struct pw_factory_info *info)
 {
         struct proxy_data *data = object;
-	struct pw_type *t = pw_core_get_type(data->data->core);
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -358,7 +354,7 @@ static void factory_event_info(void *object, struct pw_factory_info *info)
 					  data->permissions & PW_PERM_X ? 'x' : '-');
 	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Factory, data->version);
 	printf("\tname: \"%s\"\n", info->name);
-	printf("\tobject-type: %s/%d\n", spa_type_map_get_type(t->map, info->type), info->version);
+	printf("\tobject-type: %s/%d\n", spa_debug_type_find_name(spa_debug_types, info->type), info->version);
 	if (print_all) {
 		print_properties(info->props, MARK_CHANGE(0));
 	}
@@ -405,7 +401,6 @@ static const struct pw_client_proxy_events client_events = {
 static void link_event_info(void *object, struct pw_link_info *info)
 {
         struct proxy_data *data = object;
-	struct pw_type *t = pw_core_get_type(data->data->core);
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -433,7 +428,7 @@ static void link_event_info(void *object, struct pw_link_info *info)
 		printf("%c\tinput-port-id: %u\n", MARK_CHANGE(1), info->input_port_id);
 		printf("%c\tformat:\n", MARK_CHANGE(2));
 		if (info->format)
-			spa_debug_format(2, t->map, info->format);
+			spa_debug_format(2, NULL, info->format);
 		else
 			printf("\t\tnone\n");
 		print_properties(info->props, MARK_CHANGE(3));
@@ -474,40 +469,38 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
         struct pw_proxy *proxy;
         uint32_t client_version;
         const void *events;
-	struct pw_core *core = d->core;
-	struct pw_type *t = pw_core_get_type(core);
 	struct proxy_data *pd;
 	pw_destroy_t destroy;
 	print_func_t print_func = NULL;
 
-	if (type == t->node) {
+	if (type == PW_ID_INTERFACE_Node) {
 		events = &node_events;
 		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		print_func = print_node;
 	}
-	else if (type == t->port) {
+	else if (type == PW_ID_INTERFACE_Port) {
 		events = &port_events;
 		client_version = PW_VERSION_PORT;
 		destroy = (pw_destroy_t) pw_port_info_free;
 		print_func = print_port;
 	}
-	else if (type == t->module) {
+	else if (type == PW_ID_INTERFACE_Module) {
 		events = &module_events;
 		client_version = PW_VERSION_MODULE;
 		destroy = (pw_destroy_t) pw_module_info_free;
 	}
-	else if (type == t->factory) {
+	else if (type == PW_ID_INTERFACE_Factory) {
 		events = &factory_events;
 		client_version = PW_VERSION_FACTORY;
 		destroy = (pw_destroy_t) pw_factory_info_free;
 	}
-	else if (type == t->client) {
+	else if (type == PW_ID_INTERFACE_Client) {
 		events = &client_events;
 		client_version = PW_VERSION_CLIENT;
 		destroy = (pw_destroy_t) pw_client_info_free;
 	}
-	else if (type == t->link) {
+	else if (type == PW_ID_INTERFACE_Link) {
 		events = &link_events;
 		client_version = PW_VERSION_LINK;
 		destroy = (pw_destroy_t) pw_link_info_free;
@@ -519,7 +512,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		printf("\tpermissions: %c%c%c\n", permissions & PW_PERM_R ? 'r' : '-',
 						  permissions & PW_PERM_W ? 'w' : '-',
 						  permissions & PW_PERM_X ? 'x' : '-');
-		printf("\ttype: %s (version %d)\n", spa_type_map_get_type(t->map, type), version);
+		printf("\ttype: %s (version %d)\n", spa_debug_type_find_name(spa_debug_types, type), version);
 		print_properties(props, ' ');
 		return;
 	}
@@ -567,7 +560,6 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 			     enum pw_remote_state state, const char *error)
 {
 	struct data *data = _data;
-	struct pw_type *t = pw_core_get_type(data->core);
 
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
@@ -580,7 +572,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 
 		data->core_proxy = pw_remote_get_core_proxy(data->remote);
 		data->registry_proxy = pw_core_proxy_get_registry(data->core_proxy,
-								  t->registry,
+								  PW_ID_INTERFACE_Registry,
 								  PW_VERSION_REGISTRY, 0);
 		pw_registry_proxy_add_listener(data->registry_proxy,
 					       &data->registry_listener,

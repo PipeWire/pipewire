@@ -76,7 +76,7 @@ static int do_pause_node(struct pw_node *this)
 
 	pw_log_debug("node %p: pause node", this);
 	res = spa_node_send_command(this->node,
-				    &SPA_COMMAND_INIT(this->core->type.command_node.Pause));
+				    &SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Pause));
 	if (res < 0)
 		pw_log_debug("node %p: pause node error %s", this, spa_strerror(res));
 
@@ -97,7 +97,7 @@ static int start_node(struct pw_node *this)
 
 	pw_log_debug("node %p: start node", this);
 	res = spa_node_send_command(this->node,
-				    &SPA_COMMAND_INIT(this->core->type.command_node.Start));
+				    &SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Start));
 	if (res < 0)
 		pw_log_debug("node %p: start node error %s", this, spa_strerror(res));
 
@@ -112,14 +112,14 @@ static int suspend_node(struct pw_node *this)
 	pw_log_debug("node %p: suspend node", this);
 
 	spa_list_for_each(p, &this->input_ports, link) {
-		if ((res = pw_port_set_param(p, SPA_ID_INVALID, this->core->type.param.idFormat, 0, NULL)) < 0)
+		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_ID_PARAM_Format, 0, NULL)) < 0)
 			pw_log_warn("error unset format input: %s", spa_strerror(res));
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 
 	spa_list_for_each(p, &this->output_ports, link) {
-		if ((res = pw_port_set_param(p, SPA_ID_INVALID, this->core->type.param.idFormat, 0, NULL)) < 0)
+		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_ID_PARAM_Format, 0, NULL)) < 0)
 			pw_log_warn("error unset format output: %s", spa_strerror(res));
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
@@ -354,7 +354,7 @@ int pw_node_register(struct pw_node *this,
 	this->registered = true;
 
 	this->global = pw_global_new(core,
-				     core->type.node, PW_VERSION_NODE,
+				     PW_ID_INTERFACE_Node, PW_VERSION_NODE,
 				     properties,
 				     this);
 	if (this->global == NULL)

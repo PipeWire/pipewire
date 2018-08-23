@@ -371,13 +371,12 @@ static void port_event_info(void *data, struct pw_port_info *info)
   struct port_data *port_data = data;
   struct node_data *node_data = port_data->node_data;
   GstPipeWireDeviceProvider *self = node_data->self;
-  struct pw_type *t = node_data->self->type;
 
   pw_log_debug("%p", port_data);
 
   if (info->change_mask & PW_PORT_CHANGE_MASK_ENUM_PARAMS) {
     pw_port_proxy_enum_params((struct pw_port_proxy*)port_data->proxy,
-				t->param.idEnumFormat, 0, 0, NULL);
+				SPA_ID_PARAM_EnumFormat, 0, 0, NULL);
     add_pending(self, &port_data->pending_param, do_add_node, port_data);
   }
 }
@@ -387,13 +386,11 @@ static void port_event_param(void *data, uint32_t id, uint32_t index, uint32_t n
 {
   struct port_data *port_data = data;
   struct node_data *node_data = port_data->node_data;
-  GstPipeWireDeviceProvider *self = node_data->self;
-  struct pw_type *t = self->type;
   GstCaps *c1;
 
   pw_log_debug("%p", port_data);
 
-  c1 = gst_caps_from_format (param, t->map);
+  c1 = gst_caps_from_format (param);
   if (c1 && node_data->caps)
       gst_caps_append (node_data->caps, c1);
 
@@ -467,11 +464,11 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
   GstPipeWireDeviceProvider *self = rd->self;
   struct node_data *nd;
 
-  if (type == self->type->node) {
+  if (type == PW_ID_INTERFACE_Node) {
     struct pw_node_proxy *node;
 
     node = pw_registry_proxy_bind(rd->registry,
-		    id, self->type->node,
+		    id, PW_ID_INTERFACE_Node,
 		    PW_VERSION_NODE, sizeof(*nd));
     if (node == NULL)
       goto no_mem;
@@ -487,7 +484,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
     pw_proxy_add_listener((struct pw_proxy*)node, &nd->proxy_listener, &proxy_node_events, nd);
     add_pending(self, &nd->pending, NULL, NULL);
   }
-  else if (type == self->type->port) {
+  else if (type == PW_ID_INTERFACE_Port) {
     struct pw_port_proxy *port;
     struct port_data *pd;
 
@@ -495,7 +492,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
       return;
 
     port = pw_registry_proxy_bind(rd->registry,
-		    id, self->type->port,
+		    id, PW_ID_INTERFACE_Port,
 		    PW_VERSION_PORT, sizeof(*pd));
     if (port == NULL)
       goto no_mem;
@@ -540,7 +537,6 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   GstPipeWireDeviceProvider *self = GST_PIPEWIRE_DEVICE_PROVIDER (provider);
   struct pw_loop *l = NULL;
   struct pw_core *c = NULL;
-  struct pw_type *t = NULL;
   struct pw_remote *r = NULL;
   struct remote_data *data;
   struct spa_hook listener;
@@ -552,8 +548,6 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
 
   if (!(c = pw_core_new (l, NULL)))
     return NULL;
-
-  t = pw_core_get_type(c);
 
   if (!(r = pw_remote_new (c, NULL, sizeof(*data))))
     goto failed;
@@ -595,7 +589,8 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   self->devices = NULL;
 
   self->core_proxy = pw_remote_get_core_proxy(r);
-  data->registry = pw_core_proxy_get_registry(self->core_proxy, t->registry, PW_VERSION_REGISTRY, 0);
+  data->registry = pw_core_proxy_get_registry(self->core_proxy,
+		  PW_ID_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
   pw_registry_proxy_add_listener(data->registry, &data->registry_listener, &registry_events, data);
   pw_core_proxy_sync(self->core_proxy, ++self->seq);
 
@@ -641,7 +636,6 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
     GST_ERROR_OBJECT (self, "Could not create PipeWire core");
     goto failed_core;
   }
-  self->type = pw_core_get_type (self->core);
 
   if (pw_thread_loop_start (self->main_loop) < 0) {
     GST_ERROR_OBJECT (self, "Could not start PipeWire mainloop");
@@ -682,8 +676,8 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
   get_core_info (self->remote, self);
 
   self->core_proxy = pw_remote_get_core_proxy(self->remote);
-  self->registry = pw_core_proxy_get_registry(self->core_proxy, self->type->registry,
-					      PW_VERSION_REGISTRY, 0);
+  self->registry = pw_core_proxy_get_registry(self->core_proxy,
+		  PW_ID_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
 
   data->registry = self->registry;
 
@@ -709,7 +703,6 @@ failed_remote:
 failed_start:
   pw_core_destroy (self->core);
   self->core = NULL;
-  self->type = NULL;
 failed_core:
   pw_thread_loop_destroy (self->main_loop);
   self->main_loop = NULL;
@@ -734,7 +727,6 @@ gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
   if (self->core) {
     pw_core_destroy (self->core);
     self->core = NULL;
-    self->type = NULL;
   }
   if (self->main_loop) {
     pw_thread_loop_destroy (self->main_loop);

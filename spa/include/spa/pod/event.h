@@ -26,9 +26,6 @@ extern "C" {
 
 #include <spa/pod/pod.h>
 
-#define SPA_TYPE__Event		SPA_TYPE_POD_OBJECT_BASE "Event"
-#define SPA_TYPE_EVENT_BASE	SPA_TYPE__Event ":"
-
 struct spa_event_body {
 	struct spa_pod_object_body body;
 };

@@ -59,7 +59,7 @@ struct interface {
 	int ref;
 	struct spa_list link;
 	struct handle *handle;
-	const char *type;
+	uint32_t type;
 	void *iface;
 };
 
@@ -232,27 +232,22 @@ static void unref_handle(struct handle *handle)
 static struct interface *
 load_interface(struct plugin *plugin,
 	       const char *factory_name,
-	       const char *type,
+	       uint32_t type_id,
 	       const struct spa_dict *info,
 	       uint32_t n_support,
 	       struct spa_support support[n_support])
 {
         int res;
         struct handle *handle;
-        uint32_t type_id;
         void *ptr;
-	struct spa_type_map *map = NULL;
 	struct interface *iface;
 
         handle = load_handle(plugin, factory_name, info, n_support, support);
 	if (handle == NULL)
 		goto not_found;
 
-	map = spa_support_find(support, n_support, SPA_TYPE__TypeMap);
-	type_id = map ? spa_type_map_get_id(map, type) : 0;
-
         if ((res = spa_handle_get_interface(handle->handle, type_id, &ptr)) < 0) {
-                fprintf(stderr, "can't get %s interface %d\n", type, res);
+                fprintf(stderr, "can't get %d interface %d\n", type_id, res);
                 goto interface_failed;
         }
 
@@ -261,7 +256,7 @@ load_interface(struct plugin *plugin,
 
 	iface->ref = 1;
 	iface->handle = handle;
-	iface->type = type;
+	iface->type = type_id;
 	iface->iface = ptr;
 	spa_list_append(&handle->interfaces, &iface->link);
 
@@ -302,7 +297,7 @@ static void configure_debug(struct support *support, const char *str)
  * \param type the interface type
  * \return the interface or NULL when not configured
  */
-void *pw_get_support_interface(const char *type)
+void *pw_get_support_interface(uint32_t type)
 {
 	return spa_support_find(global_support.support, global_support.n_support, type);
 }
@@ -319,7 +314,7 @@ const struct spa_support *pw_get_support(uint32_t *n_support)
 	return global_support.support;
 }
 
-void *pw_load_spa_interface(const char *lib, const char *factory_name, const char *type,
+void *pw_load_spa_interface(const char *lib, const char *factory_name, uint32_t type,
 			    const struct spa_dict *info,
 			    uint32_t n_support,
 			    struct spa_support support[n_support])
@@ -384,9 +379,9 @@ int pw_unload_spa_interface(void *iface)
 
 void *pw_get_spa_dbus(struct pw_loop *loop)
 {
-	struct spa_support support = SPA_SUPPORT_INIT(SPA_TYPE__LoopUtils, loop->utils);
+	struct spa_support support = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_LoopUtils, loop->utils);
 
-	return pw_load_spa_interface("support/libspa-dbus", "dbus", SPA_TYPE__DBus,
+	return pw_load_spa_interface("support/libspa-dbus", "dbus", SPA_ID_INTERFACE_DBus,
 			NULL, 1, &support);
 }
 
@@ -435,17 +430,11 @@ void pw_init(int *argc, char **argv[])
 	items[0] = SPA_DICT_ITEM_INIT("log.colors", "1");
 	info = SPA_DICT_INIT(items, 1);
 
-	iface = load_interface(plugin, "mapper", SPA_TYPE__TypeMap, NULL,
-			support->n_support, support->support);
-	if (iface != NULL)
-		support->support[support->n_support++] =
-			SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, iface->iface);
-
-	iface = load_interface(plugin, "logger", SPA_TYPE__Log, &info,
+	iface = load_interface(plugin, "logger", SPA_ID_INTERFACE_Log, &info,
 			support->n_support, support->support);
 	if (iface != NULL) {
 		support->support[support->n_support++] =
-			SPA_SUPPORT_INIT(SPA_TYPE__Log, iface->iface);
+			SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, iface->iface);
 		pw_log_set(iface->iface);
 	}
 	pw_log_info("version %s", pw_get_library_version());

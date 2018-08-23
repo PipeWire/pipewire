@@ -203,7 +203,6 @@ gst_pipewire_src_finalize (GObject * object)
 
   pw_core_destroy (pwsrc->core);
   pwsrc->core = NULL;
-  pwsrc->type = NULL;
   pw_thread_loop_destroy (pwsrc->main_loop);
   pwsrc->main_loop = NULL;
   pw_loop_destroy (pwsrc->loop);
@@ -326,8 +325,6 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->loop = pw_loop_new (NULL);
   src->main_loop = pw_thread_loop_new (src->loop, "pipewire-main-loop");
   src->core = pw_core_new (src->loop, NULL);
-  src->type = pw_core_get_type (src->core);
-  src->pool->t = src->type;
   GST_DEBUG ("loop %p, mainloop %p", src->loop, src->main_loop);
 
 }
@@ -590,7 +587,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, caps);
 
   /* open a connection with these caps */
-  possible = gst_caps_to_format_all (caps, pwsrc->type->param.idEnumFormat, pwsrc->type->map);
+  possible = gst_caps_to_format_all (caps, SPA_ID_PARAM_EnumFormat);
   gst_caps_unref (caps);
 
   /* first disconnect */
@@ -686,8 +683,6 @@ on_format_changed (void *data,
   GstPipeWireSrc *pwsrc = data;
   GstCaps *caps;
   gboolean res;
-  struct pw_core *core = pwsrc->core;
-  struct pw_type *t = pw_core_get_type(core);
 
   if (format == NULL) {
     GST_DEBUG_OBJECT (pwsrc, "clear format");
@@ -695,7 +690,7 @@ on_format_changed (void *data,
     return;
   }
 
-  caps = gst_caps_from_format (format, t->map);
+  caps = gst_caps_from_format (format);
   GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, caps);
   res = gst_base_src_set_caps (GST_BASE_SRC (pwsrc), caps);
   gst_caps_unref (caps);
@@ -707,16 +702,17 @@ on_format_changed (void *data,
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
     params[0] = spa_pod_builder_object (&b,
-	t->param.idBuffers, t->param_buffers.Buffers,
-	":", t->param_buffers.size,    "iru", 0,  SPA_POD_PROP_MIN_MAX(0, INT32_MAX),
-	":", t->param_buffers.stride,  "iru", 0,  SPA_POD_PROP_MIN_MAX(0, INT32_MAX),
-	":", t->param_buffers.buffers, "iru", 16, SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
-	":", t->param_buffers.align,   "i", 16);
+	SPA_ID_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+	":", SPA_PARAM_BUFFERS_buffers, "iru", 16, SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
+	":", SPA_PARAM_BUFFERS_blocks,  "iru", 0,  SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
+	":", SPA_PARAM_BUFFERS_size,    "iru", 0,  SPA_POD_PROP_MIN_MAX(0, INT32_MAX),
+	":", SPA_PARAM_BUFFERS_stride,  "iru", 0,  SPA_POD_PROP_MIN_MAX(0, INT32_MAX),
+	":", SPA_PARAM_BUFFERS_align,   "i", 16);
 
     params[1] = spa_pod_builder_object (&b,
-	t->param.idMeta, t->param_meta.Meta,
-        ":", t->param_meta.type, "I", t->meta.Header,
-        ":", t->param_meta.size, "i", sizeof (struct spa_meta_header));
+	SPA_ID_PARAM_Meta, SPA_ID_OBJECT_ParamMeta,
+        ":", SPA_PARAM_META_type, "I", SPA_META_Header,
+        ":", SPA_PARAM_META_size, "i", sizeof (struct spa_meta_header));
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
     pw_stream_finish_format (pwsrc->stream, 0, params, 2);

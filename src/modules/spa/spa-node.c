@@ -28,6 +28,7 @@
 #include <spa/node/node.h>
 #include <spa/param/props.h>
 #include <spa/pod/iter.h>
+#include <spa/debug/types.h>
 
 #include "spa-node.h"
 #include "pipewire/node.h"
@@ -158,24 +159,25 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 	struct spa_pod *props;
 	void *state = NULL;
 	const char *key;
-	struct pw_type *t = pw_core_get_type(core);
 	uint32_t index = 0;
 	uint8_t buf[2048];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
-	if ((res = spa_node_enum_params(spa_node, t->param.idProps, &index, NULL, &props, &b)) <= 0) {
+	if ((res = spa_node_enum_params(spa_node, SPA_ID_PARAM_Props, &index, NULL, &props, &b)) <= 0) {
 		pw_log_debug("spa_node_get_props failed: %d", res);
 		return res;
 	}
 
 	while ((key = pw_properties_iterate(pw_props, &state))) {
 		struct spa_pod_prop *prop;
-		uint32_t id;
+		uint32_t id = 0;
 
+#if 0
 		if (!spa_type_is_a(key, SPA_TYPE_PROPS_BASE))
 			continue;
 
-		id = spa_type_map_get_id(t->map, key);
+#endif
+		id = spa_debug_type_find_id(spa_debug_types, key);
 		if (id == SPA_ID_INVALID)
 			continue;
 
@@ -191,7 +193,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 				break;
 			case SPA_POD_TYPE_ID:
 				SPA_POD_VALUE(struct spa_pod_id, &prop->body.value) =
-					spa_type_map_get_id(t->map, value);
+					spa_debug_type_find_id(spa_debug_types, value);
 				break;
 			case SPA_POD_TYPE_INT:
 				SPA_POD_VALUE(struct spa_pod_int, &prop->body.value) =
@@ -217,7 +219,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 		}
 	}
 
-	if ((res = spa_node_set_param(spa_node, t->param.idProps, 0, props)) < 0) {
+	if ((res = spa_node_set_param(spa_node, SPA_ID_PARAM_Props, 0, props)) < 0) {
 		pw_log_debug("spa_node_set_props failed: %d", res);
 		return res;
 	}
@@ -249,7 +251,6 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	const char *dir;
 	const struct spa_support *support;
 	uint32_t n_support;
-	struct pw_type *t = pw_core_get_type(core);
 
 	if ((dir = getenv("SPA_PLUGIN_DIR")) == NULL)
 		dir = PLUGINDIR;
@@ -292,7 +293,7 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	if (SPA_RESULT_IS_ASYNC(res))
 		flags |= PW_SPA_NODE_FLAG_ASYNC;
 
-	if ((res = spa_handle_get_interface(handle, t->spa_node, &iface)) < 0) {
+	if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Node, &iface)) < 0) {
 		pw_log_error("can't get node interface %d", res);
 		goto interface_failed;
 	}

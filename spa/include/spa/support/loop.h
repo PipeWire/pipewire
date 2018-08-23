@@ -25,16 +25,9 @@ extern "C" {
 #endif
 
 struct spa_loop;
-#define SPA_TYPE__Loop		SPA_TYPE_INTERFACE_BASE "Loop"
-#define SPA_TYPE_LOOP_BASE	SPA_TYPE__Loop ":"
-
 struct spa_loop_control;
-#define SPA_TYPE__LoopControl	SPA_TYPE_INTERFACE_BASE "LoopControl"
 struct spa_loop_utils;
-#define SPA_TYPE__LoopUtils	SPA_TYPE_INTERFACE_BASE "LoopUtils"
-
-#define SPA_TYPE_LOOP__MainLoop		SPA_TYPE_LOOP_BASE "MainLoop"
-#define SPA_TYPE_LOOP__DataLoop		SPA_TYPE_LOOP_BASE "DataLoop"
+struct spa_source;
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
@@ -45,8 +38,6 @@ enum spa_io {
 	SPA_IO_HUP = (1 << 2),
 	SPA_IO_ERR = (1 << 3),
 };
-
-struct spa_source;
 
 typedef void (*spa_source_func_t) (struct spa_source *source);
 

@@ -54,7 +54,6 @@ static void *create_object(void *_data,
 	struct pw_node *output_node, *input_node;
 	struct pw_port *outport, *inport;
 	struct pw_core *core;
-	struct pw_type *t;
 	struct pw_global *global;
 	struct pw_link *link;
 	uint32_t output_node_id, input_node_id;
@@ -87,16 +86,15 @@ static void *create_object(void *_data,
 
 	client = pw_resource_get_client(resource);
 	core = pw_client_get_core(client);
-	t = pw_core_get_type(core);
 
 	global = pw_core_find_global(core, output_node_id);
-	if (global == NULL || pw_global_get_type(global) != t->node)
+	if (global == NULL || pw_global_get_type(global) != PW_ID_INTERFACE_Node)
 		goto no_output;
 
 	output_node = pw_global_get_object(global);
 
 	global = pw_core_find_global(core, input_node_id);
-	if (global == NULL || pw_global_get_type(global) != t->node)
+	if (global == NULL || pw_global_get_type(global) != PW_ID_INTERFACE_Node)
 		goto no_input;
 
 	input_node = pw_global_get_object(global);
@@ -105,7 +103,7 @@ static void *create_object(void *_data,
 		outport = pw_node_find_port(output_node, SPA_DIRECTION_OUTPUT, SPA_ID_INVALID);
 	else {
 		global = pw_core_find_global(core, output_port_id);
-		if (global == NULL || pw_global_get_type(global) != t->port)
+		if (global == NULL || pw_global_get_type(global) != PW_ID_INTERFACE_Port)
 			goto no_output_port;
 
 		outport = pw_global_get_object(global);
@@ -117,7 +115,7 @@ static void *create_object(void *_data,
 		inport = pw_node_find_port(input_node, SPA_DIRECTION_INPUT, SPA_ID_INVALID);
 	else {
 		global = pw_core_find_global(core, input_port_id);
-		if (global == NULL || pw_global_get_type(global) != t->port)
+		if (global == NULL || pw_global_get_type(global) != PW_ID_INTERFACE_Port)
 			goto no_output_port;
 
 		inport = pw_global_get_object(global);
@@ -201,13 +199,12 @@ static const struct pw_module_events module_events = {
 static int module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
-	struct pw_type *t = pw_core_get_type(core);
 	struct pw_factory *factory;
 	struct factory_data *data;
 
 	factory = pw_factory_new(core,
 				 "link-factory",
-				 t->link,
+				 PW_ID_INTERFACE_Link,
 				 PW_VERSION_LINK,
 				 NULL,
 				 sizeof(*data));

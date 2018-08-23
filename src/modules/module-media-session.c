@@ -29,6 +29,7 @@
 #include <spa/utils/hook.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/debug/format.h>
+#include <spa/debug/types.h>
 
 #include "pipewire/core.h"
 #include "pipewire/control.h"
@@ -52,30 +53,10 @@ static const struct spa_dict_item module_props[] = {
 #define MIN_QUANTUM_SIZE	64
 #define MAX_QUANTUM_SIZE	1024
 
-struct type {
-	struct spa_type_media_type media_type;
-        struct spa_type_media_subtype media_subtype;
-        struct spa_type_format_audio format_audio;
-        struct spa_type_audio_format audio_format;
-        struct spa_type_media_subtype_audio media_subtype_audio;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-        spa_type_media_type_map(map, &type->media_type);
-        spa_type_media_subtype_map(map, &type->media_subtype);
-        spa_type_format_audio_map(map, &type->format_audio);
-        spa_type_audio_format_map(map, &type->audio_format);
-        spa_type_media_subtype_audio_map(map, &type->media_subtype_audio);
-}
-
 struct impl {
-	struct type type;
-
 	struct timespec now;
 
 	struct pw_core *core;
-	struct pw_type *t;
 	struct pw_module *module;
 	struct spa_hook core_listener;
 	struct spa_hook module_listener;
@@ -650,7 +631,6 @@ static int collect_audio_format(void *data, uint32_t id,
 		uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct channel_data *d = data;
-	struct impl *impl = d->impl;
 	uint32_t media_type, media_subtype;
 	struct spa_audio_info_raw info;
 
@@ -658,14 +638,14 @@ static int collect_audio_format(void *data, uint32_t id,
 			"I", &media_type,
 			"I", &media_subtype);
 
-	if (media_type != impl->type.media_type.audio ||
-	    media_subtype != impl->type.media_subtype.raw)
+	if (media_type != SPA_MEDIA_TYPE_audio ||
+	    media_subtype != SPA_MEDIA_SUBTYPE_raw)
 		return 0;
 
         spa_pod_fixate(param);
-        spa_debug_format(0, impl->t->map, param);
+        spa_debug_format(0, NULL, param);
 
-	if (spa_format_audio_raw_parse(param, &info, &impl->type.format_audio) < 0)
+	if (spa_format_audio_raw_parse(param, &info) < 0)
 		return 0;
 
 	if (info.channels > d->channels) {
@@ -679,11 +659,10 @@ static int collect_audio_format(void *data, uint32_t id,
 static int find_port_format(struct impl *impl, struct pw_port *port,
 		uint32_t *channels, uint32_t *rate)
 {
-	struct pw_type *t = impl->t;
 	struct channel_data data = { impl, 0, 0 };
 
 	pw_port_for_each_param(port,
-			t->param.idEnumFormat,
+			SPA_ID_PARAM_EnumFormat,
 			0, 0, NULL,
 			collect_audio_format, &data);
 
@@ -708,7 +687,7 @@ static int on_global(void *data, struct pw_global *global)
 	bool need_dsp;
 	uint64_t plugged;
 
-	if (pw_global_get_type(global) != impl->t->node)
+	if (pw_global_get_type(global) != PW_ID_INTERFACE_Node)
 		return 0;
 
 	node = pw_global_get_object(global);
@@ -846,11 +825,8 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = core;
-	impl->t = pw_core_get_type(core);
 	impl->module = module;
 	impl->properties = properties;
-
-	init_type(&impl->type, core->type.map);
 
 	spa_list_init(&impl->session_list);
 

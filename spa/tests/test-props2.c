@@ -24,15 +24,13 @@
 #include <errno.h>
 
 #include <spa/support/log-impl.h>
-#include <spa/support/type-map-impl.h>
 #include <spa/pod/pod.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 #include <spa/param/video/format.h>
 
 #include <spa/debug/pod.h>
-
-static SPA_TYPE_MAP_IMPL(default_map, 4096);
+#include <spa/debug/types.h>
 
 int main(int argc, char *argv[])
 {
@@ -41,7 +39,6 @@ int main(int argc, char *argv[])
 	uint32_t ref;
 	struct spa_pod *obj;
 	struct spa_pod_parser prs;
-	struct spa_type_map *map = &default_map.map;
 
 	b.data = buffer;
 	b.size = 1024;
@@ -84,11 +81,11 @@ int main(int argc, char *argv[])
 	spa_pod_builder_pop(&b);
 	obj = spa_pod_builder_pop(&b);
 
-	spa_debug_pod(0, map, obj);
+	spa_debug_pod(0, spa_debug_types, obj);
 
 	struct spa_pod_prop *p = spa_pod_find_prop(obj, 4);
 	printf("%d %d\n", p->body.key, p->body.flags);
-	spa_debug_pod(0, map, &p->body.value);
+	spa_debug_pod(0, spa_debug_types, &p->body.value);
 
 	obj = spa_pod_builder_deref(&b, ref);
 

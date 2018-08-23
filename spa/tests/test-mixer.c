@@ -31,71 +31,22 @@
 #include <spa/support/log.h>
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
-#include <spa/support/type-map.h>
-#include <spa/support/type-map-impl.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/param/format-utils.h>
 
 #define USE_GRAPH
 
 #define M_PI_M2 ( M_PI + M_PI )
 
-static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
 
 #define spa_debug(...)	spa_log_trace(&default_log.log,__VA_ARGS__)
 
 #include <spa/graph/graph.h>
 #include <spa/graph/graph-scheduler2.h>
-
-struct type {
-	uint32_t node;
-	uint32_t props;
-	uint32_t format;
-	uint32_t props_device;
-	uint32_t props_freq;
-	uint32_t props_volume;
-	uint32_t props_min_latency;
-	uint32_t props_live;
-	uint32_t io_inprop_volume;
-	struct spa_type_io io;
-	struct spa_type_param param;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_format_audio format_audio;
-	struct spa_type_audio_format audio_format;
-	struct spa_type_event_node event_node;
-	struct spa_type_command_node command_node;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
-	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->props_device = spa_type_map_get_id(map, SPA_TYPE_PROPS__device);
-	type->props_freq = spa_type_map_get_id(map, SPA_TYPE_PROPS__frequency);
-	type->props_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
-	type->props_min_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__minLatency);
-	type->props_live = spa_type_map_get_id(map, SPA_TYPE_PROPS__live);
-	type->io_inprop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
-	spa_type_io_map(map, &type->io);
-	spa_type_param_map(map, &type->param);
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_audio_map(map, &type->format_audio);
-	spa_type_audio_format_map(map, &type->audio_format);
-	spa_type_event_node_map(map, &type->event_node);
-	spa_type_command_node_map(map, &type->command_node);
-}
 
 struct buffer {
 	struct spa_buffer buffer;
@@ -106,10 +57,8 @@ struct buffer {
 };
 
 struct data {
-	struct spa_type_map *map;
 	struct spa_log *log;
 	struct spa_loop data_loop;
-	struct type type;
 
 	struct spa_support support[4];
 	uint32_t n_support;
@@ -187,11 +136,11 @@ init_buffer(struct data *data, struct spa_buffer **bufs, struct buffer *ba, int 
 		b->header.seq = 0;
 		b->header.pts = 0;
 		b->header.dts_offset = 0;
-		b->metas[0].type = data->type.meta.Header;
+		b->metas[0].type = SPA_META_Header;
 		b->metas[0].data = &b->header;
 		b->metas[0].size = sizeof(b->header);
 
-		b->datas[0].type = data->type.data.MemPtr;
+		b->datas[0].type = SPA_DATA_MemPtr;
 		b->datas[0].flags = 0;
 		b->datas[0].fd = -1;
 		b->datas[0].mapoffset = 0;
@@ -240,7 +189,7 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 			printf("can't make factory instance: %d\n", res);
 			return res;
 		}
-		if ((res = spa_handle_get_interface(handle, data->type.node, &iface)) < 0) {
+		if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Node, &iface)) < 0) {
 			printf("can't get interface %d\n", res);
 			return res;
 		}
@@ -370,11 +319,11 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_object(&b,
-		0, data->type.props,
-		":", data->type.props_device,      "s", device ? device : "hw:0",
-		":", data->type.props_min_latency, "i", MIN_LATENCY);
+		0, SPA_ID_OBJECT_Props,
+		":", SPA_PROP_device,     "s", device ? device : "hw:0",
+		":", SPA_PROP_minLatency, "i", MIN_LATENCY);
 
-	if ((res = spa_node_set_param(data->sink, data->type.param.idProps, 0, props)) < 0)
+	if ((res = spa_node_set_param(data->sink, SPA_ID_PARAM_Props, 0, props)) < 0)
 		error(0, -res, "set_param props");
 
 	if ((res = make_node(data, &data->mix,
@@ -393,12 +342,12 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_object(&b,
-		0, data->type.props,
-		":", data->type.props_freq,   "d", 600.0,
-		":", data->type.props_volume, "d", 1.0,
-		":", data->type.props_live,   "b", false);
+		SPA_ID_PARAM_Props, SPA_ID_OBJECT_Props,
+		":", SPA_PROP_frequency,  "d", 600.0,
+		":", SPA_PROP_volume,	  "d", 1.0,
+		":", SPA_PROP_live,       "b", false);
 
-	if ((res = spa_node_set_param(data->source1, data->type.param.idProps, 0, props)) < 0)
+	if ((res = spa_node_set_param(data->source1, SPA_ID_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
 
 	if ((res = make_node(data, &data->source2,
@@ -410,12 +359,12 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_object(&b,
-		0, data->type.props,
-		":", data->type.props_freq,   "d", 440.0,
-		":", data->type.props_volume, "d", 1.0,
-		":", data->type.props_live,   "b", false);
+		SPA_ID_PARAM_Props, SPA_ID_OBJECT_Props,
+		":", SPA_PROP_frequency,  "d", 440.0,
+		":", SPA_PROP_volume,	  "d", 1.0,
+		":", SPA_PROP_live,       "b", false);
 
-	if ((res = spa_node_set_param(data->source2, data->type.param.idProps, 0, props)) < 0)
+	if ((res = spa_node_set_param(data->source2, SPA_ID_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
 
 	data->mix_ports[0] = 0;
@@ -432,32 +381,33 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_node_port_set_io(data->source1,
 			     SPA_DIRECTION_OUTPUT, 0,
-			     data->type.io.Buffers,
+			     SPA_ID_IO_Buffers,
 			     &data->source1_mix_io[0], sizeof(data->source1_mix_io[0]));
 	spa_node_port_set_io(data->source2,
 			     SPA_DIRECTION_OUTPUT, 0,
-			     data->type.io.Buffers,
+			     SPA_ID_IO_Buffers,
 			     &data->source2_mix_io[0], sizeof(data->source2_mix_io[0]));
 	spa_node_port_set_io(data->mix,
 			     SPA_DIRECTION_INPUT, data->mix_ports[0],
-			     data->type.io.Buffers,
+			     SPA_ID_IO_Buffers,
 			     &data->source1_mix_io[0], sizeof(data->source1_mix_io[0]));
 	spa_node_port_set_io(data->mix,
 			     SPA_DIRECTION_INPUT, data->mix_ports[1],
-			     data->type.io.Buffers,
+			     SPA_ID_IO_Buffers,
 			     &data->source2_mix_io[0], sizeof(data->source2_mix_io[0]));
 	spa_node_port_set_io(data->mix,
 			     SPA_DIRECTION_OUTPUT, 0,
-			     data->type.io.Buffers,
+			     SPA_ID_IO_Buffers,
 			     &data->mix_sink_io[0], sizeof(data->mix_sink_io[0]));
 	spa_node_port_set_io(data->sink,
 			     SPA_DIRECTION_INPUT, 0,
-			     data->type.io.Buffers,
+			     SPA_ID_IO_Buffers,
 			     &data->mix_sink_io[0], sizeof(data->mix_sink_io[0]));
 
 	data->ctrl_volume[0] = SPA_POD_DOUBLE_INIT(0.5);
 	data->ctrl_volume[1] = SPA_POD_DOUBLE_INIT(0.5);
 
+#if 0
 	if ((res = spa_node_port_set_io(data->mix,
 				     SPA_DIRECTION_INPUT, data->mix_ports[0],
 				     data->type.io_inprop_volume,
@@ -469,6 +419,7 @@ static int make_nodes(struct data *data, const char *device)
 				     data->type.io_inprop_volume,
 				     &data->ctrl_volume[1], sizeof(data->ctrl_volume[1]))) < 0)
 				error(0, -res, "set_io volume 1");
+#endif
 
 
 #ifdef USE_GRAPH
@@ -522,30 +473,30 @@ static int negotiate_formats(struct data *data)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	filter = spa_pod_builder_object(&b,
-		0, data->type.format,
-		"I", data->type.media_type.audio,
-		"I", data->type.media_subtype.raw,
-		":", data->type.format_audio.format,   "I", data->type.audio_format.S16,
-		":", data->type.format_audio.layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
-		":", data->type.format_audio.rate,     "i", 44100,
-		":", data->type.format_audio.channels, "i", 2);
+		0, SPA_ID_OBJECT_Format,
+		"I", SPA_MEDIA_TYPE_audio,
+		"I", SPA_MEDIA_SUBTYPE_raw,
+		":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_S16,
+		":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
+		":", SPA_FORMAT_AUDIO_rate,     "i", 44100,
+		":", SPA_FORMAT_AUDIO_channels, "i", 2);
 
 	if ((res =
 	     spa_node_port_enum_params(data->sink,
 				       SPA_DIRECTION_INPUT, 0,
-				       data->type.param.idEnumFormat, &state,
+				       SPA_ID_PARAM_EnumFormat, &state,
 				       filter, &format, &b)) <= 0)
 		return -EBADF;
 
 	if ((res = spa_node_port_set_param(data->sink,
 					   SPA_DIRECTION_INPUT, 0,
-					   data->type.param.idFormat, 0,
+					   SPA_ID_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 
 	if ((res = spa_node_port_set_param(data->mix,
 					   SPA_DIRECTION_OUTPUT, 0,
-					   data->type.param.idFormat, 0,
+					   SPA_ID_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 
@@ -560,13 +511,13 @@ static int negotiate_formats(struct data *data)
 
 	if ((res = spa_node_port_set_param(data->mix,
 				     SPA_DIRECTION_INPUT, data->mix_ports[0],
-				     data->type.param.idFormat, 0,
+				     SPA_ID_PARAM_Format, 0,
 				     format)) < 0)
 		return res;
 
 	if ((res = spa_node_port_set_param(data->source1,
 					   SPA_DIRECTION_OUTPUT, 0,
-					   data->type.param.idFormat, 0,
+					   SPA_ID_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 
@@ -583,13 +534,13 @@ static int negotiate_formats(struct data *data)
 	if ((res =
 	     spa_node_port_set_param(data->mix,
 				     SPA_DIRECTION_INPUT, data->mix_ports[1],
-				     data->type.param.idFormat, 0,
+				     SPA_ID_PARAM_Format, 0,
 				     format)) < 0)
 		return res;
 
 	if ((res = spa_node_port_set_param(data->source2,
 					   SPA_DIRECTION_OUTPUT, 0,
-					   data->type.param.idFormat, 0,
+					   SPA_ID_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 
@@ -666,7 +617,7 @@ static void run_async_sink(struct data *data)
 	int err;
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(data->type.command_node.Start);
+		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Start);
 		if ((res = spa_node_send_command(data->source1, &cmd)) < 0)
 			printf("got source1 error %d\n", res);
 		if ((res = spa_node_send_command(data->source2, &cmd)) < 0)
@@ -692,7 +643,7 @@ static void run_async_sink(struct data *data)
 	}
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(data->type.command_node.Pause);
+		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Pause);
 		if ((res = spa_node_send_command(data->sink, &cmd)) < 0)
 			printf("got error %d\n", res);
 		if ((res = spa_node_send_command(data->mix, &cmd)) < 0)
@@ -710,7 +661,6 @@ int main(int argc, char *argv[])
 	int res;
 	const char *str;
 
-	data.map = &default_map.map;
 	data.log = &default_log.log;
 	data.data_loop.version = SPA_VERSION_LOOP;
 	data.data_loop.add_source = do_add_source;
@@ -725,17 +675,10 @@ int main(int argc, char *argv[])
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);
 
-	data.support[0].type = SPA_TYPE__TypeMap;
-	data.support[0].data = data.map;
-	data.support[1].type = SPA_TYPE__Log;
-	data.support[1].data = data.log;
-	data.support[2].type = SPA_TYPE_LOOP__DataLoop;
-	data.support[2].data = &data.data_loop;
-	data.support[3].type = SPA_TYPE_LOOP__MainLoop;
-	data.support[3].data = &data.data_loop;
-	data.n_support = 4;
-
-	init_type(&data.type, data.map);
+	data.support[0] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, data.log);
+	data.support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, &data.data_loop);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DataLoop, &data.data_loop);
+	data.n_support = 3;
 
 	if ((res = make_nodes(&data, argc > 1 ? argv[1] : NULL)) < 0) {
 		printf("can't make nodes: %d\n", res);

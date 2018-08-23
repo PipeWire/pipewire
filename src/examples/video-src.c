@@ -22,38 +22,18 @@
 #include <time.h>
 #include <sys/mman.h>
 
-#include <spa/support/type-map.h>
-#include <spa/param/format-utils.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 
 #include <pipewire/pipewire.h>
 
-struct type {
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_format_video format_video;
-	struct spa_type_video_format video_format;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_video_map(map, &type->format_video);
-	spa_type_video_format_map(map, &type->video_format);
-}
-
 #define BPP    3
 
 struct data {
-	struct type type;
-
 	struct pw_main_loop *loop;
 	struct spa_source *timer;
 
 	struct pw_core *core;
-	struct pw_type *t;
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
 
@@ -86,8 +66,8 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	}
 	buf = b->buffer;
 
-	if (buf->datas[0].type == data->t->data.MemFd ||
-	    buf->datas[0].type == data->t->data.DmaBuf) {
+	if (buf->datas[0].type == SPA_DATA_MemFd ||
+	    buf->datas[0].type == SPA_DATA_DmaBuf) {
 		map =
 		    mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset,
 			 PROT_READ | PROT_WRITE, MAP_SHARED, buf->datas[0].fd, 0);
@@ -96,13 +76,13 @@ static void on_timeout(void *userdata, uint64_t expirations)
 			return;
 		}
 		p = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);
-	} else if (buf->datas[0].type == data->t->data.MemPtr) {
+	} else if (buf->datas[0].type == SPA_DATA_MemPtr) {
 		map = NULL;
 		p = buf->datas[0].data;
 	} else
 		return;
 
-	if ((h = spa_buffer_find_meta_data(buf, data->t->meta.Header, sizeof(*h)))) {
+	if ((h = spa_buffer_find_meta_data(buf, SPA_META_Header, sizeof(*h)))) {
 #if 0
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC, &now);
@@ -114,7 +94,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		h->seq = data->seq++;
 		h->dts_offset = 0;
 	}
-	if ((m = spa_buffer_find_meta(buf, data->t->meta.VideoDamage))) {
+	if ((m = spa_buffer_find_meta(buf, SPA_META_VideoDamage))) {
 		struct spa_meta_region *r = spa_meta_first(m);
 
 		if (spa_meta_check(r, m)) {
@@ -175,7 +155,6 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 {
 	struct data *data = _data;
 	struct pw_stream *stream = data->stream;
-	struct pw_type *t = data->t;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[3];
@@ -184,27 +163,28 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		pw_stream_finish_format(stream, 0, NULL, 0);
 		return;
 	}
-	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
+	spa_format_video_raw_parse(format, &data->format);
 
 	data->stride = SPA_ROUND_UP_N(data->format.size.width * BPP, 4);
 
 	params[0] = spa_pod_builder_object(&b,
-		t->param.idBuffers, t->param_buffers.Buffers,
-		":", t->param_buffers.size,    "i", data->stride * data->format.size.height,
-		":", t->param_buffers.stride,  "i", data->stride,
-		":", t->param_buffers.buffers, "iru", 2,
+		SPA_ID_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+		":", SPA_PARAM_BUFFERS_buffers, "iru", 2,
 			SPA_POD_PROP_MIN_MAX(1, 32),
-		":", t->param_buffers.align,   "i", 16);
+		":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
+		":", SPA_PARAM_BUFFERS_size,    "i", data->stride * data->format.size.height,
+		":", SPA_PARAM_BUFFERS_stride,  "i", data->stride,
+		":", SPA_PARAM_BUFFERS_align,   "i", 16);
 
 	params[1] = spa_pod_builder_object(&b,
-		t->param.idMeta, t->param_meta.Meta,
-		":", t->param_meta.type, "I", t->meta.Header,
-		":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+		SPA_ID_PARAM_Meta, SPA_ID_OBJECT_ParamMeta,
+		":", SPA_PARAM_META_type, "I", SPA_META_Header,
+		":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
 
 	params[2] = spa_pod_builder_object(&b,
-		t->param.idMeta, t->param_meta.Meta,
-		":", t->param_meta.type, "I", t->meta.VideoDamage,
-		":", t->param_meta.size, "iru", sizeof(struct spa_meta_region) * 16,
+		SPA_ID_PARAM_Meta, SPA_ID_OBJECT_ParamMeta,
+		":", SPA_PARAM_META_type, "I", SPA_META_VideoDamage,
+		":", SPA_PARAM_META_size, "iru", sizeof(struct spa_meta_region) * 16,
 			SPA_POD_PROP_MIN_MAX(sizeof(struct spa_meta_region) * 1,
 					     sizeof(struct spa_meta_region) * 16));
 
@@ -243,14 +223,14 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 				NULL));
 
 		params[0] = spa_pod_builder_object(&b,
-			data->t->param.idEnumFormat, data->t->spa_format,
-			"I", data->type.media_type.video,
-			"I", data->type.media_subtype.raw,
-			":", data->type.format_video.format,    "I", data->type.video_format.RGB,
-			":", data->type.format_video.size,      "Rru", &SPA_RECTANGLE(320, 240),
+			SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+			"I", SPA_MEDIA_TYPE_video,
+			"I", SPA_MEDIA_SUBTYPE_raw,
+			":", SPA_FORMAT_VIDEO_format,    "I", SPA_VIDEO_FORMAT_RGB,
+			":", SPA_FORMAT_VIDEO_size,      "Rru", &SPA_RECTANGLE(320, 240),
 				SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1, 1),
 						     &SPA_RECTANGLE(4096, 4096)),
-			":", data->type.format_video.framerate, "F", &SPA_FRACTION(25, 1));
+			":", SPA_FORMAT_VIDEO_framerate, "F", &SPA_FRACTION(25, 1));
 
 		pw_stream_add_listener(data->stream,
 				       &data->stream_listener,
@@ -282,10 +262,7 @@ int main(int argc, char *argv[])
 
 	data.loop = pw_main_loop_new(NULL);
 	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL);
-	data.t = pw_core_get_type(data.core);
 	data.remote = pw_remote_new(data.core, NULL, 0);
-
-	init_type(&data.type, data.t->map);
 
 	data.timer = pw_loop_add_timer(pw_main_loop_get_loop(data.loop), on_timeout, &data);
 

@@ -23,8 +23,6 @@
 #include <math.h>
 #include <sys/mman.h>
 
-#include <spa/support/type-map.h>
-#include <spa/param/format-utils.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 
@@ -36,28 +34,10 @@
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_VOLUME		0.7
 
-struct type {
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_format_audio format_audio;
-	struct spa_type_audio_format audio_format;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_audio_map(map, &type->format_audio);
-	spa_type_audio_format_map(map, &type->audio_format);
-}
-
 struct data {
-	struct type type;
-
 	struct pw_main_loop *loop;
 
 	struct pw_core *core;
-	struct pw_type *t;
 	struct pw_remote *remote;
 
 	struct pw_stream *stream;
@@ -131,17 +111,15 @@ int main(int argc, char *argv[])
 			&data);
 
 	data.remote = pw_stream_get_remote(data.stream);
-	data.t = pw_core_get_type(pw_remote_get_core(data.remote));
-	init_type(&data.type, data.t->map);
 
 	params[0] = spa_pod_builder_object(&b,
-		data.t->param.idEnumFormat, data.t->spa_format,
-		"I", data.type.media_type.audio,
-		"I", data.type.media_subtype.raw,
-		":", data.type.format_audio.format,	"I", data.type.audio_format.F32,
-		":", data.type.format_audio.layout,	"i", SPA_AUDIO_LAYOUT_INTERLEAVED,
-		":", data.type.format_audio.channels,	"i", DEFAULT_CHANNELS,
-		":", data.type.format_audio.rate,	"i", DEFAULT_RATE);
+		SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+		"I", SPA_MEDIA_TYPE_audio,
+		"I", SPA_MEDIA_SUBTYPE_raw,
+		":", SPA_FORMAT_AUDIO_format,	"I", SPA_AUDIO_FORMAT_F32,
+		":", SPA_FORMAT_AUDIO_layout,	"i", SPA_AUDIO_LAYOUT_INTERLEAVED,
+		":", SPA_FORMAT_AUDIO_channels,	"i", DEFAULT_CHANNELS,
+		":", SPA_FORMAT_AUDIO_rate,	"i", DEFAULT_RATE);
 
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_OUTPUT,

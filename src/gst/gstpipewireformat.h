@@ -22,17 +22,15 @@
 
 #include <gst/gst.h>
 
-#include <spa/support/type-map.h>
 #include <spa/pod/pod.h>
 
 G_BEGIN_DECLS
 
 struct spa_pod * gst_caps_to_format      (GstCaps *caps,
-					  guint index, uint32_t id,
-					  struct spa_type_map *map);
-GPtrArray *      gst_caps_to_format_all  (GstCaps *caps, uint32_t id, struct spa_type_map *map);
+					  guint index, uint32_t id);
+GPtrArray *      gst_caps_to_format_all  (GstCaps *caps, uint32_t id);
 
-GstCaps *        gst_caps_from_format    (const struct spa_pod *format, struct spa_type_map *map);
+GstCaps *        gst_caps_from_format    (const struct spa_pod *format);
 
 G_END_DECLS
 

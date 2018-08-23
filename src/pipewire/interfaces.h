@@ -69,14 +69,13 @@ struct pw_link_proxy;
 #define PW_VERSION_CORE				0
 
 #define PW_CORE_PROXY_METHOD_HELLO		0
-#define PW_CORE_PROXY_METHOD_UPDATE_TYPES	1
-#define PW_CORE_PROXY_METHOD_SYNC		2
-#define PW_CORE_PROXY_METHOD_GET_REGISTRY	3
-#define PW_CORE_PROXY_METHOD_CLIENT_UPDATE	4
-#define PW_CORE_PROXY_METHOD_PERMISSIONS	5
-#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	6
-#define PW_CORE_PROXY_METHOD_DESTROY		7
-#define PW_CORE_PROXY_METHOD_NUM		8
+#define PW_CORE_PROXY_METHOD_SYNC		1
+#define PW_CORE_PROXY_METHOD_GET_REGISTRY	2
+#define PW_CORE_PROXY_METHOD_CLIENT_UPDATE	3
+#define PW_CORE_PROXY_METHOD_PERMISSIONS	4
+#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	5
+#define PW_CORE_PROXY_METHOD_DESTROY		6
+#define PW_CORE_PROXY_METHOD_NUM		7
 
 /**
  * Key to update default permissions of globals without specific
@@ -119,19 +118,6 @@ struct pw_core_proxy_methods {
 	 * the core info and server types.
 	 */
 	void (*hello) (void *object);
-	/**
-	 * Update the type map
-	 *
-	 * Send a type map update to the PipeWire server. The server uses this
-	 * information to keep a mapping between client types and the server types.
-	 * \param first_id the id of the first type
-	 * \param types the types as a string
-	 * \param n_types the number of types
-	 */
-	void (*update_types) (void *object,
-			      uint32_t first_id,
-			      const char **types,
-			      uint32_t n_types);
 	/**
 	 * Do server roundtrip
 	 *
@@ -202,12 +188,6 @@ pw_core_proxy_hello(struct pw_core_proxy *core)
 }
 
 static inline void
-pw_core_proxy_update_types(struct pw_core_proxy *core, uint32_t first_id, const char **types, uint32_t n_types)
-{
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, update_types, first_id, types, n_types);
-}
-
-static inline void
 pw_core_proxy_sync(struct pw_core_proxy *core, uint32_t seq)
 {
 	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, sync, seq);
@@ -253,12 +233,11 @@ pw_core_proxy_destroy(struct pw_core_proxy *core, uint32_t id)
 	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, destroy, id);
 }
 
-#define PW_CORE_PROXY_EVENT_UPDATE_TYPES 0
-#define PW_CORE_PROXY_EVENT_DONE         1
-#define PW_CORE_PROXY_EVENT_ERROR        2
-#define PW_CORE_PROXY_EVENT_REMOVE_ID    3
-#define PW_CORE_PROXY_EVENT_INFO         4
-#define PW_CORE_PROXY_EVENT_NUM          5
+#define PW_CORE_PROXY_EVENT_DONE         0
+#define PW_CORE_PROXY_EVENT_ERROR        1
+#define PW_CORE_PROXY_EVENT_REMOVE_ID    2
+#define PW_CORE_PROXY_EVENT_INFO         3
+#define PW_CORE_PROXY_EVENT_NUM          4
 
 /** \struct pw_core_proxy_events
  *  \brief Core events
@@ -267,19 +246,6 @@ pw_core_proxy_destroy(struct pw_core_proxy *core, uint32_t id)
 struct pw_core_proxy_events {
 #define PW_VERSION_CORE_PROXY_EVENTS	0
 	uint32_t version;
-	/**
-	 * Update the type map
-	 *
-	 * Send a type map update to the client. The client uses this
-	 * information to keep a mapping between server types and the client types.
-	 * \param first_id the id of the first type
-	 * \param types the types as a string
-	 * \param n_types the number of \a types
-	 */
-	void (*update_types) (void *object,
-			      uint32_t first_id,
-			      const char **types,
-			      uint32_t n_types);
 	/**
 	 * Emit a done event
 	 *
@@ -330,7 +296,6 @@ pw_core_proxy_add_listener(struct pw_core_proxy *core,
 }
 
 
-#define pw_core_resource_update_types(r,...) pw_resource_notify(r,struct pw_core_proxy_events,update_types,__VA_ARGS__)
 #define pw_core_resource_done(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,done,__VA_ARGS__)
 #define pw_core_resource_error(r,...)        pw_resource_notify(r,struct pw_core_proxy_events,error,__VA_ARGS__)
 #define pw_core_resource_remove_id(r,...)    pw_resource_notify(r,struct pw_core_proxy_events,remove_id,__VA_ARGS__)

@@ -26,7 +26,6 @@
 #include <poll.h>
 
 #include <spa/support/log-impl.h>
-#include <spa/support/type-map-impl.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/monitor.h>
@@ -34,17 +33,9 @@
 #include <spa/debug/dict.h>
 #include <spa/debug/pod.h>
 
-static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
 
-struct type {
-	struct spa_type_monitor monitor;
-};
-
 struct data {
-	struct type type;
-
-	struct spa_type_map *map;
 	struct spa_log *log;
 	struct spa_loop main_loop;
 
@@ -62,22 +53,26 @@ struct data {
 
 static void inspect_item(struct data *data, struct spa_pod *item)
 {
-	spa_debug_pod(0, data->map, item);
+	spa_debug_pod(0, spa_type_monitor, item);
 }
 
 static void on_monitor_event(void *_data, struct spa_event *event)
 {
 	struct data *data = _data;
 
-	if (SPA_EVENT_TYPE(event) == data->type.monitor.Added) {
+	switch (SPA_EVENT_TYPE(event)) {
+	case SPA_ID_EVENT_MONITOR_Added:
 		fprintf(stderr, "added:\n");
 		inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
-	} else if (SPA_EVENT_TYPE(event) == data->type.monitor.Removed) {
+		break;
+	case SPA_ID_EVENT_MONITOR_Removed:
 		fprintf(stderr, "removed:\n");
 		inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
-	} else if (SPA_EVENT_TYPE(event) == data->type.monitor.Changed) {
+		break;
+	case SPA_ID_EVENT_MONITOR_Changed:
 		fprintf(stderr, "changed:\n");
 		inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
+		break;
 	}
 }
 
@@ -169,22 +164,15 @@ int main(int argc, char *argv[])
 	spa_handle_factory_enum_func_t enum_func;
 	uint32_t fidx;
 
-	data.map = &default_map.map;
 	data.log = &default_log.log;
 	data.main_loop.version = SPA_VERSION_LOOP;
 	data.main_loop.add_source = do_add_source;
 	data.main_loop.update_source = do_update_source;
 	data.main_loop.remove_source = do_remove_source;
 
-	data.support[0].type = SPA_TYPE__TypeMap;
-	data.support[0].data = data.map;
-	data.support[1].type = SPA_TYPE__Log;
-	data.support[1].data = data.log;
-	data.support[2].type = SPA_TYPE_LOOP__MainLoop;
-	data.support[2].data = &data.main_loop;
+	data.support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, data.log);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, &data.main_loop);
 	data.n_support = 3;
-
-	spa_type_monitor_map(data.map, &data.type.monitor);
 
 	if (argc < 2) {
 		printf("usage: %s <plugin.so>\n", argv[0]);
@@ -220,7 +208,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			if (!strcmp(info->type, SPA_TYPE__Monitor)) {
+			if (info->type == SPA_ID_INTERFACE_Monitor) {
 				struct spa_handle *handle;
 				void *interface;
 
@@ -233,7 +221,7 @@ int main(int argc, char *argv[])
 				}
 
 				if ((res =
-				     spa_handle_get_interface(handle, data.type.monitor.Monitor,
+				     spa_handle_get_interface(handle, SPA_ID_INTERFACE_Monitor,
 							      &interface)) < 0) {
 					printf("can't get interface: %s\n", strerror(res));
 					continue;

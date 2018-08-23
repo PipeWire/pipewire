@@ -21,38 +21,19 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include <SDL2/SDL.h>
-
-#include <spa/support/type-map.h>
-#include <spa/param/format-utils.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>
 
-struct type {
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_format_video format_video;
-	struct spa_type_video_format video_format;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_video_map(map, &type->format_video);
-	spa_type_video_format_map(map, &type->video_format);
-}
-
 #define WIDTH   640
 #define HEIGHT  480
 #define BPP    3
 
-struct data {
-	struct type type;
+#include "sdl.h"
 
+struct data {
 	const char *path;
 
 	SDL_Renderer *renderer;
@@ -62,7 +43,6 @@ struct data {
 	struct pw_main_loop *loop;
 
 	struct pw_core *core;
-	struct pw_type *t;
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
 
@@ -153,82 +133,11 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 	}
 }
 
-static struct {
-	Uint32 format;
-	uint32_t id;
-} video_formats[] = {
-	{ SDL_PIXELFORMAT_UNKNOWN, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_INDEX1LSB, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_UNKNOWN, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_INDEX1LSB, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_INDEX1MSB, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_INDEX4LSB, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_INDEX4MSB, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_INDEX8, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_RGB332, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_RGB444, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_RGB555, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_BGR555, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_ARGB4444, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_RGBA4444, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_ABGR4444, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_BGRA4444, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_ARGB1555, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_RGBA5551, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_ABGR1555, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_BGRA5551, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_RGB565, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_BGR565, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_RGB24, offsetof(struct spa_type_video_format, RGB),},
-	{ SDL_PIXELFORMAT_RGB888, offsetof(struct spa_type_video_format, RGB),},
-	{ SDL_PIXELFORMAT_RGBX8888, offsetof(struct spa_type_video_format, RGBx),},
-	{ SDL_PIXELFORMAT_BGR24, offsetof(struct spa_type_video_format, BGR),},
-	{ SDL_PIXELFORMAT_BGR888, offsetof(struct spa_type_video_format, BGR),},
-	{ SDL_PIXELFORMAT_BGRX8888, offsetof(struct spa_type_video_format, BGRx),},
-	{ SDL_PIXELFORMAT_ARGB2101010, offsetof(struct spa_type_video_format, UNKNOWN),},
-	{ SDL_PIXELFORMAT_RGBA8888, offsetof(struct spa_type_video_format, RGBA),},
-	{ SDL_PIXELFORMAT_ARGB8888, offsetof(struct spa_type_video_format, ARGB),},
-	{ SDL_PIXELFORMAT_BGRA8888, offsetof(struct spa_type_video_format, BGRA),},
-	{ SDL_PIXELFORMAT_ABGR8888, offsetof(struct spa_type_video_format, ABGR),},
-	{ SDL_PIXELFORMAT_YV12, offsetof(struct spa_type_video_format, YV12),},
-	{ SDL_PIXELFORMAT_IYUV, offsetof(struct spa_type_video_format, I420),},
-	{ SDL_PIXELFORMAT_YUY2, offsetof(struct spa_type_video_format, YUY2),},
-	{ SDL_PIXELFORMAT_UYVY, offsetof(struct spa_type_video_format, UYVY),},
-	{ SDL_PIXELFORMAT_YVYU, offsetof(struct spa_type_video_format, YVYU),},
-#if SDL_VERSION_ATLEAST(2,0,4)
-	{ SDL_PIXELFORMAT_NV12, offsetof(struct spa_type_video_format, NV12),},
-	{ SDL_PIXELFORMAT_NV21, offsetof(struct spa_type_video_format, NV21),},
-#endif
-};
-
-static uint32_t sdl_format_to_id(struct data *data, Uint32 format)
-{
-	size_t i;
-
-	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
-		if (video_formats[i].format == format)
-			return *SPA_MEMBER(&data->type.video_format, video_formats[i].id, uint32_t);
-	}
-	return data->type.video_format.UNKNOWN;
-}
-
-static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
-{
-	size_t i;
-
-	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
-		if (*SPA_MEMBER(&data->type.video_format, video_formats[i].id, uint32_t) == id)
-			return video_formats[i].format;
-	}
-	return SDL_PIXELFORMAT_UNKNOWN;
-}
-
 static void
 on_stream_format_changed(void *_data, const struct spa_pod *format)
 {
 	struct data *data = _data;
 	struct pw_stream *stream = data->stream;
-	struct pw_type *t = data->t;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[2];
@@ -241,11 +150,11 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	}
 
 	fprintf(stderr, "got format:\n");
-	spa_debug_format(2, data->t->map, format);
+	spa_debug_format(2, NULL, format);
 
-	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
+	spa_format_video_raw_parse(format, &data->format);
 
-	sdl_format = id_to_sdl_format(data, data->format.format);
+	sdl_format = id_to_sdl_format(data->format.format);
 	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN) {
 		pw_stream_finish_format(stream, -EINVAL, NULL, 0);
 		return;
@@ -260,17 +169,18 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	SDL_UnlockTexture(data->texture);
 
 	params[0] = spa_pod_builder_object(&b,
-		t->param.idBuffers, t->param_buffers.Buffers,
-		":", t->param_buffers.size,    "i", data->stride * data->format.size.height,
-		":", t->param_buffers.stride,  "i", data->stride,
-		":", t->param_buffers.buffers, "iru", 8,
+		SPA_ID_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+		":", SPA_PARAM_BUFFERS_buffers, "iru", 8,
 			SPA_POD_PROP_MIN_MAX(2, 16),
-		":", t->param_buffers.align,   "i", 16);
+		":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
+		":", SPA_PARAM_BUFFERS_size,    "i", data->stride * data->format.size.height,
+		":", SPA_PARAM_BUFFERS_stride,  "i", data->stride,
+		":", SPA_PARAM_BUFFERS_align,   "i", 16);
 
 	params[1] = spa_pod_builder_object(&b,
-		t->param.idMeta, t->param_meta.Meta,
-		":", t->param_meta.type, "I", t->meta.Header,
-		":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+		SPA_ID_PARAM_Meta, SPA_ID_OBJECT_ParamMeta,
+		":", SPA_PARAM_META_type, "I", SPA_META_Header,
+		":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
 
 	pw_stream_finish_format(stream, 0, params, 2);
 }
@@ -284,48 +194,13 @@ static const struct pw_stream_events stream_events = {
 
 static int build_format(struct data *data, struct spa_pod_builder *b, const struct spa_pod **params)
 {
-	uint32_t i, c;
 	SDL_RendererInfo info;
 
 	SDL_GetRendererInfo(data->renderer, &info);
-
-	spa_pod_builder_push_object(b,
-		    data->t->param.idEnumFormat, data->t->spa_format);
-	spa_pod_builder_id(b, data->type.media_type.video);
-	spa_pod_builder_id(b, data->type.media_subtype.raw);
-
-	spa_pod_builder_push_prop(b, data->type.format_video.format,
-				  SPA_POD_PROP_FLAG_UNSET |
-				  SPA_POD_PROP_RANGE_ENUM);
-	for (i = 0, c = 0; i < info.num_texture_formats; i++) {
-		uint32_t id = sdl_format_to_id(data, info.texture_formats[i]);
-		if (id == 0)
-			continue;
-		if (c++ == 0)
-			spa_pod_builder_id(b, id);
-		spa_pod_builder_id(b, id);
-	}
-	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
-		uint32_t id =
-		    *SPA_MEMBER(&data->type.video_format, video_formats[i].id,
-				uint32_t);
-		if (id != data->type.video_format.UNKNOWN)
-			spa_pod_builder_id(b, id);
-	}
-	spa_pod_builder_pop(b);
-	spa_pod_builder_add(b,
-		":", data->type.format_video.size,      "Rru", &SPA_RECTANGLE(WIDTH, HEIGHT),
-			SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1,1),
-					     &SPA_RECTANGLE(info.max_texture_width,
-							    info.max_texture_height)),
-		":", data->type.format_video.framerate, "Fru", &SPA_FRACTION(25,1),
-			SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(0,1),
-					     &SPA_RECTANGLE(30,1)),
-		NULL);
-	params[0] = spa_pod_builder_pop(b);
+	params[0] = sdl_build_formats(&info, b);
 
 	fprintf(stderr, "supported formats:\n");
-	spa_debug_format(2, data->t->map, params[0]);
+	spa_debug_format(2, NULL, params[0]);
 
 	return 0;
 }
@@ -354,10 +229,7 @@ int main(int argc, char *argv[])
 
 	data.remote = pw_stream_get_remote(data.stream);
 	data.core = pw_remote_get_core(data.remote);
-	data.t = pw_core_get_type(data.core);
 	data.path = argc > 1 ? argv[1] : NULL;
-
-	init_type(&data.type, data.t->map);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "can't initialize SDL: %s\n", SDL_GetError());

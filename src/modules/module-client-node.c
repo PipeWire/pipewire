@@ -46,8 +46,6 @@ struct factory_data {
 
 	struct pw_module *module;
 	struct spa_hook module_listener;
-
-	uint32_t type_client_node;
 };
 
 static void *create_object(void *_data,
@@ -122,16 +120,12 @@ static const struct pw_module_events module_events = {
 static int module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
-	struct pw_type *t = pw_core_get_type(core);
 	struct pw_factory *factory;
 	struct factory_data *data;
-	uint32_t type_client_node;
-
-        type_client_node = spa_type_map_get_id(t->map, PW_TYPE_INTERFACE__ClientNode);
 
 	factory = pw_factory_new(core,
 				 "client-node",
-				 type_client_node,
+				 PW_ID_INTERFACE_ClientNode,
 				 PW_VERSION_CLIENT_NODE,
 				 NULL,
 				 sizeof(*data));
@@ -142,7 +136,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	data->this = factory;
 	data->module = module;
 	data->properties = properties;
-	data->type_client_node = type_client_node;
 
 	pw_log_debug("module %p: new", module);
 

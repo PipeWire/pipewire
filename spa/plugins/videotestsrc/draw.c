@@ -135,13 +135,13 @@ static int drawing_data_init(DrawingData * dd, struct impl *this, char *data)
 	struct spa_video_info *format = &this->current_format;
 	struct spa_rectangle *size = &format->info.raw.size;
 
-	if ((format->media_type != this->type.media_type.video) ||
-	    (format->media_subtype != this->type.media_subtype.raw))
+	if ((format->media_type != SPA_MEDIA_TYPE_video) ||
+	    (format->media_subtype != SPA_MEDIA_SUBTYPE_raw))
 		return -ENOTSUP;
 
-	if (format->info.raw.format == this->type.video_format.RGB) {
+	if (format->info.raw.format == SPA_VIDEO_FORMAT_RGB) {
 		dd->draw_pixel = draw_pixel_rgb;
-	} else if (format->info.raw.format == this->type.video_format.UYVY) {
+	} else if (format->info.raw.format == SPA_VIDEO_FORMAT_UYVY) {
 		dd->draw_pixel = draw_pixel_uyvy;
 	} else
 		return -ENOTSUP;

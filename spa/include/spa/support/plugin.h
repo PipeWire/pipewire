@@ -66,8 +66,8 @@ struct spa_handle {
  * handles.
  */
 struct spa_interface_info {
-	const char *type;	/*< the type of the interface, can be
-				 *  used to get the interface */
+	uint32_t type;	/*< the type of the interface, can be
+			 *  used to get the interface */
 };
 
 /**
@@ -75,18 +75,18 @@ struct spa_interface_info {
  * a factory. It can be extra information or interfaces such as logging.
  */
 struct spa_support {
-	const char *type;	/*< the type of the support item */
-	void *data;		/*< specific data for the item */
+	uint32_t type;	/*< the type of the support item */
+	void *data;	/*< specific data for the item */
 };
 
 /** Find a support item of the given type */
 static inline void *spa_support_find(const struct spa_support *support,
 				     uint32_t n_support,
-				     const char *type)
+				     uint32_t type)
 {
 	uint32_t i;
 	for (i = 0; i < n_support; i++) {
-		if (strcmp(support[i].type, type) == 0)
+		if (support[i].type == type)
 			return support[i].data;
 	}
 	return NULL;

@@ -24,11 +24,11 @@
 #include <stdio.h>
 #include <sys/eventfd.h>
 
-#include <spa/support/type-map.h>
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/utils/type.h>
 
 #define NAME "logger"
 
@@ -36,21 +36,9 @@
 
 #define TRACE_BUFFER (16*1024)
 
-struct type {
-	uint32_t log;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->log = spa_type_map_get_id(map, SPA_TYPE__Log);
-}
-
 struct impl {
 	struct spa_handle handle;
 	struct spa_log log;
-
-	struct type type;
-	struct spa_type_map *map;
 
 	bool colors;
 
@@ -170,7 +158,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct impl *) handle;
 
-	if (interface_id == this->type.log)
+	if (interface_id == SPA_ID_INTERFACE_Log)
 		*interface = &this->log;
 	else
 		return -ENOENT;
@@ -224,16 +212,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this->log = impl_log;
 
 	for (i = 0; i < n_support; i++) {
-		if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
-			this->map = support[i].data;
-		if (strcmp(support[i].type, SPA_TYPE_LOOP__MainLoop) == 0)
+		if (support[i].type == SPA_ID_INTERFACE_MainLoop)
 			loop = support[i].data;
 	}
-	if (this->map == NULL) {
-		spa_log_error(&this->log, "a type-map is needed");
-		return -EINVAL;
-	}
-	init_type(&this->type, this->map);
 
 	if (info && (str = spa_dict_lookup(info, "log.colors")) != NULL)
 		this->colors = (strcmp(str, "true") == 0 || atoi(str) == 1);
@@ -256,7 +237,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_TYPE__Log,},
+	{SPA_ID_INTERFACE_Log,},
 };
 
 static int

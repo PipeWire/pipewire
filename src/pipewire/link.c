@@ -152,7 +152,6 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	struct pw_port *input, *output;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	struct pw_type *t = &this->core->type;
 	uint32_t index;
 	uint32_t in_mix_state, out_mix_state;
 
@@ -184,7 +183,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		index = 0;
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
-						     t->param.idFormat, &index,
+						     SPA_ID_PARAM_Format, &index,
 						     format, &current, &b)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
@@ -205,7 +204,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		index = 0;
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
-						     t->param.idFormat, &index,
+						     SPA_ID_PARAM_Format, &index,
 						     format, &current, &b)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
@@ -225,13 +224,13 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 
 	pw_log_debug("link %p: doing set format %p", this, format);
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_format(2, t->map, format);
+		spa_debug_format(2, NULL, format);
 
 	if (out_mix_state == PW_PORT_STATE_CONFIGURE) {
 		pw_log_debug("link %p: doing set format on output mix", this);
 		if ((res = pw_port_set_param(output,
 					     this->rt.out_mix.port.port_id,
-					     t->param.idFormat, SPA_NODE_PARAM_FLAG_NEAREST,
+					     SPA_ID_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					     format)) < 0) {
 			asprintf(&error, "error set output format: %d", res);
 			goto error;
@@ -244,7 +243,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		pw_log_debug("link %p: doing set format on input mix", this);
 		if ((res2 = pw_port_set_param(input,
 					      this->rt.in_mix.port.port_id,
-					      t->param.idFormat, SPA_NODE_PARAM_FLAG_NEAREST,
+					      SPA_ID_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					      format)) < 0) {
 			asprintf(&error, "error set input format: %d", res2);
 			goto error;
@@ -373,7 +372,6 @@ static int alloc_buffers(struct pw_link *this,
 	uint32_t n_metas;
 	struct spa_meta *metas;
 	struct pw_memblock *m;
-	struct pw_type *t = &this->core->type;
 
 	n_metas = data_size = meta_size = 0;
 
@@ -383,12 +381,12 @@ static int alloc_buffers(struct pw_link *this,
 
 	/* collect metadata */
 	for (i = 0; i < n_params; i++) {
-		if (spa_pod_is_object_type (params[i], t->param_meta.Meta)) {
+		if (spa_pod_is_object_type (params[i], SPA_ID_OBJECT_ParamMeta)) {
 			uint32_t type, size;
 
 			if (spa_pod_object_parse(params[i],
-				":", t->param_meta.type, "I", &type,
-				":", t->param_meta.size, "i", &size, NULL) < 0)
+				":", SPA_PARAM_META_type, "I", &type,
+				":", SPA_PARAM_META_size, "i", &size, NULL) < 0)
 				continue;
 
 			pw_log_debug("link %p: enable meta %d %d", this, type, size);
@@ -450,7 +448,7 @@ static int alloc_buffers(struct pw_link *this,
 
 			d->chunk = &cdp[j];
 			if (data_sizes[j] > 0) {
-				d->type = t->data.MemFd;
+				d->type = SPA_DATA_MemFd;
 				d->flags = 0;
 				d->fd = m->fd;
 				d->mapoffset = SPA_PTRDIFF(ddp, m->ptr);
@@ -502,7 +500,7 @@ param_filter(struct pw_link *this,
 		}
 
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG) && iparam != NULL)
-			spa_debug_pod(2, this->core->type.map, iparam);
+			spa_debug_pod(2, spa_debug_types, iparam);
 
 		for (oidx = 0;;) {
 			pw_log_debug("oparam %d", oidx);
@@ -513,7 +511,7 @@ param_filter(struct pw_link *this,
 			}
 
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(2, this->core->type.map, oparam);
+				spa_debug_pod(2, spa_debug_types, oparam);
 
 			num++;
 		}
@@ -526,7 +524,6 @@ param_filter(struct pw_link *this,
 static int port_set_io(struct pw_link *this, struct pw_port *port, void *data, size_t size,
 		struct pw_port_mix *mix)
 {
-	struct pw_type *t = &this->core->type;
 	struct spa_graph_port *p = &mix->port;
 	int res = 0;
 
@@ -539,7 +536,7 @@ static int port_set_io(struct pw_link *this, struct pw_port *port, void *data, s
 		if ((res = spa_node_port_set_io(port->mix,
 				     p->direction,
 				     p->port_id,
-				     t->io.Buffers,
+				     SPA_ID_IO_Buffers,
 				     data, size)) < 0)
 			pw_log_warn("port %p: can't set io: %s", port, spa_strerror(res));
 	}
@@ -586,7 +583,6 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	uint32_t in_flags, out_flags;
 	char *error = NULL;
 	struct pw_port *input, *output;
-	struct pw_type *t = &this->core->type;
 	struct allocation allocation;
 	uint32_t in_mix_state, out_mix_state;
 
@@ -646,8 +642,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		size_t data_sizes[1];
 		ssize_t data_strides[1];
 
-		n_params = param_filter(this, input, output, t->param.idBuffers, &b);
-		n_params += param_filter(this, input, output, t->param.idMeta, &b);
+		n_params = param_filter(this, input, output, SPA_ID_PARAM_Buffers, &b);
+		n_params += param_filter(this, input, output, SPA_ID_PARAM_Meta, &b);
 
 		params = alloca(n_params * sizeof(struct spa_pod *));
 		for (i = 0, offset = 0; i < n_params; i++) {
@@ -655,21 +651,21 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			spa_pod_fixate(params[i]);
 			pw_log_debug("fixated param %d:", i);
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(2, this->core->type.map, params[i]);
+				spa_debug_pod(2, spa_debug_types, params[i]);
 			offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 		}
 
 		max_buffers = MAX_BUFFERS;
 		minsize = stride = 0;
-		param = find_param(params, n_params, t->param_buffers.Buffers);
+		param = find_param(params, n_params, SPA_ID_OBJECT_ParamBuffers);
 		if (param) {
 			uint32_t qmax_buffers = max_buffers,
 			    qminsize = minsize, qstride = stride;
 
 			spa_pod_object_parse(param,
-				":", t->param_buffers.size, "i", &qminsize,
-				":", t->param_buffers.stride, "i", &qstride,
-				":", t->param_buffers.buffers, "i", &qmax_buffers, NULL);
+				":", SPA_PARAM_BUFFERS_size, "i", &qminsize,
+				":", SPA_PARAM_BUFFERS_stride, "i", &qstride,
+				":", SPA_PARAM_BUFFERS_buffers, "i", &qmax_buffers, NULL);
 
 			max_buffers =
 			    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,
@@ -1332,7 +1328,7 @@ int pw_link_register(struct pw_link *link,
 	link->registered = true;
 
 	link->global = pw_global_new(core,
-				     core->type.link, PW_VERSION_LINK,
+				     PW_ID_INTERFACE_Link, PW_VERSION_LINK,
 				     properties,
 				     link);
 	if (link->global == NULL)

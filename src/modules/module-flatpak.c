@@ -46,7 +46,6 @@ static const struct spa_dict_item module_props[] = {
 
 struct impl {
 	struct pw_core *core;
-	struct pw_type *type;
 	struct pw_properties *properties;
 
 	struct spa_dbus_connection *conn;
@@ -211,7 +210,6 @@ static int
 set_global_permissions(void *data, struct pw_global *global)
 {
 	struct client_info *cinfo = data;
-	struct impl *impl = cinfo->impl;
 	struct pw_client *client = cinfo->client;
 	const struct pw_properties *props;
 	const char *str;
@@ -222,25 +220,27 @@ set_global_permissions(void *data, struct pw_global *global)
 
 	props = pw_global_get_properties(global);
 
-	if (pw_global_get_type(global) == impl->type->core) {
+	switch (pw_global_get_type(global)) {
+	case PW_ID_INTERFACE_Core:
 		allowed = true;
-	}
-	else if (pw_global_get_type(global) == impl->type->factory) {
+		break;
+	case PW_ID_INTERFACE_Factory:
 		if (props && (str = pw_properties_get(props, "factory.name"))) {
 			if (strcmp(str, "client-node") == 0)
 				allowed = true;
 		}
-	}
-	else if (pw_global_get_type(global) == impl->type->node) {
+		break;
+	case PW_ID_INTERFACE_Node:
 		if (props && (str = pw_properties_get(props, "media.class"))) {
 			if (strcmp(str, "Video/Source") == 0 && cinfo->camera_allowed)
 				allowed = true;
 		}
 		allowed |= check_global_owner(client, global);
-	}
-	else
+		break;
+	default:
 		allowed = check_global_owner(client, global);
-
+		break;
+	}
 	snprintf(perms, sizeof(perms), "%d:%c--", pw_global_get_id(global), allowed ? 'r' : '-');
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_CORE_PROXY_PERMISSIONS_GLOBAL, perms);
 	pw_client_update_permissions(client, &SPA_DICT_INIT(items, n_items));
@@ -393,7 +393,7 @@ core_global_added(void *data, struct pw_global *global)
 	struct client_info *cinfo;
 	int res;
 
-	if (pw_global_get_type(global) == impl->type->client) {
+	if (pw_global_get_type(global) == PW_ID_INTERFACE_Client) {
 		struct pw_client *client = pw_global_get_object(global);
 
 		res = check_sandboxed(client);
@@ -432,7 +432,7 @@ core_global_removed(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 
-	if (pw_global_get_type(global) == impl->type->client) {
+	if (pw_global_get_type(global) == PW_ID_INTERFACE_Client) {
 		struct pw_client *client = pw_global_get_object(global);
 		struct client_info *cinfo;
 
@@ -483,7 +483,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	support = pw_core_get_support(core, &n_support);
 
-	dbus = spa_support_find(support, n_support, SPA_TYPE__DBus);
+	dbus = spa_support_find(support, n_support, SPA_ID_INTERFACE_DBus);
         if (dbus == NULL)
                 return -ENOTSUP;
 
@@ -494,7 +494,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = core;
-	impl->type = pw_core_get_type(core);
 	impl->properties = properties;
 
 	impl->conn = spa_dbus_get_connection(dbus, SPA_DBUS_TYPE_SESSION);

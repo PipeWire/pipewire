@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#include <spa/support/type-map.h>
 #include <spa/debug/mem.h>
+#include <spa/debug/types.h>
 #include <spa/pod/pod.h>
 #include <spa/pod/iter.h>
 
@@ -34,7 +34,7 @@ extern "C" {
 #endif
 
 static inline int
-spa_debug_pod_value(int indent, struct spa_type_map *map,
+spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
 	switch (type) {
@@ -43,7 +43,7 @@ spa_debug_pod_value(int indent, struct spa_type_map *map,
 		break;
 	case SPA_POD_TYPE_ID:
 		spa_debug("%*s" "Id %d %s", indent, "", *(int32_t *) body,
-		       spa_type_map_get_type(map, *(int32_t *) body));
+		       spa_debug_type_find_name(info, *(int32_t *) body));
 		break;
 	case SPA_POD_TYPE_INT:
 		spa_debug("%*s" "Int %d", indent, "", *(int32_t *) body);
@@ -67,7 +67,7 @@ spa_debug_pod_value(int indent, struct spa_type_map *map,
 	{
 		struct spa_pod_pointer_body *b = body;
 		spa_debug("%*s" "Pointer %s %p", indent, "",
-		       map ? spa_type_map_get_type(map, b->type) : "*no map*", b->value);
+		       spa_debug_type_find_name(info, b->type), b->value);
 		break;
 	}
 	case SPA_POD_TYPE_RECTANGLE:
@@ -93,7 +93,7 @@ spa_debug_pod_value(int indent, struct spa_type_map *map,
 		       b->child.size, b->child.type);
 
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p)
-			spa_debug_pod_value(indent + 2, map, b->child.type, p, b->child.size);
+			spa_debug_pod_value(indent + 2, info, b->child.type, p, b->child.size);
 		break;
 	}
 	case SPA_POD_TYPE_STRUCT:
@@ -101,19 +101,20 @@ spa_debug_pod_value(int indent, struct spa_type_map *map,
 		struct spa_pod *b = body, *p;
 		spa_debug("%*s" "Struct: size %d", indent, "", size);
 		SPA_POD_FOREACH(b, size, p)
-			spa_debug_pod_value(indent + 2, map, p->type, SPA_POD_BODY(p), p->size);
+			spa_debug_pod_value(indent + 2, info, p->type, SPA_POD_BODY(p), p->size);
 		break;
 	}
 	case SPA_POD_TYPE_OBJECT:
 	{
 		struct spa_pod_object_body *b = body;
 		struct spa_pod *p;
+		const struct spa_type_info *ti = spa_debug_type_find(info, b->type);
 
 		spa_debug("%*s" "Object: size %d, id %s, type %s", indent, "", size,
-		       map ? spa_type_map_get_type(map, b->id) : "*no map*",
-		       map ? spa_type_map_get_type(map, b->type) : "*no map*");
+		       spa_debug_type_find_name(info, b->id), ti ? ti->name : "unknown");
 		SPA_POD_OBJECT_BODY_FOREACH(b, size, p)
-			spa_debug_pod_value(indent + 2, map, p->type, SPA_POD_BODY(p), p->size);
+			spa_debug_pod_value(indent + 2, ti ? ti->values : NULL,
+					p->type, SPA_POD_BODY(p), p->size);
 		break;
 	}
 	case SPA_POD_TYPE_PROP:
@@ -123,12 +124,12 @@ spa_debug_pod_value(int indent, struct spa_type_map *map,
 		int i;
 
 		spa_debug("%*s" "Prop: key %s, flags %d", indent, "",
-		       map ? spa_type_map_get_type(map, b->key) : "*no map*", b->flags);
+		       spa_debug_type_find_name(info, b->key), b->flags);
 		if (b->flags & SPA_POD_PROP_FLAG_UNSET)
 			spa_debug("%*s" "Unset (Default):", indent + 2, "");
 		else
 			spa_debug("%*s" "Value: size %u", indent + 2, "", b->value.size);
-		spa_debug_pod_value(indent + 4, map, b->value.type, SPA_POD_BODY(&b->value),
+		spa_debug_pod_value(indent + 4, info, b->value.type, SPA_POD_BODY(&b->value),
 				b->value.size);
 
 		i = 0;
@@ -143,7 +144,7 @@ spa_debug_pod_value(int indent, struct spa_type_map *map,
 					spa_debug("%*s" "Max: ", indent + 2, "");
 				else
 					break;
-				spa_debug_pod_value(indent + 4, map, b->value.type, alt, b->value.size);
+				spa_debug_pod_value(indent + 4, info, b->value.type, alt, b->value.size);
 				i++;
 			}
 			break;
@@ -157,7 +158,7 @@ spa_debug_pod_value(int indent, struct spa_type_map *map,
 					spa_debug("%*s" "Step: ", indent + 2, "");
 				else
 					break;
-				spa_debug_pod_value(indent + 4, map, b->value.type, alt, b->value.size);
+				spa_debug_pod_value(indent + 4, info, b->value.type, alt, b->value.size);
 				i++;
 			}
 			break;
@@ -166,7 +167,7 @@ spa_debug_pod_value(int indent, struct spa_type_map *map,
 				if (i == 0) {
 					spa_debug("%*s" "Enum:", indent + 2, "");
 				}
-				spa_debug_pod_value(indent + 4, map, b->value.type, alt, b->value.size);
+				spa_debug_pod_value(indent + 4, info, b->value.type, alt, b->value.size);
 				i++;
 			}
 			break;
@@ -191,9 +192,9 @@ spa_debug_pod_value(int indent, struct spa_type_map *map,
 }
 
 static inline int spa_debug_pod(int indent,
-		struct spa_type_map *map, const struct spa_pod *pod)
+		const struct spa_type_info *info, const struct spa_pod *pod)
 {
-	return spa_debug_pod_value(indent, map,
+	return spa_debug_pod_value(indent, info,
 			SPA_POD_TYPE(pod),
 			SPA_POD_BODY(pod),
 			SPA_POD_BODY_SIZE(pod));

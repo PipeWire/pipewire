@@ -50,7 +50,6 @@ struct impl {
 	struct pw_spa_monitor this;
 
 	struct pw_core *core;
-	struct pw_type *t;
 	struct pw_global *parent;
 
 	void *hnd;
@@ -71,18 +70,17 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 	struct spa_handle_factory *factory;
 	enum spa_monitor_item_state state;
 	struct spa_pod *info = NULL;
-	struct pw_type *t = pw_core_get_type(impl->core);
 	const struct spa_support *support;
 	enum pw_spa_node_flags flags;
 	uint32_t n_support;
 
 	if (spa_pod_object_parse(item,
-			":",t->monitor.id,      "s", &id,
-			":",t->monitor.state,   "i", &state,
-			":",t->monitor.name,    "s", &name,
-			":",t->monitor.klass,   "s", &klass,
-			":",t->monitor.factory, "p", &factory,
-			":",t->monitor.info,    "T", &info, NULL) < 0)
+			":", SPA_MONITOR_ITEM_id,      "s", &id,
+			":", SPA_MONITOR_ITEM_state,   "i", &state,
+			":", SPA_MONITOR_ITEM_name,    "s", &name,
+			":", SPA_MONITOR_ITEM_class,   "s", &klass,
+			":", SPA_MONITOR_ITEM_factory, "p", &factory,
+			":", SPA_MONITOR_ITEM_info,    "T", &info, NULL) < 0)
 		return NULL;
 
 	pw_log_debug("monitor %p: add: \"%s\" (%s)", this, name, id);
@@ -120,7 +118,7 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 		pw_log_error("can't make factory instance: %d", res);
 		return NULL;
 	}
-	if ((res = spa_handle_get_interface(handle, t->spa_node, &node_iface)) < 0) {
+	if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Node, &node_iface)) < 0) {
 		pw_log_error("can't get NODE interface: %d", res);
 		return NULL;
 	}
@@ -165,14 +163,12 @@ void destroy_item(struct monitor_item *mitem)
 
 static void remove_item(struct pw_spa_monitor *this, struct spa_pod *item, uint64_t now)
 {
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct monitor_item *mitem;
 	const char *name, *id;
-	struct pw_type *t = pw_core_get_type(impl->core);
 
 	if (spa_pod_object_parse(item,
-			":",t->monitor.name, "s", &name,
-			":",t->monitor.id,   "s", &id, NULL) < 0)
+			":", SPA_MONITOR_ITEM_name, "s", &name,
+			":", SPA_MONITOR_ITEM_id,   "s", &id, NULL) < 0)
 		return;
 
 	pw_log_debug("monitor %p: remove: \"%s\" (%s)", this, name, id);
@@ -183,16 +179,14 @@ static void remove_item(struct pw_spa_monitor *this, struct spa_pod *item, uint6
 
 static void change_item(struct pw_spa_monitor *this, struct spa_pod *item, uint64_t now)
 {
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct monitor_item *mitem;
 	const char *name, *id;
-	struct pw_type *t = pw_core_get_type(impl->core);
 	enum spa_monitor_item_state state;
 
 	if (spa_pod_object_parse(item,
-			":",t->monitor.name,  "s", &name,
-			":",t->monitor.state, "i", &state,
-			":",t->monitor.id,    "s", &id, NULL) < 0)
+			":", SPA_MONITOR_ITEM_name,  "s", &name,
+			":", SPA_MONITOR_ITEM_state, "i", &state,
+			":", SPA_MONITOR_ITEM_id,    "s", &id, NULL) < 0)
 		return;
 
 	pw_log_debug("monitor %p: change: \"%s\" (%s)", this, name, id);
@@ -217,22 +211,24 @@ static void on_monitor_event(void *data, struct spa_event *event)
 {
 	struct impl *impl = data;
 	struct pw_spa_monitor *this = &impl->this;
-	struct pw_type *t = pw_core_get_type(impl->core);
 	struct timespec now;
 	uint64_t now_nsec;
+	struct spa_pod *item;
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	now_nsec = now.tv_sec * SPA_NSEC_PER_SEC + now.tv_nsec;
 
-	if (SPA_EVENT_TYPE(event) == t->monitor.Added) {
-		struct spa_pod *item = SPA_POD_CONTENTS(struct spa_event, event);
+	item = SPA_POD_CONTENTS(struct spa_event, event);
+	switch(SPA_EVENT_TYPE(event)) {
+	case SPA_ID_EVENT_MONITOR_Added:
 		add_item(this, item, now_nsec);
-	} else if (SPA_EVENT_TYPE(event) == t->monitor.Removed) {
-		struct spa_pod *item = SPA_POD_CONTENTS(struct spa_event, event);
+		break;
+	case SPA_ID_EVENT_MONITOR_Removed:
 		remove_item(this, item, now_nsec);
-	} else if (SPA_EVENT_TYPE(event) == t->monitor.Changed) {
-		struct spa_pod *item = SPA_POD_CONTENTS(struct spa_event, event);
+		break;
+	case SPA_ID_EVENT_MONITOR_Changed:
 		change_item(this, item, now_nsec);
+		break;
 	}
 }
 
@@ -287,7 +283,6 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	char *filename;
 	const struct spa_support *support;
 	uint32_t n_support;
-	struct pw_type *t = pw_core_get_type(core);
 
 	asprintf(&filename, "%s/%s.so", dir, lib);
 
@@ -320,14 +315,13 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 		pw_log_error("can't make factory instance: %d", res);
 		goto init_failed;
 	}
-	if ((res = spa_handle_get_interface(handle, t->spa_monitor, &iface)) < 0) {
+	if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Monitor, &iface)) < 0) {
 		pw_log_error("can't get MONITOR interface: %d", res);
 		goto interface_failed;
 	}
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	impl->core = core;
-	impl->t = t;
 	impl->parent = parent;
 	impl->hnd = hnd;
 

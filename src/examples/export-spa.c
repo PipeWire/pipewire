@@ -21,8 +21,6 @@
 #include <sys/mman.h>
 #include <signal.h>
 
-#include <spa/support/type-map.h>
-#include <spa/param/format-utils.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 
@@ -33,7 +31,6 @@ struct data {
 	struct pw_main_loop *loop;
 
 	struct pw_core *core;
-	struct pw_type *t;
 
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
@@ -47,7 +44,6 @@ struct data {
 static int make_node(struct data *data)
 {
 	struct pw_factory *factory;
-	struct pw_type *t = data->t;
 	struct pw_properties *props;
 
         factory = pw_core_find_factory(data->core, "spa-node-factory");
@@ -64,7 +60,7 @@ static int make_node(struct data *data)
 
         data->node = pw_factory_create_object(factory,
 					      NULL,
-					      t->node,
+					      PW_ID_INTERFACE_Node,
 					      PW_VERSION_NODE,
 					      props, SPA_ID_INVALID);
 
@@ -129,7 +125,6 @@ int main(int argc, char *argv[])
         pw_loop_add_signal(l, SIGINT, do_quit, &data);
         pw_loop_add_signal(l, SIGTERM, do_quit, &data);
 	data.core = pw_core_new(l, NULL);
-	data.t = pw_core_get_type(data.core);
         data.remote = pw_remote_new(data.core, NULL, 0);
 	data.library = argv[1];
 	data.factory = argv[2];

@@ -19,6 +19,8 @@
 
 #include <errno.h>
 
+#include <spa/debug/types.h>
+
 #include <pipewire/protocol.h>
 #include <pipewire/private.h>
 
@@ -30,7 +32,6 @@ struct impl {
 struct marshal {
 	struct spa_list link;
 	const struct pw_protocol_marshal *marshal;
-	uint32_t type;
 };
 /** \endcond */
 
@@ -124,11 +125,11 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 		return -ENOMEM;
 
 	impl->marshal = marshal;
-	impl->type = spa_type_map_get_id (protocol->core->type.map, marshal->type);
 
 	spa_list_append(&protocol->marshal_list, &impl->link);
 
-	pw_log_debug("Add marshal %s:%d to protocol %s", marshal->type, marshal->version,
+	pw_log_debug("Add marshal %d/%s:%d to protocol %s", marshal->type,
+			spa_debug_type_find_name(spa_debug_types, marshal->type), marshal->version,
 			protocol->name);
 
 	return 0;
@@ -143,7 +144,7 @@ pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type)
 		return NULL;
 
 	spa_list_for_each(impl, &protocol->marshal_list, link) {
-		if (impl->type == type)
+		if (impl->marshal->type == type)
                         return impl->marshal;
         }
 	return NULL;

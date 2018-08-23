@@ -1,5 +1,4 @@
-spa_support_sources = ['mapper.c',
-		       'logger.c',
+spa_support_sources = ['logger.c',
 		       'loop.c',
 		       'plugin.c']
 

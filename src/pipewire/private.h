@@ -161,8 +161,6 @@ struct pw_core {
 
 	struct pw_properties *properties;	/**< properties of the core */
 
-	struct pw_type type;			/**< type map and common types */
-
 	struct pw_map globals;			/**< map of globals */
 
 	struct spa_list protocol_list;		/**< list of protocols */

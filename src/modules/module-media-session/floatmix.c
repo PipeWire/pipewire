@@ -22,7 +22,6 @@
 #include <stdio.h>
 
 #include <spa/support/log.h>
-#include <spa/support/type-map.h>
 #include <spa/utils/list.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
@@ -88,55 +87,10 @@ struct port {
 	size_t queued_bytes;
 };
 
-struct type {
-	uint32_t node;
-	uint32_t format;
-	uint32_t prop_volume;
-	uint32_t prop_mute;
-	uint32_t io_prop_volume;
-	uint32_t io_prop_mute;
-	struct spa_type_io io;
-	struct spa_type_param param;
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_format_audio format_audio;
-	struct spa_type_audio_format audio_format;
-	struct spa_type_command_node command_node;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
-	struct spa_type_param_buffers param_buffers;
-	struct spa_type_param_meta param_meta;
-	struct spa_type_param_io param_io;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
-	type->prop_mute = spa_type_map_get_id(map, SPA_TYPE_PROPS__mute);
-	type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
-	type->io_prop_mute = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "mute");
-	spa_type_io_map(map, &type->io);
-	spa_type_param_map(map, &type->param);
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_audio_map(map, &type->format_audio);
-	spa_type_audio_format_map(map, &type->audio_format);
-	spa_type_command_node_map(map, &type->command_node);
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
-	spa_type_param_buffers_map(map, &type->param_buffers);
-	spa_type_param_meta_map(map, &type->param_meta);
-	spa_type_param_io_map(map, &type->param_io);
-}
-
 struct impl {
 	struct spa_handle handle;
 	struct spa_node node;
 
-	struct type type;
-	struct spa_type_map *map;
 	struct spa_log *log;
 
 	const struct spa_node_callbacks *callbacks;
@@ -188,13 +142,16 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	if (SPA_COMMAND_TYPE(command) == this->type.command_node.Start) {
+	switch (SPA_COMMAND_TYPE(command)) {
+	case SPA_ID_COMMAND_NODE_Start:
 		this->started = true;
-	} else if (SPA_COMMAND_TYPE(command) == this->type.command_node.Pause) {
+		break;
+	case SPA_ID_COMMAND_NODE_Pause:
 		this->started = false;
-	} else
+		break;
+	default:
 		return -ENOTSUP;
-
+	}
 	return 0;
 }
 
@@ -365,29 +322,28 @@ static int port_enum_formats(struct spa_node *node,
 			     struct spa_pod_builder *builder)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
-	struct type *t = &this->type;
 
 	switch (*index) {
 	case 0:
 		if (this->have_format) {
 			*param = spa_pod_builder_object(builder,
-				t->param.idEnumFormat, t->format,
-				"I", t->media_type.audio,
-				"I", t->media_subtype.raw,
-				":", t->format_audio.format,   "I", this->format.info.raw.format,
-				":", t->format_audio.layout,   "i", this->format.info.raw.layout,
-				":", t->format_audio.rate,     "i", this->format.info.raw.rate,
-				":", t->format_audio.channels, "i", this->format.info.raw.channels);
+				SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+				"I", SPA_MEDIA_TYPE_audio,
+				"I", SPA_MEDIA_SUBTYPE_raw,
+				":", SPA_FORMAT_AUDIO_format,   "I", this->format.info.raw.format,
+				":", SPA_FORMAT_AUDIO_layout,   "i", this->format.info.raw.layout,
+				":", SPA_FORMAT_AUDIO_rate,     "i", this->format.info.raw.rate,
+				":", SPA_FORMAT_AUDIO_channels, "i", this->format.info.raw.channels);
 		} else {
 			*param = spa_pod_builder_object(builder,
-				t->param.idEnumFormat, t->format,
-				"I", t->media_type.audio,
-				"I", t->media_subtype.raw,
-				":", t->format_audio.format,   "I", t->audio_format.F32,
-				":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
-				":", t->format_audio.rate,     "iru", 44100,
+				SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+				"I", SPA_MEDIA_TYPE_audio,
+				"I", SPA_MEDIA_SUBTYPE_raw,
+				":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
+				":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
+				":", SPA_FORMAT_AUDIO_rate,     "iru", 44100,
 					SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
-				":", t->format_audio.channels, "iru", 1);
+				":", SPA_FORMAT_AUDIO_channels, "iru", 1);
 		}
 		break;
 	default:
@@ -403,7 +359,6 @@ static int port_get_format(struct spa_node *node,
 			   struct spa_pod_builder *builder)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
-	struct type *t = &this->type;
 	struct port *port = GET_PORT(this, direction, port_id);
 
 	if (!port->have_format)
@@ -412,13 +367,13 @@ static int port_get_format(struct spa_node *node,
 		return 0;
 
 	*param = spa_pod_builder_object(builder,
-		t->param.idFormat, t->format,
-		"I", t->media_type.audio,
-		"I", t->media_subtype.raw,
-		":", t->format_audio.format,   "I", this->format.info.raw.format,
-		":", t->format_audio.layout,   "i", this->format.info.raw.layout,
-		":", t->format_audio.rate,     "i", this->format.info.raw.rate,
-		":", t->format_audio.channels, "i", this->format.info.raw.channels);
+		SPA_ID_PARAM_Format, SPA_ID_OBJECT_Format,
+		"I", SPA_MEDIA_TYPE_audio,
+		"I", SPA_MEDIA_SUBTYPE_raw,
+		":", SPA_FORMAT_AUDIO_format,   "I", this->format.info.raw.format,
+		":", SPA_FORMAT_AUDIO_layout,   "i", this->format.info.raw.layout,
+		":", SPA_FORMAT_AUDIO_rate,     "i", this->format.info.raw.rate,
+		":", SPA_FORMAT_AUDIO_channels, "i", this->format.info.raw.channels);
 
 	return 1;
 }
@@ -432,7 +387,6 @@ impl_node_port_enum_params(struct spa_node *node,
 			   struct spa_pod_builder *builder)
 {
 	struct impl *this;
-	struct type *t;
 	struct port *port;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
@@ -444,7 +398,6 @@ impl_node_port_enum_params(struct spa_node *node,
 	spa_return_val_if_fail(builder != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
-	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
@@ -453,83 +406,83 @@ impl_node_port_enum_params(struct spa_node *node,
       next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	if (id == t->param.idList) {
-		uint32_t list[] = { t->param.idEnumFormat,
-				    t->param.idFormat,
-				    t->param.idBuffers,
-				    t->param.idMeta,
-				    t->param_io.idBuffers,
-				    t->param_io.idControl,
-				    t->param_io.idPropsIn };
+	switch (id) {
+	case SPA_ID_PARAM_List:
+	{
+		uint32_t list[] = { SPA_ID_PARAM_EnumFormat,
+				    SPA_ID_PARAM_Format,
+				    SPA_ID_PARAM_Buffers,
+				    SPA_ID_PARAM_Meta,
+				    SPA_ID_PARAM_IO };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, id, t->param.List,
-				":", t->param.listId, "I", list[*index]);
+			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
+				":", SPA_PARAM_LIST_id, "I", list[*index]);
 		else
 			return 0;
+		break;
 	}
-	else if (id == t->param.idEnumFormat) {
+	case SPA_ID_PARAM_EnumFormat:
 		if ((res = port_enum_formats(node, direction, port_id, index, &param, &b)) <= 0)
 			return res;
-	}
-	else if (id == t->param.idFormat) {
+		break;
+
+	case SPA_ID_PARAM_Format:
 		if ((res = port_get_format(node, direction, port_id, index, &param, &b)) <= 0)
 			return res;
-	}
-	else if (id == t->param.idBuffers) {
+		break;
+	case SPA_ID_PARAM_Buffers:
 		if (!port->have_format)
 			return -EIO;
 		if (*index > 0)
 			return 0;
 
 		param = spa_pod_builder_object(&b,
-			id, t->param_buffers.Buffers,
-			":", t->param_buffers.size,    "iru", 1024 * this->stride,
-				SPA_POD_PROP_MIN_MAX(16 * this->stride, INT32_MAX / this->stride),
-			":", t->param_buffers.stride,  "i", this->stride,
-			":", t->param_buffers.buffers, "iru", 1,
+			id, SPA_ID_OBJECT_ParamBuffers,
+			":", SPA_PARAM_BUFFERS_buffers, "iru", 1,
 				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
-			":", t->param_buffers.align,   "i", 16);
-	}
-	else if (id == t->param.idMeta) {
+			":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
+			":", SPA_PARAM_BUFFERS_size,    "iru", 1024 * this->stride,
+				SPA_POD_PROP_MIN_MAX(16 * this->stride, INT32_MAX / this->stride),
+			":", SPA_PARAM_BUFFERS_stride,  "i", this->stride,
+			":", SPA_PARAM_BUFFERS_align,   "i", 16);
+		break;
+
+	case SPA_ID_PARAM_Meta:
 		if (!port->have_format)
 			return -EIO;
 
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, t->param_meta.Meta,
-				":", t->param_meta.type, "I", t->meta.Header,
-				":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+				id, SPA_ID_OBJECT_ParamMeta,
+				":", SPA_PARAM_META_type, "I", SPA_META_Header,
+				":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
 			break;
 		default:
 			return 0;
 		}
-	}
-	else if (id == t->param_io.idBuffers) {
+		break;
+
+	case SPA_ID_PARAM_IO:
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, t->param_io.Buffers,
-				":", t->param_io.id,   "I", t->io.Buffers,
-				":", t->param_io.size, "i", sizeof(struct spa_io_buffers));
+				id, SPA_ID_OBJECT_ParamIO,
+				":", SPA_PARAM_IO_id,   "I", SPA_ID_IO_Buffers,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
 			break;
-		default:
-			return 0;
-		}
-	}
-	else if (id == t->param_io.idControl) {
-		switch (*index) {
-		case 0:
+		case 1:
 			param = spa_pod_builder_object(&b,
-				id, t->param_io.Control,
-				":", t->param_io.id,   "I", t->io.ControlRange,
-				":", t->param_io.size, "i", sizeof(struct spa_io_control_range));
+				id, SPA_ID_OBJECT_ParamIO,
+				":", SPA_PARAM_IO_id,   "I", SPA_ID_IO_ControlRange,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_control_range));
 			break;
 		default:
 			return 0;
 		}
-	}
+		break;
+#if 0
 	else if (id == t->param_io.idPropsIn) {
 		struct port_props *p = &port->props;
 
@@ -558,8 +511,10 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 		}
 	}
-	else
+#endif
+	default:
 		return -ENOENT;
+	}
 
 	(*index)++;
 
@@ -612,7 +567,6 @@ static int port_set_format(struct spa_node *node,
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct port *port;
-	struct type *t = &this->type;
 
 	port = GET_PORT(this, direction, port_id);
 
@@ -630,18 +584,18 @@ static int port_set_format(struct spa_node *node,
 			"I", &info.media_type,
 			"I", &info.media_subtype);
 
-		if (info.media_type != t->media_type.audio ||
-		    info.media_subtype != t->media_subtype.raw)
+		if (info.media_type != SPA_MEDIA_TYPE_audio ||
+		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
 			return -EINVAL;
 
-		if (spa_format_audio_raw_parse(format, &info.info.raw, &t->format_audio) < 0)
+		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
 		if (this->have_format) {
 			if (memcmp(&info, &this->format, sizeof(struct spa_audio_info)))
 				return -EINVAL;
 		} else {
-			if (info.info.raw.format != t->audio_format.F32)
+			if (info.info.raw.format != SPA_AUDIO_FORMAT_F32)
 				return -EINVAL;
 
 			this->stride = sizeof(float);
@@ -667,16 +621,14 @@ impl_node_port_set_param(struct spa_node *node,
 			 const struct spa_pod *param)
 {
 	struct impl *this;
-	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
-	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	if (id == t->param.idFormat) {
+	if (id == SPA_ID_PARAM_Format) {
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else
@@ -693,12 +645,10 @@ impl_node_port_use_buffers(struct spa_node *node,
 	struct impl *this;
 	struct port *port;
 	uint32_t i;
-	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
-	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
@@ -719,11 +669,11 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->buffer = buffers[i];
 		b->flags = 0;
 		b->id = i;
-		b->h = spa_buffer_find_meta_data(buffers[i], t->meta.Header, sizeof(*b->h));
+		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
-		if (!((d[0].type == t->data.MemPtr ||
-		       d[0].type == t->data.MemFd ||
-		       d[0].type == t->data.DmaBuf) && d[0].data != NULL)) {
+		if (!((d[0].type == SPA_DATA_MemPtr ||
+		       d[0].type == SPA_DATA_MemFd ||
+		       d[0].type == SPA_DATA_DmaBuf) && d[0].data != NULL)) {
 			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
 				      buffers[i]);
 			return -EINVAL;
@@ -755,21 +705,20 @@ impl_node_port_set_io(struct spa_node *node,
 {
 	struct impl *this;
 	struct port *port;
-	struct type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
-	t = &this->type;
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
 
-	if (id == t->io.Buffers)
+	if (id == SPA_ID_IO_Buffers)
 		port->io = data;
-	else if (id == t->io.ControlRange)
+	else if (id == SPA_ID_IO_ControlRange)
 		port->ctrl = data;
+#if 0
 	else if (id == t->io_prop_volume && direction == SPA_DIRECTION_INPUT)
 		if (data && size >= sizeof(struct spa_pod_double))
 			port->io_volume = &SPA_POD_VALUE(struct spa_pod_double, data);
@@ -780,6 +729,7 @@ impl_node_port_set_io(struct spa_node *node,
 			port->io_mute = &SPA_POD_VALUE(struct spa_pod_bool, data);
 		else
 			port->io_mute = &port->props.mute;
+#endif
 	else
 		return -ENOENT;
 
@@ -985,7 +935,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct impl *) handle;
 
-	if (interface_id == this->type.node)
+	if (interface_id == SPA_ID_INTERFACE_Node)
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -1025,16 +975,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
-			this->map = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE__Log) == 0)
+		if (support[i].type == SPA_ID_INTERFACE_Log)
 			this->log = support[i].data;
 	}
-	if (this->map == NULL) {
-		spa_log_error(this->log, "an id-map is needed");
-		return -EINVAL;
-	}
-	init_type(&this->type, this->map);
 
 	this->node = impl_node;
 
@@ -1049,7 +992,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_TYPE__Node,},
+	{SPA_ID_INTERFACE_Node,},
 };
 
 static int

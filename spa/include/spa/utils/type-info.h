@@ -17,44 +17,46 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_TYPE_MAP_H__
-#define __SPA_TYPE_MAP_H__
+#ifndef __SPA_TYPE_INFO_H__
+#define __SPA_TYPE_INFO_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
-#include <spa/utils/type.h>
 
-#define SPA_TYPE__TypeMap		SPA_TYPE_INTERFACE_BASE "TypeMap"
+#define SPA_TYPE_BASE				"Spa:"
 
-/**
- * Maps between string types and their type id
- */
-struct spa_type_map {
-	/** the version of this structure. This can be used to expand this
-	 * structure in the future */
-#define SPA_VERSION_TYPE_MAP	0
-	uint32_t version;
-	/**
-	 * Extra information about the type map
-	 */
-	const struct spa_dict *info;
+#define SPA_TYPE__Enum				SPA_TYPE_BASE "Enum"
+#define SPA_TYPE_ENUM_BASE			SPA_TYPE__Enum ":"
 
-	uint32_t (*get_id) (struct spa_type_map *map, const char *type);
+#define SPA_TYPE__Flags				SPA_TYPE_BASE "Flags"
+#define SPA_TYPE_FLAGS_BASE			SPA_TYPE__Flags ":"
 
-	const char *(*get_type) (const struct spa_type_map *map, uint32_t id);
+#define SPA_TYPE__Pointer			SPA_TYPE_BASE "Pointer"
+#define SPA_TYPE_POINTER_BASE			SPA_TYPE__Pointer ":"
 
-	size_t (*get_size) (const struct spa_type_map *map);
+#define SPA_TYPE__Interface			SPA_TYPE_BASE "Interface"
+#define SPA_TYPE_INTERFACE_BASE			SPA_TYPE__Interface ":"
+
+#define SPA_TYPE__Object			SPA_TYPE_BASE "Object"
+#define SPA_TYPE_OBJECT_BASE			SPA_TYPE__Object ":"
+
+static inline bool spa_type_is_a(const char *type, const char *parent)
+{
+	return type != NULL && parent != NULL && strncmp(type, parent, strlen(parent)) == 0;
+}
+
+struct spa_type_info {
+	uint32_t id;
+	const char *name;
+	uint32_t type;
+	const struct spa_type_info *values;
 };
-
-#define spa_type_map_get_id(n,...)	(n)->get_id((n),__VA_ARGS__)
-#define spa_type_map_get_type(n,...)	(n)->get_type((n),__VA_ARGS__)
-#define spa_type_map_get_size(n)	(n)->get_size(n)
 
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_TYPE_MAP_H__ */
+#endif /* __SPA_TYPE_INFO_H__ */

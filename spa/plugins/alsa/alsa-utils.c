@@ -57,51 +57,42 @@ int spa_alsa_close(struct state *state)
 }
 
 struct format_info {
-	off_t format_offset;
+	uint32_t spa_format;
 	snd_pcm_format_t format;
 };
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-#define _FORMAT_LE(fmt)  offsetof(struct type, audio_format. fmt ## _OE)
-#define _FORMAT_BE(fmt)  offsetof(struct type, audio_format. fmt)
-#elif __BYTE_ORDER == __LITTLE_ENDIAN
-#define _FORMAT_LE(fmt)  offsetof(struct type, audio_format. fmt)
-#define _FORMAT_BE(fmt)  offsetof(struct type, audio_format. fmt ## _OE)
-#endif
-
 static const struct format_info format_info[] = {
-	{offsetof(struct type, audio_format.UNKNOWN), SND_PCM_FORMAT_UNKNOWN},
-	{offsetof(struct type, audio_format.S8), SND_PCM_FORMAT_S8},
-	{offsetof(struct type, audio_format.U8), SND_PCM_FORMAT_U8},
-	{_FORMAT_LE(S16), SND_PCM_FORMAT_S16_LE},
-	{_FORMAT_BE(S16), SND_PCM_FORMAT_S16_BE},
-	{_FORMAT_LE(U16), SND_PCM_FORMAT_U16_LE},
-	{_FORMAT_BE(U16), SND_PCM_FORMAT_U16_BE},
-	{_FORMAT_LE(S24_32), SND_PCM_FORMAT_S24_LE},
-	{_FORMAT_BE(S24_32), SND_PCM_FORMAT_S24_BE},
-	{_FORMAT_LE(U24_32), SND_PCM_FORMAT_U24_LE},
-	{_FORMAT_BE(U24_32), SND_PCM_FORMAT_U24_BE},
-	{_FORMAT_LE(S24), SND_PCM_FORMAT_S24_3LE},
-	{_FORMAT_BE(S24), SND_PCM_FORMAT_S24_3BE},
-	{_FORMAT_LE(U24), SND_PCM_FORMAT_U24_3LE},
-	{_FORMAT_BE(U24), SND_PCM_FORMAT_U24_3BE},
-	{_FORMAT_LE(S32), SND_PCM_FORMAT_S32_LE},
-	{_FORMAT_BE(S32), SND_PCM_FORMAT_S32_BE},
-	{_FORMAT_LE(U32), SND_PCM_FORMAT_U32_LE},
-	{_FORMAT_BE(U32), SND_PCM_FORMAT_U32_BE},
-	{_FORMAT_LE(F32), SND_PCM_FORMAT_FLOAT_LE},
-	{_FORMAT_BE(F32), SND_PCM_FORMAT_FLOAT_BE},
-	{_FORMAT_LE(F64), SND_PCM_FORMAT_FLOAT64_LE},
-	{_FORMAT_BE(F64), SND_PCM_FORMAT_FLOAT64_BE},
+	{ SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_UNKNOWN},
+	{ SPA_AUDIO_FORMAT_S8, SND_PCM_FORMAT_S8},
+	{ SPA_AUDIO_FORMAT_U8, SND_PCM_FORMAT_U8},
+	{ SPA_AUDIO_FORMAT_S16_LE, SND_PCM_FORMAT_S16_LE},
+	{ SPA_AUDIO_FORMAT_S16_BE, SND_PCM_FORMAT_S16_BE},
+	{ SPA_AUDIO_FORMAT_U16_LE, SND_PCM_FORMAT_U16_LE},
+	{ SPA_AUDIO_FORMAT_U16_BE, SND_PCM_FORMAT_U16_BE},
+	{ SPA_AUDIO_FORMAT_S24_32_LE, SND_PCM_FORMAT_S24_LE},
+	{ SPA_AUDIO_FORMAT_S24_32_BE, SND_PCM_FORMAT_S24_BE},
+	{ SPA_AUDIO_FORMAT_U24_32_LE, SND_PCM_FORMAT_U24_LE},
+	{ SPA_AUDIO_FORMAT_U24_32_BE, SND_PCM_FORMAT_U24_BE},
+	{ SPA_AUDIO_FORMAT_S24_LE, SND_PCM_FORMAT_S24_3LE},
+	{ SPA_AUDIO_FORMAT_S24_BE, SND_PCM_FORMAT_S24_3BE},
+	{ SPA_AUDIO_FORMAT_U24_LE, SND_PCM_FORMAT_U24_3LE},
+	{ SPA_AUDIO_FORMAT_U24_BE, SND_PCM_FORMAT_U24_3BE},
+	{ SPA_AUDIO_FORMAT_S32_LE, SND_PCM_FORMAT_S32_LE},
+	{ SPA_AUDIO_FORMAT_S32_BE, SND_PCM_FORMAT_S32_BE},
+	{ SPA_AUDIO_FORMAT_U32_LE, SND_PCM_FORMAT_U32_LE},
+	{ SPA_AUDIO_FORMAT_U32_BE, SND_PCM_FORMAT_U32_BE},
+	{ SPA_AUDIO_FORMAT_F32_LE, SND_PCM_FORMAT_FLOAT_LE},
+	{ SPA_AUDIO_FORMAT_F32_BE, SND_PCM_FORMAT_FLOAT_BE},
+	{ SPA_AUDIO_FORMAT_F64_LE, SND_PCM_FORMAT_FLOAT64_LE},
+	{ SPA_AUDIO_FORMAT_F64_BE, SND_PCM_FORMAT_FLOAT64_BE},
 };
 
-static snd_pcm_format_t spa_alsa_format_to_alsa(struct type *map, uint32_t format)
+static snd_pcm_format_t spa_format_to_alsa(uint32_t format)
 {
 	int i;
 
 	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-		uint32_t f = *SPA_MEMBER(map, format_info[i].format_offset, uint32_t);
-		if (f == format)
+		if (format_info[i].spa_format == format)
 			return format_info[i].format;
 	}
 	return SND_PCM_FORMAT_UNKNOWN;
@@ -142,26 +133,25 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	snd_pcm_hw_params_alloca(&params);
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
 
-	spa_pod_builder_push_object(&b, state->type.param.idEnumFormat, state->type.format);
+	spa_pod_builder_push_object(&b, SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
 	spa_pod_builder_add(&b,
-			"I", state->type.media_type.audio,
-			"I", state->type.media_subtype.raw, 0);
+			"I", SPA_MEDIA_TYPE_audio,
+			"I", SPA_MEDIA_SUBTYPE_raw, 0);
 
 	snd_pcm_format_mask_alloca(&fmask);
 	snd_pcm_hw_params_get_format_mask(params, fmask);
 
 	prop = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_prop(&b, state->type.format_audio.format,
+		spa_pod_builder_push_prop(&b, SPA_FORMAT_AUDIO_format,
 			SPA_POD_PROP_RANGE_NONE));
 
 	for (i = 1, j = 0; i < SPA_N_ELEMENTS(format_info); i++) {
 		const struct format_info *fi = &format_info[i];
 
 		if (snd_pcm_format_mask_test(fmask, fi->format)) {
-			uint32_t f = *SPA_MEMBER(&state->type, fi->format_offset, uint32_t);
 			if (j++ == 0)
-				spa_pod_builder_id(&b, f);
-			spa_pod_builder_id(&b, f);
+				spa_pod_builder_id(&b, fi->spa_format);
+			spa_pod_builder_id(&b, fi->spa_format);
 		}
 	}
 	if (j > 1)
@@ -172,7 +162,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	snd_pcm_hw_params_get_access_mask(params, amask);
 
 	prop = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_prop(&b, state->type.format_audio.layout,
+		spa_pod_builder_push_prop(&b, SPA_FORMAT_AUDIO_layout,
 			SPA_POD_PROP_RANGE_NONE));
 	j = 0;
 	if (snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_INTERLEAVED)) {
@@ -193,7 +183,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	CHECK(snd_pcm_hw_params_get_rate_max(params, &max, &dir), "get_rate_max");
 
 	prop = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_prop(&b, state->type.format_audio.rate, SPA_POD_PROP_RANGE_NONE));
+		spa_pod_builder_push_prop(&b, SPA_FORMAT_AUDIO_rate, SPA_POD_PROP_RANGE_NONE));
 
 	spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_RATE, min, max));
 	if (min != max) {
@@ -207,7 +197,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	CHECK(snd_pcm_hw_params_get_channels_max(params, &max), "get_channels_max");
 
 	prop = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_prop(&b, state->type.format_audio.channels, SPA_POD_PROP_RANGE_NONE));
+		spa_pod_builder_push_prop(&b, SPA_FORMAT_AUDIO_channels, SPA_POD_PROP_RANGE_NONE));
 
 	spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_CHANNELS, min, max));
 	if (min != max) {
@@ -261,7 +251,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		CHECK(snd_pcm_hw_params_set_period_wakeup(hndl, params, 0), "set_period_wakeup");
 
 	/* set the sample format */
-	format = spa_alsa_format_to_alsa(&state->type, info->format);
+	format = spa_format_to_alsa(info->format);
 	if (format == SND_PCM_FORMAT_UNKNOWN)
 		return -EINVAL;
 

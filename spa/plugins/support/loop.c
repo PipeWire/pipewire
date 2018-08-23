@@ -31,9 +31,9 @@
 
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
-#include <spa/support/type-map.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/list.h>
+#include <spa/utils/type.h>
 #include <spa/utils/ringbuffer.h>
 
 #define NAME "loop"
@@ -53,20 +53,7 @@ struct invoke_item {
 	int res;
 };
 
-struct type {
-	uint32_t loop;
-	uint32_t loop_control;
-	uint32_t loop_utils;
-};
-
 static void loop_signal_event(struct spa_source *source);
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->loop = spa_type_map_get_id(map, SPA_TYPE__Loop);
-	type->loop_control = spa_type_map_get_id(map, SPA_TYPE__LoopControl);
-	type->loop_utils = spa_type_map_get_id(map, SPA_TYPE__LoopUtils);
-}
 
 struct impl {
 	struct spa_handle handle;
@@ -75,8 +62,6 @@ struct impl {
 	struct spa_loop_utils utils;
 
         struct spa_log *log;
-        struct type type;
-        struct spa_type_map *map;
 
 	struct spa_list source_list;
 	struct spa_list destroy_list;
@@ -676,15 +661,19 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	impl = (struct impl *) handle;
 
-	if (interface_id == impl->type.loop)
+	switch (interface_id) {
+	case SPA_ID_INTERFACE_Loop:
 		*interface = &impl->loop;
-	else if (interface_id == impl->type.loop_control)
+		break;
+	case SPA_ID_INTERFACE_LoopControl:
 		*interface = &impl->control;
-	else if (interface_id == impl->type.loop_utils)
+		break;
+	case SPA_ID_INTERFACE_LoopUtils:
 		*interface = &impl->utils;
-	else
+		break;
+	default:
 		return -ENOENT;
-
+	}
 	return 0;
 }
 
@@ -737,16 +726,9 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->utils = impl_loop_utils;
 
 	for (i = 0; i < n_support; i++) {
-		if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
-			impl->map = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE__Log) == 0)
+		if (support[i].type == SPA_ID_INTERFACE_Log)
 			impl->log = support[i].data;
 	}
-	if (impl->map == NULL) {
-		spa_log_error(impl->log, NAME " %p: a type-map is needed", impl);
-		return -EINVAL;
-	}
-	init_type(&impl->type, impl->map);
 
 	impl->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
 	if (impl->epoll_fd == -1)
@@ -767,9 +749,9 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_TYPE__Loop,},
-	{SPA_TYPE__LoopControl,},
-	{SPA_TYPE__LoopUtils,},
+	{SPA_ID_INTERFACE_Loop,},
+	{SPA_ID_INTERFACE_LoopControl,},
+	{SPA_ID_INTERFACE_LoopUtils,},
 };
 
 static int

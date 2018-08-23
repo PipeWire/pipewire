@@ -20,7 +20,7 @@
 #include <stdio.h>
 
 #include <spa/support/loop.h>
-#include <spa/support/type-map.h>
+#include <spa/support/loop-types.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/loop.h>
@@ -47,17 +47,12 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	struct impl *impl;
 	struct pw_loop *this;
 	const struct spa_handle_factory *factory;
-	struct spa_type_map *map;
 	void *iface;
 	const struct spa_support *support;
 	uint32_t n_support;
 
 	support = pw_get_support(&n_support);
 	if (support == NULL)
-		return NULL;
-
-        map = spa_support_find(support, n_support, SPA_TYPE__TypeMap);
-	if (map == NULL)
 		return NULL;
 
 	factory = pw_get_support_factory("loop");
@@ -82,7 +77,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	}
 
         if ((res = spa_handle_get_interface(impl->handle,
-					    spa_type_map_get_id(map, SPA_TYPE__Loop),
+					    SPA_ID_INTERFACE_Loop,
 					    &iface)) < 0) {
                 fprintf(stderr, "can't get %s interface %d\n", SPA_TYPE__Loop, res);
                 goto failed;
@@ -90,7 +85,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	this->loop = iface;
 
         if ((res = spa_handle_get_interface(impl->handle,
-					    spa_type_map_get_id(map, SPA_TYPE__LoopControl),
+					    SPA_ID_INTERFACE_LoopControl,
 					    &iface)) < 0) {
                 fprintf(stderr, "can't get %s interface %d\n", SPA_TYPE__LoopControl, res);
                 goto failed;
@@ -98,7 +93,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	this->control = iface;
 
         if ((res = spa_handle_get_interface(impl->handle,
-					    spa_type_map_get_id(map, SPA_TYPE__LoopUtils),
+					    SPA_ID_INTERFACE_LoopUtils,
 					    &iface)) < 0) {
                 fprintf(stderr, "can't get %s interface %d\n", SPA_TYPE__LoopUtils, res);
                 goto failed;

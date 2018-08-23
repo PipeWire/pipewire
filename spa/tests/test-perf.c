@@ -28,13 +28,11 @@
 
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
-#include <spa/support/type-map-impl.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/param/format-utils.h>
 #include <spa/graph/graph.h>
 #include <spa/graph/graph-scheduler2.h>
 
@@ -45,47 +43,7 @@
 #define MODE_ASYNC_BOTH         (MODE_ASYNC_PUSH|MODE_ASYNC_PULL)
 #define MODE_DIRECT             (1<<4)
 
-static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
-
-struct type {
-	uint32_t node;
-	uint32_t props;
-	uint32_t format;
-	uint32_t props_device;
-	uint32_t props_freq;
-	uint32_t props_volume;
-	uint32_t props_min_latency;
-	uint32_t props_live;
-	struct spa_type_io io;
-	struct spa_type_param param;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_event_node event_node;
-	struct spa_type_command_node command_node;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
-	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->props_device = spa_type_map_get_id(map, SPA_TYPE_PROPS__device);
-	type->props_freq = spa_type_map_get_id(map, SPA_TYPE_PROPS__frequency);
-	type->props_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
-	type->props_min_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__minLatency);
-	type->props_live = spa_type_map_get_id(map, SPA_TYPE_PROPS__live);
-	spa_type_io_map(map, &type->io);
-	spa_type_param_map(map, &type->param);
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_event_node_map(map, &type->event_node);
-	spa_type_command_node_map(map, &type->command_node);
-}
 
 struct buffer {
 	struct spa_buffer buffer;
@@ -96,10 +54,8 @@ struct buffer {
 };
 
 struct data {
-	struct spa_type_map *map;
 	struct spa_log *log;
 	struct spa_loop data_loop;
-	struct type type;
 
 	int mode;
 
@@ -162,11 +118,11 @@ init_buffer(struct data *data, struct spa_buffer **bufs, struct buffer *ba, int 
 		b->header.seq = 0;
 		b->header.pts = 0;
 		b->header.dts_offset = 0;
-		b->metas[0].type = data->type.meta.Header;
+		b->metas[0].type = SPA_META_Header;
 		b->metas[0].data = &b->header;
 		b->metas[0].size = sizeof(b->header);
 
-		b->datas[0].type = data->type.data.MemPtr;
+		b->datas[0].type = SPA_DATA_MemPtr;
 		b->datas[0].flags = 0;
 		b->datas[0].fd = -1;
 		b->datas[0].mapoffset = 0;
@@ -216,7 +172,7 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 			printf("can't make factory instance: %d\n", res);
 			return res;
 		}
-		if ((res = spa_handle_get_interface(handle, data->type.node, &iface)) < 0) {
+		if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Node, &iface)) < 0) {
 			printf("can't get interface %d\n", res);
 			return res;
 		}
@@ -368,11 +324,11 @@ static int make_nodes(struct data *data)
 
 	spa_node_port_set_io(data->source,
 			     SPA_DIRECTION_OUTPUT, 0,
-			     data->type.io.Buffers,
+			     SPA_ID_IO_Buffers,
 			     &data->source_sink_io[0], sizeof(data->source_sink_io[0]));
 	spa_node_port_set_io(data->sink,
 			     SPA_DIRECTION_INPUT, 0,
-			     data->type.io.Buffers,
+			     SPA_ID_IO_Buffers,
 			     &data->source_sink_io[0], sizeof(data->source_sink_io[0]));
 
 	spa_graph_node_init(&data->source_node, &data->source_state);
@@ -403,19 +359,19 @@ static int negotiate_formats(struct data *data)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	format = spa_pod_builder_object(&b,
-			0, data->type.format,
-			"I", data->type.media_type.binary,
-			"I", data->type.media_subtype.raw);
+			0, SPA_ID_OBJECT_Format,
+			"I", SPA_MEDIA_TYPE_binary,
+			"I", SPA_MEDIA_SUBTYPE_raw);
 
 	if ((res = spa_node_port_set_param(data->sink,
 					   SPA_DIRECTION_INPUT, 0,
-					   data->type.param.idFormat, 0,
+					   SPA_ID_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 
 	if ((res = spa_node_port_set_param(data->source,
 					   SPA_DIRECTION_OUTPUT, 0,
-					   data->type.param.idFormat, 0,
+					   SPA_ID_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 
@@ -495,7 +451,7 @@ static void run_graph(struct data *data)
 	int64_t start, stop;
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(data->type.command_node.Start);
+		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Start);
 		if ((res = spa_node_send_command(data->source, &cmd)) < 0)
 			printf("got source error %d\n", res);
 		if ((res = spa_node_send_command(data->sink, &cmd)) < 0)
@@ -530,7 +486,7 @@ static void run_graph(struct data *data)
 	printf("stopping, elapsed %" PRIi64 "\n", stop - start);
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(data->type.command_node.Pause);
+		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Pause);
 		if ((res = spa_node_send_command(data->sink, &cmd)) < 0)
 			printf("got error %d\n", res);
 		if ((res = spa_node_send_command(data->source, &cmd)) < 0)
@@ -548,7 +504,6 @@ int main(int argc, char *argv[])
 	spa_graph_data_init(&data.graph_data, &data.graph);
 	spa_graph_set_callbacks(&data.graph, &spa_graph_impl_default, &data.graph_data);
 
-	data.map = &default_map.map;
 	data.log = &default_log.log;
 	data.data_loop.version = SPA_VERSION_LOOP;
 	data.data_loop.add_source = do_add_source;
@@ -564,17 +519,10 @@ int main(int argc, char *argv[])
 
 	printf("mode %08x\n", data.mode);
 
-	data.support[0].type = SPA_TYPE__TypeMap;
-	data.support[0].data = data.map;
-	data.support[1].type = SPA_TYPE__Log;
-	data.support[1].data = data.log;
-	data.support[2].type = SPA_TYPE_LOOP__DataLoop;
-	data.support[2].data = &data.data_loop;
-	data.support[3].type = SPA_TYPE_LOOP__MainLoop;
-	data.support[3].data = &data.data_loop;
-	data.n_support = 4;
-
-	init_type(&data.type, data.map);
+	data.support[0] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, data.log);
+	data.support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, &data.data_loop);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DataLoop, &data.data_loop);
+	data.n_support = 3;
 
 	if ((res = make_nodes(&data)) < 0) {
 		printf("can't make nodes: %d\n", res);

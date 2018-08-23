@@ -68,7 +68,7 @@ struct pw_protocol_server {
 #define pw_protocol_server_destroy(l)	((l)->destroy(l))
 
 struct pw_protocol_marshal {
-        const char *type;               /**< interface type */
+        uint32_t type;			/**< interface type */
 	uint32_t version;               /**< version */
 	const void *method_marshal;
 	const void *method_demarshal;

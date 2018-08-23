@@ -180,13 +180,12 @@ static const struct pw_module_events module_events = {
 static int module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
-	struct pw_type *t = pw_core_get_type(core);
 	struct pw_factory *factory;
 	struct factory_data *data;
 
 	factory = pw_factory_new(core,
 				 "audio-dsp",
-				 t->node,
+				 PW_ID_INTERFACE_Node,
 				 PW_VERSION_NODE,
 				 NULL,
 				 sizeof(*data));

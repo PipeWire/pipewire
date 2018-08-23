@@ -26,24 +26,78 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
-#define SPA_TYPE_BASE				"Spa:"
+enum {
+	SPA_ID_UNASSIGNED	= 0,
+	/* Interfaces */
+	SPA_ID_INTERFACE_Handle,
+	SPA_ID_INTERFACE_HandleFactory,
+	SPA_ID_INTERFACE_Log,
+	SPA_ID_INTERFACE_Loop,
+	SPA_ID_INTERFACE_LoopControl,
+	SPA_ID_INTERFACE_LoopUtils,
+	SPA_ID_INTERFACE_DataLoop,
+	SPA_ID_INTERFACE_MainLoop,
+	SPA_ID_INTERFACE_DBus,
+	SPA_ID_INTERFACE_Monitor,
+	SPA_ID_INTERFACE_Node,
 
-#define SPA_TYPE__Enum				SPA_TYPE_BASE "Enum"
-#define SPA_TYPE_ENUM_BASE			SPA_TYPE__Enum ":"
+	/* Events */
+	SPA_ID_EVENT_BASE = 0x10000,
+	SPA_ID_EVENT_MONITOR_Added,
+	SPA_ID_EVENT_MONITOR_Removed,
+	SPA_ID_EVENT_MONITOR_Changed,
+	SPA_ID_EVENT_NODE_Error,
+	SPA_ID_EVENT_NODE_Buffering,
+	SPA_ID_EVENT_NODE_RequestRefresh,
 
-#define SPA_TYPE__Pointer			SPA_TYPE_BASE "Pointer"
-#define SPA_TYPE_POINTER_BASE			SPA_TYPE__Pointer ":"
+	/* Commands */
+	SPA_ID_COMMAND_BASE = 0x20000,
+	SPA_ID_COMMAND_NODE_Suspend,
+	SPA_ID_COMMAND_NODE_Pause,
+	SPA_ID_COMMAND_NODE_Start,
+	SPA_ID_COMMAND_NODE_Enable,
+	SPA_ID_COMMAND_NODE_Disable,
+	SPA_ID_COMMAND_NODE_Flush,
+	SPA_ID_COMMAND_NODE_Drain,
+	SPA_ID_COMMAND_NODE_Marker,
 
-#define SPA_TYPE__Interface			SPA_TYPE_BASE "Interface"
-#define SPA_TYPE_INTERFACE_BASE			SPA_TYPE__Interface ":"
+	/* Objects */
+	SPA_ID_OBJECT_BASE = 0x30000,
+	SPA_ID_OBJECT_MonitorItem,
 
-#define SPA_TYPE__Object			SPA_TYPE_BASE "Object"
-#define SPA_TYPE_OBJECT_BASE			SPA_TYPE__Object ":"
+	SPA_ID_OBJECT_ParamList,
+	SPA_ID_OBJECT_PropInfo,
+	SPA_ID_OBJECT_Props,
+	SPA_ID_OBJECT_Format,
+	SPA_ID_OBJECT_ParamBuffers,
+	SPA_ID_OBJECT_ParamMeta,
+	SPA_ID_OBJECT_ParamIO,
 
-static inline bool spa_type_is_a(const char *type, const char *parent)
-{
-	return type != NULL && parent != NULL && strncmp(type, parent, strlen(parent)) == 0;
-}
+	/* IO */
+	SPA_ID_IO_BASE = 0x40000,
+	SPA_ID_IO_Buffers,
+	SPA_ID_IO_ControlRange,
+	SPA_ID_IO_Clock,
+	SPA_ID_IO_Prop,
+	SPA_ID_IO_Latency,
+
+	/* Params */
+	SPA_ID_PARAM_BASE = 0x50000,
+	SPA_ID_PARAM_List,		/**< available params */
+	SPA_ID_PARAM_PropInfo,		/**< property information */
+	SPA_ID_PARAM_Props,		/**< properties */
+	SPA_ID_PARAM_EnumFormat,	/**< available formats */
+	SPA_ID_PARAM_Format,		/**< configured format */
+	SPA_ID_PARAM_Buffers,		/**< buffer configurations */
+	SPA_ID_PARAM_Meta,		/**< allowed metadata for buffers */
+	SPA_ID_PARAM_IO,		/**< configurable IO areas */
+
+	/* vendor extensions */
+	SPA_ID_VENDOR_PipeWire	= 0x01000000,
+
+	SPA_ID_VENDOR_Other	= 0x7f000000,
+};
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

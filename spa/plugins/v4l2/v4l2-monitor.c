@@ -27,9 +27,9 @@
 #include <libudev.h>
 
 #include <spa/support/log.h>
-#include <spa/support/type-map.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
+#include <spa/utils/type.h>
 #include <spa/monitor/monitor.h>
 
 #define NAME "v4l2-monitor"
@@ -40,23 +40,10 @@ struct item {
 	struct udev_device *udevice;
 };
 
-struct type {
-	uint32_t handle_factory;
-	struct spa_type_monitor monitor;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->handle_factory = spa_type_map_get_id(map, SPA_TYPE__HandleFactory);
-	spa_type_monitor_map(map, &type->monitor);
-}
-
 struct impl {
 	struct spa_handle handle;
 	struct spa_monitor monitor;
 
-	struct type type;
-	struct spa_type_map *map;
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 
@@ -90,7 +77,6 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 		struct spa_pod **result, struct spa_pod_builder *builder)
 {
 	const char *str, *name;
-	struct type *t = &this->type;
 
 	if (item->udevice)
 		udev_device_unref(item->udevice);
@@ -112,14 +98,14 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 		name = "Unknown";
 
 	spa_pod_builder_add(builder,
-		"<", 0, t->monitor.MonitorItem,
-		":", t->monitor.id,      "s", udev_device_get_syspath(item->udevice),
-		":", t->monitor.flags,   "i", 0,
-		":", t->monitor.state,   "i", SPA_MONITOR_ITEM_STATE_AVAILABLE,
-		":", t->monitor.name,    "s", name,
-		":", t->monitor.klass,   "s", "Video/Source",
-		":", t->monitor.factory, "p", t->handle_factory, &spa_v4l2_source_factory,
-		":", t->monitor.info,    "[",
+		"<", 0, SPA_ID_OBJECT_MonitorItem,
+		":", SPA_MONITOR_ITEM_id,      "s", udev_device_get_syspath(item->udevice),
+		":", SPA_MONITOR_ITEM_flags,   "i", SPA_MONITOR_ITEM_FLAG_NONE,
+		":", SPA_MONITOR_ITEM_state,   "i", SPA_MONITOR_ITEM_STATE_AVAILABLE,
+		":", SPA_MONITOR_ITEM_name,    "s", name,
+		":", SPA_MONITOR_ITEM_class,   "s", "Video/Source",
+		":", SPA_MONITOR_ITEM_factory, "p", SPA_ID_INTERFACE_HandleFactory, &spa_v4l2_source_factory,
+		":", SPA_MONITOR_ITEM_info,    "[",
 		NULL);
 
 	spa_pod_builder_add(builder,
@@ -192,11 +178,11 @@ static void impl_on_fd_events(struct spa_source *source)
 		action = "change";
 
 	if (strcmp(action, "add") == 0) {
-		type = this->type.monitor.Added;
+		type = SPA_ID_EVENT_MONITOR_Added;
 	} else if (strcmp(action, "change") == 0) {
-		type = this->type.monitor.Changed;
+		type = SPA_ID_EVENT_MONITOR_Changed;
 	} else if (strcmp(action, "remove") == 0) {
-		type = this->type.monitor.Removed;
+		type = SPA_ID_EVENT_MONITOR_Removed;
 	} else
 		return;
 
@@ -314,7 +300,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct impl *) handle;
 
-	if (interface_id == this->type.monitor.Monitor)
+	if (interface_id == SPA_ID_INTERFACE_Monitor)
 		*interface = &this->monitor;
 	else
 		return -ENOENT;
@@ -364,22 +350,15 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
-			this->map = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE__Log) == 0)
+		if (support[i].type == SPA_ID_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE_LOOP__MainLoop) == 0)
+		else if (support[i].type == SPA_ID_INTERFACE_MainLoop)
 			this->main_loop = support[i].data;
-	}
-	if (this->map == NULL) {
-		spa_log_error(this->log, "a type-map is needed");
-		return -EINVAL;
 	}
 	if (this->main_loop == NULL) {
 		spa_log_error(this->log, "a main-loop is needed");
 		return -EINVAL;
 	}
-	init_type(&this->type, this->map);
 
 	this->monitor = impl_monitor;
 
@@ -387,7 +366,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_TYPE__Monitor,},
+	{SPA_ID_INTERFACE_Monitor,},
 };
 
 static int

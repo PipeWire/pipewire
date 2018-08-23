@@ -24,40 +24,14 @@
 extern "C" {
 #endif
 
-#include <fcntl.h> /* for off_t */
-
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
-#include <spa/support/type-map.h>
 
-#define SPA_TYPE_PARAM__Meta			SPA_TYPE_PARAM_BASE "Meta"
-#define SPA_TYPE_PARAM_META_BASE		SPA_TYPE_PARAM__Meta ":"
-#define SPA_TYPE_PARAM_META__type		SPA_TYPE_PARAM_META_BASE "type"
-#define SPA_TYPE_PARAM_META__size		SPA_TYPE_PARAM_META_BASE "size"
-
-struct spa_type_param_meta {
-	uint32_t Meta;
-	uint32_t type;
-	uint32_t size;
+/** properties for SPA_ID_OBJECT_ParamMeta */
+enum spa_param_meta {
+	SPA_PARAM_META_type,	/**< the metadata, one of enum spa_meta_type */
+	SPA_PARAM_META_size,	/**< the expected maximum size the meta */
 };
-
-static inline void
-spa_type_param_meta_map(struct spa_type_map *map,
-			struct spa_type_param_meta *type)
-{
-	if (type->Meta == 0) {
-		size_t i;
-#define OFF(n) offsetof(struct spa_type_param_meta, n)
-		static struct { off_t offset; const char *type; } tab[] = {
-			{ OFF(Meta), SPA_TYPE_PARAM__Meta },
-			{ OFF(type), SPA_TYPE_PARAM_META__type },
-			{ OFF(size), SPA_TYPE_PARAM_META__size },
-		};
-#undef OFF
-		for (i = 0; i < SPA_N_ELEMENTS(tab); i++)
-			*SPA_MEMBER(type, tab[i].offset, uint32_t) = spa_type_map_get_id(map, tab[i].type);
-	}
-}
 
 #ifdef __cplusplus
 }  /* extern "C" */

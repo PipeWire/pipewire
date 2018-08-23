@@ -24,15 +24,14 @@
 extern "C" {
 #endif
 
-#include <spa/support/type-map.h>
 #include <spa/debug/debug-mem.h>
+#include <spa/buffer/buffer-types.h>
 
 #ifndef spa_debug
 #define spa_debug(...)	({ fprintf(stderr, __VA_ARGS__);fputc('\n', stderr); })
 #endif
 
-static inline int spa_debug_buffer(int indent,
-		struct spa_type_map *map, const struct spa_buffer *buffer)
+static inline int spa_debug_buffer(int indent, const struct spa_buffer *buffer)
 {
 	int i;
 
@@ -43,25 +42,33 @@ static inline int spa_debug_buffer(int indent,
 		struct spa_meta *m = &buffer->metas[i];
 		const char *type_name;
 
-		type_name = spa_type_map_get_type(map, m->type);
+		type_name = spa_debug_type_find_name(spa_type_meta_type, m->type);
 		spa_debug("%*s" "  meta %d: type %d (%s), data %p, size %d:", indent, "", i, m->type,
 			type_name, m->data, m->size);
 
-		if (!strcmp(type_name, SPA_TYPE_META__Header)) {
+		switch (m->type) {
+		case SPA_META_Header:
+		{
 			struct spa_meta_header *h = m->data;
 			spa_debug("%*s" "    struct spa_meta_header:", indent, "");
 			spa_debug("%*s" "      flags:      %08x", indent, "", h->flags);
 			spa_debug("%*s" "      seq:        %u", indent, "", h->seq);
 			spa_debug("%*s" "      pts:        %" PRIi64, indent, "", h->pts);
 			spa_debug("%*s" "      dts_offset: %" PRIi64, indent, "", h->dts_offset);
-		} else if (!strcmp(type_name, SPA_TYPE_META__VideoCrop)) {
+			break;
+		}
+		case SPA_META_VideoCrop:
+		{
 			struct spa_meta_video_crop *h = m->data;
 			spa_debug("%*s" "    struct spa_meta_video_crop:", indent, "");
 			spa_debug("%*s" "      x:      %d", indent, "", h->x);
 			spa_debug("%*s" "      y:      %d", indent, "", h->y);
 			spa_debug("%*s" "      width:  %d", indent, "", h->width);
 			spa_debug("%*s" "      height: %d", indent, "", h->height);
-		} else {
+			break;
+		}
+		case SPA_META_VideoDamage:
+		default:
 			spa_debug("%*s" "    Unknown:", indent, "");
 			spa_debug_mem(5, m->data, m->size);
 		}
@@ -70,7 +77,7 @@ static inline int spa_debug_buffer(int indent,
 	for (i = 0; i < buffer->n_datas; i++) {
 		struct spa_data *d = &buffer->datas[i];
 		spa_debug("%*s" "   type:    %d (%s)", indent, "", d->type,
-			spa_type_map_get_type(map, d->type));
+			spa_debug_type_find_name(spa_type_data_type, d->type));
 		spa_debug("%*s" "   flags:   %d", indent, "", d->flags);
 		spa_debug("%*s" "   data:    %p", indent, "", d->data);
 		spa_debug("%*s" "   fd:      %d", indent, "", d->fd);

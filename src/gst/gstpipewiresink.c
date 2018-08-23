@@ -217,7 +217,6 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
 static void
 pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 {
-  struct pw_type *t = sink->type;
   GstStructure *config;
   GstCaps *caps;
   guint size;
@@ -231,27 +230,27 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_push_object (&b, t->param.idBuffers, t->param_buffers.Buffers);
+  spa_pod_builder_push_object (&b, SPA_ID_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers);
   if (size == 0)
     spa_pod_builder_add (&b,
-        ":", t->param_buffers.size, "iru", 0, SPA_POD_PROP_MIN_MAX(0, INT32_MAX), NULL);
+        ":", SPA_PARAM_BUFFERS_size, "iru", 0, SPA_POD_PROP_MIN_MAX(0, INT32_MAX), NULL);
   else
     spa_pod_builder_add (&b,
-        ":", t->param_buffers.size, "iru", size, SPA_POD_PROP_MIN_MAX(size, INT32_MAX), NULL);
+        ":", SPA_PARAM_BUFFERS_size, "iru", size, SPA_POD_PROP_MIN_MAX(size, INT32_MAX), NULL);
 
   spa_pod_builder_add (&b,
-      ":", t->param_buffers.stride,  "iru", 0, SPA_POD_PROP_MIN_MAX(0, INT32_MAX),
-      ":", t->param_buffers.buffers, "iru", min_buffers,
+      ":", SPA_PARAM_BUFFERS_stride,  "iru", 0, SPA_POD_PROP_MIN_MAX(0, INT32_MAX),
+      ":", SPA_PARAM_BUFFERS_buffers, "iru", min_buffers,
 				SPA_POD_PROP_MIN_MAX(min_buffers,
 					       max_buffers ? max_buffers : INT32_MAX),
-      ":", t->param_buffers.align,   "i", 16,
+      ":", SPA_PARAM_BUFFERS_align,   "i", 16,
       NULL);
   port_params[0] = spa_pod_builder_pop (&b);
 
   port_params[1] = spa_pod_builder_object (&b,
-      t->param.idMeta, t->param_meta.Meta,
-      ":", t->param_meta.type, "I", t->meta.Header,
-      ":", t->param_meta.size, "i", sizeof (struct spa_meta_header));
+      SPA_ID_PARAM_Meta, SPA_ID_OBJECT_ParamMeta,
+      ":", SPA_PARAM_META_type, "I", SPA_META_Header,
+      ":", SPA_PARAM_META_size, "i", sizeof (struct spa_meta_header));
 
 
   pw_thread_loop_lock (sink->main_loop);
@@ -274,8 +273,6 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
   sink->loop = pw_loop_new (NULL);
   sink->main_loop = pw_thread_loop_new (sink->loop, "pipewire-sink-loop");
   sink->core = pw_core_new (sink->loop, NULL);
-  sink->type = pw_core_get_type (sink->core);
-  sink->pool->t = sink->type;
   GST_DEBUG ("loop %p %p", sink->loop, sink->main_loop);
 }
 
@@ -510,12 +507,10 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   enum pw_stream_state state;
   const char *error = NULL;
   gboolean res = FALSE;
-  struct pw_type *t;
 
   pwsink = GST_PIPEWIRE_SINK (bsink);
-  t = pwsink->type;
 
-  possible = gst_caps_to_format_all (caps, t->param.idEnumFormat, t->map);
+  possible = gst_caps_to_format_all (caps, SPA_ID_PARAM_EnumFormat);
 
   pw_thread_loop_lock (pwsink->main_loop);
   state = pw_stream_get_state (pwsink->stream, &error);

@@ -47,23 +47,11 @@
 
 /** \cond */
 
-struct type {
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-}
-
 struct node {
 	struct spa_node node;
 
 	struct impl *impl;
 
-	struct spa_type_map *map;
 	struct spa_log *log;
 
 	const struct spa_node_callbacks *callbacks;
@@ -75,10 +63,7 @@ struct node {
 struct impl {
 	struct pw_client_stream this;
 
-	struct type type;
-
 	struct pw_core *core;
-	struct pw_type *t;
 
 	struct node node;
 
@@ -253,14 +238,12 @@ impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t
 {
 	struct node *this;
 	struct impl *impl;
-	struct pw_type *t;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
-	t = impl->t;
 
 	if (direction != impl->direction)
 		return -EINVAL;
@@ -270,7 +253,7 @@ impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t
 
 	if ((res = spa_node_port_set_io(impl->adapter_mix,
 					direction, port_id,
-					t->io.ControlRange,
+					SPA_ID_IO_ControlRange,
 					&impl->ctrl,
 					sizeof(&impl->ctrl))) < 0)
 			return res;
@@ -344,14 +327,13 @@ static int debug_params(struct impl *impl, struct spa_node *node,
                 enum spa_direction direction, uint32_t port_id, uint32_t id, struct spa_pod *filter)
 {
 	struct node *this = &impl->node;
-	struct pw_type *t = impl->t;
         struct spa_pod_builder b = { 0 };
         uint8_t buffer[4096];
         uint32_t state;
         struct spa_pod *param;
         int res;
 
-        spa_log_error(this->log, "params %s:", spa_type_map_get_type(t->map, id));
+        spa_log_error(this->log, "params %s:", spa_debug_type_find_name(spa_debug_types, id));
 
         state = 0;
         while (true) {
@@ -365,12 +347,12 @@ static int debug_params(struct impl *impl, struct spa_node *node,
 				spa_log_error(this->log, "  error: %s", spa_strerror(res));
                         break;
 		}
-                spa_debug_pod(2, t->map, param);
+                spa_debug_pod(2, spa_debug_types, param);
         }
 
         spa_log_error(this->log, "failed filter:");
         if (filter)
-                spa_debug_pod(2, t->map, filter);
+                spa_debug_pod(2, spa_debug_types, filter);
 
         return 0;
 }
@@ -383,7 +365,6 @@ static int negotiate_format(struct impl *impl)
 	struct spa_pod *format;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = { 0 };
-	struct pw_type *t = impl->t;
 	int res;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -393,35 +374,35 @@ static int negotiate_format(struct impl *impl)
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->adapter_mix,
 				SPA_DIRECTION_REVERSE(impl->direction), 0,
-				t->param.idEnumFormat, &state,
+				SPA_ID_PARAM_EnumFormat, &state,
 				NULL, &format, &b)) <= 0) {
 		debug_params(impl, impl->adapter_mix, SPA_DIRECTION_REVERSE(impl->direction), 0,
-				t->param.idEnumFormat, NULL);
+				SPA_ID_PARAM_EnumFormat, NULL);
 		return -ENOTSUP;
 	}
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->cnode,
 				       impl->direction, 0,
-				       t->param.idEnumFormat, &state,
+				       SPA_ID_PARAM_EnumFormat, &state,
 				       format, &format, &b)) <= 0) {
 		debug_params(impl, impl->cnode, impl->direction, 0,
-				t->param.idEnumFormat, format);
+				SPA_ID_PARAM_EnumFormat, format);
 		return -ENOTSUP;
 	}
 
 	spa_pod_fixate(format);
-	spa_debug_format(0, t->map, format);
+	spa_debug_format(0, NULL, format);
 
 	if ((res = spa_node_port_set_param(impl->adapter_mix,
 				   SPA_DIRECTION_REVERSE(impl->direction), 0,
-				   t->param.idFormat, 0,
+				   SPA_ID_PARAM_Format, 0,
 				   format)) < 0)
 			return res;
 
 	if ((res = spa_node_port_set_param(impl->cnode,
 					   impl->direction, 0,
-					   t->param.idFormat, 0,
+					   SPA_ID_PARAM_Format, 0,
 					   format)) < 0)
 			return res;
 
@@ -431,7 +412,6 @@ static int negotiate_format(struct impl *impl)
 static int negotiate_buffers(struct impl *impl)
 {
 	struct node *this = &impl->node;
-	struct pw_type *t = impl->t;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t state;
@@ -453,10 +433,10 @@ static int negotiate_buffers(struct impl *impl)
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->adapter_mix,
 			       SPA_DIRECTION_REVERSE(impl->direction), 0,
-			       t->param.idBuffers, &state,
+			       SPA_ID_PARAM_Buffers, &state,
 			       param, &param, &b)) <= 0) {
 		debug_params(impl, impl->adapter_mix, SPA_DIRECTION_REVERSE(impl->direction), 0,
-				t->param.idBuffers, param);
+				SPA_ID_PARAM_Buffers, param);
 		return -ENOTSUP;
 	}
 	if (res == 0)
@@ -465,10 +445,10 @@ static int negotiate_buffers(struct impl *impl)
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->cnode,
 			       impl->direction, 0,
-			       t->param.idBuffers, &state,
+			       SPA_ID_PARAM_Buffers, &state,
 			       param, &param, &b)) < 0) {
 		debug_params(impl, impl->cnode, impl->direction, 0,
-				t->param.idBuffers, param);
+				SPA_ID_PARAM_Buffers, param);
 		return res;
 	}
 
@@ -494,10 +474,10 @@ static int negotiate_buffers(struct impl *impl)
 	}
 
 	if (spa_pod_object_parse(param,
-			":", t->param_buffers.buffers, "i", &buffers,
-			":", t->param_buffers.blocks, "i", &blocks,
-			":", t->param_buffers.size, "i", &size,
-			":", t->param_buffers.align, "i", &align,
+			":", SPA_PARAM_BUFFERS_buffers, "i", &buffers,
+			":", SPA_PARAM_BUFFERS_blocks, "i", &blocks,
+			":", SPA_PARAM_BUFFERS_size, "i", &size,
+			":", SPA_PARAM_BUFFERS_align, "i", &align,
 			NULL) < 0)
 		return -EINVAL;
 
@@ -508,7 +488,7 @@ static int negotiate_buffers(struct impl *impl)
 	memset(datas, 0, sizeof(struct spa_data) * blocks);
 	aligns = alloca(sizeof(uint32_t) * blocks);
 	for (i = 0; i < blocks; i++) {
-		datas[i].type = t->data.MemPtr;
+		datas[i].type = SPA_DATA_MemPtr;
 		datas[i].maxsize = size;
 		aligns[i] = align;
 	}
@@ -603,14 +583,12 @@ impl_node_port_set_param(struct spa_node *node,
 {
 	struct node *this;
 	struct impl *impl;
-	struct pw_type *t;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
-	t = impl->t;
 
 	if (direction != impl->direction)
 		return -EINVAL;
@@ -619,7 +597,7 @@ impl_node_port_set_param(struct spa_node *node,
 			flags, param)) < 0)
 		return res;
 
-	if (id == t->param.idFormat && impl->use_converter) {
+	if (id == SPA_ID_PARAM_Format && impl->use_converter) {
 		if (param == NULL) {
 			if ((res = spa_node_port_set_param(impl->adapter_mix,
 				SPA_DIRECTION_REVERSE(direction), 0, id,
@@ -644,14 +622,12 @@ impl_node_port_set_io(struct spa_node *node,
 {
 	struct node *this;
 	struct impl *impl;
-	struct pw_type *t;
 	int res = 0;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
-	t = impl->t;
 
 	spa_log_debug(this->log, "set io %d %d %d", id, direction, impl->direction);
 	if (direction != impl->direction)
@@ -660,7 +636,7 @@ impl_node_port_set_io(struct spa_node *node,
 	if (impl->use_converter)
 		res = spa_node_port_set_io(impl->adapter_mix, direction, port_id, id, data, size);
 
-	if (id == t->io.Buffers && size >= sizeof(struct spa_io_buffers)) {
+	if (id == SPA_ID_IO_Buffers && size >= sizeof(struct spa_io_buffers)) {
 		impl->io = data;
 	}
 
@@ -837,16 +813,9 @@ node_init(struct node *this,
 	uint32_t i;
 
 	for (i = 0; i < n_support; i++) {
-		if (strcmp(support[i].type, SPA_TYPE__Log) == 0)
+		if (support[i].type == SPA_ID_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
-			this->map = support[i].data;
 	}
-	if (this->map == NULL) {
-		spa_log_error(this->log, "a type map is needed");
-		return -EINVAL;
-	}
-
 	this->node = impl_node;
 
 	this->seq = 1;
@@ -859,7 +828,6 @@ static void client_node_initialized(void *data)
 	struct impl *impl = data;
         uint32_t n_input_ports, n_output_ports, max_input_ports, max_output_ports, state;
 	uint32_t media_type, media_subtype;
-	struct pw_type *t = impl->t;
 	struct spa_pod *format;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b;
@@ -906,7 +874,7 @@ static void client_node_initialized(void *data)
 
 	if ((res = spa_node_port_set_io(impl->client_port->mix,
 				impl->direction, 0,
-				t->io.Buffers,
+				SPA_ID_IO_Buffers,
 				impl->client_port_mix.io,
 				sizeof(impl->client_port_mix.io))) < 0)
 		return;
@@ -915,7 +883,7 @@ static void client_node_initialized(void *data)
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	if ((res = spa_node_port_enum_params(impl->cnode,
 				impl->direction, 0,
-				t->param.idEnumFormat, &state,
+				SPA_ID_PARAM_EnumFormat, &state,
 				NULL, &format, &b)) <= 0) {
 		pw_log_warn("client-stream %p: no format given", &impl->this);
 		impl->adapter = impl->cnode;
@@ -929,15 +897,15 @@ static void client_node_initialized(void *data)
 			"I", &media_subtype);
 
 	pw_log_debug("client-stream %p: %s/%s", &impl->this,
-			spa_type_map_get_type(t->map, media_type),
-			spa_type_map_get_type(t->map, media_subtype));
+			spa_debug_type_find_name(spa_debug_types, media_type),
+			spa_debug_type_find_name(spa_debug_types, media_subtype));
 
 
 	if (!exclusive &&
-	    media_type == impl->type.media_type.audio &&
-	    media_subtype == impl->type.media_subtype.raw) {
+	    media_type == SPA_MEDIA_TYPE_audio &&
+	    media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 		if ((impl->adapter = pw_load_spa_interface("audioconvert/libspa-audioconvert",
-				"audioconvert", SPA_TYPE__Node, NULL, 0, NULL)) == NULL)
+				"audioconvert", SPA_ID_INTERFACE_Node, NULL, 0, NULL)) == NULL)
 			return;
 
 		impl->adapter_mix = impl->adapter;
@@ -952,7 +920,7 @@ static void client_node_initialized(void *data)
 	if (impl->use_converter) {
 		if ((res = spa_node_port_set_io(impl->adapter_mix,
 					SPA_DIRECTION_REVERSE(impl->direction), 0,
-					t->io.Buffers,
+					SPA_ID_IO_Buffers,
 					impl->client_port_mix.io,
 					sizeof(impl->client_port_mix.io))) < 0)
 			return;
@@ -960,9 +928,9 @@ static void client_node_initialized(void *data)
 
 	}
 
-	if (media_type == impl->type.media_type.audio)
+	if (media_type == SPA_MEDIA_TYPE_audio)
 		type = "Audio";
-	else if (media_type == impl->type.media_type.video)
+	else if (media_type == SPA_MEDIA_TYPE_video)
 		type = "Video";
 	else
 		type = "Generic";
@@ -1108,9 +1076,6 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 	this = &impl->this;
 
 	impl->core = core;
-	impl->t = pw_core_get_type(core);
-
-	init_type(&impl->type, impl->t->map);
 
 	pw_log_debug("client-stream %p: new", impl);
 

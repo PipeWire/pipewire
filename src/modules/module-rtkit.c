@@ -49,7 +49,6 @@ static const struct spa_dict_item module_props[] = {
 
 struct impl {
 	struct pw_core *core;
-	struct pw_type *type;
 	struct pw_properties *properties;
 
 	struct spa_loop *loop;
@@ -482,7 +481,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	support = pw_core_get_support(core, &n_support);
 
-	loop = spa_support_find(support, n_support, SPA_TYPE_LOOP__DataLoop);
+	loop = spa_support_find(support, n_support, SPA_ID_INTERFACE_DataLoop);
         if (loop == NULL)
                 return -ENOTSUP;
 
@@ -493,7 +492,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = core;
-	impl->type = pw_core_get_type(core);
 	impl->properties = properties;
 	impl->loop = loop;
 

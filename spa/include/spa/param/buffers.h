@@ -25,46 +25,15 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
-#include <spa/param/param.h>
-#include <spa/support/type-map.h>
 
-#define SPA_TYPE_PARAM__Buffers			SPA_TYPE_PARAM_BASE "Buffers"
-#define SPA_TYPE_PARAM_BUFFERS_BASE		SPA_TYPE_PARAM__Buffers ":"
-
-#define SPA_TYPE_PARAM_BUFFERS__buffers		SPA_TYPE_PARAM_BUFFERS_BASE "buffers"
-#define SPA_TYPE_PARAM_BUFFERS__blocks		SPA_TYPE_PARAM_BUFFERS_BASE "blocks"
-
-#define SPA_TYPE_PARAM__BlockInfo		SPA_TYPE_PARAM_BASE "BlockInfo"
-#define SPA_TYPE_PARAM_BLOCK_INFO_BASE		SPA_TYPE_PARAM__BlockInfo ":"
-
-#define SPA_TYPE_PARAM_BLOCK_INFO__size		SPA_TYPE_PARAM_BLOCK_INFO_BASE "size"
-#define SPA_TYPE_PARAM_BLOCK_INFO__stride	SPA_TYPE_PARAM_BLOCK_INFO_BASE "stride"
-#define SPA_TYPE_PARAM_BLOCK_INFO__align	SPA_TYPE_PARAM_BLOCK_INFO_BASE "align"
-
-struct spa_type_param_buffers {
-	uint32_t Buffers;
-	uint32_t buffers;
-	uint32_t blocks;
-	uint32_t BlockInfo;
-	uint32_t size;
-	uint32_t stride;
-	uint32_t align;
+/** properties for SPA_ID_OBJECT_ParamBuffers */
+enum spa_param_buffers {
+	SPA_PARAM_BUFFERS_buffers,	/**< number of buffers */
+	SPA_PARAM_BUFFERS_blocks,	/**< number of data blocks per buffer */
+	SPA_PARAM_BUFFERS_size,		/**< size of a data block memory */
+	SPA_PARAM_BUFFERS_stride,	/**< stride of data block memory */
+	SPA_PARAM_BUFFERS_align,	/**< alignment of data block memory */
 };
-
-static inline void
-spa_type_param_buffers_map(struct spa_type_map *map,
-			   struct spa_type_param_buffers *type)
-{
-	if (type->Buffers == 0) {
-		type->Buffers = spa_type_map_get_id(map, SPA_TYPE_PARAM__Buffers);
-		type->buffers = spa_type_map_get_id(map, SPA_TYPE_PARAM_BUFFERS__buffers);
-		type->blocks = spa_type_map_get_id(map, SPA_TYPE_PARAM_BUFFERS__blocks);
-		type->BlockInfo = spa_type_map_get_id(map, SPA_TYPE_PARAM__BlockInfo);
-		type->size = spa_type_map_get_id(map, SPA_TYPE_PARAM_BLOCK_INFO__size);
-		type->stride = spa_type_map_get_id(map, SPA_TYPE_PARAM_BLOCK_INFO__stride);
-		type->align = spa_type_map_get_id(map, SPA_TYPE_PARAM_BLOCK_INFO__align);
-	}
-}
 
 #ifdef __cplusplus
 }  /* extern "C" */

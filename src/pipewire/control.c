@@ -18,6 +18,7 @@
  */
 
 #include <spa/pod/parser.h>
+#include <spa/debug/types.h>
 
 #include <pipewire/control.h>
 #include <pipewire/private.h>
@@ -37,7 +38,6 @@ pw_control_new(struct pw_core *core,
 	struct impl *impl;
 	struct pw_control *this;
 	enum spa_direction direction;
-	struct pw_type *t = &core->type;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -45,7 +45,9 @@ pw_control_new(struct pw_core *core,
 
 	this = &impl->this;
 
-	direction = spa_pod_is_object_id(param, t->param_io.idPropsOut) ?
+	direction = SPA_DIRECTION_OUTPUT;
+#if 0
+	direction = spa_pod_is_object_id(param, SPA_ID_PARAM_PropsOut) ?
 		SPA_DIRECTION_OUTPUT : SPA_DIRECTION_INPUT;
 
 	if (spa_pod_object_parse(param,
@@ -53,9 +55,10 @@ pw_control_new(struct pw_core *core,
 				":", t->param_io.size, "i", &this->size,
 				":", t->param.propId, "I", &this->prop_id) < 0)
 		goto exit_free;
+#endif
 
 	pw_log_debug("control %p: new %s %d", this,
-			spa_type_map_get_type(t->map, this->prop_id), direction);
+			spa_debug_type_find_name(spa_debug_types, this->prop_id), direction);
 
 	this->core = core;
 	this->port = port;
@@ -77,8 +80,8 @@ pw_control_new(struct pw_core *core,
 
 	return this;
 
-    exit_free:
-	free(impl);
+//    exit_free:
+//	free(impl);
     exit:
 	return NULL;
 }
@@ -155,7 +158,7 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 	impl = SPA_CONTAINER_OF(control, struct impl, this);
 
 	pw_log_debug("control %p: link to %p %s", control, other,
-			spa_type_map_get_type(control->core->type.map, control->prop_id));
+			spa_debug_type_find_name(spa_debug_types, control->prop_id));
 
 	if (impl->mem == NULL) {
 		if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |

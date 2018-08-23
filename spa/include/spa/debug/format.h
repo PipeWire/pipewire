@@ -24,11 +24,13 @@
 extern "C" {
 #endif
 
-#include <spa/support/type-map.h>
 #include <spa/pod/parser.h>
+#include <spa/debug/types.h>
+#include <spa/param/format-types.h>
+#include <spa/param/audio/format-types.h>
 
 static inline int
-spa_debug_format_value(struct spa_type_map *map,
+spa_debug_format_value(const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
 	switch (type) {
@@ -36,21 +38,21 @@ spa_debug_format_value(struct spa_type_map *map,
 		fprintf(stderr, "%s", *(int32_t *) body ? "true" : "false");
 		break;
 	case SPA_POD_TYPE_ID:
+	case SPA_POD_TYPE_INT:
 	{
-		const char *str = map ? spa_type_map_get_type(map, *(int32_t *) body) : NULL;
+		const char *str = spa_debug_type_find_name(info, *(int32_t *) body);
+		char tmp[64];
 		if (str) {
 			const char *h = rindex(str, ':');
 			if (h)
 				str = h + 1;
 		} else {
-			str = "unknown";
+			snprintf(tmp, sizeof(tmp), "%d", *(int32_t*)body);
+			str = tmp;
 		}
 		fprintf(stderr, "%s", str);
 		break;
 	}
-	case SPA_POD_TYPE_INT:
-		fprintf(stderr, "%" PRIi32, *(int32_t *) body);
-		break;
 	case SPA_POD_TYPE_LONG:
 		fprintf(stderr, "%" PRIi64, *(int64_t *) body);
 		break;
@@ -88,7 +90,7 @@ spa_debug_format_value(struct spa_type_map *map,
 }
 
 static inline int spa_debug_format(int indent,
-		struct spa_type_map *map, const struct spa_pod *format)
+		const struct spa_type_info *info, const struct spa_pod *format)
 {
 	int i;
 	const char *media_type;
@@ -121,19 +123,25 @@ static inline int spa_debug_format(int indent,
 	if (format == NULL || SPA_POD_TYPE(format) != SPA_POD_TYPE_OBJECT)
 		return -EINVAL;
 
+
+
 	if (spa_pod_object_parse(format, "I", &mtype,
 					 "I", &mstype) < 0)
 		return -EINVAL;
 
-	media_type = spa_type_map_get_type(map, mtype);
-	media_subtype = spa_type_map_get_type(map, mstype);
+	media_type = spa_debug_type_find_name(spa_type_media_type, mtype);
+	media_subtype = spa_debug_type_find_name(spa_type_media_subtype, mstype);
 
-	fprintf(stderr, "%-6s %s/%s\n", "", rindex(media_type, ':') + 1,
-		rindex(media_subtype, ':') + 1);
+	fprintf(stderr, "%-6s %s/%s\n", "",
+		media_type ? rindex(media_type, ':') + 1 : "unknown",
+		media_subtype ? rindex(media_subtype, ':') + 1 : "unknown");
+
+	info = spa_type_format_get_ids(mtype, mstype);
 
 	SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)format, pod) {
 		struct spa_pod_prop *prop;
 		const char *key;
+		const struct spa_type_info *ti;
 
 		if (pod->type != SPA_POD_TYPE_PROP)
 			continue;
@@ -144,13 +152,15 @@ static inline int spa_debug_format(int indent,
 		    (prop->body.flags & SPA_POD_PROP_FLAG_OPTIONAL))
 			continue;
 
-		key = spa_type_map_get_type(map, prop->body.key);
+		ti = spa_debug_type_find(info, prop->body.key);
+		key = ti ? ti->name : NULL;
 
-		fprintf(stderr, "  %20s : (%s) ", rindex(key, ':') + 1,
+		fprintf(stderr, "  %20s : (%s) ",
+			key ? rindex(key, ':') + 1 : "unknown",
 			pod_type_names[prop->body.value.type]);
 
 		if (!(prop->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
-			spa_debug_format_value(map,
+			spa_debug_format_value(ti->values,
 					prop->body.value.type,
 					SPA_POD_BODY(&prop->body.value),
 					prop->body.value.size);
@@ -180,7 +190,7 @@ static inline int spa_debug_format(int indent,
 			SPA_POD_PROP_ALTERNATIVE_FOREACH(&prop->body, prop->pod.size, alt) {
 				if (i > 0)
 					fprintf(stderr, "%s", sep);
-				spa_debug_format_value(map,
+				spa_debug_format_value(ti->values,
 						prop->body.value.type,
 						alt,
 						prop->body.value.size);

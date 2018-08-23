@@ -24,43 +24,32 @@
 extern "C" {
 #endif
 
-#include <spa/param/format-utils.h>
+
+#include <spa/pod/parser.h>
 #include <spa/param/audio/format.h>
-#include <spa/param/audio/raw-utils.h>
 
-struct spa_type_format_audio {
-	uint32_t format;
-	uint32_t flags;
-	uint32_t layout;
-	uint32_t rate;
-	uint32_t channels;
-	uint32_t channel_mask;
-};
+#if 0
+#define SPA_TYPE_FORMAT__Audio			SPA_TYPE_FORMAT_BASE "Audio"
+#define SPA_TYPE_FORMAT_AUDIO_BASE		SPA_TYPE_FORMAT__Audio ":"
 
-static inline void
-spa_type_format_audio_map(struct spa_type_map *map, struct spa_type_format_audio *type)
-{
-	if (type->format == 0) {
-		type->format = spa_type_map_get_id(map, SPA_TYPE_FORMAT_AUDIO__format);
-		type->flags = spa_type_map_get_id(map, SPA_TYPE_FORMAT_AUDIO__flags);
-		type->layout = spa_type_map_get_id(map, SPA_TYPE_FORMAT_AUDIO__layout);
-		type->rate = spa_type_map_get_id(map, SPA_TYPE_FORMAT_AUDIO__rate);
-		type->channels = spa_type_map_get_id(map, SPA_TYPE_FORMAT_AUDIO__channels);
-		type->channel_mask = spa_type_map_get_id(map, SPA_TYPE_FORMAT_AUDIO__channelMask);
-	}
-}
+#define SPA_TYPE_FORMAT_AUDIO__format		SPA_TYPE_FORMAT_AUDIO_BASE "format"
+#define SPA_TYPE_FORMAT_AUDIO__flags		SPA_TYPE_FORMAT_AUDIO_BASE "flags"
+#define SPA_TYPE_FORMAT_AUDIO__layout		SPA_TYPE_FORMAT_AUDIO_BASE "layout"
+#define SPA_TYPE_FORMAT_AUDIO__rate		SPA_TYPE_FORMAT_AUDIO_BASE "rate"
+#define SPA_TYPE_FORMAT_AUDIO__channels		SPA_TYPE_FORMAT_AUDIO_BASE "channels"
+#define SPA_TYPE_FORMAT_AUDIO__channelMask	SPA_TYPE_FORMAT_AUDIO_BASE "channel-mask"
+#endif
 
 static inline int
-spa_format_audio_raw_parse(const struct spa_pod *format,
-			   struct spa_audio_info_raw *info, struct spa_type_format_audio *type)
+spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_raw *info)
 {
 	return spa_pod_object_parse(format,
-		":",type->format,	"I", &info->format,
-		":",type->layout,	"i", &info->layout,
-		":",type->rate,		"i", &info->rate,
-		":",type->channels,	"i", &info->channels,
-		":",type->flags,	"?i", &info->flags,
-		":",type->channel_mask,	"?i", &info->channel_mask, NULL);
+		":", SPA_FORMAT_AUDIO_format,		"I", &info->format,
+		":", SPA_FORMAT_AUDIO_layout,		"i", &info->layout,
+		":", SPA_FORMAT_AUDIO_rate,		"i", &info->rate,
+		":", SPA_FORMAT_AUDIO_channels,		"i", &info->channels,
+		":", SPA_FORMAT_AUDIO_flags,		"?i", &info->flags,
+		":", SPA_FORMAT_AUDIO_channelMask,	"?i", &info->channel_mask, NULL);
 }
 
 #ifdef __cplusplus

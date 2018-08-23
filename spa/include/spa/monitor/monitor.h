@@ -25,67 +25,22 @@ extern "C" {
 #endif
 
 struct spa_monitor;
-#define SPA_TYPE__Monitor		SPA_TYPE_INTERFACE_BASE "Monitor"
-#define SPA_TYPE_MONITOR_BASE		SPA_TYPE__Monitor ":"
 
 #include <spa/utils/defs.h>
 #include <spa/utils/dict.h>
 #include <spa/pod/event.h>
 #include <spa/pod/builder.h>
 
-#define SPA_TYPE_EVENT__Monitor		SPA_TYPE_EVENT_BASE "Monitor"
-#define SPA_TYPE_EVENT_MONITOR_BASE	SPA_TYPE_EVENT__Monitor ":"
-
-#define SPA_TYPE_EVENT_MONITOR__Added		SPA_TYPE_EVENT_MONITOR_BASE "Added"
-#define SPA_TYPE_EVENT_MONITOR__Removed		SPA_TYPE_EVENT_MONITOR_BASE "Removed"
-#define SPA_TYPE_EVENT_MONITOR__Changed		SPA_TYPE_EVENT_MONITOR_BASE "Changed"
-
-
-#define SPA_TYPE__MonitorItem			SPA_TYPE_POD_OBJECT_BASE "MonitorItem"
-#define SPA_TYPE_MONITOR_ITEM_BASE		SPA_TYPE__MonitorItem ":"
-
-#define SPA_TYPE_MONITOR_ITEM__id		SPA_TYPE_MONITOR_ITEM_BASE "id"
-#define SPA_TYPE_MONITOR_ITEM__flags		SPA_TYPE_MONITOR_ITEM_BASE "flags"
-#define SPA_TYPE_MONITOR_ITEM__state		SPA_TYPE_MONITOR_ITEM_BASE "state"
-#define SPA_TYPE_MONITOR_ITEM__name		SPA_TYPE_MONITOR_ITEM_BASE "name"
-#define SPA_TYPE_MONITOR_ITEM__class		SPA_TYPE_MONITOR_ITEM_BASE "class"
-#define SPA_TYPE_MONITOR_ITEM__info		SPA_TYPE_MONITOR_ITEM_BASE "info"
-#define SPA_TYPE_MONITOR_ITEM__factory		SPA_TYPE_MONITOR_ITEM_BASE "factory"
-
-struct spa_type_monitor {
-	uint32_t Monitor;		/*< the monitor object */
-
-	uint32_t Added;			/*< item added event */
-	uint32_t Removed;		/*< item removed event */
-	uint32_t Changed;		/*< item changed event */
-
-	uint32_t MonitorItem;		/*< monitor item object */
-	uint32_t id;			/*< item id property */
-	uint32_t flags;			/*< item flags property */
-	uint32_t state;			/*< item state property */
-	uint32_t name;			/*< item name property */
-	uint32_t klass;			/*< item klass property */
-	uint32_t info;			/*< item info property */
-	uint32_t factory;		/*< item factory property */
+/** properties for SPA_ID_OBJECT_MonitorItem */
+enum spa_monitor_item {
+	SPA_MONITOR_ITEM_id,
+	SPA_MONITOR_ITEM_flags,
+	SPA_MONITOR_ITEM_state,
+	SPA_MONITOR_ITEM_name,
+	SPA_MONITOR_ITEM_class,
+	SPA_MONITOR_ITEM_info,
+	SPA_MONITOR_ITEM_factory,
 };
-
-static inline void spa_type_monitor_map(struct spa_type_map *map, struct spa_type_monitor *type)
-{
-	if (type->Monitor == 0) {
-		type->Monitor = spa_type_map_get_id(map, SPA_TYPE__Monitor);
-		type->Added = spa_type_map_get_id(map, SPA_TYPE_EVENT_MONITOR__Added);
-		type->Removed = spa_type_map_get_id(map, SPA_TYPE_EVENT_MONITOR__Removed);
-		type->Changed = spa_type_map_get_id(map, SPA_TYPE_EVENT_MONITOR__Changed);
-		type->MonitorItem = spa_type_map_get_id(map, SPA_TYPE__MonitorItem);
-		type->id = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__id);
-		type->flags = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__flags);
-		type->state = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__state);
-		type->name = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__name);
-		type->klass = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__class);
-		type->info = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__info);
-		type->factory = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__factory);
-	}
-}
 
 enum spa_monitor_item_flags {
 	SPA_MONITOR_ITEM_FLAG_NONE = 0,

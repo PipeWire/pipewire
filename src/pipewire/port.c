@@ -22,6 +22,7 @@
 #include <errno.h>
 
 #include <spa/pod/parser.h>
+#include <spa/debug/types.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
@@ -340,6 +341,7 @@ static int do_add_port(struct spa_loop *loop,
 	return 0;
 }
 
+#if 0
 static int make_control(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct pw_port *port = data;
@@ -347,6 +349,7 @@ static int make_control(void *data, uint32_t id, uint32_t index, uint32_t next, 
 	pw_control_new(node->core, port, param, 0);
 	return 0;
 }
+#endif
 
 static void port_unbind_func(void *data)
 {
@@ -440,7 +443,7 @@ int pw_port_register(struct pw_port *port,
 	struct pw_core *core = node->core;
 
 	port->global = pw_global_new(core,
-				core->type.port, PW_VERSION_PORT,
+				PW_ID_INTERFACE_Port, PW_VERSION_PORT,
 				properties,
 				port);
 	if (port->global == NULL)
@@ -454,8 +457,6 @@ int pw_port_register(struct pw_port *port,
 int pw_port_add(struct pw_port *port, struct pw_node *node)
 {
 	uint32_t port_id = port->port_id;
-	struct pw_core *core = node->core;
-	struct pw_type *t = &core->type;
 	struct spa_list *ports;
 	struct pw_map *portmap;
 	struct pw_port *find;
@@ -525,25 +526,27 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
 	}
 
-	pw_port_for_each_param(port, t->param_io.idPropsOut, 0, 0, NULL, make_control, port);
-	pw_port_for_each_param(port, t->param_io.idPropsIn, 0, 0, NULL, make_control, port);
+#if 0
+	pw_port_for_each_param(port, SPA_ID_PARAM_PropsOut, 0, 0, NULL, make_control, port);
+	pw_port_for_each_param(port, SPA_ID_PARAM_PropsIn, 0, 0, NULL, make_control, port);
+#endif
 
 	pw_log_debug("port %p: setting node io", port);
 	spa_node_port_set_io(node->node,
 			     port->direction, port_id,
-			     t->io.Buffers,
+			     SPA_ID_IO_Buffers,
 			     &port->rt.io, sizeof(port->rt.io));
 
 	if (port->mix && port->mix->port_set_io) {
 		spa_node_port_set_io(port->mix,
 				     pw_direction_reverse(port->direction), 0,
-				     t->io.Buffers,
+				     SPA_ID_IO_Buffers,
 				     &port->rt.io, sizeof(port->rt.io));
 	}
 
 	if (spa_node_port_set_io(node->node,
 			     port->direction, port_id,
-			     t->io.Clock,
+			     SPA_ID_IO_Clock,
 			     &port->rt.clock, sizeof(port->rt.clock)) >= 0) {
 		node->rt.clock = &port->rt.clock;
 		pw_log_debug("port %p: set node clock %p", port, node->rt.clock);
@@ -780,8 +783,6 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 {
 	int res = 0;
 	struct pw_node *node = port->node;
-	struct pw_core *core = node->core;
-	struct pw_type *t = &core->type;
 	struct pw_port_mix *mix = NULL;
 
 	if (mix_id != SPA_ID_INVALID)
@@ -796,7 +797,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 
 		pw_log_debug("port %p: %d set param on mix %d:%d.%d %s: %d (%s)", port, port->state,
 				port->direction, port->port_id, p->port_id,
-				spa_type_map_get_type(t->map, id), res, spa_strerror(res));
+				spa_debug_type_find_name(spa_debug_types, id), res, spa_strerror(res));
 
 		if (port->state == PW_PORT_STATE_CONFIGURE) {
 			spa_node_port_set_param(port->mix,
@@ -808,11 +809,11 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 		res = spa_node_port_set_param(node->node, port->direction, port->port_id, id, flags, param);
 		pw_log_debug("port %p: %d set param on node %d:%d %s: %d (%s)", port, port->state,
 				port->direction, port->port_id,
-				spa_type_map_get_type(t->map, id), res, spa_strerror(res));
+				spa_debug_type_find_name(spa_debug_types, id), res, spa_strerror(res));
 	}
 
 
-	if (id == t->param.idFormat) {
+	if (id == SPA_ID_PARAM_Format) {
 		if (param == NULL || res < 0) {
 			free_allocation(&port->allocation);
 			port->allocated = false;

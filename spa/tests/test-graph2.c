@@ -28,26 +28,14 @@
 
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
-#include <spa/support/type-map-impl.h>
 #include <spa/node/node.h>
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/param/format-utils.h>
 #include <spa/graph/graph.h>
 #include <spa/graph/graph-scheduler2.h>
 
-static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
-
-struct type {
-	uint32_t node;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
-}
 
 struct version {
 	uint16_t current;
@@ -55,10 +43,8 @@ struct version {
 };
 
 struct data {
-	struct spa_type_map *map;
 	struct spa_log *log;
 	struct spa_loop data_loop;
-	struct type type;
 
 	int writers;
 	struct version version;
@@ -233,13 +219,10 @@ int main(int argc, char *argv[])
 	spa_graph_init(&data.graph[0], &data.graph_state[0]);
 	spa_graph_init(&data.graph[1], &data.graph_state[1]);
 
-	data.map = &default_map.map;
 	data.log = &default_log.log;
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);
-
-	init_type(&data.type, data.map);
 
 	print_graph(&data, 0);
 	print_graph(&data, 1);

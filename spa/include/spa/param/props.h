@@ -26,42 +26,56 @@ extern "C" {
 
 #include <spa/param/param.h>
 
-#define SPA_TYPE__Props		SPA_TYPE_PARAM_BASE "Props"
-#define SPA_TYPE_PROPS_BASE	SPA_TYPE__Props ":"
+/** properties of SPA_ID_OBJECT_PropInfo */
+enum spa_prop_info {
+	SPA_PROP_INFO_id,		/**< associated id of the property */
+	SPA_PROP_INFO_name,		/**< name of the property */
+	SPA_PROP_INFO_type,		/**< type and range/enums of property */
+	SPA_PROP_INFO_labels,		/**< labels of property if any, this is a
+					  *  struct with pairs of values, the first one
+					  *  is of the type of the property, the second
+					  *  one is a string with a user readable label
+					  *  for the value. */
+};
 
-/** an unknown property */
-#define SPA_TYPE_PROPS__unknown		SPA_TYPE_PROPS_BASE "unknown"
+/** predefined properties for SPA_ID_OBJECT_Props */
+enum spa_prop {
+	SPA_PROP_BASE_GENERIC	= 0x0,
 
-/** Common property ids */
-#define SPA_TYPE_PROPS__device		SPA_TYPE_PROPS_BASE "device"
-#define SPA_TYPE_PROPS__deviceName	SPA_TYPE_PROPS_BASE "deviceName"
-#define SPA_TYPE_PROPS__deviceFd	SPA_TYPE_PROPS_BASE "deviceFd"
-#define SPA_TYPE_PROPS__card		SPA_TYPE_PROPS_BASE "card"
-#define SPA_TYPE_PROPS__cardName	SPA_TYPE_PROPS_BASE "cardName"
+	SPA_PROP_unknown,			/**< an unknown property */
 
-#define SPA_TYPE_PROPS__minLatency	SPA_TYPE_PROPS_BASE "minLatency"
-#define SPA_TYPE_PROPS__maxLatency	SPA_TYPE_PROPS_BASE "maxLatency"
-#define SPA_TYPE_PROPS__periods		SPA_TYPE_PROPS_BASE "periods"
-#define SPA_TYPE_PROPS__periodSize	SPA_TYPE_PROPS_BASE "periodSize"
-#define SPA_TYPE_PROPS__periodEvent	SPA_TYPE_PROPS_BASE "periodEvent"
+	SPA_PROP_device,
+	SPA_PROP_deviceName,
+	SPA_PROP_deviceFd,
+	SPA_PROP_card,
+	SPA_PROP_cardName,
 
-#define SPA_TYPE_PROPS__live		SPA_TYPE_PROPS_BASE "live"
-#define SPA_TYPE_PROPS__waveType	SPA_TYPE_PROPS_BASE "waveType"
-#define SPA_TYPE_PROPS__frequency	SPA_TYPE_PROPS_BASE "frequency"
-#define SPA_TYPE_PROPS__volume		SPA_TYPE_PROPS_BASE "volume"
-#define SPA_TYPE_PROPS__mute		SPA_TYPE_PROPS_BASE "mute"
-#define SPA_TYPE_PROPS__patternType	SPA_TYPE_PROPS_BASE "patternType"
-#define SPA_TYPE_PROPS__ditherType	SPA_TYPE_PROPS_BASE "ditherType"
-#define SPA_TYPE_PROPS__truncate	SPA_TYPE_PROPS_BASE "truncate"
+	SPA_PROP_minLatency,
+	SPA_PROP_maxLatency,
+	SPA_PROP_periods,
+	SPA_PROP_periodSize,
+	SPA_PROP_periodEvent,
+	SPA_PROP_live,
 
-#define SPA_TYPE_PROPS__brightness	SPA_TYPE_PROPS_BASE "brightness"
-#define SPA_TYPE_PROPS__contrast	SPA_TYPE_PROPS_BASE "contrast"
-#define SPA_TYPE_PROPS__saturation	SPA_TYPE_PROPS_BASE "saturation"
-#define SPA_TYPE_PROPS__hue		SPA_TYPE_PROPS_BASE "hue"
-#define SPA_TYPE_PROPS__gamma		SPA_TYPE_PROPS_BASE "gamma"
-#define SPA_TYPE_PROPS__exposure	SPA_TYPE_PROPS_BASE "exposure"
-#define SPA_TYPE_PROPS__gain		SPA_TYPE_PROPS_BASE "gain"
-#define SPA_TYPE_PROPS__sharpness	SPA_TYPE_PROPS_BASE "sharpness"
+	SPA_PROP_waveType,
+	SPA_PROP_frequency,
+	SPA_PROP_volume,
+	SPA_PROP_mute,
+	SPA_PROP_patternType,
+	SPA_PROP_ditherType,
+	SPA_PROP_truncate,
+
+	SPA_PROP_brightness,
+	SPA_PROP_contrast,
+	SPA_PROP_saturation,
+	SPA_PROP_hue,
+	SPA_PROP_gamma,
+	SPA_PROP_exposure,
+	SPA_PROP_gain,
+	SPA_PROP_sharpness,
+
+	SPA_PROP_BASE_CUSTOM	= 0x10000,
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

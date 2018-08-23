@@ -29,6 +29,7 @@
 
 #include <spa/pod/iter.h>
 #include <spa/debug/pod.h>
+#include <spa/debug/types.h>
 
 #include "config.h"
 
@@ -108,6 +109,7 @@ struct client_data {
 	bool busy;
 };
 
+#if 0
 static bool pod_remap_data(uint32_t type, void *body, uint32_t size, struct pw_map *types)
 {
 	void *t;
@@ -172,6 +174,7 @@ static bool pod_remap_data(uint32_t type, void *body, uint32_t size, struct pw_m
 	}
 	return true;
 }
+#endif
 
 static void
 process_messages(struct client_data *data)
@@ -227,13 +230,15 @@ process_messages(struct client_data *data)
 			continue;
 		}
 
+#if 0
 		if (demarshal[opcode].flags & PW_PROTOCOL_NATIVE_REMAP)
 			if (!pod_remap_data(SPA_POD_TYPE_STRUCT, message, size, &client->types))
 				goto invalid_message;
+#endif
 
 		if (debug_messages) {
 			fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
-		        spa_debug_pod(0, core->type.map, (struct spa_pod *)message);
+		        spa_debug_pod(0, spa_debug_types, (struct spa_pod *)message);
 		}
 		if (demarshal[opcode].func(resource, message, size) < 0)
 			goto invalid_message;
@@ -557,6 +562,7 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 				continue;
 			}
 
+#if 0
 			if (demarshal[opcode].flags & PW_PROTOCOL_NATIVE_REMAP) {
 				if (!pod_remap_data(SPA_POD_TYPE_STRUCT, message, size, &this->types)) {
                                         pw_log_error
@@ -565,9 +571,10 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 					continue;
 				}
 			}
+#endif
 			if (debug_messages) {
 				fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
-			        spa_debug_pod(0, core->type.map, (struct spa_pod *)message);
+			        spa_debug_pod(0, spa_debug_types, (struct spa_pod *)message);
 			}
 			if (demarshal[opcode].func(proxy, message, size) < 0) {
 				pw_log_error ("protocol-native %p: invalid message received %u for %u", this,

@@ -25,24 +25,16 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
-#include <spa/support/type-map.h>
 
 /** \page page_meta Metadata
  *
  * Metadata contains extra information on a buffer.
  */
-#define SPA_TYPE__Meta			SPA_TYPE_POINTER_BASE "Meta"
-#define SPA_TYPE_META_BASE		SPA_TYPE__Meta ":"
-
-#define SPA_TYPE_META__Header		SPA_TYPE_META_BASE "Header"
-#define SPA_TYPE_META__Region		SPA_TYPE_META_BASE "Region"
-#define SPA_TYPE_META_REGION_BASE	SPA_TYPE_META__Region ":"
-
-#define SPA_TYPE_META__RegionArray	SPA_TYPE_META_BASE "RegionArray"
-#define SPA_TYPE_META_REGION_ARRAY_BASE	SPA_TYPE_META__RegionArray ":"
-
-#define SPA_TYPE_META__VideoCrop	SPA_TYPE_META_REGION_BASE "VideoCrop"
-#define SPA_TYPE_META__VideoDamage	SPA_TYPE_META_REGION_ARRAY_BASE "VideoDamage"
+enum spa_meta_type {
+	SPA_META_Header,
+	SPA_META_VideoCrop,
+	SPA_META_VideoDamage,
+};
 
 /**
  * A metadata element.
@@ -52,7 +44,7 @@ extern "C" {
  * itself.
  */
 struct spa_meta {
-	uint32_t type;		/**< metadata type */
+	uint32_t type;		/**< metadata type, one of enum spa_meta_type */
 	void *data;		/**< pointer to metadata */
 	uint32_t size;		/**< size of metadata */
 };
@@ -90,21 +82,6 @@ struct spa_meta_region {
 	for (pos = spa_meta_first(meta);				\
 	    spa_meta_check(pos, meta);					\
             (pos)++)
-
-struct spa_type_meta {
-	uint32_t Header;
-	uint32_t VideoCrop;
-	uint32_t VideoDamage;
-};
-
-static inline void spa_type_meta_map(struct spa_type_map *map, struct spa_type_meta *type)
-{
-	if (type->Header == 0) {
-		type->Header = spa_type_map_get_id(map, SPA_TYPE_META__Header);
-		type->VideoCrop = spa_type_map_get_id(map, SPA_TYPE_META__VideoCrop);
-		type->VideoDamage = spa_type_map_get_id(map, SPA_TYPE_META__VideoDamage);
-	}
-}
 
 #ifdef __cplusplus
 }  /* extern "C" */

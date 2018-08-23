@@ -71,7 +71,6 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
   GstBuffer *buf;
   uint32_t i;
   GstPipeWirePoolData *data;
-  struct pw_type *t = pool->t;
 
   GST_LOG_OBJECT (pool, "wrap buffer");
 
@@ -84,19 +83,19 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
     GstMemory *gmem = NULL;
 
     GST_LOG_OBJECT (pool, "wrap buffer %d %d", d->mapoffset, d->maxsize);
-    if (d->type == t->data.MemFd) {
+    if (d->type == SPA_DATA_MemFd) {
       gmem = gst_fd_allocator_alloc (pool->fd_allocator, dup (d->fd),
                 d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
       gst_memory_resize (gmem, d->mapoffset, d->maxsize);
       data->offset = d->mapoffset;
     }
-    else if(d->type == t->data.DmaBuf) {
+    else if(d->type == SPA_DATA_DmaBuf) {
       gmem = gst_dmabuf_allocator_alloc (pool->dmabuf_allocator, dup (d->fd),
                 d->mapoffset + d->maxsize);
       gst_memory_resize (gmem, d->mapoffset, d->maxsize);
       data->offset = d->mapoffset;
     }
-    else if (d->type == t->data.MemPtr) {
+    else if (d->type == SPA_DATA_MemPtr) {
       gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, 0,
                                      d->maxsize, NULL, NULL);
       data->offset = 0;
@@ -107,7 +106,7 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
 
   data->pool = gst_object_ref (pool);
   data->owner = NULL;
-  data->header = spa_buffer_find_meta_data (b->buffer, t->meta.Header, sizeof(*data->header));
+  data->header = spa_buffer_find_meta_data (b->buffer, SPA_META_Header, sizeof(*data->header));
   data->flags = GST_BUFFER_FLAGS (buf);
   data->b = b;
   data->buf = buf;

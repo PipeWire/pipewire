@@ -31,53 +31,14 @@
 
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
-#include <spa/support/type-map-impl.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/video/format-utils.h>
-#include <spa/param/format-utils.h>
 
-static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
 
-struct type {
-	uint32_t node;
-	uint32_t props;
-	uint32_t format;
-	uint32_t props_device;
-	uint32_t SDL_Texture;
-	struct spa_type_io io;
-	struct spa_type_param param;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_format_video format_video;
-	struct spa_type_video_format video_format;
-	struct spa_type_event_node event_node;
-	struct spa_type_command_node command_node;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
-	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->props_device = spa_type_map_get_id(map, SPA_TYPE_PROPS__device);
-	type->SDL_Texture = spa_type_map_get_id(map, SPA_TYPE_POINTER_BASE "SDL_Texture");
-	spa_type_io_map(map, &type->io);
-	spa_type_param_map(map, &type->param);
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_video_map(map, &type->format_video);
-	spa_type_video_format_map(map, &type->video_format);
-	spa_type_event_node_map(map, &type->event_node);
-	spa_type_command_node_map(map, &type->command_node);
-}
 
 #define MAX_BUFFERS     8
 
@@ -91,9 +52,6 @@ struct buffer {
 };
 
 struct data {
-	struct type type;
-
-	struct spa_type_map *map;
 	struct spa_log *log;
 	struct spa_loop data_loop;
 
@@ -160,7 +118,7 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 			printf("can't make factory instance: %d\n", res);
 			return res;
 		}
-		if ((res = spa_handle_get_interface(handle, data->type.node, &iface)) < 0) {
+		if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Node, &iface)) < 0) {
 			printf("can't get interface %d\n", res);
 			return res;
 		}
@@ -227,7 +185,7 @@ static void on_source_process(void *_data, int status)
 			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
 			return;
 		}
-		datas[0].type = data->type.data.MemPtr;
+		datas[0].type = SPA_DATA_MemPtr;
 		datas[0].flags = 0;
 		datas[0].fd = -1;
 		datas[0].mapoffset = 0;
@@ -244,12 +202,12 @@ static void on_source_process(void *_data, int status)
 			return;
 		}
 		sdata = datas[0].data;
-		if (datas[0].type == data->type.data.MemFd ||
-		    datas[0].type == data->type.data.DmaBuf) {
+		if (datas[0].type == SPA_DATA_MemFd ||
+		    datas[0].type == SPA_DATA_DmaBuf) {
 			map = mmap(NULL, datas[0].maxsize + datas[0].mapoffset, PROT_READ,
 				   MAP_PRIVATE, datas[0].fd, 0);
 			sdata = SPA_MEMBER(map, datas[0].mapoffset, uint8_t);
-		} else if (datas[0].type == data->type.data.MemPtr) {
+		} else if (datas[0].type == SPA_DATA_MemPtr) {
 			map = NULL;
 			sdata = datas[0].data;
 		} else
@@ -330,10 +288,10 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_object(&b,
-		0, data->type.props,
-		":", data->type.props_device, "s", device ? device : "/dev/video0");
+		0, SPA_ID_OBJECT_Props,
+		":", SPA_PROP_device, "s", device ? device : "/dev/video0");
 
-	if ((res = spa_node_set_param(data->source, data->type.param.idProps, 0, props)) < 0)
+	if ((res = spa_node_set_param(data->source, SPA_ID_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
 
 	return res;
@@ -360,7 +318,7 @@ static int setup_buffers(struct data *data)
 		b->header.seq = 0;
 		b->header.pts = 0;
 		b->header.dts_offset = 0;
-		b->metas[0].type = data->type.meta.Header;
+		b->metas[0].type = SPA_META_Header;
 		b->metas[0].data = &b->header;
 		b->metas[0].size = sizeof(b->header);
 
@@ -402,7 +360,7 @@ static int sdl_alloc_buffers(struct data *data)
 		}
 		b->texture = texture;
 
-		b->datas[0].type = data->type.data.MemPtr;
+		b->datas[0].type = SPA_DATA_MemPtr;
 		b->datas[0].maxsize = stride * 240;
 		b->datas[0].data = ptr;
 		b->datas[0].chunk->offset = 0;
@@ -425,21 +383,21 @@ static int negotiate_formats(struct data *data)
 	if ((res =
 	     spa_node_port_set_io(data->source,
 				  SPA_DIRECTION_OUTPUT, 0,
-				  data->type.io.Buffers,
+				  SPA_ID_IO_Buffers,
 				  &data->source_output[0], sizeof(data->source_output[0]))) < 0)
 		return res;
 
 	format = spa_pod_builder_object(&b,
-			0, data->type.format,
-			"I", data->type.media_type.video,
-			"I", data->type.media_subtype.raw,
-			":", data->type.format_video.format,    "I", data->type.video_format.YUY2,
-			":", data->type.format_video.size,      "R", &SPA_RECTANGLE(320, 240),
-			":", data->type.format_video.framerate, "F", &SPA_FRACTION(25,1));
+			0, SPA_ID_OBJECT_Format,
+			"I", SPA_MEDIA_TYPE_video,
+			"I", SPA_MEDIA_SUBTYPE_raw,
+			":", SPA_FORMAT_VIDEO_format,    "I", SPA_VIDEO_FORMAT_YUY2,
+			":", SPA_FORMAT_VIDEO_size,      "R", &SPA_RECTANGLE(320, 240),
+			":", SPA_FORMAT_VIDEO_framerate, "F", &SPA_FRACTION(25,1));
 
 	if ((res = spa_node_port_set_param(data->source,
 					   SPA_DIRECTION_OUTPUT, 0,
-					   data->type.param.idFormat, 0,
+					   SPA_ID_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 
@@ -539,7 +497,7 @@ static void run_async_source(struct data *data)
 	int err;
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(data->type.command_node.Start);
+		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Start);
 		if ((res = spa_node_send_command(data->source, &cmd)) < 0)
 			printf("got error %d\n", res);
 	}
@@ -558,7 +516,7 @@ static void run_async_source(struct data *data)
 	}
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(data->type.command_node.Pause);
+		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Pause);
 		if ((res = spa_node_send_command(data->source, &cmd)) < 0)
 			printf("got error %d\n", res);
 	}
@@ -572,7 +530,6 @@ int main(int argc, char *argv[])
 
 	data.use_buffer = true;
 
-	data.map = &default_map.map;
 	data.log = &default_log.log;
 
 	if ((str = getenv("SPA_DEBUG")))
@@ -584,17 +541,10 @@ int main(int argc, char *argv[])
 	data.data_loop.remove_source = do_remove_source;
 	data.data_loop.invoke = do_invoke;
 
-	data.support[0].type = SPA_TYPE__TypeMap;
-	data.support[0].data = data.map;
-	data.support[1].type = SPA_TYPE__Log;
-	data.support[1].data = data.log;
-	data.support[2].type = SPA_TYPE_LOOP__DataLoop;
-	data.support[2].data = &data.data_loop;
-	data.support[3].type = SPA_TYPE_LOOP__MainLoop;
-	data.support[3].data = &data.data_loop;
-	data.n_support = 4;
-
-	init_type(&data.type, data.map);
+	data.support[0] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, data.log);
+	data.support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, &data.data_loop);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DataLoop, &data.data_loop);
+	data.n_support = 3;
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());

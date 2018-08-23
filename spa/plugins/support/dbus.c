@@ -27,29 +27,17 @@
 
 #include <dbus/dbus.h>
 
-#include <spa/support/type-map.h>
+#include <spa/utils/type.h>
 #include <spa/support/log.h>
 #include <spa/support/plugin.h>
 #include <spa/support/dbus.h>
 
 #define NAME "dbus"
 
-struct type {
-	uint32_t dbus;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->dbus = spa_type_map_get_id(map, SPA_TYPE__DBus);
-}
-
 struct impl {
 	struct spa_handle handle;
 	struct spa_dbus dbus;
 
-	struct type type;
-
-	struct spa_type_map *map;
 	struct spa_log *log;
 	struct spa_loop_utils *utils;
 
@@ -339,7 +327,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct impl *) handle;
 
-	if (interface_id == this->type.dbus)
+	if (interface_id == SPA_ID_INTERFACE_DBus)
 		*interface = &this->dbus;
 	else
 		return -ENOENT;
@@ -382,22 +370,15 @@ impl_init(const struct spa_handle_factory *factory,
 	this->dbus = impl_dbus;
 
 	for (i = 0; i < n_support; i++) {
-		if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
-			this->map = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE__Log) == 0)
+		if (support[i].type == SPA_ID_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE__LoopUtils) == 0)
+		else if (support[i].type == SPA_ID_INTERFACE_LoopUtils)
 			this->utils = support[i].data;
-	}
-	if (this->map == NULL) {
-		spa_log_error(this->log, "a type-map is needed");
-		return -EINVAL;
 	}
 	if (this->utils == NULL) {
 		spa_log_error(this->log, "a LoopUtils is needed");
 		return -EINVAL;
 	}
-	init_type(&this->type, this->map);
 
 	spa_log_debug(this->log, NAME " %p: initialized", this);
 
@@ -405,7 +386,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_TYPE__DBus,},
+	{SPA_ID_INTERFACE_DBus,},
 };
 
 static int

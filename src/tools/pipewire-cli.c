@@ -40,7 +40,6 @@ struct remote_data;
 struct data {
 	struct pw_main_loop *loop;
 	struct pw_core *core;
-	struct pw_type *t;
 
 	struct spa_list remotes;
 	struct remote_data *current;
@@ -262,15 +261,12 @@ static void on_sync_reply(void *_data, uint32_t seq)
 static int print_global(void *obj, void *data)
 {
 	struct global *global = obj;
-	struct pw_type *t;
 
 	if (global == NULL)
 		return 0;
 
-	t = global->rd->data->t;
-
 	fprintf(stdout, "\tid %d, parent %d, type %s/%d\n", global->id, global->parent_id,
-					spa_type_map_get_type(t->map, global->type),
+					spa_debug_type_find_name(spa_debug_types, global->type),
 					global->version);
 	if (global->properties)
 		print_properties(&global->properties->dict, ' ', false);
@@ -360,7 +356,6 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 {
 	struct remote_data *rd = _data;
 	struct data *data = rd->data;
-	struct pw_type *t = data->t;
 
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
@@ -372,7 +367,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 		fprintf(stdout, "remote %d state: \"%s\"\n", rd->id, pw_remote_state_as_string(state));
 		rd->core_proxy = pw_remote_get_core_proxy(rd->remote);
 		rd->registry_proxy = pw_core_proxy_get_registry(rd->core_proxy,
-								t->registry,
+								PW_ID_INTERFACE_Registry,
 								PW_VERSION_REGISTRY, 0);
 		pw_registry_proxy_add_listener(rd->registry_proxy,
 					       &rd->registry_listener,
@@ -497,7 +492,6 @@ static bool do_switch_remote(struct data *data, const char *cmd, char *args, cha
 static void info_global(struct proxy_data *pd)
 {
 	struct global *global = pd->global;
-	struct pw_type *t = pd->rd->data->t;
 
 	if (global == NULL)
 		return;
@@ -507,7 +501,7 @@ static void info_global(struct proxy_data *pd)
 	fprintf(stdout, "\tpermissions: %c%c%c\n", global->permissions & PW_PERM_R ? 'r' : '-',
 					  global->permissions & PW_PERM_W ? 'w' : '-',
 					  global->permissions & PW_PERM_X ? 'x' : '-');
-	fprintf(stdout, "\ttype: %s/%d\n", spa_type_map_get_type(t->map, global->type), pd->global->version);
+	fprintf(stdout, "\ttype: %s/%d\n", spa_debug_type_find_name(spa_debug_types, global->type), pd->global->version);
 }
 
 static void info_core(struct proxy_data *pd)
@@ -570,11 +564,10 @@ static void info_port(struct proxy_data *pd)
 static void info_factory(struct proxy_data *pd)
 {
 	struct pw_factory_info *info = pd->info;
-	struct pw_type *t = pd->rd->data->t;
 
 	info_global(pd);
 	fprintf(stdout, "\tname: \"%s\"\n", info->name);
-	fprintf(stdout, "\tobject-type: %s/%d\n", spa_type_map_get_type(t->map, info->type), info->version);
+	fprintf(stdout, "\tobject-type: %s/%d\n", spa_debug_type_find_name(spa_debug_types, info->type), info->version);
 	print_properties(info->props, MARK_CHANGE(0), true);
 	info->change_mask = 0;
 }
@@ -599,7 +592,7 @@ static void info_link(struct proxy_data *pd)
 	fprintf(stdout, "%c\tinput-port-id: %u\n", MARK_CHANGE(1), info->input_port_id);
 	fprintf(stdout, "%c\tformat:\n", MARK_CHANGE(2));
 	if (info->format)
-		spa_debug_format(2, pd->rd->data->t->map, info->format);
+		spa_debug_format(2, NULL, info->format);
 	else
 		fprintf(stdout, "\t\tnone\n");
 	print_properties(info->props, MARK_CHANGE(3), true);
@@ -668,15 +661,14 @@ static void node_event_param(void *object, uint32_t id, uint32_t index, uint32_t
 {
         struct proxy_data *data = object;
 	struct remote_data *rd = data->rd;
-	struct pw_type *t = rd->data->t;
 
 	fprintf(stdout, "remote %d node %d param %d index %d\n",
 			rd->id, data->global->id, id, index);
 
-	if (spa_pod_is_object_type(param, t->spa_format))
-		spa_debug_format(2, t->map, param);
+	if (spa_pod_is_object_type(param, SPA_ID_OBJECT_Format))
+		spa_debug_format(2, NULL, param);
 	else
-		spa_debug_pod(2, t->map, param);
+		spa_debug_pod(2, spa_debug_types, param);
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -706,15 +698,14 @@ static void port_event_param(void *object, uint32_t id, uint32_t index, uint32_t
 {
         struct proxy_data *data = object;
 	struct remote_data *rd = data->rd;
-	struct pw_type *t = rd->data->t;
 
 	fprintf(stdout, "remote %d port %d param %d index %d\n",
 			rd->id, data->global->id, id, index);
 
-	if (spa_pod_is_object_type(param, t->spa_format))
-		spa_debug_format(2, t->map, param);
+	if (spa_pod_is_object_type(param, SPA_ID_OBJECT_Format))
+		spa_debug_format(2, NULL, param);
 	else
-		spa_debug_pod(2, t->map, param);
+		spa_debug_pod(2, spa_debug_types, param);
 }
 
 static const struct pw_port_proxy_events port_events = {
@@ -813,7 +804,6 @@ static bool do_list_objects(struct data *data, const char *cmd, char *args, char
 
 static bool bind_global(struct remote_data *rd, struct global *global, char **error)
 {
-	struct pw_type *t = rd->data->t;
         const void *events;
         uint32_t client_version;
 	info_func_t info_func;
@@ -821,50 +811,51 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 	struct proxy_data *pd;
 	struct pw_proxy *proxy;
 
-	if (global->type == t->core) {
+	switch (global->type) {
+	case PW_ID_INTERFACE_Core:
 		events = &core_events;
 		client_version = PW_VERSION_CORE;
 		destroy = (pw_destroy_t) pw_core_info_free;
 		info_func = info_core;
-	}
-	else if (global->type == t->module) {
+		break;
+	case PW_ID_INTERFACE_Module:
 		events = &module_events;
 		client_version = PW_VERSION_MODULE;
 		destroy = (pw_destroy_t) pw_module_info_free;
 		info_func = info_module;
-	}
-	else if (global->type == t->node) {
+		break;
+	case PW_ID_INTERFACE_Node:
 		events = &node_events;
 		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		info_func = info_node;
-	}
-	else if (global->type == t->port) {
+		break;
+	case PW_ID_INTERFACE_Port:
 		events = &port_events;
 		client_version = PW_VERSION_PORT;
 		destroy = (pw_destroy_t) pw_port_info_free;
 		info_func = info_port;
-	}
-	else if (global->type == t->factory) {
+		break;
+	case PW_ID_INTERFACE_Factory:
 		events = &factory_events;
 		client_version = PW_VERSION_FACTORY;
 		destroy = (pw_destroy_t) pw_factory_info_free;
 		info_func = info_factory;
-	}
-	else if (global->type == t->client) {
+		break;
+	case PW_ID_INTERFACE_Client:
 		events = &client_events;
 		client_version = PW_VERSION_CLIENT;
 		destroy = (pw_destroy_t) pw_client_info_free;
 		info_func = info_client;
-	}
-	else if (global->type == t->link) {
+		break;
+	case PW_ID_INTERFACE_Link:
 		events = &link_events;
 		client_version = PW_VERSION_LINK;
 		destroy = (pw_destroy_t) pw_link_info_free;
 		info_func = info_link;
-	}
-	else {
-		asprintf(error, "unsupported type %s", spa_type_map_get_type(t->map, global->type));
+		break;
+	default:
+		asprintf(error, "unsupported type %s", spa_debug_type_find_name(spa_debug_types, global->type));
 		return false;
 	}
 
@@ -953,7 +944,6 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 	char *a[2];
         int n;
 	uint32_t id;
-	struct pw_type *t = data->t;
 	struct pw_proxy *proxy;
 	struct pw_properties *props = NULL;
 	struct proxy_data *pd;
@@ -967,7 +957,7 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 		props = parse_props(a[1]);
 
 	proxy = pw_core_proxy_create_object(rd->core_proxy, a[0],
-					    t->node, PW_VERSION_NODE,
+					    PW_ID_INTERFACE_Node, PW_VERSION_NODE,
 					    props ? &props->dict : NULL,
 					    sizeof(struct proxy_data));
 
@@ -1014,7 +1004,6 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	char *a[5];
         int n;
 	uint32_t id;
-	struct pw_type *t = data->t;
 	struct pw_proxy *proxy;
 	struct pw_properties *props = NULL;
 	struct proxy_data *pd;
@@ -1036,7 +1025,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 
 	proxy = (struct pw_proxy*)pw_core_proxy_create_object(rd->core_proxy,
 					  "link-factory",
-					  t->link,
+					  PW_ID_INTERFACE_Link,
 					  PW_VERSION_LINK,
 					  props ? &props->dict : NULL,
 					  sizeof(struct proxy_data));
@@ -1056,7 +1045,6 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 
 static bool do_export_node(struct data *data, const char *cmd, char *args, char **error)
 {
-	struct pw_type *t = data->t;
 	struct remote_data *rd = data->current;
 	struct pw_global *global;
 	struct pw_node *node;
@@ -1082,7 +1070,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 		asprintf(error, "object %d does not exist", atoi(a[0]));
 		return false;
 	}
-	if (pw_global_get_type(global) != t->node) {
+	if (pw_global_get_type(global) != PW_ID_INTERFACE_Node) {
 		asprintf(error, "object %d is not a node", atoi(a[0]));
 		return false;
 	}
@@ -1101,7 +1089,6 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 
 static bool do_node_params(struct data *data, const char *cmd, char *args, char **error)
 {
-	struct pw_type *t = data->t;
 	struct remote_data *rd = data->current;
 	char *a[2];
         int n;
@@ -1114,9 +1101,9 @@ static bool do_node_params(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	if (n == 2)
-		param_id = spa_type_map_get_id(t->map, a[1]);
+		param_id = SPA_ID_PARAM_List;
 	else
-		param_id = t->param.idList;
+		param_id = SPA_ID_PARAM_List;
 
 	id = atoi(a[0]);
 	global = pw_map_lookup(&rd->globals, id);
@@ -1124,7 +1111,7 @@ static bool do_node_params(struct data *data, const char *cmd, char *args, char 
 		asprintf(error, "%s: unknown global %d", cmd, id);
 		return false;
 	}
-	if (global->type != t->node) {
+	if (global->type != PW_ID_INTERFACE_Node) {
 		asprintf(error, "object %d is not a node", atoi(a[0]));
 		return false;
 	}
@@ -1136,7 +1123,6 @@ static bool do_node_params(struct data *data, const char *cmd, char *args, char 
 
 static bool do_port_params(struct data *data, const char *cmd, char *args, char **error)
 {
-	struct pw_type *t = data->t;
 	struct remote_data *rd = data->current;
 	char *a[2];
         int n;
@@ -1149,9 +1135,9 @@ static bool do_port_params(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	if (n == 2)
-		param_id = spa_type_map_get_id(t->map, a[1]);
+		param_id = SPA_ID_PARAM_List;
 	else
-		param_id = t->param.idList;
+		param_id = SPA_ID_PARAM_List;
 
 	id = atoi(a[0]);
 	global = pw_map_lookup(&rd->globals, id);
@@ -1159,7 +1145,7 @@ static bool do_port_params(struct data *data, const char *cmd, char *args, char 
 		asprintf(error, "%s: unknown global %d", cmd, id);
 		return false;
 	}
-	if (global->type != t->port) {
+	if (global->type != PW_ID_INTERFACE_Port) {
 		asprintf(error, "object %d is not a port", atoi(a[0]));
 		return false;
 	}
@@ -1264,7 +1250,6 @@ int main(int argc, char *argv[])
 	pw_map_init(&data.vars, 64, 16);
 
 	data.core = pw_core_new(l, pw_properties_new(PW_CORE_PROP_DAEMON, "1", NULL));
-	data.t = pw_core_get_type(data.core);
 	info = pw_core_get_info(data.core);
 
 	pw_module_load(data.core, "libpipewire-module-link-factory", NULL, NULL, NULL, NULL);

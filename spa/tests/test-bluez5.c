@@ -30,7 +30,6 @@
 
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
-#include <spa/support/type-map.h>
 #include <spa/support/dbus.h>
 #include <spa/monitor/monitor.h>
 #include <spa/node/node.h>
@@ -38,7 +37,6 @@
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/param/format-utils.h>
 #include <spa/param/io.h>
 
 #define M_PI_M2 ( M_PI + M_PI )
@@ -51,45 +49,7 @@ static struct spa_log *logger;
 #include <spa/graph/graph-scheduler2.h>
 
 #include <spa/debug/pod.h>
-
-struct type {
-	uint32_t log;
-	uint32_t node;
-	uint32_t props;
-	uint32_t format;
-	struct spa_type_monitor monitor;
-	struct spa_type_io io;
-	struct spa_type_param param;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_format_audio format_audio;
-	struct spa_type_audio_format audio_format;
-	struct spa_type_event_node event_node;
-	struct spa_type_command_node command_node;
-	struct spa_type_param_io param_io;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->log = spa_type_map_get_id(map, SPA_TYPE__Log);
-	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
-	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	spa_type_monitor_map(map, &type->monitor);
-	spa_type_io_map(map, &type->io);
-	spa_type_param_map(map, &type->param);
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_audio_map(map, &type->format_audio);
-	spa_type_audio_format_map(map, &type->audio_format);
-	spa_type_event_node_map(map, &type->event_node);
-	spa_type_command_node_map(map, &type->command_node);
-	spa_type_param_io_map(map, &type->param_io);
-}
+#include <spa/debug/types.h>
 
 struct buffer {
 	struct spa_buffer buffer;
@@ -100,8 +60,6 @@ struct buffer {
 };
 
 struct data {
-	struct type type;
-	struct spa_type_map *map;
 	struct spa_log *log;
 
 	struct spa_loop *loop;
@@ -134,22 +92,26 @@ struct data {
 
 static void inspect_item(struct data *data, struct spa_pod *item)
 {
-        spa_debug_pod(0, data->map, item);
+        spa_debug_pod(0, spa_debug_types, item);
 }
 
 static void monitor_event(void *_data, struct spa_event *event)
 {
         struct data *data = _data;
 
-        if (SPA_EVENT_TYPE(event) == data->type.monitor.Added) {
+        switch (SPA_EVENT_TYPE(event)) {
+	case SPA_ID_EVENT_MONITOR_Added:
                 fprintf(stderr, "added:\n");
                 inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
-        } else if (SPA_EVENT_TYPE(event) == data->type.monitor.Removed) {
+		break;
+	case SPA_ID_EVENT_MONITOR_Removed:
                 fprintf(stderr, "removed:\n");
                 inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
-        } else if (SPA_EVENT_TYPE(event) == data->type.monitor.Changed) {
+		break;
+	case SPA_ID_EVENT_MONITOR_Changed:
                 fprintf(stderr, "changed:\n");
                 inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
+		break;
         }
 }
 
@@ -212,33 +174,18 @@ int main(int argc, char *argv[])
 	spa_zero(data);
 	if ((res = get_handle(&data, &handle,
 			     "build/spa/plugins/support/libspa-support.so",
-			     "mapper")) < 0) {
-		error(-1, res, "can't create mapper");
-	}
-	if ((res = spa_handle_get_interface(handle, 0, &iface)) < 0)
-		error(-1, res, "can't get mapper interface");
-
-	data.map = iface;
-	data.support[0].type = SPA_TYPE__TypeMap;
-	data.support[0].data = data.map;
-	data.n_support = 1;
-	init_type(&data.type, data.map);
-
-	if ((res = get_handle(&data, &handle,
-			     "build/spa/plugins/support/libspa-support.so",
 			     "logger")) < 0) {
 		error(-1, res, "can't create logger");
 	}
 
 	if ((res = spa_handle_get_interface(handle,
-					    spa_type_map_get_id(data.map, SPA_TYPE__Log),
+					    SPA_ID_INTERFACE_Log,
 					    &iface)) < 0)
 		error(-1, res, "can't get log interface");
 
 	data.log = iface;
-	data.support[1].type = SPA_TYPE__Log;
-	data.support[1].data = data.log;
-	data.n_support = 2;
+	data.support[0] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, data.log);
+	data.n_support = 1;
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);
@@ -249,32 +196,28 @@ int main(int argc, char *argv[])
 		error(-1, res, "can't create loop");
 	}
 	if ((res = spa_handle_get_interface(handle,
-					    spa_type_map_get_id(data.map, SPA_TYPE__Loop),
+					    SPA_ID_INTERFACE_Loop,
 					    &iface)) < 0)
 		error(-1, res, "can't get loop interface");
 	data.loop = iface;
 
 	if ((res = spa_handle_get_interface(handle,
-					    spa_type_map_get_id(data.map, SPA_TYPE__LoopControl),
+					    SPA_ID_INTERFACE_LoopControl,
 					    &iface)) < 0)
 		error(-1, res, "can't get loopcontrol interface");
 	data.loop_control = iface;
 
 	if ((res = spa_handle_get_interface(handle,
-					    spa_type_map_get_id(data.map, SPA_TYPE__LoopUtils),
+					    SPA_ID_INTERFACE_LoopUtils,
 					    &iface)) < 0)
 		error(-1, res, "can't get looputils interface");
 	data.loop_utils = iface;
 
-	data.support[2].type = SPA_TYPE_LOOP__DataLoop;
-	data.support[2].data = data.loop;
-	data.support[3].type = SPA_TYPE_LOOP__MainLoop;
-	data.support[3].data = data.loop;
-	data.support[4].type = SPA_TYPE__LoopControl;
-	data.support[4].data = data.loop_control;
-	data.support[5].type = SPA_TYPE__LoopUtils;
-	data.support[5].data = data.loop_utils;
-	data.n_support = 6;
+	data.support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DataLoop, data.loop);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, data.loop);
+	data.support[3] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_LoopControl, data.loop_control);
+	data.support[4] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_LoopUtils, data.loop_utils);
+	data.n_support = 5;
 
 	if ((res = get_handle(&data, &handle,
 			     "build/spa/plugins/support/libspa-dbus.so",
@@ -283,14 +226,13 @@ int main(int argc, char *argv[])
 	}
 
 	if ((res = spa_handle_get_interface(handle,
-					    spa_type_map_get_id(data.map, SPA_TYPE__DBus),
+					    SPA_ID_INTERFACE_DBus,
 					    &iface)) < 0)
 		error(-1, res, "can't get dbus interface");
 
 	data.dbus = iface;
-	data.support[6].type = SPA_TYPE__DBus;
-	data.support[6].data = data.dbus;
-	data.n_support = 7;
+	data.support[5] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DBus, data.dbus);
+	data.n_support = 6;
 
 	if ((res = get_handle(&data, &handle,
 			     "build/spa/plugins/bluez5/libspa-bluez5.so",
@@ -299,7 +241,7 @@ int main(int argc, char *argv[])
 	}
 
 	if ((res = spa_handle_get_interface(handle,
-					    spa_type_map_get_id(data.map, SPA_TYPE__Monitor),
+					    SPA_ID_INTERFACE_Monitor,
 					    &iface)) < 0)
 		error(-1, res, "can't get monitor interface");
 

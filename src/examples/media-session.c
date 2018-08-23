@@ -43,31 +43,11 @@
 #define MIN_QUANTUM_SIZE	64
 #define MAX_QUANTUM_SIZE	1024
 
-struct type {
-	struct spa_type_media_type media_type;
-        struct spa_type_media_subtype media_subtype;
-        struct spa_type_format_audio format_audio;
-        struct spa_type_audio_format audio_format;
-        struct spa_type_media_subtype_audio media_subtype_audio;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-        spa_type_media_type_map(map, &type->media_type);
-        spa_type_media_subtype_map(map, &type->media_subtype);
-        spa_type_format_audio_map(map, &type->format_audio);
-        spa_type_audio_format_map(map, &type->audio_format);
-        spa_type_media_subtype_audio_map(map, &type->media_subtype_audio);
-}
-
 struct impl {
-	struct type type;
-
 	struct timespec now;
 
 	struct pw_main_loop *loop;
 	struct pw_core *core;
-	struct pw_type *t;
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
 
@@ -289,14 +269,13 @@ registry_global(void *data,uint32_t id, uint32_t parent_id,
 		const struct spa_dict *props)
 {
 	struct impl *impl = data;
-	struct pw_type *t = impl->t;
 
 	clock_gettime(CLOCK_MONOTONIC, &impl->now);
 
-	if (type == t->node) {
+	if (type == PW_ID_INTERFACE_Node) {
 		handle_node(impl, id, parent_id, type, props);
 	}
-	else if (type == t->port) {
+	else if (type == PW_ID_INTERFACE_Port) {
 		handle_port(impl, id, parent_id, type, props);
 	}
 	schedule_rescan(impl);
@@ -316,7 +295,6 @@ static const struct pw_registry_proxy_events registry_events = {
 static void rescan_session(struct impl *impl)
 {
 	struct session *sess;
-	struct pw_type *t = impl->t;
 
 	pw_log_debug("rescan session");
 
@@ -335,7 +313,7 @@ static void rescan_session(struct impl *impl)
 
 			sess->dsp = pw_core_proxy_create_object(impl->core_proxy,
 					"audio-dsp",
-					t->node,
+					PW_ID_INTERFACE_Node,
 					PW_VERSION_NODE,
 					&props->dict,
 					0);
@@ -356,7 +334,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 	case PW_REMOTE_STATE_CONNECTED:
 		impl->core_proxy = pw_remote_get_core_proxy(impl->remote);
 		impl->registry_proxy = pw_core_proxy_get_registry(impl->core_proxy,
-                                                impl->t->registry,
+                                                PW_ID_INTERFACE_Registry,
                                                 PW_VERSION_REGISTRY, 0);
 		pw_registry_proxy_add_listener(impl->registry_proxy,
                                                &impl->registry_listener,
@@ -395,10 +373,8 @@ int main(int argc, char *argv[])
 
 	impl.loop = pw_main_loop_new(NULL);
 	impl.core = pw_core_new(pw_main_loop_get_loop(impl.loop), NULL);
-	impl.t = pw_core_get_type(impl.core);
         impl.remote = pw_remote_new(impl.core, NULL, 0);
 
-	init_type(&impl.type, impl.t->map);
 	spa_list_init(&impl.session_list);
 
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);

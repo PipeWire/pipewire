@@ -28,7 +28,6 @@
 
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
-#include <spa/support/type-map-impl.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/buffer/alloc.h>
@@ -36,48 +35,12 @@
 #include <spa/param/buffers.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/param/format-utils.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 #include <spa/debug/mem.h>
+#include <spa/debug/types.h>
 
-static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
-
-struct type {
-	uint32_t node;
-	uint32_t props;
-	uint32_t format;
-	struct spa_type_io io;
-	struct spa_type_param param;
-	struct spa_type_param_buffers param_buffers;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_format_audio format_audio;
-	struct spa_type_audio_format audio_format;
-	struct spa_type_event_node event_node;
-	struct spa_type_command_node command_node;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
-	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	spa_type_io_map(map, &type->io);
-	spa_type_param_map(map, &type->param);
-	spa_type_param_buffers_map(map, &type->param_buffers);
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_audio_map(map, &type->format_audio);
-	spa_type_audio_format_map(map, &type->audio_format);
-	spa_type_event_node_map(map, &type->event_node);
-	spa_type_command_node_map(map, &type->command_node);
-}
 
 struct buffer {
 	struct spa_buffer buffer;
@@ -104,9 +67,7 @@ struct link {
 };
 
 struct data {
-	struct spa_type_map *map;
 	struct spa_log *log;
-	struct type type;
 
 	struct spa_support support[4];
 	uint32_t n_support;
@@ -117,7 +78,6 @@ struct data {
 
 static int make_node(struct data *data, struct spa_node **node, const char *lib, const char *name)
 {
-	struct type *t = &data->type;
 	struct spa_handle *handle;
 	int res;
 	void *hnd;
@@ -152,7 +112,7 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 			printf("can't make factory instance: %d\n", res);
 			return res;
 		}
-		if ((res = spa_handle_get_interface(handle, t->node, &iface)) < 0) {
+		if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Node, &iface)) < 0) {
 			printf("can't get interface %d\n", res);
 			return res;
 		}
@@ -198,8 +158,6 @@ static int make_link(struct data *data, struct link *link,
 		     struct node *out_node, uint32_t out_port,
 		     struct node *in_node, uint32_t in_port)
 {
-	struct type *t = &data->type;
-
 	link->out_node = out_node;
 	link->out_port = out_port;
 	link->in_node = in_node;
@@ -216,7 +174,7 @@ static int make_link(struct data *data, struct link *link,
 				       &link->out_info);
 		spa_node_port_set_io(out_node->node,
 				     SPA_DIRECTION_OUTPUT, out_port,
-				     t->io.Buffers,
+				     SPA_ID_IO_Buffers,
 				     &link->io, sizeof(link->io));
 	}
 	if (in_node != NULL) {
@@ -225,7 +183,7 @@ static int make_link(struct data *data, struct link *link,
 				       &link->in_info);
 		spa_node_port_set_io(in_node->node,
 				     SPA_DIRECTION_INPUT, in_port,
-				     t->io.Buffers,
+				     SPA_ID_IO_Buffers,
 				     &link->io, sizeof(link->io));
 	}
 	return 0;
@@ -243,7 +201,6 @@ static int link_nodes(struct data *data)
 
 static int negotiate_link_format(struct data *data, struct link *link, struct spa_pod *filter)
 {
-	struct type *t = &data->type;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[4096];
 	uint32_t state;
@@ -256,7 +213,7 @@ static int negotiate_link_format(struct data *data, struct link *link, struct sp
 		state = 0;
 		if ((res = spa_node_port_enum_params(link->out_node->node,
 				       SPA_DIRECTION_OUTPUT, link->out_port,
-				       t->param.idEnumFormat, &state,
+				       SPA_ID_PARAM_EnumFormat, &state,
 				       filter, &format, &b)) <= 0)
 			return -ENOTSUP;
 
@@ -266,7 +223,7 @@ static int negotiate_link_format(struct data *data, struct link *link, struct sp
 		state = 0;
 		if ((res = spa_node_port_enum_params(link->in_node->node,
 				       SPA_DIRECTION_INPUT, link->in_port,
-				       t->param.idEnumFormat, &state,
+				       SPA_ID_PARAM_EnumFormat, &state,
 				       filter, &format, &b)) <= 0)
 			return -ENOTSUP;
 
@@ -274,19 +231,19 @@ static int negotiate_link_format(struct data *data, struct link *link, struct sp
 	}
 
 	spa_pod_fixate(filter);
-	spa_debug_format(0, data->map, filter);
+	spa_debug_format(0, NULL, filter);
 
 	if (link->out_node != NULL) {
 		if ((res = spa_node_port_set_param(link->out_node->node,
 					   SPA_DIRECTION_OUTPUT, link->out_port,
-					   t->param.idFormat, 0,
+					   SPA_ID_PARAM_Format, 0,
 					   filter)) < 0)
 			return res;
 	}
 	if (link->in_node != NULL) {
 		if ((res = spa_node_port_set_param(link->in_node->node,
 					   SPA_DIRECTION_INPUT, link->in_port,
-					   t->param.idFormat, 0,
+					   SPA_ID_PARAM_Format, 0,
 					   filter)) < 0)
 			return res;
 	}
@@ -298,31 +255,30 @@ static int negotiate_formats(struct data *data)
 	int res;
 	struct spa_pod *format;
 	struct spa_pod_builder b = { 0 };
-	struct type *t = &data->type;
 	uint8_t buffer[4096];
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	format = spa_pod_builder_object(&b,
-		0, t->format,
-		"I", t->media_type.audio,
-		"I", t->media_subtype.raw,
-		":", t->format_audio.format,   "I", t->audio_format.S16,
-		":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
-		":", t->format_audio.rate,     "i", 44100,
-		":", t->format_audio.channels, "i", 2);
+		0, SPA_ID_OBJECT_Format,
+		"I", SPA_MEDIA_TYPE_audio,
+		"I", SPA_MEDIA_SUBTYPE_raw,
+		":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_S16,
+		":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
+		":", SPA_FORMAT_AUDIO_rate,     "i", 44100,
+		":", SPA_FORMAT_AUDIO_channels, "i", 2);
 
 	if ((res = negotiate_link_format(data, &data->links[0], format)) < 0)
 		return res;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	format = spa_pod_builder_object(&b,
-		0, t->format,
-		"I", t->media_type.audio,
-		"I", t->media_subtype.raw,
-		":", t->format_audio.format,   "I", t->audio_format.F32,
-		":", t->format_audio.layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
-		":", t->format_audio.rate,     "i", 48000,
-		":", t->format_audio.channels, "i", 1);
+		0, SPA_ID_OBJECT_Format,
+		"I", SPA_MEDIA_TYPE_audio,
+		"I", SPA_MEDIA_SUBTYPE_raw,
+		":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
+		":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
+		":", SPA_FORMAT_AUDIO_rate,     "i", 48000,
+		":", SPA_FORMAT_AUDIO_channels, "i", 1);
 
 	if ((res = negotiate_link_format(data, &data->links[4], format)) < 0)
 		return res;
@@ -341,7 +297,6 @@ static int negotiate_formats(struct data *data)
 
 static int negotiate_link_buffers(struct data *data, struct link *link)
 {
-	struct type *t = &data->type;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t state;
@@ -356,7 +311,7 @@ static int negotiate_link_buffers(struct data *data, struct link *link)
 		state = 0;
 		if ((res = spa_node_port_enum_params(link->out_node->node,
 				       SPA_DIRECTION_OUTPUT, link->out_port,
-				       t->param.idBuffers, &state,
+				       SPA_ID_PARAM_Buffers, &state,
 				       param, &param, &b)) <= 0)
 			return -ENOTSUP;
 	}
@@ -364,13 +319,13 @@ static int negotiate_link_buffers(struct data *data, struct link *link)
 		state = 0;
 		if ((res = spa_node_port_enum_params(link->in_node->node,
 				       SPA_DIRECTION_INPUT, link->in_port,
-				       t->param.idBuffers, &state,
+				       SPA_ID_PARAM_Buffers, &state,
 				       param, &param, &b)) <= 0)
 			return -ENOTSUP;
 	}
 
 	spa_pod_fixate(param);
-	spa_debug_pod(0, data->map, param);
+	spa_debug_pod(0, spa_debug_types, param);
 
 	if (link->in_info)
 		in_alloc = SPA_FLAG_CHECK(link->in_info->flags, SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
@@ -390,17 +345,17 @@ static int negotiate_link_buffers(struct data *data, struct link *link)
 	}
 
 	if (spa_pod_object_parse(param,
-		":", t->param_buffers.buffers, "i", &buffers,
-		":", t->param_buffers.blocks, "i", &blocks,
-		":", t->param_buffers.size, "i", &size,
-		":", t->param_buffers.align, "i", &align,
+		":", SPA_PARAM_BUFFERS_buffers, "i", &buffers,
+		":", SPA_PARAM_BUFFERS_blocks, "i", &blocks,
+		":", SPA_PARAM_BUFFERS_size, "i", &size,
+		":", SPA_PARAM_BUFFERS_align, "i", &align,
 		NULL) < 0)
 		return -EINVAL;
 
 	datas = alloca(sizeof(struct spa_data) * blocks);
 	aligns = alloca(sizeof(uint32_t) * blocks);
 	for (i = 0; i < blocks; i++) {
-		datas[i].type = t->data.MemPtr;
+		datas[i].type = SPA_DATA_MemPtr;
 		datas[i].maxsize = size;
 		aligns[i] = align;
 	}
@@ -476,12 +431,11 @@ static void fill_buffer(struct data *data, struct spa_buffer *buffers[], int id)
 
 static void run_convert(struct data *data)
 {
-	struct type *t = &data->type;
 	struct spa_buffer *b;
 	int res, i, j;
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(t->command_node.Start);
+		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Start);
 		for (i = 0; i < 4; i++) {
 			if ((res = spa_node_send_command(data->nodes[i].node, &cmd)) < 0)
 				printf("got command error %d\n", res);
@@ -514,7 +468,7 @@ static void run_convert(struct data *data)
 		spa_debug_mem(0, b->datas[i].data, b->datas[i].maxsize);
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(t->command_node.Pause);
+		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Pause);
 		for (i = 0; i < 4; i++) {
 			if ((res = spa_node_send_command(data->nodes[i].node, &cmd)) < 0)
 				printf("got command error %d\n", res);
@@ -528,19 +482,13 @@ int main(int argc, char *argv[])
 	int res;
 	const char *str;
 
-	data.map = &default_map.map;
 	data.log = &default_log.log;
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);
 
-	data.support[0].type = SPA_TYPE__TypeMap;
-	data.support[0].data = data.map;
-	data.support[1].type = SPA_TYPE__Log;
-	data.support[1].data = data.log;
-	data.n_support = 2;
-
-	init_type(&data.type, data.map);
+	data.support[0] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, data.log);
+	data.n_support = 1;
 
 	if ((res = make_nodes(&data, argc > 1 ? argv[1] : NULL)) < 0) {
 		printf("can't make nodes: %d\n", res);

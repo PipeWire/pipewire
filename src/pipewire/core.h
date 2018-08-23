@@ -123,9 +123,6 @@ void pw_core_add_listener(struct pw_core *core,
 			  const struct pw_core_events *events,
 			  void *data);
 
-/** Get the type object of a core */
-struct pw_type *pw_core_get_type(struct pw_core *core);
-
 /** Get the core info object */
 const struct pw_core_info *pw_core_get_info(struct pw_core *core);
 

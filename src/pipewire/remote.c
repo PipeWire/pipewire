@@ -25,6 +25,7 @@
 #include <sys/mman.h>
 
 #include <spa/pod/parser.h>
+#include <spa/debug/types.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
@@ -42,18 +43,8 @@
 
 /** \cond */
 
-struct type {
-	uint32_t client_node_position;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->client_node_position = spa_type_map_get_id(map, PW_TYPE_CLIENT_NODE_IO__Position);
-}
-
 struct remote {
 	struct pw_remote this;
-	uint32_t type_client_node;
 	struct spa_hook core_listener;
 };
 
@@ -95,9 +86,6 @@ struct mix {
 struct node_data {
 	struct pw_remote *remote;
 	struct pw_core *core;
-	struct pw_type *t;
-
-	struct type type;
 
 	int rtwritefd;
 	struct spa_source *rtsocket_source;
@@ -211,22 +199,8 @@ static void core_event_remove_id(void *data, uint32_t id)
 	pw_map_remove(&this->objects, id);
 }
 
-static void
-core_event_update_types(void *data, uint32_t first_id, const char **types, uint32_t n_types)
-{
-	struct pw_remote *this = data;
-	int i;
-
-	for (i = 0; i < n_types; i++, first_id++) {
-		uint32_t this_id = spa_type_map_get_id(this->core->type.map, types[i]);
-		if (!pw_map_insert_at(&this->types, first_id, PW_MAP_ID_TO_PTR(this_id)))
-			pw_log_error("can't add type for client");
-	}
-}
-
 static const struct pw_core_proxy_events core_proxy_events = {
 	PW_VERSION_CORE_PROXY_EVENTS,
-	.update_types = core_event_update_types,
 	.done = core_event_done,
 	.error = core_event_error,
 	.remove_id = core_event_remove_id,
@@ -262,7 +236,6 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	pw_fill_remote_properties(core, properties);
 	this->properties = properties;
 
-        impl->type_client_node = spa_type_map_get_id(core->type.map, PW_TYPE_INTERFACE__ClientNode);
 	this->state = PW_REMOTE_STATE_UNCONNECTED;
 
 	pw_map_init(&this->objects, 64, 32);
@@ -385,7 +358,8 @@ static int do_connect(struct pw_remote *remote)
 
 	dummy.remote = remote;
 
-	remote->core_proxy = (struct pw_core_proxy*)pw_proxy_new(&dummy, remote->core->type.core, 0);
+	remote->core_proxy = (struct pw_core_proxy*)pw_proxy_new(&dummy,
+			PW_ID_INTERFACE_Core, PW_VERSION_CORE);
 	if (remote->core_proxy == NULL)
 		goto no_proxy;
 
@@ -801,12 +775,12 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 			spa_pod_builder_init(&b, buf, sizeof(buf));
                         if (spa_node_port_enum_params(port->node->node,
 						      port->direction, port->port_id,
-						      data->t->param.idList, &idx1,
+						      SPA_ID_PARAM_List, &idx1,
 						      NULL, &param, &b) <= 0)
                                 break;
 
 			spa_pod_object_parse(param,
-				":", data->t->param.listId, "I", &id, NULL);
+				":", SPA_PARAM_LIST_id, "I", &id, NULL);
 
 			for (idx2 = 0;; n_params++) {
 				spa_pod_builder_init(&b, buf, sizeof(buf));
@@ -858,7 +832,6 @@ client_node_set_io(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct pw_type *t = data->t;
 	struct mem *m;
 	void *ptr;
 
@@ -880,9 +853,9 @@ client_node_set_io(void *object,
 	}
 
 	pw_log_debug("node %p: set io %s %p", proxy,
-			spa_type_map_get_type(t->map, id), ptr);
+			spa_debug_type_find_name(spa_debug_types, id), ptr);
 
-	if (id == data->type.client_node_position) {
+	if (id == PW_ID_IO_ClientNodePosition) {
 		if (ptr == NULL && data->position) {
 			m = find_mem_ptr(data, data->position);
 			if (m && --m->ref == 0)
@@ -912,7 +885,8 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 	struct pw_remote *remote = proxy->remote;
 	int res;
 
-	if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Pause) {
+	switch (SPA_COMMAND_TYPE(command)) {
+	case SPA_ID_COMMAND_NODE_Pause:
 		pw_log_debug("node %p: pause %d", proxy, seq);
 
 		pw_loop_update_io(remote->core->data_loop,
@@ -923,8 +897,8 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 			pw_log_warn("node %p: pause failed", proxy);
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
-	}
-	else if (SPA_COMMAND_TYPE(command) == remote->core->type.command_node.Start) {
+		break;
+	case SPA_ID_COMMAND_NODE_Start:
 		pw_log_debug("node %p: start %d", proxy, seq);
 
 		pw_loop_update_io(remote->core->data_loop,
@@ -935,8 +909,8 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 			pw_log_warn("node %p: start failed", proxy);
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
-	}
-	else {
+		break;
+	default:
 		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
 		pw_client_node_proxy_done(data->node_proxy, seq, -ENOTSUP);
 	}
@@ -990,7 +964,6 @@ client_node_port_set_param(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct pw_type *t = data->t;
 	struct pw_port *port;
 	int res;
 
@@ -1000,7 +973,7 @@ client_node_port_set_param(void *object,
 		goto done;
 	}
 
-        if (id == t->param.idFormat) {
+        if (id == SPA_ID_PARAM_Format) {
 		struct mix *mix;
 		spa_list_for_each(mix, &data->mix[direction], link) {
 			if (mix->port->port_id == port_id)
@@ -1032,7 +1005,6 @@ client_node_port_use_buffers(void *object,
 	uint32_t i, j, len;
 	struct spa_buffer *b, **bufs;
 	struct mix *mix;
-	struct pw_type *t = data->t;
 	int res, prot;
 
 	mix = ensure_mix(data, direction, port_id, mix_id);
@@ -1125,7 +1097,7 @@ client_node_port_use_buffers(void *object,
 			    SPA_MEMBER(bmem.map.ptr, offset + sizeof(struct spa_chunk) * j,
 				       struct spa_chunk);
 
-			if (d->type == t->data.MemFd || d->type == t->data.DmaBuf) {
+			if (d->type == SPA_DATA_MemFd || d->type == SPA_DATA_DmaBuf) {
 				uint32_t mem_id = SPA_PTR_TO_UINT32(d->data);
 				struct mem *bm = find_mem(data, mem_id);
 				struct buffer_mem bm2;
@@ -1146,7 +1118,7 @@ client_node_port_use_buffers(void *object,
 
 				pw_log_debug(" data %d %u -> fd %d maxsize %d",
 						j, bm->id, bm->fd, d->maxsize);
-			} else if (d->type == t->data.MemPtr) {
+			} else if (d->type == SPA_DATA_MemPtr) {
 				int offs = SPA_PTR_TO_INT(d->data);
 				d->data = SPA_MEMBER(bmem.map.ptr, offs, void);
 				d->fd = -1;
@@ -1201,8 +1173,6 @@ client_node_port_set_io(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct pw_core *core = proxy->remote->core;
-	struct pw_type *t = data->t;
 	struct mix *mix;
 	struct mem *m;
 	void *ptr;
@@ -1230,9 +1200,9 @@ client_node_port_set_io(void *object,
 	}
 
 	pw_log_debug("port %p: set io %s %p", mix->port,
-			spa_type_map_get_type(core->type.map, id), ptr);
+			spa_debug_type_find_name(spa_debug_types, id), ptr);
 
-	if (id == t->io.Buffers) {
+	if (id == SPA_ID_IO_Buffers) {
 		if (ptr == NULL && mix->mix.io) {
 			deactivate_mix(data, mix);
                         m = find_mem_ptr(data, mix->mix.io);
@@ -1374,7 +1344,6 @@ static const struct pw_proxy_events proxy_events = {
 struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 				  struct pw_node *node)
 {
-	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
 	struct pw_proxy *proxy;
 	struct node_data *data;
 	int i;
@@ -1386,7 +1355,7 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 
 	proxy = pw_core_proxy_create_object(remote->core_proxy,
 					    "client-node",
-					    impl->type_client_node,
+					    PW_ID_INTERFACE_ClientNode,
 					    PW_VERSION_CLIENT_NODE,
 					    &node->properties->dict,
 					    sizeof(struct node_data));
@@ -1399,9 +1368,7 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	data->remote = remote;
 	data->node = node;
 	data->core = pw_node_get_core(node);
-	data->t = pw_core_get_type(data->core);
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;
-	init_type(&data->type, data->t->map);
 
 	node->exported = true;
 

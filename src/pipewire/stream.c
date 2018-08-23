@@ -23,14 +23,13 @@
 #include <sys/mman.h>
 #include <time.h>
 
-#include <spa/support/type-map.h>
 #include <spa/buffer/alloc.h>
-#include <spa/param/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/node/io.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/format.h>
+#include <spa/debug/types.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/stream.h"
@@ -42,22 +41,6 @@
 
 #define MASK_BUFFERS	(MAX_BUFFERS-1)
 #define MAX_PORTS	1
-
-struct type {
-	uint32_t prop_volume;
-        uint32_t io_prop_volume;
-	struct spa_type_media_type media_type;
-        struct spa_type_media_subtype media_subtype;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->prop_volume = spa_type_map_get_id(map, SPA_TYPE_PROPS__volume);
-        type->io_prop_volume = spa_type_map_get_id(map, SPA_TYPE_IO_PROP_BASE "volume");
-
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-}
 
 struct buffer {
 	struct pw_buffer this;
@@ -108,14 +91,12 @@ struct control {
 struct stream {
 	struct pw_stream this;
 
-	struct type type;
 	struct props props;
 	struct control control;
 
 	const char *path;
 
 	struct pw_core *core;
-	struct pw_type *t;
 
 	enum spa_direction direction;
 	enum pw_stream_flags flags;
@@ -269,14 +250,15 @@ static int impl_send_command(struct spa_node *node, const struct spa_command *co
 {
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
 	struct pw_stream *stream = &impl->this;
-	struct pw_type *t = impl->t;
 
-	if (SPA_COMMAND_TYPE(command) == t->command_node.Pause) {
+	switch (SPA_COMMAND_TYPE(command)) {
+	case SPA_ID_COMMAND_NODE_Pause:
 		if (stream->state == PW_STREAM_STATE_STREAMING) {
 			pw_log_debug("stream %p: pause", stream);
 			stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
 		}
-	} else if (SPA_COMMAND_TYPE(command) == t->command_node.Start) {
+		break;
+	case SPA_ID_COMMAND_NODE_Start:
 		if (stream->state == PW_STREAM_STATE_PAUSED) {
 			pw_log_debug("stream %p: start %d", stream, impl->direction);
 
@@ -289,8 +271,10 @@ static int impl_send_command(struct spa_node *node, const struct spa_command *co
 			}
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, NULL);
 		}
-	} else {
+		break;
+	default:
 		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
+		break;
 	}
 	return 0;
 }
@@ -347,18 +331,18 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 			    uint32_t id, void *data, size_t size)
 {
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
-	struct pw_type *t = impl->t;
 	int res = 0;
 
 	pw_log_debug("stream %p: set io %s %p %zd", impl,
-			spa_type_map_get_type(t->map, id), data, size);
+			spa_debug_type_find_name(spa_debug_types, id), data, size);
 
-	if (id == t->io.Buffers) {
+	if (id == SPA_ID_IO_Buffers) {
 		if (data && size >= sizeof(struct spa_io_buffers))
 			impl->io = data;
 		else
 			impl->io = NULL;
 	}
+#if 0
 	else if (id == impl->type.io_prop_volume) {
 		if (data && size >= sizeof(struct spa_pod_float)) {
 			impl->control.volume = data;
@@ -367,6 +351,7 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 		else
 			impl->control.volume = NULL;
 	}
+#endif
 	else
 		res = -ENOENT;
 
@@ -410,13 +395,13 @@ static int impl_port_enum_params(struct spa_node *node,
 
 		(*index)++;
 
-		if (id == d->t->param.idList) {
+		if (id == SPA_ID_PARAM_List) {
 			uint32_t new_id = ((struct spa_pod_object *) param)->body.id;
 
 			if (last_id == SPA_ID_INVALID){
 				*result = spa_pod_builder_object(builder,
-					id, d->t->param.List,
-					":", d->t->param.listId, "I", new_id);
+					id, SPA_ID_OBJECT_ParamList,
+					":", SPA_PARAM_LIST_id, "I", new_id);
 				last_id = new_id;
 			}
 			else if (last_id != new_id) {
@@ -440,21 +425,20 @@ static int port_set_format(struct spa_node *node,
 {
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
 	struct pw_stream *stream = &impl->this;
-	struct pw_type *t = impl->t;
 	struct param *p;
 	int count;
 
 	pw_log_debug("stream %p: format changed:", impl);
 	if (pw_log_level >= SPA_LOG_LEVEL_DEBUG)
-		spa_debug_format(2, t->map, format);
+		spa_debug_format(2, NULL, format);
 
 	clear_params(stream, PARAM_TYPE_FORMAT);
-	if (spa_pod_is_object_type(format, t->spa_format)) {
+	if (spa_pod_is_object_type(format, SPA_ID_OBJECT_Format)) {
 		p = add_param(stream, PARAM_TYPE_FORMAT, format);
 		if (p == NULL)
 			goto no_mem;
 
-		((struct spa_pod_object*)p->param)->body.id = t->param.idFormat;
+		((struct spa_pod_object*)p->param)->body.id = SPA_ID_PARAM_Format;
 	}
 	else
 		p = NULL;
@@ -482,10 +466,7 @@ static int impl_port_set_param(struct spa_node *node,
 			       uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
-	struct stream *d = SPA_CONTAINER_OF(node, struct stream, impl_node);
-	struct pw_type *t = d->t;
-
-	if (id == t->param.idFormat) {
+	if (id == SPA_ID_PARAM_Format) {
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else
@@ -555,7 +536,6 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 {
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
 	struct pw_stream *stream = &impl->this;
-	struct pw_type *t = impl->t;
 	uint32_t flags = impl->flags;
 	int i, j, prot, res;
 	int size = 0;
@@ -574,8 +554,8 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		if (SPA_FLAG_CHECK(flags, PW_STREAM_FLAG_MAP_BUFFERS)) {
 			for (j = 0; j < buffers[i]->n_datas; j++) {
 				struct spa_data *d = &buffers[i]->datas[j];
-				if (d->type == t->data.MemFd ||
-				    d->type == t->data.DmaBuf) {
+				if (d->type == SPA_DATA_MemFd ||
+				    d->type == SPA_DATA_DmaBuf) {
 					if ((res = map_data(impl, d, prot)) < 0)
 						return res;
 				}
@@ -838,7 +818,6 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	this->remote = remote;
 	this->name = name ? strdup(name) : NULL;
 
-	init_type(&impl->type, remote->core->type.map);
 	reset_props(&impl->props);
 
 	spa_ringbuffer_init(&impl->dequeued.ring);
@@ -850,7 +829,6 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	this->state = PW_STREAM_STATE_UNCONNECTED;
 
 	impl->core = remote->core;
-	impl->t = &remote->core->type;
 	impl->pending_seq = SPA_ID_INVALID;
 
 	pw_remote_add_listener(remote, &impl->remote_listener, &remote_events, this);
@@ -981,10 +959,10 @@ struct pw_remote *pw_stream_get_remote(struct pw_stream *stream)
 
 static void add_controls(struct pw_stream *stream)
 {
+#if 0
 	struct stream *s = SPA_CONTAINER_OF(stream, struct stream, this);
 	uint8_t buffer[4096];
 	struct spa_pod_builder b;
-	struct pw_type *t = s->t;
 
 	spa_pod_builder_init(&b, buffer, 4096);
 	add_param(stream, PARAM_TYPE_INIT,
@@ -995,6 +973,7 @@ static void add_controls(struct pw_stream *stream)
                                 ":", t->param.propId, "I", s->type.prop_volume,
                                 ":", t->param.propType, "fru", s->props.volume,
                                         SPA_POD_PROP_MIN_MAX(0.0, 10.0)));
+#endif
 }
 
 int

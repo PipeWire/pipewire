@@ -30,6 +30,7 @@
 
 #include <spa/node/node.h>
 #include <spa/pod/filter.h>
+#include <spa/debug/types.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"
@@ -64,15 +65,6 @@
 #define GET_PORT(this,d,p)	(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
 
 #define CHECK_PORT_BUFFER(this,b,p)      (b < p->n_buffers)
-
-struct type {
-	uint32_t client_node_position;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->client_node_position = spa_type_map_get_id(map, PW_TYPE_CLIENT_NODE_IO__Position);
-}
 
 struct mem {
 	uint32_t id;
@@ -130,7 +122,6 @@ struct node {
 
 	struct impl *impl;
 
-	struct spa_type_map *map;
 	struct spa_log *log;
 	struct spa_loop *data_loop;
 
@@ -158,10 +149,7 @@ struct node {
 struct impl {
 	struct pw_client_node this;
 
-	struct type type;
-
 	struct pw_core *core;
-	struct pw_type *t;
 
 	struct node node;
 
@@ -315,7 +303,6 @@ static int clear_buffers(struct node *this, struct mix *mix)
 {
 	uint32_t i, j;
 	struct impl *impl = this->impl;
-	struct pw_type *t = impl->t;
 
 	for (i = 0; i < mix->n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
@@ -326,8 +313,8 @@ static int clear_buffers(struct node *this, struct mix *mix)
 		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_data *d = &b->datas[j];
 
-			if (d->type == t->data.DmaBuf ||
-			    d->type == t->data.MemFd) {
+			if (d->type == SPA_DATA_DmaBuf ||
+			    d->type == SPA_DATA_MemFd) {
 				uint32_t id;
 
 				id = SPA_PTR_TO_UINT32(b->buffer.datas[j].data);
@@ -501,7 +488,6 @@ do_update_port(struct node *this,
 	       const struct spa_pod **params,
 	       const struct spa_port_info *info)
 {
-	struct pw_type *t = this->impl->t;
 	int i;
 
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
@@ -516,7 +502,7 @@ do_update_port(struct node *this,
 		for (i = 0; i < port->n_params; i++) {
 			port->params[i] = pw_spa_pod_copy(params[i]);
 
-			if (spa_pod_is_object_id(port->params[i], t->param.idFormat))
+			if (spa_pod_is_object_id(port->params[i], SPA_ID_PARAM_Format))
 				port->have_format = true;
 		}
 	}
@@ -698,7 +684,6 @@ static int do_port_set_io(struct impl *impl,
 			  uint32_t id, void *data, size_t size)
 {
 	struct node *this = &impl->node;
-	struct pw_type *t = impl->t;
 	struct pw_memblock *mem;
 	struct mem *m;
 	uint32_t memid, mem_offset, mem_size;
@@ -729,7 +714,7 @@ static int do_port_set_io(struct impl *impl,
 			return -EINVAL;
 
 		mem_offset += mem->offset;
-		m = ensure_mem(impl, mem->fd, t->data.MemFd, mem->flags);
+		m = ensure_mem(impl, mem->fd, SPA_DATA_MemFd, mem->flags);
 		memid = m->id;
 	}
 	else {
@@ -779,7 +764,6 @@ do_port_use_buffers(struct impl *impl,
 	struct mix *mix;
 	uint32_t i, j;
 	struct pw_client_node_buffer *mb;
-	struct pw_type *t = impl->t;
 
 	spa_log_debug(this->log, "client-node %p: %s port %d.%d use buffers %p %u", impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
@@ -836,11 +820,11 @@ do_port_use_buffers(struct impl *impl,
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = buffers[i]->datas;
 			data_size += sizeof(struct spa_chunk);
-			if (d->type == t->data.MemPtr)
+			if (d->type == SPA_DATA_MemPtr)
 				data_size += d->maxsize;
 		}
 
-		m = ensure_mem(impl, mem->fd, t->data.MemFd, mem->flags);
+		m = ensure_mem(impl, mem->fd, SPA_DATA_MemFd, mem->flags);
 		b->memid = m->id;
 
 		mb[i].buffer = &b->buffer;
@@ -858,11 +842,11 @@ do_port_use_buffers(struct impl *impl,
 
 			memcpy(&b->buffer.datas[j], d, sizeof(struct spa_data));
 
-			if (d->type == t->data.DmaBuf ||
-			    d->type == t->data.MemFd) {
+			if (d->type == SPA_DATA_DmaBuf ||
+			    d->type == SPA_DATA_MemFd) {
 				m = ensure_mem(impl, d->fd, d->type, d->flags);
 				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(m->id);
-			} else if (d->type == t->data.MemPtr) {
+			} else if (d->type == SPA_DATA_MemPtr) {
 				b->buffer.datas[j].data = SPA_INT_TO_PTR(size);
 				size += d->maxsize;
 			} else {
@@ -950,8 +934,6 @@ impl_node_port_send_command(struct spa_node *node,
 			    uint32_t port_id, const struct spa_command *command)
 {
 	struct node *this;
-	struct impl *impl;
-	struct pw_type *t;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
@@ -961,11 +943,8 @@ impl_node_port_send_command(struct spa_node *node,
 	if (this->resource == NULL)
 		return 0;
 
-	impl = this->impl;
-	t = impl->t;
-
 	spa_log_trace(this->log, "send command %s",
-			spa_type_map_get_type(t->map, SPA_COMMAND_TYPE(command)));
+			spa_debug_type_find_name(spa_debug_types, SPA_COMMAND_TYPE(command)));
 
 	pw_client_node_resource_port_command(this->resource,
 					     direction, port_id,
@@ -1175,19 +1154,19 @@ node_init(struct node *this,
 	uint32_t i;
 
 	for (i = 0; i < n_support; i++) {
-		if (strcmp(support[i].type, SPA_TYPE__Log) == 0)
+		switch (support[i].type) {
+		case SPA_ID_INTERFACE_Log:
 			this->log = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE_LOOP__DataLoop) == 0)
+			break;
+		case SPA_ID_INTERFACE_DataLoop:
 			this->data_loop = support[i].data;
-		else if (strcmp(support[i].type, SPA_TYPE__TypeMap) == 0)
-			this->map = support[i].data;
+			break;
+		default:
+			break;
+		}
 	}
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data-loop is needed");
-		return -EINVAL;
-	}
-	if (this->map == NULL) {
-		spa_log_error(this->log, "a type map is needed");
 		return -EINVAL;
 	}
 
@@ -1266,7 +1245,6 @@ static void node_initialized(void *data)
 	struct impl *impl = data;
 	struct pw_client_node *this = &impl->this;
 	struct pw_node *node = this->node;
-	struct pw_type *t = impl->t;
 	struct pw_global *global;
 	uint32_t area_size, size;
 	struct mem *m;
@@ -1297,11 +1275,11 @@ static void node_initialized(void *data)
 	impl->position = SPA_MEMBER(impl->io_areas->ptr,
 			area_size, struct pw_client_node_position);
 
-	m = ensure_mem(impl, impl->io_areas->fd, t->data.MemFd, impl->io_areas->flags);
+	m = ensure_mem(impl, impl->io_areas->fd, SPA_DATA_MemFd, impl->io_areas->flags);
 	pw_log_debug("client-node %p: io areas %p", node, impl->io_areas->ptr);
 
 	pw_client_node_resource_set_io(this->resource,
-				       impl->type.client_node_position,
+				       PW_ID_IO_ClientNodePosition,
 				       m->id,
 				       area_size,
 				       sizeof(struct pw_client_node_position));
@@ -1451,13 +1429,12 @@ static int impl_mix_port_set_io(struct spa_node *node,
 	struct pw_port *port = p->port;
 	struct impl *impl = port->owner_data;
 	struct pw_port_mix *mix;
-	struct pw_type *t = impl->t;
 
 	mix = pw_map_lookup(&port->mix_port_map, mix_id);
 	if (mix == NULL)
 		return -EIO;
 
-	if (id == t->io.Buffers) {
+	if (id == SPA_ID_IO_Buffers) {
 		if (data && size >= sizeof(struct spa_io_buffers))
 			mix->io = data;
 		else
@@ -1606,11 +1583,8 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	this = &impl->this;
 
 	impl->core = core;
-	impl->t = pw_core_get_type(core);
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug("client-node %p: new", impl);
-
-	init_type(&impl->type, impl->t->map);
 
 	support = pw_core_get_support(impl->core, &n_support);
 	node_init(&impl->node, NULL, support, n_support);

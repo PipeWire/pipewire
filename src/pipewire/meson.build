@@ -56,7 +56,6 @@ pipewire_sources = [
   'resource.c',
   'stream.c',
   'thread-loop.c',
-  'type.c',
   'utils.c',
   'work-queue.c',
 ]

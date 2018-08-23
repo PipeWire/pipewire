@@ -28,7 +28,6 @@ extern "C" {
 
 #include <asoundlib.h>
 
-#include <spa/support/type-map.h>
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
@@ -61,66 +60,12 @@ struct buffer {
 	struct spa_list link;
 };
 
-struct type {
-	uint32_t node;
-	uint32_t format;
-	uint32_t props;
-	uint32_t prop_device;
-	uint32_t prop_device_name;
-	uint32_t prop_card_name;
-	uint32_t prop_min_latency;
-	uint32_t prop_max_latency;
-	struct spa_type_io io;
-	struct spa_type_param param;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_media_subtype_audio media_subtype_audio;
-	struct spa_type_audio_format audio_format;
-	struct spa_type_event_node event_node;
-	struct spa_type_command_node command_node;
-	struct spa_type_format_audio format_audio;
-	struct spa_type_param_buffers param_buffers;
-	struct spa_type_param_meta param_meta;
-	struct spa_type_param_io param_io;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	type->node = spa_type_map_get_id(map, SPA_TYPE__Node);
-	type->format = spa_type_map_get_id(map, SPA_TYPE__Format);
-	type->props = spa_type_map_get_id(map, SPA_TYPE__Props);
-	type->prop_device = spa_type_map_get_id(map, SPA_TYPE_PROPS__device);
-	type->prop_device_name = spa_type_map_get_id(map, SPA_TYPE_PROPS__deviceName);
-	type->prop_card_name = spa_type_map_get_id(map, SPA_TYPE_PROPS__cardName);
-	type->prop_min_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__minLatency);
-	type->prop_max_latency = spa_type_map_get_id(map, SPA_TYPE_PROPS__maxLatency);
-
-	spa_type_io_map(map, &type->io);
-	spa_type_param_map(map, &type->param);
-	spa_type_meta_map(map, &type->meta);
-	spa_type_data_map(map, &type->data);
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_media_subtype_audio_map(map, &type->media_subtype_audio);
-	spa_type_audio_format_map(map, &type->audio_format);
-	spa_type_event_node_map(map, &type->event_node);
-	spa_type_command_node_map(map, &type->command_node);
-	spa_type_format_audio_map(map, &type->format_audio);
-	spa_type_param_buffers_map(map, &type->param_buffers);
-	spa_type_param_meta_map(map, &type->param_meta);
-	spa_type_param_io_map(map, &type->param_io);
-}
-
 struct state {
 	struct spa_handle handle;
 	struct spa_node node;
 
 	uint32_t seq;
 
-	struct type type;
-	struct spa_type_map *map;
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;

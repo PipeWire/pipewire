@@ -24,7 +24,6 @@
 extern "C" {
 #endif
 
-#include <spa/support/type-map.h>
 #include <spa/node/event.h>
 #include <spa/node/command.h>
 #include <spa/monitor/monitor.h>
@@ -35,6 +34,23 @@ extern "C" {
 
 #include <pipewire/map.h>
 
+enum {
+	PW_ID_FIRST = SPA_ID_VENDOR_PipeWire,
+
+	PW_ID_INTERFACE_Core,
+	PW_ID_INTERFACE_Registry,
+	PW_ID_INTERFACE_Node,
+	PW_ID_INTERFACE_Port,
+	PW_ID_INTERFACE_Factory,
+	PW_ID_INTERFACE_Link,
+	PW_ID_INTERFACE_Client,
+	PW_ID_INTERFACE_Module,
+	PW_ID_INTERFACE_ClientNode,
+
+	PW_ID_IO_BASE = PW_ID_FIRST + SPA_ID_IO_BASE,
+	PW_ID_IO_ClientNodePosition,
+};
+
 #define PW_TYPE_BASE		"PipeWire:"
 
 #define PW_TYPE__Object		PW_TYPE_BASE "Object"
@@ -42,44 +58,6 @@ extern "C" {
 
 #define PW_TYPE__Interface	PW_TYPE_BASE "Interface"
 #define PW_TYPE_INTERFACE_BASE	PW_TYPE__Interface ":"
-
-/** \class pw_type
- * \brief PipeWire type support struct
- *
- * This structure contains some of the most common types
- * and should be initialized with \ref pw_type_init() */
-struct pw_type {
-	struct spa_type_map *map;	/**< the type mapper */
-
-	uint32_t core;
-	uint32_t registry;
-	uint32_t node;
-	uint32_t port;
-	uint32_t factory;
-	uint32_t link;
-	uint32_t client;
-	uint32_t module;
-
-	uint32_t spa_log;
-	uint32_t spa_node;
-	uint32_t spa_clock;
-	uint32_t spa_monitor;
-	uint32_t spa_format;
-	uint32_t spa_props;
-
-	struct spa_type_io io;
-	struct spa_type_param param;
-	struct spa_type_meta meta;
-	struct spa_type_data data;
-	struct spa_type_event_node event_node;
-	struct spa_type_command_node command_node;
-	struct spa_type_monitor monitor;
-	struct spa_type_param_buffers param_buffers;
-	struct spa_type_param_meta param_meta;
-	struct spa_type_param_io param_io;
-};
-
-int pw_type_init(struct pw_type *type);
 
 #ifdef __cplusplus
 }

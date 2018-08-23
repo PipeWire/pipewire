@@ -66,7 +66,6 @@ struct port {
 
 struct node {
 	struct pw_core *core;
-	struct pw_type *t;
 	struct pw_node *node;
 
 	void *user_data;
@@ -80,14 +79,13 @@ struct node {
 
 static void init_buffer(struct port *port, uint32_t id)
 {
-	struct pw_type *t = port->node->t;
 	struct buffer *b = &port->buffers[id];
 	b->buf.id = id;
 	b->buf.n_metas = 0;
 	b->buf.metas = NULL;
 	b->buf.n_datas = 1;
 	b->buf.datas = b->datas;
-	b->datas[0].type = t->data.MemPtr;
+	b->datas[0].type = SPA_DATA_MemPtr;
 	b->datas[0].flags = 0;
 	b->datas[0].fd = -1;
 	b->datas[0].mapoffset = 0;
@@ -153,7 +151,6 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 {
 	struct pw_node *node;
 	struct pw_port *port;
-	struct pw_type *t = pw_core_get_type(core);
 	struct node *n;
 	const char *api, *alias, *plugged, *str;
 	char node_name[128];
@@ -204,7 +201,6 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 
 	n = pw_spa_node_get_user_data(node);
 	n->core = core;
-	n->t = pw_core_get_type(core);
 	n->node = node;
 
 	n->channels = channels;
@@ -258,7 +254,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 				p->spa_handle, NULL,
 				support, n_support);
 
-		spa_handle_get_interface(p->spa_handle, t->spa_node, &iface);
+		spa_handle_get_interface(p->spa_handle, SPA_ID_INTERFACE_Node, &iface);
 
 		p->spa_node = iface;
 

@@ -190,59 +190,59 @@ static int spa_v4l2_close(struct impl *this)
 
 struct format_info {
 	uint32_t fourcc;
-	off_t format_offset;
-	off_t media_type_offset;
-	off_t media_subtype_offset;
+	uint32_t format;
+	uint32_t media_type;
+	uint32_t media_subtype;
 };
 
-#define VIDEO   offsetof(struct type, media_type.video)
-#define IMAGE   offsetof(struct type, media_type.image)
+#define VIDEO   SPA_MEDIA_TYPE_video
+#define IMAGE   SPA_MEDIA_TYPE_image
 
-#define RAW     offsetof(struct type, media_subtype.raw)
+#define RAW     SPA_MEDIA_SUBTYPE_raw
 
-#define BAYER   offsetof(struct type, media_subtype_video.bayer)
-#define MJPG    offsetof(struct type, media_subtype_video.mjpg)
-#define JPEG    offsetof(struct type, media_subtype_video.jpeg)
-#define DV      offsetof(struct type, media_subtype_video.dv)
-#define MPEGTS  offsetof(struct type, media_subtype_video.mpegts)
-#define H264    offsetof(struct type, media_subtype_video.h264)
-#define H263    offsetof(struct type, media_subtype_video.h263)
-#define MPEG1   offsetof(struct type, media_subtype_video.mpeg1)
-#define MPEG2   offsetof(struct type, media_subtype_video.mpeg2)
-#define MPEG4   offsetof(struct type, media_subtype_video.mpeg4)
-#define XVID    offsetof(struct type, media_subtype_video.xvid)
-#define VC1     offsetof(struct type, media_subtype_video.vc1)
-#define VP8     offsetof(struct type, media_subtype_video.vp8)
+#define BAYER   SPA_MEDIA_SUBTYPE_bayer
+#define MJPG    SPA_MEDIA_SUBTYPE_mjpg
+#define JPEG    SPA_MEDIA_SUBTYPE_jpeg
+#define DV      SPA_MEDIA_SUBTYPE_dv
+#define MPEGTS  SPA_MEDIA_SUBTYPE_mpegts
+#define H264    SPA_MEDIA_SUBTYPE_h264
+#define H263    SPA_MEDIA_SUBTYPE_h263
+#define MPEG1   SPA_MEDIA_SUBTYPE_mpeg1
+#define MPEG2   SPA_MEDIA_SUBTYPE_mpeg2
+#define MPEG4   SPA_MEDIA_SUBTYPE_mpeg4
+#define XVID    SPA_MEDIA_SUBTYPE_xvid
+#define VC1     SPA_MEDIA_SUBTYPE_vc1
+#define VP8     SPA_MEDIA_SUBTYPE_vp8
 
-#define FORMAT_UNKNOWN    offsetof(struct type, video_format.UNKNOWN)
-#define FORMAT_ENCODED    offsetof(struct type, video_format.ENCODED)
-#define FORMAT_RGB15      offsetof(struct type, video_format.RGB15)
-#define FORMAT_BGR15      offsetof(struct type, video_format.BGR15)
-#define FORMAT_RGB16      offsetof(struct type, video_format.RGB16)
-#define FORMAT_BGR        offsetof(struct type, video_format.BGR)
-#define FORMAT_RGB        offsetof(struct type, video_format.RGB)
-#define FORMAT_BGRA       offsetof(struct type, video_format.BGRA)
-#define FORMAT_BGRx       offsetof(struct type, video_format.BGRx)
-#define FORMAT_ARGB       offsetof(struct type, video_format.ARGB)
-#define FORMAT_xRGB       offsetof(struct type, video_format.xRGB)
-#define FORMAT_GRAY8      offsetof(struct type, video_format.GRAY8)
-#define FORMAT_GRAY16_LE  offsetof(struct type, video_format.GRAY16_LE)
-#define FORMAT_GRAY16_BE  offsetof(struct type, video_format.GRAY16_BE)
-#define FORMAT_YVU9       offsetof(struct type, video_format.YVU9)
-#define FORMAT_YV12       offsetof(struct type, video_format.YV12)
-#define FORMAT_YUY2       offsetof(struct type, video_format.YUY2)
-#define FORMAT_YVYU       offsetof(struct type, video_format.YVYU)
-#define FORMAT_UYVY       offsetof(struct type, video_format.UYVY)
-#define FORMAT_Y42B       offsetof(struct type, video_format.Y42B)
-#define FORMAT_Y41B       offsetof(struct type, video_format.Y41B)
-#define FORMAT_YUV9       offsetof(struct type, video_format.YUV9)
-#define FORMAT_I420       offsetof(struct type, video_format.I420)
-#define FORMAT_NV12       offsetof(struct type, video_format.NV12)
-#define FORMAT_NV12_64Z32 offsetof(struct type, video_format.NV12_64Z32)
-#define FORMAT_NV21       offsetof(struct type, video_format.NV21)
-#define FORMAT_NV16       offsetof(struct type, video_format.NV16)
-#define FORMAT_NV61       offsetof(struct type, video_format.NV61)
-#define FORMAT_NV24       offsetof(struct type, video_format.NV24)
+#define FORMAT_UNKNOWN    SPA_VIDEO_FORMAT_UNKNOWN
+#define FORMAT_ENCODED    SPA_VIDEO_FORMAT_ENCODED
+#define FORMAT_RGB15      SPA_VIDEO_FORMAT_RGB15
+#define FORMAT_BGR15      SPA_VIDEO_FORMAT_BGR15
+#define FORMAT_RGB16      SPA_VIDEO_FORMAT_RGB16
+#define FORMAT_BGR        SPA_VIDEO_FORMAT_BGR
+#define FORMAT_RGB        SPA_VIDEO_FORMAT_RGB
+#define FORMAT_BGRA       SPA_VIDEO_FORMAT_BGRA
+#define FORMAT_BGRx       SPA_VIDEO_FORMAT_BGRx
+#define FORMAT_ARGB       SPA_VIDEO_FORMAT_ARGB
+#define FORMAT_xRGB       SPA_VIDEO_FORMAT_xRGB
+#define FORMAT_GRAY8      SPA_VIDEO_FORMAT_GRAY8
+#define FORMAT_GRAY16_LE  SPA_VIDEO_FORMAT_GRAY16_LE
+#define FORMAT_GRAY16_BE  SPA_VIDEO_FORMAT_GRAY16_BE
+#define FORMAT_YVU9       SPA_VIDEO_FORMAT_YVU9
+#define FORMAT_YV12       SPA_VIDEO_FORMAT_YV12
+#define FORMAT_YUY2       SPA_VIDEO_FORMAT_YUY2
+#define FORMAT_YVYU       SPA_VIDEO_FORMAT_YVYU
+#define FORMAT_UYVY       SPA_VIDEO_FORMAT_UYVY
+#define FORMAT_Y42B       SPA_VIDEO_FORMAT_Y42B
+#define FORMAT_Y41B       SPA_VIDEO_FORMAT_Y41B
+#define FORMAT_YUV9       SPA_VIDEO_FORMAT_YUV9
+#define FORMAT_I420       SPA_VIDEO_FORMAT_I420
+#define FORMAT_NV12       SPA_VIDEO_FORMAT_NV12
+#define FORMAT_NV12_64Z32 SPA_VIDEO_FORMAT_NV12_64Z32
+#define FORMAT_NV21       SPA_VIDEO_FORMAT_NV21
+#define FORMAT_NV16       SPA_VIDEO_FORMAT_NV16
+#define FORMAT_NV61       SPA_VIDEO_FORMAT_NV61
+#define FORMAT_NV24       SPA_VIDEO_FORMAT_NV24
 
 static const struct format_info format_info[] = {
 	/* RGB formats */
@@ -376,8 +376,7 @@ static const struct format_info *video_format_to_format_info(uint32_t format)
 }
 #endif
 
-static const struct format_info *find_format_info_by_media_type(struct type *types,
-								uint32_t type,
+static const struct format_info *find_format_info_by_media_type(uint32_t type,
 								uint32_t subtype,
 								uint32_t format,
 								int startidx)
@@ -385,37 +384,33 @@ static const struct format_info *find_format_info_by_media_type(struct type *typ
 	int i;
 
 	for (i = startidx; i < SPA_N_ELEMENTS(format_info); i++) {
-		uint32_t media_type, media_subtype, media_format;
-
-		media_type = *SPA_MEMBER(types, format_info[i].media_type_offset, uint32_t);
-		media_subtype = *SPA_MEMBER(types, format_info[i].media_subtype_offset, uint32_t);
-		media_format = *SPA_MEMBER(types, format_info[i].format_offset, uint32_t);
-
-		if ((media_type == type) &&
-		    (media_subtype == subtype) && (format == 0 || media_format == format))
+		if ((format_info[i].media_type == type) &&
+		    (format_info[i].media_subtype == subtype) &&
+		    (format == 0 || format_info[i].format == format))
 			return &format_info[i];
 	}
 	return NULL;
 }
 
 static uint32_t
-enum_filter_format(struct type *type, uint32_t media_type, int32_t media_subtype,
+enum_filter_format(uint32_t media_type, int32_t media_subtype,
 		   const struct spa_pod *filter, uint32_t index)
 {
 	uint32_t video_format = 0;
 
-	if ((media_type == type->media_type.video ||
-	     media_type == type->media_type.image)) {
-		if (media_subtype == type->media_subtype.raw) {
+	switch (media_type) {
+	case SPA_MEDIA_TYPE_video:
+	case SPA_MEDIA_TYPE_image:
+		if (media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 			struct spa_pod_prop *p;
 			uint32_t n_values;
 			const uint32_t *values;
 
-			if (!(p = spa_pod_find_prop(filter, type->format_video.format)))
-				return type->video_format.UNKNOWN;
+			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_format)))
+				return SPA_VIDEO_FORMAT_UNKNOWN;
 
 			if (p->body.value.type != SPA_POD_TYPE_ID)
-				return type->video_format.UNKNOWN;
+				return SPA_VIDEO_FORMAT_UNKNOWN;
 
 			values = SPA_POD_BODY_CONST(&p->body.value);
 			n_values = SPA_POD_PROP_N_VALUES(p);
@@ -429,7 +424,7 @@ enum_filter_format(struct type *type, uint32_t media_type, int32_t media_subtype
 			}
 		} else {
 			if (index == 0)
-				video_format = type->video_format.ENCODED;
+				video_format = SPA_VIDEO_FORMAT_ENCODED;
 		}
 	}
 	return video_format;
@@ -533,9 +528,7 @@ spa_v4l2_enum_format(struct impl *this,
 	int res, n_fractions;
 	const struct format_info *info;
 	struct spa_pod_prop *prop;
-	uint32_t media_type, media_subtype, video_format;
-	uint32_t filter_media_type, filter_media_subtype;
-	struct type *t = &this->type;
+	uint32_t filter_media_type, filter_media_subtype, video_format;
 
 	if ((res = spa_v4l2_open(this)) < 0)
 		return res;
@@ -564,16 +557,14 @@ spa_v4l2_enum_format(struct impl *this,
 
 	while (port->next_fmtdesc) {
 		if (filter) {
-			video_format = enum_filter_format(t,
-					    filter_media_type,
+			video_format = enum_filter_format(filter_media_type,
 					    filter_media_subtype,
 					    filter, port->fmtdesc.index);
 
-			if (video_format == t->video_format.UNKNOWN)
+			if (video_format == SPA_VIDEO_FORMAT_UNKNOWN)
 				goto enum_end;
 
-			info = find_format_info_by_media_type(t,
-							      filter_media_type,
+			info = find_format_info_by_media_type(filter_media_type,
 							      filter_media_subtype,
 							      video_format, 0);
 			if (info == NULL)
@@ -602,7 +593,7 @@ spa_v4l2_enum_format(struct impl *this,
 			struct spa_pod_prop *p;
 
 			/* check if we have a fixed frame size */
-			if (!(p = spa_pod_find_prop(filter, t->format_video.size)))
+			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_size)))
 				goto do_frmsize;
 
 			if (p->body.value.type != SPA_POD_TYPE_RECTANGLE) {
@@ -638,7 +629,7 @@ spa_v4l2_enum_format(struct impl *this,
 			uint32_t i, n_values;
 
 			/* check if we have a fixed frame size */
-			if (!(p = spa_pod_find_prop(filter, t->format_video.size)))
+			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_size)))
 				goto have_size;
 
 			range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
@@ -684,25 +675,21 @@ spa_v4l2_enum_format(struct impl *this,
 		}
 	}
 
-	media_type = *SPA_MEMBER(t, info->media_type_offset, uint32_t);
-	media_subtype = *SPA_MEMBER(t, info->media_subtype_offset, uint32_t);
-	video_format = *SPA_MEMBER(t, info->format_offset, uint32_t);
-
-	spa_pod_builder_push_object(builder, t->param.idEnumFormat, t->format);
+	spa_pod_builder_push_object(builder, SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
 	spa_pod_builder_add(builder,
-			"I", media_type,
-			"I", media_subtype, 0);
+			"I", info->media_type,
+			"I", info->media_subtype, 0);
 
-	if (media_subtype == t->media_subtype.raw) {
+	if (info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 		spa_pod_builder_add(builder,
-			":", t->format_video.format, "I", video_format, 0);
+			":", SPA_FORMAT_VIDEO_format, "I", info->format, 0);
 	}
 	spa_pod_builder_add(builder,
-		":", t->format_video.size, "R", &SPA_RECTANGLE(port->frmsize.discrete.width,
-							       port->frmsize.discrete.height), 0);
+		":", SPA_FORMAT_VIDEO_size, "R", &SPA_RECTANGLE(port->frmsize.discrete.width,
+							        port->frmsize.discrete.height), 0);
 
 	prop = spa_pod_builder_deref(builder,
-			spa_pod_builder_push_prop(builder, t->format_video.framerate,
+			spa_pod_builder_push_prop(builder, SPA_FORMAT_VIDEO_framerate,
 				  SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_UNSET));
 	n_fractions = 0;
 
@@ -727,7 +714,7 @@ spa_v4l2_enum_format(struct impl *this,
 			uint32_t i, n_values;
 			const struct spa_fraction step = { 1, 1 }, *values;
 
-			if (!(p = spa_pod_find_prop(filter, t->format_video.framerate)))
+			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_framerate)))
 				goto have_framerate;
 
 			if (p->body.value.type != SPA_POD_TYPE_FRACTION)
@@ -824,32 +811,35 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	uint32_t video_format;
 	struct spa_rectangle *size = NULL;
 	struct spa_fraction *framerate = NULL;
-	struct type *t = &this->type;
 
 	spa_zero(fmt);
 	spa_zero(streamparm);
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-	if (format->media_subtype == this->type.media_subtype.raw) {
+	switch (format->media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
 		video_format = format->info.raw.format;
 		size = &format->info.raw.size;
 		framerate = &format->info.raw.framerate;
-	} else if (format->media_subtype == this->type.media_subtype_video.mjpg ||
-		   format->media_subtype == this->type.media_subtype_video.jpeg) {
-		video_format = this->type.video_format.ENCODED;
+		break;
+	case SPA_MEDIA_SUBTYPE_mjpg:
+	case SPA_MEDIA_SUBTYPE_jpeg:
+		video_format = SPA_VIDEO_FORMAT_ENCODED;
 		size = &format->info.mjpg.size;
 		framerate = &format->info.mjpg.framerate;
-	} else if (format->media_subtype == this->type.media_subtype_video.h264) {
-		video_format = this->type.video_format.ENCODED;
+		break;
+	case SPA_MEDIA_SUBTYPE_h264:
+		video_format = SPA_VIDEO_FORMAT_ENCODED;
 		size = &format->info.h264.size;
 		framerate = &format->info.h264.framerate;
-	} else {
-		video_format = this->type.video_format.ENCODED;
+		break;
+	default:
+		video_format = SPA_VIDEO_FORMAT_ENCODED;
+		break;
 	}
 
-	info = find_format_info_by_media_type(t,
-					      format->media_type,
+	info = find_format_info_by_media_type(format->media_type,
 					      format->media_subtype, video_format, 0);
 	if (info == NULL || size == NULL || framerate == NULL) {
 		spa_log_error(port->log, "v4l2: unknown media type %d %d %d", format->media_type,
@@ -965,23 +955,23 @@ static uint32_t control_to_prop_id(struct impl *impl, uint32_t control_id)
 {
 	switch (control_id) {
 	case V4L2_CID_BRIGHTNESS:
-		return impl->type.prop_brightness;
+		return SPA_PROP_brightness;
 	case V4L2_CID_CONTRAST:
-		return impl->type.prop_contrast;
+		return SPA_PROP_contrast;
 	case V4L2_CID_SATURATION:
-		return impl->type.prop_saturation;
+		return SPA_PROP_saturation;
 	case V4L2_CID_HUE:
-		return impl->type.prop_hue;
+		return SPA_PROP_hue;
 	case V4L2_CID_GAMMA:
-		return impl->type.prop_gamma;
+		return SPA_PROP_gamma;
 	case V4L2_CID_EXPOSURE:
-		return impl->type.prop_exposure;
+		return SPA_PROP_exposure;
 	case V4L2_CID_GAIN:
-		return impl->type.prop_gain;
+		return SPA_PROP_gain;
 	case V4L2_CID_SHARPNESS:
-		return impl->type.prop_sharpness;
+		return SPA_PROP_sharpness;
 	default:
-		return impl->type.prop_unknown;
+		return SPA_PROP_unknown;
 	}
 }
 
@@ -993,12 +983,10 @@ spa_v4l2_enum_controls(struct impl *this,
 		       struct spa_pod_builder *builder)
 {
 	struct port *port = &this->out_ports[0];
-	struct type *t = &this->type;
 	struct v4l2_query_ext_ctrl queryctrl;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
-	char type_id[128];
-	uint32_t id, prop_id, ctrl_id;
+	uint32_t prop_id, ctrl_id;
 	uint8_t buffer[1024];
 	int res;
         const unsigned next_fl = V4L2_CTRL_FLAG_NEXT_CTRL | V4L2_CTRL_FLAG_NEXT_COMPOUND;
@@ -1051,12 +1039,9 @@ spa_v4l2_enum_controls(struct impl *this,
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	snprintf(type_id, sizeof(type_id), SPA_TYPE_PARAM_IO_PROP_BASE"%08x", ctrl_id);
-	id = spa_type_map_get_id(this->map, type_id);
-
 	prop_id = control_to_prop_id(this, ctrl_id);
 
-	port->controls[port->n_controls].id = id;
+	port->controls[port->n_controls].id = prop_id;
 	port->controls[port->n_controls].ctrl_id = ctrl_id;
 	port->controls[port->n_controls].value = queryctrl.default_value;
 
@@ -1067,42 +1052,36 @@ spa_v4l2_enum_controls(struct impl *this,
 	switch (queryctrl.type) {
 	case V4L2_CTRL_TYPE_INTEGER:
 		param = spa_pod_builder_object(&b,
-			t->param_io.idPropsIn, t->param_io.Prop,
-			":", t->param_io.id, "I", id,
-			":", t->param_io.size, "i", sizeof(struct spa_pod_int),
-			":", t->param.propId, "I", prop_id,
-			":", t->param.propType, "isu", queryctrl.default_value,
-						3, queryctrl.minimum,
-						   queryctrl.maximum,
-						   queryctrl.step,
-			":", t->param.propName, "s", queryctrl.name);
+			SPA_ID_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo,
+			":", SPA_PROP_INFO_id, "I", prop_id,
+			":", SPA_PROP_INFO_type, "isu", queryctrl.default_value,
+				SPA_POD_PROP_STEP(queryctrl.minimum,
+						  queryctrl.maximum,
+						  queryctrl.step),
+			":", SPA_PROP_INFO_name, "s", queryctrl.name);
 		break;
 	case V4L2_CTRL_TYPE_BOOLEAN:
 		param = spa_pod_builder_object(&b,
-			t->param_io.idPropsIn, t->param_io.Prop,
-			":", t->param_io.id, "I", id,
-			":", t->param_io.size, "i", sizeof(struct spa_pod_bool),
-			":", t->param.propId, "I", prop_id,
-			":", t->param.propType, "b-u", queryctrl.default_value,
-			":", t->param.propName, "s", queryctrl.name);
+			SPA_ID_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo,
+			":", SPA_PROP_INFO_id, "I", prop_id,
+			":", SPA_PROP_INFO_type, "b-u", queryctrl.default_value,
+			":", SPA_PROP_INFO_name, "s", queryctrl.name);
 		break;
 	case V4L2_CTRL_TYPE_MENU:
 	{
 		struct v4l2_querymenu querymenu;
 
-		spa_pod_builder_push_object(&b, t->param_io.idPropsIn, t->param_io.Prop);
+		spa_pod_builder_push_object(&b, SPA_ID_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo);
 		spa_pod_builder_add(&b,
-			":", t->param_io.id, "I", id,
-			":", t->param_io.size, "i", sizeof(struct spa_pod_double),
-			":", t->param.propId, "I", prop_id,
-			":", t->param.propName, "s", queryctrl.name,
-			":", t->param.propType, "i-u", queryctrl.default_value,
+			":", SPA_PROP_INFO_id, "I", prop_id,
+			":", SPA_PROP_INFO_type, "i-u", queryctrl.default_value,
+			":", SPA_PROP_INFO_name, "s", queryctrl.name,
 			NULL);
 
 		spa_zero(querymenu);
 		querymenu.id = queryctrl.id;
 
-		spa_pod_builder_push_prop(&b, t->param.propLabels, 0);
+		spa_pod_builder_push_prop(&b, SPA_PROP_INFO_labels, 0);
 		spa_pod_builder_push_struct(&b);
 		for (querymenu.index = queryctrl.minimum;
 		    querymenu.index <= queryctrl.maximum;
@@ -1218,14 +1197,13 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 	if (n_buffers > 0) {
 		d = buffers[0]->datas;
 
-		if (d[0].type == this->type.data.MemFd ||
-		    (d[0].type == this->type.data.MemPtr && d[0].data != NULL)) {
+		if (d[0].type == SPA_DATA_MemFd ||
+		    (d[0].type == SPA_DATA_MemPtr && d[0].data != NULL)) {
 			port->memtype = V4L2_MEMORY_USERPTR;
-		} else if (d[0].type == this->type.data.DmaBuf) {
+		} else if (d[0].type == SPA_DATA_DmaBuf) {
 			port->memtype = V4L2_MEMORY_DMABUF;
 		} else {
-			spa_log_error(port->log, "v4l2: can't use buffers of type %s (%d)",
-					spa_type_map_get_type (this->map, d[0].type), d[0].type);
+			spa_log_error(port->log, "v4l2: can't use buffers of type %d", d[0].type);
 			return -EINVAL;
 		}
 	}
@@ -1251,7 +1229,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		b = &port->buffers[i];
 		b->outbuf = buffers[i];
 		b->flags = BUFFER_FLAG_OUTSTANDING;
-		b->h = spa_buffer_find_meta_data(buffers[i], this->type.meta.Header, sizeof(*b->h));
+		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
 		spa_log_info(port->log, "v4l2: import buffer %p", buffers[i]);
 
@@ -1345,7 +1323,7 @@ mmap_init(struct impl *this,
 		b = &port->buffers[i];
 		b->outbuf = buffers[i];
 		b->flags = BUFFER_FLAG_OUTSTANDING;
-		b->h = spa_buffer_find_meta_data(buffers[i], this->type.meta.Header, sizeof(*b->h));
+		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
 		spa_zero(b->v4l2_buffer);
 		b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -1375,12 +1353,12 @@ mmap_init(struct impl *this,
 				spa_log_error(port->log, "VIDIOC_EXPBUF: %m");
 				continue;
 			}
-			d[0].type = this->type.data.DmaBuf;
+			d[0].type = SPA_DATA_DmaBuf;
 			d[0].fd = expbuf.fd;
 			d[0].data = NULL;
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
 		} else {
-			d[0].type = this->type.data.MemPtr;
+			d[0].type = SPA_DATA_MemPtr;
 			d[0].fd = -1;
 			d[0].data = mmap(NULL,
 					 b->v4l2_buffer.length,

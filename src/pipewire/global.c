@@ -26,6 +26,8 @@
 #include <pipewire/private.h>
 #include <pipewire/global.h>
 
+#include <spa/debug/types.h>
+
 /** \cond */
 struct impl {
 	struct pw_global this;
@@ -82,7 +84,7 @@ pw_global_new(struct pw_core *core,
 	spa_hook_list_init(&this->listener_list);
 
 	pw_log_debug("global %p: new %s %d", this,
-			spa_type_map_get_type(core->type.map, this->type),
+			spa_debug_type_find_name(spa_debug_types, this->type),
 			this->id);
 
 	return this;

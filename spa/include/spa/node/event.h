@@ -26,31 +26,7 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 #include <spa/pod/event.h>
-#include <spa/support/type-map.h>
 #include <spa/node/node.h>
-
-#define SPA_TYPE_EVENT__Node		SPA_TYPE_EVENT_BASE "Node"
-#define SPA_TYPE_EVENT_NODE_BASE	SPA_TYPE_EVENT__Node ":"
-
-#define SPA_TYPE_EVENT_NODE__Error		SPA_TYPE_EVENT_NODE_BASE "Error"
-#define SPA_TYPE_EVENT_NODE__Buffering		SPA_TYPE_EVENT_NODE_BASE "Buffering"
-#define SPA_TYPE_EVENT_NODE__RequestRefresh	SPA_TYPE_EVENT_NODE_BASE "RequestRefresh"
-
-struct spa_type_event_node {
-	uint32_t Error;
-	uint32_t Buffering;
-	uint32_t RequestRefresh;
-};
-
-static inline void
-spa_type_event_node_map(struct spa_type_map *map, struct spa_type_event_node *type)
-{
-	if (type->Error == 0) {
-		type->Error = spa_type_map_get_id(map, SPA_TYPE_EVENT_NODE__Error);
-		type->Buffering = spa_type_map_get_id(map, SPA_TYPE_EVENT_NODE__Buffering);
-		type->RequestRefresh = spa_type_map_get_id(map, SPA_TYPE_EVENT_NODE__RequestRefresh);
-	}
-}
 
 #ifdef __cplusplus
 }  /* extern "C" */

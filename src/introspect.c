@@ -67,22 +67,21 @@ static int ensure_global(pa_context *c, struct global *g)
 	uint32_t client_version;
 	const void *events;
 	pw_destroy_t destroy;
-	struct pw_type *t = c->t;
 
 	if (g->proxy != NULL)
 		return 0;
 
-	if (g->type == t->node) {
+	if (g->type == PW_ID_INTERFACE_Node) {
 		events = &node_events;
                 client_version = PW_VERSION_NODE;
                 destroy = (pw_destroy_t) pw_node_info_free;
 	}
-	else if (g->type == t->module) {
+	else if (g->type == PW_ID_INTERFACE_Module) {
 		events = &module_events;
                 client_version = PW_VERSION_MODULE;
                 destroy = (pw_destroy_t) pw_module_info_free;
 	}
-	else if (g->type == t->client) {
+	else if (g->type == PW_ID_INTERFACE_Client) {
 		events = &client_events;
                 client_version = PW_VERSION_CLIENT;
                 destroy = (pw_destroy_t) pw_client_info_free;

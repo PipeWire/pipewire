@@ -100,7 +100,7 @@ static int set_mask(pa_context *c, struct global *g)
 {
 	const char *str;
 
-	if (g->type == c->t->node) {
+	if (g->type == PW_ID_INTERFACE_Node) {
 		if (g->props == NULL)
 			return 0;
 		if ((str = pw_properties_get(g->props, "media.class")) == NULL)
@@ -137,18 +137,18 @@ static int set_mask(pa_context *c, struct global *g)
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
 		}
 	}
-	else if (g->type == c->t->module) {
+	else if (g->type == PW_ID_INTERFACE_Module) {
 		g->mask = PA_SUBSCRIPTION_MASK_MODULE;
 		g->event = PA_SUBSCRIPTION_EVENT_MODULE;
 	}
-	else if (g->type == c->t->client) {
+	else if (g->type == PW_ID_INTERFACE_Client) {
 		g->mask = PA_SUBSCRIPTION_MASK_CLIENT;
 		g->event = PA_SUBSCRIPTION_EVENT_CLIENT;
 	}
-	else if (g->type == c->t->port) {
+	else if (g->type == PW_ID_INTERFACE_Port) {
 		pw_log_debug("found port %d", g->id);
 	}
-	else if (g->type == c->t->link) {
+	else if (g->type == PW_ID_INTERFACE_Link) {
                 if ((str = pw_properties_get(g->props, "link.output")) == NULL)
 			return 0;
 		g->link_info.src = pa_context_find_global(c, pw_properties_parse_int(str));
@@ -262,7 +262,7 @@ static void remote_state_changed(void *data, enum pw_remote_state old,
 
 		c->core_proxy = pw_remote_get_core_proxy(c->remote);
                 c->registry_proxy = pw_core_proxy_get_registry(c->core_proxy,
-							       c->t->registry,
+							       PW_ID_INTERFACE_Registry,
                                                                PW_VERSION_REGISTRY, 0);
                 pw_registry_proxy_add_listener(c->registry_proxy,
                                                &c->registry_listener,
@@ -329,7 +329,6 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	c = pw_remote_get_user_data(r);
 	c->loop = loop;
 	c->core = core;
-	c->t = pw_core_get_type(core);
 	c->remote = r;
 
 	pw_remote_add_listener(r, &c->remote_listener, &remote_events, c);

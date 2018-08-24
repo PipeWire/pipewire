@@ -25,7 +25,6 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/ringbuffer.h>
-#include <spa/param/format-utils.h>
 #include <spa/param/audio/format-utils.h>
 
 #include <pulse/stream.h>
@@ -228,7 +227,6 @@ struct pa_context {
 
 	struct pw_loop *loop;
 	struct pw_core *core;
-	struct pw_type *t;
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
 
@@ -264,21 +262,6 @@ struct pa_context {
 
 struct global *pa_context_find_global(pa_context *c, uint32_t id);
 
-struct type {
-        struct spa_type_media_type media_type;
-        struct spa_type_media_subtype media_subtype;
-        struct spa_type_format_audio format_audio;
-        struct spa_type_audio_format audio_format;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_audio_map(map, &type->format_audio);
-	spa_type_audio_format_map(map, &type->audio_format);
-}
-
 #define MAX_BUFFERS     64
 #define MASK_BUFFERS    (MAX_BUFFERS-1)
 
@@ -288,8 +271,6 @@ struct pa_stream {
 
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
-
-	struct type type;
 
 	pa_context *context;
 	pa_proplist *proplist;

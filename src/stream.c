@@ -35,33 +35,33 @@
 #define MAX_SIZE	(4*1024*1024)
 
 static const uint32_t audio_formats[] = {
-	[PA_SAMPLE_U8] = offsetof(struct spa_type_audio_format, U8),
-	[PA_SAMPLE_ALAW] = offsetof(struct spa_type_audio_format, UNKNOWN),
-	[PA_SAMPLE_ULAW] = offsetof(struct spa_type_audio_format, UNKNOWN),
-	[PA_SAMPLE_S16NE] = offsetof(struct spa_type_audio_format, S16),
-	[PA_SAMPLE_S16RE] = offsetof(struct spa_type_audio_format, S16_OE),
-	[PA_SAMPLE_FLOAT32NE] = offsetof(struct spa_type_audio_format, F32),
-	[PA_SAMPLE_FLOAT32RE] = offsetof(struct spa_type_audio_format, F32_OE),
-	[PA_SAMPLE_S32NE] = offsetof(struct spa_type_audio_format, S32),
-	[PA_SAMPLE_S32RE] = offsetof(struct spa_type_audio_format, S32_OE),
-	[PA_SAMPLE_S24NE] = offsetof(struct spa_type_audio_format, S24),
-	[PA_SAMPLE_S24RE] = offsetof(struct spa_type_audio_format, S24_OE),
-	[PA_SAMPLE_S24_32NE] = offsetof(struct spa_type_audio_format, S24_32),
-	[PA_SAMPLE_S24_32RE] = offsetof(struct spa_type_audio_format, S24_32_OE),
+	[PA_SAMPLE_U8] = SPA_AUDIO_FORMAT_U8,
+	[PA_SAMPLE_ALAW] = SPA_AUDIO_FORMAT_UNKNOWN,
+	[PA_SAMPLE_ULAW] = SPA_AUDIO_FORMAT_UNKNOWN,
+	[PA_SAMPLE_S16NE] = SPA_AUDIO_FORMAT_S16,
+	[PA_SAMPLE_S16RE] = SPA_AUDIO_FORMAT_S16_OE,
+	[PA_SAMPLE_FLOAT32NE] = SPA_AUDIO_FORMAT_F32,
+	[PA_SAMPLE_FLOAT32RE] = SPA_AUDIO_FORMAT_F32_OE,
+	[PA_SAMPLE_S32NE] = SPA_AUDIO_FORMAT_S32,
+	[PA_SAMPLE_S32RE] = SPA_AUDIO_FORMAT_S32_OE,
+	[PA_SAMPLE_S24NE] = SPA_AUDIO_FORMAT_S24,
+	[PA_SAMPLE_S24RE] = SPA_AUDIO_FORMAT_S24_OE,
+	[PA_SAMPLE_S24_32NE] = SPA_AUDIO_FORMAT_S24_32,
+	[PA_SAMPLE_S24_32RE] = SPA_AUDIO_FORMAT_S24_32_OE,
 };
 
 static inline uint32_t format_pa2id(pa_stream *s, pa_sample_format_t format)
 {
 	if (format < 0 || format >= SPA_N_ELEMENTS(audio_formats))
-		return s->type.audio_format.UNKNOWN;
-	return *SPA_MEMBER(&s->type.audio_format, audio_formats[format], uint32_t);
+		return SPA_AUDIO_FORMAT_UNKNOWN;
+	return audio_formats[format];
 }
 
 static inline pa_sample_format_t format_id2pa(pa_stream *s, uint32_t id)
 {
 	int i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
-		if (id == *SPA_MEMBER(&s->type.audio_format, audio_formats[i], uint32_t))
+		if (id == audio_formats[i])
 			return i;
 	}
 	return PA_SAMPLE_INVALID;
@@ -110,7 +110,7 @@ static struct global *find_linked(pa_stream *s, uint32_t idx)
 	pa_context *c = s->context;
 
 	spa_list_for_each(g, &c->globals, link) {
-		if (g->type != c->t->link)
+		if (g->type != PW_ID_INTERFACE_Link)
 			continue;
 
 		pw_log_debug("%d %d %d", idx,
@@ -185,7 +185,6 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *attr, struct spa_pod_builder *b)
 {
 	const struct spa_pod *param;
-	struct pw_type *t = pw_core_get_type(s->context->core);
 	int32_t blocks, buffers, size, maxsize, stride;
 
 	blocks = 1;
@@ -210,14 +209,14 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 			size, buffers);
 
 	param = spa_pod_builder_object(b,
-	                t->param.idBuffers, t->param_buffers.Buffers,
-			":", t->param_buffers.buffers, "iru", buffers,
+	                SPA_ID_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+			":", SPA_PARAM_BUFFERS_buffers, "iru", buffers,
 					SPA_POD_PROP_MIN_MAX(3, MAX_BUFFERS),
-			":", t->param_buffers.blocks,  "i", blocks,
-			":", t->param_buffers.size,    "iru", size * stride,
+			":", SPA_PARAM_BUFFERS_blocks,  "i", blocks,
+			":", SPA_PARAM_BUFFERS_size,    "iru", size * stride,
 					SPA_POD_PROP_MIN_MAX(size * stride, maxsize * stride),
-			":", t->param_buffers.stride,  "i", stride,
-			":", t->param_buffers.align,   "i", 16);
+			":", SPA_PARAM_BUFFERS_stride,  "i", stride,
+			":", SPA_PARAM_BUFFERS_align,   "i", 16);
 	return param;
 }
 
@@ -288,9 +287,9 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
 		"I", &info.media_type,
 		"I", &info.media_subtype);
 
-	if (info.media_type != s->type.media_type.audio ||
-	    info.media_subtype != s->type.media_subtype.raw ||
-	    spa_format_audio_raw_parse(format, &info.info.raw, &s->type.format_audio) < 0 ||
+	if (info.media_type != SPA_MEDIA_TYPE_audio ||
+	    info.media_subtype != SPA_MEDIA_SUBTYPE_raw ||
+	    spa_format_audio_raw_parse(format, &info.info.raw) < 0 ||
 	    info.info.raw.layout != SPA_AUDIO_LAYOUT_INTERLEAVED) {
 		res = -EINVAL;
 		goto done;
@@ -438,7 +437,6 @@ pa_stream* stream_new(pa_context *c, const char *name,
 				NULL));
 	s->refcount = 1;
 	s->context = c;
-	init_type(&s->type, pw_core_get_type(c->core)->map);
 	spa_list_init(&s->pending);
 
 	pw_stream_add_listener(s->stream, &s->stream_listener, &stream_events, s);
@@ -657,16 +655,14 @@ static const struct spa_pod *get_param(pa_stream *s, pa_sample_spec *ss, pa_chan
 		struct spa_pod_builder *b)
 {
 	const struct spa_pod *param;
-	struct pw_type *t = pw_core_get_type(s->context->core);
-
 	param = spa_pod_builder_object(b,
-	                t->param.idEnumFormat, t->spa_format,
-	                "I", s->type.media_type.audio,
-	                "I", s->type.media_subtype.raw,
-	                ":", s->type.format_audio.format,     "I", format_pa2id(s, ss->format),
-	                ":", s->type.format_audio.layout,     "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
-	                ":", s->type.format_audio.channels,   "i", ss->channels,
-	                ":", s->type.format_audio.rate,       "i", ss->rate);
+	                SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+	                "I", SPA_MEDIA_TYPE_audio,
+	                "I", SPA_MEDIA_SUBTYPE_raw,
+	                ":", SPA_FORMAT_AUDIO_format,     "I", format_pa2id(s, ss->format),
+	                ":", SPA_FORMAT_AUDIO_layout,     "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
+	                ":", SPA_FORMAT_AUDIO_channels,   "i", ss->channels,
+	                ":", SPA_FORMAT_AUDIO_rate,       "i", ss->rate);
 	return param;
 }
 

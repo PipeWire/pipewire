@@ -38,54 +38,54 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
 	switch (type) {
-	case SPA_POD_TYPE_BOOL:
+	case SPA_ID_Bool:
 		spa_debug("%*s" "Bool %d", indent, "", *(int32_t *) body);
 		break;
-	case SPA_POD_TYPE_ID:
-		spa_debug("%*s" "Id %d %s", indent, "", *(int32_t *) body,
+	case SPA_ID_Enum:
+		spa_debug("%*s" "Enum %d %s", indent, "", *(int32_t *) body,
 		       spa_debug_type_find_name(info, *(int32_t *) body));
 		break;
-	case SPA_POD_TYPE_INT:
+	case SPA_ID_Int:
 		spa_debug("%*s" "Int %d", indent, "", *(int32_t *) body);
 		break;
-	case SPA_POD_TYPE_LONG:
+	case SPA_ID_Long:
 		spa_debug("%*s" "Long %" PRIi64 "", indent, "", *(int64_t *) body);
 		break;
-	case SPA_POD_TYPE_FLOAT:
+	case SPA_ID_Float:
 		spa_debug("%*s" "Float %f", indent, "", *(float *) body);
 		break;
-	case SPA_POD_TYPE_DOUBLE:
+	case SPA_ID_Double:
 		spa_debug("%*s" "Double %f", indent, "", *(double *) body);
 		break;
-	case SPA_POD_TYPE_STRING:
+	case SPA_ID_String:
 		spa_debug("%*s" "String \"%s\"", indent, "", (char *) body);
 		break;
-	case SPA_POD_TYPE_FD:
+	case SPA_ID_Fd:
 		spa_debug("%*s" "Fd %d", indent, "", *(int *) body);
 		break;
-	case SPA_POD_TYPE_POINTER:
+	case SPA_ID_Pointer:
 	{
 		struct spa_pod_pointer_body *b = body;
 		spa_debug("%*s" "Pointer %s %p", indent, "",
 		       spa_debug_type_find_name(info, b->type), b->value);
 		break;
 	}
-	case SPA_POD_TYPE_RECTANGLE:
+	case SPA_ID_Rectangle:
 	{
 		struct spa_rectangle *r = body;
 		spa_debug("%*s" "Rectangle %dx%d", indent, "", r->width, r->height);
 		break;
 	}
-	case SPA_POD_TYPE_FRACTION:
+	case SPA_ID_Fraction:
 	{
 		struct spa_fraction *f = body;
 		spa_debug("%*s" "Fraction %d/%d", indent, "", f->num, f->denom);
 		break;
 	}
-	case SPA_POD_TYPE_BITMAP:
+	case SPA_ID_Bitmap:
 		spa_debug("%*s" "Bitmap", indent, "");
 		break;
-	case SPA_POD_TYPE_ARRAY:
+	case SPA_ID_Array:
 	{
 		struct spa_pod_array_body *b = body;
 		void *p;
@@ -96,7 +96,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 			spa_debug_pod_value(indent + 2, info, b->child.type, p, b->child.size);
 		break;
 	}
-	case SPA_POD_TYPE_STRUCT:
+	case SPA_ID_Struct:
 	{
 		struct spa_pod *b = body, *p;
 		spa_debug("%*s" "Struct: size %d", indent, "", size);
@@ -104,7 +104,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 			spa_debug_pod_value(indent + 2, info, p->type, SPA_POD_BODY(p), p->size);
 		break;
 	}
-	case SPA_POD_TYPE_OBJECT:
+	case SPA_ID_Object:
 	{
 		struct spa_pod_object_body *b = body;
 		struct spa_pod *p;
@@ -117,7 +117,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 					p->type, SPA_POD_BODY(p), p->size);
 		break;
 	}
-	case SPA_POD_TYPE_PROP:
+	case SPA_ID_Prop:
 	{
 		struct spa_pod_prop_body *b = body;
 		void *alt;
@@ -176,11 +176,11 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		}
 		break;
 	}
-	case SPA_POD_TYPE_BYTES:
+	case SPA_ID_Bytes:
 		spa_debug("%*s" "Bytes", indent, "");
 		spa_debug_mem(indent + 2, body, size);
 		break;
-	case SPA_POD_TYPE_NONE:
+	case SPA_ID_None:
 		spa_debug("%*s" "None", indent, "");
 		spa_debug_mem(indent + 2, body, size);
 		break;

@@ -640,7 +640,7 @@ static struct spa_bt_node *node_create(struct spa_bt_monitor *monitor, struct sp
 	struct spa_pod *item;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, 0, SPA_ID_EVENT_MONITOR_Added);
+	event = spa_pod_builder_object(&b, SPA_MONITOR_EVENT_Added, SPA_ID_EVENT_Monitor);
 	fill_item(monitor, transport, &item, &b);
 
 	monitor->callbacks->event(monitor->callbacks_data, event);
@@ -656,7 +656,7 @@ static struct spa_bt_node *node_destroy(struct spa_bt_monitor *monitor, struct s
 	struct spa_pod *item;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, 0, SPA_ID_EVENT_MONITOR_Removed);
+	event = spa_pod_builder_object(&b, SPA_MONITOR_EVENT_Removed, SPA_ID_EVENT_Monitor);
 	fill_item(monitor, transport, &item, &b);
 
 	monitor->callbacks->event(monitor->callbacks_data, event);

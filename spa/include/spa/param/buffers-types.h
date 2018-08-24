@@ -37,16 +37,16 @@ extern "C" {
 #define SPA_TYPE_PARAM_BLOCK_INFO_BASE		SPA_TYPE_PARAM__BlockInfo ":"
 
 static const struct spa_type_info spa_type_param_buffers_items[] = {
-	{ SPA_PARAM_BUFFERS_buffers, SPA_TYPE_PARAM_BUFFERS_BASE "buffers",  SPA_POD_TYPE_INT, },
-	{ SPA_PARAM_BUFFERS_blocks,  SPA_TYPE_PARAM_BUFFERS_BASE "blocks",   SPA_POD_TYPE_INT, },
-	{ SPA_PARAM_BUFFERS_size,    SPA_TYPE_PARAM_BLOCK_INFO_BASE "size",   SPA_POD_TYPE_INT, },
-	{ SPA_PARAM_BUFFERS_stride,  SPA_TYPE_PARAM_BLOCK_INFO_BASE "stride", SPA_POD_TYPE_INT, },
-	{ SPA_PARAM_BUFFERS_align,   SPA_TYPE_PARAM_BLOCK_INFO_BASE "align",  SPA_POD_TYPE_INT, },
+	{ SPA_PARAM_BUFFERS_buffers, SPA_TYPE_PARAM_BUFFERS_BASE "buffers",  SPA_ID_Int, },
+	{ SPA_PARAM_BUFFERS_blocks,  SPA_TYPE_PARAM_BUFFERS_BASE "blocks",   SPA_ID_Int, },
+	{ SPA_PARAM_BUFFERS_size,    SPA_TYPE_PARAM_BLOCK_INFO_BASE "size",   SPA_ID_Int, },
+	{ SPA_PARAM_BUFFERS_stride,  SPA_TYPE_PARAM_BLOCK_INFO_BASE "stride", SPA_ID_Int, },
+	{ SPA_PARAM_BUFFERS_align,   SPA_TYPE_PARAM_BLOCK_INFO_BASE "align",  SPA_ID_Int, },
 	{ 0, NULL, },
 };
 
 static const struct spa_type_info spa_type_param_buffers[] = {
-	{ SPA_ID_OBJECT_ParamBuffers, SPA_TYPE_PARAM__Buffers,  SPA_POD_TYPE_OBJECT,
+	{ SPA_ID_OBJECT_ParamBuffers, SPA_TYPE_PARAM__Buffers,  SPA_ID_Object,
 		spa_type_param_buffers_items },
 	{ 0, NULL, },
 };

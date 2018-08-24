@@ -27,9 +27,6 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/dict.h>
 
-#define SPA_TYPE__Handle		SPA_TYPE_INTERFACE_BASE "Handle"
-#define SPA_TYPE__HandleFactory		SPA_TYPE_INTERFACE_BASE "HandleFactory"
-
 struct spa_handle {
 	/** Version of this struct */
 #define SPA_VERSION_HANDLE	0

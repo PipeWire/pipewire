@@ -37,9 +37,9 @@ extern "C" {
 #define SPA_TYPE_META_REGION_ARRAY_BASE	SPA_TYPE_META__RegionArray ":"
 
 static const struct spa_type_info spa_type_meta_type[] = {
-	{ SPA_META_Header, SPA_TYPE_META_BASE "Header", SPA_POD_TYPE_INT, },
-	{ SPA_META_VideoCrop, SPA_TYPE_META_REGION_BASE "VideoCrop", SPA_POD_TYPE_INT, },
-	{ SPA_META_VideoDamage, SPA_TYPE_META_REGION_ARRAY_BASE "VideoDamage", SPA_POD_TYPE_INT, },
+	{ SPA_META_Header, SPA_TYPE_META_BASE "Header", SPA_ID_POINTER },
+	{ SPA_META_VideoCrop, SPA_TYPE_META_REGION_BASE "VideoCrop", SPA_ID_POINTER },
+	{ SPA_META_VideoDamage, SPA_TYPE_META_REGION_ARRAY_BASE "VideoDamage", SPA_ID_POINTER },
 	{ 0, NULL, },
 };
 

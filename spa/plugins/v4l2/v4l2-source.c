@@ -269,8 +269,8 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	switch (SPA_COMMAND_TYPE(command)) {
-	case SPA_ID_COMMAND_NODE_Start:
+	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_Start:
 	{
 		struct port *port = GET_OUT_PORT(this, 0);
 
@@ -283,7 +283,7 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 			return res;
 		break;
 	}
-	case SPA_ID_COMMAND_NODE_Pause:
+	case SPA_NODE_COMMAND_Pause:
 		if ((res = spa_v4l2_stream_off(this)) < 0)
 			return res;
 		break;

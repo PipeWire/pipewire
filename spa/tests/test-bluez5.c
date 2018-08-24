@@ -99,16 +99,16 @@ static void monitor_event(void *_data, struct spa_event *event)
 {
         struct data *data = _data;
 
-        switch (SPA_EVENT_TYPE(event)) {
-	case SPA_ID_EVENT_MONITOR_Added:
+        switch (SPA_MONITOR_EVENT_ID(event)) {
+	case SPA_MONITOR_EVENT_Added:
                 fprintf(stderr, "added:\n");
                 inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
 		break;
-	case SPA_ID_EVENT_MONITOR_Removed:
+	case SPA_MONITOR_EVENT_Removed:
                 fprintf(stderr, "removed:\n");
                 inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
 		break;
-	case SPA_ID_EVENT_MONITOR_Changed:
+	case SPA_MONITOR_EVENT_Changed:
                 fprintf(stderr, "changed:\n");
                 inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
 		break;

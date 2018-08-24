@@ -204,7 +204,7 @@ static void do_static_struct(void)
 						sizeof(struct spa_pod_prop_body),
 					  SPA_FORMAT_VIDEO_format,
 					  SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET,
-					  sizeof(uint32_t), SPA_POD_TYPE_ID),
+					  sizeof(uint32_t), SPA_ID_Enum),
 			{
 				SPA_VIDEO_FORMAT_I420,
 				{ SPA_VIDEO_FORMAT_I420, SPA_VIDEO_FORMAT_YUY2 }
@@ -213,7 +213,7 @@ static void do_static_struct(void)
 						sizeof(struct spa_pod_prop_body),
 					  SPA_FORMAT_VIDEO_size,
 					  SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET,
-					  sizeof(struct spa_rectangle), SPA_POD_TYPE_RECTANGLE),
+					  sizeof(struct spa_rectangle), SPA_ID_Rectangle),
 
 			{
 				SPA_RECTANGLE(320,243),
@@ -223,7 +223,7 @@ static void do_static_struct(void)
 						sizeof(struct spa_pod_prop_body),
 					  SPA_FORMAT_VIDEO_framerate,
 					  SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET,
-					  sizeof(struct spa_fraction), SPA_POD_TYPE_FRACTION),
+					  sizeof(struct spa_fraction), SPA_ID_Fraction),
 			{
 				SPA_FRACTION(25,1),
 				SPA_FRACTION(0,1), SPA_FRACTION(INT32_MAX,1)

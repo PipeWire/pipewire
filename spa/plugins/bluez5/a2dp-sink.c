@@ -811,8 +811,8 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	switch (SPA_COMMAND_TYPE(command)) {
-	case SPA_ID_COMMAND_NODE_Start:
+	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_Start:
 		if (!this->have_format)
 			return -EIO;
 		if (this->n_buffers == 0)
@@ -821,7 +821,7 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		if ((res = do_start(this)) < 0)
 			return res;
 		break;
-	case SPA_ID_COMMAND_NODE_Pause:
+	case SPA_NODE_COMMAND_Pause:
 		if ((res = do_stop(this)) < 0)
 			return res;
 		break;

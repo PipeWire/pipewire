@@ -27,46 +27,11 @@ extern "C" {
 #include <stdarg.h>
 
 #include <spa/utils/defs.h>
+#include <spa/utils/type.h>
 
 #ifndef SPA_POD_MAX_DEPTH
 #define SPA_POD_MAX_DEPTH       16
 #endif
-
-/**
- * spa_pod_type:
- */
-enum spa_pod_type {
-	SPA_POD_TYPE_INVALID = 0,
-	SPA_POD_TYPE_NONE = 1,
-
-	SPA_POD_TYPE_BOOL,
-
-	SPA_POD_TYPE_ID,
-	SPA_POD_TYPE_INT,
-	SPA_POD_TYPE_LONG,
-	SPA_POD_TYPE_FLOAT,
-	SPA_POD_TYPE_DOUBLE,
-
-	SPA_POD_TYPE_STRING,
-	SPA_POD_TYPE_BYTES,
-
-	SPA_POD_TYPE_RECTANGLE,
-	SPA_POD_TYPE_FRACTION,
-	SPA_POD_TYPE_BITMAP,
-
-	SPA_POD_TYPE_ARRAY,
-	SPA_POD_TYPE_STRUCT,
-	SPA_POD_TYPE_OBJECT,
-	SPA_POD_TYPE_SEQUENCE,
-
-	SPA_POD_TYPE_POINTER,
-	SPA_POD_TYPE_FD,
-
-	SPA_POD_TYPE_PROP,
-	SPA_POD_TYPE_POD,
-
-	SPA_POD_TYPE_CUSTOM_START = 64,
-};
 
 #define SPA_POD_BODY_SIZE(pod)			(((struct spa_pod*)(pod))->size)
 #define SPA_POD_TYPE(pod)			(((struct spa_pod*)(pod))->type)
@@ -172,13 +137,13 @@ struct spa_pod_object {
 
 static inline bool spa_pod_is_object_type(const struct spa_pod *pod, uint32_t type)
 {
-	return (pod && pod->type == SPA_POD_TYPE_OBJECT
+	return (pod && pod->type == SPA_ID_Object
 		&& ((struct spa_pod_object *) pod)->body.type == type);
 }
 
 static inline bool spa_pod_is_object_id(const struct spa_pod *pod, uint32_t id)
 {
-	return (pod && pod->type == SPA_POD_TYPE_OBJECT
+	return (pod && pod->type == SPA_ID_Object
 		&& ((struct spa_pod_object *) pod)->body.id == id);
 }
 

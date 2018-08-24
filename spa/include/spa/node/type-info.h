@@ -17,14 +17,17 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_IO_TYPES_H__
-#define __SPA_IO_TYPES_H__
+#ifndef __SPA_NODE_TYPES_H__
+#define __SPA_NODE_TYPES_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <spa/utils/type-info.h>
+
+#include <spa/node/command.h>
+#include <spa/node/event.h>
 #include <spa/node/io.h>
 
 /** Base for IO structures to interface with node ports */
@@ -48,4 +51,4 @@ extern "C" {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_IO_TYPES_H__ */
+#endif /* _SPA_NODE_TYPES_H__ */

@@ -497,7 +497,7 @@ static void run_async_source(struct data *data)
 	int err;
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Start);
+		struct spa_command cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start);
 		if ((res = spa_node_send_command(data->source, &cmd)) < 0)
 			printf("got error %d\n", res);
 	}
@@ -516,7 +516,7 @@ static void run_async_source(struct data *data)
 	}
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Pause);
+		struct spa_command cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause);
 		if ((res = spa_node_send_command(data->source, &cmd)) < 0)
 			printf("got error %d\n", res);
 	}

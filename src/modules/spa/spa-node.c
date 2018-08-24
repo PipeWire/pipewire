@@ -187,31 +187,31 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 			pw_log_info("configure prop %s", key);
 
 			switch(prop->body.value.type) {
-			case SPA_POD_TYPE_BOOL:
+			case SPA_ID_Bool:
 				SPA_POD_VALUE(struct spa_pod_bool, &prop->body.value) =
 					pw_properties_parse_bool(value);
 				break;
-			case SPA_POD_TYPE_ID:
+			case SPA_ID_Enum:
 				SPA_POD_VALUE(struct spa_pod_id, &prop->body.value) =
 					spa_debug_type_find_id(spa_debug_types, value);
 				break;
-			case SPA_POD_TYPE_INT:
+			case SPA_ID_Int:
 				SPA_POD_VALUE(struct spa_pod_int, &prop->body.value) =
 					pw_properties_parse_int(value);
 				break;
-			case SPA_POD_TYPE_LONG:
+			case SPA_ID_Long:
 				SPA_POD_VALUE(struct spa_pod_long, &prop->body.value) =
 					pw_properties_parse_int64(value);
 				break;
-			case SPA_POD_TYPE_FLOAT:
+			case SPA_ID_Float:
 				SPA_POD_VALUE(struct spa_pod_float, &prop->body.value) =
 					pw_properties_parse_float(value);
 				break;
-			case SPA_POD_TYPE_DOUBLE:
+			case SPA_ID_Double:
 				SPA_POD_VALUE(struct spa_pod_double, &prop->body.value) =
 					pw_properties_parse_double(value);
 				break;
-			case SPA_POD_TYPE_STRING:
+			case SPA_ID_String:
 				break;
 			default:
 				break;

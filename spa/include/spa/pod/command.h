@@ -36,15 +36,17 @@ struct spa_command {
 	struct spa_command_body body;
 };
 
-#define SPA_COMMAND_TYPE(cmd)   ((cmd)->body.body.type)
+#define SPA_COMMAND_TYPE(cmd)		((cmd)->body.body.type)
+#define SPA_COMMAND_ID(cmd,type)	(SPA_COMMAND_TYPE(cmd) == type ? \
+						(cmd)->body.body.id : SPA_ID_INVALID)
 
-#define SPA_COMMAND_INIT(type) (struct spa_command)			\
-	{ { sizeof(struct spa_command_body), SPA_POD_TYPE_OBJECT },	\
-	  { { 0, type } } }						\
+#define SPA_COMMAND_INIT(type,id) (struct spa_command)			\
+	{ { sizeof(struct spa_command_body), SPA_ID_Object },		\
+	  { { id, type } } }						\
 
-#define SPA_COMMAND_INIT_FULL(t,size,type,...) (t)			\
-	{ { size, SPA_POD_TYPE_OBJECT },				\
-	  { { 0, type }, ##__VA_ARGS__ } }				\
+#define SPA_COMMAND_INIT_FULL(t,size,type,id,...) (t)			\
+	{ { size, SPA_ID_OBJECT },					\
+	  { { id, type }, ##__VA_ARGS__ } }				\
 
 #ifdef __cplusplus
 }  /* extern "C" */

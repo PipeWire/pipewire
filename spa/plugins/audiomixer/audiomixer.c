@@ -145,11 +145,11 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	switch (SPA_COMMAND_TYPE(command)) {
-	case SPA_ID_COMMAND_NODE_Start:
+	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_Start:
 		this->started = true;
 		break;
-	case SPA_ID_COMMAND_NODE_Pause:
+	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
 		break;
 	default:

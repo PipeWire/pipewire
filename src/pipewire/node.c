@@ -76,7 +76,7 @@ static int do_pause_node(struct pw_node *this)
 
 	pw_log_debug("node %p: pause node", this);
 	res = spa_node_send_command(this->node,
-				    &SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Pause));
+				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause));
 	if (res < 0)
 		pw_log_debug("node %p: pause node error %s", this, spa_strerror(res));
 
@@ -97,7 +97,7 @@ static int start_node(struct pw_node *this)
 
 	pw_log_debug("node %p: start node", this);
 	res = spa_node_send_command(this->node,
-				    &SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Start));
+				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
 	if (res < 0)
 		pw_log_debug("node %p: start node error %s", this, spa_strerror(res));
 

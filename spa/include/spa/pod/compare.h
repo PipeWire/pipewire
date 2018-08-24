@@ -27,25 +27,25 @@
 #include <spa/pod/iter.h>
 #include <spa/pod/builder.h>
 
-static inline int spa_pod_compare_value(enum spa_pod_type type, const void *r1, const void *r2)
+static inline int spa_pod_compare_value(uint32_t type, const void *r1, const void *r2)
 {
 	switch (type) {
-	case SPA_POD_TYPE_INVALID:
+	case SPA_ID_INVALID:
 		return 0;
-	case SPA_POD_TYPE_BOOL:
-	case SPA_POD_TYPE_ID:
+	case SPA_ID_Bool:
+	case SPA_ID_Enum:
 		return *(int32_t *) r1 == *(uint32_t *) r2 ? 0 : 1;
-	case SPA_POD_TYPE_INT:
+	case SPA_ID_Int:
 		return *(int32_t *) r1 - *(int32_t *) r2;
-	case SPA_POD_TYPE_LONG:
+	case SPA_ID_Long:
 		return *(int64_t *) r1 - *(int64_t *) r2;
-	case SPA_POD_TYPE_FLOAT:
+	case SPA_ID_Float:
 		return *(float *) r1 - *(float *) r2;
-	case SPA_POD_TYPE_DOUBLE:
+	case SPA_ID_Double:
 		return *(double *) r1 - *(double *) r2;
-	case SPA_POD_TYPE_STRING:
+	case SPA_ID_String:
 		return strcmp(r1, r2);
-	case SPA_POD_TYPE_RECTANGLE:
+	case SPA_ID_Rectangle:
 	{
 		const struct spa_rectangle *rec1 = (struct spa_rectangle *) r1,
 		    *rec2 = (struct spa_rectangle *) r2;
@@ -56,7 +56,7 @@ static inline int spa_pod_compare_value(enum spa_pod_type type, const void *r1, 
 		else
 			return 1;
 	}
-	case SPA_POD_TYPE_FRACTION:
+	case SPA_ID_Fraction:
 	{
 		const struct spa_fraction *f1 = (struct spa_fraction *) r1,
 		    *f2 = (struct spa_fraction *) r2;
@@ -92,19 +92,19 @@ static inline int spa_pod_compare_part(const struct spa_pod *pod1, uint32_t pod1
 			return -EINVAL;
 
 		switch (SPA_POD_TYPE(p1)) {
-		case SPA_POD_TYPE_STRUCT:
-		case SPA_POD_TYPE_OBJECT:
+		case SPA_ID_Struct:
+		case SPA_ID_Object:
 			if (SPA_POD_TYPE(p2) != SPA_POD_TYPE(p1))
 				return -EINVAL;
 
-			if (SPA_POD_TYPE(p1) == SPA_POD_TYPE_STRUCT)
+			if (SPA_POD_TYPE(p1) == SPA_ID_Struct)
 				recurse_offset = sizeof(struct spa_pod_struct);
 			else
 				recurse_offset = sizeof(struct spa_pod_object);
 
 			do_advance = true;
 			break;
-		case SPA_POD_TYPE_PROP:
+		case SPA_ID_Prop:
 		{
 			struct spa_pod_prop *pr1, *pr2;
 			void *a1, *a2;

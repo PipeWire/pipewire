@@ -347,7 +347,7 @@ static void impl_on_fd_events(struct spa_source *source)
 	struct impl *this = source->data;
 	struct udev_device *dev;
 	const char *action;
-	uint32_t type;
+	uint32_t id;
 	struct card *card;
 	struct spa_event *event;
 
@@ -357,18 +357,18 @@ static void impl_on_fd_events(struct spa_source *source)
 		action = "change";
 
 	if (strcmp(action, "add") == 0) {
-		type = SPA_ID_EVENT_MONITOR_Added;
+		id = SPA_MONITOR_EVENT_Added;
 	} else if (strcmp(action, "change") == 0) {
-		type = SPA_ID_EVENT_MONITOR_Changed;
+		id = SPA_MONITOR_EVENT_Changed;
 	} else if (strcmp(action, "remove") == 0) {
-		type = SPA_ID_EVENT_MONITOR_Removed;
+		id = SPA_MONITOR_EVENT_Removed;
 	} else
 		return;
 
 	if ((card = find_card(this, dev)) == NULL)
 		return;
 
-	if (type == SPA_ID_EVENT_MONITOR_Removed) {
+	if (id == SPA_MONITOR_EVENT_Removed) {
 		int i;
 
 		for (i = 0; i < MAX_DEVICES; i++) {
@@ -380,7 +380,7 @@ static void impl_on_fd_events(struct spa_source *source)
 
 			if (SPA_FLAG_CHECK(device->flags, DEVICE_FLAG_PLAYBACK)) {
 				snprintf(id, 64, "%s,%d/P", card->name, device->id);
-				event = spa_pod_builder_object(&b, 0, type);
+				event = spa_pod_builder_object(&b, id, SPA_ID_EVENT_Monitor);
 				spa_pod_builder_object(&b,
 					0, SPA_ID_OBJECT_MonitorItem,
 					":", SPA_MONITOR_ITEM_id,      "s", id,
@@ -389,7 +389,7 @@ static void impl_on_fd_events(struct spa_source *source)
 			}
 			if (SPA_FLAG_CHECK(device->flags, DEVICE_FLAG_RECORD)) {
 				snprintf(id, 64, "%s,%d/C", card->name, device->id);
-				event = spa_pod_builder_object(&b, 0, type);
+				event = spa_pod_builder_object(&b, id, SPA_ID_EVENT_Monitor);
 				spa_pod_builder_object(&b,
 					0, SPA_ID_OBJECT_MonitorItem,
 					":", SPA_MONITOR_ITEM_id,      "s", id,
@@ -408,7 +408,7 @@ static void impl_on_fd_events(struct spa_source *source)
 			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 			struct spa_pod *item;
 
-			event = spa_pod_builder_object(&b, 0, type);
+			event = spa_pod_builder_object(&b, id, SPA_ID_EVENT_Monitor);
 			if (get_next_device(this, card, &item, &b) < 0)
 				break;
 

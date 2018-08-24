@@ -26,6 +26,23 @@ extern "C" {
 
 #include <spa/pod/command.h>
 
+enum spa_node_command {
+	SPA_NODE_COMMAND_Suspend,
+	SPA_NODE_COMMAND_Pause,
+	SPA_NODE_COMMAND_Start,
+	SPA_NODE_COMMAND_Enable,
+	SPA_NODE_COMMAND_Disable,
+	SPA_NODE_COMMAND_Flush,
+	SPA_NODE_COMMAND_Drain,
+	SPA_NODE_COMMAND_Marker,
+};
+
+#define SPA_NODE_COMMAND_ID(cmd)	SPA_COMMAND_ID(cmd, SPA_ID_COMMAND_Node)
+
+#define SPA_NODE_COMMAND_INIT(id) (struct spa_command)			\
+        { { sizeof(struct spa_command_body), SPA_ID_Object },           \
+          { { id, SPA_ID_COMMAND_Node } } }				\
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

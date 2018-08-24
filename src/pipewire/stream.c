@@ -251,14 +251,14 @@ static int impl_send_command(struct spa_node *node, const struct spa_command *co
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
 	struct pw_stream *stream = &impl->this;
 
-	switch (SPA_COMMAND_TYPE(command)) {
-	case SPA_ID_COMMAND_NODE_Pause:
+	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_Pause:
 		if (stream->state == PW_STREAM_STATE_STREAMING) {
 			pw_log_debug("stream %p: pause", stream);
 			stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
 		}
 		break;
-	case SPA_ID_COMMAND_NODE_Start:
+	case SPA_NODE_COMMAND_Start:
 		if (stream->state == PW_STREAM_STATE_PAUSED) {
 			pw_log_debug("stream %p: start %d", stream, impl->direction);
 
@@ -273,7 +273,7 @@ static int impl_send_command(struct spa_node *node, const struct spa_command *co
 		}
 		break;
 	default:
-		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
+		pw_log_warn("unhandled node command %d", SPA_NODE_COMMAND_ID(command));
 		break;
 	}
 	return 0;

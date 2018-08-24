@@ -944,7 +944,7 @@ impl_node_port_send_command(struct spa_node *node,
 		return 0;
 
 	spa_log_trace(this->log, "send command %s",
-			spa_debug_type_find_name(spa_debug_types, SPA_COMMAND_TYPE(command)));
+			spa_debug_type_find_name(spa_debug_types, SPA_NODE_COMMAND_ID(command)));
 
 	pw_client_node_resource_port_command(this->resource,
 					     direction, port_id,

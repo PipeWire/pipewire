@@ -435,7 +435,7 @@ static void run_convert(struct data *data)
 	int res, i, j;
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Start);
+		struct spa_command cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start);
 		for (i = 0; i < 4; i++) {
 			if ((res = spa_node_send_command(data->nodes[i].node, &cmd)) < 0)
 				printf("got command error %d\n", res);
@@ -468,7 +468,7 @@ static void run_convert(struct data *data)
 		spa_debug_mem(0, b->datas[i].data, b->datas[i].maxsize);
 
 	{
-		struct spa_command cmd = SPA_COMMAND_INIT(SPA_ID_COMMAND_NODE_Pause);
+		struct spa_command cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause);
 		for (i = 0; i < 4; i++) {
 			if ((res = spa_node_send_command(data->nodes[i].node, &cmd)) < 0)
 				printf("got command error %d\n", res);

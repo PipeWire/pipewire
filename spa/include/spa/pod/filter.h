@@ -249,13 +249,13 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 		uint32_t filter_offset = 0;
 
 		switch (SPA_POD_TYPE(pp)) {
-		case SPA_POD_TYPE_STRUCT:
-		case SPA_POD_TYPE_OBJECT:
+		case SPA_ID_Struct:
+		case SPA_ID_Object:
 			if (pf != NULL) {
 				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE(pp))
 					return -EINVAL;
 
-				if (SPA_POD_TYPE(pp) == SPA_POD_TYPE_STRUCT) {
+				if (SPA_POD_TYPE(pp) == SPA_ID_Struct) {
 					filter_offset = sizeof(struct spa_pod_struct);
 					spa_pod_builder_push_struct(b);
 				} else {
@@ -269,7 +269,7 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 				do_copy = true;
 			break;
 
-		case SPA_POD_TYPE_PROP:
+		case SPA_ID_Prop:
 		{
 			struct spa_pod_prop *p1, *p2;
 

@@ -28,7 +28,7 @@ extern "C" {
 #include <spa/pod/pod.h>
 
 /* base for parameter objects */
-#define SPA_TYPE__Param			SPA_TYPE_POD_OBJECT_BASE "Param"
+#define SPA_TYPE__Param			SPA_TYPE_OBJECT_BASE "Param"
 #define SPA_TYPE_PARAM_BASE		SPA_TYPE__Param ":"
 
 /* base for parameter object enumerations */

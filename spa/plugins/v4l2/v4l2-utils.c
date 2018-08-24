@@ -409,7 +409,7 @@ enum_filter_format(uint32_t media_type, int32_t media_subtype,
 			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_format)))
 				return SPA_VIDEO_FORMAT_UNKNOWN;
 
-			if (p->body.value.type != SPA_POD_TYPE_ID)
+			if (p->body.value.type != SPA_ID_Enum)
 				return SPA_VIDEO_FORMAT_UNKNOWN;
 
 			values = SPA_POD_BODY_CONST(&p->body.value);
@@ -596,7 +596,7 @@ spa_v4l2_enum_format(struct impl *this,
 			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_size)))
 				goto do_frmsize;
 
-			if (p->body.value.type != SPA_POD_TYPE_RECTANGLE) {
+			if (p->body.value.type != SPA_ID_Rectangle) {
 				goto enum_end;
 			}
 
@@ -717,7 +717,7 @@ spa_v4l2_enum_format(struct impl *this,
 			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_framerate)))
 				goto have_framerate;
 
-			if (p->body.value.type != SPA_POD_TYPE_FRACTION)
+			if (p->body.value.type != SPA_ID_Fraction)
 				goto enum_end;
 
 			range = p->body.flags & SPA_POD_PROP_RANGE_MASK;

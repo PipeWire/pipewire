@@ -258,49 +258,49 @@ static inline int spa_pod_id_to_type(char id)
 {
 	switch (id) {
 	case 'n':
-		return SPA_POD_TYPE_NONE;
+		return SPA_ID_None;
 	case 'b':
-		return SPA_POD_TYPE_BOOL;
+		return SPA_ID_Bool;
 	case 'I':
-		return SPA_POD_TYPE_ID;
+		return SPA_ID_Enum;
 	case 'i':
-		return SPA_POD_TYPE_INT;
+		return SPA_ID_INT;
 	case 'l':
-		return SPA_POD_TYPE_LONG;
+		return SPA_ID_LONG;
 	case 'f':
-		return SPA_POD_TYPE_FLOAT;
+		return SPA_ID_FLOAT;
 	case 'd':
-		return SPA_POD_TYPE_DOUBLE;
+		return SPA_ID_DOUBLE;
 	case 's':
-		return SPA_POD_TYPE_STRING;
+		return SPA_ID_STRING;
 	case 'k':
-		return SPA_POD_TYPE_KEY;
+		return SPA_ID_KEY;
 	case 'z':
-		return SPA_POD_TYPE_BYTES;
+		return SPA_ID_BYTES;
 	case 'R':
-		return SPA_POD_TYPE_RECTANGLE;
+		return SPA_ID_RECTANGLE;
 	case 'F':
-		return SPA_POD_TYPE_FRACTION;
+		return SPA_ID_FRACTION;
 	case 'B':
-		return SPA_POD_TYPE_BITMASK;
+		return SPA_ID_BITMASK;
 	case 'A':
-		return SPA_POD_TYPE_ARRAY;
+		return SPA_ID_ARRAY;
 	case 'S':
-		return SPA_POD_TYPE_STRUCT;
+		return SPA_ID_STRUCT;
 	case 'O':
-		return SPA_POD_TYPE_OBJECT;
+		return SPA_ID_OBJECT;
 	case 'M':
-		return SPA_POD_TYPE_MAP;
+		return SPA_ID_MAP;
 	case 'p':
-		return SPA_POD_TYPE_POINTER;
+		return SPA_ID_POINTER;
 	case 'h':
-		return SPA_POD_TYPE_FD;
+		return SPA_ID_FD;
 	case 'V': case 'v':
-		return SPA_POD_TYPE_PROP;
+		return SPA_ID_PROP;
 	case 'P':
-		return SPA_POD_TYPE_POD;
+		return SPA_ID_POD;
 	default:
-		return SPA_POD_TYPE_INVALID;
+		return SPA_ID_INVALID;
 	}
 }
 
@@ -335,7 +335,7 @@ spa_pod_parse_prop(struct spa_pod *pod, enum spa_pod_type type, struct spa_pod_p
 {
 	int res;
 
-	if (SPA_POD_TYPE(pod) == SPA_POD_TYPE_STRUCT) {
+	if (SPA_POD_TYPE(pod) == SPA_ID_STRUCT) {
 		const char *flags;
 		char ch;
 
@@ -348,7 +348,7 @@ spa_pod_parse_prop(struct spa_pod *pod, enum spa_pod_type type, struct spa_pod_p
 			return res;
 		}
                 prop->type = spa_pod_id_to_type(*flags++);
-                if (type != SPA_POD_TYPE_POD && type != SPA_POD_TYPE(prop->value)) {
+                if (type != SPA_ID_POD && type != SPA_POD_TYPE(prop->value)) {
                         printf("prop chunk of wrong type %d != %d\n", SPA_POD_TYPE(prop->value), type);
                         return -1;
                 }
@@ -374,7 +374,7 @@ spa_pod_parse_prop(struct spa_pod *pod, enum spa_pod_type type, struct spa_pod_p
 	}
 	else {
 		/* a single value */
-                if (type != SPA_POD_TYPE_POD && type != SPA_POD_TYPE(pod)) {
+                if (type != SPA_ID_POD && type != SPA_POD_TYPE(pod)) {
                         printf("prop chunk of wrong type %d != %d\n", SPA_POD_TYPE(prop->value), type);
                         return -1;
                 }
@@ -434,13 +434,13 @@ spa_pod_match(struct spa_pod *pod,
 				return -1;
 			templ += strspn(templ, " \t\r\n");
 			if (*templ == ':') {
-				if (SPA_POD_TYPE(it[depth].data) != SPA_POD_TYPE_MAP)
+				if (SPA_POD_TYPE(it[depth].data) != SPA_ID_MAP)
 					return -1;
 				it[depth].offset = sizeof(struct spa_pod_map);
 				/* move to key */
 				while (spa_pod_iter_has_next(&it[depth])) {
 					current = spa_pod_iter_next(&it[depth]);
-					if (SPA_POD_TYPE(current) == SPA_POD_TYPE_KEY &&
+					if (SPA_POD_TYPE(current) == SPA_ID_KEY &&
 					    strncmp(SPA_POD_CONTENTS_CONST(struct spa_pod_key, current),
 						    start, len) == 0)
 						break;
@@ -448,7 +448,7 @@ spa_pod_match(struct spa_pod *pod,
 				}
 			}
 			else {
-				if (current == NULL || SPA_POD_TYPE(current) != SPA_POD_TYPE_STRING ||
+				if (current == NULL || SPA_POD_TYPE(current) != SPA_ID_STRING ||
 				    strncmp(SPA_POD_CONTENTS_CONST(struct spa_pod_string, current),
 					    start, len) != 0)
 					goto done;
@@ -499,7 +499,7 @@ spa_pod_match(struct spa_pod *pod,
 
 		      no_current:
 			type = spa_pod_id_to_type(*templ);
-			if (current == NULL || (type != SPA_POD_TYPE_POD && type != SPA_POD_TYPE(current))) {
+			if (current == NULL || (type != SPA_ID_POD && type != SPA_POD_TYPE(current))) {
 				if (!maybe)
 					return -1;
 				if (store)
@@ -572,13 +572,13 @@ spa_pod_match(struct spa_pod *pod,
 				doubleval = strtod(start, (char **) &templ);
 				if (*templ == 'f') {
 					if (current == NULL ||
-					    SPA_POD_TYPE(current) != SPA_POD_TYPE_FLOAT ||
+					    SPA_POD_TYPE(current) != SPA_ID_FLOAT ||
 					    doubleval != SPA_POD_VALUE(struct spa_pod_float, current))
 						goto done;
 					break;
 				}
 				else if (current == NULL ||
-				    SPA_POD_TYPE(current) != SPA_POD_TYPE_DOUBLE ||
+				    SPA_POD_TYPE(current) != SPA_ID_DOUBLE ||
 				    doubleval != SPA_POD_VALUE(struct spa_pod_double, current))
 					goto done;
 				goto next;
@@ -586,7 +586,7 @@ spa_pod_match(struct spa_pod *pod,
 			switch (*templ) {
 			case 'x':
 				if (current == NULL ||
-				    SPA_POD_TYPE(current) != SPA_POD_TYPE_RECTANGLE)
+				    SPA_POD_TYPE(current) != SPA_ID_RECTANGLE)
 					goto done;
 
 				rectval = &SPA_POD_VALUE(struct spa_pod_rectangle, current);
@@ -596,7 +596,7 @@ spa_pod_match(struct spa_pod *pod,
 				goto next;
 			case '/':
 				if (current == NULL ||
-				    SPA_POD_TYPE(current) != SPA_POD_TYPE_FRACTION)
+				    SPA_POD_TYPE(current) != SPA_ID_FRACTION)
 					goto done;
 
 				fracval = &SPA_POD_VALUE(struct spa_pod_fraction, current);
@@ -606,13 +606,13 @@ spa_pod_match(struct spa_pod *pod,
 				goto next;
 			case 'l':
 				if (current == NULL ||
-				    SPA_POD_TYPE(current) != SPA_POD_TYPE_LONG ||
+				    SPA_POD_TYPE(current) != SPA_ID_LONG ||
 				    SPA_POD_VALUE(struct spa_pod_long, current) != intval)
 					goto done;
 				break;
 			default:
 				if (current == NULL ||
-				    SPA_POD_TYPE(current) != SPA_POD_TYPE_INT ||
+				    SPA_POD_TYPE(current) != SPA_ID_INT ||
 				    SPA_POD_VALUE(struct spa_pod_int, current) != intval)
 					goto done;
 				break;
@@ -752,7 +752,7 @@ int main(int argc, char *argv[])
                                 "   \"foz\":      %h, "
                                 " } "
                                 "] ", format, rate, channels,
-				sizeof(struct spa_rectangle), SPA_POD_TYPE_RECTANGLE, 3, rects,
+				sizeof(struct spa_rectangle), SPA_ID_RECTANGLE, 3, rects,
 				&pod,
 				bytes, sizeof(bytes),
 				fmt,

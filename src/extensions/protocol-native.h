@@ -34,8 +34,7 @@ extern "C" {
 struct pw_protocol_native_demarshal {
 	int (*func) (void *object, void *data, size_t size);
 
-#define PW_PROTOCOL_NATIVE_REMAP	(1<<0)
-#define PW_PROTOCOL_NATIVE_PERM_W	(1<<1)
+#define PW_PROTOCOL_NATIVE_PERM_W	(1<<0)
 	uint32_t flags;
 };
 

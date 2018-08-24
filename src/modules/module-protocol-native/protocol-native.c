@@ -1086,7 +1086,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_
 	{ &core_demarshal_get_registry, 0, },
 	{ &core_demarshal_client_update, 0, },
 	{ &core_demarshal_permissions, 0, },
-	{ &core_demarshal_create_object, PW_PROTOCOL_NATIVE_REMAP, },
+	{ &core_demarshal_create_object, 0, },
 	{ &core_demarshal_destroy, 0, }
 };
 
@@ -1122,7 +1122,7 @@ static const struct pw_registry_proxy_methods pw_protocol_native_registry_method
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_registry_method_demarshal[] = {
-	{ &registry_demarshal_bind, PW_PROTOCOL_NATIVE_REMAP, },
+	{ &registry_demarshal_bind, 0, },
 };
 
 static const struct pw_registry_proxy_events pw_protocol_native_registry_event_marshal = {
@@ -1132,7 +1132,7 @@ static const struct pw_registry_proxy_events pw_protocol_native_registry_event_m
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_registry_event_demarshal[] = {
-	{ &registry_demarshal_global, PW_PROTOCOL_NATIVE_REMAP, },
+	{ &registry_demarshal_global, 0, },
 	{ &registry_demarshal_global_remove, 0, }
 };
 
@@ -1171,7 +1171,7 @@ static const struct pw_factory_proxy_events pw_protocol_native_factory_event_mar
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_factory_event_demarshal[] = {
-	{ &factory_demarshal_info, PW_PROTOCOL_NATIVE_REMAP, },
+	{ &factory_demarshal_info, 0, },
 };
 
 const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
@@ -1189,7 +1189,7 @@ static const struct pw_node_proxy_methods pw_protocol_native_node_method_marshal
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_node_method_demarshal[] = {
-	{ &node_demarshal_enum_params, PW_PROTOCOL_NATIVE_REMAP, },
+	{ &node_demarshal_enum_params, 0, },
 };
 
 static const struct pw_node_proxy_events pw_protocol_native_node_event_marshal = {
@@ -1199,8 +1199,8 @@ static const struct pw_node_proxy_events pw_protocol_native_node_event_marshal =
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_node_event_demarshal[] = {
-	{ &node_demarshal_info, PW_PROTOCOL_NATIVE_REMAP, },
-	{ &node_demarshal_param, PW_PROTOCOL_NATIVE_REMAP, }
+	{ &node_demarshal_info, 0, },
+	{ &node_demarshal_param, 0, }
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_node_marshal = {
@@ -1221,7 +1221,7 @@ static const struct pw_port_proxy_methods pw_protocol_native_port_method_marshal
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_port_method_demarshal[] = {
-	{ &port_demarshal_enum_params, PW_PROTOCOL_NATIVE_REMAP, },
+	{ &port_demarshal_enum_params, 0, },
 };
 
 static const struct pw_port_proxy_events pw_protocol_native_port_event_marshal = {
@@ -1231,8 +1231,8 @@ static const struct pw_port_proxy_events pw_protocol_native_port_event_marshal =
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_port_event_demarshal[] = {
-	{ &port_demarshal_info, PW_PROTOCOL_NATIVE_REMAP, },
-	{ &port_demarshal_param, PW_PROTOCOL_NATIVE_REMAP, }
+	{ &port_demarshal_info, 0, },
+	{ &port_demarshal_param, 0, }
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_port_marshal = {
@@ -1270,7 +1270,7 @@ static const struct pw_link_proxy_events pw_protocol_native_link_event_marshal =
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_link_event_demarshal[] = {
-	{ &link_demarshal_info, PW_PROTOCOL_NATIVE_REMAP, }
+	{ &link_demarshal_info, 0, }
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_link_marshal = {

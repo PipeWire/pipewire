@@ -31,6 +31,14 @@ struct spa_monitor;
 #include <spa/pod/event.h>
 #include <spa/pod/builder.h>
 
+enum spa_monitor_event {
+	SPA_MONITOR_EVENT_Added,
+	SPA_MONITOR_EVENT_Removed,
+	SPA_MONITOR_EVENT_Changed,
+};
+
+#define SPA_MONITOR_EVENT_ID(ev)	SPA_EVENT_ID(ev, SPA_ID_EVENT_Monitor)
+
 /** properties for SPA_ID_OBJECT_MonitorItem */
 enum spa_monitor_item {
 	SPA_MONITOR_ITEM_id,

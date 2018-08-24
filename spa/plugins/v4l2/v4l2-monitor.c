@@ -178,16 +178,16 @@ static void impl_on_fd_events(struct spa_source *source)
 		action = "change";
 
 	if (strcmp(action, "add") == 0) {
-		type = SPA_ID_EVENT_MONITOR_Added;
+		type = SPA_MONITOR_EVENT_Added;
 	} else if (strcmp(action, "change") == 0) {
-		type = SPA_ID_EVENT_MONITOR_Changed;
+		type = SPA_MONITOR_EVENT_Changed;
 	} else if (strcmp(action, "remove") == 0) {
-		type = SPA_ID_EVENT_MONITOR_Removed;
+		type = SPA_MONITOR_EVENT_Removed;
 	} else
 		return;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, 0, type);
+	event = spa_pod_builder_object(&b, type, SPA_ID_EVENT_Monitor);
 	fill_item(this, &this->uitem, dev, &item, &b);
 
 	this->callbacks->event(this->callbacks_data, event);

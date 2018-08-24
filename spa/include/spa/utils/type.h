@@ -27,8 +27,33 @@ extern "C" {
 #include <spa/utils/defs.h>
 
 enum {
-	SPA_ID_UNASSIGNED	= 0,
+	SPA_ID_INVALID		= 0xffffffff,
+
+	/* Basic types */
+	SPA_ID_BASE = 0x00000,
+	SPA_ID_None,
+        SPA_ID_Bool,
+        SPA_ID_Enum,
+        SPA_ID_Int,
+        SPA_ID_Long,
+        SPA_ID_Float,
+        SPA_ID_Double,
+        SPA_ID_String,
+        SPA_ID_Bytes,
+        SPA_ID_Rectangle,
+        SPA_ID_Fraction,
+        SPA_ID_Bitmap,
+        SPA_ID_Array,
+        SPA_ID_Struct,
+        SPA_ID_Object,
+        SPA_ID_Sequence,
+        SPA_ID_Pointer,
+        SPA_ID_Fd,
+        SPA_ID_Prop,
+        SPA_ID_Pod,
+
 	/* Interfaces */
+	SPA_ID_INTERFACE_BASE = 0x10000,
 	SPA_ID_INTERFACE_Handle,
 	SPA_ID_INTERFACE_HandleFactory,
 	SPA_ID_INTERFACE_Log,
@@ -42,27 +67,16 @@ enum {
 	SPA_ID_INTERFACE_Node,
 
 	/* Events */
-	SPA_ID_EVENT_BASE = 0x10000,
-	SPA_ID_EVENT_MONITOR_Added,
-	SPA_ID_EVENT_MONITOR_Removed,
-	SPA_ID_EVENT_MONITOR_Changed,
-	SPA_ID_EVENT_NODE_Error,
-	SPA_ID_EVENT_NODE_Buffering,
-	SPA_ID_EVENT_NODE_RequestRefresh,
+	SPA_ID_EVENT_BASE = 0x20000,
+	SPA_ID_EVENT_Monitor,
+	SPA_ID_EVENT_Node,
 
 	/* Commands */
-	SPA_ID_COMMAND_BASE = 0x20000,
-	SPA_ID_COMMAND_NODE_Suspend,
-	SPA_ID_COMMAND_NODE_Pause,
-	SPA_ID_COMMAND_NODE_Start,
-	SPA_ID_COMMAND_NODE_Enable,
-	SPA_ID_COMMAND_NODE_Disable,
-	SPA_ID_COMMAND_NODE_Flush,
-	SPA_ID_COMMAND_NODE_Drain,
-	SPA_ID_COMMAND_NODE_Marker,
+	SPA_ID_COMMAND_BASE = 0x30000,
+	SPA_ID_COMMAND_Node,
 
 	/* Objects */
-	SPA_ID_OBJECT_BASE = 0x30000,
+	SPA_ID_OBJECT_BASE = 0x40000,
 	SPA_ID_OBJECT_MonitorItem,
 
 	SPA_ID_OBJECT_ParamList,
@@ -91,6 +105,12 @@ enum {
 	SPA_ID_PARAM_Buffers,		/**< buffer configurations */
 	SPA_ID_PARAM_Meta,		/**< allowed metadata for buffers */
 	SPA_ID_PARAM_IO,		/**< configurable IO areas */
+
+	/* Pointers */
+	SPA_ID_POINTER_BASE = 0x60000,
+	SPA_ID_POINTER_Buffer,
+	SPA_ID_POINTER_Meta,
+	SPA_ID_POINTER_Dict,
 
 	/* vendor extensions */
 	SPA_ID_VENDOR_PipeWire	= 0x01000000,

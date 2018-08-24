@@ -24,16 +24,11 @@
 extern "C" {
 #endif
 
-#include <spa/monitor/monitor-types.h>
-#include <spa/node/node-types.h>
-#include <spa/param/buffers.h>
-#include <spa/param/buffers-types.h>
+#include <spa/utils/type-info.h>
 
 static const struct spa_type_info spa_debug_types[] =
 {
-	{ SPA_ID_INVALID, "", SPA_POD_TYPE_ID, spa_type_monitor },
-	{ SPA_ID_INVALID, "", SPA_POD_TYPE_ID, spa_type_node },
-	{ SPA_ID_INVALID, "", SPA_POD_TYPE_ID, spa_type_param_buffers },
+	{ SPA_ID_INVALID, "", SPA_ID_Enum, spa_types },
 	{ 0, NULL, },
 };
 

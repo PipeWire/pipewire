@@ -35,15 +35,17 @@ struct spa_event {
 	struct spa_event_body body;
 };
 
-#define SPA_EVENT_TYPE(ev)   ((ev)->body.body.type)
+#define SPA_EVENT_TYPE(ev)	((ev)->body.body.type)
+#define SPA_EVENT_ID(ev,type)	(SPA_EVENT_TYPE(ev) == type ? \
+					(ev)->body.body.id : SPA_ID_INVALID)
 
-#define SPA_EVENT_INIT(type) (struct spa_event)				\
-	{ { sizeof(struct spa_event_body), SPA_POD_TYPE_OBJECT },	\
-	  { { 0, type } } }						\
+#define SPA_EVENT_INIT(type,id) (struct spa_event)			\
+	{ { sizeof(struct spa_event_body), SPA_ID_Object },		\
+	  { { id, type } } }						\
 
-#define SPA_EVENT_INIT_FULL(t,size,type,...) (t)			\
-	{ { size, SPA_POD_TYPE_OBJECT },				\
-	  { { 0, type }, ##__VA_ARGS__ } }				\
+#define SPA_EVENT_INIT_FULL(t,size,type,id,...) (t)			\
+	{ { size, SPA_ID_OBJECT },					\
+	  { { id, type }, ##__VA_ARGS__ } }				\
 
 #ifdef __cplusplus
 }  /* extern "C" */

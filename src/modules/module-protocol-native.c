@@ -109,73 +109,6 @@ struct client_data {
 	bool busy;
 };
 
-#if 0
-static bool pod_remap_data(uint32_t type, void *body, uint32_t size, struct pw_map *types)
-{
-	void *t;
-
-	switch (type) {
-	case SPA_POD_TYPE_ID:
-		if ((t = pw_map_lookup(types, *(int32_t *) body)) == NULL)
-			return false;
-		*(int32_t *) body = PW_MAP_PTR_TO_ID(t);
-		break;
-
-	case SPA_POD_TYPE_PROP:
-	{
-		struct spa_pod_prop_body *b = body;
-
-		if ((t = pw_map_lookup(types, b->key)) == NULL)
-			return false;
-		b->key = PW_MAP_PTR_TO_ID(t);
-
-		if (b->value.type == SPA_POD_TYPE_ID) {
-			void *alt;
-			if (!pod_remap_data
-			    (b->value.type, SPA_POD_BODY(&b->value), b->value.size, types))
-				return false;
-
-			SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt)
-				if (!pod_remap_data(b->value.type, alt, b->value.size, types))
-					return false;
-		}
-		break;
-	}
-	case SPA_POD_TYPE_OBJECT:
-	{
-		struct spa_pod_object_body *b = body;
-		struct spa_pod *p;
-
-		if ((t = pw_map_lookup(types, b->id)) != NULL)
-			b->id = PW_MAP_PTR_TO_ID(t);
-		else
-			b->id = SPA_ID_INVALID;
-
-		if ((t = pw_map_lookup(types, b->type)) == NULL)
-			return false;
-		b->type = PW_MAP_PTR_TO_ID(t);
-
-		SPA_POD_OBJECT_BODY_FOREACH(b, size, p)
-			if (!pod_remap_data(p->type, SPA_POD_BODY(p), p->size, types))
-				return false;
-		break;
-	}
-	case SPA_POD_TYPE_STRUCT:
-	{
-		struct spa_pod *b = body, *p;
-
-		SPA_POD_FOREACH(b, size, p)
-			if (!pod_remap_data(p->type, SPA_POD_BODY(p), p->size, types))
-				return false;
-		break;
-	}
-	default:
-		break;
-	}
-	return true;
-}
-#endif
-
 static void
 process_messages(struct client_data *data)
 {
@@ -229,12 +162,6 @@ process_messages(struct client_data *data)
 				     client->protocol, opcode, id);
 			continue;
 		}
-
-#if 0
-		if (demarshal[opcode].flags & PW_PROTOCOL_NATIVE_REMAP)
-			if (!pod_remap_data(SPA_POD_TYPE_STRUCT, message, size, &client->types))
-				goto invalid_message;
-#endif
 
 		if (debug_messages) {
 			fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
@@ -562,16 +489,6 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 				continue;
 			}
 
-#if 0
-			if (demarshal[opcode].flags & PW_PROTOCOL_NATIVE_REMAP) {
-				if (!pod_remap_data(SPA_POD_TYPE_STRUCT, message, size, &this->types)) {
-                                        pw_log_error
-                                            ("protocol-native %p: invalid message received %u for %u", this,
-                                             opcode, id);
-					continue;
-				}
-			}
-#endif
 			if (debug_messages) {
 				fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
 			        spa_debug_pod(0, spa_debug_types, (struct spa_pod *)message);

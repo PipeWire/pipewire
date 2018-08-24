@@ -31,15 +31,15 @@ extern "C" {
 #define SPA_TYPE_FORMAT_AUDIO_BASE	SPA_TYPE__FormatAudio ":"
 
 static const struct spa_type_info spa_type_format_audio_ids[] = {
-	{ SPA_FORMAT_AUDIO_format, SPA_TYPE_FORMAT_AUDIO_BASE "format", SPA_POD_TYPE_INT,
+	{ SPA_FORMAT_AUDIO_format, SPA_TYPE_FORMAT_AUDIO_BASE "format", SPA_ID_Enum,
 		spa_type_audio_format },
-	{ SPA_FORMAT_AUDIO_flags, SPA_TYPE_FORMAT_AUDIO_BASE "flags", SPA_POD_TYPE_INT,
+	{ SPA_FORMAT_AUDIO_flags, SPA_TYPE_FORMAT_AUDIO_BASE "flags", SPA_ID_Enum,
 		spa_type_audio_flags },
-	{ SPA_FORMAT_AUDIO_layout, SPA_TYPE_FORMAT_AUDIO_BASE "layout", SPA_POD_TYPE_INT,
+	{ SPA_FORMAT_AUDIO_layout, SPA_TYPE_FORMAT_AUDIO_BASE "layout", SPA_ID_Enum,
 		spa_type_audio_layout },
-	{ SPA_FORMAT_AUDIO_rate, SPA_TYPE_FORMAT_AUDIO_BASE "rate", SPA_POD_TYPE_INT, },
-	{ SPA_FORMAT_AUDIO_channels, SPA_TYPE_FORMAT_AUDIO_BASE "channels", SPA_POD_TYPE_INT, },
-	{ SPA_FORMAT_AUDIO_channelMask, SPA_TYPE_FORMAT_AUDIO_BASE "channelMask", SPA_POD_TYPE_INT, },
+	{ SPA_FORMAT_AUDIO_rate, SPA_TYPE_FORMAT_AUDIO_BASE "rate", SPA_ID_Int, },
+	{ SPA_FORMAT_AUDIO_channels, SPA_TYPE_FORMAT_AUDIO_BASE "channels", SPA_ID_Int, },
+	{ SPA_FORMAT_AUDIO_channelMask, SPA_TYPE_FORMAT_AUDIO_BASE "channelMask", SPA_ID_Int, },
         { 0, NULL, },
 };
 

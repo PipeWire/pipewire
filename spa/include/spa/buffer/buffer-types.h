@@ -39,9 +39,9 @@ extern "C" {
 #define SPA_TYPE_DATA_FD_BASE		SPA_TYPE_DATA__Fd ":"
 
 static const struct spa_type_info spa_type_data_type[] = {
-	{ SPA_DATA_MemPtr, SPA_TYPE_DATA_BASE "MemPtr", SPA_POD_TYPE_INT, },
-	{ SPA_DATA_MemFd, SPA_TYPE_DATA_FD_BASE "MemFd", SPA_POD_TYPE_INT, },
-	{ SPA_DATA_DmaBuf, SPA_TYPE_DATA_FD_BASE "DmaBuf", SPA_POD_TYPE_INT, },
+	{ SPA_DATA_MemPtr, SPA_TYPE_DATA_BASE "MemPtr", SPA_ID_INT, },
+	{ SPA_DATA_MemFd, SPA_TYPE_DATA_FD_BASE "MemFd", SPA_ID_INT, },
+	{ SPA_DATA_DmaBuf, SPA_TYPE_DATA_FD_BASE "DmaBuf", SPA_ID_INT, },
 	{ 0, NULL, },
 };
 

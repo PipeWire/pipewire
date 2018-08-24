@@ -219,14 +219,14 @@ static void on_monitor_event(void *data, struct spa_event *event)
 	now_nsec = now.tv_sec * SPA_NSEC_PER_SEC + now.tv_nsec;
 
 	item = SPA_POD_CONTENTS(struct spa_event, event);
-	switch(SPA_EVENT_TYPE(event)) {
-	case SPA_ID_EVENT_MONITOR_Added:
+	switch (SPA_MONITOR_EVENT_ID(event)) {
+	case SPA_MONITOR_EVENT_Added:
 		add_item(this, item, now_nsec);
 		break;
-	case SPA_ID_EVENT_MONITOR_Removed:
+	case SPA_MONITOR_EVENT_Removed:
 		remove_item(this, item, now_nsec);
 		break;
-	case SPA_ID_EVENT_MONITOR_Changed:
+	case SPA_MONITOR_EVENT_Changed:
 		change_item(this, item, now_nsec);
 		break;
 	}

@@ -885,8 +885,8 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 	struct pw_remote *remote = proxy->remote;
 	int res;
 
-	switch (SPA_COMMAND_TYPE(command)) {
-	case SPA_ID_COMMAND_NODE_Pause:
+	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_Pause:
 		pw_log_debug("node %p: pause %d", proxy, seq);
 
 		pw_loop_update_io(remote->core->data_loop,
@@ -898,7 +898,7 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
 		break;
-	case SPA_ID_COMMAND_NODE_Start:
+	case SPA_NODE_COMMAND_Start:
 		pw_log_debug("node %p: start %d", proxy, seq);
 
 		pw_loop_update_io(remote->core->data_loop,
@@ -911,7 +911,7 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
 		break;
 	default:
-		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
+		pw_log_warn("unhandled node command %d", SPA_NODE_COMMAND_ID(command));
 		pw_client_node_proxy_done(data->node_proxy, seq, -ENOTSUP);
 	}
 }

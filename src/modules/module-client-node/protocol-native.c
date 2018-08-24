@@ -899,10 +899,10 @@ static const struct pw_client_node_proxy_methods pw_protocol_native_client_node_
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_method_demarshal[] = {
 	{ &client_node_demarshal_done, 0 },
-	{ &client_node_demarshal_update, PW_PROTOCOL_NATIVE_REMAP },
-	{ &client_node_demarshal_port_update, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_update, 0 },
+	{ &client_node_demarshal_port_update, 0 },
 	{ &client_node_demarshal_set_active, 0 },
-	{ &client_node_demarshal_event_method, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_event_method, 0 },
 	{ &client_node_demarshal_destroy, 0 },
 };
 
@@ -923,18 +923,18 @@ static const struct pw_client_node_proxy_events pw_protocol_native_client_node_e
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_event_demarshal[] = {
-	{ &client_node_demarshal_add_mem, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_add_mem, 0 },
 	{ &client_node_demarshal_transport, 0 },
-	{ &client_node_demarshal_set_param, PW_PROTOCOL_NATIVE_REMAP },
-	{ &client_node_demarshal_set_io, PW_PROTOCOL_NATIVE_REMAP },
-	{ &client_node_demarshal_event_event, PW_PROTOCOL_NATIVE_REMAP },
-	{ &client_node_demarshal_command, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_set_param, 0 },
+	{ &client_node_demarshal_set_io, 0 },
+	{ &client_node_demarshal_event_event, 0 },
+	{ &client_node_demarshal_command, 0 },
 	{ &client_node_demarshal_add_port, 0 },
 	{ &client_node_demarshal_remove_port, 0 },
-	{ &client_node_demarshal_port_set_param, PW_PROTOCOL_NATIVE_REMAP },
-	{ &client_node_demarshal_port_use_buffers, PW_PROTOCOL_NATIVE_REMAP },
-	{ &client_node_demarshal_port_command, PW_PROTOCOL_NATIVE_REMAP },
-	{ &client_node_demarshal_port_set_io, PW_PROTOCOL_NATIVE_REMAP },
+	{ &client_node_demarshal_port_set_param, 0 },
+	{ &client_node_demarshal_port_use_buffers, 0 },
+	{ &client_node_demarshal_port_command, 0 },
+	{ &client_node_demarshal_port_set_io, 0 },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_client_node_marshal = {

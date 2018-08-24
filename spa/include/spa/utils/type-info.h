@@ -65,6 +65,9 @@ struct spa_type_info {
 #define SPA_TYPE__Event				SPA_TYPE_OBJECT_BASE "Event"
 #define SPA_TYPE_EVENT_BASE			SPA_TYPE__Event ":"
 
+#define SPA_TYPE__Command			SPA_TYPE_OBJECT_BASE "Command"
+#define SPA_TYPE_COMMAND_BASE			SPA_TYPE__Command ":"
+
 #include <spa/monitor/type-info.h>
 #include <spa/node/type-info.h>
 
@@ -111,6 +114,8 @@ static const struct spa_type_info spa_types[] = {
 	{ SPA_ID_EVENT_Monitor, SPA_TYPE_EVENT_BASE "Monitor", SPA_ID_EVENT_BASE, },
 	{ SPA_ID_EVENT_Node, SPA_TYPE_EVENT_BASE "Node", SPA_ID_EVENT_BASE, },
 
+	{ SPA_ID_COMMAND_BASE, SPA_TYPE__Command, SPA_ID_Object, },
+	{ SPA_ID_COMMAND_Node, SPA_TYPE_COMMAND_BASE "Node", SPA_ID_COMMAND_BASE, },
 
 	{ 0, NULL, }
 };

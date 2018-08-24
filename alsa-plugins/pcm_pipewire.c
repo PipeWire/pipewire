@@ -33,8 +33,6 @@
 #include <alsa/asoundlib.h>
 #include <alsa/pcm_external.h>
 
-#include <spa/support/type-map.h>
-#include <spa/param/format-utils.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/node/io.h>
@@ -46,21 +44,6 @@
 
 #define MAX_CHANNELS	32
 #define MAX_RATE	(48000*8)
-
-struct type {
-	struct spa_type_media_type media_type;
-	struct spa_type_media_subtype media_subtype;
-	struct spa_type_format_audio format_audio;
-	struct spa_type_audio_format audio_format;
-};
-
-static inline void init_type(struct type *type, struct spa_type_map *map)
-{
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_audio_map(map, &type->format_audio);
-	spa_type_audio_format_map(map, &type->audio_format);
-}
 
 typedef struct {
 	snd_pcm_ioplug_t io;
@@ -77,13 +60,10 @@ typedef struct {
 	unsigned int sample_bits;
 	snd_pcm_uframes_t min_avail;
 
-	struct type type;
-
 	struct pw_loop *loop;
 	struct pw_thread_loop *main_loop;
 
 	struct pw_core *core;
-	struct pw_type *t;
 
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
@@ -330,7 +310,6 @@ snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 static void on_stream_format_changed(void *data, const struct spa_pod *format)
 {
 	snd_pcm_pipewire_t *pw = data;
-	struct pw_type *t = pw->t;
 	snd_pcm_ioplug_t *io = &pw->io;
 	const struct spa_pod *params[4];
 	uint32_t n_params = 0;
@@ -343,14 +322,14 @@ static void on_stream_format_changed(void *data, const struct spa_pod *format)
 	pw_log_info("buffers %lu %lu %u %u %u", io->buffer_size, io->period_size, buffers, stride, size);
 
 	params[n_params++] = spa_pod_builder_object(&b,
-	                t->param.idBuffers, t->param_buffers.Buffers,
-			":", t->param_buffers.buffers, "iru", buffers,
+	                SPA_ID_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+			":", SPA_PARAM_BUFFERS_buffers, "iru", buffers,
 					SPA_POD_PROP_MIN_MAX(MIN_BUFFERS, MAX_BUFFERS),
-			":", t->param_buffers.blocks,  "i", 1,
-			":", t->param_buffers.size,    "ir", size,
+			":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
+			":", SPA_PARAM_BUFFERS_size,    "ir", size,
 					SPA_POD_PROP_MIN_MAX(size, INT_MAX),
-			":", t->param_buffers.stride,  "i", stride,
-			":", t->param_buffers.align,   "i", 16);
+			":", SPA_PARAM_BUFFERS_stride,  "i", stride,
+			":", SPA_PARAM_BUFFERS_align,   "i", 16);
 
 	pw_stream_finish_format(pw->stream, 0, params, n_params);
 }
@@ -386,7 +365,6 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	struct pw_type *t = pw->t;
 	struct pw_properties *props;
 	int res;
 
@@ -416,13 +394,13 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	pw_stream_add_listener(pw->stream, &pw->stream_listener, &stream_events, pw);
 
 	params[0] = spa_pod_builder_object(&b,
-		t->param.idEnumFormat, t->spa_format,
-		"I", pw->type.media_type.audio,
-		"I", pw->type.media_subtype.raw,
-		":", pw->type.format_audio.format,     "I", pw->format.format,
-		":", pw->type.format_audio.layout,     "i", pw->format.layout,
-		":", pw->type.format_audio.channels,   "i", pw->format.channels,
-		":", pw->type.format_audio.rate,       "i", pw->format.rate);
+		SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+		"I", SPA_MEDIA_TYPE_audio,
+		"I", SPA_MEDIA_SUBTYPE_raw,
+		":", SPA_FORMAT_AUDIO_format,     "I", pw->format.format,
+		":", SPA_FORMAT_AUDIO_layout,     "i", pw->format.layout,
+		":", SPA_FORMAT_AUDIO_channels,   "i", pw->format.channels,
+		":", SPA_FORMAT_AUDIO_rate,       "i", pw->format.rate);
 
 	pw->error = false;
 
@@ -433,6 +411,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 			  pw->target,
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_MAP_BUFFERS |
+//			  PW_STREAM_FLAG_EXCLUSIVE |
 			  PW_STREAM_FLAG_RT_PROCESS,
 			  params, 1);
 
@@ -481,11 +460,11 @@ static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io)
 }
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-#define _FORMAT_LE(s, fmt)  s . fmt ## _OE
-#define _FORMAT_BE(s, fmt)  s . fmt
+#define _FORMAT_LE(fmt)  SPA_AUDIO_FORMAT_ ## fmt ## _OE
+#define _FORMAT_BE(fmt)  SPA_AUDIO_FORMAT_ ## fmt
 #elif __BYTE_ORDER == __LITTLE_ENDIAN
-#define _FORMAT_LE(s, fmt)  s . fmt
-#define _FORMAT_BE(s, fmt)  s . fmt ## _OE
+#define _FORMAT_LE(fmt)  SPA_AUDIO_FORMAT_ ## fmt
+#define _FORMAT_BE(fmt)  SPA_AUDIO_FORMAT_ ## fmt ## _OE
 #endif
 
 static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
@@ -495,37 +474,37 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 
 	switch(io->format) {
 	case SND_PCM_FORMAT_U8:
-		pw->format.format = pw->type.audio_format.U8;
+		pw->format.format = SPA_AUDIO_FORMAT_U8;
 		break;
         case SND_PCM_FORMAT_S16_LE:
-		pw->format.format = _FORMAT_LE(pw->type.audio_format, S16);
+		pw->format.format = _FORMAT_LE(S16);
 		break;
 	case SND_PCM_FORMAT_S16_BE:
-		pw->format.format = _FORMAT_BE(pw->type.audio_format, S16);
+		pw->format.format = _FORMAT_BE(S16);
 		break;
 	case SND_PCM_FORMAT_S24_LE:
-		pw->format.format = _FORMAT_LE(pw->type.audio_format, S24_32);
+		pw->format.format = _FORMAT_LE(S24_32);
 		break;
 	case SND_PCM_FORMAT_S24_BE:
-		pw->format.format = _FORMAT_BE(pw->type.audio_format, S24_32);
+		pw->format.format = _FORMAT_BE(S24_32);
 		break;
 	case SND_PCM_FORMAT_S32_LE:
-		pw->format.format = _FORMAT_LE(pw->type.audio_format, S32);
+		pw->format.format = _FORMAT_LE(S32);
 		break;
 	case SND_PCM_FORMAT_S32_BE:
-		pw->format.format = _FORMAT_BE(pw->type.audio_format, S32);
+		pw->format.format = _FORMAT_BE(S32);
 		break;
 	case SND_PCM_FORMAT_S24_3LE:
-		pw->format.format = _FORMAT_LE(pw->type.audio_format, S24);
+		pw->format.format = _FORMAT_LE(S24);
 		break;
 	case SND_PCM_FORMAT_S24_3BE:
-		pw->format.format = _FORMAT_BE(pw->type.audio_format, S24);
+		pw->format.format = _FORMAT_BE(S24);
 		break;
 	case SND_PCM_FORMAT_FLOAT_LE:
-		pw->format.format = _FORMAT_LE(pw->type.audio_format, F32);
+		pw->format.format = _FORMAT_LE(F32);
 		break;
 	case SND_PCM_FORMAT_FLOAT_BE:
-		pw->format.format = _FORMAT_BE(pw->type.audio_format, F32);
+		pw->format.format = _FORMAT_BE(F32);
 		break;
 	default:
 		SNDERR("PipeWire: invalid format: %d\n", io->format);
@@ -703,8 +682,6 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
         pw->loop = pw_loop_new(NULL);
         pw->main_loop = pw_thread_loop_new(pw->loop, "alsa-pipewire");
         pw->core = pw_core_new(pw->loop, NULL);
-        pw->t = pw_core_get_type(pw->core);
-        init_type(&pw->type, pw->t->map);
 
 	pw->remote = pw_remote_new(pw->core, NULL, 0);
 	pw_remote_add_listener(pw->remote, &pw->remote_listener, &remote_events, pw);

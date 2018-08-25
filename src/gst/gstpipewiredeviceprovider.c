@@ -376,7 +376,7 @@ static void port_event_info(void *data, struct pw_port_info *info)
 
   if (info->change_mask & PW_PORT_CHANGE_MASK_ENUM_PARAMS) {
     pw_port_proxy_enum_params((struct pw_port_proxy*)port_data->proxy,
-				SPA_ID_PARAM_EnumFormat, 0, 0, NULL);
+				SPA_PARAM_EnumFormat, 0, 0, NULL);
     add_pending(self, &port_data->pending_param, do_add_node, port_data);
   }
 }

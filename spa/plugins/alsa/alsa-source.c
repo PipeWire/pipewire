@@ -67,10 +67,10 @@ static int impl_node_enum_params(struct spa_node *node,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_ID_PARAM_List:
+	case SPA_PARAM_List:
 	{
-		uint32_t list[] = { SPA_ID_PARAM_PropInfo,
-				    SPA_ID_PARAM_Props, };
+		uint32_t list[] = { SPA_PARAM_PropInfo,
+				    SPA_PARAM_Props, };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
@@ -79,7 +79,7 @@ static int impl_node_enum_params(struct spa_node *node,
 			return 0;
 		break;
 	}
-	case SPA_ID_PARAM_PropInfo:
+	case SPA_PARAM_PropInfo:
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
@@ -123,7 +123,7 @@ static int impl_node_enum_params(struct spa_node *node,
 		}
 		break;
 
-	case SPA_ID_PARAM_Props:
+	case SPA_PARAM_Props:
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
@@ -161,7 +161,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	this = SPA_CONTAINER_OF(node, struct state, node);
 
 	switch (id) {
-	case SPA_ID_PARAM_Props:
+	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
 
@@ -319,11 +319,11 @@ static int port_get_format(struct spa_node *node,
 		return 0;
 
 	*param = spa_pod_builder_object(builder,
-		SPA_ID_PARAM_Format, SPA_ID_OBJECT_Format,
+		SPA_PARAM_Format, SPA_ID_OBJECT_Format,
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,   "I", this->current_format.info.raw.format,
-		":", SPA_FORMAT_AUDIO_layout,   "i", this->current_format.info.raw.layout,
+		":", SPA_FORMAT_AUDIO_layout,   "I", this->current_format.info.raw.layout,
 		":", SPA_FORMAT_AUDIO_rate,     "i", this->current_format.info.raw.rate,
 		":", SPA_FORMAT_AUDIO_channels, "i", this->current_format.info.raw.channels);
 
@@ -356,12 +356,12 @@ impl_node_port_enum_params(struct spa_node *node,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_ID_PARAM_List:
+	case SPA_PARAM_List:
 	{
-		uint32_t list[] = { SPA_ID_PARAM_EnumFormat,
-				    SPA_ID_PARAM_Format,
-				    SPA_ID_PARAM_Buffers,
-				    SPA_ID_PARAM_Meta };
+		uint32_t list[] = { SPA_PARAM_EnumFormat,
+				    SPA_PARAM_Format,
+				    SPA_PARAM_Buffers,
+				    SPA_PARAM_Meta };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
@@ -370,15 +370,15 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 		break;
 	}
-	case SPA_ID_PARAM_EnumFormat:
+	case SPA_PARAM_EnumFormat:
 		return spa_alsa_enum_format(this, index, filter, result, builder);
 
-	case SPA_ID_PARAM_Format:
+	case SPA_PARAM_Format:
 		if ((res = port_get_format(node, direction, port_id, index, &param, &b)) <= 0)
 			return res;
 		break;
 
-	case SPA_ID_PARAM_Buffers:
+	case SPA_PARAM_Buffers:
 		if (!this->have_format)
 			return -EIO;
 		if (*index > 0)
@@ -397,7 +397,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			":", SPA_PARAM_BUFFERS_align,   "i", 16);
 		break;
 
-	case SPA_ID_PARAM_Meta:
+	case SPA_PARAM_Meta:
 		if (!this->have_format)
 			return -EIO;
 
@@ -413,18 +413,18 @@ impl_node_port_enum_params(struct spa_node *node,
 		}
 		break;
 
-	case SPA_ID_PARAM_IO:
+	case SPA_PARAM_IO:
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
 				id, SPA_ID_OBJECT_ParamIO,
-				":", SPA_PARAM_IO_id,   "I", SPA_ID_IO_Buffers,
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Buffers,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
 				id, SPA_ID_OBJECT_ParamIO,
-				":", SPA_PARAM_IO_id,   "I", SPA_ID_IO_Clock,
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Clock,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_clock));
 			break;
 		default:
@@ -504,7 +504,7 @@ impl_node_port_set_param(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(node, direction, port_id), -EINVAL);
 
-	if (id == SPA_ID_PARAM_Format) {
+	if (id == SPA_PARAM_Format) {
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else
@@ -599,13 +599,16 @@ impl_node_port_set_io(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	if (id == SPA_ID_IO_Buffers)
+	switch (id) {
+	case SPA_IO_Buffers:
 		this->io = data;
-	else if (id == SPA_ID_IO_Clock)
+		break;
+	case SPA_IO_Clock:
 		this->clock = data;
-	else
+		break;
+	default:
 		return -ENOENT;
-
+	}
 	return 0;
 }
 

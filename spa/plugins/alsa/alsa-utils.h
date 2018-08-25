@@ -34,9 +34,7 @@ extern "C" {
 
 #include <spa/node/node.h>
 #include <spa/node/io.h>
-#include <spa/param/buffers.h>
-#include <spa/param/io.h>
-#include <spa/param/meta.h>
+#include <spa/param/param.h>
 #include <spa/param/audio/format-utils.h>
 
 #define DEFAULT_RATE		48000

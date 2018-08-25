@@ -26,9 +26,7 @@
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/param/buffers.h>
-#include <spa/param/meta.h>
-#include <spa/param/io.h>
+#include <spa/param/param.h>
 #include <spa/pod/filter.h>
 
 #define NAME "floatmix"
@@ -327,20 +325,20 @@ static int port_enum_formats(struct spa_node *node,
 	case 0:
 		if (this->have_format) {
 			*param = spa_pod_builder_object(builder,
-				SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+				SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
 				"I", SPA_MEDIA_TYPE_audio,
 				"I", SPA_MEDIA_SUBTYPE_raw,
 				":", SPA_FORMAT_AUDIO_format,   "I", this->format.info.raw.format,
-				":", SPA_FORMAT_AUDIO_layout,   "i", this->format.info.raw.layout,
+				":", SPA_FORMAT_AUDIO_layout,   "I", this->format.info.raw.layout,
 				":", SPA_FORMAT_AUDIO_rate,     "i", this->format.info.raw.rate,
 				":", SPA_FORMAT_AUDIO_channels, "i", this->format.info.raw.channels);
 		} else {
 			*param = spa_pod_builder_object(builder,
-				SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+				SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
 				"I", SPA_MEDIA_TYPE_audio,
 				"I", SPA_MEDIA_SUBTYPE_raw,
 				":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
-				":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
+				":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
 				":", SPA_FORMAT_AUDIO_rate,     "iru", 44100,
 					SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
 				":", SPA_FORMAT_AUDIO_channels, "iru", 1);
@@ -367,11 +365,11 @@ static int port_get_format(struct spa_node *node,
 		return 0;
 
 	*param = spa_pod_builder_object(builder,
-		SPA_ID_PARAM_Format, SPA_ID_OBJECT_Format,
+		SPA_PARAM_Format, SPA_ID_OBJECT_Format,
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,   "I", this->format.info.raw.format,
-		":", SPA_FORMAT_AUDIO_layout,   "i", this->format.info.raw.layout,
+		":", SPA_FORMAT_AUDIO_layout,   "I", this->format.info.raw.layout,
 		":", SPA_FORMAT_AUDIO_rate,     "i", this->format.info.raw.rate,
 		":", SPA_FORMAT_AUDIO_channels, "i", this->format.info.raw.channels);
 
@@ -407,13 +405,13 @@ impl_node_port_enum_params(struct spa_node *node,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_ID_PARAM_List:
+	case SPA_PARAM_List:
 	{
-		uint32_t list[] = { SPA_ID_PARAM_EnumFormat,
-				    SPA_ID_PARAM_Format,
-				    SPA_ID_PARAM_Buffers,
-				    SPA_ID_PARAM_Meta,
-				    SPA_ID_PARAM_IO };
+		uint32_t list[] = { SPA_PARAM_EnumFormat,
+				    SPA_PARAM_Format,
+				    SPA_PARAM_Buffers,
+				    SPA_PARAM_Meta,
+				    SPA_PARAM_IO };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
@@ -422,16 +420,16 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 		break;
 	}
-	case SPA_ID_PARAM_EnumFormat:
+	case SPA_PARAM_EnumFormat:
 		if ((res = port_enum_formats(node, direction, port_id, index, &param, &b)) <= 0)
 			return res;
 		break;
 
-	case SPA_ID_PARAM_Format:
+	case SPA_PARAM_Format:
 		if ((res = port_get_format(node, direction, port_id, index, &param, &b)) <= 0)
 			return res;
 		break;
-	case SPA_ID_PARAM_Buffers:
+	case SPA_PARAM_Buffers:
 		if (!port->have_format)
 			return -EIO;
 		if (*index > 0)
@@ -448,7 +446,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			":", SPA_PARAM_BUFFERS_align,   "i", 16);
 		break;
 
-	case SPA_ID_PARAM_Meta:
+	case SPA_PARAM_Meta:
 		if (!port->have_format)
 			return -EIO;
 
@@ -464,18 +462,18 @@ impl_node_port_enum_params(struct spa_node *node,
 		}
 		break;
 
-	case SPA_ID_PARAM_IO:
+	case SPA_PARAM_IO:
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
 				id, SPA_ID_OBJECT_ParamIO,
-				":", SPA_PARAM_IO_id,   "I", SPA_ID_IO_Buffers,
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Buffers,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
 				id, SPA_ID_OBJECT_ParamIO,
-				":", SPA_PARAM_IO_id,   "I", SPA_ID_IO_ControlRange,
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_ControlRange,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_control_range));
 			break;
 		default:
@@ -628,7 +626,7 @@ impl_node_port_set_param(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	if (id == SPA_ID_PARAM_Format) {
+	if (id == SPA_PARAM_Format) {
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else
@@ -714,9 +712,9 @@ impl_node_port_set_io(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	if (id == SPA_ID_IO_Buffers)
+	if (id == SPA_IO_Buffers)
 		port->io = data;
-	else if (id == SPA_ID_IO_ControlRange)
+	else if (id == SPA_IO_ControlRange)
 		port->ctrl = data;
 #if 0
 	else if (id == t->io_prop_volume && direction == SPA_DIRECTION_INPUT)

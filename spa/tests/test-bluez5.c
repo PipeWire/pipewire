@@ -37,7 +37,6 @@
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/param/io.h>
 
 #define M_PI_M2 ( M_PI + M_PI )
 

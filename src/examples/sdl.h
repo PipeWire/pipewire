@@ -97,9 +97,9 @@ static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_
 {
 	int i, c;
 
-	spa_pod_builder_push_object(b, SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
-	spa_pod_builder_id(b, SPA_MEDIA_TYPE_video);
-	spa_pod_builder_id(b, SPA_MEDIA_SUBTYPE_raw);
+	spa_pod_builder_push_object(b, SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
+	spa_pod_builder_enum(b, SPA_MEDIA_TYPE_video);
+	spa_pod_builder_enum(b, SPA_MEDIA_SUBTYPE_raw);
 
 	spa_pod_builder_push_prop(b, SPA_FORMAT_VIDEO_format,
 				  SPA_POD_PROP_FLAG_UNSET |
@@ -109,13 +109,13 @@ static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_
 		if (id == 0)
 			continue;
 		if (c++ == 0)
-			spa_pod_builder_id(b, id);
-		spa_pod_builder_id(b, id);
+			spa_pod_builder_enum(b, id);
+		spa_pod_builder_enum(b, id);
 	}
 	for (i = 0; i < SPA_N_ELEMENTS(sdl_video_formats); i++) {
 		uint32_t id = sdl_video_formats[i].id;
 		if (id != SPA_VIDEO_FORMAT_UNKNOWN)
-			spa_pod_builder_id(b, id);
+			spa_pod_builder_enum(b, id);
 	}
 	spa_pod_builder_pop(b);
 	spa_pod_builder_add(b,

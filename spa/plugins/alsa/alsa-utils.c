@@ -133,7 +133,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	snd_pcm_hw_params_alloca(&params);
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
 
-	spa_pod_builder_push_object(&b, SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
+	spa_pod_builder_push_object(&b, SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
 	spa_pod_builder_add(&b,
 			"I", SPA_MEDIA_TYPE_audio,
 			"I", SPA_MEDIA_SUBTYPE_raw, 0);
@@ -150,8 +150,8 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 
 		if (snd_pcm_format_mask_test(fmask, fi->format)) {
 			if (j++ == 0)
-				spa_pod_builder_id(&b, fi->spa_format);
-			spa_pod_builder_id(&b, fi->spa_format);
+				spa_pod_builder_enum(&b, fi->spa_format);
+			spa_pod_builder_enum(&b, fi->spa_format);
 		}
 	}
 	if (j > 1)
@@ -167,13 +167,13 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	j = 0;
 	if (snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_INTERLEAVED)) {
 		if (j++ == 0)
-			spa_pod_builder_int(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
-		spa_pod_builder_int(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
+			spa_pod_builder_enum(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
+		spa_pod_builder_enum(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
 	}
 	if (snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_NONINTERLEAVED)) {
 		if (j++ == 0)
-			spa_pod_builder_int(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
-		spa_pod_builder_int(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
+			spa_pod_builder_enum(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
+		spa_pod_builder_enum(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
 	}
 	if (j > 1)
 		prop->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;

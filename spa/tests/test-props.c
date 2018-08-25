@@ -170,8 +170,8 @@ static void do_static_struct(void)
 		struct spa_pod_object fmt;
 
 		struct {
-			struct spa_pod_id media_type		SPA_ALIGNED(8);
-			struct spa_pod_id media_subtype		SPA_ALIGNED(8);
+			struct spa_pod_enum media_type		SPA_ALIGNED(8);
+			struct spa_pod_enum media_subtype		SPA_ALIGNED(8);
 
 			struct spa_pod_prop prop_format		SPA_ALIGNED(8);
 			struct {
@@ -197,8 +197,8 @@ static void do_static_struct(void)
 		SPA_POD_OBJECT_INIT(sizeof(test_format.props) + sizeof(struct spa_pod_object_body),
 				0, SPA_ID_OBJECT_Format),
 		{
-			SPA_POD_ID_INIT(SPA_MEDIA_TYPE_video),
-			SPA_POD_ID_INIT(SPA_MEDIA_SUBTYPE_raw),
+			SPA_POD_ENUM_INIT(SPA_MEDIA_TYPE_video),
+			SPA_POD_ENUM_INIT(SPA_MEDIA_SUBTYPE_raw),
 
 			SPA_POD_PROP_INIT(sizeof(test_format.props.format_vals) +
 						sizeof(struct spa_pod_prop_body),
@@ -266,14 +266,14 @@ int main(int argc, char *argv[])
 
 	spa_pod_builder_push_object(&b, 0, SPA_ID_OBJECT_Format);
 
-	spa_pod_builder_id(&b, SPA_MEDIA_TYPE_video);
-	spa_pod_builder_id(&b, SPA_MEDIA_SUBTYPE_raw);
+	spa_pod_builder_enum(&b, SPA_MEDIA_TYPE_video);
+	spa_pod_builder_enum(&b, SPA_MEDIA_SUBTYPE_raw);
 
 	spa_pod_builder_push_prop(&b, SPA_FORMAT_VIDEO_format,
 				  SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET);
-	spa_pod_builder_id(&b, SPA_VIDEO_FORMAT_I420);
-	spa_pod_builder_id(&b, SPA_VIDEO_FORMAT_I420);
-	spa_pod_builder_id(&b, SPA_VIDEO_FORMAT_YUY2);
+	spa_pod_builder_enum(&b, SPA_VIDEO_FORMAT_I420);
+	spa_pod_builder_enum(&b, SPA_VIDEO_FORMAT_I420);
+	spa_pod_builder_enum(&b, SPA_VIDEO_FORMAT_YUY2);
 	spa_pod_builder_pop(&b);
 
 	struct spa_rectangle size_min_max[] = { {1, 1}, {INT32_MAX, INT32_MAX} };

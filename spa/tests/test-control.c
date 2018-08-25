@@ -35,7 +35,6 @@
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/param/io.h>
 
 #define M_PI_M2 ( M_PI + M_PI )
 
@@ -281,7 +280,7 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_debug_pod(0, spa_debug_types, props);
 
-	if ((res = spa_node_set_param(data->sink, SPA_ID_PARAM_Props, 0, props)) < 0)
+	if ((res = spa_node_set_param(data->sink, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
 
 	if ((res = make_node(data, &data->source,
@@ -301,7 +300,7 @@ static int make_nodes(struct data *data, const char *device)
 	data->ctrl_source_freq = SPA_POD_DOUBLE_INIT(600.0);
 	data->ctrl_source_volume = SPA_POD_DOUBLE_INIT(0.5);
 
-	if ((res = spa_node_set_param(data->source, SPA_ID_PARAM_Props, 0, props)) < 0)
+	if ((res = spa_node_set_param(data->source, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
 
 #if 0
@@ -344,11 +343,11 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_node_port_set_io(data->source,
 			     SPA_DIRECTION_OUTPUT, 0,
-			     SPA_ID_IO_Buffers,
+			     SPA_IO_Buffers,
 			     &data->source_sink_io[0], sizeof(data->source_sink_io[0]));
 	spa_node_port_set_io(data->sink,
 			     SPA_DIRECTION_INPUT, 0,
-			     SPA_ID_IO_Buffers,
+			     SPA_IO_Buffers,
 			     &data->source_sink_io[0], sizeof(data->source_sink_io[0]));
 
 	spa_graph_node_init(&data->source_node, &data->source_state);
@@ -382,7 +381,7 @@ static int negotiate_formats(struct data *data)
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_S16,
-		":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
+		":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_INTERLEAVED,
 		":", SPA_FORMAT_AUDIO_rate,     "i", 44100,
 		":", SPA_FORMAT_AUDIO_channels, "i", 2);
 
@@ -391,7 +390,7 @@ static int negotiate_formats(struct data *data)
 	spa_log_debug(&default_log.log, "enum_params");
 	if ((res = spa_node_port_enum_params(data->sink,
 					     SPA_DIRECTION_INPUT, 0,
-					     SPA_ID_PARAM_EnumFormat, &state,
+					     SPA_PARAM_EnumFormat, &state,
 					     filter, &format, &b)) <= 0)
 		return -EBADF;
 
@@ -400,12 +399,12 @@ static int negotiate_formats(struct data *data)
 	spa_log_debug(&default_log.log, "sink set_param");
 	if ((res = spa_node_port_set_param(data->sink,
 					   SPA_DIRECTION_INPUT, 0,
-					   SPA_ID_PARAM_Format, 0, format)) < 0)
+					   SPA_PARAM_Format, 0, format)) < 0)
 		return res;
 
 	if ((res = spa_node_port_set_param(data->source,
 					   SPA_DIRECTION_OUTPUT, 0,
-					   SPA_ID_PARAM_Format, 0, format)) < 0)
+					   SPA_PARAM_Format, 0, format)) < 0)
 		return res;
 
 	init_buffer(data, data->source_buffers, data->source_buffer, 1, BUFFER_SIZE);

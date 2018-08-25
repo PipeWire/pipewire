@@ -27,9 +27,7 @@
 #include <spa/buffer/alloc.h>
 #include <spa/node/io.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/param/buffers.h>
-#include <spa/param/meta.h>
-#include <spa/param/io.h>
+#include <spa/param/param.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/types.h>
@@ -124,14 +122,14 @@ static int make_link(struct impl *this,
 			       &l->out_info);
 	spa_node_port_set_io(out_node,
 			     SPA_DIRECTION_OUTPUT, out_port,
-			     SPA_ID_IO_Buffers,
+			     SPA_IO_Buffers,
 			     &l->io, sizeof(l->io));
 	spa_node_port_get_info(in_node,
 			       SPA_DIRECTION_INPUT, in_port,
 			       &l->in_info);
 	spa_node_port_set_io(in_node,
 			     SPA_DIRECTION_INPUT, in_port,
-			     SPA_ID_IO_Buffers,
+			     SPA_IO_Buffers,
 			     &l->io, sizeof(l->io));
 	return 0;
 }
@@ -140,10 +138,10 @@ static void clean_link(struct impl *this, struct link *link)
 {
 	spa_node_port_set_param(link->in_node,
 				SPA_DIRECTION_INPUT, link->in_port,
-				SPA_ID_PARAM_Format, 0, NULL);
+				SPA_PARAM_Format, 0, NULL);
 	spa_node_port_set_param(link->out_node,
 				SPA_DIRECTION_OUTPUT, link->out_port,
-				SPA_ID_PARAM_Format, 0, NULL);
+				SPA_PARAM_Format, 0, NULL);
 	if (link->buffers)
 		free(link->buffers);
 	link->buffers = NULL;
@@ -197,20 +195,20 @@ static int negotiate_link_format(struct impl *this, struct link *link)
 	filter = NULL;
 	if ((res = spa_node_port_enum_params(link->out_node,
 			       SPA_DIRECTION_OUTPUT, link->out_port,
-			       SPA_ID_PARAM_EnumFormat, &state,
+			       SPA_PARAM_EnumFormat, &state,
 			       filter, &format, &b)) <= 0) {
 		debug_params(this, link->out_node, SPA_DIRECTION_OUTPUT, link->out_port,
-				SPA_ID_PARAM_EnumFormat, filter);
+				SPA_PARAM_EnumFormat, filter);
 		return -ENOTSUP;
 	}
 	filter = format;
 	state = 0;
 	if ((res = spa_node_port_enum_params(link->in_node,
 			       SPA_DIRECTION_INPUT, link->in_port,
-			       SPA_ID_PARAM_EnumFormat, &state,
+			       SPA_PARAM_EnumFormat, &state,
 			       filter, &format, &b)) <= 0) {
 		debug_params(this, link->in_node, SPA_DIRECTION_INPUT, link->in_port,
-				SPA_ID_PARAM_EnumFormat, filter);
+				SPA_PARAM_EnumFormat, filter);
 		return -ENOTSUP;
 	}
 	filter = format;
@@ -219,13 +217,13 @@ static int negotiate_link_format(struct impl *this, struct link *link)
 
 	if ((res = spa_node_port_set_param(link->out_node,
 				   SPA_DIRECTION_OUTPUT, link->out_port,
-				   SPA_ID_PARAM_Format, 0,
+				   SPA_PARAM_Format, 0,
 				   filter)) < 0)
 		return res;
 
 	if ((res = spa_node_port_set_param(link->in_node,
 				   SPA_DIRECTION_INPUT, link->in_port,
-				   SPA_ID_PARAM_Format, 0,
+				   SPA_PARAM_Format, 0,
 				   filter)) < 0)
 		return res;
 
@@ -281,19 +279,19 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	state = 0;
 	if ((res = spa_node_port_enum_params(link->in_node,
 			       SPA_DIRECTION_INPUT, link->in_port,
-			       SPA_ID_PARAM_Buffers, &state,
+			       SPA_PARAM_Buffers, &state,
 			       param, &param, &b)) <= 0) {
 		debug_params(this, link->out_node, SPA_DIRECTION_OUTPUT, link->out_port,
-				SPA_ID_PARAM_Buffers, param);
+				SPA_PARAM_Buffers, param);
 		return -ENOTSUP;
 	}
 	state = 0;
 	if ((res = spa_node_port_enum_params(link->out_node,
 			       SPA_DIRECTION_OUTPUT, link->out_port,
-			       SPA_ID_PARAM_Buffers, &state,
+			       SPA_PARAM_Buffers, &state,
 			       param, &param, &b)) <= 0) {
 		debug_params(this, link->in_node, SPA_DIRECTION_INPUT, link->in_port,
-				SPA_ID_PARAM_Buffers, param);
+				SPA_PARAM_Buffers, param);
 		return -ENOTSUP;
 	}
 
@@ -564,13 +562,13 @@ impl_node_port_enum_params(struct spa_node *node,
 
 	switch (id) {
       next:
-	case SPA_ID_PARAM_PropInfo:
+	case SPA_PARAM_PropInfo:
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
-				id, SPA_ID_PARAM_PropInfo,
+				id, SPA_ID_OBJECT_PropInfo,
 				":", SPA_PROP_INFO_id, "I", SPA_PROP_volume,
 				":", SPA_PROP_INFO_type, "fru", 1.0,
 					SPA_POD_PROP_MIN_MAX(0.0, 10.0));
@@ -655,7 +653,7 @@ impl_node_port_set_io(struct spa_node *node,
 
 	spa_log_debug(this->log, "set io %d %d %d", id, direction, port_id);
 
-	if (id == SPA_ID_IO_ControlRange)
+	if (id == SPA_IO_ControlRange)
 		res = spa_node_port_set_io(this->resample, direction, 0, id, data, size);
 //	else if (id == t->io_prop_volume)
 //		res = spa_node_port_set_io(this->channelmix, direction, 0, id, data, size);

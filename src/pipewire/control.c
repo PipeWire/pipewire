@@ -47,7 +47,7 @@ pw_control_new(struct pw_core *core,
 
 	direction = SPA_DIRECTION_OUTPUT;
 #if 0
-	direction = spa_pod_is_object_id(param, SPA_ID_PARAM_PropsOut) ?
+	direction = spa_pod_is_object_id(param, SPA_PARAM_PropsOut) ?
 		SPA_DIRECTION_OUTPUT : SPA_DIRECTION_INPUT;
 
 	if (spa_pod_object_parse(param,

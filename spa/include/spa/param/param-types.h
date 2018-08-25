@@ -41,6 +41,8 @@ extern "C" {
 /* object with supported parameter id */
 #define SPA_TYPE_PARAM__List		SPA_TYPE_PARAM_BASE "List"
 #define SPA_TYPE_PARAM_LIST_BASE	SPA_TYPE_PARAM__List ":"
+
+
 #define SPA_TYPE_PARAM_LIST__id		SPA_TYPE_PARAM_LIST_BASE "id"
 
 /** Enum Property info */

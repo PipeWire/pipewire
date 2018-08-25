@@ -502,7 +502,7 @@ do_update_port(struct node *this,
 		for (i = 0; i < port->n_params; i++) {
 			port->params[i] = pw_spa_pod_copy(params[i]);
 
-			if (spa_pod_is_object_id(port->params[i], SPA_ID_PARAM_Format))
+			if (spa_pod_is_object_id(port->params[i], SPA_PARAM_Format))
 				port->have_format = true;
 		}
 	}
@@ -1279,7 +1279,7 @@ static void node_initialized(void *data)
 	pw_log_debug("client-node %p: io areas %p", node, impl->io_areas->ptr);
 
 	pw_client_node_resource_set_io(this->resource,
-				       PW_ID_IO_ClientNodePosition,
+				       PW_IO_ClientNodePosition,
 				       m->id,
 				       area_size,
 				       sizeof(struct pw_client_node_position));
@@ -1434,7 +1434,7 @@ static int impl_mix_port_set_io(struct spa_node *node,
 	if (mix == NULL)
 		return -EIO;
 
-	if (id == SPA_ID_IO_Buffers) {
+	if (id == SPA_IO_Buffers) {
 		if (data && size >= sizeof(struct spa_io_buffers))
 			mix->io = data;
 		else

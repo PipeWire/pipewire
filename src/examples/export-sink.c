@@ -154,7 +154,7 @@ static int impl_port_set_io(struct spa_node *node,
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
-	if (id == SPA_ID_IO_Buffers)
+	if (id == SPA_IO_Buffers)
 		d->io = data;
 #if 0
 	else if (id == d->type.io_prop_param) {
@@ -218,7 +218,7 @@ static int port_get_format(struct spa_node *node,
 		return 0;
 
 	*result = spa_pod_builder_object(builder,
-		SPA_ID_PARAM_Format, SPA_ID_OBJECT_Format,
+		SPA_PARAM_Format, SPA_ID_OBJECT_Format,
 		"I", SPA_MEDIA_TYPE_video,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_VIDEO_format,    "I", d->format.format,
@@ -241,13 +241,13 @@ static int impl_port_enum_params(struct spa_node *node,
 	struct spa_pod *param;
 
 	switch (id) {
-	case SPA_ID_PARAM_List:
+	case SPA_PARAM_List:
 	{
-		uint32_t list[] = { SPA_ID_PARAM_EnumFormat,
-				    SPA_ID_PARAM_Format,
-				    SPA_ID_PARAM_Buffers,
-				    SPA_ID_PARAM_Meta,
-				    SPA_ID_PARAM_IO };
+		uint32_t list[] = { SPA_PARAM_EnumFormat,
+				    SPA_PARAM_Format,
+				    SPA_PARAM_Buffers,
+				    SPA_PARAM_Meta,
+				    SPA_PARAM_IO };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(builder,
@@ -257,13 +257,13 @@ static int impl_port_enum_params(struct spa_node *node,
 			return 0;
 		break;
 	}
-	case SPA_ID_PARAM_EnumFormat:
+	case SPA_PARAM_EnumFormat:
 		return port_enum_formats(node, direction, port_id, index, filter, result, builder);
 
-	case SPA_ID_PARAM_Format:
+	case SPA_PARAM_Format:
 		return port_get_format(node, direction, port_id, index, filter, result, builder);
 
-	case SPA_ID_PARAM_Buffers:
+	case SPA_PARAM_Buffers:
 		if (*index != 0)
 			return 0;
 
@@ -277,7 +277,7 @@ static int impl_port_enum_params(struct spa_node *node,
 			":", SPA_PARAM_BUFFERS_align,   "i", 16);
 		break;
 
-	case SPA_ID_PARAM_Meta:
+	case SPA_PARAM_Meta:
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
@@ -360,7 +360,7 @@ static int impl_port_set_param(struct spa_node *node,
 			       uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
-	if (id == SPA_ID_PARAM_Format) {
+	if (id == SPA_PARAM_Format) {
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else

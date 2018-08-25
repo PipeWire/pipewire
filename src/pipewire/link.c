@@ -183,7 +183,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		index = 0;
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
-						     SPA_ID_PARAM_Format, &index,
+						     SPA_PARAM_Format, &index,
 						     format, &current, &b)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
@@ -204,7 +204,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		index = 0;
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
-						     SPA_ID_PARAM_Format, &index,
+						     SPA_PARAM_Format, &index,
 						     format, &current, &b)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
@@ -230,7 +230,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		pw_log_debug("link %p: doing set format on output mix", this);
 		if ((res = pw_port_set_param(output,
 					     this->rt.out_mix.port.port_id,
-					     SPA_ID_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
+					     SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					     format)) < 0) {
 			asprintf(&error, "error set output format: %d", res);
 			goto error;
@@ -243,7 +243,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		pw_log_debug("link %p: doing set format on input mix", this);
 		if ((res2 = pw_port_set_param(input,
 					      this->rt.in_mix.port.port_id,
-					      SPA_ID_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
+					      SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					      format)) < 0) {
 			asprintf(&error, "error set input format: %d", res2);
 			goto error;
@@ -536,7 +536,7 @@ static int port_set_io(struct pw_link *this, struct pw_port *port, void *data, s
 		if ((res = spa_node_port_set_io(port->mix,
 				     p->direction,
 				     p->port_id,
-				     SPA_ID_IO_Buffers,
+				     SPA_IO_Buffers,
 				     data, size)) < 0)
 			pw_log_warn("port %p: can't set io: %s", port, spa_strerror(res));
 	}
@@ -642,8 +642,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		size_t data_sizes[1];
 		ssize_t data_strides[1];
 
-		n_params = param_filter(this, input, output, SPA_ID_PARAM_Buffers, &b);
-		n_params += param_filter(this, input, output, SPA_ID_PARAM_Meta, &b);
+		n_params = param_filter(this, input, output, SPA_PARAM_Buffers, &b);
+		n_params += param_filter(this, input, output, SPA_PARAM_Meta, &b);
 
 		params = alloca(n_params * sizeof(struct spa_pod *));
 		for (i = 0, offset = 0; i < n_params; i++) {

@@ -26,11 +26,43 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
+/** different parameter types that can be queried */
+enum spa_param_type {
+	SPA_PARAM_List,              /**< available params */
+	SPA_PARAM_PropInfo,          /**< property information */
+	SPA_PARAM_Props,             /**< properties */
+	SPA_PARAM_EnumFormat,        /**< available formats */
+	SPA_PARAM_Format,            /**< configured format */
+	SPA_PARAM_Buffers,           /**< buffer configurations */
+	SPA_PARAM_Meta,              /**< allowed metadata for buffers */
+	SPA_PARAM_IO,                /**< configurable IO areas */
+};
+
 /** Properties for SPA_ID_OBJECT_ParamList */
 enum spa_param_list {
 	SPA_PARAM_LIST_id,	/**< id of the supported list param */
 };
 
+/** properties for SPA_ID_OBJECT_ParamBuffers */
+enum spa_param_buffers {
+	SPA_PARAM_BUFFERS_buffers,	/**< number of buffers */
+	SPA_PARAM_BUFFERS_blocks,	/**< number of data blocks per buffer */
+	SPA_PARAM_BUFFERS_size,		/**< size of a data block memory */
+	SPA_PARAM_BUFFERS_stride,	/**< stride of data block memory */
+	SPA_PARAM_BUFFERS_align,	/**< alignment of data block memory */
+};
+
+/** properties for SPA_ID_OBJECT_ParamMeta */
+enum spa_param_meta {
+	SPA_PARAM_META_type,	/**< the metadata, one of enum spa_meta_type */
+	SPA_PARAM_META_size,	/**< the expected maximum size the meta */
+};
+
+/** properties for SPA_ID_OBJECT_ParamIO */
+enum spa_param_io {
+	SPA_PARAM_IO_id,	/**< type ID, uniquely identifies the io area */
+	SPA_PARAM_IO_size,	/**< size of the io area */
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

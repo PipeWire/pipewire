@@ -25,12 +25,24 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
+#include <spa/pod/pod.h>
 
 /** Buffers IO area
  *
  * IO information for a port on a node. This is allocated
  * by the host and configured on all ports for which IO is requested.
  */
+
+/** Different IO area types */
+enum spa_io_type {
+	SPA_IO_BASE,
+
+	SPA_IO_Buffers,
+	SPA_IO_ControlRange,
+	SPA_IO_Clock,
+	SPA_IO_Latency,
+	SPA_IO_Events,
+};
 
 struct spa_io_buffers {
 #define SPA_STATUS_OK			0
@@ -67,6 +79,11 @@ struct spa_io_latency {
 	struct spa_fraction rate;	/**< rate for min/max */
 	uint64_t min;			/**< min latency */
 	uint64_t max;			/**< max latency */
+};
+
+/** event stream */
+struct spa_io_events {
+	struct spa_pod_sequence sequence;	/**< sequence of timed events */
 };
 
 #ifdef __cplusplus

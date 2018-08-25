@@ -38,7 +38,6 @@ spa_debug_format_value(const struct spa_type_info *info,
 		fprintf(stderr, "%s", *(int32_t *) body ? "true" : "false");
 		break;
 	case SPA_ID_Enum:
-	case SPA_ID_Int:
 	{
 		const char *str = spa_debug_type_find_name(info, *(int32_t *) body);
 		char tmp[64];
@@ -53,6 +52,9 @@ spa_debug_format_value(const struct spa_type_info *info,
 		fprintf(stderr, "%s", str);
 		break;
 	}
+	case SPA_ID_Int:
+		fprintf(stderr, "%d", *(int32_t *) body);
+		break;
 	case SPA_ID_Long:
 		fprintf(stderr, "%" PRIi64, *(int64_t *) body);
 		break;

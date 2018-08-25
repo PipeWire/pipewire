@@ -324,11 +324,11 @@ static int make_nodes(struct data *data)
 
 	spa_node_port_set_io(data->source,
 			     SPA_DIRECTION_OUTPUT, 0,
-			     SPA_ID_IO_Buffers,
+			     SPA_IO_Buffers,
 			     &data->source_sink_io[0], sizeof(data->source_sink_io[0]));
 	spa_node_port_set_io(data->sink,
 			     SPA_DIRECTION_INPUT, 0,
-			     SPA_ID_IO_Buffers,
+			     SPA_IO_Buffers,
 			     &data->source_sink_io[0], sizeof(data->source_sink_io[0]));
 
 	spa_graph_node_init(&data->source_node, &data->source_state);
@@ -365,13 +365,13 @@ static int negotiate_formats(struct data *data)
 
 	if ((res = spa_node_port_set_param(data->sink,
 					   SPA_DIRECTION_INPUT, 0,
-					   SPA_ID_PARAM_Format, 0,
+					   SPA_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 
 	if ((res = spa_node_port_set_param(data->source,
 					   SPA_DIRECTION_OUTPUT, 0,
-					   SPA_ID_PARAM_Format, 0,
+					   SPA_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 

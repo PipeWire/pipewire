@@ -187,7 +187,7 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
-	if (id == SPA_ID_IO_Buffers)
+	if (id == SPA_IO_Buffers)
 		d->io = data;
 	else
 		return -ENOENT;
@@ -225,9 +225,9 @@ static int port_enum_formats(struct spa_node *node,
 
 	SDL_GetRendererInfo(d->renderer, &info);
 
-	spa_pod_builder_push_object(builder, SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
-	spa_pod_builder_id(builder, SPA_MEDIA_TYPE_video);
-	spa_pod_builder_id(builder, SPA_MEDIA_SUBTYPE_raw);
+	spa_pod_builder_push_object(builder, SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
+	spa_pod_builder_enum(builder, SPA_MEDIA_TYPE_video);
+	spa_pod_builder_enum(builder, SPA_MEDIA_SUBTYPE_raw);
 
 	spa_pod_builder_push_prop(builder, SPA_FORMAT_VIDEO_format,
 				  SPA_POD_PROP_FLAG_UNSET |
@@ -237,13 +237,13 @@ static int port_enum_formats(struct spa_node *node,
 		if (id == 0)
 			continue;
 		if (c++ == 0)
-			spa_pod_builder_id(builder, id);
-		spa_pod_builder_id(builder, id);
+			spa_pod_builder_enum(builder, id);
+		spa_pod_builder_enum(builder, id);
 	}
 	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
 		uint32_t id = video_formats[i].id;
 		if (id != SPA_VIDEO_FORMAT_UNKNOWN)
-			spa_pod_builder_id(builder, id);
+			spa_pod_builder_enum(builder, id);
 	}
 	spa_pod_builder_pop(builder);
 
@@ -273,10 +273,10 @@ static int impl_port_enum_params(struct spa_node *node,
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
 	switch (id) {
-	case SPA_ID_PARAM_EnumFormat:
+	case SPA_PARAM_EnumFormat:
 		return port_enum_formats(node, direction, port_id, index, filter, result, builder);
 
-	case SPA_ID_PARAM_Buffers:
+	case SPA_PARAM_Buffers:
 		if (*index > 0)
 			return 0;
 
@@ -290,7 +290,7 @@ static int impl_port_enum_params(struct spa_node *node,
 			":", SPA_PARAM_BUFFERS_align,   "i", 16);
 		break;
 
-	case SPA_ID_PARAM_Meta:
+	case SPA_PARAM_Meta:
 		if (*index > 0)
 			return 0;
 
@@ -342,7 +342,7 @@ static int impl_port_set_param(struct spa_node *node,
 			       uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
-	if (id == SPA_ID_PARAM_Format) {
+	if (id == SPA_PARAM_Format) {
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else

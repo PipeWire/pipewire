@@ -67,7 +67,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 	{
 		struct spa_pod_pointer_body *b = body;
 		spa_debug("%*s" "Pointer %s %p", indent, "",
-		       spa_debug_type_find_name(info, b->type), b->value);
+		       spa_debug_type_find_name(spa_types, b->type), b->value);
 		break;
 	}
 	case SPA_ID_Rectangle:
@@ -89,8 +89,12 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 	{
 		struct spa_pod_array_body *b = body;
 		void *p;
-		spa_debug("%*s" "Array: child.size %d, child.type %d", indent, "",
-		       b->child.size, b->child.type);
+		const struct spa_type_info *ti = spa_debug_type_find(info, b->child.type);
+
+		spa_debug("%*s" "Array: child.size %d, child.type %s", indent, "",
+		       b->child.size, ti ? ti->name : "unknown");
+
+		info = ti ? ti->values : info;
 
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p)
 			spa_debug_pod_value(indent + 2, info, b->child.type, p, b->child.size);
@@ -112,8 +116,11 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 
 		spa_debug("%*s" "Object: size %d, id %s, type %s", indent, "", size,
 		       spa_debug_type_find_name(info, b->id), ti ? ti->name : "unknown");
+
+		info = ti ? ti->values : info;
+
 		SPA_POD_OBJECT_BODY_FOREACH(b, size, p)
-			spa_debug_pod_value(indent + 2, ti ? ti->values : NULL,
+			spa_debug_pod_value(indent + 2, info,
 					p->type, SPA_POD_BODY(p), p->size);
 		break;
 	}
@@ -122,13 +129,18 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		struct spa_pod_prop_body *b = body;
 		void *alt;
 		int i;
+		const struct spa_type_info *ti = spa_debug_type_find(info, b->key);
 
 		spa_debug("%*s" "Prop: key %s, flags %d", indent, "",
-		       spa_debug_type_find_name(info, b->key), b->flags);
+				ti ? ti->name : "unknown", b->flags);
+
+		info = ti ? ti->values : info;
+
 		if (b->flags & SPA_POD_PROP_FLAG_UNSET)
 			spa_debug("%*s" "Unset (Default):", indent + 2, "");
 		else
 			spa_debug("%*s" "Value: size %u", indent + 2, "", b->value.size);
+
 		spa_debug_pod_value(indent + 4, info, b->value.type, SPA_POD_BODY(&b->value),
 				b->value.size);
 

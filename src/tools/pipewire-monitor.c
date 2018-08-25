@@ -245,7 +245,7 @@ static void node_event_info(void *object, struct pw_node_info *info)
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_ENUM_PARAMS) {
 		pw_node_proxy_enum_params((struct pw_node_proxy*)data->proxy,
-				SPA_ID_PARAM_List, 0, 0, NULL);
+				SPA_PARAM_List, 0, 0, NULL);
 		add_pending(data);
 	}
 	if (data->pending_seq == SPA_ID_INVALID)
@@ -310,7 +310,7 @@ static void port_event_info(void *object, struct pw_port_info *info)
 
 	if (info->change_mask & PW_PORT_CHANGE_MASK_ENUM_PARAMS) {
 		pw_port_proxy_enum_params((struct pw_port_proxy*)data->proxy,
-				SPA_ID_PARAM_EnumFormat, 0, 0, NULL);
+				SPA_PARAM_EnumFormat, 0, 0, NULL);
 		add_pending(data);
 	}
 	if (data->pending_seq == SPA_ID_INVALID)

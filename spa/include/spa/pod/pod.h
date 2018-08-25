@@ -56,7 +56,7 @@ struct spa_pod_bool {
 	int32_t __padding;
 };
 
-struct spa_pod_id {
+struct spa_pod_enum {
 	struct spa_pod pod;
 	uint32_t value;
 	int32_t __padding;

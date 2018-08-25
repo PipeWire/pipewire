@@ -1101,9 +1101,9 @@ static bool do_node_params(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	if (n == 2)
-		param_id = SPA_ID_PARAM_List;
+		param_id = SPA_PARAM_List;
 	else
-		param_id = SPA_ID_PARAM_List;
+		param_id = SPA_PARAM_List;
 
 	id = atoi(a[0]);
 	global = pw_map_lookup(&rd->globals, id);
@@ -1135,9 +1135,9 @@ static bool do_port_params(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	if (n == 2)
-		param_id = SPA_ID_PARAM_List;
+		param_id = SPA_PARAM_List;
 	else
-		param_id = SPA_ID_PARAM_List;
+		param_id = SPA_PARAM_List;
 
 	id = atoi(a[0]);
 	global = pw_map_lookup(&rd->globals, id);

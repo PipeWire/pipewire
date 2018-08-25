@@ -211,13 +211,13 @@ static int negotiate_formats(struct data *data)
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_S16,
-		":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
+		":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_INTERLEAVED,
 		":", SPA_FORMAT_AUDIO_rate,     "i", 44100,
 		":", SPA_FORMAT_AUDIO_channels, "i", 2);
 
 	if ((res = spa_node_port_set_param(data->conv,
 					   SPA_DIRECTION_INPUT, 0,
-					   SPA_ID_PARAM_Format, 0,
+					   SPA_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 
@@ -226,11 +226,11 @@ static int negotiate_formats(struct data *data)
 
 	spa_node_port_set_io(data->conv,
 			     SPA_DIRECTION_INPUT, 0,
-			     SPA_ID_IO_Buffers,
+			     SPA_IO_Buffers,
 			     &data->io_in[0], sizeof(data->io_in[0]));
 	spa_node_port_set_io(data->conv,
 			     SPA_DIRECTION_OUTPUT, 0,
-			     SPA_ID_IO_Buffers,
+			     SPA_IO_Buffers,
 			     &data->io_out[0], sizeof(data->io_out[0]));
 
 
@@ -240,14 +240,14 @@ static int negotiate_formats(struct data *data)
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
-		":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
+		":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
 		":", SPA_FORMAT_AUDIO_rate,     "i", 44100,
 		":", SPA_FORMAT_AUDIO_channels, "i", 2);
 
 
 	if ((res = spa_node_port_set_param(data->conv,
 					   SPA_DIRECTION_OUTPUT, 0,
-					   SPA_ID_PARAM_Format, 0,
+					   SPA_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 
@@ -267,7 +267,7 @@ static int negotiate_buffers(struct data *data)
 	state = 0;
 	if ((res = spa_node_port_enum_params(data->conv,
 				       SPA_DIRECTION_INPUT, 0,
-				       SPA_ID_PARAM_Buffers, &state,
+				       SPA_PARAM_Buffers, &state,
 				       NULL, &param, &b)) <= 0)
 		return -EBADF;
 
@@ -284,7 +284,7 @@ static int negotiate_buffers(struct data *data)
 	state = 0;
 	if ((res = spa_node_port_enum_params(data->conv,
 				       SPA_DIRECTION_OUTPUT, 0,
-				       SPA_ID_PARAM_Buffers, &state,
+				       SPA_PARAM_Buffers, &state,
 				       NULL, &param, &b)) <= 0)
 		return -EBADF;
 

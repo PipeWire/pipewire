@@ -291,7 +291,7 @@ static int make_nodes(struct data *data, const char *device)
 		0, SPA_ID_OBJECT_Props,
 		":", SPA_PROP_device, "s", device ? device : "/dev/video0");
 
-	if ((res = spa_node_set_param(data->source, SPA_ID_PARAM_Props, 0, props)) < 0)
+	if ((res = spa_node_set_param(data->source, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
 
 	return res;
@@ -383,7 +383,7 @@ static int negotiate_formats(struct data *data)
 	if ((res =
 	     spa_node_port_set_io(data->source,
 				  SPA_DIRECTION_OUTPUT, 0,
-				  SPA_ID_IO_Buffers,
+				  SPA_IO_Buffers,
 				  &data->source_output[0], sizeof(data->source_output[0]))) < 0)
 		return res;
 
@@ -397,7 +397,7 @@ static int negotiate_formats(struct data *data)
 
 	if ((res = spa_node_port_set_param(data->source,
 					   SPA_DIRECTION_OUTPUT, 0,
-					   SPA_ID_PARAM_Format, 0,
+					   SPA_PARAM_Format, 0,
 					   format)) < 0)
 		return res;
 

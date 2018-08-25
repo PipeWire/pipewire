@@ -76,7 +76,7 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 
 	if (spa_pod_object_parse(item,
 			":", SPA_MONITOR_ITEM_id,      "s", &id,
-			":", SPA_MONITOR_ITEM_state,   "i", &state,
+			":", SPA_MONITOR_ITEM_state,   "I", &state,
 			":", SPA_MONITOR_ITEM_name,    "s", &name,
 			":", SPA_MONITOR_ITEM_class,   "s", &klass,
 			":", SPA_MONITOR_ITEM_factory, "p", &factory,
@@ -185,7 +185,7 @@ static void change_item(struct pw_spa_monitor *this, struct spa_pod *item, uint6
 
 	if (spa_pod_object_parse(item,
 			":", SPA_MONITOR_ITEM_name,  "s", &name,
-			":", SPA_MONITOR_ITEM_state, "i", &state,
+			":", SPA_MONITOR_ITEM_state, "I", &state,
 			":", SPA_MONITOR_ITEM_id,    "s", &id, NULL) < 0)
 		return;
 

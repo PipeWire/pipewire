@@ -27,9 +27,7 @@ extern "C" {
 #include <spa/node/event.h>
 #include <spa/node/command.h>
 #include <spa/monitor/monitor.h>
-#include <spa/param/buffers.h>
-#include <spa/param/meta.h>
-#include <spa/param/io.h>
+#include <spa/param/param.h>
 #include <spa/node/io.h>
 
 #include <pipewire/map.h>
@@ -47,8 +45,11 @@ enum {
 	PW_ID_INTERFACE_Module,
 	PW_ID_INTERFACE_ClientNode,
 
-	PW_ID_IO_BASE = PW_ID_FIRST + SPA_ID_IO_BASE,
-	PW_ID_IO_ClientNodePosition,
+};
+
+enum {
+	PW_IO_BASE = PW_ID_FIRST,
+	PW_IO_ClientNodePosition,
 };
 
 #define PW_TYPE_BASE		"PipeWire:"

@@ -527,26 +527,26 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	}
 
 #if 0
-	pw_port_for_each_param(port, SPA_ID_PARAM_PropsOut, 0, 0, NULL, make_control, port);
-	pw_port_for_each_param(port, SPA_ID_PARAM_PropsIn, 0, 0, NULL, make_control, port);
+	pw_port_for_each_param(port, SPA_PARAM_PropsOut, 0, 0, NULL, make_control, port);
+	pw_port_for_each_param(port, SPA_PARAM_PropsIn, 0, 0, NULL, make_control, port);
 #endif
 
 	pw_log_debug("port %p: setting node io", port);
 	spa_node_port_set_io(node->node,
 			     port->direction, port_id,
-			     SPA_ID_IO_Buffers,
+			     SPA_IO_Buffers,
 			     &port->rt.io, sizeof(port->rt.io));
 
 	if (port->mix && port->mix->port_set_io) {
 		spa_node_port_set_io(port->mix,
 				     pw_direction_reverse(port->direction), 0,
-				     SPA_ID_IO_Buffers,
+				     SPA_IO_Buffers,
 				     &port->rt.io, sizeof(port->rt.io));
 	}
 
 	if (spa_node_port_set_io(node->node,
 			     port->direction, port_id,
-			     SPA_ID_IO_Clock,
+			     SPA_IO_Clock,
 			     &port->rt.clock, sizeof(port->rt.clock)) >= 0) {
 		node->rt.clock = &port->rt.clock;
 		pw_log_debug("port %p: set node clock %p", port, node->rt.clock);
@@ -813,7 +813,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 	}
 
 
-	if (id == SPA_ID_PARAM_Format) {
+	if (id == SPA_PARAM_Format) {
 		if (param == NULL || res < 0) {
 			free_allocation(&port->allocation);
 			port->allocated = false;

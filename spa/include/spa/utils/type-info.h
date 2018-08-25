@@ -70,6 +70,7 @@ struct spa_type_info {
 
 #include <spa/monitor/type-info.h>
 #include <spa/node/type-info.h>
+#include <spa/param/type-info.h>
 
 static const struct spa_type_info spa_types[] = {
 	{ SPA_ID_INVALID, "*invalid*", SPA_ID_INVALID, },
@@ -97,6 +98,11 @@ static const struct spa_type_info spa_types[] = {
 	{ SPA_ID_Fd, SPA_TYPE_BASE "Fd", SPA_ID_Fd, },
 	{ SPA_ID_Prop, SPA_TYPE_POD_BASE "Prop", SPA_ID_Pod, },
 
+	{ SPA_ID_POINTER_BASE, SPA_TYPE__Pointer, SPA_ID_Pointer, },
+	{ SPA_ID_POINTER_Buffer, SPA_TYPE_POINTER_BASE "Buffer", SPA_ID_Pointer, },
+	{ SPA_ID_POINTER_Meta, SPA_TYPE_POINTER_BASE "Meta", SPA_ID_Pointer, },
+	{ SPA_ID_POINTER_Dict, SPA_TYPE_POINTER_BASE "Dict", SPA_ID_Pointer, },
+
 	{ SPA_ID_INTERFACE_BASE, SPA_TYPE__Interface, SPA_ID_Pointer, },
 	{ SPA_ID_INTERFACE_Handle, SPA_TYPE_INTERFACE_BASE "Handle", SPA_ID_INTERFACE_BASE, },
 	{ SPA_ID_INTERFACE_HandleFactory, SPA_TYPE_INTERFACE_BASE "HandleFactory", SPA_ID_INTERFACE_BASE, },
@@ -116,6 +122,16 @@ static const struct spa_type_info spa_types[] = {
 
 	{ SPA_ID_COMMAND_BASE, SPA_TYPE__Command, SPA_ID_Object, },
 	{ SPA_ID_COMMAND_Node, SPA_TYPE_COMMAND_BASE "Node", SPA_ID_COMMAND_BASE, },
+
+	{ SPA_ID_OBJECT_BASE, SPA_TYPE__Object, SPA_ID_Object, },
+	{ SPA_ID_OBJECT_MonitorItem, SPA_TYPE__MonitorItem, SPA_ID_Object, spa_type_monitor_item },
+	{ SPA_ID_OBJECT_ParamList, SPA_TYPE_PARAM__List, SPA_ID_Object, spa_type_param_list, },
+	{ SPA_ID_OBJECT_PropInfo, SPA_TYPE__PropInfo, SPA_ID_Object, spa_type_prop_info, },
+	{ SPA_ID_OBJECT_Props, SPA_TYPE__Props, SPA_ID_Object, spa_type_props },
+	{ SPA_ID_OBJECT_Format, SPA_TYPE__Format, SPA_ID_Object, },
+	{ SPA_ID_OBJECT_ParamBuffers, SPA_TYPE_PARAM__Buffers, SPA_ID_Object, spa_type_param_buffers, },
+	{ SPA_ID_OBJECT_ParamMeta, SPA_TYPE_PARAM__Meta, SPA_ID_Object, spa_type_param_meta },
+	{ SPA_ID_OBJECT_ParamIO, SPA_TYPE_PARAM__IO, SPA_ID_Object, spa_type_param_io },
 
 	{ 0, NULL, }
 };

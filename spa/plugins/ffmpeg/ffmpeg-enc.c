@@ -258,10 +258,10 @@ spa_ffmpeg_enc_node_port_enum_params(struct spa_node *node,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_ID_PARAM_List:
+	case SPA_PARAM_List:
 	{
-		uint32_t list[] = { SPA_ID_PARAM_EnumFormat,
-				    SPA_ID_PARAM_Format };
+		uint32_t list[] = { SPA_PARAM_EnumFormat,
+				    SPA_PARAM_Format };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
@@ -270,12 +270,12 @@ spa_ffmpeg_enc_node_port_enum_params(struct spa_node *node,
 			return 0;
 		break;
 	}
-	case SPA_ID_PARAM_EnumFormat:
+	case SPA_PARAM_EnumFormat:
 		if ((res = port_enum_formats(node, direction, port_id, index, filter, &param, &b)) <= 0)
 			return res;
 		break;
 
-	case SPA_ID_PARAM_Format:
+	case SPA_PARAM_Format:
 		if ((res = port_get_format(node, direction, port_id, index, filter, &param, &b)) <= 0)
 			return res;
 		break;
@@ -332,7 +332,7 @@ spa_ffmpeg_enc_node_port_set_param(struct spa_node *node,
 				   uint32_t id, uint32_t flags,
 				   const struct spa_pod *param)
 {
-	if (id == SPA_ID_PARAM_Format) {
+	if (id == SPA_PARAM_Format) {
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else
@@ -386,7 +386,7 @@ spa_ffmpeg_enc_node_port_set_io(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	if (id == SPA_ID_IO_Buffers)
+	if (id == SPA_IO_Buffers)
 		port->io = data;
 	else
 		return -ENOENT;

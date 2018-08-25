@@ -336,7 +336,7 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 	pw_log_debug("stream %p: set io %s %p %zd", impl,
 			spa_debug_type_find_name(spa_debug_types, id), data, size);
 
-	if (id == SPA_ID_IO_Buffers) {
+	if (id == SPA_IO_Buffers) {
 		if (data && size >= sizeof(struct spa_io_buffers))
 			impl->io = data;
 		else
@@ -395,7 +395,7 @@ static int impl_port_enum_params(struct spa_node *node,
 
 		(*index)++;
 
-		if (id == SPA_ID_PARAM_List) {
+		if (id == SPA_PARAM_List) {
 			uint32_t new_id = ((struct spa_pod_object *) param)->body.id;
 
 			if (last_id == SPA_ID_INVALID){
@@ -438,7 +438,7 @@ static int port_set_format(struct spa_node *node,
 		if (p == NULL)
 			goto no_mem;
 
-		((struct spa_pod_object*)p->param)->body.id = SPA_ID_PARAM_Format;
+		((struct spa_pod_object*)p->param)->body.id = SPA_PARAM_Format;
 	}
 	else
 		p = NULL;
@@ -466,7 +466,7 @@ static int impl_port_set_param(struct spa_node *node,
 			       uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
-	if (id == SPA_ID_PARAM_Format) {
+	if (id == SPA_PARAM_Format) {
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else

@@ -168,7 +168,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	data->stride = SPA_ROUND_UP_N(data->format.size.width * BPP, 4);
 
 	params[0] = spa_pod_builder_object(&b,
-		SPA_ID_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+		SPA_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
 		":", SPA_PARAM_BUFFERS_buffers, "iru", 2,
 			SPA_POD_PROP_MIN_MAX(1, 32),
 		":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
@@ -177,12 +177,12 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		":", SPA_PARAM_BUFFERS_align,   "i", 16);
 
 	params[1] = spa_pod_builder_object(&b,
-		SPA_ID_PARAM_Meta, SPA_ID_OBJECT_ParamMeta,
+		SPA_PARAM_Meta, SPA_ID_OBJECT_ParamMeta,
 		":", SPA_PARAM_META_type, "I", SPA_META_Header,
 		":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
 
 	params[2] = spa_pod_builder_object(&b,
-		SPA_ID_PARAM_Meta, SPA_ID_OBJECT_ParamMeta,
+		SPA_PARAM_Meta, SPA_ID_OBJECT_ParamMeta,
 		":", SPA_PARAM_META_type, "I", SPA_META_VideoDamage,
 		":", SPA_PARAM_META_size, "iru", sizeof(struct spa_meta_region) * 16,
 			SPA_POD_PROP_MIN_MAX(sizeof(struct spa_meta_region) * 1,
@@ -223,7 +223,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 				NULL));
 
 		params[0] = spa_pod_builder_object(&b,
-			SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+			SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
 			"I", SPA_MEDIA_TYPE_video,
 			"I", SPA_MEDIA_SUBTYPE_raw,
 			":", SPA_FORMAT_VIDEO_format,    "I", SPA_VIDEO_FORMAT_RGB,

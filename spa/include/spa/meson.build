@@ -33,10 +33,8 @@ install_headers(spa_node_headers,
 spa_param_headers = [
   'param/param.h',
   'param/props.h',
-  'param/buffers.h',
-  'param/meta.h',
-  'param/io.h',
   'param/format.h',
+  'param/type-info.h',
 ]
 
 install_headers(spa_param_headers,

@@ -112,14 +112,14 @@ static int suspend_node(struct pw_node *this)
 	pw_log_debug("node %p: suspend node", this);
 
 	spa_list_for_each(p, &this->input_ports, link) {
-		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_ID_PARAM_Format, 0, NULL)) < 0)
+		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_PARAM_Format, 0, NULL)) < 0)
 			pw_log_warn("error unset format input: %s", spa_strerror(res));
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 
 	spa_list_for_each(p, &this->output_ports, link) {
-		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_ID_PARAM_Format, 0, NULL)) < 0)
+		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_PARAM_Format, 0, NULL)) < 0)
 			pw_log_warn("error unset format output: %s", spa_strerror(res));
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;

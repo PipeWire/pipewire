@@ -775,7 +775,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 			spa_pod_builder_init(&b, buf, sizeof(buf));
                         if (spa_node_port_enum_params(port->node->node,
 						      port->direction, port->port_id,
-						      SPA_ID_PARAM_List, &idx1,
+						      SPA_PARAM_List, &idx1,
 						      NULL, &param, &b) <= 0)
                                 break;
 
@@ -855,7 +855,7 @@ client_node_set_io(void *object,
 	pw_log_debug("node %p: set io %s %p", proxy,
 			spa_debug_type_find_name(spa_debug_types, id), ptr);
 
-	if (id == PW_ID_IO_ClientNodePosition) {
+	if (id == PW_IO_ClientNodePosition) {
 		if (ptr == NULL && data->position) {
 			m = find_mem_ptr(data, data->position);
 			if (m && --m->ref == 0)
@@ -973,7 +973,7 @@ client_node_port_set_param(void *object,
 		goto done;
 	}
 
-        if (id == SPA_ID_PARAM_Format) {
+        if (id == SPA_PARAM_Format) {
 		struct mix *mix;
 		spa_list_for_each(mix, &data->mix[direction], link) {
 			if (mix->port->port_id == port_id)
@@ -1202,7 +1202,7 @@ client_node_port_set_io(void *object,
 	pw_log_debug("port %p: set io %s %p", mix->port,
 			spa_debug_type_find_name(spa_debug_types, id), ptr);
 
-	if (id == SPA_ID_IO_Buffers) {
+	if (id == SPA_IO_Buffers) {
 		if (ptr == NULL && mix->mix.io) {
 			deactivate_mix(data, mix);
                         m = find_mem_ptr(data, mix->mix.io);

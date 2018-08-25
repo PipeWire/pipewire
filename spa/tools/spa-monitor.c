@@ -53,7 +53,7 @@ struct data {
 
 static void inspect_item(struct data *data, struct spa_pod *item)
 {
-	spa_debug_pod(0, spa_type_monitor_item, item);
+	spa_debug_pod(0, spa_types, item);
 }
 
 static void on_monitor_event(void *_data, struct spa_event *event)

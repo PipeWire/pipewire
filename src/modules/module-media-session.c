@@ -662,7 +662,7 @@ static int find_port_format(struct impl *impl, struct pw_port *port,
 	struct channel_data data = { impl, 0, 0 };
 
 	pw_port_for_each_param(port,
-			SPA_ID_PARAM_EnumFormat,
+			SPA_PARAM_EnumFormat,
 			0, 0, NULL,
 			collect_audio_format, &data);
 

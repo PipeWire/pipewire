@@ -31,8 +31,7 @@
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/param/video/format-utils.h>
-#include <spa/param/buffers.h>
-#include <spa/param/meta.h>
+#include <spa/param/param.h>
 #include <spa/pod/filter.h>
 
 #define NAME "videotestsrc"
@@ -126,10 +125,10 @@ static int impl_node_enum_params(struct spa_node *node,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_ID_PARAM_List:
+	case SPA_PARAM_List:
 	{
-		uint32_t list[] = { SPA_ID_PARAM_PropInfo,
-				    SPA_ID_PARAM_Props };
+		uint32_t list[] = { SPA_PARAM_PropInfo,
+				    SPA_PARAM_Props };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
@@ -138,7 +137,7 @@ static int impl_node_enum_params(struct spa_node *node,
 			return 0;
 		break;
 	}
-	case SPA_ID_PARAM_PropInfo:
+	case SPA_PARAM_PropInfo:
 	{
 		struct props *p = &this->props;
 
@@ -165,7 +164,7 @@ static int impl_node_enum_params(struct spa_node *node,
 		}
 		break;
 	}
-	case SPA_ID_PARAM_Props:
+	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
 
@@ -203,7 +202,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	switch (id) {
-	case SPA_ID_PARAM_Props:
+	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
 
@@ -464,7 +463,7 @@ static int port_enum_formats(struct spa_node *node,
 	switch (*index) {
 	case 0:
 		*param = spa_pod_builder_object(builder,
-			SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+			SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
 			"I", SPA_MEDIA_TYPE_video,
 			"I", SPA_MEDIA_SUBTYPE_raw,
 			":", SPA_FORMAT_VIDEO_format,    "Ieu", SPA_VIDEO_FORMAT_RGB,
@@ -498,7 +497,7 @@ static int port_get_format(struct spa_node *node,
 		return 0;
 
 	*param = spa_pod_builder_object(builder,
-		SPA_ID_PARAM_Format, SPA_ID_OBJECT_Format,
+		SPA_PARAM_Format, SPA_ID_OBJECT_Format,
 		"I", SPA_MEDIA_TYPE_video,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_VIDEO_format,    "I", this->current_format.info.raw.format,
@@ -534,12 +533,12 @@ impl_node_port_enum_params(struct spa_node *node,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_ID_PARAM_List:
+	case SPA_PARAM_List:
 	{
-		uint32_t list[] = { SPA_ID_PARAM_EnumFormat,
-				    SPA_ID_PARAM_Format,
-				    SPA_ID_PARAM_Buffers,
-				    SPA_ID_PARAM_Meta };
+		uint32_t list[] = { SPA_PARAM_EnumFormat,
+				    SPA_PARAM_Format,
+				    SPA_PARAM_Buffers,
+				    SPA_PARAM_Meta };
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
@@ -548,17 +547,17 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 		break;
 	}
-	case SPA_ID_PARAM_EnumFormat:
+	case SPA_PARAM_EnumFormat:
 		if ((res = port_enum_formats(node, direction, port_id, index, filter, &param, &b)) <= 0)
 			return res;
 		break;
 
-	case SPA_ID_PARAM_Format:
+	case SPA_PARAM_Format:
 		if ((res = port_get_format(node, direction, port_id, index, filter, &param, &b)) <= 0)
 			return res;
 		break;
 
-	case SPA_ID_PARAM_Buffers:
+	case SPA_PARAM_Buffers:
 	{
 		struct spa_video_info_raw *raw_info = &this->current_format.info.raw;
 
@@ -577,7 +576,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			":", SPA_PARAM_BUFFERS_align,   "i", 16);
 		break;
 	}
-	case SPA_ID_PARAM_Meta:
+	case SPA_PARAM_Meta:
 		if (!this->have_format)
 			return -EIO;
 
@@ -670,7 +669,7 @@ impl_node_port_set_param(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(node, direction, port_id), -EINVAL);
 
-	if (id == SPA_ID_PARAM_Format) {
+	if (id == SPA_PARAM_Format) {
 		return port_set_format(node, direction, port_id, flags, param);
 	}
 	else
@@ -759,7 +758,7 @@ impl_node_port_set_io(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	if (id == SPA_ID_IO_Buffers)
+	if (id == SPA_IO_Buffers)
 		this->io = data;
 	else
 		return -ENOENT;

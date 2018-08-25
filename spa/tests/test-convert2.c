@@ -32,7 +32,6 @@
 #include <spa/node/io.h>
 #include <spa/buffer/alloc.h>
 #include <spa/param/param.h>
-#include <spa/param/buffers.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/debug/pod.h>
@@ -174,7 +173,7 @@ static int make_link(struct data *data, struct link *link,
 				       &link->out_info);
 		spa_node_port_set_io(out_node->node,
 				     SPA_DIRECTION_OUTPUT, out_port,
-				     SPA_ID_IO_Buffers,
+				     SPA_IO_Buffers,
 				     &link->io, sizeof(link->io));
 	}
 	if (in_node != NULL) {
@@ -183,7 +182,7 @@ static int make_link(struct data *data, struct link *link,
 				       &link->in_info);
 		spa_node_port_set_io(in_node->node,
 				     SPA_DIRECTION_INPUT, in_port,
-				     SPA_ID_IO_Buffers,
+				     SPA_IO_Buffers,
 				     &link->io, sizeof(link->io));
 	}
 	return 0;
@@ -213,7 +212,7 @@ static int negotiate_link_format(struct data *data, struct link *link, struct sp
 		state = 0;
 		if ((res = spa_node_port_enum_params(link->out_node->node,
 				       SPA_DIRECTION_OUTPUT, link->out_port,
-				       SPA_ID_PARAM_EnumFormat, &state,
+				       SPA_PARAM_EnumFormat, &state,
 				       filter, &format, &b)) <= 0)
 			return -ENOTSUP;
 
@@ -223,7 +222,7 @@ static int negotiate_link_format(struct data *data, struct link *link, struct sp
 		state = 0;
 		if ((res = spa_node_port_enum_params(link->in_node->node,
 				       SPA_DIRECTION_INPUT, link->in_port,
-				       SPA_ID_PARAM_EnumFormat, &state,
+				       SPA_PARAM_EnumFormat, &state,
 				       filter, &format, &b)) <= 0)
 			return -ENOTSUP;
 
@@ -236,14 +235,14 @@ static int negotiate_link_format(struct data *data, struct link *link, struct sp
 	if (link->out_node != NULL) {
 		if ((res = spa_node_port_set_param(link->out_node->node,
 					   SPA_DIRECTION_OUTPUT, link->out_port,
-					   SPA_ID_PARAM_Format, 0,
+					   SPA_PARAM_Format, 0,
 					   filter)) < 0)
 			return res;
 	}
 	if (link->in_node != NULL) {
 		if ((res = spa_node_port_set_param(link->in_node->node,
 					   SPA_DIRECTION_INPUT, link->in_port,
-					   SPA_ID_PARAM_Format, 0,
+					   SPA_PARAM_Format, 0,
 					   filter)) < 0)
 			return res;
 	}
@@ -263,7 +262,7 @@ static int negotiate_formats(struct data *data)
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_S16,
-		":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
+		":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_INTERLEAVED,
 		":", SPA_FORMAT_AUDIO_rate,     "i", 44100,
 		":", SPA_FORMAT_AUDIO_channels, "i", 2);
 
@@ -276,7 +275,7 @@ static int negotiate_formats(struct data *data)
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
-		":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
+		":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
 		":", SPA_FORMAT_AUDIO_rate,     "i", 48000,
 		":", SPA_FORMAT_AUDIO_channels, "i", 1);
 
@@ -311,7 +310,7 @@ static int negotiate_link_buffers(struct data *data, struct link *link)
 		state = 0;
 		if ((res = spa_node_port_enum_params(link->out_node->node,
 				       SPA_DIRECTION_OUTPUT, link->out_port,
-				       SPA_ID_PARAM_Buffers, &state,
+				       SPA_PARAM_Buffers, &state,
 				       param, &param, &b)) <= 0)
 			return -ENOTSUP;
 	}
@@ -319,7 +318,7 @@ static int negotiate_link_buffers(struct data *data, struct link *link)
 		state = 0;
 		if ((res = spa_node_port_enum_params(link->in_node->node,
 				       SPA_DIRECTION_INPUT, link->in_port,
-				       SPA_ID_PARAM_Buffers, &state,
+				       SPA_PARAM_Buffers, &state,
 				       param, &param, &b)) <= 0)
 			return -ENOTSUP;
 	}

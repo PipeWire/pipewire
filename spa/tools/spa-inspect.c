@@ -58,7 +58,7 @@ inspect_node_params(struct data *data, struct spa_node *node)
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if ((res = spa_node_enum_params(node,
-						SPA_ID_PARAM_List, &idx1,
+						SPA_PARAM_List, &idx1,
 						NULL, &param, &b)) <= 0) {
 			if (res != 0)
 				error(0, -res, "enum_params");
@@ -100,7 +100,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if ((res = spa_node_port_enum_params(node,
 						     direction, port_id,
-						     SPA_ID_PARAM_List, &idx1,
+						     SPA_PARAM_List, &idx1,
 						     NULL, &param, &b)) <= 0) {
 			if (res != 0)
 				error(0, -res, "port_enum_params");

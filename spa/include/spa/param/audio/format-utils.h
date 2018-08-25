@@ -28,24 +28,12 @@ extern "C" {
 #include <spa/pod/parser.h>
 #include <spa/param/audio/format.h>
 
-#if 0
-#define SPA_TYPE_FORMAT__Audio			SPA_TYPE_FORMAT_BASE "Audio"
-#define SPA_TYPE_FORMAT_AUDIO_BASE		SPA_TYPE_FORMAT__Audio ":"
-
-#define SPA_TYPE_FORMAT_AUDIO__format		SPA_TYPE_FORMAT_AUDIO_BASE "format"
-#define SPA_TYPE_FORMAT_AUDIO__flags		SPA_TYPE_FORMAT_AUDIO_BASE "flags"
-#define SPA_TYPE_FORMAT_AUDIO__layout		SPA_TYPE_FORMAT_AUDIO_BASE "layout"
-#define SPA_TYPE_FORMAT_AUDIO__rate		SPA_TYPE_FORMAT_AUDIO_BASE "rate"
-#define SPA_TYPE_FORMAT_AUDIO__channels		SPA_TYPE_FORMAT_AUDIO_BASE "channels"
-#define SPA_TYPE_FORMAT_AUDIO__channelMask	SPA_TYPE_FORMAT_AUDIO_BASE "channel-mask"
-#endif
-
 static inline int
 spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_raw *info)
 {
 	return spa_pod_object_parse(format,
 		":", SPA_FORMAT_AUDIO_format,		"I", &info->format,
-		":", SPA_FORMAT_AUDIO_layout,		"i", &info->layout,
+		":", SPA_FORMAT_AUDIO_layout,		"I", &info->layout,
 		":", SPA_FORMAT_AUDIO_rate,		"i", &info->rate,
 		":", SPA_FORMAT_AUDIO_channels,		"i", &info->channels,
 		":", SPA_FORMAT_AUDIO_flags,		"?i", &info->flags,

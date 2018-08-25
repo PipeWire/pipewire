@@ -472,7 +472,7 @@ handle_audio_fields (ConvertData *d)
                                    SPA_FORMAT_AUDIO_layout,
                                    get_range_type (value));
 
-      spa_pod_builder_int (&d->b, layout);
+      spa_pod_builder_enum (&d->b, layout);
     }
     prop = spa_pod_builder_pop(&d->b);
     if (i > 1)

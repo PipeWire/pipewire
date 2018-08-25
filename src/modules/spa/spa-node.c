@@ -163,7 +163,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 	uint8_t buf[2048];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
-	if ((res = spa_node_enum_params(spa_node, SPA_ID_PARAM_Props, &index, NULL, &props, &b)) <= 0) {
+	if ((res = spa_node_enum_params(spa_node, SPA_PARAM_Props, &index, NULL, &props, &b)) <= 0) {
 		pw_log_debug("spa_node_get_props failed: %d", res);
 		return res;
 	}
@@ -192,7 +192,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 					pw_properties_parse_bool(value);
 				break;
 			case SPA_ID_Enum:
-				SPA_POD_VALUE(struct spa_pod_id, &prop->body.value) =
+				SPA_POD_VALUE(struct spa_pod_enum, &prop->body.value) =
 					spa_debug_type_find_id(spa_debug_types, value);
 				break;
 			case SPA_ID_Int:
@@ -219,7 +219,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 		}
 	}
 
-	if ((res = spa_node_set_param(spa_node, SPA_ID_PARAM_Props, 0, props)) < 0) {
+	if ((res = spa_node_set_param(spa_node, SPA_PARAM_Props, 0, props)) < 0) {
 		pw_log_debug("spa_node_set_props failed: %d", res);
 		return res;
 	}

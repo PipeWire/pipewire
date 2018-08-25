@@ -195,11 +195,11 @@ static inline uint32_t spa_pod_builder_bool(struct spa_pod_builder *builder, boo
 	return spa_pod_builder_primitive(builder, &p.pod);
 }
 
-#define SPA_POD_ID_INIT(val) (struct spa_pod_id){ { sizeof(uint32_t), SPA_ID_Enum }, val, 0 }
+#define SPA_POD_ENUM_INIT(val) (struct spa_pod_enum){ { sizeof(uint32_t), SPA_ID_Enum }, val, 0 }
 
-static inline uint32_t spa_pod_builder_id(struct spa_pod_builder *builder, uint32_t val)
+static inline uint32_t spa_pod_builder_enum(struct spa_pod_builder *builder, uint32_t val)
 {
-	const struct spa_pod_id p = SPA_POD_ID_INIT(val);
+	const struct spa_pod_enum p = SPA_POD_ENUM_INIT(val);
 	return spa_pod_builder_primitive(builder, &p.pod);
 }
 
@@ -412,7 +412,7 @@ do {										\
 		spa_pod_builder_bool(builder, va_arg(args, int));		\
 		break;								\
 	case 'I':								\
-		spa_pod_builder_id(builder, va_arg(args, uint32_t));		\
+		spa_pod_builder_enum(builder, va_arg(args, uint32_t));		\
 		break;								\
 	case 'i':								\
 		spa_pod_builder_int(builder, va_arg(args, int));		\

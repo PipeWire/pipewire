@@ -675,7 +675,7 @@ spa_v4l2_enum_format(struct impl *this,
 		}
 	}
 
-	spa_pod_builder_push_object(builder, SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
+	spa_pod_builder_push_object(builder, SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
 	spa_pod_builder_add(builder,
 			"I", info->media_type,
 			"I", info->media_subtype, 0);
@@ -1052,7 +1052,7 @@ spa_v4l2_enum_controls(struct impl *this,
 	switch (queryctrl.type) {
 	case V4L2_CTRL_TYPE_INTEGER:
 		param = spa_pod_builder_object(&b,
-			SPA_ID_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo,
+			SPA_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo,
 			":", SPA_PROP_INFO_id, "I", prop_id,
 			":", SPA_PROP_INFO_type, "isu", queryctrl.default_value,
 				SPA_POD_PROP_STEP(queryctrl.minimum,
@@ -1062,7 +1062,7 @@ spa_v4l2_enum_controls(struct impl *this,
 		break;
 	case V4L2_CTRL_TYPE_BOOLEAN:
 		param = spa_pod_builder_object(&b,
-			SPA_ID_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo,
+			SPA_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo,
 			":", SPA_PROP_INFO_id, "I", prop_id,
 			":", SPA_PROP_INFO_type, "b-u", queryctrl.default_value,
 			":", SPA_PROP_INFO_name, "s", queryctrl.name);
@@ -1071,7 +1071,7 @@ spa_v4l2_enum_controls(struct impl *this,
 	{
 		struct v4l2_querymenu querymenu;
 
-		spa_pod_builder_push_object(&b, SPA_ID_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo);
+		spa_pod_builder_push_object(&b, SPA_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo);
 		spa_pod_builder_add(&b,
 			":", SPA_PROP_INFO_id, "I", prop_id,
 			":", SPA_PROP_INFO_type, "i-u", queryctrl.default_value,

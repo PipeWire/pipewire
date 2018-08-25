@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/debug/debug-mem.h>
-#include <spa/buffer/buffer-types.h>
+#include <spa/buffer/type-info.h>
 
 #ifndef spa_debug
 #define spa_debug(...)	({ fprintf(stderr, __VA_ARGS__);fputc('\n', stderr); })

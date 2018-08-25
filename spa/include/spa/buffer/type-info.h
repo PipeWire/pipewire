@@ -25,6 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/buffer/buffer.h>
+#include <spa/buffer/meta.h>
 #include <spa/utils/type-info.h>
 
 #define SPA_TYPE__Buffer		SPA_TYPE_POINTER_BASE "Buffer"
@@ -42,6 +43,22 @@ static const struct spa_type_info spa_type_data_type[] = {
 	{ SPA_DATA_MemPtr, SPA_TYPE_DATA_BASE "MemPtr", SPA_ID_INT, },
 	{ SPA_DATA_MemFd, SPA_TYPE_DATA_FD_BASE "MemFd", SPA_ID_INT, },
 	{ SPA_DATA_DmaBuf, SPA_TYPE_DATA_FD_BASE "DmaBuf", SPA_ID_INT, },
+	{ 0, NULL, },
+};
+
+#define SPA_TYPE__Meta			SPA_TYPE_POINTER_BASE "Meta"
+#define SPA_TYPE_META_BASE		SPA_TYPE__Meta ":"
+
+#define SPA_TYPE_META__Region		SPA_TYPE_META_BASE "Region"
+#define SPA_TYPE_META_REGION_BASE	SPA_TYPE_META__Region ":"
+
+#define SPA_TYPE_META__RegionArray	SPA_TYPE_META_BASE "RegionArray"
+#define SPA_TYPE_META_REGION_ARRAY_BASE	SPA_TYPE_META__RegionArray ":"
+
+static const struct spa_type_info spa_type_meta_type[] = {
+	{ SPA_META_Header, SPA_TYPE_META_BASE "Header", SPA_ID_POINTER },
+	{ SPA_META_VideoCrop, SPA_TYPE_META_REGION_BASE "VideoCrop", SPA_ID_POINTER },
+	{ SPA_META_VideoDamage, SPA_TYPE_META_REGION_ARRAY_BASE "VideoDamage", SPA_ID_POINTER },
 	{ 0, NULL, },
 };
 

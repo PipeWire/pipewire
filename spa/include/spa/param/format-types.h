@@ -25,7 +25,6 @@ extern "C" {
 #endif
 
 #include <spa/param/format.h>
-#include <spa/param/param-types.h>
 
 #define SPA_TYPE__Format		SPA_TYPE_PARAM_BASE "Format"
 #define SPA_TYPE_FORMAT_BASE		SPA_TYPE__Format ":"

@@ -27,7 +27,6 @@ extern "C" {
 #include <spa/pod/parser.h>
 #include <spa/debug/types.h>
 #include <spa/param/format-types.h>
-#include <spa/param/audio/format-types.h>
 
 static inline int
 spa_debug_format_value(const struct spa_type_info *info,
@@ -138,7 +137,7 @@ static inline int spa_debug_format(int indent,
 		media_type ? rindex(media_type, ':') + 1 : "unknown",
 		media_subtype ? rindex(media_subtype, ':') + 1 : "unknown");
 
-	info = spa_type_format_get_ids(mtype, mstype);
+	info = spa_type_format;
 
 	SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)format, pod) {
 		struct spa_pod_prop *prop;

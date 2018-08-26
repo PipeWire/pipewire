@@ -78,6 +78,46 @@ enum spa_media_subtype {
 	SPA_MEDIA_SUBTYPE_midi,
 };
 
+/** properties for audio SPA_ID_OBJECT_Format */
+enum spa_format {
+
+	/* Audio format keys */
+	SPA_FORMAT_BASE_AUDIO = 0,
+	SPA_FORMAT_AUDIO_format,
+	SPA_FORMAT_AUDIO_flags,
+	SPA_FORMAT_AUDIO_layout,
+	SPA_FORMAT_AUDIO_rate,
+	SPA_FORMAT_AUDIO_channels,
+	SPA_FORMAT_AUDIO_channelMask,
+
+	/* Video Format keys */
+	SPA_FORMAT_BASE_VIDEO = 0x10000,
+	SPA_FORMAT_VIDEO_format,
+	SPA_FORMAT_VIDEO_size,
+	SPA_FORMAT_VIDEO_framerate,
+	SPA_FORMAT_VIDEO_maxFramerate,
+	SPA_FORMAT_VIDEO_views,
+	SPA_FORMAT_VIDEO_interlaceMode,
+	SPA_FORMAT_VIDEO_pixelAspectRatio,
+	SPA_FORMAT_VIDEO_multiviewMode,
+	SPA_FORMAT_VIDEO_multiviewFlags,
+	SPA_FORMAT_VIDEO_chromaSite,
+	SPA_FORMAT_VIDEO_colorRange,
+	SPA_FORMAT_VIDEO_colorMatrix,
+	SPA_FORMAT_VIDEO_transferFunction,
+	SPA_FORMAT_VIDEO_colorPrimaries,
+	SPA_FORMAT_VIDEO_profile,
+	SPA_FORMAT_VIDEO_level,
+	SPA_FORMAT_VIDEO_streamFormat,
+	SPA_FORMAT_VIDEO_alignment,
+
+	/* Image Format keys */
+	SPA_FORMAT_BASE_IMAGE = 0x20000,
+	/* Binary Format keys */
+	SPA_FORMAT_BASE_BINARY = 0x30000,
+	/* Stream Format keys */
+	SPA_FORMAT_BASE_STREAM = 0x40000,
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

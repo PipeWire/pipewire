@@ -27,52 +27,6 @@ extern "C" {
 #include <spa/param/video/raw.h>
 #include <spa/param/video/encoded.h>
 
-/** properties for audio SPA_ID_OBJECT_Format */
-enum spa_format_video {
-	SPA_FORMAT_VIDEO_format,
-	SPA_FORMAT_VIDEO_size,
-	SPA_FORMAT_VIDEO_framerate,
-	SPA_FORMAT_VIDEO_maxFramerate,
-	SPA_FORMAT_VIDEO_views,
-	SPA_FORMAT_VIDEO_interlaceMode,
-	SPA_FORMAT_VIDEO_pixelAspectRatio,
-	SPA_FORMAT_VIDEO_multiviewMode,
-	SPA_FORMAT_VIDEO_multiviewFlags,
-	SPA_FORMAT_VIDEO_chromaSite,
-	SPA_FORMAT_VIDEO_colorRange,
-	SPA_FORMAT_VIDEO_colorMatrix,
-	SPA_FORMAT_VIDEO_transferFunction,
-	SPA_FORMAT_VIDEO_colorPrimaries,
-	SPA_FORMAT_VIDEO_profile,
-	SPA_FORMAT_VIDEO_level,
-	SPA_FORMAT_VIDEO_streamFormat,
-	SPA_FORMAT_VIDEO_alignment,
-};
-
-#if 0
-#define SPA_TYPE_FORMAT__Video		SPA_TYPE_FORMAT_BASE "Video"
-#define SPA_TYPE_FORMAT_VIDEO_BASE	SPA_TYPE_FORMAT__Video ":"
-
-#define SPA_TYPE_FORMAT_VIDEO__format		SPA_TYPE_FORMAT_VIDEO_BASE "format"
-#define SPA_TYPE_FORMAT_VIDEO__size		SPA_TYPE_FORMAT_VIDEO_BASE "size"
-#define SPA_TYPE_FORMAT_VIDEO__framerate	SPA_TYPE_FORMAT_VIDEO_BASE "framerate"
-#define SPA_TYPE_FORMAT_VIDEO__maxFramerate	SPA_TYPE_FORMAT_VIDEO_BASE "max-framerate"
-#define SPA_TYPE_FORMAT_VIDEO__views		SPA_TYPE_FORMAT_VIDEO_BASE "views"
-#define SPA_TYPE_FORMAT_VIDEO__interlaceMode	SPA_TYPE_FORMAT_VIDEO_BASE "interlace-mode"
-#define SPA_TYPE_FORMAT_VIDEO__pixelAspectRatio	SPA_TYPE_FORMAT_VIDEO_BASE "pixel-aspect-ratio"
-#define SPA_TYPE_FORMAT_VIDEO__multiviewMode	SPA_TYPE_FORMAT_VIDEO_BASE "multiview-mode"
-#define SPA_TYPE_FORMAT_VIDEO__multiviewFlags	SPA_TYPE_FORMAT_VIDEO_BASE "multiview-flags"
-#define SPA_TYPE_FORMAT_VIDEO__chromaSite	SPA_TYPE_FORMAT_VIDEO_BASE "chroma-site"
-#define SPA_TYPE_FORMAT_VIDEO__colorRange	SPA_TYPE_FORMAT_VIDEO_BASE "color-range"
-#define SPA_TYPE_FORMAT_VIDEO__colorMatrix	SPA_TYPE_FORMAT_VIDEO_BASE "color-matrix"
-#define SPA_TYPE_FORMAT_VIDEO__transferFunction	SPA_TYPE_FORMAT_VIDEO_BASE "transfer-function"
-#define SPA_TYPE_FORMAT_VIDEO__colorPrimaries	SPA_TYPE_FORMAT_VIDEO_BASE "color-primaries"
-#define SPA_TYPE_FORMAT_VIDEO__profile		SPA_TYPE_FORMAT_VIDEO_BASE "profile"
-#define SPA_TYPE_FORMAT_VIDEO__level		SPA_TYPE_FORMAT_VIDEO_BASE "level"
-#define SPA_TYPE_FORMAT_VIDEO__streamFormat	SPA_TYPE_FORMAT_VIDEO_BASE "stream-format"
-#define SPA_TYPE_FORMAT_VIDEO__alignment	SPA_TYPE_FORMAT_VIDEO_BASE "alignment"
-#endif
-
 struct spa_video_info {
 	uint32_t media_type;
 	uint32_t media_subtype;

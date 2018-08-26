@@ -27,16 +27,6 @@ extern "C" {
 #include <spa/param/format.h>
 #include <spa/param/audio/raw.h>
 
-/** properties for audio SPA_ID_OBJECT_Format */
-enum spa_format_audio {
-	SPA_FORMAT_AUDIO_format,
-	SPA_FORMAT_AUDIO_flags,
-	SPA_FORMAT_AUDIO_layout,
-	SPA_FORMAT_AUDIO_rate,
-	SPA_FORMAT_AUDIO_channels,
-	SPA_FORMAT_AUDIO_channelMask,
-};
-
 struct spa_audio_info {
 	uint32_t media_type;
 	uint32_t media_subtype;

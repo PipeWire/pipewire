@@ -32,8 +32,8 @@ extern "C" {
 #define SPA_TYPE__MediaType		SPA_TYPE_ENUM_BASE "MediaType"
 #define SPA_TYPE_MEDIA_TYPE_BASE	SPA_TYPE__MediaType ":"
 
-#include <spa/param/audio/format-types.h>
-#include <spa/param/video/format-types.h>
+#include <spa/param/audio/raw-types.h>
+#include <spa/param/video/raw-types.h>
 
 static const struct spa_type_info spa_type_media_type[] = {
 	{ SPA_MEDIA_TYPE_audio, SPA_TYPE_MEDIA_TYPE_BASE "audio", SPA_ID_Int, },
@@ -83,23 +83,44 @@ static const struct spa_type_info spa_type_media_subtype[] = {
 	{ 0, NULL, },
 };
 
+#define SPA_TYPE__FormatAudio		SPA_TYPE_FORMAT_BASE "Audio"
+#define SPA_TYPE_FORMAT_AUDIO_BASE	SPA_TYPE__FormatAudio ":"
+
+#define SPA_TYPE__FormatVideo		SPA_TYPE_FORMAT_BASE "Video"
+#define SPA_TYPE_FORMAT_VIDEO_BASE	SPA_TYPE__FormatVideo ":"
+
 static const struct spa_type_info spa_type_format[] = {
-	{ SPA_ID_OBJECT_Format,    SPA_TYPE__Format,           SPA_ID_Object, },
+	{ SPA_FORMAT_AUDIO_format, SPA_TYPE_FORMAT_AUDIO_BASE "format", SPA_ID_Enum,
+		spa_type_audio_format },
+	{ SPA_FORMAT_AUDIO_flags, SPA_TYPE_FORMAT_AUDIO_BASE "flags", SPA_ID_Enum,
+		spa_type_audio_flags },
+	{ SPA_FORMAT_AUDIO_layout, SPA_TYPE_FORMAT_AUDIO_BASE "layout", SPA_ID_Enum,
+		spa_type_audio_layout },
+	{ SPA_FORMAT_AUDIO_rate, SPA_TYPE_FORMAT_AUDIO_BASE "rate", SPA_ID_Int, },
+	{ SPA_FORMAT_AUDIO_channels, SPA_TYPE_FORMAT_AUDIO_BASE "channels", SPA_ID_Int, },
+	{ SPA_FORMAT_AUDIO_channelMask, SPA_TYPE_FORMAT_AUDIO_BASE "channelMask", SPA_ID_Int, },
+
+	{ SPA_FORMAT_VIDEO_format, SPA_TYPE_FORMAT_VIDEO_BASE "format", SPA_ID_Enum,
+		spa_type_video_format, },
+	{ SPA_FORMAT_VIDEO_size,  SPA_TYPE_FORMAT_VIDEO_BASE "size", SPA_ID_Rectangle, },
+	{ SPA_FORMAT_VIDEO_framerate, SPA_TYPE_FORMAT_VIDEO_BASE "framerate", SPA_ID_Fraction, },
+	{ SPA_FORMAT_VIDEO_maxFramerate, SPA_TYPE_FORMAT_VIDEO_BASE "maxFramerate", SPA_ID_Fraction, },
+	{ SPA_FORMAT_VIDEO_views, SPA_TYPE_FORMAT_VIDEO_BASE "views", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_interlaceMode, SPA_TYPE_FORMAT_VIDEO_BASE "interlaceMode", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_pixelAspectRatio, SPA_TYPE_FORMAT_VIDEO_BASE "pixelAspectRatio", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_multiviewMode, SPA_TYPE_FORMAT_VIDEO_BASE "multiviewMode", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_multiviewFlags, SPA_TYPE_FORMAT_VIDEO_BASE "multiviewFlags", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_chromaSite, SPA_TYPE_FORMAT_VIDEO_BASE "chromaSite", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_colorRange, SPA_TYPE_FORMAT_VIDEO_BASE "colorRange", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_colorMatrix, SPA_TYPE_FORMAT_VIDEO_BASE "colorMatrix", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_transferFunction, SPA_TYPE_FORMAT_VIDEO_BASE "transferFunction", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_colorPrimaries, SPA_TYPE_FORMAT_VIDEO_BASE "colorPrimaries", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_profile, SPA_TYPE_FORMAT_VIDEO_BASE "profile", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_level, SPA_TYPE_FORMAT_VIDEO_BASE "level", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_streamFormat, SPA_TYPE_FORMAT_VIDEO_BASE "streamFormat", SPA_ID_Int, },
+	{ SPA_FORMAT_VIDEO_alignment, SPA_TYPE_FORMAT_VIDEO_BASE "alignment", SPA_ID_Int, },
 	{ 0, NULL, },
 };
-
-static inline const struct spa_type_info *
-spa_type_format_get_ids(uint32_t media_type, uint32_t media_subtype)
-{
-	switch (media_type) {
-		case SPA_MEDIA_TYPE_audio:
-			return spa_type_format_audio_ids;
-		case SPA_MEDIA_TYPE_video:
-			return spa_type_format_video_ids;
-		default:
-			return NULL;
-	}
-}
 
 #ifdef __cplusplus
 }  /* extern "C" */

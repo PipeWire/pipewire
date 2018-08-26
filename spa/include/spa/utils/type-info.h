@@ -128,7 +128,7 @@ static const struct spa_type_info spa_types[] = {
 	{ SPA_ID_OBJECT_ParamList, SPA_TYPE_PARAM__List, SPA_ID_Object, spa_type_param_list, },
 	{ SPA_ID_OBJECT_PropInfo, SPA_TYPE__PropInfo, SPA_ID_Object, spa_type_prop_info, },
 	{ SPA_ID_OBJECT_Props, SPA_TYPE__Props, SPA_ID_Object, spa_type_props },
-	{ SPA_ID_OBJECT_Format, SPA_TYPE__Format, SPA_ID_Object, },
+	{ SPA_ID_OBJECT_Format, SPA_TYPE__Format, SPA_ID_Object, spa_type_format },
 	{ SPA_ID_OBJECT_ParamBuffers, SPA_TYPE_PARAM__Buffers, SPA_ID_Object, spa_type_param_buffers, },
 	{ SPA_ID_OBJECT_ParamMeta, SPA_TYPE_PARAM__Meta, SPA_ID_Object, spa_type_param_meta },
 	{ SPA_ID_OBJECT_ParamIO, SPA_TYPE_PARAM__IO, SPA_ID_Object, spa_type_param_io },

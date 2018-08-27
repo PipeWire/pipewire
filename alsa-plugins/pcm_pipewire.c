@@ -322,7 +322,7 @@ static void on_stream_format_changed(void *data, const struct spa_pod *format)
 	pw_log_info("buffers %lu %lu %u %u %u", io->buffer_size, io->period_size, buffers, stride, size);
 
 	params[n_params++] = spa_pod_builder_object(&b,
-	                SPA_ID_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+	                SPA_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
 			":", SPA_PARAM_BUFFERS_buffers, "iru", buffers,
 					SPA_POD_PROP_MIN_MAX(MIN_BUFFERS, MAX_BUFFERS),
 			":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
@@ -394,11 +394,11 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	pw_stream_add_listener(pw->stream, &pw->stream_listener, &stream_events, pw);
 
 	params[0] = spa_pod_builder_object(&b,
-		SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+		SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,     "I", pw->format.format,
-		":", SPA_FORMAT_AUDIO_layout,     "i", pw->format.layout,
+		":", SPA_FORMAT_AUDIO_layout,     "I", pw->format.layout,
 		":", SPA_FORMAT_AUDIO_channels,   "i", pw->format.channels,
 		":", SPA_FORMAT_AUDIO_rate,       "i", pw->format.rate);
 

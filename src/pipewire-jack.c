@@ -789,7 +789,7 @@ static void client_node_set_io(void *object,
 	pw_log_debug("client %p: set io %s %p", c,
 			spa_debug_type_find_name(spa_debug_types, id), ptr);
 
-	if (id == PW_ID_IO_ClientNodePosition) {
+	if (id == PW_IO_ClientNodePosition) {
 		if (ptr == NULL && c->position) {
 			m = find_mem_ptr(&c->mems, c->position);
 			if (m && --m->ref == 0)
@@ -902,18 +902,18 @@ static int param_enum_format(struct client *c, struct port *p,
 	switch (p->object->port.type_id) {
 	case 0:
 		*param = spa_pod_builder_object(b,
-			SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+			SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
 			"I", SPA_MEDIA_TYPE_audio,
 			"I", SPA_MEDIA_SUBTYPE_raw,
 	                ":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
-	                ":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
+	                ":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
 	                ":", SPA_FORMAT_AUDIO_rate,     "iru", DEFAULT_SAMPLE_RATE,
 				SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
 	                ":", SPA_FORMAT_AUDIO_channels, "i", 1);
 		break;
 	case 1:
 		*param = spa_pod_builder_object(b,
-			SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+			SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
 			"I", SPA_MEDIA_TYPE_stream,
 			"I", SPA_MEDIA_SUBTYPE_midi);
 		break;
@@ -930,11 +930,11 @@ static int param_format(struct client *c, struct port *p,
 	case 0:
 
 		*param = spa_pod_builder_object(b,
-			SPA_ID_PARAM_Format, SPA_ID_OBJECT_Format,
+			SPA_PARAM_Format, SPA_ID_OBJECT_Format,
 			"I", SPA_MEDIA_TYPE_audio,
 			"I", SPA_MEDIA_SUBTYPE_raw,
 	                ":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
-	                ":", SPA_FORMAT_AUDIO_layout,   "i", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
+	                ":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
 	                ":", SPA_FORMAT_AUDIO_rate,     p->have_format ? "iru" : "ir",
 							p->have_format ? p->rate : DEFAULT_SAMPLE_RATE,
 				SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
@@ -942,7 +942,7 @@ static int param_format(struct client *c, struct port *p,
 		break;
 	case 1:
 		*param = spa_pod_builder_object(b,
-			SPA_ID_PARAM_Format, SPA_ID_OBJECT_Format,
+			SPA_PARAM_Format, SPA_ID_OBJECT_Format,
 			"I", SPA_MEDIA_TYPE_stream,
 			"I", SPA_MEDIA_SUBTYPE_midi);
 		break;
@@ -956,7 +956,7 @@ static int param_buffers(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
 	*param = spa_pod_builder_object(b,
-		SPA_ID_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+		SPA_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
 		":", SPA_PARAM_BUFFERS_buffers, "iru", 1,
 			SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 		":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
@@ -1020,7 +1020,7 @@ static void client_node_port_set_param(void *object,
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-        if (id == SPA_ID_PARAM_Format) {
+        if (id == SPA_PARAM_Format) {
 		port_set_format(c, p, flags, param);
 	}
 
@@ -1266,7 +1266,7 @@ static void client_node_port_set_io(void *object,
 
 	update_io(c, mix, id, mem_id);
 
-        if (id == SPA_ID_IO_Buffers)
+        if (id == SPA_IO_Buffers)
                 mix->io = ptr;
 
 	pw_log_debug("port %p: set io id %u %u %u %u %p", p, id, mem_id, offset, size, ptr);

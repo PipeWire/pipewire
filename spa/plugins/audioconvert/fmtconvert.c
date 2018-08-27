@@ -161,11 +161,11 @@ static int setup_convert(struct impl *this)
 	dst_fmt = outformat.format.info.raw.format;
 
 	spa_log_info(this->log, NAME " %p: %s/%d@%d.%d->%s/%d@%d.%d", this,
-			spa_debug_type_find_name(spa_debug_types, src_fmt),
+			spa_debug_type_find_name(spa_type_audio_format, src_fmt),
 			informat.format.info.raw.channels,
 			informat.format.info.raw.rate,
 			informat.format.info.raw.layout,
-			spa_debug_type_find_name(spa_debug_types, dst_fmt),
+			spa_debug_type_find_name(spa_type_audio_format, dst_fmt),
 			outformat.format.info.raw.channels,
 			outformat.format.info.raw.rate,
 			outformat.format.info.raw.layout);

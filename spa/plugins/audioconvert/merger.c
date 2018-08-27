@@ -532,12 +532,12 @@ static int setup_convert(struct impl *this)
 	dst_fmt = outport->format.info.raw.format;
 
 	spa_log_info(this->log, NAME " %p: %s/%d@%d.%dx%d->%s/%d@%d.%d", this,
-			spa_debug_type_find_name(spa_debug_types, src_fmt),
+			spa_debug_type_find_name(spa_type_audio_format, src_fmt),
 			inport->format.info.raw.channels,
 			inport->format.info.raw.rate,
 			inport->format.info.raw.layout,
 			this->port_count,
-			spa_debug_type_find_name(spa_debug_types, dst_fmt),
+			spa_debug_type_find_name(spa_type_audio_format, dst_fmt),
 			outport->format.info.raw.channels,
 			outport->format.info.raw.rate,
 			outport->format.info.raw.layout);

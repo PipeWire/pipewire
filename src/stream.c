@@ -209,7 +209,7 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 			size, buffers);
 
 	param = spa_pod_builder_object(b,
-	                SPA_ID_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+	                SPA_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
 			":", SPA_PARAM_BUFFERS_buffers, "iru", buffers,
 					SPA_POD_PROP_MIN_MAX(3, MAX_BUFFERS),
 			":", SPA_PARAM_BUFFERS_blocks,  "i", blocks,
@@ -656,11 +656,11 @@ static const struct spa_pod *get_param(pa_stream *s, pa_sample_spec *ss, pa_chan
 {
 	const struct spa_pod *param;
 	param = spa_pod_builder_object(b,
-	                SPA_ID_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+	                SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
 	                "I", SPA_MEDIA_TYPE_audio,
 	                "I", SPA_MEDIA_SUBTYPE_raw,
 	                ":", SPA_FORMAT_AUDIO_format,     "I", format_pa2id(s, ss->format),
-	                ":", SPA_FORMAT_AUDIO_layout,     "i", SPA_AUDIO_LAYOUT_INTERLEAVED,
+	                ":", SPA_FORMAT_AUDIO_layout,     "I", SPA_AUDIO_LAYOUT_INTERLEAVED,
 	                ":", SPA_FORMAT_AUDIO_channels,   "i", ss->channels,
 	                ":", SPA_FORMAT_AUDIO_rate,       "i", ss->rate);
 	return param;

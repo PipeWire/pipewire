@@ -35,16 +35,16 @@ struct spa_handle {
 	/* user_data that can be set by the application */
 	void *user_data;
 	/**
-	 * Get the interface provided by \a handle with \a interface_id.
+	 * Get the interface provided by \a handle with \a type.
 	 *
 	 * \param handle a spa_handle
-	 * \param interface_id the interface id
+	 * \param type the interface type
 	 * \param interface result to hold the interface.
 	 * \return 0 on success
 	 *         -ENOTSUP when there are no interfaces
 	 *         -EINVAL when handle or info is NULL
 	 */
-	int (*get_interface) (struct spa_handle *handle, uint32_t interface_id, void **interface);
+	int (*get_interface) (struct spa_handle *handle, uint32_t type, void **interface);
 	/**
 	 * Clean up the memory of \a handle. After this, \a handle should not be used
 	 * anymore.

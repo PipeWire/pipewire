@@ -189,7 +189,7 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 			printf("can't make factory instance: %d\n", res);
 			return res;
 		}
-		if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Node, &iface)) < 0) {
+		if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
 			printf("can't get interface %d\n", res);
 			return res;
 		}
@@ -319,7 +319,7 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_object(&b,
-		0, SPA_ID_OBJECT_Props,
+		SPA_TYPE_OBJECT_Props, 0,
 		":", SPA_PROP_device,     "s", device ? device : "hw:0",
 		":", SPA_PROP_minLatency, "i", MIN_LATENCY);
 
@@ -342,7 +342,7 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_object(&b,
-		SPA_PARAM_Props, SPA_ID_OBJECT_Props,
+		SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
 		":", SPA_PROP_frequency,  "d", 600.0,
 		":", SPA_PROP_volume,	  "d", 1.0,
 		":", SPA_PROP_live,       "b", false);
@@ -359,7 +359,7 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_object(&b,
-		SPA_PARAM_Props, SPA_ID_OBJECT_Props,
+		SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
 		":", SPA_PROP_frequency,  "d", 440.0,
 		":", SPA_PROP_volume,	  "d", 1.0,
 		":", SPA_PROP_live,       "b", false);
@@ -473,7 +473,7 @@ static int negotiate_formats(struct data *data)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	filter = spa_pod_builder_object(&b,
-		0, SPA_ID_OBJECT_Format,
+		SPA_TYPE_OBJECT_Format, 0,
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_S16,
@@ -675,9 +675,9 @@ int main(int argc, char *argv[])
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);
 
-	data.support[0] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, data.log);
-	data.support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, &data.data_loop);
-	data.support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DataLoop, &data.data_loop);
+	data.support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
+	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, &data.data_loop);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, &data.data_loop);
 	data.n_support = 3;
 
 	if ((res = make_nodes(&data, argc > 1 ? argv[1] : NULL)) < 0) {

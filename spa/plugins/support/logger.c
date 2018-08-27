@@ -149,7 +149,7 @@ static const struct spa_log impl_log = {
 	impl_log_logv,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
+static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *this;
 
@@ -158,7 +158,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct impl *) handle;
 
-	if (interface_id == SPA_ID_INTERFACE_Log)
+	if (type == SPA_TYPE_INTERFACE_Log)
 		*interface = &this->log;
 	else
 		return -ENOENT;
@@ -212,7 +212,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->log = impl_log;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_MainLoop)
+		if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
 			loop = support[i].data;
 	}
 
@@ -237,7 +237,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_ID_INTERFACE_Log,},
+	{SPA_TYPE_INTERFACE_Log,},
 };
 
 static int

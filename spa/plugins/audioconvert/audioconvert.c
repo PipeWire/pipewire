@@ -568,7 +568,7 @@ impl_node_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
-				id, SPA_ID_OBJECT_PropInfo,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				":", SPA_PROP_INFO_id, "I", SPA_PROP_volume,
 				":", SPA_PROP_INFO_type, "fru", 1.0,
 					SPA_POD_PROP_MIN_MAX(0.0, 10.0));
@@ -752,7 +752,7 @@ static const struct spa_node impl_node = {
 	impl_node_process,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
+static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *this;
 
@@ -761,7 +761,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct impl *) handle;
 
-	if (interface_id == SPA_ID_INTERFACE_Node)
+	if (type == SPA_TYPE_INTERFACE_Node)
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -820,7 +820,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_Log)
+		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
 	}
 	this->node = impl_node;
@@ -849,13 +849,13 @@ impl_init(const struct spa_handle_factory *factory,
 				info, support, n_support);
 	size = spa_handle_factory_get_size(&spa_resample_factory, info);
 
-	spa_handle_get_interface(this->hnd_fmt[SPA_DIRECTION_INPUT], SPA_ID_INTERFACE_Node, &iface);
+	spa_handle_get_interface(this->hnd_fmt[SPA_DIRECTION_INPUT], SPA_TYPE_INTERFACE_Node, &iface);
 	this->fmt[SPA_DIRECTION_INPUT] = iface;
-	spa_handle_get_interface(this->hnd_fmt[SPA_DIRECTION_OUTPUT], SPA_ID_INTERFACE_Node, &iface);
+	spa_handle_get_interface(this->hnd_fmt[SPA_DIRECTION_OUTPUT], SPA_TYPE_INTERFACE_Node, &iface);
 	this->fmt[SPA_DIRECTION_OUTPUT] = iface;
-	spa_handle_get_interface(this->hnd_channelmix, SPA_ID_INTERFACE_Node, &iface);
+	spa_handle_get_interface(this->hnd_channelmix, SPA_TYPE_INTERFACE_Node, &iface);
 	this->channelmix = iface;
-	spa_handle_get_interface(this->hnd_resample, SPA_ID_INTERFACE_Node, &iface);
+	spa_handle_get_interface(this->hnd_resample, SPA_TYPE_INTERFACE_Node, &iface);
 	this->resample = iface;
 
 	props_reset(&this->props);
@@ -864,7 +864,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{ SPA_ID_INTERFACE_Node, },
+	{ SPA_TYPE_INTERFACE_Node, },
 };
 
 static int

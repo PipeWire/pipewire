@@ -813,7 +813,7 @@ node_init(struct node *this,
 	uint32_t i;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_Log)
+		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
 	}
 	this->node = impl_node;
@@ -905,7 +905,7 @@ static void client_node_initialized(void *data)
 	    media_type == SPA_MEDIA_TYPE_audio &&
 	    media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 		if ((impl->adapter = pw_load_spa_interface("audioconvert/libspa-audioconvert",
-				"audioconvert", SPA_ID_INTERFACE_Node, NULL, 0, NULL)) == NULL)
+				"audioconvert", SPA_TYPE_INTERFACE_Node, NULL, 0, NULL)) == NULL)
 			return;
 
 		impl->adapter_mix = impl->adapter;

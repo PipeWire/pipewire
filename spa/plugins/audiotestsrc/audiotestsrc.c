@@ -148,7 +148,7 @@ static int impl_node_enum_params(struct spa_node *node,
 				    SPA_PARAM_Props };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
+			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
 				":", SPA_PARAM_LIST_id, "I", list[*index]);
 		else
 			return 0;
@@ -161,14 +161,14 @@ static int impl_node_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_PropInfo,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				":", SPA_PROP_INFO_id,   "I", SPA_PROP_live,
 				":", SPA_PROP_INFO_name, "s", "Configure live mode of the source",
 				":", SPA_PROP_INFO_type, "b", p->live);
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_PropInfo,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				":", SPA_PROP_INFO_id,   "I", SPA_PROP_waveType,
 				":", SPA_PROP_INFO_name, "s", "Select the waveform",
 				":", SPA_PROP_INFO_type, "i", p->wave,
@@ -178,7 +178,7 @@ static int impl_node_enum_params(struct spa_node *node,
 			break;
 		case 2:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_PropInfo,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				":", SPA_PROP_INFO_id,   "I", SPA_PROP_frequency,
 				":", SPA_PROP_INFO_name, "s", "Select the frequency",
 				":", SPA_PROP_INFO_type, "dr", p->freq,
@@ -186,7 +186,7 @@ static int impl_node_enum_params(struct spa_node *node,
 			break;
 		case 3:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_PropInfo,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				":", SPA_PROP_INFO_id,   "I", SPA_PROP_volume,
 				":", SPA_PROP_INFO_name, "s", "Select the volume",
 				":", SPA_PROP_INFO_type, "dr", p->volume,
@@ -204,7 +204,7 @@ static int impl_node_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_Props,
+				SPA_TYPE_OBJECT_Props, id,
 				":", SPA_PROP_live,      "b", p->live,
 				":", SPA_PROP_waveType,  "i", p->wave,
 				":", SPA_PROP_frequency, "d", p->freq,
@@ -524,7 +524,7 @@ port_enum_formats(struct impl *this,
 	switch (*index) {
 	case 0:
 		*param = spa_pod_builder_object(builder,
-			SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			"I", SPA_MEDIA_TYPE_audio,
 			"I", SPA_MEDIA_SUBTYPE_raw,
 			":", SPA_FORMAT_AUDIO_format,   "Ieu", SPA_AUDIO_FORMAT_S16,
@@ -557,7 +557,7 @@ port_get_format(struct impl *this,
 		return 0;
 
 	*param = spa_pod_builder_object(builder,
-		SPA_PARAM_Format, SPA_ID_OBJECT_Format,
+		SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,   "I", this->current_format.info.raw.format,
@@ -602,7 +602,7 @@ impl_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_IO, };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
+			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
 				":", SPA_PARAM_LIST_id, "I", list[*index]);
 		else
 			return 0;
@@ -624,7 +624,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 
 		param = spa_pod_builder_object(&b,
-			id, SPA_ID_OBJECT_ParamBuffers,
+			SPA_TYPE_OBJECT_ParamBuffers, id,
 			":", SPA_PARAM_BUFFERS_buffers, "iru", 1,
 				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 			":", SPA_PARAM_BUFFERS_blocks,  "i",   1,
@@ -640,7 +640,7 @@ impl_node_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_ParamMeta,
+				SPA_TYPE_OBJECT_ParamMeta, id,
 				":", SPA_PARAM_META_type, "I", SPA_META_Header,
 				":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
 			break;
@@ -652,13 +652,13 @@ impl_node_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_ParamIO,
+				SPA_TYPE_OBJECT_ParamIO, id,
 				":", SPA_PARAM_IO_id,   "I", SPA_IO_Buffers,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_ParamIO,
+				SPA_TYPE_OBJECT_ParamIO, id,
 				":", SPA_PARAM_IO_id,   "I", SPA_IO_ControlRange,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_control_range));
 			break;
@@ -1003,7 +1003,7 @@ static const struct spa_node impl_node = {
 	impl_node_process,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
+static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *this;
 
@@ -1012,7 +1012,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct impl *) handle;
 
-	if (interface_id == SPA_ID_INTERFACE_Node)
+	if (type == SPA_TYPE_INTERFACE_Node)
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -1061,9 +1061,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_Log)
+		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (support[i].type == SPA_ID_INTERFACE_DataLoop)
+		else if (support[i].type == SPA_TYPE_INTERFACE_DataLoop)
 			this->data_loop = support[i].data;
 	}
 
@@ -1099,7 +1099,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_ID_INTERFACE_Node,},
+	{SPA_TYPE_INTERFACE_Node,},
 };
 
 static int

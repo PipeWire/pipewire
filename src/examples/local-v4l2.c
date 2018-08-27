@@ -225,7 +225,7 @@ static int port_enum_formats(struct spa_node *node,
 
 	SDL_GetRendererInfo(d->renderer, &info);
 
-	spa_pod_builder_push_object(builder, SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
+	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_enum(builder, SPA_MEDIA_TYPE_video);
 	spa_pod_builder_enum(builder, SPA_MEDIA_SUBTYPE_raw);
 
@@ -281,7 +281,7 @@ static int impl_port_enum_params(struct spa_node *node,
 			return 0;
 
 		*result = spa_pod_builder_object(builder,
-			id, SPA_ID_OBJECT_ParamBuffers,
+			SPA_TYPE_OBJECT_ParamBuffers, id,
 			":", SPA_PARAM_BUFFERS_buffers, "iru", 2,
 				SPA_POD_PROP_MIN_MAX(1, 32),
 			":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
@@ -295,7 +295,7 @@ static int impl_port_enum_params(struct spa_node *node,
 			return 0;
 
 		*result = spa_pod_builder_object(builder,
-			id, SPA_ID_OBJECT_ParamMeta,
+			SPA_TYPE_OBJECT_ParamMeta, id,
 			":", SPA_PARAM_META_type, "I", SPA_META_Header,
 			":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
 		break;
@@ -458,7 +458,7 @@ static void make_nodes(struct data *data)
 				  "spa.factory.name", "v4l2-source", NULL);
 	data->v4l2 = pw_factory_create_object(factory,
 					      NULL,
-					      PW_ID_INTERFACE_Node,
+					      PW_TYPE_INTERFACE_Node,
 					      PW_VERSION_NODE,
 					      props,
 					      SPA_ID_INVALID);

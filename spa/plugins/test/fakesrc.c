@@ -121,7 +121,7 @@ static int impl_node_enum_params(struct spa_node *node,
 			return 0;
 
 		param = spa_pod_builder_object(&b,
-			id, SPA_ID_OBJECT_ParamList,
+			SPA_TYPE_OBJECT_ParamList, id,
 			":", SPA_PARAM_LIST_id,   "I",  SPA_PARAM_Props);
 		break;
 
@@ -133,7 +133,7 @@ static int impl_node_enum_params(struct spa_node *node,
 			return 0;
 
 		param = spa_pod_builder_object(&b,
-			id, SPA_ID_OBJECT_Props,
+			SPA_TYPE_OBJECT_Props, id,
 			":", SPA_PROP_live,        "b", p->live,
 			":", SPA_PROP_patternType, "Ie", p->pattern,
 				SPA_POD_PROP_ENUM(1, p->pattern));
@@ -476,7 +476,7 @@ impl_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_Meta };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
+			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
 				":", SPA_PARAM_LIST_id, "I", list[*index]);
 		else
 			return 0;
@@ -495,7 +495,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 
 		param = spa_pod_builder_object(&b,
-			id, SPA_ID_OBJECT_ParamBuffers,
+			SPA_TYPE_OBJECT_ParamBuffers, id,
 			":", SPA_PARAM_BUFFERS_buffers, "ir", 32,
 				SPA_POD_PROP_MIN_MAX(2, 32),
 			":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
@@ -507,7 +507,7 @@ impl_node_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_ParamMeta,
+				SPA_TYPE_OBJECT_ParamMeta, id,
 				":", SPA_PARAM_META_type, "I", SPA_META_Header,
 				":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
 			break;
@@ -754,7 +754,7 @@ static const struct spa_node impl_node = {
 	impl_node_process,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
+static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *this;
 
@@ -763,7 +763,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct impl *) handle;
 
-	if (interface_id == SPA_ID_INTERFACE_Node)
+	if (type == SPA_TYPE_INTERFACE_Node)
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -812,9 +812,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_Log)
+		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (support[i].type == SPA_ID_INTERFACE_DataLoop)
+		else if (support[i].type == SPA_TYPE_INTERFACE_DataLoop)
 			this->data_loop = support[i].data;
 	}
 
@@ -846,7 +846,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_ID_INTERFACE_Node,},
+	{SPA_TYPE_INTERFACE_Node,},
 };
 
 static int

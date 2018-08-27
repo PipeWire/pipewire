@@ -218,7 +218,7 @@ static int port_get_format(struct spa_node *node,
 		return 0;
 
 	*result = spa_pod_builder_object(builder,
-		SPA_PARAM_Format, SPA_ID_OBJECT_Format,
+		SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 		"I", SPA_MEDIA_TYPE_video,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_VIDEO_format,    "I", d->format.format,
@@ -251,7 +251,7 @@ static int impl_port_enum_params(struct spa_node *node,
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(builder,
-				id, SPA_ID_OBJECT_ParamList,
+				SPA_TYPE_OBJECT_ParamList, id,
 				":", SPA_PARAM_LIST_id, "I", list[*index]);
 		else
 			return 0;
@@ -268,7 +268,7 @@ static int impl_port_enum_params(struct spa_node *node,
 			return 0;
 
 		param = spa_pod_builder_object(builder,
-			id, SPA_ID_OBJECT_ParamBuffers,
+			SPA_TYPE_OBJECT_ParamBuffers, id,
 			":", SPA_PARAM_BUFFERS_buffers, "iru", 2,
 				SPA_POD_PROP_MIN_MAX(2, MAX_BUFFERS),
 			":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
@@ -281,13 +281,13 @@ static int impl_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
-				id, SPA_ID_OBJECT_ParamMeta,
+				SPA_TYPE_OBJECT_ParamMeta, id,
 				":", SPA_PARAM_META_type, "I", SPA_META_Header,
 				":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
 			break;
 		case 1:
 			param = spa_pod_builder_object(builder,
-				id, SPA_ID_OBJECT_ParamMeta,
+				SPA_TYPE_OBJECT_ParamMeta, id,
 				":", SPA_PARAM_META_type, "I", SPA_META_VideoDamage,
 				":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_region));
 			break;

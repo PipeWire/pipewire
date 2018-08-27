@@ -26,17 +26,17 @@ extern "C" {
 
 #include <spa/pod/parser.h>
 #include <spa/debug/types.h>
-#include <spa/param/format-types.h>
+#include <spa/param/type-info.h>
 
 static inline int
 spa_debug_format_value(const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
 	switch (type) {
-	case SPA_ID_Bool:
+	case SPA_TYPE_Bool:
 		fprintf(stderr, "%s", *(int32_t *) body ? "true" : "false");
 		break;
-	case SPA_ID_Enum:
+	case SPA_TYPE_Enum:
 	{
 		const char *str = spa_debug_type_find_name(info, *(int32_t *) body);
 		char tmp[64];
@@ -51,37 +51,37 @@ spa_debug_format_value(const struct spa_type_info *info,
 		fprintf(stderr, "%s", str);
 		break;
 	}
-	case SPA_ID_Int:
+	case SPA_TYPE_Int:
 		fprintf(stderr, "%d", *(int32_t *) body);
 		break;
-	case SPA_ID_Long:
+	case SPA_TYPE_Long:
 		fprintf(stderr, "%" PRIi64, *(int64_t *) body);
 		break;
-	case SPA_ID_Float:
+	case SPA_TYPE_Float:
 		fprintf(stderr, "%f", *(float *) body);
 		break;
-	case SPA_ID_Double:
+	case SPA_TYPE_Double:
 		fprintf(stderr, "%g", *(double *) body);
 		break;
-	case SPA_ID_String:
+	case SPA_TYPE_String:
 		fprintf(stderr, "%s", (char *) body);
 		break;
-	case SPA_ID_Rectangle:
+	case SPA_TYPE_Rectangle:
 	{
 		struct spa_rectangle *r = body;
 		fprintf(stderr, "%" PRIu32 "x%" PRIu32, r->width, r->height);
 		break;
 	}
-	case SPA_ID_Fraction:
+	case SPA_TYPE_Fraction:
 	{
 		struct spa_fraction *f = body;
 		fprintf(stderr, "%" PRIu32 "/%" PRIu32, f->num, f->denom);
 		break;
 	}
-	case SPA_ID_Bitmap:
+	case SPA_TYPE_Bitmap:
 		fprintf(stderr, "Bitmap");
 		break;
-	case SPA_ID_Bytes:
+	case SPA_TYPE_Bytes:
 		fprintf(stderr, "Bytes");
 		break;
 	default:
@@ -100,28 +100,28 @@ static inline int spa_debug_format(int indent,
 	struct spa_pod *pod;
 	uint32_t mtype, mstype;
 	const char *pod_type_names[] = {
-		[SPA_ID_None] = "none",
-		[SPA_ID_Bool] = "bool",
-		[SPA_ID_Enum] = "enum",
-		[SPA_ID_Int] = "int",
-		[SPA_ID_Long] = "long",
-		[SPA_ID_Float] = "float",
-		[SPA_ID_Double] = "double",
-		[SPA_ID_String] = "string",
-		[SPA_ID_Bytes] = "bytes",
-		[SPA_ID_Rectangle] = "rectangle",
-		[SPA_ID_Fraction] = "fraction",
-		[SPA_ID_Bitmap] = "bitmap",
-		[SPA_ID_Array] = "array",
-		[SPA_ID_Struct] = "struct",
-		[SPA_ID_Object] = "object",
-		[SPA_ID_Pointer] = "pointer",
-		[SPA_ID_Fd] = "fd",
-		[SPA_ID_Prop] = "prop",
-		[SPA_ID_Pod] = "pod"
+		[SPA_TYPE_None] = "none",
+		[SPA_TYPE_Bool] = "bool",
+		[SPA_TYPE_Enum] = "enum",
+		[SPA_TYPE_Int] = "int",
+		[SPA_TYPE_Long] = "long",
+		[SPA_TYPE_Float] = "float",
+		[SPA_TYPE_Double] = "double",
+		[SPA_TYPE_String] = "string",
+		[SPA_TYPE_Bytes] = "bytes",
+		[SPA_TYPE_Rectangle] = "rectangle",
+		[SPA_TYPE_Fraction] = "fraction",
+		[SPA_TYPE_Bitmap] = "bitmap",
+		[SPA_TYPE_Array] = "array",
+		[SPA_TYPE_Struct] = "struct",
+		[SPA_TYPE_Object] = "object",
+		[SPA_TYPE_Pointer] = "pointer",
+		[SPA_TYPE_Fd] = "fd",
+		[SPA_TYPE_Prop] = "prop",
+		[SPA_TYPE_Pod] = "pod"
 	};
 
-	if (format == NULL || SPA_POD_TYPE(format) != SPA_ID_Object)
+	if (format == NULL || SPA_POD_TYPE(format) != SPA_TYPE_Object)
 		return -EINVAL;
 
 
@@ -144,7 +144,7 @@ static inline int spa_debug_format(int indent,
 		const char *key;
 		const struct spa_type_info *ti;
 
-		if (pod->type != SPA_ID_Prop)
+		if (pod->type != SPA_TYPE_Prop)
 			continue;
 
 		prop = (struct spa_pod_prop *)pod;

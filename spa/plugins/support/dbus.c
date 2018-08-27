@@ -318,7 +318,7 @@ static const struct spa_dbus impl_dbus = {
 	impl_get_connection,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
+static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *this;
 
@@ -327,7 +327,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct impl *) handle;
 
-	if (interface_id == SPA_ID_INTERFACE_DBus)
+	if (type == SPA_TYPE_INTERFACE_DBus)
 		*interface = &this->dbus;
 	else
 		return -ENOENT;
@@ -370,9 +370,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this->dbus = impl_dbus;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_Log)
+		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (support[i].type == SPA_ID_INTERFACE_LoopUtils)
+		else if (support[i].type == SPA_TYPE_INTERFACE_LoopUtils)
 			this->utils = support[i].data;
 	}
 	if (this->utils == NULL) {
@@ -386,7 +386,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_ID_INTERFACE_DBus,},
+	{SPA_TYPE_INTERFACE_DBus,},
 };
 
 static int

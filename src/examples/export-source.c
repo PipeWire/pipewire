@@ -181,7 +181,7 @@ static int port_enum_formats(struct spa_node *node,
 		return 0;
 
 	*param = spa_pod_builder_object(builder,
-		SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+		SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,   "Ieu", SPA_AUDIO_FORMAT_S16,
@@ -216,7 +216,7 @@ static int port_get_format(struct spa_node *node,
 		return 0;
 
 	*param = spa_pod_builder_object(builder,
-		SPA_PARAM_Format, SPA_ID_OBJECT_Format,
+		SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,   "I", d->format.format,
@@ -249,7 +249,7 @@ static int impl_port_enum_params(struct spa_node *node,
 
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(builder,
-				id, SPA_ID_OBJECT_ParamList,
+				SPA_TYPE_OBJECT_ParamList, id,
 				":", SPA_PARAM_LIST_id, "I", list[*index]);
 		else
 			return 0;
@@ -266,7 +266,7 @@ static int impl_port_enum_params(struct spa_node *node,
 			return 0;
 
 		param = spa_pod_builder_object(builder,
-			id, SPA_ID_OBJECT_ParamBuffers,
+			SPA_TYPE_OBJECT_ParamBuffers, id,
 			":", SPA_PARAM_BUFFERS_buffers, "iru", 1,
 				SPA_POD_PROP_MIN_MAX(1, 32),
 			":", SPA_PARAM_BUFFERS_blocks,  "i",   1,
@@ -279,7 +279,7 @@ static int impl_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
-				id, SPA_ID_OBJECT_ParamMeta,
+				SPA_TYPE_OBJECT_ParamMeta, id,
 				":", SPA_PARAM_META_type, "I", SPA_META_Header,
 				":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
 			break;
@@ -291,7 +291,7 @@ static int impl_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
-				id, SPA_ID_OBJECT_ParamIO,
+				SPA_TYPE_OBJECT_ParamIO, id,
 				":", SPA_PARAM_IO_id, "I", SPA_IO_Buffers,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
 			break;

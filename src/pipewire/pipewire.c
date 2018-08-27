@@ -379,9 +379,9 @@ int pw_unload_spa_interface(void *iface)
 
 void *pw_get_spa_dbus(struct pw_loop *loop)
 {
-	struct spa_support support = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_LoopUtils, loop->utils);
+	struct spa_support support = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, loop->utils);
 
-	return pw_load_spa_interface("support/libspa-dbus", "dbus", SPA_ID_INTERFACE_DBus,
+	return pw_load_spa_interface("support/libspa-dbus", "dbus", SPA_TYPE_INTERFACE_DBus,
 			NULL, 1, &support);
 }
 
@@ -430,11 +430,11 @@ void pw_init(int *argc, char **argv[])
 	items[0] = SPA_DICT_ITEM_INIT("log.colors", "1");
 	info = SPA_DICT_INIT(items, 1);
 
-	iface = load_interface(plugin, "logger", SPA_ID_INTERFACE_Log, &info,
+	iface = load_interface(plugin, "logger", SPA_TYPE_INTERFACE_Log, &info,
 			support->n_support, support->support);
 	if (iface != NULL) {
 		support->support[support->n_support++] =
-			SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, iface->iface);
+			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, iface->iface);
 		pw_log_set(iface->iface);
 	}
 	pw_log_info("version %s", pw_get_library_version());

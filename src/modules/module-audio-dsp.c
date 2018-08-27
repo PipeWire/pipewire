@@ -185,7 +185,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	factory = pw_factory_new(core,
 				 "audio-dsp",
-				 PW_ID_INTERFACE_Node,
+				 PW_TYPE_INTERFACE_Node,
 				 PW_VERSION_NODE,
 				 NULL,
 				 sizeof(*data));

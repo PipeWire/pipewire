@@ -114,7 +114,7 @@ struct spa_fraction {
 
 #define SPA_TIME_INVALID  ((int64_t)INT64_MIN)
 #define SPA_IDX_INVALID  ((unsigned int)-1)
-//#define SPA_ID_INVALID  ((uint32_t)0xffffffff)
+#define SPA_ID_INVALID  ((uint32_t)0xffffffff)
 
 #define SPA_NSEC_PER_SEC  (1000000000ll)
 #define SPA_NSEC_PER_MSEC (1000000ll)

@@ -264,7 +264,7 @@ spa_ffmpeg_enc_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_Format };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
+			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
 				":", SPA_PARAM_LIST_id, "I", list[*index]);
 		else
 			return 0;
@@ -462,7 +462,7 @@ static const struct spa_node ffmpeg_enc_node = {
 };
 
 static int
-spa_ffmpeg_enc_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
+spa_ffmpeg_enc_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *this;
 
@@ -471,7 +471,7 @@ spa_ffmpeg_enc_get_interface(struct spa_handle *handle, uint32_t interface_id, v
 
 	this = (struct impl *) handle;
 
-	if (interface_id == SPA_ID_INTERFACE_Node)
+	if (type == SPA_TYPE_INTERFACE_Node)
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -492,7 +492,7 @@ spa_ffmpeg_enc_init(struct spa_handle *handle,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_Log)
+		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
 	}
 

@@ -30,22 +30,22 @@
 static inline int spa_pod_compare_value(uint32_t type, const void *r1, const void *r2)
 {
 	switch (type) {
-	case SPA_ID_INVALID:
+	case SPA_TYPE_None:
 		return 0;
-	case SPA_ID_Bool:
-	case SPA_ID_Enum:
+	case SPA_TYPE_Bool:
+	case SPA_TYPE_Enum:
 		return *(int32_t *) r1 == *(uint32_t *) r2 ? 0 : 1;
-	case SPA_ID_Int:
+	case SPA_TYPE_Int:
 		return *(int32_t *) r1 - *(int32_t *) r2;
-	case SPA_ID_Long:
+	case SPA_TYPE_Long:
 		return *(int64_t *) r1 - *(int64_t *) r2;
-	case SPA_ID_Float:
+	case SPA_TYPE_Float:
 		return *(float *) r1 - *(float *) r2;
-	case SPA_ID_Double:
+	case SPA_TYPE_Double:
 		return *(double *) r1 - *(double *) r2;
-	case SPA_ID_String:
+	case SPA_TYPE_String:
 		return strcmp(r1, r2);
-	case SPA_ID_Rectangle:
+	case SPA_TYPE_Rectangle:
 	{
 		const struct spa_rectangle *rec1 = (struct spa_rectangle *) r1,
 		    *rec2 = (struct spa_rectangle *) r2;
@@ -56,7 +56,7 @@ static inline int spa_pod_compare_value(uint32_t type, const void *r1, const voi
 		else
 			return 1;
 	}
-	case SPA_ID_Fraction:
+	case SPA_TYPE_Fraction:
 	{
 		const struct spa_fraction *f1 = (struct spa_fraction *) r1,
 		    *f2 = (struct spa_fraction *) r2;
@@ -92,19 +92,19 @@ static inline int spa_pod_compare_part(const struct spa_pod *pod1, uint32_t pod1
 			return -EINVAL;
 
 		switch (SPA_POD_TYPE(p1)) {
-		case SPA_ID_Struct:
-		case SPA_ID_Object:
+		case SPA_TYPE_Struct:
+		case SPA_TYPE_Object:
 			if (SPA_POD_TYPE(p2) != SPA_POD_TYPE(p1))
 				return -EINVAL;
 
-			if (SPA_POD_TYPE(p1) == SPA_ID_Struct)
+			if (SPA_POD_TYPE(p1) == SPA_TYPE_Struct)
 				recurse_offset = sizeof(struct spa_pod_struct);
 			else
 				recurse_offset = sizeof(struct spa_pod_object);
 
 			do_advance = true;
 			break;
-		case SPA_ID_Prop:
+		case SPA_TYPE_Prop:
 		{
 			struct spa_pod_prop *pr1, *pr2;
 			void *a1, *a2;

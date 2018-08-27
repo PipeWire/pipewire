@@ -687,7 +687,7 @@ static int on_global(void *data, struct pw_global *global)
 	bool need_dsp;
 	uint64_t plugged;
 
-	if (pw_global_get_type(global) != PW_ID_INTERFACE_Node)
+	if (pw_global_get_type(global) != PW_TYPE_INTERFACE_Node)
 		return 0;
 
 	node = pw_global_get_object(global);

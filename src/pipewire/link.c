@@ -381,7 +381,7 @@ static int alloc_buffers(struct pw_link *this,
 
 	/* collect metadata */
 	for (i = 0; i < n_params; i++) {
-		if (spa_pod_is_object_type (params[i], SPA_ID_OBJECT_ParamMeta)) {
+		if (spa_pod_is_object_type (params[i], SPA_TYPE_OBJECT_ParamMeta)) {
 			uint32_t type, size;
 
 			if (spa_pod_object_parse(params[i],
@@ -657,7 +657,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 		max_buffers = MAX_BUFFERS;
 		minsize = stride = 0;
-		param = find_param(params, n_params, SPA_ID_OBJECT_ParamBuffers);
+		param = find_param(params, n_params, SPA_TYPE_OBJECT_ParamBuffers);
 		if (param) {
 			uint32_t qmax_buffers = max_buffers,
 			    qminsize = minsize, qstride = stride;
@@ -1328,7 +1328,7 @@ int pw_link_register(struct pw_link *link,
 	link->registered = true;
 
 	link->global = pw_global_new(core,
-				     PW_ID_INTERFACE_Link, PW_VERSION_LINK,
+				     PW_TYPE_INTERFACE_Link, PW_VERSION_LINK,
 				     properties,
 				     link);
 	if (link->global == NULL)

@@ -170,48 +170,48 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 
 	while ((key = pw_properties_iterate(pw_props, &state))) {
 		struct spa_pod_prop *prop;
-		uint32_t id = 0;
+		uint32_t type = 0;
 
 #if 0
 		if (!spa_type_is_a(key, SPA_TYPE_PROPS_BASE))
 			continue;
 
 #endif
-		id = spa_debug_type_find_id(spa_debug_types, key);
-		if (id == SPA_ID_INVALID)
+		type = spa_debug_type_find_type(spa_debug_types, key);
+		if (type == SPA_TYPE_None)
 			continue;
 
-		if ((prop = spa_pod_find_prop(props, id))) {
+		if ((prop = spa_pod_find_prop(props, type))) {
 			const char *value = pw_properties_get(pw_props, key);
 
 			pw_log_info("configure prop %s", key);
 
 			switch(prop->body.value.type) {
-			case SPA_ID_Bool:
+			case SPA_TYPE_Bool:
 				SPA_POD_VALUE(struct spa_pod_bool, &prop->body.value) =
 					pw_properties_parse_bool(value);
 				break;
-			case SPA_ID_Enum:
+			case SPA_TYPE_Enum:
 				SPA_POD_VALUE(struct spa_pod_enum, &prop->body.value) =
-					spa_debug_type_find_id(spa_debug_types, value);
+					spa_debug_type_find_type(spa_debug_types, value);
 				break;
-			case SPA_ID_Int:
+			case SPA_TYPE_Int:
 				SPA_POD_VALUE(struct spa_pod_int, &prop->body.value) =
 					pw_properties_parse_int(value);
 				break;
-			case SPA_ID_Long:
+			case SPA_TYPE_Long:
 				SPA_POD_VALUE(struct spa_pod_long, &prop->body.value) =
 					pw_properties_parse_int64(value);
 				break;
-			case SPA_ID_Float:
+			case SPA_TYPE_Float:
 				SPA_POD_VALUE(struct spa_pod_float, &prop->body.value) =
 					pw_properties_parse_float(value);
 				break;
-			case SPA_ID_Double:
+			case SPA_TYPE_Double:
 				SPA_POD_VALUE(struct spa_pod_double, &prop->body.value) =
 					pw_properties_parse_double(value);
 				break;
-			case SPA_ID_String:
+			case SPA_TYPE_String:
 				break;
 			default:
 				break;
@@ -293,7 +293,7 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	if (SPA_RESULT_IS_ASYNC(res))
 		flags |= PW_SPA_NODE_FLAG_ASYNC;
 
-	if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Node, &iface)) < 0) {
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
 		pw_log_error("can't get node interface %d", res);
 		goto interface_failed;
 	}

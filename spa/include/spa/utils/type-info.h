@@ -33,9 +33,9 @@ static inline bool spa_type_is_a(const char *type, const char *parent)
 }
 
 struct spa_type_info {
-	uint32_t id;
-	const char *name;
 	uint32_t type;
+	const char *name;
+	uint32_t parent;
 	const struct spa_type_info *values;
 };
 
@@ -73,65 +73,63 @@ struct spa_type_info {
 #include <spa/param/type-info.h>
 
 static const struct spa_type_info spa_types[] = {
-	{ SPA_ID_INVALID, "*invalid*", SPA_ID_INVALID, },
-
         /* Basic types */
-	{ SPA_ID_BASE, SPA_TYPE_BASE, SPA_ID_BASE,   },
-	{ SPA_ID_None, SPA_TYPE_BASE "None", SPA_ID_None, },
-	{ SPA_ID_Bool, SPA_TYPE_BASE "Bool", SPA_ID_Bool, },
-	{ SPA_ID_Enum, SPA_TYPE__Enum, SPA_ID_Int, },
-	{ SPA_ID_Int, SPA_TYPE_BASE "Int", SPA_ID_Int, },
-	{ SPA_ID_Long, SPA_TYPE_BASE "Long", SPA_ID_Long, },
-	{ SPA_ID_Float, SPA_TYPE_BASE "Float", SPA_ID_Float, },
-	{ SPA_ID_Double, SPA_TYPE_BASE "Double", SPA_ID_Double, },
-	{ SPA_ID_String, SPA_TYPE_BASE "String", SPA_ID_String, },
-	{ SPA_ID_Bytes, SPA_TYPE_BASE "Bytes", SPA_ID_Bytes, },
-	{ SPA_ID_Rectangle, SPA_TYPE_BASE "Rectangle", SPA_ID_Rectangle, },
-	{ SPA_ID_Fraction, SPA_TYPE_BASE "Fraction", SPA_ID_Fraction, },
-	{ SPA_ID_Bitmap, SPA_TYPE_BASE "Bitmap", SPA_ID_Bitmap, },
-	{ SPA_ID_Array, SPA_TYPE_BASE "Array", SPA_ID_Array, },
-	{ SPA_ID_Pod, SPA_TYPE__Pod, SPA_ID_Pod, },
-	{ SPA_ID_Struct, SPA_TYPE__Struct, SPA_ID_Pod, },
-	{ SPA_ID_Object, SPA_TYPE__Object, SPA_ID_Pod, },
-	{ SPA_ID_Sequence, SPA_TYPE_POD_BASE "Sequence", SPA_ID_Pod, },
-	{ SPA_ID_Pointer, SPA_TYPE__Pointer, SPA_ID_Pointer, },
-	{ SPA_ID_Fd, SPA_TYPE_BASE "Fd", SPA_ID_Fd, },
-	{ SPA_ID_Prop, SPA_TYPE_POD_BASE "Prop", SPA_ID_Pod, },
+	{ SPA_TYPE_START, SPA_TYPE_BASE, SPA_TYPE_START,   },
+	{ SPA_TYPE_None, SPA_TYPE_BASE "None", SPA_TYPE_None, },
+	{ SPA_TYPE_Bool, SPA_TYPE_BASE "Bool", SPA_TYPE_Bool, },
+	{ SPA_TYPE_Enum, SPA_TYPE__Enum, SPA_TYPE_Int, },
+	{ SPA_TYPE_Int, SPA_TYPE_BASE "Int", SPA_TYPE_Int, },
+	{ SPA_TYPE_Long, SPA_TYPE_BASE "Long", SPA_TYPE_Long, },
+	{ SPA_TYPE_Float, SPA_TYPE_BASE "Float", SPA_TYPE_Float, },
+	{ SPA_TYPE_Double, SPA_TYPE_BASE "Double", SPA_TYPE_Double, },
+	{ SPA_TYPE_String, SPA_TYPE_BASE "String", SPA_TYPE_String, },
+	{ SPA_TYPE_Bytes, SPA_TYPE_BASE "Bytes", SPA_TYPE_Bytes, },
+	{ SPA_TYPE_Rectangle, SPA_TYPE_BASE "Rectangle", SPA_TYPE_Rectangle, },
+	{ SPA_TYPE_Fraction, SPA_TYPE_BASE "Fraction", SPA_TYPE_Fraction, },
+	{ SPA_TYPE_Bitmap, SPA_TYPE_BASE "Bitmap", SPA_TYPE_Bitmap, },
+	{ SPA_TYPE_Array, SPA_TYPE_BASE "Array", SPA_TYPE_Array, },
+	{ SPA_TYPE_Pod, SPA_TYPE__Pod, SPA_TYPE_Pod, },
+	{ SPA_TYPE_Struct, SPA_TYPE__Struct, SPA_TYPE_Pod, },
+	{ SPA_TYPE_Object, SPA_TYPE__Object, SPA_TYPE_Pod, },
+	{ SPA_TYPE_Sequence, SPA_TYPE_POD_BASE "Sequence", SPA_TYPE_Pod, },
+	{ SPA_TYPE_Pointer, SPA_TYPE__Pointer, SPA_TYPE_Pointer, },
+	{ SPA_TYPE_Fd, SPA_TYPE_BASE "Fd", SPA_TYPE_Fd, },
+	{ SPA_TYPE_Prop, SPA_TYPE_POD_BASE "Prop", SPA_TYPE_Pod, },
 
-	{ SPA_ID_POINTER_BASE, SPA_TYPE__Pointer, SPA_ID_Pointer, },
-	{ SPA_ID_POINTER_Buffer, SPA_TYPE_POINTER_BASE "Buffer", SPA_ID_Pointer, },
-	{ SPA_ID_POINTER_Meta, SPA_TYPE_POINTER_BASE "Meta", SPA_ID_Pointer, },
-	{ SPA_ID_POINTER_Dict, SPA_TYPE_POINTER_BASE "Dict", SPA_ID_Pointer, },
+	{ SPA_TYPE_POINTER_START, SPA_TYPE__Pointer, SPA_TYPE_Pointer, },
+	{ SPA_TYPE_POINTER_Buffer, SPA_TYPE_POINTER_BASE "Buffer", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_POINTER_Meta, SPA_TYPE_POINTER_BASE "Meta", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_POINTER_Dict, SPA_TYPE_POINTER_BASE "Dict", SPA_TYPE_Pointer, },
 
-	{ SPA_ID_INTERFACE_BASE, SPA_TYPE__Interface, SPA_ID_Pointer, },
-	{ SPA_ID_INTERFACE_Handle, SPA_TYPE_INTERFACE_BASE "Handle", SPA_ID_INTERFACE_BASE, },
-	{ SPA_ID_INTERFACE_HandleFactory, SPA_TYPE_INTERFACE_BASE "HandleFactory", SPA_ID_INTERFACE_BASE, },
-	{ SPA_ID_INTERFACE_Log, SPA_TYPE_INTERFACE_BASE "Log", SPA_ID_INTERFACE_BASE, },
-	{ SPA_ID_INTERFACE_Loop, SPA_TYPE_INTERFACE_BASE "Loop", SPA_ID_INTERFACE_BASE, },
-	{ SPA_ID_INTERFACE_LoopControl, SPA_TYPE_INTERFACE_BASE "LoopControl", SPA_ID_INTERFACE_BASE, },
-	{ SPA_ID_INTERFACE_LoopUtils, SPA_TYPE_INTERFACE_BASE "LoopUtils", SPA_ID_INTERFACE_BASE, },
-	{ SPA_ID_INTERFACE_DataLoop, SPA_TYPE_INTERFACE_BASE "DataLoop", SPA_ID_INTERFACE_BASE, },
-	{ SPA_ID_INTERFACE_MainLoop, SPA_TYPE_INTERFACE_BASE "MainLoop", SPA_ID_INTERFACE_BASE, },
-	{ SPA_ID_INTERFACE_DBus, SPA_TYPE_INTERFACE_BASE "DBus", SPA_ID_INTERFACE_BASE, },
-	{ SPA_ID_INTERFACE_Monitor, SPA_TYPE_INTERFACE_BASE "Monitor", SPA_ID_INTERFACE_BASE, },
-	{ SPA_ID_INTERFACE_Node, SPA_TYPE_INTERFACE_BASE "Node", SPA_ID_INTERFACE_BASE, },
+	{ SPA_TYPE_INTERFACE_START, SPA_TYPE__Interface, SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_Handle, SPA_TYPE_INTERFACE_BASE "Handle", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_HandleFactory, SPA_TYPE_INTERFACE_BASE "HandleFactory", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_Log, SPA_TYPE_INTERFACE_BASE "Log", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_Loop, SPA_TYPE_INTERFACE_BASE "Loop", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_LoopControl, SPA_TYPE_INTERFACE_BASE "LoopControl", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_LoopUtils, SPA_TYPE_INTERFACE_BASE "LoopUtils", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_DataLoop, SPA_TYPE_INTERFACE_BASE "DataLoop", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_MainLoop, SPA_TYPE_INTERFACE_BASE "MainLoop", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_DBus, SPA_TYPE_INTERFACE_BASE "DBus", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_Monitor, SPA_TYPE_INTERFACE_BASE "Monitor", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_Node, SPA_TYPE_INTERFACE_BASE "Node", SPA_TYPE_Pointer, },
 
-	{ SPA_ID_EVENT_BASE, SPA_TYPE__Event, SPA_ID_Object, },
-	{ SPA_ID_EVENT_Monitor, SPA_TYPE_EVENT_BASE "Monitor", SPA_ID_EVENT_BASE, },
-	{ SPA_ID_EVENT_Node, SPA_TYPE_EVENT_BASE "Node", SPA_ID_EVENT_BASE, },
+	{ SPA_TYPE_EVENT_START, SPA_TYPE__Event, SPA_TYPE_Object, },
+	{ SPA_TYPE_EVENT_Monitor, SPA_TYPE_EVENT_BASE "Monitor", SPA_TYPE_Object, spa_type_monitor_event },
+	{ SPA_TYPE_EVENT_Node, SPA_TYPE_EVENT_BASE "Node", SPA_TYPE_Object, spa_type_node_event },
 
-	{ SPA_ID_COMMAND_BASE, SPA_TYPE__Command, SPA_ID_Object, },
-	{ SPA_ID_COMMAND_Node, SPA_TYPE_COMMAND_BASE "Node", SPA_ID_COMMAND_BASE, },
+	{ SPA_TYPE_COMMAND_START, SPA_TYPE__Command, SPA_TYPE_Object, },
+	{ SPA_TYPE_COMMAND_Node, SPA_TYPE_COMMAND_BASE "Node", SPA_TYPE_Object, spa_type_node_command },
 
-	{ SPA_ID_OBJECT_BASE, SPA_TYPE__Object, SPA_ID_Object, },
-	{ SPA_ID_OBJECT_MonitorItem, SPA_TYPE__MonitorItem, SPA_ID_Object, spa_type_monitor_item },
-	{ SPA_ID_OBJECT_ParamList, SPA_TYPE_PARAM__List, SPA_ID_Object, spa_type_param_list, },
-	{ SPA_ID_OBJECT_PropInfo, SPA_TYPE__PropInfo, SPA_ID_Object, spa_type_prop_info, },
-	{ SPA_ID_OBJECT_Props, SPA_TYPE__Props, SPA_ID_Object, spa_type_props },
-	{ SPA_ID_OBJECT_Format, SPA_TYPE__Format, SPA_ID_Object, spa_type_format },
-	{ SPA_ID_OBJECT_ParamBuffers, SPA_TYPE_PARAM__Buffers, SPA_ID_Object, spa_type_param_buffers, },
-	{ SPA_ID_OBJECT_ParamMeta, SPA_TYPE_PARAM__Meta, SPA_ID_Object, spa_type_param_meta },
-	{ SPA_ID_OBJECT_ParamIO, SPA_TYPE_PARAM__IO, SPA_ID_Object, spa_type_param_io },
+	{ SPA_TYPE_OBJECT_START, SPA_TYPE__Object, SPA_TYPE_Object, },
+	{ SPA_TYPE_OBJECT_MonitorItem, SPA_TYPE__MonitorItem, SPA_TYPE_Object, spa_type_monitor_item },
+	{ SPA_TYPE_OBJECT_ParamList, SPA_TYPE_PARAM__List, SPA_TYPE_Object, spa_type_param_list, },
+	{ SPA_TYPE_OBJECT_PropInfo, SPA_TYPE__PropInfo, SPA_TYPE_Object, spa_type_prop_info, },
+	{ SPA_TYPE_OBJECT_Props, SPA_TYPE__Props, SPA_TYPE_Object, spa_type_props },
+	{ SPA_TYPE_OBJECT_Format, SPA_TYPE__Format, SPA_TYPE_Object, spa_type_format },
+	{ SPA_TYPE_OBJECT_ParamBuffers, SPA_TYPE_PARAM__Buffers, SPA_TYPE_Object, spa_type_param_buffers, },
+	{ SPA_TYPE_OBJECT_ParamMeta, SPA_TYPE_PARAM__Meta, SPA_TYPE_Object, spa_type_param_meta },
+	{ SPA_TYPE_OBJECT_ParamIO, SPA_TYPE_PARAM__IO, SPA_TYPE_Object, spa_type_param_io },
 
 	{ 0, NULL, }
 };

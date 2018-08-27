@@ -178,12 +178,12 @@ int main(int argc, char *argv[])
 	}
 
 	if ((res = spa_handle_get_interface(handle,
-					    SPA_ID_INTERFACE_Log,
+					    SPA_TYPE_INTERFACE_Log,
 					    &iface)) < 0)
 		error(-1, res, "can't get log interface");
 
 	data.log = iface;
-	data.support[0] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, data.log);
+	data.support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
 	data.n_support = 1;
 
 	if ((str = getenv("SPA_DEBUG")))
@@ -195,27 +195,27 @@ int main(int argc, char *argv[])
 		error(-1, res, "can't create loop");
 	}
 	if ((res = spa_handle_get_interface(handle,
-					    SPA_ID_INTERFACE_Loop,
+					    SPA_TYPE_INTERFACE_Loop,
 					    &iface)) < 0)
 		error(-1, res, "can't get loop interface");
 	data.loop = iface;
 
 	if ((res = spa_handle_get_interface(handle,
-					    SPA_ID_INTERFACE_LoopControl,
+					    SPA_TYPE_INTERFACE_LoopControl,
 					    &iface)) < 0)
 		error(-1, res, "can't get loopcontrol interface");
 	data.loop_control = iface;
 
 	if ((res = spa_handle_get_interface(handle,
-					    SPA_ID_INTERFACE_LoopUtils,
+					    SPA_TYPE_INTERFACE_LoopUtils,
 					    &iface)) < 0)
 		error(-1, res, "can't get looputils interface");
 	data.loop_utils = iface;
 
-	data.support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DataLoop, data.loop);
-	data.support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, data.loop);
-	data.support[3] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_LoopControl, data.loop_control);
-	data.support[4] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_LoopUtils, data.loop_utils);
+	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, data.loop);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, data.loop);
+	data.support[3] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopControl, data.loop_control);
+	data.support[4] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, data.loop_utils);
 	data.n_support = 5;
 
 	if ((res = get_handle(&data, &handle,
@@ -225,12 +225,12 @@ int main(int argc, char *argv[])
 	}
 
 	if ((res = spa_handle_get_interface(handle,
-					    SPA_ID_INTERFACE_DBus,
+					    SPA_TYPE_INTERFACE_DBus,
 					    &iface)) < 0)
 		error(-1, res, "can't get dbus interface");
 
 	data.dbus = iface;
-	data.support[5] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DBus, data.dbus);
+	data.support[5] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, data.dbus);
 	data.n_support = 6;
 
 	if ((res = get_handle(&data, &handle,
@@ -240,7 +240,7 @@ int main(int argc, char *argv[])
 	}
 
 	if ((res = spa_handle_get_interface(handle,
-					    SPA_ID_INTERFACE_Monitor,
+					    SPA_TYPE_INTERFACE_Monitor,
 					    &iface)) < 0)
 		error(-1, res, "can't get monitor interface");
 

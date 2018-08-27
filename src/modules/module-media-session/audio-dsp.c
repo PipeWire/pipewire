@@ -254,7 +254,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 				p->spa_handle, NULL,
 				support, n_support);
 
-		spa_handle_get_interface(p->spa_handle, SPA_ID_INTERFACE_Node, &iface);
+		spa_handle_get_interface(p->spa_handle, SPA_TYPE_INTERFACE_Node, &iface);
 
 		p->spa_node = iface;
 

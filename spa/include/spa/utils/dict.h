@@ -24,9 +24,6 @@
 extern "C" {
 #endif
 
-#define SPA_TYPE__Dict		SPA_TYPE_POINTER_BASE "Dict"
-#define SPA_TYPE_DICT_BASE	SPA_TYPE__Dict ":"
-
 #include <string.h>
 
 #include <spa/utils/defs.h>

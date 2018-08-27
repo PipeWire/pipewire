@@ -98,13 +98,13 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 		name = "Unknown";
 
 	spa_pod_builder_add(builder,
-		"<", 0, SPA_ID_OBJECT_MonitorItem,
+		"<", SPA_TYPE_OBJECT_MonitorItem, 0,
 		":", SPA_MONITOR_ITEM_id,      "s", udev_device_get_syspath(item->udevice),
 		":", SPA_MONITOR_ITEM_flags,   "I", SPA_MONITOR_ITEM_FLAG_NONE,
 		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_AVAILABLE,
 		":", SPA_MONITOR_ITEM_name,    "s", name,
 		":", SPA_MONITOR_ITEM_class,   "s", "Video/Source",
-		":", SPA_MONITOR_ITEM_factory, "p", SPA_ID_INTERFACE_HandleFactory, &spa_v4l2_source_factory,
+		":", SPA_MONITOR_ITEM_factory, "p", SPA_TYPE_INTERFACE_HandleFactory, &spa_v4l2_source_factory,
 		":", SPA_MONITOR_ITEM_info,    "[",
 		NULL);
 
@@ -165,7 +165,7 @@ static void impl_on_fd_events(struct spa_source *source)
 	struct udev_device *dev;
 	struct spa_event *event;
 	const char *action;
-	uint32_t type;
+	uint32_t id;
 	struct spa_pod_builder b = { NULL, };
 	uint8_t buffer[4096];
 	struct spa_pod *item;
@@ -178,16 +178,16 @@ static void impl_on_fd_events(struct spa_source *source)
 		action = "change";
 
 	if (strcmp(action, "add") == 0) {
-		type = SPA_MONITOR_EVENT_Added;
+		id = SPA_MONITOR_EVENT_Added;
 	} else if (strcmp(action, "change") == 0) {
-		type = SPA_MONITOR_EVENT_Changed;
+		id = SPA_MONITOR_EVENT_Changed;
 	} else if (strcmp(action, "remove") == 0) {
-		type = SPA_MONITOR_EVENT_Removed;
+		id = SPA_MONITOR_EVENT_Removed;
 	} else
 		return;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, type, SPA_ID_EVENT_Monitor);
+	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id);
 	fill_item(this, &this->uitem, dev, &item, &b);
 
 	this->callbacks->event(this->callbacks_data, event);
@@ -291,7 +291,7 @@ static const struct spa_monitor impl_monitor = {
 	impl_monitor_enum_items,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
+static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *this;
 
@@ -300,7 +300,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct impl *) handle;
 
-	if (interface_id == SPA_ID_INTERFACE_Monitor)
+	if (type == SPA_TYPE_INTERFACE_Monitor)
 		*interface = &this->monitor;
 	else
 		return -ENOENT;
@@ -350,9 +350,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_Log)
+		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (support[i].type == SPA_ID_INTERFACE_MainLoop)
+		else if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
 			this->main_loop = support[i].data;
 	}
 	if (this->main_loop == NULL) {
@@ -366,7 +366,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_ID_INTERFACE_Monitor,},
+	{SPA_TYPE_INTERFACE_Monitor,},
 };
 
 static int

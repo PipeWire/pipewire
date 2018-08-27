@@ -45,7 +45,7 @@ extern "C" {
 
 struct spa_pod {
 	uint32_t size;
-	uint32_t type;		/* one of spa_pod_type */
+	uint32_t type;		/* a basic id of enum spa_type */
 };
 
 #define SPA_POD_VALUE(type,pod)			(((type*)pod)->value)
@@ -125,8 +125,8 @@ struct spa_pod_struct {
 };
 
 struct spa_pod_object_body {
-	uint32_t id;
-	uint32_t type;
+	uint32_t type;		/**< one of enum spa_type */
+	uint32_t id;		/**< id of the object, depends on the object type */
 	/* contents follow, series of spa_pod */
 };
 
@@ -137,18 +137,18 @@ struct spa_pod_object {
 
 static inline bool spa_pod_is_object_type(const struct spa_pod *pod, uint32_t type)
 {
-	return (pod && pod->type == SPA_ID_Object
+	return (pod && pod->type == SPA_TYPE_Object
 		&& ((struct spa_pod_object *) pod)->body.type == type);
 }
 
 static inline bool spa_pod_is_object_id(const struct spa_pod *pod, uint32_t id)
 {
-	return (pod && pod->type == SPA_ID_Object
+	return (pod && pod->type == SPA_TYPE_Object
 		&& ((struct spa_pod_object *) pod)->body.id == id);
 }
 
 struct spa_pod_pointer_body {
-	uint32_t type;
+	uint32_t type;		/**< pointer id, one of enum spa_type */
 	void *value;
 };
 
@@ -165,7 +165,8 @@ struct spa_pod_fd {
 #define SPA_POD_PROP_N_VALUES(prop)	(((prop)->pod.size - sizeof(struct spa_pod_prop_body)) / (prop)->body.value.size)
 
 struct spa_pod_prop_body {
-	uint32_t key;
+	uint32_t key;			/**< key of property, list of valid keys depends on the
+					  *  object type */
 #define SPA_POD_PROP_RANGE_NONE		0	/**< no range */
 #define SPA_POD_PROP_RANGE_MIN_MAX	1	/**< property has range */
 #define SPA_POD_PROP_RANGE_STEP		2	/**< property has range with step */

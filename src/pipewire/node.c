@@ -354,7 +354,7 @@ int pw_node_register(struct pw_node *this,
 	this->registered = true;
 
 	this->global = pw_global_new(core,
-				     PW_ID_INTERFACE_Node, PW_VERSION_NODE,
+				     PW_TYPE_INTERFACE_Node, PW_VERSION_NODE,
 				     properties,
 				     this);
 	if (this->global == NULL)

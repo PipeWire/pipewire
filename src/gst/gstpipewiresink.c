@@ -230,7 +230,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_push_object (&b, SPA_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers);
+  spa_pod_builder_push_object (&b, SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers);
   if (size == 0)
     spa_pod_builder_add (&b,
         ":", SPA_PARAM_BUFFERS_size, "iru", 0, SPA_POD_PROP_MIN_MAX(0, INT32_MAX), NULL);
@@ -248,7 +248,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   port_params[0] = spa_pod_builder_pop (&b);
 
   port_params[1] = spa_pod_builder_object (&b,
-      SPA_PARAM_Meta, SPA_ID_OBJECT_ParamMeta,
+      SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
       ":", SPA_PARAM_META_type, "I", SPA_META_Header,
       ":", SPA_PARAM_META_size, "i", sizeof (struct spa_meta_header));
 

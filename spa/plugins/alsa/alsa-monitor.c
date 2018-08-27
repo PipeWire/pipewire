@@ -161,13 +161,13 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info,
 		name = "Unknown";
 
 	spa_pod_builder_add(builder,
-		"<", 0, SPA_ID_OBJECT_MonitorItem,
+		"<", SPA_TYPE_OBJECT_MonitorItem, 0,
 		":", SPA_MONITOR_ITEM_id,      "s", id,
 		":", SPA_MONITOR_ITEM_flags,   "I", SPA_MONITOR_ITEM_FLAG_NONE,
 		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_AVAILABLE,
 		":", SPA_MONITOR_ITEM_name,    "s", name,
 		":", SPA_MONITOR_ITEM_class,   "s", klass,
-		":", SPA_MONITOR_ITEM_factory, "p", SPA_ID_INTERFACE_HandleFactory, factory,
+		":", SPA_MONITOR_ITEM_factory, "p", SPA_TYPE_INTERFACE_HandleFactory, factory,
 		":", SPA_MONITOR_ITEM_info,    "[", NULL);
 
 	spa_pod_builder_add(builder,
@@ -380,18 +380,18 @@ static void impl_on_fd_events(struct spa_source *source)
 
 			if (SPA_FLAG_CHECK(device->flags, DEVICE_FLAG_PLAYBACK)) {
 				snprintf(id, 64, "%s,%d/P", card->name, device->id);
-				event = spa_pod_builder_object(&b, id, SPA_ID_EVENT_Monitor);
+				event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id);
 				spa_pod_builder_object(&b,
-					0, SPA_ID_OBJECT_MonitorItem,
+					SPA_TYPE_OBJECT_MonitorItem, 0,
 					":", SPA_MONITOR_ITEM_id,      "s", id,
 					":", SPA_MONITOR_ITEM_name,    "s", id);
 				this->callbacks->event(this->callbacks_data, event);
 			}
 			if (SPA_FLAG_CHECK(device->flags, DEVICE_FLAG_RECORD)) {
 				snprintf(id, 64, "%s,%d/C", card->name, device->id);
-				event = spa_pod_builder_object(&b, id, SPA_ID_EVENT_Monitor);
+				event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id);
 				spa_pod_builder_object(&b,
-					0, SPA_ID_OBJECT_MonitorItem,
+					SPA_TYPE_OBJECT_MonitorItem, 0,
 					":", SPA_MONITOR_ITEM_id,      "s", id,
 					":", SPA_MONITOR_ITEM_name,    "s", id);
 				this->callbacks->event(this->callbacks_data, event);
@@ -408,7 +408,7 @@ static void impl_on_fd_events(struct spa_source *source)
 			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 			struct spa_pod *item;
 
-			event = spa_pod_builder_object(&b, id, SPA_ID_EVENT_Monitor);
+			event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id);
 			if (get_next_device(this, card, &item, &b) < 0)
 				break;
 
@@ -535,7 +535,7 @@ static const struct spa_monitor impl_monitor = {
 	impl_monitor_enum_items,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
+static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *this;
 
@@ -544,7 +544,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct impl *) handle;
 
-	if (interface_id == SPA_ID_INTERFACE_Monitor)
+	if (type == SPA_TYPE_INTERFACE_Monitor)
 		*interface = &this->monitor;
 	else
 		return -ENOENT;
@@ -596,9 +596,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_Log)
+		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (support[i].type == SPA_ID_INTERFACE_MainLoop)
+		else if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
 			this->main_loop = support[i].data;
 	}
 	if (this->main_loop == NULL) {
@@ -612,7 +612,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_ID_INTERFACE_Monitor,},
+	{SPA_TYPE_INTERFACE_Monitor,},
 };
 
 static int

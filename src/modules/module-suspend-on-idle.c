@@ -127,7 +127,7 @@ core_global_added(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 
-	if (pw_global_get_type(global) == PW_ID_INTERFACE_Node) {
+	if (pw_global_get_type(global) == PW_TYPE_INTERFACE_Node) {
 		struct pw_node *node = pw_global_get_object(global);
 		struct node_info *info;
 
@@ -147,7 +147,7 @@ core_global_removed(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 
-	if (pw_global_get_type(global) == PW_ID_INTERFACE_Node) {
+	if (pw_global_get_type(global) == PW_TYPE_INTERFACE_Node) {
 		struct pw_node *node = pw_global_get_object(global);
 		struct node_info *info;
 

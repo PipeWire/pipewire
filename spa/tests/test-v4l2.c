@@ -118,7 +118,7 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 			printf("can't make factory instance: %d\n", res);
 			return res;
 		}
-		if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Node, &iface)) < 0) {
+		if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
 			printf("can't get interface %d\n", res);
 			return res;
 		}
@@ -288,7 +288,7 @@ static int make_nodes(struct data *data, const char *device)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_object(&b,
-		0, SPA_ID_OBJECT_Props,
+		SPA_TYPE_OBJECT_Props, 0,
 		":", SPA_PROP_device, "s", device ? device : "/dev/video0");
 
 	if ((res = spa_node_set_param(data->source, SPA_PARAM_Props, 0, props)) < 0)
@@ -388,7 +388,7 @@ static int negotiate_formats(struct data *data)
 		return res;
 
 	format = spa_pod_builder_object(&b,
-			0, SPA_ID_OBJECT_Format,
+			SPA_TYPE_OBJECT_Format, 0,
 			"I", SPA_MEDIA_TYPE_video,
 			"I", SPA_MEDIA_SUBTYPE_raw,
 			":", SPA_FORMAT_VIDEO_format,    "I", SPA_VIDEO_FORMAT_YUY2,
@@ -541,9 +541,9 @@ int main(int argc, char *argv[])
 	data.data_loop.remove_source = do_remove_source;
 	data.data_loop.invoke = do_invoke;
 
-	data.support[0] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, data.log);
-	data.support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, &data.data_loop);
-	data.support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DataLoop, &data.data_loop);
+	data.support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
+	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, &data.data_loop);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, &data.data_loop);
 	data.n_support = 3;
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {

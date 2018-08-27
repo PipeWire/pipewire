@@ -221,16 +221,16 @@ set_global_permissions(void *data, struct pw_global *global)
 	props = pw_global_get_properties(global);
 
 	switch (pw_global_get_type(global)) {
-	case PW_ID_INTERFACE_Core:
+	case PW_TYPE_INTERFACE_Core:
 		allowed = true;
 		break;
-	case PW_ID_INTERFACE_Factory:
+	case PW_TYPE_INTERFACE_Factory:
 		if (props && (str = pw_properties_get(props, "factory.name"))) {
 			if (strcmp(str, "client-node") == 0)
 				allowed = true;
 		}
 		break;
-	case PW_ID_INTERFACE_Node:
+	case PW_TYPE_INTERFACE_Node:
 		if (props && (str = pw_properties_get(props, "media.class"))) {
 			if (strcmp(str, "Video/Source") == 0 && cinfo->camera_allowed)
 				allowed = true;
@@ -393,7 +393,7 @@ core_global_added(void *data, struct pw_global *global)
 	struct client_info *cinfo;
 	int res;
 
-	if (pw_global_get_type(global) == PW_ID_INTERFACE_Client) {
+	if (pw_global_get_type(global) == PW_TYPE_INTERFACE_Client) {
 		struct pw_client *client = pw_global_get_object(global);
 
 		res = check_sandboxed(client);
@@ -432,7 +432,7 @@ core_global_removed(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 
-	if (pw_global_get_type(global) == PW_ID_INTERFACE_Client) {
+	if (pw_global_get_type(global) == PW_TYPE_INTERFACE_Client) {
 		struct pw_client *client = pw_global_get_object(global);
 		struct client_info *cinfo;
 
@@ -483,7 +483,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	support = pw_core_get_support(core, &n_support);
 
-	dbus = spa_support_find(support, n_support, SPA_ID_INTERFACE_DBus);
+	dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
         if (dbus == NULL)
                 return -ENOTSUP;
 

@@ -195,7 +195,7 @@ static void do_static_struct(void)
 		} props;
 	} test_format = {
 		SPA_POD_OBJECT_INIT(sizeof(test_format.props) + sizeof(struct spa_pod_object_body),
-				0, SPA_ID_OBJECT_Format),
+				SPA_TYPE_OBJECT_Format, 0),
 		{
 			SPA_POD_ENUM_INIT(SPA_MEDIA_TYPE_video),
 			SPA_POD_ENUM_INIT(SPA_MEDIA_SUBTYPE_raw),
@@ -204,7 +204,7 @@ static void do_static_struct(void)
 						sizeof(struct spa_pod_prop_body),
 					  SPA_FORMAT_VIDEO_format,
 					  SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET,
-					  sizeof(uint32_t), SPA_ID_Enum),
+					  sizeof(uint32_t), SPA_TYPE_Enum),
 			{
 				SPA_VIDEO_FORMAT_I420,
 				{ SPA_VIDEO_FORMAT_I420, SPA_VIDEO_FORMAT_YUY2 }
@@ -213,7 +213,7 @@ static void do_static_struct(void)
 						sizeof(struct spa_pod_prop_body),
 					  SPA_FORMAT_VIDEO_size,
 					  SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET,
-					  sizeof(struct spa_rectangle), SPA_ID_Rectangle),
+					  sizeof(struct spa_rectangle), SPA_TYPE_Rectangle),
 
 			{
 				SPA_RECTANGLE(320,243),
@@ -223,7 +223,7 @@ static void do_static_struct(void)
 						sizeof(struct spa_pod_prop_body),
 					  SPA_FORMAT_VIDEO_framerate,
 					  SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET,
-					  sizeof(struct spa_fraction), SPA_ID_Fraction),
+					  sizeof(struct spa_fraction), SPA_TYPE_Fraction),
 			{
 				SPA_FRACTION(25,1),
 				SPA_FRACTION(0,1), SPA_FRACTION(INT32_MAX,1)
@@ -264,7 +264,7 @@ int main(int argc, char *argv[])
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	spa_pod_builder_push_object(&b, 0, SPA_ID_OBJECT_Format);
+	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Format, 0);
 
 	spa_pod_builder_enum(&b, SPA_MEDIA_TYPE_video);
 	spa_pod_builder_enum(&b, SPA_MEDIA_SUBTYPE_raw);
@@ -299,7 +299,7 @@ int main(int argc, char *argv[])
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	fmt = spa_pod_builder_object(&b,
-		0, SPA_ID_OBJECT_Format,
+		SPA_TYPE_OBJECT_Format, 0,
 		"I", SPA_MEDIA_TYPE_video,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_VIDEO_format,    "Ieu", SPA_VIDEO_FORMAT_I420,
@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
 	 *  )
 	 */
 	fmt = spa_pod_builder_add(&b,
-		"<", 0, SPA_ID_OBJECT_Format,
+		"<", SPA_TYPE_OBJECT_Format, 0,
 		"I", SPA_MEDIA_TYPE_video,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_VIDEO_format,    "Ieu", SPA_VIDEO_FORMAT_I420,

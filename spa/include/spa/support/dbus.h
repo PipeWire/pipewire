@@ -26,11 +26,6 @@ extern "C" {
 
 #include <spa/support/loop.h>
 
-#define SPA_TYPE__DBus		SPA_TYPE_INTERFACE_BASE "DBus"
-#define SPA_TYPE_DBUS_BASE	SPA_TYPE__DBus ":"
-
-#define SPA_TYPE_DBUS__Connection	SPA_TYPE_DBUS_BASE "Connection"
-
 enum spa_dbus_type {
 	SPA_DBUS_TYPE_SESSION,	/**< The login session bus */
 	SPA_DBUS_TYPE_SYSTEM,	/**< The systemwide bus */

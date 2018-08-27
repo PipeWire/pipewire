@@ -371,7 +371,7 @@ handle_video_fields (ConvertData *d)
 
       idx = gst_video_format_from_string (v);
       if (idx < SPA_N_ELEMENTS (video_format_map))
-        spa_pod_builder_id (&d->b, video_format_map[idx]);
+        spa_pod_builder_enum (&d->b, video_format_map[idx]);
     }
     prop = spa_pod_builder_pop(&d->b);
     if (i > 1)
@@ -447,7 +447,7 @@ handle_audio_fields (ConvertData *d)
 
       idx = gst_audio_format_from_string (v);
       if (idx < SPA_N_ELEMENTS (audio_format_map))
-        spa_pod_builder_id (&d->b, audio_format_map[idx]);
+        spa_pod_builder_enum (&d->b, audio_format_map[idx]);
     }
     prop = spa_pod_builder_pop(&d->b);
     if (i > 1)
@@ -534,9 +534,9 @@ convert_1 (ConvertData *d)
 
   d->b.write = write_pod;
 
-  spa_pod_builder_push_object (&d->b, d->id, SPA_ID_OBJECT_Format);
-  spa_pod_builder_id(&d->b, d->type->media_type);
-  spa_pod_builder_id(&d->b, d->type->media_subtype);
+  spa_pod_builder_push_object (&d->b, SPA_TYPE_OBJECT_Format, d->id);
+  spa_pod_builder_enum(&d->b, d->type->media_type);
+  spa_pod_builder_enum(&d->b, d->type->media_subtype);
 
   if (d->type->media_type == SPA_MEDIA_TYPE_video)
     handle_video_fields (d);

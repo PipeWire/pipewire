@@ -217,7 +217,7 @@ static void print_node(struct proxy_data *data)
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 		printf("%c\tparams:\n", MARK_CHANGE(5));
 		for (i = 0; i < data->n_params; i++) {
-			if (spa_pod_is_object_type(data->params[i], SPA_ID_OBJECT_Format))
+			if (spa_pod_is_object_type(data->params[i], SPA_TYPE_OBJECT_Format))
 				spa_debug_format(2, NULL, data->params[i]);
 			else
 				spa_debug_pod(2, spa_debug_types, data->params[i]);
@@ -292,7 +292,7 @@ static void print_port(struct proxy_data *data)
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 		printf("%c\tparams:\n", MARK_CHANGE(2));
 		for (i = 0; i < data->n_params; i++) {
-			if (spa_pod_is_object_type(data->params[i], SPA_ID_OBJECT_Format))
+			if (spa_pod_is_object_type(data->params[i], SPA_TYPE_OBJECT_Format))
 				spa_debug_format(2, NULL, data->params[i]);
 			else
 				spa_debug_pod(2, spa_debug_types, data->params[i]);
@@ -473,34 +473,34 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	pw_destroy_t destroy;
 	print_func_t print_func = NULL;
 
-	if (type == PW_ID_INTERFACE_Node) {
+	if (type == PW_TYPE_INTERFACE_Node) {
 		events = &node_events;
 		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		print_func = print_node;
 	}
-	else if (type == PW_ID_INTERFACE_Port) {
+	else if (type == PW_TYPE_INTERFACE_Port) {
 		events = &port_events;
 		client_version = PW_VERSION_PORT;
 		destroy = (pw_destroy_t) pw_port_info_free;
 		print_func = print_port;
 	}
-	else if (type == PW_ID_INTERFACE_Module) {
+	else if (type == PW_TYPE_INTERFACE_Module) {
 		events = &module_events;
 		client_version = PW_VERSION_MODULE;
 		destroy = (pw_destroy_t) pw_module_info_free;
 	}
-	else if (type == PW_ID_INTERFACE_Factory) {
+	else if (type == PW_TYPE_INTERFACE_Factory) {
 		events = &factory_events;
 		client_version = PW_VERSION_FACTORY;
 		destroy = (pw_destroy_t) pw_factory_info_free;
 	}
-	else if (type == PW_ID_INTERFACE_Client) {
+	else if (type == PW_TYPE_INTERFACE_Client) {
 		events = &client_events;
 		client_version = PW_VERSION_CLIENT;
 		destroy = (pw_destroy_t) pw_client_info_free;
 	}
-	else if (type == PW_ID_INTERFACE_Link) {
+	else if (type == PW_TYPE_INTERFACE_Link) {
 		events = &link_events;
 		client_version = PW_VERSION_LINK;
 		destroy = (pw_destroy_t) pw_link_info_free;
@@ -572,7 +572,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 
 		data->core_proxy = pw_remote_get_core_proxy(data->remote);
 		data->registry_proxy = pw_core_proxy_get_registry(data->core_proxy,
-								  PW_ID_INTERFACE_Registry,
+								  PW_TYPE_INTERFACE_Registry,
 								  PW_VERSION_REGISTRY, 0);
 		pw_registry_proxy_add_listener(data->registry_proxy,
 					       &data->registry_listener,

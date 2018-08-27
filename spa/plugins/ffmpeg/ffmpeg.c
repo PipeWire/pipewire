@@ -58,7 +58,7 @@ ffmpeg_enc_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info ffmpeg_interfaces[] = {
-	{SPA_ID_INTERFACE_Node, },
+	{SPA_TYPE_INTERFACE_Node, },
 };
 
 static int

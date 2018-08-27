@@ -53,41 +53,41 @@ static inline bool spa_pod_parser_can_collect(struct spa_pod *pod, char type)
 		return true;
 
 	switch (SPA_POD_TYPE(pod)) {
-	case SPA_ID_None:
+	case SPA_TYPE_None:
 		return type == 'T' || type == 'O' || type == 'V' || type == 's';
-	case SPA_ID_Bool:
+	case SPA_TYPE_Bool:
 		return type == 'b';
-	case SPA_ID_Enum:
+	case SPA_TYPE_Enum:
 		return type == 'I';
-	case SPA_ID_Int:
+	case SPA_TYPE_Int:
 		return type == 'i';
-	case SPA_ID_Long:
+	case SPA_TYPE_Long:
 		return type == 'l';
-	case SPA_ID_Float:
+	case SPA_TYPE_Float:
 		return type == 'f';
-	case SPA_ID_Double:
+	case SPA_TYPE_Double:
 		return type == 'd';
-	case SPA_ID_String:
+	case SPA_TYPE_String:
 		return type == 's' || type == 'S';
-	case SPA_ID_Bytes:
+	case SPA_TYPE_Bytes:
 		return type == 'z';
-	case SPA_ID_Rectangle:
+	case SPA_TYPE_Rectangle:
 		return type == 'R';
-	case SPA_ID_Fraction:
+	case SPA_TYPE_Fraction:
 		return type == 'F';
-	case SPA_ID_Bitmap:
+	case SPA_TYPE_Bitmap:
 		return type == 'B';
-	case SPA_ID_Array:
+	case SPA_TYPE_Array:
 		return type == 'a';
-	case SPA_ID_Struct:
+	case SPA_TYPE_Struct:
 		return type == 'T';
-	case SPA_ID_Object:
+	case SPA_TYPE_Object:
 		return type == 'O';
-	case SPA_ID_Pointer:
+	case SPA_TYPE_Pointer:
 		return type == 'p';
-	case SPA_ID_Fd:
+	case SPA_TYPE_Fd:
 		return type == 'h';
-	case SPA_ID_Prop:
+	case SPA_TYPE_Prop:
 		return type == 'V';
 	default:
 		return false;
@@ -115,7 +115,7 @@ do {											\
 		break;									\
 	case 's':									\
 		*va_arg(args, char**) =							\
-			(pod == NULL || (SPA_POD_TYPE(pod) == SPA_ID_None)		\
+			(pod == NULL || (SPA_POD_TYPE(pod) == SPA_TYPE_None)		\
 				? NULL							\
 				: (char *)SPA_POD_CONTENTS(struct spa_pod_string, pod));	\
 		break;									\
@@ -157,7 +157,7 @@ do {											\
 	case 'O':									\
 	case 'T':									\
 		*va_arg(args, struct spa_pod**) =					\
-			(pod == NULL || (SPA_POD_TYPE(pod) == SPA_ID_None)		\
+			(pod == NULL || (SPA_POD_TYPE(pod) == SPA_TYPE_None)		\
 				? NULL : pod);						\
 		break;									\
 	default:									\
@@ -209,7 +209,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 	while (format) {
 		switch (*format) {
 		case '<':
-			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_ID_Object)
+			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_TYPE_Object)
 				return -EINVAL;
 			if (++parser->depth >= SPA_POD_MAX_DEPTH)
 				return -EINVAL;
@@ -218,7 +218,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 			spa_pod_iter_init(it, pod, SPA_POD_SIZE(pod), sizeof(struct spa_pod_object));
 			goto read_pod;
 		case '[':
-			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_ID_Struct)
+			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_TYPE_Struct)
 				return -EINVAL;
 			if (++parser->depth >= SPA_POD_MAX_DEPTH)
 				return -EINVAL;

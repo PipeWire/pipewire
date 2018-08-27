@@ -443,7 +443,7 @@ int pw_port_register(struct pw_port *port,
 	struct pw_core *core = node->core;
 
 	port->global = pw_global_new(core,
-				PW_ID_INTERFACE_Port, PW_VERSION_PORT,
+				PW_TYPE_INTERFACE_Port, PW_VERSION_PORT,
 				properties,
 				port);
 	if (port->global == NULL)

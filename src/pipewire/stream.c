@@ -400,7 +400,7 @@ static int impl_port_enum_params(struct spa_node *node,
 
 			if (last_id == SPA_ID_INVALID){
 				*result = spa_pod_builder_object(builder,
-					id, SPA_ID_OBJECT_ParamList,
+					SPA_TYPE_OBJECT_ParamList, id,
 					":", SPA_PARAM_LIST_id, "I", new_id);
 				last_id = new_id;
 			}
@@ -433,7 +433,7 @@ static int port_set_format(struct spa_node *node,
 		spa_debug_format(2, NULL, format);
 
 	clear_params(stream, PARAM_TYPE_FORMAT);
-	if (spa_pod_is_object_type(format, SPA_ID_OBJECT_Format)) {
+	if (spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format)) {
 		p = add_param(stream, PARAM_TYPE_FORMAT, format);
 		if (p == NULL)
 			goto no_mem;

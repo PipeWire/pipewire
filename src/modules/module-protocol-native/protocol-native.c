@@ -1106,7 +1106,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_core_event_d
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_core_marshal = {
-	PW_ID_INTERFACE_Core,
+	PW_TYPE_INTERFACE_Core,
 	PW_VERSION_CORE,
 	&pw_protocol_native_core_method_marshal,
 	pw_protocol_native_core_method_demarshal,
@@ -1137,7 +1137,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_registry_eve
 };
 
 const struct pw_protocol_marshal pw_protocol_native_registry_marshal = {
-	PW_ID_INTERFACE_Registry,
+	PW_TYPE_INTERFACE_Registry,
 	PW_VERSION_REGISTRY,
 	&pw_protocol_native_registry_method_marshal,
 	pw_protocol_native_registry_method_demarshal,
@@ -1157,7 +1157,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_module_event
 };
 
 const struct pw_protocol_marshal pw_protocol_native_module_marshal = {
-	PW_ID_INTERFACE_Module,
+	PW_TYPE_INTERFACE_Module,
 	PW_VERSION_MODULE,
 	NULL, NULL, 0,
 	&pw_protocol_native_module_event_marshal,
@@ -1175,7 +1175,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_factory_even
 };
 
 const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
-	PW_ID_INTERFACE_Factory,
+	PW_TYPE_INTERFACE_Factory,
 	PW_VERSION_FACTORY,
 	NULL, NULL, 0,
 	&pw_protocol_native_factory_event_marshal,
@@ -1204,7 +1204,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_node_event_d
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_node_marshal = {
-	PW_ID_INTERFACE_Node,
+	PW_TYPE_INTERFACE_Node,
 	PW_VERSION_NODE,
 	&pw_protocol_native_node_method_marshal,
 	pw_protocol_native_node_method_demarshal,
@@ -1236,7 +1236,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_port_event_d
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_port_marshal = {
-	PW_ID_INTERFACE_Port,
+	PW_TYPE_INTERFACE_Port,
 	PW_VERSION_PORT,
 	&pw_protocol_native_port_method_marshal,
 	pw_protocol_native_port_method_demarshal,
@@ -1256,7 +1256,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_client_event
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_client_marshal = {
-	PW_ID_INTERFACE_Client,
+	PW_TYPE_INTERFACE_Client,
 	PW_VERSION_CLIENT,
 	NULL, NULL, 0,
 	&pw_protocol_native_client_event_marshal,
@@ -1274,7 +1274,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_link_event_d
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_link_marshal = {
-	PW_ID_INTERFACE_Link,
+	PW_TYPE_INTERFACE_Link,
 	PW_VERSION_LINK,
 	NULL, NULL, 0,
 	&pw_protocol_native_link_event_marshal,

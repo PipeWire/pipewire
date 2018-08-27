@@ -170,8 +170,8 @@ int main(int argc, char *argv[])
 	data.main_loop.update_source = do_update_source;
 	data.main_loop.remove_source = do_remove_source;
 
-	data.support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, data.log);
-	data.support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, &data.main_loop);
+	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, &data.main_loop);
 	data.n_support = 3;
 
 	if (argc < 2) {
@@ -208,7 +208,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			if (info->type == SPA_ID_INTERFACE_Monitor) {
+			if (info->type == SPA_TYPE_INTERFACE_Monitor) {
 				struct spa_handle *handle;
 				void *interface;
 
@@ -221,7 +221,7 @@ int main(int argc, char *argv[])
 				}
 
 				if ((res =
-				     spa_handle_get_interface(handle, SPA_ID_INTERFACE_Monitor,
+				     spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor,
 							      &interface)) < 0) {
 					printf("can't get interface: %s\n", strerror(res));
 					continue;

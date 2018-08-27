@@ -652,7 +652,7 @@ static const struct spa_loop_utils impl_loop_utils = {
 	loop_destroy_source,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
+static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *impl;
 
@@ -661,14 +661,14 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	impl = (struct impl *) handle;
 
-	switch (interface_id) {
-	case SPA_ID_INTERFACE_Loop:
+	switch (type) {
+	case SPA_TYPE_INTERFACE_Loop:
 		*interface = &impl->loop;
 		break;
-	case SPA_ID_INTERFACE_LoopControl:
+	case SPA_TYPE_INTERFACE_LoopControl:
 		*interface = &impl->control;
 		break;
-	case SPA_ID_INTERFACE_LoopUtils:
+	case SPA_TYPE_INTERFACE_LoopUtils:
 		*interface = &impl->utils;
 		break;
 	default:
@@ -726,7 +726,7 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->utils = impl_loop_utils;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_Log)
+		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			impl->log = support[i].data;
 	}
 
@@ -749,9 +749,9 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_ID_INTERFACE_Loop,},
-	{SPA_ID_INTERFACE_LoopControl,},
-	{SPA_ID_INTERFACE_LoopUtils,},
+	{SPA_TYPE_INTERFACE_Loop,},
+	{SPA_TYPE_INTERFACE_LoopControl,},
+	{SPA_TYPE_INTERFACE_LoopUtils,},
 };
 
 static int

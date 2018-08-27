@@ -28,40 +28,39 @@ extern "C" {
 
 static const struct spa_type_info spa_debug_types[] =
 {
-	{ SPA_ID_INVALID, "", SPA_ID_Enum, spa_types },
+	{ SPA_ID_INVALID, "", SPA_TYPE_Enum, spa_types },
 	{ 0, NULL, },
 };
 
-static inline const struct spa_type_info *spa_debug_type_find(const struct spa_type_info *info, uint32_t id)
+static inline const struct spa_type_info *spa_debug_type_find(const struct spa_type_info *info, uint32_t type)
 {
 	const struct spa_type_info *res;
 
 	while (info && info->name) {
-		if (info->id == SPA_ID_INVALID)
-			if ((res = spa_debug_type_find(info->values, id)))
+		if (info->type == SPA_ID_INVALID)
+			if ((res = spa_debug_type_find(info->values, type)))
 				return res;
-		if (info->id == id)
+		if (info->type == type)
 			return info;
 		info++;
 	}
 	return NULL;
 }
 
-static inline const char *spa_debug_type_find_name(const struct spa_type_info *info, uint32_t id)
+static inline const char *spa_debug_type_find_name(const struct spa_type_info *info, uint32_t type)
 {
-	const struct spa_type_info *type;
-	if ((type = spa_debug_type_find(info, id)) == NULL)
+	if ((info = spa_debug_type_find(info, type)) == NULL)
 		return NULL;
-	return type->name;
+	return info->name;
 }
 
-static inline uint32_t spa_debug_type_find_id(const struct spa_type_info *info, const char *name)
+static inline uint32_t spa_debug_type_find_type(const struct spa_type_info *info, const char *name)
 {
 	while (info && info->name) {
 		uint32_t res;
 		if (strcmp(info->name, name) == 0)
-			return info->id;
-		if ((res = spa_debug_type_find_id(info->values, name)) != SPA_ID_INVALID)
+			return info->type;
+		if ((res = spa_debug_type_find_type(info->values, name)) != SPA_ID_INVALID)
 			return res;
 		info++;
 	}

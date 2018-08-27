@@ -70,13 +70,13 @@ static void fill_item(struct spa_bt_monitor *this, struct spa_bt_transport *tran
 	char trans[16];
 
 	spa_pod_builder_add(builder,
-		"<", 0, SPA_ID_OBJECT_MonitorItem,
+		"<", SPA_TYPE_OBJECT_MonitorItem, 0,
 		":", SPA_MONITOR_ITEM_id,      "s", transport->path,
 		":", SPA_MONITOR_ITEM_flags,   "I", SPA_MONITOR_ITEM_FLAG_NONE,
 		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_AVAILABLE,
 		":", SPA_MONITOR_ITEM_name,    "s", transport->path,
 		":", SPA_MONITOR_ITEM_class,   "s", "Adapter/Bluetooth",
-		":", SPA_MONITOR_ITEM_factory, "p", SPA_ID_INTERFACE_HandleFactory, &spa_a2dp_sink_factory,
+		":", SPA_MONITOR_ITEM_factory, "p", SPA_TYPE_INTERFACE_HandleFactory, &spa_a2dp_sink_factory,
 		":", SPA_MONITOR_ITEM_info,    "[",
 		NULL);
 
@@ -640,7 +640,7 @@ static struct spa_bt_node *node_create(struct spa_bt_monitor *monitor, struct sp
 	struct spa_pod *item;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, SPA_MONITOR_EVENT_Added, SPA_ID_EVENT_Monitor);
+	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Added);
 	fill_item(monitor, transport, &item, &b);
 
 	monitor->callbacks->event(monitor->callbacks_data, event);
@@ -656,7 +656,7 @@ static struct spa_bt_node *node_destroy(struct spa_bt_monitor *monitor, struct s
 	struct spa_pod *item;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, SPA_MONITOR_EVENT_Removed, SPA_ID_EVENT_Monitor);
+	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Removed);
 	fill_item(monitor, transport, &item, &b);
 
 	monitor->callbacks->event(monitor->callbacks_data, event);
@@ -1178,7 +1178,7 @@ static const struct spa_monitor impl_monitor = {
 	impl_monitor_enum_items,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
+static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct spa_bt_monitor *this;
 
@@ -1187,7 +1187,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct spa_bt_monitor *) handle;
 
-	if (interface_id == SPA_ID_INTERFACE_Monitor)
+	if (type == SPA_TYPE_INTERFACE_Monitor)
 		*interface = &this->monitor;
 	else
 		return -ENOENT;
@@ -1226,9 +1226,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct spa_bt_monitor *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_Log)
+		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (support[i].type == SPA_ID_INTERFACE_DBus)
+		else if (support[i].type == SPA_TYPE_INTERFACE_DBus)
 			this->dbus = support[i].data;
 	}
 	if (this->dbus == NULL) {
@@ -1253,7 +1253,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_ID_INTERFACE_Monitor,},
+	{SPA_TYPE_INTERFACE_Monitor,},
 };
 
 static int

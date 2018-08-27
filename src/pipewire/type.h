@@ -33,22 +33,22 @@ extern "C" {
 #include <pipewire/map.h>
 
 enum {
-	PW_ID_FIRST = SPA_ID_VENDOR_PipeWire,
+	PW_TYPE_FIRST = SPA_TYPE_VENDOR_PipeWire,
 
-	PW_ID_INTERFACE_Core,
-	PW_ID_INTERFACE_Registry,
-	PW_ID_INTERFACE_Node,
-	PW_ID_INTERFACE_Port,
-	PW_ID_INTERFACE_Factory,
-	PW_ID_INTERFACE_Link,
-	PW_ID_INTERFACE_Client,
-	PW_ID_INTERFACE_Module,
-	PW_ID_INTERFACE_ClientNode,
+	PW_TYPE_INTERFACE_Core,
+	PW_TYPE_INTERFACE_Registry,
+	PW_TYPE_INTERFACE_Node,
+	PW_TYPE_INTERFACE_Port,
+	PW_TYPE_INTERFACE_Factory,
+	PW_TYPE_INTERFACE_Link,
+	PW_TYPE_INTERFACE_Client,
+	PW_TYPE_INTERFACE_Module,
+	PW_TYPE_INTERFACE_ClientNode,
 
 };
 
 enum {
-	PW_IO_BASE = PW_ID_FIRST,
+	PW_IO_BASE = PW_TYPE_FIRST,
 	PW_IO_ClientNodePosition,
 };
 

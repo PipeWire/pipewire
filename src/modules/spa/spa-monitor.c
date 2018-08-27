@@ -118,7 +118,7 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 		pw_log_error("can't make factory instance: %d", res);
 		return NULL;
 	}
-	if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Node, &node_iface)) < 0) {
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &node_iface)) < 0) {
 		pw_log_error("can't get NODE interface: %d", res);
 		return NULL;
 	}
@@ -315,7 +315,7 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 		pw_log_error("can't make factory instance: %d", res);
 		goto init_failed;
 	}
-	if ((res = spa_handle_get_interface(handle, SPA_ID_INTERFACE_Monitor, &iface)) < 0) {
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor, &iface)) < 0) {
 		pw_log_error("can't get MONITOR interface: %d", res);
 		goto interface_failed;
 	}

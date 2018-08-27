@@ -125,7 +125,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	factory = pw_factory_new(core,
 				 "client-node",
-				 PW_ID_INTERFACE_ClientNode,
+				 PW_TYPE_INTERFACE_ClientNode,
 				 PW_VERSION_CLIENT_NODE,
 				 NULL,
 				 sizeof(*data));

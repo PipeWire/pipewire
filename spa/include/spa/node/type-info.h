@@ -30,22 +30,40 @@ extern "C" {
 #include <spa/node/event.h>
 #include <spa/node/io.h>
 
-/** Base for IO structures to interface with node ports */
-#define SPA_TYPE__IO			SPA_TYPE_POINTER_BASE "IO"
-#define SPA_TYPE_IO_BASE		SPA_TYPE__IO ":"
+#define SPA_TYPE__NodeEvent			SPA_TYPE_EVENT_BASE "Node"
+#define SPA_TYPE_NODE_EVENT_BASE		SPA_TYPE__NodeEvent ":"
 
-/** Base for control structures */
-#define SPA_TYPE_IO__Control		SPA_TYPE_IO_BASE "Control"
-#define SPA_TYPE_IO_CONTROL_BASE	SPA_TYPE_IO__Control ":"
+static const struct spa_type_info spa_type_node_event_id[] = {
+	{ SPA_NODE_EVENT_Error,		 SPA_TYPE_NODE_EVENT_BASE "Error",   SPA_TYPE_Int, },
+	{ SPA_NODE_EVENT_Buffering,	 SPA_TYPE_NODE_EVENT_BASE "Buffering", SPA_TYPE_Int, },
+	{ SPA_NODE_EVENT_RequestRefresh, SPA_TYPE_NODE_EVENT_BASE "RequestRefresh", SPA_TYPE_Int, },
+	{ 0, NULL, },
+};
 
-/** An io area to exchange buffers with a port */
-#define SPA_TYPE_IO__Buffers		SPA_TYPE_IO_BASE "Buffers"
+static const struct spa_type_info spa_type_node_event[] = {
+	{ 0,		 SPA_TYPE_NODE_EVENT_BASE,   SPA_TYPE_Enum, spa_type_node_event_id },
+	{ 0, NULL, },
+};
 
-/** IO area with clock information */
-#define SPA_TYPE_IO__Clock		SPA_TYPE_IO_BASE "Clock"
+#define SPA_TYPE__NodeCommand			SPA_TYPE_COMMAND_BASE "Node"
+#define SPA_TYPE_NODE_COMMAND_BASE		SPA_TYPE__NodeCommand ":"
 
-/** IO area with latency information */
-#define SPA_TYPE_IO__Latency		SPA_TYPE_IO_BASE "Latency"
+static const struct spa_type_info spa_type_node_command_id[] = {
+	{ SPA_NODE_COMMAND_Suspend,	SPA_TYPE_NODE_COMMAND_BASE "Suspend",   SPA_TYPE_Int, },
+	{ SPA_NODE_COMMAND_Pause,	SPA_TYPE_NODE_COMMAND_BASE "Pause",   SPA_TYPE_Int, },
+	{ SPA_NODE_COMMAND_Start,	SPA_TYPE_NODE_COMMAND_BASE "Start",   SPA_TYPE_Int, },
+	{ SPA_NODE_COMMAND_Enable,	SPA_TYPE_NODE_COMMAND_BASE "Enable",   SPA_TYPE_Int, },
+	{ SPA_NODE_COMMAND_Disable,	SPA_TYPE_NODE_COMMAND_BASE "Disable",   SPA_TYPE_Int, },
+	{ SPA_NODE_COMMAND_Flush,	SPA_TYPE_NODE_COMMAND_BASE "Flush",   SPA_TYPE_Int, },
+	{ SPA_NODE_COMMAND_Drain,	SPA_TYPE_NODE_COMMAND_BASE "Drain",   SPA_TYPE_Int, },
+	{ SPA_NODE_COMMAND_Marker,	SPA_TYPE_NODE_COMMAND_BASE "Marker",   SPA_TYPE_Int, },
+	{ 0, NULL, },
+};
+
+static const struct spa_type_info spa_type_node_command[] = {
+	{ 0,		 SPA_TYPE_NODE_COMMAND_BASE,   SPA_TYPE_Enum, spa_type_node_command_id },
+	{ 0, NULL, },
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

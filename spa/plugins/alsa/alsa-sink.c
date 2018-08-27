@@ -69,7 +69,7 @@ static int impl_node_enum_params(struct spa_node *node,
 				    SPA_PARAM_Props };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
+			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
 				":", SPA_PARAM_LIST_id, "I", list[*index]);
 		else
 			return 0;
@@ -82,28 +82,28 @@ static int impl_node_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_PropInfo,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				":", SPA_PROP_INFO_id,   "I", SPA_PROP_device,
 				":", SPA_PROP_INFO_name, "s", "The ALSA device",
 				":", SPA_PROP_INFO_type, "S", p->device, sizeof(p->device));
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_PropInfo,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				":", SPA_PROP_INFO_id,   "I", SPA_PROP_deviceName,
 				":", SPA_PROP_INFO_name, "s", "The ALSA device name",
 				":", SPA_PROP_INFO_type, "S-r", p->device_name, sizeof(p->device_name));
 			break;
 		case 2:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_PropInfo,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				":", SPA_PROP_INFO_id,   "I", SPA_PROP_cardName,
 				":", SPA_PROP_INFO_name, "s", "The ALSA card name",
 				":", SPA_PROP_INFO_type, "S-r", p->card_name, sizeof(p->card_name));
 			break;
 		case 3:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_PropInfo,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				":", SPA_PROP_INFO_id,   "I", SPA_PROP_minLatency,
 				":", SPA_PROP_INFO_name, "s", "The minimum latency",
 				":", SPA_PROP_INFO_type, "ir", p->min_latency,
@@ -111,7 +111,7 @@ static int impl_node_enum_params(struct spa_node *node,
 			break;
 		case 4:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_PropInfo,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				":", SPA_PROP_INFO_id,   "I", SPA_PROP_maxLatency,
 				":", SPA_PROP_INFO_name, "s", "The maximum latency",
 				":", SPA_PROP_INFO_type, "ir", p->max_latency,
@@ -129,7 +129,7 @@ static int impl_node_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_Props,
+				SPA_TYPE_OBJECT_Props, id,
 				":", SPA_PROP_device,     "S",   p->device, sizeof(p->device),
 				":", SPA_PROP_deviceName, "S-r", p->device_name, sizeof(p->device_name),
 				":", SPA_PROP_cardName,   "S-r", p->card_name, sizeof(p->card_name),
@@ -327,7 +327,7 @@ impl_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_IO, };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, id, SPA_ID_OBJECT_ParamList,
+			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
 				":", SPA_PARAM_LIST_id, "I", list[*index]);
 		else
 			return 0;
@@ -343,7 +343,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 
 		param = spa_pod_builder_object(&b,
-			id, SPA_ID_OBJECT_Format,
+			SPA_TYPE_OBJECT_Format, id,
 			"I", SPA_MEDIA_TYPE_audio,
 			"I", SPA_MEDIA_SUBTYPE_raw,
 			":", SPA_FORMAT_AUDIO_format,   "I", this->current_format.info.raw.format,
@@ -359,7 +359,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 
 		param = spa_pod_builder_object(&b,
-			id, SPA_ID_OBJECT_ParamBuffers,
+			SPA_TYPE_OBJECT_ParamBuffers, id,
 			":", SPA_PARAM_BUFFERS_buffers, "ir", 1,
 				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 			":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
@@ -378,7 +378,7 @@ impl_node_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_ParamMeta,
+				SPA_TYPE_OBJECT_ParamMeta, id,
 				":", SPA_PARAM_META_type, "I", SPA_META_Header,
 				":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
 			break;
@@ -391,19 +391,19 @@ impl_node_port_enum_params(struct spa_node *node,
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_ParamIO,
+				SPA_TYPE_OBJECT_ParamIO, id,
 				":", SPA_PARAM_IO_id,   "I", SPA_IO_Buffers,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_ParamIO,
+				SPA_TYPE_OBJECT_ParamIO, id,
 				":", SPA_PARAM_IO_id,   "I", SPA_IO_ControlRange,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_control_range));
 			break;
 		case 2:
 			param = spa_pod_builder_object(&b,
-				id, SPA_ID_OBJECT_ParamIO,
+				SPA_TYPE_OBJECT_ParamIO, id,
 				":", SPA_PARAM_IO_id,   "I", SPA_IO_Clock,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_clock));
 			break;
@@ -680,7 +680,7 @@ static const struct spa_node impl_node = {
 	impl_node_process,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, void **interface)
+static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct state *this;
 
@@ -689,7 +689,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t interface_id, 
 
 	this = (struct state *) handle;
 
-	if (interface_id == SPA_ID_INTERFACE_Node)
+	if (type == SPA_TYPE_INTERFACE_Node)
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -724,11 +724,11 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this = (struct state *) handle;
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_ID_INTERFACE_Log)
+		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (support[i].type == SPA_ID_INTERFACE_DataLoop)
+		else if (support[i].type == SPA_TYPE_INTERFACE_DataLoop)
 			this->data_loop = support[i].data;
-		else if (support[i].type == SPA_ID_INTERFACE_MainLoop)
+		else if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
 			this->main_loop = support[i].data;
 	}
 	if (this->data_loop == NULL) {
@@ -761,7 +761,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_ID_INTERFACE_Node,},
+	{SPA_TYPE_INTERFACE_Node,},
 };
 
 static int

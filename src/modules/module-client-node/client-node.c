@@ -365,7 +365,7 @@ static int impl_node_enum_params(struct spa_node *node,
 
 		param = this->params[(*index)++];
 
-		if (!spa_pod_is_object_id(param, id))
+		if (!spa_pod_is_object_type(param, id))
 			continue;
 
 		if (spa_pod_filter(builder, result, param, filter) == 0)
@@ -1155,10 +1155,10 @@ node_init(struct node *this,
 
 	for (i = 0; i < n_support; i++) {
 		switch (support[i].type) {
-		case SPA_ID_INTERFACE_Log:
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
 			break;
-		case SPA_ID_INTERFACE_DataLoop:
+		case SPA_TYPE_INTERFACE_DataLoop:
 			this->data_loop = support[i].data;
 			break;
 		default:

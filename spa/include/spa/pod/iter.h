@@ -101,7 +101,7 @@ static inline struct spa_pod_prop *spa_pod_contents_find_prop(const struct spa_p
 {
 	const struct spa_pod *res;
 	SPA_POD_FOREACH(pod, size, res) {
-		if (res->type == SPA_ID_Prop
+		if (res->type == SPA_TYPE_Prop
 		    && ((struct spa_pod_prop *) res)->body.key == key)
 			return (struct spa_pod_prop *) res;
 	}
@@ -112,9 +112,9 @@ static inline struct spa_pod_prop *spa_pod_find_prop(const struct spa_pod *pod, 
 {
 	uint32_t offset;
 
-	if (pod->type == SPA_ID_Object)
+	if (pod->type == SPA_TYPE_Object)
 		offset = sizeof(struct spa_pod_object);
-	else if (pod->type == SPA_ID_Struct)
+	else if (pod->type == SPA_TYPE_Struct)
 		offset = sizeof(struct spa_pod_struct);
 	else
 		return NULL;
@@ -128,15 +128,15 @@ static inline int spa_pod_fixate(struct spa_pod *pod)
 	struct spa_pod *res;
 	uint32_t offset;
 
-	if (pod->type == SPA_ID_Object)
+	if (pod->type == SPA_TYPE_Object)
 		offset = sizeof(struct spa_pod_object);
-	else if (pod->type == SPA_ID_Struct)
+	else if (pod->type == SPA_TYPE_Struct)
 		offset = sizeof(struct spa_pod_struct);
 	else
 		return -EINVAL;
 
 	SPA_POD_CONTENTS_FOREACH(pod, offset, res) {
-		if (res->type == SPA_ID_Prop)
+		if (res->type == SPA_TYPE_Prop)
 			SPA_FLAG_UNSET (((struct spa_pod_prop *) res)->body.flags,
 					SPA_POD_PROP_FLAG_UNSET);
 	}

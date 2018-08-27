@@ -702,7 +702,7 @@ on_format_changed (void *data,
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
     params[0] = spa_pod_builder_object (&b,
-	SPA_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+	SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 	":", SPA_PARAM_BUFFERS_buffers, "iru", 16, SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
 	":", SPA_PARAM_BUFFERS_blocks,  "iru", 0,  SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
 	":", SPA_PARAM_BUFFERS_size,    "iru", 0,  SPA_POD_PROP_MIN_MAX(0, INT32_MAX),
@@ -710,7 +710,7 @@ on_format_changed (void *data,
 	":", SPA_PARAM_BUFFERS_align,   "i", 16);
 
     params[1] = spa_pod_builder_object (&b,
-	SPA_PARAM_Meta, SPA_ID_OBJECT_ParamMeta,
+	SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
         ":", SPA_PARAM_META_type, "I", SPA_META_Header,
         ":", SPA_PARAM_META_size, "i", sizeof (struct spa_meta_header));
 

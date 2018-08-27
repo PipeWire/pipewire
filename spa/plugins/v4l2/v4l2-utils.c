@@ -409,7 +409,7 @@ enum_filter_format(uint32_t media_type, int32_t media_subtype,
 			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_format)))
 				return SPA_VIDEO_FORMAT_UNKNOWN;
 
-			if (p->body.value.type != SPA_ID_Enum)
+			if (p->body.value.type != SPA_TYPE_Enum)
 				return SPA_VIDEO_FORMAT_UNKNOWN;
 
 			values = SPA_POD_BODY_CONST(&p->body.value);
@@ -596,7 +596,7 @@ spa_v4l2_enum_format(struct impl *this,
 			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_size)))
 				goto do_frmsize;
 
-			if (p->body.value.type != SPA_ID_Rectangle) {
+			if (p->body.value.type != SPA_TYPE_Rectangle) {
 				goto enum_end;
 			}
 
@@ -675,7 +675,7 @@ spa_v4l2_enum_format(struct impl *this,
 		}
 	}
 
-	spa_pod_builder_push_object(builder, SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format);
+	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_add(builder,
 			"I", info->media_type,
 			"I", info->media_subtype, 0);
@@ -717,7 +717,7 @@ spa_v4l2_enum_format(struct impl *this,
 			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_framerate)))
 				goto have_framerate;
 
-			if (p->body.value.type != SPA_ID_Fraction)
+			if (p->body.value.type != SPA_TYPE_Fraction)
 				goto enum_end;
 
 			range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
@@ -1052,7 +1052,7 @@ spa_v4l2_enum_controls(struct impl *this,
 	switch (queryctrl.type) {
 	case V4L2_CTRL_TYPE_INTEGER:
 		param = spa_pod_builder_object(&b,
-			SPA_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			":", SPA_PROP_INFO_id, "I", prop_id,
 			":", SPA_PROP_INFO_type, "isu", queryctrl.default_value,
 				SPA_POD_PROP_STEP(queryctrl.minimum,
@@ -1062,7 +1062,7 @@ spa_v4l2_enum_controls(struct impl *this,
 		break;
 	case V4L2_CTRL_TYPE_BOOLEAN:
 		param = spa_pod_builder_object(&b,
-			SPA_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			":", SPA_PROP_INFO_id, "I", prop_id,
 			":", SPA_PROP_INFO_type, "b-u", queryctrl.default_value,
 			":", SPA_PROP_INFO_name, "s", queryctrl.name);
@@ -1071,7 +1071,7 @@ spa_v4l2_enum_controls(struct impl *this,
 	{
 		struct v4l2_querymenu querymenu;
 
-		spa_pod_builder_push_object(&b, SPA_PARAM_PropInfo, SPA_ID_OBJECT_PropInfo);
+		spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
 		spa_pod_builder_add(&b,
 			":", SPA_PROP_INFO_id, "I", prop_id,
 			":", SPA_PROP_INFO_type, "i-u", queryctrl.default_value,

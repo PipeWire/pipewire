@@ -41,12 +41,12 @@ struct spa_command {
 						(cmd)->body.body.id : SPA_ID_INVALID)
 
 #define SPA_COMMAND_INIT(type,id) (struct spa_command)			\
-	{ { sizeof(struct spa_command_body), SPA_ID_Object },		\
-	  { { id, type } } }						\
+	{ { sizeof(struct spa_command_body), SPA_TYPE_Object },		\
+	  { { type, id } } }						\
 
 #define SPA_COMMAND_INIT_FULL(t,size,type,id,...) (t)			\
-	{ { size, SPA_ID_OBJECT },					\
-	  { { id, type }, ##__VA_ARGS__ } }				\
+	{ { size, SPA_TYPE_OBJECT },					\
+	  { { type, id }, ##__VA_ARGS__ } }				\
 
 #ifdef __cplusplus
 }  /* extern "C" */

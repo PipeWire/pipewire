@@ -359,7 +359,7 @@ static int do_connect(struct pw_remote *remote)
 	dummy.remote = remote;
 
 	remote->core_proxy = (struct pw_core_proxy*)pw_proxy_new(&dummy,
-			PW_ID_INTERFACE_Core, PW_VERSION_CORE);
+			PW_TYPE_INTERFACE_Core, PW_VERSION_CORE);
 	if (remote->core_proxy == NULL)
 		goto no_proxy;
 
@@ -1355,7 +1355,7 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 
 	proxy = pw_core_proxy_create_object(remote->core_proxy,
 					    "client-node",
-					    PW_ID_INTERFACE_ClientNode,
+					    PW_TYPE_INTERFACE_ClientNode,
 					    PW_VERSION_CLIENT_NODE,
 					    &node->properties->dict,
 					    sizeof(struct node_data));

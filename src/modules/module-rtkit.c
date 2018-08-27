@@ -481,7 +481,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	support = pw_core_get_support(core, &n_support);
 
-	loop = spa_support_find(support, n_support, SPA_ID_INTERFACE_DataLoop);
+	loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
         if (loop == NULL)
                 return -ENOTSUP;
 

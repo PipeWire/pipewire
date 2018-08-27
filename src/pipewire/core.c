@@ -148,7 +148,7 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 	registry_resource = pw_resource_new(client,
 					    new_id,
 					    PW_PERM_RWX,
-					    PW_ID_INTERFACE_Registry,
+					    PW_TYPE_INTERFACE_Registry,
 					    version,
 					    sizeof(*data));
 	if (registry_resource == NULL)
@@ -377,11 +377,11 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	pw_map_init(&this->globals, 128, 32);
 
-	this->support[0] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DataLoop, this->data_loop->loop);
-	this->support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, this->main_loop->loop);
-	this->support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_LoopUtils, this->main_loop->utils);
-	this->support[3] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, pw_log_get());
-	this->support[4] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DBus, pw_get_spa_dbus(this->main_loop));
+	this->support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
+	this->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, this->main_loop->loop);
+	this->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
+	this->support[3] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, pw_log_get());
+	this->support[4] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, pw_get_spa_dbus(this->main_loop));
 	this->n_support = 5;
 
 	pw_data_loop_start(this->data_loop_impl);
@@ -419,7 +419,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->sc_pagesize = sysconf(_SC_PAGESIZE);
 
 	this->global = pw_global_new(this,
-				     PW_ID_INTERFACE_Core,
+				     PW_TYPE_INTERFACE_Core,
 				     PW_VERSION_CORE,
 				     pw_properties_new(
 					     PW_CORE_PROP_USER_NAME, this->info.user_name,

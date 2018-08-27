@@ -28,13 +28,14 @@ extern "C" {
 #include <spa/pod/event.h>
 #include <spa/node/node.h>
 
+/* object id of SPA_TYPE_EVENT_Node */
 enum spa_node_event {
 	SPA_NODE_EVENT_Error,
 	SPA_NODE_EVENT_Buffering,
 	SPA_NODE_EVENT_RequestRefresh,
 };
 
-#define SPA_NODE_EVENT_ID(ev)	SPA_EVENT_ID(ev, SPA_ID_EVENT_Node)
+#define SPA_NODE_EVENT_ID(ev)	SPA_EVENT_ID(ev, SPA_TYPE_EVENT_Node)
 
 #ifdef __cplusplus
 }  /* extern "C" */

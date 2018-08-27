@@ -20,7 +20,6 @@
 #include <stdio.h>
 
 #include <spa/support/loop.h>
-#include <spa/support/loop-types.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/loop.h>
@@ -77,25 +76,25 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	}
 
         if ((res = spa_handle_get_interface(impl->handle,
-					    SPA_ID_INTERFACE_Loop,
+					    SPA_TYPE_INTERFACE_Loop,
 					    &iface)) < 0) {
-                fprintf(stderr, "can't get %s interface %d\n", SPA_TYPE__Loop, res);
+                fprintf(stderr, "can't get Loop interface %d\n", res);
                 goto failed;
         }
 	this->loop = iface;
 
         if ((res = spa_handle_get_interface(impl->handle,
-					    SPA_ID_INTERFACE_LoopControl,
+					    SPA_TYPE_INTERFACE_LoopControl,
 					    &iface)) < 0) {
-                fprintf(stderr, "can't get %s interface %d\n", SPA_TYPE__LoopControl, res);
+                fprintf(stderr, "can't get LoopControl interface %d\n", res);
                 goto failed;
         }
 	this->control = iface;
 
         if ((res = spa_handle_get_interface(impl->handle,
-					    SPA_ID_INTERFACE_LoopUtils,
+					    SPA_TYPE_INTERFACE_LoopUtils,
 					    &iface)) < 0) {
-                fprintf(stderr, "can't get %s interface %d\n", SPA_TYPE__LoopUtils, res);
+                fprintf(stderr, "can't get LoopUtils interface %d\n", res);
                 goto failed;
         }
 	this->utils = iface;

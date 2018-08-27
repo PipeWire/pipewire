@@ -272,10 +272,10 @@ registry_global(void *data,uint32_t id, uint32_t parent_id,
 
 	clock_gettime(CLOCK_MONOTONIC, &impl->now);
 
-	if (type == PW_ID_INTERFACE_Node) {
+	if (type == PW_TYPE_INTERFACE_Node) {
 		handle_node(impl, id, parent_id, type, props);
 	}
-	else if (type == PW_ID_INTERFACE_Port) {
+	else if (type == PW_TYPE_INTERFACE_Port) {
 		handle_port(impl, id, parent_id, type, props);
 	}
 	schedule_rescan(impl);
@@ -313,7 +313,7 @@ static void rescan_session(struct impl *impl)
 
 			sess->dsp = pw_core_proxy_create_object(impl->core_proxy,
 					"audio-dsp",
-					PW_ID_INTERFACE_Node,
+					PW_TYPE_INTERFACE_Node,
 					PW_VERSION_NODE,
 					&props->dict,
 					0);
@@ -334,7 +334,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 	case PW_REMOTE_STATE_CONNECTED:
 		impl->core_proxy = pw_remote_get_core_proxy(impl->remote);
 		impl->registry_proxy = pw_core_proxy_get_registry(impl->core_proxy,
-                                                PW_ID_INTERFACE_Registry,
+                                                PW_TYPE_INTERFACE_Registry,
                                                 PW_VERSION_REGISTRY, 0);
 		pw_registry_proxy_add_listener(impl->registry_proxy,
                                                &impl->registry_listener,

@@ -464,11 +464,11 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
   GstPipeWireDeviceProvider *self = rd->self;
   struct node_data *nd;
 
-  if (type == PW_ID_INTERFACE_Node) {
+  if (type == PW_TYPE_INTERFACE_Node) {
     struct pw_node_proxy *node;
 
     node = pw_registry_proxy_bind(rd->registry,
-		    id, PW_ID_INTERFACE_Node,
+		    id, PW_TYPE_INTERFACE_Node,
 		    PW_VERSION_NODE, sizeof(*nd));
     if (node == NULL)
       goto no_mem;
@@ -484,7 +484,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
     pw_proxy_add_listener((struct pw_proxy*)node, &nd->proxy_listener, &proxy_node_events, nd);
     add_pending(self, &nd->pending, NULL, NULL);
   }
-  else if (type == PW_ID_INTERFACE_Port) {
+  else if (type == PW_TYPE_INTERFACE_Port) {
     struct pw_port_proxy *port;
     struct port_data *pd;
 
@@ -492,7 +492,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
       return;
 
     port = pw_registry_proxy_bind(rd->registry,
-		    id, PW_ID_INTERFACE_Port,
+		    id, PW_TYPE_INTERFACE_Port,
 		    PW_VERSION_PORT, sizeof(*pd));
     if (port == NULL)
       goto no_mem;
@@ -590,7 +590,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
 
   self->core_proxy = pw_remote_get_core_proxy(r);
   data->registry = pw_core_proxy_get_registry(self->core_proxy,
-		  PW_ID_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
+		  PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
   pw_registry_proxy_add_listener(data->registry, &data->registry_listener, &registry_events, data);
   pw_core_proxy_sync(self->core_proxy, ++self->seq);
 
@@ -677,7 +677,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   self->core_proxy = pw_remote_get_core_proxy(self->remote);
   self->registry = pw_core_proxy_get_registry(self->core_proxy,
-		  PW_ID_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
+		  PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
 
   data->registry = self->registry;
 

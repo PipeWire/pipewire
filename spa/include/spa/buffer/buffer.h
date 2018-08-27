@@ -34,9 +34,10 @@ extern "C" {
  */
 
 enum spa_data_type {
-	SPA_DATA_MemPtr,
-	SPA_DATA_MemFd,
-	SPA_DATA_DmaBuf,
+	SPA_DATA_MemPtr,		/**< pointer to memory, the data field in
+					  *  struct spa_data is set. */
+	SPA_DATA_MemFd,			/**< generic fd, mmap to get to memory */
+	SPA_DATA_DmaBuf,		/**< fd to dmabuf memory */
 };
 
 /** Chunk of memory */
@@ -53,6 +54,8 @@ struct spa_chunk {
 /** Data for a buffer */
 struct spa_data {
 	uint32_t type;			/**< memory type, one of enum spa_data_type */
+#define SPA_DATA_FLAG_NONE	 0
+#define SPA_DATA_FLAG_CORRUPTED	(1<<0)	/**< data is corrupted in some way */
 	uint32_t flags;			/**< data flags */
 	int fd;				/**< optional fd for data */
 	uint32_t mapoffset;		/**< offset to map fd at */

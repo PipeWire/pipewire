@@ -238,7 +238,7 @@ pw_module_load(struct pw_core *core,
 	spa_list_append(&core->module_list, &this->link);
 
 	this->global = pw_global_new(core,
-				     PW_ID_INTERFACE_Module, PW_VERSION_MODULE,
+				     PW_TYPE_INTERFACE_Module, PW_VERSION_MODULE,
 				     pw_properties_new(
 					     PW_MODULE_PROP_NAME, name,
 					     NULL),

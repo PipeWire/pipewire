@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 	data.remote = pw_stream_get_remote(data.stream);
 
 	params[0] = spa_pod_builder_object(&b,
-		SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+		SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 		"I", SPA_MEDIA_TYPE_audio,
 		"I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_AUDIO_format,	"I", SPA_AUDIO_FORMAT_F32,

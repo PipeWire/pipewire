@@ -37,18 +37,8 @@ enum spa_monitor_event {
 	SPA_MONITOR_EVENT_Changed,
 };
 
-#define SPA_MONITOR_EVENT_ID(ev)	SPA_EVENT_ID(ev, SPA_ID_EVENT_Monitor)
-
-/** properties for SPA_ID_OBJECT_MonitorItem */
-enum spa_monitor_item {
-	SPA_MONITOR_ITEM_id,
-	SPA_MONITOR_ITEM_flags,
-	SPA_MONITOR_ITEM_state,
-	SPA_MONITOR_ITEM_name,
-	SPA_MONITOR_ITEM_class,
-	SPA_MONITOR_ITEM_info,
-	SPA_MONITOR_ITEM_factory,
-};
+/** monitor event id, one of enum spa_monitor_event */
+#define SPA_MONITOR_EVENT_ID(ev)	SPA_EVENT_ID(ev, SPA_TYPE_EVENT_Monitor)
 
 enum spa_monitor_item_flags {
 	SPA_MONITOR_ITEM_FLAG_NONE = 0,
@@ -59,6 +49,18 @@ enum spa_monitor_item_state {
 	SPA_MONITOR_ITEM_STATE_AVAILABLE,	/*< The item is available */
 	SPA_MONITOR_ITEM_STATE_DISABLED,	/*< The item is disabled */
 	SPA_MONITOR_ITEM_STATE_UNAVAILABLE,	/*< The item is unavailable */
+};
+
+/** properties for SPA_TYPE_OBJECT_MonitorItem */
+enum spa_monitor_item {
+	SPA_MONITOR_ITEM_START,		/**< id of object, one of enum spa_monitor_event */
+	SPA_MONITOR_ITEM_id,
+	SPA_MONITOR_ITEM_flags,		/**< one of enum spa_monitor_item_flags */
+	SPA_MONITOR_ITEM_state,		/**< one of enum spa_monitor_item_state */
+	SPA_MONITOR_ITEM_name,
+	SPA_MONITOR_ITEM_class,
+	SPA_MONITOR_ITEM_info,
+	SPA_MONITOR_ITEM_factory,
 };
 
 /**

@@ -122,7 +122,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 				break;
 			}
 
-			if (spa_pod_is_object_type(param, SPA_ID_OBJECT_Format))
+			if (spa_pod_is_object_id(param, SPA_TYPE_OBJECT_Format))
 				spa_debug_format(0, NULL, param);
 			else
 				spa_debug_pod(0, spa_debug_types, param);
@@ -219,7 +219,7 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 			continue;
 		}
 
-		if (info->type == SPA_ID_INTERFACE_Node)
+		if (info->type == SPA_TYPE_INTERFACE_Node)
 			inspect_node(data, interface);
 		else
 			printf("skipping unknown interface\n");
@@ -263,9 +263,9 @@ int main(int argc, char *argv[])
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);
 
-	data.support[0] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_Log, data.log);
-	data.support[1] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_MainLoop, &data.loop);
-	data.support[2] = SPA_SUPPORT_INIT(SPA_ID_INTERFACE_DataLoop, &data.loop);
+	data.support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
+	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, &data.loop);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, &data.loop);
 	data.n_support = 3;
 
 	if ((handle = dlopen(argv[1], RTLD_NOW)) == NULL) {

@@ -26,8 +26,9 @@ extern "C" {
 
 #include <spa/param/param.h>
 
-/** properties of SPA_ID_OBJECT_PropInfo */
+/** properties of SPA_TYPE_OBJECT_PropInfo */
 enum spa_prop_info {
+	SPA_PROP_INFO_START,		/**< id of object, one of enum spa_param_type */
 	SPA_PROP_INFO_id,		/**< associated id of the property */
 	SPA_PROP_INFO_name,		/**< name of the property */
 	SPA_PROP_INFO_type,		/**< type and range/enums of property */
@@ -38,11 +39,11 @@ enum spa_prop_info {
 					  *  for the value. */
 };
 
-/** predefined properties for SPA_ID_OBJECT_Props */
+/** predefined properties for SPA_TYPE_OBJECT_Props */
 enum spa_prop {
-	SPA_PROP_BASE_GENERIC	= 0x0,
+	SPA_PROP_START,			/**< id of object, one of enum spa_param_type */
 
-	SPA_PROP_unknown,			/**< an unknown property */
+	SPA_PROP_unknown,		/**< an unknown property */
 
 	SPA_PROP_device,
 	SPA_PROP_deviceName,
@@ -74,7 +75,7 @@ enum spa_prop {
 	SPA_PROP_gain,
 	SPA_PROP_sharpness,
 
-	SPA_PROP_BASE_CUSTOM	= 0x10000,
+	SPA_PROP_START_CUSTOM	= 0x10000,
 };
 
 #ifdef __cplusplus

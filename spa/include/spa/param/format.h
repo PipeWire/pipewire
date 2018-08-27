@@ -26,7 +26,7 @@ extern "C" {
 
 #include <spa/param/param.h>
 
-/** media type for SPA_ID_OBJECT_Format */
+/** media type for SPA_TYPE_OBJECT_Format */
 enum spa_media_type {
 	SPA_MEDIA_TYPE_audio,
 	SPA_MEDIA_TYPE_video,
@@ -35,12 +35,12 @@ enum spa_media_type {
 	SPA_MEDIA_TYPE_stream,
 };
 
-/** media subtype for SPA_ID_OBJECT_Format */
+/** media subtype for SPA_TYPE_OBJECT_Format */
 enum spa_media_subtype {
-	SPA_MEDIA_SUBTYPE_BASE_Generic,
+	SPA_MEDIA_SUBTYPE_START_Generic,
 	SPA_MEDIA_SUBTYPE_raw,
 
-	SPA_MEDIA_SUBTYPE_BASE_Audio	= 0x10000,
+	SPA_MEDIA_SUBTYPE_START_Audio	= 0x10000,
 	SPA_MEDIA_SUBTYPE_mp3,
 	SPA_MEDIA_SUBTYPE_aac,
 	SPA_MEDIA_SUBTYPE_vorbis,
@@ -54,7 +54,7 @@ enum spa_media_subtype {
 	SPA_MEDIA_SUBTYPE_amr,
 	SPA_MEDIA_SUBTYPE_gsm,
 
-	SPA_MEDIA_SUBTYPE_BASE_Video	= 0x20000,
+	SPA_MEDIA_SUBTYPE_START_Video	= 0x20000,
 	SPA_MEDIA_SUBTYPE_h264,
 	SPA_MEDIA_SUBTYPE_mjpg,
 	SPA_MEDIA_SUBTYPE_dv,
@@ -70,19 +70,23 @@ enum spa_media_subtype {
 	SPA_MEDIA_SUBTYPE_jpeg,
 	SPA_MEDIA_SUBTYPE_bayer,
 
-	SPA_MEDIA_SUBTYPE_BASE_Image	= 0x30000,
+	SPA_MEDIA_SUBTYPE_START_Image	= 0x30000,
 
-	SPA_MEDIA_SUBTYPE_BASE_Binary	= 0x40000,
+	SPA_MEDIA_SUBTYPE_START_Binary	= 0x40000,
 
-	SPA_MEDIA_SUBTYPE_BASE_Stream	= 0x50000,
+	SPA_MEDIA_SUBTYPE_START_Stream	= 0x50000,
 	SPA_MEDIA_SUBTYPE_midi,
 };
 
-/** properties for audio SPA_ID_OBJECT_Format */
+/** properties for audio SPA_TYPE_OBJECT_Format */
 enum spa_format {
+	SPA_FORMAT_START,		/**< id of the object, one of enum spa_param_type */
+
+	SPA_FORMAT_MediaType,		/**< first int in object, one of enum spa_media_type */
+	SPA_FORMAT_MediaSubtype,	/**< second int in object, one of enum spa_media_subtype */
 
 	/* Audio format keys */
-	SPA_FORMAT_BASE_AUDIO = 0,
+	SPA_FORMAT_START_AUDIO,
 	SPA_FORMAT_AUDIO_format,
 	SPA_FORMAT_AUDIO_flags,
 	SPA_FORMAT_AUDIO_layout,
@@ -91,7 +95,7 @@ enum spa_format {
 	SPA_FORMAT_AUDIO_channelMask,
 
 	/* Video Format keys */
-	SPA_FORMAT_BASE_VIDEO = 0x10000,
+	SPA_FORMAT_START_VIDEO = 0x10000,
 	SPA_FORMAT_VIDEO_format,
 	SPA_FORMAT_VIDEO_size,
 	SPA_FORMAT_VIDEO_framerate,
@@ -112,11 +116,11 @@ enum spa_format {
 	SPA_FORMAT_VIDEO_alignment,
 
 	/* Image Format keys */
-	SPA_FORMAT_BASE_IMAGE = 0x20000,
+	SPA_FORMAT_START_IMAGE = 0x20000,
 	/* Binary Format keys */
-	SPA_FORMAT_BASE_BINARY = 0x30000,
+	SPA_FORMAT_START_BINARY = 0x30000,
 	/* Stream Format keys */
-	SPA_FORMAT_BASE_STREAM = 0x40000,
+	SPA_FORMAT_START_STREAM = 0x40000,
 };
 
 #ifdef __cplusplus

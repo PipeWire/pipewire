@@ -35,6 +35,7 @@
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/control/control.h>
 
 #define M_PI_M2 ( M_PI + M_PI )
 
@@ -79,9 +80,8 @@ struct data {
 	struct spa_buffer *source_buffers[1];
 	struct buffer source_buffer[1];
 
-	struct spa_pod_double ctrl_source_freq;
+	uint8_t ctrl[1024];
 	double freq_accum;
-	struct spa_pod_double ctrl_source_volume;
 	double volume_accum;
 
 	bool running;
@@ -95,7 +95,7 @@ struct data {
 	unsigned int n_fds;
 };
 
-#define MIN_LATENCY     64
+#define MIN_LATENCY     1024
 
 #define BUFFER_SIZE    MIN_LATENCY
 
@@ -194,12 +194,47 @@ static void on_sink_event(void *data, struct spa_event *event)
 
 static void update_props(struct data *data)
 {
-	data->ctrl_source_freq.value = ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0;
+	struct spa_pod_builder b;
+	struct spa_pod *pod;
+
+	spa_pod_builder_init(&b, data->ctrl, sizeof(data->ctrl));
+
+#if 1
+	pod = spa_pod_builder_sequence(&b, 0,
+	".", 0, SPA_CONTROL_properties,
+		SPA_POD_OBJECT(SPA_TYPE_OBJECT_Props, 0,
+		":", SPA_PROP_frequency, "d", ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0,
+		":", SPA_PROP_volume,    "d", (sin(data->volume_accum) / 2.0) + 0.5));
+#endif
+#if 0
+	spa_pod_builder_push_sequence(&b, 0);
+	spa_pod_builder_event_header(&b, 0, SPA_CONTROL_properties);
+	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, 0);
+	spa_pod_builder_push_prop(&b, SPA_PROP_frequency, 0);
+	spa_pod_builder_double(&b, ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0);
+	spa_pod_builder_pop(&b);
+	spa_pod_builder_push_prop(&b, SPA_PROP_volume, 0);
+	spa_pod_builder_double(&b, (sin(data->volume_accum) / 2.0) + 0.5);
+	spa_pod_builder_pop(&b);
+	spa_pod_builder_pop(&b);
+	pod = spa_pod_builder_pop(&b);
+#endif
+#if 0
+	spa_pod_builder_push_sequence(&b, 0);
+	spa_pod_builder_event_header(&b, 0, SPA_CONTROL_properties);
+	spa_pod_builder_object(&b,
+		SPA_TYPE_OBJECT_Props, 0,
+		":", SPA_PROP_frequency, "d", ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0,
+		":", SPA_PROP_volume,    "d", (sin(data->volume_accum) / 2.0) + 0.5);
+	pod = spa_pod_builder_pop(&b);
+#endif
+
+	spa_debug_pod(0, spa_types, pod);
+
 	data->freq_accum += M_PI_M2 / 880.0;
 	if (data->freq_accum >= M_PI_M2)
 		data->freq_accum -= M_PI_M2;
 
-	data->ctrl_source_volume.value = (sin(data->volume_accum) / 2.0) + 0.5;
 	data->volume_accum += M_PI_M2 / 2000.0;
 	if (data->volume_accum >= M_PI_M2)
 		data->volume_accum -= M_PI_M2;
@@ -211,6 +246,7 @@ static void on_sink_process(void *_data, int status)
 
 	update_props(data);
 
+	spa_graph_node_process(&data->source_node);
 	spa_graph_node_process(&data->sink_node);
 }
 
@@ -297,47 +333,14 @@ static int make_nodes(struct data *data, const char *device)
 		":", SPA_PROP_volume,    "d", 0.5,
 		":", SPA_PROP_live,      "b", false);
 
-	data->ctrl_source_freq = SPA_POD_DOUBLE_INIT(600.0);
-	data->ctrl_source_volume = SPA_POD_DOUBLE_INIT(0.5);
-
 	if ((res = spa_node_set_param(data->source, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
 
-#if 0
-	for (idx = 0;;) {
-		struct spa_pod *param;
-		uint32_t id = 0, propId = 0;
-
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if ((res = spa_node_port_enum_params(data->source, SPA_DIRECTION_OUTPUT, 0,
-					   data->type.param_io.idPropsIn, &idx, NULL, &param, &b)) < 1) {
-			if (res < 0)
-				error(0, -res, "port_enum_params");
-			break;
-		}
-
-		spa_pod_object_parse(param,
-				":", data->type.param_io.id, "I", &id,
-				":", data->type.param.propId, "?I", &propId,
-				NULL);
-
-		if (propId == data->type.props_freq) {
-			if ((res = spa_node_port_set_io(data->source,
+	if ((res = spa_node_port_set_io(data->source,
 				     SPA_DIRECTION_OUTPUT, 0,
-				     id,
-				     &data->ctrl_source_freq, sizeof(data->ctrl_source_freq))) < 0)
+				     SPA_IO_Control,
+				     &data->ctrl, sizeof(data->ctrl))) < 0)
 				error(0, -res, "set_io freq");
-
-		}
-		else if (propId == data->type.props_volume) {
-			if ((res = spa_node_port_set_io(data->source,
-				     SPA_DIRECTION_OUTPUT, 0,
-				     id,
-				     &data->ctrl_source_volume, sizeof(data->ctrl_source_volume))) < 0)
-				error(0, -res, "set_io volume");
-		}
-	}
-#endif
 
 	data->source_sink_io[0] = SPA_IO_BUFFERS_INIT;
 

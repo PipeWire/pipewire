@@ -36,10 +36,11 @@ extern "C" {
 /** Different IO area types */
 enum spa_io_type {
 	SPA_IO_Buffers,
-	SPA_IO_ControlRange,
+	SPA_IO_Range,
 	SPA_IO_Clock,
 	SPA_IO_Latency,
-	SPA_IO_Events,
+	SPA_IO_Control,
+	SPA_IO_Notify,
 };
 
 struct spa_io_buffers {
@@ -56,7 +57,7 @@ struct spa_io_buffers {
 #define SPA_IO_BUFFERS_INIT  (struct spa_io_buffers) { SPA_STATUS_OK, SPA_ID_INVALID, }
 
 /** A range, suitable for input ports that can suggest a range to output ports */
-struct spa_io_control_range {
+struct spa_io_range {
 	uint64_t offset;	/**< offset in range */
 	uint32_t min_size;	/**< minimum size of data */
 	uint32_t max_size;	/**< maximum size of data */
@@ -79,10 +80,11 @@ struct spa_io_latency {
 	uint64_t max;			/**< max latency */
 };
 
-/** event stream */
-struct spa_io_events {
+/** control stream */
+struct spa_io_sequence {
 	struct spa_pod_sequence sequence;	/**< sequence of timed events */
 };
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

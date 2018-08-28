@@ -91,7 +91,7 @@ struct state {
 
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
-	struct spa_io_control_range *range;
+	struct spa_io_range *range;
 	struct spa_io_clock *clock;
 
 	struct buffer buffers[MAX_BUFFERS];

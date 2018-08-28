@@ -66,7 +66,7 @@ struct port {
 	struct port_props props;
 
 	struct spa_io_buffers *io;
-	struct spa_io_control_range *io_range;
+	struct spa_io_range *io_range;
 	double *io_volume;
 	int32_t *io_mute;
 
@@ -472,42 +472,19 @@ impl_node_port_enum_params(struct spa_node *node,
 		case 1:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id,   "I", SPA_IO_ControlRange,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_control_range));
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Range,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_range));
+			break;
+		case 2:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Control,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence));
 			break;
 		default:
 			return 0;
 		}
-#if 0
-	else if (id == t->param_io.idPropsIn) {
-		struct port_props *p = &port->props;
-
-		if (direction == SPA_DIRECTION_OUTPUT)
-			return 0;
-
-		switch (*index) {
-		case 0:
-			param = spa_pod_builder_object(&b,
-				id, t->param_io.Prop,
-				":", t->param_io.id,    "I", t->io_prop_volume,
-				":", t->param_io.size,  "i", sizeof(struct spa_pod_double),
-				":", t->param.propId,   "I", t->prop_volume,
-				":", t->param.propType, "dru", p->volume,
-					SPA_POD_PROP_MIN_MAX(0.0, 10.0));
-			break;
-		case 1:
-			param = spa_pod_builder_object(&b,
-				id, t->param_io.Prop,
-				":", t->param_io.id,    "I", t->io_prop_mute,
-				":", t->param_io.size,  "i", sizeof(struct spa_pod_bool),
-				":", t->param.propId,   "I", t->prop_mute,
-				":", t->param.propType, "b", p->mute);
-			break;
-		default:
-			return 0;
-		}
-	}
-#endif
+		break;
 	default:
 		return -ENOENT;
 	}
@@ -701,25 +678,16 @@ impl_node_port_set_io(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	if (id == SPA_IO_Buffers)
+	switch (id) {
+	case SPA_IO_Buffers:
 		port->io = data;
-	else if (id == SPA_IO_ControlRange)
+		break;
+	case SPA_IO_Range:
 		port->io_range = data;
-#if 0
-	else if (id == t->io_prop_volume && direction == SPA_DIRECTION_INPUT)
-		if (data && size >= sizeof(struct spa_pod_double))
-			port->io_volume = &SPA_POD_VALUE(struct spa_pod_double, data);
-		else
-			port->io_volume = &port->props.volume;
-	else if (id == t->io_prop_mute && direction == SPA_DIRECTION_INPUT)
-		if (data && size >= sizeof(struct spa_pod_bool))
-			port->io_mute = &SPA_POD_VALUE(struct spa_pod_bool, data);
-		else
-			port->io_mute = &port->props.mute;
-#endif
-	else
+		break;
+	default:
 		return -ENOENT;
-
+	}
 	return 0;
 }
 

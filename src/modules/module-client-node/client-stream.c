@@ -84,7 +84,7 @@ struct impl {
 	struct pw_port_mix client_port_mix;
 
 	struct spa_io_buffers *io;
-	struct spa_io_control_range ctrl;
+	struct spa_io_range range;
 
 	struct spa_buffer **buffers;
 	uint32_t n_buffers;
@@ -253,9 +253,9 @@ impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t
 
 	if ((res = spa_node_port_set_io(impl->adapter_mix,
 					direction, port_id,
-					SPA_IO_ControlRange,
-					&impl->ctrl,
-					sizeof(&impl->ctrl))) < 0)
+					SPA_IO_Range,
+					&impl->range,
+					sizeof(&impl->range))) < 0)
 			return res;
 
 	return res;
@@ -745,9 +745,9 @@ static int impl_node_process(struct spa_node *node)
 	struct pw_driver_quantum *q = impl->this.node->driver_node->rt.quantum;
 	int status, trigger;
 
-	impl->ctrl.min_size = impl->ctrl.max_size = q->size * sizeof(float);
+	impl->range.min_size = impl->range.max_size = q->size * sizeof(float);
 
-	spa_log_trace(this->log, "%p: process %d", this, impl->ctrl.max_size);
+	spa_log_trace(this->log, "%p: process %d", this, impl->range.max_size);
 
 	if (impl->use_converter) {
 		status = spa_node_process(impl->adapter);

@@ -398,8 +398,8 @@ impl_node_port_enum_params(struct spa_node *node,
 		case 1:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id,   "I", SPA_IO_ControlRange,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_control_range));
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Range,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_range));
 			break;
 		case 2:
 			param = spa_pod_builder_object(&b,
@@ -586,7 +586,7 @@ impl_node_port_set_io(struct spa_node *node,
 	case SPA_IO_Buffers:
 		this->io = data;
 		break;
-	case SPA_IO_ControlRange:
+	case SPA_IO_Range:
 		this->range = data;
 		break;
 	case SPA_IO_Clock:

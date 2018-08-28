@@ -74,7 +74,7 @@ struct port {
 	bool valid;
 
 	struct spa_io_buffers *io;
-	struct spa_io_control_range *ctrl;
+	struct spa_io_range *ctrl;
 
 	struct spa_port_info info;
 	struct spa_dict info_props;
@@ -837,7 +837,7 @@ impl_node_port_set_io(struct spa_node *node,
 	case SPA_IO_Buffers:
 		port->io = data;
 		break;
-	case SPA_IO_ControlRange:
+	case SPA_IO_Range:
 		port->ctrl = data;
 		break;
 	default:

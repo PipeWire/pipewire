@@ -112,8 +112,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 	{
 		struct spa_pod_object_body *b = body;
 		struct spa_pod *p;
-		const struct spa_type_info *ti;
-		const struct spa_type_info *ii;
+		const struct spa_type_info *ti, *ii;
 
 		ti = spa_debug_type_find(info, b->type);
 		ii = ti ? spa_debug_type_find(ti->values, 0) : NULL;
@@ -127,6 +126,30 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		SPA_POD_OBJECT_BODY_FOREACH(b, size, p)
 			spa_debug_pod_value(indent + 2, info,
 					p->type, SPA_POD_BODY(p), p->size);
+		break;
+	}
+	case SPA_TYPE_Sequence:
+	{
+		struct spa_pod_sequence_body *b = body;
+		const struct spa_type_info *ti, *ii;
+		struct spa_pod_control *c;
+
+		ti = spa_debug_type_find(info, b->unit);
+
+		spa_debug("%*s" "Sequence: size %d, unit %s", indent, "", size,
+		       ti ? ti->name : "unknown");
+
+		SPA_POD_SEQUENCE_BODY_FOREACH(b, size, c) {
+			ii = spa_debug_type_find(info, c->type);
+
+			spa_debug("%*s" "Event: offset %d, type %s", indent+2, "",
+					c->offset, ii ? ii->name : "unknown");
+
+			spa_debug_pod_value(indent + 2, info,
+					c->value.type,
+					SPA_POD_CONTENTS(struct spa_pod_control, c),
+					c->value.size);
+		}
 		break;
 	}
 	case SPA_TYPE_Prop:

@@ -371,6 +371,25 @@ spa_pod_builder_push_prop(struct spa_pod_builder *builder, uint32_t key, uint32_
 							sizeof(p) - sizeof(struct spa_pod)));
 }
 
+#define SPA_POD_SEQUENCE_INIT(size,unit,...)	\
+	(struct spa_pod_sequence){ { size, SPA_TYPE_Sequence}, {unit, 0 }, ##__VA_ARGS__ }
+
+static inline uint32_t
+spa_pod_builder_push_sequence(struct spa_pod_builder *builder, uint32_t unit)
+{
+	const struct spa_pod_sequence p =
+	    SPA_POD_SEQUENCE_INIT(sizeof(struct spa_pod_sequence_body), unit);
+	return spa_pod_builder_push(builder, &p.pod,
+				    spa_pod_builder_raw(builder, &p, sizeof(p)));
+}
+
+static inline uint32_t
+spa_pod_builder_control_header(struct spa_pod_builder *builder, uint32_t offset, uint32_t type)
+{
+	const struct { uint32_t offset; uint32_t type; } p = { offset, type };
+	return spa_pod_builder_raw(builder, &p, sizeof(p));
+}
+
 static inline uint32_t spa_pod_range_from_id(char id)
 {
 	switch (id) {
@@ -400,6 +419,8 @@ static inline uint32_t spa_pod_flag_from_id(char id)
 		return SPA_POD_PROP_FLAG_DEPRECATED;
 	case 'i':
 		return SPA_POD_PROP_FLAG_INFO;
+	case 'c':
+		return SPA_POD_PROP_FLAG_CONTROLLABLE;
 	default:
 		return 0;
 	}
@@ -518,6 +539,19 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 		case '(':
 			spa_pod_builder_push_array(builder);
 			break;
+		case '{':
+		{
+			uint32_t unit = va_arg(args, uint32_t);
+			spa_pod_builder_push_sequence(builder, unit);
+			break;
+		}
+		case '.':
+		{
+			uint32_t offset = va_arg(args, uint32_t);
+			uint32_t type = va_arg(args, uint32_t);
+			spa_pod_builder_control_header(builder, offset, type);
+			break;
+		}
 		case ':':
 		{
 			int n_values;
@@ -553,7 +587,7 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 			/* don't advance format */
 			continue;
 		}
-		case ']': case ')': case '>':
+		case ']': case ')': case '>': case '}':
 			spa_pod_builder_pop(builder);
 			if (builder->state.depth > 0 &&
 			    builder->frame[builder->state.depth-1].pod.type == SPA_TYPE_Prop)
@@ -595,6 +629,12 @@ static inline void *spa_pod_builder_add(struct spa_pod_builder *builder, const c
 #define SPA_POD_PROP(key,spec,type,value,...)		\
 	":", key, spec, value, ##__VA_ARGS__
 
+#define SPA_POD_SEQUENCE(unit,...)			\
+	"{", unit, ##__VA_ARGS__, "}"
+
+#define SPA_POD_CONTROL(offset,type,...)		\
+	".", offset, type, ##__VA_ARGS__
+
 #define SPA_POD_PROP_MIN_MAX(min,max)	2,(min),(max)
 #define SPA_POD_PROP_STEP(min,max,step)	3,(min),(max),(step)
 #define SPA_POD_PROP_ENUM(n_vals,...)	(n_vals),__VA_ARGS__
@@ -604,6 +644,9 @@ static inline void *spa_pod_builder_add(struct spa_pod_builder *builder, const c
 
 #define spa_pod_builder_struct(b,...)					\
 	spa_pod_builder_add(b, SPA_POD_STRUCT(__VA_ARGS__), NULL)
+
+#define spa_pod_builder_sequence(b,unit,...)					\
+	spa_pod_builder_add(b, SPA_POD_SEQUENCE(unit,__VA_ARGS__), NULL)
 
 #ifdef __cplusplus
 }  /* extern "C" */

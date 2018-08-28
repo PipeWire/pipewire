@@ -60,7 +60,7 @@ struct port {
 	uint32_t id;
 
 	struct spa_io_buffers *io;
-	struct spa_io_control_range *ctrl;
+	struct spa_io_range *ctrl;
 	struct spa_port_info info;
 
 	bool have_format;
@@ -623,13 +623,16 @@ impl_node_port_set_io(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	if (id == SPA_IO_Buffers)
+	switch (id) {
+	case SPA_IO_Buffers:
 		port->io = data;
-	else if (id == SPA_IO_ControlRange)
+		break;
+	case SPA_IO_Range:
 		port->ctrl = data;
-	else
+		break;
+	default:
 		return -ENOENT;
-
+	}
 	return 0;
 }
 

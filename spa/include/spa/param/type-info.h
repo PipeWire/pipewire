@@ -34,6 +34,7 @@ extern "C" {
 #define SPA_TYPE_PARAM_ID_BASE		SPA_TYPE__ParamId ":"
 
 static const struct spa_type_info spa_type_param[] = {
+	{ SPA_PARAM_START,  "undefined", SPA_TYPE_Int, },
 	{ SPA_PARAM_List,  SPA_TYPE_PARAM_ID_BASE "List", SPA_TYPE_Int, },
 	{ SPA_PARAM_PropInfo, SPA_TYPE_PARAM_ID_BASE "PropInfo", SPA_TYPE_Int, },
 	{ SPA_PARAM_Props, SPA_TYPE_PARAM_ID_BASE "Props", SPA_TYPE_Int, },

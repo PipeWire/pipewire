@@ -32,6 +32,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
+#include <spa/control/control.h>
 
 #define NAME "audiotestsrc"
 
@@ -96,7 +97,8 @@ struct impl {
 
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
-	struct spa_io_control_range *io_range;
+	struct spa_io_range *io_range;
+	struct spa_io_sequence *io_control;
 
 	uint32_t *io_wave;
 	double *io_freq;
@@ -297,7 +299,7 @@ static int make_buffer(struct impl *this)
 {
 	struct buffer *b;
 	struct spa_io_buffers *io = this->io;
-	struct spa_io_control_range *range = this->io_range;
+	struct spa_io_range *range = this->io_range;
 	int n_bytes, n_samples;
 	uint32_t maxsize;
 	void *data;
@@ -659,52 +661,19 @@ impl_node_port_enum_params(struct spa_node *node,
 		case 1:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id,   "I", SPA_IO_ControlRange,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_control_range));
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Range,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_range));
+			break;
+		case 2:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Control,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence));
 			break;
 		default:
 			return 0;
 		}
 		break;
-#if 0
-	else if (id == t->param_io.idPropsIn) {
-		struct props *p = &this->props;
-
-		switch (*index) {
-		case 0:
-			param = spa_pod_builder_object(&b,
-				id, t->param_io.Prop,
-				":", t->param_io.id,      "I", t->io_prop_wave,
-				":", t->param_io.size,    "i", sizeof(struct spa_pod_id),
-				":", SPA_PROP_INFO_id,     "I", SPA_PROP_wave,
-				":", SPA_PROP_INFO_type,   "i", p->wave,
-				":", SPA_PROP_INFO_labels, "[-i",
-					"i", WAVE_SINE,   "s", "Sine wave",
-					"i", WAVE_SQUARE, "s", "Square wave", "]");
-			break;
-		case 1:
-			param = spa_pod_builder_object(&b,
-				id, t->param_io.Prop,
-				":", t->param_io.id,    "I", t->io_prop_freq,
-				":", t->param_io.size,  "i", sizeof(struct spa_pod_double),
-				":", SPA_PROP_INFO_id,   "I", SPA_PROP_freq,
-				":", SPA_PROP_INFO_type, "dr", p->freq,
-					SPA_POD_PROP_MIN_MAX(0.0, 50000000.0));
-			break;
-		case 2:
-			param = spa_pod_builder_object(&b,
-				id, t->param_io.Prop,
-				":", t->param_io.id,    "I", t->io_prop_volume,
-				":", t->param_io.size,  "i", sizeof(struct spa_pod_double),
-				":", SPA_PROP_INFO_id,   "I", SPA_PROP_volume,
-				":", SPA_PROP_INFO_type, "dr", p->volume,
-					SPA_POD_PROP_MIN_MAX(0.0, 10.0));
-			break;
-		default:
-			return 0;
-		}
-	}
-#endif
 	default:
 		return -ENOENT;
 	}
@@ -880,31 +849,19 @@ impl_node_port_set_io(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	if (id == SPA_IO_Buffers)
+	switch (id) {
+	case SPA_IO_Buffers:
 		this->io = data;
-	else if (id == SPA_IO_ControlRange)
+		break;
+	case SPA_IO_Range:
 		this->io_range = data;
-#if 0
-	else if (id == t->io_prop_wave) {
-		if (data && size >= sizeof(struct spa_pod_id))
-			this->io_wave = &SPA_POD_VALUE(struct spa_pod_id, data);
-		else
-			this->io_wave = &this->props.wave;
-	}
-	else if (id == t->io_prop_freq)
-		if (data && size >= sizeof(struct spa_pod_double))
-			this->io_freq = &SPA_POD_VALUE(struct spa_pod_double, data);
-		else
-			this->io_freq = &this->props.freq;
-	else if (id == t->io_prop_volume)
-		if (data && size >= sizeof(struct spa_pod_double))
-			this->io_volume = &SPA_POD_VALUE(struct spa_pod_double, data);
-		else
-			this->io_volume = &this->props.volume;
-#endif
-	else
+		break;
+	case SPA_IO_Control:
+		this->io_control = data;
+		break;
+	default:
 		return -ENOENT;
-
+	}
 	return 0;
 }
 
@@ -947,6 +904,28 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
+static int impl_node_process_control(struct impl *this, struct spa_io_sequence *control)
+{
+	struct spa_pod_control *c;
+
+	SPA_POD_SEQUENCE_FOREACH(&control->sequence, c) {
+		switch (c->type) {
+		case SPA_CONTROL_properties:
+		{
+			struct props *p = &this->props;
+			spa_pod_object_parse(&c->value,
+				":",SPA_PROP_frequency, "?d", &p->freq,
+				":",SPA_PROP_volume,    "?d", &p->volume,
+				NULL);
+			break;
+		}
+		default:
+			break;
+                }
+	}
+	return 0;
+}
+
 static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
@@ -957,6 +936,9 @@ static int impl_node_process(struct spa_node *node)
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 	io = this->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
+
+	if (this->io_control)
+		impl_node_process_control(this, this->io_control);
 
 	if (io->status == SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_HAVE_BUFFER;

@@ -69,10 +69,6 @@ struct link {
 	struct spa_buffer **buffers;
 };
 
-struct control {
-	struct spa_pod_float *volume;
-};
-
 struct impl {
 	struct spa_handle handle;
 	struct spa_node node;
@@ -80,7 +76,6 @@ struct impl {
 	struct spa_log *log;
 
 	struct props props;
-	struct control control;
 
 	const struct spa_node_callbacks *callbacks;
 	void *user_data;
@@ -653,13 +648,14 @@ impl_node_port_set_io(struct spa_node *node,
 
 	spa_log_debug(this->log, "set io %d %d %d", id, direction, port_id);
 
-	if (id == SPA_IO_ControlRange)
+	switch (id) {
+	case SPA_IO_Range:
 		res = spa_node_port_set_io(this->resample, direction, 0, id, data, size);
-//	else if (id == t->io_prop_volume)
-//		res = spa_node_port_set_io(this->channelmix, direction, 0, id, data, size);
-	else
+		break;
+	default:
 		res = spa_node_port_set_io(this->fmt[direction], direction, port_id, id, data, size);
-
+		break;
+	}
 	return res;
 }
 

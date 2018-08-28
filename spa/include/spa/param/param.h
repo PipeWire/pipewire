@@ -28,14 +28,15 @@ extern "C" {
 
 /** different parameter types that can be queried */
 enum spa_param_type {
-	SPA_PARAM_List,              /**< available params */
-	SPA_PARAM_PropInfo,          /**< property information */
-	SPA_PARAM_Props,             /**< properties */
-	SPA_PARAM_EnumFormat,        /**< available formats */
-	SPA_PARAM_Format,            /**< configured format */
-	SPA_PARAM_Buffers,           /**< buffer configurations */
-	SPA_PARAM_Meta,              /**< allowed metadata for buffers */
-	SPA_PARAM_IO,                /**< configurable IO areas */
+	SPA_PARAM_START,		/**< no value */
+	SPA_PARAM_List,			/**< available params */
+	SPA_PARAM_PropInfo,		/**< property information */
+	SPA_PARAM_Props,		/**< properties */
+	SPA_PARAM_EnumFormat,		/**< available formats */
+	SPA_PARAM_Format,		/**< configured format */
+	SPA_PARAM_Buffers,		/**< buffer configurations */
+	SPA_PARAM_Meta,			/**< allowed metadata for buffers */
+	SPA_PARAM_IO,			/**< configurable IO areas */
 };
 
 /** Properties for SPA_TYPE_OBJECT_ParamList */

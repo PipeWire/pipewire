@@ -179,6 +179,7 @@ struct spa_pod_prop_body {
 #define SPA_POD_PROP_FLAG_DEPRECATED	(1 << 7)	/**< property is deprecated */
 #define SPA_POD_PROP_FLAG_INFO		(1 << 8)	/**< property is informational and is not
 							  *  used when filtering */
+#define SPA_POD_PROP_FLAG_CONTROLLABLE	(1 << 9)	/**< property can be controlled */
 	uint32_t flags;
 	struct spa_pod value;
 	/* array with elements of value.size follows,
@@ -190,20 +191,23 @@ struct spa_pod_prop {
 	struct spa_pod_prop_body body;
 };
 
-/* events can be inside an event array and mark timed values */
-struct spa_pod_event {
-	uint64_t offset;
-	struct spa_pod value;
+#define SPA_POD_CONTROL_SIZE(ev)	(sizeof(struct spa_pod_control) + (ev)->value.size)
+
+/* controls can be inside a sequence and mark timed values */
+struct spa_pod_control {
+	uint32_t offset;	/**< media offset */
+	uint32_t type;		/**< type of control, enum spa_control_type */
+	struct spa_pod value;	/**< control value, depends on type */
 	/* value contents follow */
 };
 
 struct spa_pod_sequence_body {
 	uint32_t unit;
 	uint32_t pad;
-	/* array of struct spa_pod_event follows */
+	/* series of struct spa_pod_control follows */
 };
 
-/** a sequence of timed events */
+/** a sequence of timed controls */
 struct spa_pod_sequence {
 	struct spa_pod pod;
 	struct spa_pod_sequence_body body;

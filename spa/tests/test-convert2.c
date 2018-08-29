@@ -257,27 +257,23 @@ static int negotiate_formats(struct data *data)
 	uint8_t buffer[4096];
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	format = spa_pod_builder_object(&b,
-		SPA_TYPE_OBJECT_Format, 0,
-		"I", SPA_MEDIA_TYPE_audio,
-		"I", SPA_MEDIA_SUBTYPE_raw,
-		":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_S16,
-		":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_INTERLEAVED,
-		":", SPA_FORMAT_AUDIO_rate,     "i", 44100,
-		":", SPA_FORMAT_AUDIO_channels, "i", 2);
+	format = spa_format_audio_raw_build(&b, 0,
+			&SPA_AUDIO_INFO_RAW_INIT(
+				.format = SPA_AUDIO_FORMAT_S16,
+				.layout = SPA_AUDIO_LAYOUT_INTERLEAVED,
+				.rate = 44100,
+				.channels = 2 ));
 
 	if ((res = negotiate_link_format(data, &data->links[0], format)) < 0)
 		return res;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	format = spa_pod_builder_object(&b,
-		SPA_TYPE_OBJECT_Format, 0,
-		"I", SPA_MEDIA_TYPE_audio,
-		"I", SPA_MEDIA_SUBTYPE_raw,
-		":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
-		":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
-		":", SPA_FORMAT_AUDIO_rate,     "i", 48000,
-		":", SPA_FORMAT_AUDIO_channels, "i", 1);
+	format = spa_format_audio_raw_build(&b, 0,
+			&SPA_AUDIO_INFO_RAW_INIT(
+				.format = SPA_AUDIO_FORMAT_S16,
+				.layout = SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
+				.rate = 48000,
+				.channels = 1 ));
 
 	if ((res = negotiate_link_format(data, &data->links[4], format)) < 0)
 		return res;

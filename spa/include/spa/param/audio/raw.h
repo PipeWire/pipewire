@@ -144,6 +144,8 @@ struct spa_audio_info_raw {
 	uint32_t channel_mask;		/*< channel mask */
 };
 
+#define SPA_AUDIO_INFO_RAW_INIT(...)		(struct spa_audio_info_raw) { __VA_ARGS__ }
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

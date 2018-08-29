@@ -482,31 +482,6 @@ static int port_enum_formats(struct spa_node *node,
 	return 1;
 }
 
-static int port_get_format(struct spa_node *node,
-			   enum spa_direction direction, uint32_t port_id,
-			   uint32_t *index,
-			   const struct spa_pod *filter,
-			   struct spa_pod **param,
-			   struct spa_pod_builder *builder)
-{
-	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	if (!this->have_format)
-		return -EIO;
-	if (*index > 0)
-		return 0;
-
-	*param = spa_pod_builder_object(builder,
-		SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-		"I", SPA_MEDIA_TYPE_video,
-		"I", SPA_MEDIA_SUBTYPE_raw,
-		":", SPA_FORMAT_VIDEO_format,    "I", this->current_format.info.raw.format,
-		":", SPA_FORMAT_VIDEO_size,      "R", &this->current_format.info.raw.size,
-		":", SPA_FORMAT_VIDEO_framerate, "F", &this->current_format.info.raw.framerate);
-
-	return 1;
-}
-
 static int
 impl_node_port_enum_params(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
@@ -553,8 +528,12 @@ impl_node_port_enum_params(struct spa_node *node,
 		break;
 
 	case SPA_PARAM_Format:
-		if ((res = port_get_format(node, direction, port_id, index, filter, &param, &b)) <= 0)
-			return res;
+		if (!this->have_format)
+			return -EIO;
+		if (*index > 0)
+			return 0;
+
+		param = spa_format_video_raw_build(builder, id, &this->current_format.info.raw);
 		break;
 
 	case SPA_PARAM_Buffers:

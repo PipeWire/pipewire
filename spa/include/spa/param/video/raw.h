@@ -191,6 +191,8 @@ struct spa_video_info_raw {
 	enum spa_video_color_primaries color_primaries;
 };
 
+#define SPA_VIDEO_INFO_RAW_INIT(...)	(struct spa_video_info_raw) { __VA_ARGS__ }
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

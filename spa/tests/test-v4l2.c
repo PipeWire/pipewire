@@ -387,13 +387,11 @@ static int negotiate_formats(struct data *data)
 				  &data->source_output[0], sizeof(data->source_output[0]))) < 0)
 		return res;
 
-	format = spa_pod_builder_object(&b,
-			SPA_TYPE_OBJECT_Format, 0,
-			"I", SPA_MEDIA_TYPE_video,
-			"I", SPA_MEDIA_SUBTYPE_raw,
-			":", SPA_FORMAT_VIDEO_format,    "I", SPA_VIDEO_FORMAT_YUY2,
-			":", SPA_FORMAT_VIDEO_size,      "R", &SPA_RECTANGLE(320, 240),
-			":", SPA_FORMAT_VIDEO_framerate, "F", &SPA_FRACTION(25,1));
+	format = spa_format_video_raw_build(&b, 0,
+			&SPA_VIDEO_INFO_RAW_INIT(
+				.format =  SPA_VIDEO_FORMAT_YUY2,
+				.size = SPA_RECTANGLE(320, 240),
+				.framerate = SPA_FRACTION(25,1)));
 
 	if ((res = spa_node_port_set_param(data->source,
 					   SPA_DIRECTION_OUTPUT, 0,

@@ -534,6 +534,7 @@ port_enum_formats(struct impl *this,
 						     SPA_AUDIO_FORMAT_S32,
 						     SPA_AUDIO_FORMAT_F32,
 						     SPA_AUDIO_FORMAT_F64),
+			":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_INTERLEAVED,
 			":", SPA_FORMAT_AUDIO_rate,     "iru", 44100,
 				SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
 			":", SPA_FORMAT_AUDIO_channels, "iru", 2,
@@ -542,30 +543,6 @@ port_enum_formats(struct impl *this,
 	default:
 		return 0;
 	}
-	return 1;
-}
-
-static int
-port_get_format(struct impl *this,
-		enum spa_direction direction,
-		uint32_t port_id,
-		uint32_t *index,
-		struct spa_pod **param,
-		struct spa_pod_builder *builder)
-{
-	if (!this->have_format)
-		return -EIO;
-	if (*index > 0)
-		return 0;
-
-	*param = spa_pod_builder_object(builder,
-		SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-		"I", SPA_MEDIA_TYPE_audio,
-		"I", SPA_MEDIA_SUBTYPE_raw,
-		":", SPA_FORMAT_AUDIO_format,   "I", this->current_format.info.raw.format,
-		":", SPA_FORMAT_AUDIO_rate,     "i", this->current_format.info.raw.rate,
-		":", SPA_FORMAT_AUDIO_channels, "i", this->current_format.info.raw.channels);
-
 	return 1;
 }
 
@@ -614,9 +591,14 @@ impl_node_port_enum_params(struct spa_node *node,
 		if ((res = port_enum_formats(this, direction, port_id, index, &param, &b)) <= 0)
 			return res;
 		break;
+
 	case SPA_PARAM_Format:
-		if ((res = port_get_format(this, direction, port_id, index, &param, &b)) <= 0)
-			return res;
+		if (!this->have_format)
+			return -EIO;
+		if (*index > 0)
+			return 0;
+
+		param = spa_format_audio_raw_build(&b, id, &this->current_format.info.raw);
 		break;
 
 	case SPA_PARAM_Buffers:

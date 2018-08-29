@@ -25,6 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/pod/parser.h>
+#include <spa/pod/builder.h>
 #include <spa/param/video/format.h>
 #include <spa/param/format-utils.h>
 
@@ -47,6 +48,19 @@ spa_format_video_raw_parse(const struct spa_pod *format,
 		":", SPA_FORMAT_VIDEO_colorMatrix,	"?i", &info->color_matrix,
 		":", SPA_FORMAT_VIDEO_transferFunction,	"?i", &info->transfer_function,
 		":", SPA_FORMAT_VIDEO_colorPrimaries,	"?i", &info->color_primaries, NULL);
+}
+
+static inline struct spa_pod *
+spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
+			   struct spa_video_info_raw *info)
+{
+	return spa_pod_builder_object(builder,
+                        SPA_TYPE_OBJECT_Format, id,
+                        "I", SPA_MEDIA_TYPE_video,
+                        "I", SPA_MEDIA_SUBTYPE_raw,
+			":", SPA_FORMAT_VIDEO_format,		"I", &info->format,
+			":", SPA_FORMAT_VIDEO_size,		"R", &info->size,
+			":", SPA_FORMAT_VIDEO_framerate,	"F", &info->framerate);
 }
 
 static inline int

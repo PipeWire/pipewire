@@ -200,35 +200,6 @@ static int port_enum_formats(struct spa_node *node,
 	return 1;
 }
 
-static int port_get_format(struct spa_node *node,
-			   enum spa_direction direction, uint32_t port_id,
-			   uint32_t *index,
-			   const struct spa_pod *filter,
-			   struct spa_pod **param,
-			   struct spa_pod_builder *builder)
-{
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-
-	if (*index != 0)
-		return 0;
-
-	if (d->format.format == 0)
-		return 0;
-
-	*param = spa_pod_builder_object(builder,
-		SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-		"I", SPA_MEDIA_TYPE_audio,
-		"I", SPA_MEDIA_SUBTYPE_raw,
-		":", SPA_FORMAT_AUDIO_format,   "I", d->format.format,
-		":", SPA_FORMAT_AUDIO_layout,   "I", d->format.layout,
-		":", SPA_FORMAT_AUDIO_channels, "i", d->format.channels,
-		":", SPA_FORMAT_AUDIO_rate,     "i", d->format.rate);
-
-	(*index)++;
-
-	return 1;
-}
-
 static int impl_port_enum_params(struct spa_node *node,
 				 enum spa_direction direction, uint32_t port_id,
 				 uint32_t id, uint32_t *index,
@@ -236,6 +207,7 @@ static int impl_port_enum_params(struct spa_node *node,
 				 struct spa_pod **result,
 				 struct spa_pod_builder *builder)
 {
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct spa_pod *param;
 
 	switch (id) {
@@ -259,7 +231,12 @@ static int impl_port_enum_params(struct spa_node *node,
 		return port_enum_formats(node, direction, port_id, index, filter, result, builder);
 
 	case SPA_PARAM_Format:
-		return port_get_format(node, direction, port_id, index, filter, result, builder);
+		if (*index != 0)
+			return 0;
+		if (d->format.format == 0)
+			return 0;
+		param = spa_format_audio_raw_build(builder, id, &d->format);
+		break;
 
 	case SPA_PARAM_Buffers:
 		if (*index > 0)
@@ -275,6 +252,7 @@ static int impl_port_enum_params(struct spa_node *node,
 			":", SPA_PARAM_BUFFERS_stride,  "i",   0,
 			":", SPA_PARAM_BUFFERS_align,   "i",   16);
 		break;
+
 	case SPA_PARAM_Meta:
 		switch (*index) {
 		case 0:

@@ -34,7 +34,7 @@ extern "C" {
 #define SPA_TYPE_PARAM_ID_BASE		SPA_TYPE__ParamId ":"
 
 static const struct spa_type_info spa_type_param[] = {
-	{ SPA_PARAM_START,  "undefined", SPA_TYPE_Int, },
+	{ SPA_PARAM_Invalid, SPA_TYPE_PARAM_ID_BASE "Invalid", SPA_TYPE_Int, },
 	{ SPA_PARAM_List,  SPA_TYPE_PARAM_ID_BASE "List", SPA_TYPE_Int, },
 	{ SPA_PARAM_PropInfo, SPA_TYPE_PARAM_ID_BASE "PropInfo", SPA_TYPE_Int, },
 	{ SPA_PARAM_Props, SPA_TYPE_PARAM_ID_BASE "Props", SPA_TYPE_Int, },
@@ -56,7 +56,7 @@ static const struct spa_type_info spa_type_param[] = {
 
 static const struct spa_type_info spa_type_param_list[] = {
 	{ SPA_PARAM_LIST_START, SPA_TYPE_PARAM_LIST_BASE,  SPA_TYPE_Enum, spa_type_param },
-	{ SPA_PARAM_LIST_id, SPA_TYPE_PARAM_LIST_BASE "id",  SPA_TYPE_Enum, },
+	{ SPA_PARAM_LIST_id, SPA_TYPE_PARAM_LIST_BASE "id",  SPA_TYPE_Enum, spa_type_param },
 	{ 0, NULL, },
 };
 
@@ -141,11 +141,12 @@ static const struct spa_type_info spa_type_param_io[] = {
 #include <spa/param/video/type-info.h>
 
 static const struct spa_type_info spa_type_media_type[] = {
-	{ SPA_MEDIA_TYPE_audio, SPA_TYPE_MEDIA_TYPE_BASE "audio", SPA_TYPE_Int, },
-	{ SPA_MEDIA_TYPE_video, SPA_TYPE_MEDIA_TYPE_BASE "video", SPA_TYPE_Int, },
-	{ SPA_MEDIA_TYPE_image, SPA_TYPE_MEDIA_TYPE_BASE "image", SPA_TYPE_Int, },
-	{ SPA_MEDIA_TYPE_binary, SPA_TYPE_MEDIA_TYPE_BASE "binary", SPA_TYPE_Int, },
-	{ SPA_MEDIA_TYPE_stream, SPA_TYPE_MEDIA_TYPE_BASE "stream", SPA_TYPE_Int, },
+	{ SPA_MEDIA_TYPE_unknown, SPA_TYPE_MEDIA_TYPE_BASE "unknown", SPA_TYPE_Int, },
+	{ SPA_MEDIA_TYPE_audio,   SPA_TYPE_MEDIA_TYPE_BASE "audio",   SPA_TYPE_Int, },
+	{ SPA_MEDIA_TYPE_video,   SPA_TYPE_MEDIA_TYPE_BASE "video",   SPA_TYPE_Int, },
+	{ SPA_MEDIA_TYPE_image,   SPA_TYPE_MEDIA_TYPE_BASE "image",   SPA_TYPE_Int, },
+	{ SPA_MEDIA_TYPE_binary,  SPA_TYPE_MEDIA_TYPE_BASE "binary",  SPA_TYPE_Int, },
+	{ SPA_MEDIA_TYPE_stream,  SPA_TYPE_MEDIA_TYPE_BASE "stream",  SPA_TYPE_Int, },
 	{ 0, NULL, },
 };
 
@@ -153,6 +154,7 @@ static const struct spa_type_info spa_type_media_type[] = {
 #define SPA_TYPE_MEDIA_SUBTYPE_BASE	SPA_TYPE__MediaSubtype ":"
 
 static const struct spa_type_info spa_type_media_subtype[] = {
+	{ SPA_MEDIA_SUBTYPE_unknown, SPA_TYPE_MEDIA_SUBTYPE_BASE "unknown", SPA_TYPE_Int, },
 	/* generic subtypes */
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_TYPE_MEDIA_SUBTYPE_BASE "raw", SPA_TYPE_Int, },
 	/* audio subtypes */
@@ -197,9 +199,9 @@ static const struct spa_type_info spa_type_media_subtype[] = {
 static const struct spa_type_info spa_type_format[] = {
 	{ SPA_FORMAT_START, SPA_TYPE_FORMAT_BASE, SPA_TYPE_Enum, spa_type_param, },
 
-	{ SPA_FORMAT_MediaType, SPA_TYPE_FORMAT_BASE "mediaType", SPA_TYPE_Enum,
+	{ SPA_FORMAT_mediaType, SPA_TYPE_FORMAT_BASE "mediaType", SPA_TYPE_Enum,
 		spa_type_media_type, },
-	{ SPA_FORMAT_MediaSubtype, SPA_TYPE_FORMAT_BASE "mediaSubtype", SPA_TYPE_Enum,
+	{ SPA_FORMAT_mediaSubtype, SPA_TYPE_FORMAT_BASE "mediaSubtype", SPA_TYPE_Enum,
 		spa_type_media_subtype, },
 
 	{ SPA_FORMAT_AUDIO_format, SPA_TYPE_FORMAT_AUDIO_BASE "format", SPA_TYPE_Enum,

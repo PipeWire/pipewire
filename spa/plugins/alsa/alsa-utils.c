@@ -135,8 +135,8 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 
 	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_add(&b,
-			"I", SPA_MEDIA_TYPE_audio,
-			"I", SPA_MEDIA_SUBTYPE_raw, 0);
+			":", SPA_FORMAT_mediaType,    "I", SPA_MEDIA_TYPE_audio,
+			":", SPA_FORMAT_mediaSubtype, "I", SPA_MEDIA_SUBTYPE_raw, 0);
 
 	snd_pcm_format_mask_alloca(&fmask);
 	snd_pcm_hw_params_get_format_mask(params, fmask);

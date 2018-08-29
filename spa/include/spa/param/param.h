@@ -28,7 +28,7 @@ extern "C" {
 
 /** different parameter types that can be queried */
 enum spa_param_type {
-	SPA_PARAM_START,		/**< no value */
+	SPA_PARAM_Invalid,		/**< invalid */
 	SPA_PARAM_List,			/**< available params */
 	SPA_PARAM_PropInfo,		/**< property information */
 	SPA_PARAM_Props,		/**< properties */

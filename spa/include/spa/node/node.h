@@ -108,12 +108,10 @@ struct spa_node_callbacks {
 };
 
 /** flags that can be passed to set_param and port_set_param functions */
-enum spa_node_param_flags {
-	SPA_NODE_PARAM_FLAG_TEST_ONLY	= (1 << 0),	/* just check if the param is accepted */
-	SPA_NODE_PARAM_FLAG_FIXATE	= (1 << 1),	/* fixate the non-optional unset fields */
-	SPA_NODE_PARAM_FLAG_NEAREST	= (1 << 2),	/* allow set fields to be rounded to the
+#define SPA_NODE_PARAM_FLAG_TEST_ONLY	(1 << 0)	/* just check if the param is accepted */
+#define SPA_NODE_PARAM_FLAG_FIXATE	(1 << 1)	/* fixate the non-optional unset fields */
+#define SPA_NODE_PARAM_FLAG_NEAREST	(1 << 2)	/* allow set fields to be rounded to the
 							 * nearest allowed field value. */
-};
 
 /**
  * A spa_node is a component that can consume and produce buffers.

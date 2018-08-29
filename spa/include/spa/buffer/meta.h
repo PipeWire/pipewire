@@ -31,6 +31,7 @@ extern "C" {
  * Metadata contains extra information on a buffer.
  */
 enum spa_meta_type {
+	SPA_META_Invalid,
 	SPA_META_Header,
 	SPA_META_VideoCrop,
 	SPA_META_VideoDamage,

@@ -40,6 +40,7 @@ extern "C" {
 #define SPA_TYPE_DATA_FD_BASE		SPA_TYPE_DATA__Fd ":"
 
 static const struct spa_type_info spa_type_data_type[] = {
+	{ SPA_DATA_Invalid, SPA_TYPE_DATA_BASE "Invalid", SPA_TYPE_Int, },
 	{ SPA_DATA_MemPtr, SPA_TYPE_DATA_BASE "MemPtr", SPA_TYPE_Int, },
 	{ SPA_DATA_MemFd, SPA_TYPE_DATA_FD_BASE "MemFd", SPA_TYPE_Int, },
 	{ SPA_DATA_DmaBuf, SPA_TYPE_DATA_FD_BASE "DmaBuf", SPA_TYPE_Int, },
@@ -56,6 +57,7 @@ static const struct spa_type_info spa_type_data_type[] = {
 #define SPA_TYPE_META_REGION_ARRAY_BASE	SPA_TYPE_META__RegionArray ":"
 
 static const struct spa_type_info spa_type_meta_type[] = {
+	{ SPA_META_Invalid, SPA_TYPE_META_BASE "Invalid", SPA_TYPE_Pointer },
 	{ SPA_META_Header, SPA_TYPE_META_BASE "Header", SPA_TYPE_Pointer },
 	{ SPA_META_VideoCrop, SPA_TYPE_META_REGION_BASE "VideoCrop", SPA_TYPE_Pointer },
 	{ SPA_META_VideoDamage, SPA_TYPE_META_REGION_ARRAY_BASE "VideoDamage", SPA_TYPE_Pointer },

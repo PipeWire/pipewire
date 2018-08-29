@@ -309,8 +309,8 @@ static int port_enum_formats(struct spa_node *node,
 		if (other->have_format) {
 			*param = spa_pod_builder_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-				"I", SPA_MEDIA_TYPE_audio,
-				"I", SPA_MEDIA_SUBTYPE_raw,
+				":", SPA_FORMAT_mediaType,      "I", SPA_MEDIA_TYPE_audio,
+				":", SPA_FORMAT_mediaSubtype,   "I", SPA_MEDIA_SUBTYPE_raw,
 				":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
 				":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
 				":", SPA_FORMAT_AUDIO_rate,     "i", other->format.info.raw.rate,
@@ -319,8 +319,8 @@ static int port_enum_formats(struct spa_node *node,
 		} else {
 			*param = spa_pod_builder_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-				"I", SPA_MEDIA_TYPE_audio,
-				"I", SPA_MEDIA_SUBTYPE_raw,
+				":", SPA_FORMAT_mediaType,      "I", SPA_MEDIA_TYPE_audio,
+				":", SPA_FORMAT_mediaSubtype,   "I", SPA_MEDIA_SUBTYPE_raw,
 				":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
 				":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
 				":", SPA_FORMAT_AUDIO_rate,     "iru", DEFAULT_RATE,
@@ -703,7 +703,7 @@ static int process_control(struct impl *this, struct port *port, struct spa_pod_
 
 	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
 		switch (c->type) {
-		case SPA_CONTROL_properties:
+		case SPA_CONTROL_Properties:
 		{
 			struct props *p = &this->props;
 			float volume = p->volume;

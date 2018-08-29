@@ -32,6 +32,7 @@ struct spa_monitor;
 #include <spa/pod/builder.h>
 
 enum spa_monitor_event {
+	SPA_MONITOR_EVENT_Invalid,
 	SPA_MONITOR_EVENT_Added,
 	SPA_MONITOR_EVENT_Removed,
 	SPA_MONITOR_EVENT_Changed,
@@ -46,9 +47,10 @@ enum spa_monitor_item_flags {
 
 /** The monitor item state */
 enum spa_monitor_item_state {
-	SPA_MONITOR_ITEM_STATE_AVAILABLE,	/*< The item is available */
-	SPA_MONITOR_ITEM_STATE_DISABLED,	/*< The item is disabled */
-	SPA_MONITOR_ITEM_STATE_UNAVAILABLE,	/*< The item is unavailable */
+	SPA_MONITOR_ITEM_STATE_Invalid,		/*< The item is available */
+	SPA_MONITOR_ITEM_STATE_Available,	/*< The item is available */
+	SPA_MONITOR_ITEM_STATE_Disabled,	/*< The item is disabled */
+	SPA_MONITOR_ITEM_STATE_Unavailable,	/*< The item is unavailable */
 };
 
 /** properties for SPA_TYPE_OBJECT_MonitorItem */

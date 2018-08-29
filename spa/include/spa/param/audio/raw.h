@@ -122,22 +122,21 @@ enum spa_audio_format {
 };
 
 /** Extra audio flags */
-enum spa_audio_flags {
-	SPA_AUDIO_FLAG_NONE		= 0,		/*< no valid flag */
-	SPA_AUDIO_FLAG_UNPOSITIONED	= (1 << 0),	/*< the position array explicitly
+#define SPA_AUDIO_FLAG_NONE		(0)		/*< no valid flag */
+#define SPA_AUDIO_FLAG_UNPOSITIONED	(1 << 0)	/*< the position array explicitly
 							 *  contains unpositioned channels. */
-};
 
 /** Layout of the audio samples for the different channels.  */
 enum spa_audio_layout {
-	SPA_AUDIO_LAYOUT_INTERLEAVED = 0,	/*< interleaved audio */
-	SPA_AUDIO_LAYOUT_NON_INTERLEAVED	/*< non-interleaved audio */
+	SPA_AUDIO_LAYOUT_INVALID,
+	SPA_AUDIO_LAYOUT_INTERLEAVED,		/*< interleaved audio */
+	SPA_AUDIO_LAYOUT_NON_INTERLEAVED,	/*< non-interleaved audio */
 };
 
 /** Audio information description */
 struct spa_audio_info_raw {
 	enum spa_audio_format format;	/*< format, one of enum spa_audio_format */
-	enum spa_audio_flags flags;	/*< extra flags */
+	uint32_t flags;			/*< extra flags */
 	enum spa_audio_layout layout;	/*< sample layout */
 	uint32_t rate;			/*< sample rate */
 	uint32_t channels;		/*< number of channels */

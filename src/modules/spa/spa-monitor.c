@@ -124,7 +124,7 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 	}
 
 	flags = PW_SPA_NODE_FLAG_ACTIVATE;
-	flags |= (state == SPA_MONITOR_ITEM_STATE_AVAILABLE) ? 0 : PW_SPA_NODE_FLAG_DISABLE;
+	flags |= (state == SPA_MONITOR_ITEM_STATE_Available) ? 0 : PW_SPA_NODE_FLAG_DISABLE;
 
 	mitem = calloc(1, sizeof(struct monitor_item));
 	mitem->id = strdup(id);
@@ -197,12 +197,14 @@ static void change_item(struct pw_spa_monitor *this, struct spa_pod *item, uint6
 		return;
 
 	switch (state) {
-	case SPA_MONITOR_ITEM_STATE_AVAILABLE:
+	case SPA_MONITOR_ITEM_STATE_Available:
 		pw_node_set_enabled(mitem->node, true);
 		break;
-	case SPA_MONITOR_ITEM_STATE_DISABLED:
-	case SPA_MONITOR_ITEM_STATE_UNAVAILABLE:
+	case SPA_MONITOR_ITEM_STATE_Disabled:
+	case SPA_MONITOR_ITEM_STATE_Unavailable:
 		pw_node_set_enabled(mitem->node, false);
+		break;
+	default:
 		break;
 	}
 }

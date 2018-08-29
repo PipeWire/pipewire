@@ -78,8 +78,9 @@ static const struct spa_type_info spa_type_audio_flags[] = {
 #define SPA_TYPE_AUDIO_ENUM_BASE	SPA_TYPE__AudioLayout ":"
 
 static const struct spa_type_info spa_type_audio_layout[] = {
-	{ SPA_AUDIO_LAYOUT_INTERLEAVED, SPA_TYPE_AUDIO_ENUM_BASE "interleaved", SPA_TYPE_Int, },
-	{ SPA_AUDIO_LAYOUT_NON_INTERLEAVED, SPA_TYPE_AUDIO_ENUM_BASE "non-interleaved", SPA_TYPE_Int, },
+	{ SPA_AUDIO_LAYOUT_INVALID, SPA_TYPE_AUDIO_ENUM_BASE "Invalid", SPA_TYPE_Int, },
+	{ SPA_AUDIO_LAYOUT_INTERLEAVED, SPA_TYPE_AUDIO_ENUM_BASE "Interleaved", SPA_TYPE_Int, },
+	{ SPA_AUDIO_LAYOUT_NON_INTERLEAVED, SPA_TYPE_AUDIO_ENUM_BASE "Non-Interleaved", SPA_TYPE_Int, },
         { 0, NULL, },
 };
 

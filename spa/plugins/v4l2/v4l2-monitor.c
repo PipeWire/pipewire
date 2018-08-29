@@ -101,7 +101,7 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 		"<", SPA_TYPE_OBJECT_MonitorItem, 0,
 		":", SPA_MONITOR_ITEM_id,      "s", udev_device_get_syspath(item->udevice),
 		":", SPA_MONITOR_ITEM_flags,   "I", SPA_MONITOR_ITEM_FLAG_NONE,
-		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_AVAILABLE,
+		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_Available,
 		":", SPA_MONITOR_ITEM_name,    "s", name,
 		":", SPA_MONITOR_ITEM_class,   "s", "Video/Source",
 		":", SPA_MONITOR_ITEM_factory, "p", SPA_TYPE_INTERFACE_HandleFactory, &spa_v4l2_source_factory,

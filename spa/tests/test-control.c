@@ -201,7 +201,7 @@ static void update_props(struct data *data)
 
 #if 1
 	pod = spa_pod_builder_sequence(&b, 0,
-	".", 0, SPA_CONTROL_properties,
+	".", 0, SPA_CONTROL_Properties,
 		SPA_POD_OBJECT(SPA_TYPE_OBJECT_Props, 0,
 		":", SPA_PROP_frequency, "d", ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0,
 		":", SPA_PROP_volume,    "d", (sin(data->volume_accum) / 2.0) + 0.5));

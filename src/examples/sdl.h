@@ -98,8 +98,12 @@ static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_
 	int i, c;
 
 	spa_pod_builder_push_object(b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_push_prop(b, SPA_FORMAT_mediaType, 0);
 	spa_pod_builder_enum(b, SPA_MEDIA_TYPE_video);
+	spa_pod_builder_pop(b);
+	spa_pod_builder_push_prop(b, SPA_FORMAT_mediaSubtype, 0);
 	spa_pod_builder_enum(b, SPA_MEDIA_SUBTYPE_raw);
+	spa_pod_builder_pop(b);
 
 	spa_pod_builder_push_prop(b, SPA_FORMAT_VIDEO_format,
 				  SPA_POD_PROP_FLAG_UNSET |

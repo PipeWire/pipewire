@@ -34,6 +34,7 @@ extern "C" {
  */
 
 enum spa_data_type {
+	SPA_DATA_Invalid,
 	SPA_DATA_MemPtr,		/**< pointer to memory, the data field in
 					  *  struct spa_data is set. */
 	SPA_DATA_MemFd,			/**< generic fd, mmap to get to memory */

@@ -535,8 +535,14 @@ convert_1 (ConvertData *d)
   d->b.write = write_pod;
 
   spa_pod_builder_push_object (&d->b, SPA_TYPE_OBJECT_Format, d->id);
+
+  spa_pod_builder_push_prop (&d->b, SPA_FORMAT_mediaType, 0);
   spa_pod_builder_enum(&d->b, d->type->media_type);
+  spa_pod_builder_pop (&d->b);
+
+  spa_pod_builder_push_prop (&d->b, SPA_FORMAT_mediaSubtype, 0);
   spa_pod_builder_enum(&d->b, d->type->media_subtype);
+  spa_pod_builder_pop (&d->b);
 
   if (d->type->media_type == SPA_MEDIA_TYPE_video)
     handle_video_fields (d);

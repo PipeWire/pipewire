@@ -56,8 +56,8 @@ spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
 {
 	return spa_pod_builder_object(builder,
                         SPA_TYPE_OBJECT_Format, id,
-                        "I", SPA_MEDIA_TYPE_video,
-                        "I", SPA_MEDIA_SUBTYPE_raw,
+                        ":", SPA_FORMAT_mediaType,    "I", SPA_MEDIA_TYPE_video,
+                        ":", SPA_FORMAT_mediaSubtype, "I", SPA_MEDIA_SUBTYPE_raw,
 			":", SPA_FORMAT_VIDEO_format,		"I", &info->format,
 			":", SPA_FORMAT_VIDEO_size,		"R", &info->size,
 			":", SPA_FORMAT_VIDEO_framerate,	"F", &info->framerate);

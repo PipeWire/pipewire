@@ -218,9 +218,9 @@ static void print_node(struct proxy_data *data)
 		printf("%c\tparams:\n", MARK_CHANGE(5));
 		for (i = 0; i < data->n_params; i++) {
 			if (spa_pod_is_object_type(data->params[i], SPA_TYPE_OBJECT_Format))
-				spa_debug_format(2, NULL, data->params[i]);
+				spa_debug_format(10, NULL, data->params[i]);
 			else
-				spa_debug_pod(2, spa_debug_types, data->params[i]);
+				spa_debug_pod(10, spa_debug_types, data->params[i]);
 		}
 		printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(1),
 				info->n_input_ports, info->max_input_ports);
@@ -293,9 +293,9 @@ static void print_port(struct proxy_data *data)
 		printf("%c\tparams:\n", MARK_CHANGE(2));
 		for (i = 0; i < data->n_params; i++) {
 			if (spa_pod_is_object_type(data->params[i], SPA_TYPE_OBJECT_Format))
-				spa_debug_format(2, NULL, data->params[i]);
+				spa_debug_format(12, NULL, data->params[i]);
 			else
-				spa_debug_pod(2, spa_debug_types, data->params[i]);
+				spa_debug_pod(12, spa_debug_types, data->params[i]);
 		}
 		print_properties(info->props, MARK_CHANGE(1));
 	}

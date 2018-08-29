@@ -527,8 +527,8 @@ port_enum_formats(struct impl *this,
 	case 0:
 		*param = spa_pod_builder_object(builder,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			"I", SPA_MEDIA_TYPE_audio,
-			"I", SPA_MEDIA_SUBTYPE_raw,
+			":", SPA_FORMAT_mediaType,      "I", SPA_MEDIA_TYPE_audio,
+			":", SPA_FORMAT_mediaSubtype,   "I", SPA_MEDIA_SUBTYPE_raw,
 			":", SPA_FORMAT_AUDIO_format,   "Ieu", SPA_AUDIO_FORMAT_S16,
 				SPA_POD_PROP_ENUM(4, SPA_AUDIO_FORMAT_S16,
 						     SPA_AUDIO_FORMAT_S32,
@@ -899,7 +899,7 @@ static int process_control(struct impl *this, struct spa_pod_sequence *sequence)
 
 	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
 		switch (c->type) {
-		case SPA_CONTROL_properties:
+		case SPA_CONTROL_Properties:
 		{
 			struct props *p = &this->props;
 			spa_pod_object_parse(&c->value,

@@ -300,8 +300,8 @@ int main(int argc, char *argv[])
 
 	fmt = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_Format, 0,
-		"I", SPA_MEDIA_TYPE_video,
-		"I", SPA_MEDIA_SUBTYPE_raw,
+		":", SPA_FORMAT_mediaType,       "I", SPA_MEDIA_TYPE_video,
+		":", SPA_FORMAT_mediaSubtype,    "I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_VIDEO_format,    "Ieu", SPA_VIDEO_FORMAT_I420,
 								2, SPA_VIDEO_FORMAT_I420,
 								   SPA_VIDEO_FORMAT_YUY2,
@@ -329,8 +329,8 @@ int main(int argc, char *argv[])
 	 */
 	fmt = spa_pod_builder_add(&b,
 		"<", SPA_TYPE_OBJECT_Format, 0,
-		"I", SPA_MEDIA_TYPE_video,
-		"I", SPA_MEDIA_SUBTYPE_raw,
+		":", SPA_FORMAT_mediaType,       "I", SPA_MEDIA_TYPE_video,
+		":", SPA_FORMAT_mediaSubtype,    "I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_VIDEO_format,    "Ieu", SPA_VIDEO_FORMAT_I420,
 								2, SPA_VIDEO_FORMAT_I420,
 								   SPA_VIDEO_FORMAT_YUY2,
@@ -348,9 +348,9 @@ int main(int argc, char *argv[])
 	do_static_struct();
 
 #if 0
-	printf("media type is enum %d\n", spa_type_is_a(SPA_TYPE__MediaType, SPA_TYPE_ENUM_BASE));
+	printf("media type is enum %d\n", spa_type_is_a(SPA_TYPE__mediaType, SPA_TYPE_ENUM_BASE));
 	printf("media sybtype is enum %d\n",
-	       spa_type_is_a(SPA_TYPE__MediaSubtype, SPA_TYPE_ENUM_BASE));
+	       spa_type_is_a(SPA_TYPE__mediaSubtype, SPA_TYPE_ENUM_BASE));
 	printf("format is enum %d\n", spa_type_is_a(SPA_TYPE__Format, SPA_TYPE_ENUM_BASE));
 	printf("format is pod %d\n", spa_type_is_a(SPA_TYPE__Format, SPA_TYPE_POD_BASE));
 	printf("format is object %d\n", spa_type_is_a(SPA_TYPE__Format, SPA_TYPE_POD_OBJECT_BASE));

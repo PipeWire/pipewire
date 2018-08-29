@@ -73,7 +73,7 @@ static void fill_item(struct spa_bt_monitor *this, struct spa_bt_transport *tran
 		"<", SPA_TYPE_OBJECT_MonitorItem, 0,
 		":", SPA_MONITOR_ITEM_id,      "s", transport->path,
 		":", SPA_MONITOR_ITEM_flags,   "I", SPA_MONITOR_ITEM_FLAG_NONE,
-		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_AVAILABLE,
+		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_Available,
 		":", SPA_MONITOR_ITEM_name,    "s", transport->path,
 		":", SPA_MONITOR_ITEM_class,   "s", "Adapter/Bluetooth",
 		":", SPA_MONITOR_ITEM_factory, "p", SPA_TYPE_INTERFACE_HandleFactory, &spa_a2dp_sink_factory,

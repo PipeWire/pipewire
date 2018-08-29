@@ -47,8 +47,8 @@ spa_format_audio_raw_build(struct spa_pod_builder *builder, uint32_t id, struct 
 {
 	return spa_pod_builder_object(builder,
                         SPA_TYPE_OBJECT_Format, id,
-                        "I", SPA_MEDIA_TYPE_audio,
-                        "I", SPA_MEDIA_SUBTYPE_raw,
+                        ":", SPA_FORMAT_mediaType,	"I", SPA_MEDIA_TYPE_audio,
+                        ":", SPA_FORMAT_mediaSubtype,	"I", SPA_MEDIA_SUBTYPE_raw,
                         ":", SPA_FORMAT_AUDIO_format,   "I", info->format,
                         ":", SPA_FORMAT_AUDIO_layout,   "I", info->layout,
                         ":", SPA_FORMAT_AUDIO_rate,     "i", info->rate,

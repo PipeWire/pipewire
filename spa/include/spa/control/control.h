@@ -33,8 +33,9 @@ extern "C" {
 
 /** Different Control types */
 enum spa_control_type {
-	SPA_CONTROL_properties,
-	SPA_CONTROL_midi,
+	SPA_CONTROL_Invalid,
+	SPA_CONTROL_Properties,
+	SPA_CONTROL_Midi,
 };
 
 #ifdef __cplusplus

@@ -35,6 +35,7 @@ extern "C" {
 
 /** Different IO area types */
 enum spa_io_type {
+	SPA_IO_Invalid,
 	SPA_IO_Buffers,
 	SPA_IO_Range,
 	SPA_IO_Clock,

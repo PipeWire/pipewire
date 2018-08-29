@@ -395,8 +395,8 @@ static int port_get_format(struct spa_node *node,
 	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_Format, SPA_PARAM_Format);
 
 	spa_pod_builder_add(builder,
-		"I", port->current_format.media_type,
-		"I", port->current_format.media_subtype, 0);
+		":", SPA_FORMAT_mediaType,    "I", port->current_format.media_type,
+		":", SPA_FORMAT_mediaSubtype, "I", port->current_format.media_subtype, 0);
 
 	switch (port->current_format.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:

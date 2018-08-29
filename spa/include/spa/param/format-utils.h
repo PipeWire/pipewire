@@ -32,8 +32,8 @@ static inline int
 spa_format_parse(const struct spa_pod *format, uint32_t *media_type, uint32_t *media_subtype)
 {
 	return spa_pod_object_parse(format,
-		"I", media_type,
-		"I", media_subtype, NULL);
+		":", SPA_FORMAT_mediaType,    "I", media_type,
+		":", SPA_FORMAT_mediaSubtype, "I", media_subtype, NULL);
 }
 
 #ifdef __cplusplus

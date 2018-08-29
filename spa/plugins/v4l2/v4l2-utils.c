@@ -676,8 +676,8 @@ spa_v4l2_enum_format(struct impl *this,
 
 	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_add(builder,
-			"I", info->media_type,
-			"I", info->media_subtype, 0);
+			":", SPA_FORMAT_mediaType, "I", info->media_type,
+			":", SPA_FORMAT_mediaSubtype, "I", info->media_subtype, 0);
 
 	if (info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 		spa_pod_builder_add(builder,

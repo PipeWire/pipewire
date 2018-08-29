@@ -49,14 +49,14 @@ static const struct spa_type_info spa_type_node_event[] = {
 #define SPA_TYPE_NODE_COMMAND_BASE		SPA_TYPE__NodeCommand ":"
 
 static const struct spa_type_info spa_type_node_command_id[] = {
-	{ SPA_NODE_COMMAND_Suspend,	SPA_TYPE_NODE_COMMAND_BASE "Suspend",   SPA_TYPE_Int, },
+	{ SPA_NODE_COMMAND_Suspend,	SPA_TYPE_NODE_COMMAND_BASE "Suspend", SPA_TYPE_Int, },
 	{ SPA_NODE_COMMAND_Pause,	SPA_TYPE_NODE_COMMAND_BASE "Pause",   SPA_TYPE_Int, },
 	{ SPA_NODE_COMMAND_Start,	SPA_TYPE_NODE_COMMAND_BASE "Start",   SPA_TYPE_Int, },
-	{ SPA_NODE_COMMAND_Enable,	SPA_TYPE_NODE_COMMAND_BASE "Enable",   SPA_TYPE_Int, },
-	{ SPA_NODE_COMMAND_Disable,	SPA_TYPE_NODE_COMMAND_BASE "Disable",   SPA_TYPE_Int, },
+	{ SPA_NODE_COMMAND_Enable,	SPA_TYPE_NODE_COMMAND_BASE "Enable",  SPA_TYPE_Int, },
+	{ SPA_NODE_COMMAND_Disable,	SPA_TYPE_NODE_COMMAND_BASE "Disable", SPA_TYPE_Int, },
 	{ SPA_NODE_COMMAND_Flush,	SPA_TYPE_NODE_COMMAND_BASE "Flush",   SPA_TYPE_Int, },
 	{ SPA_NODE_COMMAND_Drain,	SPA_TYPE_NODE_COMMAND_BASE "Drain",   SPA_TYPE_Int, },
-	{ SPA_NODE_COMMAND_Marker,	SPA_TYPE_NODE_COMMAND_BASE "Marker",   SPA_TYPE_Int, },
+	{ SPA_NODE_COMMAND_Marker,	SPA_TYPE_NODE_COMMAND_BASE "Marker",  SPA_TYPE_Int, },
 	{ 0, NULL, },
 };
 

@@ -904,18 +904,18 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
-static int impl_node_process_control(struct impl *this, struct spa_io_sequence *control)
+static int process_control(struct impl *this, struct spa_pod_sequence *sequence)
 {
 	struct spa_pod_control *c;
 
-	SPA_POD_SEQUENCE_FOREACH(&control->sequence, c) {
+	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
 		switch (c->type) {
 		case SPA_CONTROL_properties:
 		{
 			struct props *p = &this->props;
 			spa_pod_object_parse(&c->value,
-				":",SPA_PROP_frequency, "?d", &p->freq,
-				":",SPA_PROP_volume,    "?d", &p->volume,
+				":", SPA_PROP_frequency, "?d", &p->freq,
+				":", SPA_PROP_volume,    "?d", &p->volume,
 				NULL);
 			break;
 		}
@@ -938,7 +938,7 @@ static int impl_node_process(struct spa_node *node)
 	spa_return_val_if_fail(io != NULL, -EIO);
 
 	if (this->io_control)
-		impl_node_process_control(this, this->io_control);
+		process_control(this, &this->io_control->sequence);
 
 	if (io->status == SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_HAVE_BUFFER;

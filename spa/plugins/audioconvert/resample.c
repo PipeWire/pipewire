@@ -440,6 +440,12 @@ impl_node_port_enum_params(struct spa_node *node,
 				":", SPA_PARAM_IO_id,   "I", SPA_IO_Buffers,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
 			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Range,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_range));
+			break;
 		default:
 			return 0;
 		}

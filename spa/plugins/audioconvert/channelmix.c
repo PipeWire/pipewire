@@ -28,6 +28,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
+#include <spa/control/control.h>
 
 #define NAME "channelmix"
 
@@ -57,17 +58,12 @@ struct buffer {
 	struct spa_meta_header *h;
 };
 
-struct control {
-	struct spa_pod_float *volume;
-};
-
 struct port {
 	uint32_t id;
 
 	struct spa_io_buffers *io;
+	struct spa_io_sequence *control;
 	struct spa_port_info info;
-
-	struct control control;
 
 	bool have_format;
 	struct spa_audio_info format;
@@ -472,6 +468,12 @@ impl_node_port_enum_params(struct spa_node *node,
 				":", SPA_PARAM_IO_id,   "I", SPA_IO_Buffers,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
 			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Control,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence));
+			break;
 		default:
 			return 0;
 		}
@@ -654,13 +656,16 @@ impl_node_port_set_io(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	if (id == SPA_IO_Buffers)
+	switch (id) {
+	case SPA_IO_Buffers:
 		port->io = data;
-//	else if (id == t->io_prop_volume)
-//		port->control.volume = data;
-	else
+		break;
+	case SPA_IO_Control:
+		port->control = data;
+		break;
+	default:
 		return -ENOENT;
-
+	}
 	return 0;
 }
 
@@ -715,6 +720,34 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
+static int process_control(struct impl *this, struct port *port, struct spa_pod_sequence *sequence)
+{
+	struct spa_pod_control *c;
+
+	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
+		switch (c->type) {
+		case SPA_CONTROL_properties:
+		{
+			struct props *p = &this->props;
+			float volume = p->volume;
+
+			spa_pod_object_parse(&c->value,
+				":", SPA_PROP_volume,    "?f", &volume,
+				NULL);
+
+			if (volume != p->volume) {
+				p->volume = volume;
+				setup_matrix(this, &GET_IN_PORT(this, 0)->format, &GET_OUT_PORT(this, 0)->format);
+			}
+			break;
+		}
+		default:
+			break;
+                }
+	}
+	return 0;
+}
+
 static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
@@ -737,6 +770,9 @@ static int impl_node_process(struct spa_node *node)
 
 	spa_log_trace(this->log, NAME " %p: status %d %d", this, inio->status, outio->status);
 
+	if (outport->control)
+		process_control(this, outport, &outport->control->sequence);
+
 	if (outio->status == SPA_STATUS_HAVE_BUFFER)
 		goto done;
 
@@ -754,13 +790,6 @@ static int impl_node_process(struct spa_node *node)
 
 	if ((dbuf = dequeue_buffer(this, outport)) == NULL)
 		return outio->status = -EPIPE;
-
-	if (outport->control.volume && outport->control.volume->value != this->props.volume) {
-		this->props.volume = outport->control.volume->value;
-		setup_matrix(this,
-				&GET_IN_PORT(this, 0)->format,
-				&GET_OUT_PORT(this, 0)->format);
-	}
 
 	sbuf = &inport->buffers[inio->buffer_id];
 

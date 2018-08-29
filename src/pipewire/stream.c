@@ -82,17 +82,10 @@ static void reset_props(struct props *props)
 	props->volume = DEFAULT_VOLUME;
 }
 
-#define DEFAULT_VOLUME	1.0
-
-struct control {
-        struct spa_pod_float *volume;
-};
-
 struct stream {
 	struct pw_stream this;
 
 	struct props props;
-	struct control control;
 
 	const char *path;
 
@@ -111,6 +104,7 @@ struct stream {
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 	struct spa_io_buffers *io;
+	struct spa_io_control *io_control;
 
 	struct pw_array params;
 
@@ -331,31 +325,27 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 			    uint32_t id, void *data, size_t size)
 {
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
-	int res = 0;
 
 	pw_log_debug("stream %p: set io %s %p %zd", impl,
 			spa_debug_type_find_name(spa_debug_types, id), data, size);
 
-	if (id == SPA_IO_Buffers) {
+	switch (id) {
+	case SPA_IO_Buffers:
 		if (data && size >= sizeof(struct spa_io_buffers))
 			impl->io = data;
 		else
 			impl->io = NULL;
-	}
-#if 0
-	else if (id == impl->type.io_prop_volume) {
-		if (data && size >= sizeof(struct spa_pod_float)) {
-			impl->control.volume = data;
-			impl->control.volume->value = impl->props.volume;
-		}
+		break;
+	case SPA_IO_Control:
+		if (data && size >= sizeof(struct spa_io_sequence))
+			impl->io_control = data;
 		else
-			impl->control.volume = NULL;
+			impl->io_control = NULL;
+		break;
+	default:
+		return -ENOENT;
 	}
-#endif
-	else
-		res = -ENOENT;
-
-	return res;
+	return 0;
 }
 
 static int impl_port_get_info(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
@@ -1068,11 +1058,6 @@ int pw_stream_set_control(struct pw_stream *stream,
 
 	if (strcmp(name, PW_STREAM_CONTROL_VOLUME) == 0) {
 		impl->props.volume = value;
-		if (stream->state >= PW_STREAM_STATE_READY) {
-			if (impl->control.volume == NULL)
-				return -ENODEV;
-			impl->control.volume->value = value;
-		}
 	}
 	else
 		return -ENOTSUP;
@@ -1086,9 +1071,7 @@ int pw_stream_get_control(struct pw_stream *stream,
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
 	if (strcmp(name, PW_STREAM_CONTROL_VOLUME) == 0) {
-		if (impl->control.volume == NULL)
-			return -ENODEV;
-		*value = impl->control.volume->value;
+		*value = impl->props.volume;
 	}
 	else
 		return -ENOTSUP;

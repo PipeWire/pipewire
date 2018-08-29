@@ -544,9 +544,8 @@ spa_v4l2_enum_format(struct impl *this,
 	}
 
 	if (filter) {
-		spa_pod_object_parse(filter,
-			"I", &filter_media_type,
-			"I", &filter_media_subtype);
+		if ((res = spa_format_parse(filter, &filter_media_type, &filter_media_subtype)) < 0)
+			return res;
 	}
 
 	if (false) {

@@ -26,6 +26,7 @@ extern "C" {
 
 #include <spa/pod/parser.h>
 #include <spa/param/video/format.h>
+#include <spa/param/format-utils.h>
 
 static inline int
 spa_format_video_raw_parse(const struct spa_pod *format,

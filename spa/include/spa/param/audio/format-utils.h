@@ -26,7 +26,9 @@ extern "C" {
 
 
 #include <spa/pod/parser.h>
+#include <spa/pod/builder.h>
 #include <spa/param/audio/format.h>
+#include <spa/param/format-utils.h>
 
 static inline int
 spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_raw *info)
@@ -38,6 +40,19 @@ spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_r
 		":", SPA_FORMAT_AUDIO_channels,		"i", &info->channels,
 		":", SPA_FORMAT_AUDIO_flags,		"?i", &info->flags,
 		":", SPA_FORMAT_AUDIO_channelMask,	"?i", &info->channel_mask, NULL);
+}
+
+static inline struct spa_pod *
+spa_format_audio_raw_build(struct spa_pod_builder *builder, uint32_t id, struct spa_audio_info_raw *info)
+{
+	return spa_pod_builder_object(builder,
+                        SPA_TYPE_OBJECT_Format, id,
+                        "I", SPA_MEDIA_TYPE_audio,
+                        "I", SPA_MEDIA_SUBTYPE_raw,
+                        ":", SPA_FORMAT_AUDIO_format,   "I", info->format,
+                        ":", SPA_FORMAT_AUDIO_layout,   "I", info->layout,
+                        ":", SPA_FORMAT_AUDIO_rate,     "i", info->rate,
+                        ":", SPA_FORMAT_AUDIO_channels, "i", info->channels);
 }
 
 #ifdef __cplusplus

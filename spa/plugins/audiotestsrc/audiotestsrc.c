@@ -705,6 +705,8 @@ port_set_format(struct impl *this,
 		uint32_t flags,
 		const struct spa_pod *format)
 {
+	int res;
+
 	if (format == NULL) {
 		this->have_format = false;
 		clear_buffers(this);
@@ -713,9 +715,8 @@ port_set_format(struct impl *this,
 		int idx;
 		int sizes[4] = { 2, 4, 4, 8 };
 
-		spa_pod_object_parse(format,
-			"I", &info.media_type,
-			"I", &info.media_subtype);
+		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
+			return res;
 
 		if (info.media_type != SPA_MEDIA_TYPE_audio ||
 		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
@@ -724,16 +725,22 @@ port_set_format(struct impl *this,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
-		if (info.info.raw.format == SPA_AUDIO_FORMAT_S16)
+		switch (info.info.raw.format) {
+		case SPA_AUDIO_FORMAT_S16:
 			idx = 0;
-		else if (info.info.raw.format == SPA_AUDIO_FORMAT_S32)
+			break;
+		case SPA_AUDIO_FORMAT_S32:
 			idx = 1;
-		else if (info.info.raw.format == SPA_AUDIO_FORMAT_F32)
+			break;
+		case SPA_AUDIO_FORMAT_F32:
 			idx = 2;
-		else if (info.info.raw.format == SPA_AUDIO_FORMAT_F64)
+			break;
+		case SPA_AUDIO_FORMAT_F64:
 			idx = 3;
-		else
+			break;
+		default:
 			return -EINVAL;
+		}
 
 		this->bpf = sizes[idx] * info.info.raw.channels;
 		this->current_format = info;

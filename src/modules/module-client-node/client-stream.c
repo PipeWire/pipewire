@@ -892,9 +892,8 @@ static void client_node_initialized(void *data)
 		return;
 	}
 
-	spa_pod_object_parse(format,
-			"I", &media_type,
-			"I", &media_subtype);
+	if (spa_format_parse(format, &media_type, &media_subtype) < 0)
+		return;
 
 	pw_log_debug("client-stream %p: %s/%s", &impl->this,
 			spa_debug_type_find_name(spa_debug_types, media_type),

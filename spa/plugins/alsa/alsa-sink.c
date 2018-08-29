@@ -342,14 +342,7 @@ impl_node_port_enum_params(struct spa_node *node,
 		if (*index > 0)
 			return 0;
 
-		param = spa_pod_builder_object(&b,
-			SPA_TYPE_OBJECT_Format, id,
-			"I", SPA_MEDIA_TYPE_audio,
-			"I", SPA_MEDIA_SUBTYPE_raw,
-			":", SPA_FORMAT_AUDIO_format,   "I", this->current_format.info.raw.format,
-			":", SPA_FORMAT_AUDIO_layout,   "I", this->current_format.info.raw.layout,
-			":", SPA_FORMAT_AUDIO_rate,     "i", this->current_format.info.raw.rate,
-			":", SPA_FORMAT_AUDIO_channels, "i", this->current_format.info.raw.channels);
+		param = spa_format_audio_raw_build(&b, id, &this->current_format.info.raw);
 		break;
 
 	case SPA_PARAM_Buffers:
@@ -450,9 +443,7 @@ static int port_set_format(struct spa_node *node,
 	} else {
 		struct spa_audio_info info = { 0 };
 
-		if ((err = spa_pod_object_parse(format,
-			"I", &info.media_type,
-			"I", &info.media_subtype)) < 0)
+		if ((err = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
 			return err;
 
 		if (info.media_type != SPA_MEDIA_TYPE_audio ||

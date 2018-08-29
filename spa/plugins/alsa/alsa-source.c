@@ -305,31 +305,6 @@ static void recycle_buffer(struct state *this, uint32_t buffer_id)
 	}
 }
 
-static int port_get_format(struct spa_node *node,
-			   enum spa_direction direction, uint32_t port_id,
-			   uint32_t *index,
-			   struct spa_pod **param,
-			   struct spa_pod_builder *builder)
-{
-	struct state *this = SPA_CONTAINER_OF(node, struct state, node);
-
-	if (!this->have_format)
-		return -EIO;
-	if (*index > 0)
-		return 0;
-
-	*param = spa_pod_builder_object(builder,
-		SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-		"I", SPA_MEDIA_TYPE_audio,
-		"I", SPA_MEDIA_SUBTYPE_raw,
-		":", SPA_FORMAT_AUDIO_format,   "I", this->current_format.info.raw.format,
-		":", SPA_FORMAT_AUDIO_layout,   "I", this->current_format.info.raw.layout,
-		":", SPA_FORMAT_AUDIO_rate,     "i", this->current_format.info.raw.rate,
-		":", SPA_FORMAT_AUDIO_channels, "i", this->current_format.info.raw.channels);
-
-	return 1;
-}
-
 static int
 impl_node_port_enum_params(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
@@ -342,7 +317,6 @@ impl_node_port_enum_params(struct spa_node *node,
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
-	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
@@ -374,8 +348,12 @@ impl_node_port_enum_params(struct spa_node *node,
 		return spa_alsa_enum_format(this, index, filter, result, builder);
 
 	case SPA_PARAM_Format:
-		if ((res = port_get_format(node, direction, port_id, index, &param, &b)) <= 0)
-			return res;
+		if (!this->have_format)
+			return -EIO;
+		if (*index > 0)
+			return 0;
+
+		param = spa_format_audio_raw_build(&b, id, &this->current_format.info.raw);
 		break;
 
 	case SPA_PARAM_Buffers:
@@ -469,9 +447,8 @@ static int port_set_format(struct spa_node *node,
 	} else {
 		struct spa_audio_info info = { 0 };
 
-		spa_pod_object_parse(format,
-			"I", &info.media_type,
-			"I", &info.media_subtype);
+		if ((err = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
+			return err;
 
 		if (info.media_type != SPA_MEDIA_TYPE_audio ||
 		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)

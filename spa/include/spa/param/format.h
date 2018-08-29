@@ -28,6 +28,7 @@ extern "C" {
 
 /** media type for SPA_TYPE_OBJECT_Format */
 enum spa_media_type {
+	SPA_MEDIA_TYPE_START,
 	SPA_MEDIA_TYPE_audio,
 	SPA_MEDIA_TYPE_video,
 	SPA_MEDIA_TYPE_image,

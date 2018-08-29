@@ -634,9 +634,8 @@ static int collect_audio_format(void *data, uint32_t id,
 	uint32_t media_type, media_subtype;
 	struct spa_audio_info_raw info;
 
-	spa_pod_object_parse(param,
-			"I", &media_type,
-			"I", &media_subtype);
+	if (spa_format_parse(param, &media_type, &media_subtype) < 0)
+		return 0;
 
 	if (media_type != SPA_MEDIA_TYPE_audio ||
 	    media_subtype != SPA_MEDIA_SUBTYPE_raw)

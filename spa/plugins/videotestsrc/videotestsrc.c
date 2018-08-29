@@ -622,6 +622,7 @@ static int port_set_format(struct spa_node *node,
 			   const struct spa_pod *format)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
+	int res;
 
 	if (format == NULL) {
 		this->have_format = false;
@@ -629,9 +630,8 @@ static int port_set_format(struct spa_node *node,
 	} else {
 		struct spa_video_info info = { 0 };
 
-		spa_pod_object_parse(format,
-			"I", &info.media_type,
-			"I", &info.media_subtype);
+		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
+			return res;
 
 		if (info.media_type != SPA_MEDIA_TYPE_video &&
 		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)

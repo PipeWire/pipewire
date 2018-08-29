@@ -552,6 +552,7 @@ static int port_set_format(struct spa_node *node,
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
 	struct spa_video_info info;
 	struct port *port = GET_PORT(this, direction, port_id);
+	int res;
 
 	if (format == NULL) {
 		spa_v4l2_stream_off(this);
@@ -560,9 +561,8 @@ static int port_set_format(struct spa_node *node,
 		spa_v4l2_close(this);
 		return 0;
 	} else {
-		spa_pod_object_parse(format,
-			"I", &info.media_type,
-			"I", &info.media_subtype);
+		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
+			return res;
 
 		if (info.media_type != SPA_MEDIA_TYPE_video) {
 			spa_log_error(this->log, "media type must be video");

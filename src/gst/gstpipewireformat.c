@@ -799,8 +799,8 @@ gst_caps_from_format (const struct spa_pod *format)
   uint32_t media_type, media_subtype;
   struct spa_pod_prop *prop;
 
-  spa_pod_object_parse(format, "I", &media_type,
-			       "I", &media_subtype);
+  if (spa_format_parse(format, &media_type, &media_subtype) < 0)
+    return res;
 
   if (media_type == SPA_MEDIA_TYPE_video) {
     if (media_subtype == SPA_MEDIA_SUBTYPE_raw) {

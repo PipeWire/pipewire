@@ -354,7 +354,7 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	spa_list_remove(&p->link);
 
 	o = alloc_object(c);
-	o->type = PW_ID_INTERFACE_Port;
+	o->type = PW_TYPE_INTERFACE_Port;
 	o->id = SPA_ID_INVALID;
 	o->parent_id = c->node_id;
 	o->port.port_id = p->id;
@@ -902,7 +902,7 @@ static int param_enum_format(struct client *c, struct port *p,
 	switch (p->object->port.type_id) {
 	case 0:
 		*param = spa_pod_builder_object(b,
-			SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			"I", SPA_MEDIA_TYPE_audio,
 			"I", SPA_MEDIA_SUBTYPE_raw,
 	                ":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
@@ -913,7 +913,7 @@ static int param_enum_format(struct client *c, struct port *p,
 		break;
 	case 1:
 		*param = spa_pod_builder_object(b,
-			SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			"I", SPA_MEDIA_TYPE_stream,
 			"I", SPA_MEDIA_SUBTYPE_midi);
 		break;
@@ -930,7 +930,7 @@ static int param_format(struct client *c, struct port *p,
 	case 0:
 
 		*param = spa_pod_builder_object(b,
-			SPA_PARAM_Format, SPA_ID_OBJECT_Format,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 			"I", SPA_MEDIA_TYPE_audio,
 			"I", SPA_MEDIA_SUBTYPE_raw,
 	                ":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
@@ -942,7 +942,7 @@ static int param_format(struct client *c, struct port *p,
 		break;
 	case 1:
 		*param = spa_pod_builder_object(b,
-			SPA_PARAM_Format, SPA_ID_OBJECT_Format,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 			"I", SPA_MEDIA_TYPE_stream,
 			"I", SPA_MEDIA_SUBTYPE_midi);
 		break;
@@ -956,7 +956,7 @@ static int param_buffers(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
 	*param = spa_pod_builder_object(b,
-		SPA_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		":", SPA_PARAM_BUFFERS_buffers, "iru", 1,
 			SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
 		":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
@@ -1329,7 +1329,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	if (props == NULL)
 		return;
 
-	if (type == PW_ID_INTERFACE_Node) {
+	if (type == PW_TYPE_INTERFACE_Node) {
 		if ((str = spa_dict_lookup(props, "node.name")) == NULL)
 			goto exit;
 
@@ -1339,7 +1339,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		snprintf(o->node.name, sizeof(o->node.name), "%s/%d", str, id);
 		pw_log_debug("add node %d", id);
 	}
-	else if (type == PW_ID_INTERFACE_Port) {
+	else if (type == PW_TYPE_INTERFACE_Port) {
 		const struct spa_dict_item *item;
 		unsigned long flags = 0;
 		jack_port_type_id_t type_id;
@@ -1386,7 +1386,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 
 			spa_list_append(&c->context.ports, &o->link);
 			ot = pw_map_lookup(&c->context.globals, parent_id);
-			if (ot == NULL || ot->type != PW_ID_INTERFACE_Node)
+			if (ot == NULL || ot->type != PW_TYPE_INTERFACE_Node)
 				goto exit_free;
 
 			snprintf(o->port.name, sizeof(o->port.name), "%s:%s", ot->node.name, str);
@@ -1408,7 +1408,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 
 		pw_log_debug("add port %d %s", id, o->port.name);
 	}
-	else if (type == PW_ID_INTERFACE_Link) {
+	else if (type == PW_TYPE_INTERFACE_Link) {
 		o = alloc_object(c);
 		spa_list_append(&c->context.links, &o->link);
 
@@ -1434,15 +1434,15 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		pw_map_insert_at(&c->context.globals, size++, NULL);
 	pw_map_insert_at(&c->context.globals, id, o);
 
-	if (type == PW_ID_INTERFACE_Node) {
+	if (type == PW_TYPE_INTERFACE_Node) {
 		if (c->registration_callback)
 			c->registration_callback(o->node.name, 1, c->registration_arg);
 	}
-	else if (type == PW_ID_INTERFACE_Port) {
+	else if (type == PW_TYPE_INTERFACE_Port) {
 		if (c->portregistration_callback)
 			c->portregistration_callback(o->id, 1, c->portregistration_arg);
 	}
-	else if (type == PW_ID_INTERFACE_Link) {
+	else if (type == PW_TYPE_INTERFACE_Link) {
 		if (c->connect_callback)
 			c->connect_callback(o->port_link.src, o->port_link.dst, 1, c->connect_arg);
 	}
@@ -1465,15 +1465,15 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	if (o == NULL)
 		return;
 
-	if (o->type == PW_ID_INTERFACE_Node) {
+	if (o->type == PW_TYPE_INTERFACE_Node) {
 		if (c->registration_callback)
 			c->registration_callback(o->node.name, 0, c->registration_arg);
 	}
-	else if (o->type == PW_ID_INTERFACE_Port) {
+	else if (o->type == PW_TYPE_INTERFACE_Port) {
 		if (c->portregistration_callback)
 			c->portregistration_callback(o->id, 0, c->portregistration_arg);
 	}
-	else if (o->type == PW_ID_INTERFACE_Link) {
+	else if (o->type == PW_TYPE_INTERFACE_Link) {
 		if (c->connect_callback)
 			c->connect_callback(o->port_link.src, o->port_link.dst, 0, c->connect_arg);
 	}
@@ -1569,7 +1569,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	}
 	client->core_proxy = pw_remote_get_core_proxy(client->remote);
 	client->registry_proxy = pw_core_proxy_get_registry(client->core_proxy,
-						PW_ID_INTERFACE_Registry,
+						PW_TYPE_INTERFACE_Registry,
 						PW_VERSION_REGISTRY, 0);
 	pw_registry_proxy_add_listener(client->registry_proxy,
                                                &client->registry_listener,
@@ -1585,7 +1585,7 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	client->node_proxy = pw_core_proxy_create_object(client->core_proxy,
 				"client-node",
-				PW_ID_INTERFACE_ClientNode,
+				PW_TYPE_INTERFACE_ClientNode,
 				PW_VERSION_CLIENT_NODE,
 				&props,
 				0);
@@ -2042,7 +2042,7 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 	struct port *p;
 	int res;
 
-	if (o->type != PW_ID_INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
+	if (o->type != PW_TYPE_INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
 		pw_log_error("client %p: invalid port %p", client, port);
 		return -EINVAL;
 	}
@@ -2084,7 +2084,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	int layer = 0;
 	void *ptr = NULL;
 
-	if (o->type != PW_ID_INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
+	if (o->type != PW_TYPE_INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
 		pw_log_error("client %p: invalid port %p", c, port);
 		return NULL;
 	}
@@ -2193,7 +2193,7 @@ jack_port_type_id_t jack_port_type_id (const jack_port_t *port)
 int jack_port_is_mine (const jack_client_t *client, const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
-	return o->type == PW_ID_INTERFACE_Port && o->port.port_id != SPA_ID_INVALID;
+	return o->type == PW_TYPE_INTERFACE_Port && o->port.port_id != SPA_ID_INVALID;
 }
 
 int jack_port_connected (const jack_port_t *port)
@@ -2404,7 +2404,7 @@ int jack_connect (jack_client_t *client,
 
 	pw_core_proxy_create_object(c->core_proxy,
 				    "link-factory",
-				    PW_ID_INTERFACE_Link,
+				    PW_TYPE_INTERFACE_Link,
 				    PW_VERSION_LINK,
 				    &props,
 				    0);
@@ -2633,7 +2633,7 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 	o = pw_map_lookup(&c->context.globals, port_id);
 	pw_log_debug("client %p: port %d -> %p", c, port_id, o);
 
-	if (o == NULL || o->type != PW_ID_INTERFACE_Port)
+	if (o == NULL || o->type != PW_TYPE_INTERFACE_Port)
 		goto exit;
 
 	res = o;

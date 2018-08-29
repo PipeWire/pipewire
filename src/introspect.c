@@ -71,17 +71,17 @@ static int ensure_global(pa_context *c, struct global *g)
 	if (g->proxy != NULL)
 		return 0;
 
-	if (g->type == PW_ID_INTERFACE_Node) {
+	if (g->type == PW_TYPE_INTERFACE_Node) {
 		events = &node_events;
                 client_version = PW_VERSION_NODE;
                 destroy = (pw_destroy_t) pw_node_info_free;
 	}
-	else if (g->type == PW_ID_INTERFACE_Module) {
+	else if (g->type == PW_TYPE_INTERFACE_Module) {
 		events = &module_events;
                 client_version = PW_VERSION_MODULE;
                 destroy = (pw_destroy_t) pw_module_info_free;
 	}
-	else if (g->type == PW_ID_INTERFACE_Client) {
+	else if (g->type == PW_TYPE_INTERFACE_Client) {
 		events = &client_events;
                 client_version = PW_VERSION_CLIENT;
                 destroy = (pw_destroy_t) pw_client_info_free;

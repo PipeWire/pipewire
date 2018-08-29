@@ -110,7 +110,7 @@ static struct global *find_linked(pa_stream *s, uint32_t idx)
 	pa_context *c = s->context;
 
 	spa_list_for_each(g, &c->globals, link) {
-		if (g->type != PW_ID_INTERFACE_Link)
+		if (g->type != PW_TYPE_INTERFACE_Link)
 			continue;
 
 		pw_log_debug("%d %d %d", idx,
@@ -209,7 +209,7 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 			size, buffers);
 
 	param = spa_pod_builder_object(b,
-	                SPA_PARAM_Buffers, SPA_ID_OBJECT_ParamBuffers,
+	                SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 			":", SPA_PARAM_BUFFERS_buffers, "iru", buffers,
 					SPA_POD_PROP_MIN_MAX(3, MAX_BUFFERS),
 			":", SPA_PARAM_BUFFERS_blocks,  "i", blocks,
@@ -656,7 +656,7 @@ static const struct spa_pod *get_param(pa_stream *s, pa_sample_spec *ss, pa_chan
 {
 	const struct spa_pod *param;
 	param = spa_pod_builder_object(b,
-	                SPA_PARAM_EnumFormat, SPA_ID_OBJECT_Format,
+	                SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 	                "I", SPA_MEDIA_TYPE_audio,
 	                "I", SPA_MEDIA_SUBTYPE_raw,
 	                ":", SPA_FORMAT_AUDIO_format,     "I", format_pa2id(s, ss->format),

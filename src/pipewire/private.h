@@ -627,7 +627,6 @@ struct pw_control {
 	struct spa_list inputs_link;	/**< link in linked input control */
 
 	uint32_t id;
-	uint32_t prop_id;
 	int32_t size;
 
 	struct spa_hook_list listener_list;

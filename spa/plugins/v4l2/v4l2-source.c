@@ -32,6 +32,8 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
+#include <spa/control/control.h>
+#include <spa/debug/pod.h>
 
 #define NAME "v4l2-source"
 
@@ -69,7 +71,6 @@ struct control {
 	uint32_t id;
 	uint32_t ctrl_id;
 	double value;
-	double *io;
 };
 
 struct port {
@@ -110,6 +111,7 @@ struct port {
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
 	struct spa_io_clock *clock;
+	struct spa_io_sequence *control;
 };
 
 struct impl {
@@ -509,11 +511,6 @@ static int impl_node_port_enum_params(struct spa_node *node,
 			return 0;
 		}
 		break;
-#if 0
-	else if (id == t->param_io.idPropsIn) {
-		return spa_v4l2_enum_controls(this, index, filter, result, builder);
-	}
-#endif
 	case SPA_PARAM_IO:
 		switch (*index) {
 		case 0:
@@ -527,6 +524,12 @@ static int impl_node_port_enum_params(struct spa_node *node,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				":", SPA_PARAM_IO_id,   "I", SPA_IO_Clock,
 				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_clock));
+			break;
+		case 2:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Control,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence));
 			break;
 		default:
 			return 0;
@@ -703,6 +706,7 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 	return res;
 }
 
+#if 0
 static struct control *find_control(struct port *port, uint32_t id)
 {
 	int i;
@@ -713,6 +717,7 @@ static struct control *find_control(struct port *port, uint32_t id)
 	}
 	return NULL;
 }
+#endif
 
 static int impl_node_port_set_io(struct spa_node *node,
 				 enum spa_direction direction,
@@ -722,7 +727,6 @@ static int impl_node_port_set_io(struct spa_node *node,
 {
 	struct impl *this;
 	struct port *port;
-	struct control *control;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -732,21 +736,19 @@ static int impl_node_port_set_io(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	if (id == SPA_IO_Buffers) {
+	switch (id) {
+	case SPA_IO_Buffers:
 		port->io = data;
-	}
-	else if (id == SPA_IO_Clock) {
+		break;
+	case SPA_IO_Clock:
 		port->clock = data;
-	}
-	else if ((control = find_control(port, id))) {
-		if (data && size >= sizeof(struct spa_pod_double))
-			control->io = &SPA_POD_VALUE(struct spa_pod_double, data);
-		else
-			control->io = &control->value;
-	}
-	else
+		break;
+	case SPA_IO_Control:
+		port->control = data;
+		break;
+	default:
 		return -ENOENT;
-
+	}
 	return 0;
 }
 
@@ -779,10 +781,69 @@ static int impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
+static uint32_t prop_to_control_id(uint32_t prop)
+{
+	switch (prop) {
+	case SPA_PROP_brightness:
+		return V4L2_CID_BRIGHTNESS;
+	case SPA_PROP_contrast:
+		return V4L2_CID_CONTRAST;
+	case SPA_PROP_saturation:
+		return V4L2_CID_SATURATION;
+	case SPA_PROP_hue:
+		return V4L2_CID_HUE;
+	case SPA_PROP_gamma:
+		return V4L2_CID_GAMMA;
+	case SPA_PROP_exposure:
+		return V4L2_CID_EXPOSURE;
+	case SPA_PROP_gain:
+		return V4L2_CID_GAIN;
+	case SPA_PROP_sharpness:
+		return V4L2_CID_SHARPNESS;
+	default:
+		return 0;
+	}
+}
+
+static int process_control(struct impl *this, struct port *port, struct spa_pod_sequence *control)
+{
+	struct spa_pod_control *c;
+
+	SPA_POD_SEQUENCE_FOREACH(control, c) {
+		switch (c->type) {
+		case SPA_CONTROL_Properties:
+		{
+			struct spa_pod *pod;
+			struct spa_pod_object *obj = (struct spa_pod_object *) &c->value;
+
+			SPA_POD_OBJECT_FOREACH(obj, pod) {
+				struct spa_pod_prop *prop = (struct spa_pod_prop *)pod;
+				struct v4l2_control c;
+				uint32_t control_id;
+
+				if ((control_id = prop_to_control_id(prop->body.key)) == 0)
+					continue;
+
+				memset (&c, 0, sizeof (c));
+				c.id = control_id;
+				c.value = SPA_POD_VALUE(struct spa_pod_float, &prop->body.value);
+
+				if (ioctl(port->fd, VIDIOC_S_CTRL, &c) < 0)
+					spa_log_error(port->log, "VIDIOC_S_CTRL %m");
+			}
+			break;
+		}
+		default:
+			break;
+		}
+	}
+	return 0;
+}
+
 static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
-	int i, res;
+	int res;
 	struct spa_io_buffers *io;
 	struct port *port;
 	struct buffer *b;
@@ -797,6 +858,9 @@ static int impl_node_process(struct spa_node *node)
 
 	spa_log_trace(port->log, NAME " %p; status %d", node, io->status);
 
+	if (port->control)
+		process_control(this, port, &port->control->sequence);
+
 	if (io->status == SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_HAVE_BUFFER;
 
@@ -806,25 +870,7 @@ static int impl_node_process(struct spa_node *node)
 
 		io->buffer_id = SPA_ID_INVALID;
 	}
-	for (i = 0; i < port->n_controls; i++) {
-		struct control *control = &port->controls[i];
 
-		if (control->io == NULL)
-			continue;
-
-		if (control->value != *control->io) {
-			struct v4l2_control c;
-
-			memset (&c, 0, sizeof (c));
-			c.id = control->ctrl_id;
-			c.value = *control->io;
-
-			if (ioctl(port->fd, VIDIOC_S_CTRL, &c) < 0)
-				spa_log_error(port->log, "VIDIOC_S_CTRL %m");
-
-			control->value = *control->io = c.value;
-		}
-	}
 	if (spa_list_is_empty(&port->queue))
 		return -EPIPE;
 

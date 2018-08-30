@@ -24,7 +24,9 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/node/io.h>
+#include <spa/control/control.h>
 #include <spa/debug/format.h>
+#include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/module.h>
@@ -74,7 +76,8 @@ struct data {
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 	struct spa_io_buffers *io;
-	struct spa_pod_double *ctrl_param;
+	struct spa_io_sequence *io_notify;
+	uint32_t io_notify_size;
 	double param_accum;
 
 	uint8_t buffer[1024];
@@ -103,10 +106,17 @@ static void handle_events(struct data *data)
 
 static void update_param(struct data *data)
 {
-	if (data->ctrl_param == NULL)
+	struct spa_pod_builder b = { 0, };
+
+	if (data->io_notify == NULL)
 		return;
 
-        data->ctrl_param->value = (sin(data->param_accum) * 127.0) + 127.0;
+	spa_pod_builder_init(&b, data->io_notify, data->io_notify_size);
+	spa_pod_builder_sequence(&b, 0,
+	".", 0, SPA_CONTROL_Properties,
+		SPA_POD_OBJECT(SPA_TYPE_OBJECT_Props, 0,
+		":", SPA_PROP_contrast, "f", (sin(data->param_accum) * 127.0) + 127.0));
+
         data->param_accum += M_PI_M2 / 30.0;
         if (data->param_accum >= M_PI_M2)
                 data->param_accum -= M_PI_M2;
@@ -154,19 +164,17 @@ static int impl_port_set_io(struct spa_node *node,
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
-	if (id == SPA_IO_Buffers)
+	switch (id) {
+	case SPA_IO_Buffers:
 		d->io = data;
-#if 0
-	else if (id == d->type.io_prop_param) {
-		if (data && size >= sizeof(struct spa_pod_double))
-			d->ctrl_param = data;
-		else
-			d->ctrl_param = NULL;
-	}
-#endif
-	else
+		break;
+	case SPA_IO_Notify:
+		d->io_notify = data;
+		d->io_notify_size = size;
+		break;
+	default:
 		return -ENOENT;
-
+	}
 	return 0;
 }
 
@@ -273,25 +281,25 @@ static int impl_port_enum_params(struct spa_node *node,
 			return 0;
 		}
 		break;
-#if 0
-	else if (id == t->param_io.idPropsOut) {
-		struct props *p = &d->props;
 
+	case SPA_PARAM_IO:
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
-				id, t->param_io.Prop,
-				":", t->param_io.id, "I", d->type.io_prop_param,
-				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
-				":", t->param.propId, "I", d->type.prop_param,
-				":", t->param.propType, "dru", p->param,
-					SPA_POD_PROP_MIN_MAX(0.0, 10.0));
+				SPA_TYPE_OBJECT_ParamIO, id,
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Buffers,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
+			break;
+		case 1:
+			param = spa_pod_builder_object(builder,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				":", SPA_PARAM_IO_id,   "I", SPA_IO_Notify,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence) + 1024);
 			break;
 		default:
 			return 0;
 		}
-	}
-#endif
+		break;
 	default:
 		return -ENOENT;
 	}

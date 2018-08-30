@@ -38,27 +38,34 @@ pw_control_new(struct pw_core *core,
 	struct impl *impl;
 	struct pw_control *this;
 	enum spa_direction direction;
+	uint32_t id, size;
+
+	if (spa_pod_object_parse(param,
+		":", SPA_PARAM_IO_id,  "I", &id,
+		":", SPA_PARAM_IO_size, "i", &size) < 0)
+		goto exit;
+
+	switch (id) {
+	case SPA_IO_Control:
+		direction = SPA_DIRECTION_INPUT;
+		break;
+	case SPA_IO_Notify:
+		direction = SPA_DIRECTION_OUTPUT;
+		break;
+	default:
+		goto exit;
+	}
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		goto exit;
 
 	this = &impl->this;
-
-	direction = SPA_DIRECTION_OUTPUT;
-#if 0
-	direction = spa_pod_is_object_id(param, SPA_PARAM_PropsOut) ?
-		SPA_DIRECTION_OUTPUT : SPA_DIRECTION_INPUT;
-
-	if (spa_pod_object_parse(param,
-				":", t->param_io.id, "I", &this->id,
-				":", t->param_io.size, "i", &this->size,
-				":", t->param.propId, "I", &this->prop_id) < 0)
-		goto exit_free;
-#endif
+	this->id = id;
+	this->size = size;
 
 	pw_log_debug("control %p: new %s %d", this,
-			spa_debug_type_find_name(spa_debug_types, this->prop_id), direction);
+			spa_debug_type_find_name(spa_types, this->id), direction);
 
 	this->core = core;
 	this->port = port;
@@ -80,8 +87,6 @@ pw_control_new(struct pw_core *core,
 
 	return this;
 
-//    exit_free:
-//	free(impl);
     exit:
 	return NULL;
 }
@@ -141,6 +146,7 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 {
 	int res = 0;
 	struct impl *impl;
+	uint32_t size;
 
 	if (control->direction == SPA_DIRECTION_INPUT) {
 		struct pw_control *tmp = control;
@@ -158,13 +164,15 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 	impl = SPA_CONTAINER_OF(control, struct impl, this);
 
 	pw_log_debug("control %p: link to %p %s", control, other,
-			spa_debug_type_find_name(spa_debug_types, control->prop_id));
+			spa_debug_type_find_name(spa_debug_types, control->id));
+
+	size = SPA_MAX(control->size, other->size);
 
 	if (impl->mem == NULL) {
 		if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 					     PW_MEMBLOCK_FLAG_SEAL |
 					     PW_MEMBLOCK_FLAG_MAP_READWRITE,
-					     control->size,
+					     size,
 					     &impl->mem)) < 0)
 			goto exit;
 
@@ -175,7 +183,7 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 		if ((res = spa_node_port_set_io(port->node->node,
 				     port->direction, port->port_id,
 				     other->id,
-				     impl->mem->ptr, control->size)) < 0) {
+				     impl->mem->ptr, size)) < 0) {
 			pw_log_warn("control %p: set io failed %d %s", control,
 					res, spa_strerror(res));
 			goto exit;
@@ -188,7 +196,7 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 			if ((res = spa_node_port_set_io(port->node->node,
 					     port->direction, port->port_id,
 					     control->id,
-					     impl->mem->ptr, control->size)) < 0) {
+					     impl->mem->ptr, size)) < 0) {
 				pw_log_warn("control %p: set io failed %d %s", control,
 					res, spa_strerror(res));
 				/* undo */

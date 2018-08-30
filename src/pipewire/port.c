@@ -341,7 +341,6 @@ static int do_add_port(struct spa_loop *loop,
 	return 0;
 }
 
-#if 0
 static int make_control(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct pw_port *port = data;
@@ -349,7 +348,6 @@ static int make_control(void *data, uint32_t id, uint32_t index, uint32_t next, 
 	pw_control_new(node->core, port, param, 0);
 	return 0;
 }
-#endif
 
 static void port_unbind_func(void *data)
 {
@@ -526,10 +524,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
 	}
 
-#if 0
-	pw_port_for_each_param(port, SPA_PARAM_PropsOut, 0, 0, NULL, make_control, port);
-	pw_port_for_each_param(port, SPA_PARAM_PropsIn, 0, 0, NULL, make_control, port);
-#endif
+	pw_port_for_each_param(port, SPA_PARAM_IO, 0, 0, NULL, make_control, port);
 
 	pw_log_debug("port %p: setting node io", port);
 	spa_node_port_set_io(node->node,

@@ -161,7 +161,7 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info,
 		name = "Unknown";
 
 	spa_pod_builder_add(builder,
-		"<", SPA_TYPE_OBJECT_MonitorItem, 0,
+		"{", SPA_TYPE_OBJECT_MonitorItem, 0,
 		":", SPA_MONITOR_ITEM_id,      "s", id,
 		":", SPA_MONITOR_ITEM_flags,   "I", SPA_MONITOR_ITEM_FLAG_NONE,
 		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_Available,
@@ -233,7 +233,7 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info,
 	if ((str = udev_device_get_property_value(dev, "SOUND_FORM_FACTOR")) && *str) {
 		spa_pod_builder_add(builder, "s", "device.form_factor", "s", str, 0);
 	}
-	*item = spa_pod_builder_add(builder, "]>", NULL);
+	*item = spa_pod_builder_add(builder, "]}", NULL);
 
 	return 0;
 }

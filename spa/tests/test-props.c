@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
 	 *  )
 	 */
 	fmt = spa_pod_builder_add(&b,
-		"<", SPA_TYPE_OBJECT_Format, 0,
+		"{", SPA_TYPE_OBJECT_Format, 0,
 		":", SPA_FORMAT_mediaType,       "I", SPA_MEDIA_TYPE_video,
 		":", SPA_FORMAT_mediaSubtype,    "I", SPA_MEDIA_SUBTYPE_raw,
 		":", SPA_FORMAT_VIDEO_format,    "Ieu", SPA_VIDEO_FORMAT_I420,
@@ -340,7 +340,7 @@ int main(int argc, char *argv[])
 		":", SPA_FORMAT_VIDEO_framerate, "Fru", &SPA_FRACTION(25,1),
 								2, &SPA_FRACTION(0,1),
 								   &SPA_FRACTION(INT32_MAX,1),
-		">", NULL);
+		"}", NULL);
 
 	spa_debug_pod(0, spa_debug_types, &fmt->pod);
 	spa_debug_format(0, NULL, &fmt->pod);

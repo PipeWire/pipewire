@@ -98,7 +98,7 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 		name = "Unknown";
 
 	spa_pod_builder_add(builder,
-		"<", SPA_TYPE_OBJECT_MonitorItem, 0,
+		"{", SPA_TYPE_OBJECT_MonitorItem, 0,
 		":", SPA_MONITOR_ITEM_id,      "s", udev_device_get_syspath(item->udevice),
 		":", SPA_MONITOR_ITEM_flags,   "I", SPA_MONITOR_ITEM_FLAG_NONE,
 		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_Available,
@@ -156,7 +156,7 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 		spa_pod_builder_add(builder, "s", "device.capabilities", "s", str, 0);
 	}
 
-	*result = spa_pod_builder_add(builder, "]>", NULL);
+	*result = spa_pod_builder_add(builder, "]}", NULL);
 }
 
 static void impl_on_fd_events(struct spa_source *source)

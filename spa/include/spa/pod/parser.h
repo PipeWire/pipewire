@@ -208,7 +208,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 
 	while (format) {
 		switch (*format) {
-		case '<':
+		case '{':
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_TYPE_Object)
 				return -EINVAL;
 			if (++parser->depth >= SPA_POD_MAX_DEPTH)
@@ -226,7 +226,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 			it = &parser->iter[parser->depth];
 			spa_pod_iter_init(it, pod, SPA_POD_SIZE(pod), sizeof(struct spa_pod_struct));
 			goto read_pod;
-		case ']': case '>':
+		case ']': case '}':
 			if (current != NULL)
 				return -EINVAL;
 			if (--parser->depth < 0)
@@ -312,7 +312,7 @@ static inline int spa_pod_parser_get(struct spa_pod_parser *parser,
 ({								\
 	struct spa_pod_parser __p;				\
 	spa_pod_parser_pod(&__p, pod);				\
-	spa_pod_parser_get(&__p, "<", ##__VA_ARGS__, NULL);	\
+	spa_pod_parser_get(&__p, "{", ##__VA_ARGS__, NULL);	\
 })
 
 #ifdef __cplusplus

@@ -70,7 +70,7 @@ static void fill_item(struct spa_bt_monitor *this, struct spa_bt_transport *tran
 	char trans[16];
 
 	spa_pod_builder_add(builder,
-		"<", SPA_TYPE_OBJECT_MonitorItem, 0,
+		"{", SPA_TYPE_OBJECT_MonitorItem, 0,
 		":", SPA_MONITOR_ITEM_id,      "s", transport->path,
 		":", SPA_MONITOR_ITEM_flags,   "I", SPA_MONITOR_ITEM_FLAG_NONE,
 		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_Available,
@@ -90,7 +90,7 @@ static void fill_item(struct spa_bt_monitor *this, struct spa_bt_transport *tran
 		    "s", "bluez5.transport",  "s", trans,
 		    NULL);
 
-	*result = spa_pod_builder_add(builder, "]>", NULL);
+	*result = spa_pod_builder_add(builder, "]}", NULL);
 }
 
 static uint8_t a2dp_default_bitpool(struct spa_bt_monitor *monitor, uint8_t freq, uint8_t mode) {

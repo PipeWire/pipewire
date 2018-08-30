@@ -526,7 +526,7 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 		char t = *format;
 	      next:
 		switch (t) {
-		case '<':
+		case '{':
 		{
 			uint32_t type = va_arg(args, uint32_t);
 			uint32_t id = va_arg(args, uint32_t);
@@ -539,7 +539,7 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 		case '(':
 			spa_pod_builder_push_array(builder);
 			break;
-		case '{':
+		case '<':
 		{
 			uint32_t unit = va_arg(args, uint32_t);
 			spa_pod_builder_push_sequence(builder, unit);
@@ -570,7 +570,7 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 
 			spa_pod_builder_push_prop(builder, key, flags);
 
-			if (t == '<' || t == '[')
+			if (t == '{' || t == '[' || t == '<')
 				goto next;
 
 			n_values = -1;
@@ -621,7 +621,7 @@ static inline void *spa_pod_builder_add(struct spa_pod_builder *builder, const c
 }
 
 #define SPA_POD_OBJECT(type,id,...)			\
-	"<", type, id, ##__VA_ARGS__, ">"
+	"{", type, id, ##__VA_ARGS__, "}"
 
 #define SPA_POD_STRUCT(...)				\
 	"[", ##__VA_ARGS__, "]"
@@ -630,7 +630,7 @@ static inline void *spa_pod_builder_add(struct spa_pod_builder *builder, const c
 	":", key, spec, value, ##__VA_ARGS__
 
 #define SPA_POD_SEQUENCE(unit,...)			\
-	"{", unit, ##__VA_ARGS__, "}"
+	"<", unit, ##__VA_ARGS__, ">"
 
 #define SPA_POD_CONTROL(offset,type,...)		\
 	".", offset, type, ##__VA_ARGS__

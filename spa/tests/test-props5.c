@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	fmt = spa_pod_builder_add(&b,
-			"<",0,format,
+			"{",0,format,
 			" [ i", video, "i",raw,"]"
 			" :", format,    "ieu", I420,
 						2, I420, YUY2,
@@ -52,17 +52,17 @@ int main(int argc, char *argv[])
 			" :", framerate, "Fru", &SPA_FRACTION(25,1),
 						2, &SPA_FRACTION(0,1),
 						   &SPA_FRACTION(INT32_MAX, 1),
-			">", NULL);
+			"}", NULL);
 	spa_debug_pod(0, NULL, fmt);
 
 	spa_pod_parser_pod(&prs, fmt);
 	res = spa_pod_parser_get(&prs,
-			"<"
+			"{"
 			" [ i",&media_type,"*i"/*,&media_subtype,*/" ]"
 			" :", framerate, "V", &pod,
 			" :", 10, "?V", &pod2,
 			" :", format, "?i", &fmt_value,
-			">", NULL);
+			"}", NULL);
 
 	printf("res :%d\n", res);
 	printf("media-type:%d media-subtype:%d\n", media_type, media_subtype);
@@ -73,18 +73,18 @@ int main(int argc, char *argv[])
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	pod = spa_pod_builder_add(&b,
-			"<",0,format,
+			"{",0,format,
 			" P", NULL,
 			" [ i", 44, "i",45,"]"
-			">", NULL);
+			"}", NULL);
 	spa_debug_pod(0, NULL, pod);
 
 	spa_pod_parser_pod(&prs, pod);
 	res = spa_pod_parser_get(&prs,
-			"<"
+			"{"
 			" ?[ i",&media_type,"i",&media_subtype," ]"
 			" [ i", &video, "i",&raw,"]"
-			">", NULL);
+			"}", NULL);
 	printf("res :%d\n", res);
 	printf("video:%d raw:%d\n", video, raw);
 

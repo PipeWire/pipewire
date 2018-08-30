@@ -1,17 +1,15 @@
-PipeWire 0.2.2
+PipeWire 0.2.3
 
-- Various fixes to memory handling
-- Fixes for shutdown
-- v4l2 fix enumeration of frame intervals
-- Make the daemon stop when the setup commands fail
-- Improve safety of hooks
-- Update stream API to more future proof version
-- Add more options to stream API such as scheduling in the
-  main thread and automatic mapping of buffers
-- Add version file and macros to check compile time and
-  runtime versions of pipewire
-- Future proof some structs
-- Increment API version and .so version
+- Fix deviceprovider caps introspection
+- Refcounting fixes in pipewiresrc
+- Remove clock interpolation from stream
+- Improve clock in gstreamer elements
+- Remove spalib
+- Fix crash with pw_map
+- Add version number to hook list
+- Improve driver mode in gstreamer elements
+- add daemon options
+- add man pages
 
 Work is ongoing in the work branch that features a completely new
 scheduling method that will enable audio support. Some of these

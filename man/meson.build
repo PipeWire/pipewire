@@ -7,22 +7,25 @@ manpage_conf.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
 manpage_conf.set('top_srcdir', meson.source_root())
 manpage_conf.set('top_builddir', meson.build_root())
 
-manpages = ['pipewire.1',
-	    'pipewire.conf.5',
-	    'pipewire-cli.1',
-	    'pipewire-monitor.1' ]
+manpages = [
+  [ 'pipewire', '1' ],
+  [ 'pipewire.conf', '5' ],
+  [ 'pipewire-cli', '1' ],
+  [ 'pipewire-monitor', '1' ]
+]
 
 foreach m : manpages
-  infile = m + '.xml.in'
-  outfile = m + '.xml'
+  file = m.get(0) + '.' + m.get(1)
+  infile = file + '.xml.in'
+  outfile = file + '.xml'
   xml = configure_file(input : infile,
 		       output : outfile,
 		       configuration : manpage_conf)
-  custom_target(m + '.target',
-		output : m,
+  custom_target(file + '.target',
+		output : file,
 		input : xml,
 		command : [xmltoman, '@INPUT@'],
 		capture : true,
 		install : true,
-		install_dir : join_paths(get_option('mandir'), 'man1'))
+		install_dir : join_paths(get_option('mandir'), 'man', m.get(1)))
 endforeach

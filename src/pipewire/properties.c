@@ -247,13 +247,13 @@ void pw_properties_free(struct pw_properties *properties)
 	free(impl);
 }
 
-static int do_replace(struct pw_properties *properties, char *key, char *value)
+static int do_replace(struct pw_properties *properties, const char *key, char *value)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
 	int index = find_index(properties, key);
 
 	if (index == -1) {
-		add_func(properties, key, value);
+		add_func(properties, strdup(key), value);
 	} else {
 		struct spa_dict_item *item =
 		    pw_array_get_unchecked(&impl->items, index, struct spa_dict_item);
@@ -267,7 +267,7 @@ static int do_replace(struct pw_properties *properties, char *key, char *value)
 			item->value = other->value;
 			impl->items.size -= sizeof(struct spa_dict_item);
 		} else {
-			item->key = key;
+			item->key = strdup(key);
 			item->value = value;
 		}
 	}
@@ -288,7 +288,7 @@ static int do_replace(struct pw_properties *properties, char *key, char *value)
  */
 int pw_properties_set(struct pw_properties *properties, const char *key, const char *value)
 {
-	return do_replace(properties, strdup(key), value ? strdup(value) : NULL);
+	return do_replace(properties, key, value ? strdup(value) : NULL);
 }
 
 /** Set a property value by format
@@ -312,7 +312,7 @@ int pw_properties_setf(struct pw_properties *properties, const char *key, const 
 	vasprintf(&value, format, varargs);
 	va_end(varargs);
 
-	return do_replace(properties, strdup(key), value);
+	return do_replace(properties, key, value);
 }
 
 /** Get a property

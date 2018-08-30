@@ -30,6 +30,20 @@ extern "C" {
 #include <spa/node/event.h>
 #include <spa/node/io.h>
 
+#define SPA_TYPE__IO			SPA_TYPE_ENUM_BASE "IO"
+#define SPA_TYPE_IO_BASE		SPA_TYPE__IO ":"
+
+static const struct spa_type_info spa_type_io[] = {
+	{ SPA_IO_Invalid, SPA_TYPE_IO_BASE "Invalid", SPA_TYPE_Int, },
+	{ SPA_IO_Buffers, SPA_TYPE_IO_BASE "Buffers", SPA_TYPE_Int, },
+	{ SPA_IO_Range, SPA_TYPE_IO_BASE "Range", SPA_TYPE_Int, },
+	{ SPA_IO_Clock, SPA_TYPE_IO_BASE "Clock", SPA_TYPE_Int, },
+	{ SPA_IO_Latency, SPA_TYPE_IO_BASE "Latency", SPA_TYPE_Int, },
+	{ SPA_IO_Control, SPA_TYPE_IO_BASE "Control", SPA_TYPE_Int, },
+	{ SPA_IO_Notify, SPA_TYPE_IO_BASE "Notify", SPA_TYPE_Int, },
+	{ 0, NULL, },
+};
+
 #define SPA_TYPE__NodeEvent			SPA_TYPE_EVENT_BASE "Node"
 #define SPA_TYPE_NODE_EVENT_BASE		SPA_TYPE__NodeEvent ":"
 

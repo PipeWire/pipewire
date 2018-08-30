@@ -220,7 +220,7 @@ static void print_node(struct proxy_data *data)
 			if (spa_pod_is_object_type(data->params[i], SPA_TYPE_OBJECT_Format))
 				spa_debug_format(10, NULL, data->params[i]);
 			else
-				spa_debug_pod(10, spa_debug_types, data->params[i]);
+				spa_debug_pod(10, NULL, data->params[i]);
 		}
 		printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(1),
 				info->n_input_ports, info->max_input_ports);
@@ -295,7 +295,7 @@ static void print_port(struct proxy_data *data)
 			if (spa_pod_is_object_type(data->params[i], SPA_TYPE_OBJECT_Format))
 				spa_debug_format(12, NULL, data->params[i]);
 			else
-				spa_debug_pod(12, spa_debug_types, data->params[i]);
+				spa_debug_pod(12, NULL, data->params[i]);
 		}
 		print_properties(info->props, MARK_CHANGE(1));
 	}
@@ -354,7 +354,7 @@ static void factory_event_info(void *object, struct pw_factory_info *info)
 					  data->permissions & PW_PERM_X ? 'x' : '-');
 	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Factory, data->version);
 	printf("\tname: \"%s\"\n", info->name);
-	printf("\tobject-type: %s/%d\n", spa_debug_type_find_name(spa_debug_types, info->type), info->version);
+	printf("\tobject-type: %s/%d\n", spa_debug_type_find_name(NULL, info->type), info->version);
 	if (print_all) {
 		print_properties(info->props, MARK_CHANGE(0));
 	}
@@ -512,7 +512,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		printf("\tpermissions: %c%c%c\n", permissions & PW_PERM_R ? 'r' : '-',
 						  permissions & PW_PERM_W ? 'w' : '-',
 						  permissions & PW_PERM_X ? 'x' : '-');
-		printf("\ttype: %s (version %d)\n", spa_debug_type_find_name(spa_debug_types, type), version);
+		printf("\ttype: %s (version %d)\n", spa_debug_type_find_name(NULL, type), version);
 		print_properties(props, ' ');
 		return;
 	}

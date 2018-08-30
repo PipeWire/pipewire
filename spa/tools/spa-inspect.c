@@ -69,7 +69,7 @@ inspect_node_params(struct data *data, struct spa_node *node)
 				":", SPA_PARAM_LIST_id, "I", &id,
 				NULL);
 
-		printf("enumerating: %s:\n", spa_debug_type_find_name(spa_debug_types, id));
+		printf("enumerating: %s:\n", spa_debug_type_find_name(NULL, id));
 		for (idx2 = 0;;) {
 			spa_pod_builder_init(&b, buffer, sizeof(buffer));
 			if ((res = spa_node_enum_params(node,
@@ -79,7 +79,7 @@ inspect_node_params(struct data *data, struct spa_node *node)
 					error(0, -res, "enum_params %d", id);
 				break;
 			}
-			spa_debug_pod(0, spa_debug_types, param);
+			spa_debug_pod(0, NULL, param);
 		}
 	}
 }
@@ -110,7 +110,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 				":", SPA_PARAM_LIST_id, "I", &id,
 				NULL);
 
-		printf("enumerating: %s:\n", spa_debug_type_find_name(spa_debug_types, id));
+		printf("enumerating: %s:\n", spa_debug_type_find_name(NULL, id));
 		for (idx2 = 0;;) {
 			spa_pod_builder_init(&b, buffer, sizeof(buffer));
 			if ((res = spa_node_port_enum_params(node,
@@ -125,7 +125,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 			if (spa_pod_is_object_id(param, SPA_TYPE_OBJECT_Format))
 				spa_debug_format(0, NULL, param);
 			else
-				spa_debug_pod(0, spa_debug_types, param);
+				spa_debug_pod(0, NULL, param);
 		}
 	}
 }

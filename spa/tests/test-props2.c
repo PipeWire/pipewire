@@ -81,11 +81,11 @@ int main(int argc, char *argv[])
 	spa_pod_builder_pop(&b);
 	obj = spa_pod_builder_pop(&b);
 
-	spa_debug_pod(0, spa_debug_types, obj);
+	spa_debug_pod(0, NULL, obj);
 
 	struct spa_pod_prop *p = spa_pod_find_prop(obj, 4);
 	printf("%d %d\n", p->body.key, p->body.flags);
-	spa_debug_pod(0, spa_debug_types, &p->body.value);
+	spa_debug_pod(0, NULL, &p->body.value);
 
 	obj = spa_pod_builder_deref(&b, ref);
 

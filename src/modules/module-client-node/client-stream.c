@@ -333,7 +333,7 @@ static int debug_params(struct impl *impl, struct spa_node *node,
         struct spa_pod *param;
         int res;
 
-        spa_log_error(this->log, "params %s:", spa_debug_type_find_name(spa_debug_types, id));
+        spa_log_error(this->log, "params %s:", spa_debug_type_find_name(spa_type_param, id));
 
         state = 0;
         while (true) {
@@ -347,12 +347,12 @@ static int debug_params(struct impl *impl, struct spa_node *node,
 				spa_log_error(this->log, "  error: %s", spa_strerror(res));
                         break;
 		}
-                spa_debug_pod(2, spa_debug_types, param);
+                spa_debug_pod(2, NULL, param);
         }
 
         spa_log_error(this->log, "failed filter:");
         if (filter)
-                spa_debug_pod(2, spa_debug_types, filter);
+                spa_debug_pod(2, NULL, filter);
 
         return 0;
 }
@@ -896,8 +896,8 @@ static void client_node_initialized(void *data)
 		return;
 
 	pw_log_debug("client-stream %p: %s/%s", &impl->this,
-			spa_debug_type_find_name(spa_debug_types, media_type),
-			spa_debug_type_find_name(spa_debug_types, media_subtype));
+			spa_debug_type_find_name(spa_type_media_type, media_type),
+			spa_debug_type_find_name(spa_type_media_subtype, media_subtype));
 
 
 	if (!exclusive &&

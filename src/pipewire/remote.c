@@ -853,7 +853,7 @@ client_node_set_io(void *object,
 	}
 
 	pw_log_debug("node %p: set io %s %p", proxy,
-			spa_debug_type_find_name(spa_debug_types, id), ptr);
+			spa_debug_type_find_name(spa_type_io, id), ptr);
 
 	if (id == PW_IO_ClientNodePosition) {
 		if (ptr == NULL && data->position) {
@@ -1200,7 +1200,7 @@ client_node_port_set_io(void *object,
 	}
 
 	pw_log_debug("port %p: set io %s %p", mix->port,
-			spa_debug_type_find_name(spa_debug_types, id), ptr);
+			spa_debug_type_find_name(spa_type_io, id), ptr);
 
 	if (id == SPA_IO_Buffers) {
 		if (ptr == NULL && mix->mix.io) {

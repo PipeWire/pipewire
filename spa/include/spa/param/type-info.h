@@ -28,6 +28,7 @@ extern "C" {
 #include <spa/utils/type-info.h>
 #include <spa/param/props.h>
 #include <spa/param/format.h>
+#include <spa/node/io.h>
 
 /* base for parameter object enumerations */
 #define SPA_TYPE__ParamId		SPA_TYPE_ENUM_BASE "ParamId"
@@ -126,7 +127,7 @@ static const struct spa_type_info spa_type_param_meta[] = {
 
 static const struct spa_type_info spa_type_param_io[] = {
 	{ SPA_PARAM_IO_START, SPA_TYPE_PARAM_IO_BASE, SPA_TYPE_Enum, spa_type_param, },
-	{ SPA_PARAM_IO_id, SPA_TYPE_PARAM_IO_BASE "id",  SPA_TYPE_Enum, },
+	{ SPA_PARAM_IO_id, SPA_TYPE_PARAM_IO_BASE "id",  SPA_TYPE_Enum, spa_type_io },
 	{ SPA_PARAM_IO_size, SPA_TYPE_PARAM_IO_BASE "size",  SPA_TYPE_Int, },
 	{ 0, NULL, },
 };

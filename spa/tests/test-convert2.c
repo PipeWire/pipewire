@@ -320,7 +320,7 @@ static int negotiate_link_buffers(struct data *data, struct link *link)
 	}
 
 	spa_pod_fixate(param);
-	spa_debug_pod(0, spa_debug_types, param);
+	spa_debug_pod(0, NULL, param);
 
 	if (link->in_info)
 		in_alloc = SPA_FLAG_CHECK(link->in_info->flags, SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);

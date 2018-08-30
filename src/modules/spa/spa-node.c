@@ -172,12 +172,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 		struct spa_pod_prop *prop;
 		uint32_t type = 0;
 
-#if 0
-		if (!spa_type_is_a(key, SPA_TYPE_PROPS_BASE))
-			continue;
-
-#endif
-		type = spa_debug_type_find_type(spa_debug_types, key);
+		type = spa_debug_type_find_type(NULL, key);
 		if (type == SPA_TYPE_None)
 			continue;
 
@@ -193,7 +188,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 				break;
 			case SPA_TYPE_Enum:
 				SPA_POD_VALUE(struct spa_pod_enum, &prop->body.value) =
-					spa_debug_type_find_type(spa_debug_types, value);
+					spa_debug_type_find_type(NULL, value);
 				break;
 			case SPA_TYPE_Int:
 				SPA_POD_VALUE(struct spa_pod_int, &prop->body.value) =

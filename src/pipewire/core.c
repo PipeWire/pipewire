@@ -67,7 +67,7 @@ static void registry_bind(void *object, uint32_t id,
 		goto wrong_interface;
 
 	pw_log_debug("global %p: bind global id %d, iface %s to %d", global, id,
-		     spa_debug_type_find_name(spa_debug_types, type), new_id);
+		     spa_debug_type_find_name(NULL, type), new_id);
 
 	if (pw_global_bind(global, client, permissions, version, new_id) < 0)
 		goto exit;

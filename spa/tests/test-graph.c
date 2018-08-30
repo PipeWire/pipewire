@@ -261,7 +261,7 @@ static int make_nodes(struct data *data, const char *device)
 		":", SPA_PROP_device,     "s", device ? device : "hw:0",
 		":", SPA_PROP_minLatency, "i", MIN_LATENCY);
 
-	spa_debug_pod(0, spa_debug_types, props);
+	spa_debug_pod(0, NULL, props);
 
 	if ((res = spa_node_set_param(data->sink, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
@@ -353,7 +353,7 @@ static int negotiate_formats(struct data *data)
 				.rate = 44100,
 				.channels = 2 ));
 
-	spa_debug_pod(0, spa_debug_types, filter);
+	spa_debug_pod(0, NULL, filter);
 
 	spa_log_debug(&default_log.log, "enum_params");
 	if ((res = spa_node_port_enum_params(data->sink,
@@ -362,7 +362,7 @@ static int negotiate_formats(struct data *data)
 					     filter, &format, &b)) <= 0)
 		return -EBADF;
 
-	spa_debug_pod(0, spa_debug_types, format);
+	spa_debug_pod(0, NULL, format);
 
 	spa_log_debug(&default_log.log, "sink set_param");
 	if ((res = spa_node_port_set_param(data->sink,

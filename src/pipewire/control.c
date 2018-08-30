@@ -65,7 +65,7 @@ pw_control_new(struct pw_core *core,
 	this->size = size;
 
 	pw_log_debug("control %p: new %s %d", this,
-			spa_debug_type_find_name(spa_types, this->id), direction);
+			spa_debug_type_find_name(spa_type_io, this->id), direction);
 
 	this->core = core;
 	this->port = port;
@@ -164,7 +164,7 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 	impl = SPA_CONTAINER_OF(control, struct impl, this);
 
 	pw_log_debug("control %p: link to %p %s", control, other,
-			spa_debug_type_find_name(spa_debug_types, control->id));
+			spa_debug_type_find_name(spa_type_io, control->id));
 
 	size = SPA_MAX(control->size, other->size);
 

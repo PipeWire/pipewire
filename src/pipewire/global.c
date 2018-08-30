@@ -84,7 +84,7 @@ pw_global_new(struct pw_core *core,
 	spa_hook_list_init(&this->listener_list);
 
 	pw_log_debug("global %p: new %s %d", this,
-			spa_debug_type_find_name(spa_debug_types, this->type),
+			spa_debug_type_find_name(NULL, this->type),
 			this->id);
 
 	return this;

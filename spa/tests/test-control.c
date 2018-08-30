@@ -208,7 +208,7 @@ static void update_props(struct data *data)
 #endif
 #if 0
 	spa_pod_builder_push_sequence(&b, 0);
-	spa_pod_builder_event_header(&b, 0, SPA_CONTROL_properties);
+	spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
 	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, 0);
 	spa_pod_builder_push_prop(&b, SPA_PROP_frequency, 0);
 	spa_pod_builder_double(&b, ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0);
@@ -221,7 +221,7 @@ static void update_props(struct data *data)
 #endif
 #if 0
 	spa_pod_builder_push_sequence(&b, 0);
-	spa_pod_builder_event_header(&b, 0, SPA_CONTROL_properties);
+	spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
 	spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
 		":", SPA_PROP_frequency, "d", ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0,
@@ -229,7 +229,7 @@ static void update_props(struct data *data)
 	pod = spa_pod_builder_pop(&b);
 #endif
 
-	spa_debug_pod(0, spa_types, pod);
+	spa_debug_pod(0, NULL, pod);
 
 	data->freq_accum += M_PI_M2 / 880.0;
 	if (data->freq_accum >= M_PI_M2)
@@ -314,7 +314,7 @@ static int make_nodes(struct data *data, const char *device)
 		":", SPA_PROP_device,     "s", device ? device : "hw:0",
 		":", SPA_PROP_minLatency, "i", MIN_LATENCY);
 
-	spa_debug_pod(0, spa_debug_types, props);
+	spa_debug_pod(0, NULL, props);
 
 	if ((res = spa_node_set_param(data->sink, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
@@ -386,7 +386,7 @@ static int negotiate_formats(struct data *data)
 				.rate = 44100,
 				.channels = 2 ));
 
-	spa_debug_pod(0, spa_debug_types, filter);
+	spa_debug_pod(0, NULL, filter);
 
 	spa_log_debug(&default_log.log, "enum_params");
 	if ((res = spa_node_port_enum_params(data->sink,
@@ -395,7 +395,7 @@ static int negotiate_formats(struct data *data)
 					     filter, &format, &b)) <= 0)
 		return -EBADF;
 
-	spa_debug_pod(0, spa_debug_types, format);
+	spa_debug_pod(0, NULL, format);
 
 	spa_log_debug(&default_log.log, "sink set_param");
 	if ((res = spa_node_port_set_param(data->sink,

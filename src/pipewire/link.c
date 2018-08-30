@@ -500,7 +500,7 @@ param_filter(struct pw_link *this,
 		}
 
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG) && iparam != NULL)
-			spa_debug_pod(2, spa_debug_types, iparam);
+			spa_debug_pod(2, NULL, iparam);
 
 		for (oidx = 0;;) {
 			pw_log_debug("oparam %d", oidx);
@@ -511,7 +511,7 @@ param_filter(struct pw_link *this,
 			}
 
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(2, spa_debug_types, oparam);
+				spa_debug_pod(2, NULL, oparam);
 
 			num++;
 		}
@@ -651,7 +651,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			spa_pod_fixate(params[i]);
 			pw_log_debug("fixated param %d:", i);
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(2, spa_debug_types, params[i]);
+				spa_debug_pod(2, NULL, params[i]);
 			offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 		}
 

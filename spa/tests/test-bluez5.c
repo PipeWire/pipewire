@@ -91,7 +91,7 @@ struct data {
 
 static void inspect_item(struct data *data, struct spa_pod *item)
 {
-        spa_debug_pod(0, spa_debug_types, item);
+        spa_debug_pod(0, NULL, item);
 }
 
 static void monitor_event(void *_data, struct spa_event *event)

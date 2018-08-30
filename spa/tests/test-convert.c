@@ -267,7 +267,7 @@ static int negotiate_buffers(struct data *data)
 				       NULL, &param, &b)) <= 0)
 		return -EBADF;
 
-	spa_debug_pod(0, spa_debug_types, param);
+	spa_debug_pod(0, NULL, param);
 
 	init_buffer(data, data->in_buffers, data->in_buffer, 1, BUFFER_SIZE, 1);
 	if ((res =
@@ -284,7 +284,7 @@ static int negotiate_buffers(struct data *data)
 				       NULL, &param, &b)) <= 0)
 		return -EBADF;
 
-	spa_debug_pod(0, spa_debug_types, param);
+	spa_debug_pod(0, NULL, param);
 
 	init_buffer(data, data->out_buffers, data->out_buffer, 1, BUFFER_SIZE, 2);
 	if ((res =

@@ -28,8 +28,10 @@
 #include <spa/node/io.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/pod/filter.h>
+#include <spa/control/control.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
+#include <spa/debug/pod.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/stream.h"
@@ -327,7 +329,7 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
 
 	pw_log_debug("stream %p: set io %s %p %zd", impl,
-			spa_debug_type_find_name(spa_debug_types, id), data, size);
+			spa_debug_type_find_name(spa_type_io, id), data, size);
 
 	switch (id) {
 	case SPA_IO_Buffers:

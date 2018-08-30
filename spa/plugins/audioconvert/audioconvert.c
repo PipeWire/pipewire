@@ -163,12 +163,12 @@ static int debug_params(struct impl *this, struct spa_node *node,
 		if (res <= 0)
 			break;
 
-		spa_debug_pod(2, spa_debug_types, param);
+		spa_debug_pod(2, NULL, param);
 	}
 
 	spa_log_error(this->log, "failed filter:");
 	if (filter)
-		spa_debug_pod(2, spa_debug_types, filter);
+		spa_debug_pod(2, NULL, filter);
 
 	return 0;
 }

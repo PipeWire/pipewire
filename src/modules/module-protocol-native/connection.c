@@ -405,7 +405,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 
 	if (debug_messages) {
 		fprintf(stderr, ">>>>>>>>> out: %d %d %d\n", impl->dest_id, impl->opcode, size);
-	        spa_debug_pod(0, spa_debug_types, (struct spa_pod *)p);
+	        spa_debug_pod(0, NULL, (struct spa_pod *)p);
 	}
 	spa_hook_list_call(&conn->listener_list,
 			struct pw_protocol_native_connection_events, need_flush, 0);

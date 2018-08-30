@@ -122,6 +122,9 @@ static inline int spa_debug_format(int indent,
 		[SPA_TYPE_Pod] = "pod"
 	};
 
+	if (info == NULL)
+		info = spa_type_format;
+
 	if (format == NULL || SPA_POD_TYPE(format) != SPA_TYPE_Object)
 		return -EINVAL;
 
@@ -134,8 +137,6 @@ static inline int spa_debug_format(int indent,
 	fprintf(stderr, "%*s %s/%s\n", indent, "",
 		media_type ? rindex(media_type, ':') + 1 : "unknown",
 		media_subtype ? rindex(media_subtype, ':') + 1 : "unknown");
-
-	info = spa_type_format;
 
 	SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)format, pod) {
 		struct spa_pod_prop *prop;

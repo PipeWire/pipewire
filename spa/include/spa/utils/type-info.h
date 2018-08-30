@@ -26,6 +26,10 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
+#ifndef SPA_TYPE_ROOT
+#define SPA_TYPE_ROOT	spa_types
+#endif
+
 
 static inline bool spa_type_is_a(const char *type, const char *parent)
 {
@@ -71,6 +75,7 @@ struct spa_type_info {
 #include <spa/monitor/type-info.h>
 #include <spa/node/type-info.h>
 #include <spa/param/type-info.h>
+#include <spa/control/type-info.h>
 
 static const struct spa_type_info spa_types[] = {
         /* Basic types */

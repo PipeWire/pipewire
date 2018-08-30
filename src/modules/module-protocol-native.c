@@ -165,7 +165,7 @@ process_messages(struct client_data *data)
 
 		if (debug_messages) {
 			fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
-		        spa_debug_pod(0, spa_debug_types, (struct spa_pod *)message);
+		        spa_debug_pod(0, NULL, (struct spa_pod *)message);
 		}
 		if (demarshal[opcode].func(resource, message, size) < 0)
 			goto invalid_message;
@@ -491,7 +491,7 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 
 			if (debug_messages) {
 				fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
-			        spa_debug_pod(0, spa_debug_types, (struct spa_pod *)message);
+			        spa_debug_pod(0, NULL, (struct spa_pod *)message);
 			}
 			if (demarshal[opcode].func(proxy, message, size) < 0) {
 				pw_log_error ("protocol-native %p: invalid message received %u for %u", this,

@@ -792,7 +792,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 
 		pw_log_debug("port %p: %d set param on mix %d:%d.%d %s: %d (%s)", port, port->state,
 				port->direction, port->port_id, p->port_id,
-				spa_debug_type_find_name(spa_debug_types, id), res, spa_strerror(res));
+				spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
 
 		if (port->state == PW_PORT_STATE_CONFIGURE) {
 			spa_node_port_set_param(port->mix,
@@ -804,7 +804,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 		res = spa_node_port_set_param(node->node, port->direction, port->port_id, id, flags, param);
 		pw_log_debug("port %p: %d set param on node %d:%d %s: %d (%s)", port, port->state,
 				port->direction, port->port_id,
-				spa_debug_type_find_name(spa_debug_types, id), res, spa_strerror(res));
+				spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
 	}
 
 

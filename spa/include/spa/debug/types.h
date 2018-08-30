@@ -26,21 +26,19 @@ extern "C" {
 
 #include <spa/utils/type-info.h>
 
-static const struct spa_type_info spa_debug_types[] =
-{
-	{ SPA_ID_INVALID, "", SPA_TYPE_Enum, spa_types },
-	{ 0, NULL, },
-};
-
 static inline const struct spa_type_info *spa_debug_type_find(const struct spa_type_info *info, uint32_t type)
 {
 	const struct spa_type_info *res;
 
+	if (info == NULL)
+		info = SPA_TYPE_ROOT;
+
 	while (info && info->name) {
-		if (info->type == SPA_ID_INVALID)
-			if ((res = spa_debug_type_find(info->values, type)))
+		if (info->type == SPA_ID_INVALID) {
+			if (info->values && (res = spa_debug_type_find(info->values, type)))
 				return res;
-		if (info->type == type)
+		}
+		else if (info->type == type)
 			return info;
 		info++;
 	}
@@ -56,11 +54,14 @@ static inline const char *spa_debug_type_find_name(const struct spa_type_info *i
 
 static inline uint32_t spa_debug_type_find_type(const struct spa_type_info *info, const char *name)
 {
+	if (info == NULL)
+		info = SPA_TYPE_ROOT;
+
 	while (info && info->name) {
 		uint32_t res;
 		if (strcmp(info->name, name) == 0)
 			return info->type;
-		if ((res = spa_debug_type_find_type(info->values, name)) != SPA_ID_INVALID)
+		if (info->values && (res = spa_debug_type_find_type(info->values, name)) != SPA_ID_INVALID)
 			return res;
 		info++;
 	}

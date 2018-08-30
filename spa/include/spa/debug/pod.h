@@ -67,7 +67,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 	{
 		struct spa_pod_pointer_body *b = body;
 		spa_debug("%*s" "Pointer %s %p", indent, "",
-		       spa_debug_type_find_name(spa_types, b->type), b->value);
+		       spa_debug_type_find_name(SPA_TYPE_ROOT, b->type), b->value);
 		break;
 	}
 	case SPA_TYPE_Rectangle:
@@ -140,9 +140,9 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		       ti ? ti->name : "unknown");
 
 		SPA_POD_SEQUENCE_BODY_FOREACH(b, size, c) {
-			ii = spa_debug_type_find(info, c->type);
+			ii = spa_debug_type_find(spa_type_control, c->type);
 
-			spa_debug("%*s" "Event: offset %d, type %s", indent+2, "",
+			spa_debug("%*s" "Control: offset %d, type %s", indent+2, "",
 					c->offset, ii ? ii->name : "unknown");
 
 			spa_debug_pod_value(indent + 2, info,
@@ -234,7 +234,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 static inline int spa_debug_pod(int indent,
 		const struct spa_type_info *info, const struct spa_pod *pod)
 {
-	return spa_debug_pod_value(indent, info,
+	return spa_debug_pod_value(indent, info ? info : SPA_TYPE_ROOT,
 			SPA_POD_TYPE(pod),
 			SPA_POD_BODY(pod),
 			SPA_POD_BODY_SIZE(pod));

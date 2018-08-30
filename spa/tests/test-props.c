@@ -231,7 +231,7 @@ static void do_static_struct(void)
 		}
 	};
 
-	spa_debug_pod(0, spa_debug_types, &test_format.fmt.pod);
+	spa_debug_pod(0, NULL, &test_format.fmt.pod);
 	spa_debug_format(0, NULL, &test_format.fmt.pod);
 
 	{
@@ -294,7 +294,7 @@ int main(int argc, char *argv[])
 
 	fmt = spa_pod_builder_pop(&b);
 
-	spa_debug_pod(0, spa_debug_types, &fmt->pod);
+	spa_debug_pod(0, NULL, &fmt->pod);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -312,7 +312,7 @@ int main(int argc, char *argv[])
 								2, &SPA_FRACTION(0,1),
 								   &SPA_FRACTION(INT32_MAX,1));
 
-	spa_debug_pod(0, spa_debug_types, &fmt->pod);
+	spa_debug_pod(0, NULL, &fmt->pod);
 	spa_debug_format(0, NULL, &fmt->pod);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -342,7 +342,7 @@ int main(int argc, char *argv[])
 								   &SPA_FRACTION(INT32_MAX,1),
 		"}", NULL);
 
-	spa_debug_pod(0, spa_debug_types, &fmt->pod);
+	spa_debug_pod(0, NULL, &fmt->pod);
 	spa_debug_format(0, NULL, &fmt->pod);
 
 	do_static_struct();

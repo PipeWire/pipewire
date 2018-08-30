@@ -212,18 +212,14 @@ static void try_link_controls(struct impl *impl, struct pw_port *port, struct pw
 	pw_log_debug("module %p: trying controls", impl);
 	spa_list_for_each(cout, &port->control_list[SPA_DIRECTION_OUTPUT], port_link) {
 		spa_list_for_each(cin, &target->control_list[SPA_DIRECTION_INPUT], port_link) {
-			if (cin->id != cout->id) {
-				if ((res = pw_control_link(cout, cin)) < 0)
-					pw_log_error("failed to link controls: %s", spa_strerror(res));
-			}
+			if ((res = pw_control_link(cout, cin)) < 0)
+				pw_log_error("failed to link controls: %s", spa_strerror(res));
 		}
 	}
 	spa_list_for_each(cin, &port->control_list[SPA_DIRECTION_INPUT], port_link) {
 		spa_list_for_each(cout, &target->control_list[SPA_DIRECTION_OUTPUT], port_link) {
-			if (cin->id != cout->id) {
-				if ((res = pw_control_link(cout, cin)) < 0)
-					pw_log_error("failed to link controls: %s", spa_strerror(res));
-			}
+			if ((res = pw_control_link(cout, cin)) < 0)
+				pw_log_error("failed to link controls: %s", spa_strerror(res));
 		}
 	}
 

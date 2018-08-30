@@ -76,6 +76,7 @@ struct param {
 #define DEFAULT_VOLUME	1.0
 
 struct props {
+	bool changed;
 	float volume;
 };
 
@@ -106,7 +107,9 @@ struct stream {
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 	struct spa_io_buffers *io;
-	struct spa_io_control *io_control;
+	struct spa_io_sequence *io_control;
+	struct spa_io_sequence *io_notify;
+	uint32_t io_notify_size;
 
 	struct pw_array params;
 
@@ -343,6 +346,16 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 			impl->io_control = data;
 		else
 			impl->io_control = NULL;
+		break;
+	case SPA_IO_Notify:
+		if (data && size >= sizeof(struct spa_io_sequence)) {
+			impl->io_notify = data;
+			impl->io_notify_size = size;
+		}
+		else {
+			impl->io_notify = NULL;
+			impl->io_notify_size = size;
+		}
 		break;
 	default:
 		return -ENOENT;
@@ -604,6 +617,33 @@ static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint3
 	return 0;
 }
 
+static int process_control(struct stream *impl, struct spa_pod_sequence *sequence)
+{
+	return 0;
+}
+
+static int process_notify(struct stream *impl, struct spa_pod_sequence *sequence)
+{
+	struct spa_pod_builder b = { 0 };
+
+        spa_pod_builder_init(&b, impl->io_notify, impl->io_notify_size);
+	spa_pod_builder_push_sequence(&b, 0);
+	if (impl->props.changed) {
+		spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
+		spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, 0);
+		spa_pod_builder_push_prop(&b, SPA_PROP_volume, 0);
+		spa_pod_builder_float(&b, impl->props.volume);
+		spa_pod_builder_pop(&b);
+		spa_pod_builder_pop(&b);
+		impl->props.changed = false;
+	}
+	spa_pod_builder_pop(&b);
+
+	if (impl->props.changed)
+		spa_debug_pod(2, NULL, &impl->io_notify->sequence.pod);
+	return 0;
+}
+
 static inline void copy_quantum(struct stream *impl, int64_t queued)
 {
 	struct pw_driver_quantum *q = impl->node->rt.quantum;
@@ -614,6 +654,11 @@ static inline void copy_quantum(struct stream *impl, int64_t queued)
 	impl->time.delay = q->delay;
 	impl->time.queued = queued;
 	impl->seq2 = impl->seq1;
+
+	if (impl->io_control)
+		process_control(impl, &impl->io_control->sequence);
+	if (impl->io_notify)
+		process_notify(impl, &impl->io_notify->sequence);
 }
 
 static int impl_node_process_input(struct spa_node *node)
@@ -951,21 +996,22 @@ struct pw_remote *pw_stream_get_remote(struct pw_stream *stream)
 
 static void add_controls(struct pw_stream *stream)
 {
-#if 0
-	struct stream *s = SPA_CONTAINER_OF(stream, struct stream, this);
 	uint8_t buffer[4096];
 	struct spa_pod_builder b;
 
 	spa_pod_builder_init(&b, buffer, 4096);
+
 	add_param(stream, PARAM_TYPE_INIT,
-			spa_pod_builder_object(&b,
-                                t->param_io.idPropsOut, t->param_io.Prop,
-                                ":", t->param_io.id, "I", s->type.io_prop_volume,
-                                ":", t->param_io.size, "i", sizeof(struct spa_pod_float),
-                                ":", t->param.propId, "I", s->type.prop_volume,
-                                ":", t->param.propType, "fru", s->props.volume,
-                                        SPA_POD_PROP_MIN_MAX(0.0, 10.0)));
-#endif
+		spa_pod_builder_object(&b,
+			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
+			":", SPA_PARAM_IO_id,   "I", SPA_IO_Notify,
+			":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence) + 1024));
+
+	add_param(stream, PARAM_TYPE_INIT,
+		spa_pod_builder_object(&b,
+			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
+			":", SPA_PARAM_IO_id,   "I", SPA_IO_Control,
+			":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence)));
 }
 
 int
@@ -1063,6 +1109,8 @@ int pw_stream_set_control(struct pw_stream *stream,
 	}
 	else
 		return -ENOTSUP;
+
+	impl->props.changed = true;
 
 	return 0;
 }

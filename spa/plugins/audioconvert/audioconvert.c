@@ -555,11 +555,11 @@ impl_node_port_enum_params(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	switch (id) {
       next:
-	case SPA_PARAM_PropInfo:
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
+	switch (id) {
+	case SPA_PARAM_PropInfo:
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(builder,
@@ -571,17 +571,42 @@ impl_node_port_enum_params(struct spa_node *node,
 		default:
 			return 0;
 		}
+		break;
 
-		(*index)++;
-
-		if (spa_pod_filter(builder, result, param, filter) < 0)
-			goto next;
-
-		return 1;
+	case SPA_PARAM_IO:
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(builder,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				":", SPA_PARAM_IO_id, "I", SPA_IO_Buffers,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
+			break;
+		case 1:
+			param = spa_pod_builder_object(builder,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				":", SPA_PARAM_IO_id, "I", SPA_IO_Range,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_range));
+			break;
+		case 2:
+			param = spa_pod_builder_object(builder,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				":", SPA_PARAM_IO_id, "I", SPA_IO_Control,
+				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence));
+			break;
+		default:
+			return 0;
+		}
+		break;
 	default:
 		return spa_node_port_enum_params(this->fmt[direction], direction, port_id,
 			id, index, filter, result, builder);
 	}
+	(*index)++;
+
+	if (spa_pod_filter(builder, result, param, filter) < 0)
+		goto next;
+
+	return 1;
 }
 
 static int
@@ -651,6 +676,9 @@ impl_node_port_set_io(struct spa_node *node,
 	switch (id) {
 	case SPA_IO_Range:
 		res = spa_node_port_set_io(this->resample, direction, 0, id, data, size);
+		break;
+	case SPA_IO_Control:
+		res = spa_node_port_set_io(this->channelmix, direction, 0, id, data, size);
 		break;
 	default:
 		res = spa_node_port_set_io(this->fmt[direction], direction, port_id, id, data, size);

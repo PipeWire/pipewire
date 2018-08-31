@@ -109,6 +109,9 @@ struct spa_pod_bitmap {
 	/* array of uint8_t follows with the bitmap */
 };
 
+#define SPA_POD_ARRAY_TYPE(arr)		((arr)->body.child.type)
+#define SPA_POD_ARRAY_N_VALUES(arr)	(((arr)->pod.size - sizeof(struct spa_pod_array_body)) / (arr)->body.child.size)
+
 struct spa_pod_array_body {
 	struct spa_pod child;
 	/* array with elements of child.size follows */

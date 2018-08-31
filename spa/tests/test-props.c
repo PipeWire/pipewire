@@ -326,6 +326,15 @@ int main(int argc, char *argv[])
 	 *      "framerate": ( "Fru", (25, 1), ( (0,1), (MAX, 1)) )
 	 *    }
 	 *  )
+	 *
+	 *  { "Type" : "Format", "Id" : 0,
+	 *    "mediaType":      "video",
+	 *    "mediaSubtype":   "raw",
+	 *    "videoFormat":      [ "enum", "I420", "YUY2" ],
+	 *    "videoSize":        [ "range", [320,242], [1,1], [MAX,MAX] ],
+	 *    "videoFramerate":   [ "range", [25,1], [0,1], [MAX,1] ]
+	 *  }
+	 *
 	 */
 	fmt = spa_pod_builder_add(&b,
 		"{", SPA_TYPE_OBJECT_Format, 0,

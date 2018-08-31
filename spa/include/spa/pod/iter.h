@@ -59,19 +59,14 @@ static inline void spa_pod_iter_advance(struct spa_pod_iter *iter, struct spa_po
 		iter->offset += SPA_ROUND_UP_N(SPA_POD_SIZE(current), 8);
 }
 
-static inline bool spa_pod_is_inside(const void *pod, uint32_t size, const struct spa_pod *iter)
+static inline bool spa_pod_is_inside(const void *pod, uint32_t size, const void *iter)
 {
-	return iter < SPA_MEMBER(pod, size, struct spa_pod);
+	return iter < SPA_MEMBER(pod, size, void);
 }
 
-static inline bool spa_pod_control_is_inside(const void *pod, uint32_t size, const struct spa_pod_control *iter)
+static inline void *spa_pod_next(const void *iter)
 {
-	return iter < SPA_MEMBER(pod, size, struct spa_pod_control);
-}
-
-static inline struct spa_pod *spa_pod_next(const struct spa_pod *iter)
-{
-	return SPA_MEMBER(iter, SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), struct spa_pod);
+	return SPA_MEMBER(iter, SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), void);
 }
 
 static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_control *iter)
@@ -90,7 +85,7 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 	     (iter) = spa_pod_next(iter))
 
 #define SPA_POD_CONTENTS_FOREACH(pod, offset, iter)						\
-	SPA_POD_FOREACH(SPA_MEMBER((pod), (offset), struct spa_pod),SPA_POD_SIZE (pod)-(offset),iter)
+	SPA_POD_FOREACH(SPA_MEMBER((pod), (offset), void),SPA_POD_SIZE (pod)-(offset),iter)
 
 #define SPA_POD_OBJECT_BODY_FOREACH(body, size, iter)						\
 	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_object_body), struct spa_pod);	\
@@ -102,7 +97,7 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 
 #define SPA_POD_SEQUENCE_BODY_FOREACH(body, size, iter)						\
 	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_sequence_body), struct spa_pod_control);	\
-	     spa_pod_control_is_inside(body, size, iter);						\
+	     spa_pod_is_inside(body, size, iter);						\
 	     (iter) = spa_pod_control_next(iter))
 
 #define SPA_POD_SEQUENCE_FOREACH(seq, iter)							\

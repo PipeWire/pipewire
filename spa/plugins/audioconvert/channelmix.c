@@ -707,15 +707,27 @@ static int process_control(struct impl *this, struct port *port, struct spa_pod_
 		{
 			struct props *p = &this->props;
 			float volume = p->volume;
+			struct spa_pod *pod;
+			struct spa_pod_object *obj = (struct spa_pod_object *) &c->value;
 
-			spa_pod_object_parse(&c->value,
-				":", SPA_PROP_volume,    "?f", &volume,
-				NULL);
+			SPA_POD_OBJECT_FOREACH(obj, pod) {
+				struct spa_pod_prop *prop = (struct spa_pod_prop *)pod;
 
-			if (volume != p->volume) {
-				p->volume = volume;
-				setup_matrix(this, &GET_IN_PORT(this, 0)->format, &GET_OUT_PORT(this, 0)->format);
+				switch (prop->body.key) {
+				case SPA_PROP_volume:
+					volume = SPA_POD_VALUE(struct spa_pod_float, &prop->body.value);
+					if (volume != p->volume) {
+						p->volume = volume;
+						setup_matrix(this,
+							&GET_IN_PORT(this, 0)->format,
+							&GET_OUT_PORT(this, 0)->format);
+					}
+					break;
+				default:
+					break;
+				}
 			}
+
 			break;
 		}
 		default:

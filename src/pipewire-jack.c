@@ -787,7 +787,7 @@ static void client_node_set_io(void *object,
 		m->ref++;
         }
 	pw_log_debug("client %p: set io %s %p", c,
-			spa_debug_type_find_name(spa_debug_types, id), ptr);
+			spa_debug_type_find_name(spa_type_io, id), ptr);
 
 	if (id == PW_IO_ClientNodePosition) {
 		if (ptr == NULL && c->position) {
@@ -903,8 +903,8 @@ static int param_enum_format(struct client *c, struct port *p,
 	case 0:
 		*param = spa_pod_builder_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			"I", SPA_MEDIA_TYPE_audio,
-			"I", SPA_MEDIA_SUBTYPE_raw,
+			":", SPA_FORMAT_mediaType,      "I", SPA_MEDIA_TYPE_audio,
+			":", SPA_FORMAT_mediaSubtype,   "I", SPA_MEDIA_SUBTYPE_raw,
 	                ":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
 	                ":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
 	                ":", SPA_FORMAT_AUDIO_rate,     "iru", DEFAULT_SAMPLE_RATE,
@@ -914,8 +914,8 @@ static int param_enum_format(struct client *c, struct port *p,
 	case 1:
 		*param = spa_pod_builder_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			"I", SPA_MEDIA_TYPE_stream,
-			"I", SPA_MEDIA_SUBTYPE_midi);
+			":", SPA_FORMAT_mediaType,      "I", SPA_MEDIA_TYPE_stream,
+			":", SPA_FORMAT_mediaSubtype,   "I", SPA_MEDIA_SUBTYPE_midi);
 		break;
 	default:
 		return -EINVAL;
@@ -931,8 +931,8 @@ static int param_format(struct client *c, struct port *p,
 
 		*param = spa_pod_builder_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-			"I", SPA_MEDIA_TYPE_audio,
-			"I", SPA_MEDIA_SUBTYPE_raw,
+			":", SPA_FORMAT_mediaType,      "I", SPA_MEDIA_TYPE_audio,
+			":", SPA_FORMAT_mediaSubtype,   "I", SPA_MEDIA_SUBTYPE_raw,
 	                ":", SPA_FORMAT_AUDIO_format,   "I", SPA_AUDIO_FORMAT_F32,
 	                ":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
 	                ":", SPA_FORMAT_AUDIO_rate,     p->have_format ? "iru" : "ir",
@@ -943,8 +943,8 @@ static int param_format(struct client *c, struct port *p,
 	case 1:
 		*param = spa_pod_builder_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-			"I", SPA_MEDIA_TYPE_stream,
-			"I", SPA_MEDIA_SUBTYPE_midi);
+			":", SPA_FORMAT_mediaType,      "I", SPA_MEDIA_TYPE_stream,
+			":", SPA_FORMAT_mediaSubtype,   "I", SPA_MEDIA_SUBTYPE_midi);
 		break;
 	default:
 		return -EINVAL;

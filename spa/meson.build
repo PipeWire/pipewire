@@ -25,3 +25,9 @@ subdir('include')
 subdir('plugins')
 subdir('tools')
 subdir('tests')
+
+pkgconfig.generate(filebase : 'libspa-@0@'.format(spaversion),
+  name : 'libspa',
+  description : 'Simple Plugin API',
+  version : pipewire_version,
+  extra_cflags : '-D_REENTRANT')

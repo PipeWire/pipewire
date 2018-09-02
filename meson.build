@@ -1,6 +1,6 @@
 project('pipewire', 'c',
   version : '0.2.3',
-  meson_version : '>= 0.36.0',
+  meson_version : '>= 0.42.0',
   default_options : [ 'warning_level=1',
                       'c_std=gnu99',
                       'buildtype=debugoptimized' ])
@@ -34,6 +34,7 @@ modules_install_dir = join_paths(pipewire_libdir, 'pipewire-@0@'.format(apiversi
 spa_plugindir = join_paths(pipewire_libdir, 'spa')
 
 gnome = import('gnome')
+pkgconfig = import('pkgconfig')
 
 cc = meson.get_compiler('c')
 
@@ -164,7 +165,6 @@ endif
 
 subdir('spa')
 subdir('src')
-subdir('pkgconfig')
 
 if get_option('docs')
   doxygen = find_program('doxygen', required : false)

@@ -1,7 +1,0 @@
-prefix=@prefix@
-includedir=@includedir@/
-
-Name: libspa
-Description: Simple Plugin API
-Version: @VERSION@
-Cflags: -I${includedir} -D_REENTRANT

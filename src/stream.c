@@ -210,13 +210,15 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 
 	param = spa_pod_builder_object(b,
 	                SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-			":", SPA_PARAM_BUFFERS_buffers, "iru", buffers,
-					SPA_POD_PROP_MIN_MAX(3, MAX_BUFFERS),
-			":", SPA_PARAM_BUFFERS_blocks,  "i", blocks,
-			":", SPA_PARAM_BUFFERS_size,    "iru", size * stride,
-					SPA_POD_PROP_MIN_MAX(size * stride, maxsize * stride),
-			":", SPA_PARAM_BUFFERS_stride,  "i", stride,
-			":", SPA_PARAM_BUFFERS_align,   "i", 16);
+			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(buffers, 3, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(blocks),
+			SPA_PARAM_BUFFERS_size,    &SPA_POD_CHOICE_RANGE_Int(
+							size * stride,
+							size * stride,
+							maxsize * stride),
+			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(stride),
+			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
+			0);
 	return param;
 }
 
@@ -283,9 +285,7 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
 	struct spa_audio_info info = { 0 };
 	int res;
 
-	spa_pod_object_parse(format,
-		"I", &info.media_type,
-		"I", &info.media_subtype);
+	spa_format_parse(format, &info.media_type, &info.media_subtype);
 
 	if (info.media_type != SPA_MEDIA_TYPE_audio ||
 	    info.media_subtype != SPA_MEDIA_SUBTYPE_raw ||
@@ -647,7 +647,7 @@ int pa_stream_is_corked(pa_stream *s)
 	PA_CHECK_VALIDITY(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
-	pw_log_debug("stream %p: corked %d", s, s->corked);
+	pw_log_trace("stream %p: corked %d", s, s->corked);
 	return s->corked;
 }
 
@@ -655,14 +655,13 @@ static const struct spa_pod *get_param(pa_stream *s, pa_sample_spec *ss, pa_chan
 		struct spa_pod_builder *b)
 {
 	const struct spa_pod *param;
-	param = spa_pod_builder_object(b,
-	                SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-	                "I", SPA_MEDIA_TYPE_audio,
-	                "I", SPA_MEDIA_SUBTYPE_raw,
-	                ":", SPA_FORMAT_AUDIO_format,     "I", format_pa2id(s, ss->format),
-	                ":", SPA_FORMAT_AUDIO_layout,     "I", SPA_AUDIO_LAYOUT_INTERLEAVED,
-	                ":", SPA_FORMAT_AUDIO_channels,   "i", ss->channels,
-	                ":", SPA_FORMAT_AUDIO_rate,       "i", ss->rate);
+
+	param = spa_format_audio_raw_build(b, SPA_PARAM_EnumFormat,
+			&SPA_AUDIO_INFO_RAW_INIT(
+		                .format = format_pa2id(s, ss->format),
+		                .layout = SPA_AUDIO_LAYOUT_INTERLEAVED,
+		                .channels = ss->channels,
+		                .rate = ss->rate));
 	return param;
 }
 

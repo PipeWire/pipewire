@@ -317,22 +317,22 @@ get_range_type (const GValue *val)
   GType type = G_VALUE_TYPE (val);
 
   if (type == GST_TYPE_LIST)
-    return SPA_POD_PROP_RANGE_ENUM;
+    return SPA_CHOICE_Enum;
   if (type == GST_TYPE_DOUBLE_RANGE || type == GST_TYPE_FRACTION_RANGE)
-    return SPA_POD_PROP_RANGE_MIN_MAX;
+    return SPA_CHOICE_Range;
   if (type == GST_TYPE_INT_RANGE) {
     if (gst_value_get_int_range_step (val) == 1)
-      return SPA_POD_PROP_RANGE_MIN_MAX;
+      return SPA_CHOICE_Range;
     else
-      return SPA_POD_PROP_RANGE_STEP;
+      return SPA_CHOICE_Step;
   }
   if (type == GST_TYPE_INT64_RANGE) {
     if (gst_value_get_int64_range_step (val) == 1)
-      return SPA_POD_PROP_RANGE_MIN_MAX;
+      return SPA_CHOICE_Range;
     else
-      return SPA_POD_PROP_RANGE_STEP;
+      return SPA_CHOICE_Step;
   }
-  return SPA_POD_PROP_RANGE_NONE;
+  return SPA_CHOICE_None;
 }
 
 static const uint32_t
@@ -345,11 +345,11 @@ get_range_type2 (const GValue *v1, const GValue *v2)
 
   if (r1 == r2)
     return r1;
-  if (r1 == SPA_POD_PROP_RANGE_STEP || r2 == SPA_POD_PROP_RANGE_STEP)
-    return SPA_POD_PROP_RANGE_STEP;
-  if (r1 == SPA_POD_PROP_RANGE_MIN_MAX || r2 == SPA_POD_PROP_RANGE_MIN_MAX)
-    return SPA_POD_PROP_RANGE_MIN_MAX;
-  return SPA_POD_PROP_RANGE_MIN_MAX;
+  if (r1 == SPA_CHOICE_Step || r2 == SPA_CHOICE_Step)
+    return SPA_CHOICE_Step;
+  if (r1 == SPA_CHOICE_Range || r2 == SPA_CHOICE_Range)
+    return SPA_CHOICE_Range;
+  return SPA_CHOICE_Range;
 }
 
 static gboolean
@@ -357,73 +357,73 @@ handle_video_fields (ConvertData *d)
 {
   const GValue *value, *value2;
   int i;
-  struct spa_pod_prop *prop;
+  struct spa_pod_choice *choice;
 
   value = gst_structure_get_value (d->cs, "format");
   if (value) {
     const char *v;
     int idx;
     for (i = 0; (v = get_nth_string (value, i)); i++) {
-      if (i == 0)
-        spa_pod_builder_push_prop (&d->b,
-                                   SPA_FORMAT_VIDEO_format,
-                                   get_range_type (value));
+      if (i == 0) {
+        spa_pod_builder_prop (&d->b, SPA_FORMAT_VIDEO_format, 0);
+	spa_pod_builder_push_choice(&d->b, get_range_type (value), 0);
+      }
 
       idx = gst_video_format_from_string (v);
       if (idx < SPA_N_ELEMENTS (video_format_map))
-        spa_pod_builder_enum (&d->b, video_format_map[idx]);
+        spa_pod_builder_id (&d->b, video_format_map[idx]);
     }
-    prop = spa_pod_builder_pop(&d->b);
-    if (i > 1)
-      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+    choice = spa_pod_builder_pop(&d->b);
+    if (i <= 1)
+      choice->body.type = SPA_CHOICE_None;
   }
   value = gst_structure_get_value (d->cs, "width");
   value2 = gst_structure_get_value (d->cs, "height");
   if (value || value2) {
     struct spa_rectangle v;
     for (i = 0; get_nth_rectangle (value, value2, i, &v); i++) {
-      if (i == 0)
-        spa_pod_builder_push_prop (&d->b,
-                                   SPA_FORMAT_VIDEO_size,
-                                   get_range_type2 (value, value2));
+      if (i == 0) {
+        spa_pod_builder_prop (&d->b, SPA_FORMAT_VIDEO_size, 0);
+	spa_pod_builder_push_choice(&d->b, get_range_type2 (value, value2), 0);
+      }
 
       spa_pod_builder_rectangle (&d->b, v.width, v.height);
     }
-    prop = spa_pod_builder_pop(&d->b);
-    if (i > 1)
-      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+    choice = spa_pod_builder_pop(&d->b);
+    if (i <= 1)
+      choice->body.type = SPA_CHOICE_None;
   }
 
   value = gst_structure_get_value (d->cs, "framerate");
   if (value) {
     struct spa_fraction v;
     for (i = 0; get_nth_fraction (value, i, &v); i++) {
-      if (i == 0)
-        spa_pod_builder_push_prop (&d->b,
-                                   SPA_FORMAT_VIDEO_framerate,
-                                   get_range_type (value));
+      if (i == 0) {
+        spa_pod_builder_prop (&d->b, SPA_FORMAT_VIDEO_framerate, 0);
+	spa_pod_builder_push_choice(&d->b, get_range_type (value), 0);
+      }
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
     }
-    prop = spa_pod_builder_pop(&d->b);
-    if (i > 1)
-      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+    choice = spa_pod_builder_pop(&d->b);
+    if (i <= 1)
+      choice->body.type = SPA_CHOICE_None;
   }
 
   value = gst_structure_get_value (d->cs, "max-framerate");
   if (value) {
     struct spa_fraction v;
     for (i = 0; get_nth_fraction (value, i, &v); i++) {
-      if (i == 0)
-        spa_pod_builder_push_prop (&d->b,
-                                   SPA_FORMAT_VIDEO_maxFramerate,
-                                   get_range_type (value));
+      if (i == 0) {
+        spa_pod_builder_prop (&d->b, SPA_FORMAT_VIDEO_maxFramerate, 0);
+	spa_pod_builder_push_choice(&d->b, get_range_type (value), 0);
+      }
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
     }
-    prop = spa_pod_builder_pop(&d->b);
-    if (i > 1)
-      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+    choice = spa_pod_builder_pop(&d->b);
+    if (i <= 1)
+      choice->body.type = SPA_CHOICE_None;
   }
   return TRUE;
 }
@@ -432,7 +432,7 @@ static gboolean
 handle_audio_fields (ConvertData *d)
 {
   const GValue *value;
-  struct spa_pod_prop *prop;
+  struct spa_pod_choice *choice;
   int i = 0;
 
   value = gst_structure_get_value (d->cs, "format");
@@ -440,18 +440,18 @@ handle_audio_fields (ConvertData *d)
     const char *v;
     int idx;
     for (i = 0; (v = get_nth_string (value, i)); i++) {
-      if (i == 0)
-        spa_pod_builder_push_prop (&d->b,
-                                   SPA_FORMAT_AUDIO_format,
-                                   get_range_type (value));
+      if (i == 0) {
+        spa_pod_builder_prop (&d->b, SPA_FORMAT_AUDIO_format, 0);
+	spa_pod_builder_push_choice(&d->b, get_range_type (value), 0);
+      }
 
       idx = gst_audio_format_from_string (v);
       if (idx < SPA_N_ELEMENTS (audio_format_map))
-        spa_pod_builder_enum (&d->b, audio_format_map[idx]);
+        spa_pod_builder_id (&d->b, audio_format_map[idx]);
     }
-    prop = spa_pod_builder_pop(&d->b);
-    if (i > 1)
-      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+    choice = spa_pod_builder_pop(&d->b);
+    if (i <= 1)
+      choice->body.type = SPA_CHOICE_None;
   }
 
   value = gst_structure_get_value (d->cs, "layout");
@@ -467,46 +467,46 @@ handle_audio_fields (ConvertData *d)
       else
         break;
 
-      if (i == 0)
-        spa_pod_builder_push_prop (&d->b,
-                                   SPA_FORMAT_AUDIO_layout,
-                                   get_range_type (value));
+      if (i == 0) {
+        spa_pod_builder_prop (&d->b, SPA_FORMAT_AUDIO_layout, 0);
+	spa_pod_builder_push_choice(&d->b, get_range_type (value), 0);
+      }
 
-      spa_pod_builder_enum (&d->b, layout);
+      spa_pod_builder_id (&d->b, layout);
     }
-    prop = spa_pod_builder_pop(&d->b);
-    if (i > 1)
-      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+    choice = spa_pod_builder_pop(&d->b);
+    if (i <= 1)
+      choice->body.type = SPA_CHOICE_None;
   }
   value = gst_structure_get_value (d->cs, "rate");
   if (value) {
     int v;
     for (i = 0; get_nth_int (value, i, &v); i++) {
-      if (i == 0)
-        spa_pod_builder_push_prop (&d->b,
-                                   SPA_FORMAT_AUDIO_rate,
-                                   get_range_type (value));
+      if (i == 0) {
+        spa_pod_builder_prop (&d->b, SPA_FORMAT_AUDIO_rate, 0);
+	spa_pod_builder_push_choice(&d->b, get_range_type (value), 0);
+      }
 
       spa_pod_builder_int (&d->b, v);
     }
-    prop = spa_pod_builder_pop(&d->b);
-    if (i > 1)
-      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+    choice = spa_pod_builder_pop(&d->b);
+    if (i <= 1)
+      choice->body.type = SPA_CHOICE_None;
   }
   value = gst_structure_get_value (d->cs, "channels");
   if (value) {
     int v;
     for (i = 0; get_nth_int (value, i, &v); i++) {
-      if (i == 0)
-        spa_pod_builder_push_prop (&d->b,
-                                   SPA_FORMAT_AUDIO_channels,
-                                   get_range_type (value));
+      if (i == 0) {
+        spa_pod_builder_prop (&d->b, SPA_FORMAT_AUDIO_channels, 0);
+	spa_pod_builder_push_choice(&d->b, get_range_type (value), 0);
+      }
 
       spa_pod_builder_int (&d->b, v);
     }
-    prop = spa_pod_builder_pop(&d->b);
-    if (i > 1)
-      prop->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+    choice = spa_pod_builder_pop(&d->b);
+    if (i <= 1)
+      choice->body.type = SPA_CHOICE_None;
   }
   return TRUE;
 }
@@ -536,13 +536,11 @@ convert_1 (ConvertData *d)
 
   spa_pod_builder_push_object (&d->b, SPA_TYPE_OBJECT_Format, d->id);
 
-  spa_pod_builder_push_prop (&d->b, SPA_FORMAT_mediaType, 0);
-  spa_pod_builder_enum(&d->b, d->type->media_type);
-  spa_pod_builder_pop (&d->b);
+  spa_pod_builder_prop (&d->b, SPA_FORMAT_mediaType, 0);
+  spa_pod_builder_id(&d->b, d->type->media_type);
 
-  spa_pod_builder_push_prop (&d->b, SPA_FORMAT_mediaSubtype, 0);
-  spa_pod_builder_enum(&d->b, d->type->media_subtype);
-  spa_pod_builder_pop (&d->b);
+  spa_pod_builder_prop (&d->b, SPA_FORMAT_mediaSubtype, 0);
+  spa_pod_builder_id(&d->b, d->type->media_subtype);
 
   if (d->type->media_type == SPA_MEDIA_TYPE_video)
     handle_video_fields (d);
@@ -627,21 +625,23 @@ static void
 handle_id_prop (struct spa_pod_prop *prop, const char *key, id_to_string_func func, GstCaps *res)
 {
   const char * str;
-  uint32_t *id = SPA_POD_CONTENTS (struct spa_pod_prop, prop);
-  uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
-  uint32_t flags;
+  struct spa_pod *val;
+  uint32_t *id;
+  uint32_t i, n_items, choice;
 
-  flags = prop->body.flags;
-  if (!(flags & SPA_POD_PROP_FLAG_UNSET))
-    flags &= ~SPA_POD_PROP_RANGE_MASK;
+  val = spa_pod_get_values(&prop->value, &n_items, &choice);
+  if (val->type != SPA_TYPE_Id)
+	  return;
 
-  switch (flags & SPA_POD_PROP_RANGE_MASK) {
-    case SPA_POD_PROP_RANGE_NONE:
+  id = SPA_POD_BODY(val);
+
+  switch (choice) {
+    case SPA_CHOICE_None:
       if (!(str = func(id[0])))
         return;
       gst_caps_set_simple (res, key, G_TYPE_STRING, rindex (str, ':') + 1, NULL);
       break;
-    case SPA_POD_PROP_RANGE_ENUM:
+    case SPA_CHOICE_Enum:
     {
       GValue list = { 0 }, v = { 0 };
 
@@ -666,34 +666,36 @@ handle_id_prop (struct spa_pod_prop *prop, const char *key, id_to_string_func fu
 static void
 handle_int_prop (struct spa_pod_prop *prop, const char *key, GstCaps *res)
 {
-  uint32_t *val = SPA_POD_CONTENTS (struct spa_pod_prop, prop);
-  uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
-  uint32_t flags;
+  struct spa_pod *val;
+  uint32_t *ints;
+  uint32_t i, n_items, choice;
 
-  flags = prop->body.flags;
-  if (!(flags & SPA_POD_PROP_FLAG_UNSET))
-    flags &= ~SPA_POD_PROP_RANGE_MASK;
+  val = spa_pod_get_values(&prop->value, &n_items, &choice);
+  if (val->type != SPA_TYPE_Int)
+	  return;
 
-  switch (flags & SPA_POD_PROP_RANGE_MASK) {
-    case SPA_POD_PROP_RANGE_NONE:
-      gst_caps_set_simple (res, key, G_TYPE_INT, val[0], NULL);
+  ints = SPA_POD_BODY(val);
+
+  switch (choice) {
+    case SPA_CHOICE_None:
+      gst_caps_set_simple (res, key, G_TYPE_INT, ints[0], NULL);
       break;
-    case SPA_POD_PROP_RANGE_MIN_MAX:
-    case SPA_POD_PROP_RANGE_STEP:
+    case SPA_CHOICE_Range:
+    case SPA_CHOICE_Step:
     {
       if (n_items < 3)
         return;
-      gst_caps_set_simple (res, key, GST_TYPE_INT_RANGE, val[1], val[2], NULL);
+      gst_caps_set_simple (res, key, GST_TYPE_INT_RANGE, ints[1], ints[2], NULL);
       break;
     }
-    case SPA_POD_PROP_RANGE_ENUM:
+    case SPA_CHOICE_Enum:
     {
       GValue list = { 0 }, v = { 0 };
 
       g_value_init (&list, GST_TYPE_LIST);
       for (i = 1; i < n_items; i++) {
         g_value_init (&v, G_TYPE_INT);
-        g_value_set_int (&v, val[i]);
+        g_value_set_int (&v, ints[i]);
         gst_value_list_append_and_take_value (&list, &v);
       }
       gst_caps_set_value (res, key, &list);
@@ -708,21 +710,23 @@ handle_int_prop (struct spa_pod_prop *prop, const char *key, GstCaps *res)
 static void
 handle_rect_prop (struct spa_pod_prop *prop, const char *width, const char *height, GstCaps *res)
 {
-  struct spa_rectangle *rect = SPA_POD_CONTENTS (struct spa_pod_prop, prop);
-  uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
-  uint32_t flags;
+  struct spa_pod *val;
+  struct spa_rectangle *rect;
+  uint32_t i, n_items, choice;
 
-  flags = prop->body.flags;
-  if (!(flags & SPA_POD_PROP_FLAG_UNSET))
-    flags &= ~SPA_POD_PROP_RANGE_MASK;
+  val = spa_pod_get_values(&prop->value, &n_items, &choice);
+  if (val->type != SPA_TYPE_Rectangle)
+	  return;
 
-  switch (flags & SPA_POD_PROP_RANGE_MASK) {
-    case SPA_POD_PROP_RANGE_NONE:
+  rect = SPA_POD_BODY(val);
+
+  switch (choice) {
+    case SPA_CHOICE_None:
       gst_caps_set_simple (res, width, G_TYPE_INT, rect[0].width,
                                 height, G_TYPE_INT, rect[0].height, NULL);
       break;
-    case SPA_POD_PROP_RANGE_MIN_MAX:
-    case SPA_POD_PROP_RANGE_STEP:
+    case SPA_CHOICE_Range:
+    case SPA_CHOICE_Step:
     {
       if (n_items < 3)
         return;
@@ -730,7 +734,7 @@ handle_rect_prop (struct spa_pod_prop *prop, const char *width, const char *heig
                                 height, GST_TYPE_INT_RANGE, rect[1].height, rect[2].height, NULL);
       break;
     }
-    case SPA_POD_PROP_RANGE_ENUM:
+    case SPA_CHOICE_Enum:
     {
       GValue l1 = { 0 }, l2 = { 0 }, v1 = { 0 }, v2 = { 0 };
 
@@ -759,20 +763,22 @@ handle_rect_prop (struct spa_pod_prop *prop, const char *width, const char *heig
 static void
 handle_fraction_prop (struct spa_pod_prop *prop, const char *key, GstCaps *res)
 {
-  struct spa_fraction *fract = SPA_POD_CONTENTS (struct spa_pod_prop, prop);
-  uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
-  uint32_t flags;
+  struct spa_pod *val;
+  struct spa_fraction *fract;
+  uint32_t i, n_items, choice;
 
-  flags = prop->body.flags;
-  if (!(flags & SPA_POD_PROP_FLAG_UNSET))
-    flags &= ~SPA_POD_PROP_RANGE_MASK;
+  val = spa_pod_get_values(&prop->value, &n_items, &choice);
+  if (val->type != SPA_TYPE_Fraction)
+	  return;
 
-  switch (flags & SPA_POD_PROP_RANGE_MASK) {
-    case SPA_POD_PROP_RANGE_NONE:
+  fract = SPA_POD_BODY(val);
+
+  switch (choice) {
+    case SPA_CHOICE_None:
       gst_caps_set_simple (res, key, GST_TYPE_FRACTION, fract[0].num, fract[0].denom, NULL);
       break;
-    case SPA_POD_PROP_RANGE_MIN_MAX:
-    case SPA_POD_PROP_RANGE_STEP:
+    case SPA_CHOICE_Range:
+    case SPA_CHOICE_Step:
     {
       if (n_items < 3)
         return;
@@ -780,7 +786,7 @@ handle_fraction_prop (struct spa_pod_prop *prop, const char *key, GstCaps *res)
                                                               fract[2].num, fract[2].denom, NULL);
       break;
     }
-    case SPA_POD_PROP_RANGE_ENUM:
+    case SPA_CHOICE_Enum:
     {
       GValue l1 = { 0 }, v1 = { 0 };
 

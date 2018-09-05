@@ -30,7 +30,6 @@ extern "C" {
 #define SPA_TYPE_ROOT	spa_types
 #endif
 
-
 static inline bool spa_type_is_a(const char *type, const char *parent)
 {
 	return type != NULL && parent != NULL && strncmp(type, parent, strlen(parent)) == 0;
@@ -77,12 +76,25 @@ struct spa_type_info {
 #include <spa/param/type-info.h>
 #include <spa/control/type-info.h>
 
+/* base for parameter object enumerations */
+#define SPA_TYPE__Choice		SPA_TYPE_ENUM_BASE "Choice"
+#define SPA_TYPE_CHOICE_BASE		SPA_TYPE__Choice ":"
+
+static const struct spa_type_info spa_type_choice[] = {
+	{ SPA_CHOICE_None, SPA_TYPE_CHOICE_BASE "None", SPA_TYPE_Int,   },
+	{ SPA_CHOICE_Range, SPA_TYPE_CHOICE_BASE "Range", SPA_TYPE_Int,   },
+	{ SPA_CHOICE_Step, SPA_TYPE_CHOICE_BASE "Step", SPA_TYPE_Int,   },
+	{ SPA_CHOICE_Enum, SPA_TYPE_CHOICE_BASE "Enum", SPA_TYPE_Int,   },
+	{ SPA_CHOICE_Flags, SPA_TYPE_CHOICE_BASE "Flags", SPA_TYPE_Int,   },
+	{ 0, NULL, }
+};
+
 static const struct spa_type_info spa_types[] = {
         /* Basic types */
 	{ SPA_TYPE_START, SPA_TYPE_BASE, SPA_TYPE_START,   },
 	{ SPA_TYPE_None, SPA_TYPE_BASE "None", SPA_TYPE_None, },
 	{ SPA_TYPE_Bool, SPA_TYPE_BASE "Bool", SPA_TYPE_Bool, },
-	{ SPA_TYPE_Enum, SPA_TYPE__Enum, SPA_TYPE_Int, },
+	{ SPA_TYPE_Id, SPA_TYPE_BASE "Id", SPA_TYPE_Int, },
 	{ SPA_TYPE_Int, SPA_TYPE_BASE "Int", SPA_TYPE_Int, },
 	{ SPA_TYPE_Long, SPA_TYPE_BASE "Long", SPA_TYPE_Long, },
 	{ SPA_TYPE_Float, SPA_TYPE_BASE "Float", SPA_TYPE_Float, },
@@ -99,7 +111,7 @@ static const struct spa_type_info spa_types[] = {
 	{ SPA_TYPE_Sequence, SPA_TYPE_POD_BASE "Sequence", SPA_TYPE_Pod, },
 	{ SPA_TYPE_Pointer, SPA_TYPE__Pointer, SPA_TYPE_Pointer, },
 	{ SPA_TYPE_Fd, SPA_TYPE_BASE "Fd", SPA_TYPE_Fd, },
-	{ SPA_TYPE_Prop, SPA_TYPE_POD_BASE "Prop", SPA_TYPE_Pod, },
+	{ SPA_TYPE_Choice, SPA_TYPE_POD_BASE "Choice", SPA_TYPE_Pod, },
 
 	{ SPA_TYPE_POINTER_START, SPA_TYPE__Pointer, SPA_TYPE_Pointer, },
 	{ SPA_TYPE_POINTER_Buffer, SPA_TYPE_POINTER_BASE "Buffer", SPA_TYPE_Pointer, },

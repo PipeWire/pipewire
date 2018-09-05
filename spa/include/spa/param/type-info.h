@@ -56,8 +56,8 @@ static const struct spa_type_info spa_type_param[] = {
 #define SPA_TYPE_PARAM_LIST_BASE	SPA_TYPE_PARAM__List ":"
 
 static const struct spa_type_info spa_type_param_list[] = {
-	{ SPA_PARAM_LIST_START, SPA_TYPE_PARAM_LIST_BASE,  SPA_TYPE_Enum, spa_type_param },
-	{ SPA_PARAM_LIST_id, SPA_TYPE_PARAM_LIST_BASE "id",  SPA_TYPE_Enum, spa_type_param },
+	{ SPA_PARAM_LIST_START, SPA_TYPE_PARAM_LIST_BASE,  SPA_TYPE_Id, spa_type_param },
+	{ SPA_PARAM_LIST_id, SPA_TYPE_PARAM_LIST_BASE "id",  SPA_TYPE_Id, spa_type_param },
 	{ 0, NULL, },
 };
 
@@ -65,7 +65,7 @@ static const struct spa_type_info spa_type_param_list[] = {
 #define SPA_TYPE_PROPS_BASE		SPA_TYPE__Props ":"
 
 static const struct spa_type_info spa_type_props[] = {
-	{ SPA_PROP_START, SPA_TYPE_PROPS_BASE, SPA_TYPE_Enum, spa_type_param, },
+	{ SPA_PROP_START, SPA_TYPE_PROPS_BASE, SPA_TYPE_Id, spa_type_param, },
 	{ SPA_PROP_unknown, SPA_TYPE_PROPS_BASE "unknown", SPA_TYPE_None, },
 	{ SPA_PROP_device, SPA_TYPE_PROPS_BASE "device", SPA_TYPE_String, },
 	{ SPA_PROP_deviceName, SPA_TYPE_PROPS_BASE "deviceName", SPA_TYPE_String, },
@@ -78,12 +78,12 @@ static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_periodSize, SPA_TYPE_PROPS_BASE "periodSize", SPA_TYPE_Int, },
 	{ SPA_PROP_periodEvent, SPA_TYPE_PROPS_BASE "periodEvent", SPA_TYPE_Bool, },
 	{ SPA_PROP_live, SPA_TYPE_PROPS_BASE "live", SPA_TYPE_Bool, },
-	{ SPA_PROP_waveType, SPA_TYPE_PROPS_BASE "waveType", SPA_TYPE_Enum, },
+	{ SPA_PROP_waveType, SPA_TYPE_PROPS_BASE "waveType", SPA_TYPE_Id, },
 	{ SPA_PROP_frequency, SPA_TYPE_PROPS_BASE "frequency", SPA_TYPE_Int, },
 	{ SPA_PROP_volume, SPA_TYPE_PROPS_BASE "volume", SPA_TYPE_Float, },
 	{ SPA_PROP_mute, SPA_TYPE_PROPS_BASE "mute", SPA_TYPE_Bool, },
-	{ SPA_PROP_patternType, SPA_TYPE_PROPS_BASE "patternType", SPA_TYPE_Enum, },
-	{ SPA_PROP_ditherType, SPA_TYPE_PROPS_BASE "ditherType", SPA_TYPE_Enum, },
+	{ SPA_PROP_patternType, SPA_TYPE_PROPS_BASE "patternType", SPA_TYPE_Id, },
+	{ SPA_PROP_ditherType, SPA_TYPE_PROPS_BASE "ditherType", SPA_TYPE_Id, },
 	{ SPA_PROP_truncate, SPA_TYPE_PROPS_BASE "truncate", SPA_TYPE_Bool, },
 	{ SPA_PROP_brightness, SPA_TYPE_PROPS_BASE "brightness", SPA_TYPE_Int, },
 	{ SPA_PROP_contrast, SPA_TYPE_PROPS_BASE "contrast", SPA_TYPE_Int, },
@@ -101,10 +101,10 @@ static const struct spa_type_info spa_type_props[] = {
 #define SPA_TYPE_PROP_INFO_BASE		SPA_TYPE__PropInfo ":"
 
 static const struct spa_type_info spa_type_prop_info[] = {
-	{ SPA_PROP_INFO_START, SPA_TYPE_PROP_INFO_BASE, SPA_TYPE_Enum, spa_type_param, },
-	{ SPA_PROP_INFO_id, SPA_TYPE_PROP_INFO_BASE "id",  SPA_TYPE_Enum, spa_type_props },
+	{ SPA_PROP_INFO_START, SPA_TYPE_PROP_INFO_BASE, SPA_TYPE_Id, spa_type_param, },
+	{ SPA_PROP_INFO_id, SPA_TYPE_PROP_INFO_BASE "id",  SPA_TYPE_Id, spa_type_props },
 	{ SPA_PROP_INFO_name, SPA_TYPE_PROP_INFO_BASE "name",  SPA_TYPE_String, },
-	{ SPA_PROP_INFO_type, SPA_TYPE_PROP_INFO_BASE "type",  SPA_TYPE_Prop, },
+	{ SPA_PROP_INFO_type, SPA_TYPE_PROP_INFO_BASE "type",  SPA_TYPE_Id, },
 	{ SPA_PROP_INFO_labels, SPA_TYPE_PROP_INFO_BASE "labels",  SPA_TYPE_Struct, },
 	{ 0, NULL, },
 };
@@ -113,8 +113,8 @@ static const struct spa_type_info spa_type_prop_info[] = {
 #define SPA_TYPE_PARAM_META_BASE		SPA_TYPE_PARAM__Meta ":"
 
 static const struct spa_type_info spa_type_param_meta[] = {
-	{ SPA_PARAM_META_START, SPA_TYPE_PARAM_META_BASE, SPA_TYPE_Enum, spa_type_param, },
-	{ SPA_PARAM_META_type, SPA_TYPE_PARAM_META_BASE "type",  SPA_TYPE_Enum, },
+	{ SPA_PARAM_META_START, SPA_TYPE_PARAM_META_BASE, SPA_TYPE_Id, spa_type_param, },
+	{ SPA_PARAM_META_type, SPA_TYPE_PARAM_META_BASE "type",  SPA_TYPE_Id, },
 	{ SPA_PARAM_META_size, SPA_TYPE_PARAM_META_BASE "size",  SPA_TYPE_Int, },
 	{ 0, NULL, },
 };
@@ -126,8 +126,8 @@ static const struct spa_type_info spa_type_param_meta[] = {
 #define SPA_TYPE_PARAM_IO_BASE		SPA_TYPE_PARAM__IO ":"
 
 static const struct spa_type_info spa_type_param_io[] = {
-	{ SPA_PARAM_IO_START, SPA_TYPE_PARAM_IO_BASE, SPA_TYPE_Enum, spa_type_param, },
-	{ SPA_PARAM_IO_id, SPA_TYPE_PARAM_IO_BASE "id",  SPA_TYPE_Enum, spa_type_io },
+	{ SPA_PARAM_IO_START, SPA_TYPE_PARAM_IO_BASE, SPA_TYPE_Id, spa_type_param, },
+	{ SPA_PARAM_IO_id, SPA_TYPE_PARAM_IO_BASE "id",  SPA_TYPE_Id, spa_type_io },
 	{ SPA_PARAM_IO_size, SPA_TYPE_PARAM_IO_BASE "size",  SPA_TYPE_Int, },
 	{ 0, NULL, },
 };
@@ -198,24 +198,24 @@ static const struct spa_type_info spa_type_media_subtype[] = {
 #define SPA_TYPE_FORMAT_VIDEO_BASE	SPA_TYPE__FormatVideo ":"
 
 static const struct spa_type_info spa_type_format[] = {
-	{ SPA_FORMAT_START, SPA_TYPE_FORMAT_BASE, SPA_TYPE_Enum, spa_type_param, },
+	{ SPA_FORMAT_START, SPA_TYPE_FORMAT_BASE, SPA_TYPE_Id, spa_type_param, },
 
-	{ SPA_FORMAT_mediaType, SPA_TYPE_FORMAT_BASE "mediaType", SPA_TYPE_Enum,
+	{ SPA_FORMAT_mediaType, SPA_TYPE_FORMAT_BASE "mediaType", SPA_TYPE_Id,
 		spa_type_media_type, },
-	{ SPA_FORMAT_mediaSubtype, SPA_TYPE_FORMAT_BASE "mediaSubtype", SPA_TYPE_Enum,
+	{ SPA_FORMAT_mediaSubtype, SPA_TYPE_FORMAT_BASE "mediaSubtype", SPA_TYPE_Id,
 		spa_type_media_subtype, },
 
-	{ SPA_FORMAT_AUDIO_format, SPA_TYPE_FORMAT_AUDIO_BASE "format", SPA_TYPE_Enum,
+	{ SPA_FORMAT_AUDIO_format, SPA_TYPE_FORMAT_AUDIO_BASE "format", SPA_TYPE_Id,
 		spa_type_audio_format },
-	{ SPA_FORMAT_AUDIO_flags, SPA_TYPE_FORMAT_AUDIO_BASE "flags", SPA_TYPE_Enum,
+	{ SPA_FORMAT_AUDIO_flags, SPA_TYPE_FORMAT_AUDIO_BASE "flags", SPA_TYPE_Id,
 		spa_type_audio_flags },
-	{ SPA_FORMAT_AUDIO_layout, SPA_TYPE_FORMAT_AUDIO_BASE "layout", SPA_TYPE_Enum,
+	{ SPA_FORMAT_AUDIO_layout, SPA_TYPE_FORMAT_AUDIO_BASE "layout", SPA_TYPE_Id,
 		spa_type_audio_layout },
 	{ SPA_FORMAT_AUDIO_rate, SPA_TYPE_FORMAT_AUDIO_BASE "rate", SPA_TYPE_Int, },
 	{ SPA_FORMAT_AUDIO_channels, SPA_TYPE_FORMAT_AUDIO_BASE "channels", SPA_TYPE_Int, },
 	{ SPA_FORMAT_AUDIO_channelMask, SPA_TYPE_FORMAT_AUDIO_BASE "channelMask", SPA_TYPE_Int, },
 
-	{ SPA_FORMAT_VIDEO_format, SPA_TYPE_FORMAT_VIDEO_BASE "format", SPA_TYPE_Enum,
+	{ SPA_FORMAT_VIDEO_format, SPA_TYPE_FORMAT_VIDEO_BASE "format", SPA_TYPE_Id,
 		spa_type_video_format, },
 	{ SPA_FORMAT_VIDEO_size,  SPA_TYPE_FORMAT_VIDEO_BASE "size", SPA_TYPE_Rectangle, },
 	{ SPA_FORMAT_VIDEO_framerate, SPA_TYPE_FORMAT_VIDEO_BASE "framerate", SPA_TYPE_Fraction, },
@@ -244,7 +244,7 @@ static const struct spa_type_info spa_type_format[] = {
 #define SPA_TYPE_PARAM_BLOCK_INFO_BASE		SPA_TYPE_PARAM__BlockInfo ":"
 
 static const struct spa_type_info spa_type_param_buffers[] = {
-	{ SPA_PARAM_BUFFERS_START,   SPA_TYPE_PARAM_BUFFERS_BASE, SPA_TYPE_Enum, spa_type_param, },
+	{ SPA_PARAM_BUFFERS_START,   SPA_TYPE_PARAM_BUFFERS_BASE, SPA_TYPE_Id, spa_type_param, },
 	{ SPA_PARAM_BUFFERS_buffers, SPA_TYPE_PARAM_BUFFERS_BASE "buffers",  SPA_TYPE_Int, },
 	{ SPA_PARAM_BUFFERS_blocks,  SPA_TYPE_PARAM_BUFFERS_BASE "blocks",   SPA_TYPE_Int, },
 	{ SPA_PARAM_BUFFERS_size,    SPA_TYPE_PARAM_BLOCK_INFO_BASE "size",   SPA_TYPE_Int, },

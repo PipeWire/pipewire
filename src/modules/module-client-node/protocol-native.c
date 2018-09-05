@@ -37,7 +37,7 @@ client_node_marshal_done(void *object, int seq, int res)
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_DONE);
 
-	spa_pod_builder_struct(b,
+	spa_pod_builder_add_struct(b,
 			       "i", seq,
 			       "i", res);
 
@@ -136,7 +136,7 @@ static void client_node_marshal_set_active(void *object, bool active)
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE);
 
-	spa_pod_builder_struct(b, "b", active);
+	spa_pod_builder_add_struct(b, "b", active);
 
 	pw_protocol_native_end_proxy(proxy, b);
 }
@@ -148,7 +148,7 @@ static void client_node_marshal_event_method(void *object, struct spa_event *eve
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_EVENT);
 
-	spa_pod_builder_struct(b, "P", event);
+	spa_pod_builder_add_struct(b, "P", event);
 
 	pw_protocol_native_end_proxy(proxy, b);
 }
@@ -160,7 +160,7 @@ static void client_node_marshal_destroy(void *object)
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_DESTROY);
 
-	spa_pod_builder_struct(b);
+	spa_pod_builder_add_struct(b);
 
 	pw_protocol_native_end_proxy(proxy, b);
 }
@@ -471,7 +471,7 @@ client_node_marshal_add_mem(void *object,
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM);
 
-	spa_pod_builder_struct(b,
+	spa_pod_builder_add_struct(b,
 			       "i", mem_id,
 			       "I", type,
 			       "i", pw_protocol_native_add_resource_fd(resource, memfd),
@@ -487,7 +487,7 @@ static void client_node_marshal_transport(void *object, uint32_t node_id, int re
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT);
 
-	spa_pod_builder_struct(b,
+	spa_pod_builder_add_struct(b,
 			       "i", node_id,
 			       "i", pw_protocol_native_add_resource_fd(resource, readfd),
 			       "i", pw_protocol_native_add_resource_fd(resource, writefd));
@@ -504,7 +504,7 @@ client_node_marshal_set_param(void *object, uint32_t seq, uint32_t id, uint32_t 
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_PARAM);
 
-	spa_pod_builder_struct(b,
+	spa_pod_builder_add_struct(b,
 			       "i", seq,
 			       "I", id,
 			       "i", flags,
@@ -520,7 +520,7 @@ static void client_node_marshal_event_event(void *object, const struct spa_event
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_EVENT);
 
-	spa_pod_builder_struct(b, "P", event);
+	spa_pod_builder_add_struct(b, "P", event);
 
 	pw_protocol_native_end_resource(resource, b);
 }
@@ -533,7 +533,7 @@ client_node_marshal_command(void *object, uint32_t seq, const struct spa_command
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_COMMAND);
 
-	spa_pod_builder_struct(b, "i", seq, "P", command);
+	spa_pod_builder_add_struct(b, "i", seq, "P", command);
 
 	pw_protocol_native_end_resource(resource, b);
 }
@@ -547,7 +547,7 @@ client_node_marshal_add_port(void *object,
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_ADD_PORT);
 
-	spa_pod_builder_struct(b,
+	spa_pod_builder_add_struct(b,
 			       "i", seq,
 			       "i", direction,
 			       "i", port_id);
@@ -564,7 +564,7 @@ client_node_marshal_remove_port(void *object,
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_REMOVE_PORT);
 
-	spa_pod_builder_struct(b,
+	spa_pod_builder_add_struct(b,
 			       "i", seq,
 			       "i", direction,
 			       "i", port_id);
@@ -586,7 +586,7 @@ client_node_marshal_port_set_param(void *object,
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_PARAM);
 
-	spa_pod_builder_struct(b,
+	spa_pod_builder_add_struct(b,
 			       "i", seq,
 			       "i", direction,
 			       "i", port_id,
@@ -662,7 +662,7 @@ client_node_marshal_port_command(void *object,
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_PORT_COMMAND);
 
-	spa_pod_builder_struct(b,
+	spa_pod_builder_add_struct(b,
 			       "i", direction,
 			       "i", port_id,
 			       "P", command);
@@ -686,7 +686,7 @@ client_node_marshal_port_set_io(void *object,
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO);
 
-	spa_pod_builder_struct(b,
+	spa_pod_builder_add_struct(b,
 			       "i", seq,
 			       "i", direction,
 			       "i", port_id,
@@ -710,7 +710,7 @@ client_node_marshal_set_io(void *object,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_IO);
-	spa_pod_builder_struct(b,
+	spa_pod_builder_add_struct(b,
 			       "I", id,
 			       "i", memid,
 			       "i", offset,

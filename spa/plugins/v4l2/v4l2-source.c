@@ -164,8 +164,10 @@ static int impl_node_enum_params(struct spa_node *node,
 				    SPA_PARAM_Props };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
-				":", SPA_PARAM_LIST_id, "I", list[*index]);
+			param = spa_pod_builder_object(&b,
+					SPA_TYPE_OBJECT_ParamList, id,
+					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
+					0);
 		else
 			return 0;
 		break;
@@ -178,23 +180,26 @@ static int impl_node_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				":", SPA_PROP_INFO_id,   "I", SPA_PROP_device,
-				":", SPA_PROP_INFO_name, "s", "The V4L2 device",
-				":", SPA_PROP_INFO_type, "S", p->device, sizeof(p->device));
+				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_device),
+				SPA_PROP_INFO_name, &SPA_POD_Stringc("The V4L2 device"),
+				SPA_PROP_INFO_type, &SPA_POD_Stringv(p->device),
+				0);
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				":", SPA_PROP_INFO_id,   "I", SPA_PROP_deviceName,
-				":", SPA_PROP_INFO_name, "s", "The V4L2 device name",
-				":", SPA_PROP_INFO_type, "S-r", p->device_name, sizeof(p->device_name));
+				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_deviceName),
+				SPA_PROP_INFO_name, &SPA_POD_Stringc("The V4L2 device name"),
+				SPA_PROP_INFO_type, &SPA_POD_Stringv(p->device_name),
+				0);
 			break;
 		case 2:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				":", SPA_PROP_INFO_id,   "I", SPA_PROP_deviceFd,
-				":", SPA_PROP_INFO_name, "s", "The V4L2 fd",
-				":", SPA_PROP_INFO_type, "i-r", p->device_fd);
+				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_deviceFd),
+				SPA_PROP_INFO_name, &SPA_POD_Stringc("The V4L2 fd"),
+				SPA_PROP_INFO_type, &SPA_POD_Int(p->device_fd),
+				0);
 			break;
 		default:
 			return 0;
@@ -209,9 +214,10 @@ static int impl_node_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_Props, id,
-				":", SPA_PROP_device,     "S", p->device, sizeof(p->device),
-				":", SPA_PROP_deviceName, "S-r", p->device_name, sizeof(p->device_name),
-				":", SPA_PROP_deviceFd,   "i-r", p->device_fd);
+				SPA_PROP_device,     &SPA_POD_Stringv(p->device),
+				SPA_PROP_deviceName, &SPA_POD_Stringv(p->device_name),
+				SPA_PROP_deviceFd,   &SPA_POD_Int(p->device_fd),
+				0);
 			break;
 		default:
 			return 0;
@@ -250,7 +256,7 @@ static int impl_node_set_param(struct spa_node *node,
 			return 0;
 		}
 		spa_pod_object_parse(param,
-			":", SPA_PROP_device, "?S", p->device, sizeof(p->device), NULL);
+			SPA_PROP_device, "?S", p->device, sizeof(p->device), NULL);
 		break;
 	}
 	default:
@@ -395,28 +401,31 @@ static int port_get_format(struct spa_node *node,
 		return 0;
 
 	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_Format, SPA_PARAM_Format);
-
-	spa_pod_builder_add(builder,
-		":", SPA_FORMAT_mediaType,    "I", port->current_format.media_type,
-		":", SPA_FORMAT_mediaSubtype, "I", port->current_format.media_subtype, 0);
+	spa_pod_builder_props(builder,
+		SPA_FORMAT_mediaType,    &SPA_POD_Id(port->current_format.media_type),
+		SPA_FORMAT_mediaSubtype, &SPA_POD_Id(port->current_format.media_subtype),
+		0);
 
 	switch (port->current_format.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
-		spa_pod_builder_add(builder,
-			":", SPA_FORMAT_VIDEO_format,    "I", port->current_format.info.raw.format,
-			":", SPA_FORMAT_VIDEO_size,      "R", &port->current_format.info.raw.size,
-			":", SPA_FORMAT_VIDEO_framerate, "F", &port->current_format.info.raw.framerate, 0);
+		spa_pod_builder_props(builder,
+			SPA_FORMAT_VIDEO_format,    &SPA_POD_Id(port->current_format.info.raw.format),
+			SPA_FORMAT_VIDEO_size,      &SPA_POD_Rectangle(port->current_format.info.raw.size),
+			SPA_FORMAT_VIDEO_framerate, &SPA_POD_Fraction(port->current_format.info.raw.framerate),
+			0);
 		break;
 	case SPA_MEDIA_SUBTYPE_mjpg:
 	case SPA_MEDIA_SUBTYPE_jpeg:
-		spa_pod_builder_add(builder,
-			":", SPA_FORMAT_VIDEO_size,      "R", &port->current_format.info.mjpg.size,
-			":", SPA_FORMAT_VIDEO_framerate, "F", &port->current_format.info.mjpg.framerate, 0);
+		spa_pod_builder_props(builder,
+			SPA_FORMAT_VIDEO_size,      &SPA_POD_Rectangle(port->current_format.info.mjpg.size),
+			SPA_FORMAT_VIDEO_framerate, &SPA_POD_Fraction(port->current_format.info.mjpg.framerate),
+			0);
 		break;
 	case SPA_MEDIA_SUBTYPE_h264:
-		spa_pod_builder_add(builder,
-			":", SPA_FORMAT_VIDEO_size,      "R", &port->current_format.info.h264.size,
-			":", SPA_FORMAT_VIDEO_framerate, "F", &port->current_format.info.h264.framerate, 0);
+		spa_pod_builder_props(builder,
+			SPA_FORMAT_VIDEO_size,      &SPA_POD_Rectangle(port->current_format.info.h264.size),
+			SPA_FORMAT_VIDEO_framerate, &SPA_POD_Fraction(port->current_format.info.h264.framerate),
+			0);
 		break;
 	default:
 		return -EIO;
@@ -467,8 +476,10 @@ static int impl_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_IO };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
-				":", SPA_PARAM_LIST_id, "I", list[*index]);
+			param = spa_pod_builder_object(&b,
+					SPA_TYPE_OBJECT_ParamList, id,
+					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
+					0);
 		else
 			return 0;
 		break;
@@ -491,12 +502,12 @@ static int impl_node_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			":", SPA_PARAM_BUFFERS_buffers, "iru", MAX_BUFFERS,
-				SPA_POD_PROP_MIN_MAX(2, MAX_BUFFERS),
-			":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
-			":", SPA_PARAM_BUFFERS_size,    "i", port->fmt.fmt.pix.sizeimage,
-			":", SPA_PARAM_BUFFERS_stride,  "i", port->fmt.fmt.pix.bytesperline,
-			":", SPA_PARAM_BUFFERS_align,   "i", 16);
+			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(MAX_BUFFERS, 2, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    &SPA_POD_Int(port->fmt.fmt.pix.sizeimage),
+			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(port->fmt.fmt.pix.bytesperline),
+			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
+			0);
 		break;
 
 	case SPA_PARAM_Meta:
@@ -504,8 +515,9 @@ static int impl_node_port_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
-				":", SPA_PARAM_META_type, "I", SPA_META_Header,
-				":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
+				SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
+				SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
+				0);
 			break;
 		default:
 			return 0;
@@ -516,20 +528,23 @@ static int impl_node_port_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id,   "I", SPA_IO_Buffers,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
+				SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Buffers),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_buffers)),
+				0);
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id,   "I", SPA_IO_Clock,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_clock));
+				SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Clock),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_clock)),
+				0);
 			break;
 		case 2:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id,   "I", SPA_IO_Control,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence));
+				SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Control),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_sequence)),
+				0);
 			break;
 		default:
 			return 0;
@@ -813,20 +828,19 @@ static int process_control(struct impl *this, struct port *port, struct spa_pod_
 		switch (c->type) {
 		case SPA_CONTROL_Properties:
 		{
-			struct spa_pod *pod;
+			struct spa_pod_prop *prop;
 			struct spa_pod_object *obj = (struct spa_pod_object *) &c->value;
 
-			SPA_POD_OBJECT_FOREACH(obj, pod) {
-				struct spa_pod_prop *prop = (struct spa_pod_prop *)pod;
+			SPA_POD_OBJECT_FOREACH(obj, prop) {
 				struct v4l2_control c;
 				uint32_t control_id;
 
-				if ((control_id = prop_to_control_id(prop->body.key)) == 0)
+				if ((control_id = prop_to_control_id(prop->key)) == 0)
 					continue;
 
 				memset (&c, 0, sizeof (c));
 				c.id = control_id;
-				c.value = SPA_POD_VALUE(struct spa_pod_float, &prop->body.value);
+				c.value = SPA_POD_VALUE(struct spa_pod_float, &prop->value);
 
 				if (ioctl(port->fd, VIDIOC_S_CTRL, &c) < 0)
 					spa_log_error(port->log, "VIDIOC_S_CTRL %m");

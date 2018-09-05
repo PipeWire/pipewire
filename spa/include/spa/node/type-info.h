@@ -55,7 +55,7 @@ static const struct spa_type_info spa_type_node_event_id[] = {
 };
 
 static const struct spa_type_info spa_type_node_event[] = {
-	{ 0,		 SPA_TYPE_NODE_EVENT_BASE,   SPA_TYPE_Enum, spa_type_node_event_id },
+	{ 0,		 SPA_TYPE_NODE_EVENT_BASE,   SPA_TYPE_Id, spa_type_node_event_id },
 	{ 0, NULL, },
 };
 
@@ -75,7 +75,7 @@ static const struct spa_type_info spa_type_node_command_id[] = {
 };
 
 static const struct spa_type_info spa_type_node_command[] = {
-	{ 0,		 SPA_TYPE_NODE_COMMAND_BASE,   SPA_TYPE_Enum, spa_type_node_command_id },
+	{ 0,		 SPA_TYPE_NODE_COMMAND_BASE,   SPA_TYPE_Id, spa_type_node_command_id },
 	{ 0, NULL, },
 };
 

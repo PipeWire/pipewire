@@ -169,24 +169,27 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 
 	params[0] = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		":", SPA_PARAM_BUFFERS_buffers, "iru", 2,
-			SPA_POD_PROP_MIN_MAX(1, 32),
-		":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
-		":", SPA_PARAM_BUFFERS_size,    "i", data->stride * data->format.size.height,
-		":", SPA_PARAM_BUFFERS_stride,  "i", data->stride,
-		":", SPA_PARAM_BUFFERS_align,   "i", 16);
+		SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(2, 1, 32),
+		SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
+		SPA_PARAM_BUFFERS_size,    &SPA_POD_Int(data->stride * data->format.size.height),
+		SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(data->stride),
+		SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
+		0);
 
 	params[1] = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-		":", SPA_PARAM_META_type, "I", SPA_META_Header,
-		":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
+		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
+		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
+		0);
 
 	params[2] = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-		":", SPA_PARAM_META_type, "I", SPA_META_VideoDamage,
-		":", SPA_PARAM_META_size, "iru", sizeof(struct spa_meta_region) * 16,
-			SPA_POD_PROP_MIN_MAX(sizeof(struct spa_meta_region) * 1,
-					     sizeof(struct spa_meta_region) * 16));
+		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_VideoDamage),
+		SPA_PARAM_META_size, &SPA_POD_CHOICE_RANGE_Int(
+					sizeof(struct spa_meta_region) * 16,
+					sizeof(struct spa_meta_region) * 1,
+					sizeof(struct spa_meta_region) * 16),
+		0);
 
 	pw_stream_finish_format(stream, 0, params, 3);
 }
@@ -224,13 +227,15 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 		params[0] = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			":", SPA_FORMAT_mediaType,       "I", SPA_MEDIA_TYPE_video,
-			":", SPA_FORMAT_mediaSubtype,    "I", SPA_MEDIA_SUBTYPE_raw,
-			":", SPA_FORMAT_VIDEO_format,    "I", SPA_VIDEO_FORMAT_RGB,
-			":", SPA_FORMAT_VIDEO_size,      "Rru", &SPA_RECTANGLE(320, 240),
-				SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1, 1),
-						     &SPA_RECTANGLE(4096, 4096)),
-			":", SPA_FORMAT_VIDEO_framerate, "F", &SPA_FRACTION(25, 1));
+			SPA_FORMAT_mediaType,       &SPA_POD_Id(SPA_MEDIA_TYPE_video),
+			SPA_FORMAT_mediaSubtype,    &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+			SPA_FORMAT_VIDEO_format,    &SPA_POD_Id(SPA_VIDEO_FORMAT_RGB),
+			SPA_FORMAT_VIDEO_size,      &SPA_POD_CHOICE_RANGE_Rectangle(
+							SPA_RECTANGLE(320, 240),
+							SPA_RECTANGLE(1, 1),
+							SPA_RECTANGLE(4096, 4096)),
+			SPA_FORMAT_VIDEO_framerate, &SPA_POD_Fraction(SPA_FRACTION(25, 1)),
+			0);
 
 		pw_stream_add_listener(data->stream,
 				       &data->stream_listener,

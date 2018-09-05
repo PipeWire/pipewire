@@ -199,13 +199,6 @@ static void update_props(struct data *data)
 
 	spa_pod_builder_init(&b, data->ctrl, sizeof(data->ctrl));
 
-#if 1
-	pod = spa_pod_builder_sequence(&b, 0,
-	".", 0, SPA_CONTROL_Properties,
-		SPA_POD_OBJECT(SPA_TYPE_OBJECT_Props, 0,
-		":", SPA_PROP_frequency, "d", ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0,
-		":", SPA_PROP_volume,    "d", (sin(data->volume_accum) / 2.0) + 0.5));
-#endif
 #if 0
 	spa_pod_builder_push_sequence(&b, 0);
 	spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
@@ -218,14 +211,14 @@ static void update_props(struct data *data)
 	spa_pod_builder_pop(&b);
 	spa_pod_builder_pop(&b);
 	pod = spa_pod_builder_pop(&b);
-#endif
-#if 0
+#else
 	spa_pod_builder_push_sequence(&b, 0);
 	spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
 	spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
-		":", SPA_PROP_frequency, "d", ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0,
-		":", SPA_PROP_volume,    "d", (sin(data->volume_accum) / 2.0) + 0.5);
+		SPA_PROP_frequency, &SPA_POD_Float(((sin(data->freq_accum) + 1.0) * 200.0) + 440.0),
+		SPA_PROP_volume,    &SPA_POD_Float((sin(data->volume_accum) / 2.0) + 0.5),
+		0);
 	pod = spa_pod_builder_pop(&b);
 #endif
 
@@ -311,8 +304,9 @@ static int make_nodes(struct data *data, const char *device)
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
-		":", SPA_PROP_device,     "s", device ? device : "hw:0",
-		":", SPA_PROP_minLatency, "i", MIN_LATENCY);
+		SPA_PROP_device,     &SPA_POD_Stringv(device ? device : "hw:0"),
+		SPA_PROP_minLatency, &SPA_POD_Int(MIN_LATENCY),
+		0);
 
 	spa_debug_pod(0, NULL, props);
 
@@ -329,9 +323,10 @@ static int make_nodes(struct data *data, const char *device)
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
-		":", SPA_PROP_frequency, "d", 600.0,
-		":", SPA_PROP_volume,    "d", 0.5,
-		":", SPA_PROP_live,      "b", false);
+		SPA_PROP_frequency, &SPA_POD_Float(600.0),
+		SPA_PROP_volume,    &SPA_POD_Float(0.5),
+		SPA_PROP_live,      &SPA_POD_Bool(false),
+		0);
 
 	if ((res = spa_node_set_param(data->source, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);

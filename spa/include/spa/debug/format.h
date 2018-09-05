@@ -37,7 +37,7 @@ spa_debug_format_value(const struct spa_type_info *info,
 	case SPA_TYPE_Bool:
 		fprintf(stderr, "%s", *(int32_t *) body ? "true" : "false");
 		break;
-	case SPA_TYPE_Enum:
+	case SPA_TYPE_Id:
 	{
 		const char *str = spa_debug_type_find_name(info, *(int32_t *) body);
 		char tmp[64];
@@ -85,6 +85,20 @@ spa_debug_format_value(const struct spa_type_info *info,
 	case SPA_TYPE_Bytes:
 		fprintf(stderr, "Bytes");
 		break;
+	case SPA_TYPE_Array:
+	{
+		void *p;
+		struct spa_pod_array_body *b = body;
+		int i = 0;
+		fprintf(stderr, "< ");
+		SPA_POD_ARRAY_BODY_FOREACH(b, size, p) {
+			if (i++ > 0)
+				fprintf(stderr, ", ");
+			spa_debug_format_value(info, b->child.type, p, b->child.size);
+		}
+		fprintf(stderr, " >");
+		break;
+	}
 	default:
 		fprintf(stderr, "INVALID type %d", type);
 		break;
@@ -98,12 +112,12 @@ static inline int spa_debug_format(int indent,
 	int i;
 	const char *media_type;
 	const char *media_subtype;
-	struct spa_pod *pod;
+	struct spa_pod_prop *prop;
 	uint32_t mtype, mstype;
 	const char *pod_type_names[] = {
 		[SPA_TYPE_None] = "none",
 		[SPA_TYPE_Bool] = "bool",
-		[SPA_TYPE_Enum] = "enum",
+		[SPA_TYPE_Id] = "id",
 		[SPA_TYPE_Int] = "int",
 		[SPA_TYPE_Long] = "long",
 		[SPA_TYPE_Float] = "float",
@@ -118,7 +132,7 @@ static inline int spa_debug_format(int indent,
 		[SPA_TYPE_Object] = "object",
 		[SPA_TYPE_Pointer] = "pointer",
 		[SPA_TYPE_Fd] = "fd",
-		[SPA_TYPE_Prop] = "prop",
+		[SPA_TYPE_Choice] = "choice",
 		[SPA_TYPE_Pod] = "pod"
 	};
 
@@ -138,50 +152,45 @@ static inline int spa_debug_format(int indent,
 		media_type ? rindex(media_type, ':') + 1 : "unknown",
 		media_subtype ? rindex(media_subtype, ':') + 1 : "unknown");
 
-	SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)format, pod) {
-		struct spa_pod_prop *prop;
+	SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)format, prop) {
 		const char *key;
 		const struct spa_type_info *ti;
+		uint32_t type, size, n_vals, choice;
+		const struct spa_pod *val;
+		void *vals;
 
-		if (pod->type != SPA_TYPE_Prop)
+		if (prop->key == SPA_FORMAT_mediaType ||
+		    prop->key == SPA_FORMAT_mediaSubtype)
 			continue;
 
-		prop = (struct spa_pod_prop *)pod;
+		val = spa_pod_get_values(&prop->value, &n_vals, &choice);
 
-		if ((prop->body.flags & SPA_POD_PROP_FLAG_UNSET) &&
-		    (prop->body.flags & SPA_POD_PROP_FLAG_OPTIONAL))
-			continue;
+		type = val->type;
+		size = val->size;
+		vals = SPA_POD_BODY(val);
 
-		if (prop->body.key == SPA_FORMAT_mediaType ||
-		    prop->body.key == SPA_FORMAT_mediaSubtype)
-			continue;
-
-		ti = spa_debug_type_find(info, prop->body.key);
+		ti = spa_debug_type_find(info, prop->key);
 		key = ti ? ti->name : NULL;
 
 		fprintf(stderr, "%*s %16s : (%s) ", indent, "",
 			key ? rindex(key, ':') + 1 : "unknown",
-			pod_type_names[prop->body.value.type]);
+			pod_type_names[type]);
 
-		if (!(prop->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
-			spa_debug_format_value(ti->values,
-					prop->body.value.type,
-					SPA_POD_BODY(&prop->body.value),
-					prop->body.value.size);
+		if (choice == SPA_CHOICE_None) {
+			spa_debug_format_value(ti->values, type, vals, size);
 		} else {
 			const char *ssep, *esep, *sep;
-			void *alt;
 
-			switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
-			case SPA_POD_PROP_RANGE_MIN_MAX:
-			case SPA_POD_PROP_RANGE_STEP:
+			switch (choice) {
+			case SPA_CHOICE_Range:
+			case SPA_CHOICE_Step:
 				ssep = "[ ";
 				sep = ", ";
 				esep = " ]";
 				break;
 			default:
-			case SPA_POD_PROP_RANGE_ENUM:
-			case SPA_POD_PROP_RANGE_FLAGS:
+			case SPA_CHOICE_Enum:
+			case SPA_CHOICE_Flags:
 				ssep = "{ ";
 				sep = ", ";
 				esep = " }";
@@ -190,15 +199,11 @@ static inline int spa_debug_format(int indent,
 
 			fprintf(stderr, "%s", ssep);
 
-			i = 0;
-			SPA_POD_PROP_ALTERNATIVE_FOREACH(&prop->body, prop->pod.size, alt) {
-				if (i > 0)
+			for (i = 1; i < n_vals; i++) {
+				vals = SPA_MEMBER(vals, size, void);
+				if (i > 1)
 					fprintf(stderr, "%s", sep);
-				spa_debug_format_value(ti->values,
-						prop->body.value.type,
-						alt,
-						prop->body.value.size);
-				i++;
+				spa_debug_format_value(ti->values, type, vals, size);
 			}
 			fprintf(stderr, "%s", esep);
 		}

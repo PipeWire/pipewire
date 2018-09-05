@@ -47,12 +47,13 @@ spa_format_audio_raw_build(struct spa_pod_builder *builder, uint32_t id, struct 
 {
 	return spa_pod_builder_object(builder,
                         SPA_TYPE_OBJECT_Format, id,
-                        ":", SPA_FORMAT_mediaType,	"I", SPA_MEDIA_TYPE_audio,
-                        ":", SPA_FORMAT_mediaSubtype,	"I", SPA_MEDIA_SUBTYPE_raw,
-                        ":", SPA_FORMAT_AUDIO_format,   "I", info->format,
-                        ":", SPA_FORMAT_AUDIO_layout,   "I", info->layout,
-                        ":", SPA_FORMAT_AUDIO_rate,     "i", info->rate,
-                        ":", SPA_FORMAT_AUDIO_channels, "i", info->channels);
+                        SPA_FORMAT_mediaType,		&SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+                        SPA_FORMAT_mediaSubtype,	&SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+                        SPA_FORMAT_AUDIO_format,	&SPA_POD_Id(info->format),
+                        SPA_FORMAT_AUDIO_layout,	&SPA_POD_Id(info->layout),
+                        SPA_FORMAT_AUDIO_rate,		&SPA_POD_Int(info->rate),
+                        SPA_FORMAT_AUDIO_channels,	&SPA_POD_Int(info->channels),
+			0);
 }
 
 #ifdef __cplusplus

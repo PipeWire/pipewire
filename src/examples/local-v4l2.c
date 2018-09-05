@@ -20,7 +20,11 @@
 #include <stdio.h>
 #include <sys/mman.h>
 
-#include <SDL2/SDL.h>
+#define WIDTH   640
+#define HEIGHT  480
+#define BPP    3
+
+#include "sdl.h"
 
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
@@ -30,10 +34,6 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/module.h>
 #include <pipewire/factory.h>
-
-#define WIDTH   640
-#define HEIGHT  480
-#define BPP    3
 
 struct data {
 	SDL_Renderer *renderer;
@@ -74,76 +74,6 @@ static void handle_events(struct data *data)
 			break;
 		}
 	}
-}
-
-static struct {
-	Uint32 format;
-	uint32_t id;
-} video_formats[] = {
-	{ SDL_PIXELFORMAT_UNKNOWN, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_INDEX1LSB, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_UNKNOWN, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_INDEX1LSB, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_INDEX1MSB, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_INDEX4LSB, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_INDEX4MSB, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_INDEX8, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_RGB332, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_RGB444, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_RGB555, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_BGR555, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_ARGB4444, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_RGBA4444, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_ABGR4444, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_BGRA4444, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_ARGB1555, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_RGBA5551, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_ABGR1555, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_BGRA5551, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_RGB565, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_BGR565, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_RGB24, SPA_VIDEO_FORMAT_RGB,},
-	{ SDL_PIXELFORMAT_RGB888, SPA_VIDEO_FORMAT_RGB,},
-	{ SDL_PIXELFORMAT_RGBX8888, SPA_VIDEO_FORMAT_RGBx,},
-	{ SDL_PIXELFORMAT_BGR24, SPA_VIDEO_FORMAT_BGR,},
-	{ SDL_PIXELFORMAT_BGR888, SPA_VIDEO_FORMAT_BGR,},
-	{ SDL_PIXELFORMAT_BGRX8888, SPA_VIDEO_FORMAT_BGRx,},
-	{ SDL_PIXELFORMAT_ARGB2101010, SPA_VIDEO_FORMAT_UNKNOWN,},
-	{ SDL_PIXELFORMAT_RGBA8888, SPA_VIDEO_FORMAT_RGBA,},
-	{ SDL_PIXELFORMAT_ARGB8888, SPA_VIDEO_FORMAT_ARGB,},
-	{ SDL_PIXELFORMAT_BGRA8888, SPA_VIDEO_FORMAT_BGRA,},
-	{ SDL_PIXELFORMAT_ABGR8888, SPA_VIDEO_FORMAT_ABGR,},
-	{ SDL_PIXELFORMAT_YV12, SPA_VIDEO_FORMAT_YV12,},
-	{ SDL_PIXELFORMAT_IYUV, SPA_VIDEO_FORMAT_I420,},
-	{ SDL_PIXELFORMAT_YUY2, SPA_VIDEO_FORMAT_YUY2,},
-	{ SDL_PIXELFORMAT_UYVY, SPA_VIDEO_FORMAT_UYVY,},
-	{ SDL_PIXELFORMAT_YVYU, SPA_VIDEO_FORMAT_YVYU,},
-#if SDL_VERSION_ATLEAST(2,0,4)
-	{ SDL_PIXELFORMAT_NV12, SPA_VIDEO_FORMAT_NV12,},
-	{ SDL_PIXELFORMAT_NV21, SPA_VIDEO_FORMAT_NV21,},
-#endif
-};
-
-static uint32_t sdl_format_to_id(struct data *data, Uint32 format)
-{
-	size_t i;
-
-	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
-		if (video_formats[i].format == format)
-			return video_formats[i].id;
-	}
-	return SPA_VIDEO_FORMAT_UNKNOWN;
-}
-
-static Uint32 id_to_sdl_format(struct data *data, uint32_t id)
-{
-	size_t i;
-
-	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
-		if (video_formats[i].id == id)
-			return video_formats[i].format;
-	}
-	return SDL_PIXELFORMAT_UNKNOWN;
 }
 
 static int impl_send_command(struct spa_node *node, const struct spa_command *command)
@@ -218,50 +148,12 @@ static int port_enum_formats(struct spa_node *node,
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	SDL_RendererInfo info;
-	uint32_t i, c;
 
 	if (*index != 0)
 		return 0;
 
 	SDL_GetRendererInfo(d->renderer, &info);
-
-	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-	spa_pod_builder_push_prop(builder, SPA_FORMAT_mediaType, 0);
-	spa_pod_builder_enum(builder, SPA_MEDIA_TYPE_video);
-	spa_pod_builder_pop(builder);
-
-	spa_pod_builder_push_prop(builder, SPA_FORMAT_mediaSubtype, 0);
-	spa_pod_builder_enum(builder, SPA_MEDIA_SUBTYPE_raw);
-	spa_pod_builder_pop(builder);
-
-	spa_pod_builder_push_prop(builder, SPA_FORMAT_VIDEO_format,
-				  SPA_POD_PROP_FLAG_UNSET |
-				  SPA_POD_PROP_RANGE_ENUM);
-	for (i = 0, c = 0; i < info.num_texture_formats; i++) {
-		uint32_t id = sdl_format_to_id(d, info.texture_formats[i]);
-		if (id == 0)
-			continue;
-		if (c++ == 0)
-			spa_pod_builder_enum(builder, id);
-		spa_pod_builder_enum(builder, id);
-	}
-	for (i = 0; i < SPA_N_ELEMENTS(video_formats); i++) {
-		uint32_t id = video_formats[i].id;
-		if (id != SPA_VIDEO_FORMAT_UNKNOWN)
-			spa_pod_builder_enum(builder, id);
-	}
-	spa_pod_builder_pop(builder);
-
-	spa_pod_builder_add(builder,
-		":", SPA_FORMAT_VIDEO_size,      "Rru", &SPA_RECTANGLE(WIDTH, HEIGHT),
-			SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1,1),
-					     &SPA_RECTANGLE(info.max_texture_width,
-							    info.max_texture_height)),
-		":", SPA_FORMAT_VIDEO_framerate, "Fru", &SPA_FRACTION(25,1),
-			SPA_POD_PROP_MIN_MAX(&SPA_FRACTION(0,1),
-					     &SPA_FRACTION(30,1)),
-		NULL);
-	*result = spa_pod_builder_pop(builder);
+	*result = sdl_build_formats(&info, builder);
 
 	(*index)++;
 
@@ -287,12 +179,12 @@ static int impl_port_enum_params(struct spa_node *node,
 
 		*result = spa_pod_builder_object(builder,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			":", SPA_PARAM_BUFFERS_buffers, "iru", 2,
-				SPA_POD_PROP_MIN_MAX(1, 32),
-			":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
-			":", SPA_PARAM_BUFFERS_size,    "i", d->stride * d->format.size.height,
-			":", SPA_PARAM_BUFFERS_stride,  "i", d->stride,
-			":", SPA_PARAM_BUFFERS_align,   "i", 16);
+			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(2, 1, 32),
+			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    &SPA_POD_Int(d->stride * d->format.size.height),
+			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(d->stride),
+			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
+			0);
 		break;
 
 	case SPA_PARAM_Meta:
@@ -301,8 +193,9 @@ static int impl_port_enum_params(struct spa_node *node,
 
 		*result = spa_pod_builder_object(builder,
 			SPA_TYPE_OBJECT_ParamMeta, id,
-			":", SPA_PARAM_META_type, "I", SPA_META_Header,
-			":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
+			SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
+			SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
+			0);
 		break;
 
 	default:
@@ -327,7 +220,7 @@ static int port_set_format(struct spa_node *node, enum spa_direction direction, 
 
 	spa_format_video_raw_parse(format, &d->format);
 
-	sdl_format = id_to_sdl_format(d, d->format.format);
+	sdl_format = id_to_sdl_format(d->format.format);
 	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN)
 		return -EINVAL;
 

@@ -73,6 +73,12 @@ static int impl_udev_open(struct impl *this)
 	return 0;
 }
 
+static inline void add_dict(struct spa_pod_builder *builder, const char *key, const char *val)
+{
+	spa_pod_builder_string(builder, key);
+	spa_pod_builder_string(builder, val);
+}
+
 static void fill_item(struct impl *this, struct item *item, struct udev_device *udevice,
 		struct spa_pod **result, struct spa_pod_builder *builder)
 {
@@ -97,43 +103,43 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 	if (!(name && *name))
 		name = "Unknown";
 
-	spa_pod_builder_add(builder,
-		"{", SPA_TYPE_OBJECT_MonitorItem, 0,
-		":", SPA_MONITOR_ITEM_id,      "s", udev_device_get_syspath(item->udevice),
-		":", SPA_MONITOR_ITEM_flags,   "I", SPA_MONITOR_ITEM_FLAG_NONE,
-		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_Available,
-		":", SPA_MONITOR_ITEM_name,    "s", name,
-		":", SPA_MONITOR_ITEM_class,   "s", "Video/Source",
-		":", SPA_MONITOR_ITEM_factory, "p", SPA_TYPE_INTERFACE_HandleFactory, &spa_v4l2_source_factory,
-		":", SPA_MONITOR_ITEM_info,    "[",
-		NULL);
+	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_MonitorItem, 0);
+	spa_pod_builder_props(builder,
+		SPA_MONITOR_ITEM_id,      &SPA_POD_Stringv(udev_device_get_syspath(item->udevice)),
+		SPA_MONITOR_ITEM_flags,   &SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
+		SPA_MONITOR_ITEM_state,   &SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
+		SPA_MONITOR_ITEM_name,    &SPA_POD_Stringv(name),
+		SPA_MONITOR_ITEM_class,   &SPA_POD_Stringc("Video/Source"),
+		SPA_MONITOR_ITEM_factory, &SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory, &spa_v4l2_source_factory),
+		0);
 
-	spa_pod_builder_add(builder,
-		    "s", "udev-probed", "s", "1",
-		    "s", "device.api",  "s", "v4l2",
-		    "s", "device.path", "s", udev_device_get_devnode(item->udevice),
-		    NULL);
+	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);
+	spa_pod_builder_push_struct(builder);
+	add_dict(builder, "udev-probed", "1");
+	add_dict(builder, "device.api", "v4l2");
+	add_dict(builder, "device.path", udev_device_get_devnode(item->udevice));
+
 
 	str = udev_device_get_property_value(item->udevice, "ID_PATH");
 	if (!(str && *str))
 		str = udev_device_get_syspath(item->udevice);
 	if (str && *str) {
-		spa_pod_builder_add(builder, "s", "device.bus_path", "s", str, 0);
+		add_dict(builder, "device.bus_path", str);
 	}
 	if ((str = udev_device_get_syspath(item->udevice)) && *str) {
-		spa_pod_builder_add(builder, "s", "sysfs.path", "s", str, 0);
+		add_dict(builder, "sysfs.path", str);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_ID")) && *str) {
-		spa_pod_builder_add(builder, "s", "udev.id", "s", str, 0);
+		add_dict(builder, "udev.id", str);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_BUS")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.bus", "s", str, 0);
+		add_dict(builder, "device.bus", str);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "SUBSYSTEM")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.subsystem", "s", str, 0);
+		add_dict(builder, "device.subsystem", str);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_VENDOR_ID")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.vendor.id", "s", str, 0);
+		add_dict(builder, "device.vendor.id", str);
 	}
 	str = udev_device_get_property_value(item->udevice, "ID_VENDOR_FROM_DATABASE");
 	if (!(str && *str)) {
@@ -143,20 +149,21 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 		}
 	}
 	if (str && *str) {
-		spa_pod_builder_add(builder, "s", "device.vendor.name", "s", str, 0);
+		add_dict(builder, "device.vendor.name", str);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_MODEL_ID")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.product.id", "s", str, 0);
+		add_dict(builder, "device.product.id", str);
 	}
-	spa_pod_builder_add(builder, "s", "device.product.name", "s", name, 0);
+	add_dict(builder, "device.product.name", name);
 	if ((str = udev_device_get_property_value(item->udevice, "ID_SERIAL")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.serial", "s", str, 0);
+		add_dict(builder, "device.serial", str);
 	}
 	if ((str = udev_device_get_property_value(item->udevice, "ID_V4L_CAPABILITIES")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.capabilities", "s", str, 0);
+		add_dict(builder, "device.capabilities", str);
 	}
 
-	*result = spa_pod_builder_add(builder, "]}", NULL);
+	spa_pod_builder_pop(builder);
+	*result = spa_pod_builder_pop(builder);
 }
 
 static void impl_on_fd_events(struct spa_source *source)
@@ -187,7 +194,7 @@ static void impl_on_fd_events(struct spa_source *source)
 		return;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id);
+	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id, 0);
 	fill_item(this, &this->uitem, dev, &item, &b);
 
 	this->callbacks->event(this->callbacks_data, event);

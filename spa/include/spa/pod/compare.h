@@ -33,7 +33,7 @@ static inline int spa_pod_compare_value(uint32_t type, const void *r1, const voi
 	case SPA_TYPE_None:
 		return 0;
 	case SPA_TYPE_Bool:
-	case SPA_TYPE_Enum:
+	case SPA_TYPE_Id:
 		return *(int32_t *) r1 == *(uint32_t *) r2 ? 0 : 1;
 	case SPA_TYPE_Int:
 		return *(int32_t *) r1 - *(int32_t *) r2;
@@ -104,31 +104,6 @@ static inline int spa_pod_compare_part(const struct spa_pod *pod1, uint32_t pod1
 
 			do_advance = true;
 			break;
-		case SPA_TYPE_Prop:
-		{
-			struct spa_pod_prop *pr1, *pr2;
-			void *a1, *a2;
-
-			pr1 = (struct spa_pod_prop *) p1;
-			pr2 = spa_pod_contents_find_prop(pod2, pod2_size, pr1->body.key);
-
-			if (pr2 == NULL)
-				return -EINVAL;
-
-			/* incompatible property types */
-			if (pr1->body.value.type != pr2->body.value.type)
-				return -EINVAL;
-
-			if (pr1->body.flags & SPA_POD_PROP_FLAG_UNSET ||
-			    pr2->body.flags & SPA_POD_PROP_FLAG_UNSET)
-				return -EINVAL;
-
-			a1 = SPA_MEMBER(pr1, sizeof(struct spa_pod_prop), void);
-			a2 = SPA_MEMBER(pr2, sizeof(struct spa_pod_prop), void);
-
-			res = spa_pod_compare_value(pr1->body.value.type, a1, a2);
-			break;
-		}
 		default:
 			if (SPA_POD_TYPE(p1) != SPA_POD_TYPE(p2))
 				return -EINVAL;

@@ -53,8 +53,8 @@ enum wave_type {
 struct props {
 	bool live;
 	uint32_t wave;
-	double freq;
-	double volume;
+	float freq;
+	float volume;
 };
 
 static void reset_props(struct props *props)
@@ -100,15 +100,11 @@ struct impl {
 	struct spa_io_range *io_range;
 	struct spa_io_sequence *io_control;
 
-	uint32_t *io_wave;
-	double *io_freq;
-	double *io_volume;
-
 	bool have_format;
 	struct spa_audio_info current_format;
 	size_t bpf;
 	render_func_t render_func;
-	double accumulator;
+	float accumulator;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -150,8 +146,10 @@ static int impl_node_enum_params(struct spa_node *node,
 				    SPA_PARAM_Props };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
-				":", SPA_PARAM_LIST_id, "I", list[*index]);
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamList, id,
+				SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
+				0);
 		else
 			return 0;
 		break;
@@ -164,35 +162,42 @@ static int impl_node_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				":", SPA_PROP_INFO_id,   "I", SPA_PROP_live,
-				":", SPA_PROP_INFO_name, "s", "Configure live mode of the source",
-				":", SPA_PROP_INFO_type, "b", p->live);
+				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_live),
+				SPA_PROP_INFO_name, &SPA_POD_Stringc("Configure live mode of the source"),
+				SPA_PROP_INFO_type, &SPA_POD_Bool(p->live),
+				0);
 			break;
 		case 1:
-			param = spa_pod_builder_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				":", SPA_PROP_INFO_id,   "I", SPA_PROP_waveType,
-				":", SPA_PROP_INFO_name, "s", "Select the waveform",
-				":", SPA_PROP_INFO_type, "i", p->wave,
-				":", SPA_PROP_INFO_labels, "[-i",
-					"i", WAVE_SINE, "s", "Sine wave",
-					"i", WAVE_SQUARE, "s", "Square wave", "]");
+			spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_PropInfo, id);
+			spa_pod_builder_props(&b,
+				SPA_PROP_INFO_id,     &SPA_POD_Id(SPA_PROP_waveType),
+				SPA_PROP_INFO_name,   &SPA_POD_Stringc("Select the waveform"),
+				SPA_PROP_INFO_type,   &SPA_POD_Int(p->wave),
+				0);
+			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, SPA_POD_PROP_FLAG_INFO);
+			spa_pod_builder_push_struct(&b);
+			spa_pod_builder_int(&b, WAVE_SINE);
+			spa_pod_builder_string(&b, "Sine wave");
+			spa_pod_builder_int(&b, WAVE_SQUARE);
+			spa_pod_builder_string(&b, "Square wave");
+			spa_pod_builder_pop(&b);
+			param = spa_pod_builder_pop(&b);
 			break;
 		case 2:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				":", SPA_PROP_INFO_id,   "I", SPA_PROP_frequency,
-				":", SPA_PROP_INFO_name, "s", "Select the frequency",
-				":", SPA_PROP_INFO_type, "dr", p->freq,
-					SPA_POD_PROP_MIN_MAX(0.0, 50000000.0));
+				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_frequency),
+				SPA_PROP_INFO_name, &SPA_POD_Stringc("Select the frequency"),
+				SPA_PROP_INFO_type, &SPA_POD_CHOICE_RANGE_Float(p->freq, 0.0, 50000000.0),
+				0);
 			break;
 		case 3:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				":", SPA_PROP_INFO_id,   "I", SPA_PROP_volume,
-				":", SPA_PROP_INFO_name, "s", "Select the volume",
-				":", SPA_PROP_INFO_type, "dr", p->volume,
-					SPA_POD_PROP_MIN_MAX(0.0, 10.0));
+				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_volume),
+				SPA_PROP_INFO_name, &SPA_POD_Stringc("Select the volume"),
+				SPA_PROP_INFO_type, &SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0),
+				0);
 			break;
 		default:
 			return 0;
@@ -207,10 +212,11 @@ static int impl_node_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_Props, id,
-				":", SPA_PROP_live,      "b", p->live,
-				":", SPA_PROP_waveType,  "i", p->wave,
-				":", SPA_PROP_frequency, "d", p->freq,
-				":", SPA_PROP_volume,    "d", p->volume);
+				SPA_PROP_live,      &SPA_POD_Bool(p->live),
+				SPA_PROP_waveType,  &SPA_POD_Int(p->wave),
+				SPA_PROP_frequency, &SPA_POD_Float(p->freq),
+				SPA_PROP_volume,    &SPA_POD_Float(p->volume),
+				0);
 			break;
 		default:
 			return 0;
@@ -527,18 +533,18 @@ port_enum_formats(struct impl *this,
 	case 0:
 		*param = spa_pod_builder_object(builder,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			":", SPA_FORMAT_mediaType,      "I", SPA_MEDIA_TYPE_audio,
-			":", SPA_FORMAT_mediaSubtype,   "I", SPA_MEDIA_SUBTYPE_raw,
-			":", SPA_FORMAT_AUDIO_format,   "Ieu", SPA_AUDIO_FORMAT_S16,
-				SPA_POD_PROP_ENUM(4, SPA_AUDIO_FORMAT_S16,
-						     SPA_AUDIO_FORMAT_S32,
-						     SPA_AUDIO_FORMAT_F32,
-						     SPA_AUDIO_FORMAT_F64),
-			":", SPA_FORMAT_AUDIO_layout,   "I", SPA_AUDIO_LAYOUT_INTERLEAVED,
-			":", SPA_FORMAT_AUDIO_rate,     "iru", 44100,
-				SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
-			":", SPA_FORMAT_AUDIO_channels, "iru", 2,
-				SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
+			SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+			SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+			SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(5,
+							SPA_AUDIO_FORMAT_S16,
+							SPA_AUDIO_FORMAT_S16,
+							SPA_AUDIO_FORMAT_S32,
+							SPA_AUDIO_FORMAT_F32,
+							SPA_AUDIO_FORMAT_F64),
+			SPA_FORMAT_AUDIO_layout,   &SPA_POD_Id(SPA_AUDIO_LAYOUT_INTERLEAVED),
+			SPA_FORMAT_AUDIO_rate,     &SPA_POD_CHOICE_RANGE_Int(44100, 1, INT32_MAX),
+			SPA_FORMAT_AUDIO_channels, &SPA_POD_CHOICE_RANGE_Int(2, 1, INT32_MAX),
+			0);
 		break;
 	default:
 		return 0;
@@ -581,8 +587,10 @@ impl_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_IO, };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
-				":", SPA_PARAM_LIST_id, "I", list[*index]);
+			param = spa_pod_builder_object(&b,
+					SPA_TYPE_OBJECT_ParamList, id,
+					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
+					0);
 		else
 			return 0;
 		break;
@@ -609,13 +617,15 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			":", SPA_PARAM_BUFFERS_buffers, "iru", 1,
-				SPA_POD_PROP_MIN_MAX(1, MAX_BUFFERS),
-			":", SPA_PARAM_BUFFERS_blocks,  "i",   1,
-			":", SPA_PARAM_BUFFERS_size,    "iru", 1024 * this->bpf,
-				SPA_POD_PROP_MIN_MAX(16 * this->bpf, INT32_MAX / this->bpf),
-			":", SPA_PARAM_BUFFERS_stride,  "i",   0,
-			":", SPA_PARAM_BUFFERS_align,   "i",   16);
+			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    &SPA_POD_CHOICE_RANGE_Int(
+							1024 * this->bpf,
+							16 * this->bpf,
+							INT32_MAX / this->bpf),
+			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(0),
+			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
+			0);
 		break;
 	case SPA_PARAM_Meta:
 		if (!this->have_format)
@@ -625,8 +635,9 @@ impl_node_port_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
-				":", SPA_PARAM_META_type, "I", SPA_META_Header,
-				":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
+				SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
+				SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
+				0);
 			break;
 		default:
 			return 0;
@@ -637,20 +648,23 @@ impl_node_port_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id,   "I", SPA_IO_Buffers,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
+				SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Buffers),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_buffers)),
+				0);
 			break;
 		case 1:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id,   "I", SPA_IO_Range,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_range));
+				SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Range),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_range)),
+				0);
 			break;
 		case 2:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id,   "I", SPA_IO_Control,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence));
+				SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Control),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_sequence)),
+				0);
 			break;
 		default:
 			return 0;
@@ -1040,10 +1054,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->node = impl_node;
 	reset_props(&this->props);
-
-	this->io_wave = &this->props.wave;
-	this->io_freq = &this->props.freq;
-	this->io_volume = &this->props.volume;
 
 	spa_list_init(&this->empty);
 

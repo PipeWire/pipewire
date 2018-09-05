@@ -117,7 +117,8 @@ static int impl_node_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamList, id,
-			":", SPA_PARAM_LIST_id,   "I",  SPA_PARAM_Props);
+			SPA_PARAM_LIST_id,   &SPA_POD_Id(SPA_PARAM_Props),
+			0);
 		break;
 	case SPA_PARAM_Props:
 		if (*index > 0)
@@ -125,7 +126,8 @@ static int impl_node_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_Props, id,
-			":", SPA_PROP_live, "b", this->props.live);
+			SPA_PROP_live, &SPA_POD_Bool(this->props.live),
+			0);
 		break;
 	default:
 		return -ENOENT;
@@ -460,8 +462,10 @@ impl_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_Meta };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
-				":", SPA_PARAM_LIST_id, "I", list[*index]);
+			param = spa_pod_builder_object(&b,
+					SPA_TYPE_OBJECT_ParamList, id,
+					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
+					0);
 		else
 			return 0;
 		break;
@@ -480,20 +484,21 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			":", SPA_PARAM_BUFFERS_buffers, "ir", 2,
-				SPA_POD_PROP_MIN_MAX(1, 32),
-			":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
-			":", SPA_PARAM_BUFFERS_size,    "i", 128,
-			":", SPA_PARAM_BUFFERS_stride,  "i", 1,
-			":", SPA_PARAM_BUFFERS_align,   "i", 16);
+			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(2, 1, 32),
+			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    &SPA_POD_Int(128),
+			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
+			0);
 		break;
 	case SPA_PARAM_Meta:
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
-				":", SPA_PARAM_META_type, "I", SPA_META_Header,
-				":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
+				SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
+				SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
+				0);
 			break;
 		default:
 			return 0;

@@ -564,9 +564,9 @@ impl_node_port_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(builder,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				":", SPA_PROP_INFO_id, "I", SPA_PROP_volume,
-				":", SPA_PROP_INFO_type, "fru", 1.0,
-					SPA_POD_PROP_MIN_MAX(0.0, 10.0));
+				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_volume),
+				SPA_PROP_INFO_type, &SPA_POD_CHOICE_RANGE_Float(1.0, 0.0, 10.0),
+				0);
 			break;
 		default:
 			return 0;
@@ -578,20 +578,23 @@ impl_node_port_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(builder,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id, "I", SPA_IO_Buffers,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
+				SPA_PARAM_IO_id, &SPA_POD_Id(SPA_IO_Buffers),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_buffers)),
+				0);
 			break;
 		case 1:
 			param = spa_pod_builder_object(builder,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id, "I", SPA_IO_Range,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_range));
+				SPA_PARAM_IO_id, &SPA_POD_Id(SPA_IO_Range),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_range)),
+				0);
 			break;
 		case 2:
 			param = spa_pod_builder_object(builder,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id, "I", SPA_IO_Control,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence));
+				SPA_PARAM_IO_id, &SPA_POD_Id(SPA_IO_Control),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_sequence)),
+				0);
 			break;
 		default:
 			return 0;

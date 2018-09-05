@@ -33,6 +33,73 @@ extern "C" {
 #define spa_debug(...)	({ fprintf(stderr, __VA_ARGS__);fputc('\n', stderr); })
 #endif
 
+#if 0
+static inline int
+spa_debug_pod_prop(int indent, const struct spa_type_info *info, struct spa_pod_prop *prop)
+{
+	void *alt;
+	int i;
+	const struct spa_type_info *ti = spa_debug_type_find(info, prop->key);
+
+	spa_debug("%*s" "Prop: key %s, flags %d", indent, "",
+			ti ? ti->name : "unknown", prop->flags);
+
+	info = ti ? ti->values : info;
+
+	if (prop->flags & SPA_POD_PROP_FLAG_UNSET)
+		spa_debug("%*s" "Unset (Default):", indent + 2, "");
+	else
+		spa_debug("%*s" "Value: size %u", indent + 2, "", prop->value.size);
+
+	spa_debug_pod_value(indent + 4, info, prop->value.type, SPA_POD_BODY(&prop->value),
+			prop->value.size);
+
+	i = 0;
+	switch (prop->flags & SPA_POD_PROP_RANGE_MASK) {
+	case SPA_POD_PROP_RANGE_NONE:
+		break;
+	case SPA_POD_PROP_RANGE_MIN_MAX:
+		SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
+			if (i == 0)
+				spa_debug("%*s" "Min: ", indent + 2, "");
+			else if (i == 1)
+				spa_debug("%*s" "Max: ", indent + 2, "");
+			else
+				break;
+			spa_debug_pod_value(indent + 4, info, prop->value.type, alt, prop->value.size);
+			i++;
+		}
+		break;
+	case SPA_POD_PROP_RANGE_STEP:
+		SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
+			if (i == 0)
+				spa_debug("%*s" "Min:  ", indent + 2, "");
+			else if (i == 1)
+				spa_debug("%*s" "Max:  ", indent + 2, "");
+			else if (i == 2)
+				spa_debug("%*s" "Step: ", indent + 2, "");
+			else
+				break;
+			spa_debug_pod_value(indent + 4, info, prop->value.type, alt, prop->value.size);
+			i++;
+		}
+		break;
+	case SPA_POD_PROP_RANGE_ENUM:
+		SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
+			if (i == 0) {
+				spa_debug("%*s" "Enum:", indent + 2, "");
+			}
+			spa_debug_pod_value(indent + 4, info, prop->value.type, alt, prop->value.size);
+			i++;
+		}
+		break;
+	case SPA_POD_PROP_RANGE_FLAGS:
+		break;
+	}
+	break;
+}
+#endif
+
 static inline int
 spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
@@ -41,8 +108,8 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 	case SPA_TYPE_Bool:
 		spa_debug("%*s" "Bool %d", indent, "", *(int32_t *) body);
 		break;
-	case SPA_TYPE_Enum:
-		spa_debug("%*s" "Enum %d (%s)", indent, "", *(int32_t *) body,
+	case SPA_TYPE_Id:
+		spa_debug("%*s" "Id %d (%s)", indent, "", *(int32_t *) body,
 		       spa_debug_type_find_name(info, *(int32_t *) body));
 		break;
 	case SPA_TYPE_Int:
@@ -89,14 +156,25 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 	{
 		struct spa_pod_array_body *b = body;
 		void *p;
-		const struct spa_type_info *ti = spa_debug_type_find(info, b->child.type);
+		const struct spa_type_info *ti = spa_debug_type_find(SPA_TYPE_ROOT, b->child.type);
 
 		spa_debug("%*s" "Array: child.size %d, child.type %s", indent, "",
 		       b->child.size, ti ? ti->name : "unknown");
 
-		info = ti ? ti->values : info;
-
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p)
+			spa_debug_pod_value(indent + 2, info, b->child.type, p, b->child.size);
+		break;
+	}
+	case SPA_TYPE_Choice:
+	{
+		struct spa_pod_choice_body *b = body;
+		void *p;
+		const struct spa_type_info *ti = spa_debug_type_find(spa_type_choice, b->type);
+
+		spa_debug("%*s" "Choice: type %s, flags %08x %d %d", indent, "",
+		       ti ? ti->name : "unknown", b->flags, size, b->child.size);
+
+		SPA_POD_CHOICE_BODY_FOREACH(b, size, p)
 			spa_debug_pod_value(indent + 2, info, b->child.type, p, b->child.size);
 		break;
 	}
@@ -111,7 +189,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 	case SPA_TYPE_Object:
 	{
 		struct spa_pod_object_body *b = body;
-		struct spa_pod *p;
+		struct spa_pod_prop *p;
 		const struct spa_type_info *ti, *ii;
 
 		ti = spa_debug_type_find(info, b->type);
@@ -123,9 +201,17 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 
 		info = ti ? ti->values : info;
 
-		SPA_POD_OBJECT_BODY_FOREACH(b, size, p)
-			spa_debug_pod_value(indent + 2, info,
-					p->type, SPA_POD_BODY(p), p->size);
+		SPA_POD_OBJECT_BODY_FOREACH(b, size, p) {
+			ii = spa_debug_type_find(info, p->key);
+
+			spa_debug("%*s" "Prop: key %s, flags %08x", indent+2, "",
+					ii ? ii->name : "unknown", p->flags);
+
+			spa_debug_pod_value(indent + 4, ii->values,
+					p->value.type,
+					SPA_POD_CONTENTS(struct spa_pod_prop, p),
+					p->value.size);
+		}
 		break;
 	}
 	case SPA_TYPE_Sequence:
@@ -145,74 +231,10 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 			spa_debug("%*s" "Control: offset %d, type %s", indent+2, "",
 					c->offset, ii ? ii->name : "unknown");
 
-			spa_debug_pod_value(indent + 2, info,
+			spa_debug_pod_value(indent + 4, ii->values,
 					c->value.type,
 					SPA_POD_CONTENTS(struct spa_pod_control, c),
 					c->value.size);
-		}
-		break;
-	}
-	case SPA_TYPE_Prop:
-	{
-		struct spa_pod_prop_body *b = body;
-		void *alt;
-		int i;
-		const struct spa_type_info *ti = spa_debug_type_find(info, b->key);
-
-		spa_debug("%*s" "Prop: key %s, flags %d", indent, "",
-				ti ? ti->name : "unknown", b->flags);
-
-		info = ti ? ti->values : info;
-
-		if (b->flags & SPA_POD_PROP_FLAG_UNSET)
-			spa_debug("%*s" "Unset (Default):", indent + 2, "");
-		else
-			spa_debug("%*s" "Value: size %u", indent + 2, "", b->value.size);
-
-		spa_debug_pod_value(indent + 4, info, b->value.type, SPA_POD_BODY(&b->value),
-				b->value.size);
-
-		i = 0;
-		switch (b->flags & SPA_POD_PROP_RANGE_MASK) {
-		case SPA_POD_PROP_RANGE_NONE:
-			break;
-		case SPA_POD_PROP_RANGE_MIN_MAX:
-			SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
-				if (i == 0)
-					spa_debug("%*s" "Min: ", indent + 2, "");
-				else if (i == 1)
-					spa_debug("%*s" "Max: ", indent + 2, "");
-				else
-					break;
-				spa_debug_pod_value(indent + 4, info, b->value.type, alt, b->value.size);
-				i++;
-			}
-			break;
-		case SPA_POD_PROP_RANGE_STEP:
-			SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
-				if (i == 0)
-					spa_debug("%*s" "Min:  ", indent + 2, "");
-				else if (i == 1)
-					spa_debug("%*s" "Max:  ", indent + 2, "");
-				else if (i == 2)
-					spa_debug("%*s" "Step: ", indent + 2, "");
-				else
-					break;
-				spa_debug_pod_value(indent + 4, info, b->value.type, alt, b->value.size);
-				i++;
-			}
-			break;
-		case SPA_POD_PROP_RANGE_ENUM:
-			SPA_POD_PROP_ALTERNATIVE_FOREACH(b, size, alt) {
-				if (i == 0) {
-					spa_debug("%*s" "Enum:", indent + 2, "");
-				}
-				spa_debug_pod_value(indent + 4, info, b->value.type, alt, b->value.size);
-				i++;
-			}
-			break;
-		case SPA_POD_PROP_RANGE_FLAGS:
-			break;
 		}
 		break;
 	}

@@ -98,38 +98,37 @@ static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_
 	int i, c;
 
 	spa_pod_builder_push_object(b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-	spa_pod_builder_push_prop(b, SPA_FORMAT_mediaType, 0);
-	spa_pod_builder_enum(b, SPA_MEDIA_TYPE_video);
-	spa_pod_builder_pop(b);
-	spa_pod_builder_push_prop(b, SPA_FORMAT_mediaSubtype, 0);
-	spa_pod_builder_enum(b, SPA_MEDIA_SUBTYPE_raw);
-	spa_pod_builder_pop(b);
+	spa_pod_builder_prop(b, SPA_FORMAT_mediaType, 0);
+	spa_pod_builder_id(b, SPA_MEDIA_TYPE_video);
+	spa_pod_builder_prop(b, SPA_FORMAT_mediaSubtype, 0);
+	spa_pod_builder_id(b, SPA_MEDIA_SUBTYPE_raw);
 
-	spa_pod_builder_push_prop(b, SPA_FORMAT_VIDEO_format,
-				  SPA_POD_PROP_FLAG_UNSET |
-				  SPA_POD_PROP_RANGE_ENUM);
+	spa_pod_builder_prop(b, SPA_FORMAT_VIDEO_format, 0);
+	spa_pod_builder_push_choice(b, SPA_CHOICE_Enum, 0);
 	for (i = 0, c = 0; i < info->num_texture_formats; i++) {
 		uint32_t id = sdl_format_to_id(info->texture_formats[i]);
 		if (id == 0)
 			continue;
 		if (c++ == 0)
-			spa_pod_builder_enum(b, id);
-		spa_pod_builder_enum(b, id);
+			spa_pod_builder_id(b, id);
+		spa_pod_builder_id(b, id);
 	}
 	for (i = 0; i < SPA_N_ELEMENTS(sdl_video_formats); i++) {
 		uint32_t id = sdl_video_formats[i].id;
 		if (id != SPA_VIDEO_FORMAT_UNKNOWN)
-			spa_pod_builder_enum(b, id);
+			spa_pod_builder_id(b, id);
 	}
 	spa_pod_builder_pop(b);
-	spa_pod_builder_add(b,
-		":", SPA_FORMAT_VIDEO_size,      "Rru", &SPA_RECTANGLE(WIDTH, HEIGHT),
-			SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1,1),
-					     &SPA_RECTANGLE(info->max_texture_width,
-							    info->max_texture_height)),
-		":", SPA_FORMAT_VIDEO_framerate, "Fru", &SPA_FRACTION(25,1),
-			SPA_POD_PROP_MIN_MAX(&SPA_FRACTION(0,1),
-					     &SPA_FRACTION(30,1)),
-		NULL);
+	spa_pod_builder_props(b,
+		SPA_FORMAT_VIDEO_size,      &SPA_POD_CHOICE_RANGE_Rectangle(
+							SPA_RECTANGLE(WIDTH, HEIGHT),
+							SPA_RECTANGLE(1,1),
+							SPA_RECTANGLE(info->max_texture_width,
+								      info->max_texture_height)),
+		SPA_FORMAT_VIDEO_framerate, &SPA_POD_CHOICE_RANGE_Fraction(
+							SPA_FRACTION(25,1),
+							SPA_FRACTION(0,1),
+							SPA_FRACTION(30,1)),
+		0);
 	return spa_pod_builder_pop(b);
 }

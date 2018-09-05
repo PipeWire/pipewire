@@ -403,24 +403,26 @@ enum_filter_format(uint32_t media_type, int32_t media_subtype,
 	case SPA_MEDIA_TYPE_image:
 		if (media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 			struct spa_pod_prop *p;
-			uint32_t n_values;
+			const struct spa_pod *val;
+			uint32_t n_values, choice;
 			const uint32_t *values;
 
 			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_format)))
 				return SPA_VIDEO_FORMAT_UNKNOWN;
 
-			if (p->body.value.type != SPA_TYPE_Enum)
+			val = spa_pod_get_values(&p->value, &n_values, &choice);
+
+			if (val->type != SPA_TYPE_Id)
 				return SPA_VIDEO_FORMAT_UNKNOWN;
 
-			values = SPA_POD_BODY_CONST(&p->body.value);
-			n_values = SPA_POD_PROP_N_VALUES(p);
+			values = SPA_POD_BODY(val);
 
-			if (p->body.flags & SPA_POD_PROP_FLAG_UNSET) {
-				if (index + 1 < n_values)
-					video_format = values[index + 1];
-			} else {
+			if (choice == SPA_CHOICE_None) {
 				if (index == 0)
 					video_format = values[0];
+			} else {
+				if (index + 1 < n_values)
+					video_format = values[index + 1];
 			}
 		} else {
 			if (index == 0)
@@ -527,7 +529,7 @@ spa_v4l2_enum_format(struct impl *this,
 	struct port *port = &this->out_ports[0];
 	int res, n_fractions;
 	const struct format_info *info;
-	struct spa_pod_prop *prop;
+	struct spa_pod_choice *choice;
 	uint32_t filter_media_type, filter_media_subtype, video_format;
 
 	if ((res = spa_v4l2_open(this)) < 0)
@@ -590,18 +592,19 @@ spa_v4l2_enum_format(struct impl *this,
 	while (port->next_frmsize) {
 		if (filter) {
 			struct spa_pod_prop *p;
+			struct spa_pod *val;
+			uint32_t n_vals, choice;
 
 			/* check if we have a fixed frame size */
 			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_size)))
 				goto do_frmsize;
 
-			if (p->body.value.type != SPA_TYPE_Rectangle) {
+			val = spa_pod_get_values(&p->value, &n_vals, &choice);
+			if (val->type != SPA_TYPE_Rectangle)
 				goto enum_end;
-			}
 
-			if (!(p->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
-				const struct spa_rectangle *values =
-				    SPA_POD_BODY_CONST(&p->body.value);
+			if (choice == SPA_CHOICE_None) {
+				const struct spa_rectangle *values = SPA_POD_BODY(val);
 
 				if (port->frmsize.index > 0)
 					goto next_fmtdesc;
@@ -623,25 +626,27 @@ spa_v4l2_enum_format(struct impl *this,
 		}
 		if (filter) {
 			struct spa_pod_prop *p;
+			struct spa_pod *val;
 			const struct spa_rectangle step = { 1, 1 }, *values;
-			uint32_t range;
-			uint32_t i, n_values;
+			uint32_t choice, i, n_values;
 
 			/* check if we have a fixed frame size */
 			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_size)))
 				goto have_size;
 
-			range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
-			values = SPA_POD_BODY_CONST(&p->body.value);
-			n_values = SPA_POD_PROP_N_VALUES(p);
+			val = spa_pod_get_values(&p->value, &n_values, &choice);
+			if (val->type != SPA_TYPE_Rectangle)
+				goto have_size;
 
-			if (range == SPA_POD_PROP_RANGE_MIN_MAX && n_values > 2) {
+			values = SPA_POD_BODY_CONST(val);
+
+			if (choice == SPA_CHOICE_Range && n_values > 2) {
 				if (filter_framesize(&port->frmsize, &values[1], &values[2], &step))
 					goto have_size;
-			} else if (range == SPA_POD_PROP_RANGE_STEP && n_values > 3) {
+			} else if (choice == SPA_CHOICE_Step && n_values > 3) {
 				if (filter_framesize(&port->frmsize, &values[1], &values[2], &values[3]))
 					goto have_size;
-			} else if (range == SPA_POD_PROP_RANGE_ENUM) {
+			} else if (choice == SPA_CHOICE_Enum) {
 				for (i = 1; i < n_values; i++) {
 					if (filter_framesize(&port->frmsize, &values[i], &values[i], &step))
 						goto have_size;
@@ -675,23 +680,24 @@ spa_v4l2_enum_format(struct impl *this,
 	}
 
 	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-	spa_pod_builder_add(builder,
-			":", SPA_FORMAT_mediaType, "I", info->media_type,
-			":", SPA_FORMAT_mediaSubtype, "I", info->media_subtype, 0);
+	spa_pod_builder_props(builder,
+			SPA_FORMAT_mediaType,    &SPA_POD_Id(info->media_type),
+			SPA_FORMAT_mediaSubtype, &SPA_POD_Id(info->media_subtype),
+			0);
 
 	if (info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-		spa_pod_builder_add(builder,
-			":", SPA_FORMAT_VIDEO_format, "I", info->format, 0);
+		spa_pod_builder_prop(builder, SPA_FORMAT_VIDEO_format, 0);
+		spa_pod_builder_id(builder, info->format);
 	}
-	spa_pod_builder_add(builder,
-		":", SPA_FORMAT_VIDEO_size, "R", &SPA_RECTANGLE(port->frmsize.discrete.width,
-							        port->frmsize.discrete.height), 0);
+	spa_pod_builder_prop(builder, SPA_FORMAT_VIDEO_size, 0);
+	spa_pod_builder_rectangle(builder, port->frmsize.discrete.width, port->frmsize.discrete.height);
 
-	prop = spa_pod_builder_deref(builder,
-			spa_pod_builder_push_prop(builder, SPA_FORMAT_VIDEO_framerate,
-				  SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_UNSET));
+	spa_pod_builder_prop(builder, SPA_FORMAT_VIDEO_framerate, 0);
+
 	n_fractions = 0;
 
+	choice = spa_pod_builder_deref(builder,
+		spa_pod_builder_push_choice(builder, SPA_CHOICE_None, 0));
 	port->frmival.index = 0;
 
 	while (true) {
@@ -709,34 +715,44 @@ spa_v4l2_enum_format(struct impl *this,
 		}
 		if (filter) {
 			struct spa_pod_prop *p;
-			uint32_t range;
-			uint32_t i, n_values;
+			struct spa_pod *val;
+			uint32_t i, n_values, choice;
 			const struct spa_fraction step = { 1, 1 }, *values;
 
 			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_framerate)))
 				goto have_framerate;
 
-			if (p->body.value.type != SPA_TYPE_Fraction)
+			val = spa_pod_get_values(&p->value, &n_values, &choice);
+
+			if (val->type != SPA_TYPE_Fraction)
 				goto enum_end;
 
-			range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
-			values = SPA_POD_BODY_CONST(&p->body.value);
-			n_values = SPA_POD_PROP_N_VALUES(p);
+			values = SPA_POD_BODY(val);
 
-			if (!(p->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
+			switch (choice) {
+			case SPA_CHOICE_None:
 				if (filter_framerate(&port->frmival, &values[0], &values[0], &step))
 					goto have_framerate;
-			} else if (range == SPA_POD_PROP_RANGE_MIN_MAX && n_values > 2) {
-				if (filter_framerate(&port->frmival, &values[1], &values[2], &step))
+				break;
+
+			case SPA_CHOICE_Range:
+				if (n_values > 2 && filter_framerate(&port->frmival, &values[1], &values[2], &step))
 					goto have_framerate;
-			} else if (range == SPA_POD_PROP_RANGE_STEP && n_values > 3) {
-				if (filter_framerate(&port->frmival, &values[1], &values[2], &values[3]))
+				break;
+
+			case SPA_CHOICE_Step:
+				if (n_values > 3 && filter_framerate(&port->frmival, &values[1], &values[2], &values[3]))
 					goto have_framerate;
-			} else if (range == SPA_POD_PROP_RANGE_ENUM) {
+				break;
+
+			case SPA_CHOICE_Enum:
 				for (i = 1; i < n_values; i++) {
 					if (filter_framerate(&port->frmival, &values[i], &values[i], &step))
 						goto have_framerate;
 				}
+				break;
+			default:
+				break;
 			}
 			port->frmival.index++;
 			continue;
@@ -745,7 +761,7 @@ spa_v4l2_enum_format(struct impl *this,
 	      have_framerate:
 
 		if (port->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-			prop->body.flags |= SPA_POD_PROP_RANGE_ENUM;
+			choice->body.type = SPA_CHOICE_Enum;
 			if (n_fractions == 0)
 				spa_pod_builder_fraction(builder,
 							 port->frmival.discrete.denominator,
@@ -766,9 +782,9 @@ spa_v4l2_enum_format(struct impl *this,
 						 port->frmival.stepwise.max.numerator);
 
 			if (port->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-				prop->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX;
+				choice->body.type = SPA_CHOICE_Range;
 			} else {
-				prop->body.flags |= SPA_POD_PROP_RANGE_STEP;
+				choice->body.type = SPA_CHOICE_Step;
 				spa_pod_builder_fraction(builder,
 							 port->frmival.stepwise.step.denominator,
 							 port->frmival.stepwise.step.numerator);
@@ -780,9 +796,9 @@ spa_v4l2_enum_format(struct impl *this,
 		}
 		n_fractions++;
 	}
-	if (n_fractions <= 1) {
-		prop->body.flags &= ~(SPA_POD_PROP_RANGE_MASK | SPA_POD_PROP_FLAG_UNSET);
-	}
+	if (n_fractions <= 1)
+		choice->body.type = SPA_CHOICE_None;
+
 	spa_pod_builder_pop(builder);
 	*result = spa_pod_builder_pop(builder);
 
@@ -1052,35 +1068,38 @@ spa_v4l2_enum_controls(struct impl *this,
 	case V4L2_CTRL_TYPE_INTEGER:
 		param = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
-			":", SPA_PROP_INFO_id, "I", prop_id,
-			":", SPA_PROP_INFO_type, "isu", queryctrl.default_value,
-				SPA_POD_PROP_STEP(queryctrl.minimum,
-						  queryctrl.maximum,
-						  queryctrl.step),
-			":", SPA_PROP_INFO_name, "s", queryctrl.name);
+			SPA_PROP_INFO_id,   &SPA_POD_Id(prop_id),
+			SPA_PROP_INFO_type, &SPA_POD_CHOICE_STEP_Int(
+						queryctrl.default_value,
+						queryctrl.minimum,
+						queryctrl.maximum,
+						queryctrl.step),
+			SPA_PROP_INFO_name, &SPA_POD_Stringv(queryctrl.name),
+			0);
 		break;
 	case V4L2_CTRL_TYPE_BOOLEAN:
 		param = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
-			":", SPA_PROP_INFO_id, "I", prop_id,
-			":", SPA_PROP_INFO_type, "b-u", queryctrl.default_value,
-			":", SPA_PROP_INFO_name, "s", queryctrl.name);
+			SPA_PROP_INFO_id,   &SPA_POD_Id(prop_id),
+			SPA_PROP_INFO_type, &SPA_POD_CHOICE_Bool(queryctrl.default_value),
+			SPA_PROP_INFO_name, &SPA_POD_Stringv(queryctrl.name),
+			0);
 		break;
 	case V4L2_CTRL_TYPE_MENU:
 	{
 		struct v4l2_querymenu querymenu;
 
 		spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
-		spa_pod_builder_add(&b,
-			":", SPA_PROP_INFO_id, "I", prop_id,
-			":", SPA_PROP_INFO_type, "i-u", queryctrl.default_value,
-			":", SPA_PROP_INFO_name, "s", queryctrl.name,
-			NULL);
+		spa_pod_builder_props(&b,
+			SPA_PROP_INFO_id,    &SPA_POD_Id(prop_id),
+			SPA_PROP_INFO_type,  &SPA_POD_CHOICE_ENUM_Int(1, queryctrl.default_value),
+			SPA_PROP_INFO_name,  &SPA_POD_Stringv(queryctrl.name),
+			0);
 
 		spa_zero(querymenu);
 		querymenu.id = queryctrl.id;
 
-		spa_pod_builder_push_prop(&b, SPA_PROP_INFO_labels, 0);
+		spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
 		spa_pod_builder_push_struct(&b);
 		for (querymenu.index = queryctrl.minimum;
 		    querymenu.index <= queryctrl.maximum;
@@ -1090,7 +1109,6 @@ spa_v4l2_enum_controls(struct impl *this,
 				spa_pod_builder_string(&b, (const char *)querymenu.name);
 			}
 		}
-		spa_pod_builder_pop(&b);
 		spa_pod_builder_pop(&b);
 		param = spa_pod_builder_pop(&b);
 		break;

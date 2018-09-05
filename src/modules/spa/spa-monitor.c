@@ -31,6 +31,7 @@
 #include <spa/node/node.h>
 #include <spa/monitor/monitor.h>
 #include <spa/pod/parser.h>
+#include <spa/debug/pod.h>
 
 #include <pipewire/log.h>
 #include <pipewire/type.h>
@@ -80,8 +81,11 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 			":", SPA_MONITOR_ITEM_name,    "s", &name,
 			":", SPA_MONITOR_ITEM_class,   "s", &klass,
 			":", SPA_MONITOR_ITEM_factory, "p", &factory,
-			":", SPA_MONITOR_ITEM_info,    "T", &info, NULL) < 0)
+			":", SPA_MONITOR_ITEM_info,    "T", &info, NULL) < 0) {
+		pw_log_warn("monitor %p: could not parse item", this);
+		spa_debug_pod(0, NULL, item);
 		return NULL;
+	}
 
 	pw_log_debug("monitor %p: add: \"%s\" (%s)", this, name, id);
 

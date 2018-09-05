@@ -26,9 +26,9 @@ static void										\
 audio_test_src_create_sine_##type (struct impl *this, type *samples, size_t n_samples)	\
 {											\
 	int i, c, channels;								\
-	double step, amp;								\
-	double freq = *this->io_freq;							\
-	double volume = *this->io_volume;						\
+	float step, amp;								\
+	float freq = this->props.freq;							\
+	float volume = this->props.volume;						\
 											\
 	channels = this->current_format.info.raw.channels;				\
 	step = M_PI_M2 * freq / this->current_format.info.raw.rate;			\

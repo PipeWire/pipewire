@@ -38,7 +38,7 @@ static const struct spa_type_info spa_type_monitor_event_id[] = {
 };
 
 static const struct spa_type_info spa_type_monitor_event[] = {
-	{ 0,   SPA_TYPE_MONITOR_EVENT_BASE,   SPA_TYPE_Enum, spa_type_monitor_event_id },
+	{ 0,   SPA_TYPE_MONITOR_EVENT_BASE,   SPA_TYPE_Id, spa_type_monitor_event_id },
 	{ 0, NULL, },
 };
 
@@ -66,9 +66,9 @@ static const struct spa_type_info spa_type_monitor_item_state[] = {
 static const struct spa_type_info spa_type_monitor_item[] = {
 	{ SPA_MONITOR_ITEM_START,   SPA_TYPE_MONITOR_ITEM_BASE,           SPA_TYPE_Int, },
 	{ SPA_MONITOR_ITEM_id,      SPA_TYPE_MONITOR_ITEM_BASE "id",      SPA_TYPE_String, },
-	{ SPA_MONITOR_ITEM_flags,   SPA_TYPE_MONITOR_ITEM_BASE "flags",   SPA_TYPE_Enum,
+	{ SPA_MONITOR_ITEM_flags,   SPA_TYPE_MONITOR_ITEM_BASE "flags",   SPA_TYPE_Id,
 		spa_type_monitor_item_flags },
-	{ SPA_MONITOR_ITEM_state,   SPA_TYPE_MONITOR_ITEM_BASE "state",   SPA_TYPE_Enum,
+	{ SPA_MONITOR_ITEM_state,   SPA_TYPE_MONITOR_ITEM_BASE "state",   SPA_TYPE_Id,
 		spa_type_monitor_item_state },
 	{ SPA_MONITOR_ITEM_name,    SPA_TYPE_MONITOR_ITEM_BASE "name",    SPA_TYPE_String, },
 	{ SPA_MONITOR_ITEM_class,   SPA_TYPE_MONITOR_ITEM_BASE "class",   SPA_TYPE_String, },

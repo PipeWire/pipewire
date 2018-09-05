@@ -32,6 +32,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/monitor.h>
+#include <spa/debug/pod.h>
 
 #define NAME  "alsa-monitor"
 
@@ -112,6 +113,19 @@ static const char *path_get_card_id(const char *path)
 	return e + 5;
 }
 
+static inline void add_dict(struct spa_pod_builder *builder, const char *key, ...)
+{
+	va_list args;
+
+	va_start(args, key);
+	while (key) {
+		spa_pod_builder_string(builder, key);
+		spa_pod_builder_string(builder, va_arg(args, const char*));
+                key = va_arg(args, const char *);
+	}
+	va_end(args);
+}
+
 static int
 fill_item(struct impl *this, snd_ctl_card_info_t *card_info,
 		snd_pcm_info_t *dev_info, struct card *card,
@@ -160,57 +174,59 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info,
 	if (!(name && *name))
 		name = "Unknown";
 
-	spa_pod_builder_add(builder,
-		"{", SPA_TYPE_OBJECT_MonitorItem, 0,
-		":", SPA_MONITOR_ITEM_id,      "s", id,
-		":", SPA_MONITOR_ITEM_flags,   "I", SPA_MONITOR_ITEM_FLAG_NONE,
-		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_Available,
-		":", SPA_MONITOR_ITEM_name,    "s", name,
-		":", SPA_MONITOR_ITEM_class,   "s", klass,
-		":", SPA_MONITOR_ITEM_factory, "p", SPA_TYPE_INTERFACE_HandleFactory, factory,
-		":", SPA_MONITOR_ITEM_info,    "[", NULL);
+	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_MonitorItem, 0);
+	spa_pod_builder_props(builder,
+		SPA_MONITOR_ITEM_id,      &SPA_POD_String(id, sizeof(id)),
+		SPA_MONITOR_ITEM_flags,   &SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
+		SPA_MONITOR_ITEM_state,   &SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
+		SPA_MONITOR_ITEM_name,    &SPA_POD_Stringv(name),
+		SPA_MONITOR_ITEM_class,   &SPA_POD_Stringv(klass),
+		SPA_MONITOR_ITEM_factory, &SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory, factory),
+		0);
 
-	spa_pod_builder_add(builder,
-		"s", "alsa.card",            "s", card->name,
-		"s", "alsa.device",          "s", device_name,
-		"s", "alsa.card.id",         "s", snd_ctl_card_info_get_id(card_info),
-		"s", "alsa.card.components", "s", snd_ctl_card_info_get_components(card_info),
-		"s", "alsa.card.driver",     "s", snd_ctl_card_info_get_driver(card_info),
-		"s", "alsa.card.name",       "s", snd_ctl_card_info_get_name(card_info),
-		"s", "alsa.card.longname",   "s", snd_ctl_card_info_get_longname(card_info),
-		"s", "alsa.card.mixername",  "s", snd_ctl_card_info_get_mixername(card_info),
-		"s", "udev-probed",          "s", "1",
-		"s", "device.api",           "s", "alsa",
-		"s", "device.name",          "s", snd_ctl_card_info_get_id(card_info),
-		"s", "alsa.pcm.id",          "s", snd_pcm_info_get_id(dev_info),
-		"s", "alsa.pcm.name",        "s", snd_pcm_info_get_name(dev_info),
-		"s", "alsa.pcm.subname",     "s", snd_pcm_info_get_subdevice_name(dev_info),
+	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);
+	spa_pod_builder_push_struct(builder),
+	add_dict(builder,
+		"alsa.card",            card->name,
+		"alsa.device",          device_name,
+		"alsa.card.id",         snd_ctl_card_info_get_id(card_info),
+		"alsa.card.components", snd_ctl_card_info_get_components(card_info),
+		"alsa.card.driver",     snd_ctl_card_info_get_driver(card_info),
+		"alsa.card.name",       snd_ctl_card_info_get_name(card_info),
+		"alsa.card.longname",   snd_ctl_card_info_get_longname(card_info),
+		"alsa.card.mixername",  snd_ctl_card_info_get_mixername(card_info),
+		"udev-probed",          "1",
+		"device.api",           "alsa",
+		"device.name",          snd_ctl_card_info_get_id(card_info),
+		"alsa.pcm.id",          snd_pcm_info_get_id(dev_info),
+		"alsa.pcm.name",        snd_pcm_info_get_name(dev_info),
+		"alsa.pcm.subname",     snd_pcm_info_get_subdevice_name(dev_info),
 		NULL);
 
 	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.class", "s", str, NULL);
+		add_dict(builder, "device.class", str, NULL);
 	}
 
 	str = udev_device_get_property_value(dev, "ID_PATH");
 	if (!(str && *str))
 		str = udev_device_get_syspath(dev);
 	if (str && *str) {
-		spa_pod_builder_add(builder, "s", "device.bus_path", "s", str, 0);
+		add_dict(builder, "device.bus_path", str, 0);
 	}
 	if ((str = udev_device_get_syspath(dev)) && *str) {
-		spa_pod_builder_add(builder, "s", "sysfs.path", "s", str, 0);
+		add_dict(builder, "sysfs.path", str, 0);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_ID")) && *str) {
-		spa_pod_builder_add(builder, "s", "udev.id", "s", str, 0);
+		add_dict(builder, "udev.id", str, 0);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_BUS")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.bus", "s", str, 0);
+		add_dict(builder, "device.bus", str, 0);
 	}
 	if ((str = udev_device_get_property_value(dev, "SUBSYSTEM")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.subsystem", "s", str, 0);
+		add_dict(builder, "device.subsystem", str, 0);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_VENDOR_ID")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.vendor.id", "s", str, 0);
+		add_dict(builder, "device.vendor.id", str, 0);
 	}
 	str = udev_device_get_property_value(dev, "ID_VENDOR_FROM_DATABASE");
 	if (!(str && *str)) {
@@ -220,20 +236,23 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info,
 		}
 	}
 	if (str && *str) {
-		spa_pod_builder_add(builder, "s", "device.vendor.name", "s", str, 0);
+		add_dict(builder, "device.vendor.name", str, 0);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_MODEL_ID")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.product.id", "s", str, 0);
+		add_dict(builder, "device.product.id", str, 0);
 	}
-	spa_pod_builder_add(builder, "s", "device.product.name", "s", name, 0);
+	add_dict(builder, "device.product.name", name, 0);
 
 	if ((str = udev_device_get_property_value(dev, "ID_SERIAL")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.serial", "s", str, 0);
+		add_dict(builder, "device.serial", str, 0);
 	}
 	if ((str = udev_device_get_property_value(dev, "SOUND_FORM_FACTOR")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.form_factor", "s", str, 0);
+		add_dict(builder, "device.form_factor", str, 0);
 	}
-	*item = spa_pod_builder_add(builder, "]}", NULL);
+	spa_pod_builder_pop(builder);
+	*item = spa_pod_builder_pop(builder);
+
+	spa_debug_pod(0, NULL, *item);
 
 	return 0;
 }
@@ -347,7 +366,7 @@ static void impl_on_fd_events(struct spa_source *source)
 	struct impl *this = source->data;
 	struct udev_device *dev;
 	const char *action;
-	uint32_t id;
+	uint32_t type;
 	struct card *card;
 	struct spa_event *event;
 
@@ -357,18 +376,18 @@ static void impl_on_fd_events(struct spa_source *source)
 		action = "change";
 
 	if (strcmp(action, "add") == 0) {
-		id = SPA_MONITOR_EVENT_Added;
+		type = SPA_MONITOR_EVENT_Added;
 	} else if (strcmp(action, "change") == 0) {
-		id = SPA_MONITOR_EVENT_Changed;
+		type = SPA_MONITOR_EVENT_Changed;
 	} else if (strcmp(action, "remove") == 0) {
-		id = SPA_MONITOR_EVENT_Removed;
+		type = SPA_MONITOR_EVENT_Removed;
 	} else
 		return;
 
 	if ((card = find_card(this, dev)) == NULL)
 		return;
 
-	if (id == SPA_MONITOR_EVENT_Removed) {
+	if (type == SPA_MONITOR_EVENT_Removed) {
 		int i;
 
 		for (i = 0; i < MAX_DEVICES; i++) {
@@ -377,23 +396,24 @@ static void impl_on_fd_events(struct spa_source *source)
 			char id[64];
 			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-
 			if (SPA_FLAG_CHECK(device->flags, DEVICE_FLAG_PLAYBACK)) {
 				snprintf(id, 64, "%s,%d/P", card->name, device->id);
-				event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id);
+				event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, type, 0);
 				spa_pod_builder_object(&b,
 					SPA_TYPE_OBJECT_MonitorItem, 0,
-					":", SPA_MONITOR_ITEM_id,      "s", id,
-					":", SPA_MONITOR_ITEM_name,    "s", id);
+					SPA_MONITOR_ITEM_id,      SPA_POD_Stringv(id),
+					SPA_MONITOR_ITEM_name,    SPA_POD_Stringv(id),
+					0);
 				this->callbacks->event(this->callbacks_data, event);
 			}
 			if (SPA_FLAG_CHECK(device->flags, DEVICE_FLAG_RECORD)) {
 				snprintf(id, 64, "%s,%d/C", card->name, device->id);
-				event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id);
+				event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, type, 0);
 				spa_pod_builder_object(&b,
 					SPA_TYPE_OBJECT_MonitorItem, 0,
-					":", SPA_MONITOR_ITEM_id,      "s", id,
-					":", SPA_MONITOR_ITEM_name,    "s", id);
+					SPA_MONITOR_ITEM_id,      SPA_POD_Stringv(id),
+					SPA_MONITOR_ITEM_name,    SPA_POD_Stringv(id),
+					0);
 				this->callbacks->event(this->callbacks_data, event);
 			}
 			device->flags = 0;
@@ -408,7 +428,7 @@ static void impl_on_fd_events(struct spa_source *source)
 			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 			struct spa_pod *item;
 
-			event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id);
+			event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, type, 0);
 			if (get_next_device(this, card, &item, &b) < 0)
 				break;
 

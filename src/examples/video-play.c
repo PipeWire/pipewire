@@ -170,17 +170,18 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 
 	params[0] = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		":", SPA_PARAM_BUFFERS_buffers, "iru", 8,
-			SPA_POD_PROP_MIN_MAX(2, 16),
-		":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
-		":", SPA_PARAM_BUFFERS_size,    "i", data->stride * data->format.size.height,
-		":", SPA_PARAM_BUFFERS_stride,  "i", data->stride,
-		":", SPA_PARAM_BUFFERS_align,   "i", 16);
+		SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(8, 2, 16),
+		SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
+		SPA_PARAM_BUFFERS_size,    &SPA_POD_Int(data->stride * data->format.size.height),
+		SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(data->stride),
+		SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
+		0);
 
 	params[1] = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-		":", SPA_PARAM_META_type, "I", SPA_META_Header,
-		":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
+		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
+		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
+		0);
 
 	pw_stream_finish_format(stream, 0, params, 2);
 }

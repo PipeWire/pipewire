@@ -33,17 +33,6 @@
 
 #define BUFFER_SAMPLES	128
 
-#define DEFAULT_VOLUME 1.0
-
-struct props {
-	double volume;
-};
-
-static void reset_props(struct props *props)
-{
-	props->volume = DEFAULT_VOLUME;
-}
-
 struct buffer {
 	struct spa_buffer *buffer;
 	struct spa_list link;
@@ -52,8 +41,6 @@ struct buffer {
 };
 
 struct data {
-	struct props props;
-
 	const char *path;
 
 	struct pw_main_loop *loop;
@@ -72,8 +59,8 @@ struct data {
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 	struct spa_io_buffers *io;
-
-	struct spa_pod_double *ctrl_volume;
+	struct spa_io_control *io_notify;
+	uint32_t io_notify_size;
 
 	struct spa_audio_info_raw format;
 
@@ -87,10 +74,20 @@ struct data {
 
 static void update_volume(struct data *data)
 {
-	if (data->ctrl_volume == NULL)
+	struct spa_pod_builder b = { 0, };
+
+	if (data->io_notify == NULL)
 		return;
 
-        data->ctrl_volume->value = (sin(data->volume_accum) / 2.0) + 0.5;
+	spa_pod_builder_init(&b, data->io_notify, data->io_notify_size);
+	spa_pod_builder_push_sequence(&b, 0);
+	spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
+	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, 0);
+	spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
+	spa_pod_builder_float(&b, (sin(data->volume_accum) / 2.0) + 0.5);
+	spa_pod_builder_pop(&b);
+	spa_pod_builder_pop(&b);
+
         data->volume_accum += M_PI_M2 / 1000.0;
         if (data->volume_accum >= M_PI_M2)
                 data->volume_accum -= M_PI_M2;
@@ -137,19 +134,17 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
-	if (id == SPA_IO_Buffers)
+	switch (id) {
+	case SPA_IO_Buffers:
 		d->io = data;
-#if 0
-	else if (id == type.io_prop_volume) {
-		if (data && size >= sizeof(struct spa_pod_double))
-			d->ctrl_volume = data;
-		else
-			d->ctrl_volume = NULL;
-	}
-#endif
-	else
+		break;
+	case SPA_IO_Notify:
+		d->io_notify = data;
+		d->io_notify_size = size;
+		break;
+	default:
 		return -ENOENT;
-
+	}
 	return 0;
 }
 
@@ -182,18 +177,19 @@ static int port_enum_formats(struct spa_node *node,
 
 	*param = spa_pod_builder_object(builder,
 		SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-		":", SPA_FORMAT_mediaType,      "I", SPA_MEDIA_TYPE_audio,
-		":", SPA_FORMAT_mediaSubtype,   "I", SPA_MEDIA_SUBTYPE_raw,
-		":", SPA_FORMAT_AUDIO_format,   "Ieu", SPA_AUDIO_FORMAT_S16,
-			SPA_POD_PROP_ENUM(2, SPA_AUDIO_FORMAT_S16,
-					     SPA_AUDIO_FORMAT_F32),
-		":", SPA_FORMAT_AUDIO_layout,   "Ieu", SPA_AUDIO_LAYOUT_INTERLEAVED,
-			SPA_POD_PROP_ENUM(2, SPA_AUDIO_LAYOUT_INTERLEAVED,
-                                             SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
-		":", SPA_FORMAT_AUDIO_channels, "iru", 2,
-			SPA_POD_PROP_MIN_MAX(1, INT32_MAX),
-		":", SPA_FORMAT_AUDIO_rate,     "iru", 44100,
-			SPA_POD_PROP_MIN_MAX(1, INT32_MAX));
+		SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+		SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+		SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(3,
+						SPA_AUDIO_FORMAT_S16,
+						SPA_AUDIO_FORMAT_S16,
+						SPA_AUDIO_FORMAT_F32),
+		SPA_FORMAT_AUDIO_layout,   &SPA_POD_CHOICE_ENUM_Id(3,
+						SPA_AUDIO_LAYOUT_INTERLEAVED,
+						SPA_AUDIO_LAYOUT_INTERLEAVED,
+						SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
+		SPA_FORMAT_AUDIO_channels, &SPA_POD_CHOICE_RANGE_Int(2, 1, INT32_MAX),
+		SPA_FORMAT_AUDIO_rate,     &SPA_POD_CHOICE_RANGE_Int(44100, 1, INT32_MAX),
+		0);
 
 	(*index)++;
 
@@ -222,7 +218,8 @@ static int impl_port_enum_params(struct spa_node *node,
 		if (*index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_object(builder,
 				SPA_TYPE_OBJECT_ParamList, id,
-				":", SPA_PARAM_LIST_id, "I", list[*index]);
+				SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
+				0);
 		else
 			return 0;
 		break;
@@ -244,13 +241,12 @@ static int impl_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(builder,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			":", SPA_PARAM_BUFFERS_buffers, "iru", 1,
-				SPA_POD_PROP_MIN_MAX(1, 32),
-			":", SPA_PARAM_BUFFERS_blocks,  "i",   1,
-			":", SPA_PARAM_BUFFERS_size,    "iru", BUFFER_SAMPLES * sizeof(float),
-				SPA_POD_PROP_MIN_MAX(32, 4096),
-			":", SPA_PARAM_BUFFERS_stride,  "i",   0,
-			":", SPA_PARAM_BUFFERS_align,   "i",   16);
+			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(1, 1, 32),
+			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    &SPA_POD_CHOICE_RANGE_Int(BUFFER_SAMPLES * sizeof(float), 32, 4096),
+			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(0),
+			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
+			0);
 		break;
 
 	case SPA_PARAM_Meta:
@@ -258,8 +254,9 @@ static int impl_port_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(builder,
 				SPA_TYPE_OBJECT_ParamMeta, id,
-				":", SPA_PARAM_META_type, "I", SPA_META_Header,
-				":", SPA_PARAM_META_size, "i", sizeof(struct spa_meta_header));
+				SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
+				SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
+				0);
 			break;
 		default:
 			return 0;
@@ -270,32 +267,21 @@ static int impl_port_enum_params(struct spa_node *node,
 		case 0:
 			param = spa_pod_builder_object(builder,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				":", SPA_PARAM_IO_id, "I", SPA_IO_Buffers,
-				":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_buffers));
+				SPA_PARAM_IO_id, &SPA_POD_Id(SPA_IO_Buffers),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_buffers)),
+				0);
+			break;
+		case 1:
+			param = spa_pod_builder_object(builder,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id, &SPA_POD_Id(SPA_IO_Notify),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_sequence) + 1024),
+				0);
 			break;
 		default:
 			return 0;
 		}
 		break;
-#if 0
-	else if (id == t->param_io.idPropsOut) {
-		struct props *p = &d->props;
-
-		switch (*index) {
-		case 0:
-			param = spa_pod_builder_object(builder,
-				id, t->param_io.Prop,
-				":", t->param_io.id, "I", d->type.io_prop_volume,
-				":", t->param_io.size, "i", sizeof(struct spa_pod_double),
-				":", t->param.propId, "I", d->type.prop_volume,
-				":", t->param.propType, "dru", p->volume,
-					SPA_POD_PROP_MIN_MAX(0.0, 10.0));
-			break;
-		default:
-			return 0;
-		}
-	}
-#endif
 	default:
 		return -ENOENT;
 	}
@@ -554,7 +540,6 @@ int main(int argc, char *argv[])
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	spa_list_init(&data.empty);
-	reset_props(&data.props);
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 

@@ -56,7 +56,7 @@ struct spa_pod_bool {
 	int32_t __padding;
 };
 
-struct spa_pod_enum {
+struct spa_pod_id {
 	struct spa_pod pod;
 	uint32_t value;
 	int32_t __padding;
@@ -109,8 +109,10 @@ struct spa_pod_bitmap {
 	/* array of uint8_t follows with the bitmap */
 };
 
-#define SPA_POD_ARRAY_TYPE(arr)		((arr)->body.child.type)
-#define SPA_POD_ARRAY_N_VALUES(arr)	(((arr)->pod.size - sizeof(struct spa_pod_array_body)) / (arr)->body.child.size)
+#define SPA_POD_ARRAY_CHILD(arr)	(&((struct spa_pod_array*)(arr))->body.child)
+#define SPA_POD_ARRAY_TYPE(arr)		(SPA_POD_TYPE(SPA_POD_ARRAY_CHILD(arr)))
+#define SPA_POD_ARRAY_SIZE(arr)		(SPA_POD_BODY_SIZE(SPA_POD_ARRAY_CHILD(arr)))
+#define SPA_POD_ARRAY_N_VALUES(arr)	((SPA_POD_BODY_SIZE(arr) - sizeof(struct spa_pod_array_body)) / SPA_POD_ARRAY_SIZE(arr))
 
 struct spa_pod_array_body {
 	struct spa_pod child;
@@ -120,6 +122,33 @@ struct spa_pod_array_body {
 struct spa_pod_array {
 	struct spa_pod pod;
 	struct spa_pod_array_body body;
+};
+
+#define SPA_POD_CHOICE_CHILD(choice)		(&((struct spa_pod_choice*)(choice))->body.child)
+#define SPA_POD_CHOICE_TYPE(choice)		(((struct spa_pod_choice*)(choice))->body.type)
+#define SPA_POD_CHOICE_VALUE_TYPE(choice)	(SPA_POD_TYPE(SPA_POD_CHOICE_CHILD(choice)))
+#define SPA_POD_CHOICE_VALUE_SIZE(choice)	(SPA_POD_BODY_SIZE(SPA_POD_CHOICE_CHILD(choice)))
+#define SPA_POD_CHOICE_N_VALUES(choice)		((SPA_POD_BODY_SIZE(choice) - sizeof(struct spa_pod_choice_body)) / SPA_POD_CHOICE_VALUE_SIZE(choice))
+#define SPA_POD_CHOICE_VALUES(choice)		(SPA_POD_CONTENTS(struct spa_pod_choice, choice))
+
+enum spa_choice_type {
+	SPA_CHOICE_None,		/**< no choice, first value is current */
+	SPA_CHOICE_Range,		/**< range: default, min, max */
+	SPA_CHOICE_Step,		/**< range with step: default, min, max, step */
+	SPA_CHOICE_Enum,		/**< list: default, alternative,...  */
+	SPA_CHOICE_Flags,		/**< flags: default, possible flags,... */
+};
+
+struct spa_pod_choice_body {
+	uint32_t type;			/**< type of choice, one of enum spa_choice_type */
+	uint32_t flags;			/**< extra flags */
+	struct spa_pod child;
+	/* array with elements of child.size follows */
+};
+
+struct spa_pod_choice {
+	struct spa_pod pod;
+	struct spa_pod_choice_body body;
 };
 
 struct spa_pod_struct {
@@ -152,7 +181,7 @@ static inline bool spa_pod_is_object_id(const struct spa_pod *pod, uint32_t id)
 
 struct spa_pod_pointer_body {
 	uint32_t type;		/**< pointer id, one of enum spa_type */
-	void *value;
+	const void *value;
 };
 
 struct spa_pod_pointer {
@@ -165,33 +194,33 @@ struct spa_pod_fd {
 	int value;
 };
 
-#define SPA_POD_PROP_N_VALUES(prop)	(((prop)->pod.size - sizeof(struct spa_pod_prop_body)) / (prop)->body.value.size)
+static inline struct spa_pod *spa_pod_get_values(const struct spa_pod *pod, uint32_t *n_vals, uint32_t *choice)
+{
+	if (pod->type == SPA_TYPE_Choice) {
+		*choice = SPA_POD_CHOICE_TYPE(pod);
+		*n_vals = *choice == SPA_CHOICE_None ? 1 : SPA_POD_CHOICE_N_VALUES(pod);
+		return (struct spa_pod*)SPA_POD_CHOICE_CHILD(pod);
+	} else {
+		*n_vals = 1;
+		*choice = SPA_CHOICE_None;
+		return (struct spa_pod*)pod;
+	}
+}
 
-struct spa_pod_prop_body {
-	uint32_t key;			/**< key of property, list of valid keys depends on the
-					  *  object type */
-#define SPA_POD_PROP_RANGE_NONE		0	/**< no range */
-#define SPA_POD_PROP_RANGE_MIN_MAX	1	/**< property has range */
-#define SPA_POD_PROP_RANGE_STEP		2	/**< property has range with step */
-#define SPA_POD_PROP_RANGE_ENUM		3	/**< property has enumeration */
-#define SPA_POD_PROP_RANGE_FLAGS	4	/**< property has flags */
-#define SPA_POD_PROP_RANGE_MASK		0xf	/**< mask to select range type */
-#define SPA_POD_PROP_FLAG_UNSET		(1 << 4)	/**< property value is unset */
-#define SPA_POD_PROP_FLAG_OPTIONAL	(1 << 5)	/**< property value is optional */
-#define SPA_POD_PROP_FLAG_READONLY	(1 << 6)	/**< property is readonly */
-#define SPA_POD_PROP_FLAG_DEPRECATED	(1 << 7)	/**< property is deprecated */
-#define SPA_POD_PROP_FLAG_INFO		(1 << 8)	/**< property is informational and is not
-							  *  used when filtering */
-#define SPA_POD_PROP_FLAG_CONTROLLABLE	(1 << 9)	/**< property can be controlled */
-	uint32_t flags;
-	struct spa_pod value;
-	/* array with elements of value.size follows,
-	 * first element is value/default, rest are alternatives */
-};
+#define SPA_POD_PROP_SIZE(prop)		(sizeof(struct spa_pod_prop) + (prop)->value.size)
 
 struct spa_pod_prop {
-	struct spa_pod pod;
-	struct spa_pod_prop_body body;
+	uint32_t key;			/**< key of property, list of valid keys depends on the
+					  *  object type */
+#define SPA_POD_PROP_FLAG_OPTIONAL	(1 << 0)        /**< property value is optional */
+#define SPA_POD_PROP_FLAG_READONLY	(1 << 1)        /**< property is readonly */
+#define SPA_POD_PROP_FLAG_DEPRECATED	(1 << 2)        /**< property is deprecated */
+#define SPA_POD_PROP_FLAG_INFO		(1 << 3)        /**< property is informational and is not
+							  *  used when filtering */
+#define SPA_POD_PROP_FLAG_CONTROLLABLE	(1 << 4)        /**< property can be controlled */
+	uint32_t flags;
+	struct spa_pod value;
+	/* value follows */
 };
 
 #define SPA_POD_CONTROL_SIZE(ev)	(sizeof(struct spa_pod_control) + (ev)->value.size)

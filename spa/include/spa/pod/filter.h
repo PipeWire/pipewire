@@ -28,49 +28,57 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/compare.h>
 
-static inline void spa_pod_prop_fix_default(struct spa_pod_prop *prop)
+static inline int spa_pod_choice_fix_default(struct spa_pod_choice *choice)
 {
-	void *val = SPA_MEMBER(prop, sizeof(struct spa_pod_prop), void),
-	    *alt = SPA_MEMBER(val, prop->body.value.size, void);
-	int i, nalt = SPA_POD_PROP_N_VALUES(prop) - 1;
+	void *val, *alt;
+	int i, nvals;
+	uint32_t type, size;
 
-	switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
-	case SPA_POD_PROP_RANGE_NONE:
+	nvals = SPA_POD_CHOICE_N_VALUES(choice);
+	type = SPA_POD_CHOICE_VALUE_TYPE(choice);
+	size = SPA_POD_CHOICE_VALUE_SIZE(choice);
+	alt = val = SPA_POD_CHOICE_VALUES(choice);
+
+	switch (choice->body.type) {
+	case SPA_CHOICE_None:
 		break;
-	case SPA_POD_PROP_RANGE_MIN_MAX:
-	case SPA_POD_PROP_RANGE_STEP:
-		if (spa_pod_compare_value(prop->body.value.type, val, alt) < 0)
-			memcpy(val, alt, prop->body.value.size);
-		alt = SPA_MEMBER(alt, prop->body.value.size, void);
-		if (spa_pod_compare_value(prop->body.value.type, val, alt) > 0)
-			memcpy(val, alt, prop->body.value.size);
+	case SPA_CHOICE_Range:
+	case SPA_CHOICE_Step:
+		if (nvals > 1) {
+			alt = SPA_MEMBER(alt, size, void);
+			if (spa_pod_compare_value(type, val, alt) < 0)
+				memcpy(val, alt, size);
+		}
+		if (nvals > 2) {
+			alt = SPA_MEMBER(alt, size, void);
+			if (spa_pod_compare_value(type, val, alt) > 0)
+				memcpy(val, alt, size);
+		}
 		break;
-	case SPA_POD_PROP_RANGE_ENUM:
+	case SPA_CHOICE_Enum:
 	{
 		void *best = NULL;
 
-		for (i = 0; i < nalt; i++) {
-			if (spa_pod_compare_value(prop->body.value.type, val, alt) == 0) {
+		for (i = 1; i < nvals; i++) {
+			alt = SPA_MEMBER(alt, size, void);
+			if (spa_pod_compare_value(type, val, alt) == 0) {
 				best = alt;
 				break;
 			}
 			if (best == NULL)
 				best = alt;
-			alt = SPA_MEMBER(alt, prop->body.value.size, void);
 		}
 		if (best)
-			memcpy(val, best, prop->body.value.size);
+			memcpy(val, best, size);
 
-		if (nalt <= 1) {
-			prop->body.flags &= ~SPA_POD_PROP_FLAG_UNSET;
-			prop->body.flags &= ~SPA_POD_PROP_RANGE_MASK;
-			prop->body.flags |= SPA_POD_PROP_RANGE_NONE;
-		}
+		if (nvals <= 1)
+			choice->body.type = SPA_CHOICE_None;
 		break;
 	}
-	case SPA_POD_PROP_RANGE_FLAGS:
+	case SPA_CHOICE_Flags:
 		break;
 	}
+	return 0;
 }
 
 static inline int
@@ -78,159 +86,159 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    const struct spa_pod_prop *p1,
 	    const struct spa_pod_prop *p2)
 {
-	struct spa_pod_prop *np;
-	int nalt1, nalt2;
+	const struct spa_pod *v1, *v2;
+	struct spa_pod_choice *nc;
+	uint32_t nalt1, nalt2;
 	void *alt1, *alt2, *a1, *a2;
-	uint32_t rt1, rt2;
+	uint32_t type, size, p1c, p2c;
 	int j, k;
 
+	v1 = spa_pod_get_values(&p1->value, &nalt1, &p1c);
+	alt1 = SPA_POD_BODY(v1);
+	v2 = spa_pod_get_values(&p2->value, &nalt2, &p2c);
+	alt2 = SPA_POD_BODY(v2);
+
+	type = v1->type;
+	size = v1->size;
+
 	/* incompatible property types */
-	if (p1->body.value.type != p2->body.value.type)
+	if (type != v2->type || size != v2->size || p1->key != p2->key)
 		return -EINVAL;
 
-	rt1 = p1->body.flags & SPA_POD_PROP_RANGE_MASK;
-	rt2 = p2->body.flags & SPA_POD_PROP_RANGE_MASK;
-
-	alt1 = SPA_MEMBER(p1, sizeof(struct spa_pod_prop), void);
-	nalt1 = SPA_POD_PROP_N_VALUES(p1);
-	alt2 = SPA_MEMBER(p2, sizeof(struct spa_pod_prop), void);
-	nalt2 = SPA_POD_PROP_N_VALUES(p2);
-
-	if (p1->body.flags & SPA_POD_PROP_FLAG_UNSET) {
-		alt1 = SPA_MEMBER(alt1, p1->body.value.size, void);
-		nalt1--;
-	} else {
+	if (p1c == SPA_CHOICE_None) {
 		nalt1 = 1;
-		rt1 = SPA_POD_PROP_RANGE_NONE;
+	} else {
+		alt1 = SPA_MEMBER(alt1, size, void);
+		nalt1--;
 	}
 
-	if (p2->body.flags & SPA_POD_PROP_FLAG_UNSET) {
-		alt2 = SPA_MEMBER(alt2, p2->body.value.size, void);
-		nalt2--;
-	} else {
+	if (p2c == SPA_CHOICE_None) {
 		nalt2 = 1;
-		rt2 = SPA_POD_PROP_RANGE_NONE;
+	} else {
+		alt2 = SPA_MEMBER(alt2, size, void);
+		nalt2--;
 	}
 
 	/* start with copying the property */
-	np = spa_pod_builder_deref(b, spa_pod_builder_push_prop(b, p1->body.key, 0));
+	spa_pod_builder_prop(b, p1->key, 0);
+	nc = spa_pod_builder_deref(b, spa_pod_builder_push_choice(b, 0, 0));
 
 	/* default value */
-	spa_pod_builder_raw(b, &p1->body.value, sizeof(p1->body.value) + p1->body.value.size);
+	spa_pod_builder_primitive(b, v1);
 
-	if ((rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_NONE) ||
-	    (rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_ENUM) ||
-	    (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_NONE) ||
-	    (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_ENUM)) {
+	if ((p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_None) ||
+	    (p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Enum) ||
+	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_None) ||
+	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Enum)) {
 		int n_copied = 0;
 		/* copy all equal values but don't copy the default value again */
-		for (j = 0, a1 = alt1; j < nalt1; j++, a1 += p1->body.value.size) {
-			for (k = 0, a2 = alt2; k < nalt2; k++, a2 += p2->body.value.size) {
-				if (spa_pod_compare_value(p1->body.value.type, a1, a2) == 0) {
-					if (rt1 == SPA_POD_PROP_RANGE_ENUM || j > 0)
-						spa_pod_builder_raw(b, a1, p1->body.value.size);
+		for (j = 0, a1 = alt1; j < nalt1; j++, a1 += size) {
+			for (k = 0, a2 = alt2; k < nalt2; k++, a2 += size) {
+				if (spa_pod_compare_value(type, a1, a2) == 0) {
+					if (p1c == SPA_CHOICE_Enum || j > 0)
+						spa_pod_builder_raw(b, a1, size);
 					n_copied++;
 				}
 			}
 		}
 		if (n_copied == 0)
 			return -EINVAL;
-		np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
+		nc->body.type = SPA_CHOICE_Enum;
 	}
 
-	if ((rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_MIN_MAX) ||
-	    (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_MIN_MAX)) {
+	if ((p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Range) ||
+	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Range)) {
 		int n_copied = 0;
 		/* copy all values inside the range */
-		for (j = 0, a1 = alt1, a2 = alt2; j < nalt1; j++, a1 += p1->body.value.size) {
-			if (spa_pod_compare_value(p1->body.value.type, a1, a2) < 0)
+		for (j = 0, a1 = alt1, a2 = alt2; j < nalt1; j++, a1 += size) {
+			if (spa_pod_compare_value(type, a1, a2) < 0)
 				continue;
-			if (spa_pod_compare_value(p1->body.value.type, a1, a2 + p2->body.value.size) > 0)
+			if (spa_pod_compare_value(type, a1, a2 + size) > 0)
 				continue;
-			spa_pod_builder_raw(b, a1, p1->body.value.size);
+			spa_pod_builder_raw(b, a1, size);
 			n_copied++;
 		}
 		if (n_copied == 0)
 			return -EINVAL;
-		np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
+		nc->body.type = SPA_CHOICE_Enum;
 	}
 
-	if ((rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_STEP) ||
-	    (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_STEP)) {
+	if ((p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Step) ||
+	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Step)) {
 		return -ENOTSUP;
 	}
 
-	if ((rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_NONE) ||
-	    (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_ENUM)) {
+	if ((p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_None) ||
+	    (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Enum)) {
 		int n_copied = 0;
 		/* copy all values inside the range */
-		for (k = 0, a1 = alt1, a2 = alt2; k < nalt2; k++, a2 += p2->body.value.size) {
-			if (spa_pod_compare_value(p1->body.value.type, a2, a1) < 0)
+		for (k = 0, a1 = alt1, a2 = alt2; k < nalt2; k++, a2 += size) {
+			if (spa_pod_compare_value(type, a2, a1) < 0)
 				continue;
-			if (spa_pod_compare_value(p1->body.value.type, a2, a1 + p1->body.value.size) > 0)
+			if (spa_pod_compare_value(type, a2, a1 + size) > 0)
 				continue;
-			spa_pod_builder_raw(b, a2, p2->body.value.size);
+			spa_pod_builder_raw(b, a2, size);
 			n_copied++;
 		}
 		if (n_copied == 0)
 			return -EINVAL;
-		np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
+		nc->body.type = SPA_CHOICE_Enum;
 	}
 
-	if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_MIN_MAX) {
-		if (spa_pod_compare_value(p1->body.value.type, alt1, alt2) < 0)
-			spa_pod_builder_raw(b, alt2, p2->body.value.size);
+	if (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Range) {
+		if (spa_pod_compare_value(type, alt1, alt2) < 0)
+			spa_pod_builder_raw(b, alt2, size);
 		else
-			spa_pod_builder_raw(b, alt1, p1->body.value.size);
+			spa_pod_builder_raw(b, alt1, size);
 
-		alt1 += p1->body.value.size;
-		alt2 += p2->body.value.size;
+		alt1 += size;
+		alt2 += size;
 
-		if (spa_pod_compare_value(p1->body.value.type, alt1, alt2) < 0)
-			spa_pod_builder_raw(b, alt1, p1->body.value.size);
+		if (spa_pod_compare_value(type, alt1, alt2) < 0)
+			spa_pod_builder_raw(b, alt1, size);
 		else
-			spa_pod_builder_raw(b, alt2, p2->body.value.size);
+			spa_pod_builder_raw(b, alt2, size);
 
-		np->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET;
+		nc->body.type = SPA_CHOICE_Range;
 	}
 
-	if (rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_FLAGS)
+	if (p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Flags)
 		return -ENOTSUP;
 
-	if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_STEP)
+	if (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Step)
 		return -ENOTSUP;
 
-	if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_FLAGS)
+	if (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Flags)
 		return -ENOTSUP;
 
-	if (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_FLAGS)
+	if (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Flags)
 		return -ENOTSUP;
 
-	if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_NONE)
+	if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_None)
 		return -ENOTSUP;
-	if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_MIN_MAX)
-		return -ENOTSUP;
-
-	if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_STEP)
-		return -ENOTSUP;
-	if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_ENUM)
-		return -ENOTSUP;
-	if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_FLAGS)
+	if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Range)
 		return -ENOTSUP;
 
-	if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_NONE)
+	if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Step)
 		return -ENOTSUP;
-	if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_MIN_MAX)
+	if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Enum)
 		return -ENOTSUP;
-	if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_STEP)
+	if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Flags)
 		return -ENOTSUP;
-	if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_ENUM)
+
+	if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_None)
 		return -ENOTSUP;
-	if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_FLAGS)
+	if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Range)
+		return -ENOTSUP;
+	if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Step)
+		return -ENOTSUP;
+	if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Enum)
+		return -ENOTSUP;
+	if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Flags)
 		return -ENOTSUP;
 
 	spa_pod_builder_pop(b);
-	spa_pod_prop_fix_default(np);
+	spa_pod_choice_fix_default(nc);
 
 	return 0;
 }
@@ -249,39 +257,50 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 		uint32_t filter_offset = 0;
 
 		switch (SPA_POD_TYPE(pp)) {
-		case SPA_TYPE_Struct:
 		case SPA_TYPE_Object:
 			if (pf != NULL) {
+				struct spa_pod_object *obj = (struct spa_pod_object *) pp;
+				struct spa_pod_prop *p1, *p2;
+
 				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE(pp))
 					return -EINVAL;
 
-				if (SPA_POD_TYPE(pp) == SPA_TYPE_Struct) {
-					filter_offset = sizeof(struct spa_pod_struct);
-					spa_pod_builder_push_struct(b);
-				} else {
-					struct spa_pod_object *p1 = (struct spa_pod_object *) pp;
-					filter_offset = sizeof(struct spa_pod_object);
-					spa_pod_builder_push_object(b, p1->body.type, p1->body.id);
+				spa_pod_builder_push_object(b, obj->body.type, obj->body.id);
+				SPA_POD_OBJECT_FOREACH(obj, p1) {
+					p2 = spa_pod_find_prop(pf, p1->key);
+					if (p2 != NULL)
+						res = spa_pod_filter_prop(b, p1, p2);
+					else
+						spa_pod_builder_raw_padded(b, p1, SPA_POD_PROP_SIZE(p1));
+					if (res < 0)
+						break;
 				}
+				spa_pod_builder_pop(b);
 				do_advance = true;
 			}
 			else
 				do_copy = true;
 			break;
 
-		case SPA_TYPE_Prop:
-		{
-			struct spa_pod_prop *p1, *p2;
+		case SPA_TYPE_Struct:
+			if (pf != NULL) {
+				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE(pp))
+					return -EINVAL;
 
-			p1 = (struct spa_pod_prop *) pp;
-			p2 = spa_pod_contents_find_prop(filter, filter_size, p1->body.key);
-
-			if (p2 != NULL)
-				res = spa_pod_filter_prop(b, p1, p2);
+				filter_offset = sizeof(struct spa_pod_struct);
+				spa_pod_builder_push_struct(b);
+				res = spa_pod_filter_part(b,
+					SPA_MEMBER(pp,filter_offset,void),
+					SPA_POD_SIZE(pp) - filter_offset,
+					SPA_MEMBER(pf,filter_offset,void),
+					SPA_POD_SIZE(pf) - filter_offset);
+			        spa_pod_builder_pop(b);
+				do_advance = true;
+			}
 			else
 				do_copy = true;
 			break;
-		}
+
 		default:
 			if (pf != NULL) {
 				if (SPA_POD_SIZE(pp) != SPA_POD_SIZE(pf))
@@ -295,14 +314,6 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 		}
 		if (do_copy)
 			spa_pod_builder_raw_padded(b, pp, SPA_POD_SIZE(pp));
-		else if (filter_offset) {
-			res = spa_pod_filter_part(b,
-					SPA_MEMBER(pp,filter_offset,void),
-					SPA_POD_SIZE(pp) - filter_offset,
-					SPA_MEMBER(pf,filter_offset,void),
-					SPA_POD_SIZE(pf) - filter_offset);
-		        spa_pod_builder_pop(b);
-		}
 		if (do_advance) {
 			pf = spa_pod_next(pf);
 			if (!spa_pod_is_inside(filter, filter_size, pf))

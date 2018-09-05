@@ -52,10 +52,10 @@ executable('test-props2', 'test-props2.c',
 #           include_directories : [spa_inc ],
 #           dependencies : [],
 #           install : false)
-executable('test-props5', 'test-props5.c',
-           include_directories : [spa_inc ],
-           dependencies : [],
-           install : false)
+#executable('test-props5', 'test-props5.c',
+#           include_directories : [spa_inc ],
+#           dependencies : [],
+#           install : false)
 executable('test-control', 'test-control.c',
            include_directories : [spa_inc ],
            dependencies : [dl_lib, pthread_lib, mathlib],

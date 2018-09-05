@@ -64,33 +64,39 @@ struct spa_bt_monitor {
 
 struct spa_handle_factory spa_a2dp_sink_factory;
 
+static inline void add_dict(struct spa_pod_builder *builder, const char *key, const char *val)
+{
+	spa_pod_builder_string(builder, key);
+	spa_pod_builder_string(builder, val);
+}
+
 static void fill_item(struct spa_bt_monitor *this, struct spa_bt_transport *transport,
 		struct spa_pod **result, struct spa_pod_builder *builder)
 {
 	char trans[16];
 
-	spa_pod_builder_add(builder,
-		"{", SPA_TYPE_OBJECT_MonitorItem, 0,
-		":", SPA_MONITOR_ITEM_id,      "s", transport->path,
-		":", SPA_MONITOR_ITEM_flags,   "I", SPA_MONITOR_ITEM_FLAG_NONE,
-		":", SPA_MONITOR_ITEM_state,   "I", SPA_MONITOR_ITEM_STATE_Available,
-		":", SPA_MONITOR_ITEM_name,    "s", transport->path,
-		":", SPA_MONITOR_ITEM_class,   "s", "Adapter/Bluetooth",
-		":", SPA_MONITOR_ITEM_factory, "p", SPA_TYPE_INTERFACE_HandleFactory, &spa_a2dp_sink_factory,
-		":", SPA_MONITOR_ITEM_info,    "[",
-		NULL);
+	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_MonitorItem, 0);
+	spa_pod_builder_props(builder,
+		SPA_MONITOR_ITEM_id,      &SPA_POD_Stringv(transport->path),
+		SPA_MONITOR_ITEM_flags,   &SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
+		SPA_MONITOR_ITEM_state,   &SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
+		SPA_MONITOR_ITEM_name,    &SPA_POD_Stringv(transport->path),
+		SPA_MONITOR_ITEM_class,   &SPA_POD_Stringc("Adapter/Bluetooth"),
+		SPA_MONITOR_ITEM_factory, &SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory, &spa_a2dp_sink_factory),
+		0);
 
+	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);
+	spa_pod_builder_push_struct(builder);
 	snprintf(trans, sizeof(trans), "%p", transport);
 
-	spa_pod_builder_add(builder,
-		    "s", "device.api",  "s", "bluez5",
-		    "s", "device.name",  "s", transport->device->name,
-		    "s", "device.icon",  "s", transport->device->icon,
-		    "s", "device.bluez5.address",  "s", transport->device->address,
-		    "s", "bluez5.transport",  "s", trans,
-		    NULL);
+	add_dict(builder, "device.api", "bluez5");
+	add_dict(builder, "device.name", transport->device->name);
+	add_dict(builder, "device.icon", transport->device->icon);
+	add_dict(builder, "device.bluez5.address", transport->device->address);
+	add_dict(builder, "bluez5.transport", trans);
 
-	*result = spa_pod_builder_add(builder, "]}", NULL);
+	spa_pod_builder_pop(builder);
+	*result = spa_pod_builder_pop(builder);
 }
 
 static uint8_t a2dp_default_bitpool(struct spa_bt_monitor *monitor, uint8_t freq, uint8_t mode) {
@@ -640,7 +646,7 @@ static struct spa_bt_node *node_create(struct spa_bt_monitor *monitor, struct sp
 	struct spa_pod *item;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Added);
+	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Added, 0);
 	fill_item(monitor, transport, &item, &b);
 
 	monitor->callbacks->event(monitor->callbacks_data, event);
@@ -656,7 +662,7 @@ static struct spa_bt_node *node_destroy(struct spa_bt_monitor *monitor, struct s
 	struct spa_pod *item;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Removed);
+	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Removed, 0);
 	fill_item(monitor, transport, &item, &b);
 
 	monitor->callbacks->event(monitor->callbacks_data, event);

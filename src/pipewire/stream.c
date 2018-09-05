@@ -406,7 +406,8 @@ static int impl_port_enum_params(struct spa_node *node,
 			if (last_id == SPA_ID_INVALID){
 				*result = spa_pod_builder_object(builder,
 					SPA_TYPE_OBJECT_ParamList, id,
-					":", SPA_PARAM_LIST_id, "I", new_id);
+					SPA_PARAM_LIST_id, &SPA_POD_Id(new_id),
+					0);
 				last_id = new_id;
 			}
 			else if (last_id != new_id) {
@@ -631,9 +632,8 @@ static int process_notify(struct stream *impl, struct spa_pod_sequence *sequence
 	if (impl->props.changed) {
 		spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
 		spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, 0);
-		spa_pod_builder_push_prop(&b, SPA_PROP_volume, 0);
+		spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
 		spa_pod_builder_float(&b, impl->props.volume);
-		spa_pod_builder_pop(&b);
 		spa_pod_builder_pop(&b);
 		impl->props.changed = false;
 	}
@@ -1004,14 +1004,16 @@ static void add_controls(struct pw_stream *stream)
 	add_param(stream, PARAM_TYPE_INIT,
 		spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-			":", SPA_PARAM_IO_id,   "I", SPA_IO_Notify,
-			":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence) + 1024));
+			SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Notify),
+			SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_sequence) + 1024),
+			0));
 
 	add_param(stream, PARAM_TYPE_INIT,
 		spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-			":", SPA_PARAM_IO_id,   "I", SPA_IO_Control,
-			":", SPA_PARAM_IO_size, "i", sizeof(struct spa_io_sequence)));
+			SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Control),
+			SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_sequence)),
+			0));
 }
 
 int

@@ -57,7 +57,7 @@ static inline bool spa_pod_parser_can_collect(struct spa_pod *pod, char type)
 		return type == 'T' || type == 'O' || type == 'V' || type == 's';
 	case SPA_TYPE_Bool:
 		return type == 'b';
-	case SPA_TYPE_Enum:
+	case SPA_TYPE_Id:
 		return type == 'I';
 	case SPA_TYPE_Int:
 		return type == 'i';
@@ -87,8 +87,9 @@ static inline bool spa_pod_parser_can_collect(struct spa_pod *pod, char type)
 		return type == 'p';
 	case SPA_TYPE_Fd:
 		return type == 'h';
-	case SPA_TYPE_Prop:
-		return type == 'V';
+	case SPA_TYPE_Choice:
+		return type == 'V' ||
+			spa_pod_parser_can_collect(SPA_POD_CHOICE_CHILD(pod), type);
 	default:
 		return false;
 	}
@@ -146,7 +147,7 @@ do {											\
 	{										\
 		struct spa_pod_pointer_body *b =					\
 				(struct spa_pod_pointer_body *) SPA_POD_BODY(pod);	\
-		*(va_arg(args, void **)) = b->value;					\
+		*(va_arg(args, const void **)) = b->value;					\
 		break;									\
 	}										\
 	case 'h':									\
@@ -211,12 +212,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 		case '{':
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_TYPE_Object)
 				return -EINVAL;
-			if (++parser->depth >= SPA_POD_MAX_DEPTH)
-				return -EINVAL;
-
-			it = &parser->iter[parser->depth];
-			spa_pod_iter_init(it, pod, SPA_POD_SIZE(pod), sizeof(struct spa_pod_object));
-			goto read_pod;
+			break;
 		case '[':
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_TYPE_Struct)
 				return -EINVAL;
@@ -226,12 +222,13 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 			it = &parser->iter[parser->depth];
 			spa_pod_iter_init(it, pod, SPA_POD_SIZE(pod), sizeof(struct spa_pod_struct));
 			goto read_pod;
-		case ']': case '}':
+		case ']':
 			if (current != NULL)
 				return -EINVAL;
 			if (--parser->depth < 0)
 				return -EINVAL;
 
+		case '}':
 			it = &parser->iter[parser->depth];
 			current = spa_pod_iter_current(it);
 			spa_pod_iter_advance(it, current);
@@ -253,8 +250,8 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 			const struct spa_pod *obj = (const struct spa_pod *) parser->iter[parser->depth].data;
 
 			prop = spa_pod_find_prop(obj, key);
-			if (prop != NULL && (prop->body.flags & SPA_POD_PROP_FLAG_UNSET) == 0)
-				pod = &prop->body.value;
+			if (prop != NULL)
+				pod = &prop->value;
 			else
 				pod = NULL;
 
@@ -275,6 +272,9 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 				skip = true;
 			}
 		collect:
+			if (pod->type == SPA_TYPE_Choice)
+				pod = SPA_POD_CHOICE_CHILD(pod);
+
 			if (suppress)
 				suppress = false;
 			else if (skip)

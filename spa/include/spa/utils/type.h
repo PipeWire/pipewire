@@ -31,7 +31,7 @@ enum {
 	SPA_TYPE_START = 0x00000,
 	SPA_TYPE_None,
         SPA_TYPE_Bool,
-        SPA_TYPE_Enum,
+        SPA_TYPE_Id,
         SPA_TYPE_Int,
         SPA_TYPE_Long,
         SPA_TYPE_Float,
@@ -47,7 +47,7 @@ enum {
         SPA_TYPE_Sequence,
         SPA_TYPE_Pointer,
         SPA_TYPE_Fd,
-        SPA_TYPE_Prop,
+        SPA_TYPE_Choice,
         SPA_TYPE_Pod,
 
 	/* Pointers */
@@ -91,9 +91,9 @@ enum {
 	SPA_TYPE_OBJECT_ParamIO,
 
 	/* vendor extensions */
-	SPA_TYPE_VENDOR_PipeWire	= 0x01000000,
+	SPA_TYPE_VENDOR_PipeWire	= 0x02000000,
 
-	SPA_TYPE_VENDOR_Other	= 0x7f000000,
+	SPA_TYPE_VENDOR_Other		= 0x7f000000,
 };
 
 

@@ -112,7 +112,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	unsigned int min, max;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = { 0 };
-	struct spa_pod_prop *prop;
+	struct spa_pod_choice *choice;
 	struct spa_pod *fmt;
 	int res;
 	bool opened;
@@ -134,76 +134,82 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
 
 	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-	spa_pod_builder_add(&b,
-			":", SPA_FORMAT_mediaType,    "I", SPA_MEDIA_TYPE_audio,
-			":", SPA_FORMAT_mediaSubtype, "I", SPA_MEDIA_SUBTYPE_raw, 0);
+	spa_pod_builder_props(&b,
+			SPA_FORMAT_mediaType,    &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+			SPA_FORMAT_mediaSubtype, &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+			0);
 
 	snd_pcm_format_mask_alloca(&fmask);
 	snd_pcm_hw_params_get_format_mask(params, fmask);
 
-	prop = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_prop(&b, SPA_FORMAT_AUDIO_format,
-			SPA_POD_PROP_RANGE_NONE));
+	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_format, 0);
+
+	choice = spa_pod_builder_deref(&b,
+		spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0));
 
 	for (i = 1, j = 0; i < SPA_N_ELEMENTS(format_info); i++) {
 		const struct format_info *fi = &format_info[i];
 
 		if (snd_pcm_format_mask_test(fmask, fi->format)) {
 			if (j++ == 0)
-				spa_pod_builder_enum(&b, fi->spa_format);
-			spa_pod_builder_enum(&b, fi->spa_format);
+				spa_pod_builder_id(&b, fi->spa_format);
+			spa_pod_builder_id(&b, fi->spa_format);
 		}
 	}
 	if (j > 1)
-		prop->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
+		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(&b);
 
 	snd_pcm_access_mask_alloca(&amask);
 	snd_pcm_hw_params_get_access_mask(params, amask);
 
-	prop = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_prop(&b, SPA_FORMAT_AUDIO_layout,
-			SPA_POD_PROP_RANGE_NONE));
+	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_layout, 0);
+
+	choice = spa_pod_builder_deref(&b,
+		spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0));
 	j = 0;
 	if (snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_INTERLEAVED)) {
 		if (j++ == 0)
-			spa_pod_builder_enum(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
-		spa_pod_builder_enum(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
+			spa_pod_builder_id(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
+		spa_pod_builder_id(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
 	}
 	if (snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_NONINTERLEAVED)) {
 		if (j++ == 0)
-			spa_pod_builder_enum(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
-		spa_pod_builder_enum(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
+			spa_pod_builder_id(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
+		spa_pod_builder_id(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
 	}
 	if (j > 1)
-		prop->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
+		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(&b);
 
 	CHECK(snd_pcm_hw_params_get_rate_min(params, &min, &dir), "get_rate_min");
 	CHECK(snd_pcm_hw_params_get_rate_max(params, &max, &dir), "get_rate_max");
 
-	prop = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_prop(&b, SPA_FORMAT_AUDIO_rate, SPA_POD_PROP_RANGE_NONE));
+	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_rate, 0);
+
+	choice = spa_pod_builder_deref(&b,
+		spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0));
 
 	spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_RATE, min, max));
 	if (min != max) {
 		spa_pod_builder_int(&b, min);
 		spa_pod_builder_int(&b, max);
-		prop->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET;
+		choice->body.type = SPA_CHOICE_Range;
 	}
 	spa_pod_builder_pop(&b);
 
 	CHECK(snd_pcm_hw_params_get_channels_min(params, &min), "get_channels_min");
 	CHECK(snd_pcm_hw_params_get_channels_max(params, &max), "get_channels_max");
 
-	prop = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_prop(&b, SPA_FORMAT_AUDIO_channels, SPA_POD_PROP_RANGE_NONE));
+	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_channels, 0);
 
+	choice = spa_pod_builder_deref(&b,
+		spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0));
 	spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_CHANNELS, min, max));
 	if (min != max) {
 		spa_pod_builder_int(&b, min);
 		spa_pod_builder_int(&b, max);
-		prop->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET;
+		choice->body.type = SPA_CHOICE_Range;
 	}
 	spa_pod_builder_pop(&b);
 

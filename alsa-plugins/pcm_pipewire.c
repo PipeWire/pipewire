@@ -323,13 +323,12 @@ static void on_stream_format_changed(void *data, const struct spa_pod *format)
 
 	params[n_params++] = spa_pod_builder_object(&b,
 	                SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-			":", SPA_PARAM_BUFFERS_buffers, "iru", buffers,
-					SPA_POD_PROP_MIN_MAX(MIN_BUFFERS, MAX_BUFFERS),
-			":", SPA_PARAM_BUFFERS_blocks,  "i", 1,
-			":", SPA_PARAM_BUFFERS_size,    "ir", size,
-					SPA_POD_PROP_MIN_MAX(size, INT_MAX),
-			":", SPA_PARAM_BUFFERS_stride,  "i", stride,
-			":", SPA_PARAM_BUFFERS_align,   "i", 16);
+			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(buffers, MIN_BUFFERS, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    &SPA_POD_CHOICE_RANGE_Int(size, size, INT_MAX),
+			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(stride),
+			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
+			0);
 
 	pw_stream_finish_format(pw->stream, 0, params, n_params);
 }
@@ -393,15 +392,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 
 	pw_stream_add_listener(pw->stream, &pw->stream_listener, &stream_events, pw);
 
-	params[0] = spa_pod_builder_object(&b,
-		SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-		"I", SPA_MEDIA_TYPE_audio,
-		"I", SPA_MEDIA_SUBTYPE_raw,
-		":", SPA_FORMAT_AUDIO_format,     "I", pw->format.format,
-		":", SPA_FORMAT_AUDIO_layout,     "I", pw->format.layout,
-		":", SPA_FORMAT_AUDIO_channels,   "i", pw->format.channels,
-		":", SPA_FORMAT_AUDIO_rate,       "i", pw->format.rate);
-
+	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &pw->format);
 	pw->error = false;
 
 	pw_stream_connect(pw->stream,

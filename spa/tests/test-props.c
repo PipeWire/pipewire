@@ -282,7 +282,6 @@ static void do_static_struct(void)
 
 }
 
-
 #define ITER	10000000
 
 int main(int argc, char *argv[])
@@ -410,11 +409,10 @@ int main(int argc, char *argv[])
 				SPA_FRACTION(25,1),
 				SPA_FRACTION(0,1),
 				SPA_FRACTION(INT32_MAX,1)));
+	fmt = spa_pod_builder_pop(&b);
 	}
 	clock_gettime(CLOCK_MONOTONIC, &ts2);
 	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_TIME(&ts2) - SPA_TIMESPEC_TO_TIME(&ts1));
-
-	fmt = spa_pod_builder_pop(&b);
 
 	spa_debug_pod(0, NULL, &fmt->pod);
 	spa_debug_format(0, NULL, &fmt->pod);
@@ -446,6 +444,34 @@ int main(int argc, char *argv[])
 
 	spa_debug_pod(0, NULL, &fmt->pod);
 	spa_debug_format(0, NULL, &fmt->pod);
+
+	fprintf(stderr, "build 6: ");
+	clock_gettime(CLOCK_MONOTONIC, &ts1);
+	for (i = 0 ; i < ITER; i++) {
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Format, 0);
+	spa_pod_builder_prop_val(&b, SPA_FORMAT_mediaType,       &SPA_POD_Id(SPA_MEDIA_TYPE_video));
+	spa_pod_builder_prop_val(&b, SPA_FORMAT_mediaSubtype,    &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw));
+	spa_pod_builder_prop_val(&b, SPA_FORMAT_VIDEO_format,    &SPA_POD_CHOICE_ENUM_Id(3,
+							SPA_VIDEO_FORMAT_I420,
+							SPA_VIDEO_FORMAT_I420,
+							SPA_VIDEO_FORMAT_YUY2));
+	spa_pod_builder_prop_val(&b, SPA_FORMAT_VIDEO_size,      &SPA_POD_CHOICE_RANGE_Rectangle(
+							SPA_RECTANGLE(320,242),
+							SPA_RECTANGLE(1,1),
+							SPA_RECTANGLE(INT32_MAX,INT32_MAX)));
+	spa_pod_builder_prop_val(&b, SPA_FORMAT_VIDEO_framerate, &SPA_POD_CHOICE_RANGE_Fraction(
+							SPA_FRACTION(25,1),
+							SPA_FRACTION(0,1),
+							SPA_FRACTION(INT32_MAX,1)));
+	fmt = spa_pod_builder_pop(&b);
+	}
+	clock_gettime(CLOCK_MONOTONIC, &ts2);
+	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_TIME(&ts2) - SPA_TIMESPEC_TO_TIME(&ts1));
+
+	spa_debug_pod(0, NULL, &fmt->pod);
+	spa_debug_format(0, NULL, &fmt->pod);
+
 #if 0
 	printf("media type is enum %d\n", spa_type_is_a(SPA_TYPE__mediaType, SPA_TYPE_ENUM_BASE));
 	printf("media sybtype is enum %d\n",

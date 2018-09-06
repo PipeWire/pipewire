@@ -68,21 +68,21 @@ struct spa_fraction {
 
 #define SPA_MIN(a,b)		\
 ({				\
-	typeof(a) _a = (a);	\
-	typeof(b) _b = (b);	\
+	__typeof__(a) _a = (a);	\
+	__typeof__(b) _b = (b);	\
 	_a < _b ? _a : _b;	\
 })
 #define SPA_MAX(a,b)		\
 ({				\
-	typeof(a) _a = (a);	\
-	typeof(b) _b = (b);	\
+	__typeof__(a) _a = (a);	\
+	__typeof__(b) _b = (b);	\
 	_a > _b ? _a : _b;	\
 })
 #define SPA_CLAMP(v,low,high)				\
 ({							\
-	typeof(v) _v = (v);				\
-	typeof(low) _low = (low);			\
-	typeof(high) _high = (high);			\
+	__typeof__(v) _v = (v);				\
+	__typeof__(low) _low = (low);			\
+	__typeof__(high) _high = (high);		\
 	_v > _high ? _high : ( _v < _low ? _low : _v);	\
 })
 

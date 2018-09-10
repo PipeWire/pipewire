@@ -136,6 +136,7 @@ static bool refill_buffer(struct pw_protocol_native_connection *conn, struct buf
 	struct msghdr msg = { 0 };
 	struct iovec iov[1];
 	char cmsgbuf[CMSG_SPACE(MAX_FDS * sizeof(int))];
+	int n_fds = 0;
 
 	iov[0].iov_base = buf->buffer_data + buf->buffer_size;
 	iov[0].iov_len = buf->buffer_maxsize - buf->buffer_size;
@@ -160,17 +161,17 @@ static bool refill_buffer(struct pw_protocol_native_connection *conn, struct buf
 	buf->buffer_size += len;
 
 	/* handle control messages */
-	buf->n_fds = 0;
 	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != NULL; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
 		if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS)
 			continue;
 
-		buf->n_fds =
+		n_fds =
 		    (cmsg->cmsg_len - ((char *) CMSG_DATA(cmsg) - (char *) cmsg)) / sizeof(int);
-		memcpy(buf->fds, CMSG_DATA(cmsg), buf->n_fds * sizeof(int));
+		memcpy(&buf->fds[buf->n_fds], CMSG_DATA(cmsg), n_fds * sizeof(int));
+		buf->n_fds += n_fds;
 	}
 	pw_log_trace("connection %p: %d read %zd bytes and %d fds", conn, conn->fd, len,
-		     buf->n_fds);
+		     n_fds);
 
 	return true;
 

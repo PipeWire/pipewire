@@ -29,6 +29,7 @@
 #include "pipewire/log.h"
 #include "pipewire/module.h"
 #include "pipewire/link.h"
+#include "pipewire/private.h"
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -42,6 +43,33 @@ struct factory_data {
 
 	struct spa_hook module_listener;
 };
+
+static struct pw_port *get_port(struct pw_node *node, enum spa_direction direction)
+{
+	struct pw_port *p;
+	int res;
+
+	p = pw_node_find_port(node, direction, SPA_ID_INVALID);
+
+	if (p == NULL || pw_port_is_linked(p)) {
+		uint32_t port_id;
+
+		port_id = pw_node_get_free_port_id(node, direction);
+		if (port_id == SPA_ID_INVALID)
+			return NULL;
+
+		p = pw_port_new(direction, port_id, NULL, 0);
+		if (p == NULL)
+			return NULL;
+
+		if ((res = pw_port_add(p, node)) < 0) {
+			pw_log_warn("can't add port: %s", spa_strerror(res));
+			return NULL;
+		}
+	}
+	return p;
+}
+
 
 static void *create_object(void *_data,
 			   struct pw_resource *resource,
@@ -99,8 +127,9 @@ static void *create_object(void *_data,
 
 	input_node = pw_global_get_object(global);
 
-	if (output_port_id == -1)
-		outport = pw_node_find_port(output_node, SPA_DIRECTION_OUTPUT, SPA_ID_INVALID);
+	if (output_port_id == -1) {
+		outport = get_port(output_node, SPA_DIRECTION_OUTPUT);
+	}
 	else {
 		global = pw_core_find_global(core, output_port_id);
 		if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Port)
@@ -112,7 +141,7 @@ static void *create_object(void *_data,
 		goto no_output_port;
 
 	if (input_port_id == -1)
-		inport = pw_node_find_port(input_node, SPA_DIRECTION_INPUT, SPA_ID_INVALID);
+		inport = get_port(input_node, SPA_DIRECTION_INPUT);
 	else {
 		global = pw_core_find_global(core, input_port_id);
 		if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Port)

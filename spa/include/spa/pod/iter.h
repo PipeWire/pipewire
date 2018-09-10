@@ -94,8 +94,8 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 	     spa_pod_is_inside(pod, size, iter);				\
 	     (iter) = spa_pod_next(iter))
 
-#define SPA_POD_CONTENTS_FOREACH(pod, offset, iter)						\
-	SPA_POD_FOREACH(SPA_MEMBER((pod), (offset), void),SPA_POD_SIZE (pod)-(offset),iter)
+#define SPA_POD_STRUCT_FOREACH(obj, iter)							\
+	SPA_POD_FOREACH(SPA_POD_BODY(obj), SPA_POD_BODY_SIZE(obj), iter)
 
 #define SPA_POD_OBJECT_BODY_FOREACH(body, size, iter)						\
 	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_object_body), struct spa_pod_prop);	\
@@ -112,14 +112,6 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 
 #define SPA_POD_SEQUENCE_FOREACH(seq, iter)							\
 	SPA_POD_SEQUENCE_BODY_FOREACH(&(seq)->body, SPA_POD_BODY_SIZE(seq), iter)
-
-#if 0
-#define SPA_POD_PROP_ALTERNATIVE_FOREACH(body, _size, iter)					\
-	for ((iter) = SPA_MEMBER((body), (body)->value.size +					\
-				sizeof(struct spa_pod_prop), __typeof__(*iter));		\
-	     (iter) <= SPA_MEMBER((body), (_size)-(body)->value.size, __typeof__(*iter));	\
-	     (iter) = SPA_MEMBER((iter), (body)->value.size, __typeof__(*iter)))
-#endif
 
 static inline struct spa_pod_prop *spa_pod_find_prop(const struct spa_pod *pod, uint32_t key)
 {

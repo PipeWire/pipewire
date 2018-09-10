@@ -280,6 +280,6 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 
 void *pw_audio_dsp_get_user_data(struct pw_node *node)
 {
-	struct node *n = pw_node_get_user_data(node);
+	struct node *n = pw_spa_node_get_user_data(node);
 	return n->user_data;
 }

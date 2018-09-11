@@ -31,6 +31,8 @@
 #define HEIGHT  480
 #define BPP    3
 
+#define MAX_BUFFERS	64
+
 #include "sdl.h"
 
 struct data {
@@ -170,7 +172,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 
 	params[0] = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(8, 2, 16),
+		SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
 		SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
 		SPA_PARAM_BUFFERS_size,    &SPA_POD_Int(data->stride * data->format.size.height),
 		SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(data->stride),

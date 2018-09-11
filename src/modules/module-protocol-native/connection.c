@@ -33,7 +33,8 @@
 #include "connection.h"
 
 #define MAX_BUFFER_SIZE (1024 * 32)
-#define MAX_FDS 28
+#define MAX_FDS 1024
+#define MAX_FDS_MSG 28
 
 static bool debug_messages = 0;
 
@@ -135,7 +136,7 @@ static bool refill_buffer(struct pw_protocol_native_connection *conn, struct buf
 	struct cmsghdr *cmsg;
 	struct msghdr msg = { 0 };
 	struct iovec iov[1];
-	char cmsgbuf[CMSG_SPACE(MAX_FDS * sizeof(int))];
+	char cmsgbuf[CMSG_SPACE(MAX_FDS_MSG * sizeof(int))];
 	int n_fds = 0;
 
 	iov[0].iov_base = buf->buffer_data + buf->buffer_size;
@@ -424,58 +425,75 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *conn)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
-	ssize_t len;
+	ssize_t sent, outsize;
 	struct msghdr msg = { 0 };
 	struct iovec iov[1];
 	struct cmsghdr *cmsg;
-	char cmsgbuf[CMSG_SPACE(MAX_FDS * sizeof(int))];
-	int *cm, res = 0;
-	uint32_t i, fds_len;
+	char cmsgbuf[CMSG_SPACE(MAX_FDS_MSG * sizeof(int))];
+	int *cm, res = 0, *fds;
+	uint32_t i, fds_len, n_fds, outfds;
 	struct buffer *buf;
+	void *data;
+	size_t size;
 
 	buf = &impl->out;
+	data = buf->buffer_data;
+	size = buf->buffer_size;
+	fds = buf->fds;
+	n_fds = buf->n_fds;
 
-	if (buf->buffer_size == 0)
-		return 0;
-
-	fds_len = buf->n_fds * sizeof(int);
-
-	iov[0].iov_base = buf->buffer_data;
-	iov[0].iov_len = buf->buffer_size;
-	msg.msg_iov = iov;
-	msg.msg_iovlen = 1;
-
-	if (buf->n_fds > 0) {
-		msg.msg_control = cmsgbuf;
-		msg.msg_controllen = CMSG_SPACE(fds_len);
-		cmsg = CMSG_FIRSTHDR(&msg);
-		cmsg->cmsg_level = SOL_SOCKET;
-		cmsg->cmsg_type = SCM_RIGHTS;
-		cmsg->cmsg_len = CMSG_LEN(fds_len);
-		cm = (int *) CMSG_DATA(cmsg);
-		for (i = 0; i < buf->n_fds; i++)
-			cm[i] = buf->fds[i] > 0 ? buf->fds[i] : -buf->fds[i];
-		msg.msg_controllen = cmsg->cmsg_len;
-	} else {
-		msg.msg_control = NULL;
-		msg.msg_controllen = 0;
-	}
-
-	while (true) {
-		len = sendmsg(conn->fd, &msg, MSG_NOSIGNAL | MSG_DONTWAIT);
-		if (len < 0) {
-			if (errno == EINTR)
-				continue;
-			else
-				goto send_error;
+	while (size > 0) {
+		if (n_fds > MAX_FDS_MSG) {
+			outfds = MAX_FDS_MSG;
+			outsize = SPA_MIN(sizeof(uint32_t), size);
+		} else {
+			outfds = n_fds;
+			outsize = size;
 		}
-		break;
-	}
-	pw_log_trace("connection %p: %d written %zd bytes and %u fds", conn, conn->fd, len,
-		     buf->n_fds);
 
-	buf->buffer_size -= len;
-	buf->n_fds = 0;
+		fds_len = outfds * sizeof(int);
+
+		iov[0].iov_base = data;
+		iov[0].iov_len = outsize;
+		msg.msg_iov = iov;
+		msg.msg_iovlen = 1;
+
+		if (outfds > 0) {
+			msg.msg_control = cmsgbuf;
+			msg.msg_controllen = CMSG_SPACE(fds_len);
+			cmsg = CMSG_FIRSTHDR(&msg);
+			cmsg->cmsg_level = SOL_SOCKET;
+			cmsg->cmsg_type = SCM_RIGHTS;
+			cmsg->cmsg_len = CMSG_LEN(fds_len);
+			cm = (int *) CMSG_DATA(cmsg);
+			for (i = 0; i < outfds; i++)
+				cm[i] = fds[i] > 0 ? fds[i] : -fds[i];
+			msg.msg_controllen = cmsg->cmsg_len;
+		} else {
+			msg.msg_control = NULL;
+			msg.msg_controllen = 0;
+		}
+
+		while (true) {
+			sent = sendmsg(conn->fd, &msg, MSG_NOSIGNAL | MSG_DONTWAIT);
+			if (sent < 0) {
+				if (errno == EINTR)
+					continue;
+				else
+					goto send_error;
+			}
+			break;
+		}
+		pw_log_trace("connection %p: %d written %zd bytes and %u fds", conn, conn->fd, sent,
+			     outfds);
+
+		size -= sent;
+		data += sent;
+		n_fds -= outfds;
+		fds += outfds;
+	}
+	buf->buffer_size = size;
+	buf->n_fds = n_fds;
 
 	return 0;
 

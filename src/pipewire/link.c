@@ -686,9 +686,6 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		if ((in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) ||
 		    (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS)) {
 			minsize = 0;
-			/* limit buffers to 16 because there is a limit on the number of
-			 * fds in a message for now */
-			max_buffers = 16;
 		}
 
 		data_sizes[0] = minsize;

@@ -421,10 +421,18 @@ static int link_nodes(struct node *node, enum pw_direction direction, struct str
 			continue;
 
 		props = pw_properties_new(NULL, NULL);
-		pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", stream->node->obj.id);
-		pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
-		pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", node->obj.id);
-		pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", p->obj.id);
+		if (p->direction == PW_DIRECTION_OUTPUT) {
+			pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", stream->node->obj.id);
+			pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
+			pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", node->obj.id);
+			pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", p->obj.id);
+		}
+		else {
+			pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", node->obj.id);
+			pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", p->obj.id);
+			pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", stream->node->obj.id);
+			pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
+		}
 
 		pw_core_proxy_create_object(impl->core_proxy,
                                           "link-factory",

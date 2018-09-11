@@ -37,6 +37,8 @@
 #include "pipewire/type.h"
 #include "pipewire/private.h"
 
+#define NAME "media-session"
+
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLERATE	48000
 
@@ -59,7 +61,7 @@ struct impl {
 
 	struct pw_map globals;
 
-	struct spa_list stream_list;
+	struct spa_list node_list;
 	struct spa_list session_list;
 	uint32_t seq;
 };
@@ -69,36 +71,45 @@ struct object {
 	uint32_t id;
 	uint32_t parent_id;
 	uint32_t type;
+	struct pw_proxy *proxy;
+	struct spa_hook listener;
 };
 
 struct node {
 	struct object obj;
 
-	struct pw_node_proxy *proxy;
+	struct spa_list l;
+
 	struct spa_hook listener;
 	struct pw_node_info *info;
 
+	struct spa_list session_link;
+	struct session *session;
+
 	struct spa_list port_list;
+
+	enum pw_direction direction;
+#define NODE_TYPE_UNKNOWN	0
+#define NODE_TYPE_STREAM	1
+#define NODE_TYPE_DSP		2
+#define NODE_TYPE_DEVICE	3
+	uint32_t type;
 };
 
 struct port {
 	struct object obj;
 
+	struct spa_list l;
+	enum pw_direction direction;
 	struct node *node;
 
-	struct spa_list l;
-
-	enum pw_direction direction;
-	struct pw_port_proxy *proxy;
 	struct spa_hook listener;
 };
 
 struct link {
 	struct object obj;
-
-	struct node *node;
-	struct pw_link_proxy *proxy;
-	struct spa_hook listener;
+	struct port *out;
+	struct port *in;
 };
 
 struct session {
@@ -114,6 +125,8 @@ struct session {
 	struct node *dsp;
 	struct link *link;
 
+	struct spa_list node_list;
+
 	struct spa_proxy *proxy;
 	struct spa_hook listener;
 
@@ -124,23 +137,19 @@ struct session {
 	bool need_dsp;
 };
 
-struct stream {
-	struct spa_list l;
-
-	struct impl *impl;
-
-	struct node *node;
-	enum pw_direction direction;
-
-	struct session *session;
-};
-
 static void add_object(struct impl *impl, struct object *obj)
 {
 	size_t size = pw_map_get_size(&impl->globals);
         while (obj->id > size)
                 pw_map_insert_at(&impl->globals, size++, NULL);
         pw_map_insert_at(&impl->globals, obj->id, obj);
+}
+
+static void remove_object(struct impl *impl, struct object *obj)
+{
+        pw_map_insert_at(&impl->globals, obj->id, NULL);
+	if (obj->proxy)
+		pw_proxy_destroy(obj->proxy);
 }
 
 static void *find_object(struct impl *impl, uint32_t id)
@@ -159,13 +168,33 @@ static void schedule_rescan(struct impl *impl)
 static void node_event_info(void *object, struct pw_node_info *info)
 {
 	struct node *n = object;
-	pw_log_debug("node %d id %d", n->obj.id, info->id);
+	pw_log_debug(NAME" %p: info for node %d", n->obj.impl, n->obj.id);
 	n->info = pw_node_info_update(n->info, info);
 }
 
 static const struct pw_node_proxy_events node_events = {
 	PW_VERSION_NODE_PROXY_EVENTS,
 	.info = node_event_info,
+};
+
+static void node_proxy_destroy(void *data)
+{
+	struct node *n = data;
+
+	pw_log_debug(NAME " %p: proxy destroy node %d", n->obj.impl, n->obj.id);
+
+	spa_list_remove(&n->l);
+	if (n->info)
+		pw_node_info_free(n->info);
+	if (n->session) {
+		n->session = NULL;
+		spa_list_remove(&n->session_link);
+	}
+}
+
+static const struct pw_proxy_events node_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = node_proxy_destroy,
 };
 
 static int
@@ -187,10 +216,13 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	node->obj.id = id;
 	node->obj.parent_id = parent_id;
 	node->obj.type = type;
-	node->proxy = (struct pw_node_proxy *) p;
+	node->obj.proxy = p;
 	spa_list_init(&node->port_list);
+	pw_proxy_add_listener(p, &node->obj.listener, &node_proxy_events, node);
 	pw_proxy_add_proxy_listener(p, &node->listener, &node_events, node);
 	add_object(impl, &node->obj);
+	spa_list_append(&impl->node_list, &node->l);
+	node->type = NODE_TYPE_UNKNOWN;
 
 	if (props == NULL)
 		return 0;
@@ -198,11 +230,9 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	if ((str = spa_dict_lookup(props, "media.class")) == NULL)
 		return 0;
 
-	pw_log_debug("node media.class %s", str);
+	pw_log_debug(NAME" %p: node media.class %s", impl, str);
 
 	if (strstr(str, "Stream/") == str) {
-		struct stream *stream;
-
 		str += strlen("Stream/");
 
 		if (strstr(str, "Output/") == str)
@@ -212,13 +242,9 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		else
 			return 0;
 
-		stream = calloc(1, sizeof(struct stream));
-		stream->impl = impl;
-		stream->direction = direction;
-		stream->node = node;
-
-		spa_list_append(&impl->stream_list, &stream->l);
-		pw_log_debug("new stream %p for node %d", stream, id);
+		node->direction = direction;
+		node->type = NODE_TYPE_STREAM;
+		pw_log_debug(NAME "%p: node %d is stream", impl, id);
 	}
 	else {
 		struct session *sess;
@@ -247,9 +273,13 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		sess->need_dsp = need_dsp;
 		sess->enabled = true;
 		sess->node = node;
+		spa_list_init(&sess->node_list);
 		spa_list_append(&impl->session_list, &sess->l);
 
-		pw_log_debug("new session %p for node %d", sess, id);
+		node->direction = direction;
+		node->type = NODE_TYPE_DEVICE;
+
+		pw_log_debug(NAME" %p: new session for device node %d", impl, id);
 	}
 	return 1;
 }
@@ -278,14 +308,14 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 	port->obj.id = id;
 	port->obj.parent_id = parent_id;
 	port->obj.type = type;
+	port->obj.proxy = p;
 	port->node = node;
 	port->direction = strcmp(str, "out") ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
-	port->proxy = (struct pw_port_proxy *)p;
 	add_object(impl, &port->obj);
 
 	spa_list_append(&node->port_list, &port->l);
 
-	pw_log_debug("new port %p for node %d", port, parent_id);
+	pw_log_debug(NAME" %p: new port %d for node %d", impl, id, parent_id);
 
 	return 0;
 }
@@ -298,6 +328,8 @@ registry_global(void *data,uint32_t id, uint32_t parent_id,
 	struct impl *impl = data;
 
 	clock_gettime(CLOCK_MONOTONIC, &impl->now);
+
+	pw_log_debug(NAME " %p: new global '%d'", impl, id);
 
 	switch (type) {
 	case PW_TYPE_INTERFACE_Node:
@@ -315,8 +347,18 @@ registry_global(void *data,uint32_t id, uint32_t parent_id,
 }
 
 static void
-registry_global_remove(void *data,uint32_t id)
+registry_global_remove(void *data, uint32_t id)
 {
+	struct impl *impl = data;
+	struct object *obj;
+
+	pw_log_debug(NAME " %p: remove global '%d'", impl, id);
+
+	if ((obj = find_object(impl, id)) == NULL)
+		return;
+
+	remove_object(impl, obj);
+	schedule_rescan(impl);
 }
 
 static const struct pw_registry_proxy_events registry_events = {
@@ -331,7 +373,7 @@ static int link_session_dsp(struct session *session)
 	struct impl *impl = session->impl;
 	struct pw_properties *props;
 
-	pw_log_debug("module %p: link session dsp '%d'", impl, session->id);
+	pw_log_debug(NAME " %p: link session dsp '%d'", impl, session->id);
 
 	props = pw_properties_new(NULL, NULL);
 	pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", session->dsp->info->id);
@@ -368,7 +410,7 @@ static int find_session(void *data, struct session *sess)
 	const char *str;
 	uint64_t plugged = 0;
 
-	pw_log_debug("module %p: looking at session '%d' enabled:%d busy:%d exclusive:%d",
+	pw_log_debug(NAME " %p: looking at session '%d' enabled:%d busy:%d exclusive:%d",
 			impl, sess->id, sess->enabled, sess->busy, sess->exclusive);
 
 	if (!sess->enabled)
@@ -391,47 +433,50 @@ static int find_session(void *data, struct session *sess)
 	}
 
 	if ((find->exclusive && sess->busy) || sess->exclusive) {
-		pw_log_debug("module %p: session in use", impl);
+		pw_log_debug(NAME " %p: session '%d' in use", impl, sess->id);
 		return 0;
 	}
 
-	pw_log_debug("module %p: found session '%d' %" PRIu64, impl,
+	pw_log_debug(NAME " %p: found session '%d' %" PRIu64, impl,
 			sess->id, plugged);
 
 	if (find->sess == NULL || plugged > find->plugged) {
-		pw_log_debug("module %p: new best %" PRIu64, impl, plugged);
+		pw_log_debug(NAME " %p: new best %" PRIu64, impl, plugged);
 		find->sess = sess;
 		find->plugged = plugged;
 	}
 	return 0;
 }
 
-static int link_nodes(struct node *node, enum pw_direction direction, struct stream *stream)
+static int link_nodes(struct node *peer, enum pw_direction direction, struct node *node)
 {
-	struct impl *impl = node->obj.impl;
+	struct impl *impl = peer->obj.impl;
 	struct pw_properties *props;
 	struct port *p;
 
-	pw_log_debug("module %p: link nodes %d %d", impl, stream->node->obj.id, node->obj.id);
+	pw_log_debug(NAME " %p: link nodes %d %d", impl, node->obj.id, peer->obj.id);
 
-	spa_list_for_each(p, &node->port_list, l) {
-		pw_log_debug("module %p: port %d %d", impl, p->obj.id, p->direction);
-
+	spa_list_for_each(p, &peer->port_list, l) {
 		if (p->direction == direction)
 			continue;
 
 		props = pw_properties_new(NULL, NULL);
 		if (p->direction == PW_DIRECTION_OUTPUT) {
-			pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", stream->node->obj.id);
+			pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", node->obj.id);
 			pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
-			pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", node->obj.id);
+			pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", peer->obj.id);
 			pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", p->obj.id);
+			pw_log_debug(NAME " %p: node %d -> port %d:%d", impl,
+					node->obj.id, peer->obj.id, p->obj.id);
+
 		}
 		else {
-			pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", node->obj.id);
+			pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", peer->obj.id);
 			pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", p->obj.id);
-			pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", stream->node->obj.id);
+			pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", node->obj.id);
 			pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
+			pw_log_debug(NAME " %p: port %d:%d -> node %d", impl,
+					peer->obj.id, p->obj.id, node->obj.id);
 		}
 
 		pw_core_proxy_create_object(impl->core_proxy,
@@ -444,7 +489,7 @@ static int link_nodes(struct node *node, enum pw_direction direction, struct str
 	return 0;
 }
 
-static int rescan_stream(struct impl *impl, struct stream *stream)
+static int rescan_node(struct impl *impl, struct node *node)
 {
 	struct spa_dict *props;
         const char *str, *media, *category, *role;
@@ -456,24 +501,23 @@ static int rescan_stream(struct impl *impl, struct stream *stream)
 	enum pw_direction direction;
 	int res;
 
-	pw_log_debug("rescan stream %p", stream);
+	if (node->type == NODE_TYPE_DSP || node->type == NODE_TYPE_DEVICE)
+		return 0;
 
-	if (stream->node->info == NULL || stream->node->info->props == NULL) {
-		pw_log_debug("stream %p has no properties", stream);
+	if (node->session != NULL)
+		return 0;
+
+	if (node->info == NULL || node->info->props == NULL) {
+		pw_log_debug(NAME " %p: node %d has no properties", impl, node->obj.id);
 		return 0;
 	}
 
-	if (stream->session != NULL) {
-		pw_log_debug("stream %p already has session %p", stream, stream->session);
-		return 0;
-	}
-
-	info = stream->node->info;
+	info = node->info;
 	props = info->props;
 
         str = spa_dict_lookup(props, PW_NODE_PROP_AUTOCONNECT);
         if (str == NULL || !pw_properties_parse_bool(str)) {
-		pw_log_debug("stream %p does not need autoconnect", stream);
+		pw_log_debug(NAME" %p: node %d does not need autoconnect", impl, node->obj.id);
                 return 0;
 	}
 
@@ -520,7 +564,7 @@ static int rescan_stream(struct impl *impl, struct stream *stream)
 	else
 		find.path_id = SPA_ID_INVALID;
 
-	pw_log_info("module %p: '%s' '%s' '%s' exclusive:%d target %d", impl,
+	pw_log_info(NAME " %p: '%s' '%s' '%s' exclusive:%d target %d", impl,
 			media, category, role, exclusive, find.path_id);
 
 	find.impl = impl;
@@ -543,11 +587,11 @@ static int rescan_stream(struct impl *impl, struct stream *stream)
 
 	if (exclusive || session->dsp == NULL) {
 		if (exclusive && session->busy) {
-			pw_log_warn("session busy, can't get exclusive access");
+			pw_log_warn(NAME" %p: session %d busy, can't get exclusive access", impl, session->id);
 			return -EBUSY;
 		}
 		if (session->link != NULL) {
-			pw_log_warn("session busy with DSP");
+			pw_log_warn(NAME" %p: session %d busy with DSP", impl, session->id);
 			return -EBUSY;
 		}
 		peer = session->node;
@@ -561,14 +605,13 @@ static int rescan_stream(struct impl *impl, struct stream *stream)
 		peer = session->dsp;
 	}
 
-	pw_log_debug("module %p: linking to session '%d'", impl, session->id);
+	pw_log_debug(NAME" %p: linking to session '%d'", impl, session->id);
 
         session->busy = true;
-	stream->session = session;
+	node->session = session;
+	spa_list_append(&session->node_list, &node->session_link);
 
-	link_nodes(peer, direction, stream);
-
-//        pw_node_for_each_port(peer, direction, on_peer_port, info);
+	link_nodes(peer, direction, node);
 
         return 1;
 }
@@ -578,13 +621,17 @@ static void dsp_node_event_info(void *object, struct pw_node_info *info)
 	struct session *s = object;
 	struct node *dsp;
 
-	pw_log_debug("dsp node session %d id %d", s->id, info->id);
-
 	if ((dsp = find_object(s->impl, info->id)) == NULL)
 		return;
 
+	pw_log_debug(NAME" %p: dsp node session %d id %d", dsp->obj.impl, s->id, info->id);
+
 	s->dsp = dsp;
 	spa_hook_remove(&s->listener);
+
+	dsp->session = s;
+	dsp->direction = s->direction;
+	dsp->type = NODE_TYPE_DSP;
 }
 
 static const struct pw_node_proxy_events dsp_node_events = {
@@ -592,41 +639,48 @@ static const struct pw_node_proxy_events dsp_node_events = {
 	.info = dsp_node_event_info,
 };
 
-static void rescan_session(struct impl *impl)
+static void rescan_session(struct impl *impl, struct session *sess)
+{
+	if (spa_list_is_empty(&sess->node_list) && sess->busy) {
+		pw_log_debug(NAME "%p: session %d became idle", impl, sess->id);
+		sess->exclusive = false;
+		sess->busy = false;
+	}
+	if (sess->need_dsp && sess->dsp == NULL && !sess->dsp_pending) {
+		struct pw_properties *props;
+		void *dsp;
+
+		if (sess->node->info->props == NULL)
+			return;
+
+		props = pw_properties_new_dict(sess->node->info->props);
+		pw_properties_setf(props, "audio-dsp.direction", "%d", sess->direction);
+		pw_properties_setf(props, "audio-dsp.channels", "%d", 4);
+		pw_properties_setf(props, "audio-dsp.rate", "%d", DEFAULT_SAMPLERATE);
+		pw_properties_setf(props, "audio-dsp.maxbuffer", "%ld", MAX_QUANTUM_SIZE * sizeof(float));
+
+		pw_log_debug(NAME" %p: making audio dsp for session %d", impl, sess->id);
+
+		dsp = pw_core_proxy_create_object(impl->core_proxy,
+				"audio-dsp",
+				PW_TYPE_INTERFACE_Node,
+				PW_VERSION_NODE,
+				&props->dict,
+				0);
+		sess->dsp_pending = true;
+		pw_proxy_add_proxy_listener(dsp, &sess->listener, &dsp_node_events, sess);
+	}
+}
+
+static void do_rescan(struct impl *impl)
 {
 	struct session *sess;
-	struct stream *stream;
+	struct node *node;
 
-	pw_log_debug("rescan session");
-
-	spa_list_for_each(sess, &impl->session_list, l) {
-		if (sess->need_dsp && sess->dsp == NULL && !sess->dsp_pending) {
-			struct pw_properties *props;
-			void *dsp;
-
-			if (sess->node->info->props == NULL)
-				continue;
-
-			props = pw_properties_new_dict(sess->node->info->props);
-			pw_properties_setf(props, "audio-dsp.direction", "%d", sess->direction);
-			pw_properties_setf(props, "audio-dsp.channels", "%d", 4);
-			pw_properties_setf(props, "audio-dsp.rate", "%d", DEFAULT_SAMPLERATE);
-			pw_properties_setf(props, "audio-dsp.maxbuffer", "%ld", MAX_QUANTUM_SIZE * sizeof(float));
-
-			pw_log_debug("making audio dsp %p", sess);
-
-			dsp = pw_core_proxy_create_object(impl->core_proxy,
-					"audio-dsp",
-					PW_TYPE_INTERFACE_Node,
-					PW_VERSION_NODE,
-					&props->dict,
-					0);
-			sess->dsp_pending = true;
-			pw_proxy_add_proxy_listener(dsp, &sess->listener, &dsp_node_events, sess);
-		}
-	}
-	spa_list_for_each(stream, &impl->stream_list, l)
-		rescan_stream(impl, stream);
+	spa_list_for_each(sess, &impl->session_list, l)
+		rescan_session(impl, sess);
+	spa_list_for_each(node, &impl->node_list, l)
+		rescan_node(impl, node);
 }
 
 static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
@@ -635,7 +689,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
-		printf("remote error: %s\n", error);
+		pw_log_error(NAME" %p: remote error: %s", impl, error);
 		pw_main_loop_quit(impl->loop);
 		break;
 
@@ -659,13 +713,9 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 static void remote_sync_reply(void *data, uint32_t seq)
 {
 	struct impl *impl = data;
-
-	pw_log_debug("done %d", seq);
-
 	if (impl->seq == seq)
-		rescan_session(impl);
+		do_rescan(impl);
 }
-
 
 static const struct pw_remote_events remote_events = {
 	PW_VERSION_REMOTE_EVENTS,
@@ -686,7 +736,7 @@ int main(int argc, char *argv[])
 	pw_map_init(&impl.globals, 64, 64);
 
 	spa_list_init(&impl.session_list);
-	spa_list_init(&impl.stream_list);
+	spa_list_init(&impl.node_list);
 
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 

@@ -534,6 +534,8 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_graph_node_init(&this->rt.node, &impl->node_activation.state);
 	spa_graph_node_add(&impl->graph, &this->rt.node);
 
+	impl->quantum.rate = SPA_FRACTION(1, 48000);
+	impl->quantum.size = 1024;
 	this->rt.quantum = &impl->quantum;
 
 	check_properties(this);

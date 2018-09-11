@@ -33,6 +33,7 @@
 #include "pipewire/interfaces.h"
 #include "pipewire/log.h"
 #include "pipewire/module.h"
+#include "pipewire/private.h"
 
 #include "module-media-session/audio-dsp.h"
 
@@ -46,31 +47,33 @@ struct factory_data {
 	struct pw_factory *this;
 	struct pw_properties *properties;
 
+	struct spa_list node_list;
+
 	struct pw_module *module;
 	struct spa_hook module_listener;
 };
 
-struct resource_data {
+struct node_data {
 	struct factory_data *data;
-
-	struct pw_resource *resource;
-	struct spa_hook resource_listener;
-
+	struct spa_list link;
 	struct pw_node *dsp;
+	struct spa_hook resource_listener;
 };
 
 static void resource_destroy(void *data)
 {
-	struct resource_data *d = data;
-	if (d->dsp)
-		pw_node_destroy(d->dsp);
+	struct node_data *nd = data;
+	spa_list_remove(&nd->link);
+	spa_hook_remove(&nd->resource_listener);
+	if (nd->dsp)
+		pw_node_destroy(nd->dsp);
 }
 
-static struct pw_resource_events resource_events =
-{
+static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = resource_destroy
 };
+
 
 static void *create_object(void *_data,
 			   struct pw_resource *resource,
@@ -80,29 +83,18 @@ static void *create_object(void *_data,
 			   uint32_t new_id)
 {
 	struct factory_data *d = _data;
-	struct resource_data *rd;
-	struct pw_resource *node_resource;
 	struct pw_client *client;
-	int channels, rate, maxbuffer;
+	struct pw_node *dsp;
+	int res, channels, rate, maxbuffer;
 	const char *str;
 	enum pw_direction direction;
+	struct node_data *nd;
+	struct pw_resource *bound_resource;
 
 	if (resource == NULL)
 		goto no_resource;
 
 	client = pw_resource_get_client(resource);
-
-	node_resource = pw_resource_new(client,
-					new_id, PW_PERM_RWX, type, version,
-					sizeof(struct resource_data));
-	if (node_resource == NULL)
-		goto no_mem;
-
-	rd = pw_resource_get_user_data(node_resource);
-	rd->data = d;
-	rd->resource = node_resource;
-
-	pw_resource_add_listener(node_resource, &rd->resource_listener, &resource_events, rd);
 
 	if ((str = pw_properties_get(properties, "audio-dsp.direction")) == NULL)
 		goto no_props;
@@ -124,18 +116,34 @@ static void *create_object(void *_data,
 
 	maxbuffer = pw_properties_parse_int(str);
 
-	rd->dsp = pw_audio_dsp_new(pw_module_get_core(d->module),
+	dsp = pw_audio_dsp_new(pw_module_get_core(d->module),
 			properties,
 			direction,
-			channels, rate, maxbuffer, 0);
+			channels, rate, maxbuffer,
+			sizeof(struct node_data));
 
-	if (rd->dsp == NULL)
+	if (dsp == NULL)
 		goto no_mem;
 
-	pw_node_register(rd->dsp, client, pw_module_get_global(d->module), NULL);
-	pw_node_set_active(rd->dsp, true);
+	nd = pw_audio_dsp_get_user_data(dsp);
+	nd->data = d;
+	nd->dsp = dsp;
+	spa_list_append(&d->node_list, &nd->link);
 
-	return rd->dsp;
+	pw_node_register(dsp, client, pw_module_get_global(d->module), NULL);
+
+	res = pw_global_bind(pw_node_get_global(dsp), client, PW_PERM_RWX, PW_VERSION_NODE, new_id);
+	if (res < 0)
+		goto no_bind;
+
+	if ((bound_resource = pw_client_find_resource(client, new_id)) == NULL)
+		goto no_bind;
+
+	pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
+
+	pw_node_set_active(dsp, true);
+
+	return dsp;
 
       no_resource:
 	pw_log_error("audio-dsp needs a resource");
@@ -148,6 +156,9 @@ static void *create_object(void *_data,
       no_mem:
 	pw_log_error("can't create node");
 	pw_resource_error(resource, -ENOMEM, "no memory");
+	goto done;
+      no_bind:
+	pw_resource_error(resource, res, "can't bind dsp node");
 	goto done;
       done:
 	if (properties)
@@ -163,8 +174,12 @@ static const struct pw_factory_implementation impl_factory = {
 static void module_destroy(void *data)
 {
 	struct factory_data *d = data;
+	struct node_data *nd, *t;
 
 	spa_hook_remove(&d->module_listener);
+
+	spa_list_for_each_safe(nd, t, &d->node_list, link)
+		pw_node_destroy(nd->dsp);
 
 	if (d->properties)
 		pw_properties_free(d->properties);
@@ -196,6 +211,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	data->this = factory;
 	data->module = module;
 	data->properties = properties;
+	spa_list_init(&data->node_list);
 
 	pw_log_debug("module %p: new", module);
 

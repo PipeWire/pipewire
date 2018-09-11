@@ -227,8 +227,6 @@ core_create_object(void *object,
 	if (obj == NULL)
 		goto no_mem;
 
-	properties = NULL;
-
       done:
 	return;
 

@@ -923,12 +923,17 @@ static void client_node_initialized(void *data)
 
 	}
 
-	if (media_type == SPA_MEDIA_TYPE_audio)
+	switch (media_type) {
+	case SPA_MEDIA_TYPE_audio:
 		type = "Audio";
-	else if (media_type == SPA_MEDIA_TYPE_video)
+		break;
+	case SPA_MEDIA_TYPE_video:
 		type = "Video";
-	else
+		break;
+	default:
 		type = "Generic";
+		break;
+	}
 
 	snprintf(media_class, sizeof(media_class), "Stream/%s/%s", dir, type);
 

@@ -32,6 +32,7 @@ pw_audio_dsp_new(struct pw_core *core,
 		 const struct pw_properties *properties,
 		 enum pw_direction direction,
 		 uint32_t channels,
+		 uint64_t channelmask,
 		 uint32_t sample_rate,
 		 uint32_t max_buffer_size,
 		 size_t user_data_size);

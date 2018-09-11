@@ -620,6 +620,7 @@ static const struct pw_node_events dsp_events = {
 struct channel_data {
 	struct impl *impl;
 	uint32_t channels;
+	uint64_t channelmask;
 	uint32_t rate;
 };
 
@@ -645,6 +646,7 @@ static int collect_audio_format(void *data, uint32_t id,
 
 	if (info.channels > d->channels) {
 		d->channels = info.channels;
+		d->channelmask = info.channel_mask;
 		d->rate = info.rate;
 	}
 	return 0;
@@ -652,7 +654,7 @@ static int collect_audio_format(void *data, uint32_t id,
 
 
 static int find_port_format(struct impl *impl, struct pw_port *port,
-		uint32_t *channels, uint32_t *rate)
+		uint32_t *channels, uint64_t *channelmask, uint32_t *rate)
 {
 	struct channel_data data = { impl, 0, 0 };
 
@@ -661,9 +663,10 @@ static int find_port_format(struct impl *impl, struct pw_port *port,
 			0, 0, NULL,
 			collect_audio_format, &data);
 
-	pw_log_debug("port channels %d rate %d", data.channels, data.rate);
+	pw_log_debug("port channels %d %"PRIu64" rate %d", data.channels, data.channelmask, data.rate);
 
 	*channels = data.channels;
+	*channelmask = data.channelmask;
 	*rate = data.rate;
 
 	return data.channels > 0 ? 0 : -1;
@@ -679,6 +682,7 @@ static int on_global(void *data, struct pw_global *global)
 	enum pw_direction direction;
 	struct pw_port *node_port, *dsp_port;
 	uint32_t id, channels, rate;
+	uint64_t channelmask;
 	bool need_dsp;
 	uint64_t plugged;
 
@@ -739,13 +743,14 @@ static int on_global(void *data, struct pw_global *global)
 	pw_node_add_listener(node, &sess->node_listener, &node_events, sess);
 
 	if (need_dsp) {
-		if (find_port_format(impl, node_port, &channels, &rate) < 0)
+		if (find_port_format(impl, node_port, &channels, &channelmask, &rate) < 0)
 			return 0;
 
 		dsp = pw_audio_dsp_new(impl->core,
 				properties,
 				direction,
 				channels,
+				channelmask,
 				rate,
 				MAX_QUANTUM_SIZE * sizeof(float),
 				0);

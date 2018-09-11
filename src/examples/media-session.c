@@ -94,6 +94,8 @@ struct node {
 #define NODE_TYPE_DSP		2
 #define NODE_TYPE_DEVICE	3
 	uint32_t type;
+
+	struct spa_audio_info_raw format;
 };
 
 struct port {
@@ -101,6 +103,7 @@ struct port {
 
 	struct spa_list l;
 	enum pw_direction direction;
+	struct pw_port_info *info;
 	struct node *node;
 
 	struct spa_hook listener;
@@ -284,6 +287,65 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	return 1;
 }
 
+static void port_event_info(void *object, struct pw_port_info *info)
+{
+	struct port *p = object;
+	pw_log_debug(NAME" %p: info for port %d", p->obj.impl, p->obj.id);
+	p->info = pw_port_info_update(p->info, info);
+}
+
+static void port_event_param(void *object,
+                       uint32_t id, uint32_t index, uint32_t next,
+                       const struct spa_pod *param)
+{
+	struct port *p = object;
+	struct node *node = p->node;
+	uint32_t media_type, media_subtype;
+	struct spa_audio_info_raw info;
+
+	pw_log_debug(NAME" %p: param for port %d", p->obj.impl, p->obj.id);
+
+	if (id != SPA_PARAM_EnumFormat)
+		return;
+
+	if (spa_format_parse(param, &media_type, &media_subtype) < 0)
+		return;
+
+	if (media_type != SPA_MEDIA_TYPE_audio ||
+	    media_subtype != SPA_MEDIA_SUBTYPE_raw)
+		return;
+
+	spa_pod_fixate((struct spa_pod*)param);
+
+	if (spa_format_audio_raw_parse(param, &info) < 0)
+		return;
+
+	if (info.channels > node->format.channels)
+		node->format = info;
+}
+
+static const struct pw_port_proxy_events port_events = {
+	PW_VERSION_PORT_PROXY_EVENTS,
+	.info = port_event_info,
+	.param = port_event_param,
+};
+
+static void port_proxy_destroy(void *data)
+{
+	struct port *p = data;
+
+	pw_log_debug(NAME " %p: proxy destroy port %d", p->obj.impl, p->obj.id);
+
+	spa_list_remove(&p->l);
+	if (p->info)
+		pw_port_info_free(p->info);
+}
+
+static const struct pw_proxy_events port_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = port_proxy_destroy,
+};
+
 static int
 handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 		const struct spa_dict *props)
@@ -311,9 +373,17 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 	port->obj.proxy = p;
 	port->node = node;
 	port->direction = strcmp(str, "out") ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
+	pw_proxy_add_listener(p, &port->obj.listener, &port_proxy_events, port);
+	pw_proxy_add_proxy_listener(p, &port->listener, &port_events, port);
 	add_object(impl, &port->obj);
 
 	spa_list_append(&node->port_list, &port->l);
+
+	if (node->type == NODE_TYPE_DEVICE) {
+		pw_port_proxy_enum_params((struct pw_port_proxy*)p,
+				SPA_PARAM_EnumFormat,
+				0, -1, NULL);
+	}
 
 	pw_log_debug(NAME" %p: new port %d for node %d", impl, id, parent_id);
 
@@ -648,15 +718,17 @@ static void rescan_session(struct impl *impl, struct session *sess)
 	}
 	if (sess->need_dsp && sess->dsp == NULL && !sess->dsp_pending) {
 		struct pw_properties *props;
+		struct node *node = sess->node;
 		void *dsp;
 
-		if (sess->node->info->props == NULL)
+		if (node->info->props == NULL)
 			return;
 
-		props = pw_properties_new_dict(sess->node->info->props);
+		props = pw_properties_new_dict(node->info->props);
 		pw_properties_setf(props, "audio-dsp.direction", "%d", sess->direction);
-		pw_properties_setf(props, "audio-dsp.channels", "%d", 4);
-		pw_properties_setf(props, "audio-dsp.rate", "%d", DEFAULT_SAMPLERATE);
+		pw_properties_setf(props, "audio-dsp.channels", "%d", node->format.channels);
+		pw_properties_setf(props, "audio-dsp.channelmask", "%"PRIu64, node->format.channel_mask);
+		pw_properties_setf(props, "audio-dsp.rate", "%d", node->format.rate);
 		pw_properties_setf(props, "audio-dsp.maxbuffer", "%ld", MAX_QUANTUM_SIZE * sizeof(float));
 
 		pw_log_debug(NAME" %p: making audio dsp for session %d", impl, sess->id);

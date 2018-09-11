@@ -39,7 +39,7 @@ spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_r
 		":", SPA_FORMAT_AUDIO_rate,		"i", &info->rate,
 		":", SPA_FORMAT_AUDIO_channels,		"i", &info->channels,
 		":", SPA_FORMAT_AUDIO_flags,		"?i", &info->flags,
-		":", SPA_FORMAT_AUDIO_channelMask,	"?i", &info->channel_mask, NULL);
+		":", SPA_FORMAT_AUDIO_channelMask,	"?l", &info->channel_mask, NULL);
 }
 
 static inline struct spa_pod *

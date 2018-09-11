@@ -71,6 +71,7 @@ struct node {
 	void *user_data;
 
 	int channels;
+	uint64_t channelmask;
 	int sample_rate;
 	int max_buffer_size;
 };
@@ -141,10 +142,65 @@ static const struct pw_port_implementation port_implementation = {
 	.use_buffers = port_use_buffers,
 };
 
+static const char *chmap_names[] =
+{
+	"FL",
+        "FR",           /**< front right */
+        "RL",           /**< rear left */
+        "RR",           /**< rear right */
+        "FC",           /**< front center */
+        "LFE",          /**< LFE */
+        "SL",           /**< side left */
+        "SR",           /**< side right */
+        "RC",           /**< rear center */
+        "FLC",          /**< front left center */
+        "FRC",          /**< front right center */
+        "RLC",          /**< rear left center */
+        "RRC",          /**< rear right center */
+        "FLW",          /**< front left wide */
+        "FRW",          /**< front right wide */
+        "FLH",          /**< front left high */
+        "FCH",          /**< front center high */
+        "FRH",          /**< front right high */
+        "TC",           /**< top center */
+        "TFL",          /**< top front left */
+        "TFR",          /**< top front right */
+        "TFC",          /**< top front center */
+        "TRL",          /**< top rear left */
+        "TRR",          /**< top rear right */
+        "TRC",          /**< top rear center */
+        "TFLC",         /**< top front left center */
+        "TFRC",         /**< top front right center */
+        "TSL",          /**< top side left */
+        "TSR",          /**< top side right */
+        "LLFE",         /**< left LFE */
+        "RLFE",         /**< right LFE */
+        "BC",           /**< bottom center */
+        "BLC",          /**< bottom left center */
+        "BRC",          /**< bottom right center */
+};
+
+static int make_channel_name(struct node *n, char *channel_name, int i, uint64_t channelmask)
+{
+	int j;
+
+	sprintf(channel_name, "%d", i + 1);
+	for (j = 0; j < 64; j++) {
+		if (channelmask & (1LL << j)) {
+			if (i-- == 0) {
+				sprintf(channel_name, "%s", chmap_names[j]);
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
 struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 		const struct pw_properties *props,
 		enum pw_direction direction,
 		uint32_t channels,
+		uint64_t channelmask,
 		uint32_t sample_rate,
 		uint32_t max_buffer_size,
 		size_t user_data_size)
@@ -204,6 +260,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	n->node = node;
 
 	n->channels = channels;
+	n->channelmask = channelmask;
 	n->sample_rate = sample_rate;
 	n->max_buffer_size = max_buffer_size;
 
@@ -219,20 +276,23 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	for (i = 0; i < n->channels; i++) {
 		struct port *p;
 		struct pw_properties *props;
+		char channel_name[16];
+
+		make_channel_name(n, channel_name, i, channelmask);
 
 		props = pw_properties_new(
 				"port.dsp", "32 bit float mono audio",
 				"port.physical", "1",
 				"port.terminal", "1",
 				NULL);
-		pw_properties_setf(props, "port.name", "%s_%d",
+		pw_properties_setf(props, "port.name", "%s_%s",
 				direction == PW_DIRECTION_INPUT ? "playback" : "capture",
-				i + 1);
-		pw_properties_setf(props, "port.alias", "%s_pcm:%s:%s%d",
+				channel_name);
+		pw_properties_setf(props, "port.alias1", "%s_pcm:%s:%s%s",
 				api,
 				alias,
 				direction == PW_DIRECTION_INPUT ? "in" : "out",
-				i + 1);
+				channel_name);
 
 		port = pw_port_new(direction,
 				   i,

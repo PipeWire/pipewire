@@ -98,6 +98,50 @@ static snd_pcm_format_t spa_format_to_alsa(uint32_t format)
 	return SND_PCM_FORMAT_UNKNOWN;
 }
 
+static uint64_t map_to_mask(snd_pcm_chmap_t* map)
+{
+	uint64_t result = 0;
+	int i;
+
+	for (i = 0; i < map->channels; i++) {
+		switch (map->pos[i]) {
+		case SND_CHMAP_UNKNOWN:
+		case SND_CHMAP_NA:         /* N/A, silent */
+		case SND_CHMAP_MONO:       /* mono stream */
+			break;
+
+		case SND_CHMAP_FL:         /* front left */
+		case SND_CHMAP_FR:         /* front right */
+		case SND_CHMAP_RL:         /* rear left */
+		case SND_CHMAP_RR:         /* rear right */
+		case SND_CHMAP_FC:         /* front center */
+		case SND_CHMAP_LFE:        /* LFE */
+		case SND_CHMAP_SL:         /* side left */
+		case SND_CHMAP_SR:         /* side right */
+		case SND_CHMAP_RC:         /* rear center */
+		case SND_CHMAP_FLC:        /* front left center */
+		case SND_CHMAP_FRC:        /* front right center */
+		case SND_CHMAP_RLC:        /* rear left center */
+		case SND_CHMAP_RRC:        /* rear right center */
+		case SND_CHMAP_FLW:        /* front left wide */
+		case SND_CHMAP_FRW:        /* front right wide */
+		case SND_CHMAP_FLH:        /* front left high */
+		case SND_CHMAP_FCH:        /* front center high */
+		case SND_CHMAP_FRH:        /* front right high */
+		case SND_CHMAP_TC:         /* top center */
+		case SND_CHMAP_TFL:        /* top front left */
+		case SND_CHMAP_TFR:        /* top front right */
+		case SND_CHMAP_TFC:        /* top front center */
+		case SND_CHMAP_TRL:        /* top rear left */
+		case SND_CHMAP_TRR:        /* top rear right */
+		case SND_CHMAP_TRC:        /* top rear center */
+			result |= (1LL << (map->pos[i] - 3));
+			break;
+		}
+	}
+	return result;
+}
+
 int
 spa_alsa_enum_format(struct state *state, uint32_t *index,
 		     const struct spa_pod *filter,
@@ -108,6 +152,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	snd_pcm_hw_params_t *params;
 	snd_pcm_format_mask_t *fmask;
 	snd_pcm_access_mask_t *amask;
+	snd_pcm_chmap_query_t **maps;
 	int err, i, j, dir;
 	unsigned int min, max;
 	uint8_t buffer[4096];
@@ -212,6 +257,19 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 		choice->body.type = SPA_CHOICE_Range;
 	}
 	spa_pod_builder_pop(&b);
+
+	if ((maps = snd_pcm_query_chmaps(hndl)) != NULL) {
+		spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_channelMask, 0);
+
+		spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0);
+		for (i = 0; maps[i]; i++) {
+			uint64_t mask = map_to_mask(&maps[i]->map);
+			spa_pod_builder_long(&b, mask);
+		}
+		spa_pod_builder_pop(&b);
+
+		snd_pcm_free_chmaps(maps);
+	}
 
 	fmt = spa_pod_builder_pop(&b);
 

@@ -585,7 +585,7 @@ struct pw_port_proxy_methods {
 			const struct spa_pod *filter);
 };
 
-/** Registry */
+/** Port params */
 static inline void
 pw_port_proxy_enum_params(struct pw_port_proxy *port, uint32_t id, uint32_t index,
 		uint32_t num, const struct spa_pod *filter)

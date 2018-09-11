@@ -140,7 +140,7 @@ struct spa_audio_info_raw {
 	enum spa_audio_layout layout;	/*< sample layout */
 	uint32_t rate;			/*< sample rate */
 	uint32_t channels;		/*< number of channels */
-	uint32_t channel_mask;		/*< channel mask */
+	uint64_t channel_mask;		/*< channel mask */
 };
 
 #define SPA_AUDIO_INFO_RAW_INIT(...)		(struct spa_audio_info_raw) { __VA_ARGS__ }

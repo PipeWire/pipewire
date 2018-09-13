@@ -190,8 +190,8 @@ static void node_proxy_destroy(void *data)
 	if (n->info)
 		pw_node_info_free(n->info);
 	if (n->session) {
-		n->session = NULL;
 		spa_list_remove(&n->session_link);
+		n->session = NULL;
 	}
 }
 
@@ -276,6 +276,11 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		sess->need_dsp = need_dsp;
 		sess->enabled = true;
 		sess->node = node;
+		if ((str = spa_dict_lookup(props, "node.plugged")) != NULL)
+			sess->plugged = pw_properties_parse_uint64(str);
+		else
+			sess->plugged = SPA_TIMESPEC_TO_TIME(&impl->now);
+
 		spa_list_init(&sess->node_list);
 		spa_list_append(&impl->session_list, &sess->l);
 
@@ -396,8 +401,6 @@ registry_global(void *data,uint32_t id, uint32_t parent_id,
 		const struct spa_dict *props)
 {
 	struct impl *impl = data;
-
-	clock_gettime(CLOCK_MONOTONIC, &impl->now);
 
 	pw_log_debug(NAME " %p: new global '%d'", impl, id);
 
@@ -699,7 +702,6 @@ static void dsp_node_event_info(void *object, struct pw_node_info *info)
 	s->dsp = dsp;
 	spa_hook_remove(&s->listener);
 
-	dsp->session = s;
 	dsp->direction = s->direction;
 	dsp->type = NODE_TYPE_DSP;
 }
@@ -727,7 +729,7 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		props = pw_properties_new_dict(node->info->props);
 		pw_properties_setf(props, "audio-dsp.direction", "%d", sess->direction);
 		pw_properties_setf(props, "audio-dsp.channels", "%d", node->format.channels);
-		pw_properties_setf(props, "audio-dsp.channelmask", "%"PRIu64, node->format.channel_mask);
+		pw_properties_setf(props, "audio-dsp.channelmask", "%d", 0);
 		pw_properties_setf(props, "audio-dsp.rate", "%d", node->format.rate);
 		pw_properties_setf(props, "audio-dsp.maxbuffer", "%ld", MAX_QUANTUM_SIZE * sizeof(float));
 
@@ -748,6 +750,8 @@ static void do_rescan(struct impl *impl)
 {
 	struct session *sess;
 	struct node *node;
+
+	clock_gettime(CLOCK_MONOTONIC, &impl->now);
 
 	spa_list_for_each(sess, &impl->session_list, l)
 		rescan_session(impl, sess);

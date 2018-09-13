@@ -646,7 +646,6 @@ static int collect_audio_format(void *data, uint32_t id,
 
 	if (info.channels > d->channels) {
 		d->channels = info.channels;
-		d->channelmask = info.channel_mask;
 		d->rate = info.rate;
 	}
 	return 0;

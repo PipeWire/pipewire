@@ -214,6 +214,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
         if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
+	this->info.direction = direction;
 	this->info.props = &this->properties->dict;
 
 	spa_list_init(&this->links);

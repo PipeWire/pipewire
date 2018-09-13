@@ -975,7 +975,6 @@ impl_node_port_enum_params(struct spa_node *node,
 				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 				SPA_FORMAT_AUDIO_format,   &SPA_POD_Id(SPA_AUDIO_FORMAT_S16),
-				SPA_FORMAT_AUDIO_layout,   &SPA_POD_Id(SPA_AUDIO_LAYOUT_INTERLEAVED),
 				SPA_FORMAT_AUDIO_rate,     &SPA_POD_Int(rate),
 				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(channels),
 				0);

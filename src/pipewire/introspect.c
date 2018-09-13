@@ -242,13 +242,9 @@ struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 			return NULL;
 	}
 	info->id = update->id;
+	info->direction = update->direction;
 	info->change_mask = update->change_mask;
 
-	if (update->change_mask & PW_PORT_CHANGE_MASK_NAME) {
-		if (info->name)
-			free((void *) info->name);
-		info->name = update->name ? strdup(update->name) : NULL;
-	}
 	if (update->change_mask & PW_PORT_CHANGE_MASK_PROPS) {
 		if (info->props)
 			pw_spa_dict_destroy(info->props);
@@ -260,8 +256,6 @@ struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 void pw_port_info_free(struct pw_port_info *info)
 {
 
-	if (info->name)
-		free((void *) info->name);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free(info);

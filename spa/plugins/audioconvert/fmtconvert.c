@@ -160,15 +160,13 @@ static int setup_convert(struct impl *this)
 	src_fmt = informat.format.info.raw.format;
 	dst_fmt = outformat.format.info.raw.format;
 
-	spa_log_info(this->log, NAME " %p: %s/%d@%d.%d->%s/%d@%d.%d", this,
+	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d", this,
 			spa_debug_type_find_name(spa_type_audio_format, src_fmt),
 			informat.format.info.raw.channels,
 			informat.format.info.raw.rate,
-			informat.format.info.raw.layout,
 			spa_debug_type_find_name(spa_type_audio_format, dst_fmt),
 			outformat.format.info.raw.channels,
-			outformat.format.info.raw.rate,
-			outformat.format.info.raw.layout);
+			outformat.format.info.raw.rate);
 
 	if (informat.format.info.raw.channels != outformat.format.info.raw.channels)
 		return -EINVAL;
@@ -181,18 +179,8 @@ static int setup_convert(struct impl *this)
 	if (conv != NULL) {
 		spa_log_info(this->log, NAME " %p: got converter features %08x", this,
 				conv->features);
-		if (informat.format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED) {
-			if (outformat.format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
-				this->convert = conv->i2i;
-			else
-				this->convert = conv->i2d;
-		}
-		else {
-			if (outformat.format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
-				this->convert = conv->d2i;
-			else
-				this->convert = conv->i2i;
-		}
+
+		this->convert = conv->func;
 		return 0;
 	}
 	return -ENOTSUP;
@@ -428,11 +416,7 @@ static int port_enum_formats(struct spa_node *node,
 								other->info.raw.format,
 								other->info.raw.format,
 								SPA_AUDIO_FORMAT_F32,
-								SPA_AUDIO_FORMAT_F32_OE),
-				SPA_FORMAT_AUDIO_layout,   &SPA_POD_CHOICE_ENUM_Id(3,
-								other->info.raw.layout,
-								SPA_AUDIO_LAYOUT_INTERLEAVED,
-								SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
+								SPA_AUDIO_FORMAT_F32P),
 				SPA_FORMAT_AUDIO_rate,     &SPA_POD_Int(other->info.raw.rate),
 				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(other->info.raw.channels),
 				0);
@@ -441,23 +425,25 @@ static int port_enum_formats(struct spa_node *node,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(12,
+				SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(18,
 								SPA_AUDIO_FORMAT_S16,
+								SPA_AUDIO_FORMAT_U8P,
 								SPA_AUDIO_FORMAT_U8,
+								SPA_AUDIO_FORMAT_S16P,
 								SPA_AUDIO_FORMAT_S16,
 								SPA_AUDIO_FORMAT_S16_OE,
+								SPA_AUDIO_FORMAT_F32P,
 								SPA_AUDIO_FORMAT_F32,
 								SPA_AUDIO_FORMAT_F32_OE,
+								SPA_AUDIO_FORMAT_S32P,
 								SPA_AUDIO_FORMAT_S32,
 								SPA_AUDIO_FORMAT_S32_OE,
+								SPA_AUDIO_FORMAT_S24P,
 								SPA_AUDIO_FORMAT_S24,
 								SPA_AUDIO_FORMAT_S24_OE,
+								SPA_AUDIO_FORMAT_S24_32P,
 								SPA_AUDIO_FORMAT_S24_32,
 								SPA_AUDIO_FORMAT_S24_32_OE),
-				SPA_FORMAT_AUDIO_layout,   &SPA_POD_CHOICE_ENUM_Id(3,
-								SPA_AUDIO_LAYOUT_INTERLEAVED,
-								SPA_AUDIO_LAYOUT_INTERLEAVED,
-								SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
 				SPA_FORMAT_AUDIO_rate,     &SPA_POD_CHOICE_RANGE_Int(
 								DEFAULT_RATE, 1, INT32_MAX),
 				SPA_FORMAT_AUDIO_channels, &SPA_POD_CHOICE_RANGE_Int(
@@ -632,7 +618,6 @@ static int clear_buffers(struct impl *this, struct port *port)
 static int compatible_format(struct spa_audio_info *info, struct spa_audio_info *info2)
 {
 	if (info->info.raw.format != info2->info.raw.format ||
-	    info->info.raw.layout != info2->info.raw.layout ||
 	    info->info.raw.rate != info2->info.raw.rate)
 		return -EINVAL;
 	return 0;
@@ -686,12 +671,12 @@ static int port_set_format(struct spa_node *node,
 
 		port->stride = calc_width(&info);
 
-		if (info.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED) {
-			port->stride *= info.info.raw.channels;
-			port->blocks = 1;
+		if (SPA_AUDIO_FORMAT_IS_PLANAR(info.info.raw.format)) {
+			port->blocks = info.info.raw.channels;
 		}
 		else {
-			port->blocks = info.info.raw.channels;
+			port->stride *= info.info.raw.channels;
+			port->blocks = 1;
 		}
 
 		if (this->n_formats[SPA_DIRECTION_INPUT] == this->n_ports[SPA_DIRECTION_INPUT] &&

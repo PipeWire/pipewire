@@ -210,7 +210,6 @@ static int negotiate_formats(struct data *data)
 	format = spa_format_audio_raw_build(&b, 0,
 			&SPA_AUDIO_INFO_RAW_INIT(
 				.format = SPA_AUDIO_FORMAT_S16,
-				.layout = SPA_AUDIO_LAYOUT_INTERLEAVED,
 				.rate = 44100,
 				.channels = 2 ));
 
@@ -236,8 +235,7 @@ static int negotiate_formats(struct data *data)
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	format = spa_format_audio_raw_build(&b, 0,
 			&SPA_AUDIO_INFO_RAW_INIT(
-				.format = SPA_AUDIO_FORMAT_F32,
-				.layout = SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
+				.format = SPA_AUDIO_FORMAT_F32P,
 				.rate = 44100,
 				.channels = 2 ));
 

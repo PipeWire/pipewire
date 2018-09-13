@@ -454,6 +454,7 @@ handle_audio_fields (ConvertData *d)
       choice->body.type = SPA_CHOICE_None;
   }
 
+#if 0
   value = gst_structure_get_value (d->cs, "layout");
   if (value) {
     const char *v;
@@ -478,6 +479,7 @@ handle_audio_fields (ConvertData *d)
     if (i <= 1)
       choice->body.type = SPA_CHOICE_None;
   }
+#endif
   value = gst_structure_get_value (d->cs, "rate");
   if (value) {
     int v;

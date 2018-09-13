@@ -331,8 +331,7 @@ static int port_enum_formats(struct spa_node *node,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   &SPA_POD_Id(SPA_AUDIO_FORMAT_F32),
-				SPA_FORMAT_AUDIO_layout,   &SPA_POD_Id(SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
+				SPA_FORMAT_AUDIO_format,   &SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
 				SPA_FORMAT_AUDIO_rate,     &SPA_POD_CHOICE_RANGE_Int(44100, 1, INT32_MAX),
 				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(1),
 				0);
@@ -550,7 +549,7 @@ static int port_set_format(struct spa_node *node,
 			if (memcmp(&info, &this->format, sizeof(struct spa_audio_info)))
 				return -EINVAL;
 		} else {
-			if (info.info.raw.format != SPA_AUDIO_FORMAT_F32)
+			if (info.info.raw.format != SPA_AUDIO_FORMAT_F32P)
 				return -EINVAL;
 
 			this->stride = sizeof(float);

@@ -896,6 +896,9 @@ static void client_node_initialized(void *data)
 			spa_debug_type_find_name(spa_type_media_subtype, media_subtype));
 
 
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_format(2, NULL, format);
+
 	if (!exclusive &&
 	    media_type == SPA_MEDIA_TYPE_audio &&
 	    media_subtype == SPA_MEDIA_SUBTYPE_raw) {

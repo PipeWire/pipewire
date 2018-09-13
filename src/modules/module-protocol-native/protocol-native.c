@@ -777,8 +777,8 @@ static void port_marshal_info(void *object, struct pw_port_info *info)
 	spa_pod_builder_add(b,
 			    "[",
 			    "i", info->id,
+			    "i", info->direction,
 			    "l", info->change_mask,
-			    "s", info->name,
 			    "i", n_items, NULL);
 
 	for (i = 0; i < n_items; i++) {
@@ -803,8 +803,8 @@ static int port_demarshal_info(void *object, void *data, size_t size)
 	if (spa_pod_parser_get(&prs,
 			"["
 			"i", &info.id,
+			"i", &info.direction,
 			"l", &info.change_mask,
-			"s", &info.name,
 			"i", &props.n_items, NULL) < 0)
 		return -EINVAL;
 

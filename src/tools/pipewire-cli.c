@@ -555,9 +555,8 @@ static void info_port(struct proxy_data *pd)
 	struct pw_port_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
-	print_properties(info->props, MARK_CHANGE(1), true);
-	fprintf(stdout, "%c\tenum_params\n", MARK_CHANGE(2));
+	print_properties(info->props, MARK_CHANGE(0), true);
+	fprintf(stdout, "%c\tenum_params\n", MARK_CHANGE(1));
 	info->change_mask = 0;
 }
 

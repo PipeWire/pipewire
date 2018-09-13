@@ -58,33 +58,34 @@ int spa_alsa_close(struct state *state)
 
 struct format_info {
 	uint32_t spa_format;
+	uint32_t spa_pformat;
 	snd_pcm_format_t format;
 };
 
 static const struct format_info format_info[] = {
-	{ SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_UNKNOWN},
-	{ SPA_AUDIO_FORMAT_S8, SND_PCM_FORMAT_S8},
-	{ SPA_AUDIO_FORMAT_U8, SND_PCM_FORMAT_U8},
-	{ SPA_AUDIO_FORMAT_S16_LE, SND_PCM_FORMAT_S16_LE},
-	{ SPA_AUDIO_FORMAT_S16_BE, SND_PCM_FORMAT_S16_BE},
-	{ SPA_AUDIO_FORMAT_U16_LE, SND_PCM_FORMAT_U16_LE},
-	{ SPA_AUDIO_FORMAT_U16_BE, SND_PCM_FORMAT_U16_BE},
-	{ SPA_AUDIO_FORMAT_S24_32_LE, SND_PCM_FORMAT_S24_LE},
-	{ SPA_AUDIO_FORMAT_S24_32_BE, SND_PCM_FORMAT_S24_BE},
-	{ SPA_AUDIO_FORMAT_U24_32_LE, SND_PCM_FORMAT_U24_LE},
-	{ SPA_AUDIO_FORMAT_U24_32_BE, SND_PCM_FORMAT_U24_BE},
-	{ SPA_AUDIO_FORMAT_S24_LE, SND_PCM_FORMAT_S24_3LE},
-	{ SPA_AUDIO_FORMAT_S24_BE, SND_PCM_FORMAT_S24_3BE},
-	{ SPA_AUDIO_FORMAT_U24_LE, SND_PCM_FORMAT_U24_3LE},
-	{ SPA_AUDIO_FORMAT_U24_BE, SND_PCM_FORMAT_U24_3BE},
-	{ SPA_AUDIO_FORMAT_S32_LE, SND_PCM_FORMAT_S32_LE},
-	{ SPA_AUDIO_FORMAT_S32_BE, SND_PCM_FORMAT_S32_BE},
-	{ SPA_AUDIO_FORMAT_U32_LE, SND_PCM_FORMAT_U32_LE},
-	{ SPA_AUDIO_FORMAT_U32_BE, SND_PCM_FORMAT_U32_BE},
-	{ SPA_AUDIO_FORMAT_F32_LE, SND_PCM_FORMAT_FLOAT_LE},
-	{ SPA_AUDIO_FORMAT_F32_BE, SND_PCM_FORMAT_FLOAT_BE},
-	{ SPA_AUDIO_FORMAT_F64_LE, SND_PCM_FORMAT_FLOAT64_LE},
-	{ SPA_AUDIO_FORMAT_F64_BE, SND_PCM_FORMAT_FLOAT64_BE},
+	{ SPA_AUDIO_FORMAT_UNKNOWN, SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_UNKNOWN},
+	{ SPA_AUDIO_FORMAT_S8, SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_S8},
+	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_U8P, SND_PCM_FORMAT_U8},
+	{ SPA_AUDIO_FORMAT_S16_LE, SPA_AUDIO_FORMAT_S16P, SND_PCM_FORMAT_S16_LE},
+	{ SPA_AUDIO_FORMAT_S16_BE, SPA_AUDIO_FORMAT_S16P, SND_PCM_FORMAT_S16_BE},
+	{ SPA_AUDIO_FORMAT_U16_LE, SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_U16_LE},
+	{ SPA_AUDIO_FORMAT_U16_BE, SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_U16_BE},
+	{ SPA_AUDIO_FORMAT_S24_32_LE, SPA_AUDIO_FORMAT_S24_32P, SND_PCM_FORMAT_S24_LE},
+	{ SPA_AUDIO_FORMAT_S24_32_BE, SPA_AUDIO_FORMAT_S24_32P, SND_PCM_FORMAT_S24_BE},
+	{ SPA_AUDIO_FORMAT_U24_32_LE, SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_U24_LE},
+	{ SPA_AUDIO_FORMAT_U24_32_BE, SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_U24_BE},
+	{ SPA_AUDIO_FORMAT_S24_LE, SPA_AUDIO_FORMAT_S24P, SND_PCM_FORMAT_S24_3LE},
+	{ SPA_AUDIO_FORMAT_S24_BE, SPA_AUDIO_FORMAT_S24P, SND_PCM_FORMAT_S24_3BE},
+	{ SPA_AUDIO_FORMAT_U24_LE, SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_U24_3LE},
+	{ SPA_AUDIO_FORMAT_U24_BE, SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_U24_3BE},
+	{ SPA_AUDIO_FORMAT_S32_LE, SPA_AUDIO_FORMAT_S32P, SND_PCM_FORMAT_S32_LE},
+	{ SPA_AUDIO_FORMAT_S32_BE, SPA_AUDIO_FORMAT_S32P, SND_PCM_FORMAT_S32_BE},
+	{ SPA_AUDIO_FORMAT_U32_LE, SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_U32_LE},
+	{ SPA_AUDIO_FORMAT_U32_BE, SPA_AUDIO_FORMAT_UNKNOWN, SND_PCM_FORMAT_U32_BE},
+	{ SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_F32P, SND_PCM_FORMAT_FLOAT_LE},
+	{ SPA_AUDIO_FORMAT_F32_BE, SPA_AUDIO_FORMAT_F32P, SND_PCM_FORMAT_FLOAT_BE},
+	{ SPA_AUDIO_FORMAT_F64_LE, SPA_AUDIO_FORMAT_F64P, SND_PCM_FORMAT_FLOAT64_LE},
+	{ SPA_AUDIO_FORMAT_F64_BE, SPA_AUDIO_FORMAT_F64P, SND_PCM_FORMAT_FLOAT64_BE},
 };
 
 static snd_pcm_format_t spa_format_to_alsa(uint32_t format)
@@ -98,48 +99,54 @@ static snd_pcm_format_t spa_format_to_alsa(uint32_t format)
 	return SND_PCM_FORMAT_UNKNOWN;
 }
 
-static uint64_t map_to_mask(snd_pcm_chmap_t* map)
+struct chmap_info {
+	enum snd_pcm_chmap_position pos;
+	enum spa_audio_channel channel;
+};
+
+static const struct chmap_info chmap_info[] = {
+	[SND_CHMAP_UNKNOWN] = { SND_CHMAP_UNKNOWN, SPA_AUDIO_CHANNEL_UNKNOWN },
+	[SND_CHMAP_NA] = { SND_CHMAP_NA, SPA_AUDIO_CHANNEL_NA },
+	[SND_CHMAP_MONO] = { SND_CHMAP_MONO, SPA_AUDIO_CHANNEL_MONO },
+	[SND_CHMAP_FL] = { SND_CHMAP_FL, SPA_AUDIO_CHANNEL_FL },
+	[SND_CHMAP_FR] = { SND_CHMAP_FR, SPA_AUDIO_CHANNEL_FR },
+	[SND_CHMAP_RL] = { SND_CHMAP_RL, SPA_AUDIO_CHANNEL_RL },
+	[SND_CHMAP_RR] = { SND_CHMAP_RR, SPA_AUDIO_CHANNEL_RR },
+	[SND_CHMAP_FC] = { SND_CHMAP_FC, SPA_AUDIO_CHANNEL_FC },
+	[SND_CHMAP_LFE] = { SND_CHMAP_LFE, SPA_AUDIO_CHANNEL_LFE },
+	[SND_CHMAP_SL] = { SND_CHMAP_SL, SPA_AUDIO_CHANNEL_SL },
+	[SND_CHMAP_SR] = { SND_CHMAP_SR, SPA_AUDIO_CHANNEL_SR },
+	[SND_CHMAP_RC] = { SND_CHMAP_RC, SPA_AUDIO_CHANNEL_RC },
+	[SND_CHMAP_FLC] = { SND_CHMAP_FLC, SPA_AUDIO_CHANNEL_FLC },
+	[SND_CHMAP_FRC] = { SND_CHMAP_FRC, SPA_AUDIO_CHANNEL_FRC },
+	[SND_CHMAP_RLC] = { SND_CHMAP_RLC, SPA_AUDIO_CHANNEL_RLC },
+	[SND_CHMAP_RRC] = { SND_CHMAP_RRC, SPA_AUDIO_CHANNEL_RRC },
+	[SND_CHMAP_FLW] = { SND_CHMAP_FLW, SPA_AUDIO_CHANNEL_FLW },
+	[SND_CHMAP_FRW] = { SND_CHMAP_FRW, SPA_AUDIO_CHANNEL_FRW },
+	[SND_CHMAP_FLH] = { SND_CHMAP_FLH, SPA_AUDIO_CHANNEL_FLH },
+	[SND_CHMAP_FCH] = { SND_CHMAP_FCH, SPA_AUDIO_CHANNEL_FCH },
+	[SND_CHMAP_FRH] = { SND_CHMAP_FRH, SPA_AUDIO_CHANNEL_FRH },
+	[SND_CHMAP_TC] = { SND_CHMAP_TC, SPA_AUDIO_CHANNEL_TC },
+	[SND_CHMAP_TFL] = { SND_CHMAP_TFL, SPA_AUDIO_CHANNEL_TFL },
+	[SND_CHMAP_TFR] = { SND_CHMAP_TFR, SPA_AUDIO_CHANNEL_TFR },
+	[SND_CHMAP_TFC] = { SND_CHMAP_TFC, SPA_AUDIO_CHANNEL_TFC },
+	[SND_CHMAP_TRL] = { SND_CHMAP_TRL, SPA_AUDIO_CHANNEL_TRL },
+	[SND_CHMAP_TRR] = { SND_CHMAP_TRR, SPA_AUDIO_CHANNEL_TRR },
+	[SND_CHMAP_TRC] = { SND_CHMAP_TRC, SPA_AUDIO_CHANNEL_TRC },
+	[SND_CHMAP_TFLC] = { SND_CHMAP_TFLC, SPA_AUDIO_CHANNEL_TFLC },
+	[SND_CHMAP_TFRC] = { SND_CHMAP_TFRC, SPA_AUDIO_CHANNEL_TFRC },
+	[SND_CHMAP_TSL] = { SND_CHMAP_TSL, SPA_AUDIO_CHANNEL_TSL },
+	[SND_CHMAP_TSR] = { SND_CHMAP_TSR, SPA_AUDIO_CHANNEL_TSR },
+	[SND_CHMAP_LLFE] = { SND_CHMAP_LLFE, SPA_AUDIO_CHANNEL_LLFE },
+	[SND_CHMAP_RLFE] = { SND_CHMAP_RLFE, SPA_AUDIO_CHANNEL_RLFE },
+	[SND_CHMAP_BC] = { SND_CHMAP_BC, SPA_AUDIO_CHANNEL_BC },
+	[SND_CHMAP_BLC] = { SND_CHMAP_BLC, SPA_AUDIO_CHANNEL_BLC },
+	[SND_CHMAP_BRC] = { SND_CHMAP_BRC, SPA_AUDIO_CHANNEL_BRC },
+};
+
+static enum spa_audio_channel chmap_position_to_channel(enum snd_pcm_chmap_position pos)
 {
-	uint64_t result = 0;
-	int i;
-
-	for (i = 0; i < map->channels; i++) {
-		switch (map->pos[i]) {
-		case SND_CHMAP_UNKNOWN:
-		case SND_CHMAP_NA:         /* N/A, silent */
-		case SND_CHMAP_MONO:       /* mono stream */
-			break;
-
-		case SND_CHMAP_FL:         /* front left */
-		case SND_CHMAP_FR:         /* front right */
-		case SND_CHMAP_RL:         /* rear left */
-		case SND_CHMAP_RR:         /* rear right */
-		case SND_CHMAP_FC:         /* front center */
-		case SND_CHMAP_LFE:        /* LFE */
-		case SND_CHMAP_SL:         /* side left */
-		case SND_CHMAP_SR:         /* side right */
-		case SND_CHMAP_RC:         /* rear center */
-		case SND_CHMAP_FLC:        /* front left center */
-		case SND_CHMAP_FRC:        /* front right center */
-		case SND_CHMAP_RLC:        /* rear left center */
-		case SND_CHMAP_RRC:        /* rear right center */
-		case SND_CHMAP_FLW:        /* front left wide */
-		case SND_CHMAP_FRW:        /* front right wide */
-		case SND_CHMAP_FLH:        /* front left high */
-		case SND_CHMAP_FCH:        /* front center high */
-		case SND_CHMAP_FRH:        /* front right high */
-		case SND_CHMAP_TC:         /* top center */
-		case SND_CHMAP_TFL:        /* top front left */
-		case SND_CHMAP_TFR:        /* top front right */
-		case SND_CHMAP_TFC:        /* top front center */
-		case SND_CHMAP_TRL:        /* top rear left */
-		case SND_CHMAP_TRR:        /* top rear right */
-		case SND_CHMAP_TRC:        /* top rear center */
-			result |= (1LL << (map->pos[i] - 3));
-			break;
-		}
-	}
-	return result;
+	return chmap_info[pos].channel;
 }
 
 int
@@ -187,6 +194,9 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	snd_pcm_format_mask_alloca(&fmask);
 	snd_pcm_hw_params_get_format_mask(params, fmask);
 
+	snd_pcm_access_mask_alloca(&amask);
+	snd_pcm_hw_params_get_access_mask(params, amask);
+
 	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_format, 0);
 
 	choice = spa_pod_builder_deref(&b,
@@ -196,36 +206,23 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 		const struct format_info *fi = &format_info[i];
 
 		if (snd_pcm_format_mask_test(fmask, fi->format)) {
-			if (j++ == 0)
+			if (snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_INTERLEAVED)) {
+				if (j++ == 0)
+					spa_pod_builder_id(&b, fi->spa_format);
 				spa_pod_builder_id(&b, fi->spa_format);
-			spa_pod_builder_id(&b, fi->spa_format);
+			}
+			if (snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_NONINTERLEAVED) &&
+					fi->spa_pformat != SPA_AUDIO_FORMAT_UNKNOWN) {
+				if (j++ == 0)
+					spa_pod_builder_id(&b, fi->spa_pformat);
+				spa_pod_builder_id(&b, fi->spa_pformat);
+			}
 		}
 	}
 	if (j > 1)
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(&b);
 
-	snd_pcm_access_mask_alloca(&amask);
-	snd_pcm_hw_params_get_access_mask(params, amask);
-
-	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_layout, 0);
-
-	choice = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0));
-	j = 0;
-	if (snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_INTERLEAVED)) {
-		if (j++ == 0)
-			spa_pod_builder_id(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
-		spa_pod_builder_id(&b, SPA_AUDIO_LAYOUT_INTERLEAVED);
-	}
-	if (snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_NONINTERLEAVED)) {
-		if (j++ == 0)
-			spa_pod_builder_id(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
-		spa_pod_builder_id(&b, SPA_AUDIO_LAYOUT_NON_INTERLEAVED);
-	}
-	if (j > 1)
-		choice->body.type = SPA_CHOICE_Enum;
-	spa_pod_builder_pop(&b);
 
 	CHECK(snd_pcm_hw_params_get_rate_min(params, &min, &dir), "get_rate_min");
 	CHECK(snd_pcm_hw_params_get_rate_max(params, &max, &dir), "get_rate_max");
@@ -259,12 +256,16 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	spa_pod_builder_pop(&b);
 
 	if ((maps = snd_pcm_query_chmaps(hndl)) != NULL) {
-		spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_channelMask, 0);
+		uint32_t channel;
 
-		spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0);
+		spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_position, 0);
+		spa_pod_builder_push_array(&b);
 		for (i = 0; maps[i]; i++) {
-			uint64_t mask = map_to_mask(&maps[i]->map);
-			spa_pod_builder_long(&b, mask);
+			snd_pcm_chmap_t* map = &maps[i]->map;
+			for (j = 0; j < map->channels; j++) {
+				channel = chmap_position_to_channel(map->pos[j]);
+				spa_pod_builder_id(&b, channel);
+			}
 		}
 		spa_pod_builder_pop(&b);
 

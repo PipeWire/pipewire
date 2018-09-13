@@ -675,64 +675,92 @@ static const struct conv_info {
 #define FEATURE_SSE	(1<<0)
 	uint32_t features;
 
-	convert_func_t i2i;
-	convert_func_t i2d;
-	convert_func_t d2i;
+	convert_func_t func;
 } conv_table[] =
 {
 	/* to f32 */
-	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_F32, 0,
-		conv_u8_to_f32, conv_u8_to_f32d, conv_u8d_to_f32 },
+	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_F32, 0, conv_u8_to_f32 },
+	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_F32P, 0, conv_u8_to_f32d },
+	{ SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_F32, 0, conv_u8d_to_f32 },
+
+
+	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32, 0, conv_s16_to_f32 },
 #if defined (__SSE2__)
-	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32, FEATURE_SSE,
-		conv_s16_to_f32, conv_s16_to_f32d_sse, conv_s16d_to_f32 },
+	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE, conv_s16_to_f32d_sse },
 #endif
-	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32, 0,
-		conv_s16_to_f32, conv_s16_to_f32d, conv_s16d_to_f32 },
-	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_F32, 0,
-		conv_copy, deinterleave_32, interleave_32 },
-	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_F32, 0,
-		conv_s32_to_f32, conv_s32_to_f32d, conv_s32d_to_f32 },
-	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32, 0,
-		conv_s24_to_f32, conv_s24_to_f32d, conv_s24d_to_f32 },
-	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_F32, 0,
-		conv_s24_32_to_f32, conv_s24_32_to_f32d, conv_s24_32d_to_f32 },
+	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32P, 0, conv_s16_to_f32d },
+	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_F32, 0, conv_s16d_to_f32 },
+
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_F32, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F32P, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_F32P, 0, deinterleave_32 },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F32, 0, interleave_32 },
+
+	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_F32, 0, conv_s32_to_f32 },
+	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_F32P, 0, conv_s32_to_f32d },
+	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32, 0, conv_s32d_to_f32 },
+
+	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32, 0, conv_s24_to_f32 },
+	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, 0, conv_s24_to_f32d },
+	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_F32, 0, conv_s24d_to_f32 },
+
+	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_F32, 0, conv_s24_32_to_f32 },
+	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_F32P, 0, conv_s24_32_to_f32d },
+	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_F32, 0, conv_s24_32d_to_f32 },
 
 	/* from f32 */
-	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_U8, 0,
-		conv_f32_to_u8, conv_f32_to_u8d, conv_f32d_to_u8 },
-	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S16, 0,
-		conv_f32_to_s16, conv_f32_to_s16d, conv_f32d_to_s16 },
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_U8, 0, conv_f32_to_u8 },
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_U8P, 0, conv_f32_to_u8d },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_U8, 0, conv_f32d_to_u8 },
+
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S16, 0, conv_f32_to_s16 },
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S16P, 0, conv_f32_to_s16d },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16, 0, conv_f32d_to_s16 },
+
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S32, 0, conv_f32_to_s32 },
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S32P, 0, conv_f32_to_s32d },
 #if defined (__SSE2__)
-	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S32, FEATURE_SSE,
-		conv_f32_to_s32, conv_f32_to_s32d, conv_f32d_to_s32_sse },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32, FEATURE_SSE, conv_f32d_to_s32_sse },
 #endif
-	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S32, 0,
-		conv_f32_to_s32, conv_f32_to_s32d, conv_f32d_to_s32 },
-	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S24, 0,
-		conv_f32_to_s24, conv_f32_to_s24d, conv_f32d_to_s24 },
-	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S24_32, 0,
-		conv_f32_to_s24_32, conv_f32_to_s24_32d, conv_f32d_to_s24_32 },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32, 0, conv_f32d_to_s32 },
+
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S24, 0, conv_f32_to_s24 },
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S24P, 0, conv_f32_to_s24d },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S24, 0, conv_f32d_to_s24 },
+
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S24_32, 0, conv_f32_to_s24_32 },
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S24_32P, 0, conv_f32_to_s24_32d },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S24_32, 0, conv_f32d_to_s24_32 },
 
 	/* u8 */
-	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_U8, 0,
-		conv_copy, deinterleave_8, interleave_8 },
+	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_U8, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_U8P, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_U8P, 0, deinterleave_8 },
+	{ SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_U8, 0, interleave_8 },
 
 	/* s16 */
-	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_S16, 0,
-		conv_copy, deinterleave_16, interleave_16 },
+	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_S16, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_S16P, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_S16P, 0, deinterleave_16 },
+	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_S16, 0, interleave_16 },
 
 	/* s32 */
-	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_S32, 0,
-		conv_copy, deinterleave_32, interleave_32 },
+	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_S32, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_S32P, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_S32P, 0, deinterleave_32 },
+	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_S32, 0, interleave_32 },
 
 	/* s24 */
-	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_S24, 0,
-		conv_copy, deinterleave_24, interleave_24 },
+	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_S24, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_S24P, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_S24P, 0, deinterleave_24 },
+	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_S24, 0, interleave_24 },
 
 	/* s24_32 */
-	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_S24_32, 0,
-		conv_copy, deinterleave_32, interleave_32 },
+	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_S24_32, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_S24_32P, 0, conv_copy },
+	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_S24_32P, 0, deinterleave_32 },
+	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_S24_32, 0, interleave_32 },
 };
 
 static const struct conv_info *find_conv_info(uint32_t src_fmt, uint32_t dst_fmt, uint32_t features)

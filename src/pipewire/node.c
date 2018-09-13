@@ -889,8 +889,8 @@ uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direct
 		n_ports = node->info.n_output_ports;
 		portmap = &node->output_port_map;
 	}
-	pw_log_debug("node %p: direction %d %u %u",
-			node, direction, n_ports, max_ports);
+	pw_log_debug("node %p: direction %s n_ports:%u max_ports:%u",
+			node, pw_direction_as_string(direction), n_ports, max_ports);
 
 	if (n_ports >= max_ports)
 		goto no_mem;

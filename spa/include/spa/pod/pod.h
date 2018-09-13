@@ -113,6 +113,7 @@ struct spa_pod_bitmap {
 #define SPA_POD_ARRAY_TYPE(arr)		(SPA_POD_TYPE(SPA_POD_ARRAY_CHILD(arr)))
 #define SPA_POD_ARRAY_SIZE(arr)		(SPA_POD_BODY_SIZE(SPA_POD_ARRAY_CHILD(arr)))
 #define SPA_POD_ARRAY_N_VALUES(arr)	((SPA_POD_BODY_SIZE(arr) - sizeof(struct spa_pod_array_body)) / SPA_POD_ARRAY_SIZE(arr))
+#define SPA_POD_ARRAY_VALUES(arr)	SPA_POD_CONTENTS(struct spa_pod_array, arr)
 
 struct spa_pod_array_body {
 	struct spa_pod child;

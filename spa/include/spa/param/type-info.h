@@ -209,11 +209,9 @@ static const struct spa_type_info spa_type_format[] = {
 		spa_type_audio_format },
 	{ SPA_FORMAT_AUDIO_flags, SPA_TYPE_FORMAT_AUDIO_BASE "flags", SPA_TYPE_Id,
 		spa_type_audio_flags },
-	{ SPA_FORMAT_AUDIO_layout, SPA_TYPE_FORMAT_AUDIO_BASE "layout", SPA_TYPE_Id,
-		spa_type_audio_layout },
 	{ SPA_FORMAT_AUDIO_rate, SPA_TYPE_FORMAT_AUDIO_BASE "rate", SPA_TYPE_Int, },
 	{ SPA_FORMAT_AUDIO_channels, SPA_TYPE_FORMAT_AUDIO_BASE "channels", SPA_TYPE_Int, },
-	{ SPA_FORMAT_AUDIO_channelMask, SPA_TYPE_FORMAT_AUDIO_BASE "channelMask", SPA_TYPE_Int, },
+	{ SPA_FORMAT_AUDIO_position, SPA_TYPE_FORMAT_AUDIO_BASE "position", SPA_TYPE_Id, spa_type_audio_channel },
 
 	{ SPA_FORMAT_VIDEO_format, SPA_TYPE_FORMAT_VIDEO_BASE "format", SPA_TYPE_Id,
 		spa_type_video_format, },

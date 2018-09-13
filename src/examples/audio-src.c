@@ -115,7 +115,6 @@ int main(int argc, char *argv[])
 	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
 			&SPA_AUDIO_INFO_RAW_INIT(
 				.format = SPA_AUDIO_FORMAT_F32,
-				.layout = SPA_AUDIO_LAYOUT_INTERLEAVED,
 				.channels = DEFAULT_CHANNELS,
 				.rate = DEFAULT_RATE ));
 

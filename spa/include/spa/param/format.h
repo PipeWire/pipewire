@@ -88,12 +88,11 @@ enum spa_format {
 
 	/* Audio format keys */
 	SPA_FORMAT_START_Audio,
-	SPA_FORMAT_AUDIO_format,
+	SPA_FORMAT_AUDIO_format,	/**< audio format, one of enum spa_audio_format */
 	SPA_FORMAT_AUDIO_flags,
-	SPA_FORMAT_AUDIO_layout,
 	SPA_FORMAT_AUDIO_rate,
-	SPA_FORMAT_AUDIO_channels,
-	SPA_FORMAT_AUDIO_channelMask,
+	SPA_FORMAT_AUDIO_channels,	/**< number of audio channels */
+	SPA_FORMAT_AUDIO_position,	/**< channel positions one of enum spa_audio_position */
 
 	/* Video Format keys */
 	SPA_FORMAT_START_Video = 0x10000,

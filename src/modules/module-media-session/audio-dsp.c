@@ -144,7 +144,8 @@ static const struct pw_port_implementation port_implementation = {
 
 static const char *chmap_names[] =
 {
-	"FL",
+	"MONO",		/**< mono */
+	"FL",		/**< front left */
         "FR",           /**< front right */
         "RL",           /**< rear left */
         "RR",           /**< rear right */
@@ -242,6 +243,8 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 		pw_properties_set(pr, "node.session", str);
 
 	pw_properties_setf(pr, "node.format.rate", "%d", sample_rate);
+	pw_properties_setf(pr, "node.format.channels", "%d", channels);
+	pw_properties_setf(pr, "node.format.channelmask", "%"PRIu64, channelmask);
 
 	node = pw_spa_node_load(core, NULL, NULL,
 			"audioconvert/libspa-audioconvert",
@@ -293,6 +296,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 				alias,
 				direction == PW_DIRECTION_INPUT ? "in" : "out",
 				channel_name);
+		pw_properties_setf(props, "port.channel", "%s", channel_name);
 
 		port = pw_port_new(direction,
 				   i,

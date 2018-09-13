@@ -317,23 +317,25 @@ static int port_enum_formats(struct spa_node *node,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(12,
+				SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(18,
 								SPA_AUDIO_FORMAT_F32,
+								SPA_AUDIO_FORMAT_F32P,
 								SPA_AUDIO_FORMAT_F32,
 								SPA_AUDIO_FORMAT_F32_OE,
+								SPA_AUDIO_FORMAT_S32P,
 								SPA_AUDIO_FORMAT_S32,
 								SPA_AUDIO_FORMAT_S32_OE,
+								SPA_AUDIO_FORMAT_S24_32P,
 								SPA_AUDIO_FORMAT_S24_32,
 								SPA_AUDIO_FORMAT_S24_32_OE,
+								SPA_AUDIO_FORMAT_S24P,
 								SPA_AUDIO_FORMAT_S24,
 								SPA_AUDIO_FORMAT_S24_OE,
+								SPA_AUDIO_FORMAT_S16P,
 								SPA_AUDIO_FORMAT_S16,
 								SPA_AUDIO_FORMAT_S16_OE,
+								SPA_AUDIO_FORMAT_U8P,
 								SPA_AUDIO_FORMAT_U8),
-				SPA_FORMAT_AUDIO_layout,   &SPA_POD_CHOICE_ENUM_Id(3,
-								SPA_AUDIO_LAYOUT_INTERLEAVED,
-								SPA_AUDIO_LAYOUT_INTERLEAVED,
-								SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
 				SPA_FORMAT_AUDIO_rate,     prate,
 				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(this->port_count),
 				0);
@@ -343,8 +345,7 @@ static int port_enum_formats(struct spa_node *node,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   &SPA_POD_Id(SPA_AUDIO_FORMAT_F32),
-				SPA_FORMAT_AUDIO_layout,   &SPA_POD_Id(SPA_AUDIO_LAYOUT_NON_INTERLEAVED),
+				SPA_FORMAT_AUDIO_format,   &SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
 				SPA_FORMAT_AUDIO_rate,     prate,
 				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(1),
 				0);
@@ -513,33 +514,21 @@ static int setup_convert(struct impl *this)
 	src_fmt = inport->format.info.raw.format;
 	dst_fmt = outport->format.info.raw.format;
 
-	spa_log_info(this->log, NAME " %p: %s/%d@%d.%dx%d->%s/%d@%d.%d", this,
+	spa_log_info(this->log, NAME " %p: %s/%d@%dx%d->%s/%d@%d", this,
 			spa_debug_type_find_name(spa_type_audio_format, src_fmt),
 			inport->format.info.raw.channels,
 			inport->format.info.raw.rate,
-			inport->format.info.raw.layout,
 			this->port_count,
 			spa_debug_type_find_name(spa_type_audio_format, dst_fmt),
 			outport->format.info.raw.channels,
-			outport->format.info.raw.rate,
-			outport->format.info.raw.layout);
+			outport->format.info.raw.rate);
 
 	conv = find_conv_info(src_fmt, dst_fmt, FEATURE_SSE);
 	if (conv != NULL) {
 		spa_log_info(this->log, NAME " %p: got converter features %08x", this,
 				conv->features);
-		if (inport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED) {
-			if (outport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
-				this->convert = conv->i2i;
-			else
-				this->convert = conv->i2d;
-		}
-		else {
-			if (outport->format.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED)
-				this->convert = conv->d2i;
-			else
-				this->convert = conv->i2i;
-		}
+
+		this->convert = conv->func;
 		return 0;
 	}
 	return -ENOTSUP;
@@ -549,10 +538,13 @@ static int calc_width(struct spa_audio_info *info)
 {
 	switch (info->info.raw.format) {
 	case SPA_AUDIO_FORMAT_U8:
+	case SPA_AUDIO_FORMAT_U8P:
 		return 1;
+	case SPA_AUDIO_FORMAT_S16P:
 	case SPA_AUDIO_FORMAT_S16:
 	case SPA_AUDIO_FORMAT_S16_OE:
 		return 2;
+	case SPA_AUDIO_FORMAT_S24P:
 	case SPA_AUDIO_FORMAT_S24:
 	case SPA_AUDIO_FORMAT_S24_OE:
 		return 3;
@@ -603,9 +595,7 @@ static int port_set_format(struct spa_node *node,
 			if (info.info.raw.channels != this->port_count)
 				return -EINVAL;
 		} else {
-			if (info.info.raw.format != SPA_AUDIO_FORMAT_F32)
-				return -EINVAL;
-			if (info.info.raw.layout != SPA_AUDIO_LAYOUT_NON_INTERLEAVED)
+			if (info.info.raw.format != SPA_AUDIO_FORMAT_F32P)
 				return -EINVAL;
 			if (info.info.raw.channels != 1)
 				return -EINVAL;
@@ -613,12 +603,11 @@ static int port_set_format(struct spa_node *node,
 
 		port->format = info;
 		port->stride = calc_width(&info);
-		if (info.info.raw.layout == SPA_AUDIO_LAYOUT_INTERLEAVED) {
+		if (SPA_AUDIO_FORMAT_IS_PLANAR(info.info.raw.format)) {
+			port->blocks = info.info.raw.channels;
+		} else {
 			port->stride *= info.info.raw.channels;
 			port->blocks = 1;
-		}
-		else {
-			port->blocks = info.info.raw.channels;
 		}
 		spa_log_debug(this->log, NAME " %p: %d %d %d", this, port_id, port->stride, port->blocks);
 

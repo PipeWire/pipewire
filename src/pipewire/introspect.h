@@ -167,11 +167,10 @@ pw_node_info_free(struct pw_node_info *info);
 
 struct pw_port_info {
 	uint32_t id;				/**< id of the global */
-#define PW_PORT_CHANGE_MASK_NAME		(1 << 0)
-#define PW_PORT_CHANGE_MASK_PROPS		(1 << 1)
-#define PW_PORT_CHANGE_MASK_ENUM_PARAMS		(1 << 2)
+	enum pw_direction direction;		/**< port direction */
+#define PW_PORT_CHANGE_MASK_PROPS		(1 << 0)
+#define PW_PORT_CHANGE_MASK_ENUM_PARAMS		(1 << 1)
 	uint64_t change_mask;			/**< bitfield of changed fields since last call */
-	const char *name;                       /**< name the port, suitable for display */
 	struct spa_dict *props;			/**< the properties of the port */
 };
 

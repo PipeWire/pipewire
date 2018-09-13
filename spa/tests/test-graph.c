@@ -351,7 +351,6 @@ static int negotiate_formats(struct data *data)
 	filter = spa_format_audio_raw_build(&b, 0,
 			&SPA_AUDIO_INFO_RAW_INIT(
 				.format = SPA_AUDIO_FORMAT_S16,
-				.layout = SPA_AUDIO_LAYOUT_INTERLEAVED,
 				.rate = 44100,
 				.channels = 2 ));
 

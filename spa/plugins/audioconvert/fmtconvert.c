@@ -593,11 +593,14 @@ impl_node_port_enum_params(struct spa_node *node,
 static int calc_width(struct spa_audio_info *info)
 {
 	switch (info->info.raw.format) {
+	case SPA_AUDIO_FORMAT_U8P:
 	case SPA_AUDIO_FORMAT_U8:
 		return 1;
+	case SPA_AUDIO_FORMAT_S16P:
 	case SPA_AUDIO_FORMAT_S16:
 	case SPA_AUDIO_FORMAT_S16_OE:
 		return 2;
+	case SPA_AUDIO_FORMAT_S24P:
 	case SPA_AUDIO_FORMAT_S24:
 	case SPA_AUDIO_FORMAT_S24_OE:
 		return 3;

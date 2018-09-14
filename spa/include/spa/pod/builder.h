@@ -354,6 +354,11 @@ spa_pod_builder_fraction(struct spa_pod_builder *builder, uint32_t num, uint32_t
 	return spa_pod_builder_primitive(builder, &p.pod);
 }
 
+#define SPA_POD_Array(ctype, child_type, n_vals, ...)					\
+	(struct { struct spa_pod_array array; ctype vals[n_vals];})				\
+	{ { { n_vals * sizeof(ctype) + sizeof(struct spa_pod_array_body), SPA_TYPE_Array },	\
+		  { { sizeof(ctype), child_type } } }, { __VA_ARGS__ } }
+
 static inline uint32_t
 spa_pod_builder_push_array(struct spa_pod_builder *builder)
 {

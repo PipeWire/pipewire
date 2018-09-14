@@ -133,6 +133,7 @@ struct session {
 	struct spa_proxy *proxy;
 	struct spa_hook listener;
 
+	bool starting;
 	bool dsp_pending;
 	bool enabled;
 	bool busy;
@@ -275,6 +276,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		sess->id = id;
 		sess->need_dsp = need_dsp;
 		sess->enabled = true;
+		sess->starting = true;
 		sess->node = node;
 		if ((str = spa_dict_lookup(props, "node.plugged")) != NULL)
 			sess->plugged = pw_properties_parse_uint64(str);
@@ -651,6 +653,11 @@ static int rescan_node(struct impl *impl, struct node *node)
 
 	session = find.sess;
 
+	if (session->starting) {
+		pw_log_info(NAME " %p: session %d is starting", impl, session->id);
+		return 0;
+	}
+
 	if (strcmp(category, "Capture") == 0)
 		direction = PW_DIRECTION_OUTPUT;
 	else if (strcmp(category, "Playback") == 0)
@@ -722,14 +729,19 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		struct pw_properties *props;
 		struct node *node = sess->node;
 		void *dsp;
+		int i;
+		uint64_t mask = 0;
 
 		if (node->info->props == NULL)
 			return;
 
+		for (i = 0; i < node->format.channels; i++)
+			mask |= 1UL << node->format.position[i];
+
 		props = pw_properties_new_dict(node->info->props);
 		pw_properties_setf(props, "audio-dsp.direction", "%d", sess->direction);
 		pw_properties_setf(props, "audio-dsp.channels", "%d", node->format.channels);
-		pw_properties_setf(props, "audio-dsp.channelmask", "%d", 0);
+		pw_properties_setf(props, "audio-dsp.channelmask", "%"PRIu64, mask);
 		pw_properties_setf(props, "audio-dsp.rate", "%d", node->format.rate);
 		pw_properties_setf(props, "audio-dsp.maxbuffer", "%ld", MAX_QUANTUM_SIZE * sizeof(float));
 
@@ -743,6 +755,9 @@ static void rescan_session(struct impl *impl, struct session *sess)
 				0);
 		sess->dsp_pending = true;
 		pw_proxy_add_proxy_listener(dsp, &sess->listener, &dsp_node_events, sess);
+	}
+	else {
+		sess->starting = false;
 	}
 }
 

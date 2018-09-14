@@ -29,6 +29,7 @@
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 #include <spa/control/control.h>
+#include <spa/debug/types.h>
 
 #define NAME "channelmix"
 
@@ -143,11 +144,11 @@ static int setup_convert(struct impl *this,
 	src_chan = src_info->info.raw.channels;
 	dst_chan = dst_info->info.raw.channels;
 
-	spa_log_info(this->log, NAME " %p: %d/%d@%d->%d/%d@%d", this,
-			src_info->info.raw.format,
+	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d", this,
+			spa_debug_type_find_name(spa_type_audio_format, src_info->info.raw.format),
 			src_chan,
 			src_info->info.raw.rate,
-			dst_info->info.raw.format,
+			spa_debug_type_find_name(spa_type_audio_format, dst_info->info.raw.format),
 			dst_chan,
 			dst_info->info.raw.rate);
 

@@ -30,6 +30,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
+#include <spa/debug/types.h>
 
 #define NAME "resample"
 
@@ -115,11 +116,11 @@ static int setup_convert(struct impl *this,
 		dst_info = info;
 	}
 
-	spa_log_info(this->log, NAME " %p: %d/%d@%d->%d/%d@%d", this,
-			src_info->info.raw.format,
+	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d", this,
+			spa_debug_type_find_name(spa_type_audio_format, src_info->info.raw.format),
 			src_info->info.raw.channels,
 			src_info->info.raw.rate,
-			dst_info->info.raw.format,
+			spa_debug_type_find_name(spa_type_audio_format, dst_info->info.raw.format),
 			dst_info->info.raw.channels,
 			dst_info->info.raw.rate);
 

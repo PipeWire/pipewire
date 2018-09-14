@@ -62,8 +62,10 @@ spa_format_audio_raw_build(struct spa_pod_builder *builder, uint32_t id, struct 
                         SPA_FORMAT_AUDIO_channels,	&SPA_POD_Int(info->channels),
 			0);
 
-	spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
-	spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id, info->channels, info->position);
+	if (info->channels > 1) {
+		spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
+		spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id, info->channels, info->position);
+	}
 	return spa_pod_builder_pop(builder);
 }
 

@@ -144,6 +144,8 @@ static const struct pw_port_implementation port_implementation = {
 
 static const char *chmap_names[] =
 {
+	"UNK",		/**< unknown */
+	"NA",		/**< unmapped */
 	"MONO",		/**< mono */
 	"FL",		/**< front left */
         "FR",           /**< front right */

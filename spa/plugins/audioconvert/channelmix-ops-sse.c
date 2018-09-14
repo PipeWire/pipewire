@@ -216,7 +216,7 @@ channelmix_f32_5p1_4_sse(void *data, int n_dst, void *dst[n_dst],
 			memset(d[i], 0, n_bytes);
 	}
 	else if (v == VOLUME_NORM) {
-		float *s0 = s[0], *s1 = s[1], *s2 = s[2], *s3 = s[3], *s4 = d[4];
+		float *s0 = s[0], *s1 = s[1], *s2 = s[2], *s3 = s[3], *s4 = s[4];
 		float *d0 = d[0], *d1 = d[1], *d2 = d[2], *d3 = d[3];
 
 		unrolled = n_samples / 4;
@@ -238,7 +238,7 @@ channelmix_f32_5p1_4_sse(void *data, int n_dst, void *dst[n_dst],
 		}
 	}
 	else {
-		float *s0 = s[0], *s1 = s[1], *s2 = s[2], *s3 = s[3], *s4 = d[4];
+		float *s0 = s[0], *s1 = s[1], *s2 = s[2], *s3 = s[3], *s4 = s[4];
 		float *d0 = d[0], *d1 = d[1], *d2 = d[2], *d3 = d[3];
 
 		unrolled = n_samples / 4;

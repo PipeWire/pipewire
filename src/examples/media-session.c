@@ -426,11 +426,35 @@ registry_global_remove(void *data, uint32_t id)
 {
 	struct impl *impl = data;
 	struct object *obj;
+	struct session *sess;
 
 	pw_log_debug(NAME " %p: remove global '%d'", impl, id);
 
 	if ((obj = find_object(impl, id)) == NULL)
 		return;
+
+	spa_list_for_each(sess, &impl->session_list, l) {
+		struct node *node = (struct node *)obj, *n, *t;
+
+		if (sess->node != node)
+			continue;
+
+		pw_log_debug(NAME " %p: remove session '%d'", impl, sess->id);
+
+		spa_list_for_each_safe(n, t, &sess->node_list, session_link) {
+			n->session = NULL;
+			spa_list_remove(&n->session_link);
+		}
+
+		if (sess->dsp) {
+			uint32_t id = ((struct object *)sess->dsp)->id;
+			pw_log_debug(NAME " %p: destroy dsp '%d'", impl, id);
+			pw_core_proxy_destroy(impl->core_proxy, id);
+		}
+		spa_list_remove(&sess->l);
+		free(sess);
+		break;
+	}
 
 	remove_object(impl, obj);
 	schedule_rescan(impl);

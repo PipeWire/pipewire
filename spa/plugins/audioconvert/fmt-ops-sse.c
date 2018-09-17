@@ -236,11 +236,10 @@ conv_f32d_to_s32_4_sse(void *data, void *dst, int n_src, const void *src[n_src],
 		out[2] = _mm_unpacklo_epi64(t[2], t[3]);
 		out[3] = _mm_unpackhi_epi64(t[2], t[3]);
 
-		_mm_storeu_si128((__m128i*)(d + 0), out[0]);
-		_mm_storeu_si128((__m128i*)(d + 4), out[1]);
-		_mm_storeu_si128((__m128i*)(d + 8), out[2]);
-		_mm_storeu_si128((__m128i*)(d + 12), out[3]);
-
+		_mm_storeu_si128((__m128i*)(d + 0*n_src), out[0]);
+		_mm_storeu_si128((__m128i*)(d + 1*n_src), out[1]);
+		_mm_storeu_si128((__m128i*)(d + 2*n_src), out[2]);
+		_mm_storeu_si128((__m128i*)(d + 3*n_src), out[3]);
 		d += 4*n_src;
 	}
 	for(; n_samples--; n++) {

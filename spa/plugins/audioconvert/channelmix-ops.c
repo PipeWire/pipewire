@@ -336,9 +336,14 @@ static const struct channelmix_info {
 } channelmix_table[] =
 {
 #if defined (__SSE2__)
+	{ 2, MASK_MONO, 2, MASK_MONO, channelmix_copy_sse, FEATURE_SSE },
+	{ 2, MASK_STEREO, 2, MASK_STEREO, channelmix_copy_sse, FEATURE_SSE },
 	{ -2, 0, -2, 0, channelmix_copy_sse, FEATURE_SSE },
 #endif
+	{ 2, MASK_MONO, 2, MASK_MONO, channelmix_copy, 0 },
+	{ 2, MASK_STEREO, 2, MASK_STEREO, channelmix_copy, 0 },
 	{ -2, 0, -2, 0, channelmix_copy, 0 },
+
 	{ 1, MASK_MONO, 2, MASK_STEREO, channelmix_f32_1_2, 0 },
 	{ 2, MASK_STEREO, 1, MASK_MONO, channelmix_f32_2_1, 0 },
 #if defined (__SSE2__)

@@ -57,6 +57,7 @@ struct node_data {
 	struct factory_data *data;
 	struct spa_list link;
 	struct pw_node *dsp;
+	struct spa_hook dsp_listener;
 	struct spa_hook resource_listener;
 };
 
@@ -65,8 +66,10 @@ static void resource_destroy(void *data)
 	struct node_data *nd = data;
 	spa_list_remove(&nd->link);
 	spa_hook_remove(&nd->resource_listener);
-	if (nd->dsp)
+	if (nd->dsp) {
+		spa_hook_remove(&nd->dsp_listener);
 		pw_node_destroy(nd->dsp);
+	}
 }
 
 static const struct pw_resource_events resource_events = {
@@ -74,6 +77,17 @@ static const struct pw_resource_events resource_events = {
 	.destroy = resource_destroy
 };
 
+static void node_destroy(void *data)
+{
+	struct node_data *nd = data;
+	spa_list_remove(&nd->link);
+	spa_hook_remove(&nd->resource_listener);
+}
+
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
+	.destroy = node_destroy
+};
 
 static void *create_object(void *_data,
 			   struct pw_resource *resource,
@@ -137,6 +151,7 @@ static void *create_object(void *_data,
 	spa_list_append(&d->node_list, &nd->link);
 
 	pw_node_register(dsp, client, pw_module_get_global(d->module), NULL);
+	pw_node_add_listener(dsp, &nd->dsp_listener, &node_events, nd);
 
 	res = pw_global_bind(pw_node_get_global(dsp), client, PW_PERM_RWX, PW_VERSION_NODE, new_id);
 	if (res < 0)

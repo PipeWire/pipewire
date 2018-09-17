@@ -180,11 +180,10 @@ static void core_event_remove_id(void *data, uint32_t id)
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
 
-	proxy = pw_map_lookup(&this->objects, id);
-	if (proxy) {
-		pw_log_debug("remote %p: object remove %u", this, id);
+	pw_log_debug("remote %p: object remove %u", this, id);
+	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL)
 		pw_proxy_destroy(proxy);
-	}
+
 	pw_map_remove(&this->objects, id);
 }
 
@@ -442,11 +441,11 @@ int pw_remote_disconnect(struct pw_remote *remote)
 	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
 		pw_stream_disconnect(stream);
 
-	pw_protocol_client_disconnect (remote->conn);
-
 	spa_list_for_each_safe(proxy, t2, &remote->proxy_list, link)
 		pw_proxy_destroy(proxy);
 	remote->core_proxy = NULL;
+
+	pw_protocol_client_disconnect (remote->conn);
 
 	pw_map_clear(&remote->objects);
 	pw_map_clear(&remote->types);

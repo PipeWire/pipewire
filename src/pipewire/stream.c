@@ -229,7 +229,7 @@ static void clear_buffers(struct pw_stream *stream)
 	struct buffer *b;
 	int i, j;
 
-	pw_log_debug("stream %p: clear buffers", stream);
+	pw_log_debug("stream %p: clear %d buffers", stream, impl->n_buffers);
 
 	for (i = 0; i < impl->n_buffers; i++) {
 		b = &impl->buffers[i];
@@ -534,32 +534,20 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	pw_stream_events_destroy(stream);
 
-	if (impl->node_proxy)
-		spa_hook_remove(&impl->proxy_listener);
-
 	pw_stream_disconnect(stream);
 
 	spa_list_remove(&stream->link);
 
-	set_init_params(stream, 0, NULL);
-	set_params(stream, 0, NULL);
-
-	if (impl->format)
-		free(impl->format);
+	pw_array_clear(&impl->mem_ids);
 
 	if (stream->error)
 		free(stream->error);
 
-	clear_buffers(stream);
-
-	clear_mems(stream);
-	pw_array_clear(&impl->mem_ids);
+	if (stream->name)
+		free(stream->name);
 
 	if (stream->properties)
 		pw_properties_free(stream->properties);
-
-	if (stream->name)
-		free(stream->name);
 
 	free(impl);
 }
@@ -821,7 +809,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn("got error");
-		unhandle_socket(stream);
+		do_remove_sources(stream->remote->core->data_loop->loop, false, 0, NULL, 0, impl);
 		return;
 	}
 
@@ -1241,6 +1229,21 @@ static void on_node_proxy_destroy(void *data)
 	impl->node_proxy = NULL;
 	spa_hook_remove(&impl->proxy_listener);
 
+	set_init_params(this, 0, NULL);
+	set_params(this, 0, NULL);
+
+	clear_buffers(this);
+	clear_mems(this);
+
+	if (impl->format) {
+		free(impl->format);
+		impl->format = NULL;
+	}
+	if (impl->trans) {
+		pw_client_node_transport_destroy(impl->trans);
+		impl->trans = NULL;
+	}
+
 	stream_set_state(this, PW_STREAM_STATE_UNCONNECTED, NULL);
 }
 
@@ -1268,8 +1271,6 @@ pw_stream_connect(struct pw_stream *stream,
 
 	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, NULL);
 
-	if (stream->properties == NULL)
-		stream->properties = pw_properties_new(NULL, NULL);
 	if (port_path)
 		pw_properties_set(stream->properties, PW_NODE_PROP_TARGET_NODE, port_path);
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
@@ -1332,17 +1333,15 @@ int pw_stream_disconnect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
+	pw_log_debug("stream %p: disconnect", stream);
+
 	impl->disconnecting = true;
 
 	unhandle_socket(stream);
 
 	if (impl->node_proxy) {
 		pw_client_node_proxy_destroy(impl->node_proxy);
-		impl->node_proxy = NULL;
-	}
-	if (impl->trans) {
-		pw_client_node_transport_destroy(impl->trans);
-		impl->trans = NULL;
+		pw_proxy_destroy((struct pw_proxy *)impl->node_proxy);
 	}
 	return 0;
 }

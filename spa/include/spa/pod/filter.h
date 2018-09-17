@@ -275,6 +275,16 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 					if (res < 0)
 						break;
 				}
+				if (res >= 0) {
+					obj = (struct spa_pod_object *) pf;
+					SPA_POD_OBJECT_FOREACH(obj, p2) {
+						p1 = spa_pod_find_prop(pp, p2->key);
+						if (p1 != NULL)
+							continue;
+
+						spa_pod_builder_raw_padded(b, p2, SPA_POD_PROP_SIZE(p2));
+					}
+				}
 				spa_pod_builder_pop(b);
 				do_advance = true;
 			}

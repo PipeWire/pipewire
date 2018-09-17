@@ -76,67 +76,67 @@ static inline int spa_pod_compare_value(uint32_t type, const void *r1, const voi
 	return 0;
 }
 
-static inline int spa_pod_compare_part(const struct spa_pod *pod1, uint32_t pod1_size,
-				       const struct spa_pod *pod2, uint32_t pod2_size)
-{
-	const struct spa_pod *p1, *p2;
-	int res;
-
-	p2 = pod2;
-
-	SPA_POD_FOREACH(pod1, pod1_size, p1) {
-		bool do_advance = true;
-		uint32_t recurse_offset = 0;
-
-		if (p2 == NULL)
-			return -EINVAL;
-
-		switch (SPA_POD_TYPE(p1)) {
-		case SPA_TYPE_Struct:
-		case SPA_TYPE_Object:
-			if (SPA_POD_TYPE(p2) != SPA_POD_TYPE(p1))
-				return -EINVAL;
-
-			if (SPA_POD_TYPE(p1) == SPA_TYPE_Struct)
-				recurse_offset = sizeof(struct spa_pod_struct);
-			else
-				recurse_offset = sizeof(struct spa_pod_object);
-
-			do_advance = true;
-			break;
-		default:
-			if (SPA_POD_TYPE(p1) != SPA_POD_TYPE(p2))
-				return -EINVAL;
-
-			res = spa_pod_compare_value(SPA_POD_TYPE(p1), SPA_POD_BODY(p1), SPA_POD_BODY(p2));
-			do_advance = true;
-			break;
-		}
-		if (recurse_offset) {
-			res = spa_pod_compare_part(SPA_MEMBER(p1,recurse_offset,void),
-						   SPA_POD_SIZE(p1) - recurse_offset,
-						   SPA_MEMBER(p2,recurse_offset,void),
-						   SPA_POD_SIZE(p2) - recurse_offset);
-		}
-		if (do_advance) {
-			p2 = spa_pod_next(p2);
-			if (!spa_pod_is_inside(pod2, pod2_size, p2))
-				p2 = NULL;
-		}
-		if (res != 0)
-			return res;
-	}
-	if (p2 != NULL)
-		return -EINVAL;
-
-	return 0;
-}
-
 static inline int spa_pod_compare(const struct spa_pod *pod1,
 				  const struct spa_pod *pod2)
 {
+	int res = 0;
+
         spa_return_val_if_fail(pod1 != NULL, -EINVAL);
         spa_return_val_if_fail(pod2 != NULL, -EINVAL);
 
-	return spa_pod_compare_part(pod1, SPA_POD_SIZE(pod1), pod2, SPA_POD_SIZE(pod2));
+	if (SPA_POD_TYPE(pod1) != SPA_POD_TYPE(pod2))
+		return -EINVAL;
+
+	switch (SPA_POD_TYPE(pod1)) {
+	case SPA_TYPE_Struct:
+	{
+		const struct spa_pod *p1, *p2;
+		size_t p1s, p2s;
+
+		p1 = SPA_POD_BODY_CONST(pod1);
+		p1s = SPA_POD_BODY_SIZE(pod1);
+		p2 = SPA_POD_BODY_CONST(pod2);
+		p2s = SPA_POD_BODY_SIZE(pod2);
+
+		while (true) {
+			if (!spa_pod_is_inside(pod1, p1s, p1) ||
+			    !spa_pod_is_inside(pod2, p2s, p2))
+				return -EINVAL;
+
+			if ((res = spa_pod_compare(p1, p2)) != 0)
+				return res;
+
+			p1 = spa_pod_next(p1);
+			p2 = spa_pod_next(p2);
+		}
+		break;
+	}
+	case SPA_TYPE_Object:
+	{
+		const struct spa_pod_prop *p1, *p2;
+
+		SPA_POD_OBJECT_FOREACH((const struct spa_pod_object*)pod1, p1) {
+			if ((p2 = spa_pod_find_prop(pod2, p1->key)) == NULL)
+				return 1;
+			if ((res == spa_pod_compare(&p1->value, &p2->value)) != 0)
+				return res;
+		}
+		SPA_POD_OBJECT_FOREACH((const struct spa_pod_object*)pod2, p2) {
+			if ((p1 = spa_pod_find_prop(pod1, p2->key)) == NULL)
+				return -1;
+		}
+		break;
+	}
+	case SPA_TYPE_Array:
+	{
+		if (SPA_POD_BODY_SIZE(pod1) != SPA_POD_BODY_SIZE(pod2))
+			return -EINVAL;
+		res = memcmp(SPA_POD_BODY(pod1), SPA_POD_BODY(pod2), SPA_POD_BODY_SIZE(pod2));
+		break;
+	}
+	default:
+		res = spa_pod_compare_value(SPA_POD_TYPE(pod1), SPA_POD_BODY(pod1), SPA_POD_BODY(pod2));
+		break;
+	}
+	return res;
 }

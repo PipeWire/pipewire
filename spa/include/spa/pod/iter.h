@@ -69,9 +69,19 @@ static inline void *spa_pod_next(const void *iter)
 	return SPA_MEMBER(iter, SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), void);
 }
 
+static inline struct spa_pod_prop *spa_pod_prop_first(const struct spa_pod_object_body *body)
+{
+	return SPA_MEMBER(body, sizeof(struct spa_pod_object_body), struct spa_pod_prop);
+}
+
 static inline struct spa_pod_prop *spa_pod_prop_next(const struct spa_pod_prop *iter)
 {
 	return SPA_MEMBER(iter, SPA_ROUND_UP_N (SPA_POD_PROP_SIZE (iter), 8), struct spa_pod_prop);
+}
+
+static inline struct spa_pod_control *spa_pod_control_first(const struct spa_pod_sequence_body *body)
+{
+	return SPA_MEMBER(body, sizeof(struct spa_pod_sequence_body), struct spa_pod_control);
 }
 
 static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_control *iter)
@@ -98,7 +108,7 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 	SPA_POD_FOREACH(SPA_POD_BODY(obj), SPA_POD_BODY_SIZE(obj), iter)
 
 #define SPA_POD_OBJECT_BODY_FOREACH(body, size, iter)						\
-	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_object_body), struct spa_pod_prop);	\
+	for ((iter) = spa_pod_prop_first(body);							\
 	     spa_pod_is_inside(body, size, iter);						\
 	     (iter) = spa_pod_prop_next(iter))
 
@@ -106,7 +116,7 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 	SPA_POD_OBJECT_BODY_FOREACH(&(obj)->body, SPA_POD_BODY_SIZE(obj), iter)
 
 #define SPA_POD_SEQUENCE_BODY_FOREACH(body, size, iter)						\
-	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_sequence_body), struct spa_pod_control);	\
+	for ((iter) = spa_pod_control_first(body);						\
 	     spa_pod_is_inside(body, size, iter);						\
 	     (iter) = spa_pod_control_next(iter))
 

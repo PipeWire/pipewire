@@ -151,13 +151,13 @@ enum spa_audio_channel {
 	SPA_AUDIO_CHANNEL_FR,           /**< front right */
 	SPA_AUDIO_CHANNEL_FC,           /**< front center */
 	SPA_AUDIO_CHANNEL_LFE,          /**< LFE */
-	SPA_AUDIO_CHANNEL_RL,           /**< rear left */
-	SPA_AUDIO_CHANNEL_RR,           /**< rear right */
+	SPA_AUDIO_CHANNEL_SL,           /**< side left */
+	SPA_AUDIO_CHANNEL_SR,           /**< side right */
 	SPA_AUDIO_CHANNEL_FLC,          /**< front left center */
 	SPA_AUDIO_CHANNEL_FRC,          /**< front right center */
 	SPA_AUDIO_CHANNEL_RC,           /**< rear center */
-	SPA_AUDIO_CHANNEL_SL,           /**< side left */
-	SPA_AUDIO_CHANNEL_SR,           /**< side right */
+	SPA_AUDIO_CHANNEL_RL,           /**< rear left */
+	SPA_AUDIO_CHANNEL_RR,           /**< rear right */
 	SPA_AUDIO_CHANNEL_TC,           /**< top center */
 	SPA_AUDIO_CHANNEL_TFL,          /**< top front left */
 	SPA_AUDIO_CHANNEL_TFC,          /**< top front center */

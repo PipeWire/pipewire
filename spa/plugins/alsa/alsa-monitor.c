@@ -291,6 +291,7 @@ static int open_card(struct impl *this, struct card *card)
 		return 0;
 
 	snprintf(card->name, 16, "hw:%d", card->id);
+	spa_log_info(this->log, "open card %s", card->name);
 
 	if ((err = snd_ctl_open(&card->ctl_hndl, card->name, 0)) < 0) {
 		spa_log_error(this->log, "can't open control for card %s: %s",
@@ -303,11 +304,12 @@ static int open_card(struct impl *this, struct card *card)
 	return 0;
 }
 
-static void close_card(struct card *card)
+static void close_card(struct impl *this, struct card *card)
 {
 	if (card->ctl_hndl == NULL)
 		return;
 
+	spa_log_info(this->log, "close card %s", card->name);
 	udev_device_unref(card->dev);
 	snd_ctl_close(card->ctl_hndl);
 	card->ctl_hndl = NULL;
@@ -401,8 +403,8 @@ static void impl_on_fd_events(struct spa_source *source)
 				event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, type, 0);
 				spa_pod_builder_object(&b,
 					SPA_TYPE_OBJECT_MonitorItem, 0,
-					SPA_MONITOR_ITEM_id,      SPA_POD_Stringv(id),
-					SPA_MONITOR_ITEM_name,    SPA_POD_Stringv(id),
+					SPA_MONITOR_ITEM_id,      &SPA_POD_Stringv(id),
+					SPA_MONITOR_ITEM_name,    &SPA_POD_Stringv(id),
 					0);
 				this->callbacks->event(this->callbacks_data, event);
 			}
@@ -411,8 +413,8 @@ static void impl_on_fd_events(struct spa_source *source)
 				event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, type, 0);
 				spa_pod_builder_object(&b,
 					SPA_TYPE_OBJECT_MonitorItem, 0,
-					SPA_MONITOR_ITEM_id,      SPA_POD_Stringv(id),
-					SPA_MONITOR_ITEM_name,    SPA_POD_Stringv(id),
+					SPA_MONITOR_ITEM_id,      &SPA_POD_Stringv(id),
+					SPA_MONITOR_ITEM_name,    &SPA_POD_Stringv(id),
 					0);
 				this->callbacks->event(this->callbacks_data, event);
 			}
@@ -435,7 +437,7 @@ static void impl_on_fd_events(struct spa_source *source)
 			this->callbacks->event(this->callbacks_data, event);
 		}
 	}
-	close_card(card);
+	close_card(this, card);
 }
 
 static int
@@ -538,7 +540,7 @@ static int impl_monitor_enum_items(struct spa_monitor *monitor,
 		card = &this->cards[this->card_idx];
 
 	if (get_next_device(this, card, item, builder) < 0) {
-		close_card(card);
+		close_card(this, card);
 		goto next;
 	}
 
@@ -578,7 +580,7 @@ static int impl_clear(struct spa_handle *handle)
 	int i;
 
 	for (i = 0; i < MAX_CARDS; i++)
-		close_card(&this->cards[i]);
+		close_card(this, &this->cards[i]);
 
         if (this->enumerate)
                 udev_enumerate_unref(this->enumerate);

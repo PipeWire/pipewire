@@ -68,6 +68,7 @@ typedef struct {
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
 
+	uint32_t flags;
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
@@ -400,9 +401,9 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 				  PW_DIRECTION_OUTPUT :
 				  PW_DIRECTION_INPUT,
 			  pw->target,
+			  pw->flags |
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_MAP_BUFFERS |
-//			  PW_STREAM_FLAG_EXCLUSIVE |
 			  PW_STREAM_FLAG_RT_PROCESS,
 			  params, 1);
 
@@ -451,51 +452,97 @@ static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io)
 }
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-#define _FORMAT_LE(fmt)  SPA_AUDIO_FORMAT_ ## fmt ## _OE
-#define _FORMAT_BE(fmt)  SPA_AUDIO_FORMAT_ ## fmt
+#define _FORMAT_LE(p, fmt)  p ? SPA_AUDIO_FORMAT_UNKNOWN : SPA_AUDIO_FORMAT_ ## fmt ## _OE
+#define _FORMAT_BE(p, fmt)  p ? SPA_AUDIO_FORMAT_ ## fmt ## P : SPA_AUDIO_FORMAT_ ## fmt
 #elif __BYTE_ORDER == __LITTLE_ENDIAN
-#define _FORMAT_LE(fmt)  SPA_AUDIO_FORMAT_ ## fmt
-#define _FORMAT_BE(fmt)  SPA_AUDIO_FORMAT_ ## fmt ## _OE
+#define _FORMAT_LE(p, fmt)  p ? SPA_AUDIO_FORMAT_ ## fmt ## P : SPA_AUDIO_FORMAT_ ## fmt
+#define _FORMAT_BE(p, fmt)  p ? SPA_AUDIO_FORMAT_UNKNOWN : SPA_AUDIO_FORMAT_ ## fmt ## _OE
 #endif
+
+static int set_default_channels(struct spa_audio_info_raw *info)
+{
+	switch (info->channels) {
+	case 1:
+		info->position[0] = SPA_AUDIO_CHANNEL_MONO;
+		return 1;
+	case 8:
+		info->position[6] = SPA_AUDIO_CHANNEL_SL;
+		info->position[7] = SPA_AUDIO_CHANNEL_SR;
+		/* Fall through */
+	case 6:
+		info->position[4] = SPA_AUDIO_CHANNEL_RL;
+		info->position[5] = SPA_AUDIO_CHANNEL_RR;
+		/* Fall through */
+	case 4:
+		info->position[3] = SPA_AUDIO_CHANNEL_LFE;
+		/* Fall through */
+	case 3:
+		/* Fall through */
+		info->position[2] = SPA_AUDIO_CHANNEL_FC;
+	case 2:
+		info->position[0] = SPA_AUDIO_CHANNEL_FL;
+		info->position[1] = SPA_AUDIO_CHANNEL_FR;
+		return 1;
+	default:
+		return 0;
+	}
+}
 
 static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 				snd_pcm_hw_params_t * params)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
+	bool planar;
+
+	pw_log_debug("hw_params");
+
+	switch(io->access) {
+	case SND_PCM_ACCESS_MMAP_INTERLEAVED:
+	case SND_PCM_ACCESS_RW_INTERLEAVED:
+		planar = false;
+		break;
+	case SND_PCM_ACCESS_MMAP_NONINTERLEAVED:
+	case SND_PCM_ACCESS_RW_NONINTERLEAVED:
+		planar = true;
+		break;
+	default:
+		SNDERR("PipeWire: invalid access: %d\n", io->access);
+		return -EINVAL;
+	}
 
 	switch(io->format) {
 	case SND_PCM_FORMAT_U8:
-		pw->format.format = SPA_AUDIO_FORMAT_U8;
+		pw->format.format = planar ? SPA_AUDIO_FORMAT_U8P : SPA_AUDIO_FORMAT_U8;
 		break;
         case SND_PCM_FORMAT_S16_LE:
-		pw->format.format = _FORMAT_LE(S16);
+		pw->format.format = _FORMAT_LE(planar, S16);
 		break;
 	case SND_PCM_FORMAT_S16_BE:
-		pw->format.format = _FORMAT_BE(S16);
+		pw->format.format = _FORMAT_BE(planar, S16);
 		break;
 	case SND_PCM_FORMAT_S24_LE:
-		pw->format.format = _FORMAT_LE(S24_32);
+		pw->format.format = _FORMAT_LE(planar, S24_32);
 		break;
 	case SND_PCM_FORMAT_S24_BE:
-		pw->format.format = _FORMAT_BE(S24_32);
+		pw->format.format = _FORMAT_BE(planar, S24_32);
 		break;
 	case SND_PCM_FORMAT_S32_LE:
-		pw->format.format = _FORMAT_LE(S32);
+		pw->format.format = _FORMAT_LE(planar, S32);
 		break;
 	case SND_PCM_FORMAT_S32_BE:
-		pw->format.format = _FORMAT_BE(S32);
+		pw->format.format = _FORMAT_BE(planar, S32);
 		break;
 	case SND_PCM_FORMAT_S24_3LE:
-		pw->format.format = _FORMAT_LE(S24);
+		pw->format.format = _FORMAT_LE(planar, S24);
 		break;
 	case SND_PCM_FORMAT_S24_3BE:
-		pw->format.format = _FORMAT_BE(S24);
+		pw->format.format = _FORMAT_BE(planar, S24);
 		break;
 	case SND_PCM_FORMAT_FLOAT_LE:
-		pw->format.format = _FORMAT_LE(F32);
+		pw->format.format = _FORMAT_LE(planar, F32);
 		break;
 	case SND_PCM_FORMAT_FLOAT_BE:
-		pw->format.format = _FORMAT_BE(F32);
+		pw->format.format = _FORMAT_BE(planar, F32);
 		break;
 	default:
 		SNDERR("PipeWire: invalid format: %d\n", io->format);
@@ -504,22 +551,86 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	pw->format.channels = io->channels;
 	pw->format.rate = io->rate;
 
-	switch(io->access) {
-	case SND_PCM_ACCESS_MMAP_INTERLEAVED:
-	case SND_PCM_ACCESS_RW_INTERLEAVED:
-		pw->format.layout = SPA_AUDIO_LAYOUT_INTERLEAVED;
-		break;
-	case SND_PCM_ACCESS_MMAP_NONINTERLEAVED:
-	case SND_PCM_ACCESS_RW_NONINTERLEAVED:
-		pw->format.layout = SPA_AUDIO_LAYOUT_NON_INTERLEAVED;
-		break;
-	default:
-		SNDERR("PipeWire: invalid access: %d\n", io->access);
-		return -EINVAL;
-	}
+	set_default_channels(&pw->format);
+
 	pw->sample_bits = snd_pcm_format_physical_width(io->format);
 
 	return 0;
+}
+
+struct chmap_info {
+        enum snd_pcm_chmap_position pos;
+        enum spa_audio_channel channel;
+};
+
+static const struct chmap_info chmap_info[] = {
+        [SND_CHMAP_UNKNOWN] = { SND_CHMAP_UNKNOWN, SPA_AUDIO_CHANNEL_UNKNOWN },
+        [SND_CHMAP_NA] = { SND_CHMAP_NA, SPA_AUDIO_CHANNEL_NA },
+        [SND_CHMAP_MONO] = { SND_CHMAP_MONO, SPA_AUDIO_CHANNEL_MONO },
+        [SND_CHMAP_FL] = { SND_CHMAP_FL, SPA_AUDIO_CHANNEL_FL },
+        [SND_CHMAP_FR] = { SND_CHMAP_FR, SPA_AUDIO_CHANNEL_FR },
+        [SND_CHMAP_RL] = { SND_CHMAP_RL, SPA_AUDIO_CHANNEL_RL },
+        [SND_CHMAP_RR] = { SND_CHMAP_RR, SPA_AUDIO_CHANNEL_RR },
+        [SND_CHMAP_FC] = { SND_CHMAP_FC, SPA_AUDIO_CHANNEL_FC },
+        [SND_CHMAP_LFE] = { SND_CHMAP_LFE, SPA_AUDIO_CHANNEL_LFE },
+        [SND_CHMAP_SL] = { SND_CHMAP_SL, SPA_AUDIO_CHANNEL_SL },
+        [SND_CHMAP_SR] = { SND_CHMAP_SR, SPA_AUDIO_CHANNEL_SR },
+        [SND_CHMAP_RC] = { SND_CHMAP_RC, SPA_AUDIO_CHANNEL_RC },
+        [SND_CHMAP_FLC] = { SND_CHMAP_FLC, SPA_AUDIO_CHANNEL_FLC },
+        [SND_CHMAP_FRC] = { SND_CHMAP_FRC, SPA_AUDIO_CHANNEL_FRC },
+        [SND_CHMAP_RLC] = { SND_CHMAP_RLC, SPA_AUDIO_CHANNEL_RLC },
+        [SND_CHMAP_RRC] = { SND_CHMAP_RRC, SPA_AUDIO_CHANNEL_RRC },
+        [SND_CHMAP_FLW] = { SND_CHMAP_FLW, SPA_AUDIO_CHANNEL_FLW },
+        [SND_CHMAP_FRW] = { SND_CHMAP_FRW, SPA_AUDIO_CHANNEL_FRW },
+        [SND_CHMAP_FLH] = { SND_CHMAP_FLH, SPA_AUDIO_CHANNEL_FLH },
+        [SND_CHMAP_FCH] = { SND_CHMAP_FCH, SPA_AUDIO_CHANNEL_FCH },
+        [SND_CHMAP_FRH] = { SND_CHMAP_FRH, SPA_AUDIO_CHANNEL_FRH },
+        [SND_CHMAP_TC] = { SND_CHMAP_TC, SPA_AUDIO_CHANNEL_TC },
+        [SND_CHMAP_TFL] = { SND_CHMAP_TFL, SPA_AUDIO_CHANNEL_TFL },
+        [SND_CHMAP_TFR] = { SND_CHMAP_TFR, SPA_AUDIO_CHANNEL_TFR },
+        [SND_CHMAP_TFC] = { SND_CHMAP_TFC, SPA_AUDIO_CHANNEL_TFC },
+        [SND_CHMAP_TRL] = { SND_CHMAP_TRL, SPA_AUDIO_CHANNEL_TRL },
+        [SND_CHMAP_TRR] = { SND_CHMAP_TRR, SPA_AUDIO_CHANNEL_TRR },
+        [SND_CHMAP_TRC] = { SND_CHMAP_TRC, SPA_AUDIO_CHANNEL_TRC },
+        [SND_CHMAP_TFLC] = { SND_CHMAP_TFLC, SPA_AUDIO_CHANNEL_TFLC },
+        [SND_CHMAP_TFRC] = { SND_CHMAP_TFRC, SPA_AUDIO_CHANNEL_TFRC },
+        [SND_CHMAP_TSL] = { SND_CHMAP_TSL, SPA_AUDIO_CHANNEL_TSL },
+        [SND_CHMAP_TSR] = { SND_CHMAP_TSR, SPA_AUDIO_CHANNEL_TSR },
+        [SND_CHMAP_LLFE] = { SND_CHMAP_LLFE, SPA_AUDIO_CHANNEL_LLFE },
+        [SND_CHMAP_RLFE] = { SND_CHMAP_RLFE, SPA_AUDIO_CHANNEL_RLFE },
+        [SND_CHMAP_BC] = { SND_CHMAP_BC, SPA_AUDIO_CHANNEL_BC },
+        [SND_CHMAP_BLC] = { SND_CHMAP_BLC, SPA_AUDIO_CHANNEL_BLC },
+        [SND_CHMAP_BRC] = { SND_CHMAP_BRC, SPA_AUDIO_CHANNEL_BRC },
+};
+
+static enum snd_pcm_chmap_position channel_to_chmap(enum spa_audio_channel channel)
+{
+	int i;
+	for (i = 0; i < SPA_N_ELEMENTS(chmap_info); i++)
+		if (chmap_info[i].channel == channel)
+			return chmap_info[i].pos;
+        return SND_CHMAP_UNKNOWN;
+}
+
+static int snd_pcm_pipewire_set_chmap(snd_pcm_ioplug_t * io,
+				const snd_pcm_chmap_t * map)
+{
+	return 1;
+}
+
+static snd_pcm_chmap_t * snd_pcm_pipewire_get_chmap(snd_pcm_ioplug_t * io)
+{
+	snd_pcm_pipewire_t *pw = io->private_data;
+	snd_pcm_chmap_t *map;
+	int i;
+
+	map = calloc(1, sizeof(snd_pcm_chmap_t) +
+                       pw->format.channels * sizeof(unsigned int));
+	map->channels = pw->format.channels;
+	for (i = 0; i < pw->format.channels; i++)
+		map->pos[i] = channel_to_chmap(pw->format.position[i]);
+
+	return map;
 }
 
 static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
@@ -530,6 +641,8 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.prepare = snd_pcm_pipewire_prepare,
 	.poll_revents = snd_pcm_pipewire_poll_revents,
 	.hw_params = snd_pcm_pipewire_hw_params,
+	.set_chmap = snd_pcm_pipewire_set_chmap,
+	.get_chmap = snd_pcm_pipewire_get_chmap,
 };
 
 static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
@@ -564,6 +677,8 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 						   1, MAX_CHANNELS)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_RATE,
 						   1, MAX_RATE)) < 0 ||
+	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIOD_BYTES,
+                                                   128, 64*1024)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIODS,
 						   2, 64)) < 0)
 		return err;
@@ -634,7 +749,9 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 			     const char *node_name,
 			     const char *playback_node,
 			     const char *capture_node,
-			     snd_pcm_stream_t stream, int mode)
+			     snd_pcm_stream_t stream,
+			     int mode,
+			     uint32_t flags)
 {
 	snd_pcm_pipewire_t *pw;
 	int err;
@@ -648,10 +765,11 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
 	str = getenv("PIPEWIRE_NODE");
 
-	pw_log_debug("open %s %d %d '%s'", name, stream, mode, str);
+	pw_log_debug("open %s %d %d %08x '%s'", name, stream, mode, flags, str);
 
 	pw->fd = -1;
 	pw->io.poll_fd = -1;
+	pw->flags = flags;
 
 	if (node_name == NULL)
 		err = asprintf(&pw->node_name,
@@ -718,6 +836,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 	const char *server_name = NULL;
 	const char *playback_node = NULL;
 	const char *capture_node = NULL;
+	uint32_t flags = 0;
 	int err;
 
         pw_init(NULL, NULL);
@@ -745,11 +864,16 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 			snd_config_get_string(n, &capture_node);
 			continue;
 		}
+		if (strcmp(id, "exclusive") == 0) {
+			if (snd_config_get_bool(n))
+				flags |= PW_STREAM_FLAG_EXCLUSIVE;
+			continue;
+		}
 		SNDERR("Unknown field %s", id);
 		return -EINVAL;
 	}
 
-	err = snd_pcm_pipewire_open(pcmp, name, node_name, playback_node, capture_node, stream, mode);
+	err = snd_pcm_pipewire_open(pcmp, name, node_name, playback_node, capture_node, stream, mode, flags);
 
 	return err;
 }

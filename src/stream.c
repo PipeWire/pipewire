@@ -67,6 +67,85 @@ static inline pa_sample_format_t format_id2pa(pa_stream *s, uint32_t id)
 	return PA_SAMPLE_INVALID;
 }
 
+static const uint32_t audio_channels[] = {
+	[PA_CHANNEL_POSITION_MONO] = SPA_AUDIO_CHANNEL_MONO,
+
+	[PA_CHANNEL_POSITION_FRONT_LEFT] = SPA_AUDIO_CHANNEL_FL,
+	[PA_CHANNEL_POSITION_FRONT_RIGHT] = SPA_AUDIO_CHANNEL_FR,
+	[PA_CHANNEL_POSITION_FRONT_CENTER] = SPA_AUDIO_CHANNEL_FC,
+
+	[PA_CHANNEL_POSITION_REAR_CENTER] = SPA_AUDIO_CHANNEL_RC,
+	[PA_CHANNEL_POSITION_REAR_LEFT] = SPA_AUDIO_CHANNEL_RL,
+	[PA_CHANNEL_POSITION_REAR_RIGHT] = SPA_AUDIO_CHANNEL_RR,
+
+	[PA_CHANNEL_POSITION_LFE] = SPA_AUDIO_CHANNEL_LFE,
+	[PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER] = SPA_AUDIO_CHANNEL_FLC,
+	[PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER] = SPA_AUDIO_CHANNEL_FRC,
+
+	[PA_CHANNEL_POSITION_SIDE_LEFT] = SPA_AUDIO_CHANNEL_SL,
+	[PA_CHANNEL_POSITION_SIDE_RIGHT] = SPA_AUDIO_CHANNEL_SR,
+
+	[PA_CHANNEL_POSITION_AUX0] = SPA_AUDIO_CHANNEL_CUSTOM_START + 1,
+	[PA_CHANNEL_POSITION_AUX1] = SPA_AUDIO_CHANNEL_CUSTOM_START + 2,
+	[PA_CHANNEL_POSITION_AUX2] = SPA_AUDIO_CHANNEL_CUSTOM_START + 3,
+	[PA_CHANNEL_POSITION_AUX3] = SPA_AUDIO_CHANNEL_CUSTOM_START + 4,
+	[PA_CHANNEL_POSITION_AUX4] = SPA_AUDIO_CHANNEL_CUSTOM_START + 5,
+	[PA_CHANNEL_POSITION_AUX5] = SPA_AUDIO_CHANNEL_CUSTOM_START + 6,
+	[PA_CHANNEL_POSITION_AUX6] = SPA_AUDIO_CHANNEL_CUSTOM_START + 7,
+	[PA_CHANNEL_POSITION_AUX7] = SPA_AUDIO_CHANNEL_CUSTOM_START + 8,
+	[PA_CHANNEL_POSITION_AUX8] = SPA_AUDIO_CHANNEL_CUSTOM_START + 9,
+	[PA_CHANNEL_POSITION_AUX9] = SPA_AUDIO_CHANNEL_CUSTOM_START + 10,
+	[PA_CHANNEL_POSITION_AUX10] = SPA_AUDIO_CHANNEL_CUSTOM_START + 11,
+	[PA_CHANNEL_POSITION_AUX11] = SPA_AUDIO_CHANNEL_CUSTOM_START + 12,
+	[PA_CHANNEL_POSITION_AUX12] = SPA_AUDIO_CHANNEL_CUSTOM_START + 13,
+	[PA_CHANNEL_POSITION_AUX13] = SPA_AUDIO_CHANNEL_CUSTOM_START + 14,
+	[PA_CHANNEL_POSITION_AUX14] = SPA_AUDIO_CHANNEL_CUSTOM_START + 15,
+	[PA_CHANNEL_POSITION_AUX15] = SPA_AUDIO_CHANNEL_CUSTOM_START + 16,
+	[PA_CHANNEL_POSITION_AUX16] = SPA_AUDIO_CHANNEL_CUSTOM_START + 17,
+	[PA_CHANNEL_POSITION_AUX17] = SPA_AUDIO_CHANNEL_CUSTOM_START + 18,
+	[PA_CHANNEL_POSITION_AUX18] = SPA_AUDIO_CHANNEL_CUSTOM_START + 19,
+	[PA_CHANNEL_POSITION_AUX19] = SPA_AUDIO_CHANNEL_CUSTOM_START + 20,
+	[PA_CHANNEL_POSITION_AUX20] = SPA_AUDIO_CHANNEL_CUSTOM_START + 21,
+	[PA_CHANNEL_POSITION_AUX21] = SPA_AUDIO_CHANNEL_CUSTOM_START + 22,
+	[PA_CHANNEL_POSITION_AUX22] = SPA_AUDIO_CHANNEL_CUSTOM_START + 23,
+	[PA_CHANNEL_POSITION_AUX23] = SPA_AUDIO_CHANNEL_CUSTOM_START + 24,
+	[PA_CHANNEL_POSITION_AUX24] = SPA_AUDIO_CHANNEL_CUSTOM_START + 25,
+	[PA_CHANNEL_POSITION_AUX25] = SPA_AUDIO_CHANNEL_CUSTOM_START + 26,
+	[PA_CHANNEL_POSITION_AUX26] = SPA_AUDIO_CHANNEL_CUSTOM_START + 27,
+	[PA_CHANNEL_POSITION_AUX27] = SPA_AUDIO_CHANNEL_CUSTOM_START + 28,
+	[PA_CHANNEL_POSITION_AUX28] = SPA_AUDIO_CHANNEL_CUSTOM_START + 29,
+	[PA_CHANNEL_POSITION_AUX29] = SPA_AUDIO_CHANNEL_CUSTOM_START + 30,
+	[PA_CHANNEL_POSITION_AUX30] = SPA_AUDIO_CHANNEL_CUSTOM_START + 31,
+	[PA_CHANNEL_POSITION_AUX31] = SPA_AUDIO_CHANNEL_CUSTOM_START + 32,
+
+	[PA_CHANNEL_POSITION_TOP_CENTER] = SPA_AUDIO_CHANNEL_TC,
+
+	[PA_CHANNEL_POSITION_TOP_FRONT_LEFT] = SPA_AUDIO_CHANNEL_TFL,
+	[PA_CHANNEL_POSITION_TOP_FRONT_RIGHT] = SPA_AUDIO_CHANNEL_TFR,
+	[PA_CHANNEL_POSITION_TOP_FRONT_CENTER] = SPA_AUDIO_CHANNEL_TFC,
+
+	[PA_CHANNEL_POSITION_TOP_REAR_LEFT] = SPA_AUDIO_CHANNEL_TRL,
+	[PA_CHANNEL_POSITION_TOP_REAR_RIGHT] = SPA_AUDIO_CHANNEL_TRR,
+	[PA_CHANNEL_POSITION_TOP_REAR_CENTER] = SPA_AUDIO_CHANNEL_TRC,
+};
+
+static inline uint32_t channel_pa2id(pa_stream *s, pa_channel_position_t channel)
+{
+	if (channel < 0 || channel >= SPA_N_ELEMENTS(audio_channels))
+		return SPA_AUDIO_CHANNEL_UNKNOWN;
+	return audio_channels[channel];
+}
+
+static inline pa_channel_position_t channel_id2pa(pa_stream *s, uint32_t id)
+{
+	int i;
+	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
+		if (id == audio_channels[i])
+			return i;
+	}
+	return PA_CHANNEL_POSITION_INVALID;
+}
+
 static inline int dequeue_buffer(pa_stream *s)
 {
 	struct pw_buffer *buf;
@@ -283,14 +362,14 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
         uint8_t buffer[4096];
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct spa_audio_info info = { 0 };
-	int res;
+	int i, res;
 
 	spa_format_parse(format, &info.media_type, &info.media_subtype);
 
 	if (info.media_type != SPA_MEDIA_TYPE_audio ||
 	    info.media_subtype != SPA_MEDIA_SUBTYPE_raw ||
 	    spa_format_audio_raw_parse(format, &info.info.raw) < 0 ||
-	    info.info.raw.layout != SPA_AUDIO_LAYOUT_INTERLEAVED) {
+	    !SPA_AUDIO_FORMAT_IS_INTERLEAVED(info.info.raw.format)) {
 		res = -EINVAL;
 		goto done;
 	}
@@ -303,7 +382,10 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
 	s->sample_spec.rate = info.info.raw.rate;
 	s->sample_spec.channels = info.info.raw.channels;
 
-	pa_channel_map_init_auto(&s->channel_map, info.info.raw.channels, PA_CHANNEL_MAP_ALSA);
+	pa_channel_map_init(&s->channel_map);
+	s->channel_map.channels = info.info.raw.channels;
+	for (i = 0; i < info.info.raw.channels; i++)
+		s->channel_map.map[i] = channel_id2pa(s, info.info.raw.position[i]);
 
 	if (s->format)
 		pa_format_info_free(s->format);
@@ -416,6 +498,7 @@ pa_stream* stream_new(pa_context *c, const char *name,
 	pa_proplist *p)
 {
 	pa_stream *s;
+	char str[1024];
 	int i;
 
 	spa_assert(c);
@@ -454,6 +537,8 @@ pa_stream* stream_new(pa_context *c, const char *name,
 		s->channel_map = *map;
 	else
 		pa_channel_map_init(&s->channel_map);
+
+	pw_log_debug("channel map: %p %s", map, pa_channel_map_snprint(str, sizeof(str), &s->channel_map));
 
 	s->n_formats = 0;
 	if (formats) {
@@ -654,15 +739,17 @@ int pa_stream_is_corked(pa_stream *s)
 static const struct spa_pod *get_param(pa_stream *s, pa_sample_spec *ss, pa_channel_map *map,
 		struct spa_pod_builder *b)
 {
-	const struct spa_pod *param;
+	struct spa_audio_info_raw info;
 
-	param = spa_format_audio_raw_build(b, SPA_PARAM_EnumFormat,
-			&SPA_AUDIO_INFO_RAW_INIT(
-		                .format = format_pa2id(s, ss->format),
-		                .layout = SPA_AUDIO_LAYOUT_INTERLEAVED,
+	info = SPA_AUDIO_INFO_RAW_INIT( .format = format_pa2id(s, ss->format),
 		                .channels = ss->channels,
-		                .rate = ss->rate));
-	return param;
+		                .rate = ss->rate);
+	if (map) {
+		int i;
+		for (i = 0; i < map->channels; i++)
+			info.position[i] = channel_pa2id(s, map->map[i]);
+	}
+	return spa_format_audio_raw_build(b, SPA_PARAM_EnumFormat, &info);
 }
 
 static int create_stream(pa_stream_direction_t direction,

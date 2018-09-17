@@ -132,6 +132,8 @@ static int setup_convert(struct impl *this,
 	const struct spa_audio_info *src_info, *dst_info;
 	uint32_t src_chan, dst_chan;
 	const struct channelmix_info *chanmix_info;
+	uint64_t src_mask, dst_mask;
+	int i;
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		src_info = info;
@@ -144,19 +146,25 @@ static int setup_convert(struct impl *this,
 	src_chan = src_info->info.raw.channels;
 	dst_chan = dst_info->info.raw.channels;
 
-	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d", this,
+	for (i = 0, src_mask = 0; i < src_chan; i++)
+		src_mask |= 1UL << src_info->info.raw.position[i];
+	for (i = 0, dst_mask = 0; i < dst_chan; i++)
+		dst_mask |= 1UL << dst_info->info.raw.position[i];
+
+	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d %08lx:%08lx", this,
 			spa_debug_type_find_name(spa_type_audio_format, src_info->info.raw.format),
 			src_chan,
 			src_info->info.raw.rate,
 			spa_debug_type_find_name(spa_type_audio_format, dst_info->info.raw.format),
 			dst_chan,
-			dst_info->info.raw.rate);
+			dst_info->info.raw.rate,
+			src_mask, dst_mask);
 
 	if (src_info->info.raw.rate != dst_info->info.raw.rate)
 		return -EINVAL;
 
 	/* find convert function */
-	if ((chanmix_info = find_channelmix_info(src_chan, 0, dst_chan, 0, FEATURE_SSE)) == NULL)
+	if ((chanmix_info = find_channelmix_info(src_chan, src_mask, dst_chan, dst_mask, FEATURE_SSE)) == NULL)
 		return -ENOTSUP;
 
 	spa_log_info(this->log, NAME " %p: got channelmix features %08x", this, chanmix_info->features);

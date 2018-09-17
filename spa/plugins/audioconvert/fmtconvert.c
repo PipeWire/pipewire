@@ -29,6 +29,7 @@
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/types.h>
+#include <spa/debug/format.h>
 
 #define NAME "fmtconvert"
 
@@ -113,6 +114,8 @@ struct impl {
 	struct format formats[2];
 	uint32_t n_formats[2];
 
+	uint32_t remap[SPA_AUDIO_MAX_CHANNELS];
+
 	bool started;
 
 	convert_func_t convert;
@@ -151,6 +154,7 @@ static int setup_convert(struct impl *this)
 	uint32_t src_fmt, dst_fmt;
 	struct format informat, outformat;
 	const struct conv_info *conv;
+	int i, j;
 
 	if (collect_format(this, SPA_DIRECTION_INPUT, &informat) < 0)
 		return -1;
@@ -173,6 +177,18 @@ static int setup_convert(struct impl *this)
 
 	if (informat.format.info.raw.rate != outformat.format.info.raw.rate)
 		return -EINVAL;
+
+	for (i = 0; i < informat.format.info.raw.channels; i++) {
+		for (j = 0; j < outformat.format.info.raw.channels; j++) {
+			if (informat.format.info.raw.position[i] !=
+				outformat.format.info.raw.position[j])
+				continue;
+			this->remap[i] = j;
+			outformat.format.info.raw.position[j] = -1;
+			spa_log_debug(this->log, NAME " %p: channel %d -> %d", this, i, j);
+			break;
+		}
+	}
 
 	/* find fast path */
 	conv = find_conv_info(src_fmt, dst_fmt, FEATURE_SSE);
@@ -405,11 +421,13 @@ static int port_enum_formats(struct spa_node *node,
 
 	other = &this->formats[SPA_DIRECTION_REVERSE(direction)].format;
 
+	spa_log_debug(this->log, NAME " %p: enum %d %p", this, other->info.raw.channels, other);
 	switch (*index) {
 	case 0:
 		if (other->info.raw.channels > 0) {
-			*param = spa_pod_builder_object(builder,
-				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+			spa_pod_builder_push_object(builder,
+				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+			spa_pod_builder_props(builder,
 				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 				SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(4,
@@ -420,6 +438,10 @@ static int port_enum_formats(struct spa_node *node,
 				SPA_FORMAT_AUDIO_rate,     &SPA_POD_Int(other->info.raw.rate),
 				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(other->info.raw.channels),
 				0);
+			spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
+	                spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id,
+					other->info.raw.channels, other->info.raw.position);
+			*param = spa_pod_builder_pop(builder);
 		} else {
 			*param = spa_pod_builder_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
@@ -454,6 +476,7 @@ static int port_enum_formats(struct spa_node *node,
 	default:
 		return 0;
 	}
+
 	return 1;
 }
 
@@ -626,6 +649,11 @@ static int compatible_format(struct spa_audio_info *info, struct spa_audio_info 
 	return 0;
 }
 
+static int int32_cmp(const void *v1, const void *v2)
+{
+	return *(int32_t*)v1 - *(int32_t*)v2;
+}
+
 static int port_set_format(struct spa_node *node,
 			   enum spa_direction direction,
 			   uint32_t port_id,
@@ -659,6 +687,12 @@ static int port_set_format(struct spa_node *node,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
+		port->have_format = true;
+		port->format = info;
+
+		qsort(info.info.raw.position, info.info.raw.channels, sizeof(uint32_t), int32_cmp);
+
+		port->stride = calc_width(&info);
 		if (this->n_formats[direction] > 0) {
 			if (compatible_format(&info, &this->formats[direction].format) < 0)
 				return -EINVAL;
@@ -669,10 +703,6 @@ static int port_set_format(struct spa_node *node,
 		}
 		this->n_formats[direction]++;
 
-		port->have_format = true;
-		port->format = info;
-
-		port->stride = calc_width(&info);
 
 		if (SPA_AUDIO_FORMAT_IS_PLANAR(info.info.raw.format)) {
 			port->blocks = info.info.raw.channels;
@@ -1048,7 +1078,12 @@ static int process_split(struct impl *this)
 			n_src_datas, n_dst_datas, n_bytes, inport->offset, size, inport->stride);
 
 	if (n_dst_datas > 0) {
-		this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
+		void **remap_datas = alloca(sizeof(void*) * n_dst_datas);
+
+		for (i = 0; i < n_dst_datas; i++)
+			remap_datas[i] = dst_datas[this->remap[i]];
+
+		this->convert(this, n_dst_datas, remap_datas, n_src_datas, src_datas, n_bytes);
 
 		inport->offset += n_bytes;
 		if (inport->offset >= size) {

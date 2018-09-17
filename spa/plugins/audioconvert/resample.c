@@ -280,8 +280,9 @@ static int port_enum_formats(struct spa_node *node,
 	switch (*index) {
 	case 0:
 		if (other->have_format) {
-			*param = spa_pod_builder_object(builder,
-				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+			spa_pod_builder_push_object(builder,
+				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+			spa_pod_builder_props(builder,
 				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 				SPA_FORMAT_AUDIO_format,   &SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
@@ -289,6 +290,10 @@ static int port_enum_formats(struct spa_node *node,
 								other->format.info.raw.rate, 1, INT32_MAX),
 				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(other->format.info.raw.channels),
 				0);
+			spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
+			spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id,
+					other->format.info.raw.channels, other->format.info.raw.position);
+			*param = spa_pod_builder_pop(builder);
 		} else {
 			*param = spa_pod_builder_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,

@@ -126,10 +126,11 @@ channelmix_f32_5p1_2_sse(void *data, int n_dst, void *dst[n_dst],
 	float v = m[0];
         __m128 clev = _mm_set1_ps(0.7071f);
         __m128 slev = _mm_set1_ps(0.7071f);
+        __m128 llev = _mm_set1_ps(0.5f);
         __m128 vol = _mm_set1_ps(v);
 	__m128 in, ctr;
 	float *dFL = d[0], *dFR = d[1];
-	float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sSL = s[4], *sSR = s[5];
+	float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 
 	if (v <= VOLUME_MIN) {
 		memset(dFL, 0, n_bytes);
@@ -142,6 +143,7 @@ channelmix_f32_5p1_2_sse(void *data, int n_dst, void *dst[n_dst],
 
 		for(n = 0; unrolled--; n += 4) {
 			ctr = _mm_mul_ps(_mm_loadu_ps(&sFC[n]), clev);
+			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_loadu_ps(&sLFE[n]), llev));
 			in = _mm_mul_ps(_mm_loadu_ps(&sSL[n]), slev);
 			in = _mm_add_ps(in, ctr);
 			in = _mm_add_ps(in, _mm_loadu_ps(&sFL[n]));
@@ -153,6 +155,7 @@ channelmix_f32_5p1_2_sse(void *data, int n_dst, void *dst[n_dst],
 		}
 		for(; remain--; n++) {
 			ctr = _mm_mul_ss(_mm_load_ss(&sFC[n]), clev);
+			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_loadu_ps(&sLFE[n]), llev));
 			in = _mm_mul_ss(_mm_load_ss(&sSL[n]), slev);
 			in = _mm_add_ss(in, ctr);
 			in = _mm_add_ss(in, _mm_load_ss(&sFL[n]));
@@ -169,6 +172,7 @@ channelmix_f32_5p1_2_sse(void *data, int n_dst, void *dst[n_dst],
 
 		for(n = 0; unrolled--; n += 4) {
 			ctr = _mm_mul_ps(_mm_loadu_ps(&sFC[n]), clev);
+			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_loadu_ps(&sLFE[n]), llev));
 			in = _mm_mul_ps(_mm_loadu_ps(&sSL[n]), slev);
 			in = _mm_add_ps(in, ctr);
 			in = _mm_add_ps(in, _mm_loadu_ps(&sFL[n]));
@@ -182,6 +186,7 @@ channelmix_f32_5p1_2_sse(void *data, int n_dst, void *dst[n_dst],
 		}
 		for(; remain--; n++) {
 			ctr = _mm_mul_ss(_mm_load_ss(&sFC[n]), clev);
+			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_loadu_ps(&sLFE[n]), llev));
 			in = _mm_mul_ss(_mm_load_ss(&sSL[n]), slev);
 			in = _mm_add_ss(in, ctr);
 			in = _mm_add_ss(in, _mm_load_ss(&sFL[n]));
@@ -207,10 +212,11 @@ channelmix_f32_5p1_4_sse(void *data, int n_dst, void *dst[n_dst],
 	float *m = matrix;
 	float v = m[0];
         __m128 clev = _mm_set1_ps(0.7071f);
+        __m128 llev = _mm_set1_ps(0.5f);
         __m128 vol = _mm_set1_ps(v);
 	__m128 ctr;
 	float *dFL = d[0], *dFR = d[1], *dRL = d[2], *dRR = d[3];
-	float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sSL = s[4], *sSR = s[5];
+	float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
@@ -222,6 +228,7 @@ channelmix_f32_5p1_4_sse(void *data, int n_dst, void *dst[n_dst],
 
 		for(n = 0; unrolled--; n += 4) {
 			ctr = _mm_mul_ps(_mm_loadu_ps(&sFC[n]), clev);
+			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_loadu_ps(&sLFE[n]), llev));
 			_mm_storeu_ps(&dFL[n], _mm_add_ps(_mm_loadu_ps(&sFL[n]), ctr));
 			_mm_storeu_ps(&dFR[n], _mm_add_ps(_mm_loadu_ps(&sFR[n]), ctr));
 			_mm_storeu_ps(&dRL[n], _mm_loadu_ps(&sSL[n]));
@@ -229,6 +236,7 @@ channelmix_f32_5p1_4_sse(void *data, int n_dst, void *dst[n_dst],
 		}
 		for(; remain--; n++) {
 			ctr = _mm_mul_ss(_mm_load_ss(&sFC[n]), clev);
+			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_loadu_ps(&sLFE[n]), llev));
 			_mm_store_ss(&dFL[n], _mm_add_ss(_mm_load_ss(&sFL[n]), ctr));
 			_mm_store_ss(&dFR[n], _mm_add_ss(_mm_load_ss(&sFR[n]), ctr));
 			_mm_store_ss(&dRL[n], _mm_load_ss(&sSL[n]));
@@ -241,6 +249,7 @@ channelmix_f32_5p1_4_sse(void *data, int n_dst, void *dst[n_dst],
 
 		for(n = 0; unrolled--; n += 4) {
 			ctr = _mm_mul_ps(_mm_loadu_ps(&sFC[n]), clev);
+			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_loadu_ps(&sLFE[n]), llev));
 			_mm_storeu_ps(&dFL[n], _mm_mul_ps(_mm_add_ps(_mm_loadu_ps(&sFL[n]), ctr), vol));
 			_mm_storeu_ps(&dFR[n], _mm_mul_ps(_mm_add_ps(_mm_loadu_ps(&sFR[n]), ctr), vol));
 			_mm_storeu_ps(&dRL[n], _mm_mul_ps(_mm_loadu_ps(&sSL[n]), vol));
@@ -248,6 +257,7 @@ channelmix_f32_5p1_4_sse(void *data, int n_dst, void *dst[n_dst],
 		}
 		for(; remain--; n++) {
 			ctr = _mm_mul_ss(_mm_load_ss(&sFC[n]), clev);
+			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_loadu_ps(&sLFE[n]), llev));
 			_mm_store_ss(&dFL[n], _mm_mul_ss(_mm_add_ss(_mm_load_ss(&sFL[n]), ctr), vol));
 			_mm_store_ss(&dFR[n], _mm_mul_ss(_mm_add_ss(_mm_load_ss(&sFR[n]), ctr), vol));
 			_mm_store_ss(&dRL[n], _mm_mul_ss(_mm_load_ss(&sSL[n]), vol));

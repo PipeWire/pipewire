@@ -223,7 +223,7 @@ channelmix_f32_2_5p1(void *data, int n_dst, void *dst[n_dst],
 	}
 }
 
-/* FL+FR+FC+LFE+RL+RR -> FL+FR */
+/* FL+FR+FC+LFE+SL+SR -> FL+FR */
 static void
 channelmix_f32_5p1_2(void *data, int n_dst, void *dst[n_dst],
 		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
@@ -235,6 +235,7 @@ channelmix_f32_5p1_2(void *data, int n_dst, void *dst[n_dst],
 	float v = m[0];
 	const float clev = 0.7071f;
 	const float slev = 0.7071f;
+	const float llev = 0.5f;
 
 	if (v <= VOLUME_MIN) {
 		memset(d[0], 0, n_bytes);
@@ -242,21 +243,21 @@ channelmix_f32_5p1_2(void *data, int n_dst, void *dst[n_dst],
 	}
 	else if (v == VOLUME_NORM) {
 		for (n = 0; n < n_samples; n++) {
-			const float ctr = clev * s[2][n];
+			const float ctr = clev * s[2][n] + llev * s[3][n];
 			d[0][n] = s[0][n] + ctr + (slev * s[4][n]);
 			d[1][n] = s[1][n] + ctr + (slev * s[5][n]);
 		}
 	}
 	else {
 		for (n = 0; n < n_samples; n++) {
-			const float ctr = clev * s[2][n];
+			const float ctr = clev * s[2][n] + llev * s[3][n];
 			d[0][n] = (s[0][n] + ctr + (slev * s[4][n])) * v;
 			d[1][n] = (s[1][n] + ctr + (slev * s[5][n])) * v;
 		}
 	}
 }
 
-/* FL+FR+FC+LFE+RL+RR -> FL+FR+FC+LFE*/
+/* FL+FR+FC+LFE+SL+SR -> FL+FR+FC+LFE*/
 static void
 channelmix_f32_5p1_3p1(void *data, int n_dst, void *dst[n_dst],
 		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
@@ -283,9 +284,45 @@ channelmix_f32_5p1_3p1(void *data, int n_dst, void *dst[n_dst],
 	}
 }
 
-/* FL+FR+FC+LFE+RL+RR -> FL+FR+RL+RR*/
+#define MASK_7_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)|_M(SL)|_M(SR)|_M(RL)|_M(RR)
+
+/* FL+FR+FC+LFE+SL+SR+RL+RR -> FL+FR */
 static void
-channelmix_f32_5p1_4(void *data, int n_dst, void *dst[n_dst],
+channelmix_f32_7p1_2(void *data, int n_dst, void *dst[n_dst],
+		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
+{
+	int n, n_samples = n_bytes / sizeof(float);
+	float **d = (float **) dst;
+	float **s = (float **) src;
+	float *m = matrix;
+	float v = m[0];
+	const float clev = 0.7071f;
+	const float slev = 0.7071f;
+	const float llev = 0.5f;
+
+	if (v <= VOLUME_MIN) {
+		memset(d[0], 0, n_bytes);
+		memset(d[1], 0, n_bytes);
+	}
+	else if (v == VOLUME_NORM) {
+		for (n = 0; n < n_samples; n++) {
+			const float ctr = clev * s[2][n] + llev * s[3][n];
+			d[0][n] = s[0][n] + ctr + (slev * (s[4][n] + s[6][n]));
+			d[1][n] = s[1][n] + ctr + (slev * (s[5][n] + s[7][n]));
+		}
+	}
+	else {
+		for (n = 0; n < n_samples; n++) {
+			const float ctr = clev * s[2][n] + llev * s[3][n];
+			d[0][n] = (s[0][n] + ctr + (slev * (s[4][n] + s[6][n]))) * v;
+			d[1][n] = (s[1][n] + ctr + (slev * (s[5][n] + s[6][n]))) * v;
+		}
+	}
+}
+
+/* FL+FR+FC+LFE+SL+SR+RL+RR -> FL+FR+FC+LFE*/
+static void
+channelmix_f32_7p1_3p1(void *data, int n_dst, void *dst[n_dst],
 		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
 {
 	int i, n, n_samples;
@@ -299,9 +336,38 @@ channelmix_f32_5p1_4(void *data, int n_dst, void *dst[n_dst],
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_bytes);
 	}
+	else {
+		const float f1 = 0.5 * v;
+		for (n = 0; n < n_samples; n++) {
+			d[0][n] = s[0][n] + (s[4][n] + s[6][n]) * f1;
+			d[1][n] = s[1][n] + (s[5][n] + s[7][n]) * f1;
+			d[2][n] = s[2][n] * v;
+			d[3][n] = s[3][n] * v;
+		}
+	}
+}
+
+/* FL+FR+FC+LFE+SL+SR -> FL+FR+RL+RR*/
+static void
+channelmix_f32_5p1_4(void *data, int n_dst, void *dst[n_dst],
+		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
+{
+	int i, n, n_samples;
+	float **d = (float **) dst;
+	float **s = (float **) src;
+	float *m = matrix;
+	float v = m[0];
+	const float clev = 0.7071f;
+	const float llev = 0.5f;
+
+	n_samples = n_bytes / sizeof(float);
+	if (v <= VOLUME_MIN) {
+		for (i = 0; i < n_dst; i++)
+			memset(d[i], 0, n_bytes);
+	}
 	else if (v == VOLUME_NORM) {
 		for (n = 0; n < n_samples; n++) {
-			float ctr = s[2][n] * 0.7071f;
+			float ctr = s[2][n] * clev + s[3][n] * llev;
 			d[0][n] = s[0][n] + ctr;
 			d[1][n] = s[1][n] + ctr;
 			d[2][n] = s[4][n];
@@ -310,11 +376,54 @@ channelmix_f32_5p1_4(void *data, int n_dst, void *dst[n_dst],
 	}
 	else {
 		for (n = 0; n < n_samples; n++) {
-			float ctr = s[2][n] * 0.7071f;
+			float ctr = s[2][n] * clev + s[3][n] * llev;
 			d[0][n] = (s[0][n] + ctr) * v;
 			d[1][n] = (s[1][n] + ctr) * v;
 			d[2][n] = s[4][n] * v;
 			d[3][n] = s[5][n] * v;
+		}
+	}
+}
+
+/* FL+FR+FC+LFE+SL+SR+RL+RR -> FL+FR+RL+RR*/
+static void
+channelmix_f32_7p1_4(void *data, int n_dst, void *dst[n_dst],
+		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
+{
+	int i, n, n_samples;
+	float **d = (float **) dst;
+	float **s = (float **) src;
+	float *m = matrix;
+	float v = m[0];
+	const float clev = 0.7071f;
+	const float slev = 0.7071f;
+	const float llev = 0.5f;
+
+	n_samples = n_bytes / sizeof(float);
+	if (v <= VOLUME_MIN) {
+		for (i = 0; i < n_dst; i++)
+			memset(d[i], 0, n_bytes);
+	}
+	else if (v == VOLUME_NORM) {
+		for (n = 0; n < n_samples; n++) {
+			float ctr = s[2][n] * clev + s[3][n] * llev;
+			float sl = s[4][n] * slev;
+			float sr = s[5][n] * slev;
+			d[0][n] = s[0][n] + ctr + sl;
+			d[1][n] = s[1][n] + ctr + sr;
+			d[2][n] = s[6][n] + sl;
+			d[3][n] = s[7][n] + sr;
+		}
+	}
+	else {
+		for (n = 0; n < n_samples; n++) {
+			float ctr = s[2][n] * clev + s[3][n] * llev;
+			float sl = s[4][n] * slev;
+			float sr = s[5][n] * slev;
+			d[0][n] = (s[0][n] + ctr + sl) * v;
+			d[1][n] = (s[1][n] + ctr + sr) * v;
+			d[2][n] = (s[6][n] + sl) * v;
+			d[3][n] = (s[7][n] + sr) * v;
 		}
 	}
 }
@@ -361,12 +470,17 @@ static const struct channelmix_info {
 #endif
 	{ 6, MASK_5_1, 4, MASK_QUAD, channelmix_f32_5p1_4, 0 },
 	{ 6, MASK_5_1, 4, MASK_3_1, channelmix_f32_5p1_3p1, 0 },
+
+	{ 8, MASK_7_1, 2, MASK_STEREO, channelmix_f32_7p1_2, 0 },
+	{ 8, MASK_7_1, 4, MASK_QUAD, channelmix_f32_7p1_4, 0 },
+	{ 8, MASK_7_1, 4, MASK_3_1, channelmix_f32_7p1_3p1, 0 },
+
 	{ -1, 0, -1, 0, channelmix_f32_n_m, 0 },
 };
 
 #define MATCH_CHAN(a,b)		((a) == -1 || (a) == (b))
 #define MATCH_FEATURES(a,b)	((a) == 0 || ((a) & (b)) != 0)
-#define MATCH_MASK(a,b)		(((a) & (b)) == (b))
+#define MATCH_MASK(a,b)		((a) == 0 || ((a) & (b)) == (b))
 
 static const struct channelmix_info *find_channelmix_info(uint32_t src_chan, uint64_t src_mask,
 		uint32_t dst_chan, uint64_t dst_mask, uint32_t features)

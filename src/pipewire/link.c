@@ -192,6 +192,10 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		}
 		if (spa_pod_compare(current, format) != 0) {
 			pw_log_debug("link %p: output format change, renegotiate", this);
+			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
+				spa_debug_format(2, NULL, current);
+				spa_debug_format(2, NULL, format);
+			}
 			pw_node_set_state(output->node, PW_NODE_STATE_SUSPENDED);
 			out_state = PW_PORT_STATE_CONFIGURE;
 		}

@@ -130,8 +130,9 @@ struct session {
 
 	struct spa_list node_list;
 
-	struct spa_proxy *proxy;
 	struct spa_hook listener;
+
+	struct spa_source *idle_timeout;
 
 	bool starting;
 	bool dsp_pending;
@@ -167,6 +168,16 @@ static void *find_object(struct impl *impl, uint32_t id)
 static void schedule_rescan(struct impl *impl)
 {
 	pw_core_proxy_sync(impl->core_proxy, ++impl->seq);
+}
+
+static void remove_idle_timeout(struct session *sess)
+{
+	struct impl *impl = sess->impl;
+
+	if (sess->idle_timeout) {
+		pw_loop_destroy_source(pw_core_get_main_loop(impl->core), sess->idle_timeout);
+		sess->idle_timeout = NULL;
+	}
 }
 
 static void node_event_info(void *object, struct pw_node_info *info)
@@ -440,6 +451,7 @@ registry_global_remove(void *data, uint32_t id)
 			continue;
 
 		pw_log_debug(NAME " %p: remove session '%d'", impl, sess->id);
+		remove_idle_timeout(sess);
 
 		spa_list_for_each_safe(n, t, &sess->node_list, session_link) {
 			n->session = NULL;
@@ -714,6 +726,7 @@ static int rescan_node(struct impl *impl, struct node *node)
         session->busy = true;
 	node->session = session;
 	spa_list_append(&session->node_list, &node->session_link);
+	remove_idle_timeout(session);
 
 	link_nodes(peer, direction, node);
 
@@ -742,12 +755,35 @@ static const struct pw_node_proxy_events dsp_node_events = {
 	.info = dsp_node_event_info,
 };
 
+static void idle_timeout(void *data, uint64_t expirations)
+{
+	struct session *sess = data;
+	struct impl *impl = sess->impl;
+	struct spa_command *cmd = &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend);
+
+	pw_log_debug(NAME " %p: session %d idle timeout", impl, sess->id);
+
+	remove_idle_timeout(sess);
+
+	pw_node_proxy_send_command((struct pw_node_proxy*)sess->node->obj.proxy, cmd);
+	if (sess->dsp)
+		pw_node_proxy_send_command((struct pw_node_proxy*)sess->dsp->obj.proxy, cmd);
+}
+
 static void rescan_session(struct impl *impl, struct session *sess)
 {
 	if (spa_list_is_empty(&sess->node_list) && sess->busy) {
+                struct pw_loop *main_loop = pw_core_get_main_loop(impl->core);
+		struct timespec value;
+
 		pw_log_debug(NAME "%p: session %d became idle", impl, sess->id);
 		sess->exclusive = false;
 		sess->busy = false;
+
+		sess->idle_timeout = pw_loop_add_timer(main_loop, idle_timeout, sess);
+		value.tv_sec = 3;
+		value.tv_nsec = 0;
+		pw_loop_update_timer(main_loop, sess->idle_timeout, &value, NULL, false);
 	}
 	if (sess->need_dsp && sess->dsp == NULL && !sess->dsp_pending) {
 		struct pw_properties *props;

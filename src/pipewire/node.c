@@ -256,9 +256,37 @@ static void node_enum_params(void *object, uint32_t id, uint32_t index, uint32_t
 	pw_node_for_each_param(node, id, index, num, filter, reply_param, resource);
 }
 
+static void node_set_param(void *object, uint32_t id, uint32_t flags,
+		const struct spa_pod *param)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct pw_node *node = data->node;
+
+	spa_node_set_param(node->node, id, flags, param);
+}
+
+static void node_send_command(void *object, const struct spa_command *command)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct pw_node *node = data->node;
+
+	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_Suspend:
+		suspend_node(node);
+		break;
+	default:
+		spa_node_send_command(node->node, command);
+		break;
+	}
+}
+
 static const struct pw_node_proxy_methods node_methods = {
 	PW_VERSION_NODE_PROXY_METHODS,
-	.enum_params = node_enum_params
+	.enum_params = node_enum_params,
+	.set_param = node_set_param,
+	.send_command = node_send_command
 };
 
 static void

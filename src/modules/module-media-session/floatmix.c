@@ -759,7 +759,7 @@ static int impl_node_process(struct spa_node *node)
 	outio = outport->io;
 	spa_return_val_if_fail(outio != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: status %d %d", this, outio->status, outio->buffer_id);
+	spa_log_trace(this->log, NAME " %p: status %p %d %d", this, outio, outio->status, outio->buffer_id);
 
 	if (outio->status == SPA_STATUS_HAVE_BUFFER)
 		return outio->status;

@@ -490,7 +490,9 @@ pw_node_proxy_add_listener(struct pw_node_proxy *node,
 #define pw_node_resource_param(r,...) pw_resource_notify(r,struct pw_node_proxy_events,param,__VA_ARGS__)
 
 #define PW_NODE_PROXY_METHOD_ENUM_PARAMS	0
-#define PW_NODE_PROXY_METHOD_NUM		1
+#define PW_NODE_PROXY_METHOD_SET_PARAM		1
+#define PW_NODE_PROXY_METHOD_SEND_COMMAND	2
+#define PW_NODE_PROXY_METHOD_NUM		3
 
 /** Node methods */
 struct pw_node_proxy_methods {
@@ -509,15 +511,47 @@ struct pw_node_proxy_methods {
 	 */
 	void (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
 			const struct spa_pod *filter);
+
+	/**
+	 * Set a parameter on the node
+	 *
+	 * \param id the parameter id to set
+	 * \param flags extra parameter flags
+	 * \param param the parameter to set
+	 */
+	void (*set_param) (void *object, uint32_t id, uint32_t flags,
+			const struct spa_pod *param);
+
+	/**
+	 * Send a command to the node
+	 *
+	 * \param command the command to send
+	 */
+	void (*send_command) (void *object, const struct spa_command *command);
 };
 
-/** Registry */
+/** Node */
 static inline void
 pw_node_proxy_enum_params(struct pw_node_proxy *node, uint32_t id, uint32_t index,
 		uint32_t num, const struct spa_pod *filter)
 {
 	pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, enum_params,
 			id, index, num, filter);
+}
+
+static inline void
+pw_node_proxy_set_param(struct pw_node_proxy *node, uint32_t id, uint32_t flags,
+		const struct spa_pod *param)
+{
+	pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, set_param,
+			id, flags, param);
+}
+
+static inline void
+pw_node_proxy_send_command(struct pw_node_proxy *node, const struct spa_command *command)
+{
+	pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, send_command,
+			command);
 }
 
 #define PW_VERSION_PORT			0

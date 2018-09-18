@@ -764,6 +764,64 @@ static int node_demarshal_enum_params(void *object, void *data, size_t size)
 	return 0;
 }
 
+static void node_marshal_set_param(void *object, uint32_t id, uint32_t flags,
+		const struct spa_pod *param)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_NODE_PROXY_METHOD_SET_PARAM);
+
+	spa_pod_builder_add_struct(b,
+			"I", id,
+			"i", flags,
+			"P", param);
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static int node_demarshal_set_param(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	uint32_t id, flags;
+	struct spa_pod *param;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs,
+				"[ I", &id,
+				"i", &flags,
+				"P", &param, NULL) < 0)
+		return -EINVAL;
+
+	pw_resource_do(resource, struct pw_node_proxy_methods, set_param, 0, id, flags, param);
+	return 0;
+}
+
+static void node_marshal_send_command(void *object, const struct spa_command *command)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_NODE_PROXY_METHOD_SEND_COMMAND);
+	spa_pod_builder_add_struct(b, "P", command);
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static int node_demarshal_send_command(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	struct spa_command *command;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs,
+				"[ P", &command, NULL) < 0)
+		return -EINVAL;
+
+	pw_resource_do(resource, struct pw_node_proxy_methods, send_command, 0, command);
+	return 0;
+}
+
 static void port_marshal_info(void *object, struct pw_port_info *info)
 {
 	struct pw_resource *resource = object;
@@ -1186,10 +1244,14 @@ const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
 static const struct pw_node_proxy_methods pw_protocol_native_node_method_marshal = {
 	PW_VERSION_NODE_PROXY_METHODS,
 	&node_marshal_enum_params,
+	&node_marshal_set_param,
+	&node_marshal_send_command,
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_node_method_demarshal[] = {
 	{ &node_demarshal_enum_params, 0, },
+	{ &node_demarshal_set_param, PW_PROTOCOL_NATIVE_PERM_W, },
+	{ &node_demarshal_send_command, PW_PROTOCOL_NATIVE_PERM_W, },
 };
 
 static const struct pw_node_proxy_events pw_protocol_native_node_event_marshal = {

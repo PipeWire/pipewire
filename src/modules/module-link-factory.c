@@ -41,7 +41,44 @@ struct factory_data {
 	struct pw_factory *this;
 	struct pw_properties *properties;
 
+	struct spa_list link_list;
+
 	struct spa_hook module_listener;
+};
+
+struct link_data {
+	struct factory_data *data;
+	struct pw_link *link;
+	struct spa_list l;
+	struct spa_hook link_listener;
+	struct spa_hook resource_listener;
+};
+
+static void resource_destroy(void *data)
+{
+	struct link_data *ld = data;
+	spa_list_remove(&ld->l);
+	spa_hook_remove(&ld->resource_listener);
+	if (ld->link) {
+		spa_hook_remove(&ld->link_listener);
+		pw_link_destroy(ld->link);
+	}
+}
+
+static const struct pw_resource_events resource_events = {
+	PW_VERSION_RESOURCE_EVENTS,
+	.destroy = resource_destroy
+};
+
+static void link_destroy(void *data)
+{
+	struct link_data *ld = data;
+	ld->link = NULL;
+}
+
+static const struct pw_link_events link_events = {
+	PW_VERSION_LINK_EVENTS,
+	.destroy = link_destroy
 };
 
 static struct pw_port *get_port(struct pw_node *node, enum spa_direction direction)
@@ -78,6 +115,7 @@ static void *create_object(void *_data,
 			   struct pw_properties *properties,
 			   uint32_t new_id)
 {
+	struct factory_data *d = _data;
 	struct pw_client *client;
 	struct pw_node *output_node, *input_node;
 	struct pw_port *outport, *inport;
@@ -86,6 +124,8 @@ static void *create_object(void *_data,
 	struct pw_link *link;
 	uint32_t output_node_id, input_node_id;
 	uint32_t output_port_id, input_port_id;
+	struct link_data *ld;
+	struct pw_resource *bound_resource;
 	char *error;
 	const char *str;
 	int res;
@@ -152,17 +192,28 @@ static void *create_object(void *_data,
 	if (inport == NULL)
 		goto no_input_port;
 
-	link = pw_link_new(core, outport, inport, NULL, properties, &error, 0);
+	link = pw_link_new(core, outport, inport, NULL, properties, &error, sizeof(struct link_data));
 	if (link == NULL)
 		goto no_mem;
 
-	properties = NULL;
+	ld = pw_link_get_user_data(link);
+	ld->data = d;
+	ld->link = link;
+	spa_list_append(&d->link_list, &ld->l);
 
+	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
 	pw_link_register(link, client, pw_client_get_global(client), NULL);
+
+	properties = NULL;
 
 	res = pw_global_bind(pw_link_get_global(link), client, PW_PERM_RWX, PW_VERSION_LINK, new_id);
 	if (res < 0)
 		goto no_bind;
+
+	if ((bound_resource = pw_client_find_resource(client, new_id)) == NULL)
+		goto no_bind;
+
+	pw_resource_add_listener(bound_resource, &ld->resource_listener, &resource_events, ld);
 
 	return link;
 
@@ -211,8 +262,12 @@ static const struct pw_factory_implementation impl_factory = {
 static void module_destroy(void *data)
 {
 	struct factory_data *d = data;
+	struct link_data *ld, *t;
 
 	spa_hook_remove(&d->module_listener);
+
+	spa_list_for_each_safe(ld, t, &d->link_list, l)
+		pw_link_destroy(ld->link);
 
 	if (d->properties)
 		pw_properties_free(d->properties);
@@ -243,6 +298,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
 	data->properties = properties;
+	spa_list_init(&data->link_list);
 
 	pw_log_debug("module %p: new", module);
 

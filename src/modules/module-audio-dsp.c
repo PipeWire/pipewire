@@ -80,8 +80,7 @@ static const struct pw_resource_events resource_events = {
 static void node_destroy(void *data)
 {
 	struct node_data *nd = data;
-	spa_list_remove(&nd->link);
-	spa_hook_remove(&nd->resource_listener);
+	nd->dsp = NULL;
 }
 
 static const struct pw_node_events node_events = {

@@ -340,6 +340,11 @@ static int make_matrix(struct impl *this,
 		}
 		max = SPA_MAX(max, sum);
 	}
+	for (i = 0; i < dst_chan; i++) {
+		for (j = 0; j < src_chan; j++) {
+			spa_log_debug(this->log, "%d %d: %f", i, j, this->matrix[i * src_chan + j]);
+		}
+	}
 
 	return 0;
 }

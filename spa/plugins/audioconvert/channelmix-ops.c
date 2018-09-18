@@ -68,10 +68,8 @@ channelmix_f32_n_m(void *data, int n_dst, void *dst[n_dst],
 	for (n = 0; n < n_samples; n++) {
 		for (i = 0; i < n_dst; i++) {
 			float sum = 0.0f;
-
 			for (j = 0; j < n_src; j++)
 				sum += s[j][n] * m[i * n_src + j];
-
 			d[i][n] = sum;
 		}
 	}
@@ -233,9 +231,9 @@ channelmix_f32_5p1_2(void *data, int n_dst, void *dst[n_dst],
 	float **s = (float **) src;
 	float *m = matrix;
 	float v = m[0];
-	const float clev = 0.7071f;
-	const float slev = 0.7071f;
-	const float llev = 0.5f;
+	const float clev = m[2];
+	const float llev = m[3];
+	const float slev = m[4];
 
 	if (v <= VOLUME_MIN) {
 		memset(d[0], 0, n_bytes);
@@ -284,6 +282,44 @@ channelmix_f32_5p1_3p1(void *data, int n_dst, void *dst[n_dst],
 	}
 }
 
+/* FL+FR+FC+LFE+SL+SR -> FL+FR+RL+RR*/
+static void
+channelmix_f32_5p1_4(void *data, int n_dst, void *dst[n_dst],
+		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
+{
+	int i, n, n_samples;
+	float **d = (float **) dst;
+	float **s = (float **) src;
+	float *m = matrix;
+	float v = m[0];
+	const float clev = m[2];
+	const float llev = m[3];
+
+	n_samples = n_bytes / sizeof(float);
+	if (v <= VOLUME_MIN) {
+		for (i = 0; i < n_dst; i++)
+			memset(d[i], 0, n_bytes);
+	}
+	else if (v == VOLUME_NORM) {
+		for (n = 0; n < n_samples; n++) {
+			float ctr = s[2][n] * clev + s[3][n] * llev;
+			d[0][n] = s[0][n] + ctr;
+			d[1][n] = s[1][n] + ctr;
+			d[2][n] = s[4][n];
+			d[3][n] = s[5][n];
+		}
+	}
+	else {
+		for (n = 0; n < n_samples; n++) {
+			float ctr = s[2][n] * clev + s[3][n] * llev;
+			d[0][n] = (s[0][n] + ctr) * v;
+			d[1][n] = (s[1][n] + ctr) * v;
+			d[2][n] = s[4][n] * v;
+			d[3][n] = s[5][n] * v;
+		}
+	}
+}
+
 #define MASK_7_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)|_M(SL)|_M(SR)|_M(RL)|_M(RR)
 
 /* FL+FR+FC+LFE+SL+SR+RL+RR -> FL+FR */
@@ -296,9 +332,9 @@ channelmix_f32_7p1_2(void *data, int n_dst, void *dst[n_dst],
 	float **s = (float **) src;
 	float *m = matrix;
 	float v = m[0];
-	const float clev = 0.7071f;
-	const float slev = 0.7071f;
-	const float llev = 0.5f;
+	const float clev = m[2];
+	const float llev = m[3];
+	const float slev = m[4];
 
 	if (v <= VOLUME_MIN) {
 		memset(d[0], 0, n_bytes);
@@ -347,44 +383,6 @@ channelmix_f32_7p1_3p1(void *data, int n_dst, void *dst[n_dst],
 	}
 }
 
-/* FL+FR+FC+LFE+SL+SR -> FL+FR+RL+RR*/
-static void
-channelmix_f32_5p1_4(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
-{
-	int i, n, n_samples;
-	float **d = (float **) dst;
-	float **s = (float **) src;
-	float *m = matrix;
-	float v = m[0];
-	const float clev = 0.7071f;
-	const float llev = 0.5f;
-
-	n_samples = n_bytes / sizeof(float);
-	if (v <= VOLUME_MIN) {
-		for (i = 0; i < n_dst; i++)
-			memset(d[i], 0, n_bytes);
-	}
-	else if (v == VOLUME_NORM) {
-		for (n = 0; n < n_samples; n++) {
-			float ctr = s[2][n] * clev + s[3][n] * llev;
-			d[0][n] = s[0][n] + ctr;
-			d[1][n] = s[1][n] + ctr;
-			d[2][n] = s[4][n];
-			d[3][n] = s[5][n];
-		}
-	}
-	else {
-		for (n = 0; n < n_samples; n++) {
-			float ctr = s[2][n] * clev + s[3][n] * llev;
-			d[0][n] = (s[0][n] + ctr) * v;
-			d[1][n] = (s[1][n] + ctr) * v;
-			d[2][n] = s[4][n] * v;
-			d[3][n] = s[5][n] * v;
-		}
-	}
-}
-
 /* FL+FR+FC+LFE+SL+SR+RL+RR -> FL+FR+RL+RR*/
 static void
 channelmix_f32_7p1_4(void *data, int n_dst, void *dst[n_dst],
@@ -395,9 +393,9 @@ channelmix_f32_7p1_4(void *data, int n_dst, void *dst[n_dst],
 	float **s = (float **) src;
 	float *m = matrix;
 	float v = m[0];
-	const float clev = 0.7071f;
-	const float slev = 0.7071f;
-	const float llev = 0.5f;
+	const float clev = m[2];
+	const float llev = m[3];
+	const float slev = m[4];
 
 	n_samples = n_bytes / sizeof(float);
 	if (v <= VOLUME_MIN) {

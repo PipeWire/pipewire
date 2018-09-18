@@ -124,9 +124,9 @@ channelmix_f32_5p1_2_sse(void *data, int n_dst, void *dst[n_dst],
 	float **s = (float **) src;
 	float *m = matrix;
 	float v = m[0];
-        __m128 clev = _mm_set1_ps(0.7071f);
-        __m128 slev = _mm_set1_ps(0.7071f);
-        __m128 llev = _mm_set1_ps(0.5f);
+        __m128 clev = _mm_set1_ps(m[2]);
+        __m128 llev = _mm_set1_ps(m[3]);
+        __m128 slev = _mm_set1_ps(m[4]);
         __m128 vol = _mm_set1_ps(v);
 	__m128 in, ctr;
 	float *dFL = d[0], *dFR = d[1];
@@ -211,8 +211,8 @@ channelmix_f32_5p1_4_sse(void *data, int n_dst, void *dst[n_dst],
 	float **s = (float **) src;
 	float *m = matrix;
 	float v = m[0];
-        __m128 clev = _mm_set1_ps(0.7071f);
-        __m128 llev = _mm_set1_ps(0.5f);
+        __m128 clev = _mm_set1_ps(m[2]);
+        __m128 llev = _mm_set1_ps(m[3]);
         __m128 vol = _mm_set1_ps(v);
 	__m128 ctr;
 	float *dFL = d[0], *dFR = d[1], *dRL = d[2], *dRR = d[3];

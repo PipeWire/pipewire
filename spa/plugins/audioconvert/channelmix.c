@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
@@ -105,24 +106,242 @@ struct impl {
 #define GET_OUT_PORT(this,id)		(&this->out_port)
 #define GET_PORT(this,d,id)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,id) : GET_OUT_PORT(this,id))
 
-static void setup_matrix(struct impl *this,
-		const struct spa_audio_info *src_info,
-		const struct spa_audio_info *dst_info)
+#define _MASK(ch)	(1ULL << SPA_AUDIO_CHANNEL_ ## ch)
+#define STEREO	(_MASK(FL)|_MASK(FR))
+
+#define FL		0
+#define FR		1
+#define FC		2
+#define LFE		3
+#define SL		4
+#define SR		5
+#define FLC		6
+#define FRC		7
+#define RC		8
+#define RL		9
+#define RR		10
+#define TC		11
+#define TFL		12
+#define TFC		13
+#define TFR		14
+#define TRL		15
+#define TRC		16
+#define TRR		17
+#define NUM_CHAN	18
+
+#define SQRT3_2      1.22474487139158904909  /* sqrt(3/2) */
+
+#define MATRIX_NORMAL	0
+#define MATRIX_DOLBY	1
+#define MATRIX_DPLII	2
+
+static uint64_t default_mask(uint32_t channels)
 {
-	uint32_t src_chan, dst_chan;
-	int i, j;
-
-	src_chan = src_info->info.raw.channels;
-	dst_chan = dst_info->info.raw.channels;
-
-	for (i = 0; i < dst_chan; i++) {
-		for (j = 0; j < src_chan; j++) {
-			if (i == j)
-				this->matrix[i * src_chan + j] = this->props.volume;
-			else
-				this->matrix[i * src_chan + j] = 0.0f;
-		}
+	uint64_t mask = 0;
+	switch (channels) {
+	case 8:
+		mask |= _MASK(RL);
+		mask |= _MASK(RR);
+		/* fallthrough */
+	case 6:
+		mask |= _MASK(SL);
+		mask |= _MASK(SR);
+		mask |= _MASK(LFE);
+		/* fallthrough */
+	case 3:
+		mask |= _MASK(FC);
+		/* fallthrough */
+	case 2:
+		mask |= _MASK(FL);
+		mask |= _MASK(FR);
+		break;
+	case 1:
+		mask |= _MASK(MONO);
+		break;
+	case 4:
+		mask |= _MASK(FL);
+		mask |= _MASK(FR);
+		mask |= _MASK(RL);
+		mask |= _MASK(RR);
+		break;
 	}
+	return mask;
+}
+
+static int make_matrix(struct impl *this,
+		uint32_t src_chan, uint64_t src_mask,
+		uint32_t dst_chan, uint64_t dst_mask)
+{
+	float matrix[NUM_CHAN][NUM_CHAN] = {{ 0 }};
+	uint64_t missing;
+	int i, j, matrix_encoding = MATRIX_NORMAL, c;
+	float clev = M_SQRT1_2;
+	float slev = M_SQRT1_2;
+	float llev = 0.5f;
+	float max = 0.0f;
+
+	for (i = 0; i < NUM_CHAN; i++) {
+		if (src_mask & dst_mask & (1ULL << (i + 3)))
+			matrix[i][i]= 1.0;
+	}
+
+	missing = src_mask & ~dst_mask;
+
+	spa_log_debug(this->log, "missing %08lx", missing);
+
+	if (missing & _MASK(FC)){
+		if ((dst_mask & STEREO) == STEREO){
+			if(src_mask & STEREO) {
+				matrix[FL][FC] += clev;
+				matrix[FR][FC] += clev;
+			} else {
+				matrix[FL][FC] += M_SQRT1_2;
+				matrix[FR][FC] += M_SQRT1_2;
+			}
+		} else
+			return -ENOTSUP;
+	}
+
+	if (missing & STEREO){
+		if (dst_mask & _MASK(FC)) {
+			matrix[FC][FL] += M_SQRT1_2;
+			matrix[FC][FR] += M_SQRT1_2;
+			if (src_mask & _MASK(FC))
+				matrix[FC][FC] = clev * M_SQRT2;
+		} else
+			return -ENOTSUP;
+	}
+
+	if (missing & _MASK(RC)) {
+		if (dst_mask & _MASK(RL)){
+			matrix[RL][RC] += M_SQRT1_2;
+			matrix[RR][RC] += M_SQRT1_2;
+		} else if (dst_mask & _MASK(SL)) {
+			matrix[SL][RC] += M_SQRT1_2;
+			matrix[SR][RC] += M_SQRT1_2;
+		} else if(dst_mask & _MASK(FL)) {
+			if (matrix_encoding == MATRIX_DOLBY ||
+			    matrix_encoding == MATRIX_DPLII) {
+				if (missing & (_MASK(RL)|_MASK(RR))) {
+					matrix[FL][RC] -= slev * M_SQRT1_2;
+					matrix[FR][RC] += slev * M_SQRT1_2;
+		                } else {
+					matrix[FL][RC] -= slev;
+					matrix[FR][RC] += slev;
+				}
+			} else {
+				matrix[FL][RC] += slev * M_SQRT1_2;
+				matrix[FR][RC] += slev * M_SQRT1_2;
+			}
+		} else if (dst_mask & _MASK(FC)) {
+			matrix[FC][RC] += slev * M_SQRT1_2;
+		} else
+			return -ENOTSUP;
+	}
+
+	if (missing & _MASK(RL)) {
+		if (dst_mask & _MASK(RC)) {
+			matrix[RC][RL] += M_SQRT1_2;
+			matrix[RC][RR] += M_SQRT1_2;
+		} else if (dst_mask & _MASK(SL)) {
+			if (src_mask & _MASK(SL)) {
+				matrix[SL][RL] += M_SQRT1_2;
+				matrix[SR][RR] += M_SQRT1_2;
+			} else {
+				matrix[SL][RL] += 1.0;
+				matrix[SR][RR] += 1.0;
+			}
+		} else if (dst_mask & _MASK(FL)) {
+			if (matrix_encoding == MATRIX_DOLBY) {
+				matrix[FL][RL] -= slev * M_SQRT1_2;
+				matrix[FL][RR] -= slev * M_SQRT1_2;
+				matrix[FR][RL] += slev * M_SQRT1_2;
+				matrix[FR][RR] += slev * M_SQRT1_2;
+			} else if (matrix_encoding == MATRIX_DPLII) {
+				matrix[FL][RL] -= slev * SQRT3_2;
+				matrix[FL][RR] -= slev * M_SQRT1_2;
+				matrix[FR][RL] += slev * M_SQRT1_2;
+				matrix[FR][RR] += slev * SQRT3_2;
+			} else {
+				matrix[FL][RL] += slev;
+				matrix[FR][RR] += slev;
+			}
+		} else if (dst_mask & _MASK(FC)) {
+			matrix[FC][RL]+= slev * M_SQRT1_2;
+			matrix[FC][RR]+= slev * M_SQRT1_2;
+		} else
+			return -ENOTSUP;
+	}
+
+	if (missing & _MASK(SL)) {
+		if (dst_mask & _MASK(RL)) {
+			if (src_mask & _MASK(RL)) {
+				matrix[RL][SL] += M_SQRT1_2;
+				matrix[RR][SR] += M_SQRT1_2;
+			} else {
+				matrix[RL][SL] += 1.0;
+				matrix[RR][SR] += 1.0;
+			}
+		} else if (dst_mask & _MASK(RC)) {
+			matrix[RC][SL]+= M_SQRT1_2;
+			matrix[RC][SR]+= M_SQRT1_2;
+		} else if (dst_mask & _MASK(FL)) {
+			if (matrix_encoding == MATRIX_DOLBY) {
+				matrix[FL][SL] -= slev * M_SQRT1_2;
+				matrix[FL][SR] -= slev * M_SQRT1_2;
+				matrix[FR][SL] += slev * M_SQRT1_2;
+				matrix[FR][SR] += slev * M_SQRT1_2;
+			} else if (matrix_encoding == MATRIX_DPLII) {
+				matrix[FL][SL] -= slev * SQRT3_2;
+				matrix[FL][SR] -= slev * M_SQRT1_2;
+				matrix[FR][SL] += slev * M_SQRT1_2;
+				matrix[FR][SR] += slev * SQRT3_2;
+			} else {
+				matrix[FL][SL] += slev;
+				matrix[FR][SR] += slev;
+			}
+		} else if (dst_mask & _MASK(FC)) {
+			matrix[FC][SL] += slev * M_SQRT1_2;
+			matrix[FC][SR] += slev * M_SQRT1_2;
+		} else
+			return -ENOTSUP;
+	}
+
+	if (missing & _MASK(FLC)) {
+		if (dst_mask & _MASK(FL)) {
+			matrix[FC][FLC]+= 1.0;
+			matrix[FC][FRC]+= 1.0;
+		} else if(dst_mask & _MASK(FC)) {
+			matrix[FC][FLC]+= M_SQRT1_2;
+			matrix[FC][FRC]+= M_SQRT1_2;
+		} else
+			return -ENOTSUP;
+	}
+	if (missing & _MASK(LFE)) {
+		if (dst_mask & _MASK(FC)) {
+			matrix[FC][LFE] += llev;
+		} else if (dst_mask & _MASK(FL)) {
+			matrix[FL][LFE] += llev * M_SQRT1_2;
+			matrix[FR][LFE] += llev * M_SQRT1_2;
+		} else
+			return -ENOTSUP;
+	}
+
+	c = 0;
+	for (i = 0; i < NUM_CHAN; i++) {
+		float sum = 0.0;
+		if ((dst_mask & (1UL << (i + 3))) == 0)
+			continue;
+		for (j = 0; j < NUM_CHAN; j++) {
+			if ((src_mask & (1UL << (j + 3))) == 0)
+				continue;
+			this->matrix[c++] = matrix[i][j];
+			sum += fabs(matrix[i][j]);
+		}
+		max = SPA_MAX(max, sum);
+	}
+
+	return 0;
 }
 
 static int setup_convert(struct impl *this,
@@ -151,6 +370,11 @@ static int setup_convert(struct impl *this,
 	for (i = 0, dst_mask = 0; i < dst_chan; i++)
 		dst_mask |= 1UL << dst_info->info.raw.position[i];
 
+	if (src_mask & 1)
+		src_mask = default_mask(src_chan);
+	if (dst_mask & 1)
+		dst_mask = default_mask(dst_chan);
+
 	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d %08lx:%08lx", this,
 			spa_debug_type_find_name(spa_type_audio_format, src_info->info.raw.format),
 			src_chan,
@@ -171,10 +395,7 @@ static int setup_convert(struct impl *this,
 
 	this->convert = chanmix_info->func;
 
-	/* set up the matrix if needed */
-	setup_matrix(this, src_info, dst_info);
-
-	return 0;
+	return make_matrix(this, src_chan, src_mask, dst_chan, dst_mask);
 }
 
 static int impl_node_enum_params(struct spa_node *node,
@@ -725,12 +946,8 @@ static int process_control(struct impl *this, struct port *port, struct spa_pod_
 				switch (prop->key) {
 				case SPA_PROP_volume:
 					volume = SPA_POD_VALUE(struct spa_pod_float, &prop->value);
-					if (volume != p->volume) {
-						p->volume = volume;
-						setup_matrix(this,
-							&GET_IN_PORT(this, 0)->format,
-							&GET_OUT_PORT(this, 0)->format);
-					}
+					if (volume != p->volume)
+						this->matrix[0] = p->volume = volume;
 					break;
 				default:
 					break;

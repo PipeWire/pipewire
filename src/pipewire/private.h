@@ -183,6 +183,8 @@ struct pw_core {
 	struct pw_loop *data_loop;	/**< data loop for data passing */
         struct pw_data_loop *data_loop_impl;
 
+	void *dbus_iface;
+
 	struct spa_support support[16];	/**< support for spa plugins */
 	uint32_t n_support;		/**< number of support items */
 

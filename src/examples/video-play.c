@@ -449,5 +449,9 @@ int main(int argc, char *argv[])
 	pw_core_destroy(data.core);
 	pw_main_loop_destroy(data.loop);
 
+	SDL_DestroyTexture(data.texture);
+	SDL_DestroyRenderer(data.renderer);
+	SDL_DestroyWindow(data.window);
+
 	return 0;
 }

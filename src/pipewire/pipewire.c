@@ -44,6 +44,19 @@ static struct support_info {
 	uint32_t n_support;
 } support_info;
 
+struct interface {
+	struct spa_list link;
+	struct spa_handle *handle;
+	uint32_t type;
+	void *iface;
+};
+
+struct registry {
+	struct spa_list interfaces;
+};
+
+static struct registry global_registry;
+
 static bool
 open_support(const char *path,
 	     const char *lib,
@@ -92,7 +105,7 @@ static const struct spa_handle_factory *get_factory(struct support_info *info, c
 	return NULL;
 }
 
-static void *
+static struct interface *
 load_interface(struct support_info *info,
 	       const char *factory_name,
 	       const char *type)
@@ -101,7 +114,8 @@ load_interface(struct support_info *info,
         struct spa_handle *handle;
         uint32_t type_id;
         const struct spa_handle_factory *factory;
-        void *iface;
+	struct interface *iface;
+        void *ptr;
 	struct spa_type_map *map = NULL;
 
 	factory = get_factory(info, factory_name);
@@ -118,12 +132,22 @@ load_interface(struct support_info *info,
 	map = pw_get_support_interface(SPA_TYPE__TypeMap);
 	type_id = map ? spa_type_map_get_id(map, type) : 0;
 
-        if ((res = spa_handle_get_interface(handle, type_id, &iface)) < 0) {
+        if ((res = spa_handle_get_interface(handle, type_id, &ptr)) < 0) {
                 fprintf(stderr, "can't get %s interface %d\n", type, res);
                 goto interface_failed;
         }
+
+	if ((iface = calloc(1, sizeof(struct interface))) == NULL)
+		goto alloc_failed;
+
+	iface->handle = handle;
+	iface->type = type_id;
+	iface->iface = ptr;
+	spa_list_append(&global_registry.interfaces, &iface->link);
+
         return iface;
 
+      alloc_failed:
       interface_failed:
 	spa_handle_clear(handle);
       init_failed:
@@ -175,6 +199,7 @@ void *pw_get_spa_dbus(struct pw_loop *loop)
 {
 	struct support_info dbus_support_info;
 	const char *str;
+	struct interface *iface;
 
 	dbus_support_info.n_support = support_info.n_support;
 	memcpy(dbus_support_info.support, support_info.support,
@@ -186,10 +211,35 @@ void *pw_get_spa_dbus(struct pw_loop *loop)
 	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
 		str = PLUGINDIR;
 
-	if (open_support(str, "support/libspa-dbus", &dbus_support_info))
-		return load_interface(&dbus_support_info, "dbus", SPA_TYPE__DBus);
-
+	if (open_support(str, "support/libspa-dbus", &dbus_support_info)) {
+		iface = load_interface(&dbus_support_info, "dbus", SPA_TYPE__DBus);
+		if (iface != NULL)
+			return iface->iface;
+	}
 	return NULL;
+}
+static struct interface *find_interface(void *iface)
+{
+	struct interface *i;
+	spa_list_for_each(i, &global_registry.interfaces, link) {
+		if (i->iface == iface)
+			return i;
+	}
+	return NULL;
+}
+
+int pw_release_spa_dbus(void *dbus)
+{
+	struct interface *iface;
+
+	if ((iface = find_interface(dbus)) == NULL)
+		return -ENOENT;
+
+	spa_list_remove(&iface->link);
+	spa_handle_clear(iface->handle);
+	free(iface->handle);
+	free(iface);
+	return 0;
 }
 
 /** Initialize PipeWire
@@ -207,7 +257,7 @@ void *pw_get_spa_dbus(struct pw_loop *loop)
 void pw_init(int *argc, char **argv[])
 {
 	const char *str;
-	void *iface;
+	struct interface *iface;
 	struct support_info *info = &support_info;
 
 	if ((str = getenv("PIPEWIRE_DEBUG")))
@@ -219,15 +269,17 @@ void pw_init(int *argc, char **argv[])
 	if (support_info.n_support > 0)
 		return;
 
+	spa_list_init(&global_registry.interfaces);
+
 	if (open_support(str, "support/libspa-support", info)) {
 		iface = load_interface(info, "mapper", SPA_TYPE__TypeMap);
 		if (iface != NULL)
-			info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, iface);
+			info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, iface->iface);
 
 		iface = load_interface(info, "logger", SPA_TYPE__Log);
 		if (iface != NULL) {
-			info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__Log, iface);
-			pw_log_set(iface);
+			info->support[info->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE__Log, iface->iface);
+			pw_log_set(iface->iface);
 		}
 	}
 	pw_log_info("version %s", pw_get_library_version());

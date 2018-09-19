@@ -134,6 +134,7 @@ void *
 pw_get_support_interface(const char *type);
 
 void *pw_get_spa_dbus(struct pw_loop *loop);
+int pw_release_spa_dbus(void *dbus);
 
 const struct spa_handle_factory *
 pw_get_support_factory(const char *factory_name);

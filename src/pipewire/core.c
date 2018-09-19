@@ -391,12 +391,14 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	spa_graph_init(&this->rt.graph);
 	spa_graph_set_callbacks(&this->rt.graph, &spa_graph_impl_default, NULL);
 
+	this->dbus_iface = pw_get_spa_dbus(this->main_loop);
+
 	this->support[0] = SPA_SUPPORT_INIT(SPA_TYPE__TypeMap, this->type.map);
 	this->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__DataLoop, this->data_loop->loop);
 	this->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_LOOP__MainLoop, this->main_loop->loop);
 	this->support[3] = SPA_SUPPORT_INIT(SPA_TYPE__LoopUtils, this->main_loop->utils);
 	this->support[4] = SPA_SUPPORT_INIT(SPA_TYPE__Log, pw_log_get());
-	this->support[5] = SPA_SUPPORT_INIT(SPA_TYPE__DBus, pw_get_spa_dbus(this->main_loop));
+	this->support[5] = SPA_SUPPORT_INIT(SPA_TYPE__DBus, this->dbus_iface);
 	this->n_support = 6;
 
 	pw_log_debug("%p", this->support[5].data);
@@ -493,6 +495,8 @@ void pw_core_destroy(struct pw_core *core)
 	pw_core_events_free(core);
 
 	pw_data_loop_destroy(core->data_loop_impl);
+
+	pw_release_spa_dbus(core->dbus_iface);
 
 	pw_properties_free(core->properties);
 

@@ -37,6 +37,7 @@
 /** \cond */
 struct impl {
 	struct pw_core this;
+	void *dbus_iface;
 };
 
 
@@ -375,11 +376,13 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	pw_map_init(&this->globals, 128, 32);
 
+	impl->dbus_iface = pw_load_spa_dbus_interface(this->main_loop);
+
 	this->support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
 	this->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, this->main_loop->loop);
 	this->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
 	this->support[3] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, pw_log_get());
-	this->support[4] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, pw_get_spa_dbus(this->main_loop));
+	this->support[4] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, impl->dbus_iface);
 	this->n_support = 5;
 
 	pw_data_loop_start(this->data_loop_impl);
@@ -449,6 +452,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
  */
 void pw_core_destroy(struct pw_core *core)
 {
+	struct impl *impl = SPA_CONTAINER_OF(core, struct impl, this);
 	struct pw_global *global, *t;
 	struct pw_module *module, *tm;
 	struct pw_remote *remote, *tr;
@@ -478,6 +482,8 @@ void pw_core_destroy(struct pw_core *core)
 	pw_properties_free(core->properties);
 
 	pw_map_clear(&core->globals);
+
+	pw_unload_spa_interface(impl->dbus_iface);
 
 	pw_log_debug("core %p: free", core);
 	free(core);

@@ -310,6 +310,8 @@ void pw_module_destroy(struct pw_module *module)
 	if (module->info.args)
 		free((char *) module->info.args);
 
+	pw_properties_free(module->properties);
+
 	dlclose(impl->hnd);
 	free(impl);
 }

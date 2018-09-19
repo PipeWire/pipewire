@@ -262,7 +262,7 @@ static void
 gst_pipewire_sink_init (GstPipeWireSink * sink)
 {
   sink->pool =  gst_pipewire_pool_new ();
-  sink->client_name = pw_get_client_name();
+  sink->client_name = g_strdup(pw_get_client_name());
   sink->mode = DEFAULT_PROP_MODE;
   sink->fd = -1;
 

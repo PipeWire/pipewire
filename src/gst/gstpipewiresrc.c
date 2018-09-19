@@ -319,7 +319,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
 
   g_queue_init (&src->queue);
 
-  src->client_name = pw_get_client_name ();
+  src->client_name = g_strdup(pw_get_client_name ());
 
   src->pool =  gst_pipewire_pool_new ();
   src->loop = pw_loop_new (NULL);

@@ -151,7 +151,7 @@ static void clear_params(struct pw_stream *stream, int type)
 
 	p = pw_array_first(&impl->params);
 	while (pw_array_check(&impl->params, p)) {
-		if (SPA_FLAG_CHECK(p->type, type)) {
+		if ((p->type & type) != 0) {
 			free(p->param);
 			pw_array_remove(&impl->params, p);
 		}
@@ -948,6 +948,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 	spa_list_remove(&stream->link);
 
 	clear_params(stream, PARAM_TYPE_INIT | PARAM_TYPE_OTHER | PARAM_TYPE_FORMAT);
+	pw_array_clear(&impl->params);
 
 	if (stream->error)
 		free(stream->error);

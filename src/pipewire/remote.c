@@ -303,6 +303,9 @@ void pw_remote_destroy(struct pw_remote *remote)
 
 	spa_list_remove(&remote->link);
 
+	pw_map_clear(&remote->objects);
+	pw_map_clear(&remote->types);
+
 	if (remote->properties)
 		pw_properties_free(remote->properties);
 	free(remote->error);

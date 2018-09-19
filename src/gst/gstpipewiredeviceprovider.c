@@ -751,7 +751,7 @@ gst_pipewire_device_provider_set_property (GObject * object,
         GST_WARNING_OBJECT (self,
             "Empty PipeWire client name not allowed. "
             "Resetting to default value");
-        self->client_name = pw_get_client_name ();
+        self->client_name = g_strdup(pw_get_client_name ());
       } else
         self->client_name = g_value_dup_string (value);
       break;
@@ -792,7 +792,6 @@ gst_pipewire_device_provider_class_init (GstPipeWireDeviceProviderClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   GstDeviceProviderClass *dm_class = GST_DEVICE_PROVIDER_CLASS (klass);
-  gchar *client_name;
 
   gobject_class->set_property = gst_pipewire_device_provider_set_property;
   gobject_class->get_property = gst_pipewire_device_provider_get_property;
@@ -802,14 +801,12 @@ gst_pipewire_device_provider_class_init (GstPipeWireDeviceProviderClass * klass)
   dm_class->start = gst_pipewire_device_provider_start;
   dm_class->stop = gst_pipewire_device_provider_stop;
 
-  client_name = pw_get_client_name ();
   g_object_class_install_property (gobject_class,
       PROP_CLIENT_NAME,
       g_param_spec_string ("client-name", "Client Name",
-          "The PipeWire client_name_to_use", client_name,
+          "The PipeWire client_name_to_use", pw_get_client_name (),
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
           GST_PARAM_MUTABLE_READY));
-  g_free (client_name);
 
   gst_device_provider_class_set_static_metadata (dm_class,
       "PipeWire Device Provider", "Sink/Source/Audio/Video",
@@ -820,5 +817,5 @@ gst_pipewire_device_provider_class_init (GstPipeWireDeviceProviderClass * klass)
 static void
 gst_pipewire_device_provider_init (GstPipeWireDeviceProvider * self)
 {
-  self->client_name = pw_get_client_name ();
+  self->client_name = g_strdup(pw_get_client_name ());
 }

@@ -377,7 +377,7 @@ int pw_unload_spa_interface(void *iface)
 	return 0;
 }
 
-void *pw_get_spa_dbus(struct pw_loop *loop)
+void *pw_load_spa_dbus_interface(struct pw_loop *loop)
 {
 	struct spa_support support = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, loop->utils);
 
@@ -511,19 +511,20 @@ const char *pw_get_host_name(void)
  *
  * \memberof pw_pipewire
  */
-char *pw_get_client_name(void)
+const char *pw_get_client_name(void)
 {
-	char *c;
 	const char *cc;
+	static char cname[256];
 
 	if ((cc = pw_get_application_name()))
-		return strdup(cc);
+		return cc;
 	else if ((cc = pw_get_prgname()))
-		return strdup(cc);
+		return cc;
 	else {
-		if (asprintf(&c, "pipewire-pid-%zd", (size_t) getpid()) < 0)
+		if (snprintf(cname, sizeof(cname), "pipewire-pid-%zd", (size_t) getpid()) < 0)
 			return NULL;
-		return c;
+		cname[255] = 0;
+		return cname;
 	}
 }
 

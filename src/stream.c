@@ -387,6 +387,9 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
 	for (i = 0; i < info.info.raw.channels; i++)
 		s->channel_map.map[i] = channel_id2pa(s, info.info.raw.position[i]);
 
+	if (!pa_channel_map_valid(&s->channel_map))
+		pa_channel_map_init_auto(&s->channel_map, info.info.raw.channels, PA_CHANNEL_MAP_DEFAULT);
+
 	if (s->format)
 		pa_format_info_free(s->format);
 	s->format = pa_format_info_from_sample_spec(&s->sample_spec, &s->channel_map);

@@ -64,12 +64,8 @@ struct node_data {
 static void resource_destroy(void *data)
 {
 	struct node_data *nd = data;
-	spa_list_remove(&nd->link);
-	spa_hook_remove(&nd->resource_listener);
-	if (nd->dsp) {
-		spa_hook_remove(&nd->dsp_listener);
+	if (nd->dsp)
 		pw_node_destroy(nd->dsp);
-	}
 }
 
 static const struct pw_resource_events resource_events = {
@@ -80,6 +76,7 @@ static const struct pw_resource_events resource_events = {
 static void node_destroy(void *data)
 {
 	struct node_data *nd = data;
+	spa_list_remove(&nd->link);
 	nd->dsp = NULL;
 }
 

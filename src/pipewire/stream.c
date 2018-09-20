@@ -1029,7 +1029,7 @@ pw_stream_connect(struct pw_stream *stream,
 	enum pw_remote_state state;
 	int i, res;
 
-	pw_log_debug("stream %p: connect", stream);
+	pw_log_debug("stream %p: connect path:%s", stream, port_path);
 	impl->direction =
 	    direction == PW_DIRECTION_INPUT ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT;
 	impl->flags = flags;

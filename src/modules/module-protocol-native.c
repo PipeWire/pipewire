@@ -182,6 +182,7 @@ process_messages(struct client_data *data)
       invalid_message:
 	pw_log_error("protocol-native %p: invalid message received %u %u",
 		     client->protocol, id, opcode);
+	spa_debug_pod(0, NULL, (struct spa_pod *)message);
 	pw_client_destroy(client);
 	goto done;
 }

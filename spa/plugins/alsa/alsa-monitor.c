@@ -32,7 +32,6 @@
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/monitor.h>
-#include <spa/debug/pod.h>
 
 #define NAME  "alsa-monitor"
 
@@ -251,8 +250,6 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info,
 	}
 	spa_pod_builder_pop(builder);
 	*item = spa_pod_builder_pop(builder);
-
-	spa_debug_pod(0, NULL, *item);
 
 	return 0;
 }

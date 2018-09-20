@@ -487,11 +487,19 @@ static int link_session_dsp(struct session *session)
 	pw_log_debug(NAME " %p: link session dsp '%d'", impl, session->id);
 
 	props = pw_properties_new(NULL, NULL);
-	pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", session->dsp->info->id);
-	pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
-	pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", session->node->info->id);
-	pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
 	pw_properties_set(props, PW_LINK_PROP_PASSIVE, "true");
+	if (session->direction == PW_DIRECTION_OUTPUT) {
+		pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", session->dsp->info->id);
+		pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
+		pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", session->node->info->id);
+		pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
+	}
+	else {
+		pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", session->node->info->id);
+		pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
+		pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", session->dsp->info->id);
+		pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
+	}
 
         session->link = pw_core_proxy_create_object(impl->core_proxy,
                                           "link-factory",

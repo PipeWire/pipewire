@@ -40,6 +40,8 @@
 
 #include <spa/graph/graph-scheduler2.h>
 
+#define DEFAULT_QUANTUM		1024
+
 /** \cond */
 struct impl {
 	struct pw_node this;
@@ -426,6 +428,20 @@ do_move_nodes(struct spa_loop *loop,
 	return 0;
 }
 
+static int recalc_quantum(struct pw_node *driver)
+{
+	uint32_t quantum = DEFAULT_QUANTUM;
+	struct pw_node *n;
+
+	spa_list_for_each(n, &driver->driver_list, driver_link) {
+		if (n->rt.quantum_size > 0 && n->rt.quantum_size < quantum)
+			quantum = n->rt.quantum_size;
+	}
+	driver->rt.quantum->size = quantum;
+	pw_log_info("node %p: driver quantum %d", driver, driver->rt.quantum->size);
+	return 0;
+}
+
 int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
@@ -449,6 +465,9 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 		pw_node_events_driver_changed(n, driver);
 		pw_log_debug("node %p: add %p", driver, n);
 	}
+
+	recalc_quantum(driver);
+
 	pw_loop_invoke(node->data_loop,
 		       do_move_nodes, SPA_ID_INVALID, &driver, sizeof(struct pw_node *),
 		       true, impl);
@@ -456,6 +475,16 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 	pw_node_events_driver_changed(node, driver);
 
 	return 0;
+}
+
+static uint32_t flp2(uint32_t x)
+{
+	x = x | (x >> 1);
+	x = x | (x >> 2);
+	x = x | (x >> 4);
+	x = x | (x >> 8);
+	x = x | (x >> 16);
+	return x - (x >> 1);
 }
 
 static void check_properties(struct pw_node *node)
@@ -472,6 +501,16 @@ static void check_properties(struct pw_node *node)
 		node->driver = pw_properties_parse_bool(str);
 	else
 		node->driver = false;
+
+	if ((str = pw_properties_get(node->properties, "node.latency"))) {
+		uint32_t num, denom;
+		pw_log_info("node %p: latency '%s'", node, str);
+                if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
+			node->rt.quantum_size = flp2((num * 48000 / denom));
+			pw_log_info("node %p: quantum %d", node, node->rt.quantum_size);
+		}
+	} else
+		node->rt.quantum_size = DEFAULT_QUANTUM;
 
 	pw_log_debug("node %p: graph %p driver:%d", node, &impl->driver_graph, node->driver);
 
@@ -563,7 +602,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_graph_node_add(&impl->graph, &this->rt.node);
 
 	impl->quantum.rate = SPA_FRACTION(1, 48000);
-	impl->quantum.size = 1024;
+	impl->quantum.size = DEFAULT_QUANTUM;
 	this->rt.quantum = &impl->quantum;
 
 	check_properties(this);
@@ -655,33 +694,30 @@ static void node_process(void *data, int status)
 
 	pw_node_events_process(node);
 
-	if (node->driver) {
-		if (node->rt.driver->state->pending == 0 || !node->remote) {
-			struct timespec ts;
-			struct pw_driver_quantum *q = node->rt.quantum;
+	if (node->driver && (node->rt.driver->state->pending == 0 || !node->remote)) {
+		struct timespec ts;
+		struct pw_driver_quantum *q = node->rt.quantum;
 
-			if (node->rt.clock) {
-				q->nsec = node->rt.clock->nsec;
-				q->rate = node->rt.clock->rate;
-				q->position = node->rt.clock->position;
-				q->delay = node->rt.clock->delay;
-			}
-			else {
-				clock_gettime(CLOCK_MONOTONIC, &ts);
-				q->nsec = SPA_TIMESPEC_TO_TIME(&ts);
-				q->position = impl->next_position;
-				q->delay = 0;
-			}
-			impl->next_position += q->size;
-
-			pw_log_trace("node %p: run %"PRIu64" %d/%d %"PRIu64" %"PRIi64" %d", node,
-					q->nsec, q->rate.num, q->rate.denom,
-					q->position, q->delay, q->size);
-
-			spa_graph_run(node->rt.driver);
+		if (node->rt.clock) {
+			q->nsec = node->rt.clock->nsec;
+			q->rate = node->rt.clock->rate;
+			q->position = node->rt.clock->position;
+			q->delay = node->rt.clock->delay;
 		}
-		else
-			spa_graph_node_trigger(&node->rt.node);
+		else {
+			clock_gettime(CLOCK_MONOTONIC, &ts);
+			q->nsec = SPA_TIMESPEC_TO_TIME(&ts);
+			q->position = impl->next_position;
+			q->delay = 0;
+		}
+
+		pw_log_trace("node %p: run %"PRIu64" %d/%d %"PRIu64" %"PRIi64" %d", node,
+				q->nsec, q->rate.num, q->rate.denom,
+				q->position, q->delay, q->size);
+
+		spa_graph_run(node->rt.driver);
+
+		impl->next_position += q->size;
 	}
 	else
 		spa_graph_node_trigger(&node->rt.node);
@@ -773,6 +809,7 @@ void pw_node_destroy(struct pw_node *node)
 		/* remove ourself from the (other) driver node */
 		spa_list_remove(&node->driver_link);
 		pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
+		recalc_quantum(node->driver_node);
 	}
 
 	if (node->registered)

@@ -352,6 +352,7 @@ struct pw_node {
 		struct spa_graph_node node;
 		struct spa_graph_node subnode;
 		struct spa_graph_link sublink;
+		uint32_t quantum_size;
 	} rt;
 
         void *user_data;                /**< extra user data */

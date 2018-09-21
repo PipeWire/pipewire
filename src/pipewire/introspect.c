@@ -404,6 +404,11 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 			free(info->format);
 		info->format = pw_spa_pod_copy(update->format);
 	}
+	if (update->change_mask & PW_LINK_CHANGE_MASK_PROPS) {
+		if (info->props)
+			pw_spa_dict_destroy(info->props);
+		info->props = pw_spa_dict_copy(update->props);
+	}
 	return info;
 }
 
@@ -411,5 +416,7 @@ void pw_link_info_free(struct pw_link_info *info)
 {
 	if (info->format)
 		free(info->format);
+	if (info->props)
+		pw_spa_dict_destroy(info->props);
 	free(info);
 }

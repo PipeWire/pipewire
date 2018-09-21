@@ -157,6 +157,7 @@ static void sink_callback(struct sink_data *d)
 	ii[0].encoding = PA_ENCODING_PCM;
 	ii[0].plist = pa_proplist_new();
 	ip[0] = ii;
+	pa_channel_map_init_auto(&i.channel_map, 2, PA_CHANNEL_MAP_DEFAULT);
 	i.formats = ip;
 	d->cb(d->context, &i, 0, d->userdata);
 }
@@ -169,7 +170,7 @@ static void sink_info(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
-static struct global *find_type_by_name(pa_context *c, uint32_t mask, const char *name)
+struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, const char *name)
 {
 	struct global *g;
 	const char *str;
@@ -200,7 +201,7 @@ pa_operation* pa_context_get_sink_info_by_name(pa_context *c, const char *name, 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
 
-	if ((g = find_type_by_name(c, PA_SUBSCRIPTION_MASK_SINK, name)) == NULL)
+	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SINK, name)) == NULL)
 		return NULL;
 
 	ensure_global(c, g);

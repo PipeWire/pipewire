@@ -178,7 +178,8 @@ static void dump_buffer_attr(pa_stream *s, pa_buffer_attr *attr)
 static void configure_buffers(pa_stream *s)
 {
 	s->buffer_attr.maxlength = s->maxsize;
-	s->buffer_attr.prebuf = s->buffer_attr.minreq;
+	if (s->buffer_attr.prebuf == -1)
+		s->buffer_attr.prebuf = s->buffer_attr.minreq;
 	s->buffer_attr.fragsize = s->buffer_attr.minreq;
 	dump_buffer_attr(s, &s->buffer_attr);
 }
@@ -772,6 +773,8 @@ static int create_stream(pa_stream_direction_t direction,
 	struct pw_properties *props;
 	uint32_t sample_rate = 0, stride = 0;
 	const char *str;
+	char devid[16];
+	struct global *g;
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -831,6 +834,10 @@ static int create_stream(pa_stream_direction_t direction,
 
 	if (dev == NULL)
 		dev = getenv("PIPEWIRE_NODE");
+	else if ((g = pa_context_find_global_by_name(s->context, PA_SUBSCRIPTION_MASK_SINK, dev)) != NULL) {
+		snprintf(devid, 15, "%d", g->id);
+		dev = devid;
+	}
 
 	props = (struct pw_properties *) pw_stream_get_properties(s->stream);
 	pw_properties_setf(props, "node.latency", "%u/%u",

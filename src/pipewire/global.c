@@ -259,9 +259,9 @@ void pw_global_destroy(struct pw_global *global)
 {
 	struct pw_core *core = global->core;
 
+	pw_log_debug("global %p: destroy %u", global, global->id);
 	global_unregister(global);
 
-	pw_log_debug("global %p: destroy %u", global, global->id);
 	pw_global_events_destroy(global);
 
 	pw_map_remove(&core->globals, global->id);

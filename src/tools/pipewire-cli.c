@@ -992,7 +992,7 @@ static bool do_destroy(struct data *data, const char *cmd, char *args, char **er
 		asprintf(error, "%s: unknown global %d", cmd, id);
 		return false;
 	}
-	pw_core_proxy_destroy(rd->core_proxy, id);
+	pw_registry_proxy_destroy(rd->registry_proxy, id);
 
 	return true;
 }

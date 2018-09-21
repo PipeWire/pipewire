@@ -42,6 +42,8 @@
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLERATE	48000
 
+#define DEFAULT_IDLE_SECONDS	3
+
 #define MIN_QUANTUM_SIZE	64
 #define MAX_QUANTUM_SIZE	1024
 
@@ -86,6 +88,7 @@ struct node {
 	struct spa_list session_link;
 	struct session *session;
 
+	struct session *manager;
 	struct spa_list port_list;
 
 	enum pw_direction direction;
@@ -126,7 +129,8 @@ struct session {
 
 	struct node *node;
 	struct node *dsp;
-	struct link *link;
+	struct pw_link_proxy *link;
+	struct spa_hook link_listener;
 
 	struct spa_list node_list;
 
@@ -173,18 +177,152 @@ static void schedule_rescan(struct impl *impl)
 static void remove_idle_timeout(struct session *sess)
 {
 	struct impl *impl = sess->impl;
+	struct pw_loop *main_loop = pw_core_get_main_loop(impl->core);
 
 	if (sess->idle_timeout) {
-		pw_loop_destroy_source(pw_core_get_main_loop(impl->core), sess->idle_timeout);
+		pw_loop_destroy_source(main_loop, sess->idle_timeout);
 		sess->idle_timeout = NULL;
 	}
+}
+
+static void idle_timeout(void *data, uint64_t expirations)
+{
+	struct session *sess = data;
+	struct impl *impl = sess->impl;
+	struct spa_command *cmd = &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend);
+
+	pw_log_debug(NAME " %p: session %d idle timeout", impl, sess->id);
+
+	remove_idle_timeout(sess);
+
+	pw_node_proxy_send_command((struct pw_node_proxy*)sess->node->obj.proxy, cmd);
+	if (sess->dsp)
+		pw_node_proxy_send_command((struct pw_node_proxy*)sess->dsp->obj.proxy, cmd);
+}
+
+static void add_idle_timeout(struct session *sess)
+{
+	struct timespec value;
+	struct impl *impl = sess->impl;
+	struct pw_loop *main_loop = pw_core_get_main_loop(impl->core);
+
+	if (sess->idle_timeout == NULL)
+		sess->idle_timeout = pw_loop_add_timer(main_loop, idle_timeout, sess);
+
+	value.tv_sec = DEFAULT_IDLE_SECONDS;
+	value.tv_nsec = 0;
+	pw_loop_update_timer(main_loop, sess->idle_timeout, &value, NULL, false);
+}
+
+static int unlink_session_dsp(struct impl *impl, struct session *session)
+{
+	pw_core_proxy_destroy(impl->core_proxy, (struct pw_proxy*)session->link);
+	session->link = NULL;
+	return 0;
+}
+
+static int on_node_idle(struct impl *impl, struct node *node)
+{
+	struct session *sess = node->manager;
+
+	if (sess == NULL)
+		return 0;
+
+	switch (node->type) {
+	case NODE_TYPE_DSP:
+		pw_log_debug(NAME" %p: dsp idle for session %d", impl, sess->id);
+		if (sess->link)
+			unlink_session_dsp(impl, sess);
+		break;
+
+	case NODE_TYPE_DEVICE:
+		pw_log_debug(NAME" %p: device idle for session %d", impl, sess->id);
+		sess->busy = false;
+		sess->exclusive = false;
+		add_idle_timeout(sess);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+
+static int link_session_dsp(struct impl *impl, struct session *session)
+{
+	struct pw_properties *props;
+
+	pw_log_debug(NAME " %p: link session dsp '%d'", impl, session->id);
+
+	props = pw_properties_new(NULL, NULL);
+//	pw_properties_set(props, PW_LINK_PROP_PASSIVE, "true");
+	if (session->direction == PW_DIRECTION_OUTPUT) {
+		pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", session->dsp->info->id);
+		pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
+		pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", session->node->info->id);
+		pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
+	}
+	else {
+		pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", session->node->info->id);
+		pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
+		pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", session->dsp->info->id);
+		pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
+	}
+
+        session->link = pw_core_proxy_create_object(impl->core_proxy,
+                                          "link-factory",
+                                          PW_TYPE_INTERFACE_Link,
+                                          PW_VERSION_LINK,
+                                          &props->dict,
+					  0);
+	return 0;
+}
+
+static int on_node_running(struct impl *impl, struct node *node)
+{
+	struct session *sess = node->manager;
+
+	if (sess == NULL)
+		return 0;
+
+	switch (node->type) {
+	case NODE_TYPE_DSP:
+		pw_log_debug(NAME" %p: dsp running for session %d", impl, sess->id);
+		if (sess->link == NULL)
+			link_session_dsp(impl, sess);
+		break;
+
+	case NODE_TYPE_DEVICE:
+		pw_log_debug(NAME" %p: device running or session %d", impl, sess->id);
+		remove_idle_timeout(sess);
+		break;
+	default:
+		break;
+	}
+	return 0;
 }
 
 static void node_event_info(void *object, struct pw_node_info *info)
 {
 	struct node *n = object;
-	pw_log_debug(NAME" %p: info for node %d", n->obj.impl, n->obj.id);
+	struct impl *impl = n->obj.impl;
+
+	pw_log_debug(NAME" %p: info for node %d type %d", impl, n->obj.id, n->type);
 	n->info = pw_node_info_update(n->info, info);
+
+	switch (info->state) {
+	case PW_NODE_STATE_IDLE:
+		on_node_idle(impl, n);
+		break;
+	case PW_NODE_STATE_RUNNING:
+		on_node_running(impl, n);
+		break;
+	case PW_NODE_STATE_SUSPENDED:
+		break;
+	default:
+		break;
+	}
+
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -299,6 +437,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 
 		node->direction = direction;
 		node->type = NODE_TYPE_DEVICE;
+		node->manager = sess;
 
 		pw_log_debug(NAME" %p: new session for device node %d", impl, id);
 	}
@@ -432,42 +571,49 @@ registry_global(void *data,uint32_t id, uint32_t parent_id,
 	schedule_rescan(impl);
 }
 
+static void remove_session(struct impl *impl, struct session *sess)
+{
+	struct node *n, *t;
+
+	pw_log_debug(NAME " %p: remove session '%d'", impl, sess->id);
+	remove_idle_timeout(sess);
+
+	spa_list_for_each_safe(n, t, &sess->node_list, session_link) {
+		n->session = NULL;
+		spa_list_remove(&n->session_link);
+	}
+
+	if (sess->dsp) {
+		pw_log_debug(NAME " %p: destroy dsp", impl);
+		pw_core_proxy_destroy(impl->core_proxy, sess->dsp->obj.proxy);
+	}
+	spa_list_remove(&sess->l);
+	free(sess);
+}
+
 static void
 registry_global_remove(void *data, uint32_t id)
 {
 	struct impl *impl = data;
 	struct object *obj;
-	struct session *sess;
 
 	pw_log_debug(NAME " %p: remove global '%d'", impl, id);
 
 	if ((obj = find_object(impl, id)) == NULL)
 		return;
 
-	spa_list_for_each(sess, &impl->session_list, l) {
-		struct node *node = (struct node *)obj, *n, *t;
+	switch (obj->type) {
+	case PW_TYPE_INTERFACE_Node:
+	{
+		struct node *node = (struct node*) obj;
+		if (node->manager)
+			remove_session(impl, node->manager);
+		break;
 
-		if (sess->node != node)
-			continue;
-
-		pw_log_debug(NAME " %p: remove session '%d'", impl, sess->id);
-		remove_idle_timeout(sess);
-
-		spa_list_for_each_safe(n, t, &sess->node_list, session_link) {
-			n->session = NULL;
-			spa_list_remove(&n->session_link);
-		}
-
-		if (sess->dsp) {
-			uint32_t id = ((struct object *)sess->dsp)->id;
-			pw_log_debug(NAME " %p: destroy dsp '%d'", impl, id);
-			pw_core_proxy_destroy(impl->core_proxy, id);
-		}
-		spa_list_remove(&sess->l);
-		free(sess);
+	}
+	default:
 		break;
 	}
-
 	remove_object(impl, obj);
 	schedule_rescan(impl);
 }
@@ -477,39 +623,6 @@ static const struct pw_registry_proxy_events registry_events = {
         .global = registry_global,
         .global_remove = registry_global_remove,
 };
-
-
-static int link_session_dsp(struct session *session)
-{
-	struct impl *impl = session->impl;
-	struct pw_properties *props;
-
-	pw_log_debug(NAME " %p: link session dsp '%d'", impl, session->id);
-
-	props = pw_properties_new(NULL, NULL);
-	pw_properties_set(props, PW_LINK_PROP_PASSIVE, "true");
-	if (session->direction == PW_DIRECTION_OUTPUT) {
-		pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", session->dsp->info->id);
-		pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
-		pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", session->node->info->id);
-		pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
-	}
-	else {
-		pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", session->node->info->id);
-		pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
-		pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", session->dsp->info->id);
-		pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
-	}
-
-        session->link = pw_core_proxy_create_object(impl->core_proxy,
-                                          "link-factory",
-                                          PW_TYPE_INTERFACE_Link,
-                                          PW_VERSION_LINK,
-                                          &props->dict,
-					  0);
-	return 0;
-}
-
 
 
 struct find_data {
@@ -618,7 +731,6 @@ static int rescan_node(struct impl *impl, struct node *node)
 	struct pw_node_info *info;
 	struct node *peer;
 	enum pw_direction direction;
-	int res;
 
 	if (node->type == NODE_TYPE_DSP || node->type == NODE_TYPE_DEVICE)
 		return 0;
@@ -722,10 +834,6 @@ static int rescan_node(struct impl *impl, struct node *node)
 		session->exclusive = exclusive;
 	}
 	else {
-		if (session->link == NULL) {
-			if ((res = link_session_dsp(session)) < 0)
-				return res;
-		}
 		peer = session->dsp;
 	}
 
@@ -734,7 +842,6 @@ static int rescan_node(struct impl *impl, struct node *node)
         session->busy = true;
 	node->session = session;
 	spa_list_append(&session->node_list, &node->session_link);
-	remove_idle_timeout(session);
 
 	link_nodes(peer, direction, node);
 
@@ -756,6 +863,7 @@ static void dsp_node_event_info(void *object, struct pw_node_info *info)
 
 	dsp->direction = s->direction;
 	dsp->type = NODE_TYPE_DSP;
+	dsp->manager = s;
 }
 
 static const struct pw_node_proxy_events dsp_node_events = {
@@ -763,36 +871,8 @@ static const struct pw_node_proxy_events dsp_node_events = {
 	.info = dsp_node_event_info,
 };
 
-static void idle_timeout(void *data, uint64_t expirations)
-{
-	struct session *sess = data;
-	struct impl *impl = sess->impl;
-	struct spa_command *cmd = &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend);
-
-	pw_log_debug(NAME " %p: session %d idle timeout", impl, sess->id);
-
-	remove_idle_timeout(sess);
-
-	pw_node_proxy_send_command((struct pw_node_proxy*)sess->node->obj.proxy, cmd);
-	if (sess->dsp)
-		pw_node_proxy_send_command((struct pw_node_proxy*)sess->dsp->obj.proxy, cmd);
-}
-
 static void rescan_session(struct impl *impl, struct session *sess)
 {
-	if (spa_list_is_empty(&sess->node_list) && sess->busy) {
-                struct pw_loop *main_loop = pw_core_get_main_loop(impl->core);
-		struct timespec value;
-
-		pw_log_debug(NAME "%p: session %d became idle", impl, sess->id);
-		sess->exclusive = false;
-		sess->busy = false;
-
-		sess->idle_timeout = pw_loop_add_timer(main_loop, idle_timeout, sess);
-		value.tv_sec = 3;
-		value.tv_nsec = 0;
-		pw_loop_update_timer(main_loop, sess->idle_timeout, &value, NULL, false);
-	}
 	if (sess->need_dsp && sess->dsp == NULL && !sess->dsp_pending) {
 		struct pw_properties *props;
 		struct node *node = sess->node;

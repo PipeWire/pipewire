@@ -172,11 +172,12 @@ struct pw_core_proxy_methods {
 			       uint32_t version,
 			       const struct spa_dict *props,
 			       uint32_t new_id);
-
 	/**
-	 * Destroy an object id
+	 * Destroy an resource
 	 *
-	 * \param id the object id to destroy
+	 * Destroy the server resource with the given proxy id.
+	 *
+	 * \param id the client proxy id to destroy
 	 */
 	void (*destroy) (void *object, uint32_t id);
 };
@@ -228,9 +229,9 @@ pw_core_proxy_create_object(struct pw_core_proxy *core,
 }
 
 static inline void
-pw_core_proxy_destroy(struct pw_core_proxy *core, uint32_t id)
+pw_core_proxy_destroy(struct pw_core_proxy *core, struct pw_proxy *proxy)
 {
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, destroy, id);
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, destroy, pw_proxy_get_id(proxy));
 }
 
 #define PW_CORE_PROXY_EVENT_DONE         0
@@ -336,7 +337,8 @@ pw_core_proxy_add_listener(struct pw_core_proxy *core,
  * the access permissions on an object.
  */
 #define PW_REGISTRY_PROXY_METHOD_BIND		0
-#define PW_REGISTRY_PROXY_METHOD_NUM		1
+#define PW_REGISTRY_PROXY_METHOD_DESTROY	1
+#define PW_REGISTRY_PROXY_METHOD_NUM		2
 
 /** Registry methods */
 struct pw_registry_proxy_methods {
@@ -355,6 +357,15 @@ struct pw_registry_proxy_methods {
 	 * \param new_id the client proxy to use
 	 */
 	void (*bind) (void *object, uint32_t id, uint32_t type, uint32_t version, uint32_t new_id);
+
+	/**
+	 * Attempt to destroy a global object
+	 *
+	 * Try to destroy the global object.
+	 *
+	 * \param id the global id to destroy
+	 */
+	void (*destroy) (void *object, uint32_t id);
 };
 
 /** Registry */
@@ -367,6 +378,13 @@ pw_registry_proxy_bind(struct pw_registry_proxy *registry,
 	struct pw_proxy *p = pw_proxy_new(reg, type, user_data_size);
 	pw_proxy_do(reg, struct pw_registry_proxy_methods, bind, id, type, version, pw_proxy_get_id(p));
 	return p;
+}
+
+static inline void
+pw_registry_proxy_destroy(struct pw_registry_proxy *registry, uint32_t id)
+{
+	struct pw_proxy *reg = (struct pw_proxy*)registry;
+	pw_proxy_do(reg, struct pw_registry_proxy_methods, destroy, id);
 }
 
 #define PW_REGISTRY_PROXY_EVENT_GLOBAL             0

@@ -89,9 +89,38 @@ static void registry_bind(void *object, uint32_t id,
 	pw_core_resource_remove_id(client->core_resource, new_id);
 }
 
+static void registry_destroy(void *object, uint32_t id)
+{
+	struct pw_resource *resource = object;
+	struct pw_client *client = resource->client;
+	struct pw_core *core = resource->core;
+	struct pw_global *global;
+	uint32_t permissions;
+
+	if ((global = pw_core_find_global(core, id)) == NULL)
+		goto no_id;
+
+	permissions = pw_global_get_permissions(global, client);
+
+	if (!PW_PERM_IS_X(permissions))
+		goto no_id;
+
+	pw_log_debug("global %p: destroy global id %d", global, id);
+
+	pw_global_destroy(global);
+	return;
+
+      no_id:
+	pw_log_debug("registry %p: no global with id %u to destroy", resource, id);
+	goto exit;
+      exit:
+	return;
+}
+
 static const struct pw_registry_proxy_methods registry_methods = {
 	PW_VERSION_REGISTRY_PROXY_METHODS,
-	.bind = registry_bind
+	.bind = registry_bind,
+	.destroy = registry_destroy
 };
 
 static void destroy_registry_resource(void *object)
@@ -254,16 +283,24 @@ core_create_object(void *object,
 static void core_destroy(void *object, uint32_t id)
 {
 	struct pw_resource *resource = object;
-	struct pw_core *this = resource->core;
-	struct pw_global *global;
+	struct pw_client *client = resource->client;
+	struct pw_resource *r;
 
 	pw_log_debug("core %p: destroy %d from resource %p", resource->core, id, resource);
 
-	global = pw_core_find_global(this, id);
-	if (global == NULL)
-		return;
+	if ((r = pw_client_find_resource(client, id)) == NULL)
+		goto no_resource;
 
-	pw_global_destroy(global);
+	pw_resource_destroy(r);
+
+      done:
+	return;
+
+      no_resource:
+	pw_log_error("can't find resouce %d", id);
+	pw_core_resource_error(client->core_resource,
+			       resource->id, -EINVAL, "unknown resouce %d", id);
+	goto done;
 }
 
 static const struct pw_core_proxy_methods core_methods = {

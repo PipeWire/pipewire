@@ -509,6 +509,22 @@ static int registry_demarshal_bind(void *object, void *data, size_t size)
 	return 0;
 }
 
+static int registry_demarshal_destroy(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	uint32_t id;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs,
+			"["
+			"i", &id, NULL) < 0)
+		return -EINVAL;
+
+	pw_resource_do(resource, struct pw_registry_proxy_methods, destroy, 0, id);
+	return 0;
+}
+
 static void module_marshal_info(void *object, struct pw_module_info *info)
 {
 	struct pw_resource *resource = object;
@@ -1127,6 +1143,17 @@ static void registry_marshal_bind(void *object, uint32_t id,
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
+static void registry_marshal_destroy(void *object, uint32_t id)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_REGISTRY_PROXY_METHOD_DESTROY);
+	spa_pod_builder_add_struct(b,
+			       "i", id);
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
 static const struct pw_core_proxy_methods pw_protocol_native_core_method_marshal = {
 	PW_VERSION_CORE_PROXY_METHODS,
 	&core_marshal_hello,
@@ -1177,10 +1204,12 @@ static const struct pw_protocol_marshal pw_protocol_native_core_marshal = {
 static const struct pw_registry_proxy_methods pw_protocol_native_registry_method_marshal = {
 	PW_VERSION_REGISTRY_PROXY_METHODS,
 	&registry_marshal_bind,
+	&registry_marshal_destroy,
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_registry_method_demarshal[] = {
 	{ &registry_demarshal_bind, 0, },
+	{ &registry_demarshal_destroy, 0, },
 };
 
 static const struct pw_registry_proxy_events pw_protocol_native_registry_event_marshal = {

@@ -1270,8 +1270,9 @@ static void do_node_init(struct pw_proxy *proxy)
 static void node_destroy(void *data)
 {
 	struct node_data *d = data;
+	struct pw_remote *remote = d->remote;
 	pw_log_debug("%p: destroy", d);
-	pw_client_node_proxy_destroy(d->node_proxy);
+	pw_core_proxy_destroy(remote->core_proxy, (struct pw_proxy *)d->node_proxy);
 	pw_proxy_destroy((struct pw_proxy *)d->node_proxy);
 }
 

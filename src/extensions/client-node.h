@@ -58,8 +58,7 @@ struct pw_client_node_position {
 #define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE		2
 #define PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE		3
 #define PW_CLIENT_NODE_PROXY_METHOD_EVENT		4
-#define PW_CLIENT_NODE_PROXY_METHOD_DESTROY		5
-#define PW_CLIENT_NODE_PROXY_METHOD_NUM			6
+#define PW_CLIENT_NODE_PROXY_METHOD_NUM			5
 
 /** \ref pw_client_node methods */
 struct pw_client_node_proxy_methods {
@@ -120,10 +119,6 @@ struct pw_client_node_proxy_methods {
 	 * \param event the event to send
 	 */
 	void (*event) (void *object, struct spa_event *event);
-	/**
-	 * Destroy the client_node
-	 */
-	void (*destroy) (void *object);
 };
 
 static inline void
@@ -175,13 +170,6 @@ pw_client_node_proxy_event(struct pw_client_node_proxy *p, struct spa_event *eve
 {
         pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, event, event);
 }
-
-static inline void
-pw_client_node_proxy_destroy(struct pw_client_node_proxy *p)
-{
-        pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, destroy);
-}
-
 
 #define PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM		0
 #define PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT		1

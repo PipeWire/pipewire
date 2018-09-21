@@ -126,6 +126,7 @@ static void *create_object(void *_data,
 	char *error;
 	const char *str;
 	int res;
+	bool linger;
 
 	if (resource == NULL)
 		goto no_resource;
@@ -189,6 +190,9 @@ static void *create_object(void *_data,
 	if (inport == NULL)
 		goto no_input_port;
 
+	str = pw_properties_get(properties, "object.linger");
+	linger = str ? pw_properties_parse_bool(str) : false;
+
 	link = pw_link_new(core, outport, inport, NULL, properties, &error, sizeof(struct link_data));
 	if (link == NULL)
 		goto no_mem;
@@ -199,7 +203,10 @@ static void *create_object(void *_data,
 	spa_list_append(&d->link_list, &ld->l);
 
 	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
-	pw_link_register(link, client, pw_client_get_global(client), NULL);
+	pw_link_register(link,
+			linger ? NULL : client,
+			linger ? NULL : pw_client_get_global(client),
+			NULL);
 
 	properties = NULL;
 
@@ -207,10 +214,12 @@ static void *create_object(void *_data,
 	if (res < 0)
 		goto no_bind;
 
-	if ((bound_resource = pw_client_find_resource(client, new_id)) == NULL)
-		goto no_bind;
+	if (!linger) {
+		if ((bound_resource = pw_client_find_resource(client, new_id)) == NULL)
+			goto no_bind;
 
-	pw_resource_add_listener(bound_resource, &ld->resource_listener, &resource_events, ld);
+		pw_resource_add_listener(bound_resource, &ld->resource_listener, &resource_events, ld);
+	}
 
 	return link;
 

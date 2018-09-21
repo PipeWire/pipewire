@@ -125,7 +125,7 @@ struct stream {
 	bool free_data;
 	struct data data;
 
-	uint32_t seq1, seq2;
+	uintptr_t seq;
 	struct pw_time time;
 };
 
@@ -647,13 +647,13 @@ static int process_notify(struct stream *impl, struct spa_pod_sequence *sequence
 static inline void copy_quantum(struct stream *impl, int64_t queued)
 {
 	struct pw_driver_quantum *q = impl->node->rt.quantum;
-	impl->seq1++;
+	__atomic_add_fetch(&impl->seq, 1, __ATOMIC_SEQ_CST);
 	impl->time.now = q->nsec;
 	impl->time.rate = q->rate;
 	impl->time.ticks = q->position;
 	impl->time.delay = q->delay;
 	impl->time.queued = queued;
-	impl->seq2 = impl->seq1;
+	__atomic_add_fetch(&impl->seq, 1, __ATOMIC_SEQ_CST);
 
 	if (impl->io_control)
 		process_control(impl, &impl->io_control->sequence);
@@ -1143,12 +1143,13 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	uint32_t seq;
+	uintptr_t seq1, seq2;
 
 	do {
-		seq = impl->seq2;
+		seq1 = __atomic_load_n(&impl->seq, __ATOMIC_SEQ_CST);
 		*time = impl->time;
-	} while (impl->seq1 != seq);
+		seq2 = __atomic_load_n(&impl->seq, __ATOMIC_SEQ_CST);
+	} while (seq1 != seq2 || seq1 & 1);
 
 	if (impl->direction == SPA_DIRECTION_INPUT)
 		time->queued = (int64_t)(time->queued - impl->dequeued.outcount);

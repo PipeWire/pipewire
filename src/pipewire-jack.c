@@ -57,6 +57,7 @@
 #define DEFAULT_SAMPLE_RATE	48000
 #define DEFAULT_BUFFER_SIZE	1024
 #define MAX_BUFFER_SIZE		2048
+#define DEFAULT_LATENCY		SPA_STRINGIFY(DEFAULT_BUFFER_SIZE/DEFAULT_SAMPLE_RATE)
 
 #define REAL_JACK_PORT_NAME_SIZE (JACK_CLIENT_NAME_SIZE + JACK_PORT_NAME_SIZE)
 
@@ -1501,6 +1502,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	bool busy = true;
 	struct spa_dict props;
 	struct spa_dict_item items[5];
+	const char *str;
 	int i;
 
 	pw_log_debug("client open %s %d", client_name, options);
@@ -1582,7 +1584,9 @@ jack_client_t * jack_client_open (const char *client_name,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_MEDIA, "Audio");
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_CATEGORY, "Duplex");
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_ROLE, "DSP");
-	items[props.n_items++] = SPA_DICT_ITEM_INIT("node.latency", "128/48000");
+	if ((str = getenv("PIPEWIRE_LATENCY")) == NULL)
+		str = DEFAULT_LATENCY;
+	items[props.n_items++] = SPA_DICT_ITEM_INIT("node.latency", str);
 
 	client->node_proxy = pw_core_proxy_create_object(client->core_proxy,
 				"client-node",
@@ -1634,7 +1638,7 @@ jack_client_t * jack_client_new (const char *client_name)
 	jack_status_t status;
 
         if (getenv("JACK_START_SERVER") == NULL)
-            options |= JackNoStartServer;
+		options |= JackNoStartServer;
 
 	return jack_client_open(client_name, options, &status, NULL);
 }
@@ -2374,7 +2378,7 @@ int jack_connect (jack_client_t *client,
 	struct client *c = (struct client *) client;
 	struct object *src, *dst;
 	struct spa_dict props;
-	struct spa_dict_item items[4];
+	struct spa_dict_item items[5];
 	char val[4][16];
 	int res;
 
@@ -2402,6 +2406,7 @@ int jack_connect (jack_client_t *client,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_LINK_OUTPUT_PORT_ID, val[1]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_LINK_INPUT_NODE_ID, val[2]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_LINK_INPUT_PORT_ID, val[3]);
+	items[props.n_items++] = SPA_DICT_ITEM_INIT("object.linger", "1");
 
 	pw_core_proxy_create_object(c->core_proxy,
 				    "link-factory",
@@ -2446,7 +2451,7 @@ int jack_disconnect (jack_client_t *client,
 		goto exit;
 	}
 
-	pw_core_proxy_destroy(c->core_proxy, l->id);
+	pw_registry_proxy_destroy(c->registry_proxy, l->id);
 
 	res = do_sync(c);
 
@@ -2470,7 +2475,7 @@ int jack_port_disconnect (jack_client_t *client, jack_port_t *port)
 	spa_list_for_each(l, &c->context.links, link) {
 		if (l->port_link.src == o->id ||
 		    l->port_link.dst == o->id) {
-			pw_core_proxy_destroy(c->core_proxy, l->id);
+			pw_registry_proxy_destroy(c->registry_proxy, l->id);
 		}
 	}
 	res = do_sync(c);

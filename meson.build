@@ -183,3 +183,6 @@ if get_option('man')
     warning('Man page generation was enabled, but xmltoman is not available')
   endif
 endif
+
+setenv = find_program('pw-uninstalled.sh')
+run_target('uninstalled', command : [setenv, '-b@0@'.format(meson.build_root())])

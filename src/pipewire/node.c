@@ -516,23 +516,6 @@ static void check_properties(struct pw_node *node)
 
 }
 
-static inline int driver_impl_finish(void *data)
-{
-	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, driver_data);
-	struct spa_graph_data *d = &impl->driver_data;
-	struct pw_node *this = &impl->this;
-
-	pw_log_trace("graph %p finish %p", d->graph, impl);
-	pw_node_events_finish(this);
-        return 0;
-}
-
-static const struct spa_graph_callbacks driver_impl_default = {
-        SPA_VERSION_GRAPH_CALLBACKS,
-        .run = spa_graph_impl_run,
-        .finish = driver_impl_finish,
-};
-
 struct pw_node *pw_node_new(struct pw_core *core,
 			    const char *name,
 			    struct pw_properties *properties,
@@ -582,7 +565,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_graph_init(&impl->driver_graph, &impl->driver_state);
 	spa_graph_data_init(&impl->driver_data, &impl->driver_graph);
 	spa_graph_set_callbacks(&impl->driver_graph,
-			&driver_impl_default, &impl->driver_data);
+			&spa_graph_impl_default, &impl->driver_data);
 
 	this->rt.driver = &impl->driver_graph;
 	this->rt.activation = &impl->root_activation;
@@ -691,8 +674,6 @@ static void node_process(void *data, int status)
 
 	pw_log_trace("node %p: process driver:%d exported:%d", node,
 			node->driver, node->exported);
-
-	pw_node_events_process(node);
 
 	if (node->driver && (node->rt.driver->state->pending == 0 || !node->remote)) {
 		struct timespec ts;

@@ -104,6 +104,12 @@ struct node_data {
 	struct spa_hook proxy_listener;
 
 	struct pw_client_node_position *position;
+
+	struct spa_graph_node_callbacks callbacks;
+        void *callbacks_data;
+
+	struct spa_graph_state state;
+	struct spa_graph_link link;
 };
 
 /** \endcond */
@@ -494,14 +500,6 @@ static void unhandle_socket(struct node_data *data)
 {
         pw_loop_invoke(data->core->data_loop,
                        do_remove_source, 1, NULL, 0, true, data);
-}
-
-static void node_finish(void *data)
-{
-	struct node_data *d = data;
-	uint64_t cmd = 1;
-	pw_log_trace("remote %p: send process", data);
-	write(d->rtwritefd, &cmd, 8);
 }
 
 static void
@@ -1309,7 +1307,6 @@ static const struct pw_node_events node_events = {
 	.destroy = node_destroy,
 	.info_changed = node_info_changed,
 	.active_changed = node_active_changed,
-	.finish = node_finish,
 };
 
 static void clear_mix(struct node_data *data, struct mix *mix)
@@ -1345,6 +1342,28 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = node_proxy_destroy,
 };
 
+static int remote_impl_signal(void *data)
+{
+	struct node_data *d = data;
+	uint64_t cmd = 1;
+	pw_log_trace("remote %p: send process", data);
+	write(d->rtwritefd, &cmd, 8);
+        return 0;
+}
+
+static inline int remote_process(void *data, struct spa_graph_node *node)
+{
+	struct node_data *d = data;
+        spa_debug("remote %p: begin graph", data);
+	spa_graph_state_reset(&d->state);
+	return d->callbacks.process(d->callbacks_data, node);
+}
+
+static const struct spa_graph_node_callbacks impl_root = {
+	SPA_VERSION_GRAPH_NODE_CALLBACKS,
+	.process = remote_process,
+};
+
 struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 				  struct pw_node *node)
 {
@@ -1373,6 +1392,12 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	data->node = node;
 	data->core = pw_node_get_core(node);
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;
+
+	data->link.signal = remote_impl_signal;
+	data->link.signal_data = data;
+	data->callbacks = *node->rt.root.callbacks;
+	spa_graph_node_set_callbacks(&node->rt.root, &impl_root, data);
+	spa_graph_link_add(&node->rt.root, &data->state, &data->link);
 
 	node->exported = true;
 

@@ -87,13 +87,6 @@ struct pw_node_events {
 
 	/** the driver of the node changed */
 	void (*driver_changed) (void *data, struct pw_node *driver);
-
-        /** the node wants to process the graph */
-	void (*process) (void *data);
-        /** the node has a buffer to reuse */
-	void (*reuse_buffer) (void *data, uint32_t port_id, uint32_t buffer_id);
-	/** the node driver finished processing */
-	void (*finish) (void *data);
 };
 
 /** Media type of the node, Audio, Video, Midi */

@@ -392,7 +392,8 @@ static int negotiate_format(struct impl *impl)
 	}
 
 	spa_pod_fixate(format);
-	spa_debug_format(0, NULL, format);
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_format(0, NULL, format);
 
 	if ((res = spa_node_port_set_param(impl->adapter_mix,
 				   SPA_DIRECTION_REVERSE(impl->direction), 0,

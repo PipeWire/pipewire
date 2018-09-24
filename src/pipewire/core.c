@@ -286,7 +286,7 @@ static void core_destroy(void *object, uint32_t id)
 	struct pw_client *client = resource->client;
 	struct pw_resource *r;
 
-	pw_log_debug("core %p: destroy %d from resource %p", resource->core, id, resource);
+	pw_log_debug("core %p: destroy resource %d from client %p", resource->core, id, client);
 
 	if ((r = pw_client_find_resource(client, id)) == NULL)
 		goto no_resource;

@@ -634,7 +634,7 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	spa_log_trace(state->log, "timeout %ld %d %ld %ld %ld", state->filled, state->threshold,
 		      state->sample_count, state->now.tv_sec, state->now.tv_nsec);
 
-	if (state->filled > state->threshold) {
+	if (state->filled > state->threshold * 2) {
 		if (snd_pcm_state(hndl) == SND_PCM_STATE_SUSPENDED) {
 			spa_log_error(state->log, "suspended: try resume");
 			if ((res = alsa_try_resume(state)) < 0)

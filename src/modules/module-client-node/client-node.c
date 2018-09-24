@@ -140,6 +140,8 @@ struct node {
 	struct port *in_ports[MAX_INPUTS];
 	struct port *out_ports[MAX_OUTPUTS];
 
+	struct port dummy;
+
 	uint32_t n_params;
 	struct spa_pod **params;
 
@@ -1046,10 +1048,12 @@ client_node_port_update(void *data,
 		clear_port(this, port);
 		pw_node_update_ports(impl->this.node);
 	} else {
-		struct port dummy = { 0 }, *target;
+		struct port *target;
 
-		if (port == NULL)
-			target = &dummy;
+		if (port == NULL) {
+			target = &this->dummy;
+			spa_zero(this->dummy);
+		}
 		else
 			target = port;
 
@@ -1061,11 +1065,11 @@ client_node_port_update(void *data,
 		if (port == NULL) {
 			if (direction == SPA_DIRECTION_INPUT) {
 				this->n_inputs++;
-				this->in_ports[port_id] = &dummy;
+				this->in_ports[port_id] = target;
 			}
 			else {
 				this->n_outputs++;
-				this->out_ports[port_id] = &dummy;
+				this->out_ports[port_id] = target;
 			}
 			pw_node_update_ports(impl->this.node);
 		}

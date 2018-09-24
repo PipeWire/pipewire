@@ -161,6 +161,9 @@ static void *create_object(void *_data,
 
 	pw_node_set_active(dsp, true);
 
+	if (properties)
+		pw_properties_free(properties);
+
 	return dsp;
 
       no_resource:

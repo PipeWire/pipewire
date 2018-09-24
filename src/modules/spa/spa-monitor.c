@@ -119,11 +119,13 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 					   &props->dict,
 					   support,
 					   n_support)) < 0) {
+		pw_properties_free(props);
 		pw_log_error("can't make factory instance: %d", res);
 		return NULL;
 	}
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &node_iface)) < 0) {
 		pw_log_error("can't get NODE interface: %d", res);
+		pw_properties_free(props);
 		return NULL;
 	}
 

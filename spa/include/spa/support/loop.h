@@ -111,8 +111,8 @@ struct spa_loop_control_hooks {
 	void (*after) (void *data);
 };
 
-#define spa_loop_control_hook_before(l) spa_hook_list_call(l, struct spa_loop_control_hooks, before, 0)
-#define spa_loop_control_hook_after(l) spa_hook_list_call(l, struct spa_loop_control_hooks, after, 0)
+#define spa_loop_control_hook_before(l) spa_hook_list_call_simple(l, struct spa_loop_control_hooks, before, 0)
+#define spa_loop_control_hook_after(l) spa_hook_list_call_simple(l, struct spa_loop_control_hooks, after, 0)
 
 /**
  * Control an event loop

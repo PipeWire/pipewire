@@ -430,14 +430,14 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 {
 	snd_pcm_t *hndl = state->hndl;
 	const snd_pcm_channel_area_t *my_areas;
-	snd_pcm_uframes_t written, frames, offset, off, to_write;
+	snd_pcm_uframes_t written, frames = state->buffer_frames, offset, off, to_write;
 	int res;
 
 	if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0) {
 		spa_log_error(state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(res));
 		return res;
 	}
-	spa_log_trace(state->log, "begin %ld %ld", offset, frames);
+	spa_log_trace(state->log, "begin %ld %ld %d", offset, frames, state->threshold);
 
 	silence = SPA_MIN(silence, frames);
 	to_write = frames;
@@ -787,6 +787,7 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 		state->alsa_started = true;
 	}
 
+	clock_gettime(CLOCK_MONOTONIC, &state->now);
 	ts.it_value.tv_sec = 0;
 	ts.it_value.tv_nsec = 1;
 	ts.it_interval.tv_sec = 0;

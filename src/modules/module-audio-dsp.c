@@ -64,6 +64,7 @@ struct node_data {
 static void resource_destroy(void *data)
 {
 	struct node_data *nd = data;
+	spa_hook_remove(&nd->resource_listener);
 	if (nd->dsp)
 		pw_node_destroy(nd->dsp);
 }

@@ -57,6 +57,7 @@ struct link_data {
 static void resource_destroy(void *data)
 {
 	struct link_data *ld = data;
+	spa_hook_remove(&ld->resource_listener);
 	if (ld->link)
 		pw_link_destroy(ld->link);
 }

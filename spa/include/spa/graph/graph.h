@@ -162,16 +162,16 @@ spa_graph_link_add(struct spa_graph_node *out,
 		   struct spa_graph_state *state,
 		   struct spa_graph_link *link)
 {
-	spa_debug("node %p add link %p to state %p", out, link, state);
 	link->state = state;
 	state->required++;
+	spa_debug("node %p add link %p to state %p %d", out, link, state, state->required);
 	spa_list_append(&out->links, &link->link);
 }
 
 static inline void spa_graph_link_remove(struct spa_graph_link *link)
 {
-	spa_debug("link %p remove", link);
 	link->state->required--;
+	spa_debug("link %p state %p remove %d", link, link->state, link->state->required);
 	spa_list_remove(&link->link);
 }
 

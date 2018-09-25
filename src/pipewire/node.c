@@ -679,6 +679,10 @@ static void node_process(void *data, int status)
 		struct timespec ts;
 		struct pw_driver_quantum *q = node->rt.quantum;
 
+		if (node->rt.driver->state->pending != 0) {
+			pw_log_warn("node %p: graph not finished", node);
+		}
+
 		if (node->rt.clock) {
 			q->nsec = node->rt.clock->nsec;
 			q->rate = node->rt.clock->rate;

@@ -53,7 +53,8 @@ static inline int spa_graph_impl_run(void *data)
 
 		spa_graph_state_reset(s);
 
-		spa_debug("graph %p node %p: add %d status %d", g, n, s->pending, s->status);
+		spa_debug("graph %p node %p: state %p add %d status %d", g, n,
+				s, s->pending, s->status);
 
 		if (s->pending == 0)
 			spa_list_append(&pending, &n->sched_link);

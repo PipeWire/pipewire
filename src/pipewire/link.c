@@ -804,6 +804,7 @@ do_activate_link(struct spa_loop *loop,
 {
         struct pw_link *this = user_data;
 	struct spa_graph_port *in, *out;
+	struct pw_node *inode, *onode;
 
 	pw_log_trace("link %p: activate", this);
 
@@ -813,11 +814,20 @@ do_activate_link(struct spa_loop *loop,
 	spa_graph_port_add(&this->output->rt.mix_node, out);
 	spa_graph_port_add(&this->input->rt.mix_node, in);
 	spa_graph_port_link(out, in);
-	this->rt.link.signal_data = &this->input->node->rt.root;
-	spa_graph_link_add(&this->output->node->rt.root,
-			   this->input->node->rt.root.state,
-			   &this->rt.link);
-
+	if (this->feedback) {
+		inode = this->output->node;
+		onode = this->input->node;
+	}
+	else {
+		onode = this->output->node;
+		inode = this->input->node;
+	}
+	if (inode != onode) {
+		this->rt.link.signal_data = &inode->rt.root;
+		spa_graph_link_add(&onode->rt.root,
+				   inode->rt.root.state,
+				   &this->rt.link);
+	}
 	return 0;
 }
 
@@ -1034,7 +1044,8 @@ do_deactivate_link(struct spa_loop *loop,
 	spa_graph_port_unlink(out);
 	spa_graph_port_remove(out);
 	spa_graph_port_remove(in);
-	spa_graph_link_remove(&this->rt.link);
+	if (this->input->node != this->output->node)
+		spa_graph_link_remove(&this->rt.link);
 	this->rt.link.signal_data = NULL;
 
 	return 0;
@@ -1185,6 +1196,32 @@ static int find_driver(struct pw_link *this)
 	return 0;
 }
 
+static bool pw_link_is_feedback(struct pw_node *output, struct pw_node *input)
+{
+	struct pw_port *p;
+
+	if (output == input)
+		return true;
+
+	spa_list_for_each(p, &output->output_ports, link) {
+		struct pw_link *l;
+
+		spa_list_for_each(l, &p->links, output_link) {
+			if (l->feedback)
+				continue;
+			if (l->input->node == input)
+				return true;
+		}
+		spa_list_for_each(l, &p->links, output_link) {
+			if (l->feedback)
+				continue;
+			if (pw_link_is_feedback(l->input->node, input))
+				return true;
+		}
+	}
+	return false;
+}
+
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *output,
 			    struct pw_port *input,
@@ -1215,7 +1252,8 @@ struct pw_link *pw_link_new(struct pw_core *core,
 		goto no_mem;
 
 	this = &impl->this;
-	pw_log_debug("link %p: new", this);
+	this->feedback = pw_link_is_feedback(input_node, output_node);
+	pw_log_debug("link %p: new feedback %d", this, this->feedback);
 
 	if (user_data_size > 0)
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);

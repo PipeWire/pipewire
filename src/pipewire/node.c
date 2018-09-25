@@ -771,9 +771,9 @@ do_node_remove(struct spa_loop *loop,
 void pw_node_destroy(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	struct pw_resource *resource, *tmp;
+	struct pw_resource *resource;
 	struct pw_node *n, *t;
-	struct pw_port *port, *tmpp;
+	struct pw_port *port;
 
 	pw_log_debug("node %p: destroy", impl);
 	pw_node_events_destroy(node);
@@ -803,18 +803,16 @@ void pw_node_destroy(struct pw_node *node)
 		pw_port_unlink(port);
 
 	pw_log_debug("node %p: destroy ports", node);
-	spa_list_for_each_safe(port, tmpp, &node->input_ports, link) {
+	spa_list_consume(port, &node->input_ports, link)
 		pw_port_destroy(port);
-	}
-	spa_list_for_each_safe(port, tmpp, &node->output_ports, link) {
+	spa_list_consume(port, &node->output_ports, link)
 		pw_port_destroy(port);
-	}
 
 	if (node->global) {
 		spa_hook_remove(&node->global_listener);
 		pw_global_destroy(node->global);
 	}
-	spa_list_for_each_safe(resource, tmp, &node->resource_list, link)
+	spa_list_consume(resource, &node->resource_list, link)
 		pw_resource_destroy(resource);
 
 	pw_log_debug("node %p: free", node);

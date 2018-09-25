@@ -1361,7 +1361,7 @@ int pw_link_register(struct pw_link *link,
 void pw_link_destroy(struct pw_link *link)
 {
 	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
-	struct pw_resource *resource, *tmp;
+	struct pw_resource *resource;
 
 	pw_log_debug("link %p: destroy", impl);
 	pw_link_events_destroy(link);
@@ -1379,8 +1379,8 @@ void pw_link_destroy(struct pw_link *link)
 		pw_global_destroy(link->global);
 	}
 
-	spa_list_for_each_safe(resource, tmp, &link->resource_list, link)
-	    pw_resource_destroy(resource);
+	spa_list_consume(resource, &link->resource_list, link)
+		pw_resource_destroy(resource);
 
 	pw_log_debug("link %p: free", impl);
 	pw_link_events_free(link);

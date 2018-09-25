@@ -490,26 +490,26 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 void pw_core_destroy(struct pw_core *core)
 {
 	struct impl *impl = SPA_CONTAINER_OF(core, struct impl, this);
-	struct pw_global *global, *t;
-	struct pw_module *module, *tm;
-	struct pw_remote *remote, *tr;
-	struct pw_node *node, *tn;
+	struct pw_global *global;
+	struct pw_module *module;
+	struct pw_remote *remote;
+	struct pw_node *node;
 
 	pw_log_debug("core %p: destroy", core);
 	pw_core_events_destroy(core);
 
 	spa_hook_remove(&core->global_listener);
 
-	spa_list_for_each_safe(remote, tr, &core->remote_list, link)
+	spa_list_consume(remote, &core->remote_list, link)
 		pw_remote_destroy(remote);
 
-	spa_list_for_each_safe(module, tm, &core->module_list, link)
+	spa_list_consume(module, &core->module_list, link)
 		pw_module_destroy(module);
 
-	spa_list_for_each_safe(node, tn, &core->node_list, link)
+	spa_list_consume(node, &core->node_list, link)
 		pw_node_destroy(node);
 
-	spa_list_for_each_safe(global, t, &core->global_list, link)
+	spa_list_consume(global, &core->global_list, link)
 		pw_global_destroy(global);
 
 	pw_core_events_free(core);

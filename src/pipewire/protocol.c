@@ -84,18 +84,18 @@ void pw_protocol_destroy(struct pw_protocol *protocol)
 {
 	struct impl *impl = SPA_CONTAINER_OF(protocol, struct impl, this);
 	struct marshal *marshal, *t1;
-	struct pw_protocol_server *server, *t2;
-	struct pw_protocol_client *client, *t3;
+	struct pw_protocol_server *server;
+	struct pw_protocol_client *client;
 
 	pw_log_debug("protocol %p: destroy", protocol);
 	pw_protocol_events_destroy(protocol);
 
 	spa_list_remove(&protocol->link);
 
-	spa_list_for_each_safe(server, t2, &protocol->server_list, link)
+	spa_list_consume(server, &protocol->server_list, link)
 		pw_protocol_server_destroy(server);
 
-	spa_list_for_each_safe(client, t3, &protocol->client_list, link)
+	spa_list_consume(client, &protocol->client_list, link)
 		pw_protocol_client_destroy(client);
 
 	spa_list_for_each_safe(marshal, t1, &protocol->marshal_list, link)

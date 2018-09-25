@@ -627,17 +627,17 @@ static void pw_port_remove(struct pw_port *port)
 
 void pw_port_destroy(struct pw_port *port)
 {
-	struct pw_control *control, *ctemp;
-	struct pw_resource *resource, *tmp;
+	struct pw_control *control;
+	struct pw_resource *resource;
 
 	pw_log_debug("port %p: destroy", port);
 
 	pw_port_events_destroy(port);
 
 	pw_log_debug("port %p: control destroy", port);
-	spa_list_for_each_safe(control, ctemp, &port->control_list[0], port_link)
+	spa_list_consume(control, &port->control_list[0], port_link)
 		pw_control_destroy(control);
-	spa_list_for_each_safe(control, ctemp, &port->control_list[1], port_link)
+	spa_list_consume(control, &port->control_list[1], port_link)
 		pw_control_destroy(control);
 
 	pw_port_remove(port);
@@ -646,7 +646,7 @@ void pw_port_destroy(struct pw_port *port)
 		spa_hook_remove(&port->global_listener);
 		pw_global_destroy(port->global);
 	}
-	spa_list_for_each_safe(resource, tmp, &port->resource_list, link)
+	spa_list_consume(resource, &port->resource_list, link)
 		pw_resource_destroy(resource);
 
 	pw_log_debug("port %p: free", port);

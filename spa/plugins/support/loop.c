@@ -680,13 +680,13 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *impl;
-	struct source_impl *source, *tmp;
+	struct source_impl *source;
 
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	impl = (struct impl *) handle;
 
-	spa_list_for_each_safe(source, tmp, &impl->source_list, link)
+	spa_list_consume(source, &impl->source_list, link)
 		loop_destroy_source(&source->source);
 
 	process_destroy(impl);

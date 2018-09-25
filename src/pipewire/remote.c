@@ -294,7 +294,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 void pw_remote_destroy(struct pw_remote *remote)
 {
 	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
-	struct pw_stream *stream, *s2;
+	struct pw_stream *stream;
 
 	pw_log_debug("remote %p: destroy", remote);
 	pw_remote_events_destroy(remote);
@@ -302,7 +302,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 	if (remote->state != PW_REMOTE_STATE_UNCONNECTED)
 		pw_remote_disconnect(remote);
 
-	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
+	spa_list_consume(stream, &remote->stream_list, link)
 		pw_stream_destroy(stream);
 
 	pw_protocol_client_destroy (remote->conn);
@@ -454,7 +454,7 @@ int pw_remote_steal_fd(struct pw_remote *remote)
 
 int pw_remote_disconnect(struct pw_remote *remote)
 {
-	struct pw_proxy *proxy, *t2;
+	struct pw_proxy *proxy;
 	struct pw_stream *stream, *s2;
 
 	pw_log_debug("remote %p: disconnect", remote);
@@ -463,7 +463,7 @@ int pw_remote_disconnect(struct pw_remote *remote)
 
 	pw_protocol_client_disconnect (remote->conn);
 
-	spa_list_for_each_safe(proxy, t2, &remote->proxy_list, link)
+	spa_list_consume(proxy, &remote->proxy_list, link)
 		pw_proxy_destroy(proxy);
 	remote->core_proxy = NULL;
 

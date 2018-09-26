@@ -171,7 +171,8 @@ static void *find_object(struct impl *impl, uint32_t id)
 
 static void schedule_rescan(struct impl *impl)
 {
-	pw_core_proxy_sync(impl->core_proxy, ++impl->seq);
+	if (impl->core_proxy)
+		pw_core_proxy_sync(impl->core_proxy, ++impl->seq);
 }
 
 static void remove_idle_timeout(struct session *sess)
@@ -216,7 +217,8 @@ static void add_idle_timeout(struct session *sess)
 
 static int unlink_session_dsp(struct impl *impl, struct session *session)
 {
-	pw_core_proxy_destroy(impl->core_proxy, (struct pw_proxy*)session->link);
+	if (impl->core_proxy)
+		pw_core_proxy_destroy(impl->core_proxy, (struct pw_proxy*)session->link);
 	session->link = NULL;
 	return 0;
 }
@@ -330,11 +332,32 @@ static const struct pw_node_proxy_events node_events = {
 	.info = node_event_info,
 };
 
+static void remove_session(struct impl *impl, struct session *sess)
+{
+	struct node *n, *t;
+
+	pw_log_debug(NAME " %p: remove session '%d'", impl, sess->id);
+	remove_idle_timeout(sess);
+
+	spa_list_for_each_safe(n, t, &sess->node_list, session_link) {
+		n->session = NULL;
+		spa_list_remove(&n->session_link);
+	}
+
+	if (sess->dsp && impl->core_proxy) {
+		pw_log_debug(NAME " %p: destroy dsp %p", impl, sess->dsp->obj.proxy);
+		pw_core_proxy_destroy(impl->core_proxy, sess->dsp->obj.proxy);
+	}
+	spa_list_remove(&sess->l);
+	free(sess);
+}
+
 static void node_proxy_destroy(void *data)
 {
 	struct node *n = data;
+	struct impl *impl = n->obj.impl;
 
-	pw_log_debug(NAME " %p: proxy destroy node %d", n->obj.impl, n->obj.id);
+	pw_log_debug(NAME " %p: proxy destroy node %d", impl, n->obj.id);
 
 	spa_list_remove(&n->l);
 	if (n->info)
@@ -342,6 +365,16 @@ static void node_proxy_destroy(void *data)
 	if (n->session) {
 		spa_list_remove(&n->session_link);
 		n->session = NULL;
+	}
+	if (n->manager) {
+		switch (n->type) {
+		case NODE_TYPE_DSP:
+			n->manager->dsp = NULL;
+			break;
+		case NODE_TYPE_DEVICE:
+			remove_session(impl, n->manager);
+			break;
+		}
 	}
 }
 
@@ -569,26 +602,6 @@ registry_global(void *data,uint32_t id, uint32_t parent_id,
 		break;
 	}
 	schedule_rescan(impl);
-}
-
-static void remove_session(struct impl *impl, struct session *sess)
-{
-	struct node *n, *t;
-
-	pw_log_debug(NAME " %p: remove session '%d'", impl, sess->id);
-	remove_idle_timeout(sess);
-
-	spa_list_for_each_safe(n, t, &sess->node_list, session_link) {
-		n->session = NULL;
-		spa_list_remove(&n->session_link);
-	}
-
-	if (sess->dsp) {
-		pw_log_debug(NAME " %p: destroy dsp", impl);
-		pw_core_proxy_destroy(impl->core_proxy, sess->dsp->obj.proxy);
-	}
-	spa_list_remove(&sess->l);
-	free(sess);
 }
 
 static void
@@ -933,6 +946,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
+		pw_log_info(NAME" %p: connected", impl);
 		impl->core_proxy = pw_remote_get_core_proxy(impl->remote);
 		impl->registry_proxy = pw_core_proxy_get_registry(impl->core_proxy,
                                                 PW_TYPE_INTERFACE_Registry,
@@ -941,6 +955,13 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
                                                &impl->registry_listener,
                                                &registry_events, impl);
 		schedule_rescan(impl);
+		break;
+
+	case PW_REMOTE_STATE_UNCONNECTED:
+		pw_log_info(NAME" %p: disconnected", impl);
+		impl->core_proxy = NULL;
+		impl->registry_proxy = NULL;
+		pw_main_loop_quit(impl->loop);
 		break;
 
 	default:

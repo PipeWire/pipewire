@@ -245,7 +245,6 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	this->state = PW_REMOTE_STATE_UNCONNECTED;
 
 	pw_map_init(&this->objects, 64, 32);
-	pw_map_init(&this->types, 64, 32);
 
 	spa_list_init(&this->proxy_list);
 	spa_list_init(&this->stream_list);
@@ -310,7 +309,6 @@ void pw_remote_destroy(struct pw_remote *remote)
 	spa_list_remove(&remote->link);
 
 	pw_map_clear(&remote->objects);
-	pw_map_clear(&remote->types);
 
 	if (remote->properties)
 		pw_properties_free(remote->properties);
@@ -463,21 +461,19 @@ int pw_remote_disconnect(struct pw_remote *remote)
 
 	pw_protocol_client_disconnect (remote->conn);
 
-	spa_list_consume(proxy, &remote->proxy_list, link)
-		pw_proxy_destroy(proxy);
 	remote->core_proxy = NULL;
 
-	pw_map_clear(&remote->objects);
-	pw_map_init(&remote->objects, 64, 32);
-	pw_map_clear(&remote->types);
-	pw_map_init(&remote->types, 64, 32);
-	remote->n_types = 0;
+        pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
+
+	spa_list_consume(proxy, &remote->proxy_list, link)
+		pw_proxy_destroy(proxy);
+
+	pw_map_reset(&remote->objects);
 
 	if (remote->info) {
 		pw_core_info_free (remote->info);
 		remote->info = NULL;
 	}
-        pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
 
 	return 0;
 }

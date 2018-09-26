@@ -140,8 +140,6 @@ static void core_hello(void *object)
 	struct pw_core *this = resource->core;
 
 	pw_log_debug("core %p: hello from source %p", this, resource);
-	resource->client->n_types = 0;
-
 	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
 	pw_core_resource_info(resource, &this->info);
 }

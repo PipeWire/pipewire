@@ -83,6 +83,12 @@ static inline void pw_map_clear(struct pw_map *map)
 	pw_array_clear(&map->items);
 }
 
+static inline void pw_map_reset(struct pw_map *map)
+{
+	pw_array_reset(&map->items);
+	map->free_list = SPA_ID_INVALID;
+}
+
 /** Insert data in the map
  * \param map the map to insert into
  * \param data the item to add

@@ -105,8 +105,6 @@ struct pw_client {
 	struct pw_resource *core_resource;	/**< core resource object */
 
 	struct pw_map objects;		/**< list of resource objects */
-	uint32_t n_types;		/**< number of client types */
-	struct pw_map types;		/**< map of client types */
 
 	struct spa_list resource_list;	/**< The list of resources of this client */
 
@@ -539,9 +537,6 @@ struct pw_remote {
 	struct pw_map objects;			/**< map of client side proxy objects
 						 *   indexed with the client id */
         struct pw_core_info *info;		/**< info about the remote core */
-
-	uint32_t n_types;			/**< number of client types */
-	struct pw_map types;			/**< client types */
 
 	struct spa_list proxy_list;		/**< list of \ref pw_proxy objects */
 	struct spa_list stream_list;		/**< list of \ref pw_stream objects */

@@ -82,6 +82,12 @@ static inline void pw_array_clear(struct pw_array *arr)
 	free(arr->data);
 }
 
+/** Reset the array */
+static inline void pw_array_reset(struct pw_array *arr)
+{
+	arr->size = 0;
+}
+
 /** Make sure \a size bytes can be added to the array \memberof pw_array */
 static inline bool pw_array_ensure_size(struct pw_array *arr, size_t size)
 {

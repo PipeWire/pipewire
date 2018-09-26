@@ -192,7 +192,6 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	spa_hook_list_init(&this->listener_list);
 
 	pw_map_init(&this->objects, 0, 32);
-	pw_map_init(&this->types, 0, 32);
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 
@@ -320,7 +319,6 @@ void pw_client_destroy(struct pw_client *client)
 	pw_log_debug("client %p: free", impl);
 
 	pw_map_clear(&client->objects);
-	pw_map_clear(&client->types);
 	pw_array_clear(&impl->permissions);
 
 	if (client->properties)

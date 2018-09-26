@@ -1018,9 +1018,10 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	enum pw_node_state old = node->info.state;
 
-	pw_log_debug("node %p: set state %s -> %s", node,
+	pw_log_debug("node %p: set state %s -> %s, active %d", node,
 			pw_node_state_as_string(old),
-			pw_node_state_as_string(state));
+			pw_node_state_as_string(state),
+			node->active);
 
 	if (old == state)
 		return 0;

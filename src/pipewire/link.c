@@ -1357,7 +1357,6 @@ int pw_link_register(struct pw_link *link,
 		     struct pw_global *parent,
 		     struct pw_properties *properties)
 {
-	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
 	struct pw_core *core = link->core;
 	struct pw_node *input_node, *output_node;
 

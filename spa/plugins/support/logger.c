@@ -41,6 +41,7 @@ struct impl {
 	struct spa_log log;
 
 	bool colors;
+	FILE *file;
 
 	struct spa_ringbuffer trace_rb;
 	uint8_t trace_data[TRACE_BUFFER];
@@ -93,9 +94,10 @@ impl_log_logv(struct spa_log *log,
 		spa_ringbuffer_write_update(&impl->trace_rb, index + size);
 
 		if (write(impl->source.fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
-			fprintf(stderr, "error signaling eventfd: %s\n", strerror(errno));
+			fprintf(impl->file, "error signaling eventfd: %s\n", strerror(errno));
 	} else
-		fputs(location, stderr);
+		fputs(location, impl->file);
+	fflush(impl->file);
 }
 
 
@@ -121,7 +123,7 @@ static void on_trace_event(struct spa_source *source)
 	uint64_t count;
 
 	if (read(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
-		fprintf(stderr, "failed to read event fd: %s", strerror(errno));
+		fprintf(impl->file, "failed to read event fd: %s", strerror(errno));
 
 	while ((avail = spa_ringbuffer_get_read_index(&impl->trace_rb, &index)) > 0) {
 		uint32_t offset, first;
@@ -133,11 +135,12 @@ static void on_trace_event(struct spa_source *source)
 		offset = index & (TRACE_BUFFER - 1);
 		first = SPA_MIN(avail, TRACE_BUFFER - offset);
 
-		fwrite(impl->trace_data + offset, first, 1, stderr);
+		fwrite(impl->trace_data + offset, first, 1, impl->file);
 		if (SPA_UNLIKELY(avail > first)) {
-			fwrite(impl->trace_data, avail - first, 1, stderr);
+			fwrite(impl->trace_data, avail - first, 1, impl->file);
 		}
 		spa_ringbuffer_read_update(&impl->trace_rb, index + avail);
+		fflush(impl->file);
         }
 }
 
@@ -215,9 +218,17 @@ impl_init(const struct spa_handle_factory *factory,
 		if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
 			loop = support[i].data;
 	}
-
-	if (info && (str = spa_dict_lookup(info, "log.colors")) != NULL)
-		this->colors = (strcmp(str, "true") == 0 || atoi(str) == 1);
+	if (info) {
+		if ((str = spa_dict_lookup(info, "log.colors")) != NULL)
+			this->colors = (strcmp(str, "true") == 0 || atoi(str) == 1);
+		if ((str = spa_dict_lookup(info, "log.file")) != NULL) {
+			this->file = fopen(str, "w");
+			if (this->file == NULL)
+				fprintf(stderr, "failed to open file %s: (%s)", str, strerror(errno));
+		}
+	}
+	if (this->file == NULL)
+		this->file = stderr;
 
 	if (loop) {
 		this->source.func = on_trace_event;

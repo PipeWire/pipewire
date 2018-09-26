@@ -419,7 +419,7 @@ do_move_nodes(struct spa_loop *loop,
 	struct spa_graph_node *n, *t;
 
 	spa_graph_node_remove(&this->rt.root);
-	spa_graph_node_add(&src->driver_graph, &this->rt.root);
+	spa_graph_node_add(&dst->driver_graph, &this->rt.root);
 
 	spa_list_for_each_safe(n, t, &src->driver_graph.nodes, link) {
 		spa_graph_node_remove(n);

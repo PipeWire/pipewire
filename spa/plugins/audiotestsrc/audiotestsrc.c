@@ -174,7 +174,7 @@ static int impl_node_enum_params(struct spa_node *node,
 				SPA_PROP_INFO_name,   &SPA_POD_Stringc("Select the waveform"),
 				SPA_PROP_INFO_type,   &SPA_POD_Int(p->wave),
 				0);
-			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, SPA_POD_PROP_FLAG_INFO);
+			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
 			spa_pod_builder_push_struct(&b);
 			spa_pod_builder_int(&b, WAVE_SINE);
 			spa_pod_builder_string(&b, "Sine wave");

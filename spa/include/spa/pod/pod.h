@@ -213,13 +213,7 @@ static inline struct spa_pod *spa_pod_get_values(const struct spa_pod *pod, uint
 struct spa_pod_prop {
 	uint32_t key;			/**< key of property, list of valid keys depends on the
 					  *  object type */
-#define SPA_POD_PROP_FLAG_OPTIONAL	(1 << 0)        /**< property value is optional */
-#define SPA_POD_PROP_FLAG_READONLY	(1 << 1)        /**< property is readonly */
-#define SPA_POD_PROP_FLAG_DEPRECATED	(1 << 2)        /**< property is deprecated */
-#define SPA_POD_PROP_FLAG_INFO		(1 << 3)        /**< property is informational and is not
-							  *  used when filtering */
-#define SPA_POD_PROP_FLAG_CONTROLLABLE	(1 << 4)        /**< property can be controlled */
-	uint32_t flags;
+	uint32_t context;		/**< context for property */
 	struct spa_pod value;
 	/* value follows */
 };

@@ -470,24 +470,6 @@ static inline uint32_t spa_choice_from_id(char id)
 	}
 }
 
-static inline uint32_t spa_pod_flag_from_id(char id)
-{
-	switch (id) {
-	case 'o':
-		return SPA_POD_PROP_FLAG_OPTIONAL;
-	case 'r':
-		return SPA_POD_PROP_FLAG_READONLY;
-	case 'd':
-		return SPA_POD_PROP_FLAG_DEPRECATED;
-	case 'i':
-		return SPA_POD_PROP_FLAG_INFO;
-	case 'c':
-		return SPA_POD_PROP_FLAG_CONTROLLABLE;
-	default:
-		return 0;
-	}
-}
-
 #define SPA_POD_BUILDER_COLLECT(builder,type,args)				\
 do {										\
 	switch (type) {								\
@@ -631,13 +613,9 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 		}
 		case ':':
 		{
-			uint32_t key, flags = 0;
-
+			uint32_t key;
 			key = va_arg(args, uint32_t);
-			for (format++;*format;format++)
-				SPA_FLAG_SET(flags, spa_pod_flag_from_id(*format));
-
-			spa_pod_builder_prop(builder, key, flags);
+			spa_pod_builder_prop(builder, key, 0);
 			break;
 		}
 		case ']': case ')': case '>': case '}':

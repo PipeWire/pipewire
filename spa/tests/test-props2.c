@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 	spa_pod_builder_raw(&b, sizes, sizeof(sizes));
 	spa_pod_builder_pop(&b);
 
-	spa_pod_builder_prop(&b, 4, SPA_POD_PROP_FLAG_READONLY);
+	spa_pod_builder_prop(&b, 4, 0);
 	ref = spa_pod_builder_push_struct(&b);
 	spa_pod_builder_int(&b, 4);
 	spa_pod_builder_long(&b, 6000);

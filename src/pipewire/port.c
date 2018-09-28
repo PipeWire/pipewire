@@ -152,7 +152,7 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 	mix->p = port;
 	mix->state = PW_PORT_STATE_CONFIGURE;
 
-	if (port->mix && port->mix->add_port)
+	if (port->mix->add_port)
 		port->mix->add_port(port->mix, port->direction, port_id);
 
 	if (pi && pi->init_mix)
@@ -174,7 +174,7 @@ int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 	if (pi && pi->release_mix)
 		res = pi->release_mix(port->implementation_data, mix);
 
-	if (port->mix && port->mix->remove_port) {
+	if (port->mix->remove_port) {
 		port->mix->remove_port(port->mix, port->direction, port_id);
 	}
 
@@ -784,7 +784,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 	if (mix_id != SPA_ID_INVALID)
 		mix = pw_map_lookup(&port->mix_port_map, mix_id);
 
-	if (mix != NULL && port->mix != NULL && port->mix->port_set_param != NULL) {
+	if (mix != NULL && port->mix->port_set_param != NULL) {
 		struct spa_graph_port *p = &mix->port;
 
 		res = spa_node_port_set_param(port->mix,
@@ -807,7 +807,6 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 				port->direction, port->port_id,
 				spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
 	}
-
 
 	if (id == SPA_PARAM_Format) {
 		if (param == NULL || res < 0) {
@@ -845,7 +844,7 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 	if ((mix = pw_map_lookup(&port->mix_port_map, mix_id)) == NULL)
 		return -EIO;
 
-	if (port->mix != NULL && port->mix->port_use_buffers != NULL) {
+	if (port->mix->port_use_buffers != NULL) {
 		struct spa_graph_port *p = &mix->port;
 		res = spa_node_port_use_buffers(port->mix,
 					p->direction, p->port_id, buffers, n_buffers);
@@ -895,7 +894,7 @@ int pw_port_alloc_buffers(struct pw_port *port, uint32_t mix_id,
 	if ((mix = pw_map_lookup(&port->mix_port_map, mix_id)) == NULL)
 		return -EIO;
 
-	if (port->mix && port->mix->port_use_buffers) {
+	if (port->mix->port_use_buffers) {
 		struct spa_graph_port *p = &mix->port;
 		res = spa_node_port_alloc_buffers(port->mix, p->direction, p->port_id,
 						  params, n_params,

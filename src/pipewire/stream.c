@@ -1005,10 +1005,15 @@ static void add_controls(struct pw_stream *stream)
 	add_param(stream, PARAM_TYPE_INIT,
 		spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
+			SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Buffers),
+			SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_buffers)),
+			0));
+	add_param(stream, PARAM_TYPE_INIT,
+		spa_pod_builder_object(&b,
+			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
 			SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Notify),
 			SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_sequence) + 1024),
 			0));
-
 	add_param(stream, PARAM_TYPE_INIT,
 		spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,

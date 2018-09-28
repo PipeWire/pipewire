@@ -545,23 +545,22 @@ param_filter(struct pw_link *this,
 	return num;
 }
 
-static int port_set_io(struct pw_link *this, struct pw_port *port, void *data, size_t size,
-		struct pw_port_mix *mix)
+static int port_set_io(struct pw_link *this, struct pw_port *port, uint32_t id,
+		void *data, size_t size, struct pw_port_mix *mix)
 {
 	struct spa_graph_port *p = &mix->port;
 	int res = 0;
 
 	mix->io = data;
-	pw_log_debug("link %p: %s port %p %d.%d set io: %p", this,
+	pw_log_debug("link %p: %s port %p %d.%d set io: %d %p %zd", this,
 			pw_direction_as_string(port->direction),
-			port, port->port_id, p->port_id, data);
+			port, port->port_id, p->port_id, id, data, size);
 
-	if (port->mix && port->mix->port_set_io) {
+	if (port->mix->port_set_io) {
 		if ((res = spa_node_port_set_io(port->mix,
 				     p->direction,
 				     p->port_id,
-				     SPA_IO_Buffers,
-				     data, size)) < 0)
+				     id, data, size)) < 0)
 			pw_log_warn("port %p: can't set io: %s", port, spa_strerror(res));
 	}
 	return res;
@@ -584,11 +583,11 @@ static int select_io(struct pw_link *this)
 	if (io == NULL)
 		return -EIO;
 
-	if ((res = port_set_io(this, this->input, io,
+	if ((res = port_set_io(this, this->input, SPA_IO_Buffers, io,
 			sizeof(struct spa_io_buffers), &this->rt.in_mix)) < 0)
 		return res;
 
-	if ((res = port_set_io(this, this->output, io,
+	if ((res = port_set_io(this, this->output, SPA_IO_Buffers, io,
 			sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
 		return res;
 
@@ -978,7 +977,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 
 	clear_port_buffers(this, port);
 
-	port_set_io(this, this->input, NULL, 0, mix);
+	port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0, mix);
 	pw_port_release_mix(port, mix);
 	this->input = NULL;
 }
@@ -997,7 +996,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 
 	clear_port_buffers(this, port);
 
-	port_set_io(this, this->output, NULL, 0, mix);
+	port_set_io(this, this->output, SPA_IO_Buffers, NULL, 0, mix);
 	pw_port_release_mix(port, mix);
 	this->output = NULL;
 }

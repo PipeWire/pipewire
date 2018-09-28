@@ -385,15 +385,21 @@ struct pw_port_implementation {
 #define pw_port_events_control_added(p,c)	pw_port_events_emit(p, control_added, 0, c)
 #define pw_port_events_control_removed(p,c)	pw_port_events_emit(p, control_removed, 0, c)
 
+#define PW_PORT_IS_CONTROL(port)	SPA_FLAG_MASK(port->flags, \
+						PW_PORT_FLAG_BUFFERS|PW_PORT_FLAG_CONTROL,\
+						PW_PORT_FLAG_CONTROL)
 struct pw_port {
 	struct spa_list link;		/**< link in node port_list */
 
 	struct pw_node *node;		/**< owner node */
 	struct pw_global *global;	/**< global for this port */
 	struct spa_hook global_listener;
-	bool registered;
-	bool to_remove;			/**< if the port should be removed from the
-					  *  implementation when destroyed */
+
+#define PW_PORT_FLAG_TO_REMOVE		(1<<0)		/**< if the port should be removed from the
+							  *  implementation when destroyed */
+#define PW_PORT_FLAG_BUFFERS		(1<<1)		/**< port has data */
+#define PW_PORT_FLAG_CONTROL		(1<<2)		/**< port has control */
+	uint32_t flags;
 
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
@@ -616,7 +622,6 @@ struct pw_control {
 	struct spa_list port_link;	/**< link in port control_list */
 
 	enum spa_direction direction;	/**< the direction */
-	struct spa_pod *param;		/**< control params */
 
 	struct pw_control *output;	/**< pointer to linked output control */
 
@@ -757,7 +762,7 @@ int pw_link_deactivate(struct pw_link *link);
 struct pw_control *
 pw_control_new(struct pw_core *core,
 	       struct pw_port *owner,		/**< can be NULL */
-	       const struct spa_pod *param,	/**< copy is taken */
+	       uint32_t id, uint32_t size,
 	       size_t user_data_size		/**< extra user data */);
 
 void pw_control_destroy(struct pw_control *control);

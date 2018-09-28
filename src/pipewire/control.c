@@ -32,18 +32,12 @@ struct impl {
 struct pw_control *
 pw_control_new(struct pw_core *core,
 	       struct pw_port *port,
-	       const struct spa_pod *param,
+	       uint32_t id, uint32_t size,
 	       size_t user_data_size)
 {
 	struct impl *impl;
 	struct pw_control *this;
 	enum spa_direction direction;
-	uint32_t id, size;
-
-	if (spa_pod_object_parse(param,
-		":", SPA_PARAM_IO_id,  "I", &id,
-		":", SPA_PARAM_IO_size, "i", &size) < 0)
-		goto exit;
 
 	switch (id) {
 	case SPA_IO_Control:
@@ -69,7 +63,6 @@ pw_control_new(struct pw_core *core,
 
 	this->core = core;
 	this->port = port;
-	this->param = pw_spa_pod_copy(param);
 	this->direction = direction;
 
 	spa_list_init(&this->inputs);
@@ -123,9 +116,6 @@ void pw_control_destroy(struct pw_control *control)
 		if (impl->mem)
 			pw_memblock_free(impl->mem);
 	}
-
-	free(control->param);
-
 	free(control);
 }
 

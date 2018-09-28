@@ -897,6 +897,11 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 		return -EIO;
 	}
 
+	if (PW_PORT_IS_CONTROL(output) && PW_PORT_IS_CONTROL(input)) {
+		this->rt.in_mix.state = PW_PORT_STATE_PAUSED;
+		this->rt.out_mix.state = PW_PORT_STATE_PAUSED;
+	}
+
 	in_mix_state = this->rt.in_mix.state;
 	out_mix_state = this->rt.out_mix.state;
 

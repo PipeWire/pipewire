@@ -104,6 +104,9 @@ static int schedule_mix_input(struct spa_node *data)
 	struct spa_graph_port *p;
 	struct spa_io_buffers *io = &this->rt.io;
 
+	if (PW_PORT_IS_CONTROL(this))
+		return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
+
 	spa_list_for_each(p, &node->ports[SPA_DIRECTION_INPUT], link) {
 		struct pw_port_mix *mix = SPA_CONTAINER_OF(p, struct pw_port_mix, port);
 		pw_log_trace("port %p: mix input %d %p->%p %d %d", this,
@@ -342,11 +345,29 @@ static int do_add_port(struct spa_loop *loop,
 	return 0;
 }
 
-static int make_control(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+static int check_param_io(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct pw_port *port = data;
 	struct pw_node *node = port->node;
-	pw_control_new(node->core, port, param, 0);
+	uint32_t pid, psize;
+
+	if (spa_pod_object_parse(param,
+		":", SPA_PARAM_IO_id,  "I", &pid,
+		":", SPA_PARAM_IO_size, "i", &psize) < 0)
+		return 0;
+
+	switch (pid) {
+	case SPA_IO_Control:
+	case SPA_IO_Notify:
+		pw_control_new(node->core, port, pid, psize, 0);
+		SPA_FLAG_SET(port->flags, PW_PORT_FLAG_CONTROL);
+		break;
+	case SPA_IO_Buffers:
+		SPA_FLAG_SET(port->flags, PW_PORT_FLAG_BUFFERS);
+		break;
+	default:
+		break;
+	}
 	return 0;
 }
 
@@ -461,6 +482,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	struct pw_port *find;
 	const char *str, *dir;
 	int res;
+	bool control;
 
 	if (port->node != NULL)
 		return -EEXIST;
@@ -486,7 +508,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		if ((res = spa_node_add_port(node->node, port->direction, port_id)) < 0)
 			goto add_failed;
 
-		port->to_remove = true;
+		SPA_FLAG_SET(port->flags, PW_PORT_FLAG_TO_REMOVE);
 
 		/* try again */
 		if ((res = spa_node_port_get_info(node->node,
@@ -500,12 +522,20 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	if (port->spa_info->props)
 		pw_port_update_properties(port, port->spa_info->props);
 
+	pw_port_for_each_param(port, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
+
 	dir = port->direction == PW_DIRECTION_INPUT ?  "in" : "out";
+	pw_properties_set(port->properties, "port.direction", dir);
+
+	control = PW_PORT_IS_CONTROL(port);
+	if (control) {
+		dir = port->direction == PW_DIRECTION_INPUT ?  "control" : "notify";
+		pw_properties_set(port->properties, "port.control", "1");
+	}
 
 	if ((str = pw_properties_get(port->properties, "port.name")) == NULL) {
 		pw_properties_setf(port->properties, "port.name", "%s_%d", dir, port_id);
 	}
-	pw_properties_set(port->properties, "port.direction", dir);
 
 	if (SPA_FLAG_CHECK(port->spa_info->flags, SPA_PORT_INFO_FLAG_PHYSICAL))
 		pw_properties_set(port->properties, "port.physical", "1");
@@ -525,19 +555,21 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
 	}
 
-	pw_port_for_each_param(port, SPA_PARAM_IO, 0, 0, NULL, make_control, port);
+	if (control) {
+		pw_log_debug("port %p: setting node control", port);
+	} else {
+		pw_log_debug("port %p: setting node io", port);
+		spa_node_port_set_io(node->node,
+				     port->direction, port_id,
+				     SPA_IO_Buffers,
+				     &port->rt.io, sizeof(port->rt.io));
 
-	pw_log_debug("port %p: setting node io", port);
-	spa_node_port_set_io(node->node,
-			     port->direction, port_id,
-			     SPA_IO_Buffers,
-			     &port->rt.io, sizeof(port->rt.io));
-
-	if (port->mix && port->mix->port_set_io) {
-		spa_node_port_set_io(port->mix,
+		if (port->mix->port_set_io) {
+			spa_node_port_set_io(port->mix,
 				     pw_direction_reverse(port->direction), 0,
 				     SPA_IO_Buffers,
 				     &port->rt.io, sizeof(port->rt.io));
+		}
 	}
 
 	if (spa_node_port_set_io(node->node,
@@ -609,7 +641,7 @@ static void pw_port_remove(struct pw_port *port)
 	pw_loop_invoke(port->node->data_loop, do_remove_port,
 		       SPA_ID_INVALID, NULL, 0, true, port);
 
-	if (port->to_remove) {
+	if (SPA_FLAG_CHECK(port->flags, PW_PORT_FLAG_TO_REMOVE)) {
 		if ((res = spa_node_remove_port(node->node, port->direction, port->port_id)) < 0)
 			pw_log_warn("port %p: can't remove: %s", port, spa_strerror(res));
 	}

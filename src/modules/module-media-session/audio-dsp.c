@@ -38,6 +38,8 @@
 
 #include "modules/spa/spa-node.h"
 
+#define NAME "audio-dsp"
+
 #define PORT_BUFFERS	1
 
 extern const struct spa_handle_factory spa_floatmix_factory;
@@ -115,7 +117,7 @@ static int port_use_buffers(void *data,
 	struct pw_node *node = port->node;
 	int res, i;
 
-	pw_log_trace("port %p", port);
+	pw_log_debug(NAME " %p: port %p", p->node->node, port);
 
 	if (n_buffers > 0) {
 		for (i = 0; i < PORT_BUFFERS; i++)

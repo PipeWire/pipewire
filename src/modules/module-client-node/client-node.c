@@ -255,6 +255,7 @@ static struct mix *ensure_mix(struct impl *impl, struct port *p, uint32_t mix_id
 static void clear_io(struct node *node, struct io *io)
 {
 	struct mem *m;
+	spa_log_debug(node->log, "node %p: clear io %p %d %d", node, io, io->id, io->memid);
 	m = pw_array_get_unchecked(&node->impl->mems, io->memid, struct mem);
 	m->ref--;
 	io->id = SPA_ID_INVALID;
@@ -263,6 +264,7 @@ static void clear_io(struct node *node, struct io *io)
 static struct io *update_io(struct impl *impl, struct port *port,
 		struct mix *mix, uint32_t id, uint32_t memid)
 {
+	struct node *this = &impl->node;
 	int i;
 	struct io *io, *f = NULL;
 
@@ -272,19 +274,20 @@ static struct io *update_io(struct impl *impl, struct port *port,
 			f = io;
 		else if (io->id == id) {
 			if (io->memid != memid) {
-				clear_io(&impl->node, io);
+				clear_io(this, io);
 				if (memid == SPA_ID_INVALID)
 					io->id = SPA_ID_INVALID;
 			}
 			goto found;
 		}
 	}
-	if (f == NULL)
+	if (f == NULL || memid == SPA_ID_INVALID)
 		return NULL;
 
 	io = f;
 	io->id = id;
 	io->memid = memid;
+	spa_log_debug(this->log, "node %p: add io %p %d %d", this, io, id, memid);
 
      found:
 	return io;

@@ -28,6 +28,7 @@
 #include "private.h"
 #include "pipewire.h"
 #include "interfaces.h"
+#include "control.h"
 #include "link.h"
 #include "work-queue.h"
 
@@ -1234,6 +1235,26 @@ static bool pw_link_is_feedback(struct pw_node *output, struct pw_node *input)
 	return false;
 }
 
+static void try_link_controls(struct impl *impl, struct pw_port *port, struct pw_port *target)
+{
+	struct pw_control *cin, *cout;
+	int res;
+
+	pw_log_debug("link %p: trying controls", impl);
+	spa_list_for_each(cout, &port->control_list[SPA_DIRECTION_OUTPUT], port_link) {
+		spa_list_for_each(cin, &target->control_list[SPA_DIRECTION_INPUT], port_link) {
+			if ((res = pw_control_link(cout, cin)) < 0)
+				pw_log_error("failed to link controls: %s", spa_strerror(res));
+		}
+	}
+	spa_list_for_each(cin, &port->control_list[SPA_DIRECTION_INPUT], port_link) {
+		spa_list_for_each(cout, &target->control_list[SPA_DIRECTION_OUTPUT], port_link) {
+			if ((res = pw_control_link(cout, cin)) < 0)
+				pw_log_error("failed to link controls: %s", spa_strerror(res));
+		}
+	}
+}
+
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *output,
 			    struct pw_port *input,
@@ -1321,6 +1342,8 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, 0, this);
 	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, 0, this);
+
+	try_link_controls(impl, output, input);
 
 	return this;
 

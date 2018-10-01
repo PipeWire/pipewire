@@ -1261,13 +1261,45 @@ static void do_node_init(struct pw_proxy *proxy)
         pw_client_node_proxy_done(data->node_proxy, 0, 0);
 }
 
+static void clear_mix(struct node_data *data, struct mix *mix)
+{
+	clear_buffers(data, mix);
+	pw_array_clear(&mix->buffers);
+
+	deactivate_mix(data, mix);
+
+	spa_list_remove(&mix->link);
+	spa_list_append(&data->free_mix, &mix->link);
+}
+
+static void clean_node(struct node_data *d)
+{
+	struct pw_proxy *proxy = (struct pw_proxy*) d->node_proxy;
+	struct mix *mix, *tmp;
+
+	if (proxy->remote_id != SPA_ID_INVALID) {
+		spa_list_for_each_safe(mix, tmp, &d->mix[SPA_DIRECTION_INPUT], link)
+			clear_mix(d, mix);
+		spa_list_for_each_safe(mix, tmp, &d->mix[SPA_DIRECTION_OUTPUT], link)
+			clear_mix(d, mix);
+	}
+	clean_transport(d);
+}
+
 static void node_destroy(void *data)
 {
 	struct node_data *d = data;
 	struct pw_remote *remote = d->remote;
+	struct pw_proxy *proxy = (struct pw_proxy*) d->node_proxy;
+
 	pw_log_debug("%p: destroy", d);
-	pw_core_proxy_destroy(remote->core_proxy, (struct pw_proxy *)d->node_proxy);
-	pw_proxy_destroy((struct pw_proxy *)d->node_proxy);
+
+	if (remote->core_proxy)
+		pw_core_proxy_destroy(remote->core_proxy, proxy);
+
+	clean_node(d);
+
+	spa_hook_remove(&d->proxy_listener);
 }
 
 static void node_info_changed(void *data, struct pw_node_info *info)
@@ -1305,31 +1337,10 @@ static const struct pw_node_events node_events = {
 	.active_changed = node_active_changed,
 };
 
-static void clear_mix(struct node_data *data, struct mix *mix)
-{
-	clear_buffers(data, mix);
-	pw_array_clear(&mix->buffers);
-
-	deactivate_mix(data, mix);
-
-	spa_list_remove(&mix->link);
-	spa_list_append(&data->free_mix, &mix->link);
-}
-
 static void node_proxy_destroy(void *_data)
 {
 	struct node_data *data = _data;
-	struct pw_proxy *proxy = (struct pw_proxy*) data->node_proxy;
-	struct mix *mix, *tmp;
-
-	if (proxy->remote_id != SPA_ID_INVALID) {
-		spa_list_for_each_safe(mix, tmp, &data->mix[SPA_DIRECTION_INPUT], link)
-			clear_mix(data, mix);
-		spa_list_for_each_safe(mix, tmp, &data->mix[SPA_DIRECTION_OUTPUT], link)
-			clear_mix(data, mix);
-	}
-	clean_transport(data);
-
+	clean_node(data);
 	spa_hook_remove(&data->node_listener);
 }
 

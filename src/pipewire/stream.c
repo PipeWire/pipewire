@@ -435,7 +435,7 @@ static int port_set_format(struct spa_node *node,
 	int count;
 
 	pw_log_debug("stream %p: format changed:", impl);
-	if (pw_log_level >= SPA_LOG_LEVEL_DEBUG)
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_format(2, NULL, format);
 
 	clear_params(stream, PARAM_TYPE_FORMAT);
@@ -626,12 +626,13 @@ static int process_control(struct stream *impl, struct spa_pod_sequence *sequenc
 static int process_notify(struct stream *impl, struct spa_pod_sequence *sequence)
 {
 	struct spa_pod_builder b = { 0 };
+	bool changed;
 
         spa_pod_builder_init(&b, impl->io_notify, impl->io_notify_size);
 	spa_pod_builder_push_sequence(&b, 0);
-	if (impl->props.changed) {
+	if ((changed = impl->props.changed)) {
 		spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
-		spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, 0);
+		spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 		spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
 		spa_pod_builder_float(&b, impl->props.volume);
 		spa_pod_builder_pop(&b);
@@ -639,8 +640,9 @@ static int process_notify(struct stream *impl, struct spa_pod_sequence *sequence
 	}
 	spa_pod_builder_pop(&b);
 
-	if (impl->props.changed)
+	if (changed && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_pod(2, NULL, &impl->io_notify->sequence.pod);
+
 	return 0;
 }
 

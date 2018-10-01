@@ -76,6 +76,7 @@ struct impl {
 	struct spa_node *cnode;
 	struct spa_node *adapter;
 	struct spa_node *adapter_mix;
+	uint32_t adapter_mix_port;
 
 	bool use_converter;
 
@@ -373,10 +374,13 @@ static int negotiate_format(struct impl *impl)
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->adapter_mix,
-				SPA_DIRECTION_REVERSE(impl->direction), 0,
+				SPA_DIRECTION_REVERSE(impl->direction),
+				impl->adapter_mix_port,
 				SPA_PARAM_EnumFormat, &state,
 				NULL, &format, &b)) <= 0) {
-		debug_params(impl, impl->adapter_mix, SPA_DIRECTION_REVERSE(impl->direction), 0,
+		debug_params(impl, impl->adapter_mix,
+				SPA_DIRECTION_REVERSE(impl->direction),
+				impl->adapter_mix_port,
 				SPA_PARAM_EnumFormat, NULL);
 		return -ENOTSUP;
 	}
@@ -396,7 +400,8 @@ static int negotiate_format(struct impl *impl)
 		spa_debug_format(0, NULL, format);
 
 	if ((res = spa_node_port_set_param(impl->adapter_mix,
-				   SPA_DIRECTION_REVERSE(impl->direction), 0,
+				   SPA_DIRECTION_REVERSE(impl->direction),
+				   impl->adapter_mix_port,
 				   SPA_PARAM_Format, 0,
 				   format)) < 0)
 			return res;
@@ -433,10 +438,13 @@ static int negotiate_buffers(struct impl *impl)
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->adapter_mix,
-			       SPA_DIRECTION_REVERSE(impl->direction), 0,
+			       SPA_DIRECTION_REVERSE(impl->direction),
+			       impl->adapter_mix_port,
 			       SPA_PARAM_Buffers, &state,
 			       param, &param, &b)) <= 0) {
-		debug_params(impl, impl->adapter_mix, SPA_DIRECTION_REVERSE(impl->direction), 0,
+		debug_params(impl, impl->adapter_mix,
+				SPA_DIRECTION_REVERSE(impl->direction),
+				impl->adapter_mix_port,
 				SPA_PARAM_Buffers, param);
 		return -ENOTSUP;
 	}
@@ -460,7 +468,8 @@ static int negotiate_buffers(struct impl *impl)
 					&out_info)) < 0)
 		return res;
 	if ((res = spa_node_port_get_info(impl->adapter_mix,
-					SPA_DIRECTION_REVERSE(impl->direction), 0,
+					SPA_DIRECTION_REVERSE(impl->direction),
+					impl->adapter_mix_port,
 					&in_info)) < 0)
 		return res;
 
@@ -524,14 +533,16 @@ static int negotiate_buffers(struct impl *impl)
 
 	if (in_alloc) {
 		if ((res = spa_node_port_alloc_buffers(impl->adapter_mix,
-			       SPA_DIRECTION_REVERSE(impl->direction), 0,
+			       SPA_DIRECTION_REVERSE(impl->direction),
+			       impl->adapter_mix_port,
 			       NULL, 0,
 			       impl->buffers, &impl->n_buffers)) < 0)
 			return res;
 	}
 	else {
 		if ((res = spa_node_port_use_buffers(impl->adapter_mix,
-			       SPA_DIRECTION_REVERSE(impl->direction), 0,
+			       SPA_DIRECTION_REVERSE(impl->direction),
+			       impl->adapter_mix_port,
 			       impl->buffers, impl->n_buffers)) < 0)
 			return res;
 	}
@@ -597,8 +608,9 @@ impl_node_port_set_param(struct spa_node *node,
 	if (id == SPA_PARAM_Format && impl->use_converter) {
 		if (param == NULL) {
 			if ((res = spa_node_port_set_param(impl->adapter_mix,
-				SPA_DIRECTION_REVERSE(direction), 0, id,
-					0, NULL)) < 0)
+					SPA_DIRECTION_REVERSE(direction),
+					impl->adapter_mix_port,
+					id, 0, NULL)) < 0)
 				return res;
 			impl->n_buffers = 0;
 		}
@@ -626,17 +638,19 @@ impl_node_port_set_io(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
-	spa_log_debug(this->log, "set io %d %d %d", id, direction, impl->direction);
-	if (direction != impl->direction)
-		return -EINVAL;
+	spa_log_debug(this->log, "set io %d %d %d %d", port_id, id, direction, impl->direction);
 
-	if (impl->use_converter)
+	if (impl->use_converter) {
+		if (direction != impl->direction && id != SPA_IO_Control)
+			return -EINVAL;
 		res = spa_node_port_set_io(impl->adapter_mix, direction, port_id, id, data, size);
-
-	if (id == SPA_IO_Buffers && size >= sizeof(struct spa_io_buffers)) {
-		impl->io = data;
 	}
-
+	else {
+		if (direction != impl->direction)
+			return -EINVAL;
+		if (id == SPA_IO_Buffers && size >= sizeof(struct spa_io_buffers))
+			impl->io = data;
+	}
 	return res;
 }
 
@@ -845,7 +859,8 @@ static void client_node_initialized(void *data)
 			     &max_output_ports)) < 0)
 		return;
 
-	if (n_input_ports > 0) {
+
+	if (n_output_ports == 0) {
 		impl->direction = SPA_DIRECTION_INPUT;
 		dir = "Input";
 	}
@@ -853,6 +868,11 @@ static void client_node_initialized(void *data)
 		impl->direction = SPA_DIRECTION_OUTPUT;
 		dir = "Output";
 	}
+
+	pw_log_debug("client-stream %p: in %d/%d out %d/%d -> %s", &impl->this,
+			n_input_ports, max_input_ports,
+			n_output_ports, max_output_ports,
+			dir);
 
 	props = pw_node_get_properties(impl->client_node->node);
 	if (props != NULL && (str = pw_properties_get(props, PW_NODE_PROP_EXCLUSIVE)) != NULL)
@@ -885,6 +905,7 @@ static void client_node_initialized(void *data)
 		pw_log_warn("client-stream %p: no format given", &impl->this);
 		impl->adapter = impl->cnode;
 		impl->adapter_mix = impl->client_port->mix;
+		impl->adapter_mix_port = 0;
 		impl->use_converter = false;
 		return;
 	}
@@ -908,17 +929,20 @@ static void client_node_initialized(void *data)
 			return;
 
 		impl->adapter_mix = impl->adapter;
+		impl->adapter_mix_port = 0;
 		impl->use_converter = true;
 	}
 	else {
 		impl->adapter = impl->cnode;
 		impl->adapter_mix = impl->client_port->mix;
+		impl->adapter_mix_port = 0;
 		impl->use_converter = false;
 	}
 
 	if (impl->use_converter) {
 		if ((res = spa_node_port_set_io(impl->adapter_mix,
-					SPA_DIRECTION_REVERSE(impl->direction), 0,
+					SPA_DIRECTION_REVERSE(impl->direction),
+					impl->adapter_mix_port,
 					SPA_IO_Buffers,
 					impl->client_port_mix.io,
 					sizeof(impl->client_port_mix.io))) < 0)

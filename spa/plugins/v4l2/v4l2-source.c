@@ -74,9 +74,7 @@ struct control {
 };
 
 struct port {
-	struct spa_log *log;
-	struct spa_loop *main_loop;
-	struct spa_loop *data_loop;
+	struct impl *impl;
 
 	bool export_buf;
 	bool started;
@@ -119,6 +117,8 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
+	struct spa_loop *main_loop;
+	struct spa_loop *data_loop;
 
 	uint32_t seq;
 
@@ -721,19 +721,6 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 	return res;
 }
 
-#if 0
-static struct control *find_control(struct port *port, uint32_t id)
-{
-	int i;
-
-	for (i = 0; i < port->n_controls; i++) {
-		if (port->controls[i].id == id)
-			return &port->controls[i];
-	}
-	return NULL;
-}
-#endif
-
 static int impl_node_port_set_io(struct spa_node *node,
 				 enum spa_direction direction,
 				 uint32_t port_id,
@@ -820,9 +807,21 @@ static uint32_t prop_to_control_id(uint32_t prop)
 	}
 }
 
-static int process_control(struct impl *this, struct port *port, struct spa_pod_sequence *control)
+static void set_control(struct impl *this, struct port *port, uint32_t control_id, float value)
+{
+	struct v4l2_control c;
+
+	spa_zero(c);
+	c.id = control_id;
+	c.value = value;
+	if (ioctl(port->fd, VIDIOC_S_CTRL, &c) < 0)
+		spa_log_error(this->log, "VIDIOC_S_CTRL %m");
+}
+
+static int process_control(struct impl *this, struct spa_pod_sequence *control)
 {
 	struct spa_pod_control *c;
+	struct port *port;
 
 	SPA_POD_SEQUENCE_FOREACH(control, c) {
 		switch (c->type) {
@@ -832,18 +831,14 @@ static int process_control(struct impl *this, struct port *port, struct spa_pod_
 			struct spa_pod_object *obj = (struct spa_pod_object *) &c->value;
 
 			SPA_POD_OBJECT_FOREACH(obj, prop) {
-				struct v4l2_control c;
 				uint32_t control_id;
 
 				if ((control_id = prop_to_control_id(prop->key)) == 0)
 					continue;
 
-				memset (&c, 0, sizeof (c));
-				c.id = control_id;
-				c.value = SPA_POD_VALUE(struct spa_pod_float, &prop->value);
-
-				if (ioctl(port->fd, VIDIOC_S_CTRL, &c) < 0)
-					spa_log_error(port->log, "VIDIOC_S_CTRL %m");
+				port = GET_OUT_PORT(this, prop->context);
+				set_control(this, port, control_id,
+						SPA_POD_VALUE(struct spa_pod_float, &prop->value));
 			}
 			break;
 		}
@@ -870,10 +865,10 @@ static int impl_node_process(struct spa_node *node)
 	io = port->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
-	spa_log_trace(port->log, NAME " %p; status %d", node, io->status);
-
 	if (port->control)
-		process_control(this, port, &port->control->sequence);
+		process_control(this, &port->control->sequence);
+
+	spa_log_trace(this->log, NAME " %p; status %d", node, io->status);
 
 	if (io->status == SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_HAVE_BUFFER;
@@ -891,7 +886,7 @@ static int impl_node_process(struct spa_node *node)
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
 
-	spa_log_trace(port->log, NAME " %p: dequeue buffer %d", node, b->outbuf->id);
+	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", node, b->outbuf->id);
 
 	io->buffer_id = b->outbuf->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;
@@ -980,21 +975,19 @@ impl_init(const struct spa_handle_factory *factory,
 	handle->get_interface = impl_get_interface;
 	handle->clear = impl_clear, this = (struct impl *) handle;
 
-	port = GET_OUT_PORT(this, 0);
-
 	for (i = 0; i < n_support; i++) {
 		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
 		else if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
-			port->main_loop = support[i].data;
+			this->main_loop = support[i].data;
 		else if (support[i].type == SPA_TYPE_INTERFACE_DataLoop)
-			port->data_loop = support[i].data;
+			this->data_loop = support[i].data;
 	}
-	if (port->main_loop == NULL) {
+	if (this->main_loop == NULL) {
 		spa_log_error(this->log, "a main_loop is needed");
 		return -EINVAL;
 	}
-	if (port->data_loop == NULL) {
+	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data_loop is needed");
 		return -EINVAL;
 	}
@@ -1003,9 +996,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reset_props(&this->props);
 
+	port = GET_OUT_PORT(this, 0);
 	spa_list_init(&port->queue);
-
-	port->log = this->log;
 	port->info.flags = SPA_PORT_INFO_FLAG_LIVE |
 			   SPA_PORT_INFO_FLAG_PHYSICAL |
 			   SPA_PORT_INFO_FLAG_TERMINAL;

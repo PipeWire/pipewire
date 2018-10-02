@@ -762,17 +762,19 @@ static void node_event(void *data, struct spa_event *event)
 
 static void node_process(void *data, int status)
 {
-	struct pw_node *node = data;
+	struct pw_node *node = data, *driver;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
-	pw_log_trace("node %p: process driver:%d exported:%d", node,
-			node->driver, node->exported);
+	driver = node->driver_node;
 
-	if (node->driver && (node->rt.driver->state->pending == 0 || !node->remote)) {
+	pw_log_trace("node %p: process driver:%d exported:%d %p", node,
+			node->driver, node->exported, driver->rt.driver);
+
+	if (node->driver && (driver->rt.driver->state->pending == 0 || !node->remote)) {
 		struct timespec ts;
 		struct pw_driver_quantum *q = node->rt.quantum;
 
-		if (node->rt.driver->state->pending != 0) {
+		if (driver->rt.driver->state->pending != 0) {
 			pw_log_warn("node %p: graph not finished", node);
 		}
 
@@ -793,7 +795,7 @@ static void node_process(void *data, int status)
 				q->nsec, q->rate.num, q->rate.denom,
 				q->position, q->delay, q->size);
 
-		spa_graph_run(node->rt.driver);
+		spa_graph_run(driver->rt.driver);
 
 		impl->next_position += q->size;
 	}

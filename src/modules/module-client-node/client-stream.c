@@ -32,10 +32,7 @@
 #include <spa/buffer/alloc.h>
 #include <spa/pod/parser.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/debug/pod.h>
-#include <spa/debug/format.h>
 
-#include "pipewire/core.h"
 #include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/control.h"
@@ -45,6 +42,14 @@
 #include "client-node.h"
 #include "client-stream.h"
 
+#ifndef spa_debug
+#define spa_debug pw_log_trace
+#endif
+
+#include <spa/debug/pod.h>
+#include <spa/debug/format.h>
+
+#include "pipewire/core.h"
 /** \cond */
 
 struct node {
@@ -881,6 +886,7 @@ static void client_node_initialized(void *data)
 		exclusive = false;
 
 	spa_graph_node_add(impl->client_node->node->rt.driver, &impl->client_node->node->rt.root);
+	impl->client_node->node->driver_node = impl->this.node;
 
 	impl->client_port = pw_node_find_port(impl->client_node->node, impl->direction, 0);
 	if (impl->client_port == NULL)
@@ -1064,6 +1070,7 @@ static void node_initialized(void *data)
 static void node_driver_changed(void *data, struct pw_node *driver)
 {
 	struct impl *impl = data;
+	pw_log_debug("client-stream %p: driver changed %p", &impl->this, driver);
 	impl->client_node->node->driver_node = driver;
 }
 

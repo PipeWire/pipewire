@@ -68,32 +68,12 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
 
 pipewire_module_audio_dsp = shared_library('pipewire-module-audio-dsp',
   [ 'module-audio-dsp.c',
-    'module-media-session/audio-dsp.c',
-    'module-media-session/floatmix.c',
+    'module-audio-dsp/audio-dsp.c',
+    'module-audio-dsp/floatmix.c',
     'spa/spa-node.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
-)
-
-pipewire_module_media_session = shared_library('pipewire-module-media-session',
-  [ 'module-media-session.c',
-    'module-media-session/audio-dsp.c',
-    'module-media-session/floatmix.c',
-    'spa/spa-node.c' ],
-  c_args : pipewire_module_c_args,
-  include_directories : [configinc, spa_inc],
-  install : true,
-  install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
-)
-
-pipewire_module_suspend_on_idle = shared_library('pipewire-module-suspend-on-idle', [ 'module-suspend-on-idle.c' ],
-  c_args : pipewire_module_c_args,
-  include_directories : [configinc, spa_inc],
-  install : true,
-  install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
 )

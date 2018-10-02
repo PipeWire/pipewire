@@ -35,7 +35,7 @@
 #include "pipewire/module.h"
 #include "pipewire/private.h"
 
-#include "module-media-session/audio-dsp.h"
+#include "module-audio-dsp/audio-dsp.h"
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },

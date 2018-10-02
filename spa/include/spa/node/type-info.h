@@ -51,6 +51,7 @@ static const struct spa_type_info spa_type_node_event_id[] = {
 	{ SPA_NODE_EVENT_Error,		 SPA_TYPE_NODE_EVENT_BASE "Error",   SPA_TYPE_Int, },
 	{ SPA_NODE_EVENT_Buffering,	 SPA_TYPE_NODE_EVENT_BASE "Buffering", SPA_TYPE_Int, },
 	{ SPA_NODE_EVENT_RequestRefresh, SPA_TYPE_NODE_EVENT_BASE "RequestRefresh", SPA_TYPE_Int, },
+	{ SPA_NODE_EVENT_PortsChanged,   SPA_TYPE_NODE_EVENT_BASE "PortsChanged", SPA_TYPE_Int, },
 	{ 0, NULL, },
 };
 

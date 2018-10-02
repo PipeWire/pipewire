@@ -758,6 +758,15 @@ static void node_event(void *data, struct spa_event *event)
 
 	pw_log_trace("node %p: event %d", node, SPA_EVENT_TYPE(event));
 	pw_node_events_event(node, event);
+
+	switch (SPA_NODE_EVENT_ID(event)) {
+	case SPA_NODE_EVENT_PortsChanged:
+		pw_node_update_ports(node);
+		break;
+	default:
+		break;
+	}
+
 }
 
 static void node_process(void *data, int status)

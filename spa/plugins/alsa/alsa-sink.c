@@ -625,7 +625,9 @@ static int impl_node_process(struct spa_node *node)
 	input = this->io;
 	spa_return_val_if_fail(input != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: process %d %d", this, input->status, input->buffer_id);
+	spa_log_trace(this->log, NAME " %p: process %d %d/%d", this, input->status,
+			input->buffer_id,
+			this->n_buffers);
 
 	if (input->status == SPA_STATUS_HAVE_BUFFER &&
 	    input->buffer_id < this->n_buffers) {

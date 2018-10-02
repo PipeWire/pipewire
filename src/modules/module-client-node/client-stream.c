@@ -788,7 +788,7 @@ static int impl_node_process(struct spa_node *node)
 		trigger = status & SPA_STATUS_HAVE_BUFFER;
 
 	if (trigger && !impl->this.node->driver)
-		spa_graph_run(impl->client_node->node->rt.root.graph);
+		spa_graph_run(impl->client_node->node->rt.driver);
 
 	return status;
 }
@@ -880,7 +880,7 @@ static void client_node_initialized(void *data)
 	else
 		exclusive = false;
 
-	impl->client_node->node->rt.driver = impl->this.node->rt.driver;
+	spa_graph_node_add(impl->client_node->node->rt.driver, &impl->client_node->node->rt.root);
 
 	impl->client_port = pw_node_find_port(impl->client_node->node, impl->direction, 0);
 	if (impl->client_port == NULL)

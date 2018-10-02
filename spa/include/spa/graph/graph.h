@@ -241,7 +241,7 @@ spa_graph_node_add(struct spa_graph *graph,
 
 static inline void spa_graph_node_remove(struct spa_graph_node *node)
 {
-	spa_debug("node %p remove", node);
+	spa_debug("node %p remove from graph %p", node, node->graph);
 	spa_graph_link_remove(&node->graph_link);
 	spa_list_remove(&node->link);
 }

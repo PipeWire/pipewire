@@ -503,7 +503,7 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 {
 	struct pw_proxy *proxy = user_data;
 	struct node_data *data = proxy->user_data;
-	struct spa_graph_node *node = &data->node->rt.node;
+	struct spa_graph_node *node = &data->node->rt.root;
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn("got error");
@@ -518,7 +518,7 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 			pw_log_warn("proxy %p: read %"PRIu64" failed %m", proxy, cmd);
 
 		pw_log_trace("remote %p: process", data->remote);
-		spa_graph_run(node->graph->parent->graph);
+		spa_graph_run(node->graph);
 	}
 }
 
@@ -1405,6 +1405,7 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	data->callbacks = *node->rt.root.callbacks;
 	spa_graph_node_set_callbacks(&node->rt.root, &impl_root, data);
 	spa_graph_link_add(&node->rt.root, &data->state, &data->link);
+	spa_graph_node_add(node->rt.driver, &node->rt.root);
 
 	node->exported = true;
 

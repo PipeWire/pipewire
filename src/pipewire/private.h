@@ -741,9 +741,6 @@ int pw_port_send_command(struct pw_port *port, bool block, const struct spa_comm
 /** Change the state of the node */
 int pw_node_set_state(struct pw_node *node, enum pw_node_state state);
 
-/** Update the state of the node, mostly used by node implementations */
-void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *error);
-
 int pw_node_update_ports(struct pw_node *node);
 
 int pw_node_initialized(struct pw_node *node);

@@ -21,6 +21,8 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <limits.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/utils.h>
@@ -33,6 +35,7 @@
 
 static struct pw_command *parse_command_help(const char *line, char **err);
 static struct pw_command *parse_command_module_load(const char *line, char **err);
+static struct pw_command *parse_command_exec(const char *line, char **err);
 
 struct impl {
 	struct pw_command this;
@@ -49,6 +52,7 @@ struct command_parse {
 static const struct command_parse parsers[] = {
 	{"help", "Show this help", parse_command_help},
 	{"load-module", "Load a module", parse_command_module_load},
+	{"exec", "Execute a program", parse_command_exec},
 	{NULL, NULL, NULL }
 };
 
@@ -120,6 +124,50 @@ static struct pw_command *parse_command_module_load(const char *line, char **err
 
       no_module:
 	asprintf(err, "%s requires a module name", this->args[0]);
+	pw_free_strv(this->args);
+	return NULL;
+      no_mem:
+	asprintf(err, "no memory");
+	return NULL;
+}
+
+static int
+execute_command_exec(struct pw_command *command, struct pw_core *core, char **err)
+{
+	int pid;
+
+	pid = fork();
+
+	if (pid == 0) {
+		pw_log_info("exec %s", command->args[1]);
+		execv(command->args[1], command->args);
+	}
+	else {
+		pw_log_info("exec got pid %d", pid);
+	}
+	return 0;
+}
+
+static struct pw_command *parse_command_exec(const char *line, char **err)
+{
+	struct impl *impl;
+	struct pw_command *this;
+
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		goto no_mem;
+
+	this = &impl->this;
+	this->func = execute_command_exec;
+	this->args = pw_split_strv(line, whitespace, INT_MAX, &this->n_args);
+
+	if (this->n_args < 1)
+		goto no_executable;
+
+	return this;
+
+      no_executable:
+	asprintf(err, "requires an executable name");
 	pw_free_strv(this->args);
 	return NULL;
       no_mem:

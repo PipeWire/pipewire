@@ -25,7 +25,6 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
-#include <spa/utils/type-info.h>
 #include <spa/param/props.h>
 #include <spa/param/format.h>
 #include <spa/node/io.h>

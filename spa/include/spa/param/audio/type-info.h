@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_AUDIO_RAW_TYPES_H__
-#define __SPA_AUDIO_RAW_TYPES_H__
+#ifndef __SPA_AUDIO_TYPES_H__
+#define __SPA_AUDIO_TYPES_H__
 
 #ifdef __cplusplus
 extern "C" {

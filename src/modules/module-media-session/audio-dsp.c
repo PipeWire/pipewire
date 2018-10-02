@@ -28,6 +28,8 @@
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/utils/type-info.h>
+#include <spa/param/audio/type-info.h>
 
 #include "pipewire/core.h"
 #include "pipewire/link.h"
@@ -144,47 +146,6 @@ static const struct pw_port_implementation port_implementation = {
 	.use_buffers = port_use_buffers,
 };
 
-static const char *chmap_names[] =
-{
-	"UNK",		/**< unknown */
-	"NA",		/**< unmapped */
-	"MONO",		/**< mono */
-	"FL",		/**< front left */
-        "FR",           /**< front right */
-        "RL",           /**< rear left */
-        "RR",           /**< rear right */
-        "FC",           /**< front center */
-        "LFE",          /**< LFE */
-        "SL",           /**< side left */
-        "SR",           /**< side right */
-        "RC",           /**< rear center */
-        "FLC",          /**< front left center */
-        "FRC",          /**< front right center */
-        "RLC",          /**< rear left center */
-        "RRC",          /**< rear right center */
-        "FLW",          /**< front left wide */
-        "FRW",          /**< front right wide */
-        "FLH",          /**< front left high */
-        "FCH",          /**< front center high */
-        "FRH",          /**< front right high */
-        "TC",           /**< top center */
-        "TFL",          /**< top front left */
-        "TFR",          /**< top front right */
-        "TFC",          /**< top front center */
-        "TRL",          /**< top rear left */
-        "TRR",          /**< top rear right */
-        "TRC",          /**< top rear center */
-        "TFLC",         /**< top front left center */
-        "TFRC",         /**< top front right center */
-        "TSL",          /**< top side left */
-        "TSR",          /**< top side right */
-        "LLFE",         /**< left LFE */
-        "RLFE",         /**< right LFE */
-        "BC",           /**< bottom center */
-        "BLC",          /**< bottom left center */
-        "BRC",          /**< bottom right center */
-};
-
 static int make_channel_name(struct node *n, char *channel_name, int i, uint64_t channelmask)
 {
 	int j;
@@ -193,7 +154,8 @@ static int make_channel_name(struct node *n, char *channel_name, int i, uint64_t
 	for (j = 0; j < 64; j++) {
 		if (channelmask & (1LL << j)) {
 			if (i-- == 0) {
-				sprintf(channel_name, "%s", chmap_names[j]);
+				sprintf(channel_name, "%s",
+						rindex(spa_type_audio_channel[j].name, ':')+1);
 				return 1;
 			}
 		}

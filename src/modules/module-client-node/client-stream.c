@@ -95,10 +95,6 @@ struct impl {
 	struct spa_buffer **buffers;
 	uint32_t n_buffers;
 	struct pw_memblock *mem;
-
-	struct {
-		struct spa_graph_link link;
-	} rt;
 };
 
 /** \endcond */
@@ -953,8 +949,6 @@ static void client_node_initialized(void *data)
 					impl->client_port_mix.io,
 					sizeof(impl->client_port_mix.io))) < 0)
 			return;
-
-
 	}
 
 	switch (media_type) {

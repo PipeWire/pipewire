@@ -281,18 +281,6 @@ impl_node_get_n_ports(struct spa_node *node,
 	return 0;
 }
 
-static inline struct port *iterate_ports(struct impl *this, enum spa_direction direction, uint32_t max, uint32_t *state)
-{
-	for (; (*state & 0xffff) < MAX_PORTS && (*state >> 16) < max; (*state)++) {
-		struct port *p = &this->ports[direction][(*state) & 0xffff];
-		if (p->valid) {
-			(*state) += 0x10001;
-			return p;
-		}
-	}
-	return NULL;
-}
-
 static int collect_ports(struct impl *this, enum spa_direction direction, uint32_t *ids, uint32_t n_ids)
 {
 	int i, idx;

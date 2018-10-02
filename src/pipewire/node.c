@@ -170,7 +170,6 @@ static int suspend_node(struct pw_node *this)
 
 static void node_update_state(struct pw_node *node, enum pw_node_state state, char *error)
 {
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	enum pw_node_state old;
 	struct pw_resource *resource;
 

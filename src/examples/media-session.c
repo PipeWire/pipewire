@@ -373,6 +373,7 @@ static void node_proxy_destroy(void *data)
 			break;
 		case NODE_TYPE_DEVICE:
 			remove_session(impl, n->manager);
+			n->manager = NULL;
 			break;
 		}
 	}
@@ -621,6 +622,7 @@ registry_global_remove(void *data, uint32_t id)
 		struct node *node = (struct node*) obj;
 		if (node->manager)
 			remove_session(impl, node->manager);
+		node->manager = NULL;
 		break;
 
 	}

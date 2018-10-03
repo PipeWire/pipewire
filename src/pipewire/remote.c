@@ -189,7 +189,9 @@ static void core_event_done(void *data, uint32_t seq)
 static void core_event_error(void *data, uint32_t id, int res, const char *error, ...)
 {
 	struct pw_remote *this = data;
-	pw_remote_update_state(this, PW_REMOTE_STATE_ERROR, error);
+	pw_log_warn("remote %p: got error %d, %d (%s): %s", this,
+			id, res, spa_strerror(res), error);
+	pw_remote_events_error(this, id, res, error);
 }
 
 static void core_event_remove_id(void *data, uint32_t id)

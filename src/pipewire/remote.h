@@ -136,6 +136,8 @@ struct pw_remote_events {
 	/** emited when the state changes */
 	void (*state_changed) (void *data, enum pw_remote_state old,
 			       enum pw_remote_state state, const char *error);
+        /** emited when an error was reported */
+	void (*error) (void *data, uint32_t id, int res, const char *error);
 };
 
 /** Specify the name of the protocol to use, default is using the native protocol */

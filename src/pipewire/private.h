@@ -530,6 +530,7 @@ struct pw_proxy {
 #define pw_remote_events_info_changed(r,i)	pw_remote_events_emit(r, info_changed, 0, i)
 #define pw_remote_events_sync_reply(r,s)	pw_remote_events_emit(r, sync_reply, 0, s)
 #define pw_remote_events_state_changed(r,o,s,e)	pw_remote_events_emit(r, state_changed, 0, o, s, e)
+#define pw_remote_events_error(r,i,res,e)	pw_remote_events_emit(r, error, 0, i, res, e)
 
 struct pw_remote {
 	struct pw_core *core;			/**< core */

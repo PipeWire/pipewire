@@ -29,9 +29,11 @@
 #include <jack/jack.h>
 #include <jack/session.h>
 #include <jack/thread.h>
+#include <jack/midiport.h>
 
 #include <spa/param/audio/format-utils.h>
 #include <spa/debug/types.h>
+#include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
@@ -121,6 +123,17 @@ struct midi_buffer {
 	uint32_t lost_events;
 };
 
+#define MIDI_INLINE_MAX	4
+
+struct midi_event {
+	uint16_t time;
+        uint16_t size;
+        union {
+		uint32_t byte_offset;
+		uint8_t inline_data[MIDI_INLINE_MAX];
+	};
+};
+
 struct buffer {
 	struct spa_list link;
 #define BUFFER_FLAG_OUT		(1<<0)
@@ -151,6 +164,10 @@ struct mix {
 	struct io ios[MAX_IO];
 
 	struct spa_io_buffers *io;
+	struct spa_io_sequence *notify;
+	size_t notify_size;
+	struct spa_io_sequence *control;
+	size_t control_size;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -645,6 +662,41 @@ static void reuse_buffer(struct client *c, struct mix *mix, uint32_t id)
 	}
 }
 
+
+static void convert_midi(void *midi, void *buffer, size_t size)
+{
+	struct spa_pod_builder b = { 0, };
+	uint32_t i, count;
+
+	count = jack_midi_get_event_count(midi);
+
+	spa_pod_builder_init(&b, buffer, size);
+	spa_pod_builder_push_sequence(&b, 0);
+
+	for (i = 0; i < count; i++) {
+		jack_midi_event_t ev;
+		jack_midi_event_get(&ev, midi, i);
+		spa_pod_builder_control_header(&b, ev.time, SPA_CONTROL_Midi);
+		spa_pod_builder_bytes(&b, ev.buffer, ev.size);
+	}
+        spa_pod_builder_pop(&b);
+}
+
+static void process_tee(struct client *c)
+{
+	struct port *p;
+
+	spa_list_for_each(p, &c->ports[SPA_DIRECTION_OUTPUT], link) {
+		struct mix *mix;
+		spa_list_for_each(mix, &p->mix, port_link) {
+			if (mix->notify == NULL)
+				continue;
+			convert_midi(p->empty, mix->notify, mix->notify_size);
+			break;
+		}
+	}
+}
+
 static void
 on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 {
@@ -695,7 +747,8 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 					 &c->jack_position, c->sync_arg);
 		}
 
-		pw_log_trace("do process %d %d %d %"PRIi64, c->buffer_size, c->sample_rate,
+		pw_log_trace("do process %"PRIu64" %d %d %d %"PRIi64, c->quantum->nsec,
+				c->buffer_size, c->sample_rate,
 				c->jack_position.frame, c->quantum->delay);
 
 		if (c->process_callback)
@@ -708,6 +761,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 					     false,
 					     c->timebase_arg);
 		}
+		process_tee(c);
 
 		cmd = 1;
 		write(c->writefd, &cmd, 8);
@@ -966,6 +1020,36 @@ static int param_buffers(struct client *c, struct port *p,
 		SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(4),
 		SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
 		0);
+	return 1;
+}
+
+static int param_io(struct client *c, struct port *p,
+		struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (p->object->port.type_id) {
+	case 0:
+		*param = spa_pod_builder_object(b,
+			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
+			SPA_PARAM_IO_id,	&SPA_POD_Id(SPA_IO_Buffers),
+			SPA_PARAM_IO_size,	&SPA_POD_Int(sizeof(struct spa_io_buffers)),
+			0);
+		break;
+	case 1:
+		if (p->direction == SPA_DIRECTION_OUTPUT) {
+			*param = spa_pod_builder_object(b,
+				SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
+				SPA_PARAM_IO_id,	&SPA_POD_Id(SPA_IO_Notify),
+				SPA_PARAM_IO_size,	&SPA_POD_Int(BUFFER_SIZE_MAX),
+				0);
+		} else {
+			*param = spa_pod_builder_object(b,
+				SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
+				SPA_PARAM_IO_id,	&SPA_POD_Id(SPA_IO_Control),
+				SPA_PARAM_IO_size,	&SPA_POD_Int(sizeof(struct spa_io_sequence)),
+				0);
+		}
+		break;
+	}
 	return 1;
 }
 
@@ -1268,8 +1352,21 @@ static void client_node_port_set_io(void *object,
 
 	update_io(c, mix, id, mem_id);
 
-        if (id == SPA_IO_Buffers)
+	switch (id) {
+	case SPA_IO_Buffers:
                 mix->io = ptr;
+		break;
+	case SPA_IO_Notify:
+                mix->notify = ptr;
+                mix->notify_size = size;
+		break;
+	case SPA_IO_Control:
+                mix->control = ptr;
+                mix->control_size = size;
+		break;
+	default:
+		break;
+	}
 
 	pw_log_debug("port %p: set io id %u %u %u %u %p", p, id, mem_id, offset, size, ptr);
 
@@ -1371,6 +1468,10 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 			else if (!strcmp(item->key, "port.terminal")) {
 				if (pw_properties_parse_bool(item->value))
 					flags |= JackPortIsTerminal;
+			}
+			else if (!strcmp(item->key, "port.control")) {
+				if (pw_properties_parse_bool(item->value))
+					type_id = 1;
 			}
 		}
 
@@ -1982,6 +2083,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct spa_pod *params[4];
+	uint32_t n_params = 0;
 	struct port *p;
 	int res;
 
@@ -2008,16 +2110,20 @@ jack_port_t * jack_port_register (jack_client_t *client,
 
 	spa_list_init(&p->mix);
 
-	port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
-			  SPA_PORT_INFO_FLAG_NO_REF;
-
 	port_info.props = &dict;
 	dict = SPA_DICT_INIT(items, 0);
 	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.dsp", port_type);
 	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.name", port_name);
 
-	param_enum_format(c, p, &params[0], &b);
-	param_buffers(c, p, &params[1], &b);
+	if (type_id == 1)
+		port_info.flags = SPA_PORT_INFO_FLAG_NO_REF;
+	else
+		port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
+				  SPA_PORT_INFO_FLAG_NO_REF;
+
+	param_enum_format(c, p, &params[n_params++], &b);
+	param_buffers(c, p, &params[n_params++], &b);
+	param_io(c, p, &params[n_params++], &b);
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -2026,7 +2132,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 					 p->id,
 					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 					 PW_CLIENT_NODE_PORT_UPDATE_INFO ,
-					 2,
+					 n_params,
 					 (const struct spa_pod **) params,
 					 &port_info);
 
@@ -2896,6 +3002,128 @@ void jack_set_thread_creator (jack_thread_creator_t creator)
 		globals.creator = pthread_create;
 	else
 		globals.creator = creator;
+}
+
+static inline uint8_t * midi_event_data (void* port_buffer,
+                      const struct midi_event* event)
+{
+        if (event->size <= MIDI_INLINE_MAX)
+                return (uint8_t *)event->inline_data;
+        else
+                return SPA_MEMBER(port_buffer, event->byte_offset, uint8_t);
+}
+
+uint32_t jack_midi_get_event_count(void* port_buffer)
+{
+	struct midi_buffer *mb = port_buffer;
+	return mb->event_count;
+}
+
+int jack_midi_event_get(jack_midi_event_t *event,
+			void        *port_buffer,
+			uint32_t    event_index)
+{
+	struct midi_buffer *mb = port_buffer;
+	struct midi_event *ev = SPA_MEMBER(mb, sizeof(*mb), struct midi_event);
+	ev += event_index;
+	event->time = ev->time;
+	event->size = ev->size;
+	event->buffer = midi_event_data (port_buffer, ev);
+	return 0;
+}
+
+void jack_midi_clear_buffer(void *port_buffer)
+{
+	struct midi_buffer *mb = port_buffer;
+	mb->event_count = 0;
+	mb->write_pos = 0;
+	mb->lost_events = 0;
+}
+
+void jack_midi_reset_buffer(void *port_buffer)
+{
+	jack_midi_clear_buffer(port_buffer);
+}
+
+size_t jack_midi_max_event_size(void* port_buffer)
+{
+	struct midi_buffer *mb = port_buffer;
+	size_t buffer_size = mb->buffer_size;
+
+        /* (event_count + 1) below accounts for jack_midi_port_internal_event_t
+         * which would be needed to store the next event */
+        size_t used_size = sizeof(struct midi_buffer)
+                           + mb->write_pos
+                           + ((mb->event_count + 1)
+                              * sizeof(struct midi_event));
+
+        if (used_size > buffer_size) {
+                return 0;
+        } else if ((buffer_size - used_size) < MIDI_INLINE_MAX) {
+                return MIDI_INLINE_MAX;
+        } else {
+                return buffer_size - used_size;
+        }
+}
+
+jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
+                        jack_nframes_t  time,
+                        size_t data_size)
+{
+	struct midi_buffer *mb = port_buffer;
+	struct midi_event *events = SPA_MEMBER(mb, sizeof(*mb), struct midi_event);
+	size_t buffer_size = mb->buffer_size;
+
+	if (time < 0 || time >= mb->nframes)
+                goto failed;
+
+	if (mb->event_count > 0 && time < events[mb->event_count - 1].time)
+                goto failed;
+
+	/* Check if data_size is >0 and there is enough space in the buffer for the event. */
+	if (data_size <= 0) {
+		goto failed; // return NULL?
+	} else if (jack_midi_max_event_size (port_buffer) < data_size) {
+		goto failed;
+	} else {
+		struct midi_event *ev = &events[mb->event_count];
+		uint8_t *res;
+
+		ev->time = time;
+		ev->size = data_size;
+		if (data_size <= MIDI_INLINE_MAX) {
+			res = ev->inline_data;
+		} else {
+			mb->write_pos += data_size;
+			ev->byte_offset = buffer_size - 1 - mb->write_pos;
+			res = SPA_MEMBER(mb, ev->byte_offset, uint8_t);
+		}
+		mb->event_count += 1;
+		return res;
+	}
+failed:
+	mb->lost_events++;
+	return NULL;
+}
+
+int jack_midi_event_write(void *port_buffer,
+                      jack_nframes_t time,
+                      const jack_midi_data_t *data,
+                      size_t data_size)
+{
+	jack_midi_data_t *retbuf = jack_midi_event_reserve (port_buffer, time, data_size);
+        if (retbuf) {
+                memcpy (retbuf, data, data_size);
+                return 0;
+        } else {
+                return ENOBUFS;
+        }
+}
+
+uint32_t jack_midi_get_lost_event_count(void *port_buffer)
+{
+	struct midi_buffer *mb = port_buffer;
+	return mb->lost_events;
 }
 
 static void reg(void) __attribute__ ((constructor));

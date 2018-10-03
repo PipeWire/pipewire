@@ -115,7 +115,7 @@ void pw_resource_add_override(struct pw_resource *resource,
 			      void *data);
 
 /** Generate an error for a resource */
-void pw_resource_error(struct pw_resource *resource, int result, const char *error);
+void pw_resource_error(struct pw_resource *resource, uint32_t id, int result, const char *error);
 
 /** Get the implementation list of a resource */
 struct spa_hook_list *pw_resource_get_implementation(struct pw_resource *resource);

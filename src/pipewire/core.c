@@ -212,8 +212,9 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 
       no_mem:
 	pw_log_error("can't create registry resource");
-	pw_core_resource_error(client->core_resource,
-			       resource->id, -ENOMEM, "no memory");
+	pw_core_resource_error(client->core_resource, new_id, -ENOMEM, "no memory");
+	pw_map_insert_at(&client->objects, new_id, NULL);
+	pw_core_resource_remove_id(client->core_resource, new_id);
 }
 
 static void
@@ -253,29 +254,32 @@ core_create_object(void *object,
 	/* error will be posted */
 	obj = pw_factory_create_object(factory, resource, type, version, properties, new_id);
 	if (obj == NULL)
-		goto no_mem;
+		goto error;
 
-      done:
 	return;
 
       no_factory:
 	pw_log_error("can't find node factory %s", factory_name);
 	pw_core_resource_error(client->core_resource,
-			       resource->id, -EINVAL, "unknown factory name %s", factory_name);
-	goto done;
+			       new_id, -EINVAL, "unknown factory name %s", factory_name);
+	goto error;
       wrong_version:
       wrong_type:
 	pw_log_error("invalid resource type/version");
 	pw_core_resource_error(client->core_resource,
-			       resource->id, -EINVAL, "wrong resource type/version");
-	goto done;
+			       new_id, -EINVAL, "wrong resource type/version");
+	goto error;
       no_properties:
 	pw_log_error("can't create properties");
 	goto no_mem;
       no_mem:
 	pw_core_resource_error(client->core_resource,
-			       resource->id, -ENOMEM, "no memory");
-	goto done;
+			       new_id, -ENOMEM, "no memory");
+	goto error;
+      error:
+	pw_map_insert_at(&client->objects, new_id, NULL);
+	pw_core_resource_remove_id(client->core_resource, new_id);
+	return;
 }
 
 static void core_destroy(void *object, uint32_t id)
@@ -296,8 +300,7 @@ static void core_destroy(void *object, uint32_t id)
 
       no_resource:
 	pw_log_error("can't find resouce %d", id);
-	pw_core_resource_error(client->core_resource,
-			       resource->id, -EINVAL, "unknown resouce %d", id);
+	pw_core_resource_error(client->core_resource, id, -EINVAL, "unknown resouce %d", id);
 	goto done;
 }
 

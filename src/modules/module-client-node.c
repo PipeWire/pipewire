@@ -83,11 +83,11 @@ static void *create_object(void *_data,
 
       no_resource:
 	pw_log_error("client-node needs a resource");
-	pw_resource_error(resource, -EINVAL, "no resource");
+	pw_resource_error(resource, new_id, -EINVAL, "no resource");
 	goto done;
       no_mem:
 	pw_log_error("can't create node");
-	pw_resource_error(resource, -ENOMEM, "no memory");
+	pw_resource_error(resource, new_id, -ENOMEM, "no memory");
 	goto done;
       done:
 	if (properties)

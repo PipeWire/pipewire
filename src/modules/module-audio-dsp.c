@@ -168,18 +168,18 @@ static void *create_object(void *_data,
 
       no_resource:
 	pw_log_error("audio-dsp needs a resource");
-	pw_resource_error(resource, -EINVAL, "no resource");
+	pw_resource_error(resource, new_id, -EINVAL, "no resource");
 	goto done;
       no_props:
 	pw_log_error("audio-dsp needs a property");
-	pw_resource_error(resource, -EINVAL, "no property");
+	pw_resource_error(resource, new_id, -EINVAL, "no property");
 	goto done;
       no_mem:
 	pw_log_error("can't create node");
-	pw_resource_error(resource, -ENOMEM, "no memory");
+	pw_resource_error(resource, new_id, -ENOMEM, "no memory");
 	goto done;
       no_bind:
-	pw_resource_error(resource, res, "can't bind dsp node");
+	pw_resource_error(resource, new_id, res, "can't bind dsp node");
 	goto done;
       done:
 	if (properties)

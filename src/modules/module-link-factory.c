@@ -114,7 +114,7 @@ static void *create_object(void *_data,
 			   uint32_t new_id)
 {
 	struct factory_data *d = _data;
-	struct pw_client *client;
+	struct pw_client *client = NULL;
 	struct pw_node *output_node, *input_node;
 	struct pw_port *outport, *inport;
 	struct pw_core *core;
@@ -129,8 +129,8 @@ static void *create_object(void *_data,
 	int res;
 	bool linger;
 
-	if (resource == NULL)
-		goto no_resource;
+	client = pw_resource_get_client(resource);
+	core = pw_client_get_core(client);
 
 	if (properties == NULL)
 		goto no_properties;
@@ -150,9 +150,6 @@ static void *create_object(void *_data,
 
 	str = pw_properties_get(properties, PW_LINK_INPUT_PORT_ID);
 	input_port_id = str ? pw_properties_parse_int(str) : -1;
-
-	client = pw_resource_get_client(resource);
-	core = pw_client_get_core(client);
 
 	global = pw_core_find_global(core, output_node_id);
 	if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Node)
@@ -224,36 +221,32 @@ static void *create_object(void *_data,
 
 	return link;
 
-      no_resource:
-	pw_log_error("link factory needs a resource");
-	pw_resource_error(resource, -EINVAL, "no resource");
-	goto done;
       no_properties:
 	pw_log_error("link-factory needs properties");
-	pw_resource_error(resource, -EINVAL, "no properties");
+	pw_resource_error(resource, new_id, -EINVAL, "no properties");
 	goto done;
       no_output:
 	pw_log_error("link-factory unknown output node %d", output_node_id);
-	pw_resource_error(resource, -EINVAL, "unknown output node");
+	pw_resource_error(resource, new_id, -EINVAL, "unknown output node");
 	goto done;
       no_input:
 	pw_log_error("link-factory unknown input node %d", input_node_id);
-	pw_resource_error(resource, -EINVAL, "unknown input node");
+	pw_resource_error(resource, new_id, -EINVAL, "unknown input node");
 	goto done;
       no_output_port:
 	pw_log_error("link-factory unknown output port %d", output_port_id);
-	pw_resource_error(resource, -EINVAL, "unknown output port");
+	pw_resource_error(resource, new_id, -EINVAL, "unknown output port");
 	goto done;
       no_input_port:
 	pw_log_error("link-factory unknown input port %d", input_port_id);
-	pw_resource_error(resource, -EINVAL, "unknown input port");
+	pw_resource_error(resource, new_id, -EINVAL, "unknown input port");
 	goto done;
       no_mem:
 	pw_log_error("can't create link");
-	pw_resource_error(resource, -ENOMEM, "no memory");
+	pw_resource_error(resource, new_id, -ENOMEM, "no memory");
 	goto done;
       no_bind:
-	pw_resource_error(resource, res, "can't bind link");
+	pw_resource_error(resource, new_id, res, "can't bind link");
 	goto done;
       done:
 	if (properties)

@@ -133,8 +133,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create module resource");
-	pw_core_resource_error(client->core_resource,
-			       client->core_resource->id, -ENOMEM, "no memory");
+	pw_core_resource_error(client->core_resource, id, -ENOMEM, "no memory");
 	return;
 }
 

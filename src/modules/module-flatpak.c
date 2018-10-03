@@ -308,6 +308,7 @@ static void do_portal_check(struct client_info *cinfo)
 	const char *handle;
 	const char *device;
 	struct async_pending *p;
+	struct pw_resource *core_resource;
 
 	pw_log_info("ask portal for client %p", client);
 	pw_client_set_busy(client, true);
@@ -382,7 +383,8 @@ static void do_portal_check(struct client_info *cinfo)
 	dbus_error_free(&error);
 	goto not_allowed;
       not_allowed:
-	pw_resource_error(pw_client_get_core_resource(client), -EPERM, "not allowed");
+	core_resource = pw_client_get_core_resource(client);
+	pw_resource_error(core_resource, 0, -EPERM, "not allowed");
 	return;
 }
 

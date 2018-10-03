@@ -146,10 +146,10 @@ const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *re
 	return resource->marshal;
 }
 
-void pw_resource_error(struct pw_resource *resource, int result, const char *error)
+void pw_resource_error(struct pw_resource *resource, uint32_t id, int result, const char *error)
 {
 	if (resource->client->core_resource)
-		pw_core_resource_error(resource->client->core_resource, resource->id, result, error);
+		pw_core_resource_error(resource->client->core_resource, id, result, error);
 }
 
 void pw_resource_destroy(struct pw_resource *resource)

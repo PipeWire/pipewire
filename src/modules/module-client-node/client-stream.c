@@ -42,14 +42,15 @@
 #include "client-node.h"
 #include "client-stream.h"
 
-#ifndef spa_debug
-#define spa_debug pw_log_trace
-#endif
+#include "pipewire/core.h"
+
+#define NAME "client-stream"
+
+#undef spa_debug
 
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 
-#include "pipewire/core.h"
 /** \cond */
 
 struct node {
@@ -218,21 +219,11 @@ impl_node_get_port_ids(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 
-	if (this->impl->adapter) {
-		return spa_node_get_port_ids(this->impl->adapter,
-				input_ids,
-				n_input_ids,
-				output_ids,
-				n_output_ids);
-	}
-	else {
-		if (input_ids && n_input_ids > 0)
-			input_ids[0] = 0;
-		if (output_ids && n_output_ids > 0)
-			output_ids[0] = 0;
-	}
-
-	return 0;
+	return spa_node_get_port_ids(this->impl->adapter,
+			input_ids,
+			n_input_ids,
+			output_ids,
+			n_output_ids);
 }
 
 static int
@@ -371,7 +362,7 @@ static int negotiate_format(struct impl *impl)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	spa_log_debug(this->log, "%p: negiotiate", impl);
+	spa_log_debug(this->log, NAME "%p: negiotiate", impl);
 
 	state = 0;
 	if ((res = spa_node_port_enum_params(impl->adapter_mix,
@@ -569,7 +560,7 @@ static void try_link_controls(struct impl *impl, struct pw_port *port, struct pw
 	struct pw_control *cin, *cout;
 	int res;
 
-	pw_log_debug("module %p: trying controls", impl);
+	pw_log_debug(NAME " %p: trying controls", impl);
 	spa_list_for_each(cout, &port->control_list[SPA_DIRECTION_OUTPUT], port_link) {
 		spa_list_for_each(cin, &target->control_list[SPA_DIRECTION_INPUT], port_link) {
 			if ((res = pw_control_link(cout, cin)) < 0)

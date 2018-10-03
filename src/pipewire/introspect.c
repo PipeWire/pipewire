@@ -399,6 +399,12 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 		info->input_node_id = update->input_node_id;
 		info->input_port_id = update->input_port_id;
 	}
+	if (update->change_mask & PW_LINK_CHANGE_MASK_STATE) {
+		info->state = update->state;
+		if (info->error)
+			free((void *) info->error);
+		info->error = update->error ? strdup(update->error) : NULL;
+	}
 	if (update->change_mask & PW_LINK_CHANGE_MASK_FORMAT) {
 		if (info->format)
 			free(info->format);
@@ -414,6 +420,8 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 
 void pw_link_info_free(struct pw_link_info *info)
 {
+	if (info->error)
+		free((void *) info->error);
 	if (info->format)
 		free(info->format);
 	if (info->props)

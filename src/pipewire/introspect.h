@@ -204,13 +204,16 @@ struct pw_link_info {
 	uint32_t id;			/**< id of the global */
 #define PW_LINK_CHANGE_MASK_OUTPUT		(1 << 0)
 #define PW_LINK_CHANGE_MASK_INPUT		(1 << 1)
-#define PW_LINK_CHANGE_MASK_FORMAT		(1 << 2)
-#define PW_LINK_CHANGE_MASK_PROPS		(1 << 3)
+#define PW_LINK_CHANGE_MASK_STATE		(1 << 2)
+#define PW_LINK_CHANGE_MASK_FORMAT		(1 << 4)
+#define PW_LINK_CHANGE_MASK_PROPS		(1 << 4)
 	uint64_t change_mask;		/**< bitfield of changed fields since last call */
 	uint32_t output_node_id;	/**< server side output node id */
 	uint32_t output_port_id;	/**< output port id */
 	uint32_t input_node_id;		/**< server side input node id */
 	uint32_t input_port_id;		/**< input port id */
+	enum pw_link_state state;	/**< the current state of the link */
+	const char *error;		/**< an error reason if \a state is error */
 	struct spa_pod *format;		/**< format over link */
 	struct spa_dict *props;		/**< the properties of the link */
 };

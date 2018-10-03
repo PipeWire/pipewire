@@ -1034,6 +1034,8 @@ static void link_marshal_info(void *object, struct pw_link_info *info)
 			    "i", info->output_port_id,
 			    "i", info->input_node_id,
 			    "i", info->input_port_id,
+			    "i", info->state,
+			    "s", info->error,
 			    "P", info->format,
 			    "i", n_items, NULL);
 
@@ -1064,6 +1066,8 @@ static int link_demarshal_info(void *object, void *data, size_t size)
 			"i", &info.output_port_id,
 			"i", &info.input_node_id,
 			"i", &info.input_port_id,
+			"i", &info.state,
+			"s", &info.error,
 			"P", &info.format,
 			"i", &props.n_items, NULL) < 0)
 		return -EINVAL;

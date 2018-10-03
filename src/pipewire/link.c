@@ -88,44 +88,53 @@ static void debug_link(struct pw_link *link)
 
 static void pw_link_update_state(struct pw_link *link, enum pw_link_state state, char *error)
 {
-	enum pw_link_state old = link->state;
+	enum pw_link_state old = link->info.state;
+	struct pw_node *in = link->input->node, *out = link->output->node;
+	struct pw_resource *resource;
 
-	if (state != old) {
-		struct pw_node *in = link->input->node, *out = link->output->node;
+	if (state == old)
+		return;
 
-		if (state == PW_LINK_STATE_ERROR) {
-			pw_log_error("link %p: update state %s -> error (%s)", link,
-			     pw_link_state_as_string(old), error);
-		} else {
-			pw_log_debug("link %p: update state %s -> %s", link,
-			     pw_link_state_as_string(old), pw_link_state_as_string(state));
-		}
 
-		link->state = state;
-		if (link->error)
-			free(link->error);
-		link->error = error;
+	if (state == PW_LINK_STATE_ERROR) {
+		pw_log_error("link %p: update state %s -> error (%s)", link,
+		     pw_link_state_as_string(old), error);
+	} else {
+		pw_log_debug("link %p: update state %s -> %s", link,
+		     pw_link_state_as_string(old), pw_link_state_as_string(state));
+	}
 
-		pw_link_events_state_changed(link, old, state, error);
+	link->info.state = state;
+	if (link->info.error)
+		free((char*)link->info.error);
+	link->info.error = error;
 
-		debug_link(link);
+	pw_link_events_state_changed(link, old, state, error);
 
-		if (old != PW_LINK_STATE_PAUSED && state == PW_LINK_STATE_PAUSED) {
-			if (++out->n_ready_output_links == out->n_used_output_links)
-				pw_node_set_state(out, PW_NODE_STATE_RUNNING);
-			if (++in->n_ready_input_links == in->n_used_input_links)
-				pw_node_set_state(in, PW_NODE_STATE_RUNNING);
-			pw_link_activate(link);
-		}
-		else if (old == PW_LINK_STATE_PAUSED && state < PW_LINK_STATE_PAUSED) {
-			if (--out->n_ready_output_links == 0 &&
-			    out->n_ready_input_links == 0)
-				pw_node_set_state(out, PW_NODE_STATE_IDLE);
-			if (--in->n_ready_input_links == 0 &&
-			    in->n_ready_output_links == 0)
-				pw_node_set_state(in, PW_NODE_STATE_IDLE);
-		}
+	link->info.change_mask |= PW_LINK_CHANGE_MASK_STATE;
+	pw_link_events_info_changed(link, &link->info);
 
+	spa_list_for_each(resource, &link->resource_list, link)
+		pw_link_resource_info(resource, &link->info);
+
+	link->info.change_mask = 0;
+
+	debug_link(link);
+
+	if (old != PW_LINK_STATE_PAUSED && state == PW_LINK_STATE_PAUSED) {
+		if (++out->n_ready_output_links == out->n_used_output_links)
+			pw_node_set_state(out, PW_NODE_STATE_RUNNING);
+		if (++in->n_ready_input_links == in->n_used_input_links)
+			pw_node_set_state(in, PW_NODE_STATE_RUNNING);
+		pw_link_activate(link);
+	}
+	else if (old == PW_LINK_STATE_PAUSED && state < PW_LINK_STATE_PAUSED) {
+		if (--out->n_ready_output_links == 0 &&
+		    out->n_ready_input_links == 0)
+			pw_node_set_state(out, PW_NODE_STATE_IDLE);
+		if (--in->n_ready_input_links == 0 &&
+		    in->n_ready_output_links == 0)
+			pw_node_set_state(in, PW_NODE_STATE_IDLE);
 	}
 }
 
@@ -852,14 +861,14 @@ int pw_link_activate(struct pw_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
-	pw_log_debug("link %p: activate %d %d", this, impl->activated, this->state);
+	pw_log_debug("link %p: activate %d %d", this, impl->activated, this->info.state);
 
 	if (impl->activated)
 		return 0;
 
 	pw_link_prepare(this);
 
-	if (this->state == PW_LINK_STATE_PAUSED) {
+	if (this->info.state == PW_LINK_STATE_PAUSED) {
 		pw_loop_invoke(this->output->node->data_loop,
 		       do_activate_link, SPA_ID_INVALID, NULL, 0, false, this);
 		impl->activated = true;
@@ -874,7 +883,7 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 	struct pw_port *input, *output;
 	int in_mix_state, out_mix_state;
 
-	if (this->state == PW_LINK_STATE_ERROR)
+	if (this->info.state == PW_LINK_STATE_ERROR)
 		return -EIO;
 
 	input = this->input;
@@ -1318,7 +1327,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	this->core = core;
 	this->properties = properties;
-	this->state = PW_LINK_STATE_INIT;
+	this->info.state = PW_LINK_STATE_INIT;
 
 	this->input = input;
 	this->output = output;

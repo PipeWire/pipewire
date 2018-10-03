@@ -426,12 +426,17 @@ static void link_event_info(void *object, struct pw_link_info *info)
 		printf("%c\toutput-port-id: %u\n", MARK_CHANGE(0), info->output_port_id);
 		printf("%c\tinput-node-id: %u\n", MARK_CHANGE(1), info->input_node_id);
 		printf("%c\tinput-port-id: %u\n", MARK_CHANGE(1), info->input_port_id);
-		printf("%c\tformat:\n", MARK_CHANGE(2));
+		printf("%c\tstate: \"%s\"", MARK_CHANGE(2), pw_link_state_as_string(info->state));
+		if (info->state == PW_LINK_STATE_ERROR && info->error)
+			printf(" \"%s\"\n", info->error);
+		else
+			printf("\n");
+		printf("%c\tformat:\n", MARK_CHANGE(3));
 		if (info->format)
 			spa_debug_format(2, NULL, info->format);
 		else
 			printf("\t\tnone\n");
-		print_properties(info->props, MARK_CHANGE(3));
+		print_properties(info->props, MARK_CHANGE(4));
 	}
 }
 

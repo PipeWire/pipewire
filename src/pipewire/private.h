@@ -462,9 +462,6 @@ struct pw_link {
 	struct pw_properties *properties;	/**< extra link properties */
 	bool feedback;
 
-	enum pw_link_state state;	/**< link state */
-	char *error;			/**< error message when state error */
-
 	struct spa_list resource_list;	/**< list of bound resources */
 
 	struct spa_io_buffers *io;	/**< link io area */

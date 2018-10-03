@@ -164,8 +164,7 @@ const char *pa_proplist_iterate(pa_proplist *p, void **state)
 char *pa_proplist_to_string(pa_proplist *p)
 {
 	spa_assert(p);
-	pw_log_warn("Not Implemented");
-	return NULL;
+	return pa_proplist_to_string_sep(p, ",");
 }
 
 char *pa_proplist_to_string_sep(pa_proplist *p, const char *sep)

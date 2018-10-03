@@ -504,6 +504,7 @@ pa_stream* stream_new(pa_context *c, const char *name,
 	pa_stream *s;
 	char str[1024];
 	int i;
+	struct pw_properties *props;
 
 	spa_assert(c);
 	spa_assert(c->refcount >= 1);
@@ -517,11 +518,16 @@ pa_stream* stream_new(pa_context *c, const char *name,
 	if (s == NULL)
 		return NULL;
 
+	s->proplist = p ? pa_proplist_copy(p) : pa_proplist_new();
+	if (name)
+		pa_proplist_sets(s->proplist, PA_PROP_MEDIA_NAME, name);
+	else
+		name = pa_proplist_gets(p, PA_PROP_MEDIA_NAME);
 
-	s->stream = pw_stream_new(c->remote, name,
-			pw_properties_new(
-				"client.api", "pulseaudio",
-				NULL));
+	props = pw_properties_new("client.api", "pulseaudio",
+				NULL);
+
+	s->stream = pw_stream_new(c->remote, name, props);
 	s->refcount = 1;
 	s->context = c;
 	spa_list_init(&s->pending);
@@ -553,10 +559,6 @@ pa_stream* stream_new(pa_context *c, const char *name,
 	s->format = NULL;
 
 	s->direct_on_input = PA_INVALID_INDEX;
-
-	s->proplist = p ? pa_proplist_copy(p) : pa_proplist_new();
-	if (name)
-		pa_proplist_sets(s->proplist, PA_PROP_MEDIA_NAME, name);
 
 	s->stream_index = PA_INVALID_INDEX;
 

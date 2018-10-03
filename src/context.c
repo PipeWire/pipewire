@@ -325,7 +325,6 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	if (r == NULL)
 		return NULL;
 
-
 	c = pw_remote_get_user_data(r);
 	c->loop = loop;
 	c->core = core;

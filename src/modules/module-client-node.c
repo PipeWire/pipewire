@@ -55,20 +55,16 @@ static void *create_object(void *_data,
 			   struct pw_properties *properties,
 			   uint32_t new_id)
 {
-	struct factory_data *d = _data;
 	void *result;
 	struct pw_resource *node_resource;
 	struct pw_global *parent;
+	struct pw_client *client = pw_resource_get_client(resource);
 
-	if (resource == NULL)
-		goto no_resource;
-
-	node_resource = pw_resource_new(pw_resource_get_client(resource),
-					new_id, PW_PERM_RWX, type, version, 0);
+	node_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0);
 	if (node_resource == NULL)
 		goto no_mem;
 
-	parent = pw_module_get_global(d->module);
+	parent = pw_client_get_global(client);
 
 	if (properties && pw_properties_get(properties, "node.stream") != NULL) {
 		result = pw_client_stream_new(node_resource, parent, properties);
@@ -81,10 +77,6 @@ static void *create_object(void *_data,
 
 	return result;
 
-      no_resource:
-	pw_log_error("client-node needs a resource");
-	pw_resource_error(resource, new_id, -EINVAL, "no resource");
-	goto done;
       no_mem:
 	pw_log_error("can't create node");
 	pw_resource_error(resource, new_id, -ENOMEM, "no memory");

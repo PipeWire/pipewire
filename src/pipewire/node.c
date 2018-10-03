@@ -145,29 +145,6 @@ static int start_node(struct pw_node *this)
 	return res;
 }
 
-static int suspend_node(struct pw_node *this)
-{
-	int res = 0;
-	struct pw_port *p;
-
-	pw_log_debug("node %p: suspend node", this);
-
-	spa_list_for_each(p, &this->input_ports, link) {
-		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_PARAM_Format, 0, NULL)) < 0)
-			pw_log_warn("error unset format input: %s", spa_strerror(res));
-		/* force CONFIGURE in case of async */
-		p->state = PW_PORT_STATE_CONFIGURE;
-	}
-
-	spa_list_for_each(p, &this->output_ports, link) {
-		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_PARAM_Format, 0, NULL)) < 0)
-			pw_log_warn("error unset format output: %s", spa_strerror(res));
-		/* force CONFIGURE in case of async */
-		p->state = PW_PORT_STATE_CONFIGURE;
-	}
-	return res;
-}
-
 static void node_update_state(struct pw_node *node, enum pw_node_state state, char *error)
 {
 	enum pw_node_state old;
@@ -209,6 +186,30 @@ static void node_update_state(struct pw_node *node, enum pw_node_state state, ch
 	node->info.change_mask = 0;
 }
 
+
+static int suspend_node(struct pw_node *this)
+{
+	int res = 0;
+	struct pw_port *p;
+
+	pw_log_debug("node %p: suspend node", this);
+
+	spa_list_for_each(p, &this->input_ports, link) {
+		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_PARAM_Format, 0, NULL)) < 0)
+			pw_log_warn("error unset format input: %s", spa_strerror(res));
+		/* force CONFIGURE in case of async */
+		p->state = PW_PORT_STATE_CONFIGURE;
+	}
+
+	spa_list_for_each(p, &this->output_ports, link) {
+		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_PARAM_Format, 0, NULL)) < 0)
+			pw_log_warn("error unset format output: %s", spa_strerror(res));
+		/* force CONFIGURE in case of async */
+		p->state = PW_PORT_STATE_CONFIGURE;
+	}
+	node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
+	return res;
+}
 static void node_unbind_func(void *data)
 {
 	struct pw_resource *resource = data;

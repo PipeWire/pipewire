@@ -327,9 +327,39 @@ static void node_event_info(void *object, struct pw_node_info *info)
 
 }
 
+static void node_event_param(void *object,
+                       uint32_t id, uint32_t index, uint32_t next,
+                       const struct spa_pod *param)
+{
+	struct node *n = object;
+	struct impl *impl = n->obj.impl;
+	uint32_t media_type, media_subtype;
+	struct spa_audio_info_raw info;
+
+	pw_log_debug(NAME" %p: param for node %d", impl, n->obj.id);
+
+	if (id != SPA_PARAM_EnumFormat)
+		return;
+
+	if (spa_format_parse(param, &media_type, &media_subtype) < 0)
+		return;
+
+	if (media_type != SPA_MEDIA_TYPE_audio ||
+	    media_subtype != SPA_MEDIA_SUBTYPE_raw)
+		return;
+
+	spa_pod_fixate((struct spa_pod*)param);
+
+	if (spa_format_audio_raw_parse(param, &info) < 0)
+		return;
+
+	n->format = info;
+}
+
 static const struct pw_node_proxy_events node_events = {
 	PW_VERSION_NODE_PROXY_EVENTS,
 	.info = node_event_info,
+	.param = node_event_param,
 };
 
 static void remove_session(struct impl *impl, struct session *sess)
@@ -432,6 +462,10 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		node->direction = direction;
 		node->type = NODE_TYPE_STREAM;
 		pw_log_debug(NAME "%p: node %d is stream", impl, id);
+
+		pw_node_proxy_enum_params((struct pw_node_proxy*)p,
+				SPA_PARAM_EnumFormat,
+				0, -1, NULL);
 	}
 	else {
 		struct session *sess;
@@ -746,6 +780,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 	struct pw_node_info *info;
 	struct node *peer;
 	enum pw_direction direction;
+	struct spa_audio_info_raw audio_info;
 
 	if (node->type == NODE_TYPE_DSP || node->type == NODE_TYPE_DEVICE)
 		return 0;
@@ -857,6 +892,11 @@ static int rescan_node(struct impl *impl, struct node *node)
         session->busy = true;
 	node->session = session;
 	spa_list_append(&session->node_list, &node->session_link);
+
+	audio_info = node->format;
+	audio_info.format = SPA_AUDIO_FORMAT_F32P;
+	audio_info.rate = session->node->format.rate;
+	audio_info.channels = SPA_MIN(session->node->format.channels, audio_info.channels);
 
 	link_nodes(peer, direction, node);
 

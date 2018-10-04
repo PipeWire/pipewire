@@ -247,31 +247,39 @@ void pw_properties_free(struct pw_properties *properties)
 	free(impl);
 }
 
-static int do_replace(struct pw_properties *properties, const char *key, char *value)
+static int do_replace(struct pw_properties *properties, const char *key, char *value, bool copy)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
 	int index = find_index(properties, key);
 
 	if (index == -1) {
-		add_func(properties, strdup(key), value);
+		if (value == NULL)
+			return 0;
+		add_func(properties, strdup(key), copy ? strdup(value) : value);
 	} else {
 		struct spa_dict_item *item =
 		    pw_array_get_unchecked(&impl->items, index, struct spa_dict_item);
 
-		clear_item(item);
+		if (value && strcmp(item->value, value) == 0) {
+			if (!copy)
+				free(value);
+			return 0;
+		}
+
 		if (value == NULL) {
 			struct spa_dict_item *other = pw_array_get_unchecked(&impl->items,
 						     pw_array_get_len(&impl->items, struct spa_dict_item) - 1,
 						     struct spa_dict_item);
+			clear_item(item);
 			item->key = other->key;
 			item->value = other->value;
 			impl->items.size -= sizeof(struct spa_dict_item);
 		} else {
-			item->key = strdup(key);
-			item->value = value;
+			free((char *) item->value);
+			item->value = copy ? strdup(value) : value;
 		}
 	}
-	return 0;
+	return 1;
 }
 
 /** Set a property value
@@ -279,6 +287,9 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
  * \param properties the properties to change
  * \param key a key
  * \param value a value or NULL to remove the key
+ * \return 1 if the properties were changed. 0 if nothing was changed because
+ *  the property already existed with the same value or because the key to remove
+ *  did not exist.
  *
  * Set the property in \a properties with \a key to \a value. Any previous value
  * of \a key will be overwritten. When \a value is NULL, the key will be
@@ -288,7 +299,7 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
  */
 int pw_properties_set(struct pw_properties *properties, const char *key, const char *value)
 {
-	return do_replace(properties, key, value ? strdup(value) : NULL);
+	return do_replace(properties, key, (char*)value, true);
 }
 
 int
@@ -297,7 +308,7 @@ pw_properties_setva(struct pw_properties *properties,
 {
 	char *value;
 	vasprintf(&value, format, args);
-	return do_replace(properties, key, value);
+	return do_replace(properties, key, value, false);
 }
 
 /** Set a property value by format

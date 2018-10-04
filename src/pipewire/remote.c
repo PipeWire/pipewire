@@ -330,16 +330,20 @@ const struct pw_properties *pw_remote_get_properties(struct pw_remote *remote)
 
 int pw_remote_update_properties(struct pw_remote *remote, const struct spa_dict *dict)
 {
-	uint32_t i;
+	uint32_t i, changed = 0;
 
 	for (i = 0; i < dict->n_items; i++)
-		pw_properties_set(remote->properties, dict->items[i].key, dict->items[i].value);
+		changed += pw_properties_set(remote->properties, dict->items[i].key, dict->items[i].value);
+
+	if (!changed)
+		return 0;
 
 	if (remote->core_proxy)
 		pw_core_proxy_client_update(remote->core_proxy, &remote->properties->dict);
 
-	return 0;
+	return changed;
 }
+
 void *pw_remote_get_user_data(struct pw_remote *remote)
 {
 	return remote->user_data;

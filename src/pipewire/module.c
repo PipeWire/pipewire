@@ -334,10 +334,13 @@ const struct pw_properties *pw_module_get_properties(struct pw_module *module)
 int pw_module_update_properties(struct pw_module *module, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
-	uint32_t i;
+	uint32_t i, changed = 0;
 
 	for (i = 0; i < dict->n_items; i++)
-		pw_properties_set(module->properties, dict->items[i].key, dict->items[i].value);
+		changed += pw_properties_set(module->properties, dict->items[i].key, dict->items[i].value);
+
+	if (!changed)
+		return 0;
 
 	module->info.props = &module->properties->dict;
 
@@ -346,7 +349,7 @@ int pw_module_update_properties(struct pw_module *module, const struct spa_dict 
 		pw_module_resource_info(resource, &module->info);
 	module->info.change_mask = 0;
 
-	return 0;
+	return changed;
 }
 
 const struct pw_module_info *

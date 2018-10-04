@@ -573,10 +573,13 @@ const struct pw_properties *pw_core_get_properties(struct pw_core *core)
 int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
-	uint32_t i;
+	uint32_t i, changed = 0;
 
 	for (i = 0; i < dict->n_items; i++)
-		pw_properties_set(core->properties, dict->items[i].key, dict->items[i].value);
+		changed += pw_properties_set(core->properties, dict->items[i].key, dict->items[i].value);
+
+	if (!changed)
+		return 0;
 
 	core->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
 	core->info.props = &core->properties->dict;
@@ -588,7 +591,7 @@ int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 
 	core->info.change_mask = 0;
 
-	return 0;
+	return changed;
 }
 
 int pw_core_for_each_global(struct pw_core *core,

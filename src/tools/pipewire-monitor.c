@@ -290,7 +290,7 @@ static void print_port(struct proxy_data *data)
 	if (print_all) {
 		int i;
 		printf(" \tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
-		printf("%c\tparams:\n", MARK_CHANGE(1));
+		printf("%c\tparams:\n", MARK_CHANGE(2));
 		for (i = 0; i < data->n_params; i++) {
 			if (spa_pod_is_object_type(data->params[i], SPA_TYPE_OBJECT_Format))
 				spa_debug_format(12, NULL, data->params[i]);

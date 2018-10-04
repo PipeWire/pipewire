@@ -107,7 +107,20 @@ static int impl_node_enum_params(struct spa_node *node,
 				 struct spa_pod **result,
 				 struct spa_pod_builder *builder)
 {
-	return 0;
+	struct node *this;
+	struct impl *impl;
+	int res;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct node, node);
+	impl = this->impl;
+
+	res = spa_node_port_enum_params(impl->cnode,
+				impl->direction, 0,
+				id, index,
+				filter, result, builder);
+	return res;
 }
 
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,

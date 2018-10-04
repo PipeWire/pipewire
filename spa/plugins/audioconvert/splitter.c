@@ -54,6 +54,8 @@ struct port {
 	struct spa_io_range *ctrl;
 
 	struct spa_port_info info;
+	struct spa_dict info_props;
+	struct spa_dict_item info_props_items[2];
 
 	bool have_format;
 	struct spa_audio_info format;
@@ -291,6 +293,11 @@ impl_node_port_get_info(struct spa_node *node,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
+
+	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
+	port->info_props = SPA_DICT_INIT(port->info_props_items, 1);
+	port->info.props = &port->info_props;
+
 	*info = &port->info;
 
 	return 0;
@@ -514,14 +521,14 @@ static int setup_convert(struct impl *this)
 	src_fmt = inport->format.info.raw.format;
 	dst_fmt = outport->format.info.raw.format;
 
-	spa_log_info(this->log, NAME " %p: %s/%d@%dx%d->%s/%d@%d", this,
+	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%dx%d", this,
 			spa_debug_type_find_name(spa_type_audio_format, src_fmt),
 			inport->format.info.raw.channels,
 			inport->format.info.raw.rate,
-			this->port_count,
 			spa_debug_type_find_name(spa_type_audio_format, dst_fmt),
 			outport->format.info.raw.channels,
-			outport->format.info.raw.rate);
+			outport->format.info.raw.rate,
+			this->port_count);
 
 	conv = find_conv_info(src_fmt, dst_fmt, FEATURE_SSE);
 	if (conv != NULL) {

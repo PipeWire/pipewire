@@ -811,15 +811,21 @@ static int impl_clear(struct spa_handle *handle)
 extern const struct spa_handle_factory spa_fmtconvert_factory;
 extern const struct spa_handle_factory spa_channelmix_factory;
 extern const struct spa_handle_factory spa_resample_factory;
+extern const struct spa_handle_factory spa_splitter_factory;
+extern const struct spa_handle_factory spa_merger_factory;
 
 static size_t
 impl_get_size(const struct spa_handle_factory *factory,
 	      const struct spa_dict *params)
 {
-	size_t size;
+	size_t size, max;
+
+	max = spa_handle_factory_get_size(&spa_fmtconvert_factory, params);
+	max = SPA_MAX(max, spa_handle_factory_get_size(&spa_splitter_factory, params));
+	max = SPA_MAX(max, spa_handle_factory_get_size(&spa_merger_factory, params));
 
 	size = sizeof(struct impl);
-	size += spa_handle_factory_get_size(&spa_fmtconvert_factory, params) * 2;
+	size += max * 2;
 	size += spa_handle_factory_get_size(&spa_channelmix_factory, params);
 	size += spa_handle_factory_get_size(&spa_resample_factory, params);
 
@@ -837,6 +843,8 @@ impl_init(const struct spa_handle_factory *factory,
 	uint32_t i;
 	size_t size;
 	void *iface;
+	const char *str;
+	const struct spa_handle_factory *in_factory, *out_factory;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -852,11 +860,27 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	this->node = impl_node;
 
+	if (info == NULL || (str = spa_dict_lookup(info, "factory.mode")) == NULL)
+		str = "convert";
+
+	if (strcmp(str, "split") == 0) {
+		in_factory = &spa_fmtconvert_factory;
+		out_factory = &spa_splitter_factory;
+	}
+	else if (strcmp(str, "merge") == 0) {
+		in_factory = &spa_merger_factory;
+		out_factory = &spa_fmtconvert_factory;
+	}
+	else {
+		in_factory = &spa_fmtconvert_factory;
+		out_factory = &spa_fmtconvert_factory;
+	}
+
 	this->hnd_fmt[SPA_DIRECTION_INPUT] = SPA_MEMBER(this, sizeof(struct impl), struct spa_handle);
-	spa_handle_factory_init(&spa_fmtconvert_factory,
+	spa_handle_factory_init(in_factory,
 				this->hnd_fmt[SPA_DIRECTION_INPUT],
 				info, support, n_support);
-	size = spa_handle_factory_get_size(&spa_fmtconvert_factory, info);
+	size = spa_handle_factory_get_size(in_factory, info);
 
 	this->hnd_channelmix = SPA_MEMBER(this->hnd_fmt[SPA_DIRECTION_INPUT], size, struct spa_handle);
 	spa_handle_factory_init(&spa_channelmix_factory,
@@ -864,26 +888,26 @@ impl_init(const struct spa_handle_factory *factory,
 				info, support, n_support);
 	size = spa_handle_factory_get_size(&spa_channelmix_factory, info);
 
-	this->hnd_fmt[SPA_DIRECTION_OUTPUT] = SPA_MEMBER(this->hnd_channelmix, size, struct spa_handle);
-	spa_handle_factory_init(&spa_fmtconvert_factory,
-				this->hnd_fmt[SPA_DIRECTION_OUTPUT],
-				info, support, n_support);
-	size = spa_handle_factory_get_size(&spa_fmtconvert_factory, info);
-
-	this->hnd_resample = SPA_MEMBER(this->hnd_fmt[SPA_DIRECTION_OUTPUT], size, struct spa_handle);
+	this->hnd_resample = SPA_MEMBER(this->hnd_channelmix, size, struct spa_handle);
 	spa_handle_factory_init(&spa_resample_factory,
 				this->hnd_resample,
 				info, support, n_support);
 	size = spa_handle_factory_get_size(&spa_resample_factory, info);
 
+	this->hnd_fmt[SPA_DIRECTION_OUTPUT] = SPA_MEMBER(this->hnd_resample, size, struct spa_handle);
+	spa_handle_factory_init(out_factory,
+				this->hnd_fmt[SPA_DIRECTION_OUTPUT],
+				info, support, n_support);
+	size = spa_handle_factory_get_size(out_factory, info);
+
 	spa_handle_get_interface(this->hnd_fmt[SPA_DIRECTION_INPUT], SPA_TYPE_INTERFACE_Node, &iface);
 	this->fmt[SPA_DIRECTION_INPUT] = iface;
-	spa_handle_get_interface(this->hnd_fmt[SPA_DIRECTION_OUTPUT], SPA_TYPE_INTERFACE_Node, &iface);
-	this->fmt[SPA_DIRECTION_OUTPUT] = iface;
 	spa_handle_get_interface(this->hnd_channelmix, SPA_TYPE_INTERFACE_Node, &iface);
 	this->channelmix = iface;
 	spa_handle_get_interface(this->hnd_resample, SPA_TYPE_INTERFACE_Node, &iface);
 	this->resample = iface;
+	spa_handle_get_interface(this->hnd_fmt[SPA_DIRECTION_OUTPUT], SPA_TYPE_INTERFACE_Node, &iface);
+	this->fmt[SPA_DIRECTION_OUTPUT] = iface;
 
 	props_reset(&this->props);
 

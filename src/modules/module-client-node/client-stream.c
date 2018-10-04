@@ -922,15 +922,26 @@ static void client_node_initialized(void *data)
 			spa_debug_type_find_name(spa_type_media_type, media_type),
 			spa_debug_type_find_name(spa_type_media_subtype, media_subtype));
 
-
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_format(2, NULL, format);
 
 	if (!exclusive &&
 	    media_type == SPA_MEDIA_TYPE_audio &&
 	    media_subtype == SPA_MEDIA_SUBTYPE_raw) {
+		struct spa_dict dict;
+		struct spa_dict_item items[1];
+		const char *mode;
+
+		if (impl->direction == SPA_DIRECTION_OUTPUT)
+			mode = "split";
+		else
+			mode = "merge";
+
+		items[0] = SPA_DICT_ITEM_INIT("factory.mode", mode);
+		dict = SPA_DICT_INIT(items, 1);
+
 		if ((impl->adapter = pw_load_spa_interface("audioconvert/libspa-audioconvert",
-				"audioconvert", SPA_TYPE_INTERFACE_Node, NULL, 0, NULL)) == NULL)
+				"audioconvert", SPA_TYPE_INTERFACE_Node, &dict, 0, NULL)) == NULL)
 			return;
 
 		impl->adapter_mix = impl->adapter;

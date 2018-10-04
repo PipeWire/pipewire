@@ -193,40 +193,22 @@ impl_node_get_n_ports(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
-	if (impl->adapter) {
-		spa_node_get_n_ports(impl->adapter,
-				n_input_ports,
-				max_input_ports,
-				n_output_ports,
-				max_output_ports);
+	spa_node_get_n_ports(impl->adapter,
+			n_input_ports,
+			max_input_ports,
+			n_output_ports,
+			max_output_ports);
 
-		if (impl->direction == SPA_DIRECTION_OUTPUT) {
-			if (n_input_ports)
-				*n_input_ports = 0;
-			if (max_input_ports)
-				*max_input_ports = 0;
-		} else {
-			if (n_output_ports)
-				*n_output_ports = 0;
-			if (max_output_ports)
-				*max_output_ports = 0;
-		}
-	} else {
-		uint32_t n_inputs = 0, n_outputs = 0;
-
-		if (impl->direction == SPA_DIRECTION_OUTPUT)
-			n_outputs++;
-		else
-			n_inputs++;
-
+	if (impl->direction == SPA_DIRECTION_OUTPUT) {
 		if (n_input_ports)
-			*n_input_ports = n_inputs;
+			*n_input_ports = 0;
 		if (max_input_ports)
-			*max_input_ports = n_inputs;
+			*max_input_ports = 0;
+	} else {
 		if (n_output_ports)
-			*n_output_ports = n_outputs;
+			*n_output_ports = 0;
 		if (max_output_ports)
-			*max_output_ports = n_outputs;
+			*max_output_ports = 0;
 	}
 	return 0;
 }

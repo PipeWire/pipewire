@@ -118,7 +118,7 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 	uint32_t i;
 	struct properties *impl;
 
-	impl = properties_new(16);
+	impl = properties_new(SPA_ROUND_UP_N(dict->n_items, 16));
 	if (impl == NULL)
 		return NULL;
 

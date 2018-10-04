@@ -72,6 +72,7 @@ struct impl {
 	struct pw_core *core;
 
 	struct node node;
+	bool started;
 
 	struct spa_hook node_listener;
 	struct spa_hook client_node_listener;
@@ -125,6 +126,17 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
+
+	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_Start:
+		impl->started = true;
+		break;
+	case SPA_NODE_COMMAND_Pause:
+		impl->started = false;
+		break;
+	default:
+		break;
+	}
 
 	if ((res = spa_node_send_command(impl->adapter, command)) < 0)
 		return res;

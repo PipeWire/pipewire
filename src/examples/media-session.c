@@ -129,8 +129,8 @@ struct session {
 
 	struct node *node;
 	struct node *dsp;
-	struct pw_link_proxy *link;
-	struct spa_hook link_listener;
+	struct pw_proxy *dsp_proxy;
+	struct pw_proxy *link_proxy;
 
 	struct spa_list node_list;
 
@@ -139,7 +139,6 @@ struct session {
 	struct spa_source *idle_timeout;
 
 	bool starting;
-	bool dsp_pending;
 	bool enabled;
 	bool busy;
 	bool exclusive;
@@ -217,9 +216,13 @@ static void add_idle_timeout(struct session *sess)
 
 static int unlink_session_dsp(struct impl *impl, struct session *session)
 {
+	if (session->link_proxy == NULL)
+		return 0;
+
 	if (impl->core_proxy)
-		pw_core_proxy_destroy(impl->core_proxy, (struct pw_proxy*)session->link);
-	session->link = NULL;
+		pw_core_proxy_destroy(impl->core_proxy, session->link_proxy);
+
+	session->link_proxy = NULL;
 	return 0;
 }
 
@@ -233,8 +236,7 @@ static int on_node_idle(struct impl *impl, struct node *node)
 	switch (node->type) {
 	case NODE_TYPE_DSP:
 		pw_log_debug(NAME" %p: dsp idle for session %d", impl, sess->id);
-		if (sess->link)
-			unlink_session_dsp(impl, sess);
+		unlink_session_dsp(impl, sess);
 		break;
 
 	case NODE_TYPE_DEVICE:
@@ -254,6 +256,9 @@ static int link_session_dsp(struct impl *impl, struct session *session)
 {
 	struct pw_properties *props;
 
+	if (session->link_proxy != NULL)
+		return 0;
+
 	pw_log_debug(NAME " %p: link session dsp '%d'", impl, session->id);
 
 	props = pw_properties_new(NULL, NULL);
@@ -271,12 +276,14 @@ static int link_session_dsp(struct impl *impl, struct session *session)
 		pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
 	}
 
-        session->link = pw_core_proxy_create_object(impl->core_proxy,
+        session->link_proxy = pw_core_proxy_create_object(impl->core_proxy,
                                           "link-factory",
                                           PW_TYPE_INTERFACE_Link,
                                           PW_VERSION_LINK,
                                           &props->dict,
 					  0);
+	pw_properties_free(props);
+
 	return 0;
 }
 
@@ -290,8 +297,7 @@ static int on_node_running(struct impl *impl, struct node *node)
 	switch (node->type) {
 	case NODE_TYPE_DSP:
 		pw_log_debug(NAME" %p: dsp running for session %d", impl, sess->id);
-		if (sess->link == NULL)
-			link_session_dsp(impl, sess);
+		link_session_dsp(impl, sess);
 		break;
 
 	case NODE_TYPE_DEVICE:
@@ -374,9 +380,14 @@ static void remove_session(struct impl *impl, struct session *sess)
 		spa_list_remove(&n->session_link);
 	}
 
-	if (sess->dsp && impl->core_proxy) {
-		pw_log_debug(NAME " %p: destroy dsp %p", impl, sess->dsp->obj.proxy);
-		pw_core_proxy_destroy(impl->core_proxy, sess->dsp->obj.proxy);
+	if (sess->dsp) {
+		sess->dsp->manager = NULL;
+	}
+	if (sess->dsp_proxy) {
+		pw_log_debug(NAME " %p: destroy dsp %p", impl, sess->dsp_proxy);
+		if (impl->core_proxy)
+			pw_core_proxy_destroy(impl->core_proxy, sess->dsp_proxy);
+		sess->dsp_proxy = NULL;
 	}
 	spa_list_remove(&sess->l);
 	free(sess);
@@ -418,11 +429,13 @@ static int
 handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		uint32_t type, const struct spa_dict *props)
 {
-	const char *str;
+	const char *str, *media_class;
 	bool need_dsp = false;
 	enum pw_direction direction;
 	struct pw_proxy *p;
 	struct node *node;
+
+	media_class = props ? spa_dict_lookup(props, "media.class") : NULL;
 
 	p = pw_registry_proxy_bind(impl->registry_proxy,
 			id, type, PW_VERSION_NODE,
@@ -441,20 +454,17 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	spa_list_append(&impl->node_list, &node->l);
 	node->type = NODE_TYPE_UNKNOWN;
 
-	if (props == NULL)
+	if (media_class == NULL)
 		return 0;
 
-	if ((str = spa_dict_lookup(props, "media.class")) == NULL)
-		return 0;
+	pw_log_debug(NAME" %p: node media.class %s", impl, media_class);
 
-	pw_log_debug(NAME" %p: node media.class %s", impl, str);
+	if (strstr(media_class, "Stream/") == media_class) {
+		media_class += strlen("Stream/");
 
-	if (strstr(str, "Stream/") == str) {
-		str += strlen("Stream/");
-
-		if (strstr(str, "Output/") == str)
+		if (strstr(media_class, "Output/") == media_class)
 			direction = PW_DIRECTION_OUTPUT;
-		else if (strstr(str, "Input/") == str)
+		else if (strstr(media_class, "Input/") == media_class)
 			direction = PW_DIRECTION_INPUT;
 		else
 			return 0;
@@ -470,19 +480,19 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	else {
 		struct session *sess;
 
-		if (strstr(str, "Audio/") == str) {
+		if (strstr(media_class, "Audio/") == media_class) {
 			need_dsp = true;
-			str += strlen("Audio/");
+			media_class += strlen("Audio/");
 		}
-		else if (strstr(str, "Video/") == str) {
-			str += strlen("Video/");
+		else if (strstr(media_class, "Video/") == media_class) {
+			media_class += strlen("Video/");
 		}
 		else
 			return 0;
 
-		if (strcmp(str, "Sink") == 0)
+		if (strcmp(media_class, "Sink") == 0)
 			direction = PW_DIRECTION_OUTPUT;
-		else if (strcmp(str, "Source") == 0)
+		else if (strcmp(media_class, "Source") == 0)
 			direction = PW_DIRECTION_INPUT;
 		else
 			return 0;
@@ -732,12 +742,13 @@ static int find_session(void *data, struct session *sess)
 static int link_nodes(struct node *peer, enum pw_direction direction, struct node *node)
 {
 	struct impl *impl = peer->obj.impl;
-	struct pw_properties *props;
 	struct port *p;
 
 	pw_log_debug(NAME " %p: link nodes %d %d", impl, node->obj.id, peer->obj.id);
 
 	spa_list_for_each(p, &peer->port_list, l) {
+		struct pw_properties *props;
+
 		if (p->direction == direction)
 			continue;
 
@@ -766,6 +777,8 @@ static int link_nodes(struct node *peer, enum pw_direction direction, struct nod
                                           PW_VERSION_LINK,
                                           &props->dict,
 					  0);
+
+		pw_properties_free(props);
 	}
 	return 0;
 }
@@ -876,7 +889,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 			pw_log_warn(NAME" %p: session %d busy, can't get exclusive access", impl, session->id);
 			return -EBUSY;
 		}
-		if (session->link != NULL) {
+		if (session->link_proxy != NULL) {
 			pw_log_warn(NAME" %p: session %d busy with DSP", impl, session->id);
 			return -EBUSY;
 		}
@@ -928,10 +941,9 @@ static const struct pw_node_proxy_events dsp_node_events = {
 
 static void rescan_session(struct impl *impl, struct session *sess)
 {
-	if (sess->need_dsp && sess->dsp == NULL && !sess->dsp_pending) {
+	if (sess->need_dsp && sess->dsp == NULL && sess->dsp_proxy == NULL) {
 		struct pw_properties *props;
 		struct node *node = sess->node;
-		void *dsp;
 		int i;
 		uint64_t mask = 0;
 
@@ -950,14 +962,15 @@ static void rescan_session(struct impl *impl, struct session *sess)
 
 		pw_log_debug(NAME" %p: making audio dsp for session %d", impl, sess->id);
 
-		dsp = pw_core_proxy_create_object(impl->core_proxy,
+		sess->dsp_proxy = pw_core_proxy_create_object(impl->core_proxy,
 				"audio-dsp",
 				PW_TYPE_INTERFACE_Node,
 				PW_VERSION_NODE,
 				&props->dict,
 				0);
-		sess->dsp_pending = true;
-		pw_proxy_add_proxy_listener(dsp, &sess->listener, &dsp_node_events, sess);
+		pw_properties_free(props);
+
+		pw_proxy_add_proxy_listener(sess->dsp_proxy, &sess->listener, &dsp_node_events, sess);
 	}
 	else {
 		sess->starting = false;

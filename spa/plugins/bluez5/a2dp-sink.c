@@ -608,6 +608,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 
 	if (spa_list_is_empty(&this->ready)) {
 		spa_log_trace(this->log, "a2dp-sink %p: %d", this, io->status);
+
 		io->status = SPA_STATUS_NEED_BUFFER;
 		if (this->range) {
 			this->range->offset = this->sample_count * this->frame_size;
@@ -616,9 +617,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 		}
 		this->callbacks->process(this->callbacks_data, SPA_STATUS_NEED_BUFFER);
 	}
-	else {
-		flush_data(this, now_time);
-	}
+	flush_data(this, now_time);
 }
 
 
@@ -963,21 +962,27 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		if (this->transport->codec == 0) {
 			a2dp_sbc_t *config = this->transport->configuration;
-			int rate, channels;
+			struct spa_audio_info_raw info = { 0, };
 
-			if ((rate = a2dp_sbc_get_frequency(config)) < 0)
+			info.format = SPA_AUDIO_FORMAT_S16;
+			if ((info.rate = a2dp_sbc_get_frequency(config)) < 0)
 				return -EIO;
-			if ((channels = a2dp_sbc_get_channels(config)) < 0)
+			if ((info.channels = a2dp_sbc_get_channels(config)) < 0)
 				return -EIO;
 
-			param = spa_pod_builder_object(&b,
-				SPA_TYPE_OBJECT_Format, id,
-				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   &SPA_POD_Id(SPA_AUDIO_FORMAT_S16),
-				SPA_FORMAT_AUDIO_rate,     &SPA_POD_Int(rate),
-				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(channels),
-				0);
+			switch (info.channels) {
+			case 1:
+				info.position[0] = SPA_AUDIO_CHANNEL_MONO;
+				break;
+			case 2:
+				info.position[0] = SPA_AUDIO_CHANNEL_FL;
+				info.position[1] = SPA_AUDIO_CHANNEL_FR;
+				break;
+			default:
+				return -EIO;
+			}
+
+			param = spa_format_audio_raw_build(&b, id, &info);
 		}
 		else
 			return -EIO;

@@ -224,6 +224,11 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 
 	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
 			   SPA_PORT_INFO_FLAG_REMOVABLE;
+
+	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
+	port->info_props = SPA_DICT_INIT(port->info_props_items, 1);
+	port->info.props = &port->info_props;
+
 	spa_list_init(&port->queue);
 
 	this->port_count++;
@@ -293,10 +298,6 @@ impl_node_port_get_info(struct spa_node *node,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
-
-	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
-	port->info_props = SPA_DICT_INIT(port->info_props_items, 1);
-	port->info.props = &port->info_props;
 
 	*info = &port->info;
 

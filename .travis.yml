@@ -1,0 +1,21 @@
+sudo: required
+dist: trusty
+language: generic
+services:
+  - docker
+branches:
+  only:
+    - travis-ci
+    - work
+addons:
+  apt:
+    packages:
+      - docker-ce
+before_install:
+  - chmod +x meson.sh
+  - docker build -t build .
+  - docker ps -a
+after_success:
+  - docker --version
+script:
+  - docker run build .

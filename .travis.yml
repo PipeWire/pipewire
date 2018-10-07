@@ -1,0 +1,29 @@
+sudo: required
+dist: trusty
+language: generic
+services:
+  - docker
+cache:
+  - bundler: true
+  - directories:
+    - $HOME/.docker
+  - ccache
+  - pip
+before_cache:
+  - >
+    mkdir -p $HOME/.docker && docker images -a --filter='dangling=false' --format '{{.Repository}}:{{.Tag}} {{.ID}}'
+    | xargs -n 2 -t sh -c 'test -e $HOME/.docker/$1.tar.gz || docker save $0 | gzip -2 > $HOME/.docker/$1.tar.gz'
+branches:
+  only:
+    - travis-ci
+    - work
+addons:
+  apt:
+    packages:
+      - docker-ce
+before_install:
+  - chmod +x meson.sh
+  - docker build -t build .
+  - docker ps -a
+after_success:
+  - docker --version

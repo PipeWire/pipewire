@@ -96,8 +96,7 @@ static void *create_object(void *_data,
 	struct factory_data *d = _data;
 	struct pw_client *client;
 	struct pw_node *dsp;
-	int res, channels, rate, maxbuffer;
-	uint64_t channelmask;
+	int res, maxbuffer;
 	const char *str;
 	enum pw_direction direction;
 	struct node_data *nd;
@@ -113,21 +112,6 @@ static void *create_object(void *_data,
 
 	direction = pw_properties_parse_int(str);
 
-	if ((str = pw_properties_get(properties, "audio-dsp.channels")) == NULL)
-		goto no_props;
-
-	channels = pw_properties_parse_int(str);
-
-	if ((str = pw_properties_get(properties, "audio-dsp.channelmask")) == NULL)
-		goto no_props;
-
-	channelmask = pw_properties_parse_uint64(str);
-
-	if ((str = pw_properties_get(properties, "audio-dsp.rate")) == NULL)
-		goto no_props;
-
-	rate = pw_properties_parse_int(str);
-
 	if ((str = pw_properties_get(properties, "audio-dsp.maxbuffer")) == NULL)
 		goto no_props;
 
@@ -136,7 +120,7 @@ static void *create_object(void *_data,
 	dsp = pw_audio_dsp_new(pw_module_get_core(d->module),
 			properties,
 			direction,
-			channels, channelmask, rate, maxbuffer,
+			maxbuffer,
 			sizeof(struct node_data));
 
 	if (dsp == NULL)

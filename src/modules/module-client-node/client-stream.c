@@ -126,7 +126,30 @@ static int impl_node_enum_params(struct spa_node *node,
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
-	return 0;
+	int res = 0;
+	struct node *this;
+	struct impl *impl;
+
+	this = SPA_CONTAINER_OF(node, struct node, node);
+	impl = this->impl;
+
+	switch (id) {
+	case SPA_PARAM_Profile:
+		if (impl->started)
+			return -EIO;
+		if (impl->adapter != impl->cnode) {
+			spa_node_set_param(impl->adapter, id, flags, param);
+
+			if (this->callbacks && this->callbacks->event)
+				this->callbacks->event(this->callbacks_data,
+					&SPA_NODE_EVENT_INIT(SPA_NODE_EVENT_PortsChanged));
+		}
+		break;
+	default:
+		res = -ENOTSUP;
+		break;
+	}
+	return res;
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -957,6 +980,12 @@ static void client_node_initialized(void *data)
 					SPA_IO_Buffers,
 					impl->client_port_mix.io,
 					sizeof(impl->client_port_mix.io))) < 0)
+			return;
+		if ((res = spa_node_port_set_io(impl->adapter_mix,
+					impl->direction, 0,
+					SPA_IO_Range,
+					&impl->range,
+					sizeof(&impl->range))) < 0)
 			return;
 	}
 

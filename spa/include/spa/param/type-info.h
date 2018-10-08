@@ -43,6 +43,7 @@ static const struct spa_type_info spa_type_param[] = {
 	{ SPA_PARAM_Buffers, SPA_TYPE_PARAM_ID_BASE "Buffers", SPA_TYPE_Int, },
 	{ SPA_PARAM_Meta, SPA_TYPE_PARAM_ID_BASE "Meta", SPA_TYPE_Int, },
 	{ SPA_PARAM_IO, SPA_TYPE_PARAM_ID_BASE "IO", SPA_TYPE_Int, },
+	{ SPA_PARAM_Profile, SPA_TYPE_PARAM_ID_BASE "Profile", SPA_TYPE_Int, },
 	{ 0, NULL, },
 };
 
@@ -247,6 +248,16 @@ static const struct spa_type_info spa_type_param_buffers[] = {
 	{ SPA_PARAM_BUFFERS_size,    SPA_TYPE_PARAM_BLOCK_INFO_BASE "size",   SPA_TYPE_Int, },
 	{ SPA_PARAM_BUFFERS_stride,  SPA_TYPE_PARAM_BLOCK_INFO_BASE "stride", SPA_TYPE_Int, },
 	{ SPA_PARAM_BUFFERS_align,   SPA_TYPE_PARAM_BLOCK_INFO_BASE "align",  SPA_TYPE_Int, },
+	{ 0, NULL, },
+};
+
+#define SPA_TYPE_PARAM__Profile		SPA_TYPE_PARAM_BASE "Profile"
+#define SPA_TYPE_PARAM_PROFILE_BASE	SPA_TYPE_PARAM__Profile ":"
+
+static const struct spa_type_info spa_type_param_profile[] = {
+	{ SPA_PARAM_PROFILE_START, SPA_TYPE_PARAM_PROFILE_BASE, SPA_TYPE_Id, spa_type_param, },
+	{ SPA_PARAM_PROFILE_direction, SPA_TYPE_PARAM_PROFILE_BASE "direction",  SPA_TYPE_Id, spa_type_direction },
+	{ SPA_PARAM_PROFILE_format, SPA_TYPE_PARAM_PROFILE_BASE "format",  SPA_TYPE_Object, NULL, },
 	{ 0, NULL, },
 };
 

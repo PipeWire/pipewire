@@ -89,6 +89,7 @@ enum {
 	SPA_TYPE_OBJECT_ParamBuffers,
 	SPA_TYPE_OBJECT_ParamMeta,
 	SPA_TYPE_OBJECT_ParamIO,
+	SPA_TYPE_OBJECT_ParamProfile,
 
 	/* vendor extensions */
 	SPA_TYPE_VENDOR_PipeWire	= 0x02000000,

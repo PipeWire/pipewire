@@ -30,10 +30,13 @@
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/types.h>
+#include <spa/debug/mem.h>
 
 #define NAME "splitter"
 
-#define DEFAULT_RATE	48000
+#define DEFAULT_RATE		48000
+#define DEFAULT_CHANNELS	2
+#define DEFAULT_MASK		(1LL << SPA_AUDIO_CHANNEL_FL) | (1LL << SPA_AUDIO_CHANNEL_FR)
 
 #define MAX_SAMPLES	1024
 #define MAX_BUFFERS	64
@@ -47,7 +50,6 @@ struct buffer {
 };
 
 struct port {
-	bool valid;
 	uint32_t id;
 
 	struct spa_io_buffers *io;
@@ -56,6 +58,7 @@ struct port {
 	struct spa_port_info info;
 	struct spa_dict info_props;
 	struct spa_dict_item info_props_items[2];
+	char position[8];
 
 	bool have_format;
 	struct spa_audio_info format;
@@ -80,14 +83,8 @@ struct impl {
 	void *user_data;
 
 	struct port in_ports[1];
-	int port_count;
-	int last_port;
 	struct port out_ports[MAX_PORTS];
-
-	int n_formats;
-	bool have_format;
-	struct spa_audio_info format;
-	bool force_rate;
+	int port_count;
 
 	bool started;
 	convert_func_t convert;
@@ -95,13 +92,40 @@ struct impl {
 	float empty[MAX_SAMPLES];
 };
 
-#define CHECK_FREE_OUT_PORT(this,d,p) ((d) == SPA_DIRECTION_OUTPUT && (p) < MAX_PORTS && !this->out_ports[(p)].valid)
-#define CHECK_OUT_PORT(this,d,p)      ((d) == SPA_DIRECTION_OUTPUT && (p) < MAX_PORTS && this->out_ports[(p)].valid)
-#define CHECK_IN_PORT(this,d,p)       ((d) == SPA_DIRECTION_INPUT && (p) == 0)
-#define CHECK_PORT(this,d,p)	      (CHECK_OUT_PORT(this,d,p) || CHECK_IN_PORT (this,d,p))
-#define GET_IN_PORT(this,p)	      (&this->in_ports[p])
-#define GET_OUT_PORT(this,p)	      (&this->out_ports[p])
-#define GET_PORT(this,d,p)	      (d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
+#define CHECK_OUT_PORT(this,d,p)	((d) == SPA_DIRECTION_OUTPUT && (p) < this->port_count)
+#define CHECK_IN_PORT(this,d,p)		((d) == SPA_DIRECTION_INPUT && (p) == 0)
+#define CHECK_PORT(this,d,p)		(CHECK_OUT_PORT(this,d,p) || CHECK_IN_PORT (this,d,p))
+#define GET_IN_PORT(this,p)		(&this->in_ports[p])
+#define GET_OUT_PORT(this,p)		(&this->out_ports[p])
+#define GET_PORT(this,d,p)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
+
+static int init_port(struct impl *this, uint32_t port_id, uint32_t rate, uint32_t position)
+{
+	struct port *port = GET_OUT_PORT(this, port_id);
+
+	port->id = port_id;
+	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+	snprintf(port->position, 7, "%s", rindex(spa_type_audio_channel[position].name, ':')+1);
+	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
+	port->info_props_items[1] = SPA_DICT_ITEM_INIT("port.channel", port->position);
+	port->info_props = SPA_DICT_INIT(port->info_props_items, 2);
+	port->info.props = &port->info_props;
+
+	spa_list_init(&port->queue);
+
+	port->n_buffers = 0;
+	port->have_format = false;
+	port->format.media_type = SPA_MEDIA_TYPE_audio;
+	port->format.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+	port->format.info.raw.format = SPA_AUDIO_FORMAT_F32P;
+	port->format.info.raw.rate = rate;
+	port->format.info.raw.channels = 1;
+	port->format.info.raw.position[0] = position;
+
+	spa_log_debug(this->log, NAME " %p: init port %d %s", this, port_id, port->position);
+
+	return 0;
+}
 
 static int impl_node_enum_params(struct spa_node *node,
 				 uint32_t id, uint32_t *index,
@@ -109,13 +133,87 @@ static int impl_node_enum_params(struct spa_node *node,
 				 struct spa_pod **param,
 				 struct spa_pod_builder *builder)
 {
-	return -ENOTSUP;
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	switch (id) {
+	case SPA_PARAM_List:
+	{
+		uint32_t list[] = { SPA_PARAM_Profile };
+
+		if (*index < SPA_N_ELEMENTS(list))
+			param = spa_pod_builder_object(builder,
+					SPA_TYPE_OBJECT_ParamList, id,
+					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
+					0);
+		else
+			return 0;
+		break;
+	}
+	default:
+		return 0;
+	}
+	(*index)++;
+
+	return 1;
 }
 
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
-	return -ENOTSUP;
+	struct impl *this;
+	int res;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct impl, node);
+
+	switch (id) {
+	case SPA_PARAM_Profile:
+	{
+		struct port *port;
+		struct spa_audio_info info = { 0, };
+		struct spa_pod *format;
+		int i;
+
+		if (spa_pod_object_parse(param,
+					":", SPA_PARAM_PROFILE_format, "P", &format,
+					NULL) < 0)
+			return -EINVAL;
+
+		if (!SPA_POD_IS_OBJECT_TYPE(format, SPA_TYPE_OBJECT_Format))
+			return -EINVAL;
+
+		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
+			return res;
+
+		if (info.media_type != SPA_MEDIA_TYPE_audio ||
+		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+			return -EINVAL;
+
+		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
+			return -EINVAL;
+
+		port = GET_IN_PORT(this, 0);
+		if (port->have_format && memcmp(&port->format, &info, sizeof(info)) == 0)
+			return 0;
+
+		this->port_count = info.info.raw.channels;
+		for (i = 0; i < this->port_count; i++) {
+			init_port(this, i, info.info.raw.rate,
+					info.info.raw.position[i]);
+		}
+		port->have_format = true;
+		port->format = info;
+
+		if (this->callbacks && this->callbacks->event)
+			this->callbacks->event(this->user_data,
+				&SPA_NODE_EVENT_INIT(SPA_NODE_EVENT_PortsChanged));
+		return 0;
+	}
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -177,7 +275,7 @@ impl_node_get_n_ports(struct spa_node *node,
 	if (n_output_ports)
 		*n_output_ports = this->port_count;
 	if (max_output_ports)
-		*max_output_ports = MAX_PORTS;
+		*max_output_ports = this->port_count;
 
 	return 0;
 }
@@ -190,7 +288,7 @@ impl_node_get_port_ids(struct spa_node *node,
 		       uint32_t n_output_ids)
 {
 	struct impl *this;
-	int i, idx;
+	int i;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -199,86 +297,24 @@ impl_node_get_port_ids(struct spa_node *node,
 	if (n_input_ids > 0 && input_ids)
 		input_ids[0] = 0;
 	if (output_ids) {
-		for (i = 0, idx = 0; i < this->last_port && idx < n_output_ids; i++) {
-			if (this->out_ports[i].valid)
-				output_ids[idx++] = i;
-		}
+		n_output_ids = SPA_MIN(n_output_ids, this->port_count);
+		for (i = 0; i < n_output_ids; i++)
+			output_ids[i] = i;
 	}
 	return 0;
 }
 
 static int impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-	struct impl *this;
-	struct port *port;
-
 	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	spa_return_val_if_fail(CHECK_FREE_OUT_PORT(this, direction, port_id), -EINVAL);
-
-	port = GET_OUT_PORT (this, port_id);
-	port->valid = true;
-	port->id = port_id;
-
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
-			   SPA_PORT_INFO_FLAG_REMOVABLE;
-
-	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
-	port->info_props = SPA_DICT_INIT(port->info_props_items, 1);
-	port->info.props = &port->info_props;
-
-	spa_list_init(&port->queue);
-
-	this->port_count++;
-	if (this->last_port <= port_id)
-		this->last_port = port_id + 1;
-
-	port->have_format = false;
-	this->have_format = false;
-
-	spa_log_debug(this->log, NAME " %p: add port %d", this, port_id);
-
-	return 0;
+	return -ENOTSUP;
 }
 
 static int
 impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-	struct impl *this;
-	struct port *port;
-
 	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	spa_return_val_if_fail(CHECK_OUT_PORT(this, direction, port_id), -EINVAL);
-
-	port = GET_OUT_PORT (this, port_id);
-
-	this->port_count--;
-	if (port->have_format) {
-		if (--this->n_formats == 0) {
-			this->have_format = false;
-			this->convert = NULL;
-		}
-	}
-
-	spa_memzero(port, sizeof(struct port));
-
-	if (port_id == this->last_port + 1) {
-		int i;
-
-		for (i = this->last_port; i >= 0; i--)
-			if (GET_OUT_PORT (this, i)->valid)
-				break;
-
-		this->last_port = i + 1;
-	}
-	spa_log_debug(this->log, NAME " %p: remove port %d", this, port_id);
-
-	return 0;
+	return -ENOTSUP;
 }
 
 static int
@@ -311,21 +347,21 @@ static int port_enum_formats(struct spa_node *node,
 			     struct spa_pod_builder *builder)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
-	struct spa_pod *prate;
+	struct port *port = GET_PORT(this, direction, port_id);
 
 	switch (*index) {
 	case 0:
-		if (this->have_format || this->force_rate)
-			prate = (struct spa_pod*)&SPA_POD_Int(this->format.info.raw.rate);
-		else
-			prate = (struct spa_pod*)&SPA_POD_CHOICE_RANGE_Int(DEFAULT_RATE, 1, INT32_MAX);
-
 		if (direction == SPA_DIRECTION_INPUT) {
-			*param = spa_pod_builder_object(builder,
-				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(18,
+			if (port->have_format) {
+				*param = spa_format_audio_raw_build(builder,
+						SPA_PARAM_EnumFormat, &port->format.info.raw);
+			}
+			else {
+				*param = spa_pod_builder_object(builder,
+					SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+					SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+					SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+					SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(18,
 								SPA_AUDIO_FORMAT_F32,
 								SPA_AUDIO_FORMAT_F32P,
 								SPA_AUDIO_FORMAT_F32,
@@ -344,19 +380,17 @@ static int port_enum_formats(struct spa_node *node,
 								SPA_AUDIO_FORMAT_S16_OE,
 								SPA_AUDIO_FORMAT_U8P,
 								SPA_AUDIO_FORMAT_U8),
-				SPA_FORMAT_AUDIO_rate,     prate,
-				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(this->port_count),
-				0);
+					SPA_FORMAT_AUDIO_rate,     &SPA_POD_CHOICE_RANGE_Int(
+							DEFAULT_RATE, 1, INT32_MAX),
+					SPA_FORMAT_AUDIO_channels, &SPA_POD_CHOICE_RANGE_Int(
+							DEFAULT_CHANNELS, 1, MAX_PORTS),
+					0);
+			}
 		}
 		else {
-			*param = spa_pod_builder_object(builder,
-				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   &SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-				SPA_FORMAT_AUDIO_rate,     prate,
-				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(1),
-				0);
+			struct port *other = GET_OUT_PORT(this, port_id);
+			*param = spa_format_audio_raw_build(builder,
+					SPA_PARAM_EnumFormat, &other->format.info.raw);
 		}
 		break;
 	default:
@@ -393,7 +427,7 @@ impl_node_port_enum_params(struct spa_node *node,
       next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	spa_log_debug(this->log, NAME " %p: enum param %d %d", this, id, this->have_format);
+	spa_log_debug(this->log, NAME " %p: enum param %d", this, id);
 
 	switch (id) {
 	case SPA_PARAM_List:
@@ -495,40 +529,24 @@ static int clear_buffers(struct impl *this, struct port *port)
 	return 0;
 }
 
-static struct port *find_out_port(struct impl *this)
-{
-	int i;
-	struct port *port;
-
-	for (i = 0; i < this->last_port; i++) {
-		port = GET_OUT_PORT(this, i);
-		if (port->have_format)
-			return port;
-	}
-	return NULL;
-}
-
 static int setup_convert(struct impl *this)
 {
 	const struct conv_info *conv;
-	struct port *inport, *outport;
+	struct port *inport;
 	uint32_t src_fmt, dst_fmt;
 
 	inport = GET_IN_PORT(this, 0);
-	outport = find_out_port(this);
-	if (outport == NULL || !inport->have_format)
-		return -EINVAL;
 
 	src_fmt = inport->format.info.raw.format;
-	dst_fmt = outport->format.info.raw.format;
+	dst_fmt = SPA_AUDIO_FORMAT_F32P;
 
 	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%dx%d", this,
 			spa_debug_type_find_name(spa_type_audio_format, src_fmt),
 			inport->format.info.raw.channels,
 			inport->format.info.raw.rate,
 			spa_debug_type_find_name(spa_type_audio_format, dst_fmt),
-			outport->format.info.raw.channels,
-			outport->format.info.raw.rate,
+			1,
+			inport->format.info.raw.rate,
 			this->port_count);
 
 	conv = find_conv_info(src_fmt, dst_fmt, FEATURE_SSE);
@@ -573,13 +591,11 @@ static int port_set_format(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_log_debug(this->log, NAME " %p: set format %d", this, this->have_format);
+	spa_log_debug(this->log, NAME " %p: set format", this);
 
 	if (format == NULL) {
 		if (port->have_format) {
 			port->have_format = false;
-			if (--this->n_formats == 0)
-				this->have_format = false;
 			clear_buffers(this, port);
 		}
 	} else {
@@ -595,22 +611,22 @@ static int port_set_format(struct spa_node *node,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
-		if ((this->have_format || this->force_rate) &&
-		    info.info.raw.rate != this->format.info.raw.rate)
-			return -EINVAL;
-
-		if (direction == SPA_DIRECTION_INPUT) {
-			if (info.info.raw.channels != this->port_count)
+		if (direction == SPA_DIRECTION_OUTPUT) {
+			if (info.info.raw.rate != port->format.info.raw.rate)
 				return -EINVAL;
-		} else {
 			if (info.info.raw.format != SPA_AUDIO_FORMAT_F32P)
 				return -EINVAL;
 			if (info.info.raw.channels != 1)
 				return -EINVAL;
 		}
+		else {
+			if (info.info.raw.channels != this->port_count)
+				return -EINVAL;
+		}
 
 		port->format = info;
 		port->stride = calc_width(&info);
+
 		if (SPA_AUDIO_FORMAT_IS_PLANAR(info.info.raw.format)) {
 			port->blocks = info.info.raw.channels;
 		} else {
@@ -619,16 +635,10 @@ static int port_set_format(struct spa_node *node,
 		}
 		spa_log_debug(this->log, NAME " %p: %d %d %d", this, port_id, port->stride, port->blocks);
 
-		this->have_format = true;
-		this->format = info;
+		if (direction == SPA_DIRECTION_INPUT)
+			setup_convert(this);
 
-		if (!port->have_format) {
-			this->n_formats++;
-			port->have_format = true;
-			spa_log_debug(this->log, NAME " %p: set format on port %d", this, port_id);
-		}
-
-		setup_convert(this);
+		port->have_format = true;
 	}
 
 	return 0;
@@ -848,7 +858,7 @@ static int impl_node_process(struct spa_node *node)
 	dst_datas = alloca(sizeof(void*) * MAX_PORTS);
 
 	n_dst_datas = 0;
-	for (i = 0; i < this->last_port; i++) {
+	for (i = 0; i < this->port_count; i++) {
 		struct port *outport = GET_OUT_PORT(this, i);
 		struct spa_io_buffers *outio;
 
@@ -962,10 +972,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct port *port;
-	uint32_t i;
-	const char *str;
-	int rate;
-
+	int i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -980,17 +987,9 @@ impl_init(const struct spa_handle_factory *factory,
 			this->log = support[i].data;
 	}
 
-	if ((str = spa_dict_lookup(info, "node.format.rate")))
-		if ((rate = atoi(str)) != 0) {
-			this->format.info.raw.rate = rate;
-			this->force_rate = true;
-		}
-
 	this->node = impl_node;
-	this->have_format = false;
 
 	port = GET_IN_PORT(this, 0);
-	port->valid = true;
 	port->id = 0;
 	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 

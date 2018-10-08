@@ -71,6 +71,18 @@ struct spa_type_info {
 #define SPA_TYPE__Command			SPA_TYPE_OBJECT_BASE "Command"
 #define SPA_TYPE_COMMAND_BASE			SPA_TYPE__Command ":"
 
+#include <spa/utils/type.h>
+
+/* base for parameter object enumerations */
+#define SPA_TYPE__Direction		SPA_TYPE_ENUM_BASE "Direction"
+#define SPA_TYPE_DIRECTION_BASE		SPA_TYPE__Direction ":"
+
+static const struct spa_type_info spa_type_direction[] = {
+	{ SPA_DIRECTION_INPUT, SPA_TYPE_DIRECTION_BASE "Input", SPA_TYPE_Int,   },
+	{ SPA_DIRECTION_OUTPUT, SPA_TYPE_DIRECTION_BASE "Output", SPA_TYPE_Int,   },
+	{ 0, NULL, }
+};
+
 #include <spa/monitor/type-info.h>
 #include <spa/node/type-info.h>
 #include <spa/param/type-info.h>
@@ -147,6 +159,7 @@ static const struct spa_type_info spa_types[] = {
 	{ SPA_TYPE_OBJECT_ParamBuffers, SPA_TYPE_PARAM__Buffers, SPA_TYPE_Object, spa_type_param_buffers, },
 	{ SPA_TYPE_OBJECT_ParamMeta, SPA_TYPE_PARAM__Meta, SPA_TYPE_Object, spa_type_param_meta },
 	{ SPA_TYPE_OBJECT_ParamIO, SPA_TYPE_PARAM__IO, SPA_TYPE_Object, spa_type_param_io },
+	{ SPA_TYPE_OBJECT_ParamProfile, SPA_TYPE_PARAM__Profile, SPA_TYPE_Object, spa_type_param_profile },
 
 	{ 0, NULL, }
 };

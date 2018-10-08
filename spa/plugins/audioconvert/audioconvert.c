@@ -411,7 +411,40 @@ static int impl_node_enum_params(struct spa_node *node,
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
-	return -ENOTSUP;
+	int res = 0;
+	struct impl *this;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct impl, node);
+
+	switch (id) {
+	case SPA_PARAM_Profile:
+	{
+		enum spa_direction direction;
+
+		if (spa_pod_object_parse(param,
+				":", SPA_PARAM_PROFILE_direction, "I", &direction,
+				NULL) < 0)
+			return -EINVAL;
+
+		switch (direction) {
+		case SPA_DIRECTION_INPUT:
+		case SPA_DIRECTION_OUTPUT:
+			res = spa_node_set_param(this->fmt[direction],
+					id, flags, param);
+			break;
+		default:
+			res = -EINVAL;
+			break;
+		}
+		break;
+	}
+	default:
+		res = -ENOTSUP;
+		break;
+	}
+	return res;
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)

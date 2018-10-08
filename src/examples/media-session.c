@@ -739,7 +739,7 @@ static int find_session(void *data, struct session *sess)
 	return 0;
 }
 
-static int link_nodes(struct node *peer, enum pw_direction direction, struct node *node)
+static int link_nodes(struct node *peer, enum pw_direction direction, struct node *node, int max)
 {
 	struct impl *impl = peer->obj.impl;
 	struct port *p;
@@ -751,6 +751,9 @@ static int link_nodes(struct node *peer, enum pw_direction direction, struct nod
 
 		if (p->direction == direction)
 			continue;
+
+		if (max-- == 0)
+			return 0;
 
 		props = pw_properties_new(NULL, NULL);
 		if (p->direction == PW_DIRECTION_OUTPUT) {
@@ -793,7 +796,10 @@ static int rescan_node(struct impl *impl, struct node *node)
 	struct pw_node_info *info;
 	struct node *peer;
 	enum pw_direction direction;
+	struct spa_pod_builder b = { 0, };
 	struct spa_audio_info_raw audio_info;
+	struct spa_pod *param;
+	char buf[1024];
 
 	if (node->type == NODE_TYPE_DSP || node->type == NODE_TYPE_DEVICE)
 		return 0;
@@ -906,12 +912,26 @@ static int rescan_node(struct impl *impl, struct node *node)
 	node->session = session;
 	spa_list_append(&session->node_list, &node->session_link);
 
-	audio_info = node->format;
-	audio_info.format = SPA_AUDIO_FORMAT_F32P;
-	audio_info.rate = session->node->format.rate;
-	audio_info.channels = SPA_MIN(session->node->format.channels, audio_info.channels);
+	if (!exclusive) {
+		audio_info = node->format;
+		audio_info.format = SPA_AUDIO_FORMAT_F32P;
+		audio_info.rate = session->node->format.rate;
+		audio_info.channels = SPA_MIN(session->node->format.channels, audio_info.channels);
 
-	link_nodes(peer, direction, node);
+		spa_pod_builder_init(&b, buf, sizeof(buf));
+		param = spa_pod_builder_object(&b,
+			SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+			SPA_PARAM_PROFILE_direction, &SPA_POD_Id(pw_direction_reverse(direction)),
+			SPA_PARAM_PROFILE_format,    spa_format_audio_raw_build(&b,
+							SPA_PARAM_Format, &audio_info),
+			0);
+
+		pw_node_proxy_set_param((struct pw_node_proxy*)node->obj.proxy,
+				SPA_PARAM_Profile, 0, param);
+	} else {
+		audio_info.channels = 1;
+	}
+	link_nodes(peer, direction, node, audio_info.channels);
 
         return 1;
 }
@@ -944,20 +964,18 @@ static void rescan_session(struct impl *impl, struct session *sess)
 	if (sess->need_dsp && sess->dsp == NULL && sess->dsp_proxy == NULL) {
 		struct pw_properties *props;
 		struct node *node = sess->node;
-		int i;
-		uint64_t mask = 0;
+		struct spa_audio_info_raw info;
+		uint8_t buf[1024];
+		struct spa_pod_builder b = { 0, };
+		struct spa_pod *param;
 
 		if (node->info->props == NULL)
 			return;
 
-		for (i = 0; i < node->format.channels; i++)
-			mask |= 1UL << node->format.position[i];
+		info = node->format;
 
 		props = pw_properties_new_dict(node->info->props);
 		pw_properties_setf(props, "audio-dsp.direction", "%d", sess->direction);
-		pw_properties_setf(props, "audio-dsp.channels", "%d", node->format.channels);
-		pw_properties_setf(props, "audio-dsp.channelmask", "%"PRIu64, mask);
-		pw_properties_setf(props, "audio-dsp.rate", "%d", node->format.rate);
 		pw_properties_setf(props, "audio-dsp.maxbuffer", "%ld", MAX_QUANTUM_SIZE * sizeof(float));
 
 		pw_log_debug(NAME" %p: making audio dsp for session %d", impl, sess->id);
@@ -971,6 +989,18 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		pw_properties_free(props);
 
 		pw_proxy_add_proxy_listener(sess->dsp_proxy, &sess->listener, &dsp_node_events, sess);
+
+		spa_pod_builder_init(&b, buf, sizeof(buf));
+		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
+		param = spa_pod_builder_object(&b,
+			SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+			SPA_PARAM_PROFILE_direction, &SPA_POD_Id(pw_direction_reverse(sess->direction)),
+			SPA_PARAM_PROFILE_format,    param,
+			0);
+
+		pw_node_proxy_set_param((struct pw_node_proxy*)sess->dsp_proxy,
+				SPA_PARAM_Profile, 0, param);
+		schedule_rescan(impl);
 	}
 	else {
 		sess->starting = false;

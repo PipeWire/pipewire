@@ -43,6 +43,7 @@
 #define NAME "audio-dsp"
 
 #define PORT_BUFFERS	1
+#define MAX_BUFFER_SIZE	2048
 
 extern const struct spa_handle_factory spa_floatmix_factory;
 
@@ -55,6 +56,8 @@ struct buffer {
 struct node;
 
 struct port {
+	struct spa_list link;
+
 	struct pw_port *port;
 	struct node *node;
 
@@ -65,19 +68,23 @@ struct port {
 	struct spa_handle *spa_handle;
 	struct spa_node *spa_node;
 
-	float empty[4096];
+	float empty[MAX_BUFFER_SIZE];
 };
 
 struct node {
 	struct pw_core *core;
+
 	struct pw_node *node;
+	struct spa_hook node_listener;
 
 	void *user_data;
+	enum pw_direction direction;
+	struct pw_properties *props;
 
-	int channels;
-	uint64_t channelmask;
-	int sample_rate;
+	struct spa_audio_info format;
 	int max_buffer_size;
+
+	struct spa_list ports;
 };
 
 /** \endcond */
@@ -101,6 +108,7 @@ static void init_buffer(struct port *port, uint32_t id)
 	b->datas[0].chunk->size = 0;
 	b->datas[0].chunk->stride = 0;
 	port->bufs[id] = &b->buf;
+	memset(port->empty, 0, sizeof(port->empty));
 }
 
 static void init_port(struct port *p, enum spa_direction direction)
@@ -146,46 +154,95 @@ static const struct pw_port_implementation port_implementation = {
 	.use_buffers = port_use_buffers,
 };
 
-static int make_channel_name(struct node *n, char *channel_name, int i, uint64_t channelmask)
+static void node_destroy(void *data)
 {
-	int j;
-
-	sprintf(channel_name, "%d", i + 1);
-	for (j = 0; j < 64; j++) {
-		if (channelmask & (1LL << j)) {
-			if (i-- == 0) {
-				sprintf(channel_name, "%s",
-						rindex(spa_type_audio_channel[j].name, ':')+1);
-				return 1;
-			}
-		}
-	}
-	return 0;
+	struct node *n = data;
+	pw_properties_free(n->props);
 }
+
+static void node_port_init(void *data, struct pw_port *port)
+{
+	struct node *n = data;
+	struct port *p;
+	const struct pw_properties *old;
+	enum pw_direction direction;
+	struct pw_properties *new;
+	const char *str;
+	void *iface;
+	const struct spa_support *support;
+	uint32_t n_support;
+
+	direction = pw_port_get_direction(port);
+	if (direction == n->direction)
+		return;
+
+	old = pw_port_get_properties(port);
+
+	new = pw_properties_new(
+			"port.dsp", "32 bit float mono audio",
+			"port.physical", "1",
+			"port.terminal", "1",
+			NULL);
+
+	if ((str = pw_properties_get(old, "port.channel")) != NULL)
+		pw_properties_setf(new, "port.name", "%s_%s",
+			direction == PW_DIRECTION_INPUT ? "playback" : "capture",
+			str);
+
+	pw_properties_setf(new, "port.alias1", "%s_pcm:%s:%s%s",
+			pw_properties_get(n->props, "device.api"),
+			pw_properties_get(n->props, "device.name"),
+			direction == PW_DIRECTION_INPUT ? "in" : "out",
+			str ? str : "UNK");
+
+	pw_port_update_properties(port, &new->dict);
+	pw_properties_free(new);
+
+	p = calloc(1, sizeof(struct port) +
+			spa_handle_factory_get_size(&spa_floatmix_factory, NULL));
+	p->node = n;
+	p->port = port;
+	init_port(p, direction);
+	p->spa_handle = SPA_MEMBER(p, sizeof(struct port), struct spa_handle);
+
+	support = pw_core_get_support(n->core, &n_support);
+	spa_handle_factory_init(&spa_floatmix_factory,
+			p->spa_handle, NULL,
+			support, n_support);
+
+	spa_handle_get_interface(p->spa_handle, SPA_TYPE_INTERFACE_Node, &iface);
+	p->spa_node = iface;
+
+	if (direction == PW_DIRECTION_INPUT) {
+		pw_log_debug("mix node %p", p->spa_node);
+		pw_port_set_mix(port, p->spa_node, PW_PORT_MIX_FLAG_MULTI);
+		port->implementation = &port_implementation;
+		port->implementation_data = p;
+	}
+	spa_list_append(&n->ports, &p->link);
+}
+
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
+	.destroy = node_destroy,
+	.port_init = node_port_init,
+};
 
 struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 		const struct pw_properties *props,
 		enum pw_direction direction,
-		uint32_t channels,
-		uint64_t channelmask,
-		uint32_t sample_rate,
 		uint32_t max_buffer_size,
 		size_t user_data_size)
 {
 	struct pw_node *node;
-	struct pw_port *port;
 	struct node *n;
 	const char *api, *alias, *plugged, *str;
 	char node_name[128];
 	struct pw_properties *pr;
-	const struct spa_support *support;
-	uint32_t n_support;
-	void *iface;
 	int i;
 
 	if ((api = pw_properties_get(props, "device.api")) == NULL)
 		goto error;
-
 	if ((alias = pw_properties_get(props, "device.name")) == NULL)
 		goto error;
 
@@ -201,16 +258,13 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 				"Audio/DSP/Playback" :
 				"Audio/DSP/Capture",
 			"device.name", alias,
+			"device.api", api,
 			NULL);
 
 	if ((plugged = pw_properties_get(props, "node.plugged")) != NULL)
 		pw_properties_set(pr, "node.plugged", plugged);
 	if ((str = pw_properties_get(props, "node.id")) != NULL)
 		pw_properties_set(pr, "node.session", str);
-
-	pw_properties_setf(pr, "node.format.rate", "%d", sample_rate);
-	pw_properties_setf(pr, "node.format.channels", "%d", channels);
-	pw_properties_setf(pr, "node.format.channelmask", "%"PRIu64, channelmask);
 
 	node = pw_spa_node_load(core, NULL, NULL,
 			"audioconvert/libspa-audioconvert",
@@ -227,83 +281,19 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	n = pw_spa_node_get_user_data(node);
 	n->core = core;
 	n->node = node;
+	n->direction = direction;
+	n->props = pw_properties_copy(props);
+	spa_list_init(&n->ports);
 
-	n->channels = channels;
-	n->channelmask = channelmask;
-	n->sample_rate = sample_rate;
 	n->max_buffer_size = max_buffer_size;
 
 	if (user_data_size > 0)
 		n->user_data = SPA_MEMBER(n, sizeof(struct node), void);
 
-	pw_node_update_ports(node);
+	pw_node_add_listener(node, &n->node_listener, &node_events, n);
 
-	direction = pw_direction_reverse(direction);
-
-	support = pw_core_get_support(core, &n_support);
-
-	for (i = 0; i < n->channels; i++) {
-		struct port *p;
-		struct pw_properties *props;
-		char channel_name[16];
-
-		make_channel_name(n, channel_name, i, channelmask);
-
-		props = pw_properties_new(
-				"port.dsp", "32 bit float mono audio",
-				"port.physical", "1",
-				"port.terminal", "1",
-				NULL);
-		pw_properties_setf(props, "port.name", "%s_%s",
-				direction == PW_DIRECTION_INPUT ? "playback" : "capture",
-				channel_name);
-		pw_properties_setf(props, "port.alias1", "%s_pcm:%s:%s%s",
-				api,
-				alias,
-				direction == PW_DIRECTION_INPUT ? "in" : "out",
-				channel_name);
-		pw_properties_setf(props, "port.channel", "%s", channel_name);
-
-		port = pw_port_new(direction,
-				   i,
-				   props,
-				   sizeof(struct port) +
-				   spa_handle_factory_get_size(&spa_floatmix_factory, NULL));
-		if (port == NULL)
-			goto error_free_node;
-
-
-		p = pw_port_get_user_data(port);
-		port->owner_data = p;
-		p->node = n;
-		p->port = port;
-		init_port(p, direction);
-		p->spa_handle = SPA_MEMBER(p, sizeof(struct port), struct spa_handle);
-
-		spa_handle_factory_init(&spa_floatmix_factory,
-				p->spa_handle, NULL,
-				support, n_support);
-
-		spa_handle_get_interface(p->spa_handle, SPA_TYPE_INTERFACE_Node, &iface);
-
-		p->spa_node = iface;
-
-		if (direction == PW_DIRECTION_INPUT) {
-			pw_log_debug("mix node %p", p->spa_node);
-
-			pw_port_set_mix(port, p->spa_node, PW_PORT_MIX_FLAG_MULTI);
-			port->implementation = &port_implementation;
-			port->implementation_data = p;
-		}
-		if (pw_port_add(port, node) < 0)
-			goto error_free_port;
-	}
 	return node;
 
-     error_free_port:
-	pw_port_destroy(port);
-     error_free_node:
-	pw_node_destroy(node);
      error:
 	return NULL;
 }

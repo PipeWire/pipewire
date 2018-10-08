@@ -39,11 +39,12 @@ channelmix_copy_sse(void *data, int n_dst, void *dst[n_dst],
 			memcpy(d[i], s[i], n_bytes);
 	}
 	else {
-		unrolled = n_samples / 4;
-		remain = n_samples & 3;
-
 		for (i = 0; i < n_dst; i++) {
 			float *di = d[i], *si = s[i];
+
+			unrolled = n_samples / 4;
+			remain = n_samples & 3;
+
 			for(n = 0; unrolled--; n += 4)
 				_mm_storeu_ps(&di[n], _mm_mul_ps(_mm_loadu_ps(&si[n]), vol));
 			for(; remain--; n++)

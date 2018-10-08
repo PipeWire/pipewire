@@ -157,6 +157,12 @@ struct spa_pod_struct {
 	/* one or more spa_pod follow */
 };
 
+#define SPA_POD_OBJECT_TYPE(obj)	(((struct spa_pod_object*)(obj))->body.type)
+#define SPA_POD_OBJECT_ID(obj)		(((struct spa_pod_object*)(obj))->body.id)
+
+#define SPA_POD_IS_OBJECT_TYPE(obj,tp)	(SPA_POD_TYPE(obj) == SPA_TYPE_Object && \
+					 SPA_POD_OBJECT_TYPE(obj) == (tp))
+
 struct spa_pod_object_body {
 	uint32_t type;		/**< one of enum spa_type */
 	uint32_t id;		/**< id of the object, depends on the object type */

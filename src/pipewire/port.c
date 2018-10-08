@@ -502,8 +502,6 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	if (find != NULL)
 		return -EEXIST;
 
-	pw_node_events_port_init(node, port);
-
 	if ((res = spa_node_port_get_info(node->node,
 			       port->direction, port_id,
 			       &port->spa_info)) < 0) {
@@ -525,6 +523,8 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	if (port->spa_info->props)
 		pw_port_update_properties(port, port->spa_info->props);
 
+	pw_node_events_port_init(node, port);
+
 	pw_port_for_each_param(port, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
 
 	dir = port->direction == PW_DIRECTION_INPUT ?  "in" : "out";
@@ -537,7 +537,12 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	}
 
 	if ((str = pw_properties_get(port->properties, "port.name")) == NULL) {
-		pw_properties_setf(port->properties, "port.name", "%s_%d", dir, port_id);
+		if ((str = pw_properties_get(port->properties, "port.channel")) != NULL) {
+			pw_properties_setf(port->properties, "port.name", "%s_%s", dir, str);
+		}
+		else {
+			pw_properties_setf(port->properties, "port.name", "%s_%d", dir, port_id);
+		}
 	}
 
 	if (SPA_FLAG_CHECK(port->spa_info->flags, SPA_PORT_INFO_FLAG_PHYSICAL))

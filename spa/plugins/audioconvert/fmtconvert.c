@@ -811,7 +811,7 @@ static int impl_node_process(struct spa_node *node)
 			outio, outio->status, outio->buffer_id);
 
 	if (outio->status == SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_HAVE_BUFFER;
+		return inio->status | outio->status;
 
 	if (outio->buffer_id < outport->n_buffers) {
 		recycle_buffer(this, outport, outio->buffer_id);

@@ -632,8 +632,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	output = this->output;
 
 	pw_log_debug("link %p: doing alloc buffers %p %p", this, output->node, input->node);
-	oinfo = output->spa_info;
-	iinfo = input->spa_info;
+	oinfo = &output->spa_info;
+	iinfo = &input->spa_info;
 
 	in_flags = iinfo->flags;
 	out_flags = oinfo->flags;

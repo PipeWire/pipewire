@@ -1056,6 +1056,7 @@ client_node_port_update(void *data,
 		if (port == NULL) {
 			target = &this->dummy;
 			spa_zero(this->dummy);
+			target->id = port_id;
 		}
 		else
 			target = port;

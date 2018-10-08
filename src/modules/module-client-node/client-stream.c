@@ -123,6 +123,40 @@ static int impl_node_enum_params(struct spa_node *node,
 	return res;
 }
 
+static void try_link_controls(struct impl *impl)
+{
+	struct pw_control *cin, *cout;
+	struct pw_port *target, *port;
+	int res;
+
+	if (!impl->use_converter)
+		return;
+
+	target = pw_node_find_port(impl->this.node, impl->direction, 0);
+
+	if (target == NULL) {
+		pw_log_warn("client-stream %p: can't link controls", &impl->this);
+		return;
+	}
+
+	port = impl->client_port;
+
+
+	pw_log_debug(NAME " %p: trying controls", impl);
+	spa_list_for_each(cout, &port->control_list[SPA_DIRECTION_OUTPUT], port_link) {
+		spa_list_for_each(cin, &target->control_list[SPA_DIRECTION_INPUT], port_link) {
+			if ((res = pw_control_link(cout, cin)) < 0)
+				pw_log_error("failed to link controls: %s", spa_strerror(res));
+		}
+	}
+	spa_list_for_each(cin, &port->control_list[SPA_DIRECTION_INPUT], port_link) {
+		spa_list_for_each(cout, &target->control_list[SPA_DIRECTION_OUTPUT], port_link) {
+			if ((res = pw_control_link(cout, cin)) < 0)
+				pw_log_error("failed to link controls: %s", spa_strerror(res));
+		}
+	}
+}
+
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -143,6 +177,8 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 			if (this->callbacks && this->callbacks->event)
 				this->callbacks->event(this->callbacks_data,
 					&SPA_NODE_EVENT_INIT(SPA_NODE_EVENT_PortsChanged));
+
+			try_link_controls(impl);
 		}
 		break;
 	default:
@@ -585,26 +621,6 @@ static int negotiate_buffers(struct impl *impl)
 	return 0;
 }
 
-static void try_link_controls(struct impl *impl, struct pw_port *port, struct pw_port *target)
-{
-	struct pw_control *cin, *cout;
-	int res;
-
-	pw_log_debug(NAME " %p: trying controls", impl);
-	spa_list_for_each(cout, &port->control_list[SPA_DIRECTION_OUTPUT], port_link) {
-		spa_list_for_each(cin, &target->control_list[SPA_DIRECTION_INPUT], port_link) {
-			if ((res = pw_control_link(cout, cin)) < 0)
-				pw_log_error("failed to link controls: %s", spa_strerror(res));
-		}
-	}
-	spa_list_for_each(cin, &port->control_list[SPA_DIRECTION_INPUT], port_link) {
-		spa_list_for_each(cout, &target->control_list[SPA_DIRECTION_OUTPUT], port_link) {
-			if ((res = pw_control_link(cout, cin)) < 0)
-				pw_log_error("failed to link controls: %s", spa_strerror(res));
-		}
-	}
-}
-
 static int
 impl_node_port_set_param(struct spa_node *node,
 			 enum spa_direction direction, uint32_t port_id,
@@ -1009,18 +1025,6 @@ static void client_node_initialized(void *data)
 			pw_properties_new(
 				"media.class", media_class,
 				NULL));
-
-	if (impl->use_converter) {
-		struct pw_port *adapter_port;
-		adapter_port = pw_node_find_port(impl->this.node, impl->direction, 0);
-
-		if (adapter_port) {
-			try_link_controls(impl, impl->client_port, adapter_port);
-		}
-		else {
-			pw_log_warn("client-stream %p: can't link controls", &impl->this);
-		}
-	}
 
 	pw_log_debug("client-stream %p: activating", &impl->this);
 

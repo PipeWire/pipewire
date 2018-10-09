@@ -73,6 +73,7 @@ struct impl {
 
 	struct node node;
 	bool started;
+	bool active;
 
 	struct spa_hook node_listener;
 	struct spa_hook client_node_listener;
@@ -794,6 +795,9 @@ static int impl_node_process(struct spa_node *node)
 	struct pw_driver_quantum *q = impl->this.node->driver_node->rt.quantum;
 	int status, trigger;
 
+	if (!impl->active)
+		return SPA_STATUS_HAVE_BUFFER;
+
 	impl->range.min_size = impl->range.max_size = q->size * sizeof(float);
 
 	spa_log_trace(this->log, "%p: process %d", this, impl->range.max_size);
@@ -1074,7 +1078,7 @@ static void client_node_active_changed(void *data, bool active)
 	struct impl *impl = data;
 
 	pw_log_debug("client-stream %p: active %d", &impl->this, active);
-	pw_node_set_active(impl->this.node, active);
+	impl->active = active;
 }
 
 static const struct pw_node_events client_node_events = {

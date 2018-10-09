@@ -498,12 +498,12 @@ do_move_nodes(struct spa_loop *loop,
 	struct impl *dst = *(struct impl **)data;
 	struct spa_graph_node *n, *t;
 
-	pw_log_trace("node %p: root %p driver:%p", this, &this->rt.root, &dst->driver_graph);
+	pw_log_trace("node %p: root %p driver:%p->%p", this,
+			&this->rt.root, &src->driver_graph, &dst->driver_graph);
 
-	if (this->rt.root.graph != NULL) {
+	if (this->rt.root.graph != NULL)
 		spa_graph_node_remove(&this->rt.root);
-		spa_graph_node_add(&dst->driver_graph, &this->rt.root);
-	}
+	spa_graph_node_add(&dst->driver_graph, &this->rt.root);
 
 	if (&src->driver_graph == &dst->driver_graph)
 		return 0;
@@ -1152,8 +1152,12 @@ int pw_node_set_active(struct pw_node *node, bool active)
 			if (node->enabled)
 				node_activate(node);
 		}
-		else
+		else {
+			node->active = true;
 			pw_node_set_state(node, PW_NODE_STATE_IDLE);
+			node->active = false;
+		}
+
 	}
 	return 0;
 }

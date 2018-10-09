@@ -1223,3 +1223,32 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 
 	return call_trigger(impl);
 }
+
+static int
+do_flush(struct spa_loop *loop,
+                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct stream *impl = user_data;
+	struct buffer *b;
+
+	pw_log_trace("stream %p: flush", impl);
+	do {
+		b = pop_queue(impl, &impl->queued);
+		if (b != NULL)
+			push_queue(impl, &impl->dequeued, b);
+	}
+	while (b);
+
+	impl->time.queued = impl->queued.outcount = impl->dequeued.incount =
+		impl->dequeued.outcount = impl->queued.incount;
+
+	return 0;
+}
+
+int pw_stream_flush(struct pw_stream *stream, bool drain)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	pw_loop_invoke(impl->core->data_loop,
+			do_flush, 1, NULL, 0, true, impl);
+	return 0;
+}

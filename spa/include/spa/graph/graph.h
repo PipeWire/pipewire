@@ -233,10 +233,10 @@ static inline void
 spa_graph_node_add(struct spa_graph *graph,
 		   struct spa_graph_node *node)
 {
+	spa_debug("node %p add to graph %p", node, graph);
 	node->graph = graph;
 	spa_list_append(&graph->nodes, &node->link);
 	spa_graph_link_add(node, graph->state, &node->graph_link);
-	spa_debug("node %p add to graph %p", node, graph);
 }
 
 static inline void spa_graph_node_remove(struct spa_graph_node *node)

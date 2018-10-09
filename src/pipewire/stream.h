@@ -173,7 +173,8 @@ struct pw_buffer {
 					  *  returned in the time info. */
 };
 
-/** Events for a stream */
+/** Events for a stream. These events are always called from the mainloop
+ * unless explicitly documented otherwise. */
 struct pw_stream_events {
 #define PW_VERSION_STREAM_EVENTS	0
 	uint32_t version;
@@ -197,6 +198,9 @@ struct pw_stream_events {
 	 *  mainloop but can also be called directly from the realtime data
 	 *  thread if the user is prepared to deal with this. */
         void (*process) (void *data);
+
+	/** The stream is drained */
+        void (*drained) (void *data);
 };
 
 /** Convert a stream state to a readable string \memberof pw_stream */
@@ -307,9 +311,6 @@ int pw_stream_set_control(struct pw_stream *stream, const char *name, float valu
 /** Get a control value */
 int pw_stream_get_control(struct pw_stream *stream, const char *name, float *value);
 
-/** Activate or deactivate the stream \memberof pw_stream */
-int pw_stream_set_active(struct pw_stream *stream, bool active);
-
 /** A time structure \memberof pw_stream */
 struct pw_time {
 	int64_t now;			/**< the monotonic time */
@@ -333,6 +334,12 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream);
 /** Submit a buffer for playback or recycle a buffer for capture. */
 int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer);
 
+/** Activate or deactivate the stream \memberof pw_stream */
+int pw_stream_set_active(struct pw_stream *stream, bool active);
+
+/** Flush a stream. When \a drain is true, the drained callback will
+ * be called when all data is played or recorded */
+int pw_stream_flush(struct pw_stream *stream, bool drain);
 
 #ifdef __cplusplus
 }

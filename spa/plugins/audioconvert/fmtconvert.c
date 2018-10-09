@@ -457,7 +457,7 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(buffers, 2, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(buffers, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(port->blocks),
 			SPA_PARAM_BUFFERS_size,    pod,
 			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(port->stride),
@@ -853,8 +853,8 @@ static int impl_node_process(struct spa_node *node)
 		outb->datas[i].chunk->size = (n_bytes / inport->stride) * outport->stride;
 	}
 
-	spa_log_trace(this->log, NAME " %p: %d %d %d %d", this,
-			n_src_datas, n_dst_datas, inport->offset, n_bytes);
+	spa_log_trace(this->log, NAME " %p: %d %d %d %d %d %d", this,
+			n_src_datas, n_dst_datas, inport->offset, size, maxsize, n_bytes);
 
 	this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
 

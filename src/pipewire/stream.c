@@ -1163,8 +1163,11 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	else
 		time->queued = (int64_t)(impl->queued.incount - time->queued);
 
-	pw_log_trace("%ld %ld %d/%d %ld",
-			time->now, time->ticks, time->rate.num, time->rate.denom, time->queued);
+	pw_log_trace("%ld %ld %ld %d/%d %ld %ld %ld %ld %ld",
+			time->now, time->delay, time->ticks,
+			time->rate.num, time->rate.denom, time->queued,
+			impl->dequeued.outcount, impl->dequeued.incount,
+			impl->queued.outcount, impl->queued.incount);
 
 	return 0;
 }

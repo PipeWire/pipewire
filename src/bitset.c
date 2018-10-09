@@ -45,7 +45,8 @@ bool pa_bitset_equals(const pa_bitset_t *b, unsigned n, ...) {
     pa_bitset_t *a;
     bool equal;
 
-    a = alloca(PA_BITSET_ELEMENTS(n));
+    a = alloca(PA_BITSET_SIZE(n));
+    spa_memzero(a, PA_BITSET_SIZE(n));
 
     va_start(ap, n);
     for (;;) {

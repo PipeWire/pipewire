@@ -611,8 +611,6 @@ impl_node_port_set_param(struct spa_node *node,
 			 uint32_t id, uint32_t flags,
 			 const struct spa_pod *param)
 {
-	struct impl *this;
-
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);

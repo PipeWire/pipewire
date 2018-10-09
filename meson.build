@@ -168,11 +168,21 @@ if get_option('gstreamer')
              dependency('gstreamer-allocators-1.0'),]
 endif
 
-subdir('spa')
+if get_option('spa')
+  subdir('spa')
+endif
+
 subdir('src')
-subdir('pipewire-jack')
-subdir('pipewire-pulseaudio')
-subdir('alsa-plugins')
+
+if get_option('pipewire-jack')
+  subdir('pipewire-jack/src')
+endif
+if get_option('pipewire-pulseaudio')
+  subdir('pipewire-pulseaudio/src')
+endif
+if get_option('pipewire-alsa')
+  subdir('pipewire-alsa/alsa-plugins')
+endif
 
 if get_option('docs')
   doxygen = find_program('doxygen', required : false)

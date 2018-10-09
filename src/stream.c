@@ -599,6 +599,11 @@ pa_stream* pa_stream_new(pa_context *c, const char *name, const pa_sample_spec *
 pa_stream* pa_stream_new_with_proplist(pa_context *c, const char *name,
         const pa_sample_spec *ss, const pa_channel_map *map, pa_proplist *p)
 {
+	pa_channel_map tmap;
+
+	if (!map)
+		PA_CHECK_VALIDITY_RETURN_NULL(c, map = pa_channel_map_init_auto(&tmap, ss->channels, PA_CHANNEL_MAP_DEFAULT), PA_ERR_INVALID);
+
 	return stream_new(c, name, ss, map, NULL, 0, p);
 }
 
@@ -808,17 +813,18 @@ static int create_stream(pa_stream_direction_t direction,
 	}
 	else {
 		pa_sample_spec ss;
+		pa_channel_map chmap;
 		int i;
 
 		for (i = 0; i < s->n_formats; i++) {
-			if ((res = pa_format_info_to_sample_spec(s->req_formats[i], &ss, NULL)) < 0) {
+			if ((res = pa_format_info_to_sample_spec(s->req_formats[i], &ss, &chmap)) < 0) {
 				char buf[4096];
 				pw_log_warn("can't convert format %d %s", res,
 						pa_format_info_snprint(buf,4096,s->req_formats[i]));
 				continue;
 			}
 
-			params[n_params++] = get_param(s, &ss, NULL, &b);
+			params[n_params++] = get_param(s, &ss, &chmap, &b);
 			if (ss.rate > sample_rate) {
 				sample_rate = ss.rate;
 				stride = pa_frame_size(&ss);

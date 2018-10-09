@@ -913,10 +913,10 @@ static int rescan_node(struct impl *impl, struct node *node)
 	spa_list_append(&session->node_list, &node->session_link);
 
 	if (!exclusive) {
-		audio_info = node->format;
+		audio_info = session->node->format;
 		audio_info.format = SPA_AUDIO_FORMAT_F32P;
 		audio_info.rate = session->node->format.rate;
-		audio_info.channels = SPA_MIN(session->node->format.channels, audio_info.channels);
+		audio_info.channels = SPA_MIN(session->node->format.channels, node->format.channels);
 
 		spa_pod_builder_init(&b, buf, sizeof(buf));
 		param = spa_pod_builder_object(&b,

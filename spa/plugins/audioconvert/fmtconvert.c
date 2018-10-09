@@ -305,6 +305,11 @@ impl_node_port_get_info(struct spa_node *node,
 	return 0;
 }
 
+static int int32_cmp(const void *v1, const void *v2)
+{
+	return *(int32_t*)v1 - *(int32_t*)v2;
+}
+
 static int port_enum_formats(struct spa_node *node,
 			     enum spa_direction direction, uint32_t port_id,
 			     uint32_t *index,
@@ -320,6 +325,12 @@ static int port_enum_formats(struct spa_node *node,
 	switch (*index) {
 	case 0:
 		if (other->info.raw.channels > 0) {
+			struct spa_audio_info info;
+
+			info = *other;
+
+			qsort(info.info.raw.position, info.info.raw.channels, sizeof(uint32_t), int32_cmp);
+
 			spa_pod_builder_push_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 			spa_pod_builder_props(builder,
@@ -335,7 +346,7 @@ static int port_enum_formats(struct spa_node *node,
 				0);
 			spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
 	                spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id,
-					other->info.raw.channels, other->info.raw.position);
+					info.info.raw.channels, info.info.raw.position);
 			*param = spa_pod_builder_pop(builder);
 		} else {
 			*param = spa_pod_builder_object(builder,
@@ -536,11 +547,6 @@ static int clear_buffers(struct impl *this, struct port *port)
 	}
 	return 0;
 }
-static int int32_cmp(const void *v1, const void *v2)
-{
-	return *(int32_t*)v1 - *(int32_t*)v2;
-}
-
 static int port_set_format(struct spa_node *node,
 			   enum spa_direction direction,
 			   uint32_t port_id,
@@ -580,8 +586,6 @@ static int port_set_format(struct spa_node *node,
 			if (can_convert(&info, &other->format) < 0)
 				return -ENOTSUP;
 		}
-
-		qsort(info.info.raw.position, info.info.raw.channels, sizeof(uint32_t), int32_cmp);
 
 		port->stride = calc_width(&info);
 

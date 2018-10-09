@@ -14,3 +14,67 @@ option('systemd',
        description: 'Enable systemd integration',
        type: 'boolean',
        value: true)
+option('pipewire-alsa',
+       description: 'Enable pipewire-alsa integration',
+       type: 'boolean',
+       value: false)
+option('pipewire-jack',
+       description: 'Enable pipewire-jack integration',
+       type: 'boolean',
+       value: false)
+option('pipewire-pulseaudio',
+       description: 'Enable pipewire-pulseaudio integration',
+       type: 'boolean',
+       value: false)
+option('spa',
+       description: 'Enable spa integration',
+       type: 'boolean',
+       value: true)
+option('spa-plugins',
+       description: 'Enable spa plugins integration',
+       type: 'boolean',
+       value: false)
+option('alsa',
+       description: 'Enable alsa spa plugin integration',
+       type: 'boolean',
+       value: false)
+option('audiomixer',
+       description: 'Enable audiomixer spa plugin integration',
+       type: 'boolean',
+       value: false)
+option('audioconvert',
+       description: 'Enable audiconvert spa plugin integration',
+       type: 'boolean',
+       value: false)
+option('bluez5',
+       description: 'Enable bluez5 spa plugin integration',
+       type: 'boolean',
+       value: false)
+option('audiotestsrc',
+       description: 'Enable audiotestsrc spa plugin integration',
+       type: 'boolean',
+       value: false)
+option('ffmpeg',
+       description: 'Enable ffmpeg spa plugin integration',
+       type: 'boolean',
+       value: false)
+option('support',
+       description: 'Enable support spa plugin integration',
+       type: 'boolean',
+       value: false)
+option('test',
+       description: 'Enable test spa plugin integration',
+       type: 'boolean',
+       value: false)
+option('v4l2',
+       description: 'Enable v4l2 spa plugin integration',
+       type: 'boolean',
+       value: false)
+option('videotestsrc',
+       description: 'Enable videotestsrc spa plugin integration',
+       type: 'boolean',
+       value: false)
+option('volume',
+       description: 'Enable volume spa plugin integration',
+       type: 'boolean',
+       value: false)

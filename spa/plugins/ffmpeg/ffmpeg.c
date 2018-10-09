@@ -84,7 +84,9 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 	static struct spa_handle_factory f;
 	static char name[128];
 
+  #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
 	av_register_all();
+  #endif
 
 	if (*index == 0) {
 		c = av_codec_next(NULL);

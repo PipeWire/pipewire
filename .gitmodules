@@ -1,0 +1,9 @@
+[submodule "pipewire-alsa"]
+	path = pipewire-alsa
+	url = git@github.com:PipeWire/pipewire-alsa.git
+[submodule "pipewire-jack"]
+	path = pipewire-jack
+	url = git@github.com:PipeWire/pipewire-jack.git
+[submodule "pipewire-pulseaudio"]
+	path = pipewire-pulseaudio
+	url = git@github.com:PipeWire/pipewire-pulseaudio.git

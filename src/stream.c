@@ -849,7 +849,7 @@ static int create_stream(pa_stream_direction_t direction,
 
 	props = (struct pw_properties *) pw_stream_get_properties(s->stream);
 	pw_properties_setf(props, "node.latency", "%u/%u",
-			s->buffer_attr.minreq / stride, sample_rate);
+			(s->buffer_attr.minreq / 2) / stride, sample_rate);
 	pw_properties_set(props, PW_NODE_PROP_MEDIA, "Audio");
 	pw_properties_set(props, PW_NODE_PROP_CATEGORY,
 			direction == PA_STREAM_PLAYBACK ?

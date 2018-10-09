@@ -283,7 +283,7 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 	if (attr->maxlength == -1)
 		buffers = 3;
 	else
-		buffers = SPA_CLAMP(attr->maxlength / (maxsize * stride), 3, MAX_BUFFERS);
+		buffers = SPA_CLAMP(attr->maxlength / (size * stride), 3, MAX_BUFFERS);
 
 	pw_log_info("stream %p: stride %d maxsize %d size %u buffers %d", s, stride, maxsize,
 			size, buffers);

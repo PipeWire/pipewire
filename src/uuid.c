@@ -1,0 +1,81 @@
+/* PipeWire
+ * Copyright (C) 2018 Wim Taymans <wim.taymans@gmail.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/mman.h>
+
+#include <jack/uuid.h>
+
+#include <pipewire/pipewire.h>
+
+jack_uuid_t jack_client_uuid_generate ()
+{
+	pw_log_warn("not implemented");
+	return 0;
+}
+
+jack_uuid_t jack_port_uuid_generate (uint32_t port_id)
+{
+	pw_log_warn("not implemented");
+	return 0;
+}
+
+uint32_t jack_uuid_to_index (jack_uuid_t id)
+{
+	pw_log_warn("not implemented");
+	return 0;
+}
+
+int  jack_uuid_compare (jack_uuid_t id1, jack_uuid_t id2)
+{
+	pw_log_warn("not implemented");
+	return 0;
+}
+
+void jack_uuid_copy (jack_uuid_t* dst, jack_uuid_t src)
+{
+	pw_log_warn("not implemented");
+}
+
+void jack_uuid_clear (jack_uuid_t*id)
+{
+	pw_log_warn("not implemented");
+}
+
+int  jack_uuid_parse (const char *buf, jack_uuid_t*id)
+{
+	pw_log_warn("not implemented");
+	return 0;
+}
+
+void jack_uuid_unparse (jack_uuid_t id, char buf[JACK_UUID_STRING_SIZE])
+{
+	pw_log_warn("not implemented");
+}
+
+int  jack_uuid_empty (jack_uuid_t id)
+{
+	pw_log_warn("not implemented");
+	return 0;
+}

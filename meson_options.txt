@@ -5,11 +5,11 @@ option('docs',
 option('man',
        description: 'Build manpages',
        type: 'boolean',
-       value: false)
+       value: true)
 option('gstreamer',
        description: 'Build GStreamer plugins',
        type: 'boolean',
-       value: false)
+       value: true)
 option('systemd',
        description: 'Enable systemd integration',
        type: 'boolean',
@@ -17,15 +17,15 @@ option('systemd',
 option('pipewire-alsa',
        description: 'Enable pipewire-alsa integration',
        type: 'boolean',
-       value: false)
+       value: true)
 option('pipewire-jack',
        description: 'Enable pipewire-jack integration',
        type: 'boolean',
-       value: false)
+       value: true)
 option('pipewire-pulseaudio',
        description: 'Enable pipewire-pulseaudio integration',
        type: 'boolean',
-       value: false)
+       value: true)
 option('spa',
        description: 'Enable spa integration',
        type: 'boolean',
@@ -33,23 +33,23 @@ option('spa',
 option('spa-plugins',
        description: 'Enable spa plugins integration',
        type: 'boolean',
-       value: false)
+       value: true)
 option('alsa',
        description: 'Enable alsa spa plugin integration',
        type: 'boolean',
-       value: false)
+       value: true)
 option('audiomixer',
        description: 'Enable audiomixer spa plugin integration',
        type: 'boolean',
        value: false)
 option('audioconvert',
-       description: 'Enable audiconvert spa plugin integration',
+       description: 'Enable audioconvert spa plugin integration',
        type: 'boolean',
-       value: false)
+       value: true)
 option('bluez5',
        description: 'Enable bluez5 spa plugin integration',
        type: 'boolean',
-       value: false)
+       value: true)
 option('audiotestsrc',
        description: 'Enable audiotestsrc spa plugin integration',
        type: 'boolean',
@@ -61,7 +61,7 @@ option('ffmpeg',
 option('support',
        description: 'Enable support spa plugin integration',
        type: 'boolean',
-       value: false)
+       value: true)
 option('test',
        description: 'Enable test spa plugin integration',
        type: 'boolean',
@@ -69,7 +69,7 @@ option('test',
 option('v4l2',
        description: 'Enable v4l2 spa plugin integration',
        type: 'boolean',
-       value: false)
+       value: true)
 option('videotestsrc',
        description: 'Enable videotestsrc spa plugin integration',
        type: 'boolean',

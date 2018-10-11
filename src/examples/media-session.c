@@ -397,10 +397,16 @@ static void node_proxy_destroy(void *data)
 {
 	struct node *n = data;
 	struct impl *impl = n->obj.impl;
+	struct port *p, *t;
 
 	pw_log_debug(NAME " %p: proxy destroy node %d", impl, n->obj.id);
 
 	spa_list_remove(&n->l);
+
+	spa_list_for_each_safe(p, t, &n->port_list, l) {
+		spa_list_remove(&p->l);
+		p->node = NULL;
+	}
 	if (n->info)
 		pw_node_info_free(n->info);
 	if (n->session) {
@@ -540,6 +546,9 @@ static void port_event_param(void *object,
 
 	pw_log_debug(NAME" %p: param for port %d", p->obj.impl, p->obj.id);
 
+	if (node == NULL)
+		return;
+
 	if (id != SPA_PARAM_EnumFormat)
 		return;
 
@@ -571,7 +580,10 @@ static void port_proxy_destroy(void *data)
 
 	pw_log_debug(NAME " %p: proxy destroy port %d", p->obj.impl, p->obj.id);
 
-	spa_list_remove(&p->l);
+	if (p->node) {
+		spa_list_remove(&p->l);
+		p->node = NULL;
+	}
 	if (p->info)
 		pw_port_info_free(p->info);
 }

@@ -14,6 +14,7 @@ pipewire_c_args = [
 ]
 
 conf_config = configuration_data()
+conf_config.set('VERSION', '"@0@"'.format(pipewire_version))
 conf_install_dir = join_paths(get_option('sysconfdir'), 'pipewire')
 
 configure_file(input : 'pipewire.conf.in',

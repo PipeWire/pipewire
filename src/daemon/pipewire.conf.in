@@ -1,3 +1,4 @@
+#daemon config file for PipeWire version @VERSION@
 #load-module libpipewire-module-protocol-dbus
 load-module libpipewire-module-rtkit
 load-module libpipewire-module-protocol-native

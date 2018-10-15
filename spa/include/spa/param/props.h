@@ -45,6 +45,7 @@ enum spa_prop {
 
 	SPA_PROP_unknown,		/**< an unknown property */
 
+	SPA_PROP_START_Device	= 0x100,	/**< device related properties */
 	SPA_PROP_device,
 	SPA_PROP_deviceName,
 	SPA_PROP_deviceFd,
@@ -58,6 +59,7 @@ enum spa_prop {
 	SPA_PROP_periodEvent,
 	SPA_PROP_live,
 
+	SPA_PROP_START_Audio	= 0x10000,	/**< audio related properties */
 	SPA_PROP_waveType,
 	SPA_PROP_frequency,
 	SPA_PROP_volume,
@@ -66,6 +68,7 @@ enum spa_prop {
 	SPA_PROP_ditherType,
 	SPA_PROP_truncate,
 
+	SPA_PROP_START_Video	= 0x20000,	/**< video related properties */
 	SPA_PROP_brightness,
 	SPA_PROP_contrast,
 	SPA_PROP_saturation,
@@ -75,7 +78,7 @@ enum spa_prop {
 	SPA_PROP_gain,
 	SPA_PROP_sharpness,
 
-	SPA_PROP_START_CUSTOM	= 0x10000,
+	SPA_PROP_START_CUSTOM	= 0x1000000,
 };
 
 #ifdef __cplusplus

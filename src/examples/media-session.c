@@ -552,6 +552,9 @@ static void port_event_param(void *object,
 	if (id != SPA_PARAM_EnumFormat)
 		return;
 
+	if (node->manager)
+		node->manager->enabled = true;
+
 	if (spa_format_parse(param, &media_type, &media_subtype) < 0)
 		return;
 
@@ -564,11 +567,8 @@ static void port_event_param(void *object,
 	if (spa_format_audio_raw_parse(param, &info) < 0)
 		return;
 
-	if (info.channels > node->format.channels) {
+	if (info.channels > node->format.channels)
 		node->format = info;
-		if (node->manager)
-			node->manager->enabled = true;
-	}
 }
 
 static const struct pw_port_proxy_events port_events = {

@@ -329,7 +329,6 @@ static int do_add_port(struct spa_loop *loop,
         struct pw_port *this = user_data;
 	struct spa_graph_node *out, *in;
 
-	this->rt.port.flags = this->spa_info.flags;
 	spa_graph_port_add(&this->node->rt.node, &this->rt.port);
 	spa_graph_port_add(&this->rt.mix_node, &this->rt.mix_port);
 	spa_graph_port_link(&this->rt.port, &this->rt.mix_port);
@@ -518,13 +517,10 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 			       &spa_info)) < 0)
 			goto info_failed;
 	}
-
-	port->node = node;
-	port->spa_info = *spa_info;
-	port->spa_info.props = NULL;
-
 	if (spa_info->props)
 		pw_port_update_properties(port, spa_info->props);
+
+	port->node = node;
 
 	pw_node_events_port_init(node, port);
 
@@ -548,12 +544,12 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		}
 	}
 
-	if (SPA_FLAG_CHECK(port->spa_info.flags, SPA_PORT_INFO_FLAG_PHYSICAL))
+	if (SPA_FLAG_CHECK(spa_info->flags, SPA_PORT_INFO_FLAG_PHYSICAL))
 		pw_properties_set(port->properties, "port.physical", "1");
-	if (SPA_FLAG_CHECK(port->spa_info.flags, SPA_PORT_INFO_FLAG_TERMINAL))
+	if (SPA_FLAG_CHECK(spa_info->flags, SPA_PORT_INFO_FLAG_TERMINAL))
 		pw_properties_set(port->properties, "port.terminal", "1");
 
-	pw_log_debug("port %p: %d add to node %p %08x", port, port_id, node, port->spa_info.flags);
+	pw_log_debug("port %p: %d add to node %p %08x", port, port_id, node, spa_info->flags);
 
 	spa_list_append(ports, &port->link);
 	pw_map_insert_at(portmap, port_id, port);

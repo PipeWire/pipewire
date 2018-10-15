@@ -403,7 +403,6 @@ struct pw_port {
 
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
-	struct spa_port_info spa_info;
 
 	struct pw_properties *properties;	/**< properties of the port */
 	struct pw_port_info info;

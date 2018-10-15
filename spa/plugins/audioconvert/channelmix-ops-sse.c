@@ -21,13 +21,11 @@
 
 static void
 channelmix_copy_sse(void *data, int n_dst, void *dst[n_dst],
-	   int n_src, const void *src[n_src], void *matrix, int n_bytes)
+	   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
 {
 	int i, n, n_samples = n_bytes / sizeof(float), unrolled, remain;
 	float **d = (float **)dst;
 	float **s = (float **)src;
-	float *m = matrix;
-	float v = m[0];
         __m128 vol = _mm_set1_ps(v);
 
 	if (v <= VOLUME_MIN) {
@@ -55,13 +53,11 @@ channelmix_copy_sse(void *data, int n_dst, void *dst[n_dst],
 
 static void
 channelmix_f32_2_4_sse(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
 {
 	int i, n, n_samples = n_bytes / sizeof(float), unrolled, remain;
 	float **d = (float **)dst;
 	float **s = (float **)src;
-	float *m = matrix;
-	float v = m[0];
         __m128 vol = _mm_set1_ps(v);
 	__m128 in;
 	float *dFL = d[0], *dFR = d[1], *dRL = d[2], *dRR = d[3];
@@ -118,13 +114,12 @@ channelmix_f32_2_4_sse(void *data, int n_dst, void *dst[n_dst],
 /* FL+FR+FC+LFE+SL+SR -> FL+FR */
 static void
 channelmix_f32_5p1_2_sse(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
 {
 	int n, n_samples = n_bytes / sizeof(float), unrolled, remain;
 	float **d = (float **) dst;
 	float **s = (float **) src;
 	float *m = matrix;
-	float v = m[0];
         __m128 clev = _mm_set1_ps(m[2]);
         __m128 llev = _mm_set1_ps(m[3]);
         __m128 slev = _mm_set1_ps(m[4]);
@@ -205,13 +200,12 @@ channelmix_f32_5p1_2_sse(void *data, int n_dst, void *dst[n_dst],
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+RL+RR*/
 static void
 channelmix_f32_5p1_4_sse(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
 {
 	int i, n, n_samples = n_bytes / sizeof(float), unrolled, remain;
 	float **d = (float **) dst;
 	float **s = (float **) src;
 	float *m = matrix;
-	float v = m[0];
         __m128 clev = _mm_set1_ps(m[2]);
         __m128 llev = _mm_set1_ps(m[3]);
         __m128 vol = _mm_set1_ps(v);

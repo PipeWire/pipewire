@@ -41,14 +41,17 @@
 
 struct impl;
 
+#define DEFAULT_MUTE	false
 #define DEFAULT_VOLUME	1.0
 
 struct props {
 	float volume;
+	bool mute;
 };
 
 static void props_reset(struct props *props)
 {
+	props->mute = DEFAULT_MUTE;
 	props->volume = DEFAULT_VOLUME;
 }
 
@@ -98,6 +101,7 @@ struct impl {
 	bool started;
 
 	channelmix_func_t convert;
+	uint32_t n_matrix;
 	float matrix[4096];
 };
 
@@ -340,6 +344,7 @@ static int make_matrix(struct impl *this,
 		}
 		max = SPA_MAX(max, sum);
 	}
+	this->n_matrix = c;
 	for (i = 0; i < dst_chan; i++) {
 		for (j = 0; j < src_chan; j++) {
 			spa_log_debug(this->log, "%d %d: %f", i, j, this->matrix[i * src_chan + j]);
@@ -412,10 +417,47 @@ static int impl_node_enum_params(struct spa_node *node,
 	return -ENOTSUP;
 }
 
+static int apply_props(struct impl *this, const struct spa_pod *param)
+{
+	struct spa_pod_prop *prop;
+	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+	struct props *p = &this->props;
+
+	SPA_POD_OBJECT_FOREACH(obj, prop) {
+		float volume;
+		bool mute;
+		switch (prop->key) {
+		case SPA_PROP_volume:
+			volume = SPA_POD_VALUE(struct spa_pod_float, &prop->value);
+			p->volume = volume;
+			break;
+		case SPA_PROP_mute:
+			mute = SPA_POD_VALUE(struct spa_pod_bool, &prop->value);
+			p->mute = mute;
+			break;
+		default:
+			break;
+		}
+	}
+	return 0;
+}
+
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
-	return -ENOTSUP;
+	struct impl *this;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct impl, node);
+
+	switch (id) {
+	case SPA_PARAM_Props:
+		return apply_props(this, param);
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -941,26 +983,8 @@ static int process_control(struct impl *this, struct port *port, struct spa_pod_
 	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
 		switch (c->type) {
 		case SPA_CONTROL_Properties:
-		{
-			struct props *p = &this->props;
-			float volume = p->volume;
-			struct spa_pod_prop *prop;
-			struct spa_pod_object *obj = (struct spa_pod_object *) &c->value;
-
-			SPA_POD_OBJECT_FOREACH(obj, prop) {
-				switch (prop->key) {
-				case SPA_PROP_volume:
-					volume = SPA_POD_VALUE(struct spa_pod_float, &prop->value);
-					if (volume != p->volume)
-						this->matrix[0] = p->volume = volume;
-					break;
-				default:
-					break;
-				}
-			}
-
+			apply_props(this, (const struct spa_pod *) &c->value);
 			break;
-		}
 		default:
 			break;
                 }
@@ -1033,7 +1057,8 @@ static int impl_node_process(struct spa_node *node)
 
 		this->convert(this, n_dst_datas, dst_datas,
 				    n_src_datas, src_datas,
-				    this->matrix, n_bytes);
+				    this->matrix, this->props.mute ? 0.0 : this->props.volume,
+				    n_bytes);
 	}
 
 	outio->status = SPA_STATUS_HAVE_BUFFER;

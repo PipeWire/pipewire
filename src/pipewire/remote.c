@@ -785,7 +785,10 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 			spa_pod_object_parse(param,
 				":", SPA_PARAM_LIST_id, "I", &id, NULL);
 
-			for (idx2 = 0;; n_params++) {
+			params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
+			params[n_params++] = pw_spa_pod_copy(param);
+
+			for (idx2 = 0;;) {
 				spa_pod_builder_init(&b, buf, sizeof(buf));
 	                        if (spa_node_port_enum_params(port->node->node,
 							      port->direction, port->port_id,
@@ -793,8 +796,8 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 							      NULL, &param, &b) <= 0)
 	                                break;
 
-	                        params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
-	                        params[n_params] = pw_spa_pod_copy(param);
+				params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
+				params[n_params++] = pw_spa_pod_copy(param);
 			}
                 }
 	}

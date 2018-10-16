@@ -118,7 +118,7 @@ static inline int spa_pod_compare(const struct spa_pod *pod1,
 		SPA_POD_OBJECT_FOREACH((const struct spa_pod_object*)pod1, p1) {
 			if ((p2 = spa_pod_find_prop(pod2, p1->key)) == NULL)
 				return 1;
-			if ((res == spa_pod_compare(&p1->value, &p2->value)) != 0)
+			if ((res = spa_pod_compare(&p1->value, &p2->value)) != 0)
 				return res;
 		}
 		SPA_POD_OBJECT_FOREACH((const struct spa_pod_object*)pod2, p2) {

@@ -176,11 +176,6 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
       next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	if (*index > 0) {
-		res = 0;
-		goto exit;
-	}
-
 	hndl = state->hndl;
 	snd_pcm_hw_params_alloca(&params);
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
@@ -245,31 +240,45 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 
 	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_channels, 0);
 
-	choice = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0));
-	spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_CHANNELS, min, max));
-	if (min != max) {
-		spa_pod_builder_int(&b, min);
-		spa_pod_builder_int(&b, max);
-		choice->body.type = SPA_CHOICE_Range;
-	}
-	spa_pod_builder_pop(&b);
-
 	if ((maps = snd_pcm_query_chmaps(hndl)) != NULL) {
 		uint32_t channel;
+		snd_pcm_chmap_t* map;
+
+		if (maps[*index] == NULL) {
+			res = 0;
+			goto exit;
+		}
+		map = &maps[*index]->map;
+
+		spa_log_debug(state->log, "map %d channels", map->channels);
+		spa_pod_builder_int(&b, map->channels);
 
 		spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_position, 0);
 		spa_pod_builder_push_array(&b);
-		for (i = 0; maps[i]; i++) {
-			snd_pcm_chmap_t* map = &maps[i]->map;
-			for (j = 0; j < map->channels; j++) {
-				channel = chmap_position_to_channel(map->pos[j]);
-				spa_pod_builder_id(&b, channel);
-			}
+		for (j = 0; j < map->channels; j++) {
+			spa_log_debug(state->log, "position %d %d", j, map->pos[j]);
+			channel = chmap_position_to_channel(map->pos[j]);
+			spa_pod_builder_id(&b, channel);
 		}
 		spa_pod_builder_pop(&b);
 
 		snd_pcm_free_chmaps(maps);
+	}
+	else {
+		if (*index > 0) {
+			res = 0;
+			goto exit;
+		}
+
+		choice = spa_pod_builder_deref(&b,
+			spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0));
+		spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_CHANNELS, min, max));
+		if (min != max) {
+			spa_pod_builder_int(&b, min);
+			spa_pod_builder_int(&b, max);
+			choice->body.type = SPA_CHOICE_Range;
+		}
+		spa_pod_builder_pop(&b);
 	}
 
 	fmt = spa_pod_builder_pop(&b);

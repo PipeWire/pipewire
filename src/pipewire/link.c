@@ -213,7 +213,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
 						     SPA_PARAM_Format, &index,
-						     format, &current, &b)) <= 0) {
+						     NULL, &current, &b)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
 			asprintf(&error, "error get output format: %s", spa_strerror(res));
@@ -238,7 +238,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
 						     SPA_PARAM_Format, &index,
-						     format, &current, &b)) <= 0) {
+						     NULL, &current, &b)) <= 0) {
 			if (res == 0)
 				res = -EBADF;
 			asprintf(&error, "error get input format: %s", spa_strerror(res));

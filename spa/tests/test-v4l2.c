@@ -168,6 +168,12 @@ static void on_source_process(void *_data, int status)
 
 	handle_events(data);
 
+	if ((res = spa_node_process(data->source)) < 0)
+		printf("got process error %d\n", res);
+
+	if (io->buffer_id > MAX_BUFFERS)
+		return;
+
 	b = &data->buffers[io->buffer_id];
 
 	datas = b->buffer.datas;
@@ -231,9 +237,6 @@ static void on_source_process(void *_data, int status)
 	}
 
 	io->status = SPA_STATUS_NEED_BUFFER;
-
-	if ((res = spa_node_process(data->source)) < 0)
-		printf("got pull error %d\n", res);
 }
 
 static const struct spa_node_callbacks source_callbacks = {

@@ -45,6 +45,8 @@
 #define MAX_CHANNELS	32
 #define MAX_RATE	(48000*8)
 
+#define MIN_PERIOD	64
+
 typedef struct {
 	snd_pcm_ioplug_t io;
 
@@ -189,9 +191,9 @@ snd_pcm_pipewire_process_playback(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 	nbytes = SPA_MIN(avail, maxsize - offset);
 
 	ptr = SPA_MEMBER(d[0].data, offset, void);
-	pw_log_trace("%d %d %d %d %p %d", nbytes, avail, filled, offset, ptr, io->state);
 
 	nframes = nbytes / bpf;
+	pw_log_trace("%d %d %lu %d %d %p %d", nbytes, avail, nframes, filled, offset, ptr, io->state);
 
 	for (channel = 0; channel < io->channels; channel++) {
 		pwareas[channel].addr = ptr;
@@ -317,10 +319,15 @@ static void on_stream_format_changed(void *data, const struct spa_pod *format)
         uint8_t buffer[4096];
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t stride = (io->channels * pw->sample_bits) / 8;
-	uint32_t buffers = SPA_CLAMP(io->buffer_size / io->period_size, MIN_BUFFERS, MAX_BUFFERS);
-	uint32_t size = io->period_size * stride;
+	uint32_t buffers;
+	uint32_t size;
 
-	pw_log_info("buffers %lu %lu %u %u %u", io->buffer_size, io->period_size, buffers, stride, size);
+	io->period_size = pw->min_avail;
+	buffers = SPA_CLAMP(io->buffer_size / io->period_size, MIN_BUFFERS, MAX_BUFFERS);
+	size = io->period_size * stride;
+
+	pw_log_info("buffer_size:%lu period_size:%lu buffers:%u stride:%u size:%u min_avail:%lu",
+			io->buffer_size, io->period_size, buffers, stride, size, pw->min_avail);
 
 	params[n_params++] = spa_pod_builder_object(&b,
 	                SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
@@ -367,10 +374,20 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct pw_properties *props;
 	int res;
+	uint32_t min_period;
 
 	pw_thread_loop_lock(pw->main_loop);
 
-	pw_log_debug("prepare %d %p %lu", pw->error, pw->stream, io->period_size);
+	snd_pcm_sw_params_alloca(&swparams);
+	if ((res = snd_pcm_sw_params_current(io->pcm, swparams)) == 0)
+		snd_pcm_sw_params_get_avail_min(swparams, &pw->min_avail);
+	else
+		pw->min_avail = io->period_size;
+
+	min_period = (MIN_PERIOD * io->rate / 48000);
+	pw->min_avail = SPA_MAX(pw->min_avail, min_period);
+
+	pw_log_debug("prepare %d %p %lu %ld", pw->error, pw->stream, io->period_size, pw->min_avail);
 	if (!pw->error && pw->stream != NULL)
 		goto done;
 
@@ -380,7 +397,8 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	}
 
 	props = pw_properties_new("client.api", "alsa", NULL);
-	pw_properties_setf(props, "node.latency", "%lu/%u", io->period_size, io->rate);
+
+	pw_properties_setf(props, "node.latency", "%lu/%u", pw->min_avail, io->rate);
 	pw_properties_set(props, PW_NODE_PROP_MEDIA, "Audio");
 	pw_properties_set(props, PW_NODE_PROP_CATEGORY,
 			io->stream == SND_PCM_STREAM_PLAYBACK ?
@@ -409,12 +427,6 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 
 done:
 	pw->hw_ptr = 0;
-
-	snd_pcm_sw_params_alloca(&swparams);
-	if ((res = snd_pcm_sw_params_current(io->pcm, swparams)) == 0)
-		snd_pcm_sw_params_get_avail_min(swparams, &pw->min_avail);
-	else
-		pw->min_avail = io->period_size;
 
 	pw_thread_loop_unlock(pw->main_loop);
 
@@ -505,7 +517,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	snd_pcm_pipewire_t *pw = io->private_data;
 	bool planar;
 
-	pw_log_debug("hw_params");
+	pw_log_debug("hw_params %lu %lu", io->buffer_size, io->period_size);
 
 	switch(io->access) {
 	case SND_PCM_ACCESS_MMAP_INTERLEAVED:
@@ -722,10 +734,12 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 						   1, MAX_CHANNELS)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_RATE,
 						   1, MAX_RATE)) < 0 ||
+	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_BUFFER_BYTES,
+                                                   16*1024, 4*1024*1024)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIOD_BYTES,
-                                                   128, 64*1024)) < 0 ||
+                                                   128, 2*1024*1024)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIODS,
-						   2, 64)) < 0)
+						   3, 64)) < 0)
 		return err;
 
 	return 0;

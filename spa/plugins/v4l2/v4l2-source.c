@@ -256,7 +256,7 @@ static int impl_node_set_param(struct spa_node *node,
 			return 0;
 		}
 		spa_pod_object_parse(param,
-			SPA_PROP_device, "?S", p->device, sizeof(p->device), NULL);
+			":", SPA_PROP_device, "?S", p->device, sizeof(p->device), NULL);
 		break;
 	}
 	default:

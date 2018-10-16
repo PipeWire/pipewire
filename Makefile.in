@@ -23,6 +23,9 @@ cli: all
 	PIPEWIRE_MODULE_DIR=build/src/modules/ \
 	build/src/tools/pipewire-cli
 
+shell: all
+	ninja -C build uninstalled
+
 dist: all
 	git archive --prefix=pipewire-@VERSION@/ -o pipewire-@VERSION@.tar.gz @TAG@
 

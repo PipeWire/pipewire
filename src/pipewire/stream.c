@@ -1100,6 +1100,7 @@ int pw_stream_disconnect(struct pw_stream *stream)
 		pw_node_destroy(impl->node);
 		impl->node = NULL;
 	}
+	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, NULL);
 	return 0;
 }
 

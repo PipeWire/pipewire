@@ -1463,6 +1463,8 @@ pa_operation* pa_stream_set_name(pa_stream *s, const char *name, pa_stream_succe
 {
 	pa_operation *o;
 	struct success_ack *d;
+	struct spa_dict dict;
+	struct spa_dict_item items[1];
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -1471,7 +1473,10 @@ pa_operation* pa_stream_set_name(pa_stream *s, const char *name, pa_stream_succe
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
-	pw_log_warn("Not Implemented");
+	items[0] = SPA_DICT_ITEM_INIT("media.name", name);
+	dict = SPA_DICT_INIT(items, 1);
+	pw_stream_update_properties(s->stream, &dict);
+
 	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;

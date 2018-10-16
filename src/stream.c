@@ -953,7 +953,6 @@ int peek_buffer(pa_stream *s)
 	}
 	else {
 		s->buffer_size = s->buffer->buffer->datas[0].maxsize;
-		s->buffer_offset = 0;
 	}
 	return 0;
 }
@@ -975,6 +974,7 @@ int queue_buffer(pa_stream *s)
 
 	pw_stream_queue_buffer(s->stream, s->buffer);
 	s->buffer = NULL;
+	s->buffer_offset = 0;
 	return 0;
 }
 
@@ -1070,21 +1070,26 @@ int pa_stream_write_ext_free(pa_stream *s,
 
 			if (pa_stream_begin_write(s, &dst, &dsize) < 0 ||
 			    dst == NULL || dsize == 0) {
-				pw_log_debug("out of buffers");
+				pw_log_debug("stream %p: out of buffers, wanted %zd bytes", s, nbytes);
 				break;
 			}
 
 			memcpy(dst, src, dsize);
 
-			s->buffer->buffer->datas[0].chunk->offset = 0;
-			s->buffer->buffer->datas[0].chunk->size = dsize;
-			queue_buffer(s);
+			s->buffer_offset += dsize;
 
+			if (s->buffer_offset >= s->buffer_size) {
+				s->buffer->buffer->datas[0].chunk->offset = 0;
+				s->buffer->buffer->datas[0].chunk->size = s->buffer_offset;
+				queue_buffer(s);
+			}
 			towrite -= dsize;
 			src += dsize;
 		}
 		if (free_cb)
 			free_cb(free_cb_data);
+
+		s->buffer = NULL;
 	}
 	else {
 		s->buffer->buffer->datas[0].chunk->offset = data - s->buffer_data;
@@ -1147,6 +1152,7 @@ size_t pa_stream_writable_size(pa_stream *s)
 	PA_CHECK_VALIDITY_RETURN_ANY(s->context, s->direction != PA_STREAM_RECORD,
 			PA_ERR_BADSTATE, (size_t) -1);
 
+	pw_log_trace("stream %p: %zd", s, s->dequeued_size);
 	return s->dequeued_size;
 }
 

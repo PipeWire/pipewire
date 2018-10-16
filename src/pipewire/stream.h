@@ -258,6 +258,8 @@ struct pw_remote *pw_stream_get_remote(struct pw_stream *stream);
 
 const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream);
 
+int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict *dict);
+
 /** Connect a stream for input or output on \a port_path. \memberof pw_stream
  * \return 0 on success < 0 on error.
  *

@@ -955,8 +955,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 	if (stream->error)
 		free(stream->error);
 
-	if (stream->properties)
-		pw_properties_free(stream->properties);
+	pw_properties_free(stream->properties);
 
 	if (stream->name)
 		free(stream->name);
@@ -990,6 +989,20 @@ const char *pw_stream_get_name(struct pw_stream *stream)
 const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream)
 {
 	return stream->properties;
+}
+
+int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict *dict)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	int i, changed = 0;
+
+	for (i = 0; i < dict->n_items; i++)
+		changed += pw_properties_set(stream->properties, dict->items[i].key, dict->items[i].value);
+
+	if (!changed)
+		return 0;
+
+	return pw_node_update_properties(impl->node, dict);
 }
 
 struct pw_remote *pw_stream_get_remote(struct pw_stream *stream)
@@ -1049,8 +1062,6 @@ pw_stream_connect(struct pw_stream *stream,
 
 	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, NULL);
 
-	if (stream->properties == NULL)
-		stream->properties = pw_properties_new(NULL, NULL);
 	if (port_path)
 		pw_properties_set(stream->properties, PW_NODE_PROP_TARGET_NODE, port_path);
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)

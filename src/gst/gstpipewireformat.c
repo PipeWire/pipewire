@@ -641,7 +641,7 @@ handle_id_prop (struct spa_pod_prop *prop, const char *key, id_to_string_func fu
     case SPA_CHOICE_None:
       if (!(str = func(id[0])))
         return;
-      gst_caps_set_simple (res, key, G_TYPE_STRING, rindex (str, ':') + 1, NULL);
+      gst_caps_set_simple (res, key, G_TYPE_STRING, str, NULL);
       break;
     case SPA_CHOICE_Enum:
     {
@@ -653,7 +653,7 @@ handle_id_prop (struct spa_pod_prop *prop, const char *key, id_to_string_func fu
           continue;
 
         g_value_init (&v, G_TYPE_STRING);
-        g_value_set_string (&v, rindex (str, ':') + 1);
+        g_value_set_string (&v, str);
         gst_value_list_append_and_take_value (&list, &v);
       }
       gst_caps_set_value (res, key, &list);

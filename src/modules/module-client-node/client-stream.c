@@ -1081,12 +1081,23 @@ static void client_node_active_changed(void *data, bool active)
 	impl->active = active;
 }
 
+static void client_node_info_changed (void *data, struct pw_node_info *info)
+{
+	struct impl *impl = data;
+	struct pw_client_stream *this = &impl->this;
+
+	pw_log_debug("client-stream %p: info changed", this);
+
+	pw_node_update_properties(this->node, info->props);
+}
+
 static const struct pw_node_events client_node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.destroy = client_node_destroy,
 	.initialized = client_node_initialized,
 	.async_complete = client_node_async_complete,
 	.active_changed = client_node_active_changed,
+	.info_changed = client_node_info_changed,
 };
 
 static void node_destroy(void *data)

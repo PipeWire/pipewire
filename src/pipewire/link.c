@@ -210,16 +210,22 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 
 	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE) {
 		index = 0;
-		if ((res = spa_node_port_enum_params(output->node->node,
+		res = spa_node_port_enum_params(output->node->node,
 						     output->direction, output->port_id,
 						     SPA_PARAM_Format, &index,
-						     NULL, &current, &b)) <= 0) {
-			if (res == 0)
-				res = -EBADF;
+						     NULL, &current, &b);
+		switch (res) {
+		case -EIO:
+			current = NULL;
+			res = 0;
+			break;
+		case 0:
+			res = -EBADF;
+		default:
 			asprintf(&error, "error get output format: %s", spa_strerror(res));
 			goto error;
 		}
-		if (spa_pod_compare(current, format) != 0) {
+		if (current == NULL || spa_pod_compare(current, format) != 0) {
 			pw_log_debug("link %p: output format change, renegotiate", this);
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
 				spa_debug_format(2, NULL, current);
@@ -235,16 +241,22 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	}
 	if (in_state > PW_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE) {
 		index = 0;
-		if ((res = spa_node_port_enum_params(input->node->node,
+		res = spa_node_port_enum_params(input->node->node,
 						     input->direction, input->port_id,
 						     SPA_PARAM_Format, &index,
-						     NULL, &current, &b)) <= 0) {
-			if (res == 0)
-				res = -EBADF;
+						     NULL, &current, &b);
+		switch (res) {
+		case -EIO:
+			current = NULL;
+			res = 0;
+			break;
+		case 0:
+			res = -EBADF;
+		default:
 			asprintf(&error, "error get input format: %s", spa_strerror(res));
 			goto error;
 		}
-		if (spa_pod_compare(current, format) != 0) {
+		if (current == NULL || spa_pod_compare(current, format) != 0) {
 			pw_log_debug("link %p: input format change, renegotiate", this);
 			pw_node_set_state(input->node, PW_NODE_STATE_SUSPENDED);
 			in_state = PW_PORT_STATE_CONFIGURE;

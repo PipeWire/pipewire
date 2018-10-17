@@ -144,9 +144,74 @@ static const struct chmap_info chmap_info[] = {
 	[SND_CHMAP_BRC] = { SND_CHMAP_BRC, SPA_AUDIO_CHANNEL_BRC },
 };
 
+#define _M(ch)	(1LL << SND_CHMAP_ ##ch)
+
+struct def_mask {
+	int channels;
+	uint64_t mask;
+};
+
+static const struct def_mask default_layouts[] = {
+	{ 0, 0 },
+	{ 1, _M(MONO) },
+	{ 2, _M(FL) | _M(FR) },
+	{ 3, _M(FL) | _M(FR) | _M(LFE) },
+	{ 4, _M(FL) | _M(FR) | _M(RL) |_M(RR) },
+	{ 5, _M(FL) | _M(FR) | _M(RL) |_M(RR) | _M(FC) },
+	{ 6, _M(FL) | _M(FR) | _M(RL) |_M(RR) | _M(FC) | _M(LFE) },
+	{ 7, _M(FL) | _M(FR) | _M(RL) |_M(RR) | _M(SL) | _M(SR) | _M(FC) },
+	{ 8, _M(FL) | _M(FR) | _M(RL) |_M(RR) | _M(SL) | _M(SR) | _M(FC) | _M(LFE) },
+};
+
 static enum spa_audio_channel chmap_position_to_channel(enum snd_pcm_chmap_position pos)
 {
 	return chmap_info[pos].channel;
+}
+
+static void sanitize_map(snd_pcm_chmap_t* map)
+{
+	uint64_t mask = 0, p, dup = 0;
+	const struct def_mask *def;
+	int i, j, pos;
+
+	for (i = 0; i < map->channels; i++) {
+		if (map->pos[i] < 0 || map->pos[i] > SND_CHMAP_LAST)
+			map->pos[i] = SND_CHMAP_UNKNOWN;
+
+		p = 1LL << map->pos[i];
+		if (mask & p) {
+			/* duplicate channel */
+			for (j = 0; j <= i; j++)
+				if (map->pos[j] == map->pos[i])
+					map->pos[j] = SND_CHMAP_UNKNOWN;
+			dup |= p;
+			p = 1LL << SND_CHMAP_UNKNOWN;
+		}
+		mask |= p;
+	}
+	if ((mask & (1LL << SND_CHMAP_UNKNOWN)) == 0)
+		return;
+
+	def = &default_layouts[map->channels];
+
+	/* remove duplicates */
+	mask &= ~dup;
+	/* keep unassigned channels */
+	mask = def->mask & ~mask;
+
+	pos = 0;
+	for (i = 0; i < map->channels; i++) {
+		if (map->pos[i] == SND_CHMAP_UNKNOWN) {
+			do {
+				mask >>= 1;
+				pos++;
+			}
+			while (mask != 0 && (mask & 1) == 0);
+			map->pos[i] = mask ? pos : 0;
+		}
+
+	}
+
 }
 
 int
@@ -251,6 +316,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 		map = &maps[*index]->map;
 
 		spa_log_debug(state->log, "map %d channels", map->channels);
+		sanitize_map(map);
 		spa_pod_builder_int(&b, map->channels);
 
 		spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_position, 0);

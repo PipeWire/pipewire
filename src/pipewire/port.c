@@ -535,7 +535,8 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	}
 
 	if ((str = pw_properties_get(port->properties, "port.name")) == NULL) {
-		if ((str = pw_properties_get(port->properties, "port.channel")) != NULL) {
+		if ((str = pw_properties_get(port->properties, "port.channel")) != NULL &&
+		    strcmp(str, "UNK") != 0) {
 			pw_properties_setf(port->properties, "port.name", "%s_%s", dir, str);
 		}
 		else {

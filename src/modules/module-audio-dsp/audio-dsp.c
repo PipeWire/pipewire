@@ -171,6 +171,7 @@ static void node_port_init(void *data, struct pw_port *port)
 	void *iface;
 	const struct spa_support *support;
 	uint32_t n_support;
+	char position[8];
 
 	direction = pw_port_get_direction(port);
 	if (direction == n->direction)
@@ -184,16 +185,22 @@ static void node_port_init(void *data, struct pw_port *port)
 			"port.terminal", "1",
 			NULL);
 
-	if ((str = pw_properties_get(old, "port.channel")) != NULL)
-		pw_properties_setf(new, "port.name", "%s_%s",
-			direction == PW_DIRECTION_INPUT ? "playback" : "capture",
-			str);
+	if ((str = pw_properties_get(old, "port.channel")) == NULL ||
+	    strcmp(str, "UNK") == 0) {
+		snprintf(position, 7, "%d", port->port_id);
+		str = position;
+	}
+
+
+	pw_properties_setf(new, "port.name", "%s_%s",
+		direction == PW_DIRECTION_INPUT ? "playback" : "capture",
+		str);
 
 	pw_properties_setf(new, "port.alias1", "%s_pcm:%s:%s%s",
 			pw_properties_get(n->props, "device.api"),
 			pw_properties_get(n->props, "device.name"),
 			direction == PW_DIRECTION_INPUT ? "in" : "out",
-			str ? str : "UNK");
+			str);
 
 	pw_port_update_properties(port, &new->dict);
 	pw_properties_free(new);

@@ -811,7 +811,8 @@ static int impl_node_process(struct spa_node *node)
 	inio = inport->io;
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: status %p %d %d", this,
+	spa_log_trace(this->log, NAME " %p: status %p %d %d -> %p %d %d", this,
+			inio, inio->status, inio->buffer_id,
 			outio, outio->status, outio->buffer_id);
 
 	if (outio->status == SPA_STATUS_HAVE_BUFFER)
@@ -857,7 +858,7 @@ static int impl_node_process(struct spa_node *node)
 		outb->datas[i].chunk->size = (n_bytes / inport->stride) * outport->stride;
 	}
 
-	spa_log_trace(this->log, NAME " %p: %d %d %d %d %d %d", this,
+	spa_log_trace(this->log, NAME " %p: n_src:%d n_dst:%d in_offset:%d size:%d maxsize:%d n_bytes:%d", this,
 			n_src_datas, n_dst_datas, inport->offset, size, maxsize, n_bytes);
 
 	this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);

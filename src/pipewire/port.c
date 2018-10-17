@@ -63,16 +63,15 @@ static int tee_process(struct spa_node *data)
 	struct spa_graph_port *p;
 	struct spa_io_buffers *io = &this->rt.io;
 
-	if (!spa_list_is_empty(&node->ports[SPA_DIRECTION_OUTPUT])) {
-		pw_log_trace("port %p: tee input %d %d", this, io->status, io->buffer_id);
-		spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
-			struct pw_port_mix *mix = SPA_CONTAINER_OF(p, struct pw_port_mix, port);
-			pw_log_trace("port %p: port %d %d %p->%p", this,
-					p->port_id, p->flags, io, mix->io);
-			*mix->io = *io;
-		}
+	pw_log_trace("port %p: tee input %d %d", this, io->status, io->buffer_id);
+	spa_list_for_each(p, &node->ports[SPA_DIRECTION_OUTPUT], link) {
+		struct pw_port_mix *mix = SPA_CONTAINER_OF(p, struct pw_port_mix, port);
+		pw_log_trace("port %p: port %d %p->%p %d", this,
+				p->port_id, io, mix->io, mix->io->buffer_id);
+		*mix->io = *io;
 	}
 	io->status = SPA_STATUS_NEED_BUFFER;
+
         return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 }
 
@@ -833,6 +832,8 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 		pw_log_debug("port %p: %d set param on mix %d:%d.%d %s: %d (%s)", port, port->state,
 				port->direction, port->port_id, p->port_id,
 				spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
+		if (res < 0)
+			goto done;
 
 		if (port->state == PW_PORT_STATE_CONFIGURE) {
 			spa_node_port_set_param(port->mix,
@@ -847,6 +848,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 				spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
 	}
 
+      done:
 	if (id == SPA_PARAM_Format) {
 		if (param == NULL || res < 0) {
 			free_allocation(&port->allocation);

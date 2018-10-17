@@ -173,7 +173,8 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		if (impl->started)
 			return -EIO;
 		if (impl->adapter != impl->cnode) {
-			spa_node_set_param(impl->adapter, id, flags, param);
+			if ((res = spa_node_set_param(impl->adapter, id, flags, param)) < 0)
+				return res;
 
 			if (this->callbacks && this->callbacks->event)
 				this->callbacks->event(this->callbacks_data,

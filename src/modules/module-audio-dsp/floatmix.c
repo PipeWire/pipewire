@@ -545,13 +545,15 @@ static int port_set_format(struct spa_node *node,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
+		if (info.info.raw.format != SPA_AUDIO_FORMAT_F32P)
+			return -EINVAL;
+		if (info.info.raw.channels != 1)
+			return -EINVAL;
+
 		if (this->have_format) {
-			if (memcmp(&info, &this->format, sizeof(struct spa_audio_info)))
+			if (info.info.raw.rate != this->format.info.raw.rate)
 				return -EINVAL;
 		} else {
-			if (info.info.raw.format != SPA_AUDIO_FORMAT_F32P)
-				return -EINVAL;
-
 			this->stride = sizeof(float);
 			this->have_format = true;
 			this->format = info;

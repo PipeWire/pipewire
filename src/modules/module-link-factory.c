@@ -242,8 +242,8 @@ static void *create_object(void *_data,
 	pw_resource_error(resource, new_id, -EINVAL, "unknown input port");
 	goto done;
       no_mem:
-	pw_log_error("can't create link");
-	pw_resource_error(resource, new_id, -ENOMEM, "no memory");
+	pw_log_error("can't create link: %s", error);
+	pw_resource_error(resource, new_id, -ENOMEM, error);
 	goto done;
       no_bind:
 	pw_resource_error(resource, new_id, res, "can't bind link");

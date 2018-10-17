@@ -265,7 +265,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 					     this->rt.out_mix.port.port_id,
 					     SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					     format)) < 0) {
-			asprintf(&error, "error set output format: %d", res);
+			asprintf(&error, "error set output format: %d (%s)", res, spa_strerror(res));
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res))
@@ -278,7 +278,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 					      this->rt.in_mix.port.port_id,
 					      SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					      format)) < 0) {
-			asprintf(&error, "error set input format: %d", res2);
+			asprintf(&error, "error set input format: %d (%s)", res2, spa_strerror(res2));
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res2)) {

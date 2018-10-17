@@ -218,6 +218,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		case -EIO:
 			current = NULL;
 			res = 0;
+		case 1:
 			break;
 		case 0:
 			res = -EBADF;
@@ -249,6 +250,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		case -EIO:
 			current = NULL;
 			res = 0;
+		case 1:
 			break;
 		case 0:
 			res = -EBADF;

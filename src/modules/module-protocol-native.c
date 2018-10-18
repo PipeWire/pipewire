@@ -861,7 +861,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 		val = pw_properties_get(pw_core_get_properties(core), PW_CORE_PROP_DAEMON);
 	if (val && pw_properties_parse_bool(val)) {
 		if (impl_add_server(this, core, properties) == NULL)
-			return -ENOMEM;
+			return -errno;
 	}
 
 	pw_module_add_listener(module, &d->module_listener, &module_events, d);

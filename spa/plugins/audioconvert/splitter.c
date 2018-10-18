@@ -104,8 +104,10 @@ static int init_port(struct impl *this, uint32_t port_id, uint32_t rate, uint32_
 	struct port *port = GET_OUT_PORT(this, port_id);
 
 	port->id = port_id;
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+
 	snprintf(port->position, 7, "%s", rindex(spa_type_audio_channel[position].name, ':')+1);
+
+	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
 	port->info_props_items[1] = SPA_DICT_ITEM_INIT("port.channel", port->position);
 	port->info_props = SPA_DICT_INIT(port->info_props_items, 2);
@@ -351,46 +353,39 @@ static int port_enum_formats(struct spa_node *node,
 
 	switch (*index) {
 	case 0:
-		if (direction == SPA_DIRECTION_INPUT) {
-			if (port->have_format) {
-				*param = spa_format_audio_raw_build(builder,
-						SPA_PARAM_EnumFormat, &port->format.info.raw);
-			}
-			else {
-				*param = spa_pod_builder_object(builder,
-					SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-					SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-					SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-					SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(18,
-								SPA_AUDIO_FORMAT_F32,
-								SPA_AUDIO_FORMAT_F32P,
-								SPA_AUDIO_FORMAT_F32,
-								SPA_AUDIO_FORMAT_F32_OE,
-								SPA_AUDIO_FORMAT_S32P,
-								SPA_AUDIO_FORMAT_S32,
-								SPA_AUDIO_FORMAT_S32_OE,
-								SPA_AUDIO_FORMAT_S24_32P,
-								SPA_AUDIO_FORMAT_S24_32,
-								SPA_AUDIO_FORMAT_S24_32_OE,
-								SPA_AUDIO_FORMAT_S24P,
-								SPA_AUDIO_FORMAT_S24,
-								SPA_AUDIO_FORMAT_S24_OE,
-								SPA_AUDIO_FORMAT_S16P,
-								SPA_AUDIO_FORMAT_S16,
-								SPA_AUDIO_FORMAT_S16_OE,
-								SPA_AUDIO_FORMAT_U8P,
-								SPA_AUDIO_FORMAT_U8),
-					SPA_FORMAT_AUDIO_rate,     &SPA_POD_CHOICE_RANGE_Int(
-							DEFAULT_RATE, 1, INT32_MAX),
-					SPA_FORMAT_AUDIO_channels, &SPA_POD_CHOICE_RANGE_Int(
-							DEFAULT_CHANNELS, 1, MAX_PORTS),
-					0);
-			}
+		if (direction == SPA_DIRECTION_OUTPUT || port->have_format) {
+			*param = spa_format_audio_raw_build(builder,
+					SPA_PARAM_EnumFormat, &port->format.info.raw);
 		}
 		else {
-			struct port *other = GET_OUT_PORT(this, port_id);
-			*param = spa_format_audio_raw_build(builder,
-					SPA_PARAM_EnumFormat, &other->format.info.raw);
+			*param = spa_pod_builder_object(builder,
+				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+				SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(18,
+							SPA_AUDIO_FORMAT_F32,
+							SPA_AUDIO_FORMAT_F32P,
+							SPA_AUDIO_FORMAT_F32,
+							SPA_AUDIO_FORMAT_F32_OE,
+							SPA_AUDIO_FORMAT_S32P,
+							SPA_AUDIO_FORMAT_S32,
+							SPA_AUDIO_FORMAT_S32_OE,
+							SPA_AUDIO_FORMAT_S24_32P,
+							SPA_AUDIO_FORMAT_S24_32,
+							SPA_AUDIO_FORMAT_S24_32_OE,
+							SPA_AUDIO_FORMAT_S24P,
+							SPA_AUDIO_FORMAT_S24,
+							SPA_AUDIO_FORMAT_S24_OE,
+							SPA_AUDIO_FORMAT_S16P,
+							SPA_AUDIO_FORMAT_S16,
+							SPA_AUDIO_FORMAT_S16_OE,
+							SPA_AUDIO_FORMAT_U8P,
+							SPA_AUDIO_FORMAT_U8),
+				SPA_FORMAT_AUDIO_rate,     &SPA_POD_CHOICE_RANGE_Int(
+						DEFAULT_RATE, 1, INT32_MAX),
+				SPA_FORMAT_AUDIO_channels, &SPA_POD_CHOICE_RANGE_Int(
+						DEFAULT_CHANNELS, 1, MAX_PORTS),
+				0);
 		}
 		break;
 	default:

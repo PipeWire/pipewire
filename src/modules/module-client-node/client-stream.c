@@ -890,6 +890,7 @@ static void client_node_initialized(void *data)
 	const char *str, *dir, *type;
 	char media_class[64];
 	bool exclusive;
+	struct spa_dict_item items[1];
 
 	pw_log_debug("client-stream %p: initialized", &impl->this);
 
@@ -1024,12 +1025,13 @@ static void client_node_initialized(void *data)
 
 	snprintf(media_class, sizeof(media_class), "Stream/%s/%s", dir, type);
 
+	items[0] = SPA_DICT_ITEM_INIT("media.class", media_class);
+	pw_node_update_properties(impl->this.node, &SPA_DICT_INIT(items, 1));
+
 	pw_node_register(impl->this.node,
 			pw_resource_get_client(impl->client_node->resource),
 			impl->client_node->parent,
-			pw_properties_new(
-				"media.class", media_class,
-				NULL));
+			NULL);
 
 	pw_log_debug("client-stream %p: activating", &impl->this);
 

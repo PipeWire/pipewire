@@ -97,6 +97,7 @@ struct node {
 #define NODE_TYPE_DSP		2
 #define NODE_TYPE_DEVICE	3
 	uint32_t type;
+	char *media;
 
 	struct spa_audio_info_raw format;
 };
@@ -340,7 +341,7 @@ static void node_event_param(void *object,
 	struct node *n = object;
 	struct impl *impl = n->obj.impl;
 	uint32_t media_type, media_subtype;
-	struct spa_audio_info_raw info;
+	struct spa_audio_info_raw info = { 0, };
 
 	pw_log_debug(NAME" %p: param for node %d", impl, n->obj.id);
 
@@ -409,6 +410,8 @@ static void node_proxy_destroy(void *data)
 	}
 	if (n->info)
 		pw_node_info_free(n->info);
+	if (n->media)
+		free(n->media);
 	if (n->session) {
 		spa_list_remove(&n->session_link);
 		n->session = NULL;
@@ -468,15 +471,20 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	if (strstr(media_class, "Stream/") == media_class) {
 		media_class += strlen("Stream/");
 
-		if (strstr(media_class, "Output/") == media_class)
+		if (strstr(media_class, "Output/") == media_class) {
 			direction = PW_DIRECTION_OUTPUT;
-		else if (strstr(media_class, "Input/") == media_class)
+			media_class += strlen("Output/");
+		}
+		else if (strstr(media_class, "Input/") == media_class) {
 			direction = PW_DIRECTION_INPUT;
+			media_class += strlen("Input/");
+		}
 		else
 			return 0;
 
 		node->direction = direction;
 		node->type = NODE_TYPE_STREAM;
+		node->media = strdup(media_class);
 		pw_log_debug(NAME "%p: node %d is stream", impl, id);
 
 		pw_node_proxy_enum_params((struct pw_node_proxy*)p,
@@ -542,7 +550,7 @@ static void port_event_param(void *object,
 	struct port *p = object;
 	struct node *node = p->node;
 	uint32_t media_type, media_subtype;
-	struct spa_audio_info_raw info;
+	struct spa_audio_info_raw info = { 0, };
 
 	pw_log_debug(NAME" %p: param for port %d", p->obj.impl, p->obj.id);
 
@@ -635,7 +643,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 				0, -1, NULL);
 	}
 
-	pw_log_debug(NAME" %p: new port %d for node %d", impl, id, parent_id);
+	pw_log_debug(NAME" %p: new port %d for node %d type %d", impl, id, parent_id, node->type);
 
 	return 0;
 }
@@ -812,7 +820,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 	struct node *peer;
 	enum pw_direction direction;
 	struct spa_pod_builder b = { 0, };
-	struct spa_audio_info_raw audio_info;
+	struct spa_audio_info_raw audio_info = { 0, };
 	struct spa_pod *param;
 	char buf[1024];
 
@@ -837,19 +845,37 @@ static int rescan_node(struct impl *impl, struct node *node)
 	}
 
 	if ((media = spa_dict_lookup(props, PW_NODE_PROP_MEDIA)) == NULL)
-		media = "Audio";
+		media = node->media;
 
 	if ((category = spa_dict_lookup(props, PW_NODE_PROP_CATEGORY)) == NULL) {
 		if (info->n_input_ports > 0 && info->n_output_ports == 0)
 			category = "Capture";
 		else if (info->n_output_ports > 0 && info->n_input_ports == 0)
 			category = "Playback";
+		else if (info->n_output_ports > 0 && info->n_input_ports > 0)
+			category = "Duplex";
 		else
 			return -EINVAL;
 	}
 
-	if ((role = spa_dict_lookup(props, PW_NODE_PROP_ROLE)) == NULL)
-		role = "Music";
+	if ((role = spa_dict_lookup(props, PW_NODE_PROP_ROLE)) == NULL) {
+		if (strcmp(media, "Audio") == 0) {
+			if (strcmp(category, "Duplex") == 0)
+				role = "Communication";
+			else if (strcmp(category, "Capture") == 0)
+				role = "Production";
+			else
+				role = "Music";
+		}
+		else if (strcmp(media, "Video") == 0) {
+			if (strcmp(category, "Duplex") == 0)
+				role = "Communication";
+			else if (strcmp(category, "Capture") == 0)
+				role = "Camera";
+			else
+				role = "Video";
+		}
+	}
 
 	if ((str = spa_dict_lookup(props, PW_NODE_PROP_EXCLUSIVE)) != NULL)
 		exclusive = pw_properties_parse_bool(str);
@@ -927,7 +953,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 	node->session = session;
 	spa_list_append(&session->node_list, &node->session_link);
 
-	if (!exclusive) {
+	if (!exclusive && session->dsp) {
 		audio_info = session->node->format;
 		audio_info.format = SPA_AUDIO_FORMAT_F32P;
 		audio_info.rate = session->node->format.rate;
@@ -979,7 +1005,7 @@ static void rescan_session(struct impl *impl, struct session *sess)
 	if (sess->need_dsp && sess->dsp == NULL && sess->dsp_proxy == NULL) {
 		struct pw_properties *props;
 		struct node *node = sess->node;
-		struct spa_audio_info_raw info;
+		struct spa_audio_info_raw info = { 0, };
 		uint8_t buf[1024];
 		struct spa_pod_builder b = { 0, };
 		struct spa_pod *param;

@@ -28,6 +28,7 @@
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/props.h>
 
 #include "pipewire/core.h"
 #include "pipewire/control.h"
@@ -809,6 +810,22 @@ static int link_nodes(struct node *peer, enum pw_direction direction, struct nod
 	return 0;
 }
 
+static void stream_set_volume(struct impl *impl, struct node *node, float volume, bool mute)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+	pw_log_debug(NAME " %p: node %d set volume:%f mute:%d", impl, node->obj.id, volume, mute);
+
+	pw_node_proxy_set_param((struct pw_node_proxy*)node->obj.proxy,
+			SPA_PARAM_Props, 0,
+			spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+				SPA_PROP_volume,	&SPA_POD_Float(volume),
+				SPA_PROP_mute,		&SPA_POD_Bool(mute),
+				0));
+}
+
 static int rescan_node(struct impl *impl, struct node *node)
 {
 	struct spa_dict *props;
@@ -966,9 +983,10 @@ static int rescan_node(struct impl *impl, struct node *node)
 			SPA_PARAM_PROFILE_format,    spa_format_audio_raw_build(&b,
 							SPA_PARAM_Format, &audio_info),
 			0);
-
 		pw_node_proxy_set_param((struct pw_node_proxy*)node->obj.proxy,
 				SPA_PARAM_Profile, 0, param);
+
+		stream_set_volume(impl, node, 1.0, false);
 	} else {
 		audio_info.channels = 1;
 	}

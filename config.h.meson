@@ -317,6 +317,9 @@
 /* Define to 1 if you have the <winsock2.h> header file. */
 #mesondefine HAVE_WINSOCK2_H
 
+/* for the systemd header files */
+#mesondefine HAVE_SYSTEMD_DAEMON
+
 /* the host CPU */
 #mesondefine HOST_CPU
 

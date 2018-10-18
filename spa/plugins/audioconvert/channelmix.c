@@ -411,10 +411,91 @@ static int setup_convert(struct impl *this,
 static int impl_node_enum_params(struct spa_node *node,
 				 uint32_t id, uint32_t *index,
 				 const struct spa_pod *filter,
-				 struct spa_pod **param,
+				 struct spa_pod **result,
 				 struct spa_pod_builder *builder)
 {
-	return -ENOTSUP;
+	struct impl *this;
+	struct spa_pod *param;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+	spa_return_val_if_fail(builder != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct impl, node);
+
+      next:
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	switch (id) {
+	case SPA_PARAM_List:
+	{
+		uint32_t list[] = { SPA_PARAM_PropInfo,
+				    SPA_PARAM_Props };
+
+		if (*index < SPA_N_ELEMENTS(list))
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamList, id,
+				SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
+				0);
+		else
+			return 0;
+		break;
+	}
+	case SPA_PARAM_PropInfo:
+	{
+		struct props *p = &this->props;
+
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_volume),
+				SPA_PROP_INFO_name, &SPA_POD_Stringc("Volume"),
+				SPA_PROP_INFO_type, &SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0),
+				0);
+			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_mute),
+				SPA_PROP_INFO_name, &SPA_POD_Stringc("Mute"),
+				SPA_PROP_INFO_type, &SPA_POD_Bool(p->mute),
+				0);
+			break;
+		default:
+			return 0;
+		}
+		break;
+	}
+	case SPA_PARAM_Props:
+	{
+		struct props *p = &this->props;
+
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_Props, id,
+				SPA_PROP_volume,	&SPA_POD_Float(p->volume),
+				SPA_PROP_mute,		&SPA_POD_Bool(p->mute),
+				0);
+			break;
+		default:
+			return 0;
+		}
+		break;
+	}
+	default:
+		return -ENOENT;
+	}
+
+	(*index)++;
+
+	if (spa_pod_filter(builder, result, param, filter) < 0)
+		goto next;
+
+	return 1;
 }
 
 static int apply_props(struct impl *this, const struct spa_pod *param)
@@ -424,16 +505,12 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	struct props *p = &this->props;
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
-		float volume;
-		bool mute;
 		switch (prop->key) {
 		case SPA_PROP_volume:
-			volume = SPA_POD_VALUE(struct spa_pod_float, &prop->value);
-			p->volume = volume;
+			p->volume = SPA_POD_VALUE(struct spa_pod_float, &prop->value);
 			break;
 		case SPA_PROP_mute:
-			mute = SPA_POD_VALUE(struct spa_pod_bool, &prop->value);
-			p->mute = mute;
+			p->mute = SPA_POD_VALUE(struct spa_pod_bool, &prop->value);
 			break;
 		default:
 			break;

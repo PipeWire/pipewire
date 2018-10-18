@@ -34,20 +34,6 @@
 
 #define NAME "audioconvert"
 
-#define PROP_DEFAULT_TRUNCATE	false
-#define PROP_DEFAULT_DITHER	0
-
-struct props {
-	bool truncate;
-	uint32_t dither;
-};
-
-static void props_reset(struct props *props)
-{
-	props->truncate = PROP_DEFAULT_TRUNCATE;
-	props->dither = PROP_DEFAULT_DITHER;
-}
-
 struct buffer {
 	struct spa_list link;
 #define BUFFER_FLAG_OUT		(1 << 0)
@@ -74,8 +60,6 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
-
-	struct props props;
 
 	const struct spa_node_callbacks *callbacks;
 	void *user_data;
@@ -402,10 +386,60 @@ static int setup_buffers(struct impl *this, enum spa_direction direction)
 static int impl_node_enum_params(struct spa_node *node,
 				 uint32_t id, uint32_t *index,
 				 const struct spa_pod *filter,
-				 struct spa_pod **param,
+				 struct spa_pod **result,
 				 struct spa_pod_builder *builder)
 {
-	return -ENOTSUP;
+	struct impl *this;
+	struct spa_pod *param;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+	spa_return_val_if_fail(builder != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct impl, node);
+
+      next:
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	switch (id) {
+	case SPA_PARAM_Profile:
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, id,
+				SPA_PARAM_PROFILE_direction, &SPA_POD_Id(SPA_DIRECTION_INPUT),
+				0);
+			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, id,
+				SPA_PARAM_PROFILE_direction, &SPA_POD_Id(SPA_DIRECTION_OUTPUT),
+				0);
+			break;
+		default:
+			return 0;
+		}
+		break;
+	case SPA_PARAM_Props:
+		switch (*index) {
+		case 0:
+			return spa_node_enum_params(this->channelmix, id, index, filter, result, builder);
+		default:
+			return 0;
+		}
+		break;
+
+	default:
+		return -ENOENT;
+	}
+	(*index)++;
+
+	if (spa_pod_filter(builder, result, param, filter) < 0)
+		goto next;
+
+	return 1;
 }
 
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
@@ -431,13 +465,17 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		switch (direction) {
 		case SPA_DIRECTION_INPUT:
 		case SPA_DIRECTION_OUTPUT:
-			res = spa_node_set_param(this->fmt[direction],
-					id, flags, param);
+			res = spa_node_set_param(this->fmt[direction], id, flags, param);
 			break;
 		default:
 			res = -EINVAL;
 			break;
 		}
+		break;
+	}
+	case SPA_PARAM_Props:
+	{
+		res = spa_node_set_param(this->channelmix, id, flags, param);
 		break;
 	}
 	default:
@@ -464,9 +502,11 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		setup_buffers(this, SPA_DIRECTION_INPUT);
 		this->started = true;
 		break;
+
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
 		break;
+
 	default:
 		return -ENOTSUP;
 	}
@@ -941,8 +981,6 @@ impl_init(const struct spa_handle_factory *factory,
 	this->resample = iface;
 	spa_handle_get_interface(this->hnd_fmt[SPA_DIRECTION_OUTPUT], SPA_TYPE_INTERFACE_Node, &iface);
 	this->fmt[SPA_DIRECTION_OUTPUT] = iface;
-
-	props_reset(&this->props);
 
 	return 0;
 }

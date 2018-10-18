@@ -31,6 +31,7 @@
 #include <spa/node/node.h>
 #include <spa/buffer/alloc.h>
 #include <spa/pod/parser.h>
+#include <spa/pod/filter.h>
 #include <spa/param/audio/format-utils.h>
 
 #include "pipewire/pipewire.h"
@@ -110,18 +111,60 @@ static int impl_node_enum_params(struct spa_node *node,
 {
 	struct node *this;
 	struct impl *impl;
-	int res;
+	struct spa_pod *param;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+	spa_return_val_if_fail(builder != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
-	res = spa_node_port_enum_params(impl->cnode,
+      next:
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	switch (id) {
+	case SPA_PARAM_List:
+	{
+		uint32_t list[] = { SPA_PARAM_Props,
+				    SPA_PARAM_EnumFormat,
+				    SPA_PARAM_Format };
+
+		if (*index < SPA_N_ELEMENTS(list))
+			param = spa_pod_builder_object(&b,
+					SPA_TYPE_OBJECT_ParamList, id,
+					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
+					0);
+		else
+			return 0;
+		break;
+	}
+	case SPA_PARAM_Props:
+		if (impl->adapter != impl->cnode) {
+			return spa_node_enum_params(impl->adapter,
+				id, index,
+				filter, result, builder);
+		}
+		return 0;
+
+	case SPA_PARAM_EnumFormat:
+	case SPA_PARAM_Format:
+		return spa_node_port_enum_params(impl->cnode,
 				impl->direction, 0,
 				id, index,
 				filter, result, builder);
-	return res;
+
+	default:
+		return -ENOENT;
+	}
+	(*index)++;
+
+	if (spa_pod_filter(builder, result, param, filter) < 0)
+		goto next;
+
+	return 1;
 }
 
 static void try_link_controls(struct impl *impl)
@@ -181,6 +224,12 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 					&SPA_NODE_EVENT_INIT(SPA_NODE_EVENT_PortsChanged));
 
 			try_link_controls(impl);
+		}
+		break;
+	case SPA_PARAM_Props:
+		if (impl->adapter != impl->cnode) {
+			if ((res = spa_node_set_param(impl->adapter, id, flags, param)) < 0)
+				return res;
 		}
 		break;
 	default:

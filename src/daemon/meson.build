@@ -31,11 +31,6 @@ executable('pipewire',
   dependencies : [pipewire_dep],
 )
 
-if get_option('systemd')
-  systemd = dependency('systemd', required: false)
-  if systemd.found()
-    subdir('systemd')
-  else
-    warning('Systemd integration was enabled, but systemd is not available')
-  endif
+if systemd.found()
+  subdir('systemd')
 endif

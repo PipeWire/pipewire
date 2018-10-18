@@ -33,6 +33,10 @@
 
 #include "config.h"
 
+#ifdef HAVE_SYSTEMD_DAEMON
+#include <systemd/sd-daemon.h>
+#endif
+
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 #include "pipewire/log.h"
@@ -95,6 +99,7 @@ struct server {
 	int fd_lock;
 	struct sockaddr_un addr;
 	char lock_addr[UNIX_PATH_MAX + LOCK_SUFFIXLEN];
+	bool activated;
 
 	struct pw_loop *loop;
 	struct spa_source *source;
@@ -325,8 +330,6 @@ static bool init_socket_name(struct server *s, const char *name)
 
 static bool lock_socket(struct server *s)
 {
-	struct stat socket_stat;
-
 	snprintf(s->lock_addr, sizeof(s->lock_addr), "%s%s", s->addr.sun_path, LOCK_SUFFIX);
 
 	s->fd_lock = open(s->lock_addr, O_CREAT | O_CLOEXEC,
@@ -341,15 +344,6 @@ static bool lock_socket(struct server *s)
 		pw_log_error("unable to lock lockfile %s, maybe another daemon is running",
 			     s->lock_addr);
 		goto err_fd;
-	}
-
-	if (stat(s->addr.sun_path, &socket_stat) < 0) {
-		if (errno != ENOENT) {
-			pw_log_error("did not manage to stat file %s\n", s->addr.sun_path);
-			goto err_fd;
-		}
-	} else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
-		unlink(s->addr.sun_path);
 	}
 	return true;
 
@@ -394,24 +388,43 @@ socket_data(void *data, int fd, enum spa_io mask)
 static bool add_socket(struct pw_protocol *protocol, struct server *s)
 {
 	socklen_t size;
-	int fd;
+	int fd = -1;
+	bool activated = false;
 
-	if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0)
-		goto error;
-
-	size = offsetof(struct sockaddr_un, sun_path) + strlen(s->addr.sun_path);
-	if (bind(fd, (struct sockaddr *) &s->addr, size) < 0) {
-		pw_log_error("bind() failed with error: %m");
-		goto error_close;
+#ifdef HAVE_SYSTEMD_DAEMON
+	{
+		int i, n = sd_listen_fds(0);
+		for (i = 0; i < n; ++i) {
+			if (sd_is_socket_unix(SD_LISTEN_FDS_START + i, SOCK_STREAM,
+						1, s->addr.sun_path, 0) > 0) {
+				fd = SD_LISTEN_FDS_START + i;
+				activated = true;
+				pw_log_info("Found socket activation socket for '%s'", s->addr.sun_path);
+				break;
+			}
+		}
 	}
+#endif
 
-	if (listen(fd, 128) < 0) {
-		pw_log_error("listen() failed with error: %m");
-		goto error_close;
+	if (fd < 0) {
+		if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0)
+			goto error;
+
+		size = offsetof(struct sockaddr_un, sun_path) + strlen(s->addr.sun_path);
+		if (bind(fd, (struct sockaddr *) &s->addr, size) < 0) {
+			pw_log_error("bind() failed with error: %m");
+			goto error_close;
+		}
+
+		if (listen(fd, 128) < 0) {
+			pw_log_error("listen() failed with error: %m");
+			goto error_close;
+		}
 	}
 
 	s->loop = pw_core_get_main_loop(protocol->core);
 	s->source = pw_loop_add_io(s->loop, fd, SPA_IO_IN, true, socket_data, s);
+	s->activated = activated;
 	if (s->source == NULL)
 		goto error_close;
 
@@ -645,7 +658,7 @@ static void destroy_server(struct pw_protocol_server *server)
 		spa_hook_remove(&s->hook);
 		pw_loop_destroy_source(s->loop, s->source);
 	}
-	if (s->addr.sun_path[0])
+	if (s->addr.sun_path[0] && !s->activated)
 		unlink(s->addr.sun_path);
 	if (s->lock_addr[0])
 		unlink(s->lock_addr);

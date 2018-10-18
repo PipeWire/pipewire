@@ -125,6 +125,16 @@ if cc.has_function('memfd_create', prefix : '#include <sys/mman.h>', args : [ '-
   cdata.set('HAVE_MEMFD_CREATE', 1)
 endif
 
+if get_option('systemd')
+  systemd = dependency('systemd', required: false)
+  systemd_dep = dependency('libsystemd', required: false)
+  if systemd.found()
+    cdata.set('HAVE_SYSTEMD_DAEMON', 1)
+  else
+    warning('Systemd integration was enabled, but systemd is not available')
+  endif
+endif
+
 configure_file(input : 'config.h.meson',
   output : 'config.h',
   configuration : cdata)

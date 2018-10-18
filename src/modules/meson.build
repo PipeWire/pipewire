@@ -63,7 +63,7 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [mathlib, dl_lib, pipewire_dep, systemd_dep],
 )
 
 pipewire_module_audio_dsp = shared_library('pipewire-module-audio-dsp',

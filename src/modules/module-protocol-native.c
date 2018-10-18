@@ -729,7 +729,7 @@ static void destroy_server(struct pw_protocol_server *server)
 		unlink(s->addr.sun_path);
 	if (s->lock_addr[0])
 		unlink(s->lock_addr);
-	if (s->fd_lock != 1)
+	if (s->fd_lock != -1)
 		close(s->fd_lock);
 	free(s);
 }

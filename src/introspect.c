@@ -19,6 +19,8 @@
 
 #include <errno.h>
 
+#include <spa/param/props.h>
+
 #include <pipewire/log.h>
 #include <pipewire/stream.h>
 
@@ -33,9 +35,18 @@ static void node_event_info(void *object, struct pw_node_info *info)
 	g->info = pw_node_info_update(g->info, info);
 }
 
+static void node_event_param(void *object,
+		uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+	struct global *g = object;
+	pw_log_debug("update param %d", g->id);
+}
+
 static const struct pw_node_proxy_events node_events = {
 	PW_VERSION_NODE_PROXY_EVENTS,
 	.info = node_event_info,
+	.param = node_event_param,
 };
 
 static void module_event_info(void *object, struct pw_module_info *info)
@@ -71,23 +82,25 @@ static int ensure_global(pa_context *c, struct global *g)
 	if (g->proxy != NULL)
 		return 0;
 
-	if (g->type == PW_TYPE_INTERFACE_Node) {
+	switch (g->type) {
+	case PW_TYPE_INTERFACE_Node:
 		events = &node_events;
                 client_version = PW_VERSION_NODE;
                 destroy = (pw_destroy_t) pw_node_info_free;
-	}
-	else if (g->type == PW_TYPE_INTERFACE_Module) {
+		break;
+	case PW_TYPE_INTERFACE_Module:
 		events = &module_events;
                 client_version = PW_VERSION_MODULE;
                 destroy = (pw_destroy_t) pw_module_info_free;
-	}
-	else if (g->type == PW_TYPE_INTERFACE_Client) {
+		break;
+	case PW_TYPE_INTERFACE_Client:
 		events = &client_events;
                 client_version = PW_VERSION_CLIENT;
                 destroy = (pw_destroy_t) pw_client_info_free;
-	}
-	else
+		break;
+	default:
 		return -EINVAL;
+	}
 
 	pw_log_debug("bind %d", g->id);
 
@@ -99,6 +112,15 @@ static int ensure_global(pa_context *c, struct global *g)
 	pw_proxy_add_proxy_listener(g->proxy, &g->proxy_proxy_listener, events, g);
 	g->destroy = destroy;
 
+	switch (g->type) {
+	case PW_TYPE_INTERFACE_Node:
+		pw_node_proxy_enum_params((struct pw_node_proxy*)g->proxy,
+				SPA_PARAM_EnumFormat,
+				0, -1, NULL);
+		break;
+	default:
+		break;
+	}
 	return 0;
 }
 
@@ -145,19 +167,34 @@ static void sink_callback(struct sink_data *d)
 	pa_format_info *ip[1];
 
 	spa_zero(i);
-	i.index = g->id;
 	i.name = info->name;
+	i.index = g->id;
 	i.description = info->name;
-	i.proplist = pa_proplist_new_dict(info->props);
+	i.sample_spec.format = PA_SAMPLE_S16LE;
+	i.sample_spec.rate = 44100;
+	i.sample_spec.channels = 2;
+	pa_channel_map_init_auto(&i.channel_map, 2, PA_CHANNEL_MAP_DEFAULT);
 	i.owner_module = g->parent_id;
+	pa_cvolume_set(&i.volume, 2, PA_VOLUME_NORM);
+	i.mute = false;
+	i.monitor_source = PA_INVALID_INDEX;
+	i.monitor_source_name = "unknown";
+	i.latency = 0;
+	i.driver = "PipeWire";
+	i.flags = 0;
+	i.proplist = pa_proplist_new_dict(info->props);
+	i.configured_latency = 0;
 	i.base_volume = PA_VOLUME_NORM;
 	i.state = node_state_to_sink(info->state);
 	i.n_volume_steps = PA_VOLUME_NORM+1;
+	i.card = PA_INVALID_INDEX;
+	i.n_ports = 0;
+	i.ports = NULL;
+	i.active_port = NULL;
 	i.n_formats = 1;
 	ii[0].encoding = PA_ENCODING_PCM;
 	ii[0].plist = pa_proplist_new();
 	ip[0] = ii;
-	pa_channel_map_init_auto(&i.channel_map, 2, PA_CHANNEL_MAP_DEFAULT);
 	i.formats = ip;
 	d->cb(d->context, &i, 0, d->userdata);
 }
@@ -366,14 +403,30 @@ static void source_callback(struct source_data *d)
 	pa_format_info *ip[1];
 
 	spa_zero(i);
-	i.index = g->id;
 	i.name = info->name;
+	i.index = g->id;
 	i.description = info->name;
-	i.proplist = pa_proplist_new_dict(info->props);
+	i.sample_spec.format = PA_SAMPLE_S16LE;
+	i.sample_spec.rate = 44100;
+	i.sample_spec.channels = 2;
+	pa_channel_map_init_auto(&i.channel_map, 2, PA_CHANNEL_MAP_DEFAULT);
 	i.owner_module = g->parent_id;
+	pa_cvolume_set(&i.volume, 2, PA_VOLUME_NORM);
+	i.mute = false;
+	i.monitor_of_sink = PA_INVALID_INDEX;
+	i.monitor_of_sink_name = "unknown";
+	i.latency = 0;
+	i.driver = "PipeWire";
+	i.flags = 0;
+	i.proplist = pa_proplist_new_dict(info->props);
+	i.configured_latency = 0;
 	i.base_volume = PA_VOLUME_NORM;
 	i.state = node_state_to_source(info->state);
 	i.n_volume_steps = PA_VOLUME_NORM+1;
+	i.card = PA_INVALID_INDEX;
+	i.n_ports = 0;
+	i.ports = NULL;
+	i.active_port = NULL;
 	i.n_formats = 1;
 	ii[0].encoding = PA_ENCODING_PCM;
 	ii[0].plist = pa_proplist_new();
@@ -511,10 +564,58 @@ pa_operation* pa_context_set_source_port_by_name(pa_context *c, const char*name,
 	return NULL;
 }
 
+struct server_data {
+	pa_context *context;
+	pa_server_info_cb_t cb;
+	void *userdata;
+	struct global *global;
+};
+
+static void server_callback(struct server_data *d)
+{
+	pa_context *c = d->context;
+	const struct pw_core_info *info = pw_remote_get_core_info(c->remote);
+	pa_server_info i;
+
+	spa_zero(i);
+	i.user_name = info->user_name;
+	i.host_name = info->host_name;
+	i.server_version = info->version;
+	i.server_name = info->name;
+	i.sample_spec.format = PA_SAMPLE_S16LE;
+	i.sample_spec.rate = 44100;
+	i.sample_spec.channels = 2;
+	i.default_sink_name = "unknown";
+	i.default_source_name = "unknown";
+	i.cookie = info->cookie;
+        pa_channel_map_init_extend(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
+	d->cb(d->context, &i, d->userdata);
+}
+
+static void server_info(pa_operation *o, void *userdata)
+{
+	struct server_data *d = userdata;
+	server_callback(d);
+	pa_operation_done(o);
+}
+
 pa_operation* pa_context_get_server_info(pa_context *c, pa_server_info_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct server_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(cb);
+
+	o = pa_operation_new(c, NULL, server_info, sizeof(struct server_data));
+	d = o->userdata;
+	d->context = c;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }
 
 struct module_data {
@@ -746,10 +847,36 @@ pa_operation* pa_context_get_card_info_by_name(pa_context *c, const char *name, 
 	return NULL;
 }
 
+struct card_data {
+	pa_context *context;
+	pa_card_info_cb_t cb;
+	void *userdata;
+};
+
+static void card_info(pa_operation *o, void *userdata)
+{
+	struct card_data *d = userdata;
+	d->cb(d->context, NULL, 1, d->userdata);
+	pa_operation_done(o);
+}
+
 pa_operation* pa_context_get_card_info_list(pa_context *c, pa_card_info_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct card_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(cb);
+
+	o = pa_operation_new(c, NULL, card_info, sizeof(struct card_data));
+	d = o->userdata;
+	d->context = c;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }
 
 pa_operation* pa_context_set_card_profile_by_index(pa_context *c, uint32_t idx, const char*profile, pa_context_success_cb_t cb, void *userdata)
@@ -770,13 +897,6 @@ pa_operation* pa_context_set_port_latency_offset(pa_context *c, const char *card
 	return NULL;
 }
 
-struct sink_input_data {
-	pa_context *context;
-	pa_sink_input_info_cb_t cb;
-	void *userdata;
-	struct global *global;
-};
-
 static pa_stream *find_stream(pa_context *c, uint32_t idx)
 {
 	pa_stream *s;
@@ -786,6 +906,13 @@ static pa_stream *find_stream(pa_context *c, uint32_t idx)
 	}
 	return NULL;
 }
+
+struct sink_input_data {
+	pa_context *context;
+	pa_sink_input_info_cb_t cb;
+	void *userdata;
+	struct global *global;
+};
 
 static void sink_input_callback(struct sink_input_data *d)
 {
@@ -805,15 +932,18 @@ static void sink_input_callback(struct sink_input_data *d)
 	i.client = PA_INVALID_INDEX;
 	i.sink = PA_INVALID_INDEX;
 	pa_cvolume_init(&i.volume);
-	if (s) {
+	if (s && s->sample_spec.channels > 0) {
 		i.sample_spec = s->sample_spec;
 		i.channel_map = s->channel_map;
-		pa_cvolume_set(&i.volume, 1, s->volume * PA_VOLUME_NORM);
+		pa_cvolume_set(&i.volume, i.sample_spec.channels, s->volume * PA_VOLUME_NORM);
 		i.format = s->format;
 	}
 	else {
-		pa_channel_map_init(&i.channel_map);
-		pa_sample_spec_init(&i.sample_spec);
+		i.sample_spec.format = PA_SAMPLE_S16LE;
+		i.sample_spec.rate = 44100;
+		i.sample_spec.channels = 2;
+		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
+		pa_cvolume_set(&i.volume, i.sample_spec.channels, PA_VOLUME_NORM);
 		ii[0].encoding = PA_ENCODING_PCM;
 		ii[0].plist = pa_proplist_new();
 		i.format = ii;
@@ -933,15 +1063,36 @@ static void on_success(pa_operation *o, void *userdata)
 pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_stream *s;
+	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
+	float v;
 
-	if ((s = find_stream(c, idx)) == NULL)
-		return NULL;
+	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
 
-	s->volume = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-	pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->volume);
+	pw_log_debug("contex %p: index %d volume %f", c, idx, v);
 
+	if ((s = find_stream(c, idx)) == NULL) {
+		if ((g = pa_context_find_global(c, idx)) == NULL)
+			return NULL;
+	}
+
+	if (s) {
+		s->volume = v;
+		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->volume);
+	}
+	else if (g) {
+		char buf[1024];
+		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
+                        SPA_PARAM_Props, 0,
+                        spa_pod_builder_object(&b,
+                                SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+                                SPA_PROP_volume,        &SPA_POD_Float(v),
+                                SPA_PROP_mute,          &SPA_POD_Bool(false),
+                                0));
+	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;
@@ -980,16 +1131,133 @@ pa_operation* pa_context_kill_sink_input(pa_context *c, uint32_t idx, pa_context
 	return NULL;
 }
 
+struct source_output_data {
+	pa_context *context;
+	pa_source_output_info_cb_t cb;
+	void *userdata;
+	struct global *global;
+};
+
+static void source_output_callback(struct source_output_data *d)
+{
+	struct global *g = d->global;
+	struct pw_node_info *info = g->info;
+	pa_source_output_info i;
+	pa_format_info ii[1];
+	pa_stream *s;
+
+	pw_log_debug("index %d", g->id);
+	s = find_stream(d->context, g->id);
+
+	spa_zero(i);
+	i.index = g->id;
+	i.name = info->name;
+	i.owner_module = g->parent_id;
+	i.client = PA_INVALID_INDEX;
+	i.source = PA_INVALID_INDEX;
+	pa_cvolume_init(&i.volume);
+	if (s && s->sample_spec.channels > 0) {
+		i.sample_spec = s->sample_spec;
+		i.channel_map = s->channel_map;
+		pa_cvolume_set(&i.volume, i.sample_spec.channels, s->volume * PA_VOLUME_NORM);
+		i.format = s->format;
+	}
+	else {
+		i.sample_spec.format = PA_SAMPLE_S16LE;
+		i.sample_spec.rate = 44100;
+		i.sample_spec.channels = 2;
+		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
+		pa_cvolume_set(&i.volume, i.sample_spec.channels, PA_VOLUME_NORM);
+		ii[0].encoding = PA_ENCODING_PCM;
+		ii[0].plist = pa_proplist_new();
+		i.format = ii;
+	}
+	i.buffer_usec = 0;
+	i.source_usec = 0;
+	i.resample_method = "PipeWire resampler";
+	i.driver = "PipeWire";
+	i.mute = false;
+	i.proplist = pa_proplist_new_dict(info->props);
+	i.corked = false;
+	i.has_volume = true;
+	i.volume_writable = true;
+	d->cb(d->context, &i, 0, d->userdata);
+}
+
+static void source_output_info(pa_operation *o, void *userdata)
+{
+	struct source_output_data *d = userdata;
+	source_output_callback(d);
+	d->cb(d->context, NULL, 1, d->userdata);
+	pa_operation_done(o);
+}
+
 pa_operation* pa_context_get_source_output_info(pa_context *c, uint32_t idx, pa_source_output_info_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct source_output_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(cb);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
+
+	if ((g = pa_context_find_global(c, idx)) == NULL)
+		return NULL;
+	if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT))
+		return NULL;
+
+	ensure_global(c, g);
+
+	o = pa_operation_new(c, NULL, source_output_info, sizeof(struct source_output_data));
+	d = o->userdata;
+	d->context = c;
+	d->cb = cb;
+	d->userdata = userdata;
+	d->global = g;
+	pa_operation_sync(o);
+
+	return o;
+}
+
+static void source_output_info_list(pa_operation *o, void *userdata)
+{
+	struct source_output_data *d = userdata;
+	pa_context *c = d->context;
+	struct global *g;
+
+	spa_list_for_each(g, &c->globals, link) {
+		if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT))
+			continue;
+		d->global = g;
+		source_output_callback(d);
+	}
+	d->cb(c, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation* pa_context_get_source_output_info_list(pa_context *c, pa_source_output_info_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct source_output_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(cb);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	ensure_types(c, PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT);
+	o = pa_operation_new(c, NULL, source_output_info_list, sizeof(struct source_output_data));
+	d = o->userdata;
+	d->context = c;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }
 
 pa_operation* pa_context_move_source_output_by_name(pa_context *c, uint32_t idx, const char *source_name, pa_context_success_cb_t cb, void* userdata)

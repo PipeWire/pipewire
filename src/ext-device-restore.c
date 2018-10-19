@@ -23,13 +23,53 @@
 
 #include "internal.h"
 
+#define EXT_VERSION	1
+
+struct ext_data {
+	pa_context *context;
+	pa_ext_device_restore_test_cb_t test_cb;
+	pa_ext_device_restore_read_device_formats_cb_t read_cb;
+        pa_context_success_cb_t success_cb;
+	void *userdata;
+};
+
+static void restore_test(pa_operation *o, void *userdata)
+{
+	struct ext_data *d = userdata;
+	if (d->test_cb)
+		d->test_cb(o->context, EXT_VERSION, d->userdata);
+	pa_operation_done(o);
+}
+
 pa_operation *pa_ext_device_restore_test(
         pa_context *c,
         pa_ext_device_restore_test_cb_t cb,
         void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct ext_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	o = pa_operation_new(c, NULL, restore_test, sizeof(struct ext_data));
+	d = o->userdata;
+	d->context = c;
+	d->test_cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
+}
+
+static void on_success(pa_operation *o, void *userdata)
+{
+	struct ext_data *d = userdata;
+	if (d->success_cb)
+		d->success_cb(o->context, PA_OK, d->userdata);
+	pa_operation_done(o);
 }
 
 pa_operation *pa_ext_device_restore_subscribe(
@@ -38,8 +78,22 @@ pa_operation *pa_ext_device_restore_subscribe(
         pa_context_success_cb_t cb,
         void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct ext_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct ext_data));
+	d = o->userdata;
+	d->context = c;
+	d->success_cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }
 
 void pa_ext_device_restore_set_subscribe_cb(
@@ -50,13 +104,35 @@ void pa_ext_device_restore_set_subscribe_cb(
 	pw_log_warn("Not Implemented");
 }
 
+static void read_formats(pa_operation *o, void *userdata)
+{
+	struct ext_data *d = userdata;
+	if (d->read_cb)
+		d->read_cb(o->context, NULL, 1, d->userdata);
+	pa_operation_done(o);
+}
+
 pa_operation *pa_ext_device_restore_read_formats_all(
         pa_context *c,
         pa_ext_device_restore_read_device_formats_cb_t cb,
         void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct ext_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	o = pa_operation_new(c, NULL, read_formats, sizeof(struct ext_data));
+	d = o->userdata;
+	d->context = c;
+	d->read_cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }
 
 pa_operation *pa_ext_device_restore_read_formats(
@@ -66,8 +142,22 @@ pa_operation *pa_ext_device_restore_read_formats(
         pa_ext_device_restore_read_device_formats_cb_t cb,
         void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct ext_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	o = pa_operation_new(c, NULL, read_formats, sizeof(struct ext_data));
+	d = o->userdata;
+	d->context = c;
+	d->read_cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }
 
 pa_operation *pa_ext_device_restore_save_formats(
@@ -79,6 +169,20 @@ pa_operation *pa_ext_device_restore_save_formats(
         pa_context_success_cb_t cb,
         void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct ext_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct ext_data));
+	d = o->userdata;
+	d->context = c;
+	d->success_cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }

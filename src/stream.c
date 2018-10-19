@@ -270,13 +270,13 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 	blocks = 1;
 	stride = pa_frame_size(&s->sample_spec);
 
-	if (attr->tlength == -1)
+	if (attr->tlength == -1 || attr->tlength == 0)
 		maxsize = 1024;
 	else
 		maxsize = (attr->tlength / stride);
 
-	if (attr->minreq == -1)
-		size = SPA_MIN(1024, maxsize);
+	if (attr->minreq == -1 || attr->minreq == 0)
+		size = maxsize;
 	else
 		size = SPA_MIN(attr->minreq / stride, maxsize);
 
@@ -1121,7 +1121,7 @@ int pa_stream_peek(pa_stream *s,
 		return 0;
 	}
 	*data = SPA_MEMBER(s->buffer_data, s->buffer_offset, void);
-	*nbytes = s->buffer_size;
+	*nbytes = SPA_MAX(s->buffer_size, 4);
 	pw_log_trace("stream %p: %p %zd", s, *data, *nbytes);
 
 	return 0;
@@ -1718,6 +1718,8 @@ int pa_stream_set_monitor_stream(pa_stream *s, uint32_t sink_input_idx)
 {
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
+
+	pw_log_debug("stream %p: %d", s, sink_input_idx);
 
 	PA_CHECK_VALIDITY(s->context, sink_input_idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 	PA_CHECK_VALIDITY(s->context, s->state == PA_STREAM_UNCONNECTED, PA_ERR_BADSTATE);

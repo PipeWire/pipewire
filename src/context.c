@@ -100,7 +100,8 @@ static int set_mask(pa_context *c, struct global *g)
 {
 	const char *str;
 
-	if (g->type == PW_TYPE_INTERFACE_Node) {
+	switch (g->type) {
+	case PW_TYPE_INTERFACE_Node:
 		if (g->props == NULL)
 			return 0;
 		if ((str = pw_properties_get(g->props, "media.class")) == NULL)
@@ -136,19 +137,23 @@ static int set_mask(pa_context *c, struct global *g)
 			g->mask = PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT;
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
 		}
-	}
-	else if (g->type == PW_TYPE_INTERFACE_Module) {
+		break;
+
+	case PW_TYPE_INTERFACE_Module:
 		g->mask = PA_SUBSCRIPTION_MASK_MODULE;
 		g->event = PA_SUBSCRIPTION_EVENT_MODULE;
-	}
-	else if (g->type == PW_TYPE_INTERFACE_Client) {
+		break;
+
+	case PW_TYPE_INTERFACE_Client:
 		g->mask = PA_SUBSCRIPTION_MASK_CLIENT;
 		g->event = PA_SUBSCRIPTION_EVENT_CLIENT;
-	}
-	else if (g->type == PW_TYPE_INTERFACE_Port) {
+		break;
+
+	case PW_TYPE_INTERFACE_Port:
 		pw_log_debug("found port %d", g->id);
-	}
-	else if (g->type == PW_TYPE_INTERFACE_Link) {
+		break;
+
+	case PW_TYPE_INTERFACE_Link:
                 if ((str = pw_properties_get(g->props, "link.output")) == NULL)
 			return 0;
 		g->link_info.src = pa_context_find_global(c, pw_properties_parse_int(str));
@@ -161,10 +166,11 @@ static int set_mask(pa_context *c, struct global *g)
 
 		pw_log_debug("link %d->%d", g->link_info.src->parent_id,
 				g->link_info.dst->parent_id);
-	}
-	else
-		return 0;
+		break;
 
+	default:
+		return 0;
+	}
 	return 1;
 }
 

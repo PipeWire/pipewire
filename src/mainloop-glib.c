@@ -102,6 +102,7 @@ pa_glib_mainloop *pa_glib_mainloop_new(GMainContext *c)
 
 void pa_glib_mainloop_free(pa_glib_mainloop* g)
 {
+	g_source_destroy(&g->source->base);
 	pa_mainloop_free(g->loop);
 	free(g);
 }

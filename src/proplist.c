@@ -101,7 +101,7 @@ int pa_proplist_setp(pa_proplist *p, const char *pair)
 	idx = pair - t;
 	c = strdup(pair);
 	c[idx] = 0;
-	pa_properties_sets(p, c, &c[idx]+1);
+	pa_proplist_sets(p, c, &c[idx]+1);
 	free(c);
 
 	return 0;

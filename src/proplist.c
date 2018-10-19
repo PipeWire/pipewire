@@ -19,6 +19,8 @@
 
 #include <string.h>
 
+#include <spa/debug/mem.h>
+
 #include <pipewire/log.h>
 #include <pipewire/properties.h>
 
@@ -73,14 +75,36 @@ int pa_proplist_key_valid(const char *key)
 
 int pa_proplist_sets(pa_proplist *p, const char *key, const char *value)
 {
+	pa_assert(p);
+	pa_assert(key);
+	pa_assert(value);
+
+	if (!pa_proplist_key_valid(key))
+		return -1;
+
 	pw_properties_set(p->props, key, value);
 	return 0;
 }
 
 int pa_proplist_setp(pa_proplist *p, const char *pair)
 {
-	pw_log_warn("Not Implemented");
-	return -1;
+	const char *t;
+	char *c;
+	int idx;
+
+	pa_assert(p);
+	pa_assert(pair);
+
+	if (!(t = strchr(pair, '=')))
+		return -1;
+
+	idx = pair - t;
+	c = strdup(pair);
+	c[idx] = 0;
+	pa_properties_sets(p, c, &c[idx]+1);
+	free(c);
+
+	return 0;
 }
 
 int pa_proplist_setf(pa_proplist *p, const char *key, const char *format, ...)
@@ -96,8 +120,15 @@ int pa_proplist_setf(pa_proplist *p, const char *key, const char *format, ...)
 
 int pa_proplist_set(pa_proplist *p, const char *key, const void *data, size_t nbytes)
 {
-	pw_log_warn("Not Implemented");
-	return -1;
+	pa_assert(p);
+	pa_assert(key);
+	pa_assert(data || nbytes == 0);
+
+	if (!pa_proplist_key_valid(key))
+		return -1;
+
+	pw_properties_set(p->props, key, data);
+	return 0;
 }
 
 const char *pa_proplist_gets(pa_proplist *p, const char *key)

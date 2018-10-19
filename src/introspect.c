@@ -923,13 +923,16 @@ static void sink_input_callback(struct sink_input_data *d)
 	pa_stream *s;
 
 	pw_log_debug("index %d", g->id);
+	if (info == NULL)
+		return;
+
 	s = find_stream(d->context, g->id);
 
 	spa_zero(i);
 	i.index = g->id;
 	i.name = info->name;
-	i.owner_module = g->parent_id;
-	i.client = PA_INVALID_INDEX;
+	i.owner_module = PA_INVALID_INDEX;
+	i.client = g->parent_id;
 	i.sink = PA_INVALID_INDEX;
 	pa_cvolume_init(&i.volume);
 	if (s && s->sample_spec.channels > 0) {
@@ -980,6 +983,8 @@ pa_operation* pa_context_get_sink_input_info(pa_context *c, uint32_t idx, pa_sin
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
+	pw_log_debug("context %p: info for %d", c, idx);
+
 	if ((g = pa_context_find_global(c, idx)) == NULL)
 		return NULL;
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK_INPUT))
@@ -1023,6 +1028,8 @@ pa_operation* pa_context_get_sink_input_info_list(pa_context *c, pa_sink_input_i
 	pa_assert(cb);
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	pw_log_debug("context %p", c);
 
 	ensure_types(c, PA_SUBSCRIPTION_MASK_SINK_INPUT);
 	o = pa_operation_new(c, NULL, sink_input_info_list, sizeof(struct sink_input_data));
@@ -1079,19 +1086,18 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 
 	if (s) {
 		s->volume = v;
-		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->volume);
+		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
 	}
 	else if (g) {
 		char buf[1024];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
 		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
-                        SPA_PARAM_Props, 0,
-                        spa_pod_builder_object(&b,
-                                SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-                                SPA_PROP_volume,        &SPA_POD_Float(v),
-                                SPA_PROP_mute,          &SPA_POD_Bool(false),
-                                0));
+			SPA_PARAM_Props, 0,
+			spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+				SPA_PROP_volume,        &SPA_POD_Float(v),
+				0));
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1105,17 +1111,30 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mute, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_stream *s;
+	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
 
-	if ((s = find_stream(c, idx)) == NULL)
-		return NULL;
+	if ((s = find_stream(c, idx)) == NULL) {
+		if ((g = pa_context_find_global(c, idx)) == NULL)
+			return NULL;
+	}
 
-	if (mute)
-		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, 0.0);
-	else
-		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->volume);
+	if (s) {
+		s->mute = mute;
+		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
+	}
+	else if (g) {
+		char buf[1024];
+		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
+		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
+			SPA_PARAM_Props, 0,
+			spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+				SPA_PROP_mute,		&SPA_POD_Bool(mute),
+				0));
+	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;
@@ -1147,13 +1166,16 @@ static void source_output_callback(struct source_output_data *d)
 	pa_stream *s;
 
 	pw_log_debug("index %d", g->id);
+	if (info == NULL)
+		return;
+
 	s = find_stream(d->context, g->id);
 
 	spa_zero(i);
 	i.index = g->id;
 	i.name = info->name;
-	i.owner_module = g->parent_id;
-	i.client = PA_INVALID_INDEX;
+	i.owner_module = PA_INVALID_INDEX;
+	i.client = g->parent_id;
 	i.source = PA_INVALID_INDEX;
 	pa_cvolume_init(&i.volume);
 	if (s && s->sample_spec.channels > 0) {

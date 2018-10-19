@@ -336,6 +336,7 @@ struct pa_stream {
 	uint32_t buffer_offset;
 
 	float volume;
+	bool mute;
 	pa_operation *drain;
 	uint64_t queued;
 };

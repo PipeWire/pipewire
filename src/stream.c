@@ -793,6 +793,7 @@ static int create_stream(pa_stream_direction_t direction,
 		s->volume = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
 	else
 		s->volume = 1.0;
+	s->mute = false;
 
 	pa_stream_set_state(s, PA_STREAM_CREATING);
 

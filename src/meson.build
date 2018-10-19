@@ -31,6 +31,10 @@ pipewire_pulseaudio_sources = [
   'pipewire-pulseaudio.c',
 ]
 
+pipewire_mainloop_glib_sources = [
+  'mainloop-glib.c',
+]
+
 pipewire_pulseaudio_c_args = [
   '-DHAVE_CONFIG_H',
   '-DPIC',
@@ -46,5 +50,15 @@ pipewire_pulseaudio = shared_library('pulse',
     link_args : vflag,
     include_directories : [configinc],
     dependencies : [pipewire_dep, pulseaudio_dep, mathlib],
+    install : false,
+)
+
+pipewire_pulseaudio = shared_library('pulse-mainloop-glib',
+    pipewire_mainloop_glib_sources,
+    soversion : '0',
+    c_args : pipewire_pulseaudio_c_args,
+    link_args : vflag,
+    include_directories : [configinc],
+    dependencies : [pipewire_dep, pulseaudio_dep, mathlib, glib_dep],
     install : false,
 )

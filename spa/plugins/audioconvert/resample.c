@@ -760,7 +760,7 @@ static int impl_node_process(struct spa_node *node)
 			maxsize = 0;
 	}
 	outport->offset += out_len * sizeof(float);
-	if (outport->offset >= maxsize) {
+	if (outport->offset > 0 && outport->offset >= maxsize) {
 		outio->status = SPA_STATUS_HAVE_BUFFER;
 		outio->buffer_id = dbuf->outbuf->id;
 		dequeue_buffer(this, dbuf);

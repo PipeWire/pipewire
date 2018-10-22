@@ -994,7 +994,7 @@ const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream)
 int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict *dict)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	int i, changed = 0;
+	int i, changed = 0, res = 0;
 
 	for (i = 0; i < dict->n_items; i++)
 		changed += pw_properties_set(stream->properties, dict->items[i].key, dict->items[i].value);
@@ -1002,7 +1002,10 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 	if (!changed)
 		return 0;
 
-	return pw_node_update_properties(impl->node, dict);
+	if (impl->node)
+		res = pw_node_update_properties(impl->node, dict);
+
+	return res;
 }
 
 struct pw_remote *pw_stream_get_remote(struct pw_stream *stream)

@@ -28,6 +28,7 @@
 #include <pulse/xmalloc.h>
 
 #include <pipewire/stream.h>
+#include "core-format.h"
 #include "internal.h"
 
 #define MIN_QUEUED	1
@@ -777,11 +778,12 @@ static int create_stream(pa_stream_direction_t direction,
 	uint32_t n_params = 0;
         uint8_t buffer[4096];
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	struct pw_properties *props;
 	uint32_t sample_rate = 0, stride = 0;
 	const char *str;
 	char devid[16];
 	struct global *g;
+	struct spa_dict_item items[5];
+	char latency[64];
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -818,12 +820,14 @@ static int create_stream(pa_stream_direction_t direction,
 		int i;
 
 		for (i = 0; i < s->n_formats; i++) {
-			if ((res = pa_format_info_to_sample_spec(s->req_formats[i], &ss, &chmap)) < 0) {
+			if ((res = pa_format_info_to_sample_spec(s->req_formats[i], &ss, NULL)) < 0) {
 				char buf[4096];
 				pw_log_warn("can't convert format %d %s", res,
 						pa_format_info_snprint(buf,4096,s->req_formats[i]));
 				continue;
 			}
+			if (pa_format_info_get_channel_map(s->req_formats[i], &chmap) < 0)
+				pa_channel_map_init_auto(&chmap, ss.channels, PA_CHANNEL_MAP_DEFAULT);
 
 			params[n_params++] = get_param(s, &ss, &chmap, &b);
 			if (ss.rate > sample_rate) {
@@ -848,14 +852,6 @@ static int create_stream(pa_stream_direction_t direction,
 		dev = devid;
 	}
 
-	props = (struct pw_properties *) pw_stream_get_properties(s->stream);
-	pw_properties_setf(props, "node.latency", "%u/%u",
-			(s->buffer_attr.minreq / 2) / stride, sample_rate);
-	pw_properties_set(props, PW_NODE_PROP_MEDIA, "Audio");
-	pw_properties_set(props, PW_NODE_PROP_CATEGORY,
-			direction == PA_STREAM_PLAYBACK ?
-				"Playback" : "Capture");
-
 	if ((str = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_ROLE)) == NULL)
 		str = "Music";
 	else if (strcmp(str, "video") == 0)
@@ -878,7 +874,16 @@ static int create_stream(pa_stream_direction_t direction,
 		str = "Test";
 	else
 		str = "Music";
-	pw_properties_set(props, PW_NODE_PROP_ROLE, str);
+
+	sprintf(latency, "%u/%u", (s->buffer_attr.minreq / 2) / stride, sample_rate);
+	items[0] = SPA_DICT_ITEM_INIT("node.latency", latency);
+	items[1] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_MEDIA, "Audio");
+	items[2] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_CATEGORY,
+				direction == PA_STREAM_PLAYBACK ?
+					"Playback" : "Capture");
+	items[3] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_ROLE, str);
+
+	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 4));
 
 	res = pw_stream_connect(s->stream,
 				direction == PA_STREAM_PLAYBACK ?
@@ -1122,7 +1127,7 @@ int pa_stream_peek(pa_stream *s,
 		return 0;
 	}
 	*data = SPA_MEMBER(s->buffer_data, s->buffer_offset, void);
-	*nbytes = SPA_MAX(s->buffer_size, 4);
+	*nbytes = s->buffer_size;
 	pw_log_trace("stream %p: %p %zd", s, *data, *nbytes);
 
 	return 0;
@@ -1676,6 +1681,7 @@ pa_operation *pa_stream_proplist_update(pa_stream *s, pa_update_mode_t mode, pa_
 {
 	pa_operation *o;
 	struct success_ack *d;
+	char *str;
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -1685,7 +1691,10 @@ pa_operation *pa_stream_proplist_update(pa_stream *s, pa_update_mode_t mode, pa_
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
-	pw_log_warn("Not Implemented");
+	str = pa_proplist_to_string(p);
+	pw_log_warn("Not Implemented %s", str);
+	free(str);
+
 	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;

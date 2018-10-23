@@ -782,7 +782,8 @@ static void node_process(void *data, int status)
 	pw_log_trace("node %p: process driver:%d exported:%d %p", node,
 			node->driver, node->exported, driver->rt.driver);
 
-	if (node->driver && (driver->rt.driver->state->pending == 0 || !node->remote)) {
+	if (node->driver && driver == node &&
+			(driver->rt.driver->state->pending == 0 || !node->remote)) {
 		struct timespec ts;
 		struct pw_driver_quantum *q = node->rt.quantum;
 

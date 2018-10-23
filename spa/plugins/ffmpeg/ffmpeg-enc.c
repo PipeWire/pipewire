@@ -85,6 +85,11 @@ static int spa_ffmpeg_enc_node_set_param(struct spa_node *node, uint32_t id, uin
 	return -ENOTSUP;
 }
 
+static int spa_ffmpeg_enc_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
+{
+	return -ENOTSUP;
+}
+
 static int spa_ffmpeg_enc_node_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	struct impl *this;
@@ -446,6 +451,7 @@ static const struct spa_node ffmpeg_enc_node = {
 	NULL,
 	spa_ffmpeg_enc_node_enum_params,
 	spa_ffmpeg_enc_node_set_param,
+	spa_ffmpeg_enc_node_set_io,
 	spa_ffmpeg_enc_node_send_command,
 	spa_ffmpeg_enc_node_set_callbacks,
 	spa_ffmpeg_enc_node_get_n_ports,

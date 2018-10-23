@@ -157,6 +157,11 @@ static int impl_node_enum_params(struct spa_node *node,
 	return 1;
 }
 
+static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
+{
+	return -ENOTSUP;
+}
+
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -678,6 +683,7 @@ static const struct spa_node impl_node = {
 	&node_info,
 	impl_node_enum_params,
 	impl_node_set_param,
+	impl_node_set_io,
 	impl_node_send_command,
 	impl_node_set_callbacks,
 	impl_node_get_n_ports,

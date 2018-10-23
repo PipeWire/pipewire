@@ -396,6 +396,20 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
 
+static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
+{
+	struct node *this;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct node, node);
+
+	if (this->resource == NULL)
+		return 0;
+
+	return -ENOTSUP;
+}
+
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	struct node *this;
@@ -1129,6 +1143,7 @@ static const struct spa_node impl_node = {
 	NULL,
 	.enum_params = impl_node_enum_params,
 	.set_param = impl_node_set_param,
+	.set_io = impl_node_set_io,
 	.send_command = impl_node_send_command,
 	.set_callbacks = impl_node_set_callbacks,
 	.get_n_ports = impl_node_get_n_ports,

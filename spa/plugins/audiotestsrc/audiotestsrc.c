@@ -269,6 +269,11 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	return 0;
 }
 
+static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
+{
+	return -ENOTSUP;
+}
+
 #include "render.c"
 
 static void set_timer(struct impl *this, bool enabled)
@@ -970,6 +975,7 @@ static const struct spa_node impl_node = {
 	&node_info,
 	impl_node_enum_params,
 	impl_node_set_param,
+	impl_node_set_io,
 	impl_node_send_command,
 	impl_node_set_callbacks,
 	impl_node_get_n_ports,

@@ -180,6 +180,27 @@ struct spa_node {
 			  const struct spa_pod *param);
 
 	/**
+	 * Configure the given memory area with \a id on \a node. This
+	 * structure is allocated by the host and is used to exchange
+	 * data and parameters with the node.
+	 *
+	 * Setting an \a io of NULL will disable the node io.
+	 *
+	 * This function must be called from the main thread.
+	 *
+	 * \param id the id of the io area, the available ids can be
+	 *        enumerated with the node parameters.
+	 * \param data a io area memory
+	 * \param size the size of \a data
+	 * \return 0 on success
+	 *         -EINVAL when invalid input is given
+	 *         -ENOENT when \a id is unknown
+	 *         -ENOSPC when \a size is too small
+	 */
+	int (*set_io) (struct spa_node *node,
+		       uint32_t id, void *data, size_t size);
+
+	/**
 	 * Send a command to a node.
 	 *
 	 * Upon completion, a command might change the state of a node.
@@ -482,6 +503,7 @@ struct spa_node {
 
 #define spa_node_enum_params(n,...)		(n)->enum_params((n),__VA_ARGS__)
 #define spa_node_set_param(n,...)		(n)->set_param((n),__VA_ARGS__)
+#define spa_node_set_io(n,...)			(n)->set_io((n),__VA_ARGS__)
 #define spa_node_send_command(n,...)		(n)->send_command((n),__VA_ARGS__)
 #define spa_node_set_callbacks(n,...)		(n)->set_callbacks((n),__VA_ARGS__)
 #define spa_node_get_n_ports(n,...)		(n)->get_n_ports((n),__VA_ARGS__)

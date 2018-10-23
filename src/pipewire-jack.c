@@ -2016,7 +2016,7 @@ int jack_set_xrun_callback (jack_client_t *client,
                             JackXRunCallback xrun_callback, void *arg)
 {
 	pw_log_warn("not implemented");
-	return -ENOTSUP;
+	return 0;
 }
 
 int jack_set_latency_callback (jack_client_t *client,
@@ -2414,6 +2414,12 @@ int jack_port_untie (jack_port_t *port)
 }
 
 int jack_port_set_name (jack_port_t *port, const char *port_name)
+{
+	pw_log_warn("not implemented");
+	return -ENOTSUP;
+}
+
+int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port_name)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;

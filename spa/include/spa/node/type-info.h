@@ -41,6 +41,7 @@ static const struct spa_type_info spa_type_io[] = {
 	{ SPA_IO_Latency, SPA_TYPE_IO_BASE "Latency", SPA_TYPE_Int, },
 	{ SPA_IO_Control, SPA_TYPE_IO_BASE "Control", SPA_TYPE_Int, },
 	{ SPA_IO_Notify, SPA_TYPE_IO_BASE "Notify", SPA_TYPE_Int, },
+	{ SPA_IO_Position, SPA_TYPE_IO_BASE "Position", SPA_TYPE_Int, },
 	{ 0, NULL, },
 };
 

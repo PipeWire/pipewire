@@ -27,21 +27,23 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
 
-/** Buffers IO area
+/** IO areas
  *
  * IO information for a port on a node. This is allocated
- * by the host and configured on all ports for which IO is requested.
+ * by the host and configured on a node or all ports for which
+ * IO is requested.
  */
 
 /** Different IO area types */
 enum spa_io_type {
 	SPA_IO_Invalid,
-	SPA_IO_Buffers,
-	SPA_IO_Range,
-	SPA_IO_Clock,
-	SPA_IO_Latency,
-	SPA_IO_Control,
-	SPA_IO_Notify,
+	SPA_IO_Buffers,		/**< area to exchange buffers */
+	SPA_IO_Range,		/**< expected byte range */
+	SPA_IO_Clock,		/**< area to update clock information */
+	SPA_IO_Latency,		/**< latency reporting */
+	SPA_IO_Control,		/**< area for control messages */
+	SPA_IO_Notify,		/**< area for notify messages */
+	SPA_IO_Position,	/**< position information in the graph */
 };
 
 struct spa_io_buffers {
@@ -86,6 +88,47 @@ struct spa_io_sequence {
 	struct spa_pod_sequence sequence;	/**< sequence of timed events */
 };
 
+/** bar and beat position */
+struct spa_io_position_bar {
+	uint32_t size;			/**< size of this structure */
+	uint32_t offset;		/**< offset of last bar in samples against current cycle */
+	struct spa_fraction signature;	/**< time signature */
+	double bpm;			/**< beats per minute */
+	double bar;			/**< current bar in quarter notes */
+	double last_bar;		/**< position of last bar in quarter notes */
+	double cycle_start;		/**< cycle start in quarter notes */
+	double cycle_end;		/**< cycle end in quarter notes */
+	uint32_t padding[16];
+};
+
+/** video frame position */
+struct spa_io_position_video {
+	uint32_t size;			/**< size of this structure */
+	uint32_t offset;		/**< offset of frame against current cycle */
+	struct spa_fraction framerate;
+#define SPA_IO_POSITION_VIDEO_FLAG_DROP_FRAME	(1<<0)
+#define SPA_IO_POSITION_VIDEO_FLAG_PULL_DOWN	(1<<1)
+#define SPA_IO_POSITION_VIDEO_FLAG_INTERLACED	(1<<2)
+	uint32_t flags;			/**< flags */
+	uint32_t hours;
+	uint32_t minutes;
+	uint32_t seconds;
+	uint32_t frames;
+	uint32_t field_count;		/**< 0 for progressive, 1 and 2 for interlaced */
+	uint32_t padding[16];
+};
+
+/** position reporting */
+struct spa_io_position {
+	struct spa_io_clock clock;		/**< clock position of driver, always valid and
+						  *  read only */
+	struct spa_fraction rate;		/**< overal rate of the graph */
+#define SPA_IO_POSITION_FLAG_BAR	(1<<0)
+#define SPA_IO_POSITION_FLAG_VIDEO	(1<<1)
+	uint64_t flags;				/**< flags indicate what fields are valid */
+	struct spa_io_position_bar bar;		/**< when mask & SPA_IO_POSITION_FLAG_BAR*/
+	struct spa_io_position_video video;	/**< when mask & SPA_IO_POSITION_FLAG_VIDEO */
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

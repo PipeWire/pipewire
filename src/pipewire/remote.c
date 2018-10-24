@@ -861,18 +861,15 @@ client_node_set_io(void *object,
 	pw_log_debug("node %p: set io %s %p", proxy,
 			spa_debug_type_find_name(spa_type_io, id), ptr);
 
-	if (id == PW_IO_ClientNodePosition) {
+	if (id == SPA_IO_Position) {
 		if (ptr == NULL && data->position) {
 			m = find_mem_ptr(data, data->position);
 			if (m && --m->ref == 0)
 				clear_mem(data, m);
 		}
 		data->position = ptr;
-		data->node->rt.position = ptr;
 	}
-	else {
-		pw_log_warn("unknown io id %u", id);
-	}
+	spa_node_set_io(data->node->node, id, ptr, size);
 }
 
 static void client_node_event(void *object, const struct spa_event *event)

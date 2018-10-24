@@ -109,6 +109,7 @@ struct stream {
 	struct spa_io_buffers *io;
 	struct spa_io_sequence *io_control;
 	struct spa_io_sequence *io_notify;
+	struct spa_io_position *position;
 	uint32_t io_notify_size;
 
 	struct pw_array params;
@@ -247,6 +248,8 @@ static void call_process(struct stream *impl)
 
 static int impl_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
+	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
+	impl->position = data;
 	return 0;
 }
 
@@ -653,14 +656,16 @@ static int process_notify(struct stream *impl, struct spa_pod_sequence *sequence
 
 static inline void copy_position(struct stream *impl, int64_t queued)
 {
-	struct spa_io_position *p = impl->node->rt.position;
-	__atomic_add_fetch(&impl->seq, 1, __ATOMIC_SEQ_CST);
-	impl->time.now = p->clock.nsec;
-	impl->time.rate = p->clock.rate;
-	impl->time.ticks = p->clock.position;
-	impl->time.delay = p->clock.delay;
-	impl->time.queued = queued;
-	__atomic_add_fetch(&impl->seq, 1, __ATOMIC_SEQ_CST);
+	struct spa_io_position *p = impl->position;
+	if (p != NULL) {
+		__atomic_add_fetch(&impl->seq, 1, __ATOMIC_SEQ_CST);
+		impl->time.now = p->clock.nsec;
+		impl->time.rate = p->clock.rate;
+		impl->time.ticks = p->clock.position;
+		impl->time.delay = p->clock.delay;
+		impl->time.queued = queued;
+		__atomic_add_fetch(&impl->seq, 1, __ATOMIC_SEQ_CST);
+	}
 
 	if (impl->io_control)
 		process_control(impl, &impl->io_control->sequence);

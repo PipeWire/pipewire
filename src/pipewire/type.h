@@ -47,11 +47,6 @@ enum {
 
 };
 
-enum {
-	PW_IO_BASE = PW_TYPE_FIRST,
-	PW_IO_ClientNodePosition,
-};
-
 #define PW_TYPE_BASE		"PipeWire:"
 
 #define PW_TYPE__Object		PW_TYPE_BASE "Object"

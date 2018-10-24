@@ -579,14 +579,6 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		}
 	}
 
-	if (spa_node_port_set_io(node->node,
-			     port->direction, port_id,
-			     SPA_IO_Clock,
-			     &port->rt.clock, sizeof(port->rt.clock)) >= 0) {
-		node->rt.clock = &port->rt.clock;
-		pw_log_debug("port %p: set node clock %p", port, node->rt.clock);
-	}
-
 	if (node->global)
 		pw_port_register(port, node->global->owner, node->global,
 				pw_properties_copy(port->properties));

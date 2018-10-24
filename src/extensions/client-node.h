@@ -44,15 +44,6 @@ struct pw_client_node_buffer {
 	struct spa_buffer *buffer;	/**< buffer describing metadata and buffer memory */
 };
 
-#define PW_TYPE_CLIENT_NODE_IO__Position	SPA_TYPE_IO_BASE "ClientNode:Position"
-
-struct pw_client_node_position {
-#define PW_VERSION_CLIENT_NODE_POSITION		0
-	uint32_t version;
-	uint32_t seq1, seq2;		/**< valid contents when equal */
-	/* position info follows */
-};
-
 #define PW_CLIENT_NODE_PROXY_METHOD_DONE		0
 #define PW_CLIENT_NODE_PROXY_METHOD_UPDATE		1
 #define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE		2

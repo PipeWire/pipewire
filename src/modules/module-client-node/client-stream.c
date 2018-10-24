@@ -847,7 +847,7 @@ static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
 	struct impl *impl = this->impl;
-	struct pw_driver_quantum *q = impl->this.node->driver_node->rt.quantum;
+	struct spa_io_position *q = impl->this.node->driver_node->rt.position;
 	int status, trigger;
 
 	if (!impl->active)

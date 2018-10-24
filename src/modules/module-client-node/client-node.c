@@ -166,7 +166,7 @@ struct impl {
 	int fds[2];
 	int other_fds[2];
 
-	struct pw_client_node_position *position;
+	struct spa_io_position *position;
 	uint64_t start;
 };
 
@@ -975,19 +975,18 @@ static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
 	struct impl *impl = this->impl;
-	struct pw_driver_quantum *q, *rq;
+	struct spa_io_position *q, *rq;
 	uint64_t cmd = 1;
 
 	spa_log_trace(this->log, "%p: send process %p", this, impl->this.node->driver_node);
 
-	q = impl->this.node->driver_node->rt.quantum;
-	rq = SPA_MEMBER(impl->position, sizeof(struct pw_client_node_position),
-			struct pw_driver_quantum);
+	q = impl->this.node->driver_node->rt.position;
+	rq = impl->position;
 
 	if (impl->start == -1)
-		impl->start = q->position;
+		impl->start = q->clock.position;
 	*rq = *q;
-	rq->position -= impl->start;
+	rq->clock.position -= impl->start;
 
 	if (write(this->writefd, &cmd, 8) != 8)
 		spa_log_warn(this->log, "node %p: error %s", this, strerror(errno));
@@ -1279,7 +1278,7 @@ static void node_initialized(void *data)
 	pw_log_debug("client-node %p: transport fd %d %d", node, impl->fds[0], impl->fds[1]);
 
 	area_size = sizeof(struct spa_io_buffers) * MAX_AREAS;
-	size = area_size + sizeof(struct pw_client_node_position) + sizeof(struct pw_driver_quantum);
+	size = area_size + sizeof(struct spa_io_position);
 
 	if (pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 			      PW_MEMBLOCK_FLAG_MAP_READWRITE |
@@ -1289,16 +1288,16 @@ static void node_initialized(void *data)
                 return;
 
 	impl->position = SPA_MEMBER(impl->io_areas->ptr,
-			area_size, struct pw_client_node_position);
+			area_size, struct spa_io_position);
 
 	m = ensure_mem(impl, impl->io_areas->fd, SPA_DATA_MemFd, impl->io_areas->flags);
 	pw_log_debug("client-node %p: io areas %p", node, impl->io_areas->ptr);
 
 	pw_client_node_resource_set_io(this->resource,
-				       PW_IO_ClientNodePosition,
+				       SPA_IO_Position,
 				       m->id,
 				       area_size,
-				       sizeof(struct pw_client_node_position));
+				       sizeof(struct spa_io_position));
 
 	if ((global = pw_node_get_global(node)) != NULL)
 		pw_client_node_registered(this, pw_global_get_id(global));

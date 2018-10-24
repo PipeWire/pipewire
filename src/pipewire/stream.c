@@ -245,6 +245,11 @@ static void call_process(struct stream *impl)
 	}
 }
 
+static int impl_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
+{
+	return 0;
+}
+
 static int impl_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
@@ -646,14 +651,14 @@ static int process_notify(struct stream *impl, struct spa_pod_sequence *sequence
 	return 0;
 }
 
-static inline void copy_quantum(struct stream *impl, int64_t queued)
+static inline void copy_position(struct stream *impl, int64_t queued)
 {
-	struct pw_driver_quantum *q = impl->node->rt.quantum;
+	struct spa_io_position *p = impl->node->rt.position;
 	__atomic_add_fetch(&impl->seq, 1, __ATOMIC_SEQ_CST);
-	impl->time.now = q->nsec;
-	impl->time.rate = q->rate;
-	impl->time.ticks = q->position;
-	impl->time.delay = q->delay;
+	impl->time.now = p->clock.nsec;
+	impl->time.rate = p->clock.rate;
+	impl->time.ticks = p->clock.position;
+	impl->time.delay = p->clock.delay;
 	impl->time.queued = queued;
 	__atomic_add_fetch(&impl->seq, 1, __ATOMIC_SEQ_CST);
 
@@ -689,7 +694,7 @@ static int impl_node_process_input(struct spa_node *node)
 		call_process(impl);
 
       done:
-	copy_quantum(impl, impl->dequeued.incount);
+	copy_position(impl, impl->dequeued.incount);
 
 	/* pop buffer to recycle */
 	if ((b = pop_queue(impl, &impl->queued))) {
@@ -741,7 +746,7 @@ static int impl_node_process_output(struct spa_node *node)
 		    io->status == SPA_STATUS_NEED_BUFFER)
 			goto again;
 	}
-	copy_quantum(impl, impl->queued.outcount);
+	copy_position(impl, impl->queued.outcount);
 
 	res = io->status;
 	pw_log_trace("stream %p: res %d", stream, res);
@@ -751,6 +756,7 @@ static int impl_node_process_output(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
+	.set_io = impl_set_io,
 	.send_command = impl_send_command,
 	.set_callbacks = impl_set_callbacks,
 	.get_n_ports = impl_get_n_ports,

@@ -103,7 +103,7 @@ struct node_data {
 	struct spa_hook node_proxy_listener;
 	struct spa_hook proxy_listener;
 
-	struct pw_client_node_position *position;
+	struct spa_io_position *position;
 
 	struct spa_graph_node_callbacks callbacks;
         void *callbacks_data;
@@ -868,11 +868,7 @@ client_node_set_io(void *object,
 				clear_mem(data, m);
 		}
 		data->position = ptr;
-		if (ptr)
-			data->node->rt.quantum = SPA_MEMBER(ptr,
-					sizeof(struct pw_client_node_position), void);
-		else
-			data->node->rt.quantum = NULL;
+		data->node->rt.position = ptr;
 	}
 	else {
 		pw_log_warn("unknown io id %u", id);

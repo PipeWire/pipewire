@@ -41,6 +41,7 @@
 #include <spa/graph/graph-scheduler2.h>
 
 #define DEFAULT_QUANTUM		1024
+#define MIN_QUANTUM		64
 
 /** \cond */
 struct impl {
@@ -60,7 +61,7 @@ struct impl {
 	struct pw_node_activation root_activation;
 	struct pw_node_activation node_activation;
 
-	struct pw_driver_quantum quantum;
+	struct spa_io_position position;
 	uint32_t next_position;
 };
 
@@ -521,11 +522,13 @@ static int recalc_quantum(struct pw_node *driver)
 	struct pw_node *n;
 
 	spa_list_for_each(n, &driver->driver_list, driver_link) {
-		if (n->rt.quantum_size > 0 && n->rt.quantum_size < quantum)
-			quantum = n->rt.quantum_size;
+		if (n->quantum_size > 0 && n->quantum_size < quantum)
+			quantum = n->quantum_size;
 	}
-	driver->rt.quantum->size = quantum;
-	pw_log_info("node %p: driver quantum %d", driver, driver->rt.quantum->size);
+	if (driver->rt.position) {
+		driver->rt.position->size = SPA_MAX(quantum, MIN_QUANTUM);
+		pw_log_info("node %p: driver quantum %d", driver, driver->rt.position->size);
+	}
 	return 0;
 }
 
@@ -599,11 +602,11 @@ static void check_properties(struct pw_node *node)
 		uint32_t num, denom;
 		pw_log_info("node %p: latency '%s'", node, str);
                 if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
-			node->rt.quantum_size = flp2((num * 48000 / denom));
-			pw_log_info("node %p: quantum %d", node, node->rt.quantum_size);
+			node->quantum_size = flp2((num * 48000 / denom));
+			pw_log_info("node %p: quantum %d", node, node->quantum_size);
 		}
 	} else
-		node->rt.quantum_size = DEFAULT_QUANTUM;
+		node->quantum_size = DEFAULT_QUANTUM;
 
 	pw_log_debug("node %p: graph %p driver:%d", node, &impl->driver_graph, node->driver);
 
@@ -677,9 +680,8 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_graph_node_init(&this->rt.node, &impl->node_activation.state);
 	spa_graph_node_add(&impl->graph, &this->rt.node);
 
-	impl->quantum.rate = SPA_FRACTION(1, 48000);
-	impl->quantum.size = DEFAULT_QUANTUM;
-	this->rt.quantum = &impl->quantum;
+	impl->position.clock.rate = SPA_FRACTION(1, 48000);
+	impl->position.size = DEFAULT_QUANTUM;
 
 	check_properties(this);
 
@@ -776,37 +778,38 @@ static void node_process(void *data, int status)
 {
 	struct pw_node *node = data, *driver;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+	bool is_driving = false;
 
 	driver = node->driver_node;
 
 	pw_log_trace("node %p: process driver:%d exported:%d %p", node,
 			node->driver, node->exported, driver->rt.driver);
 
-	if (node->driver && driver == node &&
-			(driver->rt.driver->state->pending == 0 || !node->remote)) {
+	if (node->driver) {
+		if (driver == node)
+			is_driving = true;
+		else if (node->rt.position && driver->rt.position)
+			*node->rt.position = *driver->rt.position;
+	}
+
+	if (is_driving && (driver->rt.driver->state->pending == 0 || !node->remote)) {
 		struct timespec ts;
-		struct pw_driver_quantum *q = node->rt.quantum;
+		struct spa_io_position *q = node->rt.position;
 
 		if (driver->rt.driver->state->pending != 0) {
 			pw_log_warn("node %p: graph not finished", node);
 		}
 
-		if (node->rt.clock) {
-			q->nsec = node->rt.clock->nsec;
-			q->rate = node->rt.clock->rate;
-			q->position = node->rt.clock->position;
-			q->delay = node->rt.clock->delay;
-		}
-		else {
+		if (!node->rt.clock) {
 			clock_gettime(CLOCK_MONOTONIC, &ts);
-			q->nsec = SPA_TIMESPEC_TO_TIME(&ts);
-			q->position = impl->next_position;
-			q->delay = 0;
+			q->clock.nsec = SPA_TIMESPEC_TO_TIME(&ts);
+			q->clock.position = impl->next_position;
+			q->clock.delay = 0;
 		}
 
 		pw_log_trace("node %p: run %"PRIu64" %d/%d %"PRIu64" %"PRIi64" %d", node,
-				q->nsec, q->rate.num, q->rate.denom,
-				q->position, q->delay, q->size);
+				q->clock.nsec, q->clock.rate.num, q->clock.rate.denom,
+				q->clock.position, q->clock.delay, q->size);
 
 		spa_graph_run(driver->rt.driver);
 
@@ -842,9 +845,24 @@ static const struct spa_node_callbacks node_callbacks = {
 void pw_node_set_implementation(struct pw_node *node,
 				struct spa_node *spa_node)
 {
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+
 	node->node = spa_node;
 	spa_node_set_callbacks(node->node, &node_callbacks, node);
 	spa_graph_node_set_callbacks(&node->rt.node, &spa_graph_node_impl_default, spa_node);
+
+	if (spa_node_set_io(node->node,
+			    SPA_IO_Position,
+			    &impl->position, sizeof(struct spa_io_position)) >= 0) {
+		pw_log_debug("node %p: set position %p", node, &impl->position);
+		node->rt.position = &impl->position;
+	}
+	if (spa_node_set_io(node->node,
+			    SPA_IO_Clock,
+			    &impl->position.clock, sizeof(struct spa_io_position)) >= 0) {
+		pw_log_debug("node %p: set clock %p", node, &impl->position.clock);
+		node->rt.clock = &impl->position.clock;
+	}
 
 	if (spa_node->info)
 		pw_node_update_properties(node, spa_node->info);

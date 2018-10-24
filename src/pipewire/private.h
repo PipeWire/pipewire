@@ -255,14 +255,6 @@ struct pw_module {
 	void *user_data;                /**< module user_data */
 };
 
-struct pw_driver_quantum {
-	uint64_t nsec;			/**< time in nanoseconds */
-	struct spa_fraction rate;	/**< rate */
-	uint64_t position;		/**< current position expressed in rate */
-	uint64_t delay;			/**< delay to hardware */
-	uint32_t size;			/**< size of one period expressed in rate */
-};
-
 struct pw_node_activation {
 #define NOT_TRIGGERED	0
 #define TRIGGERED	1
@@ -341,16 +333,16 @@ struct pw_node {
 
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
+	uint32_t quantum_size;			/**< desired quantum */
 	struct {
 		struct spa_io_clock *clock;	/**< io area of the clock or NULL */
-		struct pw_driver_quantum *quantum;
+		struct spa_io_position *position;
 		struct spa_graph *driver;
 		struct spa_graph_node root;
 		struct pw_node_activation *activation;
 		struct spa_graph_node node;
 		struct spa_graph_node subnode;
 		struct spa_graph_link sublink;
-		uint32_t quantum_size;
 	} rt;
 
         void *user_data;                /**< extra user data */

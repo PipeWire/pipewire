@@ -265,8 +265,7 @@ struct client {
 	JackTimebaseCallback timebase_callback;
 	void *timebase_arg;
 
-	struct pw_client_node_position *position;
-	struct pw_driver_quantum *quantum;
+	struct spa_io_position *position;
 	uint32_t sample_rate;
 	uint32_t buffer_size;
 
@@ -715,7 +714,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
 			pw_log_warn("jack %p: read failed %m", c);
 
-		buffer_size = c->quantum->size;
+		buffer_size = c->position->size;
 		if (buffer_size != c->buffer_size) {
 			pw_log_info("jack %p: buffersize %d", c, buffer_size);
 			c->buffer_size = buffer_size;
@@ -723,8 +722,8 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 				c->bufsize_callback(c->buffer_size, c->bufsize_arg);
 		}
 
-		if (c->quantum->rate.num != 0 && c->quantum->rate.denom != 0)
-			sample_rate = c->quantum->rate.denom / c->quantum->rate.num;
+		if (c->position->clock.rate.num != 0 && c->position->clock.rate.denom != 0)
+			sample_rate = c->position->clock.rate.denom / c->position->clock.rate.num;
 		else
 			sample_rate = c->sample_rate;
 
@@ -736,9 +735,9 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 		}
 
 		c->jack_position.unique_1++;
-		c->jack_position.usecs = c->quantum->nsec/1000;
+		c->jack_position.usecs = c->position->clock.nsec/1000;
 		c->jack_position.frame_rate = c->sample_rate;
-		c->jack_position.frame = c->quantum->position;
+		c->jack_position.frame = c->position->clock.position;
 		c->jack_position.valid = 0;
 		c->jack_position.unique_2 = c->jack_position.unique_1;
 
@@ -747,9 +746,9 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 					 &c->jack_position, c->sync_arg);
 		}
 
-		pw_log_trace("do process %"PRIu64" %d %d %d %"PRIi64, c->quantum->nsec,
+		pw_log_trace("do process %"PRIu64" %d %d %d %"PRIi64, c->position->clock.nsec,
 				c->buffer_size, c->sample_rate,
-				c->jack_position.frame, c->quantum->delay);
+				c->jack_position.frame, c->position->clock.delay);
 
 		if (c->process_callback)
 			c->process_callback(c->buffer_size, c->process_arg);
@@ -844,17 +843,13 @@ static void client_node_set_io(void *object,
 	pw_log_debug("client %p: set io %s %p", c,
 			spa_debug_type_find_name(spa_type_io, id), ptr);
 
-	if (id == PW_IO_ClientNodePosition) {
+	if (id == SPA_IO_Position) {
 		if (ptr == NULL && c->position) {
 			m = find_mem_ptr(&c->mems, c->position);
 			if (m && --m->ref == 0)
 				clear_mem(c, m);
 		}
 		c->position = ptr;
-		if (ptr)
-			c->quantum = SPA_MEMBER(ptr, sizeof(struct pw_client_node_position), void);
-		else
-			c->quantum = NULL;
 	}
 }
 

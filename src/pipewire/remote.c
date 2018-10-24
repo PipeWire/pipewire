@@ -888,9 +888,11 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 	case SPA_NODE_COMMAND_Pause:
 		pw_log_debug("node %p: pause %d", proxy, seq);
 
-		pw_loop_update_io(remote->core->data_loop,
+		if (data->rtsocket_source) {
+			pw_loop_update_io(remote->core->data_loop,
 				  data->rtsocket_source,
 				  SPA_IO_ERR | SPA_IO_HUP);
+		}
 
 		if ((res = spa_node_send_command(data->node->node, command)) < 0)
 			pw_log_warn("node %p: pause failed", proxy);
@@ -900,9 +902,11 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 	case SPA_NODE_COMMAND_Start:
 		pw_log_debug("node %p: start %d", proxy, seq);
 
-		pw_loop_update_io(remote->core->data_loop,
+		if (data->rtsocket_source) {
+			pw_loop_update_io(remote->core->data_loop,
 				  data->rtsocket_source,
 				  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
+		}
 
 		if ((res = spa_node_send_command(data->node->node, command)) < 0)
 			pw_log_warn("node %p: start failed", proxy);

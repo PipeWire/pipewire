@@ -767,6 +767,10 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 		return;
 	}
 
+	if (state->position) {
+		state->threshold = state->position->size;
+	}
+
 	avail = snd_pcm_status_get_avail(status);
 	snd_pcm_status_get_htstamp(status, &state->now);
 	clock_gettime(CLOCK_MONOTONIC, &now);

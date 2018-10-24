@@ -93,6 +93,7 @@ struct state {
 	struct spa_io_buffers *io;
 	struct spa_io_range *range;
 	struct spa_io_clock *clock;
+	struct spa_io_position *position;
 
 	struct buffer buffers[MAX_BUFFERS];
 	unsigned int n_buffers;

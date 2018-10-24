@@ -159,7 +159,23 @@ static int impl_node_enum_params(struct spa_node *node,
 
 static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct state *this;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct state, node);
+
+	switch (id) {
+	case SPA_IO_Clock:
+		this->clock = data;
+		break;
+	case SPA_IO_Position:
+		this->position = data;
+		break;
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,

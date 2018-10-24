@@ -161,7 +161,23 @@ static int impl_node_enum_params(struct spa_node *node,
 
 static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct state *this;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct state, node);
+
+	switch (id) {
+	case SPA_IO_Clock:
+		this->clock = data;
+		break;
+	case SPA_IO_Position:
+		this->position = data;
+		break;
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
@@ -406,13 +422,6 @@ impl_node_port_enum_params(struct spa_node *node,
 		case 1:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Range),
-				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_range)),
-				0);
-			break;
-		case 2:
-			param = spa_pod_builder_object(&b,
-				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Clock),
 				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_clock)),
 				0);
@@ -593,9 +602,6 @@ impl_node_port_set_io(struct spa_node *node,
 	switch (id) {
 	case SPA_IO_Buffers:
 		this->io = data;
-		break;
-	case SPA_IO_Range:
-		this->range = data;
 		break;
 	case SPA_IO_Clock:
 		this->clock = data;

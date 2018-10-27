@@ -290,9 +290,10 @@ static struct pw_client *client_new(struct server *s, int fd)
 	spa_list_append(&s->this.client_list, &client->protocol_link);
 
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
-	pw_client_register(client, client, pw_module_get_global(pd->module), NULL);
 
 	pw_global_bind(pw_core_get_global(core), client, PW_PERM_RWX, PW_VERSION_CORE, 0);
+
+	pw_client_register(client, client, pw_module_get_global(pd->module), NULL);
 
 	return client;
 

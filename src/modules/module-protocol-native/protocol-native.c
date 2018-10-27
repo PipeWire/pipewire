@@ -30,14 +30,14 @@
 
 #include "connection.h"
 
-static void core_marshal_hello(void *object)
+static void core_marshal_hello(void *object, uint32_t version)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_HELLO);
 
-	spa_pod_builder_add_struct(b, "P", NULL);
+	spa_pod_builder_add_struct(b, "i", version);
 
 	pw_protocol_native_end_proxy(proxy, b);
 }
@@ -364,13 +364,14 @@ static int core_demarshal_hello(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
-	void *ptr;
+	uint32_t version;
 
 	spa_pod_parser_init(&prs, data, size, 0);
-	if (spa_pod_parser_get(&prs, "[P]", &ptr, NULL) < 0)
+	if (spa_pod_parser_get(&prs, "[ i", &version,
+					NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_core_proxy_methods, hello, 0);
+	pw_resource_do(resource, struct pw_core_proxy_methods, hello, 0, version);
 	return 0;
 }
 

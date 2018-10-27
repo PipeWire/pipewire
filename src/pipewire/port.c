@@ -403,7 +403,7 @@ static void port_enum_params(void *object, uint32_t id, uint32_t index, uint32_t
 }
 
 static const struct pw_port_proxy_methods port_methods = {
-	PW_VERSION_NODE_PROXY_METHODS,
+	PW_VERSION_PORT_PROXY_METHODS,
 	.enum_params = port_enum_params
 };
 

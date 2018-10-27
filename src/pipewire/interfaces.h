@@ -115,9 +115,9 @@ struct pw_core_proxy_methods {
 	uint32_t version;
 	/**
 	 * Start a conversation with the server. This will send
-	 * the core info and server types.
+	 * the core info..
 	 */
-	void (*hello) (void *object);
+	void (*hello) (void *object, uint32_t version);
 	/**
 	 * Do server roundtrip
 	 *
@@ -183,9 +183,9 @@ struct pw_core_proxy_methods {
 };
 
 static inline void
-pw_core_proxy_hello(struct pw_core_proxy *core)
+pw_core_proxy_hello(struct pw_core_proxy *core, uint32_t version)
 {
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, hello);
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, hello, version);
 }
 
 static inline void

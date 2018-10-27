@@ -134,12 +134,13 @@ static const struct pw_resource_events resource_events = {
 	.destroy = destroy_registry_resource
 };
 
-static void core_hello(void *object)
+static void core_hello(void *object, uint32_t version)
 {
 	struct pw_resource *resource = object;
 	struct pw_core *this = resource->core;
 
-	pw_log_debug("core %p: hello from source %p", this, resource);
+	pw_log_debug("core %p: hello %d from source %p", this, version, resource);
+
 	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
 	pw_core_resource_info(resource, &this->info);
 }

@@ -1154,10 +1154,10 @@ static int mmap_read(struct impl *this)
 
 	pts = SPA_TIMEVAL_TO_TIME(&buf.timestamp);
 
-	if (port->clock) {
-		port->clock->nsec = pts;
-		port->clock->rate = port->rate;
-		port->clock->position = buf.sequence;
+	if (this->clock) {
+		this->clock->nsec = pts;
+		this->clock->rate = port->rate;
+		this->clock->position = buf.sequence;
 	}
 
 	b = &port->buffers[buf.index];

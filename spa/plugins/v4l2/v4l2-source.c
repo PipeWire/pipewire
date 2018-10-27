@@ -108,7 +108,6 @@ struct port {
 
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
-	struct spa_io_clock *clock;
 	struct spa_io_sequence *control;
 };
 
@@ -128,6 +127,9 @@ struct impl {
 	void *callbacks_data;
 
 	struct port out_ports[1];
+
+	struct spa_io_position *position;
+	struct spa_io_clock *clock;
 };
 
 #define CHECK_PORT(this,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
@@ -267,7 +269,23 @@ static int impl_node_set_param(struct spa_node *node,
 
 static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct impl *this;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct impl, node);
+
+	switch (id) {
+	case SPA_IO_Clock:
+		this->clock = data;
+		break;
+	case SPA_IO_Position:
+		this->position = data;
+		break;
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -746,9 +764,6 @@ static int impl_node_port_set_io(struct spa_node *node,
 	switch (id) {
 	case SPA_IO_Buffers:
 		port->io = data;
-		break;
-	case SPA_IO_Clock:
-		port->clock = data;
 		break;
 	case SPA_IO_Control:
 		port->control = data;

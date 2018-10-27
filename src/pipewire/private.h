@@ -106,8 +106,6 @@ struct pw_client {
 
 	struct pw_map objects;		/**< list of resource objects */
 
-	struct spa_list resource_list;	/**< The list of resources of this client */
-
 	bool busy;
 
 	struct spa_hook_list listener_list;
@@ -142,6 +140,8 @@ struct pw_global {
 	uint32_t version;		/**< version of interface */
 
 	void *object;			/**< object associated with the interface */
+
+	struct spa_list resource_list;	/**< The list of resources of this global */
 };
 
 #define pw_core_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_core_events, m, v, ##__VA_ARGS__)
@@ -163,7 +163,6 @@ struct pw_core {
 
 	struct spa_list protocol_list;		/**< list of protocols */
 	struct spa_list remote_list;		/**< list of remote connections */
-	struct spa_list resource_list;		/**< list of core resources */
 	struct spa_list registry_resource_list;	/**< list of registry resources */
 	struct spa_list module_list;		/**< list of modules */
 	struct spa_list global_list;		/**< list of globals */
@@ -248,8 +247,6 @@ struct pw_module {
 	struct pw_properties *properties;	/**< properties of the module */
 	struct pw_module_info info;     /**< introspectable module info */
 
-	struct spa_list resource_list;	/**< list of resources for this module */
-
 	struct spa_hook_list listener_list;
 
 	void *user_data;                /**< module user_data */
@@ -314,7 +311,6 @@ struct pw_node {
 
 	struct spa_node *node;		/**< SPA node implementation */
 
-	struct spa_list resource_list;	/**< list of resources for this node */
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 
 	struct spa_list input_ports;		/**< list of input ports */
@@ -399,8 +395,6 @@ struct pw_port {
 	struct pw_properties *properties;	/**< properties of the port */
 	struct pw_port_info info;
 
-	struct spa_list resource_list;	/**< list of resources for this port */
-
 	enum pw_port_state state;	/**< state of the port */
 
 	bool allocated;			/**< if buffers are allocated */
@@ -452,8 +446,6 @@ struct pw_link {
         struct pw_link_info info;		/**< introspectable link info */
 	struct pw_properties *properties;	/**< extra link properties */
 	bool feedback;
-
-	struct spa_list resource_list;	/**< list of bound resources */
 
 	struct spa_io_buffers *io;	/**< link io area */
 
@@ -591,8 +583,6 @@ struct pw_factory {
 
 	const struct pw_factory_implementation *implementation;
 	void *implementation_data;
-
-	struct spa_list resource_list;	/**< The list of resources of this factory */
 
 	void *user_data;
 };

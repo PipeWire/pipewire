@@ -114,8 +114,9 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 	link->info.change_mask |= PW_LINK_CHANGE_MASK_STATE;
 	pw_link_events_info_changed(link, &link->info);
 
-	spa_list_for_each(resource, &link->resource_list, link)
-		pw_link_resource_info(resource, &link->info);
+	if (link->global)
+		spa_list_for_each(resource, &link->global->resource_list, link)
+			pw_link_resource_info(resource, &link->info);
 
 	link->info.change_mask = 0;
 
@@ -312,8 +313,9 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 
 		pw_link_events_info_changed(this, &this->info);
 
-		spa_list_for_each(resource, &this->resource_list, link)
-			pw_link_resource_info(resource, &this->info);
+		if (this->global)
+			spa_list_for_each(resource, &this->global->resource_list, link)
+				pw_link_resource_info(resource, &this->info);
 
 		this->info.change_mask = 0;
 	}
@@ -1187,7 +1189,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	pw_log_debug("link %p: bound to %d", this, resource->id);
 
-	spa_list_append(&this->resource_list, &resource->link);
+	spa_list_append(&global->resource_list, &resource->link);
 
 	this->info.change_mask = ~0;
 	pw_link_resource_info(resource, &this->info);
@@ -1357,7 +1359,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 		if (str && pw_properties_parse_bool(str))
 			impl->passive = true;
 	}
-	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
 
 	impl->format_filter = format_filter;
@@ -1479,7 +1480,6 @@ int pw_link_register(struct pw_link *link,
 void pw_link_destroy(struct pw_link *link)
 {
 	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
-	struct pw_resource *resource;
 
 	pw_log_debug("link %p: destroy", impl);
 	pw_link_events_destroy(link);
@@ -1498,9 +1498,6 @@ void pw_link_destroy(struct pw_link *link)
 		spa_hook_remove(&link->global_listener);
 		pw_global_destroy(link->global);
 	}
-
-	spa_list_consume(resource, &link->resource_list, link)
-		pw_resource_destroy(resource);
 
 	pw_log_debug("link %p: free", impl);
 	pw_link_events_free(link);

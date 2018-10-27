@@ -123,7 +123,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	pw_log_debug("module %p: bound to %d", this, resource->id);
 
-	spa_list_append(&this->resource_list, &resource->link);
+	spa_list_append(&global->resource_list, &resource->link);
 
 	this->info.change_mask = ~0;
 	pw_module_resource_info(resource, &this->info);
@@ -224,7 +224,6 @@ pw_module_load(struct pw_core *core,
 	this->core = core;
 	this->properties = properties;
 
-	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
 
 	pw_properties_set(properties, PW_MODULE_PROP_NAME, name);
@@ -288,7 +287,6 @@ pw_module_load(struct pw_core *core,
 void pw_module_destroy(struct pw_module *module)
 {
 	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
-	struct pw_resource *resource;
 
 	pw_log_debug("module %p: destroy", module);
 	pw_module_events_destroy(module);
@@ -299,8 +297,6 @@ void pw_module_destroy(struct pw_module *module)
 		spa_hook_remove(&module->global_listener);
 		pw_global_destroy(module->global);
 	}
-	spa_list_consume(resource, &module->resource_list, link)
-		pw_resource_destroy(resource);
 
 	if (module->info.name)
 		free((char *) module->info.name);
@@ -345,8 +341,9 @@ int pw_module_update_properties(struct pw_module *module, const struct spa_dict 
 	module->info.props = &module->properties->dict;
 
 	module->info.change_mask |= PW_MODULE_CHANGE_MASK_PROPS;
-	spa_list_for_each(resource, &module->resource_list, link)
-		pw_module_resource_info(resource, &module->info);
+	if (module->global)
+		spa_list_for_each(resource, &module->global->resource_list, link)
+			pw_module_resource_info(resource, &module->info);
 	module->info.change_mask = 0;
 
 	return changed;

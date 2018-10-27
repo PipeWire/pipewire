@@ -42,6 +42,7 @@ struct impl {
 
 struct resource_data {
 	struct spa_hook resource_listener;
+	struct pw_client *client;
 };
 
 /** find a specific permission for a global or NULL when there is none */
@@ -103,11 +104,13 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 		goto no_mem;
 
 	data = pw_resource_get_user_data(resource);
+	data->client = this;
 	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
+	pw_resource_set_implementation(resource, &client_methods, resource);
 
 	pw_log_debug("client %p: bound to %d", this, resource->id);
 
-	spa_list_append(&this->resource_list, &resource->link);
+	spa_list_append(&global->resource_list, &resource->link);
 
 	this->info.change_mask = ~0;
 	pw_client_resource_info(resource, &this->info);
@@ -183,12 +186,10 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	this->properties = properties;
 	this->permission_func = client_permission_func;
 	this->permission_data = impl;
-	impl->permissions_default = PW_PERM_RWX;
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
-	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
 
 	pw_map_init(&this->objects, 0, 32);
@@ -294,7 +295,6 @@ static int destroy_resource(void *object, void *data)
  */
 void pw_client_destroy(struct pw_client *client)
 {
-	struct pw_resource *resource;
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 
 	pw_log_debug("client %p: destroy", client);
@@ -309,9 +309,6 @@ void pw_client_destroy(struct pw_client *client)
 		spa_hook_remove(&client->global_listener);
 		pw_global_destroy(client->global);
 	}
-
-	spa_list_consume(resource, &client->resource_list, link)
-		pw_resource_destroy(resource);
 
 	pw_map_for_each(&client->objects, destroy_resource, client);
 
@@ -367,8 +364,9 @@ int pw_client_update_properties(struct pw_client *client, const struct spa_dict 
 
 	pw_client_events_info_changed(client, &client->info);
 
-	spa_list_for_each(resource, &client->resource_list, link)
-		pw_client_resource_info(resource, &client->info);
+	if (client->global)
+		spa_list_for_each(resource, &client->global->resource_list, link)
+			pw_client_resource_info(resource, &client->info);
 
 	client->info.change_mask = 0;
 

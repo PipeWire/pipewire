@@ -41,7 +41,6 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 	this = calloc(1, sizeof(*this) + user_data_size);
 	this->core = core;
 	this->properties = properties;
-	spa_list_init(&this->resource_list);
 
 	this->info.name = strdup(name);
 	this->info.type = type;
@@ -106,7 +105,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	pw_log_debug("factory %p: bound to %d", this, resource->id);
 
-	spa_list_append(&this->resource_list, &resource->link);
+	spa_list_append(&global->resource_list, &resource->link);
 
 	this->info.change_mask = ~0;
 	pw_factory_resource_info(resource, &this->info);

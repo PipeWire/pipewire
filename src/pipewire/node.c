@@ -181,8 +181,9 @@ static void node_update_state(struct pw_node *node, enum pw_node_state state, ch
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;
 	pw_node_events_info_changed(node, &node->info);
 
-	spa_list_for_each(resource, &node->resource_list, link)
-		pw_node_resource_info(resource, &node->info);
+	if (node->global)
+		spa_list_for_each(resource, &node->global->resource_list, link)
+			pw_node_resource_info(resource, &node->info);
 
 	node->info.change_mask = 0;
 }
@@ -394,7 +395,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	pw_log_debug("node %p: bound to %d", this, resource->id);
 
-	spa_list_append(&this->resource_list, &resource->link);
+	spa_list_append(&global->resource_list, &resource->link);
 
 	this->info.change_mask = ~0;
 	pw_node_resource_info(resource, &this->info);
@@ -645,7 +646,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this->data_loop = core->data_loop;
 
 	spa_list_init(&this->driver_list);
-	spa_list_init(&this->resource_list);
 
 	spa_hook_list_init(&this->listener_list);
 
@@ -739,8 +739,9 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_PROPS;
 	pw_node_events_info_changed(node, &node->info);
 
-	spa_list_for_each(resource, &node->resource_list, link)
-		pw_node_resource_info(resource, &node->info);
+	if (node->global)
+		spa_list_for_each(resource, &node->global->resource_list, link)
+			pw_node_resource_info(resource, &node->info);
 
 	node->info.change_mask = 0;
 
@@ -892,7 +893,6 @@ void pw_node_add_listener(struct pw_node *node,
 void pw_node_destroy(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	struct pw_resource *resource;
 	struct pw_node *n, *t;
 	struct pw_port *port;
 
@@ -932,8 +932,6 @@ void pw_node_destroy(struct pw_node *node)
 		spa_hook_remove(&node->global_listener);
 		pw_global_destroy(node->global);
 	}
-	spa_list_consume(resource, &node->resource_list, link)
-		pw_resource_destroy(resource);
 
 	pw_log_debug("node %p: free", node);
 	pw_node_events_free(node);

@@ -223,8 +223,6 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	spa_list_init(&this->control_list[0]);
 	spa_list_init(&this->control_list[1]);
 
-	spa_list_init(&this->resource_list);
-
 	spa_hook_list_init(&this->listener_list);
 
 	spa_graph_port_init(&this->rt.port,
@@ -296,8 +294,9 @@ int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 	port->info.change_mask |= PW_PORT_CHANGE_MASK_PROPS;
 	pw_port_events_info_changed(port, &port->info);
 
-	spa_list_for_each(resource, &port->resource_list, link)
-		pw_port_resource_info(resource, &port->info);
+	if (port->global)
+		spa_list_for_each(resource, &port->global->resource_list, link)
+			pw_port_resource_info(resource, &port->info);
 
 	port->info.change_mask = 0;
 
@@ -428,7 +427,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	pw_log_debug("port %p: bound to %d", this, resource->id);
 
-	spa_list_append(&this->resource_list, &resource->link);
+	spa_list_append(&global->resource_list, &resource->link);
 
 	this->info.change_mask = ~0;
 	pw_port_resource_info(resource, &this->info);
@@ -659,7 +658,6 @@ static void pw_port_remove(struct pw_port *port)
 void pw_port_destroy(struct pw_port *port)
 {
 	struct pw_control *control;
-	struct pw_resource *resource;
 
 	pw_log_debug("port %p: destroy", port);
 
@@ -677,8 +675,6 @@ void pw_port_destroy(struct pw_port *port)
 		spa_hook_remove(&port->global_listener);
 		pw_global_destroy(port->global);
 	}
-	spa_list_consume(resource, &port->resource_list, link)
-		pw_resource_destroy(resource);
 
 	pw_log_debug("port %p: free", port);
 	pw_port_events_free(port);

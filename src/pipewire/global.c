@@ -81,6 +81,7 @@ pw_global_new(struct pw_core *core,
 	this->properties = properties;
 	this->id = pw_map_insert_new(&core->globals, this);
 
+	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
 
 	pw_log_debug("global %p: new %s %d", this,
@@ -257,11 +258,15 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 void pw_global_destroy(struct pw_global *global)
 {
 	struct pw_core *core = global->core;
+	struct pw_resource *resource;
 
 	pw_log_debug("global %p: destroy %u", global, global->id);
 	global_unregister(global);
 
 	pw_global_events_destroy(global);
+
+	spa_list_consume(resource, &global->resource_list, link)
+		pw_resource_destroy(resource);
 
 	pw_map_remove(&core->globals, global->id);
 

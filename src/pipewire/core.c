@@ -349,7 +349,7 @@ global_bind(void *_data,
 
 	pw_resource_set_implementation(resource, &core_methods, resource);
 
-	spa_list_append(&this->resource_list, &resource->link);
+	spa_list_append(&global->resource_list, &resource->link);
 
 	if (resource->id == 0)
 		client->core_resource = resource;
@@ -428,7 +428,6 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 
 	spa_list_init(&this->protocol_list);
 	spa_list_init(&this->remote_list);
-	spa_list_init(&this->resource_list);
 	spa_list_init(&this->registry_resource_list);
 	spa_list_init(&this->global_list);
 	spa_list_init(&this->module_list);
@@ -587,8 +586,9 @@ int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 
 	pw_core_events_info_changed(core, &core->info);
 
-	spa_list_for_each(resource, &core->resource_list, link)
-		pw_core_resource_info(resource, &core->info);
+	if (core->global)
+		spa_list_for_each(resource, &core->global->resource_list, link)
+			pw_core_resource_info(resource, &core->info);
 
 	core->info.change_mask = 0;
 

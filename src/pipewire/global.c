@@ -249,6 +249,51 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 	return res;
 }
 
+int pw_global_grant(struct pw_global *global, struct pw_client *client)
+{
+	struct pw_resource *registry;
+	struct pw_core *core = global->core;
+
+	spa_list_for_each(registry, &core->registry_resource_list, link) {
+		uint32_t permissions;
+
+		if (registry->client != client)
+			continue;
+
+		permissions = pw_global_get_permissions(global, client);
+
+		pw_log_debug("registry %p: global %d %08x", registry, global->id, permissions);
+		if (PW_PERM_IS_R(permissions))
+			pw_registry_resource_global(registry,
+						    global->id,
+						    global->parent->id,
+						    permissions,
+						    global->type,
+						    global->version,
+						    global->properties ?
+						        &global->properties->dict : NULL);
+	}
+	return 0;
+}
+
+int pw_global_revoke(struct pw_global *global, struct pw_client *client)
+{
+	struct pw_resource *registry, *resource, *t;
+	struct pw_core *core = global->core;
+
+	spa_list_for_each(registry, &core->registry_resource_list, link) {
+		if (registry->client != client)
+			continue;
+		pw_registry_resource_global_remove(registry, global->id);
+	}
+	spa_list_for_each_safe(resource, t, &global->resource_list, link) {
+		if (resource->client != client)
+			continue;
+		pw_resource_destroy(resource);
+	}
+	return 0;
+}
+
 /** Destroy a global
  *
  * \param global a global to destroy

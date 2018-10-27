@@ -80,9 +80,17 @@ static inline int spa_pod_compare(const struct spa_pod *pod1,
 				  const struct spa_pod *pod2)
 {
 	int res = 0;
+	uint32_t n_vals1, n_vals2;
+	uint32_t choice1, choice2;
 
         spa_return_val_if_fail(pod1 != NULL, -EINVAL);
         spa_return_val_if_fail(pod2 != NULL, -EINVAL);
+
+	pod1 = spa_pod_get_values(pod1,  &n_vals1, &choice1);
+	pod2 = spa_pod_get_values(pod2,  &n_vals2, &choice2);
+
+	if (n_vals1 != n_vals2)
+		return -EINVAL;
 
 	if (SPA_POD_TYPE(pod1) != SPA_POD_TYPE(pod2))
 		return -EINVAL;

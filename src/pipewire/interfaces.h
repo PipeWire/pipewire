@@ -678,7 +678,8 @@ pw_factory_proxy_add_listener(struct pw_factory_proxy *factory,
 #define PW_VERSION_CLIENT			0
 
 #define PW_CLIENT_PROXY_EVENT_INFO		0
-#define PW_CLIENT_PROXY_EVENT_NUM		1
+#define PW_CLIENT_PROXY_EVENT_PERMISSIONS	1
+#define PW_CLIENT_PROXY_EVENT_NUM		2
 
 /** Client events */
 struct pw_client_proxy_events {
@@ -690,6 +691,14 @@ struct pw_client_proxy_events {
 	 * \param info info about the client
 	 */
 	void (*info) (void *object, struct pw_client_info *info);
+	/**
+	 * Notify a client permission
+	 *
+	 * Event emited as a result of the get_permissions method.
+	 *
+	 * \param param the parameter
+	 */
+	void (*permissions) (void *object, const struct spa_dict *dict);
 };
 
 /** Client */
@@ -703,7 +712,59 @@ pw_client_proxy_add_listener(struct pw_client_proxy *client,
 }
 
 #define pw_client_resource_info(r,...) pw_resource_notify(r,struct pw_client_proxy_events,info,__VA_ARGS__)
+#define pw_client_resource_permissions(r,...) pw_resource_notify(r,struct pw_client_proxy_events,permissions,__VA_ARGS__)
 
+#define PW_CLIENT_PROXY_METHOD_ERROR			0
+#define PW_CLIENT_PROXY_METHOD_GET_PERMISSIONS		1
+#define PW_CLIENT_PROXY_METHOD_UPDATE_PERMISSIONS	2
+#define PW_CLIENT_PROXY_METHOD_NUM			3
+
+/** Client methods */
+struct pw_client_proxy_methods {
+#define PW_VERSION_CLIENT_PROXY_METHODS	0
+	uint32_t version;
+
+	/**
+	 * Send an error to a client
+	 *
+	 * \param id the global id to report the error on
+	 * \param res an errno style error code
+	 * \param error an error string
+	 */
+	void (*error) (void *object, uint32_t id, int res, const char *error);
+	/**
+	 * Get client permissions
+	 *
+	 * A permissions event will be emited with the permissions.
+	 */
+	void (*get_permissions) (void *object);
+
+	/**
+	 * Update client permissions
+	 *
+	 * \param dict list of permissions to update
+	 */
+	void (*update_permissions) (void *object, const struct spa_dict *dict);
+};
+
+/** Client permissions */
+static inline void
+pw_client_proxy_error(struct pw_client_proxy *client, uint32_t id, int res, const char *error)
+{
+	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, error, id, res, error);
+}
+
+static inline void
+pw_client_proxy_get_permissions(struct pw_client_proxy *client)
+{
+	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, get_permissions);
+}
+
+static inline void
+pw_client_proxy_update_permissions(struct pw_client_proxy *client, const struct spa_dict *dict)
+{
+	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, update_permissions, dict);
+}
 
 #define PW_VERSION_LINK			0
 

@@ -177,6 +177,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 static bool do_export_node(struct data *data, const char *cmd, char *args, char **error);
 static bool do_node_params(struct data *data, const char *cmd, char *args, char **error);
 static bool do_port_params(struct data *data, const char *cmd, char *args, char **error);
+static bool do_permissions(struct data *data, const char *cmd, char *args, char **error);
 
 static struct command command_list[] = {
 	{ "help", "Show this help", do_help },
@@ -194,6 +195,7 @@ static struct command command_list[] = {
 	{ "export-node", "Export a local node to the current remote. <node-id> [remote-var]", do_export_node },
 	{ "node-params", "Enumerate params of a node <node-id> [<param-id-name>]", do_node_params },
 	{ "port-params", "Enumerate params of a port <port-id> [<param-id-name>]", do_port_params },
+	{ "permissions", "Set permissions for a client <client-id> <permissions>", do_permissions },
 };
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error)
@@ -1133,10 +1135,10 @@ static bool do_port_params(struct data *data, const char *cmd, char *args, char 
 		asprintf(error, "%s <object-id> [<param-id-name>]", cmd);
 		return false;
 	}
-	if (n == 2)
+	if (n < 2)
 		param_id = SPA_PARAM_List;
 	else
-		param_id = SPA_PARAM_List;
+		param_id = atoi(a[1]);
 
 	id = atoi(a[0]);
 	global = pw_map_lookup(&rd->globals, id);
@@ -1155,6 +1157,43 @@ static bool do_port_params(struct data *data, const char *cmd, char *args, char 
 
 	pw_port_proxy_enum_params((struct pw_port_proxy*)global->proxy,
 			param_id, 0, 0, NULL);
+
+	return true;
+}
+
+static bool do_permissions(struct data *data, const char *cmd, char *args, char **error)
+{
+	struct remote_data *rd = data->current;
+	char *a[2];
+        int n;
+	uint32_t id;
+	struct global *global;
+	struct spa_dict_item items[1];
+
+	n = pw_split_ip(args, WHITESPACE, 2, a);
+	if (n < 2) {
+		asprintf(error, "%s <client-id> <permission>", cmd);
+		return false;
+	}
+
+	id = atoi(a[0]);
+	global = pw_map_lookup(&rd->globals, id);
+	if (global == NULL) {
+		asprintf(error, "%s: unknown global %d", cmd, id);
+		return false;
+	}
+	if (global->type != PW_TYPE_INTERFACE_Client) {
+		asprintf(error, "object %d is not a client", atoi(a[0]));
+		return false;
+	}
+	if (global->proxy == NULL) {
+		if (!bind_global(rd, global, error))
+			return false;
+	}
+
+	items[0] = SPA_DICT_ITEM_INIT(PW_CORE_PROXY_PERMISSIONS_GLOBAL, a[1]);
+	pw_client_proxy_update_permissions((struct pw_client_proxy*)global->proxy,
+			&SPA_DICT_INIT(items, 1));
 
 	return true;
 }

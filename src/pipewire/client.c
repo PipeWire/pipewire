@@ -47,19 +47,40 @@ struct resource_data {
 
 /** find a specific permission for a global or NULL when there is none */
 static struct permission *
-find_permission(struct pw_client *client, struct pw_global *global)
+find_permission(struct pw_client *client, uint32_t id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 	struct permission *p;
 
-	if (!pw_array_check_index(&impl->permissions, global->id, struct permission))
+	if (!pw_array_check_index(&impl->permissions, id, struct permission))
 		return NULL;
 
-	p = pw_array_get_unchecked(&impl->permissions, global->id, struct permission);
+	p = pw_array_get_unchecked(&impl->permissions, id, struct permission);
 	if (p->permissions == -1)
 		return NULL;
 	else
 		return p;
+}
+
+static struct permission *ensure_permissions(struct pw_client *client, uint32_t id)
+{
+	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
+	struct permission *p;
+	size_t len, i;
+
+	len = pw_array_get_len(&impl->permissions, struct permission);
+	if (len <= id) {
+		size_t diff = id - len + 1;
+
+		p = pw_array_add(&impl->permissions, diff * sizeof(struct permission));
+		if (p == NULL)
+			return NULL;
+
+		for (i = 0; i < diff; i++)
+			p[i].permissions = -1;
+	}
+	p = pw_array_get_unchecked(&impl->permissions, id, struct permission);
+	return p;
 }
 
 /** \endcond */
@@ -71,12 +92,110 @@ client_permission_func(struct pw_global *global,
 	struct impl *impl = data;
 	struct permission *p;
 
-	p = find_permission(client, global);
+	p = find_permission(client, global->id);
 	if (p == NULL)
 		return impl->permissions_default;
 	else
 		return p->permissions;
 }
+
+static uint32_t parse_mask(const char *str)
+{
+	uint32_t mask = 0;
+
+	while (*str != '\0') {
+		switch (*str++) {
+		case 'r':
+			mask |= PW_PERM_R;
+			break;
+		case 'w':
+			mask |= PW_PERM_W;
+			break;
+		case 'x':
+			mask |= PW_PERM_X;
+			break;
+		}
+	}
+	return mask;
+}
+
+static void client_error(void *object, uint32_t id, int res, const char *error)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct pw_client *client = data->client;
+	pw_resource_error(client->core_resource, id, res, error);
+}
+
+static void client_get_permissions(void *object)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct pw_client *client = data->client;
+}
+
+static void client_update_permissions(void *object, const struct spa_dict *props)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct pw_client *client = data->client;
+	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
+	const char *str;
+	int i, len;
+
+	for (i = 0; i < props->n_items; i++) {
+		str = props->items[i].value;
+
+		pw_log_debug("client %p: %s %s", client, props->items[i].key, str);
+
+		if (strcmp(props->items[i].key, PW_CORE_PROXY_PERMISSIONS_DEFAULT) == 0) {
+			impl->permissions_default = parse_mask(str);
+			pw_log_debug("client %p: set default permissions to %08x",
+					client, impl->permissions_default);
+		}
+		else if (strcmp(props->items[i].key, PW_CORE_PROXY_PERMISSIONS_GLOBAL) == 0) {
+			struct pw_global *global;
+			uint32_t global_id, old_perm, new_perm;
+			struct permission *p;
+
+			/* permissions.update=<global-id>:[r][w][x] */
+			len = strcspn(str, ":");
+			if (len == 0)
+				continue;
+
+			global_id = atoi(str);
+			global = pw_core_find_global(client->core, global_id);
+			if (global == NULL) {
+				pw_log_warn("client %p: invalid global %d", client, global_id);
+				continue;
+			}
+
+			p = ensure_permissions(client, global_id);
+			old_perm = p->permissions == -1 ? impl->permissions_default : p->permissions;
+			new_perm = parse_mask(str + len);
+
+			pw_log_debug("client %p: %08x %08x", client, old_perm, new_perm);
+
+			p->permissions = new_perm;
+
+			if (PW_PERM_IS_R(old_perm) && !PW_PERM_IS_R(new_perm)) {
+				pw_global_revoke(global, client);
+			}
+			else if (!PW_PERM_IS_R(old_perm) && PW_PERM_IS_R(new_perm)) {
+				pw_global_grant(global, client);
+			}
+		}
+	}
+	if (impl->permissions_default != 0)
+		pw_client_set_busy(client, false);
+}
+
+static const struct pw_client_proxy_methods client_methods = {
+	PW_VERSION_CLIENT_PROXY_METHODS,
+	.error = client_error,
+	.get_permissions = client_get_permissions,
+	.update_permissions = client_update_permissions
+};
 
 static void client_unbind_func(void *data)
 {
@@ -88,7 +207,6 @@ static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = client_unbind_func,
 };
-
 
 static void
 global_bind(void *_data, struct pw_client *client, uint32_t permissions,
@@ -131,7 +249,7 @@ core_global_removed(void *data, struct pw_global *global)
 	struct pw_client *client = &impl->this;
 	struct permission *p;
 
-	p = find_permission(client, global);
+	p = find_permission(client, global->id);
 	pw_log_debug("client %p: global %d removed, %p", client, global->id, p);
 	if (p != NULL)
 		p->permissions = -1;
@@ -385,21 +503,10 @@ static int do_permissions(void *data, struct pw_global *global)
 	struct pw_client *client = update->client;
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 	struct permission *p;
-	size_t len, i;
 
-	len = pw_array_get_len(&impl->permissions, struct permission);
-	if (len <= global->id) {
-		size_t diff = global->id - len + 1;
-
-		p = pw_array_add(&impl->permissions, diff * sizeof(struct permission));
-		if (p == NULL)
-			return -ENOMEM;
-
-		for (i = 0; i < diff; i++)
-			p[i].permissions = -1;
-	}
-
-	p = pw_array_get_unchecked(&impl->permissions, global->id, struct permission);
+	p = ensure_permissions(client, global->id);
+	if (p == NULL)
+		return -ENOMEM;
 	if (p->permissions == -1)
 		p->permissions = impl->permissions_default;
 	else if (update->only_new)
@@ -409,26 +516,6 @@ static int do_permissions(void *data, struct pw_global *global)
 	pw_log_debug("client %p: set global %d permissions to %08x", client, global->id, p->permissions);
 
 	return 0;
-}
-
-static uint32_t parse_mask(const char *str)
-{
-	uint32_t mask = 0;
-
-	while (*str != '\0') {
-		switch (*str++) {
-		case 'r':
-			mask |= PW_PERM_R;
-			break;
-		case 'w':
-			mask |= PW_PERM_W;
-			break;
-		case 'x':
-			mask |= PW_PERM_X;
-			break;
-		}
-	}
-	return mask;
 }
 
 int pw_client_update_permissions(struct pw_client *client, const struct spa_dict *dict)
@@ -499,4 +586,12 @@ void pw_client_set_busy(struct pw_client *client, bool busy)
 		client->busy = busy;
 		pw_client_events_busy_changed(client, busy);
 	}
+}
+
+void pw_client_set_permissions(struct pw_client *client, uint32_t permissions)
+{
+	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
+	pw_log_debug("client %p: permissions %08x", client, permissions);
+	impl->permissions_default = permissions;
+	pw_client_set_busy(client, false);
 }

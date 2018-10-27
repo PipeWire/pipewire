@@ -177,6 +177,8 @@ void pw_client_add_listener(struct pw_client *client,
   * started and no further processing is allowed to happen for the client */
 void pw_client_set_busy(struct pw_client *client, bool busy);
 
+void pw_client_set_permissions(struct pw_client *client, uint32_t permissions);
+
 #ifdef __cplusplus
 }
 #endif

@@ -5,15 +5,15 @@ pipewire_module_c_args = [
   '-D_GNU_SOURCE',
 ]
 
-if dbus_dep.found()
-pipewire_module_flatpak = shared_library('pipewire-module-flatpak', [ 'module-flatpak.c' ],
+pipewire_module_access = shared_library('pipewire-module-access', [ 'module-access.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
-  dependencies : [dbus_dep, mathlib, dl_lib, pipewire_dep],
+  dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
+if dbus_dep.found()
 pipewire_module_rtkit = shared_library('pipewire-module-rtkit', [ 'module-rtkit.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],

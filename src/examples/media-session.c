@@ -64,6 +64,7 @@ struct impl {
 
 	struct pw_map globals;
 
+	struct spa_list client_list;
 	struct spa_list node_list;
 	struct spa_list session_list;
 	uint32_t seq;
@@ -76,6 +77,15 @@ struct object {
 	uint32_t type;
 	struct pw_proxy *proxy;
 	struct spa_hook listener;
+};
+
+struct client {
+	struct object obj;
+
+	struct spa_list l;
+
+	struct spa_hook listener;
+	struct pw_client_info *info;
 };
 
 struct node {
@@ -649,6 +659,73 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 	return 0;
 }
 
+static void client_event_info(void *object, struct pw_client_info *info)
+{
+	struct client *c = object;
+	int i;
+
+	pw_log_debug(NAME" %p: info for client %d", c->obj.impl, c->obj.id);
+	c->info = pw_client_info_update(c->info, info);
+	for (i = 0; i < info->props->n_items; i++)
+		pw_log_debug(NAME" %p:  %s = %s", c,
+				info->props->items[i].key,
+				info->props->items[i].value);
+
+}
+
+static const struct pw_client_proxy_events client_events = {
+	PW_VERSION_CLIENT_PROXY_EVENTS,
+	.info = client_event_info,
+};
+
+static void client_proxy_destroy(void *data)
+{
+	struct client *c = data;
+
+	pw_log_debug(NAME " %p: proxy destroy client %d", c->obj.impl, c->obj.id);
+
+	spa_list_remove(&c->l);
+	if (c->info)
+		pw_client_info_free(c->info);
+}
+
+static const struct pw_proxy_events client_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = client_proxy_destroy,
+};
+
+static int
+handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
+		uint32_t type, const struct spa_dict *props)
+{
+	struct pw_proxy *p;
+	struct client *client;
+	struct spa_dict_item items[2];
+
+	p = pw_registry_proxy_bind(impl->registry_proxy,
+			id, type, PW_VERSION_CLIENT,
+			sizeof(struct client));
+
+	client = pw_proxy_get_user_data(p);
+	client->obj.impl = impl;
+	client->obj.id = id;
+	client->obj.parent_id = parent_id;
+	client->obj.type = type;
+	client->obj.proxy = p;
+
+	pw_proxy_add_listener(p, &client->obj.listener, &client_proxy_events, client);
+	pw_proxy_add_proxy_listener(p, &client->listener, &client_events, client);
+	add_object(impl, &client->obj);
+	spa_list_append(&impl->client_list, &client->l);
+
+	items[0].key = PW_CORE_PROXY_PERMISSIONS_DEFAULT;
+	items[0].value = "rwx";
+
+	pw_client_proxy_update_permissions((struct pw_client_proxy*)p,
+			&SPA_DICT_INIT(items, 1));
+	return 0;
+}
+
 static void
 registry_global(void *data,uint32_t id, uint32_t parent_id,
 		uint32_t permissions, uint32_t type, uint32_t version,
@@ -659,6 +736,10 @@ registry_global(void *data,uint32_t id, uint32_t parent_id,
 	pw_log_debug(NAME " %p: new global '%d'", impl, id);
 
 	switch (type) {
+	case PW_TYPE_INTERFACE_Client:
+		handle_client(impl, id, parent_id, type, props);
+		break;
+
 	case PW_TYPE_INTERFACE_Node:
 		handle_node(impl, id, parent_id, type, props);
 		break;
@@ -931,8 +1012,19 @@ static int rescan_node(struct impl *impl, struct node *node)
 	find.exclusive = exclusive;
 	spa_list_for_each(session, &impl->session_list, l)
 		find_session(&find, session);
-	if (find.sess == NULL)
+
+	if (find.sess == NULL) {
+		struct client *client;
+
+		pw_log_warn(NAME " %p: no session found for %d", impl, node->obj.id);
+
+		client = find_object(impl, node->obj.parent_id);
+		if (client && client->obj.type == PW_TYPE_INTERFACE_Client) {
+			pw_client_proxy_error((struct pw_client_proxy*)client->obj.proxy,
+				node->obj.id, ENOENT, "no session available");
+		}
 		return -ENOENT;
+	}
 
 	session = find.sess;
 
@@ -1139,8 +1231,9 @@ int main(int argc, char *argv[])
 
 	pw_map_init(&impl.globals, 64, 64);
 
-	spa_list_init(&impl.session_list);
+	spa_list_init(&impl.client_list);
 	spa_list_init(&impl.node_list);
+	spa_list_init(&impl.session_list);
 
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 

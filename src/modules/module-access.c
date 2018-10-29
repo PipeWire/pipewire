@@ -32,6 +32,7 @@
 #include "pipewire/link.h"
 #include "pipewire/log.h"
 #include "pipewire/module.h"
+#include "pipewire/properties.h"
 #include "pipewire/utils.h"
 
 static const struct spa_dict_item module_props[] = {
@@ -68,24 +69,11 @@ static int check_cmdline(struct pw_client *client, const struct ucred *ucred, co
 	return 0;
 }
 
-static int check_sandboxed(struct pw_client *client)
+static int check_flatpak(struct pw_client *client, const struct ucred *ucred)
 {
 	char root_path[2048];
 	int root_fd, info_fd, res;
-	const struct ucred *ucred;
 	struct stat stat_buf;
-
-	ucred = pw_client_get_ucred(client);
-
-	if (ucred) {
-		pw_log_info("client has trusted pid %d", ucred->pid);
-	} else {
-		pw_log_info("no trusted pid found, assuming not sandboxed\n");
-		return 0;
-	}
-
-	if (check_cmdline(client, ucred, "paplay"))
-		return 1;
 
 	sprintf(root_path, "/proc/%u/root", ucred->pid);
 	root_fd = openat (AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
@@ -118,37 +106,83 @@ static int check_sandboxed(struct pw_client *client)
 }
 
 static void
-core_global_added(void *data, struct pw_global *global)
+core_check_access(void *data, struct pw_client *client)
 {
 	struct impl *impl = data;
-	struct pw_client *client;
+	const struct ucred *ucred;
+	struct spa_dict_item items[2];
+	const char *str;
 	int res;
 
-	if (pw_global_get_type(global) != PW_TYPE_INTERFACE_Client)
-		return;
-
-	client = pw_global_get_object(global);
-
-	res = check_sandboxed(client);
-	if (res == 0) {
-		pw_log_debug("module %p: non sandboxed client %p", impl, client);
-		pw_client_set_permissions(client, PW_PERM_RWX);
-		return;
+	ucred = pw_client_get_ucred(client);
+	if (!ucred) {
+		pw_log_info("no trusted pid found, assuming not sandboxed\n");
+		goto granted;
+	} else {
+		pw_log_info("client has trusted pid %d", ucred->pid);
 	}
 
-	if (res < 0) {
-		pw_log_warn("module %p: client %p sandbox check failed: %s",
+
+	if (impl->properties && (str = pw_properties_get(impl->properties, "blacklisted")) != NULL) {
+		res = check_cmdline(client, ucred, str);
+		if (res == 0)
+			goto granted;
+		if (res > 0)
+			res = EACCES;
+		goto blacklisted;
+	}
+
+	if (impl->properties && (str = pw_properties_get(impl->properties, "restricted")) != NULL) {
+		res = check_cmdline(client, ucred, str);
+		if (res == 0)
+			goto granted;
+		if (res < 0) {
+			pw_log_warn("module %p: client %p restricted check failed: %s",
 				impl, client, spa_strerror(res));
+		}
+		else if (res > 0) {
+			pw_log_debug("module %p: restricted client %p added", impl, client);
+		}
+		items[0] = SPA_DICT_ITEM_INIT("pipewire.access", "restricted");
+		goto wait_permissions;
 	}
-	else {
-		pw_log_debug("module %p: sandboxed client %p added", impl, client);
+
+	res = check_flatpak(client, ucred);
+	if (res != 0) {
+		if (res < 0) {
+			pw_log_warn("module %p: client %p sandbox check failed: %s",
+				impl, client, spa_strerror(res));
+		}
+		else if (res > 0) {
+			pw_log_debug("module %p: sandboxed client %p added", impl, client);
+		}
+		items[0] = SPA_DICT_ITEM_INIT("pipewire.access", "flatpak");
+		goto wait_permissions;
 	}
+
+      granted:
+	pw_log_debug("module %p: client %p access granted", impl, client);
+	pw_client_set_permissions(client, PW_PERM_RWX);
+	return;
+
+      wait_permissions:
+	pw_log_debug("module %p: client %p wait for permissions", impl, client);
+	pw_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 	pw_client_set_busy(client, true);
+	return;
+
+      blacklisted:
+	items[0] = SPA_DICT_ITEM_INIT("pipewire.access", "blacklisted");
+	pw_resource_error(pw_client_get_core_resource(client), 0, res, "blacklisted");
+	pw_client_update_properties(client, &SPA_DICT_INIT(items, 1));
+	return;
+
+
 }
 
 static const struct pw_core_events core_events = {
 	PW_VERSION_CORE_EVENTS,
-	.global_added = core_global_added,
+	.check_access = core_check_access,
 };
 
 static void module_destroy(void *data)
@@ -169,19 +203,25 @@ static const struct pw_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static int module_init(struct pw_module *module, struct pw_properties *properties)
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_core *core = pw_module_get_core(module);
+	struct pw_properties *props;
 	struct impl *impl;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return -ENOMEM;
 
-	pw_log_debug("module %p: new", impl);
+	pw_log_debug("module %p: new %s", impl, args);
+
+	if (args)
+		props = pw_properties_new_string(args);
+	else
+		props = NULL;
 
 	impl->core = core;
-	impl->properties = properties;
+	impl->properties = props;
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
@@ -189,9 +229,4 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
-}
-
-int pipewire__module_init(struct pw_module *module, const char *args)
-{
-	return module_init(module, NULL);
 }

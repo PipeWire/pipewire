@@ -1,0 +1,19 @@
+# Running the examples
+
+A pipewire daemon needs to be running for the examples to connect to:
+
+``` shell
+./pw-uninstalled.sh
+./build/src/daemon/pipewire
+```
+
+You can then run the examples in a second terminal, for example:
+
+``` shell
+./pw-uninstalled.sh
+./build/src/examples/local-v4l2
+```
+
+This assumes the development package for `SDL2` was installed, check the meson
+build definition in `src/examples` to find out the dependencies for each
+example.

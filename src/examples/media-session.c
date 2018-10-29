@@ -701,6 +701,7 @@ handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
 	struct pw_proxy *p;
 	struct client *client;
 	struct spa_dict_item items[2];
+	const char *str;
 
 	p = pw_registry_proxy_bind(impl->registry_proxy,
 			id, type, PW_VERSION_CLIENT,
@@ -718,11 +719,19 @@ handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
 	add_object(impl, &client->obj);
 	spa_list_append(&impl->client_list, &client->l);
 
-	items[0].key = PW_CORE_PROXY_PERMISSIONS_DEFAULT;
-	items[0].value = "rwx";
+	if (props == NULL)
+		return 0;
 
-	pw_client_proxy_update_permissions((struct pw_client_proxy*)p,
-			&SPA_DICT_INIT(items, 1));
+	str = spa_dict_lookup(props, "pipewire.access");
+	if (str == NULL)
+		return 0;
+
+	if (strcmp(str, "restricted") == 0) {
+		items[0].key = PW_CORE_PROXY_PERMISSIONS_DEFAULT;
+		items[0].value = "rwx";
+		pw_client_proxy_update_permissions((struct pw_client_proxy*)p,
+				&SPA_DICT_INIT(items, 1));
+	}
 	return 0;
 }
 

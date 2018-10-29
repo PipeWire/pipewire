@@ -293,7 +293,8 @@ static struct pw_client *client_new(struct server *s, int fd)
 
 	pw_global_bind(pw_core_get_global(core), client, PW_PERM_RWX, PW_VERSION_CORE, 0);
 
-	pw_client_register(client, client, pw_module_get_global(pd->module), NULL);
+	props = pw_properties_copy(pw_client_get_properties(client));
+	pw_client_register(client, client, pw_module_get_global(pd->module), props);
 
 	return client;
 

@@ -148,6 +148,7 @@ struct pw_global {
 #define pw_core_events_destroy(c)		pw_core_events_emit(c, destroy, 0)
 #define pw_core_events_free(c)			pw_core_events_emit(c, free, 0)
 #define pw_core_events_info_changed(c,i)	pw_core_events_emit(c, info_changed, 0, i)
+#define pw_core_events_check_access(c,cl)	pw_core_events_emit(c, check_access, 0, cl)
 #define pw_core_events_global_added(c,g)	pw_core_events_emit(c, global_added, 0, g)
 #define pw_core_events_global_removed(c,g)	pw_core_events_emit(c, global_removed, 0, g)
 

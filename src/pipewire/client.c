@@ -186,8 +186,7 @@ static void client_update_permissions(void *object, const struct spa_dict *props
 			}
 		}
 	}
-	if (impl->permissions_default != 0)
-		pw_client_set_busy(client, false);
+	pw_client_set_busy(client, false);
 }
 
 static const struct pw_client_proxy_methods client_methods = {
@@ -315,6 +314,8 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 
 	this->info.props = &this->properties->dict;
+
+	pw_core_events_check_access(core, this);
 
 	return this;
 }

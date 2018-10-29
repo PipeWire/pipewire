@@ -8,8 +8,8 @@ option('man',
        value: false)
 option('gstreamer',
        description: 'Build GStreamer plugins',
-       type: 'boolean',
-       value: false)
+       type: 'feature',
+       value: 'auto')
 option('systemd',
        description: 'Enable systemd integration',
        type: 'boolean',

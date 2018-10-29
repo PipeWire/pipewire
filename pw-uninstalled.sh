@@ -32,6 +32,7 @@ export PIPEWIRE_CONFIG_FILE="${BUILDDIR}/src/daemon/pipewire.conf"
 export SPA_PLUGIN_DIR="${BUILDDIR}/spa/plugins"
 export PIPEWIRE_MODULE_DIR="${BUILDDIR}/src/modules"
 export PATH="${BUILDDIR}/src/daemon:${PATH}"
+export GST_PLUGIN_PATH="${BUILDDIR}/src/gst/:${GST_PLUGIN_PATH}"
 
 # FIXME: find a nice, shell-neutral way to specify a prompt
 ${SHELL}

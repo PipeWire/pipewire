@@ -662,7 +662,7 @@ static void reuse_buffer(struct client *c, struct mix *mix, uint32_t id)
 }
 
 
-static void convert_midi(void *midi, void *buffer, size_t size)
+static void convert_from_midi(void *midi, void *buffer, size_t size)
 {
 	struct spa_pod_builder b = { 0, };
 	uint32_t i, count;
@@ -681,6 +681,24 @@ static void convert_midi(void *midi, void *buffer, size_t size)
         spa_pod_builder_pop(&b);
 }
 
+static void convert_to_midi(struct spa_pod_sequence *seq, void *midi)
+{
+	struct spa_pod_control *c;
+
+	jack_midi_reset_buffer(midi);
+
+	SPA_POD_SEQUENCE_FOREACH(seq, c) {
+		switch(c->type) {
+		case SPA_CONTROL_Midi:
+			jack_midi_event_write(midi,
+					c->offset,
+					SPA_POD_BODY(&c->value),
+					SPA_POD_BODY_SIZE(&c->value));
+			break;
+		}
+	}
+}
+
 static void process_tee(struct client *c)
 {
 	struct port *p;
@@ -690,7 +708,7 @@ static void process_tee(struct client *c)
 		spa_list_for_each(mix, &p->mix, port_link) {
 			if (mix->notify == NULL)
 				continue;
-			convert_midi(p->empty, mix->notify, mix->notify_size);
+			convert_from_midi(p->empty, mix->notify, mix->notify_size);
 			break;
 		}
 	}
@@ -2179,6 +2197,54 @@ static void add_f32(float *out, float *in1, float *in2, int n_samples)
 		out[i] = in1[i] + in2[i];
 }
 
+static void *mix_audio(struct port *p, jack_nframes_t frames)
+{
+	struct mix *mix;
+	struct buffer *b;
+	struct spa_io_buffers *io;
+	int layer = 0;
+	void *ptr = NULL;
+
+	spa_list_for_each(mix, &p->mix, port_link) {
+		pw_log_trace("port %p: mix %d.%d get buffer %d",
+				p, p->id, mix->id, frames);
+		io = mix->io;
+		if (io == NULL || io->buffer_id >= mix->n_buffers)
+			continue;
+
+		io->status = SPA_STATUS_NEED_BUFFER;
+		b = &mix->buffers[io->buffer_id];
+		if (layer++ == 0)
+			ptr = b->datas[0].data;
+		else  {
+			add_f32(p->empty, ptr, b->datas[0].data, frames);
+			ptr = p->empty;
+			p->zeroed = false;
+		}
+	}
+	return ptr;
+}
+
+static void *mix_midi(struct port *p, jack_nframes_t frames)
+{
+	struct mix *mix;
+	struct spa_io_sequence *io;
+	void *ptr = NULL;
+
+	spa_list_for_each(mix, &p->mix, port_link) {
+		pw_log_trace("port %p: mix %d.%d get buffer %d",
+				p, p->id, mix->id, frames);
+		io = mix->control;
+		if (io == NULL)
+			continue;
+
+		convert_to_midi(&io->sequence, p->empty);
+		ptr = p->empty;
+		break;
+	}
+	return ptr;
+}
+
 void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 {
 	struct object *o = (struct object *) port;
@@ -2187,7 +2253,6 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	struct buffer *b;
 	struct spa_io_buffers *io;
 	struct mix *mix;
-	int layer = 0;
 	void *ptr = NULL;
 
 	if (o->type != PW_TYPE_INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
@@ -2197,22 +2262,13 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
 
 	if (p->direction == SPA_DIRECTION_INPUT) {
-		spa_list_for_each(mix, &p->mix, port_link) {
-			pw_log_trace("port %p: mix %d.%d get buffer %d",
-					p, p->id, mix->id, frames);
-			io = mix->io;
-			if (io == NULL || io->buffer_id >= mix->n_buffers)
-				continue;
-
-			io->status = SPA_STATUS_NEED_BUFFER;
-			b = &mix->buffers[io->buffer_id];
-			if (layer++ == 0)
-				ptr = b->datas[0].data;
-			else  {
-				add_f32(p->empty, ptr, b->datas[0].data, frames);
-				ptr = p->empty;
-				p->zeroed = false;
-			}
+		switch (p->object->port.type_id) {
+		case 0:
+			ptr = mix_audio(p, frames);
+			break;
+		case 1:
+			ptr = mix_midi(p, frames);
+			break;
 		}
 	} else {
 		b = NULL;

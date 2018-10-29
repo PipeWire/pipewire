@@ -1,6 +1,6 @@
 project('pipewire', 'c',
   version : '0.2.3',
-  meson_version : '>= 0.42.0',
+  meson_version : '>= 0.47.0',
   default_options : [ 'warning_level=1',
                       'c_std=gnu99',
                       'buildtype=debugoptimized' ])
@@ -161,16 +161,25 @@ dl_lib = cc.find_library('dl', required : false)
 pthread_lib = dependency('threads')
 dbus_dep = dependency('dbus-1')
 
-if get_option('gstreamer')
-  glib_dep = dependency('glib-2.0', version : '>=2.32.0')
-  gobject_dep = dependency('gobject-2.0')
-  gmodule_dep = dependency('gmodule-2.0')
-  gio_dep = [dependency('gio-2.0'), dependency('gio-unix-2.0')]
-  gst_dep = [dependency('gstreamer-1.0'),
-             dependency('gstreamer-plugins-base-1.0'),
-             dependency('gstreamer-video-1.0'),
-             dependency('gstreamer-audio-1.0'),
-             dependency('gstreamer-allocators-1.0'),]
+if not get_option('gstreamer').disabled()
+  build_gst = true
+  glib_dep = [dependency('glib-2.0', version : '>=2.32.0', required: get_option('gstreamer'))]
+  gobject_dep = [dependency('gobject-2.0', required: get_option('gstreamer'))]
+  gmodule_dep = [dependency('gmodule-2.0', required: get_option('gstreamer'))]
+  gio_dep = [dependency('gio-2.0', required: get_option('gstreamer')), dependency('gio-unix-2.0', required: get_option('gstreamer'))]
+  gst_dep = [dependency('gstreamer-1.0', required: get_option('gstreamer')),
+             dependency('gstreamer-plugins-base-1.0', required: get_option('gstreamer')),
+             dependency('gstreamer-video-1.0', required: get_option('gstreamer')),
+             dependency('gstreamer-audio-1.0', required: get_option('gstreamer')),
+             dependency('gstreamer-allocators-1.0', required: get_option('gstreamer')),]
+  foreach dep: glib_dep + gobject_dep + gio_dep + gst_dep
+    if build_gst and not dep.found()
+      build_gst = false
+      message('@0@ not found, disabling GStreamer'.format(dep))
+    endif
+  endforeach
+else
+  build_gst = false
 endif
 
 subdir('spa')

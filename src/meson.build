@@ -6,6 +6,6 @@ subdir('tools')
 subdir('modules')
 subdir('examples')
 
-if get_option('gstreamer')
+if build_gst
   subdir('gst')
 endif

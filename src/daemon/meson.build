@@ -13,12 +13,11 @@ pipewire_c_args = [
   '-DG_LOG_DOMAIN=g_log_domain_pipewire',
 ]
 
-conf_config = configuration_data()
 conf_install_dir = join_paths(get_option('sysconfdir'), 'pipewire')
 
 configure_file(input : 'pipewire.conf.in',
                output : 'pipewire.conf',
-               configuration : conf_config,
+               copy : true,
                install_dir : conf_install_dir)
 
 

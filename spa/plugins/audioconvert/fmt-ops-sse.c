@@ -273,3 +273,91 @@ conv_f32d_to_s32_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const v
 	for(; i < n_src; i++)
 		conv_f32d_to_s32_1_sse(data, &d[i], n_src, &src[i], n_bytes);
 }
+
+static void
+conv_f32d_to_s16_1_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_bytes)
+{
+	const float **s = (const float **) src;
+	const float *s0 = s[0];
+	int16_t *d = dst;
+	int n, n_samples, unrolled;
+	__m128 in[1];
+	__m128i out[4];
+	__m128i scale = _mm_set1_epi32(15 << 23);
+
+	n_samples = n_bytes / sizeof(float);
+
+	unrolled = n_samples / 4;
+	n_samples = n_samples & 3;
+
+	for(n = 0; unrolled--; n += 4) {
+		in[0] = _mm_loadu_ps(&s0[n]);
+		in[0] = (__m128)_mm_adds_epi16((__m128i)in[0], scale);
+		out[0] = _mm_cvtps_epi32(in[0]);
+		out[0] = _mm_packs_epi32(out[0], out[0]);
+		d[0*n_src] = _mm_extract_pi16(*(__m64*)out, 0);
+		d[1*n_src] = _mm_extract_pi16(*(__m64*)out, 1);
+		d[2*n_src] = _mm_extract_pi16(*(__m64*)out, 2);
+		d[3*n_src] = _mm_extract_pi16(*(__m64*)out, 3);
+		d += 4*n_src;
+	}
+	for(; n_samples--; n++) {
+		in[0] = _mm_load_ss(&s0[n]);
+		in[0] = (__m128)_mm_adds_epi16((__m128i)in[0], scale);
+		out[0] = _mm_cvttps_epi32(in[0]);
+		out[0] = _mm_packs_epi32(out[0], out[0]);
+		*d = _mm_extract_pi16(*(__m64*)out, 0);
+		d += n_src;
+	}
+}
+
+static void
+conv_f32d_to_s16_2_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_bytes)
+{
+	const float **s = (const float **) src;
+	const float *s0 = s[0], *s1 = s[1];
+	int16_t *d = dst;
+	int n, n_samples, unrolled;
+	__m128 in[2], t[2];
+	__m128i out[4];
+	__m128i scale = _mm_set1_epi32(15 << 23);
+
+	n_samples = n_bytes / sizeof(float);
+
+	unrolled = n_samples / 4;
+	n_samples = n_samples & 3;
+
+	for(n = 0; unrolled--; n += 4) {
+		in[0] = _mm_loadu_ps(&s0[n]);
+		in[1] = _mm_loadu_ps(&s1[n]);
+		t[0] = _mm_unpacklo_ps(in[0], in[1]);
+		t[1] = _mm_unpackhi_ps(in[0], in[1]);
+		in[0] = (__m128)_mm_adds_epi16((__m128i)t[0], scale);
+		in[1] = (__m128)_mm_adds_epi16((__m128i)t[1], scale);
+		out[0] = _mm_cvtps_epi32(in[0]);
+		out[1] = _mm_cvtps_epi32(in[1]);
+		out[0] = _mm_packs_epi32(out[0], out[1]);
+		_mm_storeu_si128((__m128i*)d, out[0]);
+		d += 4*n_src;
+	}
+	for(; n_samples--; n++) {
+		in[0] = _mm_set_ps(s0[n], s1[n], 0, 0);
+		in[0] = (__m128)_mm_adds_epi16((__m128i)in[0], scale);
+		out[0] = _mm_cvtps_epi32(in[0]);
+		out[0] = _mm_packs_epi32(out[0], out[0]);
+		_mm_store_ss((float*)d, (__m128)out[0]);
+		d += n_src;
+	}
+}
+
+static void
+conv_f32d_to_s16_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
+{
+	int16_t *d = dst[0];
+	int i = 0;
+
+	for(; i + 1 < n_src; i += 2)
+		conv_f32d_to_s16_2_sse(data, &d[i], n_src, &src[i], n_bytes);
+	for(; i < n_src; i++)
+		conv_f32d_to_s16_1_sse(data, &d[i], n_src, &src[i], n_bytes);
+}

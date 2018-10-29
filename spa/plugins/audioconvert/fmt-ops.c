@@ -715,6 +715,9 @@ static const struct conv_info {
 
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S16, 0, conv_f32_to_s16 },
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S16P, 0, conv_f32_to_s16d },
+#if defined (__SSE2__)
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16, FEATURE_SSE, conv_f32d_to_s16_sse },
+#endif
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16, 0, conv_f32d_to_s16 },
 
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S32, 0, conv_f32_to_s32 },

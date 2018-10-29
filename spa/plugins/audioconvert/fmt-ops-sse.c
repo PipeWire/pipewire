@@ -293,7 +293,7 @@ conv_f32d_to_s16_1_sse(void *data, void *dst, int n_src, const void *src[n_src],
 	for(n = 0; unrolled--; n += 4) {
 		in[0] = _mm_loadu_ps(&s0[n]);
 		in[0] = (__m128)_mm_adds_epi16((__m128i)in[0], scale);
-		out[0] = _mm_cvtps_epi32(in[0]);
+		out[0] = _mm_cvttps_epi32(in[0]);
 		out[0] = _mm_packs_epi32(out[0], out[0]);
 		d[0*n_src] = _mm_extract_pi16(*(__m64*)out, 0);
 		d[1*n_src] = _mm_extract_pi16(*(__m64*)out, 1);

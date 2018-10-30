@@ -167,7 +167,6 @@ struct impl {
 	int other_fds[2];
 
 	struct spa_io_position *position;
-	uint64_t start;
 };
 
 static int
@@ -875,7 +874,6 @@ do_port_use_buffers(struct impl *impl,
 			}
 		}
 	}
-	impl->start = -1;
 
 	pw_client_node_resource_port_use_buffers(this->resource,
 						 this->seq,
@@ -982,11 +980,7 @@ static int impl_node_process(struct spa_node *node)
 
 	q = impl->this.node->driver_node->rt.position;
 	rq = impl->position;
-
-	if (impl->start == -1)
-		impl->start = q->clock.position;
 	*rq = *q;
-	rq->clock.position -= impl->start;
 
 	if (write(this->writefd, &cmd, 8) != 8)
 		spa_log_warn(this->log, "node %p: error %s", this, strerror(errno));

@@ -20,6 +20,7 @@
 
 #include <spa/utils/dict.h>
 #include <spa/utils/list.h>
+#include <spa/utils/hook.h>
 
 static void test_dict(void)
 {
@@ -103,9 +104,119 @@ static void test_list(void)
     spa_assert(spa_list_is_empty(head));
 }
 
+
+struct my_hook {
+    int version;
+    void (*invoke) (void *);
+};
+
+struct my_hook_data {
+    bool cb1;
+    bool cb2;
+    bool cb3;
+};
+
+static void test_hook_callback_1(void *data)
+{
+    ((struct my_hook_data *) data)->cb1 = true;
+}
+
+static void test_hook_callback_2(void *data)
+{
+    ((struct my_hook_data *) data)->cb2 = true;
+}
+
+static void test_hook_callback_3(void *data)
+{
+    ((struct my_hook_data *) data)->cb3 = true;
+}
+
+static void test_hook_callback_4(void *data)
+{
+    spa_assert_not_reached();
+}
+
+static int hook_free_count = 0;
+
+static void hook_removed_cb(struct spa_hook *h)
+{
+    free(h);
+    hook_free_count++;
+}
+
+static void test_hook(void)
+{
+    const int VERSION = 2;
+    struct spa_hook_list hl;
+    struct my_hook callbacks[4] = {
+        {2, test_hook_callback_1},
+        {3, test_hook_callback_2},
+        {2, test_hook_callback_3},
+        /* version 1 should not be called */
+        {1, test_hook_callback_4}
+    };
+    struct my_hook_data data = {0};
+    struct spa_hook *h;
+    int count = 0;
+
+    spa_hook_list_init(&hl);
+
+    h = malloc(sizeof(struct spa_hook));
+    h->removed = hook_removed_cb;
+    spa_hook_list_append(&hl, h, &callbacks[1], &data);
+
+    h = malloc(sizeof(struct spa_hook));
+    h->removed = hook_removed_cb;
+    spa_hook_list_append(&hl, h, &callbacks[2], &data);
+
+    /* iterate with the simple API */
+    spa_hook_list_call_simple(&hl, struct my_hook, invoke, VERSION);
+    spa_assert(data.cb1 == false);
+    spa_assert(data.cb2 == true);
+    spa_assert(data.cb3 == true);
+
+    /* reset cb* booleans to false */
+    memset(&data, 0, sizeof(struct my_hook_data));
+
+    h = malloc(sizeof(struct spa_hook));
+    h->removed = hook_removed_cb;
+    spa_hook_list_prepend(&hl, h, &callbacks[0], &data);
+
+    /* call only the first hook - this should be callback_1 */
+    count = spa_hook_list_call_once(&hl, struct my_hook, invoke, VERSION);
+    spa_assert(count == 1);
+    spa_assert(data.cb1 == true);
+    spa_assert(data.cb2 == false);
+    spa_assert(data.cb3 == false);
+
+    /* reset cb* booleans to false */
+    memset(&data, 0, sizeof(struct my_hook_data));
+
+    /* add callback_4 - this is version 1, so it shouldn't be executed */
+    h = malloc(sizeof(struct spa_hook));
+    h->removed = hook_removed_cb;
+    spa_hook_list_append(&hl, h, &callbacks[3], &data);
+
+    count = spa_hook_list_call(&hl, struct my_hook, invoke, VERSION);
+    spa_assert(count == 3);
+    spa_assert(data.cb1 == true);
+    spa_assert(data.cb2 == true);
+    spa_assert(data.cb3 == true);
+
+    count = 0;
+    hook_free_count = 0;
+    spa_list_consume(h, &hl.list, link) {
+        spa_hook_remove(h);
+        count++;
+    }
+    spa_assert(count == 4);
+    spa_assert(hook_free_count == 4);
+}
+
 int main(int argc, char *argv[])
 {
     test_dict();
     test_list();
+    test_hook();
     return 0;
 }

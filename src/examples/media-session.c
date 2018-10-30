@@ -930,6 +930,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 	struct spa_audio_info_raw audio_info = { 0, };
 	struct spa_pod *param;
 	char buf[1024];
+	int n_links = 0;
 
 	if (node->type == NODE_TYPE_DSP || node->type == NODE_TYPE_DEVICE)
 		return 0;
@@ -1006,6 +1007,13 @@ static int rescan_node(struct impl *impl, struct node *node)
 	else
 		return -EINVAL;
 
+	if (strcmp(category, "Capture") == 0)
+		direction = PW_DIRECTION_OUTPUT;
+	else if (strcmp(category, "Playback") == 0)
+		direction = PW_DIRECTION_INPUT;
+	else
+		return -EINVAL;
+
 	str = spa_dict_lookup(props, PW_NODE_PROP_TARGET_NODE);
 	if (str != NULL)
 		find.path_id = atoi(str);
@@ -1021,6 +1029,15 @@ static int rescan_node(struct impl *impl, struct node *node)
 	find.exclusive = exclusive;
 	spa_list_for_each(session, &impl->session_list, l)
 		find_session(&find, session);
+
+	if (find.sess == NULL && find.path_id != SPA_ID_INVALID) {
+		pw_log_debug(NAME " %p: no session found for %d, try node", impl, node->obj.id);
+
+		n_links = 1;
+		peer = find_object(impl, find.path_id);
+		if (peer != NULL)
+			goto do_link;
+	}
 
 	if (find.sess == NULL) {
 		struct client *client;
@@ -1041,13 +1058,6 @@ static int rescan_node(struct impl *impl, struct node *node)
 		pw_log_info(NAME " %p: session %d is starting", impl, session->id);
 		return 0;
 	}
-
-	if (strcmp(category, "Capture") == 0)
-		direction = PW_DIRECTION_OUTPUT;
-	else if (strcmp(category, "Playback") == 0)
-		direction = PW_DIRECTION_INPUT;
-	else
-		return -EINVAL;
 
 	if (exclusive || session->dsp == NULL) {
 		if (exclusive && session->busy) {
@@ -1088,10 +1098,12 @@ static int rescan_node(struct impl *impl, struct node *node)
 				SPA_PARAM_Profile, 0, param);
 
 		stream_set_volume(impl, node, 1.0, false);
+		n_links = audio_info.channels;
 	} else {
-		audio_info.channels = 1;
+		n_links = audio_info.channels = 1;
 	}
-	link_nodes(peer, direction, node, audio_info.channels);
+      do_link:
+	link_nodes(peer, direction, node, n_links);
 
         return 1;
 }

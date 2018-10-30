@@ -273,6 +273,9 @@ int pw_rtkit_make_realtime(struct pw_rtkit_bus *connection, pid_t thread, int pr
 	DBusError error;
 	int ret;
 
+	if (getenv("DISABLE_RTKIT"))
+	  return -EPERM;
+
 	dbus_error_init(&error);
 
 	if (thread == 0)

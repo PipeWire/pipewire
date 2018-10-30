@@ -225,6 +225,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 				"media.class", "Video/Source",
 				NULL));
 
+#if 0
 		params[0] = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,       &SPA_POD_Id(SPA_MEDIA_TYPE_video),
@@ -236,6 +237,18 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 							SPA_RECTANGLE(4096, 4096)),
 			SPA_FORMAT_VIDEO_framerate, &SPA_POD_Fraction(SPA_FRACTION(25, 1)),
 			0);
+#else
+		params[0] = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+			":", SPA_FORMAT_mediaType,     "I", SPA_MEDIA_TYPE_video,
+			":", SPA_FORMAT_mediaSubtype,  "I", SPA_MEDIA_SUBTYPE_raw,
+			":", SPA_FORMAT_VIDEO_format,  "I", SPA_VIDEO_FORMAT_RGB,
+			":", SPA_FORMAT_VIDEO_size,    "?eR", 3,
+						&SPA_RECTANGLE(320, 240),
+						&SPA_RECTANGLE(1, 1),
+						&SPA_RECTANGLE(4096, 4096),
+			":", SPA_FORMAT_VIDEO_framerate, "F", &SPA_FRACTION(25, 1));
+#endif
 
 		pw_stream_add_listener(data->stream,
 				       &data->stream_listener,

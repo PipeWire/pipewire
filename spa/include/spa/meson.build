@@ -34,6 +34,7 @@ spa_param_headers = [
   'param/param.h',
   'param/props.h',
   'param/format.h',
+  'param/format-utils.h',
   'param/type-info.h',
 ]
 

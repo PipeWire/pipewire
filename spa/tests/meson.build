@@ -1,3 +1,5 @@
+subdir('auto')
+
 executable('test-mixer', 'test-mixer.c',
            include_directories : [spa_inc ],
            dependencies : [dl_lib, pthread_lib, mathlib],

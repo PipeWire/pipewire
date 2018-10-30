@@ -19,6 +19,7 @@
  */
 
 #include <spa/utils/dict.h>
+#include <spa/utils/list.h>
 
 static void test_dict(void)
 {
@@ -40,8 +41,71 @@ static void test_dict(void)
     spa_assert(spa_dict_lookup(&dict, "nonexistent") == NULL);
 }
 
+struct string_list {
+    char string[20];
+    struct spa_list node;
+};
+
+static void test_list(void)
+{
+    struct string_list list;
+    struct spa_list *head = &list.node;
+    struct string_list *e;
+    int i;
+
+    spa_list_init(head);
+    spa_assert(spa_list_is_empty(head));
+
+    e = malloc(sizeof(struct string_list));
+    strcpy(e->string, "test");
+    spa_list_insert(head, &e->node);
+    spa_assert(!spa_list_is_empty(head));
+    spa_assert(spa_list_first(head, struct string_list, node) == e);
+    spa_assert(spa_list_last(head, struct string_list, node) == e);
+
+    e = malloc(sizeof(struct string_list));
+    strcpy(e->string, "pipewire!");
+    spa_list_append(head, &e->node);
+    spa_assert(!spa_list_is_empty(head));
+    spa_assert(spa_list_last(head, struct string_list, node) == e);
+
+    e = malloc(sizeof(struct string_list));
+    strcpy(e->string, "First element");
+    spa_list_prepend(head, &e->node);
+    spa_assert(!spa_list_is_empty(head));
+    spa_assert(spa_list_first(head, struct string_list, node) == e);
+
+    i = 0;
+    spa_list_for_each(e, head, node) {
+        switch (i++) {
+        case 0:
+            spa_assert(!strcmp(e->string, "First element"));
+            break;
+        case 1:
+            spa_assert(!strcmp(e->string, "test"));
+            break;
+        case 2:
+            spa_assert(!strcmp(e->string, "pipewire!"));
+            break;
+        default:
+            spa_assert_not_reached();
+            break;
+        }
+    }
+
+    i = 0;
+    spa_list_consume(e, head, node) {
+        spa_list_remove(&e->node);
+        free(e);
+        i++;
+    }
+    spa_assert(i == 3);
+    spa_assert(spa_list_is_empty(head));
+}
+
 int main(int argc, char *argv[])
 {
     test_dict();
+    test_list();
     return 0;
 }

@@ -986,7 +986,6 @@ static int impl_node_process(struct spa_node *node)
 	if (impl->start == -1)
 		impl->start = q->clock.position;
 	*rq = *q;
-	rq->clock.position -= impl->start;
 
 	if (write(this->writefd, &cmd, 8) != 8)
 		spa_log_warn(this->log, "node %p: error %s", this, strerror(errno));

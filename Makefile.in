@@ -19,6 +19,9 @@ gdb:
 valgrind:
 	$(MAKE) run DBG="DISABLE_RTKIT=1 valgrind"
 
+test: all
+	ninja -C build test
+
 monitor: all
 	SPA_PLUGIN_DIR=build/spa/plugins \
 	PIPEWIRE_MODULE_DIR=build/src/modules/ \

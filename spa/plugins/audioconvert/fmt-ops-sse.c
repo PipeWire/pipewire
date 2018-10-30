@@ -121,7 +121,7 @@ conv_f32d_to_s32_1_sse(void *data, void *dst, int n_src, const void *src[n_src],
 		in[0] = _mm_mul_ps(_mm_loadu_ps(&s0[n]), int_max);
 		in[0] = _mm_min_ps(int_max, _mm_max_ps(in[0], int_min));
 
-		out[0] = _mm_slli_epi32(_mm_cvttps_epi32(in[0]), 8);
+		out[0] = _mm_slli_epi32(_mm_cvtps_epi32(in[0]), 8);
 		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
 		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
 		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
@@ -136,7 +136,7 @@ conv_f32d_to_s32_1_sse(void *data, void *dst, int n_src, const void *src[n_src],
 		in[0] = _mm_load_ss(&s0[n]);
 		in[0] = _mm_mul_ss(in[0], int_max);
 		in[0] = _mm_min_ss(int_max, _mm_max_ss(in[0], int_min));
-		*d = _mm_cvttss_si32(in[0]) << 8;
+		*d = _mm_cvtss_si32(in[0]) << 8;
 		d += n_src;
 	}
 }
@@ -165,8 +165,8 @@ conv_f32d_to_s32_2_sse(void *data, void *dst, int n_src, const void *src[n_src],
 		in[0] = _mm_min_ps(int_max, _mm_max_ps(in[0], int_min));
 		in[1] = _mm_min_ps(int_max, _mm_max_ps(in[1], int_min));
 
-		out[0] = _mm_slli_epi32(_mm_cvttps_epi32(in[0]), 8);
-		out[1] = _mm_slli_epi32(_mm_cvttps_epi32(in[1]), 8);
+		out[0] = _mm_slli_epi32(_mm_cvtps_epi32(in[0]), 8);
+		out[1] = _mm_slli_epi32(_mm_cvtps_epi32(in[1]), 8);
 
 		t[0] = _mm_unpacklo_epi32(out[0], out[1]);
 		t[1] = _mm_shuffle_epi32(t[0], _MM_SHUFFLE(0, 0, 2, 2));
@@ -187,7 +187,7 @@ conv_f32d_to_s32_2_sse(void *data, void *dst, int n_src, const void *src[n_src],
 
 		in[0] = _mm_mul_ps(in[0], int_max);
 		in[0] = _mm_min_ps(int_max, _mm_max_ps(in[0], int_min));
-		out[0] = _mm_slli_epi32(_mm_cvttps_epi32(in[0]), 8);
+		out[0] = _mm_slli_epi32(_mm_cvtps_epi32(in[0]), 8);
 		_mm_storel_epi64((__m128i*)d, out[0]);
 		d += n_src;
 	}
@@ -221,10 +221,10 @@ conv_f32d_to_s32_4_sse(void *data, void *dst, int n_src, const void *src[n_src],
 		in[2] = _mm_min_ps(int_max, _mm_max_ps(in[2], int_min));
 		in[3] = _mm_min_ps(int_max, _mm_max_ps(in[3], int_min));
 
-		out[0] = _mm_slli_epi32(_mm_cvttps_epi32(in[0]), 8);
-		out[1] = _mm_slli_epi32(_mm_cvttps_epi32(in[1]), 8);
-		out[2] = _mm_slli_epi32(_mm_cvttps_epi32(in[2]), 8);
-		out[3] = _mm_slli_epi32(_mm_cvttps_epi32(in[3]), 8);
+		out[0] = _mm_slli_epi32(_mm_cvtps_epi32(in[0]), 8);
+		out[1] = _mm_slli_epi32(_mm_cvtps_epi32(in[1]), 8);
+		out[2] = _mm_slli_epi32(_mm_cvtps_epi32(in[2]), 8);
+		out[3] = _mm_slli_epi32(_mm_cvtps_epi32(in[3]), 8);
 
 		/* transpose */
 		t[0] = _mm_unpacklo_epi32(out[0], out[1]);
@@ -254,7 +254,7 @@ conv_f32d_to_s32_4_sse(void *data, void *dst, int n_src, const void *src[n_src],
 
 		in[0] = _mm_mul_ps(in[0], int_max);
 		in[0] = _mm_min_ps(int_max, _mm_max_ps(in[0], int_min));
-		out[0] = _mm_slli_epi32(_mm_cvttps_epi32(in[0]), 8);
+		out[0] = _mm_slli_epi32(_mm_cvtps_epi32(in[0]), 8);
 		_mm_storeu_si128((__m128i*)d, out[0]);
 		d += n_src;
 	}
@@ -283,7 +283,8 @@ conv_f32d_to_s16_1_sse(void *data, void *dst, int n_src, const void *src[n_src],
 	int n, n_samples, unrolled;
 	__m128 in[1];
 	__m128i out[4];
-	__m128i scale = _mm_set1_epi32(15 << 23);
+	__m128 int_max = _mm_set1_ps(S16_MAX_F);
+        __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
 
 	n_samples = n_bytes / sizeof(float);
 
@@ -291,10 +292,11 @@ conv_f32d_to_s16_1_sse(void *data, void *dst, int n_src, const void *src[n_src],
 	n_samples = n_samples & 3;
 
 	for(n = 0; unrolled--; n += 4) {
-		in[0] = _mm_loadu_ps(&s0[n]);
-		in[0] = (__m128)_mm_adds_epi16((__m128i)in[0], scale);
+		in[0] = _mm_mul_ps(_mm_loadu_ps(&s0[n]), int_max);
+		in[0] = _mm_min_ps(int_max, _mm_max_ps(in[0], int_min));
 		out[0] = _mm_cvtps_epi32(in[0]);
 		out[0] = _mm_packs_epi32(out[0], out[0]);
+
 		d[0*n_src] = _mm_extract_pi16(*(__m64*)out, 0);
 		d[1*n_src] = _mm_extract_pi16(*(__m64*)out, 1);
 		d[2*n_src] = _mm_extract_pi16(*(__m64*)out, 2);
@@ -302,11 +304,9 @@ conv_f32d_to_s16_1_sse(void *data, void *dst, int n_src, const void *src[n_src],
 		d += 4*n_src;
 	}
 	for(; n_samples--; n++) {
-		in[0] = _mm_load_ss(&s0[n]);
-		in[0] = (__m128)_mm_adds_epi16((__m128i)in[0], scale);
-		out[0] = _mm_cvtps_epi32(in[0]);
-		out[0] = _mm_packs_epi32(out[0], out[0]);
-		*d = _mm_extract_pi16(*(__m64*)out, 0);
+		in[0] = _mm_mul_ss(_mm_load_ss(&s0[n]), int_max);
+		in[0] = _mm_min_ss(int_max, _mm_max_ss(in[0], int_min));
+		*d = _mm_cvtss_si32(in[0]);
 		d += n_src;
 	}
 }
@@ -318,9 +318,10 @@ conv_f32d_to_s16_2_sse(void *data, void *dst, int n_src, const void *src[n_src],
 	const float *s0 = s[0], *s1 = s[1];
 	int16_t *d = dst;
 	int n = 0, n_samples, unrolled;
-	__m128 in[2], t[2];
-	__m128i out[4];
-	__m128i scale = _mm_set1_epi32(15 << 23);
+	__m128 in[2];
+	__m128i out[4], t[2];
+	__m128 int_max = _mm_set1_ps(S16_MAX_F);
+        __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
 
 	n_samples = n_bytes / sizeof(float);
 
@@ -328,16 +329,16 @@ conv_f32d_to_s16_2_sse(void *data, void *dst, int n_src, const void *src[n_src],
 	n_samples = n_samples & 3;
 
 	for(; unrolled--; n += 4) {
-		in[0] = _mm_loadu_ps(&s0[n]);
-		in[1] = _mm_loadu_ps(&s1[n]);
-		t[0] = _mm_unpacklo_ps(in[1], in[0]);
-		t[1] = _mm_unpackhi_ps(in[1], in[0]);
-		in[0] = (__m128)_mm_adds_epi16((__m128i)t[0], scale);
-		in[1] = (__m128)_mm_adds_epi16((__m128i)t[1], scale);
-		out[0] = _mm_cvtps_epi32(in[0]);
-		out[1] = _mm_cvtps_epi32(in[1]);
-		out[0] = _mm_packs_epi32(out[0], out[1]);
+		in[0] = _mm_mul_ps(_mm_loadu_ps(&s0[n]), int_max);
+		in[1] = _mm_mul_ps(_mm_loadu_ps(&s1[n]), int_max);
 
+		t[0] = _mm_cvtps_epi32(in[0]);
+		t[1] = _mm_cvtps_epi32(in[1]);
+
+		t[0] = _mm_packs_epi32(t[0], t[1]);
+		t[1] = _mm_packs_epi32(t[1], t[1]);
+
+		out[0] = _mm_unpacklo_epi16(t[0], t[1]);
 		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
 		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
 		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
@@ -349,11 +350,12 @@ conv_f32d_to_s16_2_sse(void *data, void *dst, int n_src, const void *src[n_src],
 		d += 4*n_src;
 	}
 	for(; n_samples--; n++) {
-		in[0] = _mm_set_ps(0, 0, s0[n], s1[n]);
-		in[0] = (__m128)_mm_adds_epi16((__m128i)in[0], scale);
-		out[0] = _mm_cvtps_epi32(in[0]);
-		out[0] = _mm_packs_epi32(out[0], out[0]);
-		*(uint32_t*)d = _mm_cvtsi128_si32(out[0]);
+		in[0] = _mm_mul_ss(_mm_load_ss(&s0[n]), int_max);
+		in[1] = _mm_mul_ss(_mm_load_ss(&s1[n]), int_max);
+		in[0] = _mm_min_ss(int_max, _mm_max_ss(in[0], int_min));
+		in[1] = _mm_min_ss(int_max, _mm_max_ss(in[1], int_min));
+		d[0] = _mm_cvtss_si32(in[0]);
+		d[1] = _mm_cvtss_si32(in[1]);
 		d += n_src;
 	}
 }

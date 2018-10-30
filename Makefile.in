@@ -11,7 +11,13 @@ run: all
 	SPA_PLUGIN_DIR=build/spa/plugins \
 	PIPEWIRE_MODULE_DIR=build \
 	PIPEWIRE_CONFIG_FILE=build/src/daemon/pipewire.conf \
-	build/src/daemon/pipewire
+	$(DBG) ./build/src/daemon/pipewire
+
+gdb:
+	$(MAKE) run DBG=gdb
+
+valgrind:
+	$(MAKE) run DBG="DISABLE_RTKIT=1 valgrind"
 
 monitor: all
 	SPA_PLUGIN_DIR=build/spa/plugins \

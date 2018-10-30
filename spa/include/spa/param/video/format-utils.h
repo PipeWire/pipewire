@@ -54,13 +54,19 @@ static inline struct spa_pod *
 spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
 			   struct spa_video_info_raw *info)
 {
-	return spa_pod_builder_object(builder,
-                        SPA_TYPE_OBJECT_Format, id,
-                        SPA_FORMAT_mediaType,		&SPA_POD_Id(SPA_MEDIA_TYPE_video),
-                        SPA_FORMAT_mediaSubtype,	&SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_VIDEO_format,	&SPA_POD_Id(info->format),
-			SPA_FORMAT_VIDEO_size,		&SPA_POD_Rectangle(info->size),
-			SPA_FORMAT_VIDEO_framerate,	&SPA_POD_Fraction(info->framerate),
+	const struct spa_pod_id media_type = SPA_POD_Id(SPA_MEDIA_TYPE_video);
+	const struct spa_pod_id media_subtype = SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw);
+	const struct spa_pod_id format = SPA_POD_Id(info->format);
+	const struct spa_pod_rectangle size = SPA_POD_Rectangle(info->size);
+	const struct spa_pod_fraction framerate = SPA_POD_Fraction(info->framerate);
+
+	return (struct spa_pod *) spa_pod_builder_object(builder,
+			SPA_TYPE_OBJECT_Format, id,
+			SPA_FORMAT_mediaType,		&media_type,
+			SPA_FORMAT_mediaSubtype,	&media_subtype,
+			SPA_FORMAT_VIDEO_format,	&format,
+			SPA_FORMAT_VIDEO_size,		&size,
+			SPA_FORMAT_VIDEO_framerate,	&framerate,
 			0);
 }
 

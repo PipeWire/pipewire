@@ -656,7 +656,7 @@ static inline void spa_pod_builder_prop_val(struct spa_pod_builder *builder,
 		uint32_t key, void *pod)
 {
 	spa_pod_builder_prop(builder, key, 0);
-	spa_pod_builder_primitive(builder, pod);
+	spa_pod_builder_primitive(builder,(const struct spa_pod *) pod);
 }
 
 static inline void spa_pod_builder_propsv(struct spa_pod_builder *builder,

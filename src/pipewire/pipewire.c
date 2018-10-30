@@ -317,7 +317,7 @@ const struct spa_support *pw_get_support(uint32_t *n_support)
 void *pw_load_spa_interface(const char *lib, const char *factory_name, uint32_t type,
 			    const struct spa_dict *info,
 			    uint32_t n_support,
-			    struct spa_support support[n_support])
+			    struct spa_support support[])
 {
 	struct support *sup = &global_support;
 	struct spa_support extra_support[MAX_SUPPORT];

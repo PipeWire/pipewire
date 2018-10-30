@@ -136,7 +136,7 @@ pw_get_support_interface(uint32_t type);
 void *pw_load_spa_interface(const char *lib, const char *factory_name, uint32_t type,
 		const struct spa_dict *info,
 		uint32_t n_support,
-		struct spa_support support[n_support]);
+		struct spa_support support[]);
 
 void *pw_load_spa_dbus_interface(struct pw_loop *loop);
 

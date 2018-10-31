@@ -129,7 +129,7 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 	spa_list_append(&protocol->marshal_list, &impl->link);
 
 	pw_log_debug("Add marshal %d/%s:%d to protocol %s", marshal->type,
-			spa_debug_type_find_name(NULL, marshal->type), marshal->version,
+			spa_debug_type_find_name(pw_type_info(), marshal->type), marshal->version,
 			protocol->name);
 
 	return 0;

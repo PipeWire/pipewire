@@ -147,7 +147,7 @@ int pw_factory_register(struct pw_factory *factory,
 
 	pw_properties_set(properties, "factory.name", factory->info.name);
 	pw_properties_setf(properties, "factory.type.name", "%s",
-			spa_debug_type_find_name(NULL, factory->info.type));
+			spa_debug_type_find_name(pw_type_info(), factory->info.type));
 	pw_properties_setf(properties, "factory.type.version", "%d", factory->info.version);
 
 	spa_list_append(&core->factory_list, &factory->link);

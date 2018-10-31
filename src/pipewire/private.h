@@ -37,6 +37,7 @@ extern "C" {
 #endif
 
 #include <spa/graph/graph.h>
+#include <spa/utils/type-info.h>
 
 struct pw_command;
 

@@ -55,6 +55,8 @@ enum {
 #define PW_TYPE__Interface	PW_TYPE_BASE "Interface"
 #define PW_TYPE_INTERFACE_BASE	PW_TYPE__Interface ":"
 
+const struct spa_type_info * pw_type_info(void);
+
 #ifdef __cplusplus
 }
 #endif

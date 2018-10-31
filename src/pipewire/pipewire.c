@@ -594,3 +594,22 @@ const char* pw_get_library_version(void)
 {
 	return pw_get_headers_version();
 }
+
+static const struct spa_type_info type_info[] = {
+	{ PW_TYPE_INTERFACE_Core, PW_TYPE_INTERFACE_BASE "Core", SPA_TYPE_Pointer, },
+	{ PW_TYPE_INTERFACE_Registry, PW_TYPE_INTERFACE_BASE "Registry", SPA_TYPE_Pointer, },
+	{ PW_TYPE_INTERFACE_Node, PW_TYPE_INTERFACE_BASE "Node", SPA_TYPE_Pointer, },
+	{ PW_TYPE_INTERFACE_Port, PW_TYPE_INTERFACE_BASE "Port", SPA_TYPE_Pointer, },
+	{ PW_TYPE_INTERFACE_Factory, PW_TYPE_INTERFACE_BASE "Factory", SPA_TYPE_Pointer, },
+	{ PW_TYPE_INTERFACE_Link, PW_TYPE_INTERFACE_BASE "Link", SPA_TYPE_Pointer, },
+	{ PW_TYPE_INTERFACE_Client, PW_TYPE_INTERFACE_BASE "Client", SPA_TYPE_Pointer, },
+	{ PW_TYPE_INTERFACE_Module, PW_TYPE_INTERFACE_BASE "Module", SPA_TYPE_Pointer, },
+	{ PW_TYPE_INTERFACE_ClientNode, PW_TYPE_INTERFACE_BASE "ClientNode", SPA_TYPE_Pointer, },
+	{ SPA_ID_INVALID, "spa_types", SPA_ID_INVALID, spa_types },
+	{ 0, NULL, },
+};
+
+const struct spa_type_info * pw_type_info(void)
+{
+	return type_info;
+}

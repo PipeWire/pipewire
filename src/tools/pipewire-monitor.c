@@ -354,7 +354,7 @@ static void factory_event_info(void *object, struct pw_factory_info *info)
 					  data->permissions & PW_PERM_X ? 'x' : '-');
 	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Factory, data->version);
 	printf("\tname: \"%s\"\n", info->name);
-	printf("\tobject-type: %s/%d\n", spa_debug_type_find_name(NULL, info->type), info->version);
+	printf("\tobject-type: %s/%d\n", spa_debug_type_find_name(pw_type_info(), info->type), info->version);
 	if (print_all) {
 		print_properties(info->props, MARK_CHANGE(0));
 	}
@@ -517,7 +517,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		printf("\tpermissions: %c%c%c\n", permissions & PW_PERM_R ? 'r' : '-',
 						  permissions & PW_PERM_W ? 'w' : '-',
 						  permissions & PW_PERM_X ? 'x' : '-');
-		printf("\ttype: %s (version %d)\n", spa_debug_type_find_name(NULL, type), version);
+		printf("\ttype: %s (version %d)\n", spa_debug_type_find_name(pw_type_info(), type), version);
 		print_properties(props, ' ');
 		return;
 	}

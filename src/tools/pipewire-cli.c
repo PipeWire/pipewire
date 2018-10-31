@@ -268,7 +268,7 @@ static int print_global(void *obj, void *data)
 		return 0;
 
 	fprintf(stdout, "\tid %d, parent %d, type %s/%d\n", global->id, global->parent_id,
-					spa_debug_type_find_name(NULL, global->type),
+					spa_debug_type_find_name(pw_type_info(), global->type),
 					global->version);
 	if (global->properties)
 		print_properties(&global->properties->dict, ' ', false);
@@ -503,7 +503,7 @@ static void info_global(struct proxy_data *pd)
 	fprintf(stdout, "\tpermissions: %c%c%c\n", global->permissions & PW_PERM_R ? 'r' : '-',
 					  global->permissions & PW_PERM_W ? 'w' : '-',
 					  global->permissions & PW_PERM_X ? 'x' : '-');
-	fprintf(stdout, "\ttype: %s/%d\n", spa_debug_type_find_name(NULL, global->type), pd->global->version);
+	fprintf(stdout, "\ttype: %s/%d\n", spa_debug_type_find_name(pw_type_info(), global->type), pd->global->version);
 }
 
 static void info_core(struct proxy_data *pd)
@@ -568,7 +568,7 @@ static void info_factory(struct proxy_data *pd)
 
 	info_global(pd);
 	fprintf(stdout, "\tname: \"%s\"\n", info->name);
-	fprintf(stdout, "\tobject-type: %s/%d\n", spa_debug_type_find_name(NULL, info->type), info->version);
+	fprintf(stdout, "\tobject-type: %s/%d\n", spa_debug_type_find_name(pw_type_info(), info->type), info->version);
 	print_properties(info->props, MARK_CHANGE(0), true);
 	info->change_mask = 0;
 }
@@ -856,7 +856,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		info_func = info_link;
 		break;
 	default:
-		asprintf(error, "unsupported type %s", spa_debug_type_find_name(NULL, global->type));
+		asprintf(error, "unsupported type %s", spa_debug_type_find_name(pw_type_info(), global->type));
 		return false;
 	}
 

@@ -791,7 +791,8 @@ static int handle_connect(struct pw_stream *stream)
 	pw_node_set_implementation(impl->node, &impl->impl_node);
 
 	pw_node_register(impl->node, NULL, NULL, NULL);
-	pw_node_set_active(impl->node, true);
+	if (!SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_INACTIVE))
+		pw_node_set_active(impl->node, true);
 
 	pw_log_debug("stream %p: export node %p", stream, impl->node);
 	stream->proxy = pw_remote_export(stream->remote, impl->node);

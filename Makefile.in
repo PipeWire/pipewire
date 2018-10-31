@@ -4,6 +4,9 @@ all:
 install:
 	ninja -C build install
 
+uninstall:
+	ninja -C build uninstall
+
 clean:
 	ninja -C build clean
 

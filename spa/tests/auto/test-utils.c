@@ -21,6 +21,7 @@
 #include <spa/utils/dict.h>
 #include <spa/utils/list.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/ringbuffer.h>
 
 static void test_dict(void)
 {
@@ -213,10 +214,70 @@ static void test_hook(void)
     spa_assert(hook_free_count == 4);
 }
 
+static void test_ringbuffer(void)
+{
+    struct spa_ringbuffer rb;
+    char buffer[20];
+    char readbuf[20];
+    uint32_t idx;
+    int32_t fill;
+
+    spa_ringbuffer_init(&rb);
+    fill = spa_ringbuffer_get_write_index(&rb, &idx);
+    spa_assert(idx == 0);
+    spa_assert(fill == 0);
+
+    spa_ringbuffer_write_data(&rb, buffer, 20, idx, "hello pipewire", 14);
+    spa_ringbuffer_write_update(&rb, idx + 14);
+
+    fill = spa_ringbuffer_get_write_index(&rb, &idx);
+    spa_assert(idx == 14);
+    spa_assert(fill == 14);
+    fill = spa_ringbuffer_get_read_index(&rb, &idx);
+    spa_assert(idx == 0);
+    spa_assert(fill == 14);
+
+    spa_ringbuffer_read_data(&rb, buffer, 20, idx, readbuf, 6);
+    spa_ringbuffer_read_update(&rb, idx + 6);
+    spa_assert(!memcmp(readbuf, "hello ", 6));
+
+    fill = spa_ringbuffer_get_read_index(&rb, &idx);
+    spa_assert(idx == 6);
+    spa_assert(fill == 8);
+    fill = spa_ringbuffer_get_write_index(&rb, &idx);
+    spa_assert(idx == 14);
+    spa_assert(fill == 8);
+
+    spa_ringbuffer_write_data(&rb, buffer, 20, idx, " rocks !!!", 10);
+    spa_ringbuffer_write_update(&rb, idx + 10);
+
+    fill = spa_ringbuffer_get_write_index(&rb, &idx);
+    spa_assert(idx == 24);
+    spa_assert(fill == 18);
+    fill = spa_ringbuffer_get_read_index(&rb, &idx);
+    spa_assert(idx == 6);
+    spa_assert(fill == 18);
+
+    spa_ringbuffer_read_data(&rb, buffer, 20, idx, readbuf, 18);
+    spa_ringbuffer_read_update(&rb, idx + 18);
+    spa_assert(!memcmp(readbuf, "pipewire rocks !!!", 18));
+
+    fill = spa_ringbuffer_get_read_index(&rb, &idx);
+    spa_assert(idx == 24);
+    spa_assert(fill == 0);
+    fill = spa_ringbuffer_get_write_index(&rb, &idx);
+    spa_assert(idx == 24);
+    spa_assert(fill == 0);
+
+    /* actual buffer must have wrapped around */
+    spa_assert(!memcmp(buffer, " !!!o pipewire rocks", 20));
+}
+
 int main(int argc, char *argv[])
 {
     test_dict();
     test_list();
     test_hook();
+    test_ringbuffer();
     return 0;
 }

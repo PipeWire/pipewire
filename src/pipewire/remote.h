@@ -138,6 +138,8 @@ struct pw_remote_events {
 			       enum pw_remote_state state, const char *error);
         /** emited when an error was reported */
 	void (*error) (void *data, uint32_t id, int res, const char *error);
+        /** emited when a node was exported */
+	void (*exported) (void *data, uint32_t id);
 };
 
 /** Specify the name of the protocol to use, default is using the native protocol */

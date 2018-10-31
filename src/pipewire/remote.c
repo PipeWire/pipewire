@@ -742,6 +742,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
+	struct pw_remote *remote = proxy->remote;
 
 	clean_transport(data);
 
@@ -751,12 +752,14 @@ static void client_node_transport(void *object, uint32_t node_id,
 		proxy, readfd, writefd, node_id);
 
         data->rtwritefd = writefd;
-        data->rtsocket_source = pw_loop_add_io(proxy->remote->core->data_loop,
+        data->rtsocket_source = pw_loop_add_io(remote->core->data_loop,
                                                readfd,
                                                SPA_IO_ERR | SPA_IO_HUP,
                                                true, on_rtsocket_condition, proxy);
 	if (data->node->active)
 		pw_client_node_proxy_set_active(data->node_proxy, true);
+
+	pw_remote_events_exported(remote, proxy->id);
 }
 
 static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_t change_mask)

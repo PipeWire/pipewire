@@ -825,10 +825,17 @@ static void on_remote_state_changed(void *_data, enum pw_remote_state old,
 		break;
 	}
 }
+static void on_remote_exported(void *_data, uint32_t id)
+{
+	struct pw_stream *stream = _data;
+	if (stream->proxy->id == id)
+		stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
+}
 
 static const struct pw_remote_events remote_events = {
 	PW_VERSION_REMOTE_EVENTS,
 	.state_changed = on_remote_state_changed,
+	.exported = on_remote_exported,
 };
 
 struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,

@@ -140,6 +140,11 @@ process_messages(struct client_data *data)
 		pw_log_trace("protocol-native %p: got message %d from %u", client->protocol,
 			     opcode, id);
 
+		if (debug_messages) {
+			fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
+		        spa_debug_pod(0, NULL, (struct spa_pod *)message);
+		}
+
 		resource = pw_client_find_resource(client, id);
 		if (resource == NULL) {
 			pw_log_error("protocol-native %p: unknown resource %u",
@@ -162,16 +167,12 @@ process_messages(struct client_data *data)
 			goto invalid_message;
 
 		if ((demarshal[opcode].flags & PW_PROTOCOL_NATIVE_PERM_W) &&
-		    ((permissions & PW_PERM_X) == 0)) {
+		    ((permissions & PW_PERM_W) == 0)) {
 			pw_log_error("protocol-native %p: method %u requires write access on %u",
 				     client->protocol, opcode, id);
 			continue;
 		}
 
-		if (debug_messages) {
-			fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
-		        spa_debug_pod(0, NULL, (struct spa_pod *)message);
-		}
 		if (demarshal[opcode].func(resource, message, size) < 0)
 			goto invalid_message;
 	}
@@ -484,6 +485,11 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 
                         pw_log_trace("protocol-native %p: got message %d from %u", this, opcode, id);
 
+			if (debug_messages) {
+				fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
+			        spa_debug_pod(0, NULL, (struct spa_pod *)message);
+			}
+
                         proxy = pw_remote_find_proxy(this, id);
 
                         if (proxy == NULL) {
@@ -493,8 +499,8 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 
 			marshal = pw_proxy_get_marshal(proxy);
                         if (marshal == NULL || opcode >= marshal->n_events) {
-                                pw_log_error("protocol-native %p: invalid method %u for %u", this, opcode,
-                                             id);
+                                pw_log_error("protocol-native %p: invalid method %u for %u (%d %d)", this, opcode,
+                                             id, opcode, marshal ? marshal->n_events : -1);
                                 continue;
                         }
 
@@ -503,11 +509,6 @@ on_remote_data(void *data, int fd, enum spa_io mask)
                                 pw_log_error("protocol-native %p: function %d not implemented on %u", this,
                                              opcode, id);
 				continue;
-			}
-
-			if (debug_messages) {
-				fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
-			        spa_debug_pod(0, NULL, (struct spa_pod *)message);
 			}
 			if (demarshal[opcode].func(proxy, message, size) < 0) {
 				pw_log_error ("protocol-native %p: invalid message received %u for %u", this,

@@ -293,7 +293,6 @@ conv_f32d_to_s16_1_sse(void *data, void *dst, int n_src, const void *src[n_src],
 
 	for(n = 0; unrolled--; n += 4) {
 		in[0] = _mm_mul_ps(_mm_loadu_ps(&s0[n]), int_max);
-		in[0] = _mm_min_ps(int_max, _mm_max_ps(in[0], int_min));
 		out[0] = _mm_cvtps_epi32(in[0]);
 		out[0] = _mm_packs_epi32(out[0], out[0]);
 
@@ -324,7 +323,6 @@ conv_f32d_to_s16_2_sse(void *data, void *dst, int n_src, const void *src[n_src],
         __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
 
 	n_samples = n_bytes / sizeof(float);
-
 	unrolled = n_samples / 4;
 	n_samples = n_samples & 3;
 
@@ -343,10 +341,10 @@ conv_f32d_to_s16_2_sse(void *data, void *dst, int n_src, const void *src[n_src],
 		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
 		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
 
-		*((uint32_t*)d + 0*n_src) = _mm_cvtsi128_si32(out[0]);
-		*((uint32_t*)d + 1*n_src) = _mm_cvtsi128_si32(out[1]);
-		*((uint32_t*)d + 2*n_src) = _mm_cvtsi128_si32(out[2]);
-		*((uint32_t*)d + 3*n_src) = _mm_cvtsi128_si32(out[3]);
+		*((uint32_t*)(d + 0*n_src)) = _mm_cvtsi128_si32(out[0]);
+		*((uint32_t*)(d + 1*n_src)) = _mm_cvtsi128_si32(out[1]);
+		*((uint32_t*)(d + 2*n_src)) = _mm_cvtsi128_si32(out[2]);
+		*((uint32_t*)(d + 3*n_src)) = _mm_cvtsi128_si32(out[3]);
 		d += 4*n_src;
 	}
 	for(; n_samples--; n++) {

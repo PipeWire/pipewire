@@ -501,6 +501,29 @@ static int set_timeout(struct state *state, size_t extra)
 	return 0;
 }
 
+static int get_status(struct state *state, snd_pcm_sframes_t *avail, snd_htimestamp_t *now)
+{
+	snd_pcm_status_t *status;
+	int res;
+
+	snd_pcm_status_alloca(&status);
+
+	if ((res = snd_pcm_status(state->hndl, status)) < 0) {
+		spa_log_error(state->log, "snd_pcm_status error: %s", snd_strerror(res));
+		return res;
+	}
+
+	if (avail) {
+		*avail = snd_pcm_status_get_avail(status);
+		if (*avail > state->buffer_frames)
+			*avail = state->buffer_frames;
+	}
+	if (now)
+		snd_pcm_status_get_htstamp(status, now);
+
+	return 0;
+}
+
 int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 {
 	snd_pcm_t *hndl = state->hndl;
@@ -675,27 +698,20 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	struct state *state = source->data;
 	snd_pcm_t *hndl = state->hndl;
 	snd_pcm_sframes_t avail;
-	snd_pcm_status_t *status;
 
 	if (state->started && read(state->timerfd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(state->log, "error reading timerfd: %s", strerror(errno));
 
-	snd_pcm_status_alloca(&status);
-
-	if ((res = snd_pcm_status(hndl, status)) < 0) {
-		spa_log_error(state->log, "snd_pcm_status error: %s", snd_strerror(res));
+	if ((res = get_status(state, &avail, &state->now)) < 0)
 		return;
-	}
 
-	avail = snd_pcm_status_get_avail(status);
-	snd_pcm_status_get_htstamp(status, &state->now);
+	if (avail > state->buffer_frames)
+		avail = state->buffer_frames;
+
 	if (state->now.tv_sec == 0 && state->now.tv_nsec == 0) {
 		spa_log_warn(state->log, "0 from snd_pcm_status_get_htstamp %ld", avail);
 		clock_gettime(CLOCK_MONOTONIC, &state->now);
 	}
-
-	if (avail > state->buffer_frames)
-		avail = state->buffer_frames;
 
 	state->filled = state->buffer_frames - avail;
 

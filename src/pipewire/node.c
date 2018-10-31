@@ -686,6 +686,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	check_properties(this);
 
 	this->driver_node = this;
+	this->driver_root = this;
 	spa_list_append(&this->driver_list, &this->driver_link);
 
 	return this;
@@ -777,14 +778,15 @@ static void node_event(void *data, struct spa_event *event)
 
 static void node_process(void *data, int status)
 {
-	struct pw_node *node = data, *driver;
+	struct pw_node *node = data, *driver, *root;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	bool is_driving = false;
 
 	driver = node->driver_node;
+	root = node->driver_root ? node->driver_root : driver;
 
-	pw_log_trace("node %p: process driver:%d exported:%d %p", node,
-			node->driver, node->exported, driver->rt.driver);
+	pw_log_trace("node %p: process driver:%d exported:%d %p %p", node,
+			node->driver, node->exported, driver, driver->rt.driver);
 
 	if (node->driver) {
 		if (driver == node)
@@ -793,11 +795,11 @@ static void node_process(void *data, int status)
 			*node->rt.position = *driver->rt.position;
 	}
 
-	if (is_driving && (driver->rt.driver->state->pending == 0 || !node->remote)) {
+	if (is_driving && (root->rt.driver->state->pending == 0 || !node->remote)) {
 		struct timespec ts;
 		struct spa_io_position *q = node->rt.position;
 
-		if (driver->rt.driver->state->pending != 0) {
+		if (root->rt.driver->state->pending != 0) {
 			pw_log_warn("node %p: graph not finished", node);
 		}
 
@@ -812,7 +814,7 @@ static void node_process(void *data, int status)
 				q->clock.nsec, q->clock.rate.num, q->clock.rate.denom,
 				q->clock.position, q->clock.delay, q->size);
 
-		spa_graph_run(driver->rt.driver);
+		spa_graph_run(root->rt.driver);
 
 		impl->next_position += q->size;
 	}

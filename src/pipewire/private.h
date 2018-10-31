@@ -307,6 +307,7 @@ struct pw_node {
 					  *  is selected to drive the graph */
 
 	struct pw_node *driver_node;
+	struct pw_node *driver_root;
 	struct spa_list driver_list;
 	struct spa_list driver_link;
 

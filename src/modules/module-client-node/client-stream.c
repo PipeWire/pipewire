@@ -241,7 +241,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 
 static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	return 0;
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -980,7 +980,7 @@ static void client_node_initialized(void *data)
 		exclusive = false;
 
 	spa_graph_node_add(impl->client_node->node->rt.driver, &impl->client_node->node->rt.root);
-	impl->client_node->node->driver_node = impl->this.node;
+	impl->client_node->node->driver_root = impl->this.node;
 
 	impl->client_port = pw_node_find_port(impl->client_node->node, impl->direction, 0);
 	if (impl->client_port == NULL)

@@ -335,7 +335,7 @@ conv_f32d_to_s16_2_sse(void *data, void *dst, int n_src, const void *src[n_src],
 		t[0] = _mm_cvtps_epi32(in[0]);
 		t[1] = _mm_cvtps_epi32(in[1]);
 
-		t[0] = _mm_packs_epi32(t[0], t[1]);
+		t[0] = _mm_packs_epi32(t[0], t[0]);
 		t[1] = _mm_packs_epi32(t[1], t[1]);
 
 		out[0] = _mm_unpacklo_epi16(t[0], t[1]);

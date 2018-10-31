@@ -243,7 +243,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 			":", SPA_FORMAT_mediaType,     "I", SPA_MEDIA_TYPE_video,
 			":", SPA_FORMAT_mediaSubtype,  "I", SPA_MEDIA_SUBTYPE_raw,
 			":", SPA_FORMAT_VIDEO_format,  "I", SPA_VIDEO_FORMAT_RGB,
-			":", SPA_FORMAT_VIDEO_size,    "?eR", 3,
+			":", SPA_FORMAT_VIDEO_size,    "?rR", 3,
 						&SPA_RECTANGLE(320, 240),
 						&SPA_RECTANGLE(1, 1),
 						&SPA_RECTANGLE(4096, 4096),

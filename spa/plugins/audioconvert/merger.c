@@ -88,6 +88,8 @@ struct impl {
 	bool started;
 	convert_func_t convert;
 
+	bool have_profile;
+
 	float empty[MAX_SAMPLES];
 };
 
@@ -203,6 +205,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		port->have_format = true;
 		port->format = info;
 
+		this->have_profile = true;
 		this->port_count = info.info.raw.channels;
 		for (i = 0; i < this->port_count; i++) {
 			init_port(this, i, info.info.raw.rate,
@@ -582,7 +585,10 @@ static int port_set_format(struct spa_node *node,
 
 	if (format == NULL) {
 		if (port->have_format) {
-			port->have_format = false;
+			if (direction == SPA_DIRECTION_OUTPUT)
+				port->have_format = this->have_profile;
+			else
+				port->have_format = false;
 			clear_buffers(this, port);
 		}
 	} else {

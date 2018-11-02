@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_OUTPUT,
-			  argc > 1 ? argv[1] : NULL,
+			  argc > 1 ? atoi(argv[1]) : SPA_ID_INVALID,
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_MAP_BUFFERS |
 			  PW_STREAM_FLAG_RT_PROCESS,

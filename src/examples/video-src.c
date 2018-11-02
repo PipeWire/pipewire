@@ -257,7 +257,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_OUTPUT,
-				  NULL, PW_STREAM_FLAG_DRIVER,
+				  SPA_ID_INVALID, PW_STREAM_FLAG_DRIVER,
 				  params, 1);
 		break;
 	}

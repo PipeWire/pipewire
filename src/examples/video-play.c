@@ -249,7 +249,7 @@ int main(int argc, char *argv[])
 
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_INPUT,
-			  data.path,
+			  data.path ? atoi(data.path) : SPA_ID_INVALID,
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_INACTIVE |
 			  PW_STREAM_FLAG_EXCLUSIVE |

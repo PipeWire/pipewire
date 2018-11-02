@@ -1062,7 +1062,7 @@ static void add_controls(struct pw_stream *stream)
 int
 pw_stream_connect(struct pw_stream *stream,
 		  enum pw_direction direction,
-		  const char *port_path,
+		  uint32_t target_id,
 		  enum pw_stream_flags flags,
 		  const struct spa_pod **params,
 		  uint32_t n_params)
@@ -1071,7 +1071,7 @@ pw_stream_connect(struct pw_stream *stream,
 	enum pw_remote_state state;
 	int i, res;
 
-	pw_log_debug("stream %p: connect path:%s", stream, port_path);
+	pw_log_debug("stream %p: connect target:%d", stream, target_id);
 	impl->direction =
 	    direction == PW_DIRECTION_INPUT ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT;
 	impl->flags = flags;
@@ -1084,8 +1084,8 @@ pw_stream_connect(struct pw_stream *stream,
 
 	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, NULL);
 
-	if (port_path)
-		pw_properties_set(stream->properties, PW_NODE_PROP_TARGET_NODE, port_path);
+	if (target_id != SPA_ID_INVALID)
+		pw_properties_setf(stream->properties, PW_NODE_PROP_TARGET_NODE, "%d", target_id);
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
 		pw_properties_set(stream->properties, PW_NODE_PROP_AUTOCONNECT, "1");
 	pw_properties_set(stream->properties, "node.stream", "1");

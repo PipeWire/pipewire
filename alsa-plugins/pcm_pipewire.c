@@ -51,7 +51,7 @@ typedef struct {
 	snd_pcm_ioplug_t io;
 
 	char *node_name;
-	char *target;
+	uint32_t target;
 
 	int fd;
 	bool activated;		/* PipeWire is activated? */
@@ -838,13 +838,14 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	else
 		pw->node_name = strdup(node_name);
 
+	pw->target = SPA_ID_INVALID;
 	if (str != NULL)
-		pw->target = strdup(str);
+		pw->target = atoi(str);
 	else {
 		if (stream == SND_PCM_STREAM_PLAYBACK)
-			pw->target = playback_node ? strdup(playback_node) : NULL;
+			pw->target = playback_node ? atoi(playback_node) : SPA_ID_INVALID;
 		else
-			pw->target = capture_node ? strdup(capture_node) : NULL;
+			pw->target = capture_node ? atoi(capture_node) : SPA_ID_INVALID;
 	}
 
         pw->loop = pw_loop_new(NULL);

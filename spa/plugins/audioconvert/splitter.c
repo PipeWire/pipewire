@@ -599,7 +599,7 @@ static int port_set_format(struct spa_node *node,
 	if (format == NULL) {
 		if (port->have_format) {
 			if (direction == SPA_DIRECTION_INPUT)
-				port->have_format = this->profile;
+				port->have_format = this->have_profile;
 			else
 				port->have_format = false;
 			clear_buffers(this, port);

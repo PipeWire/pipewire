@@ -207,7 +207,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 			spa_debug("%*s" "Prop: key %s, context %d", indent+2, "",
 					ii ? ii->name : "unknown", p->context);
 
-			spa_debug_pod_value(indent + 4, ii->values,
+			spa_debug_pod_value(indent + 4, ii ? ii->values : NULL,
 					p->value.type,
 					SPA_POD_CONTENTS(struct spa_pod_prop, p),
 					p->value.size);
@@ -231,7 +231,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 			spa_debug("%*s" "Control: offset %d, type %s", indent+2, "",
 					c->offset, ii ? ii->name : "unknown");
 
-			spa_debug_pod_value(indent + 4, ii->values,
+			spa_debug_pod_value(indent + 4, ii ? ii->values : NULL,
 					c->value.type,
 					SPA_POD_CONTENTS(struct spa_pod_control, c),
 					c->value.size);

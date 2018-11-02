@@ -780,7 +780,7 @@ static int create_stream(pa_stream_direction_t direction,
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t sample_rate = 0, stride = 0;
 	const char *str;
-	char devid[16];
+	uint32_t devid;
 	struct global *g;
 	struct spa_dict_item items[5];
 	char latency[64];
@@ -845,11 +845,13 @@ static int create_stream(pa_stream_direction_t direction,
 		s->buffer_attr = *attr;
 	patch_buffer_attr(s, &s->buffer_attr, &flags);
 
-	if (dev == NULL)
-		dev = getenv("PIPEWIRE_NODE");
+	devid = SPA_ID_INVALID;
+	if (dev == NULL) {
+		if ((str = getenv("PIPEWIRE_NODE")) != NULL)
+			devid = atoi(str);
+	}
 	else if ((g = pa_context_find_global_by_name(s->context, PA_SUBSCRIPTION_MASK_SINK, dev)) != NULL) {
-		snprintf(devid, 15, "%d", g->id);
-		dev = devid;
+		devid = g->id;
 	}
 
 	if ((str = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_ROLE)) == NULL)
@@ -889,7 +891,7 @@ static int create_stream(pa_stream_direction_t direction,
 				direction == PA_STREAM_PLAYBACK ?
 					PW_DIRECTION_OUTPUT :
 					PW_DIRECTION_INPUT,
-				dev,
+				devid,
 				fl,
 				params, n_params);
 

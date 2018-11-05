@@ -30,6 +30,7 @@ extern "C" {
 
 #include <pipewire/introspect.h>
 #include <pipewire/proxy.h>
+#include <pipewire/permission.h>
 
 struct pw_core_proxy;
 struct pw_registry_proxy;
@@ -143,18 +144,21 @@ struct pw_core_proxy_methods {
 	 */
 	void (*client_update) (void *object, const struct spa_dict *props);
 	/**
-	 * Manage the permissions of the global objects
+	 * Manage the permissions of the global objects for this
+	 * client
 	 *
 	 * Update the permissions of the global objects using the
-	 * dictionary with properties.
+	 * provided array with permissions
 	 *
 	 * Globals can use the default permissions or can have specific
 	 * permissions assigned to them.
 	 *
-	 * \param id the global id to change
-	 * \param props dictionary with permission properties
+	 * \param n_permissions number of permissions
+	 * \param permissions array of permissions
 	 */
-	void (*permissions) (void *object, const struct spa_dict *props);
+	void (*permissions) (void *object,
+			     uint32_t n_permissions,
+			     const struct pw_permission *permissions);
 	/**
 	 * Create a new object on the PipeWire server from a factory.
 	 * Use a \a factory_name of "client-node" to create a
@@ -209,9 +213,9 @@ pw_core_proxy_client_update(struct pw_core_proxy *core, const struct spa_dict *p
 }
 
 static inline void
-pw_core_proxy_permissions(struct pw_core_proxy *core, const struct spa_dict *props)
+pw_core_proxy_permissions(struct pw_core_proxy *core, uint32_t n_permissions, struct pw_permission *permissions)
 {
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, permissions, props);
+	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, permissions, n_permissions, permissions);
 }
 
 static inline void *
@@ -696,9 +700,15 @@ struct pw_client_proxy_events {
 	 *
 	 * Event emited as a result of the get_permissions method.
 	 *
-	 * \param param the parameter
+	 * \param default_permissions the default permissions
+	 * \param index the index of the first permission entry
+	 * \param n_permissions the number of permissions
+	 * \param permissions the permissions
 	 */
-	void (*permissions) (void *object, const struct spa_dict *dict);
+	void (*permissions) (void *object,
+			     uint32_t index,
+			     uint32_t n_permissions,
+			     struct pw_permission *permissions);
 };
 
 /** Client */
@@ -736,15 +746,20 @@ struct pw_client_proxy_methods {
 	 * Get client permissions
 	 *
 	 * A permissions event will be emited with the permissions.
+	 *
+	 * \param index the first index to query, 0 for first
+	 * \param num the maximum number of items to get
 	 */
-	void (*get_permissions) (void *object);
+	void (*get_permissions) (void *object, uint32_t index, uint32_t num);
 
 	/**
 	 * Update client permissions
 	 *
-	 * \param dict list of permissions to update
+	 * \param n_permissions number of permissions
+	 * \param permissions array of new permissions
 	 */
-	void (*update_permissions) (void *object, const struct spa_dict *dict);
+	void (*update_permissions) (void *object, uint32_t n_permissions,
+			const struct pw_permission *permissions);
 };
 
 /** Client permissions */
@@ -755,15 +770,17 @@ pw_client_proxy_error(struct pw_client_proxy *client, uint32_t id, int res, cons
 }
 
 static inline void
-pw_client_proxy_get_permissions(struct pw_client_proxy *client)
+pw_client_proxy_get_permissions(struct pw_client_proxy *client, uint32_t index, uint32_t num)
 {
-	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, get_permissions);
+	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, get_permissions, index, num);
 }
 
 static inline void
-pw_client_proxy_update_permissions(struct pw_client_proxy *client, const struct spa_dict *dict)
+pw_client_proxy_update_permissions(struct pw_client_proxy *client, uint32_t n_permissions,
+                        const struct pw_permission *permissions)
 {
-	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, update_permissions, dict);
+	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, update_permissions,
+			n_permissions, permissions);
 }
 
 #define PW_VERSION_LINK			0

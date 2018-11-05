@@ -110,6 +110,7 @@ core_check_access(void *data, struct pw_client *client)
 {
 	struct impl *impl = data;
 	const struct ucred *ucred;
+	struct pw_permission permissions[1];
 	struct spa_dict_item items[2];
 	const char *str;
 	int res;
@@ -128,7 +129,8 @@ core_check_access(void *data, struct pw_client *client)
 		if (res == 0)
 			goto granted;
 		if (res > 0)
-			res = EACCES;
+			res = -EACCES;
+		items[0] = SPA_DICT_ITEM_INIT("pipewire.access", "blacklisted");
 		goto blacklisted;
 	}
 
@@ -162,7 +164,8 @@ core_check_access(void *data, struct pw_client *client)
 
       granted:
 	pw_log_debug("module %p: client %p access granted", impl, client);
-	pw_client_set_permissions(client, PW_PERM_RWX);
+	permissions[0] = PW_PERMISSION_INIT(-1, PW_PERM_RWX);
+	pw_client_update_permissions(client, 1, permissions);
 	return;
 
       wait_permissions:
@@ -172,7 +175,6 @@ core_check_access(void *data, struct pw_client *client)
 	return;
 
       blacklisted:
-	items[0] = SPA_DICT_ITEM_INIT("pipewire.access", "blacklisted");
 	pw_resource_error(pw_client_get_core_resource(client), 0, res, "blacklisted");
 	pw_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 	return;

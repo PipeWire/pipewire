@@ -64,22 +64,23 @@ static void core_marshal_client_update(void *object, const struct spa_dict *prop
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
-static void core_marshal_permissions(void *object, const struct spa_dict *props)
+static void core_marshal_permissions(void *object, uint32_t n_permissions,
+		const struct pw_permission *permissions)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int i, n_items;
+	int i;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_PERMISSIONS);
 
-	n_items = props ? props->n_items : 0;
+	spa_pod_builder_add(b, "[",
+				"i", n_permissions,
+				NULL);
 
-	spa_pod_builder_add(b, "[ i", n_items, NULL);
-
-	for (i = 0; i < n_items; i++) {
+	for (i = 0; i < n_permissions; i++) {
 		spa_pod_builder_add(b,
-				    "s", props->items[i].key,
-				    "s", props->items[i].value, NULL);
+				    "i", permissions[i].id,
+				    "i", permissions[i].permissions, NULL);
 	}
 	spa_pod_builder_add(b, "]", NULL);
 
@@ -340,23 +341,25 @@ static int core_demarshal_client_update(void *object, void *data, size_t size)
 static int core_demarshal_permissions(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
-	struct spa_dict props;
 	struct spa_pod_parser prs;
-	uint32_t i;
+	struct pw_permission *permissions;
+	uint32_t i, n_permissions;
 
 	spa_pod_parser_init(&prs, data, size, 0);
-	if (spa_pod_parser_get(&prs, "[ i", &props.n_items, NULL) < 0)
+	if (spa_pod_parser_get(&prs, "[",
+				"i", &n_permissions, NULL) < 0)
 		return -EINVAL;
 
-	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-	for (i = 0; i < props.n_items; i++) {
+	permissions = alloca(n_permissions * sizeof(struct pw_permission));
+	for (i = 0; i < n_permissions; i++) {
 		if (spa_pod_parser_get(&prs,
-				"s", &props.items[i].key,
-				"s", &props.items[i].value,
+				"i", &permissions[i].id,
+				"i", &permissions[i].permissions,
 				NULL) < 0)
 			return -EINVAL;
 	}
-	pw_resource_do(resource, struct pw_core_proxy_methods, permissions, 0, &props);
+	pw_resource_do(resource, struct pw_core_proxy_methods, permissions, 0,
+			n_permissions, permissions);
 	return 0;
 }
 
@@ -1017,24 +1020,23 @@ static int client_demarshal_info(void *object, void *data, size_t size)
 	return 0;
 }
 
-static void client_marshal_permissions(void *object, const struct spa_dict *dict)
+static void client_marshal_permissions(void *object, uint32_t index, uint32_t n_permissions,
+		struct pw_permission *permissions)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
-	uint32_t i, n_items;
+	uint32_t i;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_PROXY_EVENT_PERMISSIONS);
 
-	n_items = dict ? dict->n_items : 0;
-
 	spa_pod_builder_add(b,
-			    "[",
-			    "i", n_items, NULL);
+			    "[ i", index,
+			    "i", n_permissions, NULL);
 
-	for (i = 0; i < n_items; i++) {
+	for (i = 0; i < n_permissions; i++) {
 		spa_pod_builder_add(b,
-				    "s", dict->items[i].key,
-				    "s", dict->items[i].value, NULL);
+				    "s", permissions[i].id,
+				    "s", permissions[i].permissions, NULL);
 	}
 	spa_pod_builder_add(b, "]", NULL);
 
@@ -1044,23 +1046,24 @@ static void client_marshal_permissions(void *object, const struct spa_dict *dict
 static int client_demarshal_permissions(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
-	struct spa_dict props;
+	struct pw_permission *permissions;
 	struct spa_pod_parser prs;
-	uint32_t i;
+	uint32_t i, index, n_permissions;
 
 	spa_pod_parser_init(&prs, data, size, 0);
-	if (spa_pod_parser_get(&prs, "[ i", &props.n_items, NULL) < 0)
+	if (spa_pod_parser_get(&prs, "[ i", &index,
+				"i", &n_permissions, NULL) < 0)
 		return -EINVAL;
 
-	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-	for (i = 0; i < props.n_items; i++) {
+	permissions = alloca(n_permissions * sizeof(struct pw_permission));
+	for (i = 0; i < n_permissions; i++) {
 		if (spa_pod_parser_get(&prs,
-				"s", &props.items[i].key,
-				"s", &props.items[i].value,
+				"i", &permissions[i].id,
+				"i", &permissions[i].permissions,
 				NULL) < 0)
 			return -EINVAL;
 	}
-	pw_proxy_notify(proxy, struct pw_client_proxy_events, permissions, 0, &props);
+	pw_proxy_notify(proxy, struct pw_client_proxy_events, permissions, 0, index, n_permissions, permissions);
 	return 0;
 }
 
@@ -1095,14 +1098,16 @@ static int client_demarshal_error(void *object, void *data, size_t size)
 	return 0;
 }
 
-static void client_marshal_get_permissions(void *object)
+static void client_marshal_get_permissions(void *object, uint32_t index, uint32_t num)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_PROXY_METHOD_GET_PERMISSIONS);
 
-	spa_pod_builder_add_struct(b, "P", NULL);
+	spa_pod_builder_add_struct(b,
+			"i", index,
+			"i", num, NULL);
 
 	pw_protocol_native_end_proxy(proxy, b);
 }
@@ -1111,32 +1116,33 @@ static int client_demarshal_get_permissions(void *object, void *data, size_t siz
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
-	void *ptr;
+	uint32_t index, num;
 
 	spa_pod_parser_init(&prs, data, size, 0);
-	if (spa_pod_parser_get(&prs, "[P]", &ptr, NULL) < 0)
+	if (spa_pod_parser_get(&prs,
+				"[i", &index,
+				 "i", &num, NULL) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_client_proxy_methods, get_permissions, 0);
+	pw_resource_do(resource, struct pw_client_proxy_methods, get_permissions, 0, index, num);
 	return 0;
 }
 
-static void client_marshal_update_permissions(void *object, const struct spa_dict *props)
+static void client_marshal_update_permissions(void *object, uint32_t n_permissions,
+		const struct pw_permission *permissions)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int i, n_items;
+	int i;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_PROXY_METHOD_UPDATE_PERMISSIONS);
 
-	n_items = props ? props->n_items : 0;
+	spa_pod_builder_add(b, "[ i", n_permissions, NULL);
 
-	spa_pod_builder_add(b, "[ i", n_items, NULL);
-
-	for (i = 0; i < n_items; i++) {
+	for (i = 0; i < n_permissions; i++) {
 		spa_pod_builder_add(b,
-				    "s", props->items[i].key,
-				    "s", props->items[i].value, NULL);
+				    "i", permissions[i].id,
+				    "i", permissions[i].permissions, NULL);
 	}
 	spa_pod_builder_add(b, "]", NULL);
 
@@ -1146,23 +1152,24 @@ static void client_marshal_update_permissions(void *object, const struct spa_dic
 static int client_demarshal_update_permissions(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
-	struct spa_dict props;
+	struct pw_permission *permissions;
 	struct spa_pod_parser prs;
-	uint32_t i;
+	uint32_t i, n_permissions;
 
 	spa_pod_parser_init(&prs, data, size, 0);
-	if (spa_pod_parser_get(&prs, "[ i", &props.n_items, NULL) < 0)
+	if (spa_pod_parser_get(&prs, "[ i", &n_permissions, NULL) < 0)
 		return -EINVAL;
 
-	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-	for (i = 0; i < props.n_items; i++) {
+	permissions = alloca(n_permissions * sizeof(struct pw_permission));
+	for (i = 0; i < n_permissions; i++) {
 		if (spa_pod_parser_get(&prs,
-				"s", &props.items[i].key,
-				"s", &props.items[i].value,
+				"i", &permissions[i].id,
+				"i", &permissions[i].permissions,
 				NULL) < 0)
 			return -EINVAL;
 	}
-	pw_resource_do(resource, struct pw_client_proxy_methods, update_permissions, 0, &props);
+	pw_resource_do(resource, struct pw_client_proxy_methods, update_permissions, 0,
+			n_permissions, permissions);
 	return 0;
 }
 

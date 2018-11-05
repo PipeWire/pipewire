@@ -64,11 +64,11 @@ static void registry_bind(void *object, uint32_t id,
 	if (!PW_PERM_IS_R(permissions))
 		goto no_id;
 
-	if (type != global->type)
+	if (global->type != type)
 		goto wrong_interface;
 
-	pw_log_debug("global %p: bind global id %d, iface %s to %d", global, id,
-		     spa_debug_type_find_name(pw_type_info(), type), new_id);
+	pw_log_debug("global %p: bind global id %d, iface %s/%d to %d", global, id,
+		     spa_debug_type_find_name(pw_type_info(), type), version, new_id);
 
 	if (pw_global_bind(global, client, permissions, version, new_id) < 0)
 		goto exit;
@@ -77,9 +77,13 @@ static void registry_bind(void *object, uint32_t id,
 
       no_id:
 	pw_log_debug("registry %p: no global with id %u to bind to %u", resource, id, new_id);
+	pw_core_resource_error(client->core_resource, id,
+			     -ENOENT, "no such global %u", id);
 	goto exit;
       wrong_interface:
 	pw_log_debug("registry %p: global with id %u has no interface %u", resource, id, type);
+	pw_core_resource_error(client->core_resource, id,
+			     -ENOENT, "no such interface %u", type);
 	goto exit;
       exit:
 	/* unmark the new_id the map, the client does not yet know about the failed
@@ -151,10 +155,11 @@ static void core_client_update(void *object, const struct spa_dict *props)
 	pw_client_update_properties(resource->client, props);
 }
 
-static void core_permissions(void *object, const struct spa_dict *props)
+static void core_permissions(void *object, uint32_t n_permissions,
+		const struct pw_permission *permissions)
 {
 	struct pw_resource *resource = object;
-	pw_client_update_permissions(resource->client, props);
+	pw_client_update_permissions(resource->client, n_permissions, permissions);
 }
 
 static void core_sync(void *object, uint32_t seq)

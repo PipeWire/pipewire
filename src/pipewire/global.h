@@ -128,13 +128,8 @@ int pw_global_bind(struct pw_global *global,
 		   uint32_t version,
 		   uint32_t id);
 
-/** Revoke access to global for client, the global will be removed from
- * the client registry and all the bound resources for the client will be
- * destroyed */
-int pw_global_revoke(struct pw_global *global, struct pw_client *client);
-/** Grant access to a global for client. The client registry will be
- * notified of a new global */
-int pw_global_grant(struct pw_global *global, struct pw_client *client);
+int pw_global_update_permissions(struct pw_global *global, struct pw_client *client,
+		uint32_t old_permissions, uint32_t new_permissions);
 
 /** Destroy a global */
 void pw_global_destroy(struct pw_global *global);

@@ -73,16 +73,6 @@ struct pw_core;
  * resources of a PipeWire instance.
  */
 
-#define PW_PERM_R	0400	/**< object can be seen and events can be received */
-#define PW_PERM_W	0200	/**< methods can be called that modify the object */
-#define PW_PERM_X	0100	/**< methods can be called on the object. The W flag must be
-				  *  present in order to call methods that modify the object. */
-#define PW_PERM_RWX	(PW_PERM_R|PW_PERM_W|PW_PERM_X)
-
-#define PW_PERM_IS_R(p) (((p)&PW_PERM_R) == PW_PERM_R)
-#define PW_PERM_IS_W(p) (((p)&PW_PERM_W) == PW_PERM_W)
-#define PW_PERM_IS_X(p) (((p)&PW_PERM_X) == PW_PERM_X)
-
 /** core events emited by the core object added with \ref pw_core_add_listener */
 struct pw_core_events {
 #define PW_VERSION_CORE_EVENTS	0

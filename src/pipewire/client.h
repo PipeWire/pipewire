@@ -49,6 +49,7 @@ struct pw_client;
 #include <pipewire/introspect.h>
 #include <pipewire/properties.h>
 #include <pipewire/resource.h>
+#include <pipewire/permission.h>
 
 #define PW_TYPE__Client           PW_TYPE_OBJECT_BASE "Client"
 #define PW_TYPE_CLIENT_BASE       PW_TYPE__Client ":"
@@ -146,7 +147,8 @@ const struct pw_client_info *pw_client_get_info(struct pw_client *client);
 int pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
 
 /** Update the client permissions */
-int pw_client_update_permissions(struct pw_client *client, const struct spa_dict *dict);
+int pw_client_update_permissions(struct pw_client *client, uint32_t n_permissions,
+		const struct pw_permission *permissions);
 
 /** Get the client properties */
 const struct pw_properties *pw_client_get_properties(struct pw_client *client);
@@ -176,8 +178,6 @@ void pw_client_add_listener(struct pw_client *client,
 /** Mark the client busy. This can be used when an asynchronous operation is
   * started and no further processing is allowed to happen for the client */
 void pw_client_set_busy(struct pw_client *client, bool busy);
-
-void pw_client_set_permissions(struct pw_client *client, uint32_t permissions);
 
 #ifdef __cplusplus
 }

@@ -32,6 +32,7 @@
 #include <pipewire/command.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/type.h>
+#include <pipewire/permission.h>
 
 static const char WHITESPACE[] = " \t";
 
@@ -1164,15 +1165,15 @@ static bool do_port_params(struct data *data, const char *cmd, char *args, char 
 static bool do_permissions(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
-	char *a[2];
+	char *a[3];
         int n;
 	uint32_t id;
 	struct global *global;
-	struct spa_dict_item items[1];
+	struct pw_permission permissions[1];
 
-	n = pw_split_ip(args, WHITESPACE, 2, a);
-	if (n < 2) {
-		asprintf(error, "%s <client-id> <permission>", cmd);
+	n = pw_split_ip(args, WHITESPACE, 3, a);
+	if (n < 3) {
+		asprintf(error, "%s <client-id> <object> <permission>", cmd);
 		return false;
 	}
 
@@ -1191,9 +1192,11 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 			return false;
 	}
 
-	items[0] = SPA_DICT_ITEM_INIT(PW_CORE_PROXY_PERMISSIONS_GLOBAL, a[1]);
+
+	permissions[0] = PW_PERMISSION_INIT(atoi(a[1]), atoi(a[2]));
+
 	pw_client_proxy_update_permissions((struct pw_client_proxy*)global->proxy,
-			&SPA_DICT_INIT(items, 1));
+			1, permissions);
 
 	return true;
 }

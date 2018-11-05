@@ -700,7 +700,7 @@ handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
 {
 	struct pw_proxy *p;
 	struct client *client;
-	struct spa_dict_item items[2];
+	struct pw_permission perms[2];
 	const char *str;
 
 	p = pw_registry_proxy_bind(impl->registry_proxy,
@@ -727,10 +727,9 @@ handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
 		return 0;
 
 	if (strcmp(str, "restricted") == 0) {
-		items[0].key = PW_CORE_PROXY_PERMISSIONS_DEFAULT;
-		items[0].value = "rwx";
+		perms[0] = PW_PERMISSION_INIT(-1, PW_PERM_RWX);
 		pw_client_proxy_update_permissions((struct pw_client_proxy*)p,
-				&SPA_DICT_INIT(items, 1));
+				1, perms);
 	}
 	return 0;
 }

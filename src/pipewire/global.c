@@ -147,17 +147,19 @@ static int global_unregister(struct pw_global *global)
 {
 	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
 	struct pw_core *core = global->core;
-	struct pw_resource *registry;
+	struct pw_resource *resource;
 
 	if (!impl->registered)
 		return 0;
 
-	spa_list_for_each(registry, &core->registry_resource_list, link) {
-		uint32_t permissions = pw_global_get_permissions(global, registry->client);
-		pw_log_debug("registry %p: global %d %08x", registry, global->id, permissions);
+	spa_list_for_each(resource, &core->registry_resource_list, link) {
+		uint32_t permissions = pw_global_get_permissions(global, resource->client);
+		pw_log_debug("registry %p: global %d %08x", resource, global->id, permissions);
 		if (PW_PERM_IS_R(permissions))
-			pw_registry_resource_global_remove(registry, global->id);
+			pw_registry_resource_global_remove(resource, global->id);
 	}
+	spa_list_consume(resource, &global->resource_list, link)
+		pw_resource_destroy(resource);
 
 	spa_list_remove(&global->link);
 	pw_core_events_global_removed(core, global);
@@ -220,17 +222,17 @@ void pw_global_add_listener(struct pw_global *global,
  * \param global the global to bind to
  * \param client the client that binds
  * \param version the version
- * \param id the id
+ * \param id the id of the resource
  *
  * Let \a client bind to \a global with the given version and id.
  * After binding, the client and the global object will be able to
- * exchange messages.
+ * exchange messages on the proxy/resource with \a id.
  *
  * \memberof pw_global
  */
 int
 pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t permissions,
-	       uint32_t version, uint32_t id)
+              uint32_t version, uint32_t id)
 {
 	int res;
 
@@ -241,55 +243,47 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 
 	return 0;
 
-     wrong_version:
+      wrong_version:
 	res = -EINVAL;
 	pw_core_resource_error(client->core_resource, id,
-			     res, "id %d: interface version %d < %d",
-			     id, global->version, version);
+			res, "id %d: interface version %d < %d",
+			id, global->version, version);
 	return res;
 }
 
-int pw_global_grant(struct pw_global *global, struct pw_client *client)
+int pw_global_update_permissions(struct pw_global *global, struct pw_client *client,
+		uint32_t old_permissions, uint32_t new_permissions)
 {
-	struct pw_resource *registry;
 	struct pw_core *core = global->core;
+	struct pw_resource *resource, *t;
 
-	spa_list_for_each(registry, &core->registry_resource_list, link) {
-		uint32_t permissions;
-
-		if (registry->client != client)
+	spa_list_for_each(resource, &core->registry_resource_list, link) {
+		if (resource->client != client)
 			continue;
 
-		permissions = pw_global_get_permissions(global, client);
-
-		pw_log_debug("registry %p: global %d %08x", registry, global->id, permissions);
-		if (PW_PERM_IS_R(permissions))
-			pw_registry_resource_global(registry,
+		if (PW_PERM_IS_R(old_permissions) && !PW_PERM_IS_R(new_permissions)) {
+			pw_registry_resource_global_remove(resource, global->id);
+		}
+		else if (!PW_PERM_IS_R(old_permissions) && PW_PERM_IS_R(new_permissions)) {
+			pw_registry_resource_global(resource,
 						    global->id,
 						    global->parent->id,
-						    permissions,
+						    new_permissions,
 						    global->type,
 						    global->version,
 						    global->properties ?
 						        &global->properties->dict : NULL);
-	}
-	return 0;
-}
-
-int pw_global_revoke(struct pw_global *global, struct pw_client *client)
-{
-	struct pw_resource *registry, *resource, *t;
-	struct pw_core *core = global->core;
-
-	spa_list_for_each(registry, &core->registry_resource_list, link) {
-		if (registry->client != client)
-			continue;
-		pw_registry_resource_global_remove(registry, global->id);
+		}
 	}
 	spa_list_for_each_safe(resource, t, &global->resource_list, link) {
 		if (resource->client != client)
 			continue;
-		pw_resource_destroy(resource);
+
+		/* don't ever destroy the core resource */
+		if (!PW_PERM_IS_R(new_permissions) && global->id != 0)
+			pw_resource_destroy(resource);
+		else
+			resource->permissions = new_permissions;
 	}
 	return 0;
 }

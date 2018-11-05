@@ -384,7 +384,8 @@ socket_data(void *data, int fd, enum spa_io mask)
 	}
 	c = client->user_data;
 
-	pw_loop_update_io(client->protocol->core->main_loop,
+	if (!client->busy)
+		pw_loop_update_io(client->protocol->core->main_loop,
 			  c->source, SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 }
 

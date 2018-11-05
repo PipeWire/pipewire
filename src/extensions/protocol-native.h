@@ -33,9 +33,7 @@ extern "C" {
 
 struct pw_protocol_native_demarshal {
 	int (*func) (void *object, void *data, size_t size);
-
-#define PW_PROTOCOL_NATIVE_PERM_W	(1<<0)
-	uint32_t flags;
+	uint32_t permissions;
 };
 
 /** \ref pw_protocol_native_ext methods */

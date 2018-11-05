@@ -1440,8 +1440,8 @@ static const struct pw_node_proxy_methods pw_protocol_native_node_method_marshal
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_node_method_demarshal[] = {
 	{ &node_demarshal_enum_params, 0, },
-	{ &node_demarshal_set_param, PW_PROTOCOL_NATIVE_PERM_W, },
-	{ &node_demarshal_send_command, PW_PROTOCOL_NATIVE_PERM_W, },
+	{ &node_demarshal_set_param, PW_PERM_W, },
+	{ &node_demarshal_send_command, PW_PERM_W, },
 };
 
 static const struct pw_node_proxy_events pw_protocol_native_node_event_marshal = {
@@ -1506,9 +1506,9 @@ static const struct pw_client_proxy_methods pw_protocol_native_client_method_mar
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_client_method_demarshal[] = {
-	{ &client_demarshal_error, PW_PROTOCOL_NATIVE_PERM_W, },
+	{ &client_demarshal_error, PW_PERM_W, },
 	{ &client_demarshal_get_permissions, 0, },
-	{ &client_demarshal_update_permissions, PW_PROTOCOL_NATIVE_PERM_W, },
+	{ &client_demarshal_update_permissions, PW_PERM_W, },
 };
 
 static const struct pw_client_proxy_events pw_protocol_native_client_event_marshal = {

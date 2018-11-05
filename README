@@ -32,8 +32,4 @@ $ meson build
 $ cd build
 $ ninja
 
-You can see the available meson options in meson_options.txt file. All plugins are
-disabled by default. To enable a spa plugin you need to enable spa-plugins and the
-plugin name meson option.
-
-$ meson build -Dspa-plugins=true -D<plugin-name>=true
+You can see the available meson options in meson_options.txt file.

@@ -98,7 +98,8 @@ struct pw_properties *pw_properties_new(const char *key, ...)
 	va_start(varargs, key);
 	while (key != NULL) {
 		value = va_arg(varargs, char *);
-		add_func(&impl->this, strdup(key), value ? strdup(value) : NULL);
+		if (value)
+			add_func(&impl->this, strdup(key), strdup(value));
 		key = va_arg(varargs, char *);
 	}
 	va_end(varargs);
@@ -123,9 +124,9 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 		return NULL;
 
 	for (i = 0; i < dict->n_items; i++) {
-		if (dict->items[i].key != NULL)
+		if (dict->items[i].key != NULL && dict->items[i].value != NULL)
 			add_func(&impl->this, strdup(dict->items[i].key),
-				 dict->items[i].value ? strdup(dict->items[i].value) : NULL);
+				 strdup(dict->items[i].value));
 	}
 
 	return &impl->this;
@@ -186,7 +187,7 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
 		return NULL;
 
 	pw_array_for_each(item, &impl->items)
-	    add_func(copy, strdup(item->key), item->value ? strdup(item->value) : NULL);
+		add_func(copy, strdup(item->key), strdup(item->value));
 
 	return copy;
 }
@@ -241,37 +242,45 @@ void pw_properties_free(struct pw_properties *properties)
 	struct spa_dict_item *item;
 
 	pw_array_for_each(item, &impl->items)
-	    clear_item(item);
+		clear_item(item);
 
 	pw_array_clear(&impl->items);
 	free(impl);
 }
 
-static int do_replace(struct pw_properties *properties, const char *key, char *value)
+static int do_replace(struct pw_properties *properties, const char *key, char *value, bool copy)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
 	int index = find_index(properties, key);
 
 	if (index == -1) {
-		add_func(properties, strdup(key), value);
+		if (value == NULL)
+			return 0;
+		add_func(properties, strdup(key), copy ? strdup(value) : value);
 	} else {
 		struct spa_dict_item *item =
 		    pw_array_get_unchecked(&impl->items, index, struct spa_dict_item);
 
-		clear_item(item);
+		if (value && strcmp(item->value, value) == 0) {
+			if (!copy)
+				free(value);
+			return 0;
+		}
+
 		if (value == NULL) {
 			struct spa_dict_item *other = pw_array_get_unchecked(&impl->items,
 						     pw_array_get_len(&impl->items, struct spa_dict_item) - 1,
 						     struct spa_dict_item);
+			clear_item(item);
 			item->key = other->key;
 			item->value = other->value;
 			impl->items.size -= sizeof(struct spa_dict_item);
 		} else {
-			item->key = strdup(key);
-			item->value = value;
+			free((char *) item->value);
+			item->value = copy ? strdup(value) : value;
 		}
 	}
-	return 0;
+	return 1;
 }
 
 /** Set a property value
@@ -279,6 +288,9 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
  * \param properties the properties to change
  * \param key a key
  * \param value a value or NULL to remove the key
+ * \return 1 if the properties were changed. 0 if nothing was changed because
+ *  the property already existed with the same value or because the key to remove
+ *  did not exist.
  *
  * Set the property in \a properties with \a key to \a value. Any previous value
  * of \a key will be overwritten. When \a value is NULL, the key will be
@@ -288,7 +300,16 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
  */
 int pw_properties_set(struct pw_properties *properties, const char *key, const char *value)
 {
-	return do_replace(properties, key, value ? strdup(value) : NULL);
+	return do_replace(properties, key, (char*)value, true);
+}
+
+int
+pw_properties_setva(struct pw_properties *properties,
+		const char *key, const char *format, va_list args)
+{
+	char *value;
+	vasprintf(&value, format, args);
+	return do_replace(properties, key, value, false);
 }
 
 /** Set a property value by format
@@ -297,6 +318,8 @@ int pw_properties_set(struct pw_properties *properties, const char *key, const c
  * \param key a key
  * \param format a value
  * \param ... extra arguments
+ * \return 1 if the properties were changed. 0 if nothing was changed because
+ *  the property already existed with the same value.
  *
  * Set the property in \a properties with \a key to the value in printf style \a format
  * Any previous value of \a key will be overwritten.
@@ -305,14 +328,14 @@ int pw_properties_set(struct pw_properties *properties, const char *key, const c
  */
 int pw_properties_setf(struct pw_properties *properties, const char *key, const char *format, ...)
 {
+	int res;
 	va_list varargs;
-	char *value;
 
 	va_start(varargs, format);
-	vasprintf(&value, format, varargs);
+	res = pw_properties_setva(properties, key, format, varargs);
 	va_end(varargs);
 
-	return do_replace(properties, key, value);
+	return res;
 }
 
 /** Get a property

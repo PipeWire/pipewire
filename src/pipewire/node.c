@@ -477,15 +477,19 @@ const struct pw_properties *pw_node_get_properties(struct pw_node *node)
 int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
-	uint32_t i;
+	uint32_t i, changed = 0;
 
 	for (i = 0; i < dict->n_items; i++)
-		pw_properties_set(node->properties, dict->items[i].key, dict->items[i].value);
+		changed += pw_properties_set(node->properties, dict->items[i].key, dict->items[i].value);
+
+	pw_log_debug("node %p: updated %d properties", node, changed);
+
+	if (!changed)
+		return 0;
 
 	check_properties(node);
 
 	node->info.props = &node->properties->dict;
-
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_PROPS;
 	pw_node_events_info_changed(node, &node->info);
 
@@ -494,7 +498,7 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 
 	node->info.change_mask = 0;
 
-	return 0;
+	return changed;
 }
 
 static void node_done(void *data, int seq, int res)

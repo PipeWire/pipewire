@@ -196,7 +196,7 @@ struct pw_client *pw_client_new(struct pw_core *core,
 
 	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
 
-	this->info.props = this->properties ? &this->properties->dict : NULL;
+	this->info.props = &this->properties->dict;
 
 	return this;
 }
@@ -323,8 +323,7 @@ void pw_client_destroy(struct pw_client *client)
 	pw_map_clear(&client->types);
 	pw_array_clear(&impl->permissions);
 
-	if (client->properties)
-		pw_properties_free(client->properties);
+	pw_properties_free(client->properties);
 
 	free(impl);
 }
@@ -356,21 +355,19 @@ const struct pw_client_info *pw_client_get_info(struct pw_client *client)
 int pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
+	uint32_t i, changed = 0;
 
-	if (client->properties == NULL) {
-		if (dict)
-			client->properties = pw_properties_new_dict(dict);
-	} else {
-		uint32_t i;
+	for (i = 0; i < dict->n_items; i++)
+		changed += pw_properties_set(client->properties,
+				  dict->items[i].key, dict->items[i].value);
 
-		for (i = 0; i < dict->n_items; i++)
-			pw_properties_set(client->properties,
-					  dict->items[i].key, dict->items[i].value);
-	}
+	pw_log_debug("client %p: updated %d properties", client, changed);
+
+	if (!changed)
+		return 0;
 
 	client->info.change_mask |= PW_CLIENT_CHANGE_MASK_PROPS;
-	client->info.props = client->properties ? &client->properties->dict : NULL;
-
+	client->info.props = &client->properties->dict;
 	pw_client_events_info_changed(client, &client->info);
 
 	spa_list_for_each(resource, &client->resource_list, link)
@@ -378,7 +375,7 @@ int pw_client_update_properties(struct pw_client *client, const struct spa_dict 
 
 	client->info.change_mask = 0;
 
-	return 0;
+	return changed;
 }
 
 struct permissions_update {

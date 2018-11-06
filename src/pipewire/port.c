@@ -247,13 +247,17 @@ const struct pw_properties *pw_port_get_properties(struct pw_port *port)
 int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
-	uint32_t i;
+	uint32_t i, changed = 0;
 
 	for (i = 0; i < dict->n_items; i++)
-		pw_properties_set(port->properties, dict->items[i].key, dict->items[i].value);
+		changed += pw_properties_set(port->properties, dict->items[i].key, dict->items[i].value);
+
+	pw_log_debug("port %p: updated %d properties", port, changed);
+
+	if (!changed)
+		return 0;
 
 	port->info.props = &port->properties->dict;
-
 	port->info.change_mask |= PW_PORT_CHANGE_MASK_PROPS;
 	pw_port_events_info_changed(port, &port->info);
 
@@ -262,7 +266,7 @@ int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 
 	port->info.change_mask = 0;
 
-	return 0;
+	return changed;
 }
 
 struct pw_node *pw_port_get_node(struct pw_port *port)

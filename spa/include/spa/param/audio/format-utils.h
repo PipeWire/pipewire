@@ -52,6 +52,9 @@ spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_r
 		uint32_t n_values = SPA_MIN(SPA_POD_ARRAY_N_VALUES(position), SPA_AUDIO_MAX_CHANNELS);
 		memcpy(info->position, values, n_values * sizeof(uint32_t));
 	}
+	else
+		SPA_FLAG_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+
 	return res;
 }
 
@@ -67,9 +70,10 @@ spa_format_audio_raw_build(struct spa_pod_builder *builder, uint32_t id, struct 
                         SPA_FORMAT_AUDIO_channels,	&SPA_POD_Int(info->channels),
 			0);
 
-	if (info->channels > 1) {
+	if (!SPA_FLAG_CHECK(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
 		spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
-		spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id, info->channels, info->position);
+		spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id,
+				info->channels, info->position);
 	}
 	return spa_pod_builder_pop(builder);
 }

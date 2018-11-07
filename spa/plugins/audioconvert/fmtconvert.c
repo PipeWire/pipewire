@@ -354,9 +354,11 @@ static int port_enum_formats(struct spa_node *node,
 				SPA_FORMAT_AUDIO_rate,     &SPA_POD_Int(other->info.raw.rate),
 				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(other->info.raw.channels),
 				0);
-			spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
-	                spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id,
-					info.info.raw.channels, info.info.raw.position);
+			if (!SPA_FLAG_CHECK(other->info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
+				spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
+		                spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id,
+						info.info.raw.channels, info.info.raw.position);
+			}
 			*param = spa_pod_builder_pop(builder);
 		} else {
 			*param = spa_pod_builder_object(builder,

@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <regex.h>
+#include <math.h>
 
 #include <jack/jack.h>
 #include <jack/session.h>
@@ -1857,8 +1858,7 @@ int jack_get_client_pid (const char *name)
 
 jack_native_thread_t jack_client_thread_id (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
-	return -ENOTSUP;
+	return pthread_self();
 }
 
 int jack_is_realtime (jack_client_t *client)
@@ -2815,14 +2815,22 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 
 jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 {
-	pw_log_warn("not implemented");
-	return 0;
+	struct client *c = (struct client *) client;
+	struct timespec ts;
+	jack_nframes_t res;
+	uint64_t diff;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	diff = SPA_TIMESPEC_TO_NSEC(&ts) - c->position->clock.nsec;
+	res = (jack_nframes_t) floor(((float)c->sample_rate * diff) / 1000000000.0f);
+	return res;
 }
 
 jack_nframes_t jack_frame_time (const jack_client_t *client)
 {
-	struct client *c = (struct client *) client;
-	return c->jack_position.frame;
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return jack_time_to_frames(client, SPA_TIMESPEC_TO_USEC(&ts));
 }
 
 jack_nframes_t jack_last_frame_time (const jack_client_t *client)
@@ -2837,26 +2845,36 @@ int jack_get_cycle_times(const jack_client_t *client,
                         jack_time_t    *next_usecs,
                         float          *period_usecs)
 {
-	pw_log_warn("not implemented");
-	return -ENOTSUP;
+	struct client *c = (struct client *) client;
+
+	*current_frames = c->jack_position.frame;
+	*current_usecs = c->jack_position.usecs;
+	*period_usecs = (float)c->buffer_size / c->sample_rate;
+	*next_usecs = c->jack_position.usecs + (*period_usecs * 1000000.0f);
+	pw_log_trace("client %p: %d %ld %ld %f", c, *current_frames,
+			*current_usecs, *next_usecs, *period_usecs);
+	return 0;
 }
 
 jack_time_t jack_frames_to_time(const jack_client_t *client, jack_nframes_t frames)
 {
-	pw_log_warn("not implemented");
-	return 0;
+	struct client *c = (struct client *) client;
+        int32_t df = frames - c->jack_position.frame;
+        return c->jack_position.usecs + (int64_t)rint((double) df / c->sample_rate);
 }
 
 jack_nframes_t jack_time_to_frames(const jack_client_t *client, jack_time_t usecs)
 {
-	pw_log_warn("not implemented");
-	return 0;
+	struct client *c = (struct client *) client;
+	int64_t du = usecs - c->jack_position.usecs;
+        return c->jack_position.frame + (int32_t)rint((double)du * c->sample_rate);
 }
 
 jack_time_t jack_get_time()
 {
-	pw_log_warn("not implemented");
-	return 0;
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return SPA_TIMESPEC_TO_USEC(&ts);
 }
 
 void jack_set_error_function (void (*func)(const char *))

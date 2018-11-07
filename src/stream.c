@@ -1515,10 +1515,10 @@ int pa_stream_get_time(pa_stream *s, pa_usec_t *r_usec)
 	PA_CHECK_VALIDITY(s->context, s->timing_info_valid, PA_ERR_NODATA);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	now = SPA_TIMESPEC_TO_TIME(&ts);
+	now = SPA_TIMESPEC_TO_USEC(&ts);
 
 	i = &s->timing_info;
-	delay = (now - SPA_TIMEVAL_TO_TIME(&i->timestamp)) / SPA_NSEC_PER_USEC;
+	delay = now - SPA_TIMEVAL_TO_USEC(&i->timestamp);
 	read_time = pa_bytes_to_usec((uint64_t) i->read_index, &s->sample_spec);
 
 	res = delay + read_time;

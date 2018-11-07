@@ -118,25 +118,26 @@ struct impl {
 #define _MASK(ch)	(1ULL << SPA_AUDIO_CHANNEL_ ## ch)
 #define STEREO	(_MASK(FL)|_MASK(FR))
 
-#define FL		0
-#define FR		1
-#define FC		2
-#define LFE		3
-#define SL		4
-#define SR		5
-#define FLC		6
-#define FRC		7
-#define RC		8
-#define RL		9
-#define RR		10
-#define TC		11
-#define TFL		12
-#define TFC		13
-#define TFR		14
-#define TRL		15
-#define TRC		16
-#define TRR		17
-#define NUM_CHAN	18
+#define M		0
+#define FL		1
+#define FR		2
+#define FC		3
+#define LFE		4
+#define SL		5
+#define SR		6
+#define FLC		7
+#define FRC		8
+#define RC		9
+#define RL		10
+#define RR		11
+#define TC		12
+#define TFL		13
+#define TFC		14
+#define TFR		15
+#define TRL		16
+#define TRC		17
+#define TRR		18
+#define NUM_CHAN	19
 
 #define SQRT3_2      1.22474487139158904909  /* sqrt(3/2) */
 
@@ -182,7 +183,7 @@ static int make_matrix(struct impl *this,
 		uint32_t dst_chan, uint64_t dst_mask)
 {
 	float matrix[NUM_CHAN][NUM_CHAN] = {{ 0 }};
-	uint64_t missing;
+	uint64_t unassigned;
 	int i, j, matrix_encoding = MATRIX_NORMAL, c;
 	float clev = M_SQRT1_2;
 	float slev = M_SQRT1_2;
@@ -190,15 +191,15 @@ static int make_matrix(struct impl *this,
 	float max = 0.0f;
 
 	for (i = 0; i < NUM_CHAN; i++) {
-		if (src_mask & dst_mask & (1ULL << (i + 3)))
+		if (src_mask & dst_mask & (1ULL << (i + 2)))
 			matrix[i][i]= 1.0;
 	}
 
-	missing = src_mask & ~dst_mask;
+	unassigned = src_mask & ~dst_mask;
 
-	spa_log_debug(this->log, "missing %08lx", missing);
+	spa_log_debug(this->log, "unassigned %08lx", unassigned);
 
-	if (missing & _MASK(FC)){
+	if (unassigned & _MASK(FC)){
 		if ((dst_mask & STEREO) == STEREO){
 			if(src_mask & STEREO) {
 				matrix[FL][FC] += clev;
@@ -211,8 +212,12 @@ static int make_matrix(struct impl *this,
 			return -ENOTSUP;
 	}
 
-	if (missing & STEREO){
-		if (dst_mask & _MASK(FC)) {
+	if (unassigned & STEREO){
+		if (dst_mask & _MASK(MONO)) {
+			matrix[M][FL] += 0.5;
+			matrix[M][FR] += 0.5;
+		}
+		else if (dst_mask & _MASK(FC)) {
 			matrix[FC][FL] += M_SQRT1_2;
 			matrix[FC][FR] += M_SQRT1_2;
 			if (src_mask & _MASK(FC))
@@ -221,7 +226,7 @@ static int make_matrix(struct impl *this,
 			return -ENOTSUP;
 	}
 
-	if (missing & _MASK(RC)) {
+	if (unassigned & _MASK(RC)) {
 		if (dst_mask & _MASK(RL)){
 			matrix[RL][RC] += M_SQRT1_2;
 			matrix[RR][RC] += M_SQRT1_2;
@@ -231,7 +236,7 @@ static int make_matrix(struct impl *this,
 		} else if(dst_mask & _MASK(FL)) {
 			if (matrix_encoding == MATRIX_DOLBY ||
 			    matrix_encoding == MATRIX_DPLII) {
-				if (missing & (_MASK(RL)|_MASK(RR))) {
+				if (unassigned & (_MASK(RL)|_MASK(RR))) {
 					matrix[FL][RC] -= slev * M_SQRT1_2;
 					matrix[FR][RC] += slev * M_SQRT1_2;
 		                } else {
@@ -248,7 +253,7 @@ static int make_matrix(struct impl *this,
 			return -ENOTSUP;
 	}
 
-	if (missing & _MASK(RL)) {
+	if (unassigned & _MASK(RL)) {
 		if (dst_mask & _MASK(RC)) {
 			matrix[RC][RL] += M_SQRT1_2;
 			matrix[RC][RR] += M_SQRT1_2;
@@ -282,7 +287,7 @@ static int make_matrix(struct impl *this,
 			return -ENOTSUP;
 	}
 
-	if (missing & _MASK(SL)) {
+	if (unassigned & _MASK(SL)) {
 		if (dst_mask & _MASK(RL)) {
 			if (src_mask & _MASK(RL)) {
 				matrix[RL][SL] += M_SQRT1_2;
@@ -316,7 +321,7 @@ static int make_matrix(struct impl *this,
 			return -ENOTSUP;
 	}
 
-	if (missing & _MASK(FLC)) {
+	if (unassigned & _MASK(FLC)) {
 		if (dst_mask & _MASK(FL)) {
 			matrix[FC][FLC]+= 1.0;
 			matrix[FC][FRC]+= 1.0;
@@ -326,7 +331,7 @@ static int make_matrix(struct impl *this,
 		} else
 			return -ENOTSUP;
 	}
-	if (missing & _MASK(LFE)) {
+	if (unassigned & _MASK(LFE)) {
 		if (dst_mask & _MASK(FC)) {
 			matrix[FC][LFE] += llev;
 		} else if (dst_mask & _MASK(FL)) {
@@ -339,10 +344,10 @@ static int make_matrix(struct impl *this,
 	c = 0;
 	for (i = 0; i < NUM_CHAN; i++) {
 		float sum = 0.0;
-		if ((dst_mask & (1UL << (i + 3))) == 0)
+		if ((dst_mask & (1UL << (i + 2))) == 0)
 			continue;
 		for (j = 0; j < NUM_CHAN; j++) {
-			if ((src_mask & (1UL << (j + 3))) == 0)
+			if ((src_mask & (1UL << (j + 2))) == 0)
 				continue;
 			this->matrix[c++] = matrix[i][j];
 			sum += fabs(matrix[i][j]);

@@ -266,7 +266,8 @@ static int negotiate_formats(struct data *data)
 			&SPA_AUDIO_INFO_RAW_INIT(
 				.format = SPA_AUDIO_FORMAT_S16,
 				.rate = 44100,
-				.channels = 2 ));
+				.channels = 2,
+				.position = { SPA_AUDIO_CHANNEL_FL, SPA_AUDIO_CHANNEL_FR, }));
 
 	if ((res = negotiate_link_format(data, &data->links[0], format)) < 0)
 		return res;
@@ -276,7 +277,8 @@ static int negotiate_formats(struct data *data)
 			&SPA_AUDIO_INFO_RAW_INIT(
 				.format = SPA_AUDIO_FORMAT_S16P,
 				.rate = 48000,
-				.channels = 1 ));
+				.channels = 1,
+				.position = { SPA_AUDIO_CHANNEL_MONO, }));
 
 	if ((res = negotiate_link_format(data, &data->links[4], format)) < 0)
 		return res;

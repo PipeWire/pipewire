@@ -926,8 +926,8 @@ static int process_control(struct impl *this, struct spa_pod_sequence *sequence)
 		{
 			struct props *p = &this->props;
 			spa_pod_object_parse(&c->value,
-				":", SPA_PROP_frequency, "?d", &p->freq,
-				":", SPA_PROP_volume,    "?d", &p->volume,
+				":", SPA_PROP_frequency, "?f", &p->freq,
+				":", SPA_PROP_volume,    "?f", &p->volume,
 				NULL);
 			break;
 		}

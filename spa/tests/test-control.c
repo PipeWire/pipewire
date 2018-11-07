@@ -209,10 +209,10 @@ static void update_props(struct data *data)
 	spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
 	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, 0);
 	spa_pod_builder_push_prop(&b, SPA_PROP_frequency, 0);
-	spa_pod_builder_double(&b, ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0);
+	spa_pod_builder_float(&b, ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0);
 	spa_pod_builder_pop(&b);
 	spa_pod_builder_push_prop(&b, SPA_PROP_volume, 0);
-	spa_pod_builder_double(&b, (sin(data->volume_accum) / 2.0) + 0.5);
+	spa_pod_builder_float(&b, (sin(data->volume_accum) / 2.0) + 0.5);
 	spa_pod_builder_pop(&b);
 	spa_pod_builder_pop(&b);
 	pod = spa_pod_builder_pop(&b);

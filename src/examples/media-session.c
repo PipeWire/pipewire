@@ -538,7 +538,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		if ((str = spa_dict_lookup(props, "node.plugged")) != NULL)
 			sess->plugged = pw_properties_parse_uint64(str);
 		else
-			sess->plugged = SPA_TIMESPEC_TO_TIME(&impl->now);
+			sess->plugged = SPA_TIMESPEC_TO_NSEC(&impl->now);
 
 		spa_list_init(&sess->node_list);
 		spa_list_append(&impl->session_list, &sess->l);

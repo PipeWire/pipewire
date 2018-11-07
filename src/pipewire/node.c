@@ -810,7 +810,7 @@ static void node_process(void *data, int status)
 
 		if (!node->rt.clock) {
 			clock_gettime(CLOCK_MONOTONIC, &ts);
-			q->clock.nsec = SPA_TIMESPEC_TO_TIME(&ts);
+			q->clock.nsec = SPA_TIMESPEC_TO_NSEC(&ts);
 			q->clock.position = impl->next_position;
 			q->clock.delay = 0;
 		}

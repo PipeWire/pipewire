@@ -465,7 +465,7 @@ static void run_graph(struct data *data)
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
-	start = SPA_TIMESPEC_TO_TIME(&now);
+	start = SPA_TIMESPEC_TO_NSEC(&now);
 
 	printf("running\n");
 
@@ -487,7 +487,7 @@ static void run_graph(struct data *data)
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
-	stop = SPA_TIMESPEC_TO_TIME(&now);
+	stop = SPA_TIMESPEC_TO_NSEC(&now);
 
 	printf("stopping, elapsed %" PRIi64 "\n", stop - start);
 

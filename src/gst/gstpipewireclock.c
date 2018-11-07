@@ -62,7 +62,7 @@ gst_pipewire_clock_get_internal_time (GstClock * clock)
 
   result = gst_util_uint64_scale_int (t.ticks, GST_SECOND * t.rate.num, t.rate.denom);
   clock_gettime(CLOCK_MONOTONIC, &ts);
-  result += SPA_TIMESPEC_TO_TIME(&ts) - t.now;
+  result += SPA_TIMESPEC_TO_NSEC(&ts) - t.now;
 
   GST_DEBUG ("%"PRId64", %d/%d %"PRId64" %"PRId64,
 		  t.ticks, t.rate.num, t.rate.denom, t.now, result);

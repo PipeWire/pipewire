@@ -643,7 +643,7 @@ push_frames(struct state *state,
 
 		if (b->h) {
 			b->h->seq = state->sample_count;
-			b->h->pts = SPA_TIMESPEC_TO_TIME(&state->now);
+			b->h->pts = SPA_TIMESPEC_TO_NSEC(&state->now);
 			b->h->dts_offset = 0;
 		}
 
@@ -716,7 +716,7 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	state->filled = state->buffer_frames - avail;
 
 	if (state->clock) {
-		state->clock->nsec = SPA_TIMESPEC_TO_TIME(&state->now);
+		state->clock->nsec = SPA_TIMESPEC_TO_NSEC(&state->now);
 		state->clock->rate = SPA_FRACTION(1, state->rate);
 		state->clock->position = state->sample_count;
 		state->clock->delay = state->filled;
@@ -789,10 +789,10 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 
 	avail = snd_pcm_status_get_avail(status);
 	snd_pcm_status_get_htstamp(status, &state->now);
-	clock_gettime(CLOCK_MONOTONIC, &now);
+	clock_gettime(CLOCK_MONOTONIC, &state->now);
 
 	if (state->clock) {
-		state->clock->nsec = SPA_TIMESPEC_TO_TIME(&state->now);
+		state->clock->nsec = SPA_TIMESPEC_TO_NSEC(&state->now);
 		state->clock->rate = SPA_FRACTION(1, state->rate);
 		state->clock->position = state->sample_count;
 		state->clock->delay = avail;

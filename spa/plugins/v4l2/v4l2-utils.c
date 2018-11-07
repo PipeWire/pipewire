@@ -1157,7 +1157,7 @@ static int mmap_read(struct impl *this)
 	if (xioctl(port->fd, VIDIOC_DQBUF, &buf) < 0)
 		return -errno;
 
-	pts = SPA_TIMEVAL_TO_TIME(&buf.timestamp);
+	pts = SPA_TIMEVAL_TO_NSEC(&buf.timestamp);
 
 	if (this->clock) {
 		this->clock->nsec = pts;

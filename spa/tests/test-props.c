@@ -333,7 +333,7 @@ int main(int argc, char *argv[])
 	fmt = spa_pod_builder_pop(&b);
 	}
 	clock_gettime(CLOCK_MONOTONIC, &ts2);
-	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_TIME(&ts2) - SPA_TIMESPEC_TO_TIME(&ts1));
+	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_NSEC(&ts2) - SPA_TIMESPEC_TO_NSEC(&ts1));
 
 	spa_debug_pod(0, NULL, &fmt->pod);
 	fprintf(stderr, "build 2: ");
@@ -356,7 +356,7 @@ int main(int argc, char *argv[])
 							   &SPA_FRACTION(INT32_MAX,1));
 	}
 	clock_gettime(CLOCK_MONOTONIC, &ts2);
-	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_TIME(&ts2) - SPA_TIMESPEC_TO_TIME(&ts1));
+	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_NSEC(&ts2) - SPA_TIMESPEC_TO_NSEC(&ts1));
 
 	spa_debug_pod(0, NULL, &fmt->pod);
 	spa_debug_format(0, NULL, &fmt->pod);
@@ -385,7 +385,7 @@ int main(int argc, char *argv[])
 		"}", NULL);
 	}
 	clock_gettime(CLOCK_MONOTONIC, &ts2);
-	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_TIME(&ts2) - SPA_TIMESPEC_TO_TIME(&ts1));
+	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_NSEC(&ts2) - SPA_TIMESPEC_TO_NSEC(&ts1));
 
 	spa_debug_pod(0, NULL, &fmt->pod);
 	spa_debug_format(0, NULL, &fmt->pod);
@@ -417,7 +417,7 @@ int main(int argc, char *argv[])
 	fmt = spa_pod_builder_pop(&b);
 	}
 	clock_gettime(CLOCK_MONOTONIC, &ts2);
-	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_TIME(&ts2) - SPA_TIMESPEC_TO_TIME(&ts1));
+	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_NSEC(&ts2) - SPA_TIMESPEC_TO_NSEC(&ts1));
 
 	spa_debug_pod(0, NULL, &fmt->pod);
 	spa_debug_format(0, NULL, &fmt->pod);
@@ -445,7 +445,7 @@ int main(int argc, char *argv[])
 			0);
 	}
 	clock_gettime(CLOCK_MONOTONIC, &ts2);
-	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_TIME(&ts2) - SPA_TIMESPEC_TO_TIME(&ts1));
+	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_NSEC(&ts2) - SPA_TIMESPEC_TO_NSEC(&ts1));
 
 	spa_debug_pod(0, NULL, &fmt->pod);
 	spa_debug_format(0, NULL, &fmt->pod);
@@ -472,7 +472,7 @@ int main(int argc, char *argv[])
 	fmt = spa_pod_builder_pop(&b);
 	}
 	clock_gettime(CLOCK_MONOTONIC, &ts2);
-	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_TIME(&ts2) - SPA_TIMESPEC_TO_TIME(&ts1));
+	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_NSEC(&ts2) - SPA_TIMESPEC_TO_NSEC(&ts1));
 
 	spa_debug_pod(0, NULL, &fmt->pod);
 	spa_debug_format(0, NULL, &fmt->pod);

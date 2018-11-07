@@ -91,7 +91,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 #if 0
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC, &now);
-		h->pts = SPA_TIMESPEC_TO_TIME(&now);
+		h->pts = SPA_TIMESPEC_TO_NSEC(&now);
 #else
 		h->pts = -1;
 #endif

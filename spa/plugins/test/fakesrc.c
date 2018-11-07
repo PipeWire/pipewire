@@ -311,7 +311,7 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 		clock_gettime(CLOCK_MONOTONIC, &now);
 		if (this->props.live)
-			this->start_time = SPA_TIMESPEC_TO_TIME(&now);
+			this->start_time = SPA_TIMESPEC_TO_NSEC(&now);
 		else
 			this->start_time = 0;
 		this->buffer_count = 0;

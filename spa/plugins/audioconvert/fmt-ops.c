@@ -46,6 +46,29 @@
 #define S32_MAX		2147483647
 #define S32_SCALE	2147483647
 
+union s24_data {
+	struct {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+		uint16_t lo;
+		int16_t hi;
+#else
+		int16_t hi;
+		uint16_t lo;
+#endif
+	} s24;
+	int32_t value;
+};
+
+static inline int32_t read_s24(const void *src)
+{
+	union s24_data d;
+	const uint8_t *s = src;
+	d.s24.hi = ((int8_t*)s)[2];
+	d.s24.lo = *((uint16_t*)s);
+	return d.value;
+}
+#define READ24(s) read_s24(s)
+
 #if defined (__SSE__)
 #include "fmt-ops-sse.c"
 #endif
@@ -192,13 +215,8 @@ conv_s32d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 	}
 }
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#define READ24(s) (((uint32_t)s[2] << 16) | ((uint32_t)s[1] << 8) | ((uint32_t)s[0]))
-#else
-#define READ24(s) (((uint32_t)s[0] << 16) | ((uint32_t)s[1] << 8) | ((uint32_t)s[2]))
-#endif
 
-#define S24_TO_F32(v)	((((int32_t)v)<<8) * (1.0f / S32_SCALE))
+#define S24_TO_F32(v)	(((int32_t)(v)) * (1.0f / S24_SCALE))
 
 static void
 conv_s24_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
@@ -711,6 +729,9 @@ static const struct conv_info {
 
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32, 0, conv_s24_to_f32 },
 	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_F32P, 0, conv_s24_to_f32 },
+#if defined (__SSE2__)
+	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE, conv_s24_to_f32d_sse },
+#endif
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, 0, conv_s24_to_f32d },
 	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_F32, 0, conv_s24d_to_f32 },
 

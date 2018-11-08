@@ -106,6 +106,49 @@ conv_s16_to_f32d_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const v
 }
 
 static void
+conv_s24_to_f32d_1_sse(void *data, int n_dst, void *dst[n_dst], const void *src, int n_bytes)
+{
+	const uint8_t *s = src;
+	float **d = (float **) dst;
+	float *d0 = d[0];
+	int n, n_samples, unrolled;
+	__m128i in;
+	__m128 out, factor = _mm_set1_ps(1.0f / S24_SCALE);
+
+	n_samples = n_bytes / (3 * n_dst);
+
+	unrolled = n_samples / 4;
+	n_samples = n_samples & 3;
+
+	for(n = 0; unrolled--; n += 4) {
+		in = _mm_set_epi32(READ24(&s[9*n_dst]),
+				   READ24(&s[6*n_dst]),
+				   READ24(&s[3*n_dst]),
+				   READ24(s));
+		out = _mm_cvtepi32_ps(in);
+		out = _mm_mul_ps(out, factor);
+		_mm_storeu_ps(&d0[n], out);
+		s += 12 * n_dst;
+	}
+	for(; n_samples--; n++) {
+		out = _mm_cvtsi32_ss(out, READ24(s));
+		out = _mm_mul_ss(out, factor);
+		_mm_store_ss(&d0[n], out);
+		s += 3 * n_dst;
+	}
+}
+
+static void
+conv_s24_to_f32d_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
+{
+	const int8_t *s = src[0];
+	int i = 0;
+
+	for(; i < n_dst; i++)
+		conv_s24_to_f32d_1_sse(data, n_dst, &dst[i], &s[3*i], n_bytes);
+}
+
+static void
 conv_f32d_to_s32_1_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_bytes)
 {
 	const float **s = (const float **) src;

@@ -58,33 +58,19 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	struct pw_buffer *b;
 	struct spa_buffer *buf;
 	int i, j;
-	uint8_t *p, *map;
+	uint8_t *p;
 	struct spa_meta_header *h;
 	struct spa_meta *m;
 
 	pw_log_trace("timeout");
 
-	b = pw_stream_dequeue_buffer(data->stream);
-	if (b == NULL) {
+	if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL) {
 		pw_log_warn("out of buffers");
 		return;
 	}
-	buf = b->buffer;
 
-	if (buf->datas[0].type == SPA_DATA_MemFd ||
-	    buf->datas[0].type == SPA_DATA_DmaBuf) {
-		map =
-		    mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset,
-			 PROT_READ | PROT_WRITE, MAP_SHARED, buf->datas[0].fd, 0);
-		if (map == MAP_FAILED) {
-			printf("failed to mmap: %s\n", strerror(errno));
-			return;
-		}
-		p = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);
-	} else if (buf->datas[0].type == SPA_DATA_MemPtr) {
-		map = NULL;
-		p = buf->datas[0].data;
-	} else
+	buf = b->buffer;
+	if ((p = buf->datas[0].data) == NULL)
 		return;
 
 	if ((h = spa_buffer_find_meta_data(buf, SPA_META_Header, sizeof(*h)))) {
@@ -118,9 +104,6 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		p += buf->datas[0].chunk->stride;
 		data->counter += 13;
 	}
-
-	if (map)
-		munmap(map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
 
 	buf->datas[0].chunk->size = buf->datas[0].maxsize;
 
@@ -262,7 +245,9 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 		pw_stream_connect(data->stream,
 				  PW_DIRECTION_OUTPUT,
-				  SPA_ID_INVALID, PW_STREAM_FLAG_DRIVER,
+				  SPA_ID_INVALID,
+				  PW_STREAM_FLAG_DRIVER |
+				  PW_STREAM_FLAG_MAP_BUFFERS,
 				  params, 1);
 		break;
 	}

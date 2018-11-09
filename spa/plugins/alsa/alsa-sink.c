@@ -557,8 +557,6 @@ impl_node_port_use_buffers(struct spa_node *node,
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return -EINVAL;
 		}
-		this->threshold = SPA_MIN(d[0].maxsize / this->frame_size,
-				this->props.max_latency);
 	}
 	this->n_buffers = n_buffers;
 
@@ -658,9 +656,6 @@ static int impl_node_process(struct spa_node *node)
 		spa_log_trace(this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
 		spa_list_append(&this->ready, &b->link);
 		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
-
-		this->threshold = SPA_MIN(b->buf->datas[0].chunk->size / this->frame_size,
-				this->props.max_latency);
 
 		spa_alsa_write(this, 0);
 

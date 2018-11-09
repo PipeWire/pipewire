@@ -71,14 +71,17 @@ struct spa_io_range {
 	uint32_t max_size;	/**< maximum size of data */
 };
 
-/** A time source */
+/** A time source. Nodes that can report clocking information will
+ * receive this. The application sets the id. */
 struct spa_io_clock {
+	uint32_t id;			/**< unique clock id, set by application */
+	uint32_t flags;			/**< clock flags */
 	uint64_t nsec;			/**< time in nanoseconds */
 	struct spa_fraction rate;	/**< rate for position/delay */
 	uint64_t position;		/**< current position */
-	uint64_t delay;			/**< delay between position and hardware,
-					     add to position for capture,
-					     subtract for playback */
+	int64_t delay;			/**< delay between position and hardware,
+					  *  positive for capture, negative for playback */
+	double rate_diff;		/**< rate difference between clock and monotonic time */
 };
 
 /** latency reporting */

@@ -324,13 +324,13 @@ struct pw_time {
 	int64_t now;			/**< the monotonic time */
 	struct spa_fraction rate;	/**< the rate of \a ticks and delay */
 	uint64_t ticks;			/**< the ticks at \a now. This is the current time that
-					     the remote end is reading/writing. */
-	uint64_t delay;			/**< delay to device, add to ticks for INPUT streams and
-					     subtract from ticks for OUTPUT streams to get the
-					     time of the device. */
+					  *  the remote end is reading/writing. */
+	int64_t delay;			/**< delay to device, add to ticks to get the time of the
+					  *  device. Positive for INPUT streams and
+					  *  negative for OUTPUT streams. */
 	uint64_t queued;		/**< data queued in the stream, this is the sum
-					     of the size fields in the pw_buffer that are
-					     currently queued */
+					  *  of the size fields in the pw_buffer that are
+					  *  currently queued */
 };
 /** Query the time on the stream \memberof pw_stream */
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);

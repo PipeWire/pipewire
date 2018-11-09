@@ -564,9 +564,6 @@ impl_node_port_use_buffers(struct spa_node *node,
 			return -EINVAL;
 		}
 		spa_list_append(&this->free, &b->link);
-
-		this->threshold = SPA_MIN(d[0].maxsize / this->frame_size,
-				this->props.max_latency);
 	}
 	this->n_buffers = n_buffers;
 

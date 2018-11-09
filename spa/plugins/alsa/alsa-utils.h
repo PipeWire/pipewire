@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include <math.h>
 
 #include <asoundlib.h>
 
@@ -63,6 +64,12 @@ struct buffer {
 	struct spa_list link;
 };
 
+struct dll {
+    double T;
+    double b, c;
+    double n0;
+};
+
 struct state {
 	struct spa_handle handle;
 	struct spa_node node;
@@ -86,6 +93,8 @@ struct state {
 
 	bool have_format;
 	struct spa_audio_info current_format;
+	struct dll dll;
+	double bw;
 
 	snd_pcm_uframes_t buffer_frames;
 	snd_pcm_uframes_t period_frames;
@@ -135,6 +144,36 @@ int spa_alsa_pause(struct state *state, bool xrun_recover);
 int spa_alsa_close(struct state *state);
 
 int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence);
+
+
+static inline void dll_bandwidth(struct dll *dll, double period, double rate, double bandwidth)
+{
+	double w = 2 * M_PI * bandwidth * period / rate;
+	dll->b = 1.0 - exp(-M_SQRT2 * w);
+	dll->c = (1.0 - exp(-w * w)) / period;
+}
+
+static inline void dll_init(struct dll *dll, double period, double rate, double bandwidth)
+{
+	dll->T = 1000000.0 / rate;
+	dll->n0 = 0.0;
+	dll_bandwidth(dll, period, rate, bandwidth);
+}
+
+static inline double dll_update(struct dll *dll, double system_time, double period)
+{
+	double e;
+
+	if (dll->n0 == 0.0) {
+		dll->n0 = system_time;
+	} else {
+		dll->n0 += period * dll->T;
+		e = system_time - dll->n0;
+		dll->n0 += dll->b * e;
+		dll->T += dll->c * e;
+	}
+	return dll->n0;
+}
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -422,7 +422,7 @@ static void update_timing_info(pa_stream *s)
 	struct pw_time pwt;
 	pa_timing_info *ti = &s->timing_info;
 	size_t stride = pa_frame_size(&s->sample_spec);
-	uint64_t delay;
+	int64_t delay, queued, ticks;
 
 	pw_stream_get_time(s->stream, &pwt);
 	s->timing_info_valid = false;
@@ -439,16 +439,19 @@ static void update_timing_info(pa_stream *s)
 	ti->write_index_corrupt = false;
 	ti->read_index_corrupt = false;
 
+	queued = pwt.queued + (pwt.ticks * s->sample_spec.rate / pwt.rate.denom) * stride;
+	ticks = ((pwt.ticks + pwt.delay) * s->sample_spec.rate / pwt.rate.denom) * stride;
+
 	delay = pwt.delay * SPA_USEC_PER_SEC / pwt.rate.denom;
 	if (s->direction == PA_STREAM_PLAYBACK) {
-		ti->sink_usec = delay;
-		ti->write_index = pwt.queued + (pwt.ticks * s->sample_spec.rate / pwt.rate.denom) * stride;
-		ti->read_index = ((pwt.ticks - pwt.delay) * s->sample_spec.rate / pwt.rate.denom) * stride;
+		ti->sink_usec = -delay;
+		ti->write_index = queued;
+		ti->read_index = ticks;
 	}
 	else {
 		ti->source_usec = delay;
-		ti->read_index = pwt.queued + (pwt.ticks * s->sample_spec.rate / pwt.rate.denom) * stride;
-		ti->write_index = ((pwt.ticks + pwt.delay) * s->sample_spec.rate / pwt.rate.denom) * stride;
+		ti->read_index = queued;
+		ti->write_index = ticks;
 	}
 
 	ti->configured_sink_usec = 0;

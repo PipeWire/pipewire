@@ -537,9 +537,35 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 {
 	snd_pcm_t *hndl = state->hndl;
 	const snd_pcm_channel_area_t *my_areas;
-	snd_pcm_uframes_t written, frames = state->buffer_frames, offset, off, to_write;
+	snd_pcm_uframes_t written, frames, offset, off, to_write;
 	int res;
 
+	if (state->position)
+		state->threshold = state->position->size;
+
+	if (state->slaved) {
+		double dts, pts, rate_diff = 1.0;
+		struct timespec now;
+		snd_pcm_sframes_t avail;
+
+		if ((res = get_status(state, &avail, &now)) < 0)
+			return res;
+
+		state->now = now;
+		state->filled = state->buffer_frames - avail;
+
+		dts = ((state->position->clock.position - state->filled) * 1000000ll / state->rate);
+		pts = dll_update(&state->dll, dts, state->threshold);
+		rate_diff = state->dll.T * state->rate / 1000000.f;
+
+		if (state->bw != 0.05 && state->sample_count / state->rate > 4) {
+			state->bw = 0.05;
+			dll_bandwidth(&state->dll, state->threshold, state->rate, state->bw);
+		}
+		spa_log_trace(state->log, "slave %f %f %f", dts, pts, rate_diff);
+	}
+
+	frames = state->buffer_frames;
 	if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0) {
 		spa_log_error(state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(res));
 		return res;
@@ -717,10 +743,10 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	if ((res = get_status(state, &avail, &now)) < 0)
 		return;
 
+	state->now = now;
+
 	if (state->position)
 		state->threshold = state->position->size;
-
-	state->now = now;
 
 	if (avail > state->buffer_frames)
 		avail = state->buffer_frames;
@@ -866,7 +892,13 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 	if (state->position)
 		state->threshold = state->position->size;
 
-	state->bw = 1.0;
+	state->slaved = false;
+	if (state->position && state->clock) {
+		if (state->position->clock.id != state->clock->id)
+			state->slaved = true;
+	}
+
+	state->bw = 0.128;
 	dll_init(&state->dll, state->threshold, state->rate, state->bw);
 
 	spa_log_debug(state->log, "alsa %p: start %d", state, state->threshold);
@@ -880,16 +912,18 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 		return err;
 	}
 
-	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
-		state->source.func = alsa_on_playback_timeout_event;
-	} else {
-		state->source.func = alsa_on_capture_timeout_event;
+	if (!state->slaved) {
+		if (state->stream == SND_PCM_STREAM_PLAYBACK) {
+			state->source.func = alsa_on_playback_timeout_event;
+		} else {
+			state->source.func = alsa_on_capture_timeout_event;
+		}
+		state->source.data = state;
+		state->source.fd = state->timerfd;
+		state->source.mask = SPA_IO_IN;
+		state->source.rmask = 0;
+		spa_loop_add_source(state->data_loop, &state->source);
 	}
-	state->source.data = state;
-	state->source.fd = state->timerfd;
-	state->source.mask = SPA_IO_IN;
-	state->source.rmask = 0;
-	spa_loop_add_source(state->data_loop, &state->source);
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->alsa_started = false;
@@ -901,12 +935,14 @@ int spa_alsa_start(struct state *state, bool xrun_recover)
 		state->alsa_started = true;
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &state->now);
-	ts.it_value.tv_sec = 0;
-	ts.it_value.tv_nsec = 1;
-	ts.it_interval.tv_sec = 0;
-	ts.it_interval.tv_nsec = 0;
-	timerfd_settime(state->timerfd, 0, &ts, NULL);
+	if (!state->slaved) {
+		clock_gettime(CLOCK_MONOTONIC, &state->now);
+		ts.it_value.tv_sec = 0;
+		ts.it_value.tv_nsec = 1;
+		ts.it_interval.tv_sec = 0;
+		ts.it_interval.tv_nsec = 0;
+		timerfd_settime(state->timerfd, 0, &ts, NULL);
+	}
 
 	state->io->status = SPA_STATUS_OK;
 	state->io->buffer_id = SPA_ID_INVALID;

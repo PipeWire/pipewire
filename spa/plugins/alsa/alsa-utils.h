@@ -122,6 +122,7 @@ struct state {
 	struct spa_source source;
 	int timerfd;
 	bool alsa_started;
+	bool slaved;
 	int threshold;
 
 	snd_htimestamp_t now;

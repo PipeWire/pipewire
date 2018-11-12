@@ -446,6 +446,7 @@ int pw_node_register(struct pw_node *this,
 		     struct pw_global *parent,
 		     struct pw_properties *properties)
 {
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_core *core = this->core;
 	const char *str;
 
@@ -478,6 +479,7 @@ int pw_node_register(struct pw_node *this,
 		return -ENOMEM;
 
 	this->info.id = this->global->id;
+	impl->position.clock.id = this->info.id;
 	pw_properties_setf(this->properties, "node.id", "%d", this->info.id);
 
 	pw_node_initialized(this);
@@ -511,6 +513,13 @@ do_move_nodes(struct spa_loop *loop,
 	if (this->rt.root.graph != NULL)
 		spa_graph_node_remove(&this->rt.root);
 	spa_graph_node_add(&dst->driver_graph, &this->rt.root);
+
+	if (spa_node_set_io(this->node,
+			    SPA_IO_Position,
+			    &dst->position, sizeof(struct spa_io_position)) >= 0) {
+		pw_log_debug("node %p: set position %p", this, &dst->position);
+		this->rt.position = &dst->position;
+	}
 
 	if (&src->driver_graph == &dst->driver_graph)
 		return 0;

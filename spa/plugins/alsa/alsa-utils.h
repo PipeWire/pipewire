@@ -68,6 +68,7 @@ struct dll {
     double T;
     double b, c;
     double n0;
+    int count;
 };
 
 struct state {
@@ -156,7 +157,7 @@ static inline void dll_bandwidth(struct dll *dll, double period, double rate, do
 static inline void dll_init(struct dll *dll, double period, double rate, double bandwidth)
 {
 	dll->T = 1000000.0 / rate;
-	dll->n0 = 0.0;
+	dll->count = 0;
 	dll_bandwidth(dll, period, rate, bandwidth);
 }
 
@@ -164,12 +165,12 @@ static inline double dll_update(struct dll *dll, double system_time, double peri
 {
 	double e;
 
-	if (dll->n0 == 0.0) {
+	if (dll->count++ == 0) {
 		dll->n0 = system_time;
 	} else {
 		dll->n0 += period * dll->T;
 		e = system_time - dll->n0;
-		dll->n0 += dll->b * e;
+		dll->n0 += SPA_MAX(dll->b, 1.0 / dll->count) * e;
 		dll->T += dll->c * e;
 	}
 	return dll->n0;

@@ -492,11 +492,13 @@ static int set_timeout(struct state *state, size_t extra)
 {
 	struct itimerspec ts;
 
-	calc_timeout(state->filled + extra, state->threshold, state->rate, &state->now, &ts.it_value);
+	if (!state->slaved) {
+		calc_timeout(state->filled + extra, state->threshold, state->rate, &state->now, &ts.it_value);
 
-	ts.it_interval.tv_sec = 0;
-	ts.it_interval.tv_nsec = ((size_t)state->threshold * SPA_NSEC_PER_SEC) / state->rate;
-	timerfd_settime(state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);
+		ts.it_interval.tv_sec = 0;
+		ts.it_interval.tv_nsec = ((size_t)state->threshold * SPA_NSEC_PER_SEC) / state->rate;
+		timerfd_settime(state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);
+	}
 
 	return 0;
 }
@@ -962,12 +964,14 @@ static int do_remove_source(struct spa_loop *loop,
 	struct state *state = user_data;
 	struct itimerspec ts;
 
-	spa_loop_remove_source(state->data_loop, &state->source);
-	ts.it_value.tv_sec = 0;
-	ts.it_value.tv_nsec = 0;
-	ts.it_interval.tv_sec = 0;
-	ts.it_interval.tv_nsec = 0;
-	timerfd_settime(state->timerfd, 0, &ts, NULL);
+	if (!state->slaved) {
+		spa_loop_remove_source(state->data_loop, &state->source);
+		ts.it_value.tv_sec = 0;
+		ts.it_value.tv_nsec = 0;
+		ts.it_interval.tv_sec = 0;
+		ts.it_interval.tv_nsec = 0;
+		timerfd_settime(state->timerfd, 0, &ts, NULL);
+	}
 
 	return 0;
 }

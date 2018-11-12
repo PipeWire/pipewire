@@ -656,6 +656,7 @@ static int impl_node_process(struct spa_node *node)
 		spa_log_trace(this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
 		spa_list_append(&this->ready, &b->link);
 		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+		input->buffer_id = SPA_ID_INVALID;
 
 		spa_alsa_write(this, 0);
 

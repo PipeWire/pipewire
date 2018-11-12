@@ -587,6 +587,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		if (state->ready_offset >= size) {
 			spa_list_remove(&b->link);
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+			state->io->buffer_id = b->buf->id;
 			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->buf->id);
 			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->buf->id);
 			state->ready_offset = 0;

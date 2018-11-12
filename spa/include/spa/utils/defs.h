@@ -86,7 +86,7 @@ struct spa_fraction {
 	_v > _high ? _high : ( _v < _low ? _low : _v);	\
 })
 
-#define SPA_MEMBER(b,o,t) ((t*)((uint8_t*)(b) + (o)))
+#define SPA_MEMBER(b,o,t) ((t*)((uint8_t*)(b) + (int)(o)))
 
 #define SPA_CONTAINER_OF(p,t,m) (t*)((uint8_t*)p - offsetof (t,m))
 

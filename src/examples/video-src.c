@@ -118,6 +118,9 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 	printf("stream state: \"%s\"\n", pw_stream_state_as_string(state));
 
 	switch (state) {
+	case PW_STREAM_STATE_CONFIGURE:
+		printf("node id: %d\n", pw_stream_get_node_id(data->stream));
+		break;
 	case PW_STREAM_STATE_STREAMING:
 	{
 		struct timespec timeout, interval;

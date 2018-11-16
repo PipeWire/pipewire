@@ -83,6 +83,8 @@ static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_periodSize, SPA_TYPE_PROPS_BASE "periodSize", SPA_TYPE_Int, },
 	{ SPA_PROP_periodEvent, SPA_TYPE_PROPS_BASE "periodEvent", SPA_TYPE_Bool, },
 	{ SPA_PROP_live, SPA_TYPE_PROPS_BASE "live", SPA_TYPE_Bool, },
+	{ SPA_PROP_rate, SPA_TYPE_PROPS_BASE "rate", SPA_TYPE_Double, },
+
 	{ SPA_PROP_waveType, SPA_TYPE_PROPS_BASE "waveType", SPA_TYPE_Id, },
 	{ SPA_PROP_frequency, SPA_TYPE_PROPS_BASE "frequency", SPA_TYPE_Int, },
 	{ SPA_PROP_volume, SPA_TYPE_PROPS_BASE "volume", SPA_TYPE_Float, },
@@ -90,6 +92,7 @@ static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_patternType, SPA_TYPE_PROPS_BASE "patternType", SPA_TYPE_Id, },
 	{ SPA_PROP_ditherType, SPA_TYPE_PROPS_BASE "ditherType", SPA_TYPE_Id, },
 	{ SPA_PROP_truncate, SPA_TYPE_PROPS_BASE "truncate", SPA_TYPE_Bool, },
+
 	{ SPA_PROP_brightness, SPA_TYPE_PROPS_BASE "brightness", SPA_TYPE_Int, },
 	{ SPA_PROP_contrast, SPA_TYPE_PROPS_BASE "contrast", SPA_TYPE_Int, },
 	{ SPA_PROP_saturation, SPA_TYPE_PROPS_BASE "saturation", SPA_TYPE_Int, },

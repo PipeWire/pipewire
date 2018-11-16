@@ -47,11 +47,12 @@
 struct impl;
 
 struct props {
-	int dummy;
+	double rate;
 };
 
 static void props_reset(struct props *props)
 {
+	props->rate = 1.0;
 }
 
 struct buffer {
@@ -66,7 +67,8 @@ struct port {
 	uint32_t id;
 
 	struct spa_io_buffers *io;
-	struct spa_io_range *ctrl;
+	struct spa_io_range *io_range;
+	struct spa_io_sequence *io_control;
 	struct spa_port_info info;
 
 	bool have_format;
@@ -135,11 +137,13 @@ static int setup_convert(struct impl *this,
 	if (this->state)
 		speex_resampler_destroy(this->state);
 
-	this->state = speex_resampler_init(src_info->info.raw.channels,
-					   src_info->info.raw.rate,
-					   dst_info->info.raw.rate,
-					   SPEEX_RESAMPLER_QUALITY_DEFAULT,
-					   &err);
+	this->state = speex_resampler_init_frac(src_info->info.raw.channels,
+						src_info->info.raw.rate,
+						dst_info->info.raw.rate,
+						src_info->info.raw.rate,
+						dst_info->info.raw.rate,
+						SPEEX_RESAMPLER_QUALITY_DEFAULT,
+						&err);
 	if (this->state == NULL)
 		return -ENOMEM;
 
@@ -155,10 +159,50 @@ static int impl_node_enum_params(struct spa_node *node,
 	return -ENOTSUP;
 }
 
+static int apply_props(struct impl *this, const struct spa_pod *param)
+{
+	struct spa_pod_prop *prop;
+	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+	struct props *p = &this->props;
+
+	SPA_POD_OBJECT_FOREACH(obj, prop) {
+		switch (prop->key) {
+		case SPA_PROP_rate:
+		{
+			spx_uint32_t in_rate, out_rate;
+
+			spa_pod_get_double(&prop->value, &p->rate);
+			speex_resampler_get_rate(this->state, &in_rate, &out_rate);
+			speex_resampler_set_rate_frac(this->state,
+					in_rate * p->rate, out_rate, in_rate, out_rate);
+			break;
+		}
+		default:
+			break;
+		}
+	}
+	return 0;
+}
+
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
-	return -ENOTSUP;
+	struct impl *this;
+	int res = 0;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct impl, node);
+
+	switch (id) {
+	case SPA_PARAM_Props:
+		apply_props(this, param);
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	return res;
 }
 
 static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
@@ -628,7 +672,10 @@ impl_node_port_set_io(struct spa_node *node,
 		port->io = data;
 		break;
 	case SPA_IO_Range:
-		port->ctrl = data;
+		port->io_range = data;
+		break;
+	case SPA_IO_Control:
+		port->io_control = data;
 		break;
 	default:
 		return -ENOENT;
@@ -689,6 +736,22 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
+static int process_control(struct impl *this, struct port *port, struct spa_pod_sequence *sequence)
+{
+	struct spa_pod_control *c;
+
+	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
+		switch (c->type) {
+		case SPA_CONTROL_Properties:
+			apply_props(this, (const struct spa_pod *) &c->value);
+			break;
+		default:
+			break;
+                }
+	}
+	return 0;
+}
+
 static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
@@ -712,7 +775,10 @@ static int impl_node_process(struct spa_node *node)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: status %d %d", this, inio->status, outio->status);
+	spa_log_trace(this->log, NAME " %p: status %d %d %p", this, inio->status, outio->status, outport->io_control);
+
+	if (outport->io_control)
+		process_control(this, outport, &outport->io_control->sequence);
 
 	if (outio->status == SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_HAVE_BUFFER;
@@ -739,8 +805,8 @@ static int impl_node_process(struct spa_node *node)
 
 	size = sb->datas[0].chunk->size;
 	maxsize = db->datas[0].maxsize;
-	if (outport->ctrl)
-		maxsize = SPA_MIN(outport->ctrl->max_size, maxsize);
+	if (outport->io_range)
+		maxsize = SPA_MIN(outport->io_range->max_size, maxsize);
 
 	pin_len = in_len = (size - inport->offset) / sizeof(float);
 	pout_len = out_len = (maxsize - outport->offset) / sizeof(float);
@@ -766,7 +832,7 @@ static int impl_node_process(struct spa_node *node)
 		inio->status = SPA_STATUS_NEED_BUFFER;
 		inport->offset = 0;
 		SPA_FLAG_SET(res, SPA_STATUS_NEED_BUFFER);
-		if (outport->ctrl == NULL)
+		if (outport->io_range == NULL)
 			maxsize = 0;
 	}
 	outport->offset += out_len * sizeof(float);

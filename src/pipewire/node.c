@@ -142,7 +142,14 @@ static int start_node(struct pw_node *this)
 	if (this->info.state >= PW_NODE_STATE_RUNNING)
 		return 0;
 
-	pw_log_debug("node %p: start node", this);
+	pw_log_debug("node %p: start node %d %d %d %d", this, this->n_ready_output_links,
+			this->n_used_output_links, this->n_ready_input_links,
+			this->n_used_input_links);
+
+	if (this->n_ready_output_links != this->n_used_output_links ||
+	    this->n_ready_input_links != this->n_used_input_links)
+		return 0;
+
 	res = spa_node_send_command(this->node,
 				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
 	if (res < 0)

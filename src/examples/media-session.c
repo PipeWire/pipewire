@@ -34,6 +34,7 @@
 #include <spa/utils/hook.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
+#include <spa/debug/pod.h>
 
 #include "pipewire/core.h"
 #include "pipewire/control.h"
@@ -479,10 +480,10 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	spa_list_append(&impl->node_list, &node->l);
 	node->type = NODE_TYPE_UNKNOWN;
 
+	pw_log_debug(NAME" %p: node media.class %s", impl, media_class);
+
 	if (media_class == NULL)
 		return 0;
-
-	pw_log_debug(NAME" %p: node media.class %s", impl, media_class);
 
 	if (strstr(media_class, "Stream/") == media_class) {
 		media_class += strlen("Stream/");
@@ -1098,6 +1099,10 @@ static int rescan_node(struct impl *impl, struct node *node)
 			SPA_PARAM_PROFILE_format,    spa_format_audio_raw_build(&b,
 							SPA_PARAM_Format, &audio_info),
 			0);
+
+		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+			spa_debug_pod(2, NULL, param);
+
 		pw_node_proxy_set_param((struct pw_node_proxy*)node->obj.proxy,
 				SPA_PARAM_Profile, 0, param);
 

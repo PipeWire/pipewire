@@ -229,11 +229,11 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		if (this->n_buffers == 0)
 			return -EIO;
 
-		if ((res = spa_alsa_start(this, false)) < 0)
+		if ((res = spa_alsa_start(this)) < 0)
 			return res;
 		break;
 	case SPA_NODE_COMMAND_Pause:
-		if ((res = spa_alsa_pause(this, false)) < 0)
+		if ((res = spa_alsa_pause(this)) < 0)
 			return res;
 		break;
 	default:
@@ -431,6 +431,13 @@ impl_node_port_enum_params(struct spa_node *node,
 				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_clock)),
 				0);
 			break;
+		case 2:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Notify),
+				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_sequence) + 1024),
+				0);
+			break;
 		default:
 			return 0;
 		}
@@ -467,7 +474,7 @@ static int port_set_format(struct spa_node *node,
 
 	if (format == NULL) {
 		spa_log_debug(this->log, "clear format");
-		spa_alsa_pause(this, false);
+		spa_alsa_pause(this);
 		clear_buffers(this);
 		spa_alsa_close(this);
 		this->have_format = false;
@@ -535,7 +542,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		return -EIO;
 
 	if (n_buffers == 0) {
-		spa_alsa_pause(this, false);
+		spa_alsa_pause(this);
 		clear_buffers(this);
 		return 0;
 	}
@@ -608,6 +615,9 @@ impl_node_port_set_io(struct spa_node *node,
 		break;
 	case SPA_IO_Clock:
 		this->clock = data;
+		break;
+	case SPA_IO_Notify:
+		this->notify = data;
 		break;
 	default:
 		return -ENOENT;

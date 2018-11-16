@@ -64,11 +64,15 @@ struct buffer {
 	struct spa_list link;
 };
 
+#define DLL_BW_MAX	0.256
+#define DLL_BW_MIN	0.05
+#define DLL_BW_PERIOD	4.0
+
 struct dll {
-    double T;
-    double b, c;
-    double n0;
-    int count;
+	double w1, w2;
+	double base, t0, dt;
+	double bw;
+	int count;
 };
 
 struct state {
@@ -95,7 +99,6 @@ struct state {
 	bool have_format;
 	struct spa_audio_info current_format;
 	struct dll dll;
-	double bw;
 
 	snd_pcm_uframes_t buffer_frames;
 	snd_pcm_uframes_t period_frames;
@@ -109,6 +112,7 @@ struct state {
 	struct spa_io_range *range;
 	struct spa_io_clock *clock;
 	struct spa_io_position *position;
+	struct spa_io_sequence *notify;
 
 	struct buffer buffers[MAX_BUFFERS];
 	unsigned int n_buffers;
@@ -127,9 +131,14 @@ struct state {
 
 	snd_htimestamp_t now;
 	int64_t sample_count;
-	int64_t filled;
+
+	int64_t sample_time;
+	uint64_t last_time;
+	uint64_t next_time;
 
 	uint64_t underrun;
+	double old_dt;
+	double safety;
 };
 
 int
@@ -141,40 +150,42 @@ spa_alsa_enum_format(struct state *state,
 
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *info, uint32_t flags);
 
-int spa_alsa_start(struct state *state, bool xrun_recover);
-int spa_alsa_pause(struct state *state, bool xrun_recover);
+int spa_alsa_start(struct state *state);
+int spa_alsa_pause(struct state *state);
 int spa_alsa_close(struct state *state);
 
 int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence);
 
 
-static inline void dll_bandwidth(struct dll *dll, double period, double rate, double bandwidth)
+static inline void dll_bandwidth(struct dll *dll, double bandwidth)
 {
-	double w = 2 * M_PI * bandwidth * period / rate;
-	dll->b = 1.0 - exp(-M_SQRT2 * w);
-	dll->c = (1.0 - exp(-w * w)) / period;
+	double w = 2 * M_PI * bandwidth;
+	dll->w1 = w * M_SQRT2;
+	dll->w2 = w * w;
+	dll->bw = bandwidth;
+	dll->base = dll->t0;
 }
 
-static inline void dll_init(struct dll *dll, double period, double rate, double bandwidth)
+static inline void dll_init(struct dll *dll, double bandwidth)
 {
-	dll->T = 1000000.0 / rate;
+	dll->dt = 1.0;
 	dll->count = 0;
-	dll_bandwidth(dll, period, rate, bandwidth);
+	dll_bandwidth(dll, bandwidth);
 }
 
-static inline double dll_update(struct dll *dll, double system_time, double period)
+static inline double dll_update(struct dll *dll, double tw, double period)
 {
 	double e;
 
 	if (dll->count++ == 0) {
-		dll->n0 = system_time;
+		dll->t0 = dll->base = tw;
 	} else {
-		dll->n0 += period * dll->T;
-		e = system_time - dll->n0;
-		dll->n0 += SPA_MAX(dll->b, 1.0 / dll->count) * e;
-		dll->T += dll->c * e;
+		dll->t0 += dll->dt * period;
+		e = (tw - dll->t0) * period;
+		dll->t0 += dll->w1 * e;
+		dll->dt += dll->w2 * e;
 	}
-	return dll->n0;
+	return dll->t0;
 }
 
 #ifdef __cplusplus

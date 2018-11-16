@@ -231,11 +231,11 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		if (this->n_buffers == 0)
 			return -EIO;
 
-		if ((res = spa_alsa_start(this, false)) < 0)
+		if ((res = spa_alsa_start(this)) < 0)
 			return res;
 		break;
 	case SPA_NODE_COMMAND_Pause:
-		if ((res = spa_alsa_pause(this, false)) < 0)
+		if ((res = spa_alsa_pause(this)) < 0)
 			return res;
 		break;
 	default:
@@ -477,7 +477,7 @@ static int port_set_format(struct spa_node *node,
 	int err;
 
 	if (format == NULL) {
-		spa_alsa_pause(this, false);
+		spa_alsa_pause(this);
 		clear_buffers(this);
 		spa_alsa_close(this);
 		this->have_format = false;
@@ -544,7 +544,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		return -EIO;
 
 	if (this->n_buffers > 0) {
-		spa_alsa_pause(this, false);
+		spa_alsa_pause(this);
 		if ((res = clear_buffers(this)) < 0)
 			return res;
 	}

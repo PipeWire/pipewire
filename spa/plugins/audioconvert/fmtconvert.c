@@ -38,7 +38,7 @@
 
 #define NAME "fmtconvert"
 
-#define DEFAULT_RATE		44100
+#define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
 #define MAX_BUFFERS     64
@@ -327,17 +327,22 @@ static int port_enum_formats(struct spa_node *node,
 			     struct spa_pod_builder *builder)
 {
 	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
-	struct spa_audio_info *other;
+	struct port *port, *other;
 
-	other = &GET_PORT(this, SPA_DIRECTION_REVERSE(direction), 0)->format;
+	port = GET_PORT(this, direction, port_id);
+	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), 0);
 
-	spa_log_debug(this->log, NAME " %p: enum %d %p", this, other->info.raw.channels, other);
+	spa_log_debug(this->log, NAME " %p: enum %p", this, other);
 	switch (*index) {
 	case 0:
-		if (other->info.raw.channels > 0) {
+		if (port->have_format) {
+			*param = spa_format_audio_raw_build(builder,
+					SPA_PARAM_EnumFormat, &port->format.info.raw);
+		}
+		else if (other->have_format) {
 			struct spa_audio_info info;
 
-			info = *other;
+			info = other->format;
 
 			qsort(info.info.raw.position, info.info.raw.channels, sizeof(uint32_t), int32_cmp);
 
@@ -347,14 +352,14 @@ static int port_enum_formats(struct spa_node *node,
 				SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 				SPA_FORMAT_AUDIO_format,   &SPA_POD_CHOICE_ENUM_Id(4,
-								other->info.raw.format,
-								other->info.raw.format,
+								info.info.raw.format,
+								info.info.raw.format,
 								SPA_AUDIO_FORMAT_F32,
 								SPA_AUDIO_FORMAT_F32P),
-				SPA_FORMAT_AUDIO_rate,     &SPA_POD_Int(other->info.raw.rate),
-				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(other->info.raw.channels),
+				SPA_FORMAT_AUDIO_rate,     &SPA_POD_Int(info.info.raw.rate),
+				SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(info.info.raw.channels),
 				0);
-			if (!SPA_FLAG_CHECK(other->info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
+			if (!SPA_FLAG_CHECK(info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
 				spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
 		                spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id,
 						info.info.raw.channels, info.info.raw.position);

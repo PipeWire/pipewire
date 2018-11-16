@@ -517,10 +517,10 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:
-			p->volume = SPA_POD_VALUE(struct spa_pod_float, &prop->value);
+			spa_pod_get_float(&prop->value, &p->volume);
 			break;
 		case SPA_PROP_mute:
-			p->mute = SPA_POD_VALUE(struct spa_pod_bool, &prop->value);
+			spa_pod_get_bool(&prop->value, &p->mute);
 			break;
 		default:
 			break;

@@ -320,6 +320,45 @@ static inline int spa_pod_parser_get(struct spa_pod_parser *parser,
 	spa_pod_parser_get(&__p, "{", ##__VA_ARGS__, NULL);	\
 })
 
+static inline int spa_pod_is_bool(struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Bool && SPA_POD_BODY_SIZE(pod) >= sizeof(int32_t));
+}
+
+static inline int spa_pod_get_bool(struct spa_pod *pod, bool *value)
+{
+	if (!spa_pod_is_bool(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_bool, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_float(struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Float && SPA_POD_BODY_SIZE(pod) >= sizeof(float));
+}
+
+static inline int spa_pod_get_float(struct spa_pod *pod, float *value)
+{
+	if (!spa_pod_is_float(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_float, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_double(struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Double && SPA_POD_BODY_SIZE(pod) >= sizeof(double));
+}
+
+static inline int spa_pod_get_double(struct spa_pod *pod, double *value)
+{
+	if (!spa_pod_is_double(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_double, pod);
+	return 0;
+}
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

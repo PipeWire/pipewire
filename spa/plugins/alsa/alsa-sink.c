@@ -668,7 +668,7 @@ static int impl_node_process(struct spa_node *node)
 		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
 		input->buffer_id = SPA_ID_INVALID;
 
-		spa_alsa_write(this, 0);
+		spa_alsa_write(this, 0, true);
 
 		input->status = SPA_STATUS_OK;
 	}

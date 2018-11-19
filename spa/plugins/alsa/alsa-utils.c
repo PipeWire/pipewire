@@ -534,7 +534,7 @@ again:
 		} else {
 			state->alsa_started = false;
 		}
-		spa_alsa_write(state, state->threshold * 2);
+		spa_alsa_write(state, state->threshold * 2, true);
 		goto again;
 	}
 
@@ -614,7 +614,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	return 0;
 }
 
-int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
+int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence, bool start)
 {
 	snd_pcm_t *hndl = state->hndl;
 	const snd_pcm_channel_area_t *my_areas;
@@ -725,7 +725,7 @@ again:
 
 	state->sample_count += total_written;
 
-	if (!state->alsa_started && written > 0) {
+	if (!state->alsa_started && written > 0 && start) {
 		spa_log_trace(state->log, "snd_pcm_start %lu", written);
 		if ((res = snd_pcm_start(hndl)) < 0) {
 			spa_log_error(state->log, "snd_pcm_start: %s", snd_strerror(res));
@@ -836,7 +836,7 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 		state->callbacks->process(state->callbacks_data, SPA_STATUS_NEED_BUFFER);
 	}
 	else {
-		spa_alsa_write(state, 0);
+		spa_alsa_write(state, 0, true);
 	}
 next:
 	set_timeout(state, state->next_time);
@@ -946,7 +946,7 @@ int spa_alsa_start(struct state *state)
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->alsa_started = false;
-		spa_alsa_write(state, state->threshold * 2);
+		spa_alsa_write(state, state->threshold, false);
 	} else {
 		if ((err = snd_pcm_start(state->hndl)) < 0) {
 			spa_log_error(state->log, "snd_pcm_start: %s", snd_strerror(err));

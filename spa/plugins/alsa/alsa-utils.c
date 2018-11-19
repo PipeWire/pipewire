@@ -460,6 +460,13 @@ static int set_swparams(struct state *state)
 
 	CHECK(snd_pcm_sw_params_set_tstamp_mode(hndl, params, SND_PCM_TSTAMP_ENABLE), "sw_params_set_tstamp_mode");
 
+#if 0
+	snd_pcm_uframes_t boundary;
+	CHECK(snd_pcm_sw_params_get_boundary(params, &boundary), "get_boundary");
+
+	CHECK(snd_pcm_sw_params_set_stop_threshold(hndl, params, boundary), "set_stop_threshold");
+#endif
+
 	/* start the transfer */
 	CHECK(snd_pcm_sw_params_set_start_threshold(hndl, params, LONG_MAX), "set_start_threshold");
 
@@ -551,30 +558,37 @@ again:
 	return 0;
 }
 
-static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t delay,
-		uint64_t *period, bool slaved)
+static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t delay, bool slaved)
 {
 	uint64_t sample_time, elapsed;
-	double tw;
+	double tw = 0.0, extra = 0.0;
+	int64_t sdelay;
 
+	sample_time = state->sample_count;
 	if (!slaved) {
-		sample_time = state->sample_count;
 		elapsed = sample_time - state->sample_time;
-		state->sample_time = sample_time;
 	} else {
 		elapsed = state->threshold;
 	}
 
-	/* if our buffers are too full, pause the dll */
-	if (delay >= state->threshold * 2 || elapsed == 0) {
-		elapsed = state->threshold / 2;
-		delay = state->threshold / 2;
+	if (state->stream == SND_PCM_STREAM_CAPTURE) {
+		elapsed = state->threshold;
+		extra = (double) elapsed / state->rate;
+		sdelay = (int64_t)(delay - elapsed);
+	} else {
+		if (elapsed == 0) {
+			elapsed = state->threshold / 2;
+			delay = state->threshold / 2;
+		}
+		state->sample_time = sample_time;
+		sdelay = -delay;
 	}
 
-	/* we try to match the delay with the number of played samples */
-	tw = nsec * 1e-9 + (double)delay / state->rate - state->safety;
+
+	/* we try to match the delay with the number of delayed samples */
+	tw = nsec * 1e-9 - (double)sdelay / state->rate - state->safety;
 	tw = dll_update(&state->dll, tw, (double)elapsed / state->rate);
-	state->next_time = (tw - state->safety) * 1e9;
+	state->next_time = (tw + extra - state->safety) * 1e9;
 
 	if (state->dll.bw > DLL_BW_MIN && tw > state->dll.base + DLL_BW_PERIOD)
 		dll_bandwidth(&state->dll, DLL_BW_MIN);
@@ -583,7 +597,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		state->clock->nsec = state->last_time;
 		state->clock->rate = SPA_FRACTION(1, state->rate);
 		state->clock->position = state->sample_count;
-		state->clock->delay = state->stream == SND_PCM_STREAM_CAPTURE ? delay : -delay;
+		state->clock->delay = sdelay;
 		state->clock->rate_diff = state->dll.dt;
 	}
 
@@ -603,13 +617,11 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	}
 #endif
 
-	spa_log_trace(state->log, "%"PRIu64" %f %"PRIi64" %"PRIi64" %"PRIi64" %d %"PRIu64, nsec,
+	spa_log_debug(state->log, "%"PRIu64" %f %"PRIi64" %"PRIi64" %"PRIi64" %d %"PRIu64" %f %f", nsec,
 			state->old_dt, delay, elapsed, (int64_t)(nsec - state->last_time),
-			state->threshold, state->next_time);
+			state->threshold, state->next_time, tw, extra);
 
 	state->last_time = nsec;
-	if (period)
-		*period = elapsed;
 
 	return 0;
 }
@@ -634,7 +646,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence, bool start)
 		if ((res = get_status(state, &delay)) < 0)
 			return res;
 
-		if ((res = update_time(state, nsec, delay, NULL, true)) < 0)
+		if ((res = update_time(state, nsec, delay, true)) < 0)
 			return res;
 
 		spa_log_trace(state->log, "slave %f %"PRIi64" %"PRIu64" %d",
@@ -796,7 +808,7 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	int res;
 	struct state *state = source->data;
 	snd_pcm_sframes_t delay;
-	uint64_t nsec, expire, elapsed;
+	uint64_t nsec, expire;
 	int64_t jitter;
 
 	if (state->started && read(state->timerfd, &expire, sizeof(uint64_t)) != sizeof(uint64_t))
@@ -814,13 +826,14 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	spa_log_trace(state->log, "timeout %ld %"PRIu64" %"PRIu64" %"PRIi64" %d %ld", delay,
 			nsec, state->next_time, jitter, state->threshold, state->sample_count);
 
-	if ((res = update_time(state, nsec, delay, &elapsed, false)) < 0)
-		return;
-
 	if (delay >= state->threshold * 2) {
 		spa_log_trace(state->log, "early wakeup %ld %d", delay, state->threshold);
+		state->next_time = nsec + (state->threshold / 2) * SPA_NSEC_PER_SEC / state->rate;
 		goto next;
 	}
+
+	if ((res = update_time(state, nsec, delay, false)) < 0)
+		return;
 
 	if (spa_list_is_empty(&state->ready)) {
 		struct spa_io_buffers *io = state->io;
@@ -852,6 +865,7 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 	snd_pcm_sframes_t delay;
 	snd_pcm_uframes_t total_read = 0, to_read;
 	const snd_pcm_channel_area_t *my_areas;
+	int64_t jitter;
 
 	if (state->started && read(state->timerfd, &expire, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(state->log, "error reading timerfd: %s", strerror(errno));
@@ -863,17 +877,21 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 	if ((res = get_status(state, &delay)) < 0)
 		return;
 
-	spa_log_trace(state->log, "timeout %ld %d %ld",
-			delay, state->threshold, state->sample_count);
+	nsec = SPA_TIMESPEC_TO_NSEC(&state->now);
+	jitter = nsec - state->next_time;
+	spa_log_trace(state->log, "timeout %ld %"PRIu64" %"PRIu64" %"PRIi64" %d %ld", delay,
+			nsec, state->next_time, jitter, state->threshold, state->sample_count);
 
-	if (delay < state->threshold)
+	if (delay < state->threshold) {
+		spa_log_trace(state->log, "early wakeup %ld %d", delay, state->threshold);
+		state->next_time = nsec + (state->threshold - delay) * SPA_NSEC_PER_SEC / state->rate;
 		goto next;
+	}
+
+	if ((res = update_time(state, nsec, delay, false)) < 0)
+		return;
 
 	to_read = SPA_MIN(delay, state->threshold);
-
-	nsec = SPA_TIMESPEC_TO_NSEC(&state->now);
-	if ((res = update_time(state, nsec, delay, NULL, false)) < 0)
-		return;
 
 	while (total_read < to_read) {
 		snd_pcm_uframes_t read, frames, offset;
@@ -919,6 +937,7 @@ int spa_alsa_start(struct state *state)
 	}
 
 	dll_init(&state->dll, DLL_BW_MAX);
+	state->old_dt = 1.0;
 	state->safety = 0.0;
 
 	spa_log_debug(state->log, "alsa %p: start %d %d", state, state->threshold, state->slaved);
@@ -946,7 +965,7 @@ int spa_alsa_start(struct state *state)
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->alsa_started = false;
-		spa_alsa_write(state, state->threshold, false);
+		spa_alsa_write(state, state->threshold * 2, true);
 	} else {
 		if ((err = snd_pcm_start(state->hndl)) < 0) {
 			spa_log_error(state->log, "snd_pcm_start: %s", snd_strerror(err));

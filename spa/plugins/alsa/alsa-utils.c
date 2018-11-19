@@ -512,6 +512,8 @@ again:
 
 		state->sample_time = state->sample_count;
 		state->sample_count += missing;
+		state->dll.t0 -= xrun * 1e-6;
+
 #if 0
 		state->safety = SPA_MIN(state->safety + 0.000333, 0.0013333);
 		dll_bandwidth(&state->dll, DLL_BW_MAX);
@@ -565,8 +567,8 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 
 	/* if our buffers are too full, pause the dll */
 	if (delay >= state->threshold * 2 || elapsed == 0) {
-		elapsed = state->threshold;
-		delay = state->threshold;
+		elapsed = state->threshold / 2;
+		delay = state->threshold / 2;
 	}
 
 	/* we try to match the delay with the number of played samples */
@@ -731,8 +733,6 @@ again:
 		}
 		state->alsa_started = true;
 	}
-	set_timeout(state, state->next_time);
-
 	return 0;
 }
 
@@ -797,6 +797,7 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	struct state *state = source->data;
 	snd_pcm_sframes_t delay;
 	uint64_t nsec, expire, elapsed;
+	int64_t jitter;
 
 	if (state->started && read(state->timerfd, &expire, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(state->log, "error reading timerfd: %s", strerror(errno));
@@ -808,15 +809,18 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 	if ((res = get_status(state, &delay)) < 0)
 		return;
 
-	spa_log_trace(state->log, "timeout %ld %d %ld", delay,
-		state->threshold, state->sample_count);
-
 	nsec = SPA_TIMESPEC_TO_NSEC(&state->now);
+	jitter = nsec - state->next_time;
+	spa_log_trace(state->log, "timeout %ld %"PRIu64" %"PRIu64" %"PRIi64" %d %ld", delay,
+			nsec, state->next_time, jitter, state->threshold, state->sample_count);
+
 	if ((res = update_time(state, nsec, delay, &elapsed, false)) < 0)
 		return;
 
-	if (delay >= state->threshold * 2)
+	if (delay >= state->threshold * 2) {
+		spa_log_trace(state->log, "early wakeup %ld %d", delay, state->threshold);
 		goto next;
+	}
 
 	if (spa_list_is_empty(&state->ready)) {
 		struct spa_io_buffers *io = state->io;
@@ -830,13 +834,12 @@ static void alsa_on_playback_timeout_event(struct spa_source *source)
 			state->range->max_size = state->threshold * state->frame_size;
 		}
 		state->callbacks->process(state->callbacks_data, SPA_STATUS_NEED_BUFFER);
-
-next:
-		set_timeout(state, state->next_time);
 	}
 	else {
 		spa_alsa_write(state, 0);
 	}
+next:
+	set_timeout(state, state->next_time);
 }
 
 
@@ -943,6 +946,7 @@ int spa_alsa_start(struct state *state)
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->alsa_started = false;
+		spa_alsa_write(state, state->threshold * 2);
 	} else {
 		if ((err = snd_pcm_start(state->hndl)) < 0) {
 			spa_log_error(state->log, "snd_pcm_start: %s", snd_strerror(err));
@@ -958,9 +962,6 @@ int spa_alsa_start(struct state *state)
 		ts.it_interval.tv_sec = 0;
 		ts.it_interval.tv_nsec = 0;
 		timerfd_settime(state->timerfd, 0, &ts, NULL);
-	}
-	else {
-		spa_alsa_write(state, state->threshold * 2);
 	}
 
 	state->io->status = SPA_STATUS_OK;

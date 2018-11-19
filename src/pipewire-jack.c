@@ -267,6 +267,7 @@ struct client {
 	void *timebase_arg;
 
 	struct spa_io_position *position;
+	double rate_diff;
 	uint32_t sample_rate;
 	uint32_t buffer_size;
 
@@ -727,11 +728,13 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 	}
 
 	if (mask & SPA_IO_IN) {
-		uint64_t cmd;
+		uint64_t cmd, usec;
 		uint32_t buffer_size, sample_rate;
 
 		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
 			pw_log_warn("jack %p: read failed %m", c);
+		if (cmd > 1)
+			pw_log_warn("jack %p: missed %"PRIu64" wakeups", c, cmd - 1);
 
 		buffer_size = c->position->size;
 		if (buffer_size != c->buffer_size) {
@@ -753,8 +756,11 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 				c->srate_callback(c->sample_rate, c->srate_arg);
 		}
 
+		c->rate_diff = c->position->clock.rate_diff;
+		usec = c->position->clock.nsec / SPA_NSEC_PER_USEC;
+
 		c->jack_position.unique_1++;
-		c->jack_position.usecs = c->position->clock.nsec/1000;
+		c->jack_position.usecs = usec;
 		c->jack_position.frame_rate = c->sample_rate;
 		c->jack_position.frame = c->position->clock.position;
 		c->jack_position.valid = 0;
@@ -765,9 +771,9 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 					 &c->jack_position, c->sync_arg);
 		}
 
-		pw_log_trace("do process %"PRIu64" %d %d %d %"PRIi64, c->position->clock.nsec,
+		pw_log_trace("do process %"PRIu64" %d %d %d %"PRIi64" %f", c->position->clock.nsec,
 				c->buffer_size, c->sample_rate,
-				c->jack_position.frame, c->position->clock.delay);
+				c->jack_position.frame, c->position->clock.delay, c->rate_diff);
 
 		if (c->process_callback)
 			c->process_callback(c->buffer_size, c->process_arg);
@@ -2849,7 +2855,7 @@ int jack_get_cycle_times(const jack_client_t *client,
 
 	*current_frames = c->jack_position.frame;
 	*current_usecs = c->jack_position.usecs;
-	*period_usecs = (float)c->buffer_size / c->sample_rate;
+	*period_usecs = c->rate_diff * c->buffer_size / c->sample_rate;
 	*next_usecs = c->jack_position.usecs + (*period_usecs * 1000000.0f);
 	pw_log_trace("client %p: %d %ld %ld %f", c, *current_frames,
 			*current_usecs, *next_usecs, *period_usecs);

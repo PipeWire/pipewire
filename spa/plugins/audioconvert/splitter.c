@@ -211,6 +211,8 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		if (port->have_format && memcmp(&port->format, &info, sizeof(info)) == 0)
 			return 0;
 
+		spa_log_debug(this->log, NAME " %p: profile %d", this, info.info.raw.channels);
+
 		this->have_profile = true;
 		this->port_count = info.info.raw.channels;
 		for (i = 0; i < this->port_count; i++) {

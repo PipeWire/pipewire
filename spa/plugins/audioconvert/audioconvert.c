@@ -74,6 +74,10 @@ struct impl {
 	int n_nodes;
 	struct spa_node *nodes[8];
 
+#define MODE_SPLIT	0
+#define MODE_MERGE	1
+#define MODE_CONVERT	2
+	int mode;
 	bool started;
 
 	struct spa_handle *hnd_fmt[2];
@@ -223,6 +227,8 @@ static int setup_convert(struct impl *this)
 	if (this->n_links > 0)
 		return 0;
 
+	spa_log_debug(this->log, "setup convert");
+
 	this->n_nodes = 0;
 	/* unpack */
 	this->nodes[this->n_nodes++] = this->fmt[SPA_DIRECTION_INPUT];
@@ -369,7 +375,7 @@ static int setup_buffers(struct impl *this, enum spa_direction direction)
 {
 	int i, res;
 
-	spa_log_debug(this->log, NAME " %p: %d", this, direction);
+	spa_log_debug(this->log, NAME " %p: %d %d", this, direction, this->n_links);
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		for (i = 0; i < this->n_links; i++) {
@@ -466,21 +472,54 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	case SPA_PARAM_Profile:
 	{
 		enum spa_direction direction;
+		struct spa_pod *format;
+		struct spa_audio_info info = { 0, };
+		struct spa_pod_builder b = { 0 };
+		uint8_t buffer[1024];
 
 		if (spa_pod_object_parse(param,
 				":", SPA_PARAM_PROFILE_direction, "I", &direction,
+				":", SPA_PARAM_PROFILE_format, "P", &format,
 				NULL) < 0)
+			return -EINVAL;
+
+		if (!SPA_POD_IS_OBJECT_TYPE(format, SPA_TYPE_OBJECT_Format))
+			return -EINVAL;
+
+		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
+			return res;
+
+		if (info.media_type != SPA_MEDIA_TYPE_audio ||
+		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+			return -EINVAL;
+
+		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
 		switch (direction) {
 		case SPA_DIRECTION_INPUT:
 		case SPA_DIRECTION_OUTPUT:
+			spa_log_debug(this->log, NAME " %p: profile %d", this, info.info.raw.channels);
+
+			info.info.raw.format = SPA_AUDIO_FORMAT_F32P;
+
+			spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+			param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info.info.raw);
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+				SPA_PARAM_PROFILE_direction, &SPA_POD_Id(direction),
+				SPA_PARAM_PROFILE_format,    param,
+                        0);
 			res = spa_node_set_param(this->fmt[direction], id, flags, param);
 			break;
 		default:
 			res = -EINVAL;
 			break;
 		}
+		if (this->callbacks && this->callbacks->event)
+			this->callbacks->event(this->user_data,
+				&SPA_NODE_EVENT_INIT(SPA_NODE_EVENT_PortsChanged));
 		break;
 	}
 	case SPA_PARAM_Props:
@@ -498,7 +537,6 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	struct impl *this;
-	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
@@ -507,9 +545,6 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
-		if ((res = setup_convert(this)) < 0)
-			goto error;
-		setup_buffers(this, SPA_DIRECTION_INPUT);
 		this->started = true;
 		break;
 
@@ -521,10 +556,6 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		return -ENOTSUP;
 	}
 	return 0;
-
-      error:
-	spa_log_error(this->log, "error %s", spa_strerror(res));
-	return res;
 }
 
 static int
@@ -702,12 +733,26 @@ impl_node_port_set_param(struct spa_node *node,
 			 const struct spa_pod *param)
 {
 	struct impl *this;
+	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	return spa_node_port_set_param(this->fmt[direction], direction, port_id, id, flags, param);
+	if ((res = spa_node_port_set_param(this->fmt[direction],
+					direction, port_id, id, flags, param)) < 0)
+		return res;
+
+	if (id == SPA_PARAM_Format) {
+		if (param == NULL)
+			clean_convert(this);
+		else if ((direction == SPA_DIRECTION_OUTPUT && this->mode == MODE_MERGE) ||
+		    (direction == SPA_DIRECTION_INPUT && this->mode == MODE_SPLIT)) {
+			if ((res = setup_convert(this)) < 0)
+				return res;
+		}
+	}
+	return res;
 }
 
 static int
@@ -718,12 +763,22 @@ impl_node_port_use_buffers(struct spa_node *node,
 			   uint32_t n_buffers)
 {
 	struct impl *this;
+	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	return spa_node_port_use_buffers(this->fmt[direction], direction, port_id, buffers, n_buffers);
+	if ((res = spa_node_port_use_buffers(this->fmt[direction],
+					direction, port_id, buffers, n_buffers)) < 0)
+		return res;
+
+	if ((direction == SPA_DIRECTION_OUTPUT && this->mode == MODE_MERGE) ||
+	    (direction == SPA_DIRECTION_INPUT && this->mode == MODE_SPLIT)) {
+		if ((res = setup_buffers(this, SPA_DIRECTION_INPUT)) < 0)
+			return res;
+	}
+	return res;
 }
 
 static int
@@ -948,14 +1003,17 @@ impl_init(const struct spa_handle_factory *factory,
 		str = "convert";
 
 	if (strcmp(str, "split") == 0) {
+		this->mode = MODE_SPLIT;
 		in_factory = &spa_fmtconvert_factory;
 		out_factory = &spa_splitter_factory;
 	}
 	else if (strcmp(str, "merge") == 0) {
+		this->mode = MODE_MERGE;
 		in_factory = &spa_merger_factory;
 		out_factory = &spa_fmtconvert_factory;
 	}
 	else {
+		this->mode = MODE_CONVERT;
 		in_factory = &spa_fmtconvert_factory;
 		out_factory = &spa_fmtconvert_factory;
 	}

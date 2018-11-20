@@ -619,7 +619,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	}
 #endif
 
-	spa_log_debug(state->log, "%"PRIu64" %f %"PRIi64" %"PRIi64" %"PRIi64" %d %"PRIu64" %f %f", nsec,
+	spa_log_trace(state->log, "%"PRIu64" %f %"PRIi64" %"PRIi64" %"PRIi64" %d %"PRIu64" %f %f", nsec,
 			state->old_dt, delay, elapsed, (int64_t)(nsec - state->last_time),
 			state->threshold, state->next_time, tw, extra);
 

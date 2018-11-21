@@ -970,7 +970,9 @@ impl_node_port_enum_params(struct spa_node *node,
 		if (*index > 0)
 			return 0;
 
-		if (this->transport->codec == 0) {
+		switch (this->transport->codec) {
+		case A2DP_CODEC_SBC:
+		{
 			a2dp_sbc_t *config = this->transport->configuration;
 			struct spa_audio_info_raw info = { 0, };
 
@@ -993,9 +995,22 @@ impl_node_port_enum_params(struct spa_node *node,
 			}
 
 			param = spa_format_audio_raw_build(&b, id, &info);
+			break;
 		}
-		else
+		case A2DP_CODEC_MPEG24:
+		{
+			a2dp_aac_t *config = this->transport->configuration;
+
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_Format, id,
+				SPA_FORMAT_mediaType,           &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+				SPA_FORMAT_mediaSubtype,        &SPA_POD_Id(SPA_MEDIA_SUBTYPE_aac),
+				0);
+			break;
+		}
+		default:
 			return -EIO;
+		}
 		break;
 
 	case SPA_PARAM_Format:
@@ -1265,7 +1280,7 @@ static int impl_node_process(struct spa_node *node)
 
 		input->status = SPA_STATUS_OK;
 	}
-	return SPA_STATUS_OK;
+	return SPA_STATUS_HAVE_BUFFER;
 }
 
 static const struct spa_dict_item node_info_items[] = {

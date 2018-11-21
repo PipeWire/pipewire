@@ -40,6 +40,9 @@
 #include <spa/support/plugin.h>
 #include <spa/monitor/monitor.h>
 #include <spa/utils/type.h>
+#include <spa/debug/mem.h>
+
+#undef ENABLE_AAC
 
 #include "a2dp-codecs.h"
 #include "defs.h"
@@ -223,16 +226,90 @@ static int select_configuration_sbc(struct spa_bt_monitor *monitor, void *capabi
 	return 0;
 }
 
+static int select_configuration_aac(struct spa_bt_monitor *monitor, void *capabilities, int size, void *config)
+{
+	a2dp_aac_t *cap, conf;
+	int freq;
+
+	if (size < sizeof(conf)) {
+		spa_log_error(monitor->log, "Capabilities array has invalid size");
+		return -ENOSPC;
+	}
+	cap = capabilities;
+	conf = *cap;
+
+	if (conf.object_type & AAC_OBJECT_TYPE_MPEG2_AAC_LC)
+		conf.object_type = AAC_OBJECT_TYPE_MPEG2_AAC_LC;
+	else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LC)
+		conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_LC;
+	else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LTP)
+		conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_LTP;
+	else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_SCA)
+		conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_SCA;
+	else {
+		spa_log_error(monitor->log, "No supported object type: 0x%x", conf.object_type);
+		return -ENOTSUP;
+	}
+
+	freq = AAC_GET_FREQUENCY(conf);
+	if (freq & AAC_SAMPLING_FREQ_48000)
+		freq = AAC_SAMPLING_FREQ_48000;
+	else if (freq & AAC_SAMPLING_FREQ_44100)
+		freq = AAC_SAMPLING_FREQ_44100;
+	else if (freq & AAC_SAMPLING_FREQ_64000)
+		freq = AAC_SAMPLING_FREQ_64000;
+	else if (freq & AAC_SAMPLING_FREQ_32000)
+		freq = AAC_SAMPLING_FREQ_32000;
+	else if (freq & AAC_SAMPLING_FREQ_88200)
+		freq = AAC_SAMPLING_FREQ_88200;
+	else if (freq & AAC_SAMPLING_FREQ_96000)
+		freq = AAC_SAMPLING_FREQ_96000;
+	else if (freq & AAC_SAMPLING_FREQ_24000)
+		freq = AAC_SAMPLING_FREQ_24000;
+	else if (freq & AAC_SAMPLING_FREQ_22050)
+		freq = AAC_SAMPLING_FREQ_22050;
+	else if (freq & AAC_SAMPLING_FREQ_16000)
+		freq = AAC_SAMPLING_FREQ_16000;
+	else if (freq & AAC_SAMPLING_FREQ_12000)
+		freq = AAC_SAMPLING_FREQ_12000;
+	else if (freq & AAC_SAMPLING_FREQ_11025)
+		freq = AAC_SAMPLING_FREQ_11025;
+	else if (freq & AAC_SAMPLING_FREQ_8000)
+		freq = AAC_SAMPLING_FREQ_8000;
+	else {
+		spa_log_error(monitor->log, "No supported sampling frequency: 0x%0x", freq);
+		return -ENOTSUP;
+	}
+	AAC_SET_FREQUENCY(conf, freq);
+
+	if (conf.channels & AAC_CHANNELS_2)
+		conf.channels = AAC_CHANNELS_2;
+	else if (conf.channels & AAC_CHANNELS_1)
+		conf.channels = AAC_CHANNELS_1;
+	else {
+		spa_log_error(monitor->log, "No supported channels: 0x%0x", conf.channels);
+		return -ENOTSUP;
+	}
+	memcpy(config, &conf, size);
+
+	spa_log_debug(monitor->log, "SelectConfiguration() %d %d %d", conf.object_type, freq, conf.channels);
+
+	return 0;
+}
+
 static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct spa_bt_monitor *monitor = userdata;
-	a2dp_sbc_t *cap, config;
-	uint8_t *pconf = (uint8_t *) &config;
+	const char *path;
+	uint8_t *cap, config[16];
+	uint8_t *pconf = (uint8_t *) config;
 	DBusMessage *r;
 	DBusError err;
-	int size;
+	int size, res;
 
 	dbus_error_init(&err);
+
+	path = dbus_message_get_path(m);
 
 	if (!dbus_message_get_args(m, &err, DBUS_TYPE_ARRAY,
 				DBUS_TYPE_BYTE, &cap, &size, DBUS_TYPE_INVALID)) {
@@ -241,7 +318,14 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	if (select_configuration_sbc(monitor, cap, size, &config) < 0) {
+	if (strstr(path, "/A2DP/SBC/") == path) {
+		res = select_configuration_sbc(monitor, cap, size, config);
+	} else if (strstr(path, "/A2DP/MPEG24/") == path) {
+		res = select_configuration_aac(monitor, cap, size, config);
+	} else
+		res = -ENOTSUP;
+
+	if (res < 0) {
 		if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments",
 				"Unable to select configuration")) == NULL)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -965,6 +1049,9 @@ static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
 		case A2DP_CODEC_SBC:
 			profile_path = "/A2DP/SBC/Source";
 			break;
+		case A2DP_CODEC_MPEG24:
+			profile_path = "/A2DP/MPEG24/Source";
+			break;
 		default:
 			return -ENOTSUP;
 		}
@@ -1033,6 +1120,13 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 {
 	struct spa_bt_monitor *monitor = a->monitor;
 
+#ifdef ENABLE_AAC
+	register_a2dp_endpoint(monitor, a->path,
+			       SPA_BT_UUID_A2DP_SOURCE,
+			       SPA_BT_PROFILE_A2DP_SOURCE,
+			       A2DP_CODEC_MPEG24,
+			       &bluez_a2dp_aac, sizeof(bluez_a2dp_aac));
+#endif
 	register_a2dp_endpoint(monitor, a->path,
 			       SPA_BT_UUID_A2DP_SOURCE,
 			       SPA_BT_PROFILE_A2DP_SOURCE,

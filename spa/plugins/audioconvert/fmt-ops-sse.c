@@ -111,8 +111,12 @@ conv_s24_to_f32d_1_sse(void *data, int n_dst, void *dst[n_dst], const void *src,
 	const uint8_t *s = src;
 	float **d = (float **) dst;
 	float *d0 = d[0];
-	int n, n_samples, unrolled;
+	int n = 0, n_samples, unrolled;
 	__m128i in;
+	union {
+		__m128i in;
+		uint8_t b[16];
+	} b;
 	__m128 out, factor = _mm_set1_ps(1.0f / S24_SCALE);
 
 	n_samples = n_bytes / (3 * n_dst);
@@ -120,11 +124,12 @@ conv_s24_to_f32d_1_sse(void *data, int n_dst, void *dst[n_dst], const void *src,
 	unrolled = n_samples / 4;
 	n_samples = n_samples & 3;
 
-	for(n = 0; unrolled--; n += 4) {
-		in = _mm_set_epi32(READ24(&s[9*n_dst]),
-				   READ24(&s[6*n_dst]),
-				   READ24(&s[3*n_dst]),
-				   READ24(s));
+	for(; unrolled--; n += 4) {
+		memcpy(&b.b[1], &s[0], 3);
+		memcpy(&b.b[5], &s[3], 3);
+		memcpy(&b.b[9], &s[6], 3);
+		memcpy(&b.b[13], &s[9], 3);
+		in = _mm_srai_epi32(b.in, 8);
 		out = _mm_cvtepi32_ps(in);
 		out = _mm_mul_ps(out, factor);
 		_mm_storeu_ps(&d0[n], out);

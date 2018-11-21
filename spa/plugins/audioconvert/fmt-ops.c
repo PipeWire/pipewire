@@ -46,27 +46,21 @@
 #define S32_MAX		2147483647
 #define S32_SCALE	2147483647
 
-union s24_data {
-	struct {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-		uint16_t lo;
-		int16_t hi;
-#else
-		int16_t hi;
-		uint16_t lo;
-#endif
-	} s24;
-	int32_t value;
-};
 
 static inline int32_t read_s24(const void *src)
 {
-	union s24_data d;
-	const uint8_t *s = src;
-	d.s24.hi = ((int8_t*)s)[2];
-	d.s24.lo = *((uint16_t*)s);
-	return d.value;
+	union  {
+		int8_t v[4];
+		int32_t value;
+	} d;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	memcpy(&d.v[1], src, 3);
+#else
+	memcpy(&d.v[0], src, 3);
+#endif
+	return d.value >> 8;
 }
+
 #define READ24(s) read_s24(s)
 
 #if defined (__SSE__)

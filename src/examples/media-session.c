@@ -116,6 +116,8 @@ struct node {
 	uint32_t type;
 	char *media;
 
+	uint32_t media_type;
+	uint32_t media_subtype;
 	struct spa_audio_info_raw format;
 };
 
@@ -357,7 +359,6 @@ static void node_event_param(void *object,
 {
 	struct node *n = object;
 	struct impl *impl = n->obj.impl;
-	uint32_t media_type, media_subtype;
 	struct spa_audio_info_raw info = { 0, };
 
 	pw_log_debug(NAME" %p: param for node %d", impl, n->obj.id);
@@ -365,11 +366,11 @@ static void node_event_param(void *object,
 	if (id != SPA_PARAM_EnumFormat)
 		return;
 
-	if (spa_format_parse(param, &media_type, &media_subtype) < 0)
+	if (spa_format_parse(param, &n->media_type, &n->media_subtype) < 0)
 		return;
 
-	if (media_type != SPA_MEDIA_TYPE_audio ||
-	    media_subtype != SPA_MEDIA_SUBTYPE_raw)
+	if (n->media_type != SPA_MEDIA_TYPE_audio ||
+	    n->media_subtype != SPA_MEDIA_SUBTYPE_raw)
 		return;
 
 	spa_pod_fixate((struct spa_pod*)param);
@@ -566,7 +567,6 @@ static void port_event_param(void *object,
 {
 	struct port *p = object;
 	struct node *node = p->node;
-	uint32_t media_type, media_subtype;
 	struct spa_audio_info_raw info = { 0, };
 
 	pw_log_debug(NAME" %p: param for port %d", p->obj.impl, p->obj.id);
@@ -580,11 +580,11 @@ static void port_event_param(void *object,
 	if (node->manager)
 		node->manager->enabled = true;
 
-	if (spa_format_parse(param, &media_type, &media_subtype) < 0)
+	if (spa_format_parse(param, &node->media_type, &node->media_subtype) < 0)
 		return;
 
-	if (media_type != SPA_MEDIA_TYPE_audio ||
-	    media_subtype != SPA_MEDIA_SUBTYPE_raw)
+	if (node->media_type != SPA_MEDIA_TYPE_audio ||
+	    node->media_subtype != SPA_MEDIA_SUBTYPE_raw)
 		return;
 
 	spa_pod_fixate((struct spa_pod*)param);
@@ -1151,6 +1151,10 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		struct spa_pod *param;
 
 		if (node->info->props == NULL)
+			return;
+
+		if (node->media_type != SPA_MEDIA_TYPE_audio ||
+		    node->media_subtype != SPA_MEDIA_SUBTYPE_raw)
 			return;
 
 		info = node->format;

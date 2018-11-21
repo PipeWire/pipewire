@@ -139,10 +139,17 @@ static int init_port(struct impl *this, uint32_t port_id, uint32_t rate, uint32_
 static int impl_node_enum_params(struct spa_node *node,
 				 uint32_t id, uint32_t *index,
 				 const struct spa_pod *filter,
-				 struct spa_pod **param,
+				 struct spa_pod **result,
 				 struct spa_pod_builder *builder)
 {
+	struct spa_pod *param;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+
 	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+      next:
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
 	case SPA_PARAM_List:
@@ -162,6 +169,9 @@ static int impl_node_enum_params(struct spa_node *node,
 		return 0;
 	}
 	(*index)++;
+
+	if (spa_pod_filter(builder, result, param, filter) < 0)
+		goto next;
 
 	return 1;
 }

@@ -125,10 +125,10 @@ conv_s24_to_f32d_1_sse(void *data, int n_dst, void *dst[n_dst], const void *src,
 	n_samples = n_samples & 3;
 
 	for(; unrolled--; n += 4) {
-		memcpy(&b.b[1], &s[0], 3);
-		memcpy(&b.b[5], &s[3], 3);
-		memcpy(&b.b[9], &s[6], 3);
-		memcpy(&b.b[13], &s[9], 3);
+		memcpy(&b.b[1], &s[0 * n_dst], 3);
+		memcpy(&b.b[5], &s[3 * n_dst], 3);
+		memcpy(&b.b[9], &s[6 * n_dst], 3);
+		memcpy(&b.b[13], &s[9 * n_dst], 3);
 		in = _mm_srai_epi32(b.in, 8);
 		out = _mm_cvtepi32_ps(in);
 		out = _mm_mul_ps(out, factor);

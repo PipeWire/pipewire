@@ -452,6 +452,10 @@ static const struct channelmix_info {
 	{ 6, MASK_5_1, 4, MASK_QUAD, channelmix_f32_5p1_4_sse, FEATURE_SSE },
 #endif
 	{ 6, MASK_5_1, 4, MASK_QUAD, channelmix_f32_5p1_4, 0 },
+
+#if defined (__SSE2__)
+	{ 6, MASK_5_1, 4, MASK_3_1, channelmix_f32_5p1_3p1_sse, FEATURE_SSE },
+#endif
 	{ 6, MASK_5_1, 4, MASK_3_1, channelmix_f32_5p1_3p1, 0 },
 
 	{ 8, MASK_7_1, 2, MASK_STEREO, channelmix_f32_7p1_2, 0 },

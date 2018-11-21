@@ -47,7 +47,7 @@
 struct impl;
 
 #define DEFAULT_MUTE	false
-#define DEFAULT_VOLUME	1.0
+#define DEFAULT_VOLUME	1.0f
 
 struct props {
 	float volume;
@@ -139,7 +139,9 @@ struct impl {
 #define TRR		18
 #define NUM_CHAN	19
 
-#define SQRT3_2      1.22474487139158904909  /* sqrt(3/2) */
+#define SQRT3_2      1.224744871f  /* sqrt(3/2) */
+#define SQRT1_2      0.707106781f
+#define SQRT2	     1.414213562f
 
 #define MATRIX_NORMAL	0
 #define MATRIX_DOLBY	1
@@ -182,17 +184,17 @@ static int make_matrix(struct impl *this,
 		uint32_t src_chan, uint64_t src_mask,
 		uint32_t dst_chan, uint64_t dst_mask)
 {
-	float matrix[NUM_CHAN][NUM_CHAN] = {{ 0 }};
+	float matrix[NUM_CHAN][NUM_CHAN] = {{ 0.0f }};
 	uint64_t unassigned;
 	int i, j, matrix_encoding = MATRIX_NORMAL, c;
-	float clev = M_SQRT1_2;
-	float slev = M_SQRT1_2;
+	float clev = SQRT1_2;
+	float slev = SQRT1_2;
 	float llev = 0.5f;
 	float max = 0.0f;
 
 	for (i = 0; i < NUM_CHAN; i++) {
 		if (src_mask & dst_mask & (1ULL << (i + 2)))
-			matrix[i][i]= 1.0;
+			matrix[i][i]= 1.0f;
 	}
 
 	unassigned = src_mask & ~dst_mask;
@@ -205,8 +207,8 @@ static int make_matrix(struct impl *this,
 				matrix[FL][FC] += clev;
 				matrix[FR][FC] += clev;
 			} else {
-				matrix[FL][FC] += M_SQRT1_2;
-				matrix[FR][FC] += M_SQRT1_2;
+				matrix[FL][FC] += SQRT1_2;
+				matrix[FR][FC] += SQRT1_2;
 			}
 		} else
 			return -ENOTSUP;
@@ -214,75 +216,75 @@ static int make_matrix(struct impl *this,
 
 	if (unassigned & STEREO){
 		if (dst_mask & _MASK(MONO)) {
-			matrix[M][FL] += 0.5;
-			matrix[M][FR] += 0.5;
+			matrix[M][FL] += 0.5f;
+			matrix[M][FR] += 0.5f;
 		}
 		else if (dst_mask & _MASK(FC)) {
-			matrix[FC][FL] += M_SQRT1_2;
-			matrix[FC][FR] += M_SQRT1_2;
+			matrix[FC][FL] += SQRT1_2;
+			matrix[FC][FR] += SQRT1_2;
 			if (src_mask & _MASK(FC))
-				matrix[FC][FC] = clev * M_SQRT2;
+				matrix[FC][FC] = clev * SQRT2;
 		} else
 			return -ENOTSUP;
 	}
 
 	if (unassigned & _MASK(RC)) {
 		if (dst_mask & _MASK(RL)){
-			matrix[RL][RC] += M_SQRT1_2;
-			matrix[RR][RC] += M_SQRT1_2;
+			matrix[RL][RC] += SQRT1_2;
+			matrix[RR][RC] += SQRT1_2;
 		} else if (dst_mask & _MASK(SL)) {
-			matrix[SL][RC] += M_SQRT1_2;
-			matrix[SR][RC] += M_SQRT1_2;
+			matrix[SL][RC] += SQRT1_2;
+			matrix[SR][RC] += SQRT1_2;
 		} else if(dst_mask & _MASK(FL)) {
 			if (matrix_encoding == MATRIX_DOLBY ||
 			    matrix_encoding == MATRIX_DPLII) {
 				if (unassigned & (_MASK(RL)|_MASK(RR))) {
-					matrix[FL][RC] -= slev * M_SQRT1_2;
-					matrix[FR][RC] += slev * M_SQRT1_2;
+					matrix[FL][RC] -= slev * SQRT1_2;
+					matrix[FR][RC] += slev * SQRT1_2;
 		                } else {
 					matrix[FL][RC] -= slev;
 					matrix[FR][RC] += slev;
 				}
 			} else {
-				matrix[FL][RC] += slev * M_SQRT1_2;
-				matrix[FR][RC] += slev * M_SQRT1_2;
+				matrix[FL][RC] += slev * SQRT1_2;
+				matrix[FR][RC] += slev * SQRT1_2;
 			}
 		} else if (dst_mask & _MASK(FC)) {
-			matrix[FC][RC] += slev * M_SQRT1_2;
+			matrix[FC][RC] += slev * SQRT1_2;
 		} else
 			return -ENOTSUP;
 	}
 
 	if (unassigned & _MASK(RL)) {
 		if (dst_mask & _MASK(RC)) {
-			matrix[RC][RL] += M_SQRT1_2;
-			matrix[RC][RR] += M_SQRT1_2;
+			matrix[RC][RL] += SQRT1_2;
+			matrix[RC][RR] += SQRT1_2;
 		} else if (dst_mask & _MASK(SL)) {
 			if (src_mask & _MASK(SL)) {
-				matrix[SL][RL] += M_SQRT1_2;
-				matrix[SR][RR] += M_SQRT1_2;
+				matrix[SL][RL] += SQRT1_2;
+				matrix[SR][RR] += SQRT1_2;
 			} else {
-				matrix[SL][RL] += 1.0;
-				matrix[SR][RR] += 1.0;
+				matrix[SL][RL] += 1.0f;
+				matrix[SR][RR] += 1.0f;
 			}
 		} else if (dst_mask & _MASK(FL)) {
 			if (matrix_encoding == MATRIX_DOLBY) {
-				matrix[FL][RL] -= slev * M_SQRT1_2;
-				matrix[FL][RR] -= slev * M_SQRT1_2;
-				matrix[FR][RL] += slev * M_SQRT1_2;
-				matrix[FR][RR] += slev * M_SQRT1_2;
+				matrix[FL][RL] -= slev * SQRT1_2;
+				matrix[FL][RR] -= slev * SQRT1_2;
+				matrix[FR][RL] += slev * SQRT1_2;
+				matrix[FR][RR] += slev * SQRT1_2;
 			} else if (matrix_encoding == MATRIX_DPLII) {
 				matrix[FL][RL] -= slev * SQRT3_2;
-				matrix[FL][RR] -= slev * M_SQRT1_2;
-				matrix[FR][RL] += slev * M_SQRT1_2;
+				matrix[FL][RR] -= slev * SQRT1_2;
+				matrix[FR][RL] += slev * SQRT1_2;
 				matrix[FR][RR] += slev * SQRT3_2;
 			} else {
 				matrix[FL][RL] += slev;
 				matrix[FR][RR] += slev;
 			}
 		} else if (dst_mask & _MASK(FC)) {
-			matrix[FC][RL]+= slev * M_SQRT1_2;
-			matrix[FC][RR]+= slev * M_SQRT1_2;
+			matrix[FC][RL]+= slev * SQRT1_2;
+			matrix[FC][RR]+= slev * SQRT1_2;
 		} else
 			return -ENOTSUP;
 	}
@@ -290,44 +292,44 @@ static int make_matrix(struct impl *this,
 	if (unassigned & _MASK(SL)) {
 		if (dst_mask & _MASK(RL)) {
 			if (src_mask & _MASK(RL)) {
-				matrix[RL][SL] += M_SQRT1_2;
-				matrix[RR][SR] += M_SQRT1_2;
+				matrix[RL][SL] += SQRT1_2;
+				matrix[RR][SR] += SQRT1_2;
 			} else {
-				matrix[RL][SL] += 1.0;
-				matrix[RR][SR] += 1.0;
+				matrix[RL][SL] += 1.0f;
+				matrix[RR][SR] += 1.0f;
 			}
 		} else if (dst_mask & _MASK(RC)) {
-			matrix[RC][SL]+= M_SQRT1_2;
-			matrix[RC][SR]+= M_SQRT1_2;
+			matrix[RC][SL]+= SQRT1_2;
+			matrix[RC][SR]+= SQRT1_2;
 		} else if (dst_mask & _MASK(FL)) {
 			if (matrix_encoding == MATRIX_DOLBY) {
-				matrix[FL][SL] -= slev * M_SQRT1_2;
-				matrix[FL][SR] -= slev * M_SQRT1_2;
-				matrix[FR][SL] += slev * M_SQRT1_2;
-				matrix[FR][SR] += slev * M_SQRT1_2;
+				matrix[FL][SL] -= slev * SQRT1_2;
+				matrix[FL][SR] -= slev * SQRT1_2;
+				matrix[FR][SL] += slev * SQRT1_2;
+				matrix[FR][SR] += slev * SQRT1_2;
 			} else if (matrix_encoding == MATRIX_DPLII) {
 				matrix[FL][SL] -= slev * SQRT3_2;
-				matrix[FL][SR] -= slev * M_SQRT1_2;
-				matrix[FR][SL] += slev * M_SQRT1_2;
+				matrix[FL][SR] -= slev * SQRT1_2;
+				matrix[FR][SL] += slev * SQRT1_2;
 				matrix[FR][SR] += slev * SQRT3_2;
 			} else {
 				matrix[FL][SL] += slev;
 				matrix[FR][SR] += slev;
 			}
 		} else if (dst_mask & _MASK(FC)) {
-			matrix[FC][SL] += slev * M_SQRT1_2;
-			matrix[FC][SR] += slev * M_SQRT1_2;
+			matrix[FC][SL] += slev * SQRT1_2;
+			matrix[FC][SR] += slev * SQRT1_2;
 		} else
 			return -ENOTSUP;
 	}
 
 	if (unassigned & _MASK(FLC)) {
 		if (dst_mask & _MASK(FL)) {
-			matrix[FC][FLC]+= 1.0;
-			matrix[FC][FRC]+= 1.0;
+			matrix[FC][FLC]+= 1.0f;
+			matrix[FC][FRC]+= 1.0f;
 		} else if(dst_mask & _MASK(FC)) {
-			matrix[FC][FLC]+= M_SQRT1_2;
-			matrix[FC][FRC]+= M_SQRT1_2;
+			matrix[FC][FLC]+= SQRT1_2;
+			matrix[FC][FRC]+= SQRT1_2;
 		} else
 			return -ENOTSUP;
 	}
@@ -335,15 +337,15 @@ static int make_matrix(struct impl *this,
 		if (dst_mask & _MASK(FC)) {
 			matrix[FC][LFE] += llev;
 		} else if (dst_mask & _MASK(FL)) {
-			matrix[FL][LFE] += llev * M_SQRT1_2;
-			matrix[FR][LFE] += llev * M_SQRT1_2;
+			matrix[FL][LFE] += llev * SQRT1_2;
+			matrix[FR][LFE] += llev * SQRT1_2;
 		} else
 			return -ENOTSUP;
 	}
 
 	c = 0;
 	for (i = 0; i < NUM_CHAN; i++) {
-		float sum = 0.0;
+		float sum = 0.0f;
 		if ((dst_mask & (1UL << (i + 2))) == 0)
 			continue;
 		for (j = 0; j < NUM_CHAN; j++) {
@@ -1149,7 +1151,7 @@ static int impl_node_process(struct spa_node *node)
 
 		this->convert(this, n_dst_datas, dst_datas,
 				    n_src_datas, src_datas,
-				    this->matrix, this->props.mute ? 0.0 : this->props.volume,
+				    this->matrix, this->props.mute ? 0.0f : this->props.volume,
 				    n_bytes);
 	}
 

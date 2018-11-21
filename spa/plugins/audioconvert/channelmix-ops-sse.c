@@ -202,6 +202,68 @@ channelmix_f32_5p1_2_sse(void *data, int n_dst, void *dst[n_dst],
 	}
 }
 
+/* FL+FR+FC+LFE+SL+SR -> FL+FR+FC+LFE*/
+static void
+channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void *dst[n_dst],
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+{
+	int i, n, n_samples = n_bytes / sizeof(float), unrolled, remain;
+	float **d = (float **) dst;
+	float **s = (float **) src;
+        __m128 mix = _mm_set1_ps(v * 0.5f);
+        __m128 vol = _mm_set1_ps(v);
+	__m128 avg;
+	float *dFL = d[0], *dFR = d[1], *dFC = d[2], *dLFE = d[3];
+	float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
+
+	if (v <= VOLUME_MIN) {
+		for (i = 0; i < n_dst; i++)
+			memset(d[i], 0, n_bytes);
+	}
+	else if (v == VOLUME_NORM) {
+		unrolled = n_samples / 4;
+		remain = n_samples & 3;
+
+		for(n = 0; unrolled--; n += 4) {
+			avg = _mm_add_ps(_mm_loadu_ps(&sFL[n]), _mm_loadu_ps(&sSL[n]));
+			_mm_storeu_ps(&dFL[n], _mm_mul_ps(avg, mix));
+			avg = _mm_add_ps(_mm_loadu_ps(&sFR[n]), _mm_loadu_ps(&sSR[n]));
+			_mm_storeu_ps(&dFR[n], _mm_mul_ps(avg, mix));
+			_mm_storeu_ps(&dFC[n], _mm_loadu_ps(&sFC[n]));
+			_mm_storeu_ps(&dLFE[n], _mm_loadu_ps(&sLFE[n]));
+		}
+		for(; remain--; n++) {
+			avg = _mm_add_ss(_mm_load_ss(&sFL[n]), _mm_load_ss(&sSL[n]));
+			_mm_store_ss(&dFL[n], _mm_mul_ss(avg, mix));
+			avg = _mm_add_ps(_mm_load_ss(&sFR[n]), _mm_load_ss(&sSR[n]));
+			_mm_store_ss(&dFR[n], _mm_mul_ss(avg, mix));
+			_mm_store_ss(&dFC[n], _mm_load_ss(&sFC[n]));
+			_mm_store_ss(&dLFE[n], _mm_load_ss(&sLFE[n]));
+		}
+	}
+	else {
+		unrolled = n_samples / 4;
+		remain = n_samples & 3;
+
+		for(n = 0; unrolled--; n += 4) {
+			avg = _mm_add_ps(_mm_loadu_ps(&sFL[n]), _mm_loadu_ps(&sSL[n]));
+			_mm_storeu_ps(&dFL[n], _mm_mul_ps(avg, mix));
+			avg = _mm_add_ps(_mm_loadu_ps(&sFR[n]), _mm_loadu_ps(&sSR[n]));
+			_mm_storeu_ps(&dFR[n], _mm_mul_ps(avg, mix));
+			_mm_storeu_ps(&dFC[n], _mm_mul_ps(_mm_loadu_ps(&sFC[n]), vol));
+			_mm_storeu_ps(&dLFE[n], _mm_mul_ps(_mm_loadu_ps(&sLFE[n]), vol));
+		}
+		for(; remain--; n++) {
+			avg = _mm_add_ss(_mm_load_ss(&sFL[n]), _mm_load_ss(&sSL[n]));
+			_mm_store_ss(&dFL[n], _mm_mul_ss(avg, mix));
+			avg = _mm_add_ps(_mm_load_ss(&sFR[n]), _mm_load_ss(&sSR[n]));
+			_mm_store_ss(&dFR[n], _mm_mul_ss(avg, mix));
+			_mm_store_ss(&dFC[n], _mm_mul_ss(_mm_load_ss(&sFC[n]), vol));
+			_mm_store_ss(&dLFE[n], _mm_mul_ss(_mm_load_ss(&sLFE[n]), vol));
+		}
+	}
+}
+
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+RL+RR*/
 static void
 channelmix_f32_5p1_4_sse(void *data, int n_dst, void *dst[n_dst],

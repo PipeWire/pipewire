@@ -1288,6 +1288,9 @@ void pw_link_destroy(struct pw_link *link)
 	if (link->registered)
 		spa_list_remove(&link->link);
 
+	if (link->output->node->clock == link->input->node->clock)
+		link->input->node->clock = NULL;
+
 	input_remove(link, link->input);
 
 	output_remove(link, link->output);

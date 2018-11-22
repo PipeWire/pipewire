@@ -64,14 +64,6 @@ struct pw_link_proxy;
 
 /** Core */
 
-#define PW_TYPE_INTERFACE__Core		PW_TYPE_INTERFACE_BASE "Core"
-#define PW_TYPE_INTERFACE__Registry	PW_TYPE_INTERFACE_BASE "Registry"
-#define PW_TYPE_INTERFACE__Module	PW_TYPE_INTERFACE_BASE "Module"
-#define PW_TYPE_INTERFACE__Node		PW_TYPE_INTERFACE_BASE "Node"
-#define PW_TYPE_INTERFACE__Port		PW_TYPE_INTERFACE_BASE "Port"
-#define PW_TYPE_INTERFACE__Client	PW_TYPE_INTERFACE_BASE "Client"
-#define PW_TYPE_INTERFACE__Link		PW_TYPE_INTERFACE_BASE "Link"
-
 #define PW_VERSION_CORE				0
 
 #define PW_CORE_PROXY_METHOD_HELLO		0
@@ -82,26 +74,6 @@ struct pw_link_proxy;
 #define PW_CORE_PROXY_METHOD_CREATE_OBJECT	5
 #define PW_CORE_PROXY_METHOD_DESTROY		6
 #define PW_CORE_PROXY_METHOD_NUM		7
-
-/**
- * Key to update default permissions of globals without specific
- * permissions. value is "[r][w][x]" */
-#define PW_CORE_PROXY_PERMISSIONS_DEFAULT	"permissions.default"
-
-/**
- * Key to update specific permissions of a global. If the global
- * did not have specific permissions, it will first be assigned
- * the default permissions before it is updated.
- * Value is "<global-id>:[r][w][x]"*/
-#define PW_CORE_PROXY_PERMISSIONS_GLOBAL	"permissions.global"
-
-/**
- * Key to update specific permissions of all existing globals.
- * This is equivalent to using \ref PW_CORE_PROXY_PERMISSIONS_GLOBAL
- * on each global id individually that did not have specific
- * permissions.
- * Value is "[r][w][x]" */
-#define PW_CORE_PROXY_PERMISSIONS_EXISTING	"permissions.existing"
 
 #define PW_LINK_OUTPUT_NODE_ID	"link.output_node.id"
 #define PW_LINK_OUTPUT_PORT_ID	"link.output_port.id"

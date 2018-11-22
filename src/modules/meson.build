@@ -53,6 +53,12 @@ pipewire_module_link_factory = shared_library('pipewire-module-link-factory',
 #  dependencies : [glib_dep, gio_dep, mathlib, dl_lib, pipewire_dep],
 #)
 
+pipewire_module_protocol_native_deps = [mathlib, dl_lib, pipewire_dep]
+
+if get_option('systemd')
+  pipewire_module_protocol_native_deps += systemd_dep
+endif
+
 pipewire_module_protocol_native = shared_library('pipewire-module-protocol-native',
   [ 'module-protocol-native.c',
     'module-protocol-native/local-socket.c',
@@ -63,7 +69,7 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep, systemd_dep],
+  dependencies : pipewire_module_protocol_native_deps,
 )
 
 pipewire_module_audio_dsp = shared_library('pipewire-module-audio-dsp',

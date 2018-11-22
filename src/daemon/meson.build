@@ -29,6 +29,6 @@ executable('pipewire',
   dependencies : [pipewire_dep],
 )
 
-if systemd.found()
+if get_option('systemd') and systemd.found()
   subdir('systemd')
 endif

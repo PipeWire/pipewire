@@ -95,6 +95,10 @@ struct impl {
 #define RTKIT_SERVICE_NAME "org.freedesktop.RealtimeKit1"
 #define RTKIT_OBJECT_PATH "/org/freedesktop/RealtimeKit1"
 
+#ifndef RLIMIT_RTTIME
+#define RLIMIT_RTTIME 15
+#endif
+
 /** \cond */
 struct pw_rtkit_bus {
 	DBusConnection *bus;

@@ -147,7 +147,7 @@ static void on_info_changed(void *data, const struct pw_core_info *info)
 {
 	bool print_all = true, print_mark = false;
 
-	printf("\ttype: %s\n", PW_TYPE_INTERFACE__Core);
+	printf("\ttype: %s\n", spa_debug_type_find_name(pw_type_info(), PW_TYPE_INTERFACE_Core));
 	if (print_all) {
 		printf("%c\tuser-name: \"%s\"\n", MARK_CHANGE(0), info->user_name);
 		printf("%c\thost-name: \"%s\"\n", MARK_CHANGE(1), info->host_name);
@@ -180,7 +180,8 @@ static void module_event_info(void *object, struct pw_module_info *info)
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
-	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Module, data->version);
+	printf("\ttype: %s (version %d)\n",
+			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
 	if (print_all) {
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 		printf("%c\tfilename: \"%s\"\n", MARK_CHANGE(1), info->filename);
@@ -215,7 +216,8 @@ static void print_node(struct proxy_data *data)
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
-	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Node, data->version);
+	printf("\ttype: %s (version %d)\n",
+			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
 	if (print_all) {
 		int i;
 
@@ -291,7 +293,8 @@ static void print_port(struct proxy_data *data)
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
-	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Port, data->version);
+	printf("\ttype: %s (version %d)\n",
+			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
 	if (print_all) {
 		int i;
 		printf(" \tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
@@ -357,7 +360,8 @@ static void factory_event_info(void *object, struct pw_factory_info *info)
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
-	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Factory, data->version);
+	printf("\ttype: %s (version %d)\n",
+			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
 	printf("\tname: \"%s\"\n", info->name);
 	printf("\tobject-type: %s/%d\n", spa_debug_type_find_name(pw_type_info(), info->type), info->version);
 	if (print_all) {
@@ -392,7 +396,8 @@ static void client_event_info(void *object, struct pw_client_info *info)
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
-	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Client, data->version);
+	printf("\ttype: %s (version %d)\n",
+			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
 	if (print_all) {
 		print_properties(info->props, MARK_CHANGE(0));
 	}
@@ -425,7 +430,8 @@ static void link_event_info(void *object, struct pw_link_info *info)
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
-	printf("\ttype: %s (version %d)\n", PW_TYPE_INTERFACE__Link, data->version);
+	printf("\ttype: %s (version %d)\n",
+			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
 	if (print_all) {
 		printf("%c\toutput-node-id: %u\n", MARK_CHANGE(0), info->output_node_id);
 		printf("%c\toutput-port-id: %u\n", MARK_CHANGE(0), info->output_port_id);
@@ -483,39 +489,40 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	pw_destroy_t destroy;
 	print_func_t print_func = NULL;
 
-	if (type == PW_TYPE_INTERFACE_Node) {
+	switch (type) {
+	case PW_TYPE_INTERFACE_Node:
 		events = &node_events;
 		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		print_func = print_node;
-	}
-	else if (type == PW_TYPE_INTERFACE_Port) {
+		break;
+	case PW_TYPE_INTERFACE_Port:
 		events = &port_events;
 		client_version = PW_VERSION_PORT;
 		destroy = (pw_destroy_t) pw_port_info_free;
 		print_func = print_port;
-	}
-	else if (type == PW_TYPE_INTERFACE_Module) {
+		break;
+	case PW_TYPE_INTERFACE_Module:
 		events = &module_events;
 		client_version = PW_VERSION_MODULE;
 		destroy = (pw_destroy_t) pw_module_info_free;
-	}
-	else if (type == PW_TYPE_INTERFACE_Factory) {
+		break;
+	case PW_TYPE_INTERFACE_Factory:
 		events = &factory_events;
 		client_version = PW_VERSION_FACTORY;
 		destroy = (pw_destroy_t) pw_factory_info_free;
-	}
-	else if (type == PW_TYPE_INTERFACE_Client) {
+		break;
+	case PW_TYPE_INTERFACE_Client:
 		events = &client_events;
 		client_version = PW_VERSION_CLIENT;
 		destroy = (pw_destroy_t) pw_client_info_free;
-	}
-	else if (type == PW_TYPE_INTERFACE_Link) {
+		break;
+	case PW_TYPE_INTERFACE_Link:
 		events = &link_events;
 		client_version = PW_VERSION_LINK;
 		destroy = (pw_destroy_t) pw_link_info_free;
-	}
-	else {
+		break;
+	default:
 		printf("added:\n");
 		printf("\tid: %u\n", id);
 		printf("\tparent_id: %d\n", parent_id);
@@ -541,6 +548,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	pd->parent_id = parent_id;
 	pd->permissions = permissions;
 	pd->version = version;
+	pd->type = type;
 	pd->destroy = destroy;
 	pd->pending_seq = SPA_ID_INVALID;
 	pd->print_func = print_func;

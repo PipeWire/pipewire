@@ -1,7 +1,7 @@
 executable('video-src',
   'video-src.c',
   install: false,
-  dependencies : [pipewire_dep],
+  dependencies : [pipewire_dep, mathlib],
 )
 executable('export-source',
   'export-source.c',

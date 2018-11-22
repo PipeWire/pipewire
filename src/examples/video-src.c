@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <time.h>
+#include <math.h>
 #include <sys/mman.h>
 
 #include <spa/support/type-map.h>
@@ -44,7 +45,12 @@ static inline void init_type(struct type *type, struct spa_type_map *map)
 	spa_type_video_format_map(map, &type->video_format);
 }
 
-#define BPP    3
+#define BPP	3
+#define WIDTH	320
+#define HEIGHT	200
+#define CROP	8
+
+#define M_PI_M2 ( M_PI + M_PI )
 
 struct data {
 	struct type type;
@@ -65,6 +71,8 @@ struct data {
 
 	int counter;
 	uint32_t seq;
+	double crop;
+	double accumulator;
 };
 
 static void on_timeout(void *userdata, uint64_t expirations)
@@ -73,6 +81,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	int i, j;
 	uint8_t *p;
 	struct spa_meta_header *h;
+	struct spa_meta_video_crop *mc;
 	struct pw_buffer *buf;
 	struct spa_buffer *b;
 
@@ -96,6 +105,18 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		h->flags = 0;
 		h->seq = data->seq++;
 		h->dts_offset = 0;
+	}
+	if ((mc = spa_buffer_find_meta(b, data->t->meta.VideoCrop))) {
+		mc->x = data->crop;
+		mc->y = data->crop;
+		mc->width = WIDTH - data->crop*2;
+		mc->height = HEIGHT - data->crop*2;
+
+                data->accumulator += M_PI_M2 / 50.0;
+                if (data->accumulator >= M_PI_M2)
+                        data->accumulator -= M_PI_M2;
+
+		data->crop = (sin(data->accumulator) + 1.0) * 32.0;
 	}
 
 	for (i = 0; i < data->format.size.height; i++) {
@@ -148,7 +169,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	struct pw_type *t = data->t;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	const struct spa_pod *params[2];
+	const struct spa_pod *params[3];
 
 	if (format == NULL) {
 		pw_stream_finish_format(stream, 0, NULL, 0);
@@ -170,8 +191,12 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		t->param.idMeta, t->param_meta.Meta,
 		":", t->param_meta.type, "I", t->meta.Header,
 		":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+	params[2] = spa_pod_builder_object(&b,
+		t->param.idMeta, t->param_meta.Meta,
+		":", t->param_meta.type, "I", t->meta.VideoCrop,
+		":", t->param_meta.size, "i", sizeof(struct spa_meta_video_crop));
 
-	pw_stream_finish_format(stream, 0, params, 2);
+	pw_stream_finish_format(stream, 0, params, 3);
 }
 
 static const struct pw_stream_events stream_events = {
@@ -214,7 +239,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 			"I", data->type.media_type.video,
 			"I", data->type.media_subtype.raw,
 			":", data->type.format_video.format,    "I", data->type.video_format.RGB,
-			":", data->type.format_video.size,      "Rru", &SPA_RECTANGLE(320, 240),
+			":", data->type.format_video.size,      "Rru", &SPA_RECTANGLE(WIDTH, HEIGHT),
 				SPA_POD_PROP_MIN_MAX(&SPA_RECTANGLE(1, 1),
 						     &SPA_RECTANGLE(4096, 4096)),
 			":", data->type.format_video.framerate, "F", &SPA_FRACTION(25, 1));

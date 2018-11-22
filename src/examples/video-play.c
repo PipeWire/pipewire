@@ -73,6 +73,7 @@ struct data {
 	int32_t stride;
 
 	int counter;
+	SDL_Rect rect;
 };
 
 static void handle_events(struct data *data)
@@ -96,6 +97,7 @@ on_stream_process(void *_data)
 	struct spa_buffer *b;
 	void *sdata, *ddata;
 	int sstride, dstride, ostride;
+	struct spa_meta_video_crop *mc;
 	uint32_t i;
 	uint8_t *src, *dst;
 
@@ -114,6 +116,17 @@ on_stream_process(void *_data)
 		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
 		goto done;
 	}
+	if ((mc = spa_buffer_find_meta(b, data->t->meta.VideoCrop))) {
+		if (data->rect.x != mc->x ||
+		    data->rect.y != mc->y ||
+		    data->rect.w != mc->width ||
+		    data->rect.h != mc->height) {
+			data->rect.x = mc->x;
+			data->rect.y = mc->y;
+			data->rect.w = mc->width;
+			data->rect.h = mc->height;
+		}
+	}
 	sstride = b->datas[0].chunk->stride;
 	ostride = SPA_MIN(sstride, dstride);
 
@@ -127,7 +140,7 @@ on_stream_process(void *_data)
 	SDL_UnlockTexture(data->texture);
 
 	SDL_RenderClear(data->renderer);
-	SDL_RenderCopy(data->renderer, data->texture, NULL, NULL);
+	SDL_RenderCopy(data->renderer, data->texture, &data->rect, NULL);
 	SDL_RenderPresent(data->renderer);
 
       done:
@@ -226,7 +239,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	struct pw_type *t = data->t;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	const struct spa_pod *params[2];
+	const struct spa_pod *params[3];
 	Uint32 sdl_format;
 	void *d;
 
@@ -254,6 +267,11 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	SDL_LockTexture(data->texture, NULL, &d, &data->stride);
 	SDL_UnlockTexture(data->texture);
 
+	data->rect.x = 0;
+	data->rect.y = 0;
+	data->rect.w = data->format.size.width;
+	data->rect.h = data->format.size.height;
+
 	params[0] = spa_pod_builder_object(&b,
 		t->param.idBuffers, t->param_buffers.Buffers,
 		":", t->param_buffers.size,    "i", data->stride * data->format.size.height,
@@ -266,8 +284,12 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		t->param.idMeta, t->param_meta.Meta,
 		":", t->param_meta.type, "I", t->meta.Header,
 		":", t->param_meta.size, "i", sizeof(struct spa_meta_header));
+	params[2] = spa_pod_builder_object(&b,
+		t->param.idMeta, t->param_meta.Meta,
+		":", t->param_meta.type, "I", t->meta.VideoCrop,
+		":", t->param_meta.size, "i", sizeof(struct spa_meta_video_crop));
 
-	pw_stream_finish_format(stream, 0, params, 2);
+	pw_stream_finish_format(stream, 0, params, 3);
 }
 
 static const struct pw_stream_events stream_events = {

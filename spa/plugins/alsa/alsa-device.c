@@ -227,9 +227,18 @@ static int impl_set_param(struct spa_device *device,
 	return -ENOTSUP;
 }
 
+static const struct spa_dict_item info_items[] = {
+	{ "media.class", "Audio/Device" },
+};
+
+static const struct spa_dict info = {
+	info_items,
+	SPA_N_ELEMENTS(info_items)
+};
+
 static const struct spa_device impl_device = {
 	SPA_VERSION_DEVICE,
-	NULL,
+	&info,
 	impl_set_callbacks,
 	impl_enum_params,
 	impl_set_param,

@@ -29,9 +29,6 @@
 extern "C" {
 #endif
 
-#define PW_TYPE__Control			"PipeWire:Object:Control"
-#define PW_TYPE_CONTROL_BASE			PW_TYPE__Control ":"
-
 #include <spa/utils/hook.h>
 
 /** \page page_control Control

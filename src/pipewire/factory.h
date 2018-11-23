@@ -29,9 +29,6 @@
 extern "C" {
 #endif
 
-#define PW_TYPE_INTERFACE__Factory		PW_TYPE_INTERFACE_BASE "Factory"
-#define PW_TYPE_FACTORY_BASE			PW_TYPE_INTERFACE__Factory ":"
-
 /** \class pw_factory
  *
  * \brief PipeWire factory interface.
@@ -48,7 +45,7 @@ struct pw_factory;
 
 /** Factory events, listen to them with \ref pw_factory_add_listener */
 struct pw_factory_events {
-#define PW_VERSION_FACRORY_EVENTS	0
+#define PW_VERSION_FACTORY_EVENTS	0
 	uint32_t version;
 
 	/** the factory is destroyed */

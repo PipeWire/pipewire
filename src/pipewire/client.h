@@ -56,9 +56,6 @@ struct pw_client;
 #include <pipewire/resource.h>
 #include <pipewire/permission.h>
 
-#define PW_TYPE__Client           PW_TYPE_OBJECT_BASE "Client"
-#define PW_TYPE_CLIENT_BASE       PW_TYPE__Client ":"
-
 /** \page page_client Client
  *
  * \section sec_page_client_overview Overview

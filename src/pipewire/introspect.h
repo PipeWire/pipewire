@@ -126,6 +126,24 @@ pw_module_info_update(struct pw_module_info *info,
 /** Free a \ref pw_module_info \memberof pw_introspect */
 void pw_module_info_free(struct pw_module_info *info);
 
+
+/** The device information. Extra information can be added in later versions \memberof pw_introspect */
+struct pw_device_info {
+	uint32_t id;		/**< id of the global */
+	const char *name;	/**< name the device */
+#define PW_DEVICE_CHANGE_MASK_PROPS		(1 << 0)
+	uint64_t change_mask;	/**< bitfield of changed fields since last call */
+	struct spa_dict *props;	/**< extra properties */
+};
+
+/** Update and existing \ref pw_device_info with \a update \memberof pw_introspect */
+struct pw_device_info *
+pw_device_info_update(struct pw_device_info *info,
+		      const struct pw_device_info *update);
+
+/** Free a \ref pw_device_info \memberof pw_introspect */
+void pw_device_info_free(struct pw_device_info *info);
+
 /** The client information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_client_info {
 	uint32_t id;		/**< id of the global */
@@ -190,7 +208,7 @@ pw_port_info_free(struct pw_port_info *info);
 struct pw_factory_info {
 	uint32_t id;			/**< id of the global */
 	const char *name;		/**< name the factory */
-	uint32_t type;			/**< type of the factory */
+	uint32_t type;			/**< type of the objects created by this factory */
 	uint32_t version;		/**< version of the objects */
 #define PW_FACTORY_CHANGE_MASK_PROPS	(1 << 0)
 	uint64_t change_mask;		/**< bitfield of changed fields since last call */

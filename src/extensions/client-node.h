@@ -31,13 +31,10 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
-#include <spa/node/node.h>
 
 #include <pipewire/proxy.h>
 
 struct pw_client_node_proxy;
-
-#define PW_TYPE_INTERFACE__ClientNode		PW_TYPE_INTERFACE_BASE "ClientNode"
 
 #define PW_VERSION_CLIENT_NODE			0
 

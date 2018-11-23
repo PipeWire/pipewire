@@ -1,4 +1,5 @@
 v4l2_sources = ['v4l2.c',
+                'v4l2-device.c',
                 'v4l2-monitor.c',
                 'v4l2-source.c']
 

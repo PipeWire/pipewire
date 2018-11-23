@@ -31,7 +31,6 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
-#include <spa/node/node.h>
 
 #include <pipewire/introspect.h>
 #include <pipewire/proxy.h>
@@ -40,6 +39,7 @@ extern "C" {
 struct pw_core_proxy;
 struct pw_registry_proxy;
 struct pw_module_proxy;
+struct pw_device_proxy;
 struct pw_node_proxy;
 struct pw_port_proxy;
 struct pw_factory_proxy;
@@ -419,6 +419,14 @@ pw_registry_proxy_add_listener(struct pw_registry_proxy *registry,
 
 #define PW_VERSION_MODULE			0
 
+#define PW_MODULE_PROXY_METHOD_NUM		0
+
+/** Module methods */
+struct pw_module_proxy_methods {
+#define PW_VERSION_MODULE_PROXY_METHODS	0
+	uint32_t version;
+};
+
 #define PW_MODULE_PROXY_EVENT_INFO		0
 #define PW_MODULE_PROXY_EVENT_NUM		1
 
@@ -445,24 +453,57 @@ pw_module_proxy_add_listener(struct pw_module_proxy *module,
 
 #define pw_module_resource_info(r,...)	pw_resource_notify(r,struct pw_module_proxy_events,info,__VA_ARGS__)
 
-#define PW_VERSION_NODE			0
 
-#define PW_NODE_PROXY_EVENT_INFO	0
-#define PW_NODE_PROXY_EVENT_PARAM	1
-#define PW_NODE_PROXY_EVENT_NUM		2
+#define PW_VERSION_DEVICE		0
 
-/** Node events */
-struct pw_node_proxy_events {
-#define PW_VERSION_NODE_PROXY_EVENTS	0
+#define PW_DEVICE_PROXY_METHOD_ENUM_PARAMS	0
+#define PW_DEVICE_PROXY_METHOD_SET_PARAM	1
+#define PW_DEVICE_PROXY_METHOD_NUM		2
+
+/** Device methods */
+struct pw_device_proxy_methods {
+#define PW_VERSION_DEVICE_PROXY_METHODS	0
 	uint32_t version;
 	/**
-	 * Notify node info
+	 * Enumerate device parameters
 	 *
-	 * \param info info about the node
+	 * Start enumeration of device parameters. For each param, a
+	 * param event will be emited.
+	 *
+	 * \param id the parameter id to enum or SPA_ID_INVALID for all
+	 * \param start the start index or 0 for the first param
+	 * \param num the maximum number of params to retrieve
+	 * \param filter a param filter or NULL
 	 */
-	void (*info) (void *object, struct pw_node_info *info);
+	void (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
+			     const struct spa_pod *filter);
 	/**
-	 * Notify a node param
+	 * Set a parameter on the device
+	 *
+	 * \param id the parameter id to set
+	 * \param flags extra parameter flags
+	 * \param param the parameter to set
+	 */
+	void (*set_param) (void *object, uint32_t id, uint32_t flags,
+			   const struct spa_pod *param);
+};
+
+#define PW_DEVICE_PROXY_EVENT_INFO	0
+#define PW_DEVICE_PROXY_EVENT_PARAM	1
+#define PW_DEVICE_PROXY_EVENT_NUM	2
+
+/** Device events */
+struct pw_device_proxy_events {
+#define PW_VERSION_DEVICE_PROXY_EVENTS	0
+	uint32_t version;
+	/**
+	 * Notify device info
+	 *
+	 * \param info info about the device
+	 */
+	void (*info) (void *object, struct pw_device_info *info);
+	/**
+	 * Notify a device param
 	 *
 	 * Event emited as a result of the enum_params method.
 	 *
@@ -477,16 +518,18 @@ struct pw_node_proxy_events {
 };
 
 static inline void
-pw_node_proxy_add_listener(struct pw_node_proxy *node,
-			   struct spa_hook *listener,
-			   const struct pw_node_proxy_events *events,
-			   void *data)
+pw_device_proxy_add_listener(struct pw_device_proxy *device,
+			     struct spa_hook *listener,
+			     const struct pw_device_proxy_events *events,
+			     void *data)
 {
-	pw_proxy_add_proxy_listener((struct pw_proxy*)node, listener, events, data);
+	pw_proxy_add_proxy_listener((struct pw_proxy*)device, listener, events, data);
 }
 
-#define pw_node_resource_info(r,...) pw_resource_notify(r,struct pw_node_proxy_events,info,__VA_ARGS__)
-#define pw_node_resource_param(r,...) pw_resource_notify(r,struct pw_node_proxy_events,param,__VA_ARGS__)
+#define pw_device_resource_info(r,...) pw_resource_notify(r,struct pw_device_proxy_events,info,__VA_ARGS__)
+#define pw_device_resource_param(r,...) pw_resource_notify(r,struct pw_device_proxy_events,param,__VA_ARGS__)
+
+#define PW_VERSION_NODE			0
 
 #define PW_NODE_PROXY_METHOD_ENUM_PARAMS	0
 #define PW_NODE_PROXY_METHOD_SET_PARAM		1
@@ -553,7 +596,80 @@ pw_node_proxy_send_command(struct pw_node_proxy *node, const struct spa_command 
 			command);
 }
 
+#define PW_NODE_PROXY_EVENT_INFO	0
+#define PW_NODE_PROXY_EVENT_PARAM	1
+#define PW_NODE_PROXY_EVENT_NUM		2
+
+/** Node events */
+struct pw_node_proxy_events {
+#define PW_VERSION_NODE_PROXY_EVENTS	0
+	uint32_t version;
+	/**
+	 * Notify node info
+	 *
+	 * \param info info about the node
+	 */
+	void (*info) (void *object, struct pw_node_info *info);
+	/**
+	 * Notify a node param
+	 *
+	 * Event emited as a result of the enum_params method.
+	 *
+	 * \param id the param id
+	 * \param index the param index
+	 * \param next the param index of the next param
+	 * \param param the parameter
+	 */
+	void (*param) (void *object,
+		       uint32_t id, uint32_t index, uint32_t next,
+		       const struct spa_pod *param);
+};
+
+static inline void
+pw_node_proxy_add_listener(struct pw_node_proxy *node,
+			   struct spa_hook *listener,
+			   const struct pw_node_proxy_events *events,
+			   void *data)
+{
+	pw_proxy_add_proxy_listener((struct pw_proxy*)node, listener, events, data);
+}
+
+#define pw_node_resource_info(r,...) pw_resource_notify(r,struct pw_node_proxy_events,info,__VA_ARGS__)
+#define pw_node_resource_param(r,...) pw_resource_notify(r,struct pw_node_proxy_events,param,__VA_ARGS__)
+
+
 #define PW_VERSION_PORT			0
+
+#define PW_PORT_PROXY_METHOD_ENUM_PARAMS	0
+#define PW_PORT_PROXY_METHOD_NUM		1
+
+/** Port methods */
+struct pw_port_proxy_methods {
+#define PW_VERSION_PORT_PROXY_METHODS	0
+	uint32_t version;
+	/**
+	 * Enumerate port parameters
+	 *
+	 * Start enumeration of port parameters. For each param, a
+	 * param event will be emited.
+	 *
+	 * \param id the parameter id to enumerate
+	 * \param start the start index or 0 for the first param
+	 * \param num the maximum number of params to retrieve
+	 * \param filter a param filter or NULL
+	 */
+	void (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
+			const struct spa_pod *filter);
+};
+
+/** Port params */
+static inline void
+pw_port_proxy_enum_params(struct pw_port_proxy *port, uint32_t id, uint32_t index,
+		uint32_t num, const struct spa_pod *filter)
+{
+	pw_proxy_do((struct pw_proxy*)port, struct pw_port_proxy_methods, enum_params,
+			id, index, num, filter);
+}
 
 #define PW_PORT_PROXY_EVENT_INFO	0
 #define PW_PORT_PROXY_EVENT_PARAM	1
@@ -596,38 +712,15 @@ pw_port_proxy_add_listener(struct pw_port_proxy *port,
 #define pw_port_resource_info(r,...) pw_resource_notify(r,struct pw_port_proxy_events,info,__VA_ARGS__)
 #define pw_port_resource_param(r,...) pw_resource_notify(r,struct pw_port_proxy_events,param,__VA_ARGS__)
 
-#define PW_PORT_PROXY_METHOD_ENUM_PARAMS	0
-#define PW_PORT_PROXY_METHOD_NUM		1
-
-/** Port methods */
-struct pw_port_proxy_methods {
-#define PW_VERSION_PORT_PROXY_METHODS	0
-	uint32_t version;
-	/**
-	 * Enumerate port parameters
-	 *
-	 * Start enumeration of port parameters. For each param, a
-	 * param event will be emited.
-	 *
-	 * \param id the parameter id to enumerate
-	 * \param start the start index or 0 for the first param
-	 * \param num the maximum number of params to retrieve
-	 * \param filter a param filter or NULL
-	 */
-	void (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
-			const struct spa_pod *filter);
-};
-
-/** Port params */
-static inline void
-pw_port_proxy_enum_params(struct pw_port_proxy *port, uint32_t id, uint32_t index,
-		uint32_t num, const struct spa_pod *filter)
-{
-	pw_proxy_do((struct pw_proxy*)port, struct pw_port_proxy_methods, enum_params,
-			id, index, num, filter);
-}
-
 #define PW_VERSION_FACTORY			0
+
+#define PW_FACTORY_PROXY_METHOD_NUM		0
+
+/** Factory methods */
+struct pw_factory_proxy_methods {
+#define PW_VERSION_FACTORY_PROXY_METHODS	0
+	uint32_t version;
+};
 
 #define PW_FACTORY_PROXY_EVENT_INFO		0
 #define PW_FACTORY_PROXY_EVENT_NUM		1
@@ -657,49 +750,6 @@ pw_factory_proxy_add_listener(struct pw_factory_proxy *factory,
 #define pw_factory_resource_info(r,...) pw_resource_notify(r,struct pw_factory_proxy_events,info,__VA_ARGS__)
 
 #define PW_VERSION_CLIENT			0
-
-#define PW_CLIENT_PROXY_EVENT_INFO		0
-#define PW_CLIENT_PROXY_EVENT_PERMISSIONS	1
-#define PW_CLIENT_PROXY_EVENT_NUM		2
-
-/** Client events */
-struct pw_client_proxy_events {
-#define PW_VERSION_CLIENT_PROXY_EVENTS	0
-	uint32_t version;
-	/**
-	 * Notify client info
-	 *
-	 * \param info info about the client
-	 */
-	void (*info) (void *object, struct pw_client_info *info);
-	/**
-	 * Notify a client permission
-	 *
-	 * Event emited as a result of the get_permissions method.
-	 *
-	 * \param default_permissions the default permissions
-	 * \param index the index of the first permission entry
-	 * \param n_permissions the number of permissions
-	 * \param permissions the permissions
-	 */
-	void (*permissions) (void *object,
-			     uint32_t index,
-			     uint32_t n_permissions,
-			     struct pw_permission *permissions);
-};
-
-/** Client */
-static inline void
-pw_client_proxy_add_listener(struct pw_client_proxy *client,
-			     struct spa_hook *listener,
-			     const struct pw_client_proxy_events *events,
-			     void *data)
-{
-	pw_proxy_add_proxy_listener((struct pw_proxy*)client, listener, events, data);
-}
-
-#define pw_client_resource_info(r,...) pw_resource_notify(r,struct pw_client_proxy_events,info,__VA_ARGS__)
-#define pw_client_resource_permissions(r,...) pw_resource_notify(r,struct pw_client_proxy_events,permissions,__VA_ARGS__)
 
 #define PW_CLIENT_PROXY_METHOD_ERROR			0
 #define PW_CLIENT_PROXY_METHOD_GET_PERMISSIONS		1
@@ -760,10 +810,61 @@ pw_client_proxy_update_permissions(struct pw_client_proxy *client, uint32_t n_pe
 			n_permissions, permissions);
 }
 
+#define PW_CLIENT_PROXY_EVENT_INFO		0
+#define PW_CLIENT_PROXY_EVENT_PERMISSIONS	1
+#define PW_CLIENT_PROXY_EVENT_NUM		2
+
+/** Client events */
+struct pw_client_proxy_events {
+#define PW_VERSION_CLIENT_PROXY_EVENTS	0
+	uint32_t version;
+	/**
+	 * Notify client info
+	 *
+	 * \param info info about the client
+	 */
+	void (*info) (void *object, struct pw_client_info *info);
+	/**
+	 * Notify a client permission
+	 *
+	 * Event emited as a result of the get_permissions method.
+	 *
+	 * \param default_permissions the default permissions
+	 * \param index the index of the first permission entry
+	 * \param n_permissions the number of permissions
+	 * \param permissions the permissions
+	 */
+	void (*permissions) (void *object,
+			     uint32_t index,
+			     uint32_t n_permissions,
+			     struct pw_permission *permissions);
+};
+
+/** Client */
+static inline void
+pw_client_proxy_add_listener(struct pw_client_proxy *client,
+			     struct spa_hook *listener,
+			     const struct pw_client_proxy_events *events,
+			     void *data)
+{
+	pw_proxy_add_proxy_listener((struct pw_proxy*)client, listener, events, data);
+}
+
+#define pw_client_resource_info(r,...) pw_resource_notify(r,struct pw_client_proxy_events,info,__VA_ARGS__)
+#define pw_client_resource_permissions(r,...) pw_resource_notify(r,struct pw_client_proxy_events,permissions,__VA_ARGS__)
+
 #define PW_VERSION_LINK			0
 
+#define PW_LINK_PROXY_METHOD_NUM	0
+
+/** Link methods */
+struct pw_link_proxy_methods {
+#define PW_VERSION_LINK_PROXY_METHODS	0
+	uint32_t version;
+};
+
 #define PW_LINK_PROXY_EVENT_INFO	0
-#define PW_LINK_PROXY_EVENT_NUM	1
+#define PW_LINK_PROXY_EVENT_NUM		1
 
 /** Link events */
 struct pw_link_proxy_events {

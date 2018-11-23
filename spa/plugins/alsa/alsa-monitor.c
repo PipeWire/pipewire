@@ -186,6 +186,7 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info,
 		SPA_MONITOR_ITEM_name,    &SPA_POD_Stringv(name),
 		SPA_MONITOR_ITEM_class,   &SPA_POD_Stringv(klass),
 		SPA_MONITOR_ITEM_factory, &SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory, factory),
+		SPA_MONITOR_ITEM_type,    &SPA_POD_Id(SPA_TYPE_INTERFACE_Node),
 		0);
 
 	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);

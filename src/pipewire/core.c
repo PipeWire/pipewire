@@ -38,6 +38,7 @@
 #include <pipewire/protocol.h>
 #include <pipewire/core.h>
 #include <pipewire/data-loop.h>
+#include <pipewire/device.h>
 
 /** \cond */
 struct impl {
@@ -441,6 +442,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	spa_list_init(&this->registry_resource_list);
 	spa_list_init(&this->global_list);
 	spa_list_init(&this->module_list);
+	spa_list_init(&this->device_list);
 	spa_list_init(&this->client_list);
 	spa_list_init(&this->node_list);
 	spa_list_init(&this->factory_list);
@@ -503,6 +505,7 @@ void pw_core_destroy(struct pw_core *core)
 	struct impl *impl = SPA_CONTAINER_OF(core, struct impl, this);
 	struct pw_global *global;
 	struct pw_module *module;
+	struct pw_device *device;
 	struct pw_remote *remote;
 	struct pw_node *node;
 
@@ -516,6 +519,9 @@ void pw_core_destroy(struct pw_core *core)
 
 	spa_list_consume(module, &core->module_list, link)
 		pw_module_destroy(module);
+
+	spa_list_consume(device, &core->device_list, link)
+		pw_device_destroy(device);
 
 	spa_list_consume(node, &core->node_list, link)
 		pw_node_destroy(node);

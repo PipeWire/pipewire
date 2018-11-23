@@ -29,9 +29,6 @@
 extern "C" {
 #endif
 
-#define PW_TYPE__Port                          "PipeWire:Object:Port"
-#define PW_TYPE_PORT_BASE                      PW_TYPE__Port ":"
-
 #include <spa/utils/hook.h>
 
 /** \page page_port Port

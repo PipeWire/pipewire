@@ -34,9 +34,6 @@ extern "C" {
 
 #include <pipewire/core.h>
 
-#define PW_TYPE__Module           PW_TYPE_OBJECT_BASE "Module"
-#define PW_TYPE_MODULE_BASE       PW_TYPE__Module ":"
-
 #define PIPEWIRE_SYMBOL_MODULE_INIT "pipewire__module_init"
 
 /** \class pw_module

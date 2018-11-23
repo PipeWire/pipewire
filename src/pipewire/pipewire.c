@@ -322,7 +322,7 @@ const struct spa_support *pw_get_support(uint32_t *n_support)
 void *pw_load_spa_interface(const char *lib, const char *factory_name, uint32_t type,
 			    const struct spa_dict *info,
 			    uint32_t n_support,
-			    struct spa_support support[])
+			    const struct spa_support support[])
 {
 	struct support *sup = &global_support;
 	struct spa_support extra_support[MAX_SUPPORT];
@@ -610,6 +610,7 @@ static const struct spa_type_info type_info[] = {
 	{ PW_TYPE_INTERFACE_Client, PW_TYPE_INTERFACE_BASE "Client", SPA_TYPE_Pointer, },
 	{ PW_TYPE_INTERFACE_Module, PW_TYPE_INTERFACE_BASE "Module", SPA_TYPE_Pointer, },
 	{ PW_TYPE_INTERFACE_ClientNode, PW_TYPE_INTERFACE_BASE "ClientNode", SPA_TYPE_Pointer, },
+	{ PW_TYPE_INTERFACE_Device, PW_TYPE_INTERFACE_BASE "Device", SPA_TYPE_Pointer, },
 	{ SPA_ID_INVALID, "spa_types", SPA_ID_INVALID, spa_types },
 	{ 0, NULL, },
 };

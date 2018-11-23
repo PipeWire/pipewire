@@ -456,6 +456,42 @@ static const struct pw_link_proxy_events link_events = {
 	.info = link_event_info
 };
 
+
+
+static void device_event_info(void *object, struct pw_device_info *info)
+{
+        struct proxy_data *data = object;
+	bool print_all, print_mark;
+
+	print_all = true;
+        if (data->info == NULL) {
+		printf("added:\n");
+		print_mark = false;
+	}
+        else {
+		printf("changed:\n");
+		print_mark = true;
+	}
+
+        info = data->info = pw_device_info_update(data->info, info);
+
+	printf("\tid: %d\n", data->id);
+	printf("\tparent_id: %d\n", data->parent_id);
+	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
+					  data->permissions & PW_PERM_W ? 'w' : '-',
+					  data->permissions & PW_PERM_X ? 'x' : '-');
+	printf("\ttype: %s (version %d)\n",
+			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
+	if (print_all) {
+		print_properties(info->props, MARK_CHANGE(0));
+	}
+}
+
+static const struct pw_device_proxy_events device_events = {
+	PW_VERSION_DEVICE_PROXY_EVENTS,
+	.info = device_event_info
+};
+
 static void
 destroy_proxy (void *data)
 {
@@ -506,6 +542,11 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		events = &module_events;
 		client_version = PW_VERSION_MODULE;
 		destroy = (pw_destroy_t) pw_module_info_free;
+		break;
+	case PW_TYPE_INTERFACE_Device:
+		events = &device_events;
+		client_version = PW_VERSION_DEVICE;
+		destroy = (pw_destroy_t) pw_device_info_free;
 		break;
 	case PW_TYPE_INTERFACE_Factory:
 		events = &factory_events;

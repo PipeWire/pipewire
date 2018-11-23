@@ -39,7 +39,7 @@
 
 #define NAME "v4l2-monitor"
 
-extern const struct spa_handle_factory spa_v4l2_source_factory;
+extern const struct spa_handle_factory spa_v4l2_device_factory;
 
 struct item {
 	struct udev_device *udevice;
@@ -114,8 +114,9 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 		SPA_MONITOR_ITEM_flags,   &SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
 		SPA_MONITOR_ITEM_state,   &SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
 		SPA_MONITOR_ITEM_name,    &SPA_POD_Stringv(name),
-		SPA_MONITOR_ITEM_class,   &SPA_POD_Stringc("Video/Source"),
-		SPA_MONITOR_ITEM_factory, &SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory, &spa_v4l2_source_factory),
+		SPA_MONITOR_ITEM_class,   &SPA_POD_Stringc("Video/Device"),
+		SPA_MONITOR_ITEM_factory, &SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory, &spa_v4l2_device_factory),
+		SPA_MONITOR_ITEM_type,    &SPA_POD_Id(SPA_TYPE_INTERFACE_Device),
 		0);
 
 	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);

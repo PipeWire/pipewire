@@ -29,9 +29,6 @@
 extern "C" {
 #endif
 
-#define PW_TYPE__Resource                            "PipeWire:Object:Resource"
-#define PW_TYPE_RESOURCE_BASE                        PW_TYPE__Resource ":"
-
 #include <spa/utils/hook.h>
 
 /** \page page_resource Resource

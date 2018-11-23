@@ -79,6 +79,7 @@ static const struct spa_type_info spa_type_monitor_item[] = {
 	{ SPA_MONITOR_ITEM_class,   SPA_TYPE_MONITOR_ITEM_BASE "class",   SPA_TYPE_String, },
 	{ SPA_MONITOR_ITEM_info,    SPA_TYPE_MONITOR_ITEM_BASE "info",    SPA_TYPE_Pod, },
 	{ SPA_MONITOR_ITEM_factory, SPA_TYPE_MONITOR_ITEM_BASE "factory", SPA_TYPE_Pointer, },
+	{ SPA_MONITOR_ITEM_type,    SPA_TYPE_MONITOR_ITEM_BASE "type",    SPA_TYPE_Id, },
 	{ 0, NULL, },
 };
 

@@ -29,9 +29,6 @@
 extern "C" {
 #endif
 
-#define PW_TYPE__Node                          PW_TYPE_OBJECT_BASE "Node"
-#define PW_TYPE_NODE_BASE                      PW_TYPE__Node ":"
-
 /** \page page_node Node
  *
  * \section page_node_overview Overview

@@ -24,32 +24,13 @@
 
 #include <errno.h>
 
-#include <spa/support/plugin.h>
+struct spa_v4l2_device {
+	struct spa_log *log;
+	int fd;
+	struct v4l2_capability cap;
+	bool active;
+};
 
-extern const struct spa_handle_factory spa_v4l2_source_factory;
-extern const struct spa_handle_factory spa_v4l2_monitor_factory;
-extern const struct spa_handle_factory spa_v4l2_device_factory;
-
-int
-spa_handle_factory_enum(const struct spa_handle_factory **factory,
-			uint32_t *index)
-{
-	spa_return_val_if_fail(factory != NULL, -EINVAL);
-	spa_return_val_if_fail(index != NULL, -EINVAL);
-
-	switch (*index) {
-	case 0:
-		*factory = &spa_v4l2_source_factory;
-		break;
-	case 1:
-		*factory = &spa_v4l2_monitor_factory;
-		break;
-	case 2:
-		*factory = &spa_v4l2_device_factory;
-		break;
-	default:
-		return 0;
-	}
-	(*index)++;
-	return 1;
-}
+int spa_v4l2_open(struct spa_v4l2_device *dev, const char *path);
+int spa_v4l2_close(struct spa_v4l2_device *dev);
+int spa_v4l2_is_capture(struct spa_v4l2_device *dev);

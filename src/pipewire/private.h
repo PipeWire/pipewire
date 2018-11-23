@@ -172,6 +172,7 @@ struct pw_core {
 	struct spa_list remote_list;		/**< list of remote connections */
 	struct spa_list registry_resource_list;	/**< list of registry resources */
 	struct spa_list module_list;		/**< list of modules */
+	struct spa_list device_list;		/**< list of devices */
 	struct spa_list global_list;		/**< list of globals */
 	struct spa_list client_list;		/**< list of clients */
 	struct spa_list node_list;		/**< list of nodes */
@@ -241,6 +242,28 @@ static inline void free_allocation(struct allocation *alloc)
 	alloc->buffers = NULL;
 	alloc->n_buffers = 0;
 }
+
+#define pw_device_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_device_events, m, v, ##__VA_ARGS__)
+#define pw_device_events_destroy(m)		pw_device_events_emit(m, destroy, 0)
+#define pw_device_events_info_changed(n,i)	pw_device_events_emit(n, info_changed, 0, i)
+
+struct pw_device {
+	struct pw_core *core;           /**< the core object */
+	struct spa_list link;           /**< link in the core device_list */
+	struct pw_global *global;       /**< global object for this device */
+	struct spa_hook global_listener;
+	bool registered;
+
+	struct pw_properties *properties;	/**< properties of the device */
+	struct pw_device_info info;     /**< introspectable device info */
+
+	struct spa_device *implementation;	/**< implementation */
+	struct spa_hook_list listener_list;
+
+	struct spa_list node_list;
+
+	void *user_data;                /**< device user_data */
+};
 
 #define pw_module_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_module_events, m, v, ##__VA_ARGS__)
 #define pw_module_events_destroy(m)	pw_module_events_emit(m, destroy, 0)

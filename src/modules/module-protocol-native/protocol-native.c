@@ -593,6 +593,160 @@ static int module_demarshal_info(void *object, void *data, size_t size)
 	return 0;
 }
 
+static void device_marshal_info(void *object, struct pw_device_info *info)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+	uint32_t i, n_items;
+
+	b = pw_protocol_native_begin_resource(resource, PW_DEVICE_PROXY_EVENT_INFO);
+
+	n_items = info->props ? info->props->n_items : 0;
+
+	spa_pod_builder_add(b,
+			    "[",
+			    "i", info->id,
+			    "l", info->change_mask,
+			    "i", n_items, NULL);
+
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_add(b,
+				    "s", info->props->items[i].key,
+				    "s", info->props->items[i].value, NULL);
+	}
+	spa_pod_builder_add(b, "]", NULL);
+
+	pw_protocol_native_end_resource(resource, b);
+}
+
+static int device_demarshal_info(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	struct spa_dict props;
+	struct pw_device_info info;
+	uint32_t i;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs,
+			"["
+			"i", &info.id,
+			"l", &info.change_mask,
+			"i", &props.n_items, NULL) < 0)
+		return -EINVAL;
+
+	info.props = &props;
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (spa_pod_parser_get(&prs, "ss",
+					&props.items[i].key, &props.items[i].value, NULL) < 0)
+			return -EINVAL;
+	}
+	pw_proxy_notify(proxy, struct pw_device_proxy_events, info, 0, &info);
+	return 0;
+}
+
+static void device_marshal_param(void *object, uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource, PW_DEVICE_PROXY_EVENT_PARAM);
+
+	spa_pod_builder_add_struct(b, "I", id, "i", index, "i", next, "P", param);
+
+	pw_protocol_native_end_resource(resource, b);
+}
+
+static int device_demarshal_param(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id, index, next;
+	struct spa_pod *param;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs,
+				"[ I", &id,
+				"i", &index,
+				"i", &next,
+				"P", &param, NULL) < 0)
+		return -EINVAL;
+
+	pw_proxy_notify(proxy, struct pw_device_proxy_events, param, 0, id, index, next, param);
+	return 0;
+}
+
+static void device_marshal_enum_params(void *object, uint32_t id, uint32_t index, uint32_t num,
+		const struct spa_pod *filter)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_DEVICE_PROXY_METHOD_ENUM_PARAMS);
+
+	spa_pod_builder_add_struct(b,
+			"I", id,
+			"i", index,
+			"i", num,
+			"P", filter);
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static int device_demarshal_enum_params(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	uint32_t id, index, num;
+	struct spa_pod *filter;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs,
+				"[ I", &id,
+				"i", &index,
+				"i", &num,
+				"P", &filter, NULL) < 0)
+		return -EINVAL;
+
+	pw_resource_do(resource, struct pw_device_proxy_methods, enum_params, 0, id, index, num, filter);
+	return 0;
+}
+
+static void device_marshal_set_param(void *object, uint32_t id, uint32_t flags,
+		const struct spa_pod *param)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_DEVICE_PROXY_METHOD_SET_PARAM);
+
+	spa_pod_builder_add_struct(b,
+			"I", id,
+			"i", flags,
+			"P", param);
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static int device_demarshal_set_param(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	uint32_t id, flags;
+	struct spa_pod *param;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs,
+				"[ I", &id,
+				"i", &flags,
+				"P", &param, NULL) < 0)
+		return -EINVAL;
+
+	pw_resource_do(resource, struct pw_device_proxy_methods, set_param, 0, id, flags, param);
+	return 0;
+}
+
 static void factory_marshal_info(void *object, struct pw_factory_info *info)
 {
 	struct pw_resource *resource = object;
@@ -1436,6 +1590,39 @@ const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
 	PW_FACTORY_PROXY_EVENT_NUM,
 };
 
+static const struct pw_device_proxy_methods pw_protocol_native_device_method_marshal = {
+	PW_VERSION_DEVICE_PROXY_METHODS,
+	&device_marshal_enum_params,
+	&device_marshal_set_param,
+};
+
+static const struct pw_protocol_native_demarshal pw_protocol_native_device_method_demarshal[] = {
+	{ &device_demarshal_enum_params, 0, },
+	{ &device_demarshal_set_param, PW_PERM_W, },
+};
+
+static const struct pw_device_proxy_events pw_protocol_native_device_event_marshal = {
+	PW_VERSION_DEVICE_PROXY_EVENTS,
+	&device_marshal_info,
+	&device_marshal_param,
+};
+
+static const struct pw_protocol_native_demarshal pw_protocol_native_device_event_demarshal[] = {
+	{ &device_demarshal_info, 0, },
+	{ &device_demarshal_param, 0, }
+};
+
+static const struct pw_protocol_marshal pw_protocol_native_device_marshal = {
+	PW_TYPE_INTERFACE_Device,
+	PW_VERSION_DEVICE,
+	&pw_protocol_native_device_method_marshal,
+	pw_protocol_native_device_method_demarshal,
+	PW_DEVICE_PROXY_METHOD_NUM,
+	&pw_protocol_native_device_event_marshal,
+	pw_protocol_native_device_event_demarshal,
+	PW_DEVICE_PROXY_EVENT_NUM,
+};
+
 static const struct pw_node_proxy_methods pw_protocol_native_node_method_marshal = {
 	PW_VERSION_NODE_PROXY_METHODS,
 	&node_marshal_enum_params,
@@ -1561,6 +1748,7 @@ void pw_protocol_native_init(struct pw_protocol *protocol)
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_core_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_registry_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_module_marshal);
+	pw_protocol_add_marshal(protocol, &pw_protocol_native_device_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_node_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_port_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_factory_marshal);

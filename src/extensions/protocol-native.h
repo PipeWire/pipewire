@@ -33,8 +33,7 @@ extern "C" {
 #include <spa/param/param.h>
 #include <spa/node/node.h>
 
-#define PW_TYPE_PROTOCOL__Native	PW_TYPE_PROTOCOL_BASE "Native"
-#define PW_TYPE_PROTOCOL_NATIVE_BASE	PW_TYPE_PROTOCOL__Native ":"
+#define PW_TYPE_PROTOCOL__Native       PW_TYPE_PROTOCOL_BASE "Native"
 
 struct pw_protocol_native_demarshal {
 	int (*func) (void *object, void *data, size_t size);

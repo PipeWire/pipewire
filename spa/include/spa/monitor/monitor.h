@@ -68,6 +68,7 @@ enum spa_monitor_item {
 	SPA_MONITOR_ITEM_class,
 	SPA_MONITOR_ITEM_info,
 	SPA_MONITOR_ITEM_factory,
+	SPA_MONITOR_ITEM_type,
 };
 
 /**

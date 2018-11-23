@@ -353,6 +353,35 @@ void pw_module_info_free(struct pw_module_info *info)
 }
 
 
+struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
+					     const struct pw_device_info *update)
+{
+	if (update == NULL)
+		return info;
+
+	if (info == NULL) {
+		info = calloc(1, sizeof(struct pw_device_info));
+		if (info == NULL)
+			return NULL;
+	}
+	info->id = update->id;
+	info->change_mask = update->change_mask;
+
+	if (update->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
+		if (info->props)
+			pw_spa_dict_destroy(info->props);
+		info->props = pw_spa_dict_copy(update->props);
+	}
+	return info;
+}
+
+void pw_device_info_free(struct pw_device_info *info)
+{
+	if (info->props)
+		pw_spa_dict_destroy(info->props);
+	free(info);
+}
+
 struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
 					     const struct pw_client_info *update)
 {

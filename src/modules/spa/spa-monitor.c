@@ -41,15 +41,19 @@
 #include <pipewire/log.h>
 #include <pipewire/type.h>
 #include <pipewire/node.h>
+#include <pipewire/device.h>
 
 #include "spa-monitor.h"
 #include "spa-node.h"
+#include "spa-device.h"
 
 struct monitor_item {
 	char *id;
 	struct spa_list link;
-	struct pw_node *node;
 	struct spa_handle *handle;
+	uint32_t type;
+	void *iface;
+	void *object;
 };
 
 struct impl {
@@ -70,7 +74,7 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 	int res;
 	struct spa_handle *handle;
 	struct monitor_item *mitem;
-	void *node_iface;
+	void *iface;
 	struct pw_properties *props = NULL;
 	const char *name, *id, *klass, *str;
 	struct spa_handle_factory *factory;
@@ -78,7 +82,7 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 	struct spa_pod *info = NULL;
 	const struct spa_support *support;
 	enum pw_spa_node_flags flags;
-	uint32_t n_support;
+	uint32_t n_support, type;
 
 	if (spa_pod_object_parse(item,
 			":", SPA_MONITOR_ITEM_id,      "s", &id,
@@ -86,6 +90,7 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 			":", SPA_MONITOR_ITEM_name,    "s", &name,
 			":", SPA_MONITOR_ITEM_class,   "s", &klass,
 			":", SPA_MONITOR_ITEM_factory, "p", &factory,
+			":", SPA_MONITOR_ITEM_type,    "I", &type,
 			":", SPA_MONITOR_ITEM_info,    "T", &info, NULL) < 0) {
 		pw_log_warn("monitor %p: could not parse item", this);
 		spa_debug_pod(0, NULL, item);
@@ -128,21 +133,34 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 		pw_log_error("can't make factory instance: %d", res);
 		return NULL;
 	}
-	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &node_iface)) < 0) {
+
+
+	if ((res = spa_handle_get_interface(handle, type, &iface)) < 0) {
 		pw_log_error("can't get NODE interface: %d", res);
 		pw_properties_free(props);
 		return NULL;
 	}
 
-	flags = PW_SPA_NODE_FLAG_ACTIVATE;
-	flags |= (state == SPA_MONITOR_ITEM_STATE_Available) ? 0 : PW_SPA_NODE_FLAG_DISABLE;
-
 	mitem = calloc(1, sizeof(struct monitor_item));
 	mitem->id = strdup(id);
 	mitem->handle = handle;
-	mitem->node = pw_spa_node_new(impl->core, NULL, impl->parent, name,
+	mitem->type = type;
+
+	switch (type) {
+	case SPA_TYPE_INTERFACE_Node:
+		flags = PW_SPA_NODE_FLAG_ACTIVATE;
+		flags |= (state == SPA_MONITOR_ITEM_STATE_Available) ? 0 : PW_SPA_NODE_FLAG_DISABLE;
+		mitem->object = pw_spa_node_new(impl->core, NULL, impl->parent, name,
 				      flags,
-				      node_iface, handle, props, 0);
+				      iface, handle, props, 0);
+		break;
+	case SPA_TYPE_INTERFACE_Device:
+		mitem->object = pw_spa_device_new(impl->core, NULL, impl->parent, name,
+				      0, iface, handle, props, 0);
+		break;
+	default:
+		return NULL;
+	}
 
 	spa_list_append(&impl->item_list, &mitem->link);
 
@@ -164,7 +182,16 @@ static struct monitor_item *find_item(struct pw_spa_monitor *this, const char *i
 
 void destroy_item(struct monitor_item *mitem)
 {
-	pw_node_destroy(mitem->node);
+	switch (mitem->type) {
+	case SPA_TYPE_INTERFACE_Node:
+		pw_node_destroy(mitem->object);
+		break;
+	case SPA_TYPE_INTERFACE_Device:
+		pw_device_destroy(mitem->object);
+		break;
+	default:
+		break;
+	}
 	spa_list_remove(&mitem->link);
 	spa_handle_clear(mitem->handle);
 	free(mitem->handle);
@@ -209,11 +236,11 @@ static void change_item(struct pw_spa_monitor *this, struct spa_pod *item, uint6
 
 	switch (state) {
 	case SPA_MONITOR_ITEM_STATE_Available:
-		pw_node_set_enabled(mitem->node, true);
+		pw_node_set_enabled(mitem->object, true);
 		break;
 	case SPA_MONITOR_ITEM_STATE_Disabled:
 	case SPA_MONITOR_ITEM_STATE_Unavailable:
-		pw_node_set_enabled(mitem->node, false);
+		pw_node_set_enabled(mitem->object, false);
 		break;
 	default:
 		break;

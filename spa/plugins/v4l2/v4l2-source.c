@@ -40,6 +40,8 @@
 #include <spa/control/control.h>
 #include <spa/debug/pod.h>
 
+#include "v4l2.h"
+
 #define NAME "v4l2-source"
 
 static const char default_device[] = "/dev/video0";
@@ -82,7 +84,6 @@ struct port {
 	struct impl *impl;
 
 	bool export_buf;
-	bool started;
 
 	bool next_fmtdesc;
 	struct v4l2_fmtdesc fmtdesc;
@@ -94,10 +95,9 @@ struct port {
 	struct spa_video_info current_format;
 	struct spa_fraction rate;
 
-	int fd;
-	bool opened;
+	struct spa_v4l2_device dev;
+
 	bool have_query_ext_ctrl;
-	struct v4l2_capability cap;
 	struct v4l2_format fmt;
 	enum v4l2_buf_type type;
 	enum v4l2_memory memtype;
@@ -127,6 +127,7 @@ struct impl {
 	uint32_t seq;
 
 	struct props props;
+
 
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
@@ -604,7 +605,7 @@ static int port_set_format(struct spa_node *node,
 		spa_v4l2_stream_off(this);
 		spa_v4l2_clear_buffers(this);
 		port->have_format = false;
-		spa_v4l2_close(this);
+		spa_v4l2_close(&port->dev);
 		return 0;
 	} else {
 		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
@@ -839,7 +840,7 @@ static void set_control(struct impl *this, struct port *port, uint32_t control_i
 	spa_zero(c);
 	c.id = control_id;
 	c.value = value;
-	if (ioctl(port->fd, VIDIOC_S_CTRL, &c) < 0)
+	if (ioctl(port->dev.fd, VIDIOC_S_CTRL, &c) < 0)
 		spa_log_error(this->log, "VIDIOC_S_CTRL %m");
 }
 
@@ -1029,12 +1030,14 @@ impl_init(const struct spa_handle_factory *factory,
 			   SPA_PORT_INFO_FLAG_TERMINAL;
 	port->export_buf = true;
 	port->have_query_ext_ctrl = true;
+	port->dev.log = this->log;
+	port->dev.fd = -1;
 
 	if (info && (str = spa_dict_lookup(info, "device.path"))) {
 		strncpy(this->props.device, str, 63);
-		if ((res = spa_v4l2_open(this)) < 0)
+		if ((res = spa_v4l2_open(&port->dev, this->props.device)) < 0)
 			return res;
-		spa_v4l2_close(this);
+		spa_v4l2_close(&port->dev);
 	}
 
 	return 0;

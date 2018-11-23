@@ -606,6 +606,7 @@ static void device_marshal_info(void *object, struct pw_device_info *info)
 	spa_pod_builder_add(b,
 			    "[",
 			    "i", info->id,
+			    "s", info->name,
 			    "l", info->change_mask,
 			    "i", n_items, NULL);
 
@@ -631,6 +632,7 @@ static int device_demarshal_info(void *object, void *data, size_t size)
 	if (spa_pod_parser_get(&prs,
 			"["
 			"i", &info.id,
+			"s", &info.name,
 			"l", &info.change_mask,
 			"i", &props.n_items, NULL) < 0)
 		return -EINVAL;

@@ -365,6 +365,9 @@ struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
 			return NULL;
 	}
 	info->id = update->id;
+	if (info->name)
+		free((void *) info->name);
+	info->name = update->name ? strdup(update->name) : NULL;
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
@@ -377,6 +380,8 @@ struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
 
 void pw_device_info_free(struct pw_device_info *info)
 {
+	if (info->name)
+		free((void *) info->name);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free(info);

@@ -606,6 +606,15 @@ static void info_link(struct proxy_data *pd)
 	info->change_mask = 0;
 }
 
+static void info_device(struct proxy_data *pd)
+{
+	struct pw_device_info *info = pd->info;
+
+	info_global(pd);
+	fprintf(stdout, "\tname: \"%s\"\n", info->name);
+	print_properties(info->props, MARK_CHANGE(0), true);
+	info->change_mask = 0;
+}
 
 static void core_event_info(void *object, struct pw_core_info *info)
 {
@@ -781,6 +790,27 @@ static const struct pw_link_proxy_events link_events = {
 	.info = link_event_info
 };
 
+
+static void device_event_info(void *object, struct pw_device_info *info)
+{
+	struct proxy_data *pd = object;
+	struct remote_data *rd = pd->rd;
+	if (pd->info)
+		fprintf(stdout, "remote %d device %d changed\n", rd->id, info->id);
+	pd->info = pw_device_info_update(pd->info, info);
+	if (pd->global == NULL)
+		pd->global = pw_map_lookup(&rd->globals, info->id);
+	if (pd->global && pd->global->info_pending) {
+		info_device(pd);
+		pd->global->info_pending = false;
+	}
+}
+
+static const struct pw_device_proxy_events device_events = {
+	PW_VERSION_DEVICE_PROXY_EVENTS,
+	.info = device_event_info
+};
+
 static void
 destroy_proxy (void *data)
 {
@@ -830,6 +860,12 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		client_version = PW_VERSION_MODULE;
 		destroy = (pw_destroy_t) pw_module_info_free;
 		info_func = info_module;
+		break;
+	case PW_TYPE_INTERFACE_Device:
+		events = &device_events;
+		client_version = PW_VERSION_DEVICE;
+		destroy = (pw_destroy_t) pw_device_info_free;
+		info_func = info_device;
 		break;
 	case PW_TYPE_INTERFACE_Node:
 		events = &node_events;

@@ -39,6 +39,7 @@ struct node_data {
 	struct pw_node *node;
 	struct spa_handle *handle;
 	uint32_t id;
+	struct spa_hook node_listener;
 };
 
 struct pw_device *pw_device_new(struct pw_core *core,
@@ -68,8 +69,13 @@ struct pw_device *pw_device_new(struct pw_core *core,
 
 void pw_device_destroy(struct pw_device *device)
 {
+	struct node_data *nd;
+
 	pw_log_debug("device %p: destroy", device);
 	pw_device_events_destroy(device);
+
+	spa_list_consume(nd, &device->node_list, link)
+		pw_node_destroy(nd->node);
 
 	if (device->registered)
 		spa_list_remove(&device->link);
@@ -174,6 +180,19 @@ int pw_device_register(struct pw_device *device,
 	return 0;
 }
 
+static void node_destroy(void *data)
+{
+	struct node_data *nd = data;
+	spa_list_remove(&nd->link);
+	spa_handle_clear(nd->handle);
+}
+
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
+	.destroy = node_destroy,
+};
+
+
 static void device_add(void *data, uint32_t id,
 		const struct spa_handle_factory *factory, uint32_t type,
 		const struct spa_dict *info)
@@ -191,6 +210,7 @@ static void device_add(void *data, uint32_t id,
 		return;
 	}
 
+	pw_log_debug("device %p: add node %d", device, id);
 	support = pw_core_get_support(device->core, &n_support);
 
 	node = pw_node_new(device->core,
@@ -205,19 +225,21 @@ static void device_add(void *data, uint32_t id,
 	nd->handle = SPA_MEMBER(nd, sizeof(struct node_data), void);
 	spa_list_append(&device->node_list, &nd->link);
 
-        if ((res = spa_handle_factory_init(factory,
-                                           nd->handle,
-                                           info,
-                                           support,
-                                           n_support)) < 0) {
-                pw_log_error("can't make factory instance: %d", res);
-                goto error;;
+	if ((res = spa_handle_factory_init(factory,
+					   nd->handle,
+					   info,
+					   support,
+					   n_support)) < 0) {
+		pw_log_error("can't make factory instance: %d", res);
+		goto error;;
         }
 
-        if ((res = spa_handle_get_interface(nd->handle, type, &iface)) < 0) {
-                pw_log_error("can't get NODE interface: %d", res);
-                goto error;;
-        }
+	if ((res = spa_handle_get_interface(nd->handle, type, &iface)) < 0) {
+		pw_log_error("can't get NODE interface: %d", res);
+		goto error;;
+	}
+
+	pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
 
 	pw_node_set_implementation(node, iface);
 	pw_node_register(node, NULL, device->global, NULL);
@@ -230,8 +252,26 @@ error:
 	return;
 }
 
+static struct node_data *find_node(struct pw_device *device, uint32_t id)
+{
+	struct node_data *nd;
+	spa_list_for_each(nd, &device->node_list, link) {
+		if (nd->id == id)
+			return nd;
+	}
+	return NULL;
+}
+
 static void device_remove(void *data, uint32_t id)
 {
+	struct pw_device *device = data;
+	struct node_data *nd;
+
+	pw_log_debug("device %p: remove node %d", device, id);
+	if ((nd = find_node(device, id)) == NULL)
+		return;
+
+	pw_node_destroy(nd->node);
 }
 
 static const struct spa_device_callbacks device_callbacks = {
@@ -243,11 +283,10 @@ static const struct spa_device_callbacks device_callbacks = {
 void pw_device_set_implementation(struct pw_device *device, struct spa_device *spa_device)
 {
 	device->implementation = spa_device;
-
-	spa_device_set_callbacks(device->implementation, &device_callbacks, device);
-
 	if (spa_device && spa_device->info)
 		pw_device_update_properties(device, spa_device->info);
+
+	spa_device_set_callbacks(device->implementation, &device_callbacks, device);
 }
 
 struct spa_device *pw_device_get_implementation(struct pw_device *device)

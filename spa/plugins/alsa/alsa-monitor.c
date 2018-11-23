@@ -156,9 +156,11 @@ static int fill_item(struct impl *this, struct item *item, struct udev_device *d
 		"alsa.card",		str,
 		NULL);
 
-	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && *str) {
+	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && *str)
 		add_dict(builder, "device.class", str, NULL);
-	}
+
+	if ((str = udev_device_get_property_value(dev, "USEC_INITIALIZED")) && *str)
+		add_dict(builder, "device.plugged.usec", str, NULL);
 
 	str = udev_device_get_property_value(dev, "ID_PATH");
 	if (!(str && *str))
@@ -208,10 +210,10 @@ static int fill_item(struct impl *this, struct item *item, struct udev_device *d
 	return 1;
 }
 
-static int need_notify(struct impl *this, struct udev_device *dev, uint32_t id)
+static int need_notify(struct impl *this, struct udev_device *dev, uint32_t id, bool enumerated)
 {
 	const char *str;
-	int idx, i;
+	int idx, i, found = -1;
 
 	if (udev_device_get_property_value(dev, "PULSE_IGNORE"))
 		return 0;
@@ -224,26 +226,39 @@ static int need_notify(struct impl *this, struct udev_device *dev, uint32_t id)
 
 	idx = atoi(str);
 
-	if (id == SPA_MONITOR_EVENT_Added) {
-		for (i = 0; i < this->n_cards; i++) {
-			if (this->cards[i] == idx)
-				return 0;
+	for (i = 0; i < this->n_cards; i++) {
+		if (this->cards[i] == idx) {
+			found = i;
+			break;
 		}
+	}
+
+	switch (id) {
+	case SPA_MONITOR_EVENT_Added:
+		if (found != -1)
+			return 0;
 		if (this->n_cards >= MAX_CARDS)
 			return 0;
 		this->cards[this->n_cards++] = idx;
-	}
-	if (id == SPA_MONITOR_EVENT_Removed) {
-		int found = -1;
-		for (i = 0; i < this->n_cards; i++) {
-			if (this->cards[i] == idx) {
-				found = i;
-				break;
-			}
-		}
+		/** don't notify on add, wait for the next change event */
+		if (!enumerated)
+			return 0;
+		break;
+
+	case SPA_MONITOR_EVENT_Changed:
+		if (found == -1)
+			return 0;
+		if ((str = udev_device_get_property_value(dev, "SOUND_INITIALIZED")) == NULL)
+			return 0;
+		break;
+
+	case SPA_MONITOR_EVENT_Removed:
 		if (found == -1)
 			return 0;
 		this->cards[found] = this->cards[--this->n_cards];
+		break;
+	default:
+		return 0;
 	}
 	return 1;
 }
@@ -266,6 +281,8 @@ static void impl_on_fd_events(struct spa_source *source)
 	if ((action = udev_device_get_action(dev)) == NULL)
 		action = "change";
 
+	spa_log_debug(this->log, "action %s", action);
+
 	if (strcmp(action, "add") == 0) {
 		id = SPA_MONITOR_EVENT_Added;
 	} else if (strcmp(action, "change") == 0) {
@@ -275,7 +292,7 @@ static void impl_on_fd_events(struct spa_source *source)
 	} else
 		return;
 
-	if (!need_notify(this, dev, id))
+	if (!need_notify(this, dev, id, false))
 		return;
 
         spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -369,7 +386,7 @@ static int impl_monitor_enum_items(struct spa_monitor *monitor,
 	if (dev == NULL)
 		goto next;
 
-	if (!need_notify(this, dev, SPA_MONITOR_EVENT_Added))
+	if (!need_notify(this, dev, SPA_MONITOR_EVENT_Added, true))
 		goto next;
 
 	if (fill_item(this, &this->uitem, dev, item, builder) != 1)

@@ -116,8 +116,8 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 	if ((str = pw_properties_get(props, "device.form_factor")) != NULL)
 		if (strcmp(str, "internal") == 0)
 			now = 0;
-	if (now != 0)
-		pw_properties_setf(props, "node.plugged", "%"PRIu64, now);
+	if (now != 0 && pw_properties_get(props, "device.plugged") == NULL)
+		pw_properties_setf(props, "device.plugged", "%"PRIu64, now);
 
 	support = pw_core_get_support(impl->core, &n_support);
 
@@ -227,11 +227,9 @@ static void change_item(struct pw_spa_monitor *this, struct spa_pod *item, uint6
 
 	switch (state) {
 	case SPA_MONITOR_ITEM_STATE_Available:
-		pw_node_set_enabled(mitem->object, true);
 		break;
 	case SPA_MONITOR_ITEM_STATE_Disabled:
 	case SPA_MONITOR_ITEM_STATE_Unavailable:
-		pw_node_set_enabled(mitem->object, false);
 		break;
 	default:
 		break;
@@ -247,7 +245,7 @@ static void on_monitor_event(void *data, struct spa_event *event)
 	struct spa_pod *item;
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
-	now_nsec = now.tv_sec * SPA_NSEC_PER_SEC + now.tv_nsec;
+	now_nsec = SPA_TIMESPEC_TO_NSEC(&now);
 
 	item = SPA_POD_CONTENTS(struct spa_event, event);
 	switch (SPA_MONITOR_EVENT_ID(event)) {

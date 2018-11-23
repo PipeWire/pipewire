@@ -84,24 +84,24 @@ static inline void add_dict(struct spa_pod_builder *builder, const char *key, co
 	spa_pod_builder_string(builder, val);
 }
 
-static void fill_item(struct impl *this, struct item *item, struct udev_device *udevice,
+static void fill_item(struct impl *this, struct item *item, struct udev_device *dev,
 		struct spa_pod **result, struct spa_pod_builder *builder)
 {
 	const char *str, *name;
 
 	if (item->udevice)
 		udev_device_unref(item->udevice);
-	item->udevice = udevice;
-	if (udevice == NULL)
+	item->udevice = dev;
+	if (dev == NULL)
 		return;
 
-	name = udev_device_get_property_value(item->udevice, "ID_V4L_PRODUCT");
+	name = udev_device_get_property_value(dev, "ID_V4L_PRODUCT");
 	if (!(name && *name)) {
-		name = udev_device_get_property_value(item->udevice, "ID_MODEL_FROM_DATABASE");
+		name = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE");
 		if (!(name && *name)) {
-			name = udev_device_get_property_value(item->udevice, "ID_MODEL_ENC");
+			name = udev_device_get_property_value(dev, "ID_MODEL_ENC");
 			if (!(name && *name)) {
-				name = udev_device_get_property_value(item->udevice, "ID_MODEL");
+				name = udev_device_get_property_value(dev, "ID_MODEL");
 			}
 		}
 	}
@@ -110,7 +110,7 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 
 	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_MonitorItem, 0);
 	spa_pod_builder_props(builder,
-		SPA_MONITOR_ITEM_id,      &SPA_POD_Stringv(udev_device_get_syspath(item->udevice)),
+		SPA_MONITOR_ITEM_id,      &SPA_POD_Stringv(udev_device_get_syspath(dev)),
 		SPA_MONITOR_ITEM_flags,   &SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
 		SPA_MONITOR_ITEM_state,   &SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
 		SPA_MONITOR_ITEM_name,    &SPA_POD_Stringv(name),
@@ -123,48 +123,50 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 	spa_pod_builder_push_struct(builder);
 	add_dict(builder, "udev-probed", "1");
 	add_dict(builder, "device.api", "v4l2");
-	add_dict(builder, "device.path", udev_device_get_devnode(item->udevice));
+	add_dict(builder, "device.path", udev_device_get_devnode(dev));
 
+	if ((str = udev_device_get_property_value(dev, "USEC_INITIALIZED")) && *str)
+		add_dict(builder, "device.plugged.usec", str);
 
-	str = udev_device_get_property_value(item->udevice, "ID_PATH");
+	str = udev_device_get_property_value(dev, "ID_PATH");
 	if (!(str && *str))
-		str = udev_device_get_syspath(item->udevice);
+		str = udev_device_get_syspath(dev);
 	if (str && *str) {
 		add_dict(builder, "device.bus_path", str);
 	}
-	if ((str = udev_device_get_syspath(item->udevice)) && *str) {
+	if ((str = udev_device_get_syspath(dev)) && *str) {
 		add_dict(builder, "sysfs.path", str);
 	}
-	if ((str = udev_device_get_property_value(item->udevice, "ID_ID")) && *str) {
+	if ((str = udev_device_get_property_value(dev, "ID_ID")) && *str) {
 		add_dict(builder, "udev.id", str);
 	}
-	if ((str = udev_device_get_property_value(item->udevice, "ID_BUS")) && *str) {
+	if ((str = udev_device_get_property_value(dev, "ID_BUS")) && *str) {
 		add_dict(builder, "device.bus", str);
 	}
-	if ((str = udev_device_get_property_value(item->udevice, "SUBSYSTEM")) && *str) {
+	if ((str = udev_device_get_property_value(dev, "SUBSYSTEM")) && *str) {
 		add_dict(builder, "device.subsystem", str);
 	}
-	if ((str = udev_device_get_property_value(item->udevice, "ID_VENDOR_ID")) && *str) {
+	if ((str = udev_device_get_property_value(dev, "ID_VENDOR_ID")) && *str) {
 		add_dict(builder, "device.vendor.id", str);
 	}
-	str = udev_device_get_property_value(item->udevice, "ID_VENDOR_FROM_DATABASE");
+	str = udev_device_get_property_value(dev, "ID_VENDOR_FROM_DATABASE");
 	if (!(str && *str)) {
-		str = udev_device_get_property_value(item->udevice, "ID_VENDOR_ENC");
+		str = udev_device_get_property_value(dev, "ID_VENDOR_ENC");
 		if (!(str && *str)) {
-			str = udev_device_get_property_value(item->udevice, "ID_VENDOR");
+			str = udev_device_get_property_value(dev, "ID_VENDOR");
 		}
 	}
 	if (str && *str) {
 		add_dict(builder, "device.vendor.name", str);
 	}
-	if ((str = udev_device_get_property_value(item->udevice, "ID_MODEL_ID")) && *str) {
+	if ((str = udev_device_get_property_value(dev, "ID_MODEL_ID")) && *str) {
 		add_dict(builder, "device.product.id", str);
 	}
 	add_dict(builder, "device.product.name", name);
-	if ((str = udev_device_get_property_value(item->udevice, "ID_SERIAL")) && *str) {
+	if ((str = udev_device_get_property_value(dev, "ID_SERIAL")) && *str) {
 		add_dict(builder, "device.serial", str);
 	}
-	if ((str = udev_device_get_property_value(item->udevice, "ID_V4L_CAPABILITIES")) && *str) {
+	if ((str = udev_device_get_property_value(dev, "ID_V4L_CAPABILITIES")) && *str) {
 		add_dict(builder, "device.capabilities", str);
 	}
 

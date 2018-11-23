@@ -58,7 +58,7 @@ pw_properties_copy(const struct pw_properties *properties);
 
 struct pw_properties *
 pw_properties_merge(const struct pw_properties *oldprops,
-		    struct pw_properties *newprops);
+		    const struct pw_properties *newprops);
 
 void
 pw_properties_free(struct pw_properties *properties);

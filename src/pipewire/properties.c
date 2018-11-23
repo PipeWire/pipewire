@@ -208,7 +208,7 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
  * \memberof pw_properties
  */
 struct pw_properties *pw_properties_merge(const struct pw_properties *oldprops,
-					  struct pw_properties *newprops)
+					  const struct pw_properties *newprops)
 {
 	struct pw_properties *res = NULL;
 

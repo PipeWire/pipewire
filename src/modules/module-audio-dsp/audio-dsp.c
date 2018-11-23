@@ -253,10 +253,14 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	struct pw_properties *pr;
 	int i;
 
-	if ((api = pw_properties_get(props, "device.api")) == NULL)
+	if ((api = pw_properties_get(props, "device.api")) == NULL) {
+		pw_log_error("missing device.api property");
 		goto error;
-	if ((alias = pw_properties_get(props, "device.name")) == NULL)
+	}
+	if ((alias = pw_properties_get(props, "device.name")) == NULL) {
+		pw_log_error("missing device.name property");
 		goto error;
+	}
 
 	snprintf(node_name, sizeof(node_name), "system_%s", alias);
 	for (i = 0; node_name[i]; i++) {
@@ -287,8 +291,10 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 			PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,
 			pr, sizeof(struct node) + user_data_size);
 
-        if (node == NULL)
+        if (node == NULL) {
+		pw_log_error("can't load spa node");
 		goto error;
+	}
 
 	n = pw_spa_node_get_user_data(node);
 	n->core = core;

@@ -34,6 +34,7 @@ struct spa_device;
 #include <spa/utils/defs.h>
 #include <spa/utils/dict.h>
 #include <spa/support/plugin.h>
+#include <spa/pod/builder.h>
 
 /**
  * spa_device_callbacks:
@@ -79,9 +80,64 @@ struct spa_device {
 	int (*set_callbacks) (struct spa_device *device,
 			      const struct spa_device_callbacks *callbacks,
 			      void *data);
+	/**
+	 * Enumerate the parameters of a device.
+	 *
+	 * Parameters are identified with an \a id. Some parameters can have
+	 * multiple values, see the documentation of the parameter id.
+	 *
+	 * Parameters can be filtered by passing a non-NULL \a filter.
+	 *
+	 * This function must be called from the main thread.
+	 *
+	 * \param device a \ref spa_device
+	 * \param id the param id to enumerate
+	 * \param index the index of enumeration, pass 0 for the first item and the
+	 *	index is updated to retrieve the next item.
+	 * \param filter and optional filter to use
+	 * \param param result param or NULL
+	 * \param builder builder for the param object.
+	 * \return 1 on success and \a param contains the result
+	 *         0 when there are no more parameters to enumerate
+	 *         -EINVAL when invalid arguments are given
+	 *         -ENOENT the parameter \a id is unknown
+	 *         -ENOTSUP when there are no parameters
+	 *                 implemented on \a device
+	 */
+	int (*enum_params) (struct spa_device *device,
+			    uint32_t id, uint32_t *index,
+			    const struct spa_pod *filter,
+			    struct spa_pod **param,
+			    struct spa_pod_builder *builder);
+	/**
+	 * Set the configurable parameter in \a device.
+	 *
+	 * Usually, \a param will be obtained from enum_params and then
+	 * modified but it is also possible to set another spa_pod
+	 * as long as its keys and types match a supported object.
+	 *
+	 * Objects with property keys that are not known are ignored.
+	 *
+	 * This function must be called from the main thread.
+	 *
+	 * \param device a \ref spa_device
+	 * \param id the parameter id to configure
+	 * \param flags additional flags
+	 * \param param the parameter to configure
+	 *
+	 * \return 0 on success
+	 *         -EINVAL when invalid arguments are given
+	 *         -ENOTSUP when there are no parameters implemented on \a device
+	 *         -ENOENT the parameter is unknown
+	 */
+	int (*set_param) (struct spa_device *device,
+			  uint32_t id, uint32_t flags,
+			  const struct spa_pod *param);
 };
 
-#define spa_device_set_callbacks(m,...)	(m)->set_callbacks((m),__VA_ARGS__)
+#define spa_device_set_callbacks(d,...)	(d)->set_callbacks((d),__VA_ARGS__)
+#define spa_device_enum_params(d,...)	(d)->enum_params((d),__VA_ARGS__)
+#define spa_device_set_param(d,...)	(d)->set_param((d),__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

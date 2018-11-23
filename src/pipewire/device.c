@@ -202,7 +202,8 @@ static void device_add(void *data, uint32_t id,
 	uint32_t n_support;
 	struct pw_node *node;
 	struct node_data *nd;
-	int res;
+	struct pw_properties *props;
+	int i, res;
 	void *iface;
 
 	if (type != SPA_TYPE_INTERFACE_Node) {
@@ -213,9 +214,13 @@ static void device_add(void *data, uint32_t id,
 	pw_log_debug("device %p: add node %d", device, id);
 	support = pw_core_get_support(device->core, &n_support);
 
+	props = pw_properties_copy(device->properties);
+	for (i = 0; info && i < info->n_items; i++)
+		pw_properties_set(props, info->items[i].key, info->items[i].value);
+
 	node = pw_node_new(device->core,
 			   device->info.name,
-			   pw_properties_copy(device->properties),
+			   props,
 			   sizeof(struct node_data) +
 			   spa_handle_factory_get_size(factory, info));
 

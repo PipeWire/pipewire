@@ -44,7 +44,6 @@
 #include <pipewire/device.h>
 
 #include "spa-monitor.h"
-#include "spa-node.h"
 #include "spa-device.h"
 
 struct monitor_item {
@@ -81,7 +80,6 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 	enum spa_monitor_item_state state;
 	struct spa_pod *info = NULL;
 	const struct spa_support *support;
-	enum pw_spa_node_flags flags;
 	uint32_t n_support, type;
 
 	if (spa_pod_object_parse(item,
@@ -147,13 +145,6 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 	mitem->type = type;
 
 	switch (type) {
-	case SPA_TYPE_INTERFACE_Node:
-		flags = PW_SPA_NODE_FLAG_ACTIVATE;
-		flags |= (state == SPA_MONITOR_ITEM_STATE_Available) ? 0 : PW_SPA_NODE_FLAG_DISABLE;
-		mitem->object = pw_spa_node_new(impl->core, NULL, impl->parent, name,
-				      flags,
-				      iface, handle, props, 0);
-		break;
 	case SPA_TYPE_INTERFACE_Device:
 		mitem->object = pw_spa_device_new(impl->core, NULL, impl->parent, name,
 				      0, iface, handle, props, 0);

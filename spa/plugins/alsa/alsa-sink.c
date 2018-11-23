@@ -780,7 +780,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&this->ready);
 
 	for (i = 0; info && i < info->n_items; i++) {
-		if (!strcmp(info->items[i].key, "alsa.card")) {
+		if (!strcmp(info->items[i].key, "alsa.device")) {
 			snprintf(this->props.device, 63, "%s", info->items[i].value);
 		}
 	}

@@ -31,6 +31,7 @@
 
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
+#include <spa/pod/builder.h>
 #include <spa/monitor/device.h>
 #include <spa/debug/pod.h>
 
@@ -68,7 +69,7 @@ struct impl {
 	struct spa_v4l2_device dev;
 };
 
-static int impl_device_set_callbacks(struct spa_device *device,
+static int impl_set_callbacks(struct spa_device *device,
 				   const struct spa_device_callbacks *callbacks,
 				   void *data)
 {
@@ -99,6 +100,22 @@ static int impl_device_set_callbacks(struct spa_device *device,
 	return 0;
 }
 
+static int impl_enum_params(struct spa_device *device,
+			    uint32_t id, uint32_t *index,
+			    const struct spa_pod *filter,
+			    struct spa_pod **param,
+			    struct spa_pod_builder *builder)
+{
+	return -ENOTSUP;
+}
+
+static int impl_set_param(struct spa_device *device,
+			  uint32_t id, uint32_t flags,
+			  const struct spa_pod *param)
+{
+	return -ENOTSUP;
+}
+
 static const struct spa_dict_item info_items[] = {
 	{ "media.class", "Video/Device" },
 };
@@ -111,7 +128,9 @@ static const struct spa_dict info = {
 static const struct spa_device impl_device = {
 	SPA_VERSION_DEVICE,
 	&info,
-	impl_device_set_callbacks,
+	impl_set_callbacks,
+	impl_enum_params,
+	impl_set_param,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)

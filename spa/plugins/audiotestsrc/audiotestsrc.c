@@ -977,7 +977,6 @@ static int impl_node_process(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
-	&node_info,
 	impl_node_enum_params,
 	impl_node_set_param,
 	impl_node_set_io,

@@ -242,6 +242,11 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	return 0;
 }
 
+static const struct spa_dict_item node_info_items[] = {
+	{ "media.class", "Audio/Sink" },
+	{ "node.driver", "true" },
+};
+
 static int
 impl_node_set_callbacks(struct spa_node *node,
 			const struct spa_node_callbacks *callbacks,
@@ -255,6 +260,11 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this->callbacks = callbacks;
 	this->callbacks_data = data;
+
+	if (callbacks) {
+		if (callbacks->info)
+			callbacks->info(data, &SPA_DICT_INIT_ARRAY(node_info_items));
+	}
 
 	return 0;
 }
@@ -675,19 +685,8 @@ static int impl_node_process(struct spa_node *node)
 	return SPA_STATUS_HAVE_BUFFER;
 }
 
-static const struct spa_dict_item node_info_items[] = {
-	{ "media.class", "Audio/Sink" },
-	{ "node.driver", "true" },
-};
-
-static const struct spa_dict node_info = {
-	node_info_items,
-	SPA_N_ELEMENTS(node_info_items)
-};
-
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
-	&node_info,
 	impl_node_enum_params,
 	impl_node_set_param,
 	impl_node_set_io,

@@ -476,7 +476,6 @@ spa_ffmpeg_dec_node_port_send_command(struct spa_node *node,
 
 static const struct spa_node ffmpeg_dec_node = {
 	SPA_VERSION_NODE,
-	NULL,
 	spa_ffmpeg_dec_node_enum_params,
 	spa_ffmpeg_dec_node_set_param,
 	spa_ffmpeg_dec_node_set_io,

@@ -135,6 +135,18 @@ inspect_port_params(struct data *data, struct spa_node *node,
 	}
 }
 
+static void node_info(void *data, const struct spa_dict *info)
+{
+	printf("node properties:\n");
+	spa_debug_dict(2, info);
+}
+
+static const struct spa_node_callbacks node_callbacks =
+{
+	SPA_VERSION_NODE_CALLBACKS,
+	.info = node_info,
+};
+
 static void inspect_node(struct data *data, struct spa_node *node)
 {
 	int res;
@@ -142,10 +154,7 @@ static void inspect_node(struct data *data, struct spa_node *node)
 	uint32_t *in_ports, *out_ports;
 
 	printf("node info:\n");
-	if (node->info)
-		spa_debug_dict(2, node->info);
-	else
-		printf("  none\n");
+	spa_node_set_callbacks(node, &node_callbacks, data);
 
 	inspect_node_params(data, node);
 

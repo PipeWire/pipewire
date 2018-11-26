@@ -130,10 +130,6 @@ struct spa_node {
 #define SPA_VERSION_NODE	0
 	uint32_t version;
 	/**
-	 * Extra information about the node
-	 */
-	const struct spa_dict *info;
-	/**
 	 * Enumerate the parameters of a node.
 	 *
 	 * Parameters are identified with an \a id. Some parameters can have

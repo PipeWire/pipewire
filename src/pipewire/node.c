@@ -894,9 +894,6 @@ void pw_node_set_implementation(struct pw_node *node,
 		pw_log_debug("node %p: set clock %p", node, &impl->position.clock);
 		node->rt.clock = &impl->position.clock;
 	}
-
-	if (spa_node->info)
-		pw_node_update_properties(node, spa_node->info);
 }
 
 struct spa_node *pw_node_get_implementation(struct pw_node *node)

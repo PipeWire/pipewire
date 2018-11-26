@@ -71,6 +71,9 @@ struct spa_node_callbacks {
 #define SPA_VERSION_NODE_CALLBACKS	0
 	uint32_t version;	/**< version of this structure */
 
+	/** Emited when info changes */
+	void (*info) (void *data, const struct spa_dict *info);
+
 	/** Emited when an async operation completed.
 	 *
 	 * Will be called from the main thread. */

@@ -35,6 +35,7 @@ struct spa_device;
 #include <spa/utils/dict.h>
 #include <spa/support/plugin.h>
 #include <spa/pod/builder.h>
+#include <spa/pod/event.h>
 
 /**
  * spa_device_callbacks:
@@ -43,6 +44,12 @@ struct spa_device_callbacks {
 	/** version of the structure */
 #define SPA_VERSION_DEVICE_CALLBACKS	0
 	uint32_t version;
+
+	/**< notify extra information about the device */
+	void (*info) (void *data, const struct spa_dict *info);
+
+	/** a device event */
+	void (*event) (void *data, struct spa_event *event);
 
 	/**< add a new object managed by the device */
 	void (*add) (void *data, uint32_t id,
@@ -64,13 +71,11 @@ struct spa_device {
 	uint32_t version;
 
 	/**
-	 * Extra information about the device
-	 */
-	const struct spa_dict *info;
-
-	/**
 	 * Set callbacks to receive asynchronous notifications from
 	 * the device.
+	 *
+	 * Setting the callbacks will trigger the info event and an
+	 * add event for each managed node.
 	 *
 	 * \param device: a #spa_device
 	 * \param callback: a #callbacks

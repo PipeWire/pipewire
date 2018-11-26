@@ -121,7 +121,7 @@ static void monitor_event(void *_data, struct spa_event *event)
 
 static struct spa_monitor_callbacks monitor_callbacks = {
 	SPA_VERSION_MONITOR_CALLBACKS,
-	monitor_event,
+	.event = monitor_event,
 };
 
 static int get_handle(struct data *data,

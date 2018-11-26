@@ -70,7 +70,7 @@ struct spa_bt_monitor {
 	struct spa_list transport_list;
 };
 
-struct spa_handle_factory spa_a2dp_sink_factory;
+struct spa_handle_factory spa_bluez5_device_factory;
 
 static inline void add_dict(struct spa_pod_builder *builder, const char *key, const char *val)
 {
@@ -90,7 +90,9 @@ static void fill_item(struct spa_bt_monitor *this, struct spa_bt_transport *tran
 		SPA_MONITOR_ITEM_state,   &SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
 		SPA_MONITOR_ITEM_name,    &SPA_POD_Stringv(transport->path),
 		SPA_MONITOR_ITEM_class,   &SPA_POD_Stringc("Adapter/Bluetooth"),
-		SPA_MONITOR_ITEM_factory, &SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory, &spa_a2dp_sink_factory),
+		SPA_MONITOR_ITEM_factory, &SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory,
+						&spa_bluez5_device_factory),
+		SPA_MONITOR_ITEM_type,    &SPA_POD_Id(SPA_TYPE_INTERFACE_Device),
 		0);
 
 	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);
@@ -1266,21 +1268,9 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 	return 0;
 }
 
-static int
-impl_monitor_enum_items(struct spa_monitor *monitor, uint32_t *index,
-			struct spa_pod **item, struct spa_pod_builder *builder)
-{
-	spa_return_val_if_fail(monitor != NULL, -EINVAL);
-	spa_return_val_if_fail(item != NULL, -EINVAL);
-	spa_return_val_if_fail(index != NULL, -EINVAL);
-	return 0;
-}
-
 static const struct spa_monitor impl_monitor = {
 	SPA_VERSION_MONITOR,
-	NULL,
 	impl_monitor_set_callbacks,
-	impl_monitor_enum_items,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)

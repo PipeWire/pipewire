@@ -41,10 +41,6 @@
 
 extern const struct spa_handle_factory spa_v4l2_device_factory;
 
-struct item {
-	struct udev_device *udevice;
-};
-
 struct impl {
 	struct spa_handle handle;
 	struct spa_monitor monitor;
@@ -57,24 +53,24 @@ struct impl {
 
 	struct udev *udev;
 	struct udev_monitor *umonitor;
-	struct udev_enumerate *enumerate;
-	uint32_t index;
-	struct udev_list_entry *devices;
-
-	struct item uitem;
 
 	struct spa_source source;
 };
 
 static int impl_udev_open(struct impl *this)
 {
+	if (this->udev == NULL) {
+		this->udev = udev_new();
+		if (this->udev == NULL)
+			return -ENOMEM;
+	}
+	return 0;
+}
+static int impl_udev_close(struct impl *this)
+{
 	if (this->udev != NULL)
-		return 0;
-
-	this->udev = udev_new();
-	if (this->udev == NULL)
-		return -ENOMEM;
-
+		udev_unref(this->udev);
+	this->udev = NULL;
 	return 0;
 }
 
@@ -84,16 +80,10 @@ static inline void add_dict(struct spa_pod_builder *builder, const char *key, co
 	spa_pod_builder_string(builder, val);
 }
 
-static void fill_item(struct impl *this, struct item *item, struct udev_device *dev,
+static void fill_item(struct impl *this, struct udev_device *dev,
 		struct spa_pod **result, struct spa_pod_builder *builder)
 {
 	const char *str, *name;
-
-	if (item->udevice)
-		udev_device_unref(item->udevice);
-	item->udevice = dev;
-	if (dev == NULL)
-		return;
 
 	name = udev_device_get_property_value(dev, "ID_V4L_PRODUCT");
 	if (!(name && *name)) {
@@ -174,16 +164,27 @@ static void fill_item(struct impl *this, struct item *item, struct udev_device *
 	*result = spa_pod_builder_pop(builder);
 }
 
+static int emit_device(struct impl *this, uint32_t id, struct udev_device *dev)
+{
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { NULL, };
+	struct spa_event *event;
+	struct spa_pod *item;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id, 0);
+	fill_item(this, dev, &item, &b);
+
+	this->callbacks->event(this->callbacks_data, event);
+	return 0;
+}
+
 static void impl_on_fd_events(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	struct udev_device *dev;
-	struct spa_event *event;
 	const char *action;
 	uint32_t id;
-	struct spa_pod_builder b = { NULL, };
-	uint8_t buffer[4096];
-	struct spa_pod *item;
 
 	dev = udev_monitor_receive_device(this->umonitor);
 	if (dev == NULL)
@@ -201,12 +202,75 @@ static void impl_on_fd_events(struct spa_source *source)
 	} else
 		return;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id, 0);
-	fill_item(this, &this->uitem, dev, &item, &b);
+	emit_device(this, id, dev);
 
-	this->callbacks->event(this->callbacks_data, event);
+	udev_device_unref(dev);
 }
+
+static int start_monitor(struct impl *this)
+{
+	if (this->umonitor != NULL)
+		return 0;
+
+	this->umonitor = udev_monitor_new_from_netlink(this->udev, "udev");
+	if (this->umonitor == NULL)
+		return -ENOMEM;
+
+	udev_monitor_filter_add_match_subsystem_devtype(this->umonitor,
+							"video4linux", NULL);
+	udev_monitor_enable_receiving(this->umonitor);
+
+	this->source.func = impl_on_fd_events;
+	this->source.data = this;
+	this->source.fd = udev_monitor_get_fd(this->umonitor);;
+	this->source.mask = SPA_IO_IN | SPA_IO_ERR;
+
+	spa_loop_add_source(this->main_loop, &this->source);
+
+	return 0;
+}
+
+static int stop_monitor(struct impl *this)
+{
+	if (this->umonitor == NULL)
+		return 0;
+
+	spa_loop_remove_source(this->main_loop, &this->source);
+	udev_monitor_unref(this->umonitor);
+	this->umonitor = NULL;
+	return 0;
+}
+
+static int enum_devices(struct impl *this)
+{
+	struct udev_enumerate *enumerate;
+	struct udev_list_entry *devices;
+
+	enumerate = udev_enumerate_new(this->udev);
+	if (enumerate == NULL)
+		return -ENOMEM;
+
+	udev_enumerate_add_match_subsystem(enumerate, "video4linux");
+	udev_enumerate_scan_devices(enumerate);
+
+	devices = udev_enumerate_get_list_entry(enumerate);
+
+	while (devices) {
+		struct udev_device *dev;
+
+		dev = udev_device_new_from_syspath(this->udev, udev_list_entry_get_name(devices));
+
+		emit_device(this, SPA_MONITOR_EVENT_Added, dev);
+
+		udev_device_unref(dev);
+
+		devices = udev_list_entry_get_next(devices);
+	}
+	udev_enumerate_unref(enumerate);
+
+	return 0;
+}
+
 
 static int
 impl_monitor_set_callbacks(struct spa_monitor *monitor,
@@ -226,84 +290,21 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 		if ((res = impl_udev_open(this)) < 0)
 			return res;
 
-		if (this->umonitor)
-			udev_monitor_unref(this->umonitor);
-		this->umonitor = udev_monitor_new_from_netlink(this->udev, "udev");
-		if (this->umonitor == NULL)
-			return -ENOMEM;
+		if ((res = enum_devices(this)) < 0)
+			return res;
 
-		udev_monitor_filter_add_match_subsystem_devtype(this->umonitor,
-								"video4linux", NULL);
-		udev_monitor_enable_receiving(this->umonitor);
-
-		this->source.func = impl_on_fd_events;
-		this->source.data = this;
-		this->source.fd = udev_monitor_get_fd(this->umonitor);;
-		this->source.mask = SPA_IO_IN | SPA_IO_ERR;
-
-		spa_loop_add_source(this->main_loop, &this->source);
+		if ((res = start_monitor(this)) < 0)
+			return res;
 	} else {
-		spa_loop_remove_source(this->main_loop, &this->source);
+		stop_monitor(this);
+		impl_udev_close(this);
 	}
-
 	return 0;
-}
-
-static int
-impl_monitor_enum_items(struct spa_monitor *monitor, uint32_t *index,
-			struct spa_pod **item, struct spa_pod_builder *builder)
-{
-	int res;
-	struct impl *this;
-	struct udev_device *dev;
-
-	spa_return_val_if_fail(monitor != NULL, -EINVAL);
-	spa_return_val_if_fail(item != NULL, -EINVAL);
-	spa_return_val_if_fail(index != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(monitor, struct impl, monitor);
-
-	if ((res = impl_udev_open(this)) < 0)
-		return res;
-
-	if (*index == 0) {
-		if (this->enumerate)
-			udev_enumerate_unref(this->enumerate);
-		this->enumerate = udev_enumerate_new(this->udev);
-
-		udev_enumerate_add_match_subsystem(this->enumerate, "video4linux");
-		udev_enumerate_scan_devices(this->enumerate);
-
-		this->devices = udev_enumerate_get_list_entry(this->enumerate);
-		this->index = 0;
-	}
-	while (*index > this->index && this->devices) {
-		this->devices = udev_list_entry_get_next(this->devices);
-		this->index++;
-	}
-	if (this->devices == NULL) {
-		fill_item(this, &this->uitem, NULL, item, builder);
-		return 0;
-	}
-
-	dev = udev_device_new_from_syspath(this->udev, udev_list_entry_get_name(this->devices));
-
-	fill_item(this, &this->uitem, dev, item, builder);
-	if (dev == NULL)
-		return 0;
-
-	this->devices = udev_list_entry_get_next(this->devices);
-	this->index++;
-	(*index)++;
-
-	return 1;
 }
 
 static const struct spa_monitor impl_monitor = {
 	SPA_VERSION_MONITOR,
-	NULL,
 	impl_monitor_set_callbacks,
-	impl_monitor_enum_items,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
@@ -326,16 +327,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this = (struct impl *) handle;
-
-	if (this->uitem.udevice)
-		udev_device_unref(this->uitem.udevice);
-	if (this->enumerate)
-		udev_enumerate_unref(this->enumerate);
-	if (this->umonitor)
-		udev_monitor_unref(this->umonitor);
-	if (this->udev)
-		udev_unref(this->udev);
-
+	impl_monitor_set_callbacks(&this->monitor, NULL, NULL);
 	return 0;
 }
 

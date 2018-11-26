@@ -521,7 +521,7 @@ do_move_nodes(struct spa_loop *loop,
 		spa_graph_node_remove(&this->rt.root);
 	spa_graph_node_add(&dst->driver_graph, &this->rt.root);
 
-	if (spa_node_set_io(this->node,
+	if (this->node && spa_node_set_io(this->node,
 			    SPA_IO_Position,
 			    &dst->position, sizeof(struct spa_io_position)) >= 0) {
 		pw_log_debug("node %p: set position %p", this, &dst->position);
@@ -770,6 +770,12 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 	return changed;
 }
 
+static void node_info(void *data, const struct spa_dict *info)
+{
+	struct pw_node *node = data;
+	pw_node_update_properties(node, info);
+}
+
 static void node_done(void *data, int seq, int res)
 {
 	struct pw_node *node = data;
@@ -860,6 +866,7 @@ static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 
 static const struct spa_node_callbacks node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
+	.info = node_info,
 	.done = node_done,
 	.event = node_event,
 	.process = node_process,

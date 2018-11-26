@@ -61,6 +61,11 @@ static void inspect_item(struct data *data, struct spa_pod *item)
 	spa_debug_pod(0, NULL, item);
 }
 
+static void on_monitor_info(void *_data, const struct spa_dict *info)
+{
+	spa_debug_dict(0, info);
+}
+
 static void on_monitor_event(void *_data, struct spa_event *event)
 {
 	struct data *data = _data;
@@ -103,29 +108,12 @@ static void do_remove_source(struct spa_source *source)
 
 static const struct spa_monitor_callbacks impl_callbacks = {
 	SPA_VERSION_MONITOR_CALLBACKS,
+	.info = on_monitor_info,
 	.event = on_monitor_event,
 };
 
 static void handle_monitor(struct data *data, struct spa_monitor *monitor)
 {
-	int res;
-	uint32_t index;
-
-	if (monitor->info)
-		spa_debug_dict(0, monitor->info);
-
-	for (index = 0;;) {
-		struct spa_pod *item;
-		uint8_t buffer[4096];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-
-		if ((res = spa_monitor_enum_items(monitor, &index, &item, &b)) <= 0) {
-			if (res != 0)
-				printf("spa_monitor_enum_items: %s\n", spa_strerror(res));
-			break;
-		}
-		inspect_item(data, item);
-	}
 	spa_monitor_set_callbacks(monitor, &impl_callbacks, data);
 
 	while (true) {

@@ -1,4 +1,4 @@
-/* Spa V4l2 Source
+/* Spa ALSA Device
  *
  * Copyright © 2018 Wim Taymans
  *
@@ -23,30 +23,29 @@
  */
 
 #include <stddef.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
-#include <linux/videodev2.h>
+#include <poll.h>
+#include <errno.h>
 
 #include <spa/support/log.h>
+#include <spa/utils/type.h>
 #include <spa/support/loop.h>
-#include <spa/pod/builder.h>
+#include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
-#include <spa/debug/pod.h>
 
-#include "v4l2.h"
+#define NAME  "bluez5-device"
 
-#define NAME "v4l2-device"
+#define MAX_DEVICES	64
 
-static const char default_device[] = "/dev/video0";
+extern const struct spa_handle_factory spa_a2dp_sink_factory;
 
-extern const struct spa_handle_factory spa_v4l2_source_factory;
+static const char default_device[] = "";
 
 struct props {
 	char device[64];
-	char device_name[128];
-	int device_fd;
 };
 
 static void reset_props(struct props *props)
@@ -61,24 +60,38 @@ struct impl {
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 
-	struct props props;
-
 	const struct spa_device_callbacks *callbacks;
 	void *callbacks_data;
 
-	struct spa_v4l2_device dev;
+	struct props props;
+
+	struct spa_bt_transport *transport;
 };
 
+static int emit_devices(struct impl *this)
+{
+	struct spa_dict_item items[1];
+	char transport[16];
+
+	snprintf(transport, 16, "%p", this->transport);
+
+	items[0] = SPA_DICT_ITEM_INIT("bluez5.transport", transport);
+	this->callbacks->add(this->callbacks_data, 0,
+			&spa_a2dp_sink_factory,
+			SPA_TYPE_INTERFACE_Node,
+			&SPA_DICT_INIT(items, 1));
+	return 0;
+}
+
 static const struct spa_dict_item info_items[] = {
-	{ "media.class", "Video/Device" },
+	{ "media.class", "Audio/Device" },
 };
 
 static int impl_set_callbacks(struct spa_device *device,
-				   const struct spa_device_callbacks *callbacks,
-				   void *data)
+			   const struct spa_device_callbacks *callbacks,
+			   void *data)
 {
 	struct impl *this;
-	struct spa_dict_item items[1];
 
 	spa_return_val_if_fail(device != NULL, -EINVAL);
 
@@ -91,21 +104,13 @@ static int impl_set_callbacks(struct spa_device *device,
 		if (callbacks->info)
 			callbacks->info(data, &SPA_DICT_INIT_ARRAY(info_items));
 
-		if (callbacks->add) {
-			if (spa_v4l2_is_capture(&this->dev)) {
-				items[0] = SPA_DICT_ITEM_INIT("device.path", this->props.device);
-				callbacks->add(data, 0,
-					&spa_v4l2_source_factory,
-					SPA_TYPE_INTERFACE_Node,
-					&SPA_DICT_INIT(items, 1));
-			}
-		}
-
-
+		if (this->callbacks->add)
+			emit_devices(this);
 	}
 
 	return 0;
 }
+
 
 static int impl_enum_params(struct spa_device *device,
 			    uint32_t id, uint32_t *index,
@@ -168,14 +173,14 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	uint32_t i;
-	const char *str;
-	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	handle->get_interface = impl_get_interface;
-	handle->clear = impl_clear, this = (struct impl *) handle;
+	handle->clear = impl_clear;
+
+	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
 		if (support[i].type == SPA_TYPE_INTERFACE_Log)
@@ -184,22 +189,21 @@ impl_init(const struct spa_handle_factory *factory,
 			this->main_loop = support[i].data;
 	}
 	if (this->main_loop == NULL) {
-		spa_log_error(this->log, "a main_loop is needed");
+		spa_log_error(this->log, "a main-loop is needed");
 		return -EINVAL;
 	}
 
+	for (i = 0; info && i < info->n_items; i++) {
+		if (strcmp(info->items[i].key, "bluez5.transport") == 0)
+			sscanf(info->items[i].value, "%p", &this->transport);
+	}
+	if (this->transport == NULL) {
+		spa_log_error(this->log, "a transport is needed");
+		return -EINVAL;
+	}
 	this->device = impl_device;
-	this->dev.log = this->log;
-	this->dev.fd = -1;
 
 	reset_props(&this->props);
-
-	if (info && (str = spa_dict_lookup(info, "device.path"))) {
-		strncpy(this->props.device, str, 63);
-		if ((res = spa_v4l2_open(&this->dev, this->props.device)) < 0)
-			return res;
-		spa_v4l2_close(&this->dev);
-	}
 
 	return 0;
 }
@@ -208,9 +212,10 @@ static const struct spa_interface_info impl_interfaces[] = {
 	{SPA_TYPE_INTERFACE_Device,},
 };
 
-static int impl_enum_interface_info(const struct spa_handle_factory *factory,
-				    const struct spa_interface_info **info,
-				    uint32_t *index)
+static int
+impl_enum_interface_info(const struct spa_handle_factory *factory,
+			 const struct spa_interface_info **info,
+			 uint32_t *index)
 {
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(info != NULL, -EINVAL);
@@ -220,11 +225,10 @@ static int impl_enum_interface_info(const struct spa_handle_factory *factory,
 		return 0;
 
 	*info = &impl_interfaces[(*index)++];
-
 	return 1;
 }
 
-const struct spa_handle_factory spa_v4l2_device_factory = {
+const struct spa_handle_factory spa_bluez5_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,

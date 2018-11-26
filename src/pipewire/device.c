@@ -193,6 +193,12 @@ static const struct pw_node_events node_events = {
 };
 
 
+static void device_info(void *data, const struct spa_dict *info)
+{
+	struct pw_device *device = data;
+	pw_device_update_properties(device, info);
+}
+
 static void device_add(void *data, uint32_t id,
 		const struct spa_handle_factory *factory, uint32_t type,
 		const struct spa_dict *info)
@@ -228,6 +234,7 @@ static void device_add(void *data, uint32_t id,
 	nd->id = id;
 	nd->node = node;
 	nd->handle = SPA_MEMBER(nd, sizeof(struct node_data), void);
+	pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
 	spa_list_append(&device->node_list, &nd->link);
 
 	if ((res = spa_handle_factory_init(factory,
@@ -243,8 +250,6 @@ static void device_add(void *data, uint32_t id,
 		pw_log_error("can't get NODE interface: %d", res);
 		goto error;;
 	}
-
-	pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
 
 	pw_node_set_implementation(node, iface);
 	pw_node_register(node, NULL, device->global, NULL);
@@ -281,6 +286,7 @@ static void device_remove(void *data, uint32_t id)
 
 static const struct spa_device_callbacks device_callbacks = {
 	SPA_VERSION_DEVICE_CALLBACKS,
+	.info = device_info,
 	.add = device_add,
 	.remove = device_remove,
 };
@@ -288,8 +294,6 @@ static const struct spa_device_callbacks device_callbacks = {
 void pw_device_set_implementation(struct pw_device *device, struct spa_device *spa_device)
 {
 	device->implementation = spa_device;
-	if (spa_device && spa_device->info)
-		pw_device_update_properties(device, spa_device->info);
 
 	spa_device_set_callbacks(device->implementation, &device_callbacks, device);
 }

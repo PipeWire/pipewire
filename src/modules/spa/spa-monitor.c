@@ -368,19 +368,6 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 
 	spa_list_init(&impl->item_list);
 
-	for (index = 0;;) {
-		struct spa_pod *item;
-		uint8_t buffer[4096];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-		int res;
-
-		if ((res = spa_monitor_enum_items(this->monitor, &index, &item, &b)) <= 0) {
-			if (res != 0)
-				pw_log_debug("spa_monitor_enum_items: %s\n", spa_strerror(res));
-			break;
-		}
-		add_item(this, item, 0);
-	}
 	spa_monitor_set_callbacks(this->monitor, &callbacks, impl);
 
 	return this;

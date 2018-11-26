@@ -126,8 +126,7 @@ static int emit_device(struct impl *this, snd_ctl_card_info_t *info, snd_pcm_inf
 	else
 		factory = &spa_alsa_source_factory;
 
-	if (this->callbacks->add)
-		this->callbacks->add(this->callbacks_data, 0,
+	this->callbacks->add(this->callbacks_data, 0,
 			factory,
 			SPA_TYPE_INTERFACE_Node,
 			&SPA_DICT_INIT(items, 13));
@@ -191,6 +190,10 @@ static int emit_devices(struct impl *this)
 	return err;
 }
 
+static const struct spa_dict_item info_items[] = {
+	{ "media.class", "Audio/Device" },
+};
+
 static int impl_set_callbacks(struct spa_device *device,
 			   const struct spa_device_callbacks *callbacks,
 			   void *data)
@@ -204,8 +207,13 @@ static int impl_set_callbacks(struct spa_device *device,
 	this->callbacks = callbacks;
 	this->callbacks_data = data;
 
-	if (callbacks)
-		emit_devices(this);
+	if (callbacks) {
+		if (callbacks->info)
+			callbacks->info(data, &SPA_DICT_INIT_ARRAY(info_items));
+
+		if (this->callbacks->add)
+			emit_devices(this);
+	}
 
 	return 0;
 }
@@ -227,18 +235,8 @@ static int impl_set_param(struct spa_device *device,
 	return -ENOTSUP;
 }
 
-static const struct spa_dict_item info_items[] = {
-	{ "media.class", "Audio/Device" },
-};
-
-static const struct spa_dict info = {
-	info_items,
-	SPA_N_ELEMENTS(info_items)
-};
-
 static const struct spa_device impl_device = {
 	SPA_VERSION_DEVICE,
-	&info,
 	impl_set_callbacks,
 	impl_enum_params,
 	impl_set_param,

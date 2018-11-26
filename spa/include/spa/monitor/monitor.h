@@ -79,6 +79,9 @@ struct spa_monitor_callbacks {
 #define SPA_VERSION_MONITOR_CALLBACKS	0
 	uint32_t version;
 
+	/** receive extra information about the monitor */
+	void (*info) (void *data, const struct spa_dict *info);
+
 	/** an item is added/removed/changed on the monitor */
 	void (*event) (void *data, struct spa_event *event);
 };
@@ -95,13 +98,10 @@ struct spa_monitor {
 	uint32_t version;
 
 	/**
-	 * Extra information about the monitor
-	 */
-	const struct spa_dict *info;
-
-	/**
 	 * Set callbacks to receive asynchronous notifications from
 	 * the monitor.
+	 *
+	 * Setting the callbacks will emit the info
 	 *
 	 * \param monitor: a #spa_monitor
 	 * \param callback: a #callbacks
@@ -111,29 +111,9 @@ struct spa_monitor {
 	int (*set_callbacks) (struct spa_monitor *monitor,
 			      const struct spa_monitor_callbacks *callbacks,
 			      void *data);
-
-	/**
-	 * Get the next item of the monitor. \a index should contain 0 to get the
-	 * first item and is updated with an opaque value that should be passed
-	 * unmodified to get the next items.
-	 *
-	 * \param monitor a spa_monitor
-	 * \param index state, use 0 for the first item
-	 * \param item result item
-	 * \param builder builder for \a item
-	 * \return 1 when an item is available
-	 *	   0 when no more items are available
-	 *	   < 0 errno on error
-	 */
-	int (*enum_items) (struct spa_monitor *monitor,
-			   uint32_t *index,
-			   struct spa_pod **item,
-			   struct spa_pod_builder *builder);
-
 };
 
 #define spa_monitor_set_callbacks(m,...)	(m)->set_callbacks((m),__VA_ARGS__)
-#define spa_monitor_enum_items(m,...)		(m)->enum_items((m),__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

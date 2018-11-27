@@ -13,6 +13,7 @@ libudev_dep = dependency('libudev')
 threads_dep = dependency('threads')
 speexdsp_dep = dependency('speexdsp')
 sdl_dep = dependency('sdl2', required : false)
+bluez_dep = dependency('bluez', version : '>= 4.101', required : false)
 
 #cc = meson.get_compiler('c')
 #dl_lib = cc.find_library('dl', required : false)

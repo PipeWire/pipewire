@@ -36,6 +36,8 @@
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
 
+#include "defs.h"
+
 #define NAME  "bluez5-device"
 
 #define MAX_DEVICES	64
@@ -65,21 +67,43 @@ struct impl {
 
 	struct props props;
 
-	struct spa_bt_transport *transport;
+	struct spa_bt_device *bt_dev;
 };
 
-static int emit_devices(struct impl *this)
+static int emit_nodes(struct impl *this)
 {
 	struct spa_dict_item items[1];
-	char transport[16];
+	struct spa_bt_transport *t;
+	struct spa_bt_device *device = this->bt_dev;
+	enum spa_bt_profile profile;
 
-	snprintf(transport, 16, "%p", this->transport);
+	if (device->connected_profiles & SPA_BT_PROFILE_A2DP_SINK)
+		profile = SPA_BT_PROFILE_A2DP_SINK;
+	else if (device->connected_profiles & SPA_BT_PROFILE_HSP_AG)
+		profile = SPA_BT_PROFILE_HSP_AG;
+	else if (device->connected_profiles & SPA_BT_PROFILE_HFP_AG)
+		profile = SPA_BT_PROFILE_HFP_AG;
+	else {
+		spa_log_warn(this->log, "no profile available");
+		return -ENODEV;
+	}
 
-	items[0] = SPA_DICT_ITEM_INIT("bluez5.transport", transport);
-	this->callbacks->add(this->callbacks_data, 0,
-			&spa_a2dp_sink_factory,
-			SPA_TYPE_INTERFACE_Node,
-			&SPA_DICT_INIT(items, 1));
+
+	spa_list_for_each(t, &device->transport_list, device_link) {
+		if (t->profile == profile) {
+			char transport[16];
+
+			snprintf(transport, 16, "%p", t);
+			items[0] = SPA_DICT_ITEM_INIT("bluez5.transport", transport);
+
+			this->callbacks->add(this->callbacks_data, 0,
+					&spa_a2dp_sink_factory,
+					SPA_TYPE_INTERFACE_Node,
+					&SPA_DICT_INIT(items, 1));
+			break;
+		}
+	}
+
 	return 0;
 }
 
@@ -105,7 +129,7 @@ static int impl_set_callbacks(struct spa_device *device,
 			callbacks->info(data, &SPA_DICT_INIT_ARRAY(info_items));
 
 		if (this->callbacks->add)
-			emit_devices(this);
+			emit_nodes(this);
 	}
 
 	return 0;
@@ -194,11 +218,11 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 
 	for (i = 0; info && i < info->n_items; i++) {
-		if (strcmp(info->items[i].key, "bluez5.transport") == 0)
-			sscanf(info->items[i].value, "%p", &this->transport);
+		if (strcmp(info->items[i].key, "bluez5.device") == 0)
+			sscanf(info->items[i].value, "%p", &this->bt_dev);
 	}
-	if (this->transport == NULL) {
-		spa_log_error(this->log, "a transport is needed");
+	if (this->bt_dev == NULL) {
+		spa_log_error(this->log, "a device is needed");
 		return -EINVAL;
 	}
 	this->device = impl_device;

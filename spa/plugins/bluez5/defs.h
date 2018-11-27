@@ -30,13 +30,16 @@ extern "C" {
 #endif
 
 #define BLUEZ_SERVICE "org.bluez"
+#define BLUEZ_PROFILE_MANAGER_INTERFACE BLUEZ_SERVICE ".ProfileManager1"
+#define BLUEZ_PROFILE_INTERFACE BLUEZ_SERVICE ".Profile1"
 #define BLUEZ_ADAPTER_INTERFACE BLUEZ_SERVICE ".Adapter1"
 #define BLUEZ_DEVICE_INTERFACE BLUEZ_SERVICE ".Device1"
 #define BLUEZ_MEDIA_INTERFACE BLUEZ_SERVICE ".Media1"
 #define BLUEZ_MEDIA_ENDPOINT_INTERFACE BLUEZ_SERVICE ".MediaEndpoint1"
 #define BLUEZ_MEDIA_TRANSPORT_INTERFACE BLUEZ_SERVICE ".MediaTransport1"
 
-#define ENDPOINT_INTROSPECT_XML                                         \
+
+#define ENDPOINT_INTROSPECT_XML                                             \
 	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                           \
 	"<node>"                                                            \
 	" <interface name=\"" BLUEZ_MEDIA_ENDPOINT_INTERFACE "\">"          \
@@ -61,24 +64,56 @@ extern "C" {
 	" </interface>"                                                     \
 	"</node>"
 
+#define PROFILE_INTROSPECT_XML						    \
+	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                           \
+	"<node>"                                                            \
+	" <interface name=\"" BLUEZ_PROFILE_INTERFACE "\">"                 \
+	"  <method name=\"Release\">"                                       \
+	"  </method>"                                                       \
+	"  <method name=\"RequestDisconnection\">"                          \
+	"   <arg name=\"device\" direction=\"in\" type=\"o\"/>"             \
+	"  </method>"                                                       \
+	"  <method name=\"NewConnection\">"                                 \
+	"   <arg name=\"device\" direction=\"in\" type=\"o\"/>"             \
+	"   <arg name=\"fd\" direction=\"in\" type=\"h\"/>"                 \
+	"   <arg name=\"opts\" direction=\"in\" type=\"a{sv}\"/>"           \
+	"  </method>"                                                       \
+	" </interface>"                                                     \
+	" <interface name=\"org.freedesktop.DBus.Introspectable\">"         \
+	"  <method name=\"Introspect\">"                                    \
+	"   <arg name=\"data\" type=\"s\" direction=\"out\"/>"              \
+	"  </method>"                                                       \
+	" </interface>"                                                     \
+	"</node>"
 
 #define BLUEZ_ERROR_NOT_SUPPORTED "org.bluez.Error.NotSupported"
 
 #define SPA_BT_UUID_A2DP_SOURCE "0000110A-0000-1000-8000-00805F9B34FB"
 #define SPA_BT_UUID_A2DP_SINK   "0000110B-0000-1000-8000-00805F9B34FB"
 #define SPA_BT_UUID_HSP_HS      "00001108-0000-1000-8000-00805F9B34FB"
+#define SPA_BT_UUID_HSP_HS_ALT  "00001131-0000-1000-8000-00805F9B34FB"
 #define SPA_BT_UUID_HSP_AG      "00001112-0000-1000-8000-00805F9B34FB"
 #define SPA_BT_UUID_HFP_HF      "0000111E-0000-1000-8000-00805F9B34FB"
 #define SPA_BT_UUID_HFP_AG      "0000111F-0000-1000-8000-00805F9B34FB"
 
+#define PROFILE_HSP_AG	"/Profile/HSPAG"
+#define PROFILE_HSP_HS	"/Profile/HSPHS"
+#define PROFILE_HFP_AG	"/Profile/HFPAG"
+#define PROFILE_HFP_HS	"/Profile/HFPHS"
+
+#define HSP_HS_DEFAULT_CHANNEL  3
+
 enum spa_bt_profile {
-        SPA_BT_PROFILE_NULL =	0,
+        SPA_BT_PROFILE_NULL =		0,
         SPA_BT_PROFILE_A2DP_SOURCE =	(1 << 0),
         SPA_BT_PROFILE_A2DP_SINK =	(1 << 1),
-        SPA_BT_PROFILE_HSP_HS =	(1 << 2),
-        SPA_BT_PROFILE_HSP_AG =	(1 << 3),
-        SPA_BT_PROFILE_HFP_HF =	(1 << 4),
-        SPA_BT_PROFILE_HFP_AG =	(1 << 5),
+        SPA_BT_PROFILE_HSP_HS =		(1 << 2),
+        SPA_BT_PROFILE_HSP_AG =		(1 << 3),
+        SPA_BT_PROFILE_HFP_HF =		(1 << 4),
+        SPA_BT_PROFILE_HFP_AG =		(1 << 5),
+
+        SPA_BT_PROFILE_HEADSET_HEAD_UNIT = (SPA_BT_PROFILE_HSP_HS | SPA_BT_PROFILE_HFP_HF),
+        SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY = (SPA_BT_PROFILE_HSP_AG | SPA_BT_PROFILE_HFP_AG),
 };
 
 static inline enum spa_bt_profile spa_bt_profile_from_uuid(const char *uuid)
@@ -88,6 +123,8 @@ static inline enum spa_bt_profile spa_bt_profile_from_uuid(const char *uuid)
 	else if (strcasecmp(uuid, SPA_BT_UUID_A2DP_SINK) == 0)
 		return SPA_BT_PROFILE_A2DP_SINK;
 	else if (strcasecmp(uuid, SPA_BT_UUID_HSP_HS) == 0)
+		return SPA_BT_PROFILE_HSP_HS;
+	else if (strcasecmp(uuid, SPA_BT_UUID_HSP_HS_ALT) == 0)
 		return SPA_BT_PROFILE_HSP_HS;
 	else if (strcasecmp(uuid, SPA_BT_UUID_HSP_AG) == 0)
 		return SPA_BT_PROFILE_HSP_AG;
@@ -116,6 +153,7 @@ struct spa_bt_adapter {
 struct spa_bt_device {
 	struct spa_list link;
 	struct spa_bt_monitor *monitor;
+	struct spa_bt_adapter *adapter;
 	char *path;
 	char *alias;
 	char *address;
@@ -130,6 +168,10 @@ struct spa_bt_device {
 	int connected;
 	int blocked;
 	uint32_t profiles;
+	uint32_t connected_profiles;
+	struct spa_source timer;
+	struct spa_list transport_list;
+	bool added;
 };
 
 enum spa_bt_transport_state {
@@ -143,6 +185,7 @@ struct spa_bt_transport {
 	struct spa_bt_monitor *monitor;
 	char *path;
 	struct spa_bt_device *device;
+	struct spa_list device_link;
 	enum spa_bt_profile profile;
 	enum spa_bt_transport_state state;
 	int codec;
@@ -153,10 +196,13 @@ struct spa_bt_transport {
 	int fd;
 	uint16_t read_mtu;
 	uint16_t write_mtu;
+	void *user_data;
 
 	int (*acquire) (struct spa_bt_transport *trans, bool optional);
 
 	int (*release) (struct spa_bt_transport *trans);
+
+	int (*destroy) (struct spa_bt_transport *trans);
 };
 
 static inline enum spa_bt_transport_state spa_bt_transport_state_from_string(const char *value)

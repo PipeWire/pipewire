@@ -111,11 +111,10 @@ pw_spa_device_new(struct pw_core *core,
                 impl->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	pw_device_add_listener(this, &impl->device_listener, &device_events, impl);
+	pw_device_set_implementation(this, impl->device);
 
 	if (!SPA_FLAG_CHECK(impl->flags, PW_SPA_DEVICE_FLAG_NO_REGISTER))
 		pw_device_register(this, impl->owner, impl->parent, NULL);
-
-	pw_device_set_implementation(this, impl->device);
 
 	return this;
 }

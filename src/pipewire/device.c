@@ -155,6 +155,7 @@ int pw_device_register(struct pw_device *device,
 		       struct pw_properties *properties)
 {
 	struct pw_core *core = device->core;
+	const char *str;
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -162,6 +163,8 @@ int pw_device_register(struct pw_device *device,
 		return -ENOMEM;
 
 	pw_properties_set(properties, "device.name", device->info.name);
+	if ((str = pw_properties_get(device->properties, "media.class")) != NULL)
+		pw_properties_set(properties, "media.class", str);
 
 	spa_list_append(&core->device_list, &device->link);
 	device->registered = true;
@@ -294,7 +297,6 @@ static const struct spa_device_callbacks device_callbacks = {
 void pw_device_set_implementation(struct pw_device *device, struct spa_device *spa_device)
 {
 	device->implementation = spa_device;
-
 	spa_device_set_callbacks(device->implementation, &device_callbacks, device);
 }
 

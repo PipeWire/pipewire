@@ -745,10 +745,9 @@ const struct pw_properties *pw_node_get_properties(struct pw_node *node)
 int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
-	uint32_t i, changed = 0;
+	int changed;
 
-	for (i = 0; i < dict->n_items; i++)
-		changed += pw_properties_set(node->properties, dict->items[i].key, dict->items[i].value);
+	changed = pw_properties_update(node->properties, dict);
 
 	pw_log_debug("node %p: updated %d properties", node, changed);
 
@@ -968,8 +967,7 @@ void pw_node_destroy(struct pw_node *node)
 	pw_map_clear(&node->input_port_map);
 	pw_map_clear(&node->output_port_map);
 
-	if (node->properties)
-		pw_properties_free(node->properties);
+	pw_properties_free(node->properties);
 
 	clear_info(node);
 

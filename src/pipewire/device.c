@@ -212,7 +212,7 @@ static void device_add(void *data, uint32_t id,
 	struct pw_node *node;
 	struct node_data *nd;
 	struct pw_properties *props;
-	int i, res;
+	int res;
 	void *iface;
 
 	if (type != SPA_TYPE_INTERFACE_Node) {
@@ -224,8 +224,8 @@ static void device_add(void *data, uint32_t id,
 	support = pw_core_get_support(device->core, &n_support);
 
 	props = pw_properties_copy(device->properties);
-	for (i = 0; info && i < info->n_items; i++)
-		pw_properties_set(props, info->items[i].key, info->items[i].value);
+	if (info)
+		pw_properties_update(props, info);
 
 	node = pw_node_new(device->core,
 			   device->info.name,
@@ -313,10 +313,9 @@ const struct pw_properties *pw_device_get_properties(struct pw_device *device)
 int pw_device_update_properties(struct pw_device *device, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
-	uint32_t i, changed = 0;
+	int changed;
 
-	for (i = 0; i < dict->n_items; i++)
-		changed += pw_properties_set(device->properties, dict->items[i].key, dict->items[i].value);
+	changed = pw_properties_update(device->properties, dict);
 
 	pw_log_debug("device %p: updated %d properties", device, changed);
 

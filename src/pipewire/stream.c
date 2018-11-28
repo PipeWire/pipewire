@@ -1018,10 +1018,9 @@ const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream)
 int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict *dict)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	int i, changed = 0, res = 0;
+	int changed, res = 0;
 
-	for (i = 0; i < dict->n_items; i++)
-		changed += pw_properties_set(stream->properties, dict->items[i].key, dict->items[i].value);
+	changed = pw_properties_update(stream->properties, dict);
 
 	if (!changed)
 		return 0;

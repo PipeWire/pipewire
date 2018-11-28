@@ -589,10 +589,11 @@ const struct pw_properties *pw_core_get_properties(struct pw_core *core)
 int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
-	uint32_t i, changed = 0;
+	int changed;
 
-	for (i = 0; i < dict->n_items; i++)
-		changed += pw_properties_set(core->properties, dict->items[i].key, dict->items[i].value);
+	changed = pw_properties_update(core->properties, dict);
+
+	pw_log_debug("core %p: updated %d properties", core, changed);
 
 	if (!changed)
 		return 0;

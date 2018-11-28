@@ -285,10 +285,9 @@ const struct pw_properties *pw_port_get_properties(struct pw_port *port)
 int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
-	uint32_t i, changed = 0;
+	int changed;
 
-	for (i = 0; i < dict->n_items; i++)
-		changed += pw_properties_set(port->properties, dict->items[i].key, dict->items[i].value);
+	changed = pw_properties_update(port->properties, dict);
 
 	pw_log_debug("port %p: updated %d properties", port, changed);
 
@@ -688,8 +687,7 @@ void pw_port_destroy(struct pw_port *port)
 
 	pw_map_clear(&port->mix_port_map);
 
-	if (port->properties)
-		pw_properties_free(port->properties);
+	pw_properties_free(port->properties);
 
 	free(port);
 }

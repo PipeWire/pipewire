@@ -196,42 +196,25 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
 	return copy;
 }
 
-/** Merge properties into one
+/** Update properties
  *
- * \param oldprops properties to merge into
- * \param newprops properties to merge
- * \return a newly allocated \ref pw_properties
+ * \param props properties to update
+ * \param dict new properties
+ * \return the number of changed properties
  *
- * A new \ref pw_properties is allocated and the properties of
- * \a oldprops and \a newprops are copied into it in that order.
+ * The properties in \a props are updated with \a dict.
  *
  * \memberof pw_properties
  */
-struct pw_properties *pw_properties_merge(const struct pw_properties *oldprops,
-					  const struct pw_properties *newprops)
+int pw_properties_update(struct pw_properties *props,
+		         const struct spa_dict *dict)
 {
-	struct pw_properties *res = NULL;
+	int i, changed = 0;
 
-	if (oldprops == NULL) {
-		if (newprops == NULL)
-			res = NULL;
-		else
-			res = pw_properties_copy(newprops);
-	} else if (newprops == NULL) {
-		res = pw_properties_copy(oldprops);
-	} else {
-		const char *key;
-		void *state = NULL;
+	for (i = 0; i < dict->n_items; i++)
+		changed += pw_properties_set(props, dict->items[i].key, dict->items[i].value);
 
-		res = pw_properties_copy(oldprops);
-		if (res == NULL)
-			return NULL;
-
-		while ((key = pw_properties_iterate(newprops, &state))) {
-			pw_properties_set(res, key, pw_properties_get(newprops, key));
-		}
-	}
-	return res;
+	return changed;
 }
 
 /** Free a properties object

@@ -405,11 +405,11 @@ const struct pw_client_info *pw_client_get_info(struct pw_client *client)
 int pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
-	uint32_t i, changed = 0;
+	int changed;
 
-	for (i = 0; i < dict->n_items; i++)
-		changed += pw_properties_set(client->properties,
-				  dict->items[i].key, dict->items[i].value);
+	changed = pw_properties_update(client->properties, dict);
+
+	pw_log_debug("client %p: updated %d properties", client, changed);
 
 	if (!changed)
 		return 0;

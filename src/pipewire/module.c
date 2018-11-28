@@ -335,10 +335,11 @@ const struct pw_properties *pw_module_get_properties(struct pw_module *module)
 int pw_module_update_properties(struct pw_module *module, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
-	uint32_t i, changed = 0;
+	int changed;
 
-	for (i = 0; i < dict->n_items; i++)
-		changed += pw_properties_set(module->properties, dict->items[i].key, dict->items[i].value);
+	changed = pw_properties_update(module->properties, dict);
+
+	pw_log_debug("module %p: updated %d properties", module, changed);
 
 	if (!changed)
 		return 0;

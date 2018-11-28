@@ -335,10 +335,11 @@ const struct pw_properties *pw_remote_get_properties(struct pw_remote *remote)
 
 int pw_remote_update_properties(struct pw_remote *remote, const struct spa_dict *dict)
 {
-	uint32_t i, changed = 0;
+	int changed;
 
-	for (i = 0; i < dict->n_items; i++)
-		changed += pw_properties_set(remote->properties, dict->items[i].key, dict->items[i].value);
+	changed = pw_properties_update(remote->properties, dict);
+
+	pw_log_debug("remote %p: updated %d properties", remote, changed);
 
 	if (!changed)
 		return 0;

@@ -56,9 +56,9 @@ pw_properties_new_string(const char *args);
 struct pw_properties *
 pw_properties_copy(const struct pw_properties *properties);
 
-struct pw_properties *
-pw_properties_merge(const struct pw_properties *oldprops,
-		    const struct pw_properties *newprops);
+int
+pw_properties_update(struct pw_properties *oldprops,
+		     const struct spa_dict *dict);
 
 void
 pw_properties_free(struct pw_properties *properties);

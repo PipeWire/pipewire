@@ -833,7 +833,7 @@ static void on_remote_state_changed(void *_data, enum pw_remote_state old,
 static void on_remote_exported(void *_data, uint32_t id)
 {
 	struct pw_stream *stream = _data;
-	if (stream->proxy->id == id)
+	if (stream->proxy && stream->proxy->id == id)
 		stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
 }
 
@@ -1112,6 +1112,8 @@ pw_stream_connect(struct pw_stream *stream,
 
 uint32_t pw_stream_get_node_id(struct pw_stream *stream)
 {
+	if (stream->proxy == NULL)
+		return SPA_ID_INVALID;
 	return stream->proxy->remote_id;
 }
 
@@ -1126,6 +1128,7 @@ int pw_stream_disconnect(struct pw_stream *stream)
 		pw_node_destroy(impl->node);
 		impl->node = NULL;
 	}
+	stream->proxy = NULL;
 	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, NULL);
 	return 0;
 }

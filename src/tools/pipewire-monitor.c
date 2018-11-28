@@ -247,10 +247,11 @@ static void print_node(struct proxy_data *data)
 static void node_event_info(void *object, struct pw_node_info *info)
 {
         struct proxy_data *data = object;
+	bool is_new = data->info == NULL;
 
 	data->info = pw_node_info_update(data->info, info);
 
-	if (info->change_mask & PW_NODE_CHANGE_MASK_ENUM_PARAMS) {
+	if (is_new) {
 		pw_node_proxy_enum_params((struct pw_node_proxy*)data->proxy,
 				SPA_PARAM_List, 0, 0, NULL);
 		add_pending(data);
@@ -313,10 +314,11 @@ static void port_event_info(void *object, struct pw_port_info *info)
 {
 
         struct proxy_data *data = object;
+	bool is_new = data->info == NULL;
 
 	data->info = pw_port_info_update(data->info, info);
 
-	if (info->change_mask & PW_PORT_CHANGE_MASK_ENUM_PARAMS) {
+	if (is_new) {
 		pw_port_proxy_enum_params((struct pw_port_proxy*)data->proxy,
 				SPA_PARAM_EnumFormat, 0, 0, NULL);
 		add_pending(data);

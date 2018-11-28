@@ -198,7 +198,6 @@ struct port_data {
   uint32_t id;
   struct spa_hook port_listener;
   struct pending pending;
-  struct pending pending_param;
 };
 
 static struct node_data *find_node_data(struct remote_data *rd, uint32_t id)
@@ -301,11 +300,6 @@ get_core_info (struct pw_remote          *remote,
   }
 }
 
-static void init_pending(GstPipeWireDeviceProvider *self, struct pending *p)
-{
-    p->seq = SPA_ID_INVALID;
-}
-
 static void add_pending(GstPipeWireDeviceProvider *self, struct pending *p,
                         void (*callback) (void *data), void *data)
 {
@@ -371,16 +365,7 @@ on_state_changed (void *data, enum pw_remote_state old, enum pw_remote_state sta
 static void port_event_info(void *data, struct pw_port_info *info)
 {
   struct port_data *port_data = data;
-  struct node_data *node_data = port_data->node_data;
-  GstPipeWireDeviceProvider *self = node_data->self;
-
   pw_log_debug("%p", port_data);
-
-  if (info->change_mask & PW_PORT_CHANGE_MASK_ENUM_PARAMS) {
-    pw_port_proxy_enum_params((struct pw_port_proxy*)port_data->proxy,
-				SPA_PARAM_EnumFormat, 0, 0, NULL);
-    add_pending(self, &port_data->pending_param, do_add_node, port_data);
-  }
 }
 
 static void port_event_param(void *data, uint32_t id, uint32_t index, uint32_t next,
@@ -449,7 +434,6 @@ destroy_port_proxy (void *data)
   struct port_data *pd = data;
   pw_log_debug("destroy %p", pd);
   remove_pending(&pd->pending);
-  remove_pending(&pd->pending_param);
   spa_list_remove(&pd->link);
 }
 
@@ -506,8 +490,9 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
     spa_list_append(&rd->ports, &pd->link);
     pw_port_proxy_add_listener(port, &pd->port_listener, &port_events, pd);
     pw_proxy_add_listener((struct pw_proxy*)port, &pd->proxy_listener, &proxy_port_events, pd);
-    init_pending(self, &pd->pending_param);
-    add_pending(self, &pd->pending, NULL, NULL);
+    pw_port_proxy_enum_params((struct pw_port_proxy*)port,
+				SPA_PARAM_EnumFormat, 0, 0, NULL);
+    add_pending(self, &pd->pending, do_add_node, pd);
   }
 
   return;

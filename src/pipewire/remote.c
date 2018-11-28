@@ -1324,9 +1324,6 @@ static void node_info_changed(void *data, struct pw_node_info *info)
 
 	pw_log_debug("info changed %p", d);
 
-	if (info->change_mask & PW_NODE_CHANGE_MASK_ENUM_PARAMS) {
-		change_mask |= PW_CLIENT_NODE_UPDATE_PARAMS;
-	}
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
 		change_mask |= PW_CLIENT_NODE_UPDATE_PROPS;
 	}

@@ -169,7 +169,6 @@ struct pw_node_info {
 #define PW_NODE_CHANGE_MASK_OUTPUT_PORTS	(1 << 2)
 #define PW_NODE_CHANGE_MASK_STATE		(1 << 3)
 #define PW_NODE_CHANGE_MASK_PROPS		(1 << 4)
-#define PW_NODE_CHANGE_MASK_ENUM_PARAMS		(1 << 5)
 	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	const char *name;                       /**< name the node, suitable for display */
 	uint32_t max_input_ports;		/**< maximum number of inputs */
@@ -192,7 +191,6 @@ struct pw_port_info {
 	uint32_t id;				/**< id of the global */
 	enum pw_direction direction;		/**< port direction */
 #define PW_PORT_CHANGE_MASK_PROPS		(1 << 0)
-#define PW_PORT_CHANGE_MASK_ENUM_PARAMS		(1 << 1)
 	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	struct spa_dict *props;			/**< the properties of the port */
 };

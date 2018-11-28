@@ -361,13 +361,13 @@ static void node_event_param(void *object,
 	struct impl *impl = n->obj.impl;
 	struct spa_audio_info_raw info = { 0, };
 
-	pw_log_debug(NAME" %p: param for node %d", impl, n->obj.id);
+	pw_log_debug(NAME" %p: param for node %d, %d", impl, n->obj.id, id);
 
 	if (id != SPA_PARAM_EnumFormat)
-		return;
+		goto error;
 
 	if (spa_format_parse(param, &n->media_type, &n->media_subtype) < 0)
-		return;
+		goto error;
 
 	if (n->media_type != SPA_MEDIA_TYPE_audio ||
 	    n->media_subtype != SPA_MEDIA_SUBTYPE_raw)
@@ -376,9 +376,15 @@ static void node_event_param(void *object,
 	spa_pod_fixate((struct spa_pod*)param);
 
 	if (spa_format_audio_raw_parse(param, &info) < 0)
-		return;
+		goto error;
 
 	n->format = info;
+	return;
+
+      error:
+	pw_log_warn("unhandled param:");
+	spa_debug_pod(2, NULL, param);
+	return;
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -503,7 +509,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		node->direction = direction;
 		node->type = NODE_TYPE_STREAM;
 		node->media = strdup(media_class);
-		pw_log_debug(NAME "%p: node %d is stream", impl, id);
+		pw_log_debug(NAME "%p: node %d is stream %s", impl, id, node->media);
 
 		pw_node_proxy_enum_params((struct pw_node_proxy*)p,
 				SPA_PARAM_EnumFormat,
@@ -961,14 +967,21 @@ static int rescan_node(struct impl *impl, struct node *node)
 		media = node->media;
 
 	if ((category = spa_dict_lookup(props, PW_NODE_PROP_CATEGORY)) == NULL) {
-		if (info->n_input_ports > 0 && info->n_output_ports == 0)
+		pw_log_debug(NAME" %p: node %d find category from ports: %d %d",
+			impl, node->obj.id, info->n_input_ports, info->n_output_ports);
+		if (node->direction == PW_DIRECTION_INPUT ||
+		    (info->n_input_ports > 0 && info->n_output_ports == 0))
 			category = "Capture";
-		else if (info->n_output_ports > 0 && info->n_input_ports == 0)
+		else if (node->direction == PW_DIRECTION_OUTPUT ||
+		    (info->n_output_ports > 0 && info->n_input_ports == 0))
 			category = "Playback";
 		else if (info->n_output_ports > 0 && info->n_input_ports > 0)
 			category = "Duplex";
-		else
+		else {
+			pw_log_warn(NAME" %p: node %d can't determine category",
+					impl, node->obj.id);
 			return -EINVAL;
+		}
 	}
 
 	if ((role = spa_dict_lookup(props, PW_NODE_PROP_ROLE)) == NULL) {
@@ -1000,24 +1013,36 @@ static int rescan_node(struct impl *impl, struct node *node)
 			find.media_class = "Audio/Sink";
 		else if (strcmp(category, "Capture") == 0)
 			find.media_class = "Audio/Source";
-		else
+		else {
+			pw_log_debug(NAME" %p: node %d unhandled category %s",
+					impl, node->obj.id, category);
 			return -EINVAL;
+		}
 	}
 	else if (strcmp(media, "Video") == 0) {
 		if (strcmp(category, "Capture") == 0)
 			find.media_class = "Video/Source";
-		else
+		else {
+			pw_log_debug(NAME" %p: node %d unhandled category %s",
+					impl, node->obj.id, category);
 			return -EINVAL;
+		}
 	}
-	else
+	else {
+		pw_log_debug(NAME" %p: node %d unhandled media %s",
+				impl, node->obj.id, media);
 		return -EINVAL;
+	}
 
 	if (strcmp(category, "Capture") == 0)
 		direction = PW_DIRECTION_OUTPUT;
 	else if (strcmp(category, "Playback") == 0)
 		direction = PW_DIRECTION_INPUT;
-	else
+	else {
+		pw_log_debug(NAME" %p: node %d unhandled category %s",
+				impl, node->obj.id, category);
 		return -EINVAL;
+	}
 
 	str = spa_dict_lookup(props, PW_NODE_PROP_TARGET_NODE);
 	if (str != NULL)

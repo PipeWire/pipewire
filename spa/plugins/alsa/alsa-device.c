@@ -66,8 +66,6 @@ struct impl {
 	const struct spa_device_callbacks *callbacks;
 	void *callbacks_data;
 
-        snd_ctl_t *ctl_hndl;
-
 	struct props props;
 };
 
@@ -131,19 +129,20 @@ static int emit_info(struct impl *this)
 {
 	int err = 0, dev;
 	struct spa_dict_item items[8];
+	snd_ctl_t *ctl_hndl;
 	snd_ctl_card_info_t *info;
 	snd_pcm_info_t *pcminfo;
 
         spa_log_info(this->log, "open card %s", this->props.device);
 
-        if ((err = snd_ctl_open(&this->ctl_hndl, this->props.device, 0)) < 0) {
+        if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
                 spa_log_error(this->log, "can't open control for card %s: %s",
                                 this->props.device, snd_strerror(err));
                 return err;
         }
 
 	snd_ctl_card_info_alloca(&info);
-	if ((err = snd_ctl_card_info(this->ctl_hndl, info)) < 0) {
+	if ((err = snd_ctl_card_info(ctl_hndl, info)) < 0) {
 		spa_log_error(this->log, "error hardware info: %s", snd_strerror(err));
 		goto exit;
 	}
@@ -163,7 +162,7 @@ static int emit_info(struct impl *this)
         snd_pcm_info_alloca(&pcminfo);
 	dev = -1;
 	while (1) {
-		if ((err = snd_ctl_pcm_next_device(this->ctl_hndl, &dev)) < 0) {
+		if ((err = snd_ctl_pcm_next_device(ctl_hndl, &dev)) < 0) {
 			spa_log_error(this->log, "error iterating devices: %s", snd_strerror(err));
 			goto exit;
 		}
@@ -174,7 +173,7 @@ static int emit_info(struct impl *this)
 		snd_pcm_info_set_subdevice(pcminfo, 0);
 
 		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_PLAYBACK);
-		if ((err = snd_ctl_pcm_info(this->ctl_hndl, pcminfo)) < 0) {
+		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
 			if (err != -ENOENT)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
@@ -182,7 +181,7 @@ static int emit_info(struct impl *this)
 			emit_node(this, pcminfo);
 
 		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
-		if ((err = snd_ctl_pcm_info(this->ctl_hndl, pcminfo)) < 0) {
+		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
 			if (err != -ENOENT)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
@@ -191,7 +190,7 @@ static int emit_info(struct impl *this)
 	}
 
       exit:
-        snd_ctl_close(this->ctl_hndl);
+	snd_ctl_close(ctl_hndl);
 	return err;
 }
 

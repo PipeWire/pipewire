@@ -143,7 +143,6 @@ static int fill_item(struct impl *this, struct udev_device *dev,
 	spa_pod_builder_push_struct(builder),
 	add_dict(builder,
 		"udev-probed",          "1",
-		"device.api",           "alsa",
 		"device.path",		udev_device_get_devnode(dev),
 		"alsa.card",		str,
 		NULL);

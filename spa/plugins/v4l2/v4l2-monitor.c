@@ -112,7 +112,6 @@ static void fill_item(struct impl *this, struct udev_device *dev,
 	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);
 	spa_pod_builder_push_struct(builder);
 	add_dict(builder, "udev-probed", "1");
-	add_dict(builder, "device.api", "v4l2");
 	add_dict(builder, "device.path", udev_device_get_devnode(dev));
 
 	if ((str = udev_device_get_property_value(dev, "USEC_INITIALIZED")) && *str)

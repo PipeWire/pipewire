@@ -1149,6 +1149,7 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		uint8_t buf[1024];
 		struct spa_pod_builder b = { 0, };
 		struct spa_pod *param;
+		const char *str;
 
 		if (node->info->props == NULL)
 			return;
@@ -1160,7 +1161,9 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		info = node->format;
 
 		props = pw_properties_new_dict(node->info->props);
-		pw_properties_set(props, "device.name", node->info->name);
+		if ((str = pw_properties_get(props, "device.nick")) == NULL)
+			str = node->info->name;
+		pw_properties_set(props, "audio-dsp.name", str);
 		pw_properties_setf(props, "audio-dsp.direction", "%d", sess->direction);
 		pw_properties_setf(props, "audio-dsp.maxbuffer", "%ld", MAX_QUANTUM_SIZE * sizeof(float));
 

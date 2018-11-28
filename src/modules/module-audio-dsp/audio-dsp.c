@@ -203,7 +203,7 @@ static void node_port_init(void *data, struct pw_port *port)
 
 	pw_properties_setf(new, "port.alias1", "%s_pcm:%s:%s%s",
 			pw_properties_get(n->props, "device.api"),
-			pw_properties_get(n->props, "device.name"),
+			pw_properties_get(n->props, "audio-dsp.name"),
 			direction == PW_DIRECTION_INPUT ? "in" : "out",
 			str);
 
@@ -248,17 +248,19 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 {
 	struct pw_node *node;
 	struct node *n;
-	const char *api, *alias, *plugged, *str;
+	const char *api, *alias, *str;
 	char node_name[128];
 	struct pw_properties *pr;
 	int i;
 
-	if ((api = pw_properties_get(props, "device.api")) == NULL) {
+	pr = pw_properties_copy(props);
+
+	if ((api = pw_properties_get(pr, "device.api")) == NULL) {
 		pw_log_error("missing device.api property");
 		goto error;
 	}
-	if ((alias = pw_properties_get(props, "device.name")) == NULL) {
-		pw_log_error("missing device.name property");
+	if ((alias = pw_properties_get(pr, "audio-dsp.name")) == NULL) {
+		pw_log_error("missing audio-dsp.name property");
 		goto error;
 	}
 
@@ -268,18 +270,14 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 			node_name[i] = '_';
 	}
 
-	pr = pw_properties_new(
+	pw_properties_set(pr,
 			"media.class",
 			direction == PW_DIRECTION_OUTPUT ?
 				"Audio/DSP/Playback" :
-				"Audio/DSP/Capture",
-			"device.name", alias,
-			"device.api", api,
-			NULL);
+				"Audio/DSP/Capture");
+	pw_properties_set(pr, "node.driver", NULL);
 
-	if ((plugged = pw_properties_get(props, "node.plugged")) != NULL)
-		pw_properties_set(pr, "node.plugged", plugged);
-	if ((str = pw_properties_get(props, "node.id")) != NULL)
+	if ((str = pw_properties_get(pr, "node.id")) != NULL)
 		pw_properties_set(pr, "node.session", str);
 
 	node = pw_spa_node_load(core, NULL, NULL,
@@ -300,7 +298,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	n->core = core;
 	n->node = node;
 	n->direction = direction;
-	n->props = pw_properties_copy(props);
+	n->props = pw_properties_copy(pr);
 	spa_list_init(&n->ports);
 
 	n->max_buffer_size = max_buffer_size;
@@ -313,6 +311,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	return node;
 
      error:
+	pw_properties_free(pr);
 	return NULL;
 }
 

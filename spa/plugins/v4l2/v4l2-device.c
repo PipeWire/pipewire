@@ -72,19 +72,20 @@ struct impl {
 static int emit_info(struct impl *this)
 {
 	int res;
-	struct spa_dict_item items[5];
+	struct spa_dict_item items[6];
 
 	if ((res = spa_v4l2_open(&this->dev, this->props.device)) < 0)
 		return res;
 
-	items[0] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
-	items[1] = SPA_DICT_ITEM_INIT("media.class", "Video/Device");
-	items[2] = SPA_DICT_ITEM_INIT("v4l2.driver", (char *)this->dev.cap.driver);
-	items[3] = SPA_DICT_ITEM_INIT("v4l2.card", (char *)this->dev.cap.card);
-	items[4] = SPA_DICT_ITEM_INIT("v4l2.bus", (char *)this->dev.cap.bus_info);
+	items[0] = SPA_DICT_ITEM_INIT("device.api", "v4l2");
+	items[1] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
+	items[2] = SPA_DICT_ITEM_INIT("media.class", "Video/Device");
+	items[3] = SPA_DICT_ITEM_INIT("v4l2.driver", (char *)this->dev.cap.driver);
+	items[4] = SPA_DICT_ITEM_INIT("v4l2.card", (char *)this->dev.cap.card);
+	items[5] = SPA_DICT_ITEM_INIT("v4l2.bus", (char *)this->dev.cap.bus_info);
 
 	if (this->callbacks->info)
-		this->callbacks->info(this->callbacks_data, &SPA_DICT_INIT(items, 5));
+		this->callbacks->info(this->callbacks_data, &SPA_DICT_INIT(items, 6));
 
 	if (this->callbacks->add) {
 		if (spa_v4l2_is_capture(&this->dev)) {

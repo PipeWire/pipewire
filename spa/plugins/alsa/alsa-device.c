@@ -128,7 +128,7 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo)
 static int emit_info(struct impl *this)
 {
 	int err = 0, dev;
-	struct spa_dict_item items[8];
+	struct spa_dict_item items[10];
 	snd_ctl_t *ctl_hndl;
 	snd_ctl_card_info_t *info;
 	snd_pcm_info_t *pcminfo;
@@ -147,17 +147,19 @@ static int emit_info(struct impl *this)
 		goto exit;
 	}
 
-	items[0] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
-	items[1] = SPA_DICT_ITEM_INIT("media.class", "Audio/Device");
-	items[2] = SPA_DICT_ITEM_INIT("alsa.card.id",	      snd_ctl_card_info_get_id(info));
-	items[3] = SPA_DICT_ITEM_INIT("alsa.card.components", snd_ctl_card_info_get_components(info));
-	items[4] = SPA_DICT_ITEM_INIT("alsa.card.driver",     snd_ctl_card_info_get_driver(info));
-	items[5] = SPA_DICT_ITEM_INIT("alsa.card.name",       snd_ctl_card_info_get_name(info));
-	items[6] = SPA_DICT_ITEM_INIT("alsa.card.longname",   snd_ctl_card_info_get_longname(info));
-	items[7] = SPA_DICT_ITEM_INIT("alsa.card.mixername",  snd_ctl_card_info_get_mixername(info));
+	items[0] = SPA_DICT_ITEM_INIT("device.api",  "alsa");
+	items[1] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
+	items[2] = SPA_DICT_ITEM_INIT("device.nick", snd_ctl_card_info_get_id(info));
+	items[3] = SPA_DICT_ITEM_INIT("media.class", "Audio/Device");
+	items[4] = SPA_DICT_ITEM_INIT("alsa.card.id",	      snd_ctl_card_info_get_id(info));
+	items[5] = SPA_DICT_ITEM_INIT("alsa.card.components", snd_ctl_card_info_get_components(info));
+	items[6] = SPA_DICT_ITEM_INIT("alsa.card.driver",     snd_ctl_card_info_get_driver(info));
+	items[7] = SPA_DICT_ITEM_INIT("alsa.card.name",       snd_ctl_card_info_get_name(info));
+	items[8] = SPA_DICT_ITEM_INIT("alsa.card.longname",   snd_ctl_card_info_get_longname(info));
+	items[9] = SPA_DICT_ITEM_INIT("alsa.card.mixername",  snd_ctl_card_info_get_mixername(info));
 
 	if (this->callbacks->info)
-		this->callbacks->info(this->callbacks_data, &SPA_DICT_INIT(items, 8));
+		this->callbacks->info(this->callbacks_data, &SPA_DICT_INIT(items, 10));
 
         snd_pcm_info_alloca(&pcminfo);
 	dev = -1;

@@ -99,26 +99,20 @@ static const char *get_subclass(snd_pcm_info_t *pcminfo)
 	}
 }
 
-static int emit_node(struct impl *this, snd_ctl_card_info_t *info, snd_pcm_info_t *pcminfo)
+static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo)
 {
-	struct spa_dict_item items[12];
+	struct spa_dict_item items[6];
 	const struct spa_handle_factory *factory;
 	char device_name[128];
 
 	snprintf(device_name, 128, "%s,%d", this->props.device, snd_pcm_info_get_device(pcminfo));
 
-	items[0] = SPA_DICT_ITEM_INIT("alsa.device",          device_name);
-	items[1] = SPA_DICT_ITEM_INIT("alsa.card.id",	      snd_ctl_card_info_get_id(info));
-	items[2] = SPA_DICT_ITEM_INIT("alsa.card.components", snd_ctl_card_info_get_components(info));
-	items[3] = SPA_DICT_ITEM_INIT("alsa.card.driver",     snd_ctl_card_info_get_driver(info));
-	items[4] = SPA_DICT_ITEM_INIT("alsa.card.name",       snd_ctl_card_info_get_name(info));
-	items[5] = SPA_DICT_ITEM_INIT("alsa.card.longname",   snd_ctl_card_info_get_longname(info));
-	items[6] = SPA_DICT_ITEM_INIT("alsa.card.mixername",  snd_ctl_card_info_get_mixername(info));
-	items[7] = SPA_DICT_ITEM_INIT("alsa.pcm.id",          snd_pcm_info_get_id(pcminfo));
-	items[8] = SPA_DICT_ITEM_INIT("alsa.pcm.name",        snd_pcm_info_get_name(pcminfo));
-	items[9] = SPA_DICT_ITEM_INIT("alsa.pcm.subname",     snd_pcm_info_get_subdevice_name(pcminfo));
-	items[10] = SPA_DICT_ITEM_INIT("alsa.pcm.class",      get_class(pcminfo));
-	items[11] = SPA_DICT_ITEM_INIT("alsa.pcm.subclass",   get_subclass(pcminfo));
+	items[0] = SPA_DICT_ITEM_INIT("alsa.device",         device_name);
+	items[1] = SPA_DICT_ITEM_INIT("alsa.pcm.id",         snd_pcm_info_get_id(pcminfo));
+	items[2] = SPA_DICT_ITEM_INIT("alsa.pcm.name",       snd_pcm_info_get_name(pcminfo));
+	items[3] = SPA_DICT_ITEM_INIT("alsa.pcm.subname",    snd_pcm_info_get_subdevice_name(pcminfo));
+	items[4] = SPA_DICT_ITEM_INIT("alsa.pcm.class",      get_class(pcminfo));
+	items[5] = SPA_DICT_ITEM_INIT("alsa.pcm.subclass",   get_subclass(pcminfo));
 
 	if (snd_pcm_info_get_stream(pcminfo) == SND_PCM_STREAM_PLAYBACK)
 		factory = &spa_alsa_sink_factory;
@@ -133,9 +127,10 @@ static int emit_node(struct impl *this, snd_ctl_card_info_t *info, snd_pcm_info_
 	return 0;
 }
 
-static int emit_nodes(struct impl *this)
+static int emit_info(struct impl *this)
 {
 	int err = 0, dev;
+	struct spa_dict_item items[8];
 	snd_ctl_card_info_t *info;
 	snd_pcm_info_t *pcminfo;
 
@@ -152,6 +147,18 @@ static int emit_nodes(struct impl *this)
 		spa_log_error(this->log, "error hardware info: %s", snd_strerror(err));
 		goto exit;
 	}
+
+	items[0] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
+	items[1] = SPA_DICT_ITEM_INIT("media.class", "Audio/Device");
+	items[2] = SPA_DICT_ITEM_INIT("alsa.card.id",	      snd_ctl_card_info_get_id(info));
+	items[3] = SPA_DICT_ITEM_INIT("alsa.card.components", snd_ctl_card_info_get_components(info));
+	items[4] = SPA_DICT_ITEM_INIT("alsa.card.driver",     snd_ctl_card_info_get_driver(info));
+	items[5] = SPA_DICT_ITEM_INIT("alsa.card.name",       snd_ctl_card_info_get_name(info));
+	items[6] = SPA_DICT_ITEM_INIT("alsa.card.longname",   snd_ctl_card_info_get_longname(info));
+	items[7] = SPA_DICT_ITEM_INIT("alsa.card.mixername",  snd_ctl_card_info_get_mixername(info));
+
+	if (this->callbacks->info)
+		this->callbacks->info(this->callbacks_data, &SPA_DICT_INIT(items, 8));
 
         snd_pcm_info_alloca(&pcminfo);
 	dev = -1;
@@ -171,27 +178,22 @@ static int emit_nodes(struct impl *this)
 			if (err != -ENOENT)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
-		if (err >= 0)
-			emit_node(this, info, pcminfo);
+		if (err >= 0 && this->callbacks->add)
+			emit_node(this, pcminfo);
 
 		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
 		if ((err = snd_ctl_pcm_info(this->ctl_hndl, pcminfo)) < 0) {
 			if (err != -ENOENT)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
-		if (err >= 0)
-			emit_node(this, info, pcminfo);
+		if (err >= 0 && this->callbacks->add)
+			emit_node(this, pcminfo);
 	}
 
       exit:
         snd_ctl_close(this->ctl_hndl);
-
 	return err;
 }
-
-static const struct spa_dict_item info_items[] = {
-	{ "media.class", "Audio/Device" },
-};
 
 static int impl_set_callbacks(struct spa_device *device,
 			   const struct spa_device_callbacks *callbacks,
@@ -206,13 +208,8 @@ static int impl_set_callbacks(struct spa_device *device,
 	this->callbacks = callbacks;
 	this->callbacks_data = data;
 
-	if (callbacks) {
-		if (callbacks->info)
-			callbacks->info(data, &SPA_DICT_INIT_ARRAY(info_items));
-
-		if (this->callbacks->add)
-			emit_nodes(this);
-	}
+	if (callbacks)
+		emit_info(this);
 
 	return 0;
 }

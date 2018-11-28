@@ -69,16 +69,43 @@ struct impl {
 	struct spa_v4l2_device dev;
 };
 
-static const struct spa_dict_item info_items[] = {
-	{ "media.class", "Video/Device" },
-};
+static int emit_info(struct impl *this)
+{
+	int res;
+	struct spa_dict_item items[5];
+
+	if ((res = spa_v4l2_open(&this->dev, this->props.device)) < 0)
+		return res;
+
+	items[0] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
+	items[1] = SPA_DICT_ITEM_INIT("media.class", "Video/Device");
+	items[2] = SPA_DICT_ITEM_INIT("v4l2.driver", (char *)this->dev.cap.driver);
+	items[3] = SPA_DICT_ITEM_INIT("v4l2.card", (char *)this->dev.cap.card);
+	items[4] = SPA_DICT_ITEM_INIT("v4l2.bus", (char *)this->dev.cap.bus_info);
+
+	if (this->callbacks->info)
+		this->callbacks->info(this->callbacks_data, &SPA_DICT_INIT(items, 5));
+
+	if (this->callbacks->add) {
+		if (spa_v4l2_is_capture(&this->dev)) {
+			this->callbacks->add(this->callbacks_data, 0,
+				&spa_v4l2_source_factory,
+				SPA_TYPE_INTERFACE_Node,
+				&SPA_DICT_INIT(items, 1));
+		}
+	}
+
+	spa_v4l2_close(&this->dev);
+
+	return 0;
+}
 
 static int impl_set_callbacks(struct spa_device *device,
 				   const struct spa_device_callbacks *callbacks,
 				   void *data)
 {
 	struct impl *this;
-	struct spa_dict_item items[1];
+	int res = 0;
 
 	spa_return_val_if_fail(device != NULL, -EINVAL);
 
@@ -88,23 +115,9 @@ static int impl_set_callbacks(struct spa_device *device,
 	this->callbacks_data = data;
 
 	if (callbacks) {
-		if (callbacks->info)
-			callbacks->info(data, &SPA_DICT_INIT_ARRAY(info_items));
-
-		if (callbacks->add) {
-			if (spa_v4l2_is_capture(&this->dev)) {
-				items[0] = SPA_DICT_ITEM_INIT("device.path", this->props.device);
-				callbacks->add(data, 0,
-					&spa_v4l2_source_factory,
-					SPA_TYPE_INTERFACE_Node,
-					&SPA_DICT_INIT(items, 1));
-			}
-		}
-
-
+		res = emit_info(this);
 	}
-
-	return 0;
+	return res;
 }
 
 static int impl_enum_params(struct spa_device *device,
@@ -169,7 +182,6 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *this;
 	uint32_t i;
 	const char *str;
-	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -194,12 +206,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reset_props(&this->props);
 
-	if (info && (str = spa_dict_lookup(info, "device.path"))) {
+	if (info && (str = spa_dict_lookup(info, "device.path")))
 		strncpy(this->props.device, str, 63);
-		if ((res = spa_v4l2_open(&this->dev, this->props.device)) < 0)
-			return res;
-		spa_v4l2_close(&this->dev);
-	}
 
 	return 0;
 }

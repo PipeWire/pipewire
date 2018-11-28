@@ -462,8 +462,30 @@ static void source_info(pa_operation *o, void *userdata)
 
 pa_operation* pa_context_get_source_info_by_name(pa_context *c, const char *name, pa_source_info_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct source_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(cb);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
+
+	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SOURCE, name)) == NULL)
+		return NULL;
+
+	ensure_global(c, g);
+
+	o = pa_operation_new(c, NULL, source_info, sizeof(struct source_data));
+	d = o->userdata;
+	d->context = c;
+	d->cb = cb;
+	d->userdata = userdata;
+	d->global = g;
+	pa_operation_sync(o);
+	return o;
 }
 
 pa_operation* pa_context_get_source_info_by_index(pa_context *c, uint32_t idx, pa_source_info_cb_t cb, void *userdata)
@@ -852,18 +874,6 @@ pa_operation* pa_context_kill_client(pa_context *c, uint32_t idx, pa_context_suc
 	return NULL;
 }
 
-pa_operation* pa_context_get_card_info_by_index(pa_context *c, uint32_t idx, pa_card_info_cb_t cb, void *userdata)
-{
-	pw_log_warn("Not Implemented");
-	return NULL;
-}
-
-pa_operation* pa_context_get_card_info_by_name(pa_context *c, const char *name, pa_card_info_cb_t cb, void *userdata)
-{
-	pw_log_warn("Not Implemented");
-	return NULL;
-}
-
 struct card_data {
 	pa_context *context;
 	pa_card_info_cb_t cb;
@@ -892,6 +902,72 @@ static void card_callback(struct card_data *d)
 	i.profiles2 = NULL;
 	i.active_profile = NULL;
 	d->cb(d->context, &i, 0, d->userdata);
+}
+
+static void card_info(pa_operation *o, void *userdata)
+{
+	struct card_data *d = userdata;
+	card_callback(d);
+	d->cb(d->context, NULL, 1, d->userdata);
+	pa_operation_done(o);
+}
+
+pa_operation* pa_context_get_card_info_by_index(pa_context *c, uint32_t idx, pa_card_info_cb_t cb, void *userdata)
+{
+	pa_operation *o;
+	struct global *g;
+	struct card_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(cb);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
+
+	if ((g = pa_context_find_global(c, idx)) == NULL)
+		return NULL;
+	if (!(g->mask & PA_SUBSCRIPTION_MASK_CARD))
+		return NULL;
+
+	ensure_global(c, g);
+
+	o = pa_operation_new(c, NULL, card_info, sizeof(struct card_data));
+	d = o->userdata;
+	d->context = c;
+	d->cb = cb;
+	d->userdata = userdata;
+	d->global = g;
+	pa_operation_sync(o);
+	return o;
+}
+
+pa_operation* pa_context_get_card_info_by_name(pa_context *c, const char *name, pa_card_info_cb_t cb, void *userdata)
+{
+	pa_operation *o;
+	struct global *g;
+	struct card_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(cb);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
+
+	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_CARD, name)) == NULL)
+		return NULL;
+
+	ensure_global(c, g);
+
+	o = pa_operation_new(c, NULL, card_info, sizeof(struct card_data));
+	d = o->userdata;
+	d->context = c;
+	d->cb = cb;
+	d->userdata = userdata;
+	d->global = g;
+	pa_operation_sync(o);
+	return o;
 }
 
 static void card_info_list(pa_operation *o, void *userdata)

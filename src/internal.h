@@ -258,6 +258,7 @@ struct pa_context {
 
 struct global *pa_context_find_global(pa_context *c, uint32_t id);
 struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, const char *name);
+struct global *pa_context_find_linked(pa_context *c, uint32_t id);
 
 #define MAX_BUFFERS     64
 #define MASK_BUFFERS    (MAX_BUFFERS-1)

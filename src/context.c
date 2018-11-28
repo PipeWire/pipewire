@@ -96,11 +96,53 @@ struct global *pa_context_find_global(pa_context *c, uint32_t id)
 	return NULL;
 }
 
+struct global *pa_context_find_linked(pa_context *c, uint32_t idx)
+{
+	struct global *g, *f;
+
+	spa_list_for_each(g, &c->globals, link) {
+		if (g->type != PW_TYPE_INTERFACE_Link)
+			continue;
+
+		pw_log_debug("%d %d %d", idx,
+				g->link_info.src->parent_id,
+				g->link_info.dst->parent_id);
+
+		if (g->link_info.src->parent_id == idx)
+			f = pa_context_find_global(c, g->link_info.dst->parent_id);
+		else if (g->link_info.dst->parent_id == idx)
+			f = pa_context_find_global(c, g->link_info.src->parent_id);
+		else
+			continue;
+
+		if (f == NULL)
+			continue;
+		if (f->mask & PA_SUBSCRIPTION_MASK_DSP) {
+			f = f->dsp_info.session;
+		}
+		return f;
+	}
+	return NULL;
+}
+
 static int set_mask(pa_context *c, struct global *g)
 {
 	const char *str;
 
 	switch (g->type) {
+	case PW_TYPE_INTERFACE_Device:
+		if (g->props == NULL)
+			return 0;
+		if ((str = pw_properties_get(g->props, "media.class")) == NULL)
+			return 0;
+		if (strcmp(str, "Audio/Device") != 0)
+			return 0;
+
+		pw_log_debug("found card %d", g->id);
+		g->mask = PA_SUBSCRIPTION_MASK_CARD;
+		g->event = PA_SUBSCRIPTION_EVENT_CARD;
+		break;
+
 	case PW_TYPE_INTERFACE_Node:
 		if (g->props == NULL)
 			return 0;

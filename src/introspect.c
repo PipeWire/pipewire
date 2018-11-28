@@ -73,6 +73,18 @@ static const struct pw_client_proxy_events client_events = {
 	.info = client_event_info,
 };
 
+static void device_event_info(void *object, struct pw_device_info *info)
+{
+        struct global *g = object;
+	pw_log_debug("update %d", g->id);
+        g->info = pw_device_info_update(g->info, info);
+}
+
+static const struct pw_device_proxy_events device_events = {
+	PW_VERSION_DEVICE_PROXY_EVENTS,
+	.info = device_event_info,
+};
+
 static int ensure_global(pa_context *c, struct global *g)
 {
 	uint32_t client_version;
@@ -97,6 +109,11 @@ static int ensure_global(pa_context *c, struct global *g)
 		events = &client_events;
                 client_version = PW_VERSION_CLIENT;
                 destroy = (pw_destroy_t) pw_client_info_free;
+		break;
+	case PW_TYPE_INTERFACE_Device:
+		events = &device_events;
+                client_version = PW_VERSION_DEVICE;
+                destroy = (pw_destroy_t) pw_device_info_free;
 		break;
 	default:
 		return -EINVAL;
@@ -851,12 +868,45 @@ struct card_data {
 	pa_context *context;
 	pa_card_info_cb_t cb;
 	void *userdata;
+	struct global *global;
 };
 
-static void card_info(pa_operation *o, void *userdata)
+static void card_callback(struct card_data *d)
+{
+	struct global *g = d->global;
+	struct pw_device_info *info = g->info;
+	pa_card_info i;
+
+	spa_zero(i);
+	i.index = g->id;
+	i.name = info->name;
+	i.owner_module = g->parent_id;
+	i.driver = info->props ?
+		spa_dict_lookup(info->props, "device.api") : NULL;
+	i.n_profiles = 0;
+	i.profiles = NULL;
+	i.active_profile = NULL;
+	i.proplist = pa_proplist_new_dict(info->props);
+	i.n_ports = 0;
+	i.ports = NULL;
+	i.profiles2 = NULL;
+	i.active_profile = NULL;
+	d->cb(d->context, &i, 0, d->userdata);
+}
+
+static void card_info_list(pa_operation *o, void *userdata)
 {
 	struct card_data *d = userdata;
-	d->cb(d->context, NULL, 1, d->userdata);
+	pa_context *c = d->context;
+	struct global *g;
+
+	spa_list_for_each(g, &c->globals, link) {
+		if (!(g->mask & PA_SUBSCRIPTION_MASK_CARD))
+			continue;
+		d->global = g;
+		card_callback(d);
+	}
+	d->cb(c, NULL, 1, d->userdata);
 	pa_operation_done(o);
 }
 
@@ -869,7 +919,10 @@ pa_operation* pa_context_get_card_info_list(pa_context *c, pa_card_info_cb_t cb,
 	pa_assert(c->refcount >= 1);
 	pa_assert(cb);
 
-	o = pa_operation_new(c, NULL, card_info, sizeof(struct card_data));
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	ensure_types(c, PA_SUBSCRIPTION_MASK_CARD);
+	o = pa_operation_new(c, NULL, card_info_list, sizeof(struct card_data));
 	d = o->userdata;
 	d->context = c;
 	d->cb = cb;
@@ -916,7 +969,7 @@ struct sink_input_data {
 
 static void sink_input_callback(struct sink_input_data *d)
 {
-	struct global *g = d->global;
+	struct global *g = d->global, *l;
 	struct pw_node_info *info = g->info;
 	pa_sink_input_info i;
 	pa_format_info ii[1];
@@ -933,11 +986,21 @@ static void sink_input_callback(struct sink_input_data *d)
 	i.name = info->name;
 	i.owner_module = PA_INVALID_INDEX;
 	i.client = g->parent_id;
-	i.sink = PA_INVALID_INDEX;
+	if (s) {
+		i.sink = s->device_index;
+	}
+	else {
+		l = pa_context_find_linked(d->context, g->id);
+		i.sink = l ? l->id : PA_INVALID_INDEX;
+	}
 	pa_cvolume_init(&i.volume);
 	if (s && s->sample_spec.channels > 0) {
 		i.sample_spec = s->sample_spec;
-		i.channel_map = s->channel_map;
+		if (s->channel_map.channels == s->sample_spec.channels)
+			i.channel_map = s->channel_map;
+		else
+			pa_channel_map_init_auto(&i.channel_map,
+					i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
 		pa_cvolume_set(&i.volume, i.sample_spec.channels, s->volume * PA_VOLUME_NORM);
 		i.format = s->format;
 	}
@@ -1159,7 +1222,7 @@ struct source_output_data {
 
 static void source_output_callback(struct source_output_data *d)
 {
-	struct global *g = d->global;
+	struct global *g = d->global, *l;
 	struct pw_node_info *info = g->info;
 	pa_source_output_info i;
 	pa_format_info ii[1];
@@ -1176,11 +1239,21 @@ static void source_output_callback(struct source_output_data *d)
 	i.name = info->name;
 	i.owner_module = PA_INVALID_INDEX;
 	i.client = g->parent_id;
-	i.source = PA_INVALID_INDEX;
+	if (s) {
+		i.source = s->device_index;
+	}
+	else {
+		l = pa_context_find_linked(d->context, g->id);
+		i.source = l ? l->id : PA_INVALID_INDEX;
+	}
 	pa_cvolume_init(&i.volume);
 	if (s && s->sample_spec.channels > 0) {
 		i.sample_spec = s->sample_spec;
-		i.channel_map = s->channel_map;
+		if (s->channel_map.channels == s->sample_spec.channels)
+			i.channel_map = s->channel_map;
+		else
+			pa_channel_map_init_auto(&i.channel_map,
+					i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
 		pa_cvolume_set(&i.volume, i.sample_spec.channels, s->volume * PA_VOLUME_NORM);
 		i.format = s->format;
 	}

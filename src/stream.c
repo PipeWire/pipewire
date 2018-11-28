@@ -185,41 +185,12 @@ static void configure_buffers(pa_stream *s)
 	dump_buffer_attr(s, &s->buffer_attr);
 }
 
-static struct global *find_linked(pa_stream *s, uint32_t idx)
-{
-	struct global *g, *f;
-	pa_context *c = s->context;
-
-	spa_list_for_each(g, &c->globals, link) {
-		if (g->type != PW_TYPE_INTERFACE_Link)
-			continue;
-
-		pw_log_debug("%d %d %d", idx,
-				g->link_info.src->parent_id,
-				g->link_info.dst->parent_id);
-
-		if (g->link_info.src->parent_id == idx)
-			f = pa_context_find_global(c, g->link_info.dst->parent_id);
-		else if (g->link_info.dst->parent_id == idx)
-			f = pa_context_find_global(c, g->link_info.src->parent_id);
-		else
-			continue;
-
-		if (f == NULL)
-			continue;
-		if (f->mask & PA_SUBSCRIPTION_MASK_DSP) {
-			f = f->dsp_info.session;
-		}
-		return f;
-	}
-	return NULL;
-}
 static void configure_device(pa_stream *s)
 {
 	struct global *g;
 	const char *str;
 
-	g = find_linked(s, pa_stream_get_index(s));
+	g = pa_context_find_linked(s->context, pa_stream_get_index(s));
 	if (g == NULL) {
 		s->device_index = PA_INVALID_INDEX;
 		s->device_name = NULL;

@@ -32,6 +32,7 @@
 
 struct resource_data {
 	struct spa_hook resource_listener;
+	struct pw_device *device;
 };
 
 struct node_data {
@@ -103,6 +104,75 @@ static const struct pw_resource_events resource_events = {
 	.destroy = device_unbind_func,
 };
 
+int pw_device_for_each_param(struct pw_device *device,
+			     uint32_t param_id,
+			     uint32_t index, uint32_t max,
+			     const struct spa_pod *filter,
+			     int (*callback) (void *data,
+					      uint32_t id, uint32_t index, uint32_t next,
+					      struct spa_pod *param),
+			     void *data)
+{
+	int res = 0;
+	uint32_t idx, count;
+	uint8_t buf[4096];
+	struct spa_pod_builder b = { 0 };
+	struct spa_pod *param;
+
+	if (max == 0)
+		max = UINT32_MAX;
+
+	for (count = 0; count < max; count++) {
+		spa_pod_builder_init(&b, buf, sizeof(buf));
+
+		idx = index;
+		if ((res = spa_device_enum_params(device->implementation,
+						param_id, &index,
+						filter, &param, &b)) <= 0)
+			break;
+
+		if ((res = callback(data, param_id, idx, index, param)) != 0)
+			break;
+	}
+	return res;
+}
+
+static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+{
+	struct pw_resource *resource = data;
+	pw_device_resource_param(resource, id, index, next, param);
+	return 0;
+}
+
+static void device_enum_params(void *object, uint32_t id, uint32_t start, uint32_t num,
+                             const struct spa_pod *filter)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct pw_device *device = data->device;
+
+	pw_device_for_each_param(device, id, start, num, filter, reply_param, resource);
+}
+
+static void device_set_param(void *object, uint32_t id, uint32_t flags,
+                           const struct spa_pod *param)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct pw_device *device = data->device;
+	int res;
+
+	if ((res = spa_device_set_param(device->implementation, id, flags, param)) < 0)
+		pw_core_resource_error(resource->client->core_resource,
+				resource->id, res, spa_strerror(res));
+}
+
+static const struct pw_device_proxy_methods device_methods = {
+	PW_VERSION_DEVICE_PROXY_METHODS,
+	.enum_params = device_enum_params,
+	.set_param = device_set_param
+};
+
 static void
 global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 		  uint32_t version, uint32_t id)
@@ -117,7 +187,10 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 		goto no_mem;
 
 	data = pw_resource_get_user_data(resource);
+	data->device = this;
 	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
+
+	pw_resource_set_implementation(resource, &device_methods, resource);
 
 	pw_log_debug("device %p: bound to %d", this, resource->id);
 

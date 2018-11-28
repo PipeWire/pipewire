@@ -359,8 +359,11 @@ static void node_set_param(void *object, uint32_t id, uint32_t flags,
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_node *node = data->node;
+	int res;
 
-	spa_node_set_param(node->node, id, flags, param);
+	if ((res = spa_node_set_param(node->node, id, flags, param)) < 0)
+		pw_core_resource_error(resource->client->core_resource,
+				resource->id, res, spa_strerror(res));
 }
 
 static void node_send_command(void *object, const struct spa_command *command)

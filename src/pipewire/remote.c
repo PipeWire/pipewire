@@ -529,7 +529,7 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t) || cmd != 1)
 			pw_log_warn("proxy %p: read %"PRIu64" failed %m", proxy, cmd);
 
-		pw_log_trace("remote %p: process", data->remote);
+		pw_log_trace("remote %p: process %p", data->remote, proxy);
 		spa_graph_run(node->graph);
 	}
 }
@@ -912,7 +912,6 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 			pw_loop_invoke(data->core->data_loop,
 				do_pause_source, 1, NULL, 0, true, data);
 		}
-
 		if ((res = spa_node_send_command(data->node->node, command)) < 0)
 			pw_log_warn("node %p: pause failed", proxy);
 
@@ -921,14 +920,14 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 	case SPA_NODE_COMMAND_Start:
 		pw_log_debug("node %p: start %d", proxy, seq);
 
-		if (data->rtsocket_source) {
+		if ((res = spa_node_send_command(data->node->node, command)) < 0) {
+			pw_log_warn("node %p: start failed", proxy);
+		}
+		else if (data->rtsocket_source) {
 			pw_loop_update_io(remote->core->data_loop,
 				  data->rtsocket_source,
 				  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 		}
-
-		if ((res = spa_node_send_command(data->node->node, command)) < 0)
-			pw_log_warn("node %p: start failed", proxy);
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
 		break;

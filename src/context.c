@@ -104,7 +104,7 @@ struct global *pa_context_find_linked(pa_context *c, uint32_t idx)
 		if (g->type != PW_TYPE_INTERFACE_Link)
 			continue;
 
-		pw_log_debug("%d %d %d", idx,
+		pw_log_debug("context %p: %p %d %d %d", c, g, idx,
 				g->link_info.src->parent_id,
 				g->link_info.dst->parent_id);
 
@@ -118,7 +118,7 @@ struct global *pa_context_find_linked(pa_context *c, uint32_t idx)
 		if (f == NULL)
 			continue;
 		if (f->mask & PA_SUBSCRIPTION_MASK_DSP) {
-			f = f->dsp_info.session;
+			f = pa_context_find_global(c, f->dsp_info.session);
 		}
 		return f;
 	}
@@ -157,8 +157,7 @@ static int set_mask(pa_context *c, struct global *g)
 			if ((str = pw_properties_get(g->props, "node.session")) == NULL)
 				return 0;
 			g->mask = PA_SUBSCRIPTION_MASK_DSP_SINK;
-			g->dsp_info.session = pa_context_find_global(c,
-					pw_properties_parse_int(str));
+			g->dsp_info.session = pw_properties_parse_int(str);
 		}
 		else if (strcmp(str, "Audio/Source") == 0) {
 			g->mask = PA_SUBSCRIPTION_MASK_SOURCE;
@@ -168,8 +167,7 @@ static int set_mask(pa_context *c, struct global *g)
 			if ((str = pw_properties_get(g->props, "node.session")) == NULL)
 				return 0;
 			g->mask = PA_SUBSCRIPTION_MASK_DSP_SOURCE;
-			g->dsp_info.session = pa_context_find_global(c,
-					pw_properties_parse_int(str));
+			g->dsp_info.session = pw_properties_parse_int(str);
 		}
 		else if (strcmp(str, "Stream/Output/Audio") == 0) {
 			g->mask = PA_SUBSCRIPTION_MASK_SINK_INPUT;
@@ -223,8 +221,8 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	pa_context *c = data;
 	struct global *g;
 
-	pw_log_debug("global %d", id);
 	g = calloc(1, sizeof(struct global));
+	pw_log_debug("context %p: global %d %p", c, id, g);
 	g->id = id;
 	g->parent_id = parent_id;
 	g->type = type;
@@ -250,7 +248,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	pa_context *c = object;
 	struct global *g;
 
-	pw_log_debug("remove %d", id);
+	pw_log_debug("context %p: remove %d", c, id);
 	if ((g = pa_context_find_global(c, id)) == NULL)
 		return;
 
@@ -262,11 +260,12 @@ static void registry_event_global_remove(void *object, uint32_t id)
 					c->subscribe_userdata);
 	}
 
+	pw_log_debug("context %p: free %d %p", c, id, g);
 	spa_list_remove(&g->link);
 	if (g->props)
 		pw_properties_free(g->props);
-	if (g->destroy && g->info)
-		g->destroy(g->info);
+	if (g->destroy)
+		g->destroy(g);
 	free(g);
 }
 

@@ -30,6 +30,7 @@
 #include <pulse/stream.h>
 #include <pulse/format.h>
 #include <pulse/subscribe.h>
+#include <pulse/introspect.h>
 
 #include <pipewire/utils.h>
 #include <pipewire/interfaces.h>
@@ -145,6 +146,7 @@ struct pa_proplist {
 
 pa_proplist* pa_proplist_new_props(struct pw_properties *props);
 pa_proplist* pa_proplist_new_dict(struct spa_dict *dict);
+int pa_proplist_update_dict(pa_proplist *p, struct spa_dict *dict);
 
 struct pa_io_event {
 	struct spa_source *source;
@@ -206,15 +208,28 @@ struct global {
 	struct spa_hook proxy_listener;
         struct spa_hook proxy_proxy_listener;
 
-	/* for links */
 	union {
+		/* for links */
 		struct {
 			struct global *src;
 			struct global *dst;
 		} link_info;
+		/* for dsp source and sink */
 		struct {
-			struct global *session;
+			uint32_t session;
 		} dsp_info;
+		/* for devices */
+		struct {
+			struct pw_array profiles;
+			uint32_t active_profile;
+			pa_card_info info;
+		} card_info;
+		struct {
+			pa_module_info info;
+		} module_info;
+		struct {
+			pa_client_info info;
+		} client_info;
 	};
 };
 

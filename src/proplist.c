@@ -54,6 +54,12 @@ pa_proplist* pa_proplist_new(void)
 	return pa_proplist_new_dict(NULL);
 }
 
+int pa_proplist_update_dict(pa_proplist *p, struct spa_dict *dict)
+{
+	return pw_properties_update(p->props, dict);
+}
+
+
 void pa_proplist_free(pa_proplist* p)
 {
 	pw_properties_free(p->props);

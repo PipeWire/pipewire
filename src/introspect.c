@@ -17,6 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#define _GNU_SOURCE
+
 #include <errno.h>
 
 #include <spa/param/props.h>
@@ -52,8 +54,26 @@ static const struct pw_node_proxy_events node_events = {
 static void module_event_info(void *object, struct pw_module_info *info)
 {
         struct global *g = object;
+	pa_module_info *i = &g->module_info.info;
+
 	pw_log_debug("update %d", g->id);
-        g->info = pw_module_info_update(g->info, info);
+
+        info = g->info = pw_module_info_update(g->info, info);
+
+	i->index = g->id;
+	if (info->change_mask & PW_MODULE_CHANGE_MASK_PROPS) {
+		if (i->proplist)
+			pa_proplist_update_dict(i->proplist, info->props);
+		else
+			i->proplist = pa_proplist_new_dict(info->props);
+	}
+
+	if (info->change_mask & PW_MODULE_CHANGE_MASK_NAME)
+		i->name = info->name;
+	if (info->change_mask & PW_MODULE_CHANGE_MASK_ARGS)
+		i->argument = info->args;
+	i->n_used = -1;
+	i->auto_unload = false;
 }
 
 static const struct pw_module_proxy_events module_events = {
@@ -64,8 +84,24 @@ static const struct pw_module_proxy_events module_events = {
 static void client_event_info(void *object, struct pw_client_info *info)
 {
         struct global *g = object;
+	pa_client_info *i = &g->client_info.info;
+
 	pw_log_debug("update %d", g->id);
-        g->info = pw_client_info_update(g->info, info);
+	info = g->info = pw_client_info_update(g->info, info);
+
+	i->index = g->id;
+	i->owner_module = g->parent_id;
+
+	if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
+		if (i->proplist)
+			pa_proplist_update_dict(i->proplist, info->props);
+		else
+			i->proplist = pa_proplist_new_dict(info->props);
+		i->name = info->props ?
+			spa_dict_lookup(info->props, "application.prgname") : NULL;
+		i->driver = info->props ?
+			spa_dict_lookup(info->props, PW_CLIENT_PROP_PROTOCOL) : NULL;
+	}
 }
 
 static const struct pw_client_proxy_events client_events = {
@@ -73,17 +109,112 @@ static const struct pw_client_proxy_events client_events = {
 	.info = client_event_info,
 };
 
+static void device_event_param(void *object,
+		uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+	struct global *g = object;
+
+	switch (id) {
+	case SPA_PARAM_EnumProfile:
+	{
+		uint32_t id;
+		const char *name;
+
+		if (spa_pod_object_parse(param,
+				":", SPA_PARAM_PROFILE_id, "i", &id,
+				":", SPA_PARAM_PROFILE_name, "s", &name,
+				NULL) < 0) {
+			pw_log_warn("device %d: can't parse profile", g->id);
+			return;
+		}
+		pw_array_add_ptr(&g->card_info.profiles, pw_spa_pod_copy(param));
+		pw_log_debug("device %d: enum profile %d: \"%s\"", g->id, id, name);
+		break;
+	}
+	case SPA_PARAM_Profile:
+	{
+		uint32_t id;
+		if (spa_pod_object_parse(param,
+				":", SPA_PARAM_PROFILE_id, "i", &id,
+				NULL) < 0) {
+			pw_log_warn("device %d: can't parse profile", g->id);
+			return;
+		}
+		g->card_info.active_profile = id;
+		pw_log_debug("device %d: current profile %d", g->id, id);
+		break;
+	}
+	default:
+		break;
+	}
+}
+
 static void device_event_info(void *object, struct pw_device_info *info)
 {
         struct global *g = object;
+	pa_card_info *i = &g->card_info.info;
+
 	pw_log_debug("update %d", g->id);
-        g->info = pw_device_info_update(g->info, info);
+        info = g->info = pw_device_info_update(g->info, info);
+
+	i->index = g->id;
+	i->name = info->name;
+	i->owner_module = g->parent_id;
+	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
+		i->driver = info->props ?
+			spa_dict_lookup(info->props, "device.api") : NULL;
+		if (i->proplist)
+			pa_proplist_update_dict(i->proplist, info->props);
+		else
+			i->proplist = pa_proplist_new_dict(info->props);
+	}
 }
 
 static const struct pw_device_proxy_events device_events = {
 	PW_VERSION_DEVICE_PROXY_EVENTS,
 	.info = device_event_info,
+	.param = device_event_param,
 };
+
+static void node_destroy(void *data)
+{
+	struct global *global = data;
+	if (global->info)
+		pw_node_info_free(global->info);
+}
+
+static void module_destroy(void *data)
+{
+	struct global *global = data;
+	if (global->module_info.info.proplist)
+		pa_proplist_free(global->module_info.info.proplist);
+	if (global->info)
+		pw_module_info_free(global->info);
+}
+
+static void client_destroy(void *data)
+{
+	struct global *global = data;
+	if (global->client_info.info.proplist)
+		pa_proplist_free(global->client_info.info.proplist);
+	if (global->info)
+		pw_client_info_free(global->info);
+}
+
+static void device_destroy(void *data)
+{
+	struct global *global = data;
+	struct spa_pod *profile;
+
+	if (global->card_info.info.proplist)
+		pa_proplist_free(global->card_info.info.proplist);
+	pw_array_for_each(profile, &global->card_info.profiles)
+		free(profile);
+	pw_array_clear(&global->card_info.profiles);
+	if (global->info)
+		pw_device_info_free(global->info);
+}
 
 static int ensure_global(pa_context *c, struct global *g)
 {
@@ -98,22 +229,23 @@ static int ensure_global(pa_context *c, struct global *g)
 	case PW_TYPE_INTERFACE_Node:
 		events = &node_events;
                 client_version = PW_VERSION_NODE;
-                destroy = (pw_destroy_t) pw_node_info_free;
+                destroy = node_destroy;
 		break;
 	case PW_TYPE_INTERFACE_Module:
 		events = &module_events;
                 client_version = PW_VERSION_MODULE;
-                destroy = (pw_destroy_t) pw_module_info_free;
+                destroy = module_destroy;
 		break;
 	case PW_TYPE_INTERFACE_Client:
 		events = &client_events;
                 client_version = PW_VERSION_CLIENT;
-                destroy = (pw_destroy_t) pw_client_info_free;
+                destroy = client_destroy;
 		break;
 	case PW_TYPE_INTERFACE_Device:
 		events = &device_events;
                 client_version = PW_VERSION_DEVICE;
-                destroy = (pw_destroy_t) pw_device_info_free;
+                destroy = device_destroy;
+		pw_array_init(&g->card_info.profiles, 64);
 		break;
 	default:
 		return -EINVAL;
@@ -132,8 +264,13 @@ static int ensure_global(pa_context *c, struct global *g)
 	switch (g->type) {
 	case PW_TYPE_INTERFACE_Node:
 		pw_node_proxy_enum_params((struct pw_node_proxy*)g->proxy,
-				SPA_PARAM_EnumFormat,
-				0, -1, NULL);
+				SPA_PARAM_EnumFormat, 0, -1, NULL);
+		break;
+	case PW_TYPE_INTERFACE_Device:
+		pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
+				SPA_PARAM_EnumProfile, 0, -1, NULL);
+		pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
+				SPA_PARAM_Profile, 0, -1, NULL);
 		break;
 	default:
 		break;
@@ -214,6 +351,8 @@ static void sink_callback(struct sink_data *d)
 	ip[0] = ii;
 	i.formats = ip;
 	d->cb(d->context, &i, 0, d->userdata);
+	pa_proplist_free(i.proplist);
+	pa_proplist_free(ii[0].plist);
 }
 
 static void sink_info(pa_operation *o, void *userdata)
@@ -450,6 +589,8 @@ static void source_callback(struct source_data *d)
 	ip[0] = ii;
 	i.formats = ip;
 	d->cb(d->context, &i, 0, d->userdata);
+	pa_proplist_free(i.proplist);
+	pa_proplist_free(ii[0].plist);
 }
 
 static void source_info(pa_operation *o, void *userdata)
@@ -667,17 +808,7 @@ struct module_data {
 static void module_callback(struct module_data *d)
 {
 	struct global *g = d->global;
-	struct pw_module_info *info = g->info;
-	pa_module_info i;
-
-	spa_zero(i);
-	i.proplist = pa_proplist_new_dict(info->props);
-	i.index = g->id;
-	i.name = info->name;
-	i.argument = info->args;
-	i.n_used = -1;
-	i.auto_unload = false;
-	d->cb(d->context, &i, 0, d->userdata);
+	d->cb(d->context, &g->module_info.info, 0, d->userdata);
 }
 
 static void module_info(pa_operation *o, void *userdata)
@@ -778,18 +909,7 @@ struct client_data {
 static void client_callback(struct client_data *d)
 {
 	struct global *g = d->global;
-	struct pw_client_info *info = g->info;
-	pa_client_info i;
-
-	spa_zero(i);
-	i.proplist = pa_proplist_new_dict(info->props);
-	i.index = g->id;
-	i.name = info->props ?
-		spa_dict_lookup(info->props, "application.prgname") : NULL;
-	i.owner_module = g->parent_id;
-	i.driver = info->props ?
-		spa_dict_lookup(info->props, PW_CLIENT_PROP_PROTOCOL) : NULL;
-	d->cb(d->context, &i, 0, d->userdata);
+	d->cb(d->context, &g->client_info.info, 0, d->userdata);
 }
 
 static void client_info(pa_operation *o, void *userdata)
@@ -877,31 +997,59 @@ pa_operation* pa_context_kill_client(pa_context *c, uint32_t idx, pa_context_suc
 struct card_data {
 	pa_context *context;
 	pa_card_info_cb_t cb;
+	pa_context_success_cb_t success_cb;
 	void *userdata;
 	struct global *global;
+	char *profile;
 };
 
 static void card_callback(struct card_data *d)
 {
 	struct global *g = d->global;
-	struct pw_device_info *info = g->info;
-	pa_card_info i;
+	pa_card_info *i = &g->card_info.info;
+	int n_profiles, j;
+	struct spa_pod **profiles;
 
-	spa_zero(i);
-	i.index = g->id;
-	i.name = info->name;
-	i.owner_module = g->parent_id;
-	i.driver = info->props ?
-		spa_dict_lookup(info->props, "device.api") : NULL;
-	i.n_profiles = 0;
-	i.profiles = NULL;
-	i.active_profile = NULL;
-	i.proplist = pa_proplist_new_dict(info->props);
-	i.n_ports = 0;
-	i.ports = NULL;
-	i.profiles2 = NULL;
-	i.active_profile = NULL;
-	d->cb(d->context, &i, 0, d->userdata);
+	n_profiles = pw_array_get_len(&g->card_info.profiles, struct spa_pod*);
+	profiles = g->card_info.profiles.data;
+
+	i->profiles = alloca(sizeof(pa_card_profile_info) * n_profiles);
+	i->profiles2 = alloca(sizeof(pa_card_profile_info2 *) * n_profiles);
+	i->n_profiles = 0;
+
+	for (j = 0; j < n_profiles; j++) {
+		uint32_t id;
+		const char *name;
+
+		if (spa_pod_object_parse(profiles[j],
+				":", SPA_PARAM_PROFILE_id, "i", &id,
+				":", SPA_PARAM_PROFILE_name, "s", &name,
+				NULL) < 0) {
+			pw_log_warn("device %d: can't parse profile %d", g->id, j);
+			continue;
+		}
+
+		i->profiles[j].name = name;
+		i->profiles[j].description = name;
+		i->profiles[j].n_sinks = 1;
+		i->profiles[j].n_sources = 1;
+		i->profiles[j].priority = 1;
+
+		i->profiles2[j] = alloca(sizeof(pa_card_profile_info2));
+		i->profiles2[j]->name = i->profiles[j].name;
+		i->profiles2[j]->description = i->profiles[j].description;
+	        i->profiles2[j]->n_sinks = i->profiles[j].n_sinks;
+	        i->profiles2[j]->n_sources = i->profiles[j].n_sources;
+	        i->profiles2[j]->priority = i->profiles[j].priority;
+	        i->profiles2[j]->available = 1;
+
+		if (g->card_info.active_profile == id) {
+			i->active_profile = &i->profiles[j];
+			i->active_profile2 = i->profiles2[j];
+		}
+		i->n_profiles++;
+	}
+	d->cb(d->context, i, 0, d->userdata);
 }
 
 static void card_info(pa_operation *o, void *userdata)
@@ -1008,10 +1156,84 @@ pa_operation* pa_context_get_card_info_list(pa_context *c, pa_card_info_cb_t cb,
 	return o;
 }
 
+static void card_profile(pa_operation *o, void *userdata)
+{
+	struct card_data *d = userdata;
+	struct global *g = d->global;
+	pa_context *c = d->context;
+	int res = 0, n_profiles;
+	uint32_t i, id = SPA_ID_INVALID;
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct spa_pod **profiles;
+
+	n_profiles = pw_array_get_len(&g->card_info.profiles, struct spa_pod*);
+	profiles = g->card_info.profiles.data;
+
+	for (i = 0; i < n_profiles; i++) {
+		uint32_t test_id;
+		const char *name;
+
+		if (spa_pod_object_parse(profiles[i],
+				":", SPA_PARAM_PROFILE_id, "i", &test_id,
+				":", SPA_PARAM_PROFILE_name, "s", &name,
+				NULL) < 0) {
+			pw_log_warn("device %d: can't parse profile %d", g->id, i);
+			continue;
+		}
+		if (strcmp(name, d->profile) == 0) {
+			id = test_id;
+			break;
+		}
+	}
+	if (id == SPA_ID_INVALID)
+		goto done;;
+
+	pw_device_proxy_set_param((struct pw_device_proxy*)g->proxy,
+			SPA_PARAM_Profile, 0,
+			spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+				SPA_PARAM_PROFILE_id,         &SPA_POD_Int(id),
+				0));
+	res = 1;
+done:
+	if (d->success_cb)
+		d->success_cb(c, res, d->userdata);
+	pa_operation_done(o);
+	free(d->profile);
+}
+
 pa_operation* pa_context_set_card_profile_by_index(pa_context *c, uint32_t idx, const char*profile, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct card_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
+
+	if ((g = pa_context_find_global(c, idx)) == NULL)
+		return NULL;
+	if (!(g->mask & PA_SUBSCRIPTION_MASK_CARD))
+		return NULL;
+
+	ensure_global(c, g);
+
+	pw_log_debug("Card set profile %s", profile);
+
+	o = pa_operation_new(c, NULL, card_profile, sizeof(struct card_data));
+	d = o->userdata;
+	d->context = c;
+	d->success_cb = cb;
+	d->userdata = userdata;
+	d->global = g;
+	d->profile = strdup(profile);
+	pa_operation_sync(o);
+
+	return o;
 }
 
 pa_operation* pa_context_set_card_profile_by_name(pa_context *c, const char*name, const char*profile, pa_context_success_cb_t cb, void *userdata)
@@ -1099,7 +1321,10 @@ static void sink_input_callback(struct sink_input_data *d)
 	i.corked = false;
 	i.has_volume = true;
 	i.volume_writable = true;
+
 	d->cb(d->context, &i, 0, d->userdata);
+
+	pa_proplist_free(i.proplist);
 }
 
 static void sink_input_info(pa_operation *o, void *userdata)
@@ -1352,7 +1577,10 @@ static void source_output_callback(struct source_output_data *d)
 	i.corked = false;
 	i.has_volume = true;
 	i.volume_writable = true;
+
 	d->cb(d->context, &i, 0, d->userdata);
+
+	pa_proplist_free(i.proplist);
 }
 
 static void source_output_info(pa_operation *o, void *userdata)

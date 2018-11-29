@@ -37,6 +37,10 @@
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
+#include <spa/param/param.h>
+#include <spa/pod/filter.h>
+#include <spa/pod/parser.h>
+#include <spa/debug/pod.h>
 
 #define NAME  "alsa-device"
 
@@ -67,6 +71,7 @@ struct impl {
 	void *callbacks_data;
 
 	struct props props;
+	uint32_t n_nodes;
 };
 
 static const char *get_class(snd_pcm_info_t *pcminfo)
@@ -97,7 +102,7 @@ static const char *get_subclass(snd_pcm_info_t *pcminfo)
 	}
 }
 
-static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo)
+static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 {
 	struct spa_dict_item items[6];
 	const struct spa_handle_factory *factory;
@@ -117,7 +122,7 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo)
 	else
 		factory = &spa_alsa_source_factory;
 
-	this->callbacks->add(this->callbacks_data, 0,
+	this->callbacks->add(this->callbacks_data, id,
 			factory,
 			SPA_TYPE_INTERFACE_Node,
 			&SPA_DICT_INIT_ARRAY(items));
@@ -125,16 +130,87 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo)
 	return 0;
 }
 
-static int emit_info(struct impl *this)
+static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 {
 	int err = 0, dev;
+	uint32_t i;
+	snd_pcm_info_t *pcminfo;
+
+	spa_log_debug(this->log, "profile %d", id);
+
+	if (this->callbacks && this->callbacks->remove) {
+		for (i = 0; i < this->n_nodes; i++) {
+			this->callbacks->remove(this->callbacks_data, i);
+		}
+	}
+	this->n_nodes = 0;
+
+	if (id == 1)
+		return 0;
+
+        snd_pcm_info_alloca(&pcminfo);
+	dev = -1;
+	i = 0;
+	while (1) {
+		if ((err = snd_ctl_pcm_next_device(ctl_hndl, &dev)) < 0) {
+			spa_log_error(this->log, "error iterating devices: %s", snd_strerror(err));
+			goto exit;
+		}
+		if (dev < 0)
+			break;
+
+		snd_pcm_info_set_device(pcminfo, dev);
+		snd_pcm_info_set_subdevice(pcminfo, 0);
+
+		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_PLAYBACK);
+		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
+			if (err != -ENOENT)
+				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
+		}
+		if (err >= 0 && this->callbacks->add)
+			emit_node(this, pcminfo, i++);
+
+		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
+		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
+			if (err != -ENOENT)
+				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
+		}
+		if (err >= 0 && this->callbacks->add)
+			emit_node(this, pcminfo, i++);
+	}
+	this->n_nodes = i;
+exit:
+	return err;
+}
+
+static int set_profile(struct impl *this, uint32_t id)
+{
+	snd_ctl_t *ctl_hndl;
+	int err;
+
+        spa_log_info(this->log, "open card %s", this->props.device);
+        if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
+                spa_log_error(this->log, "can't open control for card %s: %s",
+                                this->props.device, snd_strerror(err));
+                return err;
+        }
+
+	err = activate_profile(this, ctl_hndl, id);
+
+        spa_log_info(this->log, "close card %s", this->props.device);
+	snd_ctl_close(ctl_hndl);
+
+	return err;
+}
+
+static int emit_info(struct impl *this)
+{
+	int err = 0;
 	struct spa_dict_item items[10];
 	snd_ctl_t *ctl_hndl;
 	snd_ctl_card_info_t *info;
-	snd_pcm_info_t *pcminfo;
 
         spa_log_info(this->log, "open card %s", this->props.device);
-
         if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
                 spa_log_error(this->log, "can't open control for card %s: %s",
                                 this->props.device, snd_strerror(err));
@@ -161,35 +237,7 @@ static int emit_info(struct impl *this)
 	if (this->callbacks->info)
 		this->callbacks->info(this->callbacks_data, &SPA_DICT_INIT(items, 10));
 
-        snd_pcm_info_alloca(&pcminfo);
-	dev = -1;
-	while (1) {
-		if ((err = snd_ctl_pcm_next_device(ctl_hndl, &dev)) < 0) {
-			spa_log_error(this->log, "error iterating devices: %s", snd_strerror(err));
-			goto exit;
-		}
-		if (dev < 0)
-			break;
-
-		snd_pcm_info_set_device(pcminfo, dev);
-		snd_pcm_info_set_subdevice(pcminfo, 0);
-
-		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_PLAYBACK);
-		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
-			if (err != -ENOENT)
-				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
-		}
-		if (err >= 0 && this->callbacks->add)
-			emit_node(this, pcminfo);
-
-		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
-		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
-			if (err != -ENOENT)
-				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
-		}
-		if (err >= 0 && this->callbacks->add)
-			emit_node(this, pcminfo);
-	}
+	activate_profile(this, ctl_hndl, 0);
 
       exit:
 	snd_ctl_close(ctl_hndl);
@@ -219,17 +267,117 @@ static int impl_set_callbacks(struct spa_device *device,
 static int impl_enum_params(struct spa_device *device,
 			    uint32_t id, uint32_t *index,
 			    const struct spa_pod *filter,
-			    struct spa_pod **param,
+			    struct spa_pod **result,
 			    struct spa_pod_builder *builder)
 {
-	return -ENOTSUP;
+	struct impl *this;
+	struct spa_pod *param;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+
+	spa_return_val_if_fail(device != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+	spa_return_val_if_fail(builder != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(device, struct impl, device);
+
+      next:
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	switch (id) {
+	case SPA_PARAM_List:
+	{
+		uint32_t list[] = { SPA_PARAM_EnumProfile,
+				    SPA_PARAM_Profile };
+
+		if (*index < SPA_N_ELEMENTS(list))
+			param = spa_pod_builder_object(&b,
+					SPA_TYPE_OBJECT_ParamList, id,
+					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
+					0);
+		else
+			return 0;
+		break;
+	}
+	case SPA_PARAM_EnumProfile:
+	{
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, id,
+				SPA_PARAM_PROFILE_id,     &SPA_POD_Int(0),
+				SPA_PARAM_PROFILE_name,   &SPA_POD_Stringc("On"),
+				0);
+			break;
+		case 1:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, id,
+				SPA_PARAM_PROFILE_id,     &SPA_POD_Int(1),
+				SPA_PARAM_PROFILE_name,   &SPA_POD_Stringc("Off"),
+				0);
+			break;
+		default:
+			return 0;
+		}
+		break;
+	}
+	case SPA_PARAM_Profile:
+	{
+		switch (*index) {
+		case 0:
+			param = spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, id,
+				SPA_PARAM_PROFILE_id,     &SPA_POD_Int(0),
+				0);
+			break;
+		default:
+			return 0;
+		}
+		break;
+	}
+	default:
+		return -ENOENT;
+	}
+
+	(*index)++;
+
+	if (spa_pod_filter(builder, result, param, filter) < 0)
+		goto next;
+
+	return 1;
 }
 
 static int impl_set_param(struct spa_device *device,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
 {
-	return -ENOTSUP;
+	struct impl *this;
+	int res;
+
+	spa_return_val_if_fail(device != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(device, struct impl, device);
+
+	switch (id) {
+	case SPA_PARAM_Profile:
+	{
+		uint32_t id;
+
+		if ((res = spa_pod_object_parse(param,
+				":", SPA_PARAM_PROFILE_id, "i", &id,
+				NULL)) < 0) {
+			spa_log_warn(this->log, "can't parse profile");
+			spa_debug_pod(0, NULL, param);
+			return res;
+		}
+
+		set_profile(this, id);
+		break;
+	}
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static const struct spa_device impl_device = {

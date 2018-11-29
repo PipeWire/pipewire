@@ -42,7 +42,8 @@ enum spa_param_type {
 	SPA_PARAM_Buffers,		/**< buffer configurations */
 	SPA_PARAM_Meta,			/**< allowed metadata for buffers */
 	SPA_PARAM_IO,			/**< configurable IO areas */
-	SPA_PARAM_Profile,		/**< port profile configuration */
+	SPA_PARAM_EnumProfile,		/**< profile enumeration */
+	SPA_PARAM_Profile,		/**< profile configuration */
 };
 
 /** Properties for SPA_TYPE_OBJECT_ParamList */
@@ -78,6 +79,8 @@ enum spa_param_io {
 /** properties for SPA_TYPE_OBJECT_ParamProfile */
 enum spa_param_profile {
 	SPA_PARAM_PROFILE_START,	/**< object id, one of enum spa_param_type */
+	SPA_PARAM_PROFILE_id,		/**< profile id */
+	SPA_PARAM_PROFILE_name,		/**< profile name */
 	SPA_PARAM_PROFILE_direction,	/**< direction, input/output */
 	SPA_PARAM_PROFILE_format,	/**< profile format specification */
 };

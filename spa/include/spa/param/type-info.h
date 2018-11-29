@@ -264,6 +264,8 @@ static const struct spa_type_info spa_type_param_buffers[] = {
 
 static const struct spa_type_info spa_type_param_profile[] = {
 	{ SPA_PARAM_PROFILE_START, SPA_TYPE_PARAM_PROFILE_BASE, SPA_TYPE_Id, spa_type_param, },
+	{ SPA_PARAM_PROFILE_id, SPA_TYPE_PARAM_PROFILE_BASE "id",  SPA_TYPE_Int,  },
+	{ SPA_PARAM_PROFILE_name, SPA_TYPE_PARAM_PROFILE_BASE "name",  SPA_TYPE_String,  },
 	{ SPA_PARAM_PROFILE_direction, SPA_TYPE_PARAM_PROFILE_BASE "direction",  SPA_TYPE_Id, spa_type_direction },
 	{ SPA_PARAM_PROFILE_format, SPA_TYPE_PARAM_PROFILE_BASE "format",  SPA_TYPE_Object, NULL, },
 	{ 0, NULL, },

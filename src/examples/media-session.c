@@ -1120,8 +1120,8 @@ static int rescan_node(struct impl *impl, struct node *node)
 		spa_pod_builder_init(&b, buf, sizeof(buf));
 		param = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-			SPA_PARAM_PROFILE_direction, &SPA_POD_Id(pw_direction_reverse(direction)),
-			SPA_PARAM_PROFILE_format,    spa_format_audio_raw_build(&b,
+			SPA_PARAM_PROFILE_direction,  &SPA_POD_Id(pw_direction_reverse(direction)),
+			SPA_PARAM_PROFILE_format,     spa_format_audio_raw_build(&b,
 							SPA_PARAM_Format, &audio_info),
 			0);
 
@@ -1208,8 +1208,8 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
 		param = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-			SPA_PARAM_PROFILE_direction, &SPA_POD_Id(pw_direction_reverse(sess->direction)),
-			SPA_PARAM_PROFILE_format,    param,
+			SPA_PARAM_PROFILE_direction,  &SPA_POD_Id(pw_direction_reverse(sess->direction)),
+			SPA_PARAM_PROFILE_format,     param,
 			0);
 
 		pw_node_proxy_set_param((struct pw_node_proxy*)sess->dsp_proxy,

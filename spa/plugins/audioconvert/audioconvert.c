@@ -415,7 +415,7 @@ static int impl_node_enum_params(struct spa_node *node,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_Profile:
+	case SPA_PARAM_EnumProfile:
 		switch (*index) {
 		case 0:
 			param = spa_pod_builder_object(&b,
@@ -507,9 +507,9 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 
 			param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info.info.raw);
 			param = spa_pod_builder_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-				SPA_PARAM_PROFILE_direction, &SPA_POD_Id(direction),
-				SPA_PARAM_PROFILE_format,    param,
+				SPA_TYPE_OBJECT_ParamProfile, id,
+				SPA_PARAM_PROFILE_direction,  &SPA_POD_Id(direction),
+				SPA_PARAM_PROFILE_format,     param,
                         0);
 			res = spa_node_set_param(this->fmt[direction], id, flags, param);
 			break;

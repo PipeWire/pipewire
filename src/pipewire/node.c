@@ -933,6 +933,7 @@ void pw_node_destroy(struct pw_node *node)
 	pw_node_events_destroy(node);
 
 	pause_node(node);
+	suspend_node(node);
 
 	pw_log_debug("node %p: driver node %p", impl, node->driver_node);
 

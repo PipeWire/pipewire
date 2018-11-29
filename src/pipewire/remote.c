@@ -886,6 +886,17 @@ static void client_node_event(void *object, const struct spa_event *event)
 	pw_log_warn("unhandled node event %d", SPA_EVENT_TYPE(event));
 }
 
+static int
+do_pause_source(struct spa_loop *loop,
+                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct node_data *d = user_data;
+	pw_loop_update_io(d->core->data_loop,
+			  d->rtsocket_source,
+			  SPA_IO_ERR | SPA_IO_HUP);
+        return 0;
+}
+
 static void client_node_command(void *object, uint32_t seq, const struct spa_command *command)
 {
 	struct pw_proxy *proxy = object;
@@ -898,9 +909,8 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 		pw_log_debug("node %p: pause %d", proxy, seq);
 
 		if (data->rtsocket_source) {
-			pw_loop_update_io(remote->core->data_loop,
-				  data->rtsocket_source,
-				  SPA_IO_ERR | SPA_IO_HUP);
+			pw_loop_invoke(data->core->data_loop,
+				do_pause_source, 1, NULL, 0, true, data);
 		}
 
 		if ((res = spa_node_send_command(data->node->node, command)) < 0)
@@ -984,6 +994,8 @@ client_node_port_set_param(void *object,
 		res = -EINVAL;
 		goto done;
 	}
+
+        pw_log_debug("port %p: set param %d %p", port, id, param);
 
         if (id == SPA_PARAM_Format) {
 		struct mix *mix;

@@ -150,8 +150,12 @@ static void device_enum_params(void *object, uint32_t id, uint32_t start, uint32
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_device *device = data->device;
+	int res;
 
-	pw_device_for_each_param(device, id, start, num, filter, reply_param, resource);
+	if ((res = pw_device_for_each_param(device, id, start, num,
+				filter, reply_param, resource)) < 0)
+		pw_core_resource_error(resource->client->core_resource,
+				resource->id, res, spa_strerror(res));
 }
 
 static void device_set_param(void *object, uint32_t id, uint32_t flags,

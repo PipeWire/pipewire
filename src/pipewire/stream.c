@@ -529,7 +529,7 @@ static void clear_buffers(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int i, j;
 
-	pw_log_debug("stream %p: clear buffers", stream);
+	pw_log_debug("stream %p: clear buffers %d", stream, impl->n_buffers);
 
 	for (i = 0; i < impl->n_buffers; i++) {
 		struct buffer *b = &impl->buffers[i];

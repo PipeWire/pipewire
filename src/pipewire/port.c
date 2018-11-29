@@ -400,9 +400,12 @@ static void port_enum_params(void *object, uint32_t id, uint32_t index, uint32_t
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_port *port = data->port;
+	int res;
 
-	pw_port_for_each_param(port, id, index, num, filter,
-			reply_param, resource);
+	if ((res = pw_port_for_each_param(port, id, index, num, filter,
+			reply_param, resource)) < 0)
+		pw_core_resource_error(resource->client->core_resource,
+				resource->id, res, spa_strerror(res));
 }
 
 static const struct pw_port_proxy_methods port_methods = {

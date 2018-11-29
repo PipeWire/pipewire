@@ -488,6 +488,22 @@ struct pw_device_proxy_methods {
 			   const struct spa_pod *param);
 };
 
+static inline void
+pw_device_proxy_enum_params(struct pw_device_proxy *device, uint32_t id, uint32_t index,
+		uint32_t num, const struct spa_pod *filter)
+{
+	pw_proxy_do((struct pw_proxy*)device, struct pw_device_proxy_methods, enum_params,
+			id, index, num, filter);
+}
+
+static inline void
+pw_device_proxy_set_param(struct pw_device_proxy *device, uint32_t id, uint32_t flags,
+		const struct spa_pod *param)
+{
+	pw_proxy_do((struct pw_proxy*)device, struct pw_device_proxy_methods, set_param,
+			id, flags, param);
+}
+
 #define PW_DEVICE_PROXY_EVENT_INFO	0
 #define PW_DEVICE_PROXY_EVENT_PARAM	1
 #define PW_DEVICE_PROXY_EVENT_NUM	2

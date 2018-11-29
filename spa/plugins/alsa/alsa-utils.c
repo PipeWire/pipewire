@@ -547,9 +547,14 @@ static int alsa_recover(struct state *state, int err)
 static int get_status(struct state *state, snd_pcm_sframes_t *delay)
 {
 	snd_pcm_sframes_t av;
+	int res;
 
-	if ((av = snd_pcm_avail(state->hndl)) < 0)
-		return alsa_recover(state, av);
+	if ((av = snd_pcm_avail(state->hndl)) < 0) {
+		if ((res = alsa_recover(state, av)) < 0)
+			return res;
+		if ((av = snd_pcm_avail(state->hndl)) < 0)
+			return av;
+	}
 
 	if (delay) {
 		if (state->stream == SND_PCM_STREAM_PLAYBACK)
@@ -911,6 +916,7 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 		snd_pcm_uframes_t read, frames, offset;
 
 		frames = to_read - total_read;
+		spa_log_trace(state->log, "begin %ld %ld %ld %ld", offset, frames, to_read, total_read);
 		if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0) {
 			spa_log_error(state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(res));
 			return;
@@ -920,6 +926,7 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 		if (read < frames)
 			to_read = 0;
 
+		spa_log_trace(state->log, "commit %ld %ld", offset, read);
 		if ((res = snd_pcm_mmap_commit(hndl, offset, read)) < 0) {
 			spa_log_error(state->log, "snd_pcm_mmap_commit error: %s", snd_strerror(res));
 			if (res != -EPIPE && res != -ESTRPIPE)

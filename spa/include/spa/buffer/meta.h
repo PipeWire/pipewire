@@ -36,6 +36,7 @@ extern "C" {
 
 #define SPA_TYPE_META__Header		SPA_TYPE_META_BASE "Header"
 #define SPA_TYPE_META__VideoCrop	SPA_TYPE_META_BASE "VideoCrop"
+#define SPA_TYPE_META__Cursor		SPA_TYPE_META_BASE "Cursor"
 
 /**
  * A metadata element.
@@ -83,6 +84,28 @@ struct spa_meta_control {
 	uint32_t id;		/**< control id */
 	uint32_t offset;	/**< offset in buffer memory */
 };
+
+/**
+ * Bitmap information
+ */
+struct spa_meta_bitmap {
+	uint32_t format;		/**< bitmap video format */
+	uint32_t width, height;		/**< width and height of bitmap */
+	uint32_t stride;		/**< stride of bitmap data */
+	uint32_t size;			/**< size of bitmap data */
+	uint32_t offset;		/**< offset of bitmap data in this structure */
+};
+
+/**
+ * Cursor information
+ */
+struct spa_meta_cursor {
+	uint32_t id;			/**< cursor id */
+	int32_t x, y;			/**< offsets on screen */
+	int32_t hotspot_x, hotspot_y;	/**< offsets for hotspot in bitmap */
+	uint32_t bitmap_offset;		/**< offset of bitmap meta in this structure */
+};
+
 
 struct spa_type_meta {
 	uint32_t Header;

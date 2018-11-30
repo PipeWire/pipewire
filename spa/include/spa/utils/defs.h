@@ -52,10 +52,21 @@ enum spa_direction {
 };
 
 #define SPA_RECTANGLE(width,height) (struct spa_rectangle){ width, height }
-
 struct spa_rectangle {
 	uint32_t width;
 	uint32_t height;
+};
+
+#define SPA_POINT(x,y) (struct spa_point){ x, y }
+struct spa_point {
+	int32_t x;
+	int32_t y;
+};
+
+#define SPA_REGION(x,y,width,height) (struct spa_region){ SPA_POINT(x,y), SPA_RECTANGLE(width,height) }
+struct spa_region {
+	struct spa_point position;
+	struct spa_rectangle size;
 };
 
 #define SPA_FRACTION(num,denom) (struct spa_fraction){ num, denom }

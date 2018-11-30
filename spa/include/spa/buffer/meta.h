@@ -36,6 +36,7 @@ extern "C" {
 
 #define SPA_TYPE_META__Header		SPA_TYPE_META_BASE "Header"
 #define SPA_TYPE_META__VideoCrop	SPA_TYPE_META_BASE "VideoCrop"
+#define SPA_TYPE_META__Bitmap		SPA_TYPE_META_BASE "Bitmap"
 #define SPA_TYPE_META__Cursor		SPA_TYPE_META_BASE "Cursor"
 
 /**
@@ -85,24 +86,28 @@ struct spa_meta_control {
 	uint32_t offset;	/**< offset in buffer memory */
 };
 
+#define spa_meta_bitmap_is_valid(m)	((m)->format != 0)
+
 /**
  * Bitmap information
  */
 struct spa_meta_bitmap {
-	uint32_t format;		/**< bitmap video format */
-	uint32_t width, height;		/**< width and height of bitmap */
-	uint32_t stride;		/**< stride of bitmap data */
-	uint32_t size;			/**< size of bitmap data */
+	uint32_t format;		/**< bitmap video format, 0 invalid */
+	struct spa_rectangle size;		/**< width and height of bitmap */
+	int32_t stride;			/**< stride of bitmap data */
 	uint32_t offset;		/**< offset of bitmap data in this structure */
 };
+
+#define spa_meta_cursor_is_valid(m)	((m)->id != 0)
 
 /**
  * Cursor information
  */
 struct spa_meta_cursor {
-	uint32_t id;			/**< cursor id, SPA_ID_INVALID for no cursor */
-	int32_t x, y;			/**< offsets on screen */
-	int32_t hotspot_x, hotspot_y;	/**< offsets for hotspot in bitmap */
+	uint32_t id;			/**< cursor id, 0 for no cursor */
+	uint32_t flags;			/**< extra flags */
+	struct spa_point position;	/**< position on screen */
+	struct spa_point hotspot;	/**< offsets for hotspot in bitmap */
 	uint32_t bitmap_offset;		/**< offset of bitmap meta in this structure */
 };
 

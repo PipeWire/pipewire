@@ -142,25 +142,24 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		uint32_t *bitmap, color;
 
 		mcs->id = 0;
-		mcs->x = (sin(data->accumulator) + 1.0) * 160.0 + 80;
-		mcs->y = (cos(data->accumulator) + 1.0) * 100.0 + 50;
-		mcs->hotspot_x = 0;
-		mcs->hotspot_y = 0;
+		mcs->position.x = (sin(data->accumulator) + 1.0) * 160.0 + 80;
+		mcs->position.y = (cos(data->accumulator) + 1.0) * 100.0 + 50;
+		mcs->hotspot.x = 0;
+		mcs->hotspot.y = 0;
 		mcs->bitmap_offset = sizeof(struct spa_meta_cursor);
 
 		mb = SPA_MEMBER(mcs, mcs->bitmap_offset, struct spa_meta_bitmap);
 		mb->format = data->type.video_format.ARGB;
-		mb->width = CURSOR_WIDTH;
-		mb->height = CURSOR_HEIGHT;
+		mb->size.width = CURSOR_WIDTH;
+		mb->size.height = CURSOR_HEIGHT;
 		mb->stride = CURSOR_WIDTH * CURSOR_BPP;
-		mb->size = mb->stride * mb->height;
 		mb->offset = sizeof(struct spa_meta_bitmap);
 
 		bitmap = SPA_MEMBER(mb, mb->offset, uint32_t);
 		color = (cos(data->accumulator) + 1.0) * (1 << 23);
 		color |= 0xff000000;
 
-		draw_elipse(bitmap, mb->width, mb->height, color);
+		draw_elipse(bitmap, mb->size.width, mb->size.height, color);
 	}
 
 	for (i = 0; i < data->format.size.height; i++) {

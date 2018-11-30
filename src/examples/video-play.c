@@ -125,34 +125,29 @@ on_stream_process(void *_data)
 		goto done;
 	}
 	if ((mc = spa_buffer_find_meta(b, data->t->meta.VideoCrop))) {
-		if (data->rect.x != mc->x ||
-		    data->rect.y != mc->y ||
-		    data->rect.w != mc->width ||
-		    data->rect.h != mc->height) {
-			data->rect.x = mc->x;
-			data->rect.y = mc->y;
-			data->rect.w = mc->width;
-			data->rect.h = mc->height;
-		}
+		data->rect.x = mc->x;
+		data->rect.y = mc->y;
+		data->rect.w = mc->width;
+		data->rect.h = mc->height;
 	}
 	if ((mcs = spa_buffer_find_meta(b, data->type.meta_cursor)) &&
-	    mcs->id != SPA_ID_INVALID) {
+	    spa_meta_cursor_is_valid(mcs)) {
 		struct spa_meta_bitmap *mb;
 		void *cdata;
 		int cstride;
 
-		data->cursor_rect.x = mcs->x;
-		data->cursor_rect.y = mcs->y;
+		data->cursor_rect.x = mcs->position.x;
+		data->cursor_rect.y = mcs->position.y;
 
 		mb = SPA_MEMBER(mcs, mcs->bitmap_offset, struct spa_meta_bitmap);
-		data->cursor_rect.w = mb->width;
-		data->cursor_rect.h = mb->height;
+		data->cursor_rect.w = mb->size.width;
+		data->cursor_rect.h = mb->size.height;
 
 		if (data->cursor == NULL) {
 			data->cursor = SDL_CreateTexture(data->renderer,
 						 id_to_sdl_format(data, mb->format),
 						 SDL_TEXTUREACCESS_STREAMING,
-						 mb->width, mb->height);
+						 mb->size.width, mb->size.height);
 			SDL_SetTextureBlendMode(data->cursor, SDL_BLENDMODE_BLEND);
 		}
 
@@ -166,7 +161,7 @@ on_stream_process(void *_data)
 		dst = cdata;
 		ostride = SPA_MIN(cstride, mb->stride);
 
-		for (i = 0; i < mb->height; i++) {
+		for (i = 0; i < mb->size.height; i++) {
 			memcpy(dst, src, ostride);
 			dst += cstride;
 			src += mb->stride;

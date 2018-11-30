@@ -46,6 +46,7 @@ struct data {
 	SDL_Renderer *renderer;
 	SDL_Window *window;
 	SDL_Texture *texture;
+	SDL_Texture *cursor;
 
 	struct pw_main_loop *loop;
 
@@ -60,6 +61,8 @@ struct data {
 	int32_t stride;
 
 	int counter;
+	SDL_Rect rect;
+	SDL_Rect cursor_rect;
 };
 
 static void handle_events(struct data *data)
@@ -83,8 +86,11 @@ on_process(void *_data)
 	struct spa_buffer *buf;
 	void *sdata, *ddata;
 	int sstride, dstride, ostride;
+	struct spa_meta_region *mc;
+	struct spa_meta_cursor *mcs;
 	uint32_t i;
 	uint8_t *src, *dst;
+	bool render_cursor = false;
 
 	b = pw_stream_dequeue_buffer(stream);
 	if (b == NULL)
@@ -103,6 +109,44 @@ on_process(void *_data)
 		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
 		return;
 	}
+
+	if ((mc = spa_buffer_find_meta_data(buf, SPA_META_VideoCrop, sizeof(*mc)))) {
+		data->rect.x = mc->region.position.x;
+		data->rect.y = mc->region.position.y;
+		data->rect.w = mc->region.size.width;
+		data->rect.h = mc->region.size.height;
+	}
+	if ((mcs = spa_buffer_find_meta_data(buf, SPA_META_Cursor, sizeof(*mcs)))) {
+		struct spa_meta_bitmap *mb;
+		void *cdata;
+		int cstride;
+
+		data->cursor_rect.x = mcs->position.x;
+		data->cursor_rect.y = mcs->position.y;
+
+		mb = SPA_MEMBER(mcs, mcs->bitmap_offset, struct spa_meta_bitmap);
+		data->cursor_rect.w = mb->size.width;
+		data->cursor_rect.h = mb->size.height;
+
+		if (SDL_LockTexture(data->cursor, NULL, &cdata, &cstride) < 0) {
+			fprintf(stderr, "Couldn't lock cursor texture: %s\n", SDL_GetError());
+			goto done;
+		}
+
+		src = SPA_MEMBER(mb, mb->offset, uint8_t);
+		dst = cdata;
+		ostride = SPA_MIN(cstride, mb->stride);
+
+		for (i = 0; i < mb->size.height; i++) {
+			memcpy(dst, src, ostride);
+			dst += cstride;
+			src += mb->stride;
+		}
+		SDL_UnlockTexture(data->cursor);
+
+		render_cursor = true;
+	}
+
 	sstride = buf->datas[0].chunk->stride;
 	ostride = SPA_MIN(sstride, dstride);
 
@@ -116,10 +160,13 @@ on_process(void *_data)
 	SDL_UnlockTexture(data->texture);
 
 	SDL_RenderClear(data->renderer);
-	SDL_RenderCopy(data->renderer, data->texture, NULL, NULL);
+	SDL_RenderCopy(data->renderer, data->texture, &data->rect, NULL);
+	if (render_cursor) {
+		SDL_RenderCopy(data->renderer, data->cursor, NULL, &data->cursor_rect);
+	}
 	SDL_RenderPresent(data->renderer);
 
-
+      done:
 	pw_stream_queue_buffer(stream, b);
 }
 
@@ -147,7 +194,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	struct pw_stream *stream = data->stream;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	const struct spa_pod *params[2];
+	const struct spa_pod *params[5];
 	Uint32 sdl_format;
 	void *d;
 
@@ -175,6 +222,17 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	SDL_LockTexture(data->texture, NULL, &d, &data->stride);
 	SDL_UnlockTexture(data->texture);
 
+	data->cursor = SDL_CreateTexture(data->renderer,
+					 SDL_PIXELFORMAT_ARGB8888,
+					 SDL_TEXTUREACCESS_STREAMING,
+					 64, 64);
+	SDL_SetTextureBlendMode(data->cursor, SDL_BLENDMODE_BLEND);
+
+	data->rect.x = 0;
+	data->rect.y = 0;
+	data->rect.w = data->format.size.width;
+	data->rect.h = data->format.size.height;
+
 	params[0] = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
@@ -189,8 +247,20 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
 		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
 		0);
+	params[2] = spa_pod_builder_object(&b,
+		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_VideoCrop),
+		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_region)),
+		0);
+	params[3] = spa_pod_builder_object(&b,
+		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Cursor),
+		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_cursor) +
+					      sizeof(struct spa_meta_bitmap) +
+					      64 * 64 * 4),
+		0);
 
-	pw_stream_finish_format(stream, 0, params, 2);
+	pw_stream_finish_format(stream, 0, params, 4);
 }
 
 static const struct pw_stream_events stream_events = {
@@ -267,6 +337,7 @@ int main(int argc, char *argv[])
 	pw_main_loop_destroy(data.loop);
 
 	SDL_DestroyTexture(data.texture);
+	SDL_DestroyTexture(data.cursor);
 	SDL_DestroyRenderer(data.renderer);
 	SDL_DestroyWindow(data.window);
 

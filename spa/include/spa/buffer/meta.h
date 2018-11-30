@@ -40,6 +40,8 @@ enum spa_meta_type {
 	SPA_META_Header,
 	SPA_META_VideoCrop,
 	SPA_META_VideoDamage,
+	SPA_META_Bitmap,
+	SPA_META_Cursor,
 };
 
 /**
@@ -88,6 +90,37 @@ struct spa_meta_region {
 	for (pos = spa_meta_first(meta);				\
 	    spa_meta_check(pos, meta);					\
             (pos)++)
+
+#define spa_meta_bitmap_is_valid(m)	((m)->format != 0)
+
+/**
+ * Bitmap information
+ *
+ * This metadata contains a bitmap image in the given format and size.
+ * It is typically used for cursor images or other small images that are
+ * better transfered inline.
+ */
+struct spa_meta_bitmap {
+	uint32_t format;		/**< bitmap video format, one of enum spa_video_format */
+	struct spa_rectangle size;	/**< width and height of bitmap */
+	int32_t stride;			/**< stride of bitmap data */
+	uint32_t offset;		/**< offset of bitmap data in this structure */
+};
+
+#define spa_meta_cursor_is_valid(m)	((m)->id != 0)
+
+/**
+ * Cursor information
+ *
+ * Metadata to describe the position and appearance of a pointing device.
+ */
+struct spa_meta_cursor {
+	uint32_t id;			/**< cursor id */
+	uint32_t flags;			/**< extra flags */
+	struct spa_point position;	/**< position on screen */
+	struct spa_point hotspot;	/**< offsets for hotspot in bitmap */
+	uint32_t bitmap_offset;		/**< offset of bitmap meta in this structure */
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

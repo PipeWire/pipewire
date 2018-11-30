@@ -25,14 +25,19 @@
 #include <stdio.h>
 #include <errno.h>
 #include <time.h>
-#include <sys/mman.h>
+#include <math.h>
 
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 
 #include <pipewire/pipewire.h>
 
-#define BPP    3
+#define BPP	3
+#define WIDTH	320
+#define HEIGHT	200
+#define CROP	8
+
+#define M_PI_M2 ( M_PI + M_PI )
 
 struct data {
 	struct pw_main_loop *loop;
@@ -50,6 +55,9 @@ struct data {
 
 	int counter;
 	uint32_t seq;
+
+	double crop;
+	double accumulator;
 };
 
 static void on_timeout(void *userdata, uint64_t expirations)
@@ -59,8 +67,10 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	struct spa_buffer *buf;
 	int i, j;
 	uint8_t *p;
-	struct spa_meta_header *h;
 	struct spa_meta *m;
+	struct spa_meta_header *h;
+	struct spa_meta_region *mc;
+	struct spa_meta_cursor *mcs;
 
 	pw_log_trace("timeout");
 
@@ -96,6 +106,42 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		if (spa_meta_check(r, m))
 			r->region = SPA_REGION(0,0,0,0);
 	}
+	if ((mc = spa_buffer_find_meta_data(buf, SPA_META_VideoCrop, sizeof(*mc)))) {
+		data->crop = (sin(data->accumulator) + 1.0) * 32.0;
+		mc->region.position.x = data->crop;
+		mc->region.position.y = data->crop;
+		mc->region.size.width = WIDTH - data->crop*2;
+		mc->region.size.height = HEIGHT - data->crop*2;
+	}
+	if ((mcs = spa_buffer_find_meta_data(buf, SPA_META_Cursor, sizeof(*mcs)))) {
+		struct spa_meta_bitmap *mb;
+		uint32_t *bitmap, color;
+
+		mcs->id = 1;
+		mcs->position.x = (sin(data->accumulator) + 1.0) * 160.0 + 80;
+		mcs->position.y = (cos(data->accumulator) + 1.0) * 100.0 + 50;
+		mcs->hotspot.x = 0;
+		mcs->hotspot.y = 0;
+		mcs->bitmap_offset = sizeof(struct spa_meta_cursor);
+
+		mb = SPA_MEMBER(mcs, mcs->bitmap_offset, struct spa_meta_bitmap);
+		mb->format = SPA_VIDEO_FORMAT_ARGB;
+		mb->size.width = 64;
+		mb->size.height = 64;
+		mb->stride = 64 * 4;
+		mb->offset = sizeof(struct spa_meta_bitmap);
+
+		bitmap = SPA_MEMBER(mb, mb->offset, uint32_t);
+		color = (cos(data->accumulator) + 1.0) * (1 << 23);
+		color |= 0xff000000;
+
+		for (i = 0; i < mb->size.height; i++) {
+			for (j = 0; j < mb->size.width; j++) {
+				int v = (i - 32) * (i - 32) + (j - 32) * (j - 32);
+				bitmap[i*64+j] = (v <= 32*32) ? color : 0x00000000;
+			}
+		}
+	}
 
 	for (i = 0; i < data->format.size.height; i++) {
 		for (j = 0; j < data->format.size.width * BPP; j++) {
@@ -104,6 +150,10 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		p += buf->datas[0].chunk->stride;
 		data->counter += 13;
 	}
+
+	data->accumulator += M_PI_M2 / 50.0;
+	if (data->accumulator >= M_PI_M2)
+		data->accumulator -= M_PI_M2;
 
 	buf->datas[0].chunk->size = buf->datas[0].maxsize;
 
@@ -148,7 +198,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	struct pw_stream *stream = data->stream;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	const struct spa_pod *params[3];
+	const struct spa_pod *params[5];
 
 	if (format == NULL) {
 		pw_stream_finish_format(stream, 0, NULL, 0);
@@ -181,8 +231,20 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 					sizeof(struct spa_meta_region) * 1,
 					sizeof(struct spa_meta_region) * 16),
 		0);
+	params[3] = spa_pod_builder_object(&b,
+		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_VideoCrop),
+		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_region)),
+		0);
+	params[4] = spa_pod_builder_object(&b,
+		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Cursor),
+		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_cursor) +
+					      sizeof(struct spa_meta_bitmap) +
+					      64 * 64 * 4),
+		0);
 
-	pw_stream_finish_format(stream, 0, params, 3);
+	pw_stream_finish_format(stream, 0, params, 5);
 }
 
 static const struct pw_stream_events stream_events = {

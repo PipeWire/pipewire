@@ -110,13 +110,15 @@ on_process(void *_data)
 		return;
 	}
 
-	if ((mc = spa_buffer_find_meta_data(buf, SPA_META_VideoCrop, sizeof(*mc)))) {
+	if ((mc = spa_buffer_find_meta_data(buf, SPA_META_VideoCrop, sizeof(*mc))) &&
+	    spa_meta_region_is_valid(mc)) {
 		data->rect.x = mc->region.position.x;
 		data->rect.y = mc->region.position.y;
 		data->rect.w = mc->region.size.width;
 		data->rect.h = mc->region.size.height;
 	}
-	if ((mcs = spa_buffer_find_meta_data(buf, SPA_META_Cursor, sizeof(*mcs)))) {
+	if ((mcs = spa_buffer_find_meta_data(buf, SPA_META_Cursor, sizeof(*mcs))) &&
+	    spa_meta_cursor_is_valid(mcs)) {
 		struct spa_meta_bitmap *mb;
 		void *cdata;
 		int cstride;

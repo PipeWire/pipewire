@@ -36,6 +36,9 @@
 #define WIDTH	320
 #define HEIGHT	200
 #define CROP	8
+#define CURSOR_WIDTH	64
+#define CURSOR_HEIGHT	64
+#define CURSOR_BPP	4
 
 #define M_PI_M2 ( M_PI + M_PI )
 
@@ -59,6 +62,24 @@ struct data {
 	double crop;
 	double accumulator;
 };
+
+static void draw_elipse(uint32_t *dst, int width, int height, uint32_t color)
+{
+	int i, j, r1, r2, r12, r22, r122;
+
+	r1 = width/2;
+	r12 = r1 * r1;
+	r2 = height/2;
+	r22 = r2 * r2;
+	r122 = r12 * r22;
+
+	for (i = -r2; i < r2; i++) {
+		for (j = -r1; j < r1; j++) {
+			dst[(i + r2)*width+(j+r1)] =
+				(i * i * r12 + j * j * r22 <= r122) ? color : 0x00000000;
+		}
+	}
+}
 
 static void on_timeout(void *userdata, uint64_t expirations)
 {
@@ -126,21 +147,16 @@ static void on_timeout(void *userdata, uint64_t expirations)
 
 		mb = SPA_MEMBER(mcs, mcs->bitmap_offset, struct spa_meta_bitmap);
 		mb->format = SPA_VIDEO_FORMAT_ARGB;
-		mb->size.width = 64;
-		mb->size.height = 64;
-		mb->stride = 64 * 4;
+		mb->size.width = CURSOR_WIDTH;
+		mb->size.height = CURSOR_HEIGHT;
+		mb->stride = CURSOR_WIDTH * CURSOR_BPP;
 		mb->offset = sizeof(struct spa_meta_bitmap);
 
 		bitmap = SPA_MEMBER(mb, mb->offset, uint32_t);
 		color = (cos(data->accumulator) + 1.0) * (1 << 23);
 		color |= 0xff000000;
 
-		for (i = 0; i < mb->size.height; i++) {
-			for (j = 0; j < mb->size.width; j++) {
-				int v = (i - 32) * (i - 32) + (j - 32) * (j - 32);
-				bitmap[i*64+j] = (v <= 32*32) ? color : 0x00000000;
-			}
-		}
+		draw_elipse(bitmap, mb->size.width, mb->size.height, color);
 	}
 
 	for (i = 0; i < data->format.size.height; i++) {
@@ -236,12 +252,13 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_VideoCrop),
 		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_region)),
 		0);
+#define CURSOR_META_SIZE(w,h)	(sizeof(struct spa_meta_cursor) + \
+				 sizeof(struct spa_meta_bitmap) + w * h * CURSOR_BPP)
 	params[4] = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Cursor),
-		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_cursor) +
-					      sizeof(struct spa_meta_bitmap) +
-					      64 * 64 * 4),
+		SPA_PARAM_META_size, &SPA_POD_Int(
+			CURSOR_META_SIZE(CURSOR_WIDTH,CURSOR_HEIGHT)),
 		0);
 
 	pw_stream_finish_format(stream, 0, params, 5);

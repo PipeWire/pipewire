@@ -128,6 +128,15 @@ on_process(void *_data)
 		data->cursor_rect.w = mb->size.width;
 		data->cursor_rect.h = mb->size.height;
 
+		if (data->cursor == NULL) {
+			data->cursor = SDL_CreateTexture(data->renderer,
+						 id_to_sdl_format(mb->format),
+						 SDL_TEXTUREACCESS_STREAMING,
+						 mb->size.width, mb->size.height);
+			SDL_SetTextureBlendMode(data->cursor, SDL_BLENDMODE_BLEND);
+		}
+
+
 		if (SDL_LockTexture(data->cursor, NULL, &cdata, &cstride) < 0) {
 			fprintf(stderr, "Couldn't lock cursor texture: %s\n", SDL_GetError());
 			goto done;
@@ -222,12 +231,6 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	SDL_LockTexture(data->texture, NULL, &d, &data->stride);
 	SDL_UnlockTexture(data->texture);
 
-	data->cursor = SDL_CreateTexture(data->renderer,
-					 SDL_PIXELFORMAT_ARGB8888,
-					 SDL_TEXTUREACCESS_STREAMING,
-					 64, 64);
-	SDL_SetTextureBlendMode(data->cursor, SDL_BLENDMODE_BLEND);
-
 	data->rect.x = 0;
 	data->rect.y = 0;
 	data->rect.w = data->format.size.width;
@@ -252,12 +255,15 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_VideoCrop),
 		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_region)),
 		0);
+#define CURSOR_META_SIZE(w,h)	(sizeof(struct spa_meta_cursor) + \
+				 sizeof(struct spa_meta_bitmap) + w * h * 4)
 	params[3] = spa_pod_builder_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Cursor),
-		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_cursor) +
-					      sizeof(struct spa_meta_bitmap) +
-					      64 * 64 * 4),
+		SPA_PARAM_META_size, &SPA_POD_CHOICE_RANGE_Int(
+				CURSOR_META_SIZE(64,64),
+				CURSOR_META_SIZE(1,1),
+				CURSOR_META_SIZE(256,256)),
 		0);
 
 	pw_stream_finish_format(stream, 0, params, 4);
@@ -337,7 +343,8 @@ int main(int argc, char *argv[])
 	pw_main_loop_destroy(data.loop);
 
 	SDL_DestroyTexture(data.texture);
-	SDL_DestroyTexture(data.cursor);
+	if (data.cursor)
+		SDL_DestroyTexture(data.cursor);
 	SDL_DestroyRenderer(data.renderer);
 	SDL_DestroyWindow(data.window);
 

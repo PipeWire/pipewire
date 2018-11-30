@@ -744,7 +744,7 @@ again:
 			return res;
 	}
 
-	if (!spa_list_is_empty(&state->ready) && total_written < state->threshold)
+	if (!spa_list_is_empty(&state->ready) && total_written < state->threshold && written > 0)
 		goto again;
 
 	state->sample_count += total_written;

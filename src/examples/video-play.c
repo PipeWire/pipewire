@@ -133,7 +133,8 @@ on_stream_process(void *_data)
 			data->rect.h = mc->height;
 		}
 	}
-	if ((mcs = spa_buffer_find_meta(b, data->type.meta_cursor))) {
+	if ((mcs = spa_buffer_find_meta(b, data->type.meta_cursor)) &&
+	    mcs->id != SPA_ID_INVALID) {
 		struct spa_meta_bitmap *mb;
 		void *cdata;
 		int cstride;

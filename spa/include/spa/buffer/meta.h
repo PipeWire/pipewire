@@ -100,7 +100,7 @@ struct spa_meta_bitmap {
  * Cursor information
  */
 struct spa_meta_cursor {
-	uint32_t id;			/**< cursor id */
+	uint32_t id;			/**< cursor id, SPA_ID_INVALID for no cursor */
 	int32_t x, y;			/**< offsets on screen */
 	int32_t hotspot_x, hotspot_y;	/**< offsets for hotspot in bitmap */
 	uint32_t bitmap_offset;		/**< offset of bitmap meta in this structure */

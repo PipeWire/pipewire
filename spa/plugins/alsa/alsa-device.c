@@ -72,6 +72,8 @@ struct impl {
 
 	struct props props;
 	uint32_t n_nodes;
+
+	uint32_t profile;
 };
 
 static const char *get_class(snd_pcm_info_t *pcminfo)
@@ -137,6 +139,7 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 	snd_pcm_info_t *pcminfo;
 
 	spa_log_debug(this->log, "profile %d", id);
+	this->profile = id;
 
 	if (this->callbacks && this->callbacks->remove) {
 		for (i = 0; i < this->n_nodes; i++) {
@@ -327,7 +330,7 @@ static int impl_enum_params(struct spa_device *device,
 		case 0:
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_id,     &SPA_POD_Int(0),
+				SPA_PARAM_PROFILE_id,     &SPA_POD_Int(this->profile),
 				0);
 			break;
 		default:

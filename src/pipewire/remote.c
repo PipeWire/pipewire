@@ -953,10 +953,13 @@ static void clear_buffers(struct node_data *data, struct mix *mix)
 {
 	struct pw_port *port = mix->port;
         struct buffer *b;
-	int i;
+	int i, res;
 
-        pw_log_debug("port %p: clear buffers", port);
-	pw_port_use_buffers(port, mix->mix_id, NULL, 0);
+        pw_log_debug("port %p: clear buffers %d", port, mix->mix_id);
+	if ((res = pw_port_use_buffers(port, mix->mix_id, NULL, 0)) < 0) {
+		pw_log_error("port %p: error clear buffers %s", port, spa_strerror(res));
+		return;
+	}
 
         pw_array_for_each(b, &mix->buffers) {
 		for (i = 0; i < b->n_mem; i++) {

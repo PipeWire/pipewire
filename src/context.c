@@ -27,13 +27,14 @@
 
 #include <pulse/context.h>
 #include <pulse/timeval.h>
+#include <pulse/error.h>
 
 #include "internal.h"
 
 int pa_context_set_error(pa_context *c, int error) {
 	pa_assert(error >= 0);
 	pa_assert(error < PA_ERR_MAX);
-	pw_log_debug("context %p: error %d", c, error);
+	pw_log_debug("context %p: error %d %s", c, error, pa_strerror(error));
 	if (c)
 		c->error = error;
 	return error;

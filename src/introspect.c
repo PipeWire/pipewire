@@ -98,7 +98,7 @@ static void client_event_info(void *object, struct pw_client_info *info)
 		else
 			i->proplist = pa_proplist_new_dict(info->props);
 		i->name = info->props ?
-			spa_dict_lookup(info->props, "application.prgname") : NULL;
+			spa_dict_lookup(info->props, "application.name") : NULL;
 		i->driver = info->props ?
 			spa_dict_lookup(info->props, PW_CLIENT_PROP_PROTOCOL) : NULL;
 	}

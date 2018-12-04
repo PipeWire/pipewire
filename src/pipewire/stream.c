@@ -784,7 +784,7 @@ static int handle_connect(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
 	pw_log_debug("stream %p: creating node", stream);
-	impl->node = pw_node_new(impl->core, "PipeWire-stream",
+	impl->node = pw_node_new(impl->core, stream->name,
 			pw_properties_copy(stream->properties), 0);
 	impl->impl_node = impl_node;
 
@@ -855,7 +855,7 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 		return NULL;
 
 	this = &impl->this;
-	pw_log_debug("stream %p: new", impl);
+	pw_log_debug("stream %p: new \"%s\"", impl, name);
 
 	if (props == NULL) {
 		props = pw_properties_new("media.name", name, NULL);

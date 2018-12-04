@@ -183,18 +183,23 @@ pw_properties_new_string(const char *str)
  */
 struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
 {
+	return pw_properties_new_dict(&properties->dict);
+}
+
+/** Clear a properties object
+ *
+ * \param properties properties to clear
+ *
+ * \memberof pw_properties
+ */
+void pw_properties_clear(struct pw_properties *properties)
+{
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
-	struct pw_properties *copy;
 	struct spa_dict_item *item;
 
-	copy = pw_properties_new(NULL, NULL);
-	if (copy == NULL)
-		return NULL;
-
 	pw_array_for_each(item, &impl->items)
-		add_func(copy, strdup(item->key), item->value ? strdup(item->value) : NULL);
-
-	return copy;
+		clear_item(item);
+	pw_array_reset(&impl->items);
 }
 
 /** Update properties
@@ -228,11 +233,7 @@ int pw_properties_update(struct pw_properties *props,
 void pw_properties_free(struct pw_properties *properties)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
-	struct spa_dict_item *item;
-
-	pw_array_for_each(item, &impl->items)
-		clear_item(item);
-
+	pw_properties_clear(properties);
 	pw_array_clear(&impl->items);
 	free(impl);
 }

@@ -60,6 +60,8 @@ int
 pw_properties_update(struct pw_properties *oldprops,
 		     const struct spa_dict *dict);
 
+void pw_properties_clear(struct pw_properties *properties);
+
 void
 pw_properties_free(struct pw_properties *properties);
 

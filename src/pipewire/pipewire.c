@@ -566,6 +566,10 @@ void pw_fill_remote_properties(struct pw_core *core, struct pw_properties *prope
 		pw_properties_set(properties, "application.process.session_id",
 				  getenv("XDG_SESSION_ID"));
 	}
+	if (!pw_properties_get(properties, "window.x11.display")) {
+		pw_properties_set(properties, "window.x11.display",
+				  getenv("DISPLAY"));
+	}
 	pw_properties_set(properties, PW_CORE_PROP_VERSION, core->info.version);
 	pw_properties_set(properties, PW_CORE_PROP_NAME, core->info.name);
 

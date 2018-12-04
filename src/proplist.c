@@ -159,7 +159,13 @@ int pa_proplist_get(pa_proplist *p, const char *key, const void **data, size_t *
 void pa_proplist_update(pa_proplist *p, pa_update_mode_t mode, const pa_proplist *other)
 {
 	spa_assert(p);
-	pw_log_warn("Not Implemented");
+	spa_assert(mode == PA_UPDATE_SET || mode == PA_UPDATE_MERGE || mode == PA_UPDATE_REPLACE);
+	spa_assert(other);
+
+	if (mode == PA_UPDATE_SET)
+		pa_proplist_clear(p);
+
+	pa_proplist_update_dict(p, &other->props->dict);
 }
 
 int pa_proplist_unset(pa_proplist *p, const char *key)
@@ -274,7 +280,7 @@ int pa_proplist_contains(pa_proplist *p, const char *key)
 void pa_proplist_clear(pa_proplist *p)
 {
 	spa_assert(p);
-	pw_log_warn("Not Implemented");
+	pw_properties_clear(p->props);
 }
 
 pa_proplist* pa_proplist_copy(const pa_proplist *p)
@@ -305,8 +311,27 @@ int pa_proplist_isempty(pa_proplist *p)
 
 int pa_proplist_equal(pa_proplist *a, pa_proplist *b)
 {
+	int i;
+
 	spa_assert(a);
 	spa_assert(b);
-	pw_log_warn("Not Implemented");
-	return 0;
+
+	if (a == b)
+		return 1;
+
+	if (pa_proplist_size(a) != pa_proplist_size(b))
+		return 0;
+
+	for (i = 0; i < a->props->dict.n_items; i++) {
+		const struct spa_dict_item *ai, *bi;
+
+		ai = &a->props->dict.items[i];
+		bi = spa_dict_lookup_item(&b->props->dict, ai->key);
+
+		if (bi == NULL || bi->value == NULL || ai->value == NULL)
+			return 0;
+		if (strcmp(ai->value, bi->value) != 0)
+			return 0;
+	}
+	return 1;
 }

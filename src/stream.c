@@ -337,6 +337,11 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
 	struct spa_audio_info info = { 0 };
 	int i, res;
 
+	if (format == NULL) {
+		res = 0;
+		goto done;
+	}
+
 	spa_format_parse(format, &info.media_type, &info.media_subtype);
 
 	if (info.media_type != SPA_MEDIA_TYPE_audio ||
@@ -497,10 +502,11 @@ pa_stream* stream_new(pa_context *c, const char *name,
 	if (name)
 		pa_proplist_sets(s->proplist, PA_PROP_MEDIA_NAME, name);
 	else
-		name = pa_proplist_gets(p, PA_PROP_MEDIA_NAME);
+		name = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_NAME);
 
 	props = pw_properties_new("client.api", "pulseaudio",
 				NULL);
+	pw_properties_update(props, &s->proplist->props->dict);
 
 	s->stream = pw_stream_new(c->remote, name, props);
 	s->refcount = 1;
@@ -762,6 +768,8 @@ static int create_stream(pa_stream_direction_t direction,
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
+	pw_log_debug("stream %p: connect %s %08x", s, dev, flags);
+
 	s->direction = direction;
 	s->timing_info_valid = false;
 	s->disconnecting = false;
@@ -824,8 +832,18 @@ static int create_stream(pa_stream_direction_t direction,
 		if ((str = getenv("PIPEWIRE_NODE")) != NULL)
 			devid = atoi(str);
 	}
-	else if ((g = pa_context_find_global_by_name(s->context, PA_SUBSCRIPTION_MASK_SINK, dev)) != NULL) {
-		devid = g->id;
+	else {
+		uint32_t mask;
+
+		if (direction == PA_STREAM_PLAYBACK)
+			mask = PA_SUBSCRIPTION_MASK_SINK;
+		else if (direction == PA_STREAM_RECORD)
+			mask = PA_SUBSCRIPTION_MASK_SOURCE;
+		else
+			mask = 0;
+
+		if ((g = pa_context_find_global_by_name(s->context, mask, dev)) != NULL)
+			devid = g->id;
 	}
 
 	if ((str = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_ROLE)) == NULL)

@@ -97,6 +97,25 @@ struct global *pa_context_find_global(pa_context *c, uint32_t id)
 	return NULL;
 }
 
+struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, const char *name)
+{
+	struct global *g;
+	const char *str;
+	uint32_t id = atoi(name);
+
+	spa_list_for_each(g, &c->globals, link) {
+		if (!(g->mask & mask))
+			continue;
+		if (g->props != NULL &&
+		    (str = pw_properties_get(g->props, "node.name")) != NULL &&
+		    strcmp(str, name) == 0)
+			return g;
+		if (g->id == id)
+			return g;
+	}
+	return NULL;
+}
+
 struct global *pa_context_find_linked(pa_context *c, uint32_t idx)
 {
 	struct global *g, *f;

@@ -363,24 +363,6 @@ static void sink_info(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
-struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, const char *name)
-{
-	struct global *g;
-	const char *str;
-
-	spa_list_for_each(g, &c->globals, link) {
-		if (!(g->mask & mask))
-			continue;
-		if (g->props == NULL)
-			continue;
-		if ((str = pw_properties_get(g->props, "node.name")) == NULL)
-			continue;
-		if (strcmp(str, name) == 0)
-			return g;
-	}
-	return NULL;
-}
-
 pa_operation* pa_context_get_sink_info_by_name(pa_context *c, const char *name, pa_sink_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1269,6 +1251,7 @@ static void sink_input_callback(struct sink_input_data *d)
 {
 	struct global *g = d->global, *l;
 	struct pw_node_info *info = g->info;
+	const char *name;
 	pa_sink_input_info i;
 	pa_format_info ii[1];
 	pa_stream *s;
@@ -1279,9 +1262,17 @@ static void sink_input_callback(struct sink_input_data *d)
 
 	s = find_stream(d->context, g->id);
 
+	if (info->props) {
+		if ((name = spa_dict_lookup(info->props, "media.name")) == NULL &&
+		    (name = spa_dict_lookup(info->props, "application.name")) == NULL)
+			name = info->name;
+	}
+	else
+		name = info->name;
+
 	spa_zero(i);
 	i.index = g->id;
-	i.name = info->name;
+	i.name = name ? name : "Unknown";
 	i.owner_module = PA_INVALID_INDEX;
 	i.client = g->parent_id;
 	if (s) {
@@ -1525,6 +1516,7 @@ static void source_output_callback(struct source_output_data *d)
 {
 	struct global *g = d->global, *l;
 	struct pw_node_info *info = g->info;
+	const char *name;
 	pa_source_output_info i;
 	pa_format_info ii[1];
 	pa_stream *s;
@@ -1535,9 +1527,17 @@ static void source_output_callback(struct source_output_data *d)
 
 	s = find_stream(d->context, g->id);
 
+	if (info->props) {
+		if ((name = spa_dict_lookup(info->props, "media.name")) == NULL &&
+		    (name = spa_dict_lookup(info->props, "application.name")) == NULL)
+			name = info->name;
+	}
+	else
+		name = info->name;
+
 	spa_zero(i);
 	i.index = g->id;
-	i.name = info->name;
+	i.name = name ? name : "Unknown";
 	i.owner_module = PA_INVALID_INDEX;
 	i.client = g->parent_id;
 	if (s) {

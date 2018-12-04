@@ -201,6 +201,11 @@ static inline struct buffer *pop_queue(struct stream *stream, struct queue *queu
 
 	return buffer;
 }
+static inline void clear_queue(struct stream *stream, struct queue *queue)
+{
+	spa_ringbuffer_init(&queue->ring);
+	queue->incount = queue->outcount;
+}
 
 static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state state, const char *error)
 {
@@ -546,8 +551,8 @@ static void clear_buffers(struct pw_stream *stream)
 		}
 	}
 	impl->n_buffers = 0;
-	spa_ringbuffer_init(&impl->dequeued.ring);
-	spa_ringbuffer_init(&impl->queued.ring);
+	clear_queue(impl, &impl->dequeued);
+	clear_queue(impl, &impl->queued);
 }
 
 static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direction, uint32_t port_id,

@@ -1249,7 +1249,7 @@ struct sink_input_data {
 
 static void sink_input_callback(struct sink_input_data *d)
 {
-	struct global *g = d->global, *l;
+	struct global *g = d->global, *l, *cl;
 	struct pw_node_info *info = g->info;
 	const char *name;
 	pa_sink_input_info i;
@@ -1269,6 +1269,8 @@ static void sink_input_callback(struct sink_input_data *d)
 	}
 	else
 		name = info->name;
+
+	cl = pa_context_find_global(d->context, g->parent_id);
 
 	spa_zero(i);
 	i.index = g->id;
@@ -1309,6 +1311,8 @@ static void sink_input_callback(struct sink_input_data *d)
 	i.driver = "PipeWire";
 	i.mute = false;
 	i.proplist = pa_proplist_new_dict(info->props);
+	if (cl && cl->client_info.info.proplist)
+		pa_proplist_update(i.proplist, PA_UPDATE_MERGE, cl->client_info.info.proplist);
 	i.corked = false;
 	i.has_volume = true;
 	i.volume_writable = true;
@@ -1514,7 +1518,7 @@ struct source_output_data {
 
 static void source_output_callback(struct source_output_data *d)
 {
-	struct global *g = d->global, *l;
+	struct global *g = d->global, *l, *cl;
 	struct pw_node_info *info = g->info;
 	const char *name;
 	pa_source_output_info i;
@@ -1534,6 +1538,8 @@ static void source_output_callback(struct source_output_data *d)
 	}
 	else
 		name = info->name;
+
+	cl = pa_context_find_global(d->context, g->parent_id);
 
 	spa_zero(i);
 	i.index = g->id;
@@ -1574,6 +1580,8 @@ static void source_output_callback(struct source_output_data *d)
 	i.driver = "PipeWire";
 	i.mute = false;
 	i.proplist = pa_proplist_new_dict(info->props);
+	if (cl && cl->client_info.info.proplist)
+		pa_proplist_update(i.proplist, PA_UPDATE_MERGE, cl->client_info.info.proplist);
 	i.corked = false;
 	i.has_volume = true;
 	i.volume_writable = true;

@@ -103,7 +103,8 @@ struct pw_properties *pw_properties_new(const char *key, ...)
 	va_start(varargs, key);
 	while (key != NULL) {
 		value = va_arg(varargs, char *);
-		add_func(&impl->this, strdup(key), value ? strdup(value) : NULL);
+		if (value)
+			add_func(&impl->this, strdup(key), strdup(value));
 		key = va_arg(varargs, char *);
 	}
 	va_end(varargs);
@@ -128,9 +129,9 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 		return NULL;
 
 	for (i = 0; i < dict->n_items; i++) {
-		if (dict->items[i].key != NULL)
+		if (dict->items[i].key != NULL && dict->items[i].value != NULL)
 			add_func(&impl->this, strdup(dict->items[i].key),
-				 dict->items[i].value ? strdup(dict->items[i].value) : NULL);
+				 strdup(dict->items[i].value));
 	}
 
 	return &impl->this;
@@ -202,7 +203,8 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
  * \param dict new properties
  * \return the number of changed properties
  *
- * The properties in \a props are updated with \a dict.
+ * The properties in \a props are updated with \a dict. Keys in \a dict
+ * with NULL values are removed from \a props.
  *
  * \memberof pw_properties
  */

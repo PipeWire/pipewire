@@ -287,6 +287,20 @@ static void ensure_types(pa_context *c, uint32_t mask)
 	}
 }
 
+struct success_ack {
+	pa_context_success_cb_t cb;
+	void *userdata;
+};
+
+static void on_success(pa_operation *o, void *userdata)
+{
+	struct success_ack *d = userdata;
+	pa_context *c = o->context;
+	if (d->cb)
+		d->cb(c, PA_OK, d->userdata);
+	pa_operation_done(o);
+}
+
 struct sink_data {
 	pa_context *context;
 	pa_sink_info_cb_t cb;
@@ -972,8 +986,26 @@ pa_operation* pa_context_get_client_info_list(pa_context *c, pa_client_info_cb_t
 
 pa_operation* pa_context_kill_client(pa_context *c, uint32_t idx, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	struct global *g;
+	pa_operation *o;
+	struct success_ack *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
+
+	if ((g = pa_context_find_global(c, idx)) == NULL)
+		return NULL;
+	if (!(g->mask & PA_SUBSCRIPTION_MASK_CLIENT))
+		return NULL;
+
+	pw_registry_proxy_destroy(c->registry_proxy, g->id);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }
 
 struct card_data {
@@ -1412,20 +1444,6 @@ pa_operation* pa_context_move_sink_input_by_index(pa_context *c, uint32_t idx, u
 	return NULL;
 }
 
-struct success_ack {
-	pa_context_success_cb_t cb;
-	void *userdata;
-};
-
-static void on_success(pa_operation *o, void *userdata)
-{
-	struct success_ack *d = userdata;
-	pa_context *c = o->context;
-	if (d->cb)
-		d->cb(c, PA_OK, d->userdata);
-	pa_operation_done(o);
-}
-
 pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_stream *s;
@@ -1440,6 +1458,8 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 
 	if ((s = find_stream(c, idx)) == NULL) {
 		if ((g = pa_context_find_global(c, idx)) == NULL)
+			return NULL;
+		if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK_INPUT))
 			return NULL;
 	}
 
@@ -1477,6 +1497,8 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 	if ((s = find_stream(c, idx)) == NULL) {
 		if ((g = pa_context_find_global(c, idx)) == NULL)
 			return NULL;
+		if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK_INPUT))
+			return NULL;
 	}
 
 	if (s) {
@@ -1505,8 +1527,31 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 
 pa_operation* pa_context_kill_sink_input(pa_context *c, uint32_t idx, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_stream *s;
+	struct global *g;
+	pa_operation *o;
+	struct success_ack *d;
+
+	if ((s = find_stream(c, idx)) == NULL) {
+		if ((g = pa_context_find_global(c, idx)) == NULL)
+			return NULL;
+		if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK_INPUT))
+			return NULL;
+	}
+
+	if (s) {
+		pw_stream_destroy(s->stream);
+	}
+	else if (g) {
+		pw_registry_proxy_destroy(c->registry_proxy, g->id);
+	}
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }
 
 struct source_output_data {
@@ -1693,8 +1738,31 @@ pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int
 
 pa_operation* pa_context_kill_source_output(pa_context *c, uint32_t idx, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_stream *s;
+	struct global *g;
+	pa_operation *o;
+	struct success_ack *d;
+
+	if ((s = find_stream(c, idx)) == NULL) {
+		if ((g = pa_context_find_global(c, idx)) == NULL)
+			return NULL;
+		if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT))
+			return NULL;
+	}
+
+	if (s) {
+		pw_stream_destroy(s->stream);
+	}
+	else if (g) {
+		pw_registry_proxy_destroy(c->registry_proxy, g->id);
+	}
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }
 
 pa_operation* pa_context_stat(pa_context *c, pa_stat_info_cb_t cb, void *userdata)

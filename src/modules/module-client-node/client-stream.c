@@ -1099,6 +1099,7 @@ static void client_node_initialized(void *data)
 
 static void cleanup(struct impl *impl)
 {
+	pw_log_debug("client-stream %p: cleanup", &impl->this);
 	if (impl->use_converter) {
 		if (impl->adapter)
 			pw_unload_spa_interface(impl->adapter);
@@ -1162,11 +1163,11 @@ static const struct pw_node_events client_node_events = {
 	.info_changed = client_node_info_changed,
 };
 
-static void node_destroy(void *data)
+static void node_free(void *data)
 {
 	struct impl *impl = data;
 
-	pw_log_debug("client-stream %p: destroy", &impl->this);
+	pw_log_debug("client-stream %p: free", &impl->this);
 
 	spa_hook_remove(&impl->node_listener);
 	spa_hook_remove(&impl->client_node_listener);
@@ -1189,7 +1190,7 @@ static void node_driver_changed(void *data, struct pw_node *driver)
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
-	.destroy = node_destroy,
+	.free = node_free,
 	.initialized = node_initialized,
 	.driver_changed = node_driver_changed,
 };

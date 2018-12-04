@@ -158,14 +158,27 @@ int pa_proplist_get(pa_proplist *p, const char *key, const void **data, size_t *
 
 void pa_proplist_update(pa_proplist *p, pa_update_mode_t mode, const pa_proplist *other)
 {
+	int i;
+
 	spa_assert(p);
 	spa_assert(mode == PA_UPDATE_SET || mode == PA_UPDATE_MERGE || mode == PA_UPDATE_REPLACE);
 	spa_assert(other);
 
+	if (mode == PA_UPDATE_REPLACE) {
+		pa_proplist_update_dict(p, &other->props->dict);
+		return;
+	}
+
 	if (mode == PA_UPDATE_SET)
 		pa_proplist_clear(p);
 
-	pa_proplist_update_dict(p, &other->props->dict);
+	for (i = 0; i < other->props->dict.n_items; i++) {
+		const struct spa_dict_item *oi;
+
+		oi = &other->props->dict.items[i];
+		if (pw_properties_get(p->props, oi->key) == NULL)
+			pw_properties_set(p->props, oi->key, oi->value);
+	}
 }
 
 int pa_proplist_unset(pa_proplist *p, const char *key)

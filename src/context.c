@@ -384,6 +384,8 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	if (name)
 		pw_properties_set(props, PA_PROP_APPLICATION_NAME, name);
 	pw_properties_set(props, "client.api", "pulseaudio");
+	if (p)
+		pw_properties_update(props, &p->props->dict);
 
 	loop = mainloop->userdata;
 	core = pw_core_new(loop, NULL);

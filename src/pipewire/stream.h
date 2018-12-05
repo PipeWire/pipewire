@@ -216,7 +216,9 @@ enum pw_stream_flags {
 	PW_STREAM_FLAG_NONE = 0,			/**< no flags */
 	PW_STREAM_FLAG_AUTOCONNECT	= (1 << 0),	/**< try to automatically connect
 							  *  this stream */
-	PW_STREAM_FLAG_INACTIVE		= (1 << 1),	/**< start the stream inactive */
+	PW_STREAM_FLAG_INACTIVE		= (1 << 1),	/**< start the stream inactive,
+							  *  pw_stream_set_active() needs to be
+							  *  called explicitly */
 	PW_STREAM_FLAG_MAP_BUFFERS	= (1 << 2),	/**< mmap the buffers */
 	PW_STREAM_FLAG_DRIVER		= (1 << 3),	/**< be a driver */
 	PW_STREAM_FLAG_RT_PROCESS	= (1 << 4),	/**< call process from the realtime
@@ -224,6 +226,8 @@ enum pw_stream_flags {
 	PW_STREAM_FLAG_NO_CONVERT	= (1 << 5),	/**< don't convert format */
 	PW_STREAM_FLAG_EXCLUSIVE	= (1 << 6),	/**< require exclusive access to the
 							  *  device */
+	PW_STREAM_FLAG_DONT_RECONNECT	= (1 << 7),	/**< don't try to reconnect this stream
+							  *  when the sink/source is removed */
 };
 
 /** Create a new unconneced \ref pw_stream \memberof pw_stream

@@ -202,7 +202,10 @@ static int make_matrix(struct impl *this,
 	spa_log_debug(this->log, "unassigned %08lx", unassigned);
 
 	if (unassigned & _MASK(FC)){
-		if ((dst_mask & STEREO) == STEREO){
+		if (dst_mask & _MASK(MONO)) {
+			matrix[M][FC] += 1.0f;
+		}
+		else if ((dst_mask & STEREO) == STEREO){
 			if(src_mask & STEREO) {
 				matrix[FL][FC] += clev;
 				matrix[FR][FC] += clev;
@@ -210,8 +213,10 @@ static int make_matrix(struct impl *this,
 				matrix[FL][FC] += SQRT1_2;
 				matrix[FR][FC] += SQRT1_2;
 			}
-		} else
+		} else {
+			spa_log_error(this->log, "can't assign FC");
 			return -ENOTSUP;
+		}
 	}
 
 	if (unassigned & STEREO){
@@ -224,8 +229,10 @@ static int make_matrix(struct impl *this,
 			matrix[FC][FR] += SQRT1_2;
 			if (src_mask & _MASK(FC))
 				matrix[FC][FC] = clev * SQRT2;
-		} else
+		} else {
+			spa_log_error(this->log, "can't assign STEREO");
 			return -ENOTSUP;
+		}
 	}
 
 	if (unassigned & _MASK(RC)) {
@@ -251,8 +258,10 @@ static int make_matrix(struct impl *this,
 			}
 		} else if (dst_mask & _MASK(FC)) {
 			matrix[FC][RC] += slev * SQRT1_2;
-		} else
+		} else {
+			spa_log_error(this->log, "can't assign RC");
 			return -ENOTSUP;
+		}
 	}
 
 	if (unassigned & _MASK(RL)) {
@@ -285,8 +294,10 @@ static int make_matrix(struct impl *this,
 		} else if (dst_mask & _MASK(FC)) {
 			matrix[FC][RL]+= slev * SQRT1_2;
 			matrix[FC][RR]+= slev * SQRT1_2;
-		} else
+		} else {
+			spa_log_error(this->log, "can't assign RL");
 			return -ENOTSUP;
+		}
 	}
 
 	if (unassigned & _MASK(SL)) {
@@ -319,8 +330,10 @@ static int make_matrix(struct impl *this,
 		} else if (dst_mask & _MASK(FC)) {
 			matrix[FC][SL] += slev * SQRT1_2;
 			matrix[FC][SR] += slev * SQRT1_2;
-		} else
+		} else {
+			spa_log_error(this->log, "can't assign SL");
 			return -ENOTSUP;
+		}
 	}
 
 	if (unassigned & _MASK(FLC)) {
@@ -330,17 +343,23 @@ static int make_matrix(struct impl *this,
 		} else if(dst_mask & _MASK(FC)) {
 			matrix[FC][FLC]+= SQRT1_2;
 			matrix[FC][FRC]+= SQRT1_2;
-		} else
+		} else {
+			spa_log_error(this->log, "can't assign FLC");
 			return -ENOTSUP;
+		}
 	}
 	if (unassigned & _MASK(LFE)) {
-		if (dst_mask & _MASK(FC)) {
+		if (dst_mask & _MASK(MONO)) {
+			matrix[M][LFE] += llev;
+		} else if (dst_mask & _MASK(FC)) {
 			matrix[FC][LFE] += llev;
 		} else if (dst_mask & _MASK(FL)) {
 			matrix[FL][LFE] += llev * SQRT1_2;
 			matrix[FR][LFE] += llev * SQRT1_2;
-		} else
+		} else {
+			spa_log_error(this->log, "can't assign LFE");
 			return -ENOTSUP;
+		}
 	}
 
 	c = 0;

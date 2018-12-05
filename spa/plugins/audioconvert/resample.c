@@ -138,7 +138,8 @@ static int setup_convert(struct impl *this,
 	if (src_info->info.raw.channels != dst_info->info.raw.channels)
 		return -EINVAL;
 
-	resample_free(&this->resample);
+	if (this->resample.free)
+		resample_free(&this->resample);
 
 	this->resample.channels = src_info->info.raw.channels;
 	this->resample.i_rate = src_info->info.raw.rate;
@@ -891,7 +892,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	resample_free(&this->resample);
+	if (this->resample.free)
+		resample_free(&this->resample);
 	return 0;
 }
 

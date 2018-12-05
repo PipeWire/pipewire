@@ -119,6 +119,8 @@ struct node {
 	uint32_t media_type;
 	uint32_t media_subtype;
 	struct spa_audio_info_raw format;
+
+	struct spa_audio_info_raw profile_format;
 };
 
 struct port {
@@ -1112,10 +1114,14 @@ static int rescan_node(struct impl *impl, struct node *node)
 	spa_list_append(&session->node_list, &node->session_link);
 
 	if (!exclusive && session->dsp) {
-		audio_info = session->node->format;
-		audio_info.format = SPA_AUDIO_FORMAT_F32P;
-		audio_info.rate = session->node->format.rate;
-		audio_info.channels = SPA_MIN(session->node->format.channels, node->format.channels);
+do_link:
+		audio_info = peer->profile_format;
+		if (direction == PW_DIRECTION_INPUT)
+			audio_info.channels = SPA_MIN(peer->format.channels, node->format.channels);
+		else
+			audio_info.channels = SPA_MAX(peer->format.channels, node->format.channels);
+
+		node->profile_format = audio_info;
 
 		spa_pod_builder_init(&b, buf, sizeof(buf));
 		param = spa_pod_builder_object(&b,
@@ -1136,7 +1142,6 @@ static int rescan_node(struct impl *impl, struct node *node)
 	} else {
 		n_links = audio_info.channels = 1;
 	}
-      do_link:
 	link_nodes(peer, direction, node, n_links);
 
         return 1;
@@ -1158,6 +1163,9 @@ static void dsp_node_event_info(void *object, struct pw_node_info *info)
 	dsp->direction = s->direction;
 	dsp->type = NODE_TYPE_DSP;
 	dsp->manager = s;
+	dsp->format = s->node->format;
+	dsp->profile_format = dsp->format;
+	dsp->profile_format.format = SPA_AUDIO_FORMAT_F32P;
 }
 
 static const struct pw_node_proxy_events dsp_node_events = {

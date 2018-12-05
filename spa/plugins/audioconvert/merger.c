@@ -217,7 +217,8 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		if (port->have_format && memcmp(&port->format, &info, sizeof(info)) == 0)
 			return 0;
 
-		spa_log_debug(this->log, NAME " %p: profile %d", this, info.info.raw.channels);
+		spa_log_debug(this->log, NAME " %p: profile %d/%d", this,
+				info.info.raw.rate, info.info.raw.channels);
 
 		port->have_format = true;
 		port->format = info;
@@ -611,27 +612,46 @@ static int port_set_format(struct spa_node *node,
 	} else {
 		struct spa_audio_info info = { 0 };
 
-		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
+		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0) {
+			spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
 			return res;
+		}
 
 		if (info.media_type != SPA_MEDIA_TYPE_audio ||
-		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw) {
+			spa_log_error(this->log, "unexpected types %d/%d",
+					info.media_type, info.media_subtype);
 			return -EINVAL;
+		}
 
-		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
-			return -EINVAL;
+		if ((res = spa_format_audio_raw_parse(format, &info.info.raw)) < 0) {
+			spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
+			return res;
+		}
 
 		if (direction == SPA_DIRECTION_INPUT) {
-			if (info.info.raw.rate != port->format.info.raw.rate)
+			if (info.info.raw.rate != port->format.info.raw.rate) {
+				spa_log_error(this->log, "unexpected rate %d<->%d",
+					info.info.raw.rate, port->format.info.raw.rate);
 				return -EINVAL;
-			if (info.info.raw.format != SPA_AUDIO_FORMAT_F32P)
+			}
+			if (info.info.raw.format != SPA_AUDIO_FORMAT_F32P) {
+				spa_log_error(this->log, "unexpected format %d<->%d",
+					info.info.raw.format, SPA_AUDIO_FORMAT_F32P);
 				return -EINVAL;
-			if (info.info.raw.channels != 1)
+			}
+			if (info.info.raw.channels != 1) {
+				spa_log_error(this->log, "unexpected channels %d<->1",
+					info.info.raw.channels);
 				return -EINVAL;
+			}
 		}
 		else {
-			if (info.info.raw.channels != this->port_count)
+			if (info.info.raw.channels != this->port_count) {
+				spa_log_error(this->log, "unexpected channels %d<->%d",
+					info.info.raw.channels, this->port_count);
 				return -EINVAL;
+			}
 		}
 
 		port->format = info;

@@ -1288,7 +1288,6 @@ static void sink_input_callback(struct sink_input_data *d)
 	pa_format_info ii[1];
 	pa_stream *s;
 
-	pw_log_debug("index %d", g->id);
 	if (info == NULL)
 		return;
 

@@ -764,6 +764,7 @@ static int create_stream(pa_stream_direction_t direction,
 	struct global *g;
 	struct spa_dict_item items[5];
 	char latency[64];
+	bool monitor;
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -790,6 +791,9 @@ static int create_stream(pa_stream_direction_t direction,
 		fl |= PW_STREAM_FLAG_INACTIVE;
 	if (flags & PA_STREAM_PASSTHROUGH)
 		fl |= PW_STREAM_FLAG_EXCLUSIVE;
+	if (flags & PA_STREAM_DONT_MOVE)
+		fl |= PW_STREAM_FLAG_DONT_RECONNECT;
+	monitor = (flags & PA_STREAM_PEAK_DETECT);
 
 	if (pa_sample_spec_valid(&s->sample_spec)) {
 		params[n_params++] = get_param(s, &s->sample_spec, &s->channel_map, &b);
@@ -827,7 +831,11 @@ static int create_stream(pa_stream_direction_t direction,
 		s->buffer_attr = *attr;
 	patch_buffer_attr(s, &s->buffer_attr, &flags);
 
-	devid = SPA_ID_INVALID;
+	if (direction == PA_STREAM_RECORD)
+		devid = s->direct_on_input;
+	else
+		devid = SPA_ID_INVALID;
+
 	if (dev == NULL) {
 		if ((str = getenv("PIPEWIRE_NODE")) != NULL)
 			devid = atoi(str);
@@ -876,8 +884,9 @@ static int create_stream(pa_stream_direction_t direction,
 				direction == PA_STREAM_PLAYBACK ?
 					"Playback" : "Capture");
 	items[3] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_ROLE, str);
+	items[4] = SPA_DICT_ITEM_INIT("pipewire.monitor", monitor ? "1" : "0");
 
-	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 4));
+	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 5));
 
 	res = pw_stream_connect(s->stream,
 				direction == PA_STREAM_PLAYBACK ?
@@ -1723,7 +1732,7 @@ int pa_stream_set_monitor_stream(pa_stream *s, uint32_t sink_input_idx)
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
-	pw_log_debug("stream %p: %d", s, sink_input_idx);
+	pw_log_warn("stream %p: Not implemented %d", s, sink_input_idx);
 
 	PA_CHECK_VALIDITY(s->context, sink_input_idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 	PA_CHECK_VALIDITY(s->context, s->state == PA_STREAM_UNCONNECTED, PA_ERR_BADSTATE);

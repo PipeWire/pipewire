@@ -769,7 +769,8 @@ push_frames(struct state *state,
 	snd_pcm_uframes_t total_frames = 0;
 
 	if (spa_list_is_empty(&state->free)) {
-		spa_log_trace(state->log, "no more buffers");
+		spa_log_warn(state->log, "no more buffers");
+		total_frames = state->threshold;
 	} else {
 		uint8_t *src;
 		size_t n_bytes;
@@ -940,6 +941,24 @@ next:
 	set_timeout(state, state->next_time);
 }
 
+static void reset_buffers(struct state *this)
+{
+	int i;
+
+	spa_list_init(&this->free);
+	spa_list_init(&this->ready);
+
+	for (i = 0; i < this->n_buffers; i++) {
+		struct buffer *b = &this->buffers[i];
+		if (this->stream == SND_PCM_STREAM_PLAYBACK) {
+			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+		} else {
+			spa_list_append(&this->free, &b->link);
+			SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+		}
+	}
+}
+
 int spa_alsa_start(struct state *state)
 {
 	int err;
@@ -983,6 +1002,8 @@ int spa_alsa_start(struct state *state)
 		state->source.rmask = 0;
 		spa_loop_add_source(state->data_loop, &state->source);
 	}
+
+	reset_buffers(state);
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->alsa_started = false;

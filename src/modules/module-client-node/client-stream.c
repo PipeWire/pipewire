@@ -948,7 +948,7 @@ static void client_node_initialized(void *data)
 	const struct pw_properties *props;
 	const char *str, *dir, *type;
 	char media_class[64];
-	bool exclusive;
+	bool exclusive, monitor;
 	struct spa_dict_item items[1];
 
 	pw_log_debug("client-stream %p: initialized", &impl->this);
@@ -982,6 +982,10 @@ static void client_node_initialized(void *data)
 		exclusive = pw_properties_parse_bool(str);
 	else
 		exclusive = false;
+	if (props != NULL && (str = pw_properties_get(props, "pipewire.monitor")) != NULL)
+		monitor = pw_properties_parse_bool(str);
+	else
+		monitor = false;
 
 	spa_graph_node_add(impl->client_node->node->rt.driver, &impl->client_node->node->rt.root);
 	impl->client_node->node->driver_root = impl->this.node;
@@ -1027,8 +1031,7 @@ static void client_node_initialized(void *data)
 	if (!exclusive &&
 	    media_type == SPA_MEDIA_TYPE_audio &&
 	    media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-		struct spa_dict dict;
-		struct spa_dict_item items[1];
+		struct spa_dict_item items[2];
 		const char *mode;
 
 		if (impl->direction == SPA_DIRECTION_OUTPUT)
@@ -1037,10 +1040,13 @@ static void client_node_initialized(void *data)
 			mode = "merge";
 
 		items[0] = SPA_DICT_ITEM_INIT("factory.mode", mode);
-		dict = SPA_DICT_INIT(items, 1);
+		items[1] = SPA_DICT_ITEM_INIT("resample.peaks", monitor ? "1" : "0");
 
 		if ((impl->adapter = pw_load_spa_interface("audioconvert/libspa-audioconvert",
-				"audioconvert", SPA_TYPE_INTERFACE_Node, &dict, 0, NULL)) == NULL)
+				"audioconvert",
+				SPA_TYPE_INTERFACE_Node,
+				&SPA_DICT_INIT(items, 2),
+				0, NULL)) == NULL)
 			return;
 
 		impl->adapter_mix = impl->adapter;

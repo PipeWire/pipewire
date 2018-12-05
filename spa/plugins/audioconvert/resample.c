@@ -26,8 +26,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <speex/speex_resampler.h>
-
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
 #include <spa/node/node.h>
@@ -36,6 +34,11 @@
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/types.h>
+
+#include "resample.h"
+
+#include "resample-speex.h"
+#include "resample-peaks.h"
 
 #define NAME "resample"
 
@@ -99,8 +102,9 @@ struct impl {
 	struct port out_port;
 
 	bool started;
+	bool monitor;
 
-	SpeexResamplerState *state;
+	struct resample resample;
 };
 
 #define CHECK_PORT(this,d,id)		(id == 0)
@@ -134,20 +138,18 @@ static int setup_convert(struct impl *this,
 	if (src_info->info.raw.channels != dst_info->info.raw.channels)
 		return -EINVAL;
 
-	if (this->state)
-		speex_resampler_destroy(this->state);
+	resample_free(&this->resample);
 
-	this->state = speex_resampler_init_frac(src_info->info.raw.channels,
-						src_info->info.raw.rate,
-						dst_info->info.raw.rate,
-						src_info->info.raw.rate,
-						dst_info->info.raw.rate,
-						SPEEX_RESAMPLER_QUALITY_DEFAULT,
-						&err);
-	if (this->state == NULL)
-		return -ENOMEM;
+	this->resample.channels = src_info->info.raw.channels;
+	this->resample.i_rate = src_info->info.raw.rate;
+	this->resample.o_rate = dst_info->info.raw.rate;
 
-	return 0;
+	if (this->monitor)
+		err = impl_peaks_init(&this->resample);
+	else
+		err = impl_speex_init(&this->resample);
+
+	return err;
 }
 
 static int impl_node_enum_params(struct spa_node *node,
@@ -168,15 +170,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_rate:
-		{
-			spx_uint32_t in_rate, out_rate;
-
 			spa_pod_get_double(&prop->value, &p->rate);
-			speex_resampler_get_rate(this->state, &in_rate, &out_rate);
-			speex_resampler_set_rate_frac(this->state,
-					in_rate * p->rate, out_rate, in_rate, out_rate);
+			resample_update_rate(&this->resample, p->rate);
 			break;
-		}
 		default:
 			break;
 		}
@@ -812,12 +808,14 @@ static int impl_node_process(struct spa_node *node)
 	pout_len = out_len = (maxsize - outport->offset) / sizeof(float);
 
 	for (i = 0; i < sb->n_datas; i++) {
+		void *src, *dst;
+
 		in_len = pin_len;
 		out_len = pout_len;
+		src = SPA_MEMBER(sb->datas[i].data, inport->offset, void);
+		dst = SPA_MEMBER(db->datas[i].data, outport->offset, void);
 
-		speex_resampler_process_float(this->state, i,
-				SPA_MEMBER(sb->datas[i].data, inport->offset, void), &in_len,
-				SPA_MEMBER(db->datas[i].data, outport->offset, void), &out_len);
+		resample_process(&this->resample, i, src, &in_len, dst, &out_len);
 
 		spa_log_trace(this->log, NAME " %p: in %d/%ld %d out %d/%ld %d",
 				this, in_len, size / sizeof(float), inport->offset,
@@ -893,8 +891,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	if (this->state)
-		speex_resampler_destroy(this->state);
+	resample_free(&this->resample);
 	return 0;
 }
 
@@ -915,6 +912,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *this;
 	struct port *port;
 	uint32_t i;
+	const char *str;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -928,6 +926,9 @@ impl_init(const struct spa_handle_factory *factory,
 		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
 	}
+
+	if (info != NULL && (str = spa_dict_lookup(info, "resample.peaks")) != NULL)
+		this->monitor = atoi(str);
 
 	this->node = impl_node;
 

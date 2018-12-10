@@ -55,8 +55,9 @@ static void impl_peaks_process(struct resample *r, int channel,
 	while (i < *in_len && o < *out_len) {
 	        end = ((uint64_t) (pd->o_count + 1) * r->i_rate) / r->o_rate;
 		end = end > pd->i_count ? end - pd->i_count : 0;
+		end = SPA_MIN(end, *in_len);
 
-		for (; i < end && i < *in_len; i++) {
+		for (; i < end; i++) {
 			float n = fabsf(s[i]);
 			if (n > pd->max_f[channel])
 				pd->max_f[channel] = n;

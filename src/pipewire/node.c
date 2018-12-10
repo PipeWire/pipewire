@@ -524,9 +524,10 @@ do_move_nodes(struct spa_loop *loop,
 	pw_log_trace("node %p: root %p driver:%p->%p", this,
 			&this->rt.root, &src->driver_graph, &dst->driver_graph);
 
-	if (this->rt.root.graph != NULL)
+	if (this->rt.root.graph != NULL) {
 		spa_graph_node_remove(&this->rt.root);
-	spa_graph_node_add(&dst->driver_graph, &this->rt.root);
+		spa_graph_node_add(&dst->driver_graph, &this->rt.root);
+	}
 
 	if (this->node && spa_node_set_io(this->node,
 			    SPA_IO_Position,

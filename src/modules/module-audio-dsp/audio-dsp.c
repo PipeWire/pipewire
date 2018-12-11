@@ -176,19 +176,27 @@ static void node_port_init(void *data, struct pw_port *port)
 	void *iface;
 	const struct spa_support *support;
 	uint32_t n_support;
-	char position[8];
+	char position[8], *prefix;
+	bool monitor;
 
 	direction = pw_port_get_direction(port);
-	if (direction == n->direction)
-		return;
 
 	old = pw_port_get_properties(port);
 
-	new = pw_properties_new(
-			"port.dsp", "32 bit float mono audio",
-			"port.physical", "1",
-			"port.terminal", "1",
-			NULL);
+	monitor = (str = pw_properties_get(old, "port.monitor")) != NULL &&
+			atoi(str) != 0;
+
+	if (!monitor && direction == n->direction)
+		return;
+
+	new = pw_properties_new("port.dsp", "32 bit float mono audio", NULL);
+
+	if (monitor)
+		prefix = "monitor";
+	else if (direction == PW_DIRECTION_INPUT)
+		prefix = "playback";
+	else
+		prefix = "capture";
 
 	if ((str = pw_properties_get(old, "port.channel")) == NULL ||
 	    strcmp(str, "UNK") == 0) {
@@ -196,19 +204,24 @@ static void node_port_init(void *data, struct pw_port *port)
 		str = position;
 	}
 
+	pw_properties_setf(new, "port.name", "%s_%s", prefix, str);
 
-	pw_properties_setf(new, "port.name", "%s_%s",
-		direction == PW_DIRECTION_INPUT ? "playback" : "capture",
-		str);
+	if (direction != n->direction) {
+		pw_properties_setf(new, "port.alias1", "%s_pcm:%s:%s%s",
+				pw_properties_get(n->props, "device.api"),
+				pw_properties_get(n->props, "audio-dsp.name"),
+				direction == PW_DIRECTION_INPUT ? "in" : "out",
+				str);
 
-	pw_properties_setf(new, "port.alias1", "%s_pcm:%s:%s%s",
-			pw_properties_get(n->props, "device.api"),
-			pw_properties_get(n->props, "audio-dsp.name"),
-			direction == PW_DIRECTION_INPUT ? "in" : "out",
-			str);
+		pw_properties_set(new, "port.physical", "1");
+		pw_properties_set(new, "port.terminal", "1");
+	}
 
 	pw_port_update_properties(port, &new->dict);
 	pw_properties_free(new);
+
+	if (direction == n->direction)
+		return;
 
 	p = calloc(1, sizeof(struct port) +
 			spa_handle_factory_get_size(&spa_floatmix_factory, NULL));
@@ -248,7 +261,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 {
 	struct pw_node *node;
 	struct node *n;
-	const char *api, *alias, *str;
+	const char *api, *alias, *str, *factory;
 	char node_name[128];
 	struct pw_properties *pr;
 	int i;
@@ -280,11 +293,16 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	if ((str = pw_properties_get(pr, "node.id")) != NULL)
 		pw_properties_set(pr, "node.session", str);
 
+	if (direction == PW_DIRECTION_OUTPUT) {
+		pw_properties_set(pr, "merger.monitor", "1");
+		factory = "merger";
+	} else {
+		factory = "splitter";
+	}
+
 	node = pw_spa_node_load(core, NULL, NULL,
 			"audioconvert/libspa-audioconvert",
-			direction == PW_DIRECTION_OUTPUT ?
-				"merger" :
-				"splitter",
+			factory,
 			node_name,
 			PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,
 			pr, sizeof(struct node) + user_data_size);

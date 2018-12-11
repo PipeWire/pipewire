@@ -130,6 +130,10 @@ struct port {
 	enum pw_direction direction;
 	struct pw_port_info *info;
 	struct node *node;
+#define PORT_FLAG_NONE		0
+#define PORT_FLAG_DSP		(1<<0)
+#define PORT_FLAG_SKIP		(1<<1)
+	uint32_t flags;
 
 	struct spa_hook listener;
 };
@@ -534,8 +538,11 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 			direction = PW_DIRECTION_OUTPUT;
 		else if (strcmp(media_class, "Source") == 0)
 			direction = PW_DIRECTION_INPUT;
-		else
+		else {
+			if (strstr(media_class, "DSP/") == media_class)
+				node->type = NODE_TYPE_DSP;
 			return 0;
+		}
 
 		sess = calloc(1, sizeof(struct session));
 		sess->impl = impl;
@@ -656,6 +663,12 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 	port->obj.proxy = p;
 	port->node = node;
 	port->direction = strcmp(str, "out") ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
+
+	if (props != NULL && (str = spa_dict_lookup(props, "port.dsp")) != NULL)
+		port->flags |= PORT_FLAG_DSP;
+	if (node->type == NODE_TYPE_DSP && !(port->flags & PORT_FLAG_DSP))
+		port->flags |= PORT_FLAG_SKIP;
+
 	pw_proxy_add_listener(p, &port->obj.listener, &port_proxy_events, port);
 	pw_proxy_add_proxy_listener(p, &port->listener, &port_events, port);
 	add_object(impl, &port->obj);
@@ -668,7 +681,8 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 				0, -1, NULL);
 	}
 
-	pw_log_debug(NAME" %p: new port %d for node %d type %d", impl, id, parent_id, node->type);
+	pw_log_debug(NAME" %p: new port %d for node %d type %d %08x", impl, id, parent_id,
+			node->type, port->flags);
 
 	return 0;
 }
@@ -877,6 +891,8 @@ static int link_nodes(struct node *peer, enum pw_direction direction, struct nod
 		struct pw_properties *props;
 
 		if (p->direction == direction)
+			continue;
+		if (p->flags & PORT_FLAG_SKIP)
 			continue;
 
 		if (max-- == 0)

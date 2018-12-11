@@ -203,7 +203,7 @@ static int make_matrix(struct impl *this,
 
 	if (unassigned & _MASK(FC)){
 		if (dst_mask & _MASK(MONO)) {
-			matrix[M][FC] += 1.0f;
+			matrix[M][FC] += clev;
 		}
 		else if ((dst_mask & STEREO) == STEREO){
 			if(src_mask & STEREO) {
@@ -214,8 +214,7 @@ static int make_matrix(struct impl *this,
 				matrix[FR][FC] += SQRT1_2;
 			}
 		} else {
-			spa_log_error(this->log, "can't assign FC");
-			return -ENOTSUP;
+			spa_log_warn(this->log, "can't assign FC");
 		}
 	}
 
@@ -230,8 +229,7 @@ static int make_matrix(struct impl *this,
 			if (src_mask & _MASK(FC))
 				matrix[FC][FC] = clev * SQRT2;
 		} else {
-			spa_log_error(this->log, "can't assign STEREO");
-			return -ENOTSUP;
+			spa_log_warn(this->log, "can't assign STEREO");
 		}
 	}
 
@@ -258,9 +256,10 @@ static int make_matrix(struct impl *this,
 			}
 		} else if (dst_mask & _MASK(FC)) {
 			matrix[FC][RC] += slev * SQRT1_2;
+		} else if (dst_mask & _MASK(MONO)) {
+			matrix[M][RC] += slev * SQRT1_2;
 		} else {
-			spa_log_error(this->log, "can't assign RC");
-			return -ENOTSUP;
+			spa_log_warn(this->log, "can't assign RC");
 		}
 	}
 
@@ -294,9 +293,11 @@ static int make_matrix(struct impl *this,
 		} else if (dst_mask & _MASK(FC)) {
 			matrix[FC][RL]+= slev * SQRT1_2;
 			matrix[FC][RR]+= slev * SQRT1_2;
+		} else if (dst_mask & _MASK(MONO)) {
+			matrix[M][RL]+= slev * SQRT1_2;
+			matrix[M][RR]+= slev * SQRT1_2;
 		} else {
-			spa_log_error(this->log, "can't assign RL");
-			return -ENOTSUP;
+			spa_log_warn(this->log, "can't assign RL");
 		}
 	}
 
@@ -330,9 +331,11 @@ static int make_matrix(struct impl *this,
 		} else if (dst_mask & _MASK(FC)) {
 			matrix[FC][SL] += slev * SQRT1_2;
 			matrix[FC][SR] += slev * SQRT1_2;
+		} else if (dst_mask & _MASK(MONO)) {
+			matrix[M][SL] += slev * SQRT1_2;
+			matrix[M][SR] += slev * SQRT1_2;
 		} else {
-			spa_log_error(this->log, "can't assign SL");
-			return -ENOTSUP;
+			spa_log_warn(this->log, "can't assign SL");
 		}
 	}
 
@@ -344,8 +347,7 @@ static int make_matrix(struct impl *this,
 			matrix[FC][FLC]+= SQRT1_2;
 			matrix[FC][FRC]+= SQRT1_2;
 		} else {
-			spa_log_error(this->log, "can't assign FLC");
-			return -ENOTSUP;
+			spa_log_warn(this->log, "can't assign FLC");
 		}
 	}
 	if (unassigned & _MASK(LFE)) {
@@ -357,8 +359,7 @@ static int make_matrix(struct impl *this,
 			matrix[FL][LFE] += llev * SQRT1_2;
 			matrix[FR][LFE] += llev * SQRT1_2;
 		} else {
-			spa_log_error(this->log, "can't assign LFE");
-			return -ENOTSUP;
+			spa_log_warn(this->log, "can't assign LFE");
 		}
 	}
 

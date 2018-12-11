@@ -1626,6 +1626,9 @@ jack_client_t * jack_client_open (const char *client_name,
 	const char *str;
 	int i;
 
+        if (getenv("PIPEWIRE_NOJACK") != NULL)
+		goto disabled;
+
 	pw_log_debug("client open %s %d", client_name, options);
 
 	client = calloc(1, sizeof(struct client));
@@ -1750,6 +1753,10 @@ jack_client_t * jack_client_open (const char *client_name,
 	goto exit;
      exit:
 	pw_thread_loop_unlock(client->context.loop);
+	return NULL;
+     disabled:
+	if (status)
+		*status = JackFailure | JackServerFailed;
 	return NULL;
 }
 

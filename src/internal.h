@@ -222,6 +222,10 @@ struct global {
 		struct {
 			uint32_t session;
 		} dsp_info;
+		/* for sink/source */
+		struct {
+			uint32_t monitor;
+		} node_info;
 		/* for devices */
 		struct {
 			struct pw_array profiles;

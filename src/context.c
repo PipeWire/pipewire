@@ -104,7 +104,7 @@ struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, cons
 	uint32_t id = atoi(name);
 
 	spa_list_for_each(g, &c->globals, link) {
-		if (!(g->mask & mask))
+		if ((g->mask & mask) == 0)
 			continue;
 		if (g->props != NULL &&
 		    (str = pw_properties_get(g->props, "node.name")) != NULL &&
@@ -138,7 +138,9 @@ struct global *pa_context_find_linked(pa_context *c, uint32_t idx)
 		if (f == NULL)
 			continue;
 		if (f->mask & PA_SUBSCRIPTION_MASK_DSP) {
-			f = pa_context_find_global(c, f->dsp_info.session);
+			if (!(f->mask & PA_SUBSCRIPTION_MASK_SOURCE) ||
+				g->link_info.dst->parent_id != idx)
+				f = pa_context_find_global(c, f->dsp_info.session);
 		}
 		return f;
 	}
@@ -148,6 +150,7 @@ struct global *pa_context_find_linked(pa_context *c, uint32_t idx)
 static int set_mask(pa_context *c, struct global *g)
 {
 	const char *str;
+	struct global *f;
 
 	switch (g->type) {
 	case PW_TYPE_INTERFACE_Device:
@@ -172,12 +175,16 @@ static int set_mask(pa_context *c, struct global *g)
 		if (strcmp(str, "Audio/Sink") == 0) {
 			g->mask = PA_SUBSCRIPTION_MASK_SINK;
 			g->event = PA_SUBSCRIPTION_EVENT_SINK;
+			g->node_info.monitor = SPA_ID_INVALID;
 		}
 		else if (strcmp(str, "Audio/DSP/Playback") == 0) {
 			if ((str = pw_properties_get(g->props, "node.session")) == NULL)
 				return 0;
-			g->mask = PA_SUBSCRIPTION_MASK_DSP_SINK;
+			g->mask = PA_SUBSCRIPTION_MASK_DSP_SINK | PA_SUBSCRIPTION_MASK_SOURCE;
+			g->event = PA_SUBSCRIPTION_EVENT_SOURCE;
 			g->dsp_info.session = pw_properties_parse_int(str);
+			if ((f = pa_context_find_global(c, g->dsp_info.session)) != NULL)
+				f->node_info.monitor = g->id;
 		}
 		else if (strcmp(str, "Audio/Source") == 0) {
 			g->mask = PA_SUBSCRIPTION_MASK_SOURCE;

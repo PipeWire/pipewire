@@ -334,6 +334,8 @@ static void sink_callback(struct sink_data *d)
 	pa_format_info ii[1];
 	pa_format_info *ip[1];
 
+	pw_log_debug("sink %d %s monitor %d", g->id, info->name, g->node_info.monitor);
+
 	spa_zero(i);
 	i.name = info->name;
 	i.index = g->id;
@@ -345,7 +347,7 @@ static void sink_callback(struct sink_data *d)
 	i.owner_module = g->parent_id;
 	pa_cvolume_set(&i.volume, 2, PA_VOLUME_NORM);
 	i.mute = false;
-	i.monitor_source = PA_INVALID_INDEX;
+	i.monitor_source = g->node_info.monitor;
 	i.monitor_source_name = "unknown";
 	i.latency = 0;
 	i.driver = "PipeWire";
@@ -565,8 +567,13 @@ static void source_callback(struct source_data *d)
 	i.owner_module = g->parent_id;
 	pa_cvolume_set(&i.volume, 2, PA_VOLUME_NORM);
 	i.mute = false;
-	i.monitor_of_sink = PA_INVALID_INDEX;
-	i.monitor_of_sink_name = "unknown";
+	if (g->mask & PA_SUBSCRIPTION_MASK_DSP_SINK) {
+		i.monitor_of_sink = g->dsp_info.session;
+		i.monitor_of_sink_name = "unknown";
+	} else {
+		i.monitor_of_sink = PA_INVALID_INDEX;
+		i.monitor_of_sink_name = NULL;
+	}
 	i.latency = 0;
 	i.driver = "PipeWire";
 	i.flags = 0;
@@ -1473,8 +1480,8 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
 			SPA_PARAM_Props, 0,
 			spa_pod_builder_object(&b,
-				SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-				SPA_PROP_volume,        &SPA_POD_Float(v),
+				SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
+				SPA_PROP_volume,	&SPA_POD_Float(v),
 				0));
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
@@ -1511,7 +1518,7 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
 			SPA_PARAM_Props, 0,
 			spa_pod_builder_object(&b,
-				SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+				SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
 				SPA_PROP_mute,		&SPA_POD_Bool(mute),
 				0));
 	}

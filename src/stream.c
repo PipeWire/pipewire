@@ -202,7 +202,7 @@ static void configure_device(pa_stream *s)
 		else
 			s->device_name = strdup(str);
 	}
-	pw_log_debug("linked to %d '%s'", s->device_index, s->device_name);
+	pw_log_debug("stream %p: linked to %d '%s'", s, s->device_index, s->device_name);
 }
 
 static void stream_state_changed(void *data, enum pw_stream_state old,
@@ -690,6 +690,7 @@ uint32_t pa_stream_get_device_index(pa_stream *s)
 	PA_CHECK_VALIDITY_RETURN_ANY(s->context, s->device_index != PA_INVALID_INDEX,
 			PA_ERR_BADSTATE, PA_INVALID_INDEX);
 
+	pw_log_trace("stream %p: %d", s, s->device_index);
 	return s->device_index;
 }
 
@@ -840,7 +841,7 @@ static int create_stream(pa_stream_direction_t direction,
 		if ((str = getenv("PIPEWIRE_NODE")) != NULL)
 			devid = atoi(str);
 	}
-	else {
+	else if (devid == SPA_ID_INVALID) {
 		uint32_t mask;
 
 		if (direction == PA_STREAM_PLAYBACK)
@@ -1131,7 +1132,7 @@ int pa_stream_peek(pa_stream *s,
 	}
 	*data = SPA_MEMBER(s->buffer_data, s->buffer_offset, void);
 	*nbytes = s->buffer_size;
-	pw_log_trace("stream %p: %p %zd", s, *data, *nbytes);
+	pw_log_trace("stream %p: %p %zd %f", s, *data, *nbytes, *(float*)*data);
 
 	return 0;
 }

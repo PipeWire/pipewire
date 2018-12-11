@@ -352,9 +352,12 @@ static void node_enum_params(void *object, uint32_t id, uint32_t index, uint32_t
 	int res;
 
 	if ((res = pw_node_for_each_param(node, id, index, num,
-				filter, reply_param, resource)) < 0)
+				filter, reply_param, resource)) < 0) {
+		pw_log_error("resource %p: %d error %d (%s)", resource,
+				resource->id, res, spa_strerror(res));
 		pw_core_resource_error(resource->client->core_resource,
 				resource->id, res, spa_strerror(res));
+	}
 }
 
 static void node_set_param(void *object, uint32_t id, uint32_t flags,
@@ -365,9 +368,12 @@ static void node_set_param(void *object, uint32_t id, uint32_t flags,
 	struct pw_node *node = data->node;
 	int res;
 
-	if ((res = spa_node_set_param(node->node, id, flags, param)) < 0)
+	if ((res = spa_node_set_param(node->node, id, flags, param)) < 0) {
+		pw_log_error("resource %p: %d error %d (%s)", resource,
+				resource->id, res, spa_strerror(res));
 		pw_core_resource_error(resource->client->core_resource,
 				resource->id, res, spa_strerror(res));
+	}
 }
 
 static void node_send_command(void *object, const struct spa_command *command)

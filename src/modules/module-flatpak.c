@@ -61,6 +61,7 @@ struct client_info {
 	struct spa_list async_pending;
 	bool checked;
 	bool camera_allowed;
+	bool sandboxed;
 };
 
 struct async_pending {
@@ -434,6 +435,7 @@ core_global_added(void *data, struct pw_global *global)
 			pw_log_debug("module %p: non sandboxed client %p", impl, client);
 			return;
 		}
+		cinfo->sandboxed = true;
 
 		if (res < 0) {
 			pw_log_warn("module %p: client %p sandbox check failed: %s",
@@ -446,8 +448,10 @@ core_global_added(void *data, struct pw_global *global)
 		do_portal_check(cinfo);
 	}
 	else {
-		spa_list_for_each(cinfo, &impl->client_list, link)
-			set_global_permissions(cinfo, global);
+		spa_list_for_each(cinfo, &impl->client_list, link) {
+			if (cinfo->sandboxed)
+				set_global_permissions(cinfo, global);
+		}
 	}
 }
 

@@ -397,13 +397,13 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		param = spa_pod_builder_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(3, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    &SPA_POD_CHOICE_RANGE_Int(
 							this->props.max_latency * this->frame_size,
 							this->props.min_latency * this->frame_size,
 							INT32_MAX),
-			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(0),
+			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(this->frame_size),
 			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
 			0);
 		break;
@@ -574,6 +574,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return -EINVAL;
 		}
+		spa_log_debug(this->log, "alsa-sink %p: %d %p data:%p", this, i, b->buf, d[0].data);
 	}
 	this->n_buffers = n_buffers;
 

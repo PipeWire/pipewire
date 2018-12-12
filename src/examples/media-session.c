@@ -1083,7 +1083,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 
 		n_links = 1;
 		peer = find_object(impl, find.path_id);
-		if (peer != NULL)
+		if (peer != NULL && peer->obj.type == PW_TYPE_INTERFACE_Node)
 			goto do_link;
 	}
 

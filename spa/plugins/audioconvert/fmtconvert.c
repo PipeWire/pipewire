@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
@@ -83,8 +84,6 @@ struct port {
 	uint32_t stride;
 	uint32_t blocks;
 	uint32_t size;
-
-	uint32_t offset;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -759,17 +758,16 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t id)
 	}
 }
 
-static inline struct buffer *peek_buffer(struct impl *this, struct port *port)
+static inline struct buffer *dequeue_buffer(struct impl *this, struct port *port)
 {
+	struct buffer *b;
+
 	if (spa_list_is_empty(&port->queue))
 		return NULL;
-	return spa_list_first(&port->queue, struct buffer, link);
-}
-
-static inline void dequeue_buffer(struct impl *this, struct buffer *b)
-{
+	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+	return b;
 }
 
 static int impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
@@ -809,8 +807,8 @@ static int impl_node_process(struct spa_node *node)
 	const void **src_datas;
 	void **dst_datas;
 	uint32_t n_src_datas, n_dst_datas;
-	int i, res = 0, n_bytes = 0, maxsize;
-	uint32_t size = 0;
+	int i, res = 0, n_samples = 0, maxsize;
+	int size = 0;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -840,7 +838,7 @@ static int impl_node_process(struct spa_node *node)
 	if (inio->buffer_id >= inport->n_buffers)
 		return inio->status = -EINVAL;
 
-	if ((outbuf = peek_buffer(this, outport)) == NULL)
+	if ((outbuf = dequeue_buffer(this, outport)) == NULL)
 		return outio->status = -EPIPE;
 
 	inbuf = &inport->buffers[inio->buffer_id];
@@ -849,9 +847,12 @@ static int impl_node_process(struct spa_node *node)
 	n_src_datas = inb->n_datas;
 	src_datas = alloca(sizeof(void*) * n_src_datas);
 
-	size = inb->datas[0].chunk->size;
-	for (i = 0; i < n_src_datas; i++)
-		src_datas[i] = SPA_MEMBER(inb->datas[i].data, inport->offset, void);
+	size = INT_MAX;
+	for (i = 0; i < n_src_datas; i++) {
+		size = SPA_MIN(size, inb->datas[0].chunk->size);
+		src_datas[i] = SPA_MEMBER(inb->datas[i].data, inb->datas[i].chunk->offset, void);
+	}
+	n_samples = size / inport->stride;
 
 	outb = outbuf->outbuf;
 
@@ -861,29 +862,22 @@ static int impl_node_process(struct spa_node *node)
 	maxsize = outb->datas[0].maxsize;
 	if (outport->ctrl)
 		maxsize = SPA_MIN(outport->ctrl->max_size, maxsize);
-
-	maxsize = (maxsize / outport->stride) * inport->stride;
-	n_bytes = SPA_MIN(size - inport->offset, maxsize);
+	n_samples = SPA_MIN(n_samples, maxsize / outport->stride);
 
 	for (i = 0; i < n_dst_datas; i++) {
 		dst_datas[i] = outb->datas[this->remap[i]].data;
 		outb->datas[i].chunk->offset = 0;
-		outb->datas[i].chunk->size = (n_bytes / inport->stride) * outport->stride;
+		outb->datas[i].chunk->size = n_samples * outport->stride;
 	}
 
-	spa_log_trace(this->log, NAME " %p: n_src:%d n_dst:%d in_offset:%d size:%d maxsize:%d n_bytes:%d", this,
-			n_src_datas, n_dst_datas, inport->offset, size, maxsize, n_bytes);
+	spa_log_trace(this->log, NAME " %p: n_src:%d n_dst:%d size:%d maxsize:%d n_samples:%d",
+			this, n_src_datas, n_dst_datas, size, maxsize, n_samples);
 
-	this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
+	this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_samples);
 
-	inport->offset += n_bytes;
-	if (inport->offset >= size) {
-		inio->status = SPA_STATUS_NEED_BUFFER;
-		inport->offset = 0;
-		res |= SPA_STATUS_NEED_BUFFER;
-	}
+	inio->status = SPA_STATUS_NEED_BUFFER;
+	res |= SPA_STATUS_NEED_BUFFER;
 
-	dequeue_buffer(this, outbuf);
 	outio->status = SPA_STATUS_HAVE_BUFFER;
 	outio->buffer_id = outb->id;
 	res |= SPA_STATUS_HAVE_BUFFER;

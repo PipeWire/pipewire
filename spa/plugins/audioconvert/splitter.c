@@ -839,7 +839,7 @@ static int impl_node_process(struct spa_node *node)
 	struct impl *this;
 	struct port *inport;
 	struct spa_io_buffers *inio;
-	int i, j, maxsize, res = 0, n_samples, n_bytes = 0;
+	int i, j, maxsize, res = 0, n_samples;
 	struct spa_data *sd, *dd;
 	struct buffer *sbuf, *dbuf;
 	uint32_t n_src_datas, n_dst_datas;
@@ -875,7 +875,6 @@ static int impl_node_process(struct spa_node *node)
 				sd[i].chunk->offset, void);
 		maxsize = SPA_MIN(sd[i].chunk->size, maxsize);
 	}
-	n_bytes = maxsize;
 	n_samples = maxsize / inport->stride;
 
 	dst_datas = alloca(sizeof(void*) * MAX_PORTS);
@@ -913,6 +912,7 @@ static int impl_node_process(struct spa_node *node)
 		maxsize = dd->maxsize;
 		if (outport->ctrl)
 			maxsize = SPA_MIN(outport->ctrl->max_size, maxsize);
+		n_samples = SPA_MIN(n_samples, maxsize / outport->stride);
 
 		for (j = 0; j < dbuf->buf->n_datas; j++) {
 			dst_datas[n_dst_datas++] = dd[j].data;
@@ -925,9 +925,9 @@ static int impl_node_process(struct spa_node *node)
 	}
 
 	spa_log_trace(this->log, NAME " %p: %d %d %d %d %d", this,
-			n_src_datas, n_dst_datas, n_bytes, maxsize, inport->stride);
+			n_src_datas, n_dst_datas, n_samples, maxsize, inport->stride);
 
-	this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
+	this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_samples);
 
 	inio->status = SPA_STATUS_NEED_BUFFER;
 	res |= SPA_STATUS_NEED_BUFFER;

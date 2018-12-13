@@ -30,15 +30,13 @@
 #include <xmmintrin.h>
 
 static void
-conv_s16_to_f32d_1_sse(void *data, int n_dst, void *dst[n_dst], const void *src, int n_bytes)
+conv_s16_to_f32d_1_sse(void *data, int n_dst, void *dst[n_dst], const void *src, int n_samples)
 {
 	const int16_t *s = src;
 	float **d = (float **) dst;
 	float *d0 = d[0];
-	int n, n_samples;
+	int n;
 	__m128 out, factor = _mm_set1_ps(1.0f / S16_SCALE);
-
-	n_samples = n_bytes / (sizeof(int16_t) * n_dst);
 
 	for(n = 0; n_samples--; n++) {
 		out = _mm_cvtsi32_ss(out, *s);
@@ -49,16 +47,14 @@ conv_s16_to_f32d_1_sse(void *data, int n_dst, void *dst[n_dst], const void *src,
 }
 
 static void
-conv_s16_to_f32d_2_sse(void *data, int n_dst, void *dst[n_dst], const void *src, int n_bytes)
+conv_s16_to_f32d_2_sse(void *data, int n_dst, void *dst[n_dst], const void *src, int n_samples)
 {
 	const int16_t *s = src;
 	float **d = (float **) dst;
 	float *d0 = d[0], *d1 = d[1];
-	int n = 0, n_samples, unrolled;
+	int n = 0, unrolled;
 	__m128i in, t[2];
 	__m128 out[2], factor = _mm_set1_ps(1.0f / S16_SCALE);
-
-	n_samples = n_bytes / (sizeof(int16_t) * n_dst);
 
 	if (n_dst == 2) {
 		unrolled = n_samples / 4;
@@ -94,32 +90,30 @@ conv_s16_to_f32d_2_sse(void *data, int n_dst, void *dst[n_dst], const void *src,
 }
 
 static void
-conv_s16_to_f32d_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
+conv_s16_to_f32d_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
 	const int16_t *s = src[0];
 	int i = 0;
 
 	for(; i + 1 < n_dst; i += 2)
-		conv_s16_to_f32d_2_sse(data, n_dst, &dst[i], &s[i], n_bytes);
+		conv_s16_to_f32d_2_sse(data, n_dst, &dst[i], &s[i], n_samples);
 	for(; i < n_dst; i++)
-		conv_s16_to_f32d_1_sse(data, n_dst, &dst[i], &s[i], n_bytes);
+		conv_s16_to_f32d_1_sse(data, n_dst, &dst[i], &s[i], n_samples);
 }
 
 static void
-conv_s24_to_f32d_1_sse(void *data, int n_dst, void *dst[n_dst], const void *src, int n_bytes)
+conv_s24_to_f32d_1_sse(void *data, int n_dst, void *dst[n_dst], const void *src, int n_samples)
 {
 	const uint8_t *s = src;
 	float **d = (float **) dst;
 	float *d0 = d[0];
-	int n = 0, n_samples, unrolled;
+	int n = 0, unrolled;
 	__m128i in;
 	union {
 		__m128i in;
 		uint8_t b[16];
 	} b;
 	__m128 out, factor = _mm_set1_ps(1.0f / S24_SCALE);
-
-	n_samples = n_bytes / (3 * n_dst);
 
 	unrolled = n_samples / 4;
 	n_samples = n_samples & 3;
@@ -144,28 +138,26 @@ conv_s24_to_f32d_1_sse(void *data, int n_dst, void *dst[n_dst], const void *src,
 }
 
 static void
-conv_s24_to_f32d_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
+conv_s24_to_f32d_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
 	const int8_t *s = src[0];
 	int i = 0;
 
 	for(; i < n_dst; i++)
-		conv_s24_to_f32d_1_sse(data, n_dst, &dst[i], &s[3*i], n_bytes);
+		conv_s24_to_f32d_1_sse(data, n_dst, &dst[i], &s[3*i], n_samples);
 }
 
 static void
-conv_f32d_to_s32_1_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_bytes)
+conv_f32d_to_s32_1_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_samples)
 {
 	const float **s = (const float **) src;
 	const float *s0 = s[0];
 	int32_t *d = dst;
-	int n, n_samples, unrolled;
+	int n, unrolled;
 	__m128 in[1];
 	__m128i out[4];
 	__m128 int_max = _mm_set1_ps(S24_MAX_F);
         __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
-
-	n_samples = n_bytes / sizeof(float);
 
 	unrolled = n_samples / 4;
 	n_samples = n_samples & 3;
@@ -195,18 +187,16 @@ conv_f32d_to_s32_1_sse(void *data, void *dst, int n_src, const void *src[n_src],
 }
 
 static void
-conv_f32d_to_s32_2_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_bytes)
+conv_f32d_to_s32_2_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_samples)
 {
 	const float **s = (const float **) src;
 	const float *s0 = s[0], *s1 = s[1];
 	int32_t *d = dst;
-	int n, n_samples, unrolled;
+	int n, unrolled;
 	__m128 in[2];
 	__m128i out[2], t[2];
 	__m128 int_max = _mm_set1_ps(S24_MAX_F);
         __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
-
-	n_samples = n_bytes / sizeof(float);
 
 	unrolled = n_samples / 4;
 	n_samples = n_samples & 3;
@@ -247,18 +237,16 @@ conv_f32d_to_s32_2_sse(void *data, void *dst, int n_src, const void *src[n_src],
 }
 
 static void
-conv_f32d_to_s32_4_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_bytes)
+conv_f32d_to_s32_4_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_samples)
 {
 	const float **s = (const float **) src;
 	const float *s0 = s[0], *s1 = s[1], *s2 = s[2], *s3 = s[3];
 	int32_t *d = dst;
-	int n, n_samples, unrolled;
+	int n, unrolled;
 	__m128 in[4];
 	__m128i out[4], t[4];
 	__m128 int_max = _mm_set1_ps(S24_MAX_F);
         __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
-
-	n_samples = n_bytes / sizeof(float);
 
 	unrolled = n_samples / 4;
 	n_samples = n_samples & 3;
@@ -314,32 +302,30 @@ conv_f32d_to_s32_4_sse(void *data, void *dst, int n_src, const void *src[n_src],
 }
 
 static void
-conv_f32d_to_s32_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
+conv_f32d_to_s32_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
 	int32_t *d = dst[0];
 	int i = 0;
 
 	for(; i + 3 < n_src; i += 4)
-		conv_f32d_to_s32_4_sse(data, &d[i], n_src, &src[i], n_bytes);
+		conv_f32d_to_s32_4_sse(data, &d[i], n_src, &src[i], n_samples);
 	for(; i + 1 < n_src; i += 2)
-		conv_f32d_to_s32_2_sse(data, &d[i], n_src, &src[i], n_bytes);
+		conv_f32d_to_s32_2_sse(data, &d[i], n_src, &src[i], n_samples);
 	for(; i < n_src; i++)
-		conv_f32d_to_s32_1_sse(data, &d[i], n_src, &src[i], n_bytes);
+		conv_f32d_to_s32_1_sse(data, &d[i], n_src, &src[i], n_samples);
 }
 
 static void
-conv_f32d_to_s16_1_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_bytes)
+conv_f32d_to_s16_1_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_samples)
 {
 	const float **s = (const float **) src;
 	const float *s0 = s[0];
 	int16_t *d = dst;
-	int n, n_samples, unrolled;
+	int n, unrolled;
 	__m128 in[1];
 	__m128i out[4];
 	__m128 int_max = _mm_set1_ps(S16_MAX_F);
         __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
-
-	n_samples = n_bytes / sizeof(float);
 
 	unrolled = n_samples / 4;
 	n_samples = n_samples & 3;
@@ -364,18 +350,17 @@ conv_f32d_to_s16_1_sse(void *data, void *dst, int n_src, const void *src[n_src],
 }
 
 static void
-conv_f32d_to_s16_2_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_bytes)
+conv_f32d_to_s16_2_sse(void *data, void *dst, int n_src, const void *src[n_src], int n_samples)
 {
 	const float **s = (const float **) src;
 	const float *s0 = s[0], *s1 = s[1];
 	int16_t *d = dst;
-	int n = 0, n_samples, unrolled;
+	int n = 0, unrolled;
 	__m128 in[2];
 	__m128i out[4], t[2];
 	__m128 int_max = _mm_set1_ps(S16_MAX_F);
         __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
 
-	n_samples = n_bytes / sizeof(float);
 	unrolled = n_samples / 4;
 	n_samples = n_samples & 3;
 
@@ -412,13 +397,13 @@ conv_f32d_to_s16_2_sse(void *data, void *dst, int n_src, const void *src[n_src],
 }
 
 static void
-conv_f32d_to_s16_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_bytes)
+conv_f32d_to_s16_sse(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
 	int16_t *d = dst[0];
 	int i = 0;
 
 	for(; i + 1 < n_src; i += 2)
-		conv_f32d_to_s16_2_sse(data, &d[i], n_src, &src[i], n_bytes);
+		conv_f32d_to_s16_2_sse(data, &d[i], n_src, &src[i], n_samples);
 	for(; i < n_src; i++)
-		conv_f32d_to_s16_1_sse(data, &d[i], n_src, &src[i], n_bytes);
+		conv_f32d_to_s16_1_sse(data, &d[i], n_src, &src[i], n_samples);
 }

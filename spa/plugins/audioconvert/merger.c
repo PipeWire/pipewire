@@ -114,6 +114,7 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 {
 	struct port *port = GET_PORT(this, direction, port_id);
 	int n_items = 0;
+
 	port->id = port_id;
 
 	snprintf(port->position, 16, "%s", rindex(spa_type_audio_channel[position].name, ':')+1);
@@ -762,7 +763,8 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	spa_return_val_if_fail(port->have_format, -EIO);
 
-	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
+	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d:%d",
+			this, n_buffers, direction, port_id);
 
 	clear_buffers(this, port);
 
@@ -856,22 +858,53 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
-static inline int handle_monitor(struct impl *this, const void *data, int n_samples, struct port *outport)
+static inline int get_in_buffer(struct impl *this, struct port *port, struct buffer **buf)
 {
-	struct spa_io_buffers *outio;
-	struct buffer *dbuf;
-        struct spa_data *dd;
-	int size;
+	struct spa_io_buffers *io;
 
-	if ((outio = outport->io) == NULL ||
-	    outio->status == SPA_STATUS_HAVE_BUFFER)
+	if ((io = port->io) == NULL ||
+	    io->status != SPA_STATUS_HAVE_BUFFER ||
+	    io->buffer_id >= port->n_buffers) {
+		spa_log_trace(this->log, NAME " %p: empty port %d %p %d %d %d",
+				this, port->id, io, io->status, io->buffer_id,
+				port->n_buffers);
+		return -EPIPE;
+	}
+
+	*buf = &port->buffers[io->buffer_id];
+	io->status = SPA_STATUS_NEED_BUFFER;
+
+	return 0;
+}
+
+static inline int get_out_buffer(struct impl *this, struct port *port, struct buffer **buf)
+{
+	struct spa_io_buffers *io;
+
+	if ((io = port->io) == NULL ||
+	    io->status == SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_HAVE_BUFFER;
 
-	if (outio->buffer_id < outport->n_buffers)
-		queue_buffer(this, outport, outio->buffer_id);
+	if (io->buffer_id < port->n_buffers)
+		queue_buffer(this, port, io->buffer_id);
 
-	if ((dbuf = dequeue_buffer(this, outport)) == NULL)
+	if ((*buf = dequeue_buffer(this, port)) == NULL)
 		return -EPIPE;
+
+	io->status = SPA_STATUS_HAVE_BUFFER;
+	io->buffer_id = (*buf)->buf->id;
+
+	return 0;
+}
+
+static inline int handle_monitor(struct impl *this, const void *data, int n_samples, struct port *outport)
+{
+	struct buffer *dbuf;
+        struct spa_data *dd;
+	int res, size;
+
+	if ((res = get_out_buffer(this, outport, &dbuf)) != 0)
+		return res;
 
 	dd = &dbuf->buf->datas[0];
 	size = SPA_MIN(dd->maxsize, n_samples * outport->stride);
@@ -879,10 +912,7 @@ static inline int handle_monitor(struct impl *this, const void *data, int n_samp
 	dd->chunk->size = size;
 	memcpy(dd->data, data, size);
 
-	outio->buffer_id = dbuf->buf->id;
-	outio->status = SPA_STATUS_HAVE_BUFFER;
-
-	return SPA_STATUS_HAVE_BUFFER;
+	return res;
 }
 
 static int impl_node_process(struct spa_node *node)
@@ -890,7 +920,7 @@ static int impl_node_process(struct spa_node *node)
 	struct impl *this;
 	struct port *outport;
 	struct spa_io_buffers *outio;
-	int i, maxsize, res = 0, n_samples, n_bytes = 0;
+	int i, maxsize, res = 0, n_samples;
 	struct spa_data *sd, *dd;
 	struct buffer *sbuf, *dbuf;
 	uint32_t n_src_datas, n_dst_datas;
@@ -908,14 +938,8 @@ static int impl_node_process(struct spa_node *node)
 
 	spa_log_trace(this->log, NAME " %p: status %d %d", this, outio->status, outio->buffer_id);
 
-	if (outio->status == SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_HAVE_BUFFER;
-
-	if (outio->buffer_id < outport->n_buffers)
-		queue_buffer(this, outport, outio->buffer_id);
-
-	if ((dbuf = dequeue_buffer(this, outport)) == NULL)
-		return -EPIPE;
+	if ((res = get_out_buffer(this, outport, &dbuf)) != 0)
+		return res;
 
 	dd = &dbuf->buf->datas[0];
 
@@ -933,31 +957,22 @@ static int impl_node_process(struct spa_node *node)
 	n_src_datas = 0;
 	for (i = 0; i < this->port_count; i++) {
 		struct port *inport = GET_IN_PORT(this, i);
-		struct spa_io_buffers *inio;
 
-		if ((inio = inport->io) == NULL ||
-		    inio->status != SPA_STATUS_HAVE_BUFFER ||
-		    inio->buffer_id >= inport->n_buffers) {
-			spa_log_trace(this->log, NAME " %p: empty port %d %p %d %d %d", this, i, inio,
-					inio->status, inio->buffer_id, inport->n_buffers);
+		if (get_in_buffer(this, inport, &sbuf) < 0) {
 			src_datas[n_src_datas++] = this->empty;
 			continue;
 		}
 
-		sbuf = &inport->buffers[inio->buffer_id];
 		sd = &sbuf->buf->datas[0];
 
 		src_datas[n_src_datas++] = SPA_MEMBER(sd->data, sd->chunk->offset, void);
 
-		n_samples = SPA_MIN(sd->chunk->size / inport->stride, n_samples);
-		n_bytes = n_samples * inport->stride;
+		n_samples = SPA_MIN(n_samples, sd->chunk->size / inport->stride);
 
 		spa_log_trace(this->log, NAME " %p: %d %d %d %p", this,
 				sd->chunk->size, maxsize, n_samples, src_datas[i]);
 
-		inio->status = SPA_STATUS_NEED_BUFFER;
 		SPA_FLAG_SET(res, SPA_STATUS_NEED_BUFFER);
-
 	}
 
 	for (i = 0; i < this->monitor_count; i++)
@@ -971,13 +986,9 @@ static int impl_node_process(struct spa_node *node)
 				n_samples * outport->stride);
 	}
 
-	this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_bytes);
+	this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_samples);
 
-	outio->buffer_id = dbuf->buf->id;
-	outio->status = SPA_STATUS_HAVE_BUFFER;
-	SPA_FLAG_SET(res, SPA_STATUS_HAVE_BUFFER);
-
-	return res;
+	return res | SPA_STATUS_HAVE_BUFFER;
 }
 
 static const struct spa_node impl_node = {

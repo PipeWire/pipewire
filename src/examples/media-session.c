@@ -885,10 +885,12 @@ static int link_nodes(struct node *peer, enum pw_direction direction, struct nod
 	struct impl *impl = peer->obj.impl;
 	struct port *p;
 
-	pw_log_debug(NAME " %p: link nodes %d %d", impl, node->obj.id, peer->obj.id);
+	pw_log_debug(NAME " %p: link nodes %d %d %d", impl, max, node->obj.id, peer->obj.id);
 
 	spa_list_for_each(p, &peer->port_list, l) {
 		struct pw_properties *props;
+
+		pw_log_debug(NAME " %p: port %p: %d %d", impl, p, p->direction, p->flags);
 
 		if (p->direction == direction)
 			continue;
@@ -1083,8 +1085,12 @@ static int rescan_node(struct impl *impl, struct node *node)
 
 		n_links = 1;
 		peer = find_object(impl, find.path_id);
-		if (peer != NULL && peer->obj.type == PW_TYPE_INTERFACE_Node)
-			goto do_link;
+		if (peer != NULL && peer->obj.type == PW_TYPE_INTERFACE_Node) {
+			if (peer->media_type == SPA_MEDIA_TYPE_audio)
+				goto do_link_profile;
+			else
+				goto do_link;
+		}
 	}
 
 	if (find.sess == NULL) {
@@ -1130,7 +1136,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 	spa_list_append(&session->node_list, &node->session_link);
 
 	if (!exclusive && session->dsp) {
-do_link:
+do_link_profile:
 		audio_info = peer->profile_format;
 		if (direction == PW_DIRECTION_INPUT)
 			audio_info.channels = SPA_MIN(peer->format.channels, node->format.channels);
@@ -1158,6 +1164,7 @@ do_link:
 	} else {
 		n_links = audio_info.channels = 1;
 	}
+do_link:
 	link_nodes(peer, direction, node, n_links);
 
         return 1;

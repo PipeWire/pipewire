@@ -818,9 +818,9 @@ static int impl_node_process(struct spa_node *node)
 
 		resample_process(&this->resample, i, src, &in_len, dst, &out_len);
 
-		spa_log_trace(this->log, NAME " %p: in %d/%ld %d out %d/%ld %d",
-				this, in_len, size / sizeof(float), inport->offset,
-				out_len, maxsize / sizeof(float), outport->offset);
+		spa_log_trace(this->log, NAME " %p: in %d/%d %ld %d out %d/%d %ld %d",
+				this, pin_len, in_len, size / sizeof(float), inport->offset,
+				pout_len, out_len, maxsize / sizeof(float), outport->offset);
 
 		db->datas[i].chunk->offset = 0;
 		db->datas[i].chunk->size = outport->offset + (out_len * sizeof(float));

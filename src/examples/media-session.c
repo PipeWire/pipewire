@@ -1186,6 +1186,8 @@ static void dsp_node_event_info(void *object, struct pw_node_info *info)
 	dsp->direction = s->direction;
 	dsp->type = NODE_TYPE_DSP;
 	dsp->manager = s;
+	dsp->media_type = s->node->media_type;
+	dsp->media_subtype = s->node->media_subtype;
 	dsp->format = s->node->format;
 	dsp->profile_format = dsp->format;
 	dsp->profile_format.format = SPA_AUDIO_FORMAT_F32P;

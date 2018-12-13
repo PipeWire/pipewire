@@ -152,12 +152,12 @@ static void complete_ready(void *obj, void *data, int res, uint32_t id)
 	struct pw_port *port = mix->p;
 
 	if (SPA_RESULT_IS_OK(res)) {
-		port->state = PW_PORT_STATE_READY;
-		mix->state = PW_PORT_STATE_READY;
+		pw_port_mix_update_state(port, mix, PW_PORT_STATE_READY);
+		pw_port_update_state(port, PW_PORT_STATE_READY);
 		pw_log_debug("port %p: state READY", port);
 	} else {
-		port->state = PW_PORT_STATE_ERROR;
-		mix->state = PW_PORT_STATE_ERROR;
+		pw_port_mix_update_state(port, mix, PW_PORT_STATE_ERROR);
+		pw_port_update_state(port, PW_PORT_STATE_ERROR);
 		pw_log_warn("port %p: failed to go to READY", port);
 	}
 }
@@ -168,12 +168,12 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 	struct pw_port *port = mix->p;
 
 	if (SPA_RESULT_IS_OK(res)) {
-		port->state = PW_PORT_STATE_PAUSED;
-		mix->state = PW_PORT_STATE_PAUSED;
+		pw_port_mix_update_state(port, mix, PW_PORT_STATE_PAUSED);
+		pw_port_update_state(port, PW_PORT_STATE_PAUSED);
 		pw_log_debug("port %p: state PAUSED", port);
 	} else {
-		port->state = PW_PORT_STATE_ERROR;
-		mix->state = PW_PORT_STATE_ERROR;
+		pw_port_mix_update_state(port, mix, PW_PORT_STATE_ERROR);
+		pw_port_update_state(port, PW_PORT_STATE_ERROR);
 		pw_log_warn("port %p: failed to go to PAUSED", port);
 	}
 }
@@ -937,8 +937,8 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 	}
 
 	if (PW_PORT_IS_CONTROL(output) && PW_PORT_IS_CONTROL(input)) {
-		this->rt.in_mix.state = PW_PORT_STATE_PAUSED;
-		this->rt.out_mix.state = PW_PORT_STATE_PAUSED;
+		pw_port_mix_update_state(input, &this->rt.in_mix, PW_PORT_STATE_PAUSED);
+		pw_port_mix_update_state(output, &this->rt.out_mix, PW_PORT_STATE_PAUSED);
 	}
 
 	in_mix_state = this->rt.in_mix.state;
@@ -1152,7 +1152,7 @@ int pw_link_deactivate(struct pw_link *this)
 		pw_log_debug("port %p: input state %d -> %d", this->input,
 				this->input->state, PW_PORT_STATE_PAUSED);
 	}
-	this->rt.in_mix.state = PW_PORT_STATE_CONFIGURE;
+	pw_port_mix_update_state(this->input, &this->rt.in_mix, PW_PORT_STATE_CONFIGURE);
 
 	if (output_node->n_used_input_links <= output_node->idle_used_input_links &&
 	    output_node->n_used_output_links <= output_node->idle_used_output_links &&
@@ -1161,7 +1161,7 @@ int pw_link_deactivate(struct pw_link *this)
 		pw_log_debug("port %p: output state %d -> %d", this->output,
 				this->output->state, PW_PORT_STATE_PAUSED);
 	}
-	this->rt.out_mix.state = PW_PORT_STATE_CONFIGURE;
+	pw_port_mix_update_state(this->output, &this->rt.out_mix, PW_PORT_STATE_CONFIGURE);
 
 	pw_link_update_state(this, PW_LINK_STATE_INIT, NULL);
 

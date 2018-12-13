@@ -46,11 +46,37 @@ struct resource_data {
 
 /** \endcond */
 
-
-static void port_update_state(struct pw_port *port, struct pw_port_mix *mix, enum pw_port_state state)
+static inline void adjust_mix_state(struct pw_port *port, enum pw_port_state state, int dir)
 {
-	if (mix)
+	switch (state) {
+	case PW_PORT_STATE_CONFIGURE:
+		port->n_mix_configure += dir;
+		break;
+	case PW_PORT_STATE_READY:
+		port->n_mix_ready += dir;
+		break;
+	case PW_PORT_STATE_PAUSED:
+		port->n_mix_paused += dir;
+		break;
+	default:
+		break;
+	}
+}
+
+void pw_port_mix_update_state(struct pw_port *port, struct pw_port_mix *mix, enum pw_port_state state)
+{
+	if (mix && mix->state != state) {
+		adjust_mix_state(port, mix->state, -1);
 		mix->state = state;
+		adjust_mix_state(port, state, 1);
+		pw_log_debug("port %p: mix %d c:%d r:%d p:%d", port, mix->id,
+				port->n_mix_configure, port->n_mix_ready,
+				port->n_mix_paused);
+	}
+}
+
+void pw_port_update_state(struct pw_port *port, enum pw_port_state state)
+{
 	if (port->state != state) {
 		pw_log(state == PW_PORT_STATE_ERROR ?
 				SPA_LOG_LEVEL_ERROR : SPA_LOG_LEVEL_DEBUG,
@@ -156,8 +182,11 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 	spa_graph_port_init(&mix->port,
 			    port->direction, port_id,
 			    0);
+
 	mix->p = port;
 	mix->state = PW_PORT_STATE_CONFIGURE;
+	port->n_mix++;
+	adjust_mix_state(port, mix->state, 1);
 
 	if (port->mix->add_port)
 		port->mix->add_port(port->mix, port->direction, port_id);
@@ -177,6 +206,8 @@ int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 	const struct pw_port_implementation *pi = port->implementation;
 
 	pw_map_remove(&port->mix_port_map, port_id);
+	adjust_mix_state(port, mix->state, -1);
+	port->n_mix--;
 
 	if (pi && pi->release_mix)
 		res = pi->release_mix(port->implementation_data, mix);
@@ -592,7 +623,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);
 
 	if (port->state <= PW_PORT_STATE_INIT)
-		port_update_state(port, NULL, PW_PORT_STATE_CONFIGURE);
+		pw_port_update_state(port, PW_PORT_STATE_CONFIGURE);
 
 	pw_node_events_port_added(node, port);
 
@@ -848,13 +879,14 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 		if (param == NULL || res < 0) {
 			free_allocation(&port->allocation);
 			port->allocated = false;
-			port_update_state(port, mix, PW_PORT_STATE_CONFIGURE);
+			pw_port_mix_update_state(port, mix, PW_PORT_STATE_CONFIGURE);
+			if (port->n_mix_configure == port->n_mix)
+				pw_port_update_state(port, PW_PORT_STATE_CONFIGURE);
 		}
 		else if (!SPA_RESULT_IS_ASYNC(res)) {
+			pw_port_mix_update_state(port, mix, PW_PORT_STATE_READY);
 			if (port->state == PW_PORT_STATE_CONFIGURE)
-				port_update_state(port, mix, PW_PORT_STATE_READY);
-			else if (mix)
-				mix->state = PW_PORT_STATE_READY;
+				pw_port_update_state(port, PW_PORT_STATE_READY);
 		}
 	}
 	return res;
@@ -888,8 +920,13 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 		pw_log_debug("port %p: use buffers on mix: %d (%s)",
 				port, res, spa_strerror(res));
 	}
+	if (n_buffers == 0) {
+		pw_port_mix_update_state(port, mix, PW_PORT_STATE_READY);
+		if (port->n_mix_ready + port->n_mix_configure == port->n_mix)
+			pw_port_update_state(port, PW_PORT_STATE_READY);
+	}
 
-	if (port->state == PW_PORT_STATE_READY || n_buffers == 0) {
+	if (port->state == PW_PORT_STATE_READY) {
 		if (!SPA_FLAG_CHECK(port->mix_flags, PW_PORT_MIX_FLAG_MIX_ONLY)) {
 			res = spa_node_port_use_buffers(node->node,
 					port->direction, port->port_id, buffers, n_buffers);
@@ -902,16 +939,10 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 			res = pi->use_buffers(port->implementation_data, buffers, n_buffers);
 	}
 
-	if (res < 0)
-		n_buffers = 0;
-
-	if (n_buffers == 0)
-		port_update_state(port, mix, PW_PORT_STATE_READY);
-	else if (!SPA_RESULT_IS_ASYNC(res)) {
+	if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res)) {
+		pw_port_mix_update_state(port, mix, PW_PORT_STATE_PAUSED);
 		if (port->state == PW_PORT_STATE_READY)
-			port_update_state(port, mix, PW_PORT_STATE_PAUSED);
-		else if (mix)
-			mix->state = PW_PORT_STATE_PAUSED;
+			pw_port_update_state(port, PW_PORT_STATE_PAUSED);
 	}
 	return res;
 }
@@ -957,10 +988,15 @@ int pw_port_alloc_buffers(struct pw_port *port, uint32_t mix_id,
 		port->allocated = true;
 	}
 
-	if (*n_buffers == 0)
-		port_update_state(port, mix, PW_PORT_STATE_READY);
-	else if (!SPA_RESULT_IS_ASYNC(res))
-		port_update_state(port, mix, PW_PORT_STATE_PAUSED);
+	if (*n_buffers == 0) {
+		pw_port_mix_update_state(port, mix, PW_PORT_STATE_READY);
+		if (port->n_mix_ready + port->n_mix_configure == port->n_mix)
+			pw_port_update_state(port, PW_PORT_STATE_READY);
+	}
+	else if (!SPA_RESULT_IS_ASYNC(res)) {
+		pw_port_mix_update_state(port, mix, PW_PORT_STATE_PAUSED);
+		pw_port_update_state(port, PW_PORT_STATE_PAUSED);
+	}
 
 	return res;
 }

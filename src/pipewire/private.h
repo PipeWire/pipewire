@@ -445,6 +445,10 @@ struct pw_port {
 #define PW_PORT_MIX_FLAG_MIX_ONLY	(1<<1)	/**< only negotiate mix ports */
 	uint32_t mix_flags;		/**< flags for the mixing */
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */
+	uint32_t n_mix;
+	uint32_t n_mix_configure;
+	uint32_t n_mix_ready;
+	uint32_t n_mix_paused;
 
 	struct {
 		struct spa_io_buffers io;	/**< io area of the port */
@@ -692,6 +696,9 @@ int pw_port_add(struct pw_port *port, struct pw_node *node);
 
 int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix);
 int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix);
+
+void pw_port_mix_update_state(struct pw_port *port, struct pw_port_mix *mix, enum pw_port_state state);
+void pw_port_update_state(struct pw_port *port, enum pw_port_state state);
 
 /** Unlink a port \memberof pw_port */
 void pw_port_unlink(struct pw_port *port);

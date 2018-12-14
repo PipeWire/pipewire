@@ -598,7 +598,9 @@ struct pw_stream {
 	char *error;				/**< error reason when state is in error */
 
 	struct spa_hook_list listener_list;
+
 	struct pw_proxy *proxy;
+	struct spa_hook proxy_listener;
 };
 
 #define pw_factory_events_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_factory_events, m, v, ##__VA_ARGS__)

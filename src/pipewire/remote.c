@@ -317,6 +317,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 
 	pw_map_clear(&remote->objects);
 
+	pw_log_debug("remote %p: free", remote);
 	if (remote->properties)
 		pw_properties_free(remote->properties);
 	free(remote->error);

@@ -784,6 +784,18 @@ static const struct spa_node impl_node = {
 	.port_reuse_buffer = impl_port_reuse_buffer,
 };
 
+static void proxy_destroy(void *_data)
+{
+	struct pw_stream *stream = _data;
+	stream->proxy = NULL;
+	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, NULL);
+}
+
+static const struct pw_proxy_events proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = proxy_destroy,
+};
+
 static int handle_connect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -806,6 +818,7 @@ static int handle_connect(struct pw_stream *stream)
 
 	pw_log_debug("stream %p: export node %p", stream, impl->node);
 	stream->proxy = pw_remote_export(stream->remote, impl->node);
+	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
 
 	return 0;
 }

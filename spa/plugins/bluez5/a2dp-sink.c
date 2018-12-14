@@ -1009,8 +1009,6 @@ impl_node_port_enum_params(struct spa_node *node,
 		}
 		case A2DP_CODEC_MPEG24:
 		{
-			a2dp_aac_t *config = this->transport->configuration;
-
 			param = spa_pod_builder_object(&b,
 				SPA_TYPE_OBJECT_Format, id,
 				SPA_FORMAT_mediaType,           &SPA_POD_Id(SPA_MEDIA_TYPE_audio),

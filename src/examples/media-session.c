@@ -1084,12 +1084,20 @@ static int rescan_node(struct impl *impl, struct node *node)
 		pw_log_debug(NAME " %p: no session found for %d, try node", impl, node->obj.id);
 
 		n_links = 1;
-		peer = find_object(impl, find.path_id);
-		if (peer != NULL && peer->obj.type == PW_TYPE_INTERFACE_Node) {
-			if (peer->media_type == SPA_MEDIA_TYPE_audio)
-				goto do_link_profile;
-			else
-				goto do_link;
+		if ((peer = find_object(impl, find.path_id)) != NULL) {
+			if (peer->obj.type == PW_TYPE_INTERFACE_Node) {
+				if (peer->media_type == SPA_MEDIA_TYPE_audio)
+					goto do_link_profile;
+				else
+					goto do_link;
+			}
+		}
+		else {
+			str = spa_dict_lookup(props, "pipewire.dont-reconnect");
+			if (str != NULL && pw_properties_parse_bool(str)) {
+				pw_registry_proxy_destroy(impl->registry_proxy, node->obj.id);
+				return -ENOENT;
+			}
 		}
 	}
 
@@ -1101,7 +1109,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 		client = find_object(impl, node->obj.parent_id);
 		if (client && client->obj.type == PW_TYPE_INTERFACE_Client) {
 			pw_client_proxy_error((struct pw_client_proxy*)client->obj.proxy,
-				node->obj.id, ENOENT, "no session available");
+				node->obj.id, -ENOENT, "no session available");
 		}
 		return -ENOENT;
 	}

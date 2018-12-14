@@ -946,7 +946,8 @@ void pw_node_destroy(struct pw_node *node)
 
 	/* move all nodes driven by us to their own driver */
 	spa_list_for_each_safe(n, t, &node->driver_list, driver_link)
-		pw_node_set_driver(n, NULL);
+		if (n != node)
+			pw_node_set_driver(n, NULL);
 
 	if (node->driver_node != node) {
 		/* remove ourself from the (other) driver node */

@@ -1259,8 +1259,33 @@ pa_operation* pa_context_set_card_profile_by_index(pa_context *c, uint32_t idx, 
 
 pa_operation* pa_context_set_card_profile_by_name(pa_context *c, const char*name, const char*profile, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct card_data *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
+
+	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_CARD, name)) == NULL)
+		return NULL;
+
+	ensure_global(c, g);
+
+	pw_log_debug("Card set profile %s", profile);
+
+	o = pa_operation_new(c, NULL, card_profile, sizeof(struct card_data));
+	d = o->userdata;
+	d->context = c;
+	d->success_cb = cb;
+	d->userdata = userdata;
+	d->global = g;
+	d->profile = strdup(profile);
+	pa_operation_sync(o);
+
+	return o;
 }
 
 pa_operation* pa_context_set_port_latency_offset(pa_context *c, const char *card_name, const char *port_name, int64_t offset, pa_context_success_cb_t cb, void *userdata)
@@ -1732,14 +1757,83 @@ pa_operation* pa_context_move_source_output_by_index(pa_context *c, uint32_t idx
 
 pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_stream *s;
+	struct global *g;
+	pa_operation *o;
+	struct success_ack *d;
+	float v;
+
+	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
+
+	pw_log_debug("contex %p: index %d volume %f", c, idx, v);
+
+	if ((s = find_stream(c, idx)) == NULL) {
+		if ((g = pa_context_find_global(c, idx)) == NULL)
+			return NULL;
+		if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT))
+			return NULL;
+	}
+
+	if (s) {
+		s->volume = v;
+		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
+	}
+	else if (g) {
+		char buf[1024];
+		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
+			SPA_PARAM_Props, 0,
+			spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
+				SPA_PROP_volume,	&SPA_POD_Float(v),
+				0));
+	}
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }
 
 pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int mute, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_stream *s;
+	struct global *g;
+	pa_operation *o;
+	struct success_ack *d;
+
+	if ((s = find_stream(c, idx)) == NULL) {
+		if ((g = pa_context_find_global(c, idx)) == NULL)
+			return NULL;
+		if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT))
+			return NULL;
+	}
+
+	if (s) {
+		s->mute = mute;
+		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
+	}
+	else if (g) {
+		char buf[1024];
+		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
+			SPA_PARAM_Props, 0,
+			spa_pod_builder_object(&b,
+				SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
+				SPA_PROP_mute,		&SPA_POD_Bool(mute),
+				0));
+	}
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
+	return o;
 }
 
 pa_operation* pa_context_kill_source_output(pa_context *c, uint32_t idx, pa_context_success_cb_t cb, void *userdata)

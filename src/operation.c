@@ -35,7 +35,7 @@ pa_operation *pa_operation_new(pa_context *c, pa_stream *s, pa_operation_cb_t cb
 
 	o->refcount = 1;
 	o->context = c;
-	o->stream = s;
+	o->stream = s ? pa_stream_ref(s) : NULL;
 	o->seq = SPA_ID_INVALID;
 
 	o->state = PA_OPERATION_RUNNING;
@@ -86,7 +86,8 @@ static void operation_unlink(pa_operation *o) {
 
 		o->context = NULL;
 	}
-
+	if (o->stream)
+		pa_stream_unref(o->stream);
 	o->stream = NULL;
 	o->callback = NULL;
 	o->userdata = NULL;

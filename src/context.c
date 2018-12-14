@@ -258,8 +258,17 @@ static int set_mask(pa_context *c, struct global *g)
 		if (g->link_info.src == NULL || g->link_info.dst == NULL)
 			return 0;
 
-		pw_log_debug("link %d->%d", g->link_info.src->parent_id,
-				g->link_info.dst->parent_id);
+		pw_log_debug("link %d:%d->%d:%d",
+				g->link_info.src->parent_id,
+				g->link_info.src->id,
+				g->link_info.dst->parent_id,
+				g->link_info.dst->id);
+
+		if ((f = pa_context_find_global(c, g->link_info.src->parent_id)) != NULL)
+			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
+		if ((f = pa_context_find_global(c, g->link_info.dst->parent_id)) != NULL)
+			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
+
 		break;
 
 	default:

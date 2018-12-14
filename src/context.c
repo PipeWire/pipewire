@@ -34,9 +34,10 @@
 int pa_context_set_error(pa_context *c, int error) {
 	pa_assert(error >= 0);
 	pa_assert(error < PA_ERR_MAX);
-	pw_log_debug("context %p: error %d %s", c, error, pa_strerror(error));
-	if (c)
+	if (c && c->error != error) {
+		pw_log_debug("context %p: error %d %s", c, error, pa_strerror(error));
 		c->error = error;
+	}
 	return error;
 }
 

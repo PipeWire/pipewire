@@ -210,13 +210,20 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 {
 	pa_stream *s = data;
 
+	pw_log_debug("stream %p: state  '%s'->'%s'", s, pw_stream_state_as_string(old),
+			pw_stream_state_as_string(state));
+
 	switch(state) {
 	case PW_STREAM_STATE_ERROR:
 		pa_stream_set_state(s, PA_STREAM_FAILED);
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
-		if (!s->disconnecting)
-			pa_stream_set_state(s, PA_STREAM_UNCONNECTED);
+		if (!s->disconnecting) {
+			pa_context_set_error(s->context, PA_ERR_KILLED);
+			pa_stream_set_state(s, PA_STREAM_FAILED);
+		} else {
+			pa_stream_set_state(s, PA_STREAM_TERMINATED);
+		}
 		break;
 	case PW_STREAM_STATE_CONNECTING:
 		pa_stream_set_state(s, PA_STREAM_CREATING);
@@ -225,9 +232,21 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	case PW_STREAM_STATE_READY:
 		break;
 	case PW_STREAM_STATE_PAUSED:
-		configure_device(s);
-		configure_buffers(s);
-		pa_stream_set_state(s, PA_STREAM_READY);
+		if (old < PW_STREAM_STATE_PAUSED) {
+			if (s->suspended && s->suspended_callback) {
+				s->suspended = false;
+				s->suspended_callback(s, s->suspended_userdata);
+			}
+			configure_device(s);
+			configure_buffers(s);
+			pa_stream_set_state(s, PA_STREAM_READY);
+		}
+		else {
+			if (!s->suspended && s->suspended_callback) {
+				s->suspended = true;
+				s->suspended_callback(s, s->suspended_userdata);
+			}
+		}
 		break;
 	case PW_STREAM_STATE_STREAMING:
 		break;
@@ -596,12 +615,35 @@ pa_stream *pa_stream_new_extended(pa_context *c, const char *name,
 
 static void stream_unlink(pa_stream *s)
 {
+	pa_context *c = s->context;
+	pa_operation *o, *t;
+
+	if (c == NULL)
+		return;
+
+	pw_log_debug("stream %p: unlink %d", s, s->refcount);
+
+	spa_list_for_each_safe(o, t, &c->operations, link) {
+		if (o->stream == s)
+			pa_operation_cancel(o);
+	}
+
 	spa_list_remove(&s->link);
+
+	s->context = NULL;
+	pa_stream_unref(s);
 }
 
 static void stream_free(pa_stream *s)
 {
 	int i;
+
+	pw_log_debug("stream %p", s);
+
+	if (s->stream) {
+		spa_hook_remove(&s->stream_listener);
+		pw_stream_destroy(s->stream);
+	}
 
 	if (s->proplist)
 		pa_proplist_free(s->proplist);

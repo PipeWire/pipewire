@@ -459,6 +459,8 @@ static void context_free(pa_context *c)
 
 	if (c->proplist)
 		pa_proplist_free(c->proplist);
+
+	pw_remote_destroy(c->remote);
 }
 
 void pa_context_unref(pa_context *c)

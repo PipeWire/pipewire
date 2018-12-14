@@ -129,6 +129,7 @@ void pa_operation_cancel(pa_operation *o)
 {
 	pa_assert(o);
 	pa_assert(o->refcount >= 1);
+	pw_log_debug("%p %d", o, o->seq);
 	operation_set_state(o, PA_OPERATION_CANCELED);
 }
 

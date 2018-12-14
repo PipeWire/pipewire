@@ -44,15 +44,17 @@ int pa_context_set_error(pa_context *c, int error) {
 static void context_unlink(pa_context *c)
 {
 	pa_stream *s, *t;
+	pa_operation *o;
+
+	pw_log_debug("context %p: unlink %d", c, c->state);
 
 	spa_list_for_each_safe(s, t, &c->streams, link) {
 		pa_stream_set_state(s, c->state == PA_CONTEXT_FAILED ?
 				PA_STREAM_FAILED : PA_STREAM_TERMINATED);
-		pa_stream_unref(s);
 	}
 
-	while(!spa_list_is_empty(&c->operations))
-		pa_operation_cancel(spa_list_first(&c->operations, pa_operation, link));
+	spa_list_consume(o, &c->operations, link)
+		pa_operation_cancel(o);
 }
 
 void pa_context_set_state(pa_context *c, pa_context_state_t st) {
@@ -61,6 +63,8 @@ void pa_context_set_state(pa_context *c, pa_context_state_t st) {
 
 	if (c->state == st)
 		return;
+
+	pw_log_debug("context %p: state %d", c, st);
 
 	pa_context_ref(c);
 
@@ -78,6 +82,8 @@ void pa_context_set_state(pa_context *c, pa_context_state_t st) {
 static void context_fail(pa_context *c, int error) {
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
+
+	pw_log_debug("context %p: error %d", c, error);
 
 	pa_context_set_error(c, error);
 	pa_context_set_state(c, PA_CONTEXT_FAILED);
@@ -140,12 +146,25 @@ struct global *pa_context_find_linked(pa_context *c, uint32_t idx)
 			continue;
 		if (f->mask & PA_SUBSCRIPTION_MASK_DSP) {
 			if (!(f->mask & PA_SUBSCRIPTION_MASK_SOURCE) ||
-				g->link_info.dst->parent_id != idx)
+			    g->link_info.dst->parent_id != idx)
 				f = pa_context_find_global(c, f->dsp_info.session);
 		}
 		return f;
 	}
 	return NULL;
+}
+
+static void emit_event(pa_context *c, struct global *g, pa_subscription_event_type_t event)
+{
+	if (c->subscribe_mask & g->mask) {
+		if (c->subscribe_callback) {
+			pw_log_debug("context %p: obj %d: emit %d:%d", c, g->id, event, g->event);
+			c->subscribe_callback(c,
+					event | g->event,
+					g->id,
+					c->subscribe_userdata);
+		}
+	}
 }
 
 static int set_mask(pa_context *c, struct global *g)
@@ -174,6 +193,7 @@ static int set_mask(pa_context *c, struct global *g)
 			return 0;
 
 		if (strcmp(str, "Audio/Sink") == 0) {
+			pw_log_debug("found sink %d", g->id);
 			g->mask = PA_SUBSCRIPTION_MASK_SINK;
 			g->event = PA_SUBSCRIPTION_EVENT_SINK;
 			g->node_info.monitor = SPA_ID_INVALID;
@@ -181,6 +201,7 @@ static int set_mask(pa_context *c, struct global *g)
 		else if (strcmp(str, "Audio/DSP/Playback") == 0) {
 			if ((str = pw_properties_get(g->props, "node.session")) == NULL)
 				return 0;
+			pw_log_debug("found monitor %d", g->id);
 			g->mask = PA_SUBSCRIPTION_MASK_DSP_SINK | PA_SUBSCRIPTION_MASK_SOURCE;
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE;
 			g->dsp_info.session = pw_properties_parse_int(str);
@@ -188,6 +209,7 @@ static int set_mask(pa_context *c, struct global *g)
 				f->node_info.monitor = g->id;
 		}
 		else if (strcmp(str, "Audio/Source") == 0) {
+			pw_log_debug("found source %d", g->id);
 			g->mask = PA_SUBSCRIPTION_MASK_SOURCE;
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE;
 		}
@@ -198,21 +220,25 @@ static int set_mask(pa_context *c, struct global *g)
 			g->dsp_info.session = pw_properties_parse_int(str);
 		}
 		else if (strcmp(str, "Stream/Output/Audio") == 0) {
+			pw_log_debug("found sink input %d", g->id);
 			g->mask = PA_SUBSCRIPTION_MASK_SINK_INPUT;
 			g->event = PA_SUBSCRIPTION_EVENT_SINK_INPUT;
 		}
 		else if (strcmp(str, "Stream/Input/Audio") == 0) {
+			pw_log_debug("found source output %d", g->id);
 			g->mask = PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT;
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
 		}
 		break;
 
 	case PW_TYPE_INTERFACE_Module:
+		pw_log_debug("found module %d", g->id);
 		g->mask = PA_SUBSCRIPTION_MASK_MODULE;
 		g->event = PA_SUBSCRIPTION_EVENT_MODULE;
 		break;
 
 	case PW_TYPE_INTERFACE_Client:
+		pw_log_debug("found client %d", g->id);
 		g->mask = PA_SUBSCRIPTION_MASK_CLIENT;
 		g->event = PA_SUBSCRIPTION_EVENT_CLIENT;
 		break;
@@ -262,13 +288,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	pw_log_debug("mask %d/%d", g->mask, g->event);
 	spa_list_append(&c->globals, &g->link);
 
-	if (c->subscribe_mask & g->mask) {
-		if (c->subscribe_callback)
-			c->subscribe_callback(c,
-					PA_SUBSCRIPTION_EVENT_NEW | g->event,
-					g->id,
-					c->subscribe_userdata);
-	}
+	emit_event(c, g, PA_SUBSCRIPTION_EVENT_NEW);
 }
 
 static void registry_event_global_remove(void *object, uint32_t id)
@@ -280,13 +300,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	if ((g = pa_context_find_global(c, id)) == NULL)
 		return;
 
-	if (c->subscribe_mask & g->mask) {
-		if (c->subscribe_callback)
-			c->subscribe_callback(c,
-					PA_SUBSCRIPTION_EVENT_REMOVE | g->event,
-					g->id,
-					c->subscribe_userdata);
-	}
+	emit_event(c, g, PA_SUBSCRIPTION_EVENT_REMOVE);
 
 	pw_log_debug("context %p: free %d %p", c, id, g);
 	spa_list_remove(&g->link);
@@ -430,6 +444,8 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 
 static void context_free(pa_context *c)
 {
+	pw_log_debug("context %p: free", c);
+
 	context_unlink(c);
 
 	if (c->proplist)

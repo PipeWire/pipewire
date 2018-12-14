@@ -922,7 +922,7 @@ int pa_stream_connect_record(
 
 static void on_disconnected(pa_operation *o, void *userdata)
 {
-       pa_stream_set_state(o->stream, PA_STREAM_TERMINATED);
+	pa_stream_set_state(o->stream, PA_STREAM_TERMINATED);
 }
 
 int pa_stream_disconnect(pa_stream *s)
@@ -933,6 +933,8 @@ int pa_stream_disconnect(pa_stream *s)
 	spa_assert(s->refcount >= 1);
 
 	PA_CHECK_VALIDITY(s->context, s->context->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	pw_log_debug("stream %p: disconnect", s);
 
 	s->disconnecting = true;
 	pw_stream_disconnect(s->stream);

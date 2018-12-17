@@ -1,4 +1,5 @@
-spa_support_sources = ['logger.c',
+spa_support_sources = ['cpu.c',
+		       'logger.c',
 		       'loop.c',
 		       'plugin.c']
 

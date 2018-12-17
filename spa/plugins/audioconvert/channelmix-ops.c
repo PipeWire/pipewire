@@ -25,6 +25,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <spa/support/cpu.h>
 #include <spa/utils/defs.h>
 
 #define VOLUME_MIN 0.0f
@@ -423,8 +424,7 @@ static const struct channelmix_info {
 	uint64_t dst_mask;
 
 	channelmix_func_t func;
-#define FEATURE_SSE	(1<<0)
-#define FEATURE_DEFAULT	FEATURE_SSE
+#define FEATURE_SSE	SPA_CPU_FLAG_SSE
 	uint32_t features;
 } channelmix_table[] =
 {

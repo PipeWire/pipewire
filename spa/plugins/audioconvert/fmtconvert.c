@@ -28,6 +28,7 @@
 #include <limits.h>
 
 #include <spa/support/log.h>
+#include <spa/support/cpu.h>
 #include <spa/utils/list.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
@@ -98,6 +99,7 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
+	struct spa_cpu *cpu;
 
 	struct props props;
 
@@ -110,6 +112,7 @@ struct impl {
 
 	bool started;
 
+	uint32_t cpu_flags;
 	convert_func_t convert;
 
 	float empty[4096];
@@ -173,12 +176,12 @@ static int setup_convert(struct impl *this)
 	}
 
 	/* find fast path */
-	conv = find_conv_info(src_fmt, dst_fmt, FEATURE_DEFAULT);
+	conv = find_conv_info(src_fmt, dst_fmt, this->cpu_flags);
 	if (conv == NULL)
 		return -ENOTSUP;
 
-	spa_log_info(this->log, NAME " %p: got converter features %08x", this,
-			conv->features);
+	spa_log_info(this->log, NAME " %p: got converter features %08x:%08x", this,
+			this->cpu_flags, conv->features);
 
 	this->convert = conv->func;
 	return 0;
@@ -973,10 +976,19 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_CPU:
+			this->cpu = support[i].data;
+			break;
+		}
 	}
 	this->node = impl_node;
+
+	if (this->cpu)
+		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 
 	init_port(this, SPA_DIRECTION_OUTPUT, 0, SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS);
 	init_port(this, SPA_DIRECTION_INPUT, 0, SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS);

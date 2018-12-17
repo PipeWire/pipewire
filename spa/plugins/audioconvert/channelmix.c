@@ -94,6 +94,7 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
+	struct spa_cpu *cpu;
 
 	struct props props;
 
@@ -105,6 +106,7 @@ struct impl {
 
 	bool started;
 
+	uint32_t cpu_flags;
 	channelmix_func_t convert;
 	uint32_t n_matrix;
 	float matrix[4096];
@@ -430,10 +432,12 @@ static int setup_convert(struct impl *this,
 		return -EINVAL;
 
 	/* find convert function */
-	if ((chanmix_info = find_channelmix_info(src_chan, src_mask, dst_chan, dst_mask, FEATURE_DEFAULT)) == NULL)
+	if ((chanmix_info = find_channelmix_info(src_chan, src_mask,
+					dst_chan, dst_mask, this->cpu_flags)) == NULL)
 		return -ENOTSUP;
 
-	spa_log_info(this->log, NAME " %p: got channelmix features %08x", this, chanmix_info->features);
+	spa_log_info(this->log, NAME " %p: got channelmix features %08x:%08x",
+			this, this->cpu_flags, chanmix_info->features);
 
 	this->convert = chanmix_info->func;
 
@@ -1255,9 +1259,18 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_CPU:
+			this->cpu = support[i].data;
+			break;
+		}
 	}
+
+	if (this->cpu)
+		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 
 	this->node = impl_node;
 

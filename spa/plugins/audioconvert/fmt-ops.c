@@ -25,6 +25,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <spa/support/cpu.h>
 #include <spa/utils/defs.h>
 
 #define U8_MIN		0
@@ -677,9 +678,7 @@ typedef void (*convert_func_t) (void *data, int n_dst, void *dst[n_dst],
 static const struct conv_info {
 	uint32_t src_fmt;
 	uint32_t dst_fmt;
-#define FEATURE_SSE	(1<<0)
-#define FEATURE_SSE2	(1<<1)
-#define FEATURE_DEFAULT	FEATURE_SSE
+#define FEATURE_SSE	SPA_CPU_FLAG_SSE
 	uint32_t features;
 
 	convert_func_t func;

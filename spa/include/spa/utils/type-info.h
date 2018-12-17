@@ -148,6 +148,7 @@ static const struct spa_type_info spa_types[] = {
 	{ SPA_TYPE_INTERFACE_Monitor, SPA_TYPE_INTERFACE_BASE "Monitor", SPA_TYPE_Pointer, },
 	{ SPA_TYPE_INTERFACE_Node, SPA_TYPE_INTERFACE_BASE "Node", SPA_TYPE_Pointer, },
 	{ SPA_TYPE_INTERFACE_Device, SPA_TYPE_INTERFACE_BASE "Device", SPA_TYPE_Pointer, },
+	{ SPA_TYPE_INTERFACE_CPU, SPA_TYPE_INTERFACE_BASE "CPU", SPA_TYPE_Pointer, },
 
 	{ SPA_TYPE_EVENT_START, SPA_TYPE__Event, SPA_TYPE_Object, },
 	{ SPA_TYPE_EVENT_Monitor, SPA_TYPE_EVENT_BASE "Monitor", SPA_TYPE_Object, spa_type_monitor_event },

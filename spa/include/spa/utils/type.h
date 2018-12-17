@@ -63,18 +63,19 @@ enum {
 
 	/* Interfaces */
 	SPA_TYPE_INTERFACE_START = 0x20000,
-	SPA_TYPE_INTERFACE_Handle,
-	SPA_TYPE_INTERFACE_HandleFactory,
-	SPA_TYPE_INTERFACE_Log,
-	SPA_TYPE_INTERFACE_Loop,
-	SPA_TYPE_INTERFACE_LoopControl,
-	SPA_TYPE_INTERFACE_LoopUtils,
-	SPA_TYPE_INTERFACE_DataLoop,
-	SPA_TYPE_INTERFACE_MainLoop,
-	SPA_TYPE_INTERFACE_DBus,
-	SPA_TYPE_INTERFACE_Monitor,
-	SPA_TYPE_INTERFACE_Node,
-	SPA_TYPE_INTERFACE_Device,
+	SPA_TYPE_INTERFACE_Handle,		/**< object handle */
+	SPA_TYPE_INTERFACE_HandleFactory,	/**< factory for object handles */
+	SPA_TYPE_INTERFACE_Log,			/**< log interface */
+	SPA_TYPE_INTERFACE_Loop,		/**< poll loop support */
+	SPA_TYPE_INTERFACE_LoopControl,		/**< control of loops */
+	SPA_TYPE_INTERFACE_LoopUtils,		/**< loop utilities */
+	SPA_TYPE_INTERFACE_DataLoop,		/**< a data loop */
+	SPA_TYPE_INTERFACE_MainLoop,		/**< a main loop */
+	SPA_TYPE_INTERFACE_DBus,		/**< dbus connection */
+	SPA_TYPE_INTERFACE_Monitor,		/**< monitor of devices */
+	SPA_TYPE_INTERFACE_Node,		/**< nodes for data processing */
+	SPA_TYPE_INTERFACE_Device,		/**< device managing nodes */
+	SPA_TYPE_INTERFACE_CPU,			/**< CPU functions */
 
 	/* Events */
 	SPA_TYPE_EVENT_START = 0x30000,

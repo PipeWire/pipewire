@@ -173,7 +173,7 @@ static int setup_convert(struct impl *this)
 	}
 
 	/* find fast path */
-	conv = find_conv_info(src_fmt, dst_fmt, FEATURE_SSE);
+	conv = find_conv_info(src_fmt, dst_fmt, FEATURE_DEFAULT);
 	if (conv == NULL)
 		return -ENOTSUP;
 

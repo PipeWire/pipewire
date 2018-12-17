@@ -430,7 +430,7 @@ static int setup_convert(struct impl *this,
 		return -EINVAL;
 
 	/* find convert function */
-	if ((chanmix_info = find_channelmix_info(src_chan, src_mask, dst_chan, dst_mask, FEATURE_SSE)) == NULL)
+	if ((chanmix_info = find_channelmix_info(src_chan, src_mask, dst_chan, dst_mask, FEATURE_DEFAULT)) == NULL)
 		return -ENOTSUP;
 
 	spa_log_info(this->log, NAME " %p: got channelmix features %08x", this, chanmix_info->features);

@@ -569,7 +569,7 @@ static int setup_convert(struct impl *this)
 			inport->format.info.raw.rate,
 			this->port_count);
 
-	conv = find_conv_info(src_fmt, dst_fmt, FEATURE_SSE);
+	conv = find_conv_info(src_fmt, dst_fmt, FEATURE_DEFAULT);
 	if (conv != NULL) {
 		spa_log_info(this->log, NAME " %p: got converter features %08x", this,
 				conv->features);

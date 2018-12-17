@@ -424,10 +424,11 @@ static const struct channelmix_info {
 
 	channelmix_func_t func;
 #define FEATURE_SSE	(1<<0)
+#define FEATURE_DEFAULT	FEATURE_SSE
 	uint32_t features;
 } channelmix_table[] =
 {
-#if defined (__SSE2__)
+#if defined (__SSE__)
 	{ 2, MASK_MONO, 2, MASK_MONO, channelmix_copy_sse, FEATURE_SSE },
 	{ 2, MASK_STEREO, 2, MASK_STEREO, channelmix_copy_sse, FEATURE_SSE },
 	{ -2, 0, -2, 0, channelmix_copy_sse, FEATURE_SSE },
@@ -438,22 +439,22 @@ static const struct channelmix_info {
 
 	{ 1, MASK_MONO, 2, MASK_STEREO, channelmix_f32_1_2, 0 },
 	{ 2, MASK_STEREO, 1, MASK_MONO, channelmix_f32_2_1, 0 },
-#if defined (__SSE2__)
+#if defined (__SSE__)
 	{ 2, MASK_STEREO, 4, MASK_QUAD, channelmix_f32_2_4_sse, FEATURE_SSE },
 #endif
 	{ 2, MASK_STEREO, 4, MASK_QUAD, channelmix_f32_2_4, 0 },
 	{ 2, MASK_STEREO, 4, MASK_3_1, channelmix_f32_2_3p1, 0 },
 	{ 2, MASK_STEREO, 6, MASK_5_1, channelmix_f32_2_5p1, 0 },
-#if defined (__SSE2__)
+#if defined (__SSE__)
 	{ 6, MASK_5_1, 2, MASK_STEREO, channelmix_f32_5p1_2_sse, FEATURE_SSE },
 #endif
 	{ 6, MASK_5_1, 2, MASK_STEREO, channelmix_f32_5p1_2, 0 },
-#if defined (__SSE2__)
+#if defined (__SSE__)
 	{ 6, MASK_5_1, 4, MASK_QUAD, channelmix_f32_5p1_4_sse, FEATURE_SSE },
 #endif
 	{ 6, MASK_5_1, 4, MASK_QUAD, channelmix_f32_5p1_4, 0 },
 
-#if defined (__SSE2__)
+#if defined (__SSE__)
 	{ 6, MASK_5_1, 4, MASK_3_1, channelmix_f32_5p1_3p1_sse, FEATURE_SSE },
 #endif
 	{ 6, MASK_5_1, 4, MASK_3_1, channelmix_f32_5p1_3p1, 0 },

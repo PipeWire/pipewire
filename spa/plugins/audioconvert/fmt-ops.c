@@ -670,6 +670,7 @@ interleave_32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *sr
 	}
 }
 
+
 typedef void (*convert_func_t) (void *data, int n_dst, void *dst[n_dst],
 				int n_src, const void *src[n_src], int n_samples);
 
@@ -677,6 +678,8 @@ static const struct conv_info {
 	uint32_t src_fmt;
 	uint32_t dst_fmt;
 #define FEATURE_SSE	(1<<0)
+#define FEATURE_SSE2	(1<<1)
+#define FEATURE_DEFAULT	FEATURE_SSE
 	uint32_t features;
 
 	convert_func_t func;
@@ -691,7 +694,7 @@ static const struct conv_info {
 
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32, 0, conv_s16_to_f32 },
 	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_F32P, 0, conv_s16_to_f32 },
-#if defined (__SSE2__)
+#if defined (__SSE__)
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE, conv_s16_to_f32d_sse },
 #endif
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32P, 0, conv_s16_to_f32d },
@@ -709,7 +712,7 @@ static const struct conv_info {
 
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32, 0, conv_s24_to_f32 },
 	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_F32P, 0, conv_s24_to_f32 },
-#if defined (__SSE2__)
+#if defined (__SSE__)
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE, conv_s24_to_f32d_sse },
 #endif
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, 0, conv_s24_to_f32d },
@@ -729,7 +732,7 @@ static const struct conv_info {
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S16, 0, conv_f32_to_s16 },
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16P, 0, conv_f32_to_s16 },
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S16P, 0, conv_f32_to_s16d },
-#if defined (__SSE2__)
+#if defined (__SSE__)
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16, FEATURE_SSE, conv_f32d_to_s16_sse },
 #endif
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16, 0, conv_f32d_to_s16 },
@@ -737,7 +740,7 @@ static const struct conv_info {
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S32, 0, conv_f32_to_s32 },
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32P, 0, conv_f32_to_s32 },
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S32P, 0, conv_f32_to_s32d },
-#if defined (__SSE2__)
+#if defined (__SSE__)
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32, FEATURE_SSE, conv_f32d_to_s32_sse },
 #endif
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32, 0, conv_f32d_to_s32 },

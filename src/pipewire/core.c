@@ -433,7 +433,9 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
 	this->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
 	this->support[3] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, pw_log_get());
 	this->support[4] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, impl->dbus_iface);
-	this->n_support = 5;
+	this->support[5] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_CPU,
+			pw_get_support_interface(SPA_TYPE_INTERFACE_CPU));
+	this->n_support = 6;
 
 	pw_data_loop_start(this->data_loop_impl);
 

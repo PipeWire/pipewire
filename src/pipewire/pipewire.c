@@ -442,6 +442,12 @@ void pw_init(int *argc, char **argv[])
 			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, iface->iface);
 		pw_log_set(iface->iface);
 	}
+	iface = load_interface(plugin, "cpu", SPA_TYPE_INTERFACE_CPU, &info,
+			support->n_support, support->support);
+	if (iface != NULL) {
+		support->support[support->n_support++] =
+			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_CPU, iface->iface);
+	}
 	pw_log_info("version %s", pw_get_library_version());
 }
 

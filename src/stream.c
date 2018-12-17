@@ -970,19 +970,23 @@ static void on_disconnected(pa_operation *o, void *userdata)
 int pa_stream_disconnect(pa_stream *s)
 {
 	pa_operation *o;
+	pa_context *c = s->context;
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
-	PA_CHECK_VALIDITY(s->context, s->context->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("stream %p: disconnect", s);
+	pa_stream_ref(s);
 
 	s->disconnecting = true;
 	pw_stream_disconnect(s->stream);
-	o = pa_operation_new(s->context, s, on_disconnected, 0);
+
+	o = pa_operation_new(c, s, on_disconnected, 0);
 	pa_operation_sync(o);
 	pa_operation_unref(o);
+	pa_stream_unref(s);
 
 	return 0;
 }

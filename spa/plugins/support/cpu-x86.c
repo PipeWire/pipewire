@@ -76,6 +76,8 @@ x86_init(struct impl *impl)
 		flags |= SPA_CPU_FLAG_CMOV;
 	if (edx & bit_MMX)
 		flags |= SPA_CPU_FLAG_MMX;
+	if (edx & bit_MMXEXT)
+		flags |= SPA_CPU_FLAG_MMXEXT;
 	if (edx & bit_SSE)
 		flags |= SPA_CPU_FLAG_SSE;
 	if (edx & bit_SSE2)

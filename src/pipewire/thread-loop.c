@@ -23,6 +23,7 @@
  */
 
 #include <pthread.h>
+#include <errno.h>
 #include <sys/time.h>
 
 #include "pipewire.h"
@@ -101,28 +102,45 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 
 	this = calloc(1, sizeof(struct pw_thread_loop));
 	if (this == NULL)
-		return NULL;
+		goto error1;
 
 	pw_log_debug("thread-loop %p: new", this);
 
 	this->loop = loop;
 	this->name = name ? strdup(name) : NULL;
 
-	pw_loop_add_hook(loop, &this->hook, &impl_hooks, this);
-
 	spa_hook_list_init(&this->listener_list);
 
 	pthread_mutexattr_init(&attr);
 	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-	pthread_mutex_init(&this->lock, &attr);
+	if ((errno = pthread_mutex_init(&this->lock, &attr)) != 0)
+		goto error2;
+
 	pthread_condattr_init(&cattr);
 	pthread_condattr_setclock(&cattr, CLOCK_REALTIME);
-	pthread_cond_init(&this->cond, &cattr);
-	pthread_cond_init(&this->accept_cond, &cattr);
+	if ((errno = pthread_cond_init(&this->cond, &cattr)) != 0)
+		goto error3;
+	if ((errno = pthread_cond_init(&this->accept_cond, &cattr)) != 0)
+		goto error4;
 
-	this->event = pw_loop_add_event(this->loop, do_stop, this);
+	if ((this->event = pw_loop_add_event(this->loop, do_stop, this)) == NULL)
+		goto error5;
+
+	pw_loop_add_hook(loop, &this->hook, &impl_hooks, this);
 
 	return this;
+
+      error5:
+	pthread_cond_destroy(&this->accept_cond);
+      error4:
+	pthread_cond_destroy(&this->cond);
+      error3:
+	pthread_mutex_destroy(&this->lock);
+      error2:
+	free(this->name);
+	free(this);
+      error1:
+	return NULL;
 }
 
 /** Destroy a threaded loop \memberof pw_thread_loop */
@@ -132,8 +150,7 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 
 	pw_thread_loop_stop(loop);
 
-	if (loop->name)
-		free(loop->name);
+	free(loop->name);
 	pthread_mutex_destroy(&loop->lock);
 	pthread_cond_destroy(&loop->cond);
 	pthread_cond_destroy(&loop->accept_cond);

@@ -141,7 +141,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		struct spa_meta_bitmap *mb;
 		uint32_t *bitmap, color;
 
-		mcs->id = 0;
+		mcs->id = 1; /* 0 is invalid cursor, anything else is valid */
 		mcs->position.x = (sin(data->accumulator) + 1.0) * 160.0 + 80;
 		mcs->position.y = (cos(data->accumulator) + 1.0) * 100.0 + 50;
 		mcs->hotspot.x = 0;

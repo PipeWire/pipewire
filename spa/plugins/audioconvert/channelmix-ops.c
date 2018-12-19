@@ -122,6 +122,42 @@ channelmix_f32_2_1(void *data, int n_dst, void *dst[n_dst],
 	}
 }
 
+static void
+channelmix_f32_4_1(void *data, int n_dst, void *dst[n_dst],
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+{
+	int n, n_samples = n_bytes / sizeof(float);
+	float **d = (float **)dst;
+	float **s = (float **)src;
+
+	if (v <= VOLUME_MIN) {
+		memset(d[0], 0, n_bytes);
+	}
+	else {
+		const float f = v * 0.25f;
+		for (n = 0; n < n_samples; n++)
+			d[0][n] = (s[0][n] + s[1][n] + s[2][n] + s[3][n]) * f;
+	}
+}
+
+static void
+channelmix_f32_3p1_1(void *data, int n_dst, void *dst[n_dst],
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+{
+	int n, n_samples = n_bytes / sizeof(float);
+	float **d = (float **)dst;
+	float **s = (float **)src;
+
+	if (v <= VOLUME_MIN) {
+		memset(d[0], 0, n_bytes);
+	}
+	else {
+		const float f = v * 0.5f;
+		for (n = 0; n < n_samples; n++)
+			d[0][n] = (s[0][n] + s[1][n] + s[2][n]) * f;
+	}
+}
+
 
 #define MASK_QUAD	_M(FL)|_M(FR)|_M(RL)|_M(RR)|_M(UNKNOWN)
 
@@ -439,6 +475,8 @@ static const struct channelmix_info {
 
 	{ 1, MASK_MONO, 2, MASK_STEREO, channelmix_f32_1_2, 0 },
 	{ 2, MASK_STEREO, 1, MASK_MONO, channelmix_f32_2_1, 0 },
+	{ 4, MASK_QUAD, 1, MASK_MONO, channelmix_f32_4_1, 0 },
+	{ 4, MASK_3_1, 1, MASK_MONO, channelmix_f32_3p1_1, 0 },
 #if defined (__SSE__)
 	{ 2, MASK_STEREO, 4, MASK_QUAD, channelmix_f32_2_4_sse, FEATURE_SSE },
 #endif

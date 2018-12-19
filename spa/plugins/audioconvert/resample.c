@@ -92,6 +92,7 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
+	struct spa_cpu *cpu;
 
 	struct props props;
 
@@ -925,9 +926,18 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_CPU:
+			this->cpu = support[i].data;
+			break;
+		}
 	}
+
+	if (this->cpu)
+		this->resample.cpu_flags = spa_cpu_get_flags(this->cpu);
 
 	if (info != NULL && (str = spa_dict_lookup(info, "resample.peaks")) != NULL)
 		this->monitor = atoi(str);

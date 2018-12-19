@@ -22,7 +22,10 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <spa/support/cpu.h>
+
 struct resample {
+	uint32_t cpu_flags;
 	uint32_t channels;
 	uint32_t i_rate;
 	uint32_t o_rate;

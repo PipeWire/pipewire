@@ -654,8 +654,7 @@ void pw_node_destroy(struct pw_node *node)
 	pw_map_clear(&node->input_port_map);
 	pw_map_clear(&node->output_port_map);
 
-	if (node->properties)
-		pw_properties_free(node->properties);
+	pw_properties_free(node->properties);
 
 	clear_info(node);
 
@@ -922,8 +921,7 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 		pw_log_debug("node %p: update state from %s -> %s", node,
 			     pw_node_state_as_string(old), pw_node_state_as_string(state));
 
-		if (node->info.error)
-			free((char*)node->info.error);
+		free((char*)node->info.error);
 		node->info.error = error;
 		node->info.state = state;
 

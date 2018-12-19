@@ -130,23 +130,19 @@ struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_CORE_CHANGE_MASK_USER_NAME) {
-		if (info->user_name)
-			free((void *) info->user_name);
+		free((void *) info->user_name);
 		info->user_name = update->user_name ? strdup(update->user_name) : NULL;
 	}
 	if (update->change_mask & PW_CORE_CHANGE_MASK_HOST_NAME) {
-		if (info->host_name)
-			free((void *) info->host_name);
+		free((void *) info->host_name);
 		info->host_name = update->host_name ? strdup(update->host_name) : NULL;
 	}
 	if (update->change_mask & PW_CORE_CHANGE_MASK_VERSION) {
-		if (info->version)
-			free((void *) info->version);
+		free((void *) info->version);
 		info->version = update->version ? strdup(update->version) : NULL;
 	}
 	if (update->change_mask & PW_CORE_CHANGE_MASK_NAME) {
-		if (info->name)
-			free((void *) info->name);
+		free((void *) info->name);
 		info->name = update->name ? strdup(update->name) : NULL;
 	}
 	if (update->change_mask & PW_CORE_CHANGE_MASK_COOKIE)
@@ -161,14 +157,10 @@ struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 
 void pw_core_info_free(struct pw_core_info *info)
 {
-	if (info->user_name)
-		free((void *) info->user_name);
-	if (info->host_name)
-		free((void *) info->host_name);
-	if (info->version)
-		free((void *) info->version);
-	if (info->name)
-		free((void *) info->name);
+	free((void *) info->user_name);
+	free((void *) info->host_name);
+	free((void *) info->version);
+	free((void *) info->name);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free(info);
@@ -190,8 +182,7 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_NODE_CHANGE_MASK_NAME) {
-		if (info->name)
-			free((void *) info->name);
+		free((void *) info->name);
 		info->name = update->name ? strdup(update->name) : NULL;
 	}
 	if (update->change_mask & PW_NODE_CHANGE_MASK_INPUT_PORTS) {
@@ -205,8 +196,7 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 
 	if (update->change_mask & PW_NODE_CHANGE_MASK_STATE) {
 		info->state = update->state;
-		if (info->error)
-			free((void *) info->error);
+		free((void *) info->error);
 		info->error = update->error ? strdup(update->error) : NULL;
 	}
 	if (update->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
@@ -220,10 +210,8 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 void pw_node_info_free(struct pw_node_info *info)
 {
 
-	if (info->name)
-		free((void *) info->name);
-	if (info->error)
-		free((void *) info->error);
+	free((void *) info->name);
+	free((void *) info->error);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free(info);
@@ -245,8 +233,7 @@ struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_PORT_CHANGE_MASK_NAME) {
-		if (info->name)
-			free((void *) info->name);
+		free((void *) info->name);
 		info->name = update->name ? strdup(update->name) : NULL;
 	}
 	if (update->change_mask & PW_PORT_CHANGE_MASK_PROPS) {
@@ -260,8 +247,7 @@ struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 void pw_port_info_free(struct pw_port_info *info)
 {
 
-	if (info->name)
-		free((void *) info->name);
+	free((void *) info->name);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free(info);
@@ -279,8 +265,7 @@ struct pw_factory_info *pw_factory_info_update(struct pw_factory_info *info,
 			return NULL;
 	}
 	info->id = update->id;
-	if (info->name)
-		free((void *) info->name);
+	free((void *) info->name);
 	info->name = update->name ? strdup(update->name) : NULL;
 	info->type = update->type;
 	info->version = update->version;
@@ -296,8 +281,7 @@ struct pw_factory_info *pw_factory_info_update(struct pw_factory_info *info,
 
 void pw_factory_info_free(struct pw_factory_info *info)
 {
-	if (info->name)
-		free((void *) info->name);
+	free((void *) info->name);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free(info);
@@ -318,18 +302,15 @@ struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_MODULE_CHANGE_MASK_NAME) {
-		if (info->name)
-			free((void *) info->name);
+		free((void *) info->name);
 		info->name = update->name ? strdup(update->name) : NULL;
 	}
 	if (update->change_mask & PW_MODULE_CHANGE_MASK_FILENAME) {
-		if (info->filename)
-			free((void *) info->filename);
+		free((void *) info->filename);
 		info->filename = update->filename ? strdup(update->filename) : NULL;
 	}
 	if (update->change_mask & PW_MODULE_CHANGE_MASK_ARGS) {
-		if (info->args)
-			free((void *) info->args);
+		free((void *) info->args);
 		info->args = update->args ? strdup(update->args) : NULL;
 	}
 	if (update->change_mask & PW_MODULE_CHANGE_MASK_PROPS) {
@@ -342,12 +323,9 @@ struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 
 void pw_module_info_free(struct pw_module_info *info)
 {
-	if (info->name)
-		free((void *) info->name);
-	if (info->filename)
-		free((void *) info->filename);
-	if (info->args)
-		free((void *) info->args);
+	free((void *) info->name);
+	free((void *) info->filename);
+	free((void *) info->args);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free(info);
@@ -406,8 +384,7 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 		info->input_port_id = update->input_port_id;
 	}
 	if (update->change_mask & PW_LINK_CHANGE_MASK_FORMAT) {
-		if (info->format)
-			free(info->format);
+		free(info->format);
 		info->format = pw_spa_pod_copy(update->format);
 	}
 	return info;
@@ -415,7 +392,6 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 
 void pw_link_info_free(struct pw_link_info *info)
 {
-	if (info->format)
-		free(info->format);
+	free(info->format);
 	free(info);
 }

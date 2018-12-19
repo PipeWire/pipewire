@@ -124,8 +124,7 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 	enum pw_remote_state old = remote->state;
 
 	if (old != state) {
-		if (remote->error)
-			free(remote->error);
+		free(remote->error);
 
 		if (fmt) {
 			va_list varargs;
@@ -305,8 +304,9 @@ void pw_remote_destroy(struct pw_remote *remote)
 
 	spa_list_remove(&remote->link);
 
-	if (remote->properties)
-		pw_properties_free(remote->properties);
+	pw_log_debug("remote %p: free", remote);
+	pw_properties_free(remote->properties);
+
 	free(remote->error);
 	free(impl);
 }
@@ -452,7 +452,7 @@ int pw_remote_disconnect(struct pw_remote *remote)
 	remote->n_types = 0;
 
 	if (remote->info) {
-		pw_core_info_free (remote->info);
+		pw_core_info_free(remote->info);
 		remote->info = NULL;
 	}
         pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);

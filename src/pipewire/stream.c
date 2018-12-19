@@ -304,8 +304,7 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 	enum pw_stream_state old = stream->state;
 	bool res = old != state;
 	if (res) {
-		if (stream->error)
-			free(stream->error);
+		free(stream->error);
 		stream->error = error;
 
 		pw_log_debug("stream %p: update state from %s -> %s (%s)", stream,
@@ -540,14 +539,10 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	pw_array_clear(&impl->mem_ids);
 
-	if (stream->error)
-		free(stream->error);
+	free(stream->error);
+	free(stream->name);
 
-	if (stream->name)
-		free(stream->name);
-
-	if (stream->properties)
-		pw_properties_free(stream->properties);
+	pw_properties_free(stream->properties);
 
 	free(impl);
 }
@@ -948,8 +943,7 @@ client_node_port_set_param(void *data,
 
 		pw_log_debug("stream %p: format changed %d", stream, seq);
 
-		if (impl->format)
-			free(impl->format);
+		free(impl->format);
 
 		if (spa_pod_is_object_type(param, t->spa_format)) {
 			impl->format = pw_spa_pod_copy(param);

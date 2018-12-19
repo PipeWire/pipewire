@@ -215,9 +215,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			pw_work_queue_add(impl->work, input->node, res2, complete_ready, input);
 	}
 
-
-	if (this->info.format)
-		free(this->info.format);
+	free(this->info.format);
 	this->info.format = format;
 
 	if (changed) {
@@ -235,8 +233,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 
       error:
 	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
-	if (format)
-		free(format);
+	free(format);
 	return res;
 }
 
@@ -1311,9 +1308,7 @@ void pw_link_destroy(struct pw_link *link)
 	if (link->properties)
 		pw_properties_free(link->properties);
 
-	if (link->info.format)
-		free(link->info.format);
-
+	free(link->info.format);
 	free(impl);
 }
 

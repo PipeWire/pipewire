@@ -564,8 +564,7 @@ void pw_port_destroy(struct pw_port *port)
 
 	pw_map_clear(&port->mix_port_map);
 
-	if (port->properties)
-		pw_properties_free(port->properties);
+	pw_properties_free(port->properties);
 
 	free(port);
 }

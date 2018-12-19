@@ -73,8 +73,7 @@ void pw_factory_destroy(struct pw_factory *factory)
 		spa_hook_remove(&factory->global_listener);
 		pw_global_destroy(factory->global);
 	}
-	if (factory->info.name)
-		free((char *)factory->info.name);
+	free((char *)factory->info.name);
 	if (factory->properties)
 		pw_properties_free(factory->properties);
 

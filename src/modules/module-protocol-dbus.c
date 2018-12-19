@@ -216,6 +216,7 @@ static void client_destroy(struct client *this)
 	if (this->sender) {
 		spa_list_remove(&this->link);
 		free(this->sender);
+		this->sender = NULL;
 	}
 }
 

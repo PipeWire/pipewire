@@ -303,12 +303,9 @@ void pw_module_destroy(struct pw_module *module)
 		pw_global_destroy(module->global);
 	}
 
-	if (module->info.name)
-		free((char *) module->info.name);
-	if (module->info.filename)
-		free((char *) module->info.filename);
-	if (module->info.args)
-		free((char *) module->info.args);
+	free((char *) module->info.name);
+	free((char *) module->info.filename);
+	free((char *) module->info.args);
 
 	pw_properties_free(module->properties);
 

@@ -440,8 +440,7 @@ static void node_proxy_destroy(void *data)
 	}
 	if (n->info)
 		pw_node_info_free(n->info);
-	if (n->media)
-		free(n->media);
+	free(n->media);
 	if (n->session) {
 		spa_list_remove(&n->session_link);
 		n->session = NULL;

@@ -625,8 +625,7 @@ static int negotiate_buffers(struct impl *impl)
 	spa_buffer_alloc_fill_info(&info, 0, NULL, blocks, datas, aligns);
 	info.skel_size = SPA_ROUND_UP_N(info.skel_size, 16);
 
-	if (impl->buffers)
-		free(impl->buffers);
+	free(impl->buffers);
 	impl->buffers = calloc(buffers, sizeof(struct spa_buffer *) + info.skel_size);
 	if (impl->buffers == NULL)
 		return -ENOMEM;
@@ -1111,12 +1110,9 @@ static void cleanup(struct impl *impl)
 			pw_unload_spa_interface(impl->adapter);
 	}
 
-	if (impl->buffers)
-		free(impl->buffers);
-	if (impl->mem) {
+	free(impl->buffers);
+	if (impl->mem)
 		pw_memblock_free(impl->mem);
-		impl->mem = NULL;
-	}
 	free(impl);
 }
 

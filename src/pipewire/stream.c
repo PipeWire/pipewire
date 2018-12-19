@@ -212,8 +212,7 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 	enum pw_stream_state old = stream->state;
 	bool res = old != state;
 	if (res) {
-		if (stream->error)
-			free(stream->error);
+		free(stream->error);
 		stream->error = error ? strdup(error) : NULL;
 
 		pw_log_debug("stream %p: update state from %s -> %s (%s)", stream,
@@ -995,13 +994,11 @@ void pw_stream_destroy(struct pw_stream *stream)
 	clear_params(stream, PARAM_TYPE_INIT | PARAM_TYPE_OTHER | PARAM_TYPE_FORMAT);
 	pw_array_clear(&impl->params);
 
-	if (stream->error)
-		free(stream->error);
+	free(stream->error);
 
 	pw_properties_free(stream->properties);
 
-	if (stream->name)
-		free(stream->name);
+	free(stream->name);
 
 	if (impl->free_data)
 		pw_core_destroy(impl->data.core);

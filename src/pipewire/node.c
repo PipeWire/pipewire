@@ -175,8 +175,7 @@ static void node_update_state(struct pw_node *node, enum pw_node_state state, ch
 		     pw_node_state_as_string(old), pw_node_state_as_string(state));
 	}
 
-	if (node->info.error)
-		free((char*)node->info.error);
+	free((char*)node->info.error);
 	node->info.error = error;
 	node->info.state = state;
 

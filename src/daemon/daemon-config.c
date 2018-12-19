@@ -95,7 +95,7 @@ void pw_daemon_config_free(struct pw_daemon_config *config)
 	struct pw_command *cmd, *tmp;
 
 	spa_list_for_each_safe(cmd, tmp, &config->commands, link)
-	    pw_command_free(cmd);
+		pw_command_free(cmd);
 
 	free(config);
 }

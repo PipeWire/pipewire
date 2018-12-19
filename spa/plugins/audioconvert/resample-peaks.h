@@ -36,8 +36,7 @@ struct peaks_data {
 
 static void impl_peaks_free(struct resample *r)
 {
-	if (r->data)
-		free(r->data);
+	free(r->data);
 	r->data = NULL;
 }
 

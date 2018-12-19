@@ -51,11 +51,19 @@ struct pw_device *pw_device_new(struct pw_core *core,
 	struct pw_device *this;
 
 	this = calloc(1, sizeof(*this) + user_data_size);
+	if (this == NULL)
+		return NULL;
+
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		goto no_mem;
+
 	this->core = core;
 	this->properties = properties;
 
 	this->info.name = strdup(name);
-	this->info.props = properties ? &properties->dict : NULL;
+	this->info.props = &properties->dict;
 	spa_hook_list_init(&this->listener_list);
 
 	spa_list_init(&this->node_list);
@@ -66,6 +74,10 @@ struct pw_device *pw_device_new(struct pw_core *core,
 	pw_log_debug("device %p: new %s", this, name);
 
 	return this;
+
+      no_mem:
+	free(this);
+	return NULL;
 }
 
 void pw_device_destroy(struct pw_device *device)
@@ -85,10 +97,8 @@ void pw_device_destroy(struct pw_device *device)
 		spa_hook_remove(&device->global_listener);
 		pw_global_destroy(device->global);
 	}
-	if (device->info.name)
-		free((char *)device->info.name);
-	if (device->properties)
-		pw_properties_free(device->properties);
+	free((char *)device->info.name);
+	pw_properties_free(device->properties);
 
 	free(device);
 }

@@ -199,15 +199,15 @@ static int make_matrix(struct impl *this,
 			matrix[i][i]= 1.0f;
 	}
 
+	if ((dst_mask & _MASK(MONO)) ==  _MASK(MONO))
+		dst_mask = _MASK(FC);
+
 	unassigned = src_mask & ~dst_mask;
 
 	spa_log_debug(this->log, "unassigned %08lx", unassigned);
 
 	if (unassigned & _MASK(FC)){
-		if (dst_mask & _MASK(MONO)) {
-			matrix[M][FC] += clev;
-		}
-		else if ((dst_mask & STEREO) == STEREO){
+		if ((dst_mask & STEREO) == STEREO){
 			if(src_mask & STEREO) {
 				matrix[FL][FC] += clev;
 				matrix[FR][FC] += clev;
@@ -221,11 +221,7 @@ static int make_matrix(struct impl *this,
 	}
 
 	if (unassigned & STEREO){
-		if (dst_mask & _MASK(MONO)) {
-			matrix[M][FL] += 0.5f;
-			matrix[M][FR] += 0.5f;
-		}
-		else if (dst_mask & _MASK(FC)) {
+		if (dst_mask & _MASK(FC)) {
 			matrix[FC][FL] += SQRT1_2;
 			matrix[FC][FR] += SQRT1_2;
 			if (src_mask & _MASK(FC))
@@ -258,8 +254,6 @@ static int make_matrix(struct impl *this,
 			}
 		} else if (dst_mask & _MASK(FC)) {
 			matrix[FC][RC] += slev * SQRT1_2;
-		} else if (dst_mask & _MASK(MONO)) {
-			matrix[M][RC] += slev * SQRT1_2;
 		} else {
 			spa_log_warn(this->log, "can't assign RC");
 		}
@@ -295,9 +289,6 @@ static int make_matrix(struct impl *this,
 		} else if (dst_mask & _MASK(FC)) {
 			matrix[FC][RL]+= slev * SQRT1_2;
 			matrix[FC][RR]+= slev * SQRT1_2;
-		} else if (dst_mask & _MASK(MONO)) {
-			matrix[M][RL]+= slev * SQRT1_2;
-			matrix[M][RR]+= slev * SQRT1_2;
 		} else {
 			spa_log_warn(this->log, "can't assign RL");
 		}
@@ -333,9 +324,6 @@ static int make_matrix(struct impl *this,
 		} else if (dst_mask & _MASK(FC)) {
 			matrix[FC][SL] += slev * SQRT1_2;
 			matrix[FC][SR] += slev * SQRT1_2;
-		} else if (dst_mask & _MASK(MONO)) {
-			matrix[M][SL] += slev * SQRT1_2;
-			matrix[M][SR] += slev * SQRT1_2;
 		} else {
 			spa_log_warn(this->log, "can't assign SL");
 		}
@@ -353,9 +341,7 @@ static int make_matrix(struct impl *this,
 		}
 	}
 	if (unassigned & _MASK(LFE)) {
-		if (dst_mask & _MASK(MONO)) {
-			matrix[M][LFE] += llev;
-		} else if (dst_mask & _MASK(FC)) {
+		if (dst_mask & _MASK(FC)) {
 			matrix[FC][LFE] += llev;
 		} else if (dst_mask & _MASK(FL)) {
 			matrix[FL][LFE] += llev * SQRT1_2;

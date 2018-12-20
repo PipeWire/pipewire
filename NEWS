@@ -1,10 +1,11 @@
-PipeWire 0.2.4
+PipeWire 0.2.5
 
-- Install man pages in right directory
-- Add systemd socket activation
-- Various memory leak and corruption fixes in properties, dbus and
-  buffer mmaped memory.
-- Fix v4l2 crash on unplug
-- improve stream cleanup
+- build fixes for systemd
+- Add cursor and bitmap metadata. This can be used to send a cursor
+  sprite with the video stream.
+- permissions were set too strict for non-flatpak clients
+- Fix crash in loop caused by thread unsafe hook emission
+- Add more error checking for thread-loop
+- Small cleanups and bugfixes
 
 This is mostly a bugfix release.

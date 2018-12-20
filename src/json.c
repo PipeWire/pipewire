@@ -53,9 +53,9 @@ struct pa_json_object {
 
 static void clear_array(struct pw_array *array)
 {
-    pa_json_object *value;
+    pa_json_object **value;
     pw_array_for_each(value, array)
-	    pa_json_object_free(value);
+	    pa_json_object_free(*value);
     pw_array_clear(array);
 }
 

@@ -74,6 +74,14 @@ static void do_stop(void *data, uint64_t count)
 	this->running = false;
 }
 
+#define CHECK(expression,label)						\
+do {									\
+	if ((errno = expression) != 0) {				\
+		pw_log_error(#expression ": %s", strerror(errno));	\
+		goto label;						\
+	}								\
+} while(false);
+
 /** Create a new \ref pw_thread_loop
  *
  * \param loop the loop to wrap
@@ -97,7 +105,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 
 	this = calloc(1, sizeof(struct pw_thread_loop));
 	if (this == NULL)
-		goto error1;
+		goto no_mem;
 
 	pw_log_debug("thread-loop %p: new", this);
 
@@ -106,35 +114,33 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 
 	spa_hook_list_init(&this->listener_list);
 
-	pthread_mutexattr_init(&attr);
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-	if ((errno = pthread_mutex_init(&this->lock, &attr)) != 0)
-		goto error2;
+	CHECK(pthread_mutexattr_init(&attr), clean_this);
+	CHECK(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE), clean_this);
+	CHECK(pthread_mutex_init(&this->lock, &attr), clean_this);
 
-	pthread_condattr_init(&cattr);
-	pthread_condattr_setclock(&cattr, CLOCK_REALTIME);
-	if ((errno = pthread_cond_init(&this->cond, &cattr)) != 0)
-		goto error3;
-	if ((errno = pthread_cond_init(&this->accept_cond, &cattr)) != 0)
-		goto error4;
+	CHECK(pthread_condattr_init(&cattr), clean_lock);
+	CHECK(pthread_condattr_setclock(&cattr, CLOCK_REALTIME), clean_lock);
+
+	CHECK(pthread_cond_init(&this->cond, &cattr), clean_lock);
+	CHECK(pthread_cond_init(&this->accept_cond, &cattr), clean_cond);
 
 	if ((this->event = pw_loop_add_event(this->loop, do_stop, this)) == NULL)
-		goto error5;
+		goto clean_acceptcond;
 
 	pw_loop_add_hook(loop, &this->hook, &impl_hooks, this);
 
 	return this;
 
-      error5:
+      clean_acceptcond:
 	pthread_cond_destroy(&this->accept_cond);
-      error4:
+      clean_cond:
 	pthread_cond_destroy(&this->cond);
-      error3:
+      clean_lock:
 	pthread_mutex_destroy(&this->lock);
-      error2:
+      clean_this:
 	free(this->name);
 	free(this);
-      error1:
+      no_mem:
 	return NULL;
 }
 

@@ -53,7 +53,7 @@ static void impl_peaks_process_sse(struct resample *r, int channel,
 		end = end > pd->i_count ? end - pd->i_count : 0;
 		chunk = SPA_MIN(end, *in_len);
 
-		unrolled = chunk - (chunk & 3);
+		unrolled = chunk - ((chunk - i) & 3);
 
 		for (; i < unrolled; i+=4) {
 			in = _mm_loadu_ps(&s[i]);

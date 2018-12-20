@@ -243,6 +243,7 @@ static int emit_info(struct impl *this)
 	activate_profile(this, ctl_hndl, 0);
 
       exit:
+        spa_log_info(this->log, "close card %s", this->props.device);
 	snd_ctl_close(ctl_hndl);
 	return err;
 }

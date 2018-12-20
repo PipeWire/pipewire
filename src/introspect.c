@@ -351,7 +351,10 @@ static void sink_callback(struct sink_data *d)
 	i.monitor_source_name = "unknown";
 	i.latency = 0;
 	i.driver = "PipeWire";
-	i.flags = 0;
+	i.flags = PA_SINK_HARDWARE |
+		  PA_SINK_HW_VOLUME_CTRL | PA_SINK_HW_MUTE_CTRL |
+		  PA_SINK_LATENCY | PA_SINK_DYNAMIC_LATENCY |
+		  PA_SINK_DECIBEL_VOLUME;
 	i.proplist = pa_proplist_new_dict(info->props);
 	i.configured_latency = 0;
 	i.base_volume = PA_VOLUME_NORM;
@@ -555,6 +558,10 @@ static void source_callback(struct source_data *d)
 	pa_source_info i;
 	pa_format_info ii[1];
 	pa_format_info *ip[1];
+	enum pa_sink_flags flags;
+
+	flags = PA_SOURCE_LATENCY | PA_SOURCE_DYNAMIC_LATENCY |
+		  PA_SOURCE_DECIBEL_VOLUME;
 
 	spa_zero(i);
 	i.name = info->name;
@@ -573,10 +580,11 @@ static void source_callback(struct source_data *d)
 	} else {
 		i.monitor_of_sink = PA_INVALID_INDEX;
 		i.monitor_of_sink_name = NULL;
+		flags |= PA_SOURCE_HARDWARE | PA_SOURCE_HW_VOLUME_CTRL | PA_SOURCE_HW_MUTE_CTRL;
 	}
 	i.latency = 0;
 	i.driver = "PipeWire";
-	i.flags = 0;
+	i.flags = flags;
 	i.proplist = pa_proplist_new_dict(info->props);
 	i.configured_latency = 0;
 	i.base_volume = PA_VOLUME_NORM;

@@ -205,12 +205,12 @@ static void client_destroy(void *data)
 static void device_destroy(void *data)
 {
 	struct global *global = data;
-	struct spa_pod *profile;
+	struct spa_pod **profile;
 
 	if (global->card_info.info.proplist)
 		pa_proplist_free(global->card_info.info.proplist);
 	pw_array_for_each(profile, &global->card_info.profiles)
-		free(profile);
+		free(*profile);
 	pw_array_clear(&global->card_info.profiles);
 	if (global->info)
 		pw_device_info_free(global->info);

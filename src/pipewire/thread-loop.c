@@ -156,13 +156,15 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 
 	pw_thread_loop_stop(loop);
 
-	free(loop->name);
-	pthread_mutex_destroy(&loop->lock);
-	pthread_cond_destroy(&loop->cond);
-	pthread_cond_destroy(&loop->accept_cond);
-
 	spa_hook_remove(&loop->hook);
 
+	pw_loop_destroy_source(loop->loop, loop->event);
+
+	pthread_cond_destroy(&loop->accept_cond);
+	pthread_cond_destroy(&loop->cond);
+	pthread_mutex_destroy(&loop->lock);
+
+	free(loop->name);
 	free(loop);
 }
 

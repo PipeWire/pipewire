@@ -58,7 +58,7 @@ pw_spa_pod_copy(const struct spa_pod *pod)
 		return NULL;
 
 	size = SPA_POD_SIZE(pod);
-	if ((c = malloc(size)) == NULL)
+	if ((c = (struct spa_pod *) malloc(size)) == NULL)
 		return NULL;
 
 	return (struct spa_pod *) memcpy(c, pod, size);

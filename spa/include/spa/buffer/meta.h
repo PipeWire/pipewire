@@ -124,7 +124,8 @@ struct spa_meta_cursor {
 					  *  there is no new cursor data */
 	uint32_t flags;			/**< extra flags */
 	struct spa_point position;	/**< position on screen */
-	struct spa_point hotspot;	/**< offsets for hotspot in bitmap */
+	struct spa_point hotspot;	/**< offsets for hotspot in bitmap, this field has no meaning
+					  *  when there is no valid bitmap (see below) */
 	uint32_t bitmap_offset;		/**< offset of bitmap meta in this structure. When the offset
 					  *  is 0, there is no new bitmap information. When the offset is
 					  *  >= sizeof(struct spa_meta_cursor) there is a

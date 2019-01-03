@@ -101,10 +101,15 @@ struct spa_meta_region {
  * better transfered inline.
  */
 struct spa_meta_bitmap {
-	uint32_t format;		/**< bitmap video format, one of enum spa_video_format */
+	uint32_t format;		/**< bitmap video format, one of enum spa_video_format. 0 is
+					  *  and invalid format and should be handled as if there is
+					  *  no new bitmap information. */
 	struct spa_rectangle size;	/**< width and height of bitmap */
 	int32_t stride;			/**< stride of bitmap data */
-	uint32_t offset;		/**< offset of bitmap data in this structure */
+	uint32_t offset;		/**< offset of bitmap data in this structure. An offset of
+					  *  0 means no image data (invisible), an offset >=
+					  *  sizeof(struct spa_meta_bitmap) contains valid bitmap
+					  *  info. */
 };
 
 #define spa_meta_cursor_is_valid(m)	((m)->id != 0)
@@ -115,11 +120,15 @@ struct spa_meta_bitmap {
  * Metadata to describe the position and appearance of a pointing device.
  */
 struct spa_meta_cursor {
-	uint32_t id;			/**< cursor id */
+	uint32_t id;			/**< cursor id. an id of 0 is an invalid id and means that
+					  *  there is no new cursor data */
 	uint32_t flags;			/**< extra flags */
 	struct spa_point position;	/**< position on screen */
 	struct spa_point hotspot;	/**< offsets for hotspot in bitmap */
-	uint32_t bitmap_offset;		/**< offset of bitmap meta in this structure */
+	uint32_t bitmap_offset;		/**< offset of bitmap meta in this structure. When the offset
+					  *  is 0, there is no new bitmap information. When the offset is
+					  *  >= sizeof(struct spa_meta_cursor) there is a
+					  *  struct spa_meta_bitmap at the offset. */
 };
 
 #ifdef __cplusplus

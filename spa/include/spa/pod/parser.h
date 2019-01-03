@@ -359,6 +359,33 @@ static inline int spa_pod_get_double(struct spa_pod *pod, double *value)
 	return 0;
 }
 
+static inline int spa_pod_is_int(struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Int && SPA_POD_BODY_SIZE(pod) >= sizeof(int32_t));
+}
+
+static inline int spa_pod_get_int(struct spa_pod *pod, int32_t *value)
+{
+	if (!spa_pod_is_int(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_int, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_string(struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_String && SPA_POD_BODY_SIZE(pod) >= sizeof(1));
+}
+
+static inline int spa_pod_dup_string(struct spa_pod *pod, size_t maxlen, char *dest)
+{
+	if (!spa_pod_is_string(pod) || maxlen < 1)
+		return -EINVAL;
+	strncpy(dest, (char *)SPA_POD_CONTENTS(struct spa_pod_string, pod), maxlen-1);
+	dest[maxlen-1]= '\0';
+	return 0;
+}
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

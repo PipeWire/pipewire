@@ -27,7 +27,7 @@
 
 #include <spa/utils/defs.h>
 
-#include <xmmintrin.h>
+#include <emmintrin.h>
 
 static void
 conv_s16_to_f32d_1_sse2(void *data, int n_dst, void *dst[n_dst], const void *src, int n_samples)
@@ -43,10 +43,11 @@ conv_s16_to_f32d_1_sse2(void *data, int n_dst, void *dst[n_dst], const void *src
 	n_samples = n_samples & 3;
 
 	for(; unrolled--; n += 4) {
-		in = _mm_setr_epi32(s[0*n_dst],
-				    s[1*n_dst],
-				    s[2*n_dst],
-				    s[3*n_dst]);
+		in = _mm_insert_epi16(in, s[0*n_dst], 1);
+		in = _mm_insert_epi16(in, s[1*n_dst], 3);
+		in = _mm_insert_epi16(in, s[2*n_dst], 5);
+		in = _mm_insert_epi16(in, s[3*n_dst], 7);
+		in = _mm_srai_epi32(in, 16);
 		out = _mm_cvtepi32_ps(in);
 		out = _mm_mul_ps(out, factor);
 		_mm_storeu_ps(&d0[n], out);

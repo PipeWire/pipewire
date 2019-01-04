@@ -1733,7 +1733,6 @@ pa_operation *pa_stream_proplist_update(pa_stream *s, pa_update_mode_t mode, pa_
 {
 	pa_operation *o;
 	struct success_ack *d;
-	char *str;
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -1743,9 +1742,7 @@ pa_operation *pa_stream_proplist_update(pa_stream *s, pa_update_mode_t mode, pa_
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
-	str = pa_proplist_to_string(p);
-	pw_log_warn("Not Implemented %s", str);
-	free(str);
+	pa_proplist_update(s->proplist, mode, p);
 
 	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
 	d = o->userdata;

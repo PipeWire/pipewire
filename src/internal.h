@@ -81,6 +81,17 @@ extern "C" {
 #define PA_CLAMP_UNLIKELY(x, low, high) (PA_UNLIKELY((x) > (high)) ? (high) : (PA_UNLIKELY((x) < (low)) ? (low) : (x)))
 #endif
 
+#ifdef __GNUC__
+#define PA_ROUND_DOWN(a, b)				\
+	__extension__ ({				\
+		typeof(a) _a = (a);			\
+		typeof(b) _b = (b);			\
+		(_a / _b) * _b;				\
+	})
+#else
+#define PA_ROUND_DOWN(a, b) (((a) / (b)) * (b))
+#endif
+
 
 #define pa_init_i18n()
 #define _(String)		(String)

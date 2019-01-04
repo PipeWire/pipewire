@@ -478,28 +478,152 @@ pa_operation* pa_context_get_sink_info_list(pa_context *c, pa_sink_info_cb_t cb,
 	return o;
 }
 
+static void set_node_volume(pa_context *c, struct global *g, const pa_cvolume *volume)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	float v;
+
+	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
+
+	ensure_global(c, g);
+
+	pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
+		SPA_PARAM_Props, 0,
+		spa_pod_builder_object(&b,
+			SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
+			SPA_PROP_volume,	&SPA_POD_Float(v),
+			0));
+}
+
+static void set_node_mute(pa_context *c, struct global *g, bool mute)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+	ensure_global(c, g);
+
+	pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
+		SPA_PARAM_Props, 0,
+		spa_pod_builder_object(&b,
+			SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
+			SPA_PROP_mute,		&SPA_POD_Bool(mute),
+			0));
+}
+
+
 pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented %d", idx);
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct success_ack *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	pw_log_debug("context %p: index %d", c, idx);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, pa_cvolume_valid(volume), PA_ERR_INVALID);
+
+	if ((g = pa_context_find_global(c, idx)) == NULL)
+		return NULL;
+	if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK))
+		return NULL;
+
+	set_node_volume(c, g, volume);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+	return o;
 }
 
 pa_operation* pa_context_set_sink_volume_by_name(pa_context *c, const char *name, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented %s", name);
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct success_ack *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, pa_cvolume_valid(volume), PA_ERR_INVALID);
+
+	pw_log_debug("context %p: name %s", c, name);
+
+	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SINK, name)) == NULL)
+		return NULL;
+
+	set_node_volume(c, g, volume);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+	return o;
 }
 
 pa_operation* pa_context_set_sink_mute_by_index(pa_context *c, uint32_t idx, int mute, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented %d", mute);
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct success_ack *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
+
+	pw_log_debug("context %p: index %d", c, idx);
+
+	if ((g = pa_context_find_global(c, idx)) == NULL)
+		return NULL;
+	if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK))
+		return NULL;
+
+	set_node_mute(c, g, mute);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+	return o;
 }
 
 pa_operation* pa_context_set_sink_mute_by_name(pa_context *c, const char *name, int mute, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented %s", name);
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct success_ack *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
+
+	pw_log_debug("context %p: name %s", c, name);
+
+	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SINK, name)) == NULL)
+		return NULL;
+
+	set_node_mute(c, g, mute);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+	return o;
 }
 
 pa_operation* pa_context_suspend_sink_by_name(pa_context *c, const char *sink_name, int suspend, pa_context_success_cb_t cb, void* userdata)
@@ -709,26 +833,116 @@ pa_operation* pa_context_get_source_info_list(pa_context *c, pa_source_info_cb_t
 
 pa_operation* pa_context_set_source_volume_by_index(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct success_ack *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	pw_log_debug("context %p: index %d", c, idx);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, pa_cvolume_valid(volume), PA_ERR_INVALID);
+
+	if ((g = pa_context_find_global(c, idx)) == NULL)
+		return NULL;
+	if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))
+		return NULL;
+
+	set_node_volume(c, g, volume);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+	return o;
 }
 
 pa_operation* pa_context_set_source_volume_by_name(pa_context *c, const char *name, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct success_ack *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, pa_cvolume_valid(volume), PA_ERR_INVALID);
+
+	pw_log_debug("context %p: name %s", c, name);
+
+	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SOURCE, name)) == NULL)
+		return NULL;
+
+	set_node_volume(c, g, volume);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+	return o;
 }
 
 pa_operation* pa_context_set_source_mute_by_index(pa_context *c, uint32_t idx, int mute, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct success_ack *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
+
+	pw_log_debug("context %p: index %d", c, idx);
+
+	if ((g = pa_context_find_global(c, idx)) == NULL)
+		return NULL;
+	if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))
+		return NULL;
+
+	set_node_mute(c, g, mute);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+	return o;
 }
 
 pa_operation* pa_context_set_source_mute_by_name(pa_context *c, const char *name, int mute, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct global *g;
+	struct success_ack *d;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
+
+	pw_log_debug("context %p: name %s", c, name);
+
+	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SOURCE, name)) == NULL)
+		return NULL;
+
+	set_node_mute(c, g, mute);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+	return o;
 }
 
 pa_operation* pa_context_suspend_source_by_name(pa_context *c, const char *source_name, int suspend, pa_context_success_cb_t cb, void* userdata)
@@ -1489,11 +1703,8 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
-	float v;
 
-	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-
-	pw_log_debug("contex %p: index %d volume %f", c, idx, v);
+	pw_log_debug("contex %p: index %d", c, idx);
 
 	if ((s = find_stream(c, idx)) == NULL) {
 		if ((g = pa_context_find_global(c, idx)) == NULL)
@@ -1503,19 +1714,11 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 	}
 
 	if (s) {
-		s->volume = v;
+		s->volume = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
 		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
 	}
 	else if (g) {
-		char buf[1024];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
-			SPA_PARAM_Props, 0,
-			spa_pod_builder_object(&b,
-				SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
-				SPA_PROP_volume,	&SPA_POD_Float(v),
-				0));
+		set_node_volume(c, g, volume);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1545,15 +1748,7 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
 	}
 	else if (g) {
-		char buf[1024];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
-			SPA_PARAM_Props, 0,
-			spa_pod_builder_object(&b,
-				SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
-				SPA_PROP_mute,		&SPA_POD_Bool(mute),
-				0));
+		set_node_mute(c, g, mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1769,11 +1964,8 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
-	float v;
 
-	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-
-	pw_log_debug("contex %p: index %d volume %f", c, idx, v);
+	pw_log_debug("contex %p: index %d", c, idx);
 
 	if ((s = find_stream(c, idx)) == NULL) {
 		if ((g = pa_context_find_global(c, idx)) == NULL)
@@ -1783,19 +1975,11 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 	}
 
 	if (s) {
-		s->volume = v;
+		s->volume = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
 		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
 	}
 	else if (g) {
-		char buf[1024];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
-			SPA_PARAM_Props, 0,
-			spa_pod_builder_object(&b,
-				SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
-				SPA_PROP_volume,	&SPA_POD_Float(v),
-				0));
+		set_node_volume(c, g, volume);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1825,15 +2009,7 @@ pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int
 		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
 	}
 	else if (g) {
-		char buf[1024];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
-			SPA_PARAM_Props, 0,
-			spa_pod_builder_object(&b,
-				SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
-				SPA_PROP_mute,		&SPA_POD_Bool(mute),
-				0));
+		set_node_mute(c, g, mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;

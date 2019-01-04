@@ -662,7 +662,6 @@ pa_operation* pa_context_set_name(pa_context *c, const char *name, pa_context_su
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
 	d = o->userdata;
-	d->ret = PA_ERR_ACCESS;
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);
@@ -700,14 +699,45 @@ uint32_t pa_context_get_server_protocol_version(pa_context *c)
 
 pa_operation *pa_context_proplist_update(pa_context *c, pa_update_mode_t mode, pa_proplist *p, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	pa_operation *o;
+	struct success_data *d;
+
+	spa_assert(c);
+	spa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, mode == PA_UPDATE_SET ||
+			mode == PA_UPDATE_MERGE || mode == PA_UPDATE_REPLACE, PA_ERR_INVALID);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	pa_proplist_update(c->proplist, mode, p);
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+	return o;
 }
 
 pa_operation *pa_context_proplist_remove(pa_context *c, const char *const keys[], pa_context_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_data *d;
+
+	spa_assert(c);
+	spa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, keys && keys[0], PA_ERR_INVALID);
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+	return o;
 }
 
 uint32_t pa_context_get_index(pa_context *c)
@@ -749,12 +779,19 @@ void pa_context_rttime_restart(pa_context *c, pa_time_event *e, pa_usec_t usec)
 
 size_t pa_context_get_tile_size(pa_context *c, const pa_sample_spec *ss)
 {
-	pw_log_warn("Not Implemented");
-	return 1024;
+	size_t fs, mbs;
+
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_ANY(c, !ss || pa_sample_spec_valid(ss), PA_ERR_INVALID, (size_t) -1);
+
+	fs = ss ? pa_frame_size(ss) : 1;
+	mbs = PA_ROUND_DOWN(4096, fs);
+	return PA_MAX(mbs, fs);
 }
 
 int pa_context_load_cookie_from_file(pa_context *c, const char *cookie_file_path)
 {
-	pw_log_warn("Not Implemented");
-	return -ENOTSUP;
+	return 0;
 }

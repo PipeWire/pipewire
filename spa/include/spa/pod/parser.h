@@ -359,6 +359,19 @@ static inline int spa_pod_get_double(struct spa_pod *pod, double *value)
 	return 0;
 }
 
+static inline int spa_pod_is_id(struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Id && SPA_POD_BODY_SIZE(pod) >= sizeof(uint32_t));
+}
+
+static inline int spa_pod_get_id(struct spa_pod *pod, uint32_t *value)
+{
+	if (!spa_pod_is_id(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_id, pod);
+	return 0;
+}
+
 static inline int spa_pod_is_int(struct spa_pod *pod)
 {
 	return (SPA_POD_TYPE(pod) == SPA_TYPE_Int && SPA_POD_BODY_SIZE(pod) >= sizeof(int32_t));
@@ -383,6 +396,34 @@ static inline int spa_pod_dup_string(struct spa_pod *pod, size_t maxlen, char *d
 		return -EINVAL;
 	strncpy(dest, (char *)SPA_POD_CONTENTS(struct spa_pod_string, pod), maxlen-1);
 	dest[maxlen-1]= '\0';
+	return 0;
+}
+
+static inline int spa_pod_is_rectangle(struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Rectangle &&
+			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_rectangle));
+}
+
+static inline int spa_pod_get_rectangle(struct spa_pod *pod, struct spa_rectangle *value)
+{
+	if (!spa_pod_is_rectangle(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_rectangle, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_fraction(struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Fraction &&
+			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_fraction));
+}
+
+static inline int spa_pod_get_fraction(struct spa_pod *pod, struct spa_fraction *value)
+{
+	if (!spa_pod_is_fraction(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_fraction, pod);
 	return 0;
 }
 

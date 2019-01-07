@@ -39,8 +39,8 @@
 
 #include <pipewire/pipewire.h>
 
-#define MIN_BUFFERS	3
-#define MAX_BUFFERS	64
+#define MIN_BUFFERS	3u
+#define MAX_BUFFERS	64u
 
 #define MAX_CHANNELS	32
 #define MAX_RATE	(48000*8)
@@ -628,7 +628,7 @@ static const struct chmap_info chmap_info[] = {
 
 static enum snd_pcm_chmap_position channel_to_chmap(enum spa_audio_channel channel)
 {
-	int i;
+	uint32_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(chmap_info); i++)
 		if (chmap_info[i].channel == channel)
 			return chmap_info[i].pos;
@@ -645,7 +645,7 @@ static snd_pcm_chmap_t * snd_pcm_pipewire_get_chmap(snd_pcm_ioplug_t * io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	snd_pcm_chmap_t *map;
-	int i;
+	uint32_t i;
 
 	map = calloc(1, sizeof(snd_pcm_chmap_t) +
                        pw->format.channels * sizeof(unsigned int));
@@ -844,9 +844,9 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 		pw->target = atoi(str);
 	else {
 		if (stream == SND_PCM_STREAM_PLAYBACK)
-			pw->target = playback_node ? atoi(playback_node) : SPA_ID_INVALID;
+			pw->target = playback_node ? (uint32_t)atoi(playback_node) : SPA_ID_INVALID;
 		else
-			pw->target = capture_node ? atoi(capture_node) : SPA_ID_INVALID;
+			pw->target = capture_node ? (uint32_t)atoi(capture_node) : SPA_ID_INVALID;
 	}
 
         pw->loop = pw_loop_new(NULL);

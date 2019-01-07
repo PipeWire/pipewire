@@ -753,6 +753,7 @@ static void on_remote_state_changed(void *data, enum pw_remote_state old,
         switch (state) {
         case PW_REMOTE_STATE_ERROR:
 		pw_log_error("error %s", error);
+		/* fallthrough */
         case PW_REMOTE_STATE_UNCONNECTED:
 		pw->error = true;
 		if (pw->fd != -1)

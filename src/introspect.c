@@ -1404,8 +1404,9 @@ static void card_profile(pa_operation *o, void *userdata)
 	struct card_data *d = userdata;
 	struct global *g = d->global;
 	pa_context *c = d->context;
-	int res = 0, n_profiles;
-	uint32_t i, id = SPA_ID_INVALID;
+	size_t i, n_profiles;
+	int res = 0;
+	uint32_t id = SPA_ID_INVALID;
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	struct spa_pod **profiles;
@@ -1421,7 +1422,7 @@ static void card_profile(pa_operation *o, void *userdata)
 				":", SPA_PARAM_PROFILE_id, "i", &test_id,
 				":", SPA_PARAM_PROFILE_name, "s", &name,
 				NULL) < 0) {
-			pw_log_warn("device %d: can't parse profile %d", g->id, i);
+			pw_log_warn("device %d: can't parse profile %zd", g->id, i);
 			continue;
 		}
 		if (strcmp(name, d->profile) == 0) {

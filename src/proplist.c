@@ -158,7 +158,7 @@ int pa_proplist_get(pa_proplist *p, const char *key, const void **data, size_t *
 
 void pa_proplist_update(pa_proplist *p, pa_update_mode_t mode, const pa_proplist *other)
 {
-	int i;
+	uint32_t i;
 
 	spa_assert(p);
 	spa_assert(mode == PA_UPDATE_SET || mode == PA_UPDATE_MERGE || mode == PA_UPDATE_REPLACE);
@@ -324,7 +324,7 @@ int pa_proplist_isempty(pa_proplist *p)
 
 int pa_proplist_equal(pa_proplist *a, pa_proplist *b)
 {
-	int i;
+	uint32_t i;
 
 	spa_assert(a);
 	spa_assert(b);

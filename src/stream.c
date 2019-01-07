@@ -53,14 +53,14 @@ static const uint32_t audio_formats[] = {
 
 static inline uint32_t format_pa2id(pa_stream *s, pa_sample_format_t format)
 {
-	if (format < 0 || format >= SPA_N_ELEMENTS(audio_formats))
+	if (format < 0 || (size_t)format >= SPA_N_ELEMENTS(audio_formats))
 		return SPA_AUDIO_FORMAT_UNKNOWN;
 	return audio_formats[format];
 }
 
 static inline pa_sample_format_t format_id2pa(pa_stream *s, uint32_t id)
 {
-	int i;
+	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
 		if (id == audio_formats[i])
 			return i;
@@ -132,14 +132,14 @@ static const uint32_t audio_channels[] = {
 
 static inline uint32_t channel_pa2id(pa_stream *s, pa_channel_position_t channel)
 {
-	if (channel < 0 || channel >= SPA_N_ELEMENTS(audio_channels))
+	if (channel < 0 || (size_t)channel >= SPA_N_ELEMENTS(audio_channels))
 		return SPA_AUDIO_CHANNEL_UNKNOWN;
 	return audio_channels[channel];
 }
 
 static inline pa_channel_position_t channel_id2pa(pa_stream *s, uint32_t id)
 {
-	int i;
+	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
 		if (id == audio_channels[i])
 			return i;
@@ -179,7 +179,7 @@ static void dump_buffer_attr(pa_stream *s, pa_buffer_attr *attr)
 static void configure_buffers(pa_stream *s)
 {
 	s->buffer_attr.maxlength = s->maxsize;
-	if (s->buffer_attr.prebuf == -1)
+	if (s->buffer_attr.prebuf == (uint32_t)-1)
 		s->buffer_attr.prebuf = s->buffer_attr.minreq;
 	s->buffer_attr.fragsize = s->buffer_attr.minreq;
 	dump_buffer_attr(s, &s->buffer_attr);
@@ -256,25 +256,25 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *attr, struct spa_pod_builder *b)
 {
 	const struct spa_pod *param;
-	int32_t blocks, buffers, size, maxsize, stride;
+	uint32_t blocks, buffers, size, maxsize, stride;
 
 	blocks = 1;
 	stride = pa_frame_size(&s->sample_spec);
 
-	if (attr->tlength == -1 || attr->tlength == 0)
+	if (attr->tlength == (uint32_t)-1 || attr->tlength == 0)
 		maxsize = 1024;
 	else
 		maxsize = (attr->tlength / stride);
 
-	if (attr->minreq == -1 || attr->minreq == 0)
+	if (attr->minreq == (uint32_t)-1 || attr->minreq == 0)
 		size = maxsize;
 	else
 		size = SPA_MIN(attr->minreq / stride, maxsize);
 
-	if (attr->maxlength == -1)
+	if (attr->maxlength == (uint32_t)-1)
 		buffers = 3;
 	else
-		buffers = SPA_CLAMP(attr->maxlength / (size * stride), 3, MAX_BUFFERS);
+		buffers = SPA_CLAMP(attr->maxlength / (size * stride), 3u, MAX_BUFFERS);
 
 	pw_log_info("stream %p: stride %d maxsize %d size %u buffers %d", s, stride, maxsize,
 			size, buffers);
@@ -310,7 +310,7 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 		else if (s->n_formats == 1)
 			pa_format_info_to_sample_spec(s->req_formats[0], &ss, NULL);
 
-		if ((ms = atoi(e)) < 0 || ms <= 0) {
+		if ((ms = atoi(e)) == 0) {
 			pa_log_debug("Failed to parse $PULSE_LATENCY_MSEC: %s", e);
 		}
 		else if (!pa_sample_spec_valid(&s->sample_spec)) {
@@ -354,7 +354,8 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
         uint8_t buffer[4096];
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct spa_audio_info info = { 0 };
-	int i, res;
+	int res;
+	unsigned int i;
 
 	if (format == NULL) {
 		res = 0;
@@ -502,7 +503,7 @@ pa_stream* stream_new(pa_context *c, const char *name,
 {
 	pa_stream *s;
 	char str[1024];
-	int i;
+	unsigned int i;
 	struct pw_properties *props;
 
 	spa_assert(c);
@@ -1059,7 +1060,7 @@ int pa_stream_begin_write(
 	else {
 		size_t max = s->buffer_size - s->buffer_offset;
 		*data = SPA_MEMBER(s->buffer_data, s->buffer_offset, void);
-		*nbytes = *nbytes != -1 ? SPA_MIN(*nbytes, max) : max;
+		*nbytes = *nbytes != (size_t)-1 ? SPA_MIN(*nbytes, max) : max;
 	}
 	pw_log_trace("peek buffer %p %zd", *data, *nbytes);
 

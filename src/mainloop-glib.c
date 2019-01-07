@@ -65,7 +65,9 @@ static GSourceFuncs source_funcs =
 	source_prepare,
 	NULL,
 	source_dispatch,
-	NULL
+	NULL,
+	NULL,
+	NULL,
 };
 
 pa_glib_mainloop *pa_glib_mainloop_new(GMainContext *c)

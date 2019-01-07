@@ -1205,9 +1205,9 @@ static void client_node_port_use_buffers(void *object,
 
 		buf = buffers[i].buffer;
 
-		b = &mix->buffers[buf->id];
+		b = &mix->buffers[i];
+		b->id = i;
 		b->flags = 0;
-		b->id = buf->id;
 		b->n_mem = 0;
 
 		pw_map_range_init(&b->map, buffers[i].offset, buffers[i].size, core->sc_pagesize);

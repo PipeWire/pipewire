@@ -483,7 +483,6 @@ static int alloc_buffers(struct pw_link *this,
 
 		p = SPA_MEMBER(m->ptr, data_size * i, void);
 
-		b->id = i;
 		b->n_metas = n_metas;
 		b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
 		for (j = 0; j < n_metas; j++) {

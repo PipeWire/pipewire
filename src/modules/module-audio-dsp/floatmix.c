@@ -55,14 +55,13 @@ static void port_props_reset(struct port_props *props)
 }
 
 struct buffer {
-	struct spa_list link;
+	uint32_t id;
 #define BUFFER_FLAG_QUEUED	(1 << 0)
 	uint32_t flags;
 
+	struct spa_list link;
 	struct spa_buffer *buffer;
 	struct spa_meta_header *h;
-
-	uint32_t id;
 	struct spa_buffer buf;
         struct spa_data datas[1];
         struct spa_chunk chunk[1];
@@ -505,7 +504,7 @@ static int queue_buffer(struct impl *this, struct port *port, struct buffer *b)
 
 	spa_list_append(&port->queue, &b->link);
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_QUEUED);
-	spa_log_trace(this->log, NAME " %p: queue buffer %d", this, b->buffer->id);
+	spa_log_trace(this->log, NAME " %p: queue buffer %d", this, b->id);
 	return 0;
 }
 
@@ -519,7 +518,7 @@ static struct buffer *dequeue_buffer(struct impl *this, struct port *port)
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
 	SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_QUEUED);
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", this, b->buffer->id);
+	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", this, b->id);
 	return b;
 }
 
@@ -827,12 +826,10 @@ static int impl_node_process(struct spa_node *node)
 
 	if (n_buffers == 1) {
 		*outb->buffer = *buffers[0]->buffer;
-		outb->buffer->id = outb->id;
 	}
 	else {
 		float *dst;
 
-		outb->buffer->id = outb->id;
 		outb->buffer->n_datas = 1;
 		outb->buffer->datas = outb->datas;
 		outb->datas[0].data = this->empty;
@@ -855,7 +852,7 @@ static int impl_node_process(struct spa_node *node)
 		}
 	}
 
-	outio->buffer_id = outb->buffer->id;
+	outio->buffer_id = outb->id;
 	outio->status = SPA_STATUS_HAVE_BUFFER;
 
 	return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;

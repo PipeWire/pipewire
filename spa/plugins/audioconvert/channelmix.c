@@ -61,9 +61,10 @@ static void props_reset(struct props *props)
 }
 
 struct buffer {
-	struct spa_list link;
+	uint32_t id;
 #define BUFFER_FLAG_OUT		(1 << 0)
 	uint32_t flags;
+	struct spa_list link;
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
 };
@@ -959,6 +960,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		struct spa_data *d = buffers[i]->datas;
 
 		b = &port->buffers[i];
+		b->id = i;
 		b->flags = 0;
 		b->outbuf = buffers[i];
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
@@ -1165,7 +1167,7 @@ static int impl_node_process(struct spa_node *node)
 	}
 
 	outio->status = SPA_STATUS_HAVE_BUFFER;
-	outio->buffer_id = dbuf->outbuf->id;
+	outio->buffer_id = dbuf->id;
 
 	inio->status = SPA_STATUS_NEED_BUFFER;
 

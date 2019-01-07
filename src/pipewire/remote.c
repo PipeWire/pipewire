@@ -1096,8 +1096,6 @@ client_node_port_use_buffers(void *object,
 			       struct buffer_mem);
 		bid->n_mem = 0;
 
-		bid->id = b->id;
-
 		bid->mem[bid->n_mem++] = bmem;
 		m->ref++;
 

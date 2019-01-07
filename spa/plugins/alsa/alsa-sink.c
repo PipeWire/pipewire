@@ -563,6 +563,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		uint32_t type;
 
 		b->buf = buffers[i];
+		b->id = i;
 		b->flags = BUFFER_FLAG_OUT;
 
 		b->h = spa_buffer_find_meta_data(b->buf, SPA_META_Header, sizeof(*b->h));

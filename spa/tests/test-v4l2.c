@@ -317,7 +317,6 @@ static int setup_buffers(struct data *data)
 
 		b->texture = NULL;
 
-		b->buffer.id = i;
 		b->buffer.metas = b->metas;
 		b->buffer.n_metas = 1;
 		b->buffer.datas = b->datas;

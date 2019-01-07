@@ -39,6 +39,7 @@
 #define BUFFER_SAMPLES	128
 
 struct buffer {
+	uint32_t id;
 	struct spa_buffer *buffer;
 	struct spa_list link;
 	void *ptr;
@@ -359,6 +360,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 			pw_log_error("invalid buffer mem");
 			return -EINVAL;
 		}
+		b->id = i;
 		b->buffer = buffers[i];
 		pw_log_info("got buffer %d size %d", i, datas[0].maxsize);
 		spa_list_append(&d->empty, &b->link);
@@ -464,7 +466,7 @@ static int impl_node_process(struct spa_node *node)
 	od[0].chunk->size = avail;
 	od[0].chunk->stride = 0;
 
-	io->buffer_id = b->buffer->id;
+	io->buffer_id = b->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;
 
 	update_volume(d);

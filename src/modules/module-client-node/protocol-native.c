@@ -346,7 +346,6 @@ static int client_node_demarshal_port_use_buffers(void *object, void *data, size
 				      "i", &buffers[i].mem_id,
 				      "i", &buffers[i].offset,
 				      "i", &buffers[i].size,
-				      "i", &buf->id,
 				      "i", &buf->n_metas, NULL) < 0)
 			return -EINVAL;
 
@@ -619,7 +618,6 @@ client_node_marshal_port_use_buffers(void *object,
 				    "i", buffers[i].mem_id,
 				    "i", buffers[i].offset,
 				    "i", buffers[i].size,
-				    "i", buf->id,
 				    "i", buf->n_metas, NULL);
 
 		for (j = 0; j < buf->n_metas; j++) {

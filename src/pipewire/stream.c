@@ -577,7 +577,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 		struct buffer *b = &impl->buffers[i];
 
 		b->flags = 0;
-		b->id = buffers[i]->id;
+		b->id = i;
 
 		if (SPA_FLAG_CHECK(flags, PW_STREAM_FLAG_MAP_BUFFERS)) {
 			for (j = 0; j < buffers[i]->n_datas; j++) {
@@ -1277,13 +1277,8 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct buffer *b;
+	struct buffer *b = SPA_CONTAINER_OF(buffer, struct buffer, this);
 	int res;
-
-	if ((b = get_buffer(stream, buffer->buffer->id)) == NULL) {
-		pw_log_error("stream %p: invalid buffer %d", stream, buffer->buffer->id);
-		return -EINVAL;
-	}
 
 	pw_log_trace("stream %p: queue buffer %d", stream, b->id);
 	if ((res = push_queue(impl, &impl->queued, b)) < 0)

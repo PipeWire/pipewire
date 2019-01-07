@@ -64,10 +64,11 @@ static void reset_props(struct props *props)
 #define BUFFER_FLAG_MAPPED	(1<<2)
 
 struct buffer {
+	uint32_t id;
+	uint32_t flags;
 	struct spa_list link;
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
-	uint32_t flags;
 	struct v4l2_buffer v4l2_buffer;
 	void *ptr;
 };
@@ -922,9 +923,9 @@ static int impl_node_process(struct spa_node *node)
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
 
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", node, b->outbuf->id);
+	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", node, b->id);
 
-	io->buffer_id = b->outbuf->id;
+	io->buffer_id = b->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;
 
 	return SPA_STATUS_HAVE_BUFFER;

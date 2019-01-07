@@ -562,6 +562,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		struct spa_data *d = buffers[i]->datas;
 
 		b->buf = buffers[i];
+		b->id = i;
 		b->flags = 0;
 
 		b->h = spa_buffer_find_meta_data(b->buf, SPA_META_Header, sizeof(*b->h));
@@ -578,7 +579,6 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	return 0;
 }
-
 
 static int
 impl_node_port_alloc_buffers(struct spa_node *node,
@@ -687,9 +687,9 @@ static int impl_node_process(struct spa_node *node)
 	b = spa_list_first(&this->ready, struct buffer, link);
 	spa_list_remove(&b->link);
 
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", node, b->buf->id);
+	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", node, b->id);
 
-	io->buffer_id = b->buf->id;
+	io->buffer_id = b->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;
 
 	return SPA_STATUS_HAVE_BUFFER;

@@ -53,8 +53,8 @@ enum spa_meta_type {
  */
 struct spa_meta {
 	uint32_t type;		/**< metadata type, one of enum spa_meta_type */
-	void *data;		/**< pointer to metadata */
 	uint32_t size;		/**< size of metadata */
+	void *data;		/**< pointer to metadata */
 };
 
 #define spa_meta_first(m)	((m)->data)

@@ -57,10 +57,11 @@ struct props {
 #define MAX_BUFFERS 32
 
 struct buffer {
+	uint32_t id;
+	uint32_t flags;
 	struct spa_buffer *buf;
 	struct spa_meta_header *h;
 #define BUFFER_FLAG_OUT	(1<<0)
-	uint32_t flags;
 	struct spa_list link;
 };
 

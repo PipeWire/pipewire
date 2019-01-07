@@ -113,7 +113,6 @@ init_buffer(struct data *data, struct spa_buffer **bufs, struct buffer *ba, int 
 		struct buffer *b = &ba[i];
 		bufs[i] = &b->buffer;
 
-		b->buffer.id = i;
 		b->buffer.metas = b->metas;
 		b->buffer.n_metas = 1;
 		b->buffer.datas = b->datas;

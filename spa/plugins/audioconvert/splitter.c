@@ -48,6 +48,7 @@
 #define MAX_PORTS	128
 
 struct buffer {
+	uint32_t id;
 #define BUFFER_FLAG_QUEUED	(1<<0)
 	uint32_t flags;
 	struct spa_list link;
@@ -716,7 +717,7 @@ static struct buffer *dequeue_buffer(struct impl *this, struct port *port)
 	spa_list_remove(&b->link);
 	SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_QUEUED);
 	spa_log_trace(this->log, NAME " %p: dequeue buffer %d on port %d %u",
-			this, b->buf->id, port->id, b->flags);
+			this, b->id, port->id, b->flags);
 
 	return b;
 }
@@ -751,6 +752,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		struct spa_data *d = buffers[i]->datas;
 
 		b = &port->buffers[i];
+		b->id = i;
 		b->buf = buffers[i];
 		b->flags = 0;
 
@@ -923,7 +925,7 @@ static int impl_node_process(struct spa_node *node)
 			dd[j].chunk->size = n_samples * outport->stride;
 		}
 		outio->status = SPA_STATUS_HAVE_BUFFER;
-		outio->buffer_id = dbuf->buf->id;
+		outio->buffer_id = dbuf->id;
 		res |= SPA_STATUS_HAVE_BUFFER;
 	}
 

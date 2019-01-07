@@ -97,7 +97,6 @@ struct node {
 static void init_buffer(struct port *port, uint32_t id)
 {
 	struct buffer *b = &port->buffers[id];
-	b->buf.id = id;
 	b->buf.n_metas = 0;
 	b->buf.metas = NULL;
 	b->buf.n_datas = 1;

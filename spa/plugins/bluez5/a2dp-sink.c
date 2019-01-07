@@ -56,6 +56,7 @@ struct props {
 #define MAX_BUFFERS 32
 
 struct buffer {
+	uint32_t id;
 	struct spa_buffer *buf;
 	struct spa_meta_header *h;
 	bool outstanding;
@@ -500,8 +501,8 @@ static int flush_data(struct impl *this, uint64_t now_time)
 		if (this->ready_offset >= d[0].chunk->size) {
 			spa_list_remove(&b->link);
 			b->outstanding = true;
-			spa_log_trace(this->log, "a2dp-sink %p: reuse buffer %u", this, b->buf->id);
-			this->callbacks->reuse_buffer(this->callbacks_data, 0, b->buf->id);
+			spa_log_trace(this->log, "a2dp-sink %p: reuse buffer %u", this, b->id);
+			this->callbacks->reuse_buffer(this->callbacks_data, 0, b->id);
 			this->ready_offset = 0;
 		}
 		total_frames += n_frames;
@@ -1171,6 +1172,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		uint32_t type;
 
 		b->buf = buffers[i];
+		b->id = i;
 		b->outstanding = true;
 
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));

@@ -71,11 +71,10 @@ struct spa_data {
 
 /** A Buffer */
 struct spa_buffer {
-	uint32_t id;			/**< the id of this buffer */
-	struct spa_meta *metas;		/**< array of metadata */
 	uint32_t n_metas;		/**< number of metadata */
-	struct spa_data *datas;		/**< array of data members */
 	uint32_t n_datas;		/**< number of data members */
+	struct spa_meta *metas;		/**< array of metadata */
+	struct spa_data *datas;		/**< array of data members */
 };
 
 /** Find metadata in a buffer */

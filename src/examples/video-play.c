@@ -98,7 +98,7 @@ on_process(void *_data)
 
 	buf = b->buffer;
 
-	pw_log_trace("new buffer %d", buf->id);
+	pw_log_trace("new buffer %p", buf);
 
 	handle_events(data);
 

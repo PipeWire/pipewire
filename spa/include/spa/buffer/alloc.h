@@ -89,7 +89,7 @@ static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
 
 static inline struct spa_buffer *
 spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
-			void *skel_mem, void *data_mem, uint32_t id)
+			void *skel_mem, void *data_mem)
 {
 	struct spa_buffer *b = skel_mem;
 	size_t size;
@@ -97,7 +97,6 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 	void **dp, *skel, *data;
 	struct spa_chunk *cp;
 
-	b->id = id;
 	b->n_metas = info->n_metas;
 	b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
 	b->n_datas = info->n_datas;
@@ -154,9 +153,9 @@ spa_buffer_alloc_layout_array(struct spa_buffer_alloc_info *info,
 	uint32_t i;
 	size_t data_size = info->data_size + info->meta_size + info->chunk_size;
 	for (i = 0; i < n_buffers; i++) {
-		buffers[i] = spa_buffer_alloc_layout(info, skel_mem, data_mem, i);
-                skel_mem = SPA_MEMBER(skel_mem, info->skel_size, void);
-                data_mem = SPA_MEMBER(data_mem, data_size, void);
+		buffers[i] = spa_buffer_alloc_layout(info, skel_mem, data_mem);
+		skel_mem = SPA_MEMBER(skel_mem, info->skel_size, void);
+		data_mem = SPA_MEMBER(data_mem, data_size, void);
         }
 	return 0;
 }

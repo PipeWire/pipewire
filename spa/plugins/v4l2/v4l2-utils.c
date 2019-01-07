@@ -1250,6 +1250,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		struct buffer *b;
 
 		b = &port->buffers[i];
+		b->id = i;
 		b->outbuf = buffers[i];
 		b->flags = BUFFER_FLAG_OUTSTANDING;
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
@@ -1294,7 +1295,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		else
 			return -EIO;
 
-		spa_v4l2_buffer_recycle(this, buffers[i]->id);
+		spa_v4l2_buffer_recycle(this, i);
 	}
 	port->n_buffers = reqbuf.count;
 

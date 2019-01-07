@@ -1028,7 +1028,7 @@ int queue_buffer(pa_stream *s)
 	spa_ringbuffer_read_update(&s->dequeued_ring, s->buffer_index + 1);
 
 	s->buffer->size = s->buffer->buffer->datas[0].chunk->size;
-	pw_log_trace("%d %"PRIu64"/%d", s->buffer->buffer->id, s->buffer->size,
+	pw_log_trace("%p %"PRIu64"/%d", s->buffer, s->buffer->size,
 			s->buffer->buffer->datas[0].chunk->offset);
 
 	pw_stream_queue_buffer(s->stream, s->buffer);

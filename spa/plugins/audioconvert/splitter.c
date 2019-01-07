@@ -90,7 +90,7 @@ struct impl {
 
 	struct port in_ports[1];
 	struct port out_ports[MAX_PORTS];
-	int port_count;
+	uint32_t port_count;
 
 	bool started;
 	uint32_t cpu_flags;
@@ -199,7 +199,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		struct port *port;
 		struct spa_audio_info info = { 0, };
 		struct spa_pod *format;
-		int i;
+		uint32_t i;
 
 		if (spa_pod_object_parse(param,
 					":", SPA_PARAM_PROFILE_format, "P", &format,
@@ -317,7 +317,7 @@ impl_node_get_port_ids(struct spa_node *node,
 		       uint32_t n_output_ids)
 {
 	struct impl *this;
-	int i;
+	uint32_t i;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -841,12 +841,13 @@ static int impl_node_process(struct spa_node *node)
 	struct impl *this;
 	struct port *inport;
 	struct spa_io_buffers *inio;
-	int i, j, maxsize, res = 0, n_samples;
+	uint32_t i, j, maxsize, n_samples;
 	struct spa_data *sd, *dd;
 	struct buffer *sbuf, *dbuf;
 	uint32_t n_src_datas, n_dst_datas;
 	const void **src_datas;
 	void **dst_datas;
+	int res = 0;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -997,7 +998,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct port *port;
-	int i;
+	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);

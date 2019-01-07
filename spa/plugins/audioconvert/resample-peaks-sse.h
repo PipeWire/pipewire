@@ -40,7 +40,7 @@ static void impl_peaks_process_sse(struct resample *r, int channel,
 {
 	struct peaks_data *pd = r->data;
 	float *s = src, *d = dst, m;
-	int i, o, end, chunk, unrolled;
+	uint32_t i, o, end, chunk, unrolled;
 	__m128 in, max, mask = _mm_set_ps1(-0.0f);
 
 	o = i = 0;

@@ -70,7 +70,7 @@ struct data {
 	struct spa_audio_info_raw format;
 
 	struct buffer buffers[32];
-	int n_buffers;
+	uint32_t n_buffers;
 	struct spa_list empty;
 
 	double accumulator;
@@ -334,7 +334,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 				 struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	int i;
+	uint32_t i;
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &d->buffers[i];
 		struct spa_data *datas = buffers[i]->datas;
@@ -384,7 +384,8 @@ static void fill_f32(struct data *d, void *dest, int avail)
 {
 	float *dst = dest;
 	int n_samples = avail / (sizeof(float) * d->format.channels);
-	int i, c;
+	int i;
+	uint32_t c;
 
         for (i = 0; i < n_samples; i++) {
 		float val;
@@ -404,7 +405,8 @@ static void fill_s16(struct data *d, void *dest, int avail)
 {
 	int16_t *dst = dest;
 	int n_samples = avail / (sizeof(int16_t) * d->format.channels);
-	int i, c;
+	int i;
+	uint32_t c;
 
         for (i = 0; i < n_samples; i++) {
                 int16_t val;

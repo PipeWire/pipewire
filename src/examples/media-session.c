@@ -689,7 +689,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 static void client_event_info(void *object, struct pw_client_info *info)
 {
 	struct client *c = object;
-	int i;
+	uint32_t i;
 
 	pw_log_debug(NAME" %p: info for client %d", c->obj.impl, c->obj.id);
 	c->info = pw_client_info_update(c->info, info);

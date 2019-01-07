@@ -510,7 +510,7 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 			marshal = pw_proxy_get_marshal(proxy);
                         if (marshal == NULL || opcode >= marshal->n_events) {
                                 pw_log_error("protocol-native %p: invalid method %u for %u (%d %d)", this, opcode,
-                                             id, opcode, marshal ? marshal->n_events : -1);
+                                             id, opcode, marshal ? marshal->n_events : (uint32_t)-1);
                                 continue;
                         }
 

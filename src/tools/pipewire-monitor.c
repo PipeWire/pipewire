@@ -105,7 +105,7 @@ static void on_sync_reply(void *data, uint32_t seq)
 
 static void clear_params(struct proxy_data *data)
 {
-	int i;
+	uint32_t i;
 
 	for (i = 0; i < data->n_params; i++)
 		free(data->params[i]);
@@ -219,7 +219,7 @@ static void print_node(struct proxy_data *data)
 	printf("\ttype: %s (version %d)\n",
 			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
 	if (print_all) {
-		int i;
+		uint32_t i;
 
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
 		printf("%c\tparams:\n", MARK_CHANGE(5));
@@ -297,7 +297,7 @@ static void print_port(struct proxy_data *data)
 	printf("\ttype: %s (version %d)\n",
 			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
 	if (print_all) {
-		int i;
+		uint32_t i;
 		printf(" \tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
 		printf("%c\tparams:\n", MARK_CHANGE(2));
 		for (i = 0; i < data->n_params; i++) {

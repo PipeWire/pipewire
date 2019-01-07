@@ -475,7 +475,7 @@ static int alloc_buffers(struct pw_link *this,
 		return res;
 
 	for (i = 0; i < n_buffers; i++) {
-		int j;
+		uint32_t j;
 		struct spa_buffer *b;
 		void *p;
 

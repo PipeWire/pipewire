@@ -952,7 +952,8 @@ static void clear_buffers(struct node_data *data, struct mix *mix)
 {
 	struct pw_port *port = mix->port;
         struct buffer *b;
-	int i, res;
+	uint32_t i;
+	int res;
 
         pw_log_debug("port %p: clear buffers %d", port, mix->mix_id);
 	if ((res = pw_port_use_buffers(port, mix->mix_id, NULL, 0)) < 0) {

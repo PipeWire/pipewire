@@ -157,7 +157,7 @@ static uint8_t a2dp_default_bitpool(struct spa_bt_monitor *monitor, uint8_t freq
 	return 53;
 }
 
-static int select_configuration_sbc(struct spa_bt_monitor *monitor, void *capabilities, int size, void *config)
+static int select_configuration_sbc(struct spa_bt_monitor *monitor, void *capabilities, size_t size, void *config)
 {
 	a2dp_sbc_t *cap, conf;
 	int bitpool;
@@ -238,7 +238,7 @@ static int select_configuration_sbc(struct spa_bt_monitor *monitor, void *capabi
 	return 0;
 }
 
-static int select_configuration_aac(struct spa_bt_monitor *monitor, void *capabilities, int size, void *config)
+static int select_configuration_aac(struct spa_bt_monitor *monitor, void *capabilities, size_t size, void *config)
 {
 	a2dp_aac_t *cap, conf;
 	int freq;

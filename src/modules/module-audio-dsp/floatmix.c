@@ -99,8 +99,8 @@ struct impl {
 	const struct spa_node_callbacks *callbacks;
 	void *user_data;
 
-	int port_count;
-	int last_port;
+	uint32_t port_count;
+	uint32_t last_port;
 	struct port in_ports[MAX_PORTS];
 	struct port out_ports[1];
 
@@ -213,7 +213,7 @@ impl_node_get_port_ids(struct spa_node *node,
 		       uint32_t n_output_ids)
 {
 	struct impl *this;
-	int i, idx;
+	uint32_t i, idx;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -759,7 +759,7 @@ static int impl_node_process(struct spa_node *node)
 	struct impl *this;
 	struct port *outport;
 	struct spa_io_buffers *outio;
-	int n_samples, n_buffers, i, maxsize;
+	uint32_t n_samples, n_buffers, i, maxsize;
         struct buffer **buffers;
         struct buffer *outb;
 
@@ -801,7 +801,7 @@ static int impl_node_process(struct spa_node *node)
 			spa_log_trace(this->log, NAME " %p: skip input %d %d %p %d %d %d", this,
 				i, inport->valid, inio,
 				inio ? inio->status : -1,
-				inio ? inio->buffer_id : -1,
+				inio ? inio->buffer_id : SPA_ID_INVALID,
 				inport->n_buffers);
 			continue;
 		}

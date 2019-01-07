@@ -117,7 +117,8 @@ static void handle_monitor(struct data *data, struct spa_monitor *monitor)
 	spa_monitor_set_callbacks(monitor, &impl_callbacks, data);
 
 	while (true) {
-		int i, r;
+		int r;
+		uint32_t i;
 
 		/* rebuild */
 		if (data->rebuild_fds) {

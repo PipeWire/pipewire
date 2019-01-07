@@ -53,7 +53,7 @@ static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
 					     uint32_t data_aligns[n_datas])
 {
 	size_t size;
-	int i;
+	uint32_t i;
 
 	info->n_metas = n_metas;
 	info->metas = metas;
@@ -93,7 +93,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 {
 	struct spa_buffer *b = skel_mem;
 	size_t size;
-	int i;
+	uint32_t i;
 	void **dp, *skel, *data;
 	struct spa_chunk *cp;
 
@@ -151,7 +151,7 @@ spa_buffer_alloc_layout_array(struct spa_buffer_alloc_info *info,
 			      uint32_t n_buffers, struct spa_buffer *buffers[n_buffers],
 			      void *skel_mem, void *data_mem)
 {
-	int i;
+	uint32_t i;
 	size_t data_size = info->data_size + info->meta_size + info->chunk_size;
 	for (i = 0; i < n_buffers; i++) {
 		buffers[i] = spa_buffer_alloc_layout(info, skel_mem, data_mem, i);

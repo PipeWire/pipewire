@@ -330,7 +330,7 @@ void *pw_load_spa_interface(const char *lib, const char *factory_name, uint32_t 
 	uint32_t extra_n_support;
 	struct plugin *plugin;
 	struct interface *iface;
-	int i;
+	uint32_t i;
 
 	extra_n_support = sup->n_support;
 	memcpy(extra_support, sup->support,

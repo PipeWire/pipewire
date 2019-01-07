@@ -74,7 +74,7 @@ static void core_marshal_permissions(void *object, uint32_t n_permissions,
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int i;
+	uint32_t i;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_PERMISSIONS);
 
@@ -1294,7 +1294,7 @@ static void client_marshal_update_permissions(void *object, uint32_t n_permissio
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int i;
+	uint32_t i;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_PROXY_METHOD_UPDATE_PERMISSIONS);
 

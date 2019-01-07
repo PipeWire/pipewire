@@ -100,7 +100,7 @@ static Uint32 id_to_sdl_format(uint32_t id)
 
 static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_builder *b)
 {
-	int i, c;
+	uint32_t i, c;
 
 	spa_pod_builder_push_object(b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_prop(b, SPA_FORMAT_mediaType, 0);

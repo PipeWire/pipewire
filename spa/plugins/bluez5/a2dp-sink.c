@@ -122,11 +122,11 @@ struct impl {
 	uint64_t last_error;
 
 	struct timespec now;
-	int64_t start_time;
-	int64_t sample_count;
-	int64_t sample_time;
-	int64_t last_ticks;
-	int64_t last_monotonic;
+	uint64_t start_time;
+	uint64_t sample_count;
+	uint64_t sample_time;
+	uint64_t last_ticks;
+	uint64_t last_monotonic;
 
 	uint64_t underrun;
 };
@@ -457,7 +457,8 @@ static int increase_bitpool(struct impl *this)
 
 static int flush_data(struct impl *this, uint64_t now_time)
 {
-	uint32_t total_frames, written;
+	int written;
+	uint32_t total_frames;
 	uint64_t elapsed;
 	int64_t queued;
 	struct itimerspec ts;
@@ -465,7 +466,7 @@ static int flush_data(struct impl *this, uint64_t now_time)
 	total_frames = 0;
 	while (!spa_list_is_empty(&this->ready)) {
 		uint8_t *src;
-		int n_bytes, n_frames;
+		uint32_t n_bytes, n_frames;
 		struct buffer *b;
 		struct spa_data *d;
 		uint32_t index, offs, avail, l0, l1;
@@ -1150,7 +1151,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 			   uint32_t port_id, struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct impl *this;
-	int i;
+	uint32_t i;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 

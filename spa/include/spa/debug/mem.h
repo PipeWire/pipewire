@@ -39,7 +39,8 @@ static inline int spa_debug_mem(int indent, const void *data, size_t size)
 {
 	const uint8_t *t = data;
 	char buffer[512];
-	int i, pos = 0;
+	size_t i;
+	int pos = 0;
 
 	for (i = 0; i < size; i++) {
 		if (i % 16 == 0)

@@ -43,8 +43,8 @@ extern "C" {
 #include <spa/param/param.h>
 #include <spa/param/audio/format-utils.h>
 
-#define DEFAULT_RATE		48000
-#define DEFAULT_CHANNELS	2
+#define DEFAULT_RATE		48000u
+#define DEFAULT_CHANNELS	2u
 
 struct props {
 	char device[64];
@@ -127,7 +127,7 @@ struct state {
 	int timerfd;
 	bool alsa_started;
 	bool slaved;
-	int threshold;
+	uint32_t threshold;
 
 	snd_htimestamp_t now;
 	int64_t sample_count;

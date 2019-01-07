@@ -93,10 +93,9 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 {
 	const struct spa_pod *v1, *v2;
 	struct spa_pod_choice *nc;
-	uint32_t nalt1, nalt2;
+	uint32_t j, k, nalt1, nalt2;
 	void *alt1, *alt2, *a1, *a2;
 	uint32_t type, size, p1c, p2c;
-	int j, k;
 
 	v1 = spa_pod_get_values(&p1->value, &nalt1, &p1c);
 	alt1 = SPA_POD_BODY(v1);

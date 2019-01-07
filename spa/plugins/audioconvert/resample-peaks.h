@@ -25,8 +25,8 @@
 #include <math.h>
 
 struct peaks_data {
-	unsigned o_count;
-	unsigned i_count;
+	uint32_t o_count;
+	uint32_t i_count;
 	float max_f[0];
 };
 
@@ -49,7 +49,7 @@ static void impl_peaks_process(struct resample *r, int channel,
 {
 	struct peaks_data *pd = r->data;
 	float *s = src, *d = dst, m;
-	int i, o, end, chunk;
+	uint32_t i, o, end, chunk;
 
 	o = i = 0;
 	m = pd->max_f[channel];

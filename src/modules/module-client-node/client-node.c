@@ -482,7 +482,7 @@ impl_node_get_port_ids(struct spa_node *node,
 		       uint32_t n_output_ids)
 {
 	struct node *this;
-	int c, i;
+	uint32_t c, i;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -511,7 +511,7 @@ do_update_port(struct node *this,
 	       const struct spa_pod **params,
 	       const struct spa_port_info *info)
 {
-	int i;
+	uint32_t i;
 
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
 		port->have_format = false;
@@ -1019,7 +1019,7 @@ client_node_update(void *data,
 	if (change_mask & PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS)
 		this->max_outputs = max_output_ports;
 	if (change_mask & PW_CLIENT_NODE_UPDATE_PARAMS) {
-		int i;
+		uint32_t i;
 		spa_log_debug(this->log, "node %p: update %d params", this, n_params);
 
 		for (i = 0; i < this->n_params; i++)

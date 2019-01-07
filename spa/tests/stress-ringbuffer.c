@@ -47,7 +47,7 @@ static void *reader_start(void *arg)
 	while (1) {
 		uint32_t index;
 
-		if (spa_ringbuffer_get_read_index(&rb, &index) >= ARRAY_SIZE * sizeof(int)) {
+		if (spa_ringbuffer_get_read_index(&rb, &index) >= (int32_t)(ARRAY_SIZE * sizeof(int))) {
 			spa_ringbuffer_read_data(&rb, data, size, index & (size - 1), b,
 						 ARRAY_SIZE * sizeof(int));
 
@@ -78,7 +78,7 @@ static void *writer_start(void *arg)
 	while (1) {
 		uint32_t index;
 
-		if (spa_ringbuffer_get_write_index(&rb, &index) >= ARRAY_SIZE * sizeof(int)) {
+		if (spa_ringbuffer_get_write_index(&rb, &index) >= (int32_t)(ARRAY_SIZE * sizeof(int))) {
 			spa_ringbuffer_write_data(&rb, data, size, index & (size - 1), a,
 						  ARRAY_SIZE * sizeof(int));
 			spa_ringbuffer_write_update(&rb, index + ARRAY_SIZE * sizeof(int));

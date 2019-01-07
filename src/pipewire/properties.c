@@ -216,7 +216,8 @@ void pw_properties_clear(struct pw_properties *properties)
 int pw_properties_update(struct pw_properties *props,
 		         const struct spa_dict *dict)
 {
-	int i, changed = 0;
+	uint32_t i;
+	int changed = 0;
 
 	for (i = 0; i < dict->n_items; i++)
 		changed += pw_properties_set(props, dict->items[i].key, dict->items[i].value);

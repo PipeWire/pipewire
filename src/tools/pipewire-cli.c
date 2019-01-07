@@ -206,7 +206,7 @@ static struct command command_list[] = {
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error)
 {
-	int i;
+	size_t i;
 
 	fprintf(stdout, "Available commands:\n");
 	for (i = 0; i < SPA_N_ELEMENTS(command_list); i++) {
@@ -1245,7 +1245,8 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 static bool parse(struct data *data, char *buf, size_t size, char **error)
 {
 	char *a[2];
-	int i, n;
+	int n;
+	size_t i;
 	char *p, *cmd, *args;
 
 	if ((p = strchr(buf, '#')))

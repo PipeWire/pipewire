@@ -188,7 +188,7 @@ static int make_matrix(struct impl *this,
 {
 	float matrix[NUM_CHAN][NUM_CHAN] = {{ 0.0f }};
 	uint64_t unassigned;
-	int i, j, matrix_encoding = MATRIX_NORMAL, c;
+	uint32_t i, j, matrix_encoding = MATRIX_NORMAL, c;
 	float clev = SQRT1_2;
 	float slev = SQRT1_2;
 	float llev = 0.5f;
@@ -379,10 +379,9 @@ static int setup_convert(struct impl *this,
 		const struct spa_audio_info *info)
 {
 	const struct spa_audio_info *src_info, *dst_info;
-	uint32_t src_chan, dst_chan;
+	uint32_t i, src_chan, dst_chan;
 	const struct channelmix_info *chanmix_info;
 	uint64_t src_mask, dst_mask;
-	int i;
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		src_info = info;
@@ -1142,7 +1141,7 @@ static int impl_node_process(struct spa_node *node)
 	sbuf = &inport->buffers[inio->buffer_id];
 
 	{
-		int i, n_bytes;
+		uint32_t i, n_bytes;
 		struct spa_buffer *sb = sbuf->outbuf, *db = dbuf->outbuf;
 		uint32_t n_src_datas = sb->n_datas;
 		uint32_t n_dst_datas = db->n_datas;

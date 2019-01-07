@@ -198,8 +198,8 @@ loop_invoke(struct spa_loop *loop,
 	if (in_thread) {
 		res = func(loop, false, seq, data, size, user_data);
 	} else {
-		int32_t filled, avail;
-		uint32_t idx, offset, l0;
+		int32_t filled;
+		uint32_t avail, idx, offset, l0;
 
 		filled = spa_ringbuffer_get_write_index(&impl->buffer, &idx);
 		if (filled < 0 || filled > DATAS_SIZE) {

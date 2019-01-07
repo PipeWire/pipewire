@@ -30,7 +30,7 @@
 #define MAX_FACTORIES	16
 
 static const struct spa_handle_factory *factories[MAX_FACTORIES];
-static int n_factories;
+static uint32_t n_factories;
 
 int spa_handle_factory_register(const struct spa_handle_factory *factory)
 {

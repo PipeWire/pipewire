@@ -538,7 +538,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 			   uint32_t port_id, struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct state *this;
-	int i;
+	uint32_t i;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 

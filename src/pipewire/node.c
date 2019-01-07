@@ -45,8 +45,8 @@
 
 #include <spa/graph/graph-scheduler2.h>
 
-#define DEFAULT_QUANTUM		1024
-#define MIN_QUANTUM		64
+#define DEFAULT_QUANTUM		1024u
+#define MIN_QUANTUM		64u
 
 /** \cond */
 struct impl {

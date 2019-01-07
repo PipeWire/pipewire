@@ -453,6 +453,9 @@ typedef void (*channelmix_func_t) (void *data, int n_dst, void *dst[n_dst],
 				   void *matrix, float v, int n_bytes);
 
 
+#define ANY	((uint32_t)-1)
+#define EQ	((uint32_t)-2)
+
 static const struct channelmix_info {
 	uint32_t src_chan;
 	uint64_t src_mask;
@@ -467,11 +470,11 @@ static const struct channelmix_info {
 #if defined (__SSE__)
 	{ 2, MASK_MONO, 2, MASK_MONO, channelmix_copy_sse, FEATURE_SSE },
 	{ 2, MASK_STEREO, 2, MASK_STEREO, channelmix_copy_sse, FEATURE_SSE },
-	{ -2, 0, -2, 0, channelmix_copy_sse, FEATURE_SSE },
+	{ EQ, 0, EQ, 0, channelmix_copy_sse, FEATURE_SSE },
 #endif
 	{ 2, MASK_MONO, 2, MASK_MONO, channelmix_copy, 0 },
 	{ 2, MASK_STEREO, 2, MASK_STEREO, channelmix_copy, 0 },
-	{ -2, 0, -2, 0, channelmix_copy, 0 },
+	{ EQ, 0, EQ, 0, channelmix_copy, 0 },
 
 	{ 1, MASK_MONO, 2, MASK_STEREO, channelmix_f32_1_2, 0 },
 	{ 2, MASK_STEREO, 1, MASK_MONO, channelmix_f32_2_1, 0 },
@@ -501,17 +504,17 @@ static const struct channelmix_info {
 	{ 8, MASK_7_1, 4, MASK_QUAD, channelmix_f32_7p1_4, 0 },
 	{ 8, MASK_7_1, 4, MASK_3_1, channelmix_f32_7p1_3p1, 0 },
 
-	{ -1, 0, -1, 0, channelmix_f32_n_m, 0 },
+	{ ANY, 0, ANY, 0, channelmix_f32_n_m, 0 },
 };
 
-#define MATCH_CHAN(a,b)		((a) == -1 || (a) == (b))
+#define MATCH_CHAN(a,b)		((a) == ANY || (a) == (b))
 #define MATCH_FEATURES(a,b)	((a) == 0 || ((a) & (b)) != 0)
 #define MATCH_MASK(a,b)		((a) == 0 || ((a) & (b)) == (b))
 
 static const struct channelmix_info *find_channelmix_info(uint32_t src_chan, uint64_t src_mask,
 		uint32_t dst_chan, uint64_t dst_mask, uint32_t features)
 {
-	int i;
+	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(channelmix_table); i++) {
 		if (!MATCH_FEATURES(channelmix_table[i].features, features))
 			continue;

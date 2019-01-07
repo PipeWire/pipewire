@@ -148,7 +148,7 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 {
 	struct port *port = &this->out_ports[0];
 	struct v4l2_requestbuffers reqbuf;
-	int i;
+	uint32_t i;
 
 	if (port->n_buffers == 0)
 		return 0;
@@ -354,7 +354,7 @@ static const struct format_info format_info[] = {
 
 static const struct format_info *fourcc_to_format_info(uint32_t fourcc)
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
 		if (format_info[i].fourcc == fourcc)
@@ -381,7 +381,7 @@ static const struct format_info *find_format_info_by_media_type(uint32_t type,
 								uint32_t format,
 								int startidx)
 {
-	int i;
+	size_t i;
 
 	for (i = startidx; i < SPA_N_ELEMENTS(format_info); i++) {
 		if ((format_info[i].media_type == type) &&
@@ -1214,7 +1214,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 	struct port *port = &this->out_ports[0];
 	struct spa_v4l2_device *dev = &port->dev;
 	struct v4l2_requestbuffers reqbuf;
-	int i;
+	unsigned int i;
 	struct spa_data *d;
 
 	if (n_buffers > 0) {
@@ -1311,7 +1311,7 @@ mmap_init(struct impl *this,
 	struct port *port = &this->out_ports[0];
 	struct spa_v4l2_device *dev = &port->dev;
 	struct v4l2_requestbuffers reqbuf;
-	int i;
+	unsigned int i;
 
 	port->memtype = V4L2_MEMORY_MMAP;
 
@@ -1490,7 +1490,7 @@ static int spa_v4l2_stream_off(struct impl *this)
 	struct port *port = &this->out_ports[0];
 	struct spa_v4l2_device *dev = &port->dev;
 	enum v4l2_buf_type type;
-	int i;
+	uint32_t i;
 
 	if (dev->fd == -1)
 		return -EIO;

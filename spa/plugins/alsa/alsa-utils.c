@@ -92,7 +92,7 @@ static const struct format_info format_info[] = {
 
 static snd_pcm_format_t spa_format_to_alsa(uint32_t format)
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
 		if (format_info[i].spa_format == format)
@@ -174,7 +174,7 @@ static void sanitize_map(snd_pcm_chmap_t* map)
 {
 	uint64_t mask = 0, p, dup = 0;
 	const struct def_mask *def;
-	int i, j, pos;
+	uint32_t i, j, pos;
 
 	for (i = 0; i < map->channels; i++) {
 		if (map->pos[i] < 0 || map->pos[i] > SND_CHMAP_LAST)
@@ -227,7 +227,8 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	snd_pcm_format_mask_t *fmask;
 	snd_pcm_access_mask_t *amask;
 	snd_pcm_chmap_query_t **maps;
-	int err, i, j, dir;
+	size_t i, j;
+	int err, dir;
 	unsigned int min, max;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = { 0 };
@@ -324,7 +325,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 		spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_position, 0);
 		spa_pod_builder_push_array(&b);
 		for (j = 0; j < map->channels; j++) {
-			spa_log_debug(state->log, "position %d %d", j, map->pos[j]);
+			spa_log_debug(state->log, "position %zd %d", j, map->pos[j]);
 			channel = chmap_position_to_channel(map->pos[j]);
 			spa_pod_builder_id(&b, channel);
 		}
@@ -943,7 +944,7 @@ next:
 
 static void reset_buffers(struct state *this)
 {
-	int i;
+	uint32_t i;
 
 	spa_list_init(&this->free);
 	spa_list_init(&this->ready);

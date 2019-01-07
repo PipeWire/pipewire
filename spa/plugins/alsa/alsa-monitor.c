@@ -58,7 +58,7 @@ struct impl {
 	struct udev_monitor *umonitor;
 
 	uint32_t cards[MAX_CARDS];
-	int n_cards;
+	uint32_t n_cards;
 
 	struct spa_source source;
 };
@@ -204,7 +204,7 @@ static int fill_item(struct impl *this, struct udev_device *dev,
 static int need_notify(struct impl *this, struct udev_device *dev, uint32_t id, bool enumerated)
 {
 	const char *str;
-	int idx, i, found = -1;
+	uint32_t idx, i, found = SPA_ID_INVALID;
 
 	if (udev_device_get_property_value(dev, "PULSE_IGNORE"))
 		return 0;
@@ -226,7 +226,7 @@ static int need_notify(struct impl *this, struct udev_device *dev, uint32_t id, 
 
 	switch (id) {
 	case SPA_MONITOR_EVENT_Added:
-		if (found != -1)
+		if (found != SPA_ID_INVALID)
 			return 0;
 		if (this->n_cards >= MAX_CARDS)
 			return 0;
@@ -237,14 +237,14 @@ static int need_notify(struct impl *this, struct udev_device *dev, uint32_t id, 
 		break;
 
 	case SPA_MONITOR_EVENT_Changed:
-		if (found == -1)
+		if (found == SPA_ID_INVALID)
 			return 0;
 		if ((str = udev_device_get_property_value(dev, "SOUND_INITIALIZED")) == NULL)
 			return 0;
 		break;
 
 	case SPA_MONITOR_EVENT_Removed:
-		if (found == -1)
+		if (found == SPA_ID_INVALID)
 			return 0;
 		this->cards[found] = this->cards[--this->n_cards];
 		break;

@@ -138,7 +138,7 @@ static int setup_convert(struct impl *this)
 	struct spa_audio_info informat, outformat;
 	struct port *inport, *outport;
 	const struct conv_info *conv;
-	int i, j;
+	uint32_t i, j;
 
 	inport = GET_IN_PORT(this, 0);
 	outport = GET_OUT_PORT(this, 0);
@@ -809,9 +809,9 @@ static int impl_node_process(struct spa_node *node)
 	struct spa_buffer *inb, *outb;
 	const void **src_datas;
 	void **dst_datas;
-	uint32_t n_src_datas, n_dst_datas;
-	int i, res = 0, n_samples = 0, maxsize;
-	int size = 0;
+	uint32_t i, n_src_datas, n_dst_datas;
+	int res = 0;
+	uint32_t n_samples, size, maxsize;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -850,7 +850,7 @@ static int impl_node_process(struct spa_node *node)
 	n_src_datas = inb->n_datas;
 	src_datas = alloca(sizeof(void*) * n_src_datas);
 
-	size = INT_MAX;
+	size = UINT32_MAX;
 	for (i = 0; i < n_src_datas; i++) {
 		size = SPA_MIN(size, inb->datas[0].chunk->size);
 		src_datas[i] = SPA_MEMBER(inb->datas[i].data, inb->datas[i].chunk->offset, void);

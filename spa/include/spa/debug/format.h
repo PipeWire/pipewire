@@ -114,7 +114,6 @@ spa_debug_format_value(const struct spa_type_info *info,
 static inline int spa_debug_format(int indent,
 		const struct spa_type_info *info, const struct spa_pod *format)
 {
-	int i;
 	const char *media_type;
 	const char *media_subtype;
 	struct spa_pod_prop *prop;
@@ -160,7 +159,7 @@ static inline int spa_debug_format(int indent,
 	SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)format, prop) {
 		const char *key;
 		const struct spa_type_info *ti;
-		uint32_t type, size, n_vals, choice;
+		uint32_t i, type, size, n_vals, choice;
 		const struct spa_pod *val;
 		void *vals;
 

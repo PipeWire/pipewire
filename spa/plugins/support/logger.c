@@ -131,7 +131,7 @@ static void on_trace_event(struct spa_source *source)
 		fprintf(impl->file, "failed to read event fd: %s", strerror(errno));
 
 	while ((avail = spa_ringbuffer_get_read_index(&impl->trace_rb, &index)) > 0) {
-		uint32_t offset, first;
+		int32_t offset, first;
 
 		if (avail > TRACE_BUFFER) {
 			index += avail - TRACE_BUFFER;

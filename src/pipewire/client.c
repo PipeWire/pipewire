@@ -56,7 +56,7 @@ find_permission(struct pw_client *client, uint32_t id)
 		return NULL;
 
 	p = pw_array_get_unchecked(&impl->permissions, id, struct pw_permission);
-	if (p->permissions == -1)
+	if (p->permissions == SPA_ID_INVALID)
 		return NULL;
 	else
 		return p;
@@ -77,7 +77,7 @@ static struct pw_permission *ensure_permissions(struct pw_client *client, uint32
 			return NULL;
 
 		for (i = 0; i < diff; i++)
-			p[i].permissions = -1;
+			p[i].permissions = SPA_ID_INVALID;
 	}
 	p = pw_array_get_unchecked(&impl->permissions, id, struct pw_permission);
 	return p;
@@ -187,7 +187,7 @@ core_global_removed(void *data, struct pw_global *global)
 	p = find_permission(client, global->id);
 	pw_log_debug("client %p: global %d removed, %p", client, global->id, p);
 	if (p != NULL)
-		p->permissions = -1;
+		p->permissions = SPA_ID_INVALID;
 }
 
 static const struct pw_core_events core_events = {
@@ -433,7 +433,7 @@ int pw_client_update_permissions(struct pw_client *client,
 {
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 	struct pw_core *core = client->core;
-	int i;
+	uint32_t i;
 
 	for (i = 0; i < n_permissions; i++) {
 		struct pw_permission *p;
@@ -468,7 +468,7 @@ int pw_client_update_permissions(struct pw_client *client,
 				continue;
 			}
 			p = ensure_permissions(client, global->id);
-			old_perm = p->permissions == -1 ? impl->permissions_default : p->permissions;
+			old_perm = p->permissions == SPA_ID_INVALID ? impl->permissions_default : p->permissions;
 			new_perm = permissions[i].permissions;
 
 			if (core->current_client == client)

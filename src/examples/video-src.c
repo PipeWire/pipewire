@@ -86,7 +86,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	struct data *data = userdata;
 	struct pw_buffer *b;
 	struct spa_buffer *buf;
-	int i, j;
+	uint32_t i, j;
 	uint8_t *p;
 	struct spa_meta *m;
 	struct spa_meta_header *h;

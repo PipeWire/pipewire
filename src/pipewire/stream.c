@@ -120,7 +120,7 @@ struct stream {
 	struct pw_array params;
 
 	struct buffer buffers[MAX_BUFFERS];
-	int n_buffers;
+	uint32_t n_buffers;
 
 	struct queue dequeued;
 	struct queue queued;
@@ -536,7 +536,7 @@ static int unmap_data(struct stream *impl, struct spa_data *data)
 static void clear_buffers(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	int i, j;
+	uint32_t i, j;
 
 	pw_log_debug("stream %p: clear buffers %d", stream, impl->n_buffers);
 
@@ -564,8 +564,8 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 {
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
 	struct pw_stream *stream = &impl->this;
-	uint32_t flags = impl->flags;
-	int i, j, prot, res;
+	uint32_t i, j, flags = impl->flags;
+	int prot, res;
 	int size = 0;
 
 	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
@@ -1094,7 +1094,8 @@ pw_stream_connect(struct pw_stream *stream,
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	enum pw_remote_state state;
-	int i, res;
+	int res;
+	uint32_t i;
 
 	pw_log_debug("stream %p: connect target:%d", stream, target_id);
 	impl->direction =
@@ -1165,7 +1166,7 @@ void pw_stream_finish_format(struct pw_stream *stream,
 			uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	int i;
+	uint32_t i;
 
 	pw_log_debug("stream %p: finish format %d %d", stream, res, impl->pending_seq);
 

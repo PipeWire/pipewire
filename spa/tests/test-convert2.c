@@ -420,7 +420,7 @@ static int negotiate_buffers(struct data *data)
 
 static void fill_buffer(struct data *data, struct spa_buffer *buffers[], int id)
 {
-	int i;
+	uint32_t i;
 	struct spa_buffer *b = buffers[id];
 
 	for (i = 0; i < b->datas[0].maxsize; i++) {
@@ -432,7 +432,8 @@ static void fill_buffer(struct data *data, struct spa_buffer *buffers[], int id)
 static void run_convert(struct data *data)
 {
 	struct spa_buffer *b;
-	int res, i, j;
+	int res;
+	uint32_t i, j;
 
 	{
 		struct spa_command cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start);

@@ -426,7 +426,8 @@ static void *loop(void *user_data)
 
 	printf("enter thread %d\n", data->n_sources);
 	while (data->running) {
-		int i, r;
+		int r;
+		unsigned int i;
 
 		/* rebuild */
 		if (data->rebuild_fds) {

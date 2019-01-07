@@ -213,7 +213,7 @@ get_nth_string (const GValue *val, int idx)
     v = val;
   else if (type == GST_TYPE_LIST) {
     GArray *array = g_value_peek_pointer (val);
-    if (idx < array->len + 1) {
+    if (idx < (int)(array->len + 1)) {
       v = &g_array_index (array, GValue, SPA_MAX (idx - 1, 0));
     }
   }
@@ -241,7 +241,7 @@ get_nth_int (const GValue *val, int idx, int *res)
     }
   } else if (type == GST_TYPE_LIST) {
     GArray *array = g_value_peek_pointer (val);
-    if (idx < array->len + 1) {
+    if (idx < (int)(array->len + 1)) {
       v = &g_array_index (array, GValue, SPA_MAX (idx - 1, 0));
     }
   }
@@ -268,7 +268,7 @@ get_nth_fraction (const GValue *val, int idx, struct spa_fraction *f)
     }
   } else if (type == GST_TYPE_LIST) {
     GArray *array = g_value_peek_pointer (val);
-    if (idx < array->len + 1) {
+    if (idx < (int)(array->len + 1)) {
       v = &g_array_index (array, GValue, SPA_MAX (idx-1, 0));
     }
   }
@@ -303,9 +303,9 @@ get_nth_rectangle (const GValue *width, const GValue *height, int idx, struct sp
   } else if (wt == GST_TYPE_LIST && ht == GST_TYPE_LIST) {
     GArray *wa = g_value_peek_pointer (width);
     GArray *ha = g_value_peek_pointer (height);
-    if (idx < wa->len + 1)
+    if (idx < (int)(wa->len + 1))
       w = &g_array_index (wa, GValue, SPA_MAX (idx-1, 0));
-    if (idx < ha->len + 1)
+    if (idx < (int)(ha->len + 1))
       h = &g_array_index (ha, GValue, SPA_MAX (idx-1, 0));
   }
   if (w && h) {
@@ -316,7 +316,7 @@ get_nth_rectangle (const GValue *width, const GValue *height, int idx, struct sp
   return false;
 }
 
-static const uint32_t
+static uint32_t
 get_range_type (const GValue *val)
 {
   GType type = G_VALUE_TYPE (val);
@@ -340,7 +340,7 @@ get_range_type (const GValue *val)
   return SPA_CHOICE_None;
 }
 
-static const uint32_t
+static uint32_t
 get_range_type2 (const GValue *v1, const GValue *v2)
 {
   uint32_t r1, r2;
@@ -375,7 +375,7 @@ handle_video_fields (ConvertData *d)
       }
 
       idx = gst_video_format_from_string (v);
-      if (idx < SPA_N_ELEMENTS (video_format_map))
+      if (idx < (int)SPA_N_ELEMENTS (video_format_map))
         spa_pod_builder_id (&d->b, video_format_map[idx]);
     }
     choice = spa_pod_builder_pop(&d->b);
@@ -451,7 +451,7 @@ handle_audio_fields (ConvertData *d)
       }
 
       idx = gst_audio_format_from_string (v);
-      if (idx < SPA_N_ELEMENTS (audio_format_map))
+      if (idx < (int)SPA_N_ELEMENTS (audio_format_map))
         spa_pod_builder_id (&d->b, audio_format_map[idx]);
     }
     choice = spa_pod_builder_pop(&d->b);

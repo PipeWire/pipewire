@@ -61,7 +61,7 @@ client_node_marshal_update(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int i, n_items;
+	uint32_t i, n_items;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_UPDATE);
 
@@ -98,7 +98,7 @@ client_node_marshal_port_update(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int i, n_items;
+	uint32_t i, n_items;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE);
 
@@ -326,7 +326,7 @@ static int client_node_demarshal_port_use_buffers(void *object, void *data, size
 	struct spa_pod_parser prs;
 	uint32_t seq, direction, port_id, mix_id, n_buffers, data_id;
 	struct pw_client_node_buffer *buffers;
-	int i, j;
+	uint32_t i, j;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,
@@ -735,7 +735,7 @@ static int client_node_demarshal_update(void *object, void *data, size_t size)
 	uint32_t change_mask, max_input_ports, max_output_ports, n_params;
 	const struct spa_pod **params;
 	struct spa_dict props;
-	int i;
+	uint32_t i;
 
 	spa_pod_parser_init(&prs, data, size, 0);
 	if (spa_pod_parser_get(&prs,

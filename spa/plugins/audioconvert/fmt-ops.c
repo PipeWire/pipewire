@@ -759,7 +759,7 @@ static const struct conv_info {
 
 static const struct conv_info *find_conv_info(uint32_t src_fmt, uint32_t dst_fmt, uint32_t features)
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < SPA_N_ELEMENTS(conv_table); i++) {
 		if (conv_table[i].src_fmt == src_fmt &&

@@ -168,7 +168,7 @@ static void *create_object(void *_data,
 
 	input_node = pw_global_get_object(global);
 
-	if (output_port_id == -1) {
+	if (output_port_id == SPA_ID_INVALID) {
 		outport = get_port(output_node, SPA_DIRECTION_OUTPUT);
 	}
 	else {
@@ -181,7 +181,7 @@ static void *create_object(void *_data,
 	if (outport == NULL)
 		goto no_output_port;
 
-	if (input_port_id == -1)
+	if (input_port_id == SPA_ID_INVALID)
 		inport = get_port(input_node, SPA_DIRECTION_INPUT);
 	else {
 		global = pw_core_find_global(core, input_port_id);

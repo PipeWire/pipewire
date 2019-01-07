@@ -56,6 +56,7 @@ static void port_props_reset(struct port_props *props)
 }
 
 struct buffer {
+	uint32_t id;
 	struct spa_list link;
 	bool outstanding;
 
@@ -97,8 +98,8 @@ struct impl {
 	const struct spa_node_callbacks *callbacks;
 	void *user_data;
 
-	int port_count;
-	int last_port;
+	uint32_t port_count;
+	uint32_t last_port;
 	struct port in_ports[MAX_PORTS];
 	struct port out_ports[1];
 
@@ -216,7 +217,7 @@ impl_node_get_port_ids(struct spa_node *node,
 		       uint32_t n_output_ids)
 {
 	struct impl *this;
-	int i, idx;
+	uint32_t i, idx;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -625,6 +626,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		struct spa_data *d = buffers[i]->datas;
 
 		b = &port->buffers[i];
+		b->id = i;
 		b->outbuf = buffers[i];
 		b->outstanding = (direction == SPA_DIRECTION_INPUT);
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
@@ -780,20 +782,20 @@ add_port_data(struct impl *this, void *out, size_t outsize, struct port *port, i
 
 	if (port->queued_bytes == 0) {
 		spa_log_trace(this->log, NAME " %p: return buffer %d on port %d %zd",
-			      this, b->outbuf->id, port->id, outsize);
-		port->io->buffer_id = b->outbuf->id;
+			      this, b->id, port->id, outsize);
+		port->io->buffer_id = b->id;
 		spa_list_remove(&b->link);
 		b->outstanding = true;
 	} else {
 		spa_log_trace(this->log, NAME " %p: keeping buffer %d on port %d %zd %zd",
-			      this, b->outbuf->id, port->id, port->queued_bytes, outsize);
+			      this, b->id, port->id, port->queued_bytes, outsize);
 	}
 }
 
 static int mix_output(struct impl *this, size_t n_bytes)
 {
 	struct buffer *outbuf;
-	int i, layer;
+	uint32_t i, layer;
 	struct port *outport;
 	struct spa_io_buffers *outio;
 	struct spa_data *od;
@@ -823,7 +825,7 @@ static int mix_output(struct impl *this, size_t n_bytes)
 	len2 = n_bytes - len1;
 
 	spa_log_trace(this->log, NAME " %p: dequeue output buffer %d %zd %d %d %d",
-		      this, outbuf->outbuf->id, n_bytes, offset, len1, len2);
+		      this, outbuf->id, n_bytes, offset, len1, len2);
 
 	for (layer = 0, i = 0; i < this->last_port; i++) {
 		struct port *in_port = GET_IN_PORT(this, i);
@@ -846,7 +848,7 @@ static int mix_output(struct impl *this, size_t n_bytes)
 	od[0].chunk->size = n_bytes;
 	od[0].chunk->stride = 0;
 
-	outio->buffer_id = outbuf->outbuf->id;
+	outio->buffer_id = outbuf->id;
 	outio->status = SPA_STATUS_HAVE_BUFFER;
 
 	return SPA_STATUS_HAVE_BUFFER;
@@ -857,7 +859,7 @@ static int impl_node_process(struct spa_node *node)
 	struct impl *this;
 	struct port *outport;
 	struct spa_io_buffers *outio;
-	int i;
+	uint32_t i;
 	size_t min_queued = SIZE_MAX;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);

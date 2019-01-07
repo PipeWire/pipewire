@@ -53,6 +53,7 @@ static void reset_props(struct props *props)
 #define MAX_BUFFERS     16
 
 struct buffer {
+	uint32_t id;
 	struct spa_buffer *outbuf;
 	bool outstanding;
 	struct spa_meta_header *h;
@@ -572,6 +573,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		struct spa_data *d = buffers[i]->datas;
 
 		b = &port->buffers[i];
+		b->id = i;
 		b->outbuf = buffers[i];
 		b->outstanding = direction == SPA_DIRECTION_INPUT;
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));

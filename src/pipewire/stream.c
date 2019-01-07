@@ -140,13 +140,18 @@ static struct param *add_param(struct pw_stream *stream,
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct param *p;
+	struct spa_pod *copy = NULL;
 
-	p = pw_array_add(&impl->params, sizeof(struct param));
-	if (p == NULL)
+	if (param != NULL && (copy = pw_spa_pod_copy(param)) == NULL)
 		return NULL;
 
+	p = pw_array_add(&impl->params, sizeof(struct param));
+	if (p == NULL) {
+		free(copy);
+		return NULL;
+	}
 	p->type = type;
-	p->param = pw_spa_pod_copy(param);
+	p->param = copy;
 	return p;
 }
 

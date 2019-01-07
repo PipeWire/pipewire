@@ -523,7 +523,7 @@ do_update_port(struct node *this,
 		port->params = realloc(port->params, port->n_params * sizeof(struct spa_pod *));
 
 		for (i = 0; i < port->n_params; i++) {
-			port->params[i] = pw_spa_pod_copy(params[i]);
+			port->params[i] = params[i] ? pw_spa_pod_copy(params[i]) : NULL;
 
 			if (spa_pod_is_object_id(port->params[i], SPA_PARAM_Format))
 				port->have_format = true;
@@ -1028,7 +1028,7 @@ client_node_update(void *data,
 		this->params = realloc(this->params, this->n_params * sizeof(struct spa_pod *));
 
 		for (i = 0; i < this->n_params; i++)
-			this->params[i] = pw_spa_pod_copy(params[i]);
+			this->params[i] = params[i] ? pw_spa_pod_copy(params[i]) : NULL;
 	}
 	if (change_mask & PW_CLIENT_NODE_UPDATE_PROPS) {
 		pw_node_update_properties(impl->this.node, props);

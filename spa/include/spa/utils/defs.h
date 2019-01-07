@@ -90,20 +90,20 @@ struct spa_fraction {
 ({				\
 	__typeof__(a) _a = (a);	\
 	__typeof__(b) _b = (b);	\
-	_a < _b ? _a : _b;	\
+	SPA_LIKELY(_a < _b) ? _a : _b;	\
 })
 #define SPA_MAX(a,b)		\
 ({				\
 	__typeof__(a) _a = (a);	\
 	__typeof__(b) _b = (b);	\
-	_a > _b ? _a : _b;	\
+	SPA_LIKELY(_a > _b) ? _a : _b;	\
 })
 #define SPA_CLAMP(v,low,high)				\
 ({							\
 	__typeof__(v) _v = (v);				\
 	__typeof__(low) _low = (low);			\
 	__typeof__(high) _high = (high);		\
-	_v > _high ? _high : ( _v < _low ? _low : _v);	\
+	SPA_MIN(SPA_MAX(_v, _low), _high);		\
 })
 
 #define SPA_MEMBER(b,o,t) ((t*)((uint8_t*)(b) + (int)(o)))

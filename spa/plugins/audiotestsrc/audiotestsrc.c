@@ -74,6 +74,7 @@ static void reset_props(struct props *props)
 #define MAX_PORTS 1
 
 struct buffer {
+	uint32_t id;
 	struct spa_buffer *outbuf;
 	bool outstanding;
 	struct spa_meta_header *h;
@@ -345,7 +346,7 @@ static int make_buffer(struct impl *this)
 			n_bytes = range->max_size;
 	}
 
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d %d %d", this, b->outbuf->id,
+	spa_log_trace(this->log, NAME " %p: dequeue buffer %d %d %d", this, b->id,
 		      maxsize, n_bytes);
 
 	filled = 0;
@@ -378,7 +379,7 @@ static int make_buffer(struct impl *this)
 	this->elapsed_time = SAMPLES_TO_TIME(this, this->sample_count);
 	set_timer(this, true);
 
-	io->buffer_id = b->outbuf->id;
+	io->buffer_id = b->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;
 
 	return io->status;
@@ -814,6 +815,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		struct spa_data *d = buffers[i]->datas;
 
 		b = &this->buffers[i];
+		b->id = i;
 		b->outbuf = buffers[i];
 		b->outstanding = false;
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));

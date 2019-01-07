@@ -685,7 +685,7 @@ impl_node_port_send_command(struct spa_node *node,
 	return -ENOTSUP;
 }
 
-static struct spa_buffer *find_free_buffer(struct impl *this, struct port *port)
+static struct buffer *find_free_buffer(struct impl *this, struct port *port)
 {
 	struct buffer *b;
 
@@ -696,7 +696,7 @@ static struct spa_buffer *find_free_buffer(struct impl *this, struct port *port)
 	spa_list_remove(&b->link);
 	b->outstanding = true;
 
-	return b->outbuf;
+	return b;
 }
 
 static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buffer *sbuf)
@@ -750,7 +750,7 @@ static int impl_node_process(struct spa_node *node)
 	struct impl *this;
 	struct port *in_port, *out_port;
 	struct spa_io_buffers *input, *output;
-	struct spa_buffer *dbuf, *sbuf;
+	struct buffer *dbuf, *sbuf;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -786,10 +786,10 @@ static int impl_node_process(struct spa_node *node)
 		return -EPIPE;
 	}
 
-	sbuf = in_port->buffers[input->buffer_id].outbuf;
+	sbuf = &in_port->buffers[input->buffer_id];
 
 	spa_log_trace(this->log, NAME " %p: do volume %d -> %d", this, sbuf->id, dbuf->id);
-	do_volume(this, dbuf, sbuf);
+	do_volume(this, dbuf->outbuf, sbuf->outbuf);
 
 	output->buffer_id = dbuf->id;
 	output->status = SPA_STATUS_HAVE_BUFFER;

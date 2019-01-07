@@ -476,6 +476,7 @@ impl_node_port_enum_params(struct spa_node *node,
 					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]), 0);
 		else
 			return 0;
+		break;
 	}
 	case SPA_PARAM_EnumFormat:
 		if ((res = port_enum_formats(node, direction, port_id, index, &param, &b)) <= 0)

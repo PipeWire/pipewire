@@ -225,10 +225,12 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		case -EIO:
 			current = NULL;
 			res = 0;
+			/* fallthrough */
 		case 1:
 			break;
 		case 0:
 			res = -EBADF;
+			/* fallthrough */
 		default:
 			asprintf(&error, "error get output format: %s", spa_strerror(res));
 			goto error;
@@ -258,10 +260,12 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		case -EIO:
 			current = NULL;
 			res = 0;
+			/* fallthrough */
 		case 1:
 			break;
 		case 0:
 			res = -EBADF;
+			/* fallthrough */
 		default:
 			asprintf(&error, "error get input format: %s", spa_strerror(res));
 			goto error;

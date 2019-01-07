@@ -232,7 +232,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 				return -EINVAL;
 			if (--parser->depth < 0)
 				return -EINVAL;
-
+			/* fallthrough */
 		case '}':
 			it = &parser->iter[parser->depth];
 			current = spa_pod_iter_current(it);

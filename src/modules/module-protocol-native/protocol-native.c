@@ -828,7 +828,7 @@ static void node_marshal_info(void *object, struct pw_node_info *info)
 			    "i", info->n_input_ports,
 			    "i", info->max_output_ports,
 			    "i", info->n_output_ports,
-			    "i", info->state,
+			    "I", info->state,
 			    "s", info->error,
 			    "i", n_items, NULL);
 
@@ -860,7 +860,7 @@ static int node_demarshal_info(void *object, void *data, size_t size)
 			"i", &info.n_input_ports,
 			"i", &info.max_output_ports,
 			"i", &info.n_output_ports,
-			"i", &info.state,
+			"I", &info.state,
 			"s", &info.error,
 			"i", &props.n_items, NULL) < 0)
 		return -EINVAL;

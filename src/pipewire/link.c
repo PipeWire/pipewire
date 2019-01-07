@@ -906,26 +906,26 @@ int pw_link_activate(struct pw_link *this)
 	}
 	return 0;
 }
-
-static int check_states(struct pw_link *this, void *user_data, int res)
+static void check_states(void *obj, void *user_data, int res, uint32_t id)
 {
+	struct pw_link *this = obj;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int in_state, out_state;
 	struct pw_port *input, *output;
 	int in_mix_state, out_mix_state;
 
 	if (this->info.state == PW_LINK_STATE_ERROR)
-		return -EIO;
+		return;
 
 	input = this->input;
 	output = this->output;
 
 	if (input == NULL || output == NULL)
-		return -EIO;
+		return;
 
 	if (input->node->info.state == PW_NODE_STATE_ERROR ||
 	    output->node->info.state == PW_NODE_STATE_ERROR)
-		return -EIO;
+		return;
 
 	in_state = input->state;
 	out_state = output->state;
@@ -934,7 +934,7 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 
 	if (in_state == PW_PORT_STATE_ERROR || out_state == PW_PORT_STATE_ERROR) {
 		pw_link_update_state(this, PW_LINK_STATE_ERROR, NULL);
-		return -EIO;
+		return;
 	}
 
 	if (PW_PORT_IS_CONTROL(output) && PW_PORT_IS_CONTROL(input)) {
@@ -947,7 +947,7 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 
 	if (in_mix_state == PW_PORT_STATE_PAUSED && out_mix_state == PW_PORT_STATE_PAUSED) {
 		pw_link_update_state(this, PW_LINK_STATE_PAUSED, NULL);
-		return 0;
+		return;
 	}
 
 	if ((res = do_negotiate(this, in_state, out_state)) != 0)
@@ -959,12 +959,11 @@ static int check_states(struct pw_link *this, void *user_data, int res)
       exit:
 	if (SPA_RESULT_IS_ERROR(res)) {
 		pw_log_debug("link %p: got error result %d", this, res);
-		return res;
+		return;
 	}
 
 	pw_work_queue_add(impl->work,
 			  this, -EBUSY, (pw_work_func_t) check_states, this);
-	return res;
 }
 
 static void

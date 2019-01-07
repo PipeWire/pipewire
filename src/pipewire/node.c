@@ -1110,8 +1110,9 @@ uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direct
 	return SPA_ID_INVALID;
 }
 
-static void on_state_complete(struct pw_node *node, void *data, int res)
+static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 {
+	struct pw_node *node = obj;
 	enum pw_node_state state = SPA_PTR_TO_INT(data);
 	char *error = NULL;
 
@@ -1192,7 +1193,7 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 		return res;
 
 	pw_work_queue_add(impl->work,
-			  node, res, (pw_work_func_t) on_state_complete, SPA_INT_TO_PTR(state));
+			  node, res, on_state_complete, SPA_INT_TO_PTR(state));
 
 	return res;
 }

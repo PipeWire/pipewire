@@ -38,10 +38,10 @@ extern "C" {
 #define SPA_TYPE_CONTROL_BASE		SPA_TYPE__Control ":"
 
 static const struct spa_type_info spa_type_control[] = {
-	{ SPA_CONTROL_Invalid, SPA_TYPE_CONTROL_BASE "Invalid", SPA_TYPE_Int, },
-	{ SPA_CONTROL_Properties, SPA_TYPE_CONTROL_BASE "Properties", SPA_TYPE_Int, },
-	{ SPA_CONTROL_Midi, SPA_TYPE_CONTROL_BASE "Midi", SPA_TYPE_Int, },
-	{ 0, NULL, },
+	{ SPA_CONTROL_Invalid, SPA_TYPE_CONTROL_BASE "Invalid", SPA_TYPE_Int, NULL },
+	{ SPA_CONTROL_Properties, SPA_TYPE_CONTROL_BASE "Properties", SPA_TYPE_Int, NULL },
+	{ SPA_CONTROL_Midi, SPA_TYPE_CONTROL_BASE "Midi", SPA_TYPE_Int, NULL },
+	{ 0, NULL, 0, NULL },
 };
 
 #ifdef __cplusplus

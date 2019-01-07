@@ -30,14 +30,14 @@
 
 jack_ringbuffer_t *jack_ringbuffer_create(size_t sz)
 {
-	int power_of_two;
+	size_t power_of_two;
 	jack_ringbuffer_t *rb;
 
 	rb = calloc(1, sizeof(jack_ringbuffer_t));
 	if (rb == NULL)
 		return NULL;
 
-	for (power_of_two = 1; 1 << power_of_two < sz; power_of_two++);
+	for (power_of_two = 1; 1u << power_of_two < sz; power_of_two++);
 
 	rb->size = 1 << power_of_two;
 	rb->size_mask = rb->size - 1;

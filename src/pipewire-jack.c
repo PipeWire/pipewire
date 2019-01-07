@@ -1648,8 +1648,8 @@ jack_client_t * jack_client_open (const char *client_name,
         pw_array_init(&client->mems, 64);
         pw_array_ensure_size(&client->mems, sizeof(struct mem) * 64);
 
-	client->buffer_size = -1;
-	client->sample_rate = -1;
+	client->buffer_size = (uint32_t)-1;
+	client->sample_rate = (uint32_t)-1;
 
         spa_list_init(&client->mix[SPA_DIRECTION_INPUT]);
         spa_list_init(&client->mix[SPA_DIRECTION_OUTPUT]);
@@ -2068,7 +2068,7 @@ int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	if (c->sample_rate == -1)
+	if (c->sample_rate == (uint32_t)-1)
 		return DEFAULT_SAMPLE_RATE;
 	return c->sample_rate;
 }
@@ -2076,7 +2076,7 @@ jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	if (c->buffer_size == -1)
+	if (c->buffer_size == (uint32_t)-1)
 		return DEFAULT_BUFFER_SIZE;
 	return c->buffer_size;
 }

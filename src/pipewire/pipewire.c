@@ -35,6 +35,7 @@
 #include <dlfcn.h>
 
 #include <spa/support/dbus.h>
+#include <spa/support/cpu.h>
 
 #include "pipewire.h"
 #include "private.h"
@@ -445,6 +446,10 @@ void pw_init(int *argc, char **argv[])
 	iface = load_interface(plugin, "cpu", SPA_TYPE_INTERFACE_CPU, &info,
 			support->n_support, support->support);
 	if (iface != NULL) {
+		struct spa_cpu *cpu = iface->iface;
+		if ((str = getenv("PIPEWIRE_CPU")))
+			spa_cpu_force_flags(cpu, strtoul(str, NULL, 0));
+
 		support->support[support->n_support++] =
 			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_CPU, iface->iface);
 	}

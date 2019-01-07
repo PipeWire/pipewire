@@ -66,6 +66,7 @@ extern "C" {
 #define SPA_CPU_FLAG_NEON	(1 << 5)
 #define SPA_CPU_FLAG_ARMV8	(1 << 6)
 
+#define SPA_CPU_FORCE_AUTODETECT	((uint32_t)-1)
 /**
  * The CPU features interface
  */
@@ -82,6 +83,9 @@ struct spa_cpu {
 	/** get CPU flags */
 	uint32_t (*get_flags) (struct spa_cpu *cpu);
 
+	/** force CPU flags, use SPA_CPU_FORCE_AUTODETECT to autodetect CPU flags */
+	int (*force_flags) (struct spa_cpu *cpu, uint32_t flags);
+
 	/** get number of CPU cores */
 	uint32_t (*get_count) (struct spa_cpu *cpu);
 
@@ -90,6 +94,7 @@ struct spa_cpu {
 };
 
 #define spa_cpu_get_flags(c)		(c)->get_flags((c))
+#define spa_cpu_force_flags(c,f)	(c)->force_flags((c), (f))
 #define spa_cpu_get_count(c)		(c)->get_count((c))
 #define spa_cpu_get_max_align(c)	(c)->get_max_align((c))
 

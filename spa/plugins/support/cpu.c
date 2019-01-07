@@ -45,6 +45,7 @@ struct impl {
 	struct spa_log *log;
 
 	uint32_t flags;
+	uint32_t force;
 	uint32_t count;
 	uint32_t max_align;
 };
@@ -58,7 +59,17 @@ static uint32_t
 impl_cpu_get_flags(struct spa_cpu *cpu)
 {
 	struct impl *impl = SPA_CONTAINER_OF(cpu, struct impl, cpu);
+	if (impl->force != SPA_CPU_FORCE_AUTODETECT)
+		return impl->force;
 	return impl->flags;
+}
+
+static int
+impl_cpu_force_flags(struct spa_cpu *cpu, uint32_t flags)
+{
+	struct impl *impl = SPA_CONTAINER_OF(cpu, struct impl, cpu);
+	impl->force = flags;
+	return 0;
 }
 
 static uint32_t get_count(struct impl *this)
@@ -88,6 +99,7 @@ static const struct spa_cpu impl_cpu = {
 	SPA_VERSION_CPU,
 	NULL,
 	impl_cpu_get_flags,
+	impl_cpu_force_flags,
 	impl_cpu_get_count,
 	impl_cpu_get_max_align,
 };
@@ -146,6 +158,7 @@ impl_init(const struct spa_handle_factory *factory,
 			this->log = support[i].data;
 	}
 	this->flags = 0;
+	this->force = SPA_CPU_FORCE_AUTODETECT;
 	this->max_align = 16;
 	this->count = get_count(this);
 	init(this);

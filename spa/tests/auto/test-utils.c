@@ -22,10 +22,120 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <spa/utils/defs.h>
 #include <spa/utils/dict.h>
 #include <spa/utils/list.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/utils/type.h>
+
+static void test_abi(void)
+{
+	/* defs */
+	spa_assert(SPA_DIRECTION_INPUT == 0);
+	spa_assert(SPA_DIRECTION_OUTPUT == 1);
+
+	spa_assert(sizeof(struct spa_rectangle) == 8);
+	spa_assert(sizeof(struct spa_point) == 8);
+	spa_assert(sizeof(struct spa_region) == 16);
+	spa_assert(sizeof(struct spa_fraction) == 8);
+
+	{
+		struct spa_rectangle r = SPA_RECTANGLE(12, 14);
+		spa_assert(r.width == 12);
+		spa_assert(r.height == 14);
+	}
+	{
+		struct spa_point p = SPA_POINT(8, 34);
+		spa_assert(p.x == 8);
+		spa_assert(p.y == 34);
+	}
+	{
+		struct spa_region r = SPA_REGION(4, 5, 12, 13);
+		spa_assert(r.position.x == 4);
+		spa_assert(r.position.y == 5);
+		spa_assert(r.size.width == 12);
+		spa_assert(r.size.height == 13);
+	}
+	{
+		struct spa_fraction f = SPA_FRACTION(56, 125);
+		spa_assert(f.num == 56);
+		spa_assert(f.denom == 125);
+	}
+
+	/* dict */
+	spa_assert(sizeof(struct spa_dict_item) == 16);
+	spa_assert(sizeof(struct spa_dict) == 16);
+
+	/* hook */
+	spa_assert(sizeof(struct spa_hook_list) == sizeof(struct spa_list));
+	spa_assert(sizeof(struct spa_hook) == 48);
+
+	/* list */
+	spa_assert(sizeof(struct spa_list) == 16);
+
+	/* ringbuffer */
+	spa_assert(sizeof(struct spa_ringbuffer) == 8);
+
+	/* type */
+	spa_assert(SPA_TYPE_START == 0);
+	spa_assert(SPA_TYPE_None == 1);
+	spa_assert(SPA_TYPE_Bool == 2);
+	spa_assert(SPA_TYPE_Id == 3);
+	spa_assert(SPA_TYPE_Int == 4);
+	spa_assert(SPA_TYPE_Long == 5);
+	spa_assert(SPA_TYPE_Float == 6);
+	spa_assert(SPA_TYPE_Double == 7);
+	spa_assert(SPA_TYPE_String == 8);
+	spa_assert(SPA_TYPE_Bytes == 9);
+	spa_assert(SPA_TYPE_Rectangle == 10);
+	spa_assert(SPA_TYPE_Fraction == 11);
+	spa_assert(SPA_TYPE_Bitmap == 12);
+	spa_assert(SPA_TYPE_Array == 13);
+	spa_assert(SPA_TYPE_Struct == 14);
+	spa_assert(SPA_TYPE_Object == 15);
+	spa_assert(SPA_TYPE_Sequence == 16);
+	spa_assert(SPA_TYPE_Pointer == 17);
+	spa_assert(SPA_TYPE_Fd == 18);
+	spa_assert(SPA_TYPE_Choice == 19);
+	spa_assert(SPA_TYPE_Pod == 20);
+	spa_assert(SPA_TYPE_LAST == 21);
+
+	spa_assert(SPA_TYPE_EVENT_START == 0x30000);
+	spa_assert(SPA_TYPE_EVENT_Monitor == 0x30001);
+	spa_assert(SPA_TYPE_EVENT_Node == 0x30002);
+	spa_assert(SPA_TYPE_EVENT_LAST == 0x30003);
+
+	spa_assert(SPA_TYPE_COMMAND_START == 0x40000);
+	spa_assert(SPA_TYPE_COMMAND_Node == 0x40001);
+	spa_assert(SPA_TYPE_COMMAND_LAST == 0x40002);
+
+	spa_assert(SPA_TYPE_OBJECT_START == 0x50000);
+	spa_assert(SPA_TYPE_OBJECT_MonitorItem == 0x50001);
+	spa_assert(SPA_TYPE_OBJECT_ParamList == 0x50002);
+	spa_assert(SPA_TYPE_OBJECT_PropInfo == 0x50003);
+	spa_assert(SPA_TYPE_OBJECT_Props == 0x50004);
+	spa_assert(SPA_TYPE_OBJECT_Format == 0x50005);
+	spa_assert(SPA_TYPE_OBJECT_ParamBuffers == 0x50006);
+	spa_assert(SPA_TYPE_OBJECT_ParamMeta == 0x50007);
+	spa_assert(SPA_TYPE_OBJECT_ParamIO == 0x50008);
+	spa_assert(SPA_TYPE_OBJECT_ParamProfile == 0x50009);
+	spa_assert(SPA_TYPE_OBJECT_LAST == 0x5000a);
+
+	spa_assert(SPA_TYPE_VENDOR_PipeWire == 0x02000000);
+	spa_assert(SPA_TYPE_VENDOR_Other == 0x7f000000);
+}
+
+static void test_macros(void)
+{
+	spa_assert(SPA_MIN(1, 2) == 1);
+	spa_assert(SPA_MIN(1, -2) == -2);
+	spa_assert(SPA_MAX(1, 2) == 2);
+	spa_assert(SPA_MAX(1, -2) == 1);
+	spa_assert(SPA_CLAMP(23, 1, 16) == 16);
+	spa_assert(SPA_CLAMP(-1, 1, 16) == 1);
+	spa_assert(SPA_CLAMP(8, 1, 16) == 8);
+}
 
 static void test_dict(void)
 {
@@ -37,6 +147,8 @@ static void test_dict(void)
         SPA_DICT_ITEM_INIT("SPA", "Simple Plugin API"),
     };
     struct spa_dict dict = SPA_DICT_INIT_ARRAY (items);
+    const struct spa_dict_item *it;
+    int i = 0;
 
     spa_assert(dict.n_items == 5);
     spa_assert(!strcmp(spa_dict_lookup(&dict, "pipe"), "wire"));
@@ -45,6 +157,14 @@ static void test_dict(void)
     spa_assert(!strcmp(spa_dict_lookup(&dict, "SPA"), "Simple Plugin API"));
     spa_assert(!strcmp(spa_dict_lookup(&dict, "test"), "Works!"));
     spa_assert(spa_dict_lookup(&dict, "nonexistent") == NULL);
+
+    spa_assert(spa_dict_lookup_item(&dict, "123") == &items[3]);
+    spa_assert(spa_dict_lookup_item(&dict, "foobar") == NULL);
+
+    spa_dict_for_each(it, &dict) {
+	    spa_assert(it == &items[i++]);
+    }
+    spa_assert(i == 5);
 }
 
 struct string_list {
@@ -279,6 +399,8 @@ static void test_ringbuffer(void)
 
 int main(int argc, char *argv[])
 {
+    test_abi();
+    test_macros();
     test_dict();
     test_list();
     test_hook();

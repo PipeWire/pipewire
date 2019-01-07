@@ -42,6 +42,8 @@ enum spa_meta_type {
 	SPA_META_VideoDamage,
 	SPA_META_Bitmap,
 	SPA_META_Cursor,
+
+	SPA_META_LAST,		/**< not part of ABI/API */
 };
 
 /**

@@ -39,7 +39,7 @@ static inline int spa_pod_compare_value(uint32_t type, const void *r1, const voi
 		return 0;
 	case SPA_TYPE_Bool:
 	case SPA_TYPE_Id:
-		return *(int32_t *) r1 == *(uint32_t *) r2 ? 0 : 1;
+		return *(uint32_t *) r1 == *(uint32_t *) r2 ? 0 : 1;
 	case SPA_TYPE_Int:
 		return *(int32_t *) r1 - *(int32_t *) r2;
 	case SPA_TYPE_Long:

@@ -50,16 +50,12 @@
 
 static inline int32_t read_s24(const void *src)
 {
-	union  {
-		int8_t v[4];
-		int32_t value;
-	} d;
+	const int8_t *s = src;
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-	memcpy(&d.v[1], src, 3);
+	return (((int32_t)s[2] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[0]);
 #else
-	memcpy(&d.v[0], src, 3);
+	return (((int32_t)s[0] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[2]);
 #endif
-	return d.value >> 8;
 }
 
 #define READ24(s) read_s24(s)
@@ -314,13 +310,7 @@ conv_s24_32d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const vo
 	}
 }
 
-#define F32_TO_U8(v)			\
-({					\
-	typeof(v) _v = (v);		\
-	_v < -1.0f ? U8_MIN :		\
-	_v >= 1.0f ? U8_MAX :		\
-	(_v * U8_SCALE) + U8_OFFS;	\
-})
+#define F32_TO_U8(v)	((SPA_CLAMP(v, -1.0f, 1.0f) * U8_SCALE) + U8_OFFS)
 
 static void
 conv_f32_to_u8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
@@ -329,7 +319,7 @@ conv_f32_to_u8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *s
 
 	for (i = 0; i < n_src; i++) {
 		const float *s = src[i];
-		int8_t *d = dst[i];
+		uint8_t *d = dst[i];
 
 		for (j = 0; j < n_samples; j++)
 			d[j] = F32_TO_U8(s[j]);
@@ -340,7 +330,7 @@ static void
 conv_f32_to_u8d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
 	const float *s = src[0];
-	int8_t **d = (int8_t **) dst;
+	uint8_t **d = (uint8_t **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
@@ -353,7 +343,7 @@ static void
 conv_f32d_to_u8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
 	const float **s = (const float **) src;
-	int8_t *d = dst[0];
+	uint8_t *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
@@ -362,13 +352,7 @@ conv_f32d_to_u8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 	}
 }
 
-#define F32_TO_S16(v)		\
-({				\
-	typeof(v) _v = (v);	\
-	_v < -1.0f ? S16_MIN :	\
-	_v >= 1.0f ? S16_MAX :	\
-	_v * S16_SCALE;		\
-})
+#define F32_TO_S16(v)	(SPA_CLAMP(v, -1.0f, 1.0f) * S16_SCALE)
 
 static void
 conv_f32_to_s16(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
@@ -410,13 +394,7 @@ conv_f32d_to_s16(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 	}
 }
 
-#define F32_TO_S32(v)		\
-({				\
-	typeof(v) _v = (v);	\
-	_v < -1.0f ? S32_MIN :	\
-	_v >= 1.0f ? S32_MAX :	\
-	_v * S32_SCALE;		\
-})
+#define F32_TO_S32(v)		(SPA_CLAMP(v, -1.0f, 1.0f) * S32_SCALE)
 
 static void
 conv_f32_to_s32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
@@ -459,17 +437,11 @@ conv_f32d_to_s32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 }
 
 
-#define F32_TO_S24(v)			\
-({					\
-	typeof(v) _v = (v);		\
-	_v < -1.0f ? S24_MIN :		\
-	_v >= 1.0f ? S24_MAX :		\
-	(uint32_t) (_v * S24_SCALE);	\
-})
+#define F32_TO_S24(v)	 (SPA_CLAMP(v, -1.0f, 1.0f) * S24_SCALE)
 
 #define WRITE24(d,v)			\
 ({					\
-	typeof(v) _v = (v);		\
+	int32_t _v = (v);		\
 	d[0] = (uint8_t) (_v >> 16);	\
 	d[1] = (uint8_t) (_v >> 8);	\
 	d[2] = (uint8_t) _v;		\
@@ -482,7 +454,7 @@ conv_f32_to_s24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 
 	for (i = 0; i < n_src; i++) {
 		const float *s = src[i];
-		int8_t *d = dst[i];
+		uint8_t *d = dst[i];
 
 		for (j = 0; j < n_samples; j++)
 			WRITE24(d, F32_TO_S24(s[j]));
@@ -494,7 +466,7 @@ static void
 conv_f32_to_s24d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
 	const float *s = src[0];
-	int8_t **d = (int8_t **) dst;
+	uint8_t **d = (uint8_t **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
@@ -509,7 +481,7 @@ static void
 conv_f32d_to_s24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
 	const float **s = (const float **) src;
-	int8_t *d = dst[0];
+	uint8_t *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {

@@ -1,5 +1,6 @@
 project('pipewire', 'c',
   version : '0.2.9',
+  license : 'MIT',
   meson_version : '>= 0.42.0',
   default_options : [ 'warning_level=1',
                       'c_std=gnu99',
@@ -38,6 +39,9 @@ pkgconfig = import('pkgconfig')
 
 cc = meson.get_compiler('c')
 
+if cc.get_id() == 'gcc'
+  add_global_arguments('-Wsign-compare', '-Wimplicit-fallthrough', language : 'c')
+endif
 
 cdata = configuration_data()
 cdata.set('PIPEWIRE_VERSION_MAJOR', pipewire_version_major)

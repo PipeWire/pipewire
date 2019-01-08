@@ -851,7 +851,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
         pw->loop = pw_loop_new(NULL);
         pw->main_loop = pw_thread_loop_new(pw->loop, "alsa-pipewire");
-        pw->core = pw_core_new(pw->loop, NULL);
+        pw->core = pw_core_new(pw->loop, NULL, 0);
 
 	pw->remote = pw_remote_new(pw->core, NULL, 0);
 	pw_remote_add_listener(pw->remote, &pw->remote_listener, &remote_events, pw);

@@ -59,8 +59,8 @@ struct pw_array {
 #define pw_array_check_index(a,idx,t)		pw_array_check_index_s(a,idx,sizeof(t))
 
 #define pw_array_first(a)	((a)->data)
-#define pw_array_end(a)		((const uint8_t*)(a)->data + (a)->size)
-#define pw_array_check(a,p)	((const uint8_t*)(p) < pw_array_end(a))
+#define pw_array_end(a)		SPA_MEMBER((a)->data, (a)->size, void)
+#define pw_array_check(a,p)	(SPA_MEMBER(p,sizeof(*p),void) <= pw_array_end(a))
 
 #define pw_array_for_each(pos, array)					\
 	for (pos = (__typeof__(pos)) pw_array_first(array);		\

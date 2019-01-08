@@ -70,7 +70,7 @@ struct pw_port_events {
 	void (*free) (void *data);
 
 	/** the port info changed */
-	void (*info_changed) (void *data, struct pw_port_info *info);
+	void (*info_changed) (void *data, const struct pw_port_info *info);
 
 	/** a new link is added on this port */
 	void (*link_added) (void *data, struct pw_link *link);

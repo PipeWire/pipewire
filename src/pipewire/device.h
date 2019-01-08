@@ -58,7 +58,7 @@ struct pw_device_events {
         void (*destroy) (void *data);
 
 	/** the device info changed */
-	void (*info_changed) (void *data, struct pw_device_info *info);
+	void (*info_changed) (void *data, const struct pw_device_info *info);
 };
 
 struct pw_device *pw_device_new(struct pw_core *core,

@@ -1146,7 +1146,7 @@ static void client_node_active_changed(void *data, bool active)
 	impl->active = active;
 }
 
-static void client_node_info_changed (void *data, struct pw_node_info *info)
+static void client_node_info_changed (void *data, const struct pw_node_info *info)
 {
 	struct impl *impl = data;
 	struct pw_client_stream *this = &impl->this;

@@ -98,7 +98,7 @@ struct pw_client_events {
 	void (*free) (void *data);
 
 	/** emited when the client info changed */
-	void (*info_changed) (void *data, struct pw_client_info *info);
+	void (*info_changed) (void *data, const struct pw_client_info *info);
 
 	/** emited when a new resource is added for client */
 	void (*resource_added) (void *data, struct pw_resource *resource);
@@ -135,7 +135,7 @@ void pw_client_destroy(struct pw_client *client);
 
 /** Finish configuration and register a client */
 int pw_client_register(struct pw_client *client,	/**< the client to register */
-		       struct pw_client *owner,	/**< optional owner */
+		       struct pw_client *owner,		/**< optional owner */
 		       struct pw_global *parent,	/**< the client parent */
 		       struct pw_properties *properties/**< extra properties */);
 

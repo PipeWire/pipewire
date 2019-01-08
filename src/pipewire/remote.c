@@ -1329,7 +1329,7 @@ static void node_destroy(void *data)
 	spa_hook_remove(&d->proxy_listener);
 }
 
-static void node_info_changed(void *data, struct pw_node_info *info)
+static void node_info_changed(void *data, const struct pw_node_info *info)
 {
 	struct node_data *d = data;
 	uint32_t change_mask = 0;

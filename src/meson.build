@@ -37,6 +37,7 @@ pipewire_mainloop_glib_sources = [
 
 pipewire_pulseaudio_c_args = [
   '-DHAVE_CONFIG_H',
+  '-D_GNU_SOURCE',
   '-DPIC',
 ]
 

@@ -41,6 +41,7 @@ enum spa_control_type {
 	SPA_CONTROL_Invalid,
 	SPA_CONTROL_Properties,
 	SPA_CONTROL_Midi,
+	SPA_CONTROL_LAST,		/**< not part of ABI */
 };
 
 #ifdef __cplusplus

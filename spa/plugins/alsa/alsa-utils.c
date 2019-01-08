@@ -801,7 +801,7 @@ push_frames(struct state *state,
 		l0 = SPA_MIN(n_bytes, d[0].maxsize - offs);
 		l1 = n_bytes - l0;
 
-		memcpy(d[0].data + offs, src, l0);
+		memcpy(SPA_MEMBER(d[0].data, offs, void), src, l0);
 		if (l1 > 0)
 			memcpy(d[0].data, src + l0, l1);
 

@@ -60,8 +60,8 @@ struct spa_meta {
 };
 
 #define spa_meta_first(m)	((m)->data)
-#define spa_meta_end(m)		((m)->data + (m)->size)
-#define spa_meta_check(p,m)	((void*)(p) + sizeof(*p) <= spa_meta_end(m))
+#define spa_meta_end(m)		SPA_MEMBER((m)->data,(m)->size,void)
+#define spa_meta_check(p,m)	(SPA_MEMBER(p,sizeof(*p),void) <= spa_meta_end(m))
 
 /**
  * Describes essential buffer header metadata such as flags and
@@ -89,7 +89,7 @@ struct spa_meta_region {
 #define spa_meta_region_is_valid(m)	((m)->region.size.width != 0 && (m)->region.size.height != 0)
 
 #define spa_meta_region_for_each(pos,meta)				\
-	for (pos = spa_meta_first(meta);				\
+	for (pos = (__typeof(pos))spa_meta_first(meta);			\
 	    spa_meta_check(pos, meta);					\
             (pos)++)
 

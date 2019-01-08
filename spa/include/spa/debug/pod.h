@@ -137,20 +137,20 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		break;
 	case SPA_TYPE_Pointer:
 	{
-		struct spa_pod_pointer_body *b = body;
+		struct spa_pod_pointer_body *b = (struct spa_pod_pointer_body *)body;
 		spa_debug("%*s" "Pointer %s %p", indent, "",
 		       spa_debug_type_find_name(SPA_TYPE_ROOT, b->type), b->value);
 		break;
 	}
 	case SPA_TYPE_Rectangle:
 	{
-		struct spa_rectangle *r = body;
+		struct spa_rectangle *r = (struct spa_rectangle *)body;
 		spa_debug("%*s" "Rectangle %dx%d", indent, "", r->width, r->height);
 		break;
 	}
 	case SPA_TYPE_Fraction:
 	{
-		struct spa_fraction *f = body;
+		struct spa_fraction *f = (struct spa_fraction *)body;
 		spa_debug("%*s" "Fraction %d/%d", indent, "", f->num, f->denom);
 		break;
 	}
@@ -159,7 +159,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		break;
 	case SPA_TYPE_Array:
 	{
-		struct spa_pod_array_body *b = body;
+		struct spa_pod_array_body *b = (struct spa_pod_array_body *)body;
 		void *p;
 		const struct spa_type_info *ti = spa_debug_type_find(SPA_TYPE_ROOT, b->child.type);
 
@@ -172,7 +172,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 	}
 	case SPA_TYPE_Choice:
 	{
-		struct spa_pod_choice_body *b = body;
+		struct spa_pod_choice_body *b = (struct spa_pod_choice_body *)body;
 		void *p;
 		const struct spa_type_info *ti = spa_debug_type_find(spa_type_choice, b->type);
 
@@ -185,7 +185,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 	}
 	case SPA_TYPE_Struct:
 	{
-		struct spa_pod *b = body, *p;
+		struct spa_pod *b = (struct spa_pod *)body, *p;
 		spa_debug("%*s" "Struct: size %d", indent, "", size);
 		SPA_POD_FOREACH(b, size, p)
 			spa_debug_pod_value(indent + 2, info, p->type, SPA_POD_BODY(p), p->size);
@@ -193,7 +193,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 	}
 	case SPA_TYPE_Object:
 	{
-		struct spa_pod_object_body *b = body;
+		struct spa_pod_object_body *b = (struct spa_pod_object_body *)body;
 		struct spa_pod_prop *p;
 		const struct spa_type_info *ti, *ii;
 
@@ -221,7 +221,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 	}
 	case SPA_TYPE_Sequence:
 	{
-		struct spa_pod_sequence_body *b = body;
+		struct spa_pod_sequence_body *b = (struct spa_pod_sequence_body *)body;
 		const struct spa_type_info *ti, *ii;
 		struct spa_pod_control *c;
 

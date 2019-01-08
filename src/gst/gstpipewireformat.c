@@ -529,7 +529,7 @@ write_pod (struct spa_pod_builder *b, const void *data, uint32_t size)
     if (b->data == NULL)
 	    return -1;
   }
-  memcpy (b->data + ref, data, size);
+  memcpy (SPA_MEMBER(b->data, ref, void), data, size);
   return ref;
 }
 

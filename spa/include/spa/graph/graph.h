@@ -132,14 +132,14 @@ struct spa_graph_port {
 
 static inline int spa_graph_link_signal_node(void *data)
 {
-	struct spa_graph_node *node = data;
+	struct spa_graph_node *node = (struct spa_graph_node *)data;
 	spa_debug("node %p call process", node);
 	return spa_graph_node_process(node);
 }
 
 static inline int spa_graph_link_signal_graph(void *data)
 {
-	struct spa_graph_node *node = data;
+	struct spa_graph_node *node = (struct spa_graph_node *)data;
 	if (node->graph)
 		spa_graph_finish(node->graph);
 	return 0;
@@ -299,7 +299,7 @@ spa_graph_port_unlink(struct spa_graph_port *port)
 
 static inline int spa_graph_node_impl_process(void *data, struct spa_graph_node *node)
 {
-	struct spa_node *n = data;
+	struct spa_node *n = (struct spa_node *)data;
 	struct spa_graph_state *state = node->state;
 
 	spa_debug("node %p: process state %p: %d, node %p", node, state, state->status, n);
@@ -312,7 +312,7 @@ static inline int spa_graph_node_impl_process(void *data, struct spa_graph_node 
 static inline int spa_graph_node_impl_reuse_buffer(void *data, struct spa_graph_node *node,
 		uint32_t port_id, uint32_t buffer_id)
 {
-	struct spa_node *n = data;
+	struct spa_node *n = (struct spa_node *)data;
 	return spa_node_port_reuse_buffer(n, port_id, buffer_id);
 }
 

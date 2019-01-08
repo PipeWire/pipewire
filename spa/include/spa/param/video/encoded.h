@@ -29,11 +29,7 @@
 extern "C" {
 #endif
 
-struct spa_video_info_h264;
-struct spa_video_info_mjpg;
-
 #include <spa/param/format.h>
-#include <spa/param/video/format.h>
 
 enum spa_h264_stream_format {
 	SPA_H264_STREAM_FORMAT_UNKNOWN = 0,

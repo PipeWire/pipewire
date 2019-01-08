@@ -31,7 +31,7 @@ extern "C" {
 
 #include <spa/buffer/buffer.h>
 #include <spa/buffer/meta.h>
-#include <spa/utils/type-info.h>
+#include <spa/utils/type.h>
 
 #define SPA_TYPE__Buffer		SPA_TYPE_POINTER_BASE "Buffer"
 #define SPA_TYPE_BUFFER_BASE		SPA_TYPE__Buffer ":"

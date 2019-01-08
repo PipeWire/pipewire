@@ -29,7 +29,8 @@
 extern "C" {
 #endif
 
-#include <spa/debug/debug-mem.h>
+#include <spa/debug/mem.h>
+#include <spa/debug/types.h>
 #include <spa/buffer/type-info.h>
 
 #ifndef spa_debug
@@ -38,10 +39,9 @@ extern "C" {
 
 static inline int spa_debug_buffer(int indent, const struct spa_buffer *buffer)
 {
-	int i;
+	uint32_t i;
 
 	spa_debug("%*s" "struct spa_buffer %p:", indent, "", buffer);
-	spa_debug("%*s" " id:      %08X", indent, "", buffer->id);
 	spa_debug("%*s" " n_metas: %u (at %p)", indent, "", buffer->n_metas, buffer->metas);
 	for (i = 0; i < buffer->n_metas; i++) {
 		struct spa_meta *m = &buffer->metas[i];
@@ -54,7 +54,7 @@ static inline int spa_debug_buffer(int indent, const struct spa_buffer *buffer)
 		switch (m->type) {
 		case SPA_META_Header:
 		{
-			struct spa_meta_header *h = m->data;
+			struct spa_meta_header *h = (struct spa_meta_header*)m->data;
 			spa_debug("%*s" "    struct spa_meta_header:", indent, "");
 			spa_debug("%*s" "      flags:      %08x", indent, "", h->flags);
 			spa_debug("%*s" "      seq:        %u", indent, "", h->seq);
@@ -64,15 +64,30 @@ static inline int spa_debug_buffer(int indent, const struct spa_buffer *buffer)
 		}
 		case SPA_META_VideoCrop:
 		{
-			struct spa_meta_video_crop *h = m->data;
-			spa_debug("%*s" "    struct spa_meta_video_crop:", indent, "");
-			spa_debug("%*s" "      x:      %d", indent, "", h->x);
-			spa_debug("%*s" "      y:      %d", indent, "", h->y);
-			spa_debug("%*s" "      width:  %d", indent, "", h->width);
-			spa_debug("%*s" "      height: %d", indent, "", h->height);
+			struct spa_meta_region *h = (struct spa_meta_region*)m->data;
+			spa_debug("%*s" "    struct spa_meta_region:", indent, "");
+			spa_debug("%*s" "      x:      %d", indent, "", h->region.position.x);
+			spa_debug("%*s" "      y:      %d", indent, "", h->region.position.y);
+			spa_debug("%*s" "      width:  %d", indent, "", h->region.size.width);
+			spa_debug("%*s" "      height: %d", indent, "", h->region.size.height);
 			break;
 		}
 		case SPA_META_VideoDamage:
+		{
+			struct spa_meta_region *h;
+			spa_meta_region_for_each(h, m) {
+				spa_debug("%*s" "    struct spa_meta_region:", indent, "");
+				spa_debug("%*s" "      x:      %d", indent, "", h->region.position.x);
+				spa_debug("%*s" "      y:      %d", indent, "", h->region.position.y);
+				spa_debug("%*s" "      width:  %d", indent, "", h->region.size.width);
+				spa_debug("%*s" "      height: %d", indent, "", h->region.size.height);
+			}
+			break;
+		}
+		case SPA_META_Bitmap:
+			break;
+		case SPA_META_Cursor:
+			break;
 		default:
 			spa_debug("%*s" "    Unknown:", indent, "");
 			spa_debug_mem(5, m->data, m->size);

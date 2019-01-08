@@ -413,7 +413,7 @@ static int add_data(struct impl *this, const void *data, int size)
 		if (processed < 0)
 			return 0;
 
-		data += processed;
+		data = SPA_MEMBER(data, processed, void);
 		size -= processed;
 		total += processed;
 	}

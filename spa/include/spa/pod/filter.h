@@ -125,7 +125,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 
 	/* start with copying the property */
 	spa_pod_builder_prop(b, p1->key, 0);
-	nc = spa_pod_builder_deref(b, spa_pod_builder_push_choice(b, 0, 0));
+	nc = (struct spa_pod_choice*)spa_pod_builder_deref(b, spa_pod_builder_push_choice(b, 0, 0));
 
 	/* default value */
 	spa_pod_builder_primitive(b, v1);
@@ -136,8 +136,8 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Enum)) {
 		int n_copied = 0;
 		/* copy all equal values but don't copy the default value again */
-		for (j = 0, a1 = alt1; j < nalt1; j++, a1 += size) {
-			for (k = 0, a2 = alt2; k < nalt2; k++, a2 += size) {
+		for (j = 0, a1 = alt1; j < nalt1; j++, a1 = SPA_MEMBER(a1, size, void)) {
+			for (k = 0, a2 = alt2; k < nalt2; k++, a2 = SPA_MEMBER(a2,size,void)) {
 				if (spa_pod_compare_value(type, a1, a2) == 0) {
 					if (p1c == SPA_CHOICE_Enum || j > 0)
 						spa_pod_builder_raw(b, a1, size);
@@ -154,10 +154,10 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Range)) {
 		int n_copied = 0;
 		/* copy all values inside the range */
-		for (j = 0, a1 = alt1, a2 = alt2; j < nalt1; j++, a1 += size) {
+		for (j = 0, a1 = alt1, a2 = alt2; j < nalt1; j++, a1 = SPA_MEMBER(a1,size,void)) {
 			if (spa_pod_compare_value(type, a1, a2) < 0)
 				continue;
-			if (spa_pod_compare_value(type, a1, a2 + size) > 0)
+			if (spa_pod_compare_value(type, a1, SPA_MEMBER(a2,size,void)) > 0)
 				continue;
 			spa_pod_builder_raw(b, a1, size);
 			n_copied++;
@@ -176,10 +176,10 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Enum)) {
 		int n_copied = 0;
 		/* copy all values inside the range */
-		for (k = 0, a1 = alt1, a2 = alt2; k < nalt2; k++, a2 += size) {
+		for (k = 0, a1 = alt1, a2 = alt2; k < nalt2; k++, a2 = SPA_MEMBER(a2,size,void)) {
 			if (spa_pod_compare_value(type, a2, a1) < 0)
 				continue;
-			if (spa_pod_compare_value(type, a2, a1 + size) > 0)
+			if (spa_pod_compare_value(type, a2, SPA_MEMBER(a1,size,void)) > 0)
 				continue;
 			spa_pod_builder_raw(b, a2, size);
 			n_copied++;
@@ -195,8 +195,8 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		else
 			spa_pod_builder_raw(b, alt1, size);
 
-		alt1 += size;
-		alt2 += size;
+		alt1 = SPA_MEMBER(alt1,size,void);
+		alt2 = SPA_MEMBER(alt2,size,void);
 
 		if (spa_pod_compare_value(type, alt1, alt2) < 0)
 			spa_pod_builder_raw(b, alt1, size);
@@ -304,9 +304,9 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 				filter_offset = sizeof(struct spa_pod_struct);
 				spa_pod_builder_push_struct(b);
 				res = spa_pod_filter_part(b,
-					SPA_MEMBER(pp,filter_offset,void),
+					SPA_MEMBER(pp,filter_offset,const struct spa_pod),
 					SPA_POD_SIZE(pp) - filter_offset,
-					SPA_MEMBER(pf,filter_offset,void),
+					SPA_MEMBER(pf,filter_offset,const struct spa_pod),
 					SPA_POD_SIZE(pf) - filter_offset);
 			        spa_pod_builder_pop(b);
 				do_advance = true;
@@ -329,7 +329,7 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 		if (do_copy)
 			spa_pod_builder_raw_padded(b, pp, SPA_POD_SIZE(pp));
 		if (do_advance) {
-			pf = spa_pod_next(pf);
+			pf = (const struct spa_pod*)spa_pod_next(pf);
 			if (!spa_pod_is_inside(filter, filter_size, pf))
 				pf = NULL;
 		}
@@ -352,7 +352,7 @@ spa_pod_filter(struct spa_pod_builder *b,
         spa_return_val_if_fail(b != NULL, -EINVAL);
 
 	if (filter == NULL) {
-		*result = spa_pod_builder_deref(b,
+		*result = (struct spa_pod*)spa_pod_builder_deref(b,
 			spa_pod_builder_raw_padded(b, pod, SPA_POD_SIZE(pod)));
 		return 0;
 	}
@@ -361,7 +361,7 @@ spa_pod_filter(struct spa_pod_builder *b,
 	if ((res = spa_pod_filter_part(b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter))) < 0)
 		spa_pod_builder_reset(b, &state);
 	else
-		*result = spa_pod_builder_deref(b, state.offset);
+		*result = (struct spa_pod*)spa_pod_builder_deref(b, state.offset);
 
 	return res;
 }

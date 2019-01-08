@@ -74,13 +74,13 @@ spa_debug_format_value(const struct spa_type_info *info,
 		break;
 	case SPA_TYPE_Rectangle:
 	{
-		struct spa_rectangle *r = body;
+		struct spa_rectangle *r = (struct spa_rectangle *)body;
 		fprintf(stderr, "%" PRIu32 "x%" PRIu32, r->width, r->height);
 		break;
 	}
 	case SPA_TYPE_Fraction:
 	{
-		struct spa_fraction *f = body;
+		struct spa_fraction *f = (struct spa_fraction *)body;
 		fprintf(stderr, "%" PRIu32 "/%" PRIu32, f->num, f->denom);
 		break;
 	}
@@ -93,7 +93,7 @@ spa_debug_format_value(const struct spa_type_info *info,
 	case SPA_TYPE_Array:
 	{
 		void *p;
-		struct spa_pod_array_body *b = body;
+		struct spa_pod_array_body *b = (struct spa_pod_array_body *)body;
 		int i = 0;
 		fprintf(stderr, "< ");
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p) {
@@ -118,27 +118,6 @@ static inline int spa_debug_format(int indent,
 	const char *media_subtype;
 	struct spa_pod_prop *prop;
 	uint32_t mtype, mstype;
-	const char *pod_type_names[] = {
-		[SPA_TYPE_None] = "none",
-		[SPA_TYPE_Bool] = "bool",
-		[SPA_TYPE_Id] = "id",
-		[SPA_TYPE_Int] = "int",
-		[SPA_TYPE_Long] = "long",
-		[SPA_TYPE_Float] = "float",
-		[SPA_TYPE_Double] = "double",
-		[SPA_TYPE_String] = "string",
-		[SPA_TYPE_Bytes] = "bytes",
-		[SPA_TYPE_Rectangle] = "rectangle",
-		[SPA_TYPE_Fraction] = "fraction",
-		[SPA_TYPE_Bitmap] = "bitmap",
-		[SPA_TYPE_Array] = "array",
-		[SPA_TYPE_Struct] = "struct",
-		[SPA_TYPE_Object] = "object",
-		[SPA_TYPE_Pointer] = "pointer",
-		[SPA_TYPE_Fd] = "fd",
-		[SPA_TYPE_Choice] = "choice",
-		[SPA_TYPE_Pod] = "pod"
-	};
 
 	if (info == NULL)
 		info = spa_type_format;
@@ -173,12 +152,15 @@ static inline int spa_debug_format(int indent,
 		size = val->size;
 		vals = SPA_POD_BODY(val);
 
+		if (type < SPA_TYPE_None || type >= SPA_TYPE_LAST)
+			continue;
+
 		ti = spa_debug_type_find(info, prop->key);
 		key = ti ? ti->name : NULL;
 
 		fprintf(stderr, "%*s %16s : (%s) ", indent, "",
 			key ? rindex(key, ':') + 1 : "unknown",
-			pod_type_names[type]);
+			rindex(spa_types[type].name, ':') + 1);
 
 		if (choice == SPA_CHOICE_None) {
 			spa_debug_format_value(ti->values, type, vals, size);

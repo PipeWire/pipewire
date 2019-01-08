@@ -232,7 +232,7 @@ static inline uint32_t spa_pod_builder_bool(struct spa_pod_builder *builder, boo
 	return spa_pod_builder_primitive(builder, &p.pod);
 }
 
-#define SPA_POD_Id(val) (struct spa_pod_id){ { sizeof(uint32_t), SPA_TYPE_Id }, val, 0 }
+#define SPA_POD_Id(val) (struct spa_pod_id){ { sizeof(uint32_t), SPA_TYPE_Id }, (uint32_t)val, 0 }
 
 static inline uint32_t spa_pod_builder_id(struct spa_pod_builder *builder, uint32_t val)
 {
@@ -240,7 +240,7 @@ static inline uint32_t spa_pod_builder_id(struct spa_pod_builder *builder, uint3
 	return spa_pod_builder_primitive(builder, &p.pod);
 }
 
-#define SPA_POD_Int(val) (struct spa_pod_int){ { sizeof(uint32_t), SPA_TYPE_Int }, val, 0 }
+#define SPA_POD_Int(val) (struct spa_pod_int){ { sizeof(int32_t), SPA_TYPE_Int }, (int32_t)val, 0 }
 
 static inline uint32_t spa_pod_builder_int(struct spa_pod_builder *builder, int32_t val)
 {
@@ -248,7 +248,7 @@ static inline uint32_t spa_pod_builder_int(struct spa_pod_builder *builder, int3
 	return spa_pod_builder_primitive(builder, &p.pod);
 }
 
-#define SPA_POD_Long(val) (struct spa_pod_long){ { sizeof(uint64_t), SPA_TYPE_Long }, val }
+#define SPA_POD_Long(val) (struct spa_pod_long){ { sizeof(int64_t), SPA_TYPE_Long }, (int64_t)val }
 
 static inline uint32_t spa_pod_builder_long(struct spa_pod_builder *builder, int64_t val)
 {

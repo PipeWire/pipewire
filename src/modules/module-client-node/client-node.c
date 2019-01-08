@@ -852,7 +852,7 @@ do_port_use_buffers(struct impl *impl,
 
 		mb[i].buffer = &b->buffer;
 		mb[i].mem_id = b->memid;
-		mb[i].offset = SPA_PTRDIFF(baseptr, mem->ptr + mem->offset);
+		mb[i].offset = SPA_PTRDIFF(baseptr, SPA_MEMBER(mem->ptr, mem->offset, void));
 		mb[i].size = data_size;
 
 		for (j = 0; j < buffers[i]->n_metas; j++)

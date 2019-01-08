@@ -37,7 +37,7 @@ extern "C" {
 
 static inline int spa_debug_mem(int indent, const void *data, size_t size)
 {
-	const uint8_t *t = data;
+	const uint8_t *t = (const uint8_t*)data;
 	char buffer[512];
 	size_t i;
 	int pos = 0;

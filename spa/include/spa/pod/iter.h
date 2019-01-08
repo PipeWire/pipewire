@@ -108,19 +108,19 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 }
 
 #define SPA_POD_ARRAY_BODY_FOREACH(body, _size, iter)							\
-	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_array_body), __typeof__(*(iter)));	\
-	     (iter) < SPA_MEMBER((body), (_size), __typeof__(*(iter)));					\
-	     (iter) = SPA_MEMBER((iter), (body)->child.size, __typeof__(*(iter))))
+	for ((iter) = (__typeof__(iter))SPA_MEMBER((body), sizeof(struct spa_pod_array_body), void);	\
+	     (iter) < (__typeof__(iter))SPA_MEMBER((body), (_size), void);				\
+	     (iter) = (__typeof__(iter))SPA_MEMBER((iter), (body)->child.size, void))
 
 #define SPA_POD_CHOICE_BODY_FOREACH(body, _size, iter)							\
-	for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_choice_body), __typeof__(*(iter)));	\
-	     (iter) < SPA_MEMBER((body), (_size), __typeof__(*(iter)));					\
-	     (iter) = SPA_MEMBER((iter), (body)->child.size, __typeof__(*(iter))))
+	for ((iter) = (__typeof__(iter))SPA_MEMBER((body), sizeof(struct spa_pod_choice_body), void);	\
+	     (iter) < (__typeof__(iter))SPA_MEMBER((body), (_size), void);				\
+	     (iter) = (__typeof__(iter))SPA_MEMBER((iter), (body)->child.size, void))
 
 #define SPA_POD_FOREACH(pod, size, iter)					\
 	for ((iter) = (pod);							\
 	     spa_pod_is_inside(pod, size, iter);				\
-	     (iter) = spa_pod_next(iter))
+	     (iter) = (__typeof__(iter))spa_pod_next(iter))
 
 #define SPA_POD_STRUCT_FOREACH(obj, iter)							\
 	SPA_POD_FOREACH(SPA_POD_BODY(obj), SPA_POD_BODY_SIZE(obj), iter)

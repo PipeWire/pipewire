@@ -491,7 +491,7 @@ static int alloc_buffers(struct pw_link *this,
 			m->type = metas[j].type;
 			m->size = metas[j].size;
 			m->data = p;
-			p += m->size;
+			p = SPA_MEMBER(p, m->size, void);
 		}
 		/* pointer to data structure */
 		b->n_datas = n_datas;
@@ -514,7 +514,7 @@ static int alloc_buffers(struct pw_link *this,
 				d->chunk->offset = 0;
 				d->chunk->size = 0;
 				d->chunk->stride = data_strides[j];
-				ddp += data_sizes[j];
+				ddp = SPA_MEMBER(ddp, data_sizes[j], void);
 			} else {
 				/* needs to be allocated by a node */
 				d->type = SPA_ID_INVALID;

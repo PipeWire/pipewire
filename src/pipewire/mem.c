@@ -112,7 +112,7 @@ int pw_memblock_map(struct pw_memblock *mem)
 			prot |= PROT_WRITE;
 
 		if (mem->flags & PW_MEMBLOCK_FLAG_MAP_TWICE) {
-			void *ptr;
+			void *ptr, *wrap;
 
 			mem->ptr =
 			    mmap(NULL, mem->size << 1, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1,
@@ -128,10 +128,12 @@ int pw_memblock_map(struct pw_memblock *mem)
 				return -ENOMEM;
 			}
 
+			wrap = SPA_MEMBER(mem->ptr, mem->size, void);
+
 			ptr =
-			    mmap(mem->ptr + mem->size, mem->size, prot, MAP_FIXED | MAP_SHARED,
+			    mmap(wrap, mem->size, prot, MAP_FIXED | MAP_SHARED,
 				 mem->fd, mem->offset);
-			if (ptr != mem->ptr + mem->size) {
+			if (ptr != wrap) {
 				munmap(mem->ptr, mem->size << 1);
 				return -ENOMEM;
 			}
@@ -280,7 +282,7 @@ struct pw_memblock * pw_memblock_find(const void *ptr)
 	struct memblock *m;
 
 	spa_list_for_each(m, &_memblocks, link) {
-		if (ptr >= m->mem.ptr && ptr < m->mem.ptr + m->mem.size)
+		if (ptr >= m->mem.ptr && ptr < SPA_MEMBER(m->mem.ptr, m->mem.size, void))
 			return &m->mem;
 	}
 	return NULL;

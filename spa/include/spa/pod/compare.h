@@ -22,6 +22,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#ifndef __SPA_POD_COMPARE_H__
+#define __SPA_POD_COMPARE_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdarg.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -49,7 +57,7 @@ static inline int spa_pod_compare_value(uint32_t type, const void *r1, const voi
 	case SPA_TYPE_Double:
 		return *(double *) r1 - *(double *) r2;
 	case SPA_TYPE_String:
-		return strcmp(r1, r2);
+		return strcmp((char *)r1, (char *)r2);
 	case SPA_TYPE_Rectangle:
 	{
 		const struct spa_rectangle *rec1 = (struct spa_rectangle *) r1,
@@ -106,9 +114,9 @@ static inline int spa_pod_compare(const struct spa_pod *pod1,
 		const struct spa_pod *p1, *p2;
 		size_t p1s, p2s;
 
-		p1 = SPA_POD_BODY_CONST(pod1);
+		p1 = (const struct spa_pod*)SPA_POD_BODY_CONST(pod1);
 		p1s = SPA_POD_BODY_SIZE(pod1);
-		p2 = SPA_POD_BODY_CONST(pod2);
+		p2 = (const struct spa_pod*)SPA_POD_BODY_CONST(pod2);
 		p2s = SPA_POD_BODY_SIZE(pod2);
 
 		while (true) {
@@ -119,8 +127,8 @@ static inline int spa_pod_compare(const struct spa_pod *pod1,
 			if ((res = spa_pod_compare(p1, p2)) != 0)
 				return res;
 
-			p1 = spa_pod_next(p1);
-			p2 = spa_pod_next(p2);
+			p1 = (const struct spa_pod*)spa_pod_next(p1);
+			p2 = (const struct spa_pod*)spa_pod_next(p2);
 		}
 		break;
 	}
@@ -153,3 +161,9 @@ static inline int spa_pod_compare(const struct spa_pod *pod1,
 	}
 	return res;
 }
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

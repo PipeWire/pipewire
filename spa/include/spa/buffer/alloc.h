@@ -48,9 +48,9 @@ struct spa_buffer_alloc_info {
 };
 
 static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
-					     uint32_t n_metas, struct spa_meta metas[n_metas],
-					     uint32_t n_datas, struct spa_data datas[n_datas],
-					     uint32_t data_aligns[n_datas])
+					     uint32_t n_metas, struct spa_meta metas[],
+					     uint32_t n_datas, struct spa_data datas[],
+					     uint32_t data_aligns[])
 {
 	size_t size;
 	uint32_t i;
@@ -91,7 +91,7 @@ static inline struct spa_buffer *
 spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 			void *skel_mem, void *data_mem)
 {
-	struct spa_buffer *b = skel_mem;
+	struct spa_buffer *b = (struct spa_buffer*)skel_mem;
 	size_t size;
 	uint32_t i;
 	void **dp, *skel, *data;
@@ -114,17 +114,17 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 		struct spa_meta *m = &b->metas[i];
 		*m = info->metas[i];
 		m->data = *dp;
-		*dp += m->size;
+		*dp = SPA_MEMBER(*dp, m->size, void);
 	}
 
 	size = info->n_datas * sizeof(struct spa_chunk);
 	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_CHUNK)) {
-		cp = skel;
-		skel += size;
+		cp = (struct spa_chunk*)skel;
+		skel = SPA_MEMBER(skel, size, void);
 	}
 	else {
-		cp = data;
-		data += size;
+		cp = (struct spa_chunk*)data;
+		data = SPA_MEMBER(data, size, void);
 	}
 
 	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_DATA))
@@ -139,7 +139,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 		d->chunk = &cp[i];
 		if (!SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_NO_DATA)) {
 			d->data = *dp;
-			*dp += d->maxsize;
+			*dp = SPA_MEMBER(*dp, d->maxsize, void);
 		}
 	}
 	return b;
@@ -147,7 +147,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 
 static inline int
 spa_buffer_alloc_layout_array(struct spa_buffer_alloc_info *info,
-			      uint32_t n_buffers, struct spa_buffer *buffers[n_buffers],
+			      uint32_t n_buffers, struct spa_buffer *buffers[],
 			      void *skel_mem, void *data_mem)
 {
 	uint32_t i;
@@ -162,9 +162,9 @@ spa_buffer_alloc_layout_array(struct spa_buffer_alloc_info *info,
 
 static inline struct spa_buffer **
 spa_buffer_alloc_array(uint32_t n_buffers, uint32_t flags,
-		       uint32_t n_metas, struct spa_meta metas[n_metas],
-		       uint32_t n_datas, struct spa_data datas[n_datas],
-		       uint32_t data_aligns[n_datas])
+		       uint32_t n_metas, struct spa_meta metas[],
+		       uint32_t n_datas, struct spa_data datas[],
+		       uint32_t data_aligns[])
 {
 
         struct spa_buffer **buffers;
@@ -175,7 +175,7 @@ spa_buffer_alloc_array(uint32_t n_buffers, uint32_t flags,
 
 	info.skel_size = SPA_ROUND_UP_N(info.skel_size, 16);
 
-        buffers = calloc(n_buffers, sizeof(struct spa_buffer *) + info.skel_size);
+        buffers = (struct spa_buffer **)calloc(n_buffers, sizeof(struct spa_buffer *) + info.skel_size);
 
         skel = SPA_MEMBER(buffers, sizeof(struct spa_buffer *) * n_buffers, void);
 

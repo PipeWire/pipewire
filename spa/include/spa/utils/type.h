@@ -110,6 +110,41 @@ enum {
 	SPA_TYPE_VENDOR_Other		= 0x7f000000,
 };
 
+#define SPA_TYPE_BASE	"Spa:"
+
+#define SPA_TYPE__Flags				SPA_TYPE_BASE "Flags"
+#define SPA_TYPE_FLAGS_BASE			SPA_TYPE__Flags ":"
+
+#define SPA_TYPE__Enum				SPA_TYPE_BASE "Enum"
+#define SPA_TYPE_ENUM_BASE			SPA_TYPE__Enum ":"
+
+#define SPA_TYPE__Pod				SPA_TYPE_BASE "Pod"
+#define SPA_TYPE_POD_BASE			SPA_TYPE__Pod ":"
+
+#define SPA_TYPE__Struct			SPA_TYPE_POD_BASE "Struct"
+#define SPA_TYPE_STRUCT_BASE			SPA_TYPE__Struct ":"
+
+#define SPA_TYPE__Object			SPA_TYPE_POD_BASE "Object"
+#define SPA_TYPE_OBJECT_BASE			SPA_TYPE__Object ":"
+
+#define SPA_TYPE__Pointer			SPA_TYPE_BASE "Pointer"
+#define SPA_TYPE_POINTER_BASE			SPA_TYPE__Pointer ":"
+
+#define SPA_TYPE__Interface			SPA_TYPE_POINTER_BASE "Interface"
+#define SPA_TYPE_INTERFACE_BASE			SPA_TYPE__Interface ":"
+
+#define SPA_TYPE__Event				SPA_TYPE_OBJECT_BASE "Event"
+#define SPA_TYPE_EVENT_BASE			SPA_TYPE__Event ":"
+
+#define SPA_TYPE__Command			SPA_TYPE_OBJECT_BASE "Command"
+#define SPA_TYPE_COMMAND_BASE			SPA_TYPE__Command ":"
+
+struct spa_type_info {
+	uint32_t type;
+	const char *name;
+	uint32_t parent;
+	const struct spa_type_info *values;
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

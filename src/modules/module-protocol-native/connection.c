@@ -361,7 +361,7 @@ static uint32_t write_pod(struct spa_pod_builder *b, const void *data, uint32_t 
                 b->size = SPA_ROUND_UP_N(ref + size, 4096);
                 b->data = begin_write(&impl->this, b->size);
         }
-        memcpy(b->data + ref, data, size);
+        memcpy(SPA_MEMBER(b->data, ref, void), data, size);
 
         return ref;
 }
@@ -493,7 +493,7 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 			     outfds);
 
 		size -= sent;
-		data += sent;
+		data = SPA_MEMBER(data, sent, void);
 		n_fds -= outfds;
 		fds += outfds;
 	}

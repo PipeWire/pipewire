@@ -5,6 +5,7 @@ subdir('daemon')
 subdir('tools')
 subdir('modules')
 subdir('examples')
+subdir('tests')
 
 if get_option('gstreamer')
   subdir('gst')

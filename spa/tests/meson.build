@@ -34,6 +34,7 @@ executable('test-perf', 'test-perf.c',
            install : false)
 executable('stress-ringbuffer', 'stress-ringbuffer.c',
            include_directories : [spa_inc ],
+	   c_args : [ '-D_GNU_SOURCE' ],
            dependencies : [dl_lib, pthread_lib],
            install : false)
 if sdl_dep.found()

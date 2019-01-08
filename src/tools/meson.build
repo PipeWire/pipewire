@@ -1,10 +1,12 @@
 executable('pipewire-monitor',
-  'pipewire-monitor.c',
-  install: true,
-  dependencies : [pipewire_dep],
+	'pipewire-monitor.c',
+	c_args : [ '-D_GNU_SOURCE' ],
+	install: true,
+	dependencies : [pipewire_dep],
 )
 executable('pipewire-cli',
-  'pipewire-cli.c',
-  install: true,
-  dependencies : [pipewire_dep],
+	'pipewire-cli.c',
+	c_args : [ '-D_GNU_SOURCE' ],
+	install: true,
+	dependencies : [pipewire_dep],
 )

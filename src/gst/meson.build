@@ -19,6 +19,7 @@ pipewire_gst_headers = [
 
 pipewire_gst_c_args = [
   '-DHAVE_CONFIG_H',
+  '-D_GNU_SOURCE',
 ]
 
 pipewire_gst = shared_library('gstpipewire',

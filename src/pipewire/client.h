@@ -29,8 +29,10 @@
 extern "C" {
 #endif
 
+#ifdef _GNU_SOURCE
 #ifndef __USE_GNU
 #define __USE_GNU
+#endif
 #endif
 
 #include <sys/socket.h>

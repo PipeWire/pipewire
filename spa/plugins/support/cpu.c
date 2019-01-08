@@ -22,8 +22,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#define _GNU_SOURCE
-
 #include <stddef.h>
 #include <unistd.h>
 #include <string.h>

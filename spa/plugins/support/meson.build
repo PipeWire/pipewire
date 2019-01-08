@@ -5,6 +5,7 @@ spa_support_sources = ['cpu.c',
 
 spa_support_lib = shared_library('spa-support',
                           spa_support_sources,
+			  c_args : [ '-D_GNU_SOURCE' ],
                           include_directories : [ spa_inc],
                           dependencies : threads_dep,
                           install : true,

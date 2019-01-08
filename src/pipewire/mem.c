@@ -22,10 +22,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
 #include "config.h"
 
 #include <string.h>

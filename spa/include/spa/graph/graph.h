@@ -75,24 +75,11 @@ static inline int spa_graph_link_trigger(struct spa_graph_link *link)
 
         return state->status;
 }
-
-struct spa_graph_callbacks {
-#define SPA_VERSION_GRAPH_CALLBACKS	0
-	uint32_t version;
-
-	int (*run) (void *data);
-	int (*finish) (void *data);
-};
-#define spa_graph_run(g)		((g)->callbacks->run((g)->callbacks_data))
-#define spa_graph_finish(g)		((g)->callbacks->finish((g)->callbacks_data))
-
 struct spa_graph {
 	uint32_t flags;			/* flags */
 	struct spa_graph_node *parent;	/* parent node or NULL when driver */
 	struct spa_graph_state *state;	/* state of graph */
 	struct spa_list nodes;		/* list of nodes of this graph */
-	const struct spa_graph_callbacks *callbacks;
-	void *callbacks_data;
 };
 
 struct spa_graph_node_callbacks {
@@ -130,6 +117,49 @@ struct spa_graph_port {
 	struct spa_graph_port *peer;	/**< peer */
 };
 
+static inline int spa_graph_run(struct spa_graph *graph)
+{
+	struct spa_graph_node *n, *tmp;
+	struct spa_list pending;
+
+	spa_debug("graph %p run", graph);
+	spa_graph_state_reset(graph->state);
+
+	spa_list_init(&pending);
+
+	spa_list_for_each(n, &graph->nodes, link) {
+		struct spa_graph_state *s = n->state;
+
+		spa_graph_state_reset(s);
+
+		spa_debug("graph %p node %p: state %p add %d status %d", graph, n,
+				s, s->pending, s->status);
+
+		if (s->pending == 0)
+			spa_list_append(&pending, &n->sched_link);
+	}
+	spa_list_for_each_safe(n, tmp, &pending, sched_link)
+		spa_graph_node_process(n);
+
+	return 0;
+}
+
+static inline int spa_graph_node_trigger(struct spa_graph_node *node)
+{
+	struct spa_graph_link *l, *t;
+	spa_debug("node %p trigger", node);
+	spa_list_for_each_safe(l, t, &node->links, link)
+		spa_graph_link_trigger(l);
+	return 0;
+}
+
+static inline int spa_graph_finish(struct spa_graph *graph)
+{
+	spa_debug("graph %p finish", graph);
+	if (graph->parent)
+		spa_graph_node_trigger(graph->parent);
+	return 0;
+}
 static inline int spa_graph_link_signal_node(void *data)
 {
 	struct spa_graph_node *node = (struct spa_graph_node *)data;
@@ -151,15 +181,6 @@ static inline void spa_graph_init(struct spa_graph *graph, struct spa_graph_stat
 	graph->flags = 0;
 	graph->state = state;
 	spa_debug("graph %p init state %p", graph, state);
-}
-
-static inline void
-spa_graph_set_callbacks(struct spa_graph *graph,
-			const struct spa_graph_callbacks *callbacks,
-			void *data)
-{
-	graph->callbacks = callbacks;
-	graph->callbacks_data = data;
 }
 
 static inline void
@@ -196,14 +217,6 @@ spa_graph_node_init(struct spa_graph_node *node, struct spa_graph_state *state)
 	spa_debug("node %p init state %p", node, state);
 }
 
-static inline int spa_graph_node_trigger(struct spa_graph_node *node)
-{
-	struct spa_graph_link *l, *t;
-	spa_debug("node %p trigger", node);
-	spa_list_for_each_safe(l, t, &node->links, link)
-		spa_graph_link_trigger(l);
-	return 0;
-}
 
 static inline int spa_graph_node_impl_sub_process(void *data, struct spa_graph_node *node)
 {

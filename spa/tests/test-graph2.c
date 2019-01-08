@@ -38,7 +38,6 @@
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/graph/graph.h>
-#include <spa/graph/graph-scheduler2.h>
 
 static SPA_LOG_IMPL(default_log);
 

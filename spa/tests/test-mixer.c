@@ -51,7 +51,6 @@ static SPA_LOG_IMPL(default_log);
 #define spa_debug(...)	spa_log_trace(&default_log.log,__VA_ARGS__)
 
 #include <spa/graph/graph.h>
-#include <spa/graph/graph-scheduler2.h>
 
 struct buffer {
 	struct spa_buffer buffer;
@@ -70,7 +69,6 @@ struct data {
 
 	struct spa_graph graph;
 	struct spa_graph_state graph_state;
-	struct spa_graph_data graph_data;
 	struct spa_graph_node source1_node;
 	struct spa_graph_state source1_state;
 	struct spa_graph_port source1_out;
@@ -674,8 +672,6 @@ int main(int argc, char *argv[])
 	data.data_loop.invoke = do_invoke;
 
 	spa_graph_init(&data.graph, &data.graph_state);
-	spa_graph_data_init(&data.graph_data, &data.graph);
-	spa_graph_set_callbacks(&data.graph, &spa_graph_impl_default, &data.graph_data);
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);

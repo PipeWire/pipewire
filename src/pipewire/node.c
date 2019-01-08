@@ -43,8 +43,6 @@
 #define spa_debug pw_log_trace
 #endif
 
-#include <spa/graph/graph-scheduler2.h>
-
 #define DEFAULT_QUANTUM		1024u
 #define MIN_QUANTUM		64u
 
@@ -57,11 +55,9 @@ struct impl {
 
 	struct spa_graph driver_graph;
 	struct spa_graph_state driver_state;
-	struct spa_graph_data driver_data;
 
 	struct spa_graph graph;
 	struct spa_graph_state graph_state;
-	struct spa_graph_data graph_data;
 
 	struct pw_node_activation root_activation;
 	struct pw_node_activation node_activation;
@@ -693,18 +689,12 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 
 	spa_graph_init(&impl->driver_graph, &impl->driver_state);
-	spa_graph_data_init(&impl->driver_data, &impl->driver_graph);
-	spa_graph_set_callbacks(&impl->driver_graph,
-			&spa_graph_impl_default, &impl->driver_data);
 
 	this->rt.driver = &impl->driver_graph;
 	this->rt.activation = &impl->root_activation;
 	spa_graph_node_init(&this->rt.root, &this->rt.activation->state);
 
 	spa_graph_init(&impl->graph, &impl->graph_state);
-	spa_graph_data_init(&impl->graph_data, &impl->graph);
-	spa_graph_set_callbacks(&impl->graph,
-			&spa_graph_impl_default, &impl->graph_data);
 
 	spa_graph_node_set_subgraph(&this->rt.root, &impl->graph);
 	spa_graph_node_set_callbacks(&this->rt.root,

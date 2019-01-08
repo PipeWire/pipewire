@@ -44,7 +44,6 @@ static SPA_LOG_IMPL(default_log);
 #define spa_debug(f,...) spa_log_trace(&default_log.log, f, __VA_ARGS__)
 
 #include <spa/graph/graph.h>
-#include <spa/graph/graph-scheduler2.h>
 
 #include <spa/debug/pod.h>
 #include <spa/debug/types.h>
@@ -66,7 +65,6 @@ struct data {
 
 	struct spa_graph graph;
 	struct spa_graph_state graph_state;
-	struct spa_graph_data graph_data;
 	struct spa_graph_node source_node;
 	struct spa_graph_state source_state;
 	struct spa_graph_port source_out;
@@ -515,8 +513,6 @@ int main(int argc, char *argv[])
 	const char *str;
 
 	spa_graph_init(&data.graph, &data.graph_state);
-	spa_graph_data_init(&data.graph_data, &data.graph);
-	spa_graph_set_callbacks(&data.graph, &spa_graph_impl_default, &data.graph_data);
 
 	data.log = &default_log.log;
 	data.data_loop.version = SPA_VERSION_LOOP;

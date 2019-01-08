@@ -18,6 +18,7 @@ pipewire_headers = [
   'module.h',
   'node.h',
   'factory.h',
+  'permission.h',
   'pipewire.h',
   'port.h',
   'properties.h',

@@ -419,7 +419,7 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 		pw_properties_update(props, &p->props->dict);
 
 	loop = mainloop->userdata;
-	core = pw_core_new(loop, NULL);
+	core = pw_core_new(loop, NULL, 0);
 
 	r = pw_remote_new(core, props, sizeof(struct pa_context));
 	if (r == NULL)

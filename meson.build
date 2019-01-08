@@ -1,4 +1,4 @@
-project('pipewire', ['c', 'cpp' ],
+project('pipewire', ['c' ],
   version : '0.2.9',
   license : 'MIT',
   meson_version : '>= 0.42.0',
@@ -36,6 +36,8 @@ spa_plugindir = join_paths(pipewire_libdir, 'spa')
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
+
+have_cpp = add_languages('cpp', required : false)
 
 cc = meson.get_compiler('c')
 

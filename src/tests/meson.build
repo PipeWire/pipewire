@@ -9,7 +9,8 @@ foreach a : test_apps
   test(a, executable(a, a + '.c',
                         dependencies : [pipewire_dep],
 			c_args : [ '-D_GNU_SOURCE' ],
-                        install : false))
+                        install : false),
+			env : ['SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root())])
 endforeach
 
 

@@ -1639,7 +1639,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
 	client->context.main = pw_main_loop_new(NULL);
 	client->context.loop = pw_thread_loop_new(pw_main_loop_get_loop(client->context.main), client_name);
-        client->context.core = pw_core_new(pw_thread_loop_get_loop(client->context.loop), NULL);
+        client->context.core = pw_core_new(pw_thread_loop_get_loop(client->context.loop), NULL, 0);
 	spa_list_init(&client->context.free_objects);
 	spa_list_init(&client->context.nodes);
 	spa_list_init(&client->context.ports);

@@ -1,4 +1,4 @@
-project('pipewire', 'c',
+project('pipewire', ['c', 'cpp' ],
   version : '0.2.9',
   license : 'MIT',
   meson_version : '>= 0.42.0',

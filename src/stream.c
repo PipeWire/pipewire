@@ -1143,7 +1143,7 @@ int pa_stream_write_ext_free(pa_stream *s,
 				queue_buffer(s);
 			}
 			towrite -= dsize;
-			src += dsize;
+			src = SPA_MEMBER(src, dsize, void);
 		}
 		if (free_cb)
 			free_cb(free_cb_data);
@@ -1151,7 +1151,7 @@ int pa_stream_write_ext_free(pa_stream *s,
 		s->buffer = NULL;
 	}
 	else {
-		s->buffer->buffer->datas[0].chunk->offset = data - s->buffer_data;
+		s->buffer->buffer->datas[0].chunk->offset = SPA_PTRDIFF(data, s->buffer_data);
 		s->buffer->buffer->datas[0].chunk->size = nbytes;
 		queue_buffer(s);
 	}

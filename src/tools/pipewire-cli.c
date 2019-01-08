@@ -1332,7 +1332,7 @@ int main(int argc, char *argv[])
 	spa_list_init(&data.remotes);
 	pw_map_init(&data.vars, 64, 16);
 
-	data.core = pw_core_new(l, pw_properties_new(PW_CORE_PROP_DAEMON, "1", NULL));
+	data.core = pw_core_new(l, pw_properties_new(PW_CORE_PROP_DAEMON, "1", NULL), 0);
 	info = pw_core_get_info(data.core);
 
 	pw_module_load(data.core, "libpipewire-module-link-factory", NULL, NULL, NULL, NULL);

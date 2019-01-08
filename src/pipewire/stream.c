@@ -940,7 +940,7 @@ pw_stream_new_simple(struct pw_loop *loop,
 	struct pw_core *core;
 	struct pw_remote *remote;
 
-	core = pw_core_new(loop, NULL);
+	core = pw_core_new(loop, NULL, 0);
         remote = pw_remote_new(core, NULL, 0);
 
 	stream = pw_stream_new(remote, name, props);

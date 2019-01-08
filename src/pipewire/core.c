@@ -396,19 +396,24 @@ static const struct pw_global_events global_events = {
  *
  * \memberof pw_core
  */
-struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *properties)
+struct pw_core *pw_core_new(struct pw_loop *main_loop,
+			    struct pw_properties *properties,
+			    size_t user_data_size)
 {
 	struct impl *impl;
 	struct pw_core *this;
 	const char *name;
 
-	impl = calloc(1, sizeof(struct impl));
+	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		return NULL;
 
 	this = &impl->this;
 
 	pw_log_debug("core %p: new", this);
+
+	if (user_data_size > 0)
+		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -543,6 +548,11 @@ void pw_core_destroy(struct pw_core *core)
 
 	pw_log_debug("core %p: free", core);
 	free(core);
+}
+
+void *pw_core_get_user_data(struct pw_core *core)
+{
+	return core->user_data;
 }
 
 const struct pw_core_info *pw_core_get_info(struct pw_core *core)

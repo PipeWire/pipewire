@@ -277,7 +277,7 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
 
   sink->loop = pw_loop_new (NULL);
   sink->main_loop = pw_thread_loop_new (sink->loop, "pipewire-sink-loop");
-  sink->core = pw_core_new (sink->loop, NULL);
+  sink->core = pw_core_new (sink->loop, NULL, 0);
   GST_DEBUG ("loop %p %p", sink->loop, sink->main_loop);
 }
 

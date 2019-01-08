@@ -675,7 +675,7 @@ int main(int argc, char *argv[])
 	pw_loop_add_signal(l, SIGINT, do_quit, &data);
 	pw_loop_add_signal(l, SIGTERM, do_quit, &data);
 
-	data.core = pw_core_new(l, NULL);
+	data.core = pw_core_new(l, NULL, 0);
 	if (data.core == NULL)
 		return -1;
 

@@ -351,7 +351,7 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.loop = pw_main_loop_new(NULL);
-	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL);
+	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL, 0);
 	data.remote = pw_remote_new(data.core, NULL, 0);
 
 	data.timer = pw_loop_add_timer(pw_main_loop_get_loop(data.loop), on_timeout, &data);

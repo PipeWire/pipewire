@@ -533,7 +533,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   if (!(l = pw_loop_new (NULL)))
     return NULL;
 
-  if (!(c = pw_core_new (l, NULL)))
+  if (!(c = pw_core_new (l, NULL, 0)))
     return NULL;
 
   if (!(r = pw_remote_new (c, NULL, sizeof(*data))))
@@ -619,7 +619,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
     goto failed_main_loop;
   }
 
-  if (!(self->core = pw_core_new (self->loop, NULL))) {
+  if (!(self->core = pw_core_new (self->loop, NULL, 0))) {
     GST_ERROR_OBJECT (self, "Could not create PipeWire core");
     goto failed_core;
   }

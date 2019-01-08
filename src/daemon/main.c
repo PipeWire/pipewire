@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGINT, do_quit, loop);
 	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGTERM, do_quit, loop);
 
-	core = pw_core_new(pw_main_loop_get_loop(loop), props);
+	core = pw_core_new(pw_main_loop_get_loop(loop), props, 0);
 
 	if (pw_daemon_config_run_commands(config, core) < 0) {
 		pw_log_error("failed to run config commands");

@@ -1329,7 +1329,7 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	impl.loop = pw_main_loop_new(NULL);
-	impl.core = pw_core_new(pw_main_loop_get_loop(impl.loop), NULL);
+	impl.core = pw_core_new(pw_main_loop_get_loop(impl.loop), NULL, 0);
         impl.remote = pw_remote_new(impl.core, NULL, 0);
 
 	pw_map_init(&impl.globals, 64, 64);

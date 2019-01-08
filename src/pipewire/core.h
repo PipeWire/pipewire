@@ -109,10 +109,15 @@ struct pw_core_events {
 #define PW_CORE_PROP_DAEMON	"pipewire.daemon"
 
 /** Make a new core object for a given main_loop. Ownership of the properties is taken */
-struct pw_core * pw_core_new(struct pw_loop *main_loop, struct pw_properties *props);
+struct pw_core * pw_core_new(struct pw_loop *main_loop,		/**< a main loop to run in */
+			     struct pw_properties *props,	/**< extra properties */
+			     size_t user_data_size		/**< extra user data size */);
 
 /** destroy a core object, all resources except the main_loop will be destroyed */
 void pw_core_destroy(struct pw_core *core);
+
+/** Get the core user data */
+void *pw_core_get_user_data(struct pw_core *core);
 
 /** Add a new event listener to a core */
 void pw_core_add_listener(struct pw_core *core,

@@ -385,7 +385,7 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.loop = pw_main_loop_new(NULL);
-	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL);
+	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL, 0);
 
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL, NULL, NULL);
 

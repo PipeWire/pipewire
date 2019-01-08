@@ -192,6 +192,8 @@ struct pw_core {
 	struct pw_client *current_client;	/**< client currently executing code in mainloop */
 
 	long sc_pagesize;
+
+	void *user_data;		/**< extra user data */
 };
 
 #define pw_data_loop_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_data_loop_events, m, v, ##__VA_ARGS__)

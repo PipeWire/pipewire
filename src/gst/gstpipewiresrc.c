@@ -329,7 +329,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->pool =  gst_pipewire_pool_new ();
   src->loop = pw_loop_new (NULL);
   src->main_loop = pw_thread_loop_new (src->loop, "pipewire-main-loop");
-  src->core = pw_core_new (src->loop, NULL);
+  src->core = pw_core_new (src->loop, NULL, 0);
   GST_DEBUG ("loop %p, mainloop %p", src->loop, src->main_loop);
 
 }

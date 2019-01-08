@@ -85,7 +85,7 @@ ffmpeg_enum_interface_info(const struct spa_handle_factory *factory,
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {
 	static const AVCodec *c = NULL;
-	static int ci = 0;
+	static uint32_t ci = 0;
 	static struct spa_handle_factory f;
 	static char name[128];
 

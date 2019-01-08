@@ -317,11 +317,10 @@ static int make_buffer(struct impl *this)
 	struct buffer *b;
 	struct spa_io_buffers *io = this->io;
 	struct spa_io_range *range = this->io_range;
-	int n_bytes, n_samples;
-	uint32_t maxsize;
+	uint32_t n_bytes, n_samples, maxsize;
 	void *data;
 	struct spa_data *d;
-	int32_t filled, avail;
+	uint32_t filled, avail;
 	uint32_t index, offset, l0, l1;
 
 	read_timer(this);

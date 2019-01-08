@@ -30,7 +30,8 @@
 static void										\
 audio_test_src_create_sine_##type (struct impl *this, type *samples, size_t n_samples)	\
 {											\
-	int i, c, channels;								\
+	size_t i;									\
+	uint32_t c, channels;								\
 	float step, amp;								\
 	float freq = this->props.freq;							\
 	float volume = this->props.volume;						\

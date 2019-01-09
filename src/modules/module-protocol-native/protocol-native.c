@@ -244,7 +244,7 @@ static int core_demarshal_remove_id(void *object, void *data, size_t size)
 	return 0;
 }
 
-static void core_marshal_info(void *object, struct pw_core_info *info)
+static void core_marshal_info(void *object, const struct pw_core_info *info)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -534,7 +534,7 @@ static int registry_demarshal_destroy(void *object, void *data, size_t size)
 	return 0;
 }
 
-static void module_marshal_info(void *object, struct pw_module_info *info)
+static void module_marshal_info(void *object, const struct pw_module_info *info)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -593,7 +593,7 @@ static int module_demarshal_info(void *object, void *data, size_t size)
 	return 0;
 }
 
-static void device_marshal_info(void *object, struct pw_device_info *info)
+static void device_marshal_info(void *object, const struct pw_device_info *info)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -749,7 +749,7 @@ static int device_demarshal_set_param(void *object, void *data, size_t size)
 	return 0;
 }
 
-static void factory_marshal_info(void *object, struct pw_factory_info *info)
+static void factory_marshal_info(void *object, const struct pw_factory_info *info)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -809,7 +809,7 @@ static int factory_demarshal_info(void *object, void *data, size_t size)
 	return 0;
 }
 
-static void node_marshal_info(void *object, struct pw_node_info *info)
+static void node_marshal_info(void *object, const struct pw_node_info *info)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -1003,7 +1003,7 @@ static int node_demarshal_send_command(void *object, void *data, size_t size)
 	return 0;
 }
 
-static void port_marshal_info(void *object, struct pw_port_info *info)
+static void port_marshal_info(void *object, const struct pw_port_info *info)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -1127,7 +1127,7 @@ static int port_demarshal_enum_params(void *object, void *data, size_t size)
 	return 0;
 }
 
-static void client_marshal_info(void *object, struct pw_client_info *info)
+static void client_marshal_info(void *object, const struct pw_client_info *info)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -1334,7 +1334,7 @@ static int client_demarshal_update_permissions(void *object, void *data, size_t 
 	return 0;
 }
 
-static void link_marshal_info(void *object, struct pw_link_info *info)
+static void link_marshal_info(void *object, const struct pw_link_info *info)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;

@@ -336,7 +336,7 @@ static int on_node_running(struct impl *impl, struct node *node)
 	return 0;
 }
 
-static void node_event_info(void *object, struct pw_node_info *info)
+static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct node *n = object;
 	struct impl *impl = n->obj.impl;
@@ -568,7 +568,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	return 1;
 }
 
-static void port_event_info(void *object, struct pw_port_info *info)
+static void port_event_info(void *object, const struct pw_port_info *info)
 {
 	struct port *p = object;
 	pw_log_debug(NAME" %p: info for port %d", p->obj.impl, p->obj.id);
@@ -686,7 +686,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 	return 0;
 }
 
-static void client_event_info(void *object, struct pw_client_info *info)
+static void client_event_info(void *object, const struct pw_client_info *info)
 {
 	struct client *c = object;
 	uint32_t i;
@@ -1177,7 +1177,7 @@ do_link:
         return 1;
 }
 
-static void dsp_node_event_info(void *object, struct pw_node_info *info)
+static void dsp_node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct session *s = object;
 	struct node *dsp;

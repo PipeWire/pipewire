@@ -265,7 +265,7 @@ struct pw_core_proxy_events {
 	 *
 	 * \param info new core info
 	 */
-	void (*info) (void *object, struct pw_core_info *info);
+	void (*info) (void *object, const struct pw_core_info *info);
 };
 
 static inline void
@@ -439,7 +439,7 @@ struct pw_module_proxy_events {
 	 *
 	 * \param info info about the module
 	 */
-	void (*info) (void *object, struct pw_module_info *info);
+	void (*info) (void *object, const struct pw_module_info *info);
 };
 
 static inline void
@@ -517,7 +517,7 @@ struct pw_device_proxy_events {
 	 *
 	 * \param info info about the device
 	 */
-	void (*info) (void *object, struct pw_device_info *info);
+	void (*info) (void *object, const struct pw_device_info *info);
 	/**
 	 * Notify a device param
 	 *
@@ -625,7 +625,7 @@ struct pw_node_proxy_events {
 	 *
 	 * \param info info about the node
 	 */
-	void (*info) (void *object, struct pw_node_info *info);
+	void (*info) (void *object, const struct pw_node_info *info);
 	/**
 	 * Notify a node param
 	 *
@@ -700,7 +700,7 @@ struct pw_port_proxy_events {
 	 *
 	 * \param info info about the port
 	 */
-	void (*info) (void *object, struct pw_port_info *info);
+	void (*info) (void *object, const struct pw_port_info *info);
 	/**
 	 * Notify a port param
 	 *
@@ -750,7 +750,7 @@ struct pw_factory_proxy_events {
 	 *
 	 * \param info info about the factory
 	 */
-	void (*info) (void *object, struct pw_factory_info *info);
+	void (*info) (void *object, const struct pw_factory_info *info);
 };
 
 /** Factory */
@@ -839,7 +839,7 @@ struct pw_client_proxy_events {
 	 *
 	 * \param info info about the client
 	 */
-	void (*info) (void *object, struct pw_client_info *info);
+	void (*info) (void *object, const struct pw_client_info *info);
 	/**
 	 * Notify a client permission
 	 *
@@ -891,7 +891,7 @@ struct pw_link_proxy_events {
 	 *
 	 * \param info info about the link
 	 */
-	void (*info) (void *object, struct pw_link_info *info);
+	void (*info) (void *object, const struct pw_link_info *info);
 };
 
 /** Link */

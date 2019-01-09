@@ -362,7 +362,7 @@ on_state_changed (void *data, enum pw_remote_state old, enum pw_remote_state sta
     pw_thread_loop_signal (self->main_loop, FALSE);
 }
 
-static void port_event_info(void *data, struct pw_port_info *info)
+static void port_event_info(void *data, const struct pw_port_info *info)
 {
   struct port_data *port_data = data;
   pw_log_debug("%p", port_data);
@@ -389,7 +389,7 @@ static const struct pw_port_proxy_events port_events = {
   .param = port_event_param
 };
 
-static void node_event_info(void *data, struct pw_node_info *info)
+static void node_event_info(void *data, const struct pw_node_info *info)
 {
   struct node_data *node_data = data;
   pw_log_debug("%p", node_data);

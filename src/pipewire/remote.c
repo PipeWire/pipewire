@@ -170,7 +170,7 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 	return 0;
 }
 
-static void core_event_info(void *data, struct pw_core_info *info)
+static void core_event_info(void *data, const struct pw_core_info *info)
 {
 	struct pw_remote *this = data;
 

@@ -158,7 +158,7 @@ static void on_info_changed(void *data, const struct pw_core_info *info)
 	}
 }
 
-static void module_event_info(void *object, struct pw_module_info *info)
+static void module_event_info(void *object, const struct pw_module_info *info)
 {
         struct proxy_data *data = object;
 	bool print_all, print_mark;
@@ -244,7 +244,7 @@ static void print_node(struct proxy_data *data)
 	}
 }
 
-static void node_event_info(void *object, struct pw_node_info *info)
+static void node_event_info(void *object, const struct pw_node_info *info)
 {
         struct proxy_data *data = object;
 	bool is_new = data->info == NULL;
@@ -310,7 +310,7 @@ static void print_port(struct proxy_data *data)
 	}
 }
 
-static void port_event_info(void *object, struct pw_port_info *info)
+static void port_event_info(void *object, const struct pw_port_info *info)
 {
 
         struct proxy_data *data = object;
@@ -340,7 +340,7 @@ static const struct pw_port_proxy_events port_events = {
         .param = port_event_param
 };
 
-static void factory_event_info(void *object, struct pw_factory_info *info)
+static void factory_event_info(void *object, const struct pw_factory_info *info)
 {
         struct proxy_data *data = object;
 	bool print_all, print_mark;
@@ -376,7 +376,7 @@ static const struct pw_factory_proxy_events factory_events = {
         .info = factory_event_info
 };
 
-static void client_event_info(void *object, struct pw_client_info *info)
+static void client_event_info(void *object, const struct pw_client_info *info)
 {
         struct proxy_data *data = object;
 	bool print_all, print_mark;
@@ -410,7 +410,7 @@ static const struct pw_client_proxy_events client_events = {
         .info = client_event_info
 };
 
-static void link_event_info(void *object, struct pw_link_info *info)
+static void link_event_info(void *object, const struct pw_link_info *info)
 {
         struct proxy_data *data = object;
 	bool print_all, print_mark;
@@ -460,7 +460,7 @@ static const struct pw_link_proxy_events link_events = {
 
 
 
-static void device_event_info(void *object, struct pw_device_info *info)
+static void device_event_info(void *object, const struct pw_device_info *info)
 {
         struct proxy_data *data = object;
 	bool print_all, print_mark;

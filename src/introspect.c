@@ -28,7 +28,7 @@
 
 #include "internal.h"
 
-static void node_event_info(void *object, struct pw_node_info *info)
+static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct global *g = object;
 	pw_log_debug("update %d", g->id);
@@ -49,7 +49,7 @@ static const struct pw_node_proxy_events node_events = {
 	.param = node_event_param,
 };
 
-static void module_event_info(void *object, struct pw_module_info *info)
+static void module_event_info(void *object, const struct pw_module_info *info)
 {
         struct global *g = object;
 	pa_module_info *i = &g->module_info.info;
@@ -79,7 +79,7 @@ static const struct pw_module_proxy_events module_events = {
 	.info = module_event_info,
 };
 
-static void client_event_info(void *object, struct pw_client_info *info)
+static void client_event_info(void *object, const struct pw_client_info *info)
 {
         struct global *g = object;
 	pa_client_info *i = &g->client_info.info;
@@ -148,7 +148,7 @@ static void device_event_param(void *object,
 	}
 }
 
-static void device_event_info(void *object, struct pw_device_info *info)
+static void device_event_info(void *object, const struct pw_device_info *info)
 {
         struct global *g = object;
 	pa_card_info *i = &g->card_info.info;

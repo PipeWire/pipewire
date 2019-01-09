@@ -110,6 +110,9 @@ struct pw_rtkit_bus *pw_rtkit_bus_get_system(void)
 	struct pw_rtkit_bus *bus;
 	DBusError error;
 
+	if (getenv("DISABLE_RTKIT"))
+		return NULL;
+
 	dbus_error_init(&error);
 
 	bus = calloc(1, sizeof(struct pw_rtkit_bus));
@@ -273,9 +276,6 @@ int pw_rtkit_make_realtime(struct pw_rtkit_bus *connection, pid_t thread, int pr
 	DBusError error;
 	int ret;
 
-	if (getenv("DISABLE_RTKIT"))
-	  return -EPERM;
-
 	dbus_error_init(&error);
 
 	if (thread == 0)
@@ -411,6 +411,8 @@ static void idle_func(struct spa_source *source)
 	long long rttime;
 	uint64_t count;
 
+	read(impl->source.fd, &count, sizeof(uint64_t));
+
 	rtprio = 20;
 	rttime = 20000;
 
@@ -421,7 +423,10 @@ static void idle_func(struct spa_source *source)
 		pw_log_debug("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
 		return;
 	}
+
 	system_bus = pw_rtkit_bus_get_system();
+	if (system_bus == NULL)
+		return;
 
 	rl.rlim_cur = rl.rlim_max = rttime;
 	if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
@@ -444,8 +449,6 @@ static void idle_func(struct spa_source *source)
 		pw_log_debug("thread made realtime");
 	}
 	pw_rtkit_bus_free(system_bus);
-
-	read(impl->source.fd, &count, sizeof(uint64_t));
 }
 
 static int module_init(struct pw_module *module, struct pw_properties *properties)

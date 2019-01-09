@@ -311,6 +311,8 @@ void *pw_get_support_interface(uint32_t type)
 const struct spa_handle_factory *pw_get_support_factory(const char *factory_name)
 {
 	struct plugin *plugin = global_support.support_plugin;
+	if (plugin == NULL)
+		return NULL;
 	return find_factory(plugin, factory_name);
 }
 

@@ -22,6 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <pipewire/pipewire.h>
 #include <pipewire/client.h>
 
 #define TEST_FUNC(a,b,func)	\
@@ -58,6 +59,8 @@ static void test_abi(void)
 
 int main(int argc, char *argv[])
 {
+	pw_init(&argc, &argv);
+
 	test_abi();
 
 	return 0;

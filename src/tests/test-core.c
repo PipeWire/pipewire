@@ -186,6 +186,7 @@ static void core_info_changed_count(void *data, const struct pw_core_info *info)
 	spa_assert(!strcmp(spa_dict_lookup(info->props, "buzz"), "frizz"));
 	info_changed_count++;
 }
+
 static void test_properties(void)
 {
 	struct pw_main_loop *loop;

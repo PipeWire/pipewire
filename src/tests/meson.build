@@ -2,7 +2,8 @@ test_apps = [
 	'test-array',
 	'test-client',
 	'test-core',
-	'test-remote'
+	'test-remote',
+	'test-stream'
 ]
 
 foreach a : test_apps

@@ -1151,10 +1151,10 @@ static bool do_node_params(struct data *data, const char *cmd, char *args, char 
 		asprintf(error, "%s <object-id> [<param-id-name>]", cmd);
 		return false;
 	}
-	if (n == 2)
+	if (n < 2)
 		param_id = SPA_PARAM_List;
 	else
-		param_id = SPA_PARAM_List;
+		param_id = atoi(a[1]);
 
 	id = atoi(a[0]);
 	global = pw_map_lookup(&rd->globals, id);
@@ -1166,6 +1166,11 @@ static bool do_node_params(struct data *data, const char *cmd, char *args, char 
 		asprintf(error, "object %d is not a node", atoi(a[0]));
 		return false;
 	}
+	if (global->proxy == NULL) {
+		if (!bind_global(rd, global, error))
+			return false;
+	}
+
 	pw_node_proxy_enum_params((struct pw_node_proxy*)global->proxy,
 			param_id, 0, 0, NULL);
 

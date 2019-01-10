@@ -67,7 +67,7 @@ struct remote_data {
 	struct spa_list link;
 	struct data *data;
 
-	const char *name;
+	char *name;
 	uint32_t id;
 
 	struct pw_remote *remote;
@@ -242,7 +242,8 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 static void on_core_info(void *_data, const struct pw_core_info *info)
 {
 	struct remote_data *rd = _data;
-	rd->name = info->name;
+	free(rd->name);
+	rd->name = strdup(info->name);
 	fprintf(stdout, "remote %d is named '%s'\n", rd->id, rd->name);
 }
 
@@ -355,6 +356,7 @@ static void on_remote_destroy(void *_data)
 
 	if (data->current == rd)
 		data->current = NULL;
+	free(rd->name);
 }
 
 static const struct pw_core_proxy_events remote_core_events = {

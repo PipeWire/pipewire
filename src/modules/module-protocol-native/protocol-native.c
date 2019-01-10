@@ -1093,18 +1093,25 @@ static void client_marshal_permissions(void *object, uint32_t index, uint32_t n_
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
-	uint32_t i;
+	uint32_t i, n = 0;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_PROXY_EVENT_PERMISSIONS);
 
+	for (i = 0; i < n_permissions; i++) {
+		if (permissions[i].permissions != SPA_ID_INVALID)
+			n++;
+	}
+
 	spa_pod_builder_add(b,
 			    "[ i", index,
-			    "i", n_permissions, NULL);
+			    "i", n, NULL);
 
 	for (i = 0; i < n_permissions; i++) {
+		if (permissions[i].permissions == SPA_ID_INVALID)
+			continue;
 		spa_pod_builder_add(b,
-				    "s", permissions[i].id,
-				    "s", permissions[i].permissions, NULL);
+				    "i", permissions[i].id,
+				    "i", permissions[i].permissions, NULL);
 	}
 	spa_pod_builder_add(b, "]", NULL);
 
@@ -1175,7 +1182,7 @@ static void client_marshal_get_permissions(void *object, uint32_t index, uint32_
 
 	spa_pod_builder_add_struct(b,
 			"i", index,
-			"i", num, NULL);
+			"i", num);
 
 	pw_protocol_native_end_proxy(proxy, b);
 }

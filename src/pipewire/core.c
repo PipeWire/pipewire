@@ -155,12 +155,6 @@ static void core_hello(void *object, uint32_t version)
 	pw_core_resource_info(resource, &this->info);
 }
 
-static void core_client_update(void *object, const struct spa_dict *props)
-{
-	struct pw_resource *resource = object;
-	pw_client_update_properties(resource->client, props);
-}
-
 static void core_sync(void *object, uint32_t seq)
 {
 	struct pw_resource *resource = object;
@@ -314,7 +308,6 @@ static const struct pw_core_proxy_methods core_methods = {
 	.hello = core_hello,
 	.sync = core_sync,
 	.get_registry = core_get_registry,
-	.client_update = core_client_update,
 	.create_object = core_create_object,
 	.destroy = core_destroy,
 };

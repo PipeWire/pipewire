@@ -69,10 +69,9 @@ struct pw_link_proxy;
 #define PW_CORE_PROXY_METHOD_HELLO		0
 #define PW_CORE_PROXY_METHOD_SYNC		1
 #define PW_CORE_PROXY_METHOD_GET_REGISTRY	2
-#define PW_CORE_PROXY_METHOD_CLIENT_UPDATE	3
-#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	4
-#define PW_CORE_PROXY_METHOD_DESTROY		5
-#define PW_CORE_PROXY_METHOD_NUM		6
+#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	3
+#define PW_CORE_PROXY_METHOD_DESTROY		4
+#define PW_CORE_PROXY_METHOD_NUM		5
 
 #define PW_LINK_OUTPUT_NODE_ID	"link.output_node.id"
 #define PW_LINK_OUTPUT_PORT_ID	"link.output_port.id"
@@ -114,11 +113,6 @@ struct pw_core_proxy_methods {
 	 * \param id the client proxy id
 	 */
 	void (*get_registry) (void *object, uint32_t version, uint32_t new_id);
-	/**
-	 * Update the client properties
-	 * \param props the new client properties
-	 */
-	void (*client_update) (void *object, const struct spa_dict *props);
 	/**
 	 * Create a new object on the PipeWire server from a factory.
 	 * Use a \a factory_name of "client-node" to create a
@@ -164,12 +158,6 @@ pw_core_proxy_get_registry(struct pw_core_proxy *core, uint32_t type, uint32_t v
 	struct pw_proxy *p = pw_proxy_new((struct pw_proxy*)core, type, user_data_size);
 	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, get_registry, version, pw_proxy_get_id(p));
 	return (struct pw_registry_proxy *) p;
-}
-
-static inline void
-pw_core_proxy_client_update(struct pw_core_proxy *core, const struct spa_dict *props)
-{
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, client_update, props);
 }
 
 static inline void *

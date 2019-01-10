@@ -47,28 +47,6 @@ static void core_marshal_hello(void *object, uint32_t version)
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
-static void core_marshal_client_update(void *object, const struct spa_dict *props)
-{
-	struct pw_proxy *proxy = object;
-	struct spa_pod_builder *b;
-	int i, n_items;
-
-	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_CLIENT_UPDATE);
-
-	n_items = props ? props->n_items : 0;
-
-	spa_pod_builder_add(b, "[ i", n_items, NULL);
-
-	for (i = 0; i < n_items; i++) {
-		spa_pod_builder_add(b,
-				    "s", props->items[i].key,
-				    "s", props->items[i].value, NULL);
-	}
-	spa_pod_builder_add(b, "]", NULL);
-
-	pw_protocol_native_end_proxy(proxy, b);
-}
-
 static void core_marshal_sync(void *object, uint32_t seq)
 {
 	struct pw_proxy *proxy = object;
@@ -295,29 +273,6 @@ static void core_marshal_remove_id(void *object, uint32_t id)
 	spa_pod_builder_add_struct(b, "i", id);
 
 	pw_protocol_native_end_resource(resource, b);
-}
-
-static int core_demarshal_client_update(void *object, void *data, size_t size)
-{
-	struct pw_resource *resource = object;
-	struct spa_dict props;
-	struct spa_pod_parser prs;
-	uint32_t i;
-
-	spa_pod_parser_init(&prs, data, size, 0);
-	if (spa_pod_parser_get(&prs, "[ i", &props.n_items, NULL) < 0)
-		return -EINVAL;
-
-	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-	for (i = 0; i < props.n_items; i++) {
-		if (spa_pod_parser_get(&prs,
-				"s", &props.items[i].key,
-				"s", &props.items[i].value,
-				NULL) < 0)
-			return -EINVAL;
-	}
-	pw_resource_do(resource, struct pw_core_proxy_methods, client_update, 0, &props);
-	return 0;
 }
 
 static int core_demarshal_hello(void *object, void *data, size_t size)
@@ -1479,7 +1434,6 @@ static const struct pw_core_proxy_methods pw_protocol_native_core_method_marshal
 	&core_marshal_hello,
 	&core_marshal_sync,
 	&core_marshal_get_registry,
-	&core_marshal_client_update,
 	&core_marshal_create_object,
 	&core_marshal_destroy,
 };
@@ -1488,7 +1442,6 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_
 	{ &core_demarshal_hello, 0, },
 	{ &core_demarshal_sync, 0, },
 	{ &core_demarshal_get_registry, 0, },
-	{ &core_demarshal_client_update, 0, },
 	{ &core_demarshal_create_object, 0, },
 	{ &core_demarshal_destroy, 0, }
 };

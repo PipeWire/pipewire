@@ -313,8 +313,8 @@ int pw_remote_update_properties(struct pw_remote *remote, const struct spa_dict 
 	if (!changed)
 		return 0;
 
-	if (remote->core_proxy)
-		pw_core_proxy_client_update(remote->core_proxy, &remote->properties->dict);
+	if (remote->client_proxy)
+		pw_client_proxy_update_properties(remote->client_proxy, &remote->properties->dict);
 
 	return changed;
 }
@@ -358,7 +358,7 @@ static int do_connect(struct pw_remote *remote)
 
 	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_proxy_events, remote);
 
-	pw_core_proxy_client_update(remote->core_proxy, &remote->properties->dict);
+	pw_client_proxy_update_properties(remote->client_proxy, &remote->properties->dict);
 	pw_core_proxy_hello(remote->core_proxy, PW_VERSION_CORE);
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTED, NULL);
 

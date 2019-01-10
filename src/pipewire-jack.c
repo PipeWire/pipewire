@@ -221,6 +221,7 @@ struct client {
 	struct spa_hook remote_listener;
 
 	struct pw_core_proxy *core_proxy;
+	struct spa_hook core_listener;
 	uint32_t last_sync;
 	bool error;
 
@@ -489,8 +490,12 @@ static void on_state_changed(void *data, enum pw_remote_state old,
 
 static const struct pw_remote_events remote_events = {
 	PW_VERSION_REMOTE_EVENTS,
-	.sync_reply = on_sync_reply,
 	.state_changed = on_state_changed,
+};
+
+static const struct pw_core_proxy_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.done = on_sync_reply,
 };
 
 static int do_sync(struct client *client)
@@ -1695,6 +1700,9 @@ jack_client_t * jack_client_open (const char *client_name,
 		}
 	}
 	client->core_proxy = pw_remote_get_core_proxy(client->remote);
+	pw_core_proxy_add_listener(client->core_proxy,
+                                               &client->core_listener,
+                                               &core_events, client);
 	client->registry_proxy = pw_core_proxy_get_registry(client->core_proxy,
 						PW_TYPE_INTERFACE_Registry,
 						PW_VERSION_REGISTRY, 0);

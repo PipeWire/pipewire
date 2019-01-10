@@ -1089,7 +1089,7 @@ static int client_demarshal_info(void *object, void *data, size_t size)
 }
 
 static void client_marshal_permissions(void *object, uint32_t index, uint32_t n_permissions,
-		struct pw_permission *permissions)
+		const struct pw_permission *permissions)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;

@@ -838,7 +838,7 @@ struct pw_client_proxy_events {
 	void (*permissions) (void *object,
 			     uint32_t index,
 			     uint32_t n_permissions,
-			     struct pw_permission *permissions);
+			     const struct pw_permission *permissions);
 };
 
 /** Client */

@@ -134,7 +134,6 @@ static void client_update_permissions(void *object,
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_client *client = data->client;
 	pw_client_update_permissions(client, n_permissions, permissions);
-	pw_client_set_busy(client, false);
 }
 
 static const struct pw_client_proxy_methods client_methods = {

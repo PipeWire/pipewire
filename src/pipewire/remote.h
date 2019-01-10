@@ -193,6 +193,8 @@ int pw_remote_steal_fd(struct pw_remote *remote);
 
 /** Get the core proxy, can only be called when connected */
 struct pw_core_proxy * pw_remote_get_core_proxy(struct pw_remote *remote);
+/** Get the client proxy, can only be called when connected */
+struct pw_client_proxy * pw_remote_get_client_proxy(struct pw_remote *remote);
 
 /** Get the proxy with the given id */
 struct pw_proxy *pw_remote_find_proxy(struct pw_remote *remote, uint32_t id);

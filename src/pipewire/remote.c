@@ -351,6 +351,11 @@ static int do_connect(struct pw_remote *remote)
 	if (remote->core_proxy == NULL)
 		goto no_proxy;
 
+	remote->client_proxy = (struct pw_client_proxy*)pw_proxy_new(&dummy,
+			PW_TYPE_INTERFACE_Client, PW_VERSION_CLIENT);
+	if (remote->client_proxy == NULL)
+		goto clean_core_proxy;
+
 	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_proxy_events, remote);
 
 	pw_core_proxy_client_update(remote->core_proxy, &remote->properties->dict);
@@ -359,6 +364,8 @@ static int do_connect(struct pw_remote *remote)
 
 	return 0;
 
+      clean_core_proxy:
+	pw_proxy_destroy((struct pw_proxy*)remote->core_proxy);
       no_proxy:
 	pw_protocol_client_disconnect(remote->conn);
 	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: no memory");
@@ -368,6 +375,11 @@ static int do_connect(struct pw_remote *remote)
 struct pw_core_proxy * pw_remote_get_core_proxy(struct pw_remote *remote)
 {
 	return remote->core_proxy;
+}
+
+struct pw_client_proxy * pw_remote_get_client_proxy(struct pw_remote *remote)
+{
+	return remote->client_proxy;
 }
 
 struct pw_proxy *pw_remote_find_proxy(struct pw_remote *remote, uint32_t id)
@@ -438,6 +450,7 @@ int pw_remote_disconnect(struct pw_remote *remote)
 	pw_protocol_client_disconnect (remote->conn);
 
 	remote->core_proxy = NULL;
+	remote->client_proxy = NULL;
 
         pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
 

@@ -558,6 +558,7 @@ struct pw_remote {
 	struct pw_core_proxy *core_proxy;	/**< proxy for the core object */
 	struct pw_map objects;			/**< map of client side proxy objects
 						 *   indexed with the client id */
+	struct pw_client_proxy *client_proxy;	/**< proxy for the client object */
 
 	struct spa_list proxy_list;		/**< list of \ref pw_proxy objects */
 	struct spa_list stream_list;		/**< list of \ref pw_stream objects */

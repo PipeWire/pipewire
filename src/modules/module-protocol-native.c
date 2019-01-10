@@ -243,10 +243,12 @@ static void client_free(void *data)
 	struct client_data *this = data;
 	struct pw_client *client = this->client;
 
-	pw_loop_destroy_source(client->protocol->core->main_loop, this->source);
 	spa_list_remove(&client->protocol_link);
 
-	pw_protocol_native_connection_destroy(this->connection);
+	if (this->source)
+		pw_loop_destroy_source(client->protocol->core->main_loop, this->source);
+	if (this->connection)
+		pw_protocol_native_connection_destroy(this->connection);
 }
 
 static const struct pw_client_events client_events = {
@@ -276,44 +278,48 @@ static struct pw_client *client_new(struct server *s, int fd)
 
 	props = pw_properties_new(PW_CLIENT_PROP_PROTOCOL, "protocol-native", NULL);
 	if (props == NULL)
-		goto no_props;
+		goto exit;
 
 	client = pw_client_new(protocol->core,
 			       ucredp,
 			       props,
 			       sizeof(struct client_data));
 	if (client == NULL)
-		goto no_client;
+		goto exit;
 
 	this = pw_client_get_user_data(client);
+	client->protocol = protocol;
+	spa_list_append(&s->this.client_list, &client->protocol_link);
+
 	this->client = client;
 	this->source = pw_loop_add_io(pw_core_get_main_loop(core),
 				      fd, SPA_IO_ERR | SPA_IO_HUP, true, connection_data, this);
 	if (this->source == NULL)
-		goto no_source;
+		goto cleanup_client;
 
 	this->connection = pw_protocol_native_connection_new(protocol->core, fd);
 	if (this->connection == NULL)
-		goto no_connection;
-
-	client->protocol = protocol;
-	spa_list_append(&s->this.client_list, &client->protocol_link);
+		goto cleanup_client;
 
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
 
-	pw_global_bind(pw_core_get_global(core), client, PW_PERM_RWX, PW_VERSION_CORE, 0);
+	if (pw_global_bind(pw_core_get_global(core), client,
+			PW_PERM_RWX, PW_VERSION_CORE, 0) < 0)
+		goto cleanup_client;
 
 	props = pw_properties_copy(pw_client_get_properties(client));
-	pw_client_register(client, client, pw_module_get_global(pd->module), props);
+	if (pw_client_register(client, client, pw_module_get_global(pd->module), props) < 0)
+		goto cleanup_client;
+
+	if (pw_global_bind(pw_client_get_global(client), client,
+			PW_PERM_RWX, PW_VERSION_CLIENT, 1) < 0)
+		goto cleanup_client;
 
 	return client;
 
-      no_connection:
-	pw_loop_destroy_source(pw_core_get_main_loop(core), this->source);
-      no_source:
+      cleanup_client:
 	pw_client_destroy(client);
-      no_client:
-      no_props:
+      exit:
 	return NULL;
 }
 

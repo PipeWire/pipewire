@@ -988,7 +988,7 @@ client_node_port_use_buffers(void *object,
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
 	struct buffer *bid;
-	uint32_t i, j, len;
+	uint32_t i, j;
 	struct spa_buffer *b, **bufs;
 	struct mix *mix;
 	int res, prot;
@@ -1019,8 +1019,8 @@ client_node_port_use_buffers(void *object,
 			goto cleanup;
 		}
 
-		len = pw_array_get_len(&mix->buffers, struct buffer);
 		bid = pw_array_add(&mix->buffers, sizeof(struct buffer));
+		bid->id = i;
 
 		bmem.mem_id = m->id;
 		bmem.map.ptr = mem_map(data, &bmem.map, m->fd, prot,
@@ -1059,9 +1059,6 @@ client_node_port_use_buffers(void *object,
 		bid->mem[bid->n_mem++] = bmem;
 		m->ref++;
 
-		if (bid->id != len) {
-			pw_log_warn("unexpected id %u found, expected %u", bid->id, len);
-		}
 		pw_log_debug("add buffer %d %d %u %u", m->id,
 				bid->id, bmem.map.map.offset, bmem.map.map.size);
 

@@ -531,8 +531,9 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		permissions[1].id = SPA_ID_INVALID;
 		permissions[1].permissions = PW_PERM_R;
 
-		pw_core_proxy_permissions(pw_remote_get_core_proxy(data->remote),
-					  2, permissions);
+		pw_client_proxy_update_permissions(
+				pw_remote_get_client_proxy(data->remote),
+				2, permissions);
 
 		make_node(data);
 		break;

@@ -70,10 +70,9 @@ struct pw_link_proxy;
 #define PW_CORE_PROXY_METHOD_SYNC		1
 #define PW_CORE_PROXY_METHOD_GET_REGISTRY	2
 #define PW_CORE_PROXY_METHOD_CLIENT_UPDATE	3
-#define PW_CORE_PROXY_METHOD_PERMISSIONS	4
-#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	5
-#define PW_CORE_PROXY_METHOD_DESTROY		6
-#define PW_CORE_PROXY_METHOD_NUM		7
+#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	4
+#define PW_CORE_PROXY_METHOD_DESTROY		5
+#define PW_CORE_PROXY_METHOD_NUM		6
 
 #define PW_LINK_OUTPUT_NODE_ID	"link.output_node.id"
 #define PW_LINK_OUTPUT_PORT_ID	"link.output_port.id"
@@ -120,22 +119,6 @@ struct pw_core_proxy_methods {
 	 * \param props the new client properties
 	 */
 	void (*client_update) (void *object, const struct spa_dict *props);
-	/**
-	 * Manage the permissions of the global objects for this
-	 * client
-	 *
-	 * Update the permissions of the global objects using the
-	 * provided array with permissions
-	 *
-	 * Globals can use the default permissions or can have specific
-	 * permissions assigned to them.
-	 *
-	 * \param n_permissions number of permissions
-	 * \param permissions array of permissions
-	 */
-	void (*permissions) (void *object,
-			     uint32_t n_permissions,
-			     const struct pw_permission *permissions);
 	/**
 	 * Create a new object on the PipeWire server from a factory.
 	 * Use a \a factory_name of "client-node" to create a
@@ -187,12 +170,6 @@ static inline void
 pw_core_proxy_client_update(struct pw_core_proxy *core, const struct spa_dict *props)
 {
 	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, client_update, props);
-}
-
-static inline void
-pw_core_proxy_permissions(struct pw_core_proxy *core, uint32_t n_permissions, struct pw_permission *permissions)
-{
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, permissions, n_permissions, permissions);
 }
 
 static inline void *
@@ -794,12 +771,18 @@ struct pw_client_proxy_methods {
 	 * \param num the maximum number of items to get
 	 */
 	void (*get_permissions) (void *object, uint32_t index, uint32_t num);
-
 	/**
-	 * Update client permissions
+	 * Manage the permissions of the global objects for this
+	 * client
+	 *
+	 * Update the permissions of the global objects using the
+	 * provided array with permissions
+	 *
+	 * Globals can use the default permissions or can have specific
+	 * permissions assigned to them.
 	 *
 	 * \param n_permissions number of permissions
-	 * \param permissions array of new permissions
+	 * \param permissions array of permissions
 	 */
 	void (*update_permissions) (void *object, uint32_t n_permissions,
 			const struct pw_permission *permissions);

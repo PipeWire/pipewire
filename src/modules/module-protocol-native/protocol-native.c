@@ -69,29 +69,6 @@ static void core_marshal_client_update(void *object, const struct spa_dict *prop
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
-static void core_marshal_permissions(void *object, uint32_t n_permissions,
-		const struct pw_permission *permissions)
-{
-	struct pw_proxy *proxy = object;
-	struct spa_pod_builder *b;
-	uint32_t i;
-
-	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_PERMISSIONS);
-
-	spa_pod_builder_add(b, "[",
-				"i", n_permissions,
-				NULL);
-
-	for (i = 0; i < n_permissions; i++) {
-		spa_pod_builder_add(b,
-				    "i", permissions[i].id,
-				    "i", permissions[i].permissions, NULL);
-	}
-	spa_pod_builder_add(b, "]", NULL);
-
-	pw_protocol_native_end_proxy(proxy, b);
-}
-
 static void core_marshal_sync(void *object, uint32_t seq)
 {
 	struct pw_proxy *proxy = object;
@@ -340,31 +317,6 @@ static int core_demarshal_client_update(void *object, void *data, size_t size)
 			return -EINVAL;
 	}
 	pw_resource_do(resource, struct pw_core_proxy_methods, client_update, 0, &props);
-	return 0;
-}
-
-static int core_demarshal_permissions(void *object, void *data, size_t size)
-{
-	struct pw_resource *resource = object;
-	struct spa_pod_parser prs;
-	struct pw_permission *permissions;
-	uint32_t i, n_permissions;
-
-	spa_pod_parser_init(&prs, data, size, 0);
-	if (spa_pod_parser_get(&prs, "[",
-				"i", &n_permissions, NULL) < 0)
-		return -EINVAL;
-
-	permissions = alloca(n_permissions * sizeof(struct pw_permission));
-	for (i = 0; i < n_permissions; i++) {
-		if (spa_pod_parser_get(&prs,
-				"i", &permissions[i].id,
-				"i", &permissions[i].permissions,
-				NULL) < 0)
-			return -EINVAL;
-	}
-	pw_resource_do(resource, struct pw_core_proxy_methods, permissions, 0,
-			n_permissions, permissions);
 	return 0;
 }
 
@@ -1482,7 +1434,6 @@ static const struct pw_core_proxy_methods pw_protocol_native_core_method_marshal
 	&core_marshal_sync,
 	&core_marshal_get_registry,
 	&core_marshal_client_update,
-	&core_marshal_permissions,
 	&core_marshal_create_object,
 	&core_marshal_destroy,
 };
@@ -1492,7 +1443,6 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_
 	{ &core_demarshal_sync, 0, },
 	{ &core_demarshal_get_registry, 0, },
 	{ &core_demarshal_client_update, 0, },
-	{ &core_demarshal_permissions, 0, },
 	{ &core_demarshal_create_object, 0, },
 	{ &core_demarshal_destroy, 0, }
 };

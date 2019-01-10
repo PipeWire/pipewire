@@ -161,13 +161,6 @@ static void core_client_update(void *object, const struct spa_dict *props)
 	pw_client_update_properties(resource->client, props);
 }
 
-static void core_permissions(void *object, uint32_t n_permissions,
-		const struct pw_permission *permissions)
-{
-	struct pw_resource *resource = object;
-	pw_client_update_permissions(resource->client, n_permissions, permissions);
-}
-
 static void core_sync(void *object, uint32_t seq)
 {
 	struct pw_resource *resource = object;
@@ -322,7 +315,6 @@ static const struct pw_core_proxy_methods core_methods = {
 	.sync = core_sync,
 	.get_registry = core_get_registry,
 	.client_update = core_client_update,
-	.permissions = core_permissions,
 	.create_object = core_create_object,
 	.destroy = core_destroy,
 };

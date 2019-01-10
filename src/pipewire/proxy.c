@@ -28,6 +28,8 @@
 #include <pipewire/remote.h>
 #include <pipewire/private.h>
 
+#include <spa/debug/types.h>
+
 /** \cond */
 struct proxy {
 	struct pw_proxy this;
@@ -76,7 +78,10 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 
 	spa_list_append(&this->remote->proxy_list, &this->link);
 
-	pw_log_debug("proxy %p: new %u, remote %p, marshal %p", this, this->id, remote, this->marshal);
+	pw_log_debug("proxy %p: new %u %s remote %p, marshal %p",
+			this, this->id,
+			spa_debug_type_find_name(pw_type_info(), type),
+			remote, this->marshal);
 
 	return this;
 }

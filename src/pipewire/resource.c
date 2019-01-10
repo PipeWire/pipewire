@@ -29,6 +29,8 @@
 #include "pipewire/protocol.h"
 #include "pipewire/resource.h"
 
+#include <spa/debug/types.h>
+
 /** \cond */
 struct impl {
 	struct pw_resource this;
@@ -72,7 +74,10 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 
 	this->marshal = pw_protocol_get_marshal(client->protocol, type);
 
-	pw_log_debug("resource %p: new for client %p id %u", this, client, id);
+	pw_log_debug("resource %p: new %u %s/%d client %p marshal %p",
+			this, id,
+			spa_debug_type_find_name(pw_type_info(), type), version,
+			client, this->marshal);
 	pw_client_events_resource_added(client, this);
 
 	return this;

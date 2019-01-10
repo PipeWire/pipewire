@@ -183,6 +183,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 static bool do_node_params(struct data *data, const char *cmd, char *args, char **error);
 static bool do_port_params(struct data *data, const char *cmd, char *args, char **error);
 static bool do_permissions(struct data *data, const char *cmd, char *args, char **error);
+static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error);
 
 static struct command command_list[] = {
 	{ "help", "Show this help", do_help },
@@ -201,6 +202,7 @@ static struct command command_list[] = {
 	{ "node-params", "Enumerate params of a node <node-id> [<param-id-name>]", do_node_params },
 	{ "port-params", "Enumerate params of a port <port-id> [<param-id-name>]", do_port_params },
 	{ "permissions", "Set permissions for a client <client-id> <permissions>", do_permissions },
+	{ "get-permissions", "Get permissions of a client <client-id>", do_get_permissions },
 };
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error)
@@ -773,9 +775,29 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 	}
 }
 
+static void client_event_permissions(void *object, uint32_t index,
+		uint32_t n_permissions, const struct pw_permission *permissions)
+{
+        struct proxy_data *data = object;
+	struct remote_data *rd = data->rd;
+	uint32_t i;
+
+	fprintf(stdout, "remote %d node %d index %d\n",
+			rd->id, data->global->id, index);
+
+	for (i = 0; i < n_permissions; i++) {
+		if (permissions[i].id == SPA_ID_INVALID)
+			fprintf(stdout, "  default:");
+		else
+			fprintf(stdout, "  %u:", permissions[i].id);
+		fprintf(stdout, " %08x\n", permissions[i].permissions);
+	}
+}
+
 static const struct pw_client_proxy_events client_events = {
 	PW_VERSION_CLIENT_PROXY_EVENTS,
-	.info = client_event_info
+	.info = client_event_info,
+	.permissions = client_event_permissions
 };
 
 static void link_event_info(void *object, const struct pw_link_info *info)
@@ -1251,6 +1273,40 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 
 	pw_client_proxy_update_permissions((struct pw_client_proxy*)global->proxy,
 			1, permissions);
+
+	return true;
+}
+
+static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error)
+{
+	struct remote_data *rd = data->current;
+	char *a[3];
+        int n;
+	uint32_t id;
+	struct global *global;
+
+	n = pw_split_ip(args, WHITESPACE, 1, a);
+	if (n < 1) {
+		asprintf(error, "%s <client-id>", cmd);
+		return false;
+	}
+
+	id = atoi(a[0]);
+	global = pw_map_lookup(&rd->globals, id);
+	if (global == NULL) {
+		asprintf(error, "%s: unknown global %d", cmd, id);
+		return false;
+	}
+	if (global->type != PW_TYPE_INTERFACE_Client) {
+		asprintf(error, "object %d is not a client", atoi(a[0]));
+		return false;
+	}
+	if (global->proxy == NULL) {
+		if (!bind_global(rd, global, error))
+			return false;
+	}
+	pw_client_proxy_get_permissions((struct pw_client_proxy*)global->proxy,
+			0, UINT32_MAX);
 
 	return true;
 }

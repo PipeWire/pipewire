@@ -33,6 +33,7 @@ extern "C" {
 
 #include <pipewire/client.h>
 #include <pipewire/core.h>
+#include <pipewire/device.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/introspect.h>
 #include <pipewire/link.h>

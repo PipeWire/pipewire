@@ -2,6 +2,7 @@ test_apps = [
 	'test-array',
 	'test-client',
 	'test-core',
+	'test-interfaces',
 	'test-remote',
 	'test-stream'
 ]

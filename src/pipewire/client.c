@@ -107,6 +107,14 @@ static void client_error(void *object, uint32_t id, int res, const char *error)
 	pw_resource_error(client->core_resource, id, res, error);
 }
 
+static void client_update_properties(void *object, const struct spa_dict *props)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct pw_client *client = data->client;
+	pw_client_update_properties(client, props);
+}
+
 static void client_get_permissions(void *object, uint32_t index, uint32_t num)
 {
 	struct pw_resource *resource = object;
@@ -128,6 +136,7 @@ static void client_update_permissions(void *object,
 static const struct pw_client_proxy_methods client_methods = {
 	PW_VERSION_CLIENT_PROXY_METHODS,
 	.error = client_error,
+	.update_properties = client_update_properties,
 	.get_permissions = client_get_permissions,
 	.update_permissions = client_update_permissions
 };

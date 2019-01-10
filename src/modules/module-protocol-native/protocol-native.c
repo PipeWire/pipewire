@@ -1225,6 +1225,52 @@ static void client_marshal_get_permissions(void *object, uint32_t index, uint32_
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
+static void client_marshal_update_properties(void *object, const struct spa_dict *props)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+	uint32_t i, n_items;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_PROXY_METHOD_UPDATE_PROPERTIES);
+
+	n_items = props ? props->n_items : 0;
+
+	spa_pod_builder_add(b, "[ i", n_items, NULL);
+
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_add(b,
+				    "s", props->items[i].key,
+				    "s", props->items[i].value, NULL);
+	}
+	spa_pod_builder_add(b, "]", NULL);
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static int client_demarshal_update_properties(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_dict props;
+	struct spa_pod_parser prs;
+	uint32_t i;
+
+	spa_pod_parser_init(&prs, data, size, 0);
+	if (spa_pod_parser_get(&prs, "[ i", &props.n_items, NULL) < 0)
+		return -EINVAL;
+
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (spa_pod_parser_get(&prs,
+				"s", &props.items[i].key,
+				"s", &props.items[i].value,
+				NULL) < 0)
+			return -EINVAL;
+	}
+	pw_resource_do(resource, struct pw_client_proxy_methods, update_properties, 0,
+			&props);
+	return 0;
+}
+
 static int client_demarshal_get_permissions(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
@@ -1645,12 +1691,14 @@ static const struct pw_protocol_marshal pw_protocol_native_port_marshal = {
 static const struct pw_client_proxy_methods pw_protocol_native_client_method_marshal = {
 	PW_VERSION_CLIENT_PROXY_METHODS,
 	&client_marshal_error,
+	&client_marshal_update_properties,
 	&client_marshal_get_permissions,
 	&client_marshal_update_permissions,
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_client_method_demarshal[] = {
 	{ &client_demarshal_error, PW_PERM_W, },
+	{ &client_demarshal_update_properties, PW_PERM_W, },
 	{ &client_demarshal_get_permissions, 0, },
 	{ &client_demarshal_update_permissions, PW_PERM_W, },
 };

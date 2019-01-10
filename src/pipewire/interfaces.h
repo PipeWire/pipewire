@@ -745,9 +745,10 @@ pw_factory_proxy_add_listener(struct pw_factory_proxy *factory,
 #define PW_VERSION_CLIENT			0
 
 #define PW_CLIENT_PROXY_METHOD_ERROR			0
-#define PW_CLIENT_PROXY_METHOD_GET_PERMISSIONS		1
-#define PW_CLIENT_PROXY_METHOD_UPDATE_PERMISSIONS	2
-#define PW_CLIENT_PROXY_METHOD_NUM			3
+#define PW_CLIENT_PROXY_METHOD_UPDATE_PROPERTIES	1
+#define PW_CLIENT_PROXY_METHOD_GET_PERMISSIONS		2
+#define PW_CLIENT_PROXY_METHOD_UPDATE_PERMISSIONS	3
+#define PW_CLIENT_PROXY_METHOD_NUM			4
 
 /** Client methods */
 struct pw_client_proxy_methods {
@@ -762,6 +763,13 @@ struct pw_client_proxy_methods {
 	 * \param error an error string
 	 */
 	void (*error) (void *object, uint32_t id, int res, const char *error);
+	/**
+	 * Update client properties
+	 *
+	 * \param props new properties
+	 */
+	void (*update_properties) (void *object, const struct spa_dict *props);
+
 	/**
 	 * Get client permissions
 	 *
@@ -793,6 +801,12 @@ static inline void
 pw_client_proxy_error(struct pw_client_proxy *client, uint32_t id, int res, const char *error)
 {
 	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, error, id, res, error);
+}
+
+static inline void
+pw_client_proxy_update_properties(struct pw_client_proxy *client, const struct spa_dict *props)
+{
+	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, update_properties, props);
 }
 
 static inline void

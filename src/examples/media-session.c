@@ -1274,6 +1274,18 @@ static void do_rescan(struct impl *impl)
 		rescan_node(impl, node);
 }
 
+static void core_done(void *data, uint32_t seq)
+{
+	struct impl *impl = data;
+	if (impl->seq == seq)
+		do_rescan(impl);
+}
+
+static const struct pw_core_proxy_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.done = core_done
+};
+
 static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
 {
 	struct impl *impl = _data;
@@ -1287,6 +1299,9 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 	case PW_REMOTE_STATE_CONNECTED:
 		pw_log_info(NAME" %p: connected", impl);
 		impl->core_proxy = pw_remote_get_core_proxy(impl->remote);
+		pw_core_proxy_add_listener(impl->core_proxy,
+					   &impl->core_listener,
+					   &core_events, impl);
 		impl->registry_proxy = pw_core_proxy_get_registry(impl->core_proxy,
                                                 PW_TYPE_INTERFACE_Registry,
                                                 PW_VERSION_REGISTRY, 0);
@@ -1309,17 +1324,9 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 	}
 }
 
-static void remote_sync_reply(void *data, uint32_t seq)
-{
-	struct impl *impl = data;
-	if (impl->seq == seq)
-		do_rescan(impl);
-}
-
 static const struct pw_remote_events remote_events = {
 	PW_VERSION_REMOTE_EVENTS,
 	.state_changed = on_state_changed,
-	.sync_reply = remote_sync_reply
 };
 
 int main(int argc, char *argv[])
@@ -1342,7 +1349,8 @@ int main(int argc, char *argv[])
 
 	pw_remote_add_listener(impl.remote, &impl.remote_listener, &remote_events, &impl);
 
-        pw_remote_connect(impl.remote);
+	if (pw_remote_connect(impl.remote) < 0)
+		return -1;
 
 	pw_main_loop_run(impl.loop);
 

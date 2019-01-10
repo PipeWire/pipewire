@@ -45,6 +45,7 @@ struct data {
 	struct spa_hook remote_listener;
 
 	struct pw_core_proxy *core_proxy;
+	struct spa_hook core_listener;
 
 	struct pw_registry_proxy *registry_proxy;
 	struct spa_hook registry_listener;
@@ -90,7 +91,7 @@ static void remove_pending(struct proxy_data *pd)
 	}
 }
 
-static void on_sync_reply(void *data, uint32_t seq)
+static void on_core_done(void *data, uint32_t seq)
 {
 	struct data *d = data;
 	struct proxy_data *pd, *t;
@@ -143,7 +144,7 @@ static void print_properties(const struct spa_dict *props, char mark)
 
 #define MARK_CHANGE(f) ((print_mark && ((info)->change_mask & (1 << (f)))) ? '*' : ' ')
 
-static void on_info_changed(void *data, const struct pw_core_info *info)
+static void on_core_info(void *data, const struct pw_core_info *info)
 {
 	bool print_all = true, print_mark = false;
 
@@ -617,6 +618,12 @@ static const struct pw_registry_proxy_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
+static const struct pw_core_proxy_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.info = on_core_info,
+	.done = on_core_done,
+};
+
 static void on_state_changed(void *_data, enum pw_remote_state old,
 			     enum pw_remote_state state, const char *error)
 {
@@ -632,6 +639,9 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
 
 		data->core_proxy = pw_remote_get_core_proxy(data->remote);
+		pw_core_proxy_add_listener(data->core_proxy,
+					   &data->core_listener,
+					   &core_events, data);
 		data->registry_proxy = pw_core_proxy_get_registry(data->core_proxy,
 								  PW_TYPE_INTERFACE_Registry,
 								  PW_VERSION_REGISTRY, 0);
@@ -648,9 +658,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 
 static const struct pw_remote_events remote_events = {
 	PW_VERSION_REMOTE_EVENTS,
-	.info_changed = on_info_changed,
 	.state_changed = on_state_changed,
-	.sync_reply = on_sync_reply,
 };
 
 static void do_quit(void *data, int signal_number)

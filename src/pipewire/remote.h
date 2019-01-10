@@ -134,15 +134,9 @@ struct pw_remote_events {
 
 	/** The remote is destroyed */
 	void (*destroy)	(void *data);
-        /** emited when the remote core info changed */
-	void (*info_changed) (void *data, const struct pw_core_info *info);
-        /** emited when a reply to a sync was received */
-	void (*sync_reply) (void *data, uint32_t seq);
 	/** emited when the state changes */
 	void (*state_changed) (void *data, enum pw_remote_state old,
 			       enum pw_remote_state state, const char *error);
-        /** emited when an error was reported */
-	void (*error) (void *data, uint32_t id, int res, const char *error);
         /** emited when a node was exported */
 	void (*exported) (void *data, uint32_t id);
 };
@@ -199,9 +193,6 @@ int pw_remote_steal_fd(struct pw_remote *remote);
 
 /** Get the core proxy, can only be called when connected */
 struct pw_core_proxy * pw_remote_get_core_proxy(struct pw_remote *remote);
-
-/** Get the remote core info, can only be called when connected */
-const struct pw_core_info *pw_remote_get_core_info(struct pw_remote *remote);
 
 /** Get the proxy with the given id */
 struct pw_proxy *pw_remote_find_proxy(struct pw_remote *remote, uint32_t id);

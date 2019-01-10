@@ -38,19 +38,13 @@ static void test_abi(void)
 	struct {
 		uint32_t version;
 		void (*destroy) (void *data);
-		void (*info_changed) (void *data, const struct pw_core_info *info);
-		void (*sync_reply) (void *data, uint32_t seq);
 		void (*state_changed) (void *data, enum pw_remote_state old,
 				enum pw_remote_state state, const char *error);
-		void (*error) (void *data, uint32_t id, int res, const char *error);
 		void (*exported) (void *data, uint32_t id);
 	} test = { PW_VERSION_REMOTE_EVENTS, NULL };
 
 	TEST_FUNC(ev, test, destroy);
-	TEST_FUNC(ev, test, info_changed);
-	TEST_FUNC(ev, test, sync_reply);
 	TEST_FUNC(ev, test, state_changed);
-	TEST_FUNC(ev, test, error);
 	TEST_FUNC(ev, test, exported);
 
 	spa_assert(PW_VERSION_REMOTE_EVENTS == 0);
@@ -71,20 +65,8 @@ static void remote_destroy_error(void *data)
 {
 	spa_assert_not_reached();
 }
-static void remote_info_changed_error(void *data, const struct pw_core_info *info)
-{
-	spa_assert_not_reached();
-}
-static void remote_sync_reply_error(void *data, uint32_t seq)
-{
-	spa_assert_not_reached();
-}
 static void remote_state_changed_error(void *data, enum pw_remote_state old,
 		enum pw_remote_state state, const char *error)
-{
-	spa_assert_not_reached();
-}
-static void remote_error_error(void *data, uint32_t id, int res, const char *error)
 {
 	spa_assert_not_reached();
 }
@@ -97,10 +79,7 @@ static const struct pw_remote_events remote_events_error =
 {
 	PW_VERSION_REMOTE_EVENTS,
         .destroy = remote_destroy_error,
-        .info_changed = remote_info_changed_error,
-        .sync_reply = remote_sync_reply_error,
         .state_changed = remote_state_changed_error,
-        .error = remote_error_error,
         .exported = remote_exported_error,
 };
 
@@ -135,8 +114,6 @@ static void test_create(void)
 
 	/* check core proxy, only available when connected */
 	spa_assert(pw_remote_get_core_proxy(remote) == NULL);
-	/* check core info, only available when connected */
-	spa_assert(pw_remote_get_core_info(remote) == NULL);
 
 	/* check some non-existing proxies */
 	spa_assert(pw_remote_find_proxy(remote, 0) == NULL);

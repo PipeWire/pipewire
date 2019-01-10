@@ -574,7 +574,8 @@ int main(int argc, char *argv[])
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 
-        pw_remote_connect(data.remote);
+        if (pw_remote_connect(data.remote) < 0)
+		return -1;
 
 	pw_main_loop_run(data.loop);
 

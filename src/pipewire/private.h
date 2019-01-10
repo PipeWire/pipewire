@@ -547,10 +547,7 @@ struct pw_proxy {
 
 #define pw_remote_events_emit(r,m,v,...) spa_hook_list_call(&r->listener_list, struct pw_remote_events, m, v, ##__VA_ARGS__)
 #define pw_remote_events_destroy(r)		pw_remote_events_emit(r, destroy, 0)
-#define pw_remote_events_info_changed(r,i)	pw_remote_events_emit(r, info_changed, 0, i)
-#define pw_remote_events_sync_reply(r,s)	pw_remote_events_emit(r, sync_reply, 0, s)
 #define pw_remote_events_state_changed(r,o,s,e)	pw_remote_events_emit(r, state_changed, 0, o, s, e)
-#define pw_remote_events_error(r,i,res,e)	pw_remote_events_emit(r, error, 0, i, res, e)
 #define pw_remote_events_exported(r,i)		pw_remote_events_emit(r, exported, 0, i)
 
 struct pw_remote {
@@ -561,7 +558,6 @@ struct pw_remote {
 	struct pw_core_proxy *core_proxy;	/**< proxy for the core object */
 	struct pw_map objects;			/**< map of client side proxy objects
 						 *   indexed with the client id */
-        struct pw_core_info *info;		/**< info about the remote core */
 
 	struct spa_list proxy_list;		/**< list of \ref pw_proxy objects */
 	struct spa_list stream_list;		/**< list of \ref pw_stream objects */

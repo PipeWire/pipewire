@@ -74,6 +74,7 @@ struct remote_data {
 	struct spa_hook remote_listener;
 
 	struct pw_core_proxy *core_proxy;
+	struct spa_hook core_listener;
 	struct pw_registry_proxy *registry_proxy;
 	struct spa_hook registry_listener;
 
@@ -238,7 +239,7 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 	return true;
 }
 
-static void on_info_changed(void *_data, const struct pw_core_info *info)
+static void on_core_info(void *_data, const struct pw_core_info *info)
 {
 	struct remote_data *rd = _data;
 	rd->name = info->name;
@@ -251,7 +252,7 @@ static void show_prompt(struct remote_data *rd)
 	fflush(stdout);
 }
 
-static void on_sync_reply(void *_data, uint32_t seq)
+static void on_core_done(void *_data, uint32_t seq)
 {
 	struct remote_data *rd = _data;
 
@@ -342,7 +343,6 @@ static const struct pw_registry_proxy_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
-
 static void on_remote_destroy(void *_data)
 {
 	struct remote_data *rd = _data;
@@ -356,6 +356,12 @@ static void on_remote_destroy(void *_data)
 	if (data->current == rd)
 		data->current = NULL;
 }
+
+static const struct pw_core_proxy_events remote_core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.info = on_core_info,
+	.done = on_core_done,
+};
 
 static void on_state_changed(void *_data, enum pw_remote_state old,
 			     enum pw_remote_state state, const char *error)
@@ -372,6 +378,9 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 	case PW_REMOTE_STATE_CONNECTED:
 		fprintf(stdout, "remote %d state: \"%s\"\n", rd->id, pw_remote_state_as_string(state));
 		rd->core_proxy = pw_remote_get_core_proxy(rd->remote);
+		pw_core_proxy_add_listener(rd->core_proxy,
+					   &rd->core_listener,
+					   &remote_core_events, rd);
 		rd->registry_proxy = pw_core_proxy_get_registry(rd->core_proxy,
 								PW_TYPE_INTERFACE_Registry,
 								PW_VERSION_REGISTRY, 0);
@@ -390,8 +399,6 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 static const struct pw_remote_events remote_events = {
 	PW_VERSION_REMOTE_EVENTS,
 	.destroy = on_remote_destroy,
-	.info_changed = on_info_changed,
-	.sync_reply = on_sync_reply,
 	.state_changed = on_state_changed,
 };
 
@@ -421,7 +428,8 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	data->current = rd;
 
 	pw_remote_add_listener(remote, &rd->remote_listener, &remote_events, rd);
-	pw_remote_connect(remote);
+	if (pw_remote_connect(remote) < 0)
+		return false;
 
 	return true;
 }

@@ -170,33 +170,6 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 	return 0;
 }
 
-static void core_event_info(void *data, const struct pw_core_info *info)
-{
-	struct pw_remote *this = data;
-
-	pw_log_debug("remote %p: got core info", this);
-	this->info = pw_core_info_update(this->info, info);
-	pw_remote_events_info_changed(this, this->info);
-}
-
-static void core_event_done(void *data, uint32_t seq)
-{
-	struct pw_remote *this = data;
-
-	pw_log_debug("remote %p: core event done %d", this, seq);
-	if (seq == 0)
-		pw_remote_update_state(this, PW_REMOTE_STATE_CONNECTED, NULL);
-
-	pw_remote_events_sync_reply(this, seq);
-}
-
-static void core_event_error(void *data, uint32_t id, int res, const char *error, ...)
-{
-	struct pw_remote *this = data;
-	pw_log_warn("remote %p: got error %d, %d (%s): %s", this,
-			id, res, spa_strerror(res), error);
-	pw_remote_events_error(this, id, res, error);
-}
 
 static void core_event_remove_id(void *data, uint32_t id)
 {
@@ -213,10 +186,7 @@ static void core_event_remove_id(void *data, uint32_t id)
 
 static const struct pw_core_proxy_events core_proxy_events = {
 	PW_VERSION_CORE_PROXY_EVENTS,
-	.done = core_event_done,
-	.error = core_event_error,
 	.remove_id = core_event_remove_id,
-	.info = core_event_info,
 };
 
 struct pw_remote *pw_remote_new(struct pw_core *core,
@@ -383,9 +353,9 @@ static int do_connect(struct pw_remote *remote)
 
 	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_proxy_events, remote);
 
-	pw_core_proxy_hello(remote->core_proxy, PW_VERSION_CORE);
 	pw_core_proxy_client_update(remote->core_proxy, &remote->properties->dict);
-	pw_core_proxy_sync(remote->core_proxy, 0);
+	pw_core_proxy_hello(remote->core_proxy, PW_VERSION_CORE);
+	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTED, NULL);
 
 	return 0;
 
@@ -398,11 +368,6 @@ static int do_connect(struct pw_remote *remote)
 struct pw_core_proxy * pw_remote_get_core_proxy(struct pw_remote *remote)
 {
 	return remote->core_proxy;
-}
-
-const struct pw_core_info *pw_remote_get_core_info(struct pw_remote *remote)
-{
-	return remote->info;
 }
 
 struct pw_proxy *pw_remote_find_proxy(struct pw_remote *remote, uint32_t id)
@@ -480,11 +445,6 @@ int pw_remote_disconnect(struct pw_remote *remote)
 		pw_proxy_destroy(proxy);
 
 	pw_map_reset(&remote->objects);
-
-	if (remote->info) {
-		pw_core_info_free(remote->info);
-		remote->info = NULL;
-	}
 
 	return 0;
 }

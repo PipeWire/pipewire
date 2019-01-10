@@ -977,7 +977,7 @@ struct server_data {
 static void server_callback(struct server_data *d)
 {
 	pa_context *c = d->context;
-	const struct pw_core_info *info = pw_remote_get_core_info(c->remote);
+	const struct pw_core_info *info = c->core_info;
 	pa_server_info i;
 
 	spa_zero(i);

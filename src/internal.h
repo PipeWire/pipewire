@@ -260,7 +260,9 @@ struct pa_context {
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
 
-        struct pw_core_proxy *core_proxy;
+	struct pw_core_proxy *core_proxy;
+	struct spa_hook core_listener;
+	struct pw_core_info *core_info;
 
         struct pw_registry_proxy *registry_proxy;
         struct spa_hook registry_listener;

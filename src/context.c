@@ -338,6 +338,38 @@ static void on_ready(pa_operation *o, void *userdata)
 	pa_context_set_state(d->context, PA_CONTEXT_READY);
 }
 
+static void complete_operations(pa_context *c, uint32_t seq)
+{
+	pa_operation *o, *t;
+	spa_list_for_each_safe(o, t, &c->operations, link) {
+		if (o->seq != seq)
+			continue;
+		pa_operation_ref(o);
+		if (o->callback)
+			o->callback(o, o->userdata);
+		pa_operation_unref(o);
+	}
+}
+
+static void core_info(void *data, const struct pw_core_info *info)
+{
+	pa_context *c = data;
+	c->core_info = pw_core_info_update(c->core_info, info);
+}
+
+static void core_done(void *data, uint32_t seq)
+{
+	pa_context *c = data;
+	pw_log_debug("done %d", seq);
+	complete_operations(c, seq);
+}
+
+static const struct pw_core_proxy_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.info = core_info,
+	.done = core_done
+};
+
 static void remote_state_changed(void *data, enum pw_remote_state old,
 				 enum pw_remote_state state, const char *error)
 {
@@ -359,6 +391,8 @@ static void remote_state_changed(void *data, enum pw_remote_state old,
 		pa_context_set_state(c, PA_CONTEXT_SETTING_NAME);
 
 		c->core_proxy = pw_remote_get_core_proxy(c->remote);
+		pw_core_proxy_add_listener(c->core_proxy, &c->core_listener, &core_events, c);
+
                 c->registry_proxy = pw_core_proxy_get_registry(c->core_proxy,
 							       PW_TYPE_INTERFACE_Registry,
                                                                PW_VERSION_REGISTRY, 0);
@@ -375,30 +409,9 @@ static void remote_state_changed(void *data, enum pw_remote_state old,
 	}
 }
 
-static void complete_operations(pa_context *c, uint32_t seq)
-{
-	pa_operation *o, *t;
-	spa_list_for_each_safe(o, t, &c->operations, link) {
-		if (o->seq != seq)
-			continue;
-		pa_operation_ref(o);
-		if (o->callback)
-			o->callback(o, o->userdata);
-		pa_operation_unref(o);
-	}
-}
-
-static void remote_sync_reply(void *data, uint32_t seq)
-{
-	pa_context *c = data;
-	pw_log_debug("done %d", seq);
-	complete_operations(c, seq);
-}
-
 static const struct pw_remote_events remote_events = {
 	PW_VERSION_REMOTE_EVENTS,
 	.state_changed = remote_state_changed,
-	.sync_reply = remote_sync_reply
 };
 
 pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *name, pa_proplist *p)
@@ -459,6 +472,8 @@ static void context_free(pa_context *c)
 
 	if (c->proplist)
 		pa_proplist_free(c->proplist);
+	if (c->core_info)
+		pw_core_info_free(c->core_info);
 
 	pw_remote_destroy(c->remote);
 }
@@ -676,7 +691,7 @@ const char* pa_context_get_server(pa_context *c)
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
 
-	info = pw_remote_get_core_info(c->remote);
+	info = c->core_info;
 	PA_CHECK_VALIDITY_RETURN_NULL(c, info && info->name, PA_ERR_NOENTITY);
 
 	return info->name;

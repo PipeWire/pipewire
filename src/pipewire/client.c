@@ -124,7 +124,17 @@ static void client_get_permissions(void *object, uint32_t index, uint32_t num)
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_client *client = data->client;
-	pw_log_debug("client %p", client);
+	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
+	size_t len;
+
+	len = pw_array_get_len(&impl->permissions, struct pw_permission);
+	if ((size_t)index >= len)
+		num = 0;
+	else if ((size_t)index + (size_t)num >= len)
+		num = len - index;
+
+	pw_client_resource_permissions(resource, index,
+			num, pw_array_get_unchecked(&impl->permissions, index, struct pw_permission));
 }
 
 static void client_update_permissions(void *object,

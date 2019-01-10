@@ -35,7 +35,6 @@
 /** \cond */
 struct impl {
 	struct pw_client this;
-	uint32_t permissions_default;
 	struct spa_hook core_listener;
 	struct pw_array permissions;
 };
@@ -45,41 +44,51 @@ struct resource_data {
 	struct pw_client *client;
 };
 
-/** find a specific permission for a global or NULL when there is none */
+/** find a specific permission for a global or the default when there is none */
 static struct pw_permission *
 find_permission(struct pw_client *client, uint32_t id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 	struct pw_permission *p;
+	uint32_t idx = id + 1;
 
-	if (!pw_array_check_index(&impl->permissions, id, struct pw_permission))
-		return NULL;
+	if (id == SPA_ID_INVALID)
+		goto do_default;
 
-	p = pw_array_get_unchecked(&impl->permissions, id, struct pw_permission);
+	if (!pw_array_check_index(&impl->permissions, idx, struct pw_permission))
+		goto do_default;
+
+	p = pw_array_get_unchecked(&impl->permissions, idx, struct pw_permission);
 	if (p->permissions == SPA_ID_INVALID)
-		return NULL;
-	else
-		return p;
+		goto do_default;
+
+	return p;
+
+      do_default:
+	return pw_array_get_unchecked(&impl->permissions, 0, struct pw_permission);
 }
 
 static struct pw_permission *ensure_permissions(struct pw_client *client, uint32_t id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 	struct pw_permission *p;
+	uint32_t idx = id + 1;
 	size_t len, i;
 
 	len = pw_array_get_len(&impl->permissions, struct pw_permission);
-	if (len <= id) {
-		size_t diff = id - len + 1;
+	if (len <= idx) {
+		size_t diff = idx - len + 1;
 
 		p = pw_array_add(&impl->permissions, diff * sizeof(struct pw_permission));
 		if (p == NULL)
 			return NULL;
 
-		for (i = 0; i < diff; i++)
+		for (i = 0; i < diff; i++) {
+			p[i].id = len + i - 1;
 			p[i].permissions = SPA_ID_INVALID;
+		}
 	}
-	p = pw_array_get_unchecked(&impl->permissions, id, struct pw_permission);
+	p = pw_array_get_unchecked(&impl->permissions, idx, struct pw_permission);
 	return p;
 }
 
@@ -89,14 +98,9 @@ static uint32_t
 client_permission_func(struct pw_global *global,
 		       struct pw_client *client, void *data)
 {
-	struct impl *impl = data;
 	struct pw_permission *p;
-
 	p = find_permission(client, global->id);
-	if (p == NULL)
-		return impl->permissions_default;
-	else
-		return p->permissions;
+	return p->permissions;
 }
 
 static void client_error(void *object, uint32_t id, int res, const char *error)
@@ -195,7 +199,7 @@ core_global_removed(void *data, struct pw_global *global)
 
 	p = find_permission(client, global->id);
 	pw_log_debug("client %p: global %d removed, %p", client, global->id, p);
-	if (p != NULL)
+	if (p->id != SPA_ID_INVALID)
 		p->permissions = SPA_ID_INVALID;
 }
 
@@ -220,6 +224,7 @@ struct pw_client *pw_client_new(struct pw_core *core,
 {
 	struct pw_client *this;
 	struct impl *impl;
+	struct pw_permission *p;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -244,6 +249,9 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	}
 
 	pw_array_init(&impl->permissions, 1024);
+	p = pw_array_add(&impl->permissions, sizeof(struct pw_permission));
+	p->id = SPA_ID_INVALID;
+	p->permissions = 0;
 
 	this->properties = properties;
 	this->permission_func = client_permission_func;
@@ -440,17 +448,18 @@ int pw_client_update_properties(struct pw_client *client, const struct spa_dict 
 int pw_client_update_permissions(struct pw_client *client,
 		uint32_t n_permissions, const struct pw_permission *permissions)
 {
-	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 	struct pw_core *core = client->core;
 	uint32_t i;
 
 	for (i = 0; i < n_permissions; i++) {
-		struct pw_permission *p;
+		struct pw_permission *p, *def;
 		uint32_t old_perm, new_perm;
 		struct pw_global *global;
 
+		def = find_permission(client, SPA_ID_INVALID);
+
 		if (permissions[i].id == SPA_ID_INVALID) {
-			old_perm = impl->permissions_default;
+			old_perm = def->permissions;
 			new_perm = permissions[i].permissions;
 
 			if (core->current_client == client)
@@ -461,23 +470,22 @@ int pw_client_update_permissions(struct pw_client *client,
 
 			spa_list_for_each(global, &core->global_list, link) {
 				p = find_permission(client, global->id);
-				if (p != NULL)
+				if (p->id != SPA_ID_INVALID)
 					continue;
-
 				pw_global_update_permissions(global, client, old_perm, new_perm);
 			}
-			impl->permissions_default = new_perm;
+			def->permissions = new_perm;
 		}
 		else  {
 			struct pw_global *global;
 
 			global = pw_core_find_global(client->core, permissions[i].id);
-			if (global == NULL) {
+			if (global == NULL || global->id != permissions[i].id) {
 				pw_log_warn("client %p: invalid global %d", client, permissions[i].id);
 				continue;
 			}
-			p = ensure_permissions(client, global->id);
-			old_perm = p->permissions == SPA_ID_INVALID ? impl->permissions_default : p->permissions;
+			p = ensure_permissions(client, permissions[i].id);
+			old_perm = p->permissions == SPA_ID_INVALID ? def->permissions : p->permissions;
 			new_perm = permissions[i].permissions;
 
 			if (core->current_client == client)

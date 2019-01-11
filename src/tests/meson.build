@@ -3,6 +3,7 @@ test_apps = [
 	'test-client',
 	'test-core',
 	'test-interfaces',
+	'test-properties',
 	'test-remote',
 	'test-stream',
 	'test-utils'

@@ -41,7 +41,8 @@ extern "C" {
  * serialization such as base64 for binary blobs.
  */
 struct pw_properties {
-	struct spa_dict dict;
+	struct spa_dict dict;	/**< dictionary of key/values */
+	uint32_t flags;		/**< extra flags */
 };
 
 struct pw_properties *

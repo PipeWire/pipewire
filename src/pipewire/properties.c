@@ -45,7 +45,7 @@ static int add_func(struct pw_properties *this, char *key, char *value)
 	item->value = value;
 
 	this->dict.items = impl->items.data;
-	this->dict.n_items = pw_array_get_len(&impl->items, struct spa_dict_item);
+	this->dict.n_items++;
 	return 0;
 }
 
@@ -57,13 +57,9 @@ static void clear_item(struct spa_dict_item *item)
 
 static int find_index(const struct pw_properties *this, const char *key)
 {
-	struct properties *impl = SPA_CONTAINER_OF(this, struct properties, this);
-	int i, len = pw_array_get_len(&impl->items, struct spa_dict_item);
-
+	uint32_t i, len = this->dict.n_items;
 	for (i = 0; i < len; i++) {
-		struct spa_dict_item *item =
-		    pw_array_get_unchecked(&impl->items, i, struct spa_dict_item);
-		if (strcmp(item->key, key) == 0)
+		if (strcmp(this->dict.items[i].key, key) == 0)
 			return i;
 	}
 	return -1;
@@ -200,6 +196,7 @@ void pw_properties_clear(struct pw_properties *properties)
 	pw_array_for_each(item, &impl->items)
 		clear_item(item);
 	pw_array_reset(&impl->items);
+	properties->dict.n_items = 0;
 }
 
 /** Update properties
@@ -259,13 +256,14 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
 		}
 
 		if (value == NULL) {
-			struct spa_dict_item *other = pw_array_get_unchecked(&impl->items,
+			struct spa_dict_item *last = pw_array_get_unchecked(&impl->items,
 						     pw_array_get_len(&impl->items, struct spa_dict_item) - 1,
 						     struct spa_dict_item);
 			clear_item(item);
-			item->key = other->key;
-			item->value = other->value;
+			item->key = last->key;
+			item->value = last->value;
 			impl->items.size -= sizeof(struct spa_dict_item);
+			properties->dict.n_items--;
 		} else {
 			free((char *) item->value);
 			item->value = copy ? strdup(value) : value;

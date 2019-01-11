@@ -99,7 +99,7 @@ struct pw_properties *pw_properties_new(const char *key, ...)
 	va_start(varargs, key);
 	while (key != NULL) {
 		value = va_arg(varargs, char *);
-		if (value)
+		if (value && key[0])
 			add_func(&impl->this, strdup(key), strdup(value));
 		key = va_arg(varargs, char *);
 	}
@@ -125,9 +125,10 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 		return NULL;
 
 	for (i = 0; i < dict->n_items; i++) {
-		if (dict->items[i].key != NULL && dict->items[i].value != NULL)
-			add_func(&impl->this, strdup(dict->items[i].key),
-				 strdup(dict->items[i].value));
+		const struct spa_dict_item *it = &dict->items[i];
+		if (it->key != NULL && it->key[0] && it->value != NULL)
+			add_func(&impl->this, strdup(it->key),
+				 strdup(it->value));
 	}
 
 	return &impl->this;
@@ -159,15 +160,20 @@ pw_properties_new_string(const char *str)
 	while (s) {
 		char *val, *eq;
 
-		val = strndup(s, len);
+		if ((val = strndup(s, len)) == NULL)
+			goto no_mem;
+
 		eq = strchr(val, '=');
-		if (eq) {
+		if (eq && eq != val) {
 			*eq = '\0';
 			add_func(&impl->this, val, strdup(eq+1));
 		}
 		s = pw_split_walk(str, " \t\n\r", &len, &state);
 	}
 	return &impl->this;
+    no_mem:
+	pw_properties_free(&impl->this);
+	return NULL;
 }
 
 /** Copy a properties object
@@ -239,7 +245,12 @@ void pw_properties_free(struct pw_properties *properties)
 static int do_replace(struct pw_properties *properties, const char *key, char *value, bool copy)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
-	int index = find_index(properties, key);
+	int index;
+
+	if (key == NULL || key[0] == 0)
+		return 0;
+
+	index = find_index(properties, key);
 
 	if (index == -1) {
 		if (value == NULL)

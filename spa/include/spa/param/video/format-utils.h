@@ -44,15 +44,15 @@ spa_format_video_raw_parse(const struct spa_pod *format,
 		":", SPA_FORMAT_VIDEO_framerate,	"F", &info->framerate,
 		":", SPA_FORMAT_VIDEO_maxFramerate,	"?F", &info->max_framerate,
 		":", SPA_FORMAT_VIDEO_views,		"?i", &info->views,
-		":", SPA_FORMAT_VIDEO_interlaceMode,	"?i", &info->interlace_mode,
+		":", SPA_FORMAT_VIDEO_interlaceMode,	"?I", &info->interlace_mode,
 		":", SPA_FORMAT_VIDEO_pixelAspectRatio,	"?F", &info->pixel_aspect_ratio,
-		":", SPA_FORMAT_VIDEO_multiviewMode,	"?i", &info->multiview_mode,
-		":", SPA_FORMAT_VIDEO_multiviewFlags,	"?i", &info->multiview_flags,
-		":", SPA_FORMAT_VIDEO_chromaSite,	"?i", &info->chroma_site,
-		":", SPA_FORMAT_VIDEO_colorRange,	"?i", &info->color_range,
-		":", SPA_FORMAT_VIDEO_colorMatrix,	"?i", &info->color_matrix,
-		":", SPA_FORMAT_VIDEO_transferFunction,	"?i", &info->transfer_function,
-		":", SPA_FORMAT_VIDEO_colorPrimaries,	"?i", &info->color_primaries, NULL);
+		":", SPA_FORMAT_VIDEO_multiviewMode,	"?I", &info->multiview_mode,
+		":", SPA_FORMAT_VIDEO_multiviewFlags,	"?I", &info->multiview_flags,
+		":", SPA_FORMAT_VIDEO_chromaSite,	"?I", &info->chroma_site,
+		":", SPA_FORMAT_VIDEO_colorRange,	"?I", &info->color_range,
+		":", SPA_FORMAT_VIDEO_colorMatrix,	"?I", &info->color_matrix,
+		":", SPA_FORMAT_VIDEO_transferFunction,	"?I", &info->transfer_function,
+		":", SPA_FORMAT_VIDEO_colorPrimaries,	"?I", &info->color_primaries, NULL);
 }
 
 static inline struct spa_pod *
@@ -83,8 +83,8 @@ spa_format_video_h264_parse(const struct spa_pod *format,
 		":", SPA_FORMAT_VIDEO_size,		"?R", &info->size,
 		":", SPA_FORMAT_VIDEO_framerate,	"?F", &info->framerate,
 		":", SPA_FORMAT_VIDEO_maxFramerate,	"?F", &info->max_framerate,
-		":", SPA_FORMAT_VIDEO_streamFormat,	"?i", &info->stream_format,
-		":", SPA_FORMAT_VIDEO_alignment,	"?i", &info->alignment, NULL);
+		":", SPA_FORMAT_VIDEO_streamFormat,	"?I", &info->stream_format,
+		":", SPA_FORMAT_VIDEO_alignment,	"?I", &info->alignment, NULL);
 }
 
 static inline int

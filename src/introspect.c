@@ -21,8 +21,7 @@
 
 #include <spa/param/props.h>
 
-#include <pipewire/log.h>
-#include <pipewire/stream.h>
+#include <pipewire/pipewire.h>
 
 #include <pulse/introspect.h>
 

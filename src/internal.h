@@ -32,6 +32,7 @@
 #include <pulse/subscribe.h>
 #include <pulse/introspect.h>
 
+#include <pipewire/array.h>
 #include <pipewire/utils.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/log.h>

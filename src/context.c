@@ -19,11 +19,7 @@
 
 #include <errno.h>
 
-#include <pipewire/log.h>
-#include <pipewire/properties.h>
-#include <pipewire/main-loop.h>
-#include <pipewire/core.h>
-#include <pipewire/remote.h>
+#include <pipewire/pipewire.h>
 
 #include <pulse/context.h>
 #include <pulse/timeval.h>

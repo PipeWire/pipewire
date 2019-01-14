@@ -33,7 +33,7 @@
 #include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/private.h>
+#include "pipewire/private.h"
 
 #include "connection.h"
 

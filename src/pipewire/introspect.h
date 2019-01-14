@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_INTROSPECT_H__
-#define __PIPEWIRE_INTROSPECT_H__
+#ifndef PIPEWIRE_INTROSPECT_H
+#define PIPEWIRE_INTROSPECT_H
 
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
@@ -250,4 +250,4 @@ pw_link_info_free(struct pw_link_info *info);
 }
 #endif
 
-#endif /* __PIPEWIRE_INTROSPECT_H__ */
+#endif /* PIPEWIRE_INTROSPECT_H */

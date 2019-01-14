@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_MAIN_LOOP_H__
-#define __PIPEWIRE_MAIN_LOOP_H__
+#ifndef PIPEWIRE_MAIN_LOOP_H
+#define PIPEWIRE_MAIN_LOOP_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,4 +76,4 @@ void pw_main_loop_quit(struct pw_main_loop *loop);
 }
 #endif
 
-#endif /* __PIPEWIRE_MAIN_LOOP_H__ */
+#endif /* PIPEWIRE_MAIN_LOOP_H */

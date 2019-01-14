@@ -31,6 +31,7 @@
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 
+#include <pipewire/map.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/command.h>
 #include <pipewire/interfaces.h>

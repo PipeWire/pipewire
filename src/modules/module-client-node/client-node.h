@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_CLIENT_NODE_H__
-#define __PIPEWIRE_CLIENT_NODE_H__
+#ifndef PIPEWIRE_CLIENT_NODE_H
+#define PIPEWIRE_CLIENT_NODE_H
 
 #include <pipewire/node.h>
 #include <extensions/client-node.h>
@@ -58,4 +58,4 @@ void pw_client_node_registered(struct pw_client_node *node, uint32_t node_id);
 }
 #endif
 
-#endif /* __PIPEWIRE_CLIENT_NODE_H__ */
+#endif /* PIPEWIRE_CLIENT_NODE_H */

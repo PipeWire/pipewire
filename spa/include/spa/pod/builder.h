@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_POD_BUILDER_H__
-#define __SPA_POD_BUILDER_H__
+#ifndef SPA_POD_BUILDER_H
+#define SPA_POD_BUILDER_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -780,4 +780,4 @@ static inline void *spa_pod_builder_object(struct spa_pod_builder *builder,
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_POD_BUILDER_H__ */
+#endif /* SPA_POD_BUILDER_H */

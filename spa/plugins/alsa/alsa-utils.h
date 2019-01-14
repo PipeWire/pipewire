@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_ALSA_UTILS_H__
-#define __SPA_ALSA_UTILS_H__
+#ifndef SPA_ALSA_UTILS_H
+#define SPA_ALSA_UTILS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -193,4 +193,4 @@ static inline double dll_update(struct dll *dll, double tw, double period)
 } /* extern "C" */
 #endif
 
-#endif /* __SPA_ALSA_UTILS_H__ */
+#endif /* SPA_ALSA_UTILS_H */

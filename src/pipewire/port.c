@@ -30,8 +30,10 @@
 #include <spa/debug/types.h>
 
 #include "pipewire/pipewire.h"
+#include "pipewire/interfaces.h"
 #include "pipewire/private.h"
 #include "pipewire/port.h"
+#include "pipewire/link.h"
 
 /** \cond */
 struct impl {

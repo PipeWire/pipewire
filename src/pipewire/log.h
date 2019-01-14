@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_LOG_H__
-#define __PIPEWIRE_LOG_H__
+#ifndef PIPEWIRE_LOG_H
+#define PIPEWIRE_LOG_H
 
 #include <spa/support/log.h>
 
@@ -81,4 +81,4 @@ pw_log_logv(enum spa_log_level level,
 #ifdef __cplusplus
 }
 #endif
-#endif /* __PIPEWIRE_LOG_H__ */
+#endif /* PIPEWIRE_LOG_H */

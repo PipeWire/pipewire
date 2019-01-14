@@ -29,6 +29,7 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/loop.h>
 #include <pipewire/log.h>
+#include <pipewire/type.h>
 
 #define DATAS_SIZE (4096 * 8)
 

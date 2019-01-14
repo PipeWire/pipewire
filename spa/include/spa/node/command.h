@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_COMMAND_NODE_H__
-#define __SPA_COMMAND_NODE_H__
+#ifndef SPA_COMMAND_NODE_H
+#define SPA_COMMAND_NODE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,4 +53,4 @@ enum spa_node_command {
 }  /* extern "C" */
 #endif
 
-#endif /* _SPA_COMMAND_NODE_H__ */
+#endif /* SPA_COMMAND_NODE_H */

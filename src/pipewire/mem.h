@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_MEM_H__
-#define __PIPEWIRE_MEM_H__
+#ifndef PIPEWIRE_MEM_H
+#define PIPEWIRE_MEM_H
 
 #include <spa/utils/defs.h>
 
@@ -95,4 +95,4 @@ static inline void pw_map_range_init(struct pw_map_range *range,
 }
 #endif
 
-#endif /* __PIPEWIRE_MEM_H__ */
+#endif /* PIPEWIRE_MEM_H */

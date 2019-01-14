@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_MAP_H__
-#define __PIPEWIRE_MAP_H__
+#ifndef PIPEWIRE_MAP_H
+#define PIPEWIRE_MAP_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -197,4 +197,4 @@ static inline int pw_map_for_each(struct pw_map *map,
 }  /* extern "C" */
 #endif
 
-#endif /* __PIPEWIRE_MAP_H__ */
+#endif /* PIPEWIRE_MAP_H */

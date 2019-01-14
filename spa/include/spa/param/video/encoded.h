@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_VIDEO_ENCODED_H__
-#define __SPA_VIDEO_ENCODED_H__
+#ifndef SPA_VIDEO_ENCODED_H
+#define SPA_VIDEO_ENCODED_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,4 +62,4 @@ struct spa_video_info_mjpg {
 } /* extern "C" */
 #endif
 
-#endif /* __SPA_VIDEO_ENCODED_H__ */
+#endif /* SPA_VIDEO_ENCODED_H */

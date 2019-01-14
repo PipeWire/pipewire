@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_LOOP_H__
-#define __SPA_LOOP_H__
+#ifndef SPA_LOOP_H
+#define SPA_LOOP_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -232,4 +232,4 @@ struct spa_loop_utils {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_LOOP_H__ */
+#endif /* SPA_LOOP_H */

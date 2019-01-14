@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_DEBUG_TYPES_H__
-#define __SPA_DEBUG_TYPES_H__
+#ifndef SPA_DEBUG_TYPES_H
+#define SPA_DEBUG_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,4 +77,4 @@ static inline uint32_t spa_debug_type_find_type(const struct spa_type_info *info
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_DEBUG_NODE_H__ */
+#endif /* SPA_DEBUG_NODE_H */

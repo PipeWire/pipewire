@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_CONTROL_TYPES_H__
-#define __SPA_CONTROL_TYPES_H__
+#ifndef SPA_CONTROL_TYPES_H
+#define SPA_CONTROL_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,13 +34,13 @@ extern "C" {
 #include <spa/control/control.h>
 
 /* base for parameter object enumerations */
-#define SPA_TYPE__Control		SPA_TYPE_ENUM_BASE "Control"
-#define SPA_TYPE_CONTROL_BASE		SPA_TYPE__Control ":"
+#define SPA_TYPE_INFO_Control		SPA_TYPE_INFO_ENUM_BASE "Control"
+#define SPA_TYPE_INFO_CONTROL_BASE		SPA_TYPE_INFO_Control ":"
 
 static const struct spa_type_info spa_type_control[] = {
-	{ SPA_CONTROL_Invalid, SPA_TYPE_CONTROL_BASE "Invalid", SPA_TYPE_Int, NULL },
-	{ SPA_CONTROL_Properties, SPA_TYPE_CONTROL_BASE "Properties", SPA_TYPE_Int, NULL },
-	{ SPA_CONTROL_Midi, SPA_TYPE_CONTROL_BASE "Midi", SPA_TYPE_Int, NULL },
+	{ SPA_CONTROL_Invalid, SPA_TYPE_INFO_CONTROL_BASE "Invalid", SPA_TYPE_Int, NULL },
+	{ SPA_CONTROL_Properties, SPA_TYPE_INFO_CONTROL_BASE "Properties", SPA_TYPE_Int, NULL },
+	{ SPA_CONTROL_Midi, SPA_TYPE_INFO_CONTROL_BASE "Midi", SPA_TYPE_Int, NULL },
 	{ 0, NULL, 0, NULL },
 };
 
@@ -48,4 +48,4 @@ static const struct spa_type_info spa_type_control[] = {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_CONTROL_TYPES_H__ */
+#endif /* SPA_CONTROL_TYPES_H */

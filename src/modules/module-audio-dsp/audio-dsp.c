@@ -36,11 +36,7 @@
 #include <spa/utils/type-info.h>
 #include <spa/param/audio/type-info.h>
 
-#include "pipewire/core.h"
-#include "pipewire/link.h"
-#include "pipewire/log.h"
-#include "pipewire/module.h"
-#include "pipewire/type.h"
+#include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 
 #include "modules/spa/spa-node.h"

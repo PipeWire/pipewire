@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_REMOTE_H__
-#define __PIPEWIRE_REMOTE_H__
+#ifndef PIPEWIRE_REMOTE_H
+#define PIPEWIRE_REMOTE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -113,7 +113,7 @@ struct pw_remote;
 
 #include <pipewire/core.h>
 #include <pipewire/properties.h>
-#include <pipewire/protocol.h>
+#include <pipewire/node.h>
 #include <pipewire/proxy.h>
 
 /** \enum pw_remote_state The state of a \ref pw_remote \memberof pw_remote */
@@ -209,4 +209,4 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote, struct pw_node *node
 }
 #endif
 
-#endif /* __PIPEWIRE_REMOTE_H__ */
+#endif /* PIPEWIRE_REMOTE_H */

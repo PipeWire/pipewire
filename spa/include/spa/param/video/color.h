@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_VIDEO_COLOR_H__
-#define __SPA_VIDEO_COLOR_H__
+#ifndef SPA_VIDEO_COLOR_H
+#define SPA_VIDEO_COLOR_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -159,4 +159,4 @@ struct spa_video_colorimetry {
 } /* extern "C" */
 #endif
 
-#endif /* __SPA_VIDEO_COLOR_H__ */
+#endif /* SPA_VIDEO_COLOR_H */

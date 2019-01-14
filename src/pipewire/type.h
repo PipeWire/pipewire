@@ -22,20 +22,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_TYPE_H__
-#define __PIPEWIRE_TYPE_H__
+#ifndef PIPEWIRE_TYPE_H
+#define PIPEWIRE_TYPE_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <spa/node/event.h>
-#include <spa/node/command.h>
-#include <spa/monitor/monitor.h>
-#include <spa/param/param.h>
-#include <spa/node/io.h>
-
-#include <pipewire/map.h>
+#include <spa/utils/type.h>
 
 enum {
 	PW_TYPE_FIRST = SPA_TYPE_VENDOR_PipeWire,
@@ -53,13 +47,13 @@ enum {
 
 };
 
-#define PW_TYPE_BASE		"PipeWire:"
+#define PW_TYPE_INFO_BASE		"PipeWire:"
 
-#define PW_TYPE__Object		PW_TYPE_BASE "Object"
-#define PW_TYPE_OBJECT_BASE	PW_TYPE__Object ":"
+#define PW_TYPE_INFO_Object		PW_TYPE_INFO_BASE "Object"
+#define PW_TYPE_INFO_OBJECT_BASE	PW_TYPE_INFO_Object ":"
 
-#define PW_TYPE__Interface	PW_TYPE_BASE "Interface"
-#define PW_TYPE_INTERFACE_BASE	PW_TYPE__Interface ":"
+#define PW_TYPE_INFO_Interface		PW_TYPE_INFO_BASE "Interface"
+#define PW_TYPE_INFO_INTERFACE_BASE	PW_TYPE_INFO_Interface ":"
 
 const struct spa_type_info * pw_type_info(void);
 
@@ -67,4 +61,4 @@ const struct spa_type_info * pw_type_info(void);
 }
 #endif
 
-#endif /* __PIPEWIRE_TYPE_H__ */
+#endif /* PIPEWIRE_TYPE_H */

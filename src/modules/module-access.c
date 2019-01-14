@@ -32,13 +32,7 @@
 
 #include "config.h"
 
-#include "pipewire/core.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/link.h"
-#include "pipewire/log.h"
-#include "pipewire/module.h"
-#include "pipewire/properties.h"
-#include "pipewire/utils.h"
+#include <pipewire/pipewire.h>
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },

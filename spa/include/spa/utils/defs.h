@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_UTILS_DEFS_H__
-#define __SPA_UTILS_DEFS_H__
+#ifndef SPA_UTILS_DEFS_H
+#define SPA_UTILS_DEFS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -206,14 +206,14 @@ struct spa_fraction {
 
 #define spa_strerror(err)		\
 ({					\
-	int __err = -err;		\
+	int _err = -err;		\
 	if (SPA_RESULT_IS_ASYNC(err))	\
-		__err = EINPROGRESS;	\
-	strerror(__err);		\
+		_err = EINPROGRESS;	\
+	strerror(_err);			\
 })
 
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
 
-#endif /* __SPA_UTILS_DEFS_H__ */
+#endif /* SPA_UTILS_DEFS_H */

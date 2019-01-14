@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_GRAPH_H__
-#define __SPA_GRAPH_H__
+#ifndef SPA_GRAPH_H
+#define SPA_GRAPH_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -339,4 +339,4 @@ static const struct spa_graph_node_callbacks spa_graph_node_impl_default = {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_GRAPH_H__ */
+#endif /* SPA_GRAPH_H */

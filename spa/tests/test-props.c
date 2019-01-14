@@ -477,14 +477,5 @@ int main(int argc, char *argv[])
 	spa_debug_pod(0, NULL, &fmt->pod);
 	spa_debug_format(0, NULL, &fmt->pod);
 
-#if 0
-	printf("media type is enum %d\n", spa_type_is_a(SPA_TYPE__mediaType, SPA_TYPE_ENUM_BASE));
-	printf("media sybtype is enum %d\n",
-	       spa_type_is_a(SPA_TYPE__mediaSubtype, SPA_TYPE_ENUM_BASE));
-	printf("format is enum %d\n", spa_type_is_a(SPA_TYPE__Format, SPA_TYPE_ENUM_BASE));
-	printf("format is pod %d\n", spa_type_is_a(SPA_TYPE__Format, SPA_TYPE_POD_BASE));
-	printf("format is object %d\n", spa_type_is_a(SPA_TYPE__Format, SPA_TYPE_POD_OBJECT_BASE));
-#endif
-
 	return 0;
 }

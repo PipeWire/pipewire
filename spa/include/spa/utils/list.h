@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_LIST_H__
-#define __SPA_LIST_H__
+#ifndef SPA_LIST_H
+#define SPA_LIST_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -123,4 +123,4 @@ static inline void spa_list_remove(struct spa_list *elem)
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_LIST_H__ */
+#endif /* SPA_LIST_H */

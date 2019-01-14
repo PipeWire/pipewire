@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_TYPE_H__
-#define __SPA_TYPE_H__
+#ifndef SPA_TYPE_H
+#define SPA_TYPE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -110,34 +110,34 @@ enum {
 	SPA_TYPE_VENDOR_Other		= 0x7f000000,
 };
 
-#define SPA_TYPE_BASE	"Spa:"
+#define SPA_TYPE_INFO_BASE			"Spa:"
 
-#define SPA_TYPE__Flags				SPA_TYPE_BASE "Flags"
-#define SPA_TYPE_FLAGS_BASE			SPA_TYPE__Flags ":"
+#define SPA_TYPE_INFO_Flags			SPA_TYPE_INFO_BASE "Flags"
+#define SPA_TYPE_INFO_FLAGS_BASE		SPA_TYPE_INFO_Flags ":"
 
-#define SPA_TYPE__Enum				SPA_TYPE_BASE "Enum"
-#define SPA_TYPE_ENUM_BASE			SPA_TYPE__Enum ":"
+#define SPA_TYPE_INFO_Enum			SPA_TYPE_INFO_BASE "Enum"
+#define SPA_TYPE_INFO_ENUM_BASE			SPA_TYPE_INFO_Enum ":"
 
-#define SPA_TYPE__Pod				SPA_TYPE_BASE "Pod"
-#define SPA_TYPE_POD_BASE			SPA_TYPE__Pod ":"
+#define SPA_TYPE_INFO_Pod			SPA_TYPE_INFO_BASE "Pod"
+#define SPA_TYPE_INFO_POD_BASE			SPA_TYPE_INFO_Pod ":"
 
-#define SPA_TYPE__Struct			SPA_TYPE_POD_BASE "Struct"
-#define SPA_TYPE_STRUCT_BASE			SPA_TYPE__Struct ":"
+#define SPA_TYPE_INFO_Struct			SPA_TYPE_INFO_POD_BASE "Struct"
+#define SPA_TYPE_INFO_STRUCT_BASE		SPA_TYPE_INFO_Struct ":"
 
-#define SPA_TYPE__Object			SPA_TYPE_POD_BASE "Object"
-#define SPA_TYPE_OBJECT_BASE			SPA_TYPE__Object ":"
+#define SPA_TYPE_INFO_Object			SPA_TYPE_INFO_POD_BASE "Object"
+#define SPA_TYPE_INFO_OBJECT_BASE		SPA_TYPE_INFO_Object ":"
 
-#define SPA_TYPE__Pointer			SPA_TYPE_BASE "Pointer"
-#define SPA_TYPE_POINTER_BASE			SPA_TYPE__Pointer ":"
+#define SPA_TYPE_INFO_Pointer			SPA_TYPE_INFO_BASE "Pointer"
+#define SPA_TYPE_INFO_POINTER_BASE		SPA_TYPE_INFO_Pointer ":"
 
-#define SPA_TYPE__Interface			SPA_TYPE_POINTER_BASE "Interface"
-#define SPA_TYPE_INTERFACE_BASE			SPA_TYPE__Interface ":"
+#define SPA_TYPE_INFO_Interface			SPA_TYPE_INFO_POINTER_BASE "Interface"
+#define SPA_TYPE_INFO_INTERFACE_BASE		SPA_TYPE_INFO_Interface ":"
 
-#define SPA_TYPE__Event				SPA_TYPE_OBJECT_BASE "Event"
-#define SPA_TYPE_EVENT_BASE			SPA_TYPE__Event ":"
+#define SPA_TYPE_INFO_Event			SPA_TYPE_INFO_OBJECT_BASE "Event"
+#define SPA_TYPE_INFO_EVENT_BASE		SPA_TYPE_INFO_Event ":"
 
-#define SPA_TYPE__Command			SPA_TYPE_OBJECT_BASE "Command"
-#define SPA_TYPE_COMMAND_BASE			SPA_TYPE__Command ":"
+#define SPA_TYPE_INFO_Command			SPA_TYPE_INFO_OBJECT_BASE "Command"
+#define SPA_TYPE_INFO_COMMAND_BASE		SPA_TYPE_INFO_Command ":"
 
 struct spa_type_info {
 	uint32_t type;
@@ -150,4 +150,4 @@ struct spa_type_info {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_TYPE_H__ */
+#endif /* SPA_TYPE_H */

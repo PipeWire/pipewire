@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_DBUS_H__
-#define __SPA_DBUS_H__
+#ifndef SPA_DBUS_H
+#define SPA_DBUS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -86,4 +86,4 @@ struct spa_dbus {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_DBUS_H__ */
+#endif /* SPA_DBUS_H */

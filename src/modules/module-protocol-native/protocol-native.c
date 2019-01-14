@@ -25,13 +25,10 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "spa/pod/parser.h"
+#include <spa/pod/parser.h>
 
-#include "pipewire/pipewire.h"
-#include "pipewire/protocol.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/resource.h"
-#include "extensions/protocol-native.h"
+#include <pipewire/pipewire.h>
+#include <extensions/protocol-native.h>
 
 #include "connection.h"
 

@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_META_H__
-#define __SPA_META_H__
+#ifndef SPA_META_H
+#define SPA_META_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -138,4 +138,4 @@ struct spa_meta_cursor {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_META_H__ */
+#endif /* SPA_META_H */

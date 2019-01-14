@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_DEBUG_FORMAT_H__
-#define __SPA_DEBUG_FORMAT_H__
+#ifndef SPA_DEBUG_FORMAT_H
+#define SPA_DEBUG_FORMAT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -202,4 +202,4 @@ static inline int spa_debug_format(int indent,
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_DEBUG_FORMAT_H__ */
+#endif /* SPA_DEBUG_FORMAT_H */

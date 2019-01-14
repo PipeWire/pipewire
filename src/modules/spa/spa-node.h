@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_SPA_NODE_H__
-#define __PIPEWIRE_SPA_NODE_H__
+#ifndef PIPEWIRE_SPA_NODE_H
+#define PIPEWIRE_SPA_NODE_H
 
 #include <spa/node/node.h>
 
@@ -69,4 +69,4 @@ void *pw_spa_node_get_user_data(struct pw_node *node);
 }
 #endif
 
-#endif /* __PIPEWIRE_SPA_NODE_H__ */
+#endif /* PIPEWIRE_SPA_NODE_H */

@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_SPA_MONITOR_H__
-#define __PIPEWIRE_SPA_MONITOR_H__
+#ifndef PIPEWIRE_SPA_MONITOR_H
+#define PIPEWIRE_SPA_MONITOR_H
 
 #include <spa/monitor/monitor.h>
 
@@ -59,4 +59,4 @@ pw_spa_monitor_destroy(struct pw_spa_monitor *monitor);
 }
 #endif
 
-#endif /* __PIPEWIRE_SPA_MONITOR_H__ */
+#endif /* PIPEWIRE_SPA_MONITOR_H */

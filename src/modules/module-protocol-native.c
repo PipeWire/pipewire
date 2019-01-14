@@ -42,21 +42,10 @@
 #include <systemd/sd-daemon.h>
 #endif
 
-#include "pipewire/pipewire.h"
+#include <pipewire/pipewire.h>
+#include <extensions/protocol-native.h>
 #include "pipewire/private.h"
-#include "pipewire/log.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/core.h"
-#include "pipewire/node.h"
-#include "pipewire/module.h"
-#include "pipewire/client.h"
-#include "pipewire/resource.h"
-#include "pipewire/link.h"
-#include "pipewire/factory.h"
-#include "pipewire/data-loop.h"
-#include "pipewire/main-loop.h"
 
-#include "extensions/protocol-native.h"
 #include "modules/module-protocol-native/connection.h"
 #include "modules/module-protocol-native/defs.h"
 
@@ -854,10 +843,10 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	const char *val;
 	struct protocol_data *d;
 
-	if (pw_core_find_protocol(core, PW_TYPE_PROTOCOL__Native) != NULL)
+	if (pw_core_find_protocol(core, PW_TYPE_INFO_PROTOCOL_Native) != NULL)
 		return 0;
 
-	this = pw_protocol_new(core, PW_TYPE_PROTOCOL__Native, sizeof(struct protocol_data));
+	this = pw_protocol_new(core, PW_TYPE_INFO_PROTOCOL_Native, sizeof(struct protocol_data));
 	if (this == NULL)
 		return -ENOMEM;
 

@@ -39,6 +39,7 @@
 #include "pipewire/port.h"
 #include "pipewire/log.h"
 #include "pipewire/private.h"
+#include "pipewire/pipewire.h"
 
 struct impl {
 	struct pw_device *this;

@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_NODE_H__
-#define __SPA_NODE_H__
+#ifndef SPA_NODE_H
+#define SPA_NODE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -528,4 +528,4 @@ struct spa_node {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_NODE_H__ */
+#endif /* SPA_NODE_H */

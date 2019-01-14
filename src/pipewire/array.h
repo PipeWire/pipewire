@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_ARRAY_H__
-#define __PIPEWIRE_ARRAY_H__
+#ifndef PIPEWIRE_ARRAY_H
+#define PIPEWIRE_ARRAY_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -152,4 +152,4 @@ static inline void *pw_array_add_fixed(struct pw_array *arr, size_t size)
 }  /* extern "C" */
 #endif
 
-#endif /* __PIPEWIRE_ARRAY_H__ */
+#endif /* PIPEWIRE_ARRAY_H */

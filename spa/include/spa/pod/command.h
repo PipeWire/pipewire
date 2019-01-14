@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_COMMAND_H__
-#define __SPA_COMMAND_H__
+#ifndef SPA_COMMAND_H
+#define SPA_COMMAND_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,4 +57,4 @@ struct spa_command {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_COMMAND_H__ */
+#endif /* SPA_COMMAND_H */

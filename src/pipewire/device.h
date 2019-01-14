@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_DEVICE_H__
-#define __PIPEWIRE_DEVICE_H__
+#ifndef PIPEWIRE_DEVICE_H
+#define PIPEWIRE_DEVICE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -105,4 +105,4 @@ int pw_device_for_each_param(struct pw_device *device,
 }
 #endif
 
-#endif /* __PIPEWIRE_DEVICE_H__ */
+#endif /* PIPEWIRE_DEVICE_H */

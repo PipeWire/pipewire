@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_PROTOCOL_NATIVE_CONNECTION_H__
-#define __PIPEWIRE_PROTOCOL_NATIVE_CONNECTION_H__
+#ifndef PIPEWIRE_PROTOCOL_NATIVE_CONNECTION_H
+#define PIPEWIRE_PROTOCOL_NATIVE_CONNECTION_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -104,4 +104,4 @@ pw_protocol_native_connection_clear(struct pw_protocol_native_connection *conn);
 }  /* extern "C" */
 #endif
 
-#endif /* __PIPEWIRE_PROTOCOL_NATIVE_CONNECTION_H__ */
+#endif /* PIPEWIRE_PROTOCOL_NATIVE_CONNECTION_H */

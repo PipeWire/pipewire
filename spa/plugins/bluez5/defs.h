@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_BLUEZ5_DEFS_H__
-#define __SPA_BLUEZ5_DEFS_H__
+#ifndef SPA_BLUEZ5_DEFS_H
+#define SPA_BLUEZ5_DEFS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -222,4 +222,4 @@ static inline enum spa_bt_transport_state spa_bt_transport_state_from_string(con
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_BLUEZ5_DEFS_H__ */
+#endif /* SPA_BLUEZ5_DEFS_H */

@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_RINGBUFFER_H__
-#define __SPA_RINGBUFFER_H__
+#ifndef SPA_RINGBUFFER_H
+#define SPA_RINGBUFFER_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -171,4 +171,4 @@ static inline void spa_ringbuffer_write_update(struct spa_ringbuffer *rbuf, int3
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_RINGBUFFER_H__ */
+#endif /* SPA_RINGBUFFER_H */

@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_PORT_H__
-#define __PIPEWIRE_PORT_H__
+#ifndef PIPEWIRE_PORT_H
+#define PIPEWIRE_PORT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -113,4 +113,4 @@ void pw_port_add_listener(struct pw_port *port,
 }
 #endif
 
-#endif /* __PIPEWIRE_PORT_H__ */
+#endif /* PIPEWIRE_PORT_H */

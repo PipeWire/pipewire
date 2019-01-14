@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_HOOK_H__
-#define __SPA_HOOK_H__
+#ifndef SPA_HOOK_H
+#define SPA_HOOK_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -132,4 +132,4 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 }
 #endif
 
-#endif /* __SPA_HOOK_H__ */
+#endif /* SPA_HOOK_H */

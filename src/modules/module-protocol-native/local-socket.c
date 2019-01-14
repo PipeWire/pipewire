@@ -35,7 +35,6 @@
 #include <sys/file.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/private.h>
 
 static const char *
 get_remote(const struct pw_properties *properties)

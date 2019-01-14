@@ -30,7 +30,6 @@
 #include <spa/param/props.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/factory.h>
 
 struct data {
 	struct pw_main_loop *loop;

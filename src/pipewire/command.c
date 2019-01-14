@@ -29,7 +29,6 @@
 #include <unistd.h>
 #include <limits.h>
 
-#include <pipewire/pipewire.h>
 #include <pipewire/utils.h>
 #include <pipewire/module.h>
 

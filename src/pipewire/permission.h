@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_PERMISSION_H__
-#define __PIPEWIRE_PERMISSION_H__
+#ifndef PIPEWIRE_PERMISSION_H
+#define PIPEWIRE_PERMISSION_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,4 +62,4 @@ struct pw_permission {
 }
 #endif
 
-#endif /* __PIPEWIRE_PERMISSION_H__ */
+#endif /* PIPEWIRE_PERMISSION_H */

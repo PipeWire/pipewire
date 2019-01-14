@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_POD_H__
-#define __SPA_POD_H__
+#ifndef SPA_POD_H
+#define SPA_POD_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,19 +58,19 @@ struct spa_pod {
 struct spa_pod_bool {
 	struct spa_pod pod;
 	int32_t value;
-	int32_t __padding;
+	int32_t _padding;
 };
 
 struct spa_pod_id {
 	struct spa_pod pod;
 	uint32_t value;
-	int32_t __padding;
+	int32_t _padding;
 };
 
 struct spa_pod_int {
 	struct spa_pod pod;
 	int32_t value;
-	int32_t __padding;
+	int32_t _padding;
 };
 
 struct spa_pod_long {
@@ -81,7 +81,7 @@ struct spa_pod_long {
 struct spa_pod_float {
 	struct spa_pod pod;
 	float value;
-	int32_t __padding;
+	int32_t _padding;
 };
 
 struct spa_pod_double {
@@ -256,4 +256,4 @@ struct spa_pod_sequence {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_POD_H__ */
+#endif /* SPA_POD_H */

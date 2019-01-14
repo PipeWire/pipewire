@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_PARAM_FORMAT_UTILS_H__
-#define __SPA_PARAM_FORMAT_UTILS_H__
+#ifndef SPA_PARAM_FORMAT_UTILS_H
+#define SPA_PARAM_FORMAT_UTILS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,4 +45,4 @@ spa_format_parse(const struct spa_pod *format, uint32_t *media_type, uint32_t *m
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_PARAM_FORMAT_UTILS */
+#endif /* SPA_PARAM_FORMAT_UTILS_H */

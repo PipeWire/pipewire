@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_WORK_QUEUE_H__
-#define __PIPEWIRE_WORK_QUEUE_H__
+#ifndef PIPEWIRE_WORK_QUEUE_H
+#define PIPEWIRE_WORK_QUEUE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,4 +60,4 @@ pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq, int
 }
 #endif
 
-#endif /* __PIPEWIRE_WORK_QUEUE_H__ */
+#endif /* PIPEWIRE_WORK_QUEUE_H */

@@ -29,9 +29,11 @@
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
 
-#include <pipewire/pipewire.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/type.h>
+#include <pipewire/remote.h>
+#include <pipewire/main-loop.h>
+#include <pipewire/pipewire.h>
 
 struct proxy_data;
 

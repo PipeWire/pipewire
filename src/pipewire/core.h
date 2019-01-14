@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_CORE_H__
-#define __PIPEWIRE_CORE_H__
+#ifndef PIPEWIRE_CORE_H
+#define PIPEWIRE_CORE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,13 +42,11 @@ extern "C" {
  */
 struct pw_core;
 
-#include <pipewire/type.h>
 #include <pipewire/client.h>
-#include <pipewire/global.h>
 #include <pipewire/introspect.h>
+#include <pipewire/global.h>
 #include <pipewire/loop.h>
 #include <pipewire/factory.h>
-#include <pipewire/port.h>
 #include <pipewire/properties.h>
 
 /** \page page_core_api Core API
@@ -164,4 +162,4 @@ pw_core_find_factory(struct pw_core *core	/**< the core */,
 }
 #endif
 
-#endif /* __PIPEWIRE_CORE_H__ */
+#endif /* PIPEWIRE_CORE_H */

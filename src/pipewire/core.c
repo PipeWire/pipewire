@@ -39,6 +39,10 @@
 #include <pipewire/core.h>
 #include <pipewire/data-loop.h>
 #include <pipewire/device.h>
+#include <pipewire/map.h>
+#include <pipewire/type.h>
+#include <pipewire/module.h>
+#include <pipewire/version.h>
 
 /** \cond */
 struct impl {

@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_DICT_H__
-#define __SPA_DICT_H__
+#ifndef SPA_DICT_H
+#define SPA_DICT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -74,4 +74,4 @@ static inline const char *spa_dict_lookup(const struct spa_dict *dict, const cha
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_DICT_H__ */
+#endif /* SPA_DICT_H */

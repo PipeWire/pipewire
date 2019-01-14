@@ -26,13 +26,10 @@
 
 #include <spa/pod/parser.h>
 
-#include "pipewire/pipewire.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/protocol.h"
-#include "pipewire/client.h"
+#include <pipewire/pipewire.h>
 
-#include "extensions/protocol-native.h"
-#include "extensions/client-node.h"
+#include <extensions/protocol-native.h>
+#include <extensions/client-node.h>
 
 static void
 client_node_marshal_done(void *object, int seq, int res)
@@ -928,7 +925,7 @@ struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core
 {
 	struct pw_protocol *protocol;
 
-	protocol = pw_core_find_protocol(core, PW_TYPE_PROTOCOL__Native);
+	protocol = pw_core_find_protocol(core, PW_TYPE_INFO_PROTOCOL_Native);
 
 	if (protocol == NULL)
 		return NULL;

@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_NODE_H__
-#define __PIPEWIRE_NODE_H__
+#ifndef PIPEWIRE_NODE_H
+#define PIPEWIRE_NODE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,6 +42,8 @@ extern "C" {
  * PipeWire node class.
  */
 struct pw_node;
+
+#include <spa/node/event.h>
 
 #include <pipewire/core.h>
 #include <pipewire/global.h>
@@ -193,4 +195,4 @@ bool pw_node_is_enabled(struct pw_node *node);
 }
 #endif
 
-#endif /* __PIPEWIRE_NODE_H__ */
+#endif /* PIPEWIRE_NODE_H */

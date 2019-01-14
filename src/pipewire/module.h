@@ -23,8 +23,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_MODULE_H__
-#define __PIPEWIRE_MODULE_H__
+#ifndef PIPEWIRE_MODULE_H
+#define PIPEWIRE_MODULE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -106,4 +106,4 @@ void pw_module_destroy(struct pw_module *module);
 }
 #endif
 
-#endif /* __PIPEWIRE_MODULE_H__ */
+#endif /* PIPEWIRE_MODULE_H */

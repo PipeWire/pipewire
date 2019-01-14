@@ -22,14 +22,15 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_INTERFACES_H__
-#define __PIPEWIRE_INTERFACES_H__
+#ifndef PIPEWIRE_INTERFACES_H
+#define PIPEWIRE_INTERFACES_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
+#include <spa/node/command.h>
 #include <spa/param/param.h>
 
 #include <pipewire/introspect.h>
@@ -895,4 +896,4 @@ pw_link_proxy_add_listener(struct pw_link_proxy *link,
 }  /* extern "C" */
 #endif
 
-#endif /* __PIPEWIRE_INTERFACES_H__ */
+#endif /* PIPEWIRE_INTERFACES_H */

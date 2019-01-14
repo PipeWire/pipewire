@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_LOG_H__
-#define __SPA_LOG_H__
+#ifndef SPA_LOG_H
+#define SPA_LOG_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -138,4 +138,4 @@ SPA_LOG_FUNC(trace, SPA_LOG_LEVEL_TRACE)
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
-#endif /* __SPA_LOG_H__ */
+#endif /* SPA_LOG_H */

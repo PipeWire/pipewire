@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_DATA_LOOP_H__
-#define __PIPEWIRE_DATA_LOOP_H__
+#ifndef PIPEWIRE_DATA_LOOP_H
+#define PIPEWIRE_DATA_LOOP_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,4 +79,4 @@ bool pw_data_loop_in_thread(struct pw_data_loop *loop);
 }
 #endif
 
-#endif /* __PIPEWIRE_DATA_LOOP_H__ */
+#endif /* PIPEWIRE_DATA_LOOP_H */

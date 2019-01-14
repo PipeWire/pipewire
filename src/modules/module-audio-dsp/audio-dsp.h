@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_AUDIO_DSP_H__
-#define __PIPEWIRE_AUDIO_DSP_H__
+#ifndef PIPEWIRE_AUDIO_DSP_H
+#define PIPEWIRE_AUDIO_DSP_H
 
 #include <pipewire/core.h>
 #include <pipewire/node.h>
@@ -45,4 +45,4 @@ void *pw_audio_dsp_get_user_data(struct pw_node *node);
 }
 #endif
 
-#endif /* __PIPEWIRE_AUDIO_DSP_H__ */
+#endif /* PIPEWIRE_AUDIO_DSP_H */

@@ -21,8 +21,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_BUFFER_H__
-#define __SPA_BUFFER_H__
+#ifndef SPA_BUFFER_H
+#define SPA_BUFFER_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,4 +103,4 @@ static inline void *spa_buffer_find_meta_data(const struct spa_buffer *b, uint32
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_BUFFER_H__ */
+#endif /* SPA_BUFFER_H */

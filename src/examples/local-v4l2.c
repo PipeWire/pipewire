@@ -37,8 +37,6 @@
 #include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/module.h>
-#include <pipewire/factory.h>
 
 struct data {
 	SDL_Renderer *renderer;

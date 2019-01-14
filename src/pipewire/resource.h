@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_RESOURCE_H__
-#define __PIPEWIRE_RESOURCE_H__
+#ifndef PIPEWIRE_RESOURCE_H
+#define PIPEWIRE_RESOURCE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -138,4 +138,4 @@ const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *re
 }
 #endif
 
-#endif /* __PIPEWIRE_RESOURCE_H__ */
+#endif /* PIPEWIRE_RESOURCE_H */

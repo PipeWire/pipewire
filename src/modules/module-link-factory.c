@@ -29,11 +29,7 @@
 
 #include "config.h"
 
-#include "pipewire/core.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/log.h"
-#include "pipewire/module.h"
-#include "pipewire/link.h"
+#include <pipewire/pipewire.h>
 #include "pipewire/private.h"
 
 static const struct spa_dict_item module_props[] = {

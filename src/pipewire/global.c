@@ -27,9 +27,10 @@
 #include <time.h>
 #include <stdio.h>
 
-#include <pipewire/pipewire.h>
 #include <pipewire/private.h>
 #include <pipewire/global.h>
+#include <pipewire/interfaces.h>
+#include <pipewire/type.h>
 
 #include <spa/debug/types.h>
 

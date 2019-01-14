@@ -30,12 +30,12 @@
 #include <spa/pod/compare.h>
 #include <spa/param/param.h>
 
-#include "private.h"
-#include "pipewire.h"
-#include "interfaces.h"
-#include "control.h"
-#include "link.h"
-#include "work-queue.h"
+#include "pipewire/private.h"
+#include "pipewire/interfaces.h"
+#include "pipewire/control.h"
+#include "pipewire/link.h"
+#include "pipewire/type.h"
+#include "pipewire/work-queue.h"
 
 #undef spa_debug
 #include <spa/debug/node.h>

@@ -26,9 +26,10 @@
 
 #include <spa/debug/types.h>
 
-#include "pipewire/pipewire.h"
 #include "pipewire/factory.h"
 #include "pipewire/private.h"
+#include "pipewire/type.h"
+#include "pipewire/interfaces.h"
 
 struct resource_data {
 	struct spa_hook resource_listener;

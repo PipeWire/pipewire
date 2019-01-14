@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_AUDIO_LAYOUT_H__
-#define __SPA_AUDIO_LAYOUT_H__
+#ifndef SPA_AUDIO_LAYOUT_H
+#define SPA_AUDIO_LAYOUT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -172,4 +172,4 @@ extern "C" {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_AUDIO_LAYOUT_H__ */
+#endif /* SPA_AUDIO_LAYOUT_H */

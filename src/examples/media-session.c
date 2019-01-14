@@ -36,12 +36,7 @@
 #include <spa/param/props.h>
 #include <spa/debug/pod.h>
 
-#include "pipewire/core.h"
-#include "pipewire/control.h"
-#include "pipewire/link.h"
-#include "pipewire/log.h"
-#include "pipewire/module.h"
-#include "pipewire/type.h"
+#include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 
 #define NAME "media-session"

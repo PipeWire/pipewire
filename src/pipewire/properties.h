@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_PROPERTIES_H__
-#define __PIPEWIRE_PROPERTIES_H__
+#ifndef PIPEWIRE_PROPERTIES_H
+#define PIPEWIRE_PROPERTIES_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -109,4 +109,4 @@ static inline double pw_properties_parse_double(const char *value) {
 }
 #endif
 
-#endif /* __PIPEWIRE_PROPERTIES_H__ */
+#endif /* PIPEWIRE_PROPERTIES_H */

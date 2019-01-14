@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_DEBUG_MEM_H__
-#define __SPA_DEBUG_MEM_H__
+#ifndef SPA_DEBUG_MEM_H
+#define SPA_DEBUG_MEM_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,4 +57,4 @@ static inline int spa_debug_mem(int indent, const void *data, size_t size)
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_DEBUG_MEM_H__ */
+#endif /* SPA_DEBUG_MEM_H */

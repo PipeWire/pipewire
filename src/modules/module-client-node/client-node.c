@@ -37,11 +37,9 @@
 #include <spa/pod/filter.h>
 #include <spa/debug/types.h>
 
-#include "pipewire/pipewire.h"
-#include "pipewire/interfaces.h"
+#include <pipewire/pipewire.h>
 #include "pipewire/private.h"
 
-#include "pipewire/core.h"
 #include "modules/spa/spa-node.h"
 #include "client-node.h"
 

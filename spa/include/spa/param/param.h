@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_PARAM_H__
-#define __SPA_PARAM_H__
+#ifndef SPA_PARAM_H
+#define SPA_PARAM_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -89,4 +89,4 @@ enum spa_param_profile {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_PARAM_H__ */
+#endif /* SPA_PARAM_H */

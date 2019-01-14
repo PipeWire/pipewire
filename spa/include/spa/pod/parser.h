@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_POD_PARSER_H__
-#define __SPA_POD_PARSER_H__
+#ifndef SPA_POD_PARSER_H
+#define SPA_POD_PARSER_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -315,9 +315,9 @@ static inline int spa_pod_parser_get(struct spa_pod_parser *parser,
 
 #define spa_pod_object_parse(pod,...)				\
 ({								\
-	struct spa_pod_parser __p;				\
-	spa_pod_parser_pod(&__p, pod);				\
-	spa_pod_parser_get(&__p, "{", ##__VA_ARGS__, NULL);	\
+	struct spa_pod_parser _p;				\
+	spa_pod_parser_pod(&_p, pod);				\
+	spa_pod_parser_get(&_p, "{", ##__VA_ARGS__, NULL);	\
 })
 
 static inline int spa_pod_is_bool(struct spa_pod *pod)
@@ -431,4 +431,4 @@ static inline int spa_pod_get_fraction(struct spa_pod *pod, struct spa_fraction 
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_POD_PARSER_H__ */
+#endif /* SPA_POD_PARSER_H */

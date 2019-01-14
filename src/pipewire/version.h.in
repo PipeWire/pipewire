@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_VERSION_H__
-#define __PIPEWIRE_VERSION_H__
+#ifndef PIPEWIRE_VERSION_H
+#define PIPEWIRE_VERSION_H
 
 /* WARNING: Make sure to edit the real source file version.h.in! */
 
@@ -65,4 +65,4 @@ const char* pw_get_library_version(void);
 }
 #endif
 
-#endif /* __PIPEWIRE_VERION_H__ */
+#endif /* PIPEWIRE_VERION_H */

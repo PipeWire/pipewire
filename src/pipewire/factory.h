@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_FACTORY_H__
-#define __PIPEWIRE_FACTORY_H__
+#ifndef PIPEWIRE_FACTORY_H
+#define PIPEWIRE_FACTORY_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -105,4 +105,4 @@ void *pw_factory_create_object(struct pw_factory *factory,
 }
 #endif
 
-#endif /* __PIPEWIRE_FACTORY_H__ */
+#endif /* PIPEWIRE_FACTORY_H */

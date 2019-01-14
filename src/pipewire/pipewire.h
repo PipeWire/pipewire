@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_H__
-#define __PIPEWIRE_H__
+#ifndef PIPEWIRE_H
+#define PIPEWIRE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -159,4 +159,4 @@ pw_get_support(uint32_t *n_support);
 }
 #endif
 
-#endif /* __PIPEWIRE_H__ */
+#endif /* PIPEWIRE_H */

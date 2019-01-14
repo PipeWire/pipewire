@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_STREAM_H__
-#define __PIPEWIRE_STREAM_H__
+#ifndef PIPEWIRE_STREAM_H
+#define PIPEWIRE_STREAM_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -357,4 +357,4 @@ int pw_stream_flush(struct pw_stream *stream, bool drain);
 }
 #endif
 
-#endif /* __PIPEWIRE_STREAM_H__ */
+#endif /* PIPEWIRE_STREAM_H */

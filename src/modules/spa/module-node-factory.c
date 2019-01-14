@@ -29,10 +29,7 @@
 
 #include "config.h"
 
-#include "pipewire/interfaces.h"
-#include "pipewire/core.h"
-#include "pipewire/log.h"
-#include "pipewire/module.h"
+#include "pipewire/pipewire.h"
 
 #include "spa-node.h"
 

@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_PROXY_H__
-#define __PIPEWIRE_PROXY_H__
+#ifndef PIPEWIRE_PROXY_H
+#define PIPEWIRE_PROXY_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -157,4 +157,4 @@ const struct pw_protocol_marshal *pw_proxy_get_marshal(struct pw_proxy *proxy);
 }
 #endif
 
-#endif /* __PIPEWIRE_PROXY_H__ */
+#endif /* PIPEWIRE_PROXY_H */

@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_MONITOR_TYPES_H__
-#define __SPA_MONITOR_TYPES_H__
+#ifndef SPA_MONITOR_TYPES_H
+#define SPA_MONITOR_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,54 +32,54 @@ extern "C" {
 #include <spa/utils/type-info.h>
 #include <spa/monitor/monitor.h>
 
-#define SPA_TYPE__MonitorEvent			SPA_TYPE_EVENT_BASE "Monitor"
-#define SPA_TYPE_MONITOR_EVENT_BASE		SPA_TYPE__MonitorEvent ":"
+#define SPA_TYPE_INFO_MonitorEvent			SPA_TYPE_INFO_EVENT_BASE "Monitor"
+#define SPA_TYPE_INFO_MONITOR_EVENT_BASE		SPA_TYPE_INFO_MonitorEvent ":"
 
 static const struct spa_type_info spa_type_monitor_event_id[] = {
-	{ SPA_MONITOR_EVENT_Added,   SPA_TYPE_MONITOR_EVENT_BASE "Added",   SPA_TYPE_Int, NULL },
-	{ SPA_MONITOR_EVENT_Removed, SPA_TYPE_MONITOR_EVENT_BASE "Removed", SPA_TYPE_Int, NULL },
-	{ SPA_MONITOR_EVENT_Changed, SPA_TYPE_MONITOR_EVENT_BASE "Changed", SPA_TYPE_Int, NULL },
+	{ SPA_MONITOR_EVENT_Added,   SPA_TYPE_INFO_MONITOR_EVENT_BASE "Added",   SPA_TYPE_Int, NULL },
+	{ SPA_MONITOR_EVENT_Removed, SPA_TYPE_INFO_MONITOR_EVENT_BASE "Removed", SPA_TYPE_Int, NULL },
+	{ SPA_MONITOR_EVENT_Changed, SPA_TYPE_INFO_MONITOR_EVENT_BASE "Changed", SPA_TYPE_Int, NULL },
 	{ 0, NULL, 0, NULL },
 };
 
 static const struct spa_type_info spa_type_monitor_event[] = {
-	{ 0,   SPA_TYPE_MONITOR_EVENT_BASE,   SPA_TYPE_Id, spa_type_monitor_event_id },
+	{ 0,   SPA_TYPE_INFO_MONITOR_EVENT_BASE,   SPA_TYPE_Id, spa_type_monitor_event_id },
 	{ 0, NULL, 0, NULL },
 };
 
-#define SPA_TYPE__MonitorItemFlags		SPA_TYPE_FLAGS_BASE "MonitorItemFlags"
-#define SPA_TYPE_MONITOR_ITEM_FLAGS_BASE	SPA_TYPE__MonitorItemFlags ":"
+#define SPA_TYPE_INFO_MonitorItemFlags		SPA_TYPE_INFO_FLAGS_BASE "MonitorItemFlags"
+#define SPA_TYPE_INFO_MONITOR_ITEM_FLAGS_BASE	SPA_TYPE_INFO_MonitorItemFlags ":"
 
 static const struct spa_type_info spa_type_monitor_item_flags[] = {
-	{ SPA_MONITOR_ITEM_FLAG_NONE, SPA_TYPE_MONITOR_ITEM_FLAGS_BASE "none", SPA_TYPE_Int, NULL },
+	{ SPA_MONITOR_ITEM_FLAG_NONE, SPA_TYPE_INFO_MONITOR_ITEM_FLAGS_BASE "none", SPA_TYPE_Int, NULL },
 	{ 0, NULL, 0, NULL },
 };
 
-#define SPA_TYPE__MonitorItemState		SPA_TYPE_ENUM_BASE "MonitorItemState"
-#define SPA_TYPE_MONITOR_ITEM_STATE_BASE	SPA_TYPE__MonitorItemState ":"
+#define SPA_TYPE_INFO_MonitorItemState		SPA_TYPE_INFO_ENUM_BASE "MonitorItemState"
+#define SPA_TYPE_INFO_MONITOR_ITEM_STATE_BASE	SPA_TYPE_INFO_MonitorItemState ":"
 
 static const struct spa_type_info spa_type_monitor_item_state[] = {
-	{ SPA_MONITOR_ITEM_STATE_Available,   SPA_TYPE_MONITOR_ITEM_STATE_BASE "Available",   SPA_TYPE_Int, NULL },
-	{ SPA_MONITOR_ITEM_STATE_Disabled,    SPA_TYPE_MONITOR_ITEM_STATE_BASE "Disabled",    SPA_TYPE_Int, NULL },
-	{ SPA_MONITOR_ITEM_STATE_Unavailable, SPA_TYPE_MONITOR_ITEM_STATE_BASE "Unavailable", SPA_TYPE_Int, NULL },
+	{ SPA_MONITOR_ITEM_STATE_Available,   SPA_TYPE_INFO_MONITOR_ITEM_STATE_BASE "Available",   SPA_TYPE_Int, NULL },
+	{ SPA_MONITOR_ITEM_STATE_Disabled,    SPA_TYPE_INFO_MONITOR_ITEM_STATE_BASE "Disabled",    SPA_TYPE_Int, NULL },
+	{ SPA_MONITOR_ITEM_STATE_Unavailable, SPA_TYPE_INFO_MONITOR_ITEM_STATE_BASE "Unavailable", SPA_TYPE_Int, NULL },
 	{ 0, NULL, 0, NULL },
 };
 
-#define SPA_TYPE__MonitorItem			SPA_TYPE_OBJECT_BASE "MonitorItem"
-#define SPA_TYPE_MONITOR_ITEM_BASE		SPA_TYPE__MonitorItem ":"
+#define SPA_TYPE_INFO_MonitorItem			SPA_TYPE_INFO_OBJECT_BASE "MonitorItem"
+#define SPA_TYPE_INFO_MONITOR_ITEM_BASE		SPA_TYPE_INFO_MonitorItem ":"
 
 static const struct spa_type_info spa_type_monitor_item[] = {
-	{ SPA_MONITOR_ITEM_START,   SPA_TYPE_MONITOR_ITEM_BASE,           SPA_TYPE_Int, NULL },
-	{ SPA_MONITOR_ITEM_id,      SPA_TYPE_MONITOR_ITEM_BASE "id",      SPA_TYPE_String, NULL },
-	{ SPA_MONITOR_ITEM_flags,   SPA_TYPE_MONITOR_ITEM_BASE "flags",   SPA_TYPE_Id,
+	{ SPA_MONITOR_ITEM_START,   SPA_TYPE_INFO_MONITOR_ITEM_BASE,           SPA_TYPE_Int, NULL },
+	{ SPA_MONITOR_ITEM_id,      SPA_TYPE_INFO_MONITOR_ITEM_BASE "id",      SPA_TYPE_String, NULL },
+	{ SPA_MONITOR_ITEM_flags,   SPA_TYPE_INFO_MONITOR_ITEM_BASE "flags",   SPA_TYPE_Id,
 		spa_type_monitor_item_flags },
-	{ SPA_MONITOR_ITEM_state,   SPA_TYPE_MONITOR_ITEM_BASE "state",   SPA_TYPE_Id,
+	{ SPA_MONITOR_ITEM_state,   SPA_TYPE_INFO_MONITOR_ITEM_BASE "state",   SPA_TYPE_Id,
 		spa_type_monitor_item_state },
-	{ SPA_MONITOR_ITEM_name,    SPA_TYPE_MONITOR_ITEM_BASE "name",    SPA_TYPE_String, NULL },
-	{ SPA_MONITOR_ITEM_class,   SPA_TYPE_MONITOR_ITEM_BASE "class",   SPA_TYPE_String, NULL },
-	{ SPA_MONITOR_ITEM_info,    SPA_TYPE_MONITOR_ITEM_BASE "info",    SPA_TYPE_Pod, NULL },
-	{ SPA_MONITOR_ITEM_factory, SPA_TYPE_MONITOR_ITEM_BASE "factory", SPA_TYPE_Pointer, NULL },
-	{ SPA_MONITOR_ITEM_type,    SPA_TYPE_MONITOR_ITEM_BASE "type",    SPA_TYPE_Id, NULL },
+	{ SPA_MONITOR_ITEM_name,    SPA_TYPE_INFO_MONITOR_ITEM_BASE "name",    SPA_TYPE_String, NULL },
+	{ SPA_MONITOR_ITEM_class,   SPA_TYPE_INFO_MONITOR_ITEM_BASE "class",   SPA_TYPE_String, NULL },
+	{ SPA_MONITOR_ITEM_info,    SPA_TYPE_INFO_MONITOR_ITEM_BASE "info",    SPA_TYPE_Pod, NULL },
+	{ SPA_MONITOR_ITEM_factory, SPA_TYPE_INFO_MONITOR_ITEM_BASE "factory", SPA_TYPE_Pointer, NULL },
+	{ SPA_MONITOR_ITEM_type,    SPA_TYPE_INFO_MONITOR_ITEM_BASE "type",    SPA_TYPE_Id, NULL },
 	{ 0, NULL, 0, NULL },
 };
 
@@ -87,4 +87,4 @@ static const struct spa_type_info spa_type_monitor_item[] = {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_MONITOR_TYPES_H__ */
+#endif /* SPA_MONITOR_TYPES_H */

@@ -23,8 +23,10 @@
  */
 
 #include <stdio.h>
+#include <stdarg.h>
 
-#include "pipewire/pipewire.h"
+#include "pipewire/array.h"
+#include "pipewire/utils.h"
 #include "pipewire/properties.h"
 
 /** \cond */

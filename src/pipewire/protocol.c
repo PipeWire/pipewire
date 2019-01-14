@@ -28,6 +28,7 @@
 
 #include <pipewire/protocol.h>
 #include <pipewire/private.h>
+#include <pipewire/type.h>
 
 /** \cond */
 struct impl {

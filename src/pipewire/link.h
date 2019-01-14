@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_LINK_H__
-#define __PIPEWIRE_LINK_H__
+#ifndef PIPEWIRE_LINK_H
+#define PIPEWIRE_LINK_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -129,4 +129,4 @@ struct pw_link *pw_link_find(struct pw_port *output, struct pw_port *input);
 }
 #endif
 
-#endif /* __PIPEWIRE_LINK_H__ */
+#endif /* PIPEWIRE_LINK_H */

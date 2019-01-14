@@ -34,12 +34,6 @@
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
-#include "pipewire/introspect.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/remote.h"
-#include "pipewire/core.h"
-#include "pipewire/module.h"
-#include "pipewire/stream.h"
 
 #include "extensions/protocol-native.h"
 #include "extensions/client-node.h"
@@ -231,7 +225,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 		if (!pw_module_load(core, "libpipewire-module-protocol-native", NULL, NULL, NULL, NULL))
 			goto no_protocol;
 
-		protocol_name = PW_TYPE_PROTOCOL__Native;
+		protocol_name = PW_TYPE_INFO_PROTOCOL_Native;
 	}
 
 	protocol = pw_core_find_protocol(core, protocol_name);

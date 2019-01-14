@@ -29,10 +29,7 @@
 
 #include "config.h"
 
-#include "pipewire/core.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/log.h"
-#include "pipewire/module.h"
+#include <pipewire/pipewire.h>
 
 #include "module-client-node/client-node.h"
 #include "module-client-node/client-stream.h"

@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_PROTOCOL_H__
-#define __PIPEWIRE_PROTOCOL_H__
+#ifndef PIPEWIRE_PROTOCOL_H
+#define PIPEWIRE_PROTOCOL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,8 +37,8 @@ struct pw_protocol;
 #include <pipewire/properties.h>
 #include <pipewire/utils.h>
 
-#define PW_TYPE__Protocol               "PipeWire:Protocol"
-#define PW_TYPE_PROTOCOL_BASE           PW_TYPE__Protocol ":"
+#define PW_TYPE_INFO_Protocol		"PipeWire:Protocol"
+#define PW_TYPE_INFO_PROTOCOL_BASE	PW_TYPE_INFO_Protocol ":"
 
 struct pw_protocol_client {
 	struct spa_list link;		/**< link in protocol client_list */
@@ -140,4 +140,4 @@ struct pw_protocol * pw_core_find_protocol(struct pw_core *core, const char *nam
 }  /* extern "C" */
 #endif
 
-#endif /* __PIPEWIRE_PROTOCOL_H__ */
+#endif /* PIPEWIRE_PROTOCOL_H */

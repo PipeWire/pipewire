@@ -25,12 +25,11 @@
 #include <errno.h>
 #include <string.h>
 
-#include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"
-
 #include "pipewire/client.h"
 #include "pipewire/private.h"
 #include "pipewire/resource.h"
+#include "pipewire/type.h"
 
 /** \cond */
 struct impl {

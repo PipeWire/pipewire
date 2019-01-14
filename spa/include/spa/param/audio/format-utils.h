@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_PARAM_AUDIO_FORMAT_UTILS_H__
-#define __SPA_PARAM_AUDIO_FORMAT_UTILS_H__
+#ifndef SPA_PARAM_AUDIO_FORMAT_UTILS_H
+#define SPA_PARAM_AUDIO_FORMAT_UTILS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -90,4 +90,4 @@ spa_format_audio_raw_build(struct spa_pod_builder *builder, uint32_t id, struct 
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_PARAM_AUDIO_FORMAT_UTILS */
+#endif /* SPA_PARAM_AUDIO_FORMAT_UTILS_H */

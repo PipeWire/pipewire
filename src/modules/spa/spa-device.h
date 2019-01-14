@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_SPA_DEVICE_H__
-#define __PIPEWIRE_SPA_DEVICE_H__
+#ifndef PIPEWIRE_SPA_DEVICE_H
+#define PIPEWIRE_SPA_DEVICE_H
 
 #include <spa/monitor/device.h>
 
@@ -67,4 +67,4 @@ void *pw_spa_device_get_user_data(struct pw_device *device);
 }
 #endif
 
-#endif /* __PIPEWIRE_SPA_DEVICE_H__ */
+#endif /* PIPEWIRE_SPA_DEVICE_H */

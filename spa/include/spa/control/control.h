@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_CONTROL_H__
-#define __SPA_CONTROL_H__
+#ifndef SPA_CONTROL_H
+#define SPA_CONTROL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,4 +48,4 @@ enum spa_control_type {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_CONTROL_H__ */
+#endif /* SPA_CONTROL_H */

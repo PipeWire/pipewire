@@ -23,8 +23,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_COMMAND_H__
-#define __PIPEWIRE_COMMAND_H__
+#ifndef PIPEWIRE_COMMAND_H
+#define PIPEWIRE_COMMAND_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,4 +51,4 @@ int pw_command_run(struct pw_command *command, struct pw_core *core, char **err)
 }
 #endif
 
-#endif /* __PIPEWIRE_COMMAND_H__ */
+#endif /* PIPEWIRE_COMMAND_H */

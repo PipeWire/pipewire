@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_GLOBAL_H__
-#define __PIPEWIRE_GLOBAL_H__
+#ifndef PIPEWIRE_GLOBAL_H
+#define PIPEWIRE_GLOBAL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -143,4 +143,4 @@ void pw_global_destroy(struct pw_global *global);
 }
 #endif
 
-#endif /* __PIPEWIRE_GLOBAL_H__ */
+#endif /* PIPEWIRE_GLOBAL_H */

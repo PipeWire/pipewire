@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_CLIENT_STREAM_H__
-#define __PIPEWIRE_CLIENT_STREAM_H__
+#ifndef PIPEWIRE_CLIENT_STREAM_H
+#define PIPEWIRE_CLIENT_STREAM_H
 
 #include <pipewire/node.h>
 
@@ -51,4 +51,4 @@ pw_client_stream_destroy(struct pw_client_stream *stream);
 }
 #endif
 
-#endif /* __PIPEWIRE_CLIENT_STREAM_H__ */
+#endif /* PIPEWIRE_CLIENT_STREAM_H */

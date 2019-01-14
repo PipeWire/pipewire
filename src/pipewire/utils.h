@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_UTILS_H__
-#define __PIPEWIRE_UTILS_H__
+#ifndef PIPEWIRE_UTILS_H
+#define PIPEWIRE_UTILS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,4 +70,4 @@ pw_spa_pod_copy(const struct spa_pod *pod)
 } /* extern "C" */
 #endif
 
-#endif /* __PIPEWIRE_UTILS_H__ */
+#endif /* PIPEWIRE_UTILS_H */

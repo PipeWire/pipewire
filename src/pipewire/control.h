@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_CONTROL_H__
-#define __PIPEWIRE_CONTROL_H__
+#ifndef PIPEWIRE_CONTROL_H
+#define PIPEWIRE_CONTROL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -81,4 +81,4 @@ int pw_control_unlink(struct pw_control *control, struct pw_control *other);
 }
 #endif
 
-#endif /* __PIPEWIRE_CONTROL_H__ */
+#endif /* PIPEWIRE_CONTROL_H */

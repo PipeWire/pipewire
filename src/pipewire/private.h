@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_PRIVATE_H__
-#define __PIPEWIRE_PRIVATE_H__
+#ifndef PIPEWIRE_PRIVATE_H
+#define PIPEWIRE_PRIVATE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,9 +32,11 @@ extern "C" {
 #include <sys/socket.h>
 #include <sys/types.h> /* for pthread_t */
 
+#include "pipewire/map.h"
+#include "pipewire/remote.h"
 #include "pipewire/mem.h"
-#include "pipewire/pipewire.h"
 #include "pipewire/introspect.h"
+#include "pipewire/stream.h"
 #include "pipewire/log.h"
 
 #ifndef spa_debug
@@ -789,4 +791,4 @@ void pw_control_destroy(struct pw_control *control);
 }
 #endif
 
-#endif /* __PIPEWIRE_PRIVATE_H__ */
+#endif /* PIPEWIRE_PRIVATE_H */

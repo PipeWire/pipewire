@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_EXT_PROTOCOL_NATIVE_H__
-#define __PIPEWIRE_EXT_PROTOCOL_NATIVE_H__
+#ifndef PIPEWIRE_EXT_PROTOCOL_NATIVE_H
+#define PIPEWIRE_EXT_PROTOCOL_NATIVE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,7 +33,7 @@ extern "C" {
 #include <spa/param/param.h>
 #include <spa/node/node.h>
 
-#define PW_TYPE_PROTOCOL__Native       PW_TYPE_PROTOCOL_BASE "Native"
+#define PW_TYPE_INFO_PROTOCOL_Native		PW_TYPE_INFO_PROTOCOL_BASE "Native"
 
 struct pw_protocol_native_demarshal {
 	int (*func) (void *object, void *data, size_t size);
@@ -79,4 +79,4 @@ struct pw_protocol_native_ext {
 }  /* extern "C" */
 #endif
 
-#endif /* __PIPEWIRE_EXT_PROTOCOL_NATIVE_H__ */
+#endif /* PIPEWIRE_EXT_PROTOCOL_NATIVE_H */

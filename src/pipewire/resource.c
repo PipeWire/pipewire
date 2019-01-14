@@ -28,6 +28,7 @@
 #include "pipewire/private.h"
 #include "pipewire/protocol.h"
 #include "pipewire/resource.h"
+#include "pipewire/type.h"
 
 #include <spa/debug/types.h>
 

@@ -26,7 +26,7 @@
 #include <errno.h>
 #include <sys/time.h>
 
-#include "pipewire.h"
+#include "log.h"
 #include "thread-loop.h"
 
 #define pw_thread_loop_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_thread_loop_events, m, v, ##__VA_ARGS__)

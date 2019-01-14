@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_EXT_CLIENT_NODE_H__
-#define __PIPEWIRE_EXT_CLIENT_NODE_H__
+#ifndef PIPEWIRE_EXT_CLIENT_NODE_H
+#define PIPEWIRE_EXT_CLIENT_NODE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -389,4 +389,4 @@ pw_client_node_proxy_add_listener(struct pw_client_node_proxy *p,
 }  /* extern "C" */
 #endif
 
-#endif /* __PIPEWIRE_EXT_CLIENT_NODE_H__ */
+#endif /* PIPEWIRE_EXT_CLIENT_NODE_H */

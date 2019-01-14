@@ -23,8 +23,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __PIPEWIRE_DAEMON_CONFIG_H__
-#define __PIPEWIRE_DAEMON_CONFIG_H__
+#ifndef PIPEWIRE_DAEMON_CONFIG_H
+#define PIPEWIRE_DAEMON_CONFIG_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,4 +50,4 @@ int pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_cor
 }
 #endif
 
-#endif /* __PIPEWIRE_DAEMON_CONFIG_H__ */
+#endif /* PIPEWIRE_DAEMON_CONFIG_H */

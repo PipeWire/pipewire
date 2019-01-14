@@ -34,8 +34,6 @@
 #include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/module.h>
-#include <pipewire/factory.h>
 
 #define WIDTH   640
 #define HEIGHT  480

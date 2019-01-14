@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_PARAM_VIDEO_FORMAT_UTILS_H__
-#define __SPA_PARAM_VIDEO_FORMAT_UTILS_H__
+#ifndef SPA_PARAM_VIDEO_FORMAT_UTILS_H
+#define SPA_PARAM_VIDEO_FORMAT_UTILS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,4 +101,4 @@ spa_format_video_mjpg_parse(const struct spa_pod *format,
 } /* extern "C" */
 #endif
 
-#endif /* __SPA_PARAM_VIDEO_FORMAT_UTILS */
+#endif /* SPA_PARAM_VIDEO_FORMAT_UTILS_H */

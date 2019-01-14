@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __SPA_PARAM_AUDIO_FORMAT_H__
-#define __SPA_PARAM_AUDIO_FORMAT_H__
+#ifndef SPA_PARAM_AUDIO_FORMAT_H
+#define SPA_PARAM_AUDIO_FORMAT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,4 +44,4 @@ struct spa_audio_info {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_PARAM_AUDIO_FORMAT_H */
+#endif /* SPA_PARAM_AUDIO_FORMAT_H */

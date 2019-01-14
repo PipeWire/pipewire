@@ -30,13 +30,13 @@
 
 #include <spa/pod/parser.h>
 
-#include "pipewire/pipewire.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/private.h"
 
 #include "pipewire/node.h"
 #include "pipewire/data-loop.h"
 #include "pipewire/main-loop.h"
+#include "pipewire/type.h"
 #include "pipewire/work-queue.h"
 
 #ifndef spa_debug

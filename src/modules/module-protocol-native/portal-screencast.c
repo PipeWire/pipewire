@@ -31,7 +31,6 @@
 #include <sys/socket.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/private.h>
 
 int pw_protocol_native_connect_portal_screencast(struct pw_protocol_client *client,
 					    void (*done_callback) (void *data, int res),

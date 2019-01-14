@@ -20,8 +20,8 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-#ifndef __SPA_BUFFER_ALLOC_H__
-#define __SPA_BUFFER_ALLOC_H__
+#ifndef SPA_BUFFER_ALLOC_H
+#define SPA_BUFFER_ALLOC_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -189,4 +189,4 @@ spa_buffer_alloc_array(uint32_t n_buffers, uint32_t flags,
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_BUFFER_ALLOC_H__ */
+#endif /* SPA_BUFFER_ALLOC_H */

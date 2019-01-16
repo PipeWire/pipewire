@@ -207,8 +207,8 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		}
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_volume, "?d", &p->volume,
-			SPA_PROP_mute,   "?b", &p->mute);
+			SPA_PROP_volume, SPA_POD_OPT_Float(&p->volume),
+			SPA_PROP_mute,   SPA_POD_OPT_Bool(&p->mute));
 		break;
 	}
 	default:

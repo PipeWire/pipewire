@@ -254,10 +254,10 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		}
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_live,      "?b", &p->live,
-			SPA_PROP_waveType,  "?i", &p->wave,
-			SPA_PROP_frequency, "?d", &p->freq,
-			SPA_PROP_volume,    "?d", &p->volume);
+			SPA_PROP_live,      SPA_POD_OPT_Bool(&p->live),
+			SPA_PROP_waveType,  SPA_POD_OPT_Int(&p->wave),
+			SPA_PROP_frequency, SPA_POD_OPT_Float(&p->freq),
+			SPA_PROP_volume,    SPA_POD_OPT_Float(&p->volume));
 
 		if (p->live)
 			this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
@@ -925,8 +925,8 @@ static int process_control(struct impl *this, struct spa_pod_sequence *sequence)
 			struct props *p = &this->props;
 			spa_pod_parse_object(&c->value,
 				SPA_TYPE_OBJECT_Props, NULL,
-				SPA_PROP_frequency, "?f", &p->freq,
-				SPA_PROP_volume,    "?f", &p->volume);
+				SPA_PROP_frequency, SPA_POD_OPT_Float(&p->freq),
+				SPA_PROP_volume,    SPA_POD_OPT_Float(&p->volume));
 			break;
 		}
 		default:

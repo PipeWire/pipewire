@@ -167,7 +167,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		}
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_live, "?b", &this->props.live);
+			SPA_PROP_live, SPA_POD_OPT_Bool(&this->props.live));
 
 		if (this->props.live)
 			this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;

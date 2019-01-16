@@ -981,21 +981,19 @@ static int param_enum_format(struct client *c, struct port *p,
 {
 	switch (p->object->port.type_id) {
 	case 0:
-		*param = spa_pod_builder_object(b,
+		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-	                SPA_FORMAT_AUDIO_format,   &SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-	                SPA_FORMAT_AUDIO_rate,     &SPA_POD_CHOICE_RANGE_Int(DEFAULT_SAMPLE_RATE, 1, INT32_MAX),
-	                SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(1),
-			0);
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+	                SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
+	                SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(DEFAULT_SAMPLE_RATE, 1, INT32_MAX),
+	                SPA_FORMAT_AUDIO_channels, SPA_POD_Int(1));
 		break;
 	case 1:
-		*param = spa_pod_builder_object(b,
+		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_stream),
-			SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_midi),
-			0);
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_stream),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_midi));
 		break;
 	default:
 		return -EINVAL;
@@ -1006,27 +1004,33 @@ static int param_enum_format(struct client *c, struct port *p,
 static int param_format(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
+	uint32_t channels[] = { SPA_AUDIO_CHANNEL_MONO };
 	switch (p->object->port.type_id) {
 	case 0:
-
-		*param = spa_pod_builder_object(b,
+		spa_pod_builder_add(b,
+			"{",
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-			SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-	                SPA_FORMAT_AUDIO_format,   &SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-	                SPA_FORMAT_AUDIO_rate,     p->have_format ?
-					(void*)&SPA_POD_Int(p->rate) :
-					(void*)&SPA_POD_CHOICE_RANGE_Int(DEFAULT_SAMPLE_RATE, 1, INT32_MAX),
-	                SPA_FORMAT_AUDIO_channels, &SPA_POD_Int(1),
-	                SPA_FORMAT_AUDIO_position, &SPA_POD_Array(uint32_t, SPA_TYPE_Id, 1, SPA_AUDIO_CHANNEL_MONO),
-			0);
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+	                SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P), NULL);
+		if (p->have_format) {
+			spa_pod_builder_add(b,
+				SPA_FORMAT_AUDIO_rate,     SPA_POD_Int(p->rate), NULL);
+		} else {
+			spa_pod_builder_add(b,
+				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(DEFAULT_SAMPLE_RATE,
+								1, INT32_MAX), NULL);
+		}
+		spa_pod_builder_add(b,
+			SPA_FORMAT_AUDIO_channels, SPA_POD_Int(1),
+	                SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, 1, channels), NULL);
+		*param = spa_pod_builder_pop(b);
 		break;
 	case 1:
-		*param = spa_pod_builder_object(b,
+		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-			SPA_FORMAT_mediaType,      &SPA_POD_Id(SPA_MEDIA_TYPE_stream),
-			SPA_FORMAT_mediaSubtype,   &SPA_POD_Id(SPA_MEDIA_SUBTYPE_midi),
-			0);
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_stream),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_midi));
 		break;
 	default:
 		return -EINVAL;
@@ -1037,14 +1041,13 @@ static int param_format(struct client *c, struct port *p,
 static int param_buffers(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
-	*param = spa_pod_builder_object(b,
+	*param = spa_pod_builder_add_object(b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
-		SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    &SPA_POD_CHOICE_STEP_Int(MAX_BUFFER_SIZE * sizeof(float), 4, INT32_MAX, 4),
-		SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(4),
-		SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
-		0);
+		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+		SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_STEP_Int(MAX_BUFFER_SIZE * sizeof(float), 4, INT32_MAX, 4),
+		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(4),
+		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 	return 1;
 }
 
@@ -1053,25 +1056,22 @@ static int param_io(struct client *c, struct port *p,
 {
 	switch (p->object->port.type_id) {
 	case 0:
-		*param = spa_pod_builder_object(b,
+		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-			SPA_PARAM_IO_id,	&SPA_POD_Id(SPA_IO_Buffers),
-			SPA_PARAM_IO_size,	&SPA_POD_Int(sizeof(struct spa_io_buffers)),
-			0);
+			SPA_PARAM_IO_id,	SPA_POD_Id(SPA_IO_Buffers),
+			SPA_PARAM_IO_size,	SPA_POD_Int(sizeof(struct spa_io_buffers)));
 		break;
 	case 1:
 		if (p->direction == SPA_DIRECTION_OUTPUT) {
-			*param = spa_pod_builder_object(b,
+			*param = spa_pod_builder_add_object(b,
 				SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-				SPA_PARAM_IO_id,	&SPA_POD_Id(SPA_IO_Notify),
-				SPA_PARAM_IO_size,	&SPA_POD_Int(BUFFER_SIZE_MAX),
-				0);
+				SPA_PARAM_IO_id,	SPA_POD_Id(SPA_IO_Notify),
+				SPA_PARAM_IO_size,	SPA_POD_Int(BUFFER_SIZE_MAX));
 		} else {
-			*param = spa_pod_builder_object(b,
+			*param = spa_pod_builder_add_object(b,
 				SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-				SPA_PARAM_IO_id,	&SPA_POD_Id(SPA_IO_Control),
-				SPA_PARAM_IO_size,	&SPA_POD_Int(sizeof(struct spa_io_sequence)),
-				0);
+				SPA_PARAM_IO_id,	SPA_POD_Id(SPA_IO_Control),
+				SPA_PARAM_IO_size,	SPA_POD_Int(sizeof(struct spa_io_sequence)));
 		}
 		break;
 	}
@@ -1093,9 +1093,7 @@ static int port_set_format(struct client *c, struct port *p,
 	else {
 		struct spa_audio_info info = { 0 };
 
-		spa_pod_object_parse(param,
-			"I", &info.media_type,
-			"I", &info.media_subtype);
+		spa_format_parse(param, &info.media_type, &info.media_subtype);
 
 		switch (info.media_type) {
 		case SPA_MEDIA_TYPE_audio:
@@ -1685,8 +1683,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	while (busy) {
 		const char *error = NULL;
 
-	        pw_thread_loop_wait(client->context.loop);
-
 		switch (pw_remote_get_state(client->remote, &error)) {
 		case PW_REMOTE_STATE_ERROR:
 			goto server_failed;
@@ -1698,6 +1694,9 @@ jack_client_t * jack_client_open (const char *client_name,
 		default:
 			break;
 		}
+		if (busy)
+		        pw_thread_loop_wait(client->context.loop);
+
 	}
 	client->core_proxy = pw_remote_get_core_proxy(client->remote);
 	pw_core_proxy_add_listener(client->core_proxy,

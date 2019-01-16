@@ -36,6 +36,7 @@ extern "C" {
 struct spa_pod_frame {
 	struct spa_pod pod;
 	uint32_t ref;
+	uint32_t _padding;
 };
 
 struct spa_pod_builder_state {
@@ -46,12 +47,14 @@ struct spa_pod_builder_state {
 #define SPA_POD_BUILDER_FLAG_SEQUENCE	(1<<3)
 #define SPA_POD_BUILDER_FLAG_HEADER	(1<<4)
 	uint32_t flags;
-	int depth;
+	uint32_t depth;
+	uint32_t _padding;
 };
 
 struct spa_pod_builder {
 	void *data;
 	uint32_t size;
+	uint32_t _padding;
 
 	uint32_t (*write) (struct spa_pod_builder *builder, const void *data, uint32_t size);
 	void * (*deref) (struct spa_pod_builder *builder, uint32_t ref, bool safe);
@@ -144,8 +147,7 @@ spa_pod_builder_push(struct spa_pod_builder *builder,
 static inline uint32_t
 spa_pod_builder_raw(struct spa_pod_builder *builder, const void *data, uint32_t size)
 {
-	uint32_t ref;
-	int i;
+	uint32_t i, ref;
 
 	if (builder->write) {
 		ref = builder->write(builder, data, size);
@@ -322,7 +324,7 @@ spa_pod_builder_bytes(struct spa_pod_builder *builder, const void *bytes, uint32
 	return ref;
 }
 
-#define SPA_POD_INIT_Pointer(type,value) (struct spa_pod_pointer){ { sizeof(struct spa_pod_pointer_body), SPA_TYPE_Pointer }, { type, value } }
+#define SPA_POD_INIT_Pointer(type,value) (struct spa_pod_pointer){ { sizeof(struct spa_pod_pointer_body), SPA_TYPE_Pointer }, { type, 0, value } }
 
 static inline uint32_t
 spa_pod_builder_pointer(struct spa_pod_builder *builder, uint32_t type, void *val)

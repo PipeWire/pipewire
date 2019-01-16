@@ -49,7 +49,7 @@ extern "C" {
 #define SPA_POD_BODY_CONST(pod)			SPA_MEMBER((pod),sizeof(struct spa_pod),const void)
 
 struct spa_pod {
-	uint32_t size;
+	uint32_t size;		/* size of the body */
 	uint32_t type;		/* a basic id of enum spa_type */
 };
 
@@ -193,6 +193,7 @@ static inline bool spa_pod_is_object_id(const struct spa_pod *pod, uint32_t id)
 
 struct spa_pod_pointer_body {
 	uint32_t type;		/**< pointer id, one of enum spa_type */
+	uint32_t _padding;
 	const void *value;
 };
 
@@ -203,7 +204,7 @@ struct spa_pod_pointer {
 
 struct spa_pod_fd {
 	struct spa_pod pod;
-	int value;
+	int64_t value;
 };
 
 static inline struct spa_pod *spa_pod_get_values(const struct spa_pod *pod, uint32_t *n_vals, uint32_t *choice)
@@ -221,6 +222,7 @@ static inline struct spa_pod *spa_pod_get_values(const struct spa_pod *pod, uint
 
 #define SPA_POD_PROP_SIZE(prop)		(sizeof(struct spa_pod_prop) + (prop)->value.size)
 
+/* props can be inside an object */
 struct spa_pod_prop {
 	uint32_t key;			/**< key of property, list of valid keys depends on the
 					  *  object type */

@@ -35,7 +35,7 @@ extern "C" {
 #include <spa/pod/iter.h>
 
 struct spa_pod_parser {
-	int depth;
+	uint32_t depth;
 #define SPA_POD_PARSER_FLAG_OBJECT	(1<<0)
 #define SPA_POD_PARSER_FLAG_STRUCT	(1<<1)
 	uint32_t flags;

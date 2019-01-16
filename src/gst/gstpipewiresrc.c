@@ -706,20 +706,18 @@ on_format_changed (void *data,
     uint8_t buffer[512];
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
-    params[0] = spa_pod_builder_object (&b,
+    params[0] = spa_pod_builder_add_object (&b,
 	SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-	SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(16, 1, INT32_MAX),
-	SPA_PARAM_BUFFERS_blocks,  &SPA_POD_CHOICE_RANGE_Int(0, 1, INT32_MAX),
-	SPA_PARAM_BUFFERS_size,    &SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
-	SPA_PARAM_BUFFERS_stride,  &SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
-	SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
-	0);
+	SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(16, 1, INT32_MAX),
+	SPA_PARAM_BUFFERS_blocks,  SPA_POD_CHOICE_RANGE_Int(0, 1, INT32_MAX),
+	SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
+	SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
+	SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
-    params[1] = spa_pod_builder_object (&b,
+    params[1] = spa_pod_builder_add_object (&b,
 	SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-        SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
-        SPA_PARAM_META_size, &SPA_POD_Int(sizeof (struct spa_meta_header)),
-	0);
+        SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
+        SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_header)));
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
     pw_stream_finish_format (pwsrc->stream, 0, params, 2);

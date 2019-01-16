@@ -124,16 +124,16 @@ static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_
 			spa_pod_builder_id(b, id);
 	}
 	spa_pod_builder_pop(b);
-	spa_pod_builder_props(b,
-		SPA_FORMAT_VIDEO_size,      &SPA_POD_CHOICE_RANGE_Rectangle(
-							SPA_RECTANGLE(WIDTH, HEIGHT),
-							SPA_RECTANGLE(1,1),
-							SPA_RECTANGLE(info->max_texture_width,
+	spa_pod_builder_add(b,
+		SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
+							&SPA_RECTANGLE(WIDTH, HEIGHT),
+							&SPA_RECTANGLE(1,1),
+							&SPA_RECTANGLE(info->max_texture_width,
 								      info->max_texture_height)),
-		SPA_FORMAT_VIDEO_framerate, &SPA_POD_CHOICE_RANGE_Fraction(
-							SPA_FRACTION(25,1),
-							SPA_FRACTION(0,1),
-							SPA_FRACTION(30,1)),
+		SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(
+							&SPA_FRACTION(25,1),
+							&SPA_FRACTION(0,1),
+							&SPA_FRACTION(30,1)),
 		0);
 	return spa_pod_builder_pop(b);
 }

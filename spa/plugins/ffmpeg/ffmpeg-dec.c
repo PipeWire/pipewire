@@ -285,10 +285,9 @@ spa_ffmpeg_dec_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_Format };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
-					0);
+					SPA_PARAM_LIST_id, SPA_POD_Id(list[*index]));
 		else
 			return 0;
 		break;

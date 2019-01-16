@@ -426,10 +426,9 @@ static int impl_port_enum_params(struct spa_node *node,
 			uint32_t new_id = ((struct spa_pod_object *) param)->body.id;
 
 			if (last_id == SPA_ID_INVALID){
-				*result = spa_pod_builder_object(builder,
+				*result = spa_pod_builder_add_object(builder,
 					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, &SPA_POD_Id(new_id),
-					0);
+					SPA_PARAM_LIST_id, SPA_POD_Id(new_id));
 				last_id = new_id;
 			}
 			else if (last_id != new_id) {
@@ -1065,23 +1064,20 @@ static void add_controls(struct pw_stream *stream)
 	spa_pod_builder_init(&b, buffer, 4096);
 
 	add_param(stream, PARAM_TYPE_INIT,
-		spa_pod_builder_object(&b,
+		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-			SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Buffers),
-			SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_buffers)),
-			0));
+			SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
+			SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers))));
 	add_param(stream, PARAM_TYPE_INIT,
-		spa_pod_builder_object(&b,
+		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-			SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Notify),
-			SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_sequence) + 1024),
-			0));
+			SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Notify),
+			SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence) + 1024)));
 	add_param(stream, PARAM_TYPE_INIT,
-		spa_pod_builder_object(&b,
+		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-			SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Control),
-			SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_sequence)),
-			0));
+			SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Control),
+			SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence))));
 }
 
 int

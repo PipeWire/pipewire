@@ -442,9 +442,10 @@ static int alloc_buffers(struct pw_link *this,
 		if (spa_pod_is_object_type (params[i], SPA_TYPE_OBJECT_ParamMeta)) {
 			uint32_t type, size;
 
-			if (spa_pod_object_parse(params[i],
-				":", SPA_PARAM_META_type, "I", &type,
-				":", SPA_PARAM_META_size, "i", &size, NULL) < 0)
+			if (spa_pod_parse_object(params[i],
+				SPA_TYPE_OBJECT_ParamMeta, NULL,
+				SPA_PARAM_META_type, SPA_POD_Id(&type),
+				SPA_PARAM_META_size, SPA_POD_Int(&size)) < 0)
 				continue;
 
 			pw_log_debug("link %p: enable meta %d %d", this, type, size);
@@ -724,10 +725,11 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			uint32_t qmax_buffers = max_buffers,
 			    qminsize = minsize, qstride = stride;
 
-			spa_pod_object_parse(param,
-				":", SPA_PARAM_BUFFERS_size, "i", &qminsize,
-				":", SPA_PARAM_BUFFERS_stride, "i", &qstride,
-				":", SPA_PARAM_BUFFERS_buffers, "i", &qmax_buffers, NULL);
+			spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_ParamBuffers, NULL,
+				SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&qminsize),
+				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(&qstride),
+				SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&qmax_buffers));
 
 			max_buffers =
 			    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,

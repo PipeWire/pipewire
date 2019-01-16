@@ -320,11 +320,10 @@ static int make_nodes(struct data *data, const char *device)
 	spa_node_set_callbacks(data->sink, &sink_callbacks, data);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	props = spa_pod_builder_object(&b,
+	props = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
-		SPA_PROP_device,     &SPA_POD_Stringv(device ? device : "hw:0"),
-		SPA_PROP_minLatency, &SPA_POD_Int(MIN_LATENCY),
-		0);
+		SPA_PROP_device,     SPA_POD_String(device ? device : "hw:0"),
+		SPA_PROP_minLatency, SPA_POD_Int(MIN_LATENCY));
 
 	if ((res = spa_node_set_param(data->sink, SPA_PARAM_Props, 0, props)) < 0)
 		error(0, -res, "set_param props");
@@ -344,12 +343,11 @@ static int make_nodes(struct data *data, const char *device)
 	}
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	props = spa_pod_builder_object(&b,
+	props = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-		SPA_PROP_frequency,  &SPA_POD_Float(600.0),
-		SPA_PROP_volume,     &SPA_POD_Float(1.0),
-		SPA_PROP_live,       &SPA_POD_Bool(false),
-		0);
+		SPA_PROP_frequency,  SPA_POD_Float(600.0),
+		SPA_PROP_volume,     SPA_POD_Float(1.0),
+		SPA_PROP_live,       SPA_POD_Bool(false));
 
 	if ((res = spa_node_set_param(data->source1, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
@@ -362,12 +360,11 @@ static int make_nodes(struct data *data, const char *device)
 	}
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	props = spa_pod_builder_object(&b,
+	props = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-		SPA_PROP_frequency,  &SPA_POD_Float(440.0),
-		SPA_PROP_volume,     &SPA_POD_Float(1.0),
-		SPA_PROP_live,       &SPA_POD_Bool(false),
-		0);
+		SPA_PROP_frequency,  SPA_POD_Float(440.0),
+		SPA_PROP_volume,     SPA_POD_Float(1.0),
+		SPA_PROP_live,       SPA_POD_Bool(false));
 
 	if ((res = spa_node_set_param(data->source2, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
@@ -409,8 +406,8 @@ static int make_nodes(struct data *data, const char *device)
 			     SPA_IO_Buffers,
 			     &data->mix_sink_io[0], sizeof(data->mix_sink_io[0]));
 
-	data->ctrl_volume[0] = SPA_POD_Double(0.5);
-	data->ctrl_volume[1] = SPA_POD_Double(0.5);
+	data->ctrl_volume[0] = SPA_POD_INIT_Double(0.5);
+	data->ctrl_volume[1] = SPA_POD_INIT_Double(0.5);
 
 #if 0
 	if ((res = spa_node_port_set_io(data->mix,

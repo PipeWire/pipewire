@@ -91,15 +91,15 @@ static void fill_item(struct spa_bt_monitor *this, struct spa_bt_device *device,
 	char dev[16];
 
 	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_MonitorItem, 0);
-	spa_pod_builder_props(builder,
-		SPA_MONITOR_ITEM_id,      &SPA_POD_Stringv(device->path),
-		SPA_MONITOR_ITEM_flags,   &SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
-		SPA_MONITOR_ITEM_state,   &SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
-		SPA_MONITOR_ITEM_name,    &SPA_POD_Stringv(device->name),
-		SPA_MONITOR_ITEM_class,   &SPA_POD_Stringc("Adapter/Bluetooth"),
-		SPA_MONITOR_ITEM_factory, &SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory,
+	spa_pod_builder_add(builder,
+		SPA_MONITOR_ITEM_id,      SPA_POD_String(device->path),
+		SPA_MONITOR_ITEM_flags,   SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
+		SPA_MONITOR_ITEM_state,   SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
+		SPA_MONITOR_ITEM_name,    SPA_POD_String(device->name),
+		SPA_MONITOR_ITEM_class,   SPA_POD_String("Adapter/Bluetooth"),
+		SPA_MONITOR_ITEM_factory, SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory,
 						&spa_bluez5_device_factory),
-		SPA_MONITOR_ITEM_type,    &SPA_POD_Id(SPA_TYPE_INTERFACE_Device),
+		SPA_MONITOR_ITEM_type,    SPA_POD_Id(SPA_TYPE_INTERFACE_Device),
 		0);
 
 	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);
@@ -529,7 +529,7 @@ static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *devi
 		return 0;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Added, 0);
+	event = spa_pod_builder_add_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Added);
 	fill_item(monitor, device, &item, &b);
 
 	device->added = true;
@@ -549,7 +549,7 @@ static int device_remove(struct spa_bt_monitor *monitor, struct spa_bt_device *d
 		return 0;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Removed, 0);
+	event = spa_pod_builder_add_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Removed);
 	fill_item(monitor, device, &item, &b);
 
 	device->added = false;

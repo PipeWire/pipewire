@@ -295,10 +295,9 @@ static int make_nodes(struct data *data, const char *device)
 	spa_node_set_callbacks(data->source, &source_callbacks, data);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	props = spa_pod_builder_object(&b,
+	props = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
-		SPA_PROP_device, &SPA_POD_Stringv(device ? device : "/dev/video0"),
-		0);
+		SPA_PROP_device, SPA_POD_String(device ? device : "/dev/video0"));
 
 	if ((res = spa_node_set_param(data->source, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);

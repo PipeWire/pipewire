@@ -681,9 +681,9 @@ spa_v4l2_enum_format(struct impl *this,
 	}
 
 	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-	spa_pod_builder_props(builder,
-			SPA_FORMAT_mediaType,    &SPA_POD_Id(info->media_type),
-			SPA_FORMAT_mediaSubtype, &SPA_POD_Id(info->media_subtype),
+	spa_pod_builder_add(builder,
+			SPA_FORMAT_mediaType,    SPA_POD_Id(info->media_type),
+			SPA_FORMAT_mediaSubtype, SPA_POD_Id(info->media_subtype),
 			0);
 
 	if (info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
@@ -1070,34 +1070,32 @@ spa_v4l2_enum_controls(struct impl *this,
 
 	switch (queryctrl.type) {
 	case V4L2_CTRL_TYPE_INTEGER:
-		param = spa_pod_builder_object(&b,
+		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
-			SPA_PROP_INFO_id,   &SPA_POD_Id(prop_id),
-			SPA_PROP_INFO_type, &SPA_POD_CHOICE_STEP_Int(
-						queryctrl.default_value,
-						queryctrl.minimum,
-						queryctrl.maximum,
-						queryctrl.step),
-			SPA_PROP_INFO_name, &SPA_POD_Stringv(queryctrl.name),
-			0);
+			SPA_PROP_INFO_id,   SPA_POD_Id(prop_id),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_STEP_Int(
+							queryctrl.default_value,
+							queryctrl.minimum,
+							queryctrl.maximum,
+							queryctrl.step),
+			SPA_PROP_INFO_name, SPA_POD_String(queryctrl.name));
 		break;
 	case V4L2_CTRL_TYPE_BOOLEAN:
-		param = spa_pod_builder_object(&b,
+		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
-			SPA_PROP_INFO_id,   &SPA_POD_Id(prop_id),
-			SPA_PROP_INFO_type, &SPA_POD_CHOICE_Bool(queryctrl.default_value),
-			SPA_PROP_INFO_name, &SPA_POD_Stringv(queryctrl.name),
-			0);
+			SPA_PROP_INFO_id,   SPA_POD_Id(prop_id),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(queryctrl.default_value),
+			SPA_PROP_INFO_name, SPA_POD_String(queryctrl.name));
 		break;
 	case V4L2_CTRL_TYPE_MENU:
 	{
 		struct v4l2_querymenu querymenu;
 
 		spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
-		spa_pod_builder_props(&b,
-			SPA_PROP_INFO_id,    &SPA_POD_Id(prop_id),
-			SPA_PROP_INFO_type,  &SPA_POD_CHOICE_ENUM_Int(1, queryctrl.default_value),
-			SPA_PROP_INFO_name,  &SPA_POD_Stringv(queryctrl.name),
+		spa_pod_builder_add(&b,
+			SPA_PROP_INFO_id,    SPA_POD_Id(prop_id),
+			SPA_PROP_INFO_type,  SPA_POD_CHOICE_ENUM_Int(1, queryctrl.default_value),
+			SPA_PROP_INFO_name,  SPA_POD_String(queryctrl.name),
 			0);
 
 		spa_zero(querymenu);

@@ -138,10 +138,9 @@ static int impl_node_enum_params(struct spa_node *node,
 				    SPA_PARAM_Format };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
-					0);
+					SPA_PARAM_LIST_id, SPA_POD_Id(list[*index]));
 		else
 			return 0;
 		break;
@@ -602,12 +601,12 @@ static int negotiate_buffers(struct impl *impl)
 			in_alloc = false;
 	}
 
-	if (spa_pod_object_parse(param,
-			":", SPA_PARAM_BUFFERS_buffers, "i", &buffers,
-			":", SPA_PARAM_BUFFERS_blocks, "i", &blocks,
-			":", SPA_PARAM_BUFFERS_size, "i", &size,
-			":", SPA_PARAM_BUFFERS_align, "i", &align,
-			NULL) < 0)
+	if (spa_pod_parse_object(param,
+			SPA_TYPE_OBJECT_ParamBuffers, NULL,
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&buffers),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(&blocks),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&size),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(&align)) < 0)
 		return -EINVAL;
 
 	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d",

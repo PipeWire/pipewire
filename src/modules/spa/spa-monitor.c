@@ -80,16 +80,17 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 	enum spa_monitor_item_state state;
 	struct spa_pod *info = NULL;
 	const struct spa_support *support;
-	uint32_t n_support, type;
+	uint32_t n_support, type, ftype;
 
-	if (spa_pod_object_parse(item,
-			":", SPA_MONITOR_ITEM_id,      "s", &id,
-			":", SPA_MONITOR_ITEM_state,   "I", &state,
-			":", SPA_MONITOR_ITEM_name,    "s", &name,
-			":", SPA_MONITOR_ITEM_class,   "s", &klass,
-			":", SPA_MONITOR_ITEM_factory, "p", &factory,
-			":", SPA_MONITOR_ITEM_type,    "I", &type,
-			":", SPA_MONITOR_ITEM_info,    "T", &info, NULL) < 0) {
+	if (spa_pod_parse_object(item,
+			SPA_TYPE_OBJECT_MonitorItem, NULL,
+			SPA_MONITOR_ITEM_id,      SPA_POD_String(&id),
+			SPA_MONITOR_ITEM_state,   SPA_POD_Id(&state),
+			SPA_MONITOR_ITEM_name,    SPA_POD_String(&name),
+			SPA_MONITOR_ITEM_class,   SPA_POD_String(&klass),
+			SPA_MONITOR_ITEM_factory, SPA_POD_Pointer(&ftype, &factory),
+			SPA_MONITOR_ITEM_type,    SPA_POD_Id(&type),
+			SPA_MONITOR_ITEM_info,    SPA_POD_Pod(&info)) < 0) {
 		pw_log_warn("monitor %p: could not parse item", this);
 		spa_debug_pod(0, NULL, item);
 		return NULL;
@@ -195,9 +196,10 @@ static void remove_item(struct pw_spa_monitor *this, struct spa_pod *item, uint6
 	struct monitor_item *mitem;
 	const char *name, *id;
 
-	if (spa_pod_object_parse(item,
-			":", SPA_MONITOR_ITEM_name, "s", &name,
-			":", SPA_MONITOR_ITEM_id,   "s", &id, NULL) < 0)
+	if (spa_pod_parse_object(item,
+			SPA_TYPE_OBJECT_MonitorItem, NULL,
+			SPA_MONITOR_ITEM_name, SPA_POD_String(&name),
+			SPA_MONITOR_ITEM_id,   SPA_POD_String(&id)) < 0)
 		return;
 
 	pw_log_debug("monitor %p: remove: \"%s\" (%s)", this, name, id);
@@ -212,10 +214,11 @@ static void change_item(struct pw_spa_monitor *this, struct spa_pod *item, uint6
 	const char *name, *id;
 	enum spa_monitor_item_state state;
 
-	if (spa_pod_object_parse(item,
-			":", SPA_MONITOR_ITEM_name,  "s", &name,
-			":", SPA_MONITOR_ITEM_state, "I", &state,
-			":", SPA_MONITOR_ITEM_id,    "s", &id, NULL) < 0)
+	if (spa_pod_parse_object(item,
+			SPA_TYPE_OBJECT_MonitorItem, NULL,
+			SPA_MONITOR_ITEM_name,  SPA_POD_String(&name),
+			SPA_MONITOR_ITEM_state, SPA_POD_Id(&state),
+			SPA_MONITOR_ITEM_id,    SPA_POD_String(&id)) < 0)
 		return;
 
 	pw_log_debug("monitor %p: change: \"%s\" (%s)", this, name, id);

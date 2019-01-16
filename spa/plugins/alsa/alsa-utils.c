@@ -249,9 +249,9 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
 
 	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-	spa_pod_builder_props(&b,
-			SPA_FORMAT_mediaType,    &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype, &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+	spa_pod_builder_add(&b,
+			SPA_FORMAT_mediaType,    SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+			SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 			0);
 
 	snd_pcm_format_mask_alloca(&fmask);

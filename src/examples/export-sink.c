@@ -245,10 +245,9 @@ static int impl_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_IO };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(builder,
+			param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_ParamList, id,
-				SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
-				0);
+				SPA_PARAM_LIST_id, SPA_POD_Id(list[*index]));
 		else
 			return 0;
 		break;
@@ -266,31 +265,28 @@ static int impl_port_enum_params(struct spa_node *node,
 		if (*index != 0)
 			return 0;
 
-		param = spa_pod_builder_object(builder,
+		param = spa_pod_builder_add_object(builder,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(2, 2, MAX_BUFFERS),
-			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    &SPA_POD_Int(d->stride * d->format.size.height),
-			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(d->stride),
-			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
-			0);
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 2, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(d->stride * d->format.size.height),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(d->stride),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
 
 	case SPA_PARAM_Meta:
 		switch (*index) {
 		case 0:
-			param = spa_pod_builder_object(builder,
+			param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_ParamMeta, id,
-				SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
-				SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
-				0);
+				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
+				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 			break;
 		case 1:
-			param = spa_pod_builder_object(builder,
+			param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_ParamMeta, id,
-				SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_VideoDamage),
-				SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_region)),
-				0);
+				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoDamage),
+				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_region)));
 			break;
 		default:
 			return 0;
@@ -300,18 +296,16 @@ static int impl_port_enum_params(struct spa_node *node,
 	case SPA_PARAM_IO:
 		switch (*index) {
 		case 0:
-			param = spa_pod_builder_object(builder,
+			param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Buffers),
-				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_buffers)),
-				0);
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 			break;
 		case 1:
-			param = spa_pod_builder_object(builder,
+			param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   &SPA_POD_Id(SPA_IO_Notify),
-				SPA_PARAM_IO_size, &SPA_POD_Int(sizeof(struct spa_io_sequence) + 1024),
-				0);
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Notify),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence) + 1024));
 			break;
 		default:
 			return 0;

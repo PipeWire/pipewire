@@ -360,11 +360,10 @@ static int negotiate_formats(struct data *data)
 	uint8_t buffer[256];
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	format = spa_pod_builder_object(&b,
+	format = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Format, 0,
-			SPA_FORMAT_mediaType,     &SPA_POD_Id(SPA_MEDIA_TYPE_binary),
-			SPA_FORMAT_mediaSubtype,  &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			0);
+			SPA_FORMAT_mediaType,     SPA_POD_Id(SPA_MEDIA_TYPE_binary),
+			SPA_FORMAT_mediaSubtype,  SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw));
 
 	if ((res = spa_node_port_set_param(data->sink,
 					   SPA_DIRECTION_INPUT, 0,

@@ -36,6 +36,9 @@ extern "C" {
 
 struct spa_pod_parser {
 	int depth;
+#define SPA_POD_PARSER_FLAG_OBJECT	(1<<0)
+#define SPA_POD_PARSER_FLAG_STRUCT	(1<<1)
+	uint32_t flags;
 	struct spa_pod_iter iter[SPA_POD_MAX_DEPTH];
 };
 
@@ -43,6 +46,7 @@ static inline void spa_pod_parser_init(struct spa_pod_parser *parser,
 				       const void *data, uint32_t size, uint32_t offset)
 {
 	parser->depth = 0;
+	parser->flags = 0;
 	spa_pod_iter_init(&parser->iter[0], data, size, offset);
 }
 
@@ -100,9 +104,9 @@ static inline bool spa_pod_parser_can_collect(struct spa_pod *pod, char type)
 	}
 }
 
-#define SPA_POD_PARSER_COLLECT(pod,type,args)						\
+#define SPA_POD_PARSER_COLLECT(pod,_type,args)						\
 do {											\
-	switch (type) {									\
+	switch (_type) {								\
 	case 'b':									\
 		*va_arg(args, int*) = SPA_POD_VALUE(struct spa_pod_bool, pod);		\
 		break;									\
@@ -152,7 +156,8 @@ do {											\
 	{										\
 		struct spa_pod_pointer_body *b =					\
 				(struct spa_pod_pointer_body *) SPA_POD_BODY(pod);	\
-		*(va_arg(args, const void **)) = b->value;					\
+		*(va_arg(args, uint32_t *)) = b->type;					\
+		*(va_arg(args, const void **)) = b->value;				\
 		break;									\
 	}										\
 	case 'h':									\
@@ -171,13 +176,14 @@ do {											\
 	}										\
 } while(false)
 
-#define SPA_POD_PARSER_SKIP(type,args)							\
+#define SPA_POD_PARSER_SKIP(_type,args)							\
 do {											\
-	switch (type) {									\
+	switch (_type) {								\
 	case 'S':									\
-		va_arg(args, void*);							\
+		va_arg(args, char*);							\
 		va_arg(args, uint32_t);							\
 		break;									\
+	case 'p':									\
 	case 'z':									\
 		va_arg(args, void**);							\
 		/* fallthrough */							\
@@ -191,7 +197,6 @@ do {											\
 	case 'R':									\
 	case 'F':									\
 	case 'B':									\
-	case 'p':									\
 	case 'h':									\
 	case 'V':									\
 	case 'P':									\
@@ -202,69 +207,85 @@ do {											\
 	}										\
 } while(false)
 
-static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
-				      const char *format, va_list args)
+static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list args)
 {
 	struct spa_pod *pod = NULL, *current;
 	struct spa_pod_prop *prop = NULL;
-	bool required = true, suppress = false, skip = false;
+	bool required = true, skip = false;
 	struct spa_pod_iter *it = &parser->iter[parser->depth];
+	const char *format = "";
+	uint32_t *idp;
 
 	current = pod = spa_pod_iter_current(it);
 
-	while (format) {
+	do {
+	      again:
 		switch (*format) {
 		case '{':
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_TYPE_Object)
 				return -EINVAL;
-			break;
+			if (va_arg(args, uint32_t) != SPA_POD_OBJECT_TYPE(pod))
+				return -EINVAL;
+			if ((idp = va_arg(args, uint32_t*)) != NULL)
+				*idp = SPA_POD_OBJECT_ID(pod);
+			parser->flags = SPA_POD_PARSER_FLAG_OBJECT;
+			goto enter;
 		case '[':
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_TYPE_Struct)
 				return -EINVAL;
+			parser->flags = SPA_POD_PARSER_FLAG_STRUCT;
+
+		      enter:
 			if (++parser->depth >= SPA_POD_MAX_DEPTH)
 				return -EINVAL;
-
 			it = &parser->iter[parser->depth];
 			spa_pod_iter_init(it, pod, SPA_POD_SIZE(pod), sizeof(struct spa_pod_struct));
 			goto read_pod;
 		case ']':
+		case '}':
 			if (current != NULL)
 				return -EINVAL;
 			if (--parser->depth < 0)
 				return -EINVAL;
-			/* fallthrough */
-		case '}':
 			it = &parser->iter[parser->depth];
+			if (SPA_POD_TYPE(it->data) == SPA_TYPE_Object)
+				parser->flags = SPA_POD_PARSER_FLAG_OBJECT;
+			else if (SPA_POD_TYPE(it->data) == SPA_TYPE_Struct)
+				parser->flags = SPA_POD_PARSER_FLAG_STRUCT;
+			else
+				parser->flags = 0;
+
 			current = spa_pod_iter_current(it);
 			spa_pod_iter_advance(it, current);
 			goto read_pod;
 		case '\0':
-			format = va_arg(args, char *);
+			if (parser->flags & SPA_POD_PARSER_FLAG_OBJECT) {
+				const struct spa_pod *obj = (const struct spa_pod *) it->data;
+				uint32_t key = va_arg(args, uint32_t);
+				if (key == 0) {
+					format = NULL;
+					continue;
+				}
+				if (key != SPA_ID_INVALID) {
+					prop = spa_pod_find_prop(obj, key);
+					if (prop != NULL)
+						pod = &prop->value;
+					else
+						pod = NULL;
+
+					it->offset = it->size;
+					current = NULL;
+					required = true;
+				}
+			}
+			if ((format = va_arg(args, char *)) != NULL)
+				goto again;
 			continue;
 		case ' ': case '\n': case '\t': case '\r':
 			break;
 		case '?':
 			required = false;
 			break;
-		case '*':
-			suppress = true;
-			break;
-		case ':':
-		{
-			uint32_t key = va_arg(args, uint32_t);
-			const struct spa_pod *obj = (const struct spa_pod *) parser->iter[parser->depth].data;
-
-			prop = spa_pod_find_prop(obj, key);
-			if (prop != NULL)
-				pod = &prop->value;
-			else
-				pod = NULL;
-
-			it->offset = it->size;
-			current = NULL;
-			required = true;
-			break;
-		}
 		case 'V':
 			pod = (struct spa_pod *) prop;
 			if (pod == NULL && required)
@@ -280,9 +301,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 			if (pod->type == SPA_TYPE_Choice)
 				pod = SPA_POD_CHOICE_CHILD(pod);
 
-			if (suppress)
-				suppress = false;
-			else if (skip)
+			if (skip)
 				SPA_POD_PARSER_SKIP(*format, args);
 			else
 				SPA_POD_PARSER_COLLECT(pod, *format, args);
@@ -296,28 +315,56 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 			break;
 		}
 		format++;
-	}
+	} while (format != NULL);
+
 	return 0;
 }
 
-static inline int spa_pod_parser_get(struct spa_pod_parser *parser,
-				     const char *format, ...)
+static inline int spa_pod_parser_get(struct spa_pod_parser *parser, ...)
 {
 	int res;
 	va_list args;
 
-	va_start(args, format);
-	res = spa_pod_parser_getv(parser, format, args);
+	va_start(args, parser);
+	res = spa_pod_parser_getv(parser, args);
 	va_end(args);
 
 	return res;
 }
 
-#define spa_pod_object_parse(pod,...)				\
+#define SPA_POD_OPT_Bool(val)				"?" SPA_POD_Bool(val)
+#define SPA_POD_OPT_Id(val)				"?" SPA_POD_Id(val)
+#define SPA_POD_OPT_Int(val)				"?" SPA_POD_Int(val)
+#define SPA_POD_OPT_Long(val)				"?" SPA_POD_Long(val)
+#define SPA_POD_OPT_Float(val)				"?" SPA_POD_Float(val)
+#define SPA_POD_OPT_Double(val)				"?" SPA_POD_Double(val)
+#define SPA_POD_OPT_String(val)				"?" SPA_POD_String(val)
+#define SPA_POD_OPT_Stringn(val,len)			"?" SPA_POD_Stringn(val,len)
+#define SPA_POD_OPT_Bytes(val,len)			"?" SPA_POD_Bytes(val,len)
+#define SPA_POD_OPT_Rectangle(val)			"?" SPA_POD_Rectangle(val)
+#define SPA_POD_OPT_Fraction(val)			"?" SPA_POD_Fraction(val)
+#define SPA_POD_OPT_Pointer(type,val)			"?" SPA_POD_Pointer(type,val)
+#define SPA_POD_OPT_Fd(val)				"?" SPA_POD_Fd(val)
+#define SPA_POD_OPT_Pod(val)				"?" SPA_POD_Pod(val)
+
+#define spa_pod_parser_get_object(p,type,id,...)		\
+        spa_pod_parser_get(p, SPA_POD_Object(type,id,##__VA_ARGS__), NULL)
+
+#define spa_pod_parser_get_struct(p,...)		\
+        spa_pod_parser_get(p, SPA_POD_Struct(__VA_ARGS__), NULL)
+
+#define spa_pod_parse_object(pod,type,id,...)			\
 ({								\
 	struct spa_pod_parser _p;				\
 	spa_pod_parser_pod(&_p, pod);				\
-	spa_pod_parser_get(&_p, "{", ##__VA_ARGS__, NULL);	\
+	spa_pod_parser_get_object(&_p,type,id,##__VA_ARGS__);	\
+})
+
+#define spa_pod_parse_struct(pod,...)				\
+({								\
+	struct spa_pod_parser _p;				\
+	spa_pod_parser_pod(&_p, pod);				\
+	spa_pod_parser_get_struct(&_p,##__VA_ARGS__);		\
 })
 
 static inline int spa_pod_is_bool(struct spa_pod *pod)

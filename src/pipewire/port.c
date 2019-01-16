@@ -389,9 +389,10 @@ static int check_param_io(void *data, uint32_t id, uint32_t index, uint32_t next
 	struct pw_node *node = port->node;
 	uint32_t pid, psize;
 
-	if (spa_pod_object_parse(param,
-		":", SPA_PARAM_IO_id,  "I", &pid,
-		":", SPA_PARAM_IO_size, "i", &psize) < 0)
+	if (spa_pod_parse_object(param,
+		SPA_TYPE_OBJECT_ParamIO, NULL,
+		SPA_PARAM_IO_id,   SPA_POD_Id(&pid),
+		SPA_PARAM_IO_size, SPA_POD_Int(&psize)) < 0)
 		return 0;
 
 	switch (pid) {

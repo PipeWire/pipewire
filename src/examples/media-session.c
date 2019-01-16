@@ -934,11 +934,10 @@ static void stream_set_volume(struct impl *impl, struct node *node, float volume
 
 	pw_node_proxy_set_param((struct pw_node_proxy*)node->obj.proxy,
 			SPA_PARAM_Props, 0,
-			spa_pod_builder_object(&b,
+			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-				SPA_PROP_volume,	&SPA_POD_Float(volume),
-				SPA_PROP_mute,		&SPA_POD_Bool(mute),
-				0));
+				SPA_PROP_volume,	SPA_POD_Float(volume),
+				SPA_PROP_mute,		SPA_POD_Bool(mute)));
 }
 
 static int rescan_node(struct impl *impl, struct node *node)
@@ -1148,12 +1147,11 @@ do_link_profile:
 		node->profile_format = audio_info;
 
 		spa_pod_builder_init(&b, buf, sizeof(buf));
-		param = spa_pod_builder_object(&b,
+		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &audio_info);
+		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-			SPA_PARAM_PROFILE_direction,  &SPA_POD_Id(pw_direction_reverse(direction)),
-			SPA_PARAM_PROFILE_format,     spa_format_audio_raw_build(&b,
-							SPA_PARAM_Format, &audio_info),
-			0);
+			SPA_PARAM_PROFILE_direction,  SPA_POD_Id(pw_direction_reverse(direction)),
+			SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
 
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_pod(2, NULL, param);
@@ -1241,11 +1239,10 @@ static void rescan_session(struct impl *impl, struct session *sess)
 
 		spa_pod_builder_init(&b, buf, sizeof(buf));
 		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
-		param = spa_pod_builder_object(&b,
+		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-			SPA_PARAM_PROFILE_direction,  &SPA_POD_Id(pw_direction_reverse(sess->direction)),
-			SPA_PARAM_PROFILE_format,     param,
-			0);
+			SPA_PARAM_PROFILE_direction,  SPA_POD_Id(pw_direction_reverse(sess->direction)),
+			SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
 
 		pw_node_proxy_set_param((struct pw_node_proxy*)sess->dsp_proxy,
 				SPA_PARAM_Profile, 0, param);

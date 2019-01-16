@@ -163,11 +163,11 @@ key:       "<name>"
   )
 
   { "Type" : "Format", "Id" : 0,
-    "mediaType":      "video",
-    "mediaSubtype":   "raw",
-    "videoFormat":      [ "enum", "I420", "YUY2" ],
-    "videoSize":        [ "range", [320,242], [1,1], [MAX,MAX] ],
-    "videoFramerate":   [ "range", [25,1], [0,1], [MAX,1] ]
+    "mediaType":       "video",
+    "mediaSubtype":    "raw",
+    "Video:Format":    [ "enum", "I420", "YUY2" ],
+    "Video:Size":      [ "range", [320,242], [1,1], [MAX,MAX] ],
+    "Video:Framerate": [ "range", [25,1], [0,1], [MAX,1] ]
   }
 
 spa_build(SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
@@ -216,51 +216,53 @@ static void do_static_struct(void)
 
 			struct spa_pod_prop prop_framerate	SPA_ALIGNED(8);
 			struct {
-				struct spa_pod_choice_body array;
+				struct spa_pod_choice_body choice;
 				struct spa_fraction def_framerate;
 				struct spa_fraction min_framerate;
 				struct spa_fraction max_framerate;
 			} framerate_vals;
 		} props;
 	} test_format = {
-		SPA_POD_Object(sizeof(test_format.props) + sizeof(struct spa_pod_object_body),
+		SPA_POD_INIT_Object(sizeof(test_format.props) + sizeof(struct spa_pod_object_body),
 				SPA_TYPE_OBJECT_Format, 0),
 		{
-			SPA_POD_Prop(SPA_FORMAT_mediaType, 0,
+			SPA_POD_INIT_Prop(SPA_FORMAT_mediaType, 0,
 					  sizeof(test_format.props.media_type), SPA_TYPE_Id),
 			SPA_MEDIA_TYPE_video,
 
-			SPA_POD_Prop(SPA_FORMAT_mediaSubtype, 0,
+			SPA_POD_INIT_Prop(SPA_FORMAT_mediaSubtype, 0,
 					  sizeof(test_format.props.media_subtype), SPA_TYPE_Id),
 			SPA_MEDIA_SUBTYPE_raw,
 
-			SPA_POD_Prop(SPA_FORMAT_VIDEO_format, 0,
+			SPA_POD_INIT_Prop(SPA_FORMAT_VIDEO_format, 0,
 					  sizeof(test_format.props.format_vals), SPA_TYPE_Choice),
 			{
-				SPA_POD_CHOICE_BODY_INIT(SPA_CHOICE_Enum, 0,
+				SPA_POD_INIT_CHOICE_BODY(SPA_CHOICE_Enum, 0,
 						sizeof(uint32_t), SPA_TYPE_Id),
 				SPA_VIDEO_FORMAT_I420,
 				{ SPA_VIDEO_FORMAT_I420, SPA_VIDEO_FORMAT_YUY2 }
 			},
-			SPA_POD_Prop(SPA_FORMAT_VIDEO_size, 0,
+			SPA_POD_INIT_Prop(SPA_FORMAT_VIDEO_size, 0,
 					  sizeof(test_format.props.size_vals), SPA_TYPE_Choice),
 
 			{
-				SPA_POD_CHOICE_BODY_INIT(SPA_CHOICE_Range, 0,
+				SPA_POD_INIT_CHOICE_BODY(SPA_CHOICE_Range, 0,
 						sizeof(struct spa_rectangle), SPA_TYPE_Rectangle),
 				SPA_RECTANGLE(320,243),
 				SPA_RECTANGLE(1,1), SPA_RECTANGLE(INT32_MAX, INT32_MAX)
 			},
-			SPA_POD_Prop(SPA_FORMAT_VIDEO_framerate, 0,
+			SPA_POD_INIT_Prop(SPA_FORMAT_VIDEO_framerate, 0,
 					  sizeof(test_format.props.framerate_vals), SPA_TYPE_Choice),
 			{
-				SPA_POD_CHOICE_BODY_INIT(SPA_CHOICE_Range, 0,
+				SPA_POD_INIT_CHOICE_BODY(SPA_CHOICE_Range, 0,
 						sizeof(struct spa_fraction), SPA_TYPE_Fraction),
 				SPA_FRACTION(25,1),
 				SPA_FRACTION(0,1), SPA_FRACTION(INT32_MAX,1)
 			}
 		}
 	};
+
+	fprintf(stderr, "static:\n");
 
 	spa_debug_pod(0, NULL, &test_format.fmt.pod);
 	spa_debug_format(0, NULL, &test_format.fmt.pod);
@@ -270,17 +272,19 @@ static void do_static_struct(void)
 		int res;
 		struct spa_fraction frac = { -1, -1 };
 
-		res = spa_pod_object_parse(&test_format.fmt.pod,
-			":", SPA_FORMAT_VIDEO_format, "I", &format,
-			":", SPA_FORMAT_VIDEO_framerate, "F", &frac, NULL);
+		res = spa_pod_parse_object(&test_format.fmt.pod,
+			SPA_TYPE_OBJECT_Format, NULL,
+			SPA_FORMAT_VIDEO_format, SPA_POD_Id(&format),
+			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&frac));
 
 		printf("%d format %d num %d denom %d\n", res, format, frac.num, frac.denom);
 
 		spa_pod_fixate(&test_format.fmt.pod);
 
-		res = spa_pod_object_parse(&test_format.fmt.pod,
-			":", SPA_FORMAT_VIDEO_format, "I", &format,
-			":", SPA_FORMAT_VIDEO_framerate, "F", &frac, NULL);
+		res = spa_pod_parse_object(&test_format.fmt.pod,
+			SPA_TYPE_OBJECT_Format, NULL,
+			SPA_FORMAT_VIDEO_format, SPA_POD_Id(&format),
+			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&frac));
 
 		printf("%d format %d num %d denom %d\n", res, format, frac.num, frac.denom);
 	}
@@ -343,15 +347,15 @@ int main(int argc, char *argv[])
 
 	fmt = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Format, 0,
-		":", SPA_FORMAT_mediaType,       "I", SPA_MEDIA_TYPE_video,
-		":", SPA_FORMAT_mediaSubtype,    "I", SPA_MEDIA_SUBTYPE_raw,
-		":", SPA_FORMAT_VIDEO_format,    "?eI", 3, SPA_VIDEO_FORMAT_I420,
+		SPA_FORMAT_mediaType,       "I", SPA_MEDIA_TYPE_video,
+		SPA_FORMAT_mediaSubtype,    "I", SPA_MEDIA_SUBTYPE_raw,
+		SPA_FORMAT_VIDEO_format,    "?eI", 3, SPA_VIDEO_FORMAT_I420,
 							   SPA_VIDEO_FORMAT_I420,
 							   SPA_VIDEO_FORMAT_YUY2,
-		":", SPA_FORMAT_VIDEO_size,      "?rR", 3, &SPA_RECTANGLE(320,241),
+		SPA_FORMAT_VIDEO_size,      "?rR", 3, &SPA_RECTANGLE(320,241),
 							   &SPA_RECTANGLE(1,1),
 							   &SPA_RECTANGLE(INT32_MAX,INT32_MAX),
-		":", SPA_FORMAT_VIDEO_framerate, "?rF", 3, &SPA_FRACTION(25,1),
+		SPA_FORMAT_VIDEO_framerate, "?rF", 3, &SPA_FRACTION(25,1),
 							   &SPA_FRACTION(0,1),
 							   &SPA_FRACTION(INT32_MAX,1));
 	}
@@ -368,20 +372,21 @@ int main(int argc, char *argv[])
 
 	fmt = spa_pod_builder_add(&b,
 		"{", SPA_TYPE_OBJECT_Format, 0,
-		":", SPA_FORMAT_mediaType,       "I", SPA_MEDIA_TYPE_video,
-		":", SPA_FORMAT_mediaSubtype,    "I", SPA_MEDIA_SUBTYPE_raw,
-		":", SPA_FORMAT_VIDEO_format,	 "P", &SPA_POD_CHOICE_ENUM_Id(3,
+		SPA_FORMAT_mediaType,       "I", SPA_MEDIA_TYPE_video,
+		SPA_FORMAT_mediaSubtype,    "I", SPA_MEDIA_SUBTYPE_raw,
+		SPA_FORMAT_VIDEO_format,	 SPA_POD_CHOICE_ENUM_Id(3,
 							SPA_VIDEO_FORMAT_I420,
 							SPA_VIDEO_FORMAT_I420,
 							SPA_VIDEO_FORMAT_YUY2),
-		":", SPA_FORMAT_VIDEO_size,	 "P", &SPA_POD_CHOICE_RANGE_Rectangle(
-							SPA_RECTANGLE(320,242),
-							SPA_RECTANGLE(1,1),
-							SPA_RECTANGLE(INT32_MAX,INT32_MAX)),
-		":", SPA_FORMAT_VIDEO_framerate, "P", &SPA_POD_CHOICE_RANGE_Fraction(
-							SPA_FRACTION(25,1),
-							SPA_FRACTION(0,1),
-							SPA_FRACTION(INT32_MAX,1)),
+		SPA_FORMAT_VIDEO_size,	 SPA_POD_CHOICE_RANGE_Rectangle(
+							&SPA_RECTANGLE(320,242),
+							&SPA_RECTANGLE(1,1),
+							&SPA_RECTANGLE(INT32_MAX,INT32_MAX)),
+		SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(
+							&SPA_FRACTION(25,1),
+							&SPA_FRACTION(0,1),
+							&SPA_FRACTION(INT32_MAX,1)),
+		0,
 		"}", NULL);
 	}
 	clock_gettime(CLOCK_MONOTONIC, &ts2);
@@ -402,15 +407,18 @@ int main(int argc, char *argv[])
 	spa_pod_builder_prop(&b, SPA_FORMAT_mediaSubtype, 0);
 	spa_pod_builder_id(&b, SPA_MEDIA_SUBTYPE_raw);
 	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_format, 0);
-	spa_pod_builder_primitive(&b, (struct spa_pod*)&SPA_POD_CHOICE_ENUM_Id(3,
+	spa_pod_builder_primitive(&b, (struct spa_pod*)&SPA_POD_INIT_Choice(
+				SPA_CHOICE_Enum, uint32_t, SPA_TYPE_Id, 3,
 				SPA_VIDEO_FORMAT_I420, SPA_VIDEO_FORMAT_I420, SPA_VIDEO_FORMAT_YUY2));
 	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_size, 0);
-	spa_pod_builder_primitive(&b, (struct spa_pod*)&SPA_POD_CHOICE_RANGE_Rectangle(
+	spa_pod_builder_primitive(&b, (struct spa_pod*)&SPA_POD_INIT_Choice(
+				SPA_CHOICE_Range, struct spa_rectangle, SPA_TYPE_Rectangle, 3,
 				SPA_RECTANGLE(320,242),
 				SPA_RECTANGLE(1,1),
 				SPA_RECTANGLE(INT32_MAX,INT32_MAX)));
 	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_framerate, 0);
-	spa_pod_builder_primitive(&b, (struct spa_pod *)&SPA_POD_CHOICE_RANGE_Fraction(
+	spa_pod_builder_primitive(&b, (struct spa_pod*)&SPA_POD_INIT_Choice(
+				SPA_CHOICE_Range, struct spa_fraction, SPA_TYPE_Fraction, 3,
 				SPA_FRACTION(25,1),
 				SPA_FRACTION(0,1),
 				SPA_FRACTION(INT32_MAX,1)));
@@ -426,50 +434,22 @@ int main(int argc, char *argv[])
 	clock_gettime(CLOCK_MONOTONIC, &ts1);
 	for (i = 0 ; i < ITER; i++) {
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	fmt = spa_pod_builder_object(&b,
+	fmt = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Format, 0,
-			SPA_FORMAT_mediaType,    &SPA_POD_Id(SPA_MEDIA_TYPE_video),
-			SPA_FORMAT_mediaSubtype, &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_VIDEO_format, &SPA_POD_CHOICE_ENUM_Id(3,
+			SPA_FORMAT_mediaType,    SPA_POD_Id(SPA_MEDIA_TYPE_video),
+			SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+			SPA_FORMAT_VIDEO_format, SPA_POD_CHOICE_ENUM_Id(3,
 							SPA_VIDEO_FORMAT_I420,
 							SPA_VIDEO_FORMAT_I420,
 							SPA_VIDEO_FORMAT_YUY2),
-			SPA_FORMAT_VIDEO_size,   &SPA_POD_CHOICE_RANGE_Rectangle(
-							SPA_RECTANGLE(320,242),
-							SPA_RECTANGLE(1,1),
-							SPA_RECTANGLE(INT32_MAX,INT32_MAX)),
-			SPA_FORMAT_VIDEO_framerate,&SPA_POD_CHOICE_RANGE_Fraction(
-							SPA_FRACTION(25,1),
-							SPA_FRACTION(0,1),
-							SPA_FRACTION(INT32_MAX,1)),
-			0);
-	}
-	clock_gettime(CLOCK_MONOTONIC, &ts2);
-	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_NSEC(&ts2) - SPA_TIMESPEC_TO_NSEC(&ts1));
-
-	spa_debug_pod(0, NULL, &fmt->pod);
-	spa_debug_format(0, NULL, &fmt->pod);
-
-	fprintf(stderr, "build 6: ");
-	clock_gettime(CLOCK_MONOTONIC, &ts1);
-	for (i = 0 ; i < ITER; i++) {
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Format, 0);
-	spa_pod_builder_prop_val(&b, SPA_FORMAT_mediaType,       &SPA_POD_Id(SPA_MEDIA_TYPE_video));
-	spa_pod_builder_prop_val(&b, SPA_FORMAT_mediaSubtype,    &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw));
-	spa_pod_builder_prop_val(&b, SPA_FORMAT_VIDEO_format,    &SPA_POD_CHOICE_ENUM_Id(3,
-							SPA_VIDEO_FORMAT_I420,
-							SPA_VIDEO_FORMAT_I420,
-							SPA_VIDEO_FORMAT_YUY2));
-	spa_pod_builder_prop_val(&b, SPA_FORMAT_VIDEO_size,      &SPA_POD_CHOICE_RANGE_Rectangle(
-							SPA_RECTANGLE(320,242),
-							SPA_RECTANGLE(1,1),
-							SPA_RECTANGLE(INT32_MAX,INT32_MAX)));
-	spa_pod_builder_prop_val(&b, SPA_FORMAT_VIDEO_framerate, &SPA_POD_CHOICE_RANGE_Fraction(
-							SPA_FRACTION(25,1),
-							SPA_FRACTION(0,1),
-							SPA_FRACTION(INT32_MAX,1)));
-	fmt = spa_pod_builder_pop(&b);
+			SPA_FORMAT_VIDEO_size,   SPA_POD_CHOICE_RANGE_Rectangle(
+							&SPA_RECTANGLE(320,242),
+							&SPA_RECTANGLE(1,1),
+							&SPA_RECTANGLE(INT32_MAX,INT32_MAX)),
+			SPA_FORMAT_VIDEO_framerate,SPA_POD_CHOICE_RANGE_Fraction(
+							&SPA_FRACTION(25,1),
+							&SPA_FRACTION(0,1),
+							&SPA_FRACTION(INT32_MAX,1)));
 	}
 	clock_gettime(CLOCK_MONOTONIC, &ts2);
 	fprintf(stderr, "elapsed %lld\n", SPA_TIMESPEC_TO_NSEC(&ts2) - SPA_TIMESPEC_TO_NSEC(&ts1));

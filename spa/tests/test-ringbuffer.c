@@ -239,11 +239,10 @@ static int make_nodes(struct data *data, const char *device)
 	spa_node_set_callbacks(data->sink, &sink_callbacks, data);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	props = spa_pod_builder_object(&b,
+	props = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
-		SPA_PROP_device,     &SPA_POD_Stringv(device ? device : "hw:0"),
-		SPA_PROP_minLatency, &SPA_POD_Int(64),
-		0);
+		SPA_PROP_device,     SPA_POD_String(device ? device : "hw:0"),
+		SPA_PROP_minLatency, SPA_POD_Int(64));
 
 	if ((res = spa_node_set_param(data->sink, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
@@ -256,10 +255,9 @@ static int make_nodes(struct data *data, const char *device)
 	}
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	props = spa_pod_builder_object(&b,
+	props = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
-		SPA_PROP_live, &SPA_POD_Bool(false),
-		0);
+		SPA_PROP_live, SPA_POD_Bool(false));
 
 	if ((res = spa_node_set_param(data->source, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);

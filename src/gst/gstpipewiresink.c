@@ -237,25 +237,26 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_push_object (&b, SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers);
   if (size == 0)
-    spa_pod_builder_props (&b,
-        SPA_PARAM_BUFFERS_size, &SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX), 0);
+    spa_pod_builder_add (&b,
+        SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
+	0);
   else
-    spa_pod_builder_props (&b,
-        SPA_PARAM_BUFFERS_size, &SPA_POD_CHOICE_RANGE_Int(size, size, INT32_MAX), 0);
+    spa_pod_builder_add (&b,
+        SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(size, size, INT32_MAX),
+	0);
 
-  spa_pod_builder_props (&b,
-      SPA_PARAM_BUFFERS_stride,  &SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
-      SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(min_buffers, min_buffers,
+  spa_pod_builder_add (&b,
+      SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
+      SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(min_buffers, min_buffers,
 					       max_buffers ? max_buffers : INT32_MAX),
-      SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
+      SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16),
       0);
   port_params[0] = spa_pod_builder_pop (&b);
 
-  port_params[1] = spa_pod_builder_object (&b,
+  port_params[1] = spa_pod_builder_add_object (&b,
       SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-      SPA_PARAM_META_type, &SPA_POD_Int(SPA_META_Header),
-      SPA_PARAM_META_size, &SPA_POD_Int(sizeof (struct spa_meta_header)),
-      0);
+      SPA_PARAM_META_type, SPA_POD_Int(SPA_META_Header),
+      SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_header)));
 
 
   pw_thread_loop_lock (sink->main_loop);

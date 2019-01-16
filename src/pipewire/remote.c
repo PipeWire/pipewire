@@ -757,8 +757,9 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 						      NULL, &param, &b) <= 0)
                                 break;
 
-			spa_pod_object_parse(param,
-				":", SPA_PARAM_LIST_id, "I", &id, NULL);
+			spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_ParamList, NULL,
+				SPA_PARAM_LIST_id, SPA_POD_Id(&id));
 
 			params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
 			params[n_params++] = pw_spa_pod_copy(param);

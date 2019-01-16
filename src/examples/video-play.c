@@ -238,35 +238,31 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	data->rect.w = data->format.size.width;
 	data->rect.h = data->format.size.height;
 
-	params[0] = spa_pod_builder_object(&b,
+	params[0] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
-		SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    &SPA_POD_Int(data->stride * data->format.size.height),
-		SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(data->stride),
-		SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
-		0);
+		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
+		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(data->stride * data->format.size.height),
+		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride),
+		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
-	params[1] = spa_pod_builder_object(&b,
+	params[1] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
-		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
-		0);
-	params[2] = spa_pod_builder_object(&b,
+		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
+		SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
+	params[2] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_VideoCrop),
-		SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_region)),
-		0);
+		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
+		SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_region)));
 #define CURSOR_META_SIZE(w,h)	(sizeof(struct spa_meta_cursor) + \
 				 sizeof(struct spa_meta_bitmap) + w * h * 4)
-	params[3] = spa_pod_builder_object(&b,
+	params[3] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-		SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Cursor),
-		SPA_PARAM_META_size, &SPA_POD_CHOICE_RANGE_Int(
+		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Cursor),
+		SPA_PARAM_META_size, SPA_POD_CHOICE_RANGE_Int(
 				CURSOR_META_SIZE(64,64),
 				CURSOR_META_SIZE(1,1),
-				CURSOR_META_SIZE(256,256)),
-		0);
+				CURSOR_META_SIZE(256,256)));
 
 	pw_stream_finish_format(stream, 0, params, 4);
 }

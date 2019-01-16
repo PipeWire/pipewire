@@ -295,10 +295,9 @@ static int impl_enum_params(struct spa_device *device,
 				    SPA_PARAM_Profile };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
-					0);
+					SPA_PARAM_LIST_id, SPA_POD_Id(list[*index]));
 		else
 			return 0;
 		break;
@@ -307,18 +306,16 @@ static int impl_enum_params(struct spa_device *device,
 	{
 		switch (*index) {
 		case 0:
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_id,     &SPA_POD_Int(0),
-				SPA_PARAM_PROFILE_name,   &SPA_POD_Stringc("On"),
-				0);
+				SPA_PARAM_PROFILE_id,   SPA_POD_Int(0),
+				SPA_PARAM_PROFILE_name, SPA_POD_String("On"));
 			break;
 		case 1:
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_id,     &SPA_POD_Int(1),
-				SPA_PARAM_PROFILE_name,   &SPA_POD_Stringc("Off"),
-				0);
+				SPA_PARAM_PROFILE_id,   SPA_POD_Int(1),
+				SPA_PARAM_PROFILE_name, SPA_POD_String("Off"));
 			break;
 		default:
 			return 0;
@@ -329,10 +326,9 @@ static int impl_enum_params(struct spa_device *device,
 	{
 		switch (*index) {
 		case 0:
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_id,     &SPA_POD_Int(this->profile),
-				0);
+				SPA_PARAM_PROFILE_id, SPA_POD_Int(this->profile));
 			break;
 		default:
 			return 0;
@@ -367,9 +363,9 @@ static int impl_set_param(struct spa_device *device,
 	{
 		uint32_t id;
 
-		if ((res = spa_pod_object_parse(param,
-				":", SPA_PARAM_PROFILE_id, "i", &id,
-				NULL)) < 0) {
+		if ((res = spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_ParamProfile, NULL,
+				SPA_PARAM_PROFILE_id, SPA_POD_Int(&id))) < 0) {
 			spa_log_warn(this->log, "can't parse profile");
 			spa_debug_pod(0, NULL, param);
 			return res;

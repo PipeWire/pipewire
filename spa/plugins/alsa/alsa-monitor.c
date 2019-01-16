@@ -126,14 +126,14 @@ static int fill_item(struct impl *this, struct udev_device *dev,
 		name = "Unknown";
 
 	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_MonitorItem, 0);
-	spa_pod_builder_props(builder,
-                SPA_MONITOR_ITEM_id,	  &SPA_POD_Stringv(udev_device_get_syspath(dev)),
-		SPA_MONITOR_ITEM_flags,   &SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
-		SPA_MONITOR_ITEM_state,   &SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
-		SPA_MONITOR_ITEM_name,    &SPA_POD_Stringv(name),
-		SPA_MONITOR_ITEM_class,   &SPA_POD_Stringv("Audio/Device"),
-		SPA_MONITOR_ITEM_factory, &SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory, &spa_alsa_device_factory),
-		SPA_MONITOR_ITEM_type,    &SPA_POD_Id(SPA_TYPE_INTERFACE_Device),
+	spa_pod_builder_add(builder,
+		SPA_MONITOR_ITEM_id,      SPA_POD_String(udev_device_get_syspath(dev)),
+		SPA_MONITOR_ITEM_flags,   SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
+		SPA_MONITOR_ITEM_state,   SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
+		SPA_MONITOR_ITEM_name,    SPA_POD_String(name),
+		SPA_MONITOR_ITEM_class,   SPA_POD_String("Audio/Device"),
+		SPA_MONITOR_ITEM_factory, SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory, &spa_alsa_device_factory),
+		SPA_MONITOR_ITEM_type,    SPA_POD_Id(SPA_TYPE_INTERFACE_Device),
 		0);
 
 	if ((str = path_get_card_id(udev_device_get_property_value(dev, "DEVPATH"))) == NULL)
@@ -262,7 +262,7 @@ static int emit_device(struct impl *this, uint32_t id, struct udev_device *dev)
 	struct spa_pod *item;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_object(&b, SPA_TYPE_EVENT_Monitor, id, 0);
+	event = spa_pod_builder_add_object(&b, SPA_TYPE_EVENT_Monitor, id);
 	fill_item(this, dev, &item, &b);
 
 	this->callbacks->event(this->callbacks_data, event);

@@ -344,12 +344,12 @@ static int negotiate_link_buffers(struct data *data, struct link *link)
 			in_alloc = false;
 	}
 
-	if (spa_pod_object_parse(param,
-		":", SPA_PARAM_BUFFERS_buffers, "i", &buffers,
-		":", SPA_PARAM_BUFFERS_blocks, "i", &blocks,
-		":", SPA_PARAM_BUFFERS_size, "i", &size,
-		":", SPA_PARAM_BUFFERS_align, "i", &align,
-		NULL) < 0)
+	if (spa_pod_parse_object(param,
+		SPA_TYPE_OBJECT_ParamBuffers, NULL,
+		SPA_PARAM_BUFFERS_buffers,	SPA_POD_Int(&buffers),
+		SPA_PARAM_BUFFERS_blocks,	SPA_POD_Int(&blocks),
+		SPA_PARAM_BUFFERS_size,		SPA_POD_Int(&size),
+		SPA_PARAM_BUFFERS_align,	SPA_POD_Int(&align)) < 0)
 		return -EINVAL;
 
 	datas = alloca(sizeof(struct spa_data) * blocks);

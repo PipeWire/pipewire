@@ -180,25 +180,23 @@ static int impl_port_enum_params(struct spa_node *node,
 		if (*index > 0)
 			return 0;
 
-		*result = spa_pod_builder_object(builder,
+		*result = spa_pod_builder_add_object(builder,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(2, 1, 32),
-			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    &SPA_POD_Int(d->stride * d->format.size.height),
-			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(d->stride),
-			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
-			0);
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, 32),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(d->stride * d->format.size.height),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(d->stride),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
 
 	case SPA_PARAM_Meta:
 		if (*index > 0)
 			return 0;
 
-		*result = spa_pod_builder_object(builder,
+		*result = spa_pod_builder_add_object(builder,
 			SPA_TYPE_OBJECT_ParamMeta, id,
-			SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
-			SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
-			0);
+			SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
+			SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 		break;
 
 	default:

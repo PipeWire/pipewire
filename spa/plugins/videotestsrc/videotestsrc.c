@@ -136,9 +136,9 @@ static int impl_node_enum_params(struct spa_node *node,
 				    SPA_PARAM_Props };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b, SPA_TYPE_OBJECT_ParamList, id,
-				SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
-				0);
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamList, id,
+				SPA_PARAM_LIST_id, SPA_POD_Id(list[*index]));
 		else
 			return 0;
 		break;
@@ -149,19 +149,18 @@ static int impl_node_enum_params(struct spa_node *node,
 
 		switch (*index) {
 		case 0:
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_live),
-				SPA_PROP_INFO_name, &SPA_POD_Stringc("Configure live mode of the source"),
-				SPA_PROP_INFO_type, &SPA_POD_Bool(p->live),
-				0);
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_live),
+				SPA_PROP_INFO_name, SPA_POD_String("Configure live mode of the source"),
+				SPA_PROP_INFO_type, SPA_POD_Bool(p->live));
 			break;
 		case 1:
 			spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_PropInfo, id);
-			spa_pod_builder_props(&b,
-				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_patternType),
-				SPA_PROP_INFO_name, &SPA_POD_Stringc("The pattern"),
-				SPA_PROP_INFO_type, &SPA_POD_Int(p->pattern),
+			spa_pod_builder_add(&b,
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_patternType),
+				SPA_PROP_INFO_name, SPA_POD_String("The pattern"),
+				SPA_PROP_INFO_type, SPA_POD_Int(p->pattern),
 				0);
 			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0),
 			spa_pod_builder_push_struct(&b);
@@ -183,11 +182,10 @@ static int impl_node_enum_params(struct spa_node *node,
 
 		switch (*index) {
 		case 0:
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, id,
-				SPA_PROP_live,        &SPA_POD_Bool(p->live),
-				SPA_PROP_patternType, &SPA_POD_Int(p->pattern),
-				0);
+				SPA_PROP_live,        SPA_POD_Bool(p->live),
+				SPA_PROP_patternType, SPA_POD_Int(p->pattern));
 			break;
 		default:
 			return 0;
@@ -229,10 +227,10 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 			reset_props(p);
 			return 0;
 		}
-		spa_pod_object_parse(param,
-			":", SPA_PROP_live,        "?b", &p->live,
-			":", SPA_PROP_patternType, "?i", &p->pattern,
-			NULL);
+		spa_pod_parse_object(param,
+			SPA_TYPE_OBJECT_Props, NULL,
+			SPA_PROP_live,        SPA_POD_OPT_Bool(&p->live),
+			SPA_PROP_patternType, SPA_POD_OPT_Int(&p->pattern));
 
 		if (p->live)
 			this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
@@ -490,23 +488,22 @@ static int port_enum_formats(struct spa_node *node,
 {
 	switch (*index) {
 	case 0:
-		*param = spa_pod_builder_object(builder,
+		*param = spa_pod_builder_add_object(builder,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			SPA_FORMAT_mediaType,       &SPA_POD_Id(SPA_MEDIA_TYPE_video),
-			SPA_FORMAT_mediaSubtype,    &SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_VIDEO_format,    &SPA_POD_CHOICE_ENUM_Id(3,
+			SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_video),
+			SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+			SPA_FORMAT_VIDEO_format,    SPA_POD_CHOICE_ENUM_Id(3,
 							SPA_VIDEO_FORMAT_RGB,
 							SPA_VIDEO_FORMAT_RGB,
 							SPA_VIDEO_FORMAT_UYVY),
-			SPA_FORMAT_VIDEO_size,      &SPA_POD_CHOICE_RANGE_Rectangle(
+			SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
 							SPA_RECTANGLE(320, 240),
 							SPA_RECTANGLE(1, 1),
 							SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
-			SPA_FORMAT_VIDEO_framerate, &SPA_POD_CHOICE_RANGE_Fraction(
+			SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(
 							SPA_FRACTION(25,1),
 							SPA_FRACTION(0, 1),
-							SPA_FRACTION(INT32_MAX, 1)),
-			0);
+							SPA_FRACTION(INT32_MAX, 1)));
 		break;
 	default:
 		return 0;
@@ -548,10 +545,9 @@ impl_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_Meta };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
-					0);
+					SPA_PARAM_LIST_id, SPA_POD_Id(list[*index]));
 		else
 			return 0;
 		break;
@@ -579,14 +575,13 @@ impl_node_port_enum_params(struct spa_node *node,
 		if (*index > 0)
 			return 0;
 
-		param = spa_pod_builder_object(&b,
+		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
-			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    &SPA_POD_Int(this->stride * raw_info->size.height),
-			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(this->stride),
-			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
-			0);
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(this->stride * raw_info->size.height),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->stride),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
 	}
 	case SPA_PARAM_Meta:
@@ -595,11 +590,10 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		switch (*index) {
 		case 0:
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
-				SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
-				SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
-				0);
+				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
+				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 			break;
 
 		default:

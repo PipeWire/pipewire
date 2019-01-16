@@ -172,10 +172,9 @@ static int impl_node_enum_params(struct spa_node *node,
 				    SPA_PARAM_Props };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamList, id,
-				SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
-				0);
+				SPA_PARAM_LIST_id, SPA_POD_Id(list[*index]));
 		else
 			return 0;
 		break;
@@ -186,20 +185,18 @@ static int impl_node_enum_params(struct spa_node *node,
 
 		switch (*index) {
 		case 0:
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_minLatency),
-				SPA_PROP_INFO_name, &SPA_POD_Stringc("The minimum latency"),
-				SPA_PROP_INFO_type, &SPA_POD_CHOICE_RANGE_Int(p->min_latency, 1, INT32_MAX),
-				0);
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_minLatency),
+				SPA_PROP_INFO_name, SPA_POD_String("The minimum latency"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->min_latency, 1, INT32_MAX));
 			break;
 		case 1:
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   &SPA_POD_Id(SPA_PROP_maxLatency),
-				SPA_PROP_INFO_name, &SPA_POD_Stringc("The maximum latency"),
-				SPA_PROP_INFO_type, &SPA_POD_CHOICE_RANGE_Int(p->max_latency, 1, INT32_MAX),
-				0);
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_maxLatency),
+				SPA_PROP_INFO_name, SPA_POD_String("The maximum latency"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->max_latency, 1, INT32_MAX));
 			break;
 		default:
 			return 0;
@@ -212,11 +209,10 @@ static int impl_node_enum_params(struct spa_node *node,
 
 		switch (*index) {
 		case 0:
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, id,
-				SPA_PROP_minLatency, &SPA_POD_Int(p->min_latency),
-				SPA_PROP_maxLatency, &SPA_POD_Int(p->max_latency),
-				0);
+				SPA_PROP_minLatency, SPA_POD_Int(p->min_latency),
+				SPA_PROP_maxLatency, SPA_POD_Int(p->max_latency));
 			break;
 		default:
 			return 0;
@@ -258,9 +254,10 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 			reset_props(p);
 			return 0;
 		}
-		spa_pod_object_parse(param,
-			":", SPA_PROP_minLatency, "?i", &p->min_latency,
-			":", SPA_PROP_maxLatency, "?i", &p->max_latency, NULL);
+		spa_pod_parse_object(param,
+			SPA_TYPE_OBJECT_Props, NULL,
+			SPA_PROP_minLatency, SPA_POD_OPT_Int(&p->min_latency),
+			SPA_PROP_maxLatency, SPA_POD_OPT_Int(&p->max_latency));
 		break;
 	}
 	default:
@@ -970,10 +967,9 @@ impl_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_Meta };
 
 		if (*index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, &SPA_POD_Id(list[*index]),
-					0);
+					SPA_PARAM_LIST_id, SPA_POD_Id(list[*index]));
 		else
 			return 0;
 		break;
@@ -1011,11 +1007,10 @@ impl_node_port_enum_params(struct spa_node *node,
 		}
 		case A2DP_CODEC_MPEG24:
 		{
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Format, id,
-				SPA_FORMAT_mediaType,           &SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-				SPA_FORMAT_mediaSubtype,        &SPA_POD_Id(SPA_MEDIA_SUBTYPE_aac),
-				0);
+				SPA_FORMAT_mediaType,     SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+				SPA_FORMAT_mediaSubtype,  SPA_POD_Id(SPA_MEDIA_SUBTYPE_aac));
 			break;
 		}
 		default:
@@ -1038,17 +1033,16 @@ impl_node_port_enum_params(struct spa_node *node,
 		if (*index > 0)
 			return 0;
 
-		param = spa_pod_builder_object(&b,
+		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(2, 2, MAX_BUFFERS),
-			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    &SPA_POD_CHOICE_RANGE_Int(
-							this->props.min_latency * this->frame_size,
-							this->props.min_latency * this->frame_size,
-							INT32_MAX),
-			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(0),
-			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
-			0);
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 2, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
+								this->props.min_latency * this->frame_size,
+								this->props.min_latency * this->frame_size,
+								INT32_MAX),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(0),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
 
 	case SPA_PARAM_Meta:
@@ -1057,11 +1051,10 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		switch (*index) {
 		case 0:
-			param = spa_pod_builder_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
-				SPA_PARAM_META_type, &SPA_POD_Id(SPA_META_Header),
-				SPA_PARAM_META_size, &SPA_POD_Int(sizeof(struct spa_meta_header)),
-				0);
+				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
+				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 			break;
 		default:
 			return 0;

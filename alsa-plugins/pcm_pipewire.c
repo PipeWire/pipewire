@@ -329,14 +329,13 @@ static void on_stream_format_changed(void *data, const struct spa_pod *format)
 	pw_log_info("buffer_size:%lu period_size:%lu buffers:%u stride:%u size:%u min_avail:%lu",
 			io->buffer_size, io->period_size, buffers, stride, size, pw->min_avail);
 
-	params[n_params++] = spa_pod_builder_object(&b,
+	params[n_params++] = spa_pod_builder_add_object(&b,
 	                SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(buffers, MIN_BUFFERS, MAX_BUFFERS),
-			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    &SPA_POD_CHOICE_RANGE_Int(size, size, INT_MAX),
-			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(stride),
-			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
-			0);
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers, MIN_BUFFERS, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(size, size, INT_MAX),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
 	pw_stream_finish_format(pw->stream, 0, params, n_params);
 }

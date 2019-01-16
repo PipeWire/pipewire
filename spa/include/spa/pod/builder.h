@@ -44,6 +44,7 @@ struct spa_pod_builder_state {
 #define SPA_POD_BUILDER_FLAG_FIRST	(1<<1)
 #define SPA_POD_BUILDER_FLAG_OBJECT	(1<<2)
 #define SPA_POD_BUILDER_FLAG_SEQUENCE	(1<<3)
+#define SPA_POD_BUILDER_FLAG_HEADER	(1<<4)
 	uint32_t flags;
 	int depth;
 };
@@ -115,13 +116,13 @@ spa_pod_builder_update_frame(struct spa_pod_builder *builder, struct spa_pod_fra
 	switch (frame->pod.type) {
 	case SPA_TYPE_Array:
 	case SPA_TYPE_Choice:
-		builder->state.flags |= SPA_POD_BUILDER_FLAG_BODY;
+		builder->state.flags = SPA_POD_BUILDER_FLAG_BODY;
 		break;
 	case SPA_TYPE_Object:
-		builder->state.flags |= SPA_POD_BUILDER_FLAG_OBJECT;
+		builder->state.flags = SPA_POD_BUILDER_FLAG_OBJECT;
 		break;
 	case SPA_TYPE_Sequence:
-		builder->state.flags |= SPA_POD_BUILDER_FLAG_SEQUENCE;
+		builder->state.flags = SPA_POD_BUILDER_FLAG_SEQUENCE;
 		break;
 	}
 }
@@ -134,8 +135,9 @@ spa_pod_builder_push(struct spa_pod_builder *builder,
 	struct spa_pod_frame *frame = &builder->frame[builder->state.depth++];
 	frame->pod = *pod;
 	frame->ref = ref;
-	builder->state.flags = SPA_POD_BUILDER_FLAG_FIRST;
 	spa_pod_builder_update_frame(builder, frame);
+	if (builder->state.flags & SPA_POD_BUILDER_FLAG_BODY)
+		SPA_FLAG_SET(builder->state.flags, SPA_POD_BUILDER_FLAG_FIRST);
 	return ref;
 }
 
@@ -169,6 +171,7 @@ static inline void spa_pod_builder_pad(struct spa_pod_builder *builder, uint32_t
 	size = SPA_ROUND_UP_N(size, 8) - size;
 	if (size)
 		spa_pod_builder_raw(builder, &zeroes, size);
+	SPA_FLAG_UNSET(builder->state.flags, SPA_POD_BUILDER_FLAG_HEADER);
 }
 
 static inline uint32_t
@@ -188,9 +191,10 @@ static inline void *spa_pod_builder_pop(struct spa_pod_builder *builder)
 	if ((pod = (struct spa_pod *) spa_pod_builder_deref_checked(builder, frame->ref, true)) != NULL)
 		*pod = frame->pod;
 
-	builder->state.flags = 0;
 	if ((frame = spa_pod_builder_top(builder)) != NULL)
 		spa_pod_builder_update_frame(builder, frame);
+	else
+		builder->state.flags = 0;
 
 	spa_pod_builder_pad(builder, builder->state.offset);
 
@@ -425,7 +429,9 @@ static inline uint32_t
 spa_pod_builder_prop(struct spa_pod_builder *builder, uint32_t key, uint32_t flags)
 {
 	const struct { uint32_t key; uint32_t flags; } p = { key, flags };
-	return spa_pod_builder_raw(builder, &p, sizeof(p));
+	uint32_t ref = spa_pod_builder_raw(builder, &p, sizeof(p));
+	SPA_FLAG_SET(builder->state.flags, SPA_POD_BUILDER_FLAG_HEADER);
+	return ref;
 }
 
 #define SPA_POD_INIT_Sequence(size,unit)	\
@@ -444,7 +450,9 @@ static inline uint32_t
 spa_pod_builder_control_header(struct spa_pod_builder *builder, uint32_t offset, uint32_t type)
 {
 	const struct { uint32_t offset; uint32_t type; } p = { offset, type };
-	return spa_pod_builder_raw(builder, &p, sizeof(p));
+	uint32_t ref = spa_pod_builder_raw(builder, &p, sizeof(p));
+	SPA_FLAG_SET(builder->state.flags, SPA_POD_BUILDER_FLAG_HEADER);
+	return ref;
 }
 
 static inline uint32_t spa_choice_from_id(char id)
@@ -568,14 +576,14 @@ spa_pod_builder_addv(struct spa_pod_builder *builder, va_list args)
 		int n_values = 1;
 		bool do_pop = false;
 
-		if (SPA_FLAG_CHECK(builder->state.flags, SPA_POD_BUILDER_FLAG_OBJECT)) {
+		if (builder->state.flags == SPA_POD_BUILDER_FLAG_OBJECT) {
 			uint32_t key = va_arg(args, uint32_t);
 			if (key == 0)
 				break;
 			if (key != SPA_ID_INVALID)
 				spa_pod_builder_prop(builder, key, 0);
 		}
-		else if (SPA_FLAG_CHECK(builder->state.flags, SPA_POD_BUILDER_FLAG_SEQUENCE)) {
+		else if (builder->state.flags == SPA_POD_BUILDER_FLAG_SEQUENCE) {
 			uint32_t offset = va_arg(args, uint32_t);
 			uint32_t type = va_arg(args, uint32_t);
 			if (type == 0)
@@ -583,6 +591,7 @@ spa_pod_builder_addv(struct spa_pod_builder *builder, va_list args)
 			if (type != SPA_ID_INVALID)
 				spa_pod_builder_control_header(builder, offset, type);
 		}
+
 	      again:
 		switch (*format) {
 		case '{':
@@ -671,13 +680,13 @@ static inline void *spa_pod_builder_add(struct spa_pod_builder *builder, ...)
 	offset, type, ##__VA_ARGS__
 
 #define spa_pod_builder_add_object(b,type,id,...)				\
-	spa_pod_builder_add(b, SPA_POD_Object(type,id,##__VA_ARGS__), NULL)
+	spa_pod_builder_add(b, SPA_POD_Object(type,id,##__VA_ARGS__), NULL, NULL, NULL)
 
 #define spa_pod_builder_add_struct(b,...)					\
-	spa_pod_builder_add(b, SPA_POD_Struct(__VA_ARGS__), NULL)
+	spa_pod_builder_add(b, SPA_POD_Struct(__VA_ARGS__), NULL, NULL, NULL)
 
 #define spa_pod_builder_add_sequence(b,unit,...)				\
-	spa_pod_builder_add(b, SPA_POD_Sequence(unit,__VA_ARGS__), NULL)
+	spa_pod_builder_add(b, SPA_POD_Sequence(unit,__VA_ARGS__), NULL, NULL, NULL)
 
 #define SPA_CHOICE_RANGE(def,min,max)			3,(def),(min),(max)
 #define SPA_CHOICE_STEP(def,min,max,step)		4,(def),(min),(max),(step)

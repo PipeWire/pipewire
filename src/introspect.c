@@ -118,10 +118,10 @@ static void device_event_param(void *object,
 		uint32_t id;
 		const char *name;
 
-		if (spa_pod_object_parse(param,
-				":", SPA_PARAM_PROFILE_id, "i", &id,
-				":", SPA_PARAM_PROFILE_name, "s", &name,
-				NULL) < 0) {
+		if (spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_ParamProfile, NULL,
+				SPA_PARAM_PROFILE_id,   SPA_POD_Int(&id),
+				SPA_PARAM_PROFILE_name, SPA_POD_String(&name)) < 0) {
 			pw_log_warn("device %d: can't parse profile", g->id);
 			return;
 		}
@@ -132,9 +132,9 @@ static void device_event_param(void *object,
 	case SPA_PARAM_Profile:
 	{
 		uint32_t id;
-		if (spa_pod_object_parse(param,
-				":", SPA_PARAM_PROFILE_id, "i", &id,
-				NULL) < 0) {
+		if (spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_ParamProfile, NULL,
+				SPA_PARAM_PROFILE_id, SPA_POD_Int(&id)) < 0) {
 			pw_log_warn("device %d: can't parse profile", g->id);
 			return;
 		}
@@ -487,10 +487,9 @@ static void set_node_volume(pa_context *c, struct global *g, const pa_cvolume *v
 
 	pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
 		SPA_PARAM_Props, 0,
-		spa_pod_builder_object(&b,
+		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
-			SPA_PROP_volume,	&SPA_POD_Float(v),
-			0));
+			SPA_PROP_volume,	SPA_POD_Float(v)));
 }
 
 static void set_node_mute(pa_context *c, struct global *g, bool mute)
@@ -502,10 +501,9 @@ static void set_node_mute(pa_context *c, struct global *g, bool mute)
 
 	pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
 		SPA_PARAM_Props, 0,
-		spa_pod_builder_object(&b,
+		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
-			SPA_PROP_mute,		&SPA_POD_Bool(mute),
-			0));
+			SPA_PROP_mute,	SPA_POD_Bool(mute)));
 }
 
 
@@ -1261,10 +1259,10 @@ static void card_callback(struct card_data *d)
 		uint32_t id;
 		const char *name;
 
-		if (spa_pod_object_parse(profiles[j],
-				":", SPA_PARAM_PROFILE_id, "i", &id,
-				":", SPA_PARAM_PROFILE_name, "s", &name,
-				NULL) < 0) {
+		if (spa_pod_parse_object(profiles[j],
+				SPA_TYPE_OBJECT_ParamProfile, NULL,
+				SPA_PARAM_PROFILE_id,   SPA_POD_Int(&id),
+				SPA_PARAM_PROFILE_name, SPA_POD_String(&name)) < 0) {
 			pw_log_warn("device %d: can't parse profile %d", g->id, j);
 			continue;
 		}
@@ -1415,10 +1413,10 @@ static void card_profile(pa_operation *o, void *userdata)
 		uint32_t test_id;
 		const char *name;
 
-		if (spa_pod_object_parse(profiles[i],
-				":", SPA_PARAM_PROFILE_id, "i", &test_id,
-				":", SPA_PARAM_PROFILE_name, "s", &name,
-				NULL) < 0) {
+		if (spa_pod_parse_object(profiles[i],
+				SPA_TYPE_OBJECT_ParamProfile, NULL,
+				SPA_PARAM_PROFILE_id,   SPA_POD_Int(&test_id),
+				SPA_PARAM_PROFILE_name, SPA_POD_String(&name)) < 0) {
 			pw_log_warn("device %d: can't parse profile %zd", g->id, i);
 			continue;
 		}
@@ -1432,10 +1430,9 @@ static void card_profile(pa_operation *o, void *userdata)
 
 	pw_device_proxy_set_param((struct pw_device_proxy*)g->proxy,
 			SPA_PARAM_Profile, 0,
-			spa_pod_builder_object(&b,
+			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-				SPA_PARAM_PROFILE_id,         &SPA_POD_Int(id),
-				0));
+				SPA_PARAM_PROFILE_id,	SPA_POD_Int(id)));
 	res = 1;
 done:
 	if (d->success_cb)

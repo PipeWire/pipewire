@@ -279,17 +279,16 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 	pw_log_info("stream %p: stride %d maxsize %d size %u buffers %d", s, stride, maxsize,
 			size, buffers);
 
-	param = spa_pod_builder_object(b,
+	param = spa_pod_builder_add_object(b,
 	                SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-			SPA_PARAM_BUFFERS_buffers, &SPA_POD_CHOICE_RANGE_Int(buffers, 3, MAX_BUFFERS),
-			SPA_PARAM_BUFFERS_blocks,  &SPA_POD_Int(blocks),
-			SPA_PARAM_BUFFERS_size,    &SPA_POD_CHOICE_RANGE_Int(
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers, 3, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(blocks),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 							size * stride,
 							size * stride,
 							maxsize * stride),
-			SPA_PARAM_BUFFERS_stride,  &SPA_POD_Int(stride),
-			SPA_PARAM_BUFFERS_align,   &SPA_POD_Int(16),
-			0);
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 	return param;
 }
 

@@ -970,6 +970,8 @@ int spa_alsa_start(struct state *state)
 
 	if (state->position)
 		state->threshold = state->position->size;
+	else
+		state->threshold = state->props.min_latency;
 
 	state->slaved = false;
 	if (state->position && state->clock) {

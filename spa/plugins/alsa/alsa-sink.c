@@ -196,9 +196,9 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		}
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_device,     SPA_POD_Stringn(p->device, sizeof(p->device)),
-			SPA_PROP_minLatency, SPA_POD_Int(&p->min_latency),
-			SPA_PROP_maxLatency, SPA_POD_Int(&p->max_latency));
+			SPA_PROP_device,     SPA_POD_OPT_Stringn(p->device, sizeof(p->device)),
+			SPA_PROP_minLatency, SPA_POD_OPT_Int(&p->min_latency),
+			SPA_PROP_maxLatency, SPA_POD_OPT_Int(&p->max_latency));
 	}
 	else
 		return -ENOENT;

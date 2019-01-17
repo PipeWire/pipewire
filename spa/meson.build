@@ -30,6 +30,7 @@ endif
 
 subdir('tools')
 subdir('tests')
+subdir('examples')
 
 pkgconfig.generate(filebase : 'libspa-@0@'.format(spaversion),
   name : 'libspa',

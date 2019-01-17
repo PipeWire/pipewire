@@ -196,15 +196,6 @@ static void on_source_process(void *_data, int status)
 			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
 			return;
 		}
-		datas[0].type = SPA_DATA_MemPtr;
-		datas[0].flags = 0;
-		datas[0].fd = -1;
-		datas[0].mapoffset = 0;
-		datas[0].maxsize = sstride * 240;
-		datas[0].data = sdata;
-		datas[0].chunk->offset = 0;
-		datas[0].chunk->size = sstride * 240;
-		datas[0].chunk->stride = sstride;
 	} else {
 		uint8_t *map;
 

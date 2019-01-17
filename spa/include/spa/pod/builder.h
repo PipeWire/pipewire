@@ -449,7 +449,7 @@ spa_pod_builder_push_sequence(struct spa_pod_builder *builder, uint32_t unit)
 }
 
 static inline uint32_t
-spa_pod_builder_control_header(struct spa_pod_builder *builder, uint32_t offset, uint32_t type)
+spa_pod_builder_control(struct spa_pod_builder *builder, uint32_t offset, uint32_t type)
 {
 	const struct { uint32_t offset; uint32_t type; } p = { offset, type };
 	uint32_t ref = spa_pod_builder_raw(builder, &p, sizeof(p));
@@ -591,7 +591,7 @@ spa_pod_builder_addv(struct spa_pod_builder *builder, va_list args)
 			if (type == 0)
 				break;
 			if (type != SPA_ID_INVALID)
-				spa_pod_builder_control_header(builder, offset, type);
+				spa_pod_builder_control(builder, offset, type);
 		}
 
 	      again:

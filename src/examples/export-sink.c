@@ -116,7 +116,7 @@ static void update_param(struct data *data)
 
 	spa_pod_builder_init(&b, data->io_notify, data->io_notify_size);
 	spa_pod_builder_push_sequence(&b, 0);
-	spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
+	spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
 	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, 0);
 	spa_pod_builder_prop(&b, SPA_PROP_contrast, 0);
 	spa_pod_builder_float(&b, (sin(data->param_accum) * 127.0) + 127.0);

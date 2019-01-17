@@ -203,7 +203,7 @@ static void update_props(struct data *data)
 
 #if 0
 	spa_pod_builder_push_sequence(&b, 0);
-	spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
+	spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
 	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, 0);
 	spa_pod_builder_prop(&b, SPA_PROP_frequency, 0);
 	spa_pod_builder_float(&b, ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0);
@@ -213,7 +213,7 @@ static void update_props(struct data *data)
 	pod = spa_pod_builder_pop(&b);
 #else
 	spa_pod_builder_push_sequence(&b, 0);
-	spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
+	spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
 	spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
 		SPA_PROP_frequency, SPA_POD_Float(((sin(data->freq_accum) + 1.0) * 200.0) + 440.0),

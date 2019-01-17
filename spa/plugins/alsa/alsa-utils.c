@@ -616,7 +616,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		struct spa_pod_builder b = { 0 };
 	        spa_pod_builder_init(&b, state->notify, 1024);
 		spa_pod_builder_push_sequence(&b, 0);
-		spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
+		spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
 		spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 		spa_pod_builder_prop(&b, SPA_PROP_rate, 0);
 		spa_pod_builder_double(&b, state->old_dt);

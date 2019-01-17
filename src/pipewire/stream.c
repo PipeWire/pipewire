@@ -652,7 +652,7 @@ static int process_notify(struct stream *impl, struct spa_pod_sequence *sequence
         spa_pod_builder_init(&b, impl->io_notify, impl->io_notify_size);
 	spa_pod_builder_push_sequence(&b, 0);
 	if ((changed = impl->props.changed)) {
-		spa_pod_builder_control_header(&b, 0, SPA_CONTROL_Properties);
+		spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
 		spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 		spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
 		spa_pod_builder_float(&b, impl->props.volume);

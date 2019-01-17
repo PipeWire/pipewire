@@ -27,6 +27,9 @@
 #include <spa/pod/event.h>
 #include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
+#include <spa/debug/pod.h>
+#include <spa/param/format.h>
+#include <spa/param/video/raw.h>
 
 static void test_abi(void)
 {
@@ -637,11 +640,171 @@ static void test_build(void)
 	}
 }
 
+static void test_varargs(void)
+{
+	uint8_t buffer[4096];
+	struct spa_pod_builder b;
+	struct spa_pod *pod;
+	struct spa_pod_prop *prop;
+	uint32_t i, *aI;
+	union {
+		bool b;
+		uint32_t I;
+		int32_t i;
+		int64_t l;
+		float f;
+		double d;
+		const char *s;
+		const void *z;
+		const void *p;
+		int64_t h;
+		struct spa_rectangle R;
+		struct spa_fraction F;
+	} val;
+	uint32_t media_type, media_subtype, format;
+	struct spa_rectangle *aR, size;
+	struct spa_fraction *aF, framerate;
+	struct spa_pod *Vformat, *Vsize, *Vframerate;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	pod = spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_Format, 0,
+		SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_video),
+		SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+		SPA_FORMAT_VIDEO_format,	SPA_POD_CHOICE_ENUM_Id(3,
+							SPA_VIDEO_FORMAT_I420,
+							SPA_VIDEO_FORMAT_I420,
+							SPA_VIDEO_FORMAT_YUY2),
+		SPA_FORMAT_VIDEO_size,		SPA_POD_CHOICE_RANGE_Rectangle(
+							&SPA_RECTANGLE(320,242),
+							&SPA_RECTANGLE(1,1),
+							&SPA_RECTANGLE(INT32_MAX,INT32_MAX)),
+		SPA_FORMAT_VIDEO_framerate,	SPA_POD_CHOICE_RANGE_Fraction(
+							&SPA_FRACTION(25,1),
+							&SPA_FRACTION(0,1),
+							&SPA_FRACTION(INT32_MAX,1)));
+
+	i = 0;
+	SPA_POD_OBJECT_FOREACH((const struct spa_pod_object*)pod, prop) {
+		switch (i++) {
+		case 0:
+			spa_assert(prop->key == SPA_FORMAT_mediaType);
+			spa_assert(SPA_POD_PROP_SIZE(prop) == 20);
+			spa_assert(spa_pod_get_id(&prop->value, &val.I) == 0 && val.I == SPA_MEDIA_TYPE_video);
+			break;
+		case 1:
+			spa_assert(prop->key == SPA_FORMAT_mediaSubtype);
+			spa_assert(SPA_POD_PROP_SIZE(prop) == 20);
+			spa_assert(spa_pod_get_id(&prop->value, &val.I) == 0 && val.I == SPA_MEDIA_SUBTYPE_raw);
+			break;
+		case 2:
+			spa_assert(prop->key == SPA_FORMAT_VIDEO_format);
+			spa_assert(spa_pod_is_choice(&prop->value));
+			spa_assert(SPA_POD_CHOICE_TYPE(&prop->value) == SPA_CHOICE_Enum);
+			spa_assert(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
+			spa_assert(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Id);
+			spa_assert(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(uint32_t));
+			spa_assert((aI = SPA_POD_CHOICE_VALUES(&prop->value)) != NULL);
+			spa_assert(aI[0] = SPA_VIDEO_FORMAT_I420);
+			spa_assert(aI[1] = SPA_VIDEO_FORMAT_I420);
+			spa_assert(aI[1] = SPA_VIDEO_FORMAT_YUY2);
+			break;
+		case 3:
+			spa_assert(prop->key == SPA_FORMAT_VIDEO_size);
+			spa_assert(spa_pod_is_choice(&prop->value));
+			spa_assert(SPA_POD_CHOICE_TYPE(&prop->value) == SPA_CHOICE_Range);
+			spa_assert(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
+			spa_assert(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Rectangle);
+			spa_assert(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(struct spa_rectangle));
+			spa_assert((aR = SPA_POD_CHOICE_VALUES(&prop->value)) != NULL);
+			spa_assert(memcmp(&aR[0], &SPA_RECTANGLE(320,242), sizeof(struct spa_rectangle)) == 0);
+			spa_assert(memcmp(&aR[1], &SPA_RECTANGLE(1,1), sizeof(struct spa_rectangle)) == 0);
+			spa_assert(memcmp(&aR[2], &SPA_RECTANGLE(INT32_MAX,INT32_MAX), sizeof(struct spa_rectangle)) == 0);
+			break;
+		case 4:
+			spa_assert(prop->key == SPA_FORMAT_VIDEO_framerate);
+			spa_assert(spa_pod_is_choice(&prop->value));
+			spa_assert(SPA_POD_CHOICE_TYPE(&prop->value) == SPA_CHOICE_Range);
+			spa_assert(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
+			spa_assert(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Fraction);
+			spa_assert(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(struct spa_fraction));
+			spa_assert((aF = SPA_POD_CHOICE_VALUES(&prop->value)) != NULL);
+			spa_assert(memcmp(&aF[0], &SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
+			spa_assert(memcmp(&aF[1], &SPA_FRACTION(0,1), sizeof(struct spa_fraction)) == 0);
+			spa_assert(memcmp(&aF[2], &SPA_FRACTION(INT32_MAX,1), sizeof(struct spa_fraction)) == 0);
+			break;
+		default:
+			spa_assert_not_reached();
+			break;
+		}
+	}
+
+	spa_assert(spa_pod_parse_object(pod,
+		SPA_TYPE_OBJECT_Format, NULL,
+		SPA_FORMAT_mediaType,		SPA_POD_Id(&media_type),
+		SPA_FORMAT_mediaSubtype,	SPA_POD_Id(&media_subtype),
+		SPA_FORMAT_VIDEO_format,	SPA_POD_PodChoice(&Vformat),
+		SPA_FORMAT_VIDEO_size,		SPA_POD_PodChoice(&Vsize),
+		SPA_FORMAT_VIDEO_framerate,	SPA_POD_PodChoice(&Vframerate)) == 0);
+
+	spa_assert(media_type == SPA_MEDIA_TYPE_video);
+	spa_assert(media_subtype == SPA_MEDIA_SUBTYPE_raw);
+
+	spa_assert(spa_pod_is_choice(Vformat));
+	spa_assert(SPA_POD_CHOICE_TYPE(Vformat) == SPA_CHOICE_Enum);
+	spa_assert(SPA_POD_CHOICE_N_VALUES(Vformat) == 3);
+	spa_assert(SPA_POD_CHOICE_VALUE_TYPE(Vformat) == SPA_TYPE_Id);
+	spa_assert(SPA_POD_CHOICE_VALUE_SIZE(Vformat) == sizeof(uint32_t));
+	spa_assert((aI = SPA_POD_CHOICE_VALUES(Vformat)) != NULL);
+	spa_assert(aI[0] = SPA_VIDEO_FORMAT_I420);
+	spa_assert(aI[1] = SPA_VIDEO_FORMAT_I420);
+	spa_assert(aI[1] = SPA_VIDEO_FORMAT_YUY2);
+
+	spa_assert(spa_pod_is_choice(Vsize));
+	spa_assert(SPA_POD_CHOICE_TYPE(Vsize) == SPA_CHOICE_Range);
+	spa_assert(SPA_POD_CHOICE_N_VALUES(Vsize) == 3);
+	spa_assert(SPA_POD_CHOICE_VALUE_TYPE(Vsize) == SPA_TYPE_Rectangle);
+	spa_assert(SPA_POD_CHOICE_VALUE_SIZE(Vsize) == sizeof(struct spa_rectangle));
+	spa_assert((aR = SPA_POD_CHOICE_VALUES(Vsize)) != NULL);
+	spa_assert(memcmp(&aR[0], &SPA_RECTANGLE(320,242), sizeof(struct spa_rectangle)) == 0);
+	spa_assert(memcmp(&aR[1], &SPA_RECTANGLE(1,1), sizeof(struct spa_rectangle)) == 0);
+	spa_assert(memcmp(&aR[2], &SPA_RECTANGLE(INT32_MAX,INT32_MAX), sizeof(struct spa_rectangle)) == 0);
+
+	spa_assert(spa_pod_is_choice(Vframerate));
+
+	spa_assert(spa_pod_parse_object(pod,
+		SPA_TYPE_OBJECT_Format, NULL,
+		SPA_FORMAT_mediaType,		SPA_POD_Id(&media_type),
+		SPA_FORMAT_mediaSubtype,	SPA_POD_Id(&media_subtype),
+		SPA_FORMAT_VIDEO_format,	SPA_POD_Id(&format),
+		SPA_FORMAT_VIDEO_size,		SPA_POD_Rectangle(&size),
+		SPA_FORMAT_VIDEO_framerate,	SPA_POD_Fraction(&framerate)) == -ESRCH);
+
+	spa_debug_pod(0, NULL, pod);
+	spa_pod_fixate(pod);
+
+	spa_assert(spa_pod_parse_object(pod,
+		SPA_TYPE_OBJECT_Format, NULL,
+		SPA_FORMAT_mediaType,		SPA_POD_Id(&media_type),
+		SPA_FORMAT_mediaSubtype,	SPA_POD_Id(&media_subtype),
+		SPA_FORMAT_VIDEO_format,	SPA_POD_Id(&format),
+		SPA_FORMAT_VIDEO_size,		SPA_POD_Rectangle(&size),
+		SPA_FORMAT_VIDEO_framerate,	SPA_POD_Fraction(&framerate)) == 0);
+
+	spa_assert(media_type == SPA_MEDIA_TYPE_video);
+	spa_assert(media_subtype == SPA_MEDIA_SUBTYPE_raw);
+	spa_assert(format == SPA_VIDEO_FORMAT_I420);
+	spa_assert(memcmp(&size, &SPA_RECTANGLE(320,242), sizeof(struct spa_rectangle)) == 0);
+	spa_assert(memcmp(&framerate, &SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
+
+	spa_debug_pod(0, NULL, pod);
+}
 
 int main(int argc, char *argv[])
 {
 	test_abi();
 	test_init();
 	test_build();
+	test_varargs();
 	return 0;
 }

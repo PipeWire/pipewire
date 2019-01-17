@@ -127,7 +127,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 				break;
 			}
 
-			if (spa_pod_is_object_id(param, SPA_TYPE_OBJECT_Format))
+			if (spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Format))
 				spa_debug_format(0, NULL, param);
 			else
 				spa_debug_pod(0, NULL, param);

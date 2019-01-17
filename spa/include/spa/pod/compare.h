@@ -40,7 +40,7 @@ extern "C" {
 #include <spa/pod/iter.h>
 #include <spa/pod/builder.h>
 
-static inline int spa_pod_compare_value(uint32_t type, const void *r1, const void *r2)
+static inline int spa_pod_compare_value(uint32_t type, const void *r1, const void *r2, uint32_t size)
 {
 	switch (type) {
 	case SPA_TYPE_None:
@@ -58,6 +58,8 @@ static inline int spa_pod_compare_value(uint32_t type, const void *r1, const voi
 		return *(double *) r1 - *(double *) r2;
 	case SPA_TYPE_String:
 		return strcmp((char *)r1, (char *)r2);
+	case SPA_TYPE_Bytes:
+		return memcmp((char *)r1, (char *)r2, size);
 	case SPA_TYPE_Rectangle:
 	{
 		const struct spa_rectangle *rec1 = (struct spa_rectangle *) r1,
@@ -156,7 +158,11 @@ static inline int spa_pod_compare(const struct spa_pod *pod1,
 		break;
 	}
 	default:
-		res = spa_pod_compare_value(SPA_POD_TYPE(pod1), SPA_POD_BODY(pod1), SPA_POD_BODY(pod2));
+		if (SPA_POD_BODY_SIZE(pod1) != SPA_POD_BODY_SIZE(pod2))
+			return -EINVAL;
+		res = spa_pod_compare_value(SPA_POD_TYPE(pod1),
+				SPA_POD_BODY(pod1), SPA_POD_BODY(pod2),
+				SPA_POD_BODY_SIZE(pod1));
 		break;
 	}
 	return res;

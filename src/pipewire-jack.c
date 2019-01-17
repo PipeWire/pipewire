@@ -682,7 +682,7 @@ static void convert_from_midi(void *midi, void *buffer, size_t size)
 	for (i = 0; i < count; i++) {
 		jack_midi_event_t ev;
 		jack_midi_event_get(&ev, midi, i);
-		spa_pod_builder_control_header(&b, ev.time, SPA_CONTROL_Midi);
+		spa_pod_builder_control(&b, ev.time, SPA_CONTROL_Midi);
 		spa_pod_builder_bytes(&b, ev.buffer, ev.size);
 	}
         spa_pod_builder_pop(&b);

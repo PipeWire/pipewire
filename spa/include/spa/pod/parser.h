@@ -98,7 +98,8 @@ static inline bool spa_pod_parser_can_collect(struct spa_pod *pod, char type)
 		return type == 'h';
 	case SPA_TYPE_Choice:
 		return type == 'V' ||
-			spa_pod_parser_can_collect(SPA_POD_CHOICE_CHILD(pod), type);
+			(SPA_POD_CHOICE_TYPE(pod) == SPA_CHOICE_None &&
+			spa_pod_parser_can_collect(SPA_POD_CHOICE_CHILD(pod), type));
 	default:
 		return false;
 	}
@@ -211,7 +212,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 {
 	struct spa_pod *pod = NULL, *current;
 	struct spa_pod_prop *prop = NULL;
-	bool required = true, skip = false;
+	bool required = true;
 	struct spa_pod_iter *it = &parser->iter[parser->depth];
 	const char *format = "";
 	uint32_t *idp;
@@ -248,6 +249,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 			if (--parser->depth < 0)
 				return -EINVAL;
 			it = &parser->iter[parser->depth];
+
 			if (SPA_POD_TYPE(it->data) == SPA_TYPE_Object)
 				parser->flags = SPA_POD_PARSER_FLAG_OBJECT;
 			else if (SPA_POD_TYPE(it->data) == SPA_TYPE_Struct)
@@ -286,32 +288,21 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 		case '?':
 			required = false;
 			break;
-		case 'V':
-			pod = (struct spa_pod *) prop;
-			if (pod == NULL && required)
-				return -ESRCH;
-			goto collect;
 		default:
 			if (pod == NULL || !spa_pod_parser_can_collect(pod, *format)) {
 				if (required)
 					return -ESRCH;
-				skip = true;
-			}
-		collect:
-			if (pod->type == SPA_TYPE_Choice)
-				pod = SPA_POD_CHOICE_CHILD(pod);
-
-			if (skip)
 				SPA_POD_PARSER_SKIP(*format, args);
-			else
+			} else {
+				if (pod->type == SPA_TYPE_Choice && *format != 'V')
+					pod = SPA_POD_CHOICE_CHILD(pod);
 				SPA_POD_PARSER_COLLECT(pod, *format, args);
+			}
 
 			spa_pod_iter_advance(it, current);
-
-			required = true;
-			skip = false;
 		read_pod:
 			pod = current = spa_pod_iter_current(it);
+			prop = NULL;
 			break;
 		}
 		format++;

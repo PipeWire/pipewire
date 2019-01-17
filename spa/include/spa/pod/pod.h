@@ -115,9 +115,9 @@ struct spa_pod_bitmap {
 };
 
 #define SPA_POD_ARRAY_CHILD(arr)	(&((struct spa_pod_array*)(arr))->body.child)
-#define SPA_POD_ARRAY_TYPE(arr)		(SPA_POD_TYPE(SPA_POD_ARRAY_CHILD(arr)))
-#define SPA_POD_ARRAY_SIZE(arr)		(SPA_POD_BODY_SIZE(SPA_POD_ARRAY_CHILD(arr)))
-#define SPA_POD_ARRAY_N_VALUES(arr)	((SPA_POD_BODY_SIZE(arr) - sizeof(struct spa_pod_array_body)) / SPA_POD_ARRAY_SIZE(arr))
+#define SPA_POD_ARRAY_VALUE_TYPE(arr)	(SPA_POD_TYPE(SPA_POD_ARRAY_CHILD(arr)))
+#define SPA_POD_ARRAY_VALUE_SIZE(arr)	(SPA_POD_BODY_SIZE(SPA_POD_ARRAY_CHILD(arr)))
+#define SPA_POD_ARRAY_N_VALUES(arr)	((SPA_POD_BODY_SIZE(arr) - sizeof(struct spa_pod_array_body)) / SPA_POD_ARRAY_VALUE_SIZE(arr))
 #define SPA_POD_ARRAY_VALUES(arr)	SPA_POD_CONTENTS(struct spa_pod_array, arr)
 
 struct spa_pod_array_body {
@@ -132,6 +132,7 @@ struct spa_pod_array {
 
 #define SPA_POD_CHOICE_CHILD(choice)		(&((struct spa_pod_choice*)(choice))->body.child)
 #define SPA_POD_CHOICE_TYPE(choice)		(((struct spa_pod_choice*)(choice))->body.type)
+#define SPA_POD_CHOICE_FLAGS(choice)		(((struct spa_pod_choice*)(choice))->body.flags)
 #define SPA_POD_CHOICE_VALUE_TYPE(choice)	(SPA_POD_TYPE(SPA_POD_CHOICE_CHILD(choice)))
 #define SPA_POD_CHOICE_VALUE_SIZE(choice)	(SPA_POD_BODY_SIZE(SPA_POD_CHOICE_CHILD(choice)))
 #define SPA_POD_CHOICE_N_VALUES(choice)		((SPA_POD_BODY_SIZE(choice) - sizeof(struct spa_pod_choice_body)) / SPA_POD_CHOICE_VALUE_SIZE(choice))
@@ -179,18 +180,6 @@ struct spa_pod_object {
 	struct spa_pod_object_body body;
 };
 
-static inline bool spa_pod_is_object_type(const struct spa_pod *pod, uint32_t type)
-{
-	return (pod && pod->type == SPA_TYPE_Object
-		&& ((struct spa_pod_object *) pod)->body.type == type);
-}
-
-static inline bool spa_pod_is_object_id(const struct spa_pod *pod, uint32_t id)
-{
-	return (pod && pod->type == SPA_TYPE_Object
-		&& ((struct spa_pod_object *) pod)->body.id == id);
-}
-
 struct spa_pod_pointer_body {
 	uint32_t type;		/**< pointer id, one of enum spa_type */
 	uint32_t _padding;
@@ -206,19 +195,6 @@ struct spa_pod_fd {
 	struct spa_pod pod;
 	int64_t value;
 };
-
-static inline struct spa_pod *spa_pod_get_values(const struct spa_pod *pod, uint32_t *n_vals, uint32_t *choice)
-{
-	if (pod->type == SPA_TYPE_Choice) {
-		*choice = SPA_POD_CHOICE_TYPE(pod);
-		*n_vals = *choice == SPA_CHOICE_None ? 1 : SPA_POD_CHOICE_N_VALUES(pod);
-		return (struct spa_pod*)SPA_POD_CHOICE_CHILD(pod);
-	} else {
-		*n_vals = 1;
-		*choice = SPA_CHOICE_None;
-		return (struct spa_pod*)pod;
-	}
-}
 
 #define SPA_POD_PROP_SIZE(prop)		(sizeof(struct spa_pod_prop) + (prop)->value.size)
 

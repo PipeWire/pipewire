@@ -112,10 +112,16 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 	     (iter) < (__typeof__(iter))SPA_MEMBER((body), (_size), void);				\
 	     (iter) = (__typeof__(iter))SPA_MEMBER((iter), (body)->child.size, void))
 
+#define SPA_POD_ARRAY_FOREACH(obj, iter)							\
+	SPA_POD_ARRAY_BODY_FOREACH(&(obj)->body, SPA_POD_BODY_SIZE(obj), iter)
+
 #define SPA_POD_CHOICE_BODY_FOREACH(body, _size, iter)							\
 	for ((iter) = (__typeof__(iter))SPA_MEMBER((body), sizeof(struct spa_pod_choice_body), void);	\
 	     (iter) < (__typeof__(iter))SPA_MEMBER((body), (_size), void);				\
 	     (iter) = (__typeof__(iter))SPA_MEMBER((iter), (body)->child.size, void))
+
+#define SPA_POD_CHOICE_FOREACH(obj, iter)							\
+	SPA_POD_CHOICE_BODY_FOREACH(&(obj)->body, SPA_POD_BODY_SIZE(obj), iter)
 
 #define SPA_POD_FOREACH(pod, size, iter)					\
 	for ((iter) = (pod);							\
@@ -141,32 +147,272 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 #define SPA_POD_SEQUENCE_FOREACH(seq, iter)							\
 	SPA_POD_SEQUENCE_BODY_FOREACH(&(seq)->body, SPA_POD_BODY_SIZE(seq), iter)
 
-static inline struct spa_pod_prop *spa_pod_find_prop(const struct spa_pod *pod, uint32_t key)
+
+static inline int spa_pod_is_none(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_None);
+}
+
+static inline int spa_pod_is_bool(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Bool && SPA_POD_BODY_SIZE(pod) >= sizeof(int32_t));
+}
+
+static inline int spa_pod_get_bool(const struct spa_pod *pod, bool *value)
+{
+	if (!spa_pod_is_bool(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_bool, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_id(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Id && SPA_POD_BODY_SIZE(pod) >= sizeof(uint32_t));
+}
+
+static inline int spa_pod_get_id(const struct spa_pod *pod, uint32_t *value)
+{
+	if (!spa_pod_is_id(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_id, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_int(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Int && SPA_POD_BODY_SIZE(pod) >= sizeof(int32_t));
+}
+
+static inline int spa_pod_get_int(const struct spa_pod *pod, int32_t *value)
+{
+	if (!spa_pod_is_int(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_int, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_long(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Long && SPA_POD_BODY_SIZE(pod) >= sizeof(int64_t));
+}
+
+static inline int spa_pod_get_long(const struct spa_pod *pod, int64_t *value)
+{
+	if (!spa_pod_is_long(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_long, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_float(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Float && SPA_POD_BODY_SIZE(pod) >= sizeof(float));
+}
+
+static inline int spa_pod_get_float(const struct spa_pod *pod, float *value)
+{
+	if (!spa_pod_is_float(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_float, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_double(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Double && SPA_POD_BODY_SIZE(pod) >= sizeof(double));
+}
+
+static inline int spa_pod_get_double(const struct spa_pod *pod, double *value)
+{
+	if (!spa_pod_is_double(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_double, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_string(const struct spa_pod *pod)
+{
+	const char *s = (const char *)SPA_POD_CONTENTS(struct spa_pod_string, pod);
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_String &&
+			SPA_POD_BODY_SIZE(pod) > 0 &&
+			s[SPA_POD_BODY_SIZE(pod)-1] == '\0');
+}
+
+static inline int spa_pod_get_string(const struct spa_pod *pod, const char **value)
+{
+	if (!spa_pod_is_string(pod))
+		return -EINVAL;
+	*value = (const char *)SPA_POD_CONTENTS(struct spa_pod_string, pod);
+	return 0;
+}
+
+static inline int spa_pod_copy_string(const struct spa_pod *pod, size_t maxlen, char *dest)
+{
+	const char *s = (const char *)SPA_POD_CONTENTS(struct spa_pod_string, pod);
+	if (!spa_pod_is_string(pod) || maxlen < 1)
+		return -EINVAL;
+	strncpy(dest, s, maxlen-1);
+	dest[maxlen-1]= '\0';
+	return 0;
+}
+
+static inline int spa_pod_is_bytes(const struct spa_pod *pod)
+{
+	return SPA_POD_TYPE(pod) == SPA_TYPE_Bytes;
+}
+
+static inline int spa_pod_get_bytes(const struct spa_pod *pod, const void **value, uint32_t *len)
+{
+	if (!spa_pod_is_bytes(pod))
+		return -EINVAL;
+	*value = (const void *)SPA_POD_CONTENTS(struct spa_pod_bytes, pod);
+	*len = SPA_POD_BODY_SIZE(pod);
+	return 0;
+}
+
+static inline int spa_pod_is_pointer(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Pointer &&
+			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_pod_pointer_body));
+}
+
+static inline int spa_pod_get_pointer(const struct spa_pod *pod, uint32_t *type, const void **value)
+{
+	if (!spa_pod_is_pointer(pod))
+		return -EINVAL;
+	*type = ((struct spa_pod_pointer*)pod)->body.type;
+	*value = ((struct spa_pod_pointer*)pod)->body.value;
+	return 0;
+}
+
+static inline int spa_pod_is_fd(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Fd &&
+			SPA_POD_BODY_SIZE(pod) >= sizeof(int64_t));
+}
+
+static inline int spa_pod_get_fd(const struct spa_pod *pod, int64_t *value)
+{
+	if (!spa_pod_is_fd(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_fd, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_rectangle(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Rectangle &&
+			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_rectangle));
+}
+
+static inline int spa_pod_get_rectangle(const struct spa_pod *pod, struct spa_rectangle *value)
+{
+	if (!spa_pod_is_rectangle(pod))
+		return -EINVAL;
+	*value = SPA_POD_VALUE(struct spa_pod_rectangle, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_fraction(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Fraction &&
+			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_fraction));
+}
+
+static inline int spa_pod_get_fraction(const struct spa_pod *pod, struct spa_fraction *value)
+{
+	spa_return_val_if_fail(spa_pod_is_fraction(pod), -EINVAL);
+	*value = SPA_POD_VALUE(struct spa_pod_fraction, pod);
+	return 0;
+}
+
+static inline int spa_pod_is_array(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Array &&
+			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_pod_array_body));
+}
+
+static inline int spa_pod_is_choice(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Choice &&
+			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_pod_choice_body));
+}
+
+static inline struct spa_pod *spa_pod_get_values(const struct spa_pod *pod, uint32_t *n_vals, uint32_t *choice)
+{
+	if (pod->type == SPA_TYPE_Choice) {
+		*choice = SPA_POD_CHOICE_TYPE(pod);
+		*n_vals = *choice == SPA_CHOICE_None ? 1 : SPA_POD_CHOICE_N_VALUES(pod);
+		return (struct spa_pod*)SPA_POD_CHOICE_CHILD(pod);
+	} else {
+		*n_vals = 1;
+		*choice = SPA_CHOICE_None;
+		return (struct spa_pod*)pod;
+	}
+}
+
+static inline int spa_pod_is_struct(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Struct);
+}
+
+static inline int spa_pod_is_object(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Object &&
+			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_pod_object_body));
+}
+
+static inline bool spa_pod_is_object_type(const struct spa_pod *pod, uint32_t type)
+{
+	return (pod && spa_pod_is_object(pod) &&
+		((const struct spa_pod_object *) pod)->body.type == type);
+}
+
+static inline bool spa_pod_is_object_id(const struct spa_pod *pod, uint32_t id)
+{
+	return (pod && spa_pod_is_object(pod) &&
+		((const struct spa_pod_object *) pod)->body.id == id);
+}
+
+static inline int spa_pod_is_sequence(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Sequence &&
+			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_pod_sequence_body));
+}
+
+static inline struct spa_pod_prop *spa_pod_object_find_prop(const struct spa_pod_object *pod, uint32_t key)
 {
 	struct spa_pod_prop *res;
-
-	if (pod->type != SPA_TYPE_Object)
-		return NULL;
-
-	SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)pod, res) {
+	SPA_POD_OBJECT_FOREACH(pod, res) {
 		if (res->key == key)
 			return res;
 	}
 	return NULL;
 }
 
-static inline int spa_pod_fixate(struct spa_pod *pod)
+static inline struct spa_pod_prop *spa_pod_find_prop(const struct spa_pod *pod, uint32_t key)
+{
+	if (!spa_pod_is_object(pod))
+		return NULL;
+	return spa_pod_object_find_prop((const struct spa_pod_object *)pod, key);
+}
+
+static inline int spa_pod_object_fixate(struct spa_pod_object *pod)
 {
 	struct spa_pod_prop *res;
-
-	if (pod->type != SPA_TYPE_Object)
-		return -EINVAL;
-
-	SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)pod, res) {
+	SPA_POD_OBJECT_FOREACH(pod, res) {
 		if (res->value.type == SPA_TYPE_Choice)
 			((struct spa_pod_choice*)&res->value)->body.type = SPA_CHOICE_None;
 	}
 	return 0;
+}
+
+static inline int spa_pod_fixate(struct spa_pod *pod)
+{
+	if (!spa_pod_is_object(pod))
+		return -EINVAL;
+	return spa_pod_object_fixate((struct spa_pod_object *)pod);
 }
 
 #ifdef __cplusplus

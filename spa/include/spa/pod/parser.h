@@ -262,14 +262,14 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 			goto read_pod;
 		case '\0':
 			if (parser->flags & SPA_POD_PARSER_FLAG_OBJECT) {
-				const struct spa_pod *obj = (const struct spa_pod *) it->data;
 				uint32_t key = va_arg(args, uint32_t);
 				if (key == 0) {
 					format = NULL;
 					continue;
 				}
 				if (key != SPA_ID_INVALID) {
-					prop = spa_pod_find_prop(obj, key);
+					prop = spa_pod_object_find_prop(
+							(const struct spa_pod_object *) it->data, key);
 					if (prop != NULL)
 						pod = &prop->value;
 					else
@@ -357,113 +357,6 @@ static inline int spa_pod_parser_get(struct spa_pod_parser *parser, ...)
 	spa_pod_parser_pod(&_p, pod);				\
 	spa_pod_parser_get_struct(&_p,##__VA_ARGS__);		\
 })
-
-static inline int spa_pod_is_bool(struct spa_pod *pod)
-{
-	return (SPA_POD_TYPE(pod) == SPA_TYPE_Bool && SPA_POD_BODY_SIZE(pod) >= sizeof(int32_t));
-}
-
-static inline int spa_pod_get_bool(struct spa_pod *pod, bool *value)
-{
-	if (!spa_pod_is_bool(pod))
-		return -EINVAL;
-	*value = SPA_POD_VALUE(struct spa_pod_bool, pod);
-	return 0;
-}
-
-static inline int spa_pod_is_float(struct spa_pod *pod)
-{
-	return (SPA_POD_TYPE(pod) == SPA_TYPE_Float && SPA_POD_BODY_SIZE(pod) >= sizeof(float));
-}
-
-static inline int spa_pod_get_float(struct spa_pod *pod, float *value)
-{
-	if (!spa_pod_is_float(pod))
-		return -EINVAL;
-	*value = SPA_POD_VALUE(struct spa_pod_float, pod);
-	return 0;
-}
-
-static inline int spa_pod_is_double(struct spa_pod *pod)
-{
-	return (SPA_POD_TYPE(pod) == SPA_TYPE_Double && SPA_POD_BODY_SIZE(pod) >= sizeof(double));
-}
-
-static inline int spa_pod_get_double(struct spa_pod *pod, double *value)
-{
-	if (!spa_pod_is_double(pod))
-		return -EINVAL;
-	*value = SPA_POD_VALUE(struct spa_pod_double, pod);
-	return 0;
-}
-
-static inline int spa_pod_is_id(struct spa_pod *pod)
-{
-	return (SPA_POD_TYPE(pod) == SPA_TYPE_Id && SPA_POD_BODY_SIZE(pod) >= sizeof(uint32_t));
-}
-
-static inline int spa_pod_get_id(struct spa_pod *pod, uint32_t *value)
-{
-	if (!spa_pod_is_id(pod))
-		return -EINVAL;
-	*value = SPA_POD_VALUE(struct spa_pod_id, pod);
-	return 0;
-}
-
-static inline int spa_pod_is_int(struct spa_pod *pod)
-{
-	return (SPA_POD_TYPE(pod) == SPA_TYPE_Int && SPA_POD_BODY_SIZE(pod) >= sizeof(int32_t));
-}
-
-static inline int spa_pod_get_int(struct spa_pod *pod, int32_t *value)
-{
-	if (!spa_pod_is_int(pod))
-		return -EINVAL;
-	*value = SPA_POD_VALUE(struct spa_pod_int, pod);
-	return 0;
-}
-
-static inline int spa_pod_is_string(struct spa_pod *pod)
-{
-	return (SPA_POD_TYPE(pod) == SPA_TYPE_String && SPA_POD_BODY_SIZE(pod) >= sizeof(1));
-}
-
-static inline int spa_pod_dup_string(struct spa_pod *pod, size_t maxlen, char *dest)
-{
-	if (!spa_pod_is_string(pod) || maxlen < 1)
-		return -EINVAL;
-	strncpy(dest, (char *)SPA_POD_CONTENTS(struct spa_pod_string, pod), maxlen-1);
-	dest[maxlen-1]= '\0';
-	return 0;
-}
-
-static inline int spa_pod_is_rectangle(struct spa_pod *pod)
-{
-	return (SPA_POD_TYPE(pod) == SPA_TYPE_Rectangle &&
-			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_rectangle));
-}
-
-static inline int spa_pod_get_rectangle(struct spa_pod *pod, struct spa_rectangle *value)
-{
-	if (!spa_pod_is_rectangle(pod))
-		return -EINVAL;
-	*value = SPA_POD_VALUE(struct spa_pod_rectangle, pod);
-	return 0;
-}
-
-static inline int spa_pod_is_fraction(struct spa_pod *pod)
-{
-	return (SPA_POD_TYPE(pod) == SPA_TYPE_Fraction &&
-			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_fraction));
-}
-
-static inline int spa_pod_get_fraction(struct spa_pod *pod, struct spa_fraction *value)
-{
-	if (!spa_pod_is_fraction(pod))
-		return -EINVAL;
-	*value = SPA_POD_VALUE(struct spa_pod_fraction, pod);
-	return 0;
-}
 
 #ifdef __cplusplus
 }  /* extern "C" */

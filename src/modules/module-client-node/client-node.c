@@ -35,6 +35,7 @@
 
 #include <spa/node/node.h>
 #include <spa/pod/filter.h>
+#include <spa/pod/parser.h>
 #include <spa/debug/types.h>
 
 #include <pipewire/pipewire.h>
@@ -372,7 +373,7 @@ static int impl_node_enum_params(struct spa_node *node,
 
 		param = this->params[(*index)++];
 
-		if (!spa_pod_is_object_type(param, id))
+		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
 
 		if (spa_pod_filter(builder, result, param, filter) == 0)
@@ -523,7 +524,7 @@ do_update_port(struct node *this,
 		for (i = 0; i < port->n_params; i++) {
 			port->params[i] = params[i] ? pw_spa_pod_copy(params[i]) : NULL;
 
-			if (spa_pod_is_object_id(port->params[i], SPA_PARAM_Format))
+			if (port->params[i] && spa_pod_is_object_id(port->params[i], SPA_PARAM_Format))
 				port->have_format = true;
 		}
 	}
@@ -664,7 +665,7 @@ impl_node_port_enum_params(struct spa_node *node,
 
 		param = port->params[(*index)++];
 
-		if (!spa_pod_is_object_id(param, id))
+		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
 
 		if (spa_pod_filter(builder, result, param, filter) == 0)

@@ -436,7 +436,7 @@ static int impl_port_enum_params(struct spa_node *node,
 				break;
 			}
 		} else {
-			if (!spa_pod_is_object_id(param, id))
+			if (param == NULL || !spa_pod_is_object_id(param, id))
 				continue;
 
 			if (spa_pod_filter(builder, result, param, filter) == 0)
@@ -460,7 +460,7 @@ static int port_set_format(struct spa_node *node,
 		spa_debug_format(2, NULL, format);
 
 	clear_params(stream, PARAM_TYPE_FORMAT);
-	if (spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format)) {
+	if (format && spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format)) {
 		p = add_param(stream, PARAM_TYPE_FORMAT, format);
 		if (p == NULL)
 			goto no_mem;

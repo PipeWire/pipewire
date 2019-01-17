@@ -327,15 +327,15 @@ spa_pod_builder_bytes(struct spa_pod_builder *builder, const void *bytes, uint32
 #define SPA_POD_INIT_Pointer(type,value) (struct spa_pod_pointer){ { sizeof(struct spa_pod_pointer_body), SPA_TYPE_Pointer }, { type, 0, value } }
 
 static inline uint32_t
-spa_pod_builder_pointer(struct spa_pod_builder *builder, uint32_t type, void *val)
+spa_pod_builder_pointer(struct spa_pod_builder *builder, uint32_t type, const void *val)
 {
 	const struct spa_pod_pointer p = SPA_POD_INIT_Pointer(type, val);
 	return spa_pod_builder_primitive(builder, &p.pod);
 }
 
-#define SPA_POD_INIT_Fd(fd) (struct spa_pod_fd){ { sizeof(int), SPA_TYPE_Fd }, fd }
+#define SPA_POD_INIT_Fd(fd) (struct spa_pod_fd){ { sizeof(int64_t), SPA_TYPE_Fd }, fd }
 
-static inline uint32_t spa_pod_builder_fd(struct spa_pod_builder *builder, int fd)
+static inline uint32_t spa_pod_builder_fd(struct spa_pod_builder *builder, int64_t fd)
 {
 	const struct spa_pod_fd p = SPA_POD_INIT_Fd(fd);
 	return spa_pod_builder_primitive(builder, &p.pod);

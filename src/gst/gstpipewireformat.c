@@ -816,6 +816,7 @@ gst_caps_from_format (const struct spa_pod *format)
   GstCaps *res = NULL;
   uint32_t media_type, media_subtype;
   struct spa_pod_prop *prop;
+  const struct spa_pod_object *obj = (const struct spa_pod_object *) format;
 
   if (spa_format_parse(format, &media_type, &media_subtype) < 0)
     return res;
@@ -823,7 +824,7 @@ gst_caps_from_format (const struct spa_pod *format)
   if (media_type == SPA_MEDIA_TYPE_video) {
     if (media_subtype == SPA_MEDIA_SUBTYPE_raw) {
       res = gst_caps_new_empty_simple ("video/x-raw");
-      if ((prop = spa_pod_find_prop (format, SPA_FORMAT_VIDEO_format))) {
+      if ((prop = spa_pod_object_find_prop (obj, SPA_FORMAT_VIDEO_format))) {
         handle_id_prop (prop, "format", video_id_to_string, res);
       }
     }
@@ -836,13 +837,13 @@ gst_caps_from_format (const struct spa_pod *format)
           "alignment", G_TYPE_STRING, "au",
           NULL);
     }
-    if ((prop = spa_pod_find_prop (format, SPA_FORMAT_VIDEO_size))) {
+    if ((prop = spa_pod_object_find_prop (obj, SPA_FORMAT_VIDEO_size))) {
       handle_rect_prop (prop, "width", "height", res);
     }
-    if ((prop = spa_pod_find_prop (format, SPA_FORMAT_VIDEO_framerate))) {
+    if ((prop = spa_pod_object_find_prop (obj, SPA_FORMAT_VIDEO_framerate))) {
       handle_fraction_prop (prop, "framerate", res);
     }
-    if ((prop = spa_pod_find_prop (format, SPA_FORMAT_VIDEO_maxFramerate))) {
+    if ((prop = spa_pod_object_find_prop (obj, SPA_FORMAT_VIDEO_maxFramerate))) {
       handle_fraction_prop (prop, "max-framerate", res);
     }
   } else if (media_type == SPA_MEDIA_TYPE_audio) {
@@ -850,13 +851,13 @@ gst_caps_from_format (const struct spa_pod *format)
       res = gst_caps_new_simple ("audio/x-raw",
           "layout", G_TYPE_STRING, "interleaved",
           NULL);
-      if ((prop = spa_pod_find_prop (format, SPA_FORMAT_AUDIO_format))) {
+      if ((prop = spa_pod_object_find_prop (obj, SPA_FORMAT_AUDIO_format))) {
         handle_id_prop (prop, "format", audio_id_to_string, res);
       }
-      if ((prop = spa_pod_find_prop (format, SPA_FORMAT_AUDIO_rate))) {
+      if ((prop = spa_pod_object_find_prop (obj, SPA_FORMAT_AUDIO_rate))) {
         handle_int_prop (prop, "rate", res);
       }
-      if ((prop = spa_pod_find_prop (format, SPA_FORMAT_AUDIO_channels))) {
+      if ((prop = spa_pod_object_find_prop (obj, SPA_FORMAT_AUDIO_channels))) {
         handle_int_prop (prop, "channels", res);
       }
     }

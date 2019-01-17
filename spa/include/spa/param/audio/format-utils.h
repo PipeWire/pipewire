@@ -49,8 +49,8 @@ spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_r
 			SPA_FORMAT_AUDIO_channels,	SPA_POD_Int(&info->channels),
 			SPA_FORMAT_AUDIO_flags,		SPA_POD_OPT_Int(&info->flags),
 			SPA_FORMAT_AUDIO_position,	SPA_POD_OPT_Pod(&position));
-	if (position && position->type == SPA_TYPE_Array &&
-			SPA_POD_ARRAY_TYPE(position) == SPA_TYPE_Id) {
+	if (position && spa_pod_is_array(position) &&
+			SPA_POD_ARRAY_VALUE_TYPE(position) == SPA_TYPE_Id) {
 		uint32_t *values = (uint32_t*)SPA_POD_ARRAY_VALUES(position);
 		uint32_t n_values = SPA_MIN(SPA_POD_ARRAY_N_VALUES(position), SPA_AUDIO_MAX_CHANNELS);
 		memcpy(info->position, values, n_values * sizeof(uint32_t));

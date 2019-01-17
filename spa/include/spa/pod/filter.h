@@ -263,15 +263,16 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 		switch (SPA_POD_TYPE(pp)) {
 		case SPA_TYPE_Object:
 			if (pf != NULL) {
-				struct spa_pod_object *obj = (struct spa_pod_object *) pp;
+				struct spa_pod_object *op = (struct spa_pod_object *) pp;
+				struct spa_pod_object *of = (struct spa_pod_object *) pf;
 				struct spa_pod_prop *p1, *p2;
 
 				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE(pp))
 					return -EINVAL;
 
-				spa_pod_builder_push_object(b, obj->body.type, obj->body.id);
-				SPA_POD_OBJECT_FOREACH(obj, p1) {
-					p2 = spa_pod_find_prop(pf, p1->key);
+				spa_pod_builder_push_object(b, op->body.type, op->body.id);
+				SPA_POD_OBJECT_FOREACH(op, p1) {
+					p2 = spa_pod_object_find_prop(of, p1->key);
 					if (p2 != NULL)
 						res = spa_pod_filter_prop(b, p1, p2);
 					else
@@ -280,9 +281,8 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 						break;
 				}
 				if (res >= 0) {
-					obj = (struct spa_pod_object *) pf;
-					SPA_POD_OBJECT_FOREACH(obj, p2) {
-						p1 = spa_pod_find_prop(pp, p2->key);
+					SPA_POD_OBJECT_FOREACH(of, p2) {
+						p1 = spa_pod_object_find_prop(op, p2->key);
 						if (p1 != NULL)
 							continue;
 

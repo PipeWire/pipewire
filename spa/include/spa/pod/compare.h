@@ -137,15 +137,19 @@ static inline int spa_pod_compare(const struct spa_pod *pod1,
 	case SPA_TYPE_Object:
 	{
 		const struct spa_pod_prop *p1, *p2;
+		const struct spa_pod_object *o1, *o2;
 
-		SPA_POD_OBJECT_FOREACH((const struct spa_pod_object*)pod1, p1) {
-			if ((p2 = spa_pod_find_prop(pod2, p1->key)) == NULL)
+		o1 = (const struct spa_pod_object*)pod1;
+		o2 = (const struct spa_pod_object*)pod2;
+
+		SPA_POD_OBJECT_FOREACH(o1, p1) {
+			if ((p2 = spa_pod_object_find_prop(o2, p1->key)) == NULL)
 				return 1;
 			if ((res = spa_pod_compare(&p1->value, &p2->value)) != 0)
 				return res;
 		}
-		SPA_POD_OBJECT_FOREACH((const struct spa_pod_object*)pod2, p2) {
-			if ((p1 = spa_pod_find_prop(pod1, p2->key)) == NULL)
+		SPA_POD_OBJECT_FOREACH(o2, p2) {
+			if ((p1 = spa_pod_object_find_prop(o1, p2->key)) == NULL)
 				return -1;
 		}
 		break;

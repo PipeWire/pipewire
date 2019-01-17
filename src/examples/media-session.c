@@ -374,7 +374,7 @@ static void node_event_param(void *object,
 	    n->media_subtype != SPA_MEDIA_SUBTYPE_raw)
 		return;
 
-	spa_pod_fixate((struct spa_pod*)param);
+	spa_pod_object_fixate((struct spa_pod_object*)param);
 
 	if (spa_format_audio_raw_parse(param, &info) < 0)
 		goto error;

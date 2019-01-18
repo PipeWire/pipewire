@@ -58,6 +58,8 @@ static inline void spa_pod_parser_pod(struct spa_pod_parser *parser,
 
 static inline bool spa_pod_parser_can_collect(struct spa_pod *pod, char type)
 {
+	if (pod == NULL)
+		return false;
 	if (type == 'P')
 		return true;
 
@@ -162,7 +164,13 @@ do {											\
 		break;									\
 	}										\
 	case 'h':									\
-		*va_arg(args, int*) = SPA_POD_VALUE(struct spa_pod_fd, pod);		\
+		*va_arg(args, int64_t*) = SPA_POD_VALUE(struct spa_pod_fd, pod);	\
+		break;									\
+	case 'a':									\
+		*va_arg(args, uint32_t*) = SPA_POD_ARRAY_VALUE_SIZE(pod);		\
+		*va_arg(args, uint32_t*) = SPA_POD_ARRAY_VALUE_TYPE(pod);		\
+		*va_arg(args, uint32_t*) = SPA_POD_ARRAY_N_VALUES(pod);			\
+		*va_arg(args, void**) = SPA_POD_ARRAY_VALUES(pod);			\
 		break;									\
 	case 'V':									\
 	case 'P':									\
@@ -184,9 +192,13 @@ do {											\
 		va_arg(args, char*);							\
 		va_arg(args, uint32_t);							\
 		break;									\
+	case 'a':									\
+		va_arg(args, void*);							\
+		va_arg(args, void*);							\
+		/* fallthrough */							\
 	case 'p':									\
 	case 'z':									\
-		va_arg(args, void**);							\
+		va_arg(args, void*);							\
 		/* fallthrough */							\
 	case 'b':									\
 	case 'I':									\
@@ -216,6 +228,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 	struct spa_pod_iter *it = &parser->iter[parser->depth];
 	const char *format = "";
 	uint32_t *idp;
+	int count = 0;
 
 	current = pod = spa_pod_iter_current(it);
 
@@ -226,7 +239,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 			if (pod == NULL || SPA_POD_TYPE(pod) != SPA_TYPE_Object)
 				return -EINVAL;
 			if (va_arg(args, uint32_t) != SPA_POD_OBJECT_TYPE(pod))
-				return -EINVAL;
+				return -EPROTO;
 			if ((idp = va_arg(args, uint32_t*)) != NULL)
 				*idp = SPA_POD_OBJECT_ID(pod);
 			parser->flags = SPA_POD_PARSER_FLAG_OBJECT;
@@ -238,7 +251,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 
 		      enter:
 			if (++parser->depth >= SPA_POD_MAX_DEPTH)
-				return -EINVAL;
+				return -ENOSPC;
 			it = &parser->iter[parser->depth];
 			spa_pod_iter_init(it, pod, SPA_POD_SIZE(pod), sizeof(struct spa_pod_struct));
 			goto read_pod;
@@ -277,7 +290,6 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 
 					it->offset = it->size;
 					current = NULL;
-					required = true;
 				}
 			}
 			if ((format = va_arg(args, char *)) != NULL)
@@ -289,26 +301,31 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 			required = false;
 			break;
 		default:
-			if (pod == NULL || !spa_pod_parser_can_collect(pod, *format)) {
-				if (required)
-					return -ESRCH;
+			if (!spa_pod_parser_can_collect(pod, *format)) {
+				if (required) {
+					if (prop == NULL || pod == NULL)
+						return -ESRCH;
+					else
+						return -EPROTO;
+				}
 				SPA_POD_PARSER_SKIP(*format, args);
 			} else {
 				if (pod->type == SPA_TYPE_Choice && *format != 'V')
 					pod = SPA_POD_CHOICE_CHILD(pod);
 				SPA_POD_PARSER_COLLECT(pod, *format, args);
+				count++;
 			}
-
 			spa_pod_iter_advance(it, current);
 		read_pod:
 			pod = current = spa_pod_iter_current(it);
 			prop = NULL;
+			required = true;
 			break;
 		}
 		format++;
 	} while (format != NULL);
 
-	return 0;
+	return count;
 }
 
 static inline int spa_pod_parser_get(struct spa_pod_parser *parser, ...)
@@ -334,9 +351,13 @@ static inline int spa_pod_parser_get(struct spa_pod_parser *parser, ...)
 #define SPA_POD_OPT_Bytes(val,len)			"?" SPA_POD_Bytes(val,len)
 #define SPA_POD_OPT_Rectangle(val)			"?" SPA_POD_Rectangle(val)
 #define SPA_POD_OPT_Fraction(val)			"?" SPA_POD_Fraction(val)
+#define SPA_POD_OPT_Array(csize,ctype,n_vals,vals)	"?" SPA_POD_Array(csize,ctype,n_vals,vals)
 #define SPA_POD_OPT_Pointer(type,val)			"?" SPA_POD_Pointer(type,val)
 #define SPA_POD_OPT_Fd(val)				"?" SPA_POD_Fd(val)
 #define SPA_POD_OPT_Pod(val)				"?" SPA_POD_Pod(val)
+#define SPA_POD_OPT_PodObject(val)			"?" SPA_POD_PodObject(val)
+#define SPA_POD_OPT_PodStruct(val)			"?" SPA_POD_PodStruct(val)
+#define SPA_POD_OPT_PodChoice(val)			"?" SPA_POD_PodChoice(val)
 
 #define spa_pod_parser_get_object(p,type,id,...)		\
         spa_pod_parser_get(p, SPA_POD_Object(type,id,##__VA_ARGS__), NULL)

@@ -206,6 +206,9 @@ static const struct spa_type_info spa_type_media_subtype[] = {
 #define SPA_TYPE_INFO_FormatVideo		SPA_TYPE_INFO_FORMAT_BASE "Video"
 #define SPA_TYPE_INFO_FORMAT_VIDEO_BASE		SPA_TYPE_INFO_FormatVideo ":"
 
+#define SPA_TYPE_INFO_FORMAT_VIDEO_H264		SPA_TYPE_INFO_FORMAT_VIDEO_BASE "H264"
+#define SPA_TYPE_INFO_FORMAT_VIDEO_H264_BASE	SPA_TYPE_INFO_FORMAT_VIDEO_H264 ":"
+
 static const struct spa_type_info spa_type_format[] = {
 	{ SPA_FORMAT_START, SPA_TYPE_INFO_FORMAT_BASE, SPA_TYPE_Id, spa_type_param, },
 
@@ -239,8 +242,9 @@ static const struct spa_type_info spa_type_format[] = {
 	{ SPA_FORMAT_VIDEO_colorPrimaries, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "colorPrimaries", SPA_TYPE_Id, NULL },
 	{ SPA_FORMAT_VIDEO_profile, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "profile", SPA_TYPE_Int, NULL },
 	{ SPA_FORMAT_VIDEO_level, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "level", SPA_TYPE_Int, NULL },
-	{ SPA_FORMAT_VIDEO_streamFormat, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "streamFormat", SPA_TYPE_Id, NULL },
-	{ SPA_FORMAT_VIDEO_alignment, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "alignment", SPA_TYPE_Id, NULL },
+
+	{ SPA_FORMAT_VIDEO_H264_streamFormat, SPA_TYPE_INFO_FORMAT_VIDEO_H264_BASE "streamFormat", SPA_TYPE_Id, NULL },
+	{ SPA_FORMAT_VIDEO_H264_alignment, SPA_TYPE_INFO_FORMAT_VIDEO_H264_BASE "alignment", SPA_TYPE_Id, NULL },
 	{ 0, NULL, 0, NULL },
 };
 
@@ -265,7 +269,7 @@ static const struct spa_type_info spa_type_param_buffers[] = {
 
 static const struct spa_type_info spa_type_param_profile[] = {
 	{ SPA_PARAM_PROFILE_START, SPA_TYPE_INFO_PARAM_PROFILE_BASE, SPA_TYPE_Id, spa_type_param, },
-	{ SPA_PARAM_PROFILE_id, SPA_TYPE_INFO_PARAM_PROFILE_BASE "id",  SPA_TYPE_Int,  NULL },
+	{ SPA_PARAM_PROFILE_index, SPA_TYPE_INFO_PARAM_PROFILE_BASE "index",  SPA_TYPE_Int,  NULL },
 	{ SPA_PARAM_PROFILE_name, SPA_TYPE_INFO_PARAM_PROFILE_BASE "name",  SPA_TYPE_String,  NULL },
 	{ SPA_PARAM_PROFILE_direction, SPA_TYPE_INFO_PARAM_PROFILE_BASE "direction",  SPA_TYPE_Id, spa_type_direction },
 	{ SPA_PARAM_PROFILE_format, SPA_TYPE_INFO_PARAM_PROFILE_BASE "format",  SPA_TYPE_Object, NULL, },

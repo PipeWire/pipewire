@@ -34,55 +34,55 @@ extern "C" {
 /** different parameter types that can be queried */
 enum spa_param_type {
 	SPA_PARAM_Invalid,		/**< invalid */
-	SPA_PARAM_List,			/**< available params */
-	SPA_PARAM_PropInfo,		/**< property information */
-	SPA_PARAM_Props,		/**< properties */
-	SPA_PARAM_EnumFormat,		/**< available formats */
-	SPA_PARAM_Format,		/**< configured format */
-	SPA_PARAM_Buffers,		/**< buffer configurations */
-	SPA_PARAM_Meta,			/**< allowed metadata for buffers */
-	SPA_PARAM_IO,			/**< configurable IO areas */
-	SPA_PARAM_EnumProfile,		/**< profile enumeration */
-	SPA_PARAM_Profile,		/**< profile configuration */
+	SPA_PARAM_List,			/**< available params as SPA_TYPE_OBJECT_ParamList */
+	SPA_PARAM_PropInfo,		/**< property information as SPA_TYPE_OBJECT_PropInfo */
+	SPA_PARAM_Props,		/**< properties as SPA_TYPE_OBJECT_Props */
+	SPA_PARAM_EnumFormat,		/**< available formats as SPA_TYPE_OBJECT_Format */
+	SPA_PARAM_Format,		/**< configured format as SPA_TYPE_OBJECT_Format */
+	SPA_PARAM_Buffers,		/**< buffer configurations as SPA_TYPE_OBJECT_ParamBuffers*/
+	SPA_PARAM_Meta,			/**< allowed metadata for buffers as SPA_TYPE_OBJECT_ParamMeta*/
+	SPA_PARAM_IO,			/**< configurable IO areas as SPA_TYPE_OBJECT_ParamIO */
+	SPA_PARAM_EnumProfile,		/**< profile enumeration as SPA_TYPE_OBJECT_ParamProfile */
+	SPA_PARAM_Profile,		/**< profile configuration as SPA_TYPE_OBJECT_ParamProfile */
 };
 
 /** Properties for SPA_TYPE_OBJECT_ParamList */
 enum spa_param_list {
 	SPA_PARAM_LIST_START,	/**< object id, one of enum spa_param_type */
-	SPA_PARAM_LIST_id,	/**< id of the supported list param */
+	SPA_PARAM_LIST_id,	/**< id of the supported list param (Id enum spa_param_type) */
 };
 
 /** properties for SPA_TYPE_OBJECT_ParamBuffers */
 enum spa_param_buffers {
 	SPA_PARAM_BUFFERS_START,	/**< object id, one of enum spa_param_type */
-	SPA_PARAM_BUFFERS_buffers,	/**< number of buffers */
-	SPA_PARAM_BUFFERS_blocks,	/**< number of data blocks per buffer */
-	SPA_PARAM_BUFFERS_size,		/**< size of a data block memory */
-	SPA_PARAM_BUFFERS_stride,	/**< stride of data block memory */
-	SPA_PARAM_BUFFERS_align,	/**< alignment of data block memory */
+	SPA_PARAM_BUFFERS_buffers,	/**< number of buffers (Int) */
+	SPA_PARAM_BUFFERS_blocks,	/**< number of data blocks per buffer (Int) */
+	SPA_PARAM_BUFFERS_size,		/**< size of a data block memory (Int)*/
+	SPA_PARAM_BUFFERS_stride,	/**< stride of data block memory (Int) */
+	SPA_PARAM_BUFFERS_align,	/**< alignment of data block memory (Int) */
 };
 
 /** properties for SPA_TYPE_OBJECT_ParamMeta */
 enum spa_param_meta {
 	SPA_PARAM_META_START,	/**< object id, one of enum spa_param_type */
-	SPA_PARAM_META_type,	/**< the metadata, one of enum spa_meta_type */
-	SPA_PARAM_META_size,	/**< the expected maximum size the meta */
+	SPA_PARAM_META_type,	/**< the metadata, one of enum spa_meta_type (Id enum spa_meta_type) */
+	SPA_PARAM_META_size,	/**< the expected maximum size the meta (Int) */
 };
 
 /** properties for SPA_TYPE_OBJECT_ParamIO */
 enum spa_param_io {
 	SPA_PARAM_IO_START,	/**< object id, one of enum spa_param_type */
-	SPA_PARAM_IO_id,	/**< type ID, uniquely identifies the io area */
-	SPA_PARAM_IO_size,	/**< size of the io area */
+	SPA_PARAM_IO_id,	/**< type ID, uniquely identifies the io area (Id enum spa_io_type) */
+	SPA_PARAM_IO_size,	/**< size of the io area (Int) */
 };
 
 /** properties for SPA_TYPE_OBJECT_ParamProfile */
 enum spa_param_profile {
 	SPA_PARAM_PROFILE_START,	/**< object id, one of enum spa_param_type */
-	SPA_PARAM_PROFILE_id,		/**< profile id */
-	SPA_PARAM_PROFILE_name,		/**< profile name */
-	SPA_PARAM_PROFILE_direction,	/**< direction, input/output */
-	SPA_PARAM_PROFILE_format,	/**< profile format specification */
+	SPA_PARAM_PROFILE_index,	/**< profile index (Int) */
+	SPA_PARAM_PROFILE_name,		/**< profile name (String) */
+	SPA_PARAM_PROFILE_direction,	/**< direction, input/output (Id enum spa_direction) */
+	SPA_PARAM_PROFILE_format,	/**< profile format specification (Object) */
 };
 
 #ifdef __cplusplus

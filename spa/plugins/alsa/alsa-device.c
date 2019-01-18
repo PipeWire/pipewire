@@ -308,13 +308,13 @@ static int impl_enum_params(struct spa_device *device,
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_id,   SPA_POD_Int(0),
+				SPA_PARAM_PROFILE_index,   SPA_POD_Int(0),
 				SPA_PARAM_PROFILE_name, SPA_POD_String("On"));
 			break;
 		case 1:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_id,   SPA_POD_Int(1),
+				SPA_PARAM_PROFILE_index,   SPA_POD_Int(1),
 				SPA_PARAM_PROFILE_name, SPA_POD_String("Off"));
 			break;
 		default:
@@ -328,7 +328,7 @@ static int impl_enum_params(struct spa_device *device,
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_id, SPA_POD_Int(this->profile));
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(this->profile));
 			break;
 		default:
 			return 0;
@@ -365,7 +365,7 @@ static int impl_set_param(struct spa_device *device,
 
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_id, SPA_POD_Int(&id))) < 0) {
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id))) < 0) {
 			spa_log_warn(this->log, "can't parse profile");
 			spa_debug_pod(0, NULL, param);
 			return res;

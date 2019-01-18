@@ -88,37 +88,37 @@ enum spa_media_subtype {
 enum spa_format {
 	SPA_FORMAT_START,		/**< id of the object, one of enum spa_param_type */
 
-	SPA_FORMAT_mediaType,		/**< one of enum spa_media_type */
-	SPA_FORMAT_mediaSubtype,	/**< one of enum spa_media_subtype */
+	SPA_FORMAT_mediaType,		/**< media type (Id enum spa_media_type) */
+	SPA_FORMAT_mediaSubtype,	/**< media subtype (Id enum spa_media_subtype) */
 
 	/* Audio format keys */
 	SPA_FORMAT_START_Audio,
-	SPA_FORMAT_AUDIO_format,	/**< audio format, one of enum spa_audio_format */
-	SPA_FORMAT_AUDIO_flags,
-	SPA_FORMAT_AUDIO_rate,
-	SPA_FORMAT_AUDIO_channels,	/**< number of audio channels */
-	SPA_FORMAT_AUDIO_position,	/**< channel positions one of enum spa_audio_position */
+	SPA_FORMAT_AUDIO_format,	/**< audio format, (Id enum spa_audio_format) */
+	SPA_FORMAT_AUDIO_flags,		/**< optional flags (Int) */
+	SPA_FORMAT_AUDIO_rate,		/**< sample rate (Int) */
+	SPA_FORMAT_AUDIO_channels,	/**< number of audio channels (Int) */
+	SPA_FORMAT_AUDIO_position,	/**< channel positions (Id enum spa_audio_position) */
 
 	/* Video Format keys */
 	SPA_FORMAT_START_Video = 0x10000,
-	SPA_FORMAT_VIDEO_format,
-	SPA_FORMAT_VIDEO_size,
-	SPA_FORMAT_VIDEO_framerate,
-	SPA_FORMAT_VIDEO_maxFramerate,
-	SPA_FORMAT_VIDEO_views,
-	SPA_FORMAT_VIDEO_interlaceMode,
-	SPA_FORMAT_VIDEO_pixelAspectRatio,
-	SPA_FORMAT_VIDEO_multiviewMode,
-	SPA_FORMAT_VIDEO_multiviewFlags,
-	SPA_FORMAT_VIDEO_chromaSite,
-	SPA_FORMAT_VIDEO_colorRange,
-	SPA_FORMAT_VIDEO_colorMatrix,
-	SPA_FORMAT_VIDEO_transferFunction,
-	SPA_FORMAT_VIDEO_colorPrimaries,
-	SPA_FORMAT_VIDEO_profile,
-	SPA_FORMAT_VIDEO_level,
-	SPA_FORMAT_VIDEO_streamFormat,
-	SPA_FORMAT_VIDEO_alignment,
+	SPA_FORMAT_VIDEO_format,		/**< video format (Id enum spa_video_format) */
+	SPA_FORMAT_VIDEO_size,			/**< size (Rectangle) */
+	SPA_FORMAT_VIDEO_framerate,		/**< frame rate (Fraction) */
+	SPA_FORMAT_VIDEO_maxFramerate,		/**< miximum frame rate (Fraction) */
+	SPA_FORMAT_VIDEO_views,			/**< number of views (Int) */
+	SPA_FORMAT_VIDEO_interlaceMode,		/**< (Id enum spa_video_interlace_mode) */
+	SPA_FORMAT_VIDEO_pixelAspectRatio,	/**< (Rectangle) */
+	SPA_FORMAT_VIDEO_multiviewMode,		/**< (Id enum spa_video_multiview_mode) */
+	SPA_FORMAT_VIDEO_multiviewFlags,	/**< (Id enum spa_video_multiview_flags) */
+	SPA_FORMAT_VIDEO_chromaSite,		/**< /Id enum spa_video_chroma_site) */
+	SPA_FORMAT_VIDEO_colorRange,		/**< /Id enum spa_video_color_range) */
+	SPA_FORMAT_VIDEO_colorMatrix,		/**< /Id enum spa_video_color_matrix) */
+	SPA_FORMAT_VIDEO_transferFunction,	/**< /Id enum spa_video_transfer_function) */
+	SPA_FORMAT_VIDEO_colorPrimaries,	/**< /Id enum spa_video_color_primaries) */
+	SPA_FORMAT_VIDEO_profile,		/**< (Int) */
+	SPA_FORMAT_VIDEO_level,			/**< (Int) */
+	SPA_FORMAT_VIDEO_H264_streamFormat,	/**< (Id enum spa_h264_stream_format) */
+	SPA_FORMAT_VIDEO_H264_alignment,	/**< (Id enum spa_h264_alignment) */
 
 	/* Image Format keys */
 	SPA_FORMAT_START_Image = 0x20000,

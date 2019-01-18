@@ -75,11 +75,11 @@ spa_format_video_h264_parse(const struct spa_pod *format,
 {
 	return spa_pod_parse_object(format,
 			SPA_TYPE_OBJECT_Format, NULL,
-			SPA_FORMAT_VIDEO_size,		SPA_POD_OPT_Rectangle(&info->size),
-			SPA_FORMAT_VIDEO_framerate,	SPA_POD_OPT_Fraction(&info->framerate),
-			SPA_FORMAT_VIDEO_maxFramerate,	SPA_POD_OPT_Fraction(&info->max_framerate),
-			SPA_FORMAT_VIDEO_streamFormat,	SPA_POD_OPT_Id(&info->stream_format),
-			SPA_FORMAT_VIDEO_alignment,	SPA_POD_OPT_Id(&info->alignment));
+			SPA_FORMAT_VIDEO_size,			SPA_POD_OPT_Rectangle(&info->size),
+			SPA_FORMAT_VIDEO_framerate,		SPA_POD_OPT_Fraction(&info->framerate),
+			SPA_FORMAT_VIDEO_maxFramerate,		SPA_POD_OPT_Fraction(&info->max_framerate),
+			SPA_FORMAT_VIDEO_H264_streamFormat,	SPA_POD_OPT_Id(&info->stream_format),
+			SPA_FORMAT_VIDEO_H264_alignment,	SPA_POD_OPT_Id(&info->alignment));
 }
 
 static inline int

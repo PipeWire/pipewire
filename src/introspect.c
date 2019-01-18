@@ -120,8 +120,8 @@ static void device_event_param(void *object,
 
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_id,   SPA_POD_Int(&id),
-				SPA_PARAM_PROFILE_name, SPA_POD_String(&name)) < 0) {
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
+				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name)) < 0) {
 			pw_log_warn("device %d: can't parse profile", g->id);
 			return;
 		}
@@ -134,7 +134,7 @@ static void device_event_param(void *object,
 		uint32_t id;
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_id, SPA_POD_Int(&id)) < 0) {
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id)) < 0) {
 			pw_log_warn("device %d: can't parse profile", g->id);
 			return;
 		}
@@ -1261,8 +1261,8 @@ static void card_callback(struct card_data *d)
 
 		if (spa_pod_parse_object(profiles[j],
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_id,   SPA_POD_Int(&id),
-				SPA_PARAM_PROFILE_name, SPA_POD_String(&name)) < 0) {
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
+				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name)) < 0) {
 			pw_log_warn("device %d: can't parse profile %d", g->id, j);
 			continue;
 		}
@@ -1415,8 +1415,8 @@ static void card_profile(pa_operation *o, void *userdata)
 
 		if (spa_pod_parse_object(profiles[i],
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_id,   SPA_POD_Int(&test_id),
-				SPA_PARAM_PROFILE_name, SPA_POD_String(&name)) < 0) {
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&test_id),
+				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name)) < 0) {
 			pw_log_warn("device %d: can't parse profile %zd", g->id, i);
 			continue;
 		}
@@ -1432,7 +1432,7 @@ static void card_profile(pa_operation *o, void *userdata)
 			SPA_PARAM_Profile, 0,
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-				SPA_PARAM_PROFILE_id,	SPA_POD_Int(id)));
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(id)));
 	res = 1;
 done:
 	if (d->success_cb)

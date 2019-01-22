@@ -727,9 +727,9 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 			spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamBuffers, NULL,
+				SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&qmax_buffers),
 				SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&qminsize),
-				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(&qstride),
-				SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&qmax_buffers));
+				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(&qstride));
 
 			max_buffers =
 			    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,

@@ -344,12 +344,13 @@ static int port_enum_formats(struct spa_node *node,
 		}
 		else if (other->have_format) {
 			struct spa_audio_info info;
+			struct spa_pod_frame f;
 
 			info = other->format;
 
 			qsort(info.info.raw.position, info.info.raw.channels, sizeof(uint32_t), int32_cmp);
 
-			spa_pod_builder_push_object(builder,
+			spa_pod_builder_push_object(builder, &f,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 			spa_pod_builder_add(builder,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
@@ -367,7 +368,7 @@ static int port_enum_formats(struct spa_node *node,
 		                spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id,
 						info.info.raw.channels, info.info.raw.position);
 			}
-			*param = spa_pod_builder_pop(builder);
+			*param = spa_pod_builder_pop(builder, &f);
 		} else {
 			*param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,

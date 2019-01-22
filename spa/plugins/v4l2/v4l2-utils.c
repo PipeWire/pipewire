@@ -402,12 +402,12 @@ enum_filter_format(uint32_t media_type, int32_t media_subtype,
 	case SPA_MEDIA_TYPE_video:
 	case SPA_MEDIA_TYPE_image:
 		if (media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-			struct spa_pod_prop *p;
+			const struct spa_pod_prop *p;
 			const struct spa_pod *val;
 			uint32_t n_values, choice;
 			const uint32_t *values;
 
-			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_format)))
+			if (!(p = spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_format)))
 				return SPA_VIDEO_FORMAT_UNKNOWN;
 
 			val = spa_pod_get_values(&p->value, &n_values, &choice);
@@ -532,6 +532,7 @@ spa_v4l2_enum_format(struct impl *this,
 	struct spa_pod_choice *choice;
 	uint32_t filter_media_type, filter_media_subtype, video_format;
 	struct spa_v4l2_device *dev = &port->dev;
+	struct spa_pod_frame f[2];
 
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
@@ -592,12 +593,12 @@ spa_v4l2_enum_format(struct impl *this,
       next_frmsize:
 	while (port->next_frmsize) {
 		if (filter) {
-			struct spa_pod_prop *p;
+			const struct spa_pod_prop *p;
 			struct spa_pod *val;
 			uint32_t n_vals, choice;
 
 			/* check if we have a fixed frame size */
-			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_size)))
+			if (!(p = spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_size)))
 				goto do_frmsize;
 
 			val = spa_pod_get_values(&p->value, &n_vals, &choice);
@@ -626,13 +627,13 @@ spa_v4l2_enum_format(struct impl *this,
 			goto exit;
 		}
 		if (filter) {
-			struct spa_pod_prop *p;
+			const struct spa_pod_prop *p;
 			struct spa_pod *val;
 			const struct spa_rectangle step = { 1, 1 }, *values;
 			uint32_t choice, i, n_values;
 
 			/* check if we have a fixed frame size */
-			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_size)))
+			if (!(p = spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_size)))
 				goto have_size;
 
 			val = spa_pod_get_values(&p->value, &n_values, &choice);
@@ -680,7 +681,7 @@ spa_v4l2_enum_format(struct impl *this,
 		}
 	}
 
-	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_push_object(builder, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_add(builder,
 			SPA_FORMAT_mediaType,    SPA_POD_Id(info->media_type),
 			SPA_FORMAT_mediaSubtype, SPA_POD_Id(info->media_subtype),
@@ -697,8 +698,8 @@ spa_v4l2_enum_format(struct impl *this,
 
 	n_fractions = 0;
 
-	choice = spa_pod_builder_deref(builder,
-		spa_pod_builder_push_choice(builder, SPA_CHOICE_None, 0));
+	spa_pod_builder_push_choice(builder, &f[1], SPA_CHOICE_None, 0);
+	choice = (struct spa_pod_choice*)spa_pod_builder_frame(builder, &f[1]);
 	port->frmival.index = 0;
 
 	while (true) {
@@ -715,12 +716,12 @@ spa_v4l2_enum_format(struct impl *this,
 			goto exit;
 		}
 		if (filter) {
-			struct spa_pod_prop *p;
+			const struct spa_pod_prop *p;
 			struct spa_pod *val;
 			uint32_t i, n_values, choice;
 			const struct spa_fraction step = { 1, 1 }, *values;
 
-			if (!(p = spa_pod_find_prop(filter, SPA_FORMAT_VIDEO_framerate)))
+			if (!(p = spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_framerate)))
 				goto have_framerate;
 
 			val = spa_pod_get_values(&p->value, &n_values, &choice);
@@ -800,8 +801,8 @@ spa_v4l2_enum_format(struct impl *this,
 	if (n_fractions <= 1)
 		choice->body.type = SPA_CHOICE_None;
 
-	spa_pod_builder_pop(builder);
-	*result = spa_pod_builder_pop(builder);
+	spa_pod_builder_pop(builder, &f[1]);
+	*result = spa_pod_builder_pop(builder, &f[0]);
 
 	(*index)++;
 
@@ -1009,6 +1010,7 @@ spa_v4l2_enum_controls(struct impl *this,
 	uint8_t buffer[1024];
 	int res;
         const unsigned next_fl = V4L2_CTRL_FLAG_NEXT_CTRL | V4L2_CTRL_FLAG_NEXT_COMPOUND;
+	struct spa_pod_frame f[2];
 
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
@@ -1091,7 +1093,7 @@ spa_v4l2_enum_controls(struct impl *this,
 	{
 		struct v4l2_querymenu querymenu;
 
-		spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
+		spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
 		spa_pod_builder_add(&b,
 			SPA_PROP_INFO_id,    SPA_POD_Id(prop_id),
 			SPA_PROP_INFO_type,  SPA_POD_CHOICE_ENUM_Int(1, queryctrl.default_value),
@@ -1102,7 +1104,7 @@ spa_v4l2_enum_controls(struct impl *this,
 		querymenu.id = queryctrl.id;
 
 		spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
-		spa_pod_builder_push_struct(&b);
+		spa_pod_builder_push_struct(&b, &f[1]);
 		for (querymenu.index = queryctrl.minimum;
 		    querymenu.index <= queryctrl.maximum;
 		    querymenu.index++) {
@@ -1111,8 +1113,8 @@ spa_v4l2_enum_controls(struct impl *this,
 				spa_pod_builder_string(&b, (const char *)querymenu.name);
 			}
 		}
-		spa_pod_builder_pop(&b);
-		param = spa_pod_builder_pop(&b);
+		spa_pod_builder_pop(&b, &f[1]);
+		param = spa_pod_builder_pop(&b, &f[0]);
 		break;
 	}
 	case V4L2_CTRL_TYPE_INTEGER_MENU:

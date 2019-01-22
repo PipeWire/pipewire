@@ -198,27 +198,28 @@ static void update_props(struct data *data)
 {
 	struct spa_pod_builder b;
 	struct spa_pod *pod;
+	struct spa_pod_frame f[2];
 
 	spa_pod_builder_init(&b, data->ctrl, sizeof(data->ctrl));
 
 #if 0
-	spa_pod_builder_push_sequence(&b, 0);
+	spa_pod_builder_push_sequence(&b, &f[0], 0);
 	spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
-	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, 0);
+	spa_pod_builder_push_object(&b, &f[1], SPA_TYPE_OBJECT_Props, 0);
 	spa_pod_builder_prop(&b, SPA_PROP_frequency, 0);
 	spa_pod_builder_float(&b, ((sin(data->freq_accum) + 1.0) * 200.0) + 440.0);
 	spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
 	spa_pod_builder_float(&b, (sin(data->volume_accum) / 2.0) + 0.5);
-	spa_pod_builder_pop(&b);
-	pod = spa_pod_builder_pop(&b);
+	spa_pod_builder_pop(&b, &f[1]);
+	pod = spa_pod_builder_pop(&b, &f[0]);
 #else
-	spa_pod_builder_push_sequence(&b, 0);
+	spa_pod_builder_push_sequence(&b, &f[0], 0);
 	spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
 	spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
 		SPA_PROP_frequency, SPA_POD_Float(((sin(data->freq_accum) + 1.0) * 200.0) + 440.0),
 		SPA_PROP_volume,    SPA_POD_Float((sin(data->volume_accum) / 2.0) + 0.5));
-	pod = spa_pod_builder_pop(&b);
+	pod = spa_pod_builder_pop(&b, &f[0]);
 #endif
 
 	spa_debug_pod(0, NULL, pod);
@@ -386,9 +387,10 @@ static int negotiate_formats(struct data *data)
 					     filter, &format, &b)) <= 0)
 		return -EBADF;
 
-	spa_debug_pod(0, NULL, format);
-
 	spa_log_debug(&default_log.log, "sink set_param");
+	spa_debug_pod(0, NULL, format);
+	spa_pod_fixate(format);
+
 	if ((res = spa_node_port_set_param(data->sink,
 					   SPA_DIRECTION_INPUT, 0,
 					   SPA_PARAM_Format, 0, format)) < 0)
@@ -527,11 +529,11 @@ int main(int argc, char *argv[])
 	data.n_support = 3;
 
 	if ((res = make_nodes(&data, argc > 1 ? argv[1] : NULL)) < 0) {
-		printf("can't make nodes: %d\n", res);
+		printf("can't make nodes: %d (%s)\n", res, spa_strerror(res));
 		return -1;
 	}
 	if ((res = negotiate_formats(&data)) < 0) {
-		printf("can't negotiate nodes: %d\n", res);
+		printf("can't negotiate nodes: %d (%s)\n", res, spa_strerror(res));
 		return -1;
 	}
 

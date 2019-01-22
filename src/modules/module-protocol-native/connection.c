@@ -352,19 +352,21 @@ static inline void *begin_write(struct pw_protocol_native_connection *conn, uint
 	return p + 2;
 }
 
-static uint32_t write_pod(struct spa_pod_builder *b, const void *data, uint32_t size)
+static int builder_overflow(void *callbacks_data, uint32_t size)
 {
-	struct impl *impl = SPA_CONTAINER_OF(b, struct impl, builder);
-	uint32_t ref = b->state.offset;
+	struct impl *impl = callbacks_data;
+	struct spa_pod_builder *b = &impl->builder;
 
-        if (b->size <= ref) {
-                b->size = SPA_ROUND_UP_N(ref + size, 4096);
-                b->data = begin_write(&impl->this, b->size);
-        }
-        memcpy(SPA_MEMBER(b->data, ref, void), data, size);
-
-        return ref;
+	b->size = SPA_ROUND_UP_N(size, 4096);
+	if ((b->data = begin_write(&impl->this, b->size)) == NULL)
+		return -ENOMEM;
+        return 0;
 }
+
+static const struct spa_pod_builder_callbacks builder_callbacks = {
+	SPA_VERSION_POD_BUILDER_CALLBACKS,
+	.overflow = builder_overflow
+};
 
 struct spa_pod_builder *
 pw_protocol_native_connection_begin_resource(struct pw_protocol_native_connection *conn,
@@ -375,8 +377,9 @@ pw_protocol_native_connection_begin_resource(struct pw_protocol_native_connectio
 
 	impl->dest_id = resource->id;
 	impl->opcode = opcode;
-	impl->builder = (struct spa_pod_builder) { NULL, 0, 0, write_pod };
-
+	impl->builder = SPA_POD_BUILDER_INIT(NULL, 0);
+	impl->builder.callbacks = &builder_callbacks;
+	impl->builder.callbacks_data = impl;
 	return &impl->builder;
 }
 
@@ -389,8 +392,9 @@ pw_protocol_native_connection_begin_proxy(struct pw_protocol_native_connection *
 
 	impl->dest_id = proxy->id;
 	impl->opcode = opcode;
-	impl->builder = (struct spa_pod_builder) { NULL, 0, 0, write_pod, };
-
+	impl->builder = SPA_POD_BUILDER_INIT(NULL, 0);
+	impl->builder.callbacks = &builder_callbacks;
+	impl->builder.callbacks_data = impl;
 	return &impl->builder;
 }
 

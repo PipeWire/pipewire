@@ -648,18 +648,19 @@ static int process_notify(struct stream *impl, struct spa_pod_sequence *sequence
 {
 	struct spa_pod_builder b = { 0 };
 	bool changed;
+	struct spa_pod_frame f[2];
 
         spa_pod_builder_init(&b, impl->io_notify, impl->io_notify_size);
-	spa_pod_builder_push_sequence(&b, 0);
+	spa_pod_builder_push_sequence(&b, &f[0], 0);
 	if ((changed = impl->props.changed)) {
 		spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
-		spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+		spa_pod_builder_push_object(&b, &f[1], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 		spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
 		spa_pod_builder_float(&b, impl->props.volume);
-		spa_pod_builder_pop(&b);
+		spa_pod_builder_pop(&b, &f[1]);
 		impl->props.changed = false;
 	}
-	spa_pod_builder_pop(&b);
+	spa_pod_builder_pop(&b, &f[0]);
 
 	if (changed && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_pod(2, NULL, &impl->io_notify->sequence.pod);

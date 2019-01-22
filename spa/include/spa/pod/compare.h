@@ -142,14 +142,16 @@ static inline int spa_pod_compare(const struct spa_pod *pod1,
 		o1 = (const struct spa_pod_object*)pod1;
 		o2 = (const struct spa_pod_object*)pod2;
 
+		p2 = NULL;
 		SPA_POD_OBJECT_FOREACH(o1, p1) {
-			if ((p2 = spa_pod_object_find_prop(o2, p1->key)) == NULL)
+			if ((p2 = spa_pod_object_find_prop(o2, p2, p1->key)) == NULL)
 				return 1;
 			if ((res = spa_pod_compare(&p1->value, &p2->value)) != 0)
 				return res;
 		}
+		p1 = NULL;
 		SPA_POD_OBJECT_FOREACH(o2, p2) {
-			if ((p1 = spa_pod_object_find_prop(o1, p2->key)) == NULL)
+			if ((p1 = spa_pod_object_find_prop(o1, p1, p2->key)) == NULL)
 				return -1;
 		}
 		break;

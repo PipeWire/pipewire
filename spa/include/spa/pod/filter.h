@@ -96,6 +96,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	uint32_t j, k, nalt1, nalt2;
 	void *alt1, *alt2, *a1, *a2;
 	uint32_t type, size, p1c, p2c;
+	struct spa_pod_frame f;
 
 	v1 = spa_pod_get_values(&p1->value, &nalt1, &p1c);
 	alt1 = SPA_POD_BODY(v1);
@@ -125,7 +126,8 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 
 	/* start with copying the property */
 	spa_pod_builder_prop(b, p1->key, 0);
-	nc = (struct spa_pod_choice*)spa_pod_builder_deref(b, spa_pod_builder_push_choice(b, 0, 0));
+	spa_pod_builder_push_choice(b, &f, 0, 0);
+	nc = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f);
 
 	/* default value */
 	spa_pod_builder_primitive(b, v1);
@@ -241,7 +243,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Flags)
 		return -ENOTSUP;
 
-	spa_pod_builder_pop(b);
+	spa_pod_builder_pop(b, &f);
 	spa_pod_choice_fix_default(nc);
 
 	return 0;
@@ -259,20 +261,22 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 	SPA_POD_FOREACH(pod, pod_size, pp) {
 		bool do_copy = false, do_advance = false;
 		uint32_t filter_offset = 0;
+		struct spa_pod_frame f;
 
 		switch (SPA_POD_TYPE(pp)) {
 		case SPA_TYPE_Object:
 			if (pf != NULL) {
 				struct spa_pod_object *op = (struct spa_pod_object *) pp;
 				struct spa_pod_object *of = (struct spa_pod_object *) pf;
-				struct spa_pod_prop *p1, *p2;
+				const struct spa_pod_prop *p1, *p2;
 
 				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE(pp))
 					return -EINVAL;
 
-				spa_pod_builder_push_object(b, op->body.type, op->body.id);
+				spa_pod_builder_push_object(b, &f, op->body.type, op->body.id);
+				p2 = NULL;
 				SPA_POD_OBJECT_FOREACH(op, p1) {
-					p2 = spa_pod_object_find_prop(of, p1->key);
+					p2 = spa_pod_object_find_prop(of, p2, p1->key);
 					if (p2 != NULL)
 						res = spa_pod_filter_prop(b, p1, p2);
 					else
@@ -281,15 +285,16 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 						break;
 				}
 				if (res >= 0) {
+					p1 = NULL;
 					SPA_POD_OBJECT_FOREACH(of, p2) {
-						p1 = spa_pod_object_find_prop(op, p2->key);
+						p1 = spa_pod_object_find_prop(op, p1, p2->key);
 						if (p1 != NULL)
 							continue;
 
 						spa_pod_builder_raw_padded(b, p2, SPA_POD_PROP_SIZE(p2));
 					}
 				}
-				spa_pod_builder_pop(b);
+				spa_pod_builder_pop(b, &f);
 				do_advance = true;
 			}
 			else
@@ -302,13 +307,13 @@ static inline int spa_pod_filter_part(struct spa_pod_builder *b,
 					return -EINVAL;
 
 				filter_offset = sizeof(struct spa_pod_struct);
-				spa_pod_builder_push_struct(b);
+				spa_pod_builder_push_struct(b, &f);
 				res = spa_pod_filter_part(b,
 					SPA_MEMBER(pp,filter_offset,const struct spa_pod),
 					SPA_POD_SIZE(pp) - filter_offset,
 					SPA_MEMBER(pf,filter_offset,const struct spa_pod),
 					SPA_POD_SIZE(pf) - filter_offset);
-			        spa_pod_builder_pop(b);
+			        spa_pod_builder_pop(b, &f);
 				do_advance = true;
 			}
 			else
@@ -352,16 +357,17 @@ spa_pod_filter(struct spa_pod_builder *b,
         spa_return_val_if_fail(b != NULL, -EINVAL);
 
 	if (filter == NULL) {
-		*result = (struct spa_pod*)spa_pod_builder_deref(b,
-			spa_pod_builder_raw_padded(b, pod, SPA_POD_SIZE(pod)));
+		spa_pod_builder_raw_padded(b, pod, SPA_POD_SIZE(pod));
+		*result = (struct spa_pod*)b->data;
 		return 0;
 	}
 
 	spa_pod_builder_get_state(b, &state);
-	if ((res = spa_pod_filter_part(b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter))) < 0)
+	if ((res = spa_pod_filter_part(b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter))) < 0) {
 		spa_pod_builder_reset(b, &state);
+	}
 	else
-		*result = (struct spa_pod*)spa_pod_builder_deref(b, state.offset);
+		*result = (struct spa_pod*)spa_pod_builder_deref(b, state.offset, b->size);
 
 	return res;
 }

@@ -30,39 +30,15 @@ extern "C" {
 #endif
 
 #include <errno.h>
-#include <stdarg.h>
 
 #include <spa/pod/pod.h>
 
-struct spa_pod_iter {
-	const void *data;
-	uint32_t size;
+struct spa_pod_frame {
+	struct spa_pod pod;
+	struct spa_pod_frame *parent;
 	uint32_t offset;
+	uint32_t flags;
 };
-
-static inline void spa_pod_iter_init(struct spa_pod_iter *iter,
-				     const void *data, uint32_t size, uint32_t offset)
-{
-	iter->data = data;
-	iter->size = size;
-	iter->offset = offset;
-}
-
-static inline struct spa_pod *spa_pod_iter_current(struct spa_pod_iter *iter)
-{
-	if (iter->offset + 8 <= iter->size) {
-		struct spa_pod *pod = SPA_MEMBER(iter->data, iter->offset, struct spa_pod);
-		if (SPA_POD_SIZE(pod) <= iter->size)
-			return pod;
-	}
-	return NULL;
-}
-
-static inline void spa_pod_iter_advance(struct spa_pod_iter *iter, struct spa_pod *current)
-{
-	if (current)
-		iter->offset += SPA_ROUND_UP_N(SPA_POD_SIZE(current), 8);
-}
 
 static inline bool spa_pod_is_inside(const void *pod, uint32_t size, const void *iter)
 {
@@ -80,10 +56,11 @@ static inline struct spa_pod_prop *spa_pod_prop_first(const struct spa_pod_objec
 	return SPA_MEMBER(body, sizeof(struct spa_pod_object_body), struct spa_pod_prop);
 }
 
-static inline bool spa_pod_prop_is_inside(const void *pod, uint32_t size, const struct spa_pod_prop *iter)
+static inline bool spa_pod_prop_is_inside(const struct spa_pod_object_body *body,
+		uint32_t size, const struct spa_pod_prop *iter)
 {
-	return SPA_POD_CONTENTS(struct spa_pod_prop, iter) <= SPA_MEMBER(pod, size, void) &&
-		SPA_MEMBER(iter, SPA_POD_PROP_SIZE(iter), void) <= SPA_MEMBER(pod, size, void);
+	return SPA_POD_CONTENTS(struct spa_pod_prop, iter) <= SPA_MEMBER(body, size, void) &&
+		SPA_MEMBER(iter, SPA_POD_PROP_SIZE(iter), void) <= SPA_MEMBER(body, size, void);
 }
 
 static inline struct spa_pod_prop *spa_pod_prop_next(const struct spa_pod_prop *iter)
@@ -96,10 +73,11 @@ static inline struct spa_pod_control *spa_pod_control_first(const struct spa_pod
 	return SPA_MEMBER(body, sizeof(struct spa_pod_sequence_body), struct spa_pod_control);
 }
 
-static inline bool spa_pod_control_is_inside(const void *pod, uint32_t size, const struct spa_pod_control *iter)
+static inline bool spa_pod_control_is_inside(const struct spa_pod_sequence_body *body,
+		uint32_t size, const struct spa_pod_control *iter)
 {
-	return SPA_POD_CONTENTS(struct spa_pod_control, iter) <= SPA_MEMBER(pod, size, void) &&
-		SPA_MEMBER(iter, SPA_POD_CONTROL_SIZE(iter), void) <= SPA_MEMBER(pod, size, void);
+	return SPA_POD_CONTENTS(struct spa_pod_control, iter) <= SPA_MEMBER(body, size, void) &&
+		SPA_MEMBER(iter, SPA_POD_CONTROL_SIZE(iter), void) <= SPA_MEMBER(body, size, void);
 }
 
 static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_control *iter)
@@ -327,6 +305,12 @@ static inline int spa_pod_get_fraction(const struct spa_pod *pod, struct spa_fra
 	return 0;
 }
 
+static inline int spa_pod_is_bitmap(const struct spa_pod *pod)
+{
+	return (SPA_POD_TYPE(pod) == SPA_TYPE_Bitmap &&
+			SPA_POD_BODY_SIZE(pod) >= sizeof(uint8_t));
+}
+
 static inline int spa_pod_is_array(const struct spa_pod *pod)
 {
 	return (SPA_POD_TYPE(pod) == SPA_TYPE_Array &&
@@ -381,21 +365,32 @@ static inline int spa_pod_is_sequence(const struct spa_pod *pod)
 			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_pod_sequence_body));
 }
 
-static inline struct spa_pod_prop *spa_pod_object_find_prop(const struct spa_pod_object *pod, uint32_t key)
+static inline const struct spa_pod_prop *spa_pod_object_find_prop(const struct spa_pod_object *pod,
+		const struct spa_pod_prop *start, uint32_t key)
 {
-	struct spa_pod_prop *res;
-	SPA_POD_OBJECT_FOREACH(pod, res) {
+	const struct spa_pod_prop *first, *res;
+
+	first = spa_pod_prop_first(&pod->body);
+	start = start ? spa_pod_prop_next(start) : first;
+
+	for (res = start; spa_pod_prop_is_inside(&pod->body, pod->pod.size, res);
+	     res = spa_pod_prop_next(res)) {
+		if (res->key == key)
+			return res;
+	}
+	for (res = first; res != start; res = spa_pod_prop_next(res)) {
 		if (res->key == key)
 			return res;
 	}
 	return NULL;
 }
 
-static inline struct spa_pod_prop *spa_pod_find_prop(const struct spa_pod *pod, uint32_t key)
+static inline const struct spa_pod_prop *spa_pod_find_prop(const struct spa_pod *pod,
+		const struct spa_pod_prop *start, uint32_t key)
 {
 	if (!spa_pod_is_object(pod))
 		return NULL;
-	return spa_pod_object_find_prop((const struct spa_pod_object *)pod, key);
+	return spa_pod_object_find_prop((const struct spa_pod_object *)pod, start, key);
 }
 
 static inline int spa_pod_object_fixate(struct spa_pod_object *pod)

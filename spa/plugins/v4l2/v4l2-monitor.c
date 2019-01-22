@@ -84,6 +84,7 @@ static void fill_item(struct impl *this, struct udev_device *dev,
 		struct spa_pod **result, struct spa_pod_builder *builder)
 {
 	const char *str, *name;
+	struct spa_pod_frame f[2];
 
 	name = udev_device_get_property_value(dev, "ID_V4L_PRODUCT");
 	if (!(name && *name)) {
@@ -98,7 +99,7 @@ static void fill_item(struct impl *this, struct udev_device *dev,
 	if (!(name && *name))
 		name = "Unknown";
 
-	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_MonitorItem, 0);
+	spa_pod_builder_push_object(builder, &f[0], SPA_TYPE_OBJECT_MonitorItem, 0);
 	spa_pod_builder_add(builder,
 		SPA_MONITOR_ITEM_id,      SPA_POD_String(udev_device_get_syspath(dev)),
 		SPA_MONITOR_ITEM_flags,   SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
@@ -110,7 +111,7 @@ static void fill_item(struct impl *this, struct udev_device *dev,
 		0);
 
 	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);
-	spa_pod_builder_push_struct(builder);
+	spa_pod_builder_push_struct(builder, &f[1]);
 	add_dict(builder, "udev-probed", "1");
 	add_dict(builder, "device.path", udev_device_get_devnode(dev));
 
@@ -159,8 +160,8 @@ static void fill_item(struct impl *this, struct udev_device *dev,
 		add_dict(builder, "device.capabilities", str);
 	}
 
-	spa_pod_builder_pop(builder);
-	*result = spa_pod_builder_pop(builder);
+	spa_pod_builder_pop(builder, &f[1]);
+	*result = spa_pod_builder_pop(builder, &f[0]);
 }
 
 static int emit_device(struct impl *this, uint32_t id, struct udev_device *dev)

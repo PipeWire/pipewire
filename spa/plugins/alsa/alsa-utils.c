@@ -236,6 +236,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	struct spa_pod *fmt;
 	int res;
 	bool opened;
+	struct spa_pod_frame f[2];
 
 	opened = state->opened;
 	if ((err = spa_alsa_open(state)) < 0)
@@ -248,7 +249,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	snd_pcm_hw_params_alloca(&params);
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
 
-	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_add(&b,
 			SPA_FORMAT_mediaType,    SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
@@ -262,8 +263,8 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 
 	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_format, 0);
 
-	choice = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0));
+	spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
+	choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b, &f[1]);
 
 	for (i = 1, j = 0; i < SPA_N_ELEMENTS(format_info); i++) {
 		const struct format_info *fi = &format_info[i];
@@ -284,7 +285,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	}
 	if (j > 1)
 		choice->body.type = SPA_CHOICE_Enum;
-	spa_pod_builder_pop(&b);
+	spa_pod_builder_pop(&b, &f[1]);
 
 
 	CHECK(snd_pcm_hw_params_get_rate_min(params, &min, &dir), "get_rate_min");
@@ -292,8 +293,8 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 
 	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_rate, 0);
 
-	choice = spa_pod_builder_deref(&b,
-		spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0));
+	spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
+	choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b, &f[1]);
 
 	spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_RATE, min, max));
 	if (min != max) {
@@ -301,7 +302,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 		spa_pod_builder_int(&b, max);
 		choice->body.type = SPA_CHOICE_Range;
 	}
-	spa_pod_builder_pop(&b);
+	spa_pod_builder_pop(&b, &f[1]);
 
 	CHECK(snd_pcm_hw_params_get_channels_min(params, &min), "get_channels_min");
 	CHECK(snd_pcm_hw_params_get_channels_max(params, &max), "get_channels_max");
@@ -323,13 +324,13 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 		spa_pod_builder_int(&b, map->channels);
 
 		spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_position, 0);
-		spa_pod_builder_push_array(&b);
+		spa_pod_builder_push_array(&b, &f[1]);
 		for (j = 0; j < map->channels; j++) {
 			spa_log_debug(state->log, "position %zd %d", j, map->pos[j]);
 			channel = chmap_position_to_channel(map->pos[j]);
 			spa_pod_builder_id(&b, channel);
 		}
-		spa_pod_builder_pop(&b);
+		spa_pod_builder_pop(&b, &f[1]);
 
 		snd_pcm_free_chmaps(maps);
 	}
@@ -339,18 +340,18 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 			goto exit;
 		}
 
-		choice = spa_pod_builder_deref(&b,
-			spa_pod_builder_push_choice(&b, SPA_CHOICE_None, 0));
+		spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
+		choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b, &f[1]);
 		spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_CHANNELS, min, max));
 		if (min != max) {
 			spa_pod_builder_int(&b, min);
 			spa_pod_builder_int(&b, max);
 			choice->body.type = SPA_CHOICE_Range;
 		}
-		spa_pod_builder_pop(&b);
+		spa_pod_builder_pop(&b, &f[1]);
 	}
 
-	fmt = spa_pod_builder_pop(&b);
+	fmt = spa_pod_builder_pop(&b, &f[0]);
 
 	(*index)++;
 
@@ -395,8 +396,10 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	/* set the sample format */
 	format = spa_format_to_alsa(info->format);
-	if (format == SND_PCM_FORMAT_UNKNOWN)
+	if (format == SND_PCM_FORMAT_UNKNOWN) {
+		spa_log_warn(state->log, "unknown format %u", info->format);
 		return -EINVAL;
+	}
 
 	spa_log_info(state->log, "Stream parameters are %iHz, %s, %i channels", info->rate, snd_pcm_format_name(format),
 		     info->channels);

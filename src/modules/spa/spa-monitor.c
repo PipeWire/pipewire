@@ -102,12 +102,15 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 
 	if (info) {
 		struct spa_pod_parser prs;
+		struct spa_pod_frame f;
 
 		spa_pod_parser_pod(&prs, info);
-		if (spa_pod_parser_get(&prs, "[", NULL) == 0) {
+		if (spa_pod_parser_push_struct(&prs, &f) == 0) {
 			while (true) {
 				const char *key, *val;
-				if (spa_pod_parser_get(&prs, "ss", &key, &val, NULL) < 0)
+				if (spa_pod_parser_get(&prs,
+						SPA_POD_String(&key),
+						SPA_POD_String(&val), NULL) < 0)
 					break;
 				pw_properties_set(props, key, val);
 			}

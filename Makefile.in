@@ -25,6 +25,9 @@ valgrind:
 test: all
 	ninja -C build test
 
+benchmark: all
+	ninja -C build benchmark
+
 monitor: all
 	SPA_PLUGIN_DIR=build/spa/plugins \
 	PIPEWIRE_MODULE_DIR=build/src/modules/ \

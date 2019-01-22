@@ -146,6 +146,7 @@ static int impl_node_enum_params(struct spa_node *node,
 	case SPA_PARAM_PropInfo:
 	{
 		struct props *p = &this->props;
+		struct spa_pod_frame f[2];
 
 		switch (*index) {
 		case 0:
@@ -156,20 +157,20 @@ static int impl_node_enum_params(struct spa_node *node,
 				SPA_PROP_INFO_type, SPA_POD_Bool(p->live));
 			break;
 		case 1:
-			spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_PropInfo, id);
+			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 			spa_pod_builder_add(&b,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_patternType),
 				SPA_PROP_INFO_name, SPA_POD_String("The pattern"),
 				SPA_PROP_INFO_type, SPA_POD_Int(p->pattern),
 				0);
 			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0),
-			spa_pod_builder_push_struct(&b);
+			spa_pod_builder_push_struct(&b, &f[1]);
 			spa_pod_builder_int(&b, PATTERN_SMPTE_SNOW);
 			spa_pod_builder_string(&b, "SMPTE snow");
 			spa_pod_builder_int(&b, PATTERN_SNOW);
 			spa_pod_builder_string(&b, "Snow");
-			spa_pod_builder_pop(&b);
-			param = spa_pod_builder_pop(&b);
+			spa_pod_builder_pop(&b, &f[1]);
+			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
 		default:
 			return 0;

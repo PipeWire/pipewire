@@ -110,18 +110,19 @@ static void handle_events(struct data *data)
 static void update_param(struct data *data)
 {
 	struct spa_pod_builder b = { 0, };
+	struct spa_pod_frame f[2];
 
 	if (data->io_notify == NULL)
 		return;
 
 	spa_pod_builder_init(&b, data->io_notify, data->io_notify_size);
-	spa_pod_builder_push_sequence(&b, 0);
+	spa_pod_builder_push_sequence(&b, &f[0], 0);
 	spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
-	spa_pod_builder_push_object(&b, SPA_TYPE_OBJECT_Props, 0);
+	spa_pod_builder_push_object(&b, &f[1], SPA_TYPE_OBJECT_Props, 0);
 	spa_pod_builder_prop(&b, SPA_PROP_contrast, 0);
 	spa_pod_builder_float(&b, (sin(data->param_accum) * 127.0) + 127.0);
-	spa_pod_builder_pop(&b);
-	spa_pod_builder_pop(&b);
+	spa_pod_builder_pop(&b, &f[1]);
+	spa_pod_builder_pop(&b, &f[0]);
 
         data->param_accum += M_PI_M2 / 30.0;
         if (data->param_accum >= M_PI_M2)

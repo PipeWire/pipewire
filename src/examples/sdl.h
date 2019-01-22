@@ -101,15 +101,16 @@ static Uint32 id_to_sdl_format(uint32_t id)
 static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_builder *b)
 {
 	uint32_t i, c;
+	struct spa_pod_frame f[2];
 
-	spa_pod_builder_push_object(b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_prop(b, SPA_FORMAT_mediaType, 0);
 	spa_pod_builder_id(b, SPA_MEDIA_TYPE_video);
 	spa_pod_builder_prop(b, SPA_FORMAT_mediaSubtype, 0);
 	spa_pod_builder_id(b, SPA_MEDIA_SUBTYPE_raw);
 
 	spa_pod_builder_prop(b, SPA_FORMAT_VIDEO_format, 0);
-	spa_pod_builder_push_choice(b, SPA_CHOICE_Enum, 0);
+	spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);
 	for (i = 0, c = 0; i < info->num_texture_formats; i++) {
 		uint32_t id = sdl_format_to_id(info->texture_formats[i]);
 		if (id == 0)
@@ -123,7 +124,7 @@ static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_
 		if (id != SPA_VIDEO_FORMAT_UNKNOWN)
 			spa_pod_builder_id(b, id);
 	}
-	spa_pod_builder_pop(b);
+	spa_pod_builder_pop(b, &f[1]);
 	spa_pod_builder_add(b,
 		SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
 							&SPA_RECTANGLE(WIDTH, HEIGHT),
@@ -135,5 +136,5 @@ static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_
 							&SPA_FRACTION(0,1),
 							&SPA_FRACTION(30,1)),
 		0);
-	return spa_pod_builder_pop(b);
+	return spa_pod_builder_pop(b, &f[0]);
 }

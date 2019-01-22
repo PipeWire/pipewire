@@ -29,6 +29,7 @@
 #include <spa/node/node.h>
 #include <spa/param/audio/format.h>
 #include <spa/pod/filter.h>
+#include <spa/debug/pod.h>
 
 #define NAME "alsa-sink"
 
@@ -485,6 +486,8 @@ static int port_set_format(struct spa_node *node,
 		if (info.media_type != SPA_MEDIA_TYPE_audio ||
 		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
 			return -EINVAL;
+
+		spa_debug_pod(0, NULL, format);
 
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;

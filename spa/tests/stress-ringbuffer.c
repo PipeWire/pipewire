@@ -2,6 +2,8 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <sched.h>
+#include <errno.h>
+#include <semaphore.h>
 
 #include <spa/utils/ringbuffer.h>
 
@@ -9,9 +11,10 @@
 #define ARRAY_SIZE 63
 #define MAX_VALUE 0x10000
 
-struct spa_ringbuffer rb;
-int32_t size;
-uint8_t *data;
+static struct spa_ringbuffer rb;
+static uint32_t size;
+static void *data;
+static sem_t sem;
 
 static int fill_int_array(int *array, int start, int count)
 {
@@ -53,10 +56,14 @@ static void *reader_start(void *arg)
 			spa_ringbuffer_read_data(&rb, data, size, index % size, b, sizeof(b));
 			spa_ringbuffer_read_update(&rb, index + sizeof(b));
 
+			if (index >= INT32_MAX - sizeof(a))
+				break;
+
 			spa_assert(cmp_array(a, b, ARRAY_SIZE));
 			i = fill_int_array(a, i, ARRAY_SIZE);
 		}
 	}
+	sem_post(&sem);
 
 	return NULL;
 }
@@ -78,15 +85,26 @@ static void *writer_start(void *arg)
 			spa_ringbuffer_write_data(&rb, data, size, index % size, a, sizeof(a));
 			spa_ringbuffer_write_update(&rb, index + sizeof(a));
 
+			if (index >= INT32_MAX - sizeof(a))
+				break;
+
 			i = fill_int_array(a, i, ARRAY_SIZE);
 		}
 	}
+	sem_post(&sem);
 
 	return NULL;
 }
 
+#define exit_error(msg) \
+do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
 int main(int argc, char *argv[])
 {
+	pthread_t reader_thread, writer_thread;
+	struct timespec ts;
+	int s;
+
 	printf("starting ringbuffer stress test\n");
 
 	if (argc > 1)
@@ -100,11 +118,21 @@ int main(int argc, char *argv[])
 	spa_ringbuffer_init(&rb);
 	data = malloc(size);
 
-	pthread_t reader_thread, writer_thread;
+	if (sem_init(&sem, 0, 0) != 0)
+		exit_error("init_sem");
+
 	pthread_create(&reader_thread, NULL, reader_start, NULL);
 	pthread_create(&writer_thread, NULL, writer_start, NULL);
 
-	sleep(5);
+	if (clock_gettime(CLOCK_REALTIME, &ts) != 0)
+		exit_error("clock_gettime");
+
+	ts.tv_sec += 2;
+
+	while ((s = sem_timedwait(&sem, &ts)) == -1 && errno == EINTR)
+		continue;
+	while ((s = sem_timedwait(&sem, &ts)) == -1 && errno == EINTR)
+		continue;
 
 	printf("read %u, written %u\n", rb.readindex, rb.writeindex);
 

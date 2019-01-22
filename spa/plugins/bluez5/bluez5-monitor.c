@@ -89,8 +89,9 @@ static void fill_item(struct spa_bt_monitor *this, struct spa_bt_device *device,
 		struct spa_pod **result, struct spa_pod_builder *builder)
 {
 	char dev[16];
+	struct spa_pod_frame f[2];
 
-	spa_pod_builder_push_object(builder, SPA_TYPE_OBJECT_MonitorItem, 0);
+	spa_pod_builder_push_object(builder, &f[0], SPA_TYPE_OBJECT_MonitorItem, 0);
 	spa_pod_builder_add(builder,
 		SPA_MONITOR_ITEM_id,      SPA_POD_String(device->path),
 		SPA_MONITOR_ITEM_flags,   SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
@@ -103,7 +104,7 @@ static void fill_item(struct spa_bt_monitor *this, struct spa_bt_device *device,
 		0);
 
 	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);
-	spa_pod_builder_push_struct(builder);
+	spa_pod_builder_push_struct(builder, &f[1]);
 	snprintf(dev, sizeof(dev), "%p", device);
 
 	add_dict(builder, "device.api", "bluez5");
@@ -113,8 +114,8 @@ static void fill_item(struct spa_bt_monitor *this, struct spa_bt_device *device,
 	add_dict(builder, "device.bluez5.address", device->address);
 	add_dict(builder, "bluez5.device", dev);
 
-	spa_pod_builder_pop(builder);
-	*result = spa_pod_builder_pop(builder);
+	spa_pod_builder_pop(builder, &f[1]);
+	*result = spa_pod_builder_pop(builder, &f[0]);
 }
 
 static uint8_t a2dp_default_bitpool(struct spa_bt_monitor *monitor, uint8_t freq, uint8_t mode) {

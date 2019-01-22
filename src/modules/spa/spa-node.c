@@ -167,6 +167,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 	uint32_t index = 0;
 	uint8_t buf[2048];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	const struct spa_pod_prop *prop = NULL;
 
 	if ((res = spa_node_enum_params(spa_node, SPA_PARAM_Props, &index, NULL, &props, &b)) <= 0) {
 		pw_log_debug("spa_node_get_props failed: %d", res);
@@ -174,14 +175,13 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 	}
 
 	while ((key = pw_properties_iterate(pw_props, &state))) {
-		struct spa_pod_prop *prop;
 		uint32_t type = 0;
 
 		type = spa_debug_type_find_type(NULL, key);
 		if (type == SPA_TYPE_None)
 			continue;
 
-		if ((prop = spa_pod_find_prop(props, type))) {
+		if ((prop = spa_pod_find_prop(props, prop, type))) {
 			const char *value = pw_properties_get(pw_props, key);
 
 			pw_log_info("configure prop %s", key);

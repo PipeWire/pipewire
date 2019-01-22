@@ -32,10 +32,6 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/type.h>
 
-#ifndef SPA_POD_MAX_DEPTH
-#define SPA_POD_MAX_DEPTH       16
-#endif
-
 #define SPA_POD_BODY_SIZE(pod)			(((struct spa_pod*)(pod))->size)
 #define SPA_POD_TYPE(pod)			(((struct spa_pod*)(pod))->type)
 #define SPA_POD_SIZE(pod)			(sizeof(struct spa_pod) + SPA_POD_BODY_SIZE(pod))

@@ -673,11 +673,12 @@ static void convert_from_midi(void *midi, void *buffer, size_t size)
 {
 	struct spa_pod_builder b = { 0, };
 	uint32_t i, count;
+	struct spa_pod_frame f;
 
 	count = jack_midi_get_event_count(midi);
 
 	spa_pod_builder_init(&b, buffer, size);
-	spa_pod_builder_push_sequence(&b, 0);
+	spa_pod_builder_push_sequence(&b, &f, 0);
 
 	for (i = 0; i < count; i++) {
 		jack_midi_event_t ev;
@@ -685,7 +686,7 @@ static void convert_from_midi(void *midi, void *buffer, size_t size)
 		spa_pod_builder_control(&b, ev.time, SPA_CONTROL_Midi);
 		spa_pod_builder_bytes(&b, ev.buffer, ev.size);
 	}
-        spa_pod_builder_pop(&b);
+        spa_pod_builder_pop(&b, &f);
 }
 
 static void convert_to_midi(struct spa_pod_sequence *seq, void *midi)
@@ -1005,11 +1006,11 @@ static int param_format(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
 	uint32_t channels[] = { SPA_AUDIO_CHANNEL_MONO };
+	struct spa_pod_frame f;
 	switch (p->object->port.type_id) {
 	case 0:
+		spa_pod_builder_push_object(b, &f, SPA_TYPE_OBJECT_Format, SPA_PARAM_Format);
 		spa_pod_builder_add(b,
-			"{",
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 	                SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P), NULL);
@@ -1024,7 +1025,7 @@ static int param_format(struct client *c, struct port *p,
 		spa_pod_builder_add(b,
 			SPA_FORMAT_AUDIO_channels, SPA_POD_Int(1),
 	                SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, 1, channels), NULL);
-		*param = spa_pod_builder_pop(b);
+		*param = spa_pod_builder_pop(b, &f);
 		break;
 	case 1:
 		*param = spa_pod_builder_add_object(b,

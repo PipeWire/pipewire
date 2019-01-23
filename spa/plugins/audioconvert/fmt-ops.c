@@ -24,28 +24,36 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 #include <spa/support/cpu.h>
 #include <spa/utils/defs.h>
+#include <spa/param/audio/format-utils.h>
 
 #define U8_MIN		0
 #define U8_MAX		255
-#define U8_SCALE	127
+#define U8_SCALE	127.5f
 #define U8_OFFS		128
+#define U8_TO_F32(v)	((((uint8_t)(v)) * (1.0f / U8_OFFS)) - 1.0)
+#define F32_TO_U8(v)	(uint8_t)((SPA_CLAMP(v, -1.0f, 1.0f) * U8_SCALE) + U8_OFFS)
 
 #define S16_MIN		-32767
 #define S16_MAX		32767
 #define S16_MAX_F	32767.0f
-#define S16_SCALE	32767
+#define S16_SCALE	32767.0f
+#define S16_TO_F32(v)	(((int16_t)(v)) * (1.0f / S16_SCALE))
+#define F32_TO_S16(v)	(int16_t)(SPA_CLAMP(v, -1.0f, 1.0f) * S16_SCALE)
 
 #define S24_MIN		-8388607
 #define S24_MAX		8388607
 #define S24_MAX_F	8388607.0f
-#define S24_SCALE	8388607
+#define S24_SCALE	8388607.0f
+#define S24_TO_F32(v)	(((int32_t)(v)) * (1.0f / S24_SCALE))
+#define F32_TO_S24(v)	(int32_t)(SPA_CLAMP(v, -1.0f, 1.0f) * S24_SCALE)
 
-#define S32_MIN		-2147483647
-#define S32_MAX		2147483647
-#define S32_SCALE	2147483647
+
+#define S32_TO_F32(v)	S24_TO_F32((v) >> 8)
+#define F32_TO_S32(v)	(F32_TO_S24(v) << 8)
 
 
 static inline int32_t read_s24(const void *src)
@@ -58,7 +66,19 @@ static inline int32_t read_s24(const void *src)
 #endif
 }
 
-#define READ24(s) read_s24(s)
+static inline void write_s24(void *dst, int32_t val)
+{
+	uint8_t *d = dst;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	d[0] = (uint8_t) (val);
+	d[1] = (uint8_t) (val >> 8);
+	d[2] = (uint8_t) (val >> 16);
+#else
+	d[0] = (uint8_t) (val >> 16);
+	d[1] = (uint8_t) (val >> 8);
+	d[2] = (uint8_t) (val);
+#endif
+}
 
 #if defined (__SSE2__)
 #include "fmt-ops-sse2.c"
@@ -95,8 +115,6 @@ conv_copy32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[
 	for (i = 0; i < n_src; i++)
 		memcpy(dst[i], src[i], n_samples * sizeof(int32_t));
 }
-
-#define U8_TO_F32(v)	(((v) * (1.0f / U8_OFFS)) - 1.0)
 
 static void
 conv_u8_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
@@ -138,8 +156,6 @@ conv_u8d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 	}
 }
 
-#define S16_TO_F32(v)	((v) * (1.0f / S16_SCALE))
-
 static void
 conv_s16_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
@@ -178,8 +194,6 @@ conv_s16d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 			*d++ = S16_TO_F32(s[i][j]);
 	}
 }
-
-#define S32_TO_F32(v)	((v) * (1.0f / S32_SCALE))
 
 static void
 conv_s32_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
@@ -222,8 +236,6 @@ conv_s32d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 }
 
 
-#define S24_TO_F32(v)	(((int32_t)(v)) * (1.0f / S24_SCALE))
-
 static void
 conv_s24_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
@@ -234,7 +246,7 @@ conv_s24_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 		float *d = dst[i];
 
 		for (j = 0; j < n_samples; j++) {
-			d[j] = S24_TO_F32(READ24(s));
+			d[j] = S24_TO_F32(read_s24(s));
 			s += 3;
 		}
 	}
@@ -249,7 +261,7 @@ conv_s24_to_f32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_dst; i++) {
-			d[i][j] = S24_TO_F32(READ24(s));
+			d[i][j] = S24_TO_F32(read_s24(s));
 			s += 3;
 		}
 	}
@@ -264,8 +276,7 @@ conv_s24d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_src; i++) {
-			*d++ = S24_TO_F32(READ24(s[i]));
-			s += 3;
+			*d++ = S24_TO_F32(read_s24(&s[i][j*3]));
 		}
 	}
 }
@@ -310,8 +321,6 @@ conv_s24_32d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const vo
 	}
 }
 
-#define F32_TO_U8(v)	((SPA_CLAMP(v, -1.0f, 1.0f) * U8_SCALE) + U8_OFFS)
-
 static void
 conv_f32_to_u8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
@@ -352,8 +361,6 @@ conv_f32d_to_u8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 	}
 }
 
-#define F32_TO_S16(v)	(SPA_CLAMP(v, -1.0f, 1.0f) * S16_SCALE)
-
 static void
 conv_f32_to_s16(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
 {
@@ -393,8 +400,6 @@ conv_f32d_to_s16(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 			*d++ = F32_TO_S16(s[i][j]);
 	}
 }
-
-#define F32_TO_S32(v)		(SPA_CLAMP(v, -1.0f, 1.0f) * S32_SCALE)
 
 static void
 conv_f32_to_s32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
@@ -437,15 +442,6 @@ conv_f32d_to_s32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 }
 
 
-#define F32_TO_S24(v)	 (SPA_CLAMP(v, -1.0f, 1.0f) * S24_SCALE)
-
-#define WRITE24(d,v)			\
-({					\
-	int32_t _v = (v);		\
-	d[0] = (uint8_t) (_v >> 16);	\
-	d[1] = (uint8_t) (_v >> 8);	\
-	d[2] = (uint8_t) _v;		\
-})
 
 static void
 conv_f32_to_s24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
@@ -456,9 +452,10 @@ conv_f32_to_s24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 		const float *s = src[i];
 		uint8_t *d = dst[i];
 
-		for (j = 0; j < n_samples; j++)
-			WRITE24(d, F32_TO_S24(s[j]));
+		for (j = 0; j < n_samples; j++) {
+			write_s24(d, F32_TO_S24(s[j]));
 			d += 3;
+		}
 	}
 }
 
@@ -471,8 +468,7 @@ conv_f32_to_s24d(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_dst; i++) {
-			WRITE24(d[i], F32_TO_S24(*s++));
-			d[i] += 3;
+			write_s24(&d[i][j*3], F32_TO_S24(*s++));
 		}
 	}
 }
@@ -486,7 +482,7 @@ conv_f32d_to_s24(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_src; i++) {
-			WRITE24(d, F32_TO_S24(s[i][j]));
+			write_s24(d, F32_TO_S24(s[i][j]));
 			d += 3;
 		}
 	}
@@ -568,8 +564,7 @@ deinterleave_24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_dst; i++) {
-			WRITE24(d[i], READ24(s));
-			d += 3;
+			write_s24(&d[i][j*3], read_s24(s));
 			s += 3;
 		}
 	}
@@ -623,9 +618,8 @@ interleave_24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *sr
 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_src; i++) {
-			WRITE24(d, READ24(s[i]));
+			write_s24(d, read_s24(&s[i][j*3]));
 			d += 3;
-			s += 3;
 		}
 	}
 }

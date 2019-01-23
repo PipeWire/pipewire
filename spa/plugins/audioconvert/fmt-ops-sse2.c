@@ -147,7 +147,7 @@ conv_s24_to_f32d_1_sse2(void *data, int n_dst, void *dst[n_dst], const void *src
 		s += 12 * n_dst;
 	}
 	for(; n_samples--; n++) {
-		out = _mm_cvtsi32_ss(out, READ24(s));
+		out = _mm_cvtsi32_ss(out, read_s24(s));
 		out = _mm_mul_ss(out, factor);
 		_mm_store_ss(&d0[n], out);
 		s += 3 * n_dst;

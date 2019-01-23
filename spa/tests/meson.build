@@ -7,7 +7,7 @@ test_apps = [
 foreach a : test_apps
   test(a,
 	executable(a, a + '.c',
-		dependencies : [dl_lib, pthread_lib],
+		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [spa_inc ],
 		c_args : [ '-D_GNU_SOURCE' ],
 		install : false),
@@ -32,7 +32,7 @@ benchmark_apps = [
 foreach a : benchmark_apps
   benchmark(a,
 	executable(a, a + '.c',
-		dependencies : [dl_lib, pthread_lib],
+		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [spa_inc ],
 		c_args : [ '-D_GNU_SOURCE' ],
 		install : false),

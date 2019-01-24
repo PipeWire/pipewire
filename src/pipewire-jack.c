@@ -191,7 +191,8 @@ struct port {
 	uint32_t rate;
 
 	bool zeroed;
-	float empty[BUFFER_SIZE_MAX + 8];
+	float *emptyptr;
+	float empty[BUFFER_SIZE_MAX + 15];
 };
 
 struct context {
@@ -297,6 +298,8 @@ static void init_port_pool(struct client *c, enum spa_direction direction)
 	for (i = 0; i < MAX_PORTS; i++) {
 		c->port_pool[direction][i].direction = direction;
 		c->port_pool[direction][i].id = i;
+		c->port_pool[direction][i].emptyptr =
+			SPA_PTR_ALIGN(c->port_pool[direction][i].empty, 16, float);
 		spa_list_append(&c->free_ports[direction], &c->port_pool[direction][i].link);
 	}
 }
@@ -716,7 +719,7 @@ static void process_tee(struct client *c)
 		spa_list_for_each(mix, &p->mix, port_link) {
 			if (mix->notify == NULL)
 				continue;
-			convert_from_midi(p->empty, mix->notify, mix->notify_size);
+			convert_from_midi(p->emptyptr, mix->notify, mix->notify_size);
 			break;
 		}
 	}
@@ -2211,12 +2214,41 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 	return res;
 }
 
-static void add_f32(float *out, float *in1, float *in2, int n_samples)
+#if defined (__SSE__)
+#include <xmmintrin.h>
+static void mix_2(float *dst, float *src1, float *src2, int n_samples)
+{
+	int n, unrolled;
+	__m128 in[2];
+
+	if (SPA_IS_ALIGNED(src1, 16) &&
+	    SPA_IS_ALIGNED(src2, 16) &&
+	    SPA_IS_ALIGNED(dst, 16))
+		unrolled = n_samples / 4;
+	else
+		unrolled = 0;
+
+	for (n = 0; unrolled--; n += 4) {
+		in[0] = _mm_load_ps(&src1[n]),
+		in[1] = _mm_load_ps(&src2[n]),
+		in[0] = _mm_add_ps(in[0], in[1]);
+		_mm_store_ps(&dst[n], in[0]);
+	}
+	for (; n < n_samples; n++) {
+		in[0] = _mm_load_ss(&src1[n]),
+		in[1] = _mm_load_ss(&src2[n]),
+		in[0] = _mm_add_ss(in[0], in[1]);
+		_mm_store_ss(&dst[n], in[0]);
+	}
+}
+#else
+static void mix_2(float *dst, float *src1, float *src2, int n_samples)
 {
 	int i;
 	for (i = 0; i < n_samples; i++)
-		out[i] = in1[i] + in2[i];
+		dst[i] = src1[i] + src2[i];
 }
+#endif
 
 static void *mix_audio(struct port *p, jack_nframes_t frames)
 {
@@ -2238,8 +2270,8 @@ static void *mix_audio(struct port *p, jack_nframes_t frames)
 		if (layer++ == 0)
 			ptr = b->datas[0].data;
 		else  {
-			add_f32(p->empty, ptr, b->datas[0].data, frames);
-			ptr = p->empty;
+			ptr = p->emptyptr;
+			mix_2(ptr, ptr, b->datas[0].data, frames);
 			p->zeroed = false;
 		}
 	}
@@ -2259,8 +2291,8 @@ static void *mix_midi(struct port *p, jack_nframes_t frames)
 		if (io == NULL)
 			continue;
 
-		convert_to_midi(&io->sequence, p->empty);
-		ptr = p->empty;
+		ptr = p->emptyptr;
+		convert_to_midi(&io->sequence, ptr);
 		break;
 	}
 	return ptr;
@@ -2327,9 +2359,9 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 
       done:
 	if (ptr == NULL) {
-		ptr = p->empty;
+		ptr = p->emptyptr;
 		if (!p->zeroed) {
-			init_buffer(p, ptr, sizeof(p->empty));
+			init_buffer(p, p->empty, sizeof(p->empty));
 			p->zeroed = true;
 		}
 	}

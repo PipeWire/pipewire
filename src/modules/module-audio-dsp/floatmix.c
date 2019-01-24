@@ -109,7 +109,7 @@ struct impl {
 	uint32_t stride;
 
 	bool started;
-        float empty[MAX_SAMPLES];
+        float empty[MAX_SAMPLES + 15];
 };
 
 #define CHECK_FREE_IN_PORT(this,d,p) ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && !this->in_ports[(p)].valid)
@@ -632,9 +632,11 @@ impl_node_port_use_buffers(struct spa_node *node,
 		if (!((d[0].type == SPA_DATA_MemPtr ||
 		       d[0].type == SPA_DATA_MemFd ||
 		       d[0].type == SPA_DATA_DmaBuf) && d[0].data != NULL)) {
-			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
-				      buffers[i]);
+			spa_log_error(this->log, NAME " %p: invalid memory on buffer %d", this, i);
 			return -EINVAL;
+		}
+		if (!SPA_IS_ALIGNED(d[0].data, 16)) {
+			spa_log_warn(this->log, NAME " %p: memory on buffer %d not aligned", this, i);
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
 			queue_buffer(this, port, b);
@@ -717,23 +719,27 @@ impl_node_port_send_command(struct spa_node *node,
 #include <xmmintrin.h>
 static void mix_2(float *dst, float *src1, float *src2, int n_samples)
 {
-	int i, unrolled;
+	int n, unrolled;
 	__m128 in[2];
 
-	unrolled = n_samples / 4;
-	n_samples &= 3;
+	if (SPA_IS_ALIGNED(src1, 16) &&
+	    SPA_IS_ALIGNED(src2, 16) &&
+	    SPA_IS_ALIGNED(dst, 16))
+		unrolled = n_samples / 4;
+	else
+		unrolled = 0;
 
-	for (i = 0; unrolled--; i += 4) {
-		in[0] = _mm_loadu_ps(&src1[i]),
-		in[1] = _mm_loadu_ps(&src2[i]),
+	for (n = 0; unrolled--; n += 4) {
+		in[0] = _mm_load_ps(&src1[n]),
+		in[1] = _mm_load_ps(&src2[n]),
 		in[0] = _mm_add_ps(in[0], in[1]);
-		_mm_storeu_ps(&dst[i], in[0]);
+		_mm_store_ps(&dst[n], in[0]);
 	}
-	for (; n_samples--; i++) {
-		in[0] = _mm_load_ss(&src1[i]),
-		in[1] = _mm_load_ss(&src2[i]),
+	for (; n < n_samples; n++) {
+		in[0] = _mm_load_ss(&src1[n]),
+		in[1] = _mm_load_ss(&src2[n]),
 		in[0] = _mm_add_ss(in[0], in[1]);
-		_mm_store_ss(&dst[i], in[0]);
+		_mm_store_ss(&dst[n], in[0]);
 	}
 }
 #else
@@ -825,13 +831,13 @@ static int impl_node_process(struct spa_node *node)
 
 		outb->buffer->n_datas = 1;
 		outb->buffer->datas = outb->datas;
-		outb->datas[0].data = this->empty;
+		outb->datas[0].data = SPA_PTR_ALIGN(this->empty, 16, void);
 		outb->datas[0].chunk = outb->chunk;
 		outb->datas[0].chunk->offset = 0;
 		outb->datas[0].chunk->size = n_samples * sizeof(float);
 		outb->datas[0].chunk->stride = sizeof(float);
 
-		dst = this->empty;
+		dst = outb->datas[0].data;
 		if (n_buffers == 0) {
 			memset(dst, 0, n_samples * sizeof(float));
 		}

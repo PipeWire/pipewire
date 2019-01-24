@@ -37,19 +37,19 @@
 
 static void
 channelmix_copy(void *data, int n_dst, void *dst[n_dst],
-	   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+	   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int i, n, n_samples = n_bytes / sizeof(float);
+	int i, n;
 	float **d = (float **)dst;
 	float **s = (float **)src;
 
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
-			memset(d[i], 0, n_bytes);
+			memset(d[i], 0, n_samples * sizeof(float));
 	}
 	else if (v == VOLUME_NORM) {
 		for (i = 0; i < n_dst; i++)
-			memcpy(d[i], s[i], n_bytes);
+			memcpy(d[i], s[i], n_samples * sizeof(float));
 	}
 	else {
 		for (i = 0; i < n_dst; i++)
@@ -62,9 +62,9 @@ channelmix_copy(void *data, int n_dst, void *dst[n_dst],
 
 static void
 channelmix_f32_n_m(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int i, j, n, n_samples = n_bytes / sizeof(float);
+	int i, j, n;
 	float **d = (float **) dst;
 	float **s = (float **) src;
 	float *m = matrix;
@@ -84,15 +84,15 @@ channelmix_f32_n_m(void *data, int n_dst, void *dst[n_dst],
 
 static void
 channelmix_f32_1_2(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int n, n_samples = n_bytes / sizeof(float);
+	int n;
 	float **d = (float **)dst;
 	float **s = (float **)src;
 
 	if (v <= VOLUME_MIN) {
-		memset(d[0], 0, n_bytes);
-		memset(d[1], 0, n_bytes);
+		memset(d[0], 0, n_samples * sizeof(float));
+		memset(d[1], 0, n_samples * sizeof(float));
 	}
 	else if (v == VOLUME_NORM) {
 		for (n = 0; n < n_samples; n++)
@@ -106,14 +106,14 @@ channelmix_f32_1_2(void *data, int n_dst, void *dst[n_dst],
 
 static void
 channelmix_f32_2_1(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int n, n_samples = n_bytes / sizeof(float);
+	int n;
 	float **d = (float **)dst;
 	float **s = (float **)src;
 
 	if (v <= VOLUME_MIN) {
-		memset(d[0], 0, n_bytes);
+		memset(d[0], 0, n_samples * sizeof(float));
 	}
 	else {
 		const float f = v * 0.5f;
@@ -124,14 +124,14 @@ channelmix_f32_2_1(void *data, int n_dst, void *dst[n_dst],
 
 static void
 channelmix_f32_4_1(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int n, n_samples = n_bytes / sizeof(float);
+	int n;
 	float **d = (float **)dst;
 	float **s = (float **)src;
 
 	if (v <= VOLUME_MIN) {
-		memset(d[0], 0, n_bytes);
+		memset(d[0], 0, n_samples * sizeof(float));
 	}
 	else {
 		const float f = v * 0.25f;
@@ -142,14 +142,14 @@ channelmix_f32_4_1(void *data, int n_dst, void *dst[n_dst],
 
 static void
 channelmix_f32_3p1_1(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int n, n_samples = n_bytes / sizeof(float);
+	int n;
 	float **d = (float **)dst;
 	float **s = (float **)src;
 
 	if (v <= VOLUME_MIN) {
-		memset(d[0], 0, n_bytes);
+		memset(d[0], 0, n_samples * sizeof(float));
 	}
 	else {
 		const float f = v * 0.5f;
@@ -163,15 +163,15 @@ channelmix_f32_3p1_1(void *data, int n_dst, void *dst[n_dst],
 
 static void
 channelmix_f32_2_4(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int i, n, n_samples = n_bytes / sizeof(float);
+	int i, n;
 	float **d = (float **)dst;
 	float **s = (float **)src;
 
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
-			memset(d[i], 0, n_bytes);
+			memset(d[i], 0, n_samples * sizeof(float));
 	}
 	else if (v == VOLUME_NORM) {
 		for (n = 0; n < n_samples; n++) {
@@ -190,15 +190,15 @@ channelmix_f32_2_4(void *data, int n_dst, void *dst[n_dst],
 #define MASK_3_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)
 static void
 channelmix_f32_2_3p1(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int i, n, n_samples = n_bytes / sizeof(float);
+	int i, n;
 	float **d = (float **)dst;
 	float **s = (float **)src;
 
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
-			memset(d[i], 0, n_bytes);
+			memset(d[i], 0, n_samples * sizeof(float));
 	}
 	else if (v == VOLUME_NORM) {
 		for (n = 0; n < n_samples; n++) {
@@ -222,15 +222,15 @@ channelmix_f32_2_3p1(void *data, int n_dst, void *dst[n_dst],
 #define MASK_5_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)|_M(SL)|_M(SR)|_M(RL)|_M(RR)
 static void
 channelmix_f32_2_5p1(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int i, n, n_samples = n_bytes / sizeof(float);
+	int i, n;
 	float **d = (float **)dst;
 	float **s = (float **)src;
 
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
-			memset(d[i], 0, n_bytes);
+			memset(d[i], 0, n_samples * sizeof(float));
 	}
 	else if (v == VOLUME_NORM) {
 		for (n = 0; n < n_samples; n++) {
@@ -254,9 +254,9 @@ channelmix_f32_2_5p1(void *data, int n_dst, void *dst[n_dst],
 /* FL+FR+FC+LFE+SL+SR -> FL+FR */
 static void
 channelmix_f32_5p1_2(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int n, n_samples = n_bytes / sizeof(float);
+	int n;
 	float **d = (float **) dst;
 	float **s = (float **) src;
 	float *m = matrix;
@@ -265,8 +265,8 @@ channelmix_f32_5p1_2(void *data, int n_dst, void *dst[n_dst],
 	const float slev = m[4];
 
 	if (v <= VOLUME_MIN) {
-		memset(d[0], 0, n_bytes);
-		memset(d[1], 0, n_bytes);
+		memset(d[0], 0, n_samples * sizeof(float));
+		memset(d[1], 0, n_samples * sizeof(float));
 	}
 	else if (v == VOLUME_NORM) {
 		for (n = 0; n < n_samples; n++) {
@@ -287,16 +287,15 @@ channelmix_f32_5p1_2(void *data, int n_dst, void *dst[n_dst],
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+FC+LFE*/
 static void
 channelmix_f32_5p1_3p1(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int i, n, n_samples;
+	int i, n;
 	float **d = (float **) dst;
 	float **s = (float **) src;
 
-	n_samples = n_bytes / sizeof(float);
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
-			memset(d[i], 0, n_bytes);
+			memset(d[i], 0, n_samples * sizeof(float));
 	}
 	else {
 		const float f1 = 0.5f * v;
@@ -312,19 +311,18 @@ channelmix_f32_5p1_3p1(void *data, int n_dst, void *dst[n_dst],
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+RL+RR*/
 static void
 channelmix_f32_5p1_4(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int i, n, n_samples;
+	int i, n;
 	float **d = (float **) dst;
 	float **s = (float **) src;
 	float *m = matrix;
 	const float clev = m[2];
 	const float llev = m[3];
 
-	n_samples = n_bytes / sizeof(float);
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
-			memset(d[i], 0, n_bytes);
+			memset(d[i], 0, n_samples * sizeof(float));
 	}
 	else if (v == VOLUME_NORM) {
 		for (n = 0; n < n_samples; n++) {
@@ -351,9 +349,9 @@ channelmix_f32_5p1_4(void *data, int n_dst, void *dst[n_dst],
 /* FL+FR+FC+LFE+SL+SR+RL+RR -> FL+FR */
 static void
 channelmix_f32_7p1_2(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int n, n_samples = n_bytes / sizeof(float);
+	int n;
 	float **d = (float **) dst;
 	float **s = (float **) src;
 	float *m = matrix;
@@ -362,8 +360,8 @@ channelmix_f32_7p1_2(void *data, int n_dst, void *dst[n_dst],
 	const float slev = m[4];
 
 	if (v <= VOLUME_MIN) {
-		memset(d[0], 0, n_bytes);
-		memset(d[1], 0, n_bytes);
+		memset(d[0], 0, n_samples * sizeof(float));
+		memset(d[1], 0, n_samples * sizeof(float));
 	}
 	else if (v == VOLUME_NORM) {
 		for (n = 0; n < n_samples; n++) {
@@ -384,16 +382,15 @@ channelmix_f32_7p1_2(void *data, int n_dst, void *dst[n_dst],
 /* FL+FR+FC+LFE+SL+SR+RL+RR -> FL+FR+FC+LFE*/
 static void
 channelmix_f32_7p1_3p1(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int i, n, n_samples;
+	int i, n;
 	float **d = (float **) dst;
 	float **s = (float **) src;
 
-	n_samples = n_bytes / sizeof(float);
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
-			memset(d[i], 0, n_bytes);
+			memset(d[i], 0, n_samples * sizeof(float));
 	}
 	else {
 		const float f1 = 0.5 * v;
@@ -409,9 +406,9 @@ channelmix_f32_7p1_3p1(void *data, int n_dst, void *dst[n_dst],
 /* FL+FR+FC+LFE+SL+SR+RL+RR -> FL+FR+RL+RR*/
 static void
 channelmix_f32_7p1_4(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_bytes)
+		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
 {
-	int i, n, n_samples;
+	int i, n;
 	float **d = (float **) dst;
 	float **s = (float **) src;
 	float *m = matrix;
@@ -419,10 +416,9 @@ channelmix_f32_7p1_4(void *data, int n_dst, void *dst[n_dst],
 	const float llev = m[3];
 	const float slev = m[4];
 
-	n_samples = n_bytes / sizeof(float);
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
-			memset(d[i], 0, n_bytes);
+			memset(d[i], 0, n_samples * sizeof(float));
 	}
 	else if (v == VOLUME_NORM) {
 		for (n = 0; n < n_samples; n++) {
@@ -450,7 +446,7 @@ channelmix_f32_7p1_4(void *data, int n_dst, void *dst[n_dst],
 
 typedef void (*channelmix_func_t) (void *data, int n_dst, void *dst[n_dst],
 				   int n_src, const void *src[n_src],
-				   void *matrix, float v, int n_bytes);
+				   void *matrix, float v, int n_samples);
 
 
 #define ANY	((uint32_t)-1)

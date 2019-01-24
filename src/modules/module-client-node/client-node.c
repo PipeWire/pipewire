@@ -837,7 +837,7 @@ do_port_use_buffers(struct impl *impl,
 
 		data_size = 0;
 		for (j = 0; j < buffers[i]->n_metas; j++) {
-			data_size += buffers[i]->metas[j].size;
+			data_size += SPA_ROUND_UP_N(buffers[i]->metas[j].size, 8);
 		}
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = buffers[i]->datas;

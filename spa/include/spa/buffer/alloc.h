@@ -66,7 +66,7 @@ static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
         info->skel_size += n_datas * sizeof(struct spa_data);
 
 	for (i = 0, size = 0; i < n_metas; i++)
-		size += metas[i].size;
+		size += SPA_ROUND_UP_N(metas[i].size, 8);
 	info->meta_size = size;
 
 	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_META))
@@ -76,13 +76,18 @@ static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
 	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_CHUNK))
 	        info->skel_size += info->chunk_size;
 
-	for (i = 0, size = 0; i < n_datas; i++)
+	for (i = 0, size = 0; i < n_datas; i++) {
+		size = SPA_ROUND_UP_N(size, data_aligns[i]);
 		size += datas[i].maxsize;
+	}
 	info->data_size = size;
 
 	if (!SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_NO_DATA) &&
-	    SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_DATA))
-		info->skel_size += size;
+	    SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_DATA)) {
+		info->skel_size += n_datas ? data_aligns[0] - 1 : 0;
+		info->skel_size += info->data_size;
+	}
+	info->skel_size = SPA_ROUND_UP_N(info->skel_size, 8);
 
 	return 0;
 }
@@ -114,7 +119,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 		struct spa_meta *m = &b->metas[i];
 		*m = info->metas[i];
 		m->data = *dp;
-		*dp = SPA_MEMBER(*dp, m->size, void);
+		*dp = SPA_MEMBER(*dp, SPA_ROUND_UP_N(m->size, 8), void);
 	}
 
 	size = info->n_datas * sizeof(struct spa_chunk);
@@ -138,6 +143,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 		*d = info->datas[i];
 		d->chunk = &cp[i];
 		if (!SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_NO_DATA)) {
+			*dp = SPA_PTR_ALIGN(*dp, info->data_aligns[i], void);
 			d->data = *dp;
 			*dp = SPA_MEMBER(*dp, d->maxsize, void);
 		}
@@ -172,8 +178,6 @@ spa_buffer_alloc_array(uint32_t n_buffers, uint32_t flags,
         void *skel;
 
         spa_buffer_alloc_fill_info(&info, n_metas, metas, n_datas, datas, data_aligns);
-
-	info.skel_size = SPA_ROUND_UP_N(info.skel_size, 16);
 
         buffers = (struct spa_buffer **)calloc(n_buffers, sizeof(struct spa_buffer *) + info.skel_size);
 

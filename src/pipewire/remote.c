@@ -1075,7 +1075,7 @@ client_node_port_use_buffers(void *object,
 			struct spa_meta *m = &b->metas[j];
 			memcpy(m, &buffers[i].buffer->metas[j], sizeof(struct spa_meta));
 			m->data = SPA_MEMBER(bmem.map.ptr, offset, void);
-			offset += m->size;
+			offset += SPA_ROUND_UP_N(m->size, 8);
 		}
 
 		for (j = 0; j < b->n_datas; j++) {

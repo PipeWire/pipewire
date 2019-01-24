@@ -487,8 +487,6 @@ static int port_set_format(struct spa_node *node,
 		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
 			return -EINVAL;
 
-		spa_debug_pod(0, NULL, format);
-
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 

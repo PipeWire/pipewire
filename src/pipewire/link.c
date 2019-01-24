@@ -419,6 +419,7 @@ static int alloc_buffers(struct pw_link *this,
 			 uint32_t n_datas,
 			 size_t *data_sizes,
 			 ssize_t *data_strides,
+			 size_t *data_aligns,
 			 struct allocation *allocation)
 {
 	int res;
@@ -452,12 +453,13 @@ static int alloc_buffers(struct pw_link *this,
 
 			metas[n_metas].type = type;
 			metas[n_metas].size = size;
-			meta_size += metas[n_metas].size;
+			meta_size += SPA_ROUND_UP_N(metas[n_metas].size, 8);
 			n_metas++;
 			skel_size += sizeof(struct spa_meta);
 		}
 	}
 	data_size += meta_size;
+	data_size = SPA_ROUND_UP_N(data_size, data_aligns[0]);
 
 	/* data */
 	for (i = 0; i < n_datas; i++) {
@@ -492,7 +494,7 @@ static int alloc_buffers(struct pw_link *this,
 			m->type = metas[j].type;
 			m->size = metas[j].size;
 			m->data = p;
-			p = SPA_MEMBER(p, m->size, void);
+			p = SPA_MEMBER(p, SPA_ROUND_UP_N(m->size, 8), void);
 		}
 		/* pointer to data structure */
 		b->n_datas = n_datas;
@@ -509,7 +511,7 @@ static int alloc_buffers(struct pw_link *this,
 				d->type = SPA_DATA_MemFd;
 				d->flags = 0;
 				d->fd = m->fd;
-				d->mapoffset = SPA_PTRDIFF(ddp, m->ptr);
+				d->mapoffset = SPA_ROUND_UP_N(SPA_PTRDIFF(ddp, m->ptr), data_aligns[i]);
 				d->maxsize = data_sizes[j];
 				d->data = SPA_MEMBER(m->ptr, d->mapoffset, void);
 				d->chunk->offset = 0;
@@ -701,9 +703,10 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 		uint32_t i, offset, n_params;
 		uint32_t max_buffers;
-		size_t minsize = 8192, stride = 0;
+		size_t minsize = 8192, stride = 0, align;
 		size_t data_sizes[1];
 		ssize_t data_strides[1];
+		size_t data_aligns[1];
 
 		n_params = param_filter(this, input, output, SPA_PARAM_Buffers, &b);
 		n_params += param_filter(this, input, output, SPA_PARAM_Meta, &b);
@@ -720,25 +723,29 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 		max_buffers = MAX_BUFFERS;
 		minsize = stride = 0;
+		align = 8;
 		param = find_param(params, n_params, SPA_TYPE_OBJECT_ParamBuffers);
 		if (param) {
 			uint32_t qmax_buffers = max_buffers,
-			    qminsize = minsize, qstride = stride;
+			    qminsize = minsize, qstride = stride, qalign = align;
 
 			spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamBuffers, NULL,
 				SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&qmax_buffers),
 				SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&qminsize),
-				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(&qstride));
+				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(&qstride),
+				SPA_PARAM_BUFFERS_align,   SPA_POD_Int(&qalign));
 
 			max_buffers =
 			    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,
 							      max_buffers);
 			minsize = SPA_MAX(minsize, qminsize);
 			stride = SPA_MAX(stride, qstride);
+			align = SPA_MAX(align, qalign);
 
-			pw_log_debug("%d %d %d -> %zd %zd %d", qminsize, qstride, qmax_buffers,
-				     minsize, stride, max_buffers);
+			pw_log_debug("%d %d %d %d -> %zd %zd %d %zd",
+					qminsize, qstride, qmax_buffers, qalign,
+					minsize, stride, max_buffers, align);
 		} else {
 			pw_log_warn("no buffers param");
 			minsize = 8192;
@@ -754,6 +761,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 		data_sizes[0] = minsize;
 		data_strides[0] = stride;
+		data_aligns[0] = align;
 
 		if ((res = alloc_buffers(this,
 					 max_buffers,
@@ -761,6 +769,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 					 params,
 					 1,
 					 data_sizes, data_strides,
+					 data_aligns,
 					 &allocation)) < 0) {
 			asprintf(&error, "error alloc buffers: %d", res);
 			goto error;

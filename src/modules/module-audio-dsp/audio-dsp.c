@@ -69,7 +69,7 @@ struct port {
 	struct spa_handle *spa_handle;
 	struct spa_node *spa_node;
 
-	float empty[MAX_BUFFER_SIZE];
+	float empty[MAX_BUFFER_SIZE + 15];
 };
 
 struct node {
@@ -101,14 +101,15 @@ static void init_buffer(struct port *port, uint32_t id)
 	b->datas[0].flags = 0;
 	b->datas[0].fd = -1;
 	b->datas[0].mapoffset = 0;
-	b->datas[0].maxsize = sizeof(port->empty);
-	b->datas[0].data = port->empty;
+	b->datas[0].maxsize = SPA_ROUND_DOWN_N(sizeof(port->empty), 16);
+	b->datas[0].data = SPA_PTR_ALIGN(port->empty, 16, void);
 	b->datas[0].chunk = b->chunk;
 	b->datas[0].chunk->offset = 0;
 	b->datas[0].chunk->size = 0;
 	b->datas[0].chunk->stride = 0;
 	port->bufs[id] = &b->buf;
 	memset(port->empty, 0, sizeof(port->empty));
+	pw_log_debug("%p %d", b->datas[0].data, b->datas[0].maxsize);
 }
 
 static void init_port(struct port *p, enum spa_direction direction)

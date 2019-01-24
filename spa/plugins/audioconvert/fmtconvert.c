@@ -115,8 +115,6 @@ struct impl {
 
 	uint32_t cpu_flags;
 	convert_func_t convert;
-
-	float empty[4096];
 };
 
 #define CHECK_PORT(this,d,id)		(id == 0)
@@ -656,7 +654,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 {
 	struct impl *this;
 	struct port *port;
-	uint32_t i, size = SPA_ID_INVALID;
+	uint32_t i, size = SPA_ID_INVALID, j;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -674,6 +672,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
+		uint32_t n_datas = buffers[i]->n_datas;
 		struct spa_data *d = buffers[i]->datas;
 
 		b = &port->buffers[i];
@@ -682,19 +681,35 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->outbuf = buffers[i];
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
+		if (n_datas != port->blocks) {
+			spa_log_error(this->log, NAME " %p: expected %d blocks on buffer %d", this,
+				      port->blocks, i);
+			return -EINVAL;
+		}
+
 		if (size == SPA_ID_INVALID)
 			size = d[0].maxsize;
 		else
-			if (size != d[0].maxsize)
+			if (size != d[0].maxsize) {
+				spa_log_error(this->log, NAME " %p: expected size %d on buffer %d", this,
+				      size, i);
 				return -EINVAL;
+			}
 
-		if (!((d[0].type == SPA_DATA_MemPtr ||
-		       d[0].type == SPA_DATA_MemFd ||
-		       d[0].type == SPA_DATA_DmaBuf) && d[0].data != NULL)) {
-			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
-				      buffers[i]);
-			return -EINVAL;
+		for (j = 0; j < n_datas; j++) {
+			if (!((d[j].type == SPA_DATA_MemPtr ||
+			       d[j].type == SPA_DATA_MemFd ||
+			       d[j].type == SPA_DATA_DmaBuf) && d[j].data != NULL)) {
+				spa_log_error(this->log, NAME " %p: invalid memory %d on buffer %d",
+						this, j, i);
+				return -EINVAL;
+			}
+			if (!SPA_IS_ALIGNED(d[j].data, 16)) {
+				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
+						this, j, i);
+			}
 		}
+
 		if (direction == SPA_DIRECTION_OUTPUT)
 			spa_list_append(&port->queue, &b->link);
 		else
@@ -878,7 +893,7 @@ static int impl_node_process(struct spa_node *node)
 	spa_log_trace(this->log, NAME " %p: n_src:%d n_dst:%d size:%d maxsize:%d n_samples:%d",
 			this, n_src_datas, n_dst_datas, size, maxsize, n_samples);
 
-	this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_samples);
+	this->convert(this, dst_datas, src_datas, SPA_MAX(n_src_datas, n_dst_datas), n_samples);
 
 	inio->status = SPA_STATUS_NEED_BUFFER;
 	res |= SPA_STATUS_NEED_BUFFER;

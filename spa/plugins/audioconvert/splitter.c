@@ -44,7 +44,7 @@
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_MASK		(1LL << SPA_AUDIO_CHANNEL_FL) | (1LL << SPA_AUDIO_CHANNEL_FR)
 
-#define MAX_SAMPLES	1024
+#define MAX_SAMPLES	2048
 #define MAX_BUFFERS	64
 #define MAX_PORTS	128
 
@@ -100,7 +100,7 @@ struct impl {
 
 	bool have_profile;
 
-	float empty[MAX_SAMPLES];
+	float empty[MAX_SAMPLES + 15];
 };
 
 #define CHECK_OUT_PORT(this,d,p)	((d) == SPA_DIRECTION_OUTPUT && (p) < this->port_count)
@@ -754,10 +754,13 @@ impl_node_port_use_buffers(struct spa_node *node,
 		if (!((d[0].type == SPA_DATA_MemPtr ||
 		       d[0].type == SPA_DATA_MemFd ||
 		       d[0].type == SPA_DATA_DmaBuf) && d[0].data != NULL)) {
-			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p %d %p", this,
-				      buffers[i], d[0].type, d[0].data);
+			spa_log_error(this->log, NAME " %p: invalid memory on buffer %d %d %p", this,
+				      i, d[0].type, d[0].data);
 			return -EINVAL;
 		}
+		if (!SPA_IS_ALIGNED(d[0].data, 16))
+			spa_log_warn(this->log, NAME " %p: memory on buffer %d not aligned", this, i);
+
 		if (direction == SPA_DIRECTION_OUTPUT)
 			queue_buffer(this, port, i);
 	}
@@ -903,7 +906,7 @@ static int impl_node_process(struct spa_node *node)
 		if ((dbuf = dequeue_buffer(this, outport)) == NULL) {
 			outio->status = -EPIPE;
           empty:
-			dst_datas[n_dst_datas++] = this->empty;
+			dst_datas[n_dst_datas++] = SPA_PTR_ALIGN(this->empty, 16, void);
 			continue;
 		}
 
@@ -927,7 +930,7 @@ static int impl_node_process(struct spa_node *node)
 	spa_log_trace(this->log, NAME " %p: %d %d %d %d %d", this,
 			n_src_datas, n_dst_datas, n_samples, maxsize, inport->stride);
 
-	this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_samples);
+	this->convert(this, dst_datas, src_datas, SPA_MAX(n_dst_datas, n_src_datas), n_samples);
 
 	inio->status = SPA_STATUS_NEED_BUFFER;
 	res |= SPA_STATUS_NEED_BUFFER;

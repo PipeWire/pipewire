@@ -42,7 +42,7 @@
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
-#define MAX_SAMPLES	1024
+#define MAX_SAMPLES	2048
 #define MAX_BUFFERS	64
 #define MAX_PORTS	128
 
@@ -100,7 +100,7 @@ struct impl {
 	bool monitor;
 	bool have_profile;
 
-	float empty[MAX_SAMPLES];
+	float empty[MAX_SAMPLES + 15];
 };
 
 #define CHECK_IN_PORT(this,d,p)		((d) == SPA_DIRECTION_INPUT && (p) < this->port_count)
@@ -750,7 +750,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 {
 	struct impl *this;
 	struct port *port;
-	uint32_t i;
+	uint32_t i, j;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -769,6 +769,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
+		uint32_t n_datas = buffers[i]->n_datas;
 		struct spa_data *d = buffers[i]->datas;
 
 		b = &port->buffers[i];
@@ -776,13 +777,25 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->flags = 0;
 		b->buf = buffers[i];
 
-		if (!((d[0].type == SPA_DATA_MemPtr ||
-		       d[0].type == SPA_DATA_MemFd ||
-		       d[0].type == SPA_DATA_DmaBuf) && d[0].data != NULL)) {
-			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p %d %p", this,
-				      buffers[i], d[0].type, d[0].data);
+		if (n_datas != port->blocks) {
+			spa_log_error(this->log, NAME " %p: invalid blocks %d on buffer %d",
+					this, n_datas, i);
 			return -EINVAL;
 		}
+
+		for (j = 0; j < n_datas; j++) {
+			if (!((d[j].type == SPA_DATA_MemPtr ||
+			       d[j].type == SPA_DATA_MemFd ||
+			       d[j].type == SPA_DATA_DmaBuf) && d[j].data != NULL)) {
+				spa_log_error(this->log, NAME " %p: invalid memory %d on buffer %d %d %p",
+						this, j, i, d[j].type, d[j].data);
+				return -EINVAL;
+			}
+			if (!SPA_IS_ALIGNED(d[j].data, 16))
+				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
+						this, j, i);
+		}
+
 		if (direction == SPA_DIRECTION_OUTPUT)
 			queue_buffer(this, port, i);
 	}
@@ -960,7 +973,7 @@ static int impl_node_process(struct spa_node *node)
 		struct port *inport = GET_IN_PORT(this, i);
 
 		if (get_in_buffer(this, inport, &sbuf) < 0) {
-			src_datas[n_src_datas++] = this->empty;
+			src_datas[n_src_datas++] = SPA_PTR_ALIGN(this->empty, 16, void);
 			continue;
 		}
 
@@ -987,7 +1000,7 @@ static int impl_node_process(struct spa_node *node)
 				n_samples * outport->stride);
 	}
 
-	this->convert(this, n_dst_datas, dst_datas, n_src_datas, src_datas, n_samples);
+	this->convert(this, dst_datas, src_datas, SPA_MAX(n_dst_datas, n_src_datas), n_samples);
 
 	return res | SPA_STATUS_HAVE_BUFFER;
 }

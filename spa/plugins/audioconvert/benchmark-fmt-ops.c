@@ -31,45 +31,57 @@
 
 #include "fmt-ops.c"
 
-#define N_SAMPLES	4096
-#define N_CHANNELS	5
+#define MAX_SAMPLES	4096
+#define MAX_CHANNELS	11
 
 #define MAX_COUNT 1000
 
-static uint8_t samp_in[N_SAMPLES * N_CHANNELS * 4];
-static uint8_t samp_out[N_SAMPLES * N_CHANNELS * 4];
+static uint8_t samp_in[MAX_SAMPLES * MAX_CHANNELS * 4];
+static uint8_t samp_out[MAX_SAMPLES * MAX_CHANNELS * 4];
 
-static void run_test(const char *name, bool in_packed, bool out_packed, convert_func_t func)
+static const int sample_sizes[] = { 0, 1, 128, 513, 4096 };
+static const int channel_counts[] = { 1, 2, 4, 6, 8, 11 };
+
+static void run_test1(const char *name, bool in_packed, bool out_packed, convert_func_t func,
+		int n_channels, int n_samples)
 {
-	const void *ip[N_CHANNELS];
-	void *op[N_CHANNELS];
-	int i, j, ic, oc, ns;
+	int i, j;
+	const void *ip[n_channels];
+	void *op[n_channels];
 	struct timespec ts;
-	uint64_t t1, t2;
-	uint64_t count = 0;
+	uint64_t count, t1, t2;
 
-	for (j = 0; j < N_CHANNELS; j++) {
-		ip[j] = &samp_in[j * N_SAMPLES * 4];
-		op[j] = &samp_out[j * N_SAMPLES * 4];
+	for (j = 0; j < n_channels; j++) {
+		ip[j] = &samp_in[j * n_samples * 4];
+		op[j] = &samp_out[j * n_samples * 4];
 	}
-
-	ic = in_packed ? 1 : N_CHANNELS;
-	oc = out_packed ? 1 : N_CHANNELS;
-	ns = (in_packed && out_packed) ? N_SAMPLES * N_CHANNELS : N_SAMPLES;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	t1 = SPA_TIMESPEC_TO_NSEC(&ts);
 
+	count = 0;
 	for (i = 0; i < MAX_COUNT; i++) {
-		func(NULL, oc, op, ic, ip, ns);
+		func(NULL, op, ip, n_channels, n_samples);
 		count++;
 	}
-	count *= N_SAMPLES;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	t2 = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	fprintf(stderr, "%s: elapsed %"PRIu64" count %"PRIu64" = %"PRIu64"/sec\n", name,
+	fprintf(stderr, "%s: samples %d, channels %d: elapsed %"PRIu64" count %"
+			PRIu64" = %"PRIu64"/sec\n", name, n_samples, n_channels,
 			t2 - t1, count, count * (uint64_t)SPA_NSEC_PER_SEC / (t2 - t1));
+}
+
+static void run_test(const char *name, bool in_packed, bool out_packed, convert_func_t func)
+{
+	size_t i, j;
+
+	for (i = 0; i < SPA_N_ELEMENTS(sample_sizes); i++) {
+		for (j = 0; j < SPA_N_ELEMENTS(channel_counts); j++) {
+			run_test1(name, in_packed, out_packed, func, channel_counts[j],
+				(sample_sizes[i] + (channel_counts[j] -1)) / channel_counts[j]);
+		}
+	}
 }
 
 static void test_f32_u8(void)
@@ -77,6 +89,7 @@ static void test_f32_u8(void)
 	run_test("test_f32_u8", true, true, conv_f32_to_u8);
 	run_test("test_f32d_u8", false, true, conv_f32d_to_u8);
 	run_test("test_f32_u8d", true, false, conv_f32_to_u8d);
+	run_test("test_f32d_u8d", false, false, conv_f32d_to_u8d);
 }
 
 static void test_u8_f32(void)

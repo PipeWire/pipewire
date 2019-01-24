@@ -30,6 +30,8 @@
 #include <spa/utils/defs.h>
 #include <spa/param/audio/format-utils.h>
 
+#include <xmmintrin.h>
+
 #define U8_MIN		0
 #define U8_MAX		255
 #define U8_SCALE	127.5f
@@ -85,43 +87,68 @@ static inline void write_s24(void *dst, int32_t val)
 #endif
 
 static void
-conv_copy8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_copy8d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i;
-	for (i = 0; i < n_src; i++)
+	for (i = 0; i < n_channels; i++)
 		memcpy(dst[i], src[i], n_samples);
 }
 
 static void
-conv_copy16(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_copy8(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	memcpy(dst[0], src[0], n_samples * n_channels);
+}
+
+
+static void
+conv_copy16d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i;
-	for (i = 0; i < n_src; i++)
+	for (i = 0; i < n_channels; i++)
 		memcpy(dst[i], src[i], n_samples * sizeof(int16_t));
 }
 
 static void
-conv_copy24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_copy16(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	memcpy(dst[0], src[0], n_samples * sizeof(int16_t) * n_channels);
+}
+
+static void
+conv_copy24d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i;
-	for (i = 0; i < n_src; i++)
+	for (i = 0; i < n_channels; i++)
 		memcpy(dst[i], src[i], n_samples * 3);
 }
 
 static void
-conv_copy32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_copy24(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	memcpy(dst[0], src[0], n_samples * 3 * n_channels);
+}
+
+static void
+conv_copy32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i;
-	for (i = 0; i < n_src; i++)
+	for (i = 0; i < n_channels; i++)
 		memcpy(dst[i], src[i], n_samples * sizeof(int32_t));
 }
 
 static void
-conv_u8_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_copy32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	memcpy(dst[0], src[0], n_samples * sizeof(int32_t) * n_channels);
+}
+
+static void
+conv_u8d_to_f32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i, j;
 
-	for (i = 0; i < n_src; i++) {
+	for (i = 0; i < n_channels; i++) {
 		const uint8_t *s = src[i];
 		float *d = dst[i];
 
@@ -131,37 +158,43 @@ conv_u8_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *s
 }
 
 static void
-conv_u8_to_f32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_u8_to_f32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	conv_u8d_to_f32d(data, dst, src, 1, n_samples * n_channels);
+}
+
+static void
+conv_u8_to_f32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const uint8_t *s = src[0];
 	float **d = (float **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_channels; i++)
 			d[i][j] = U8_TO_F32(*s++);
 	}
 }
 
 static void
-conv_u8d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_u8d_to_f32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const uint8_t **s = (const uint8_t **) src;
 	float *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++)
+		for (i = 0; i < n_channels; i++)
 			*d++ = U8_TO_F32(s[i][j]);
 	}
 }
 
 static void
-conv_s16_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s16d_to_f32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i, j;
 
-	for (i = 0; i < n_src; i++) {
+	for (i = 0; i < n_channels; i++) {
 		const int16_t *s = src[i];
 		float *d = dst[i];
 		for (j = 0; j < n_samples; j++)
@@ -170,37 +203,43 @@ conv_s16_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 }
 
 static void
-conv_s16_to_f32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s16_to_f32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	conv_s16d_to_f32d(data, dst, src, 1, n_samples * n_channels);
+}
+
+static void
+conv_s16_to_f32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const int16_t *s = src[0];
 	float **d = (float **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_channels; i++)
 			d[i][j] = S16_TO_F32(*s++);
 	}
 }
 
 static void
-conv_s16d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s16d_to_f32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const int16_t **s = (const int16_t **) src;
 	float *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++)
+		for (i = 0; i < n_channels; i++)
 			*d++ = S16_TO_F32(s[i][j]);
 	}
 }
 
 static void
-conv_s32_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s32d_to_f32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i, j;
 
-	for (i = 0; i < n_src; i++) {
+	for (i = 0; i < n_channels; i++) {
 		const int32_t *s = src[i];
 		float *d = dst[i];
 
@@ -210,38 +249,43 @@ conv_s32_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 }
 
 static void
-conv_s32_to_f32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s32_to_f32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	conv_s32d_to_f32d(data, dst, src, 1, n_samples * n_channels);
+}
+
+static void
+conv_s32_to_f32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const int32_t *s = src[0];
 	float **d = (float **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_channels; i++)
 			d[i][j] = S32_TO_F32(*s++);
 	}
 }
 
 static void
-conv_s32d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s32d_to_f32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const int32_t **s = (const int32_t **) src;
 	float *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++)
+		for (i = 0; i < n_channels; i++)
 			*d++ = S32_TO_F32(s[i][j]);
 	}
 }
 
-
 static void
-conv_s24_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s24d_to_f32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i, j;
 
-	for (i = 0; i < n_src; i++) {
+	for (i = 0; i < n_channels; i++) {
 		const int8_t *s = src[i];
 		float *d = dst[i];
 
@@ -253,14 +297,20 @@ conv_s24_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 }
 
 static void
-conv_s24_to_f32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s24_to_f32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	conv_s24d_to_f32d(data, dst, src, 1, n_samples * n_channels);
+}
+
+static void
+conv_s24_to_f32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const uint8_t *s = src[0];
 	float **d = (float **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++) {
+		for (i = 0; i < n_channels; i++) {
 			d[i][j] = S24_TO_F32(read_s24(s));
 			s += 3;
 		}
@@ -268,25 +318,25 @@ conv_s24_to_f32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 }
 
 static void
-conv_s24d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s24d_to_f32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const uint8_t **s = (const uint8_t **) src;
 	float *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++) {
+		for (i = 0; i < n_channels; i++) {
 			*d++ = S24_TO_F32(read_s24(&s[i][j*3]));
 		}
 	}
 }
 
 static void
-conv_s24_32_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s24_32d_to_f32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i, j;
 
-	for (i = 0; i < n_src; i++) {
+	for (i = 0; i < n_channels; i++) {
 		const int32_t *s = src[i];
 		float *d = dst[i];
 
@@ -296,37 +346,43 @@ conv_s24_32_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const voi
 }
 
 static void
-conv_s24_32_to_f32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s24_32_to_f32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	conv_s24_32d_to_f32d(data, dst, src, 1, n_samples * n_channels);
+}
+
+static void
+conv_s24_32_to_f32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const int32_t *s = src[0];
 	float **d = (float **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_channels; i++)
 			d[i][j] = S24_TO_F32(*s++);
 	}
 }
 
 static void
-conv_s24_32d_to_f32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_s24_32d_to_f32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const int32_t **s = (const int32_t **) src;
 	float *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++)
+		for (i = 0; i < n_channels; i++)
 			*d++ = S24_TO_F32(s[i][j]);
 	}
 }
 
 static void
-conv_f32_to_u8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32d_to_u8d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i, j;
 
-	for (i = 0; i < n_src; i++) {
+	for (i = 0; i < n_channels; i++) {
 		const float *s = src[i];
 		uint8_t *d = dst[i];
 
@@ -336,37 +392,43 @@ conv_f32_to_u8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *s
 }
 
 static void
-conv_f32_to_u8d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32_to_u8(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	conv_f32d_to_u8d(data, dst, src, 1, n_samples * n_channels);
+}
+
+static void
+conv_f32_to_u8d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const float *s = src[0];
 	uint8_t **d = (uint8_t **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_channels; i++)
 			d[i][j] = F32_TO_U8(*s++);
 	}
 }
 
 static void
-conv_f32d_to_u8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32d_to_u8(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const float **s = (const float **) src;
 	uint8_t *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++)
+		for (i = 0; i < n_channels; i++)
 			*d++ = F32_TO_U8(s[i][j]);
 	}
 }
 
 static void
-conv_f32_to_s16(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32d_to_s16d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i, j;
 
-	for (i = 0; i < n_src; i++) {
+	for (i = 0; i < n_channels; i++) {
 		const float *s = src[i];
 		int16_t *d = dst[i];
 
@@ -376,37 +438,43 @@ conv_f32_to_s16(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 }
 
 static void
-conv_f32_to_s16d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32_to_s16(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	conv_f32d_to_s16d(data, dst, src, 1, n_samples * n_channels);
+}
+
+static void
+conv_f32_to_s16d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const float *s = src[0];
 	int16_t **d = (int16_t **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_channels; i++)
 			d[i][j] = F32_TO_S16(*s++);
 	}
 }
 
 static void
-conv_f32d_to_s16(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32d_to_s16(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const float **s = (const float **) src;
 	int16_t *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++)
+		for (i = 0; i < n_channels; i++)
 			*d++ = F32_TO_S16(s[i][j]);
 	}
 }
 
 static void
-conv_f32_to_s32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32d_to_s32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i, j;
 
-	for (i = 0; i < n_src; i++) {
+	for (i = 0; i < n_channels; i++) {
 		const float *s = src[i];
 		int32_t *d = dst[i];
 
@@ -416,27 +484,33 @@ conv_f32_to_s32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 }
 
 static void
-conv_f32_to_s32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32_to_s32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	conv_f32d_to_s32d(data, dst, src, 1, n_samples * n_channels);
+}
+
+static void
+conv_f32_to_s32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const float *s = src[0];
 	int32_t **d = (int32_t **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_channels; i++)
 			d[i][j] = F32_TO_S32(*s++);
 	}
 }
 
 static void
-conv_f32d_to_s32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32d_to_s32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const float **s = (const float **) src;
 	int32_t *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++)
+		for (i = 0; i < n_channels; i++)
 			*d++ = F32_TO_S32(s[i][j]);
 	}
 }
@@ -444,11 +518,11 @@ conv_f32d_to_s32(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 
 
 static void
-conv_f32_to_s24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32d_to_s24d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i, j;
 
-	for (i = 0; i < n_src; i++) {
+	for (i = 0; i < n_channels; i++) {
 		const float *s = src[i];
 		uint8_t *d = dst[i];
 
@@ -460,28 +534,34 @@ conv_f32_to_s24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 }
 
 static void
-conv_f32_to_s24d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32_to_s24(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	conv_f32d_to_s24d(data, dst, src, 1, n_samples * n_channels);
+}
+
+static void
+conv_f32_to_s24d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const float *s = src[0];
 	uint8_t **d = (uint8_t **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++) {
+		for (i = 0; i < n_channels; i++) {
 			write_s24(&d[i][j*3], F32_TO_S24(*s++));
 		}
 	}
 }
 
 static void
-conv_f32d_to_s24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32d_to_s24(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const float **s = (const float **) src;
 	uint8_t *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++) {
+		for (i = 0; i < n_channels; i++) {
 			write_s24(d, F32_TO_S24(s[i][j]));
 			d += 3;
 		}
@@ -490,11 +570,11 @@ conv_f32d_to_s24(void *data, int n_dst, void *dst[n_dst], int n_src, const void 
 
 
 static void
-conv_f32_to_s24_32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32d_to_s24_32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	int i, j;
 
-	for (i = 0; i < n_src; i++) {
+	for (i = 0; i < n_channels; i++) {
 		const float *s = src[i];
 		int32_t *d = dst[i];
 
@@ -504,66 +584,72 @@ conv_f32_to_s24_32(void *data, int n_dst, void *dst[n_dst], int n_src, const voi
 }
 
 static void
-conv_f32_to_s24_32d(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32_to_s24_32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
+{
+	conv_f32d_to_s24_32d(data, dst, src, 1, n_samples * n_channels);
+}
+
+static void
+conv_f32_to_s24_32d(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const float *s = src[0];
 	int32_t **d = (int32_t **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_channels; i++)
 			d[i][j] = F32_TO_S24(*s++);
 	}
 }
 
 static void
-conv_f32d_to_s24_32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+conv_f32d_to_s24_32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const float **s = (const float **) src;
 	int32_t *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++)
+		for (i = 0; i < n_channels; i++)
 			*d++ = F32_TO_S24(s[i][j]);
 	}
 }
 
 static void
-deinterleave_8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+deinterleave_8(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const uint8_t *s = src[0];
 	uint8_t **d = (uint8_t **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_channels; i++)
 			d[i][j] = *s++;
 	}
 }
 
 static void
-deinterleave_16(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+deinterleave_16(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const uint16_t *s = src[0];
 	uint16_t **d = (uint16_t **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_channels; i++)
 			d[i][j] = *s++;
 	}
 }
 
 static void
-deinterleave_24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+deinterleave_24(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const uint8_t *s = src[0];
 	uint8_t **d = (uint8_t **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++) {
+		for (i = 0; i < n_channels; i++) {
 			write_s24(&d[i][j*3], read_s24(s));
 			s += 3;
 		}
@@ -571,53 +657,53 @@ deinterleave_24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *
 }
 
 static void
-deinterleave_32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+deinterleave_32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const uint32_t *s = src[0];
 	uint32_t **d = (uint32_t **) dst;
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_channels; i++)
 			d[i][j] = *s++;
 	}
 }
 
 static void
-interleave_8(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+interleave_8(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const int8_t **s = (const int8_t **) src;
 	uint8_t *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++)
+		for (i = 0; i < n_channels; i++)
 			*d++ = s[i][j];
 	}
 }
 
 static void
-interleave_16(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+interleave_16(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const int16_t **s = (const int16_t **) src;
 	uint16_t *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++)
+		for (i = 0; i < n_channels; i++)
 			*d++ = s[i][j];
 	}
 }
 
 static void
-interleave_24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+interleave_24(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const int8_t **s = (const int8_t **) src;
 	uint8_t *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++) {
+		for (i = 0; i < n_channels; i++) {
 			write_s24(d, read_s24(&s[i][j*3]));
 			d += 3;
 		}
@@ -625,21 +711,21 @@ interleave_24(void *data, int n_dst, void *dst[n_dst], int n_src, const void *sr
 }
 
 static void
-interleave_32(void *data, int n_dst, void *dst[n_dst], int n_src, const void *src[n_src], int n_samples)
+interleave_32(void *data, void *dst[], const void *src[], int n_channels, int n_samples)
 {
 	const int32_t **s = (const int32_t **) src;
 	uint32_t *d = dst[0];
 	int i, j;
 
 	for (j = 0; j < n_samples; j++) {
-		for (i = 0; i < n_src; i++)
+		for (i = 0; i < n_channels; i++)
 			*d++ = s[i][j];
 	}
 }
 
 
-typedef void (*convert_func_t) (void *data, int n_dst, void *dst[n_dst],
-				int n_src, const void *src[n_src], int n_samples);
+typedef void (*convert_func_t) (void *data, void *dst[], const void *src[],
+		int n_channels, int n_samples);
 
 static const struct conv_info {
 	uint32_t src_fmt;
@@ -652,13 +738,13 @@ static const struct conv_info {
 {
 	/* to f32 */
 	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_F32, 0, conv_u8_to_f32 },
-	{ SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_F32P, 0, conv_u8_to_f32 },
+	{ SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_F32P, 0, conv_u8d_to_f32d },
 	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_F32P, 0, conv_u8_to_f32d },
 	{ SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_F32, 0, conv_u8d_to_f32 },
 
 
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32, 0, conv_s16_to_f32 },
-	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_F32P, 0, conv_s16_to_f32 },
+	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_F32P, 0, conv_s16d_to_f32d },
 #if defined (__SSE2__)
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE2, conv_s16_to_f32d_sse2 },
 #endif
@@ -666,17 +752,17 @@ static const struct conv_info {
 	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_F32, 0, conv_s16d_to_f32 },
 
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_F32, 0, conv_copy32 },
-	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F32P, 0, conv_copy32 },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F32P, 0, conv_copy32d },
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_F32P, 0, deinterleave_32 },
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F32, 0, interleave_32 },
 
 	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_F32, 0, conv_s32_to_f32 },
-	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P, 0, conv_s32_to_f32 },
+	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P, 0, conv_s32d_to_f32d },
 	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_F32P, 0, conv_s32_to_f32d },
 	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32, 0, conv_s32d_to_f32 },
 
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32, 0, conv_s24_to_f32 },
-	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_F32P, 0, conv_s24_to_f32 },
+	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_F32P, 0, conv_s24d_to_f32d },
 #if defined (__SSE2__)
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE2, conv_s24_to_f32d_sse2 },
 #endif
@@ -684,18 +770,18 @@ static const struct conv_info {
 	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_F32, 0, conv_s24d_to_f32 },
 
 	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_F32, 0, conv_s24_32_to_f32 },
-	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_F32P, 0, conv_s24_32_to_f32 },
+	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_F32P, 0, conv_s24_32d_to_f32d },
 	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_F32P, 0, conv_s24_32_to_f32d },
 	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_F32, 0, conv_s24_32d_to_f32 },
 
 	/* from f32 */
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_U8, 0, conv_f32_to_u8 },
-	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_U8P, 0, conv_f32_to_u8 },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_U8P, 0, conv_f32d_to_u8d },
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_U8P, 0, conv_f32_to_u8d },
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_U8, 0, conv_f32d_to_u8 },
 
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S16, 0, conv_f32_to_s16 },
-	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16P, 0, conv_f32_to_s16 },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16P, 0, conv_f32d_to_s16d },
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S16P, 0, conv_f32_to_s16d },
 #if defined (__SSE2__)
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16, FEATURE_SSE2, conv_f32d_to_s16_sse2 },
@@ -703,7 +789,7 @@ static const struct conv_info {
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16, 0, conv_f32d_to_s16 },
 
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S32, 0, conv_f32_to_s32 },
-	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32P, 0, conv_f32_to_s32 },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32P, 0, conv_f32d_to_s32d },
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S32P, 0, conv_f32_to_s32d },
 #if defined (__SSE2__)
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32, FEATURE_SSE2, conv_f32d_to_s32_sse2 },
@@ -711,42 +797,42 @@ static const struct conv_info {
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32, 0, conv_f32d_to_s32 },
 
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S24, 0, conv_f32_to_s24 },
-	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S24P, 0, conv_f32_to_s24 },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S24P, 0, conv_f32d_to_s24d },
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S24P, 0, conv_f32_to_s24d },
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S24, 0, conv_f32d_to_s24 },
 
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S24_32, 0, conv_f32_to_s24_32 },
-	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S24_32P, 0, conv_f32_to_s24_32 },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S24_32P, 0, conv_f32d_to_s24_32d },
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S24_32P, 0, conv_f32_to_s24_32d },
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S24_32, 0, conv_f32d_to_s24_32 },
 
 	/* u8 */
 	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_U8, 0, conv_copy8 },
-	{ SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_U8P, 0, conv_copy8 },
+	{ SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_U8P, 0, conv_copy8d },
 	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_U8P, 0, deinterleave_8 },
 	{ SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_U8, 0, interleave_8 },
 
 	/* s16 */
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_S16, 0, conv_copy16 },
-	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_S16P, 0, conv_copy16 },
+	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_S16P, 0, conv_copy16d },
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_S16P, 0, deinterleave_16 },
 	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_S16, 0, interleave_16 },
 
 	/* s32 */
 	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_S32, 0, conv_copy32 },
-	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_S32P, 0, conv_copy32 },
+	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_S32P, 0, conv_copy32d },
 	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_S32P, 0, deinterleave_32 },
 	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_S32, 0, interleave_32 },
 
 	/* s24 */
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_S24, 0, conv_copy24 },
-	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_S24P, 0, conv_copy24 },
+	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_S24P, 0, conv_copy24d },
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_S24P, 0, deinterleave_24 },
 	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_S24, 0, interleave_24 },
 
 	/* s24_32 */
 	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_S24_32, 0, conv_copy32 },
-	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_S24_32P, 0, conv_copy32 },
+	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_S24_32P, 0, conv_copy32d },
 	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_S24_32P, 0, deinterleave_32 },
 	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_S24_32, 0, interleave_32 },
 };

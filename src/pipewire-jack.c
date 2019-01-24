@@ -1236,7 +1236,7 @@ static void client_node_port_use_buffers(void *object,
 		offset = b->map.start;
 		for (j = 0; j < buf->n_metas; j++) {
 			struct spa_meta *m = &buf->metas[j];
-			offset += m->size;
+			offset += SPA_ROUND_UP_N(m->size, 8);
 		}
 
 		b->n_datas = SPA_MIN(buf->n_datas, MAX_BUFFER_DATAS);

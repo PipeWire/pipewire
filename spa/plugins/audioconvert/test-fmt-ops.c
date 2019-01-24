@@ -238,6 +238,9 @@ static void test_s24_32_f32(void)
 
 int main(int argc, char *argv[])
 {
+
+	find_conv_info(0, 0, 0);
+
 	test_f32_u8();
 	test_u8_f32();
 	test_f32_s16();

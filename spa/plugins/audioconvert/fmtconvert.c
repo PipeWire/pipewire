@@ -828,7 +828,7 @@ static int impl_node_process(struct spa_node *node)
 	void **dst_datas;
 	uint32_t i, n_src_datas, n_dst_datas;
 	int res = 0;
-	uint32_t n_samples, size, maxsize;
+	uint32_t n_samples, size, maxsize, offs;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -869,8 +869,9 @@ static int impl_node_process(struct spa_node *node)
 
 	size = UINT32_MAX;
 	for (i = 0; i < n_src_datas; i++) {
-		size = SPA_MIN(size, inb->datas[0].chunk->size);
-		src_datas[i] = SPA_MEMBER(inb->datas[i].data, inb->datas[i].chunk->offset, void);
+		offs = SPA_MIN(inb->datas[i].chunk->offset, inb->datas[i].maxsize);
+		size = SPA_MIN(size, SPA_MIN(inb->datas[i].maxsize - offs, inb->datas[i].chunk->size));
+		src_datas[i] = SPA_MEMBER(inb->datas[i].data, offs, void);
 	}
 	n_samples = size / inport->stride;
 

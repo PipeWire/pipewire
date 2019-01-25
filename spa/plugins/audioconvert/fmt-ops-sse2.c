@@ -383,8 +383,6 @@ conv_f32d_to_s16_1_sse2(void *data, void *dst, const void *src[], int n_channels
 		d += 8*n_channels;
 	}
 	for(; n < n_samples; n++) {
-		fprintf(stderr, "%p %d %d %d\n", s0, n_samples, n, n_channels);
-		spa_assert_not_reached();
 		in[0] = _mm_mul_ss(_mm_load_ss(&s0[n]), int_max);
 		in[0] = _mm_min_ss(int_max, _mm_max_ss(in[0], int_min));
 		*d = _mm_cvtss_si32(in[0]);
@@ -432,8 +430,6 @@ conv_f32d_to_s16_2_sse2(void *data, void *dst, const void *src[], int n_channels
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
-		fprintf(stderr, "%p %p %d %d %d\n", s0, s1, n_samples, n, n_channels);
-		spa_assert_not_reached();
 		in[0] = _mm_mul_ss(_mm_load_ss(&s0[n]), int_max);
 		in[1] = _mm_mul_ss(_mm_load_ss(&s1[n]), int_max);
 		in[0] = _mm_min_ss(int_max, _mm_max_ss(in[0], int_min));

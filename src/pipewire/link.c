@@ -350,69 +350,7 @@ static struct spa_pod *find_param(struct spa_pod **params, uint32_t n_params, ui
 	return NULL;
 }
 
-/* Allocate an array of buffers that can be shared.
- *
- * All information will be allocated in \a mem. A pointer to a
- * newly allocated memory with an array of buffer pointers is
- * returned.
- *
- * \return an array of freshly allocated buffer pointers. free()
- *         after usage.
- *
- * Array of allocated buffers:
- *
- *      +==============================+
- *    +-| struct spa_buffer  *         | array of n_buffers of pointers
- *    | | ... <n_buffers>              |
- *    | +==============================+
- *    +>| struct spa_buffer            |
- *      |   uint32_t id                | id of buffer
- *      |   uint32_t n_metas           | number of metas
- *    +-|   struct spa_meta *metas     | pointer to array of metas
- *    | |   uint32_t n_datas           | number of datas
- *   +|-|   struct spa_data *datas     | pointer to array of datas
- *   || +------------------------------+
- *   |+>| struct spa_meta              |
- *   |  |   uint32_t type              | metadata
- *  +|--|   void *data                 | pointer to mmaped metadata in shared memory
- *  ||  |   uint32_t size              | size of metadata
- *  ||  | ... <n_metas>                | more metas follow
- *  ||  +------------------------------+
- *  |+->| struct spa_data              |
- *  |   |   uint32_t type              | memory type, either MemFd or INVALID
- *  |   |   uint32_t flags             |
- *  |   |   int fd                     | fd of shared memory block
- *  |   |   uint32_t mapoffset         | offset in shared memory of data
- *  |   |   uint32_t maxsize           | size of data block
- *  | +-|   void *data                 | pointer to mmaped data in shared memory
- *  |+|-|   struct spa_chunk *chunk    | pointer to mmaped chunk in shared memory
- *  ||| | ... <n_datas>                | more datas follow
- *  ||| +==============================+
- *  ||| | ... <n_buffers>              | more buffer/meta/data definitions follow
- *  ||| +==============================+
- *  |||
- *  |||
- *  |||  shared memory block:
- *  |||
- *  ||| +==============================+
- *  +-->| meta data memory             | metadata memory
- *   || | ... <n_metas>                |
- *   || +------------------------------+
- *   +->| struct spa_chunk             | memory for n_datas chunks
- *    | |   uint32_t offset            |
- *    | |   uint32_t size              |
- *    | |   int32_t stride             |
- *    | | ... <n_datas> chunks         |
- *    | +------------------------------+
- *    +>| data                         | memory for n_datas data
- *      | ... <n_datas> blocks         |
- *      +==============================+
- *      | ... <n_buffers>              | repeated for each buffer
- *      +==============================+
- *
- * The shared memory block should not contain any types or structure,
- * just the actual metadata contents.
- */
+/* Allocate an array of buffers that can be shared */
 static int alloc_buffers(struct pw_link *this,
 			 uint32_t n_buffers,
 			 uint32_t n_params,

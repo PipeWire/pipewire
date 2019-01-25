@@ -447,21 +447,21 @@ static int port_get_format(struct spa_node *node,
 	case SPA_MEDIA_SUBTYPE_raw:
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_format,    SPA_POD_Id(port->current_format.info.raw.format),
-			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(port->current_format.info.raw.size),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(port->current_format.info.raw.framerate),
+			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format.info.raw.size),
+			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format.info.raw.framerate),
 			0);
 		break;
 	case SPA_MEDIA_SUBTYPE_mjpg:
 	case SPA_MEDIA_SUBTYPE_jpeg:
 		spa_pod_builder_add(builder,
-			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(port->current_format.info.mjpg.size),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(port->current_format.info.mjpg.framerate),
+			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format.info.mjpg.size),
+			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format.info.mjpg.framerate),
 			0);
 		break;
 	case SPA_MEDIA_SUBTYPE_h264:
 		spa_pod_builder_add(builder,
-			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(port->current_format.info.h264.size),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(port->current_format.info.h264.framerate),
+			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format.info.h264.size),
+			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format.info.h264.framerate),
 			0);
 		break;
 	default:

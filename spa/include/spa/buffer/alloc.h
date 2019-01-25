@@ -41,10 +41,12 @@ struct spa_buffer_alloc_info {
 	uint32_t n_datas;
 	struct spa_data *datas;
 	uint32_t *data_aligns;
+	uint32_t max_align;	/**< max of all alignments */
 	size_t skel_size;	/**< size of the struct spa_buffer and inlined meta/chunk/data */
 	size_t meta_size;	/**< size of the meta if not inlined */
 	size_t chunk_size;	/**< size of the chunk if not inlined */
 	size_t data_size;	/**< size of the data if not inlined */
+	size_t mem_size;	/**< size of the total memory if not inlined */
 };
 
 static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
@@ -60,6 +62,8 @@ static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
 	info->n_datas = n_datas;
 	info->datas = datas;
 	info->data_aligns = data_aligns;
+	info->max_align = 16;
+	info->mem_size = 0;
 
 	info->skel_size = sizeof(struct spa_buffer);
         info->skel_size += n_metas * sizeof(struct spa_meta);
@@ -71,12 +75,17 @@ static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
 
 	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_META))
 		info->skel_size += info->meta_size;
+	else
+		info->mem_size += info->meta_size;
 
 	info->chunk_size = n_datas * sizeof(struct spa_chunk);
 	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_CHUNK))
 	        info->skel_size += info->chunk_size;
+	else
+	        info->mem_size += info->chunk_size;
 
 	for (i = 0, size = 0; i < n_datas; i++) {
+		info->max_align = SPA_MAX(info->max_align, data_aligns[i]);
 		size = SPA_ROUND_UP_N(size, data_aligns[i]);
 		size += datas[i].maxsize;
 	}
@@ -84,10 +93,15 @@ static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
 
 	if (!SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_NO_DATA) &&
 	    SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_DATA)) {
-		info->skel_size += n_datas ? data_aligns[0] - 1 : 0;
+		info->skel_size = SPA_ROUND_UP_N(info->skel_size, n_datas ? data_aligns[0] : 1);
 		info->skel_size += info->data_size;
+		info->skel_size = SPA_ROUND_UP_N(info->skel_size, info->max_align);
 	}
-	info->skel_size = SPA_ROUND_UP_N(info->skel_size, 8);
+	else {
+		info->mem_size = SPA_ROUND_UP_N(info->mem_size, n_datas ? data_aligns[0] : 1);
+		info->mem_size += info->data_size;
+		info->mem_size = SPA_ROUND_UP_N(info->mem_size, info->max_align);
+	}
 
 	return 0;
 }
@@ -157,11 +171,10 @@ spa_buffer_alloc_layout_array(struct spa_buffer_alloc_info *info,
 			      void *skel_mem, void *data_mem)
 {
 	uint32_t i;
-	size_t data_size = info->data_size + info->meta_size + info->chunk_size;
 	for (i = 0; i < n_buffers; i++) {
 		buffers[i] = spa_buffer_alloc_layout(info, skel_mem, data_mem);
 		skel_mem = SPA_MEMBER(skel_mem, info->skel_size, void);
-		data_mem = SPA_MEMBER(data_mem, data_size, void);
+		data_mem = SPA_MEMBER(data_mem, info->mem_size, void);
         }
 	return 0;
 }
@@ -173,19 +186,21 @@ spa_buffer_alloc_array(uint32_t n_buffers, uint32_t flags,
 		       uint32_t data_aligns[])
 {
 
-        struct spa_buffer **buffers;
-        struct spa_buffer_alloc_info info = { flags | SPA_BUFFER_ALLOC_FLAG_INLINE_ALL, };
-        void *skel;
+	struct spa_buffer **buffers;
+	struct spa_buffer_alloc_info info = { flags | SPA_BUFFER_ALLOC_FLAG_INLINE_ALL, };
+	void *skel;
 
-        spa_buffer_alloc_fill_info(&info, n_metas, metas, n_datas, datas, data_aligns);
+	spa_buffer_alloc_fill_info(&info, n_metas, metas, n_datas, datas, data_aligns);
 
-        buffers = (struct spa_buffer **)calloc(n_buffers, sizeof(struct spa_buffer *) + info.skel_size);
+	buffers = (struct spa_buffer **)calloc(1, info.max_align +
+			n_buffers * (sizeof(struct spa_buffer *) + info.skel_size));
 
-        skel = SPA_MEMBER(buffers, sizeof(struct spa_buffer *) * n_buffers, void);
+	skel = SPA_MEMBER(buffers, sizeof(struct spa_buffer *) * n_buffers, void);
+	skel = SPA_PTR_ALIGN(skel, info.max_align, void);
 
-        spa_buffer_alloc_layout_array(&info, n_buffers, buffers, skel, NULL);
+	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, skel, NULL);
 
-        return buffers;
+	return buffers;
 }
 
 

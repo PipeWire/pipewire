@@ -817,7 +817,7 @@ do_port_use_buffers(struct impl *impl,
 		struct buffer *b = &mix->buffers[i];
 		struct pw_memblock *mem;
 		struct mem *m;
-		size_t data_size, size;
+		size_t data_size;
 		void *baseptr;
 
 		b->outbuf = buffers[i];
@@ -835,13 +835,12 @@ do_port_use_buffers(struct impl *impl,
 		if ((mem = pw_memblock_find(baseptr)) == NULL)
 			return -EINVAL;
 
-		data_size = 0;
+		data_size = buffers[i]->n_datas * sizeof(struct spa_chunk);
 		for (j = 0; j < buffers[i]->n_metas; j++) {
 			data_size += SPA_ROUND_UP_N(buffers[i]->metas[j].size, 8);
 		}
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = buffers[i]->datas;
-			data_size += sizeof(struct spa_chunk);
 			if (d->type == SPA_DATA_MemPtr)
 				data_size += d->maxsize;
 		}
@@ -853,12 +852,13 @@ do_port_use_buffers(struct impl *impl,
 		mb[i].mem_id = b->memid;
 		mb[i].offset = SPA_PTRDIFF(baseptr, SPA_MEMBER(mem->ptr, mem->offset, void));
 		mb[i].size = data_size;
+		spa_log_debug(this->log, "buffer %d %d %d %d", i, mb[i].mem_id,
+				mb[i].offset, mb[i].size);
 
 		for (j = 0; j < buffers[i]->n_metas; j++)
 			memcpy(&b->buffer.metas[j], &buffers[i]->metas[j], sizeof(struct spa_meta));
 		b->buffer.n_metas = j;
 
-		size = buffers[i]->n_datas * sizeof(struct spa_chunk);
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = &buffers[i]->datas[j];
 
@@ -869,8 +869,8 @@ do_port_use_buffers(struct impl *impl,
 				m = ensure_mem(impl, d->fd, d->type, d->flags);
 				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(m->id);
 			} else if (d->type == SPA_DATA_MemPtr) {
-				b->buffer.datas[j].data = SPA_INT_TO_PTR(size);
-				size += d->maxsize;
+				spa_log_debug(this->log, "mem %d %zd", j, SPA_PTRDIFF(d->data, baseptr));
+				b->buffer.datas[j].data = SPA_INT_TO_PTR(SPA_PTRDIFF(d->data, baseptr));
 			} else {
 				b->buffer.datas[j].type = SPA_ID_INVALID;
 				b->buffer.datas[j].data = NULL;

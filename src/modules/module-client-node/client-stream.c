@@ -543,7 +543,7 @@ static int negotiate_buffers(struct impl *impl)
 	int res, i;
 	bool in_alloc, out_alloc;
 	int32_t size, buffers, blocks, align, flags;
-	uint32_t *aligns, data_size;
+	uint32_t *aligns;
 	struct spa_data *datas;
 	const struct spa_port_info *in_info, *out_info;
         struct spa_buffer_alloc_info info = { 0, };
@@ -622,7 +622,6 @@ static int negotiate_buffers(struct impl *impl)
 	}
 
 	spa_buffer_alloc_fill_info(&info, 0, NULL, blocks, datas, aligns);
-	info.skel_size = SPA_ROUND_UP_N(info.skel_size, 16);
 
 	free(impl->buffers);
 	impl->buffers = calloc(buffers, sizeof(struct spa_buffer *) + info.skel_size);
@@ -630,7 +629,6 @@ static int negotiate_buffers(struct impl *impl)
 		return -ENOMEM;
 
         skel = SPA_MEMBER(impl->buffers, sizeof(struct spa_buffer *) * buffers, void);
-	data_size = info.meta_size + info.chunk_size + info.data_size;
 
 	if (impl->mem) {
 		pw_memblock_free(impl->mem);
@@ -639,7 +637,7 @@ static int negotiate_buffers(struct impl *impl)
 
 	if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 				     PW_MEMBLOCK_FLAG_MAP_READWRITE |
-				     PW_MEMBLOCK_FLAG_SEAL, buffers * data_size,
+				     PW_MEMBLOCK_FLAG_SEAL, buffers * info.mem_size,
 				     &impl->mem)) < 0)
 		return res;
 

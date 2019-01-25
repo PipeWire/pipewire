@@ -29,6 +29,7 @@
 #include <spa/pod/parser.h>
 #include <spa/pod/compare.h>
 #include <spa/param/param.h>
+#include <spa/buffer/alloc.h>
 
 #include "pipewire/private.h"
 #include "pipewire/interfaces.h"
@@ -417,26 +418,24 @@ static int alloc_buffers(struct pw_link *this,
 			 uint32_t n_params,
 			 struct spa_pod **params,
 			 uint32_t n_datas,
-			 size_t *data_sizes,
-			 ssize_t *data_strides,
-			 size_t *data_aligns,
+			 uint32_t *data_sizes,
+			 int32_t *data_strides,
+			 uint32_t *data_aligns,
 			 struct allocation *allocation)
 {
 	int res;
 	struct spa_buffer **buffers, *bp;
 	uint32_t i;
-	size_t skel_size, data_size, meta_size;
-	struct spa_chunk *cdp;
-	void *ddp;
 	uint32_t n_metas;
 	struct spa_meta *metas;
+	struct spa_data *datas;
 	struct pw_memblock *m;
+	struct spa_buffer_alloc_info info = { 0, };
 
-	n_metas = data_size = meta_size = 0;
-
-	skel_size = sizeof(struct spa_buffer);
+	n_metas = 0;
 
 	metas = alloca(sizeof(struct spa_meta) * n_params);
+	datas = alloca(sizeof(struct spa_data) * n_datas);
 
 	/* collect metadata */
 	for (i = 0; i < n_params; i++) {
@@ -453,78 +452,40 @@ static int alloc_buffers(struct pw_link *this,
 
 			metas[n_metas].type = type;
 			metas[n_metas].size = size;
-			meta_size += SPA_ROUND_UP_N(metas[n_metas].size, 8);
 			n_metas++;
-			skel_size += sizeof(struct spa_meta);
 		}
 	}
-	data_size += meta_size;
-	data_size = SPA_ROUND_UP_N(data_size, data_aligns[0]);
 
-	/* data */
 	for (i = 0; i < n_datas; i++) {
-		data_size += sizeof(struct spa_chunk);
-		data_size += data_sizes[i];
-		skel_size += sizeof(struct spa_data);
+		struct spa_data *d = &datas[i];
+
+		if (data_sizes[i] > 0) {
+			d->type = SPA_DATA_MemPtr;
+			d->maxsize = data_sizes[i];
+		} else {
+			d->type = SPA_ID_INVALID;
+			d->maxsize = 0;
+		}
 	}
 
-	buffers = calloc(n_buffers, skel_size + sizeof(struct spa_buffer *));
+        spa_buffer_alloc_fill_info(&info, n_metas, metas, n_datas, datas, data_aligns);
+
+	buffers = calloc(n_buffers, info.skel_size + sizeof(struct spa_buffer *));
+	if (buffers == NULL)
+		return -ENOMEM;
+
 	/* pointer to buffer structures */
 	bp = SPA_MEMBER(buffers, n_buffers * sizeof(struct spa_buffer *), struct spa_buffer);
 
 	if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 				     PW_MEMBLOCK_FLAG_MAP_READWRITE |
-				     PW_MEMBLOCK_FLAG_SEAL, n_buffers * data_size, &m)) < 0)
+				     PW_MEMBLOCK_FLAG_SEAL, n_buffers * info.mem_size,
+				     &m)) < 0)
 		return res;
 
-	for (i = 0; i < n_buffers; i++) {
-		uint32_t j;
-		struct spa_buffer *b;
-		void *p;
+	pw_log_debug("layout buffers %p data %p", bp, m->ptr);
+	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, bp, m->ptr);
 
-		buffers[i] = b = SPA_MEMBER(bp, skel_size * i, struct spa_buffer);
-
-		p = SPA_MEMBER(m->ptr, data_size * i, void);
-
-		b->n_metas = n_metas;
-		b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
-		for (j = 0; j < n_metas; j++) {
-			struct spa_meta *m = &b->metas[j];
-
-			m->type = metas[j].type;
-			m->size = metas[j].size;
-			m->data = p;
-			p = SPA_MEMBER(p, SPA_ROUND_UP_N(m->size, 8), void);
-		}
-		/* pointer to data structure */
-		b->n_datas = n_datas;
-		b->datas = SPA_MEMBER(b->metas, n_metas * sizeof(struct spa_meta), struct spa_data);
-
-		cdp = p;
-		ddp = SPA_MEMBER(cdp, sizeof(struct spa_chunk) * n_datas, void);
-
-		for (j = 0; j < n_datas; j++) {
-			struct spa_data *d = &b->datas[j];
-
-			d->chunk = &cdp[j];
-			if (data_sizes[j] > 0) {
-				d->type = SPA_DATA_MemFd;
-				d->flags = 0;
-				d->fd = m->fd;
-				d->mapoffset = SPA_ROUND_UP_N(SPA_PTRDIFF(ddp, m->ptr), data_aligns[i]);
-				d->maxsize = data_sizes[j];
-				d->data = SPA_MEMBER(m->ptr, d->mapoffset, void);
-				d->chunk->offset = 0;
-				d->chunk->size = 0;
-				d->chunk->stride = data_strides[j];
-				ddp = SPA_MEMBER(ddp, data_sizes[j], void);
-			} else {
-				/* needs to be allocated by a node */
-				d->type = SPA_ID_INVALID;
-				d->data = NULL;
-			}
-		}
-	}
 	allocation->mem = m;
 	allocation->n_buffers = n_buffers;
 	allocation->buffers = buffers;
@@ -704,9 +665,9 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		uint32_t i, offset, n_params;
 		uint32_t max_buffers;
 		size_t minsize = 8192, stride = 0, align;
-		size_t data_sizes[1];
-		ssize_t data_strides[1];
-		size_t data_aligns[1];
+		uint32_t data_sizes[1];
+		int32_t data_strides[1];
+		uint32_t data_aligns[1];
 
 		n_params = param_filter(this, input, output, SPA_PARAM_Buffers, &b);
 		n_params += param_filter(this, input, output, SPA_PARAM_Meta, &b);

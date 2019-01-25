@@ -60,9 +60,9 @@ static void test_alloc(void)
 {
 	struct spa_buffer **buffers;
 	struct spa_meta metas[4];
-	struct spa_data datas[4];
-	uint32_t aligns[4];
-	int i, j;
+	struct spa_data datas[2];
+	uint32_t aligns[2];
+	uint32_t i, j;
 
 	metas[0].type = SPA_META_Header;
 	metas[0].size = sizeof(struct spa_meta_header);
@@ -72,28 +72,40 @@ static void test_alloc(void)
                                    sizeof(struct spa_meta_bitmap) + w * h * bpp)
 	metas[2].type = SPA_META_Cursor;
 	metas[2].size = CURSOR_META_SIZE(64,64,4);
+	metas[3].type = 101;
+	metas[3].size = 11;
 
-	datas[0].maxsize = 4096;
-	datas[1].maxsize = 2048;
+	datas[0].maxsize = 4000;
+	datas[1].maxsize = 2011;
 
-	aligns[0] = 16;
+	aligns[0] = 32;
 	aligns[1] = 16;
 
-	buffers = spa_buffer_alloc_array(16, 0, 3, metas, 2, datas, aligns);
+	buffers = spa_buffer_alloc_array(16, 0,
+			SPA_N_ELEMENTS(metas), metas,
+			SPA_N_ELEMENTS(datas), datas, aligns);
 
-	for (i = 0; i < 4; i++) {
+	fprintf(stderr, "buffers %p\n", buffers);
+
+	for (i = 0; i < 16; i++) {
 		struct spa_buffer *b = buffers[i];
+		fprintf(stderr, "buffer %d %p\n", i, b);
 
-		spa_assert(b->n_metas == 3);
-		spa_assert(b->n_datas == 2);
+		spa_assert(b->n_metas == SPA_N_ELEMENTS(metas));
+		spa_assert(b->n_datas == SPA_N_ELEMENTS(datas));
 
-		for (j = 0; j < 3; j++) {
+		for (j = 0; j < SPA_N_ELEMENTS(metas); j++) {
 			spa_assert(b->metas[j].type == metas[j].type);
 			spa_assert(b->metas[j].size == metas[j].size);
+			fprintf(stderr, " meta %d %p\n", j, b->metas[j].data);
+			spa_assert(SPA_IS_ALIGNED(b->metas[j].data, 8));
 		}
 
-		for (j = 0; j < 2; j++) {
+		for (j = 0; j < SPA_N_ELEMENTS(datas); j++) {
 			spa_assert(b->datas[j].maxsize == datas[j].maxsize);
+			fprintf(stderr, " data %d %p %p\n", j, b->datas[j].chunk, b->datas[j].data);
+			spa_assert(SPA_IS_ALIGNED(b->datas[j].chunk, 8));
+			spa_assert(SPA_IS_ALIGNED(b->datas[j].data, aligns[j]));
 		}
 	}
 	free(buffers);

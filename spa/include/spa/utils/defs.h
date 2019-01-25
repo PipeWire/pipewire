@@ -107,9 +107,9 @@ struct spa_fraction {
 })
 
 #define SPA_TYPECHECK(type,x)		\
-({	type __dummy;			\
-	typeof(x) __dummy2;		\
-	(void)(&__dummy == &__dummy2);	\
+({	type _dummy;			\
+	typeof(x) _dummy2;		\
+	(void)(&_dummy == &_dummy2);	\
 	x;				\
 })
 

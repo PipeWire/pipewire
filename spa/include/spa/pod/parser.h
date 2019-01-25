@@ -33,6 +33,7 @@ extern "C" {
 #include <stdarg.h>
 
 #include <spa/pod/iter.h>
+#include <spa/pod/vararg.h>
 
 struct spa_pod_parser_state {
 	uint32_t offset;

@@ -27,6 +27,7 @@
 #include <spa/pod/event.h>
 #include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
+#include <spa/pod/vararg.h>
 #include <spa/debug/pod.h>
 #include <spa/param/format.h>
 #include <spa/param/video/raw.h>

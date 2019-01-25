@@ -106,6 +106,13 @@ struct spa_fraction {
 	SPA_MIN(SPA_MAX(_v, _low), _high);		\
 })
 
+#define SPA_TYPECHECK(type,x)		\
+({	type __dummy;			\
+	typeof(x) __dummy2;		\
+	(void)(&__dummy == &__dummy2);	\
+	x;				\
+})
+
 #define SPA_MEMBER(b,o,t) ((t*)((uint8_t*)(b) + (int)(o)))
 
 #define SPA_CONTAINER_OF(p,t,m) (t*)((uint8_t*)p - offsetof (t,m))

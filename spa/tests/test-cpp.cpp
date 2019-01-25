@@ -63,6 +63,7 @@
 #include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/pod.h>
+#include <spa/pod/vararg.h>
 #include <spa/support/cpu.h>
 #include <spa/support/dbus.h>
 #include <spa/support/log.h>

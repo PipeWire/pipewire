@@ -7,5 +7,5 @@ git submodule update
 
 rm -rf ./build
 mkdir build
-meson build $@
+meson build "$@"
 ln -s build/Makefile Makefile

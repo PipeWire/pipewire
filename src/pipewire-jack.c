@@ -32,6 +32,7 @@
 #include <jack/thread.h>
 #include <jack/midiport.h>
 
+#include <spa/support/cpu.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/debug/types.h>
 #include <spa/debug/pod.h>
@@ -76,6 +77,10 @@ struct globals {
 static struct globals globals;
 
 #define OBJECT_CHUNK	8
+
+typedef void (*mix2_func) (float *dst, float *src1, float *src2, int n_samples);
+
+static mix2_func mix2;
 
 struct object {
 	struct spa_list link;
@@ -446,6 +451,42 @@ static struct buffer *dequeue_buffer(struct mix *mix)
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 
         return b;
+}
+
+#if defined (__SSE__)
+#include <xmmintrin.h>
+static void mix2_sse(float *dst, float *src1, float *src2, int n_samples)
+{
+	int n, unrolled;
+	__m128 in[2];
+
+	if (SPA_IS_ALIGNED(src1, 16) &&
+	    SPA_IS_ALIGNED(src2, 16) &&
+	    SPA_IS_ALIGNED(dst, 16))
+		unrolled = n_samples / 4;
+	else
+		unrolled = 0;
+
+	for (n = 0; unrolled--; n += 4) {
+		in[0] = _mm_load_ps(&src1[n]),
+		in[1] = _mm_load_ps(&src2[n]),
+		in[0] = _mm_add_ps(in[0], in[1]);
+		_mm_store_ps(&dst[n], in[0]);
+	}
+	for (; n < n_samples; n++) {
+		in[0] = _mm_load_ss(&src1[n]),
+		in[1] = _mm_load_ss(&src2[n]),
+		in[0] = _mm_add_ss(in[0], in[1]);
+		_mm_store_ss(&dst[n], in[0]);
+	}
+}
+#endif
+
+static void mix2_c(float *dst, float *src1, float *src2, int n_samples)
+{
+	int i;
+	for (i = 0; i < n_samples; i++)
+		dst[i] = src1[i] + src2[i];
 }
 
 void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto_ptr)
@@ -1630,7 +1671,10 @@ jack_client_t * jack_client_open (const char *client_name,
 	bool busy = true;
 	struct spa_dict props;
 	struct spa_dict_item items[5];
+	const struct spa_support *support;
+	uint32_t n_support;
 	const char *str;
+	struct spa_cpu *cpu_iface;
 	int i;
 
         if (getenv("PIPEWIRE_NOJACK") != NULL)
@@ -1651,6 +1695,18 @@ jack_client_t * jack_client_open (const char *client_name,
 	spa_list_init(&client->context.nodes);
 	spa_list_init(&client->context.ports);
 	spa_list_init(&client->context.links);
+
+	support = pw_core_get_support(client->context.core, &n_support);
+
+	mix2 = mix2_c;
+	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+	if (cpu_iface) {
+		uint32_t flags = spa_cpu_get_flags(cpu_iface);
+#if defined (__SSE__)
+		if (flags & SPA_CPU_FLAG_SSE)
+			mix2 = mix2_sse;
+#endif
+	}
 
         pw_array_init(&client->mems, 64);
         pw_array_ensure_size(&client->mems, sizeof(struct mem) * 64);
@@ -2214,42 +2270,6 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 	return res;
 }
 
-#if defined (__SSE__)
-#include <xmmintrin.h>
-static void mix_2(float *dst, float *src1, float *src2, int n_samples)
-{
-	int n, unrolled;
-	__m128 in[2];
-
-	if (SPA_IS_ALIGNED(src1, 16) &&
-	    SPA_IS_ALIGNED(src2, 16) &&
-	    SPA_IS_ALIGNED(dst, 16))
-		unrolled = n_samples / 4;
-	else
-		unrolled = 0;
-
-	for (n = 0; unrolled--; n += 4) {
-		in[0] = _mm_load_ps(&src1[n]),
-		in[1] = _mm_load_ps(&src2[n]),
-		in[0] = _mm_add_ps(in[0], in[1]);
-		_mm_store_ps(&dst[n], in[0]);
-	}
-	for (; n < n_samples; n++) {
-		in[0] = _mm_load_ss(&src1[n]),
-		in[1] = _mm_load_ss(&src2[n]),
-		in[0] = _mm_add_ss(in[0], in[1]);
-		_mm_store_ss(&dst[n], in[0]);
-	}
-}
-#else
-static void mix_2(float *dst, float *src1, float *src2, int n_samples)
-{
-	int i;
-	for (i = 0; i < n_samples; i++)
-		dst[i] = src1[i] + src2[i];
-}
-#endif
-
 static void *mix_audio(struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
@@ -2271,7 +2291,7 @@ static void *mix_audio(struct port *p, jack_nframes_t frames)
 			ptr = b->datas[0].data;
 		else  {
 			ptr = p->emptyptr;
-			mix_2(ptr, ptr, b->datas[0].data, frames);
+			mix2(ptr, ptr, b->datas[0].data, frames);
 			p->zeroed = false;
 		}
 	}

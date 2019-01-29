@@ -541,7 +541,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	uint32_t in_flags, out_flags;
 	char *error = NULL;
 	struct pw_port *input, *output;
-	struct allocation allocation;
+	struct allocation allocation = { NULL, };
 	uint32_t in_mix_state, out_mix_state;
 
 	in_mix_state = this->rt.in_mix.state;
@@ -690,6 +690,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				pw_work_queue_add(impl->work, output->node, res, complete_paused,
 					  &this->rt.out_mix);
 
+			out_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 			move_allocation(&allocation, &output->allocation);
 
 			pw_log_debug("link %p: allocated %d buffers %p from output port", this,
@@ -707,6 +708,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				pw_work_queue_add(impl->work, input->node, res, complete_paused,
 					  &this->rt.in_mix);
 
+			in_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 			pw_log_debug("link %p: allocated %d buffers %p from input port", this,
 				     allocation.n_buffers, allocation.buffers);
 		}

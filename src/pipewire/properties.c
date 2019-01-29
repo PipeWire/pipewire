@@ -75,7 +75,8 @@ static struct properties *properties_new(int prealloc)
 	if (impl == NULL)
 		return NULL;
 
-	pw_array_init(&impl->items, prealloc);
+	pw_array_init(&impl->items, 16);
+	pw_array_ensure_size(&impl->items, sizeof(struct spa_dict_item) * prealloc);
 
 	return impl;
 }

@@ -341,12 +341,12 @@ static int do_connect(struct pw_remote *remote)
 	dummy.remote = remote;
 
 	remote->core_proxy = (struct pw_core_proxy*)pw_proxy_new(&dummy,
-			PW_TYPE_INTERFACE_Core, PW_VERSION_CORE);
+			PW_TYPE_INTERFACE_Core, 0);
 	if (remote->core_proxy == NULL)
 		goto no_proxy;
 
 	remote->client_proxy = (struct pw_client_proxy*)pw_proxy_new(&dummy,
-			PW_TYPE_INTERFACE_Client, PW_VERSION_CLIENT);
+			PW_TYPE_INTERFACE_Client, 0);
 	if (remote->client_proxy == NULL)
 		goto clean_core_proxy;
 

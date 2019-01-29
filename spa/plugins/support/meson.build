@@ -7,7 +7,7 @@ spa_support_lib = shared_library('spa-support',
 			spa_support_sources,
 			c_args : [ '-D_GNU_SOURCE' ],
 			include_directories : [ spa_inc],
-			dependencies : threads_dep,
+			dependencies : pthread_lib,
 			install : true,
 			install_dir : '@0@/spa/support'.format(get_option('libdir')))
 

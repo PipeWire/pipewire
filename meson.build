@@ -170,8 +170,11 @@ rt_lib = cc.find_library('rt', required : false) # clock_gettime
 dl_lib = cc.find_library('dl', required : false)
 pthread_lib = dependency('threads')
 dbus_dep = dependency('dbus-1')
+sdl_dep = dependency('sdl2', required : false)
 
-glib_dep = dependency('glib-2.0', version : '>=2.32.0', required : false)
+if get_option('gstreamer') or get_option('pipewire-pulseaudio')
+  glib_dep = dependency('glib-2.0', version : '>=2.32.0')
+endif
 
 if get_option('gstreamer')
   gobject_dep = dependency('gobject-2.0')
@@ -201,6 +204,7 @@ if get_option('pipewire-pulseaudio')
 endif
 
 if get_option('pipewire-alsa')
+  alsa_dep = dependency('alsa')
   subdir('pipewire-alsa/alsa-plugins')
 endif
 

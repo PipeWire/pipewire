@@ -1,20 +1,5 @@
 #project('spa', 'c')
 
-alsa_dep = dependency('alsa')
-v4l2_dep = dependency('libv4l2')
-x11_dep = dependency('x11', required : false)
-sdl_dep = dependency('sdl2', required : false)
-libva_dep = dependency('libva', required : false)
-sbc_dep = dependency('sbc', required : false)
-avcodec_dep = dependency('libavcodec', required : false)
-avformat_dep = dependency('libavformat', required : false)
-avfilter_dep = dependency('libavfilter', required : false)
-libudev_dep = dependency('libudev')
-threads_dep = dependency('threads')
-speexdsp_dep = dependency('speexdsp')
-sdl_dep = dependency('sdl2', required : false)
-bluez_dep = dependency('bluez', version : '>= 4.101', required : false)
-
 #cc = meson.get_compiler('c')
 #dl_lib = cc.find_library('dl', required : false)
 #pthread_lib = dependencies('threads')
@@ -25,6 +10,30 @@ spa_inc = include_directories('include')
 subdir('include')
 
 if get_option('spa-plugins')
+  # common dependencies
+  if get_option('alsa') or get_option('v4l2')
+    libudev_dep = dependency('libudev')
+  endif
+
+  # plugin-specific dependencies
+  if get_option('alsa')
+    alsa_dep = dependency('alsa')
+  endif
+  if get_option('audioconvert')
+    speexdsp_dep = dependency('speexdsp')
+  endif
+  if get_option('bluez5')
+    bluez_dep = dependency('bluez', version : '>= 4.101')
+    sbc_dep = dependency('sbc')
+  endif
+  if get_option('ffmpeg')
+    avcodec_dep = dependency('libavcodec')
+    avformat_dep = dependency('libavformat')
+  endif
+  if get_option('v4l2')
+    v4l2_dep = dependency('libv4l2')
+  endif
+
   subdir('plugins')
 endif
 

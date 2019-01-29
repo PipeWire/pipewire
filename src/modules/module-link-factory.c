@@ -49,18 +49,22 @@ struct factory_data {
 
 struct link_data {
 	struct factory_data *data;
-	struct pw_link *link;
 	struct spa_list l;
+	struct pw_link *link;
 	struct spa_hook link_listener;
+	struct pw_resource *resource;
 	struct spa_hook resource_listener;
+	struct pw_global *global;
+	struct spa_hook global_listener;
 };
 
 static void resource_destroy(void *data)
 {
 	struct link_data *ld = data;
 	spa_hook_remove(&ld->resource_listener);
-	if (ld->link)
-		pw_link_destroy(ld->link);
+	ld->resource = NULL;
+	if (ld->global)
+		pw_global_destroy(ld->global);
 }
 
 static const struct pw_resource_events resource_events = {
@@ -72,12 +76,27 @@ static void link_destroy(void *data)
 {
 	struct link_data *ld = data;
 	spa_list_remove(&ld->l);
-	ld->link = NULL;
+	if (ld->global)
+		spa_hook_remove(&ld->global_listener);
+	if (ld->resource)
+		spa_hook_remove(&ld->resource_listener);
 }
 
 static const struct pw_link_events link_events = {
 	PW_VERSION_LINK_EVENTS,
 	.destroy = link_destroy
+};
+
+static void global_destroy(void *data)
+{
+	struct link_data *ld = data;
+	spa_hook_remove(&ld->global_listener);
+	ld->global = NULL;
+}
+
+static const struct pw_global_events global_events = {
+	PW_VERSION_GLOBAL_EVENTS,
+	.destroy = global_destroy
 };
 
 static struct pw_port *get_port(struct pw_node *node, enum spa_direction direction)
@@ -124,7 +143,6 @@ static void *create_object(void *_data,
 	uint32_t output_node_id, input_node_id;
 	uint32_t output_port_id, input_port_id;
 	struct link_data *ld;
-	struct pw_resource *bound_resource;
 	char *error;
 	const char *str;
 	int res;
@@ -209,15 +227,19 @@ static void *create_object(void *_data,
 
 	properties = NULL;
 
-	res = pw_global_bind(pw_link_get_global(link), client, PW_PERM_RWX, PW_VERSION_LINK, new_id);
+	ld->global = pw_link_get_global(link);
+	pw_global_add_listener(ld->global, &ld->global_listener, &global_events, ld);
+
+	res = pw_global_bind(ld->global, client, PW_PERM_RWX, PW_VERSION_LINK, new_id);
 	if (res < 0)
 		goto no_bind;
 
 	if (!linger) {
-		if ((bound_resource = pw_client_find_resource(client, new_id)) == NULL)
+		ld->resource = pw_client_find_resource(client, new_id);
+		if (ld->resource == NULL)
 			goto no_bind;
 
-		pw_resource_add_listener(bound_resource, &ld->resource_listener, &resource_events, ld);
+		pw_resource_add_listener(ld->resource, &ld->resource_listener, &resource_events, ld);
 	}
 
 	return link;

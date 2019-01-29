@@ -994,6 +994,10 @@ static int rescan_node(struct impl *impl, struct node *node)
 
 	if ((media = spa_dict_lookup(props, PW_NODE_PROP_MEDIA)) == NULL)
 		media = node->media;
+	if (media == NULL) {
+		pw_log_debug(NAME" %p: node %d has unknown media", impl, node->obj.id);
+		return 0;
+	}
 
 	if ((category = spa_dict_lookup(props, PW_NODE_PROP_CATEGORY)) == NULL) {
 		pw_log_debug(NAME" %p: node %d find category from ports: %d %d",

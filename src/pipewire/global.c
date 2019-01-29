@@ -306,9 +306,9 @@ void pw_global_destroy(struct pw_global *global)
 	struct pw_resource *resource;
 
 	pw_log_debug("global %p: destroy %u", global, global->id);
-	global_unregister(global);
-
 	pw_global_events_destroy(global);
+
+	global_unregister(global);
 
 	spa_list_consume(resource, &global->resource_list, link)
 		pw_resource_destroy(resource);

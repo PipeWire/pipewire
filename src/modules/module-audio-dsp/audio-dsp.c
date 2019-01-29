@@ -158,7 +158,14 @@ static const struct pw_port_implementation port_implementation = {
 static void node_destroy(void *data)
 {
 	struct node *n = data;
+	struct port *p, *tmp;
+
 	pw_properties_free(n->props);
+	spa_list_for_each_safe(p, tmp, &n->ports, link) {
+		spa_list_remove(&p->link);
+		spa_handle_clear(p->spa_handle);
+		free(p);
+	}
 }
 
 static void node_port_init(void *data, struct pw_port *port)

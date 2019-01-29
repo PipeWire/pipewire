@@ -168,6 +168,7 @@ static int global_unregister(struct pw_global *global)
 		pw_resource_destroy(resource);
 
 	spa_list_remove(&global->link);
+	pw_map_remove(&core->globals, global->id);
 	pw_core_events_global_removed(core, global);
 
 	impl->registered = false;
@@ -302,7 +303,6 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_client *cli
  */
 void pw_global_destroy(struct pw_global *global)
 {
-	struct pw_core *core = global->core;
 	struct pw_resource *resource;
 
 	pw_log_debug("global %p: destroy %u", global, global->id);
@@ -312,8 +312,6 @@ void pw_global_destroy(struct pw_global *global)
 
 	spa_list_consume(resource, &global->resource_list, link)
 		pw_resource_destroy(resource);
-
-	pw_map_remove(&core->globals, global->id);
 
 	pw_log_debug("global %p: free", global);
 	pw_global_events_free(global);

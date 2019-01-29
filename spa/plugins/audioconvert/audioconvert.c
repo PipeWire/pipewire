@@ -936,6 +936,12 @@ static int impl_clear(struct spa_handle *handle)
 	this = (struct impl *) handle;
 
 	clean_convert(this);
+
+	spa_handle_clear(this->hnd_fmt[SPA_DIRECTION_INPUT]);
+	spa_handle_clear(this->hnd_channelmix);
+	spa_handle_clear(this->hnd_resample);
+	spa_handle_clear(this->hnd_fmt[SPA_DIRECTION_OUTPUT]);
+
 	return 0;
 }
 

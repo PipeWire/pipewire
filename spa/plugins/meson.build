@@ -10,10 +10,10 @@ endif
 if get_option('audiotestsrc')
   subdir('audiotestsrc')
 endif
-if get_option('bluez5') and sbc_dep.found() and bluez_dep.found()
+if get_option('bluez5')
   subdir('bluez5')
 endif
-if get_option('ffmpeg') and avcodec_dep.found()
+if get_option('ffmpeg')
   subdir('ffmpeg')
 endif
 if get_option('support')

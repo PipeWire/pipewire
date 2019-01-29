@@ -315,6 +315,7 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 
 		if (maps[*index] == NULL) {
 			res = 0;
+			snd_pcm_free_chmaps(maps);
 			goto exit;
 		}
 		map = &maps[*index]->map;

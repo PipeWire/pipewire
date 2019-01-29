@@ -152,6 +152,7 @@ struct session {
 	struct node *dsp;
 	struct pw_proxy *dsp_proxy;
 	struct pw_proxy *link_proxy;
+	struct spa_hook link_listener;
 
 	struct spa_list node_list;
 
@@ -272,6 +273,17 @@ static int on_node_idle(struct impl *impl, struct node *node)
 	return 0;
 }
 
+static void link_proxy_destroy(void *data)
+{
+	struct session *s = data;
+	pw_log_debug(NAME " %p: proxy destroy session link", s);
+	s->link_proxy = NULL;
+}
+
+static const struct pw_proxy_events link_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = link_proxy_destroy,
+};
 
 static int link_session_dsp(struct impl *impl, struct session *session)
 {
@@ -303,6 +315,7 @@ static int link_session_dsp(struct impl *impl, struct session *session)
                                           PW_VERSION_LINK,
                                           &props->dict,
 					  0);
+	pw_proxy_add_listener(session->link_proxy, &session->link_listener, &link_proxy_events, session);
 	pw_properties_free(props);
 
 	return 0;
@@ -414,6 +427,9 @@ static void remove_session(struct impl *impl, struct session *sess)
 		if (impl->core_proxy)
 			pw_core_proxy_destroy(impl->core_proxy, sess->dsp_proxy);
 		sess->dsp_proxy = NULL;
+	}
+	if (sess->link_proxy) {
+		spa_hook_remove(&sess->link_listener);
 	}
 	spa_list_remove(&sess->l);
 	free(sess);

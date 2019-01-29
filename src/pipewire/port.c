@@ -292,6 +292,12 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 
 int pw_port_set_mix(struct pw_port *port, struct spa_node *node, uint32_t flags)
 {
+	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
+
+	if (node == NULL) {
+		node = &impl->mix_node;
+		flags = 0;
+	}
 	pw_log_debug("port %p: mix node %p->%p", port, port->mix, node);
 	port->mix = node;
 	port->mix_flags = flags;

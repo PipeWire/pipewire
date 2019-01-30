@@ -114,6 +114,13 @@ static int impl_set_callbacks(struct spa_node *node,
 	return 0;
 }
 
+static int impl_set_io(struct spa_node *node,
+			uint32_t id, void *data, size_t size)
+{
+	return 0;
+}
+
+
 static int impl_get_n_ports(struct spa_node *node,
 			    uint32_t *n_input_ports,
 			    uint32_t *max_input_ports,
@@ -471,8 +478,9 @@ static int impl_node_process(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
-	.send_command = impl_send_command,
 	.set_callbacks = impl_set_callbacks,
+	.set_io = impl_set_io,
+	.send_command = impl_send_command,
 	.get_n_ports = impl_get_n_ports,
 	.get_port_ids = impl_get_port_ids,
 	.port_set_io = impl_port_set_io,
@@ -489,7 +497,10 @@ static void make_node(struct data *data)
 	struct pw_properties *props;
 
 	props = pw_properties_new(PW_NODE_PROP_AUTOCONNECT, "1",
-				  PW_NODE_PROP_EXCLUSIVE, "0",
+				  PW_NODE_PROP_EXCLUSIVE, "1",
+				  PW_NODE_PROP_MEDIA, "Audio",
+				  PW_NODE_PROP_CATEGORY, "Playback",
+				  PW_NODE_PROP_ROLE, "Music",
 				  NULL);
 	if (data->path)
 		pw_properties_set(props, PW_NODE_PROP_TARGET_NODE, data->path);

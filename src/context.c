@@ -37,9 +37,20 @@ int pa_context_set_error(pa_context *c, int error) {
 	return error;
 }
 
+static void global_free(struct global *g)
+{
+	spa_list_remove(&g->link);
+	if (g->props)
+		pw_properties_free(g->props);
+	if (g->destroy)
+		g->destroy(g);
+	free(g);
+}
+
 static void context_unlink(pa_context *c)
 {
 	pa_stream *s, *t;
+	struct global *g;
 	pa_operation *o;
 
 	pw_log_debug("context %p: unlink %d", c, c->state);
@@ -48,6 +59,8 @@ static void context_unlink(pa_context *c)
 		pa_stream_set_state(s, c->state == PA_CONTEXT_FAILED ?
 				PA_STREAM_FAILED : PA_STREAM_TERMINATED);
 	}
+	spa_list_consume(g, &c->globals, link)
+		global_free(g);
 
 	spa_list_consume(o, &c->operations, link)
 		pa_operation_cancel(o);
@@ -286,13 +299,14 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	g->parent_id = parent_id;
 	g->type = type;
 	g->props = props ? pw_properties_new_dict(props) : NULL;
-
-	if (set_mask(c, g) == 0)
-		return;
-
-	pw_log_debug("mask %d/%d", g->mask, g->event);
 	spa_list_append(&c->globals, &g->link);
 
+	if (set_mask(c, g) == 0) {
+		global_free(g);
+		return;
+	}
+
+	pw_log_debug("mask %d/%d", g->mask, g->event);
 	emit_event(c, g, PA_SUBSCRIPTION_EVENT_NEW);
 }
 
@@ -308,12 +322,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	emit_event(c, g, PA_SUBSCRIPTION_EVENT_REMOVE);
 
 	pw_log_debug("context %p: free %d %p", c, id, g);
-	spa_list_remove(&g->link);
-	if (g->props)
-		pw_properties_free(g->props);
-	if (g->destroy)
-		g->destroy(g);
-	free(g);
+	global_free(g);
 }
 
 static const struct pw_registry_proxy_events registry_events =
@@ -471,7 +480,7 @@ static void context_free(pa_context *c)
 	if (c->core_info)
 		pw_core_info_free(c->core_info);
 
-	pw_remote_destroy(c->remote);
+	pw_core_destroy(c->core);
 }
 
 void pa_context_unref(pa_context *c)

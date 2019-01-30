@@ -113,9 +113,10 @@ struct stream {
 	void *callbacks_data;
 	struct spa_io_buffers *io;
 	struct spa_io_sequence *io_control;
+	uint32_t io_control_size;
 	struct spa_io_sequence *io_notify;
-	struct spa_io_position *position;
 	uint32_t io_notify_size;
+	struct spa_io_position *position;
 
 	struct pw_array params;
 
@@ -263,7 +264,16 @@ static void call_process(struct stream *impl)
 static int impl_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
 	struct stream *impl = SPA_CONTAINER_OF(node, struct stream, impl_node);
-	impl->position = data;
+	switch(id) {
+	case SPA_IO_Position:
+		if (data && size >= sizeof(struct spa_io_position))
+			impl->position = data;
+		else
+			impl->position = NULL;
+		break;
+	default:
+		return -ENOENT;
+	}
 	return 0;
 }
 
@@ -364,19 +374,21 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 			impl->io = NULL;
 		break;
 	case SPA_IO_Control:
-		if (data && size >= sizeof(struct spa_io_sequence))
+		if (data && size >= sizeof(struct spa_io_sequence)) {
 			impl->io_control = data;
-		else
+			impl->io_control_size = size;
+		} else {
 			impl->io_control = NULL;
+			impl->io_control_size = 0;
+		}
 		break;
 	case SPA_IO_Notify:
 		if (data && size >= sizeof(struct spa_io_sequence)) {
 			impl->io_notify = data;
 			impl->io_notify_size = size;
-		}
-		else {
+		} else {
 			impl->io_notify = NULL;
-			impl->io_notify_size = size;
+			impl->io_notify_size = 0;
 		}
 		break;
 	default:
@@ -639,18 +651,19 @@ static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint3
 	return 0;
 }
 
-static int process_control(struct stream *impl, struct spa_pod_sequence *sequence)
+static int process_control(struct stream *impl, void *data, uint32_t size)
 {
 	return 0;
 }
 
-static int process_notify(struct stream *impl, struct spa_pod_sequence *sequence)
+static int process_notify(struct stream *impl, void *data, uint32_t size)
 {
 	struct spa_pod_builder b = { 0 };
 	bool changed;
 	struct spa_pod_frame f[2];
+	struct spa_pod *pod;
 
-        spa_pod_builder_init(&b, impl->io_notify, impl->io_notify_size);
+        spa_pod_builder_init(&b, data, size);
 	spa_pod_builder_push_sequence(&b, &f[0], 0);
 	if ((changed = impl->props.changed)) {
 		spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
@@ -660,10 +673,10 @@ static int process_notify(struct stream *impl, struct spa_pod_sequence *sequence
 		spa_pod_builder_pop(&b, &f[1]);
 		impl->props.changed = false;
 	}
-	spa_pod_builder_pop(&b, &f[0]);
+	pod = spa_pod_builder_pop(&b, &f[0]);
 
-	if (changed && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_pod(2, NULL, &impl->io_notify->sequence.pod);
+	if (changed && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG) && pod)
+		spa_debug_pod(2, NULL, pod);
 
 	return 0;
 }
@@ -682,9 +695,9 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 	}
 
 	if (impl->io_control)
-		process_control(impl, &impl->io_control->sequence);
+		process_control(impl, &impl->io_control->sequence, impl->io_control_size);
 	if (impl->io_notify)
-		process_notify(impl, &impl->io_notify->sequence);
+		process_notify(impl, &impl->io_notify->sequence, impl->io_notify_size);
 }
 
 static int impl_node_process_input(struct spa_node *node)

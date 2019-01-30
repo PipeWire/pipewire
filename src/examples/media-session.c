@@ -778,26 +778,32 @@ registry_global(void *data,uint32_t id, uint32_t parent_id,
 		const struct spa_dict *props)
 {
 	struct impl *impl = data;
+	int res;
 
-	pw_log_debug(NAME " %p: new global '%d'", impl, id);
+	pw_log_debug(NAME " %p: new global '%d' %d", impl, id, type);
 
 	switch (type) {
 	case PW_TYPE_INTERFACE_Client:
-		handle_client(impl, id, parent_id, type, props);
+		res = handle_client(impl, id, parent_id, type, props);
 		break;
 
 	case PW_TYPE_INTERFACE_Node:
-		handle_node(impl, id, parent_id, type, props);
+		res = handle_node(impl, id, parent_id, type, props);
 		break;
 
 	case PW_TYPE_INTERFACE_Port:
-		handle_port(impl, id, parent_id, type, props);
+		res = handle_port(impl, id, parent_id, type, props);
 		break;
 
 	default:
+		res = 0;
 		break;
 	}
-	schedule_rescan(impl);
+	if (res < 0) {
+		pw_log_warn(NAME" %p: can't handle global %d", impl, id);
+	}
+	else
+		schedule_rescan(impl);
 }
 
 static void

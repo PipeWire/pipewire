@@ -40,7 +40,7 @@ static void test_abi(void)
 		void (*destroy) (void *data);
 		void (*state_changed) (void *data, enum pw_remote_state old,
 				enum pw_remote_state state, const char *error);
-		void (*exported) (void *data, uint32_t id);
+		void (*exported) (void *data, uint32_t proxy_id, uint32_t remote_id);
 	} test = { PW_VERSION_REMOTE_EVENTS, NULL };
 
 	TEST_FUNC(ev, test, destroy);
@@ -70,7 +70,7 @@ static void remote_state_changed_error(void *data, enum pw_remote_state old,
 {
 	spa_assert_not_reached();
 }
-static void remote_exported_error(void *data, uint32_t id)
+static void remote_exported_error(void *data, uint32_t proxy_id, uint32_t global_id)
 {
 	spa_assert_not_reached();
 }

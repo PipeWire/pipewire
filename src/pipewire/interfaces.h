@@ -116,8 +116,6 @@ struct pw_core_proxy_methods {
 	void (*get_registry) (void *object, uint32_t version, uint32_t new_id);
 	/**
 	 * Create a new object on the PipeWire server from a factory.
-	 * Use a \a factory_name of "client-node" to create a
-	 * \ref pw_client_node.
 	 *
 	 * \param factory_name the factory name to use
 	 * \param type the interface to bind to

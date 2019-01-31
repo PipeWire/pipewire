@@ -445,6 +445,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	spa_list_init(&this->link_list);
 	spa_list_init(&this->control_list[0]);
 	spa_list_init(&this->control_list[1]);
+	spa_list_init(&this->export_list);
 	spa_hook_list_init(&this->listener_list);
 
 	if ((name = pw_properties_get(properties, PW_CORE_PROP_NAME)) == NULL) {

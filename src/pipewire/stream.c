@@ -41,7 +41,6 @@
 #include "pipewire/pipewire.h"
 #include "pipewire/stream.h"
 #include "pipewire/private.h"
-#include "extensions/client-node.h"
 
 #define MAX_BUFFERS	64
 #define MIN_QUEUED	1
@@ -195,8 +194,10 @@ static inline struct buffer *pop_queue(struct stream *stream, struct queue *queu
 	uint32_t index, id;
 	struct buffer *buffer;
 
-	if ((avail = spa_ringbuffer_get_read_index(&queue->ring, &index)) < MIN_QUEUED)
+	if ((avail = spa_ringbuffer_get_read_index(&queue->ring, &index)) < MIN_QUEUED) {
+		errno = EPIPE;
 		return NULL;
+	}
 
 	id = queue->ids[index & MASK_BUFFERS];
 	spa_ringbuffer_read_update(&queue->ring, index + 1);
@@ -236,6 +237,8 @@ static struct buffer *get_buffer(struct pw_stream *stream, uint32_t id)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	if (id < impl->n_buffers)
 		return &impl->buffers[id];
+
+	errno = EINVAL;
 	return NULL;
 }
 
@@ -806,6 +809,7 @@ static void proxy_destroy(void *_data)
 	struct pw_stream *stream = _data;
 	stream->proxy = NULL;
 	spa_hook_remove(&stream->proxy_listener);
+	stream->node_id = SPA_ID_INVALID;
 	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, NULL);
 }
 
@@ -821,6 +825,9 @@ static int handle_connect(struct pw_stream *stream)
 	pw_log_debug("stream %p: creating node", stream);
 	impl->node = pw_node_new(impl->core, stream->name,
 			pw_properties_copy(stream->properties), 0);
+	if (impl->node == NULL)
+		goto no_node;
+
 	impl->impl_node = impl_node;
 
 	if (impl->direction == SPA_DIRECTION_INPUT)
@@ -835,10 +842,21 @@ static int handle_connect(struct pw_stream *stream)
 		pw_node_set_active(impl->node, true);
 
 	pw_log_debug("stream %p: export node %p", stream, impl->node);
-	stream->proxy = pw_remote_export(stream->remote, impl->node);
+	stream->proxy = pw_remote_export(stream->remote,
+			PW_TYPE_INTERFACE_Node, NULL, impl->node);
+	if (stream->proxy == NULL)
+		goto no_proxy;
+
 	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
 
 	return 0;
+
+    no_node:
+	pw_log_error("stream %p: can't make node: %m", stream);
+	return -errno;
+    no_proxy:
+	pw_log_error("stream %p: can't make proxy: %m", stream);
+	return -errno;
 }
 
 static void on_remote_state_changed(void *_data, enum pw_remote_state old,
@@ -866,11 +884,14 @@ static void on_remote_state_changed(void *_data, enum pw_remote_state old,
 		break;
 	}
 }
-static void on_remote_exported(void *_data, uint32_t id)
+
+static void on_remote_exported(void *_data, uint32_t proxy_id, uint32_t global_id)
 {
 	struct pw_stream *stream = _data;
-	if (stream->proxy && stream->proxy->id == id)
+	if (stream->proxy && stream->proxy->id == proxy_id) {
+		stream->node_id = global_id;
 		stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
+	}
 }
 
 static const struct pw_remote_events remote_events = {
@@ -916,6 +937,7 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 
 	this->remote = remote;
 	this->name = name ? strdup(name) : NULL;
+	this->node_id = SPA_ID_INVALID;
 
 	reset_props(&impl->props);
 
@@ -1146,9 +1168,7 @@ pw_stream_connect(struct pw_stream *stream,
 
 uint32_t pw_stream_get_node_id(struct pw_stream *stream)
 {
-	if (stream->proxy == NULL)
-		return SPA_ID_INVALID;
-	return stream->proxy->remote_id;
+	return stream->node_id;
 }
 
 int pw_stream_disconnect(struct pw_stream *stream)
@@ -1165,6 +1185,7 @@ int pw_stream_disconnect(struct pw_stream *stream)
 	if (stream->proxy) {
 		stream->proxy = NULL;
 		spa_hook_remove(&stream->proxy_listener);
+		stream->node_id = SPA_ID_INVALID;
 	}
 	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, NULL);
 	return 0;
@@ -1277,6 +1298,7 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 	if ((b = pop_queue(impl, &impl->dequeued)) == NULL) {
 		pw_log_trace("stream %p: no more buffers", stream);
 		call_trigger(impl);
+		errno = EPIPE;
 		return NULL;
 	}
 	pw_log_trace("stream %p: dequeue buffer %d", stream, b->id);

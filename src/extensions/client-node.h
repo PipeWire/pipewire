@@ -38,6 +38,8 @@ struct pw_client_node_proxy;
 
 #define PW_VERSION_CLIENT_NODE			0
 
+#define PW_EXTENSION_MODULE_CLIENT_NODE		PIPEWIRE_MODULE_PREFIX "module-client-node"
+
 /** information about a buffer */
 struct pw_client_node_buffer {
 	uint32_t mem_id;		/**< the memory id for the metadata */

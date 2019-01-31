@@ -181,6 +181,7 @@ struct pw_core {
 	struct spa_list factory_list;		/**< list of factories */
 	struct spa_list link_list;		/**< list of links */
 	struct spa_list control_list[2];	/**< list of controls, indexed by direction */
+	struct spa_list export_list;		/**< list of export types */
 
 	struct spa_hook_list listener_list;
 
@@ -537,7 +538,6 @@ struct pw_proxy {
 	struct spa_list link;		/**< link in the remote */
 
 	uint32_t id;			/**< client side id */
-	uint32_t remote_id;		/**< remote id */
 
 	struct spa_hook_list listener_list;
 	struct spa_hook_list proxy_listener_list;
@@ -550,7 +550,7 @@ struct pw_proxy {
 #define pw_remote_events_emit(r,m,v,...) spa_hook_list_call(&r->listener_list, struct pw_remote_events, m, v, ##__VA_ARGS__)
 #define pw_remote_events_destroy(r)		pw_remote_events_emit(r, destroy, 0)
 #define pw_remote_events_state_changed(r,o,s,e)	pw_remote_events_emit(r, state_changed, 0, o, s, e)
-#define pw_remote_events_exported(r,i)		pw_remote_events_emit(r, exported, 0, i)
+#define pw_remote_events_exported(r,i,g)	pw_remote_events_emit(r, exported, 0, i,g)
 
 struct pw_remote {
 	struct pw_core *core;			/**< core */
@@ -675,6 +675,8 @@ pw_core_find_port(struct pw_core *core,
 		  uint32_t n_format_filters,
 		  struct spa_pod **format_filters,
 		  char **error);
+
+const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint32_t type);
 
 /** Create a new port \memberof pw_port
  * \return a newly allocated port */

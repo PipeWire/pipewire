@@ -655,6 +655,9 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	if (impl == NULL)
 		return NULL;
 
+	if (name == NULL)
+		name = "node";
+
 	this = &impl->this;
 	this->core = core;
 	pw_log_debug("node %p: new \"%s\"", this, name);
@@ -686,7 +689,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	pw_map_init(&this->input_port_map, 64, 64);
 	spa_list_init(&this->output_ports);
 	pw_map_init(&this->output_port_map, 64, 64);
-
 
 	spa_graph_init(&impl->driver_graph, &impl->driver_state);
 

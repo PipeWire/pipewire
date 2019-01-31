@@ -40,6 +40,11 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
 };
 
+struct pw_proxy *pw_remote_node_export(struct pw_remote *remote,
+		uint32_t type, struct pw_properties *props, void *object);
+struct pw_proxy *pw_remote_spa_node_export(struct pw_remote *remote,
+		uint32_t type, struct pw_properties *props, void *object);
+
 struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core);
 
 struct factory_data {
@@ -48,6 +53,9 @@ struct factory_data {
 
 	struct pw_module *module;
 	struct spa_hook module_listener;
+
+	struct pw_export_type export_node;
+	struct pw_export_type export_spanode;
 };
 
 static void *create_object(void *_data,
@@ -103,6 +111,9 @@ static void module_destroy(void *data)
 	if (d->properties)
 		pw_properties_free(d->properties);
 
+	spa_list_remove(&d->export_node.link);
+	spa_list_remove(&d->export_spanode.link);
+
 	pw_factory_destroy(d->this);
 }
 
@@ -140,6 +151,14 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	pw_protocol_native_ext_client_node_init(core);
 
 	pw_factory_register(factory, NULL, pw_module_get_global(module), NULL);
+
+	data->export_node.type = PW_TYPE_INTERFACE_Node;
+	data->export_node.func = pw_remote_node_export;
+	pw_core_register_export_type(core, &data->export_node);
+
+	data->export_spanode.type = SPA_TYPE_INTERFACE_Node;
+	data->export_spanode.func = pw_remote_spa_node_export;
+	pw_core_register_export_type(core, &data->export_spanode);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 

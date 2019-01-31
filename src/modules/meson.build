@@ -25,6 +25,7 @@ endif
 
 pipewire_module_client_node = shared_library('pipewire-module-client-node',
   [ 'module-client-node.c',
+    'module-client-node/remote-node.c',
     'module-client-node/client-node.c',
     'module-client-node/client-stream.c',
     'module-client-node/protocol-native.c',

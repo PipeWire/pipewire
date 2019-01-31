@@ -35,6 +35,7 @@ extern "C" {
 #include <pipewire/core.h>
 
 #define PIPEWIRE_SYMBOL_MODULE_INIT "pipewire__module_init"
+#define PIPEWIRE_MODULE_PREFIX "libpipewire-"
 
 /** \class pw_module
  *

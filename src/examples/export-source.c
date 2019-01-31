@@ -505,14 +505,8 @@ static void make_node(struct data *data)
 	if (data->path)
 		pw_properties_set(props, PW_NODE_PROP_TARGET_NODE, data->path);
 
-	data->node = pw_node_new(data->core, "export-source", props, 0);
 	data->impl_node = impl_node;
-	pw_node_set_implementation(data->node, &data->impl_node);
-
-	pw_node_register(data->node, NULL, NULL, NULL);
-	pw_node_set_active(data->node, true);
-
-	pw_remote_export(data->remote, data->node);
+	pw_remote_export(data->remote, SPA_TYPE_INTERFACE_Node, props, &data->impl_node);
 }
 
 static void on_state_changed(void *_data, enum pw_remote_state old,

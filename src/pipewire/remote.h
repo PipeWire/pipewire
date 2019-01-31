@@ -138,7 +138,7 @@ struct pw_remote_events {
 	void (*state_changed) (void *data, enum pw_remote_state old,
 			       enum pw_remote_state state, const char *error);
         /** emited when a node was exported */
-	void (*exported) (void *data, uint32_t id);
+	void (*exported) (void *data, uint32_t proxy_id, uint32_t global_id);
 };
 
 /** Specify the name of the protocol to use, default is using the native protocol */
@@ -203,7 +203,22 @@ struct pw_proxy *pw_remote_find_proxy(struct pw_remote *remote, uint32_t id);
 int pw_remote_disconnect(struct pw_remote *remote);
 
 /** run a local node in a remote graph */
-struct pw_proxy *pw_remote_export(struct pw_remote *remote, struct pw_node *node);
+struct pw_proxy *pw_remote_export(struct pw_remote *remote,		/**< the remote */
+				  uint32_t type,			/**< the type of object */
+				  struct pw_properties *properties,	/**< extra properties */
+				  void *object				/**< object to export */);
+
+/** data for registering export functions */
+struct pw_export_type {
+	struct spa_list link;
+	uint32_t type;
+	struct pw_proxy * (*func) (struct pw_remote *remote,
+                uint32_t type, struct pw_properties *properties, void *object);
+};
+
+/** register a type that can be exported on a remote. This is usually used by
+ * extension modules */
+int pw_core_register_export_type(struct pw_core *core, struct pw_export_type *type);
 
 #ifdef __cplusplus
 }

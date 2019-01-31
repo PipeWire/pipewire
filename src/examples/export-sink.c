@@ -72,7 +72,6 @@ struct data {
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
 
-	struct pw_node *node;
 	struct spa_port_info port_info;
 
 	struct spa_node impl_node;
@@ -493,13 +492,8 @@ static void make_node(struct data *data)
 	pw_properties_set(props, PW_NODE_PROP_CATEGORY, "Capture");
 	pw_properties_set(props, PW_NODE_PROP_ROLE, "Camera");
 
-	data->node = pw_node_new(data->core, "SDL-sink", props, 0);
 	data->impl_node = impl_node;
-	pw_node_set_implementation(data->node, &data->impl_node);
-	pw_node_register(data->node, NULL, NULL, NULL);
-	pw_node_set_active(data->node, true);
-
-	pw_remote_export(data->remote, data->node);
+	pw_remote_export(data->remote, SPA_TYPE_INTERFACE_Node, props, &data->impl_node);
 }
 
 static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)

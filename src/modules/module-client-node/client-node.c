@@ -131,6 +131,7 @@ struct node {
 
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
+	struct io ios[MAX_IO];
 
 	struct pw_resource *resource;
 
@@ -230,16 +231,21 @@ static struct mix *find_mix(struct port *p, uint32_t mix_id)
 	return mix;
 }
 
-static void mix_init(struct mix *mix, struct port *p, uint32_t id)
+static void init_ios(struct io *ios)
 {
 	int i;
+	for (i = 0; i < MAX_IO; i++)
+		ios[i].id = SPA_ID_INVALID;
+}
+
+static void mix_init(struct mix *mix, struct port *p, uint32_t id)
+{
 	mix->valid = true;
 	mix->id = id;
 	mix->port = p;
 	mix->active = false;
 	mix->n_buffers = 0;
-	for (i = 0; i < MAX_IO; i++)
-		mix->ios[i].id = SPA_ID_INVALID;
+	init_ios(mix->ios);
 }
 
 
@@ -264,15 +270,14 @@ static void clear_io(struct node *node, struct io *io)
 	io->id = SPA_ID_INVALID;
 }
 
-static struct io *update_io(struct impl *impl, struct port *port,
-		struct mix *mix, uint32_t id, uint32_t memid)
+static struct io *update_io(struct node *this,
+		struct io *ios, uint32_t id, uint32_t memid)
 {
-	struct node *this = &impl->node;
 	int i;
 	struct io *io, *f = NULL;
 
 	for (i = 0; i < MAX_IO; i++) {
-		io = &mix->ios[i];
+		io = &ios[i];
 		if (io->id == SPA_ID_INVALID)
 			f = io;
 		else if (io->id == id) {
@@ -296,12 +301,12 @@ static struct io *update_io(struct impl *impl, struct port *port,
 	return io;
 }
 
-static void clear_ios(struct node *this, struct mix *mix)
+static void clear_ios(struct node *this, struct io *ios)
 {
 	int i;
 
 	for (i = 0; i < MAX_IO; i++) {
-		struct io *io = &mix->ios[i];
+		struct io *io = &ios[i];
 		if (io->id != SPA_ID_INVALID)
 			clear_io(this, io);
 	}
@@ -347,7 +352,7 @@ static void mix_clear(struct node *this, struct mix *mix)
 		return;
 	do_port_use_buffers(this->impl, port->direction, port->id,
 			mix->id, NULL, 0);
-	clear_ios(this, mix);
+	clear_ios(this, mix->ios);
 	mix->valid = false;
 }
 
@@ -402,15 +407,44 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
 	struct node *this;
+	struct impl *impl;
+	struct pw_memblock *mem;
+	struct mem *m;
+	uint32_t memid, mem_offset, mem_size;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
+	impl = this->impl;
 
 	if (this->resource == NULL)
 		return 0;
 
-	return -ENOTSUP;
+	if (data) {
+		if ((mem = pw_memblock_find(data)) == NULL)
+			return -EINVAL;
+
+		mem_offset = SPA_PTRDIFF(data, mem->ptr);
+		mem_size = mem->size;
+		if (mem_size - mem_offset < size)
+			return -EINVAL;
+
+		mem_offset += mem->offset;
+		m = ensure_mem(impl, mem->fd, SPA_DATA_MemFd, mem->flags);
+		memid = m->id;
+	}
+	else {
+		memid = SPA_ID_INVALID;
+		mem_offset = mem_size = 0;
+	}
+
+	update_io(this, this->ios, id, memid);
+
+	pw_client_node_resource_set_io(this->resource,
+				       id,
+				       memid,
+				       mem_offset, mem_size);
+	return 0;
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -744,7 +778,7 @@ static int do_port_set_io(struct impl *impl,
 		mem_offset = mem_size = 0;
 	}
 
-	update_io(impl, port, mix, id, memid);
+	update_io(this, mix->ios, id, memid);
 
 	pw_client_node_resource_port_set_io(this->resource,
 					    this->seq,
@@ -1185,6 +1219,8 @@ node_init(struct node *this,
 
 	this->node = impl_node;
 
+	init_ios(this->ios);
+
 	this->data_source.func = node_on_data_fd_events;
 	this->data_source.data = this;
 	this->data_source.fd = -1;
@@ -1199,6 +1235,8 @@ node_init(struct node *this,
 static int node_clear(struct node *this)
 {
 	uint32_t i;
+
+	clear_ios(this, this->ios);
 
 	for (i = 0; i < this->n_params; i++)
 		free(this->params[i]);

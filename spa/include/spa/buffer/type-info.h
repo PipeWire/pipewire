@@ -66,6 +66,8 @@ static const struct spa_type_info spa_type_meta_type[] = {
 	{ SPA_META_Header, SPA_TYPE_INFO_META_BASE "Header", SPA_TYPE_Pointer, NULL },
 	{ SPA_META_VideoCrop, SPA_TYPE_INFO_META_REGION_BASE "VideoCrop", SPA_TYPE_Pointer, NULL },
 	{ SPA_META_VideoDamage, SPA_TYPE_INFO_META_REGION_ARRAY_BASE "VideoDamage", SPA_TYPE_Pointer, NULL },
+	{ SPA_META_Bitmap, SPA_TYPE_INFO_META_BASE "Bitmap", SPA_TYPE_Pointer, NULL },
+	{ SPA_META_Cursor, SPA_TYPE_INFO_META_BASE "Cursor", SPA_TYPE_Pointer, NULL },
 	{ 0, NULL, 0, NULL },
 };
 

@@ -521,6 +521,7 @@ do_move_nodes(struct spa_loop *loop,
 	struct pw_node *this = &src->this;
 	struct impl *dst = *(struct impl **)data;
 	struct spa_graph_node *n, *t;
+	int res;
 
 	pw_log_trace("node %p: root %p driver:%p->%p", this,
 			&this->rt.root, &src->driver_graph, &dst->driver_graph);
@@ -530,11 +531,15 @@ do_move_nodes(struct spa_loop *loop,
 		spa_graph_node_add(&dst->driver_graph, &this->rt.root);
 	}
 
-	if (this->node && spa_node_set_io(this->node,
+	if (this->node) {
+		if ((res = spa_node_set_io(this->node,
 			    SPA_IO_Position,
-			    &dst->position, sizeof(struct spa_io_position)) >= 0) {
-		pw_log_debug("node %p: set position %p", this, &dst->position);
-		this->rt.position = &dst->position;
+			    &dst->position, sizeof(struct spa_io_position))) < 0) {
+			pw_log_warn("node %p: set position %s", this, spa_strerror(res));
+		} else {
+			pw_log_debug("node %p: set position %p", this, &dst->position);
+			this->rt.position = &dst->position;
+		}
 	}
 
 	if (&src->driver_graph == &dst->driver_graph)

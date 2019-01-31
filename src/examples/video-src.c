@@ -163,7 +163,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		for (j = 0; j < data->format.size.width * BPP; j++) {
 			p[j] = data->counter + j * i;
 		}
-		p += buf->datas[0].chunk->stride;
+		p += data->stride;
 		data->counter += 13;
 	}
 
@@ -171,7 +171,9 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	if (data->accumulator >= M_PI_M2)
 		data->accumulator -= M_PI_M2;
 
-	buf->datas[0].chunk->size = buf->datas[0].maxsize;
+	buf->datas[0].chunk->offset = 0;
+	buf->datas[0].chunk->size = data->format.size.height * data->stride;
+	buf->datas[0].chunk->stride = data->stride;
 
 	pw_stream_queue_buffer(data->stream, b);
 }

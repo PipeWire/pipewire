@@ -41,22 +41,17 @@
 
 struct data {
 	struct pw_main_loop *loop;
-
-	struct pw_core *core;
-	struct pw_remote *remote;
-
 	struct pw_stream *stream;
 
 	double accumulator;
 };
 
-static void fill_f32(struct data *d, void *dest, int avail)
+static void fill_f32(struct data *d, void *dest, int n_frames)
 {
 	float *dst = dest, val;
-	int n_samples = avail / (sizeof(float) * DEFAULT_CHANNELS);
 	int i, c;
 
-        for (i = 0; i < n_samples; i++) {
+        for (i = 0; i < n_frames; i++) {
                 d->accumulator += M_PI_M2 * 440 / DEFAULT_RATE;
                 if (d->accumulator >= M_PI_M2)
                         d->accumulator -= M_PI_M2;
@@ -67,11 +62,21 @@ static void fill_f32(struct data *d, void *dest, int avail)
         }
 }
 
+/* our data processing function is in general:
+ *
+ *  struct pw_buffer *b;
+ *  b = pw_stream_dequeue_buffer(stream);
+ *
+ *  .. generate stuff in the buffer ...
+ *
+ *  pw_stream_queue_buffer(stream, b);
+ */
 static void on_process(void *userdata)
 {
 	struct data *data = userdata;
 	struct pw_buffer *b;
 	struct spa_buffer *buf;
+	int n_frames, stride;
 	uint8_t *p;
 
 	if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL)
@@ -81,9 +86,14 @@ static void on_process(void *userdata)
 	if ((p = buf->datas[0].data) == NULL)
 		return;
 
-	fill_f32(data, p, buf->datas[0].maxsize);
+	stride = sizeof(float) * DEFAULT_CHANNELS;
+	n_frames = buf->datas[0].maxsize / stride;
 
-	buf->datas[0].chunk->size = buf->datas[0].maxsize;
+	fill_f32(data, p, n_frames);
+
+	buf->datas[0].chunk->offset = 0;
+	buf->datas[0].chunk->stride = stride;
+	buf->datas[0].chunk->size = n_frames * stride;
 
 	pw_stream_queue_buffer(data->stream, b);
 }
@@ -102,8 +112,21 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
+	/* make a main loop. If you already have another main loop, you can add
+	 * the fd of this pipewire mainloop to it. */
 	data.loop = pw_main_loop_new(NULL);
 
+	/* create a simple stream, the simple stream manages to core and remote
+	 * objects for you if you don't need to deal with them
+	 *
+	 * If you plan to autoconnect your stream, you need to provide at least
+	 * media, category and role properties
+	 *
+	 * Pass your events and a use_data pointer as the last arguments. This
+	 * will inform you about the stream state. The most important event
+	 * you need to listen to is the process event where you need to produce
+	 * the data.
+	 */
 	data.stream = pw_stream_new_simple(
 			pw_main_loop_get_loop(data.loop),
 			"audio-src",
@@ -115,14 +138,16 @@ int main(int argc, char *argv[])
 			&stream_events,
 			&data);
 
-	data.remote = pw_stream_get_remote(data.stream);
-
+	/* make one parameter with the supported formats. The SPA_PARAM_EnumFormat
+	 * id means that this is a format enumeration. */
 	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
 			&SPA_AUDIO_INFO_RAW_INIT(
 				.format = SPA_AUDIO_FORMAT_F32,
 				.channels = DEFAULT_CHANNELS,
 				.rate = DEFAULT_RATE ));
 
+	/* now connect this stream. We ask that our process function is
+	 * called in a realtime thread. */
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_OUTPUT,
 			  argc > 1 ? (uint32_t)atoi(argv[1]) : SPA_ID_INVALID,
@@ -131,6 +156,7 @@ int main(int argc, char *argv[])
 			  PW_STREAM_FLAG_RT_PROCESS,
 			  params, 1);
 
+	/* and wait */
 	pw_main_loop_run(data.loop);
 
 	pw_stream_destroy(data.stream);

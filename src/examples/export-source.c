@@ -56,7 +56,6 @@ struct data {
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
 
-	struct pw_node *node;
 	struct spa_port_info port_info;
 	struct spa_dict port_props;
 	struct spa_dict_item port_items[1];

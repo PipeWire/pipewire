@@ -103,14 +103,21 @@ static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_
 	uint32_t i, c;
 	struct spa_pod_frame f[2];
 
+	/* make an oject of type SPA_TYPE_OBJECT_Format and id SPA_PARAM_EnumFormat.
+	 * The object type is important because it defines the properties that are
+	 * acceptable. The id gives more context about what the object is meant to
+	 * contain. In this case we enumerate supported formats. */
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	/* add media type and media subtype properties */
 	spa_pod_builder_prop(b, SPA_FORMAT_mediaType, 0);
 	spa_pod_builder_id(b, SPA_MEDIA_TYPE_video);
 	spa_pod_builder_prop(b, SPA_FORMAT_mediaSubtype, 0);
 	spa_pod_builder_id(b, SPA_MEDIA_SUBTYPE_raw);
 
+	/* build an enumeration of formats */
 	spa_pod_builder_prop(b, SPA_FORMAT_VIDEO_format, 0);
 	spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);
+	/* first the formats supported by the textures */
 	for (i = 0, c = 0; i < info->num_texture_formats; i++) {
 		uint32_t id = sdl_format_to_id(info->texture_formats[i]);
 		if (id == 0)
@@ -119,12 +126,14 @@ static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_
 			spa_pod_builder_id(b, id);
 		spa_pod_builder_id(b, id);
 	}
+	/* then all the other ones SDL can convert from/to */
 	for (i = 0; i < SPA_N_ELEMENTS(sdl_video_formats); i++) {
 		uint32_t id = sdl_video_formats[i].id;
 		if (id != SPA_VIDEO_FORMAT_UNKNOWN)
 			spa_pod_builder_id(b, id);
 	}
 	spa_pod_builder_pop(b, &f[1]);
+	/* add size and framerate ranges */
 	spa_pod_builder_add(b,
 		SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
 							&SPA_RECTANGLE(WIDTH, HEIGHT),

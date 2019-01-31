@@ -50,10 +50,6 @@ struct data {
 
 	struct pw_main_loop *loop;
 
-	struct pw_core *core;
-	struct pw_remote *remote;
-	struct spa_hook remote_listener;
-
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
@@ -77,6 +73,15 @@ static void handle_events(struct data *data)
 	}
 }
 
+/* our data processing function is in general:
+ *
+ *  struct pw_buffer *b;
+ *  b = pw_stream_dequeue_buffer(stream);
+ *
+ *  .. do stuff with buffer ...
+ *
+ *  pw_stream_queue_buffer(stream, b);
+ */
 static void
 on_process(void *_data)
 {
@@ -103,13 +108,14 @@ on_process(void *_data)
 	handle_events(data);
 
 	if ((sdata = buf->datas[0].data) == NULL)
-		return;
+		goto done;
 
 	if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
 		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-		return;
+		goto done;
 	}
 
+	/* get the videocrop metadata if any */
 	if ((mc = spa_buffer_find_meta_data(buf, SPA_META_VideoCrop, sizeof(*mc))) &&
 	    spa_meta_region_is_valid(mc)) {
 		data->rect.x = mc->region.position.x;
@@ -117,6 +123,7 @@ on_process(void *_data)
 		data->rect.w = mc->region.size.width;
 		data->rect.h = mc->region.size.height;
 	}
+	/* get cursor metadata */
 	if ((mcs = spa_buffer_find_meta_data(buf, SPA_META_Cursor, sizeof(*mcs))) &&
 	    spa_meta_cursor_is_valid(mcs)) {
 		struct spa_meta_bitmap *mb;
@@ -144,6 +151,7 @@ on_process(void *_data)
 			goto done;
 		}
 
+		/* copy the cursor bitmap into the texture */
 		src = SPA_MEMBER(mb, mb->offset, uint8_t);
 		dst = cdata;
 		ostride = SPA_MIN(cstride, mb->stride);
@@ -158,6 +166,7 @@ on_process(void *_data)
 		render_cursor = true;
 	}
 
+	/* copy video image in texture */
 	sstride = buf->datas[0].chunk->stride;
 	ostride = SPA_MIN(sstride, dstride);
 
@@ -171,6 +180,7 @@ on_process(void *_data)
 	SDL_UnlockTexture(data->texture);
 
 	SDL_RenderClear(data->renderer);
+	/* now render the video and then the cursor if any */
 	SDL_RenderCopy(data->renderer, data->texture, &data->rect, NULL);
 	if (render_cursor) {
 		SDL_RenderCopy(data->renderer, data->cursor, NULL, &data->cursor_rect);
@@ -191,6 +201,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 		pw_main_loop_quit(data->loop);
 		break;
 	case PW_STREAM_STATE_CONFIGURE:
+		/* because we started inactive, activate ourselves now */
 		pw_stream_set_active(data->stream, true);
 		break;
 	default:
@@ -198,6 +209,16 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 	}
 }
 
+/* Be notified when the stream format changes.
+ *
+ * We are now supposed to call pw_stream_finish_format() with success or
+ * failure, depending on if we can support the format. Because we gave
+ * a list of supported formats, this should be ok.
+ *
+ * As part of pw_stream_finish_format() we can provide parameters that
+ * will control the buffer memory allocation. This includes the metadata
+ * that we would like on our buffer, the size, alignment, etc.
+ */
 static void
 on_stream_format_changed(void *_data, const struct spa_pod *format)
 {
@@ -209,6 +230,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	Uint32 sdl_format;
 	void *d;
 
+	/* NULL means to clear the format */
 	if (format == NULL) {
 		pw_stream_finish_format(stream, 0, NULL, 0);
 		return;
@@ -217,6 +239,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	fprintf(stderr, "got format:\n");
 	spa_debug_format(2, NULL, format);
 
+	/* call a helper function to parse the format for us. */
 	spa_format_video_raw_parse(format, &data->format);
 
 	sdl_format = id_to_sdl_format(data->format.format);
@@ -238,6 +261,8 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	data->rect.w = data->format.size.width;
 	data->rect.h = data->format.size.height;
 
+	/* a SPA_TYPE_OBJECT_ParamBuffers object defines the acceptable size,
+	 * number, stride etc of the buffers */
 	params[0] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
@@ -246,16 +271,19 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride),
 		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
+	/* a header metadata with timing information */
 	params[1] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 		SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
+	/* video cropping information */
 	params[2] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
 		SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_region)));
 #define CURSOR_META_SIZE(w,h)	(sizeof(struct spa_meta_cursor) + \
 				 sizeof(struct spa_meta_bitmap) + w * h * 4)
+	/* cursor information */
 	params[3] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Cursor),
@@ -264,9 +292,11 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 				CURSOR_META_SIZE(1,1),
 				CURSOR_META_SIZE(256,256)));
 
+	/* we are done */
 	pw_stream_finish_format(stream, 0, params, 4);
 }
 
+/* these are the stream events we listen for */
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_stream_state_changed,
@@ -296,8 +326,20 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
+	/* create a main loop */
 	data.loop = pw_main_loop_new(NULL);
 
+	/* create a simple stream, the simple stream manages to core and remote
+	 * objects for you if you don't need to deal with them
+	 *
+	 * If you plan to autoconnect your stream, you need to provide at least
+	 * media, category and role properties
+	 *
+	 * Pass your events and a use_data pointer as the last arguments. This
+	 * will inform you about the stream state. The most important event
+	 * you need to listen to is the process event where you need to consume
+	 * the data provided to you.
+	 */
 	data.stream = pw_stream_new_simple(
 			pw_main_loop_get_loop(data.loop),
 			"video-play",
@@ -309,8 +351,6 @@ int main(int argc, char *argv[])
 			&stream_events,
 			&data);
 
-	data.remote = pw_stream_get_remote(data.stream);
-	data.core = pw_remote_get_core(data.remote);
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -324,17 +364,24 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	/* build the extra parameters to connect with. To connect, we can provide
+	 * a list of supported formats.  We use a builder that writes the param
+	 * object to the stack. */
 	build_format(&data, &b, params);
 
+	/* now connect the stream, we need a direction (input/output),
+	 * an optional target node to connect to, some flags and parameters
+	 */
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_INPUT,
 			  data.path ? (uint32_t)atoi(data.path) : SPA_ID_INVALID,
-			  PW_STREAM_FLAG_AUTOCONNECT |
-			  PW_STREAM_FLAG_INACTIVE |
-			  PW_STREAM_FLAG_EXCLUSIVE |
-			  PW_STREAM_FLAG_MAP_BUFFERS,
-			  params, 1);
+			  PW_STREAM_FLAG_AUTOCONNECT |	/* try to automatically connect this stream */
+			  PW_STREAM_FLAG_INACTIVE |	/* we will activate ourselves */
+			  PW_STREAM_FLAG_EXCLUSIVE |	/* require exclusive access */
+			  PW_STREAM_FLAG_MAP_BUFFERS,	/* mmap the buffer data for us */
+			  params, 1);			/* extra parameters, see above */
 
+	/* do things until we quit the mainloop */
 	pw_main_loop_run(data.loop);
 
 	pw_stream_destroy(data.stream);

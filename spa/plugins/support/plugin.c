@@ -27,31 +27,29 @@
 
 #include <spa/support/plugin.h>
 
-#define MAX_FACTORIES	16
+extern const struct spa_handle_factory spa_support_logger_factory;
+extern const struct spa_handle_factory spa_support_loop_factory;
+extern const struct spa_handle_factory spa_support_cpu_factory;
 
-static const struct spa_handle_factory *factories[MAX_FACTORIES];
-static uint32_t n_factories;
-
-int spa_handle_factory_register(const struct spa_handle_factory *factory)
-{
-	if (n_factories < MAX_FACTORIES)
-		factories[n_factories++] = factory;
-	else {
-		fprintf(stderr, "too many factories\n");
-		return -ENOMEM;
-	}
-	return 0;
-}
-
-int
+SPA_EXPORT int
 spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);
 
-	if (*index >= n_factories)
+	switch (*index) {
+	case 0:
+		*factory = &spa_support_logger_factory;
+		break;
+	case 1:
+		*factory = &spa_support_loop_factory;
+		break;
+	case 2:
+		*factory = &spa_support_cpu_factory;
+		break;
+	default:
 		return 0;
-
-	*factory = factories[(*index)++];
+	}
+	(*index)++;
 	return 1;
 }

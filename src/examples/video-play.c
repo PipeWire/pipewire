@@ -39,13 +39,13 @@ struct type {
 	uint32_t meta_cursor;
 };
 
-static inline void init_type(struct type *type, struct spa_type_map *map)
+static inline void init_type(struct type *type, struct pw_type *map)
 {
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_video_map(map, &type->format_video);
-	spa_type_video_format_map(map, &type->video_format);
-	type->meta_cursor = spa_type_map_get_id(map, SPA_TYPE_META__Cursor);
+	pw_type_get(map, SPA_TYPE__MediaType, &type->media_type);
+	pw_type_get(map, SPA_TYPE__MediaSubtype, &type->media_subtype);
+	pw_type_get(map, SPA_TYPE_FORMAT__Video, &type->format_video);
+	pw_type_get(map, SPA_TYPE__VideoFormat, &type->video_format);
+	pw_type_get(map, SPA_TYPE_META__Cursor, &type->meta_cursor);
 }
 
 #define WIDTH   640
@@ -295,8 +295,10 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		return;
 	}
 
-	fprintf(stderr, "got format:\n");
-	spa_debug_format(2, data->t->map, format);
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
+		fprintf(stderr, "got format:\n");
+		spa_debug_format(2, data->t->map, format);
+	}
 
 	spa_format_video_raw_parse(format, &data->format, &data->type.format_video);
 
@@ -422,8 +424,10 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 			NULL);
 		params[0] = spa_pod_builder_pop(&b);
 
-		fprintf(stderr, "supported formats:\n");
-		spa_debug_format(2, data->t->map, params[0]);
+		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
+			fprintf(stderr, "supported formats:\n");
+			spa_debug_format(2, data->t->map, params[0]);
+		}
 
 		pw_stream_add_listener(data->stream,
 				       &data->stream_listener,
@@ -506,7 +510,7 @@ int main(int argc, char *argv[])
 	data.remote = pw_remote_new(data.core, NULL, 0);
 	data.path = argc > 1 ? argv[1] : NULL;
 
-	init_type(&data.type, data.t->map);
+	init_type(&data.type, data.t);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "can't initialize SDL: %s\n", SDL_GetError());

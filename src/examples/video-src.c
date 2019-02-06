@@ -38,13 +38,13 @@ struct type {
 	uint32_t meta_cursor;
 };
 
-static inline void init_type(struct type *type, struct spa_type_map *map)
+static inline void init_type(struct type *type, struct pw_type *map)
 {
-	spa_type_media_type_map(map, &type->media_type);
-	spa_type_media_subtype_map(map, &type->media_subtype);
-	spa_type_format_video_map(map, &type->format_video);
-	spa_type_video_format_map(map, &type->video_format);
-	type->meta_cursor = spa_type_map_get_id(map, SPA_TYPE_META__Cursor);
+	pw_type_get(map, SPA_TYPE__MediaType, &type->media_type);
+	pw_type_get(map, SPA_TYPE__MediaSubtype, &type->media_subtype);
+	pw_type_get(map, SPA_TYPE_FORMAT__Video, &type->format_video);
+	pw_type_get(map, SPA_TYPE__VideoFormat, &type->video_format);
+	pw_type_get(map, SPA_TYPE_META__Cursor, &type->meta_cursor);
 }
 
 #define BPP	3
@@ -334,7 +334,7 @@ int main(int argc, char *argv[])
 	data.t = pw_core_get_type(data.core);
 	data.remote = pw_remote_new(data.core, NULL, 0);
 
-	init_type(&data.type, data.t->map);
+	init_type(&data.type, data.t);
 
 	data.timer = pw_loop_add_timer(pw_main_loop_get_loop(data.loop), on_timeout, &data);
 

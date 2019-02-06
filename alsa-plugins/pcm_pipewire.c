@@ -889,6 +889,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 }
 
 
+SPA_EXPORT
 SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 {
 	snd_config_iterator_t i, next;
@@ -938,4 +939,5 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 	return err;
 }
 
+SPA_EXPORT
 SND_PCM_PLUGIN_SYMBOL(pipewire);

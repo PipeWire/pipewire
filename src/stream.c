@@ -495,7 +495,7 @@ static const struct pw_stream_events stream_events =
 	.process = stream_process,
 };
 
-pa_stream* stream_new(pa_context *c, const char *name,
+static pa_stream* stream_new(pa_context *c, const char *name,
         const pa_sample_spec *ss, const pa_channel_map *map,
 	pa_format_info * const * formats, unsigned int n_formats,
 	pa_proplist *p)
@@ -590,12 +590,14 @@ pa_stream* stream_new(pa_context *c, const char *name,
 	return s;
 }
 
+SPA_EXPORT
 pa_stream* pa_stream_new(pa_context *c, const char *name, const pa_sample_spec *ss,
         const pa_channel_map *map)
 {
 	return stream_new(c, name, ss, map, NULL, 0, NULL);
 }
 
+SPA_EXPORT
 pa_stream* pa_stream_new_with_proplist(pa_context *c, const char *name,
         const pa_sample_spec *ss, const pa_channel_map *map, pa_proplist *p)
 {
@@ -607,6 +609,7 @@ pa_stream* pa_stream_new_with_proplist(pa_context *c, const char *name,
 	return stream_new(c, name, ss, map, NULL, 0, p);
 }
 
+SPA_EXPORT
 pa_stream *pa_stream_new_extended(pa_context *c, const char *name,
         pa_format_info * const * formats, unsigned int n_formats, pa_proplist *p)
 {
@@ -658,6 +661,7 @@ static void stream_free(pa_stream *s)
 	free(s);
 }
 
+SPA_EXPORT
 void pa_stream_unref(pa_stream *s)
 {
 	spa_assert(s);
@@ -667,6 +671,7 @@ void pa_stream_unref(pa_stream *s)
 		stream_free(s);
 }
 
+SPA_EXPORT
 pa_stream *pa_stream_ref(pa_stream *s)
 {
 	spa_assert(s);
@@ -676,6 +681,7 @@ pa_stream *pa_stream_ref(pa_stream *s)
 	return s;
 }
 
+SPA_EXPORT
 pa_stream_state_t pa_stream_get_state(pa_stream *s)
 {
 	spa_assert(s);
@@ -683,6 +689,7 @@ pa_stream_state_t pa_stream_get_state(pa_stream *s)
 	return s->state;
 }
 
+SPA_EXPORT
 pa_context* pa_stream_get_context(pa_stream *s)
 {
 	spa_assert(s);
@@ -690,6 +697,7 @@ pa_context* pa_stream_get_context(pa_stream *s)
 	return s->context;
 }
 
+SPA_EXPORT
 uint32_t pa_stream_get_index(pa_stream *s)
 {
 	spa_assert(s);
@@ -720,6 +728,7 @@ void pa_stream_set_state(pa_stream *s, pa_stream_state_t st) {
 }
 
 
+SPA_EXPORT
 uint32_t pa_stream_get_device_index(pa_stream *s)
 {
 	spa_assert(s);
@@ -736,6 +745,7 @@ uint32_t pa_stream_get_device_index(pa_stream *s)
 	return s->device_index;
 }
 
+SPA_EXPORT
 const char *pa_stream_get_device_name(pa_stream *s)
 {
 	spa_assert(s);
@@ -748,6 +758,7 @@ const char *pa_stream_get_device_name(pa_stream *s)
 	return s->device_name;
 }
 
+SPA_EXPORT
 int pa_stream_is_suspended(pa_stream *s)
 {
 	spa_assert(s);
@@ -759,6 +770,7 @@ int pa_stream_is_suspended(pa_stream *s)
 	return s->suspended;
 }
 
+SPA_EXPORT
 int pa_stream_is_corked(pa_stream *s)
 {
 	spa_assert(s);
@@ -942,6 +954,7 @@ static int create_stream(pa_stream_direction_t direction,
 	return res;
 }
 
+SPA_EXPORT
 int pa_stream_connect_playback(
         pa_stream *s,
         const char *dev,
@@ -953,6 +966,7 @@ int pa_stream_connect_playback(
 	return create_stream(PA_STREAM_PLAYBACK, s, dev, attr, flags, volume, sync_stream);
 }
 
+SPA_EXPORT
 int pa_stream_connect_record(
         pa_stream *s,
         const char *dev,
@@ -967,6 +981,7 @@ static void on_disconnected(pa_operation *o, void *userdata)
 	pa_stream_set_state(o->stream, PA_STREAM_TERMINATED);
 }
 
+SPA_EXPORT
 int pa_stream_disconnect(pa_stream *s)
 {
 	pa_operation *o;
@@ -1036,6 +1051,7 @@ int queue_buffer(pa_stream *s)
 	return 0;
 }
 
+SPA_EXPORT
 int pa_stream_begin_write(
         pa_stream *s,
         void **data,
@@ -1066,6 +1082,7 @@ int pa_stream_begin_write(
 	return 0;
 }
 
+SPA_EXPORT
 int pa_stream_cancel_write(pa_stream *s)
 {
 	spa_assert(s);
@@ -1081,6 +1098,7 @@ int pa_stream_cancel_write(pa_stream *s)
 	return 0;
 }
 
+SPA_EXPORT
 int pa_stream_write(pa_stream *s,
         const void *data,
         size_t nbytes,
@@ -1091,6 +1109,7 @@ int pa_stream_write(pa_stream *s,
 	return pa_stream_write_ext_free(s, data, nbytes, free_cb, (void*) data, offset, seek);
 }
 
+SPA_EXPORT
 int pa_stream_write_ext_free(pa_stream *s,
         const void *data,
         size_t nbytes,
@@ -1160,6 +1179,7 @@ int pa_stream_write_ext_free(pa_stream *s,
 	return 0;
 }
 
+SPA_EXPORT
 int pa_stream_peek(pa_stream *s,
         const void **data,
         size_t *nbytes)
@@ -1185,6 +1205,7 @@ int pa_stream_peek(pa_stream *s,
 	return 0;
 }
 
+SPA_EXPORT
 int pa_stream_drop(pa_stream *s)
 {
 	spa_assert(s);
@@ -1200,6 +1221,7 @@ int pa_stream_drop(pa_stream *s)
 	return 0;
 }
 
+SPA_EXPORT
 size_t pa_stream_writable_size(pa_stream *s)
 {
 	spa_assert(s);
@@ -1214,6 +1236,7 @@ size_t pa_stream_writable_size(pa_stream *s)
 	return s->dequeued_size;
 }
 
+SPA_EXPORT
 size_t pa_stream_readable_size(pa_stream *s)
 {
 	spa_assert(s);
@@ -1241,6 +1264,7 @@ static void on_success(pa_operation *o, void *userdata)
 		d->cb(s, 1, d->userdata);
 }
 
+SPA_EXPORT
 pa_operation* pa_stream_drain(pa_stream *s, pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1276,6 +1300,7 @@ static void on_timing_success(pa_operation *o, void *userdata)
 		d->cb(s, s->timing_info_valid, d->userdata);
 }
 
+SPA_EXPORT
 pa_operation* pa_stream_update_timing_info(pa_stream *s, pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1296,6 +1321,7 @@ pa_operation* pa_stream_update_timing_info(pa_stream *s, pa_stream_success_cb_t 
 	return o;
 }
 
+SPA_EXPORT
 void pa_stream_set_state_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *userdata)
 {
 	spa_assert(s);
@@ -1308,6 +1334,7 @@ void pa_stream_set_state_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *
 	s->state_userdata = userdata;
 }
 
+SPA_EXPORT
 void pa_stream_set_write_callback(pa_stream *s, pa_stream_request_cb_t cb, void *userdata)
 {
 	spa_assert(s);
@@ -1320,6 +1347,7 @@ void pa_stream_set_write_callback(pa_stream *s, pa_stream_request_cb_t cb, void 
 	s->write_userdata = userdata;
 }
 
+SPA_EXPORT
 void pa_stream_set_read_callback(pa_stream *s, pa_stream_request_cb_t cb, void *userdata)
 {
 	spa_assert(s);
@@ -1332,6 +1360,7 @@ void pa_stream_set_read_callback(pa_stream *s, pa_stream_request_cb_t cb, void *
 	s->read_userdata = userdata;
 }
 
+SPA_EXPORT
 void pa_stream_set_overflow_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *userdata)
 {
 	spa_assert(s);
@@ -1344,12 +1373,14 @@ void pa_stream_set_overflow_callback(pa_stream *s, pa_stream_notify_cb_t cb, voi
 	s->overflow_userdata = userdata;
 }
 
+SPA_EXPORT
 int64_t pa_stream_get_underflow_index(pa_stream *s)
 {
 	pw_log_warn("Not Implemented");
 	return 0;
 }
 
+SPA_EXPORT
 void pa_stream_set_underflow_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *userdata)
 {
 	spa_assert(s);
@@ -1362,6 +1393,7 @@ void pa_stream_set_underflow_callback(pa_stream *s, pa_stream_notify_cb_t cb, vo
 	s->underflow_userdata = userdata;
 }
 
+SPA_EXPORT
 void pa_stream_set_started_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *userdata)
 {
 	spa_assert(s);
@@ -1374,6 +1406,7 @@ void pa_stream_set_started_callback(pa_stream *s, pa_stream_notify_cb_t cb, void
 	s->started_userdata = userdata;
 }
 
+SPA_EXPORT
 void pa_stream_set_latency_update_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *userdata)
 {
 	spa_assert(s);
@@ -1386,6 +1419,7 @@ void pa_stream_set_latency_update_callback(pa_stream *s, pa_stream_notify_cb_t c
 	s->latency_update_userdata = userdata;
 }
 
+SPA_EXPORT
 void pa_stream_set_moved_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *userdata)
 {
 	spa_assert(s);
@@ -1398,6 +1432,7 @@ void pa_stream_set_moved_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *
 	s->moved_userdata = userdata;
 }
 
+SPA_EXPORT
 void pa_stream_set_suspended_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *userdata)
 {
 	spa_assert(s);
@@ -1410,6 +1445,7 @@ void pa_stream_set_suspended_callback(pa_stream *s, pa_stream_notify_cb_t cb, vo
 	s->suspended_userdata = userdata;
 }
 
+SPA_EXPORT
 void pa_stream_set_event_callback(pa_stream *s, pa_stream_event_cb_t cb, void *userdata)
 {
 	spa_assert(s);
@@ -1422,6 +1458,7 @@ void pa_stream_set_event_callback(pa_stream *s, pa_stream_event_cb_t cb, void *u
 	s->event_userdata = userdata;
 }
 
+SPA_EXPORT
 void pa_stream_set_buffer_attr_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *userdata)
 {
 	spa_assert(s);
@@ -1434,6 +1471,7 @@ void pa_stream_set_buffer_attr_callback(pa_stream *s, pa_stream_notify_cb_t cb, 
 	s->buffer_attr_userdata = userdata;
 }
 
+SPA_EXPORT
 pa_operation* pa_stream_cork(pa_stream *s, int b, pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1457,6 +1495,7 @@ pa_operation* pa_stream_cork(pa_stream *s, int b, pa_stream_success_cb_t cb, voi
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_stream_flush(pa_stream *s, pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1479,6 +1518,7 @@ pa_operation* pa_stream_flush(pa_stream *s, pa_stream_success_cb_t cb, void *use
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_stream_prebuf(pa_stream *s, pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1501,6 +1541,7 @@ pa_operation* pa_stream_prebuf(pa_stream *s, pa_stream_success_cb_t cb, void *us
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_stream_trigger(pa_stream *s, pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1523,6 +1564,7 @@ pa_operation* pa_stream_trigger(pa_stream *s, pa_stream_success_cb_t cb, void *u
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_stream_set_name(pa_stream *s, const char *name, pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1550,6 +1592,7 @@ pa_operation* pa_stream_set_name(pa_stream *s, const char *name, pa_stream_succe
 	return o;
 }
 
+SPA_EXPORT
 int pa_stream_get_time(pa_stream *s, pa_usec_t *r_usec)
 {
 	pa_usec_t res;
@@ -1602,6 +1645,7 @@ static pa_usec_t time_counter_diff(const pa_stream *s, pa_usec_t a, pa_usec_t b,
 	}
 }
 
+SPA_EXPORT
 int pa_stream_get_latency(pa_stream *s, pa_usec_t *r_usec, int *negative)
 {
 	pa_usec_t t, c;
@@ -1635,6 +1679,7 @@ int pa_stream_get_latency(pa_stream *s, pa_usec_t *r_usec, int *negative)
 	return 0;
 }
 
+SPA_EXPORT
 const pa_timing_info* pa_stream_get_timing_info(pa_stream *s)
 {
 	spa_assert(s);
@@ -1651,6 +1696,7 @@ const pa_timing_info* pa_stream_get_timing_info(pa_stream *s)
 	return &s->timing_info;
 }
 
+SPA_EXPORT
 const pa_sample_spec* pa_stream_get_sample_spec(pa_stream *s)
 {
 	spa_assert(s);
@@ -1658,6 +1704,7 @@ const pa_sample_spec* pa_stream_get_sample_spec(pa_stream *s)
 	return &s->sample_spec;
 }
 
+SPA_EXPORT
 const pa_channel_map* pa_stream_get_channel_map(pa_stream *s)
 {
 	spa_assert(s);
@@ -1665,6 +1712,7 @@ const pa_channel_map* pa_stream_get_channel_map(pa_stream *s)
 	return &s->channel_map;
 }
 
+SPA_EXPORT
 const pa_format_info* pa_stream_get_format_info(pa_stream *s)
 {
 	spa_assert(s);
@@ -1675,6 +1723,7 @@ const pa_format_info* pa_stream_get_format_info(pa_stream *s)
 	return s->format;
 }
 
+SPA_EXPORT
 const pa_buffer_attr* pa_stream_get_buffer_attr(pa_stream *s)
 {
 	spa_assert(s);
@@ -1686,6 +1735,7 @@ const pa_buffer_attr* pa_stream_get_buffer_attr(pa_stream *s)
 	return &s->buffer_attr;
 }
 
+SPA_EXPORT
 pa_operation *pa_stream_set_buffer_attr(pa_stream *s, const pa_buffer_attr *attr, pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1707,6 +1757,7 @@ pa_operation *pa_stream_set_buffer_attr(pa_stream *s, const pa_buffer_attr *attr
 	return o;
 }
 
+SPA_EXPORT
 pa_operation *pa_stream_update_sample_rate(pa_stream *s, uint32_t rate, pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1729,6 +1780,7 @@ pa_operation *pa_stream_update_sample_rate(pa_stream *s, uint32_t rate, pa_strea
 	return o;
 }
 
+SPA_EXPORT
 pa_operation *pa_stream_proplist_update(pa_stream *s, pa_update_mode_t mode, pa_proplist *p, pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1752,6 +1804,7 @@ pa_operation *pa_stream_proplist_update(pa_stream *s, pa_update_mode_t mode, pa_
 	return o;
 }
 
+SPA_EXPORT
 pa_operation *pa_stream_proplist_remove(pa_stream *s, const char *const keys[], pa_stream_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1773,6 +1826,7 @@ pa_operation *pa_stream_proplist_remove(pa_stream *s, const char *const keys[], 
 	return o;
 }
 
+SPA_EXPORT
 int pa_stream_set_monitor_stream(pa_stream *s, uint32_t sink_input_idx)
 {
 	spa_assert(s);
@@ -1787,6 +1841,7 @@ int pa_stream_set_monitor_stream(pa_stream *s, uint32_t sink_input_idx)
 	return 0;
 }
 
+SPA_EXPORT
 uint32_t pa_stream_get_monitor_stream(pa_stream *s)
 {
 	spa_assert(s);

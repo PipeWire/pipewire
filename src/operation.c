@@ -58,6 +58,7 @@ int pa_operation_sync(pa_operation *o)
 	return 0;
 }
 
+SPA_EXPORT
 pa_operation *pa_operation_ref(pa_operation *o)
 {
 	pa_assert(o);
@@ -96,6 +97,7 @@ static void operation_unlink(pa_operation *o) {
 }
 
 
+SPA_EXPORT
 void pa_operation_unref(pa_operation *o)
 {
 	pa_assert(o);
@@ -126,6 +128,7 @@ static void operation_set_state(pa_operation *o, pa_operation_state_t st) {
 }
 
 
+SPA_EXPORT
 void pa_operation_cancel(pa_operation *o)
 {
 	pa_assert(o);
@@ -141,6 +144,7 @@ void pa_operation_done(pa_operation *o) {
 }
 
 
+SPA_EXPORT
 pa_operation_state_t pa_operation_get_state(pa_operation *o)
 {
 	pa_assert(o);
@@ -148,6 +152,7 @@ pa_operation_state_t pa_operation_get_state(pa_operation *o)
 	return o->state;
 }
 
+SPA_EXPORT
 void pa_operation_set_state_callback(pa_operation *o, pa_operation_notify_cb_t cb, void *userdata)
 {
 	pa_assert(o);

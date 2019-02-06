@@ -98,6 +98,7 @@ static void context_fail(pa_context *c, int error) {
 	pa_context_set_state(c, PA_CONTEXT_FAILED);
 }
 
+SPA_EXPORT
 pa_context *pa_context_new(pa_mainloop_api *mainloop, const char *name)
 {
 	return pa_context_new_with_proplist(mainloop, name, NULL);
@@ -419,6 +420,7 @@ static const struct pw_remote_events remote_events = {
 	.state_changed = remote_state_changed,
 };
 
+SPA_EXPORT
 pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *name, pa_proplist *p)
 {
 	struct pw_core *core;
@@ -483,6 +485,7 @@ static void context_free(pa_context *c)
 	pw_core_destroy(c->core);
 }
 
+SPA_EXPORT
 void pa_context_unref(pa_context *c)
 {
 	pa_assert(c);
@@ -492,6 +495,7 @@ void pa_context_unref(pa_context *c)
 		context_free(c);
 }
 
+SPA_EXPORT
 pa_context* pa_context_ref(pa_context *c)
 {
 	pa_assert(c);
@@ -500,6 +504,7 @@ pa_context* pa_context_ref(pa_context *c)
 	return c;
 }
 
+SPA_EXPORT
 void pa_context_set_state_callback(pa_context *c, pa_context_notify_cb_t cb, void *userdata)
 {
 	pa_assert(c);
@@ -512,6 +517,7 @@ void pa_context_set_state_callback(pa_context *c, pa_context_notify_cb_t cb, voi
 	c->state_userdata = userdata;
 }
 
+SPA_EXPORT
 void pa_context_set_event_callback(pa_context *c, pa_context_event_cb_t cb, void *userdata)
 {
 	pa_assert(c);
@@ -524,6 +530,7 @@ void pa_context_set_event_callback(pa_context *c, pa_context_event_cb_t cb, void
 	c->event_userdata = userdata;
 }
 
+SPA_EXPORT
 int pa_context_errno(pa_context *c)
 {
 	if (!c)
@@ -534,6 +541,7 @@ int pa_context_errno(pa_context *c)
 	return c->error;
 }
 
+SPA_EXPORT
 int pa_context_is_pending(pa_context *c)
 {
 	pa_assert(c);
@@ -544,6 +552,7 @@ int pa_context_is_pending(pa_context *c)
 	return !spa_list_is_empty(&c->operations);
 }
 
+SPA_EXPORT
 pa_context_state_t pa_context_get_state(pa_context *c)
 {
 	pa_assert(c);
@@ -551,6 +560,7 @@ pa_context_state_t pa_context_get_state(pa_context *c)
 	return c->state;
 }
 
+SPA_EXPORT
 int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t flags, const pa_spawn_api *api)
 {
 	int res;
@@ -573,6 +583,7 @@ int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t fla
 	return res;
 }
 
+SPA_EXPORT
 void pa_context_disconnect(pa_context *c)
 {
 	pa_assert(c);
@@ -598,6 +609,7 @@ static void on_notify(pa_operation *o, void *userdata)
 		d->cb(c, d->userdata);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_drain(pa_context *c, pa_context_notify_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -627,6 +639,7 @@ static void on_success(pa_operation *o, void *userdata)
 		d->cb(c, d->ret, d->userdata);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_exit_daemon(pa_context *c, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -641,18 +654,21 @@ pa_operation* pa_context_exit_daemon(pa_context *c, pa_context_success_cb_t cb, 
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_default_sink(pa_context *c, const char *name, pa_context_success_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_default_source(pa_context *c, const char *name, pa_context_success_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 int pa_context_is_local(pa_context *c)
 {
 	pa_assert(c);
@@ -663,6 +679,7 @@ int pa_context_is_local(pa_context *c)
 	return 1;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_name(pa_context *c, const char *name, pa_context_success_cb_t cb, void *userdata)
 {
 	struct spa_dict dict;
@@ -689,6 +706,7 @@ pa_operation* pa_context_set_name(pa_context *c, const char *name, pa_context_su
 	return o;
 }
 
+SPA_EXPORT
 const char* pa_context_get_server(pa_context *c)
 {
 	const struct pw_core_info *info;
@@ -702,11 +720,13 @@ const char* pa_context_get_server(pa_context *c)
 	return info->name;
 }
 
+SPA_EXPORT
 uint32_t pa_context_get_protocol_version(pa_context *c)
 {
 	return PA_PROTOCOL_VERSION;
 }
 
+SPA_EXPORT
 uint32_t pa_context_get_server_protocol_version(pa_context *c)
 {
 	pa_assert(c);
@@ -717,6 +737,7 @@ uint32_t pa_context_get_server_protocol_version(pa_context *c)
 	return PA_PROTOCOL_VERSION;
 }
 
+SPA_EXPORT
 pa_operation *pa_context_proplist_update(pa_context *c, pa_update_mode_t mode, pa_proplist *p, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -739,6 +760,7 @@ pa_operation *pa_context_proplist_update(pa_context *c, pa_update_mode_t mode, p
 	return o;
 }
 
+SPA_EXPORT
 pa_operation *pa_context_proplist_remove(pa_context *c, const char *const keys[], pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -760,11 +782,13 @@ pa_operation *pa_context_proplist_remove(pa_context *c, const char *const keys[]
 	return o;
 }
 
+SPA_EXPORT
 uint32_t pa_context_get_index(pa_context *c)
 {
 	return c->client_index;
 }
 
+SPA_EXPORT
 pa_time_event* pa_context_rttime_new(pa_context *c, pa_usec_t usec, pa_time_event_cb_t cb, void *userdata)
 {
 	struct timeval tv;
@@ -781,6 +805,7 @@ pa_time_event* pa_context_rttime_new(pa_context *c, pa_usec_t usec, pa_time_even
 	return c->mainloop->time_new(c->mainloop, &tv, cb, userdata);
 }
 
+SPA_EXPORT
 void pa_context_rttime_restart(pa_context *c, pa_time_event *e, pa_usec_t usec)
 {
 	struct timeval tv;
@@ -797,6 +822,7 @@ void pa_context_rttime_restart(pa_context *c, pa_time_event *e, pa_usec_t usec)
 	}
 }
 
+SPA_EXPORT
 size_t pa_context_get_tile_size(pa_context *c, const pa_sample_spec *ss)
 {
 	size_t fs, mbs;
@@ -811,6 +837,7 @@ size_t pa_context_get_tile_size(pa_context *c, const pa_sample_spec *ss)
 	return PA_MAX(mbs, fs);
 }
 
+SPA_EXPORT
 int pa_context_load_cookie_from_file(pa_context *c, const char *cookie_file_path)
 {
 	return 0;

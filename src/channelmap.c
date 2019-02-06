@@ -159,6 +159,7 @@ const char *const pretty_table[PA_CHANNEL_POSITION_MAX] = {
     [PA_CHANNEL_POSITION_TOP_REAR_RIGHT] = N_("Top Rear Right")
 };
 
+SPA_EXPORT
 pa_channel_map* pa_channel_map_init(pa_channel_map *m) {
     unsigned c;
     pa_assert(m);
@@ -171,6 +172,7 @@ pa_channel_map* pa_channel_map_init(pa_channel_map *m) {
     return m;
 }
 
+SPA_EXPORT
 pa_channel_map* pa_channel_map_init_mono(pa_channel_map *m) {
     pa_assert(m);
 
@@ -181,6 +183,7 @@ pa_channel_map* pa_channel_map_init_mono(pa_channel_map *m) {
     return m;
 }
 
+SPA_EXPORT
 pa_channel_map* pa_channel_map_init_stereo(pa_channel_map *m) {
     pa_assert(m);
 
@@ -192,6 +195,7 @@ pa_channel_map* pa_channel_map_init_stereo(pa_channel_map *m) {
     return m;
 }
 
+SPA_EXPORT
 pa_channel_map* pa_channel_map_init_auto(pa_channel_map *m, unsigned channels, pa_channel_map_def_t def) {
     pa_assert(m);
     pa_assert(pa_channels_valid(channels));
@@ -391,6 +395,7 @@ pa_channel_map* pa_channel_map_init_auto(pa_channel_map *m, unsigned channels, p
     }
 }
 
+SPA_EXPORT
 pa_channel_map* pa_channel_map_init_extend(pa_channel_map *m, unsigned channels, pa_channel_map_def_t def) {
     unsigned c;
 
@@ -420,6 +425,7 @@ pa_channel_map* pa_channel_map_init_extend(pa_channel_map *m, unsigned channels,
     return NULL;
 }
 
+SPA_EXPORT
 const char* pa_channel_position_to_string(pa_channel_position_t pos) {
 
     if (pos < 0 || pos >= PA_CHANNEL_POSITION_MAX)
@@ -428,6 +434,7 @@ const char* pa_channel_position_to_string(pa_channel_position_t pos) {
     return table[pos];
 }
 
+SPA_EXPORT
 const char* pa_channel_position_to_pretty_string(pa_channel_position_t pos) {
 
     if (pos < 0 || pos >= PA_CHANNEL_POSITION_MAX)
@@ -438,6 +445,7 @@ const char* pa_channel_position_to_pretty_string(pa_channel_position_t pos) {
     return _(pretty_table[pos]);
 }
 
+SPA_EXPORT
 int pa_channel_map_equal(const pa_channel_map *a, const pa_channel_map *b) {
     unsigned c;
 
@@ -461,6 +469,7 @@ int pa_channel_map_equal(const pa_channel_map *a, const pa_channel_map *b) {
     return 1;
 }
 
+SPA_EXPORT
 char* pa_channel_map_snprint(char *s, size_t l, const pa_channel_map *map) {
     unsigned channel;
     bool first = true;
@@ -491,6 +500,7 @@ char* pa_channel_map_snprint(char *s, size_t l, const pa_channel_map *map) {
     return s;
 }
 
+SPA_EXPORT
 pa_channel_position_t pa_channel_position_from_string(const char *p) {
     pa_channel_position_t i;
     pa_assert(p);
@@ -512,6 +522,7 @@ pa_channel_position_t pa_channel_position_from_string(const char *p) {
     return PA_CHANNEL_POSITION_INVALID;
 }
 
+SPA_EXPORT
 pa_channel_map *pa_channel_map_parse(pa_channel_map *rmap, const char *s) {
     pa_channel_map map;
     char **tokens;
@@ -611,6 +622,7 @@ finish:
     return rmap;
 }
 
+SPA_EXPORT
 int pa_channel_map_valid(const pa_channel_map *map) {
     unsigned c;
 
@@ -626,6 +638,7 @@ int pa_channel_map_valid(const pa_channel_map *map) {
     return 1;
 }
 
+SPA_EXPORT
 int pa_channel_map_compatible(const pa_channel_map *map, const pa_sample_spec *ss) {
     pa_assert(map);
     pa_assert(ss);
@@ -636,6 +649,7 @@ int pa_channel_map_compatible(const pa_channel_map *map, const pa_sample_spec *s
     return map->channels == ss->channels;
 }
 
+SPA_EXPORT
 int pa_channel_map_superset(const pa_channel_map *a, const pa_channel_map *b) {
     pa_channel_position_mask_t am, bm;
 
@@ -655,6 +669,7 @@ int pa_channel_map_superset(const pa_channel_map *a, const pa_channel_map *b) {
     return (bm & am) == bm;
 }
 
+SPA_EXPORT
 int pa_channel_map_can_balance(const pa_channel_map *map) {
     pa_channel_position_mask_t m;
 
@@ -668,6 +683,7 @@ int pa_channel_map_can_balance(const pa_channel_map *map) {
         (PA_CHANNEL_POSITION_MASK_RIGHT & m);
 }
 
+SPA_EXPORT
 int pa_channel_map_can_fade(const pa_channel_map *map) {
     pa_channel_position_mask_t m;
 
@@ -681,6 +697,7 @@ int pa_channel_map_can_fade(const pa_channel_map *map) {
         (PA_CHANNEL_POSITION_MASK_REAR & m);
 }
 
+SPA_EXPORT
 int pa_channel_map_can_lfe_balance(const pa_channel_map *map) {
     pa_channel_position_mask_t m;
 
@@ -694,6 +711,7 @@ int pa_channel_map_can_lfe_balance(const pa_channel_map *map) {
         (PA_CHANNEL_POSITION_MASK_HFE & m);
 }
 
+SPA_EXPORT
 const char* pa_channel_map_to_name(const pa_channel_map *map) {
     pa_bitset_t in_map[PA_BITSET_ELEMENTS(PA_CHANNEL_POSITION_MAX)];
     unsigned c;
@@ -748,6 +766,7 @@ const char* pa_channel_map_to_name(const pa_channel_map *map) {
     return NULL;
 }
 
+SPA_EXPORT
 const char* pa_channel_map_to_pretty_name(const pa_channel_map *map) {
     pa_bitset_t in_map[PA_BITSET_ELEMENTS(PA_CHANNEL_POSITION_MAX)];
     unsigned c;
@@ -804,6 +823,7 @@ const char* pa_channel_map_to_pretty_name(const pa_channel_map *map) {
     return NULL;
 }
 
+SPA_EXPORT
 int pa_channel_map_has_position(const pa_channel_map *map, pa_channel_position_t p) {
     unsigned c;
 
@@ -817,6 +837,7 @@ int pa_channel_map_has_position(const pa_channel_map *map, pa_channel_position_t
     return 0;
 }
 
+SPA_EXPORT
 pa_channel_position_mask_t pa_channel_map_mask(const pa_channel_map *map) {
     unsigned c;
     pa_channel_position_mask_t r = 0;

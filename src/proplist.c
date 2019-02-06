@@ -49,6 +49,7 @@ pa_proplist* pa_proplist_new_props(struct pw_properties *props)
 	return pa_proplist_new_dict(&props->dict);
 }
 
+SPA_EXPORT
 pa_proplist* pa_proplist_new(void)
 {
 	return pa_proplist_new_dict(NULL);
@@ -60,12 +61,14 @@ int pa_proplist_update_dict(pa_proplist *p, struct spa_dict *dict)
 }
 
 
+SPA_EXPORT
 void pa_proplist_free(pa_proplist* p)
 {
 	pw_properties_free(p->props);
 	free(p);
 }
 
+SPA_EXPORT
 int pa_proplist_key_valid(const char *key)
 {
 	const char *p;
@@ -79,6 +82,7 @@ int pa_proplist_key_valid(const char *key)
 	return 1;
 }
 
+SPA_EXPORT
 int pa_proplist_sets(pa_proplist *p, const char *key, const char *value)
 {
 	pa_assert(p);
@@ -92,6 +96,7 @@ int pa_proplist_sets(pa_proplist *p, const char *key, const char *value)
 	return 0;
 }
 
+SPA_EXPORT
 int pa_proplist_setp(pa_proplist *p, const char *pair)
 {
 	const char *t;
@@ -113,6 +118,7 @@ int pa_proplist_setp(pa_proplist *p, const char *pair)
 	return 0;
 }
 
+SPA_EXPORT
 int pa_proplist_setf(pa_proplist *p, const char *key, const char *format, ...)
 {
 	va_list varargs;
@@ -124,6 +130,7 @@ int pa_proplist_setf(pa_proplist *p, const char *key, const char *format, ...)
 	return 0;
 }
 
+SPA_EXPORT
 int pa_proplist_set(pa_proplist *p, const char *key, const void *data, size_t nbytes)
 {
 	pa_assert(p);
@@ -137,11 +144,13 @@ int pa_proplist_set(pa_proplist *p, const char *key, const void *data, size_t nb
 	return 0;
 }
 
+SPA_EXPORT
 const char *pa_proplist_gets(pa_proplist *p, const char *key)
 {
 	return pw_properties_get(p->props, key);
 }
 
+SPA_EXPORT
 int pa_proplist_get(pa_proplist *p, const char *key, const void **data, size_t *nbytes)
 {
 	const char *val;
@@ -156,6 +165,7 @@ int pa_proplist_get(pa_proplist *p, const char *key, const void **data, size_t *
 	return 0;
 }
 
+SPA_EXPORT
 void pa_proplist_update(pa_proplist *p, pa_update_mode_t mode, const pa_proplist *other)
 {
 	uint32_t i;
@@ -181,6 +191,7 @@ void pa_proplist_update(pa_proplist *p, pa_update_mode_t mode, const pa_proplist
 	}
 }
 
+SPA_EXPORT
 int pa_proplist_unset(pa_proplist *p, const char *key)
 {
 	spa_assert(p);
@@ -192,6 +203,7 @@ int pa_proplist_unset(pa_proplist *p, const char *key)
 	return pw_properties_set(p->props, key, NULL);
 }
 
+SPA_EXPORT
 int pa_proplist_unset_many(pa_proplist *p, const char * const keys[])
 {
 	const char * const * k;
@@ -210,6 +222,7 @@ int pa_proplist_unset_many(pa_proplist *p, const char * const keys[])
 	return n;
 }
 
+SPA_EXPORT
 const char *pa_proplist_iterate(pa_proplist *p, void **state)
 {
 	spa_assert(p);
@@ -217,12 +230,14 @@ const char *pa_proplist_iterate(pa_proplist *p, void **state)
 	return pw_properties_iterate(p->props, state);
 }
 
+SPA_EXPORT
 char *pa_proplist_to_string(pa_proplist *p)
 {
 	spa_assert(p);
 	return pa_proplist_to_string_sep(p, ",");
 }
 
+SPA_EXPORT
 char *pa_proplist_to_string_sep(pa_proplist *p, const char *sep)
 {
 	const char *key;
@@ -269,6 +284,7 @@ char *pa_proplist_to_string_sep(pa_proplist *p, const char *sep)
 	return pa_strbuf_to_string_free(buf);
 }
 
+SPA_EXPORT
 pa_proplist *pa_proplist_from_string(const char *str)
 {
 	spa_assert(str);
@@ -276,6 +292,7 @@ pa_proplist *pa_proplist_from_string(const char *str)
 	return NULL;
 }
 
+SPA_EXPORT
 int pa_proplist_contains(pa_proplist *p, const char *key)
 {
 	spa_assert(p);
@@ -290,12 +307,14 @@ int pa_proplist_contains(pa_proplist *p, const char *key)
 	return 1;
 }
 
+SPA_EXPORT
 void pa_proplist_clear(pa_proplist *p)
 {
 	spa_assert(p);
 	pw_properties_clear(p->props);
 }
 
+SPA_EXPORT
 pa_proplist* pa_proplist_copy(const pa_proplist *p)
 {
 	pa_proplist *c;
@@ -310,18 +329,21 @@ pa_proplist* pa_proplist_copy(const pa_proplist *p)
 	return c;
 }
 
+SPA_EXPORT
 unsigned pa_proplist_size(pa_proplist *p)
 {
 	spa_assert(p);
 	return p->props->dict.n_items;
 }
 
+SPA_EXPORT
 int pa_proplist_isempty(pa_proplist *p)
 {
 	spa_assert(p);
 	return p->props->dict.n_items == 0 ? 1 : 0;
 }
 
+SPA_EXPORT
 int pa_proplist_equal(pa_proplist *a, pa_proplist *b)
 {
 	uint32_t i;

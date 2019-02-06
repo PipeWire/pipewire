@@ -23,24 +23,28 @@
 
 #include "internal.h"
 
+SPA_EXPORT
 int pa_stream_connect_upload(pa_stream *s, size_t length)
 {
 	pw_log_warn("Not Implemented");
 	return 0;
 }
 
+SPA_EXPORT
 int pa_stream_finish_upload(pa_stream *s)
 {
 	pw_log_warn("Not Implemented");
 	return 0;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_remove_sample(pa_context *c, const char *name, pa_context_success_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_play_sample(pa_context *c, const char *name, const char *dev,
         pa_volume_t volume, pa_context_success_cb_t cb, void *userdata)
 {
@@ -48,6 +52,7 @@ pa_operation* pa_context_play_sample(pa_context *c, const char *name, const char
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_play_sample_with_proplist(pa_context *c, const char *name,
         const char *dev, pa_volume_t volume, pa_proplist *proplist,
         pa_context_play_sample_cb_t cb, void *userdata)

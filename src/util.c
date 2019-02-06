@@ -26,33 +26,39 @@
 
 #define PA_PATH_SEP_CHAR	'/'
 
+SPA_EXPORT
 char *pa_get_user_name(char *s, size_t l)
 {
 	return strncpy(s, pw_get_user_name(), l);
 }
 
 
+SPA_EXPORT
 char *pa_get_host_name(char *s, size_t l)
 {
 	return strncpy(s, pw_get_host_name(), l);
 }
 
+SPA_EXPORT
 char *pa_get_fqdn(char *s, size_t l)
 {
 	return strncpy(s, pw_get_host_name(), l);
 }
 
+SPA_EXPORT
 char *pa_get_home_dir(char *s, size_t l)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 char *pa_get_binary_name(char *s, size_t l)
 {
 	return strncpy(s, pw_get_prgname(), l);
 }
 
+SPA_EXPORT
 char *pa_path_get_filename(const char *p)
 {
 	char *fn;
@@ -66,6 +72,7 @@ char *pa_path_get_filename(const char *p)
 	return (char*) p;
 }
 
+SPA_EXPORT
 int pa_msleep(unsigned long t)
 {
     struct timespec ts;

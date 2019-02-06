@@ -240,6 +240,7 @@ static const pa_mainloop_api api =
 	.quit = api_quit,
 };
 
+SPA_EXPORT
 pa_mainloop *pa_mainloop_new(void)
 {
 	pa_mainloop *loop;
@@ -263,12 +264,14 @@ pa_mainloop *pa_mainloop_new(void)
 	return NULL;
 }
 
+SPA_EXPORT
 void pa_mainloop_free(pa_mainloop* m)
 {
 	pw_loop_destroy(m->loop);
 	free(m);
 }
 
+SPA_EXPORT
 int pa_mainloop_prepare(pa_mainloop *m, int timeout)
 {
 	if (m->quit)
@@ -279,6 +282,7 @@ int pa_mainloop_prepare(pa_mainloop *m, int timeout)
 }
 
 /** Execute the previously prepared poll. Returns a negative value on error.*/
+SPA_EXPORT
 int pa_mainloop_poll(pa_mainloop *m)
 {
 	if (m->quit)
@@ -287,6 +291,7 @@ int pa_mainloop_poll(pa_mainloop *m)
 	return m->n_events = pw_loop_iterate(m->loop, m->timeout);
 }
 
+SPA_EXPORT
 int pa_mainloop_dispatch(pa_mainloop *m)
 {
 	if (m->quit)
@@ -295,6 +300,7 @@ int pa_mainloop_dispatch(pa_mainloop *m)
 	return m->n_events;
 }
 
+SPA_EXPORT
 int pa_mainloop_get_retval(pa_mainloop *m)
 {
 	return m->retval;
@@ -306,6 +312,7 @@ Returns a negative value on error or exit request. If block is nonzero,
 block for events if none are queued. Optionally return the return value as
 specified with the main loop's quit() routine in the integer variable retval points
 to. On success returns the number of sources dispatched in this iteration. */
+SPA_EXPORT
 int pa_mainloop_iterate(pa_mainloop *m, int block, int *retval)
 {
 	int r;
@@ -328,6 +335,7 @@ int pa_mainloop_iterate(pa_mainloop *m, int block, int *retval)
 	return r;
 }
 
+SPA_EXPORT
 int pa_mainloop_run(pa_mainloop *m, int *retval)
 {
 	int r;
@@ -342,24 +350,28 @@ int pa_mainloop_run(pa_mainloop *m, int *retval)
 }
 
 
+SPA_EXPORT
 pa_mainloop_api* pa_mainloop_get_api(pa_mainloop *m)
 {
 	pa_assert(m);
 	return &m->api;
 }
 
+SPA_EXPORT
 void pa_mainloop_quit(pa_mainloop *m, int retval)
 {
 	pa_assert(m);
 	m->api.quit(&m->api, retval);
 }
 
+SPA_EXPORT
 void pa_mainloop_wakeup(pa_mainloop *m)
 {
 	pa_assert(m);
 	pw_loop_signal_event(m->loop, m->event);
 }
 
+SPA_EXPORT
 void pa_mainloop_set_poll_func(pa_mainloop *m, pa_poll_func poll_func, void *userdata)
 {
 	pw_log_warn("Not Implemented");

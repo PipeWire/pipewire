@@ -499,6 +499,7 @@ error:
 }
 
 
+SPA_EXPORT
 pa_json_object* pa_json_parse(const char *str) {
     pa_json_object *obj;
 
@@ -518,10 +519,12 @@ pa_json_object* pa_json_parse(const char *str) {
     return obj;
 }
 
+SPA_EXPORT
 pa_json_type pa_json_object_get_type(const pa_json_object *obj) {
     return obj->type;
 }
 
+SPA_EXPORT
 void pa_json_object_free(pa_json_object *obj) {
 
     switch (pa_json_object_get_type(obj)) {
@@ -551,26 +554,31 @@ void pa_json_object_free(pa_json_object *obj) {
     pa_xfree(obj);
 }
 
+SPA_EXPORT
 int pa_json_object_get_int(const pa_json_object *o) {
     pa_assert(pa_json_object_get_type(o) == PA_JSON_TYPE_INT);
     return o->int_value;
 }
 
+SPA_EXPORT
 double pa_json_object_get_double(const pa_json_object *o) {
     pa_assert(pa_json_object_get_type(o) == PA_JSON_TYPE_DOUBLE);
     return o->double_value;
 }
 
+SPA_EXPORT
 bool pa_json_object_get_bool(const pa_json_object *o) {
     pa_assert(pa_json_object_get_type(o) == PA_JSON_TYPE_BOOL);
     return o->bool_value;
 }
 
+SPA_EXPORT
 const char* pa_json_object_get_string(const pa_json_object *o) {
     pa_assert(pa_json_object_get_type(o) == PA_JSON_TYPE_STRING);
     return o->string_value;
 }
 
+SPA_EXPORT
 const pa_json_object* pa_json_object_get_object_member(const pa_json_object *o, const char *name) {
     pa_json_item *item;
     pa_assert(pa_json_object_get_type(o) == PA_JSON_TYPE_OBJECT);
@@ -581,17 +589,20 @@ const pa_json_object* pa_json_object_get_object_member(const pa_json_object *o, 
     return NULL;
 }
 
+SPA_EXPORT
 int pa_json_object_get_array_length(const pa_json_object *o) {
     pa_assert(pa_json_object_get_type(o) == PA_JSON_TYPE_ARRAY);
     return pw_array_get_len(&o->values, const pa_json_object*);
 }
 
+SPA_EXPORT
 const pa_json_object* pa_json_object_get_array_member(const pa_json_object *o, int index) {
     pa_assert(pa_json_object_get_type(o) == PA_JSON_TYPE_ARRAY);
     return pw_array_get_unchecked_s(&o->values, index, sizeof(pa_json_object*),
 		    const pa_json_object);
 }
 
+SPA_EXPORT
 bool pa_json_object_equal(const pa_json_object *o1, const pa_json_object *o2) {
     int i;
 

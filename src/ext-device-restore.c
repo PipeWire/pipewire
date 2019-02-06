@@ -41,6 +41,7 @@ static void restore_test(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_device_restore_test(
         pa_context *c,
         pa_ext_device_restore_test_cb_t cb,
@@ -72,6 +73,7 @@ static void on_success(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_device_restore_subscribe(
         pa_context *c,
         int enable,
@@ -96,6 +98,7 @@ pa_operation *pa_ext_device_restore_subscribe(
 	return o;
 }
 
+SPA_EXPORT
 void pa_ext_device_restore_set_subscribe_cb(
         pa_context *c,
         pa_ext_device_restore_subscribe_cb_t cb,
@@ -112,6 +115,7 @@ static void read_formats(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_device_restore_read_formats_all(
         pa_context *c,
         pa_ext_device_restore_read_device_formats_cb_t cb,
@@ -135,6 +139,7 @@ pa_operation *pa_ext_device_restore_read_formats_all(
 	return o;
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_device_restore_read_formats(
         pa_context *c,
         pa_device_type_t type,
@@ -160,6 +165,7 @@ pa_operation *pa_ext_device_restore_read_formats(
 	return o;
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_device_restore_save_formats(
         pa_context *c,
         pa_device_type_t type,

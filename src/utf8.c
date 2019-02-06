@@ -172,10 +172,12 @@ failure:
     return NULL;
 }
 
+SPA_EXPORT
 char* pa_utf8_valid (const char *str) {
     return utf8_validate(str, NULL);
 }
 
+SPA_EXPORT
 char* pa_utf8_filter (const char *str) {
     char *new_str;
 
@@ -233,22 +235,26 @@ static char* iconv_simple(const char *str, const char *to, const char *from) {
     return new_str;
 }
 
+SPA_EXPORT
 char* pa_utf8_to_locale (const char *str) {
     return iconv_simple(str, "", "UTF-8");
 }
 
+SPA_EXPORT
 char* pa_locale_to_utf8 (const char *str) {
     return iconv_simple(str, "UTF-8", "");
 }
 
 #else
 
+SPA_EXPORT
 char* pa_utf8_to_locale (const char *str) {
     pa_assert(str);
 
     return pa_ascii_filter(str);
 }
 
+SPA_EXPORT
 char* pa_locale_to_utf8 (const char *str) {
     pa_assert(str);
 
@@ -260,6 +266,7 @@ char* pa_locale_to_utf8 (const char *str) {
 
 #endif
 
+SPA_EXPORT
 char *pa_ascii_valid(const char *str) {
     const char *p;
     pa_assert(str);
@@ -271,6 +278,7 @@ char *pa_ascii_valid(const char *str) {
     return (char*) str;
 }
 
+SPA_EXPORT
 char *pa_ascii_filter(const char *str) {
     char *r, *s, *d;
     pa_assert(str);

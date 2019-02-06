@@ -379,6 +379,7 @@ static void sink_info(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_sink_info_by_name(pa_context *c, const char *name, pa_sink_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -407,6 +408,7 @@ pa_operation* pa_context_get_sink_info_by_name(pa_context *c, const char *name, 
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_sink_info_by_index(pa_context *c, uint32_t idx, pa_sink_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -453,6 +455,7 @@ static void sink_info_list(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_sink_info_list(pa_context *c, pa_sink_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -507,6 +510,7 @@ static void set_node_mute(pa_context *c, struct global *g, bool mute)
 }
 
 
+SPA_EXPORT
 pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -537,6 +541,7 @@ pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, c
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_sink_volume_by_name(pa_context *c, const char *name, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -565,6 +570,7 @@ pa_operation* pa_context_set_sink_volume_by_name(pa_context *c, const char *name
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_sink_mute_by_index(pa_context *c, uint32_t idx, int mute, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -594,6 +600,7 @@ pa_operation* pa_context_set_sink_mute_by_index(pa_context *c, uint32_t idx, int
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_sink_mute_by_name(pa_context *c, const char *name, int mute, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -621,24 +628,28 @@ pa_operation* pa_context_set_sink_mute_by_name(pa_context *c, const char *name, 
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_suspend_sink_by_name(pa_context *c, const char *sink_name, int suspend, pa_context_success_cb_t cb, void* userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_suspend_sink_by_index(pa_context *c, uint32_t idx, int suspend,  pa_context_success_cb_t cb, void* userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_sink_port_by_index(pa_context *c, uint32_t idx, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_sink_port_by_name(pa_context *c, const char*name, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
@@ -731,6 +742,7 @@ static void source_info(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_source_info_by_name(pa_context *c, const char *name, pa_source_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -759,6 +771,7 @@ pa_operation* pa_context_get_source_info_by_name(pa_context *c, const char *name
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_source_info_by_index(pa_context *c, uint32_t idx, pa_source_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -804,6 +817,7 @@ static void source_info_list(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_source_info_list(pa_context *c, pa_source_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -826,6 +840,7 @@ pa_operation* pa_context_get_source_info_list(pa_context *c, pa_source_info_cb_t
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_source_volume_by_index(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -856,6 +871,7 @@ pa_operation* pa_context_set_source_volume_by_index(pa_context *c, uint32_t idx,
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_source_volume_by_name(pa_context *c, const char *name, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -884,6 +900,7 @@ pa_operation* pa_context_set_source_volume_by_name(pa_context *c, const char *na
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_source_mute_by_index(pa_context *c, uint32_t idx, int mute, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -913,6 +930,7 @@ pa_operation* pa_context_set_source_mute_by_index(pa_context *c, uint32_t idx, i
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_source_mute_by_name(pa_context *c, const char *name, int mute, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -940,24 +958,28 @@ pa_operation* pa_context_set_source_mute_by_name(pa_context *c, const char *name
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_suspend_source_by_name(pa_context *c, const char *source_name, int suspend, pa_context_success_cb_t cb, void* userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_suspend_source_by_index(pa_context *c, uint32_t idx, int suspend, pa_context_success_cb_t cb, void* userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_source_port_by_index(pa_context *c, uint32_t idx, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_source_port_by_name(pa_context *c, const char*name, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
@@ -999,6 +1021,7 @@ static void server_info(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_server_info(pa_context *c, pa_server_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1039,6 +1062,7 @@ static void module_info(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_module_info(pa_context *c, uint32_t idx, pa_module_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1085,6 +1109,7 @@ static void module_info_list(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_module_info_list(pa_context *c, pa_module_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1107,12 +1132,14 @@ pa_operation* pa_context_get_module_info_list(pa_context *c, pa_module_info_cb_t
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_load_module(pa_context *c, const char*name, const char *argument, pa_context_index_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_unload_module(pa_context *c, uint32_t idx, pa_context_success_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
@@ -1140,6 +1167,7 @@ static void client_info(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_client_info(pa_context *c, uint32_t idx, pa_client_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1186,6 +1214,7 @@ static void client_info_list(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_client_info_list(pa_context *c, pa_client_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1208,6 +1237,7 @@ pa_operation* pa_context_get_client_info_list(pa_context *c, pa_client_info_cb_t
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_kill_client(pa_context *c, uint32_t idx, pa_context_success_cb_t cb, void *userdata)
 {
 	struct global *g;
@@ -1298,6 +1328,7 @@ static void card_info(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_card_info_by_index(pa_context *c, uint32_t idx, pa_card_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1328,6 +1359,7 @@ pa_operation* pa_context_get_card_info_by_index(pa_context *c, uint32_t idx, pa_
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_card_info_by_name(pa_context *c, const char *name, pa_card_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1372,6 +1404,7 @@ static void card_info_list(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_card_info_list(pa_context *c, pa_card_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1441,6 +1474,7 @@ done:
 	free(d->profile);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_card_profile_by_index(pa_context *c, uint32_t idx, const char*profile, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1474,6 +1508,7 @@ pa_operation* pa_context_set_card_profile_by_index(pa_context *c, uint32_t idx, 
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_card_profile_by_name(pa_context *c, const char*name, const char*profile, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1505,6 +1540,7 @@ pa_operation* pa_context_set_card_profile_by_name(pa_context *c, const char*name
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_port_latency_offset(pa_context *c, const char *card_name, const char *port_name, int64_t offset, pa_context_success_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
@@ -1610,6 +1646,7 @@ static void sink_input_info(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_sink_input_info(pa_context *c, uint32_t idx, pa_sink_input_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1657,6 +1694,7 @@ static void sink_input_info_list(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_sink_input_info_list(pa_context *c, pa_sink_input_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1680,18 +1718,21 @@ pa_operation* pa_context_get_sink_input_info_list(pa_context *c, pa_sink_input_i
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_move_sink_input_by_name(pa_context *c, uint32_t idx, const char *sink_name, pa_context_success_cb_t cb, void* userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_move_sink_input_by_index(pa_context *c, uint32_t idx, uint32_t sink_idx, pa_context_success_cb_t cb, void* userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_stream *s;
@@ -1724,6 +1765,7 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mute, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_stream *s;
@@ -1754,6 +1796,7 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_kill_sink_input(pa_context *c, uint32_t idx, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_stream *s;
@@ -1873,6 +1916,7 @@ static void source_output_info(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_source_output_info(pa_context *c, uint32_t idx, pa_source_output_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1919,6 +1963,7 @@ static void source_output_info_list(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_source_output_info_list(pa_context *c, pa_source_output_info_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -1941,18 +1986,21 @@ pa_operation* pa_context_get_source_output_info_list(pa_context *c, pa_source_ou
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_move_source_output_by_name(pa_context *c, uint32_t idx, const char *source_name, pa_context_success_cb_t cb, void* userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_move_source_output_by_index(pa_context *c, uint32_t idx, uint32_t source_idx, pa_context_success_cb_t cb, void* userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_stream *s;
@@ -1985,6 +2033,7 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int mute, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_stream *s;
@@ -2015,6 +2064,7 @@ pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_kill_source_output(pa_context *c, uint32_t idx, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_stream *s;
@@ -2044,60 +2094,70 @@ pa_operation* pa_context_kill_source_output(pa_context *c, uint32_t idx, pa_cont
 	return o;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_stat(pa_context *c, pa_stat_info_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_sample_info_by_name(pa_context *c, const char *name, pa_sample_info_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_sample_info_by_index(pa_context *c, uint32_t idx, pa_sample_info_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_sample_info_list(pa_context *c, pa_sample_info_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_autoload_info_by_name(pa_context *c, const char *name, pa_autoload_type_t type, pa_autoload_info_cb_t cb, void *userdata)
 {
 	pw_log_warn("Deprecated: Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_autoload_info_by_index(pa_context *c, uint32_t idx, pa_autoload_info_cb_t cb, void *userdata)
 {
 	pw_log_warn("Deprecated: Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_get_autoload_info_list(pa_context *c, pa_autoload_info_cb_t cb, void *userdata)
 {
 	pw_log_warn("Deprecated: Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_add_autoload(pa_context *c, const char *name, pa_autoload_type_t type, const char *module, const char*argument, pa_context_index_cb_t cb, void* userdata)
 {
 	pw_log_warn("Deprecated: Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_remove_autoload_by_name(pa_context *c, const char *name, pa_autoload_type_t type, pa_context_success_cb_t cb, void* userdata)
 {
 	pw_log_warn("Deprecated: Not Implemented");
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation* pa_context_remove_autoload_by_index(pa_context *c, uint32_t idx, pa_context_success_cb_t cb, void* userdata)
 {
 	pw_log_warn("Deprecated: Not Implemented");

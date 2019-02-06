@@ -25,6 +25,7 @@
 
 #include <pulse/rtclock.h>
 
+SPA_EXPORT
 pa_usec_t pa_rtclock_now(void)
 {
 	struct timespec ts;

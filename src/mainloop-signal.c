@@ -42,6 +42,7 @@ struct pa_signal_event {
 	void *userdata;
 };
 
+SPA_EXPORT
 int pa_signal_init(pa_mainloop_api *a)
 {
 	pa_assert(a);
@@ -54,6 +55,7 @@ int pa_signal_init(pa_mainloop_api *a)
 	return 0;
 }
 
+SPA_EXPORT
 void pa_signal_done(void)
 {
 	pa_signal_event *ev, *t;
@@ -74,6 +76,7 @@ static void source_signal_func (void *data, int signal_number)
 		ev->callback(api, ev, signal_number, ev->userdata);
 }
 
+SPA_EXPORT
 pa_signal_event* pa_signal_new(int sig, pa_signal_cb_t callback, void *userdata)
 {
 	pa_signal_event *ev;
@@ -91,6 +94,7 @@ pa_signal_event* pa_signal_new(int sig, pa_signal_cb_t callback, void *userdata)
 	return ev;
 }
 
+SPA_EXPORT
 void pa_signal_free(pa_signal_event *e)
 {
 	pa_assert(e);
@@ -102,6 +106,7 @@ void pa_signal_free(pa_signal_event *e)
 	free(e);
 }
 
+SPA_EXPORT
 void pa_signal_set_destroy(pa_signal_event *e, pa_signal_destroy_cb_t callback)
 {
 	pa_assert(e);

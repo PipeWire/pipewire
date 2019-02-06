@@ -26,6 +26,7 @@
 
 #include "internal.h"
 
+SPA_EXPORT
 int pa_format_info_get_sample_format(const pa_format_info *f, pa_sample_format_t *sf) {
     int r;
     char *sf_str;
@@ -51,6 +52,7 @@ int pa_format_info_get_sample_format(const pa_format_info *f, pa_sample_format_t
     return 0;
 }
 
+SPA_EXPORT
 int pa_format_info_get_rate(const pa_format_info *f, uint32_t *rate) {
     int r;
     int rate_local;
@@ -72,6 +74,7 @@ int pa_format_info_get_rate(const pa_format_info *f, uint32_t *rate) {
     return 0;
 }
 
+SPA_EXPORT
 int pa_format_info_get_channels(const pa_format_info *f, uint8_t *channels) {
     int r;
     int channels_local;
@@ -93,6 +96,7 @@ int pa_format_info_get_channels(const pa_format_info *f, uint8_t *channels) {
     return 0;
 }
 
+SPA_EXPORT
 int pa_format_info_get_channel_map(const pa_format_info *f, pa_channel_map *map) {
     int r;
     char *map_str;
@@ -115,6 +119,7 @@ int pa_format_info_get_channel_map(const pa_format_info *f, pa_channel_map *map)
     return 0;
 }
 
+SPA_EXPORT
 pa_format_info *pa_format_info_from_sample_spec2(const pa_sample_spec *ss, const pa_channel_map *map, bool set_format,
                                                  bool set_rate, bool set_channels) {
     pa_format_info *format = NULL;
@@ -152,6 +157,7 @@ fail:
     return NULL;
 }
 
+SPA_EXPORT
 int pa_format_info_to_sample_spec2(const pa_format_info *f, pa_sample_spec *ss, pa_channel_map *map,
                                    const pa_sample_spec *fallback_ss, const pa_channel_map *fallback_map) {
     int r, r2;
@@ -216,6 +222,7 @@ int pa_format_info_to_sample_spec2(const pa_format_info *f, pa_sample_spec *ss, 
     return 0;
 }
 
+SPA_EXPORT
 int pa_format_info_to_sample_spec_fake(const pa_format_info *f, pa_sample_spec *ss, pa_channel_map *map) {
     int rate;
 

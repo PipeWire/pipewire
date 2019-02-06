@@ -31,6 +31,7 @@ struct pa_threaded_mainloop
 	struct pw_thread_loop *tloop;
 };
 
+SPA_EXPORT
 pa_threaded_mainloop *pa_threaded_mainloop_new(void)
 {
 	pa_threaded_mainloop *m;
@@ -56,6 +57,7 @@ pa_threaded_mainloop *pa_threaded_mainloop_new(void)
 	return NULL;
 }
 
+SPA_EXPORT
 void pa_threaded_mainloop_free(pa_threaded_mainloop* m)
 {
 	pw_thread_loop_destroy(m->tloop);
@@ -63,56 +65,67 @@ void pa_threaded_mainloop_free(pa_threaded_mainloop* m)
 	free(m);
 }
 
+SPA_EXPORT
 int pa_threaded_mainloop_start(pa_threaded_mainloop *m)
 {
 	return pw_thread_loop_start(m->tloop);
 }
 
+SPA_EXPORT
 void pa_threaded_mainloop_stop(pa_threaded_mainloop *m)
 {
 	pw_thread_loop_stop(m->tloop);
 }
 
+SPA_EXPORT
 void pa_threaded_mainloop_lock(pa_threaded_mainloop *m)
 {
 	pw_thread_loop_lock(m->tloop);
 }
 
+SPA_EXPORT
 void pa_threaded_mainloop_unlock(pa_threaded_mainloop *m)
 {
 	pw_thread_loop_unlock(m->tloop);
 }
 
+SPA_EXPORT
 void pa_threaded_mainloop_wait(pa_threaded_mainloop *m)
 {
 	pw_thread_loop_wait(m->tloop);
 }
 
+SPA_EXPORT
 void pa_threaded_mainloop_signal(pa_threaded_mainloop *m, int wait_for_accept)
 {
 	pw_thread_loop_signal(m->tloop, wait_for_accept);
 }
 
+SPA_EXPORT
 void pa_threaded_mainloop_accept(pa_threaded_mainloop *m)
 {
 	pw_thread_loop_accept(m->tloop);
 }
 
+SPA_EXPORT
 int pa_threaded_mainloop_get_retval(pa_threaded_mainloop *m)
 {
 	return pa_mainloop_get_retval(m->loop);
 }
 
+SPA_EXPORT
 pa_mainloop_api* pa_threaded_mainloop_get_api(pa_threaded_mainloop*m)
 {
 	return pa_mainloop_get_api(m->loop);
 }
 
+SPA_EXPORT
 int pa_threaded_mainloop_in_thread(pa_threaded_mainloop *m)
 {
 	return pw_thread_loop_in_thread(m->tloop);
 }
 
+SPA_EXPORT
 void pa_threaded_mainloop_set_name(pa_threaded_mainloop *m, const char *name)
 {
 }

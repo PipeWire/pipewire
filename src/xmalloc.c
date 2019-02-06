@@ -35,6 +35,7 @@ static void oom(void) {
 	_exit(1);
 }
 
+SPA_EXPORT
 void* pa_xmalloc(size_t l)
 {
 	void *p;
@@ -47,6 +48,7 @@ void* pa_xmalloc(size_t l)
 	return p;
 }
 
+SPA_EXPORT
 void *pa_xmalloc0(size_t l)
 {
 	void *p;
@@ -59,6 +61,7 @@ void *pa_xmalloc0(size_t l)
 	return p;
 }
 
+SPA_EXPORT
 void *pa_xrealloc(void *ptr, size_t size)
 {
 	void *p;
@@ -70,6 +73,7 @@ void *pa_xrealloc(void *ptr, size_t size)
 	return p;
 }
 
+SPA_EXPORT
 void pa_xfree(void *p)
 {
 	int saved_errno;
@@ -80,6 +84,7 @@ void pa_xfree(void *p)
 	errno = saved_errno;
 }
 
+SPA_EXPORT
 char *pa_xstrdup(const char *s)
 {
 	if (!s)
@@ -87,6 +92,7 @@ char *pa_xstrdup(const char *s)
 	return pa_xmemdup(s, strlen(s)+1);
 }
 
+SPA_EXPORT
 char *pa_xstrndup(const char *s, size_t l)
 {
 	char *e, *r;
@@ -103,6 +109,7 @@ char *pa_xstrndup(const char *s, size_t l)
 	return r;
 }
 
+SPA_EXPORT
 void* pa_xmemdup(const void *p, size_t l)
 {
 	if (!p)

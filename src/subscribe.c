@@ -36,6 +36,7 @@ static void on_subscribed(pa_operation *o, void *userdata)
 		d->cb(o->context, PA_OK, d->userdata);
 }
 
+SPA_EXPORT
 pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
@@ -54,6 +55,7 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 	return o;
 }
 
+SPA_EXPORT
 void pa_context_set_subscribe_callback(pa_context *c, pa_context_subscribe_cb_t cb, void *userdata)
 {
 	pa_assert(c);

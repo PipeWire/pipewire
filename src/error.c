@@ -29,6 +29,7 @@
 #define _(String)	(String)
 #define pa_init_i18n()
 
+SPA_EXPORT
 const char*pa_strerror(int error)
 {
 	static const char* const errortab[PA_ERR_MAX] = {

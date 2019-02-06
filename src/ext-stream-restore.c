@@ -43,6 +43,7 @@ static void restore_test(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_stream_restore_test(
         pa_context *c,
         pa_ext_stream_restore_test_cb_t cb,
@@ -76,6 +77,7 @@ static void restore_read(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_stream_restore_read(
         pa_context *c,
         pa_ext_stream_restore_read_cb_t cb,
@@ -107,6 +109,7 @@ static void on_success(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_stream_restore_write(
         pa_context *c,
         pa_update_mode_t mode,
@@ -135,6 +138,7 @@ pa_operation *pa_ext_stream_restore_write(
 }
 
 /** Delete entries from the stream database. \since 0.9.12 */
+SPA_EXPORT
 pa_operation *pa_ext_stream_restore_delete(
         pa_context *c,
         const char *const s[],
@@ -160,6 +164,7 @@ pa_operation *pa_ext_stream_restore_delete(
 }
 
 /** Subscribe to changes in the stream database. \since 0.9.12 */
+SPA_EXPORT
 pa_operation *pa_ext_stream_restore_subscribe(
         pa_context *c,
         int enable,
@@ -186,6 +191,7 @@ pa_operation *pa_ext_stream_restore_subscribe(
 
 /** Set the subscription callback that is called when
  * pa_ext_stream_restore_subscribe() was called. \since 0.9.12 */
+SPA_EXPORT
 void pa_ext_stream_restore_set_subscribe_cb(
         pa_context *c,
         pa_ext_stream_restore_subscribe_cb_t cb,

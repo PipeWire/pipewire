@@ -19,11 +19,13 @@
 
 #include <errno.h>
 
+#include <spa/utils/defs.h>
 #include <pulse/direction.h>
 
 #define pa_init_i18n()
 #define _(String)	(String)
 
+SPA_EXPORT
 int pa_direction_valid(pa_direction_t direction)
 {
 	if (direction != PA_DIRECTION_INPUT
@@ -33,6 +35,7 @@ int pa_direction_valid(pa_direction_t direction)
     return 1;
 }
 
+SPA_EXPORT
 const char *pa_direction_to_string(pa_direction_t direction) {
 	pa_init_i18n();
 

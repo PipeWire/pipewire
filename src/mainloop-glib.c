@@ -70,6 +70,7 @@ static GSourceFuncs source_funcs =
 	NULL,
 };
 
+SPA_EXPORT
 pa_glib_mainloop *pa_glib_mainloop_new(GMainContext *c)
 {
 
@@ -102,6 +103,7 @@ pa_glib_mainloop *pa_glib_mainloop_new(GMainContext *c)
 
 }
 
+SPA_EXPORT
 void pa_glib_mainloop_free(pa_glib_mainloop* g)
 {
 	g_source_destroy(&g->source->base);
@@ -109,6 +111,7 @@ void pa_glib_mainloop_free(pa_glib_mainloop* g)
 	free(g);
 }
 
+SPA_EXPORT
 pa_mainloop_api* pa_glib_mainloop_get_api(pa_glib_mainloop *g)
 {
 	return pa_mainloop_get_api(g->loop);

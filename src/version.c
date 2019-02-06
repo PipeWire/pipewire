@@ -17,8 +17,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <spa/utils/defs.h>
+
 #include <pulse/version.h>
 
+SPA_EXPORT
 const char* pa_get_library_version(void)
 {
 	return pa_get_headers_version();

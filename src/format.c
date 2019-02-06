@@ -46,6 +46,7 @@ static const char* const _encoding_str_table[]= {
     [PA_ENCODING_ANY] = "any",
 };
 
+SPA_EXPORT
 const char *pa_encoding_to_string(pa_encoding_t e) {
     if (e < 0 || e >= PA_ENCODING_MAX)
         return NULL;
@@ -53,6 +54,7 @@ const char *pa_encoding_to_string(pa_encoding_t e) {
     return _encoding_str_table[e];
 }
 
+SPA_EXPORT
 pa_encoding_t pa_encoding_from_string(const char *encoding) {
     pa_encoding_t e;
 
@@ -63,6 +65,7 @@ pa_encoding_t pa_encoding_from_string(const char *encoding) {
     return PA_ENCODING_INVALID;
 }
 
+SPA_EXPORT
 pa_format_info* pa_format_info_new(void) {
     pa_format_info *f = pa_xnew(pa_format_info, 1);
 
@@ -72,6 +75,7 @@ pa_format_info* pa_format_info_new(void) {
     return f;
 }
 
+SPA_EXPORT
 pa_format_info* pa_format_info_copy(const pa_format_info *src) {
     pa_format_info *dest;
 
@@ -89,6 +93,7 @@ pa_format_info* pa_format_info_copy(const pa_format_info *src) {
     return dest;
 }
 
+SPA_EXPORT
 void pa_format_info_free(pa_format_info *f) {
     pa_assert(f);
 
@@ -96,14 +101,17 @@ void pa_format_info_free(pa_format_info *f) {
     pa_xfree(f);
 }
 
+SPA_EXPORT
 int pa_format_info_valid(const pa_format_info *f) {
     return (f->encoding >= 0 && f->encoding < PA_ENCODING_MAX && f->plist != NULL);
 }
 
+SPA_EXPORT
 int pa_format_info_is_pcm(const pa_format_info *f) {
     return f->encoding == PA_ENCODING_PCM;
 }
 
+SPA_EXPORT
 char *pa_format_info_snprint(char *s, size_t l, const pa_format_info *f) {
     char *tmp;
 
@@ -127,6 +135,7 @@ char *pa_format_info_snprint(char *s, size_t l, const pa_format_info *f) {
     return s;
 }
 
+SPA_EXPORT
 pa_format_info* pa_format_info_from_string(const char *str) {
     pa_format_info *f = pa_format_info_new();
     char *encoding = NULL, *properties = NULL;
@@ -165,6 +174,7 @@ error:
     goto out;
 }
 
+SPA_EXPORT
 int pa_format_info_is_compatible(const pa_format_info *first, const pa_format_info *second) {
     const char *key;
     void *state = NULL;
@@ -188,6 +198,7 @@ int pa_format_info_is_compatible(const pa_format_info *first, const pa_format_in
     return true;
 }
 
+SPA_EXPORT
 pa_format_info* pa_format_info_from_sample_spec(const pa_sample_spec *ss, const pa_channel_map *map) {
     char cm[PA_CHANNEL_MAP_SNPRINT_MAX];
     pa_format_info *f;
@@ -211,6 +222,7 @@ pa_format_info* pa_format_info_from_sample_spec(const pa_sample_spec *ss, const 
 }
 
 /* For PCM streams */
+SPA_EXPORT
 int pa_format_info_to_sample_spec(const pa_format_info *f, pa_sample_spec *ss, pa_channel_map *map) {
     pa_assert(f);
     pa_assert(ss);
@@ -230,6 +242,7 @@ int pa_format_info_to_sample_spec(const pa_format_info *f, pa_sample_spec *ss, p
     return 0;
 }
 
+SPA_EXPORT
 pa_prop_type_t pa_format_info_get_prop_type(const pa_format_info *f, const char *key) {
     const char *str;
     pa_json_object *o;
@@ -300,6 +313,7 @@ pa_prop_type_t pa_format_info_get_prop_type(const pa_format_info *f, const char 
     return type;
 }
 
+SPA_EXPORT
 int pa_format_info_get_prop_int(const pa_format_info *f, const char *key, int *v) {
     const char *str;
     pa_json_object *o;
@@ -330,6 +344,7 @@ int pa_format_info_get_prop_int(const pa_format_info *f, const char *key, int *v
     return 0;
 }
 
+SPA_EXPORT
 int pa_format_info_get_prop_int_range(const pa_format_info *f, const char *key, int *min, int *max) {
     const char *str;
     pa_json_object *o;
@@ -376,6 +391,7 @@ out:
     return ret;
 }
 
+SPA_EXPORT
 int pa_format_info_get_prop_int_array(const pa_format_info *f, const char *key, int **values, int *n_values) {
     const char *str;
     pa_json_object *o;
@@ -423,6 +439,7 @@ out:
     return ret;
 }
 
+SPA_EXPORT
 int pa_format_info_get_prop_string(const pa_format_info *f, const char *key, char **v) {
     const char *str = NULL;
     pa_json_object *o;
@@ -453,6 +470,7 @@ int pa_format_info_get_prop_string(const pa_format_info *f, const char *key, cha
     return 0;
 }
 
+SPA_EXPORT
 int pa_format_info_get_prop_string_array(const pa_format_info *f, const char *key, char ***values, int *n_values) {
     const char *str;
     pa_json_object *o;
@@ -500,6 +518,7 @@ out:
     return ret;
 }
 
+SPA_EXPORT
 void pa_format_info_free_string_array(char **values, int n_values) {
     int i;
 
@@ -509,18 +528,22 @@ void pa_format_info_free_string_array(char **values, int n_values) {
     pa_xfree(values);
 }
 
+SPA_EXPORT
 void pa_format_info_set_sample_format(pa_format_info *f, pa_sample_format_t sf) {
     pa_format_info_set_prop_string(f, PA_PROP_FORMAT_SAMPLE_FORMAT, pa_sample_format_to_string(sf));
 }
 
+SPA_EXPORT
 void pa_format_info_set_rate(pa_format_info *f, int rate) {
     pa_format_info_set_prop_int(f, PA_PROP_FORMAT_RATE, rate);
 }
 
+SPA_EXPORT
 void pa_format_info_set_channels(pa_format_info *f, int channels) {
     pa_format_info_set_prop_int(f, PA_PROP_FORMAT_CHANNELS, channels);
 }
 
+SPA_EXPORT
 void pa_format_info_set_channel_map(pa_format_info *f, const pa_channel_map *map) {
     char map_str[PA_CHANNEL_MAP_SNPRINT_MAX];
 
@@ -529,6 +552,7 @@ void pa_format_info_set_channel_map(pa_format_info *f, const pa_channel_map *map
     pa_format_info_set_prop_string(f, PA_PROP_FORMAT_CHANNEL_MAP, map_str);
 }
 
+SPA_EXPORT
 void pa_format_info_set_prop_int(pa_format_info *f, const char *key, int value) {
     pa_assert(f);
     pa_assert(key);
@@ -536,6 +560,7 @@ void pa_format_info_set_prop_int(pa_format_info *f, const char *key, int value) 
     pa_proplist_setf(f->plist, key, "%d", value);
 }
 
+SPA_EXPORT
 void pa_format_info_set_prop_int_array(pa_format_info *f, const char *key, const int *values, int n_values) {
     pa_strbuf *buf;
     char *str;
@@ -559,6 +584,7 @@ void pa_format_info_set_prop_int_array(pa_format_info *f, const char *key, const
     pa_xfree (str);
 }
 
+SPA_EXPORT
 void pa_format_info_set_prop_int_range(pa_format_info *f, const char *key, int min, int max) {
     pa_assert(f);
     pa_assert(key);
@@ -567,6 +593,7 @@ void pa_format_info_set_prop_int_range(pa_format_info *f, const char *key, int m
             min, max);
 }
 
+SPA_EXPORT
 void pa_format_info_set_prop_string(pa_format_info *f, const char *key, const char *value) {
     pa_assert(f);
     pa_assert(key);
@@ -574,6 +601,7 @@ void pa_format_info_set_prop_string(pa_format_info *f, const char *key, const ch
     pa_proplist_setf(f->plist, key, "\"%s\"", value);
 }
 
+SPA_EXPORT
 void pa_format_info_set_prop_string_array(pa_format_info *f, const char *key, const char **values, int n_values) {
     pa_strbuf *buf;
     char *str;

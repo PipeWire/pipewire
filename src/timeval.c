@@ -35,6 +35,7 @@
 
 #define HAVE_GETTIMEOFDAY
 
+SPA_EXPORT
 struct timeval *pa_gettimeofday(struct timeval *tv) {
     pa_assert(tv);
 
@@ -71,6 +72,7 @@ struct timeval *pa_gettimeofday(struct timeval *tv) {
     return tv;
 }
 
+SPA_EXPORT
 pa_usec_t pa_timeval_diff(const struct timeval *a, const struct timeval *b) {
     pa_usec_t r;
 
@@ -97,6 +99,7 @@ pa_usec_t pa_timeval_diff(const struct timeval *a, const struct timeval *b) {
     return r;
 }
 
+SPA_EXPORT
 int pa_timeval_cmp(const struct timeval *a, const struct timeval *b) {
     pa_assert(a);
     pa_assert(b);
@@ -116,6 +119,7 @@ int pa_timeval_cmp(const struct timeval *a, const struct timeval *b) {
     return 0;
 }
 
+SPA_EXPORT
 pa_usec_t pa_timeval_age(const struct timeval *tv) {
     struct timeval now;
     pa_assert(tv);
@@ -123,6 +127,7 @@ pa_usec_t pa_timeval_age(const struct timeval *tv) {
     return pa_timeval_diff(pa_gettimeofday(&now), tv);
 }
 
+SPA_EXPORT
 struct timeval* pa_timeval_add(struct timeval *tv, pa_usec_t v) {
     time_t secs;
     pa_assert(tv);
@@ -154,6 +159,7 @@ overflow:
     return tv;
 }
 
+SPA_EXPORT
 struct timeval* pa_timeval_sub(struct timeval *tv, pa_usec_t v) {
     time_t secs;
     pa_assert(tv);
@@ -185,6 +191,7 @@ underflow:
     return tv;
 }
 
+SPA_EXPORT
 struct timeval* pa_timeval_store(struct timeval *tv, pa_usec_t v) {
     pa_assert(tv);
 
@@ -201,6 +208,7 @@ struct timeval* pa_timeval_store(struct timeval *tv, pa_usec_t v) {
     return tv;
 }
 
+SPA_EXPORT
 pa_usec_t pa_timeval_load(const struct timeval *tv) {
 
     if (PA_UNLIKELY(!tv))

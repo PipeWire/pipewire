@@ -50,6 +50,7 @@ static const size_t size_table[] = {
 	[PA_SAMPLE_S24_32BE] = 4
 };
 
+SPA_EXPORT
 size_t pa_sample_size_of_format(pa_sample_format_t f)
 {
 	spa_assert(pa_sample_format_valid(f));
@@ -57,6 +58,7 @@ size_t pa_sample_size_of_format(pa_sample_format_t f)
 	return size_table[f];
 }
 
+SPA_EXPORT
 size_t pa_sample_size(const pa_sample_spec * spec)
 {
 	spa_assert(spec);
@@ -65,6 +67,7 @@ size_t pa_sample_size(const pa_sample_spec * spec)
 	return size_table[spec->format];
 }
 
+SPA_EXPORT
 size_t pa_frame_size(const pa_sample_spec * spec)
 {
 	spa_assert(spec);
@@ -73,6 +76,7 @@ size_t pa_frame_size(const pa_sample_spec * spec)
 	return size_table[spec->format] * spec->channels;
 }
 
+SPA_EXPORT
 size_t pa_bytes_per_second(const pa_sample_spec * spec)
 {
 	spa_assert(spec);
@@ -81,6 +85,7 @@ size_t pa_bytes_per_second(const pa_sample_spec * spec)
 	return spec->rate * size_table[spec->format] * spec->channels;
 }
 
+SPA_EXPORT
 pa_usec_t pa_bytes_to_usec(uint64_t length, const pa_sample_spec * spec)
 {
 	spa_assert(spec);
@@ -91,6 +96,7 @@ pa_usec_t pa_bytes_to_usec(uint64_t length, const pa_sample_spec * spec)
 		 * PA_USEC_PER_SEC) / spec->rate);
 }
 
+SPA_EXPORT
 size_t pa_usec_to_bytes(pa_usec_t t, const pa_sample_spec * spec)
 {
 	spa_assert(spec);
@@ -100,6 +106,7 @@ size_t pa_usec_to_bytes(pa_usec_t t, const pa_sample_spec * spec)
 	    (size_table[spec->format] * spec->channels);
 }
 
+SPA_EXPORT
 pa_sample_spec *pa_sample_spec_init(pa_sample_spec * spec)
 {
 	spa_assert(spec);
@@ -111,11 +118,13 @@ pa_sample_spec *pa_sample_spec_init(pa_sample_spec * spec)
 	return spec;
 }
 
+SPA_EXPORT
 int pa_sample_format_valid(unsigned format)
 {
 	return format < PA_SAMPLE_MAX;
 }
 
+SPA_EXPORT
 int pa_sample_rate_valid(uint32_t rate)
 {
 	/* The extra 1% is due to module-loopback: it temporarily sets
@@ -124,11 +133,13 @@ int pa_sample_rate_valid(uint32_t rate)
 	return rate > 0 && rate <= PA_RATE_MAX * 101 / 100;
 }
 
+SPA_EXPORT
 int pa_channels_valid(uint8_t channels)
 {
 	return channels > 0 && channels <= PA_CHANNELS_MAX;
 }
 
+SPA_EXPORT
 int pa_sample_spec_valid(const pa_sample_spec * spec)
 {
 	spa_assert(spec);
@@ -141,6 +152,7 @@ int pa_sample_spec_valid(const pa_sample_spec * spec)
 	return 1;
 }
 
+SPA_EXPORT
 int pa_sample_spec_equal(const pa_sample_spec * a, const pa_sample_spec * b)
 {
 	spa_assert(a);
@@ -158,6 +170,7 @@ int pa_sample_spec_equal(const pa_sample_spec * a, const pa_sample_spec * b)
 	    (a->rate == b->rate) && (a->channels == b->channels);
 }
 
+SPA_EXPORT
 const char *pa_sample_format_to_string(pa_sample_format_t f)
 {
 	static const char *const table[] = {
@@ -182,6 +195,7 @@ const char *pa_sample_format_to_string(pa_sample_format_t f)
 	return table[f];
 }
 
+SPA_EXPORT
 char *pa_sample_spec_snprint(char *s, size_t l, const pa_sample_spec * spec)
 {
 	spa_assert(s);
@@ -200,6 +214,7 @@ char *pa_sample_spec_snprint(char *s, size_t l, const pa_sample_spec * spec)
 	return s;
 }
 
+SPA_EXPORT
 char *pa_bytes_snprint(char *s, size_t l, unsigned v)
 {
 	spa_assert(s);
@@ -220,6 +235,7 @@ char *pa_bytes_snprint(char *s, size_t l, unsigned v)
 	return s;
 }
 
+SPA_EXPORT
 pa_sample_format_t pa_parse_sample_format(const char *format)
 {
 	spa_assert(format);
@@ -284,6 +300,7 @@ pa_sample_format_t pa_parse_sample_format(const char *format)
 	return PA_SAMPLE_INVALID;
 }
 
+SPA_EXPORT
 int pa_sample_format_is_le(pa_sample_format_t f)
 {
 	spa_assert(pa_sample_format_valid(f));
@@ -308,6 +325,7 @@ int pa_sample_format_is_le(pa_sample_format_t f)
 	}
 }
 
+SPA_EXPORT
 int pa_sample_format_is_be(pa_sample_format_t f)
 {
 	int r;

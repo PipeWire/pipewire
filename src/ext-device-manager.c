@@ -26,6 +26,7 @@
 #include "internal.h"
 
 
+SPA_EXPORT
 pa_operation *pa_ext_device_manager_test(
         pa_context *c,
         pa_ext_device_manager_test_cb_t cb,
@@ -35,6 +36,7 @@ pa_operation *pa_ext_device_manager_test(
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_device_manager_read(
         pa_context *c,
         pa_ext_device_manager_read_cb_t cb,
@@ -44,6 +46,7 @@ pa_operation *pa_ext_device_manager_read(
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_device_manager_set_device_description(
         pa_context *c,
         const char* device,
@@ -55,6 +58,7 @@ pa_operation *pa_ext_device_manager_set_device_description(
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_device_manager_delete(
         pa_context *c,
         const char *const s[],
@@ -65,6 +69,7 @@ pa_operation *pa_ext_device_manager_delete(
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_device_manager_enable_role_device_priority_routing(
         pa_context *c,
         int enable,
@@ -75,6 +80,7 @@ pa_operation *pa_ext_device_manager_enable_role_device_priority_routing(
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_device_manager_reorder_devices_for_role(
         pa_context *c,
         const char* role,
@@ -86,6 +92,7 @@ pa_operation *pa_ext_device_manager_reorder_devices_for_role(
 	return NULL;
 }
 
+SPA_EXPORT
 pa_operation *pa_ext_device_manager_subscribe(
         pa_context *c,
         int enable,
@@ -96,6 +103,7 @@ pa_operation *pa_ext_device_manager_subscribe(
 	return NULL;
 }
 
+SPA_EXPORT
 void pa_ext_device_manager_set_subscribe_cb(
         pa_context *c,
         pa_ext_device_manager_subscribe_cb_t cb,

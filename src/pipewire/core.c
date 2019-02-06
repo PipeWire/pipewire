@@ -662,9 +662,7 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 				pw_log_debug("id \"%u\" matches node %p", id, n);
 
 				best =
-				    pw_node_get_free_port(n,
-							  pw_direction_reverse(other_port->
-									       direction));
+				    pw_node_get_free_port(n, pw_direction_reverse(other_port->direction));
 				if (best)
 					break;
 			}
@@ -752,7 +750,7 @@ int pw_core_find_format(struct pw_core *core,
 	if (in_state == PW_PORT_STATE_CONFIGURE && out_state > PW_PORT_STATE_CONFIGURE) {
 		/* only input needs format */
 		if ((res = spa_node_port_enum_params(output->node->node,
-						     output->direction, output->port_id,
+						     output->spa_direction, output->port_id,
 						     t->param.idFormat, &oidx,
 						     NULL, format, builder)) <= 0) {
 			if (res == 0)
@@ -763,7 +761,7 @@ int pw_core_find_format(struct pw_core *core,
 	} else if (out_state == PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
 		/* only output needs format */
 		if ((res = spa_node_port_enum_params(input->node->node,
-						     input->direction, input->port_id,
+						     input->spa_direction, input->port_id,
 						     t->param.idFormat, &iidx,
 						     NULL, format, builder)) <= 0) {
 			if (res == 0)
@@ -780,7 +778,7 @@ int pw_core_find_format(struct pw_core *core,
 		pw_log_debug("core %p: do enum input %d", core, iidx);
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
 		if ((res = spa_node_port_enum_params(input->node->node,
-						     input->direction, input->port_id,
+						     input->spa_direction, input->port_id,
 						     t->param.idEnumFormat, &iidx,
 						     NULL, &filter, &fb)) <= 0) {
 			if (res == 0 && iidx == 0) {
@@ -795,7 +793,7 @@ int pw_core_find_format(struct pw_core *core,
 			spa_debug_format(2, core->type.map, filter);
 
 		if ((res = spa_node_port_enum_params(output->node->node,
-						     output->direction, output->port_id,
+						     output->spa_direction, output->port_id,
 						     t->param.idEnumFormat, &oidx,
 						     filter, format, builder)) <= 0) {
 			if (res == 0) {

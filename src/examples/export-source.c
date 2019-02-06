@@ -579,7 +579,9 @@ static const struct pw_remote_events remote_events = {
 
 int main(int argc, char *argv[])
 {
-	struct data data = { 0, };
+	struct data data;
+
+	spa_zero(data);
 
 	pw_init(&argc, &argv);
 

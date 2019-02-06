@@ -51,6 +51,8 @@ enum spa_direction {
 	SPA_DIRECTION_OUTPUT = 1,
 };
 
+#define SPA_DIRECTION_REVERSE(d)	((d) ^ 1)
+
 #define SPA_RECTANGLE(width,height) (struct spa_rectangle){ width, height }
 struct spa_rectangle {
 	uint32_t width;

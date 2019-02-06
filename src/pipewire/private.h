@@ -383,6 +383,7 @@ struct pw_port {
 	bool registered;
 
 	enum pw_direction direction;	/**< port direction */
+	enum spa_direction spa_direction;/**< port direction */
 	uint32_t port_id;		/**< port id */
 	const struct spa_port_info *spa_info;
 

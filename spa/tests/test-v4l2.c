@@ -566,9 +566,11 @@ static void run_async_source(struct data *data)
 
 int main(int argc, char *argv[])
 {
-	struct data data = { 0 };
+	struct data data;
 	int res;
 	const char *str;
+
+	spa_zero(data);
 
 	data.use_buffer = true;
 

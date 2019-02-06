@@ -163,11 +163,13 @@ static void handle_monitor(struct data *data, struct spa_monitor *monitor)
 
 int main(int argc, char *argv[])
 {
-	struct data data = { 0 };
+	struct data data;
 	int res;
 	void *handle;
 	spa_handle_factory_enum_func_t enum_func;
 	uint32_t fidx;
+
+	spa_zero(data);
 
 	data.map = &default_map.map;
 	data.log = &default_log.log;

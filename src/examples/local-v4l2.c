@@ -499,7 +499,9 @@ static void make_nodes(struct data *data)
 
 int main(int argc, char *argv[])
 {
-	struct data data = { 0, };
+	struct data data;
+
+	spa_zero(data);
 
 	pw_init(&argc, &argv);
 

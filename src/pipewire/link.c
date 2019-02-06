@@ -146,7 +146,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 
 	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE) {
 		if ((res = spa_node_port_enum_params(output->node->node,
-						     output->direction, output->port_id,
+						     output->spa_direction, output->port_id,
 						     t->param.idFormat, &index,
 						     NULL, &current, &b)) <= 0) {
 			if (res == 0)
@@ -167,7 +167,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	}
 	if (in_state > PW_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE) {
 		if ((res = spa_node_port_enum_params(input->node->node,
-						     input->direction, input->port_id,
+						     input->spa_direction, input->port_id,
 						     t->param.idFormat, &index,
 						     NULL, &current, &b)) <= 0) {
 			if (res == 0)
@@ -447,7 +447,7 @@ param_filter(struct pw_link *this,
 	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));
 		pw_log_debug("iparam %d", iidx);
 		if ((res = spa_node_port_enum_params(in_port->node->node,
-						     in_port->direction, in_port->port_id,
+						     in_port->spa_direction, in_port->port_id,
 						     id, &iidx, NULL, &iparam, &ib)) < 0)
 			break;
 
@@ -462,7 +462,7 @@ param_filter(struct pw_link *this,
 
 		for (oidx = 0;;) {
 			pw_log_debug("oparam %d", oidx);
-			if (spa_node_port_enum_params(out_port->node->node, out_port->direction,
+			if (spa_node_port_enum_params(out_port->node->node, out_port->spa_direction,
 						      out_port->port_id, id, &oidx,
 						      iparam, &oparam, result) <= 0) {
 				break;
@@ -500,12 +500,12 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 	pw_log_debug("link %p: doing alloc buffers %p %p", this, output->node, input->node);
 	/* find out what's possible */
-	if ((res = spa_node_port_get_info(output->node->node, output->direction, output->port_id,
+	if ((res = spa_node_port_get_info(output->node->node, output->spa_direction, output->port_id,
 					  &oinfo)) < 0) {
 		asprintf(&error, "error get output port info: %d", res);
 		goto error;
 	}
-	if ((res = spa_node_port_get_info(input->node->node, input->direction, input->port_id,
+	if ((res = spa_node_port_get_info(input->node->node, input->spa_direction, input->port_id,
 					  &iinfo)) < 0) {
 		asprintf(&error, "error get input port info: %d", res);
 		goto error;
@@ -1170,12 +1170,12 @@ struct pw_link *pw_link_new(struct pw_core *core,
 		     input_node, input->port_id, this->rt.in_port.port_id);
 
 	spa_graph_port_init(&this->rt.out_port,
-			    PW_DIRECTION_OUTPUT,
+			    SPA_DIRECTION_OUTPUT,
 			    this->rt.out_port.port_id,
 			    SPA_GRAPH_PORT_FLAG_DISABLED,
 			    &this->io);
 	spa_graph_port_init(&this->rt.in_port,
-			    PW_DIRECTION_INPUT,
+			    SPA_DIRECTION_INPUT,
 			    this->rt.in_port.port_id,
 			    SPA_GRAPH_PORT_FLAG_DISABLED,
 			    &this->io);

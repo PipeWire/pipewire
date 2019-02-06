@@ -784,7 +784,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 
 			spa_pod_builder_init(&b, buf, sizeof(buf));
                         if (spa_node_port_enum_params(port->node->node,
-						      port->direction, port->port_id,
+						      port->spa_direction, port->port_id,
 						      data->t->param.idList, &idx1,
 						      NULL, &param, &b) <= 0)
                                 break;
@@ -795,7 +795,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 			for (idx2 = 0;; n_params++) {
 				spa_pod_builder_init(&b, buf, sizeof(buf));
 	                        if (spa_node_port_enum_params(port->node->node,
-							      port->direction, port->port_id,
+							      port->spa_direction, port->port_id,
 							      id, &idx2,
 							      NULL, &param, &b) <= 0)
 	                                break;
@@ -806,13 +806,13 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
                 }
 	}
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO) {
-		spa_node_port_get_info(port->node->node, port->direction, port->port_id, &port_info);
+		spa_node_port_get_info(port->node->node, port->spa_direction, port->port_id, &port_info);
 		pi = * port_info;
 		pi.flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
 	}
 
         pw_client_node_proxy_port_update(data->node_proxy,
-                                         port->direction,
+                                         port->spa_direction,
                                          port->port_id,
                                          change_mask,
                                          n_params,

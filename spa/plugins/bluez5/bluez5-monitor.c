@@ -1215,7 +1215,7 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	init_type(&this->type, this->map);
 
-	this->dbus_connection = spa_dbus_get_connection(this->dbus, DBUS_BUS_SYSTEM);
+	this->dbus_connection = spa_dbus_get_connection(this->dbus, SPA_DBUS_TYPE_SYSTEM);
 	if (this->dbus_connection == NULL) {
 		spa_log_error(this->log, "no dbus connection");
 		return -EIO;

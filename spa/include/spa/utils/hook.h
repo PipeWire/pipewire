@@ -101,7 +101,7 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 ({										\
 	struct spa_hook_list *list = l;						\
 	struct spa_list *s = start ? (struct spa_list *)start : &list->list;	\
-	struct spa_hook cursor = { 0 }, *ci;					\
+	struct spa_hook cursor = { { 0}  }, *ci;					\
 	int count = 0;								\
 	spa_list_cursor_start(cursor, s, link);					\
 	spa_list_for_each_cursor(ci, cursor, &list->list, link) {		\

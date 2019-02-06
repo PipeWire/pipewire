@@ -783,7 +783,10 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 
 		pw_log_debug("node %p: creating port direction %d %u", node, direction, port_id);
 
-		if ((res = spa_node_add_port(node->node, direction, port_id)) < 0) {
+		if ((res = spa_node_add_port(node->node,
+				direction == PW_DIRECTION_INPUT ?
+					SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT,
+				port_id)) < 0) {
 			pw_log_error("node %p: could not add port %d %s", node, port_id, spa_strerror(res));
 			goto no_mem;
 		}

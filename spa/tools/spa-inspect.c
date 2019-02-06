@@ -261,12 +261,14 @@ static void do_remove_source(struct spa_source *source)
 
 int main(int argc, char *argv[])
 {
-	struct data data = { 0 };
+	struct data data;
 	int res;
 	void *handle;
 	spa_handle_factory_enum_func_t enum_func;
 	uint32_t index;
 	const char *str;
+
+	spa_zero(data);
 
 	if (argc < 2) {
 		printf("usage: %s <plugin.so>\n", argv[0]);

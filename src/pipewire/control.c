@@ -169,7 +169,7 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 	if (other->port) {
 		struct pw_port *port = other->port;
 		if ((res = spa_node_port_set_io(port->node->node,
-				     port->direction, port->port_id,
+				     port->spa_direction, port->port_id,
 				     other->id,
 				     impl->mem->ptr, control->size)) < 0) {
 			goto exit;
@@ -180,7 +180,7 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 		if (control->port) {
 			struct pw_port *port = control->port;
 			if ((res = spa_node_port_set_io(port->node->node,
-					     port->direction, port->port_id,
+					     port->spa_direction, port->port_id,
 					     control->id,
 					     impl->mem->ptr, control->size)) < 0) {
 				goto exit;
@@ -222,7 +222,7 @@ int pw_control_unlink(struct pw_control *control, struct pw_control *other)
 	if (spa_list_is_empty(&control->inputs)) {
 		struct pw_port *port = control->port;
 		if ((res = spa_node_port_set_io(port->node->node,
-				     port->direction, port->port_id,
+				     port->spa_direction, port->port_id,
 				     control->id, NULL, 0)) < 0) {
 			pw_log_warn("control %p: can't unset port control io", control);
 		}
@@ -231,7 +231,7 @@ int pw_control_unlink(struct pw_control *control, struct pw_control *other)
 	if (other->port) {
 		struct pw_port *port = other->port;
 		if ((res = spa_node_port_set_io(port->node->node,
-				     port->direction, port->port_id,
+				     port->spa_direction, port->port_id,
 				     other->id, NULL, 0)) < 0) {
 			pw_log_warn("control %p: can't unset port control io", control);
 		}

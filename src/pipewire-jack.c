@@ -489,6 +489,7 @@ static void mix2_c(float *dst, float *src1, float *src2, int n_samples)
 		dst[i] = src1[i] + src2[i];
 }
 
+SPA_EXPORT
 void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto_ptr)
 {
 	*major_ptr = 0;
@@ -497,6 +498,7 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 	*proto_ptr = 0;
 }
 
+SPA_EXPORT
 const char *
 jack_get_version_string(void)
 {
@@ -1663,6 +1665,7 @@ static const struct pw_registry_proxy_events registry_events = {
         .global_remove = registry_event_global_remove,
 };
 
+SPA_EXPORT
 jack_client_t * jack_client_open (const char *client_name,
                                   jack_options_t options,
                                   jack_status_t *status, ...)
@@ -1827,6 +1830,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	return NULL;
 }
 
+SPA_EXPORT
 jack_client_t * jack_client_new (const char *client_name)
 {
 	jack_options_t options = JackUseExactName;
@@ -1838,6 +1842,7 @@ jack_client_t * jack_client_new (const char *client_name)
 	return jack_client_open(client_name, options, &status, NULL);
 }
 
+SPA_EXPORT
 int jack_client_close (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
@@ -1854,17 +1859,20 @@ int jack_client_close (jack_client_t *client)
 	return 0;
 }
 
+SPA_EXPORT
 int jack_client_name_size (void)
 {
 	return JACK_CLIENT_NAME_SIZE;
 }
 
+SPA_EXPORT
 char * jack_get_client_name (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	return c->name;
 }
 
+SPA_EXPORT
 char *jack_get_uuid_for_client_name (jack_client_t *client,
                                      const char    *client_name)
 {
@@ -1872,6 +1880,7 @@ char *jack_get_uuid_for_client_name (jack_client_t *client,
 	return NULL;
 }
 
+SPA_EXPORT
 char *jack_get_client_name_by_uuid (jack_client_t *client,
                                     const char    *client_uuid )
 {
@@ -1879,6 +1888,7 @@ char *jack_get_client_name_by_uuid (jack_client_t *client,
 	return NULL;
 }
 
+SPA_EXPORT
 int jack_internal_client_new (const char *client_name,
                               const char *load_name,
                               const char *load_init)
@@ -1887,11 +1897,13 @@ int jack_internal_client_new (const char *client_name,
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 void jack_internal_client_close (const char *client_name)
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 int jack_activate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
@@ -1911,6 +1923,7 @@ int jack_activate (jack_client_t *client)
 	return res;
 }
 
+SPA_EXPORT
 int jack_deactivate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
@@ -1930,40 +1943,47 @@ int jack_deactivate (jack_client_t *client)
 	return res;
 }
 
+SPA_EXPORT
 int jack_get_client_pid (const char *name)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 jack_native_thread_t jack_client_thread_id (jack_client_t *client)
 {
 	return pthread_self();
 }
 
+SPA_EXPORT
 int jack_is_realtime (jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 jack_nframes_t jack_thread_wait (jack_client_t *client, int status)
 {
 	pw_log_warn("not implemented");
 	return 0;
 }
 
+SPA_EXPORT
 jack_nframes_t jack_cycle_wait (jack_client_t* client)
 {
 	pw_log_warn("not implemented");
 	return 0;
 }
 
+SPA_EXPORT
 void jack_cycle_signal (jack_client_t* client, int status)
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 int jack_set_process_thread(jack_client_t* client, JackThreadCallback thread_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
@@ -1981,6 +2001,7 @@ int jack_set_process_thread(jack_client_t* client, JackThreadCallback thread_cal
 	return 0;
 }
 
+SPA_EXPORT
 int jack_set_thread_init_callback (jack_client_t *client,
                                    JackThreadInitCallback thread_init_callback,
                                    void *arg)
@@ -1991,6 +2012,7 @@ int jack_set_thread_init_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 void jack_on_shutdown (jack_client_t *client,
                        JackShutdownCallback shutdown_callback, void *arg)
 {
@@ -1999,6 +2021,7 @@ void jack_on_shutdown (jack_client_t *client,
 	c->shutdown_arg = arg;
 }
 
+SPA_EXPORT
 void jack_on_info_shutdown (jack_client_t *client,
                             JackInfoShutdownCallback shutdown_callback, void *arg)
 {
@@ -2007,6 +2030,7 @@ void jack_on_info_shutdown (jack_client_t *client,
 	c->info_shutdown_arg = arg;
 }
 
+SPA_EXPORT
 int jack_set_process_callback (jack_client_t *client,
                                JackProcessCallback process_callback,
                                void *arg)
@@ -2027,6 +2051,7 @@ int jack_set_process_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int jack_set_freewheel_callback (jack_client_t *client,
                                  JackFreewheelCallback freewheel_callback,
                                  void *arg)
@@ -2037,6 +2062,7 @@ int jack_set_freewheel_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int jack_set_buffer_size_callback (jack_client_t *client,
                                    JackBufferSizeCallback bufsize_callback,
                                    void *arg)
@@ -2047,6 +2073,7 @@ int jack_set_buffer_size_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int jack_set_sample_rate_callback (jack_client_t *client,
                                    JackSampleRateCallback srate_callback,
                                    void *arg)
@@ -2057,6 +2084,7 @@ int jack_set_sample_rate_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int jack_set_client_registration_callback (jack_client_t *client,
                                             JackClientRegistrationCallback
                                             registration_callback, void *arg)
@@ -2067,6 +2095,7 @@ int jack_set_client_registration_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int jack_set_port_registration_callback (jack_client_t *client,
                                           JackPortRegistrationCallback
                                           registration_callback, void *arg)
@@ -2078,6 +2107,7 @@ int jack_set_port_registration_callback (jack_client_t *client,
 }
 
 
+SPA_EXPORT
 int jack_set_port_connect_callback (jack_client_t *client,
                                     JackPortConnectCallback
                                     connect_callback, void *arg)
@@ -2088,6 +2118,7 @@ int jack_set_port_connect_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int jack_set_port_rename_callback (jack_client_t *client,
                                    JackPortRenameCallback
                                    rename_callback, void *arg)
@@ -2095,6 +2126,7 @@ int jack_set_port_rename_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int jack_set_graph_order_callback (jack_client_t *client,
                                    JackGraphOrderCallback graph_callback,
                                    void *data)
@@ -2105,6 +2137,7 @@ int jack_set_graph_order_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int jack_set_xrun_callback (jack_client_t *client,
                             JackXRunCallback xrun_callback, void *arg)
 {
@@ -2112,6 +2145,7 @@ int jack_set_xrun_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int jack_set_latency_callback (jack_client_t *client,
 			       JackLatencyCallback latency_callback,
 			       void *data)
@@ -2120,18 +2154,21 @@ int jack_set_latency_callback (jack_client_t *client,
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_set_freewheel(jack_client_t* client, int onoff)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
@@ -2140,6 +2177,7 @@ jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 	return c->sample_rate;
 }
 
+SPA_EXPORT
 jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
@@ -2148,18 +2186,21 @@ jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 	return c->buffer_size;
 }
 
+SPA_EXPORT
 int jack_engine_takeover_timebase (jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 float jack_cpu_load (jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 	return 0.0;
 }
 
+SPA_EXPORT
 jack_port_t * jack_port_register (jack_client_t *client,
                                   const char *port_name,
                                   const char *port_type,
@@ -2239,6 +2280,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	return (jack_port_t *) o;
 }
 
+SPA_EXPORT
 int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
@@ -2318,6 +2360,7 @@ static void *mix_midi(struct port *p, jack_nframes_t frames)
 	return ptr;
 }
 
+SPA_EXPORT
 void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 {
 	struct object *o = (struct object *) port;
@@ -2389,48 +2432,56 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	return ptr;
 }
 
+SPA_EXPORT
 jack_uuid_t jack_port_uuid (const jack_port_t *port)
 {
 	pw_log_warn("not implemented");
 	return 0;
 }
 
+SPA_EXPORT
 const char * jack_port_name (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	return o->port.name;
 }
 
+SPA_EXPORT
 const char * jack_port_short_name (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	return strchr(o->port.name, ':') + 1;
 }
 
+SPA_EXPORT
 int jack_port_flags (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	return o->port.flags;
 }
 
+SPA_EXPORT
 const char * jack_port_type (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	return type_to_string(o->port.type_id);
 }
 
+SPA_EXPORT
 jack_port_type_id_t jack_port_type_id (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	return o->port.type_id;
 }
 
+SPA_EXPORT
 int jack_port_is_mine (const jack_client_t *client, const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	return o->type == PW_TYPE_INTERFACE_Port && o->port.port_id != SPA_ID_INVALID;
 }
 
+SPA_EXPORT
 int jack_port_connected (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
@@ -2449,6 +2500,7 @@ int jack_port_connected (const jack_port_t *port)
 	return res;
 }
 
+SPA_EXPORT
 int jack_port_connected_to (const jack_port_t *port,
                             const char *port_name)
 {
@@ -2480,6 +2532,7 @@ int jack_port_connected_to (const jack_port_t *port,
 	return res;
 }
 
+SPA_EXPORT
 const char ** jack_port_get_connections (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
@@ -2488,6 +2541,7 @@ const char ** jack_port_get_connections (const jack_port_t *port)
 	return jack_port_get_all_connections((jack_client_t *)c, port);
 }
 
+SPA_EXPORT
 const char ** jack_port_get_all_connections (const jack_client_t *client,
                                              const jack_port_t *port)
 {
@@ -2525,42 +2579,49 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 	return res;
 }
 
+SPA_EXPORT
 int jack_port_tie (jack_port_t *src, jack_port_t *dst)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_port_untie (jack_port_t *port)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_port_set_name (jack_port_t *port, const char *port_name)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port_name)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_port_set_alias (jack_port_t *port, const char *alias)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_port_unset_alias (jack_port_t *port, const char *alias)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_port_get_aliases (const jack_port_t *port, char* const aliases[2])
 {
 	struct object *o = (struct object *) port;
@@ -2582,12 +2643,14 @@ int jack_port_get_aliases (const jack_port_t *port, char* const aliases[2])
 	return res;
 }
 
+SPA_EXPORT
 int jack_port_request_monitor (jack_port_t *port, int onoff)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_port_request_monitor_by_name (jack_client_t *client,
                                        const char *port_name, int onoff)
 {
@@ -2595,18 +2658,21 @@ int jack_port_request_monitor_by_name (jack_client_t *client,
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_port_ensure_monitor (jack_port_t *port, int onoff)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_port_monitoring_input (jack_port_t *port)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_connect (jack_client_t *client,
                   const char *source_port,
                   const char *destination_port)
@@ -2658,6 +2724,7 @@ int jack_connect (jack_client_t *client,
 	return res;
 }
 
+SPA_EXPORT
 int jack_disconnect (jack_client_t *client,
                      const char *source_port,
                      const char *destination_port)
@@ -2697,6 +2764,7 @@ int jack_disconnect (jack_client_t *client,
 	return res;
 }
 
+SPA_EXPORT
 int jack_port_disconnect (jack_client_t *client, jack_port_t *port)
 {
 	struct client *c = (struct client *) client;
@@ -2721,16 +2789,19 @@ int jack_port_disconnect (jack_client_t *client, jack_port_t *port)
 	return res;
 }
 
+SPA_EXPORT
 int jack_port_name_size(void)
 {
 	return REAL_JACK_PORT_NAME_SIZE+1;
 }
 
+SPA_EXPORT
 int jack_port_type_size(void)
 {
 	return JACK_PORT_TYPE_SIZE+1;
 }
 
+SPA_EXPORT
 size_t jack_port_type_get_buffer_size (jack_client_t *client, const char *port_type)
 {
 	struct client *c = (struct client *) client;
@@ -2742,33 +2813,39 @@ size_t jack_port_type_get_buffer_size (jack_client_t *client, const char *port_t
 		return 0;
 }
 
+SPA_EXPORT
 void jack_port_set_latency (jack_port_t *port, jack_nframes_t frames)
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 int jack_recompute_total_latencies (jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 jack_nframes_t jack_port_get_latency (jack_port_t *port)
 {
 	pw_log_warn("not implemented");
 	return 0;
 }
 
+SPA_EXPORT
 jack_nframes_t jack_port_get_total_latency (jack_client_t *client,
 					    jack_port_t *port)
 {
@@ -2776,12 +2853,14 @@ jack_nframes_t jack_port_get_total_latency (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int jack_recompute_total_latency (jack_client_t *client, jack_port_t* port)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 const char ** jack_get_ports (jack_client_t *client,
                               const char *port_name_pattern,
                               const char *type_name_pattern,
@@ -2850,6 +2929,7 @@ const char ** jack_get_ports (jack_client_t *client,
 	return res;
 }
 
+SPA_EXPORT
 jack_port_t * jack_port_by_name (jack_client_t *client, const char *port_name)
 {
 	struct client *c = (struct client *) client;
@@ -2864,6 +2944,7 @@ jack_port_t * jack_port_by_name (jack_client_t *client, const char *port_name)
 	return (jack_port_t *)res;
 }
 
+SPA_EXPORT
 jack_port_t * jack_port_by_id (jack_client_t *client,
                                jack_port_id_t port_id)
 {
@@ -2886,6 +2967,7 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 	return (jack_port_t *)res;
 }
 
+SPA_EXPORT
 jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
@@ -2899,6 +2981,7 @@ jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 	return res;
 }
 
+SPA_EXPORT
 jack_nframes_t jack_frame_time (const jack_client_t *client)
 {
 	struct timespec ts;
@@ -2906,12 +2989,14 @@ jack_nframes_t jack_frame_time (const jack_client_t *client)
 	return jack_time_to_frames(client, SPA_TIMESPEC_TO_USEC(&ts));
 }
 
+SPA_EXPORT
 jack_nframes_t jack_last_frame_time (const jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	return c->jack_position.frame;
 }
 
+SPA_EXPORT
 int jack_get_cycle_times(const jack_client_t *client,
                         jack_nframes_t *current_frames,
                         jack_time_t    *current_usecs,
@@ -2929,6 +3014,7 @@ int jack_get_cycle_times(const jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 jack_time_t jack_frames_to_time(const jack_client_t *client, jack_nframes_t frames)
 {
 	struct client *c = (struct client *) client;
@@ -2936,6 +3022,7 @@ jack_time_t jack_frames_to_time(const jack_client_t *client, jack_nframes_t fram
         return c->jack_position.usecs + (int64_t)rint((double) df / c->sample_rate);
 }
 
+SPA_EXPORT
 jack_nframes_t jack_time_to_frames(const jack_client_t *client, jack_time_t usecs)
 {
 	struct client *c = (struct client *) client;
@@ -2943,6 +3030,7 @@ jack_nframes_t jack_time_to_frames(const jack_client_t *client, jack_time_t usec
         return c->jack_position.frame + (int32_t)rint((double)du * c->sample_rate);
 }
 
+SPA_EXPORT
 jack_time_t jack_get_time()
 {
 	struct timespec ts;
@@ -2950,27 +3038,32 @@ jack_time_t jack_get_time()
 	return SPA_TIMESPEC_TO_USEC(&ts);
 }
 
+SPA_EXPORT
 void jack_set_error_function (void (*func)(const char *))
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 void jack_set_info_function (void (*func)(const char *))
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 void jack_free(void* ptr)
 {
 	free(ptr);
 }
 
+SPA_EXPORT
 int jack_release_timebase (jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_set_sync_callback (jack_client_t *client,
 			    JackSyncCallback sync_callback,
 			    void *arg)
@@ -2981,6 +3074,7 @@ int jack_set_sync_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int jack_set_sync_timeout (jack_client_t *client,
 			   jack_time_t timeout)
 {
@@ -2988,6 +3082,7 @@ int jack_set_sync_timeout (jack_client_t *client,
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int  jack_set_timebase_callback (jack_client_t *client,
 				 int conditional,
 				 JackTimebaseCallback timebase_callback,
@@ -2999,6 +3094,7 @@ int  jack_set_timebase_callback (jack_client_t *client,
 	return 0;
 }
 
+SPA_EXPORT
 int  jack_transport_locate (jack_client_t *client,
 			    jack_nframes_t frame)
 {
@@ -3006,6 +3102,7 @@ int  jack_transport_locate (jack_client_t *client,
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 jack_transport_state_t jack_transport_query (const jack_client_t *client,
 					     jack_position_t *pos)
 {
@@ -3015,12 +3112,14 @@ jack_transport_state_t jack_transport_query (const jack_client_t *client,
 	return JackTransportRolling;
 }
 
+SPA_EXPORT
 jack_nframes_t jack_get_current_transport_frame (const jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 	return 0;
 }
 
+SPA_EXPORT
 int  jack_transport_reposition (jack_client_t *client,
 				const jack_position_t *pos)
 {
@@ -3028,16 +3127,19 @@ int  jack_transport_reposition (jack_client_t *client,
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 void jack_transport_start (jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 void jack_transport_stop (jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 void jack_get_transport_info (jack_client_t *client,
 			      jack_transport_info_t *tinfo)
 {
@@ -3046,12 +3148,14 @@ void jack_get_transport_info (jack_client_t *client,
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 void jack_set_transport_info (jack_client_t *client,
 			      jack_transport_info_t *tinfo)
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 int jack_set_session_callback (jack_client_t       *client,
                                JackSessionCallback  session_callback,
                                void                *arg)
@@ -3060,6 +3164,7 @@ int jack_set_session_callback (jack_client_t       *client,
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_session_reply (jack_client_t        *client,
                         jack_session_event_t *event)
 {
@@ -3068,29 +3173,34 @@ int jack_session_reply (jack_client_t        *client,
 }
 
 
+SPA_EXPORT
 void jack_session_event_free (jack_session_event_t *event)
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 char *jack_client_get_uuid (jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 	return "";
 }
 
+SPA_EXPORT
 int jack_client_real_time_priority (jack_client_t * client)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_client_max_real_time_priority (jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_acquire_real_time_scheduling (jack_native_thread_t thread, int priority)
 {
 	pw_log_warn("not implemented");
@@ -3113,6 +3223,7 @@ int jack_acquire_real_time_scheduling (jack_native_thread_t thread, int priority
  *
  * @returns 0, if successful; otherwise some error number.
  */
+SPA_EXPORT
 int jack_client_create_thread (jack_client_t* client,
                                jack_native_thread_t *thread,
                                int priority,
@@ -3126,24 +3237,28 @@ int jack_client_create_thread (jack_client_t* client,
 	return globals.creator(thread, NULL, start_routine, arg);
 }
 
+SPA_EXPORT
 int jack_drop_real_time_scheduling (jack_native_thread_t thread)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_client_stop_thread(jack_client_t* client, jack_native_thread_t thread)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int jack_client_kill_thread(jack_client_t* client, jack_native_thread_t thread)
 {
 	pw_log_warn("not implemented");
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 void jack_set_thread_creator (jack_thread_creator_t creator)
 {
 	if (creator == NULL)
@@ -3161,12 +3276,14 @@ static inline uint8_t * midi_event_data (void* port_buffer,
                 return SPA_MEMBER(port_buffer, event->byte_offset, uint8_t);
 }
 
+SPA_EXPORT
 uint32_t jack_midi_get_event_count(void* port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;
 	return mb->event_count;
 }
 
+SPA_EXPORT
 int jack_midi_event_get(jack_midi_event_t *event,
 			void        *port_buffer,
 			uint32_t    event_index)
@@ -3180,6 +3297,7 @@ int jack_midi_event_get(jack_midi_event_t *event,
 	return 0;
 }
 
+SPA_EXPORT
 void jack_midi_clear_buffer(void *port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;
@@ -3188,11 +3306,13 @@ void jack_midi_clear_buffer(void *port_buffer)
 	mb->lost_events = 0;
 }
 
+SPA_EXPORT
 void jack_midi_reset_buffer(void *port_buffer)
 {
 	jack_midi_clear_buffer(port_buffer);
 }
 
+SPA_EXPORT
 size_t jack_midi_max_event_size(void* port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;
@@ -3214,6 +3334,7 @@ size_t jack_midi_max_event_size(void* port_buffer)
         }
 }
 
+SPA_EXPORT
 jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
                         jack_nframes_t  time,
                         size_t data_size)
@@ -3254,6 +3375,7 @@ failed:
 	return NULL;
 }
 
+SPA_EXPORT
 int jack_midi_event_write(void *port_buffer,
                       jack_nframes_t time,
                       const jack_midi_data_t *data,
@@ -3268,6 +3390,7 @@ int jack_midi_event_write(void *port_buffer,
         }
 }
 
+SPA_EXPORT
 uint32_t jack_midi_get_lost_event_count(void *port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;

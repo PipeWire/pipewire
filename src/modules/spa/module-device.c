@@ -62,6 +62,7 @@ static const struct pw_module_events module_events = {
 	.destroy = module_destroy,
 };
 
+SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_properties *props = NULL;

@@ -187,6 +187,7 @@ static const struct spa_node schedule_mix_node = {
 	.port_reuse_buffer = schedule_mix_reuse_buffer,
 };
 
+SPA_EXPORT
 int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 {
 	uint32_t port_id;
@@ -215,6 +216,8 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 
 	return res;
 }
+
+SPA_EXPORT
 int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 {
 	int res = 0;
@@ -238,6 +241,7 @@ int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 	return res;
 }
 
+SPA_EXPORT
 struct pw_port *pw_port_new(enum pw_direction direction,
 			    uint32_t port_id,
 			    struct pw_properties *properties,
@@ -304,6 +308,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	return NULL;
 }
 
+SPA_EXPORT
 int pw_port_set_mix(struct pw_port *port, struct spa_node *node, uint32_t flags)
 {
 	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
@@ -320,21 +325,25 @@ int pw_port_set_mix(struct pw_port *port, struct spa_node *node, uint32_t flags)
 	return 0;
 }
 
+SPA_EXPORT
 enum pw_direction pw_port_get_direction(struct pw_port *port)
 {
 	return port->direction;
 }
 
+SPA_EXPORT
 uint32_t pw_port_get_id(struct pw_port *port)
 {
 	return port->port_id;
 }
 
+SPA_EXPORT
 const struct pw_properties *pw_port_get_properties(struct pw_port *port)
 {
 	return port->properties;
 }
 
+SPA_EXPORT
 int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
@@ -360,11 +369,13 @@ int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 	return changed;
 }
 
+SPA_EXPORT
 struct pw_node *pw_port_get_node(struct pw_port *port)
 {
 	return port->node;
 }
 
+SPA_EXPORT
 void pw_port_add_listener(struct pw_port *port,
 			  struct spa_hook *listener,
 			  const struct pw_port_events *events,
@@ -373,6 +384,7 @@ void pw_port_add_listener(struct pw_port *port,
 	spa_hook_list_append(&port->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 void * pw_port_get_user_data(struct pw_port *port)
 {
 	return port->user_data;
@@ -535,6 +547,7 @@ int pw_port_register(struct pw_port *port,
 	return pw_global_register(port->global, owner, parent);
 }
 
+SPA_EXPORT
 int pw_port_add(struct pw_port *port, struct pw_node *node)
 {
 	uint32_t port_id = port->port_id;
@@ -758,6 +771,7 @@ do_port_command(struct spa_loop *loop,
 	return spa_node_port_send_command(node->node, port->direction, port->port_id, data);
 }
 
+SPA_EXPORT
 int pw_port_send_command(struct pw_port *port, bool block, const struct spa_command *command)
 {
 	return pw_loop_invoke(port->node->data_loop, do_port_command, 0,
@@ -856,11 +870,13 @@ int pw_port_for_each_link(struct pw_port *port,
 	return res;
 }
 
+SPA_EXPORT
 int pw_port_is_linked(struct pw_port *port)
 {
 	return spa_list_is_empty(&port->links) ? 0 : 1;
 }
 
+SPA_EXPORT
 int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32_t flags,
 		      const struct spa_pod *param)
 {
@@ -915,6 +931,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32
 	return res;
 }
 
+SPA_EXPORT
 int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 		struct spa_buffer **buffers, uint32_t n_buffers)
 {
@@ -970,6 +987,7 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 	return res;
 }
 
+SPA_EXPORT
 int pw_port_alloc_buffers(struct pw_port *port, uint32_t mix_id,
 			  struct spa_pod **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers)

@@ -26,6 +26,7 @@
 
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_ERROR
 
+SPA_EXPORT
 enum spa_log_level pw_log_level = DEFAULT_LOG_LEVEL;
 
 static struct spa_log *global_log = NULL;
@@ -34,6 +35,7 @@ static struct spa_log *global_log = NULL;
  * \param log the global log to set
  * \memberof pw_log
  */
+SPA_EXPORT
 void pw_log_set(struct spa_log *log)
 {
 	global_log = log;
@@ -45,6 +47,7 @@ void pw_log_set(struct spa_log *log)
  * \return the global log
  * \memberof pw_log
  */
+SPA_EXPORT
 struct spa_log *pw_log_get(void)
 {
 	return global_log;
@@ -54,6 +57,7 @@ struct spa_log *pw_log_get(void)
  * \param level the new log level
  * \memberof pw_log
  */
+SPA_EXPORT
 void pw_log_set_level(enum spa_log_level level)
 {
 	pw_log_level = level;
@@ -71,6 +75,7 @@ void pw_log_set_level(enum spa_log_level level)
  *
  * \memberof pw_log
  */
+SPA_EXPORT
 void
 pw_log_log(enum spa_log_level level,
 	   const char *file,
@@ -96,6 +101,7 @@ pw_log_log(enum spa_log_level level,
  *
  * \memberof pw_log
  */
+SPA_EXPORT
 void
 pw_log_logv(enum spa_log_level level,
 	    const char *file,

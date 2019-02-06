@@ -28,8 +28,8 @@
 
 extern const struct spa_handle_factory spa_audiotestsrc_factory;
 
-int
-spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
+SPA_EXPORT
+int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);

@@ -41,6 +41,7 @@
  *
  * \memberof pw_utils
  */
+SPA_EXPORT
 const char *pw_split_walk(const char *str, const char *delimiter, size_t * len, const char **state)
 {
 	const char *s = *state ? *state : str;
@@ -66,6 +67,7 @@ const char *pw_split_walk(const char *str, const char *delimiter, size_t * len, 
  *
  * \memberof pw_utils
  */
+SPA_EXPORT
 char **pw_split_strv(const char *str, const char *delimiter, int max_tokens, int *n_tokens)
 {
 	const char *state = NULL, *s = NULL;
@@ -99,6 +101,7 @@ char **pw_split_strv(const char *str, const char *delimiter, int max_tokens, int
  *
  * \memberof pw_utils
  */
+SPA_EXPORT
 void pw_free_strv(char **str)
 {
 	int i;
@@ -117,6 +120,7 @@ void pw_free_strv(char **str)
  *
  * \memberof pw_utils
  */
+SPA_EXPORT
 char *pw_strip(char *str, const char *whitespace)
 {
 	char *e, *l = NULL;

@@ -900,6 +900,7 @@ static const struct pw_remote_events remote_events = {
 	.exported = on_remote_exported,
 };
 
+SPA_EXPORT
 struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	      struct pw_properties *props)
 {
@@ -963,6 +964,7 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	return NULL;
 }
 
+SPA_EXPORT
 struct pw_stream *
 pw_stream_new_simple(struct pw_loop *loop,
 		     const char *name,
@@ -997,6 +999,7 @@ pw_stream_new_simple(struct pw_loop *loop,
 	return NULL;
 }
 
+SPA_EXPORT
 const char *pw_stream_state_as_string(enum pw_stream_state state)
 {
 	switch (state) {
@@ -1018,6 +1021,7 @@ const char *pw_stream_state_as_string(enum pw_stream_state state)
 	return "invalid-state";
 }
 
+SPA_EXPORT
 void pw_stream_destroy(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1046,6 +1050,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 	free(impl);
 }
 
+SPA_EXPORT
 void pw_stream_add_listener(struct pw_stream *stream,
 			    struct spa_hook *listener,
 			    const struct pw_stream_events *events,
@@ -1054,6 +1059,7 @@ void pw_stream_add_listener(struct pw_stream *stream,
 	spa_hook_list_append(&stream->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **error)
 {
 	if (error)
@@ -1061,16 +1067,19 @@ enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **
 	return stream->state;
 }
 
+SPA_EXPORT
 const char *pw_stream_get_name(struct pw_stream *stream)
 {
 	return stream->name;
 }
 
+SPA_EXPORT
 const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream)
 {
 	return stream->properties;
 }
 
+SPA_EXPORT
 int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict *dict)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1087,6 +1096,7 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 	return res;
 }
 
+SPA_EXPORT
 struct pw_remote *pw_stream_get_remote(struct pw_stream *stream)
 {
 	return stream->remote;
@@ -1116,6 +1126,7 @@ static void add_controls(struct pw_stream *stream)
 			SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence))));
 }
 
+SPA_EXPORT
 int
 pw_stream_connect(struct pw_stream *stream,
 		  enum pw_direction direction,
@@ -1166,11 +1177,13 @@ pw_stream_connect(struct pw_stream *stream,
 	return res;
 }
 
+SPA_EXPORT
 uint32_t pw_stream_get_node_id(struct pw_stream *stream)
 {
 	return stream->node_id;
 }
 
+SPA_EXPORT
 int pw_stream_disconnect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1191,6 +1204,7 @@ int pw_stream_disconnect(struct pw_stream *stream)
 	return 0;
 }
 
+SPA_EXPORT
 void pw_stream_finish_format(struct pw_stream *stream,
 			int res,
 			const struct spa_pod **params,
@@ -1208,6 +1222,7 @@ void pw_stream_finish_format(struct pw_stream *stream,
 	impl->pending_seq = SPA_ID_INVALID;
 }
 
+SPA_EXPORT
 int pw_stream_set_control(struct pw_stream *stream,
 			  const char *name, float value)
 {
@@ -1224,6 +1239,7 @@ int pw_stream_set_control(struct pw_stream *stream,
 	return 0;
 }
 
+SPA_EXPORT
 int pw_stream_get_control(struct pw_stream *stream,
 			  const char *name, float *value)
 {
@@ -1238,6 +1254,7 @@ int pw_stream_get_control(struct pw_stream *stream,
 	return 0;
 }
 
+SPA_EXPORT
 int pw_stream_set_active(struct pw_stream *stream, bool active)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1246,6 +1263,7 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 	return 0;
 }
 
+SPA_EXPORT
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1290,6 +1308,7 @@ static inline int call_trigger(struct stream *impl)
 	return res;
 }
 
+SPA_EXPORT
 struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1306,6 +1325,7 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 	return &b->this;
 }
 
+SPA_EXPORT
 int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1340,6 +1360,7 @@ do_flush(struct spa_loop *loop,
 	return 0;
 }
 
+SPA_EXPORT
 int pw_stream_flush(struct pw_stream *stream, bool drain)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);

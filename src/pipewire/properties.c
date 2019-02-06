@@ -89,6 +89,7 @@ static struct properties *properties_new(int prealloc)
  *
  * \memberof pw_properties
  */
+SPA_EXPORT
 struct pw_properties *pw_properties_new(const char *key, ...)
 {
 	struct properties *impl;
@@ -118,6 +119,7 @@ struct pw_properties *pw_properties_new(const char *key, ...)
  *
  * \memberof pw_properties
  */
+SPA_EXPORT
 struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 {
 	uint32_t i;
@@ -147,6 +149,7 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
  *
  * \memberof pw_properties
  */
+SPA_EXPORT
 struct pw_properties *
 pw_properties_new_string(const char *str)
 {
@@ -186,6 +189,7 @@ pw_properties_new_string(const char *str)
  *
  * \memberof pw_properties
  */
+SPA_EXPORT
 struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
 {
 	return pw_properties_new_dict(&properties->dict);
@@ -197,6 +201,7 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
  *
  * \memberof pw_properties
  */
+SPA_EXPORT
 void pw_properties_clear(struct pw_properties *properties)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
@@ -219,6 +224,7 @@ void pw_properties_clear(struct pw_properties *properties)
  *
  * \memberof pw_properties
  */
+SPA_EXPORT
 int pw_properties_update(struct pw_properties *props,
 		         const struct spa_dict *dict)
 {
@@ -237,6 +243,7 @@ int pw_properties_update(struct pw_properties *props,
  *
  * \memberof pw_properties
  */
+SPA_EXPORT
 void pw_properties_free(struct pw_properties *properties)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
@@ -301,13 +308,14 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
  *
  * \memberof pw_properties
  */
+SPA_EXPORT
 int pw_properties_set(struct pw_properties *properties, const char *key, const char *value)
 {
 	return do_replace(properties, key, (char*)value, true);
 }
 
-int
-pw_properties_setva(struct pw_properties *properties,
+SPA_EXPORT
+int pw_properties_setva(struct pw_properties *properties,
 		   const char *key, const char *format, va_list args)
 {
 	char *value;
@@ -327,6 +335,7 @@ pw_properties_setva(struct pw_properties *properties,
  *
  * \memberof pw_properties
  */
+SPA_EXPORT
 int pw_properties_setf(struct pw_properties *properties, const char *key, const char *format, ...)
 {
 	int res;
@@ -349,6 +358,7 @@ int pw_properties_setf(struct pw_properties *properties, const char *key, const 
  *
  * \memberof pw_properties
  */
+SPA_EXPORT
 const char *pw_properties_get(const struct pw_properties *properties, const char *key)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
@@ -373,6 +383,7 @@ const char *pw_properties_get(const struct pw_properties *properties, const char
  *
  * \memberof pw_properties
  */
+SPA_EXPORT
 const char *pw_properties_iterate(const struct pw_properties *properties, void **state)
 {
 	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);

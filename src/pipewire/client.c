@@ -225,6 +225,7 @@ static const struct pw_core_events core_events = {
  *
  * \memberof pw_client
  */
+SPA_EXPORT
 struct pw_client *pw_client_new(struct pw_core *core,
 				struct ucred *ucred,
 				struct pw_properties *properties,
@@ -295,6 +296,7 @@ static const struct pw_global_events global_events = {
 	.bind = global_bind,
 };
 
+SPA_EXPORT
 int pw_client_register(struct pw_client *client,
 		       struct pw_client *owner,
 		       struct pw_global *parent,
@@ -321,31 +323,37 @@ int pw_client_register(struct pw_client *client,
 	return 0;
 }
 
+SPA_EXPORT
 struct pw_core *pw_client_get_core(struct pw_client *client)
 {
 	return client->core;
 }
 
+SPA_EXPORT
 struct pw_resource *pw_client_get_core_resource(struct pw_client *client)
 {
 	return client->core_resource;
 }
 
+SPA_EXPORT
 struct pw_resource *pw_client_find_resource(struct pw_client *client, uint32_t id)
 {
 	return pw_map_lookup(&client->objects, id);
 }
 
+SPA_EXPORT
 struct pw_global *pw_client_get_global(struct pw_client *client)
 {
 	return client->global;
 }
 
+SPA_EXPORT
 const struct pw_properties *pw_client_get_properties(struct pw_client *client)
 {
 	return client->properties;
 }
 
+SPA_EXPORT
 const struct ucred *pw_client_get_ucred(struct pw_client *client)
 {
 	if (!client->ucred_valid)
@@ -354,6 +362,7 @@ const struct ucred *pw_client_get_ucred(struct pw_client *client)
 	return &client->ucred;
 }
 
+SPA_EXPORT
 void *pw_client_get_user_data(struct pw_client *client)
 {
 	return client->user_data;
@@ -373,6 +382,7 @@ static int destroy_resource(void *object, void *data)
  *
  * \memberof pw_client
  */
+SPA_EXPORT
 void pw_client_destroy(struct pw_client *client)
 {
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
@@ -403,6 +413,7 @@ void pw_client_destroy(struct pw_client *client)
 	free(impl);
 }
 
+SPA_EXPORT
 void pw_client_add_listener(struct pw_client *client,
 			    struct spa_hook *listener,
 			    const struct pw_client_events *events,
@@ -411,6 +422,7 @@ void pw_client_add_listener(struct pw_client *client,
 	spa_hook_list_append(&client->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 const struct pw_client_info *pw_client_get_info(struct pw_client *client)
 {
 	return &client->info;
@@ -427,6 +439,7 @@ const struct pw_client_info *pw_client_get_info(struct pw_client *client)
  *
  * \memberof pw_client
  */
+SPA_EXPORT
 int pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
@@ -453,6 +466,7 @@ int pw_client_update_properties(struct pw_client *client, const struct spa_dict 
 	return changed;
 }
 
+SPA_EXPORT
 int pw_client_update_permissions(struct pw_client *client,
 		uint32_t n_permissions, const struct pw_permission *permissions)
 {
@@ -511,6 +525,7 @@ int pw_client_update_permissions(struct pw_client *client,
 	return 0;
 }
 
+SPA_EXPORT
 void pw_client_set_busy(struct pw_client *client, bool busy)
 {
 	if (client->busy != busy) {

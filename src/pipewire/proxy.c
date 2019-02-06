@@ -51,6 +51,7 @@ struct proxy {
  *
  * \memberof pw_proxy
  */
+SPA_EXPORT
 struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 			      uint32_t type,
 			      size_t user_data_size)
@@ -86,21 +87,25 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 	return this;
 }
 
+SPA_EXPORT
 void *pw_proxy_get_user_data(struct pw_proxy *proxy)
 {
 	return proxy->user_data;
 }
 
+SPA_EXPORT
 uint32_t pw_proxy_get_id(struct pw_proxy *proxy)
 {
 	return proxy->id;
 }
 
+SPA_EXPORT
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy)
 {
 	return proxy->remote->conn->protocol;
 }
 
+SPA_EXPORT
 void pw_proxy_add_listener(struct pw_proxy *proxy,
 			   struct spa_hook *listener,
 			   const struct pw_proxy_events *events,
@@ -109,6 +114,7 @@ void pw_proxy_add_listener(struct pw_proxy *proxy,
 	spa_hook_list_append(&proxy->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 void pw_proxy_add_proxy_listener(struct pw_proxy *proxy,
 				 struct spa_hook *listener,
 				 const void *events,
@@ -125,6 +131,7 @@ void pw_proxy_add_proxy_listener(struct pw_proxy *proxy,
  *       decides to destroy the server side object
  * \memberof pw_proxy
  */
+SPA_EXPORT
 void pw_proxy_destroy(struct pw_proxy *proxy)
 {
 	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);
@@ -138,11 +145,13 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	free(impl);
 }
 
+SPA_EXPORT
 struct spa_hook_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy)
 {
 	return &proxy->proxy_listener_list;
 }
 
+SPA_EXPORT
 const struct pw_protocol_marshal *pw_proxy_get_marshal(struct pw_proxy *proxy)
 {
 	return proxy->marshal;

@@ -38,6 +38,7 @@ static void do_stop(void *data, uint64_t count)
  *
  * \memberof pw_main_loop
  */
+SPA_EXPORT
 struct pw_main_loop *pw_main_loop_new(struct pw_properties *properties)
 {
 	struct pw_main_loop *this;
@@ -68,6 +69,7 @@ struct pw_main_loop *pw_main_loop_new(struct pw_properties *properties)
  *
  * \memberof pw_main_loop
  */
+SPA_EXPORT
 void pw_main_loop_destroy(struct pw_main_loop *loop)
 {
 	pw_log_debug("main-loop %p: destroy", loop);
@@ -78,6 +80,7 @@ void pw_main_loop_destroy(struct pw_main_loop *loop)
 	free(loop);
 }
 
+SPA_EXPORT
 void pw_main_loop_add_listener(struct pw_main_loop *loop,
 			       struct spa_hook *listener,
 			       const struct pw_main_loop_events *events,
@@ -86,6 +89,7 @@ void pw_main_loop_add_listener(struct pw_main_loop *loop,
 	spa_hook_list_append(&loop->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop)
 {
 	return loop->loop;
@@ -98,6 +102,7 @@ struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop)
  *
  * \memberof pw_main_loop
  */
+SPA_EXPORT
 void pw_main_loop_quit(struct pw_main_loop *loop)
 {
 	pw_log_debug("main-loop %p: quit", loop);
@@ -112,6 +117,7 @@ void pw_main_loop_quit(struct pw_main_loop *loop)
  *
  * \memberof pw_main_loop
  */
+SPA_EXPORT
 void pw_main_loop_run(struct pw_main_loop *loop)
 {
 	pw_log_debug("main-loop %p: run", loop);

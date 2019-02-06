@@ -424,8 +424,8 @@ static const struct spa_handle_factory dbus_factory = {
 	impl_enum_interface_info,
 };
 
-int
-spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
+SPA_EXPORT
+int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);

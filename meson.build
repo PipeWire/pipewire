@@ -42,7 +42,11 @@ have_cpp = add_languages('cpp', required : false)
 cc = meson.get_compiler('c')
 
 if cc.get_id() == 'gcc'
-  add_global_arguments('-Wsign-compare', '-Wimplicit-fallthrough', '-Wpointer-arith', language : 'c')
+  add_global_arguments('-fvisibility=hidden',
+			'-Wsign-compare',
+			'-Wimplicit-fallthrough',
+			'-Wpointer-arith',
+			language : 'c')
 endif
 
 cdata = configuration_data()

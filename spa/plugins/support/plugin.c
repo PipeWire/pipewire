@@ -31,8 +31,8 @@ extern const struct spa_handle_factory spa_support_logger_factory;
 extern const struct spa_handle_factory spa_support_loop_factory;
 extern const struct spa_handle_factory spa_support_cpu_factory;
 
-SPA_EXPORT int
-spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
+SPA_EXPORT
+int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(index != NULL, -EINVAL);

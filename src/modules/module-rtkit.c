@@ -525,6 +525,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 }
 
+SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	return module_init(module, NULL);

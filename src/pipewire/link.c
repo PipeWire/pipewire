@@ -1228,6 +1228,7 @@ static void try_unlink_controls(struct impl *impl, struct pw_port *port, struct 
 	}
 }
 
+SPA_EXPORT
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *output,
 			    struct pw_port *input,
@@ -1347,6 +1348,7 @@ static const struct pw_global_events global_events = {
 	.bind = global_bind,
 };
 
+SPA_EXPORT
 int pw_link_register(struct pw_link *link,
 		     struct pw_client *owner,
 		     struct pw_global *parent,
@@ -1396,6 +1398,7 @@ int pw_link_register(struct pw_link *link,
 	return 0;
 }
 
+SPA_EXPORT
 void pw_link_destroy(struct pw_link *link)
 {
 	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
@@ -1430,6 +1433,7 @@ void pw_link_destroy(struct pw_link *link)
 	free(impl);
 }
 
+SPA_EXPORT
 void pw_link_add_listener(struct pw_link *link,
 			  struct spa_hook *listener,
 			  const struct pw_link_events *events,
@@ -1450,31 +1454,37 @@ struct pw_link *pw_link_find(struct pw_port *output_port, struct pw_port *input_
 	return NULL;
 }
 
+SPA_EXPORT
 struct pw_core *pw_link_get_core(struct pw_link *link)
 {
 	return link->core;
 }
 
+SPA_EXPORT
 void *pw_link_get_user_data(struct pw_link *link)
 {
 	return link->user_data;
 }
 
+SPA_EXPORT
 const struct pw_link_info *pw_link_get_info(struct pw_link *link)
 {
 	return &link->info;
 }
 
+SPA_EXPORT
 struct pw_global *pw_link_get_global(struct pw_link *link)
 {
 	return link->global;
 }
 
+SPA_EXPORT
 struct pw_port *pw_link_get_output(struct pw_link *link)
 {
 	return link->output;
 }
 
+SPA_EXPORT
 struct pw_port *pw_link_get_input(struct pw_link *link)
 {
 	return link->input;

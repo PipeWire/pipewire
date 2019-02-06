@@ -302,11 +302,13 @@ static void configure_debug(struct support *support, const char *str)
  * \param type the interface type
  * \return the interface or NULL when not configured
  */
+SPA_EXPORT
 void *pw_get_support_interface(uint32_t type)
 {
 	return spa_support_find(global_support.support, global_support.n_support, type);
 }
 
+SPA_EXPORT
 const struct spa_handle_factory *pw_get_support_factory(const char *factory_name)
 {
 	struct plugin *plugin = global_support.support_plugin;
@@ -315,12 +317,14 @@ const struct spa_handle_factory *pw_get_support_factory(const char *factory_name
 	return find_factory(plugin, factory_name);
 }
 
+SPA_EXPORT
 const struct spa_support *pw_get_support(uint32_t *n_support)
 {
 	*n_support = global_support.n_support;
 	return global_support.support;
 }
 
+SPA_EXPORT
 void *pw_load_spa_interface(const char *lib, const char *factory_name, uint32_t type,
 			    const struct spa_dict *info,
 			    uint32_t n_support,
@@ -372,6 +376,7 @@ static struct interface *find_interface(void *iface)
 	return NULL;
 }
 
+SPA_EXPORT
 int pw_unload_spa_interface(void *iface)
 {
 	struct interface *i;
@@ -384,6 +389,7 @@ int pw_unload_spa_interface(void *iface)
 	return 0;
 }
 
+SPA_EXPORT
 void *pw_load_spa_dbus_interface(struct pw_loop *loop)
 {
 	struct spa_support support = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, loop->utils);
@@ -404,6 +410,7 @@ void *pw_load_spa_dbus_interface(struct pw_loop *loop)
  *
  * \memberof pw_pipewire
  */
+SPA_EXPORT
 void pw_init(int *argc, char **argv[])
 {
 	const char *str;
@@ -467,6 +474,7 @@ void pw_init(int *argc, char **argv[])
  *
  * \memberof pw_pipewire
  */
+SPA_EXPORT
 bool pw_debug_is_category_enabled(const char *name)
 {
 	int i;
@@ -482,12 +490,14 @@ bool pw_debug_is_category_enabled(const char *name)
 }
 
 /** Get the application name \memberof pw_pipewire */
+SPA_EXPORT
 const char *pw_get_application_name(void)
 {
 	return NULL;
 }
 
 /** Get the program name \memberof pw_pipewire */
+SPA_EXPORT
 const char *pw_get_prgname(void)
 {
 	static char tcomm[16 + 1];
@@ -500,6 +510,7 @@ const char *pw_get_prgname(void)
 }
 
 /** Get the user name \memberof pw_pipewire */
+SPA_EXPORT
 const char *pw_get_user_name(void)
 {
 	struct passwd *pw;
@@ -511,6 +522,7 @@ const char *pw_get_user_name(void)
 }
 
 /** Get the host name \memberof pw_pipewire */
+SPA_EXPORT
 const char *pw_get_host_name(void)
 {
 	static char hname[256];
@@ -528,6 +540,7 @@ const char *pw_get_host_name(void)
  *
  * \memberof pw_pipewire
  */
+SPA_EXPORT
 const char *pw_get_client_name(void)
 {
 	const char *cc;
@@ -552,6 +565,7 @@ const char *pw_get_client_name(void)
  *
  * \memberof pw_pipewire
  */
+SPA_EXPORT
 void pw_fill_remote_properties(struct pw_core *core, struct pw_properties *properties)
 {
 	const char *val;
@@ -596,11 +610,13 @@ void pw_fill_remote_properties(struct pw_core *core, struct pw_properties *prope
  *
  * \memberof pw_pipewire
  */
+SPA_EXPORT
 void pw_fill_stream_properties(struct pw_core *core, struct pw_properties *properties)
 {
 }
 
 /** Reverse the direction \memberof pw_pipewire */
+SPA_EXPORT
 enum pw_direction pw_direction_reverse(enum pw_direction direction)
 {
 	if (direction == PW_DIRECTION_INPUT)
@@ -611,6 +627,7 @@ enum pw_direction pw_direction_reverse(enum pw_direction direction)
 }
 
 /** Get the currently running version */
+SPA_EXPORT
 const char* pw_get_library_version(void)
 {
 	return pw_get_headers_version();
@@ -631,6 +648,7 @@ static const struct spa_type_info type_info[] = {
 	{ 0, NULL, 0, NULL },
 };
 
+SPA_EXPORT
 const struct spa_type_info * pw_type_info(void)
 {
 	return type_info;

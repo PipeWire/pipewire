@@ -44,6 +44,7 @@ struct node_data {
 	struct spa_hook node_listener;
 };
 
+SPA_EXPORT
 struct pw_device *pw_device_new(struct pw_core *core,
 				const char *name,
 				struct pw_properties *properties,
@@ -81,6 +82,7 @@ struct pw_device *pw_device_new(struct pw_core *core,
 	return NULL;
 }
 
+SPA_EXPORT
 void pw_device_destroy(struct pw_device *device)
 {
 	struct node_data *nd;
@@ -115,6 +117,7 @@ static const struct pw_resource_events resource_events = {
 	.destroy = device_unbind_func,
 };
 
+SPA_EXPORT
 int pw_device_for_each_param(struct pw_device *device,
 			     uint32_t param_id,
 			     uint32_t index, uint32_t max,
@@ -237,6 +240,7 @@ static const struct pw_global_events global_events = {
 	.bind = global_bind,
 };
 
+SPA_EXPORT
 int pw_device_register(struct pw_device *device,
 		       struct pw_client *owner,
 		       struct pw_global *parent,
@@ -382,22 +386,26 @@ static const struct spa_device_callbacks device_callbacks = {
 	.remove = device_remove,
 };
 
+SPA_EXPORT
 void pw_device_set_implementation(struct pw_device *device, struct spa_device *spa_device)
 {
 	device->implementation = spa_device;
 	spa_device_set_callbacks(device->implementation, &device_callbacks, device);
 }
 
+SPA_EXPORT
 struct spa_device *pw_device_get_implementation(struct pw_device *device)
 {
 	return device->implementation;
 }
 
+SPA_EXPORT
 const struct pw_properties *pw_device_get_properties(struct pw_device *device)
 {
 	return device->properties;
 }
 
+SPA_EXPORT
 int pw_device_update_properties(struct pw_device *device, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
@@ -423,16 +431,19 @@ int pw_device_update_properties(struct pw_device *device, const struct spa_dict 
 	return changed;
 }
 
+SPA_EXPORT
 void *pw_device_get_user_data(struct pw_device *device)
 {
 	return device->user_data;
 }
 
+SPA_EXPORT
 struct pw_global *pw_device_get_global(struct pw_device *device)
 {
 	return device->global;
 }
 
+SPA_EXPORT
 void pw_device_add_listener(struct pw_device *device,
 			    struct spa_hook *listener,
 			    const struct pw_device_events *events,

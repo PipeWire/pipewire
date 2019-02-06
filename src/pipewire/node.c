@@ -276,6 +276,7 @@ static void update_port_map(struct pw_node *node, enum pw_direction direction,
 	}
 }
 
+SPA_EXPORT
 int pw_node_update_ports(struct pw_node *node)
 {
 	uint32_t *input_port_ids, *output_port_ids;
@@ -456,6 +457,7 @@ static const struct pw_global_events global_events = {
 	.bind = global_bind,
 };
 
+SPA_EXPORT
 int pw_node_register(struct pw_node *this,
 		     struct pw_client *owner,
 		     struct pw_global *parent,
@@ -505,6 +507,7 @@ int pw_node_register(struct pw_node *this,
 	return 0;
 }
 
+SPA_EXPORT
 int pw_node_initialized(struct pw_node *this)
 {
 	pw_log_debug("node %p initialized", this);
@@ -568,6 +571,7 @@ static int recalc_quantum(struct pw_node *driver)
 	return 0;
 }
 
+SPA_EXPORT
 int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
@@ -648,6 +652,7 @@ static void check_properties(struct pw_node *node)
 
 }
 
+SPA_EXPORT
 struct pw_node *pw_node_new(struct pw_core *core,
 			    const char *name,
 			    struct pw_properties *properties,
@@ -727,31 +732,37 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	return NULL;
 }
 
+SPA_EXPORT
 const struct pw_node_info *pw_node_get_info(struct pw_node *node)
 {
 	return &node->info;
 }
 
+SPA_EXPORT
 void * pw_node_get_user_data(struct pw_node *node)
 {
 	return node->user_data;
 }
 
+SPA_EXPORT
 struct pw_core * pw_node_get_core(struct pw_node *node)
 {
 	return node->core;
 }
 
+SPA_EXPORT
 struct pw_global *pw_node_get_global(struct pw_node *node)
 {
 	return node->global;
 }
 
+SPA_EXPORT
 const struct pw_properties *pw_node_get_properties(struct pw_node *node)
 {
 	return node->properties;
 }
 
+SPA_EXPORT
 int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
@@ -882,6 +893,7 @@ static const struct spa_node_callbacks node_callbacks = {
 	.reuse_buffer = node_reuse_buffer,
 };
 
+SPA_EXPORT
 void pw_node_set_implementation(struct pw_node *node,
 				struct spa_node *spa_node)
 {
@@ -905,11 +917,13 @@ void pw_node_set_implementation(struct pw_node *node,
 	}
 }
 
+SPA_EXPORT
 struct spa_node *pw_node_get_implementation(struct pw_node *node)
 {
 	return node->node;
 }
 
+SPA_EXPORT
 void pw_node_add_listener(struct pw_node *node,
 			   struct spa_hook *listener,
 			   const struct pw_node_events *events,
@@ -926,6 +940,7 @@ void pw_node_add_listener(struct pw_node *node,
  *
  * \memberof pw_node
  */
+SPA_EXPORT
 void pw_node_destroy(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
@@ -986,6 +1001,7 @@ void pw_node_destroy(struct pw_node *node)
 	free(impl);
 }
 
+SPA_EXPORT
 int pw_node_for_each_port(struct pw_node *node,
 			  enum pw_direction direction,
 			  int (*callback) (void *data, struct pw_port *port),
@@ -1006,6 +1022,7 @@ int pw_node_for_each_port(struct pw_node *node,
 	return 0;
 }
 
+SPA_EXPORT
 int pw_node_for_each_param(struct pw_node *node,
 			   uint32_t param_id,
 			   uint32_t index, uint32_t max,
@@ -1039,6 +1056,7 @@ int pw_node_for_each_param(struct pw_node *node,
 	return res;
 }
 
+SPA_EXPORT
 struct pw_port *
 pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id)
 {
@@ -1073,6 +1091,7 @@ pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t po
 	return port;
 }
 
+SPA_EXPORT
 uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direction)
 {
 	uint32_t n_ports, max_ports;
@@ -1147,6 +1166,7 @@ static void node_activate(struct pw_node *this)
  *
  * \memberof pw_node
  */
+SPA_EXPORT
 int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 {
 	int res = 0;
@@ -1195,6 +1215,7 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 	return res;
 }
 
+SPA_EXPORT
 int pw_node_set_active(struct pw_node *node, bool active)
 {
 	bool old = node->active;
@@ -1217,11 +1238,13 @@ int pw_node_set_active(struct pw_node *node, bool active)
 	return 0;
 }
 
+SPA_EXPORT
 bool pw_node_is_active(struct pw_node *node)
 {
 	return node->active;
 }
 
+SPA_EXPORT
 int pw_node_set_enabled(struct pw_node *node, bool enabled)
 {
 	bool old = node->enabled;
@@ -1242,6 +1265,7 @@ int pw_node_set_enabled(struct pw_node *node, bool enabled)
 	return 0;
 }
 
+SPA_EXPORT
 bool pw_node_is_enabled(struct pw_node *node)
 {
 	return node->enabled;

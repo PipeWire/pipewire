@@ -56,6 +56,7 @@ static void do_stop(void *data, uint64_t count)
  *
  * \memberof pw_data_loop
  */
+SPA_EXPORT
 struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
 {
 	struct pw_data_loop *this;
@@ -85,6 +86,7 @@ struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
  * \param loop the data loop to destroy
  * \memberof pw_data_loop
  */
+SPA_EXPORT
 void pw_data_loop_destroy(struct pw_data_loop *loop)
 {
 	pw_log_debug("data-loop %p: destroy", loop);
@@ -98,6 +100,7 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 	free(loop);
 }
 
+SPA_EXPORT
 void pw_data_loop_add_listener(struct pw_data_loop *loop,
 			       struct spa_hook *listener,
 			       const struct pw_data_loop_events *events,
@@ -106,6 +109,7 @@ void pw_data_loop_add_listener(struct pw_data_loop *loop,
 	spa_hook_list_append(&loop->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 struct pw_loop *
 pw_data_loop_get_loop(struct pw_data_loop *loop)
 {
@@ -120,6 +124,7 @@ pw_data_loop_get_loop(struct pw_data_loop *loop)
  *
  * \memberof pw_data_loop
  */
+SPA_EXPORT
 int pw_data_loop_start(struct pw_data_loop *loop)
 {
 	if (!loop->running) {
@@ -143,6 +148,7 @@ int pw_data_loop_start(struct pw_data_loop *loop)
  *
  * \memberof pw_data_loop
  */
+SPA_EXPORT
 int pw_data_loop_stop(struct pw_data_loop *loop)
 {
 	if (loop->running) {
@@ -159,6 +165,7 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
  *
  * \memberof pw_data_loop
  */
+SPA_EXPORT
 bool pw_data_loop_in_thread(struct pw_data_loop * loop)
 {
 	return pthread_equal(loop->thread, pthread_self());

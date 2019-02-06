@@ -230,21 +230,25 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	return NULL;
 }
 
+SPA_EXPORT
 enum pw_direction pw_port_get_direction(struct pw_port *port)
 {
 	return port->direction;
 }
 
+SPA_EXPORT
 uint32_t pw_port_get_id(struct pw_port *port)
 {
 	return port->port_id;
 }
 
+SPA_EXPORT
 const struct pw_properties *pw_port_get_properties(struct pw_port *port)
 {
 	return port->properties;
 }
 
+SPA_EXPORT
 int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
@@ -270,11 +274,13 @@ int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 	return changed;
 }
 
+SPA_EXPORT
 struct pw_node *pw_port_get_node(struct pw_port *port)
 {
 	return port->node;
 }
 
+SPA_EXPORT
 void pw_port_add_listener(struct pw_port *port,
 			  struct spa_hook *listener,
 			  const struct pw_port_events *events,

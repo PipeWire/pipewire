@@ -23,6 +23,7 @@
 
 extern const struct spa_handle_factory spa_audiotestsrc_factory;
 
+SPA_EXPORT
 int
 spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {

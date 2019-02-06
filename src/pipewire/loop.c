@@ -41,6 +41,7 @@ struct impl {
  * \returns a newly allocated loop
  * \memberof pw_loop
  */
+SPA_EXPORT
 struct pw_loop *pw_loop_new(struct pw_properties *properties)
 {
 	int res;
@@ -116,6 +117,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
  * \param loop a loop to destroy
  * \memberof pw_loop
  */
+SPA_EXPORT
 void pw_loop_destroy(struct pw_loop *loop)
 {
 	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);

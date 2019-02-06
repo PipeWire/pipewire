@@ -23,6 +23,7 @@
 
 #include "pipewire/remote.h"
 
+SPA_EXPORT
 const char *pw_node_state_as_string(enum pw_node_state state)
 {
 	switch (state) {
@@ -40,6 +41,7 @@ const char *pw_node_state_as_string(enum pw_node_state state)
 	return "invalid-state";
 }
 
+SPA_EXPORT
 const char *pw_direction_as_string(enum pw_direction direction)
 {
 	switch (direction) {
@@ -53,6 +55,7 @@ const char *pw_direction_as_string(enum pw_direction direction)
 	return "invalid-direction";
 }
 
+SPA_EXPORT
 const char *pw_link_state_as_string(enum pw_link_state state)
 {
 	switch (state) {
@@ -115,6 +118,7 @@ static struct spa_dict *pw_spa_dict_copy(struct spa_dict *dict)
 	return NULL;
 }
 
+SPA_EXPORT
 struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 					 const struct pw_core_info *update)
 {
@@ -155,6 +159,7 @@ struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 	return info;
 }
 
+SPA_EXPORT
 void pw_core_info_free(struct pw_core_info *info)
 {
 	free((void *) info->user_name);
@@ -166,6 +171,7 @@ void pw_core_info_free(struct pw_core_info *info)
 	free(info);
 }
 
+SPA_EXPORT
 struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 					 const struct pw_node_info *update)
 {
@@ -207,6 +213,7 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 	return info;
 }
 
+SPA_EXPORT
 void pw_node_info_free(struct pw_node_info *info)
 {
 
@@ -217,6 +224,7 @@ void pw_node_info_free(struct pw_node_info *info)
 	free(info);
 }
 
+SPA_EXPORT
 struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 					 const struct pw_port_info *update)
 {
@@ -244,6 +252,7 @@ struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 	return info;
 }
 
+SPA_EXPORT
 void pw_port_info_free(struct pw_port_info *info)
 {
 
@@ -253,6 +262,7 @@ void pw_port_info_free(struct pw_port_info *info)
 	free(info);
 }
 
+SPA_EXPORT
 struct pw_factory_info *pw_factory_info_update(struct pw_factory_info *info,
 					       const struct pw_factory_info *update)
 {
@@ -279,6 +289,7 @@ struct pw_factory_info *pw_factory_info_update(struct pw_factory_info *info,
 	return info;
 }
 
+SPA_EXPORT
 void pw_factory_info_free(struct pw_factory_info *info)
 {
 	free((void *) info->name);
@@ -287,6 +298,7 @@ void pw_factory_info_free(struct pw_factory_info *info)
 	free(info);
 }
 
+SPA_EXPORT
 struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 					     const struct pw_module_info *update)
 {
@@ -321,6 +333,7 @@ struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 	return info;
 }
 
+SPA_EXPORT
 void pw_module_info_free(struct pw_module_info *info)
 {
 	free((void *) info->name);
@@ -332,6 +345,7 @@ void pw_module_info_free(struct pw_module_info *info)
 }
 
 
+SPA_EXPORT
 struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
 					     const struct pw_client_info *update)
 {
@@ -354,6 +368,7 @@ struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
 	return info;
 }
 
+SPA_EXPORT
 void pw_client_info_free(struct pw_client_info *info)
 {
 	if (info->props)
@@ -361,6 +376,7 @@ void pw_client_info_free(struct pw_client_info *info)
 	free(info);
 }
 
+SPA_EXPORT
 struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 					 const struct pw_link_info *update)
 {
@@ -390,6 +406,7 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 	return info;
 }
 
+SPA_EXPORT
 void pw_link_info_free(struct pw_link_info *info)
 {
 	free(info->format);

@@ -25,6 +25,7 @@ extern const struct spa_handle_factory spa_alsa_source_factory;
 extern const struct spa_handle_factory spa_alsa_sink_factory;
 extern const struct spa_handle_factory spa_alsa_monitor_factory;
 
+SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {
 	spa_return_val_if_fail(factory != NULL, -EINVAL);

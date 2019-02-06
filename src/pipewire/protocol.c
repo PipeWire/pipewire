@@ -34,6 +34,7 @@ struct marshal {
 };
 /** \endcond */
 
+SPA_EXPORT
 struct pw_protocol *pw_protocol_new(struct pw_core *core,
 				    const char *name,
 				    size_t user_data_size)
@@ -62,23 +63,27 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 	return protocol;
 }
 
+SPA_EXPORT
 void *pw_protocol_get_user_data(struct pw_protocol *protocol)
 {
 	return protocol->user_data;
 }
 
+SPA_EXPORT
 const struct pw_protocol_implementaton *
 pw_protocol_get_implementation(struct pw_protocol *protocol)
 {
 	return protocol->implementation;
 }
 
+SPA_EXPORT
 const void *
 pw_protocol_get_extension(struct pw_protocol *protocol)
 {
 	return protocol->extension;
 }
 
+SPA_EXPORT
 void pw_protocol_destroy(struct pw_protocol *protocol)
 {
 	struct impl *impl = SPA_CONTAINER_OF(protocol, struct impl, this);
@@ -105,6 +110,7 @@ void pw_protocol_destroy(struct pw_protocol *protocol)
 	free(impl);
 }
 
+SPA_EXPORT
 void pw_protocol_add_listener(struct pw_protocol *protocol,
                               struct spa_hook *listener,
                               const struct pw_protocol_events *events,
@@ -113,6 +119,7 @@ void pw_protocol_add_listener(struct pw_protocol *protocol,
 	spa_hook_list_append(&protocol->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 int
 pw_protocol_add_marshal(struct pw_protocol *protocol,
 			const struct pw_protocol_marshal *marshal)
@@ -134,6 +141,7 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 	return 0;
 }
 
+SPA_EXPORT
 const struct pw_protocol_marshal *
 pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type)
 {
@@ -149,6 +157,7 @@ pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type)
 	return NULL;
 }
 
+SPA_EXPORT
 struct pw_protocol *pw_core_find_protocol(struct pw_core *core, const char *name)
 {
 	struct pw_protocol *protocol;

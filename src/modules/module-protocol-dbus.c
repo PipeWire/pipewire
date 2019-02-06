@@ -626,6 +626,7 @@ static void pw_protocol_dbus_destroy(struct impl *impl)
 }
 #endif
 
+SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	pw_protocol_dbus_new(module->core, NULL);

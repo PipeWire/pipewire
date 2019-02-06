@@ -135,6 +135,7 @@ static struct pw_command *parse_command_module_load(const char *line, char **err
  *
  * \memberof pw_command
  */
+SPA_EXPORT
 void pw_command_free(struct pw_command *command)
 {
 	struct impl *impl = SPA_CONTAINER_OF(command, struct impl, this);
@@ -154,6 +155,7 @@ void pw_command_free(struct pw_command *command)
  *
  * \memberof pw_command
  */
+SPA_EXPORT
 struct pw_command *pw_command_parse(const char *line, char **err)
 {
 	struct pw_command *command = NULL;
@@ -187,6 +189,7 @@ struct pw_command *pw_command_parse(const char *line, char **err)
  *
  * \memberof pw_command
  */
+SPA_EXPORT
 int pw_command_run(struct pw_command *command, struct pw_core *core, char **err)
 {
 	return command->func(command, core, err);

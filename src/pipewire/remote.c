@@ -103,6 +103,7 @@ struct node_data {
 
 /** \endcond */
 
+SPA_EXPORT
 const char *pw_remote_state_as_string(enum pw_remote_state state)
 {
 	switch (state) {
@@ -208,6 +209,7 @@ static const struct pw_core_proxy_events core_proxy_events = {
 	.info = core_event_info,
 };
 
+SPA_EXPORT
 struct pw_remote *pw_remote_new(struct pw_core *core,
 				struct pw_properties *properties,
 				size_t user_data_size)
@@ -286,6 +288,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	return NULL;
 }
 
+SPA_EXPORT
 void pw_remote_destroy(struct pw_remote *remote)
 {
 	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
@@ -311,21 +314,25 @@ void pw_remote_destroy(struct pw_remote *remote)
 	free(impl);
 }
 
+SPA_EXPORT
 struct pw_core *pw_remote_get_core(struct pw_remote *remote)
 {
 	return remote->core;
 }
 
+SPA_EXPORT
 const struct pw_properties *pw_remote_get_properties(struct pw_remote *remote)
 {
 	return remote->properties;
 }
 
+SPA_EXPORT
 void *pw_remote_get_user_data(struct pw_remote *remote)
 {
 	return remote->user_data;
 }
 
+SPA_EXPORT
 enum pw_remote_state pw_remote_get_state(struct pw_remote *remote, const char **error)
 {
 	if (error)
@@ -333,6 +340,7 @@ enum pw_remote_state pw_remote_get_state(struct pw_remote *remote, const char **
 	return remote->state;
 }
 
+SPA_EXPORT
 void pw_remote_add_listener(struct pw_remote *remote,
 			    struct spa_hook *listener,
 			    const struct pw_remote_events *events,
@@ -366,16 +374,19 @@ static int do_connect(struct pw_remote *remote)
 	return -ENOMEM;
 }
 
+SPA_EXPORT
 struct pw_core_proxy * pw_remote_get_core_proxy(struct pw_remote *remote)
 {
 	return remote->core_proxy;
 }
 
+SPA_EXPORT
 const struct pw_core_info *pw_remote_get_core_info(struct pw_remote *remote)
 {
 	return remote->info;
 }
 
+SPA_EXPORT
 struct pw_proxy *pw_remote_find_proxy(struct pw_remote *remote, uint32_t id)
 {
 	return pw_map_lookup(&remote->objects, id);
@@ -393,6 +404,7 @@ static void done_connect(void *data, int result)
 	do_connect(remote);
 }
 
+SPA_EXPORT
 int pw_remote_connect(struct pw_remote *remote)
 {
 	int res;
@@ -407,6 +419,7 @@ int pw_remote_connect(struct pw_remote *remote)
 	return remote->state == PW_REMOTE_STATE_ERROR ? -EIO : 0;
 }
 
+SPA_EXPORT
 int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 {
 	int res;
@@ -422,6 +435,7 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 	return do_connect(remote);
 }
 
+SPA_EXPORT
 int pw_remote_steal_fd(struct pw_remote *remote)
 {
 	int fd;
@@ -432,6 +446,7 @@ int pw_remote_steal_fd(struct pw_remote *remote)
 	return fd;
 }
 
+SPA_EXPORT
 int pw_remote_disconnect(struct pw_remote *remote)
 {
 	struct pw_proxy *proxy, *t2;
@@ -1318,6 +1333,7 @@ static const struct spa_node node_impl = {
 	.port_reuse_buffer = impl_port_reuse_buffer,
 };
 
+SPA_EXPORT
 struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 				  struct pw_node *node)
 {

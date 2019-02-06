@@ -348,6 +348,7 @@ static void call_process(struct stream *impl)
 	}
 }
 
+SPA_EXPORT
 const char *pw_stream_state_as_string(enum pw_stream_state state)
 {
 	switch (state) {
@@ -369,6 +370,7 @@ const char *pw_stream_state_as_string(enum pw_stream_state state)
 	return "invalid-state";
 }
 
+SPA_EXPORT
 struct pw_stream *pw_stream_new(struct pw_remote *remote,
 				const char *name, struct pw_properties *props)
 {
@@ -422,6 +424,7 @@ struct pw_stream *pw_stream_new(struct pw_remote *remote,
 	return NULL;
 }
 
+SPA_EXPORT
 struct pw_stream *
 pw_stream_new_simple(struct pw_loop *loop, const char *name, struct pw_properties *props,
 		     const struct pw_stream_events *events, void *data)
@@ -429,6 +432,7 @@ pw_stream_new_simple(struct pw_loop *loop, const char *name, struct pw_propertie
 	return NULL;
 }
 
+SPA_EXPORT
 enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **error)
 {
 	if (error)
@@ -436,16 +440,19 @@ enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **
 	return stream->state;
 }
 
+SPA_EXPORT
 const char *pw_stream_get_name(struct pw_stream *stream)
 {
 	return stream->name;
 }
 
+SPA_EXPORT
 const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream)
 {
 	return stream->properties;
 }
 
+SPA_EXPORT
 void pw_stream_add_listener(struct pw_stream *stream,
 			    struct spa_hook *listener,
 			    const struct pw_stream_events *events,
@@ -525,6 +532,7 @@ static void set_params(struct pw_stream *stream, int n_params, const struct spa_
 	}
 }
 
+SPA_EXPORT
 void pw_stream_destroy(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1246,6 +1254,7 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = on_node_proxy_destroy,
 };
 
+SPA_EXPORT
 int
 pw_stream_connect(struct pw_stream *stream,
 		  enum pw_direction direction,
@@ -1286,18 +1295,21 @@ pw_stream_connect(struct pw_stream *stream,
 	return 0;
 }
 
+SPA_EXPORT
 struct pw_remote *
 pw_stream_get_remote(struct pw_stream *stream)
 {
 	return stream->remote;
 }
 
+SPA_EXPORT
 uint32_t
 pw_stream_get_node_id(struct pw_stream *stream)
 {
 	return stream->node_id;
 }
 
+SPA_EXPORT
 void
 pw_stream_finish_format(struct pw_stream *stream,
 			int res,
@@ -1323,6 +1335,7 @@ pw_stream_finish_format(struct pw_stream *stream,
 	impl->pending_seq = SPA_ID_INVALID;
 }
 
+SPA_EXPORT
 int pw_stream_disconnect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1340,6 +1353,7 @@ int pw_stream_disconnect(struct pw_stream *stream)
 	return 0;
 }
 
+SPA_EXPORT
 int pw_stream_set_active(struct pw_stream *stream, bool active)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1352,6 +1366,7 @@ static inline int64_t get_queue_size(struct queue *queue)
 	return (int64_t)(queue->incount - queue->outcount);
 }
 
+SPA_EXPORT
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1371,16 +1386,19 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	return 0;
 }
 
+SPA_EXPORT
 int pw_stream_set_control(struct pw_stream *stream, const char *name, float value)
 {
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 int pw_stream_get_control(struct pw_stream *stream, const char *name, float *value)
 {
 	return -ENOTSUP;
 }
 
+SPA_EXPORT
 struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1395,6 +1413,7 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 	return &b->buffer;
 }
 
+SPA_EXPORT
 int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);

@@ -120,11 +120,13 @@ void pw_control_destroy(struct pw_control *control)
 	free(control);
 }
 
+SPA_EXPORT
 struct pw_port *pw_control_get_port(struct pw_control *control)
 {
 	return control->port;
 }
 
+SPA_EXPORT
 void pw_control_add_listener(struct pw_control *control,
 			     struct spa_hook *listener,
 			     const struct pw_control_events *events,
@@ -133,6 +135,7 @@ void pw_control_add_listener(struct pw_control *control,
 	spa_hook_list_append(&control->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 int pw_control_link(struct pw_control *control, struct pw_control *other)
 {
 	int res = 0;
@@ -198,6 +201,7 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 	return res;
 }
 
+SPA_EXPORT
 int pw_control_unlink(struct pw_control *control, struct pw_control *other)
 {
 	int res = 0;

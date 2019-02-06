@@ -30,6 +30,7 @@ struct impl {
 };
 /** \endcond */
 
+SPA_EXPORT
 struct pw_resource *pw_resource_new(struct pw_client *client,
 				    uint32_t id,
 				    uint32_t permissions,
@@ -78,36 +79,43 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	return NULL;
 }
 
+SPA_EXPORT
 struct pw_client *pw_resource_get_client(struct pw_resource *resource)
 {
 	return resource->client;
 }
 
+SPA_EXPORT
 uint32_t pw_resource_get_id(struct pw_resource *resource)
 {
 	return resource->id;
 }
 
+SPA_EXPORT
 uint32_t pw_resource_get_permissions(struct pw_resource *resource)
 {
 	return resource->permissions;
 }
 
+SPA_EXPORT
 uint32_t pw_resource_get_type(struct pw_resource *resource)
 {
 	return resource->type;
 }
 
+SPA_EXPORT
 struct pw_protocol *pw_resource_get_protocol(struct pw_resource *resource)
 {
 	return resource->client->protocol;
 }
 
+SPA_EXPORT
 void *pw_resource_get_user_data(struct pw_resource *resource)
 {
 	return resource->user_data;
 }
 
+SPA_EXPORT
 void pw_resource_add_listener(struct pw_resource *resource,
 			      struct spa_hook *listener,
 			      const struct pw_resource_events *events,
@@ -116,6 +124,7 @@ void pw_resource_add_listener(struct pw_resource *resource,
 	spa_hook_list_append(&resource->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 void pw_resource_set_implementation(struct pw_resource *resource,
 				    const void *implementation,
 				    void *data)
@@ -128,6 +137,7 @@ void pw_resource_set_implementation(struct pw_resource *resource,
 	pw_client_events_resource_impl(client, resource);
 }
 
+SPA_EXPORT
 void pw_resource_add_override(struct pw_resource *resource,
 			      struct spa_hook *listener,
 			      const void *implementation,
@@ -136,22 +146,26 @@ void pw_resource_add_override(struct pw_resource *resource,
 	spa_hook_list_prepend(&resource->implementation_list, listener, implementation, data);
 }
 
+SPA_EXPORT
 struct spa_hook_list *pw_resource_get_implementation(struct pw_resource *resource)
 {
 	return &resource->implementation_list;
 }
 
+SPA_EXPORT
 const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *resource)
 {
 	return resource->marshal;
 }
 
+SPA_EXPORT
 void pw_resource_error(struct pw_resource *resource, int result, const char *error)
 {
 	if (resource->client->core_resource)
 		pw_core_resource_error(resource->client->core_resource, resource->id, result, error);
 }
 
+SPA_EXPORT
 void pw_resource_destroy(struct pw_resource *resource)
 {
 	struct pw_client *client = resource->client;

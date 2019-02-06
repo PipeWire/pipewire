@@ -96,6 +96,7 @@ do {									\
  *
  * \memberof pw_thread_loop
  */
+SPA_EXPORT
 struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 					  const char *name)
 {
@@ -145,6 +146,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 }
 
 /** Destroy a threaded loop \memberof pw_thread_loop */
+SPA_EXPORT
 void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 {
 	pw_thread_loop_events_destroy(loop);
@@ -163,6 +165,7 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 	free(loop);
 }
 
+SPA_EXPORT
 void pw_thread_loop_add_listener(struct pw_thread_loop *loop,
 				 struct spa_hook *listener,
 				 const struct pw_thread_loop_events *events,
@@ -171,6 +174,7 @@ void pw_thread_loop_add_listener(struct pw_thread_loop *loop,
 	spa_hook_list_append(&loop->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 struct pw_loop *
 pw_thread_loop_get_loop(struct pw_thread_loop *loop)
 {
@@ -204,6 +208,7 @@ static void *do_loop(void *user_data)
  *
  * \memberof pw_thread_loop
  */
+SPA_EXPORT
 int pw_thread_loop_start(struct pw_thread_loop *loop)
 {
 	if (!loop->running) {
@@ -226,6 +231,7 @@ int pw_thread_loop_start(struct pw_thread_loop *loop)
  *
  * \memberof pw_thread_loop
  */
+SPA_EXPORT
 void pw_thread_loop_stop(struct pw_thread_loop *loop)
 {
 	pw_log_debug("thread-loop: %p stopping", loop);
@@ -246,6 +252,7 @@ void pw_thread_loop_stop(struct pw_thread_loop *loop)
  *
  * \memberof pw_thread_loop
  */
+SPA_EXPORT
 void pw_thread_loop_lock(struct pw_thread_loop *loop)
 {
 	pthread_mutex_lock(&loop->lock);
@@ -257,6 +264,7 @@ void pw_thread_loop_lock(struct pw_thread_loop *loop)
  *
  * \memberof pw_thread_loop
  */
+SPA_EXPORT
 void pw_thread_loop_unlock(struct pw_thread_loop *loop)
 {
 	pthread_mutex_unlock(&loop->lock);
@@ -272,6 +280,7 @@ void pw_thread_loop_unlock(struct pw_thread_loop *loop)
  *
  * \memberof pw_thread_loop
  */
+SPA_EXPORT
 void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept)
 {
 	if (loop->n_waiting > 0)
@@ -291,6 +300,7 @@ void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept)
  *
  * \memberof pw_thread_loop
  */
+SPA_EXPORT
 void pw_thread_loop_wait(struct pw_thread_loop *loop)
 {
 	loop->n_waiting++;
@@ -307,6 +317,7 @@ void pw_thread_loop_wait(struct pw_thread_loop *loop)
  *
  * \memberof pw_thread_loop
  */
+SPA_EXPORT
 int pw_thread_loop_timed_wait(struct pw_thread_loop *loop, int wait_max_sec)
 {
 	struct timespec timeout;
@@ -328,6 +339,7 @@ int pw_thread_loop_timed_wait(struct pw_thread_loop *loop, int wait_max_sec)
  *
  * \memberof pw_thread_loop
  */
+SPA_EXPORT
 void pw_thread_loop_accept(struct pw_thread_loop *loop)
 {
 	loop->n_waiting_for_accept--;
@@ -341,6 +353,7 @@ void pw_thread_loop_accept(struct pw_thread_loop *loop)
  *
  * \memberof pw_thread_loop
  */
+SPA_EXPORT
 bool pw_thread_loop_in_thread(struct pw_thread_loop *loop)
 {
 	return pthread_self() == loop->thread;

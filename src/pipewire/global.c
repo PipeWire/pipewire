@@ -33,6 +33,7 @@ struct global_impl {
 
 /** \endcond */
 
+SPA_EXPORT
 uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client)
 {
 	uint32_t perms = PW_PERM_RWX;
@@ -55,6 +56,7 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *c
  *
  * \memberof pw_global
  */
+SPA_EXPORT
 struct pw_global *
 pw_global_new(struct pw_core *core,
 	      uint32_t type,
@@ -95,6 +97,7 @@ pw_global_new(struct pw_core *core,
  *
  * \memberof pw_global
  */
+SPA_EXPORT
 int
 pw_global_register(struct pw_global *global,
 		   struct pw_client *owner,
@@ -135,46 +138,55 @@ pw_global_register(struct pw_global *global,
 	return 0;
 }
 
+SPA_EXPORT
 struct pw_core *pw_global_get_core(struct pw_global *global)
 {
 	return global->core;
 }
 
+SPA_EXPORT
 struct pw_client *pw_global_get_owner(struct pw_global *global)
 {
 	return global->owner;
 }
 
+SPA_EXPORT
 struct pw_global *pw_global_get_parent(struct pw_global *global)
 {
 	return global->parent;
 }
 
+SPA_EXPORT
 uint32_t pw_global_get_type(struct pw_global *global)
 {
 	return global->type;
 }
 
+SPA_EXPORT
 uint32_t pw_global_get_version(struct pw_global *global)
 {
 	return global->version;
 }
 
+SPA_EXPORT
 const struct pw_properties *pw_global_get_properties(struct pw_global *global)
 {
 	return global->properties;
 }
 
+SPA_EXPORT
 void * pw_global_get_object(struct pw_global *global)
 {
 	return global->object;
 }
 
+SPA_EXPORT
 uint32_t pw_global_get_id(struct pw_global *global)
 {
 	return global->id;
 }
 
+SPA_EXPORT
 void pw_global_add_listener(struct pw_global *global,
 			    struct spa_hook *listener,
 			    const struct pw_global_events *events,
@@ -196,6 +208,7 @@ void pw_global_add_listener(struct pw_global *global,
  *
  * \memberof pw_global
  */
+SPA_EXPORT
 int
 pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
@@ -224,6 +237,7 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
  *
  * \memberof pw_global
  */
+SPA_EXPORT
 void pw_global_destroy(struct pw_global *global)
 {
 	struct pw_core *core = global->core;

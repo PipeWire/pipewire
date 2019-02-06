@@ -93,6 +93,7 @@ static struct spa_list _memblocks = SPA_LIST_INIT(&_memblocks);
  * \return 0 on success, < 0 on error
  * \memberof pw_memblock
  */
+SPA_EXPORT
 int pw_memblock_map(struct pw_memblock *mem)
 {
 	if (mem->ptr != NULL)
@@ -149,6 +150,7 @@ int pw_memblock_map(struct pw_memblock *mem)
  * \return 0 on success, < 0 on error
  * \memberof pw_memblock
  */
+SPA_EXPORT
 int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_memblock **mem)
 {
 	struct memblock tmp, *p;
@@ -224,6 +226,7 @@ int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_membl
 	return -ENOMEM;
 }
 
+SPA_EXPORT
 int
 pw_memblock_import(enum pw_memblock_flags flags,
 		   int fd, off_t offset, size_t size,
@@ -248,6 +251,7 @@ pw_memblock_import(enum pw_memblock_flags flags,
  * \param mem a memblock
  * \memberof pw_memblock
  */
+SPA_EXPORT
 void pw_memblock_free(struct pw_memblock *mem)
 {
 	struct memblock *m = (struct memblock *)mem;
@@ -268,6 +272,7 @@ void pw_memblock_free(struct pw_memblock *mem)
 	free(mem);
 }
 
+SPA_EXPORT
 struct pw_memblock * pw_memblock_find(const void *ptr)
 {
 	struct memblock *m;

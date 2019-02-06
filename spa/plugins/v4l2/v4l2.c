@@ -24,7 +24,7 @@
 extern const struct spa_handle_factory spa_v4l2_source_factory;
 extern const struct spa_handle_factory spa_v4l2_monitor_factory;
 
-int
+SPA_EXPORT int
 spa_handle_factory_enum(const struct spa_handle_factory **factory,
 			uint32_t *index)
 {

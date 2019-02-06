@@ -360,6 +360,7 @@ static const struct pw_global_events global_events = {
  *
  * \memberof pw_core
  */
+SPA_EXPORT
 struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *properties)
 {
 	struct pw_core *this;
@@ -468,6 +469,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop, struct pw_properties *pro
  *
  * \memberof pw_core
  */
+SPA_EXPORT
 void pw_core_destroy(struct pw_core *core)
 {
 	struct pw_global *global, *t;
@@ -506,16 +508,19 @@ void pw_core_destroy(struct pw_core *core)
 	free(core);
 }
 
+SPA_EXPORT
 const struct pw_core_info *pw_core_get_info(struct pw_core *core)
 {
 	return &core->info;
 }
 
+SPA_EXPORT
 struct pw_global *pw_core_get_global(struct pw_core *core)
 {
 	return core->global;
 }
 
+SPA_EXPORT
 void pw_core_add_listener(struct pw_core *core,
 			  struct spa_hook *listener,
 			  const struct pw_core_events *events,
@@ -524,22 +529,26 @@ void pw_core_add_listener(struct pw_core *core,
 	spa_hook_list_append(&core->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 struct pw_type *pw_core_get_type(struct pw_core *core)
 {
 	return &core->type;
 }
 
+SPA_EXPORT
 const struct spa_support *pw_core_get_support(struct pw_core *core, uint32_t *n_support)
 {
 	*n_support = core->n_support;
 	return core->support;
 }
 
+SPA_EXPORT
 struct pw_loop *pw_core_get_main_loop(struct pw_core *core)
 {
 	return core->main_loop;
 }
 
+SPA_EXPORT
 const struct pw_properties *pw_core_get_properties(struct pw_core *core)
 {
 	return core->properties;
@@ -554,6 +563,7 @@ const struct pw_properties *pw_core_get_properties(struct pw_core *core)
  *
  * \memberof pw_core
  */
+SPA_EXPORT
 int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
@@ -580,6 +590,7 @@ int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 	return changed;
 }
 
+SPA_EXPORT
 int pw_core_for_each_global(struct pw_core *core,
 			    int (*callback) (void *data, struct pw_global *global),
 			    void *data)
@@ -597,6 +608,7 @@ int pw_core_for_each_global(struct pw_core *core,
 	return 0;
 }
 
+SPA_EXPORT
 struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id)
 {
 	struct pw_global *global;
@@ -830,6 +842,7 @@ int pw_core_find_format(struct pw_core *core,
  *
  * \memberof pw_core
  */
+SPA_EXPORT
 struct pw_factory *pw_core_find_factory(struct pw_core *core,
 					const char *name)
 {

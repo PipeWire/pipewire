@@ -81,6 +81,8 @@ struct pw_type {
 
 int pw_type_init(struct pw_type *type);
 
+int pw_type_get(struct pw_type *type, const char *id, void *data);
+
 #ifdef __cplusplus
 }
 #endif

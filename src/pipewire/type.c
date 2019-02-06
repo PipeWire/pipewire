@@ -18,6 +18,7 @@
  */
 
 #include <string.h>
+#include <errno.h>
 
 #include <spa/support/type-map.h>
 #include <spa/utils/defs.h>
@@ -25,11 +26,16 @@
 #include <spa/param/format.h>
 #include <spa/param/props.h>
 #include <spa/monitor/monitor.h>
+#include <spa/param/format-utils.h>
+#include <spa/param/video/format-utils.h>
+#include <spa/param/video/raw.h>
+#include <spa/param/video-padding.h>
+#include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/type.h"
 #include "pipewire/module.h"
-
 
 /** Initializes the type system
  * \param type a type structure
@@ -38,6 +44,8 @@
 int pw_type_init(struct pw_type *type)
 {
 	type->map = pw_get_support_interface(SPA_TYPE__TypeMap);
+	if (type->map == NULL)
+		return -EFAULT;
 
 	type->core = spa_type_map_get_id(type->map, PW_TYPE_INTERFACE__Core);
 	type->registry = spa_type_map_get_id(type->map, PW_TYPE_INTERFACE__Registry);
@@ -65,5 +73,54 @@ int pw_type_init(struct pw_type *type)
 	spa_type_param_buffers_map(type->map, &type->param_buffers);
 	spa_type_param_meta_map(type->map, &type->param_meta);
 	spa_type_param_io_map(type->map, &type->param_io);
+	return 0;
+}
+
+int pw_type_get(struct pw_type *type, const char *id, void *data)
+{
+	if (!strcmp(id, SPA_TYPE__MediaType)) {
+		struct spa_type_media_type *t = data;
+		spa_type_media_type_map(type->map, t);
+	}
+	else if (!strcmp(id, SPA_TYPE__MediaSubtype)) {
+		struct spa_type_media_subtype *t = data;
+		spa_type_media_subtype_map(type->map, t);
+	}
+	else if (!strcmp(id, SPA_TYPE_MEDIA_SUBTYPE__Video)) {
+		struct spa_type_media_subtype_video *t = data;
+		spa_type_media_subtype_video_map(type->map, t);
+	}
+	else if (!strcmp(id, SPA_TYPE_MEDIA_SUBTYPE__Audio)) {
+		struct spa_type_media_subtype_audio *t = data;
+		spa_type_media_subtype_audio_map(type->map, t);
+	}
+	else if (!strcmp(id, SPA_TYPE_FORMAT__Video)) {
+		struct spa_type_format_video *t = data;
+		spa_type_format_video_map(type->map, t);
+	}
+	else if (!strcmp(id, SPA_TYPE_FORMAT__Audio)) {
+		struct spa_type_format_audio *t = data;
+		spa_type_format_audio_map(type->map, t);
+	}
+	else if (!strcmp(id, SPA_TYPE__AudioFormat)) {
+		struct spa_type_audio_format *t = data;
+		spa_type_audio_format_map(type->map, t);
+	}
+	else if (!strcmp(id, SPA_TYPE__VideoFormat)) {
+		struct spa_type_video_format *t = data;
+		spa_type_video_format_map(type->map, t);
+	}
+	else if (!strcmp(id, SPA_TYPE__AudioFormat)) {
+		struct spa_type_audio_format *t = data;
+		spa_type_audio_format_map(type->map, t);
+	}
+	else if (!strcmp(id, SPA_TYPE_PARAM__VideoPadding)) {
+		struct spa_type_param_video_padding *t = data;
+		spa_type_param_video_padding_map(type->map, t);
+	}
+	else {
+		uint32_t *t = data;
+		*t = spa_type_map_get_id(type->map, id);
+	}
 	return 0;
 }

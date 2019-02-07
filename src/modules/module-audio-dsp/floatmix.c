@@ -725,15 +725,32 @@ static void mix_2(float *dst, float *src1, float *src2, int n_samples)
 	if (SPA_IS_ALIGNED(src1, 16) &&
 	    SPA_IS_ALIGNED(src2, 16) &&
 	    SPA_IS_ALIGNED(dst, 16))
-		unrolled = n_samples / 4;
+		unrolled = n_samples / 16;
 	else
 		unrolled = 0;
 
-	for (n = 0; unrolled--; n += 4) {
-		in[0] = _mm_load_ps(&src1[n]),
-		in[1] = _mm_load_ps(&src2[n]),
-		in[0] = _mm_add_ps(in[0], in[1]);
-		_mm_store_ps(&dst[n], in[0]);
+	for (n = 0; unrolled--; n += 16) {
+		__m128 in1[4], in2[4];
+
+		in1[0] = _mm_load_ps(&src1[n+ 0]);
+		in1[1] = _mm_load_ps(&src1[n+ 4]);
+		in1[2] = _mm_load_ps(&src1[n+ 8]);
+		in1[3] = _mm_load_ps(&src1[n+12]);
+
+		in2[0] = _mm_load_ps(&src2[n+ 0]);
+		in2[1] = _mm_load_ps(&src2[n+ 4]);
+		in2[2] = _mm_load_ps(&src2[n+ 8]);
+		in2[3] = _mm_load_ps(&src2[n+12]);
+
+		in1[0] = _mm_add_ps(in1[0], in2[0]);
+		in1[1] = _mm_add_ps(in1[1], in2[1]);
+		in1[2] = _mm_add_ps(in1[2], in2[2]);
+		in1[3] = _mm_add_ps(in1[3], in2[3]);
+
+		_mm_store_ps(&dst[n+ 0], in1[0]);
+		_mm_store_ps(&dst[n+ 4], in1[1]);
+		_mm_store_ps(&dst[n+ 8], in1[2]);
+		_mm_store_ps(&dst[n+12], in1[3]);
 	}
 	for (; n < n_samples; n++) {
 		in[0] = _mm_load_ss(&src1[n]),

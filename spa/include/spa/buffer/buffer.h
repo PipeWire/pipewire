@@ -64,7 +64,7 @@ struct spa_data {
 #define SPA_DATA_FLAG_NONE	 0
 #define SPA_DATA_FLAG_CORRUPTED	(1<<0)	/**< data is corrupted in some way */
 	uint32_t flags;			/**< data flags */
-	int fd;				/**< optional fd for data */
+	int64_t fd;			/**< optional fd for data */
 	uint32_t mapoffset;		/**< offset to map fd at */
 	uint32_t maxsize;		/**< max size of data */
 	void *data;			/**< optional data pointer */

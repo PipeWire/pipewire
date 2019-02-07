@@ -528,7 +528,7 @@ static int map_data(struct stream *impl, struct spa_data *data, int prot)
 		return -errno;
 	}
 	data->data = SPA_MEMBER(ptr, range.start, void);
-	pw_log_debug("stream %p: fd %d mapped %d %d %p", impl, data->fd,
+	pw_log_debug("stream %p: fd %"PRIi64" mapped %d %d %p", impl, data->fd,
 			range.offset, range.size, data->data);
 
 	return 0;
@@ -543,7 +543,7 @@ static int unmap_data(struct stream *impl, struct spa_data *data)
 	if (munmap(SPA_MEMBER(data->data, -range.start, void), range.size) < 0)
 		pw_log_warn("failed to unmap: %m");
 
-	pw_log_debug("stream %p: fd %d unmapped", impl, data->fd);
+	pw_log_debug("stream %p: fd %"PRIi64" unmapped", impl, data->fd);
 	return 0;
 }
 

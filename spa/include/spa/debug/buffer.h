@@ -100,7 +100,7 @@ static inline int spa_debug_buffer(int indent, const struct spa_buffer *buffer)
 			spa_debug_type_find_name(spa_type_data_type, d->type));
 		spa_debug("%*s" "   flags:   %d", indent, "", d->flags);
 		spa_debug("%*s" "   data:    %p", indent, "", d->data);
-		spa_debug("%*s" "   fd:      %d", indent, "", d->fd);
+		spa_debug("%*s" "   fd:      %" PRIi64, indent, "", d->fd);
 		spa_debug("%*s" "   offset:  %d", indent, "", d->mapoffset);
 		spa_debug("%*s" "   maxsize: %u", indent, "", d->maxsize);
 		spa_debug("%*s" "   chunk:   %p", indent, "", d->chunk);

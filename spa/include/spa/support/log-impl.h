@@ -68,9 +68,9 @@ struct {					\
 } name
 
 #define SPA_LOG_IMPL_INIT			\
-        { { SPA_VERSION_LOG,			\
-            NULL,				\
+	{ { SPA_VERSION_LOG,			\
 	    SPA_LOG_LEVEL_INFO,			\
+	    NULL,				\
 	    spa_log_impl_log,			\
 	    spa_log_impl_logv,} }
 

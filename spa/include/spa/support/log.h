@@ -51,14 +51,14 @@ struct spa_log {
 #define SPA_VERSION_LOG	0
 	uint32_t version;
 	/**
-	 * Extra information about the log
-	 */
-	const struct spa_dict *info;
-
-	/**
 	 * Logging level, everything above this level is not logged
 	 */
 	enum spa_log_level level;
+
+	/**
+	 * Extra information about the log
+	 */
+	const struct spa_dict *info;
 
 	/**
 	 * Log a message with the given log level.

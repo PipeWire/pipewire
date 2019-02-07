@@ -151,8 +151,8 @@ static void on_trace_event(struct spa_source *source)
 
 static const struct spa_log impl_log = {
 	SPA_VERSION_LOG,
-	NULL,
 	DEFAULT_LOG_LEVEL,
+	NULL,
 	impl_log_log,
 	impl_log_logv,
 };

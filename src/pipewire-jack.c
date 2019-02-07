@@ -780,26 +780,41 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 	}
 
 	if (mask & SPA_IO_IN) {
-		uint64_t cmd, usec;
+		uint64_t cmd, nsec, frame;
+		int64_t delay;
 		uint32_t buffer_size, sample_rate;
 
-		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
+		if (read(fd, &cmd, sizeof(cmd)) != sizeof(cmd))
 			pw_log_warn("jack %p: read failed %m", c);
 		if (cmd > 1)
 			pw_log_warn("jack %p: missed %"PRIu64" wakeups", c, cmd - 1);
 
-		buffer_size = c->position->size;
+		if (c->position) {
+			buffer_size = c->position->size;
+			if (c->position->clock.rate.num != 0 && c->position->clock.rate.denom != 0)
+				sample_rate = c->position->clock.rate.denom / c->position->clock.rate.num;
+			else
+				sample_rate = c->sample_rate;
+			c->rate_diff = c->position->clock.rate_diff;
+			nsec = c->position->clock.nsec;
+			frame = c->position->clock.position;
+			delay = c->position->clock.delay;
+		}
+		else {
+			buffer_size = DEFAULT_BUFFER_SIZE;
+			sample_rate = DEFAULT_SAMPLE_RATE;
+			c->rate_diff = 1.0;
+			nsec = 0;
+			frame = c->jack_position.frame + buffer_size;
+			delay = 0;
+		}
+
 		if (buffer_size != c->buffer_size) {
 			pw_log_info("jack %p: buffersize %d", c, buffer_size);
 			c->buffer_size = buffer_size;
 			if (c->bufsize_callback)
 				c->bufsize_callback(c->buffer_size, c->bufsize_arg);
 		}
-
-		if (c->position->clock.rate.num != 0 && c->position->clock.rate.denom != 0)
-			sample_rate = c->position->clock.rate.denom / c->position->clock.rate.num;
-		else
-			sample_rate = c->sample_rate;
 
 		if (sample_rate != c->sample_rate) {
 			pw_log_info("jack %p: sample_rate %d", c, sample_rate);
@@ -808,13 +823,10 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 				c->srate_callback(c->sample_rate, c->srate_arg);
 		}
 
-		c->rate_diff = c->position->clock.rate_diff;
-		usec = c->position->clock.nsec / SPA_NSEC_PER_USEC;
-
 		c->jack_position.unique_1++;
-		c->jack_position.usecs = usec;
-		c->jack_position.frame_rate = c->sample_rate;
-		c->jack_position.frame = c->position->clock.position;
+		c->jack_position.usecs = nsec / SPA_NSEC_PER_USEC;
+		c->jack_position.frame_rate = sample_rate;
+		c->jack_position.frame = frame;
 		c->jack_position.valid = 0;
 		c->jack_position.unique_2 = c->jack_position.unique_1;
 
@@ -823,9 +835,9 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 					 &c->jack_position, c->sync_arg);
 		}
 
-		pw_log_trace("do process %"PRIu64" %d %d %d %"PRIi64" %f", c->position->clock.nsec,
+		pw_log_trace("do process %"PRIu64" %d %d %d %"PRIi64" %f", nsec,
 				c->buffer_size, c->sample_rate,
-				c->jack_position.frame, c->position->clock.delay, c->rate_diff);
+				c->jack_position.frame, delay, c->rate_diff);
 
 		if (c->process_callback)
 			c->process_callback(c->buffer_size, c->process_arg);
@@ -840,7 +852,8 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 		process_tee(c);
 
 		cmd = 1;
-		write(c->writefd, &cmd, 8);
+		if (write(c->writefd, &cmd, sizeof(cmd)) != sizeof(cmd))
+			pw_log_warn("jack %p: write failed %m", c);
 	}
 }
 
@@ -1438,7 +1451,8 @@ static void client_node_port_set_io(void *object,
 		break;
 	}
 
-	pw_log_debug("port %p: set io id %u %u %u %u %p", p, id, mem_id, offset, size, ptr);
+	pw_log_debug("port %p: set io %s %u %u %u %p", p,
+			spa_debug_type_find_name(spa_type_io, id), mem_id, offset, size, ptr);
 
       exit:
 	pw_client_node_proxy_done(c->node_proxy, seq, res);
@@ -2976,7 +2990,7 @@ jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 	uint64_t diff;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	diff = SPA_TIMESPEC_TO_NSEC(&ts) - c->position->clock.nsec;
+	diff = SPA_TIMESPEC_TO_USEC(&ts) - c->jack_position.usecs;
 	res = (jack_nframes_t) floor(((float)c->sample_rate * diff) / 1000000000.0f);
 	return res;
 }

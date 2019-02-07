@@ -130,6 +130,7 @@ struct spa_io_position_video {
 struct spa_io_position {
 	struct spa_io_clock clock;		/**< clock position of driver, always valid and
 						  *  read only */
+	uint32_t version;			/**< current graph version */
 	uint32_t size;				/**< size of current cycle expressed in clock.rate */
 	struct spa_fraction rate;		/**< overal rate of the graph */
 #define SPA_IO_POSITION_FLAG_BAR	(1<<0)

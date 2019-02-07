@@ -170,8 +170,6 @@ struct impl {
 
 	int fds[2];
 	int other_fds[2];
-
-	struct spa_io_position *position;
 };
 
 static int
@@ -295,7 +293,8 @@ static struct io *update_io(struct node *this,
 	io = f;
 	io->id = id;
 	io->memid = memid;
-	spa_log_debug(this->log, "node %p: add io %p %d %d", this, io, id, memid);
+	spa_log_debug(this->log, "node %p: add io %p %s %d", this, io,
+			spa_debug_type_find_name(spa_type_io, id), memid);
 
      found:
 	return io;
@@ -430,6 +429,7 @@ static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size
 			return -EINVAL;
 
 		mem_offset += mem->offset;
+		mem_size = size;
 		m = ensure_mem(impl, mem->fd, SPA_DATA_MemFd, mem->flags);
 		memid = m->id;
 	}
@@ -1011,14 +1011,9 @@ static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
 	struct impl *impl = this->impl;
-	struct spa_io_position *q, *rq;
 	uint64_t cmd = 1;
 
 	spa_log_trace(this->log, "%p: send process %p", this, impl->this.node->driver_node);
-
-	q = impl->this.node->driver_node->rt.position;
-	rq = impl->position;
-	*rq = *q;
 
 	if (write(this->writefd, &cmd, 8) != 8)
 		spa_log_warn(this->log, "node %p: error %s", this, strerror(errno));
@@ -1297,8 +1292,7 @@ static void node_initialized(void *data)
 	struct pw_client_node *this = &impl->this;
 	struct pw_node *node = this->node;
 	struct pw_global *global;
-	uint32_t area_size, size;
-	struct mem *m;
+	size_t size;
 
 	if (this->resource == NULL)
 		return;
@@ -1313,8 +1307,7 @@ static void node_initialized(void *data)
 	spa_loop_add_source(impl->node.data_loop, &impl->node.data_source);
 	pw_log_debug("client-node %p: transport fd %d %d", node, impl->fds[0], impl->fds[1]);
 
-	area_size = sizeof(struct spa_io_buffers) * MAX_AREAS;
-	size = area_size + sizeof(struct spa_io_position);
+	size = sizeof(struct spa_io_buffers) * MAX_AREAS;
 
 	if (pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 			      PW_MEMBLOCK_FLAG_MAP_READWRITE |
@@ -1323,17 +1316,7 @@ static void node_initialized(void *data)
 			      &impl->io_areas) < 0)
                 return;
 
-	impl->position = SPA_MEMBER(impl->io_areas->ptr,
-			area_size, struct spa_io_position);
-
-	m = ensure_mem(impl, impl->io_areas->fd, SPA_DATA_MemFd, impl->io_areas->flags);
 	pw_log_debug("client-node %p: io areas %p", node, impl->io_areas->ptr);
-
-	pw_client_node_resource_set_io(this->resource,
-				       SPA_IO_Position,
-				       m->id,
-				       area_size,
-				       sizeof(struct spa_io_position));
 
 	if ((global = pw_node_get_global(node)) != NULL)
 		pw_client_node_registered(this, pw_global_get_id(global));

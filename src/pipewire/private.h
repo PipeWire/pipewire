@@ -39,12 +39,13 @@ extern "C" {
 #include "pipewire/stream.h"
 #include "pipewire/log.h"
 
+#include <spa/utils/type-info.h>
+
 #ifndef spa_debug
 #define spa_debug pw_log_trace
 #endif
 
 #include <spa/graph/graph.h>
-#include <spa/utils/type-info.h>
 
 struct pw_command;
 
@@ -298,7 +299,8 @@ struct pw_node_activation {
 	uint64_t awake_time;
 	uint64_t finish_time;
 
-	struct spa_graph_state state;
+	struct spa_io_position position;
+	struct spa_graph_state state[2];	/* one current state and one next state */
 };
 
 #define pw_node_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_node_events, m, v, ##__VA_ARGS__)

@@ -245,7 +245,14 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 
 static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
-	return 0;
+	struct node *this;
+	struct impl *impl;
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct node, node);
+	impl = this->impl;
+
+	return spa_node_set_io(impl->cnode, id, data, size);
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -949,8 +956,6 @@ static void client_node_initialized(void *data)
 
 	pw_log_debug("client-stream %p: initialized", &impl->this);
 
-	impl->cnode = pw_node_get_implementation(impl->client_node->node);
-
 	if ((res = spa_node_get_n_ports(impl->cnode,
 			     &n_input_ports,
 			     &max_input_ports,
@@ -1234,6 +1239,8 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 			false);
 	if (impl->client_node == NULL)
 		goto error_no_node;
+
+	impl->cnode = pw_node_get_implementation(impl->client_node->node);
 
 	support = pw_core_get_support(impl->core, &n_support);
 

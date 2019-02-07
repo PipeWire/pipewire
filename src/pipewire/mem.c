@@ -283,8 +283,10 @@ struct pw_memblock * pw_memblock_find(const void *ptr)
 	struct memblock *m;
 
 	spa_list_for_each(m, &_memblocks, link) {
-		if (ptr >= m->mem.ptr && ptr < SPA_MEMBER(m->mem.ptr, m->mem.size, void))
+		if (ptr >= m->mem.ptr && ptr < SPA_MEMBER(m->mem.ptr, m->mem.size, void)) {
+			pw_log_debug("mem %p: found for %p", &m->mem, ptr);
 			return &m->mem;
+		}
 	}
 	return NULL;
 }

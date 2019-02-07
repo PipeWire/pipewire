@@ -183,23 +183,25 @@ static void *mem_map(struct node_data *data, struct mapping *map,
 	pw_map_range_init(&m.map, offset, size, data->core->sc_pagesize);
 
 	if (map->ptr == NULL || map->map.offset != m.map.offset || map->map.size != m.map.size) {
-		map->ptr = mmap(map->ptr, m.map.size, prot, MAP_SHARED, fd, m.map.offset);
-		if (map->ptr == MAP_FAILED) {
+		m.ptr = mmap(map->ptr, m.map.size, prot, MAP_SHARED, fd, m.map.offset);
+		if (m.ptr == MAP_FAILED) {
 			pw_log_error("remote %p: Failed to mmap memory %d: %m", data, size);
 			return NULL;
 		}
 		map->map = m.map;
+		map->ptr = m.ptr;
+		pw_log_debug("remote %p: fd %d map %d %d %p", data, fd, m.map.offset, m.map.size, m.ptr);
 	}
 	ptr = SPA_MEMBER(map->ptr, map->map.start, void);
-	pw_log_debug("remote %p: fd %d mapped %d %d %p", data, fd, offset, size, ptr);
+	pw_log_debug("remote %p: fd %d ptr %p (%d %d)", data, fd, ptr, offset, size);
 
 	return ptr;
 }
 
-static void *mem_unmap(struct node_data *data, void *ptr, struct pw_map_range *range)
+static void *mem_unmap(struct node_data *data, struct mapping *map)
 {
-	if (ptr != NULL) {
-                if (munmap(SPA_MEMBER(ptr, -range->start, void), range->size) < 0)
+	if (map->ptr != NULL) {
+                if (munmap(map->ptr, map->map.size) < 0)
 			pw_log_warn("failed to unmap: %m");
 	}
 	return NULL;
@@ -225,7 +227,7 @@ static void clear_mem(struct node_data *data, struct mem *m)
 			}
 		}
 		if (!has_ref) {
-			m->map.ptr = mem_unmap(data, m->map.ptr, &m->map.map);
+			m->map.ptr = mem_unmap(data, &m->map);
 			close(fd);
 		}
 	}

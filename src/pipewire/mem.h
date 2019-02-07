@@ -87,7 +87,7 @@ static inline void pw_map_range_init(struct pw_map_range *range,
 {
 	range->offset = SPA_ROUND_DOWN_N(offset, page_size);
 	range->start = offset - range->offset;
-	range->size = offset + size - range->offset;
+	range->size = SPA_ROUND_UP_N(range->start + size, page_size);
 }
 
 

@@ -10,8 +10,8 @@ test_apps = [
 ]
 
 foreach a : test_apps
-  test(a,
-	executable(a, a + '.c',
+  test('pw-' + a,
+	executable('pw-' + a, a + '.c',
 		dependencies : [pipewire_dep],
 		c_args : [ '-D_GNU_SOURCE' ],
 		install : false),
@@ -23,8 +23,8 @@ endforeach
 
 
 if have_cpp
-test_cpp = executable('test-cpp', 'test-cpp.cpp',
+test_cpp = executable('pw-test-cpp', 'test-cpp.cpp',
                         dependencies : [pipewire_dep],
                         install : false)
-test('test-cpp', test_cpp)
+test('pw-test-cpp', test_cpp)
 endif

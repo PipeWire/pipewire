@@ -51,6 +51,9 @@ struct impl {
 # if defined (__i386__) || defined (__x86_64__)
 #include "cpu-x86.c"
 #define init(t)	x86_init(t)
+# elif defined (__arm__) || defined (__aarch64__)
+#include "cpu-arm.c"
+#define init(t)	arm_init(t)
 #endif
 
 static uint32_t

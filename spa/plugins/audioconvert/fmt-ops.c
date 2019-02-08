@@ -30,8 +30,6 @@
 #include <spa/utils/defs.h>
 #include <spa/param/audio/format-utils.h>
 
-#include <xmmintrin.h>
-
 #define U8_MIN		0
 #define U8_MAX		255
 #define U8_SCALE	127.5f

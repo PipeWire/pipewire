@@ -5,8 +5,8 @@ test_apps = [
 ]
 
 foreach a : test_apps
-  test(a,
-	executable(a, a + '.c',
+  test('spa-' + a,
+	executable('spa-' + a, a + '.c',
 		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [spa_inc ],
 		c_args : [ '-D_GNU_SOURCE' ],
@@ -17,11 +17,11 @@ foreach a : test_apps
 endforeach
 
 if have_cpp
-test_cpp = executable('test-cpp', 'test-cpp.cpp',
+test_cpp = executable('spa-test-cpp', 'test-cpp.cpp',
                         include_directories : [spa_inc ],
                         dependencies : [],
                         install : false)
-test('test-cpp', test_cpp)
+test('spa-test-cpp', test_cpp)
 endif
 
 benchmark_apps = [
@@ -30,8 +30,8 @@ benchmark_apps = [
 ]
 
 foreach a : benchmark_apps
-  benchmark(a,
-	executable(a, a + '.c',
+  benchmark('spa-' + a,
+	executable('spa-' + a, a + '.c',
 		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [spa_inc ],
 		c_args : [ '-D_GNU_SOURCE' ],

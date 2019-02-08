@@ -37,12 +37,12 @@ struct spa_buffer_alloc_info {
 #define SPA_BUFFER_ALLOC_FLAG_INLINE_ALL	0b111
 #define SPA_BUFFER_ALLOC_FLAG_NO_DATA		(1<<3)	/**< don't set data pointers */
 	uint32_t flags;
+	uint32_t max_align;	/**< max of all alignments */
 	uint32_t n_metas;
-	struct spa_meta *metas;
 	uint32_t n_datas;
+	struct spa_meta *metas;
 	struct spa_data *datas;
 	uint32_t *data_aligns;
-	uint32_t max_align;	/**< max of all alignments */
 	size_t skel_size;	/**< size of the struct spa_buffer and inlined meta/chunk/data */
 	size_t meta_size;	/**< size of the meta if not inlined */
 	size_t chunk_size;	/**< size of the chunk if not inlined */

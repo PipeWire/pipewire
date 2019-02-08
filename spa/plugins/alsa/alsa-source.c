@@ -816,10 +816,7 @@ static const struct spa_dict_item info_items[] = {
 	{ "factory.description", "Record audio with the alsa API" },
 };
 
-static const struct spa_dict info = {
-	info_items,
-	SPA_N_ELEMENTS(info_items)
-};
+static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 const struct spa_handle_factory spa_alsa_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,

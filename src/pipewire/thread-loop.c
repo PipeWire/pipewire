@@ -43,7 +43,6 @@ struct pw_thread_loop {
 	pthread_cond_t cond;
 	pthread_cond_t accept_cond;
 
-	bool running;
 	pthread_t thread;
 
 	struct spa_hook hook;
@@ -52,6 +51,7 @@ struct pw_thread_loop {
 
 	int n_waiting;
 	int n_waiting_for_accept;
+	int running:1;
 };
 /** \endcond */
 

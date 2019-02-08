@@ -136,6 +136,7 @@ struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 			return NULL;
 	}
 	info->id = update->id;
+	info->cookie = update->cookie;
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_CORE_CHANGE_MASK_USER_NAME) {
@@ -154,8 +155,6 @@ struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 		free((void *) info->name);
 		info->name = update->name ? strdup(update->name) : NULL;
 	}
-	if (update->change_mask & PW_CORE_CHANGE_MASK_COOKIE)
-		info->cookie = update->cookie;
 	if (update->change_mask & PW_CORE_CHANGE_MASK_PROPS) {
 		if (info->props)
 			pw_spa_dict_destroy(info->props);

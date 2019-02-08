@@ -982,10 +982,7 @@ static const struct spa_dict_item info_items[] = {
 	{ "factory.description", "Generate a video test pattern" },
 };
 
-static const struct spa_dict info = {
-	info_items,
-	SPA_N_ELEMENTS(info_items)
-};
+static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 const struct spa_handle_factory spa_videotestsrc_factory = {
 	SPA_VERSION_HANDLE_FACTORY,

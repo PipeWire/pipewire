@@ -53,10 +53,10 @@ typedef int (*pw_command_func_t) (struct pw_command *command, struct pw_core *co
 
 /** \cond */
 struct pw_command {
-	uint32_t id;		/**< id of command */
 	struct spa_list link;	/**< link in list of commands */
         pw_command_func_t func;
         char **args;
+	uint32_t id;		/**< id of command */
         int n_args;
 };
 
@@ -100,7 +100,6 @@ struct pw_client {
 	struct spa_list link;		/**< link in core object client list */
 	struct pw_global *global;	/**< global object created for this client */
 	struct spa_hook global_listener;
-	bool registered;
 
 	pw_permission_func_t permission_func;	/**< get permissions of an object */
 	void *permission_data;			/**< data passed to permission function */
@@ -108,14 +107,10 @@ struct pw_client {
 	struct pw_properties *properties;	/**< Client properties */
 
 	struct pw_client_info info;	/**< client info */
-	bool ucred_valid;		/**< if the ucred member is valid */
-	struct ucred ucred;		/**< ucred information */
 
 	struct pw_resource *core_resource;	/**< core resource object */
 
 	struct pw_map objects;		/**< list of resource objects */
-
-	bool busy;
 
 	struct spa_hook_list listener_list;
 
@@ -123,6 +118,11 @@ struct pw_client {
 	struct spa_list protocol_link;	/**< link in the protocol client_list */
 
 	void *user_data;		/**< extra user data */
+
+	struct ucred ucred;		/**< ucred information */
+	int registered:1;
+	int ucred_valid:1;		/**< if the ucred member is valid */
+	int busy:1;
 };
 
 #define pw_global_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_global_events, m, v, ##__VA_ARGS__)
@@ -210,8 +210,8 @@ struct pw_data_loop {
 
         struct spa_source *event;
 
-        bool running;
         pthread_t thread;
+        int running:1;
 };
 
 #define pw_main_loop_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_main_loop_events, m, v, ##__VA_ARGS__)
@@ -223,7 +223,7 @@ struct pw_main_loop {
 	struct spa_hook_list listener_list;
         struct spa_source *event;
 
-        bool running;
+	int running:1;
 };
 
 struct allocation {
@@ -258,7 +258,6 @@ struct pw_device {
 	struct spa_list link;           /**< link in the core device_list */
 	struct pw_global *global;       /**< global object for this device */
 	struct spa_hook global_listener;
-	bool registered;
 
 	struct pw_properties *properties;	/**< properties of the device */
 	struct pw_device_info info;     /**< introspectable device info */
@@ -269,6 +268,8 @@ struct pw_device {
 	struct spa_list node_list;
 
 	void *user_data;                /**< device user_data */
+
+	int registered:1;
 };
 
 #define pw_module_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_module_events, m, v, ##__VA_ARGS__)
@@ -327,20 +328,22 @@ struct pw_node {
 	struct spa_list link;		/**< link in core node_list */
 	struct pw_global *global;	/**< global for this node */
 	struct spa_hook global_listener;
-	bool registered;
 
 	struct pw_properties *properties;	/**< properties of the node */
 
 	struct pw_node_info info;		/**< introspectable node info */
 
-	bool enabled;			/**< if the node is enabled */
-	bool active;			/**< if the node is active */
-	bool live;			/**< if the node is live */
-	bool driver;			/**< if the node can drive the graph */
-	bool exported;			/**< if the node is exported */
-	bool remote;			/**< if the node is implemented remotely */
-	bool master;			/**< a master node is one of the driver nodes that
+	int registered:1;
+	int enabled:1;			/**< if the node is enabled */
+	int active:1;			/**< if the node is active */
+	int live:1;			/**< if the node is live */
+	int driver:1;			/**< if the node can drive the graph */
+	int exported:1;			/**< if the node is exported */
+	int remote:1;			/**< if the node is implemented remotely */
+	int master:1;			/**< a master node is one of the driver nodes that
 					  *  is selected to drive the graph */
+
+	uint32_t port_user_data_size;	/**< extra size for port user data */
 
 	struct pw_node *driver_node;
 	struct pw_node *driver_root;
@@ -349,16 +352,15 @@ struct pw_node {
 
 	struct spa_node *node;		/**< SPA node implementation */
 
-	uint32_t port_user_data_size;	/**< extra size for port user data */
-
 	struct spa_list input_ports;		/**< list of input ports */
 	struct pw_map input_port_map;		/**< map from port_id to port */
+	struct spa_list output_ports;		/**< list of output ports */
+	struct pw_map output_port_map;		/**< map from port_id to port */
+
 	uint32_t n_used_input_links;		/**< number of active input links */
 	uint32_t idle_used_input_links;		/**< number of active input to be idle */
 	uint32_t n_ready_input_links;		/**< number of ready input links */
 
-	struct spa_list output_ports;		/**< list of output ports */
-	struct pw_map output_port_map;		/**< map from port_id to port */
 	uint32_t n_used_output_links;		/**< number of active output links */
 	uint32_t idle_used_output_links;	/**< number of active output to be idle */
 	uint32_t n_ready_output_links;		/**< number of ready output links */
@@ -430,12 +432,11 @@ struct pw_port {
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
 
+	enum pw_port_state state;	/**< state of the port */
+
 	struct pw_properties *properties;	/**< properties of the port */
 	struct pw_port_info info;
 
-	enum pw_port_state state;	/**< state of the port */
-
-	bool allocated;			/**< if buffers are allocated */
 	struct allocation allocation;
 
 	struct spa_list links;		/**< list of \ref pw_link */
@@ -451,6 +452,9 @@ struct pw_port {
 #define PW_PORT_MIX_FLAG_MULTI		(1<<0)	/**< multi input or output */
 #define PW_PORT_MIX_FLAG_MIX_ONLY	(1<<1)	/**< only negotiate mix ports */
 	uint32_t mix_flags;		/**< flags for the mixing */
+
+	int allocated:1;			/**< if buffers are allocated */
+
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */
 	uint32_t n_mix;
 	uint32_t n_mix_configure;
@@ -483,11 +487,9 @@ struct pw_link {
 	struct spa_list link;		/**< link in core link_list */
 	struct pw_global *global;	/**< global for this link */
 	struct spa_hook global_listener;
-	bool registered;
 
         struct pw_link_info info;		/**< introspectable link info */
 	struct pw_properties *properties;	/**< extra link properties */
-	bool feedback;
 
 	struct spa_io_buffers *io;	/**< link io area */
 
@@ -505,6 +507,9 @@ struct pw_link {
 	} rt;
 
 	void *user_data;
+
+	int registered:1;
+	int feedback:1;
 };
 
 #define pw_resource_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_resource_events, m, v, ##__VA_ARGS__)
@@ -593,10 +598,10 @@ struct pw_stream {
 	struct spa_list link;		/**< link in the remote */
 
 	char *name;				/**< the name of the stream */
-	uint32_t node_id;			/**< node id for remote node, available from
-						  *  CONFIGURE state and higher */
 	struct pw_properties *properties;	/**< properties of the stream */
 
+	uint32_t node_id;			/**< node id for remote node, available from
+						  *  CONFIGURE state and higher */
 	enum pw_stream_state state;		/**< stream state */
 	char *error;				/**< error reason when state is in error */
 
@@ -615,7 +620,6 @@ struct pw_factory {
 	struct spa_list link;		/**< link in core node_factory_list */
 	struct pw_global *global;	/**< global for this factory */
 	struct spa_hook global_listener;
-	bool registered;
 
 	struct pw_factory_info info;	/**< introspectable factory info */
 	struct pw_properties *properties;	/**< properties of the factory */
@@ -626,6 +630,8 @@ struct pw_factory {
 	void *implementation_data;
 
 	void *user_data;
+
+	int registered:1;
 };
 
 #define pw_control_events_emit(c,m,v,...) spa_hook_list_call(&c->listener_list, struct pw_control_events, m, v, ##__VA_ARGS__)

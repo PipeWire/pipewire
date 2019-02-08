@@ -141,8 +141,8 @@ enum {
 
 struct spa_type_info {
 	uint32_t type;
-	const char *name;
 	uint32_t parent;
+	const char *name;
 	const struct spa_type_info *values;
 };
 

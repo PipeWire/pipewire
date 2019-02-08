@@ -80,8 +80,8 @@ struct param {
 #define DEFAULT_VOLUME	1.0
 
 struct props {
-	bool changed;
 	float volume;
+	int changed:1;
 };
 
 static void reset_props(struct props *props)
@@ -101,7 +101,6 @@ struct stream {
 	enum spa_direction direction;
 	enum pw_stream_flags flags;
 
-	bool async_connect;
 	struct spa_hook remote_listener;
 
 	struct pw_node *node;
@@ -112,27 +111,28 @@ struct stream {
 	void *callbacks_data;
 	struct spa_io_buffers *io;
 	struct spa_io_sequence *io_control;
-	uint32_t io_control_size;
 	struct spa_io_sequence *io_notify;
-	uint32_t io_notify_size;
 	struct spa_io_position *position;
+	uint32_t io_control_size;
+	uint32_t io_notify_size;
 
 	struct pw_array params;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 
+	uint32_t pending_seq;
+
 	struct queue dequeued;
 	struct queue queued;
 
-	uint32_t pending_seq;
-	bool disconnecting;
-
-	bool free_data;
 	struct data data;
-
 	uintptr_t seq;
 	struct pw_time time;
+
+	int async_connect:1;
+	int disconnecting:1;
+	int free_data:1;
 };
 
 static struct param *add_param(struct pw_stream *stream,

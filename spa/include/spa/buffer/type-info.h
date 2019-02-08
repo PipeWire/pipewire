@@ -45,11 +45,11 @@ extern "C" {
 #define SPA_TYPE_INFO_DATA_FD_BASE		SPA_TYPE_INFO_DATA_Fd ":"
 
 static const struct spa_type_info spa_type_data_type[] = {
-	{ SPA_DATA_Invalid, SPA_TYPE_INFO_DATA_BASE "Invalid", SPA_TYPE_Int, NULL },
-	{ SPA_DATA_MemPtr, SPA_TYPE_INFO_DATA_BASE "MemPtr", SPA_TYPE_Int, NULL },
-	{ SPA_DATA_MemFd, SPA_TYPE_INFO_DATA_FD_BASE "MemFd", SPA_TYPE_Int, NULL },
-	{ SPA_DATA_DmaBuf, SPA_TYPE_INFO_DATA_FD_BASE "DmaBuf", SPA_TYPE_Int, NULL },
-	{ 0, NULL, 0, NULL },
+	{ SPA_DATA_Invalid, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_BASE "Invalid", NULL },
+	{ SPA_DATA_MemPtr, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_BASE "MemPtr", NULL },
+	{ SPA_DATA_MemFd, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_FD_BASE "MemFd", NULL },
+	{ SPA_DATA_DmaBuf, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_FD_BASE "DmaBuf", NULL },
+	{ 0, 0, NULL, NULL },
 };
 
 #define SPA_TYPE_INFO_Meta			SPA_TYPE_INFO_POINTER_BASE "Meta"
@@ -62,13 +62,13 @@ static const struct spa_type_info spa_type_data_type[] = {
 #define SPA_TYPE_INFO_META_REGION_ARRAY_BASE	SPA_TYPE_INFO_META_RegionArray ":"
 
 static const struct spa_type_info spa_type_meta_type[] = {
-	{ SPA_META_Invalid, SPA_TYPE_INFO_META_BASE "Invalid", SPA_TYPE_Pointer, NULL },
-	{ SPA_META_Header, SPA_TYPE_INFO_META_BASE "Header", SPA_TYPE_Pointer, NULL },
-	{ SPA_META_VideoCrop, SPA_TYPE_INFO_META_REGION_BASE "VideoCrop", SPA_TYPE_Pointer, NULL },
-	{ SPA_META_VideoDamage, SPA_TYPE_INFO_META_REGION_ARRAY_BASE "VideoDamage", SPA_TYPE_Pointer, NULL },
-	{ SPA_META_Bitmap, SPA_TYPE_INFO_META_BASE "Bitmap", SPA_TYPE_Pointer, NULL },
-	{ SPA_META_Cursor, SPA_TYPE_INFO_META_BASE "Cursor", SPA_TYPE_Pointer, NULL },
-	{ 0, NULL, 0, NULL },
+	{ SPA_META_Invalid, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Invalid", NULL },
+	{ SPA_META_Header, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Header", NULL },
+	{ SPA_META_VideoCrop, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_REGION_BASE "VideoCrop", NULL },
+	{ SPA_META_VideoDamage, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_REGION_ARRAY_BASE "VideoDamage", NULL },
+	{ SPA_META_Bitmap, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Bitmap", NULL },
+	{ SPA_META_Cursor, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Cursor", NULL },
+	{ 0, 0, NULL, NULL },
 };
 
 #ifdef __cplusplus

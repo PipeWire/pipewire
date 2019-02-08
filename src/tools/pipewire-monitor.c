@@ -151,13 +151,13 @@ static void on_core_info(void *data, const struct pw_core_info *info)
 	bool print_all = true, print_mark = false;
 
 	printf("\ttype: %s\n", spa_debug_type_find_name(pw_type_info(), PW_TYPE_INTERFACE_Core));
+	printf("\tcookie: %u\n", info->cookie);
 	if (print_all) {
 		printf("%c\tuser-name: \"%s\"\n", MARK_CHANGE(0), info->user_name);
 		printf("%c\thost-name: \"%s\"\n", MARK_CHANGE(1), info->host_name);
 		printf("%c\tversion: \"%s\"\n", MARK_CHANGE(2), info->version);
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(3), info->name);
-		printf("%c\tcookie: %u\n", MARK_CHANGE(4), info->cookie);
-		print_properties(info->props, MARK_CHANGE(5));
+		print_properties(info->props, MARK_CHANGE(4));
 	}
 }
 

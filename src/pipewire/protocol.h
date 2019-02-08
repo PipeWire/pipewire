@@ -75,12 +75,12 @@ struct pw_protocol_server {
 struct pw_protocol_marshal {
         uint32_t type;			/**< interface type */
 	uint32_t version;               /**< version */
+	uint32_t n_methods;             /**< number of methods in the interface */
+        uint32_t n_events;              /**< number of events in the interface */
 	const void *method_marshal;
 	const void *method_demarshal;
-	uint32_t n_methods;             /**< number of methods in the interface */
 	const void *event_marshal;
 	const void *event_demarshal;
-        uint32_t n_events;              /**< number of events in the interface */
 };
 
 struct pw_protocol_implementaton {

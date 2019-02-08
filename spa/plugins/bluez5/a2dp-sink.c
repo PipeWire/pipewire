@@ -1421,10 +1421,7 @@ static const struct spa_dict_item info_items[] = {
 	{ "factory.description", "Play audio with the a2dp" },
 };
 
-static const struct spa_dict info = {
-	info_items,
-	SPA_N_ELEMENTS(info_items),
-};
+static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 struct spa_handle_factory spa_a2dp_sink_factory = {
 	SPA_VERSION_HANDLE_FACTORY,

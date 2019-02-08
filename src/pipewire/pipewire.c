@@ -43,29 +43,29 @@
 #define MAX_SUPPORT	32
 
 struct plugin {
-	int ref;
 	struct spa_list link;
 	char *filename;
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
 	struct spa_list handles;
+	int ref;
 };
 
 struct handle {
-	int ref;
 	struct spa_list link;
 	struct plugin *plugin;
 	const char *factory_name;
 	struct spa_handle *handle;
 	struct spa_list interfaces;
+	int ref;
 };
 
 struct interface {
-	int ref;
 	struct spa_list link;
 	struct handle *handle;
-	uint32_t type;
 	void *iface;
+	uint32_t type;
+	int ref;
 };
 
 struct registry {
@@ -77,8 +77,8 @@ struct support {
 	const char *plugin_dir;
 	struct plugin *support_plugin;
 	struct spa_support support[MAX_SUPPORT];
-	uint32_t n_support;
 	struct registry *registry;
+	uint32_t n_support;
 };
 
 static struct registry global_registry;
@@ -634,18 +634,18 @@ const char* pw_get_library_version(void)
 }
 
 static const struct spa_type_info type_info[] = {
-	{ PW_TYPE_INTERFACE_Core, PW_TYPE_INFO_INTERFACE_BASE "Core", SPA_TYPE_Pointer, NULL },
-	{ PW_TYPE_INTERFACE_Registry, PW_TYPE_INFO_INTERFACE_BASE "Registry", SPA_TYPE_Pointer, NULL },
-	{ PW_TYPE_INTERFACE_Node, PW_TYPE_INFO_INTERFACE_BASE "Node", SPA_TYPE_Pointer, NULL },
-	{ PW_TYPE_INTERFACE_Port, PW_TYPE_INFO_INTERFACE_BASE "Port", SPA_TYPE_Pointer, NULL },
-	{ PW_TYPE_INTERFACE_Factory, PW_TYPE_INFO_INTERFACE_BASE "Factory", SPA_TYPE_Pointer, NULL },
-	{ PW_TYPE_INTERFACE_Link, PW_TYPE_INFO_INTERFACE_BASE "Link", SPA_TYPE_Pointer, NULL },
-	{ PW_TYPE_INTERFACE_Client, PW_TYPE_INFO_INTERFACE_BASE "Client", SPA_TYPE_Pointer, NULL },
-	{ PW_TYPE_INTERFACE_Module, PW_TYPE_INFO_INTERFACE_BASE "Module", SPA_TYPE_Pointer, NULL },
-	{ PW_TYPE_INTERFACE_ClientNode, PW_TYPE_INFO_INTERFACE_BASE "ClientNode", SPA_TYPE_Pointer, NULL },
-	{ PW_TYPE_INTERFACE_Device, PW_TYPE_INFO_INTERFACE_BASE "Device", SPA_TYPE_Pointer, NULL },
-	{ SPA_ID_INVALID, "spa_types", SPA_ID_INVALID, spa_types },
-	{ 0, NULL, 0, NULL },
+	{ PW_TYPE_INTERFACE_Core, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Core", NULL },
+	{ PW_TYPE_INTERFACE_Registry, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Registry", NULL },
+	{ PW_TYPE_INTERFACE_Node, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Node", NULL },
+	{ PW_TYPE_INTERFACE_Port, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Port", NULL },
+	{ PW_TYPE_INTERFACE_Factory, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Factory", NULL },
+	{ PW_TYPE_INTERFACE_Link, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Link", NULL },
+	{ PW_TYPE_INTERFACE_Client, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Client", NULL },
+	{ PW_TYPE_INTERFACE_Module, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Module", NULL },
+	{ PW_TYPE_INTERFACE_ClientNode, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "ClientNode", NULL },
+	{ PW_TYPE_INTERFACE_Device, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Device", NULL },
+	{ SPA_ID_INVALID, SPA_ID_INVALID, "spa_types", spa_types },
+	{ 0, 0, NULL, NULL },
 };
 
 SPA_EXPORT

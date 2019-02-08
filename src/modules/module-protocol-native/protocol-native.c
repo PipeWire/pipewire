@@ -1500,12 +1500,12 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_core_event_d
 static const struct pw_protocol_marshal pw_protocol_native_core_marshal = {
 	PW_TYPE_INTERFACE_Core,
 	PW_VERSION_CORE,
+	PW_CORE_PROXY_METHOD_NUM,
+	PW_CORE_PROXY_EVENT_NUM,
 	&pw_protocol_native_core_method_marshal,
 	pw_protocol_native_core_method_demarshal,
-	PW_CORE_PROXY_METHOD_NUM,
 	&pw_protocol_native_core_event_marshal,
 	pw_protocol_native_core_event_demarshal,
-	PW_CORE_PROXY_EVENT_NUM
 };
 
 static const struct pw_registry_proxy_methods pw_protocol_native_registry_method_marshal = {
@@ -1533,12 +1533,12 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_registry_eve
 const struct pw_protocol_marshal pw_protocol_native_registry_marshal = {
 	PW_TYPE_INTERFACE_Registry,
 	PW_VERSION_REGISTRY,
+	PW_REGISTRY_PROXY_METHOD_NUM,
+	PW_REGISTRY_PROXY_EVENT_NUM,
 	&pw_protocol_native_registry_method_marshal,
 	pw_protocol_native_registry_method_demarshal,
-	PW_REGISTRY_PROXY_METHOD_NUM,
 	&pw_protocol_native_registry_event_marshal,
 	pw_protocol_native_registry_event_demarshal,
-	PW_REGISTRY_PROXY_EVENT_NUM,
 };
 
 static const struct pw_module_proxy_events pw_protocol_native_module_event_marshal = {
@@ -1553,10 +1553,11 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_module_event
 const struct pw_protocol_marshal pw_protocol_native_module_marshal = {
 	PW_TYPE_INTERFACE_Module,
 	PW_VERSION_MODULE,
-	NULL, NULL, 0,
+	0,
+	PW_MODULE_PROXY_EVENT_NUM,
+	NULL, NULL,
 	&pw_protocol_native_module_event_marshal,
 	pw_protocol_native_module_event_demarshal,
-	PW_MODULE_PROXY_EVENT_NUM,
 };
 
 static const struct pw_factory_proxy_events pw_protocol_native_factory_event_marshal = {
@@ -1571,10 +1572,11 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_factory_even
 const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
 	PW_TYPE_INTERFACE_Factory,
 	PW_VERSION_FACTORY,
-	NULL, NULL, 0,
+	0,
+	PW_FACTORY_PROXY_EVENT_NUM,
+	NULL, NULL,
 	&pw_protocol_native_factory_event_marshal,
 	pw_protocol_native_factory_event_demarshal,
-	PW_FACTORY_PROXY_EVENT_NUM,
 };
 
 static const struct pw_device_proxy_methods pw_protocol_native_device_method_marshal = {
@@ -1602,12 +1604,12 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_device_event
 static const struct pw_protocol_marshal pw_protocol_native_device_marshal = {
 	PW_TYPE_INTERFACE_Device,
 	PW_VERSION_DEVICE,
+	PW_DEVICE_PROXY_METHOD_NUM,
+	PW_DEVICE_PROXY_EVENT_NUM,
 	&pw_protocol_native_device_method_marshal,
 	pw_protocol_native_device_method_demarshal,
-	PW_DEVICE_PROXY_METHOD_NUM,
 	&pw_protocol_native_device_event_marshal,
 	pw_protocol_native_device_event_demarshal,
-	PW_DEVICE_PROXY_EVENT_NUM,
 };
 
 static const struct pw_node_proxy_methods pw_protocol_native_node_method_marshal = {
@@ -1637,12 +1639,12 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_node_event_d
 static const struct pw_protocol_marshal pw_protocol_native_node_marshal = {
 	PW_TYPE_INTERFACE_Node,
 	PW_VERSION_NODE,
+	PW_NODE_PROXY_METHOD_NUM,
+	PW_NODE_PROXY_EVENT_NUM,
 	&pw_protocol_native_node_method_marshal,
 	pw_protocol_native_node_method_demarshal,
-	PW_NODE_PROXY_METHOD_NUM,
 	&pw_protocol_native_node_event_marshal,
 	pw_protocol_native_node_event_demarshal,
-	PW_NODE_PROXY_EVENT_NUM,
 };
 
 
@@ -1669,12 +1671,12 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_port_event_d
 static const struct pw_protocol_marshal pw_protocol_native_port_marshal = {
 	PW_TYPE_INTERFACE_Port,
 	PW_VERSION_PORT,
+	PW_PORT_PROXY_METHOD_NUM,
+	PW_PORT_PROXY_EVENT_NUM,
 	&pw_protocol_native_port_method_marshal,
 	pw_protocol_native_port_method_demarshal,
-	PW_PORT_PROXY_METHOD_NUM,
 	&pw_protocol_native_port_event_marshal,
 	pw_protocol_native_port_event_demarshal,
-	PW_PORT_PROXY_EVENT_NUM,
 };
 
 static const struct pw_client_proxy_methods pw_protocol_native_client_method_marshal = {
@@ -1706,12 +1708,12 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_client_event
 static const struct pw_protocol_marshal pw_protocol_native_client_marshal = {
 	PW_TYPE_INTERFACE_Client,
 	PW_VERSION_CLIENT,
+	PW_CLIENT_PROXY_METHOD_NUM,
+	PW_CLIENT_PROXY_EVENT_NUM,
 	&pw_protocol_native_client_method_marshal,
 	pw_protocol_native_client_method_demarshal,
-	PW_CLIENT_PROXY_METHOD_NUM,
 	&pw_protocol_native_client_event_marshal,
 	pw_protocol_native_client_event_demarshal,
-	PW_CLIENT_PROXY_EVENT_NUM,
 };
 
 static const struct pw_link_proxy_events pw_protocol_native_link_event_marshal = {
@@ -1726,10 +1728,11 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_link_event_d
 static const struct pw_protocol_marshal pw_protocol_native_link_marshal = {
 	PW_TYPE_INTERFACE_Link,
 	PW_VERSION_LINK,
-	NULL, NULL, 0,
+	0,
+	PW_LINK_PROXY_EVENT_NUM,
+	NULL, NULL,
 	&pw_protocol_native_link_event_marshal,
 	pw_protocol_native_link_event_demarshal,
-	PW_LINK_PROXY_EVENT_NUM,
 };
 
 void pw_protocol_native_init(struct pw_protocol *protocol)

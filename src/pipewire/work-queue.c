@@ -33,24 +33,24 @@
 
 /** \cond */
 struct work_item {
-	uint32_t id;
 	void *obj;
+	uint32_t id;
 	uint32_t seq;
-	int res;
 	pw_work_func_t func;
 	void *data;
 	struct spa_list link;
+	int res;
 };
 
 struct pw_work_queue {
 	struct pw_loop *loop;
 
 	struct spa_source *wakeup;
-	uint32_t counter;
 
 	struct spa_list work_list;
 	struct spa_list free_list;
-	int n_queued;
+	uint32_t counter;
+	uint32_t n_queued;
 };
 /** \endcond */
 

@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 		{"name",	1, NULL, 'n'},
 		{NULL,		0, NULL, 0}
 	};
-	char c;
+	int c;
 
 	pw_init(&argc, &argv);
 

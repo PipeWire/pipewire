@@ -77,6 +77,13 @@ struct mix {
 	bool active;
 };
 
+struct link {
+	struct spa_graph_link link;
+	struct pw_node_activation *activation;
+	int signalfd;
+	uint32_t mem_id;
+};
+
 struct node_data {
 	struct pw_remote *remote;
 	struct pw_core *core;
@@ -101,11 +108,7 @@ struct node_data {
 
 	struct spa_io_position *position;
 
-	struct spa_graph_node_callbacks callbacks;
-        void *callbacks_data;
-
-	struct spa_graph_state state;
-	struct spa_graph_link link;
+	struct pw_array links;
 };
 
 /** \endcond */
@@ -135,7 +138,6 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 {
 	struct pw_proxy *proxy = user_data;
 	struct node_data *data = proxy->user_data;
-	struct spa_graph_node *node = &data->node->rt.root;
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn("got error");
@@ -146,11 +148,15 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 	if (mask & SPA_IO_IN) {
 		uint64_t cmd;
 
-		if (read(fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t) || cmd != 1)
+		if (read(fd, &cmd, sizeof(cmd)) != sizeof(cmd) || cmd != 1)
 			pw_log_warn("proxy %p: read %"PRIu64" failed %m", proxy, cmd);
 
 		pw_log_trace("remote %p: process %p", data->remote, proxy);
-		spa_graph_run(node->graph);
+
+
+
+
+		spa_graph_node_process(&data->node->rt.root);
 	}
 }
 
@@ -536,7 +542,7 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 			pw_loop_invoke(data->core->data_loop,
 				do_pause_source, 1, NULL, 0, true, data);
 		}
-		if ((res = spa_node_send_command(data->node->node, command)) < 0)
+		if ((res = pw_node_set_state(data->node, PW_NODE_STATE_IDLE)) < 0)
 			pw_log_warn("node %p: pause failed", proxy);
 
 		pw_client_node_proxy_done(data->node_proxy, seq, res);
@@ -544,7 +550,7 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 	case SPA_NODE_COMMAND_Start:
 		pw_log_debug("node %p: start %d", proxy, seq);
 
-		if ((res = spa_node_send_command(data->node->node, command)) < 0) {
+		if ((res = pw_node_set_state(data->node, PW_NODE_STATE_RUNNING)) < 0) {
 			pw_log_warn("node %p: start failed", proxy);
 		}
 		else if (data->rtsocket_source) {
@@ -867,6 +873,66 @@ client_node_port_set_io(void *object,
 	}
 }
 
+#if 0
+static int link_signal_func(void *user_data)
+{
+	struct link *link = user_data;
+	uint64_t cmd = 1;
+	pw_log_trace("link %p: signal", link);
+	if (write(link->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd))
+		pw_log_warn("link %p: write failed %m", link);
+	return 0;
+}
+#endif
+
+static void
+client_node_set_activation(void *object,
+                        uint32_t node_id,
+                        int signalfd,
+                        uint32_t memid,
+                        uint32_t offset,
+                        uint32_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct node_data *data = proxy->user_data;
+	struct pw_node *node = data->node;
+	struct mem *m;
+	struct pw_node_activation *ptr;
+
+	if (memid == SPA_ID_INVALID) {
+		ptr = NULL;
+		size = 0;
+	}
+	else {
+		m = find_mem(data, memid);
+		if (m == NULL) {
+			pw_log_warn("unknown memory id %u", memid);
+			return;
+		}
+		ptr = mem_map(data, &m->map, m->fd,
+			PROT_READ|PROT_WRITE, offset, size);
+		if (ptr == NULL)
+			return;
+		m->ref++;
+	}
+	pw_log_debug("node %p: set activation %d", node, node_id);
+
+#if 0
+	if (ptr) {
+		struct link *link;
+		link = pw_array_add(&data->links, sizeof(struct link));
+		link->activation = ptr;
+		link->signalfd = signalfd;
+		link->link.signal = link_signal_func;
+		link->link.signal_data = link;
+		spa_graph_link_add(&node->rt.root, &link->activation->state[0], &link->link);
+		pw_log_debug("node %p: required %d, pending %d", node,
+				link->link.state->required,
+				link->link.state->pending);
+	}
+#endif
+}
+
 static const struct pw_client_node_proxy_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
 	.add_mem = client_node_add_mem,
@@ -881,6 +947,7 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.port_use_buffers = client_node_port_use_buffers,
 	.port_command = client_node_port_command,
 	.port_set_io = client_node_port_set_io,
+	.set_activation = client_node_set_activation,
 };
 
 static void do_node_init(struct pw_proxy *proxy)
@@ -996,28 +1063,6 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = node_proxy_destroy,
 };
 
-static int remote_impl_signal(void *data)
-{
-	struct node_data *d = data;
-	uint64_t cmd = 1;
-	pw_log_trace("remote %p: send process", data);
-	write(d->rtwritefd, &cmd, 8);
-        return 0;
-}
-
-static inline int remote_process(void *data, struct spa_graph_node *node)
-{
-	struct node_data *d = data;
-        spa_debug("remote %p: begin graph", data);
-	spa_graph_state_reset(&d->state);
-	return d->callbacks.process(d->callbacks_data, node);
-}
-
-static const struct spa_graph_node_callbacks impl_root = {
-	SPA_VERSION_GRAPH_NODE_CALLBACKS,
-	.process = remote_process,
-};
-
 static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool do_free)
 {
 	struct pw_node *node = object;
@@ -1042,13 +1087,6 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;
 	data->remote_id = SPA_ID_INVALID;
 
-	data->link.signal = remote_impl_signal;
-	data->link.signal_data = data;
-	data->callbacks = *node->rt.root.callbacks;
-	spa_graph_node_set_callbacks(&node->rt.root, &impl_root, data);
-	spa_graph_link_add(&node->rt.root, &data->state, &data->link);
-	spa_graph_node_add(node->rt.driver, &node->rt.root);
-
 	node->exported = true;
 
 	spa_list_init(&data->free_mix);
@@ -1059,6 +1097,8 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
 
         pw_array_init(&data->mems, 64);
         pw_array_ensure_size(&data->mems, sizeof(struct mem) * 64);
+        pw_array_init(&data->links, 64);
+        pw_array_ensure_size(&data->links, sizeof(struct link) * 64);
 
 	pw_proxy_add_listener(proxy, &data->proxy_listener, &proxy_events, data);
 	pw_node_add_listener(node, &data->node_listener, &node_events, data);

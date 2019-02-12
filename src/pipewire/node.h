@@ -90,7 +90,12 @@ struct pw_node_events {
 	void (*event) (void *data, const struct spa_event *event);
 
 	/** the driver of the node changed */
-	void (*driver_changed) (void *data, struct pw_node *driver);
+	void (*driver_changed) (void *data, struct pw_node *old, struct pw_node *driver);
+
+	/** a peer was added */
+	void (*peer_added) (void *data, struct pw_node *peer);
+	/** a peer was removed */
+	void (*peer_removed) (void *data, struct pw_node *peer);
 };
 
 /** Media type of the node, Audio, Video, Midi */

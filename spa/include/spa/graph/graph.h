@@ -63,14 +63,16 @@ struct spa_graph_link {
 
 #define spa_graph_link_signal(l)	((l)->signal((l)->signal_data))
 
+#define spa_graph_state_dec(s,c) (__atomic_sub_fetch(&(s)->pending, c, __ATOMIC_SEQ_CST) == 0)
+
 static inline int spa_graph_link_trigger(struct spa_graph_link *link)
 {
 	struct spa_graph_state *state = link->state;
 
-	spa_debug("link %p: state %p: pending %d required %d", link, state,
+	spa_debug("link %p: state %p: pending %d/%d", link, state,
                         state->pending, state->required);
 
-	if (__atomic_sub_fetch(&state->pending, 1, __ATOMIC_SEQ_CST) == 0)
+	if (spa_graph_state_dec(state, 1))
 		spa_graph_link_signal(link);
 
         return state->status;
@@ -117,39 +119,37 @@ struct spa_graph_port {
 	struct spa_graph_port *peer;	/**< peer */
 };
 
+static inline int spa_graph_node_trigger(struct spa_graph_node *node)
+{
+	struct spa_graph_link *l;
+	spa_debug("node %p trigger", node);
+	spa_list_for_each(l, &node->links, link)
+		spa_graph_link_trigger(l);
+	return 0;
+}
+
 static inline int spa_graph_run(struct spa_graph *graph)
 {
-	struct spa_graph_node *n, *tmp;
+	struct spa_graph_node *n, *t;
 	struct spa_list pending;
 
-	spa_debug("graph %p run", graph);
 	spa_graph_state_reset(graph->state);
+	spa_debug("graph %p run with state %p pending %d/%d", graph, graph->state,
+			graph->state->pending, graph->state->required);
 
 	spa_list_init(&pending);
 
 	spa_list_for_each(n, &graph->nodes, link) {
 		struct spa_graph_state *s = n->state;
-
 		spa_graph_state_reset(s);
-
-		spa_debug("graph %p node %p: state %p add %d status %d", graph, n,
-				s, s->pending, s->status);
-
-		if (s->pending == 0)
+		spa_debug("graph %p node %p: state %p pending %d/%d status %d", graph, n,
+				s, s->pending, s->required, s->status);
+		if (--s->pending == 0)
 			spa_list_append(&pending, &n->sched_link);
 	}
-	spa_list_for_each_safe(n, tmp, &pending, sched_link)
+	spa_list_for_each_safe(n, t, &pending, sched_link)
 		spa_graph_node_process(n);
 
-	return 0;
-}
-
-static inline int spa_graph_node_trigger(struct spa_graph_node *node)
-{
-	struct spa_graph_link *l, *t;
-	spa_debug("node %p trigger", node);
-	spa_list_for_each_safe(l, t, &node->links, link)
-		spa_graph_link_trigger(l);
 	return 0;
 }
 
@@ -157,7 +157,7 @@ static inline int spa_graph_finish(struct spa_graph *graph)
 {
 	spa_debug("graph %p finish", graph);
 	if (graph->parent)
-		spa_graph_node_trigger(graph->parent);
+		return spa_graph_node_trigger(graph->parent);
 	return 0;
 }
 static inline int spa_graph_link_signal_node(void *data)
@@ -170,9 +170,7 @@ static inline int spa_graph_link_signal_node(void *data)
 static inline int spa_graph_link_signal_graph(void *data)
 {
 	struct spa_graph_node *node = (struct spa_graph_node *)data;
-	if (node->graph)
-		spa_graph_finish(node->graph);
-	return 0;
+	return spa_graph_finish(node->graph);
 }
 
 static inline void spa_graph_init(struct spa_graph *graph, struct spa_graph_state *state)
@@ -251,16 +249,20 @@ static inline void
 spa_graph_node_add(struct spa_graph *graph,
 		   struct spa_graph_node *node)
 {
-	spa_debug("node %p add to graph %p", node, graph);
 	node->graph = graph;
 	spa_list_append(&graph->nodes, &node->link);
+	node->state->required++;
+	spa_debug("node %p add to graph %p, state %p required %d",
+			node, graph, node->state, node->state->required);
 	spa_graph_link_add(node, graph->state, &node->graph_link);
 }
 
 static inline void spa_graph_node_remove(struct spa_graph_node *node)
 {
-	spa_debug("node %p remove from graph %p", node, node->graph);
+	spa_debug("node %p remove from graph %p, state %p required %d",
+			node, node->graph, node->state, node->state->required);
 	spa_graph_link_remove(&node->graph_link);
+	node->state->required--;
 	spa_list_remove(&node->link);
 }
 

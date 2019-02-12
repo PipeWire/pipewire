@@ -1145,6 +1145,7 @@ static int mmap_read(struct impl *this)
 {
 	struct port *port = &this->out_ports[0];
 	struct spa_v4l2_device *dev = &port->dev;
+	struct spa_io_buffers *io;
 	struct v4l2_buffer buf;
 	struct buffer *b;
 	struct spa_data *d;
@@ -1158,6 +1159,7 @@ static int mmap_read(struct impl *this)
 		return -errno;
 
 	pts = SPA_TIMEVAL_TO_NSEC(&buf.timestamp);
+	spa_log_trace(this->log, "v4l2 %p: have output %d", this, buf.index);
 
 	if (this->clock) {
 		this->clock->nsec = pts;
@@ -1180,9 +1182,17 @@ static int mmap_read(struct impl *this)
 	d[0].chunk->stride = port->fmt.fmt.pix.bytesperline;
 
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
-	spa_list_append(&port->queue, &b->link);
 
-	spa_log_trace(this->log, "v4l2 %p: have output %d", this, buf.index);
+	io = port->io;
+	if (io != NULL && io->status != SPA_STATUS_HAVE_BUFFER) {
+		io->buffer_id = b->id;
+		io->status = SPA_STATUS_HAVE_BUFFER;
+	}
+	else {
+		spa_list_append(&port->queue, &b->link);
+	}
+
+	spa_log_trace(this->log, "v4l2 %p: now queued %d", this, b->id);
 	this->callbacks->process(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 
 	return 0;

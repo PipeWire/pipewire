@@ -782,6 +782,7 @@ push_frames(struct state *state,
 		struct buffer *b;
 		struct spa_data *d;
 		uint32_t index, offs, avail, l0, l1;
+		struct spa_io_buffers *io;
 
 		b = spa_list_first(&state->free, struct buffer, link);
 		spa_list_remove(&b->link);
@@ -814,7 +815,15 @@ push_frames(struct state *state,
 		d[0].chunk->stride = state->frame_size;
 
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-		spa_list_append(&state->ready, &b->link);
+
+		io = state->io;
+		if (io != NULL && io->status != SPA_STATUS_HAVE_BUFFER) {
+			io->buffer_id = b->id;
+			io->status = SPA_STATUS_HAVE_BUFFER;
+		}
+		else {
+			spa_list_append(&state->ready, &b->link);
+		}
 
 		state->callbacks->process(state->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 	}

@@ -909,7 +909,7 @@ static int impl_node_process(struct spa_node *node)
 	}
 
 	if (spa_list_is_empty(&port->queue))
-		return -EPIPE;
+		return SPA_STATUS_OK;
 
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);

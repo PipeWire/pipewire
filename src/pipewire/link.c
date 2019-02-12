@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
 
 #include <spa/pod/parser.h>
 #include <spa/pod/compare.h>
@@ -65,6 +66,8 @@ struct impl {
 	struct spa_hook output_node_listener;
 
 	struct spa_io_buffers io;
+
+	struct pw_node *inode, *onode;
 };
 
 struct resource_data {
@@ -771,8 +774,8 @@ do_activate_link(struct spa_loop *loop,
 		 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct spa_graph_port *in, *out;
-	struct pw_node *inode, *onode;
 
 	pw_log_trace("link %p: activate", this);
 
@@ -782,18 +785,10 @@ do_activate_link(struct spa_loop *loop,
 	spa_graph_port_add(&this->output->rt.mix_node, out);
 	spa_graph_port_add(&this->input->rt.mix_node, in);
 	spa_graph_port_link(out, in);
-	if (this->feedback) {
-		inode = this->output->node;
-		onode = this->input->node;
-	}
-	else {
-		onode = this->output->node;
-		inode = this->input->node;
-	}
-	if (inode != onode) {
-		this->rt.link.signal_data = &inode->rt.root;
-		spa_graph_link_add(&onode->rt.root,
-				   inode->rt.root.state,
+
+	if (impl->inode != impl->onode) {
+		spa_graph_link_add(&impl->onode->rt.root,
+				   impl->inode->rt.root.state,
 				   &this->rt.link);
 	}
 	return 0;
@@ -1021,7 +1016,6 @@ do_deactivate_link(struct spa_loop *loop,
 	spa_graph_port_remove(in);
 	if (this->input->node != this->output->node)
 		spa_graph_link_remove(&this->rt.link);
-	this->rt.link.signal_data = NULL;
 
 	return 0;
 }
@@ -1162,7 +1156,7 @@ static int find_driver(struct pw_link *this)
 	return 0;
 }
 
-static bool pw_link_is_feedback(struct pw_node *output, struct pw_node *input)
+static bool pw_node_can_reach(struct pw_node *output, struct pw_node *input)
 {
 	struct pw_port *p;
 
@@ -1181,7 +1175,7 @@ static bool pw_link_is_feedback(struct pw_node *output, struct pw_node *input)
 		spa_list_for_each(l, &p->links, output_link) {
 			if (l->feedback)
 				continue;
-			if (pw_link_is_feedback(l->input->node, input))
+			if (pw_node_can_reach(l->input->node, input))
 				return true;
 		}
 	}
@@ -1228,6 +1222,18 @@ static void try_unlink_controls(struct impl *impl, struct pw_port *port, struct 
 	}
 }
 
+static int link_signal_node(void *data)
+{
+	struct impl *impl = data;
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	impl->onode->rt.activation->status = FINISHED;
+	impl->onode->rt.activation->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
+        pw_log_trace("link %p finish %p, process %p", impl, impl->inode, impl->onode);
+        return spa_graph_node_process(&impl->inode->rt.root);
+}
+
 SPA_EXPORT
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *output,
@@ -1259,7 +1265,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 		goto no_mem;
 
 	this = &impl->this;
-	this->feedback = pw_link_is_feedback(input_node, output_node);
+	this->feedback = pw_node_can_reach(input_node, output_node);
 	pw_log_debug("link %p: new %p -> %p", this, input, output);
 
 	if (user_data_size > 0)
@@ -1305,7 +1311,17 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	pw_port_init_mix(output, &this->rt.out_mix);
 	pw_port_init_mix(input, &this->rt.in_mix);
 
-	this->rt.link.signal = spa_graph_link_signal_node;
+	this->rt.link.signal = link_signal_node;
+	this->rt.link.signal_data = impl;
+
+	if (this->feedback) {
+		impl->inode = output_node;
+		impl->onode = input_node;
+	}
+	else {
+		impl->onode = output_node;
+		impl->inode = input_node;
+	}
 
 	pw_log_debug("link %p: constructed %p:%d.%d -> %p:%d.%d", impl,
 		     output_node, output->port_id, this->rt.out_mix.port.port_id,
@@ -1313,10 +1329,12 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	find_driver(this);
 
-	spa_hook_list_call(&output->listener_list, struct pw_port_events, link_added, 0, this);
-	spa_hook_list_call(&input->listener_list, struct pw_port_events, link_added, 0, this);
+	pw_port_events_link_added(output, this);
+	pw_port_events_link_added(input, this);
 
 	try_link_controls(impl, output, input);
+
+	pw_node_events_peer_added(output_node, input_node);
 
 	return this;
 
@@ -1410,6 +1428,8 @@ void pw_link_destroy(struct pw_link *link)
 
 	if (link->registered)
 		spa_list_remove(&link->link);
+
+	pw_node_events_peer_removed(link->output->node, link->input->node);
 
 	try_unlink_controls(impl, link->input, link->output);
 

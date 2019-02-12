@@ -430,6 +430,34 @@ static int client_node_demarshal_port_set_io(void *object, void *data, size_t si
 	return 0;
 }
 
+static int client_node_demarshal_set_activation(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t node_id, sigidx, memid, off, sz;
+	int signalfd;
+
+	spa_pod_parser_init(&prs, data, size);
+	if (spa_pod_parser_get_struct(&prs,
+			SPA_POD_Int(&node_id),
+			SPA_POD_Int(&sigidx),
+			SPA_POD_Int(&memid),
+			SPA_POD_Int(&off),
+			SPA_POD_Int(&sz)) < 0)
+		return -EINVAL;
+
+	signalfd = pw_protocol_native_get_proxy_fd(proxy, sigidx);
+	if (signalfd == -1)
+		return -EINVAL;
+
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, set_activation, 0,
+							node_id,
+							signalfd,
+							memid,
+							off, sz);
+	return 0;
+}
+
 static int client_node_demarshal_set_io(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
@@ -693,6 +721,29 @@ client_node_marshal_port_set_io(void *object,
 }
 
 static void
+client_node_marshal_set_activation(void *object,
+				uint32_t node_id,
+				int signalfd,
+				uint32_t memid,
+				uint32_t offset,
+				uint32_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_ACTIVATION);
+
+	spa_pod_builder_add_struct(b,
+			       SPA_POD_Int(node_id),
+			       SPA_POD_Int(pw_protocol_native_add_resource_fd(resource, signalfd)),
+			       SPA_POD_Int(memid),
+			       SPA_POD_Int(offset),
+			       SPA_POD_Int(size));
+
+	pw_protocol_native_end_resource(resource, b);
+}
+
+static void
 client_node_marshal_set_io(void *object,
 			   uint32_t id,
 			   uint32_t memid,
@@ -899,6 +950,7 @@ static const struct pw_client_node_proxy_events pw_protocol_native_client_node_e
 	&client_node_marshal_port_use_buffers,
 	&client_node_marshal_port_command,
 	&client_node_marshal_port_set_io,
+	&client_node_marshal_set_activation,
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_event_demarshal[] = {
@@ -914,6 +966,7 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_
 	{ &client_node_demarshal_port_use_buffers, 0 },
 	{ &client_node_demarshal_port_command, 0 },
 	{ &client_node_demarshal_port_set_io, 0 },
+	{ &client_node_demarshal_set_activation, 0 }
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_client_node_marshal = {

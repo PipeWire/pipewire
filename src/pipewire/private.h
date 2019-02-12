@@ -318,10 +318,9 @@ struct pw_node_activation {
 #define pw_node_events_state_changed(n,o,s,e)	pw_node_events_emit(n, state_changed, 0, o, s, e)
 #define pw_node_events_async_complete(n,s,r)	pw_node_events_emit(n, async_complete, 0, s, r)
 #define pw_node_events_event(n,e)		pw_node_events_emit(n, event, 0, e)
-#define pw_node_events_driver_changed(n,d)	pw_node_events_emit(n, driver_changed, 0, d)
-#define pw_node_events_process(n)		pw_node_events_emit(n, process, 0)
-#define pw_node_events_reuse_buffer(n,p,b)	pw_node_events_emit(n, reuse_buffer, 0, p, b)
-#define pw_node_events_finish(n)		pw_node_events_emit(n, finish, 0)
+#define pw_node_events_driver_changed(n,o,d)	pw_node_events_emit(n, driver_changed, 0, o, d)
+#define pw_node_events_peer_added(n,p)		pw_node_events_emit(n, peer_added, 0, p)
+#define pw_node_events_peer_removed(n,p)	pw_node_events_emit(n, peer_removed, 0, p)
 
 struct pw_node {
 	struct pw_core *core;		/**< core object */
@@ -346,7 +345,6 @@ struct pw_node {
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 
 	struct pw_node *driver_node;
-	struct pw_node *driver_root;
 	struct spa_list driver_list;
 	struct spa_list driver_link;
 
@@ -370,6 +368,8 @@ struct pw_node {
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
 	uint32_t quantum_size;			/**< desired quantum */
+	struct spa_source source;		/**< source to remotely trigger this node */
+	struct pw_memblock *activation;
 	struct {
 		struct spa_io_clock *clock;	/**< io area of the clock or NULL */
 		struct spa_io_position *position;
@@ -377,8 +377,7 @@ struct pw_node {
 		struct spa_graph_node root;
 		struct pw_node_activation *activation;
 		struct spa_graph_node node;
-		struct spa_graph_node subnode;
-		struct spa_graph_link sublink;
+		struct spa_graph_link driver_link;
 	} rt;
 
         void *user_data;                /**< extra user data */

@@ -27,10 +27,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <dlfcn.h>
-#include <sys/socket.h>
-#include <sys/mman.h>
+#include <time.h>
 #include <sys/eventfd.h>
 
 #include <spa/node/node.h>
@@ -162,6 +159,7 @@ struct impl {
 
 	struct pw_map io_map;
 	struct pw_memblock *io_areas;
+	struct pw_node_activation *activation;
 
 	struct spa_hook node_listener;
 	struct spa_hook resource_listener;
@@ -1011,12 +1009,19 @@ static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
 	struct impl *impl = this->impl;
-	uint64_t cmd = 1;
+	struct pw_node *n = impl->this.node;
+	struct timespec ts;
+	uint64_t cmd = 1, nsec;
 
 	spa_log_trace(this->log, "%p: send process %p", this, impl->this.node->driver_node);
 
-	if (write(this->writefd, &cmd, 8) != 8)
-		spa_log_warn(this->log, "node %p: error %s", this, strerror(errno));
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	nsec = SPA_TIMESPEC_TO_NSEC(&ts);
+	n->rt.activation->status = TRIGGERED;
+	n->rt.activation->signal_time = nsec;
+
+	if (write(this->writefd, &cmd, sizeof(cmd)) != sizeof(cmd))
+		spa_log_warn(this->log, "node %p: error %m", this);
 
 	return SPA_STATUS_OK;
 }
@@ -1155,9 +1160,8 @@ static void node_on_data_fd_events(struct spa_source *source)
 	if (source->rmask & SPA_IO_IN) {
 		uint64_t cmd;
 
-		if (read(this->data_source.fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
-			spa_log_warn(this->log, "node %p: error reading message: %s",
-					this, strerror(errno));
+		if (read(this->data_source.fd, &cmd, sizeof(cmd)) != sizeof(cmd) || cmd != 1)
+			spa_log_warn(this->log, "node %p: read %"PRIu64" failed %m", this, cmd);
 
 		spa_log_trace(this->log, "node %p: got process", this);
 		this->callbacks->process(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
@@ -1278,12 +1282,24 @@ static void client_node_resource_destroy(void *data)
 void pw_client_node_registered(struct pw_client_node *this, uint32_t node_id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	struct pw_node *node = this->node;
+	struct mem *m;
 
 	pw_log_debug("client-node %p: %d", this, node_id);
 	pw_client_node_resource_transport(this->resource,
 					  node_id,
 					  impl->other_fds[0],
 					  impl->other_fds[1]);
+
+
+	m = ensure_mem(impl, node->activation->fd, SPA_DATA_MemFd, node->activation->flags);
+
+	pw_client_node_resource_set_activation(this->resource,
+					  node_id,
+					  impl->other_fds[1],
+					  m->id,
+					  0,
+					  sizeof(struct pw_node_activation));
 }
 
 static void node_initialized(void *data)
@@ -1572,6 +1588,50 @@ static void node_port_removed(void *data, struct pw_port *port)
 	clear_port(this, p);
 }
 
+static void node_peer_added(void *data, struct pw_node *peer)
+{
+	struct impl *impl = data;
+	struct node *this = &impl->node;
+	struct mem *m;
+
+	if (this->resource == NULL)
+		return;
+
+	m = ensure_mem(impl, peer->activation->fd, SPA_DATA_MemFd, peer->activation->flags);
+
+	pw_log_debug("client-node %p: peer %p %u added %u", &impl->this, peer,
+			peer->info.id, m->id);
+
+	pw_client_node_resource_set_activation(this->resource,
+					  peer->info.id,
+					  peer->source.fd,
+					  m->id,
+					  0,
+					  sizeof(struct pw_node_activation));
+}
+
+static void node_peer_removed(void *data, struct pw_node *peer)
+{
+	struct impl *impl = data;
+	struct node *this = &impl->node;
+
+	if (this->resource == NULL)
+		return;
+
+	pw_client_node_resource_set_activation(this->resource,
+					  peer->info.id,
+					  -1,
+					  SPA_ID_INVALID,
+					  0,
+					  0);
+}
+
+static void node_driver_changed(void *data, struct pw_node *old, struct pw_node *driver)
+{
+	node_peer_removed(data, old);
+	node_peer_added(data, driver);
+}
+
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.free = node_free,
@@ -1579,11 +1639,26 @@ static const struct pw_node_events node_events = {
 	.port_init = node_port_init,
 	.port_added = node_port_added,
 	.port_removed = node_port_removed,
+	.peer_added = node_peer_added,
+	.peer_removed = node_peer_removed,
+	.driver_changed = node_driver_changed,
 };
 
 static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = client_node_resource_destroy,
+};
+
+static int root_impl_process(void *data, struct spa_graph_node *node)
+{
+	struct impl *impl = data;
+	pw_log_trace("client-node %p: process", impl);
+	return spa_node_process(&impl->node.node);
+}
+
+static const struct spa_graph_node_callbacks root_impl = {
+        SPA_VERSION_GRAPH_NODE_CALLBACKS,
+        .process = root_impl_process,
 };
 
 /** Create a new client node
@@ -1645,6 +1720,8 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 		goto error_no_node;
 
 	this->node->remote = true;
+
+	spa_graph_node_set_callbacks(&this->node->rt.root, &root_impl, this);
 
 	pw_resource_add_listener(this->resource,
 				 &impl->resource_listener,

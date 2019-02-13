@@ -384,26 +384,6 @@ static int client_node_demarshal_port_use_buffers(void *object, void *data, size
 	return 0;
 }
 
-static int client_node_demarshal_port_command(void *object, void *data, size_t size)
-{
-	struct pw_proxy *proxy = object;
-	struct spa_pod_parser prs;
-	const struct spa_command *command;
-	uint32_t direction, port_id;
-
-	spa_pod_parser_init(&prs, data, size);
-	if (spa_pod_parser_get_struct(&prs,
-			SPA_POD_Int(&direction),
-			SPA_POD_Int(&port_id),
-			SPA_POD_PodObject(&command)) < 0)
-		return -EINVAL;
-
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, port_command, 0, direction,
-									   port_id,
-									   command);
-	return 0;
-}
-
 static int client_node_demarshal_port_set_io(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
@@ -673,25 +653,6 @@ client_node_marshal_port_use_buffers(void *object,
 }
 
 static void
-client_node_marshal_port_command(void *object,
-				 uint32_t direction,
-				 uint32_t port_id,
-				 const struct spa_command *command)
-{
-	struct pw_resource *resource = object;
-	struct spa_pod_builder *b;
-
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_PORT_COMMAND);
-
-	spa_pod_builder_add_struct(b,
-			       SPA_POD_Int(direction),
-			       SPA_POD_Int(port_id),
-			       SPA_POD_Pod(command));
-
-	pw_protocol_native_end_resource(resource, b);
-}
-
-static void
 client_node_marshal_port_set_io(void *object,
 				uint32_t seq,
 				uint32_t direction,
@@ -948,7 +909,6 @@ static const struct pw_client_node_proxy_events pw_protocol_native_client_node_e
 	&client_node_marshal_remove_port,
 	&client_node_marshal_port_set_param,
 	&client_node_marshal_port_use_buffers,
-	&client_node_marshal_port_command,
 	&client_node_marshal_port_set_io,
 	&client_node_marshal_set_activation,
 };
@@ -964,7 +924,6 @@ static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_
 	{ &client_node_demarshal_remove_port, 0 },
 	{ &client_node_demarshal_port_set_param, 0 },
 	{ &client_node_demarshal_port_use_buffers, 0 },
-	{ &client_node_demarshal_port_command, 0 },
 	{ &client_node_demarshal_port_set_io, 0 },
 	{ &client_node_demarshal_set_activation, 0 }
 };

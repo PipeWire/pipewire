@@ -827,30 +827,6 @@ impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t bu
 	return spa_node_port_reuse_buffer(impl->adapter, port_id, buffer_id);
 }
 
-static int
-impl_node_port_send_command(struct spa_node *node,
-			    enum spa_direction direction,
-			    uint32_t port_id, const struct spa_command *command)
-{
-	struct node *this;
-	struct impl *impl;
-	int res;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-	spa_return_val_if_fail(command != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct node, node);
-	impl = this->impl;
-
-	if (direction != impl->direction)
-		return -EINVAL;
-
-	if ((res = spa_node_port_send_command(impl->adapter, direction, port_id, command)) < 0)
-		return res;
-
-	return res;
-}
-
 static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
@@ -916,7 +892,6 @@ static const struct spa_node impl_node = {
 	impl_node_port_alloc_buffers,
 	impl_node_port_set_io,
 	impl_node_port_reuse_buffer,
-	impl_node_port_send_command,
 	impl_node_process,
 };
 

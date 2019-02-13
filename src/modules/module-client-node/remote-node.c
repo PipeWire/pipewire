@@ -793,23 +793,6 @@ client_node_port_use_buffers(void *object,
 }
 
 static void
-client_node_port_command(void *object,
-                         uint32_t direction,
-                         uint32_t port_id,
-                         const struct spa_command *command)
-{
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
-	struct pw_port *port;
-
-	port = pw_node_find_port(data->node, direction, port_id);
-	if (port == NULL)
-		return;
-
-	pw_port_send_command(port, true, command);
-}
-
-static void
 client_node_port_set_io(void *object,
                         uint32_t seq,
                         uint32_t direction,
@@ -942,7 +925,6 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.remove_port = client_node_remove_port,
 	.port_set_param = client_node_port_set_param,
 	.port_use_buffers = client_node_port_use_buffers,
-	.port_command = client_node_port_command,
 	.port_set_io = client_node_port_set_io,
 	.set_activation = client_node_set_activation,
 };

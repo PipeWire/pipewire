@@ -705,16 +705,6 @@ static int impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, 
 	return queue_buffer(this, port, &port->buffers[buffer_id]);
 }
 
-static int
-impl_node_port_send_command(struct spa_node *node,
-			    enum spa_direction direction,
-			    uint32_t port_id,
-			    const struct spa_command *command)
-{
-	return -ENOTSUP;
-}
-
-
 #if defined (__SSE__)
 #include <xmmintrin.h>
 static void mix_2(float *dst, float *src1, float *src2, int n_samples)
@@ -892,7 +882,6 @@ static const struct spa_node impl_node = {
 	impl_node_port_alloc_buffers,
 	impl_node_port_set_io,
 	impl_node_port_reuse_buffer,
-	impl_node_port_send_command,
 	impl_node_process,
 };
 

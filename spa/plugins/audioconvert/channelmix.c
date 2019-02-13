@@ -1061,15 +1061,6 @@ static int impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, 
 	return 0;
 }
 
-static int
-impl_node_port_send_command(struct spa_node *node,
-			    enum spa_direction direction,
-			    uint32_t port_id,
-			    const struct spa_command *command)
-{
-	return -ENOTSUP;
-}
-
 static int process_control(struct impl *this, struct port *port, struct spa_pod_sequence *sequence)
 {
 	struct spa_pod_control *c;
@@ -1181,7 +1172,6 @@ static const struct spa_node impl_node = {
 	impl_node_port_alloc_buffers,
 	impl_node_port_set_io,
 	impl_node_port_reuse_buffer,
-	impl_node_port_send_command,
 	impl_node_process,
 };
 

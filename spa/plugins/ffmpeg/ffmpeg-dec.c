@@ -463,16 +463,6 @@ spa_ffmpeg_dec_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, u
 	return -ENOTSUP;
 }
 
-static int
-spa_ffmpeg_dec_node_port_send_command(struct spa_node *node,
-				      enum spa_direction direction,
-				      uint32_t port_id,
-				      const struct spa_command *command)
-{
-	return -ENOTSUP;
-}
-
-
 static const struct spa_node ffmpeg_dec_node = {
 	SPA_VERSION_NODE,
 	spa_ffmpeg_dec_node_enum_params,
@@ -491,7 +481,6 @@ static const struct spa_node ffmpeg_dec_node = {
 	spa_ffmpeg_dec_node_port_alloc_buffers,
 	spa_ffmpeg_dec_node_port_set_io,
 	spa_ffmpeg_dec_node_port_reuse_buffer,
-	spa_ffmpeg_dec_node_port_send_command,
 	spa_ffmpeg_dec_node_process,
 };
 

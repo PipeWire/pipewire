@@ -176,10 +176,9 @@ pw_client_node_proxy_event(struct pw_client_node_proxy *p, struct spa_event *eve
 #define PW_CLIENT_NODE_PROXY_EVENT_REMOVE_PORT		7
 #define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_PARAM	8
 #define PW_CLIENT_NODE_PROXY_EVENT_PORT_USE_BUFFERS	9
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_COMMAND		10
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO		11
-#define PW_CLIENT_NODE_PROXY_EVENT_SET_ACTIVATION	12
-#define PW_CLIENT_NODE_PROXY_EVENT_NUM			13
+#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO		10
+#define PW_CLIENT_NODE_PROXY_EVENT_SET_ACTIVATION	11
+#define PW_CLIENT_NODE_PROXY_EVENT_NUM			12
 
 /** \ref pw_client_node events */
 struct pw_client_node_proxy_events {
@@ -320,18 +319,6 @@ struct pw_client_node_proxy_events {
 				  uint32_t n_buffers,
 				  struct pw_client_node_buffer *buffers);
 	/**
-	 * Notify of a new port command
-	 *
-	 * \param direction a port direction
-	 * \param port_id the port id
-	 * \param command the command
-	 */
-	void (*port_command) (void *object,
-			      enum spa_direction direction,
-			      uint32_t port_id,
-			      const struct spa_command *command);
-
-	/**
 	 * Configure the io area with \a id of \a port_id.
 	 *
 	 * \param seq a sequence number
@@ -390,8 +377,6 @@ pw_client_node_proxy_add_listener(struct pw_client_node_proxy *p,
 	pw_resource_notify(r,struct pw_client_node_proxy_events,port_set_param,__VA_ARGS__)
 #define pw_client_node_resource_port_use_buffers(r,...)	\
 	pw_resource_notify(r,struct pw_client_node_proxy_events,port_use_buffers,__VA_ARGS__)
-#define pw_client_node_resource_port_command(r,...)	\
-	pw_resource_notify(r,struct pw_client_node_proxy_events,port_command,__VA_ARGS__)
 #define pw_client_node_resource_port_set_io(r,...)	\
 	pw_resource_notify(r,struct pw_client_node_proxy_events,port_set_io,__VA_ARGS__)
 #define pw_client_node_resource_set_activation(r,...)	\

@@ -762,22 +762,6 @@ void pw_port_destroy(struct pw_port *port)
 	free(port);
 }
 
-static int
-do_port_command(struct spa_loop *loop,
-              bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-        struct pw_port *port = user_data;
-	struct pw_node *node = port->node;
-	return spa_node_port_send_command(node->node, port->direction, port->port_id, data);
-}
-
-SPA_EXPORT
-int pw_port_send_command(struct pw_port *port, bool block, const struct spa_command *command)
-{
-	return pw_loop_invoke(port->node->data_loop, do_port_command, 0,
-			command, SPA_POD_SIZE(command), block, port);
-}
-
 int pw_port_for_each_param(struct pw_port *port,
 			   uint32_t param_id,
 			   uint32_t index, uint32_t max,

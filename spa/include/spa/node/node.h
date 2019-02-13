@@ -487,22 +487,6 @@ struct spa_node {
 	int (*port_reuse_buffer) (struct spa_node *node, uint32_t port_id, uint32_t buffer_id);
 
 	/**
-	 * Send a command to a port
-	 *
-	 * This function must be called from the data thread.
-	 *
-	 * \param node a spa_node
-	 * \param direction a direction
-	 * \param port_id a port id
-	 * \param command a command to send
-	 * \return 0 on success
-	 *         -EINVAL when node is NULL
-	 */
-	int (*port_send_command) (struct spa_node *node,
-				  enum spa_direction direction,
-				  uint32_t port_id,
-				  const struct spa_command *command);
-	/**
 	 * Process the node
 	 *
 	 * Output io areas with SPA_STATUS_NEED_BUFFER will recycle the
@@ -536,7 +520,6 @@ struct spa_node {
 #define spa_node_port_alloc_buffers(n,...)	(n)->port_alloc_buffers((n),__VA_ARGS__)
 #define spa_node_port_set_io(n,...)		(n)->port_set_io((n),__VA_ARGS__)
 #define spa_node_port_reuse_buffer(n,...)	(n)->port_reuse_buffer((n),__VA_ARGS__)
-#define spa_node_port_send_command(n,...)	(n)->port_send_command((n),__VA_ARGS__)
 #define spa_node_process(n)			(n)->process((n))
 
 #ifdef __cplusplus

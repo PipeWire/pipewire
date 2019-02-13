@@ -981,30 +981,6 @@ impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t bu
 	return -ENOTSUP;
 }
 
-static int
-impl_node_port_send_command(struct spa_node *node,
-			    enum spa_direction direction,
-			    uint32_t port_id, const struct spa_command *command)
-{
-	struct node *this;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-	spa_return_val_if_fail(command != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct node, node);
-
-	if (this->resource == NULL)
-		return 0;
-
-	spa_log_trace(this->log, "send command %s",
-			spa_debug_type_find_name(spa_type_node_command_id, SPA_NODE_COMMAND_ID(command)));
-
-	pw_client_node_resource_port_command(this->resource,
-					     direction, port_id,
-					     command);
-	return 0;
-}
-
 static int impl_node_process(struct spa_node *node)
 {
 	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
@@ -1187,7 +1163,6 @@ static const struct spa_node impl_node = {
 	.port_alloc_buffers = impl_node_port_alloc_buffers,
 	.port_set_io = impl_node_port_set_io,
 	.port_reuse_buffer = impl_node_port_reuse_buffer,
-	.port_send_command = impl_node_port_send_command,
 	.process = impl_node_process,
 };
 
@@ -1503,15 +1478,6 @@ impl_mix_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buf
 	return impl_node_port_reuse_buffer(&p->node->node, p->id, buffer_id);
 }
 
-static int
-impl_mix_port_send_command(struct spa_node *node,
-			   enum spa_direction direction,
-			   uint32_t port_id, const struct spa_command *command)
-{
-	struct port *p = SPA_CONTAINER_OF(node, struct port, mix_node);
-	return impl_node_port_send_command(&p->node->node, direction, p->id, command);
-}
-
 static int impl_mix_process(struct spa_node *data)
 {
 	return SPA_STATUS_HAVE_BUFFER;
@@ -1528,7 +1494,6 @@ static const struct spa_node impl_port_mix = {
 	.port_alloc_buffers = impl_mix_port_alloc_buffers,
 	.port_set_io = impl_mix_port_set_io,
 	.port_reuse_buffer = impl_mix_port_reuse_buffer,
-	.port_send_command = impl_mix_port_send_command,
 	.process = impl_mix_process,
 };
 

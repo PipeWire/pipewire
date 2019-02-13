@@ -1397,13 +1397,6 @@ static void client_node_port_use_buffers(void *object,
 	pw_client_node_proxy_done(c->node_proxy, seq, res);
 }
 
-static void client_node_port_command(void *object,
-                              enum spa_direction direction,
-                              uint32_t port_id,
-                              const struct spa_command *command)
-{
-}
-
 static void clear_io(struct client *c, struct io *io)
 {
 	struct mem *m;
@@ -1573,7 +1566,6 @@ static const struct pw_client_node_proxy_events client_node_events = {
 	.remove_port = client_node_remove_port,
 	.port_set_param = client_node_port_set_param,
 	.port_use_buffers = client_node_port_use_buffers,
-	.port_command = client_node_port_command,
 	.port_set_io = client_node_port_set_io,
 	.set_activation = client_node_set_activation,
 };

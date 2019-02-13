@@ -59,12 +59,17 @@ static int check_cmdline(struct pw_client *client, const struct ucred *ucred, co
 	if (fd < 0)
 		return -errno;
 
-	if (read(fd, path, 1024) <= 0)
+	if (read(fd, path, 1024) <= 0) {
+		close(fd);
 		return -EIO;
+	}
 
-	if (strcmp(path, str) == 0)
+	if (strcmp(path, str) == 0) {
+		close(fd);
 		return 1;
+	}
 
+	close(fd);
 	return 0;
 }
 

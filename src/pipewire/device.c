@@ -288,17 +288,16 @@ static const struct pw_node_events node_events = {
 };
 
 
-static void device_info(void *data, const struct spa_dict *info)
+static void device_info(void *data, const struct spa_device_info *info)
 {
 	struct pw_device *device = data;
-	pw_device_update_properties(device, info);
+	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_INFO)
+		pw_device_update_properties(device, info->info);
 }
 
-static void device_add(void *data, uint32_t id,
-		const struct spa_handle_factory *factory, uint32_t type,
-		const struct spa_dict *info)
+static void device_add(struct pw_device *device, uint32_t id,
+		const struct spa_device_object_info *info)
 {
-	struct pw_device *device = data;
 	const struct spa_support *support;
 	uint32_t n_support;
 	struct pw_node *node;
@@ -307,8 +306,8 @@ static void device_add(void *data, uint32_t id,
 	int res;
 	void *iface;
 
-	if (type != SPA_TYPE_INTERFACE_Node) {
-		pw_log_warn("device %p: unknown type %d", device, type);
+	if (info->type != SPA_TYPE_INTERFACE_Node) {
+		pw_log_warn("device %p: unknown type %d", device, info->type);
 		return;
 	}
 
@@ -316,14 +315,14 @@ static void device_add(void *data, uint32_t id,
 	support = pw_core_get_support(device->core, &n_support);
 
 	props = pw_properties_copy(device->properties);
-	if (info)
-		pw_properties_update(props, info);
+	if (info->info)
+		pw_properties_update(props, info->info);
 
 	node = pw_node_new(device->core,
 			   device->info.name,
 			   props,
 			   sizeof(struct node_data) +
-			   spa_handle_factory_get_size(factory, info));
+			   spa_handle_factory_get_size(info->factory, info->info));
 
 	nd = pw_node_get_user_data(node);
 	nd->id = id;
@@ -332,16 +331,16 @@ static void device_add(void *data, uint32_t id,
 	pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
 	spa_list_append(&device->node_list, &nd->link);
 
-	if ((res = spa_handle_factory_init(factory,
+	if ((res = spa_handle_factory_init(info->factory,
 					   nd->handle,
-					   info,
+					   info->info,
 					   support,
 					   n_support)) < 0) {
 		pw_log_error("can't make factory instance: %d", res);
 		goto error;;
         }
 
-	if ((res = spa_handle_get_interface(nd->handle, type, &iface)) < 0) {
+	if ((res = spa_handle_get_interface(nd->handle, info->type, &iface)) < 0) {
 		pw_log_error("can't get NODE interface: %d", res);
 		goto error;;
 	}
@@ -367,23 +366,37 @@ static struct node_data *find_node(struct pw_device *device, uint32_t id)
 	return NULL;
 }
 
-static void device_remove(void *data, uint32_t id)
+static void device_object_info(void *data, uint32_t id,
+		const struct spa_device_object_info *info)
 {
 	struct pw_device *device = data;
 	struct node_data *nd;
 
-	pw_log_debug("device %p: remove node %d", device, id);
-	if ((nd = find_node(device, id)) == NULL)
-		return;
+	nd = find_node(device, id);
 
-	pw_node_destroy(nd->node);
+	if (info == NULL) {
+		if (nd) {
+			pw_log_debug("device %p: remove node %d", device, id);
+			pw_node_destroy(nd->node);
+		}
+		else {
+			pw_log_warn("device %p: unknown node %d", device, id);
+		}
+	}
+	else if (nd != NULL) {
+		if (info->change_mask & SPA_DEVICE_OBJECT_CHANGE_MASK_INFO)
+			pw_node_update_properties(nd->node, info->info);
+	}
+	else {
+		device_add(device, id, info);
+	}
 }
+
 
 static const struct spa_device_callbacks device_callbacks = {
 	SPA_VERSION_DEVICE_CALLBACKS,
 	.info = device_info,
-	.add = device_add,
-	.remove = device_remove,
+	.object_info = device_object_info,
 };
 
 SPA_EXPORT

@@ -153,9 +153,6 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 
 		pw_log_trace("remote %p: process %p", data->remote, proxy);
 
-
-
-
 		spa_graph_node_process(&data->node->rt.root);
 	}
 }

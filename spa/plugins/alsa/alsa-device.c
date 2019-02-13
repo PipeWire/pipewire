@@ -107,27 +107,28 @@ static const char *get_subclass(snd_pcm_info_t *pcminfo)
 static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 {
 	struct spa_dict_item items[6];
-	const struct spa_handle_factory *factory;
 	char device_name[128];
+	struct spa_device_object_info info;
+
+	info = SPA_DEVICE_OBJECT_INFO_INIT();
+	info.type = SPA_TYPE_INTERFACE_Node;
+	if (snd_pcm_info_get_stream(pcminfo) == SND_PCM_STREAM_PLAYBACK)
+		info.factory = &spa_alsa_sink_factory;
+	else
+		info.factory = &spa_alsa_source_factory;
+
+	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_INFO;
 
 	snprintf(device_name, 128, "%s,%d", this->props.device, snd_pcm_info_get_device(pcminfo));
-
 	items[0] = SPA_DICT_ITEM_INIT("alsa.device",         device_name);
 	items[1] = SPA_DICT_ITEM_INIT("alsa.pcm.id",         snd_pcm_info_get_id(pcminfo));
 	items[2] = SPA_DICT_ITEM_INIT("alsa.pcm.name",       snd_pcm_info_get_name(pcminfo));
 	items[3] = SPA_DICT_ITEM_INIT("alsa.pcm.subname",    snd_pcm_info_get_subdevice_name(pcminfo));
 	items[4] = SPA_DICT_ITEM_INIT("alsa.pcm.class",      get_class(pcminfo));
 	items[5] = SPA_DICT_ITEM_INIT("alsa.pcm.subclass",   get_subclass(pcminfo));
+	info.info = &SPA_DICT_INIT_ARRAY(items);
 
-	if (snd_pcm_info_get_stream(pcminfo) == SND_PCM_STREAM_PLAYBACK)
-		factory = &spa_alsa_sink_factory;
-	else
-		factory = &spa_alsa_source_factory;
-
-	this->callbacks->add(this->callbacks_data, id,
-			factory,
-			SPA_TYPE_INTERFACE_Node,
-			&SPA_DICT_INIT_ARRAY(items));
+	this->callbacks->object_info(this->callbacks_data, id, &info);
 
 	return 0;
 }
@@ -141,9 +142,9 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 	spa_log_debug(this->log, "profile %d", id);
 	this->profile = id;
 
-	if (this->callbacks && this->callbacks->remove) {
+	if (this->callbacks->object_info) {
 		for (i = 0; i < this->n_nodes; i++) {
-			this->callbacks->remove(this->callbacks_data, i);
+			this->callbacks->object_info(this->callbacks_data, i, NULL);
 		}
 	}
 	this->n_nodes = 0;
@@ -170,7 +171,7 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 			if (err != -ENOENT)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
-		if (err >= 0 && this->callbacks->add)
+		if (err >= 0 && this->callbacks->object_info)
 			emit_node(this, pcminfo, i++);
 
 		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
@@ -178,7 +179,7 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 			if (err != -ENOENT)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
-		if (err >= 0 && this->callbacks->add)
+		if (err >= 0 && this->callbacks->object_info)
 			emit_node(this, pcminfo, i++);
 	}
 	this->n_nodes = i;
@@ -212,6 +213,8 @@ static int emit_info(struct impl *this)
 	struct spa_dict_item items[10];
 	snd_ctl_t *ctl_hndl;
 	snd_ctl_card_info_t *info;
+	struct spa_device_info dinfo;
+	uint32_t params[] = { SPA_PARAM_EnumProfile, SPA_PARAM_Profile };
 
         spa_log_info(this->log, "open card %s", this->props.device);
         if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
@@ -226,6 +229,9 @@ static int emit_info(struct impl *this)
 		goto exit;
 	}
 
+	dinfo = SPA_DEVICE_INFO_INIT();
+	dinfo.change_mask = SPA_DEVICE_CHANGE_MASK_INFO | SPA_DEVICE_CHANGE_MASK_PARAMS;
+
 	items[0] = SPA_DICT_ITEM_INIT("device.api",  "alsa");
 	items[1] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
 	items[2] = SPA_DICT_ITEM_INIT("device.nick", snd_ctl_card_info_get_id(info));
@@ -236,9 +242,12 @@ static int emit_info(struct impl *this)
 	items[7] = SPA_DICT_ITEM_INIT("alsa.card.name",       snd_ctl_card_info_get_name(info));
 	items[8] = SPA_DICT_ITEM_INIT("alsa.card.longname",   snd_ctl_card_info_get_longname(info));
 	items[9] = SPA_DICT_ITEM_INIT("alsa.card.mixername",  snd_ctl_card_info_get_mixername(info));
+	dinfo.info = &SPA_DICT_INIT(items, 10);
+	dinfo.n_params = SPA_N_ELEMENTS(params);
+	dinfo.params = params;
 
 	if (this->callbacks->info)
-		this->callbacks->info(this->callbacks_data, &SPA_DICT_INIT(items, 10));
+		this->callbacks->info(this->callbacks_data, &dinfo);
 
 	activate_profile(this, ctl_hndl, 0);
 

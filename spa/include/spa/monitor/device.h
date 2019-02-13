@@ -37,6 +37,34 @@ struct spa_device;
 #include <spa/pod/builder.h>
 #include <spa/pod/event.h>
 
+struct spa_device_info {
+#define SPA_VERSION_DEVICE_INFO 0
+	uint32_t version;
+
+#define SPA_DEVICE_CHANGE_MASK_INFO		(1<<0)
+#define SPA_DEVICE_CHANGE_MASK_PARAMS		(1<<1)
+	uint64_t change_mask;
+	const struct spa_dict *info;
+	uint32_t n_params;
+	uint32_t *params;
+};
+
+#define SPA_DEVICE_INFO_INIT()	(struct spa_device_info){ SPA_VERSION_DEVICE_INFO, }
+
+struct spa_device_object_info {
+#define SPA_VERSION_DEVICE_OBJECT_INFO 0
+	uint32_t version;
+
+	uint32_t type;
+	const struct spa_handle_factory *factory;
+
+#define SPA_DEVICE_OBJECT_CHANGE_MASK_INFO		(1<<0)
+	uint64_t change_mask;
+	const struct spa_dict *info;
+};
+
+#define SPA_DEVICE_OBJECT_INFO_INIT()	(struct spa_device_object_info){ SPA_VERSION_DEVICE_OBJECT_INFO, }
+
 /**
  * spa_device_callbacks:
  */
@@ -45,18 +73,16 @@ struct spa_device_callbacks {
 #define SPA_VERSION_DEVICE_CALLBACKS	0
 	uint32_t version;
 
-	/**< notify extra information about the device */
-	void (*info) (void *data, const struct spa_dict *info);
+	/** notify extra information about the device */
+	void (*info) (void *data, const struct spa_device_info *info);
 
 	/** a device event */
 	void (*event) (void *data, struct spa_event *event);
 
-	/**< add a new object managed by the device */
-	void (*add) (void *data, uint32_t id,
-		     const struct spa_handle_factory *factory, uint32_t type,
-		     const struct spa_dict *info);
-	/**< remove an object */
-	void (*remove) (void *data, uint32_t id);
+	/** info changed for an object managed by the device, info is NULL when
+	 * the object is removed */
+	void (*object_info) (void *data, uint32_t id,
+			     const struct spa_device_object_info *info);
 };
 
 /**

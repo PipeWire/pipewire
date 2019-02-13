@@ -91,15 +91,19 @@ static int emit_nodes(struct impl *this)
 
 	spa_list_for_each(t, &device->transport_list, device_link) {
 		if (t->profile == profile) {
+			struct spa_device_object_info info;
 			char transport[16];
 
 			snprintf(transport, 16, "%p", t);
 			items[0] = SPA_DICT_ITEM_INIT("bluez5.transport", transport);
 
-			this->callbacks->add(this->callbacks_data, 0,
-					&spa_a2dp_sink_factory,
-					SPA_TYPE_INTERFACE_Node,
-					&SPA_DICT_INIT(items, 1));
+			info = SPA_DEVICE_OBJECT_INFO_INIT();
+			info.type = SPA_TYPE_INTERFACE_Node;
+			info.factory = &spa_a2dp_sink_factory;
+			info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_INFO;
+			info.info = &SPA_DICT_INIT_ARRAY(items);
+
+			this->callbacks->object_info(this->callbacks_data, 0, &info);
 			break;
 		}
 	}
@@ -125,10 +129,19 @@ static int impl_set_callbacks(struct spa_device *device,
 	this->callbacks_data = data;
 
 	if (callbacks) {
-		if (callbacks->info)
-			callbacks->info(data, &SPA_DICT_INIT_ARRAY(info_items));
+		if (callbacks->info) {
+			struct spa_device_info info;
 
-		if (this->callbacks->add)
+			info = SPA_DEVICE_INFO_INIT();
+			info.change_mask = SPA_DEVICE_CHANGE_MASK_INFO | SPA_DEVICE_CHANGE_MASK_PARAMS;
+			info.info = &SPA_DICT_INIT_ARRAY(info_items);
+			info.n_params = 0;
+			info.params = NULL;
+
+			callbacks->info(data, &info);
+		}
+
+		if (this->callbacks->object_info)
 			emit_nodes(this);
 	}
 

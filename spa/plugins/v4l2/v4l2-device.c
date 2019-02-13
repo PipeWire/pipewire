@@ -73,10 +73,14 @@ static int emit_info(struct impl *this)
 {
 	int res;
 	struct spa_dict_item items[6];
-	struct spa_dict dict;
+	struct spa_device_info info;
+	uint32_t params[] = { SPA_PARAM_EnumProfile, SPA_PARAM_Profile };
 
 	if ((res = spa_v4l2_open(&this->dev, this->props.device)) < 0)
 		return res;
+
+	info = SPA_DEVICE_INFO_INIT();
+	info.change_mask =  SPA_DEVICE_CHANGE_MASK_INFO | SPA_DEVICE_CHANGE_MASK_PARAMS;
 
 	items[0] = SPA_DICT_ITEM_INIT("device.api", "v4l2");
 	items[1] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
@@ -84,16 +88,25 @@ static int emit_info(struct impl *this)
 	items[3] = SPA_DICT_ITEM_INIT("v4l2.driver", (char *)this->dev.cap.driver);
 	items[4] = SPA_DICT_ITEM_INIT("v4l2.card", (char *)this->dev.cap.card);
 	items[5] = SPA_DICT_ITEM_INIT("v4l2.bus", (char *)this->dev.cap.bus_info);
-	dict = SPA_DICT_INIT(items, 6);
+	info.info = &SPA_DICT_INIT(items, 6);
+	info.n_params = SPA_N_ELEMENTS(params);
+	info.params = params;
 
 	if (this->callbacks->info)
-		this->callbacks->info(this->callbacks_data, &dict);
+		this->callbacks->info(this->callbacks_data, &info);
 
-	if (this->callbacks->add) {
+	if (this->callbacks->object_info) {
+
 		if (spa_v4l2_is_capture(&this->dev)) {
-			this->callbacks->add(this->callbacks_data, 0,
-				&spa_v4l2_source_factory,
-				SPA_TYPE_INTERFACE_Node, &dict);
+			struct spa_device_object_info oinfo;
+
+			oinfo = SPA_DEVICE_OBJECT_INFO_INIT();
+			oinfo.type = SPA_TYPE_INTERFACE_Node;
+			oinfo.factory = &spa_v4l2_source_factory;
+			oinfo.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_INFO;
+			oinfo.info = &SPA_DICT_INIT(items, 6);
+
+			this->callbacks->object_info(this->callbacks_data, 0, &oinfo);
 		}
 	}
 

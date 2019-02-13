@@ -73,8 +73,8 @@ channelmix_f32_n_m(void *data, int n_dst, void *dst[n_dst],
 		for (i = 0; i < n_dst; i++) {
 			float sum = 0.0f;
 			for (j = 0; j < n_src; j++)
-				sum += s[j][n] * m[i * n_src + j] * v;
-			d[i][n] = sum;
+				sum += s[j][n] * m[i * n_src + j];
+			d[i][n] = sum * v;
 		}
 	}
 }

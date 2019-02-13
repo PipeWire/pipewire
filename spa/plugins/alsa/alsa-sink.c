@@ -257,8 +257,15 @@ impl_node_set_callbacks(struct spa_node *node,
 	this->callbacks_data = data;
 
 	if (callbacks) {
-		if (callbacks->info)
-			callbacks->info(data, &SPA_DICT_INIT_ARRAY(node_info_items));
+		if (callbacks->info) {
+			struct spa_node_info info;
+
+			info = SPA_NODE_INFO_INIT();
+			info.change_mask = SPA_NODE_CHANGE_MASK_PROPS;
+			info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
+
+			callbacks->info(data, &info);
+		}
 	}
 
 	return 0;

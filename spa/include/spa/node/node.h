@@ -42,6 +42,21 @@ struct spa_node;
 #include <spa/node/command.h>
 
 /**
+ * Node information structure
+ *
+ * Contains the basic node information.
+ */
+struct spa_node_info {
+#define SPA_VERSION_NODE_INFO 0
+	uint32_t version;
+#define SPA_NODE_CHANGE_MASK_PROPS		(1<<0)
+	uint64_t change_mask;
+	struct spa_dict *props;
+};
+
+#define SPA_NODE_INFO_INIT()	(struct spa_node_info) { SPA_VERSION_NODE_INFO, }
+
+/**
  * Port information structure
  *
  * Contains the basic port information.
@@ -72,7 +87,7 @@ struct spa_node_callbacks {
 	uint32_t version;	/**< version of this structure */
 
 	/** Emited when info changes */
-	void (*info) (void *data, const struct spa_dict *info);
+	void (*info) (void *data, const struct spa_node_info *info);
 
 	/** Emited when an async operation completed.
 	 *

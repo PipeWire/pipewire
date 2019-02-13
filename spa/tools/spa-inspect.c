@@ -135,10 +135,12 @@ inspect_port_params(struct data *data, struct spa_node *node,
 	}
 }
 
-static void node_info(void *data, const struct spa_dict *info)
+static void node_info(void *data, const struct spa_node_info *info)
 {
-	printf("node properties:\n");
-	spa_debug_dict(2, info);
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS) {
+		printf("node properties:\n");
+		spa_debug_dict(2, info->props);
+	}
 }
 
 static const struct spa_node_callbacks node_callbacks =

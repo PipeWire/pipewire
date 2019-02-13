@@ -874,10 +874,11 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 	return changed;
 }
 
-static void node_info(void *data, const struct spa_dict *info)
+static void node_info(void *data, const struct spa_node_info *info)
 {
 	struct pw_node *node = data;
-	pw_node_update_properties(node, info);
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS)
+		pw_node_update_properties(node, info->props);
 }
 
 static void node_done(void *data, int seq, int res)

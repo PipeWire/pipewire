@@ -371,7 +371,6 @@ static int sdl_alloc_buffers(struct data *data)
 static int negotiate_formats(struct data *data)
 {
 	int res;
-	const struct spa_port_info *info;
 	struct spa_pod *format;
 	uint8_t buffer[256];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -395,9 +394,6 @@ static int negotiate_formats(struct data *data)
 					   SPA_DIRECTION_OUTPUT, 0,
 					   SPA_PARAM_Format, 0,
 					   format)) < 0)
-		return res;
-
-	if ((res = spa_node_port_get_info(data->source, SPA_DIRECTION_OUTPUT, 0, &info)) < 0)
 		return res;
 
 

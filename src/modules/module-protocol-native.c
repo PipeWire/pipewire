@@ -117,13 +117,13 @@ process_messages(struct client_data *data)
 	uint8_t opcode;
 	uint32_t id, size;
 	void *message;
+	struct pw_resource *resource;
 
 	core->current_client = client;
 
 	/* when the client is busy processing an async action, stop processing messages
 	 * for the client until it finishes the action */
 	while (!data->busy) {
-		struct pw_resource *resource;
 		const struct pw_protocol_native_demarshal *demarshal;
 	        const struct pw_protocol_marshal *marshal;
 		uint32_t permissions, required;
@@ -143,7 +143,7 @@ process_messages(struct client_data *data)
 		if (resource == NULL) {
 			pw_log_error("protocol-native %p: unknown resource %u",
 				     client->protocol, id);
-			pw_core_resource_error(client->core_resource, id,
+			pw_resource_error(client->core_resource,
 				     -EINVAL, "unknown resource %u", id);
 			continue;
 		}
@@ -162,7 +162,7 @@ process_messages(struct client_data *data)
 		if ((required & permissions) != required) {
 			pw_log_error("protocol-native %p: method %u on %u requires %08x, have %08x",
 				     client->protocol, opcode, id, required, permissions);
-			pw_core_resource_error(client->core_resource, id,
+			pw_resource_error(resource,
 				-EACCES, "no permission to call method %u ", opcode, id);
 			continue;
 		}
@@ -177,15 +177,13 @@ process_messages(struct client_data *data)
       invalid_method:
 	pw_log_error("protocol-native %p: invalid method %u on resource %u",
 		     client->protocol, opcode, id);
-	pw_core_resource_error(client->core_resource, id,
-		     -EINVAL, "invalid method %u on resource %u", opcode, id);
+	pw_resource_error(resource, -EINVAL, "invalid method %u", opcode);
 	pw_client_destroy(client);
 	goto done;
       invalid_message:
 	pw_log_error("protocol-native %p: invalid message received %u %u",
 		     client->protocol, id, opcode);
-	pw_core_resource_error(client->core_resource, id,
-		     -EINVAL, "invalid message %u %u", opcode, id);
+	pw_resource_error(resource, -EINVAL, "invalid message %u", opcode);
 	spa_debug_pod(0, NULL, (struct spa_pod *)message);
 	pw_client_destroy(client);
 	goto done;

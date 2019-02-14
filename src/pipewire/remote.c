@@ -99,21 +99,35 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 }
 
 
+static void core_event_error(void *data, uint32_t id, int res, const char *message)
+{
+	struct pw_remote *this = data;
+	struct pw_proxy *proxy;
+
+	pw_log_debug("remote %p: object error %u: %d (%s): %s", this, id,
+			res, spa_strerror(res), message);
+
+	proxy = pw_map_lookup(&this->objects, id);
+	if (proxy)
+		pw_proxy_events_error(proxy, res, message);
+}
+
 static void core_event_remove_id(void *data, uint32_t id)
 {
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
 
+	pw_log_debug("remote %p: object remove %u", this, id);
 	proxy = pw_map_lookup(&this->objects, id);
-	if (proxy) {
-		pw_log_debug("remote %p: object remove %u", this, id);
+	if (proxy)
 		pw_proxy_destroy(proxy);
-	}
+
 	pw_map_remove(&this->objects, id);
 }
 
 static const struct pw_core_proxy_events core_proxy_events = {
 	PW_VERSION_CORE_PROXY_EVENTS,
+	.error = core_event_error,
 	.remove_id = core_event_remove_id,
 };
 

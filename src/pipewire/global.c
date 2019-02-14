@@ -265,7 +265,7 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 
       wrong_version:
 	res = -EINVAL;
-	pw_core_resource_error(client->core_resource, id,
+	pw_core_resource_errorf(client->core_resource, id,
 			res, "id %d: interface version %d < %d",
 			id, global->version, version);
 	return res;

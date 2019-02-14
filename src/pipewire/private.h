@@ -538,6 +538,7 @@ struct pw_resource {
 
 #define pw_proxy_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_proxy_events, m, v, ##__VA_ARGS__)
 #define pw_proxy_events_destroy(p)	pw_proxy_events_emit(p, destroy, 0)
+#define pw_proxy_events_error(p,r,m)	pw_proxy_events_emit(p, error, 0, r, m)
 
 struct pw_proxy {
 	struct pw_remote *remote;	/**< the owner remote of this proxy */

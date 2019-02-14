@@ -107,7 +107,18 @@ static void client_error(void *object, uint32_t id, int res, const char *error)
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_client *client = data->client;
-	pw_resource_error(client->core_resource, id, res, error);
+	struct pw_global *global;
+	struct pw_resource *r, *t;
+
+	global = pw_core_find_global(client->core, id);
+	if (global == NULL)
+		return;
+
+	spa_list_for_each_safe(r, t, &global->resource_list, link) {
+		if (t->client != client)
+			continue;
+		pw_resource_error(r, res, error);
+	}
 }
 
 static void client_update_properties(void *object, const struct spa_dict *props)
@@ -194,7 +205,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create client resource");
-	pw_resource_error(client->core_resource, id, -ENOMEM, "no memory");
+	pw_core_resource_error(client->core_resource, id, -ENOMEM, "can't create client resource: no memory");
 	return;
 }
 

@@ -51,7 +51,7 @@ static void test_core_abi(void)
 	struct {
 		uint32_t version;
 	        void (*done) (void *object, uint32_t seq);
-	        void (*error) (void *object, uint32_t id, int res, const char *error, ...);
+	        void (*error) (void *object, uint32_t id, int res, const char *error);
 	        void (*remove_id) (void *object, uint32_t id);
 		void (*info) (void *object, const struct pw_core_info *info);
 	} events = { PW_VERSION_CORE_PROXY_EVENTS, };

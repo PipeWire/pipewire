@@ -174,7 +174,7 @@ core_check_access(void *data, struct pw_client *client)
 	return;
 
       blacklisted:
-	pw_resource_error(pw_client_get_core_resource(client), 0, res, "blacklisted");
+	pw_resource_error(pw_client_get_core_resource(client), res, "blacklisted");
 	pw_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 	return;
 

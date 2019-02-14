@@ -252,23 +252,17 @@ static void core_marshal_done(void *object, uint32_t seq)
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void core_marshal_error(void *object, uint32_t id, int res, const char *error, ...)
+static void core_marshal_error(void *object, uint32_t id, int res, const char *error)
 {
 	struct pw_resource *resource = object;
-	char buffer[128];
 	struct spa_pod_builder *b;
-	va_list ap;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_EVENT_ERROR);
-
-	va_start(ap, error);
-	vsnprintf(buffer, sizeof(buffer), error, ap);
-	va_end(ap);
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(id),
 			       SPA_POD_Int(res),
-			       SPA_POD_String(buffer));
+			       SPA_POD_String(error));
 
 	pw_protocol_native_end_resource(resource, b);
 }

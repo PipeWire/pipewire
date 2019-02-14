@@ -110,6 +110,9 @@ struct pw_proxy_events {
 
 	/** The proxy is destroyed */
         void (*destroy) (void *data);
+
+	/** an error occured on the proxy */
+        void (*error) (void *data, int res, const char *message);
 };
 
 /** Make a new proxy object. The id can be used to bind to a remote object and

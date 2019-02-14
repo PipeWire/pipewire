@@ -122,16 +122,16 @@ static void *create_object(void *_data,
       no_properties:
 	pw_log_error("needed properties: spa.library.name=<library-name> spa.factory.name=<factory-name>");
 	if (resource) {
-		pw_resource_error(resource, new_id, -EINVAL,
+		pw_resource_error(resource, -EINVAL,
 					"needed properties: "
 						"spa.library.name=<library-name> "
 						"spa.factory.name=<factory-name>");
 	}
 	return NULL;
       no_mem:
-	pw_log_error("can't create node");
+	pw_log_error("can't create node: no memory");
 	if (resource) {
-		pw_resource_error(resource, new_id, -ENOMEM, "no memory");
+		pw_resource_error(resource, -ENOMEM, "no memory");
 	}
 	return NULL;
 }

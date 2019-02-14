@@ -29,6 +29,8 @@
 extern "C" {
 #endif
 
+#include <stdarg.h>
+
 #include <spa/utils/defs.h>
 #include <spa/node/command.h>
 #include <spa/param/param.h>
@@ -204,15 +206,19 @@ struct pw_core_proxy_events {
 	 * Fatal error event
          *
          * The error event is sent out when a fatal (non-recoverable)
-         * error has occurred. The id argument is the object where
+         * error has occurred. The id argument is the proxy object where
          * the error occurred, most often in response to a request to that
          * object. The message is a brief description of the error,
          * for (debugging) convenience.
+	 *
+	 * This event is usually also emited on the proxy object with
+	 * \a id.
+	 *
          * \param id object where the error occurred
          * \param res error code
-         * \param error error description
+         * \param message error description
 	 */
-	void (*error) (void *object, uint32_t id, int res, const char *error, ...);
+	void (*error) (void *object, uint32_t id, int res, const char *message);
 	/**
 	 * Remove an object ID
          *
@@ -221,6 +227,7 @@ struct pw_core_proxy_events {
          * this event to acknowledge that it has seen the delete request.
          * When the client receives this event, it will know that it can
          * safely reuse the object ID.
+	 *
          * \param id deleted object ID
 	 */
 	void (*remove_id) (void *object, uint32_t id);
@@ -247,6 +254,23 @@ pw_core_proxy_add_listener(struct pw_core_proxy *core,
 #define pw_core_resource_remove_id(r,...)    pw_resource_notify(r,struct pw_core_proxy_events,remove_id,__VA_ARGS__)
 #define pw_core_resource_info(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,info,__VA_ARGS__)
 
+static inline void
+pw_core_resource_errorv(struct pw_resource *resource, uint32_t id, int res, const char *message, va_list args)
+{
+	char buffer[1024];
+	vsnprintf(buffer, sizeof(buffer), message, args);
+	buffer[1023] = '\0';
+	pw_core_resource_error(resource, id, res, buffer);
+}
+
+static inline void
+pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int res, const char *message, ...)
+{
+        va_list args;
+	va_start(args, message);
+	pw_core_resource_errorv(resource, id, res, message, args);
+	va_end(args);
+}
 
 #define PW_VERSION_REGISTRY			0
 
@@ -747,9 +771,9 @@ struct pw_client_proxy_methods {
 	 *
 	 * \param id the global id to report the error on
 	 * \param res an errno style error code
-	 * \param error an error string
+	 * \param message an error string
 	 */
-	void (*error) (void *object, uint32_t id, int res, const char *error);
+	void (*error) (void *object, uint32_t id, int res, const char *message);
 	/**
 	 * Update client properties
 	 *
@@ -785,9 +809,9 @@ struct pw_client_proxy_methods {
 
 /** Client permissions */
 static inline void
-pw_client_proxy_error(struct pw_client_proxy *client, uint32_t id, int res, const char *error)
+pw_client_proxy_error(struct pw_client_proxy *client, uint32_t id, int res, const char *message)
 {
-	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, error, id, res, error);
+	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, error, id, res, message);
 }
 
 static inline void

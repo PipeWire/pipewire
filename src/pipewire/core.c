@@ -87,13 +87,11 @@ static void registry_bind(void *object, uint32_t id,
 
       no_id:
 	pw_log_debug("registry %p: no global with id %u to bind to %u", resource, id, new_id);
-	pw_core_resource_error(client->core_resource, id,
-			     -ENOENT, "no such global %u", id);
+	pw_resource_error(resource, -ENOENT, "no such global %u", id);
 	goto exit;
       wrong_interface:
 	pw_log_debug("registry %p: global with id %u has no interface %u", resource, id, type);
-	pw_core_resource_error(client->core_resource, id,
-			     -ENOENT, "no such interface %u", type);
+	pw_resource_error(resource, -ENOENT, "no such interface %u", type);
 	goto exit;
       exit:
 	/* unmark the new_id the map, the client does not yet know about the failed
@@ -263,21 +261,18 @@ core_create_object(void *object,
 
       no_factory:
 	pw_log_error("can't find node factory %s", factory_name);
-	pw_core_resource_error(client->core_resource,
-			       new_id, -EINVAL, "unknown factory name %s", factory_name);
+	pw_resource_error(resource, -EINVAL, "unknown factory name %s", factory_name);
 	goto error;
       wrong_version:
       wrong_type:
 	pw_log_error("invalid resource type/version");
-	pw_core_resource_error(client->core_resource,
-			       new_id, -EINVAL, "wrong resource type/version");
+	pw_resource_error(resource, -EINVAL, "wrong resource type/version");
 	goto error;
       no_properties:
 	pw_log_error("can't create properties");
 	goto no_mem;
       no_mem:
-	pw_core_resource_error(client->core_resource,
-			       new_id, -ENOMEM, "no memory");
+	pw_resource_error(resource, -ENOMEM, "no memory");
 	goto error;
       error:
 	pw_map_insert_at(&client->objects, new_id, NULL);
@@ -303,7 +298,7 @@ static void core_destroy(void *object, uint32_t id)
 
       no_resource:
 	pw_log_error("can't find resouce %d", id);
-	pw_core_resource_error(client->core_resource, id, -EINVAL, "unknown resouce %d", id);
+	pw_resource_error(resource, -EINVAL, "unknown resource %d", id);
 	goto done;
 }
 

@@ -246,30 +246,30 @@ static void *create_object(void *_data,
 
       no_properties:
 	pw_log_error("link-factory needs properties");
-	pw_resource_error(resource, new_id, -EINVAL, "no properties");
+	pw_resource_error(resource, -EINVAL, "no properties");
 	goto done;
       no_output:
-	pw_log_error("link-factory unknown output node %d", output_node_id);
-	pw_resource_error(resource, new_id, -EINVAL, "unknown output node");
+	pw_log_error("link-factory unknown output node %u", output_node_id);
+	pw_resource_error(resource, -EINVAL, "unknown output node %u", output_node_id);
 	goto done;
       no_input:
-	pw_log_error("link-factory unknown input node %d", input_node_id);
-	pw_resource_error(resource, new_id, -EINVAL, "unknown input node");
+	pw_log_error("link-factory unknown input node %u", input_node_id);
+	pw_resource_error(resource, -EINVAL, "unknown input node %u", input_node_id);
 	goto done;
       no_output_port:
-	pw_log_error("link-factory unknown output port %d", output_port_id);
-	pw_resource_error(resource, new_id, -EINVAL, "unknown output port");
+	pw_log_error("link-factory unknown output port %u", output_port_id);
+	pw_resource_error(resource, -EINVAL, "unknown output port %u", output_port_id);
 	goto done;
       no_input_port:
-	pw_log_error("link-factory unknown input port %d", input_port_id);
-	pw_resource_error(resource, new_id, -EINVAL, "unknown input port");
+	pw_log_error("link-factory unknown input port %u", input_port_id);
+	pw_resource_error(resource, -EINVAL, "unknown input port %u", input_port_id);
 	goto done;
       no_mem:
 	pw_log_error("can't create link: %s", error);
-	pw_resource_error(resource, new_id, -ENOMEM, error);
+	pw_resource_error(resource, -ENOMEM, "can't create link: %s", error);
 	goto done;
       no_bind:
-	pw_resource_error(resource, new_id, res, "can't bind link");
+	pw_resource_error(resource, res, "can't bind link");
 	goto done;
       done:
 	if (properties)

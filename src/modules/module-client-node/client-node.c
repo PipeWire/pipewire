@@ -1029,7 +1029,8 @@ client_node_port_update(void *data,
 			       n_params, params,
 			       info);
 
-		if (this->callbacks && this->callbacks->port_info && info)
+		if (this->callbacks && this->callbacks->port_info &&
+		    info && (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO))
 			this->callbacks->port_info(this->callbacks_data, direction, port_id, info);
 	}
 }

@@ -2361,10 +2361,10 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.name", port_name);
 
 	if (type_id == 1)
-		port_info.flags = SPA_PORT_INFO_FLAG_NO_REF;
+		port_info.flags = SPA_PORT_FLAG_NO_REF;
 	else
-		port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
-				  SPA_PORT_INFO_FLAG_NO_REF;
+		port_info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+				  SPA_PORT_FLAG_NO_REF;
 
 	param_enum_format(c, p, &params[n_params++], &b);
 	param_buffers(c, p, &params[n_params++], &b);

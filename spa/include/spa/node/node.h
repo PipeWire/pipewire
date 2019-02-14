@@ -111,7 +111,7 @@ struct spa_node_callbacks {
 	 * When this function is NULL, synchronous operation is requested
 	 * on the ports.
 	 */
-	void (*process) (void *data, int state);
+	void (*ready) (void *data, int state);
 
 	/**
 	 * \param node a spa_node

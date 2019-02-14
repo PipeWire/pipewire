@@ -1193,7 +1193,7 @@ static int mmap_read(struct impl *this)
 	}
 
 	spa_log_trace(this->log, "v4l2 %p: now queued %d", this, b->id);
-	this->callbacks->process(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
+	this->callbacks->ready(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 
 	return 0;
 }

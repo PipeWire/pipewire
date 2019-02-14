@@ -159,7 +159,7 @@ static void on_source_event(void *_data, struct spa_event *event)
 	printf("got event %d\n", SPA_EVENT_TYPE(event));
 }
 
-static void on_source_process(void *_data, int status)
+static void on_source_ready(void *_data, int status)
 {
 	struct data *data = _data;
 	int res;
@@ -239,7 +239,7 @@ static const struct spa_node_callbacks source_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.done = on_source_done,
 	.event = on_source_event,
-	.process = on_source_process
+	.ready = on_source_ready
 };
 
 static int do_add_source(struct spa_loop *loop, struct spa_source *source)

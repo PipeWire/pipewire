@@ -1294,7 +1294,7 @@ do_process(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
-	impl->callbacks->process(impl->callbacks_data, SPA_STATUS_HAVE_BUFFER);
+	impl->callbacks->ready(impl->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 	return 0;
 }
 

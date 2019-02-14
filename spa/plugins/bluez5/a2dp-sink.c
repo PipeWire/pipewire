@@ -624,7 +624,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 			this->range->min_size = this->threshold * this->frame_size;
 			this->range->max_size = this->write_samples * this->frame_size;
 		}
-		this->callbacks->process(this->callbacks_data, SPA_STATUS_NEED_BUFFER);
+		this->callbacks->ready(this->callbacks_data, SPA_STATUS_NEED_BUFFER);
 	}
 	flush_data(this, now_time);
 }

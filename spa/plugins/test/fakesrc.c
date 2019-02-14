@@ -203,7 +203,7 @@ static int fill_buffer(struct impl *this, struct buffer *b)
 
 static void set_timer(struct impl *this, bool enabled)
 {
-	if ((this->callbacks && this->callbacks->process) || this->props.live) {
+	if ((this->callbacks && this->callbacks->ready) || this->props.live) {
 		if (enabled) {
 			if (this->props.live) {
 				uint64_t next_time = this->start_time + this->elapsed_time;
@@ -225,7 +225,7 @@ static inline void read_timer(struct impl *this)
 {
 	uint64_t expirations;
 
-	if ((this->callbacks && this->callbacks->process) || this->props.live) {
+	if ((this->callbacks && this->callbacks->ready) || this->props.live) {
 		if (read(this->timer_source.fd, &expirations, sizeof(uint64_t)) != sizeof(uint64_t))
 			perror("read timerfd");
 	}
@@ -282,8 +282,8 @@ static void on_output(struct spa_source *source)
 
 	res = make_buffer(this);
 
-	if (res == SPA_STATUS_HAVE_BUFFER && this->callbacks && this->callbacks->process)
-		this->callbacks->process(this->callbacks_data, res);
+	if (res == SPA_STATUS_HAVE_BUFFER && this->callbacks && this->callbacks->ready)
+		this->callbacks->ready(this->callbacks_data, res);
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -728,7 +728,7 @@ static int impl_node_process(struct spa_node *node)
 		this->io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if ((this->callbacks == NULL || this->callbacks->process == NULL) &&
+	if ((this->callbacks == NULL || this->callbacks->ready == NULL) &&
 			(io->status == SPA_STATUS_NEED_BUFFER))
 		return make_buffer(this);
 	else

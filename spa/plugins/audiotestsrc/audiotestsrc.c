@@ -388,7 +388,7 @@ static void on_output(struct spa_source *source)
 	res = make_buffer(this);
 
 	if (res == SPA_STATUS_HAVE_BUFFER)
-		this->callbacks->process(this->callbacks_data, res);
+		this->callbacks->ready(this->callbacks_data, res);
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)

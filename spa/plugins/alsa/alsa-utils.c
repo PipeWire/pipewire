@@ -825,7 +825,7 @@ push_frames(struct state *state,
 			spa_list_append(&state->ready, &b->link);
 		}
 
-		state->callbacks->process(state->callbacks_data, SPA_STATUS_HAVE_BUFFER);
+		state->callbacks->ready(state->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 	}
 	return total_frames;
 }
@@ -869,7 +869,7 @@ static int handle_play(struct state *state)
 			state->range->min_size = state->threshold * state->frame_size;
 			state->range->max_size = state->threshold * state->frame_size;
 		}
-		state->callbacks->process(state->callbacks_data, SPA_STATUS_NEED_BUFFER);
+		state->callbacks->ready(state->callbacks_data, SPA_STATUS_NEED_BUFFER);
 	}
 	else {
 		spa_alsa_write(state, 0, true);

@@ -908,12 +908,12 @@ static void node_event(void *data, struct spa_event *event)
 
 }
 
-static void node_process(void *data, int status)
+static void node_ready(void *data, int status)
 {
 	struct pw_node *node = data;
 	struct pw_node *driver = node->driver_node;
 
-	pw_log_trace("node %p: process driver:%d exported:%d %p", node,
+	pw_log_trace("node %p: ready driver:%d exported:%d %p", node,
 			node->driver, node->exported, driver);
 
 	if (driver->rt.root.graph == NULL)
@@ -946,7 +946,7 @@ static const struct spa_node_callbacks node_callbacks = {
 	.info = node_info,
 	.done = node_done,
 	.event = node_event,
-	.process = node_process,
+	.ready = node_ready,
 	.reuse_buffer = node_reuse_buffer,
 };
 

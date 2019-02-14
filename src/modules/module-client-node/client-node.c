@@ -1139,8 +1139,9 @@ static void node_on_data_fd_events(struct spa_source *source)
 		if (read(this->data_source.fd, &cmd, sizeof(cmd)) != sizeof(cmd) || cmd != 1)
 			spa_log_warn(this->log, "node %p: read %"PRIu64" failed %m", this, cmd);
 
-		spa_log_trace(this->log, "node %p: got process", this);
-		this->callbacks->process(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
+		spa_log_trace(this->log, "node %p: got ready", this);
+		if (this->callbacks && this->callbacks->ready)
+			this->callbacks->ready(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 	}
 }
 

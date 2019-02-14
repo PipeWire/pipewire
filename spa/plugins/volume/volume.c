@@ -811,15 +811,15 @@ impl_init(const struct spa_handle_factory *factory,
 	port = GET_IN_PORT(this, 0);
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
-	    SPA_PORT_INFO_FLAG_IN_PLACE;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+	    SPA_PORT_FLAG_IN_PLACE;
 	spa_list_init(&port->empty);
 
 	port = GET_OUT_PORT(this, 0);
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
-	    SPA_PORT_INFO_FLAG_NO_REF;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+	    SPA_PORT_FLAG_NO_REF;
 	spa_list_init(&port->empty);
 
 	return 0;

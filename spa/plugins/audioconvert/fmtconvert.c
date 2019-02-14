@@ -951,8 +951,8 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->cpu)
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 
-	init_port(this, SPA_DIRECTION_OUTPUT, 0, SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS);
-	init_port(this, SPA_DIRECTION_INPUT, 0, SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS);
+	init_port(this, SPA_DIRECTION_OUTPUT, 0, SPA_PORT_FLAG_CAN_USE_BUFFERS);
+	init_port(this, SPA_DIRECTION_INPUT, 0, SPA_PORT_FLAG_CAN_USE_BUFFERS);
 
 	props_reset(&this->props);
 

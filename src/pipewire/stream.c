@@ -319,7 +319,7 @@ static void emit_port_info(struct stream *d)
 		struct spa_port_info info;
 		info = SPA_PORT_INFO_INIT();
 		info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-		info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+		info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
 		d->callbacks->port_info(d->callbacks_data, d->direction, 0, &info);
 	}
 }

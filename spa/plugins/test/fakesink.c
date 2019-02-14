@@ -170,9 +170,9 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 			SPA_PROP_live, SPA_POD_OPT_Bool(&this->props.live));
 
 		if (this->props.live)
-			this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
+			this->info.flags |= SPA_PORT_FLAG_LIVE;
 		else
-			this->info.flags &= ~SPA_PORT_INFO_FLAG_LIVE;
+			this->info.flags &= ~SPA_PORT_FLAG_LIVE;
 		break;
 
 	default:
@@ -756,9 +756,9 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->info = SPA_PORT_INFO_INIT();
 	this->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-	this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS | SPA_PORT_INFO_FLAG_NO_REF;
+	this->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS | SPA_PORT_FLAG_NO_REF;
 	if (this->props.live)
-		this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
+		this->info.flags |= SPA_PORT_FLAG_LIVE;
 
 	spa_log_info(this->log, NAME " %p: initialized", this);
 

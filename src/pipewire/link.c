@@ -564,23 +564,23 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	in_flags = input->spa_flags;
 	out_flags = output->spa_flags;
 
-	if (out_flags & SPA_PORT_INFO_FLAG_LIVE) {
+	if (out_flags & SPA_PORT_FLAG_LIVE) {
 		pw_log_debug("setting link as live");
 		output->node->live = true;
 		input->node->live = true;
 	}
 
 	if (output->allocation.n_buffers) {
-		out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-		in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+		out_flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+		in_flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
 
 		move_allocation(&output->allocation, &allocation);
 
 		pw_log_debug("link %p: reusing %d output buffers %p", this,
 				allocation.n_buffers, allocation.buffers);
 	} else if (input->allocation.n_buffers && input->mix == NULL) {
-		out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-		in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+		out_flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+		in_flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
 
 		move_allocation(&input->allocation, &allocation);
 
@@ -643,8 +643,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 		/* when one of the ports can allocate buffer memory, set the minsize to
 		 * 0 to make sure we don't allocate memory in the shared memory */
-		if ((in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) ||
-		    (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS)) {
+		if ((in_flags & SPA_PORT_FLAG_CAN_ALLOC_BUFFERS) ||
+		    (out_flags & SPA_PORT_FLAG_CAN_ALLOC_BUFFERS)) {
 			minsize = 0;
 		}
 
@@ -667,7 +667,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		pw_log_debug("link %p: allocating %d buffers %p %zd %zd", this,
 			     allocation.n_buffers, allocation.buffers, minsize, stride);
 
-		if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
+		if (out_flags & SPA_PORT_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(output,
 							 this->rt.out_mix.port.port_id,
 							 params, n_params,
@@ -680,12 +680,12 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				pw_work_queue_add(impl->work, output->node, res, complete_paused,
 					  &this->rt.out_mix);
 
-			out_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+			out_flags &= ~SPA_PORT_FLAG_CAN_USE_BUFFERS;
 			move_allocation(&allocation, &output->allocation);
 
 			pw_log_debug("link %p: allocated %d buffers %p from output port", this,
 				     allocation.n_buffers, allocation.buffers);
-		} else if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
+		} else if (in_flags & SPA_PORT_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(input,
 							 this->rt.in_mix.port.port_id,
 							 params, n_params,
@@ -698,13 +698,13 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				pw_work_queue_add(impl->work, input->node, res, complete_paused,
 					  &this->rt.in_mix);
 
-			in_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+			in_flags &= ~SPA_PORT_FLAG_CAN_USE_BUFFERS;
 			pw_log_debug("link %p: allocated %d buffers %p from input port", this,
 				     allocation.n_buffers, allocation.buffers);
 		}
 	}
 
-	if (out_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
+	if (out_flags & SPA_PORT_FLAG_CAN_USE_BUFFERS) {
 		pw_log_debug("link %p: using %d buffers %p on output port", this,
 			     allocation.n_buffers, allocation.buffers);
 		if ((res = pw_port_use_buffers(output,
@@ -722,7 +722,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		move_allocation(&allocation, &output->allocation);
 
 	}
-	if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
+	if (in_flags & SPA_PORT_FLAG_CAN_USE_BUFFERS) {
 		pw_log_debug("link %p: using %d buffers %p on input port", this,
 			     allocation.n_buffers, allocation.buffers);
 		if ((res = pw_port_use_buffers(input,

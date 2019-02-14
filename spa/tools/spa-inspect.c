@@ -139,6 +139,10 @@ inspect_port_params(struct data *data, struct spa_node *node,
 static void node_info(void *_data, const struct spa_node_info *info)
 {
 	struct data *data = _data;
+
+	printf("max input ports: %u\n", info->max_input_ports);
+	printf("max output ports: %u\n", info->max_output_ports);
+
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS) {
 		printf("node properties:\n");
 		spa_debug_dict(2, info->props);

@@ -216,10 +216,10 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 	spa_list_init(&port->queue);
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
-			   SPA_PORT_INFO_FLAG_REMOVABLE |
-			   SPA_PORT_INFO_FLAG_OPTIONAL |
-			   SPA_PORT_INFO_FLAG_IN_PLACE;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+			   SPA_PORT_FLAG_REMOVABLE |
+			   SPA_PORT_FLAG_OPTIONAL |
+			   SPA_PORT_FLAG_IN_PLACE;
 
 	this->port_count++;
 	if (this->last_port <= port_id)
@@ -891,8 +891,8 @@ impl_init(const struct spa_handle_factory *factory,
 	port->id = 0;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
-	    SPA_PORT_INFO_FLAG_NO_REF;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+	    SPA_PORT_FLAG_NO_REF;
 	spa_list_init(&port->queue);
 
 	return 0;

@@ -117,6 +117,8 @@ static void emit_node_info(struct impl *this)
 {
 	if (this->callbacks && this->callbacks->info) {
 		struct spa_node_info info = SPA_NODE_INFO_INIT();
+		info.max_input_ports = MAX_PORTS;
+		info.max_output_ports = MAX_PORTS+1;
 		info.change_mask = 0;
 		this->callbacks->info(this->user_data, &info);
 	}
@@ -142,7 +144,7 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_PROPS;
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
 	port->info_props_items[n_items++] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
 	port->info_props_items[n_items++] = SPA_DICT_ITEM_INIT("port.channel", port->position);
 	if (direction == SPA_DIRECTION_OUTPUT)
@@ -1043,7 +1045,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->id = 0;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
 	spa_list_init(&port->queue);
 
 	return 0;

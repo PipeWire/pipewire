@@ -113,7 +113,7 @@ static int impl_set_callbacks(struct spa_node *node,
 
 		info = SPA_PORT_INFO_INIT();
 		info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_PROPS;
-		info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+		info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
 		port_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
 		info.props = &SPA_DICT_INIT_ARRAY(port_items);
 

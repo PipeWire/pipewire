@@ -885,7 +885,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->id = 0;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
 	spa_list_init(&port->queue);
 
 	port = GET_IN_PORT(this, 0);
@@ -893,7 +893,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->id = 0;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
 	spa_list_init(&port->queue);
 
 	props_reset(&this->props);

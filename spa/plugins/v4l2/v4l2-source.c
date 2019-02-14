@@ -338,6 +338,7 @@ static void emit_node_info(struct impl *this)
 		struct spa_node_info info;
 
 		info = SPA_NODE_INFO_INIT();
+		info.max_output_ports = 1;
 		info.change_mask = SPA_NODE_CHANGE_MASK_PROPS;
 		info.props = &SPA_DICT_INIT_ARRAY(info_items);
 
@@ -968,9 +969,9 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&port->queue);
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-	port->info.flags = SPA_PORT_INFO_FLAG_LIVE |
-			   SPA_PORT_INFO_FLAG_PHYSICAL |
-			   SPA_PORT_INFO_FLAG_TERMINAL;
+	port->info.flags = SPA_PORT_FLAG_LIVE |
+			   SPA_PORT_FLAG_PHYSICAL |
+			   SPA_PORT_FLAG_TERMINAL;
 
 	port->export_buf = true;
 	port->have_query_ext_ctrl = true;

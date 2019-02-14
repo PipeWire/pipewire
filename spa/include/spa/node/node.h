@@ -47,8 +47,15 @@ struct spa_node;
  * Contains the basic node information.
  */
 struct spa_node_info {
-#define SPA_NODE_CHANGE_MASK_PROPS		(1<<0)
+	uint32_t max_input_ports;
+	uint32_t max_output_ports;
+#define SPA_NODE_CHANGE_MASK_FLAGS		(1u<<0)
+#define SPA_NODE_CHANGE_MASK_PROPS		(1u<<1)
 	uint64_t change_mask;
+#define SPA_NODE_FLAG_DYNAMIC_INPUT_PORTS	(1u<<0)	/**< input ports can be added/removed */
+#define SPA_NODE_FLAG_DYNAMIC_OUTPUT_PORTS	(1u<<1)	/**< output ports can be added/removed */
+#define SPA_NODE_FLAG_RT			(1u<<2)	/**< node can do real-time processing */
+	uint32_t flags;
 	struct spa_dict *props;
 };
 
@@ -60,25 +67,25 @@ struct spa_node_info {
  * Contains the basic port information.
  */
 struct spa_port_info {
-#define SPA_PORT_CHANGE_MASK_FLAGS		(1<<0)
-#define SPA_PORT_CHANGE_MASK_RATE		(1<<1)
-#define SPA_PORT_CHANGE_MASK_PROPS		(1<<2)
+#define SPA_PORT_CHANGE_MASK_FLAGS		(1u<<0)
+#define SPA_PORT_CHANGE_MASK_RATE		(1u<<1)
+#define SPA_PORT_CHANGE_MASK_PROPS		(1u<<2)
 	uint64_t change_mask;
 
-#define SPA_PORT_INFO_FLAG_REMOVABLE		(1<<0)	/**< port can be removed */
-#define SPA_PORT_INFO_FLAG_OPTIONAL		(1<<1)	/**< processing on port is optional */
-#define SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS	(1<<2)	/**< the port can allocate buffer data */
-#define SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS	(1<<3)	/**< the port can use a provided buffer */
-#define SPA_PORT_INFO_FLAG_IN_PLACE		(1<<4)	/**< the port can process data in-place and
+#define SPA_PORT_FLAG_REMOVABLE			(1u<<0)	/**< port can be removed */
+#define SPA_PORT_FLAG_OPTIONAL			(1u<<1)	/**< processing on port is optional */
+#define SPA_PORT_FLAG_CAN_ALLOC_BUFFERS		(1u<<2)	/**< the port can allocate buffer data */
+#define SPA_PORT_FLAG_CAN_USE_BUFFERS		(1u<<3)	/**< the port can use a provided buffer */
+#define SPA_PORT_FLAG_IN_PLACE			(1u<<4)	/**< the port can process data in-place and
 							 *   will need a writable input buffer */
-#define SPA_PORT_INFO_FLAG_NO_REF		(1<<5)	/**< the port does not keep a ref on the buffer */
-#define SPA_PORT_INFO_FLAG_LIVE			(1<<6)	/**< output buffers from this port are
+#define SPA_PORT_FLAG_NO_REF			(1u<<5)	/**< the port does not keep a ref on the buffer */
+#define SPA_PORT_FLAG_LIVE			(1u<<6)	/**< output buffers from this port are
 							 *   timestamped against a live clock. */
-#define SPA_PORT_INFO_FLAG_PHYSICAL		(1<<7)	/**< connects to some device */
-#define SPA_PORT_INFO_FLAG_TERMINAL		(1<<8)	/**< data was not created from this port
+#define SPA_PORT_FLAG_PHYSICAL			(1u<<7)	/**< connects to some device */
+#define SPA_PORT_FLAG_TERMINAL			(1u<<8)	/**< data was not created from this port
 							 *   or will not be made available on another
 							 *   port */
-#define SPA_PORT_INFO_FLAG_DYNAMIC_DATA		(1<<9)	/**< data pointer on buffers can be changed */
+#define SPA_PORT_FLAG_DYNAMIC_DATA		(1u<<9)	/**< data pointer on buffers can be changed */
 	uint32_t flags;				/**< port flags */
 	uint32_t rate;				/**< rate of sequence numbers on port */
 	const struct spa_dict *props;		/**< extra port properties */

@@ -443,7 +443,7 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
 		pi.flags = port->spa_flags;
 		pi.rate = 0;
 		pi.props = &port->properties->dict;
-		pi.flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+		pi.flags &= ~SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
 	}
 
         pw_client_node_proxy_port_update(data->node_proxy,

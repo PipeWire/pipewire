@@ -780,6 +780,8 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 static void node_info(void *data, const struct spa_node_info *info)
 {
 	struct pw_node *node = data;
+	node->info.max_input_ports = info->max_input_ports;
+	node->info.max_output_ports = info->max_output_ports;
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS)
 		pw_node_update_properties(node, info->props);
 }

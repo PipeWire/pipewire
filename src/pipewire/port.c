@@ -264,9 +264,9 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	if (properties == NULL)
 		goto no_mem;
 
-	if (SPA_FLAG_CHECK(spa_flags, SPA_PORT_INFO_FLAG_PHYSICAL))
+	if (SPA_FLAG_CHECK(spa_flags, SPA_PORT_FLAG_PHYSICAL))
 		pw_properties_set(properties, "port.physical", "1");
-	if (SPA_FLAG_CHECK(spa_flags, SPA_PORT_INFO_FLAG_TERMINAL))
+	if (SPA_FLAG_CHECK(spa_flags, SPA_PORT_FLAG_TERMINAL))
 		pw_properties_set(properties, "port.terminal", "1");
 
 	this->direction = direction;

@@ -538,8 +538,8 @@ static int negotiate_buffers(struct impl *impl)
 	in_flags = impl->client_port->spa_flags;
 	out_flags = impl->adapter_mix_flags;
 
-	in_alloc = SPA_FLAG_CHECK(in_flags, SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
-	out_alloc = SPA_FLAG_CHECK(out_flags, SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS);
+	in_alloc = SPA_FLAG_CHECK(in_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
+	out_alloc = SPA_FLAG_CHECK(out_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
 
 	flags = 0;
 	if (out_alloc || in_alloc) {

@@ -852,6 +852,7 @@ static void emit_node_info(struct impl *this)
 		struct spa_node_info info;
 
 		info = SPA_NODE_INFO_INIT();
+		info.max_input_ports = 1;
 		info.change_mask = SPA_NODE_CHANGE_MASK_PROPS;
 		info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
 
@@ -1079,7 +1080,7 @@ static int port_set_format(struct spa_node *node,
 	}
 
 	if (this->have_format) {
-		this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS | SPA_PORT_INFO_FLAG_LIVE;
+		this->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS | SPA_PORT_FLAG_LIVE;
 		this->info.rate = this->current_format.info.raw.rate;
 	}
 
@@ -1329,7 +1330,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this->node = impl_node;
 	reset_props(&this->props);
 
-	this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+	this->info = SPA_PORT_INFO_INIT();
+	this->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
+	this->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
 
 	spa_list_init(&this->ready);
 

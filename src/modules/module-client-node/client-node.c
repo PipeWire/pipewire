@@ -1029,7 +1029,7 @@ client_node_port_update(void *data,
 			       n_params, params,
 			       info);
 
-		if (this->callbacks && this->callbacks->port_info)
+		if (this->callbacks && this->callbacks->port_info && info)
 			this->callbacks->port_info(this->callbacks_data, direction, port_id, info);
 	}
 }

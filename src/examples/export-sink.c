@@ -137,36 +137,25 @@ static int impl_set_callbacks(struct spa_node *node,
 			      const struct spa_node_callbacks *callbacks, void *data)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+
 	d->callbacks = callbacks;
 	d->callbacks_data = data;
+
+	if (d->callbacks && d->callbacks->port_info) {
+		struct spa_port_info info;
+
+		info = SPA_PORT_INFO_INIT();
+		info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
+		info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+
+		d->callbacks->port_info(d->callbacks_data, SPA_DIRECTION_INPUT, 0, &info);
+	}
 	return 0;
 }
 
 static int impl_set_io(struct spa_node *node,
 			    uint32_t id, void *data, size_t size)
 {
-	return 0;
-}
-
-static int impl_get_n_ports(struct spa_node *node,
-			    uint32_t *n_input_ports,
-			    uint32_t *max_input_ports,
-			    uint32_t *n_output_ports,
-			    uint32_t *max_output_ports)
-{
-	*n_input_ports = *max_input_ports = 1;
-	*n_output_ports = *max_output_ports = 0;
-	return 0;
-}
-
-static int impl_get_port_ids(struct spa_node *node,
-                             uint32_t *input_ids,
-                             uint32_t n_input_ids,
-                             uint32_t *output_ids,
-                             uint32_t n_output_ids)
-{
-	if (n_input_ids > 0)
-                input_ids[0] = 0;
 	return 0;
 }
 
@@ -187,20 +176,6 @@ static int impl_port_set_io(struct spa_node *node,
 	default:
 		return -ENOENT;
 	}
-	return 0;
-}
-
-static int impl_port_get_info(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
-			      const struct spa_port_info **info)
-{
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-
-	d->port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-	d->port_info.rate = 0;
-	d->port_info.props = NULL;
-
-	*info = &d->port_info;
-
 	return 0;
 }
 
@@ -471,10 +446,7 @@ static const struct spa_node impl_node = {
 	.set_callbacks = impl_set_callbacks,
 	.set_io = impl_set_io,
 	.send_command = impl_send_command,
-	.get_n_ports = impl_get_n_ports,
-	.get_port_ids = impl_get_port_ids,
 	.port_set_io = impl_port_set_io,
-	.port_get_info = impl_port_get_info,
 	.port_enum_params = impl_port_enum_params,
 	.port_set_param = impl_port_set_param,
 	.port_use_buffers = impl_port_use_buffers,

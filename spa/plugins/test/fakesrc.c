@@ -339,6 +339,14 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	return 0;
 }
 
+static void emit_port_info(struct impl *this)
+{
+	if (this->callbacks && this->callbacks->port_info && this->info.change_mask) {
+		this->callbacks->port_info(this->callbacks_data, SPA_DIRECTION_OUTPUT, 0, &this->info);
+		this->info.change_mask = 0;
+	}
+}
+
 static int
 impl_node_set_callbacks(struct spa_node *node,
 			const struct spa_node_callbacks *callbacks,
@@ -350,48 +358,14 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	if (this->data_loop == NULL && (callbacks != NULL && callbacks->process != NULL)) {
+	if (this->data_loop == NULL && (callbacks != NULL && callbacks->ready != NULL)) {
 		spa_log_error(this->log, "a data_loop is needed for async operation");
 		return -EINVAL;
 	}
 	this->callbacks = callbacks;
 	this->callbacks_data = data;
 
-	return 0;
-}
-
-static int
-impl_node_get_n_ports(struct spa_node *node,
-		      uint32_t *n_input_ports,
-		      uint32_t *max_input_ports,
-		      uint32_t *n_output_ports,
-		      uint32_t *max_output_ports)
-{
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	if (n_input_ports)
-		*n_input_ports = 0;
-	if (n_output_ports)
-		*n_output_ports = 1;
-	if (max_input_ports)
-		*max_input_ports = 0;
-	if (max_output_ports)
-		*max_output_ports = 1;
-
-	return 0;
-}
-
-static int
-impl_node_get_port_ids(struct spa_node *node,
-		       uint32_t *input_ids,
-		       uint32_t n_input_ids,
-		       uint32_t *output_ids,
-		       uint32_t n_output_ids)
-{
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	if (n_output_ids > 0 && output_ids != NULL)
-		output_ids[0] = 0;
+	emit_port_info(this);
 
 	return 0;
 }
@@ -405,26 +379,6 @@ static int
 impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
 	return -ENOTSUP;
-}
-
-static int
-impl_node_port_get_info(struct spa_node *node,
-			enum spa_direction direction,
-			uint32_t port_id,
-			const struct spa_port_info **info)
-{
-	struct impl *this;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-	spa_return_val_if_fail(info != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
-
-	*info = &this->info;
-
-	return 0;
 }
 
 static int port_enum_formats(struct spa_node *node,
@@ -737,23 +691,20 @@ static int impl_node_process(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
-	impl_node_enum_params,
-	impl_node_set_param,
-	impl_node_set_io,
-	impl_node_send_command,
-	impl_node_set_callbacks,
-	impl_node_get_n_ports,
-	impl_node_get_port_ids,
-	impl_node_add_port,
-	impl_node_remove_port,
-	impl_node_port_get_info,
-	impl_node_port_enum_params,
-	impl_node_port_set_param,
-	impl_node_port_use_buffers,
-	impl_node_port_alloc_buffers,
-	impl_node_port_set_io,
-	impl_node_port_reuse_buffer,
-	impl_node_process,
+	.enum_params = impl_node_enum_params,
+	.set_param = impl_node_set_param,
+	.set_io = impl_node_set_io,
+	.send_command = impl_node_send_command,
+	.set_callbacks = impl_node_set_callbacks,
+	.add_port = impl_node_add_port,
+	.remove_port = impl_node_remove_port,
+	.port_enum_params = impl_node_port_enum_params,
+	.port_set_param = impl_node_port_set_param,
+	.port_use_buffers = impl_node_port_use_buffers,
+	.port_alloc_buffers = impl_node_port_alloc_buffers,
+	.port_set_io = impl_node_port_set_io,
+	.port_reuse_buffer = impl_node_port_reuse_buffer,
+	.process = impl_node_process,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
@@ -838,6 +789,8 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->data_loop)
 		spa_loop_add_source(this->data_loop, &this->timer_source);
 
+	this->info = SPA_PORT_INFO_INIT();
+	this->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
 	this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS | SPA_PORT_INFO_FLAG_NO_REF;
 	if (this->props.live)
 		this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;

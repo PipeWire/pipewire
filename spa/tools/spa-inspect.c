@@ -47,6 +47,7 @@ struct data {
 	uint32_t n_support;
 	struct spa_log *log;
 	struct spa_loop loop;
+	struct spa_node *node;
 };
 
 static void
@@ -74,7 +75,7 @@ inspect_node_params(struct data *data, struct spa_node *node)
 				SPA_TYPE_OBJECT_ParamList, NULL,
 				SPA_PARAM_LIST_id, SPA_POD_Id(&id));
 
-		printf("enumerating: %s:\n", spa_debug_type_find_name(NULL, id));
+		printf("enumerating: %s:\n", spa_debug_type_find_name(spa_type_param, id));
 		for (idx2 = 0;;) {
 			spa_pod_builder_init(&b, buffer, sizeof(buffer));
 			if ((res = spa_node_enum_params(node,
@@ -115,7 +116,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 				SPA_TYPE_OBJECT_ParamList, NULL,
 				SPA_PARAM_LIST_id, SPA_POD_Id(&id));
 
-		printf("enumerating: %s:\n", spa_debug_type_find_name(NULL, id));
+		printf("enumerating: %s:\n", spa_debug_type_find_name(spa_type_param, id));
 		for (idx2 = 0;;) {
 			spa_pod_builder_init(&b, buffer, sizeof(buffer));
 			if ((res = spa_node_port_enum_params(node,
@@ -135,11 +136,29 @@ inspect_port_params(struct data *data, struct spa_node *node,
 	}
 }
 
-static void node_info(void *data, const struct spa_node_info *info)
+static void node_info(void *_data, const struct spa_node_info *info)
 {
+	struct data *data = _data;
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS) {
 		printf("node properties:\n");
 		spa_debug_dict(2, info->props);
+	}
+	inspect_node_params(data, data->node);
+}
+
+static void node_port_info(void *_data, enum spa_direction direction, uint32_t id,
+		const struct spa_port_info *info)
+{
+	struct data *data = _data;
+
+	if (info == NULL) {
+		printf("port %d removed", id);
+	}
+	else {
+		printf(" %s port: %08x\n",
+				direction == SPA_DIRECTION_INPUT ? "input" : "output",
+				id);
+		inspect_port_params(data, data->node, direction, id);
 	}
 }
 
@@ -147,43 +166,14 @@ static const struct spa_node_callbacks node_callbacks =
 {
 	SPA_VERSION_NODE_CALLBACKS,
 	.info = node_info,
+	.port_info = node_port_info,
 };
 
 static void inspect_node(struct data *data, struct spa_node *node)
 {
-	int res;
-	uint32_t i, n_input, max_input, n_output, max_output;
-	uint32_t *in_ports, *out_ports;
-
 	printf("node info:\n");
+	data->node = node;
 	spa_node_set_callbacks(node, &node_callbacks, data);
-
-	inspect_node_params(data, node);
-
-	if ((res = spa_node_get_n_ports(node, &n_input, &max_input, &n_output, &max_output)) < 0) {
-		printf("can't get n_ports: %d\n", res);
-		return;
-	}
-	printf("supported ports:\n");
-	printf("input ports:  %d/%d\n", n_input, max_input);
-	printf("output ports: %d/%d\n", n_output, max_output);
-
-	in_ports = alloca(n_input * sizeof(uint32_t));
-	out_ports = alloca(n_output * sizeof(uint32_t));
-
-	if ((res = spa_node_get_port_ids(node, in_ports, n_input, out_ports, n_output)) < 0)
-		printf("can't get port ids: %d\n", res);
-
-	for (i = 0; i < n_input; i++) {
-		printf(" input port: %08x\n", in_ports[i]);
-		inspect_port_params(data, node, SPA_DIRECTION_INPUT, in_ports[i]);
-	}
-
-	for (i = 0; i < n_output; i++) {
-		printf(" output port: %08x\n", out_ports[i]);
-		inspect_port_params(data, node, SPA_DIRECTION_OUTPUT, out_ports[i]);
-	}
-
 }
 
 static void inspect_factory(struct data *data, const struct spa_handle_factory *factory)

@@ -397,8 +397,7 @@ static void client_node_transport(void *object, uint32_t node_id,
 static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_t change_mask)
 {
 	struct node_data *data = proxy->user_data;
-	const struct spa_port_info *port_info = NULL;
-	struct spa_port_info pi;
+	struct spa_port_info pi = SPA_PORT_INFO_INIT();
 	uint32_t n_params = 0;
 	struct spa_pod **params = NULL;
 
@@ -438,8 +437,12 @@ static void add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32
                 }
 	}
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO) {
-		spa_node_port_get_info(port->node->node, port->direction, port->port_id, &port_info);
-		pi = * port_info;
+		pi.change_mask = SPA_PORT_CHANGE_MASK_FLAGS |
+			SPA_PORT_CHANGE_MASK_RATE |
+			SPA_PORT_CHANGE_MASK_PROPS;
+		pi.flags = port->spa_flags;
+		pi.rate = 0;
+		pi.props = &port->properties->dict;
 		pi.flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
 	}
 

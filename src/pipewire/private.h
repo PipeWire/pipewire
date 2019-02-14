@@ -427,6 +427,7 @@ struct pw_port {
 #define PW_PORT_FLAG_BUFFERS		(1<<1)		/**< port has data */
 #define PW_PORT_FLAG_CONTROL		(1<<2)		/**< port has control */
 	uint32_t flags;
+	uint32_t spa_flags;
 
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
@@ -452,7 +453,7 @@ struct pw_port {
 #define PW_PORT_MIX_FLAG_MIX_ONLY	(1<<1)	/**< only negotiate mix ports */
 	uint32_t mix_flags;		/**< flags for the mixing */
 
-	int allocated:1;			/**< if buffers are allocated */
+	int allocated:1;		/**< if buffers are allocated */
 
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */
 	uint32_t n_mix;
@@ -691,6 +692,7 @@ const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint
 struct pw_port *
 pw_port_new(enum pw_direction direction,
 	    uint32_t port_id,
+	    uint32_t spa_flags,
 	    struct pw_properties *properties,
 	    size_t user_data_size);
 

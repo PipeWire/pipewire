@@ -793,7 +793,7 @@ static int client_node_demarshal_port_update(void *object, void *data, size_t si
 	struct spa_pod_frame f;
 	uint32_t i, direction, port_id, change_mask, n_params;
 	const struct spa_pod **params = NULL;
-	struct spa_port_info info = { 0 }, *infop = NULL;
+	struct spa_port_info info = SPA_PORT_INFO_INIT(), *infop = NULL;
 	struct spa_pod *ipod;
 	struct spa_dict props;
 

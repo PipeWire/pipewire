@@ -66,7 +66,7 @@ struct buffer {
 };
 
 struct port {
-	bool valid;
+	uint32_t direction;
 	uint32_t id;
 
 	struct port_props props;
@@ -78,7 +78,8 @@ struct port {
 
 	struct spa_port_info info;
 
-	bool have_format;
+	int valid:1;
+	int have_format:1;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -167,12 +168,21 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	return 0;
 }
 
+static void emit_port_info(struct impl *this, struct port *port)
+{
+	if (this->callbacks && this->callbacks->port_info && port->info.change_mask) {
+		this->callbacks->port_info(this->user_data, port->direction, port->id, &port->info);
+		port->info.change_mask = 0;
+	}
+}
+
 static int
 impl_node_set_callbacks(struct spa_node *node,
 			const struct spa_node_callbacks *callbacks,
 			void *user_data)
 {
 	struct impl *this;
+	uint32_t i;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -181,56 +191,11 @@ impl_node_set_callbacks(struct spa_node *node,
 	this->callbacks = callbacks;
 	this->user_data = user_data;
 
-	return 0;
-}
-
-static int
-impl_node_get_n_ports(struct spa_node *node,
-		      uint32_t *n_input_ports,
-		      uint32_t *max_input_ports,
-		      uint32_t *n_output_ports,
-		      uint32_t *max_output_ports)
-{
-	struct impl *this;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	if (n_input_ports)
-		*n_input_ports = this->port_count;
-	if (max_input_ports)
-		*max_input_ports = MAX_PORTS;
-	if (n_output_ports)
-		*n_output_ports = 1;
-	if (max_output_ports)
-		*max_output_ports = 1;
-
-	return 0;
-}
-
-static int
-impl_node_get_port_ids(struct spa_node *node,
-		       uint32_t *input_ids,
-		       uint32_t n_input_ids,
-		       uint32_t *output_ids,
-		       uint32_t n_output_ids)
-{
-	struct impl *this;
-	uint32_t i, idx;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	if (input_ids) {
-		for (i = 0, idx = 0; i < this->last_port && idx < n_input_ids; i++) {
-			if (this->in_ports[i].valid)
-				input_ids[idx++] = i;
-		}
+	emit_port_info(this, GET_OUT_PORT(this, 0));
+	for (i = 0; i < this->last_port; i++) {
+		if (this->in_ports[i].valid)
+			emit_port_info(this, GET_IN_PORT(this, i));
 	}
-	if (n_output_ids > 0 && output_ids)
-		output_ids[0] = 0;
 
 	return 0;
 }
@@ -246,8 +211,9 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 
 	spa_return_val_if_fail(CHECK_FREE_IN_PORT(this, direction, port_id), -EINVAL);
 
-	port = GET_IN_PORT (this, port_id);
+	port = GET_IN_PORT(this, port_id);
 	port->valid = true;
+	port->direction = SPA_DIRECTION_INPUT;
 	port->id = port_id;
 
 	port_props_reset(&port->props);
@@ -255,6 +221,8 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 	port->io_mute = &port->props.mute;
 
 	spa_list_init(&port->queue);
+	port->info = SPA_PORT_INFO_INIT();
+	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
 	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
 			   SPA_PORT_INFO_FLAG_REMOVABLE |
 			   SPA_PORT_INFO_FLAG_OPTIONAL |
@@ -265,6 +233,7 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 		this->last_port = port_id + 1;
 
 	spa_log_info(this->log, NAME " %p: add port %d", this, port_id);
+	emit_port_info(this, port);
 
 	return 0;
 }
@@ -281,7 +250,7 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 
 	spa_return_val_if_fail(CHECK_IN_PORT(this, direction, port_id), -EINVAL);
 
-	port = GET_IN_PORT (this, port_id);
+	port = GET_IN_PORT(this, port_id);
 
 	this->port_count--;
 	if (port->have_format && this->have_format) {
@@ -300,28 +269,8 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 		this->last_port = i + 1;
 	}
 	spa_log_info(this->log, NAME " %p: remove port %d", this, port_id);
-
-	return 0;
-}
-
-static int
-impl_node_port_get_info(struct spa_node *node,
-			enum spa_direction direction,
-			uint32_t port_id,
-			const struct spa_port_info **info)
-{
-	struct impl *this;
-	struct port *port;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-	spa_return_val_if_fail(info != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
-
-	port = GET_PORT(this, direction, port_id);
-	*info = &port->info;
+	if (this->callbacks && this->callbacks->port_info)
+		this->callbacks->port_info(this->user_data, direction, port_id, NULL);
 
 	return 0;
 }
@@ -902,23 +851,20 @@ static int impl_node_process(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
-	impl_node_enum_params,
-	impl_node_set_param,
-	impl_node_set_io,
-	impl_node_send_command,
-	impl_node_set_callbacks,
-	impl_node_get_n_ports,
-	impl_node_get_port_ids,
-	impl_node_add_port,
-	impl_node_remove_port,
-	impl_node_port_get_info,
-	impl_node_port_enum_params,
-	impl_node_port_set_param,
-	impl_node_port_use_buffers,
-	impl_node_port_alloc_buffers,
-	impl_node_port_set_io,
-	impl_node_port_reuse_buffer,
-	impl_node_process,
+	.enum_params = impl_node_enum_params,
+	.set_param = impl_node_set_param,
+	.set_io = impl_node_set_io,
+	.send_command = impl_node_send_command,
+	.set_callbacks = impl_node_set_callbacks,
+	.add_port = impl_node_add_port,
+	.remove_port = impl_node_remove_port,
+	.port_enum_params = impl_node_port_enum_params,
+	.port_set_param = impl_node_port_set_param,
+	.port_use_buffers = impl_node_port_use_buffers,
+	.port_alloc_buffers = impl_node_port_alloc_buffers,
+	.port_set_io = impl_node_port_set_io,
+	.port_reuse_buffer = impl_node_port_reuse_buffer,
+	.process = impl_node_process,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
@@ -978,6 +924,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	port = GET_OUT_PORT(this, 0);
 	port->valid = true;
+	port->direction = SPA_DIRECTION_OUTPUT;
 	port->id = 0;
 	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
 	    SPA_PORT_INFO_FLAG_NO_REF;

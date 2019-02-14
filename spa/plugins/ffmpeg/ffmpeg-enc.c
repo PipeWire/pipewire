@@ -75,7 +75,7 @@ struct impl {
 	bool started;
 };
 
-static int spa_ffmpeg_enc_node_enum_params(struct spa_node *node,
+static int impl_node_enum_params(struct spa_node *node,
 					   uint32_t id, uint32_t *index,
 					   const struct spa_pod *filter,
 					   struct spa_pod **param,
@@ -84,18 +84,18 @@ static int spa_ffmpeg_enc_node_enum_params(struct spa_node *node,
 	return -ENOTSUP;
 }
 
-static int spa_ffmpeg_enc_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
+static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
 					 const struct spa_pod *param)
 {
 	return -ENOTSUP;
 }
 
-static int spa_ffmpeg_enc_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
+static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
 	return -ENOTSUP;
 }
 
-static int spa_ffmpeg_enc_node_send_command(struct spa_node *node, const struct spa_command *command)
+static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
 {
 	struct impl *this;
 
@@ -117,8 +117,18 @@ static int spa_ffmpeg_enc_node_send_command(struct spa_node *node, const struct 
 	return 0;
 }
 
+static void emit_port_info(struct impl *this, enum spa_direction direction, uint32_t id)
+{
+	struct port *port = GET_PORT(this, direction, id);
+
+	if (this->callbacks && this->callbacks->port_info && port->info.change_mask) {
+		this->callbacks->port_info(this->user_data, direction, id, &port->info);
+		port->info.change_mask = 0;
+	}
+}
+
 static int
-spa_ffmpeg_enc_node_set_callbacks(struct spa_node *node,
+impl_node_set_callbacks(struct spa_node *node,
 				  const struct spa_node_callbacks *callbacks,
 				  void *user_data)
 {
@@ -132,83 +142,23 @@ spa_ffmpeg_enc_node_set_callbacks(struct spa_node *node,
 	this->callbacks = callbacks;
 	this->user_data = user_data;
 
-	return 0;
-}
-
-static int
-spa_ffmpeg_enc_node_get_n_ports(struct spa_node *node,
-				uint32_t *n_input_ports,
-				uint32_t *max_input_ports,
-				uint32_t *n_output_ports,
-				uint32_t *max_output_ports)
-{
-	if (node == NULL)
-		return -EINVAL;
-
-	if (n_input_ports)
-		*n_input_ports = 1;
-	if (n_output_ports)
-		*n_output_ports = 1;
-	if (max_input_ports)
-		*max_input_ports = 1;
-	if (max_output_ports)
-		*max_output_ports = 1;
+	emit_port_info(this, SPA_DIRECTION_INPUT, 0);
+	emit_port_info(this, SPA_DIRECTION_OUTPUT, 0);
 
 	return 0;
 }
 
 static int
-spa_ffmpeg_enc_node_get_port_ids(struct spa_node *node,
-				 uint32_t *input_ids,
-				 uint32_t n_input_ids,
-				 uint32_t *output_ids,
-				 uint32_t n_output_ids)
-{
-	if (node == NULL)
-		return -EINVAL;
-
-	if (n_input_ids > 0 && input_ids != NULL)
-		input_ids[0] = 0;
-	if (n_output_ids > 0 && output_ids != NULL)
-		output_ids[0] = 0;
-
-	return 0;
-}
-
-
-static int
-spa_ffmpeg_enc_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
+impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
 	return -ENOTSUP;
 }
 
 static int
-spa_ffmpeg_enc_node_remove_port(struct spa_node *node,
+impl_node_remove_port(struct spa_node *node,
 				enum spa_direction direction, uint32_t port_id)
 {
 	return -ENOTSUP;
-}
-
-static int
-spa_ffmpeg_enc_node_port_get_info(struct spa_node *node,
-				  enum spa_direction direction,
-				  uint32_t port_id, const struct spa_port_info **info)
-{
-	struct impl *this;
-	struct port *port;
-
-	if (node == NULL || info == NULL)
-		return -EINVAL;
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	if (!IS_VALID_PORT(this, direction, port_id))
-		return -EINVAL;
-
-	port = GET_PORT(this, direction, port_id);
-	*info = &port->info;
-
-	return 0;
 }
 
 static int port_enum_formats(struct spa_node *node,
@@ -252,7 +202,7 @@ static int port_get_format(struct spa_node *node,
 }
 
 static int
-spa_ffmpeg_enc_node_port_enum_params(struct spa_node *node,
+impl_node_port_enum_params(struct spa_node *node,
 				     enum spa_direction direction, uint32_t port_id,
 				     uint32_t id, uint32_t *index,
 				     const struct spa_pod *filter,
@@ -338,7 +288,7 @@ static int port_set_format(struct spa_node *node,
 }
 
 static int
-spa_ffmpeg_enc_node_port_set_param(struct spa_node *node,
+impl_node_port_set_param(struct spa_node *node,
 				   enum spa_direction direction, uint32_t port_id,
 				   uint32_t id, uint32_t flags,
 				   const struct spa_pod *param)
@@ -351,7 +301,7 @@ spa_ffmpeg_enc_node_port_set_param(struct spa_node *node,
 }
 
 static int
-spa_ffmpeg_enc_node_port_use_buffers(struct spa_node *node,
+impl_node_port_use_buffers(struct spa_node *node,
 				     enum spa_direction direction,
 				     uint32_t port_id,
 				     struct spa_buffer **buffers, uint32_t n_buffers)
@@ -366,7 +316,7 @@ spa_ffmpeg_enc_node_port_use_buffers(struct spa_node *node,
 }
 
 static int
-spa_ffmpeg_enc_node_port_alloc_buffers(struct spa_node *node,
+impl_node_port_alloc_buffers(struct spa_node *node,
 				       enum spa_direction direction,
 				       uint32_t port_id,
 				       struct spa_pod **params,
@@ -378,7 +328,7 @@ spa_ffmpeg_enc_node_port_alloc_buffers(struct spa_node *node,
 }
 
 static int
-spa_ffmpeg_enc_node_port_set_io(struct spa_node *node,
+impl_node_port_set_io(struct spa_node *node,
 				enum spa_direction direction,
 				uint32_t port_id,
 				uint32_t id,
@@ -406,7 +356,7 @@ spa_ffmpeg_enc_node_port_set_io(struct spa_node *node,
 }
 
 static int
-spa_ffmpeg_enc_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
 {
 	if (node == NULL)
 		return -EINVAL;
@@ -417,7 +367,7 @@ spa_ffmpeg_enc_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, u
 	return -ENOTSUP;
 }
 
-static int spa_ffmpeg_enc_node_process(struct spa_node *node)
+static int impl_node_process(struct spa_node *node)
 {
 	struct impl *this;
 	struct port *port;
@@ -442,29 +392,26 @@ static int spa_ffmpeg_enc_node_process(struct spa_node *node)
 	return SPA_STATUS_OK;
 }
 
-static const struct spa_node ffmpeg_enc_node = {
+static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
-	spa_ffmpeg_enc_node_enum_params,
-	spa_ffmpeg_enc_node_set_param,
-	spa_ffmpeg_enc_node_set_io,
-	spa_ffmpeg_enc_node_send_command,
-	spa_ffmpeg_enc_node_set_callbacks,
-	spa_ffmpeg_enc_node_get_n_ports,
-	spa_ffmpeg_enc_node_get_port_ids,
-	spa_ffmpeg_enc_node_add_port,
-	spa_ffmpeg_enc_node_remove_port,
-	spa_ffmpeg_enc_node_port_get_info,
-	spa_ffmpeg_enc_node_port_enum_params,
-	spa_ffmpeg_enc_node_port_set_param,
-	spa_ffmpeg_enc_node_port_use_buffers,
-	spa_ffmpeg_enc_node_port_alloc_buffers,
-	spa_ffmpeg_enc_node_port_set_io,
-	spa_ffmpeg_enc_node_port_reuse_buffer,
-	spa_ffmpeg_enc_node_process,
+	.enum_params = impl_node_enum_params,
+	.set_param = impl_node_set_param,
+	.set_io = impl_node_set_io,
+	.send_command = impl_node_send_command,
+	.set_callbacks = impl_node_set_callbacks,
+	.add_port = impl_node_add_port,
+	.remove_port = impl_node_remove_port,
+	.port_enum_params = impl_node_port_enum_params,
+	.port_set_param = impl_node_port_set_param,
+	.port_use_buffers = impl_node_port_use_buffers,
+	.port_alloc_buffers = impl_node_port_alloc_buffers,
+	.port_set_io = impl_node_port_set_io,
+	.port_reuse_buffer = impl_node_port_reuse_buffer,
+	.process = impl_node_process,
 };
 
 static int
-spa_ffmpeg_enc_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
+impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *this;
 
@@ -487,9 +434,10 @@ spa_ffmpeg_enc_init(struct spa_handle *handle,
 		    const struct spa_support *support, uint32_t n_support)
 {
 	struct impl *this;
+	struct port *port;
 	uint32_t i;
 
-	handle->get_interface = spa_ffmpeg_enc_get_interface;
+	handle->get_interface = impl_get_interface;
 
 	this = (struct impl *) handle;
 
@@ -498,10 +446,17 @@ spa_ffmpeg_enc_init(struct spa_handle *handle,
 			this->log = support[i].data;
 	}
 
-	this->node = ffmpeg_enc_node;
+	this->node = impl_node;
 
-	this->in_ports[0].info.flags = 0;
-	this->out_ports[0].info.flags = 0;
+	port = GET_IN_PORT(this, 0);
+	port->info = SPA_PORT_INFO_INIT();
+	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
+	port->info.flags = 0;
+
+	port = GET_OUT_PORT(this, 0);
+	port->info = SPA_PORT_INFO_INIT();
+	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
+	port->info.flags = 0;
 
 	return 0;
 }

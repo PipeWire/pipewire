@@ -38,7 +38,6 @@ enum spa_node_event {
 	SPA_NODE_EVENT_Error,
 	SPA_NODE_EVENT_Buffering,
 	SPA_NODE_EVENT_RequestRefresh,
-	SPA_NODE_EVENT_PortsChanged,
 };
 
 #define SPA_NODE_EVENT_ID(ev)	SPA_EVENT_ID(ev, SPA_TYPE_EVENT_Node)

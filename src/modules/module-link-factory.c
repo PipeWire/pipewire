@@ -113,7 +113,7 @@ static struct pw_port *get_port(struct pw_node *node, enum spa_direction directi
 		if (port_id == SPA_ID_INVALID)
 			return NULL;
 
-		p = pw_port_new(direction, port_id, NULL, 0);
+		p = pw_port_new(direction, port_id, 0, NULL, 0);
 		if (p == NULL)
 			return NULL;
 

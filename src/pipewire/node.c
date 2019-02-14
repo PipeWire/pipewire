@@ -230,101 +230,6 @@ static void node_unbind_func(void *data)
 	spa_list_remove(&resource->link);
 }
 
-static void update_port_map(struct pw_node *node, enum pw_direction direction,
-			    struct pw_map *portmap, uint32_t *ids, uint32_t n_ids)
-{
-	uint32_t o, n;
-	size_t os, ns;
-	struct pw_port *port;
-	int res;
-
-	o = n = 0;
-	os = pw_map_get_size(portmap);
-	ns = n_ids;
-
-	while (o < os || n < ns) {
-		port = pw_map_lookup(portmap, o);
-
-		if (n >= ns || o < ids[n]) {
-			pw_log_debug("node %p: %s port %d removed", node,
-					pw_direction_as_string(direction), o);
-
-			if (port != NULL)
-				pw_port_destroy(port);
-
-			o++;
-		}
-		else if (o >= os || o > ids[n]) {
-			pw_log_debug("node %p: %s port %d added", node,
-					pw_direction_as_string(direction), ids[n]);
-
-			if (port == NULL) {
-				if ((port = pw_port_new(direction, ids[n], NULL, node->port_user_data_size))) {
-					if ((res = pw_port_add(port, node)) < 0) {
-						pw_log_error("node %p: can't add port %p: %d, %s",
-								node, port, res, spa_strerror(res));
-						pw_port_destroy(port);
-					}
-				}
-				o = ids[n] + 1;
-				os++;
-			}
-
-			n++;
-		}
-		else {
-			pw_log_debug("node %p: %s port %d unchanged", node,
-					pw_direction_as_string(direction), o);
-			n++;
-			o++;
-		}
-	}
-}
-
-SPA_EXPORT
-int pw_node_update_ports(struct pw_node *node)
-{
-	uint32_t *input_port_ids, *output_port_ids;
-	uint32_t n_input_ports, n_output_ports, max_input_ports, max_output_ports;
-	int res;
-
-	res = spa_node_get_n_ports(node->node,
-				   &n_input_ports,
-				   &max_input_ports,
-				   &n_output_ports,
-				   &max_output_ports);
-	if (res < 0)
-		return res;
-
-	if (node->info.max_input_ports != max_input_ports) {
-		node->info.max_input_ports = max_input_ports;
-		node->info.change_mask |= PW_NODE_CHANGE_MASK_INPUT_PORTS;
-	}
-	if (node->info.max_output_ports != max_output_ports) {
-		node->info.max_output_ports = max_output_ports;
-		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
-	}
-
-	input_port_ids = alloca(sizeof(uint32_t) * n_input_ports);
-	output_port_ids = alloca(sizeof(uint32_t) * n_output_ports);
-
-	res = spa_node_get_port_ids(node->node,
-				    input_port_ids,
-				    max_input_ports,
-				    output_port_ids,
-				    max_output_ports);
-	if (res < 0)
-		return res;
-
-	pw_log_debug("node %p: update_port ids input %u/%u, outputs %u/%u", node,
-		     n_input_ports, max_input_ports, n_output_ports, max_output_ports);
-
-	update_port_map(node, PW_DIRECTION_INPUT, &node->input_port_map, input_port_ids, n_input_ports);
-	update_port_map(node, PW_DIRECTION_OUTPUT, &node->output_port_map, output_port_ids, n_output_ports);
-
-	return 0;
-}
-
 static void
 clear_info(struct pw_node *this)
 {
@@ -480,8 +385,6 @@ int pw_node_register(struct pw_node *this,
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
 		return -ENOMEM;
-
-	pw_node_update_ports(this);
 
 	if ((str = pw_properties_get(this->properties, "media.class")) != NULL)
 		pw_properties_set(properties, "media.class", str);
@@ -881,6 +784,48 @@ static void node_info(void *data, const struct spa_node_info *info)
 		pw_node_update_properties(node, info->props);
 }
 
+static void node_port_info(void *data, enum spa_direction direction, uint32_t port_id,
+		const struct spa_port_info *info)
+{
+	struct pw_node *node = data;
+	struct pw_port *port = pw_node_find_port(node, direction, port_id);
+
+	if (info == NULL) {
+		if (port) {
+			pw_log_debug("node %p: %s port %d removed", node,
+					pw_direction_as_string(direction), port_id);
+			pw_port_destroy(port);
+		} else {
+			pw_log_warn("node %p: %s port %d unknown", node,
+					pw_direction_as_string(direction), port_id);
+		}
+	} else if (port) {
+		if (info->change_mask & SPA_PORT_CHANGE_MASK_FLAGS)
+			port->spa_flags = info->flags;
+		if (info->change_mask & SPA_PORT_CHANGE_MASK_PROPS)
+			pw_port_update_properties(port, info->props);
+	} else {
+		int res;
+		struct pw_properties *props;
+
+		pw_log_debug("node %p: %s port %d added", node,
+				pw_direction_as_string(direction), port_id);
+
+		props = info->props ?
+				pw_properties_new_dict(info->props) :
+				pw_properties_new(NULL, NULL);
+
+		if ((port = pw_port_new(direction, port_id, info->flags, props,
+					node->port_user_data_size))) {
+			if ((res = pw_port_add(port, node)) < 0) {
+				pw_log_error("node %p: can't add port %p: %d, %s",
+						node, port, res, spa_strerror(res));
+				pw_port_destroy(port);
+			}
+		}
+	}
+}
+
 static void node_done(void *data, int seq, int res)
 {
 	struct pw_node *node = data;
@@ -897,15 +842,6 @@ static void node_event(void *data, struct spa_event *event)
 
 	pw_log_trace("node %p: event %d", node, SPA_EVENT_TYPE(event));
 	pw_node_events_event(node, event);
-
-	switch (SPA_NODE_EVENT_ID(event)) {
-	case SPA_NODE_EVENT_PortsChanged:
-		pw_node_update_ports(node);
-		break;
-	default:
-		break;
-	}
-
 }
 
 static void node_ready(void *data, int status)
@@ -944,6 +880,7 @@ static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 static const struct spa_node_callbacks node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.info = node_info,
+	.port_info = node_port_info,
 	.done = node_done,
 	.event = node_event,
 	.ready = node_ready,
@@ -1026,6 +963,8 @@ void pw_node_destroy(struct pw_node *node)
 
 	if (node->registered)
 		spa_list_remove(&node->link);
+
+	spa_node_set_callbacks(node->node, NULL, NULL);
 
 	pw_log_debug("node %p: unlink ports", node);
 	spa_list_for_each(port, &node->input_ports, link)

@@ -244,6 +244,7 @@ int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 SPA_EXPORT
 struct pw_port *pw_port_new(enum pw_direction direction,
 			    uint32_t port_id,
+			    uint32_t spa_flags,
 			    struct pw_properties *properties,
 			    size_t user_data_size)
 {
@@ -263,8 +264,14 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	if (properties == NULL)
 		goto no_mem;
 
+	if (SPA_FLAG_CHECK(spa_flags, SPA_PORT_INFO_FLAG_PHYSICAL))
+		pw_properties_set(properties, "port.physical", "1");
+	if (SPA_FLAG_CHECK(spa_flags, SPA_PORT_INFO_FLAG_TERMINAL))
+		pw_properties_set(properties, "port.terminal", "1");
+
 	this->direction = direction;
 	this->port_id = port_id;
+	this->spa_flags = spa_flags;
 	this->properties = properties;
 	this->state = PW_PORT_STATE_INIT;
 	this->rt.io = SPA_IO_BUFFERS_INIT;
@@ -554,10 +561,8 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	struct spa_list *ports;
 	struct pw_map *portmap;
 	struct pw_port *find;
-	const char *str, *dir;
-	int res;
 	bool control;
-	const struct spa_port_info *spa_info;
+	const char *str, *dir;
 
 	if (port->node != NULL)
 		return -EEXIST;
@@ -574,24 +579,6 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	if (find != NULL)
 		return -EEXIST;
 
-	if ((res = spa_node_port_get_info(node->node,
-			       port->direction, port_id,
-			       &spa_info)) < 0) {
-		/* can't get port info, try to add it.. */
-		if ((res = spa_node_add_port(node->node, port->direction, port_id)) < 0)
-			goto add_failed;
-
-		SPA_FLAG_SET(port->flags, PW_PORT_FLAG_TO_REMOVE);
-
-		/* try again */
-		if ((res = spa_node_port_get_info(node->node,
-			       port->direction, port_id,
-			       &spa_info)) < 0)
-			goto info_failed;
-	}
-	if (spa_info->props)
-		pw_port_update_properties(port, spa_info->props);
-
 	port->node = node;
 
 	pw_node_events_port_init(node, port);
@@ -601,28 +588,40 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	dir = port->direction == PW_DIRECTION_INPUT ?  "in" : "out";
 	pw_properties_set(port->properties, "port.direction", dir);
 
-	control = PW_PORT_IS_CONTROL(port);
-	if (control) {
-		dir = port->direction == PW_DIRECTION_INPUT ?  "control" : "notify";
-		pw_properties_set(port->properties, "port.control", "1");
-	}
-
 	if ((str = pw_properties_get(port->properties, "port.name")) == NULL) {
 		if ((str = pw_properties_get(port->properties, "port.channel")) != NULL &&
 		    strcmp(str, "UNK") != 0) {
 			pw_properties_setf(port->properties, "port.name", "%s_%s", dir, str);
 		}
 		else {
-			pw_properties_setf(port->properties, "port.name", "%s_%d", dir, port_id);
+			pw_properties_setf(port->properties, "port.name", "%s_%d", dir, port->port_id);
 		}
 	}
 
-	if (SPA_FLAG_CHECK(spa_info->flags, SPA_PORT_INFO_FLAG_PHYSICAL))
-		pw_properties_set(port->properties, "port.physical", "1");
-	if (SPA_FLAG_CHECK(spa_info->flags, SPA_PORT_INFO_FLAG_TERMINAL))
-		pw_properties_set(port->properties, "port.terminal", "1");
+	control = PW_PORT_IS_CONTROL(port);
+	if (control) {
+		dir = port->direction == PW_DIRECTION_INPUT ?  "control" : "notify";
+		pw_properties_set(port->properties, "port.control", "1");
+	}
 
-	pw_log_debug("port %p: %d add to node %p %08x", port, port_id, node, spa_info->flags);
+	if (control) {
+		pw_log_debug("port %p: setting node control", port);
+	} else {
+		pw_log_debug("port %p: setting node io", port);
+		spa_node_port_set_io(node->node,
+				     port->direction, port->port_id,
+				     SPA_IO_Buffers,
+				     &port->rt.io, sizeof(port->rt.io));
+
+		if (port->mix->port_set_io) {
+			spa_node_port_set_io(port->mix,
+				     pw_direction_reverse(port->direction), 0,
+				     SPA_IO_Buffers,
+				     &port->rt.io, sizeof(port->rt.io));
+		}
+	}
+
+	pw_log_debug("port %p: %d add to node %p", port, port_id, node);
 
 	spa_list_append(ports, &port->link);
 	pw_map_insert_at(portmap, port_id, port);
@@ -633,23 +632,6 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	} else {
 		node->info.n_output_ports++;
 		node->info.change_mask |= PW_NODE_CHANGE_MASK_OUTPUT_PORTS;
-	}
-
-	if (control) {
-		pw_log_debug("port %p: setting node control", port);
-	} else {
-		pw_log_debug("port %p: setting node io", port);
-		spa_node_port_set_io(node->node,
-				     port->direction, port_id,
-				     SPA_IO_Buffers,
-				     &port->rt.io, sizeof(port->rt.io));
-
-		if (port->mix->port_set_io) {
-			spa_node_port_set_io(port->mix,
-				     pw_direction_reverse(port->direction), 0,
-				     SPA_IO_Buffers,
-				     &port->rt.io, sizeof(port->rt.io));
-		}
 	}
 
 	if (node->global)
@@ -664,15 +646,6 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	pw_node_events_port_added(node, port);
 
 	return 0;
-
-      add_failed:
-	pw_log_error("node %p: could not add port %d %s", node, port_id,
-		spa_strerror(res));
-	return res;
-      info_failed:
-	pw_log_error("node %p: could not get port info %d %s", node, port_id,
-		spa_strerror(res));
-	return res;
 }
 
 static int do_destroy_link(void *data, struct pw_link *link)

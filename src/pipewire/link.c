@@ -540,7 +540,6 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res;
-	const struct spa_port_info *iinfo, *oinfo;
 	uint32_t in_flags, out_flags;
 	char *error = NULL;
 	struct pw_port *input, *output;
@@ -561,17 +560,9 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 	output = this->output;
 
 	pw_log_debug("link %p: doing alloc buffers %p %p", this, output->node, input->node);
-	if ((res = spa_node_port_get_info(input->node->node,
-				input->direction, input->port_id,
-				&iinfo)) < 0)
-		return res;
-	if ((res = spa_node_port_get_info(output->node->node,
-				output->direction, output->port_id,
-				&oinfo)) < 0)
-		return res;
 
-	in_flags = iinfo->flags;
-	out_flags = oinfo->flags;
+	in_flags = input->spa_flags;
+	out_flags = output->spa_flags;
 
 	if (out_flags & SPA_PORT_INFO_FLAG_LIVE) {
 		pw_log_debug("setting link as live");
@@ -579,10 +570,6 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		input->node->live = true;
 	}
 
-	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
-		spa_debug_port_info(2, oinfo);
-		spa_debug_port_info(2, iinfo);
-	}
 	if (output->allocation.n_buffers) {
 		out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 		in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;

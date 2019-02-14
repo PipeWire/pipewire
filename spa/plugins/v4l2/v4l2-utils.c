@@ -913,12 +913,15 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	port->rate.num = framerate->denom = streamparm.parm.capture.timeperframe.numerator;
 
 	port->fmt = fmt;
+	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_RATE;
 	port->info.flags = (port->export_buf ? SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS : 0) |
 		SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
 		SPA_PORT_INFO_FLAG_LIVE |
 		SPA_PORT_INFO_FLAG_PHYSICAL |
 		SPA_PORT_INFO_FLAG_TERMINAL;
 	port->info.rate = streamparm.parm.capture.timeperframe.denominator;
+	if (this->callbacks && this->callbacks->port_info)
+		this->callbacks->port_info(this->callbacks_data, SPA_DIRECTION_OUTPUT, 0, &port->info);
 
 	return 0;
 }

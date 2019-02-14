@@ -111,7 +111,7 @@ struct port {
 	struct spa_port_info info;
 	struct pw_properties *properties;
 
-	bool have_format;
+	int have_format:1;
 	uint32_t n_params;
 	struct spa_pod **params;
 
@@ -464,12 +464,21 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	return res;
 }
 
+
+static void emit_port_info(struct node *this, struct port *port)
+{
+	if (this->callbacks && this->callbacks->port_info) {
+		this->callbacks->port_info(this->callbacks_data, port->direction, port->id, &port->info);
+	}
+}
+
 static int
 impl_node_set_callbacks(struct spa_node *node,
 			const struct spa_node_callbacks *callbacks,
 			void *data)
 {
 	struct node *this;
+	uint32_t i;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -477,59 +486,13 @@ impl_node_set_callbacks(struct spa_node *node,
 	this->callbacks = callbacks;
 	this->callbacks_data = data;
 
-	return 0;
-}
-
-static int
-impl_node_get_n_ports(struct spa_node *node,
-		      uint32_t *n_input_ports,
-		      uint32_t *max_input_ports,
-		      uint32_t *n_output_ports,
-		      uint32_t *max_output_ports)
-{
-	struct node *this;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct node, node);
-
-	if (n_input_ports)
-		*n_input_ports = this->n_inputs;
-	if (max_input_ports)
-		*max_input_ports = this->max_inputs == 0 ? this->n_inputs : this->max_inputs;
-	if (n_output_ports)
-		*n_output_ports = this->n_outputs;
-	if (max_output_ports)
-		*max_output_ports = this->max_outputs == 0 ? this->n_outputs : this->max_outputs;
-
-	return 0;
-}
-
-static int
-impl_node_get_port_ids(struct spa_node *node,
-		       uint32_t *input_ids,
-		       uint32_t n_input_ids,
-		       uint32_t *output_ids,
-		       uint32_t n_output_ids)
-{
-	struct node *this;
-	uint32_t c, i;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct node, node);
-
-	if (input_ids) {
-		for (c = 0, i = 0; i < MAX_INPUTS && c < n_input_ids; i++) {
-			if (this->in_ports[i])
-				input_ids[c++] = i;
-		}
+	for (i = 0; i < MAX_INPUTS; i++) {
+		if (this->in_ports[i])
+			emit_port_info(this, this->in_ports[i]);
 	}
-	if (output_ids) {
-		for (c = 0, i = 0; i < MAX_OUTPUTS && c < n_output_ids; i++) {
-			if (this->out_ports[i])
-				output_ids[c++] = i;
-		}
+	for (i = 0; i < MAX_OUTPUTS; i++) {
+		if (this->out_ports[i])
+			emit_port_info(this, this->out_ports[i]);
 	}
 	return 0;
 }
@@ -608,6 +571,8 @@ clear_port(struct node *this, struct port *port)
 			this->n_outputs--;
 		}
 	}
+	if (this->callbacks && this->callbacks->port_info)
+		this->callbacks->port_info(this->callbacks_data, port->direction, port->id, NULL);
 }
 
 static int
@@ -642,27 +607,6 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 					    direction, port_id);
 
 	return SPA_RESULT_RETURN_ASYNC(this->seq++);
-}
-
-static int
-impl_node_port_get_info(struct spa_node *node,
-			enum spa_direction direction, uint32_t port_id,
-			const struct spa_port_info **info)
-{
-	struct node *this;
-	struct port *port;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-	spa_return_val_if_fail(info != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct node, node);
-
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
-
-	port = GET_PORT(this, direction, port_id);
-	*info = &port->info;
-
-	return 0;
 }
 
 static int
@@ -1007,8 +951,8 @@ client_node_done(void *data, int seq, int res)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-
-	this->callbacks->done(this->callbacks_data, seq, res);
+	if (this->callbacks && this->callbacks->done)
+		this->callbacks->done(this->callbacks_data, seq, res);
 }
 
 static void
@@ -1070,35 +1014,23 @@ client_node_port_update(void *data,
 
 	if (remove) {
 		clear_port(this, port);
-		pw_node_update_ports(impl->this.node);
 	} else {
 		struct port *target;
 
 		if (port == NULL) {
 			target = &this->dummy;
 			spa_zero(this->dummy);
-			target->id = port_id;
-		}
-		else
+		} else
 			target = port;
 
 		do_update_port(this,
 			       target,
 			       change_mask,
-			       n_params, params, info);
+			       n_params, params,
+			       info);
 
-		if (port == NULL) {
-			if (direction == SPA_DIRECTION_INPUT) {
-				this->n_inputs++;
-				this->in_ports[port_id] = target;
-			}
-			else {
-				this->n_outputs++;
-				this->out_ports[port_id] = target;
-			}
-			pw_node_update_ports(impl->this.node);
-		}
-
+		if (this->callbacks && this->callbacks->port_info)
+			this->callbacks->port_info(this->callbacks_data, direction, port_id, info);
 	}
 }
 
@@ -1112,7 +1044,8 @@ static void client_node_event(void *data, struct spa_event *event)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-	this->callbacks->event(this->callbacks_data, event);
+	if (this->callbacks && this->callbacks->event)
+		this->callbacks->event(this->callbacks_data, event);
 }
 
 static struct pw_client_node_proxy_methods client_node_methods = {
@@ -1153,11 +1086,8 @@ static const struct spa_node impl_node = {
 	.set_io = impl_node_set_io,
 	.send_command = impl_node_send_command,
 	.set_callbacks = impl_node_set_callbacks,
-	.get_n_ports = impl_node_get_n_ports,
-	.get_port_ids = impl_node_get_port_ids,
 	.add_port = impl_node_add_port,
 	.remove_port = impl_node_remove_port,
-	.port_get_info = impl_node_port_get_info,
 	.port_enum_params = impl_node_port_enum_params,
 	.port_set_param = impl_node_port_set_param,
 	.port_use_buffers = impl_node_port_use_buffers,
@@ -1501,17 +1431,12 @@ static const struct spa_node impl_port_mix = {
 static void node_port_init(void *data, struct pw_port *port)
 {
 	struct impl *impl = data;
-	struct port *p = pw_port_get_user_data(port), *dummy;
+	struct port *p = pw_port_get_user_data(port);
 	struct node *this = &impl->node;
 
 	pw_log_debug("client-node %p: port %p init", &impl->this, port);
 
-	if (port->direction == PW_DIRECTION_INPUT)
-		dummy = this->in_ports[port->port_id];
-	else
-		dummy = this->out_ports[port->port_id];
-
-	*p = *dummy;
+	*p = this->dummy;
 	p->port = port;
 	p->node = this;
 	p->direction = port->direction;
@@ -1520,11 +1445,13 @@ static void node_port_init(void *data, struct pw_port *port)
 	p->mix_node = impl_port_mix;
 	mix_init(&p->mix[MAX_MIX], p, SPA_ID_INVALID);
 
-	if (p->direction == SPA_DIRECTION_INPUT)
+	if (p->direction == SPA_DIRECTION_INPUT) {
 		this->in_ports[p->id] = p;
-	else
+		this->n_inputs++;
+	} else {
 		this->out_ports[p->id] = p;
-
+		this->n_outputs++;
+	}
 	return;
 }
 

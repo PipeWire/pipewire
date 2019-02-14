@@ -57,6 +57,7 @@ struct buffer {
 };
 
 struct port {
+	uint32_t direction;
 	uint32_t id;
 
 	struct spa_io_buffers *io;
@@ -110,14 +111,34 @@ struct impl {
 #define GET_OUT_PORT(this,p)		(&this->out_ports[p])
 #define GET_PORT(this,d,p)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
 
-static int init_port(struct impl *this, uint32_t port_id, uint32_t rate, uint32_t position)
+static void emit_node_info(struct impl *this)
+{
+	if (this->callbacks && this->callbacks->info) {
+		struct spa_node_info info = SPA_NODE_INFO_INIT();
+		info.change_mask = 0;
+		this->callbacks->info(this->user_data, &info);
+	}
+}
+static void emit_port_info(struct impl *this, struct port *port)
+{
+	if (this->callbacks && this->callbacks->port_info && port->info.change_mask) {
+		this->callbacks->port_info(this->user_data, port->direction, port->id, &port->info);
+		port->info.change_mask = 0;
+	}
+}
+
+static int init_port(struct impl *this, enum spa_direction direction,
+		uint32_t port_id, uint32_t rate, uint32_t position)
 {
 	struct port *port = GET_OUT_PORT(this, port_id);
 
+	port->direction = direction;
 	port->id = port_id;
 
 	snprintf(port->position, 7, "%s", rindex(spa_type_audio_channel[position].name, ':')+1);
 
+	port->info = SPA_PORT_INFO_INIT();
+	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_PROPS;
 	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
 	port->info_props_items[1] = SPA_DICT_ITEM_INIT("port.channel", port->position);
@@ -136,6 +157,7 @@ static int init_port(struct impl *this, uint32_t port_id, uint32_t rate, uint32_
 	port->format.info.raw.position[0] = position;
 
 	spa_log_debug(this->log, NAME " %p: init port %d %s", this, port_id, port->position);
+	emit_port_info(this, port);
 
 	return 0;
 }
@@ -226,18 +248,19 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 
 		spa_log_debug(this->log, NAME " %p: profile %d", this, info.info.raw.channels);
 
-		this->have_profile = true;
-		this->port_count = info.info.raw.channels;
 		for (i = 0; i < this->port_count; i++) {
-			init_port(this, i, info.info.raw.rate,
-					info.info.raw.position[i]);
+			if (this->callbacks && this->callbacks->port_info)
+				this->callbacks->port_info(this->user_data, SPA_DIRECTION_OUTPUT, i, NULL);
 		}
+		this->have_profile = true;
 		port->have_format = true;
 		port->format = info;
 
-		if (this->callbacks && this->callbacks->event)
-			this->callbacks->event(this->user_data,
-				&SPA_NODE_EVENT_INIT(SPA_NODE_EVENT_PortsChanged));
+		this->port_count = info.info.raw.channels;
+		for (i = 0; i < this->port_count; i++) {
+			init_port(this, SPA_DIRECTION_OUTPUT, i, info.info.raw.rate,
+					info.info.raw.position[i]);
+		}
 		return 0;
 	}
 	default:
@@ -274,6 +297,7 @@ impl_node_set_callbacks(struct spa_node *node,
 			void *user_data)
 {
 	struct impl *this;
+	uint32_t i;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -282,55 +306,11 @@ impl_node_set_callbacks(struct spa_node *node,
 	this->callbacks = callbacks;
 	this->user_data = user_data;
 
-	return 0;
-}
+	emit_node_info(this);
+	emit_port_info(this, GET_IN_PORT(this, 0));
+	for (i = 0; i < this->port_count; i++)
+		emit_port_info(this, GET_OUT_PORT(this, i));
 
-static int
-impl_node_get_n_ports(struct spa_node *node,
-		      uint32_t *n_input_ports,
-		      uint32_t *max_input_ports,
-		      uint32_t *n_output_ports,
-		      uint32_t *max_output_ports)
-{
-	struct impl *this;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	if (n_input_ports)
-		*n_input_ports = 1;
-	if (max_input_ports)
-		*max_input_ports = 1;
-	if (n_output_ports)
-		*n_output_ports = this->port_count;
-	if (max_output_ports)
-		*max_output_ports = this->port_count;
-
-	return 0;
-}
-
-static int
-impl_node_get_port_ids(struct spa_node *node,
-		       uint32_t *input_ids,
-		       uint32_t n_input_ids,
-		       uint32_t *output_ids,
-		       uint32_t n_output_ids)
-{
-	struct impl *this;
-	uint32_t i;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	if (n_input_ids > 0 && input_ids)
-		input_ids[0] = 0;
-	if (output_ids) {
-		n_output_ids = SPA_MIN(n_output_ids, this->port_count);
-		for (i = 0; i < n_output_ids; i++)
-			output_ids[i] = i;
-	}
 	return 0;
 }
 
@@ -345,29 +325,6 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 {
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	return -ENOTSUP;
-}
-
-static int
-impl_node_port_get_info(struct spa_node *node,
-			enum spa_direction direction,
-			uint32_t port_id,
-			const struct spa_port_info **info)
-{
-	struct impl *this;
-	struct port *port;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-	spa_return_val_if_fail(info != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
-
-	port = GET_PORT(this, direction, port_id);
-
-	*info = &port->info;
-
-	return 0;
 }
 
 static int port_enum_formats(struct spa_node *node,
@@ -931,23 +888,20 @@ static int impl_node_process(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
-	impl_node_enum_params,
-	impl_node_set_param,
-	impl_node_set_io,
-	impl_node_send_command,
-	impl_node_set_callbacks,
-	impl_node_get_n_ports,
-	impl_node_get_port_ids,
-	impl_node_add_port,
-	impl_node_remove_port,
-	impl_node_port_get_info,
-	impl_node_port_enum_params,
-	impl_node_port_set_param,
-	impl_node_port_use_buffers,
-	impl_node_port_alloc_buffers,
-	impl_node_port_set_io,
-	impl_node_port_reuse_buffer,
-	impl_node_process,
+	.enum_params = impl_node_enum_params,
+	.set_param = impl_node_set_param,
+	.set_io = impl_node_set_io,
+	.send_command = impl_node_send_command,
+	.set_callbacks = impl_node_set_callbacks,
+	.add_port = impl_node_add_port,
+	.remove_port = impl_node_remove_port,
+	.port_enum_params = impl_node_port_enum_params,
+	.port_set_param = impl_node_port_set_param,
+	.port_use_buffers = impl_node_port_use_buffers,
+	.port_alloc_buffers = impl_node_port_alloc_buffers,
+	.port_set_io = impl_node_port_set_io,
+	.port_reuse_buffer = impl_node_port_reuse_buffer,
+	.process = impl_node_process,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
@@ -1014,7 +968,10 @@ impl_init(const struct spa_handle_factory *factory,
 	this->node = impl_node;
 
 	port = GET_IN_PORT(this, 0);
+	port->direction = SPA_DIRECTION_INPUT;
 	port->id = 0;
+	port->info = SPA_PORT_INFO_INIT();
+	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
 	port->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 
 	return 0;

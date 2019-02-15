@@ -75,6 +75,7 @@ spa_pod_headers = [
   'pod/iter.h',
   'pod/parser.h',
   'pod/pod.h',
+  'pod/vararg.h',
 ]
 install_headers(spa_pod_headers,
   subdir : 'spa/pod')

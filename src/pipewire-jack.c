@@ -514,11 +514,14 @@ jack_get_version_string(void)
 	return "0.0.0.0";
 }
 
-static void on_sync_reply(void *data, uint32_t seq)
+static int on_sync_reply(void *data, uint32_t id, uint32_t seq)
 {
 	struct client *client = data;
+	if (id != 0)
+		return 0;
 	client->last_sync = seq;
 	pw_thread_loop_signal(client->context.loop, false);
+	return 0;
 }
 
 static void on_state_changed(void *data, enum pw_remote_state old,
@@ -557,7 +560,7 @@ static int do_sync(struct client *client)
 {
 	uint32_t seq = client->last_sync + 1;
 
-	pw_core_proxy_sync(client->core_proxy, seq);
+	pw_core_proxy_sync(client->core_proxy, 0, seq);
 
 	while (true) {
 	        pw_thread_loop_wait(client->context.loop);
@@ -671,7 +674,7 @@ static void clear_mem(struct client *c, struct mem *m)
 	}
 }
 
-static void client_node_add_mem(void *object,
+static int client_node_add_mem(void *object,
 				uint32_t mem_id,
 				uint32_t type,
 				int memfd,
@@ -684,7 +687,7 @@ static void client_node_add_mem(void *object,
 	if (m) {
 		pw_log_warn(NAME" %p: duplicate mem %u, fd %d, flags %d", c,
 			     mem_id, memfd, flags);
-		return;
+		return -EINVAL;
 	}
 
 	m = pw_array_add(&c->mems, sizeof(struct mem));
@@ -696,6 +699,7 @@ static void client_node_add_mem(void *object,
 	m->ref = 0;
 	m->map = PW_MAP_RANGE_INIT;
 	m->ptr = NULL;
+	return 0;
 }
 
 static int
@@ -921,7 +925,7 @@ static void clean_transport(struct client *c)
 	c->node_id = SPA_ID_INVALID;
 }
 
-static void client_node_transport(void *object,
+static int client_node_transport(void *object,
                            uint32_t node_id,
                            int readfd,
                            int writefd)
@@ -941,21 +945,23 @@ static void client_node_transport(void *object,
 					  readfd,
 					  SPA_IO_ERR | SPA_IO_HUP,
 					  true, on_rtsocket_condition, c);
+	return 0;
 }
 
-static void client_node_set_param(void *object, uint32_t seq,
-                           uint32_t id, uint32_t flags,
-                           const struct spa_pod *param)
+static int client_node_set_param(void *object,
+			uint32_t id, uint32_t flags,
+			const struct spa_pod *param)
 {
 	struct client *c = (struct client *) object;
-	pw_client_node_proxy_done(c->node_proxy, seq, -ENOTSUP);
+	pw_proxy_error((struct pw_proxy*)c->node_proxy, -ENOTSUP, "not supported");
+	return -ENOTSUP;
 }
 
-static void client_node_set_io(void *object,
-			       uint32_t id,
-			       uint32_t mem_id,
-			       uint32_t offset,
-			       uint32_t size)
+static int client_node_set_io(void *object,
+			uint32_t id,
+			uint32_t mem_id,
+			uint32_t offset,
+			uint32_t size)
 {
 	struct client *c = (struct client *) object;
         struct mem *m;
@@ -969,10 +975,10 @@ static void client_node_set_io(void *object,
                 m = find_mem(&c->mems, mem_id);
                 if (m == NULL) {
                         pw_log_warn("unknown memory id %u", mem_id);
-			return;
+			return -EINVAL;
                 }
                 if ((ptr = mem_map(c, m, offset, size)) == NULL) {
-			return;
+			return -errno;
 		}
 		m->ref++;
         }
@@ -987,13 +993,15 @@ static void client_node_set_io(void *object,
 		}
 		c->position = ptr;
 	}
+	return 0;
 }
 
-static void client_node_event(void *object, const struct spa_event *event)
+static int client_node_event(void *object, const struct spa_event *event)
 {
+	return -ENOTSUP;
 }
 
-static void client_node_command(void *object, uint32_t seq, const struct spa_command *command)
+static int client_node_command(void *object, const struct spa_command *command)
 {
 	struct client *c = (struct client *) object;
 
@@ -1006,7 +1014,6 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 
 			c->started = false;
 		}
-		pw_client_node_proxy_done(c->node_proxy, seq, 0);
 		break;
 
 	case SPA_NODE_COMMAND_Start:
@@ -1016,33 +1023,34 @@ static void client_node_command(void *object, uint32_t seq, const struct spa_com
 					  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 			c->started = true;
 		}
-		pw_client_node_proxy_done(c->node_proxy, seq, 0);
 		break;
 	default:
 		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
-		pw_client_node_proxy_done(c->node_proxy, seq, -ENOTSUP);
+		pw_proxy_error((struct pw_proxy*)c->node_proxy, -ENOTSUP,
+				"unhandled command %d", SPA_COMMAND_TYPE(command));
 	}
+	return 0;
 }
 
-static void client_node_add_port(void *object,
-                          uint32_t seq,
+static int client_node_add_port(void *object,
                           enum spa_direction direction,
                           uint32_t port_id)
 {
 	struct client *c = (struct client *) object;
-	pw_client_node_proxy_done(c->node_proxy, seq, -ENOTSUP);
+	pw_proxy_error((struct pw_proxy*)c->node_proxy, -ENOTSUP, "add port not supported");
+	return -ENOTSUP;
 }
 
-static void client_node_remove_port(void *object,
-                             uint32_t seq,
+static int client_node_remove_port(void *object,
                              enum spa_direction direction,
                              uint32_t port_id)
 {
 	struct client *c = (struct client *) object;
-	pw_client_node_proxy_done(c->node_proxy, seq, -ENOTSUP);
+	pw_proxy_error((struct pw_proxy*)c->node_proxy, -ENOTSUP, "remove port not supported");
+	return -ENOTSUP;
 }
 
-static void clear_buffers(struct client *c, struct mix *mix)
+static int clear_buffers(struct client *c, struct mix *mix)
 {
 	struct port *port = mix->port;
         struct buffer *b;
@@ -1080,6 +1088,7 @@ static void clear_buffers(struct client *c, struct mix *mix)
         }
 	mix->n_buffers = 0;
 	spa_list_init(&mix->queue);
+	return 0;
 }
 
 static int param_enum_format(struct client *c, struct port *p,
@@ -1222,8 +1231,7 @@ static int port_set_format(struct client *c, struct port *p,
 	return 0;
 }
 
-static void client_node_port_set_param(void *object,
-                                uint32_t seq,
+static int client_node_port_set_param(void *object,
                                 enum spa_direction direction,
                                 uint32_t port_id,
                                 uint32_t id, uint32_t flags,
@@ -1243,15 +1251,13 @@ static void client_node_port_set_param(void *object,
 	param_format(c, p, &params[1], &b);
 	param_buffers(c, p, &params[2], &b);
 
-	pw_client_node_proxy_port_update(c->node_proxy,
+	return pw_client_node_proxy_port_update(c->node_proxy,
 					 direction,
 					 port_id,
 					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS,
 					 3,
 					 (const struct spa_pod **) params,
 					 NULL);
-
-	pw_client_node_proxy_done(c->node_proxy, seq, 0);
 }
 
 static void init_buffer(struct port *p, void *data, size_t maxsize)
@@ -1269,8 +1275,7 @@ static void init_buffer(struct port *p, void *data, size_t maxsize)
 		memset(data, 0, maxsize);
 }
 
-static void client_node_port_use_buffers(void *object,
-                                  uint32_t seq,
+static int client_node_port_use_buffers(void *object,
                                   enum spa_direction direction,
                                   uint32_t port_id,
                                   uint32_t mix_id,
@@ -1394,7 +1399,9 @@ static void client_node_port_use_buffers(void *object,
 	res = 0;
 
       done:
-	pw_client_node_proxy_done(c->node_proxy, seq, res);
+	if (res < 0)
+		pw_proxy_error((struct pw_proxy*)c->node_proxy, res, spa_strerror(res));
+	return res;
 }
 
 static void clear_io(struct client *c, struct io *io)
@@ -1432,8 +1439,7 @@ static struct io *update_io(struct client *c, struct mix *mix,
 	return io;
 }
 
-static void client_node_port_set_io(void *object,
-                             uint32_t seq,
+static int client_node_port_set_io(void *object,
                              enum spa_direction direction,
                              uint32_t port_id,
                              uint32_t mix_id,
@@ -1494,10 +1500,12 @@ static void client_node_port_set_io(void *object,
 			spa_debug_type_find_name(spa_type_io, id), mem_id, offset, size, ptr);
 
       exit:
-	pw_client_node_proxy_done(c->node_proxy, seq, res);
+	if (res < 0)
+		pw_proxy_error((struct pw_proxy*)c->node_proxy, res, spa_strerror(res));
+	return res;
 }
 
-static void client_node_set_activation(void *object,
+static int client_node_set_activation(void *object,
                              uint32_t node_id,
                              int signalfd,
                              uint32_t mem_id,
@@ -1508,6 +1516,7 @@ static void client_node_set_activation(void *object,
 	struct mem *m;
 	struct link *link;
 	void *ptr;
+	int res = 0;
 
 	if (mem_id == SPA_ID_INVALID) {
 		ptr = NULL;
@@ -1517,10 +1526,12 @@ static void client_node_set_activation(void *object,
 		m = find_mem(&c->mems, mem_id);
 		if (m == NULL) {
 			pw_log_warn("unknown memory id %u", mem_id);
-			return;
+			res = -EINVAL;
+			goto exit;
 		}
 		if ((ptr = mem_map(c, m, offset, size)) == NULL) {
-			return;
+			res = -errno;
+			goto exit;
 		}
 		m->ref++;
 	}
@@ -1533,7 +1544,7 @@ static void client_node_set_activation(void *object,
 				mem_id, offset, size, ptr);
 		if (ptr)
 			c->activation = ptr;
-		return;
+		return 0;
 	}
 
 	if (ptr) {
@@ -1545,13 +1556,19 @@ static void client_node_set_activation(void *object,
 	}
 	else {
 		link = find_activation(&c->links, node_id);
-		if (link == NULL)
-			return;
-
+		if (link == NULL) {
+			res = -EINVAL;
+			goto exit;
+		}
 		link->node_id = SPA_ID_INVALID;
 		link->activation = NULL;
 		close(link->signalfd);
 	}
+
+      exit:
+	if (res < 0)
+		pw_proxy_error((struct pw_proxy*)c->node_proxy, res, spa_strerror(res));
+	return res;
 }
 
 static const struct pw_client_node_proxy_events client_node_events = {
@@ -1596,7 +1613,7 @@ static const char* type_to_string(jack_port_type_id_t type_id)
 	}
 }
 
-static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
+static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
                                   uint32_t permissions, uint32_t type, uint32_t version,
                                   const struct spa_dict *props)
 {
@@ -1606,7 +1623,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	size_t size;
 
 	if (props == NULL)
-		return;
+		return 0;
 
 	if (type == PW_TYPE_INTERFACE_Node) {
 		if ((str = spa_dict_lookup(props, "node.name")) == NULL)
@@ -1729,15 +1746,14 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		if (c->connect_callback)
 			c->connect_callback(o->port_link.src, o->port_link.dst, 1, c->connect_arg);
 	}
-
       exit:
-	return;
+	return 0;
       exit_free:
 	free_object(c, o);
-	return;
+	return 0;
 }
 
-static void registry_event_global_remove(void *object, uint32_t id)
+static int registry_event_global_remove(void *object, uint32_t id)
 {
 	struct client *c = (struct client *) object;
 	struct object *o;
@@ -1746,7 +1762,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 
 	o = pw_map_lookup(&c->context.globals, id);
 	if (o == NULL)
-		return;
+		return 0;
 
 	if (o->type == PW_TYPE_INTERFACE_Node) {
 		if (c->registration_callback)
@@ -1767,6 +1783,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	 * pw_map_insert_at(&c->context.globals, id, NULL);
 	 **/
 	free_object(c, o);
+	return 0;
 }
 
 static const struct pw_registry_proxy_events registry_events = {
@@ -1912,7 +1929,7 @@ jack_client_t * jack_client_open (const char *client_name,
 				    PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS,
 				    0, 0, 0, NULL, NULL);
 
-	pw_client_node_proxy_done(client->node_proxy, 0, 0);
+	pw_proxy_sync((struct pw_proxy*)client->node_proxy, 0);
 
 	if (do_sync(client) < 0)
 		goto init_failed;
@@ -2021,7 +2038,7 @@ int jack_activate (jack_client_t *client)
 	int res = 0;
 
 	pw_thread_loop_lock(c->context.loop);
-        pw_client_node_proxy_done(c->node_proxy, 0, 0);
+        pw_proxy_sync((struct pw_proxy*)c->node_proxy, 0);
 	pw_client_node_proxy_set_active(c->node_proxy, true);
 
 	res = do_sync(c);
@@ -2041,7 +2058,7 @@ int jack_deactivate (jack_client_t *client)
 	int res = 0;
 
 	pw_thread_loop_lock(c->context.loop);
-        pw_client_node_proxy_done(c->node_proxy, 0, 0);
+        pw_proxy_sync((struct pw_proxy*)c->node_proxy, 0);
 	pw_client_node_proxy_set_active(c->node_proxy, false);
 
 	res = do_sync(c);

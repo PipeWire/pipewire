@@ -48,20 +48,16 @@ struct pw_client_node_buffer {
 	struct spa_buffer *buffer;	/**< buffer describing metadata and buffer memory */
 };
 
-#define PW_CLIENT_NODE_PROXY_METHOD_DONE		0
-#define PW_CLIENT_NODE_PROXY_METHOD_UPDATE		1
-#define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE		2
-#define PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE		3
-#define PW_CLIENT_NODE_PROXY_METHOD_EVENT		4
-#define PW_CLIENT_NODE_PROXY_METHOD_NUM			5
+#define PW_CLIENT_NODE_PROXY_METHOD_UPDATE		0
+#define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE		1
+#define PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE		2
+#define PW_CLIENT_NODE_PROXY_METHOD_EVENT		3
+#define PW_CLIENT_NODE_PROXY_METHOD_NUM			4
 
 /** \ref pw_client_node methods */
 struct pw_client_node_proxy_methods {
 #define PW_VERSION_CLIENT_NODE_PROXY_METHODS		0
 	uint32_t version;
-
-	/** Complete an async operation */
-	void (*done) (void *object, int seq, int res);
 
 	/**
 	 * Update the node ports and properties
@@ -73,7 +69,7 @@ struct pw_client_node_proxy_methods {
 	 * \param max_output_ports new max output ports
 	 * \param params new params
 	 */
-	void (*update) (void *object,
+	int (*update) (void *object,
 #define PW_CLIENT_NODE_UPDATE_MAX_INPUTS   (1 << 0)
 #define PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
 #define PW_CLIENT_NODE_UPDATE_PARAMS       (1 << 2)
@@ -96,7 +92,7 @@ struct pw_client_node_proxy_methods {
 	 * \param params array of port parameters
 	 * \param info port information
 	 */
-	void (*port_update) (void *object,
+	int (*port_update) (void *object,
 			     enum spa_direction direction,
 			     uint32_t port_id,
 #define PW_CLIENT_NODE_PORT_UPDATE_PARAMS            (1 << 0)
@@ -108,21 +104,15 @@ struct pw_client_node_proxy_methods {
 	/**
 	 * Activate or deactivate the node
 	 */
-	void (*set_active) (void *object, bool active);
+	int (*set_active) (void *object, bool active);
 	/**
 	 * Send an event to the node
 	 * \param event the event to send
 	 */
-	void (*event) (void *object, struct spa_event *event);
+	int (*event) (void *object, struct spa_event *event);
 };
 
-static inline void
-pw_client_node_proxy_done(struct pw_client_node_proxy *p, int seq, int res)
-{
-        pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, done, seq, res);
-}
-
-static inline void
+static inline int
 pw_client_node_proxy_update(struct pw_client_node_proxy *p,
 			    uint32_t change_mask,
 			    uint32_t max_input_ports,
@@ -131,13 +121,13 @@ pw_client_node_proxy_update(struct pw_client_node_proxy *p,
 			    const struct spa_pod **params,
 			    const struct spa_dict *props)
 {
-        pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, update, change_mask,
+        return pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, update, change_mask,
 							      max_input_ports,
 							      max_output_ports,
 							      n_params, params, props);
 }
 
-static inline void
+static inline int
 pw_client_node_proxy_port_update(struct pw_client_node_proxy *p,
 				 enum spa_direction direction,
 				 uint32_t port_id,
@@ -146,7 +136,7 @@ pw_client_node_proxy_port_update(struct pw_client_node_proxy *p,
 				 const struct spa_pod **params,
 				 const struct spa_port_info *info)
 {
-        pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, port_update, direction,
+        return pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, port_update, direction,
 								   port_id,
 								   change_mask,
 								   n_params,
@@ -154,16 +144,16 @@ pw_client_node_proxy_port_update(struct pw_client_node_proxy *p,
 								   info);
 }
 
-static inline void
+static inline int
 pw_client_node_proxy_set_active(struct pw_client_node_proxy *p, bool active)
 {
-        pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, set_active, active);
+	return pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, set_active, active);
 }
 
-static inline void
+static inline int
 pw_client_node_proxy_event(struct pw_client_node_proxy *p, struct spa_event *event)
 {
-        pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, event, event);
+	return pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, event, event);
 }
 
 #define PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM		0
@@ -201,11 +191,11 @@ struct pw_client_node_proxy_events {
 	 * \param memfd the fd of the memory
 	 * \param flags flags for the \a memfd
 	 */
-	void (*add_mem) (void *object,
-			 uint32_t mem_id,
-			 uint32_t type,
-			 int memfd,
-			 uint32_t flags);
+	int (*add_mem) (void *object,
+			uint32_t mem_id,
+			uint32_t type,
+			int memfd,
+			uint32_t flags);
 	/**
 	 * Notify of a new transport area
 	 *
@@ -215,24 +205,23 @@ struct pw_client_node_proxy_events {
 	 * \param readfd fd for signal data can be read
 	 * \param writefd fd for signal data can be written
 	 */
-	void (*transport) (void *object,
-			   uint32_t node_id,
-			   int readfd,
-			   int writefd);
+	int (*transport) (void *object,
+			  uint32_t node_id,
+			  int readfd,
+			  int writefd);
 	/**
 	 * Notify of a property change
 	 *
 	 * When the server configures the properties on the node
 	 * this event is sent
 	 *
-	 * \param seq a sequence number
 	 * \param id the id of the parameter
 	 * \param flags parameter flags
 	 * \param param the param to set
 	 */
-	void (*set_param) (void *object, uint32_t seq,
-			   uint32_t id, uint32_t flags,
-			   const struct spa_pod *param);
+	int (*set_param) (void *object,
+			  uint32_t id, uint32_t flags,
+			  const struct spa_pod *param);
 	/**
 	 * Configure an IO area for the client
 	 *
@@ -244,7 +233,7 @@ struct pw_client_node_proxy_events {
 	 * \param offset offset of io area in memory
 	 * \param size size of the io area
 	 */
-	void (*set_io) (void *object,
+	int (*set_io) (void *object,
 			uint32_t id,
 			uint32_t mem_id,
 			uint32_t offset,
@@ -252,51 +241,44 @@ struct pw_client_node_proxy_events {
 	/**
 	 * Receive an event from the client node
 	 * \param event the received event */
-	void (*event) (void *object, const struct spa_event *event);
+	int (*event) (void *object, const struct spa_event *event);
 	/**
 	 * Notify of a new node command
 	 *
-	 * \param seq a sequence number
 	 * \param command the command
 	 */
-	void (*command) (void *object, uint32_t seq, const struct spa_command *command);
+	int (*command) (void *object, const struct spa_command *command);
 	/**
 	 * A new port was added to the node
 	 *
 	 * The server can at any time add a port to the node when there
 	 * are free ports available.
 	 *
-	 * \param seq a sequence number
 	 * \param direction the direction of the port
 	 * \param port_id the new port id
 	 */
-	void (*add_port) (void *object,
-			  uint32_t seq,
+	int (*add_port) (void *object,
 			  enum spa_direction direction,
 			  uint32_t port_id);
 	/**
 	 * A port was removed from the node
 	 *
-	 * \param seq a sequence number
 	 * \param direction a port direction
 	 * \param port_id the remove port id
 	 */
-	void (*remove_port) (void *object,
-			     uint32_t seq,
+	int (*remove_port) (void *object,
 			     enum spa_direction direction,
 			     uint32_t port_id);
 	/**
 	 * A parameter was configured on the port
 	 *
-	 * \param seq a sequence number
 	 * \param direction a port direction
 	 * \param port_id the port id
 	 * \param id the id of the parameter
 	 * \param flags flags used when setting the param
 	 * \param param the new param
 	 */
-	void (*port_set_param) (void *object,
-				uint32_t seq,
+	int (*port_set_param) (void *object,
 				enum spa_direction direction,
 				uint32_t port_id,
 				uint32_t id, uint32_t flags,
@@ -304,15 +286,13 @@ struct pw_client_node_proxy_events {
 	/**
 	 * Notify the port of buffers
 	 *
-	 * \param seq a sequence number
 	 * \param direction a port direction
 	 * \param port_id the port id
 	 * \param mix_id the mixer port id
 	 * \param n_buffer the number of buffers
 	 * \param buffers and array of buffer descriptions
 	 */
-	void (*port_use_buffers) (void *object,
-				  uint32_t seq,
+	int (*port_use_buffers) (void *object,
 				  enum spa_direction direction,
 				  uint32_t port_id,
 				  uint32_t mix_id,
@@ -321,7 +301,6 @@ struct pw_client_node_proxy_events {
 	/**
 	 * Configure the io area with \a id of \a port_id.
 	 *
-	 * \param seq a sequence number
 	 * \param direction the direction of the port
 	 * \param port_id the port id
 	 * \param mix_id the mixer port id
@@ -330,8 +309,7 @@ struct pw_client_node_proxy_events {
 	 * \param offset offset of io area in memory
 	 * \param size size of the io area
 	 */
-	void (*port_set_io) (void *object,
-			     uint32_t seq,
+	int (*port_set_io) (void *object,
 			     enum spa_direction direction,
 			     uint32_t port_id,
 			     uint32_t mix_id,
@@ -340,7 +318,7 @@ struct pw_client_node_proxy_events {
 			     uint32_t offset,
 			     uint32_t size);
 
-	void (*set_activation) (void *object,
+	int (*set_activation) (void *object,
 				uint32_t node_id,
 				int signalfd,
 				uint32_t mem_id,

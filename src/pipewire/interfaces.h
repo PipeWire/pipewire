@@ -71,10 +71,12 @@ struct pw_link_proxy;
 
 #define PW_CORE_PROXY_METHOD_HELLO		0
 #define PW_CORE_PROXY_METHOD_SYNC		1
-#define PW_CORE_PROXY_METHOD_GET_REGISTRY	2
-#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	3
-#define PW_CORE_PROXY_METHOD_DESTROY		4
-#define PW_CORE_PROXY_METHOD_NUM		5
+#define PW_CORE_PROXY_METHOD_DONE		2
+#define PW_CORE_PROXY_METHOD_ERROR		3
+#define PW_CORE_PROXY_METHOD_GET_REGISTRY	4
+#define PW_CORE_PROXY_METHOD_CREATE_OBJECT	5
+#define PW_CORE_PROXY_METHOD_DESTROY		6
+#define PW_CORE_PROXY_METHOD_NUM		7
 
 #define PW_LINK_OUTPUT_NODE_ID	"link.output_node.id"
 #define PW_LINK_OUTPUT_PORT_ID	"link.output_port.id"
@@ -96,17 +98,44 @@ struct pw_core_proxy_methods {
 	 * Start a conversation with the server. This will send
 	 * the core info..
 	 */
-	void (*hello) (void *object, uint32_t version);
+	int (*hello) (void *object, uint32_t version);
 	/**
 	 * Do server roundtrip
 	 *
-	 * Ask the server to emit the 'done' event with \a id.
+	 * Ask the server to emit the 'done' event with \a seq.
+	 *
 	 * Since methods are handled in-order and events are delivered
 	 * in-order, this can be used as a barrier to ensure all previous
 	 * methods and the resulting events have been handled.
-	 * \param seq the sequence number passed to the done event
+	 *
+	 * \param seq the seq number passed to the done event
 	 */
-	void (*sync) (void *object, uint32_t seq);
+	int (*sync) (void *object, uint32_t id, uint32_t seq);
+	/**
+	 * Reply to a server sync event.
+	 *
+	 * Reply to the server sync event with the same seq.
+	 *
+	 * \param seq the seq number received in the sync event
+	 */
+	int (*done) (void *object, uint32_t id, uint32_t seq);
+	/**
+	 * Fatal error event
+         *
+         * The error method is sent out when a fatal (non-recoverable)
+         * error has occurred. The id argument is the proxy object where
+         * the error occurred, most often in response to an event on that
+         * object. The message is a brief description of the error,
+         * for (debugging) convenience.
+	 *
+	 * This method is usually also emited on the resource object with
+	 * \a id.
+	 *
+         * \param id object where the error occurred
+         * \param res error code
+         * \param message error description
+	 */
+	int (*error) (void *object, uint32_t id, int res, const char *message);
 	/**
 	 * Get the registry object
 	 *
@@ -115,7 +144,7 @@ struct pw_core_proxy_methods {
 	 * \param version the client proxy id
 	 * \param id the client proxy id
 	 */
-	void (*get_registry) (void *object, uint32_t version, uint32_t new_id);
+	int (*get_registry) (void *object, uint32_t version, uint32_t new_id);
 	/**
 	 * Create a new object on the PipeWire server from a factory.
 	 *
@@ -125,7 +154,7 @@ struct pw_core_proxy_methods {
 	 * \param props extra properties
 	 * \param new_id the client proxy id
 	 */
-	void (*create_object) (void *object,
+	int (*create_object) (void *object,
 			       const char *factory_name,
 			       uint32_t type,
 			       uint32_t version,
@@ -138,19 +167,51 @@ struct pw_core_proxy_methods {
 	 *
 	 * \param id the client proxy id to destroy
 	 */
-	void (*destroy) (void *object, uint32_t id);
+	int (*destroy) (void *object, uint32_t id);
 };
 
-static inline void
+static inline int
 pw_core_proxy_hello(struct pw_core_proxy *core, uint32_t version)
 {
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, hello, version);
+	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, hello, version);
 }
 
-static inline void
-pw_core_proxy_sync(struct pw_core_proxy *core, uint32_t seq)
+static inline int
+pw_core_proxy_sync(struct pw_core_proxy *core, uint32_t id, uint32_t seq)
 {
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, sync, seq);
+	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, sync, id, seq);
+}
+
+static inline int
+pw_core_proxy_done(struct pw_core_proxy *core, uint32_t id, uint32_t seq)
+{
+	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, done, id, seq);
+}
+
+static inline int
+pw_core_proxy_error(struct pw_core_proxy *core, uint32_t id, int res, const char *message)
+{
+	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, error, id, res, message);
+}
+
+static inline int
+pw_core_proxy_errorv(struct pw_core_proxy *core, uint32_t id, int res, const char *message, va_list args)
+{
+	char buffer[1024];
+	vsnprintf(buffer, sizeof(buffer), message, args);
+	buffer[1023] = '\0';
+	return pw_core_proxy_error(core, id, res, buffer);
+}
+
+static inline int
+pw_core_proxy_errorf(struct pw_core_proxy *core, uint32_t id, int res, const char *message, ...)
+{
+        va_list args;
+	int r;
+	va_start(args, message);
+	r = pw_core_proxy_errorv(core, id, res, message, args);
+	va_end(args);
+	return r;
 }
 
 static inline struct pw_registry_proxy *
@@ -175,17 +236,18 @@ pw_core_proxy_create_object(struct pw_core_proxy *core,
 	return p;
 }
 
-static inline void
+static inline int
 pw_core_proxy_destroy(struct pw_core_proxy *core, struct pw_proxy *proxy)
 {
-	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, destroy, pw_proxy_get_id(proxy));
+	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, destroy, pw_proxy_get_id(proxy));
 }
 
-#define PW_CORE_PROXY_EVENT_DONE         0
-#define PW_CORE_PROXY_EVENT_ERROR        1
-#define PW_CORE_PROXY_EVENT_REMOVE_ID    2
-#define PW_CORE_PROXY_EVENT_INFO         3
-#define PW_CORE_PROXY_EVENT_NUM          4
+#define PW_CORE_PROXY_EVENT_INFO	0
+#define PW_CORE_PROXY_EVENT_DONE	1
+#define PW_CORE_PROXY_EVENT_SYNC	2
+#define PW_CORE_PROXY_EVENT_ERROR	3
+#define PW_CORE_PROXY_EVENT_REMOVE_ID	4
+#define PW_CORE_PROXY_EVENT_NUM		5
 
 /** \struct pw_core_proxy_events
  *  \brief Core events
@@ -194,14 +256,33 @@ pw_core_proxy_destroy(struct pw_core_proxy *core, struct pw_proxy *proxy)
 struct pw_core_proxy_events {
 #define PW_VERSION_CORE_PROXY_EVENTS	0
 	uint32_t version;
+
+	/**
+	 * Notify new core info
+	 *
+	 * This event is emited when first bound to the core or when the
+	 * hello method is called.
+	 *
+	 * \param info new core info
+	 */
+	int (*info) (void *object, const struct pw_core_info *info);
 	/**
 	 * Emit a done event
 	 *
 	 * The done event is emited as a result of a sync method with the
-	 * same sequence number.
-	 * \param seq the sequence number passed to the sync method call
+	 * same seq number.
+	 *
+	 * \param seq the seq number passed to the sync method call
 	 */
-	void (*done) (void *object, uint32_t seq);
+	int (*done) (void *object, uint32_t id, uint32_t seq);
+
+	/** Emit a sync event
+	 *
+	 * The client should reply with a done reply with the same seq
+	 * number.
+	 */
+	int (*sync) (void *object, uint32_t id, uint32_t seq);
+
 	/**
 	 * Fatal error event
          *
@@ -218,7 +299,7 @@ struct pw_core_proxy_events {
          * \param res error code
          * \param message error description
 	 */
-	void (*error) (void *object, uint32_t id, int res, const char *message);
+	int (*error) (void *object, uint32_t id, int res, const char *message);
 	/**
 	 * Remove an object ID
          *
@@ -230,13 +311,7 @@ struct pw_core_proxy_events {
 	 *
          * \param id deleted object ID
 	 */
-	void (*remove_id) (void *object, uint32_t id);
-	/**
-	 * Notify new core info
-	 *
-	 * \param info new core info
-	 */
-	void (*info) (void *object, const struct pw_core_info *info);
+	int (*remove_id) (void *object, uint32_t id);
 };
 
 static inline void
@@ -249,27 +324,29 @@ pw_core_proxy_add_listener(struct pw_core_proxy *core,
 }
 
 
+#define pw_core_resource_info(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,info,__VA_ARGS__)
 #define pw_core_resource_done(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,done,__VA_ARGS__)
+#define pw_core_resource_sync(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,sync,__VA_ARGS__)
 #define pw_core_resource_error(r,...)        pw_resource_notify(r,struct pw_core_proxy_events,error,__VA_ARGS__)
 #define pw_core_resource_remove_id(r,...)    pw_resource_notify(r,struct pw_core_proxy_events,remove_id,__VA_ARGS__)
-#define pw_core_resource_info(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,info,__VA_ARGS__)
 
-static inline void
+static inline int
 pw_core_resource_errorv(struct pw_resource *resource, uint32_t id, int res, const char *message, va_list args)
 {
 	char buffer[1024];
 	vsnprintf(buffer, sizeof(buffer), message, args);
 	buffer[1023] = '\0';
-	pw_core_resource_error(resource, id, res, buffer);
+	return pw_core_resource_error(resource, id, res, buffer);
 }
 
-static inline void
+static inline int
 pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int res, const char *message, ...)
 {
         va_list args;
 	va_start(args, message);
-	pw_core_resource_errorv(resource, id, res, message, args);
+	res = pw_core_resource_errorv(resource, id, res, message, args);
 	va_end(args);
+	return res;
 }
 
 #define PW_VERSION_REGISTRY			0
@@ -325,7 +402,7 @@ struct pw_registry_proxy_methods {
 	 * \param version the interface version to use
 	 * \param new_id the client proxy to use
 	 */
-	void (*bind) (void *object, uint32_t id, uint32_t type, uint32_t version, uint32_t new_id);
+	int (*bind) (void *object, uint32_t id, uint32_t type, uint32_t version, uint32_t new_id);
 
 	/**
 	 * Attempt to destroy a global object
@@ -334,7 +411,7 @@ struct pw_registry_proxy_methods {
 	 *
 	 * \param id the global id to destroy
 	 */
-	void (*destroy) (void *object, uint32_t id);
+	int (*destroy) (void *object, uint32_t id);
 };
 
 /** Registry */
@@ -349,11 +426,11 @@ pw_registry_proxy_bind(struct pw_registry_proxy *registry,
 	return p;
 }
 
-static inline void
+static inline int
 pw_registry_proxy_destroy(struct pw_registry_proxy *registry, uint32_t id)
 {
 	struct pw_proxy *reg = (struct pw_proxy*)registry;
-	pw_proxy_do(reg, struct pw_registry_proxy_methods, destroy, id);
+	return pw_proxy_do(reg, struct pw_registry_proxy_methods, destroy, id);
 }
 
 #define PW_REGISTRY_PROXY_EVENT_GLOBAL             0
@@ -377,9 +454,9 @@ struct pw_registry_proxy_events {
 	 * \param version the version of the interface
 	 * \param props extra properties of the global
 	 */
-	void (*global) (void *object, uint32_t id, uint32_t parent_id,
-			uint32_t permissions, uint32_t type, uint32_t version,
-			const struct spa_dict *props);
+	int (*global) (void *object, uint32_t id, uint32_t parent_id,
+		       uint32_t permissions, uint32_t type, uint32_t version,
+		       const struct spa_dict *props);
 	/**
 	 * Notify of a global object removal
 	 *
@@ -389,7 +466,7 @@ struct pw_registry_proxy_events {
 	 *
 	 * \param id the id of the global that was removed
 	 */
-	void (*global_remove) (void *object, uint32_t id);
+	int (*global_remove) (void *object, uint32_t id);
 };
 
 static inline void
@@ -427,7 +504,7 @@ struct pw_module_proxy_events {
 	 *
 	 * \param info info about the module
 	 */
-	void (*info) (void *object, const struct pw_module_info *info);
+	int (*info) (void *object, const struct pw_module_info *info);
 };
 
 static inline void
@@ -463,8 +540,8 @@ struct pw_device_proxy_methods {
 	 * \param num the maximum number of params to retrieve
 	 * \param filter a param filter or NULL
 	 */
-	void (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
-			     const struct spa_pod *filter);
+	int (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
+			    const struct spa_pod *filter);
 	/**
 	 * Set a parameter on the device
 	 *
@@ -472,23 +549,23 @@ struct pw_device_proxy_methods {
 	 * \param flags extra parameter flags
 	 * \param param the parameter to set
 	 */
-	void (*set_param) (void *object, uint32_t id, uint32_t flags,
-			   const struct spa_pod *param);
+	int (*set_param) (void *object, uint32_t id, uint32_t flags,
+			  const struct spa_pod *param);
 };
 
-static inline void
+static inline int
 pw_device_proxy_enum_params(struct pw_device_proxy *device, uint32_t id, uint32_t index,
 		uint32_t num, const struct spa_pod *filter)
 {
-	pw_proxy_do((struct pw_proxy*)device, struct pw_device_proxy_methods, enum_params,
+	return pw_proxy_do((struct pw_proxy*)device, struct pw_device_proxy_methods, enum_params,
 			id, index, num, filter);
 }
 
-static inline void
+static inline int
 pw_device_proxy_set_param(struct pw_device_proxy *device, uint32_t id, uint32_t flags,
 		const struct spa_pod *param)
 {
-	pw_proxy_do((struct pw_proxy*)device, struct pw_device_proxy_methods, set_param,
+	return pw_proxy_do((struct pw_proxy*)device, struct pw_device_proxy_methods, set_param,
 			id, flags, param);
 }
 
@@ -505,7 +582,7 @@ struct pw_device_proxy_events {
 	 *
 	 * \param info info about the device
 	 */
-	void (*info) (void *object, const struct pw_device_info *info);
+	int (*info) (void *object, const struct pw_device_info *info);
 	/**
 	 * Notify a device param
 	 *
@@ -516,9 +593,9 @@ struct pw_device_proxy_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	void (*param) (void *object,
-		       uint32_t id, uint32_t index, uint32_t next,
-		       const struct spa_pod *param);
+	int (*param) (void *object,
+		      uint32_t id, uint32_t index, uint32_t next,
+		      const struct spa_pod *param);
 };
 
 static inline void
@@ -555,7 +632,7 @@ struct pw_node_proxy_methods {
 	 * \param num the maximum number of params to retrieve
 	 * \param filter a param filter or NULL
 	 */
-	void (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
+	int (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
 			const struct spa_pod *filter);
 
 	/**
@@ -565,7 +642,7 @@ struct pw_node_proxy_methods {
 	 * \param flags extra parameter flags
 	 * \param param the parameter to set
 	 */
-	void (*set_param) (void *object, uint32_t id, uint32_t flags,
+	int (*set_param) (void *object, uint32_t id, uint32_t flags,
 			const struct spa_pod *param);
 
 	/**
@@ -573,30 +650,30 @@ struct pw_node_proxy_methods {
 	 *
 	 * \param command the command to send
 	 */
-	void (*send_command) (void *object, const struct spa_command *command);
+	int (*send_command) (void *object, const struct spa_command *command);
 };
 
 /** Node */
-static inline void
+static inline int
 pw_node_proxy_enum_params(struct pw_node_proxy *node, uint32_t id, uint32_t index,
 		uint32_t num, const struct spa_pod *filter)
 {
-	pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, enum_params,
+	return pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, enum_params,
 			id, index, num, filter);
 }
 
-static inline void
+static inline int
 pw_node_proxy_set_param(struct pw_node_proxy *node, uint32_t id, uint32_t flags,
 		const struct spa_pod *param)
 {
-	pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, set_param,
+	return pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, set_param,
 			id, flags, param);
 }
 
-static inline void
+static inline int
 pw_node_proxy_send_command(struct pw_node_proxy *node, const struct spa_command *command)
 {
-	pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, send_command,
+	return pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, send_command,
 			command);
 }
 
@@ -613,7 +690,7 @@ struct pw_node_proxy_events {
 	 *
 	 * \param info info about the node
 	 */
-	void (*info) (void *object, const struct pw_node_info *info);
+	int (*info) (void *object, const struct pw_node_info *info);
 	/**
 	 * Notify a node param
 	 *
@@ -624,9 +701,9 @@ struct pw_node_proxy_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	void (*param) (void *object,
-		       uint32_t id, uint32_t index, uint32_t next,
-		       const struct spa_pod *param);
+	int (*param) (void *object,
+		      uint32_t id, uint32_t index, uint32_t next,
+		      const struct spa_pod *param);
 };
 
 static inline void
@@ -662,16 +739,16 @@ struct pw_port_proxy_methods {
 	 * \param num the maximum number of params to retrieve
 	 * \param filter a param filter or NULL
 	 */
-	void (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
+	int (*enum_params) (void *object, uint32_t id, uint32_t start, uint32_t num,
 			const struct spa_pod *filter);
 };
 
 /** Port params */
-static inline void
+static inline int
 pw_port_proxy_enum_params(struct pw_port_proxy *port, uint32_t id, uint32_t index,
 		uint32_t num, const struct spa_pod *filter)
 {
-	pw_proxy_do((struct pw_proxy*)port, struct pw_port_proxy_methods, enum_params,
+	return pw_proxy_do((struct pw_proxy*)port, struct pw_port_proxy_methods, enum_params,
 			id, index, num, filter);
 }
 
@@ -688,7 +765,7 @@ struct pw_port_proxy_events {
 	 *
 	 * \param info info about the port
 	 */
-	void (*info) (void *object, const struct pw_port_info *info);
+	int (*info) (void *object, const struct pw_port_info *info);
 	/**
 	 * Notify a port param
 	 *
@@ -699,7 +776,7 @@ struct pw_port_proxy_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	void (*param) (void *object,
+	int (*param) (void *object,
 		       uint32_t id, uint32_t index, uint32_t next,
 		       const struct spa_pod *param);
 };
@@ -738,7 +815,7 @@ struct pw_factory_proxy_events {
 	 *
 	 * \param info info about the factory
 	 */
-	void (*info) (void *object, const struct pw_factory_info *info);
+	int (*info) (void *object, const struct pw_factory_info *info);
 };
 
 /** Factory */
@@ -773,13 +850,13 @@ struct pw_client_proxy_methods {
 	 * \param res an errno style error code
 	 * \param message an error string
 	 */
-	void (*error) (void *object, uint32_t id, int res, const char *message);
+	int (*error) (void *object, uint32_t id, int res, const char *message);
 	/**
 	 * Update client properties
 	 *
 	 * \param props new properties
 	 */
-	void (*update_properties) (void *object, const struct spa_dict *props);
+	int (*update_properties) (void *object, const struct spa_dict *props);
 
 	/**
 	 * Get client permissions
@@ -789,7 +866,7 @@ struct pw_client_proxy_methods {
 	 * \param index the first index to query, 0 for first
 	 * \param num the maximum number of items to get
 	 */
-	void (*get_permissions) (void *object, uint32_t index, uint32_t num);
+	int (*get_permissions) (void *object, uint32_t index, uint32_t num);
 	/**
 	 * Manage the permissions of the global objects for this
 	 * client
@@ -803,34 +880,34 @@ struct pw_client_proxy_methods {
 	 * \param n_permissions number of permissions
 	 * \param permissions array of permissions
 	 */
-	void (*update_permissions) (void *object, uint32_t n_permissions,
+	int (*update_permissions) (void *object, uint32_t n_permissions,
 			const struct pw_permission *permissions);
 };
 
 /** Client permissions */
-static inline void
+static inline int
 pw_client_proxy_error(struct pw_client_proxy *client, uint32_t id, int res, const char *message)
 {
-	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, error, id, res, message);
+	return pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, error, id, res, message);
 }
 
-static inline void
+static inline int
 pw_client_proxy_update_properties(struct pw_client_proxy *client, const struct spa_dict *props)
 {
-	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, update_properties, props);
+	return pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, update_properties, props);
 }
 
-static inline void
+static inline int
 pw_client_proxy_get_permissions(struct pw_client_proxy *client, uint32_t index, uint32_t num)
 {
-	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, get_permissions, index, num);
+	return pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, get_permissions, index, num);
 }
 
-static inline void
+static inline int
 pw_client_proxy_update_permissions(struct pw_client_proxy *client, uint32_t n_permissions,
                         const struct pw_permission *permissions)
 {
-	pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, update_permissions,
+	return pw_proxy_do((struct pw_proxy*)client, struct pw_client_proxy_methods, update_permissions,
 			n_permissions, permissions);
 }
 
@@ -847,7 +924,7 @@ struct pw_client_proxy_events {
 	 *
 	 * \param info info about the client
 	 */
-	void (*info) (void *object, const struct pw_client_info *info);
+	int (*info) (void *object, const struct pw_client_info *info);
 	/**
 	 * Notify a client permission
 	 *
@@ -858,7 +935,7 @@ struct pw_client_proxy_events {
 	 * \param n_permissions the number of permissions
 	 * \param permissions the permissions
 	 */
-	void (*permissions) (void *object,
+	int (*permissions) (void *object,
 			     uint32_t index,
 			     uint32_t n_permissions,
 			     const struct pw_permission *permissions);
@@ -899,7 +976,7 @@ struct pw_link_proxy_events {
 	 *
 	 * \param info info about the link
 	 */
-	void (*info) (void *object, const struct pw_link_info *info);
+	int (*info) (void *object, const struct pw_link_info *info);
 };
 
 /** Link */

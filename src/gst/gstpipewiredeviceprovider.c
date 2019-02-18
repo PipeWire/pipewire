@@ -281,7 +281,7 @@ static void add_pending(GstPipeWireDeviceProvider *self, struct pending *p,
   p->data = data;
   p->seq = ++self->seq;
   pw_log_debug("add pending %d", p->seq);
-  pw_core_proxy_sync(self->core_proxy, p->seq);
+  pw_core_proxy_sync(self->core_proxy, 0, p->seq);
 }
 
 static void remove_pending(struct pending *p)
@@ -293,7 +293,7 @@ static void remove_pending(struct pending *p)
   }
 }
 
-static void
+static int
 on_core_info (void *data, const struct pw_core_info *info)
 {
   GstPipeWireDeviceProvider *self = data;
@@ -301,7 +301,7 @@ on_core_info (void *data, const struct pw_core_info *info)
   const gchar *value;
 
   if (info == NULL || info->props == NULL)
-    return;
+    return -EINVAL;
 
   value = spa_dict_lookup (info->props, "monitors");
   if (value) {
@@ -318,10 +318,11 @@ on_core_info (void *data, const struct pw_core_info *info)
     }
     g_strfreev (monitors);
   }
+  return 0;
 }
 
-static void
-on_core_done (void *data, uint32_t seq)
+static int
+on_core_done (void *data, uint32_t id, uint32_t seq)
 {
   GstPipeWireDeviceProvider *self = data;
   struct pending *p, *t;
@@ -339,6 +340,7 @@ on_core_done (void *data, uint32_t seq)
     if (self->main_loop)
       pw_thread_loop_signal (self->main_loop, FALSE);
   }
+  return 0;
 }
 
 static const struct pw_core_proxy_events core_events = {
@@ -371,13 +373,14 @@ on_state_changed (void *data, enum pw_remote_state old, enum pw_remote_state sta
     pw_thread_loop_signal (self->main_loop, FALSE);
 }
 
-static void port_event_info(void *data, const struct pw_port_info *info)
+static int port_event_info(void *data, const struct pw_port_info *info)
 {
   struct port_data *port_data = data;
   pw_log_debug("%p", port_data);
+  return 0;
 }
 
-static void port_event_param(void *data, uint32_t id, uint32_t index, uint32_t next,
+static int port_event_param(void *data, uint32_t id, uint32_t index, uint32_t next,
                 const struct spa_pod *param)
 {
   struct port_data *port_data = data;
@@ -389,7 +392,7 @@ static void port_event_param(void *data, uint32_t id, uint32_t index, uint32_t n
   c1 = gst_caps_from_format (param);
   if (c1 && node_data->caps)
       gst_caps_append (node_data->caps, c1);
-
+  return 0;
 }
 
 static const struct pw_port_proxy_events port_events = {
@@ -398,11 +401,12 @@ static const struct pw_port_proxy_events port_events = {
   .param = port_event_param
 };
 
-static void node_event_info(void *data, const struct pw_node_info *info)
+static int node_event_info(void *data, const struct pw_node_info *info)
 {
   struct node_data *node_data = data;
   pw_log_debug("%p", node_data);
   node_data->info = pw_node_info_update(node_data->info, info);
+  return 0;
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -451,9 +455,9 @@ static const struct pw_proxy_events proxy_port_events = {
         .destroy = destroy_port_proxy,
 };
 
-static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, uint32_t permissions,
-				  uint32_t type, uint32_t version,
-				  const struct spa_dict *props)
+static int registry_event_global(void *data, uint32_t id, uint32_t parent_id, uint32_t permissions,
+				 uint32_t type, uint32_t version,
+				 const struct spa_dict *props)
 {
   struct remote_data *rd = data;
   GstPipeWireDeviceProvider *self = rd->self;
@@ -484,7 +488,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
     struct port_data *pd;
 
     if ((nd = find_node_data(rd, parent_id)) == NULL)
-      return;
+      return -EINVAL;
 
     port = pw_registry_proxy_bind(rd->registry,
 		    id, PW_TYPE_INTERFACE_Port,
@@ -504,15 +508,16 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
     add_pending(self, &pd->pending, do_add_node, pd);
   }
 
-  return;
+  return 0;
 
 no_mem:
   GST_ERROR_OBJECT(self, "failed to create proxy");
-  return;
+  return -ENOMEM;
 }
 
-static void registry_event_global_remove(void *data, uint32_t id)
+static int registry_event_global_remove(void *data, uint32_t id)
 {
+	return 0;
 }
 
 static const struct pw_registry_proxy_events registry_events = {
@@ -586,7 +591,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   data->registry = pw_core_proxy_get_registry(self->core_proxy,
 		  PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
   pw_registry_proxy_add_listener(data->registry, &data->registry_listener, &registry_events, data);
-  pw_core_proxy_sync(self->core_proxy, ++self->seq);
+  pw_core_proxy_sync(self->core_proxy, 0, ++self->seq);
 
   for (;;) {
     if (pw_remote_get_state(r, NULL) <= 0)
@@ -676,7 +681,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
   data->registry = self->registry;
 
   pw_registry_proxy_add_listener(self->registry, &data->registry_listener, &registry_events, data);
-  pw_core_proxy_sync(self->core_proxy, ++self->seq);
+  pw_core_proxy_sync(self->core_proxy, 0, ++self->seq);
 
   for (;;) {
     if (self->end)

@@ -184,16 +184,6 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 	return -EBADF;
 }
 
-static void on_sink_done(void *data, int seq, int res)
-{
-	printf("got done %d %d\n", seq, res);
-}
-
-static void on_sink_event(void *data, struct spa_event *event)
-{
-	printf("got event %d\n", SPA_EVENT_TYPE(event));
-}
-
 static void update_props(struct data *data)
 {
 	struct spa_pod_builder b;
@@ -233,7 +223,7 @@ static void update_props(struct data *data)
 		data->volume_accum -= M_PI_M2;
 }
 
-static void on_sink_ready(void *_data, int status)
+static int on_sink_ready(void *_data, int status)
 {
 	struct data *data = _data;
 
@@ -241,20 +231,20 @@ static void on_sink_ready(void *_data, int status)
 
 	spa_graph_node_process(&data->source_node);
 	spa_graph_node_process(&data->sink_node);
+	return 0;
 }
 
-static void
+static int
 on_sink_reuse_buffer(void *_data, uint32_t port_id, uint32_t buffer_id)
 {
 	struct data *data = _data;
 
 	data->source_sink_io[0].buffer_id = buffer_id;
+	return 0;
 }
 
 static const struct spa_node_callbacks sink_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
-	.done = on_sink_done,
-	.event = on_sink_event,
 	.ready = on_sink_ready,
 	.reuse_buffer = on_sink_reuse_buffer
 };

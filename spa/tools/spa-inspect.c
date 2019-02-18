@@ -136,7 +136,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 	}
 }
 
-static void node_info(void *_data, const struct spa_node_info *info)
+static int node_info(void *_data, const struct spa_node_info *info)
 {
 	struct data *data = _data;
 
@@ -148,9 +148,10 @@ static void node_info(void *_data, const struct spa_node_info *info)
 		spa_debug_dict(2, info->props);
 	}
 	inspect_node_params(data, data->node);
+	return 0;
 }
 
-static void node_port_info(void *_data, enum spa_direction direction, uint32_t id,
+static int node_port_info(void *_data, enum spa_direction direction, uint32_t id,
 		const struct spa_port_info *info)
 {
 	struct data *data = _data;
@@ -164,6 +165,7 @@ static void node_port_info(void *_data, enum spa_direction direction, uint32_t i
 				id);
 		inspect_port_params(data, data->node, direction, id);
 	}
+	return 0;
 }
 
 static const struct spa_node_callbacks node_callbacks =

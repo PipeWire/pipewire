@@ -28,6 +28,7 @@
 #include <pipewire/remote.h>
 #include <pipewire/private.h>
 #include <pipewire/type.h>
+#include <pipewire/interfaces.h>
 
 #include <spa/debug/types.h>
 
@@ -143,6 +144,27 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	spa_list_remove(&proxy->link);
 
 	free(impl);
+}
+
+SPA_EXPORT
+int pw_proxy_sync(struct pw_proxy *proxy, uint32_t seq)
+{
+	int res = -EIO;
+	if (proxy->remote->core_proxy != NULL)
+		res = pw_core_proxy_sync(proxy->remote->core_proxy, proxy->id, seq);
+	return res;
+}
+
+SPA_EXPORT
+int pw_proxy_error(struct pw_proxy *proxy, int result, const char *error, ...)
+{
+	va_list ap;
+	int res = -EIO;
+	va_start(ap, error);
+	if (proxy->remote->core_proxy != NULL)
+		res = pw_core_proxy_errorv(proxy->remote->core_proxy, proxy->id, result, error, ap);
+	va_end(ap);
+	return res;
 }
 
 SPA_EXPORT

@@ -80,10 +80,10 @@ struct spa_monitor_callbacks {
 	uint32_t version;
 
 	/** receive extra information about the monitor */
-	void (*info) (void *data, const struct spa_dict *info);
+	int (*info) (void *data, const struct spa_dict *info);
 
 	/** an item is added/removed/changed on the monitor */
-	void (*event) (void *data, struct spa_event *event);
+	int (*event) (void *data, struct spa_event *event);
 };
 
 /**

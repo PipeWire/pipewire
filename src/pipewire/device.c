@@ -158,7 +158,7 @@ static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, s
 	return 0;
 }
 
-static void device_enum_params(void *object, uint32_t id, uint32_t start, uint32_t num,
+static int device_enum_params(void *object, uint32_t id, uint32_t start, uint32_t num,
                              const struct spa_pod *filter)
 {
 	struct pw_resource *resource = object;
@@ -170,9 +170,10 @@ static void device_enum_params(void *object, uint32_t id, uint32_t start, uint32
 				filter, reply_param, resource)) < 0)
 		pw_core_resource_error(resource->client->core_resource,
 				resource->id, res, spa_strerror(res));
+	return res;
 }
 
-static void device_set_param(void *object, uint32_t id, uint32_t flags,
+static int device_set_param(void *object, uint32_t id, uint32_t flags,
                            const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
@@ -183,6 +184,7 @@ static void device_set_param(void *object, uint32_t id, uint32_t flags,
 	if ((res = spa_device_set_param(device->implementation, id, flags, param)) < 0)
 		pw_core_resource_error(resource->client->core_resource,
 				resource->id, res, spa_strerror(res));
+	return res;
 }
 
 static const struct pw_device_proxy_methods device_methods = {
@@ -288,11 +290,12 @@ static const struct pw_node_events node_events = {
 };
 
 
-static void device_info(void *data, const struct spa_device_info *info)
+static int device_info(void *data, const struct spa_device_info *info)
 {
 	struct pw_device *device = data;
 	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_INFO)
 		pw_device_update_properties(device, info->info);
+	return 0;
 }
 
 static void device_add(struct pw_device *device, uint32_t id,
@@ -366,7 +369,7 @@ static struct node_data *find_node(struct pw_device *device, uint32_t id)
 	return NULL;
 }
 
-static void device_object_info(void *data, uint32_t id,
+static int device_object_info(void *data, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct pw_device *device = data;
@@ -390,6 +393,7 @@ static void device_object_info(void *data, uint32_t id,
 	else {
 		device_add(device, id, info);
 	}
+	return 0;
 }
 
 

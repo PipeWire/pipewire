@@ -281,11 +281,10 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		if ((res = spa_node_send_command(impl->cnode, command)) < 0)
 			return res;
 	}
-
-	return 0;
+	return res;
 }
 
-static void adapter_port_info(void *data,
+static int adapter_port_info(void *data,
 		enum spa_direction direction, uint32_t port_id,
 		const struct spa_port_info *info)
 {
@@ -297,6 +296,7 @@ static void adapter_port_info(void *data,
 			this->callbacks->port_info(this->callbacks_data, direction, port_id, info);
 		}
 	}
+	return 0;
 }
 
 static const struct spa_node_callbacks adapter_node_callbacks = {
@@ -324,6 +324,20 @@ impl_node_set_callbacks(struct spa_node *node,
 		spa_node_set_callbacks(impl->adapter, &adapter_node_callbacks, impl);
 
 	return 0;
+}
+
+static int
+impl_node_sync(struct spa_node *node, uint32_t seq)
+{
+	struct node *this;
+	struct impl *impl;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct node, node);
+	impl = this->impl;
+
+	return spa_node_sync(impl->cnode, seq);
 }
 
 static int
@@ -816,11 +830,12 @@ static int impl_node_process(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
+	.set_callbacks = impl_node_set_callbacks,
+	.sync = impl_node_sync,
 	.enum_params = impl_node_enum_params,
 	.set_param = impl_node_set_param,
 	.set_io = impl_node_set_io,
 	.send_command = impl_node_send_command,
-	.set_callbacks = impl_node_set_callbacks,
 	.add_port = impl_node_add_port,
 	.remove_port = impl_node_remove_port,
 	.port_enum_params = impl_node_port_enum_params,
@@ -1077,7 +1092,7 @@ static void client_node_async_complete(void *data, uint32_t seq, int res)
 	struct node *node = &impl->node;
 
 	pw_log_debug("client-stream %p: async complete %d %d", &impl->this, seq, res);
-	node->callbacks->done(node->callbacks_data, seq, res);
+	node->callbacks->done(node->callbacks_data, seq);
 }
 
 static void client_node_active_changed(void *data, bool active)

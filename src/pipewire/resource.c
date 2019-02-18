@@ -170,13 +170,24 @@ const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *re
 }
 
 SPA_EXPORT
-void pw_resource_error(struct pw_resource *resource, int result, const char *error, ...)
+int pw_resource_sync(struct pw_resource *resource, uint32_t seq)
+{
+	int res = -EIO;
+	if (resource->client->core_resource != NULL)
+		res = pw_core_resource_sync(resource->client->core_resource, resource->id, seq);
+	return res;
+}
+
+SPA_EXPORT
+int pw_resource_error(struct pw_resource *resource, int result, const char *error, ...)
 {
 	va_list ap;
+	int res = -EIO;
 	va_start(ap, error);
-	if (resource->client->core_resource == NULL)
-		pw_core_resource_errorv(resource->client->core_resource, resource->id, result, error, ap);
+	if (resource->client->core_resource != NULL)
+		res = pw_core_resource_errorv(resource->client->core_resource, resource->id, result, error, ap);
 	va_end(ap);
+	return res;
 }
 
 SPA_EXPORT

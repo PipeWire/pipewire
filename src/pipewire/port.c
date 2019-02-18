@@ -467,7 +467,7 @@ static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, s
 	return 0;
 }
 
-static void port_enum_params(void *object, uint32_t id, uint32_t index, uint32_t num,
+static int port_enum_params(void *object, uint32_t id, uint32_t index, uint32_t num,
 		const struct spa_pod *filter)
 {
 	struct pw_resource *resource = object;
@@ -479,6 +479,7 @@ static void port_enum_params(void *object, uint32_t id, uint32_t index, uint32_t
 			reply_param, resource)) < 0)
 		pw_core_resource_error(resource->client->core_resource,
 				resource->id, res, spa_strerror(res));
+	return res;
 }
 
 static const struct pw_port_proxy_methods port_methods = {

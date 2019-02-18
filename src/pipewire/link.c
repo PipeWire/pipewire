@@ -298,9 +298,11 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			asprintf(&error, "error set output format: %d (%s)", res, spa_strerror(res));
 			goto error;
 		}
-		if (SPA_RESULT_IS_ASYNC(res))
+		if (SPA_RESULT_IS_ASYNC(res)) {
+			spa_node_sync(output->node->node, res);
 			pw_work_queue_add(impl->work, output->node, res, complete_ready,
 					  &this->rt.out_mix);
+		}
 	}
 	if (in_mix_state == PW_PORT_STATE_CONFIGURE) {
 		pw_log_debug("link %p: doing set format on input mix", this);
@@ -312,6 +314,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res2)) {
+			spa_node_sync(input->node->node, res2);
 			pw_work_queue_add(impl->work, input->node, res2, complete_ready,
 					  &this->rt.in_mix);
 			if (res == 0)
@@ -676,9 +679,11 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				asprintf(&error, "error alloc output buffers: %d", res);
 				goto error;
 			}
-			if (SPA_RESULT_IS_ASYNC(res))
+			if (SPA_RESULT_IS_ASYNC(res)) {
+				spa_node_sync(output->node->node, res);
 				pw_work_queue_add(impl->work, output->node, res, complete_paused,
 					  &this->rt.out_mix);
+			}
 
 			out_flags &= ~SPA_PORT_FLAG_CAN_USE_BUFFERS;
 			move_allocation(&allocation, &output->allocation);
@@ -694,9 +699,11 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				asprintf(&error, "error alloc input buffers: %d", res);
 				goto error;
 			}
-			if (SPA_RESULT_IS_ASYNC(res))
+			if (SPA_RESULT_IS_ASYNC(res)) {
+				spa_node_sync(input->node->node, res);
 				pw_work_queue_add(impl->work, input->node, res, complete_paused,
 					  &this->rt.in_mix);
+			}
 
 			in_flags &= ~SPA_PORT_FLAG_CAN_USE_BUFFERS;
 			pw_log_debug("link %p: allocated %d buffers %p from input port", this,
@@ -715,9 +722,11 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 					spa_strerror(res));
 			goto error;
 		}
-		if (SPA_RESULT_IS_ASYNC(res))
+		if (SPA_RESULT_IS_ASYNC(res)) {
+			spa_node_sync(output->node->node, res);
 			pw_work_queue_add(impl->work, output->node, res, complete_paused,
 					  &this->rt.out_mix);
+		}
 
 		move_allocation(&allocation, &output->allocation);
 
@@ -733,9 +742,11 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 					spa_strerror(res));
 			goto error;
 		}
-		if (SPA_RESULT_IS_ASYNC(res))
+		if (SPA_RESULT_IS_ASYNC(res)) {
+			spa_node_sync(input->node->node, res);
 			pw_work_queue_add(impl->work, input->node, res, complete_paused,
 					  &this->rt.in_mix);
+		}
 
 	} else {
 		asprintf(&error, "no common buffer alloc found");

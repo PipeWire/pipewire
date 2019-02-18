@@ -90,7 +90,7 @@ struct spa_pod_builder *
 pw_protocol_native_connection_begin_proxy(struct pw_protocol_native_connection *conn,
                                           struct pw_proxy *proxy,
                                           uint8_t opcode);
-void
+int
 pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
                                   struct spa_pod_builder *builder);
 

@@ -145,21 +145,7 @@ static void handle_events(struct data *data)
 	}
 }
 
-static void on_source_done(void *data, int seq, int res)
-{
-	printf("got done %d %d\n", seq, res);
-}
-
-static void on_source_event(void *_data, struct spa_event *event)
-{
-	struct data *data = _data;
-
-	handle_events(data);
-
-	printf("got event %d\n", SPA_EVENT_TYPE(event));
-}
-
-static void on_source_ready(void *_data, int status)
+static int on_source_ready(void *_data, int status)
 {
 	struct data *data = _data;
 	int res;
@@ -177,7 +163,7 @@ static void on_source_ready(void *_data, int status)
 		printf("got process error %d\n", res);
 
 	if (io->buffer_id > MAX_BUFFERS)
-		return;
+		return -EINVAL;
 
 	b = &data->buffers[io->buffer_id];
 
@@ -194,26 +180,28 @@ static void on_source_ready(void *_data, int status)
 
 		if (SDL_LockTexture(texture, NULL, &sdata, &sstride) < 0) {
 			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-			return;
+			return -EIO;
 		}
 	} else {
 		uint8_t *map;
 
 		if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
 			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-			return;
+			return -EIO;
 		}
 		sdata = datas[0].data;
 		if (datas[0].type == SPA_DATA_MemFd ||
 		    datas[0].type == SPA_DATA_DmaBuf) {
 			map = mmap(NULL, datas[0].maxsize + datas[0].mapoffset, PROT_READ,
 				   MAP_PRIVATE, datas[0].fd, 0);
+			if (map == MAP_FAILED)
+				return -errno;
 			sdata = SPA_MEMBER(map, datas[0].mapoffset, uint8_t);
 		} else if (datas[0].type == SPA_DATA_MemPtr) {
 			map = NULL;
 			sdata = datas[0].data;
 		} else
-			return;
+			return -EIO;
 
 		sstride = datas[0].chunk->stride;
 
@@ -233,12 +221,11 @@ static void on_source_ready(void *_data, int status)
 	}
 
 	io->status = SPA_STATUS_NEED_BUFFER;
+	return 0;
 }
 
 static const struct spa_node_callbacks source_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
-	.done = on_source_done,
-	.event = on_source_event,
 	.ready = on_source_ready
 };
 

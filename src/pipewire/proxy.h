@@ -111,6 +111,9 @@ struct pw_proxy_events {
 	/** The proxy is destroyed */
         void (*destroy) (void *data);
 
+	/** a reply to a sync method completed */
+        void (*done) (void *data, uint32_t seq);
+
 	/** an error occured on the proxy */
         void (*error) (void *data, int res, const char *message);
 };
@@ -146,6 +149,13 @@ uint32_t pw_proxy_get_id(struct pw_proxy *proxy);
 
 /** Get the protocol used for the proxy */
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
+
+/** Generate an sync method for a proxy. This will generate a done event
+ * with the same \a seq. */
+int pw_proxy_sync(struct pw_proxy *proxy, uint32_t seq);
+
+/** Generate an error for a proxy */
+int pw_proxy_error(struct pw_proxy *proxy, int result, const char *error, ...);
 
 /** Get the listener of proxy */
 struct spa_hook_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy);

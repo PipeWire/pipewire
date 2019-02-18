@@ -452,6 +452,9 @@ static int port_set_format(struct spa_node *node,
 	if (count == 0)
 		pw_stream_finish_format(stream, 0, NULL, 0);
 
+	if (stream->state == PW_STREAM_STATE_ERROR)
+		return -EIO;
+
 	stream_set_state(stream,
 			p ?
 			    PW_STREAM_STATE_READY :
@@ -772,9 +775,16 @@ static void proxy_destroy(void *_data)
 	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, NULL);
 }
 
+static void proxy_error(void *_data, int res, const char *message)
+{
+	struct pw_stream *stream = _data;
+	stream_set_state(stream, PW_STREAM_STATE_ERROR, message);
+}
+
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.destroy = proxy_destroy,
+	.error = proxy_error,
 };
 
 static int handle_connect(struct pw_stream *stream)
@@ -1173,6 +1183,12 @@ void pw_stream_finish_format(struct pw_stream *stream,
 	uint32_t i;
 
 	pw_log_debug("stream %p: finish format %d %d", stream, res, impl->pending_seq);
+
+	if (res < 0) {
+		pw_proxy_error(stream->proxy, res, "format failed");
+		stream_set_state(stream, PW_STREAM_STATE_ERROR, "format error");
+		return;
+	}
 
 	clear_params(stream, PARAM_TYPE_OTHER);
 	for (i = 0; i < n_params; i++)

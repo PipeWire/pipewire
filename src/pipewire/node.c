@@ -60,6 +60,7 @@ struct impl {
 	struct pw_node_activation node_activation;
 
 	uint32_t next_position;
+	int last_error;
 };
 
 struct resource_data {
@@ -249,7 +250,7 @@ static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, s
 	return 0;
 }
 
-static void node_enum_params(void *object, uint32_t id, uint32_t index, uint32_t num,
+static int node_enum_params(void *object, uint32_t id, uint32_t index, uint32_t num,
 		const struct spa_pod *filter)
 {
 	struct pw_resource *resource = object;
@@ -264,9 +265,10 @@ static void node_enum_params(void *object, uint32_t id, uint32_t index, uint32_t
 		pw_core_resource_error(resource->client->core_resource,
 				resource->id, res, spa_strerror(res));
 	}
+	return 0;
 }
 
-static void node_set_param(void *object, uint32_t id, uint32_t flags,
+static int node_set_param(void *object, uint32_t id, uint32_t flags,
 		const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
@@ -280,9 +282,10 @@ static void node_set_param(void *object, uint32_t id, uint32_t flags,
 		pw_core_resource_error(resource->client->core_resource,
 				resource->id, res, spa_strerror(res));
 	}
+	return 0;
 }
 
-static void node_send_command(void *object, const struct spa_command *command)
+static int node_send_command(void *object, const struct spa_command *command)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
@@ -296,6 +299,7 @@ static void node_send_command(void *object, const struct spa_command *command)
 		spa_node_send_command(node->node, command);
 		break;
 	}
+	return 0;
 }
 
 static const struct pw_node_proxy_methods node_methods = {
@@ -777,16 +781,17 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 	return changed;
 }
 
-static void node_info(void *data, const struct spa_node_info *info)
+static int node_info(void *data, const struct spa_node_info *info)
 {
 	struct pw_node *node = data;
 	node->info.max_input_ports = info->max_input_ports;
 	node->info.max_output_ports = info->max_output_ports;
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS)
 		pw_node_update_properties(node, info->props);
+	return 0;
 }
 
-static void node_port_info(void *data, enum spa_direction direction, uint32_t port_id,
+static int node_port_info(void *data, enum spa_direction direction, uint32_t port_id,
 		const struct spa_port_info *info)
 {
 	struct pw_node *node = data;
@@ -826,27 +831,42 @@ static void node_port_info(void *data, enum spa_direction direction, uint32_t po
 			}
 		}
 	}
+	return 0;
 }
 
-static void node_done(void *data, int seq, int res)
+static int node_error(void *data, int res, const char *message)
 {
 	struct pw_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
-	pw_log_debug("node %p: async complete event %d %d %s", node, seq, res, spa_strerror(res));
-	pw_work_queue_complete(impl->work, node, seq, res);
-	pw_node_events_async_complete(node, seq, res);
+	pw_log_debug("node %p: error event %d: %s", node, res, message);
+	impl->last_error = res;
+	node_update_state(node, PW_NODE_STATE_ERROR, strdup(message));
+	return 0;
 }
 
-static void node_event(void *data, struct spa_event *event)
+static int node_done(void *data, uint32_t seq)
+{
+	struct pw_node *node = data;
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+
+	pw_log_debug("node %p: done event %u", node, seq);
+	pw_work_queue_complete(impl->work, node, seq, impl->last_error);
+	pw_node_events_async_complete(node, seq, impl->last_error);
+	impl->last_error = 0;
+	return 0;
+}
+
+static int node_event(void *data, struct spa_event *event)
 {
 	struct pw_node *node = data;
 
 	pw_log_trace("node %p: event %d", node, SPA_EVENT_TYPE(event));
 	pw_node_events_event(node, event);
+	return 0;
 }
 
-static void node_ready(void *data, int status)
+static int node_ready(void *data, int status)
 {
 	struct pw_node *node = data;
 	struct pw_node *driver = node->driver_node;
@@ -855,16 +875,17 @@ static void node_ready(void *data, int status)
 			node->driver, node->exported, driver);
 
 	if (driver->rt.root.graph == NULL)
-		return;
+		return -EINVAL;
 
 	if (status == SPA_STATUS_HAVE_BUFFER)
 		spa_graph_node_process(&driver->rt.root);
 
 	spa_graph_run(driver->rt.driver);
 	spa_graph_link_trigger(&driver->rt.driver_link);
+	return 0;
 }
 
-static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
+static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 {
 	struct pw_node *node = data;
         struct spa_graph_port *p, *pp;
@@ -877,13 +898,15 @@ static void node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 			spa_graph_node_reuse_buffer(pp->node, pp->port_id, buffer_id);
 		break;
 	}
+	return 0;
 }
 
 static const struct spa_node_callbacks node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
+	.done = node_done,
+	.error = node_error,
 	.info = node_info,
 	.port_info = node_port_info,
-	.done = node_done,
 	.event = node_event,
 	.ready = node_ready,
 	.reuse_buffer = node_reuse_buffer,
@@ -1208,6 +1231,9 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 	}
 	if (SPA_RESULT_IS_ERROR(res))
 		return res;
+
+	if (SPA_RESULT_IS_ASYNC(res))
+		spa_node_sync(node->node, res);
 
 	pw_work_queue_add(impl->work,
 			  node, res, on_state_complete, SPA_INT_TO_PTR(state));

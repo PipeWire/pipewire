@@ -102,7 +102,7 @@ client_permission_func(struct pw_global *global,
 	return p->permissions;
 }
 
-static void client_error(void *object, uint32_t id, int res, const char *error)
+static int client_error(void *object, uint32_t id, int res, const char *error)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
@@ -112,24 +112,25 @@ static void client_error(void *object, uint32_t id, int res, const char *error)
 
 	global = pw_core_find_global(client->core, id);
 	if (global == NULL)
-		return;
+		return -ENOENT;
 
 	spa_list_for_each_safe(r, t, &global->resource_list, link) {
 		if (t->client != client)
 			continue;
 		pw_resource_error(r, res, error);
 	}
+	return 0;
 }
 
-static void client_update_properties(void *object, const struct spa_dict *props)
+static int client_update_properties(void *object, const struct spa_dict *props)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_client *client = data->client;
-	pw_client_update_properties(client, props);
+	return pw_client_update_properties(client, props);
 }
 
-static void client_get_permissions(void *object, uint32_t index, uint32_t num)
+static int client_get_permissions(void *object, uint32_t index, uint32_t num)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
@@ -143,17 +144,17 @@ static void client_get_permissions(void *object, uint32_t index, uint32_t num)
 	else if ((size_t)index + (size_t)num >= len)
 		num = len - index;
 
-	pw_client_resource_permissions(resource, index,
+	return pw_client_resource_permissions(resource, index,
 			num, pw_array_get_unchecked(&impl->permissions, index, struct pw_permission));
 }
 
-static void client_update_permissions(void *object,
+static int client_update_permissions(void *object,
 		uint32_t n_permissions, const struct pw_permission *permissions)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_client *client = data->client;
-	pw_client_update_permissions(client, n_permissions, permissions);
+	return pw_client_update_permissions(client, n_permissions, permissions);
 }
 
 static const struct pw_client_proxy_methods client_methods = {

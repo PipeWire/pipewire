@@ -74,15 +74,15 @@ struct spa_device_callbacks {
 	uint32_t version;
 
 	/** notify extra information about the device */
-	void (*info) (void *data, const struct spa_device_info *info);
+	int (*info) (void *data, const struct spa_device_info *info);
 
 	/** a device event */
-	void (*event) (void *data, struct spa_event *event);
+	int (*event) (void *data, struct spa_event *event);
 
 	/** info changed for an object managed by the device, info is NULL when
 	 * the object is removed */
-	void (*object_info) (void *data, uint32_t id,
-			     const struct spa_device_object_info *info);
+	int (*object_info) (void *data, uint32_t id,
+		const struct spa_device_object_info *info);
 };
 
 /**

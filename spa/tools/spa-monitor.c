@@ -61,12 +61,13 @@ static void inspect_item(struct data *data, struct spa_pod *item)
 	spa_debug_pod(0, NULL, item);
 }
 
-static void on_monitor_info(void *_data, const struct spa_dict *info)
+static int on_monitor_info(void *_data, const struct spa_dict *info)
 {
 	spa_debug_dict(0, info);
+	return 0;
 }
 
-static void on_monitor_event(void *_data, struct spa_event *event)
+static int on_monitor_event(void *_data, struct spa_event *event)
 {
 	struct data *data = _data;
 
@@ -84,6 +85,7 @@ static void on_monitor_event(void *_data, struct spa_event *event)
 		inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
 		break;
 	}
+	return 0;
 }
 
 static int do_add_source(struct spa_loop *loop, struct spa_source *source)

@@ -265,6 +265,20 @@ static void emit_port_info(struct state *this)
 }
 
 static int
+impl_node_sync(struct spa_node *node, uint32_t seq)
+{
+	struct state *this;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	this = SPA_CONTAINER_OF(node, struct state, node);
+
+	spa_return_val_if_fail(this->callbacks && this->callbacks->done, -EIO);
+
+	this->callbacks->done(this->callbacks_data, seq);
+	return 0;
+}
+
+static int
 impl_node_set_callbacks(struct spa_node *node,
 			const struct spa_node_callbacks *callbacks,
 			void *data)
@@ -637,11 +651,12 @@ static int impl_node_process(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
+	.set_callbacks = impl_node_set_callbacks,
+	.sync = impl_node_sync,
 	.enum_params = impl_node_enum_params,
 	.set_param = impl_node_set_param,
 	.set_io = impl_node_set_io,
 	.send_command = impl_node_send_command,
-	.set_callbacks = impl_node_set_callbacks,
 	.add_port = impl_node_add_port,
 	.remove_port = impl_node_remove_port,
 	.port_enum_params = impl_node_port_enum_params,

@@ -65,8 +65,8 @@ struct impl {
 	uint32_t dest_id;
 	uint8_t opcode;
 	struct spa_pod_builder builder;
-
 	struct pw_core *core;
+	uint32_t seq;
 };
 
 /** \endcond */
@@ -398,16 +398,20 @@ pw_protocol_native_connection_begin_proxy(struct pw_protocol_native_connection *
 	return &impl->builder;
 }
 
-void
+int
 pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 				  struct spa_pod_builder *builder)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	uint32_t *p, size = builder->state.offset;
 	struct buffer *buf = &impl->out;
+	uint32_t seq;
 
 	if ((p = connection_ensure_size(conn, buf, 8 + size)) == NULL)
-		return;
+		return -ENOMEM;
+
+	seq = impl->seq;
+	impl->seq = (impl->seq + 1) & SPA_ASYNC_SEQ_MASK;
 
 	*p++ = impl->dest_id;
 	*p++ = (impl->opcode << 24) | (size & 0xffffff);
@@ -418,8 +422,11 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 		fprintf(stderr, ">>>>>>>>> out: %d %d %d\n", impl->dest_id, impl->opcode, size);
 	        spa_debug_pod(0, NULL, (struct spa_pod *)p);
 	}
+
 	spa_hook_list_call(&conn->listener_list,
 			struct pw_protocol_native_connection_events, need_flush, 0);
+
+	return SPA_RESULT_RETURN_ASYNC(seq);
 }
 
 /** Flush the connection object

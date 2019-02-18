@@ -97,18 +97,22 @@ struct spa_node_callbacks {
 #define SPA_VERSION_NODE_CALLBACKS	0
 	uint32_t version;	/**< version of this structure */
 
-	/** Emited when info changes */
-	void (*info) (void *data, const struct spa_node_info *info);
-
-	/** Emited when port info changes, NULL when port is removed */
-	void (*port_info) (void *data,
-		           enum spa_direction direction, uint32_t port,
-			   const struct spa_port_info *info);
-
-	/** Emited when an async operation completed.
+	/** Emited as a reply to a sync method with \a seq.
 	 *
 	 * Will be called from the main thread. */
-	void (*done) (void *data, int seq, int res);
+	int (*done) (void *data, uint32_t seq);
+
+	/** an asynchronous error occured */
+	int (*error) (void *data, int res, const char *message);
+
+	/** Emited when info changes */
+	int (*info) (void *data, const struct spa_node_info *info);
+
+	/** Emited when port info changes, NULL when port is removed */
+	int (*port_info) (void *data,
+			enum spa_direction direction, uint32_t port,
+			const struct spa_port_info *info);
+
 	/**
 	 * \param node a spa_node
 	 * \param event the event that was emited
@@ -116,7 +120,7 @@ struct spa_node_callbacks {
 	 * This will be called when an out-of-bound event is notified
 	 * on \a node. The callback will be called from the main thread.
 	 */
-	void (*event) (void *data, struct spa_event *event);
+	int (*event) (void *data, struct spa_event *event);
 
 	/**
 	 * \param node a spa_node
@@ -127,7 +131,7 @@ struct spa_node_callbacks {
 	 * When this function is NULL, synchronous operation is requested
 	 * on the ports.
 	 */
-	void (*ready) (void *data, int state);
+	int (*ready) (void *data, int state);
 
 	/**
 	 * \param node a spa_node
@@ -140,9 +144,9 @@ struct spa_node_callbacks {
 	 * When this function is NULL, the buffers to reuse will be set in
 	 * the io area of the input ports.
 	 */
-	void (*reuse_buffer) (void *data,
-			      uint32_t port_id,
-			      uint32_t buffer_id);
+	int (*reuse_buffer) (void *data,
+			     uint32_t port_id,
+			     uint32_t buffer_id);
 
 };
 
@@ -160,6 +164,32 @@ struct spa_node {
 	 * structure in the future */
 #define SPA_VERSION_NODE	0
 	uint32_t version;
+
+	/**
+	 * Set callbacks to receive events and scheduling callbacks from \a node.
+	 * if \a callbacks is NULL, the current callbacks are removed.
+	 *
+	 * This function must be called from the main thread.
+	 *
+	 * \param node a spa_node
+	 * \param callbacks callbacks to set
+	 * \return 0 on success
+	 *         -EINVAL when node is NULL
+	 */
+	int (*set_callbacks) (struct spa_node *node,
+			      const struct spa_node_callbacks *callbacks,
+			      void *data);
+	/**
+	 * Perform a sync operation.
+	 *
+	 * Calling this method will emit the done event or -EIO when
+	 * no callbacks are installed.
+	 *
+	 * Because all methods are serialized in the node, this can be used
+	 * to wait for completion of all previous method calls.
+	 */
+	int (*sync) (struct spa_node *node, uint32_t seq);
+
 	/**
 	 * Enumerate the parameters of a node.
 	 *
@@ -251,20 +281,6 @@ struct spa_node {
 	 */
 	int (*send_command) (struct spa_node *node, const struct spa_command *command);
 
-	/**
-	 * Set callbacks to receive events and scheduling callbacks from \a node.
-	 * if \a callbacks is NULL, the current callbacks are removed.
-	 *
-	 * This function must be called from the main thread.
-	 *
-	 * \param node a spa_node
-	 * \param callbacks callbacks to set
-	 * \return 0 on success
-	 *         -EINVAL when node is NULL
-	 */
-	int (*set_callbacks) (struct spa_node *node,
-			      const struct spa_node_callbacks *callbacks,
-			      void *data);
 	/**
 	 * Make a new port with \a port_id. The caller should use get_port_ids() to
 	 * find an unused id for the given \a direction.
@@ -477,11 +493,12 @@ struct spa_node {
 	int (*process) (struct spa_node *node);
 };
 
+#define spa_node_set_callbacks(n,...)		(n)->set_callbacks((n),__VA_ARGS__)
+#define spa_node_sync(n,...)			(n)->sync((n),__VA_ARGS__)
 #define spa_node_enum_params(n,...)		(n)->enum_params((n),__VA_ARGS__)
 #define spa_node_set_param(n,...)		(n)->set_param((n),__VA_ARGS__)
 #define spa_node_set_io(n,...)			(n)->set_io((n),__VA_ARGS__)
 #define spa_node_send_command(n,...)		(n)->send_command((n),__VA_ARGS__)
-#define spa_node_set_callbacks(n,...)		(n)->set_callbacks((n),__VA_ARGS__)
 #define spa_node_add_port(n,...)		(n)->add_port((n),__VA_ARGS__)
 #define spa_node_remove_port(n,...)		(n)->remove_port((n),__VA_ARGS__)
 #define spa_node_port_enum_params(n,...)	(n)->port_enum_params((n),__VA_ARGS__)

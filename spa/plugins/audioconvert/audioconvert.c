@@ -550,16 +550,17 @@ static void emit_port_info(struct impl *this,
 }
 
 
-static void fmt_input_port_info(void *data,
+static int fmt_input_port_info(void *data,
 		enum spa_direction direction, uint32_t port,
 		const struct spa_port_info *info)
 {
 	struct impl *this = data;
 
 	if (direction != SPA_DIRECTION_INPUT)
-		return;
+		return 0;
 
 	emit_port_info(this, direction, port, info);
+	return 0;
 }
 
 static struct spa_node_callbacks fmt_input_callbacks = {
@@ -567,16 +568,17 @@ static struct spa_node_callbacks fmt_input_callbacks = {
 	.port_info = fmt_input_port_info
 };
 
-static void fmt_output_port_info(void *data,
+static int fmt_output_port_info(void *data,
 		enum spa_direction direction, uint32_t port,
 		const struct spa_port_info *info)
 {
 	struct impl *this = data;
 
 	if (direction != SPA_DIRECTION_OUTPUT)
-		return;
+		return 0;
 
 	emit_port_info(this, direction, port, info);
+	return 0;
 }
 
 static struct spa_node_callbacks fmt_output_callbacks = {

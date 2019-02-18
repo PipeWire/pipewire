@@ -515,6 +515,8 @@ struct pw_link {
 #define pw_resource_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_resource_events, m, v, ##__VA_ARGS__)
 
 #define pw_resource_events_destroy(o)	pw_resource_events_emit(o, destroy, 0)
+#define pw_resource_events_done(o,s)	pw_resource_events_emit(o, done, 0, s)
+#define pw_resource_events_error(o,e,m)	pw_resource_events_emit(o, error, 0, e, m)
 
 struct pw_resource {
 	struct pw_core *core;		/**< the core object */
@@ -539,6 +541,7 @@ struct pw_resource {
 
 #define pw_proxy_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_proxy_events, m, v, ##__VA_ARGS__)
 #define pw_proxy_events_destroy(p)	pw_proxy_events_emit(p, destroy, 0)
+#define pw_proxy_events_done(p,s)	pw_proxy_events_emit(p, done, 0, s)
 #define pw_proxy_events_error(p,r,m)	pw_proxy_events_emit(p, error, 0, r, m)
 
 struct pw_proxy {

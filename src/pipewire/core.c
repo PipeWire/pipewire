@@ -57,8 +57,8 @@ struct resource_data {
 
 /** \endcond */
 
-static void registry_bind(void *object, uint32_t id,
-			  uint32_t type, uint32_t version, uint32_t new_id)
+static int registry_bind(void *object, uint32_t id,
+		uint32_t type, uint32_t version, uint32_t new_id)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
@@ -83,7 +83,7 @@ static void registry_bind(void *object, uint32_t id,
 	if (pw_global_bind(global, client, permissions, version, new_id) < 0)
 		goto exit;
 
-	return;
+	return 0;
 
       no_id:
 	pw_log_debug("registry %p: no global with id %u to bind to %u", resource, id, new_id);
@@ -99,9 +99,10 @@ static void registry_bind(void *object, uint32_t id,
 	 * new_id as 'used and freed' */
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
+	return -EFAULT;
 }
 
-static void registry_destroy(void *object, uint32_t id)
+static int registry_destroy(void *object, uint32_t id)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
@@ -120,13 +121,13 @@ static void registry_destroy(void *object, uint32_t id)
 	pw_log_debug("global %p: destroy global id %d", global, id);
 
 	pw_global_destroy(global);
-	return;
+	return 0;
 
       no_id:
 	pw_log_debug("registry %p: no global with id %u to destroy", resource, id);
 	goto exit;
       exit:
-	return;
+	return -EFAULT;
 }
 
 static const struct pw_registry_proxy_methods registry_methods = {
@@ -146,26 +147,56 @@ static const struct pw_resource_events resource_events = {
 	.destroy = destroy_registry_resource
 };
 
-static void core_hello(void *object, uint32_t version)
+static int core_hello(void *object, uint32_t version)
 {
 	struct pw_resource *resource = object;
 	struct pw_core *this = resource->core;
 
-	pw_log_debug("core %p: hello %d from source %p", this, version, resource);
-
+	pw_log_debug("core %p: hello %d from resource %p", this, version, resource);
 	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
 	pw_core_resource_info(resource, &this->info);
+	return 0;
 }
 
-static void core_sync(void *object, uint32_t seq)
+static int core_sync(void *object, uint32_t id, uint32_t seq)
 {
 	struct pw_resource *resource = object;
-
-	pw_log_debug("core %p: sync %d from resource %p", resource->core, seq, resource);
-	pw_core_resource_done(resource, seq);
+	pw_log_debug("core %p: sync %d for resource %d", resource->core, seq, id);
+	pw_core_resource_done(resource, id, seq);
+	return 0;
 }
 
-static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
+static int core_done(void *object, uint32_t id, uint32_t seq)
+{
+	struct pw_resource *resource = object;
+	struct pw_client *client = resource->client;
+	struct pw_resource *r;
+
+	pw_log_debug("core %p: done %d for resource %d", resource->core, seq, id);
+
+	if ((r = pw_client_find_resource(client, id)) == NULL)
+		return -EINVAL;
+
+	pw_resource_events_done(r, seq);
+	return 0;
+}
+
+static int core_error(void *object, uint32_t id, int res, const char *message)
+{
+	struct pw_resource *resource = object;
+	struct pw_client *client = resource->client;
+	struct pw_resource *r;
+
+	pw_log_debug("core %p: error %d for resource %d: %s", resource->core, res, id, message);
+
+	if ((r = pw_client_find_resource(client, id)) == NULL)
+		return -EINVAL;
+
+	pw_resource_events_error(r, res, message);
+	return 0;
+}
+
+static int core_get_registry(void *object, uint32_t version, uint32_t new_id)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
@@ -209,16 +240,17 @@ static void core_get_registry(void *object, uint32_t version, uint32_t new_id)
 		}
 	}
 
-	return;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create registry resource");
 	pw_core_resource_error(client->core_resource, new_id, -ENOMEM, "no memory");
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
+	return -ENOMEM;
 }
 
-static void
+static int
 core_create_object(void *object,
 		   const char *factory_name,
 		   uint32_t type,
@@ -231,6 +263,7 @@ core_create_object(void *object,
 	struct pw_factory *factory;
 	void *obj;
 	struct pw_properties *properties;
+	int res;
 
 	factory = pw_core_find_factory(client->core, factory_name);
 	if (factory == NULL || factory->global == NULL)
@@ -255,32 +288,34 @@ core_create_object(void *object,
 	/* error will be posted */
 	obj = pw_factory_create_object(factory, resource, type, version, properties, new_id);
 	if (obj == NULL)
-		goto error;
+		goto create_failed;
 
-	return;
+	return 0;
 
       no_factory:
+	res = -EINVAL;
 	pw_log_error("can't find node factory %s", factory_name);
-	pw_resource_error(resource, -EINVAL, "unknown factory name %s", factory_name);
+	pw_resource_error(resource, res, "unknown factory name %s", factory_name);
 	goto error;
       wrong_version:
       wrong_type:
+	res = -EPROTO;
 	pw_log_error("invalid resource type/version");
-	pw_resource_error(resource, -EINVAL, "wrong resource type/version");
+	pw_resource_error(resource, res, "wrong resource type/version");
 	goto error;
       no_properties:
+	res = -errno;
 	pw_log_error("can't create properties");
-	goto no_mem;
-      no_mem:
-	pw_resource_error(resource, -ENOMEM, "no memory");
-	goto error;
+	pw_resource_error(resource, res, "no memory");
+      create_failed:
+	res = -errno;
       error:
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
-	return;
+	return res;
 }
 
-static void core_destroy(void *object, uint32_t id)
+static int core_destroy(void *object, uint32_t id)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
@@ -292,20 +327,20 @@ static void core_destroy(void *object, uint32_t id)
 		goto no_resource;
 
 	pw_resource_destroy(r);
-
-      done:
-	return;
+	return 0;
 
       no_resource:
 	pw_log_error("can't find resouce %d", id);
 	pw_resource_error(resource, -EINVAL, "unknown resource %d", id);
-	goto done;
+	return -EINVAL;
 }
 
 static const struct pw_core_proxy_methods core_methods = {
 	PW_VERSION_CORE_PROXY_METHODS,
 	.hello = core_hello,
 	.sync = core_sync,
+	.done = core_done,
+	.error = core_error,
 	.get_registry = core_get_registry,
 	.create_object = core_create_object,
 	.destroy = core_destroy,

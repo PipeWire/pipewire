@@ -51,8 +51,8 @@ struct pw_protocol_native_ext {
 	uint32_t (*add_proxy_fd) (struct pw_proxy *proxy, int fd);
 	int (*get_proxy_fd) (struct pw_proxy *proxy, uint32_t index);
 
-	void (*end_proxy) (struct pw_proxy *proxy,
-			   struct spa_pod_builder *builder);
+	int (*end_proxy) (struct pw_proxy *proxy,
+			  struct spa_pod_builder *builder);
 
 	struct spa_pod_builder * (*begin_resource) (struct pw_resource *resource,
 						    uint8_t opcode);
@@ -60,8 +60,8 @@ struct pw_protocol_native_ext {
 	uint32_t (*add_resource_fd) (struct pw_resource *resource, int fd);
 	int (*get_resource_fd) (struct pw_resource *resource, uint32_t index);
 
-	void (*end_resource) (struct pw_resource *resource,
-			      struct spa_pod_builder *builder);
+	int (*end_resource) (struct pw_resource *resource,
+			     struct spa_pod_builder *builder);
 
 };
 

@@ -579,7 +579,8 @@ clear_port(struct node *this, struct port *port)
 }
 
 static int
-impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
+impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+		const struct spa_dict *props)
 {
 	struct node *this;
 
@@ -588,7 +589,7 @@ impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t
 
 	spa_return_val_if_fail(CHECK_FREE_PORT(this, direction, port_id), -EINVAL);
 
-	return pw_client_node_resource_add_port(this->resource, direction, port_id);
+	return pw_client_node_resource_add_port(this->resource, direction, port_id, props);
 }
 
 static int
@@ -1339,7 +1340,8 @@ impl_mix_port_set_param(struct spa_node *node,
 }
 
 static int
-impl_mix_add_port(struct spa_node *node, enum spa_direction direction, uint32_t mix_id)
+impl_mix_add_port(struct spa_node *node, enum spa_direction direction, uint32_t mix_id,
+		const struct spa_dict *props)
 {
 	struct port *port = SPA_CONTAINER_OF(node, struct port, mix_node);
 	pw_log_debug("client-node %p: add port %d:%d.%d", node, direction, port->id, mix_id);

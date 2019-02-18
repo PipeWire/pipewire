@@ -576,7 +576,8 @@ static int client_node_command(void *object, const struct spa_command *command)
 }
 
 static int
-client_node_add_port(void *object, enum spa_direction direction, uint32_t port_id)
+client_node_add_port(void *object, enum spa_direction direction, uint32_t port_id,
+		const struct spa_dict *props)
 {
 	struct pw_proxy *proxy = object;
 	pw_log_warn("add port not supported");

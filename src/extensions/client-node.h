@@ -256,10 +256,12 @@ struct pw_client_node_proxy_events {
 	 *
 	 * \param direction the direction of the port
 	 * \param port_id the new port id
+	 * \param props extra properties
 	 */
 	int (*add_port) (void *object,
 			  enum spa_direction direction,
-			  uint32_t port_id);
+			  uint32_t port_id,
+			  const struct spa_dict *props);
 	/**
 	 * A port was removed from the node
 	 *

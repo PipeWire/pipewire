@@ -206,7 +206,7 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 	adjust_mix_state(port, mix->state, 1);
 
 	if (port->mix->add_port)
-		port->mix->add_port(port->mix, port->direction, port_id);
+		port->mix->add_port(port->mix, port->direction, port_id, NULL);
 
 	if (pi && pi->init_mix)
 		res = pi->init_mix(port->implementation_data, mix);

@@ -606,7 +606,8 @@ impl_node_set_callbacks(struct spa_node *node,
 	return 0;
 }
 
-static int impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
+static int impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+		const struct spa_dict *props)
 {
 	struct impl *this;
 
@@ -614,7 +615,7 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	return spa_node_add_port(this->fmt[direction], direction, port_id);
+	return spa_node_add_port(this->fmt[direction], direction, port_id, props);
 }
 
 static int

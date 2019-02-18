@@ -292,10 +292,13 @@ struct spa_node {
 	 * \param node a  spa_node
 	 * \param direction a #enum spa_direction
 	 * \param port_id an unused port id
+	 * \param props extra properties
 	 * \return 0 on success
 	 *         -EINVAL when node is NULL
 	 */
-	int (*add_port) (struct spa_node *node, enum spa_direction direction, uint32_t port_id);
+	int (*add_port) (struct spa_node *node,
+			enum spa_direction direction, uint32_t port_id,
+			const struct spa_dict *props);
 
 	int (*remove_port) (struct spa_node *node, enum spa_direction direction, uint32_t port_id);
 

@@ -373,7 +373,7 @@ static int impl_node_set_callbacks(struct spa_node *node,
 
 static int impl_node_add_port(struct spa_node *node,
 			      enum spa_direction direction,
-			      uint32_t port_id)
+			      uint32_t port_id, const struct spa_dict *props)
 {
 	return -ENOTSUP;
 }

@@ -31,6 +31,22 @@
 #include <extensions/protocol-native.h>
 #include <extensions/client-node.h>
 
+static void push_dict(struct spa_pod_builder *b, const struct spa_dict *dict)
+{
+	uint32_t i, n_items;
+	struct spa_pod_frame f;
+
+	n_items = dict ? dict->n_items : 0;
+
+	spa_pod_builder_push_struct(b, &f);
+	spa_pod_builder_int(b, n_items);
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_string(b, dict->items[i].key);
+		spa_pod_builder_string(b, dict->items[i].value);
+	}
+	spa_pod_builder_pop(b, &f);
+}
+
 static int
 client_node_marshal_update(void *object,
 			   uint32_t change_mask,
@@ -43,28 +59,21 @@ client_node_marshal_update(void *object,
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
-	uint32_t i, n_items;
+	uint32_t i;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_UPDATE);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
-			    SPA_POD_Int(change_mask),
-			    SPA_POD_Int(max_input_ports),
-			    SPA_POD_Int(max_output_ports),
-			    SPA_POD_Int(n_params), NULL);
+			SPA_POD_Int(change_mask),
+			SPA_POD_Int(max_input_ports),
+			SPA_POD_Int(max_output_ports),
+			SPA_POD_Int(n_params), NULL);
 
 	for (i = 0; i < n_params; i++)
 		spa_pod_builder_add(b, SPA_POD_Pod(params[i]), NULL);
 
-	n_items = props ? props->n_items : 0;
-	spa_pod_builder_add(b,
-			SPA_POD_Int(n_items), NULL);
-	for (i = 0; i < n_items; i++) {
-		spa_pod_builder_add(b,
-			    SPA_POD_String(props->items[i].key),
-			    SPA_POD_String(props->items[i].value), NULL);
-	}
+	push_dict(b, props);
 	spa_pod_builder_pop(b, &f);
 
 	return pw_protocol_native_end_proxy(proxy, b);
@@ -247,15 +256,37 @@ static int client_node_demarshal_add_port(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
+	struct spa_pod_frame f[2];
 	int32_t direction, port_id;
+	struct spa_dict props;
+	uint32_t i;
 
 	spa_pod_parser_init(&prs, data, size);
-	if (spa_pod_parser_get_struct(&prs,
+	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0)
+		return -EINVAL;
+
+	if (spa_pod_parser_get(&prs,
 			SPA_POD_Int(&direction),
 			SPA_POD_Int(&port_id)) < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, add_port, 0, direction, port_id);
+	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0)
+		return -EINVAL;
+	if (spa_pod_parser_get(&prs,
+			 SPA_POD_Int(&props.n_items), NULL) < 0)
+		return -EINVAL;
+
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (spa_pod_parser_get(&prs,
+				SPA_POD_String(&props.items[i].key),
+				SPA_POD_String(&props.items[i].value),
+				NULL) < 0)
+			return -EINVAL;
+	}
+
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, add_port, 0, direction, port_id,
+			props.n_items ? &props : NULL);
 	return 0;
 }
 
@@ -513,16 +544,21 @@ client_node_marshal_command(void *object, const struct spa_command *command)
 
 static int
 client_node_marshal_add_port(void *object,
-			     enum spa_direction direction, uint32_t port_id)
+			     enum spa_direction direction, uint32_t port_id,
+			     const struct spa_dict *props)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
+	struct spa_pod_frame f;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_ADD_PORT);
 
-	spa_pod_builder_add_struct(b,
-			       SPA_POD_Int(direction),
-			       SPA_POD_Int(port_id));
+	spa_pod_builder_push_struct(b, &f);
+	spa_pod_builder_add(b,
+			SPA_POD_Int(direction),
+			SPA_POD_Int(port_id));
+	push_dict(b, props);
+	spa_pod_builder_pop(b, &f);
 
 	return pw_protocol_native_end_resource(resource, b);
 }
@@ -692,14 +728,14 @@ static int client_node_demarshal_update(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
-	struct spa_pod_frame f;
+	struct spa_pod_frame f[2];
 	uint32_t change_mask, max_input_ports, max_output_ports, n_params;
 	const struct spa_pod **params;
 	struct spa_dict props;
 	uint32_t i;
 
 	spa_pod_parser_init(&prs, data, size);
-	if (spa_pod_parser_push_struct(&prs, &f) < 0 ||
+	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&change_mask),
 			SPA_POD_Int(&max_input_ports),
@@ -713,15 +749,18 @@ static int client_node_demarshal_update(void *object, void *data, size_t size)
 					SPA_POD_PodObject(&params[i]), NULL) < 0)
 			return -EINVAL;
 
+	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0)
+		return -EINVAL;
 	if (spa_pod_parser_get(&prs,
-			SPA_POD_Int(&props.n_items), NULL) < 0)
+			 SPA_POD_Int(&props.n_items), NULL) < 0)
 		return -EINVAL;
 
 	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
 	for (i = 0; i < props.n_items; i++) {
 		if (spa_pod_parser_get(&prs,
 				SPA_POD_String(&props.items[i].key),
-				SPA_POD_String(&props.items[i].value), NULL) < 0)
+				SPA_POD_String(&props.items[i].value),
+				NULL) < 0)
 			return -EINVAL;
 	}
 

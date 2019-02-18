@@ -341,7 +341,8 @@ impl_node_sync(struct spa_node *node, uint32_t seq)
 }
 
 static int
-impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
+impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+		const struct spa_dict *props)
 {
 	struct node *this;
 	struct impl *impl;
@@ -355,7 +356,7 @@ impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t
 	if (direction != impl->direction)
 		return -EINVAL;
 
-	if ((res = spa_node_add_port(impl->adapter_mix, direction, port_id)) < 0)
+	if ((res = spa_node_add_port(impl->adapter_mix, direction, port_id, props)) < 0)
 		return res;
 
 	if ((res = spa_node_port_set_io(impl->adapter_mix,

@@ -54,7 +54,7 @@ int pa_operation_sync(pa_operation *o)
 	pa_context *c = o->context;
 	o->seq = ++c->seq;
 	pw_log_debug("operation %p: sync %d", o, o->seq);
-        pw_core_proxy_sync(c->core_proxy, o->seq);
+	pw_core_proxy_sync(c->core_proxy, 0, o->seq);
 	return 0;
 }
 

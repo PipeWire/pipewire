@@ -6,6 +6,9 @@ pipewire_gst_sources = [
   'gstpipewirepool.c',
   'gstpipewiresink.c',
   'gstpipewiresrc.c',
+  'gstpwaudioringbuffer.c',
+  'gstpwaudiosink.c',
+  'gstpwaudiosrc.c',
 ]
 
 pipewire_gst_headers = [
@@ -15,6 +18,9 @@ pipewire_gst_headers = [
   'gstpipewirepool.h',
   'gstpipewiresink.h',
   'gstpipewiresrc.h',
+  'gstpwaudioringbuffer.h',
+  'gstpwaudiosink.h',
+  'gstpwaudiosrc.h',
 ]
 
 pipewire_gst_c_args = [

@@ -271,8 +271,6 @@ struct pa_context {
 	pa_proplist *proplist;
 	pa_mainloop_api *mainloop;
 
-	uint32_t seq;
-
 	int error;
 	pa_context_state_t state;
 

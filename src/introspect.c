@@ -129,7 +129,7 @@ static int device_event_param(void *object,
 			pw_log_warn("device %d: can't parse profile", g->id);
 			return -EINVAL;
 		}
-		pw_array_add_ptr(&g->card_info.profiles, pw_spa_pod_copy(param));
+		pw_array_add_ptr(&g->card_info.profiles, spa_pod_copy(param));
 		pw_log_debug("device %d: enum profile %d: \"%s\"", g->id, id, name);
 		break;
 	}

@@ -558,9 +558,9 @@ static const struct pw_core_proxy_events core_events = {
 
 static int do_sync(struct client *client)
 {
-	uint32_t seq = client->last_sync + 1;
+	uint32_t seq;
 
-	pw_core_proxy_sync(client->core_proxy, 0, seq);
+	seq = pw_core_proxy_sync(client->core_proxy, 0);
 
 	while (true) {
 	        pw_thread_loop_wait(client->context.loop);
@@ -1034,7 +1034,7 @@ static int client_node_command(void *object, const struct spa_command *command)
 
 static int client_node_add_port(void *object,
                           enum spa_direction direction,
-                          uint32_t port_id)
+                          uint32_t port_id, const struct spa_dict *props)
 {
 	struct client *c = (struct client *) object;
 	pw_proxy_error((struct pw_proxy*)c->node_proxy, -ENOTSUP, "add port not supported");
@@ -1929,7 +1929,7 @@ jack_client_t * jack_client_open (const char *client_name,
 				    PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS,
 				    0, 0, 0, NULL, NULL);
 
-	pw_proxy_sync((struct pw_proxy*)client->node_proxy, 0);
+	pw_proxy_sync((struct pw_proxy*)client->node_proxy);
 
 	if (do_sync(client) < 0)
 		goto init_failed;
@@ -2038,7 +2038,6 @@ int jack_activate (jack_client_t *client)
 	int res = 0;
 
 	pw_thread_loop_lock(c->context.loop);
-        pw_proxy_sync((struct pw_proxy*)c->node_proxy, 0);
 	pw_client_node_proxy_set_active(c->node_proxy, true);
 
 	res = do_sync(c);
@@ -2058,7 +2057,6 @@ int jack_deactivate (jack_client_t *client)
 	int res = 0;
 
 	pw_thread_loop_lock(c->context.loop);
-        pw_proxy_sync((struct pw_proxy*)c->node_proxy, 0);
 	pw_client_node_proxy_set_active(c->node_proxy, false);
 
 	res = do_sync(c);

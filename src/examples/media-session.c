@@ -193,7 +193,7 @@ static void *find_object(struct impl *impl, uint32_t id)
 static void schedule_rescan(struct impl *impl)
 {
 	if (impl->core_proxy)
-		pw_core_proxy_sync(impl->core_proxy, 0, ++impl->seq);
+		impl->seq = pw_core_proxy_sync(impl->core_proxy, 0);
 }
 
 static void remove_idle_timeout(struct session *sess)
@@ -574,7 +574,8 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		node->type = NODE_TYPE_DEVICE;
 		node->manager = sess;
 
-		pw_log_debug(NAME" %p: new session for device node %d", impl, id);
+		pw_log_debug(NAME" %p: new session for device node %d %d", impl, id,
+				need_dsp);
 	}
 	return 1;
 }
@@ -687,14 +688,15 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 
 	spa_list_append(&node->port_list, &port->l);
 
+	pw_log_debug(NAME" %p: new port %d for node %d type %d %08x", impl, id, parent_id,
+			node->type, port->flags);
+
 	if (node->type == NODE_TYPE_DEVICE) {
 		pw_port_proxy_enum_params((struct pw_port_proxy*)p,
 				SPA_PARAM_EnumFormat,
 				0, -1, NULL);
 	}
 
-	pw_log_debug(NAME" %p: new port %d for node %d type %d %08x", impl, id, parent_id,
-			node->type, port->flags);
 
 	return 0;
 }
@@ -1240,12 +1242,16 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		struct spa_pod *param;
 		const char *str;
 
-		if (node->info->props == NULL)
+		if (node->info->props == NULL) {
+			pw_log_debug(NAME " %p: node %p has no properties", impl, node);
 			return;
+		}
 
 		if (node->media_type != SPA_MEDIA_TYPE_audio ||
-		    node->media_subtype != SPA_MEDIA_SUBTYPE_raw)
+		    node->media_subtype != SPA_MEDIA_SUBTYPE_raw) {
+			pw_log_debug(NAME " %p: node %p has no media type", impl, node);
 			return;
+		}
 
 		info = node->format;
 
@@ -1290,6 +1296,7 @@ static void do_rescan(struct impl *impl)
 	struct node *node;
 
 	clock_gettime(CLOCK_MONOTONIC, &impl->now);
+	pw_log_debug("media-session %p: do rescan", impl);
 
 	spa_list_for_each(sess, &impl->session_list, l)
 		rescan_session(impl, sess);
@@ -1300,6 +1307,7 @@ static void do_rescan(struct impl *impl)
 static int core_done(void *data, uint32_t id, uint32_t seq)
 {
 	struct impl *impl = data;
+	pw_log_debug("media-session %p: sync %d %u/%u", impl, id, seq, impl->seq);
 	if (impl->seq == seq)
 		do_rescan(impl);
 	return 0;

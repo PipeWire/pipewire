@@ -38,6 +38,7 @@
 #include <spa/support/log.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/list.h>
+#include <spa/utils/result.h>
 #include <spa/utils/type.h>
 #include <spa/utils/ringbuffer.h>
 

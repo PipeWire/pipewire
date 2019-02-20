@@ -30,6 +30,7 @@
 #include <sys/mman.h>
 
 #include <spa/pod/parser.h>
+#include <spa/node/utils.h>
 #include <spa/debug/types.h>
 
 #include "pipewire/pipewire.h"
@@ -413,10 +414,10 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 			struct spa_pod *param;
 
 			spa_pod_builder_init(&b, buf, sizeof(buf));
-                        if (spa_node_port_enum_params(port->node->node,
+                        if (spa_node_port_enum_params_sync(port->node->node,
 						      port->direction, port->port_id,
 						      SPA_PARAM_List, &idx1,
-						      NULL, &param, &b) <= 0)
+						      NULL, &param, &b) != 1)
                                 break;
 
 			spa_pod_parse_object(param,
@@ -424,18 +425,18 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 				SPA_PARAM_LIST_id, SPA_POD_Id(&id));
 
 			params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
-			params[n_params++] = pw_spa_pod_copy(param);
+			params[n_params++] = spa_pod_copy(param);
 
 			for (idx2 = 0;;) {
 				spa_pod_builder_init(&b, buf, sizeof(buf));
-	                        if (spa_node_port_enum_params(port->node->node,
+	                        if (spa_node_port_enum_params_sync(port->node->node,
 							      port->direction, port->port_id,
 							      id, &idx2,
-							      NULL, &param, &b) <= 0)
+							      NULL, &param, &b) != 1)
 	                                break;
 
 				params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
-				params[n_params++] = pw_spa_pod_copy(param);
+				params[n_params++] = spa_pod_copy(param);
 			}
                 }
 	}

@@ -38,12 +38,15 @@
 #include <spa/support/loop.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
+#include <spa/node/utils.h>
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/video/format-utils.h>
+#include <spa/debug/pod.h>
 
 static SPA_LOG_IMPL(default_log);
 
+#define PATH "build/spa/plugins/"
 
 #define MAX_BUFFERS     8
 
@@ -58,7 +61,8 @@ struct buffer {
 
 struct data {
 	struct spa_log *log;
-	struct spa_loop data_loop;
+	struct spa_loop *loop;
+	struct spa_loop_control *control;
 
 	struct spa_support support[4];
 	uint32_t n_support;
@@ -87,9 +91,8 @@ struct data {
 	unsigned int n_buffers;
 };
 
-static int make_node(struct data *data, struct spa_node **node, const char *lib, const char *name)
+static int load_handle(struct data *data, struct spa_handle **handle, const char *lib, const char *name)
 {
-	struct spa_handle *handle;
 	int res;
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
@@ -106,7 +109,6 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 
 	for (i = 0;;) {
 		const struct spa_handle_factory *factory;
-		void *iface;
 
 		if ((res = enum_func(&factory, &i)) <= 0) {
 			if (res != 0)
@@ -116,21 +118,33 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 		if (strcmp(factory->name, name))
 			continue;
 
-		handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
-		if ((res =
-		     spa_handle_factory_init(factory, handle, NULL, data->support,
-					     data->n_support)) < 0) {
+		*handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
+		if ((res = spa_handle_factory_init(factory, *handle,
+						NULL, data->support,
+						data->n_support)) < 0) {
 			printf("can't make factory instance: %d\n", res);
 			return res;
 		}
-		if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
-			printf("can't get interface %d\n", res);
-			return res;
-		}
-		*node = iface;
 		return 0;
 	}
 	return -EBADF;
+}
+
+static int make_node(struct data *data, struct spa_node **node, const char *lib, const char *name)
+{
+	struct spa_handle *handle = NULL;
+	void *iface;
+	int res;
+
+	if ((res = load_handle(data, &handle, lib, name)) < 0)
+		return res;
+
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
+		printf("can't get interface %d\n", res);
+		return res;
+	}
+	*node = iface;
+	return 0;
 }
 
 static void handle_events(struct data *data)
@@ -159,10 +173,8 @@ static int on_source_ready(void *_data, int status)
 
 	handle_events(data);
 
-	if ((res = spa_node_process(data->source)) < 0)
-		printf("got process error %d\n", res);
-
-	if (io->buffer_id > MAX_BUFFERS)
+	if (io->status != SPA_STATUS_HAVE_BUFFER ||
+	    io->buffer_id > MAX_BUFFERS)
 		return -EINVAL;
 
 	b = &data->buffers[io->buffer_id];
@@ -221,6 +233,10 @@ static int on_source_ready(void *_data, int status)
 	}
 
 	io->status = SPA_STATUS_NEED_BUFFER;
+
+	if ((res = spa_node_process(data->source)) < 0)
+		printf("got process error %d\n", res);
+
 	return 0;
 }
 
@@ -229,48 +245,28 @@ static const struct spa_node_callbacks source_callbacks = {
 	.ready = on_source_ready
 };
 
-static int do_add_source(struct spa_loop *loop, struct spa_source *source)
-{
-	struct data *data = SPA_CONTAINER_OF(loop, struct data, data_loop);
-
-	data->sources[data->n_sources] = *source;
-	data->n_sources++;
-	data->rebuild_fds = true;
-
-	return 0;
-}
-
-static int do_update_source(struct spa_source *source)
-{
-	return 0;
-}
-
-static void do_remove_source(struct spa_source *source)
-{
-}
-
-static int
-do_invoke(struct spa_loop *loop,
-	  spa_invoke_func_t func, uint32_t seq, const void *data, size_t size, bool block, void *user_data)
-{
-	return func(loop, false, seq, data, size, user_data);
-}
-
 static int make_nodes(struct data *data, const char *device)
 {
 	int res;
 	struct spa_pod *props;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[256];
+	uint32_t index;
 
 	if ((res =
-	     make_node(data, &data->source, "build/spa/plugins/v4l2/libspa-v4l2.so",
-		       "v4l2-source")) < 0) {
+	     make_node(data, &data->source, PATH "v4l2/libspa-v4l2.so", "v4l2-source")) < 0) {
 		printf("can't create v4l2-source: %d\n", res);
 		return res;
 	}
 
 	spa_node_set_callbacks(data->source, &source_callbacks, data);
+
+	index = 0;
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	if ((res = spa_node_enum_params_sync(data->source, SPA_PARAM_Props,
+			&index, NULL, &props, &b)) == 1) {
+		spa_debug_pod(0, NULL, props);
+	}
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_add_object(&b,
@@ -422,52 +418,14 @@ static void *loop(void *user_data)
 	struct data *data = user_data;
 
 	printf("enter thread\n");
+        spa_loop_control_enter(data->control);
+
 	while (data->running) {
-		int r;
-		unsigned int i;
-
-		/* rebuild */
-		if (data->rebuild_fds) {
-			for (i = 0; i < data->n_sources; i++) {
-				struct spa_source *p = &data->sources[i];
-				data->fds[i].fd = p->fd;
-				data->fds[i].events = p->mask;
-			}
-			data->n_fds = data->n_sources;
-			data->rebuild_fds = false;
-		}
-
-		r = poll((struct pollfd *) data->fds, data->n_fds, -1);
-		if (r < 0) {
-			if (errno == EINTR)
-				continue;
-			break;
-		}
-		if (r == 0) {
-			fprintf(stderr, "select timeout");
-			break;
-		}
-
-		/* after */
-		for (i = 0; i < data->n_sources; i++) {
-			struct spa_source *p = &data->sources[i];
-			p->rmask = 0;
-			if (data->fds[i].revents & POLLIN)
-				p->rmask |= SPA_IO_IN;
-			if (data->fds[i].revents & POLLOUT)
-				p->rmask |= SPA_IO_OUT;
-			if (data->fds[i].revents & POLLHUP)
-				p->rmask |= SPA_IO_HUP;
-			if (data->fds[i].revents & POLLERR)
-				p->rmask |= SPA_IO_ERR;
-		}
-		for (i = 0; i < data->n_sources; i++) {
-			struct spa_source *p = &data->sources[i];
-			if (p->rmask)
-				p->func(p);
-		}
+		spa_loop_control_iterate(data->control, -1);
 	}
+
 	printf("leave thread\n");
+        spa_loop_control_leave(data->control);
 	return NULL;
 }
 
@@ -507,6 +465,22 @@ int main(int argc, char *argv[])
 	struct data data = { 0 };
 	int res;
 	const char *str;
+	struct spa_handle *handle = NULL;
+	void *iface;
+
+	if ((res = load_handle(&data, &handle, PATH "support/libspa-support.so", "loop")) < 0)
+		return res;
+
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Loop, &iface)) < 0) {
+		printf("can't get interface %d\n", res);
+		return res;
+	}
+	data.loop = iface;
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_LoopControl, &iface)) < 0) {
+		printf("can't get interface %d\n", res);
+		return res;
+	}
+	data.control = iface;
 
 	data.use_buffer = true;
 
@@ -515,15 +489,9 @@ int main(int argc, char *argv[])
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);
 
-	data.data_loop.version = SPA_VERSION_LOOP;
-	data.data_loop.add_source = do_add_source;
-	data.data_loop.update_source = do_update_source;
-	data.data_loop.remove_source = do_remove_source;
-	data.data_loop.invoke = do_invoke;
-
 	data.support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
-	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, &data.data_loop);
-	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, &data.data_loop);
+	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, data.loop);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, data.loop);
 	data.n_support = 3;
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {

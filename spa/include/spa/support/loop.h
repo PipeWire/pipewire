@@ -36,6 +36,7 @@ struct spa_source;
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/result.h>
 
 enum spa_io {
 	SPA_IO_IN = (1 << 0),

@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include <spa/utils/type.h>
+#include <spa/utils/result.h>
 
 #include "pipewire/log.h"
 #include "pipewire/work-queue.h"

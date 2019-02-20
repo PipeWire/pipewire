@@ -82,14 +82,9 @@ uint32_t pw_protocol_native_connection_add_fd(struct pw_protocol_native_connecti
 int pw_protocol_native_connection_get_fd(struct pw_protocol_native_connection *conn, uint32_t index);
 
 struct spa_pod_builder *
-pw_protocol_native_connection_begin_resource(struct pw_protocol_native_connection *conn,
-                                             struct pw_resource *resource,
-                                             uint8_t opcode);
+pw_protocol_native_connection_begin(struct pw_protocol_native_connection *conn,
+                                    uint32_t id, uint8_t opcode, int *res);
 
-struct spa_pod_builder *
-pw_protocol_native_connection_begin_proxy(struct pw_protocol_native_connection *conn,
-                                          struct pw_proxy *proxy,
-                                          uint8_t opcode);
 int
 pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
                                   struct spa_pod_builder *builder);

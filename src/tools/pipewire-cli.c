@@ -73,6 +73,7 @@ struct remote_data {
 
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
+	uint32_t prompt_pending;
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
@@ -261,13 +262,9 @@ static int on_core_done(void *_data, uint32_t id, uint32_t seq)
 {
 	struct remote_data *rd = _data;
 
-	switch (seq) {
-	case 1:
+	if (seq == rd->prompt_pending)
 		show_prompt(rd);
-		break;
-	default:
-		break;
-	}
+
 	return 0;
 }
 
@@ -396,7 +393,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 		pw_registry_proxy_add_listener(rd->registry_proxy,
 					       &rd->registry_listener,
 					       &registry_events, rd);
-		pw_core_proxy_sync(rd->core_proxy, 0, 1);
+		rd->prompt_pending = pw_core_proxy_sync(rd->core_proxy, 0);
 		break;
 
 	default:
@@ -1390,7 +1387,7 @@ static void do_input(void *data, int fd, enum spa_io mask)
 		if (d->current == NULL)
 			pw_main_loop_quit(d->loop);
 		else if (d->current->core_proxy)
-			pw_core_proxy_sync(d->current->core_proxy, 0, 1);
+			d->current->prompt_pending = pw_core_proxy_sync(d->current->core_proxy, 0);
 	}
 }
 

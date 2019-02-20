@@ -37,6 +37,7 @@
 #include <spa/support/loop.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
+#include <spa/node/utils.h>
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
@@ -371,10 +372,10 @@ static int negotiate_formats(struct data *data)
 	spa_debug_pod(0, NULL, filter);
 
 	spa_log_debug(&default_log.log, "enum_params");
-	if ((res = spa_node_port_enum_params(data->sink,
+	if ((res = spa_node_port_enum_params_sync(data->sink,
 					     SPA_DIRECTION_INPUT, 0,
 					     SPA_PARAM_EnumFormat, &state,
-					     filter, &format, &b)) <= 0)
+					     filter, &format, &b)) != 1)
 		return -EBADF;
 
 	spa_log_debug(&default_log.log, "sink set_param");

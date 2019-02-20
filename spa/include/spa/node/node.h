@@ -32,6 +32,7 @@ extern "C" {
 struct spa_node;
 
 #include <spa/utils/defs.h>
+#include <spa/utils/result.h>
 #include <spa/utils/type.h>
 
 #include <spa/support/plugin.h>
@@ -97,14 +98,6 @@ struct spa_node_callbacks {
 #define SPA_VERSION_NODE_CALLBACKS	0
 	uint32_t version;	/**< version of this structure */
 
-	/** Emited as a reply to a sync method with \a seq.
-	 *
-	 * Will be called from the main thread. */
-	int (*done) (void *data, uint32_t seq);
-
-	/** an asynchronous error occured */
-	int (*error) (void *data, int res, const char *message);
-
 	/** Emited when info changes */
 	int (*info) (void *data, const struct spa_node_info *info);
 
@@ -156,6 +149,12 @@ struct spa_node_callbacks {
 #define SPA_NODE_PARAM_FLAG_NEAREST	(1 << 2)	/* allow set fields to be rounded to the
 							 * nearest allowed field value. */
 
+/** the result of enum_param. */
+struct spa_result_node_enum_params {
+	uint32_t next;		/**< next index of iteration */
+	struct spa_pod *param;	/**< the result param */
+};
+
 /**
  * A spa_node is a component that can consume and produce buffers.
  */
@@ -182,13 +181,46 @@ struct spa_node {
 	/**
 	 * Perform a sync operation.
 	 *
-	 * Calling this method will emit the done event or -EIO when
-	 * no callbacks are installed.
+	 * This method will complete when all previous methods on the node
+	 * are completed.
 	 *
 	 * Because all methods are serialized in the node, this can be used
 	 * to wait for completion of all previous method calls.
+	 *
+	 * If this function returns an async result, use spa_node_wait() to
+	 * install a hook to receive the completion notification.
+	 *
+	 * \return 0 on success
+	 *         -EINVAL when node is NULL
+	 *         an async result
 	 */
-	int (*sync) (struct spa_node *node, uint32_t seq);
+	int (*sync) (struct spa_node *node);
+
+	/**
+	 * Wait for an async function to complete and signal the result
+	 * callback with result parameters.
+	 *
+	 * When a function returns an sync result, pass the async result
+	 * to this function to create a hook that will be called when
+	 * the operation completes.
+	 *
+	 * The generic completion callback can have an optional result.
+	 * Depending on the method, this result will be NULL or point to
+	 * a structure with extra return values. See the documentation
+	 * of the function to see what result structure will be passed.
+	 *
+	 * The hook is automatically removed after the hook is called.
+	 *
+	 * \param node a spa_node
+	 * \param res an async return value to wait for
+	 * \param pending a spa_pending structure
+	 * \param func a result callback
+	 * \param data data passed to \a func
+	 * \return 0 on success
+	 *         -EINVAL when node is NULL
+	 */
+	int (*wait) (struct spa_node *node, int res, struct spa_pending *pending,
+			   spa_result_func_t func, void *data);
 
 	/**
 	 * Enumerate the parameters of a node.
@@ -202,23 +234,26 @@ struct spa_node {
 	 *
 	 * \param node a \ref spa_node
 	 * \param id the param id to enumerate
-	 * \param index the index of enumeration, pass 0 for the first item and the
-	 *	index is updated to retrieve the next item.
+	 * \param start the index of enumeration, pass 0 for the first item
+	 * \param num the number of parameters to enumerate
 	 * \param filter and optional filter to use
-	 * \param param result param or NULL
-	 * \param builder builder for the param object.
-	 * \return 1 on success and \a param contains the result
-	 *         0 when there are no more parameters to enumerate
+	 * \param func the callback with the result. The result will be
+	 *   of type struct spa_result_node_enum_params. The next field
+	 *   can be used to continue the enumeration.
+	 * \param data first argument to \a func
+	 *
+	 * \return the return value of \a func or 0 when no more
+	 *	items can be iterated.
 	 *         -EINVAL when invalid arguments are given
 	 *         -ENOENT the parameter \a id is unknown
 	 *         -ENOTSUP when there are no parameters
 	 *                 implemented on \a node
 	 */
 	int (*enum_params) (struct spa_node *node,
-			    uint32_t id, uint32_t *index,
+			    uint32_t id, uint32_t start, uint32_t max,
 			    const struct spa_pod *filter,
-			    struct spa_pod **param,
-			    struct spa_pod_builder *builder);
+			    spa_result_func_t func, void *data);
+
 	/**
 	 * Set the configurable parameter in \a node.
 	 *
@@ -318,22 +353,25 @@ struct spa_node {
 	 * \param direction an spa_direction
 	 * \param port_id the port to query
 	 * \param id the parameter id to query
-	 * \param index an index state variable, 0 to get the first item
+	 * \param start the first index to query, 0 to get the first item
+	 * \param num the maximum number of params to query
 	 * \param filter a parameter filter or NULL for no filter
-	 * \param param result parameter
-	 * \param builder a builder for the result parameter object
-	 * \return 1 on success
+	 * \param func the callback with the result. The result will be
+	 *   of type struct spa_result_node_enum_params. The next field
+	 *   can be used to continue the enumeration.
+	 * \param data first argument to \a func
+	 *
+	 * \return the return value of \a func or 0 when no more
+	 *	items can be iterated.
 	 *         0 when no more parameters exists
 	 *         -EINVAL when invalid parameters are given
 	 *         -ENOENT when \a id is unknown
 	 */
 	int (*port_enum_params) (struct spa_node *node,
 				 enum spa_direction direction, uint32_t port_id,
-				 uint32_t id, uint32_t *index,
+				 uint32_t id, uint32_t start, uint32_t num,
 				 const struct spa_pod *filter,
-				 struct spa_pod **param,
-				 struct spa_pod_builder *builder);
-
+				 spa_result_func_t func, void *data);
 	/**
 	 * Set a parameter on \a port_id of \a node.
 	 *
@@ -497,7 +535,8 @@ struct spa_node {
 };
 
 #define spa_node_set_callbacks(n,...)		(n)->set_callbacks((n),__VA_ARGS__)
-#define spa_node_sync(n,...)			(n)->sync((n),__VA_ARGS__)
+#define spa_node_sync(n)			(n)->sync((n))
+#define spa_node_wait(n,...)			(n)->wait((n),__VA_ARGS__)
 #define spa_node_enum_params(n,...)		(n)->enum_params((n),__VA_ARGS__)
 #define spa_node_set_param(n,...)		(n)->set_param((n),__VA_ARGS__)
 #define spa_node_set_io(n,...)			(n)->set_io((n),__VA_ARGS__)

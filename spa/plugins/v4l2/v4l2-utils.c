@@ -521,10 +521,9 @@ filter_framerate(struct v4l2_frmivalenum *frmival,
 
 static int
 spa_v4l2_enum_format(struct impl *this,
-		     uint32_t *index,
+		     uint32_t start, uint32_t num,
 		     const struct spa_pod *filter,
-		     struct spa_pod **result,
-		     struct spa_pod_builder *builder)
+		     spa_result_func_t func, void *data)
 {
 	struct port *port = &this->out_ports[0];
 	int res, n_fractions;
@@ -532,12 +531,18 @@ spa_v4l2_enum_format(struct impl *this,
 	struct spa_pod_choice *choice;
 	uint32_t filter_media_type, filter_media_subtype, video_format;
 	struct spa_v4l2_device *dev = &port->dev;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[2];
+	struct spa_result_node_enum_params result;
+	uint32_t count = 0;
 
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
 
-	if (*index == 0) {
+	result.next = start;
+
+	if (result.next == 0) {
 		spa_zero(port->fmtdesc);
 		port->fmtdesc.index = 0;
 		port->fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -558,6 +563,7 @@ spa_v4l2_enum_format(struct impl *this,
 		port->next_fmtdesc = true;
 	}
 
+      next:
 	while (port->next_fmtdesc) {
 		if (filter) {
 			video_format = enum_filter_format(filter_media_type,
@@ -681,25 +687,26 @@ spa_v4l2_enum_format(struct impl *this,
 		}
 	}
 
-	spa_pod_builder_push_object(builder, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-	spa_pod_builder_add(builder,
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_add(&b,
 			SPA_FORMAT_mediaType,    SPA_POD_Id(info->media_type),
 			SPA_FORMAT_mediaSubtype, SPA_POD_Id(info->media_subtype),
 			0);
 
 	if (info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-		spa_pod_builder_prop(builder, SPA_FORMAT_VIDEO_format, 0);
-		spa_pod_builder_id(builder, info->format);
+		spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_format, 0);
+		spa_pod_builder_id(&b, info->format);
 	}
-	spa_pod_builder_prop(builder, SPA_FORMAT_VIDEO_size, 0);
-	spa_pod_builder_rectangle(builder, port->frmsize.discrete.width, port->frmsize.discrete.height);
+	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_size, 0);
+	spa_pod_builder_rectangle(&b, port->frmsize.discrete.width, port->frmsize.discrete.height);
 
-	spa_pod_builder_prop(builder, SPA_FORMAT_VIDEO_framerate, 0);
+	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_framerate, 0);
 
 	n_fractions = 0;
 
-	spa_pod_builder_push_choice(builder, &f[1], SPA_CHOICE_None, 0);
-	choice = (struct spa_pod_choice*)spa_pod_builder_frame(builder, &f[1]);
+	spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
+	choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b, &f[1]);
 	port->frmival.index = 0;
 
 	while (true) {
@@ -765,21 +772,21 @@ spa_v4l2_enum_format(struct impl *this,
 		if (port->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
 			choice->body.type = SPA_CHOICE_Enum;
 			if (n_fractions == 0)
-				spa_pod_builder_fraction(builder,
+				spa_pod_builder_fraction(&b,
 							 port->frmival.discrete.denominator,
 							 port->frmival.discrete.numerator);
-			spa_pod_builder_fraction(builder,
+			spa_pod_builder_fraction(&b,
 						 port->frmival.discrete.denominator,
 						 port->frmival.discrete.numerator);
 			port->frmival.index++;
 		} else if (port->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
 			   port->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
 			if (n_fractions == 0)
-				spa_pod_builder_fraction(builder, 25, 1);
-			spa_pod_builder_fraction(builder,
+				spa_pod_builder_fraction(&b, 25, 1);
+			spa_pod_builder_fraction(&b,
 						 port->frmival.stepwise.min.denominator,
 						 port->frmival.stepwise.min.numerator);
-			spa_pod_builder_fraction(builder,
+			spa_pod_builder_fraction(&b,
 						 port->frmival.stepwise.max.denominator,
 						 port->frmival.stepwise.max.numerator);
 
@@ -787,7 +794,7 @@ spa_v4l2_enum_format(struct impl *this,
 				choice->body.type = SPA_CHOICE_Range;
 			} else {
 				choice->body.type = SPA_CHOICE_Step;
-				spa_pod_builder_fraction(builder,
+				spa_pod_builder_fraction(&b,
 							 port->frmival.stepwise.step.denominator,
 							 port->frmival.stepwise.step.numerator);
 			}
@@ -801,21 +808,21 @@ spa_v4l2_enum_format(struct impl *this,
 	if (n_fractions <= 1)
 		choice->body.type = SPA_CHOICE_None;
 
-	spa_pod_builder_pop(builder, &f[1]);
-	*result = spa_pod_builder_pop(builder, &f[0]);
+	spa_pod_builder_pop(&b, &f[1]);
+	result.param = spa_pod_builder_pop(&b, &f[0]);
+	result.next++;
 
-	(*index)++;
+	if ((res = func(data, count, 1, &result)) != 0)
+		goto exit;
 
-	res = 1;
+	if (++count != num)
+		goto next;
 
+      enum_end:
+	res = 0;
       exit:
 	spa_v4l2_close(dev);
-
 	return res;
-
-     enum_end:
-	res = 0;
-	goto exit;
 }
 
 static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format, bool try_only)
@@ -999,10 +1006,9 @@ static uint32_t control_to_prop_id(struct impl *impl, uint32_t control_id)
 
 static int
 spa_v4l2_enum_controls(struct impl *this,
-		       uint32_t *index,
+		       uint32_t start, uint32_t num,
 		       const struct spa_pod *filter,
-		       struct spa_pod **result,
-		       struct spa_pod_builder *builder)
+		       spa_result_func_t func, void *data)
 {
 	struct port *port = &this->out_ports[0];
 	struct spa_v4l2_device *dev = &port->dev;
@@ -1014,19 +1020,23 @@ spa_v4l2_enum_controls(struct impl *this,
 	int res;
         const unsigned next_fl = V4L2_CTRL_FLAG_NEXT_CTRL | V4L2_CTRL_FLAG_NEXT_COMPOUND;
 	struct spa_pod_frame f[2];
+	struct spa_result_node_enum_params result;
+	uint32_t count = 0;
 
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
 
+	result.next = start;
+
       next:
 	spa_zero(queryctrl);
 
-	if (*index == 0) {
-		*index |= next_fl;
+	if (result.next == 0) {
+		result.next |= next_fl;
 		port->n_controls = 0;
 	}
 
-	queryctrl.id = *index;
+	queryctrl.id = result.next;
 	spa_log_debug(this->log, "test control %08x", queryctrl.id);
 
 	if (query_ext_ctrl_ioctl(port, &queryctrl) != 0) {
@@ -1034,12 +1044,12 @@ spa_v4l2_enum_controls(struct impl *this,
 			if (queryctrl.id != next_fl)
 				goto enum_end;
 
-			if (*index & next_fl)
-				*index = V4L2_CID_USER_BASE;
-			else if (*index >= V4L2_CID_USER_BASE && *index < V4L2_CID_LASTP1)
-				(*index)++;
-			else if (*index >= V4L2_CID_LASTP1)
-				*index = V4L2_CID_PRIVATE_BASE;
+			if (result.next & next_fl)
+				result.next = V4L2_CID_USER_BASE;
+			else if (result.next >= V4L2_CID_USER_BASE && result.next < V4L2_CID_LASTP1)
+				result.next++;
+			else if (result.next >= V4L2_CID_LASTP1)
+				result.next = V4L2_CID_PRIVATE_BASE;
 			else
 				goto enum_end;
 			goto next;
@@ -1048,10 +1058,10 @@ spa_v4l2_enum_controls(struct impl *this,
 		spa_log_error(this->log, "VIDIOC_QUERYCTRL: %m");
 		return res;
 	}
-	if (*index & next_fl)
-		(*index) = queryctrl.id | next_fl;
+	if (result.next & next_fl)
+		result.next = queryctrl.id | next_fl;
 	else
-		(*index)++;
+		result.next++;
 
 	if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED)
 		goto next;
@@ -1129,19 +1139,20 @@ spa_v4l2_enum_controls(struct impl *this,
 		goto next;
 
 	}
-	if (spa_pod_filter(builder, result, param, filter) < 0)
+	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	res = 1;
+	if ((res = func(data, count, 1, &result)) != 0)
+		goto exit;
 
+	if (++count != num)
+		goto next;
+
+      enum_end:
+	res = 0;
       exit:
 	spa_v4l2_close(dev);
-
 	return res;
-
-     enum_end:
-	res = 0;
-	goto exit;
 }
 
 static int mmap_read(struct impl *this)

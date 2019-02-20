@@ -36,18 +36,6 @@ extern "C" {
 #include <stddef.h>
 #include <stdio.h>
 
-
-#define SPA_ASYNC_BIT			(1 << 30)
-#define SPA_ASYNC_MASK			(3 << 30)
-#define SPA_ASYNC_SEQ_MASK		(SPA_ASYNC_BIT - 1)
-
-#define SPA_RESULT_IS_OK(res)		((res) >= 0)
-#define SPA_RESULT_IS_ERROR(res)	((res) < 0)
-#define SPA_RESULT_IS_ASYNC(res)	(((res) & SPA_ASYNC_MASK) == SPA_ASYNC_BIT)
-
-#define SPA_RESULT_ASYNC_SEQ(res)	((res) & SPA_ASYNC_SEQ_MASK)
-#define SPA_RESULT_RETURN_ASYNC(seq)	(SPA_ASYNC_BIT | ((seq) & SPA_ASYNC_SEQ_MASK))
-
 #define SPA_FLAG_MASK(field,mask,flag)	(((field) & (mask)) == (flag))
 #define SPA_FLAG_CHECK(field,flag)	SPA_FLAG_MASK(field,flag,flag)
 #define SPA_FLAG_SET(field,flag)	((field) |= (flag))

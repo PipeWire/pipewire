@@ -754,10 +754,10 @@ const static struct pw_protocol_implementaton protocol_impl = {
 };
 
 static struct spa_pod_builder *
-impl_ext_begin_proxy(struct pw_proxy *proxy, uint8_t opcode)
+impl_ext_begin_proxy(struct pw_proxy *proxy, uint8_t opcode, int *res)
 {
 	struct client *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct client, this);
-	return pw_protocol_native_connection_begin_proxy(impl->connection, proxy, opcode);
+	return pw_protocol_native_connection_begin(impl->connection, proxy->id, opcode, res);
 }
 
 static uint32_t impl_ext_add_proxy_fd(struct pw_proxy *proxy, int fd)
@@ -780,10 +780,10 @@ static int impl_ext_end_proxy(struct pw_proxy *proxy,
 }
 
 static struct spa_pod_builder *
-impl_ext_begin_resource(struct pw_resource *resource, uint8_t opcode)
+impl_ext_begin_resource(struct pw_resource *resource, uint8_t opcode, int *res)
 {
 	struct client_data *data = resource->client->user_data;
-	return pw_protocol_native_connection_begin_resource(data->connection, resource, opcode);
+	return pw_protocol_native_connection_begin(data->connection, resource->id, opcode, res);
 }
 
 static uint32_t impl_ext_add_resource_fd(struct pw_resource *resource, int fd)
@@ -803,7 +803,6 @@ static int impl_ext_end_resource(struct pw_resource *resource,
 	struct client_data *data = resource->client->user_data;
 	return pw_protocol_native_connection_end(data->connection, builder);
 }
-
 const static struct pw_protocol_native_ext protocol_ext_impl = {
 	PW_VERSION_PROTOCOL_NATIVE_EXT,
 	impl_ext_begin_proxy,

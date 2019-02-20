@@ -279,9 +279,8 @@ static void add_pending(GstPipeWireDeviceProvider *self, struct pending *p,
   spa_list_append(&self->pending, &p->link);
   p->callback = callback;
   p->data = data;
-  p->seq = ++self->seq;
   pw_log_debug("add pending %d", p->seq);
-  pw_core_proxy_sync(self->core_proxy, 0, p->seq);
+  self->seq = p->seq = pw_core_proxy_sync(self->core_proxy, 0);
 }
 
 static void remove_pending(struct pending *p)
@@ -559,7 +558,6 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   spa_list_init(&data->ports);
 
   spa_list_init(&self->pending);
-  self->seq = 1;
   pw_remote_add_listener(r, &listener, &remote_events, data);
 
   if (pw_remote_connect (r) < 0)
@@ -591,7 +589,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   data->registry = pw_core_proxy_get_registry(self->core_proxy,
 		  PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
   pw_registry_proxy_add_listener(data->registry, &data->registry_listener, &registry_events, data);
-  pw_core_proxy_sync(self->core_proxy, 0, ++self->seq);
+  self->seq = pw_core_proxy_sync(self->core_proxy, 0);
 
   for (;;) {
     if (pw_remote_get_state(r, NULL) <= 0)
@@ -624,7 +622,6 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
   self->loop = pw_loop_new (NULL);
   self->list_only = FALSE;
   spa_list_init(&self->pending);
-  self->seq = 1;
 
   if (!(self->main_loop = pw_thread_loop_new (self->loop, "pipewire-device-monitor"))) {
     GST_ERROR_OBJECT (self, "Could not create PipeWire mainloop");
@@ -681,7 +678,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
   data->registry = self->registry;
 
   pw_registry_proxy_add_listener(self->registry, &data->registry_listener, &registry_events, data);
-  pw_core_proxy_sync(self->core_proxy, 0, ++self->seq);
+  self->seq = pw_core_proxy_sync(self->core_proxy, 0);
 
   for (;;) {
     if (self->end)

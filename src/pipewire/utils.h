@@ -52,20 +52,6 @@ pw_free_strv(char **str);
 char *
 pw_strip(char *str, const char *whitespace);
 
-/** Copy a pod structure \memberof pw_utils  */
-static inline struct spa_pod *
-pw_spa_pod_copy(const struct spa_pod *pod)
-{
-	size_t size;
-	struct spa_pod *c;
-
-	size = SPA_POD_SIZE(pod);
-	if ((c = (struct spa_pod *) malloc(size)) == NULL)
-		return NULL;
-
-	return (struct spa_pod *) memcpy(c, pod, size);
-}
-
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

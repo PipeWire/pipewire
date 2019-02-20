@@ -1,4 +1,4 @@
-/* PipeWire
+/* Simple Plugin API
  *
  * Copyright © 2018 Wim Taymans
  *
@@ -22,41 +22,40 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef PIPEWIRE_CLIENT_NODE_H
-#define PIPEWIRE_CLIENT_NODE_H
-
-#include <pipewire/node.h>
-#include <extensions/client-node.h>
+#ifndef SPA_UTILS_RESULT_H
+#define SPA_UTILS_RESULT_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** \class pw_client_node
- *
- * PipeWire client node interface
- */
-struct pw_client_node {
-	struct pw_node *node;
+#include <spa/utils/defs.h>
+#include <spa/utils/list.h>
 
-	struct pw_resource *resource;
-	struct pw_global *parent;
-	uint32_t flags;
+#define SPA_ASYNC_BIT			(1 << 30)
+#define SPA_ASYNC_MASK			(3 << 30)
+#define SPA_ASYNC_SEQ_MASK		(SPA_ASYNC_BIT - 1)
+
+#define SPA_RESULT_IS_OK(res)		((res) >= 0)
+#define SPA_RESULT_IS_ERROR(res)	((res) < 0)
+#define SPA_RESULT_IS_ASYNC(res)	(((res) & SPA_ASYNC_MASK) == SPA_ASYNC_BIT)
+
+#define SPA_RESULT_ASYNC_SEQ(res)	((res) & SPA_ASYNC_SEQ_MASK)
+#define SPA_RESULT_RETURN_ASYNC(seq)	(SPA_ASYNC_BIT | SPA_RESULT_ASYNC_SEQ(seq))
+
+typedef int (*spa_result_func_t) (void *data, int seq, int res, const void *result);
+
+struct spa_pending {
+	struct spa_list link;
+	int seq;
+	int res;
+	spa_result_func_t func;
+	void *data;
+	void (*removed) (struct spa_pending *pending);
 };
 
-struct pw_client_node *
-pw_client_node_new(struct pw_resource *resource,
-		   struct pw_global *parent,
-		   struct pw_properties *properties,
-		   bool do_register);
-
-void
-pw_client_node_destroy(struct pw_client_node *node);
-
-void pw_client_node_registered(struct pw_client_node *node, uint32_t node_id);
-
 #ifdef __cplusplus
-}
+} /* extern "C" */
 #endif
 
-#endif /* PIPEWIRE_CLIENT_NODE_H */
+#endif /* SPA_UTILS_RESULT_H */

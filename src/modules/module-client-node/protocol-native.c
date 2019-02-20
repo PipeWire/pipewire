@@ -61,7 +61,7 @@ client_node_marshal_update(void *object,
 	struct spa_pod_frame f;
 	uint32_t i;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_UPDATE);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_UPDATE, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -93,7 +93,7 @@ client_node_marshal_port_update(void *object,
 	struct spa_pod_frame f[2];
 	uint32_t i, n_items;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE, NULL);
 
 	spa_pod_builder_push_struct(b, &f[0]);
 	spa_pod_builder_add(b,
@@ -134,7 +134,7 @@ static int client_node_marshal_set_active(void *object, bool active)
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Bool(active));
@@ -147,7 +147,7 @@ static int client_node_marshal_event_method(void *object, struct spa_event *even
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_EVENT);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_EVENT, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Pod(event));
@@ -472,7 +472,7 @@ client_node_marshal_add_mem(void *object,
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM, NULL);
 
 	spa_pod_builder_add_struct(b,
 		       SPA_POD_Int(mem_id),
@@ -488,7 +488,7 @@ static int client_node_marshal_transport(void *object, uint32_t node_id, int rea
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT, NULL);
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(node_id),
@@ -505,7 +505,7 @@ client_node_marshal_set_param(void *object, uint32_t id, uint32_t flags,
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_PARAM);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Id(id),
@@ -520,7 +520,7 @@ static int client_node_marshal_event_event(void *object, const struct spa_event 
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_EVENT);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_EVENT, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Pod(event));
@@ -534,7 +534,7 @@ client_node_marshal_command(void *object, const struct spa_command *command)
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_COMMAND);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_COMMAND, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Pod(command));
@@ -551,7 +551,7 @@ client_node_marshal_add_port(void *object,
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_ADD_PORT);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_ADD_PORT, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -570,7 +570,7 @@ client_node_marshal_remove_port(void *object,
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_REMOVE_PORT);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_REMOVE_PORT, NULL);
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(direction),
@@ -590,7 +590,7 @@ client_node_marshal_port_set_param(void *object,
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_PARAM);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(direction),
@@ -614,7 +614,7 @@ client_node_marshal_port_use_buffers(void *object,
 	struct spa_pod_frame f;
 	uint32_t i, j;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_PORT_USE_BUFFERS);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_PORT_USE_BUFFERS, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -668,7 +668,7 @@ client_node_marshal_port_set_io(void *object,
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO, NULL);
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(direction),
@@ -693,7 +693,7 @@ client_node_marshal_set_activation(void *object,
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_ACTIVATION);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_ACTIVATION, NULL);
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(node_id),
@@ -715,7 +715,7 @@ client_node_marshal_set_io(void *object,
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_IO);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_IO, NULL);
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Id(id),
 			       SPA_POD_Int(memid),

@@ -177,9 +177,9 @@ pw_core_proxy_hello(struct pw_core_proxy *core, uint32_t version)
 }
 
 static inline int
-pw_core_proxy_sync(struct pw_core_proxy *core, uint32_t id, uint32_t seq)
+pw_core_proxy_sync(struct pw_core_proxy *core, uint32_t id)
 {
-	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, sync, id, seq);
+	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, sync, id, 0);
 }
 
 static inline int
@@ -326,7 +326,7 @@ pw_core_proxy_add_listener(struct pw_core_proxy *core,
 
 #define pw_core_resource_info(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,info,__VA_ARGS__)
 #define pw_core_resource_done(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,done,__VA_ARGS__)
-#define pw_core_resource_sync(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,sync,__VA_ARGS__)
+#define pw_core_resource_sync(r,id)          pw_resource_notify(r,struct pw_core_proxy_events,sync,id,0)
 #define pw_core_resource_error(r,...)        pw_resource_notify(r,struct pw_core_proxy_events,error,__VA_ARGS__)
 #define pw_core_resource_remove_id(r,...)    pw_resource_notify(r,struct pw_core_proxy_events,remove_id,__VA_ARGS__)
 

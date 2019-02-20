@@ -629,6 +629,19 @@ static inline int spa_pod_builder_add(struct spa_pod_builder *builder, ...)
 	spa_pod_builder_pop(b, &f);						\
 })
 
+/** Copy a pod structure */
+static inline struct spa_pod *
+spa_pod_copy(const struct spa_pod *pod)
+{
+	size_t size;
+	struct spa_pod *c;
+
+	size = SPA_POD_SIZE(pod);
+	if ((c = (struct spa_pod *) malloc(size)) == NULL)
+		return NULL;
+	return (struct spa_pod *) memcpy(c, pod, size);
+}
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

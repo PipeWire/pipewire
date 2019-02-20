@@ -147,11 +147,13 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 }
 
 SPA_EXPORT
-int pw_proxy_sync(struct pw_proxy *proxy, uint32_t seq)
+int pw_proxy_sync(struct pw_proxy *proxy)
 {
 	int res = -EIO;
-	if (proxy->remote->core_proxy != NULL)
-		res = pw_core_proxy_sync(proxy->remote->core_proxy, proxy->id, seq);
+	if (proxy->remote->core_proxy != NULL) {
+		res = pw_core_proxy_sync(proxy->remote->core_proxy, proxy->id);
+		pw_log_debug("proxy %p: %u sync %u", proxy, proxy->id, res);
+	}
 	return res;
 }
 

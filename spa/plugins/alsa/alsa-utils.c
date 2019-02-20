@@ -217,10 +217,9 @@ static void sanitize_map(snd_pcm_chmap_t* map)
 }
 
 int
-spa_alsa_enum_format(struct state *state, uint32_t *index,
+spa_alsa_enum_format(struct state *state, uint32_t start, uint32_t num,
 		     const struct spa_pod *filter,
-		     struct spa_pod **result,
-		     struct spa_pod_builder *builder)
+		     spa_result_func_t func, void *data)
 {
 	snd_pcm_t *hndl;
 	snd_pcm_hw_params_t *params;
@@ -237,10 +236,14 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 	int res;
 	bool opened;
 	struct spa_pod_frame f[2];
+	struct spa_result_node_enum_params result;
+	uint32_t count = 0;
 
 	opened = state->opened;
 	if ((err = spa_alsa_open(state)) < 0)
 		return err;
+
+	result.next = start;
 
       next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -313,12 +316,11 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 		uint32_t channel;
 		snd_pcm_chmap_t* map;
 
-		if (maps[*index] == NULL) {
-			res = 0;
+		if (maps[result.next] == NULL) {
 			snd_pcm_free_chmaps(maps);
-			goto exit;
+			goto enum_end;
 		}
-		map = &maps[*index]->map;
+		map = &maps[result.next]->map;
 
 		spa_log_debug(state->log, "map %d channels", map->channels);
 		sanitize_map(map);
@@ -336,10 +338,8 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 		snd_pcm_free_chmaps(maps);
 	}
 	else {
-		if (*index > 0) {
-			res = 0;
-			goto exit;
-		}
+		if (result.next > 0)
+			goto enum_end;
 
 		spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
 		choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b, &f[1]);
@@ -354,13 +354,19 @@ spa_alsa_enum_format(struct state *state, uint32_t *index,
 
 	fmt = spa_pod_builder_pop(&b, &f[0]);
 
-	(*index)++;
+	result.next++;
 
-	if ((res = spa_pod_filter(builder, result, fmt, filter)) < 0)
+	if ((res = spa_pod_filter(&b, &result.param, fmt, filter)) < 0)
 		goto next;
 
-	res = 1;
+	if ((res = func(data, count, 1, &result)) != 0)
+		goto exit;
 
+	if (++count != num)
+		goto next;
+
+      enum_end:
+	res = 0;
       exit:
 	if (!opened)
 		spa_alsa_close(state);

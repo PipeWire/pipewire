@@ -83,9 +83,6 @@ struct pw_node_events {
 	void (*state_changed) (void *data, enum pw_node_state old,
 			       enum pw_node_state state, const char *error);
 
-	/** an async operation completed on the node */
-	void (*async_complete) (void *data, uint32_t seq, int res);
-
         /** an event is emited */
 	void (*event) (void *data, const struct spa_event *event);
 
@@ -147,7 +144,8 @@ const struct pw_properties *pw_node_get_properties(struct pw_node *node);
 int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict);
 
 /** Set the node implementation */
-void pw_node_set_implementation(struct pw_node *node, struct spa_node *spa_node);
+int pw_node_set_implementation(struct pw_node *node, struct spa_node *spa_node);
+
 /** Get the node implementation */
 struct spa_node *pw_node_get_implementation(struct pw_node *node);
 

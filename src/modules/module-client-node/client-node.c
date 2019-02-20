@@ -146,6 +146,8 @@ struct node {
 
 	uint32_t n_params;
 	struct spa_pod **params;
+
+	struct spa_list pending_list;
 };
 
 struct impl {
@@ -163,6 +165,7 @@ struct impl {
 	struct spa_hook resource_listener;
 
 	struct pw_array mems;
+	uint32_t init_seq;
 
 	int fds[2];
 	int other_fds[2];
@@ -352,34 +355,47 @@ static void mix_clear(struct node *this, struct mix *mix)
 }
 
 static int impl_node_enum_params(struct spa_node *node,
-				 uint32_t id, uint32_t *index,
+				 uint32_t id, uint32_t start, uint32_t num,
 				 const struct spa_pod *filter,
-				 struct spa_pod **result,
-				 struct spa_pod_builder *builder)
+				 spa_result_func_t func, void *data)
 {
 	struct node *this;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = { 0 };
+	struct spa_result_node_enum_params result;
+	uint32_t count = 0;
+	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
-	spa_return_val_if_fail(index != NULL, -EINVAL);
-	spa_return_val_if_fail(builder != NULL, -EINVAL);
+	spa_return_val_if_fail(num != 0, -EINVAL);
+	spa_return_val_if_fail(func != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
+
+	result.next = start;
 
 	while (true) {
 		struct spa_pod *param;
 
-		if (*index >= this->n_params)
+		if (result.next >= this->n_params)
 			return 0;
 
-		param = this->params[(*index)++];
+		param = this->params[result.next++];
 
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
 
-		if (spa_pod_filter(builder, result, param, filter) == 0)
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
+			continue;
+
+		if ((res = func(data, count, 1, &result)) != 0)
+			return res;
+
+		if (++count != num)
 			break;
 	}
-	return 1;
+	return 0;
 }
 
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
@@ -392,7 +408,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (this->resource == NULL)
-		return 0;
+		return -EIO;
 
 	return pw_client_node_resource_set_param(this->resource, id, flags, param);
 }
@@ -410,8 +426,11 @@ static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
-	if (this->resource == NULL)
+	if (impl->this.flags & 1)
 		return 0;
+
+	if (this->resource == NULL)
+		return -EIO;
 
 	if (data) {
 		if ((mem = pw_memblock_find(data)) == NULL)
@@ -451,7 +470,7 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	if (this->resource == NULL)
-		return 0;
+		return -EIO;
 
 	pw_log_debug("client-node %p: send command %d", node, SPA_COMMAND_TYPE(command));
 	return pw_client_node_resource_command(this->resource, command);
@@ -460,9 +479,9 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 static void emit_port_info(struct node *this, struct port *port)
 {
-	if (this->callbacks && this->callbacks->port_info) {
-		this->callbacks->port_info(this->callbacks_data, port->direction, port->id, &port->info);
-	}
+	if (this->callbacks && this->callbacks->port_info)
+		this->callbacks->port_info(this->callbacks_data,
+				port->direction, port->id, &port->info);
 }
 
 static int
@@ -471,6 +490,7 @@ impl_node_set_callbacks(struct spa_node *node,
 			void *data)
 {
 	struct node *this;
+	int res = 0;
 	uint32_t i;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
@@ -478,6 +498,8 @@ impl_node_set_callbacks(struct spa_node *node,
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	this->callbacks = callbacks;
 	this->callbacks_data = data;
+
+	pw_log_debug("client-node %p: callbacks %p", this, callbacks);
 
 	for (i = 0; i < MAX_INPUTS; i++) {
 		if (this->in_ports[i])
@@ -487,17 +509,50 @@ impl_node_set_callbacks(struct spa_node *node,
 		if (this->out_ports[i])
 			emit_port_info(this, this->out_ports[i]);
 	}
-	return 0;
+	if (callbacks && this->resource)
+		res = pw_resource_sync(this->resource);
+
+	return res;
 }
 
 static int
-impl_node_sync(struct spa_node *node, uint32_t seq)
+impl_node_sync(struct spa_node *node)
 {
 	struct node *this;
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	this = SPA_CONTAINER_OF(node, struct node, node);
-	pw_log_debug("client-node %p: sync %u", node, seq);
-	return pw_resource_sync(this->resource, seq);
+	pw_log_debug("client-node %p: sync", node);
+	if (this->resource == NULL)
+		return -EIO;
+	return pw_resource_sync(this->resource);
+}
+
+static int
+impl_node_wait(struct spa_node *node, int res, struct spa_pending *pending,
+			spa_result_func_t func, void *data)
+{
+	struct node *this;
+	int seq;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(func != NULL, -EINVAL);
+	spa_return_val_if_fail(pending != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct node, node);
+
+	pw_log_debug("client-node %p: wait %d %d", node, res, SPA_RESULT_ASYNC_SEQ(res));
+	if (this->resource == NULL)
+		return -EIO;
+
+	seq = pw_resource_sync(this->resource);
+
+	pending->seq = seq;
+	pending->res = res;
+	pending->func = func;
+	pending->data = data;
+	spa_list_append(&this->pending_list, &pending->link);
+
+	return seq;
 }
 
 static void
@@ -520,7 +575,7 @@ do_update_port(struct node *this,
 		port->params = realloc(port->params, port->n_params * sizeof(struct spa_pod *));
 
 		for (i = 0; i < port->n_params; i++) {
-			port->params[i] = params[i] ? pw_spa_pod_copy(params[i]) : NULL;
+			port->params[i] = params[i] ? spa_pod_copy(params[i]) : NULL;
 
 			if (port->params[i] && spa_pod_is_object_id(port->params[i], SPA_PARAM_Format))
 				port->have_format = true;
@@ -608,17 +663,21 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 static int
 impl_node_port_enum_params(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
-			   uint32_t id, uint32_t *index,
+			   uint32_t id, uint32_t start, uint32_t num,
 			   const struct spa_pod *filter,
-			   struct spa_pod **result,
-			   struct spa_pod_builder *builder)
+			   spa_result_func_t func, void *data)
 {
 	struct node *this;
 	struct port *port;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = { 0 };
+	struct spa_result_node_enum_params result;
+	uint32_t count = 0;
+	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
-	spa_return_val_if_fail(index != NULL, -EINVAL);
-	spa_return_val_if_fail(builder != NULL, -EINVAL);
+	spa_return_val_if_fail(num != 0, -EINVAL);
+	spa_return_val_if_fail(func != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 
@@ -629,21 +688,30 @@ impl_node_port_enum_params(struct spa_node *node,
 	pw_log_debug("client-node %p: port %d.%d", this,
 			direction, port_id);
 
+	result.next = start;
+
 	while (true) {
 		struct spa_pod *param;
 
-		if (*index >= port->n_params)
+		if (result.next >= port->n_params)
 			return 0;
 
-		param = port->params[(*index)++];
+		param = port->params[result.next++];
 
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
 
-		if (spa_pod_filter(builder, result, param, filter) == 0)
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if (spa_pod_filter(&b, &result.param, param, filter) < 0)
+			continue;
+
+		if ((res = func(data, count, 1, &result)) != 0)
+			return res;
+
+		if (++count != num)
 			break;
 	}
-	return 1;
+	return 0;
 }
 
 static int
@@ -661,7 +729,7 @@ impl_node_port_set_param(struct spa_node *node,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	if (this->resource == NULL)
-		return 0;
+		return -EIO;
 
 	pw_log_debug("node %p: port %d.%d add param %s %d", this,
 			direction, port_id,
@@ -692,7 +760,7 @@ static int do_port_set_io(struct impl *impl,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	if (this->resource == NULL)
-		return 0;
+		return -EIO;
 
 	port = GET_PORT(this, direction, port_id);
 
@@ -781,7 +849,7 @@ do_port_use_buffers(struct impl *impl,
 	mix->n_buffers = n_buffers;
 
 	if (this->resource == NULL)
-		return 0;
+		return -EIO;
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
@@ -963,7 +1031,7 @@ client_node_update(void *data,
 		this->params = realloc(this->params, this->n_params * sizeof(struct spa_pod *));
 
 		for (i = 0; i < this->n_params; i++)
-			this->params[i] = params[i] ? pw_spa_pod_copy(params[i]) : NULL;
+			this->params[i] = params[i] ? spa_pod_copy(params[i]) : NULL;
 	}
 	if (change_mask & PW_CLIENT_NODE_UPDATE_PROPS) {
 		pw_node_update_properties(impl->this.node, props);
@@ -1068,6 +1136,7 @@ static const struct spa_node impl_node = {
 	NULL,
 	.set_callbacks = impl_node_set_callbacks,
 	.sync = impl_node_sync,
+	.wait = impl_node_wait,
 	.enum_params = impl_node_enum_params,
 	.set_param = impl_node_set_param,
 	.set_io = impl_node_set_io,
@@ -1109,6 +1178,7 @@ node_init(struct node *this,
 	}
 
 	this->node = impl_node;
+	spa_list_init(&this->pending_list);
 
 	init_ios(this->ios);
 
@@ -1174,18 +1244,24 @@ static void client_node_resource_error(void *data, int res, const char *message)
 	struct impl *impl = data;
 	struct node *this = &impl->node;
 	pw_log_error("client-node %p: error %d: %s", this, res, message);
-	if (this->callbacks && this->callbacks->error)
-		this->callbacks->error(this->callbacks_data, res, message);
 }
 
 static void client_node_resource_done(void *data, uint32_t seq)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
+	struct spa_pending *p, *t;
 
 	pw_log_debug("client-node %p: done %d", this, seq);
-	if (this->callbacks && this->callbacks->done)
-		this->callbacks->done(this->callbacks_data, SPA_RESULT_ASYNC_SEQ(seq));
+
+	spa_list_for_each_safe(p, t, &this->pending_list, link) {
+		pw_log_debug("client-node %p: check %d", this, p->seq);
+		if (p->seq == (int) seq) {
+			pw_log_debug("client-node %p: found %d", this, p->res);
+			p->func(p->data, p->res, 0, NULL);
+			spa_list_remove(&p->link);
+		}
+	}
 }
 
 void pw_client_node_registered(struct pw_client_node *this, uint32_t node_id)
@@ -1318,14 +1394,13 @@ static const struct pw_port_implementation port_impl = {
 static int
 impl_mix_port_enum_params(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
-			   uint32_t id, uint32_t *index,
+			   uint32_t id, uint32_t start, uint32_t num,
 			   const struct spa_pod *filter,
-			   struct spa_pod **result,
-			   struct spa_pod_builder *builder)
+			   spa_result_func_t func, void *data)
 {
 	struct port *port = SPA_CONTAINER_OF(node, struct port, mix_node);
 	return impl_node_port_enum_params(&port->node->node, direction, port->id,
-			id, index, filter, result, builder);
+			id, start, num, filter, func, data);
 }
 
 static int
@@ -1597,6 +1672,8 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	support = pw_core_get_support(impl->core, &n_support);
 	node_init(&impl->node, NULL, support, n_support);
 	impl->node.impl = impl;
+	impl->node.resource = resource;
+	this->flags = do_register ? 0 : 1;
 
 	pw_map_init(&impl->io_map, 64, 64);
 	pw_array_init(&impl->mems, 64);
@@ -1610,7 +1687,6 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 				     pw_resource_get_client(this->resource),
 				     parent,
 				     name,
-				     PW_SPA_NODE_FLAG_ASYNC |
 				     (do_register ? 0 : PW_SPA_NODE_FLAG_NO_REGISTER),
 				     &impl->node.node,
 				     NULL,
@@ -1619,6 +1695,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 		goto error_no_node;
 
 	this->node->remote = true;
+	this->flags = 0;
 
 	spa_graph_node_set_callbacks(&this->node->rt.root, &root_impl, this);
 
@@ -1630,12 +1707,9 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 				       &client_node_methods,
 				       impl);
 
-	impl->node.resource = this->resource;
 	this->node->port_user_data_size = sizeof(struct port);
 
 	pw_node_add_listener(this->node, &impl->node_listener, &node_events, impl);
-
-	pw_resource_sync(this->resource, 0);
 
 	return this;
 

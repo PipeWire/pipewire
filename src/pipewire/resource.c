@@ -170,11 +170,13 @@ const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *re
 }
 
 SPA_EXPORT
-int pw_resource_sync(struct pw_resource *resource, uint32_t seq)
+int pw_resource_sync(struct pw_resource *resource)
 {
 	int res = -EIO;
-	if (resource->client->core_resource != NULL)
-		res = pw_core_resource_sync(resource->client->core_resource, resource->id, seq);
+	if (resource->client->core_resource != NULL) {
+		res = pw_core_resource_sync(resource->client->core_resource, resource->id);
+		pw_log_debug("resource %p: %u sync %u", resource, resource->id, res);
+	}
 	return res;
 }
 

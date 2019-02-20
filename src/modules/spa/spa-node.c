@@ -31,6 +31,7 @@
 #include <dlfcn.h>
 
 #include <spa/node/node.h>
+#include <spa/node/utils.h>
 #include <spa/param/props.h>
 #include <spa/pod/iter.h>
 #include <spa/debug/types.h>
@@ -48,7 +49,6 @@ struct impl {
 	struct pw_global *parent;
 
 	enum pw_spa_node_flags flags;
-	bool async_init;
 
 	void *hnd;
         struct spa_handle *handle;
@@ -57,8 +57,11 @@ struct impl {
 	char *factory_name;
 
 	struct spa_hook node_listener;
+	struct spa_pending init_pending;
 
 	void *user_data;
+
+	int async_init:1;
 };
 
 static void pw_spa_node_free(void *data)
@@ -79,7 +82,7 @@ static void pw_spa_node_free(void *data)
 		dlclose(impl->hnd);
 }
 
-static void complete_init(struct impl *impl)
+static int complete_init(struct impl *impl)
 {
         struct pw_node *this = impl->this;
 
@@ -93,24 +96,20 @@ static void complete_init(struct impl *impl)
 		pw_node_register(this, impl->owner, impl->parent, NULL);
 	else
 		pw_node_initialized(this);
+	return 0;
 }
 
-static void on_node_done(void *data, uint32_t seq, int res)
+static int on_init_done(void *data, int seq, int res, const void *result)
 {
         struct impl *impl = data;
         struct pw_node *this = impl->this;
-
-	if (impl->async_init) {
-		complete_init(impl);
-		impl->async_init = false;
-	}
-        pw_log_debug("spa-node %p: async complete event %d %d", this, seq, res);
+        pw_log_debug("spa-node %p: init complete event %d %d", this, seq, res);
+	return complete_init(impl);
 }
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.free = pw_spa_node_free,
-	.async_complete = on_node_done,
 };
 
 struct pw_node *
@@ -126,6 +125,7 @@ pw_spa_node_new(struct pw_core *core,
 {
 	struct pw_node *this;
 	struct impl *impl;
+	int res;
 
 	this = pw_node_new(core, name, properties, sizeof(struct impl) + user_data_size);
 	if (this == NULL)
@@ -137,18 +137,27 @@ pw_spa_node_new(struct pw_core *core,
 	impl->parent = parent;
 	impl->node = node;
 	impl->flags = flags;
-	impl->async_init = flags & PW_SPA_NODE_FLAG_ASYNC;
 
 	if (user_data_size > 0)
                 impl->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	pw_node_add_listener(this, &impl->node_listener, &node_events, impl);
-	pw_node_set_implementation(this, impl->node);
+	res = pw_node_set_implementation(this, impl->node);
 
-	if (!impl->async_init)
+	if (res < 0)
+		goto clean_node;
+
+	if (SPA_RESULT_IS_ASYNC(res)) {
+		spa_node_wait(impl->node, res, &impl->init_pending, on_init_done, impl);
+	} else {
 		complete_init(impl);
-
+	}
 	return this;
+
+    clean_node:
+	pw_node_destroy(this);
+	return NULL;
+
 }
 
 void *pw_spa_node_get_user_data(struct pw_node *node)
@@ -169,7 +178,8 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	const struct spa_pod_prop *prop = NULL;
 
-	if ((res = spa_node_enum_params(spa_node, SPA_PARAM_Props, &index, NULL, &props, &b)) <= 0) {
+	if ((res = spa_node_enum_params_sync(spa_node,
+					SPA_PARAM_Props, &index, NULL, &props, &b)) != 1) {
 		pw_log_debug("spa_node_get_props failed: %d", res);
 		return res;
 	}
@@ -290,8 +300,6 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 		pw_log_error("can't make factory instance: %d", res);
 		goto init_failed;
 	}
-	if (SPA_RESULT_IS_ASYNC(res))
-		flags |= PW_SPA_NODE_FLAG_ASYNC;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
 		pw_log_error("can't get node interface %d", res);

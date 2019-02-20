@@ -73,10 +73,9 @@ struct impl {
 };
 
 static int impl_node_enum_params(struct spa_node *node,
-					   uint32_t id, uint32_t *index,
-					   const struct spa_pod *filter,
-					   struct spa_pod **result,
-					   struct spa_pod_builder *builder)
+			uint32_t id, uint32_t start, uint32_t num,
+			const struct spa_pod *filter,
+			spa_result_func_t func, void *data)
 {
 	return -ENOTSUP;
 }
@@ -163,22 +162,19 @@ impl_node_remove_port(struct spa_node *node,
 
 static int port_enum_formats(struct spa_node *node,
 			     enum spa_direction direction, uint32_t port_id,
-			     uint32_t *index,
+			     uint32_t index,
 			     const struct spa_pod *filter,
 			     struct spa_pod **param,
 			     struct spa_pod_builder *builder)
 {
 	//struct impl *this;
 
-	if (node == NULL || index == NULL)
-		return -EINVAL;
-
 	//this = SPA_CONTAINER_OF (node, struct impl, node);
 
 	if (!IS_VALID_PORT(this, direction, port_id))
 		return -EINVAL;
 
-	switch (*index) {
+	switch (index) {
 	case 0:
 		*param = NULL;
 		break;
@@ -190,7 +186,7 @@ static int port_enum_formats(struct spa_node *node,
 
 static int port_get_format(struct spa_node *node,
 			   enum spa_direction direction, uint32_t port_id,
-			   uint32_t *index,
+			   uint32_t index,
 			   const struct spa_pod *filter,
 			   struct spa_pod **param,
 			   struct spa_pod_builder *builder)
@@ -203,7 +199,7 @@ static int port_get_format(struct spa_node *node,
 	if (!port->have_format)
 		return -EIO;
 
-	if (*index > 0)
+	if (index > 0)
 		return 0;
 
 	*param = NULL;
@@ -213,16 +209,19 @@ static int port_get_format(struct spa_node *node,
 
 static int
 impl_node_port_enum_params(struct spa_node *node,
-				     enum spa_direction direction, uint32_t port_id,
-				     uint32_t id, uint32_t *index,
-				     const struct spa_pod *filter,
-				     struct spa_pod **result,
-				     struct spa_pod_builder *builder)
+			enum spa_direction direction, uint32_t port_id,
+			uint32_t id, uint32_t start, uint32_t num,
+			const struct spa_pod *filter,
+			spa_result_func_t func, void *data)
 {
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 	struct spa_pod *param;
+	struct spa_result_node_enum_params result;
+	uint32_t count = 0;
 	int res;
+
+	result.next = start;
 
       next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -233,21 +232,23 @@ impl_node_port_enum_params(struct spa_node *node,
 		uint32_t list[] = { SPA_PARAM_EnumFormat,
 				    SPA_PARAM_Format };
 
-		if (*index < SPA_N_ELEMENTS(list))
+		if (result.next < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[*index]));
+					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.next]));
 		else
 			return 0;
 		break;
 	}
 	case SPA_PARAM_EnumFormat:
-		if ((res = port_enum_formats(node, direction, port_id, index, filter, &param, &b)) <= 0)
+		if ((res = port_enum_formats(node, direction, port_id,
+						result.next, filter, &param, &b)) <= 0)
 			return res;
 		break;
 
 	case SPA_PARAM_Format:
-		if ((res = port_get_format(node, direction, port_id, index, filter, &param, &b)) <= 0)
+		if ((res = port_get_format(node, direction, port_id,
+						result.next, filter, &param, &b)) <= 0)
 			return res;
 		break;
 
@@ -255,12 +256,18 @@ impl_node_port_enum_params(struct spa_node *node,
 		return -ENOENT;
 	}
 
-	(*index)++;
+	result.next++;
 
-	if (spa_pod_filter(builder, result, param, filter) < 0)
+	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	return 1;
+	if ((res = func(data, count, 1, &result)) != 0)
+		return res;
+
+	if (++count != num)
+		goto next;
+
+	return 0;
 }
 
 static int port_set_format(struct spa_node *node,

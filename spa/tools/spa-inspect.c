@@ -32,6 +32,7 @@
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
 #include <spa/node/node.h>
+#include <spa/node/utils.h>
 #include <spa/pod/parser.h>
 #include <spa/param/param.h>
 #include <spa/param/format.h>
@@ -63,9 +64,9 @@ inspect_node_params(struct data *data, struct spa_node *node)
 		uint32_t id;
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if ((res = spa_node_enum_params(node,
+		if ((res = spa_node_enum_params_sync(node,
 						SPA_PARAM_List, &idx1,
-						NULL, &param, &b)) <= 0) {
+						NULL, &param, &b)) != 1) {
 			if (res != 0)
 				error(0, -res, "enum_params");
 			break;
@@ -78,9 +79,9 @@ inspect_node_params(struct data *data, struct spa_node *node)
 		printf("enumerating: %s:\n", spa_debug_type_find_name(spa_type_param, id));
 		for (idx2 = 0;;) {
 			spa_pod_builder_init(&b, buffer, sizeof(buffer));
-			if ((res = spa_node_enum_params(node,
+			if ((res = spa_node_enum_params_sync(node,
 							id, &idx2,
-							NULL, &param, &b)) <= 0) {
+							NULL, &param, &b)) != 1) {
 				if (res != 0)
 					error(0, -res, "enum_params %d", id);
 				break;
@@ -104,10 +105,10 @@ inspect_port_params(struct data *data, struct spa_node *node,
 		uint32_t id;
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if ((res = spa_node_port_enum_params(node,
+		if ((res = spa_node_port_enum_params_sync(node,
 						     direction, port_id,
 						     SPA_PARAM_List, &idx1,
-						     NULL, &param, &b)) <= 0) {
+						     NULL, &param, &b)) != 1) {
 			if (res != 0)
 				error(0, -res, "port_enum_params");
 			break;
@@ -119,10 +120,10 @@ inspect_port_params(struct data *data, struct spa_node *node,
 		printf("enumerating: %s:\n", spa_debug_type_find_name(spa_type_param, id));
 		for (idx2 = 0;;) {
 			spa_pod_builder_init(&b, buffer, sizeof(buffer));
-			if ((res = spa_node_port_enum_params(node,
+			if ((res = spa_node_port_enum_params_sync(node,
 							     direction, port_id,
 							     id, &idx2,
-							     NULL, &param, &b)) <= 0) {
+							     NULL, &param, &b)) != 1) {
 				if (res != 0)
 					error(0, -res, "port_enum_params");
 				break;

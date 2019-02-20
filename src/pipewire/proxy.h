@@ -151,8 +151,8 @@ uint32_t pw_proxy_get_id(struct pw_proxy *proxy);
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
 
 /** Generate an sync method for a proxy. This will generate a done event
- * with the same \a seq. */
-int pw_proxy_sync(struct pw_proxy *proxy, uint32_t seq);
+ * with the same seq number of the reply. */
+int pw_proxy_sync(struct pw_proxy *proxy);
 
 /** Generate an error for a proxy */
 int pw_proxy_error(struct pw_proxy *proxy, int result, const char *error, ...);

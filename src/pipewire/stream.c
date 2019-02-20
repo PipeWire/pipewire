@@ -142,7 +142,7 @@ static struct param *add_param(struct pw_stream *stream,
 	struct param *p;
 	struct spa_pod *copy = NULL;
 
-	if (param != NULL && (copy = pw_spa_pod_copy(param)) == NULL)
+	if (param != NULL && (copy = spa_pod_copy(param)) == NULL)
 		return NULL;
 
 	p = pw_array_add(&impl->params, sizeof(struct param));
@@ -378,49 +378,65 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 
 static int impl_port_enum_params(struct spa_node *node,
 				 enum spa_direction direction, uint32_t port_id,
-				 uint32_t id, uint32_t *index,
+				 uint32_t id, uint32_t start, uint32_t num,
 				 const struct spa_pod *filter,
-				 struct spa_pod **result,
-				 struct spa_pod_builder *builder)
+				 spa_result_func_t func, void *data)
 {
 	struct stream *d = SPA_CONTAINER_OF(node, struct stream, impl_node);
 	struct spa_pod *param;
 	uint32_t last_id = SPA_ID_INVALID;
 	uint32_t n_params = pw_array_get_len(&d->params, struct param);
+	struct spa_result_node_enum_params result;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = { 0 };
+	uint32_t count = 0;
+	int res;
+
+	result.next = start;
+
+      next:
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	while (true) {
-		if (*index < n_params) {
-			param = pw_array_get_unchecked(&d->params, *index, struct param)->param;
+		if (result.next < n_params) {
+			param = pw_array_get_unchecked(&d->params, result.next, struct param)->param;
 		}
 		else if (last_id != SPA_ID_INVALID)
-			return 1;
+			break;
 		else
 			return 0;
 
-		(*index)++;
+		result.next++;
 
 		if (id == SPA_PARAM_List) {
 			uint32_t new_id = ((struct spa_pod_object *) param)->body.id;
 
 			if (last_id == SPA_ID_INVALID){
-				*result = spa_pod_builder_add_object(builder,
+				result.param = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamList, id,
 					SPA_PARAM_LIST_id, SPA_POD_Id(new_id));
 				last_id = new_id;
 			}
 			else if (last_id != new_id) {
-				(*index)--;
+				result.next--;
 				break;
 			}
 		} else {
 			if (param == NULL || !spa_pod_is_object_id(param, id))
 				continue;
 
-			if (spa_pod_filter(builder, result, param, filter) == 0)
+			if (spa_pod_filter(&b, &result.param, param, filter) == 0)
 				break;
 		}
 	}
-	return 1;
+
+	if ((res = func(data, count, 1, &result)) != 0)
+		return res;
+
+	if (++count != num)
+		goto next;
+
+	return 0;
 }
 
 static int port_set_format(struct spa_node *node,

@@ -440,7 +440,7 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 	}
 	if (update->change_mask & PW_LINK_CHANGE_MASK_FORMAT) {
 		free(info->format);
-		info->format = update->format ? pw_spa_pod_copy(update->format) : NULL;
+		info->format = update->format ? spa_pod_copy(update->format) : NULL;
 	}
 	if (update->change_mask & PW_LINK_CHANGE_MASK_PROPS) {
 		if (info->props)

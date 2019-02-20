@@ -27,6 +27,7 @@
 #include <errno.h>
 
 #include <spa/pod/parser.h>
+#include <spa/node/utils.h>
 #include <spa/debug/types.h>
 
 #include "pipewire/pipewire.h"
@@ -463,6 +464,7 @@ static const struct pw_resource_events resource_events = {
 static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct pw_resource *resource = data;
+	pw_log_debug("resource %p: reply param %d %d %d", resource, id, index, next);
 	pw_port_resource_param(resource, id, index, next, param);
 	return 0;
 }
@@ -474,6 +476,7 @@ static int port_enum_params(void *object, uint32_t id, uint32_t index, uint32_t 
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_port *port = data->port;
 	int res;
+	pw_log_debug("resource %p: enum params", resource);
 
 	if ((res = pw_port_for_each_param(port, id, index, num, filter,
 			reply_param, resource)) < 0)
@@ -758,15 +761,17 @@ int pw_port_for_each_param(struct pw_port *port,
 	for (count = 0; count < max; count++) {
 		spa_pod_builder_init(&b, buf, sizeof(buf));
 		idx = index;
-		if ((res = spa_node_port_enum_params(node->node,
+		if ((res = spa_node_port_enum_params_sync(node->node,
 						     port->direction, port->port_id,
 						     param_id, &index,
-						     filter, &param, &b)) <= 0)
+						     filter, &param, &b)) != 1)
 			break;
 
+		pw_log_debug("port %p: have param %d %u %u", port, param_id, idx, index);
 		if ((res = callback(data, param_id, idx, index, param)) != 0)
 			break;
 	}
+	pw_log_debug("port %p: res %d", port, res);
 	return res;
 }
 

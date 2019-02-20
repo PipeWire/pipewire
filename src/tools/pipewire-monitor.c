@@ -52,7 +52,6 @@ struct data {
 	struct pw_registry_proxy *registry_proxy;
 	struct spa_hook registry_listener;
 
-	uint32_t seq;
 	struct spa_list pending_list;
 };
 
@@ -81,8 +80,7 @@ static void add_pending(struct proxy_data *pd)
 	struct data *d = pd->data;
 
 	spa_list_append(&d->pending_list, &pd->pending_link);
-	pd->pending_seq = ++d->seq;
-	pw_core_proxy_sync(d->core_proxy, 0, pd->pending_seq);
+	pd->pending_seq = pw_core_proxy_sync(d->core_proxy, 0);
 }
 
 static void remove_pending(struct proxy_data *pd)
@@ -126,7 +124,7 @@ static int add_param(struct proxy_data *data, const struct spa_pod *param)
         data->params = realloc(data->params, sizeof(struct spa_pod *) * data->n_params);
 	if (data->params == NULL)
 		return -ENOMEM;
-        data->params[idx] = pw_spa_pod_copy(param);
+        data->params[idx] = spa_pod_copy(param);
 	return 0;
 }
 
@@ -710,7 +708,6 @@ int main(int argc, char *argv[])
 	if (pw_remote_connect(data.remote) < 0)
 		return -1;
 
-	data.seq = 1;
 	spa_list_init(&data.pending_list);
 
 	pw_main_loop_run(data.loop);

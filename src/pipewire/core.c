@@ -29,6 +29,7 @@
 #include <pipewire/log.h>
 
 #include <spa/support/dbus.h>
+#include <spa/node/utils.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
 
@@ -831,10 +832,10 @@ int pw_core_find_format(struct pw_core *core,
 
 	if (in_state == PW_PORT_STATE_CONFIGURE && out_state > PW_PORT_STATE_CONFIGURE) {
 		/* only input needs format */
-		if ((res = spa_node_port_enum_params(output->node->node,
+		if ((res = spa_node_port_enum_params_sync(output->node->node,
 						     output->direction, output->port_id,
 						     SPA_PARAM_Format, &oidx,
-						     NULL, format, builder)) <= 0) {
+						     NULL, format, builder)) != 1) {
 			if (res == 0)
 				res = -EBADF;
 			asprintf(error, "error get output format: %s", spa_strerror(res));
@@ -845,10 +846,10 @@ int pw_core_find_format(struct pw_core *core,
 			spa_debug_format(2, NULL, *format);
 	} else if (out_state >= PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
 		/* only output needs format */
-		if ((res = spa_node_port_enum_params(input->node->node,
+		if ((res = spa_node_port_enum_params_sync(input->node->node,
 						     input->direction, input->port_id,
 						     SPA_PARAM_Format, &iidx,
-						     NULL, format, builder)) <= 0) {
+						     NULL, format, builder)) != 1) {
 			if (res == 0)
 				res = -EBADF;
 			asprintf(error, "error get input format: %s", spa_strerror(res));
@@ -865,10 +866,10 @@ int pw_core_find_format(struct pw_core *core,
 		/* both ports need a format */
 		pw_log_debug("core %p: do enum input %d", core, iidx);
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
-		if ((res = spa_node_port_enum_params(input->node->node,
+		if ((res = spa_node_port_enum_params_sync(input->node->node,
 						     input->direction, input->port_id,
 						     SPA_PARAM_EnumFormat, &iidx,
-						     NULL, &filter, &fb)) <= 0) {
+						     NULL, &filter, &fb)) != 1) {
 			if (res == 0 && iidx == 0) {
 				asprintf(error, "error input enum formats: %s", spa_strerror(res));
 				goto error;
@@ -880,10 +881,10 @@ int pw_core_find_format(struct pw_core *core,
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_format(2, NULL, filter);
 
-		if ((res = spa_node_port_enum_params(output->node->node,
+		if ((res = spa_node_port_enum_params_sync(output->node->node,
 						     output->direction, output->port_id,
 						     SPA_PARAM_EnumFormat, &oidx,
-						     filter, format, builder)) <= 0) {
+						     filter, format, builder)) != 1) {
 			if (res == 0) {
 				oidx = 0;
 				goto again;

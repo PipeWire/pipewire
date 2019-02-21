@@ -200,7 +200,7 @@ static void *create_object(void *_data,
 	else {
 		global = pw_core_find_global(core, input_port_id);
 		if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Port)
-			goto no_output_port;
+			goto no_input_port;
 
 		inport = pw_global_get_object(global);
 	}

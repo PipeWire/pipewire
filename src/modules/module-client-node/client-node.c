@@ -1251,17 +1251,18 @@ static void client_node_resource_done(void *data, uint32_t seq)
 	struct impl *impl = data;
 	struct node *this = &impl->node;
 	struct spa_pending *p, *t;
-
-	pw_log_debug("client-node %p: done %d", this, seq);
+	uint32_t count = 0;
 
 	spa_list_for_each_safe(p, t, &this->pending_list, link) {
-		pw_log_debug("client-node %p: check %d", this, p->seq);
 		if (p->seq == (int) seq) {
-			pw_log_debug("client-node %p: found %d", this, p->res);
+			pw_log_debug("client-node %p: do callback %d", this, p->res);
 			p->func(p->data, p->res, 0, NULL);
 			spa_list_remove(&p->link);
+			count++;
 		}
 	}
+	if (count == 0)
+		pw_log_warn("client-node %p: unhandled done %d", this, seq);
 }
 
 void pw_client_node_registered(struct pw_client_node *this, uint32_t node_id)

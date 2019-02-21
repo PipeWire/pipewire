@@ -1146,7 +1146,8 @@ pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t po
 				port = p;
 		}
 	}
-	pw_log_debug("node %p: return port %p", node, port);
+	pw_log_debug("node %p: return %s port %d: %p", node,
+			pw_direction_as_string(direction), port_id, port);
 	return port;
 }
 

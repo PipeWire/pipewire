@@ -165,7 +165,7 @@ static int complete_input(void *data, int seq, int res, const void *result)
 {
 	struct pw_link *this = data;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	struct pw_node *node = this->output->node;
+	struct pw_node *node = this->input->node;
 	seq = SPA_RESULT_ASYNC_SEQ(seq);
 	pw_log_debug("link %p: node %p async complete %d %d", impl, node, seq, res);
 	pw_work_queue_complete(impl->work, node, seq, res);

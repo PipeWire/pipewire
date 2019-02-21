@@ -227,6 +227,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	case SPA_PARAM_Profile:
 		if (impl->started)
 			return -EIO;
+		pw_log_debug("set profile %d", id);
 		if (impl->adapter != impl->cnode) {
 			if ((res = spa_node_set_param(impl->adapter, id, flags, param)) < 0)
 				return res;

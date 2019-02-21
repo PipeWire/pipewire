@@ -37,20 +37,17 @@ struct spa_result_node_enum_params_data {
 };
 
 static inline int spa_result_func_node_enum_params(void *data,
-		int seq, int res, const void *result)
+		uint32_t count, const void *result)
 {
 	struct spa_result_node_enum_params_data *d =
 		(struct spa_result_node_enum_params_data *)data;
 	const struct spa_result_node_enum_params *r =
 		(const struct spa_result_node_enum_params *)result;
-
-	if (res == 1) {
-		uint32_t offset = d->builder->state.offset;
-		spa_pod_builder_raw_padded(d->builder, r->param, SPA_POD_SIZE(r->param));
-		d->data.next = r->next;
-		d->data.param = SPA_MEMBER(d->builder->data, offset, struct spa_pod);
-	}
-	return res;
+	uint32_t offset = d->builder->state.offset;
+	spa_pod_builder_raw_padded(d->builder, r->param, SPA_POD_SIZE(r->param));
+	d->data.next = r->next;
+	d->data.param = SPA_MEMBER(d->builder->data, offset, struct spa_pod);
+	return 1;
 }
 
 static inline int spa_node_enum_params_sync(struct spa_node *node,

@@ -812,7 +812,7 @@ spa_v4l2_enum_format(struct impl *this,
 	result.param = spa_pod_builder_pop(&b, &f[0]);
 	result.next++;
 
-	if ((res = func(data, count, 1, &result)) != 0)
+	if ((res = func(data, count, &result)) != 0)
 		goto exit;
 
 	if (++count != num)
@@ -1142,7 +1142,7 @@ spa_v4l2_enum_controls(struct impl *this,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = func(data, count, 1, &result)) != 0)
+	if ((res = func(data, count, &result)) != 0)
 		goto exit;
 
 	if (++count != num)

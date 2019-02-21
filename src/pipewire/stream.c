@@ -430,7 +430,7 @@ static int impl_port_enum_params(struct spa_node *node,
 		}
 	}
 
-	if ((res = func(data, count, 1, &result)) != 0)
+	if ((res = func(data, count, &result)) != 0)
 		return res;
 
 	if (++count != num)

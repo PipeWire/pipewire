@@ -170,7 +170,7 @@ static int impl_node_enum_params(struct spa_node *node,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = func(data, count, 1, &result)) != 0)
+	if ((res = func(data, count, &result)) != 0)
 		return res;
 
 	if (++count != num)
@@ -350,7 +350,7 @@ impl_node_sync(struct spa_node *node)
 
 static int
 impl_node_wait(struct spa_node *node, int seq, struct spa_pending *pending,
-		spa_result_func_t func, void *data)
+		spa_pending_func_t func, void *data)
 {
 	struct node *this;
 	struct impl *impl;

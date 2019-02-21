@@ -43,15 +43,18 @@ extern "C" {
 #define SPA_RESULT_ASYNC_SEQ(res)	((res) & SPA_ASYNC_SEQ_MASK)
 #define SPA_RESULT_RETURN_ASYNC(seq)	(SPA_ASYNC_BIT | SPA_RESULT_ASYNC_SEQ(seq))
 
-typedef int (*spa_result_func_t) (void *data, int seq, int res, const void *result);
+typedef int (*spa_result_func_t) (void *data, uint32_t count, const void *result);
+
+struct spa_pending;
+
+typedef int (*spa_pending_func_t) (struct spa_pending *pending, const void *result);
 
 struct spa_pending {
-	struct spa_list link;
-	int seq;
-	int res;
-	spa_result_func_t func;
-	void *data;
-	void (*removed) (struct spa_pending *pending);
+	struct spa_list link;		/**< link used internally */
+	int seq;			/**< sequence number of pending result */
+	int res;			/**< result code of operation */
+	spa_pending_func_t func;	/**< callback function */
+	void *data;			/**< extra user data */
 };
 
 #ifdef __cplusplus

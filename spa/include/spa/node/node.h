@@ -212,15 +212,15 @@ struct spa_node {
 	 * The hook is automatically removed after the hook is called.
 	 *
 	 * \param node a spa_node
-	 * \param res an async return value to wait for
+	 * \param seq an async return value to wait for
 	 * \param pending a spa_pending structure
 	 * \param func a result callback
 	 * \param data data passed to \a func
 	 * \return 0 on success
 	 *         -EINVAL when node is NULL
 	 */
-	int (*wait) (struct spa_node *node, int res, struct spa_pending *pending,
-			   spa_result_func_t func, void *data);
+	int (*wait) (struct spa_node *node, int seq, struct spa_pending *pending,
+			   spa_pending_func_t func, void *data);
 
 	/**
 	 * Enumerate the parameters of a node.

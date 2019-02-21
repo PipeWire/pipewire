@@ -99,11 +99,11 @@ static int complete_init(struct impl *impl)
 	return 0;
 }
 
-static int on_init_done(void *data, int seq, int res, const void *result)
+static int on_init_done(struct spa_pending *pending, const void *result)
 {
-        struct impl *impl = data;
+        struct impl *impl = pending->data;
         struct pw_node *this = impl->this;
-        pw_log_debug("spa-node %p: init complete event %d %d", this, seq, res);
+        pw_log_debug("spa-node %p: init complete event %d %d", this, pending->seq, pending->res);
 	return complete_init(impl);
 }
 

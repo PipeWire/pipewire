@@ -50,7 +50,6 @@ struct impl {
 	struct pw_node this;
 
 	struct pw_work_queue *work;
-	bool pause_on_idle;
 
 	struct spa_graph driver_graph;
 	struct spa_graph_state driver_state;
@@ -62,7 +61,9 @@ struct impl {
 
 	uint32_t next_position;
 	int last_error;
-	struct spa_pending init_pending;
+
+	struct spa_pending pending_state;
+	int pause_on_idle:1;
 };
 
 struct resource_data {
@@ -837,33 +838,13 @@ static int node_port_info(void *data, enum spa_direction direction, uint32_t por
 	return 0;
 }
 
-struct node_pending {
-	struct spa_pending pending;
-	struct impl *impl;
-	enum pw_node_state state;
-};
-
-static void remove_pending(struct spa_pending *pending)
+static int node_complete(struct spa_pending *pending, const void *result)
 {
-	free(pending);
-}
-
-static struct node_pending *make_pending(struct impl *impl, enum pw_node_state state)
-{
-	struct node_pending *pending;
-	pending = calloc(1, sizeof(struct node_pending));
-	pending->pending.removed = remove_pending;
-	pending->impl = impl;
-	pending->state = state;
-	return pending;
-}
-
-static int node_complete(void *data, int seq, int res, const void *result)
-{
-	struct node_pending *pending = data;
-	struct impl *impl = pending->impl;
-	seq = SPA_RESULT_ASYNC_SEQ(seq);
-	pw_log_debug("node %p: done event %d %u", impl, res, pending->pending.seq);
+	struct impl *impl = pending->data;
+	uint32_t seq = SPA_RESULT_ASYNC_SEQ(pending->seq);
+	int res = pending->res;
+	pending->res = 0;
+	pw_log_debug("node %p: done event %d %u", impl, res, pending->seq);
 	impl->last_error = res;
         pw_work_queue_complete(impl->work, &impl->this, seq, res);
 	return 0;
@@ -933,28 +914,16 @@ static const struct spa_node_callbacks node_callbacks = {
 	.reuse_buffer = node_reuse_buffer,
 };
 
-static int init_result(void *data, int seq, int res, const void *result)
-{
-	pw_log_debug("node %p: set_callbacks finished", data);
-	return 0;
-}
-
 SPA_EXPORT
 int pw_node_set_implementation(struct pw_node *node,
 			struct spa_node *spa_node)
 {
 	int res;
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
 	node->node = spa_node;
 	pw_log_debug("node %p: implementation %p", node, spa_node);
 	spa_graph_node_set_callbacks(&node->rt.node, &spa_graph_node_impl_default, spa_node);
 	res = spa_node_set_callbacks(node->node, &node_callbacks, node);
-
-	if (SPA_RESULT_IS_ASYNC(res)) {
-		pw_log_debug("node %p: init is async %d", node, res);
-		spa_node_wait(node->node, res, &impl->init_pending, init_result, node);
-	}
 
 	if (spa_node_set_io(node->node,
 			    SPA_IO_Position,
@@ -1025,6 +994,11 @@ void pw_node_destroy(struct pw_node *node)
 	if (node->registered)
 		spa_list_remove(&node->link);
 
+	if (impl->pending_state.res != 0) {
+		pw_log_debug("remove pending state %d", impl->pending_state.res);
+		spa_list_remove(&impl->pending_state.link);
+		impl->pending_state.res = 0;
+	}
 	spa_node_set_callbacks(node->node, NULL, NULL);
 
 	pw_log_debug("node %p: unlink ports", node);
@@ -1270,10 +1244,13 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 		return res;
 
 	if (SPA_RESULT_IS_ASYNC(res)) {
-		struct node_pending *pending = make_pending(impl, state);
+		if (impl->pending_state.res != 0) {
+			pw_log_warn("remove pending state %d", impl->pending_state.res);
+			spa_list_remove(&impl->pending_state.link);
+		}
 
-		spa_node_wait(node->node, res, &pending->pending,
-				node_complete, pending);
+		spa_node_wait(node->node, res, &impl->pending_state,
+				node_complete, impl);
 	}
 
 	pw_work_queue_add(impl->work,

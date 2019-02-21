@@ -359,7 +359,7 @@ spa_alsa_enum_format(struct state *state, uint32_t start, uint32_t num,
 	if ((res = spa_pod_filter(&b, &result.param, fmt, filter)) < 0)
 		goto next;
 
-	if ((res = func(data, count, 1, &result)) != 0)
+	if ((res = func(data, count, &result)) != 0)
 		goto exit;
 
 	if (++count != num)

@@ -69,6 +69,9 @@ struct impl {
 	struct spa_io_buffers io;
 
 	struct pw_node *inode, *onode;
+
+	struct spa_pending input_pending;
+	struct spa_pending output_pending;
 };
 
 struct resource_data {
@@ -150,24 +153,28 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 	}
 }
 
-static int complete_output(void *data, int seq, int res, const void *result)
+static int complete_output(struct spa_pending *pending, const void *result)
 {
-	struct pw_link *this = data;
+	struct pw_link *this = pending->data;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_node *node = this->output->node;
-	seq = SPA_RESULT_ASYNC_SEQ(seq);
+	uint32_t seq = SPA_RESULT_ASYNC_SEQ(pending->seq);
+	int res = pending->res;
 	pw_log_debug("link %p: node %p async complete %d %d", impl, node, seq, res);
+	pending->res = 0;
 	pw_work_queue_complete(impl->work, node, seq, res);
 	return 0;
 }
 
-static int complete_input(void *data, int seq, int res, const void *result)
+static int complete_input(struct spa_pending *pending, const void *result)
 {
-	struct pw_link *this = data;
+	struct pw_link *this = pending->data;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_node *node = this->input->node;
-	seq = SPA_RESULT_ASYNC_SEQ(seq);
+	uint32_t seq = SPA_RESULT_ASYNC_SEQ(pending->seq);
+	int res = pending->res;
 	pw_log_debug("link %p: node %p async complete %d %d", impl, node, seq, res);
+	pending->res = 0;
 	pw_work_queue_complete(impl->work, node, seq, res);
 	return 0;
 }
@@ -204,16 +211,13 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 	}
 }
 
-static void remove_pending(struct spa_pending *pending)
+static struct spa_pending *prepare_pending(struct impl *impl, struct spa_pending *pending)
 {
-	free(pending);
-}
-
-static struct spa_pending *make_pending(struct impl *impl)
-{
-	struct spa_pending *pending;
-	pending = calloc(1, sizeof(struct spa_pending));
-	pending->removed = remove_pending;
+	if (pending->res != 0) {
+		pw_log_warn("link %p: remove pending %d", impl, pending->res);
+		spa_list_remove(&pending->link);
+		pending->res = 0;
+	}
 	return pending;
 }
 
@@ -336,10 +340,9 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
 			spa_node_wait(output->node->node, res,
-					make_pending(impl),
+					prepare_pending(impl, &impl->output_pending),
 					complete_output,
 					this);
-
 			pw_work_queue_add(impl->work, output->node, res, complete_ready,
 					  &this->rt.out_mix);
 		}
@@ -355,7 +358,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		}
 		if (SPA_RESULT_IS_ASYNC(res2)) {
 			spa_node_wait(input->node->node, res2,
-					make_pending(impl),
+					prepare_pending(impl, &impl->input_pending),
 					complete_input,
 					this);
 
@@ -724,7 +727,10 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				goto error;
 			}
 			if (SPA_RESULT_IS_ASYNC(res)) {
-				//spa_node_sync(output->node->node, res);
+				spa_node_wait(output->node->node, res,
+						prepare_pending(impl, &impl->output_pending),
+						complete_output,
+						this);
 				pw_work_queue_add(impl->work, output->node, res, complete_paused,
 					  &this->rt.out_mix);
 			}
@@ -744,7 +750,10 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				goto error;
 			}
 			if (SPA_RESULT_IS_ASYNC(res)) {
-				//spa_node_sync(input->node->node, res);
+				spa_node_wait(input->node->node, res,
+						prepare_pending(impl, &impl->input_pending),
+						complete_input,
+						this);
 				pw_work_queue_add(impl->work, input->node, res, complete_paused,
 					  &this->rt.in_mix);
 			}
@@ -768,7 +777,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
 			spa_node_wait(output->node->node, res,
-					make_pending(impl),
+					prepare_pending(impl, &impl->output_pending),
 					complete_output,
 					this);
 			pw_work_queue_add(impl->work, output->node, res, complete_paused,
@@ -791,7 +800,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
 			spa_node_wait(input->node->node, res,
-					make_pending(impl),
+					prepare_pending(impl, &impl->input_pending),
 					complete_input,
 					this);
 			pw_work_queue_add(impl->work, input->node, res, complete_paused,
@@ -920,28 +929,6 @@ static void check_states(void *obj, void *user_data, int res, uint32_t id)
 			  this, -EBUSY, (pw_work_func_t) check_states, this);
 }
 
-#if 0
-static void
-input_node_async_complete(void *data, uint32_t seq, int res)
-{
-	struct impl *impl = data;
-	struct pw_node *node = impl->this.input->node;
-
-	pw_log_debug("link %p: node %p async complete %d %d", impl, node, seq, res);
-	pw_work_queue_complete(impl->work, node, seq, res);
-}
-
-static void
-output_node_async_complete(void *data, uint32_t seq, int res)
-{
-	struct impl *impl = data;
-	struct pw_node *node = impl->this.output->node;
-
-	pw_log_debug("link %p: node %p async complete %d %d", impl, node, seq, res);
-	pw_work_queue_complete(impl->work, node, seq, res);
-}
-#endif
-
 static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 {
 	int res;
@@ -972,6 +959,8 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	spa_hook_remove(&impl->input_port_listener);
 	spa_hook_remove(&impl->input_node_listener);
 
+	prepare_pending(impl, &impl->input_pending);
+
 	spa_list_remove(&this->input_link);
 	pw_port_events_link_removed(this->input, this);
 
@@ -990,6 +979,8 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	pw_log_debug("link %p: remove output port %p", this, port);
 	spa_hook_remove(&impl->output_port_listener);
 	spa_hook_remove(&impl->output_node_listener);
+
+	prepare_pending(impl, &impl->output_pending);
 
 	spa_list_remove(&this->output_link);
 	pw_port_events_link_removed(this->output, this);

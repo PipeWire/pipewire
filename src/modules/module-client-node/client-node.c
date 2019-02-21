@@ -389,7 +389,7 @@ static int impl_node_enum_params(struct spa_node *node,
 		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
 			continue;
 
-		if ((res = func(data, count, 1, &result)) != 0)
+		if ((res = func(data, count, &result)) != 0)
 			return res;
 
 		if (++count != num)
@@ -529,7 +529,7 @@ impl_node_sync(struct spa_node *node)
 
 static int
 impl_node_wait(struct spa_node *node, int res, struct spa_pending *pending,
-			spa_result_func_t func, void *data)
+			spa_pending_func_t func, void *data)
 {
 	struct node *this;
 	int seq;
@@ -705,7 +705,7 @@ impl_node_port_enum_params(struct spa_node *node,
 		if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 			continue;
 
-		if ((res = func(data, count, 1, &result)) != 0)
+		if ((res = func(data, count, &result)) != 0)
 			return res;
 
 		if (++count != num)
@@ -1256,8 +1256,10 @@ static void client_node_resource_done(void *data, uint32_t seq)
 	spa_list_for_each_safe(p, t, &this->pending_list, link) {
 		if (p->seq == (int) seq) {
 			pw_log_debug("client-node %p: do callback %d", this, p->res);
-			p->func(p->data, p->res, 0, NULL);
 			spa_list_remove(&p->link);
+			p->seq = p->res;
+			p->res = 0;
+			p->func(p, NULL);
 			count++;
 		}
 	}

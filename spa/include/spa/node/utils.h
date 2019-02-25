@@ -31,39 +31,48 @@ extern "C" {
 
 #include <spa/node/node.h>
 
-struct spa_result_node_enum_params_data {
+struct spa_result_node_params_data {
 	struct spa_pod_builder *builder;
-	struct spa_result_node_enum_params data;
+	struct spa_result_node_params data;
 };
 
-static inline int spa_result_func_node_enum_params(void *data,
-		uint32_t count, const void *result)
+static inline int spa_result_func_node_params(struct spa_pending *pending,
+		const void *result)
 {
-	struct spa_result_node_enum_params_data *d =
-		(struct spa_result_node_enum_params_data *)data;
-	const struct spa_result_node_enum_params *r =
-		(const struct spa_result_node_enum_params *)result;
+	struct spa_result_node_params_data *d =
+		(struct spa_result_node_params_data *)pending->data;
+	const struct spa_result_node_params *r =
+		(const struct spa_result_node_params *)result;
 	uint32_t offset = d->builder->state.offset;
 	spa_pod_builder_raw_padded(d->builder, r->param, SPA_POD_SIZE(r->param));
 	d->data.next = r->next;
 	d->data.param = SPA_MEMBER(d->builder->data, offset, struct spa_pod);
-	return 1;
+	return 0;
 }
 
 static inline int spa_node_enum_params_sync(struct spa_node *node,
 			uint32_t id, uint32_t *index,
 			const struct spa_pod *filter,
 			struct spa_pod **param,
-			struct spa_pod_builder *builder)
+			struct spa_pod_builder *builder,
+			struct spa_pending_queue *queue)
 {
-	struct spa_result_node_enum_params_data data = { builder, };
-	int res;
+	struct spa_result_node_params_data data = { builder, };
+	struct spa_pending pending;
+	int res = 0;
 
-	if ((res = spa_node_enum_params(node, id, *index, 1,
-			filter, spa_result_func_node_enum_params, &data)) != 1)
-		return res;
-	*index = data.data.next;
-	*param = data.data.param;
+	spa_pending_queue_add(queue, 0, &pending,
+			spa_result_func_node_params, &data);
+	res = spa_node_enum_params(node, 0, id, *index, 1, filter);
+	if (data.data.param == NULL) {
+		spa_pending_remove(&pending);
+		if (res > 0)
+			res = 0;
+	} else {
+		*index = data.data.next;
+		*param = data.data.param;
+		res = 1;
+	}
 	return res;
 }
 
@@ -72,16 +81,26 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 			uint32_t id, uint32_t *index,
 			const struct spa_pod *filter,
 			struct spa_pod **param,
-			struct spa_pod_builder *builder)
+			struct spa_pod_builder *builder,
+			struct spa_pending_queue *queue)
 {
-	struct spa_result_node_enum_params_data data = { builder, };
+	struct spa_result_node_params_data data = { builder, };
+	struct spa_pending pending;
 	int res;
 
-	if ((res = spa_node_port_enum_params(node, direction, port_id, id, *index, 1,
-			filter, spa_result_func_node_enum_params, &data)) != 1)
-		return res;
-	*index = data.data.next;
-	*param = data.data.param;
+	spa_pending_queue_add(queue, 0, &pending,
+			spa_result_func_node_params, &data);
+	res = spa_node_port_enum_params(node, 0, direction, port_id,
+			id, *index, 1, filter);
+	if (data.data.param == NULL) {
+		spa_pending_remove(&pending);
+		if (res > 0)
+			res = 0;
+	} else {
+		*index = data.data.next;
+		*param = data.data.param;
+		res = 1;
+	}
 	return res;
 }
 

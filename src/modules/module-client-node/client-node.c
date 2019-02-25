@@ -354,33 +354,34 @@ static void mix_clear(struct node *this, struct mix *mix)
 	mix->valid = false;
 }
 
-static int impl_node_enum_params(struct spa_node *node,
+static int impl_node_enum_params(struct spa_node *node, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
-				 const struct spa_pod *filter,
-				 spa_result_func_t func, void *data)
+				 const struct spa_pod *filter)
 {
 	struct node *this;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
-	spa_return_val_if_fail(func != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
+	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
+	result.id = id;
 	result.next = start;
 
 	while (true) {
 		struct spa_pod *param;
 
-		if (result.next >= this->n_params)
+		result.index = result.next++;
+		if (result.index >= this->n_params)
 			return 0;
 
-		param = this->params[result.next++];
+		param = this->params[result.index];
 
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
@@ -389,7 +390,7 @@ static int impl_node_enum_params(struct spa_node *node,
 		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
 			continue;
 
-		if ((res = func(data, count, &result)) != 0)
+		if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
 			return res;
 
 		if (++count != num)
@@ -490,8 +491,8 @@ impl_node_set_callbacks(struct spa_node *node,
 			void *data)
 {
 	struct node *this;
-	int res = 0;
 	uint32_t i;
+	int res = 0;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -510,13 +511,13 @@ impl_node_set_callbacks(struct spa_node *node,
 			emit_port_info(this, this->out_ports[i]);
 	}
 	if (callbacks && this->resource)
-		res = pw_resource_sync(this->resource);
+		res = pw_resource_sync(this->resource, 0);
 
 	return res;
 }
 
 static int
-impl_node_sync(struct spa_node *node)
+impl_node_sync(struct spa_node *node, int seq)
 {
 	struct node *this;
 	spa_return_val_if_fail(node != NULL, -EINVAL);
@@ -524,35 +525,7 @@ impl_node_sync(struct spa_node *node)
 	pw_log_debug("client-node %p: sync", node);
 	if (this->resource == NULL)
 		return -EIO;
-	return pw_resource_sync(this->resource);
-}
-
-static int
-impl_node_wait(struct spa_node *node, int res, struct spa_pending *pending,
-			spa_pending_func_t func, void *data)
-{
-	struct node *this;
-	int seq;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-	spa_return_val_if_fail(func != NULL, -EINVAL);
-	spa_return_val_if_fail(pending != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct node, node);
-
-	pw_log_debug("client-node %p: wait %d %d", node, res, SPA_RESULT_ASYNC_SEQ(res));
-	if (this->resource == NULL)
-		return -EIO;
-
-	seq = pw_resource_sync(this->resource);
-
-	pending->seq = seq;
-	pending->res = res;
-	pending->func = func;
-	pending->data = data;
-	spa_list_append(&this->pending_list, &pending->link);
-
-	return seq;
+	return pw_resource_sync(this->resource, seq);
 }
 
 static void
@@ -661,42 +634,43 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 }
 
 static int
-impl_node_port_enum_params(struct spa_node *node,
+impl_node_port_enum_params(struct spa_node *node, int seq,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t id, uint32_t start, uint32_t num,
-			   const struct spa_pod *filter,
-			   spa_result_func_t func, void *data)
+			   const struct spa_pod *filter)
 {
 	struct node *this;
 	struct port *port;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
-	spa_return_val_if_fail(func != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
+	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
 
-	pw_log_debug("client-node %p: port %d.%d", this,
-			direction, port_id);
+	pw_log_debug("client-node %p: %d port %d.%d %u %u %u", this, seq,
+			direction, port_id, id, start, num);
 
+	result.id = id;
 	result.next = start;
 
 	while (true) {
 		struct spa_pod *param;
 
-		if (result.next >= port->n_params)
+		result.index = result.next++;
+		if (result.index >= port->n_params)
 			return 0;
 
-		param = port->params[result.next++];
+		param = port->params[result.index];
 
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
@@ -705,7 +679,8 @@ impl_node_port_enum_params(struct spa_node *node,
 		if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 			continue;
 
-		if ((res = func(data, count, &result)) != 0)
+		pw_log_debug("client-node %p: %d param %u", this, seq, result.index);
+		if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
 			return res;
 
 		if (++count != num)
@@ -1136,7 +1111,6 @@ static const struct spa_node impl_node = {
 	NULL,
 	.set_callbacks = impl_node_set_callbacks,
 	.sync = impl_node_sync,
-	.wait = impl_node_wait,
 	.enum_params = impl_node_enum_params,
 	.set_param = impl_node_set_param,
 	.set_io = impl_node_set_io,
@@ -1250,21 +1224,9 @@ static void client_node_resource_done(void *data, uint32_t seq)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-	struct spa_pending *p, *t;
-	uint32_t count = 0;
 
-	spa_list_for_each_safe(p, t, &this->pending_list, link) {
-		if (p->seq == (int) seq) {
-			pw_log_debug("client-node %p: do callback %d", this, p->res);
-			spa_list_remove(&p->link);
-			p->seq = p->res;
-			p->res = 0;
-			p->func(p, NULL);
-			count++;
-		}
-	}
-	if (count == 0)
-		pw_log_warn("client-node %p: unhandled done %d", this, seq);
+	pw_log_debug("client-node %p: emit result %d", this, seq);
+	this->callbacks->result(this->callbacks_data, seq, 0, NULL);
 }
 
 void pw_client_node_registered(struct pw_client_node *this, uint32_t node_id)
@@ -1395,15 +1357,14 @@ static const struct pw_port_implementation port_impl = {
 };
 
 static int
-impl_mix_port_enum_params(struct spa_node *node,
+impl_mix_port_enum_params(struct spa_node *node, int seq,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t id, uint32_t start, uint32_t num,
-			   const struct spa_pod *filter,
-			   spa_result_func_t func, void *data)
+			   const struct spa_pod *filter)
 {
 	struct port *port = SPA_CONTAINER_OF(node, struct port, mix_node);
-	return impl_node_port_enum_params(&port->node->node, direction, port->id,
-			id, start, num, filter, func, data);
+	return impl_node_port_enum_params(&port->node->node, seq, direction, port->id,
+			id, start, num, filter);
 }
 
 static int

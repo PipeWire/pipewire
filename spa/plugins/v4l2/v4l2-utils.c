@@ -520,10 +520,9 @@ filter_framerate(struct v4l2_frmivalenum *frmival,
 #define FOURCC_ARGS(f) (f)&0x7f,((f)>>8)&0x7f,((f)>>16)&0x7f,((f)>>24)&0x7f
 
 static int
-spa_v4l2_enum_format(struct impl *this,
+spa_v4l2_enum_format(struct impl *this, int seq,
 		     uint32_t start, uint32_t num,
-		     const struct spa_pod *filter,
-		     spa_result_func_t func, void *data)
+		     const struct spa_pod *filter)
 {
 	struct port *port = &this->out_ports[0];
 	int res, n_fractions;
@@ -534,7 +533,7 @@ spa_v4l2_enum_format(struct impl *this,
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[2];
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
@@ -564,6 +563,8 @@ spa_v4l2_enum_format(struct impl *this,
 	}
 
       next:
+	result.index = result.next++;
+
 	while (port->next_fmtdesc) {
 		if (filter) {
 			video_format = enum_filter_format(filter_media_type,
@@ -810,9 +811,8 @@ spa_v4l2_enum_format(struct impl *this,
 
 	spa_pod_builder_pop(&b, &f[1]);
 	result.param = spa_pod_builder_pop(&b, &f[0]);
-	result.next++;
 
-	if ((res = func(data, count, &result)) != 0)
+	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
 		goto exit;
 
 	if (++count != num)
@@ -1005,10 +1005,9 @@ static uint32_t control_to_prop_id(struct impl *impl, uint32_t control_id)
 }
 
 static int
-spa_v4l2_enum_controls(struct impl *this,
+spa_v4l2_enum_controls(struct impl *this, int seq,
 		       uint32_t start, uint32_t num,
-		       const struct spa_pod *filter,
-		       spa_result_func_t func, void *data)
+		       const struct spa_pod *filter)
 {
 	struct port *port = &this->out_ports[0];
 	struct spa_v4l2_device *dev = &port->dev;
@@ -1020,15 +1019,16 @@ spa_v4l2_enum_controls(struct impl *this,
 	int res;
         const unsigned next_fl = V4L2_CTRL_FLAG_NEXT_CTRL | V4L2_CTRL_FLAG_NEXT_COMPOUND;
 	struct spa_pod_frame f[2];
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
 
 	result.next = start;
-
       next:
+	result.index = result.next;
+
 	spa_zero(queryctrl);
 
 	if (result.next == 0) {
@@ -1142,7 +1142,7 @@ spa_v4l2_enum_controls(struct impl *this,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = func(data, count, &result)) != 0)
+	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
 		goto exit;
 
 	if (++count != num)

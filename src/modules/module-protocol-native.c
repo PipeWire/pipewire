@@ -127,8 +127,9 @@ process_messages(struct client_data *data)
 		const struct pw_protocol_native_demarshal *demarshal;
 	        const struct pw_protocol_marshal *marshal;
 		uint32_t permissions, required;
+		int seq;
 
-		if (!pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size))
+		if (!pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size, &seq))
 			break;
 
 		pw_log_trace("protocol-native %p: got message %d from %u", client->protocol,
@@ -147,6 +148,7 @@ process_messages(struct client_data *data)
 				     -EINVAL, "unknown resource %u", id);
 			continue;
 		}
+		resource->seq = seq;
 
 		marshal = pw_resource_get_marshal(resource);
 		if (marshal == NULL || opcode >= marshal->n_methods)
@@ -478,17 +480,20 @@ on_remote_data(void *data, int fd, enum spa_io mask)
                 uint8_t opcode;
                 uint32_t id, size;
                 void *message;
+		int seq;
 
                 while (!impl->disconnecting
-                       && pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size)) {
+                       && pw_protocol_native_connection_get_next(conn,
+			       &opcode, &id, &message, &size, &seq)) {
                         struct pw_proxy *proxy;
                         const struct pw_protocol_native_demarshal *demarshal;
 			const struct pw_protocol_marshal *marshal;
 
-                        pw_log_trace("protocol-native %p: got message %d from %u", this, opcode, id);
+                        pw_log_trace("protocol-native %p: got message %d from %u seq:%d",
+					this, opcode, id, seq);
 
 			if (debug_messages) {
-				fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
+				fprintf(stderr, "<<<<<<<<< in: %d %d %d %d\n", id, opcode, size, seq);
 			        spa_debug_pod(0, NULL, (struct spa_pod *)message);
 			}
 
@@ -498,6 +503,7 @@ on_remote_data(void *data, int fd, enum spa_io mask)
                                 pw_log_error("protocol-native %p: could not find proxy %u", this, id);
                                 continue;
                         }
+			proxy->seq = seq;
 
 			marshal = pw_proxy_get_marshal(proxy);
                         if (marshal == NULL || opcode >= marshal->n_events) {

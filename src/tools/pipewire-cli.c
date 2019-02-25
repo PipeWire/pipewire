@@ -393,7 +393,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 		pw_registry_proxy_add_listener(rd->registry_proxy,
 					       &rd->registry_listener,
 					       &registry_events, rd);
-		rd->prompt_pending = pw_core_proxy_sync(rd->core_proxy, 0);
+		pw_core_proxy_sync(rd->core_proxy, 0, ++rd->prompt_pending);
 		break;
 
 	default:
@@ -687,8 +687,8 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 	return 0;
 }
 
-static int node_event_param(void *object, uint32_t id, uint32_t index, uint32_t next,
-		const struct spa_pod *param)
+static int node_event_param(void *object, uint32_t seq, uint32_t id,
+		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
 	struct remote_data *rd = data->rd;
@@ -726,8 +726,8 @@ static int port_event_info(void *object, const struct pw_port_info *info)
 	return 0;
 }
 
-static int port_event_param(void *object, uint32_t id, uint32_t index, uint32_t next,
-		const struct spa_pod *param)
+static int port_event_param(void *object, uint32_t seq, uint32_t id,
+		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
 	struct remote_data *rd = data->rd;
@@ -1386,8 +1386,11 @@ static void do_input(void *data, int fd, enum spa_io mask)
 		}
 		if (d->current == NULL)
 			pw_main_loop_quit(d->loop);
-		else if (d->current->core_proxy)
-			d->current->prompt_pending = pw_core_proxy_sync(d->current->core_proxy, 0);
+		else  {
+			struct remote_data *rd = d->current;
+			if (rd->core_proxy)
+				pw_core_proxy_sync(rd->core_proxy, 0, ++rd->prompt_pending);
+		}
 	}
 }
 

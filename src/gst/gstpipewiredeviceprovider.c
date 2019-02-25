@@ -280,7 +280,7 @@ static void add_pending(GstPipeWireDeviceProvider *self, struct pending *p,
   p->callback = callback;
   p->data = data;
   pw_log_debug("add pending %d", p->seq);
-  self->seq = p->seq = pw_core_proxy_sync(self->core_proxy, 0);
+  self->seq = p->seq = pw_core_proxy_sync(self->core_proxy, 0, self->seq);
 }
 
 static void remove_pending(struct pending *p)
@@ -379,8 +379,8 @@ static int port_event_info(void *data, const struct pw_port_info *info)
   return 0;
 }
 
-static int port_event_param(void *data, uint32_t id, uint32_t index, uint32_t next,
-                const struct spa_pod *param)
+static int port_event_param(void *data, uint32_t seq, uint32_t id,
+		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
   struct port_data *port_data = data;
   struct node_data *node_data = port_data->node_data;
@@ -589,7 +589,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   data->registry = pw_core_proxy_get_registry(self->core_proxy,
 		  PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
   pw_registry_proxy_add_listener(data->registry, &data->registry_listener, &registry_events, data);
-  self->seq = pw_core_proxy_sync(self->core_proxy, 0);
+  pw_core_proxy_sync(self->core_proxy, 0, self->seq++);
 
   for (;;) {
     if (pw_remote_get_state(r, NULL) <= 0)
@@ -678,7 +678,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
   data->registry = self->registry;
 
   pw_registry_proxy_add_listener(self->registry, &data->registry_listener, &registry_events, data);
-  self->seq = pw_core_proxy_sync(self->core_proxy, 0);
+  pw_core_proxy_sync(self->core_proxy, 0, self->seq++);
 
   for (;;) {
     if (self->end)

@@ -304,23 +304,24 @@ struct pw_node_activation {
 	struct spa_graph_state state[2];	/* one current state and one next state */
 };
 
-#define pw_node_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_node_events, m, v, ##__VA_ARGS__)
-#define pw_node_events_destroy(n)		pw_node_events_emit(n, destroy, 0)
-#define pw_node_events_free(n)			pw_node_events_emit(n, free, 0)
-#define pw_node_events_initialized(n)		pw_node_events_emit(n, initialized, 0)
-#define pw_node_events_port_init(n,p)		pw_node_events_emit(n, port_init, 0, p)
-#define pw_node_events_port_added(n,p)		pw_node_events_emit(n, port_added, 0, p)
-#define pw_node_events_port_removed(n,p)	pw_node_events_emit(n, port_removed, 0, p)
-#define pw_node_events_info_changed(n,i)	pw_node_events_emit(n, info_changed, 0, i)
-#define pw_node_events_active_changed(n,a)	pw_node_events_emit(n, active_changed, 0, a)
-#define pw_node_events_enabled_changed(n,e)	pw_node_events_emit(n, enabled_changed, 0, e)
-#define pw_node_events_state_request(n,s)	pw_node_events_emit(n, state_request, 0, s)
-#define pw_node_events_state_changed(n,o,s,e)	pw_node_events_emit(n, state_changed, 0, o, s, e)
-#define pw_node_events_async_complete(n,s,r)	pw_node_events_emit(n, async_complete, 0, s, r)
-#define pw_node_events_event(n,e)		pw_node_events_emit(n, event, 0, e)
-#define pw_node_events_driver_changed(n,o,d)	pw_node_events_emit(n, driver_changed, 0, o, d)
-#define pw_node_events_peer_added(n,p)		pw_node_events_emit(n, peer_added, 0, p)
-#define pw_node_events_peer_removed(n,p)	pw_node_events_emit(n, peer_removed, 0, p)
+#define pw_node_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_node_events, m, v, ##__VA_ARGS__)
+#define pw_node_emit_destroy(n)			pw_node_emit(n, destroy, 0)
+#define pw_node_emit_free(n)			pw_node_emit(n, free, 0)
+#define pw_node_emit_initialized(n)		pw_node_emit(n, initialized, 0)
+#define pw_node_emit_port_init(n,p)		pw_node_emit(n, port_init, 0, p)
+#define pw_node_emit_port_added(n,p)		pw_node_emit(n, port_added, 0, p)
+#define pw_node_emit_port_removed(n,p)		pw_node_emit(n, port_removed, 0, p)
+#define pw_node_emit_info_changed(n,i)		pw_node_emit(n, info_changed, 0, i)
+#define pw_node_emit_active_changed(n,a)	pw_node_emit(n, active_changed, 0, a)
+#define pw_node_emit_enabled_changed(n,e)	pw_node_emit(n, enabled_changed, 0, e)
+#define pw_node_emit_state_request(n,s)		pw_node_emit(n, state_request, 0, s)
+#define pw_node_emit_state_changed(n,o,s,e)	pw_node_emit(n, state_changed, 0, o, s, e)
+#define pw_node_emit_async_complete(n,s,r)	pw_node_emit(n, async_complete, 0, s, r)
+#define pw_node_emit_result(n,s,r,result)	pw_node_emit(n, result, 0, s, r, result)
+#define pw_node_emit_event(n,e)			pw_node_emit(n, event, 0, e)
+#define pw_node_emit_driver_changed(n,o,d)	pw_node_emit(n, driver_changed, 0, o, d)
+#define pw_node_emit_peer_added(n,p)		pw_node_emit(n, peer_added, 0, p)
+#define pw_node_emit_peer_removed(n,p)		pw_node_emit(n, peer_removed, 0, p)
 
 struct pw_node {
 	struct pw_core *core;		/**< core object */
@@ -366,6 +367,8 @@ struct pw_node {
 	struct spa_hook_list listener_list;
 
 	struct pw_loop *data_loop;		/**< the data loop for this node */
+
+	struct spa_pending_queue *pending;
 
 	uint32_t quantum_size;			/**< desired quantum */
 	struct spa_source source;		/**< source to remotely trigger this node */
@@ -534,6 +537,7 @@ struct pw_resource {
 	struct spa_hook_list listener_list;
 
         const struct pw_protocol_marshal *marshal;
+	int seq;
 
 	void *access_private;		/**< private data for access control */
 	void *user_data;		/**< extra user data */
@@ -554,6 +558,7 @@ struct pw_proxy {
 	struct spa_hook_list proxy_listener_list;
 
 	const struct pw_protocol_marshal *marshal;	/**< protocol specific marshal functions */
+	int seq;
 
 	void *user_data;		/**< extra user data */
 };

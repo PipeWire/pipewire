@@ -149,11 +149,9 @@ static int impl_set_callbacks(struct spa_device *device,
 }
 
 
-static int impl_enum_params(struct spa_device *device,
-			    uint32_t id, uint32_t *index,
-			    const struct spa_pod *filter,
-			    struct spa_pod **param,
-			    struct spa_pod_builder *builder)
+static int impl_enum_params(struct spa_device *device, int seq,
+			    uint32_t id, uint32_t start, uint32_t num,
+			    const struct spa_pod *filter)
 {
 	return -ENOTSUP;
 }

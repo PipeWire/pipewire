@@ -123,7 +123,7 @@ static int core_event_error(void *data, uint32_t id, int res, const char *messag
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
 
-	pw_log_debug("remote %p: object error %u: %d (%s): %s", this, id,
+	pw_log_error("remote %p: object error %u: %d (%s): %s", this, id,
 			res, spa_strerror(res), message);
 
 	proxy = pw_map_lookup(&this->objects, id);

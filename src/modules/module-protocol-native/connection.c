@@ -41,6 +41,8 @@
 #define MAX_FDS 1024
 #define MAX_FDS_MSG 28
 
+#define HDR_SIZE	16
+
 static bool debug_messages = 0;
 
 struct buffer {
@@ -277,7 +279,8 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 		       uint8_t *opcode,
 		       uint32_t *dest_id,
 		       void **dt,
-		       uint32_t *sz)
+		       uint32_t *sz,
+		       int *seq)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	size_t len, size;
@@ -310,19 +313,20 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 	data += buf->offset;
 	size -= buf->offset;
 
-	if (size < 8) {
-		if (connection_ensure_size(conn, buf, 8) == NULL)
+	if (size < HDR_SIZE) {
+		if (connection_ensure_size(conn, buf, HDR_SIZE) == NULL)
 			return false;
 		buf->update = true;
 		goto again;
 	}
 	p = (uint32_t *) data;
-	data += 8;
-	size -= 8;
+	data += HDR_SIZE;
+	size -= HDR_SIZE;
 
 	*dest_id = p[0];
 	*opcode = p[1] >> 24;
 	len = p[1] & 0xffffff;
+	*seq = p[2];
 
 	if (len > size) {
 		if (connection_ensure_size(conn, buf, len) == NULL)
@@ -332,7 +336,7 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 	}
 	buf->size = len;
 	buf->data = data;
-	buf->offset += 8;
+	buf->offset += HDR_SIZE;
 
 	*dt = buf->data;
 	*sz = buf->size;
@@ -345,11 +349,11 @@ static inline void *begin_write(struct pw_protocol_native_connection *conn, uint
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	uint32_t *p;
 	struct buffer *buf = &impl->out;
-	/* 4 for dest_id, 1 for opcode, 3 for size and size for payload */
-	if ((p = connection_ensure_size(conn, buf, 8 + size)) == NULL)
+	/* header and size for payload */
+	if ((p = connection_ensure_size(conn, buf, HDR_SIZE + size)) == NULL)
 		return NULL;
 
-	return p + 2;
+	return SPA_MEMBER(p, HDR_SIZE, void);
 }
 
 static int builder_overflow(void *callbacks_data, uint32_t size)
@@ -392,20 +396,21 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 	struct buffer *buf = &impl->out;
 	uint32_t seq;
 
-	if ((p = connection_ensure_size(conn, buf, 8 + size)) == NULL)
+	if ((p = connection_ensure_size(conn, buf, HDR_SIZE + size)) == NULL)
 		return -ENOMEM;
 
 	seq = impl->seq;
 	impl->seq = (impl->seq + 1) & SPA_ASYNC_SEQ_MASK;
 
-	*p++ = impl->dest_id;
-	*p++ = (impl->opcode << 24) | (size & 0xffffff);
+	p[0] = impl->dest_id;
+	p[1] = (impl->opcode << 24) | (size & 0xffffff);
+	p[2] = seq;
 
-	buf->buffer_size += 8 + size;
+	buf->buffer_size += HDR_SIZE + size;
 
 	if (debug_messages) {
 		fprintf(stderr, ">>>>>>>>> out: %d %d %d\n", impl->dest_id, impl->opcode, size);
-	        spa_debug_pod(0, NULL, (struct spa_pod *)p);
+	        spa_debug_pod(0, NULL, SPA_MEMBER(p, HDR_SIZE, struct spa_pod));
 	}
 
 	spa_hook_list_call(&conn->listener_list,

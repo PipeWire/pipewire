@@ -65,6 +65,14 @@ struct spa_device_object_info {
 
 #define SPA_DEVICE_OBJECT_INFO_INIT()	(struct spa_device_object_info){ SPA_VERSION_DEVICE_OBJECT_INFO, }
 
+/** the result of spa_device_enum_params() */
+struct spa_result_device_params {
+	uint32_t id;
+	uint32_t index;
+	uint32_t next;
+	struct spa_pod *param;
+};
+
 /**
  * spa_device_callbacks:
  */
@@ -75,6 +83,9 @@ struct spa_device_callbacks {
 
 	/** notify extra information about the device */
 	int (*info) (void *data, const struct spa_device_info *info);
+
+	/** notify a result */
+	int (*result) (void *data, int seq, int res, const void *result);
 
 	/** a device event */
 	int (*event) (void *data, struct spa_event *event);
@@ -121,25 +132,27 @@ struct spa_device {
 	 *
 	 * This function must be called from the main thread.
 	 *
+	 * The result callback will be called at most \num times with a
+	 * struct spa_result_device_params as the result. If the result
+	 * callback returns anything other than 0, this function will stop
+	 * and return that value.
+	 *
 	 * \param device a \ref spa_device
+	 * \param seq a sequence numeber to pass to the result function
 	 * \param id the param id to enumerate
-	 * \param index the index of enumeration, pass 0 for the first item and the
-	 *	index is updated to retrieve the next item.
+	 * \param index the index of enumeration, pass 0 for the first item.
+	 * \param num the maximum number of items to iterate
 	 * \param filter and optional filter to use
-	 * \param param result param or NULL
-	 * \param builder builder for the param object.
-	 * \return 1 on success and \a param contains the result
-	 *         0 when there are no more parameters to enumerate
+	 * \return 0 when there are no more parameters to enumerate
 	 *         -EINVAL when invalid arguments are given
 	 *         -ENOENT the parameter \a id is unknown
 	 *         -ENOTSUP when there are no parameters
 	 *                 implemented on \a device
 	 */
-	int (*enum_params) (struct spa_device *device,
-			    uint32_t id, uint32_t *index,
-			    const struct spa_pod *filter,
-			    struct spa_pod **param,
-			    struct spa_pod_builder *builder);
+	int (*enum_params) (struct spa_device *device, int seq,
+			    uint32_t id, uint32_t index, uint32_t num,
+			    const struct spa_pod *filter);
+
 	/**
 	 * Set the configurable parameter in \a device.
 	 *

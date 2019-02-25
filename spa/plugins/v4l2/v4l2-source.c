@@ -146,34 +146,29 @@ struct impl {
 
 #include "v4l2-utils.c"
 
-static int impl_node_wait(struct spa_node *node, int seq, struct spa_pending *pending,
-		spa_pending_func_t func, void *data)
-{
-	return -ENOTSUP;
-}
-
-static int impl_node_enum_params(struct spa_node *node,
+static int impl_node_enum_params(struct spa_node *node, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
-				 const struct spa_pod *filter,
-				 spa_result_func_t func, void *data)
+				 const struct spa_pod *filter)
 {
 	struct impl *this;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
-	spa_return_val_if_fail(func != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
+	result.id = id;
 	result.next = start;
-
       next:
+	result.index = result.next++;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
@@ -182,10 +177,10 @@ static int impl_node_enum_params(struct spa_node *node,
 		uint32_t list[] = { SPA_PARAM_PropInfo,
 				    SPA_PARAM_Props };
 
-		if (result.next < SPA_N_ELEMENTS(list))
+		if (result.index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.next]));
+					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
 		else
 			return 0;
 		break;
@@ -194,7 +189,7 @@ static int impl_node_enum_params(struct spa_node *node,
 	{
 		struct props *p = &this->props;
 
-		switch (result.next) {
+		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
@@ -225,7 +220,7 @@ static int impl_node_enum_params(struct spa_node *node,
 	{
 		struct props *p = &this->props;
 
-		switch (result.next) {
+		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, id,
@@ -242,12 +237,10 @@ static int impl_node_enum_params(struct spa_node *node,
 		return -ENOENT;
 	}
 
-	result.next++;
-
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = func(data, count, &result)) != 0)
+	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
 		return res;
 
 	if (++count != num)
@@ -453,12 +446,11 @@ static int port_get_format(struct spa_node *node,
 	return 1;
 }
 
-static int impl_node_port_enum_params(struct spa_node *node,
+static int impl_node_port_enum_params(struct spa_node *node, int seq,
 				      enum spa_direction direction,
 				      uint32_t port_id,
 				      uint32_t id, uint32_t start, uint32_t num,
-				      const struct spa_pod *filter,
-				      spa_result_func_t func, void *data)
+				      const struct spa_pod *filter)
 {
 
 	struct impl *this;
@@ -466,23 +458,25 @@ static int impl_node_port_enum_params(struct spa_node *node,
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
-	spa_return_val_if_fail(func != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
 
+	result.id = id;
 	result.next = start;
-
      next:
+	result.index = result.next++;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
@@ -495,29 +489,29 @@ static int impl_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_Meta,
 				    SPA_PARAM_IO };
 
-		if (result.next < SPA_N_ELEMENTS(list))
+		if (result.index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.next]));
+					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
 		else
 			return 0;
 		break;
 	}
 	case SPA_PARAM_PropInfo:
-		return spa_v4l2_enum_controls(this, start, num, filter, func, data);
+		return spa_v4l2_enum_controls(this, seq, start, num, filter);
 
 	case SPA_PARAM_EnumFormat:
-		return spa_v4l2_enum_format(this, start, num, filter, func, data);
+		return spa_v4l2_enum_format(this, seq, start, num, filter);
 
 	case SPA_PARAM_Format:
 		if((res = port_get_format(node, direction, port_id,
-						result.next, filter, &param, &b)) <= 0)
+						result.index, filter, &param, &b)) <= 0)
 			return res;
 		break;
 	case SPA_PARAM_Buffers:
 		if (!port->have_format)
 			return -EIO;
-		if (result.next > 0)
+		if (result.index > 0)
 			return 0;
 
 		param = spa_pod_builder_add_object(&b,
@@ -530,7 +524,7 @@ static int impl_node_port_enum_params(struct spa_node *node,
 		break;
 
 	case SPA_PARAM_Meta:
-		switch (result.next) {
+		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
@@ -542,7 +536,7 @@ static int impl_node_port_enum_params(struct spa_node *node,
 		}
 		break;
 	case SPA_PARAM_IO:
-		switch (result.next) {
+		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
@@ -569,12 +563,10 @@ static int impl_node_port_enum_params(struct spa_node *node,
 		return -ENOENT;
 	}
 
-	result.next++;
-
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = func(data, count, &result)) != 0)
+	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
 		return res;
 
 	if (++count != num)
@@ -907,7 +899,6 @@ static int impl_node_process(struct spa_node *node)
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
 	.set_callbacks = impl_node_set_callbacks,
-	.wait = impl_node_wait,
 	.enum_params = impl_node_enum_params,
 	.set_param = impl_node_set_param,
 	.set_io = impl_node_set_io,

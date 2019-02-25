@@ -193,7 +193,7 @@ static void *find_object(struct impl *impl, uint32_t id)
 static void schedule_rescan(struct impl *impl)
 {
 	if (impl->core_proxy)
-		impl->seq = pw_core_proxy_sync(impl->core_proxy, 0);
+		impl->seq = pw_core_proxy_sync(impl->core_proxy, 0, impl->seq);
 }
 
 static void remove_idle_timeout(struct session *sess)
@@ -367,7 +367,7 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 	return 0;
 }
 
-static int node_event_param(void *object,
+static int node_event_param(void *object, uint32_t seq,
                        uint32_t id, uint32_t index, uint32_t next,
                        const struct spa_pod *param)
 {
@@ -588,7 +588,7 @@ static int port_event_info(void *object, const struct pw_port_info *info)
 	return 0;
 }
 
-static int port_event_param(void *object,
+static int port_event_param(void *object, uint32_t seq,
                        uint32_t id, uint32_t index, uint32_t next,
                        const struct spa_pod *param)
 {
@@ -1171,10 +1171,15 @@ static int rescan_node(struct impl *impl, struct node *node)
 	if (!exclusive && session->dsp) {
 do_link_profile:
 		audio_info = peer->profile_format;
+
 		if (direction == PW_DIRECTION_INPUT)
 			audio_info.channels = SPA_MIN(peer->format.channels, node->format.channels);
 		else
 			audio_info.channels = SPA_MAX(peer->format.channels, node->format.channels);
+
+		pw_log_debug(NAME" %p: channels: %d %d -> %d", impl,
+				peer->format.channels, node->format.channels,
+				audio_info.channels);
 
 		node->profile_format = audio_info;
 

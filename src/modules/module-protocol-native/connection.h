@@ -75,7 +75,7 @@ bool
 pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *conn,
 				       uint8_t *opcode,
 				       uint32_t *dest_id,
-				       void **data, uint32_t *size);
+				       void **data, uint32_t *size, int *seq);
 
 uint32_t pw_protocol_native_connection_add_fd(struct pw_protocol_native_connection *conn, int fd);
 

@@ -94,6 +94,19 @@ struct spa_port_info {
 
 #define SPA_PORT_INFO_INIT()	(struct spa_port_info) { 0, }
 
+/** an error result */
+struct spa_result_node_error {
+	const char *message;
+};
+
+/** the result of enum_param. */
+struct spa_result_node_params {
+	uint32_t id;		/**< id of parameter */
+	uint32_t index;		/**< index of parameter */
+	uint32_t next;		/**< next index of iteration */
+	struct spa_pod *param;	/**< the result param */
+};
+
 struct spa_node_callbacks {
 #define SPA_VERSION_NODE_CALLBACKS	0
 	uint32_t version;	/**< version of this structure */
@@ -105,6 +118,22 @@ struct spa_node_callbacks {
 	int (*port_info) (void *data,
 			enum spa_direction direction, uint32_t port,
 			const struct spa_port_info *info);
+
+	/** notify a result.
+	 *
+	 * Some method will return an async return value when called. Depending
+	 * on the method, this can then trigger a result callback with an
+	 * optional result. Look at the documentation of the method to know
+	 * when to expect a result value.
+	 *
+	 * The result callback can be called synchronously, as a callback
+	 * called from inside the method itself, in which case the seq
+	 * number passed to the method will be passed.
+	 *
+	 * Users of the API will usually use a struct spa_pending_queue
+	 * to dispatch result values to listeners.
+	 */
+	int (*result) (void *data, int seq, int res, const void *result);
 
 	/**
 	 * \param node a spa_node
@@ -149,11 +178,6 @@ struct spa_node_callbacks {
 #define SPA_NODE_PARAM_FLAG_NEAREST	(1 << 2)	/* allow set fields to be rounded to the
 							 * nearest allowed field value. */
 
-/** the result of enum_param. */
-struct spa_result_node_enum_params {
-	uint32_t next;		/**< next index of iteration */
-	struct spa_pod *param;	/**< the result param */
-};
 
 /**
  * A spa_node is a component that can consume and produce buffers.
@@ -181,46 +205,19 @@ struct spa_node {
 	/**
 	 * Perform a sync operation.
 	 *
-	 * This method will complete when all previous methods on the node
-	 * are completed.
+	 * This method will emit the result callback with the given sequence
+	 * number synchronously or with the returned async return value
+	 * asynchronously.
 	 *
 	 * Because all methods are serialized in the node, this can be used
 	 * to wait for completion of all previous method calls.
 	 *
-	 * If this function returns an async result, use spa_node_wait() to
-	 * install a hook to receive the completion notification.
-	 *
+	 * \param seq a sequence number
 	 * \return 0 on success
 	 *         -EINVAL when node is NULL
 	 *         an async result
 	 */
-	int (*sync) (struct spa_node *node);
-
-	/**
-	 * Wait for an async function to complete and signal the result
-	 * callback with result parameters.
-	 *
-	 * When a function returns an sync result, pass the async result
-	 * to this function to create a hook that will be called when
-	 * the operation completes.
-	 *
-	 * The generic completion callback can have an optional result.
-	 * Depending on the method, this result will be NULL or point to
-	 * a structure with extra return values. See the documentation
-	 * of the function to see what result structure will be passed.
-	 *
-	 * The hook is automatically removed after the hook is called.
-	 *
-	 * \param node a spa_node
-	 * \param seq an async return value to wait for
-	 * \param pending a spa_pending structure
-	 * \param func a result callback
-	 * \param data data passed to \a func
-	 * \return 0 on success
-	 *         -EINVAL when node is NULL
-	 */
-	int (*wait) (struct spa_node *node, int seq, struct spa_pending *pending,
-			   spa_pending_func_t func, void *data);
+	int (*sync) (struct spa_node *node, int seq);
 
 	/**
 	 * Enumerate the parameters of a node.
@@ -238,7 +235,7 @@ struct spa_node {
 	 * \param num the number of parameters to enumerate
 	 * \param filter and optional filter to use
 	 * \param func the callback with the result. The result will be
-	 *   of type struct spa_result_node_enum_params. The next field
+	 *   of type struct spa_result_node_params. The next field
 	 *   can be used to continue the enumeration.
 	 * \param data first argument to \a func
 	 *
@@ -249,10 +246,9 @@ struct spa_node {
 	 *         -ENOTSUP when there are no parameters
 	 *                 implemented on \a node
 	 */
-	int (*enum_params) (struct spa_node *node,
+	int (*enum_params) (struct spa_node *node, int seq,
 			    uint32_t id, uint32_t start, uint32_t max,
-			    const struct spa_pod *filter,
-			    spa_result_func_t func, void *data);
+			    const struct spa_pod *filter);
 
 	/**
 	 * Set the configurable parameter in \a node.
@@ -341,24 +337,22 @@ struct spa_node {
 	 * Enumerate all possible parameters of \a id on \a port_id of \a node
 	 * that are compatible with \a filter.
 	 *
-	 * Use \a index to retrieve the parameters one by one until the function
-	 * returns 0.
-	 *
 	 * The result parameters can be queried and modified and ultimately be used
 	 * to call port_set_param.
 	 *
 	 * This function must be called from the main thread.
 	 *
+	 * The result callback will be called with a struct spa_result_node_params.
+	 *
 	 * \param node a spa_node
 	 * \param direction an spa_direction
 	 * \param port_id the port to query
+	 * \param seq a sequence number to pass to the synchronous result callback
 	 * \param id the parameter id to query
 	 * \param start the first index to query, 0 to get the first item
 	 * \param num the maximum number of params to query
 	 * \param filter a parameter filter or NULL for no filter
-	 * \param func the callback with the result. The result will be
-	 *   of type struct spa_result_node_enum_params. The next field
-	 *   can be used to continue the enumeration.
+	 * \param func the callback with the result.
 	 * \param data first argument to \a func
 	 *
 	 * \return the return value of \a func or 0 when no more
@@ -367,11 +361,10 @@ struct spa_node {
 	 *         -EINVAL when invalid parameters are given
 	 *         -ENOENT when \a id is unknown
 	 */
-	int (*port_enum_params) (struct spa_node *node,
+	int (*port_enum_params) (struct spa_node *node, int seq,
 				 enum spa_direction direction, uint32_t port_id,
 				 uint32_t id, uint32_t start, uint32_t num,
-				 const struct spa_pod *filter,
-				 spa_result_func_t func, void *data);
+				 const struct spa_pod *filter);
 	/**
 	 * Set a parameter on \a port_id of \a node.
 	 *
@@ -535,8 +528,7 @@ struct spa_node {
 };
 
 #define spa_node_set_callbacks(n,...)		(n)->set_callbacks((n),__VA_ARGS__)
-#define spa_node_sync(n)			(n)->sync((n))
-#define spa_node_wait(n,...)			(n)->wait((n),__VA_ARGS__)
+#define spa_node_sync(n,...)			(n)->sync((n),__VA_ARGS__)
 #define spa_node_enum_params(n,...)		(n)->enum_params((n),__VA_ARGS__)
 #define spa_node_set_param(n,...)		(n)->set_param((n),__VA_ARGS__)
 #define spa_node_set_io(n,...)			(n)->set_io((n),__VA_ARGS__)

@@ -124,7 +124,7 @@ void pw_resource_add_override(struct pw_resource *resource,
 
 /** Generate an sync method for a resource. This will generate a done event
  * with the same \a sequence number in the return value. */
-int pw_resource_sync(struct pw_resource *resource);
+int pw_resource_sync(struct pw_resource *resource, uint32_t seq);
 
 /** Generate an error for a resource */
 int pw_resource_error(struct pw_resource *resource, int result, const char *error, ...);

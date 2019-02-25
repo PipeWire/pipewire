@@ -415,9 +415,10 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 
 			spa_pod_builder_init(&b, buf, sizeof(buf));
                         if (spa_node_port_enum_params_sync(port->node->node,
-						      port->direction, port->port_id,
-						      SPA_PARAM_List, &idx1,
-						      NULL, &param, &b) != 1)
+						port->direction, port->port_id,
+						SPA_PARAM_List, &idx1,
+						NULL, &param, &b,
+						port->node->pending) != 1)
                                 break;
 
 			spa_pod_parse_object(param,
@@ -430,9 +431,10 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 			for (idx2 = 0;;) {
 				spa_pod_builder_init(&b, buf, sizeof(buf));
 	                        if (spa_node_port_enum_params_sync(port->node->node,
-							      port->direction, port->port_id,
-							      id, &idx2,
-							      NULL, &param, &b) != 1)
+							port->direction, port->port_id,
+							id, &idx2,
+							NULL, &param, &b,
+							port->node->pending) != 1)
 	                                break;
 
 				params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));

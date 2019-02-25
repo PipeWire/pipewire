@@ -217,9 +217,8 @@ static void sanitize_map(snd_pcm_chmap_t* map)
 }
 
 int
-spa_alsa_enum_format(struct state *state, uint32_t start, uint32_t num,
-		     const struct spa_pod *filter,
-		     spa_result_func_t func, void *data)
+spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
+		     const struct spa_pod *filter)
 {
 	snd_pcm_t *hndl;
 	snd_pcm_hw_params_t *params;
@@ -236,7 +235,7 @@ spa_alsa_enum_format(struct state *state, uint32_t start, uint32_t num,
 	int res;
 	bool opened;
 	struct spa_pod_frame f[2];
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 
 	opened = state->opened;
@@ -246,6 +245,8 @@ spa_alsa_enum_format(struct state *state, uint32_t start, uint32_t num,
 	result.next = start;
 
       next:
+	result.index = result.next++;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	hndl = state->hndl;
@@ -316,11 +317,11 @@ spa_alsa_enum_format(struct state *state, uint32_t start, uint32_t num,
 		uint32_t channel;
 		snd_pcm_chmap_t* map;
 
-		if (maps[result.next] == NULL) {
+		if (maps[result.index] == NULL) {
 			snd_pcm_free_chmaps(maps);
 			goto enum_end;
 		}
-		map = &maps[result.next]->map;
+		map = &maps[result.index]->map;
 
 		spa_log_debug(state->log, "map %d channels", map->channels);
 		sanitize_map(map);
@@ -338,7 +339,7 @@ spa_alsa_enum_format(struct state *state, uint32_t start, uint32_t num,
 		snd_pcm_free_chmaps(maps);
 	}
 	else {
-		if (result.next > 0)
+		if (result.index > 0)
 			goto enum_end;
 
 		spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
@@ -354,12 +355,10 @@ spa_alsa_enum_format(struct state *state, uint32_t start, uint32_t num,
 
 	fmt = spa_pod_builder_pop(&b, &f[0]);
 
-	result.next++;
-
 	if ((res = spa_pod_filter(&b, &result.param, fmt, filter)) < 0)
 		goto next;
 
-	if ((res = func(data, count, &result)) != 0)
+	if ((res = state->callbacks->result(state->callbacks_data, seq, 0, &result)) != 0)
 		goto exit;
 
 	if (++count != num)

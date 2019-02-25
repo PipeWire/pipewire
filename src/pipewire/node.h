@@ -83,6 +83,9 @@ struct pw_node_events {
 	void (*state_changed) (void *data, enum pw_node_state old,
 			       enum pw_node_state state, const char *error);
 
+        /** a result was received */
+	void (*result) (void *data, int seq, int res, const void *result);
+
         /** an event is emited */
 	void (*event) (void *data, const struct spa_event *event);
 

@@ -152,7 +152,7 @@ struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
 
 /** Generate an sync method for a proxy. This will generate a done event
  * with the same seq number of the reply. */
-int pw_proxy_sync(struct pw_proxy *proxy);
+int pw_proxy_sync(struct pw_proxy *proxy, int seq);
 
 /** Generate an error for a proxy */
 int pw_proxy_error(struct pw_proxy *proxy, int result, const char *error, ...);

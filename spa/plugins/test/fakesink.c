@@ -97,33 +97,34 @@ static void reset_props(struct impl *this, struct props *props)
 	props->live = DEFAULT_LIVE;
 }
 
-static int impl_node_enum_params(struct spa_node *node,
+static int impl_node_enum_params(struct spa_node *node, int seq,
 			uint32_t id, uint32_t start, uint32_t num,
-			const struct spa_pod *filter,
-			spa_result_func_t func, void *data)
+			const struct spa_pod *filter)
 {
 	struct impl *this;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 	struct spa_pod *param;
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
-	spa_return_val_if_fail(func != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
+	result.id = id;
 	result.next = start;
-
       next:
+	result.index = result.next++;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
 	case SPA_PARAM_List:
-		if (result.next > 0)
+		if (result.index > 0)
 			return 0;
 
 		param = spa_pod_builder_add_object(&b,
@@ -131,7 +132,7 @@ static int impl_node_enum_params(struct spa_node *node,
 			SPA_PARAM_LIST_id,   SPA_POD_Id(SPA_PARAM_Props));
 		break;
 	case SPA_PARAM_Props:
-		if (result.next > 0)
+		if (result.index > 0)
 			return 0;
 
 		param = spa_pod_builder_add_object(&b,
@@ -142,12 +143,10 @@ static int impl_node_enum_params(struct spa_node *node,
 		return -ENOENT;
 	}
 
-	result.next++;
-
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = func(data, count, &result)) != 0)
+	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
 		return res;
 
 	if (++count != num)
@@ -377,14 +376,14 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 	return -ENOTSUP;
 }
 
-static int port_enum_formats(struct spa_node *node,
-			     enum spa_direction direction, uint32_t port_id,
-			     uint32_t index,
-			     const struct spa_pod *filter,
-			     struct spa_pod **param,
-			     struct spa_pod_builder *builder)
+static int port_enum_formats(struct spa_node *node, int seq,
+			enum spa_direction direction, uint32_t port_id,
+			uint32_t index,
+			const struct spa_pod *filter,
+			struct spa_pod **param,
+			struct spa_pod_builder *builder)
 {
-	return 0;
+	return -ENOTSUP;
 }
 
 static int port_get_format(struct spa_node *node,
@@ -408,28 +407,31 @@ static int port_get_format(struct spa_node *node,
 }
 
 static int
-impl_node_port_enum_params(struct spa_node *node,
+impl_node_port_enum_params(struct spa_node *node, int seq,
 			enum spa_direction direction, uint32_t port_id,
 			uint32_t id, uint32_t start, uint32_t num,
-			const struct spa_pod *filter,
-			spa_result_func_t func, void *data)
+			const struct spa_pod *filter)
 {
+	struct impl *this;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 	struct spa_pod *param;
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
-	spa_return_val_if_fail(func != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	spa_return_val_if_fail(CHECK_PORT(node, direction, port_id), -EINVAL);
 
+	result.id = id;
 	result.next = start;
-
       next:
+	result.index = result.next++;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
@@ -440,26 +442,26 @@ impl_node_port_enum_params(struct spa_node *node,
 				    SPA_PARAM_Buffers,
 				    SPA_PARAM_Meta };
 
-		if (result.next < SPA_N_ELEMENTS(list))
+		if (result.index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.next]));
+					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
 		else
 			return 0;
 		break;
 	}
 	case SPA_PARAM_EnumFormat:
-		if ((res = port_enum_formats(node, direction, port_id,
-						result.next, filter, &param, &b)) <= 0)
+		if ((res = port_enum_formats(node, seq, direction, port_id,
+						result.index, filter, &param, &b)) <= 0)
 			return res;
 		break;
 	case SPA_PARAM_Format:
 		if ((res = port_get_format(node, direction, port_id,
-						result.next, filter, &param, &b)) <= 0)
+						result.index, filter, &param, &b)) <= 0)
 			return res;
 		break;
 	case SPA_PARAM_Buffers:
-		if (result.next > 0)
+		if (result.index > 0)
 			return 0;
 
 		param = spa_pod_builder_add_object(&b,
@@ -471,7 +473,7 @@ impl_node_port_enum_params(struct spa_node *node,
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
 	case SPA_PARAM_Meta:
-		switch (result.next) {
+		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
@@ -486,12 +488,10 @@ impl_node_port_enum_params(struct spa_node *node,
 		return -ENOENT;
 	}
 
-	result.next++;
-
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = func(data, count, &result)) != 0)
+	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
 		return res;
 
 	if (++count != num)

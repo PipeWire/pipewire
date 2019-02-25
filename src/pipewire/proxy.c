@@ -147,12 +147,12 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 }
 
 SPA_EXPORT
-int pw_proxy_sync(struct pw_proxy *proxy)
+int pw_proxy_sync(struct pw_proxy *proxy, int seq)
 {
 	int res = -EIO;
 	if (proxy->remote->core_proxy != NULL) {
-		res = pw_core_proxy_sync(proxy->remote->core_proxy, proxy->id);
-		pw_log_debug("proxy %p: %u sync %u", proxy, proxy->id, res);
+		res = pw_core_proxy_sync(proxy->remote->core_proxy, proxy->id, seq);
+		pw_log_debug("proxy %p: %u %d sync %u", proxy, proxy->id, seq, res);
 	}
 	return res;
 }
@@ -164,7 +164,8 @@ int pw_proxy_error(struct pw_proxy *proxy, int result, const char *error, ...)
 	int res = -EIO;
 	va_start(ap, error);
 	if (proxy->remote->core_proxy != NULL)
-		res = pw_core_proxy_errorv(proxy->remote->core_proxy, proxy->id, result, error, ap);
+		res = pw_core_proxy_errorv(proxy->remote->core_proxy, proxy->id,
+				result, error, ap);
 	va_end(ap);
 	return res;
 }

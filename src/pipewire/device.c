@@ -25,15 +25,24 @@
 #include <errno.h>
 
 #include <spa/debug/types.h>
+#include <spa/monitor/utils.h>
 
 #include "pipewire/device.h"
 #include "pipewire/private.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/type.h"
 
+struct impl {
+	struct pw_device this;
+
+	struct spa_pending_queue pending;
+};
+
 struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_device *device;
+	struct pw_resource *resource;
+	uint32_t seq;
 };
 
 struct node_data {
@@ -50,11 +59,16 @@ struct pw_device *pw_device_new(struct pw_core *core,
 				struct pw_properties *properties,
 				size_t user_data_size)
 {
+	struct impl *impl;
 	struct pw_device *this;
 
-	this = calloc(1, sizeof(*this) + user_data_size);
-	if (this == NULL)
+	impl = calloc(1, sizeof(struct impl) + user_data_size);
+	if (impl == NULL)
 		return NULL;
+
+	spa_pending_queue_init(&impl->pending);
+
+	this = &impl->this;
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -71,14 +85,14 @@ struct pw_device *pw_device_new(struct pw_core *core,
 	spa_list_init(&this->node_list);
 
 	if (user_data_size > 0)
-		this->user_data = SPA_MEMBER(this, sizeof(*this), void);
+		this->user_data = SPA_MEMBER(this, sizeof(struct impl), void);
 
 	pw_log_debug("device %p: new %s", this, name);
 
 	return this;
 
       no_mem:
-	free(this);
+	free(impl);
 	return NULL;
 }
 
@@ -127,6 +141,7 @@ int pw_device_for_each_param(struct pw_device *device,
 					      struct spa_pod *param),
 			     void *data)
 {
+	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
 	int res = 0;
 	uint32_t idx, count;
 	uint8_t buf[4096];
@@ -140,9 +155,10 @@ int pw_device_for_each_param(struct pw_device *device,
 		spa_pod_builder_init(&b, buf, sizeof(buf));
 
 		idx = index;
-		if ((res = spa_device_enum_params(device->implementation,
+		if ((res = spa_device_enum_params_sync(device->implementation,
 						param_id, &index,
-						filter, &param, &b)) <= 0)
+						filter, &param, &b,
+						&impl->pending)) != 1)
 			break;
 
 		if ((res = callback(data, param_id, idx, index, param)) != 0)
@@ -153,21 +169,22 @@ int pw_device_for_each_param(struct pw_device *device,
 
 static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
 {
-	struct pw_resource *resource = data;
-	pw_device_resource_param(resource, id, index, next, param);
+	struct resource_data *d = data;
+	pw_device_resource_param(d->resource, d->seq, id, index, next, param);
 	return 0;
 }
 
-static int device_enum_params(void *object, uint32_t id, uint32_t start, uint32_t num,
-                             const struct spa_pod *filter)
+static int device_enum_params(void *object, uint32_t seq, uint32_t id, uint32_t start, uint32_t num,
+		const struct spa_pod *filter)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	struct pw_device *device = data->device;
 	int res;
 
+	data->seq = seq;
 	if ((res = pw_device_for_each_param(device, id, start, num,
-				filter, reply_param, resource)) < 0)
+				filter, reply_param, data)) < 0)
 		pw_core_resource_error(resource->client->core_resource,
 				resource->id, res, spa_strerror(res));
 	return res;
@@ -176,8 +193,8 @@ static int device_enum_params(void *object, uint32_t id, uint32_t start, uint32_
 static int device_set_param(void *object, uint32_t id, uint32_t flags,
                            const struct spa_pod *param)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	struct pw_device *device = data->device;
 	int res;
 
@@ -208,9 +225,10 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	data = pw_resource_get_user_data(resource);
 	data->device = this;
+	data->resource = resource;
 	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
 
-	pw_resource_set_implementation(resource, &device_methods, resource);
+	pw_resource_set_implementation(resource, &device_methods, data);
 
 	pw_log_debug("device %p: bound to %d", this, resource->id);
 
@@ -396,11 +414,18 @@ static int device_object_info(void *data, uint32_t id,
 	return 0;
 }
 
+static int device_result(void *data, int seq, int res, const void *result)
+{
+	struct pw_device *device = data;
+	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
+	return spa_pending_queue_complete(&impl->pending, seq, res, result);
+}
 
 static const struct spa_device_callbacks device_callbacks = {
 	SPA_VERSION_DEVICE_CALLBACKS,
 	.info = device_info,
 	.object_info = device_object_info,
+	.result = device_result,
 };
 
 SPA_EXPORT

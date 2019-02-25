@@ -45,6 +45,8 @@ struct impl {
 struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_port *port;
+	struct pw_resource *resource;
+	uint32_t seq;
 };
 
 /** \endcond */
@@ -307,7 +309,6 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 			    0);
 	this->rt.io.status = SPA_STATUS_NEED_BUFFER;
 
-
 	return this;
 
        no_mem:
@@ -463,23 +464,26 @@ static const struct pw_resource_events resource_events = {
 
 static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
 {
-	struct pw_resource *resource = data;
+	struct resource_data *d = data;
+	struct pw_resource *resource = d->resource;
 	pw_log_debug("resource %p: reply param %d %d %d", resource, id, index, next);
-	pw_port_resource_param(resource, id, index, next, param);
+	pw_port_resource_param(resource, d->seq, id, index, next, param);
 	return 0;
 }
 
-static int port_enum_params(void *object, uint32_t id, uint32_t index, uint32_t num,
+static int port_enum_params(void *object, uint32_t seq, uint32_t id, uint32_t index, uint32_t num,
 		const struct spa_pod *filter)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_port *port = data->port;
 	int res;
-	pw_log_debug("resource %p: enum params", resource);
+	pw_log_debug("resource %p: enum params %d %s %u %u", resource, seq,
+			spa_debug_type_find_name(spa_type_param, id), index, num);
 
+	data->seq = seq;
 	if ((res = pw_port_for_each_param(port, id, index, num, filter,
-			reply_param, resource)) < 0)
+			reply_param, data)) < 0)
 		pw_core_resource_error(resource->client->core_resource,
 				resource->id, res, spa_strerror(res));
 	return res;
@@ -505,6 +509,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	data = pw_resource_get_user_data(resource);
 	data->port = this;
+	data->resource = resource;
 	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
 
 	pw_resource_set_implementation(resource, &port_methods, resource);
@@ -585,7 +590,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 
 	port->node = node;
 
-	pw_node_events_port_init(node, port);
+	pw_node_emit_port_init(node, port);
 
 	pw_port_for_each_param(port, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
 
@@ -647,7 +652,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	if (port->state <= PW_PORT_STATE_INIT)
 		pw_port_update_state(port, PW_PORT_STATE_CONFIGURE);
 
-	pw_node_events_port_added(node, port);
+	pw_node_emit_port_added(node, port);
 
 	return 0;
 }
@@ -703,7 +708,7 @@ static void pw_port_remove(struct pw_port *port)
 		node->info.n_output_ports--;
 	}
 	spa_list_remove(&port->link);
-	pw_node_events_port_removed(node, port);
+	pw_node_emit_port_removed(node, port);
 }
 
 void pw_port_destroy(struct pw_port *port)
@@ -758,20 +763,25 @@ int pw_port_for_each_param(struct pw_port *port,
 	if (max == 0)
 		max = UINT32_MAX;
 
+	pw_log_debug("port %p: params %s %u %u", port,
+			spa_debug_type_find_name(spa_type_param, param_id),
+			index, max);
+
 	for (count = 0; count < max; count++) {
 		spa_pod_builder_init(&b, buf, sizeof(buf));
 		idx = index;
 		if ((res = spa_node_port_enum_params_sync(node->node,
-						     port->direction, port->port_id,
-						     param_id, &index,
-						     filter, &param, &b)) != 1)
+						port->direction, port->port_id,
+						param_id, &index,
+						filter, &param, &b,
+						node->pending)) != 1)
 			break;
 
 		pw_log_debug("port %p: have param %d %u %u", port, param_id, idx, index);
 		if ((res = callback(data, param_id, idx, index, param)) != 0)
 			break;
 	}
-	pw_log_debug("port %p: res %d", port, res);
+	pw_log_debug("port %p: res %d: (%s)", port, res, spa_strerror(res));
 	return res;
 }
 

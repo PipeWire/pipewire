@@ -835,7 +835,8 @@ int pw_core_find_format(struct pw_core *core,
 		if ((res = spa_node_port_enum_params_sync(output->node->node,
 						     output->direction, output->port_id,
 						     SPA_PARAM_Format, &oidx,
-						     NULL, format, builder)) != 1) {
+						     NULL, format, builder,
+						     output->node->pending)) != 1) {
 			if (res == 0)
 				res = -EBADF;
 			asprintf(error, "error get output format: %s", spa_strerror(res));
@@ -849,7 +850,8 @@ int pw_core_find_format(struct pw_core *core,
 		if ((res = spa_node_port_enum_params_sync(input->node->node,
 						     input->direction, input->port_id,
 						     SPA_PARAM_Format, &iidx,
-						     NULL, format, builder)) != 1) {
+						     NULL, format, builder,
+						     input->node->pending)) != 1) {
 			if (res == 0)
 				res = -EBADF;
 			asprintf(error, "error get input format: %s", spa_strerror(res));
@@ -869,7 +871,8 @@ int pw_core_find_format(struct pw_core *core,
 		if ((res = spa_node_port_enum_params_sync(input->node->node,
 						     input->direction, input->port_id,
 						     SPA_PARAM_EnumFormat, &iidx,
-						     NULL, &filter, &fb)) != 1) {
+						     NULL, &filter, &fb,
+						     input->node->pending)) != 1) {
 			if (res == 0 && iidx == 0) {
 				asprintf(error, "error input enum formats: %s", spa_strerror(res));
 				goto error;
@@ -884,7 +887,8 @@ int pw_core_find_format(struct pw_core *core,
 		if ((res = spa_node_port_enum_params_sync(output->node->node,
 						     output->direction, output->port_id,
 						     SPA_PARAM_EnumFormat, &oidx,
-						     filter, format, builder)) != 1) {
+						     filter, format, builder,
+						     output->node->pending)) != 1) {
 			if (res == 0) {
 				oidx = 0;
 				goto again;

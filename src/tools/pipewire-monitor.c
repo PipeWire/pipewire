@@ -48,6 +48,7 @@ struct data {
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
+	uint32_t seq;
 
 	struct pw_registry_proxy *registry_proxy;
 	struct spa_hook registry_listener;
@@ -80,7 +81,8 @@ static void add_pending(struct proxy_data *pd)
 	struct data *d = pd->data;
 
 	spa_list_append(&d->pending_list, &pd->pending_link);
-	pd->pending_seq = pw_core_proxy_sync(d->core_proxy, 0);
+	pd->pending_seq = d->seq++;
+	pw_core_proxy_sync(d->core_proxy, 0, d->seq);
 }
 
 static void remove_pending(struct proxy_data *pd)
@@ -268,8 +270,8 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 	return 0;
 }
 
-static int node_event_param(void *object, uint32_t id, uint32_t index, uint32_t next,
-		const struct spa_pod *param)
+static int node_event_param(void *object, uint32_t seq, uint32_t id,
+		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
 	return add_param(data, param);
@@ -336,8 +338,8 @@ static int port_event_info(void *object, const struct pw_port_info *info)
 	return 0;
 }
 
-static int port_event_param(void *object, uint32_t id, uint32_t index, uint32_t next,
-		const struct spa_pod *param)
+static int port_event_param(void *object, uint32_t seq, uint32_t id,
+		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
 	return add_param(data, param);

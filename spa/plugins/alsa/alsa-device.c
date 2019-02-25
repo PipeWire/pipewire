@@ -277,24 +277,29 @@ static int impl_set_callbacks(struct spa_device *device,
 }
 
 
-static int impl_enum_params(struct spa_device *device,
-			    uint32_t id, uint32_t *index,
-			    const struct spa_pod *filter,
-			    struct spa_pod **result,
-			    struct spa_pod_builder *builder)
+static int impl_enum_params(struct spa_device *device, int seq,
+			    uint32_t id, uint32_t start, uint32_t num,
+			    const struct spa_pod *filter)
 {
 	struct impl *this;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
+	struct spa_result_device_params result;
+	uint32_t count = 0;
+	int res;
 
 	spa_return_val_if_fail(device != NULL, -EINVAL);
-	spa_return_val_if_fail(index != NULL, -EINVAL);
-	spa_return_val_if_fail(builder != NULL, -EINVAL);
+	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	this = SPA_CONTAINER_OF(device, struct impl, device);
+	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
+	result.id = id;
+	result.next = start;
       next:
+	result.index = result.next++;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
@@ -303,17 +308,17 @@ static int impl_enum_params(struct spa_device *device,
 		uint32_t list[] = { SPA_PARAM_EnumProfile,
 				    SPA_PARAM_Profile };
 
-		if (*index < SPA_N_ELEMENTS(list))
+		if (result.index < SPA_N_ELEMENTS(list))
 			param = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[*index]));
+					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
 		else
 			return 0;
 		break;
 	}
 	case SPA_PARAM_EnumProfile:
 	{
-		switch (*index) {
+		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
@@ -333,7 +338,7 @@ static int impl_enum_params(struct spa_device *device,
 	}
 	case SPA_PARAM_Profile:
 	{
-		switch (*index) {
+		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
@@ -348,12 +353,16 @@ static int impl_enum_params(struct spa_device *device,
 		return -ENOENT;
 	}
 
-	(*index)++;
-
-	if (spa_pod_filter(builder, result, param, filter) < 0)
+	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	return 1;
+	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
+		return res;
+
+	if (++count != num)
+		goto next;
+
+	return 0;
 }
 
 static int impl_set_param(struct spa_device *device,

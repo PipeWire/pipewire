@@ -122,23 +122,24 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 	return 0;
 }
 
-static int impl_port_enum_params(struct spa_node *node,
+static int impl_port_enum_params(struct spa_node *node, int seq,
 				 enum spa_direction direction, uint32_t port_id,
 				 uint32_t id, uint32_t start, uint32_t num,
-				 const struct spa_pod *filter,
-				 spa_result_func_t func, void *data)
+				 const struct spa_pod *filter)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
 
+	result.id = id;
 	result.next = start;
-
       next:
+	result.index = result.next++;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
@@ -146,7 +147,7 @@ static int impl_port_enum_params(struct spa_node *node,
 	{
 		SDL_RendererInfo info;
 
-		if (result.next > 0)
+		if (result.index > 0)
 			return 0;
 
 		SDL_GetRendererInfo(d->renderer, &info);
@@ -154,7 +155,7 @@ static int impl_port_enum_params(struct spa_node *node,
 		break;
 	}
 	case SPA_PARAM_Buffers:
-		if (result.next > 0)
+		if (result.index > 0)
 			return 0;
 
 		param = spa_pod_builder_add_object(&b,
@@ -167,7 +168,7 @@ static int impl_port_enum_params(struct spa_node *node,
 		break;
 
 	case SPA_PARAM_Meta:
-		if (result.next > 0)
+		if (result.index > 0)
 			return 0;
 
 		param = spa_pod_builder_add_object(&b,
@@ -180,12 +181,10 @@ static int impl_port_enum_params(struct spa_node *node,
 		return -ENOENT;
 	}
 
-	result.next++;
-
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = func(data, count, &result)) != 0)
+	if ((res = d->callbacks->result(d->callbacks_data, seq, 0, &result)) != 0)
 		return res;
 
 	if (++count != num)

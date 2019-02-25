@@ -43,8 +43,6 @@ extern "C" {
 #define SPA_RESULT_ASYNC_SEQ(res)	((res) & SPA_ASYNC_SEQ_MASK)
 #define SPA_RESULT_RETURN_ASYNC(seq)	(SPA_ASYNC_BIT | SPA_RESULT_ASYNC_SEQ(seq))
 
-typedef int (*spa_result_func_t) (void *data, uint32_t count, const void *result);
-
 struct spa_pending;
 
 typedef int (*spa_pending_func_t) (struct spa_pending *pending, const void *result);
@@ -52,10 +50,48 @@ typedef int (*spa_pending_func_t) (struct spa_pending *pending, const void *resu
 struct spa_pending {
 	struct spa_list link;		/**< link used internally */
 	int seq;			/**< sequence number of pending result */
-	int res;			/**< result code of operation */
+	int res;			/**< result code of operation, valid in callback */
 	spa_pending_func_t func;	/**< callback function */
 	void *data;			/**< extra user data */
 };
+
+static inline void spa_pending_remove(struct spa_pending *pending)
+{
+	spa_list_remove(&pending->link);
+}
+
+struct spa_pending_queue {
+	struct spa_list pending;
+	int seq;
+};
+
+static inline void spa_pending_queue_init(struct spa_pending_queue *queue)
+{
+	spa_list_init(&queue->pending);
+}
+
+static inline void spa_pending_queue_add(struct spa_pending_queue *queue,
+		int seq, struct spa_pending *pending, spa_pending_func_t func, void *data)
+{
+	pending->seq = seq;
+	pending->func = func;
+	pending->data = data;
+	spa_list_append(&queue->pending, &pending->link);
+}
+
+static inline int spa_pending_queue_complete(struct spa_pending_queue *queue,
+		int seq, int res, const void *result)
+{
+	struct spa_pending *p, *t;
+	spa_list_for_each_safe(p, t, &queue->pending, link) {
+		if (p->seq == seq) {
+			p->res = res;
+			spa_pending_remove(p);
+			p->func(p, result);
+		}
+	}
+	return 0;
+}
 
 #ifdef __cplusplus
 } /* extern "C" */

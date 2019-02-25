@@ -32,6 +32,7 @@
 
 #include <spa/pod/parser.h>
 #include <spa/node/utils.h>
+#include <spa/debug/types.h>
 
 #include "pipewire/interfaces.h"
 #include "pipewire/private.h"
@@ -62,13 +63,15 @@ struct impl {
 	uint32_t next_position;
 	int last_error;
 
-	struct spa_pending pending_state;
+	struct spa_pending_queue pending;
 	int pause_on_idle:1;
 };
 
 struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_node *node;
+	struct pw_resource *resource;
+	uint32_t seq;
 };
 
 /** \endcond */
@@ -193,10 +196,10 @@ static void node_update_state(struct pw_node *node, enum pw_node_state state, ch
 		break;
 	}
 
-	pw_node_events_state_changed(node, old, state, error);
+	pw_node_emit_state_changed(node, old, state, error);
 
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;
-	pw_node_events_info_changed(node, &node->info);
+	pw_node_emit_info_changed(node, &node->info);
 
 	if (node->global)
 		spa_list_for_each(resource, &node->global->resource_list, link)
@@ -249,21 +252,26 @@ static const struct pw_resource_events resource_events = {
 
 static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
 {
-	struct pw_resource *resource = data;
-	pw_node_resource_param(resource, id, index, next, param);
+	struct resource_data *d = data;
+	pw_log_debug("resource %p: reply param %d", d->resource, d->seq);
+	pw_node_resource_param(d->resource, d->seq, id, index, next, param);
 	return 0;
 }
 
-static int node_enum_params(void *object, uint32_t id, uint32_t index, uint32_t num,
-		const struct spa_pod *filter)
+static int node_enum_params(void *object, uint32_t seq, uint32_t id,
+		uint32_t index, uint32_t num, const struct spa_pod *filter)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_node *node = data->node;
 	int res;
 
+	pw_log_debug("resource %p: enum params %d %s %u %u", resource, seq,
+			spa_debug_type_find_name(spa_type_param, id), index, num);
+
+	data->seq = seq;
 	if ((res = pw_node_for_each_param(node, id, index, num,
-				filter, reply_param, resource)) < 0) {
+				filter, reply_param, data)) < 0) {
 		pw_log_error("resource %p: %d error %d (%s)", resource,
 				resource->id, res, spa_strerror(res));
 		pw_core_resource_error(resource->client->core_resource,
@@ -328,6 +336,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	data = pw_resource_get_user_data(resource);
 	data->node = this;
+	data->resource = resource;
 	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
 
 	pw_resource_set_implementation(resource, &node_methods, resource);
@@ -426,7 +435,7 @@ SPA_EXPORT
 int pw_node_initialized(struct pw_node *this)
 {
 	pw_log_debug("node %p initialized", this);
-	pw_node_events_initialized(this);
+	pw_node_emit_initialized(this);
 	node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 	return 0;
 }
@@ -505,7 +514,7 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 		spa_list_remove(&n->driver_link);
 		spa_list_append(&driver->driver_list, &n->driver_link);
 		n->driver_node = driver;
-		pw_node_events_driver_changed(n, old, driver);
+		pw_node_emit_driver_changed(n, old, driver);
 
 		if ((res = spa_node_set_io(n->node,
 			    SPA_IO_Position,
@@ -670,6 +679,9 @@ struct pw_node *pw_node_new(struct pw_core *core,
 			      &this->activation) < 0)
                 goto clean_impl;
 
+	spa_pending_queue_init(&impl->pending);
+	this->pending = &impl->pending;
+
 	impl->work = pw_work_queue_new(this->core->main_loop);
 	if (impl->work == NULL)
 		goto clean_impl;
@@ -774,7 +786,7 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 
 	node->info.props = &node->properties->dict;
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_PROPS;
-	pw_node_events_info_changed(node, &node->info);
+	pw_node_emit_info_changed(node, &node->info);
 
 	if (node->global)
 		spa_list_for_each(resource, &node->global->resource_list, link)
@@ -838,15 +850,17 @@ static int node_port_info(void *data, enum spa_direction direction, uint32_t por
 	return 0;
 }
 
-static int node_complete(struct spa_pending *pending, const void *result)
+static int node_result(void *data, int seq, int res, const void *result)
 {
-	struct impl *impl = pending->data;
-	uint32_t seq = SPA_RESULT_ASYNC_SEQ(pending->seq);
-	int res = pending->res;
-	pending->res = 0;
-	pw_log_debug("node %p: done event %d %u", impl, res, pending->seq);
+	struct pw_node *node = data;
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+
+	pw_log_trace("node %p: result seq:%d res:%d", node, seq, res);
 	impl->last_error = res;
-        pw_work_queue_complete(impl->work, &impl->this, seq, res);
+	spa_pending_queue_complete(&impl->pending, seq, res, result);
+        pw_work_queue_complete(impl->work, &impl->this, SPA_RESULT_ASYNC_SEQ(seq), res);
+	pw_node_emit_result(node, seq, res, result);
+
 	return 0;
 }
 
@@ -865,7 +879,7 @@ static int node_event(void *data, struct spa_event *event)
 	default:
 		break;
 	}
-	pw_node_events_event(node, event);
+	pw_node_emit_event(node, event);
 
 	return 0;
 }
@@ -909,6 +923,7 @@ static const struct spa_node_callbacks node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.info = node_info,
 	.port_info = node_port_info,
+	.result = node_result,
 	.event = node_event,
 	.ready = node_ready,
 	.reuse_buffer = node_reuse_buffer,
@@ -973,7 +988,7 @@ void pw_node_destroy(struct pw_node *node)
 	struct pw_port *port;
 
 	pw_log_debug("node %p: destroy", impl);
-	pw_node_events_destroy(node);
+	pw_node_emit_destroy(node);
 
 	pause_node(node);
 	suspend_node(node);
@@ -994,11 +1009,6 @@ void pw_node_destroy(struct pw_node *node)
 	if (node->registered)
 		spa_list_remove(&node->link);
 
-	if (impl->pending_state.res != 0) {
-		pw_log_debug("remove pending state %d", impl->pending_state.res);
-		spa_list_remove(&impl->pending_state.link);
-		impl->pending_state.res = 0;
-	}
 	spa_node_set_callbacks(node->node, NULL, NULL);
 
 	pw_log_debug("node %p: unlink ports", node);
@@ -1019,7 +1029,7 @@ void pw_node_destroy(struct pw_node *node)
 	}
 
 	pw_log_debug("node %p: free", node);
-	pw_node_events_free(node);
+	pw_node_emit_free(node);
 
 	pw_work_queue_destroy(impl->work);
 
@@ -1065,6 +1075,7 @@ int pw_node_for_each_param(struct pw_node *node,
 					    struct spa_pod *param),
 			   void *data)
 {
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	int res = 0;
 	uint32_t idx, count;
 	uint8_t buf[4096];
@@ -1074,13 +1085,18 @@ int pw_node_for_each_param(struct pw_node *node,
 	if (max == 0)
 		max = UINT32_MAX;
 
+	pw_log_debug("node %p: params %s %u %u", impl,
+			spa_debug_type_find_name(spa_type_param, param_id),
+			index, max);
+
 	for (count = 0; count < max; count++) {
 		spa_pod_builder_init(&b, buf, sizeof(buf));
 
 		idx = index;
 		if ((res = spa_node_enum_params_sync(node->node,
 						param_id, &index,
-						filter, &param, &b)) != 1)
+						filter, &param, &b,
+						&impl->pending)) != 1)
 			break;
 
 		if ((res = callback(data, param_id, idx, index, param)) != 0)
@@ -1215,7 +1231,7 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 	if (old == state)
 		return 0;
 
-	pw_node_events_state_request(node, state);
+	pw_node_emit_state_request(node, state);
 
 	switch (state) {
 	case PW_NODE_STATE_CREATING:
@@ -1244,13 +1260,7 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 		return res;
 
 	if (SPA_RESULT_IS_ASYNC(res)) {
-		if (impl->pending_state.res != 0) {
-			pw_log_warn("remove pending state %d", impl->pending_state.res);
-			spa_list_remove(&impl->pending_state.link);
-		}
-
-		spa_node_wait(node->node, res, &impl->pending_state,
-				node_complete, impl);
+		res = spa_node_sync(node->node, res);
 	}
 
 	pw_work_queue_add(impl->work,
@@ -1267,7 +1277,7 @@ int pw_node_set_active(struct pw_node *node, bool active)
 	if (old != active) {
 		pw_log_debug("node %p: %s", node, active ? "activate" : "deactivate");
 		node->active = active;
-		pw_node_events_active_changed(node, active);
+		pw_node_emit_active_changed(node, active);
 		if (active) {
 			if (node->enabled)
 				node_activate(node);
@@ -1296,7 +1306,7 @@ int pw_node_set_enabled(struct pw_node *node, bool enabled)
 	if (old != enabled) {
 		pw_log_debug("node %p: %s", node, enabled ? "enable" : "disable");
 		node->enabled = enabled;
-		pw_node_events_enabled_changed(node, enabled);
+		pw_node_emit_enabled_changed(node, enabled);
 
 		if (enabled) {
 			if (node->active)

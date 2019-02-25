@@ -88,6 +88,8 @@ struct impl {
 	struct spa_node *fmt[2];
 	struct spa_node *channelmix;
 	struct spa_node *resample;
+
+	struct spa_pending_queue pending;
 };
 
 static int make_link(struct impl *this,
@@ -149,7 +151,8 @@ static int debug_params(struct impl *this, struct spa_node *node,
 		res = spa_node_port_enum_params_sync(node,
 				       direction, port_id,
 				       id, &state,
-				       NULL, &param, &b);
+				       NULL, &param, &b,
+				       &this->pending);
 		if (res != 1)
 			break;
 
@@ -181,7 +184,8 @@ static int negotiate_link_format(struct impl *this, struct link *link)
 	if ((res = spa_node_port_enum_params_sync(link->out_node,
 			       SPA_DIRECTION_OUTPUT, link->out_port,
 			       SPA_PARAM_EnumFormat, &state,
-			       filter, &format, &b)) != 1) {
+			       filter, &format, &b,
+			       &this->pending)) != 1) {
 		debug_params(this, link->out_node, SPA_DIRECTION_OUTPUT, link->out_port,
 				SPA_PARAM_EnumFormat, filter);
 		return -ENOTSUP;
@@ -191,7 +195,8 @@ static int negotiate_link_format(struct impl *this, struct link *link)
 	if ((res = spa_node_port_enum_params_sync(link->in_node,
 			       SPA_DIRECTION_INPUT, link->in_port,
 			       SPA_PARAM_EnumFormat, &state,
-			       filter, &format, &b)) != 1) {
+			       filter, &format, &b,
+			       &this->pending)) != 1) {
 		debug_params(this, link->in_node, SPA_DIRECTION_INPUT, link->in_port,
 				SPA_PARAM_EnumFormat, filter);
 		return -ENOTSUP;
@@ -240,8 +245,10 @@ static int setup_convert(struct impl *this)
 		make_link(this, this->nodes[i], 0, this->nodes[i+1], 0, NULL);
 
 	for (i = 0, j = this->n_links - 1; j >= i; i++, j--) {
+		spa_log_debug(this->log, "negotiate %d", i);
 		if ((res = negotiate_link_format(this, &this->links[i])) < 0)
 			return res;
+		spa_log_debug(this->log, "negotiate %d", j);
 		if ((res = negotiate_link_format(this, &this->links[j])) < 0)
 			return res;
 	}
@@ -267,7 +274,8 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	if ((res = spa_node_port_enum_params_sync(link->in_node,
 			       SPA_DIRECTION_INPUT, link->in_port,
 			       SPA_PARAM_Buffers, &state,
-			       param, &param, &b)) != 1) {
+			       param, &param, &b,
+			       &this->pending)) != 1) {
 		debug_params(this, link->out_node, SPA_DIRECTION_OUTPUT, link->out_port,
 				SPA_PARAM_Buffers, param);
 		return -ENOTSUP;
@@ -276,7 +284,8 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	if ((res = spa_node_port_enum_params_sync(link->out_node,
 			       SPA_DIRECTION_OUTPUT, link->out_port,
 			       SPA_PARAM_Buffers, &state,
-			       param, &param, &b)) != 1) {
+			       param, &param, &b,
+			       &this->pending)) != 1) {
 		debug_params(this, link->in_node, SPA_DIRECTION_INPUT, link->in_port,
 				SPA_PARAM_Buffers, param);
 		return -ENOTSUP;
@@ -384,33 +393,34 @@ static int setup_buffers(struct impl *this, enum spa_direction direction)
 	return 0;
 }
 
-static int impl_node_enum_params(struct spa_node *node,
+static int impl_node_enum_params(struct spa_node *node, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
-				 const struct spa_pod *filter,
-				 spa_result_func_t func, void *data)
+				 const struct spa_pod *filter)
 {
 	struct impl *this;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
-	spa_return_val_if_fail(func != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
+	result.id = id;
 	result.next = start;
-
       next:
+	result.index = result.next++;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
 	case SPA_PARAM_EnumProfile:
-		switch (result.next) {
+		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
@@ -426,10 +436,9 @@ static int impl_node_enum_params(struct spa_node *node,
 		}
 		break;
 	case SPA_PARAM_Props:
-		switch (result.next) {
+		switch (result.index) {
 		case 0:
-			return spa_node_enum_params(this->channelmix,
-					id, start, num, filter, func, data);
+			return spa_node_enum_params(this->channelmix, seq, id, start, num, filter);
 		default:
 			return 0;
 		}
@@ -438,12 +447,11 @@ static int impl_node_enum_params(struct spa_node *node,
 	default:
 		return -ENOENT;
 	}
-	result.next++;
 
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = func(data, count, &result)) != 0)
+	if ((res = this->callbacks->result(this->user_data, seq, 0, &result)) != 0)
 		return res;
 
 	if (++count != num)
@@ -553,6 +561,16 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	return 0;
 }
 
+static int on_node_result(void *data, int seq, int res, const void *result)
+{
+	struct impl *this = data;
+	int r;
+	r = spa_pending_queue_complete(&this->pending, seq, res, result);
+	if (r == 0)
+		r = this->callbacks->result(this->user_data, seq, res, result);
+	return r;
+}
+
 static void emit_port_info(struct impl *this,
 		enum spa_direction direction, uint32_t port,
 		const struct spa_port_info *info)
@@ -577,7 +595,8 @@ static int fmt_input_port_info(void *data,
 
 static struct spa_node_callbacks fmt_input_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
-	.port_info = fmt_input_port_info
+	.port_info = fmt_input_port_info,
+	.result = on_node_result,
 };
 
 static int fmt_output_port_info(void *data,
@@ -595,7 +614,13 @@ static int fmt_output_port_info(void *data,
 
 static struct spa_node_callbacks fmt_output_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
-	.port_info = fmt_output_port_info
+	.port_info = fmt_output_port_info,
+	.result = on_node_result,
+};
+
+static struct spa_node_callbacks node_callbacks = {
+	SPA_VERSION_NODE_CALLBACKS,
+	.result = on_node_result,
 };
 
 static int
@@ -613,6 +638,8 @@ impl_node_set_callbacks(struct spa_node *node,
 	this->user_data = user_data;
 
 	spa_node_set_callbacks(this->fmt[SPA_DIRECTION_INPUT], &fmt_input_callbacks, this);
+	spa_node_set_callbacks(this->channelmix, &node_callbacks, this);
+	spa_node_set_callbacks(this->resample, &node_callbacks, this);
 	spa_node_set_callbacks(this->fmt[SPA_DIRECTION_OUTPUT], &fmt_output_callbacks, this);
 
 	return 0;
@@ -643,34 +670,35 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 }
 
 static int
-impl_node_port_enum_params(struct spa_node *node,
+impl_node_port_enum_params(struct spa_node *node, int seq,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t id, uint32_t start, uint32_t num,
-			   const struct spa_pod *filter,
-			   spa_result_func_t func, void *data)
+			   const struct spa_pod *filter)
 {
 	struct impl *this;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
-	struct spa_result_node_enum_params result;
+	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
-	spa_return_val_if_fail(func != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
+	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
+	result.id = id;
 	result.next = start;
-
       next:
+	result.index = result.next++;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
 	case SPA_PARAM_PropInfo:
-		switch (result.next) {
+		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
@@ -683,7 +711,7 @@ impl_node_port_enum_params(struct spa_node *node,
 		break;
 
 	case SPA_PARAM_IO:
-		switch (result.next) {
+		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
@@ -707,15 +735,15 @@ impl_node_port_enum_params(struct spa_node *node,
 		}
 		break;
 	default:
-		return spa_node_port_enum_params(this->fmt[direction], direction, port_id,
-			id, start, num, filter, func, data);
+		return spa_node_port_enum_params(this->fmt[direction], seq, direction, port_id,
+			id, start, num, filter);
 	}
-	result.next++;
 
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = func(data, count, &result)) != 0)
+	spa_log_debug(this->log, "%p: %d callback %u", this, seq, count);
+	if ((res = this->callbacks->result(this->user_data, seq, 0, &result)) != 0)
 		return res;
 
 	if (++count != num)
@@ -982,6 +1010,7 @@ impl_init(const struct spa_handle_factory *factory,
 			this->log = support[i].data;
 	}
 	this->node = impl_node;
+	spa_pending_queue_init(&this->pending);
 
 	if (info == NULL || (str = spa_dict_lookup(info, "factory.mode")) == NULL)
 		str = "convert";

@@ -69,9 +69,6 @@ struct impl {
 	struct spa_io_buffers io;
 
 	struct pw_node *inode, *onode;
-
-	struct spa_pending input_pending;
-	struct spa_pending output_pending;
 };
 
 struct resource_data {
@@ -153,32 +150,6 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 	}
 }
 
-static int complete_output(struct spa_pending *pending, const void *result)
-{
-	struct pw_link *this = pending->data;
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	struct pw_node *node = this->output->node;
-	uint32_t seq = SPA_RESULT_ASYNC_SEQ(pending->seq);
-	int res = pending->res;
-	pw_log_debug("link %p: node %p async complete %d %d", impl, node, seq, res);
-	pending->res = 0;
-	pw_work_queue_complete(impl->work, node, seq, res);
-	return 0;
-}
-
-static int complete_input(struct spa_pending *pending, const void *result)
-{
-	struct pw_link *this = pending->data;
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	struct pw_node *node = this->input->node;
-	uint32_t seq = SPA_RESULT_ASYNC_SEQ(pending->seq);
-	int res = pending->res;
-	pw_log_debug("link %p: node %p async complete %d %d", impl, node, seq, res);
-	pending->res = 0;
-	pw_work_queue_complete(impl->work, node, seq, res);
-	return 0;
-}
-
 static void complete_ready(void *obj, void *data, int res, uint32_t id)
 {
 	struct pw_port_mix *mix = data;
@@ -211,16 +182,6 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 	}
 }
 
-static struct spa_pending *prepare_pending(struct impl *impl, struct spa_pending *pending)
-{
-	if (pending->res != 0) {
-		pw_log_warn("link %p: remove pending %d", impl, pending->res);
-		spa_list_remove(&pending->link);
-		pending->res = 0;
-	}
-	return pending;
-}
-
 static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_state)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
@@ -238,7 +199,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	in_mix_state = this->rt.in_mix.state;
 	out_mix_state = this->rt.out_mix.state;
 
-	pw_log_debug("%d %d", in_mix_state, out_mix_state);
+	pw_log_debug("in_state:%d out_state:%d", in_mix_state, out_mix_state);
 
 	if (in_mix_state != PW_PORT_STATE_CONFIGURE && out_mix_state != PW_PORT_STATE_CONFIGURE)
 		return 0;
@@ -262,9 +223,10 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE) {
 		index = 0;
 		res = spa_node_port_enum_params_sync(output->node->node,
-						     output->direction, output->port_id,
-						     SPA_PARAM_Format, &index,
-						     NULL, &current, &b);
+				output->direction, output->port_id,
+				SPA_PARAM_Format, &index,
+				NULL, &current, &b,
+				output->node->pending);
 		switch (res) {
 		case -EIO:
 			current = NULL;
@@ -297,9 +259,10 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	if (in_state > PW_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE) {
 		index = 0;
 		res = spa_node_port_enum_params_sync(input->node->node,
-						     input->direction, input->port_id,
-						     SPA_PARAM_Format, &index,
-						     NULL, &current, &b);
+				input->direction, input->port_id,
+				SPA_PARAM_Format, &index,
+				NULL, &current, &b,
+				input->node->pending);
 		switch (res) {
 		case -EIO:
 			current = NULL;
@@ -339,12 +302,9 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
-			spa_node_wait(output->node->node, res,
-					prepare_pending(impl, &impl->output_pending),
-					complete_output,
-					this);
+			res = spa_node_sync(output->node->node, res),
 			pw_work_queue_add(impl->work, output->node, res, complete_ready,
-					  &this->rt.out_mix);
+					&this->rt.out_mix);
 		}
 	}
 	if (in_mix_state == PW_PORT_STATE_CONFIGURE) {
@@ -357,13 +317,9 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res2)) {
-			spa_node_wait(input->node->node, res2,
-					prepare_pending(impl, &impl->input_pending),
-					complete_input,
-					this);
-
+			res2 = spa_node_sync(input->node->node, res2),
 			pw_work_queue_add(impl->work, input->node, res2, complete_ready,
-					  &this->rt.in_mix);
+					&this->rt.in_mix);
 			if (res == 0)
 				res = res2;
 		}
@@ -501,8 +457,9 @@ param_filter(struct pw_link *this,
 	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));
 		pw_log_debug("iparam %d", iidx);
 		if ((res = spa_node_port_enum_params_sync(in_port->node->node,
-						     in_port->direction, in_port->port_id,
-						     id, &iidx, NULL, &iparam, &ib)) < 0)
+						in_port->direction, in_port->port_id,
+						id, &iidx, NULL, &iparam, &ib,
+						in_port->node->pending)) < 0)
 			break;
 
 		if (res != 1) {
@@ -516,9 +473,10 @@ param_filter(struct pw_link *this,
 
 		for (oidx = 0;;) {
 			pw_log_debug("oparam %d", oidx);
-			if (spa_node_port_enum_params_sync(out_port->node->node, out_port->direction,
-						      out_port->port_id, id, &oidx,
-						      iparam, &oparam, result) != 1) {
+			if (spa_node_port_enum_params_sync(out_port->node->node,
+						out_port->direction, out_port->port_id,
+						id, &oidx, iparam, &oparam, result,
+						out_port->node->pending) != 1) {
 				break;
 			}
 
@@ -719,20 +677,17 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 		if (out_flags & SPA_PORT_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(output,
-							 this->rt.out_mix.port.port_id,
-							 params, n_params,
-							 allocation.buffers,
-							 &allocation.n_buffers)) < 0) {
+							this->rt.out_mix.port.port_id,
+							params, n_params,
+							allocation.buffers,
+							&allocation.n_buffers)) < 0) {
 				asprintf(&error, "error alloc output buffers: %d", res);
 				goto error;
 			}
 			if (SPA_RESULT_IS_ASYNC(res)) {
-				spa_node_wait(output->node->node, res,
-						prepare_pending(impl, &impl->output_pending),
-						complete_output,
-						this);
+				res = spa_node_sync(output->node->node, res),
 				pw_work_queue_add(impl->work, output->node, res, complete_paused,
-					  &this->rt.out_mix);
+						&this->rt.out_mix);
 			}
 
 			out_flags &= ~SPA_PORT_FLAG_CAN_USE_BUFFERS;
@@ -742,20 +697,17 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 				     allocation.n_buffers, allocation.buffers);
 		} else if (in_flags & SPA_PORT_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(input,
-							 this->rt.in_mix.port.port_id,
-							 params, n_params,
-							 allocation.buffers,
-							 &allocation.n_buffers)) < 0) {
+							this->rt.in_mix.port.port_id,
+							params, n_params,
+							allocation.buffers,
+							&allocation.n_buffers)) < 0) {
 				asprintf(&error, "error alloc input buffers: %d", res);
 				goto error;
 			}
 			if (SPA_RESULT_IS_ASYNC(res)) {
-				spa_node_wait(input->node->node, res,
-						prepare_pending(impl, &impl->input_pending),
-						complete_input,
-						this);
+				res = spa_node_sync(input->node->node, res),
 				pw_work_queue_add(impl->work, input->node, res, complete_paused,
-					  &this->rt.in_mix);
+						&this->rt.in_mix);
 			}
 
 			in_flags &= ~SPA_PORT_FLAG_CAN_USE_BUFFERS;
@@ -776,12 +728,9 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
-			spa_node_wait(output->node->node, res,
-					prepare_pending(impl, &impl->output_pending),
-					complete_output,
-					this);
+			res = spa_node_sync(output->node->node, res),
 			pw_work_queue_add(impl->work, output->node, res, complete_paused,
-					  &this->rt.out_mix);
+					&this->rt.out_mix);
 		}
 
 		move_allocation(&allocation, &output->allocation);
@@ -791,20 +740,17 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		pw_log_debug("link %p: using %d buffers %p on input port", this,
 			     allocation.n_buffers, allocation.buffers);
 		if ((res = pw_port_use_buffers(input,
-					       this->rt.in_mix.port.port_id,
-					       allocation.buffers,
-					       allocation.n_buffers)) < 0) {
+						this->rt.in_mix.port.port_id,
+						allocation.buffers,
+						allocation.n_buffers)) < 0) {
 			asprintf(&error, "link %p: error use input buffers: %s", this,
 					spa_strerror(res));
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
-			spa_node_wait(input->node->node, res,
-					prepare_pending(impl, &impl->input_pending),
-					complete_input,
-					this);
+			res = spa_node_sync(input->node->node, res),
 			pw_work_queue_add(impl->work, input->node, res, complete_paused,
-					  &this->rt.in_mix);
+					&this->rt.in_mix);
 		}
 
 	} else {
@@ -959,8 +905,6 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	spa_hook_remove(&impl->input_port_listener);
 	spa_hook_remove(&impl->input_node_listener);
 
-	prepare_pending(impl, &impl->input_pending);
-
 	spa_list_remove(&this->input_link);
 	pw_port_events_link_removed(this->input, this);
 
@@ -979,8 +923,6 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	pw_log_debug("link %p: remove output port %p", this, port);
 	spa_hook_remove(&impl->output_port_listener);
 	spa_hook_remove(&impl->output_node_listener);
-
-	prepare_pending(impl, &impl->output_pending);
 
 	spa_list_remove(&this->output_link);
 	pw_port_events_link_removed(this->output, this);
@@ -1167,14 +1109,30 @@ static const struct pw_port_events output_port_events = {
 	.destroy = output_port_destroy,
 };
 
+static void input_node_result(void *data, int seq, int res, const void *result)
+{
+	struct impl *impl = data;
+	struct pw_node *node = impl->this.input->node;
+	pw_log_debug("link %p: input node %p result %d %d", impl, node, seq, res);
+	pw_work_queue_complete(impl->work, node, SPA_RESULT_ASYNC_SEQ(seq), res);
+}
+
+static void output_node_result(void *data, int seq, int res, const void *result)
+{
+	struct impl *impl = data;
+	struct pw_node *node = impl->this.output->node;
+	pw_log_debug("link %p: output node %p result %d %d", impl, node, seq, res);
+	pw_work_queue_complete(impl->work, node, SPA_RESULT_ASYNC_SEQ(seq), res);
+}
+
 static const struct pw_node_events input_node_events = {
 	PW_VERSION_NODE_EVENTS,
-//	.async_complete = input_node_async_complete,
+	.result = input_node_result,
 };
 
 static const struct pw_node_events output_node_events = {
 	PW_VERSION_NODE_EVENTS,
-//	.async_complete = output_node_async_complete,
+	.result = output_node_result,
 };
 
 static int find_driver(struct pw_link *this)
@@ -1375,7 +1333,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	try_link_controls(impl, output, input);
 
-	pw_node_events_peer_added(output_node, input_node);
+	pw_node_emit_peer_added(output_node, input_node);
 
 	return this;
 
@@ -1470,7 +1428,7 @@ void pw_link_destroy(struct pw_link *link)
 	if (link->registered)
 		spa_list_remove(&link->link);
 
-	pw_node_events_peer_removed(link->output->node, link->input->node);
+	pw_node_emit_peer_removed(link->output->node, link->input->node);
 
 	try_unlink_controls(impl, link->input, link->output);
 

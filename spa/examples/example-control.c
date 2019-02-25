@@ -97,6 +97,8 @@ struct data {
 	bool rebuild_fds;
 	struct pollfd fds[16];
 	unsigned int n_fds;
+
+	struct spa_pending_queue pending;
 };
 
 #define MIN_LATENCY     1024
@@ -375,7 +377,8 @@ static int negotiate_formats(struct data *data)
 	if ((res = spa_node_port_enum_params_sync(data->sink,
 					     SPA_DIRECTION_INPUT, 0,
 					     SPA_PARAM_EnumFormat, &state,
-					     filter, &format, &b)) != 1)
+					     filter, &format, &b,
+					     &data->pending)) != 1)
 		return -EBADF;
 
 	spa_log_debug(&default_log.log, "sink set_param");
@@ -510,6 +513,8 @@ int main(int argc, char *argv[])
 	data.data_loop.update_source = do_update_source;
 	data.data_loop.remove_source = do_remove_source;
 	data.data_loop.invoke = do_invoke;
+
+	spa_pending_queue_init(&data.pending);
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);

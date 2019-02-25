@@ -57,14 +57,14 @@ struct impl {
 	char *factory_name;
 
 	struct spa_hook node_listener;
-	struct spa_pending init_pending;
+	int init_pending;
 
 	void *user_data;
 
 	int async_init:1;
 };
 
-static void pw_spa_node_free(void *data)
+static void spa_node_free(void *data)
 {
 	struct impl *impl = data;
 	struct pw_node *node = impl->this;
@@ -82,10 +82,11 @@ static void pw_spa_node_free(void *data)
 		dlclose(impl->hnd);
 }
 
-static int complete_init(struct impl *impl)
+static void complete_init(struct impl *impl)
 {
         struct pw_node *this = impl->this;
 
+	impl->init_pending = SPA_ID_INVALID;
 	if (SPA_FLAG_CHECK(impl->flags, PW_SPA_NODE_FLAG_DISABLE))
 		pw_node_set_enabled(this, false);
 
@@ -96,20 +97,23 @@ static int complete_init(struct impl *impl)
 		pw_node_register(this, impl->owner, impl->parent, NULL);
 	else
 		pw_node_initialized(this);
-	return 0;
 }
 
-static int on_init_done(struct spa_pending *pending, const void *result)
+static void spa_node_result(void *data, int seq, int res, const void *result)
 {
-        struct impl *impl = pending->data;
-        struct pw_node *this = impl->this;
-        pw_log_debug("spa-node %p: init complete event %d %d", this, pending->seq, pending->res);
-	return complete_init(impl);
+	struct impl *impl = data;
+	struct pw_node *node = impl->this;
+
+	if (seq == impl->init_pending) {
+		pw_log_debug("spa-node %p: init complete event %d %d", node, seq, res);
+		complete_init(impl);
+	}
 }
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
-	.free = pw_spa_node_free,
+	.free = spa_node_free,
+	.result = spa_node_result,
 };
 
 struct pw_node *
@@ -148,7 +152,7 @@ pw_spa_node_new(struct pw_core *core,
 		goto clean_node;
 
 	if (SPA_RESULT_IS_ASYNC(res)) {
-		spa_node_wait(impl->node, res, &impl->init_pending, on_init_done, impl);
+		impl->init_pending = spa_node_sync(impl->node, res);
 	} else {
 		complete_init(impl);
 	}
@@ -166,6 +170,17 @@ void *pw_spa_node_get_user_data(struct pw_node *node)
 	return impl->user_data;
 }
 
+static int on_node_result(void *data, int seq, int res, const void *result)
+{
+	struct spa_pending_queue *pending = data;
+	return spa_pending_queue_complete(pending, seq, res, result);
+}
+
+static const struct spa_node_callbacks node_callbacks = {
+	SPA_VERSION_NODE_CALLBACKS,
+	.result = on_node_result,
+};
+
 static int
 setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_properties *pw_props)
 {
@@ -177,10 +192,17 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 	uint8_t buf[2048];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	const struct spa_pod_prop *prop = NULL;
+	struct spa_pending_queue pending;
+
+	spa_pending_queue_init(&pending);
+
+	spa_node_set_callbacks(spa_node, &node_callbacks, &pending);
 
 	if ((res = spa_node_enum_params_sync(spa_node,
-					SPA_PARAM_Props, &index, NULL, &props, &b)) != 1) {
-		pw_log_debug("spa_node_get_props failed: %d", res);
+					SPA_PARAM_Props, &index, NULL, &props,
+					&b, &pending)) != 1) {
+		if (res < 0)
+			pw_log_debug("spa_node_get_props failed: %d", res);
 		return res;
 	}
 

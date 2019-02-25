@@ -49,6 +49,7 @@ struct data {
 	struct spa_log *log;
 	struct spa_loop loop;
 	struct spa_node *node;
+	struct spa_pending_queue pending;
 };
 
 static void
@@ -66,7 +67,8 @@ inspect_node_params(struct data *data, struct spa_node *node)
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if ((res = spa_node_enum_params_sync(node,
 						SPA_PARAM_List, &idx1,
-						NULL, &param, &b)) != 1) {
+						NULL, &param, &b,
+						&data->pending)) != 1) {
 			if (res != 0)
 				error(0, -res, "enum_params");
 			break;
@@ -81,7 +83,8 @@ inspect_node_params(struct data *data, struct spa_node *node)
 			spa_pod_builder_init(&b, buffer, sizeof(buffer));
 			if ((res = spa_node_enum_params_sync(node,
 							id, &idx2,
-							NULL, &param, &b)) != 1) {
+							NULL, &param, &b,
+							&data->pending)) != 1) {
 				if (res != 0)
 					error(0, -res, "enum_params %d", id);
 				break;
@@ -108,7 +111,8 @@ inspect_port_params(struct data *data, struct spa_node *node,
 		if ((res = spa_node_port_enum_params_sync(node,
 						     direction, port_id,
 						     SPA_PARAM_List, &idx1,
-						     NULL, &param, &b)) != 1) {
+						     NULL, &param, &b,
+						     &data->pending)) != 1) {
 			if (res != 0)
 				error(0, -res, "port_enum_params");
 			break;
@@ -123,7 +127,8 @@ inspect_port_params(struct data *data, struct spa_node *node,
 			if ((res = spa_node_port_enum_params_sync(node,
 							     direction, port_id,
 							     id, &idx2,
-							     NULL, &param, &b)) != 1) {
+							     NULL, &param, &b,
+							     &data->pending)) != 1) {
 				if (res != 0)
 					error(0, -res, "port_enum_params");
 				break;
@@ -169,11 +174,18 @@ static int node_port_info(void *_data, enum spa_direction direction, uint32_t id
 	return 0;
 }
 
+static int node_result(void *_data, int seq, int res, const void *result)
+{
+	struct data *data = _data;
+	return spa_pending_queue_complete(&data->pending, seq, res, result);
+}
+
 static const struct spa_node_callbacks node_callbacks =
 {
 	SPA_VERSION_NODE_CALLBACKS,
 	.info = node_info,
 	.port_info = node_port_info,
+	.result = node_result,
 };
 
 static void inspect_node(struct data *data, struct spa_node *node)
@@ -280,6 +292,8 @@ int main(int argc, char *argv[])
 	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, &data.loop);
 	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, &data.loop);
 	data.n_support = 3;
+
+	spa_pending_queue_init(&data.pending);
 
 	if ((handle = dlopen(argv[1], RTLD_NOW)) == NULL) {
 		printf("can't load %s\n", argv[1]);

@@ -64,8 +64,9 @@ static inline int spa_node_enum_params_sync(struct spa_node *node,
 	spa_pending_queue_add(queue, 0, &pending,
 			spa_result_func_node_params, &data);
 	res = spa_node_enum_params(node, 0, id, *index, 1, filter);
+	spa_pending_remove(&pending);
+
 	if (data.data.param == NULL) {
-		spa_pending_remove(&pending);
 		if (res > 0)
 			res = 0;
 	} else {
@@ -92,8 +93,9 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 			spa_result_func_node_params, &data);
 	res = spa_node_port_enum_params(node, 0, direction, port_id,
 			id, *index, 1, filter);
+	spa_pending_remove(&pending);
+
 	if (data.data.param == NULL) {
-		spa_pending_remove(&pending);
 		if (res > 0)
 			res = 0;
 	} else {

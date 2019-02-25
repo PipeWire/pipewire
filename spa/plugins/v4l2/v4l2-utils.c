@@ -539,6 +539,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
 
+	result.id = SPA_PARAM_EnumFormat;
 	result.next = start;
 
 	if (result.next == 0) {

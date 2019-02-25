@@ -86,7 +86,6 @@ static inline int spa_pending_queue_complete(struct spa_pending_queue *queue,
 	spa_list_for_each_safe(p, t, &queue->pending, link) {
 		if (p->seq == seq) {
 			p->res = res;
-			spa_pending_remove(p);
 			p->func(p, result);
 		}
 	}

@@ -242,6 +242,7 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	if ((err = spa_alsa_open(state)) < 0)
 		return err;
 
+	result.id = SPA_PARAM_EnumFormat;
 	result.next = start;
 
       next:

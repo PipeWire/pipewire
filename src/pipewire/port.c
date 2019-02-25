@@ -467,7 +467,7 @@ static int reply_param(void *data, int seq, uint32_t id,
 {
 	struct resource_data *d = data;
 	struct pw_resource *resource = d->resource;
-	pw_log_debug("resource %p: reply param %d %d %d", resource, id, index, next);
+	pw_log_debug("resource %p: reply param %u %u %u", resource, id, index, next);
 	pw_port_resource_param(resource, seq, id, index, next, param);
 	return 0;
 }
@@ -743,6 +743,22 @@ void pw_port_destroy(struct pw_port *port)
 	free(port);
 }
 
+struct result_port_params_data {
+	void *data;
+	int (*callback) (void *data, int seq,
+			uint32_t id, uint32_t index, uint32_t next,
+			struct spa_pod *param);
+};
+
+static int result_port_params(struct spa_pending *pending, const void *result)
+{
+	struct result_port_params_data *d = pending->data;
+	const struct spa_result_node_params *r =
+		(const struct spa_result_node_params *)result;
+	d->callback(d->data, pending->seq, r->id, r->index, r->next, r->param);
+	return 0;
+}
+
 int pw_port_for_each_param(struct pw_port *port,
 			   int seq,
 			   uint32_t param_id,
@@ -753,12 +769,10 @@ int pw_port_for_each_param(struct pw_port *port,
 					    struct spa_pod *param),
 			   void *data)
 {
-	int res = 0;
-	uint8_t buf[4096];
-	struct spa_pod_builder b = { 0 };
-	uint32_t idx, count;
+	int res;
 	struct pw_node *node = port->node;
-	struct spa_pod *param;
+	struct result_port_params_data user_data = { data, callback };
+	struct spa_pending pending;
 
 	if (max == 0)
 		max = UINT32_MAX;
@@ -767,20 +781,15 @@ int pw_port_for_each_param(struct pw_port *port,
 			spa_debug_type_find_name(spa_type_param, param_id),
 			index, max);
 
-	for (count = 0; count < max; count++) {
-		spa_pod_builder_init(&b, buf, sizeof(buf));
-		idx = index;
-		if ((res = spa_node_port_enum_params_sync(node->node,
-						port->direction, port->port_id,
-						param_id, &index,
-						filter, &param, &b,
-						node->pending)) != 1)
-			break;
+	spa_pending_queue_add(node->pending, seq, &pending,
+			result_port_params, &user_data);
 
-		pw_log_debug("port %p: have param %d %u %u", port, param_id, idx, index);
-		if ((res = callback(data, seq, param_id, idx, index, param)) != 0)
-			break;
-	}
+	res = spa_node_port_enum_params(node->node, seq,
+					port->direction, port->port_id,
+					param_id, index, max,
+					filter);
+	spa_pending_remove(&pending);
+
 	pw_log_debug("port %p: res %d: (%s)", port, res, spa_strerror(res));
 	return res;
 }

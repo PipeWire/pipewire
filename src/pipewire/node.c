@@ -249,7 +249,7 @@ static const struct pw_resource_events resource_events = {
 	.destroy = node_unbind_func,
 };
 
-static int reply_param(void *data, uint32_t seq, uint32_t id,
+static int reply_param(void *data, int seq, uint32_t id,
 		uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct resource_data *d = data;
@@ -1066,22 +1066,36 @@ int pw_node_for_each_port(struct pw_node *node,
 	return 0;
 }
 
+struct result_node_params_data {
+	void *data;
+	int (*callback) (void *data, int seq,
+			uint32_t id, uint32_t index, uint32_t next,
+			struct spa_pod *param);
+};
+
+static int result_node_params(struct spa_pending *pending, const void *result)
+{
+	struct result_node_params_data *d = pending->data;
+	const struct spa_result_node_params *r =
+		(const struct spa_result_node_params *)result;
+	d->callback(d->data, pending->seq, r->id, r->index, r->next, r->param);
+	return 0;
+}
+
 SPA_EXPORT
 int pw_node_for_each_param(struct pw_node *node,
-			   uint32_t seq, uint32_t param_id,
+			   int seq, uint32_t param_id,
 			   uint32_t index, uint32_t max,
 			   const struct spa_pod *filter,
-			   int (*callback) (void *data, uint32_t seq,
+			   int (*callback) (void *data, int seq,
 					    uint32_t id, uint32_t index, uint32_t next,
 					    struct spa_pod *param),
 			   void *data)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	int res = 0;
-	uint32_t idx, count;
-	uint8_t buf[4096];
-	struct spa_pod_builder b = { 0 };
-	struct spa_pod *param;
+	int res;
+	struct result_node_params_data user_data = { data, callback };
+	struct spa_pending pending;
 
 	if (max == 0)
 		max = UINT32_MAX;
@@ -1090,19 +1104,13 @@ int pw_node_for_each_param(struct pw_node *node,
 			spa_debug_type_find_name(spa_type_param, param_id),
 			index, max);
 
-	for (count = 0; count < max; count++) {
-		spa_pod_builder_init(&b, buf, sizeof(buf));
+	spa_pending_queue_add(&impl->pending, seq, &pending,
+			result_node_params, &user_data);
+	res = spa_node_enum_params(node->node, seq,
+					param_id, index, max,
+					filter);
+	spa_pending_remove(&pending);
 
-		idx = index;
-		if ((res = spa_node_enum_params_sync(node->node,
-						param_id, &index,
-						filter, &param, &b,
-						&impl->pending)) != 1)
-			break;
-
-		if ((res = callback(data, seq, param_id, idx, index, param)) != 0)
-			break;
-	}
 	return res;
 }
 

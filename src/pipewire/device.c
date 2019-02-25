@@ -130,6 +130,22 @@ static const struct pw_resource_events resource_events = {
 	.destroy = device_unbind_func,
 };
 
+struct result_device_params_data {
+	void *data;
+	int (*callback) (void *data, int seq,
+			uint32_t id, uint32_t index, uint32_t next,
+			struct spa_pod *param);
+};
+
+static int result_device_params(struct spa_pending *pending, const void *result)
+{
+	struct result_device_params_data *d = pending->data;
+	const struct spa_result_device_params *r =
+		(const struct spa_result_device_params *)result;
+	d->callback(d->data, pending->seq, r->id, r->index, r->next, r->param);
+	return 0;
+}
+
 SPA_EXPORT
 int pw_device_for_each_param(struct pw_device *device,
 			     int seq, uint32_t param_id,
@@ -141,28 +157,21 @@ int pw_device_for_each_param(struct pw_device *device,
 			     void *data)
 {
 	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
-	int res = 0;
-	uint32_t idx, count;
-	uint8_t buf[4096];
-	struct spa_pod_builder b = { 0 };
-	struct spa_pod *param;
+	int res;
+	struct result_device_params_data user_data = { data, callback };
+	struct spa_pending pending;
 
 	if (max == 0)
 		max = UINT32_MAX;
 
-	for (count = 0; count < max; count++) {
-		spa_pod_builder_init(&b, buf, sizeof(buf));
+	spa_pending_queue_add(&impl->pending, seq, &pending,
+			result_device_params, &user_data);
 
-		idx = index;
-		if ((res = spa_device_enum_params_sync(device->implementation,
-						param_id, &index,
-						filter, &param, &b,
-						&impl->pending)) != 1)
-			break;
+	res = spa_device_enum_params(device->implementation, seq,
+			param_id, index, max, filter);
 
-		if ((res = callback(data, seq, param_id, idx, index, param)) != 0)
-			break;
-	}
+	spa_pending_remove(&pending);
+
 	return res;
 }
 

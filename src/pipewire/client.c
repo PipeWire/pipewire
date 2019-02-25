@@ -206,7 +206,8 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create client resource");
-	pw_core_resource_error(client->core_resource, id, -ENOMEM, "can't create client resource: no memory");
+	pw_core_resource_error(client->core_resource, id, client->seq,
+			-ENOMEM, "can't create client resource: no memory");
 	return;
 }
 
@@ -289,7 +290,7 @@ struct pw_client *pw_client_new(struct pw_core *core,
 
 	this->info.props = &this->properties->dict;
 
-	pw_core_events_check_access(core, this);
+	pw_core_emit_check_access(core, this);
 
 	return this;
 }
@@ -400,7 +401,7 @@ void pw_client_destroy(struct pw_client *client)
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 
 	pw_log_debug("client %p: destroy", client);
-	pw_client_events_destroy(client);
+	pw_client_emit_destroy(client);
 
 	spa_hook_remove(&impl->core_listener);
 
@@ -414,7 +415,7 @@ void pw_client_destroy(struct pw_client *client)
 
 	pw_map_for_each(&client->objects, destroy_resource, client);
 
-	pw_client_events_free(client);
+	pw_client_emit_free(client);
 	pw_log_debug("client %p: free", impl);
 
 	pw_map_clear(&client->objects);
@@ -467,7 +468,7 @@ int pw_client_update_properties(struct pw_client *client, const struct spa_dict 
 	client->info.change_mask |= PW_CLIENT_CHANGE_MASK_PROPS;
 	client->info.props = &client->properties->dict;
 
-	pw_client_events_info_changed(client, &client->info);
+	pw_client_emit_info_changed(client, &client->info);
 
 	if (client->global)
 		spa_list_for_each(resource, &client->global->resource_list, link)
@@ -543,6 +544,6 @@ void pw_client_set_busy(struct pw_client *client, bool busy)
 	if (client->busy != busy) {
 		pw_log_debug("client %p: busy %d", client, busy);
 		client->busy = busy;
-		pw_client_events_busy_changed(client, busy);
+		pw_client_emit_busy_changed(client, busy);
 	}
 }

@@ -42,7 +42,6 @@ struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_device *device;
 	struct pw_resource *resource;
-	uint32_t seq;
 };
 
 struct node_data {
@@ -102,7 +101,7 @@ void pw_device_destroy(struct pw_device *device)
 	struct node_data *nd;
 
 	pw_log_debug("device %p: destroy", device);
-	pw_device_events_destroy(device);
+	pw_device_emit_destroy(device);
 
 	spa_list_consume(nd, &device->node_list, link)
 		pw_node_destroy(nd->node);
@@ -133,10 +132,10 @@ static const struct pw_resource_events resource_events = {
 
 SPA_EXPORT
 int pw_device_for_each_param(struct pw_device *device,
-			     uint32_t param_id,
+			     int seq, uint32_t param_id,
 			     uint32_t index, uint32_t max,
 			     const struct spa_pod *filter,
-			     int (*callback) (void *data,
+			     int (*callback) (void *data, int seq,
 					      uint32_t id, uint32_t index, uint32_t next,
 					      struct spa_pod *param),
 			     void *data)
@@ -161,32 +160,33 @@ int pw_device_for_each_param(struct pw_device *device,
 						&impl->pending)) != 1)
 			break;
 
-		if ((res = callback(data, param_id, idx, index, param)) != 0)
+		if ((res = callback(data, seq, param_id, idx, index, param)) != 0)
 			break;
 	}
 	return res;
 }
 
-static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+static int reply_param(void *data, int seq, uint32_t id,
+		uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct resource_data *d = data;
-	pw_device_resource_param(d->resource, d->seq, id, index, next, param);
+	pw_device_resource_param(d->resource, seq, id, index, next, param);
 	return 0;
 }
 
-static int device_enum_params(void *object, uint32_t seq, uint32_t id, uint32_t start, uint32_t num,
+static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start, uint32_t num,
 		const struct spa_pod *filter)
 {
 	struct resource_data *data = object;
 	struct pw_resource *resource = data->resource;
 	struct pw_device *device = data->device;
+	struct pw_client *client = resource->client;
 	int res;
 
-	data->seq = seq;
-	if ((res = pw_device_for_each_param(device, id, start, num,
+	if ((res = pw_device_for_each_param(device, seq, id, start, num,
 				filter, reply_param, data)) < 0)
-		pw_core_resource_error(resource->client->core_resource,
-				resource->id, res, spa_strerror(res));
+		pw_core_resource_error(client->core_resource,
+				resource->id, seq, res, spa_strerror(res));
 	return res;
 }
 
@@ -196,11 +196,12 @@ static int device_set_param(void *object, uint32_t id, uint32_t flags,
 	struct resource_data *data = object;
 	struct pw_resource *resource = data->resource;
 	struct pw_device *device = data->device;
+	struct pw_client *client = resource->client;
 	int res;
 
 	if ((res = spa_device_set_param(device->implementation, id, flags, param)) < 0)
-		pw_core_resource_error(resource->client->core_resource,
-				resource->id, res, spa_strerror(res));
+		pw_core_resource_error(client->core_resource,
+				resource->id, client->seq, res, spa_strerror(res));
 	return res;
 }
 
@@ -242,7 +243,8 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create device resource");
-	pw_core_resource_error(client->core_resource, id, -ENOMEM, "no memory");
+	pw_core_resource_error(client->core_resource, id,
+			client->seq, -ENOMEM, "no memory");
 	return;
 }
 
@@ -462,7 +464,7 @@ int pw_device_update_properties(struct pw_device *device, const struct spa_dict 
 
 	device->info.props = &device->properties->dict;
 	device->info.change_mask |= PW_DEVICE_CHANGE_MASK_PROPS;
-	pw_device_events_info_changed(device, &device->info);
+	pw_device_emit_info_changed(device, &device->info);
 
 	if (device->global)
 		spa_list_for_each(resource, &device->global->resource_list, link)

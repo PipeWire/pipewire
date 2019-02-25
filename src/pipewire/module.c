@@ -138,7 +138,8 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create module resource");
-	pw_core_resource_error(client->core_resource, id, -ENOMEM, "no memory");
+	pw_core_resource_error(client->core_resource, id,
+			client->seq, -ENOMEM, "no memory");
 	return;
 }
 
@@ -296,7 +297,7 @@ void pw_module_destroy(struct pw_module *module)
 	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
 
 	pw_log_debug("module %p: destroy", module);
-	pw_module_events_destroy(module);
+	pw_module_emit_destroy(module);
 
 	spa_list_remove(&module->link);
 

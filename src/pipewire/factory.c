@@ -67,7 +67,7 @@ SPA_EXPORT
 void pw_factory_destroy(struct pw_factory *factory)
 {
 	pw_log_debug("factory %p: destroy", factory);
-	pw_factory_events_destroy(factory);
+	pw_factory_emit_destroy(factory);
 
 	if (factory->registered)
 		spa_list_remove(&factory->link);
@@ -122,7 +122,8 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create factory resource");
-	pw_core_resource_error(client->core_resource, id, -ENOMEM, "no memory");
+	pw_core_resource_error(client->core_resource, id,
+			client->seq, -ENOMEM, "no memory");
 	return;
 }
 

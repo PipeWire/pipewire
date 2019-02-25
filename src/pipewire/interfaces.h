@@ -110,7 +110,7 @@ struct pw_core_proxy_methods {
 	 *
 	 * \param seq the seq number passed to the done event
 	 */
-	int (*sync) (void *object, uint32_t id, uint32_t seq);
+	int (*sync) (void *object, uint32_t id, int seq);
 	/**
 	 * Reply to a server sync event.
 	 *
@@ -118,7 +118,7 @@ struct pw_core_proxy_methods {
 	 *
 	 * \param seq the seq number received in the sync event
 	 */
-	int (*done) (void *object, uint32_t id, uint32_t seq);
+	int (*done) (void *object, uint32_t id, int seq);
 	/**
 	 * Fatal error event
          *
@@ -135,7 +135,7 @@ struct pw_core_proxy_methods {
          * \param res error code
          * \param message error description
 	 */
-	int (*error) (void *object, uint32_t id, int res, const char *message);
+	int (*error) (void *object, uint32_t id, int seq, int res, const char *message);
 	/**
 	 * Get the registry object
 	 *
@@ -177,43 +177,43 @@ pw_core_proxy_hello(struct pw_core_proxy *core, uint32_t version)
 }
 
 static inline int
-pw_core_proxy_sync(struct pw_core_proxy *core, uint32_t id, uint32_t seq)
+pw_core_proxy_sync(struct pw_core_proxy *core, uint32_t id, int seq)
 {
 	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, sync, id, seq);
 }
 
 static inline int
-pw_core_proxy_done(struct pw_core_proxy *core, uint32_t id, uint32_t seq)
+pw_core_proxy_done(struct pw_core_proxy *core, uint32_t id, int seq)
 {
 	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, done, id, seq);
 }
 
 static inline int
-pw_core_proxy_error(struct pw_core_proxy *core, uint32_t id,
+pw_core_proxy_error(struct pw_core_proxy *core, uint32_t id, int seq,
 		int res, const char *message)
 {
 	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, error,
-			id, res, message);
+			id, seq, res, message);
 }
 
 static inline int
-pw_core_proxy_errorv(struct pw_core_proxy *core, uint32_t id,
+pw_core_proxy_errorv(struct pw_core_proxy *core, uint32_t id, int seq,
 		int res, const char *message, va_list args)
 {
 	char buffer[1024];
 	vsnprintf(buffer, sizeof(buffer), message, args);
 	buffer[1023] = '\0';
-	return pw_core_proxy_error(core, id, res, buffer);
+	return pw_core_proxy_error(core, id, seq, res, buffer);
 }
 
 static inline int
-pw_core_proxy_errorf(struct pw_core_proxy *core, uint32_t id,
+pw_core_proxy_errorf(struct pw_core_proxy *core, uint32_t id, int seq,
 		int res, const char *message, ...)
 {
         va_list args;
 	int r;
 	va_start(args, message);
-	r = pw_core_proxy_errorv(core, id, res, message, args);
+	r = pw_core_proxy_errorv(core, id, seq, res, message, args);
 	va_end(args);
 	return r;
 }
@@ -278,14 +278,14 @@ struct pw_core_proxy_events {
 	 *
 	 * \param seq the seq number passed to the sync method call
 	 */
-	int (*done) (void *object, uint32_t id, uint32_t seq);
+	int (*done) (void *object, uint32_t id, int seq);
 
 	/** Emit a sync event
 	 *
 	 * The client should reply with a done reply with the same seq
 	 * number.
 	 */
-	int (*sync) (void *object, uint32_t id, uint32_t seq);
+	int (*sync) (void *object, uint32_t id, int seq);
 
 	/**
 	 * Fatal error event
@@ -300,10 +300,11 @@ struct pw_core_proxy_events {
 	 * \a id.
 	 *
          * \param id object where the error occurred
+         * \param seq the sequence number that generated the error
          * \param res error code
          * \param message error description
 	 */
-	int (*error) (void *object, uint32_t id, int res, const char *message);
+	int (*error) (void *object, uint32_t id, int seq, int res, const char *message);
 	/**
 	 * Remove an object ID
          *
@@ -335,20 +336,22 @@ pw_core_proxy_add_listener(struct pw_core_proxy *core,
 #define pw_core_resource_remove_id(r,...)    pw_resource_notify(r,struct pw_core_proxy_events,remove_id,__VA_ARGS__)
 
 static inline int
-pw_core_resource_errorv(struct pw_resource *resource, uint32_t id, int res, const char *message, va_list args)
+pw_core_resource_errorv(struct pw_resource *resource, uint32_t id, int seq,
+		int res, const char *message, va_list args)
 {
 	char buffer[1024];
 	vsnprintf(buffer, sizeof(buffer), message, args);
 	buffer[1023] = '\0';
-	return pw_core_resource_error(resource, id, res, buffer);
+	return pw_core_resource_error(resource, id, seq, res, buffer);
 }
 
 static inline int
-pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int res, const char *message, ...)
+pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
+		int res, const char *message, ...)
 {
         va_list args;
 	va_start(args, message);
-	res = pw_core_resource_errorv(resource, id, res, message, args);
+	res = pw_core_resource_errorv(resource, id, seq, res, message, args);
 	va_end(args);
 	return res;
 }
@@ -545,7 +548,7 @@ struct pw_device_proxy_methods {
 	 * \param num the maximum number of params to retrieve
 	 * \param filter a param filter or NULL
 	 */
-	int (*enum_params) (void *object, uint32_t seq, uint32_t id, uint32_t start, uint32_t num,
+	int (*enum_params) (void *object, int seq, uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter);
 	/**
 	 * Set a parameter on the device
@@ -559,11 +562,11 @@ struct pw_device_proxy_methods {
 };
 
 static inline int
-pw_device_proxy_enum_params(struct pw_device_proxy *device, uint32_t id, uint32_t index,
+pw_device_proxy_enum_params(struct pw_device_proxy *device, int seq, uint32_t id, uint32_t index,
 		uint32_t num, const struct spa_pod *filter)
 {
 	return pw_proxy_do((struct pw_proxy*)device, struct pw_device_proxy_methods, enum_params,
-			0, id, index, num, filter);
+			seq, id, index, num, filter);
 }
 
 static inline int
@@ -599,7 +602,7 @@ struct pw_device_proxy_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	int (*param) (void *object, uint32_t seq,
+	int (*param) (void *object, int seq,
 		      uint32_t id, uint32_t index, uint32_t next,
 		      const struct spa_pod *param);
 };
@@ -639,7 +642,7 @@ struct pw_node_proxy_methods {
 	 * \param num the maximum number of params to retrieve
 	 * \param filter a param filter or NULL
 	 */
-	int (*enum_params) (void *object, uint32_t seq, uint32_t id,
+	int (*enum_params) (void *object, int seq, uint32_t id,
 			uint32_t start, uint32_t num,
 			const struct spa_pod *filter);
 
@@ -663,11 +666,11 @@ struct pw_node_proxy_methods {
 
 /** Node */
 static inline int
-pw_node_proxy_enum_params(struct pw_node_proxy *node, uint32_t id, uint32_t index,
+pw_node_proxy_enum_params(struct pw_node_proxy *node, int seq, uint32_t id, uint32_t index,
 		uint32_t num, const struct spa_pod *filter)
 {
 	return pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, enum_params,
-			0, id, index, num, filter);
+			seq, id, index, num, filter);
 }
 
 static inline int
@@ -710,7 +713,7 @@ struct pw_node_proxy_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	int (*param) (void *object, uint32_t seq,
+	int (*param) (void *object, int seq,
 		      uint32_t id, uint32_t index, uint32_t next,
 		      const struct spa_pod *param);
 };
@@ -749,18 +752,18 @@ struct pw_port_proxy_methods {
 	 * \param num the maximum number of params to retrieve
 	 * \param filter a param filter or NULL
 	 */
-	int (*enum_params) (void *object, uint32_t seq,
+	int (*enum_params) (void *object, int seq,
 			uint32_t id, uint32_t start, uint32_t num,
 			const struct spa_pod *filter);
 };
 
 /** Port params */
 static inline int
-pw_port_proxy_enum_params(struct pw_port_proxy *port, uint32_t id, uint32_t index,
+pw_port_proxy_enum_params(struct pw_port_proxy *port, int seq, uint32_t id, uint32_t index,
 		uint32_t num, const struct spa_pod *filter)
 {
 	return pw_proxy_do((struct pw_proxy*)port, struct pw_port_proxy_methods, enum_params,
-			0, id, index, num, filter);
+			seq, id, index, num, filter);
 }
 
 #define PW_PORT_PROXY_EVENT_INFO	0
@@ -788,7 +791,7 @@ struct pw_port_proxy_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	int (*param) (void *object, uint32_t seq,
+	int (*param) (void *object, int seq,
 		       uint32_t id, uint32_t index, uint32_t next,
 		       const struct spa_pod *param);
 };

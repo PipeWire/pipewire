@@ -127,10 +127,12 @@ process_messages(struct client_data *data)
 		const struct pw_protocol_native_demarshal *demarshal;
 	        const struct pw_protocol_marshal *marshal;
 		uint32_t permissions, required;
-		int seq;
+		int seq = 0;
 
 		if (!pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size, &seq))
 			break;
+
+		client->seq = seq;
 
 		pw_log_trace("protocol-native %p: got message %d from %u", client->protocol,
 			     opcode, id);
@@ -145,10 +147,9 @@ process_messages(struct client_data *data)
 			pw_log_error("protocol-native %p: unknown resource %u",
 				     client->protocol, id);
 			pw_resource_error(client->core_resource,
-				     -EINVAL, "unknown resource %u", id);
+					-EINVAL, "unknown resource %u", id);
 			continue;
 		}
-		resource->seq = seq;
 
 		marshal = pw_resource_get_marshal(resource);
 		if (marshal == NULL || opcode >= marshal->n_methods)
@@ -492,6 +493,8 @@ on_remote_data(void *data, int fd, enum spa_io mask)
                         pw_log_trace("protocol-native %p: got message %d from %u seq:%d",
 					this, opcode, id, seq);
 
+			this->seq = seq;
+
 			if (debug_messages) {
 				fprintf(stderr, "<<<<<<<<< in: %d %d %d %d\n", id, opcode, size, seq);
 			        spa_debug_pod(0, NULL, (struct spa_pod *)message);
@@ -503,7 +506,6 @@ on_remote_data(void *data, int fd, enum spa_io mask)
                                 pw_log_error("protocol-native %p: could not find proxy %u", this, id);
                                 continue;
                         }
-			proxy->seq = seq;
 
 			marshal = pw_proxy_get_marshal(proxy);
                         if (marshal == NULL || opcode >= marshal->n_events) {

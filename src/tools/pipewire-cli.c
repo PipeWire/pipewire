@@ -73,7 +73,7 @@ struct remote_data {
 
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
-	uint32_t prompt_pending;
+	int prompt_pending;
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
@@ -258,7 +258,7 @@ static void show_prompt(struct remote_data *rd)
 	fflush(stdout);
 }
 
-static int on_core_done(void *_data, uint32_t id, uint32_t seq)
+static int on_core_done(void *_data, uint32_t id, int seq)
 {
 	struct remote_data *rd = _data;
 
@@ -393,7 +393,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 		pw_registry_proxy_add_listener(rd->registry_proxy,
 					       &rd->registry_listener,
 					       &registry_events, rd);
-		pw_core_proxy_sync(rd->core_proxy, 0, ++rd->prompt_pending);
+		rd->prompt_pending = pw_core_proxy_sync(rd->core_proxy, 0, 0);
 		break;
 
 	default:
@@ -687,7 +687,7 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 	return 0;
 }
 
-static int node_event_param(void *object, uint32_t seq, uint32_t id,
+static int node_event_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
@@ -726,7 +726,7 @@ static int port_event_info(void *object, const struct pw_port_info *info)
 	return 0;
 }
 
-static int port_event_param(void *object, uint32_t seq, uint32_t id,
+static int port_event_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
@@ -1206,7 +1206,7 @@ static bool do_node_params(struct data *data, const char *cmd, char *args, char 
 			return false;
 	}
 
-	pw_node_proxy_enum_params((struct pw_node_proxy*)global->proxy,
+	pw_node_proxy_enum_params((struct pw_node_proxy*)global->proxy, 0,
 			param_id, 0, 0, NULL);
 
 	return true;
@@ -1245,7 +1245,7 @@ static bool do_port_params(struct data *data, const char *cmd, char *args, char 
 			return false;
 	}
 
-	pw_port_proxy_enum_params((struct pw_port_proxy*)global->proxy,
+	pw_port_proxy_enum_params((struct pw_port_proxy*)global->proxy, 0,
 			param_id, 0, 0, NULL);
 
 	return true;
@@ -1389,7 +1389,7 @@ static void do_input(void *data, int fd, enum spa_io mask)
 		else  {
 			struct remote_data *rd = d->current;
 			if (rd->core_proxy)
-				pw_core_proxy_sync(rd->core_proxy, 0, ++rd->prompt_pending);
+				rd->prompt_pending = pw_core_proxy_sync(rd->core_proxy, 0, 0);
 		}
 	}
 }

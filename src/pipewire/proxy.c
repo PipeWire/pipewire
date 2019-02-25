@@ -138,7 +138,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);
 
 	pw_log_debug("proxy %p: destroy %u", proxy, proxy->id);
-	pw_proxy_events_destroy(proxy);
+	pw_proxy_emit_destroy(proxy);
 
 	pw_map_insert_at(&proxy->remote->objects, proxy->id, NULL);
 	spa_list_remove(&proxy->link);
@@ -152,22 +152,22 @@ int pw_proxy_sync(struct pw_proxy *proxy, int seq)
 	int res = -EIO;
 	if (proxy->remote->core_proxy != NULL) {
 		res = pw_core_proxy_sync(proxy->remote->core_proxy, proxy->id, seq);
-		pw_log_debug("proxy %p: %u %d sync %u", proxy, proxy->id, seq, res);
+		pw_log_debug("proxy %p: %u seq:%d sync %u", proxy, proxy->id, seq, res);
 	}
 	return res;
 }
 
 SPA_EXPORT
-int pw_proxy_error(struct pw_proxy *proxy, int result, const char *error, ...)
+int pw_proxy_error(struct pw_proxy *proxy, int res, const char *error, ...)
 {
 	va_list ap;
-	int res = -EIO;
+	int r = -EIO;
 	va_start(ap, error);
 	if (proxy->remote->core_proxy != NULL)
-		res = pw_core_proxy_errorv(proxy->remote->core_proxy, proxy->id,
-				result, error, ap);
+		r = pw_core_proxy_errorv(proxy->remote->core_proxy, proxy->id,
+				proxy->remote->seq, res, error, ap);
 	va_end(ap);
-	return res;
+	return r;
 }
 
 SPA_EXPORT

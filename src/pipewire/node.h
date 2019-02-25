@@ -168,10 +168,10 @@ int pw_node_for_each_port(struct pw_node *node,
 			  void *data);
 
 int pw_node_for_each_param(struct pw_node *node,
-			   uint32_t param_id,
+			   uint32_t seq, uint32_t param_id,
 			   uint32_t index, uint32_t max,
 			   const struct spa_pod *filter,
-			   int (*callback) (void *data,
+			   int (*callback) (void *data, uint32_t seq,
 					    uint32_t id, uint32_t index, uint32_t next,
 					    struct spa_pod *param),
 			   void *data);

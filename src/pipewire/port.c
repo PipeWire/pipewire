@@ -46,7 +46,6 @@ struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_port *port;
 	struct pw_resource *resource;
-	uint32_t seq;
 };
 
 /** \endcond */
@@ -87,7 +86,7 @@ void pw_port_update_state(struct pw_port *port, enum pw_port_state state)
 				SPA_LOG_LEVEL_ERROR : SPA_LOG_LEVEL_DEBUG,
 			"port %p: state %d -> %d", port, port->state, state);
 		port->state = state;
-		pw_port_events_state_changed(port, state);
+		pw_port_emit_state_changed(port, state);
 	}
 }
 
@@ -367,7 +366,7 @@ int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 
 	port->info.props = &port->properties->dict;
 	port->info.change_mask |= PW_PORT_CHANGE_MASK_PROPS;
-	pw_port_events_info_changed(port, &port->info);
+	pw_port_emit_info_changed(port, &port->info);
 
 	if (port->global)
 		spa_list_for_each(resource, &port->global->resource_list, link)
@@ -424,7 +423,8 @@ static int do_add_port(struct spa_loop *loop,
 	return 0;
 }
 
-static int check_param_io(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+static int check_param_io(void *data, int seq, uint32_t id,
+		uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct pw_port *port = data;
 	struct pw_node *node = port->node;
@@ -462,16 +462,17 @@ static const struct pw_resource_events resource_events = {
 	.destroy = port_unbind_func,
 };
 
-static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+static int reply_param(void *data, int seq, uint32_t id,
+		uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct resource_data *d = data;
 	struct pw_resource *resource = d->resource;
 	pw_log_debug("resource %p: reply param %d %d %d", resource, id, index, next);
-	pw_port_resource_param(resource, d->seq, id, index, next, param);
+	pw_port_resource_param(resource, seq, id, index, next, param);
 	return 0;
 }
 
-static int port_enum_params(void *object, uint32_t seq, uint32_t id, uint32_t index, uint32_t num,
+static int port_enum_params(void *object, int seq, uint32_t id, uint32_t index, uint32_t num,
 		const struct spa_pod *filter)
 {
 	struct pw_resource *resource = object;
@@ -481,11 +482,10 @@ static int port_enum_params(void *object, uint32_t seq, uint32_t id, uint32_t in
 	pw_log_debug("resource %p: enum params %d %s %u %u", resource, seq,
 			spa_debug_type_find_name(spa_type_param, id), index, num);
 
-	data->seq = seq;
-	if ((res = pw_port_for_each_param(port, id, index, num, filter,
+	if ((res = pw_port_for_each_param(port, seq, id, index, num, filter,
 			reply_param, data)) < 0)
 		pw_core_resource_error(resource->client->core_resource,
-				resource->id, res, spa_strerror(res));
+				resource->id, seq, res, spa_strerror(res));
 	return res;
 }
 
@@ -525,7 +525,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create port resource");
-	pw_core_resource_error(client->core_resource, id, -ENOMEM, "no memory");
+	pw_core_resource_error(client->core_resource, id, client->seq, -ENOMEM, "no memory");
 	return;
 }
 
@@ -592,7 +592,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 
 	pw_node_emit_port_init(node, port);
 
-	pw_port_for_each_param(port, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
+	pw_port_for_each_param(port, 0, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
 
 	dir = port->direction == PW_DIRECTION_INPUT ?  "in" : "out";
 	pw_properties_set(port->properties, "port.direction", dir);
@@ -717,7 +717,7 @@ void pw_port_destroy(struct pw_port *port)
 
 	pw_log_debug("port %p: destroy", port);
 
-	pw_port_events_destroy(port);
+	pw_port_emit_destroy(port);
 
 	pw_log_debug("port %p: control destroy", port);
 	spa_list_consume(control, &port->control_list[0], port_link)
@@ -733,7 +733,7 @@ void pw_port_destroy(struct pw_port *port)
 	}
 
 	pw_log_debug("port %p: free", port);
-	pw_port_events_free(port);
+	pw_port_emit_free(port);
 
 	free_allocation(&port->allocation);
 
@@ -745,10 +745,11 @@ void pw_port_destroy(struct pw_port *port)
 }
 
 int pw_port_for_each_param(struct pw_port *port,
+			   int seq,
 			   uint32_t param_id,
 			   uint32_t index, uint32_t max,
 			   const struct spa_pod *filter,
-			   int (*callback) (void *data,
+			   int (*callback) (void *data, int seq,
 					    uint32_t id, uint32_t index, uint32_t next,
 					    struct spa_pod *param),
 			   void *data)
@@ -778,7 +779,7 @@ int pw_port_for_each_param(struct pw_port *port,
 			break;
 
 		pw_log_debug("port %p: have param %d %u %u", port, param_id, idx, index);
-		if ((res = callback(data, param_id, idx, index, param)) != 0)
+		if ((res = callback(data, seq, param_id, idx, index, param)) != 0)
 			break;
 	}
 	pw_log_debug("port %p: res %d: (%s)", port, res, spa_strerror(res));
@@ -788,38 +789,41 @@ int pw_port_for_each_param(struct pw_port *port,
 struct param_filter {
 	struct pw_port *in_port;
 	struct pw_port *out_port;
+	int seq;
 	uint32_t in_param_id;
 	uint32_t out_param_id;
-	int (*callback) (void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param);
+	int (*callback) (void *data, int seq, uint32_t id, uint32_t index,
+			uint32_t next, struct spa_pod *param);
 	void *data;
 	uint32_t n_params;
 };
 
-static int do_filter(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+static int do_filter(void *data, int seq, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct param_filter *f = data;
 	f->n_params++;
-	return pw_port_for_each_param(f->out_port, f->out_param_id, 0, 0, param, f->callback, f->data);
+	return pw_port_for_each_param(f->out_port, seq, f->out_param_id, 0, 0, param, f->callback, f->data);
 }
 
 int pw_port_for_each_filtered_param(struct pw_port *in_port,
 				    struct pw_port *out_port,
+				    int seq,
 				    uint32_t in_param_id,
 				    uint32_t out_param_id,
 				    const struct spa_pod *filter,
-				    int (*callback) (void *data,
+				    int (*callback) (void *data, int seq,
 						     uint32_t id, uint32_t index, uint32_t next,
 						     struct spa_pod *param),
 				    void *data)
 {
 	int res;
-	struct param_filter fd = { in_port, out_port, in_param_id, out_param_id, callback, data, 0 };
+	struct param_filter fd = { in_port, out_port, seq, in_param_id, out_param_id, callback, data, 0 };
 
-	if ((res = pw_port_for_each_param(in_port, in_param_id, 0, 0, filter, do_filter, &fd)) < 0)
+	if ((res = pw_port_for_each_param(in_port, seq, in_param_id, 0, 0, filter, do_filter, &fd)) < 0)
 		return res;
 
 	if (fd.n_params == 0)
-		res = do_filter(&filter, 0, 0, 0, NULL);
+		res = do_filter(&filter, seq, 0, 0, 0, NULL);
 
 	return res;
 }

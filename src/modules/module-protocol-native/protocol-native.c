@@ -45,22 +45,21 @@ static int core_method_marshal_hello(void *object, uint32_t version)
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int core_method_marshal_sync(void *object, uint32_t id, uint32_t seq)
+static int core_method_marshal_sync(void *object, uint32_t id, int seq)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int res;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_SYNC, &res);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CORE_PROXY_METHOD_SYNC, &seq);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(id),
-			SPA_POD_Int(res));
+			SPA_POD_Int(seq));
 
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int core_method_marshal_done(void *object, uint32_t id, uint32_t seq)
+static int core_method_marshal_done(void *object, uint32_t id, int seq)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
@@ -74,7 +73,7 @@ static int core_method_marshal_done(void *object, uint32_t id, uint32_t seq)
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int core_method_marshal_error(void *object, uint32_t id, int res, const char *error)
+static int core_method_marshal_error(void *object, uint32_t id, int seq, int res, const char *error)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
@@ -83,6 +82,7 @@ static int core_method_marshal_error(void *object, uint32_t id, int res, const c
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(id),
+			       SPA_POD_Int(seq),
 			       SPA_POD_Int(res),
 			       SPA_POD_String(error));
 
@@ -233,16 +233,18 @@ static int core_event_demarshal_error(void *object, void *data, size_t size)
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	uint32_t id, res;
+	int seq;
 	const char *error;
 
 	spa_pod_parser_init(&prs, data, size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&id),
+			SPA_POD_Int(&seq),
 			SPA_POD_Int(&res),
 			SPA_POD_String(&error)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_core_proxy_events, error, 0, id, res, error);
+	return pw_proxy_notify(proxy, struct pw_core_proxy_events, error, 0, id, seq, res, error);
 }
 
 static int core_event_demarshal_remove_id(void *object, void *data, size_t size)
@@ -282,7 +284,7 @@ static int core_event_marshal_info(void *object, const struct pw_core_info *info
 	return pw_protocol_native_end_resource(resource, b);
 }
 
-static int core_event_marshal_done(void *object, uint32_t id, uint32_t seq)
+static int core_event_marshal_done(void *object, uint32_t id, int seq)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -296,22 +298,21 @@ static int core_event_marshal_done(void *object, uint32_t id, uint32_t seq)
 	return pw_protocol_native_end_resource(resource, b);
 }
 
-static int core_event_marshal_sync(void *object, uint32_t id, uint32_t seq)
+static int core_event_marshal_sync(void *object, uint32_t id, int seq)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
-	int res;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_EVENT_SYNC, &res);
+	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_EVENT_SYNC, &seq);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(id),
-			SPA_POD_Int(res));
+			SPA_POD_Int(seq));
 
 	return pw_protocol_native_end_resource(resource, b);
 }
 
-static int core_event_marshal_error(void *object, uint32_t id, int res, const char *error)
+static int core_event_marshal_error(void *object, uint32_t id, int seq, int res, const char *error)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -320,6 +321,7 @@ static int core_event_marshal_error(void *object, uint32_t id, int res, const ch
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(id),
+			       SPA_POD_Int(seq),
 			       SPA_POD_Int(res),
 			       SPA_POD_String(error));
 
@@ -388,16 +390,18 @@ static int core_method_demarshal_error(void *object, void *data, size_t size)
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
 	uint32_t id, res;
+	int seq;
 	const char *error;
 
 	spa_pod_parser_init(&prs, data, size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&id),
+			SPA_POD_Int(&seq),
 			SPA_POD_Int(&res),
 			SPA_POD_String(&error)) < 0)
 		return -EINVAL;
 
-	return pw_resource_do(resource, struct pw_core_proxy_methods, error, 0, id, res, error);
+	return pw_resource_do(resource, struct pw_core_proxy_methods, error, 0, id, seq, res, error);
 }
 
 static int core_method_demarshal_get_registry(void *object, void *data, size_t size)
@@ -646,7 +650,7 @@ static int device_demarshal_info(void *object, void *data, size_t size)
 	return pw_proxy_notify(proxy, struct pw_device_proxy_events, info, 0, &info);
 }
 
-static int device_marshal_param(void *object, uint32_t seq, uint32_t id, uint32_t index, uint32_t next,
+static int device_marshal_param(void *object, int seq, uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
@@ -668,7 +672,8 @@ static int device_demarshal_param(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
-	uint32_t seq, id, index, next;
+	uint32_t id, index, next;
+	int seq;
 	struct spa_pod *param;
 
 	spa_pod_parser_init(&prs, data, size);
@@ -684,17 +689,16 @@ static int device_demarshal_param(void *object, void *data, size_t size)
 			seq, id, index, next, param);
 }
 
-static int device_marshal_enum_params(void *object, uint32_t seq,
+static int device_marshal_enum_params(void *object, int seq,
 		uint32_t id, uint32_t index, uint32_t num, const struct spa_pod *filter)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int res;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_DEVICE_PROXY_METHOD_ENUM_PARAMS, &res);
+	b = pw_protocol_native_begin_proxy(proxy, PW_DEVICE_PROXY_METHOD_ENUM_PARAMS, &seq);
 
 	spa_pod_builder_add_struct(b,
-			SPA_POD_Int(res),
+			SPA_POD_Int(seq),
 			SPA_POD_Id(id),
 			SPA_POD_Int(index),
 			SPA_POD_Int(num),
@@ -707,7 +711,8 @@ static int device_demarshal_enum_params(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
-	uint32_t id, index, num, seq;
+	uint32_t id, index, num;
+	int seq;
 	struct spa_pod *filter;
 
 	spa_pod_parser_init(&prs, data, size);
@@ -877,7 +882,7 @@ static int node_demarshal_info(void *object, void *data, size_t size)
 	return pw_proxy_notify(proxy, struct pw_node_proxy_events, info, 0, &info);
 }
 
-static int node_marshal_param(void *object, uint32_t seq, uint32_t id,
+static int node_marshal_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
@@ -899,7 +904,8 @@ static int node_demarshal_param(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
-	uint32_t seq, id, index, next;
+	uint32_t id, index, next;
+	int seq;
 	struct spa_pod *param;
 
 	spa_pod_parser_init(&prs, data, size);
@@ -915,17 +921,16 @@ static int node_demarshal_param(void *object, void *data, size_t size)
 			seq, id, index, next, param);
 }
 
-static int node_marshal_enum_params(void *object, uint32_t seq, uint32_t id,
+static int node_marshal_enum_params(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t num, const struct spa_pod *filter)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int res;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_NODE_PROXY_METHOD_ENUM_PARAMS, &res);
+	b = pw_protocol_native_begin_proxy(proxy, PW_NODE_PROXY_METHOD_ENUM_PARAMS, &seq);
 
 	spa_pod_builder_add_struct(b,
-			SPA_POD_Int(res),
+			SPA_POD_Int(seq),
 			SPA_POD_Id(id),
 			SPA_POD_Int(index),
 			SPA_POD_Int(num),
@@ -938,7 +943,8 @@ static int node_demarshal_enum_params(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
-	uint32_t seq, id, index, num;
+	uint32_t id, index, num;
+	int seq;
 	struct spa_pod *filter;
 
 	spa_pod_parser_init(&prs, data, size);
@@ -1064,7 +1070,7 @@ static int port_demarshal_info(void *object, void *data, size_t size)
 	return pw_proxy_notify(proxy, struct pw_port_proxy_events, info, 0, &info);
 }
 
-static int port_marshal_param(void *object, uint32_t seq, uint32_t id,
+static int port_marshal_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
@@ -1086,7 +1092,8 @@ static int port_demarshal_param(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
-	uint32_t seq, id, index, next;
+	uint32_t id, index, next;
+	int seq;
 	struct spa_pod *param;
 
 	spa_pod_parser_init(&prs, data, size);
@@ -1102,17 +1109,16 @@ static int port_demarshal_param(void *object, void *data, size_t size)
 			seq, id, index, next, param);
 }
 
-static int port_marshal_enum_params(void *object, uint32_t seq, uint32_t id,
+static int port_marshal_enum_params(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t num, const struct spa_pod *filter)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	int res;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_PORT_PROXY_METHOD_ENUM_PARAMS, &res);
+	b = pw_protocol_native_begin_proxy(proxy, PW_PORT_PROXY_METHOD_ENUM_PARAMS, &seq);
 
 	spa_pod_builder_add_struct(b,
-			SPA_POD_Int(res),
+			SPA_POD_Int(seq),
 			SPA_POD_Id(id),
 			SPA_POD_Int(index),
 			SPA_POD_Int(num),
@@ -1125,7 +1131,8 @@ static int port_demarshal_enum_params(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
-	uint32_t seq, id, index, num;
+	uint32_t id, index, num;
+	int seq;
 	struct spa_pod *filter;
 
 	spa_pod_parser_init(&prs, data, size);

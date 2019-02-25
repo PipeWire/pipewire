@@ -73,7 +73,7 @@ SPA_EXPORT
 void pw_main_loop_destroy(struct pw_main_loop *loop)
 {
 	pw_log_debug("main-loop %p: destroy", loop);
-	pw_main_loop_events_destroy(loop);
+	pw_main_loop_emit_destroy(loop);
 
 	pw_loop_destroy(loop->loop);
 

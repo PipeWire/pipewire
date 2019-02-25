@@ -38,9 +38,9 @@ static void test_core_abi(void)
 	struct {
 		uint32_t version;
 	        int (*hello) (void *object, uint32_t version);
-	        int (*sync) (void *object, uint32_t id, uint32_t seq);
-	        int (*done) (void *object, uint32_t id, uint32_t seq);
-	        int (*error) (void *object, uint32_t id, int res, const char *error);
+	        int (*sync) (void *object, uint32_t id, int seq);
+	        int (*done) (void *object, uint32_t id, int seq);
+	        int (*error) (void *object, uint32_t id, int seq, int res, const char *error);
 	        int (*get_registry) (void *object, uint32_t version, uint32_t new_id);
 	        int (*create_object) (void *object,
 				       const char *factory_name,
@@ -53,9 +53,9 @@ static void test_core_abi(void)
 	struct {
 		uint32_t version;
 		int (*info) (void *object, const struct pw_core_info *info);
-	        int (*done) (void *object, uint32_t id, uint32_t seq);
-	        int (*sync) (void *object, uint32_t id, uint32_t seq);
-	        int (*error) (void *object, uint32_t id, int res, const char *error);
+	        int (*done) (void *object, uint32_t id, int seq);
+	        int (*sync) (void *object, uint32_t id, int seq);
+	        int (*error) (void *object, uint32_t id, int seq, int res, const char *error);
 	        int (*remove_id) (void *object, uint32_t id);
 	} events = { PW_VERSION_CORE_PROXY_EVENTS, };
 
@@ -138,7 +138,7 @@ static void test_device_abi(void)
 	struct pw_device_proxy_events e;
 	struct {
 		uint32_t version;
-		int (*enum_params) (void *object, uint32_t seq, uint32_t id,
+		int (*enum_params) (void *object, int seq, uint32_t id,
 			uint32_t start, uint32_t num,
 			const struct spa_pod *filter);
 		int (*set_param) (void *object, uint32_t id, uint32_t flags,
@@ -147,7 +147,7 @@ static void test_device_abi(void)
 	struct {
 		uint32_t version;
 		int (*info) (void *object, const struct pw_device_info *info);
-		int (*param) (void *object, uint32_t seq,
+		int (*param) (void *object, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			const struct spa_pod *param);
 	} events = { PW_VERSION_DEVICE_PROXY_EVENTS, };
@@ -171,7 +171,7 @@ static void test_node_abi(void)
 	struct pw_node_proxy_events e;
 	struct {
 		uint32_t version;
-		int (*enum_params) (void *object, uint32_t seq, uint32_t id,
+		int (*enum_params) (void *object, int seq, uint32_t id,
 			uint32_t start, uint32_t num, const struct spa_pod *filter);
 		int (*set_param) (void *object, uint32_t id, uint32_t flags,
 			const struct spa_pod *param);
@@ -180,7 +180,7 @@ static void test_node_abi(void)
 	struct {
 		uint32_t version;
 		int (*info) (void *object, const struct pw_node_info *info);
-		int (*param) (void *object, uint32_t seq,
+		int (*param) (void *object, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			const struct spa_pod *param);
 	} events = { PW_VERSION_NODE_PROXY_EVENTS, };
@@ -205,13 +205,13 @@ static void test_port_abi(void)
 	struct pw_port_proxy_events e;
 	struct {
 		uint32_t version;
-		int (*enum_params) (void *object, uint32_t seq, uint32_t id,
+		int (*enum_params) (void *object, int seq, uint32_t id,
 			uint32_t start, uint32_t num, const struct spa_pod *filter);
 	} methods = { PW_VERSION_PORT_PROXY_METHODS, };
 	struct {
 		uint32_t version;
 		int (*info) (void *object, const struct pw_port_info *info);
-		int (*param) (void *object, uint32_t seq,
+		int (*param) (void *object, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			const struct spa_pod *param);
 	} events = { PW_VERSION_PORT_PROXY_EVENTS, };

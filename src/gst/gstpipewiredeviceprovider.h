@@ -93,7 +93,7 @@ struct _GstPipeWireDeviceProvider {
 
   struct pw_core_proxy *core_proxy;
   struct spa_list pending;
-  uint32_t seq;
+  int seq;
 
   struct pw_registry_proxy *registry;
 

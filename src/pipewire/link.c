@@ -118,10 +118,10 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 	free((char*)link->info.error);
 	link->info.error = error;
 
-	pw_link_events_state_changed(link, old, state, error);
+	pw_link_emit_state_changed(link, old, state, error);
 
 	link->info.change_mask |= PW_LINK_CHANGE_MASK_STATE;
-	pw_link_events_info_changed(link, &link->info);
+	pw_link_emit_info_changed(link, &link->info);
 
 	if (link->global)
 		spa_list_for_each(resource, &link->global->resource_list, link)
@@ -331,7 +331,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	if (changed) {
 		this->info.change_mask |= PW_LINK_CHANGE_MASK_FORMAT;
 
-		pw_link_events_info_changed(this, &this->info);
+		pw_link_emit_info_changed(this, &this->info);
 
 		if (this->global)
 			spa_list_for_each(resource, &this->global->resource_list, link)
@@ -906,7 +906,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	spa_hook_remove(&impl->input_node_listener);
 
 	spa_list_remove(&this->input_link);
-	pw_port_events_link_removed(this->input, this);
+	pw_port_emit_link_removed(this->input, this);
 
 	clear_port_buffers(this, port);
 
@@ -925,7 +925,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	spa_hook_remove(&impl->output_node_listener);
 
 	spa_list_remove(&this->output_link);
-	pw_port_events_link_removed(this->output, this);
+	pw_port_emit_link_removed(this->output, this);
 
 	clear_port_buffers(this, port);
 
@@ -936,7 +936,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 
 static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 {
-	pw_link_events_port_unlinked(this, port);
+	pw_link_emit_port_unlinked(this, port);
 
 	pw_link_update_state(this, PW_LINK_STATE_UNLINKED, NULL);
 	pw_link_destroy(this);
@@ -1095,7 +1095,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create link resource");
-	pw_core_resource_error(client->core_resource, id, -ENOMEM, "no memory");
+	pw_core_resource_error(client->core_resource, id, client->seq, -ENOMEM, "no memory");
 	return;
 }
 
@@ -1328,8 +1328,8 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	find_driver(this);
 
-	pw_port_events_link_added(output, this);
-	pw_port_events_link_added(input, this);
+	pw_port_emit_link_added(output, this);
+	pw_port_emit_link_added(input, this);
 
 	try_link_controls(impl, output, input);
 
@@ -1421,7 +1421,7 @@ void pw_link_destroy(struct pw_link *link)
 	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
 
 	pw_log_debug("link %p: destroy", impl);
-	pw_link_events_destroy(link);
+	pw_link_emit_destroy(link);
 
 	pw_link_deactivate(link);
 
@@ -1441,7 +1441,7 @@ void pw_link_destroy(struct pw_link *link)
 	}
 
 	pw_log_debug("link %p: free", impl);
-	pw_link_events_free(link);
+	pw_link_emit_free(link);
 
 	pw_work_queue_destroy(impl->work);
 

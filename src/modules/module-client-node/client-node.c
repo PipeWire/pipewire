@@ -1213,14 +1213,18 @@ static void client_node_resource_destroy(void *data)
 	pw_node_destroy(this->node);
 }
 
-static void client_node_resource_error(void *data, int res, const char *message)
+static void client_node_resource_error(void *data, int seq, int res, const char *message)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-	pw_log_error("client-node %p: error %d: %s", this, res, message);
+	struct spa_result_node_error result;
+
+	pw_log_error("client-node %p: error seq:%d %d (%s)", this, seq, res, message);
+	result.message = message;
+	this->callbacks->result(this->callbacks_data, seq, res, &result);
 }
 
-static void client_node_resource_done(void *data, uint32_t seq)
+static void client_node_resource_done(void *data, int seq)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;

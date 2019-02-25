@@ -71,7 +71,6 @@ struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_node *node;
 	struct pw_resource *resource;
-	uint32_t seq;
 };
 
 /** \endcond */
@@ -250,32 +249,33 @@ static const struct pw_resource_events resource_events = {
 	.destroy = node_unbind_func,
 };
 
-static int reply_param(void *data, uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+static int reply_param(void *data, uint32_t seq, uint32_t id,
+		uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct resource_data *d = data;
-	pw_log_debug("resource %p: reply param %d", d->resource, d->seq);
-	pw_node_resource_param(d->resource, d->seq, id, index, next, param);
+	pw_log_debug("resource %p: reply param %d", d->resource, seq);
+	pw_node_resource_param(d->resource, seq, id, index, next, param);
 	return 0;
 }
 
-static int node_enum_params(void *object, uint32_t seq, uint32_t id,
+static int node_enum_params(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t num, const struct spa_pod *filter)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_node *node = data->node;
+	struct pw_client *client = resource->client;
 	int res;
 
 	pw_log_debug("resource %p: enum params %d %s %u %u", resource, seq,
 			spa_debug_type_find_name(spa_type_param, id), index, num);
 
-	data->seq = seq;
-	if ((res = pw_node_for_each_param(node, id, index, num,
+	if ((res = pw_node_for_each_param(node, seq, id, index, num,
 				filter, reply_param, data)) < 0) {
 		pw_log_error("resource %p: %d error %d (%s)", resource,
 				resource->id, res, spa_strerror(res));
-		pw_core_resource_error(resource->client->core_resource,
-				resource->id, res, spa_strerror(res));
+		pw_core_resource_error(client->core_resource,
+				resource->id, seq, res, spa_strerror(res));
 	}
 	return 0;
 }
@@ -286,13 +286,14 @@ static int node_set_param(void *object, uint32_t id, uint32_t flags,
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_node *node = data->node;
+	struct pw_client *client = resource->client;
 	int res;
 
 	if ((res = spa_node_set_param(node->node, id, flags, param)) < 0) {
 		pw_log_error("resource %p: %d error %d (%s)", resource,
 				resource->id, res, spa_strerror(res));
-		pw_core_resource_error(resource->client->core_resource,
-				resource->id, res, spa_strerror(res));
+		pw_core_resource_error(client->core_resource,
+				resource->id, client->seq, res, spa_strerror(res));
 	}
 	return 0;
 }
@@ -352,7 +353,8 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create node resource");
-	pw_core_resource_error(client->core_resource, id, -ENOMEM, "no memory");
+	pw_core_resource_error(client->core_resource, id,
+			client->seq, -ENOMEM, "no memory");
 	return;
 }
 
@@ -1067,10 +1069,10 @@ int pw_node_for_each_port(struct pw_node *node,
 
 SPA_EXPORT
 int pw_node_for_each_param(struct pw_node *node,
-			   uint32_t param_id,
+			   uint32_t seq, uint32_t param_id,
 			   uint32_t index, uint32_t max,
 			   const struct spa_pod *filter,
-			   int (*callback) (void *data,
+			   int (*callback) (void *data, uint32_t seq,
 					    uint32_t id, uint32_t index, uint32_t next,
 					    struct spa_pod *param),
 			   void *data)
@@ -1099,7 +1101,7 @@ int pw_node_for_each_param(struct pw_node *node,
 						&impl->pending)) != 1)
 			break;
 
-		if ((res = callback(data, param_id, idx, index, param)) != 0)
+		if ((res = callback(data, seq, param_id, idx, index, param)) != 0)
 			break;
 	}
 	return res;

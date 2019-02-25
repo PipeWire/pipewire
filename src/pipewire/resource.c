@@ -80,7 +80,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 			this, id,
 			spa_debug_type_find_name(pw_type_info(), type), version,
 			client, this->marshal);
-	pw_client_events_resource_added(client, this);
+	pw_client_emit_resource_added(client, this);
 
 	return this;
 
@@ -145,7 +145,7 @@ void pw_resource_set_implementation(struct pw_resource *resource,
 	resource->implementation.funcs = implementation;
 	resource->implementation.data = data;
 
-	pw_client_events_resource_impl(client, resource);
+	pw_client_emit_resource_impl(client, resource);
 }
 
 SPA_EXPORT
@@ -170,26 +170,29 @@ const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *re
 }
 
 SPA_EXPORT
-int pw_resource_sync(struct pw_resource *resource, uint32_t seq)
+int pw_resource_sync(struct pw_resource *resource, int seq)
 {
 	int res = -EIO;
 	if (resource->client->core_resource != NULL) {
 		res = pw_core_resource_sync(resource->client->core_resource, resource->id, seq);
-		pw_log_debug("resource %p: %u %u sync %u", resource, resource->id, seq, res);
+		pw_log_debug("resource %p: %u seq:%d sync %d", resource, resource->id, seq, res);
 	}
 	return res;
 }
 
 SPA_EXPORT
-int pw_resource_error(struct pw_resource *resource, int result, const char *error, ...)
+int pw_resource_error(struct pw_resource *resource, int res, const char *error, ...)
 {
 	va_list ap;
-	int res = -EIO;
+	int r = -EIO;
+	struct pw_client *client = resource->client;
+
 	va_start(ap, error);
-	if (resource->client->core_resource != NULL)
-		res = pw_core_resource_errorv(resource->client->core_resource, resource->id, result, error, ap);
+	if (client->core_resource != NULL)
+		r = pw_core_resource_errorv(client->core_resource,
+				resource->id, client->seq, res, error, ap);
 	va_end(ap);
-	return res;
+	return r;
 }
 
 SPA_EXPORT
@@ -198,10 +201,10 @@ void pw_resource_destroy(struct pw_resource *resource)
 	struct pw_client *client = resource->client;
 
 	pw_log_debug("resource %p: destroy %u", resource, resource->id);
-	pw_resource_events_destroy(resource);
+	pw_resource_emit_destroy(resource);
 
 	pw_map_insert_at(&client->objects, resource->id, NULL);
-	pw_client_events_resource_removed(client, resource);
+	pw_client_emit_resource_removed(client, resource);
 
 	if (client->core_resource)
 		pw_core_resource_remove_id(client->core_resource, resource->id);

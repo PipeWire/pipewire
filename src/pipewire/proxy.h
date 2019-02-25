@@ -112,10 +112,10 @@ struct pw_proxy_events {
         void (*destroy) (void *data);
 
 	/** a reply to a sync method completed */
-        void (*done) (void *data, uint32_t seq);
+        void (*done) (void *data, int seq);
 
 	/** an error occured on the proxy */
-        void (*error) (void *data, int res, const char *message);
+        void (*error) (void *data, int seq, int res, const char *message);
 };
 
 /** Make a new proxy object. The id can be used to bind to a remote object and
@@ -155,7 +155,7 @@ struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
 int pw_proxy_sync(struct pw_proxy *proxy, int seq);
 
 /** Generate an error for a proxy */
-int pw_proxy_error(struct pw_proxy *proxy, int result, const char *error, ...);
+int pw_proxy_error(struct pw_proxy *proxy, int res, const char *error, ...);
 
 /** Get the listener of proxy */
 struct spa_hook_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy);

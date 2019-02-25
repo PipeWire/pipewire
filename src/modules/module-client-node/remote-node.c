@@ -393,7 +393,7 @@ static int client_node_transport(void *object, uint32_t node_id,
 	if (data->node->active)
 		pw_client_node_proxy_set_active(data->node_proxy, true);
 
-	pw_remote_events_exported(remote, proxy->id, node_id);
+	pw_remote_emit_exported(remote, proxy->id, node_id);
 	return 0;
 }
 

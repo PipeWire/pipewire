@@ -159,7 +159,7 @@ static int core_hello(void *object, uint32_t version)
 	return 0;
 }
 
-static int core_sync(void *object, uint32_t id, uint32_t seq)
+static int core_sync(void *object, uint32_t id, int seq)
 {
 	struct pw_resource *resource = object;
 	pw_log_debug("core %p: sync %d for resource %d", resource->core, seq, id);
@@ -167,7 +167,7 @@ static int core_sync(void *object, uint32_t id, uint32_t seq)
 	return 0;
 }
 
-static int core_done(void *object, uint32_t id, uint32_t seq)
+static int core_done(void *object, uint32_t id, int seq)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
@@ -178,11 +178,11 @@ static int core_done(void *object, uint32_t id, uint32_t seq)
 	if ((r = pw_client_find_resource(client, id)) == NULL)
 		return -EINVAL;
 
-	pw_resource_events_done(r, seq);
+	pw_resource_emit_done(r, seq);
 	return 0;
 }
 
-static int core_error(void *object, uint32_t id, int res, const char *message)
+static int core_error(void *object, uint32_t id, int seq, int res, const char *message)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
@@ -193,7 +193,7 @@ static int core_error(void *object, uint32_t id, int res, const char *message)
 	if ((r = pw_client_find_resource(client, id)) == NULL)
 		return -EINVAL;
 
-	pw_resource_events_error(r, res, message);
+	pw_resource_emit_error(r, seq, res, message);
 	return 0;
 }
 
@@ -245,7 +245,8 @@ static int core_get_registry(void *object, uint32_t version, uint32_t new_id)
 
       no_mem:
 	pw_log_error("can't create registry resource");
-	pw_core_resource_error(client->core_resource, new_id, -ENOMEM, "no memory");
+	pw_core_resource_error(client->core_resource, new_id,
+			client->seq, -ENOMEM, "no memory");
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
 	return -ENOMEM;
@@ -540,7 +541,7 @@ void pw_core_destroy(struct pw_core *core)
 	struct pw_node *node;
 
 	pw_log_debug("core %p: destroy", core);
-	pw_core_events_destroy(core);
+	pw_core_emit_destroy(core);
 
 	spa_hook_remove(&core->global_listener);
 
@@ -559,7 +560,7 @@ void pw_core_destroy(struct pw_core *core)
 	spa_list_consume(global, &core->global_list, link)
 		pw_global_destroy(global);
 
-	pw_core_events_free(core);
+	pw_core_emit_free(core);
 
 	pw_data_loop_destroy(core->data_loop_impl);
 
@@ -644,7 +645,7 @@ int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 	core->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
 	core->info.props = &core->properties->dict;
 
-	pw_core_events_info_changed(core, &core->info);
+	pw_core_emit_info_changed(core, &core->info);
 
 	if (core->global)
 		spa_list_for_each(resource, &core->global->resource_list, link)

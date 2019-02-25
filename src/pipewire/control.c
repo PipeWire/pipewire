@@ -80,7 +80,7 @@ pw_control_new(struct pw_core *core,
 	spa_list_append(&core->control_list[direction], &this->link);
 	if (port) {
 		spa_list_append(&port->control_list[direction], &this->port_link);
-		pw_port_events_control_added(port, this);
+		pw_port_emit_control_added(port, this);
 	}
 
 	return this;
@@ -96,7 +96,7 @@ void pw_control_destroy(struct pw_control *control)
 
 	pw_log_debug("control %p: destroy", control);
 
-	pw_control_events_destroy(control);
+	pw_control_emit_destroy(control);
 
 	if (control->direction == SPA_DIRECTION_OUTPUT) {
 		spa_list_for_each_safe(other, tmp, &control->inputs, inputs_link)
@@ -111,11 +111,11 @@ void pw_control_destroy(struct pw_control *control)
 
 	if (control->port) {
 		spa_list_remove(&control->port_link);
-		pw_port_events_control_removed(control->port, control);
+		pw_port_emit_control_removed(control->port, control);
 	}
 
 	pw_log_debug("control %p: free", control);
-	pw_control_events_free(control);
+	pw_control_emit_free(control);
 
 	if (control->direction == SPA_DIRECTION_OUTPUT) {
 		if (impl->mem)
@@ -211,8 +211,8 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 	other->output = control;
 	spa_list_append(&control->inputs, &other->inputs_link);
 
-	pw_control_events_linked(control, other);
-	pw_control_events_linked(other, control);
+	pw_control_emit_linked(control, other);
+	pw_control_emit_linked(other, control);
 
      exit:
 	return res;
@@ -258,8 +258,8 @@ int pw_control_unlink(struct pw_control *control, struct pw_control *other)
 		}
 	}
 
-	pw_control_events_unlinked(control, other);
-	pw_control_events_unlinked(other, control);
+	pw_control_emit_unlinked(control, other);
+	pw_control_emit_unlinked(other, control);
 
 	return res;
 }

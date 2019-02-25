@@ -68,7 +68,7 @@ struct impl {
 	struct spa_list client_list;
 	struct spa_list node_list;
 	struct spa_list session_list;
-	uint32_t seq;
+	int seq;
 };
 
 struct object {
@@ -367,7 +367,7 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 	return 0;
 }
 
-static int node_event_param(void *object, uint32_t seq,
+static int node_event_param(void *object, int seq,
                        uint32_t id, uint32_t index, uint32_t next,
                        const struct spa_pod *param)
 {
@@ -528,7 +528,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		pw_log_debug(NAME "%p: node %d is stream %s", impl, id, node->media);
 
 		pw_node_proxy_enum_params((struct pw_node_proxy*)p,
-				SPA_PARAM_EnumFormat,
+				0, SPA_PARAM_EnumFormat,
 				0, -1, NULL);
 	}
 	else {
@@ -588,7 +588,7 @@ static int port_event_info(void *object, const struct pw_port_info *info)
 	return 0;
 }
 
-static int port_event_param(void *object, uint32_t seq,
+static int port_event_param(void *object, int seq,
                        uint32_t id, uint32_t index, uint32_t next,
                        const struct spa_pod *param)
 {
@@ -693,7 +693,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 
 	if (node->type == NODE_TYPE_DEVICE) {
 		pw_port_proxy_enum_params((struct pw_port_proxy*)p,
-				SPA_PARAM_EnumFormat,
+				0, SPA_PARAM_EnumFormat,
 				0, -1, NULL);
 	}
 
@@ -1309,10 +1309,10 @@ static void do_rescan(struct impl *impl)
 		rescan_node(impl, node);
 }
 
-static int core_done(void *data, uint32_t id, uint32_t seq)
+static int core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;
-	pw_log_debug("media-session %p: sync %d %u/%u", impl, id, seq, impl->seq);
+	pw_log_debug("media-session %p: sync %d %d/%d", impl, id, seq, impl->seq);
 	if (impl->seq == seq)
 		do_rescan(impl);
 	return 0;

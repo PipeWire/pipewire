@@ -48,7 +48,6 @@ struct data {
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
-	uint32_t seq;
 
 	struct pw_registry_proxy *registry_proxy;
 	struct spa_hook registry_listener;
@@ -69,7 +68,7 @@ struct proxy_data {
 	pw_destroy_t destroy;
 	struct spa_hook proxy_listener;
 	struct spa_hook proxy_proxy_listener;
-	uint32_t pending_seq;
+	int pending_seq;
 	struct spa_list pending_link;
 	print_func_t print_func;
 	uint32_t n_params;
@@ -81,19 +80,18 @@ static void add_pending(struct proxy_data *pd)
 	struct data *d = pd->data;
 
 	spa_list_append(&d->pending_list, &pd->pending_link);
-	pd->pending_seq = d->seq++;
-	pw_core_proxy_sync(d->core_proxy, 0, d->seq);
+	pd->pending_seq = pw_core_proxy_sync(d->core_proxy, 0, pd->pending_seq);
 }
 
 static void remove_pending(struct proxy_data *pd)
 {
-	if (pd->pending_seq != SPA_ID_INVALID) {
+	if (pd->pending_seq != 0) {
 		spa_list_remove(&pd->pending_link);
-		pd->pending_seq = SPA_ID_INVALID;
+		pd->pending_seq = 0;
 	}
 }
 
-static int on_core_done(void *data, uint32_t id, uint32_t seq)
+static int on_core_done(void *data, uint32_t id, int seq)
 {
 	struct data *d = data;
 	struct proxy_data *pd, *t;
@@ -262,15 +260,15 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 
 	if (is_new) {
 		pw_node_proxy_enum_params((struct pw_node_proxy*)data->proxy,
-				SPA_PARAM_List, 0, 0, NULL);
+				0, SPA_PARAM_List, 0, 0, NULL);
 		add_pending(data);
 	}
-	if (data->pending_seq == SPA_ID_INVALID)
+	if (data->pending_seq == 0)
 		data->print_func(data);
 	return 0;
 }
 
-static int node_event_param(void *object, uint32_t seq, uint32_t id,
+static int node_event_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
@@ -330,15 +328,15 @@ static int port_event_info(void *object, const struct pw_port_info *info)
 
 	if (is_new) {
 		pw_port_proxy_enum_params((struct pw_port_proxy*)data->proxy,
-				SPA_PARAM_EnumFormat, 0, 0, NULL);
+				0, SPA_PARAM_EnumFormat, 0, 0, NULL);
 		add_pending(data);
 	}
-	if (data->pending_seq == SPA_ID_INVALID)
+	if (data->pending_seq == 0)
 		data->print_func(data);
 	return 0;
 }
 
-static int port_event_param(void *object, uint32_t seq, uint32_t id,
+static int port_event_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
@@ -606,7 +604,7 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	pd->version = version;
 	pd->type = type;
 	pd->destroy = destroy;
-	pd->pending_seq = SPA_ID_INVALID;
+	pd->pending_seq = 0;
 	pd->print_func = print_func;
         pw_proxy_add_proxy_listener(proxy, &pd->proxy_proxy_listener, events, pd);
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);

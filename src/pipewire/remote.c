@@ -93,42 +93,42 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 		}
 
 		remote->state = state;
-		pw_remote_events_state_changed(remote, old, state, remote->error);
+		pw_remote_emit_state_changed(remote, old, state, remote->error);
 	}
 	return 0;
 }
 
-static int core_event_sync(void *data, uint32_t id, uint32_t seq)
+static int core_event_sync(void *data, uint32_t id, int seq)
 {
 	struct pw_remote *this = data;
 	pw_log_debug("remote %p: object %u sync %u", this, id, seq);
 	return pw_core_proxy_done(this->core_proxy, id, seq);
 }
 
-static int core_event_done(void *data, uint32_t id, uint32_t seq)
+static int core_event_done(void *data, uint32_t id, int seq)
 {
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
 
-	pw_log_debug("remote %p: object %u done %u", this, id, seq);
+	pw_log_debug("remote %p: object %u done %d", this, id, seq);
 
 	proxy = pw_map_lookup(&this->objects, id);
 	if (proxy)
-		pw_proxy_events_done(proxy, seq);
+		pw_proxy_emit_done(proxy, seq);
 	return 0;
 }
 
-static int core_event_error(void *data, uint32_t id, int res, const char *message)
+static int core_event_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
 
-	pw_log_error("remote %p: object error %u: %d (%s): %s", this, id,
+	pw_log_error("remote %p: object error %u: seq:%d %d (%s): %s", this, id, seq,
 			res, spa_strerror(res), message);
 
 	proxy = pw_map_lookup(&this->objects, id);
 	if (proxy)
-		pw_proxy_events_error(proxy, res, message);
+		pw_proxy_emit_error(proxy, seq, res, message);
 	return 0;
 }
 
@@ -239,7 +239,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 	struct pw_stream *stream;
 
 	pw_log_debug("remote %p: destroy", remote);
-	pw_remote_events_destroy(remote);
+	pw_remote_emit_destroy(remote);
 
 	if (remote->state != PW_REMOTE_STATE_UNCONNECTED)
 		pw_remote_disconnect(remote);

@@ -89,7 +89,7 @@ static void *create_object(void *_data,
 
       no_mem:
 	pw_log_error("can't create node");
-	pw_core_resource_error(pw_client_get_core_resource(client), new_id, -ENOMEM, "can't create node: no memory");
+	pw_resource_error(resource, -ENOMEM, "can't create node: no memory");
 	goto done;
       done:
 	if (properties)

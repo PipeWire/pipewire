@@ -94,10 +94,10 @@ int pw_device_update_properties(struct pw_device *device, const struct spa_dict 
 const struct pw_properties *pw_device_get_properties(struct pw_device *device);
 
 int pw_device_for_each_param(struct pw_device *device,
-			     uint32_t param_id,
+			     int seq, uint32_t param_id,
 			     uint32_t index, uint32_t max,
 			     const struct spa_pod *filter,
-			     int (*callback) (void *data,
+			     int (*callback) (void *data, int seq,
 					      uint32_t id, uint32_t index, uint32_t next,
 					      struct spa_pod *param),
 			     void *data);

@@ -60,7 +60,7 @@ struct pw_command {
         int n_args;
 };
 
-#define pw_protocol_events_destroy(p) spa_hook_list_call(&p->listener_list, struct pw_protocol_events, destroy, 0)
+#define pw_protocol_emit_destroy(p) spa_hook_list_call(&p->listener_list, struct pw_protocol_events, destroy, 0)
 
 struct pw_protocol {
 	struct spa_list link;                   /**< link in core protocol_list */
@@ -85,15 +85,15 @@ struct pw_protocol {
 typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
 					  struct pw_client *client, void *data);
 
-#define pw_client_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_client_events, m, v, ##__VA_ARGS__)
+#define pw_client_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_client_events, m, v, ##__VA_ARGS__)
 
-#define pw_client_events_destroy(o)		pw_client_events_emit(o, destroy, 0)
-#define pw_client_events_free(o)		pw_client_events_emit(o, free, 0)
-#define pw_client_events_info_changed(o,i)	pw_client_events_emit(o, info_changed, 0, i)
-#define pw_client_events_resource_added(o,r)	pw_client_events_emit(o, resource_added, 0, r)
-#define pw_client_events_resource_impl(o,r)	pw_client_events_emit(o, resource_impl, 0, r)
-#define pw_client_events_resource_removed(o,r)	pw_client_events_emit(o, resource_removed, 0, r)
-#define pw_client_events_busy_changed(o,b)	pw_client_events_emit(o, busy_changed, 0, b)
+#define pw_client_emit_destroy(o)		pw_client_emit(o, destroy, 0)
+#define pw_client_emit_free(o)			pw_client_emit(o, free, 0)
+#define pw_client_emit_info_changed(o,i)	pw_client_emit(o, info_changed, 0, i)
+#define pw_client_emit_resource_added(o,r)	pw_client_emit(o, resource_added, 0, r)
+#define pw_client_emit_resource_impl(o,r)	pw_client_emit(o, resource_impl, 0, r)
+#define pw_client_emit_resource_removed(o,r)	pw_client_emit(o, resource_removed, 0, r)
+#define pw_client_emit_busy_changed(o,b)	pw_client_emit(o, busy_changed, 0, b)
 
 struct pw_client {
 	struct pw_core *core;		/**< core object */
@@ -116,6 +116,7 @@ struct pw_client {
 
 	struct pw_protocol *protocol;	/**< protocol in use */
 	struct spa_list protocol_link;	/**< link in the protocol client_list */
+	int seq;			/**< last received sequence number */
 
 	void *user_data;		/**< extra user data */
 
@@ -125,12 +126,12 @@ struct pw_client {
 	int busy:1;
 };
 
-#define pw_global_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_global_events, m, v, ##__VA_ARGS__)
+#define pw_global_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_global_events, m, v, ##__VA_ARGS__)
 
-#define pw_global_events_registering(g)	pw_global_events_emit(g, registering, 0)
-#define pw_global_events_destroy(g)	pw_global_events_emit(g, destroy, 0)
-#define pw_global_events_free(g)	pw_global_events_emit(g, free, 0)
-#define pw_global_events_bind(g,...)	pw_global_events_emit(g, bind, 0, __VA_ARGS__)
+#define pw_global_emit_registering(g)	pw_global_emit(g, registering, 0)
+#define pw_global_emit_destroy(g)	pw_global_emit(g, destroy, 0)
+#define pw_global_emit_free(g)		pw_global_emit(g, free, 0)
+#define pw_global_emit_bind(g,...)	pw_global_emit(g, bind, 0, __VA_ARGS__)
 
 struct pw_global {
 	struct pw_core *core;		/**< the core */
@@ -153,13 +154,13 @@ struct pw_global {
 	struct spa_list resource_list;	/**< The list of resources of this global */
 };
 
-#define pw_core_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_core_events, m, v, ##__VA_ARGS__)
-#define pw_core_events_destroy(c)		pw_core_events_emit(c, destroy, 0)
-#define pw_core_events_free(c)			pw_core_events_emit(c, free, 0)
-#define pw_core_events_info_changed(c,i)	pw_core_events_emit(c, info_changed, 0, i)
-#define pw_core_events_check_access(c,cl)	pw_core_events_emit(c, check_access, 0, cl)
-#define pw_core_events_global_added(c,g)	pw_core_events_emit(c, global_added, 0, g)
-#define pw_core_events_global_removed(c,g)	pw_core_events_emit(c, global_removed, 0, g)
+#define pw_core_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_core_events, m, v, ##__VA_ARGS__)
+#define pw_core_emit_destroy(c)			pw_core_emit(c, destroy, 0)
+#define pw_core_emit_free(c)			pw_core_emit(c, free, 0)
+#define pw_core_emit_info_changed(c,i)		pw_core_emit(c, info_changed, 0, i)
+#define pw_core_emit_check_access(c,cl)		pw_core_emit(c, check_access, 0, cl)
+#define pw_core_emit_global_added(c,g)		pw_core_emit(c, global_added, 0, g)
+#define pw_core_emit_global_removed(c,g)	pw_core_emit(c, global_removed, 0, g)
 
 struct pw_core {
 	struct pw_global *global;	/**< the global of the core */
@@ -200,8 +201,8 @@ struct pw_core {
 	void *user_data;		/**< extra user data */
 };
 
-#define pw_data_loop_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_data_loop_events, m, v, ##__VA_ARGS__)
-#define pw_data_loop_events_destroy(o) pw_data_loop_events_emit(o, destroy, 0)
+#define pw_data_loop_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_data_loop_events, m, v, ##__VA_ARGS__)
+#define pw_data_loop_emit_destroy(o) pw_data_loop_emit(o, destroy, 0)
 
 struct pw_data_loop {
         struct pw_loop *loop;
@@ -214,8 +215,8 @@ struct pw_data_loop {
         int running:1;
 };
 
-#define pw_main_loop_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_main_loop_events, m, v, ##__VA_ARGS__)
-#define pw_main_loop_events_destroy(o) pw_main_loop_events_emit(o, destroy, 0)
+#define pw_main_loop_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_main_loop_events, m, v, ##__VA_ARGS__)
+#define pw_main_loop_emit_destroy(o) pw_main_loop_emit(o, destroy, 0)
 
 struct pw_main_loop {
         struct pw_loop *loop;
@@ -249,9 +250,9 @@ static inline void free_allocation(struct allocation *alloc)
 	alloc->n_buffers = 0;
 }
 
-#define pw_device_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_device_events, m, v, ##__VA_ARGS__)
-#define pw_device_events_destroy(m)		pw_device_events_emit(m, destroy, 0)
-#define pw_device_events_info_changed(n,i)	pw_device_events_emit(n, info_changed, 0, i)
+#define pw_device_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_device_events, m, v, ##__VA_ARGS__)
+#define pw_device_emit_destroy(m)		pw_device_emit(m, destroy, 0)
+#define pw_device_emit_info_changed(n,i)	pw_device_emit(n, info_changed, 0, i)
 
 struct pw_device {
 	struct pw_core *core;           /**< the core object */
@@ -272,8 +273,8 @@ struct pw_device {
 	int registered:1;
 };
 
-#define pw_module_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_module_events, m, v, ##__VA_ARGS__)
-#define pw_module_events_destroy(m)	pw_module_events_emit(m, destroy, 0)
+#define pw_module_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_module_events, m, v, ##__VA_ARGS__)
+#define pw_module_emit_destroy(m)	pw_module_emit(m, destroy, 0)
 
 struct pw_module {
 	struct pw_core *core;           /**< the core object */
@@ -405,15 +406,15 @@ struct pw_port_implementation {
 			  struct spa_buffer **buffers, uint32_t *n_buffers);
 };
 
-#define pw_port_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_port_events, m, v, ##__VA_ARGS__)
-#define pw_port_events_destroy(p)		pw_port_events_emit(p, destroy, 0)
-#define pw_port_events_free(p)			pw_port_events_emit(p, free, 0)
-#define pw_port_events_info_changed(p,i)	pw_port_events_emit(p, info_changed, 0, i)
-#define pw_port_events_link_added(p,l)		pw_port_events_emit(p, link_added, 0, l)
-#define pw_port_events_link_removed(p,l)	pw_port_events_emit(p, link_removed, 0, l)
-#define pw_port_events_state_changed(p,s)	pw_port_events_emit(p, state_changed, 0, s)
-#define pw_port_events_control_added(p,c)	pw_port_events_emit(p, control_added, 0, c)
-#define pw_port_events_control_removed(p,c)	pw_port_events_emit(p, control_removed, 0, c)
+#define pw_port_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_port_events, m, v, ##__VA_ARGS__)
+#define pw_port_emit_destroy(p)			pw_port_emit(p, destroy, 0)
+#define pw_port_emit_free(p)			pw_port_emit(p, free, 0)
+#define pw_port_emit_info_changed(p,i)		pw_port_emit(p, info_changed, 0, i)
+#define pw_port_emit_link_added(p,l)		pw_port_emit(p, link_added, 0, l)
+#define pw_port_emit_link_removed(p,l)		pw_port_emit(p, link_removed, 0, l)
+#define pw_port_emit_state_changed(p,s)		pw_port_emit(p, state_changed, 0, s)
+#define pw_port_emit_control_added(p,c)		pw_port_emit(p, control_added, 0, c)
+#define pw_port_emit_control_removed(p,c)	pw_port_emit(p, control_removed, 0, c)
 
 #define PW_PORT_IS_CONTROL(port)	SPA_FLAG_MASK(port->flags, \
 						PW_PORT_FLAG_BUFFERS|PW_PORT_FLAG_CONTROL,\
@@ -478,12 +479,12 @@ struct pw_port {
         void *user_data;                /**< extra user data */
 };
 
-#define pw_link_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_link_events, m, v, ##__VA_ARGS__)
-#define pw_link_events_destroy(l)		pw_link_events_emit(l, destroy, 0)
-#define pw_link_events_free(l)			pw_link_events_emit(l, free, 0)
-#define pw_link_events_info_changed(l,i)	pw_link_events_emit(l, info_changed, 0, i)
-#define pw_link_events_state_changed(l,...)	pw_link_events_emit(l, state_changed, 0, __VA_ARGS__)
-#define pw_link_events_port_unlinked(l,p)	pw_link_events_emit(l, port_unlinked, 0, p)
+#define pw_link_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_link_events, m, v, ##__VA_ARGS__)
+#define pw_link_emit_destroy(l)			pw_link_emit(l, destroy, 0)
+#define pw_link_emit_free(l)			pw_link_emit(l, free, 0)
+#define pw_link_emit_info_changed(l,i)		pw_link_emit(l, info_changed, 0, i)
+#define pw_link_emit_state_changed(l,...)	pw_link_emit(l, state_changed, 0, __VA_ARGS__)
+#define pw_link_emit_port_unlinked(l,p)		pw_link_emit(l, port_unlinked, 0, p)
 
 struct pw_link {
 	struct pw_core *core;		/**< core object */
@@ -515,11 +516,11 @@ struct pw_link {
 	int feedback:1;
 };
 
-#define pw_resource_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_resource_events, m, v, ##__VA_ARGS__)
+#define pw_resource_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_resource_events, m, v, ##__VA_ARGS__)
 
-#define pw_resource_events_destroy(o)	pw_resource_events_emit(o, destroy, 0)
-#define pw_resource_events_done(o,s)	pw_resource_events_emit(o, done, 0, s)
-#define pw_resource_events_error(o,e,m)	pw_resource_events_emit(o, error, 0, e, m)
+#define pw_resource_emit_destroy(o)	pw_resource_emit(o, destroy, 0)
+#define pw_resource_emit_done(o,s)	pw_resource_emit(o, done, 0, s)
+#define pw_resource_emit_error(o,s,r,m)	pw_resource_emit(o, error, 0, s, r, m)
 
 struct pw_resource {
 	struct pw_core *core;		/**< the core object */
@@ -537,16 +538,15 @@ struct pw_resource {
 	struct spa_hook_list listener_list;
 
         const struct pw_protocol_marshal *marshal;
-	int seq;
 
 	void *access_private;		/**< private data for access control */
 	void *user_data;		/**< extra user data */
 };
 
-#define pw_proxy_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_proxy_events, m, v, ##__VA_ARGS__)
-#define pw_proxy_events_destroy(p)	pw_proxy_events_emit(p, destroy, 0)
-#define pw_proxy_events_done(p,s)	pw_proxy_events_emit(p, done, 0, s)
-#define pw_proxy_events_error(p,r,m)	pw_proxy_events_emit(p, error, 0, r, m)
+#define pw_proxy_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_proxy_events, m, v, ##__VA_ARGS__)
+#define pw_proxy_emit_destroy(p)	pw_proxy_emit(p, destroy, 0)
+#define pw_proxy_emit_done(p,s)		pw_proxy_emit(p, done, 0, s)
+#define pw_proxy_emit_error(p,s,r,m)	pw_proxy_emit(p, error, 0, s, r, m)
 
 struct pw_proxy {
 	struct pw_remote *remote;	/**< the owner remote of this proxy */
@@ -558,15 +558,14 @@ struct pw_proxy {
 	struct spa_hook_list proxy_listener_list;
 
 	const struct pw_protocol_marshal *marshal;	/**< protocol specific marshal functions */
-	int seq;
 
 	void *user_data;		/**< extra user data */
 };
 
-#define pw_remote_events_emit(r,m,v,...) spa_hook_list_call(&r->listener_list, struct pw_remote_events, m, v, ##__VA_ARGS__)
-#define pw_remote_events_destroy(r)		pw_remote_events_emit(r, destroy, 0)
-#define pw_remote_events_state_changed(r,o,s,e)	pw_remote_events_emit(r, state_changed, 0, o, s, e)
-#define pw_remote_events_exported(r,i,g)	pw_remote_events_emit(r, exported, 0, i,g)
+#define pw_remote_emit(r,m,v,...) spa_hook_list_call(&r->listener_list, struct pw_remote_events, m, v, ##__VA_ARGS__)
+#define pw_remote_emit_destroy(r)		pw_remote_emit(r, destroy, 0)
+#define pw_remote_emit_state_changed(r,o,s,e)	pw_remote_emit(r, state_changed, 0, o, s, e)
+#define pw_remote_emit_exported(r,i,g)		pw_remote_emit(r, exported, 0, i,g)
 
 struct pw_remote {
 	struct pw_core *core;			/**< core */
@@ -583,6 +582,7 @@ struct pw_remote {
 	struct spa_list remote_node_list;	/**< list of \ref pw_remote_node objects */
 
 	struct pw_protocol_client *conn;	/**< the protocol client connection */
+	int seq;				/**< last received sequence number */
 
 	enum pw_remote_state state;
 	char *error;
@@ -592,14 +592,14 @@ struct pw_remote {
 	void *user_data;			/**< extra user data */
 };
 
-#define pw_stream_events_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_stream_events, m, v, ##__VA_ARGS__)
-#define pw_stream_events_destroy(s)		pw_stream_events_emit(s, destroy, 0)
-#define pw_stream_events_state_changed(s,o,n,e)	pw_stream_events_emit(s, state_changed,0,o,n,e)
-#define pw_stream_events_format_changed(s,f)	pw_stream_events_emit(s, format_changed,0,f)
-#define pw_stream_events_add_buffer(s,b)	pw_stream_events_emit(s, add_buffer, 0, b)
-#define pw_stream_events_remove_buffer(s,b)	pw_stream_events_emit(s, remove_buffer, 0, b)
-#define pw_stream_events_process(s)		pw_stream_events_emit(s, process, 0)
-#define pw_stream_events_drained(s)		pw_stream_events_emit(s, drained, 1)
+#define pw_stream_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_stream_events, m, v, ##__VA_ARGS__)
+#define pw_stream_emit_destroy(s)		pw_stream_emit(s, destroy, 0)
+#define pw_stream_emit_state_changed(s,o,n,e)	pw_stream_emit(s, state_changed,0,o,n,e)
+#define pw_stream_emit_format_changed(s,f)	pw_stream_emit(s, format_changed,0,f)
+#define pw_stream_emit_add_buffer(s,b)		pw_stream_emit(s, add_buffer, 0, b)
+#define pw_stream_emit_remove_buffer(s,b)	pw_stream_emit(s, remove_buffer, 0, b)
+#define pw_stream_emit_process(s)		pw_stream_emit(s, process, 0)
+#define pw_stream_emit_drained(s)		pw_stream_emit(s, drained, 1)
 
 
 struct pw_stream {
@@ -620,9 +620,9 @@ struct pw_stream {
 	struct spa_hook proxy_listener;
 };
 
-#define pw_factory_events_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_factory_events, m, v, ##__VA_ARGS__)
+#define pw_factory_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_factory_events, m, v, ##__VA_ARGS__)
 
-#define pw_factory_events_destroy(s)		pw_factory_events_emit(s, destroy, 0)
+#define pw_factory_emit_destroy(s)		pw_factory_emit(s, destroy, 0)
 
 struct pw_factory {
 	struct pw_core *core;		/**< the core */
@@ -643,11 +643,11 @@ struct pw_factory {
 	int registered:1;
 };
 
-#define pw_control_events_emit(c,m,v,...) spa_hook_list_call(&c->listener_list, struct pw_control_events, m, v, ##__VA_ARGS__)
-#define pw_control_events_destroy(c) pw_control_events_emit(c, destroy, 0)
-#define pw_control_events_free(c) pw_control_events_emit(c, free, 0)
-#define pw_control_events_linked(c,o) pw_control_events_emit(c, linked, 0, o)
-#define pw_control_events_unlinked(c,o) pw_control_events_emit(c, unlinked, 0, o)
+#define pw_control_emit(c,m,v,...) spa_hook_list_call(&c->listener_list, struct pw_control_events, m, v, ##__VA_ARGS__)
+#define pw_control_emit_destroy(c)	pw_control_emit(c, destroy, 0)
+#define pw_control_emit_free(c)		pw_control_emit(c, free, 0)
+#define pw_control_emit_linked(c,o)	pw_control_emit(c, linked, 0, o)
+#define pw_control_emit_unlinked(c,o)	pw_control_emit(c, unlinked, 0, o)
 
 struct pw_control {
 	struct spa_list link;		/**< link in core control_list */
@@ -733,20 +733,21 @@ void pw_port_destroy(struct pw_port *port);
  * 1 to fetch the next item, 0 to stop iteration or <0 on error.
  * The function returns 0 on success or the error returned by the callback. */
 int pw_port_for_each_param(struct pw_port *port,
-			   uint32_t param_id,
+			   int seq, uint32_t param_id,
 			   uint32_t index, uint32_t max,
 			   const struct spa_pod *filter,
-			   int (*callback) (void *data,
+			   int (*callback) (void *data, int seq,
 					    uint32_t id, uint32_t index, uint32_t next,
 					    struct spa_pod *param),
 			   void *data);
 
 int pw_port_for_each_filtered_param(struct pw_port *in_port,
 				    struct pw_port *out_port,
+				    int seq,
 				    uint32_t in_param_id,
 				    uint32_t out_param_id,
 				    const struct spa_pod *filter,
-				    int (*callback) (void *data,
+				    int (*callback) (void *data, int seq,
 						     uint32_t id, uint32_t index, uint32_t next,
 						     struct spa_pod *param),
 				    void *data);

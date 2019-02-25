@@ -69,10 +69,10 @@ struct pw_resource_events {
 	void (*destroy) (void *data);
 
 	/** a reply to a sync event completed */
-        void (*done) (void *data, uint32_t seq);
+        void (*done) (void *data, int seq);
 
 	/** an error occured on the resource */
-        void (*error) (void *data, int res, const char *message);
+        void (*error) (void *data, int seq, int res, const char *message);
 };
 
 /** Make a new resource for client */
@@ -124,10 +124,10 @@ void pw_resource_add_override(struct pw_resource *resource,
 
 /** Generate an sync method for a resource. This will generate a done event
  * with the same \a sequence number in the return value. */
-int pw_resource_sync(struct pw_resource *resource, uint32_t seq);
+int pw_resource_sync(struct pw_resource *resource, int seq);
 
 /** Generate an error for a resource */
-int pw_resource_error(struct pw_resource *resource, int result, const char *error, ...);
+int pw_resource_error(struct pw_resource *resource, int res, const char *error, ...);
 
 /** Get the implementation list of a resource */
 struct spa_hook_list *pw_resource_get_implementation(struct pw_resource *resource);

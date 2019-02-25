@@ -94,7 +94,7 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 {
 	pw_log_debug("data-loop %p: destroy", loop);
 
-	pw_data_loop_events_destroy(loop);
+	pw_data_loop_emit_destroy(loop);
 
 	pw_data_loop_stop(loop);
 

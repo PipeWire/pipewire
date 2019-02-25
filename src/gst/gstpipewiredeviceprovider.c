@@ -162,13 +162,13 @@ enum
 
 struct pending {
   struct spa_list link;
-  uint32_t seq;
+  int seq;
   void (*callback) (void *data);
   void *data;
 };
 
 struct remote_data {
-  uint32_t seq;
+  int seq;
   GstPipeWireDeviceProvider *self;
   struct spa_hook core_listener;
   struct pw_registry_proxy *registry;
@@ -285,10 +285,10 @@ static void add_pending(GstPipeWireDeviceProvider *self, struct pending *p,
 
 static void remove_pending(struct pending *p)
 {
-  if (p->seq != SPA_ID_INVALID) {
+  if (p->seq != 0) {
     pw_log_debug("remove pending %d", p->seq);
     spa_list_remove(&p->link);
-    p->seq = SPA_ID_INVALID;
+    p->seq = 0;
   }
 }
 
@@ -321,7 +321,7 @@ on_core_info (void *data, const struct pw_core_info *info)
 }
 
 static int
-on_core_done (void *data, uint32_t id, uint32_t seq)
+on_core_done (void *data, uint32_t id, int seq)
 {
   GstPipeWireDeviceProvider *self = data;
   struct pending *p, *t;
@@ -379,7 +379,7 @@ static int port_event_info(void *data, const struct pw_port_info *info)
   return 0;
 }
 
-static int port_event_param(void *data, uint32_t seq, uint32_t id,
+static int port_event_param(void *data, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
   struct port_data *port_data = data;
@@ -503,7 +503,7 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id, ui
     pw_port_proxy_add_listener(port, &pd->port_listener, &port_events, pd);
     pw_proxy_add_listener((struct pw_proxy*)port, &pd->proxy_listener, &proxy_port_events, pd);
     pw_port_proxy_enum_params((struct pw_port_proxy*)port,
-				SPA_PARAM_EnumFormat, 0, 0, NULL);
+				0, SPA_PARAM_EnumFormat, 0, 0, NULL);
     add_pending(self, &pd->pending, do_add_node, pd);
   }
 

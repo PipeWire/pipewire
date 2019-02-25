@@ -227,7 +227,7 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 			     pw_stream_state_as_string(state), stream->error);
 
 		stream->state = state;
-		pw_stream_events_state_changed(stream, old, state, error);
+		pw_stream_emit_state_changed(stream, old, state, error);
 	}
 	return res;
 }
@@ -249,7 +249,7 @@ do_call_process(struct spa_loop *loop,
 	struct stream *impl = user_data;
 	struct pw_stream *stream = &impl->this;
 	pw_log_trace("do process");
-	pw_stream_events_process(stream);
+	pw_stream_emit_process(stream);
 	return 0;
 }
 
@@ -464,7 +464,7 @@ static int port_set_format(struct spa_node *node,
 	else
 		p = NULL;
 
-	count = pw_stream_events_format_changed(stream, p ? p->param : NULL);
+	count = pw_stream_emit_format_changed(stream, p ? p->param : NULL);
 
 	if (count == 0)
 		pw_stream_finish_format(stream, 0, NULL, 0);
@@ -539,7 +539,7 @@ static void clear_buffers(struct pw_stream *stream)
 	for (i = 0; i < impl->n_buffers; i++) {
 		struct buffer *b = &impl->buffers[i];
 
-		pw_stream_events_remove_buffer(stream, &b->this);
+		pw_stream_emit_remove_buffer(stream, &b->this);
 
 		if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_MAPPED)) {
 			for (j = 0; j < b->this.buffer->n_datas; j++) {
@@ -613,7 +613,7 @@ static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direc
 			push_queue(impl, &impl->dequeued, b);
 		}
 
-		pw_stream_events_add_buffer(stream, &b->this);
+		pw_stream_emit_add_buffer(stream, &b->this);
 	}
 
 	impl->n_buffers = n_buffers;
@@ -792,7 +792,7 @@ static void proxy_destroy(void *_data)
 	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, NULL);
 }
 
-static void proxy_error(void *_data, int res, const char *message)
+static void proxy_error(void *_data, int seq, int res, const char *message)
 {
 	struct pw_stream *stream = _data;
 	stream_set_state(stream, PW_STREAM_STATE_ERROR, message);
@@ -1014,7 +1014,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	pw_log_debug("stream %p: destroy", stream);
 
-	pw_stream_events_destroy(stream);
+	pw_stream_emit_destroy(stream);
 
 	pw_stream_disconnect(stream);
 

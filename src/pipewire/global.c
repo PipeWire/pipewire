@@ -144,10 +144,10 @@ pw_global_register(struct pw_global *global,
 						        &global->properties->dict : NULL);
 	}
 
-	pw_global_events_registering(global);
+	pw_global_emit_registering(global);
 
 	pw_log_debug("global %p: add %u owner %p parent %p", global, global->id, owner, parent);
-	pw_core_events_global_added(core, global);
+	pw_core_emit_global_added(core, global);
 
 	return 0;
 }
@@ -172,7 +172,7 @@ static int global_unregister(struct pw_global *global)
 
 	spa_list_remove(&global->link);
 	pw_map_remove(&core->globals, global->id);
-	pw_core_events_global_removed(core, global);
+	pw_core_emit_global_removed(core, global);
 
 	impl->registered = false;
 
@@ -259,13 +259,13 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 	if (global->version < version)
 		goto wrong_version;
 
-	pw_global_events_bind(global, client, permissions, version, id);
+	pw_global_emit_bind(global, client, permissions, version, id);
 
 	return 0;
 
       wrong_version:
 	res = -EINVAL;
-	pw_core_resource_errorf(client->core_resource, id,
+	pw_core_resource_errorf(client->core_resource, id, 0,
 			res, "id %d: interface version %d < %d",
 			id, global->version, version);
 	return res;
@@ -321,7 +321,7 @@ void pw_global_destroy(struct pw_global *global)
 	struct pw_resource *resource;
 
 	pw_log_debug("global %p: destroy %u", global, global->id);
-	pw_global_events_destroy(global);
+	pw_global_emit_destroy(global);
 
 	global_unregister(global);
 
@@ -329,7 +329,7 @@ void pw_global_destroy(struct pw_global *global)
 		pw_resource_destroy(resource);
 
 	pw_log_debug("global %p: free", global);
-	pw_global_events_free(global);
+	pw_global_emit_free(global);
 
 	if (global->properties)
 		pw_properties_free(global->properties);

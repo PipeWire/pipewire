@@ -235,7 +235,7 @@ struct client {
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
-	uint32_t last_sync;
+	int last_sync;
 	bool error;
 
 	struct pw_registry_proxy *registry_proxy;
@@ -514,7 +514,7 @@ jack_get_version_string(void)
 	return "0.0.0.0";
 }
 
-static int on_sync_reply(void *data, uint32_t id, uint32_t seq)
+static int on_sync_reply(void *data, uint32_t id, int seq)
 {
 	struct client *client = data;
 	if (id != 0)
@@ -558,7 +558,7 @@ static const struct pw_core_proxy_events core_events = {
 
 static int do_sync(struct client *client)
 {
-	uint32_t seq;
+	int seq;
 
 	seq = pw_proxy_sync((struct pw_proxy*)client->core_proxy, client->last_sync);
 

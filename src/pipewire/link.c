@@ -1067,7 +1067,7 @@ static const struct pw_resource_events resource_events = {
 	.destroy = link_unbind_func,
 };
 
-static void
+static int
 global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
 {
@@ -1091,12 +1091,11 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	pw_link_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
-	return;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create link resource");
-	pw_core_resource_error(client->core_resource, id, client->seq, -ENOMEM, "no memory");
-	return;
+	return -ENOMEM;
 }
 
 static const struct pw_port_events input_port_events = {
@@ -1114,7 +1113,8 @@ static void input_node_result(void *data, int seq, int res, const void *result)
 	struct impl *impl = data;
 	struct pw_node *node = impl->this.input->node;
 	pw_log_debug("link %p: input node %p result %d %d", impl, node, seq, res);
-	pw_work_queue_complete(impl->work, node, SPA_RESULT_ASYNC_SEQ(seq), res);
+	if (SPA_RESULT_IS_ASYNC(seq))
+		pw_work_queue_complete(impl->work, node, SPA_RESULT_ASYNC_SEQ(seq), res);
 }
 
 static void output_node_result(void *data, int seq, int res, const void *result)
@@ -1122,7 +1122,8 @@ static void output_node_result(void *data, int seq, int res, const void *result)
 	struct impl *impl = data;
 	struct pw_node *node = impl->this.output->node;
 	pw_log_debug("link %p: output node %p result %d %d", impl, node, seq, res);
-	pw_work_queue_complete(impl->work, node, SPA_RESULT_ASYNC_SEQ(seq), res);
+	if (SPA_RESULT_IS_ASYNC(seq))
+		pw_work_queue_complete(impl->work, node, SPA_RESULT_ASYNC_SEQ(seq), res);
 }
 
 static const struct pw_node_events input_node_events = {
@@ -1362,7 +1363,6 @@ static void global_destroy(void *object)
 static const struct pw_global_events global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
 	.destroy = global_destroy,
-	.bind = global_bind,
 };
 
 SPA_EXPORT
@@ -1396,6 +1396,7 @@ int pw_link_register(struct pw_link *link,
 	link->global = pw_global_new(core,
 				     PW_TYPE_INTERFACE_Link, PW_VERSION_LINK,
 				     properties,
+				     global_bind,
 				     link);
 	if (link->global == NULL)
 		return -ENOMEM;

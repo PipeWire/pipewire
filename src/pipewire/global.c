@@ -71,6 +71,7 @@ pw_global_new(struct pw_core *core,
 	      uint32_t type,
 	      uint32_t version,
 	      struct pw_properties *properties,
+	      pw_global_bind_func_t func,
 	      void *object)
 {
 	struct impl *impl;
@@ -85,6 +86,7 @@ pw_global_new(struct pw_core *core,
 	this->core = core;
 	this->type = type;
 	this->version = version;
+	this->func = func;
 	this->object = object;
 	this->properties = properties;
 	this->id = pw_map_insert_new(&core->globals, this);
@@ -259,15 +261,24 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 	if (global->version < version)
 		goto wrong_version;
 
-	pw_global_emit_bind(global, client, permissions, version, id);
+	if ((res = global->func(global->object, client, permissions, version, id)) < 0)
+		goto error;
 
-	return 0;
+	return res;
 
       wrong_version:
-	res = -EINVAL;
-	pw_core_resource_errorf(client->core_resource, id, 0,
+	res = -EPROTO;
+	pw_core_resource_errorf(client->core_resource, id, client->seq,
 			res, "id %d: interface version %d < %d",
 			id, global->version, version);
+	goto exit;
+      error:
+	pw_core_resource_errorf(client->core_resource, id, client->seq,
+		res, "can't bind global %u/%u: %d (%s)", id, version, res, spa_strerror(res));
+      exit:
+	pw_log_error("can't bind global %u/%u: %d (%s)", id, version, res, spa_strerror(res));
+	pw_map_insert_at(&client->objects, id, NULL);
+	pw_core_resource_remove_id(client->core_resource, id);
 	return res;
 }
 

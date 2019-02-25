@@ -286,14 +286,12 @@ static int node_set_param(void *object, uint32_t id, uint32_t flags,
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_node *node = data->node;
-	struct pw_client *client = resource->client;
 	int res;
 
 	if ((res = spa_node_set_param(node->node, id, flags, param)) < 0) {
 		pw_log_error("resource %p: %d error %d (%s)", resource,
 				resource->id, res, spa_strerror(res));
-		pw_core_resource_error(client->core_resource,
-				resource->id, client->seq, res, spa_strerror(res));
+		pw_resource_error(resource, res, spa_strerror(res));
 	}
 	return 0;
 }
@@ -322,7 +320,7 @@ static const struct pw_node_proxy_methods node_methods = {
 	.send_command = node_send_command
 };
 
-static void
+static int
 global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	    uint32_t version, uint32_t id)
 {
@@ -349,13 +347,11 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	this->info.change_mask = ~0;
 	pw_node_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
-	return;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create node resource");
-	pw_core_resource_error(client->core_resource, id,
-			client->seq, -ENOMEM, "no memory");
-	return;
+	return -ENOMEM;
 }
 
 static void global_destroy(void *data)
@@ -383,7 +379,6 @@ static const struct pw_global_events global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
 	.registering = global_registering,
 	.destroy = global_destroy,
-	.bind = global_bind,
 };
 
 SPA_EXPORT
@@ -417,6 +412,7 @@ int pw_node_register(struct pw_node *this,
 	this->global = pw_global_new(core,
 				     PW_TYPE_INTERFACE_Node, PW_VERSION_NODE,
 				     properties,
+				     global_bind,
 				     this);
 	if (this->global == NULL)
 		return -ENOMEM;
@@ -860,7 +856,10 @@ static int node_result(void *data, int seq, int res, const void *result)
 	pw_log_trace("node %p: result seq:%d res:%d", node, seq, res);
 	impl->last_error = res;
 	spa_pending_queue_complete(&impl->pending, seq, res, result);
-        pw_work_queue_complete(impl->work, &impl->this, SPA_RESULT_ASYNC_SEQ(seq), res);
+
+	if (SPA_RESULT_IS_ASYNC(seq))
+	        pw_work_queue_complete(impl->work, &impl->this, SPA_RESULT_ASYNC_SEQ(seq), res);
+
 	pw_node_emit_result(node, seq, res, result);
 
 	return 0;

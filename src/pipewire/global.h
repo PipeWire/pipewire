@@ -60,6 +60,12 @@ struct pw_global;
 #include <pipewire/client.h>
 #include <pipewire/properties.h>
 
+typedef int (*pw_global_bind_func_t) (void *object,
+		      struct pw_client *client,	/**< client that binds */
+		      uint32_t permissions,	/**< permissions for the bind */
+		      uint32_t version,		/**< client interface version */
+		      uint32_t id		/**< client proxy id */);
+
 /** Global events, use \ref pw_global_add_listener */
 struct pw_global_events {
 #define PW_VERSION_GLOBAL_EVENTS 0
@@ -70,13 +76,6 @@ struct pw_global_events {
 	void (*destroy) (void *data);
 	/** The global is freed */
 	void (*free) (void *data);
-
-	/* bind the global */
-	void (*bind) (void *data,
-		      struct pw_client *client,	/**< client that binds */
-		      uint32_t permissions,	/**< permissions for the bind */
-		      uint32_t version,		/**< client interface version */
-		      uint32_t id		/**< client proxy id */);
 };
 
 /** Create a new global object */
@@ -85,6 +84,7 @@ pw_global_new(struct pw_core *core,		/**< the core */
 	      uint32_t type,			/**< the interface type of the global */
 	      uint32_t version,			/**< the interface version of the global */
 	      struct pw_properties *properties,	/**< extra properties */
+	      pw_global_bind_func_t func,	/**< function to bind */
 	      void *object			/**< global object */);
 
 /** Register a global object to the core registry */

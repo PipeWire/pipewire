@@ -494,7 +494,7 @@ static const struct pw_port_proxy_methods port_methods = {
 	.enum_params = port_enum_params
 };
 
-static void
+static int
 global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
 {
@@ -521,12 +521,11 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	this->info.change_mask = ~0;
 	pw_port_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
-	return;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create port resource");
-	pw_core_resource_error(client->core_resource, id, client->seq, -ENOMEM, "no memory");
-	return;
+	return -ENOMEM;
 }
 
 static void global_destroy(void *object)
@@ -540,7 +539,6 @@ static void global_destroy(void *object)
 static const struct pw_global_events global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
 	.destroy = global_destroy,
-	.bind = global_bind,
 };
 
 int pw_port_register(struct pw_port *port,
@@ -554,6 +552,7 @@ int pw_port_register(struct pw_port *port,
 	port->global = pw_global_new(core,
 				PW_TYPE_INTERFACE_Port, PW_VERSION_PORT,
 				properties,
+				global_bind,
 				port);
 	if (port->global == NULL)
 		return -ENOMEM;

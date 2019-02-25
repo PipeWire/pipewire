@@ -131,7 +131,6 @@ struct pw_client {
 #define pw_global_emit_registering(g)	pw_global_emit(g, registering, 0)
 #define pw_global_emit_destroy(g)	pw_global_emit(g, destroy, 0)
 #define pw_global_emit_free(g)		pw_global_emit(g, free, 0)
-#define pw_global_emit_bind(g,...)	pw_global_emit(g, bind, 0, __VA_ARGS__)
 
 struct pw_global {
 	struct pw_core *core;		/**< the core */
@@ -149,6 +148,7 @@ struct pw_global {
 	uint32_t type;			/**< type of interface */
 	uint32_t version;		/**< version of interface */
 
+	pw_global_bind_func_t func;	/**< bind function */
 	void *object;			/**< object associated with the interface */
 
 	struct spa_list resource_list;	/**< The list of resources of this global */

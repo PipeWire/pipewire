@@ -110,7 +110,7 @@ static const struct pw_resource_events resource_events = {
 	.destroy = module_unbind_func,
 };
 
-static void
+static int
 global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 		 uint32_t version, uint32_t id)
 {
@@ -134,13 +134,11 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	pw_module_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
-	return;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create module resource");
-	pw_core_resource_error(client->core_resource, id,
-			client->seq, -ENOMEM, "no memory");
-	return;
+	return -ENOMEM;
 }
 
 static void global_destroy(void *object)
@@ -154,7 +152,6 @@ static void global_destroy(void *object)
 static const struct pw_global_events global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
 	.destroy = global_destroy,
-	.bind = global_bind,
 };
 
 /** Load a module
@@ -247,6 +244,7 @@ pw_module_load(struct pw_core *core,
 				     pw_properties_new(
 					     PW_MODULE_PROP_NAME, name,
 					     NULL),
+				     global_bind,
 				     this);
 
 	if (this->global == NULL)

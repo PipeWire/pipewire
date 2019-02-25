@@ -196,12 +196,10 @@ static int device_set_param(void *object, uint32_t id, uint32_t flags,
 	struct resource_data *data = object;
 	struct pw_resource *resource = data->resource;
 	struct pw_device *device = data->device;
-	struct pw_client *client = resource->client;
 	int res;
 
 	if ((res = spa_device_set_param(device->implementation, id, flags, param)) < 0)
-		pw_core_resource_error(client->core_resource,
-				resource->id, client->seq, res, spa_strerror(res));
+		pw_resource_error(resource, res, spa_strerror(res));
 	return res;
 }
 
@@ -211,7 +209,7 @@ static const struct pw_device_proxy_methods device_methods = {
 	.set_param = device_set_param
 };
 
-static void
+static int
 global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 		  uint32_t version, uint32_t id)
 {
@@ -239,13 +237,11 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	pw_device_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
-	return;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create device resource");
-	pw_core_resource_error(client->core_resource, id,
-			client->seq, -ENOMEM, "no memory");
-	return;
+	return -ENOMEM;
 }
 
 static void global_destroy(void *object)
@@ -259,7 +255,6 @@ static void global_destroy(void *object)
 static const struct pw_global_events global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
 	.destroy = global_destroy,
-	.bind = global_bind,
 };
 
 SPA_EXPORT
@@ -286,6 +281,7 @@ int pw_device_register(struct pw_device *device,
         device->global = pw_global_new(core,
 				       PW_TYPE_INTERFACE_Device, PW_VERSION_DEVICE,
 				       properties,
+				       global_bind,
 				       device);
 	if (device->global == NULL)
 		return -ENOMEM;

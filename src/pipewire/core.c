@@ -360,7 +360,7 @@ static const struct pw_resource_events core_resource_events = {
 	.destroy = core_unbind_func,
 };
 
-static void
+static int
 global_bind(void *_data,
 	    struct pw_client *client,
 	    uint32_t permissions,
@@ -388,11 +388,11 @@ global_bind(void *_data,
 
 	pw_log_debug("core %p: bound to %d", this, resource->id);
 
-	return;
+	return 0;
 
       no_mem:
 	pw_log_error("can't create core resource");
-	return;
+	return -ENOMEM;
 }
 
 static void global_destroy(void *object)
@@ -406,7 +406,6 @@ static void global_destroy(void *object)
 static const struct pw_global_events global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
 	.destroy = global_destroy,
-	.bind = global_bind,
 };
 
 /** Create a new core object
@@ -508,6 +507,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 					     PW_CORE_PROP_NAME, this->info.name,
 					     PW_CORE_PROP_VERSION, this->info.version,
 					     NULL),
+				     global_bind,
 				     this);
 	if (this->global == NULL)
 		goto no_mem;

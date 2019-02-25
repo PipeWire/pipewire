@@ -52,8 +52,8 @@ pa_operation *pa_operation_new(pa_context *c, pa_stream *s, pa_operation_cb_t cb
 int pa_operation_sync(pa_operation *o)
 {
 	pa_context *c = o->context;
-	o->seq = pw_core_proxy_sync(c->core_proxy, 0);
 	pw_log_debug("operation %p: sync %d", o, o->seq);
+	o->seq = pw_core_proxy_sync(c->core_proxy, 0, 0);
 	return 0;
 }
 

@@ -35,7 +35,7 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 	return 0;
 }
 
-static int node_event_param(void *object,
+static int node_event_param(void *object, uint32_t seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
@@ -110,7 +110,7 @@ static const struct pw_client_proxy_events client_events = {
 	.info = client_event_info,
 };
 
-static int device_event_param(void *object,
+static int device_event_param(void *object, uint32_t seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {

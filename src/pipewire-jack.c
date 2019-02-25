@@ -560,7 +560,7 @@ static int do_sync(struct client *client)
 {
 	uint32_t seq;
 
-	seq = pw_core_proxy_sync(client->core_proxy, 0);
+	seq = pw_proxy_sync((struct pw_proxy*)client->core_proxy, client->last_sync);
 
 	while (true) {
 	        pw_thread_loop_wait(client->context.loop);
@@ -1928,8 +1928,6 @@ jack_client_t * jack_client_open (const char *client_name,
                                     PW_CLIENT_NODE_UPDATE_MAX_INPUTS |
 				    PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS,
 				    0, 0, 0, NULL, NULL);
-
-	pw_proxy_sync((struct pw_proxy*)client->node_proxy);
 
 	if (do_sync(client) < 0)
 		goto init_failed;

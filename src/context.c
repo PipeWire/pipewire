@@ -346,7 +346,7 @@ static void on_ready(pa_operation *o, void *userdata)
 	pa_context_set_state(d->context, PA_CONTEXT_READY);
 }
 
-static void complete_operations(pa_context *c, uint32_t seq)
+static void complete_operations(pa_context *c, int seq)
 {
 	pa_operation *o, *t;
 	spa_list_for_each_safe(o, t, &c->operations, link) {
@@ -366,7 +366,7 @@ static int core_info(void *data, const struct pw_core_info *info)
 	return 0;
 }
 
-static int core_done(void *data, uint32_t id, uint32_t seq)
+static int core_done(void *data, uint32_t id, int seq)
 {
 	pa_context *c = data;
 	pw_log_debug("done %d", seq);

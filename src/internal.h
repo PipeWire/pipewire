@@ -389,7 +389,7 @@ struct pa_operation
 	pa_context *context;
 	pa_stream *stream;
 
-	uint32_t seq;
+	int seq;
 	pa_operation_state_t state;
 
 	pa_operation_cb_t callback;

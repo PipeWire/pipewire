@@ -35,7 +35,7 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 	return 0;
 }
 
-static int node_event_param(void *object, uint32_t seq,
+static int node_event_param(void *object, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
@@ -110,7 +110,7 @@ static const struct pw_client_proxy_events client_events = {
 	.info = client_event_info,
 };
 
-static int device_event_param(void *object, uint32_t seq,
+static int device_event_param(void *object, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
@@ -267,13 +267,13 @@ static int ensure_global(pa_context *c, struct global *g)
 	switch (g->type) {
 	case PW_TYPE_INTERFACE_Node:
 		pw_node_proxy_enum_params((struct pw_node_proxy*)g->proxy,
-				SPA_PARAM_EnumFormat, 0, -1, NULL);
+				0, SPA_PARAM_EnumFormat, 0, -1, NULL);
 		break;
 	case PW_TYPE_INTERFACE_Device:
 		pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
-				SPA_PARAM_EnumProfile, 0, -1, NULL);
+				0, SPA_PARAM_EnumProfile, 0, -1, NULL);
 		pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
-				SPA_PARAM_Profile, 0, -1, NULL);
+				0, SPA_PARAM_Profile, 0, -1, NULL);
 		break;
 	default:
 		break;

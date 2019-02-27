@@ -1250,12 +1250,13 @@ static int client_node_port_set_param(void *object,
 	param_enum_format(c, p, &params[0], &b);
 	param_format(c, p, &params[1], &b);
 	param_buffers(c, p, &params[2], &b);
+	param_io(c, p, &params[3], &b);
 
 	return pw_client_node_proxy_port_update(c->node_proxy,
 					 direction,
 					 port_id,
 					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS,
-					 3,
+					 4,
 					 (const struct spa_pod **) params,
 					 NULL);
 }
@@ -1706,7 +1707,7 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		o->port.flags = flags;
 		o->port.type_id = type_id;
 
-		pw_log_debug("add port %d %s", id, o->port.name);
+		pw_log_debug("add port %d %s %d", id, o->port.name, type_id);
 	}
 	else if (type == PW_TYPE_INTERFACE_Link) {
 		o = alloc_object(c);
@@ -2333,7 +2334,8 @@ jack_port_t * jack_port_register (jack_client_t *client,
 {
 	struct client *c = (struct client *) client;
 	enum spa_direction direction;
-	struct spa_port_info port_info = { 0, };
+	struct spa_port_info port_info;
+	struct spa_param_info port_params[5];
 	struct spa_dict dict;
 	struct spa_dict_item items[10];
 	struct object *o;
@@ -2368,16 +2370,25 @@ jack_port_t * jack_port_register (jack_client_t *client,
 
 	spa_list_init(&p->mix);
 
-	port_info.props = &dict;
-	dict = SPA_DICT_INIT(items, 0);
-	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.dsp", port_type);
-	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.name", port_name);
-
+	port_info = SPA_PORT_INFO_INIT();
+	port_info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
 	if (type_id == 1)
 		port_info.flags = SPA_PORT_FLAG_NO_REF;
 	else
 		port_info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
 				  SPA_PORT_FLAG_NO_REF;
+	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
+	dict = SPA_DICT_INIT(items, 0);
+	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.dsp", port_type);
+	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.name", port_name);
+	port_info.props = &dict;
+	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	port_params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	port_params[1] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	port_params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	port_params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	port_info.params = port_params;
+	port_info.n_params = 4;
 
 	param_enum_format(c, p, &params[n_params++], &b);
 	param_buffers(c, p, &params[n_params++], &b);
@@ -2389,7 +2400,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 					 direction,
 					 p->id,
 					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
-					 PW_CLIENT_NODE_PORT_UPDATE_INFO ,
+					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
 					 n_params,
 					 (const struct spa_pod **) params,
 					 &port_info);

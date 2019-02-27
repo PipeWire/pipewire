@@ -36,16 +36,16 @@ audio_test_src_create_sine_##type (struct impl *this, type *samples, size_t n_sa
 	float freq = this->props.freq;							\
 	float volume = this->props.volume;						\
 											\
-	channels = this->current_format.info.raw.channels;				\
-	step = M_PI_M2 * freq / this->current_format.info.raw.rate;			\
+	channels = this->port.current_format.info.raw.channels;				\
+	step = M_PI_M2 * freq / this->port.current_format.info.raw.rate;		\
 	amp = volume * scale;								\
 											\
 	for (i = 0; i < n_samples; i++) {						\
 		type val;								\
-		this->accumulator += step;						\
-		if (this->accumulator >= M_PI_M2)					\
-			this->accumulator -= M_PI_M2;					\
-		val = (type) (sin (this->accumulator) * amp);				\
+		this->port.accumulator += step;						\
+		if (this->port.accumulator >= M_PI_M2)					\
+			this->port.accumulator -= M_PI_M2;				\
+		val = (type) (sin (this->port.accumulator) * amp);			\
 		for (c = 0; c < channels; ++c)						\
 			*samples++ = val;						\
 	}										\

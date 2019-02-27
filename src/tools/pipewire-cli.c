@@ -553,6 +553,7 @@ static void info_module(struct proxy_data *pd)
 static void info_node(struct proxy_data *pd)
 {
 	struct pw_node_info *info = pd->info;
+	uint32_t i;
 
 	info_global(pd);
 	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
@@ -566,17 +567,26 @@ static void info_node(struct proxy_data *pd)
 	else
 		fprintf(stdout, "\n");
 	print_properties(info->props, MARK_CHANGE(4), true);
-	fprintf(stdout, "%c\tenum_params\n", MARK_CHANGE(5));
+	fprintf(stdout, "%c\tparams\n", MARK_CHANGE(5));
+	for (i = 0; i < info->n_params; i++) {
+		fprintf(stdout, "%c\t  %d (%s)\n", MARK_CHANGE(5), info->params[i].id,
+				spa_debug_type_find_name(spa_type_param, info->params[i].id));
+	}
 	info->change_mask = 0;
 }
 
 static void info_port(struct proxy_data *pd)
 {
 	struct pw_port_info *info = pd->info;
+	uint32_t i;
 
 	info_global(pd);
 	print_properties(info->props, MARK_CHANGE(0), true);
-	fprintf(stdout, "%c\tenum_params\n", MARK_CHANGE(1));
+	fprintf(stdout, "%c\tparams\n", MARK_CHANGE(1));
+	for (i = 0; i < info->n_params; i++) {
+		fprintf(stdout, "%c\t  %d (%s)\n", MARK_CHANGE(1), info->params[i].id,
+			spa_debug_type_find_name(spa_type_param, info->params[i].id));
+	}
 	info->change_mask = 0;
 }
 
@@ -1182,16 +1192,14 @@ static bool do_node_params(struct data *data, const char *cmd, char *args, char 
 	struct global *global;
 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
-	if (n < 1) {
-		asprintf(error, "%s <object-id> [<param-id-name>]", cmd);
+	if (n < 2) {
+		asprintf(error, "%s <object-id> <param-id>", cmd);
 		return false;
 	}
-	if (n < 2)
-		param_id = SPA_PARAM_List;
-	else
-		param_id = atoi(a[1]);
 
 	id = atoi(a[0]);
+	param_id = atoi(a[1]);
+
 	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
 		asprintf(error, "%s: unknown global %d", cmd, id);
@@ -1221,16 +1229,14 @@ static bool do_port_params(struct data *data, const char *cmd, char *args, char 
 	struct global *global;
 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
-	if (n < 1) {
-		asprintf(error, "%s <object-id> [<param-id-name>]", cmd);
+	if (n < 2) {
+		asprintf(error, "%s <object-id> <param-id>", cmd);
 		return false;
 	}
-	if (n < 2)
-		param_id = SPA_PARAM_List;
-	else
-		param_id = atoi(a[1]);
 
 	id = atoi(a[0]);
+	param_id = atoi(a[1]);
+
 	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
 		asprintf(error, "%s: unknown global %d", cmd, id);

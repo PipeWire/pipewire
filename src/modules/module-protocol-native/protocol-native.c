@@ -119,6 +119,21 @@ static void push_dict(struct spa_pod_builder *b, const struct spa_dict *dict)
 	spa_pod_builder_pop(b, &f);
 }
 
+static void push_params(struct spa_pod_builder *b, uint32_t n_params,
+		const struct spa_param_info *params)
+{
+	uint32_t i;
+	struct spa_pod_frame f;
+
+	spa_pod_builder_push_struct(b, &f);
+	spa_pod_builder_int(b, n_params);
+	for (i = 0; i < n_params; i++) {
+		spa_pod_builder_id(b, params[i].id);
+		spa_pod_builder_int(b, params[i].flags);
+	}
+	spa_pod_builder_pop(b, &f);
+}
+
 static int
 core_method_marshal_create_object(void *object,
 			   const char *factory_name,
@@ -612,6 +627,7 @@ static int device_marshal_info(void *object, const struct pw_device_info *info)
 			    SPA_POD_Long(info->change_mask),
 			    NULL);
 	push_dict(b, info->props);
+	push_params(b, info->n_params, info->params);
 	spa_pod_builder_pop(b, &f);
 
 	return pw_protocol_native_end_resource(resource, b);
@@ -647,6 +663,22 @@ static int device_demarshal_info(void *object, void *data, size_t size)
 				    SPA_POD_String(&props.items[i].value), NULL) < 0)
 			return -EINVAL;
 	}
+	spa_pod_parser_pop(&prs, &f[1]);
+
+	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0 ||
+	    spa_pod_parser_get(&prs,
+			       SPA_POD_Int(&info.n_params),
+			       NULL) < 0)
+		return -EINVAL;
+
+	info.params = alloca(info.n_params * sizeof(struct spa_param_info));
+	for (i = 0; i < info.n_params; i++) {
+		if (spa_pod_parser_get(&prs,
+				       SPA_POD_Id(&info.params[i].id),
+				       SPA_POD_Int(&info.params[i].flags), NULL) < 0)
+			return -EINVAL;
+	}
+
 	return pw_proxy_notify(proxy, struct pw_device_proxy_events, info, 0, &info);
 }
 
@@ -838,6 +870,7 @@ static int node_marshal_info(void *object, const struct pw_node_info *info)
 			    SPA_POD_String(info->error),
 			    NULL);
 	push_dict(b, info->props);
+	push_params(b, info->n_params, info->params);
 	spa_pod_builder_pop(b, &f);
 
 	return pw_protocol_native_end_resource(resource, b);
@@ -879,6 +912,22 @@ static int node_demarshal_info(void *object, void *data, size_t size)
 				       SPA_POD_String(&props.items[i].value), NULL) < 0)
 			return -EINVAL;
 	}
+	spa_pod_parser_pop(&prs, &f[1]);
+
+	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0 ||
+	    spa_pod_parser_get(&prs,
+			       SPA_POD_Int(&info.n_params),
+			       NULL) < 0)
+		return -EINVAL;
+
+	info.params = alloca(info.n_params * sizeof(struct spa_param_info));
+	for (i = 0; i < info.n_params; i++) {
+		if (spa_pod_parser_get(&prs,
+				       SPA_POD_Id(&info.params[i].id),
+				       SPA_POD_Int(&info.params[i].flags), NULL) < 0)
+			return -EINVAL;
+	}
+
 	return pw_proxy_notify(proxy, struct pw_node_proxy_events, info, 0, &info);
 }
 
@@ -1032,6 +1081,7 @@ static int port_marshal_info(void *object, const struct pw_port_info *info)
 			    SPA_POD_Long(info->change_mask),
 			    NULL);
 	push_dict(b, info->props);
+	push_params(b, info->n_params, info->params);
 	spa_pod_builder_pop(b, &f);
 
 	return pw_protocol_native_end_resource(resource, b);
@@ -1065,6 +1115,21 @@ static int port_demarshal_info(void *object, void *data, size_t size)
 		if (spa_pod_parser_get(&prs,
 				       SPA_POD_String(&props.items[i].key),
 				       SPA_POD_String(&props.items[i].value), NULL) < 0)
+			return -EINVAL;
+	}
+	spa_pod_parser_pop(&prs, &f[1]);
+
+	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0 ||
+	    spa_pod_parser_get(&prs,
+			       SPA_POD_Int(&info.n_params),
+			       NULL) < 0)
+		return -EINVAL;
+
+	info.params = alloca(info.n_params * sizeof(struct spa_param_info));
+	for (i = 0; i < info.n_params; i++) {
+		if (spa_pod_parser_get(&prs,
+				       SPA_POD_Id(&info.params[i].id),
+				       SPA_POD_Int(&info.params[i].flags), NULL) < 0)
 			return -EINVAL;
 	}
 	return pw_proxy_notify(proxy, struct pw_port_proxy_events, info, 0, &info);

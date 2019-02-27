@@ -313,13 +313,40 @@ static int impl_send_command(struct spa_node *node, const struct spa_command *co
 	return 0;
 }
 
+static void emit_node_info(struct stream *d)
+{
+	if (d->callbacks && d->callbacks->info) {
+		struct spa_node_info info;
+		info = SPA_NODE_INFO_INIT();
+		if (d->direction == SPA_DIRECTION_INPUT) {
+			info.max_input_ports = 1;
+			info.max_output_ports = 0;
+		} else {
+			info.max_input_ports = 0;
+			info.max_output_ports = 1;
+		}
+		info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS;
+		info.flags = SPA_NODE_FLAG_RT;
+		d->callbacks->info(d->callbacks_data, &info);
+	}
+}
 static void emit_port_info(struct stream *d)
 {
 	if (d->callbacks && d->callbacks->port_info) {
 		struct spa_port_info info;
+		struct spa_param_info params[5];
+
 		info = SPA_PORT_INFO_INIT();
-		info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
+		info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
 		info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+		info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+		params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+		params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+		params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+		info.params = params;
+		info.n_params = 5;
 		d->callbacks->port_info(d->callbacks_data, d->direction, 0, &info);
 	}
 }
@@ -332,6 +359,7 @@ static int impl_set_callbacks(struct spa_node *node,
 	d->callbacks = callbacks;
 	d->callbacks_data = data;
 
+	emit_node_info(d);
 	emit_port_info(d);
 
 	return 0;
@@ -382,8 +410,6 @@ static int impl_port_enum_params(struct spa_node *node, int seq,
 				 const struct spa_pod *filter)
 {
 	struct stream *d = SPA_CONTAINER_OF(node, struct stream, impl_node);
-	struct spa_pod *param;
-	uint32_t last_id = SPA_ID_INVALID;
 	uint32_t n_params = pw_array_get_len(&d->params, struct param);
 	struct spa_result_node_params result;
 	uint8_t buffer[1024];
@@ -391,52 +417,34 @@ static int impl_port_enum_params(struct spa_node *node, int seq,
 	uint32_t count = 0;
 	int res;
 
+	spa_return_val_if_fail(num != 0, -EINVAL);
+
 	result.id = id;
 	result.next = start;
-      next:
-	result.index = result.next;
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	while (true) {
-		if (result.next < n_params) {
-			param = pw_array_get_unchecked(&d->params, result.next, struct param)->param;
-		}
-		else if (last_id != SPA_ID_INVALID)
+		struct spa_pod *param;
+
+		result.index = result.next++;
+
+		if (result.index >= n_params)
 			break;
-		else
-			return 0;
 
-		result.next++;
+		param = pw_array_get_unchecked(&d->params, result.index, struct param)->param;
 
-		if (id == SPA_PARAM_List) {
-			uint32_t new_id = ((struct spa_pod_object *) param)->body.id;
+		if (param == NULL || !spa_pod_is_object_id(param, id))
+			continue;
 
-			if (last_id == SPA_ID_INVALID){
-				result.param = spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(new_id));
-				last_id = new_id;
-			}
-			else if (last_id != new_id) {
-				result.next--;
-				break;
-			}
-		} else {
-			if (param == NULL || !spa_pod_is_object_id(param, id))
-				continue;
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
+			continue;
 
-			if (spa_pod_filter(&b, &result.param, param, filter) == 0)
-				break;
-		}
+		if ((res = d->callbacks->result(d->callbacks_data, seq, 0, &result)) != 0)
+			return res;
+
+		if (++count == num)
+			break;
 	}
-
-	if ((res = d->callbacks->result(d->callbacks_data, seq, 0, &result)) != 0)
-		return res;
-
-	if (++count != num)
-		goto next;
-
 	return 0;
 }
 

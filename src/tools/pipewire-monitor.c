@@ -39,6 +39,12 @@ struct proxy_data;
 
 typedef void (*print_func_t) (struct proxy_data *data);
 
+struct param {
+	struct spa_list link;
+	uint32_t id;
+	struct spa_pod *param;
+};
+
 struct data {
 	struct pw_main_loop *loop;
 	struct pw_core *core;
@@ -71,15 +77,16 @@ struct proxy_data {
 	int pending_seq;
 	struct spa_list pending_link;
 	print_func_t print_func;
-	uint32_t n_params;
-	struct spa_pod **params;
+	struct spa_list param_list;
 };
 
 static void add_pending(struct proxy_data *pd)
 {
 	struct data *d = pd->data;
 
-	spa_list_append(&d->pending_list, &pd->pending_link);
+	if (pd->pending_seq == 0) {
+		spa_list_append(&d->pending_list, &pd->pending_link);
+	}
 	pd->pending_seq = pw_core_proxy_sync(d->core_proxy, 0, pd->pending_seq);
 }
 
@@ -107,25 +114,50 @@ static int on_core_done(void *data, uint32_t id, int seq)
 
 static void clear_params(struct proxy_data *data)
 {
-	uint32_t i;
-
-	for (i = 0; i < data->n_params; i++)
-		free(data->params[i]);
-	free(data->params);
-
-	data->n_params = 0;
-	data->params = NULL;
+	struct param *p;
+	spa_list_consume(p, &data->param_list, link) {
+		spa_list_remove(&p->link);
+		free(p);
+	}
 }
 
-static int add_param(struct proxy_data *data, const struct spa_pod *param)
+static void remove_params(struct proxy_data *data, uint32_t id)
 {
-        uint32_t idx = data->n_params++;
+	struct param *p, *t;
+	spa_list_for_each_safe(p, t, &data->param_list, link) {
+		if (p->id == id) {
+			spa_list_remove(&p->link);
+			free(p);
+		}
+	}
+}
 
-        data->params = realloc(data->params, sizeof(struct spa_pod *) * data->n_params);
-	if (data->params == NULL)
+static int add_param(struct proxy_data *data, uint32_t id, const struct spa_pod *param)
+{
+	struct param *p;
+
+	p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
+	if (p == NULL)
 		return -ENOMEM;
-        data->params[idx] = spa_pod_copy(param);
+
+	p->id = id;
+	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
+	memcpy(p->param, param, SPA_POD_SIZE(param));
+	spa_list_append(&data->param_list, &p->link);
 	return 0;
+}
+
+static void print_params(struct proxy_data *data, char mark)
+{
+	struct param *p;
+
+	printf("%c\tparams:\n", mark);
+	spa_list_for_each(p, &data->param_list, link) {
+		if (spa_pod_is_object_type(p->param, SPA_TYPE_OBJECT_Format))
+			spa_debug_format(10, NULL, p->param);
+		else
+			spa_debug_pod(10, NULL, p->param);
+	}
 }
 
 static void print_properties(const struct spa_dict *props, char mark)
@@ -226,16 +258,8 @@ static void print_node(struct proxy_data *data)
 	printf("\ttype: %s (version %d)\n",
 			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
 	if (print_all) {
-		uint32_t i;
-
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
-		printf("%c\tparams:\n", MARK_CHANGE(5));
-		for (i = 0; i < data->n_params; i++) {
-			if (spa_pod_is_object_type(data->params[i], SPA_TYPE_OBJECT_Format))
-				spa_debug_format(10, NULL, data->params[i]);
-			else
-				spa_debug_pod(10, NULL, data->params[i]);
-		}
+		print_params(data, MARK_CHANGE(5));
 		printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(1),
 				info->n_input_ports, info->max_input_ports);
 		printf("%c\toutput ports: %u/%u\n", MARK_CHANGE(2),
@@ -254,15 +278,23 @@ static void print_node(struct proxy_data *data)
 static int node_event_info(void *object, const struct pw_node_info *info)
 {
         struct proxy_data *data = object;
-	bool is_new = data->info == NULL;
+	struct pw_node_info *old = data->info;
+	uint32_t i;
 
-	data->info = pw_node_info_update(data->info, info);
-
-	if (is_new) {
-		pw_node_proxy_enum_params((struct pw_node_proxy*)data->proxy,
-				0, SPA_PARAM_List, 0, 0, NULL);
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
+		for (i = 0; i < info->n_params; i++) {
+			if (old != NULL && info->params[i].flags == old->params[i].flags)
+				continue;
+			remove_params(data, info->params[i].id);
+			if (!SPA_FLAG_CHECK(info->params[i].flags, SPA_PARAM_INFO_READ))
+				continue;
+			pw_node_proxy_enum_params((struct pw_node_proxy*)data->proxy,
+					0, info->params[i].id, 0, 0, NULL);
+		}
 		add_pending(data);
 	}
+	data->info = pw_node_info_update(data->info, info);
+
 	if (data->pending_seq == 0)
 		data->print_func(data);
 	return 0;
@@ -272,7 +304,7 @@ static int node_event_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
-	return add_param(data, param);
+	return add_param(data, id, param);
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -305,16 +337,9 @@ static void print_port(struct proxy_data *data)
 	printf("\ttype: %s (version %d)\n",
 			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
 	if (print_all) {
-		uint32_t i;
 		printf(" \tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
-		printf("%c\tparams:\n", MARK_CHANGE(2));
-		for (i = 0; i < data->n_params; i++) {
-			if (spa_pod_is_object_type(data->params[i], SPA_TYPE_OBJECT_Format))
-				spa_debug_format(12, NULL, data->params[i]);
-			else
-				spa_debug_pod(12, NULL, data->params[i]);
-		}
-		print_properties(info->props, MARK_CHANGE(1));
+		print_params(data, MARK_CHANGE(1));
+		print_properties(info->props, MARK_CHANGE(0));
 	}
 }
 
@@ -322,15 +347,23 @@ static int port_event_info(void *object, const struct pw_port_info *info)
 {
 
         struct proxy_data *data = object;
-	bool is_new = data->info == NULL;
+	struct pw_port_info *old = data->info;
+	uint32_t i;
 
-	data->info = pw_port_info_update(data->info, info);
-
-	if (is_new) {
-		pw_port_proxy_enum_params((struct pw_port_proxy*)data->proxy,
-				0, SPA_PARAM_EnumFormat, 0, 0, NULL);
+	if (info->change_mask & PW_PORT_CHANGE_MASK_PARAMS) {
+		for (i = 0; i < info->n_params; i++) {
+			if (old != NULL && info->params[i].flags == old->params[i].flags)
+				continue;
+			remove_params(data, info->params[i].id);
+			if (!SPA_FLAG_CHECK(info->params[i].flags, SPA_PARAM_INFO_READ))
+				continue;
+			pw_port_proxy_enum_params((struct pw_port_proxy*)data->proxy,
+					0, info->params[i].id, 0, 0, NULL);
+		}
 		add_pending(data);
 	}
+	data->info = pw_port_info_update(data->info, info);
+
 	if (data->pending_seq == 0)
 		data->print_func(data);
 	return 0;
@@ -340,7 +373,7 @@ static int port_event_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
-	return add_param(data, param);
+	return add_param(data, id, param);
 }
 
 static const struct pw_port_proxy_events port_events = {
@@ -606,6 +639,7 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	pd->destroy = destroy;
 	pd->pending_seq = 0;
 	pd->print_func = print_func;
+	spa_list_init(&pd->param_list);
         pw_proxy_add_proxy_listener(proxy, &pd->proxy_proxy_listener, events, pd);
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
         return 0;

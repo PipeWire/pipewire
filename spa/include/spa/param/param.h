@@ -34,7 +34,6 @@ extern "C" {
 /** different parameter types that can be queried */
 enum spa_param_type {
 	SPA_PARAM_Invalid,		/**< invalid */
-	SPA_PARAM_List,			/**< available params as SPA_TYPE_OBJECT_ParamList */
 	SPA_PARAM_PropInfo,		/**< property information as SPA_TYPE_OBJECT_PropInfo */
 	SPA_PARAM_Props,		/**< properties as SPA_TYPE_OBJECT_Props */
 	SPA_PARAM_EnumFormat,		/**< available formats as SPA_TYPE_OBJECT_Format */

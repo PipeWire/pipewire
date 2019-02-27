@@ -41,12 +41,12 @@ struct spa_device_info {
 #define SPA_VERSION_DEVICE_INFO 0
 	uint32_t version;
 
-#define SPA_DEVICE_CHANGE_MASK_INFO		(1<<0)
+#define SPA_DEVICE_CHANGE_MASK_PROPS		(1<<0)
 #define SPA_DEVICE_CHANGE_MASK_PARAMS		(1<<1)
 	uint64_t change_mask;
-	const struct spa_dict *info;
+	const struct spa_dict *props;
+	struct spa_param_info *params;
 	uint32_t n_params;
-	uint32_t *params;
 };
 
 #define SPA_DEVICE_INFO_INIT()	(struct spa_device_info){ SPA_VERSION_DEVICE_INFO, }
@@ -58,9 +58,9 @@ struct spa_device_object_info {
 	uint32_t type;
 	const struct spa_handle_factory *factory;
 
-#define SPA_DEVICE_OBJECT_CHANGE_MASK_INFO		(1<<0)
+#define SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS	(1<<0)
 	uint64_t change_mask;
-	const struct spa_dict *info;
+	const struct spa_dict *props;
 };
 
 #define SPA_DEVICE_OBJECT_INFO_INIT()	(struct spa_device_object_info){ SPA_VERSION_DEVICE_OBJECT_INFO, }

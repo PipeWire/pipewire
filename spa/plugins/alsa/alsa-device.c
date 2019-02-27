@@ -117,8 +117,7 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 	else
 		info.factory = &spa_alsa_source_factory;
 
-	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_INFO;
-
+	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 	snprintf(device_name, 128, "%s,%d", this->props.device, snd_pcm_info_get_device(pcminfo));
 	items[0] = SPA_DICT_ITEM_INIT("alsa.device",         device_name);
 	items[1] = SPA_DICT_ITEM_INIT("alsa.pcm.id",         snd_pcm_info_get_id(pcminfo));
@@ -126,7 +125,7 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 	items[3] = SPA_DICT_ITEM_INIT("alsa.pcm.subname",    snd_pcm_info_get_subdevice_name(pcminfo));
 	items[4] = SPA_DICT_ITEM_INIT("alsa.pcm.class",      get_class(pcminfo));
 	items[5] = SPA_DICT_ITEM_INIT("alsa.pcm.subclass",   get_subclass(pcminfo));
-	info.info = &SPA_DICT_INIT_ARRAY(items);
+	info.props = &SPA_DICT_INIT_ARRAY(items);
 
 	this->callbacks->object_info(this->callbacks_data, id, &info);
 
@@ -214,7 +213,7 @@ static int emit_info(struct impl *this)
 	snd_ctl_t *ctl_hndl;
 	snd_ctl_card_info_t *info;
 	struct spa_device_info dinfo;
-	uint32_t params[] = { SPA_PARAM_EnumProfile, SPA_PARAM_Profile };
+	struct spa_param_info params[2];
 
         spa_log_info(this->log, "open card %s", this->props.device);
         if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
@@ -230,8 +229,8 @@ static int emit_info(struct impl *this)
 	}
 
 	dinfo = SPA_DEVICE_INFO_INIT();
-	dinfo.change_mask = SPA_DEVICE_CHANGE_MASK_INFO | SPA_DEVICE_CHANGE_MASK_PARAMS;
 
+	dinfo.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
 	items[0] = SPA_DICT_ITEM_INIT("device.api",  "alsa");
 	items[1] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
 	items[2] = SPA_DICT_ITEM_INIT("device.nick", snd_ctl_card_info_get_id(info));
@@ -242,7 +241,11 @@ static int emit_info(struct impl *this)
 	items[7] = SPA_DICT_ITEM_INIT("alsa.card.name",       snd_ctl_card_info_get_name(info));
 	items[8] = SPA_DICT_ITEM_INIT("alsa.card.longname",   snd_ctl_card_info_get_longname(info));
 	items[9] = SPA_DICT_ITEM_INIT("alsa.card.mixername",  snd_ctl_card_info_get_mixername(info));
-	dinfo.info = &SPA_DICT_INIT(items, 10);
+	dinfo.props = &SPA_DICT_INIT(items, 10);
+
+	dinfo.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);
+	params[1] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_READWRITE);
 	dinfo.n_params = SPA_N_ELEMENTS(params);
 	dinfo.params = params;
 
@@ -303,19 +306,6 @@ static int impl_enum_params(struct spa_device *device, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_List:
-	{
-		uint32_t list[] = { SPA_PARAM_EnumProfile,
-				    SPA_PARAM_Profile };
-
-		if (result.index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
-		else
-			return 0;
-		break;
-	}
 	case SPA_PARAM_EnumProfile:
 	{
 		switch (result.index) {

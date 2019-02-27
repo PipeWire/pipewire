@@ -79,6 +79,7 @@ struct pw_device *pw_device_new(struct pw_core *core,
 
 	this->info.name = strdup(name);
 	this->info.props = &properties->dict;
+	this->info.params = this->params;
 	spa_hook_list_init(&this->listener_list);
 
 	spa_list_init(&this->node_list);
@@ -242,7 +243,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	spa_list_append(&global->resource_list, &resource->link);
 
-	this->info.change_mask = ~0;
+	this->info.change_mask = PW_DEVICE_CHANGE_MASK_ALL;
 	pw_device_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 
@@ -314,12 +315,49 @@ static const struct pw_node_events node_events = {
 	.destroy = node_destroy,
 };
 
+static void emit_info_changed(struct pw_device *device)
+{
+	struct pw_resource *resource;
+
+	pw_device_emit_info_changed(device, &device->info);
+
+	if (device->global)
+		spa_list_for_each(resource, &device->global->resource_list, link)
+			pw_device_resource_info(resource, &device->info);
+
+	device->info.change_mask = 0;
+}
+
+static int update_properties(struct pw_device *device, const struct spa_dict *dict)
+{
+	int changed;
+
+	changed = pw_properties_update(device->properties, dict);
+
+	pw_log_debug("device %p: updated %d properties", device, changed);
+
+	if (!changed)
+		return 0;
+
+	device->info.props = &device->properties->dict;
+	device->info.change_mask |= PW_DEVICE_CHANGE_MASK_PROPS;
+	return changed;
+}
 
 static int device_info(void *data, const struct spa_device_info *info)
 {
 	struct pw_device *device = data;
-	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_INFO)
-		pw_device_update_properties(device, info->info);
+	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS) {
+		update_properties(device, info->props);
+	}
+	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PARAMS) {
+		device->info.change_mask |= PW_DEVICE_CHANGE_MASK_PARAMS;
+		device->info.n_params = SPA_MIN(info->n_params, SPA_N_ELEMENTS(device->params));
+		memcpy(device->info.params, info->params,
+				device->info.n_params * sizeof(struct spa_param_info));
+	}
+	emit_info_changed(device);
+
 	return 0;
 }
 
@@ -343,14 +381,14 @@ static void device_add(struct pw_device *device, uint32_t id,
 	support = pw_core_get_support(device->core, &n_support);
 
 	props = pw_properties_copy(device->properties);
-	if (info->info)
-		pw_properties_update(props, info->info);
+	if (info->props)
+		pw_properties_update(props, info->props);
 
 	node = pw_node_new(device->core,
 			   device->info.name,
 			   props,
 			   sizeof(struct node_data) +
-			   spa_handle_factory_get_size(info->factory, info->info));
+			   spa_handle_factory_get_size(info->factory, info->props));
 
 	nd = pw_node_get_user_data(node);
 	nd->id = id;
@@ -361,7 +399,7 @@ static void device_add(struct pw_device *device, uint32_t id,
 
 	if ((res = spa_handle_factory_init(info->factory,
 					   nd->handle,
-					   info->info,
+					   info->props,
 					   support,
 					   n_support)) < 0) {
 		pw_log_error("can't make factory instance: %d", res);
@@ -412,8 +450,8 @@ static int device_object_info(void *data, uint32_t id,
 		}
 	}
 	else if (nd != NULL) {
-		if (info->change_mask & SPA_DEVICE_OBJECT_CHANGE_MASK_INFO)
-			pw_node_update_properties(nd->node, info->info);
+		if (info->change_mask & SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS)
+			pw_node_update_properties(nd->node, info->props);
 	}
 	else {
 		device_add(device, id, info);
@@ -457,26 +495,8 @@ const struct pw_properties *pw_device_get_properties(struct pw_device *device)
 SPA_EXPORT
 int pw_device_update_properties(struct pw_device *device, const struct spa_dict *dict)
 {
-	struct pw_resource *resource;
-	int changed;
-
-	changed = pw_properties_update(device->properties, dict);
-
-	pw_log_debug("device %p: updated %d properties", device, changed);
-
-	if (!changed)
-		return 0;
-
-	device->info.props = &device->properties->dict;
-	device->info.change_mask |= PW_DEVICE_CHANGE_MASK_PROPS;
-	pw_device_emit_info_changed(device, &device->info);
-
-	if (device->global)
-		spa_list_for_each(resource, &device->global->resource_list, link)
-			pw_device_resource_info(resource, &device->info);
-
-	device->info.change_mask = 0;
-
+	int changed = update_properties(device, dict);
+	emit_info_changed(device);
 	return changed;
 }
 

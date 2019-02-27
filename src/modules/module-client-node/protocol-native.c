@@ -107,10 +107,18 @@ client_node_marshal_port_update(void *object,
 				SPA_POD_Pod(params[i]), NULL);
 
 	if (info) {
+		uint64_t change_mask = info->change_mask;
+
 		n_items = info->props ? info->props->n_items : 0;
+
+		change_mask &= SPA_PORT_CHANGE_MASK_FLAGS |
+				SPA_PORT_CHANGE_MASK_RATE |
+				SPA_PORT_CHANGE_MASK_PROPS |
+				SPA_PORT_CHANGE_MASK_PARAMS;
 
 		spa_pod_builder_push_struct(b, &f[1]);
 		spa_pod_builder_add(b,
+				    SPA_POD_Long(change_mask),
 				    SPA_POD_Int(info->flags),
 				    SPA_POD_Int(info->rate),
 				    SPA_POD_Int(n_items), NULL);
@@ -119,7 +127,15 @@ client_node_marshal_port_update(void *object,
 					    SPA_POD_String(info->props->items[i].key),
 					    SPA_POD_String(info->props->items[i].value), NULL);
 		}
+		spa_pod_builder_add(b,
+				    SPA_POD_Int(info->n_params), NULL);
+		for (i = 0; i < info->n_params; i++) {
+			spa_pod_builder_add(b,
+					    SPA_POD_Id(info->params[i].id),
+					    SPA_POD_Int(info->params[i].flags), NULL);
+		}
 		spa_pod_builder_pop(b, &f[1]);
+
 	} else {
 		spa_pod_builder_add(b,
 				SPA_POD_Pod(NULL), NULL);
@@ -812,10 +828,16 @@ static int client_node_demarshal_port_update(void *object, void *data, size_t si
 		spa_pod_parser_pod(&p2, ipod);
 		if (spa_pod_parser_push_struct(&p2, &f2) < 0 ||
 		    spa_pod_parser_get(&p2,
+				SPA_POD_Long(&info.change_mask),
 				SPA_POD_Int(&info.flags),
 				SPA_POD_Int(&info.rate),
 				SPA_POD_Int(&props.n_items), NULL) < 0)
 			return -EINVAL;
+
+		info.change_mask &= SPA_PORT_CHANGE_MASK_FLAGS |
+				SPA_PORT_CHANGE_MASK_RATE |
+				SPA_PORT_CHANGE_MASK_PROPS |
+				SPA_PORT_CHANGE_MASK_PARAMS;
 
 		if (props.n_items > 0) {
 			info.props = &props;
@@ -825,6 +847,19 @@ static int client_node_demarshal_port_update(void *object, void *data, size_t si
 				if (spa_pod_parser_get(&p2,
 						SPA_POD_String(&props.items[i].key),
 						SPA_POD_String(&props.items[i].value), NULL) < 0)
+					return -EINVAL;
+			}
+		}
+		if (spa_pod_parser_get(&p2,
+				SPA_POD_Int(&info.n_params), NULL) < 0)
+			return -EINVAL;
+
+		if (info.n_params > 0) {
+			info.params = alloca(info.n_params * sizeof(struct spa_param_info));
+			for (i = 0; i < info.n_params; i++) {
+				if (spa_pod_parser_get(&p2,
+						SPA_POD_Id(&info.params[i].id),
+						SPA_POD_Int(&info.params[i].flags), NULL) < 0)
 					return -EINVAL;
 			}
 		}

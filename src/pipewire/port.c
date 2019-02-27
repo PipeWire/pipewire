@@ -79,6 +79,22 @@ void pw_port_mix_update_state(struct pw_port *port, struct pw_port_mix *mix, enu
 	}
 }
 
+static void emit_info_changed(struct pw_port *port)
+{
+	struct pw_resource *resource;
+
+	if (port->info.change_mask == 0)
+		return;
+
+	pw_port_emit_info_changed(port, &port->info);
+
+	if (port->global)
+		spa_list_for_each(resource, &port->global->resource_list, link)
+			pw_port_resource_info(resource, &port->info);
+
+	port->info.change_mask = 0;
+}
+
 void pw_port_update_state(struct pw_port *port, enum pw_port_state state)
 {
 	if (port->state != state) {
@@ -243,15 +259,46 @@ int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 	return res;
 }
 
+static int update_properties(struct pw_port *port, const struct spa_dict *dict)
+{
+	int changed;
+
+	changed = pw_properties_update(port->properties, dict);
+
+	pw_log_debug("port %p: updated %d properties", port, changed);
+
+	if (changed) {
+		port->info.props = &port->properties->dict;
+		port->info.change_mask |= PW_PORT_CHANGE_MASK_PROPS;
+	}
+	return changed;
+}
+
+static void update_info(struct pw_port *port, const struct spa_port_info *info)
+{
+	if (info->change_mask & SPA_PORT_CHANGE_MASK_FLAGS) {
+		port->spa_flags = info->flags;
+	}
+	if (info->change_mask & SPA_PORT_CHANGE_MASK_PROPS) {
+		update_properties(port, info->props);
+	}
+	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
+		port->info.change_mask |= PW_PORT_CHANGE_MASK_PARAMS;
+		port->info.n_params = SPA_MIN(info->n_params, SPA_N_ELEMENTS(port->params));
+		memcpy(port->info.params, info->params,
+				port->info.n_params * sizeof(struct spa_param_info));
+	}
+}
+
 SPA_EXPORT
 struct pw_port *pw_port_new(enum pw_direction direction,
 			    uint32_t port_id,
-			    uint32_t spa_flags,
-			    struct pw_properties *properties,
+			    const struct spa_port_info *info,
 			    size_t user_data_size)
 {
 	struct impl *impl;
 	struct pw_port *this;
+	struct pw_properties *properties;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -261,19 +308,22 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	pw_log_debug("port %p: new %s %d", this,
 			pw_direction_as_string(direction), port_id);
 
-	if (properties == NULL)
+	if (info && info->change_mask & SPA_PORT_CHANGE_MASK_PROPS && info->props)
+		properties = pw_properties_new_dict(info->props);
+	else
 		properties = pw_properties_new(NULL, NULL);
+
 	if (properties == NULL)
 		goto no_mem;
 
-	if (SPA_FLAG_CHECK(spa_flags, SPA_PORT_FLAG_PHYSICAL))
+	if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_PHYSICAL))
 		pw_properties_set(properties, "port.physical", "1");
-	if (SPA_FLAG_CHECK(spa_flags, SPA_PORT_FLAG_TERMINAL))
+	if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_TERMINAL))
 		pw_properties_set(properties, "port.terminal", "1");
 
 	this->direction = direction;
 	this->port_id = port_id;
-	this->spa_flags = spa_flags;
+	this->spa_flags = info->flags;
 	this->properties = properties;
 	this->state = PW_PORT_STATE_INIT;
 	this->rt.io = SPA_IO_BUFFERS_INIT;
@@ -282,6 +332,8 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	this->info.direction = direction;
+	this->info.params = this->params;
+	this->info.change_mask = PW_PORT_CHANGE_MASK_PROPS;
 	this->info.props = &this->properties->dict;
 
 	spa_list_init(&this->links);
@@ -307,6 +359,9 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 			    pw_direction_reverse(this->direction), 0,
 			    0);
 	this->rt.io.status = SPA_STATUS_NEED_BUFFER;
+
+	if (info)
+		update_info(this, info);
 
 	return this;
 
@@ -354,27 +409,17 @@ const struct pw_properties *pw_port_get_properties(struct pw_port *port)
 SPA_EXPORT
 int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict)
 {
-	struct pw_resource *resource;
-	int changed;
+	int changed = update_properties(port, dict);
 
-	changed = pw_properties_update(port->properties, dict);
-
-	pw_log_debug("port %p: updated %d properties", port, changed);
-
-	if (!changed)
-		return 0;
-
-	port->info.props = &port->properties->dict;
-	port->info.change_mask |= PW_PORT_CHANGE_MASK_PROPS;
-	pw_port_emit_info_changed(port, &port->info);
-
-	if (port->global)
-		spa_list_for_each(resource, &port->global->resource_list, link)
-			pw_port_resource_info(resource, &port->info);
-
-	port->info.change_mask = 0;
+	emit_info_changed(port);
 
 	return changed;
+}
+
+void pw_port_update_info(struct pw_port *port, const struct spa_port_info *info)
+{
+	update_info(port, info);
+	emit_info_changed(port);
 }
 
 SPA_EXPORT
@@ -431,10 +476,13 @@ static int check_param_io(void *data, int seq, uint32_t id,
 	uint32_t pid, psize;
 
 	if (spa_pod_parse_object(param,
-		SPA_TYPE_OBJECT_ParamIO, NULL,
-		SPA_PARAM_IO_id,   SPA_POD_Id(&pid),
-		SPA_PARAM_IO_size, SPA_POD_Int(&psize)) < 0)
+			SPA_TYPE_OBJECT_ParamIO, NULL,
+			SPA_PARAM_IO_id,   SPA_POD_Id(&pid),
+			SPA_PARAM_IO_size, SPA_POD_Int(&psize)) < 0)
 		return 0;
+
+	pw_log_debug("port %p: got control %s", port,
+			spa_debug_type_find_name(spa_type_io, pid));
 
 	switch (pid) {
 	case SPA_IO_Control:
@@ -518,7 +566,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	spa_list_append(&global->resource_list, &resource->link);
 
-	this->info.change_mask = ~0;
+	this->info.change_mask = PW_PORT_CHANGE_MASK_ALL;
 	pw_port_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 	return 0;

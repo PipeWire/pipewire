@@ -137,7 +137,8 @@ static void draw_pixel_uyvy(DrawingData * dd, int x, Pixel * color)
 
 static int drawing_data_init(DrawingData * dd, struct impl *this, char *data)
 {
-	struct spa_video_info *format = &this->current_format;
+	struct port *port = &this->port;
+	struct spa_video_info *format = &port->current_format;
 	struct spa_rectangle *size = &format->info.raw.size;
 
 	if ((format->media_type != SPA_MEDIA_TYPE_video) ||
@@ -154,7 +155,7 @@ static int drawing_data_init(DrawingData * dd, struct impl *this, char *data)
 	dd->line = data;
 	dd->width = size->width;
 	dd->height = size->height;
-	dd->stride = this->stride;
+	dd->stride = port->stride;
 
 	return 0;
 }

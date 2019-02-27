@@ -128,11 +128,15 @@ void pw_module_info_free(struct pw_module_info *info);
 
 /** The device information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_device_info {
-	uint32_t id;		/**< id of the global */
-	const char *name;	/**< name the device */
+	uint32_t id;			/**< id of the global */
+	const char *name;		/**< name the device */
 #define PW_DEVICE_CHANGE_MASK_PROPS		(1 << 0)
-	uint64_t change_mask;	/**< bitfield of changed fields since last call */
-	struct spa_dict *props;	/**< extra properties */
+#define PW_DEVICE_CHANGE_MASK_PARAMS		(1 << 1)
+#define PW_DEVICE_CHANGE_MASK_ALL		((1 << 2)-1)
+	uint64_t change_mask;		/**< bitfield of changed fields since last call */
+	struct spa_dict *props;		/**< extra properties */
+	struct spa_param_info *params;	/**< parameters */
+	uint32_t n_params;		/**< number of items in \a params */
 };
 
 /** Update and existing \ref pw_device_info with \a update \memberof pw_introspect */
@@ -168,6 +172,8 @@ struct pw_node_info {
 #define PW_NODE_CHANGE_MASK_OUTPUT_PORTS	(1 << 2)
 #define PW_NODE_CHANGE_MASK_STATE		(1 << 3)
 #define PW_NODE_CHANGE_MASK_PROPS		(1 << 4)
+#define PW_NODE_CHANGE_MASK_PARAMS		(1 << 5)
+#define PW_NODE_CHANGE_MASK_ALL			((1 << 6)-1)
 	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	const char *name;                       /**< name the node, suitable for display */
 	uint32_t max_input_ports;		/**< maximum number of inputs */
@@ -177,6 +183,8 @@ struct pw_node_info {
 	enum pw_node_state state;		/**< the current state of the node */
 	const char *error;			/**< an error reason if \a state is error */
 	struct spa_dict *props;			/**< the properties of the node */
+	struct spa_param_info *params;		/**< parameters */
+	uint32_t n_params;			/**< number of items in \a params */
 };
 
 struct pw_node_info *
@@ -190,8 +198,12 @@ struct pw_port_info {
 	uint32_t id;				/**< id of the global */
 	enum pw_direction direction;		/**< port direction */
 #define PW_PORT_CHANGE_MASK_PROPS		(1 << 0)
+#define PW_PORT_CHANGE_MASK_PARAMS		(1 << 1)
+#define PW_PORT_CHANGE_MASK_ALL			((1 << 2)-1)
 	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	struct spa_dict *props;			/**< the properties of the port */
+	struct spa_param_info *params;		/**< parameters */
+	uint32_t n_params;			/**< number of items in \a params */
 };
 
 struct pw_port_info *

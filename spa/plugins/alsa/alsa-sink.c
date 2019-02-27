@@ -27,6 +27,7 @@
 #include <asoundlib.h>
 
 #include <spa/node/node.h>
+#include <spa/node/utils.h>
 #include <spa/param/audio/format.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/pod.h>
@@ -74,19 +75,6 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_List:
-	{
-		uint32_t list[] = { SPA_PARAM_PropInfo,
-				    SPA_PARAM_Props };
-
-		if (result.index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
-		else
-			return 0;
-		break;
-	}
 	case SPA_PARAM_PropInfo:
 	{
 		struct props *p = &this->props;
@@ -253,23 +241,19 @@ static const struct spa_dict_item node_info_items[] = {
 
 static void emit_node_info(struct state *this)
 {
-	if (this->callbacks && this->callbacks->info) {
-		struct spa_node_info info;
-
-		info = SPA_NODE_INFO_INIT();
-		info.max_input_ports = 1;
-		info.change_mask = SPA_NODE_CHANGE_MASK_PROPS;
-		info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
-
-		this->callbacks->info(this->callbacks_data, &info);
+	if (this->callbacks && this->callbacks->info && this->info.change_mask) {
+		this->info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
+		this->callbacks->info(this->callbacks_data, &this->info);
+		this->info.change_mask = 0;
 	}
 }
 
 static void emit_port_info(struct state *this)
 {
-	if (this->callbacks && this->callbacks->port_info && this->info.change_mask) {
-		this->callbacks->port_info(this->callbacks_data, SPA_DIRECTION_INPUT, 0, &this->info);
-		this->info.change_mask = 0;
+	if (this->callbacks && this->callbacks->port_info && this->port_info.change_mask) {
+		this->callbacks->port_info(this->callbacks_data,
+				SPA_DIRECTION_INPUT, 0, &this->port_info);
+		this->port_info.change_mask = 0;
 	}
 }
 
@@ -335,22 +319,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_List:
-	{
-		uint32_t list[] = { SPA_PARAM_EnumFormat,
-				    SPA_PARAM_Format,
-				    SPA_PARAM_Buffers,
-				    SPA_PARAM_Meta,
-				    SPA_PARAM_IO, };
-
-		if (result.index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
-		else
-			return 0;
-		break;
-	}
 	case SPA_PARAM_EnumFormat:
 		return spa_alsa_enum_format(this, seq, start, num, filter);
 
@@ -382,9 +350,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 		break;
 
 	case SPA_PARAM_Meta:
-		if (!this->have_format)
-			return -EIO;
-
 		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
@@ -456,6 +421,9 @@ static int port_set_format(struct spa_node *node,
 	int err;
 
 	if (format == NULL) {
+		if (!this->have_format)
+			return 0;
+
 		spa_log_debug(this->log, "clear format");
 		spa_alsa_pause(this);
 		clear_buffers(this);
@@ -481,11 +449,17 @@ static int port_set_format(struct spa_node *node,
 		this->have_format = true;
 	}
 
+	this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_RATE;
+	this->port_info.rate = this->rate;
+	this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	if (this->have_format) {
-		this->info.change_mask |= SPA_PORT_CHANGE_MASK_RATE;
-		this->info.rate = this->rate;
-		emit_port_info(this);
+		this->port_params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
+		this->port_params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	} else {
+		this->port_params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		this->port_params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
+	emit_port_info(this);
 
 	return 0;
 }
@@ -734,14 +708,33 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->node = impl_node;
 	this->stream = SND_PCM_STREAM_PLAYBACK;
+
+	this->info = SPA_NODE_INFO_INIT();
+	this->info.max_input_ports = 1;
+	this->info.change_mask = SPA_NODE_CHANGE_MASK_PROPS;
+	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
+	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+	this->info.params = this->params;
+	this->info.n_params = 2;
+
 	reset_props(&this->props);
 
-	this->info = SPA_PORT_INFO_INIT();
-	this->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
-	this->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+	this->port_info = SPA_PORT_INFO_INIT();
+	this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
+	this->port_info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
 			   SPA_PORT_FLAG_LIVE |
 			   SPA_PORT_FLAG_PHYSICAL |
 			   SPA_PORT_FLAG_TERMINAL;
+
+	this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	this->port_params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	this->port_params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	this->port_params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	this->port_params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	this->port_params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	this->port_info.params = this->port_params;
+	this->port_info.n_params = 5;
 
 	spa_list_init(&this->ready);
 

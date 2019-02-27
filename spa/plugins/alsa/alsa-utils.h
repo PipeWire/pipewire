@@ -58,10 +58,10 @@ struct props {
 
 struct buffer {
 	uint32_t id;
+#define BUFFER_FLAG_OUT	(1<<0)
 	uint32_t flags;
 	struct spa_buffer *buf;
 	struct spa_meta_header *h;
-#define BUFFER_FLAG_OUT	(1<<0)
 	struct spa_list link;
 };
 
@@ -80,8 +80,6 @@ struct state {
 	struct spa_handle handle;
 	struct spa_node node;
 
-	uint32_t seq;
-
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;
@@ -92,6 +90,8 @@ struct state {
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 
+	struct spa_node_info info;
+	struct spa_param_info params[8];
 	struct props props;
 
 	bool opened;
@@ -108,7 +108,8 @@ struct state {
 	int channels;
 	size_t frame_size;
 
-	struct spa_port_info info;
+	struct spa_port_info port_info;
+	struct spa_param_info port_params[8];
 	struct spa_io_buffers *io;
 	struct spa_io_range *range;
 	struct spa_io_clock *clock;

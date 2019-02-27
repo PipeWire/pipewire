@@ -52,12 +52,16 @@ struct spa_node_info {
 	uint32_t max_output_ports;
 #define SPA_NODE_CHANGE_MASK_FLAGS		(1u<<0)
 #define SPA_NODE_CHANGE_MASK_PROPS		(1u<<1)
+#define SPA_NODE_CHANGE_MASK_PARAMS		(1u<<2)
 	uint64_t change_mask;
+
 #define SPA_NODE_FLAG_DYNAMIC_INPUT_PORTS	(1u<<0)	/**< input ports can be added/removed */
 #define SPA_NODE_FLAG_DYNAMIC_OUTPUT_PORTS	(1u<<1)	/**< output ports can be added/removed */
 #define SPA_NODE_FLAG_RT			(1u<<2)	/**< node can do real-time processing */
 	uint32_t flags;
-	struct spa_dict *props;
+	struct spa_dict *props;			/**< extra node properties */
+	struct spa_param_info *params;		/**< parameter information */
+	uint32_t n_params;			/**< number of items in \a params */
 };
 
 #define SPA_NODE_INFO_INIT()	(struct spa_node_info) { 0, }
@@ -71,6 +75,7 @@ struct spa_port_info {
 #define SPA_PORT_CHANGE_MASK_FLAGS		(1u<<0)
 #define SPA_PORT_CHANGE_MASK_RATE		(1u<<1)
 #define SPA_PORT_CHANGE_MASK_PROPS		(1u<<2)
+#define SPA_PORT_CHANGE_MASK_PARAMS		(1u<<3)
 	uint64_t change_mask;
 
 #define SPA_PORT_FLAG_REMOVABLE			(1u<<0)	/**< port can be removed */
@@ -90,6 +95,8 @@ struct spa_port_info {
 	uint32_t flags;				/**< port flags */
 	uint32_t rate;				/**< rate of sequence numbers on port */
 	const struct spa_dict *props;		/**< extra port properties */
+	struct spa_param_info *params;		/**< parameter information */
+	uint32_t n_params;			/**< number of items in \a params */
 };
 
 #define SPA_PORT_INFO_INIT()	(struct spa_port_info) { 0, }

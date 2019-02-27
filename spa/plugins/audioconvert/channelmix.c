@@ -31,6 +31,7 @@
 #include <spa/utils/list.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
+#include <spa/node/utils.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
@@ -76,6 +77,7 @@ struct port {
 	struct spa_io_buffers *io;
 	struct spa_io_sequence *control;
 	struct spa_port_info info;
+	struct spa_param_info params[8];
 
 	bool have_format;
 	struct spa_audio_info format;
@@ -98,18 +100,20 @@ struct impl {
 	struct spa_log *log;
 	struct spa_cpu *cpu;
 
-	struct props props;
-
 	const struct spa_node_callbacks *callbacks;
 	void *user_data;
+
+	struct spa_node_info info;
+	struct props props;
+	struct spa_param_info params[8];
+
+	bool started;
 
 	struct port in_port;
 	struct port out_port;
 
-	bool started;
-
-	uint32_t cpu_flags;
 	channelmix_func_t convert;
+	uint32_t cpu_flags;
 	uint32_t n_matrix;
 	float matrix[4096];
 };
@@ -457,19 +461,6 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_List:
-	{
-		uint32_t list[] = { SPA_PARAM_PropInfo,
-				    SPA_PARAM_Props };
-
-		if (result.index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamList, id,
-				SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
-		else
-			return 0;
-		break;
-	}
 	case SPA_PARAM_PropInfo:
 	{
 		struct props *p = &this->props;
@@ -592,6 +583,14 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	return 0;
 }
 
+static void emit_info(struct impl *this)
+{
+	if (this->callbacks && this->callbacks->info && this->info.change_mask) {
+		this->callbacks->info(this->user_data, &this->info);
+		this->info.change_mask = 0;
+	}
+}
+
 static void emit_port_info(struct impl *this, struct port *port)
 {
 	if (this->callbacks && this->callbacks->port_info && port->info.change_mask) {
@@ -614,20 +613,22 @@ impl_node_set_callbacks(struct spa_node *node,
 	this->callbacks = callbacks;
 	this->user_data = user_data;
 
+	emit_info(this);
 	emit_port_info(this, GET_IN_PORT(this, 0));
 	emit_port_info(this, GET_OUT_PORT(this, 0));
 
 	return 0;
 }
 
-static int impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+static int impl_node_add_port(struct spa_node *node,
+		enum spa_direction direction, uint32_t port_id,
 		const struct spa_dict *props)
 {
 	return -ENOTSUP;
 }
 
-static int
-impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
+static int impl_node_remove_port(struct spa_node *node,
+		enum spa_direction direction, uint32_t port_id)
 {
 	return -ENOTSUP;
 }
@@ -703,22 +704,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_List:
-	{
-		uint32_t list[] = { SPA_PARAM_EnumFormat,
-				    SPA_PARAM_Format,
-				    SPA_PARAM_Buffers,
-				    SPA_PARAM_Meta,
-				    SPA_PARAM_IO };
-
-		if (result.index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
-		else
-			return 0;
-		break;
-	}
 	case SPA_PARAM_EnumFormat:
 		if ((res = port_enum_formats(node, direction, port_id,
 						result.index, &param, &b)) <= 0)
@@ -764,9 +749,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 		break;
 	}
 	case SPA_PARAM_Meta:
-		if (!port->have_format)
-			return -EIO;
-
 		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
@@ -870,6 +852,15 @@ static int port_set_format(struct spa_node *node,
 
 		spa_log_debug(this->log, NAME " %p: set format on port %d %d", this, port_id, res);
 	}
+	if (port->have_format) {
+		port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
+		port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	} else {
+		port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	}
+	emit_port_info(this, port);
+
 	return res;
 }
 
@@ -1206,6 +1197,14 @@ impl_init(const struct spa_handle_factory *factory,
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 
 	this->node = impl_node;
+	this->info = SPA_NODE_INFO_INIT();
+	this->info.change_mask = SPA_NODE_CHANGE_MASK_FLAGS;
+	this->info.flags = SPA_NODE_FLAG_RT;
+	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
+	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+	this->info.params = this->params;
+	this->info.n_params = 2;
+	props_reset(&this->props);
 
 	port = GET_OUT_PORT(this, 0);
 	port->direction = SPA_DIRECTION_OUTPUT;
@@ -1213,6 +1212,13 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
 	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->info.params = port->params;
+	port->info.n_params = 5;
 	spa_list_init(&port->queue);
 
 	port = GET_IN_PORT(this, 0);
@@ -1221,9 +1227,14 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
 	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->info.params = port->params;
+	port->info.n_params = 0;
 	spa_list_init(&port->queue);
-
-	props_reset(&this->props);
 
 	return 0;
 }

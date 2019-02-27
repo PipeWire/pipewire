@@ -41,7 +41,6 @@ extern "C" {
 
 static const struct spa_type_info spa_type_param[] = {
 	{ SPA_PARAM_Invalid, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ID_BASE "Invalid", NULL },
-	{ SPA_PARAM_List,  SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ID_BASE "List", NULL },
 	{ SPA_PARAM_PropInfo, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ID_BASE "PropInfo", NULL },
 	{ SPA_PARAM_Props, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ID_BASE "Props", NULL },
 	{ SPA_PARAM_EnumFormat, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ID_BASE "EnumFormat", NULL },
@@ -56,16 +55,6 @@ static const struct spa_type_info spa_type_param[] = {
 /* base for parameter objects */
 #define SPA_TYPE_INFO_Param			SPA_TYPE_INFO_OBJECT_BASE "Param"
 #define SPA_TYPE_INFO_PARAM_BASE		SPA_TYPE_INFO_Param ":"
-
-/* object with supported parameter id */
-#define SPA_TYPE_INFO_PARAM_List		SPA_TYPE_INFO_PARAM_BASE "List"
-#define SPA_TYPE_INFO_PARAM_LIST_BASE		SPA_TYPE_INFO_PARAM_List ":"
-
-static const struct spa_type_info spa_type_param_list[] = {
-	{ SPA_PARAM_LIST_START, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_LIST_BASE, spa_type_param },
-	{ SPA_PARAM_LIST_id, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_LIST_BASE "id", spa_type_param },
-	{ 0, 0, NULL, NULL },
-};
 
 #define SPA_TYPE_INFO_Props			SPA_TYPE_INFO_PARAM_BASE "Props"
 #define SPA_TYPE_INFO_PROPS_BASE		SPA_TYPE_INFO_Props ":"

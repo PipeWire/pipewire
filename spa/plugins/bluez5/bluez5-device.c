@@ -1,4 +1,4 @@
-/* Spa ALSA Device
+/* Spa Bluez5 Device
  *
  * Copyright © 2018 Wim Taymans
  *
@@ -100,8 +100,8 @@ static int emit_nodes(struct impl *this)
 			info = SPA_DEVICE_OBJECT_INFO_INIT();
 			info.type = SPA_TYPE_INTERFACE_Node;
 			info.factory = &spa_a2dp_sink_factory;
-			info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_INFO;
-			info.info = &SPA_DICT_INIT_ARRAY(items);
+			info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
+			info.props = &SPA_DICT_INIT_ARRAY(items);
 
 			this->callbacks->object_info(this->callbacks_data, 0, &info);
 			break;
@@ -133,8 +133,11 @@ static int impl_set_callbacks(struct spa_device *device,
 			struct spa_device_info info;
 
 			info = SPA_DEVICE_INFO_INIT();
-			info.change_mask = SPA_DEVICE_CHANGE_MASK_INFO | SPA_DEVICE_CHANGE_MASK_PARAMS;
-			info.info = &SPA_DICT_INIT_ARRAY(info_items);
+
+			info.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
+			info.props = &SPA_DICT_INIT_ARRAY(info_items);
+
+			info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 			info.n_params = 0;
 			info.params = NULL;
 

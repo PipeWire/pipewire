@@ -32,6 +32,7 @@
 #include <spa/utils/list.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
+#include <spa/node/utils.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
@@ -79,8 +80,7 @@ struct port {
 	struct spa_io_range *ctrl;
 
 	struct spa_port_info info;
-	struct spa_dict info_props;
-	struct spa_dict_item info_props_items[2];
+	struct spa_param_info params[8];
 
 	bool have_format;
 	struct spa_audio_info format;
@@ -103,7 +103,9 @@ struct impl {
 	struct spa_log *log;
 	struct spa_cpu *cpu;
 
+	struct spa_node_info info;
 	struct props props;
+	struct spa_param_info params[8];
 
 	const struct spa_node_callbacks *callbacks;
 	void *user_data;
@@ -227,9 +229,22 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	return 0;
 }
 
+static void emit_info(struct impl *this)
+{
+	if (this->callbacks && this->callbacks->info && this->info.change_mask) {
+		this->callbacks->info(this->user_data, &this->info);
+		this->info.change_mask = 0;
+	}
+}
+
 static void emit_port_info(struct impl *this, struct port *port)
 {
 	if (this->callbacks && this->callbacks->port_info && port->info.change_mask) {
+		struct spa_dict_item items[1];
+
+		items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
+		port->info.props = &SPA_DICT_INIT_ARRAY(items);
+
 		this->callbacks->port_info(this->user_data, port->direction, port->id, &port->info);
 		port->info.change_mask = 0;
 	}
@@ -249,6 +264,7 @@ impl_node_set_callbacks(struct spa_node *node,
 	this->callbacks = callbacks;
 	this->user_data = user_data;
 
+	emit_info(this);
 	emit_port_info(this, GET_IN_PORT(this, 0));
 	emit_port_info(this, GET_OUT_PORT(this, 0));
 
@@ -388,22 +404,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_List:
-	{
-		uint32_t list[] = { SPA_PARAM_EnumFormat,
-				    SPA_PARAM_Format,
-				    SPA_PARAM_Buffers,
-				    SPA_PARAM_Meta,
-				    SPA_PARAM_IO };
-
-		if (result.index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
-		else
-			return 0;
-		break;
-	}
 	case SPA_PARAM_EnumFormat:
 		if ((res = port_enum_formats(node, direction, port_id,
 						result.index, &param, &b)) <= 0)
@@ -451,9 +451,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 		break;
 	}
 	case SPA_PARAM_Meta:
-		if (!port->have_format)
-			return -EIO;
-
 		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
@@ -581,6 +578,13 @@ static int port_set_format(struct spa_node *node,
 
 		spa_log_debug(this->log, NAME " %p: set format on port %d %d %d",
 				this, port_id, res, port->stride);
+	}
+	if (port->have_format) {
+		port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
+		port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	} else {
+		port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
 	return res;
 }
@@ -907,10 +911,13 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_PROPS;
 	port->info.flags = flags;
-
-	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
-	port->info_props = SPA_DICT_INIT(port->info_props_items, 1);
-	port->info.props = &port->info_props;
+	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->info.params = port->params;
+	port->info.n_params = 5;
 	port->have_format = false;
 	emit_port_info(this, port);
 
@@ -957,10 +964,15 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->cpu)
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 
+	this->info = SPA_NODE_INFO_INIT();
+	this->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
+	this->info.flags = SPA_NODE_FLAG_RT;
+	this->info.params = this->params;
+	this->info.n_params = 0;
+	props_reset(&this->props);
+
 	init_port(this, SPA_DIRECTION_OUTPUT, 0, SPA_PORT_FLAG_CAN_USE_BUFFERS);
 	init_port(this, SPA_DIRECTION_INPUT, 0, SPA_PORT_FLAG_CAN_USE_BUFFERS);
-
-	props_reset(&this->props);
 
 	return 0;
 }

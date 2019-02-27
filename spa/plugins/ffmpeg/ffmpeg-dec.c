@@ -43,18 +43,26 @@
 #define MAX_BUFFERS    32
 
 struct buffer {
+	uint32_t id;
+	uint32_t flags;
 	struct spa_buffer *outbuf;
-	bool outstanding;
-	struct buffer *next;
+	struct spa_list link;
 };
 
 struct port {
-	bool have_format;
-	struct spa_video_info current_format;
-	bool have_buffers;
-	struct buffer buffers[MAX_BUFFERS];
 	struct spa_port_info info;
+	struct spa_param_info params[8];
+
+	struct spa_video_info current_format;
+	int have_format:1;
+
+	struct buffer buffers[MAX_BUFFERS];
+	uint32_t n_buffers;
+
 	struct spa_io_buffers *io;
+
+	struct spa_list free;
+	struct spa_list ready;
 };
 
 struct impl {
@@ -62,6 +70,9 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
+
+	struct spa_node_info info;
+	struct spa_param_info params[2];
 
 	const struct spa_node_callbacks *callbacks;
 	void *user_data;
@@ -113,6 +124,14 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	return 0;
 }
 
+static void emit_node_info(struct impl *this)
+{
+	if (this->callbacks && this->callbacks->info && this->info.change_mask) {
+		this->callbacks->info(this->user_data, &this->info);
+		this->info.change_mask = 0;
+	}
+}
+
 static void emit_port_info(struct impl *this, enum spa_direction direction, uint32_t id)
 {
 	struct port *port = GET_PORT(this, direction, id);
@@ -138,6 +157,7 @@ impl_node_set_callbacks(struct spa_node *node,
 	this->callbacks = callbacks;
 	this->user_data = user_data;
 
+	emit_node_info(this);
 	emit_port_info(this, SPA_DIRECTION_INPUT, 0);
 	emit_port_info(this, SPA_DIRECTION_OUTPUT, 0);
 
@@ -228,19 +248,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_List:
-	{
-		uint32_t list[] = { SPA_PARAM_EnumFormat,
-				    SPA_PARAM_Format };
-
-		if (result.index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
-		else
-			return 0;
-		break;
-	}
 	case SPA_PARAM_EnumFormat:
 		if ((res = port_enum_formats(node, direction, port_id,
 						result.index, filter, &param, &b)) <= 0)
@@ -290,7 +297,6 @@ static int port_set_format(struct spa_node *node,
 
 	if (format == NULL) {
 		port->have_format = false;
-		return 0;
 	} else {
 		struct spa_video_info info = { 0 };
 
@@ -474,16 +480,32 @@ spa_ffmpeg_dec_init(struct spa_handle *handle,
 	}
 
 	this->node = impl_node;
+	this->info = SPA_NODE_INFO_INIT();
+	this->info.max_input_ports = 1;
+	this->info.max_output_ports = 1;
+	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS;
+	this->info.flags = SPA_NODE_FLAG_RT;
+	this->info.params = this->params;
 
 	port = GET_IN_PORT(this, 0);
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
+	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
 	port->info.flags = 0;
+	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	port->info.params = port->params;
+	port->info.n_params = 2;
 
 	port = GET_OUT_PORT(this, 0);
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
+	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
 	port->info.flags = 0;
+	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	port->info.params = port->params;
+	port->info.n_params = 2;
 
 	return 0;
 }

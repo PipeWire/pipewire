@@ -74,21 +74,25 @@ static int emit_info(struct impl *this)
 	int res;
 	struct spa_dict_item items[6];
 	struct spa_device_info info;
-	uint32_t params[] = { SPA_PARAM_EnumProfile, SPA_PARAM_Profile };
+	struct spa_param_info params[2];
 
 	if ((res = spa_v4l2_open(&this->dev, this->props.device)) < 0)
 		return res;
 
 	info = SPA_DEVICE_INFO_INIT();
-	info.change_mask =  SPA_DEVICE_CHANGE_MASK_INFO | SPA_DEVICE_CHANGE_MASK_PARAMS;
 
+	info.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
 	items[0] = SPA_DICT_ITEM_INIT("device.api", "v4l2");
 	items[1] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
 	items[2] = SPA_DICT_ITEM_INIT("media.class", "Video/Device");
 	items[3] = SPA_DICT_ITEM_INIT("v4l2.driver", (char *)this->dev.cap.driver);
 	items[4] = SPA_DICT_ITEM_INIT("v4l2.card", (char *)this->dev.cap.card);
 	items[5] = SPA_DICT_ITEM_INIT("v4l2.bus", (char *)this->dev.cap.bus_info);
-	info.info = &SPA_DICT_INIT(items, 6);
+	info.props = &SPA_DICT_INIT(items, 6);
+
+	info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);
+	params[1] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
 	info.n_params = SPA_N_ELEMENTS(params);
 	info.params = params;
 
@@ -103,8 +107,8 @@ static int emit_info(struct impl *this)
 			oinfo = SPA_DEVICE_OBJECT_INFO_INIT();
 			oinfo.type = SPA_TYPE_INTERFACE_Node;
 			oinfo.factory = &spa_v4l2_source_factory;
-			oinfo.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_INFO;
-			oinfo.info = &SPA_DICT_INIT(items, 6);
+			oinfo.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
+			oinfo.props = &SPA_DICT_INIT(items, 6);
 
 			this->callbacks->object_info(this->callbacks_data, 0, &oinfo);
 		}

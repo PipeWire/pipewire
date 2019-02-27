@@ -166,10 +166,26 @@ static int start_node(struct pw_node *this)
 	return res;
 }
 
+static void emit_info_changed(struct pw_node *node)
+{
+	struct pw_resource *resource;
+
+	if (node->info.change_mask == 0)
+		return;
+
+	pw_node_emit_info_changed(node, &node->info);
+
+	if (node->global)
+		spa_list_for_each(resource, &node->global->resource_list, link)
+			pw_node_resource_info(resource, &node->info);
+
+	node->info.change_mask = 0;
+}
+
+
 static void node_update_state(struct pw_node *node, enum pw_node_state state, char *error)
 {
 	enum pw_node_state old;
-	struct pw_resource *resource;
 
 	old = node->info.state;
 	if (old == state)
@@ -198,15 +214,8 @@ static void node_update_state(struct pw_node *node, enum pw_node_state state, ch
 	pw_node_emit_state_changed(node, old, state, error);
 
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;
-	pw_node_emit_info_changed(node, &node->info);
-
-	if (node->global)
-		spa_list_for_each(resource, &node->global->resource_list, link)
-			pw_node_resource_info(resource, &node->info);
-
-	node->info.change_mask = 0;
+	emit_info_changed(node);
 }
-
 
 static int suspend_node(struct pw_node *this)
 {
@@ -274,8 +283,10 @@ static int node_enum_params(void *object, int seq, uint32_t id,
 				filter, reply_param, data)) < 0) {
 		pw_log_error("resource %p: %d error %d (%s)", resource,
 				resource->id, res, spa_strerror(res));
-		pw_core_resource_error(client->core_resource,
-				resource->id, seq, res, spa_strerror(res));
+		pw_core_resource_errorf(client->core_resource,
+				resource->id, seq, res,
+				"enum params %s failed",
+				spa_debug_type_find_name(spa_type_param, id));
 	}
 	return 0;
 }
@@ -344,7 +355,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	spa_list_append(&global->resource_list, &resource->link);
 
-	this->info.change_mask = ~0;
+	this->info.change_mask = PW_NODE_CHANGE_MASK_ALL;
 	pw_node_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 	return 0;
@@ -694,6 +705,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this->info.state = PW_NODE_STATE_CREATING;
 	this->info.props = &this->properties->dict;
+	this->info.params = this->params;
 
 	spa_list_init(&this->input_ports);
 	pw_map_init(&this->input_port_map, 64, 64);
@@ -767,41 +779,48 @@ const struct pw_properties *pw_node_get_properties(struct pw_node *node)
 	return node->properties;
 }
 
-SPA_EXPORT
-int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
+static int update_properties(struct pw_node *node, const struct spa_dict *dict)
 {
-	struct pw_resource *resource;
 	int changed;
 
 	changed = pw_properties_update(node->properties, dict);
 
 	pw_log_debug("node %p: updated %d properties", node, changed);
 
-	if (!changed)
-		return 0;
+	if (changed) {
+		check_properties(node);
+		node->info.props = &node->properties->dict;
+		node->info.change_mask |= PW_NODE_CHANGE_MASK_PROPS;
+	}
+	return changed;
+}
 
-	check_properties(node);
-
-	node->info.props = &node->properties->dict;
-	node->info.change_mask |= PW_NODE_CHANGE_MASK_PROPS;
-	pw_node_emit_info_changed(node, &node->info);
-
-	if (node->global)
-		spa_list_for_each(resource, &node->global->resource_list, link)
-			pw_node_resource_info(resource, &node->info);
-
-	node->info.change_mask = 0;
-
+SPA_EXPORT
+int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
+{
+	int changed = update_properties(node, dict);
+	emit_info_changed(node);
 	return changed;
 }
 
 static int node_info(void *data, const struct spa_node_info *info)
 {
 	struct pw_node *node = data;
+
 	node->info.max_input_ports = info->max_input_ports;
 	node->info.max_output_ports = info->max_output_ports;
-	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS)
-		pw_node_update_properties(node, info->props);
+
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS) {
+		update_properties(node, info->props);
+	}
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
+		node->info.change_mask |= PW_NODE_CHANGE_MASK_PARAMS;
+		node->info.n_params = SPA_MIN(info->n_params, SPA_N_ELEMENTS(node->params));
+		memcpy(node->info.params, info->params,
+				node->info.n_params * sizeof(struct spa_param_info));
+	}
+	emit_info_changed(node);
+
 	return 0;
 }
 
@@ -821,22 +840,16 @@ static int node_port_info(void *data, enum spa_direction direction, uint32_t por
 					pw_direction_as_string(direction), port_id);
 		}
 	} else if (port) {
-		if (info->change_mask & SPA_PORT_CHANGE_MASK_FLAGS)
-			port->spa_flags = info->flags;
-		if (info->change_mask & SPA_PORT_CHANGE_MASK_PROPS)
-			pw_port_update_properties(port, info->props);
+		pw_log_debug("node %p: %s port %d changed", node,
+				pw_direction_as_string(direction), port_id);
+		pw_port_update_info(port, info);
 	} else {
 		int res;
-		struct pw_properties *props;
 
 		pw_log_debug("node %p: %s port %d added", node,
 				pw_direction_as_string(direction), port_id);
 
-		props = info->props ?
-				pw_properties_new_dict(info->props) :
-				pw_properties_new(NULL, NULL);
-
-		if ((port = pw_port_new(direction, port_id, info->flags, props,
+		if ((port = pw_port_new(direction, port_id, info,
 					node->port_user_data_size))) {
 			if ((res = pw_port_add(port, node)) < 0) {
 				pw_log_error("node %p: can't add port %p: %d, %s",

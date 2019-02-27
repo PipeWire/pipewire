@@ -52,92 +52,71 @@ struct data {
 	struct spa_pending_queue pending;
 };
 
+static int print_param(struct spa_pending *pending, const void *result)
+{
+	const struct spa_result_node_params *r = result;
+
+	if (spa_pod_is_object_type(r->param, SPA_TYPE_OBJECT_Format))
+		spa_debug_format(16, NULL, r->param);
+	else
+		spa_debug_pod(16, NULL, r->param);
+	return 0;
+}
+
 static void
-inspect_node_params(struct data *data, struct spa_node *node)
+inspect_node_params(struct data *data, struct spa_node *node,
+		uint32_t n_params, struct spa_param_info *params)
 {
 	int res;
-	uint32_t idx1, idx2;
+	uint32_t i;
+	struct spa_pending pending;
 
-	for (idx1 = 0;;) {
-		uint32_t buffer[4096];
-		struct spa_pod_builder b = { 0 };
-		struct spa_pod *param;
-		uint32_t id;
+	for (i = 0; i < n_params; i++) {
+		printf("enumerating: %s:\n", spa_debug_type_find_name(spa_type_param, params[i].id));
 
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if ((res = spa_node_enum_params_sync(node,
-						SPA_PARAM_List, &idx1,
-						NULL, &param, &b,
-						&data->pending)) != 1) {
-			if (res != 0)
-				error(0, -res, "enum_params");
+		if (!SPA_FLAG_CHECK(params[i].flags, SPA_PARAM_INFO_READ))
+			continue;
+
+		spa_pending_queue_add(&data->pending, 0, &pending, print_param, data);
+		res = spa_node_enum_params(node, 0, params[i].id, 0, UINT32_MAX, NULL);
+		spa_pending_remove(&pending);
+
+		if (res != 0) {
+			error(0, -res, "enum_params %d", params[i].id);
 			break;
-		}
-
-		spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_ParamList, NULL,
-				SPA_PARAM_LIST_id, SPA_POD_Id(&id));
-
-		printf("enumerating: %s:\n", spa_debug_type_find_name(spa_type_param, id));
-		for (idx2 = 0;;) {
-			spa_pod_builder_init(&b, buffer, sizeof(buffer));
-			if ((res = spa_node_enum_params_sync(node,
-							id, &idx2,
-							NULL, &param, &b,
-							&data->pending)) != 1) {
-				if (res != 0)
-					error(0, -res, "enum_params %d", id);
-				break;
-			}
-			spa_debug_pod(0, NULL, param);
 		}
 	}
 }
 
 static void
 inspect_port_params(struct data *data, struct spa_node *node,
-		    enum spa_direction direction, uint32_t port_id)
+		    enum spa_direction direction, uint32_t port_id,
+		    uint32_t n_params, struct spa_param_info *params)
 {
 	int res;
-	uint32_t idx1, idx2;
+	uint32_t i;
+	struct spa_pending pending;
 
-	for (idx1 = 0;;) {
-		uint32_t buffer[4096];
-		struct spa_pod_builder b = { 0 };
-		struct spa_pod *param;
-		uint32_t id;
+	for (i = 0; i < n_params; i++) {
+		printf("param: %s: flags %c%c\n",
+				spa_debug_type_find_name(spa_type_param, params[i].id),
+				params[i].flags & SPA_PARAM_INFO_READ ? 'r' : '-',
+				params[i].flags & SPA_PARAM_INFO_WRITE ? 'w' : '-');
 
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if ((res = spa_node_port_enum_params_sync(node,
-						     direction, port_id,
-						     SPA_PARAM_List, &idx1,
-						     NULL, &param, &b,
-						     &data->pending)) != 1) {
-			if (res != 0)
-				error(0, -res, "port_enum_params");
+		if (!SPA_FLAG_CHECK(params[i].flags, SPA_PARAM_INFO_READ))
+			continue;
+
+		printf("values:\n");
+		spa_pending_queue_add(&data->pending, 0, &pending, print_param, data);
+		res = spa_node_port_enum_params(node, 0,
+				direction, port_id,
+				params[i].id, 0, UINT32_MAX,
+				NULL);
+		spa_pending_remove(&pending);
+
+		if (res != 0) {
+			error(0, -res, "port_enum_params %d", params[i].id);
 			break;
-		}
-		spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_ParamList, NULL,
-				SPA_PARAM_LIST_id, SPA_POD_Id(&id));
-
-		printf("enumerating: %s:\n", spa_debug_type_find_name(spa_type_param, id));
-		for (idx2 = 0;;) {
-			spa_pod_builder_init(&b, buffer, sizeof(buffer));
-			if ((res = spa_node_port_enum_params_sync(node,
-							     direction, port_id,
-							     id, &idx2,
-							     NULL, &param, &b,
-							     &data->pending)) != 1) {
-				if (res != 0)
-					error(0, -res, "port_enum_params");
-				break;
-			}
-
-			if (spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Format))
-				spa_debug_format(0, NULL, param);
-			else
-				spa_debug_pod(0, NULL, param);
 		}
 	}
 }
@@ -146,6 +125,7 @@ static int node_info(void *_data, const struct spa_node_info *info)
 {
 	struct data *data = _data;
 
+	printf("node info: %08lx\n", info->change_mask);
 	printf("max input ports: %u\n", info->max_input_ports);
 	printf("max output ports: %u\n", info->max_output_ports);
 
@@ -153,7 +133,9 @@ static int node_info(void *_data, const struct spa_node_info *info)
 		printf("node properties:\n");
 		spa_debug_dict(2, info->props);
 	}
-	inspect_node_params(data, data->node);
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
+		inspect_node_params(data, data->node, info->n_params, info->params);
+	}
 	return 0;
 }
 
@@ -162,14 +144,23 @@ static int node_port_info(void *_data, enum spa_direction direction, uint32_t id
 {
 	struct data *data = _data;
 
+	printf(" %s port: %08x",
+		direction == SPA_DIRECTION_INPUT ? "input" : "output",
+		id);
+
 	if (info == NULL) {
-		printf("port %d removed", id);
+		printf(" removed\n");
 	}
 	else {
-		printf(" %s port: %08x\n",
-				direction == SPA_DIRECTION_INPUT ? "input" : "output",
-				id);
-		inspect_port_params(data, data->node, direction, id);
+		printf(" info:\n");
+		if (info->change_mask & SPA_PORT_CHANGE_MASK_PROPS) {
+			printf("port properties:\n");
+			spa_debug_dict(2, info->props);
+		}
+		if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
+			inspect_port_params(data, data->node, direction, id,
+					info->n_params, info->params);
+		}
 	}
 	return 0;
 }
@@ -190,7 +181,6 @@ static const struct spa_node_callbacks node_callbacks =
 
 static void inspect_node(struct data *data, struct spa_node *node)
 {
-	printf("node info:\n");
 	data->node = node;
 	spa_node_set_callbacks(node, &node_callbacks, data);
 }

@@ -110,13 +110,23 @@ static int impl_set_callbacks(struct spa_node *node,
 
 	if (d->callbacks && d->callbacks->port_info) {
 		struct spa_port_info info;
-		struct spa_dict_item port_items[1];
+		struct spa_dict_item items[1];
+		struct spa_param_info params[5];
 
 		info = SPA_PORT_INFO_INIT();
-		info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_PROPS;
+		info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
 		info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
-		port_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
-		info.props = &SPA_DICT_INIT_ARRAY(port_items);
+		info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
+		items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
+		info.props = &SPA_DICT_INIT_ARRAY(items);
+		info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+		params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+		params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+		params[3] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+		params[4] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		info.params = params;
+		info.n_params = 5;
 
 		d->callbacks->port_info(d->callbacks_data, SPA_DIRECTION_OUTPUT, 0, &info);
 	}
@@ -169,22 +179,6 @@ static int impl_port_enum_params(struct spa_node *node, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_List:
-	{
-		uint32_t list[] = { SPA_PARAM_EnumFormat,
-				    SPA_PARAM_Format,
-				    SPA_PARAM_Buffers,
-				    SPA_PARAM_Meta,
-				    SPA_PARAM_IO };
-
-		if (result.index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamList, id,
-				SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
-		else
-			return 0;
-		break;
-	}
 	case SPA_PARAM_EnumFormat:
 		if (result.index != 0)
 			return 0;

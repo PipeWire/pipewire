@@ -379,7 +379,7 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 
 		result.index = result.next++;
 		if (result.index >= this->n_params)
-			return 0;
+			break;
 
 		param = this->params[result.index];
 
@@ -390,10 +390,11 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
 			continue;
 
+		pw_log_debug("client-node %p: %d param %u", this, seq, result.index);
 		if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
 			return res;
 
-		if (++count != num)
+		if (++count == num)
 			break;
 	}
 	return 0;
@@ -668,7 +669,7 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 
 		result.index = result.next++;
 		if (result.index >= port->n_params)
-			return 0;
+			break;
 
 		param = port->params[result.index];
 
@@ -683,7 +684,7 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 		if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
 			return res;
 
-		if (++count != num)
+		if (++count == num)
 			break;
 	}
 	return 0;

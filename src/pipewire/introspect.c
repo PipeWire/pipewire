@@ -179,7 +179,6 @@ SPA_EXPORT
 struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 					 const struct pw_node_info *update)
 {
-
 	if (update == NULL)
 		return info;
 
@@ -214,6 +213,17 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 			pw_spa_dict_destroy(info->props);
 		info->props = pw_spa_dict_copy(update->props);
 	}
+	if (update->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
+		info->n_params = update->n_params;
+		free((void *) info->params);
+		if (update->params) {
+			size_t size = info->n_params * sizeof(struct spa_param_info);
+			info->params = malloc(size);
+			memcpy(info->params, update->params, size);
+		}
+		else
+			info->params = NULL;
+	}
 	return info;
 }
 
@@ -225,6 +235,7 @@ void pw_node_info_free(struct pw_node_info *info)
 	free((void *) info->error);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
+	free((void *) info->params);
 	free(info);
 }
 
@@ -250,6 +261,17 @@ struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 			pw_spa_dict_destroy(info->props);
 		info->props = pw_spa_dict_copy(update->props);
 	}
+	if (update->change_mask & PW_PORT_CHANGE_MASK_PARAMS) {
+		info->n_params = update->n_params;
+		free((void *) info->params);
+		if (update->params) {
+			size_t size = info->n_params * sizeof(struct spa_param_info);
+			info->params = malloc(size);
+			memcpy(info->params, update->params, size);
+		}
+		else
+			info->params = NULL;
+	}
 	return info;
 }
 
@@ -259,6 +281,7 @@ void pw_port_info_free(struct pw_port_info *info)
 
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
+	free((void *) info->params);
 	free(info);
 }
 

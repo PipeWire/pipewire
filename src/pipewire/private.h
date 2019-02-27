@@ -261,7 +261,8 @@ struct pw_device {
 	struct spa_hook global_listener;
 
 	struct pw_properties *properties;	/**< properties of the device */
-	struct pw_device_info info;     /**< introspectable device info */
+	struct pw_device_info info;		/**< introspectable device info */
+	struct spa_param_info params[32];
 
 	struct spa_device *implementation;	/**< implementation */
 	struct spa_hook_list listener_list;
@@ -333,6 +334,7 @@ struct pw_node {
 	struct pw_properties *properties;	/**< properties of the node */
 
 	struct pw_node_info info;		/**< introspectable node info */
+	struct spa_param_info params[32];
 
 	int registered:1;
 	int enabled:1;			/**< if the node is enabled */
@@ -440,6 +442,7 @@ struct pw_port {
 
 	struct pw_properties *properties;	/**< properties of the port */
 	struct pw_port_info info;
+	struct spa_param_info params[32];
 
 	struct allocation allocation;
 
@@ -700,9 +703,10 @@ const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint
 struct pw_port *
 pw_port_new(enum pw_direction direction,
 	    uint32_t port_id,
-	    uint32_t spa_flags,
-	    struct pw_properties *properties,
+	    const struct spa_port_info *info,
 	    size_t user_data_size);
+
+void pw_port_update_info(struct pw_port *port, const struct spa_port_info *info);
 
 int pw_port_register(struct pw_port *port,
 		     struct pw_client *owner,

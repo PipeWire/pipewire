@@ -137,20 +137,6 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_List:
-	{
-		uint32_t list[] = { SPA_PARAM_Props,
-				    SPA_PARAM_EnumFormat,
-				    SPA_PARAM_Format };
-
-		if (result.index < SPA_N_ELEMENTS(list))
-			param = spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_ParamList, id,
-					SPA_PARAM_LIST_id, SPA_POD_Id(list[result.index]));
-		else
-			return 0;
-		break;
-	}
 	case SPA_PARAM_Props:
 		if (impl->adapter == impl->cnode)
 			return 0;
@@ -326,6 +312,26 @@ static const struct spa_node_callbacks adapter_node_callbacks = {
 	.result = adapter_result,
 };
 
+static void emit_node_info(struct node *this)
+{
+	if (this->callbacks && this->callbacks->info) {
+		struct spa_node_info info;
+		struct spa_param_info params[4];
+
+		info = SPA_NODE_INFO_INIT();
+		info.max_input_ports = 0;
+		info.max_output_ports = 0;
+		info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+		params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+		params[2] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
+		params[3] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
+		info.params = params;
+		info.n_params = 4;
+		this->callbacks->info(this->callbacks_data, &info);
+	}
+}
+
 static int
 impl_node_set_callbacks(struct spa_node *node,
 			const struct spa_node_callbacks *callbacks,
@@ -341,6 +347,8 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this->callbacks = callbacks;
 	this->callbacks_data = data;
+
+	emit_node_info(this);
 
 	if (this->callbacks && impl->adapter && impl->adapter != impl->cnode)
 		spa_node_set_callbacks(impl->adapter, &adapter_node_callbacks, impl);

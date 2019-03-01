@@ -98,11 +98,11 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 	return 0;
 }
 
-static int core_event_ping(void *data, uint32_t id, int seq)
+static void core_event_ping(void *data, uint32_t id, int seq)
 {
 	struct pw_remote *this = data;
 	pw_log_debug("remote %p: object %u ping %u", this, id, seq);
-	return pw_core_proxy_pong(this->core_proxy, id, seq);
+	pw_core_proxy_pong(this->core_proxy, id, seq);
 }
 
 static void core_event_done(void *data, uint32_t id, int seq)

@@ -514,14 +514,13 @@ jack_get_version_string(void)
 	return "0.0.0.0";
 }
 
-static int on_sync_reply(void *data, uint32_t id, int seq)
+static void on_sync_reply(void *data, uint32_t id, int seq)
 {
 	struct client *client = data;
 	if (id != 0)
-		return 0;
+		return;
 	client->last_sync = seq;
 	pw_thread_loop_signal(client->context.loop, false);
-	return 0;
 }
 
 static void on_state_changed(void *data, enum pw_remote_state old,
@@ -1614,7 +1613,7 @@ static const char* type_to_string(jack_port_type_id_t type_id)
 	}
 }
 
-static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
+static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
                                   uint32_t permissions, uint32_t type, uint32_t version,
                                   const struct spa_dict *props)
 {
@@ -1624,7 +1623,7 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	size_t size;
 
 	if (props == NULL)
-		return 0;
+		return;
 
 	if (type == PW_TYPE_INTERFACE_Node) {
 		if ((str = spa_dict_lookup(props, "node.name")) == NULL)
@@ -1748,13 +1747,13 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 			c->connect_callback(o->port_link.src, o->port_link.dst, 1, c->connect_arg);
 	}
       exit:
-	return 0;
+	return;
       exit_free:
 	free_object(c, o);
-	return 0;
+	return;
 }
 
-static int registry_event_global_remove(void *object, uint32_t id)
+static void registry_event_global_remove(void *object, uint32_t id)
 {
 	struct client *c = (struct client *) object;
 	struct object *o;
@@ -1763,7 +1762,7 @@ static int registry_event_global_remove(void *object, uint32_t id)
 
 	o = pw_map_lookup(&c->context.globals, id);
 	if (o == NULL)
-		return 0;
+		return;
 
 	if (o->type == PW_TYPE_INTERFACE_Node) {
 		if (c->registration_callback)
@@ -1784,7 +1783,7 @@ static int registry_event_global_remove(void *object, uint32_t id)
 	 * pw_map_insert_at(&c->context.globals, id, NULL);
 	 **/
 	free_object(c, o);
-	return 0;
+	return;
 }
 
 static const struct pw_registry_proxy_events registry_events = {

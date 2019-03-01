@@ -49,10 +49,10 @@ struct data {
 	struct spa_log *log;
 	struct spa_loop loop;
 	struct spa_node *node;
-	struct spa_pending_queue pending;
+	struct spa_hook listener;
 };
 
-static int print_param(struct spa_pending *pending, const void *result)
+static int print_param(void *data, int seq, int res, const void *result)
 {
 	const struct spa_result_node_params *r = result;
 
@@ -69,7 +69,11 @@ inspect_node_params(struct data *data, struct spa_node *node,
 {
 	int res;
 	uint32_t i;
-	struct spa_pending pending;
+	struct spa_hook listener;
+	static const struct spa_node_events node_events = {
+		SPA_VERSION_NODE_EVENTS,
+		.result = print_param,
+	};
 
 	for (i = 0; i < n_params; i++) {
 		printf("enumerating: %s:\n", spa_debug_type_find_name(spa_type_param, params[i].id));
@@ -77,9 +81,9 @@ inspect_node_params(struct data *data, struct spa_node *node,
 		if (!SPA_FLAG_CHECK(params[i].flags, SPA_PARAM_INFO_READ))
 			continue;
 
-		spa_pending_queue_add(&data->pending, 0, &pending, print_param, data);
+		spa_node_add_listener(node, &listener, &node_events, data);
 		res = spa_node_enum_params(node, 0, params[i].id, 0, UINT32_MAX, NULL);
-		spa_pending_remove(&pending);
+		spa_hook_remove(&listener);
 
 		if (res != 0) {
 			error(0, -res, "enum_params %d", params[i].id);
@@ -95,7 +99,11 @@ inspect_port_params(struct data *data, struct spa_node *node,
 {
 	int res;
 	uint32_t i;
-	struct spa_pending pending;
+	struct spa_hook listener;
+	static const struct spa_node_events node_events = {
+		SPA_VERSION_NODE_EVENTS,
+		.result = print_param,
+	};
 
 	for (i = 0; i < n_params; i++) {
 		printf("param: %s: flags %c%c\n",
@@ -107,12 +115,12 @@ inspect_port_params(struct data *data, struct spa_node *node,
 			continue;
 
 		printf("values:\n");
-		spa_pending_queue_add(&data->pending, 0, &pending, print_param, data);
+		spa_node_add_listener(node, &listener, &node_events, data);
 		res = spa_node_port_enum_params(node, 0,
 				direction, port_id,
 				params[i].id, 0, UINT32_MAX,
 				NULL);
-		spa_pending_remove(&pending);
+		spa_hook_remove(&listener);
 
 		if (res != 0) {
 			error(0, -res, "port_enum_params %d", params[i].id);
@@ -165,24 +173,18 @@ static int node_port_info(void *_data, enum spa_direction direction, uint32_t id
 	return 0;
 }
 
-static int node_result(void *_data, int seq, int res, const void *result)
+static const struct spa_node_events node_events =
 {
-	struct data *data = _data;
-	return spa_pending_queue_complete(&data->pending, seq, res, result);
-}
-
-static const struct spa_node_callbacks node_callbacks =
-{
-	SPA_VERSION_NODE_CALLBACKS,
+	SPA_VERSION_NODE_EVENTS,
 	.info = node_info,
 	.port_info = node_port_info,
-	.result = node_result,
 };
 
 static void inspect_node(struct data *data, struct spa_node *node)
 {
 	data->node = node;
-	spa_node_set_callbacks(node, &node_callbacks, data);
+	spa_node_add_listener(node, &data->listener, &node_events, data);
+	spa_hook_remove(&data->listener);
 }
 
 static void inspect_factory(struct data *data, const struct spa_handle_factory *factory)
@@ -282,8 +284,6 @@ int main(int argc, char *argv[])
 	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, &data.loop);
 	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, &data.loop);
 	data.n_support = 3;
-
-	spa_pending_queue_init(&data.pending);
 
 	if ((handle = dlopen(argv[1], RTLD_NOW)) == NULL) {
 		printf("can't load %s\n", argv[1]);

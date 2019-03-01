@@ -798,12 +798,11 @@ struct result_port_params_data {
 			struct spa_pod *param);
 };
 
-static int result_port_params(struct spa_pending *pending, const void *result)
+static int result_port_params(void *data, int seq, int res, const void *result)
 {
-	struct result_port_params_data *d = pending->data;
-	const struct spa_result_node_params *r =
-		(const struct spa_result_node_params *)result;
-	d->callback(d->data, pending->seq, r->id, r->index, r->next, r->param);
+	struct result_port_params_data *d = data;
+	const struct spa_result_node_params *r = result;
+	d->callback(d->data, seq, r->id, r->index, r->next, r->param);
 	return 0;
 }
 
@@ -820,7 +819,11 @@ int pw_port_for_each_param(struct pw_port *port,
 	int res;
 	struct pw_node *node = port->node;
 	struct result_port_params_data user_data = { data, callback };
-	struct spa_pending pending;
+	struct spa_hook listener;
+	static const struct spa_node_events node_events = {
+		SPA_VERSION_NODE_EVENTS,
+		.result = result_port_params,
+	};
 
 	if (max == 0)
 		max = UINT32_MAX;
@@ -829,14 +832,13 @@ int pw_port_for_each_param(struct pw_port *port,
 			spa_debug_type_find_name(spa_type_param, param_id),
 			index, max);
 
-	spa_pending_queue_add(node->pending, seq, &pending,
-			result_port_params, &user_data);
-
+	spa_zero(listener);
+	spa_node_add_listener(node->node, &listener, &node_events, &user_data);
 	res = spa_node_port_enum_params(node->node, seq,
 					port->direction, port->port_id,
 					param_id, index, max,
 					filter);
-	spa_pending_remove(&pending);
+	spa_hook_remove(&listener);
 
 	pw_log_debug("port %p: res %d: (%s)", port, res, spa_strerror(res));
 	return res;

@@ -164,6 +164,25 @@ static void print_properties(struct spa_dict *props, char mark, bool header)
 	}
 }
 
+static void print_params(struct spa_param_info *params, uint32_t n_params, char mark, bool header)
+{
+	uint32_t i;
+
+	if (header)
+		fprintf(stdout, "%c\tparams: (%u)\n", mark, n_params);
+	if (params == NULL || n_params == 0) {
+		if (header)
+			fprintf(stdout, "\t\tnone\n");
+		return;
+	}
+	for (i = 0; i < n_params; i++) {
+		fprintf(stdout, "%c\t  %d (%s) %c%c\n", mark, params[i].id,
+			spa_debug_type_find_name(spa_type_param, params[i].id),
+			params[i].flags & SPA_PARAM_INFO_READ ? 'r' : '-',
+			params[i].flags & SPA_PARAM_INFO_WRITE ? 'w' : '-');
+	}
+}
+
 static bool do_not_implemented(struct data *data, const char *cmd, char *args, char **error)
 {
         asprintf(error, "Command \"%s\" not yet implemented", cmd);
@@ -182,8 +201,7 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 static bool do_destroy(struct data *data, const char *cmd, char *args, char **error);
 static bool do_create_link(struct data *data, const char *cmd, char *args, char **error);
 static bool do_export_node(struct data *data, const char *cmd, char *args, char **error);
-static bool do_node_params(struct data *data, const char *cmd, char *args, char **error);
-static bool do_port_params(struct data *data, const char *cmd, char *args, char **error);
+static bool do_enum_params(struct data *data, const char *cmd, char *args, char **error);
 static bool do_permissions(struct data *data, const char *cmd, char *args, char **error);
 static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error);
 
@@ -201,8 +219,7 @@ static struct command command_list[] = {
 	{ "destroy", "Destroy a global object. <object-id>", do_destroy },
 	{ "create-link", "Create a link between nodes. <node-id> <port-id> <node-id> <port-id> [<properties>]", do_create_link },
 	{ "export-node", "Export a local node to the current remote. <node-id> [remote-var]", do_export_node },
-	{ "node-params", "Enumerate params of a node <node-id> [<param-id-name>]", do_node_params },
-	{ "port-params", "Enumerate params of a port <port-id> [<param-id-name>]", do_port_params },
+	{ "enum-params", "Enumerate params of an object <object-id> [<param-id-name>]", do_enum_params },
 	{ "permissions", "Set permissions for a client <client-id> <permissions>", do_permissions },
 	{ "get-permissions", "Get permissions of a client <client-id>", do_get_permissions },
 };
@@ -553,7 +570,6 @@ static void info_module(struct proxy_data *pd)
 static void info_node(struct proxy_data *pd)
 {
 	struct pw_node_info *info = pd->info;
-	uint32_t i;
 
 	info_global(pd);
 	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
@@ -567,26 +583,17 @@ static void info_node(struct proxy_data *pd)
 	else
 		fprintf(stdout, "\n");
 	print_properties(info->props, MARK_CHANGE(4), true);
-	fprintf(stdout, "%c\tparams\n", MARK_CHANGE(5));
-	for (i = 0; i < info->n_params; i++) {
-		fprintf(stdout, "%c\t  %d (%s)\n", MARK_CHANGE(5), info->params[i].id,
-				spa_debug_type_find_name(spa_type_param, info->params[i].id));
-	}
+	print_params(info->params, info->n_params, MARK_CHANGE(5), true);
 	info->change_mask = 0;
 }
 
 static void info_port(struct proxy_data *pd)
 {
 	struct pw_port_info *info = pd->info;
-	uint32_t i;
 
 	info_global(pd);
 	print_properties(info->props, MARK_CHANGE(0), true);
-	fprintf(stdout, "%c\tparams\n", MARK_CHANGE(1));
-	for (i = 0; i < info->n_params; i++) {
-		fprintf(stdout, "%c\t  %d (%s)\n", MARK_CHANGE(1), info->params[i].id,
-			spa_debug_type_find_name(spa_type_param, info->params[i].id));
-	}
+	print_params(info->params, info->n_params, MARK_CHANGE(1), true);
 	info->change_mask = 0;
 }
 
@@ -635,6 +642,7 @@ static void info_device(struct proxy_data *pd)
 	info_global(pd);
 	fprintf(stdout, "\tname: \"%s\"\n", info->name);
 	print_properties(info->props, MARK_CHANGE(0), true);
+	print_params(info->params, info->n_params, MARK_CHANGE(1), true);
 	info->change_mask = 0;
 }
 
@@ -697,13 +705,13 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 	return 0;
 }
 
-static int node_event_param(void *object, int seq, uint32_t id,
+static int event_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
 	struct remote_data *rd = data->rd;
 
-	fprintf(stdout, "remote %d node %d param %d index %d\n",
+	fprintf(stdout, "remote %d object %d param %d index %d\n",
 			rd->id, data->global->id, id, index);
 
 	if (spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Format))
@@ -716,7 +724,7 @@ static int node_event_param(void *object, int seq, uint32_t id,
 static const struct pw_node_proxy_events node_events = {
 	PW_VERSION_NODE_PROXY_EVENTS,
 	.info = node_event_info,
-	.param = node_event_param
+	.param = event_param
 };
 
 
@@ -736,26 +744,10 @@ static int port_event_info(void *object, const struct pw_port_info *info)
 	return 0;
 }
 
-static int port_event_param(void *object, int seq, uint32_t id,
-		uint32_t index, uint32_t next, const struct spa_pod *param)
-{
-        struct proxy_data *data = object;
-	struct remote_data *rd = data->rd;
-
-	fprintf(stdout, "remote %d port %d param %d index %d\n",
-			rd->id, data->global->id, id, index);
-
-	if (spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Format))
-		spa_debug_format(2, NULL, param);
-	else
-		spa_debug_pod(2, NULL, param);
-	return 0;
-}
-
 static const struct pw_port_proxy_events port_events = {
 	PW_VERSION_PORT_PROXY_EVENTS,
 	.info = port_event_info,
-	.param = port_event_param
+	.param = event_param
 };
 
 static int factory_event_info(void *object, const struct pw_factory_info *info)
@@ -861,7 +853,8 @@ static int device_event_info(void *object, const struct pw_device_info *info)
 
 static const struct pw_device_proxy_events device_events = {
 	PW_VERSION_DEVICE_PROXY_EVENTS,
-	.info = device_event_info
+	.info = device_event_info,
+	.param = event_param
 };
 
 static void
@@ -1183,7 +1176,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	return false;
 }
 
-static bool do_node_params(struct data *data, const char *cmd, char *args, char **error)
+static bool do_enum_params(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[2];
@@ -1205,55 +1198,28 @@ static bool do_node_params(struct data *data, const char *cmd, char *args, char 
 		asprintf(error, "%s: unknown global %d", cmd, id);
 		return false;
 	}
-	if (global->type != PW_TYPE_INTERFACE_Node) {
-		asprintf(error, "object %d is not a node", atoi(a[0]));
-		return false;
-	}
 	if (global->proxy == NULL) {
 		if (!bind_global(rd, global, error))
 			return false;
 	}
 
-	pw_node_proxy_enum_params((struct pw_node_proxy*)global->proxy, 0,
+	switch (global->type) {
+	case PW_TYPE_INTERFACE_Node:
+		pw_node_proxy_enum_params((struct pw_node_proxy*)global->proxy, 0,
 			param_id, 0, 0, NULL);
-
-	return true;
-}
-
-static bool do_port_params(struct data *data, const char *cmd, char *args, char **error)
-{
-	struct remote_data *rd = data->current;
-	char *a[2];
-        int n;
-	uint32_t id, param_id;
-	struct global *global;
-
-	n = pw_split_ip(args, WHITESPACE, 2, a);
-	if (n < 2) {
-		asprintf(error, "%s <object-id> <param-id>", cmd);
-		return false;
-	}
-
-	id = atoi(a[0]);
-	param_id = atoi(a[1]);
-
-	global = pw_map_lookup(&rd->globals, id);
-	if (global == NULL) {
-		asprintf(error, "%s: unknown global %d", cmd, id);
-		return false;
-	}
-	if (global->type != PW_TYPE_INTERFACE_Port) {
-		asprintf(error, "object %d is not a port", atoi(a[0]));
-		return false;
-	}
-	if (global->proxy == NULL) {
-		if (!bind_global(rd, global, error))
-			return false;
-	}
-
-	pw_port_proxy_enum_params((struct pw_port_proxy*)global->proxy, 0,
+		break;
+	case PW_TYPE_INTERFACE_Port:
+		pw_port_proxy_enum_params((struct pw_port_proxy*)global->proxy, 0,
 			param_id, 0, 0, NULL);
-
+		break;
+	case PW_TYPE_INTERFACE_Device:
+		pw_device_proxy_enum_params((struct pw_device_proxy*)global->proxy, 0,
+			param_id, 0, 0, NULL);
+		break;
+	default:
+		asprintf(error, "enum-params not implemented on object %d", atoi(a[0]));
+		return false;
+	}
 	return true;
 }
 

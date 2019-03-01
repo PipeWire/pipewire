@@ -63,7 +63,6 @@ struct impl {
 	uint32_t next_position;
 	int last_error;
 
-	struct spa_pending_queue pending;
 	int pause_on_idle:1;
 };
 
@@ -373,22 +372,8 @@ static void global_destroy(void *data)
 	pw_node_destroy(this);
 }
 
-static void global_registering(void *data)
-{
-	struct pw_node *this = data;
-	struct pw_port *port;
-
-	spa_list_for_each(port, &this->input_ports, link)
-		pw_port_register(port, this->global->owner, this->global,
-				 pw_properties_copy(port->properties));
-	spa_list_for_each(port, &this->output_ports, link)
-		pw_port_register(port, this->global->owner, this->global,
-				 pw_properties_copy(port->properties));
-}
-
 static const struct pw_global_events global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
-	.registering = global_registering,
 	.destroy = global_destroy,
 };
 
@@ -399,6 +384,7 @@ int pw_node_register(struct pw_node *this,
 		     struct pw_properties *properties)
 {
 	struct pw_core *core = this->core;
+	struct pw_port *port;
 	const char *str;
 
 	pw_log_debug("node %p: register", this);
@@ -436,6 +422,13 @@ int pw_node_register(struct pw_node *this,
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 	pw_global_register(this->global, owner, parent);
+
+	spa_list_for_each(port, &this->input_ports, link)
+		pw_port_register(port, this->global->owner, this->global,
+				 pw_properties_copy(port->properties));
+	spa_list_for_each(port, &this->output_ports, link)
+		pw_port_register(port, this->global->owner, this->global,
+				 pw_properties_copy(port->properties));
 
 	return 0;
 }
@@ -688,9 +681,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 			      &this->activation) < 0)
                 goto clean_impl;
 
-	spa_pending_queue_init(&impl->pending);
-	this->pending = &impl->pending;
-
 	impl->work = pw_work_queue_new(this->core->main_loop);
 	if (impl->work == NULL)
 		goto clean_impl;
@@ -810,6 +800,10 @@ static int node_info(void *data, const struct spa_node_info *info)
 	node->info.max_input_ports = info->max_input_ports;
 	node->info.max_output_ports = info->max_output_ports;
 
+	pw_log_debug("node %p: change_mask %08lx max_in:%u max_out:%u",
+			node, info->change_mask, info->max_input_ports,
+			info->max_output_ports);
+
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS) {
 		update_properties(node, info->props);
 	}
@@ -868,7 +862,6 @@ static int node_result(void *data, int seq, int res, const void *result)
 
 	pw_log_trace("node %p: result seq:%d res:%d", node, seq, res);
 	impl->last_error = res;
-	spa_pending_queue_complete(&impl->pending, seq, res, result);
 
 	if (SPA_RESULT_IS_ASYNC(seq))
 	        pw_work_queue_complete(impl->work, &impl->this, SPA_RESULT_ASYNC_SEQ(seq), res);
@@ -933,12 +926,16 @@ static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 	return 0;
 }
 
-static const struct spa_node_callbacks node_callbacks = {
-	SPA_VERSION_NODE_CALLBACKS,
+static const struct spa_node_events node_events = {
+	SPA_VERSION_NODE_EVENTS,
 	.info = node_info,
 	.port_info = node_port_info,
 	.result = node_result,
 	.event = node_event,
+};
+
+static const struct spa_node_callbacks node_callbacks = {
+	SPA_VERSION_NODE_CALLBACKS,
 	.ready = node_ready,
 	.reuse_buffer = node_reuse_buffer,
 };
@@ -949,10 +946,17 @@ int pw_node_set_implementation(struct pw_node *node,
 {
 	int res;
 
-	node->node = spa_node;
 	pw_log_debug("node %p: implementation %p", node, spa_node);
+
+	if (node->node) {
+		pw_log_error("node %p: implementation existed %p", node, node->node);
+		return -EEXIST;
+	}
+
+	node->node = spa_node;
 	spa_graph_node_set_callbacks(&node->rt.node, &spa_graph_node_impl_default, spa_node);
-	res = spa_node_set_callbacks(node->node, &node_callbacks, node);
+	spa_node_set_callbacks(node->node, &node_callbacks, node);
+	res = spa_node_add_listener(node->node, &node->listener, &node_events, node);
 
 	if (spa_node_set_io(node->node,
 			    SPA_IO_Position,
@@ -1086,12 +1090,11 @@ struct result_node_params_data {
 			struct spa_pod *param);
 };
 
-static int result_node_params(struct spa_pending *pending, const void *result)
+static int result_node_params(void *data, int seq, int res, const void *result)
 {
-	struct result_node_params_data *d = pending->data;
-	const struct spa_result_node_params *r =
-		(const struct spa_result_node_params *)result;
-	d->callback(d->data, pending->seq, r->id, r->index, r->next, r->param);
+	struct result_node_params_data *d = data;
+	const struct spa_result_node_params *r = result;
+	d->callback(d->data, seq, r->id, r->index, r->next, r->param);
 	return 0;
 }
 
@@ -1105,24 +1108,27 @@ int pw_node_for_each_param(struct pw_node *node,
 					    struct spa_pod *param),
 			   void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	int res;
 	struct result_node_params_data user_data = { data, callback };
-	struct spa_pending pending;
+	struct spa_hook listener;
+	static const struct spa_node_events node_events = {
+		SPA_VERSION_NODE_EVENTS,
+		.result = result_node_params,
+	};
 
 	if (max == 0)
 		max = UINT32_MAX;
 
-	pw_log_debug("node %p: params %s %u %u", impl,
+	pw_log_debug("node %p: params %s %u %u", node,
 			spa_debug_type_find_name(spa_type_param, param_id),
 			index, max);
 
-	spa_pending_queue_add(&impl->pending, seq, &pending,
-			result_node_params, &user_data);
+	spa_zero(listener);
+	spa_node_add_listener(node->node, &listener, &node_events, &user_data);
 	res = spa_node_enum_params(node->node, seq,
 					param_id, index, max,
 					filter);
-	spa_pending_remove(&pending);
+	spa_hook_remove(&listener);
 
 	return res;
 }

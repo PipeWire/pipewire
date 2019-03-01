@@ -67,8 +67,7 @@ struct node {
 
 	struct spa_log *log;
 
-	const struct spa_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook_list hooks;
 };
 
 struct impl {
@@ -87,6 +86,7 @@ struct impl {
 
 	struct spa_node *cnode;
 	struct spa_node *adapter;
+	struct spa_hook adapter_listener;
 	struct spa_node *adapter_mix;
 	uint32_t adapter_mix_flags;
 	uint32_t adapter_mix_port;
@@ -103,8 +103,6 @@ struct impl {
 	struct spa_buffer **buffers;
 	uint32_t n_buffers;
 	struct pw_memblock *mem;
-
-	struct spa_pending client_node_pending;
 };
 
 /** \endcond */
@@ -126,7 +124,6 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
-	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 	impl = this->impl;
 
 	result.id = id;
@@ -142,8 +139,7 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 			return 0;
 
 		if ((res = spa_node_enum_params_sync(impl->adapter,
-						id, &start, filter, &param, &b,
-						impl->this.node->pending)) != 1)
+				id, &start, filter, &param, &b)) != 1)
 			return res;
 		break;
 
@@ -151,8 +147,7 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	case SPA_PARAM_Format:
 		if ((res = spa_node_port_enum_params_sync(impl->cnode,
 				impl->direction, 0,
-				id, &start, filter, &param, &b,
-				impl->client_node->node->pending)) != 1)
+				id, &start, filter, &param, &b)) != 1)
 			return res;
 		break;
 
@@ -163,8 +158,7 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
-		return res;
+	spa_node_emit_result(&this->hooks, seq, 0, &result);
 
 	if (++count != num)
 		goto next;
@@ -221,7 +215,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		if (impl->started)
 			return -EIO;
 		pw_log_debug("set profile %d", id);
-		if (impl->adapter != impl->cnode) {
+		if (impl->adapter && impl->adapter != impl->cnode) {
 			if ((res = spa_node_set_param(impl->adapter, id, flags, param)) < 0)
 				return res;
 
@@ -229,7 +223,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		}
 		break;
 	case SPA_PARAM_Props:
-		if (impl->adapter != impl->cnode) {
+		if (impl->adapter && impl->adapter != impl->cnode) {
 			if ((res = spa_node_set_param(impl->adapter, id, flags, param)) < 0)
 				return res;
 		}
@@ -292,44 +286,73 @@ static int adapter_port_info(void *data,
 	struct impl *impl = data;
 	struct node *this = &impl->node;
 
-	if (this->callbacks && this->callbacks->port_info) {
-		if (direction == impl->direction) {
-			this->callbacks->port_info(this->callbacks_data, direction, port_id, info);
-		}
-	}
+	if (direction == impl->direction)
+		spa_node_emit_port_info(&this->hooks, direction, port_id, info);
+
 	return 0;
 }
 static int adapter_result(void *data, int seq, int res, const void *result)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-	return this->callbacks->result(this->callbacks_data, seq, res, result);
+	pw_log_debug("%p: result %d %d", this, seq, res);
+	spa_node_emit_result(&this->hooks, seq, res, result);
+	return 0;
 }
 
-static const struct spa_node_callbacks adapter_node_callbacks = {
-	SPA_VERSION_NODE_CALLBACKS,
+static const struct spa_node_events adapter_node_events = {
+	SPA_VERSION_NODE_EVENTS,
 	.port_info = adapter_port_info,
 	.result = adapter_result,
 };
 
 static void emit_node_info(struct node *this)
 {
-	if (this->callbacks && this->callbacks->info) {
-		struct spa_node_info info;
-		struct spa_param_info params[4];
+	struct spa_node_info info;
+	struct spa_param_info params[4];
 
-		info = SPA_NODE_INFO_INIT();
-		info.max_input_ports = 0;
-		info.max_output_ports = 0;
-		info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
-		params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-		params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
-		params[2] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
-		params[3] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
-		info.params = params;
-		info.n_params = 4;
-		this->callbacks->info(this->callbacks_data, &info);
+	info = SPA_NODE_INFO_INIT();
+	info.max_input_ports = 0;
+	info.max_output_ports = 0;
+	info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+	params[2] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
+	params[3] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
+	info.params = params;
+	info.n_params = 4;
+	spa_node_emit_info(&this->hooks, &info);
+}
+
+static int impl_node_add_listener(struct spa_node *node,
+		struct spa_hook *listener,
+		const struct spa_node_events *events,
+		void *data)
+{
+	struct node *this;
+	struct impl *impl;
+	struct spa_hook l;
+	struct spa_hook_list save;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct node, node);
+	impl = this->impl;
+
+	pw_log_debug("%p: add listener %p", this, listener);
+	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
+
+	emit_node_info(this);
+
+	if (impl->adapter && impl->adapter != impl->cnode) {
+		spa_zero(l);
+		spa_node_add_listener(impl->adapter, &l, &adapter_node_events, impl);
+		spa_hook_remove(&l);
 	}
+
+	spa_hook_list_join(&this->hooks, &save);
+
+	return spa_node_sync(impl->cnode, 0);
 }
 
 static int
@@ -337,23 +360,7 @@ impl_node_set_callbacks(struct spa_node *node,
 			const struct spa_node_callbacks *callbacks,
 			void *data)
 {
-	struct node *this;
-	struct impl *impl;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct node, node);
-	impl = this->impl;
-
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
-
-	emit_node_info(this);
-
-	if (this->callbacks && impl->adapter && impl->adapter != impl->cnode)
-		spa_node_set_callbacks(impl->adapter, &adapter_node_callbacks, impl);
-
-	return spa_node_sync(impl->cnode, 0);
+	return 0;
 }
 
 static int
@@ -429,7 +436,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
-	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 	impl = this->impl;
 
 	if (direction != impl->direction)
@@ -459,8 +465,7 @@ static int debug_params(struct impl *impl, struct spa_node *node,
                 res = spa_node_port_enum_params_sync(node,
                                        direction, port_id,
                                        id, &state,
-                                       NULL, &param, &b,
-				       impl->this.node->pending);
+                                       NULL, &param, &b);
                 if (res != 1) {
 			if (res < 0)
 				spa_log_error(this->log, "  error: %s", spa_strerror(res));
@@ -495,8 +500,7 @@ static int negotiate_format(struct impl *impl)
 				SPA_DIRECTION_REVERSE(impl->direction),
 				impl->adapter_mix_port,
 				SPA_PARAM_EnumFormat, &state,
-				NULL, &format, &b,
-				impl->this.node->pending)) != 1) {
+				NULL, &format, &b)) != 1) {
 		debug_params(impl, impl->adapter_mix,
 				SPA_DIRECTION_REVERSE(impl->direction),
 				impl->adapter_mix_port,
@@ -508,8 +512,7 @@ static int negotiate_format(struct impl *impl)
 	if ((res = spa_node_port_enum_params_sync(impl->cnode,
 				impl->direction, 0,
 				SPA_PARAM_EnumFormat, &state,
-				format, &format, &b,
-				impl->client_node->node->pending)) != 1) {
+				format, &format, &b)) != 1) {
 		debug_params(impl, impl->cnode, impl->direction, 0,
 				SPA_PARAM_EnumFormat, format);
 		return -ENOTSUP;
@@ -561,8 +564,7 @@ static int negotiate_buffers(struct impl *impl)
 				SPA_DIRECTION_REVERSE(impl->direction),
 				impl->adapter_mix_port,
 				SPA_PARAM_Buffers, &state,
-				param, &param, &b,
-				impl->this.node->pending)) != 1) {
+				param, &param, &b)) != 1) {
 		debug_params(impl, impl->adapter_mix,
 				SPA_DIRECTION_REVERSE(impl->direction),
 				impl->adapter_mix_port,
@@ -576,8 +578,7 @@ static int negotiate_buffers(struct impl *impl)
 	if ((res = spa_node_port_enum_params_sync(impl->cnode,
 				impl->direction, 0,
 				SPA_PARAM_Buffers, &state,
-				param, &param, &b,
-				impl->client_node->node->pending)) < 0) {
+				param, &param, &b)) < 0) {
 		debug_params(impl, impl->cnode, impl->direction, 0,
 				SPA_PARAM_Buffers, param);
 		return res;
@@ -866,6 +867,7 @@ static int impl_node_process(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
+	.add_listener = impl_node_add_listener,
 	.set_callbacks = impl_node_set_callbacks,
 	.sync = impl_node_sync,
 	.enum_params = impl_node_enum_params,
@@ -896,6 +898,8 @@ node_init(struct node *this,
 			this->log = support[i].data;
 	}
 	this->node = impl_node;
+	spa_hook_list_init(&this->hooks);
+
 	return 0;
 }
 
@@ -910,21 +914,16 @@ static int do_port_info(void *data, struct pw_port *port)
 	info.flags = port->spa_flags;
 	info.props = &port->properties->dict;
 
-	node->callbacks->port_info(node->callbacks_data,
+	spa_node_emit_port_info(&node->hooks,
 			impl->direction, port->port_id, &info);
 	return 0;
 }
 
 static void emit_port_info(struct impl *impl)
 {
-	struct node *node = &impl->node;
-
-	if (node->callbacks && node->callbacks->port_info) {
-		pw_node_for_each_port(impl->client_node->node,
-				impl->direction,
-				do_port_info,
-				impl);
-	}
+	pw_node_for_each_port(impl->client_node->node,
+			impl->direction,
+			do_port_info, impl);
 }
 
 static void client_node_initialized(void *data)
@@ -992,8 +991,7 @@ static void client_node_initialized(void *data)
 	if ((res = spa_node_port_enum_params_sync(impl->cnode,
 				impl->direction, 0,
 				SPA_PARAM_EnumFormat, &state,
-				NULL, &format, &b,
-				impl->client_node->node->pending)) != 1) {
+				NULL, &format, &b)) != 1) {
 		pw_log_warn("client-stream %p: no format given", &impl->this);
 		impl->adapter = impl->cnode;
 		impl->adapter_mix = impl->client_port->mix;
@@ -1038,8 +1036,8 @@ static void client_node_initialized(void *data)
 		impl->adapter_mix = impl->adapter;
 		impl->adapter_mix_port = 0;
 		impl->use_converter = true;
-		if (impl->node.callbacks != NULL)
-			spa_node_set_callbacks(impl->adapter, &adapter_node_callbacks, impl);
+		spa_node_add_listener(impl->adapter, &impl->adapter_listener,
+				&adapter_node_events, impl);
 	}
 	else {
 		impl->adapter = impl->cnode;
@@ -1116,7 +1114,7 @@ static void client_node_result(void *data, int seq, int res, const void *result)
 	struct impl *impl = data;
 	struct node *node = &impl->node;
 	pw_log_debug("client-stream %p: result %d %d", &impl->this, seq, res);
-	node->callbacks->result(node->callbacks_data, seq, res, result);
+	spa_node_emit_result(&node->hooks, seq, res, result);
 }
 
 static void client_node_active_changed(void *data, bool active)

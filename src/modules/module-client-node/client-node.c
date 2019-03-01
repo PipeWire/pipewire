@@ -126,6 +126,7 @@ struct node {
 	struct spa_log *log;
 	struct spa_loop *data_loop;
 
+	struct spa_hook_list hooks;
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 	struct io ios[MAX_IO];
@@ -363,13 +364,11 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	struct spa_pod_builder b = { 0 };
 	struct spa_result_node_params result;
 	uint32_t count = 0;
-	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
-	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
 	result.id = id;
 	result.next = start;
@@ -391,8 +390,7 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 			continue;
 
 		pw_log_debug("client-node %p: %d param %u", this, seq, result.index);
-		if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
-			return res;
+		spa_node_emit_result(&this->hooks, seq, 0, &result);
 
 		if (++count == num)
 			break;
@@ -481,27 +479,24 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 
 static void emit_port_info(struct node *this, struct port *port)
 {
-	if (this->callbacks && this->callbacks->port_info)
-		this->callbacks->port_info(this->callbacks_data,
+	spa_node_emit_port_info(&this->hooks,
 				port->direction, port->id, &port->info);
 }
 
-static int
-impl_node_set_callbacks(struct spa_node *node,
-			const struct spa_node_callbacks *callbacks,
-			void *data)
+static int impl_node_add_listener(struct spa_node *node,
+		struct spa_hook *listener,
+		const struct spa_node_events *events,
+		void *data)
 {
 	struct node *this;
+	struct spa_hook_list save;
 	uint32_t i;
 	int res = 0;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
-
-	pw_log_debug("client-node %p: callbacks %p", this, callbacks);
+	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	for (i = 0; i < MAX_INPUTS; i++) {
 		if (this->in_ports[i])
@@ -511,10 +506,28 @@ impl_node_set_callbacks(struct spa_node *node,
 		if (this->out_ports[i])
 			emit_port_info(this, this->out_ports[i]);
 	}
-	if (callbacks && this->resource)
+	if (this->resource)
 		res = pw_resource_sync(this->resource, 0);
 
+	spa_hook_list_join(&this->hooks, &save);
+
 	return res;
+}
+
+static int
+impl_node_set_callbacks(struct spa_node *node,
+			const struct spa_node_callbacks *callbacks,
+			void *data)
+{
+	struct node *this;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct node, node);
+	this->callbacks = callbacks;
+	this->callbacks_data = data;
+
+	return 0;
 }
 
 static int
@@ -561,6 +574,8 @@ do_update_port(struct node *this,
 			pw_properties_free(port->properties);
 		port->properties = NULL;
 		port->info.props = NULL;
+		port->info.n_params = 0;
+		port->info.params = NULL;
 
 		if (info) {
 			port->info = *info;
@@ -603,8 +618,7 @@ clear_port(struct node *this, struct port *port)
 			this->n_outputs--;
 		}
 	}
-	if (this->callbacks && this->callbacks->port_info)
-		this->callbacks->port_info(this->callbacks_data, port->direction, port->id, NULL);
+	spa_node_emit_port_info(&this->hooks, port->direction, port->id, NULL);
 }
 
 static int
@@ -646,13 +660,11 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 	struct spa_pod_builder b = { 0 };
 	struct spa_result_node_params result;
 	uint32_t count = 0;
-	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
-	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
@@ -681,8 +693,7 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 			continue;
 
 		pw_log_debug("client-node %p: %d param %u", this, seq, result.index);
-		if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
-			return res;
+		spa_node_emit_result(&this->hooks, seq, 0, &result);
 
 		if (++count == num)
 			break;
@@ -1056,9 +1067,8 @@ client_node_port_update(void *data,
 			       n_params, params,
 			       info);
 
-		if (this->callbacks && this->callbacks->port_info &&
-		    info && (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO))
-			this->callbacks->port_info(this->callbacks_data, direction, port_id, info);
+		if (info && (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO))
+			spa_node_emit_port_info(&this->hooks, direction, port_id, info);
 	}
 	return 0;
 }
@@ -1073,8 +1083,7 @@ static int client_node_event(void *data, struct spa_event *event)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-	if (this->callbacks && this->callbacks->event)
-		this->callbacks->event(this->callbacks_data, event);
+	spa_node_emit_event(&this->hooks, event);
 	return 0;
 }
 
@@ -1110,6 +1119,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
 	NULL,
+	.add_listener = impl_node_add_listener,
 	.set_callbacks = impl_node_set_callbacks,
 	.sync = impl_node_sync,
 	.enum_params = impl_node_enum_params,
@@ -1153,6 +1163,7 @@ node_init(struct node *this,
 	}
 
 	this->node = impl_node;
+	spa_hook_list_init(&this->hooks);
 	spa_list_init(&this->pending_list);
 
 	init_ios(this->ios);
@@ -1222,7 +1233,7 @@ static void client_node_resource_error(void *data, int seq, int res, const char 
 
 	pw_log_error("client-node %p: error seq:%d %d (%s)", this, seq, res, message);
 	result.message = message;
-	this->callbacks->result(this->callbacks_data, seq, res, &result);
+	spa_node_emit_result(&this->hooks, seq, res, &result);
 }
 
 static void client_node_resource_done(void *data, int seq)
@@ -1231,7 +1242,7 @@ static void client_node_resource_done(void *data, int seq)
 	struct node *this = &impl->node;
 
 	pw_log_debug("client-node %p: emit result %d", this, seq);
-	this->callbacks->result(this->callbacks_data, seq, 0, NULL);
+	spa_node_emit_result(&this->hooks, seq, 0, NULL);
 }
 
 void pw_client_node_registered(struct pw_client_node *this, uint32_t node_id)

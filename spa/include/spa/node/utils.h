@@ -36,13 +36,13 @@ struct spa_result_node_params_data {
 	struct spa_result_node_params data;
 };
 
-static inline int spa_result_func_node_params(struct spa_pending *pending,
-		const void *result)
+static inline int spa_result_func_node_params(void *data,
+		int seq, int res, const void *result)
 {
 	struct spa_result_node_params_data *d =
-		(struct spa_result_node_params_data *)pending->data;
+		(struct spa_result_node_params_data *) data;
 	const struct spa_result_node_params *r =
-		(const struct spa_result_node_params *)result;
+		(const struct spa_result_node_params *) result;
 	uint32_t offset = d->builder->state.offset;
 	spa_pod_builder_raw_padded(d->builder, r->param, SPA_POD_SIZE(r->param));
 	d->data.next = r->next;
@@ -54,17 +54,19 @@ static inline int spa_node_enum_params_sync(struct spa_node *node,
 			uint32_t id, uint32_t *index,
 			const struct spa_pod *filter,
 			struct spa_pod **param,
-			struct spa_pod_builder *builder,
-			struct spa_pending_queue *queue)
+			struct spa_pod_builder *builder)
 {
 	struct spa_result_node_params_data data = { builder, };
-	struct spa_pending pending;
+	struct spa_hook listener = { 0 };
+	static const struct spa_node_events node_events = {
+		SPA_VERSION_NODE_EVENTS,
+		.result = spa_result_func_node_params,
+	};
 	int res = 0;
 
-	spa_pending_queue_add(queue, 0, &pending,
-			spa_result_func_node_params, &data);
+	spa_node_add_listener(node, &listener, &node_events, &data);
 	res = spa_node_enum_params(node, 0, id, *index, 1, filter);
-	spa_pending_remove(&pending);
+	spa_hook_remove(&listener);
 
 	if (data.data.param == NULL) {
 		if (res > 0)
@@ -82,18 +84,20 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 			uint32_t id, uint32_t *index,
 			const struct spa_pod *filter,
 			struct spa_pod **param,
-			struct spa_pod_builder *builder,
-			struct spa_pending_queue *queue)
+			struct spa_pod_builder *builder)
 {
 	struct spa_result_node_params_data data = { builder, };
-	struct spa_pending pending;
+	struct spa_hook listener = { 0 };
+	static const struct spa_node_events node_events = {
+		SPA_VERSION_NODE_EVENTS,
+		.result = spa_result_func_node_params,
+	};
 	int res;
 
-	spa_pending_queue_add(queue, 0, &pending,
-			spa_result_func_node_params, &data);
+	spa_node_add_listener(node, &listener, &node_events, &data);
 	res = spa_node_port_enum_params(node, 0, direction, port_id,
 			id, *index, 1, filter);
-	spa_pending_remove(&pending);
+	spa_hook_remove(&listener);
 
 	if (data.data.param == NULL) {
 		if (res > 0)

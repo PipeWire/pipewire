@@ -813,8 +813,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	spa_pod_builder_pop(&b, &f[1]);
 	result.param = spa_pod_builder_pop(&b, &f[0]);
 
-	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
-		goto exit;
+	spa_node_emit_result(&this->hooks, seq, 0, &result);
 
 	if (++count != num)
 		goto next;
@@ -927,9 +926,10 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 		SPA_PORT_FLAG_LIVE |
 		SPA_PORT_FLAG_PHYSICAL |
 		SPA_PORT_FLAG_TERMINAL;
-	port->info.rate = streamparm.parm.capture.timeperframe.denominator;
-	if (this->callbacks && this->callbacks->port_info)
-		this->callbacks->port_info(this->callbacks_data, SPA_DIRECTION_OUTPUT, 0, &port->info);
+	port->info.rate = SPA_FRACTION(port->rate.num, port->rate.denom);
+
+	spa_node_emit_port_info(&this->hooks, SPA_DIRECTION_OUTPUT, 0, &port->info);
+	port->info.change_mask = 0;
 
 	return 0;
 }
@@ -1143,15 +1143,13 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
-		goto exit;
+	spa_node_emit_result(&this->hooks, seq, 0, &result);
 
 	if (++count != num)
 		goto next;
 
       enum_end:
 	res = 0;
-      exit:
 	spa_v4l2_close(dev);
 	return res;
 }

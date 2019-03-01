@@ -225,8 +225,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		res = spa_node_port_enum_params_sync(output->node->node,
 				output->direction, output->port_id,
 				SPA_PARAM_Format, &index,
-				NULL, &current, &b,
-				output->node->pending);
+				NULL, &current, &b);
 		switch (res) {
 		case -EIO:
 			current = NULL;
@@ -261,8 +260,7 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 		res = spa_node_port_enum_params_sync(input->node->node,
 				input->direction, input->port_id,
 				SPA_PARAM_Format, &index,
-				NULL, &current, &b,
-				input->node->pending);
+				NULL, &current, &b);
 		switch (res) {
 		case -EIO:
 			current = NULL;
@@ -458,8 +456,7 @@ param_filter(struct pw_link *this,
 		pw_log_debug("iparam %d", iidx);
 		if ((res = spa_node_port_enum_params_sync(in_port->node->node,
 						in_port->direction, in_port->port_id,
-						id, &iidx, NULL, &iparam, &ib,
-						in_port->node->pending)) < 0)
+						id, &iidx, NULL, &iparam, &ib)) < 0)
 			break;
 
 		if (res != 1) {
@@ -475,8 +472,7 @@ param_filter(struct pw_link *this,
 			pw_log_debug("oparam %d", oidx);
 			if (spa_node_port_enum_params_sync(out_port->node->node,
 						out_port->direction, out_port->port_id,
-						id, &oidx, iparam, &oparam, result,
-						out_port->node->pending) != 1) {
+						id, &oidx, iparam, &oparam, result) != 1) {
 				break;
 			}
 

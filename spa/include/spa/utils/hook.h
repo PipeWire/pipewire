@@ -87,16 +87,43 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 		hook->removed(hook);
 }
 
+static inline void
+spa_hook_list_isolate(struct spa_hook_list *list,
+		struct spa_hook_list *save,
+		struct spa_hook *hook,
+		const void *funcs, void *data)
+{
+	/* init save list and move hooks to it */
+	spa_hook_list_init(save);
+	if (!spa_list_is_empty(&list->list))
+		spa_list_insert_list(&save->list, &list->list);
+	/* init hooks and add single hook */
+	spa_hook_list_init(list);
+	spa_hook_list_append(list, hook, funcs, data);
+}
+
+static inline void
+spa_hook_list_join(struct spa_hook_list *list,
+		struct spa_hook_list *save)
+{
+	if (!spa_list_is_empty(&save->list))
+		spa_list_insert_list(&list->list, &save->list);
+}
+
+#define spa_hook_call(hook,type,method,vers,...)				\
+({										\
+	const type *cb = hook->funcs;						\
+	if (cb && cb->version >= vers && cb->method) {				\
+		cb->method(hook->data, ## __VA_ARGS__);				\
+	}									\
+})
+
 #define spa_hook_list_call_simple(l,type,method,vers,...)			\
 ({										\
-	struct spa_hook_list *list = l;						\
-	struct spa_hook *ci;							\
-	spa_list_for_each(ci, &list->list, link) {				\
-		const type *cb = ci->funcs;					\
-		if (cb && cb->version >= vers && cb->method) {			\
-			cb->method(ci->data, ## __VA_ARGS__);			\
-		}								\
-	}									\
+	struct spa_hook_list *_l = l;						\
+	struct spa_hook *_h, *_t;						\
+	spa_list_for_each_safe(_h, _t, &_l->list, link)				\
+		spa_hook_call(_h,type,method,vers, ## __VA_ARGS__);		\
 })
 
 /** Call all hooks in a list, starting from the given one and optionally stopping

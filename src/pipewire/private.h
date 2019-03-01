@@ -265,6 +265,7 @@ struct pw_device {
 	struct spa_param_info params[32];
 
 	struct spa_device *implementation;	/**< implementation */
+	struct spa_hook listener;
 	struct spa_hook_list listener_list;
 
 	struct spa_list node_list;
@@ -353,6 +354,7 @@ struct pw_node {
 	struct spa_list driver_link;
 
 	struct spa_node *node;		/**< SPA node implementation */
+	struct spa_hook listener;
 
 	struct spa_list input_ports;		/**< list of input ports */
 	struct pw_map input_port_map;		/**< map from port_id to port */
@@ -370,8 +372,6 @@ struct pw_node {
 	struct spa_hook_list listener_list;
 
 	struct pw_loop *data_loop;		/**< the data loop for this node */
-
-	struct spa_pending_queue *pending;
 
 	uint32_t quantum_size;			/**< desired quantum */
 	struct spa_source source;		/**< source to remotely trigger this node */

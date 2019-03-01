@@ -41,9 +41,11 @@ struct spa_device_info {
 #define SPA_VERSION_DEVICE_INFO 0
 	uint32_t version;
 
-#define SPA_DEVICE_CHANGE_MASK_PROPS		(1<<0)
-#define SPA_DEVICE_CHANGE_MASK_PARAMS		(1<<1)
+#define SPA_DEVICE_CHANGE_MASK_FLAGS		(1u<<0)
+#define SPA_DEVICE_CHANGE_MASK_PROPS		(1u<<1)
+#define SPA_DEVICE_CHANGE_MASK_PARAMS		(1u<<2)
 	uint64_t change_mask;
+	uint64_t flags;
 	const struct spa_dict *props;
 	struct spa_param_info *params;
 	uint32_t n_params;
@@ -58,8 +60,10 @@ struct spa_device_object_info {
 	uint32_t type;
 	const struct spa_handle_factory *factory;
 
-#define SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS	(1<<0)
+#define SPA_DEVICE_OBJECT_CHANGE_MASK_FLAGS	(1u<<0)
+#define SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS	(1u<<1)
 	uint64_t change_mask;
+	uint64_t flags;
 	const struct spa_dict *props;
 };
 
@@ -74,11 +78,13 @@ struct spa_result_device_params {
 };
 
 /**
- * spa_device_callbacks:
+ * spa_device_events:
+ *
+ * Events are always emited from the main thread
  */
-struct spa_device_callbacks {
+struct spa_device_events {
 	/** version of the structure */
-#define SPA_VERSION_DEVICE_CALLBACKS	0
+#define SPA_VERSION_DEVICE_EVENTS	0
 	uint32_t version;
 
 	/** notify extra information about the device */
@@ -96,6 +102,15 @@ struct spa_device_callbacks {
 		const struct spa_device_object_info *info);
 };
 
+#define spa_device_emit(hooks,method,version,...)				\
+		spa_hook_list_call_simple(hooks, struct spa_device_events,	\
+				method, version, ##__VA_ARGS__)
+
+#define spa_device_emit_info(hooks,i)		spa_device_emit(hooks,info, 0, i)
+#define spa_device_emit_result(hooks,s,r,res)	spa_device_emit(hooks,result, 0, s, r, res)
+#define spa_device_emit_events(hooks,e)		spa_device_emit(hooks,event, 0, e)
+#define spa_device_emit_object_info(hooks,id,i)	spa_device_emit(hooks,object_info, 0, id, i)
+
 /**
  * spa_device:
  *
@@ -108,20 +123,24 @@ struct spa_device {
 	uint32_t version;
 
 	/**
-	 * Set callbacks to receive asynchronous notifications from
+	 * Set events to receive asynchronous notifications from
 	 * the device.
 	 *
-	 * Setting the callbacks will trigger the info event and an
-	 * add event for each managed node.
+	 * Setting the events will trigger the info event and an
+	 * object_info event for each managed node on the new
+	 * listener.
 	 *
-	 * \param device: a #spa_device
-	 * \param callback: a #callbacks
+	 * \param device a #spa_device
+	 * \param listener a listener
+	 * \param events a #struct spa_device_events
+	 * \param data data passed as first argument in functions of \a events
 	 * \return 0 on success
 	 *	   < 0 errno on error
 	 */
-	int (*set_callbacks) (struct spa_device *device,
-			      const struct spa_device_callbacks *callbacks,
-			      void *data);
+	int (*add_listener) (struct spa_device *device,
+			struct spa_hook *listener,
+			const struct spa_device_events *events,
+			void *data);
 	/**
 	 * Enumerate the parameters of a device.
 	 *
@@ -130,18 +149,16 @@ struct spa_device {
 	 *
 	 * Parameters can be filtered by passing a non-NULL \a filter.
 	 *
-	 * This function must be called from the main thread.
+	 * The result callback will be called at most \max times with a
+	 * struct spa_result_device_params as the result.
 	 *
-	 * The result callback will be called at most \num times with a
-	 * struct spa_result_device_params as the result. If the result
-	 * callback returns anything other than 0, this function will stop
-	 * and return that value.
+	 * This function must be called from the main thread.
 	 *
 	 * \param device a \ref spa_device
 	 * \param seq a sequence numeber to pass to the result function
 	 * \param id the param id to enumerate
 	 * \param index the index of enumeration, pass 0 for the first item.
-	 * \param num the maximum number of items to iterate
+	 * \param max the maximum number of items to iterate
 	 * \param filter and optional filter to use
 	 * \return 0 when there are no more parameters to enumerate
 	 *         -EINVAL when invalid arguments are given
@@ -150,7 +167,7 @@ struct spa_device {
 	 *                 implemented on \a device
 	 */
 	int (*enum_params) (struct spa_device *device, int seq,
-			    uint32_t id, uint32_t index, uint32_t num,
+			    uint32_t id, uint32_t index, uint32_t max,
 			    const struct spa_pod *filter);
 
 	/**
@@ -179,7 +196,7 @@ struct spa_device {
 			  const struct spa_pod *param);
 };
 
-#define spa_device_set_callbacks(d,...)	(d)->set_callbacks((d),__VA_ARGS__)
+#define spa_device_add_listener(d,...)	(d)->add_listener((d),__VA_ARGS__)
 #define spa_device_enum_params(d,...)	(d)->enum_params((d),__VA_ARGS__)
 #define spa_device_set_param(d,...)	(d)->set_param((d),__VA_ARGS__)
 

@@ -170,17 +170,6 @@ void *pw_spa_node_get_user_data(struct pw_node *node)
 	return impl->user_data;
 }
 
-static int on_node_result(void *data, int seq, int res, const void *result)
-{
-	struct spa_pending_queue *pending = data;
-	return spa_pending_queue_complete(pending, seq, res, result);
-}
-
-static const struct spa_node_callbacks node_callbacks = {
-	SPA_VERSION_NODE_CALLBACKS,
-	.result = on_node_result,
-};
-
 static int
 setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_properties *pw_props)
 {
@@ -192,15 +181,11 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 	uint8_t buf[2048];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	const struct spa_pod_prop *prop = NULL;
-	struct spa_pending_queue pending;
 
-	spa_pending_queue_init(&pending);
-
-	spa_node_set_callbacks(spa_node, &node_callbacks, &pending);
-
-	if ((res = spa_node_enum_params_sync(spa_node,
+	res = spa_node_enum_params_sync(spa_node,
 					SPA_PARAM_Props, &index, NULL, &props,
-					&b, &pending)) != 1) {
+					&b);
+	if (res != 1) {
 		if (res < 0)
 			pw_log_debug("spa_node_get_props failed: %d", res);
 		return res;

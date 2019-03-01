@@ -36,11 +36,11 @@ struct spa_result_device_params_data {
 	struct spa_result_device_params data;
 };
 
-static inline int spa_result_func_device_params(struct spa_pending *pending,
+static inline int spa_result_func_device_params(void *data, int seq, int res,
 		const void *result)
 {
 	struct spa_result_device_params_data *d =
-		(struct spa_result_device_params_data *)pending->data;
+		(struct spa_result_device_params_data *)data;
 	const struct spa_result_device_params *r =
 		(const struct spa_result_device_params *)result;
 	uint32_t offset = d->builder->state.offset;
@@ -54,17 +54,19 @@ static inline int spa_device_enum_params_sync(struct spa_device *device,
 			uint32_t id, uint32_t *index,
 			const struct spa_pod *filter,
 			struct spa_pod **param,
-			struct spa_pod_builder *builder,
-			struct spa_pending_queue *queue)
+			struct spa_pod_builder *builder)
 {
 	struct spa_result_device_params_data data = { builder, };
-	struct spa_pending pending;
+	struct spa_hook listener = { 0 };
+	static const struct spa_device_events device_events = {
+		SPA_VERSION_DEVICE_EVENTS,
+		.result = spa_result_func_device_params,
+	};
 	int res;
 
-	spa_pending_queue_add(queue, 0, &pending,
-			spa_result_func_device_params, &data);
+	spa_device_add_listener(device, &listener, &device_events, &data);
 	res = spa_device_enum_params(device, 0, id, *index, 1, filter);
-	spa_pending_remove(&pending);
+	spa_hook_remove(&listener);
 
 	if (data.data.param == NULL) {
 		if (res > 0)

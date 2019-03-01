@@ -76,7 +76,7 @@ void pw_device_destroy(struct pw_device *device);
 void *pw_device_get_user_data(struct pw_device *device);
 
 /** Set the device implementation */
-void pw_device_set_implementation(struct pw_device *device, struct spa_device *spa_device);
+int pw_device_set_implementation(struct pw_device *device, struct spa_device *spa_device);
 /** Get the device implementation */
 struct spa_device *pw_device_get_implementation(struct pw_device *device);
 

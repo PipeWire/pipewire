@@ -69,6 +69,7 @@ struct port {
 
 	bool have_format;
 
+	uint64_t info_all;
 	struct spa_port_info info;
 	struct spa_param_info params[5];
 
@@ -87,12 +88,12 @@ struct impl {
 
 	struct spa_log *log;
 
+	uint64_t info_all;
 	struct spa_node_info info;
 	struct spa_param_info params[5];
 	struct props props;
 
-	const struct spa_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook_list hooks;
 
 	struct spa_audio_info current_format;
 	int bpf;
@@ -121,13 +122,11 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	struct props *p;
 	struct spa_result_node_params result;
 	uint32_t count = 0;
-	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
-	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 	p = &this->props;
 
 	result.id = id;
@@ -177,8 +176,7 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
-		return res;
+	spa_node_emit_result(&this->hooks, seq, 0, &result);
 
 	if (++count != num)
 		goto next;
@@ -244,20 +242,48 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	return 0;
 }
 
-static void emit_node_info(struct impl *this)
+static void emit_node_info(struct impl *this, bool full)
 {
-	if (this->callbacks && this->callbacks->info && this->info.change_mask) {
-		this->callbacks->info(this->callbacks_data, &this->info);
+	if (full)
+		this->info.change_mask = this->info_all;
+	if (this->info.change_mask) {
+		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = 0;
 	}
 }
 
-static void emit_port_info(struct impl *this, struct port *port)
+static void emit_port_info(struct impl *this, struct port *port, bool full)
 {
-	if (this->callbacks && this->callbacks->port_info && port->info.change_mask) {
-		this->callbacks->port_info(this->callbacks_data, port->direction, port->id, &port->info);
+	if (full)
+		port->info.change_mask = port->info_all;
+	if (port->info.change_mask) {
+		spa_node_emit_port_info(&this->hooks,
+				port->direction, port->id, &port->info);
 		port->info.change_mask = 0;
 	}
+}
+
+static int
+impl_node_add_listener(struct spa_node *node,
+		struct spa_hook *listener,
+		const struct spa_node_events *events,
+		void *data)
+{
+	struct impl *this;
+	struct spa_hook_list save;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct impl, node);
+	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
+
+	emit_node_info(this, true);
+	emit_port_info(this, GET_IN_PORT(this, 0), true);
+	emit_port_info(this, GET_OUT_PORT(this, 0), true);
+
+	spa_hook_list_join(&this->hooks, &save);
+
+	return 0;
 }
 
 static int
@@ -265,19 +291,6 @@ impl_node_set_callbacks(struct spa_node *node,
 			const struct spa_node_callbacks *callbacks,
 			void *data)
 {
-	struct impl *this;
-
-	spa_return_val_if_fail(node != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
-
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
-
-	emit_node_info(this);
-	emit_port_info(this, GET_IN_PORT(this, 0));
-	emit_port_info(this, GET_OUT_PORT(this, 0));
-
 	return 0;
 }
 
@@ -338,7 +351,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
-	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
@@ -421,8 +433,7 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
-		return res;
+	spa_node_emit_result(&this->hooks, seq, 0, &result);
 
 	if (++count != num)
 		goto next;
@@ -480,7 +491,7 @@ static int port_set_format(struct spa_node *node,
 		port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
-	emit_port_info(this, port);
+	emit_port_info(this, port, false);
 
 	return 0;
 }
@@ -752,11 +763,12 @@ static int impl_node_process(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
+	.add_listener = impl_node_add_listener,
+	.set_callbacks = impl_node_set_callbacks,
 	.enum_params = impl_node_enum_params,
 	.set_param = impl_node_set_param,
 	.set_io = impl_node_set_io,
 	.send_command = impl_node_send_command,
-	.set_callbacks = impl_node_set_callbacks,
 	.add_port = impl_node_add_port,
 	.remove_port = impl_node_remove_port,
 	.port_enum_params = impl_node_port_enum_params,
@@ -821,11 +833,15 @@ impl_init(const struct spa_handle_factory *factory,
 			this->log = support[i].data;
 	}
 
+	spa_hook_list_init(&this->hooks);
+
 	this->node = impl_node;
+	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
+			SPA_NODE_CHANGE_MASK_PARAMS;
 	this->info = SPA_NODE_INFO_INIT();
 	this->info.max_input_ports = 1;
 	this->info.max_output_ports = 1;
-	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+	this->info.flags = SPA_NODE_FLAG_RT;
 	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
 	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
@@ -835,11 +851,11 @@ impl_init(const struct spa_handle_factory *factory,
 	port = GET_IN_PORT(this, 0);
 	port->direction = SPA_DIRECTION_INPUT;
 	port->id = 0;
+	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
+			SPA_NODE_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
 	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
 	    SPA_PORT_FLAG_IN_PLACE;
-	port->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
@@ -852,11 +868,11 @@ impl_init(const struct spa_handle_factory *factory,
 	port = GET_OUT_PORT(this, 0);
 	port->direction = SPA_DIRECTION_OUTPUT;
 	port->id = 0;
+	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
+			SPA_NODE_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
 	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
 	    SPA_PORT_FLAG_NO_REF;
-	port->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

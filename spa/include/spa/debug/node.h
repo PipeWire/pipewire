@@ -39,8 +39,8 @@ extern "C" {
 int spa_debug_port_info(int indent, const struct spa_port_info *info)
 {
         spa_debug("%*s" "struct spa_port_info %p:", indent, "", info);
-        spa_debug("%*s" " flags: \t%08x", indent, "", info->flags);
-        spa_debug("%*s" " rate: \t%u", indent, "", info->rate);
+        spa_debug("%*s" " flags: \t%08lx", indent, "", info->flags);
+        spa_debug("%*s" " rate: \t%d/%d", indent, "", info->rate.num, info->rate.denom);
         spa_debug("%*s" " props:", indent, "");
         if (info->props)
                 spa_debug_dict(indent + 2, info->props);

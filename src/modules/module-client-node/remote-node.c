@@ -420,8 +420,7 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 	                        if (spa_node_port_enum_params_sync(port->node->node,
 							port->direction, port->port_id,
 							id, &idx2,
-							NULL, &param, &b,
-							port->node->pending) != 1)
+							NULL, &param, &b) != 1)
 	                                break;
 
 				params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
@@ -434,7 +433,7 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 			SPA_PORT_CHANGE_MASK_RATE |
 			SPA_PORT_CHANGE_MASK_PROPS;
 		pi.flags = port->spa_flags;
-		pi.rate = 0;
+		pi.rate = SPA_FRACTION(0, 1);
 		pi.props = &port->properties->dict;
 		pi.flags &= ~SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
 	}

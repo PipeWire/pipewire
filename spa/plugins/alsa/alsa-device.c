@@ -67,8 +67,7 @@ struct impl {
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 
-	const struct spa_device_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook_list hooks;
 
 	struct props props;
 	uint32_t n_nodes;
@@ -127,7 +126,7 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 	items[5] = SPA_DICT_ITEM_INIT("alsa.pcm.subclass",   get_subclass(pcminfo));
 	info.props = &SPA_DICT_INIT_ARRAY(items);
 
-	this->callbacks->object_info(this->callbacks_data, id, &info);
+	spa_device_emit_object_info(&this->hooks, id, &info);
 
 	return 0;
 }
@@ -141,11 +140,9 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 	spa_log_debug(this->log, "profile %d", id);
 	this->profile = id;
 
-	if (this->callbacks->object_info) {
-		for (i = 0; i < this->n_nodes; i++) {
-			this->callbacks->object_info(this->callbacks_data, i, NULL);
-		}
-	}
+	for (i = 0; i < this->n_nodes; i++)
+		spa_device_emit_object_info(&this->hooks, i, NULL);
+
 	this->n_nodes = 0;
 
 	if (id == 1)
@@ -170,7 +167,7 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 			if (err != -ENOENT)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
-		if (err >= 0 && this->callbacks->object_info)
+		if (err >= 0)
 			emit_node(this, pcminfo, i++);
 
 		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
@@ -178,7 +175,7 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 			if (err != -ENOENT)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
-		if (err >= 0 && this->callbacks->object_info)
+		if (err >= 0)
 			emit_node(this, pcminfo, i++);
 	}
 	this->n_nodes = i;
@@ -206,7 +203,7 @@ static int set_profile(struct impl *this, uint32_t id)
 	return err;
 }
 
-static int emit_info(struct impl *this)
+static int emit_info(struct impl *this, bool full)
 {
 	int err = 0;
 	struct spa_dict_item items[10];
@@ -249,8 +246,7 @@ static int emit_info(struct impl *this)
 	dinfo.n_params = SPA_N_ELEMENTS(params);
 	dinfo.params = params;
 
-	if (this->callbacks->info)
-		this->callbacks->info(this->callbacks_data, &dinfo);
+	spa_device_emit_info(&this->hooks, &dinfo);
 
 	activate_profile(this, ctl_hndl, 0);
 
@@ -260,21 +256,24 @@ static int emit_info(struct impl *this)
 	return err;
 }
 
-static int impl_set_callbacks(struct spa_device *device,
-			   const struct spa_device_callbacks *callbacks,
-			   void *data)
+static int impl_add_listener(struct spa_device *device,
+			struct spa_hook *listener,
+			const struct spa_device_events *events,
+			void *data)
 {
 	struct impl *this;
+	struct spa_hook_list save;
 
 	spa_return_val_if_fail(device != NULL, -EINVAL);
+	spa_return_val_if_fail(events != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(device, struct impl, device);
+	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	if (events->info || events->object_info)
+		emit_info(this, true);
 
-	if (callbacks)
-		emit_info(this);
+	spa_hook_list_join(&this->hooks, &save);
 
 	return 0;
 }
@@ -290,13 +289,11 @@ static int impl_enum_params(struct spa_device *device, int seq,
 	uint8_t buffer[1024];
 	struct spa_result_device_params result;
 	uint32_t count = 0;
-	int res;
 
 	spa_return_val_if_fail(device != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	this = SPA_CONTAINER_OF(device, struct impl, device);
-	spa_return_val_if_fail(this->callbacks && this->callbacks->result, -EIO);
 
 	result.id = id;
 	result.next = start;
@@ -346,8 +343,7 @@ static int impl_enum_params(struct spa_device *device, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = this->callbacks->result(this->callbacks_data, seq, 0, &result)) != 0)
-		return res;
+	spa_device_emit_result(&this->hooks, seq, 0, &result);
 
 	if (++count != num)
 		goto next;
@@ -390,7 +386,7 @@ static int impl_set_param(struct spa_device *device,
 
 static const struct spa_device impl_device = {
 	SPA_VERSION_DEVICE,
-	impl_set_callbacks,
+	impl_add_listener,
 	impl_enum_params,
 	impl_set_param,
 };
@@ -455,6 +451,7 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 
 	this->device = impl_device;
+	spa_hook_list_init(&this->hooks);
 
 	reset_props(&this->props);
 

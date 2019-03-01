@@ -58,8 +58,7 @@ struct data {
 	struct spa_hook remote_listener;
 
 	struct spa_node impl_node;
-	const struct spa_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook_list hooks;
 	struct spa_io_buffers *io;
 	struct spa_io_control *io_notify;
 	uint32_t io_notify_size;
@@ -101,35 +100,43 @@ static int impl_send_command(struct spa_node *node, const struct spa_command *co
 	return 0;
 }
 
+static int impl_add_listener(struct spa_node *node,
+		struct spa_hook *listener,
+		const struct spa_node_events *events,
+		void *data)
+{
+	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct spa_port_info info;
+	struct spa_dict_item items[1];
+	struct spa_param_info params[5];
+	struct spa_hook_list save;
+
+	spa_hook_list_isolate(&d->hooks, &save, listener, events, data);
+
+	info = SPA_PORT_INFO_INIT();
+	info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
+	info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
+	items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
+	info.props = &SPA_DICT_INIT_ARRAY(items);
+	info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	params[3] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	params[4] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	info.params = params;
+	info.n_params = 5;
+
+	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_OUTPUT, 0, &info);
+
+	spa_hook_list_join(&d->hooks, &save);
+	return 0;
+}
+
 static int impl_set_callbacks(struct spa_node *node,
 			      const struct spa_node_callbacks *callbacks, void *data)
 {
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	d->callbacks = callbacks;
-	d->callbacks_data = data;
-
-	if (d->callbacks && d->callbacks->port_info) {
-		struct spa_port_info info;
-		struct spa_dict_item items[1];
-		struct spa_param_info params[5];
-
-		info = SPA_PORT_INFO_INIT();
-		info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
-		info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
-		info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
-		items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
-		info.props = &SPA_DICT_INIT_ARRAY(items);
-		info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-		params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-		params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-		params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-		params[3] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
-		params[4] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-		info.params = params;
-		info.n_params = 5;
-
-		d->callbacks->port_info(d->callbacks_data, SPA_DIRECTION_OUTPUT, 0, &info);
-	}
 	return 0;
 }
 
@@ -169,7 +176,6 @@ static int impl_port_enum_params(struct spa_node *node, int seq,
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
-	int res;
 
 	result.id = id;
 	result.next = start;
@@ -255,8 +261,7 @@ static int impl_port_enum_params(struct spa_node *node, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	if ((res = d->callbacks->result(d->callbacks_data, seq, 0, &result)) != 0)
-		return res;
+	spa_node_emit_result(&d->hooks, seq, 0, &result);
 
 	if (++count != num)
 		goto next;
@@ -444,6 +449,7 @@ static int impl_node_process(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
+	.add_listener = impl_add_listener,
 	.set_callbacks = impl_set_callbacks,
 	.set_io = impl_set_io,
 	.send_command = impl_send_command,
@@ -510,6 +516,7 @@ int main(int argc, char *argv[])
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	spa_list_init(&data.empty);
+	spa_hook_list_init(&data.hooks);
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 

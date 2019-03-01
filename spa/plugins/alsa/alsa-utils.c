@@ -359,15 +359,13 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	if ((res = spa_pod_filter(&b, &result.param, fmt, filter)) < 0)
 		goto next;
 
-	if ((res = state->callbacks->result(state->callbacks_data, seq, 0, &result)) != 0)
-		goto exit;
+	spa_node_emit_result(&state->hooks, seq, 0, &result);
 
 	if (++count != num)
 		goto next;
 
       enum_end:
 	res = 0;
-      exit:
 	if (!opened)
 		spa_alsa_close(state);
 	return res;

@@ -63,13 +63,12 @@ struct impl {
 
 	struct props props;
 
-	const struct spa_device_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook_list hooks;
 
 	struct spa_v4l2_device dev;
 };
 
-static int emit_info(struct impl *this)
+static int emit_info(struct impl *this, bool full)
 {
 	int res;
 	struct spa_dict_item items[6];
@@ -96,22 +95,18 @@ static int emit_info(struct impl *this)
 	info.n_params = SPA_N_ELEMENTS(params);
 	info.params = params;
 
-	if (this->callbacks->info)
-		this->callbacks->info(this->callbacks_data, &info);
+	spa_device_emit_info(&this->hooks, &info);
 
-	if (this->callbacks->object_info) {
+	if (spa_v4l2_is_capture(&this->dev)) {
+		struct spa_device_object_info oinfo;
 
-		if (spa_v4l2_is_capture(&this->dev)) {
-			struct spa_device_object_info oinfo;
+		oinfo = SPA_DEVICE_OBJECT_INFO_INIT();
+		oinfo.type = SPA_TYPE_INTERFACE_Node;
+		oinfo.factory = &spa_v4l2_source_factory;
+		oinfo.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
+		oinfo.props = &SPA_DICT_INIT(items, 6);
 
-			oinfo = SPA_DEVICE_OBJECT_INFO_INIT();
-			oinfo.type = SPA_TYPE_INTERFACE_Node;
-			oinfo.factory = &spa_v4l2_source_factory;
-			oinfo.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
-			oinfo.props = &SPA_DICT_INIT(items, 6);
-
-			this->callbacks->object_info(this->callbacks_data, 0, &oinfo);
-		}
+		spa_device_emit_object_info(&this->hooks, 0, &oinfo);
 	}
 
 	spa_v4l2_close(&this->dev);
@@ -119,23 +114,26 @@ static int emit_info(struct impl *this)
 	return 0;
 }
 
-static int impl_set_callbacks(struct spa_device *device,
-				   const struct spa_device_callbacks *callbacks,
-				   void *data)
+static int impl_add_listener(struct spa_device *device,
+			struct spa_hook *listener,
+			const struct spa_device_events *events,
+			void *data)
 {
 	struct impl *this;
+	struct spa_hook_list save;
 	int res = 0;
 
 	spa_return_val_if_fail(device != NULL, -EINVAL);
+	spa_return_val_if_fail(events != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(device, struct impl, device);
+	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	if (events->info || events->object_info)
+		res = emit_info(this, true);
 
-	if (callbacks) {
-		res = emit_info(this);
-	}
+	spa_hook_list_join(&this->hooks, &save);
+
 	return res;
 }
 
@@ -155,7 +153,7 @@ static int impl_set_param(struct spa_device *device,
 
 static const struct spa_device impl_device = {
 	SPA_VERSION_DEVICE,
-	impl_set_callbacks,
+	impl_add_listener,
 	impl_enum_params,
 	impl_set_param,
 };
@@ -216,6 +214,8 @@ impl_init(const struct spa_handle_factory *factory,
 		spa_log_error(this->log, "a main_loop is needed");
 		return -EINVAL;
 	}
+
+	spa_hook_list_init(&this->hooks);
 
 	this->device = impl_device;
 	this->dev.log = this->log;

@@ -385,10 +385,21 @@ struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
 	info->name = update->name ? strdup(update->name) : NULL;
 	info->change_mask = update->change_mask;
 
-	if (update->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
+	if (update->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
 		if (info->props)
 			pw_spa_dict_destroy(info->props);
 		info->props = pw_spa_dict_copy(update->props);
+	}
+	if (update->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
+		info->n_params = update->n_params;
+		free((void *) info->params);
+		if (update->params) {
+			size_t size = info->n_params * sizeof(struct spa_param_info);
+			info->params = malloc(size);
+			memcpy(info->params, update->params, size);
+		}
+		else
+			info->params = NULL;
 	}
 	return info;
 }
@@ -399,6 +410,7 @@ void pw_device_info_free(struct pw_device_info *info)
 	free((void *) info->name);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
+	free((void *) info->params);
 	free(info);
 }
 

@@ -68,6 +68,7 @@ struct data {
 	uint32_t n_support;
 
 	struct spa_node *source;
+	struct spa_hook listener;
 	struct spa_io_buffers source_output[1];
 
 	SDL_Renderer *renderer;
@@ -89,8 +90,6 @@ struct data {
 	struct spa_buffer *bp[MAX_BUFFERS];
 	struct buffer buffers[MAX_BUFFERS];
 	unsigned int n_buffers;
-
-	struct spa_pending_queue pending;
 };
 
 static int load_handle(struct data *data, struct spa_handle **handle, const char *lib, const char *name)
@@ -242,16 +241,9 @@ static int on_source_ready(void *_data, int status)
 	return 0;
 }
 
-static int on_source_result(void *_data, int seq, int res, const void *result)
-{
-	struct data *data = _data;
-	return spa_pending_queue_complete(&data->pending, seq, res, result);
-}
-
 static const struct spa_node_callbacks source_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.ready = on_source_ready,
-	.result = on_source_result,
 };
 
 static int make_nodes(struct data *data, const char *device)
@@ -273,7 +265,7 @@ static int make_nodes(struct data *data, const char *device)
 	index = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	if ((res = spa_node_enum_params_sync(data->source, SPA_PARAM_Props,
-			&index, NULL, &props, &b, &data->pending)) == 1) {
+			&index, NULL, &props, &b)) == 1) {
 		spa_debug_pod(0, NULL, props);
 	}
 
@@ -476,8 +468,6 @@ int main(int argc, char *argv[])
 	const char *str;
 	struct spa_handle *handle = NULL;
 	void *iface;
-
-	spa_pending_queue_init(&data.pending);
 
 	if ((res = load_handle(&data, &handle, PATH "support/libspa-support.so", "loop")) < 0)
 		return res;

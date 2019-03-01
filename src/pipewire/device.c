@@ -34,8 +34,6 @@
 
 struct impl {
 	struct pw_device this;
-
-	struct spa_pending_queue pending;
 };
 
 struct resource_data {
@@ -64,8 +62,6 @@ struct pw_device *pw_device_new(struct pw_core *core,
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		return NULL;
-
-	spa_pending_queue_init(&impl->pending);
 
 	this = &impl->this;
 
@@ -138,12 +134,12 @@ struct result_device_params_data {
 			struct spa_pod *param);
 };
 
-static int result_device_params(struct spa_pending *pending, const void *result)
+static int result_device_params(void *data, int seq, int res, const void *result)
 {
-	struct result_device_params_data *d = pending->data;
+	struct result_device_params_data *d = data;
 	const struct spa_result_device_params *r =
 		(const struct spa_result_device_params *)result;
-	d->callback(d->data, pending->seq, r->id, r->index, r->next, r->param);
+	d->callback(d->data, seq, r->id, r->index, r->next, r->param);
 	return 0;
 }
 
@@ -157,21 +153,27 @@ int pw_device_for_each_param(struct pw_device *device,
 					      struct spa_pod *param),
 			     void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
 	int res;
 	struct result_device_params_data user_data = { data, callback };
-	struct spa_pending pending;
+	struct spa_hook listener;
+	static const struct spa_device_events device_events = {
+		SPA_VERSION_DEVICE_EVENTS,
+		.result = result_device_params,
+	};
 
 	if (max == 0)
 		max = UINT32_MAX;
 
-	spa_pending_queue_add(&impl->pending, seq, &pending,
-			result_device_params, &user_data);
+	pw_log_debug("device %p: params %s %u %u", device,
+			spa_debug_type_find_name(spa_type_param, param_id),
+			index, max);
 
+	spa_zero(listener);
+	spa_node_add_listener(device->implementation, &listener,
+			&device_events, &user_data);
 	res = spa_device_enum_params(device->implementation, seq,
 			param_id, index, max, filter);
-
-	spa_pending_remove(&pending);
+	spa_hook_remove(&listener);
 
 	return res;
 }
@@ -274,6 +276,7 @@ int pw_device_register(struct pw_device *device,
 		       struct pw_properties *properties)
 {
 	struct pw_core *core = device->core;
+	struct node_data *nd;
 	const char *str;
 
 	if (properties == NULL)
@@ -296,10 +299,14 @@ int pw_device_register(struct pw_device *device,
 	if (device->global == NULL)
 		return -ENOMEM;
 
+	device->info.id = device->global->id;
 	pw_global_add_listener(device->global, &device->global_listener, &global_events, device);
 	pw_global_register(device->global, owner, parent);
-	device->info.id = device->global->id;
 
+	spa_list_for_each(nd, &device->node_list, link) {
+		pw_node_register(nd->node, NULL, device->global, NULL);
+		pw_node_set_active(nd->node, true);
+	}
 	return 0;
 }
 
@@ -412,9 +419,11 @@ static void device_add(struct pw_device *device, uint32_t id,
 	}
 
 	pw_node_set_implementation(node, iface);
-	pw_node_register(node, NULL, device->global, NULL);
-	pw_node_set_active(node, true);
 
+	if (device->global) {
+		pw_node_register(node, NULL, device->global, NULL);
+		pw_node_set_active(node, true);
+	}
 	return;
 
 error:
@@ -459,25 +468,27 @@ static int device_object_info(void *data, uint32_t id,
 	return 0;
 }
 
-static int device_result(void *data, int seq, int res, const void *result)
-{
-	struct pw_device *device = data;
-	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
-	return spa_pending_queue_complete(&impl->pending, seq, res, result);
-}
-
-static const struct spa_device_callbacks device_callbacks = {
-	SPA_VERSION_DEVICE_CALLBACKS,
+static const struct spa_device_events device_events = {
+	SPA_VERSION_DEVICE_EVENTS,
 	.info = device_info,
 	.object_info = device_object_info,
-	.result = device_result,
 };
 
 SPA_EXPORT
-void pw_device_set_implementation(struct pw_device *device, struct spa_device *spa_device)
+int pw_device_set_implementation(struct pw_device *device, struct spa_device *spa_device)
 {
+	pw_log_debug("device %p: implementation %p", device, spa_device);
+
+	if (device->implementation) {
+		pw_log_error("device %p: implementation existed %p",
+				device, device->implementation);
+		return -EEXIST;
+	}
 	device->implementation = spa_device;
-	spa_device_set_callbacks(device->implementation, &device_callbacks, device);
+	spa_device_add_listener(device->implementation,
+			&device->listener, &device_events, device);
+
+	return 0;
 }
 
 SPA_EXPORT

@@ -87,9 +87,11 @@ struct state {
 	snd_pcm_stream_t stream;
 	snd_output_t *output;
 
+	struct spa_hook_list hooks;
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 
+	uint64_t info_all;
 	struct spa_node_info info;
 	struct spa_param_info params[8];
 	struct props props;
@@ -108,6 +110,7 @@ struct state {
 	int channels;
 	size_t frame_size;
 
+	uint64_t port_info_all;
 	struct spa_port_info port_info;
 	struct spa_param_info port_params[8];
 	struct spa_io_buffers *io;

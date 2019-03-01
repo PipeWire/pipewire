@@ -62,8 +62,7 @@ struct impl {
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 
-	const struct spa_device_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook_list hooks;
 
 	struct props props;
 
@@ -103,7 +102,7 @@ static int emit_nodes(struct impl *this)
 			info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 			info.props = &SPA_DICT_INIT_ARRAY(items);
 
-			this->callbacks->object_info(this->callbacks_data, 0, &info);
+			spa_device_emit_object_info(&this->hooks, 0, &info);
 			break;
 		}
 	}
@@ -115,38 +114,39 @@ static const struct spa_dict_item info_items[] = {
 	{ "media.class", "Audio/Device" },
 };
 
-static int impl_set_callbacks(struct spa_device *device,
-			   const struct spa_device_callbacks *callbacks,
-			   void *data)
+static int impl_add_listener(struct spa_device *device,
+			struct spa_hook *listener,
+			const struct spa_device_events *events,
+			void *data)
 {
 	struct impl *this;
+	struct spa_hook_list save;
 
 	spa_return_val_if_fail(device != NULL, -EINVAL);
+	spa_return_val_if_fail(events != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(device, struct impl, device);
+	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	if (events->info) {
+		struct spa_device_info info;
 
-	if (callbacks) {
-		if (callbacks->info) {
-			struct spa_device_info info;
+		info = SPA_DEVICE_INFO_INIT();
 
-			info = SPA_DEVICE_INFO_INIT();
+		info.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
+		info.props = &SPA_DICT_INIT_ARRAY(info_items);
 
-			info.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
-			info.props = &SPA_DICT_INIT_ARRAY(info_items);
+		info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+		info.n_params = 0;
+		info.params = NULL;
 
-			info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-			info.n_params = 0;
-			info.params = NULL;
-
-			callbacks->info(data, &info);
-		}
-
-		if (this->callbacks->object_info)
-			emit_nodes(this);
+		spa_device_emit_info(&this->hooks, &info);
 	}
+
+	if (events->object_info)
+		emit_nodes(this);
+
+	spa_hook_list_join(&this->hooks, &save);
 
 	return 0;
 }
@@ -168,7 +168,7 @@ static int impl_set_param(struct spa_device *device,
 
 static const struct spa_device impl_device = {
 	SPA_VERSION_DEVICE,
-	impl_set_callbacks,
+	impl_add_listener,
 	impl_enum_params,
 	impl_set_param,
 };
@@ -240,6 +240,8 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 	this->device = impl_device;
+
+	spa_hook_list_init(&this->hooks);
 
 	reset_props(&this->props);
 

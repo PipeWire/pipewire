@@ -34,6 +34,7 @@ struct spa_node;
 #include <spa/utils/defs.h>
 #include <spa/utils/result.h>
 #include <spa/utils/type.h>
+#include <spa/utils/hook.h>
 
 #include <spa/support/plugin.h>
 
@@ -58,7 +59,7 @@ struct spa_node_info {
 #define SPA_NODE_FLAG_DYNAMIC_INPUT_PORTS	(1u<<0)	/**< input ports can be added/removed */
 #define SPA_NODE_FLAG_DYNAMIC_OUTPUT_PORTS	(1u<<1)	/**< output ports can be added/removed */
 #define SPA_NODE_FLAG_RT			(1u<<2)	/**< node can do real-time processing */
-	uint32_t flags;
+	uint64_t flags;
 	struct spa_dict *props;			/**< extra node properties */
 	struct spa_param_info *params;		/**< parameter information */
 	uint32_t n_params;			/**< number of items in \a params */
@@ -92,8 +93,8 @@ struct spa_port_info {
 							 *   or will not be made available on another
 							 *   port */
 #define SPA_PORT_FLAG_DYNAMIC_DATA		(1u<<9)	/**< data pointer on buffers can be changed */
-	uint32_t flags;				/**< port flags */
-	uint32_t rate;				/**< rate of sequence numbers on port */
+	uint64_t flags;				/**< port flags */
+	struct spa_fraction rate;		/**< rate of sequence numbers on port */
 	const struct spa_dict *props;		/**< extra port properties */
 	struct spa_param_info *params;		/**< parameter information */
 	uint32_t n_params;			/**< number of items in \a params */
@@ -114,8 +115,14 @@ struct spa_result_node_params {
 	struct spa_pod *param;	/**< the result param */
 };
 
-struct spa_node_callbacks {
-#define SPA_VERSION_NODE_CALLBACKS	0
+/** events from the spa_node.
+ *
+ * All event are called from the main thread and multiple
+ * listeners can be registered for the events with
+ * spa_node_add_listener().
+ */
+struct spa_node_events {
+#define SPA_VERSION_NODE_EVENTS	0
 	uint32_t version;	/**< version of this structure */
 
 	/** Emited when info changes */
@@ -128,17 +135,19 @@ struct spa_node_callbacks {
 
 	/** notify a result.
 	 *
-	 * Some method will return an async return value when called. Depending
-	 * on the method, this can then trigger a result callback with an
-	 * optional result. Look at the documentation of the method to know
-	 * when to expect a result value.
+	 * Some methods will trigger a result event with an optional
+	 * result. Look at the documentation of the method to know
+	 * when to expect a result event.
 	 *
-	 * The result callback can be called synchronously, as a callback
+	 * The result event can be called synchronously, as an event
 	 * called from inside the method itself, in which case the seq
-	 * number passed to the method will be passed.
+	 * number passed to the method will be passed unchanged.
 	 *
-	 * Users of the API will usually use a struct spa_pending_queue
-	 * to dispatch result values to listeners.
+	 * The result event will be called asynchronously when the
+	 * method returned an async return value. In this case, the seq
+	 * number in the result will match the async return value of
+	 * the method call. Users should match the seq number from
+	 * request to the reply.
 	 */
 	int (*result) (void *data, int seq, int res, const void *result);
 
@@ -147,15 +156,31 @@ struct spa_node_callbacks {
 	 * \param event the event that was emited
 	 *
 	 * This will be called when an out-of-bound event is notified
-	 * on \a node. The callback will be called from the main thread.
+	 * on \a node.
 	 */
 	int (*event) (void *data, struct spa_event *event);
+};
 
+#define spa_node_emit(hooks,method,version,...)					\
+		spa_hook_list_call_simple(hooks, struct spa_node_events,	\
+				method, version, ##__VA_ARGS__)
+
+#define spa_node_emit_info(hooks,i)		spa_node_emit(hooks,info, 0, i)
+#define spa_node_emit_port_info(hooks,d,p,i)	spa_node_emit(hooks,port_info, 0, d, p, i)
+#define spa_node_emit_result(hooks,s,r,res)	spa_node_emit(hooks,result, 0, s, r, res)
+#define spa_node_emit_event(hooks,e)		spa_node_emit(hooks,event, 0, e)
+
+/** Node callbacks
+ *
+ * Callbacks are called from the real-time data thread. Only
+ * one callback structure can be set on an spa_node.
+ */
+struct spa_node_callbacks {
+#define SPA_VERSION_NODE_CALLBACKS	0
 	/**
 	 * \param node a spa_node
 	 *
-	 * The node is ready for processing. This callback is called from the
-	 * data thread.
+	 * The node is ready for processing.
 	 *
 	 * When this function is NULL, synchronous operation is requested
 	 * on the ports.
@@ -167,8 +192,7 @@ struct spa_node_callbacks {
 	 * \param port_id an input port_id
 	 * \param buffer_id the buffer id to be reused
 	 *
-	 * The node has a buffer that can be reused. This callback is called
-	 * from the data thread.
+	 * The node has a buffer that can be reused.
 	 *
 	 * When this function is NULL, the buffers to reuse will be set in
 	 * the io area of the input ports.
@@ -176,7 +200,6 @@ struct spa_node_callbacks {
 	int (*reuse_buffer) (void *data,
 			     uint32_t port_id,
 			     uint32_t buffer_id);
-
 };
 
 /** flags that can be passed to set_param and port_set_param functions */
@@ -196,10 +219,30 @@ struct spa_node {
 	uint32_t version;
 
 	/**
-	 * Set callbacks to receive events and scheduling callbacks from \a node.
+	 * Adds an event listener on \a node.
+	 *
+	 * Setting the events will trigger the info event and a
+	 * port_info event for each managed port on the new
+	 * listener.
+	 *
+	 * \param node a #spa_node
+	 * \param listener a listener
+	 * \param events a #struct spa_node_events
+	 * \param data data passed as first argument in functions of \a events
+	 * \return 0 on success
+	 *	   < 0 errno on error
+	 */
+	int (*add_listener) (struct spa_node *node,
+			struct spa_hook *listener,
+			const struct spa_node_events *events,
+			void *data);
+	/**
+	 * Set callbacks to on \a node.
 	 * if \a callbacks is NULL, the current callbacks are removed.
 	 *
 	 * This function must be called from the main thread.
+	 *
+	 * All callbacks are called from the data thread.
 	 *
 	 * \param node a spa_node
 	 * \param callbacks callbacks to set
@@ -212,7 +255,7 @@ struct spa_node {
 	/**
 	 * Perform a sync operation.
 	 *
-	 * This method will emit the result callback with the given sequence
+	 * This method will emit the result event with the given sequence
 	 * number synchronously or with the returned async return value
 	 * asynchronously.
 	 *
@@ -234,24 +277,28 @@ struct spa_node {
 	 *
 	 * Parameters can be filtered by passing a non-NULL \a filter.
 	 *
+	 * The function will emit the result event up to \a max times with
+	 * the result value. The seq in the result will either be the \a seq
+	 * number when executed synchronously or the async return value of
+	 * this function when executed asynchrnously.
+	 *
 	 * This function must be called from the main thread.
 	 *
 	 * \param node a \ref spa_node
+	 * \param seq a sequence number to pass to the result event when
+	 *	this method is executed synchronously.
 	 * \param id the param id to enumerate
 	 * \param start the index of enumeration, pass 0 for the first item
-	 * \param num the number of parameters to enumerate
+	 * \param max the maximum number of parameters to enumerate
 	 * \param filter and optional filter to use
-	 * \param func the callback with the result. The result will be
-	 *   of type struct spa_result_node_params. The next field
-	 *   can be used to continue the enumeration.
-	 * \param data first argument to \a func
 	 *
-	 * \return the return value of \a func or 0 when no more
-	 *	items can be iterated.
+	 * \return 0 when no more items can be iterated.
 	 *         -EINVAL when invalid arguments are given
 	 *         -ENOENT the parameter \a id is unknown
 	 *         -ENOTSUP when there are no parameters
 	 *                 implemented on \a node
+	 *         an async return value when the result event will be
+	 *             emited later.
 	 */
 	int (*enum_params) (struct spa_node *node, int seq,
 			    uint32_t id, uint32_t start, uint32_t max,
@@ -320,10 +367,11 @@ struct spa_node {
 	int (*send_command) (struct spa_node *node, const struct spa_command *command);
 
 	/**
-	 * Make a new port with \a port_id. The caller should use get_port_ids() to
-	 * find an unused id for the given \a direction.
+	 * Make a new port with \a port_id. The caller should use the lowest unused
+	 * port id for the given \a direction.
 	 *
-	 * Port ids should be between 0 and max_ports as obtained from get_n_ports().
+	 * Port ids should be between 0 and max_ports as obtained from the info
+	 * event.
 	 *
 	 * This function must be called from the main thread.
 	 *
@@ -338,7 +386,18 @@ struct spa_node {
 			enum spa_direction direction, uint32_t port_id,
 			const struct spa_dict *props);
 
-	int (*remove_port) (struct spa_node *node, enum spa_direction direction, uint32_t port_id);
+	/**
+	 * Remove a port with \a port_id.
+	 *
+	 * \param node a  spa_node
+	 * \param direction a #enum spa_direction
+	 * \param port_id a port id
+	 * \return 0 on success
+	 *         -EINVAL when node is NULL or when port_id is unknown or
+	 *		when the port can't be removed.
+	 */
+	int (*remove_port) (struct spa_node *node,
+			enum spa_direction direction, uint32_t port_id);
 
 	/**
 	 * Enumerate all possible parameters of \a id on \a port_id of \a node
@@ -347,30 +406,32 @@ struct spa_node {
 	 * The result parameters can be queried and modified and ultimately be used
 	 * to call port_set_param.
 	 *
+	 * The function will emit the result event up to \a max times with
+	 * the result value. The seq in the result event will either be the
+	 * \a seq number when executed synchronously or the async return
+	 * value of this function when executed asynchronously.
+	 *
 	 * This function must be called from the main thread.
 	 *
-	 * The result callback will be called with a struct spa_result_node_params.
-	 *
 	 * \param node a spa_node
+	 * \param seq a sequence number to pass to the result event when
+	 *	this method is executed synchronously.
 	 * \param direction an spa_direction
 	 * \param port_id the port to query
-	 * \param seq a sequence number to pass to the synchronous result callback
 	 * \param id the parameter id to query
 	 * \param start the first index to query, 0 to get the first item
-	 * \param num the maximum number of params to query
+	 * \param max the maximum number of params to query
 	 * \param filter a parameter filter or NULL for no filter
-	 * \param func the callback with the result.
-	 * \param data first argument to \a func
 	 *
-	 * \return the return value of \a func or 0 when no more
-	 *	items can be iterated.
-	 *         0 when no more parameters exists
+	 * \return 0 when no more items can be iterated.
 	 *         -EINVAL when invalid parameters are given
 	 *         -ENOENT when \a id is unknown
+	 *         an async return value when the result event will be
+	 *             emited later.
 	 */
 	int (*port_enum_params) (struct spa_node *node, int seq,
 				 enum spa_direction direction, uint32_t port_id,
-				 uint32_t id, uint32_t start, uint32_t num,
+				 uint32_t id, uint32_t start, uint32_t max,
 				 const struct spa_pod *filter);
 	/**
 	 * Set a parameter on \a port_id of \a node.
@@ -408,17 +469,19 @@ struct spa_node {
 	 * The port should also have a spa_io_buffers io area configured to exchange
 	 * the buffers with the port.
 	 *
-	 * For an input port, all the buffers will remain dequeued. Once a buffer
-	 * has been pushed on a port with port_push_input, it should not be reused
-	 * until the reuse_buffer event is notified or when the buffer has been
-	 * returned in the spa_io_buffers of the port.
+	 * For an input port, all the buffers will remain dequeued.
+	 * Once a buffer has been queued on a port in the spa_io_buffers,
+	 * it should not be reused until the reuse_buffer callback is notified
+	 * or when the buffer has been returned in the spa_io_buffers of
+	 * the port.
 	 *
-	 * For output ports, all buffers will be queued in the port. When process_input
-	 * or process_output return SPA_STATUS_HAVE_BUFFER, buffers are available in
-	 * one or more of the spa_io_buffers areas.
+	 * For output ports, all buffers will be queued in the port. When process
+	 * returns SPA_STATUS_HAVE_BUFFER, buffers are available in one or more
+	 * of the spa_io_buffers areas.
+	 *
 	 * When a buffer can be reused, port_reuse_buffer() should be called or the
 	 * buffer_id should be placed in the spa_io_buffers area before calling
-	 * process_output.
+	 * process.
 	 *
 	 * Passing NULL as \a buffers will remove the reference that the port has
 	 * on the buffers.
@@ -448,7 +511,7 @@ struct spa_node {
 	 * with a 0 type that will be filled by this function.
 	 *
 	 * For input ports, the buffers will be dequeued and ready to be filled
-	 * and pushed into the port. A notify should be configured so that you can
+	 * and pushed into the port. A callback should be configured so that you can
 	 * know when a buffer can be reused.
 	 *
 	 * For output ports, the buffers remain queued. port_reuse_buffer() should
@@ -534,6 +597,7 @@ struct spa_node {
 	int (*process) (struct spa_node *node);
 };
 
+#define spa_node_add_listener(n,...)		(n)->add_listener((n),__VA_ARGS__)
 #define spa_node_set_callbacks(n,...)		(n)->set_callbacks((n),__VA_ARGS__)
 #define spa_node_sync(n,...)			(n)->sync((n),__VA_ARGS__)
 #define spa_node_enum_params(n,...)		(n)->enum_params((n),__VA_ARGS__)
@@ -547,6 +611,7 @@ struct spa_node {
 #define spa_node_port_use_buffers(n,...)	(n)->port_use_buffers((n),__VA_ARGS__)
 #define spa_node_port_alloc_buffers(n,...)	(n)->port_alloc_buffers((n),__VA_ARGS__)
 #define spa_node_port_set_io(n,...)		(n)->port_set_io((n),__VA_ARGS__)
+
 #define spa_node_port_reuse_buffer(n,...)	(n)->port_reuse_buffer((n),__VA_ARGS__)
 #define spa_node_process(n)			(n)->process((n))
 

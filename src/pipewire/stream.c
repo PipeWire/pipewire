@@ -107,6 +107,7 @@ struct stream {
 	struct spa_port_info port_info;
 
 	struct spa_node impl_node;
+	struct spa_hook_list hooks;
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 	struct spa_io_buffers *io;
@@ -315,40 +316,56 @@ static int impl_send_command(struct spa_node *node, const struct spa_command *co
 
 static void emit_node_info(struct stream *d)
 {
-	if (d->callbacks && d->callbacks->info) {
-		struct spa_node_info info;
-		info = SPA_NODE_INFO_INIT();
-		if (d->direction == SPA_DIRECTION_INPUT) {
-			info.max_input_ports = 1;
-			info.max_output_ports = 0;
-		} else {
-			info.max_input_ports = 0;
-			info.max_output_ports = 1;
-		}
-		info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS;
-		info.flags = SPA_NODE_FLAG_RT;
-		d->callbacks->info(d->callbacks_data, &info);
+	struct spa_node_info info;
+
+	info = SPA_NODE_INFO_INIT();
+	if (d->direction == SPA_DIRECTION_INPUT) {
+		info.max_input_ports = 1;
+		info.max_output_ports = 0;
+	} else {
+		info.max_input_ports = 0;
+		info.max_output_ports = 1;
 	}
+	info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS;
+	info.flags = SPA_NODE_FLAG_RT;
+	spa_node_emit_info(&d->hooks, &info);
 }
+
 static void emit_port_info(struct stream *d)
 {
-	if (d->callbacks && d->callbacks->port_info) {
-		struct spa_port_info info;
-		struct spa_param_info params[5];
+	struct spa_port_info info;
+	struct spa_param_info params[5];
 
-		info = SPA_PORT_INFO_INIT();
-		info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
-		info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
-		info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-		params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-		params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-		params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-		params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-		params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
-		info.params = params;
-		info.n_params = 5;
-		d->callbacks->port_info(d->callbacks_data, d->direction, 0, &info);
-	}
+	info = SPA_PORT_INFO_INIT();
+	info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
+	info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	info.params = params;
+	info.n_params = 5;
+	spa_node_emit_port_info(&d->hooks, d->direction, 0, &info);
+}
+
+static int impl_add_listener(struct spa_node *node,
+		struct spa_hook *listener,
+		const struct spa_node_events *events,
+		void *data)
+{
+	struct stream *d = SPA_CONTAINER_OF(node, struct stream, impl_node);
+	struct spa_hook_list save;
+
+	spa_hook_list_isolate(&d->hooks, &save, listener, events, data);
+
+	emit_node_info(d);
+	emit_port_info(d);
+
+	spa_hook_list_join(&d->hooks, &save);
+
+	return 0;
 }
 
 static int impl_set_callbacks(struct spa_node *node,
@@ -358,9 +375,6 @@ static int impl_set_callbacks(struct spa_node *node,
 
 	d->callbacks = callbacks;
 	d->callbacks_data = data;
-
-	emit_node_info(d);
-	emit_port_info(d);
 
 	return 0;
 }
@@ -415,7 +429,6 @@ static int impl_port_enum_params(struct spa_node *node, int seq,
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
 	uint32_t count = 0;
-	int res;
 
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
@@ -439,8 +452,7 @@ static int impl_port_enum_params(struct spa_node *node, int seq,
 		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
 			continue;
 
-		if ((res = d->callbacks->result(d->callbacks_data, seq, 0, &result)) != 0)
-			return res;
+		spa_node_emit_result(&d->hooks, seq, 0, &result);
 
 		if (++count == num)
 			break;
@@ -781,9 +793,10 @@ static int impl_node_process_output(struct spa_node *node)
 
 static const struct spa_node impl_node = {
 	SPA_VERSION_NODE,
+	.add_listener = impl_add_listener,
+	.set_callbacks = impl_set_callbacks,
 	.set_io = impl_set_io,
 	.send_command = impl_send_command,
-	.set_callbacks = impl_set_callbacks,
 	.port_set_io = impl_port_set_io,
 	.port_enum_params = impl_port_enum_params,
 	.port_set_param = impl_port_set_param,
@@ -928,6 +941,7 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 			pw_properties_set(props, "node.name", name);
 	}
 
+	spa_hook_list_init(&impl->hooks);
 	this->properties = props;
 
 	this->remote = remote;

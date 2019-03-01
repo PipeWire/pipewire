@@ -146,8 +146,6 @@ pw_global_register(struct pw_global *global,
 						        &global->properties->dict : NULL);
 	}
 
-	pw_global_emit_registering(global);
-
 	pw_log_debug("global %p: add %u owner %p parent %p", global, global->id, owner, parent);
 	pw_core_emit_global_added(core, global);
 

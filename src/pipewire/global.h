@@ -71,7 +71,6 @@ struct pw_global_events {
 #define PW_VERSION_GLOBAL_EVENTS 0
 	uint32_t version;
 
-	void (*registering) (void *data);
 	/** The global is destroyed */
 	void (*destroy) (void *data);
 	/** The global is freed */

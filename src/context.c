@@ -287,7 +287,7 @@ static int set_mask(pa_context *c, struct global *g)
 	return 1;
 }
 
-static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
+static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
                                   uint32_t permissions, uint32_t type, uint32_t version,
                                   const struct spa_dict *props)
 {
@@ -304,28 +304,26 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 
 	if (set_mask(c, g) == 0) {
 		global_free(g);
-		return 0;
+		return;
 	}
 
 	pw_log_debug("mask %d/%d", g->mask, g->event);
 	emit_event(c, g, PA_SUBSCRIPTION_EVENT_NEW);
-	return 0;
 }
 
-static int registry_event_global_remove(void *object, uint32_t id)
+static void registry_event_global_remove(void *object, uint32_t id)
 {
 	pa_context *c = object;
 	struct global *g;
 
 	pw_log_debug("context %p: remove %d", c, id);
 	if ((g = pa_context_find_global(c, id)) == NULL)
-		return 0;
+		return;
 
 	emit_event(c, g, PA_SUBSCRIPTION_EVENT_REMOVE);
 
 	pw_log_debug("context %p: free %d %p", c, id, g);
 	global_free(g);
-	return 0;
 }
 
 static const struct pw_registry_proxy_events registry_events =
@@ -359,19 +357,17 @@ static void complete_operations(pa_context *c, int seq)
 	}
 }
 
-static int core_info(void *data, const struct pw_core_info *info)
+static void core_info(void *data, const struct pw_core_info *info)
 {
 	pa_context *c = data;
 	c->core_info = pw_core_info_update(c->core_info, info);
-	return 0;
 }
 
-static int core_done(void *data, uint32_t id, int seq)
+static void core_done(void *data, uint32_t id, int seq)
 {
 	pa_context *c = data;
 	pw_log_debug("done %d", seq);
 	complete_operations(c, seq);
-	return 0;
 }
 
 static const struct pw_core_proxy_events core_events = {

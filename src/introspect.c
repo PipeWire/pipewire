@@ -27,21 +27,19 @@
 
 #include "internal.h"
 
-static int node_event_info(void *object, const struct pw_node_info *info)
+static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct global *g = object;
 	pw_log_debug("update %d", g->id);
 	g->info = pw_node_info_update(g->info, info);
-	return 0;
 }
 
-static int node_event_param(void *object, int seq,
+static void node_event_param(void *object, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
 	struct global *g = object;
 	pw_log_debug("update param %d", g->id);
-	return 0;
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -50,7 +48,7 @@ static const struct pw_node_proxy_events node_events = {
 	.param = node_event_param,
 };
 
-static int module_event_info(void *object, const struct pw_module_info *info)
+static void module_event_info(void *object, const struct pw_module_info *info)
 {
         struct global *g = object;
 	pa_module_info *i = &g->module_info.info;
@@ -73,7 +71,6 @@ static int module_event_info(void *object, const struct pw_module_info *info)
 		i->argument = info->args;
 	i->n_used = -1;
 	i->auto_unload = false;
-	return 0;
 }
 
 static const struct pw_module_proxy_events module_events = {
@@ -81,7 +78,7 @@ static const struct pw_module_proxy_events module_events = {
 	.info = module_event_info,
 };
 
-static int client_event_info(void *object, const struct pw_client_info *info)
+static void client_event_info(void *object, const struct pw_client_info *info)
 {
         struct global *g = object;
 	pa_client_info *i = &g->client_info.info;
@@ -102,7 +99,6 @@ static int client_event_info(void *object, const struct pw_client_info *info)
 		i->driver = info->props ?
 			spa_dict_lookup(info->props, PW_CLIENT_PROP_PROTOCOL) : NULL;
 	}
-	return 0;
 }
 
 static const struct pw_client_proxy_events client_events = {
@@ -110,7 +106,7 @@ static const struct pw_client_proxy_events client_events = {
 	.info = client_event_info,
 };
 
-static int device_event_param(void *object, int seq,
+static void device_event_param(void *object, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
@@ -127,7 +123,7 @@ static int device_event_param(void *object, int seq,
 				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
 				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name)) < 0) {
 			pw_log_warn("device %d: can't parse profile", g->id);
-			return -EINVAL;
+			return;
 		}
 		pw_array_add_ptr(&g->card_info.profiles, spa_pod_copy(param));
 		pw_log_debug("device %d: enum profile %d: \"%s\"", g->id, id, name);
@@ -140,7 +136,7 @@ static int device_event_param(void *object, int seq,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
 				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id)) < 0) {
 			pw_log_warn("device %d: can't parse profile", g->id);
-			return -EINVAL;
+			return;
 		}
 		g->card_info.active_profile = id;
 		pw_log_debug("device %d: current profile %d", g->id, id);
@@ -149,10 +145,9 @@ static int device_event_param(void *object, int seq,
 	default:
 		break;
 	}
-	return 0;
 }
 
-static int device_event_info(void *object, const struct pw_device_info *info)
+static void device_event_info(void *object, const struct pw_device_info *info)
 {
         struct global *g = object;
 	pa_card_info *i = &g->card_info.info;
@@ -171,7 +166,6 @@ static int device_event_info(void *object, const struct pw_device_info *info)
 		else
 			i->proplist = pa_proplist_new_dict(info->props);
 	}
-	return 0;
 }
 
 static const struct pw_device_proxy_events device_events = {

@@ -292,7 +292,7 @@ static void remove_pending(struct pending *p)
   }
 }
 
-static int
+static void
 on_core_info (void *data, const struct pw_core_info *info)
 {
   GstPipeWireDeviceProvider *self = data;
@@ -300,7 +300,7 @@ on_core_info (void *data, const struct pw_core_info *info)
   const gchar *value;
 
   if (info == NULL || info->props == NULL)
-    return -EINVAL;
+    return;
 
   value = spa_dict_lookup (info->props, "monitors");
   if (value) {
@@ -317,10 +317,9 @@ on_core_info (void *data, const struct pw_core_info *info)
     }
     g_strfreev (monitors);
   }
-  return 0;
 }
 
-static int
+static void
 on_core_done (void *data, uint32_t id, int seq)
 {
   GstPipeWireDeviceProvider *self = data;
@@ -339,7 +338,6 @@ on_core_done (void *data, uint32_t id, int seq)
     if (self->main_loop)
       pw_thread_loop_signal (self->main_loop, FALSE);
   }
-  return 0;
 }
 
 static const struct pw_core_proxy_events core_events = {
@@ -372,14 +370,13 @@ on_state_changed (void *data, enum pw_remote_state old, enum pw_remote_state sta
     pw_thread_loop_signal (self->main_loop, FALSE);
 }
 
-static int port_event_info(void *data, const struct pw_port_info *info)
+static void port_event_info(void *data, const struct pw_port_info *info)
 {
   struct port_data *port_data = data;
   pw_log_debug("%p", port_data);
-  return 0;
 }
 
-static int port_event_param(void *data, int seq, uint32_t id,
+static void port_event_param(void *data, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
   struct port_data *port_data = data;
@@ -391,7 +388,6 @@ static int port_event_param(void *data, int seq, uint32_t id,
   c1 = gst_caps_from_format (param);
   if (c1 && node_data->caps)
       gst_caps_append (node_data->caps, c1);
-  return 0;
 }
 
 static const struct pw_port_proxy_events port_events = {
@@ -400,12 +396,11 @@ static const struct pw_port_proxy_events port_events = {
   .param = port_event_param
 };
 
-static int node_event_info(void *data, const struct pw_node_info *info)
+static void node_event_info(void *data, const struct pw_node_info *info)
 {
   struct node_data *node_data = data;
   pw_log_debug("%p", node_data);
   node_data->info = pw_node_info_update(node_data->info, info);
-  return 0;
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -454,7 +449,7 @@ static const struct pw_proxy_events proxy_port_events = {
         .destroy = destroy_port_proxy,
 };
 
-static int registry_event_global(void *data, uint32_t id, uint32_t parent_id, uint32_t permissions,
+static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, uint32_t permissions,
 				 uint32_t type, uint32_t version,
 				 const struct spa_dict *props)
 {
@@ -487,7 +482,7 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id, ui
     struct port_data *pd;
 
     if ((nd = find_node_data(rd, parent_id)) == NULL)
-      return -EINVAL;
+      return;
 
     port = pw_registry_proxy_bind(rd->registry,
 		    id, PW_TYPE_INTERFACE_Port,
@@ -507,16 +502,15 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id, ui
     add_pending(self, &pd->pending, do_add_node, pd);
   }
 
-  return 0;
+  return;
 
 no_mem:
   GST_ERROR_OBJECT(self, "failed to create proxy");
-  return -ENOMEM;
+  return;
 }
 
-static int registry_event_global_remove(void *data, uint32_t id)
+static void registry_event_global_remove(void *data, uint32_t id)
 {
-	return 0;
 }
 
 static const struct pw_registry_proxy_events registry_events = {

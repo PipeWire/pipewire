@@ -36,7 +36,7 @@ struct spa_result_device_params_data {
 	struct spa_result_device_params data;
 };
 
-static inline int spa_result_func_device_params(void *data, int seq, int res,
+static inline void spa_result_func_device_params(void *data, int seq, int res,
 		const void *result)
 {
 	struct spa_result_device_params_data *d =
@@ -47,7 +47,6 @@ static inline int spa_result_func_device_params(void *data, int seq, int res,
 	spa_pod_builder_raw_padded(d->builder, r->param, SPA_POD_SIZE(r->param));
 	d->data.next = r->next;
 	d->data.param = SPA_MEMBER(d->builder->data, offset, struct spa_pod);
-	return 0;
 }
 
 static inline int spa_device_enum_params_sync(struct spa_device *device,

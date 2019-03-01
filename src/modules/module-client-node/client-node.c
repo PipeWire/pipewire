@@ -507,7 +507,7 @@ static int impl_node_add_listener(struct spa_node *node,
 			emit_port_info(this, this->out_ports[i]);
 	}
 	if (this->resource)
-		res = pw_resource_sync(this->resource, 0);
+		res = pw_resource_ping(this->resource, 0);
 
 	spa_hook_list_join(&this->hooks, &save);
 
@@ -539,7 +539,7 @@ impl_node_sync(struct spa_node *node, int seq)
 	pw_log_debug("client-node %p: sync", node);
 	if (this->resource == NULL)
 		return -EIO;
-	return pw_resource_sync(this->resource, seq);
+	return pw_resource_ping(this->resource, seq);
 }
 
 static void
@@ -1236,12 +1236,12 @@ static void client_node_resource_error(void *data, int seq, int res, const char 
 	spa_node_emit_result(&this->hooks, seq, res, &result);
 }
 
-static void client_node_resource_done(void *data, int seq)
+static void client_node_resource_pong(void *data, int seq)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
 
-	pw_log_debug("client-node %p: emit result %d", this, seq);
+	pw_log_debug("client-node %p: got pong, emit result %d", this, seq);
 	spa_node_emit_result(&this->hooks, seq, 0, NULL);
 }
 
@@ -1600,7 +1600,7 @@ static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = client_node_resource_destroy,
 	.error = client_node_resource_error,
-	.done = client_node_resource_done,
+	.pong = client_node_resource_pong,
 };
 
 static int root_impl_process(void *data, struct spa_graph_node *node)

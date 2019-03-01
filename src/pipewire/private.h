@@ -116,7 +116,8 @@ struct pw_client {
 
 	struct pw_protocol *protocol;	/**< protocol in use */
 	struct spa_list protocol_link;	/**< link in the protocol client_list */
-	int seq;			/**< last received sequence number */
+	int recv_seq;			/**< last received sequence number */
+	int send_seq;			/**< last sender sequence number */
 
 	void *user_data;		/**< extra user data */
 
@@ -522,7 +523,7 @@ struct pw_link {
 #define pw_resource_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_resource_events, m, v, ##__VA_ARGS__)
 
 #define pw_resource_emit_destroy(o)	pw_resource_emit(o, destroy, 0)
-#define pw_resource_emit_done(o,s)	pw_resource_emit(o, done, 0, s)
+#define pw_resource_emit_pong(o,s)	pw_resource_emit(o, pong, 0, s)
 #define pw_resource_emit_error(o,s,r,m)	pw_resource_emit(o, error, 0, s, r, m)
 
 struct pw_resource {
@@ -585,7 +586,8 @@ struct pw_remote {
 	struct spa_list remote_node_list;	/**< list of \ref pw_remote_node objects */
 
 	struct pw_protocol_client *conn;	/**< the protocol client connection */
-	int seq;				/**< last received sequence number */
+	int recv_seq;				/**< last received sequence number */
+	int send_seq;				/**< last protocol result code */
 
 	enum pw_remote_state state;
 	char *error;

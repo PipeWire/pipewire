@@ -132,7 +132,7 @@ process_messages(struct client_data *data)
 		if (!pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size, &seq))
 			break;
 
-		client->seq = seq;
+		client->recv_seq = seq;
 
 		pw_log_trace("protocol-native %p: got message %d from %u", client->protocol,
 			     opcode, id);
@@ -493,7 +493,7 @@ on_remote_data(void *data, int fd, enum spa_io mask)
                         pw_log_trace("protocol-native %p: got message %d from %u seq:%d",
 					this, opcode, id, seq);
 
-			this->seq = seq;
+			this->recv_seq = seq;
 
 			if (debug_messages) {
 				fprintf(stderr, "<<<<<<<<< in: %d %d %d %d\n", id, opcode, size, seq);
@@ -784,7 +784,8 @@ static int impl_ext_end_proxy(struct pw_proxy *proxy,
 			       struct spa_pod_builder *builder)
 {
 	struct client *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct client, this);
-	return pw_protocol_native_connection_end(impl->connection, builder);
+	struct pw_remote *remote = proxy->remote;
+	return remote->send_seq = pw_protocol_native_connection_end(impl->connection, builder);
 }
 
 static struct spa_pod_builder *
@@ -809,7 +810,8 @@ static int impl_ext_end_resource(struct pw_resource *resource,
 				  struct spa_pod_builder *builder)
 {
 	struct client_data *data = resource->client->user_data;
-	return pw_protocol_native_connection_end(data->connection, builder);
+	struct pw_client *client = resource->client;
+	return client->send_seq = pw_protocol_native_connection_end(data->connection, builder);
 }
 const static struct pw_protocol_native_ext protocol_ext_impl = {
 	PW_VERSION_PROTOCOL_NATIVE_EXT,

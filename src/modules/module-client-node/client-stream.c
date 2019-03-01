@@ -279,7 +279,7 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	return res;
 }
 
-static int adapter_port_info(void *data,
+static void adapter_port_info(void *data,
 		enum spa_direction direction, uint32_t port_id,
 		const struct spa_port_info *info)
 {
@@ -288,16 +288,14 @@ static int adapter_port_info(void *data,
 
 	if (direction == impl->direction)
 		spa_node_emit_port_info(&this->hooks, direction, port_id, info);
-
-	return 0;
 }
-static int adapter_result(void *data, int seq, int res, const void *result)
+
+static void adapter_result(void *data, int seq, int res, const void *result)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
 	pw_log_debug("%p: result %d %d", this, seq, res);
 	spa_node_emit_result(&this->hooks, seq, res, result);
-	return 0;
 }
 
 static const struct spa_node_events adapter_node_events = {

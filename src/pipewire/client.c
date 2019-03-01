@@ -144,8 +144,9 @@ static int client_get_permissions(void *object, uint32_t index, uint32_t num)
 	else if ((size_t)index + (size_t)num >= len)
 		num = len - index;
 
-	return pw_client_resource_permissions(resource, index,
+	pw_client_resource_permissions(resource, index,
 			num, pw_array_get_unchecked(&impl->permissions, index, struct pw_permission));
+	return 0;
 }
 
 static int client_update_permissions(void *object,

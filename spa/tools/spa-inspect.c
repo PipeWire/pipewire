@@ -52,7 +52,7 @@ struct data {
 	struct spa_hook listener;
 };
 
-static int print_param(void *data, int seq, int res, const void *result)
+static void print_param(void *data, int seq, int res, const void *result)
 {
 	const struct spa_result_node_params *r = result;
 
@@ -60,7 +60,6 @@ static int print_param(void *data, int seq, int res, const void *result)
 		spa_debug_format(16, NULL, r->param);
 	else
 		spa_debug_pod(16, NULL, r->param);
-	return 0;
 }
 
 static void
@@ -129,7 +128,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 	}
 }
 
-static int node_info(void *_data, const struct spa_node_info *info)
+static void node_info(void *_data, const struct spa_node_info *info)
 {
 	struct data *data = _data;
 
@@ -144,10 +143,9 @@ static int node_info(void *_data, const struct spa_node_info *info)
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
 		inspect_node_params(data, data->node, info->n_params, info->params);
 	}
-	return 0;
 }
 
-static int node_port_info(void *_data, enum spa_direction direction, uint32_t id,
+static void node_port_info(void *_data, enum spa_direction direction, uint32_t id,
 		const struct spa_port_info *info)
 {
 	struct data *data = _data;
@@ -170,7 +168,6 @@ static int node_port_info(void *_data, enum spa_direction direction, uint32_t id
 					info->n_params, info->params);
 		}
 	}
-	return 0;
 }
 
 static const struct spa_node_events node_events =

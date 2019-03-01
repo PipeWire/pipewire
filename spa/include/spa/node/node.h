@@ -126,10 +126,10 @@ struct spa_node_events {
 	uint32_t version;	/**< version of this structure */
 
 	/** Emited when info changes */
-	int (*info) (void *data, const struct spa_node_info *info);
+	void (*info) (void *data, const struct spa_node_info *info);
 
 	/** Emited when port info changes, NULL when port is removed */
-	int (*port_info) (void *data,
+	void (*port_info) (void *data,
 			enum spa_direction direction, uint32_t port,
 			const struct spa_port_info *info);
 
@@ -149,7 +149,7 @@ struct spa_node_events {
 	 * the method call. Users should match the seq number from
 	 * request to the reply.
 	 */
-	int (*result) (void *data, int seq, int res, const void *result);
+	void (*result) (void *data, int seq, int res, const void *result);
 
 	/**
 	 * \param node a spa_node
@@ -158,7 +158,7 @@ struct spa_node_events {
 	 * This will be called when an out-of-bound event is notified
 	 * on \a node.
 	 */
-	int (*event) (void *data, struct spa_event *event);
+	void (*event) (void *data, struct spa_event *event);
 };
 
 #define spa_node_emit(hooks,method,version,...)					\

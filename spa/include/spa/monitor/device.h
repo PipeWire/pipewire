@@ -88,17 +88,17 @@ struct spa_device_events {
 	uint32_t version;
 
 	/** notify extra information about the device */
-	int (*info) (void *data, const struct spa_device_info *info);
+	void (*info) (void *data, const struct spa_device_info *info);
 
 	/** notify a result */
-	int (*result) (void *data, int seq, int res, const void *result);
+	void (*result) (void *data, int seq, int res, const void *result);
 
 	/** a device event */
-	int (*event) (void *data, struct spa_event *event);
+	void (*event) (void *data, struct spa_event *event);
 
 	/** info changed for an object managed by the device, info is NULL when
 	 * the object is removed */
-	int (*object_info) (void *data, uint32_t id,
+	void (*object_info) (void *data, uint32_t id,
 		const struct spa_device_object_info *info);
 };
 

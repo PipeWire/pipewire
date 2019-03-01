@@ -798,12 +798,11 @@ struct result_port_params_data {
 			struct spa_pod *param);
 };
 
-static int result_port_params(void *data, int seq, int res, const void *result)
+static void result_port_params(void *data, int seq, int res, const void *result)
 {
 	struct result_port_params_data *d = data;
 	const struct spa_result_node_params *r = result;
 	d->callback(d->data, seq, r->id, r->index, r->next, r->param);
-	return 0;
 }
 
 int pw_port_for_each_param(struct pw_port *port,

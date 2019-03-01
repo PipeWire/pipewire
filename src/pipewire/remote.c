@@ -98,14 +98,14 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 	return 0;
 }
 
-static int core_event_sync(void *data, uint32_t id, int seq)
+static int core_event_ping(void *data, uint32_t id, int seq)
 {
 	struct pw_remote *this = data;
-	pw_log_debug("remote %p: object %u sync %u", this, id, seq);
-	return pw_core_proxy_done(this->core_proxy, id, seq);
+	pw_log_debug("remote %p: object %u ping %u", this, id, seq);
+	return pw_core_proxy_pong(this->core_proxy, id, seq);
 }
 
-static int core_event_done(void *data, uint32_t id, int seq)
+static void core_event_done(void *data, uint32_t id, int seq)
 {
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
@@ -115,10 +115,9 @@ static int core_event_done(void *data, uint32_t id, int seq)
 	proxy = pw_map_lookup(&this->objects, id);
 	if (proxy)
 		pw_proxy_emit_done(proxy, seq);
-	return 0;
 }
 
-static int core_event_error(void *data, uint32_t id, int seq, int res, const char *message)
+static void core_event_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
@@ -129,10 +128,9 @@ static int core_event_error(void *data, uint32_t id, int seq, int res, const cha
 	proxy = pw_map_lookup(&this->objects, id);
 	if (proxy)
 		pw_proxy_emit_error(proxy, seq, res, message);
-	return 0;
 }
 
-static int core_event_remove_id(void *data, uint32_t id)
+static void core_event_remove_id(void *data, uint32_t id)
 {
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
@@ -143,13 +141,12 @@ static int core_event_remove_id(void *data, uint32_t id)
 		pw_proxy_destroy(proxy);
 
 	pw_map_remove(&this->objects, id);
-	return 0;
 }
 
 static const struct pw_core_proxy_events core_proxy_events = {
 	PW_VERSION_CORE_PROXY_EVENTS,
 	.error = core_event_error,
-	.sync = core_event_sync,
+	.ping = core_event_ping,
 	.done = core_event_done,
 	.remove_id = core_event_remove_id,
 };

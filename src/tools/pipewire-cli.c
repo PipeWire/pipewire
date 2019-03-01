@@ -260,13 +260,12 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 	return true;
 }
 
-static int on_core_info(void *_data, const struct pw_core_info *info)
+static void on_core_info(void *_data, const struct pw_core_info *info)
 {
 	struct remote_data *rd = _data;
 	free(rd->name);
 	rd->name = strdup(info->name);
 	fprintf(stdout, "remote %d is named '%s'\n", rd->id, rd->name);
-	return 0;
 }
 
 static void show_prompt(struct remote_data *rd)
@@ -275,14 +274,12 @@ static void show_prompt(struct remote_data *rd)
 	fflush(stdout);
 }
 
-static int on_core_done(void *_data, uint32_t id, int seq)
+static void on_core_done(void *_data, uint32_t id, int seq)
 {
 	struct remote_data *rd = _data;
 
 	if (seq == rd->prompt_pending)
 		show_prompt(rd);
-
-	return 0;
 }
 
 static int print_global(void *obj, void *data)
@@ -301,7 +298,7 @@ static int print_global(void *obj, void *data)
 	return 0;
 }
 
-static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
+static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		uint32_t permissions, uint32_t type, uint32_t version,
 		const struct spa_dict *props)
 {
@@ -325,7 +322,6 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	while (id > size)
 		pw_map_insert_at(&rd->globals, size++, NULL);
 	pw_map_insert_at(&rd->globals, id, global);
-	return 0;
 }
 
 static int destroy_global(void *obj, void *data)
@@ -342,7 +338,7 @@ static int destroy_global(void *obj, void *data)
 	return 0;
 }
 
-static int registry_event_global_remove(void *data, uint32_t id)
+static void registry_event_global_remove(void *data, uint32_t id)
 {
 	struct remote_data *rd = data;
 	struct global *global;
@@ -350,13 +346,12 @@ static int registry_event_global_remove(void *data, uint32_t id)
 	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
 		fprintf(stdout, "remote %d removed unknown global %d\n", rd->id, id);
-		return -EINVAL;
+		return;
 	}
 
 	fprintf(stdout, "remote %d removed global: ", rd->id);
 	print_global(global, NULL);
 	destroy_global(global, rd);
-	return 0;
 }
 
 static const struct pw_registry_proxy_events registry_events = {
@@ -646,7 +641,7 @@ static void info_device(struct proxy_data *pd)
 	info->change_mask = 0;
 }
 
-static int core_event_info(void *object, const struct pw_core_info *info)
+static void core_event_info(void *object, const struct pw_core_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
@@ -659,7 +654,6 @@ static int core_event_info(void *object, const struct pw_core_info *info)
 		info_core(pd);
 		pd->global->info_pending = false;
 	}
-	return 0;
 }
 
 static const struct pw_core_proxy_events core_events = {
@@ -668,7 +662,7 @@ static const struct pw_core_proxy_events core_events = {
 };
 
 
-static int module_event_info(void *object, const struct pw_module_info *info)
+static void module_event_info(void *object, const struct pw_module_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
@@ -681,7 +675,6 @@ static int module_event_info(void *object, const struct pw_module_info *info)
 		info_module(pd);
 		pd->global->info_pending = false;
 	}
-	return 0;
 }
 
 static const struct pw_module_proxy_events module_events = {
@@ -689,7 +682,7 @@ static const struct pw_module_proxy_events module_events = {
 	.info = module_event_info
 };
 
-static int node_event_info(void *object, const struct pw_node_info *info)
+static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
@@ -702,10 +695,9 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 		info_node(pd);
 		pd->global->info_pending = false;
 	}
-	return 0;
 }
 
-static int event_param(void *object, int seq, uint32_t id,
+static void event_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
@@ -718,7 +710,6 @@ static int event_param(void *object, int seq, uint32_t id,
 		spa_debug_format(2, NULL, param);
 	else
 		spa_debug_pod(2, NULL, param);
-	return 0;
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -728,7 +719,7 @@ static const struct pw_node_proxy_events node_events = {
 };
 
 
-static int port_event_info(void *object, const struct pw_port_info *info)
+static void port_event_info(void *object, const struct pw_port_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
@@ -741,7 +732,6 @@ static int port_event_info(void *object, const struct pw_port_info *info)
 		info_port(pd);
 		pd->global->info_pending = false;
 	}
-	return 0;
 }
 
 static const struct pw_port_proxy_events port_events = {
@@ -750,7 +740,7 @@ static const struct pw_port_proxy_events port_events = {
 	.param = event_param
 };
 
-static int factory_event_info(void *object, const struct pw_factory_info *info)
+static void factory_event_info(void *object, const struct pw_factory_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
@@ -763,7 +753,6 @@ static int factory_event_info(void *object, const struct pw_factory_info *info)
 		info_factory(pd);
 		pd->global->info_pending = false;
 	}
-	return 0;
 }
 
 static const struct pw_factory_proxy_events factory_events = {
@@ -771,7 +760,7 @@ static const struct pw_factory_proxy_events factory_events = {
 	.info = factory_event_info
 };
 
-static int client_event_info(void *object, const struct pw_client_info *info)
+static void client_event_info(void *object, const struct pw_client_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
@@ -784,10 +773,9 @@ static int client_event_info(void *object, const struct pw_client_info *info)
 		info_client(pd);
 		pd->global->info_pending = false;
 	}
-	return 0;
 }
 
-static int client_event_permissions(void *object, uint32_t index,
+static void client_event_permissions(void *object, uint32_t index,
 		uint32_t n_permissions, const struct pw_permission *permissions)
 {
         struct proxy_data *data = object;
@@ -804,7 +792,6 @@ static int client_event_permissions(void *object, uint32_t index,
 			fprintf(stdout, "  %u:", permissions[i].id);
 		fprintf(stdout, " %08x\n", permissions[i].permissions);
 	}
-	return 0;
 }
 
 static const struct pw_client_proxy_events client_events = {
@@ -813,7 +800,7 @@ static const struct pw_client_proxy_events client_events = {
 	.permissions = client_event_permissions
 };
 
-static int link_event_info(void *object, const struct pw_link_info *info)
+static void link_event_info(void *object, const struct pw_link_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
@@ -826,7 +813,6 @@ static int link_event_info(void *object, const struct pw_link_info *info)
 		info_link(pd);
 		pd->global->info_pending = false;
 	}
-	return 0;
 }
 
 static const struct pw_link_proxy_events link_events = {
@@ -835,7 +821,7 @@ static const struct pw_link_proxy_events link_events = {
 };
 
 
-static int device_event_info(void *object, const struct pw_device_info *info)
+static void device_event_info(void *object, const struct pw_device_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
@@ -848,7 +834,6 @@ static int device_event_info(void *object, const struct pw_device_info *info)
 		info_device(pd);
 		pd->global->info_pending = false;
 	}
-	return 0;
 }
 
 static const struct pw_device_proxy_events device_events = {

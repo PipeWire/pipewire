@@ -793,7 +793,7 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 	return changed;
 }
 
-static int node_info(void *data, const struct spa_node_info *info)
+static void node_info(void *data, const struct spa_node_info *info)
 {
 	struct pw_node *node = data;
 
@@ -814,11 +814,9 @@ static int node_info(void *data, const struct spa_node_info *info)
 				node->info.n_params * sizeof(struct spa_param_info));
 	}
 	emit_info_changed(node);
-
-	return 0;
 }
 
-static int node_port_info(void *data, enum spa_direction direction, uint32_t port_id,
+static void node_port_info(void *data, enum spa_direction direction, uint32_t port_id,
 		const struct spa_port_info *info)
 {
 	struct pw_node *node = data;
@@ -852,10 +850,9 @@ static int node_port_info(void *data, enum spa_direction direction, uint32_t por
 			}
 		}
 	}
-	return 0;
 }
 
-static int node_result(void *data, int seq, int res, const void *result)
+static void node_result(void *data, int seq, int res, const void *result)
 {
 	struct pw_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
@@ -867,11 +864,9 @@ static int node_result(void *data, int seq, int res, const void *result)
 	        pw_work_queue_complete(impl->work, &impl->this, SPA_RESULT_ASYNC_SEQ(seq), res);
 
 	pw_node_emit_result(node, seq, res, result);
-
-	return 0;
 }
 
-static int node_event(void *data, struct spa_event *event)
+static void node_event(void *data, struct spa_event *event)
 {
 	struct pw_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
@@ -887,9 +882,15 @@ static int node_event(void *data, struct spa_event *event)
 		break;
 	}
 	pw_node_emit_event(node, event);
-
-	return 0;
 }
+
+static const struct spa_node_events node_events = {
+	SPA_VERSION_NODE_EVENTS,
+	.info = node_info,
+	.port_info = node_port_info,
+	.result = node_result,
+	.event = node_event,
+};
 
 static int node_ready(void *data, int status)
 {
@@ -925,14 +926,6 @@ static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 	}
 	return 0;
 }
-
-static const struct spa_node_events node_events = {
-	SPA_VERSION_NODE_EVENTS,
-	.info = node_info,
-	.port_info = node_port_info,
-	.result = node_result,
-	.event = node_event,
-};
 
 static const struct spa_node_callbacks node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
@@ -1090,12 +1083,11 @@ struct result_node_params_data {
 			struct spa_pod *param);
 };
 
-static int result_node_params(void *data, int seq, int res, const void *result)
+static void result_node_params(void *data, int seq, int res, const void *result)
 {
 	struct result_node_params_data *d = data;
 	const struct spa_result_node_params *r = result;
 	d->callback(d->data, seq, r->id, r->index, r->next, r->param);
-	return 0;
 }
 
 SPA_EXPORT

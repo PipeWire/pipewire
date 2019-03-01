@@ -167,18 +167,18 @@ static int core_sync(void *object, uint32_t id, int seq)
 	return 0;
 }
 
-static int core_done(void *object, uint32_t id, int seq)
+static int core_pong(void *object, uint32_t id, int seq)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
 	struct pw_resource *r;
 
-	pw_log_debug("core %p: done %d for resource %d", resource->core, seq, id);
+	pw_log_debug("core %p: pong %d for resource %d", resource->core, seq, id);
 
 	if ((r = pw_client_find_resource(client, id)) == NULL)
 		return -EINVAL;
 
-	pw_resource_emit_done(r, seq);
+	pw_resource_emit_pong(r, seq);
 	return 0;
 }
 
@@ -246,7 +246,7 @@ static int core_get_registry(void *object, uint32_t version, uint32_t new_id)
       no_mem:
 	pw_log_error("can't create registry resource");
 	pw_core_resource_error(client->core_resource, new_id,
-			client->seq, -ENOMEM, "no memory");
+			client->recv_seq, -ENOMEM, "no memory");
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
 	return -ENOMEM;
@@ -341,7 +341,7 @@ static const struct pw_core_proxy_methods core_methods = {
 	PW_VERSION_CORE_PROXY_METHODS,
 	.hello = core_hello,
 	.sync = core_sync,
-	.done = core_done,
+	.pong = core_pong,
 	.error = core_error,
 	.get_registry = core_get_registry,
 	.create_object = core_create_object,

@@ -98,7 +98,7 @@ static void remove_pending(struct proxy_data *pd)
 	}
 }
 
-static int on_core_done(void *data, uint32_t id, int seq)
+static void on_core_done(void *data, uint32_t id, int seq)
 {
 	struct data *d = data;
 	struct proxy_data *pd, *t;
@@ -109,7 +109,6 @@ static int on_core_done(void *data, uint32_t id, int seq)
 			pd->print_func(pd);
 		}
 	}
-	return 0;
 }
 
 static void clear_params(struct proxy_data *data)
@@ -147,11 +146,14 @@ static int add_param(struct proxy_data *data, uint32_t id, const struct spa_pod 
 	return 0;
 }
 
-static int event_param(void *object, int seq, uint32_t id,
+static void event_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
-	return add_param(data, id, param);
+	int res;
+
+	if ((res = add_param(data, id, param)) < 0)
+		pw_log_error("can't add param %d: %s", res, spa_strerror(res));
 }
 
 static void print_params(struct proxy_data *data, char mark)
@@ -187,7 +189,7 @@ static void print_properties(const struct spa_dict *props, char mark)
 
 #define MARK_CHANGE(f) ((print_mark && ((info)->change_mask & (1 << (f)))) ? '*' : ' ')
 
-static int on_core_info(void *data, const struct pw_core_info *info)
+static void on_core_info(void *data, const struct pw_core_info *info)
 {
 	bool print_all = true, print_mark = false;
 
@@ -200,10 +202,9 @@ static int on_core_info(void *data, const struct pw_core_info *info)
 		printf("%c\tname: \"%s\"\n", MARK_CHANGE(3), info->name);
 		print_properties(info->props, MARK_CHANGE(4));
 	}
-	return 0;
 }
 
-static int module_event_info(void *object, const struct pw_module_info *info)
+static void module_event_info(void *object, const struct pw_module_info *info)
 {
         struct proxy_data *data = object;
 	bool print_all, print_mark;
@@ -233,7 +234,6 @@ static int module_event_info(void *object, const struct pw_module_info *info)
 		printf("%c\targs: \"%s\"\n", MARK_CHANGE(2), info->args);
 		print_properties(info->props, MARK_CHANGE(3));
 	}
-	return 0;
 }
 
 static const struct pw_module_proxy_events module_events = {
@@ -282,7 +282,7 @@ static void print_node(struct proxy_data *data)
 	}
 }
 
-static int node_event_info(void *object, const struct pw_node_info *info)
+static void node_event_info(void *object, const struct pw_node_info *info)
 {
         struct proxy_data *data = object;
 	struct pw_node_info *old = data->info;
@@ -304,7 +304,6 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 
 	if (data->pending_seq == 0)
 		data->print_func(data);
-	return 0;
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -343,7 +342,7 @@ static void print_port(struct proxy_data *data)
 	}
 }
 
-static int port_event_info(void *object, const struct pw_port_info *info)
+static void port_event_info(void *object, const struct pw_port_info *info)
 {
 
         struct proxy_data *data = object;
@@ -366,7 +365,6 @@ static int port_event_info(void *object, const struct pw_port_info *info)
 
 	if (data->pending_seq == 0)
 		data->print_func(data);
-	return 0;
 }
 
 static const struct pw_port_proxy_events port_events = {
@@ -375,7 +373,7 @@ static const struct pw_port_proxy_events port_events = {
         .param = event_param
 };
 
-static int factory_event_info(void *object, const struct pw_factory_info *info)
+static void factory_event_info(void *object, const struct pw_factory_info *info)
 {
         struct proxy_data *data = object;
 	bool print_all, print_mark;
@@ -404,7 +402,6 @@ static int factory_event_info(void *object, const struct pw_factory_info *info)
 	if (print_all) {
 		print_properties(info->props, MARK_CHANGE(0));
 	}
-	return 0;
 }
 
 static const struct pw_factory_proxy_events factory_events = {
@@ -412,7 +409,7 @@ static const struct pw_factory_proxy_events factory_events = {
         .info = factory_event_info
 };
 
-static int client_event_info(void *object, const struct pw_client_info *info)
+static void client_event_info(void *object, const struct pw_client_info *info)
 {
         struct proxy_data *data = object;
 	bool print_all, print_mark;
@@ -439,7 +436,6 @@ static int client_event_info(void *object, const struct pw_client_info *info)
 	if (print_all) {
 		print_properties(info->props, MARK_CHANGE(0));
 	}
-	return 0;
 }
 
 static const struct pw_client_proxy_events client_events = {
@@ -447,7 +443,7 @@ static const struct pw_client_proxy_events client_events = {
         .info = client_event_info
 };
 
-static int link_event_info(void *object, const struct pw_link_info *info)
+static void link_event_info(void *object, const struct pw_link_info *info)
 {
         struct proxy_data *data = object;
 	bool print_all, print_mark;
@@ -488,7 +484,6 @@ static int link_event_info(void *object, const struct pw_link_info *info)
 			printf("\t\tnone\n");
 		print_properties(info->props, MARK_CHANGE(4));
 	}
-	return 0;
 }
 
 static const struct pw_link_proxy_events link_events = {
@@ -526,7 +521,7 @@ static void print_device(struct proxy_data *data)
 }
 
 
-static int device_event_info(void *object, const struct pw_device_info *info)
+static void device_event_info(void *object, const struct pw_device_info *info)
 {
         struct proxy_data *data = object;
 	struct pw_device_info *old = data->info;
@@ -549,8 +544,6 @@ static int device_event_info(void *object, const struct pw_device_info *info)
 
 	if (data->pending_seq == 0)
 		data->print_func(data);
-
-	return 0;
 }
 
 static const struct pw_device_proxy_events device_events = {
@@ -580,7 +573,7 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = destroy_proxy,
 };
 
-static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
+static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 				  uint32_t permissions, uint32_t type, uint32_t version,
 				  const struct spa_dict *props)
 {
@@ -640,7 +633,7 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 						  permissions & PW_PERM_X ? 'x' : '-');
 		printf("\ttype: %s (version %d)\n", spa_debug_type_find_name(pw_type_info(), type), version);
 		print_properties(props, ' ');
-		return 0;
+		return;
 	}
 
         proxy = pw_registry_proxy_bind(d->registry_proxy, id, type,
@@ -664,18 +657,17 @@ static int registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	spa_list_init(&pd->param_list);
         pw_proxy_add_proxy_listener(proxy, &pd->proxy_proxy_listener, events, pd);
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
-        return 0;
+        return;
 
       no_mem:
         printf("failed to create proxy");
-        return -ENOMEM;
+        return;
 }
 
-static int registry_event_global_remove(void *object, uint32_t id)
+static void registry_event_global_remove(void *object, uint32_t id)
 {
 	printf("removed:\n");
 	printf("\tid: %u\n", id);
-	return 0;
 }
 
 static const struct pw_registry_proxy_events registry_events = {

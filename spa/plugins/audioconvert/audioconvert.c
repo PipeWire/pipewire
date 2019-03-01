@@ -553,25 +553,20 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 	return 0;
 }
 
-static int on_node_result(void *data, int seq, int res, const void *result)
+static void on_node_result(void *data, int seq, int res, const void *result)
 {
 	struct impl *this = data;
 	spa_log_debug(this->log, "%p: result %d %d", this, seq, res);
 	spa_node_emit_result(&this->hooks, seq, res, result);
-	return 0;
 }
 
-static int fmt_input_port_info(void *data,
+static void fmt_input_port_info(void *data,
 		enum spa_direction direction, uint32_t port,
 		const struct spa_port_info *info)
 {
 	struct impl *this = data;
-
-	if (direction != SPA_DIRECTION_INPUT)
-		return 0;
-
-	spa_node_emit_port_info(&this->hooks, direction, port, info);
-	return 0;
+	if (direction == SPA_DIRECTION_INPUT)
+		spa_node_emit_port_info(&this->hooks, direction, port, info);
 }
 
 static struct spa_node_events fmt_input_events = {
@@ -580,17 +575,13 @@ static struct spa_node_events fmt_input_events = {
 	.result = on_node_result,
 };
 
-static int fmt_output_port_info(void *data,
+static void fmt_output_port_info(void *data,
 		enum spa_direction direction, uint32_t port,
 		const struct spa_port_info *info)
 {
 	struct impl *this = data;
-
-	if (direction != SPA_DIRECTION_OUTPUT)
-		return 0;
-
-	spa_node_emit_port_info(&this->hooks, direction, port, info);
-	return 0;
+	if (direction == SPA_DIRECTION_OUTPUT)
+		spa_node_emit_port_info(&this->hooks, direction, port, info);
 }
 
 static struct spa_node_events fmt_output_events = {

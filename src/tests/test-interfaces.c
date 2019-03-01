@@ -37,12 +37,12 @@ static void test_core_abi(void)
 	struct pw_core_proxy_events e;
 	struct {
 		uint32_t version;
-	        int (*hello) (void *object, uint32_t version);
-	        int (*sync) (void *object, uint32_t id, int seq);
-	        int (*done) (void *object, uint32_t id, int seq);
-	        int (*error) (void *object, uint32_t id, int seq, int res, const char *error);
-	        int (*get_registry) (void *object, uint32_t version, uint32_t new_id);
-	        int (*create_object) (void *object,
+		int (*hello) (void *object, uint32_t version);
+		int (*sync) (void *object, uint32_t id, int seq);
+		int (*pong) (void *object, uint32_t id, int seq);
+		int (*error) (void *object, uint32_t id, int seq, int res, const char *error);
+		int (*get_registry) (void *object, uint32_t version, uint32_t new_id);
+		int (*create_object) (void *object,
 				       const char *factory_name,
 				       uint32_t type,
 				       uint32_t version,
@@ -52,18 +52,18 @@ static void test_core_abi(void)
 	} methods = { PW_VERSION_CORE_PROXY_METHODS, };
 	struct {
 		uint32_t version;
-		int (*info) (void *object, const struct pw_core_info *info);
-	        int (*done) (void *object, uint32_t id, int seq);
-	        int (*sync) (void *object, uint32_t id, int seq);
-	        int (*error) (void *object, uint32_t id, int seq, int res, const char *error);
-	        int (*remove_id) (void *object, uint32_t id);
+		void (*info) (void *object, const struct pw_core_info *info);
+		void (*done) (void *object, uint32_t id, int seq);
+		void (*ping) (void *object, uint32_t id, int seq);
+		void (*error) (void *object, uint32_t id, int seq, int res, const char *error);
+		void (*remove_id) (void *object, uint32_t id);
 	} events = { PW_VERSION_CORE_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
 	TEST_FUNC(m, methods, hello);
 	TEST_FUNC(m, methods, sync);
-	TEST_FUNC(m, methods, done);
-	TEST_FUNC(e, methods, error);
+	TEST_FUNC(m, methods, pong);
+	TEST_FUNC(m, methods, error);
 	TEST_FUNC(m, methods, get_registry);
 	TEST_FUNC(m, methods, create_object);
 	TEST_FUNC(m, methods, destroy);
@@ -73,7 +73,7 @@ static void test_core_abi(void)
 	TEST_FUNC(e, events, version);
 	TEST_FUNC(e, events, info);
 	TEST_FUNC(e, events, done);
-	TEST_FUNC(e, events, sync);
+	TEST_FUNC(e, events, ping);
 	TEST_FUNC(e, events, error);
 	TEST_FUNC(e, events, remove_id);
 	spa_assert(PW_VERSION_CORE_PROXY_EVENTS == 0);
@@ -91,10 +91,10 @@ static void test_registry_abi(void)
 	} methods = { PW_VERSION_REGISTRY_PROXY_METHODS, };
 	struct {
 		uint32_t version;
-		int (*global) (void *object, uint32_t id, uint32_t parent_id,
+		void (*global) (void *object, uint32_t id, uint32_t parent_id,
 			uint32_t permissions, uint32_t type, uint32_t version,
 			const struct spa_dict *props);
-		int (*global_remove) (void *object, uint32_t id);
+		void (*global_remove) (void *object, uint32_t id);
 	} events = { PW_VERSION_REGISTRY_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
@@ -119,7 +119,7 @@ static void test_module_abi(void)
 	} methods = { PW_VERSION_MODULE_PROXY_METHODS, };
 	struct {
 		uint32_t version;
-		int (*info) (void *object, const struct pw_module_info *info);
+		void (*info) (void *object, const struct pw_module_info *info);
 	} events = { PW_VERSION_MODULE_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
@@ -146,8 +146,8 @@ static void test_device_abi(void)
 	} methods = { PW_VERSION_DEVICE_PROXY_METHODS, };
 	struct {
 		uint32_t version;
-		int (*info) (void *object, const struct pw_device_info *info);
-		int (*param) (void *object, int seq,
+		void (*info) (void *object, const struct pw_device_info *info);
+		void (*param) (void *object, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			const struct spa_pod *param);
 	} events = { PW_VERSION_DEVICE_PROXY_EVENTS, };
@@ -179,8 +179,8 @@ static void test_node_abi(void)
 	} methods = { PW_VERSION_NODE_PROXY_METHODS, };
 	struct {
 		uint32_t version;
-		int (*info) (void *object, const struct pw_node_info *info);
-		int (*param) (void *object, int seq,
+		void (*info) (void *object, const struct pw_node_info *info);
+		void (*param) (void *object, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			const struct spa_pod *param);
 	} events = { PW_VERSION_NODE_PROXY_EVENTS, };
@@ -210,8 +210,8 @@ static void test_port_abi(void)
 	} methods = { PW_VERSION_PORT_PROXY_METHODS, };
 	struct {
 		uint32_t version;
-		int (*info) (void *object, const struct pw_port_info *info);
-		int (*param) (void *object, int seq,
+		void (*info) (void *object, const struct pw_port_info *info);
+		void (*param) (void *object, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			const struct spa_pod *param);
 	} events = { PW_VERSION_PORT_PROXY_EVENTS, };
@@ -237,7 +237,7 @@ static void test_factory_abi(void)
 	} methods = { PW_VERSION_FACTORY_PROXY_METHODS, };
 	struct {
 		uint32_t version;
-		int (*info) (void *object, const struct pw_factory_info *info);
+		void (*info) (void *object, const struct pw_factory_info *info);
 	} events = { PW_VERSION_FACTORY_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
@@ -264,8 +264,8 @@ static void test_client_abi(void)
 	} methods = { PW_VERSION_CLIENT_PROXY_METHODS, };
 	struct {
 		uint32_t version;
-		int (*info) (void *object, const struct pw_client_info *info);
-		int (*permissions) (void *object, uint32_t index,
+		void (*info) (void *object, const struct pw_client_info *info);
+		void (*permissions) (void *object, uint32_t index,
 			uint32_t n_permissions, const struct pw_permission *permissions);
 	} events = { PW_VERSION_CLIENT_PROXY_EVENTS, };
 
@@ -292,7 +292,7 @@ static void test_link_abi(void)
 	} methods = { PW_VERSION_LINK_PROXY_METHODS, };
 	struct {
 		uint32_t version;
-		int (*info) (void *object, const struct pw_link_info *info);
+		void (*info) (void *object, const struct pw_link_info *info);
 	} events = { PW_VERSION_LINK_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);

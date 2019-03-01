@@ -134,13 +134,12 @@ struct result_device_params_data {
 			struct spa_pod *param);
 };
 
-static int result_device_params(void *data, int seq, int res, const void *result)
+static void result_device_params(void *data, int seq, int res, const void *result)
 {
 	struct result_device_params_data *d = data;
 	const struct spa_result_device_params *r =
 		(const struct spa_result_device_params *)result;
 	d->callback(d->data, seq, r->id, r->index, r->next, r->param);
-	return 0;
 }
 
 SPA_EXPORT
@@ -351,7 +350,7 @@ static int update_properties(struct pw_device *device, const struct spa_dict *di
 	return changed;
 }
 
-static int device_info(void *data, const struct spa_device_info *info)
+static void device_info(void *data, const struct spa_device_info *info)
 {
 	struct pw_device *device = data;
 	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS) {
@@ -364,8 +363,6 @@ static int device_info(void *data, const struct spa_device_info *info)
 				device->info.n_params * sizeof(struct spa_param_info));
 	}
 	emit_info_changed(device);
-
-	return 0;
 }
 
 static void device_add(struct pw_device *device, uint32_t id,
@@ -441,7 +438,7 @@ static struct node_data *find_node(struct pw_device *device, uint32_t id)
 	return NULL;
 }
 
-static int device_object_info(void *data, uint32_t id,
+static void device_object_info(void *data, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct pw_device *device = data;
@@ -465,7 +462,6 @@ static int device_object_info(void *data, uint32_t id,
 	else {
 		device_add(device, id, info);
 	}
-	return 0;
 }
 
 static const struct spa_device_events device_events = {

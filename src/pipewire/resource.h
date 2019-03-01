@@ -68,8 +68,8 @@ struct pw_resource_events {
 	/** The resource is destroyed */
 	void (*destroy) (void *data);
 
-	/** a reply to a sync event completed */
-        void (*done) (void *data, int seq);
+	/** a reply to a ping event completed */
+        void (*pong) (void *data, int seq);
 
 	/** an error occured on the resource */
         void (*error) (void *data, int seq, int res, const char *message);
@@ -122,12 +122,12 @@ void pw_resource_add_override(struct pw_resource *resource,
 			      const void *implementation,
 			      void *data);
 
-/** Generate an sync method for a resource. This will generate a done event
+/** Generate an ping event for a resource. This will generate a pong event
  * with the same \a sequence number in the return value. */
-int pw_resource_sync(struct pw_resource *resource, int seq);
+int pw_resource_ping(struct pw_resource *resource, int seq);
 
 /** Generate an error for a resource */
-int pw_resource_error(struct pw_resource *resource, int res, const char *error, ...);
+void pw_resource_error(struct pw_resource *resource, int res, const char *error, ...);
 
 /** Get the implementation list of a resource */
 struct spa_hook_list *pw_resource_get_implementation(struct pw_resource *resource);

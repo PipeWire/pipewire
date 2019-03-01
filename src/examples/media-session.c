@@ -344,7 +344,7 @@ static int on_node_running(struct impl *impl, struct node *node)
 	return 0;
 }
 
-static int node_event_info(void *object, const struct pw_node_info *info)
+static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct node *n = object;
 	struct impl *impl = n->obj.impl;
@@ -364,10 +364,9 @@ static int node_event_info(void *object, const struct pw_node_info *info)
 	default:
 		break;
 	}
-	return 0;
 }
 
-static int node_event_param(void *object, int seq,
+static void node_event_param(void *object, int seq,
                        uint32_t id, uint32_t index, uint32_t next,
                        const struct spa_pod *param)
 {
@@ -385,7 +384,7 @@ static int node_event_param(void *object, int seq,
 
 	if (n->media_type != SPA_MEDIA_TYPE_audio ||
 	    n->media_subtype != SPA_MEDIA_SUBTYPE_raw)
-		return 0;
+		return;
 
 	spa_pod_object_fixate((struct spa_pod_object*)param);
 
@@ -393,12 +392,12 @@ static int node_event_param(void *object, int seq,
 		goto error;
 
 	n->format = info;
-	return 0;
+	return;
 
       error:
 	pw_log_warn("unhandled param:");
 	spa_debug_pod(2, NULL, param);
-	return -EINVAL;
+	return;
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -580,15 +579,14 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	return 1;
 }
 
-static int port_event_info(void *object, const struct pw_port_info *info)
+static void port_event_info(void *object, const struct pw_port_info *info)
 {
 	struct port *p = object;
 	pw_log_debug(NAME" %p: info for port %d", p->obj.impl, p->obj.id);
 	p->info = pw_port_info_update(p->info, info);
-	return 0;
 }
 
-static int port_event_param(void *object, int seq,
+static void port_event_param(void *object, int seq,
                        uint32_t id, uint32_t index, uint32_t next,
                        const struct spa_pod *param)
 {
@@ -599,29 +597,28 @@ static int port_event_param(void *object, int seq,
 	pw_log_debug(NAME" %p: param for port %d", p->obj.impl, p->obj.id);
 
 	if (node == NULL)
-		return 0;
+		return;
 
 	if (id != SPA_PARAM_EnumFormat)
-		return 0;
+		return;
 
 	if (node->manager)
 		node->manager->enabled = true;
 
 	if (spa_format_parse(param, &node->media_type, &node->media_subtype) < 0)
-		return 0;
+		return;
 
 	if (node->media_type != SPA_MEDIA_TYPE_audio ||
 	    node->media_subtype != SPA_MEDIA_SUBTYPE_raw)
-		return 0;
+		return;
 
 	spa_pod_fixate((struct spa_pod*)param);
 
 	if (spa_format_audio_raw_parse(param, &info) < 0)
-		return -EINVAL;
+		return;
 
 	if (info.channels > node->format.channels)
 		node->format = info;
-	return 0;
 }
 
 static const struct pw_port_proxy_events port_events = {
@@ -701,7 +698,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 	return 0;
 }
 
-static int client_event_info(void *object, const struct pw_client_info *info)
+static void client_event_info(void *object, const struct pw_client_info *info)
 {
 	struct client *c = object;
 	uint32_t i;
@@ -712,7 +709,6 @@ static int client_event_info(void *object, const struct pw_client_info *info)
 		pw_log_debug(NAME" %p:  %s = %s", c,
 				info->props->items[i].key,
 				info->props->items[i].value);
-	return 0;
 }
 
 static const struct pw_client_proxy_events client_events = {
@@ -776,7 +772,7 @@ handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
 	return 0;
 }
 
-static int
+static void
 registry_global(void *data,uint32_t id, uint32_t parent_id,
 		uint32_t permissions, uint32_t type, uint32_t version,
 		const struct spa_dict *props)
@@ -808,11 +804,9 @@ registry_global(void *data,uint32_t id, uint32_t parent_id,
 	}
 	else
 		schedule_rescan(impl);
-
-	return res;
 }
 
-static int
+static void
 registry_global_remove(void *data, uint32_t id)
 {
 	struct impl *impl = data;
@@ -821,7 +815,7 @@ registry_global_remove(void *data, uint32_t id)
 	pw_log_debug(NAME " %p: remove global '%d'", impl, id);
 
 	if ((obj = find_object(impl, id)) == NULL)
-		return 0;
+		return;
 
 	switch (obj->type) {
 	case PW_TYPE_INTERFACE_Node:
@@ -837,7 +831,6 @@ registry_global_remove(void *data, uint32_t id)
 	}
 	remove_object(impl, obj);
 	schedule_rescan(impl);
-	return 0;
 }
 
 static const struct pw_registry_proxy_events registry_events = {
@@ -1207,13 +1200,13 @@ do_link:
         return 1;
 }
 
-static int dsp_node_event_info(void *object, const struct pw_node_info *info)
+static void dsp_node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct session *s = object;
 	struct node *dsp;
 
 	if ((dsp = find_object(s->impl, info->id)) == NULL)
-		return 0;
+		return;
 
 	pw_log_debug(NAME" %p: dsp node session %d id %d", dsp->obj.impl, s->id, info->id);
 
@@ -1228,7 +1221,6 @@ static int dsp_node_event_info(void *object, const struct pw_node_info *info)
 	dsp->format = s->node->format;
 	dsp->profile_format = dsp->format;
 	dsp->profile_format.format = SPA_AUDIO_FORMAT_F32P;
-	return 0;
 }
 
 static const struct pw_node_proxy_events dsp_node_events = {
@@ -1309,13 +1301,12 @@ static void do_rescan(struct impl *impl)
 		rescan_node(impl, node);
 }
 
-static int core_done(void *data, uint32_t id, int seq)
+static void core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;
 	pw_log_debug("media-session %p: sync %d %d/%d", impl, id, seq, impl->seq);
 	if (impl->seq == seq)
 		do_rescan(impl);
-	return 0;
 }
 
 static const struct pw_core_proxy_events core_events = {

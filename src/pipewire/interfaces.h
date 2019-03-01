@@ -71,7 +71,7 @@ struct pw_link_proxy;
 
 #define PW_CORE_PROXY_METHOD_HELLO		0
 #define PW_CORE_PROXY_METHOD_SYNC		1
-#define PW_CORE_PROXY_METHOD_DONE		2
+#define PW_CORE_PROXY_METHOD_PONG		2
 #define PW_CORE_PROXY_METHOD_ERROR		3
 #define PW_CORE_PROXY_METHOD_GET_REGISTRY	4
 #define PW_CORE_PROXY_METHOD_CREATE_OBJECT	5
@@ -112,13 +112,13 @@ struct pw_core_proxy_methods {
 	 */
 	int (*sync) (void *object, uint32_t id, int seq);
 	/**
-	 * Reply to a server sync event.
+	 * Reply to a server ping event.
 	 *
-	 * Reply to the server sync event with the same seq.
+	 * Reply to the server ping event with the same seq.
 	 *
-	 * \param seq the seq number received in the sync event
+	 * \param seq the seq number received in the ping event
 	 */
-	int (*done) (void *object, uint32_t id, int seq);
+	int (*pong) (void *object, uint32_t id, int seq);
 	/**
 	 * Fatal error event
          *
@@ -183,9 +183,9 @@ pw_core_proxy_sync(struct pw_core_proxy *core, uint32_t id, int seq)
 }
 
 static inline int
-pw_core_proxy_done(struct pw_core_proxy *core, uint32_t id, int seq)
+pw_core_proxy_pong(struct pw_core_proxy *core, uint32_t id, int seq)
 {
-	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, done, id, seq);
+	return pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, pong, id, seq);
 }
 
 static inline int
@@ -248,7 +248,7 @@ pw_core_proxy_destroy(struct pw_core_proxy *core, struct pw_proxy *proxy)
 
 #define PW_CORE_PROXY_EVENT_INFO	0
 #define PW_CORE_PROXY_EVENT_DONE	1
-#define PW_CORE_PROXY_EVENT_SYNC	2
+#define PW_CORE_PROXY_EVENT_PING	2
 #define PW_CORE_PROXY_EVENT_ERROR	3
 #define PW_CORE_PROXY_EVENT_REMOVE_ID	4
 #define PW_CORE_PROXY_EVENT_NUM		5
@@ -269,7 +269,7 @@ struct pw_core_proxy_events {
 	 *
 	 * \param info new core info
 	 */
-	int (*info) (void *object, const struct pw_core_info *info);
+	void (*info) (void *object, const struct pw_core_info *info);
 	/**
 	 * Emit a done event
 	 *
@@ -278,14 +278,14 @@ struct pw_core_proxy_events {
 	 *
 	 * \param seq the seq number passed to the sync method call
 	 */
-	int (*done) (void *object, uint32_t id, int seq);
+	void (*done) (void *object, uint32_t id, int seq);
 
-	/** Emit a sync event
+	/** Emit a ping event
 	 *
-	 * The client should reply with a done reply with the same seq
+	 * The client should reply with a pong reply with the same seq
 	 * number.
 	 */
-	int (*sync) (void *object, uint32_t id, int seq);
+	void (*ping) (void *object, uint32_t id, int seq);
 
 	/**
 	 * Fatal error event
@@ -304,7 +304,7 @@ struct pw_core_proxy_events {
          * \param res error code
          * \param message error description
 	 */
-	int (*error) (void *object, uint32_t id, int seq, int res, const char *message);
+	void (*error) (void *object, uint32_t id, int seq, int res, const char *message);
 	/**
 	 * Remove an object ID
          *
@@ -316,7 +316,7 @@ struct pw_core_proxy_events {
 	 *
          * \param id deleted object ID
 	 */
-	int (*remove_id) (void *object, uint32_t id);
+	void (*remove_id) (void *object, uint32_t id);
 };
 
 static inline void
@@ -331,29 +331,28 @@ pw_core_proxy_add_listener(struct pw_core_proxy *core,
 
 #define pw_core_resource_info(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,info,__VA_ARGS__)
 #define pw_core_resource_done(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,done,__VA_ARGS__)
-#define pw_core_resource_sync(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,sync,__VA_ARGS__)
+#define pw_core_resource_ping(r,...)         pw_resource_notify(r,struct pw_core_proxy_events,ping,__VA_ARGS__)
 #define pw_core_resource_error(r,...)        pw_resource_notify(r,struct pw_core_proxy_events,error,__VA_ARGS__)
 #define pw_core_resource_remove_id(r,...)    pw_resource_notify(r,struct pw_core_proxy_events,remove_id,__VA_ARGS__)
 
-static inline int
+static inline void
 pw_core_resource_errorv(struct pw_resource *resource, uint32_t id, int seq,
 		int res, const char *message, va_list args)
 {
 	char buffer[1024];
 	vsnprintf(buffer, sizeof(buffer), message, args);
 	buffer[1023] = '\0';
-	return pw_core_resource_error(resource, id, seq, res, buffer);
+	pw_core_resource_error(resource, id, seq, res, buffer);
 }
 
-static inline int
+static inline void
 pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
 		int res, const char *message, ...)
 {
         va_list args;
 	va_start(args, message);
-	res = pw_core_resource_errorv(resource, id, seq, res, message, args);
+	pw_core_resource_errorv(resource, id, seq, res, message, args);
 	va_end(args);
-	return res;
 }
 
 #define PW_VERSION_REGISTRY			0
@@ -461,7 +460,7 @@ struct pw_registry_proxy_events {
 	 * \param version the version of the interface
 	 * \param props extra properties of the global
 	 */
-	int (*global) (void *object, uint32_t id, uint32_t parent_id,
+	void (*global) (void *object, uint32_t id, uint32_t parent_id,
 		       uint32_t permissions, uint32_t type, uint32_t version,
 		       const struct spa_dict *props);
 	/**
@@ -473,7 +472,7 @@ struct pw_registry_proxy_events {
 	 *
 	 * \param id the id of the global that was removed
 	 */
-	int (*global_remove) (void *object, uint32_t id);
+	void (*global_remove) (void *object, uint32_t id);
 };
 
 static inline void
@@ -511,7 +510,7 @@ struct pw_module_proxy_events {
 	 *
 	 * \param info info about the module
 	 */
-	int (*info) (void *object, const struct pw_module_info *info);
+	void (*info) (void *object, const struct pw_module_info *info);
 };
 
 static inline void
@@ -590,7 +589,7 @@ struct pw_device_proxy_events {
 	 *
 	 * \param info info about the device
 	 */
-	int (*info) (void *object, const struct pw_device_info *info);
+	void (*info) (void *object, const struct pw_device_info *info);
 	/**
 	 * Notify a device param
 	 *
@@ -602,7 +601,7 @@ struct pw_device_proxy_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	int (*param) (void *object, int seq,
+	void (*param) (void *object, int seq,
 		      uint32_t id, uint32_t index, uint32_t next,
 		      const struct spa_pod *param);
 };
@@ -701,7 +700,7 @@ struct pw_node_proxy_events {
 	 *
 	 * \param info info about the node
 	 */
-	int (*info) (void *object, const struct pw_node_info *info);
+	void (*info) (void *object, const struct pw_node_info *info);
 	/**
 	 * Notify a node param
 	 *
@@ -713,7 +712,7 @@ struct pw_node_proxy_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	int (*param) (void *object, int seq,
+	void (*param) (void *object, int seq,
 		      uint32_t id, uint32_t index, uint32_t next,
 		      const struct spa_pod *param);
 };
@@ -779,7 +778,7 @@ struct pw_port_proxy_events {
 	 *
 	 * \param info info about the port
 	 */
-	int (*info) (void *object, const struct pw_port_info *info);
+	void (*info) (void *object, const struct pw_port_info *info);
 	/**
 	 * Notify a port param
 	 *
@@ -791,7 +790,7 @@ struct pw_port_proxy_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	int (*param) (void *object, int seq,
+	void (*param) (void *object, int seq,
 		       uint32_t id, uint32_t index, uint32_t next,
 		       const struct spa_pod *param);
 };
@@ -830,7 +829,7 @@ struct pw_factory_proxy_events {
 	 *
 	 * \param info info about the factory
 	 */
-	int (*info) (void *object, const struct pw_factory_info *info);
+	void (*info) (void *object, const struct pw_factory_info *info);
 };
 
 /** Factory */
@@ -939,7 +938,7 @@ struct pw_client_proxy_events {
 	 *
 	 * \param info info about the client
 	 */
-	int (*info) (void *object, const struct pw_client_info *info);
+	void (*info) (void *object, const struct pw_client_info *info);
 	/**
 	 * Notify a client permission
 	 *
@@ -950,7 +949,7 @@ struct pw_client_proxy_events {
 	 * \param n_permissions the number of permissions
 	 * \param permissions the permissions
 	 */
-	int (*permissions) (void *object,
+	void (*permissions) (void *object,
 			     uint32_t index,
 			     uint32_t n_permissions,
 			     const struct pw_permission *permissions);
@@ -991,7 +990,7 @@ struct pw_link_proxy_events {
 	 *
 	 * \param info info about the link
 	 */
-	int (*info) (void *object, const struct pw_link_info *info);
+	void (*info) (void *object, const struct pw_link_info *info);
 };
 
 /** Link */

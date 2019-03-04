@@ -136,9 +136,7 @@ struct node {
 	struct spa_source data_source;
 	int writefd;
 
-	uint32_t max_inputs;
 	uint32_t n_inputs;
-	uint32_t max_outputs;
 	uint32_t n_outputs;
 	struct port *in_ports[MAX_INPUTS];
 	struct port *out_ports[MAX_OUTPUTS];
@@ -583,6 +581,7 @@ do_update_port(struct node *this,
 				port->properties = pw_properties_new_dict(info->props);
 				port->info.props = &port->properties->dict;
 			}
+			spa_node_emit_port_info(&this->hooks, port->direction, port->id, info);
 		}
 	}
 }
@@ -995,19 +994,13 @@ static int impl_node_process(struct spa_node *node)
 static int
 client_node_update(void *data,
 		   uint32_t change_mask,
-		   uint32_t max_input_ports,
-		   uint32_t max_output_ports,
 		   uint32_t n_params,
 		   const struct spa_pod **params,
-		   const struct spa_dict *props)
+		   const struct spa_node_info *info)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
 
-	if (change_mask & PW_CLIENT_NODE_UPDATE_MAX_INPUTS)
-		this->max_inputs = max_input_ports;
-	if (change_mask & PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS)
-		this->max_outputs = max_output_ports;
 	if (change_mask & PW_CLIENT_NODE_UPDATE_PARAMS) {
 		uint32_t i;
 		spa_log_debug(this->log, "node %p: update %d params", this, n_params);
@@ -1020,11 +1013,10 @@ client_node_update(void *data,
 		for (i = 0; i < this->n_params; i++)
 			this->params[i] = params[i] ? spa_pod_copy(params[i]) : NULL;
 	}
-	if (change_mask & PW_CLIENT_NODE_UPDATE_PROPS) {
-		pw_node_update_properties(impl->this.node, props);
+	if (change_mask & PW_CLIENT_NODE_UPDATE_INFO) {
+		spa_node_emit_info(&this->hooks, info);
 	}
-	spa_log_debug(this->log, "node %p: got node update max_in %u, max_out %u", this,
-		     this->max_inputs, this->max_outputs);
+	spa_log_debug(this->log, "node %p: got node update", this);
 	return 0;
 }
 
@@ -1058,6 +1050,8 @@ client_node_port_update(void *data,
 		if (port == NULL) {
 			target = &this->dummy;
 			spa_zero(this->dummy);
+			target->direction = direction;
+			target->id = port_id;
 		} else
 			target = port;
 
@@ -1066,9 +1060,6 @@ client_node_port_update(void *data,
 			       change_mask,
 			       n_params, params,
 			       info);
-
-		if (info && (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO))
-			spa_node_emit_port_info(&this->hooks, direction, port_id, info);
 	}
 	return 0;
 }

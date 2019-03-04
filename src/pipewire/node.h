@@ -72,6 +72,9 @@ struct pw_node_events {
 
 	/** the node info changed */
 	void (*info_changed) (void *data, const struct pw_node_info *info);
+	/** a port on the node changed info */
+	void (*port_info_changed) (void *data, struct pw_port *port,
+			const struct pw_port_info *info);
 	/** the node active state changed */
 	void (*active_changed) (void *data, bool active);
 	/** the node enabled state changed */

@@ -87,6 +87,8 @@ static void emit_info_changed(struct pw_port *port)
 		return;
 
 	pw_port_emit_info_changed(port, &port->info);
+	if (port->node)
+		pw_node_emit_port_info_changed(port->node, port, &port->info);
 
 	if (port->global)
 		spa_list_for_each(resource, &port->global->resource_list, link)

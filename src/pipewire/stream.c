@@ -492,6 +492,8 @@ static int port_set_format(struct spa_node *node,
 	if (stream->state == PW_STREAM_STATE_ERROR)
 		return -EIO;
 
+	emit_port_info(impl);
+
 	stream_set_state(stream,
 			p ?
 			    PW_STREAM_STATE_READY :

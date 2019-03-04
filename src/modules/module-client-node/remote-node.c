@@ -397,6 +397,64 @@ static int client_node_transport(void *object, uint32_t node_id,
 	return 0;
 }
 
+static int add_node_update(struct pw_proxy *proxy, uint32_t change_mask)
+{
+	struct node_data *data = proxy->user_data;
+	struct pw_node *node = data->node;
+	struct spa_node_info ni = SPA_NODE_INFO_INIT();
+	uint32_t n_params = 0;
+	struct spa_pod **params = NULL;
+	int res;
+
+	if (change_mask & PW_CLIENT_NODE_UPDATE_PARAMS) {
+		uint32_t i, idx, id;
+		uint8_t buf[2048];
+		struct spa_pod_builder b = { 0 };
+
+		for (i = 0; i < node->info.n_params; i++) {
+			struct spa_pod *param;
+
+			id = node->info.params[i].id;
+
+			for (idx = 0;;) {
+				spa_pod_builder_init(&b, buf, sizeof(buf));
+	                        if (spa_node_enum_params_sync(node->node,
+							id, &idx,
+							NULL, &param, &b) != 1)
+	                                break;
+
+				params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
+				params[n_params++] = spa_pod_copy(param);
+			}
+                }
+	}
+	if (change_mask & PW_CLIENT_NODE_UPDATE_INFO) {
+		ni.max_input_ports = node->info.max_input_ports;
+		ni.max_output_ports = node->info.max_output_ports;
+		ni.change_mask = SPA_NODE_CHANGE_MASK_FLAGS |
+			SPA_NODE_CHANGE_MASK_PROPS |
+			SPA_NODE_CHANGE_MASK_PARAMS;
+		ni.flags = 0;
+		ni.props = node->info.props;
+		ni.params = node->info.params;
+		ni.n_params = node->info.n_params;
+
+	}
+
+        res = pw_client_node_proxy_update(data->node_proxy,
+				change_mask,
+				n_params,
+				(const struct spa_pod **)params,
+				&ni);
+
+	if (params) {
+		while (n_params > 0)
+			free(params[--n_params]);
+		free(params);
+	}
+	return res;
+}
+
 static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_t change_mask)
 {
 	struct node_data *data = proxy->user_data;
@@ -406,7 +464,7 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 	int res;
 
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
-		uint32_t i, idx2, id;
+		uint32_t i, idx, id;
 		uint8_t buf[2048];
 		struct spa_pod_builder b = { 0 };
 
@@ -415,11 +473,11 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 
 			id = port->info.params[i].id;
 
-			for (idx2 = 0;;) {
+			for (idx = 0;;) {
 				spa_pod_builder_init(&b, buf, sizeof(buf));
 	                        if (spa_node_port_enum_params_sync(port->node->node,
 							port->direction, port->port_id,
-							id, &idx2,
+							id, &idx,
 							NULL, &param, &b) != 1)
 	                                break;
 
@@ -648,11 +706,6 @@ client_node_port_set_param(void *object,
 		pw_proxy_error(proxy, res, "can't set port param: %s", spa_strerror(res));
 		goto done;
 	}
-
-	if ((res = add_port_update(proxy, port,
-			PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
-			PW_CLIENT_NODE_PORT_UPDATE_INFO)) < 0)
-		pw_proxy_error(proxy, res, "can't add port update");
 
       done:
 	return res;
@@ -967,13 +1020,8 @@ static void do_node_init(struct pw_proxy *proxy)
 	struct pw_port *port;
 
 	pw_log_debug("%p: init", data);
-        pw_client_node_proxy_update(data->node_proxy,
-                                    PW_CLIENT_NODE_UPDATE_MAX_INPUTS |
-				    PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS |
-				    PW_CLIENT_NODE_UPDATE_PARAMS,
-				    data->node->info.max_input_ports,
-				    data->node->info.max_output_ports,
-				    0, NULL, NULL);
+	add_node_update(proxy, PW_CLIENT_NODE_UPDATE_PARAMS |
+				PW_CLIENT_NODE_UPDATE_INFO);
 
 	spa_list_for_each(port, &data->node->input_ports, link) {
 		add_port_update(proxy, port,
@@ -1034,14 +1082,30 @@ static void node_info_changed(void *data, const struct pw_node_info *info)
 
 	pw_log_debug("info changed %p", d);
 
-	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
-		change_mask |= PW_CLIENT_NODE_UPDATE_PROPS;
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
+		change_mask |= PW_CLIENT_NODE_UPDATE_INFO;
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
+		change_mask |= PW_CLIENT_NODE_UPDATE_PARAMS;
+		change_mask |= PW_CLIENT_NODE_UPDATE_INFO;
 	}
-        pw_client_node_proxy_update(d->node_proxy,
-				    change_mask,
-				    0, 0,
-				    0, NULL,
-				    info->props);
+	add_node_update((struct pw_proxy*)d->node_proxy, change_mask);
+}
+
+static void node_port_info_changed(void *data, struct pw_port *port,
+		const struct pw_port_info *info)
+{
+	struct node_data *d = data;
+	uint32_t change_mask = 0;
+
+	pw_log_debug("info changed %p", d);
+
+	if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS)
+		change_mask |= PW_CLIENT_NODE_PORT_UPDATE_INFO;
+	if (info->change_mask & PW_PORT_CHANGE_MASK_PARAMS) {
+		change_mask |= PW_CLIENT_NODE_PORT_UPDATE_PARAMS;
+		change_mask |= PW_CLIENT_NODE_PORT_UPDATE_INFO;
+	}
+	add_port_update((struct pw_proxy*)d->node_proxy, port, change_mask);
 }
 
 static void node_active_changed(void *data, bool active)
@@ -1056,6 +1120,7 @@ static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.destroy = node_destroy,
 	.info_changed = node_info_changed,
+	.port_info_changed = node_port_info_changed,
 	.active_changed = node_active_changed,
 };
 

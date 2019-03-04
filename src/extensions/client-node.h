@@ -70,16 +70,12 @@ struct pw_client_node_proxy_methods {
 	 * \param params new params
 	 */
 	int (*update) (void *object,
-#define PW_CLIENT_NODE_UPDATE_MAX_INPUTS   (1 << 0)
-#define PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
-#define PW_CLIENT_NODE_UPDATE_PARAMS       (1 << 2)
-#define PW_CLIENT_NODE_UPDATE_PROPS        (1 << 3)
+#define PW_CLIENT_NODE_UPDATE_PARAMS		(1 << 0)
+#define PW_CLIENT_NODE_UPDATE_INFO		(1 << 1)
 			uint32_t change_mask,
-			uint32_t max_input_ports,
-			uint32_t max_output_ports,
 			uint32_t n_params,
 			const struct spa_pod **params,
-			const struct spa_dict *props);
+			const struct spa_node_info *info);
 
 	/**
 	 * Update a node port
@@ -115,16 +111,13 @@ struct pw_client_node_proxy_methods {
 static inline int
 pw_client_node_proxy_update(struct pw_client_node_proxy *p,
 			    uint32_t change_mask,
-			    uint32_t max_input_ports,
-			    uint32_t max_output_ports,
 			    uint32_t n_params,
 			    const struct spa_pod **params,
-			    const struct spa_dict *props)
+			    const struct spa_node_info *info)
 {
-        return pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, update, change_mask,
-							      max_input_ports,
-							      max_output_ports,
-							      n_params, params, props);
+        return pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods,
+			update,
+			change_mask, n_params, params, info);
 }
 
 static inline int
@@ -136,12 +129,9 @@ pw_client_node_proxy_port_update(struct pw_client_node_proxy *p,
 				 const struct spa_pod **params,
 				 const struct spa_port_info *info)
 {
-        return pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods, port_update, direction,
-								   port_id,
-								   change_mask,
-								   n_params,
-								   params,
-								   info);
+        return pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods,
+			port_update, direction, port_id, change_mask,
+			n_params, params, info);
 }
 
 static inline int

@@ -316,6 +316,7 @@ struct pw_node_activation {
 #define pw_node_emit_port_added(n,p)		pw_node_emit(n, port_added, 0, p)
 #define pw_node_emit_port_removed(n,p)		pw_node_emit(n, port_removed, 0, p)
 #define pw_node_emit_info_changed(n,i)		pw_node_emit(n, info_changed, 0, i)
+#define pw_node_emit_port_info_changed(n,p,i)	pw_node_emit(n, port_info_changed, 0, p, i)
 #define pw_node_emit_active_changed(n,a)	pw_node_emit(n, active_changed, 0, a)
 #define pw_node_emit_enabled_changed(n,e)	pw_node_emit(n, enabled_changed, 0, e)
 #define pw_node_emit_state_request(n,s)		pw_node_emit(n, state_request, 0, s)

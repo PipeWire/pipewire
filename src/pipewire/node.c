@@ -897,16 +897,17 @@ static int node_ready(void *data, int status)
 	struct pw_node *node = data;
 	struct pw_node *driver = node->driver_node;
 
-	pw_log_trace("node %p: ready driver:%d exported:%d %p", node,
-			node->driver, node->exported, driver);
+	pw_log_trace("node %p: ready driver:%d exported:%d %p status:%d", node,
+			node->driver, node->exported, driver, status);
 
 	if (driver->rt.root.graph == NULL)
 		return -EINVAL;
 
+	spa_graph_run(driver->rt.driver);
+
 	if (status == SPA_STATUS_HAVE_BUFFER)
 		spa_graph_node_process(&driver->rt.root);
 
-	spa_graph_run(driver->rt.driver);
 	spa_graph_link_trigger(&driver->rt.driver_link);
 	return 0;
 }

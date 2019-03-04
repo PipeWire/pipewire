@@ -168,7 +168,7 @@ int pw_device_for_each_param(struct pw_device *device,
 			index, max);
 
 	spa_zero(listener);
-	spa_node_add_listener(device->implementation, &listener,
+	spa_device_add_listener(device->implementation, &listener,
 			&device_events, &user_data);
 	res = spa_device_enum_params(device->implementation, seq,
 			param_id, index, max, filter);

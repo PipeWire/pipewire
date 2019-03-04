@@ -1805,6 +1805,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	uint32_t n_support;
 	const char *str;
 	struct spa_cpu *cpu_iface;
+	struct spa_node_info ni;
 	int i;
 
         if (getenv("PIPEWIRE_NOJACK") != NULL)
@@ -1924,10 +1925,15 @@ jack_client_t * jack_client_open (const char *client_name,
         pw_proxy_add_listener((struct pw_proxy*)client->node_proxy,
 			&client->proxy_listener, &proxy_events, client);
 
+	ni = SPA_NODE_INFO_INIT();
+	ni.max_input_ports = MAX_PORTS;
+	ni.max_output_ports = MAX_PORTS;
+	ni.change_mask = SPA_NODE_CHANGE_MASK_FLAGS;
+	ni.flags = SPA_NODE_FLAG_RT;
+
 	pw_client_node_proxy_update(client->node_proxy,
-                                    PW_CLIENT_NODE_UPDATE_MAX_INPUTS |
-				    PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS,
-				    0, 0, 0, NULL, NULL);
+                                    PW_CLIENT_NODE_UPDATE_INFO,
+				    0, NULL, &ni);
 
 	if (do_sync(client) < 0)
 		goto init_failed;

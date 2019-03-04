@@ -1241,24 +1241,12 @@ static void client_node_resource_pong(void *data, int seq)
 void pw_client_node_registered(struct pw_client_node *this, uint32_t node_id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	struct pw_node *node = this->node;
-	struct mem *m;
 
 	pw_log_debug("client-node %p: %d", this, node_id);
 	pw_client_node_resource_transport(this->resource,
 					  node_id,
 					  impl->other_fds[0],
 					  impl->other_fds[1]);
-
-
-	m = ensure_mem(impl, node->activation->fd, SPA_DATA_MemFd, node->activation->flags);
-
-	pw_client_node_resource_set_activation(this->resource,
-					  node_id,
-					  impl->other_fds[1],
-					  m->id,
-					  0,
-					  sizeof(struct pw_node_activation));
 }
 
 static void node_initialized(void *data)

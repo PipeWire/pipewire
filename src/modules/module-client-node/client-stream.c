@@ -970,6 +970,8 @@ static void client_node_initialized(void *data)
 	else
 		monitor = false;
 
+	impl->client_node->node->driver_node = impl->this.node;
+
 	impl->client_port = pw_node_find_port(impl->client_node->node, impl->direction, 0);
 	if (impl->client_port == NULL)
 		return;

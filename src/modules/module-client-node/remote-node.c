@@ -1141,6 +1141,35 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = node_proxy_destroy,
 };
 
+static int node_ready(void *d, int status)
+{
+	struct node_data *data = d;
+	struct pw_node *node = data->node;
+	uint64_t cmd = 1;
+
+	pw_log_trace("node %p: ready driver:%d exported:%d status:%d", node,
+			node->driver, node->exported, status);
+
+	if (status == SPA_STATUS_HAVE_BUFFER)
+		spa_graph_node_process(&node->rt.root);
+
+	if (write(data->rtwritefd, &cmd, sizeof(cmd)) != sizeof(cmd))
+		pw_log_warn("node %p: write failed %m", node);
+
+	return 0;
+}
+
+static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
+{
+	return 0;
+}
+
+static const struct spa_node_callbacks node_callbacks = {
+	SPA_VERSION_NODE_CALLBACKS,
+	.ready = node_ready,
+	.reuse_buffer = node_reuse_buffer
+};
+
 static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool do_free)
 {
 	struct pw_node *node = object;
@@ -1179,6 +1208,7 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
         pw_array_ensure_size(&data->links, sizeof(struct link) * 64);
 
 	pw_proxy_add_listener(proxy, &data->proxy_listener, &proxy_events, data);
+	spa_node_set_callbacks(node->node, &node_callbacks, data);
 	pw_node_add_listener(node, &data->node_listener, &node_events, data);
 
         pw_client_node_proxy_add_listener(data->node_proxy,

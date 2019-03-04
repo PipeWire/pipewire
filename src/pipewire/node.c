@@ -900,8 +900,10 @@ static int node_ready(void *data, int status)
 	pw_log_trace("node %p: ready driver:%d exported:%d %p status:%d", node,
 			node->driver, node->exported, driver, status);
 
-	if (driver->rt.root.graph == NULL)
+	if (driver->rt.root.graph == NULL) {
+		pw_log_error("node %p: no graph", node);
 		return -EINVAL;
+	}
 
 	spa_graph_run(driver->rt.driver);
 

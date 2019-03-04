@@ -85,7 +85,9 @@ struct data {
 	struct spa_video_info_raw format;
 	int32_t stride;
 
-	struct spa_param *params[2];
+	struct spa_port_info info;
+	struct spa_param_info params[5];
+
 	struct spa_region region;
 
 	struct spa_buffer *buffers[MAX_BUFFERS];
@@ -137,25 +139,14 @@ static int impl_add_listener(struct spa_node *node,
 		void *data)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	struct spa_port_info info;
-	struct spa_param_info params[5];
 	struct spa_hook_list save;
 
 	spa_hook_list_isolate(&d->hooks, &save, listener, events, data);
 
-	info = SPA_PORT_INFO_INIT();
-	info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-	info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
-	info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
-	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-	params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-	params[3] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
-	params[4] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	info.params = params;
-	info.n_params = 5;
-
-	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_INPUT, 0, &info);
+	d->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS |
+				SPA_PORT_CHANGE_MASK_PARAMS;
+	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_INPUT, 0, &d->info);
+	d->info.change_mask = 0;
 
 	spa_hook_list_join(&d->hooks, &save);
 
@@ -304,24 +295,33 @@ static int port_set_format(struct spa_node *node,
 	Uint32 sdl_format;
 	void *dest;
 
-	if (format == NULL)
-		return 0;
+	d->info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
+	if (format == NULL) {
+		SDL_DestroyTexture(d->texture);
+		d->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		d->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	} else {
+		spa_debug_format(0, NULL, format);
 
-	spa_debug_format(0, NULL, format);
+		spa_format_video_raw_parse(format, &d->format);
 
-	spa_format_video_raw_parse(format, &d->format);
+		sdl_format = id_to_sdl_format(d->format.format);
+		if (sdl_format == SDL_PIXELFORMAT_UNKNOWN)
+			return -EINVAL;
 
-	sdl_format = id_to_sdl_format(d->format.format);
-	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN)
-		return -EINVAL;
+		d->texture = SDL_CreateTexture(d->renderer,
+						  sdl_format,
+						  SDL_TEXTUREACCESS_STREAMING,
+						  d->format.size.width,
+						  d->format.size.height);
+		SDL_LockTexture(d->texture, NULL, &dest, &d->stride);
+		SDL_UnlockTexture(d->texture);
 
-	d->texture = SDL_CreateTexture(d->renderer,
-					  sdl_format,
-					  SDL_TEXTUREACCESS_STREAMING,
-					  d->format.size.width,
-					  d->format.size.height);
-	SDL_LockTexture(d->texture, NULL, &dest, &d->stride);
-	SDL_UnlockTexture(d->texture);
+		d->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
+		d->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	}
+	spa_node_emit_port_info(&d->hooks, direction, port_id, &d->info);
+	d->info.change_mask = 0;
 
 	return 0;
 }
@@ -520,6 +520,18 @@ int main(int argc, char *argv[])
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	spa_hook_list_init(&data.hooks);
+
+	data.info = SPA_PORT_INFO_INIT();
+	data.info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
+	data.info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	data.info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
+	data.params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	data.params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	data.params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	data.params[3] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	data.params[4] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	data.info.params = data.params;
+	data.info.n_params = 5;
 
 	reset_props(&data.props);
 

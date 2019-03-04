@@ -74,6 +74,7 @@ struct param {
 #define PARAM_TYPE_OTHER	(1 << 1)
 #define PARAM_TYPE_FORMAT	(1 << 2)
 	int type;
+	struct spa_list link;
 	struct spa_pod *param;
 };
 
@@ -117,7 +118,8 @@ struct stream {
 	uint32_t io_control_size;
 	uint32_t io_notify_size;
 
-	struct pw_array params;
+	struct spa_list param_list;
+	struct spa_param_info params[5];
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -136,39 +138,66 @@ struct stream {
 	int free_data:1;
 };
 
+static int get_param_index(uint32_t id)
+{
+	switch (id) {
+	case SPA_PARAM_EnumFormat:
+		return 0;
+	case SPA_PARAM_Meta:
+		return 1;
+	case SPA_PARAM_IO:
+		return 2;
+	case SPA_PARAM_Format:
+		return 3;
+	case SPA_PARAM_Buffers:
+		return 4;
+	default:
+		return -1;
+	}
+}
+
 static struct param *add_param(struct pw_stream *stream,
 		     int type, const struct spa_pod *param)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct param *p;
-	struct spa_pod *copy = NULL;
+	uint32_t id;
+	int idx;
 
-	if (param != NULL && (copy = spa_pod_copy(param)) == NULL)
+	if (param == NULL)
 		return NULL;
 
-	p = pw_array_add(&impl->params, sizeof(struct param));
-	if (p == NULL) {
-		free(copy);
+	if (!spa_pod_is_object(param))
 		return NULL;
-	}
+
+	p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
+	if (p == NULL)
+		return NULL;
+
 	p->type = type;
-	p->param = copy;
+	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
+	memcpy(p->param, param, SPA_POD_SIZE(param));
+
+	spa_list_append(&impl->param_list, &p->link);
+
+	id = ((const struct spa_pod_object *)param)->body.id;
+	idx = get_param_index(id);
+	if (idx != -1)
+		impl->params[idx].flags |= SPA_PARAM_INFO_READ;
+
 	return p;
 }
 
 static void clear_params(struct pw_stream *stream, int type)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct param *p;
+	struct param *p, *t;
 
-	p = pw_array_first(&impl->params);
-	while (pw_array_check(&impl->params, p)) {
+	spa_list_for_each_safe(p, t, &impl->param_list, link) {
 		if ((p->type & type) != 0) {
-			free(p->param);
-			pw_array_remove(&impl->params, p);
+			spa_list_remove(&p->link);
+			free(p);
 		}
-		else
-			p++;
 	}
 }
 
@@ -334,18 +363,12 @@ static void emit_node_info(struct stream *d)
 static void emit_port_info(struct stream *d)
 {
 	struct spa_port_info info;
-	struct spa_param_info params[5];
 
 	info = SPA_PORT_INFO_INIT();
 	info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
 	info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
 	info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-	params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-	params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
-	info.params = params;
+	info.params = d->params;
 	info.n_params = 5;
 	spa_node_emit_port_info(&d->hooks, d->direction, 0, &info);
 }
@@ -424,27 +447,26 @@ static int impl_port_enum_params(struct spa_node *node, int seq,
 				 const struct spa_pod *filter)
 {
 	struct stream *d = SPA_CONTAINER_OF(node, struct stream, impl_node);
-	uint32_t n_params = pw_array_get_len(&d->params, struct param);
 	struct spa_result_node_params result;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
-	uint32_t count = 0;
+	uint32_t idx = 0, count = 0;
+	struct param *p;
 
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	result.id = id;
 	result.next = start;
 
-	while (true) {
+	spa_list_for_each(p, &d->param_list, link) {
 		struct spa_pod *param;
+
+		if (idx++ < start)
+			continue;
 
 		result.index = result.next++;
 
-		if (result.index >= n_params)
-			break;
-
-		param = pw_array_get_unchecked(&d->params, result.index, struct param)->param;
-
+		param = p->param;
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
 
@@ -954,7 +976,7 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 
 	spa_ringbuffer_init(&impl->dequeued.ring);
 	spa_ringbuffer_init(&impl->queued.ring);
-	pw_array_init(&impl->params, sizeof(struct param) * 8);
+	spa_list_init(&impl->param_list);
 
 	spa_hook_list_init(&this->listener_list);
 
@@ -1046,7 +1068,6 @@ void pw_stream_destroy(struct pw_stream *stream)
 	spa_list_remove(&stream->link);
 
 	clear_params(stream, PARAM_TYPE_INIT | PARAM_TYPE_OTHER | PARAM_TYPE_FORMAT);
-	pw_array_clear(&impl->params);
 
 	free(stream->error);
 
@@ -1155,7 +1176,13 @@ pw_stream_connect(struct pw_stream *stream,
 	    direction == PW_DIRECTION_INPUT ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT;
 	impl->flags = flags;
 
-	clear_params(stream, PARAM_TYPE_INIT);
+	impl->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
+	impl->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
+	impl->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
+	impl->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	impl->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+
+	clear_params(stream, PARAM_TYPE_INIT | PARAM_TYPE_OTHER | PARAM_TYPE_FORMAT);
 	for (i = 0; i < n_params; i++)
 		add_param(stream, PARAM_TYPE_INIT, params[i]);
 

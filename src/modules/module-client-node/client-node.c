@@ -581,6 +581,8 @@ do_update_port(struct node *this,
 				port->properties = pw_properties_new_dict(info->props);
 				port->info.props = &port->properties->dict;
 			}
+			port->info.n_params = 0;
+			port->info.params = NULL;
 			spa_node_emit_port_info(&this->hooks, port->direction, port->id, info);
 		}
 	}

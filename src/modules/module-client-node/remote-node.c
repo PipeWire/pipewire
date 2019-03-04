@@ -489,11 +489,14 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO) {
 		pi.change_mask = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_RATE |
-			SPA_PORT_CHANGE_MASK_PROPS;
+			SPA_PORT_CHANGE_MASK_PROPS |
+			SPA_PORT_CHANGE_MASK_PARAMS;
 		pi.flags = port->spa_flags;
 		pi.rate = SPA_FRACTION(0, 1);
 		pi.props = &port->properties->dict;
 		pi.flags &= ~SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
+		pi.n_params = port->info.n_params;
+		pi.params = port->info.params;
 	}
 
 	res = pw_client_node_proxy_port_update(data->node_proxy,

@@ -920,16 +920,13 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	port->rate.num = framerate->denom = streamparm.parm.capture.timeperframe.numerator;
 
 	port->fmt = fmt;
-	port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_RATE;
+	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_RATE;
 	port->info.flags = (port->export_buf ? SPA_PORT_FLAG_CAN_ALLOC_BUFFERS : 0) |
 		SPA_PORT_FLAG_CAN_USE_BUFFERS |
 		SPA_PORT_FLAG_LIVE |
 		SPA_PORT_FLAG_PHYSICAL |
 		SPA_PORT_FLAG_TERMINAL;
 	port->info.rate = SPA_FRACTION(port->rate.num, port->rate.denom);
-
-	spa_node_emit_port_info(&this->hooks, SPA_DIRECTION_OUTPUT, 0, &port->info);
-	port->info.change_mask = 0;
 
 	return 0;
 }

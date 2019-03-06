@@ -884,7 +884,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 
 		cmd = 1;
 		pw_array_for_each(l, &c->links) {
-			struct spa_graph_state *state;
+			struct pw_node_activation_state *state;
 
 			if (l->activation == NULL)
 				continue;
@@ -892,7 +892,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 			state = &l->activation->state[0];
 
 			pw_log_trace("link %p %p %d/%d", l, state, state->pending, state->required);
-			if (spa_graph_state_dec(state, 1)) {
+			if (pw_node_activation_state_dec(state, 1)) {
 				l->activation->status = TRIGGERED;
 				l->activation->signal_time = nsec;
 

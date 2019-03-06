@@ -224,14 +224,14 @@ static int suspend_node(struct pw_node *this)
 	pw_log_debug("node %p: suspend node", this);
 
 	spa_list_for_each(p, &this->input_ports, link) {
-		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_PARAM_Format, 0, NULL)) < 0)
+		if ((res = pw_port_set_param(p, SPA_PARAM_Format, 0, NULL)) < 0)
 			pw_log_warn("error unset format input: %s", spa_strerror(res));
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 
 	spa_list_for_each(p, &this->output_ports, link) {
-		if ((res = pw_port_set_param(p, SPA_ID_INVALID, SPA_PARAM_Format, 0, NULL)) < 0)
+		if ((res = pw_port_set_param(p, SPA_PARAM_Format, 0, NULL)) < 0)
 			pw_log_warn("error unset format output: %s", spa_strerror(res));
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
@@ -896,6 +896,7 @@ static int node_ready(void *data, int status)
 {
 	struct pw_node *node = data;
 	struct pw_node *driver = node->driver_node;
+        struct spa_graph_port *p, *pp;
 
 	pw_log_trace("node %p: ready driver:%d exported:%d %p status:%d", node,
 			node->driver, node->exported, driver, status);
@@ -907,9 +908,13 @@ static int node_ready(void *data, int status)
 
 	spa_graph_run(driver->rt.driver);
 
-	if (status == SPA_STATUS_HAVE_BUFFER)
-		spa_graph_node_process(&driver->rt.root);
-
+	if (status == SPA_STATUS_HAVE_BUFFER) {
+		spa_list_for_each(p, &node->rt.node.ports[SPA_DIRECTION_OUTPUT], link) {
+			if ((pp = p->peer) != NULL)
+				spa_node_process((struct spa_node*)pp->node->callbacks_data);
+		}
+		spa_graph_node_trigger(&driver->rt.root);
+	}
 	spa_graph_link_trigger(&driver->rt.driver_link);
 	return 0;
 }

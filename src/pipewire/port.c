@@ -50,35 +50,6 @@ struct resource_data {
 
 /** \endcond */
 
-static inline void adjust_mix_state(struct pw_port *port, enum pw_port_state state, int dir)
-{
-	switch (state) {
-	case PW_PORT_STATE_CONFIGURE:
-		port->n_mix_configure += dir;
-		break;
-	case PW_PORT_STATE_READY:
-		port->n_mix_ready += dir;
-		break;
-	case PW_PORT_STATE_PAUSED:
-		port->n_mix_paused += dir;
-		break;
-	default:
-		break;
-	}
-}
-
-void pw_port_mix_update_state(struct pw_port *port, struct pw_port_mix *mix, enum pw_port_state state)
-{
-	if (mix && mix->state != state) {
-		adjust_mix_state(port, mix->state, -1);
-		mix->state = state;
-		adjust_mix_state(port, state, 1);
-		pw_log_debug("port %p: mix %d c:%d r:%d p:%d", port, mix->id,
-				port->n_mix_configure, port->n_mix_ready,
-				port->n_mix_paused);
-	}
-}
-
 static void emit_info_changed(struct pw_port *port)
 {
 	struct pw_resource *resource;
@@ -220,16 +191,32 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 			    port->direction, port_id,
 			    0);
 
-	mix->p = port;
-	mix->state = PW_PORT_STATE_CONFIGURE;
+	spa_list_append(&port->mix_list, &mix->link);
 	port->n_mix++;
-	adjust_mix_state(port, mix->state, 1);
+	mix->p = port;
 
 	if (port->mix->add_port)
 		port->mix->add_port(port->mix, port->direction, port_id, NULL);
 
 	if (pi && pi->init_mix)
 		res = pi->init_mix(port->implementation_data, mix);
+
+	/* set the same format on the mixer as on the port if any */
+	if (port->mix->enum_params && port->mix->set_param) {
+		uint32_t idx = 0;
+		uint8_t buffer[1024];
+		struct spa_pod_builder b;
+		struct spa_pod *param;
+
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if (spa_node_port_enum_params_sync(port->mix,
+				pw_direction_reverse(port->direction), 0,
+				SPA_PARAM_Format, &idx, NULL, &param, &b) == 1) {
+			spa_node_port_set_param(port->mix,
+				port->direction, port_id,
+				SPA_PARAM_Format, 0, param);
+		}
+	}
 
 	pw_log_debug("port %p: init mix %d.%d io %p", port,
 			port->port_id, mix->port.port_id, mix->io);
@@ -245,7 +232,7 @@ int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 	const struct pw_port_implementation *pi = port->implementation;
 
 	pw_map_remove(&port->mix_port_map, port_id);
-	adjust_mix_state(port, mix->state, -1);
+	spa_list_remove(&mix->link);
 	port->n_mix--;
 
 	if (pi && pi->release_mix)
@@ -339,6 +326,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	this->info.props = &this->properties->dict;
 
 	spa_list_init(&this->links);
+	spa_list_init(&this->mix_list);
 	spa_list_init(&this->control_list[0]);
 	spa_list_init(&this->control_list[1]);
 
@@ -913,55 +901,48 @@ int pw_port_is_linked(struct pw_port *port)
 }
 
 SPA_EXPORT
-int pw_port_set_param(struct pw_port *port, uint32_t mix_id, uint32_t id, uint32_t flags,
+int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 		      const struct spa_pod *param)
 {
 	int res = 0;
 	struct pw_node *node = port->node;
-	struct pw_port_mix *mix = NULL;
 
-	if (mix_id != SPA_ID_INVALID)
-		mix = pw_map_lookup(&port->mix_port_map, mix_id);
+	pw_log_debug("port %p: %d set param %d %p", port, port->state, id, param);
 
-	if (mix != NULL && port->mix->port_set_param != NULL) {
-		struct spa_graph_port *p = &mix->port;
+	/* set the parameters on all ports of the mixer node if possible */
+	if (port->mix->port_set_param != NULL) {
+		struct pw_port_mix *mix;
 
-		res = spa_node_port_set_param(port->mix,
-				p->direction, p->port_id,
-				id, flags, param);
-
-		pw_log_debug("port %p: %d set param on mix %d:%d.%d %s: %d (%s)", port, port->state,
-				port->direction, port->port_id, p->port_id,
-				spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
-		if (res < 0)
-			goto done;
-
-		if (port->state == PW_PORT_STATE_CONFIGURE) {
+		spa_list_for_each(mix, &port->mix_list, link) {
 			spa_node_port_set_param(port->mix,
-					pw_direction_reverse(p->direction), 0,
-					id, flags, param);
+				mix->port.direction, mix->port.port_id,
+				id, flags, param);
 		}
-	}
-	if (port->state == PW_PORT_STATE_CONFIGURE || param == NULL) {
-		res = spa_node_port_set_param(node->node, port->direction, port->port_id, id, flags, param);
-		pw_log_debug("port %p: %d set param on node %d:%d %s: %d (%s)", port, port->state,
-				port->direction, port->port_id,
-				spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
+		spa_node_port_set_param(port->mix,
+				pw_direction_reverse(port->direction), 0,
+				id, flags, param);
 	}
 
-      done:
+	/* then set parameter on node */
+	res = spa_node_port_set_param(node->node,
+			port->direction, port->port_id,
+			id, flags, param);
+
+	pw_log_debug("port %p: %d set param on node %d:%d %s: %d (%s)", port, port->state,
+			port->direction, port->port_id,
+			spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
+
 	if (id == SPA_PARAM_Format) {
+		pw_log_debug("port %p: %d %p %d", port, port->state, param, res);
+		/* setting the format always destroys the negotiated buffers */
+		free_allocation(&port->allocation);
+		port->allocated = false;
+
 		if (param == NULL || res < 0) {
-			free_allocation(&port->allocation);
-			port->allocated = false;
-			pw_port_mix_update_state(port, mix, PW_PORT_STATE_CONFIGURE);
-			if (port->n_mix_configure == port->n_mix)
-				pw_port_update_state(port, PW_PORT_STATE_CONFIGURE);
+			pw_port_update_state(port, PW_PORT_STATE_CONFIGURE);
 		}
 		else if (!SPA_RESULT_IS_ASYNC(res)) {
-			pw_port_mix_update_state(port, mix, PW_PORT_STATE_READY);
-			if (port->state == PW_PORT_STATE_CONFIGURE)
-				pw_port_update_state(port, PW_PORT_STATE_READY);
+			pw_port_update_state(port, PW_PORT_STATE_READY);
 		}
 	}
 	return res;
@@ -985,23 +966,21 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 	if (n_buffers > 0 && port->state < PW_PORT_STATE_READY)
 		return -EIO;
 
-	if (mix_id != SPA_ID_INVALID &&
-	    (mix = pw_map_lookup(&port->mix_port_map, mix_id)) == NULL)
+	if ((mix = pw_map_lookup(&port->mix_port_map, mix_id)) == NULL)
 		return -EIO;
 
-	if (mix && port->mix->port_use_buffers != NULL) {
+	if (port->mix->port_use_buffers != NULL) {
 		struct spa_graph_port *p = &mix->port;
 		res = spa_node_port_use_buffers(port->mix,
 					p->direction, p->port_id, buffers, n_buffers);
-		pw_log_debug("port %p: use buffers on mix: %d (%s)",
-				port, res, spa_strerror(res));
-	}
-	if (n_buffers == 0) {
-		pw_port_mix_update_state(port, mix, PW_PORT_STATE_READY);
-		if (port->n_mix_ready + port->n_mix_configure == port->n_mix)
-			pw_port_update_state(port, PW_PORT_STATE_READY);
+		pw_log_debug("port %p: use buffers on mix: %p %d (%s)",
+				port, port->mix, res, spa_strerror(res));
 	}
 
+	if (n_buffers == 0) {
+		if (port->n_mix == 0)
+			pw_port_update_state(port, PW_PORT_STATE_READY);
+	}
 	if (port->state == PW_PORT_STATE_READY) {
 		if (!SPA_FLAG_CHECK(port->mix_flags, PW_PORT_MIX_FLAG_MIX_ONLY)) {
 			res = spa_node_port_use_buffers(node->node,
@@ -1016,9 +995,7 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 	}
 
 	if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res)) {
-		pw_port_mix_update_state(port, mix, PW_PORT_STATE_PAUSED);
-		if (port->state == PW_PORT_STATE_READY)
-			pw_port_update_state(port, PW_PORT_STATE_PAUSED);
+		pw_port_update_state(port, PW_PORT_STATE_PAUSED);
 	}
 	return res;
 }
@@ -1039,7 +1016,7 @@ int pw_port_alloc_buffers(struct pw_port *port, uint32_t mix_id,
 	if ((mix = pw_map_lookup(&port->mix_port_map, mix_id)) == NULL)
 		return -EIO;
 
-	if (port->mix->port_use_buffers) {
+	if (port->mix->port_alloc_buffers) {
 		struct spa_graph_port *p = &mix->port;
 		res = spa_node_port_alloc_buffers(port->mix, p->direction, p->port_id,
 						  params, n_params,
@@ -1066,12 +1043,10 @@ int pw_port_alloc_buffers(struct pw_port *port, uint32_t mix_id,
 	}
 
 	if (*n_buffers == 0) {
-		pw_port_mix_update_state(port, mix, PW_PORT_STATE_READY);
-		if (port->n_mix_ready + port->n_mix_configure == port->n_mix)
+		if (port->n_mix == 0)
 			pw_port_update_state(port, PW_PORT_STATE_READY);
 	}
 	else if (!SPA_RESULT_IS_ASYNC(res)) {
-		pw_port_mix_update_state(port, mix, PW_PORT_STATE_PAUSED);
 		pw_port_update_state(port, PW_PORT_STATE_PAUSED);
 	}
 

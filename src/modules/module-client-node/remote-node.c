@@ -704,7 +704,7 @@ client_node_port_set_param(void *object,
 		}
 	}
 
-	res = pw_port_set_param(port, SPA_ID_INVALID, id, flags, param);
+	res = pw_port_set_param(port, id, flags, param);
 	if (res < 0) {
 		pw_proxy_error(proxy, res, "can't set port param: %s", spa_strerror(res));
 		goto done;
@@ -934,7 +934,6 @@ client_node_port_set_io(void *object,
 	return res;
 }
 
-#if 0
 static int link_signal_func(void *user_data)
 {
 	struct link *link = user_data;
@@ -944,7 +943,6 @@ static int link_signal_func(void *user_data)
 		pw_log_warn("link %p: write failed %m", link);
 	return 0;
 }
-#endif
 
 static int
 client_node_set_activation(void *object,
@@ -984,7 +982,6 @@ client_node_set_activation(void *object,
 	}
 	pw_log_debug("node %p: set activation %d", node, node_id);
 
-#if 0
 	if (ptr) {
 		struct link *link;
 		link = pw_array_add(&data->links, sizeof(struct link));
@@ -993,11 +990,13 @@ client_node_set_activation(void *object,
 		link->link.signal = link_signal_func;
 		link->link.signal_data = link;
 		spa_graph_link_add(&node->rt.root, &link->activation->state[0], &link->link);
+		link->link.state->required--;
 		pw_log_debug("node %p: required %d, pending %d", node,
 				link->link.state->required,
 				link->link.state->pending);
+	} else {
 	}
-#endif
+
 	return res;
 }
 

@@ -392,11 +392,11 @@ struct pw_node {
 };
 
 struct pw_port_mix {
+	struct spa_list link;
 	struct pw_port *p;
 	struct spa_graph_port port;
 	struct spa_io_buffers *io;
 	uint32_t id;
-	enum pw_port_state state;	/**< state of the port */
 };
 
 struct pw_port_implementation {
@@ -464,11 +464,9 @@ struct pw_port {
 
 	int allocated:1;		/**< if buffers are allocated */
 
+	struct spa_list mix_list;	/**< list of \ref pw_port_mix */
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */
 	uint32_t n_mix;
-	uint32_t n_mix_configure;
-	uint32_t n_mix_ready;
-	uint32_t n_mix_paused;
 
 	struct {
 		struct spa_io_buffers io;	/**< io area of the port */
@@ -772,7 +770,7 @@ int pw_port_is_linked(struct pw_port *port);
 
 /** Set a param on a port \memberof pw_port, use SPA_ID_INVALID for mix_id to set
  * the param on all mix ports */
-int pw_port_set_param(struct pw_port *port, uint32_t mix_id,
+int pw_port_set_param(struct pw_port *port,
 		uint32_t id, uint32_t flags, const struct spa_pod *param);
 
 /** Use buffers on a port \memberof pw_port */

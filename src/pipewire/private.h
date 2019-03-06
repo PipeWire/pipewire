@@ -45,8 +45,6 @@ extern "C" {
 #define spa_debug pw_log_trace
 #endif
 
-#include <spa/graph/graph.h>
-
 struct pw_command;
 
 typedef int (*pw_command_func_t) (struct pw_command *command, struct pw_core *core, char **err);
@@ -293,6 +291,27 @@ struct pw_module {
 	void *user_data;                /**< module user_data */
 };
 
+struct pw_node_activation_state {
+        int status;                     /**< current status */
+        uint32_t required;              /**< required number of signals */
+        uint32_t pending;               /**< number of pending signals */
+};
+
+static inline void pw_node_activation_state_reset(struct pw_node_activation_state *state)
+{
+        state->pending = state->required;
+}
+
+#define pw_node_activation_state_dec(s,c) (__atomic_sub_fetch(&(s)->pending, c, __ATOMIC_SEQ_CST) == 0)
+
+struct pw_node_target {
+	struct spa_list link;
+	struct pw_node *node;
+	struct pw_node_activation *activation;
+	int (*signal) (void *data);
+	void *data;
+};
+
 struct pw_node_activation {
 #define NOT_TRIGGERED	0
 #define TRIGGERED	1
@@ -305,7 +324,7 @@ struct pw_node_activation {
 	uint64_t finish_time;
 
 	struct spa_io_position position;
-	struct spa_graph_state state[2];	/* one current state and one next state */
+	struct pw_node_activation_state state[2];	/* one current state and one next state */
 };
 
 #define pw_node_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_node_events, m, v, ##__VA_ARGS__)
@@ -381,11 +400,17 @@ struct pw_node {
 	struct {
 		struct spa_io_clock *clock;	/**< io area of the clock or NULL */
 		struct spa_io_position *position;
-		struct spa_graph *driver;
-		struct spa_graph_node root;
 		struct pw_node_activation *activation;
-		struct spa_graph_node node;
-		struct spa_graph_link driver_link;
+
+		struct spa_list target_list;		/* list of targets to signal after
+							 * this node */
+		struct pw_node_target driver_target;	/* driver target that we signal */
+		struct spa_list input_mix;		/* our input ports (and mixers) */
+		struct spa_list output_mix;		/* output ports (and mixers) */
+
+		struct pw_node_target target;		/* our target that is signaled by the
+							   driver */
+		struct spa_list driver_link;		/* our link in driver */
 	} rt;
 
         void *user_data;                /**< extra user data */
@@ -393,8 +418,12 @@ struct pw_node {
 
 struct pw_port_mix {
 	struct spa_list link;
+	struct spa_list rt_link;
 	struct pw_port *p;
-	struct spa_graph_port port;
+	struct {
+		enum spa_direction direction;
+		uint32_t port_id;
+	} port;
 	struct spa_io_buffers *io;
 	uint32_t id;
 };
@@ -471,11 +500,8 @@ struct pw_port {
 	struct {
 		struct spa_io_buffers io;	/**< io area of the port */
 		struct spa_io_clock clock;	/**< io area of the clock */
-		struct spa_graph_port port;	/**< this graph port, linked to mix_port */
-		struct spa_graph_port mix_port;	/**< port from the mixer */
-		struct spa_graph_node mix_node;	/**< mixer node */
-		struct spa_graph_link mix_link;	/**< mixer link */
-		struct spa_graph_state mix_state;	/**< mixer state */
+		struct spa_list mix_list;
+		struct spa_list node_link;
 	} rt;					/**< data only accessed from the data thread */
 
         void *owner_data;		/**< extra owner data */
@@ -510,7 +536,7 @@ struct pw_link {
 	struct {
 		struct pw_port_mix out_mix;	/**< port added to the output mixer */
 		struct pw_port_mix in_mix;	/**< port added to the input mixer */
-		struct spa_graph_link link;	/**< nodes link */
+		struct pw_node_target target;
 	} rt;
 
 	void *user_data;

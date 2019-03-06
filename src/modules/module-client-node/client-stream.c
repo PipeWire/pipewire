@@ -858,7 +858,7 @@ static int impl_node_process(struct spa_node *node)
 		trigger = status & SPA_STATUS_HAVE_BUFFER;
 
 	if (trigger && !impl->this.node->driver)
-		spa_graph_node_process(&impl->client_node->node->rt.root);
+		impl->client_node->node->rt.target.signal(impl->client_node->node->rt.target.data);
 
 	return status;
 }
@@ -1173,34 +1173,11 @@ static void node_initialized(void *data)
 	pw_client_node_registered(impl->client_node, impl->this.node->global->id);
 }
 
-static void node_peer_added(void *data, struct pw_node *peer)
-{
-	struct impl *impl = data;
-	pw_node_emit_peer_added(impl->client_node->node, peer);
-}
-
-static void node_peer_removed(void *data, struct pw_node *peer)
-{
-	struct impl *impl = data;
-	pw_node_emit_peer_removed(impl->client_node->node, peer);
-}
-
-static void node_driver_changed(void *data, struct pw_node *old, struct pw_node *driver)
-{
-	struct impl *impl = data;
-	pw_log_debug("client-stream %p: driver changed %p->%p", &impl->this, old, driver);
-	impl->client_node->node->driver_node = driver;
-	pw_node_emit_driver_changed(impl->client_node->node, old, driver);
-}
-
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.destroy = node_destroy,
 	.free = node_free,
 	.initialized = node_initialized,
-	.peer_added = node_peer_added,
-	.peer_removed = node_peer_removed,
-	.driver_changed = node_driver_changed,
 };
 
 /** Create a new client stream

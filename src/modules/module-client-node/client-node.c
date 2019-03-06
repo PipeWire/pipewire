@@ -1598,17 +1598,12 @@ static const struct pw_resource_events resource_events = {
 	.pong = client_node_resource_pong,
 };
 
-static int root_impl_process(void *data, struct spa_graph_node *node)
+static int process_node(void *data)
 {
 	struct impl *impl = data;
 	pw_log_trace("client-node %p: process", impl);
 	return spa_node_process(&impl->node.node);
 }
-
-static const struct spa_graph_node_callbacks root_impl = {
-        SPA_VERSION_GRAPH_NODE_CALLBACKS,
-        .process = root_impl_process,
-};
 
 /** Create a new client node
  * \param client an owner \ref pw_client
@@ -1672,7 +1667,8 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	this->node->remote = true;
 	this->flags = 0;
 
-	spa_graph_node_set_callbacks(&this->node->rt.root, &root_impl, this);
+	this->node->rt.target.signal = process_node;
+	this->node->rt.target.data = impl;
 
 	pw_resource_add_listener(this->resource,
 				 &impl->resource_listener,

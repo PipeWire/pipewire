@@ -505,18 +505,17 @@ param_filter(struct pw_link *this,
 static int port_set_io(struct pw_link *this, struct pw_port *port, uint32_t id,
 		void *data, size_t size, struct pw_port_mix *mix)
 {
-	struct spa_graph_port *p = &mix->port;
 	int res = 0;
 
 	mix->io = data;
 	pw_log_debug("link %p: %s port %p %d.%d set io: %d %p %zd", this,
 			pw_direction_as_string(port->direction),
-			port, port->port_id, p->port_id, id, data, size);
+			port, port->port_id, mix->port.port_id, id, data, size);
 
 	if (port->mix->port_set_io) {
 		if ((res = spa_node_port_set_io(port->mix,
-				     p->direction,
-				     p->port_id,
+				     mix->port.direction,
+				     mix->port.port_id,
 				     id, data, size)) < 0)
 			pw_log_warn("port %p: can't set io: %s", port, spa_strerror(res));
 	}
@@ -762,21 +761,16 @@ do_activate_link(struct spa_loop *loop,
 {
         struct pw_link *this = user_data;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	struct spa_graph_port *in, *out;
 
 	pw_log_trace("link %p: activate", this);
 
-	out = &this->rt.out_mix.port;
-	in = &this->rt.in_mix.port;
-
-	spa_graph_port_add(&this->output->rt.mix_node, out);
-	spa_graph_port_add(&this->input->rt.mix_node, in);
-	spa_graph_port_link(out, in);
+	spa_list_append(&this->output->rt.mix_list, &this->rt.out_mix.rt_link);
+	spa_list_append(&this->input->rt.mix_list, &this->rt.in_mix.rt_link);
 
 	if (impl->inode != impl->onode) {
-		spa_graph_link_add(&impl->onode->rt.root,
-				   impl->inode->rt.root.state,
-				   &this->rt.link);
+		this->rt.target.activation = impl->inode->rt.activation;
+		spa_list_append(&impl->onode->rt.target_list, &this->rt.target.link);
+		this->rt.target.activation->state[0].required++;
 	}
 	return 0;
 }
@@ -973,18 +967,16 @@ do_deactivate_link(struct spa_loop *loop,
 		   bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
-	struct spa_graph_port *in, *out;
 
-	in = &this->rt.in_mix.port;
-	out = &this->rt.out_mix.port;
+	pw_log_trace("link %p: disable %p and %p", this, &this->rt.in_mix, &this->rt.out_mix);
 
-	pw_log_trace("link %p: disable %p and %p", this, in, out);
+	spa_list_remove(&this->rt.out_mix.rt_link);
+	spa_list_remove(&this->rt.in_mix.rt_link);
 
-	spa_graph_port_unlink(out);
-	spa_graph_port_remove(out);
-	spa_graph_port_remove(in);
-	if (this->input->node != this->output->node)
-		spa_graph_link_remove(&this->rt.link);
+	if (this->input->node != this->output->node) {
+		spa_list_remove(&this->rt.target.link);
+		this->rt.target.activation->state[0].required--;
+	}
 
 	return 0;
 }
@@ -1208,18 +1200,6 @@ static void try_unlink_controls(struct impl *impl, struct pw_port *port, struct 
 	}
 }
 
-static int link_signal_node(void *data)
-{
-	struct impl *impl = data;
-	struct timespec ts;
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	impl->onode->rt.activation->status = FINISHED;
-	impl->onode->rt.activation->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
-        pw_log_trace("link %p finish %p, process %p", impl, impl->inode, impl->onode);
-        return spa_graph_node_process(&impl->inode->rt.root);
-}
-
 SPA_EXPORT
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *output,
@@ -1297,9 +1277,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	pw_port_init_mix(output, &this->rt.out_mix);
 	pw_port_init_mix(input, &this->rt.in_mix);
 
-	this->rt.link.signal = link_signal_node;
-	this->rt.link.signal_data = impl;
-
 	if (this->feedback) {
 		impl->inode = output_node;
 		impl->onode = input_node;
@@ -1308,6 +1285,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 		impl->onode = output_node;
 		impl->inode = input_node;
 	}
+
+	this->rt.target.signal = impl->inode->rt.target.signal;
+	this->rt.target.data = impl->inode->rt.target.data;
 
 	pw_log_debug("link %p: constructed %p:%d.%d -> %p:%d.%d", impl,
 		     output_node, output->port_id, this->rt.out_mix.port.port_id,

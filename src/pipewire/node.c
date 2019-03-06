@@ -52,14 +52,6 @@ struct impl {
 
 	struct pw_work_queue *work;
 
-	struct spa_graph driver_graph;
-	struct spa_graph_state driver_state;
-
-	struct spa_graph graph;
-	struct spa_graph_state graph_state;
-
-	struct pw_node_activation node_activation;
-
 	uint32_t next_position;
 	int last_error;
 
@@ -90,17 +82,44 @@ static void node_deactivate(struct pw_node *this)
 	}
 }
 
+static void add_node(struct pw_node *this, struct pw_node *driver)
+{
+	if (this->rt.driver_target.activation == NULL) {
+		pw_log_trace("node %p: add to driver %p", this, driver);
+		/* signal the driver */
+		this->rt.driver_target.activation = driver->rt.activation;
+		this->rt.driver_target.node = driver;
+		this->rt.driver_target.data = driver;
+		spa_list_append(&this->rt.target_list, &this->rt.driver_target.link);
+		this->rt.driver_target.activation->state[0].required++;
+
+		spa_list_append(&driver->rt.target_list, &this->rt.target.link);
+		this->rt.activation->state[0].required++;
+	}
+}
+
+static void remove_node(struct pw_node *this)
+{
+	if (this->rt.driver_target.activation != NULL) {
+		pw_log_trace("node %p: remove from driver %p", this,
+				this->rt.driver_target.data);
+		spa_list_remove(&this->rt.driver_target.link);
+		this->rt.driver_target.activation->state[0].required--;
+		this->rt.driver_target.activation = NULL;
+
+		spa_list_remove(&this->rt.target.link);
+		this->rt.activation->state[0].required--;
+	}
+}
+
 static int
 do_node_remove(struct spa_loop *loop,
 	       bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_node *this = user_data;
-	if (this->rt.root.graph != NULL) {
+	if (this->source.loop != NULL)
 		spa_loop_remove_source(loop, &this->source);
-		spa_graph_node_remove(&this->rt.root);
-		spa_graph_link_remove(&this->rt.driver_link);
-		this->rt.root.graph = NULL;
-	}
+	remove_node(this);
 	return 0;
 }
 
@@ -131,13 +150,9 @@ do_node_add(struct spa_loop *loop,
 	struct pw_node *this = user_data;
 	struct pw_node *driver = this->driver_node;
 
-	if (this->rt.root.graph == NULL) {
+	if (this->source.loop == NULL)
 		spa_loop_add_source(loop, &this->source);
-		spa_graph_node_add(driver->rt.driver, &this->rt.root);
-		spa_graph_link_add(&this->rt.root,
-				   driver->rt.root.state,
-				   &this->rt.driver_link);
-	}
+	add_node(this, driver);
 	return 0;
 }
 
@@ -449,28 +464,17 @@ do_move_nodes(struct spa_loop *loop,
 	struct impl *src = user_data;
 	struct impl *dst = *(struct impl **)data;
 	struct pw_node *this = &src->this, *driver = &dst->this;
-	struct spa_graph_node *n, *t;
+	struct pw_node_target *n, *t;
 
-	pw_log_trace("node %p: root %p driver:%p->%p", this,
-			&this->rt.root, src, dst);
+	pw_log_trace("node %p: driver:%p->%p", this, this, driver);
 
-	if (this->rt.root.graph != NULL) {
-		spa_graph_node_remove(&this->rt.root);
-		spa_graph_node_add(driver->rt.driver, &this->rt.root);
-		spa_graph_link_remove(&this->rt.driver_link);
-		spa_graph_link_add(&this->rt.root,
-				   driver->rt.root.state,
-				   &this->rt.driver_link);
-	}
+	remove_node(this);
+	add_node(this, driver);
 
-	spa_list_for_each_safe(n, t, &this->rt.driver->nodes, link) {
-		struct pw_node *pn = SPA_CONTAINER_OF(n, struct pw_node, rt.root);
-		spa_graph_node_remove(n);
-		spa_graph_node_add(driver->rt.driver, n);
-		spa_graph_link_remove(&pn->rt.driver_link);
-		spa_graph_link_add(&pn->rt.root,
-				   driver->rt.root.state,
-				   &pn->rt.driver_link);
+	spa_list_for_each_safe(n, t, &this->rt.target_list, link) {
+		struct pw_node *node = n->node;
+		remove_node(node);
+		add_node(node, driver);
 	}
 	return 0;
 }
@@ -577,6 +581,67 @@ static void check_properties(struct pw_node *node)
 
 }
 
+static int pw_node_trigger(struct pw_node *this, uint64_t nsec)
+{
+	struct pw_node_target *t;
+
+	spa_debug("node %p: trigger %"PRIu64, this, nsec);
+
+	spa_list_for_each(t, &this->rt.target_list, link) {
+		struct pw_node_activation_state *state;
+
+		state = &t->activation->state[0];
+
+		spa_debug("node %p: state %p pending %d/%d", t->data, state,
+                                state->pending, state->required);
+
+		if (pw_node_activation_state_dec(state, 1)) {
+			t->activation->status = TRIGGERED;
+			t->activation->signal_time = nsec;
+			t->signal(t->data);
+		}
+	}
+	return 0;
+}
+
+static inline int process_node(void *data)
+{
+	struct pw_node *this = data;
+	struct timespec ts;
+        struct pw_port *p;
+	uint64_t nsec;
+
+        pw_log_trace("node %p: process", this);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	this->rt.activation->status = AWAKE;
+	this->rt.activation->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
+
+	spa_list_for_each(p, &this->rt.input_mix, rt.node_link)
+		spa_node_process(p->mix);
+
+	spa_node_process(this->node);
+
+	spa_list_for_each(p, &this->rt.output_mix, rt.node_link)
+		spa_node_process(p->mix);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	nsec = SPA_TIMESPEC_TO_NSEC(&ts);
+	this->rt.activation->status = FINISHED;
+	this->rt.activation->finish_time = nsec;
+
+        pw_log_trace("node %p: finish waiting:%"PRIu64" processing:%"PRIu64, this,
+			this->rt.activation->awake_time - this->rt.activation->signal_time,
+			this->rt.activation->finish_time - this->rt.activation->awake_time);
+
+	if (this != this->driver_node) {
+		pw_node_trigger(this, nsec);
+	} else {
+		pw_log_trace("node %p: graph completed", this);
+	}
+	return 0;
+}
+
 static void node_on_fd_events(struct spa_source *source)
 {
 	struct pw_node *this = source->data;
@@ -593,42 +658,8 @@ static void node_on_fd_events(struct spa_source *source)
 			pw_log_warn("node %p: read %"PRIu64" failed %m", this, cmd);
 
 		pw_log_trace("node %p: got process", this);
-		spa_graph_node_process(&this->rt.root);
+		this->rt.target.signal(this->rt.target.data);
 	}
-}
-
-static inline int root_impl_sub_process(void *data, struct spa_graph_node *node)
-{
-        struct spa_graph *graph = node->subgraph;
-	struct pw_node *this = data;
-	struct timespec ts;
-
-        pw_log_trace("node %p: sub process %p", this, graph);
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	this->rt.activation->status = AWAKE;
-	this->rt.activation->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
-
-        return spa_graph_run(graph);
-}
-
-static const struct spa_graph_node_callbacks root_impl = {
-        SPA_VERSION_GRAPH_NODE_CALLBACKS,
-        .process = root_impl_sub_process,
-};
-
-static int signal_driver(void *data)
-{
-	struct impl *impl = data;
-	struct pw_node *this = &impl->this;
-	struct pw_node *driver = this->driver_node;
-	struct timespec ts;
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	this->rt.activation->status = FINISHED;
-	this->rt.activation->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
-        pw_log_trace("node %p process driver %p", this, driver);
-        return spa_graph_node_process(&driver->rt.root);
 }
 
 SPA_EXPORT
@@ -702,25 +733,19 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_list_init(&this->output_ports);
 	pw_map_init(&this->output_port_map, 64, 64);
 
-	this->rt.driver = &impl->driver_graph;
+	spa_list_init(&this->rt.input_mix);
+	spa_list_init(&this->rt.output_mix);
+	spa_list_init(&this->rt.target_list);
+
 	this->rt.activation = this->activation->ptr;
-
-	spa_graph_init(&impl->driver_graph, &impl->driver_state);
-	spa_graph_node_init(&this->rt.root, &this->rt.activation->state[0]);
-
-	spa_graph_init(&impl->graph, &impl->graph_state);
-	spa_graph_node_set_subgraph(&this->rt.root, &impl->graph);
-	spa_graph_node_set_callbacks(&this->rt.root, &root_impl, this);
-
-	impl->node_activation.state[0].status = SPA_STATUS_NEED_BUFFER;
-	spa_graph_node_init(&this->rt.node, &impl->node_activation.state[0]);
-	spa_graph_node_add(&impl->graph, &this->rt.node);
+	this->rt.target.activation = this->rt.activation;
+	this->rt.target.node = this;
+	this->rt.target.signal = process_node;
+	this->rt.target.data = this;
+	this->rt.driver_target.signal = process_node;
 
 	this->rt.activation->position.clock.rate = SPA_FRACTION(1, 48000);
 	this->rt.activation->position.size = DEFAULT_QUANTUM;
-
-	this->rt.driver_link.signal = signal_driver;
-	this->rt.driver_link.signal_data = impl;
 
 	check_properties(this);
 
@@ -896,40 +921,44 @@ static int node_ready(void *data, int status)
 {
 	struct pw_node *node = data;
 	struct pw_node *driver = node->driver_node;
-        struct spa_graph_port *p, *pp;
+        struct pw_port *p;
+	struct pw_node_target *t;
+	struct timespec ts;
+	uint64_t nsec;
 
 	pw_log_trace("node %p: ready driver:%d exported:%d %p status:%d", node,
 			node->driver, node->exported, driver, status);
 
-	if (driver->rt.root.graph == NULL) {
-		pw_log_error("node %p: no graph", node);
-		return -EINVAL;
+	spa_list_for_each(t, &driver->rt.target_list, link) {
+		pw_node_activation_state_reset(&t->activation->state[0]);
+		t->activation->status = NOT_TRIGGERED;
 	}
-
-	spa_graph_run(driver->rt.driver);
 
 	if (status == SPA_STATUS_HAVE_BUFFER) {
-		spa_list_for_each(p, &node->rt.node.ports[SPA_DIRECTION_OUTPUT], link) {
-			if ((pp = p->peer) != NULL)
-				spa_node_process((struct spa_node*)pp->node->callbacks_data);
-		}
-		spa_graph_node_trigger(&driver->rt.root);
+		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
+			spa_node_process(p->mix);
 	}
-	spa_graph_link_trigger(&driver->rt.driver_link);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	nsec = SPA_TIMESPEC_TO_NSEC(&ts);
+	driver->rt.activation->status = TRIGGERED;
+	driver->rt.activation->signal_time = nsec;
+
+	pw_node_trigger(driver, nsec);
+
 	return 0;
 }
 
 static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 {
 	struct pw_node *node = data;
-        struct spa_graph_port *p, *pp;
+	struct pw_port *p;
 
-	spa_list_for_each(p, &node->rt.node.ports[SPA_DIRECTION_INPUT], link) {
+	spa_list_for_each(p, &node->rt.input_mix, rt.node_link) {
 		if (p->port_id != port_id)
 			continue;
 
-		if ((pp = p->peer) != NULL)
-			spa_graph_node_reuse_buffer(pp->node, pp->port_id, buffer_id);
+		spa_node_port_reuse_buffer(p->mix, p->port_id, buffer_id);
 		break;
 	}
 	return 0;
@@ -955,7 +984,6 @@ int pw_node_set_implementation(struct pw_node *node,
 	}
 
 	node->node = spa_node;
-	spa_graph_node_set_callbacks(&node->rt.node, &spa_graph_node_impl_default, spa_node);
 	spa_node_set_callbacks(node->node, &node_callbacks, node);
 	res = spa_node_add_listener(node->node, &node->listener, &node_events, node);
 

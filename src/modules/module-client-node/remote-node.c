@@ -79,8 +79,7 @@ struct mix {
 };
 
 struct link {
-	struct spa_graph_link link;
-	struct pw_node_activation *activation;
+	struct pw_node_target target;
 	int signalfd;
 	uint32_t mem_id;
 };
@@ -154,7 +153,7 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 
 		pw_log_trace("remote %p: process %p", data->remote, proxy);
 
-		spa_graph_node_process(&data->node->rt.root);
+		data->node->rt.target.signal(data->node->rt.target.data);
 	}
 }
 
@@ -269,7 +268,7 @@ do_deactivate_mix(struct spa_loop *loop,
                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct mix *mix = user_data;
-	spa_graph_port_remove(&mix->mix.port);
+	spa_list_remove(&mix->mix.rt_link);
         return 0;
 }
 
@@ -290,7 +289,8 @@ do_activate_mix(struct spa_loop *loop,
                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct mix *mix = user_data;
-	spa_graph_port_add(&mix->port->rt.mix_node, &mix->mix.port);
+
+	spa_list_append(&mix->port->rt.mix_list, &mix->mix.rt_link);
         return 0;
 }
 
@@ -985,15 +985,14 @@ client_node_set_activation(void *object,
 	if (ptr) {
 		struct link *link;
 		link = pw_array_add(&data->links, sizeof(struct link));
-		link->activation = ptr;
+		link->target.activation = ptr;
 		link->signalfd = signalfd;
-		link->link.signal = link_signal_func;
-		link->link.signal_data = link;
-		spa_graph_link_add(&node->rt.root, &link->activation->state[0], &link->link);
-		link->link.state->required--;
+		link->target.signal = link_signal_func;
+		link->target.data = link;
+		link->target.activation->state[0].required--;
 		pw_log_debug("node %p: required %d, pending %d", node,
-				link->link.state->required,
-				link->link.state->pending);
+				link->target.activation->state[0].required,
+				link->target.activation->state[0].pending);
 	} else {
 	}
 
@@ -1148,9 +1147,6 @@ static int node_ready(void *d, int status)
 
 	pw_log_trace("node %p: ready driver:%d exported:%d status:%d", node,
 			node->driver, node->exported, status);
-
-	if (status == SPA_STATUS_HAVE_BUFFER)
-		spa_graph_node_process(&node->rt.root);
 
 	if (write(data->rtwritefd, &cmd, sizeof(cmd)) != sizeof(cmd))
 		pw_log_warn("node %p: write failed %m", node);

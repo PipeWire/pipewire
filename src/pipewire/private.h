@@ -778,7 +778,7 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 		struct spa_buffer **buffers, uint32_t n_buffers);
 
 /** Allocate memory for buffers on a port \memberof pw_port */
-int pw_port_alloc_buffers(struct pw_port *port, uint32_t mix_id,
+int pw_port_alloc_buffers(struct pw_port *port,
 			  struct spa_pod **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers);
 

@@ -676,7 +676,6 @@ static int do_allocation(struct pw_link *this)
 
 		if (out_flags & SPA_PORT_FLAG_CAN_ALLOC_BUFFERS) {
 			if ((res = pw_port_alloc_buffers(output,
-							this->rt.out_mix.port.port_id,
 							params, n_params,
 							allocation.buffers,
 							&allocation.n_buffers)) < 0) {

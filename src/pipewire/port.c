@@ -978,7 +978,7 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 	}
 
 	if (n_buffers == 0) {
-		if (port->n_mix == 0)
+		if (port->n_mix == 1)
 			pw_port_update_state(port, PW_PORT_STATE_READY);
 	}
 	if (port->state == PW_PORT_STATE_READY) {
@@ -1001,37 +1001,34 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 }
 
 SPA_EXPORT
-int pw_port_alloc_buffers(struct pw_port *port, uint32_t mix_id,
+int pw_port_alloc_buffers(struct pw_port *port,
 			  struct spa_pod **params, uint32_t n_params,
 			  struct spa_buffer **buffers, uint32_t *n_buffers)
 {
 	int res;
 	struct pw_node *node = port->node;
-	struct pw_port_mix *mix;
 	const struct pw_port_implementation *pi = port->implementation;
 
 	if (port->state < PW_PORT_STATE_READY)
 		return -EIO;
 
-	if ((mix = pw_map_lookup(&port->mix_port_map, mix_id)) == NULL)
-		return -EIO;
-
-	if (port->mix->port_alloc_buffers) {
-		struct spa_graph_port *p = &mix->port;
-		res = spa_node_port_alloc_buffers(port->mix, p->direction, p->port_id,
-						  params, n_params,
-						  buffers, n_buffers);
-	} else {
-		res = spa_node_port_alloc_buffers(node->node, port->direction, port->port_id,
-						  params, n_params,
-						  buffers, n_buffers);
+	if ((res = spa_node_port_alloc_buffers(node->node, port->direction, port->port_id,
+					  params, n_params,
+					  buffers, n_buffers)) < 0) {
+		pw_log_error("port %p: %d alloc failed: %d (%s)", port, port->port_id,
+				res, spa_strerror(res));
 	}
 
-	if (pi && pi->alloc_buffers)
-		res = pi->alloc_buffers(port->implementation_data, params, n_params, buffers, n_buffers);
+	if (res >= 0 && pi && pi->alloc_buffers) {
+		if ((res = pi->alloc_buffers(port->implementation_data,
+						params, n_params, buffers, n_buffers)) < 0) {
+			pw_log_error("port %p: %d implementation alloc failed: %d (%s)",
+					port, port->port_id, res, spa_strerror(res));
+		}
+	}
 
-	pw_log_debug("port %p: %d.%d alloc %d buffers: %d (%s)", port,
-			port->port_id, mix_id, *n_buffers, res, spa_strerror(res));
+	pw_log_debug("port %p: %d alloc %d buffers: %d (%s)", port,
+			port->port_id, *n_buffers, res, spa_strerror(res));
 
 	free_allocation(&port->allocation);
 
@@ -1043,7 +1040,7 @@ int pw_port_alloc_buffers(struct pw_port *port, uint32_t mix_id,
 	}
 
 	if (*n_buffers == 0) {
-		if (port->n_mix == 0)
+		if (port->n_mix == 1)
 			pw_port_update_state(port, PW_PORT_STATE_READY);
 	}
 	else if (!SPA_RESULT_IS_ASYNC(res)) {

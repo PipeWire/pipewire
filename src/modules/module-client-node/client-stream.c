@@ -1103,9 +1103,15 @@ static void client_node_destroy(void *data)
 
 	pw_node_set_driver(impl->client_node->node, NULL);
 
-	spa_hook_remove(&impl->client_node_listener);
 	spa_hook_remove(&impl->node_listener);
 	pw_node_destroy(impl->this.node);
+}
+
+static void client_node_free(void *data)
+{
+	struct impl *impl = data;
+	pw_log_debug("client-stream %p: free", &impl->this);
+	spa_hook_remove(&impl->client_node_listener);
 	cleanup(impl);
 }
 
@@ -1138,21 +1144,26 @@ static void client_node_info_changed(void *data, const struct pw_node_info *info
 static const struct pw_node_events client_node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.destroy = client_node_destroy,
+	.free = client_node_free,
 	.initialized = client_node_initialized,
 	.result = client_node_result,
 	.active_changed = client_node_active_changed,
 	.info_changed = client_node_info_changed,
 };
 
+static void node_destroy(void *data)
+{
+	struct impl *impl = data;
+	pw_log_debug("client-stream %p: destroy", &impl->this);
+	spa_hook_remove(&impl->client_node_listener);
+	pw_client_node_destroy(impl->client_node);
+}
+
 static void node_free(void *data)
 {
 	struct impl *impl = data;
-
 	pw_log_debug("client-stream %p: free", &impl->this);
-
 	spa_hook_remove(&impl->node_listener);
-	spa_hook_remove(&impl->client_node_listener);
-	pw_client_node_destroy(impl->client_node);
 	cleanup(impl);
 }
 
@@ -1184,6 +1195,7 @@ static void node_driver_changed(void *data, struct pw_node *old, struct pw_node 
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
+	.destroy = node_destroy,
 	.free = node_free,
 	.initialized = node_initialized,
 	.peer_added = node_peer_added,

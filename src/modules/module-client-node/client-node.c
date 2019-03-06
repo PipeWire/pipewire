@@ -112,6 +112,7 @@ struct port {
 	struct pw_properties *properties;
 
 	int have_format:1;
+	int removed:1;
 	uint32_t n_params;
 	struct spa_pod **params;
 
@@ -596,7 +597,7 @@ clear_port(struct node *this, struct port *port)
 	spa_log_debug(this->log, "node %p: clear port %p", this, port);
 
 	if (port == NULL)
-		return ;
+		return;
 
 	do_update_port(this, port,
 		       PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
@@ -619,7 +620,8 @@ clear_port(struct node *this, struct port *port)
 			this->n_outputs--;
 		}
 	}
-	spa_node_emit_port_info(&this->hooks, port->direction, port->id, NULL);
+	if (!port->removed)
+		spa_node_emit_port_info(&this->hooks, port->direction, port->id, NULL);
 }
 
 static int
@@ -1518,6 +1520,7 @@ static void node_port_removed(void *data, struct pw_port *port)
 
 	pw_log_debug("client-node %p: port %p remove", &impl->this, port);
 
+	p->removed = true;
 	clear_port(this, p);
 }
 

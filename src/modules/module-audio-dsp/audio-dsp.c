@@ -162,6 +162,7 @@ static void node_destroy(void *data)
 
 	pw_properties_free(n->props);
 	spa_list_for_each_safe(p, tmp, &n->ports, link) {
+		pw_port_set_mix(p->port, NULL, 0);
 		spa_list_remove(&p->link);
 		spa_handle_clear(p->spa_handle);
 		free(p);

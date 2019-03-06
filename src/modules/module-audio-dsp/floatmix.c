@@ -588,10 +588,10 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_return_val_if_fail(port->have_format, -EIO);
-
 	spa_log_info(this->log, NAME " %p: use buffers %d on port %d:%d",
 			this, n_buffers, direction, port_id);
+
+	spa_return_val_if_fail(port->have_format, -EIO);
 
 	clear_buffers(this, port);
 

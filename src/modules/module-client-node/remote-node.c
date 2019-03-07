@@ -1176,10 +1176,14 @@ static int node_ready(void *d, int status)
 {
 	struct node_data *data = d;
 	struct pw_node *node = data->node;
+	struct pw_port *p;
 	uint64_t cmd = 1;
 
 	pw_log_trace("node %p: ready driver:%d exported:%d status:%d", node,
 			node->driver, node->exported, status);
+
+	spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
+		spa_node_process(p->mix);
 
 	if (write(data->rtwritefd, &cmd, sizeof(cmd)) != sizeof(cmd))
 		pw_log_warn("node %p: write failed %m", node);

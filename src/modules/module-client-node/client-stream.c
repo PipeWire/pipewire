@@ -68,6 +68,8 @@ struct node {
 	struct spa_log *log;
 
 	struct spa_hook_list hooks;
+	const struct spa_node_callbacks *callbacks;
+	void *callbacks_data;
 };
 
 struct impl {
@@ -78,6 +80,7 @@ struct impl {
 	struct node node;
 	bool started;
 	bool active;
+	bool driver;
 
 	struct spa_hook node_listener;
 	struct spa_hook client_node_listener;
@@ -358,6 +361,15 @@ impl_node_set_callbacks(struct spa_node *node,
 			const struct spa_node_callbacks *callbacks,
 			void *data)
 {
+	struct node *this;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct node, node);
+
+	this->callbacks = callbacks;
+	this->callbacks_data = data;
+
 	return 0;
 }
 
@@ -823,6 +835,9 @@ static int impl_node_process(struct spa_node *node)
 	struct spa_io_position *q = impl->this.node->driver_node->rt.position;
 	int status, trigger;
 
+	if (impl->driver)
+		return SPA_STATUS_OK;
+
 	if (!impl->active)
 		return SPA_STATUS_HAVE_BUFFER;
 
@@ -1180,6 +1195,32 @@ static const struct pw_node_events node_events = {
 	.initialized = node_initialized,
 };
 
+
+static int node_ready(void *data, int status)
+{
+	struct impl *impl = data;
+	pw_log_trace("client-stream %p: ready %d", &impl->this, status);
+
+	impl->driver = false;
+	impl_node_process(&impl->node.node);
+	impl->driver = true;
+
+	return impl->node.callbacks->ready(impl->node.callbacks_data, status);
+}
+
+static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
+{
+	struct impl *impl = data;
+	pw_log_trace("client-stream %p: reuse_buffer %d", &impl->this, buffer_id);
+	return 0;
+}
+
+static const struct spa_node_callbacks node_callbacks = {
+	SPA_VERSION_NODE_CALLBACKS,
+	.ready = node_ready,
+	.reuse_buffer = node_reuse_buffer,
+};
+
 /** Create a new client stream
  * \param client an owner \ref pw_client
  * \param id an id
@@ -1222,6 +1263,7 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 		goto error_no_node;
 
 	impl->cnode = pw_node_get_implementation(impl->client_node->node);
+	spa_node_set_callbacks(impl->cnode, &node_callbacks, impl);
 
 	support = pw_core_get_support(impl->core, &n_support);
 

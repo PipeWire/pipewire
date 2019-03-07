@@ -1337,8 +1337,10 @@ do_process(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
-	impl->callbacks->ready(impl->callbacks_data, SPA_STATUS_HAVE_BUFFER);
-	return 0;
+	int res;
+
+	res = impl_node_process_output(&impl->impl_node);
+	return impl->callbacks->ready(impl->callbacks_data, res);
 }
 
 static inline int call_trigger(struct stream *impl)

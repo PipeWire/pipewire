@@ -592,7 +592,7 @@ static int pw_node_trigger(struct pw_node *this, uint64_t nsec)
 
 		state = &t->activation->state[0];
 
-		spa_debug("node %p: state %p pending %d/%d", t->data, state,
+		spa_debug("node %p: state %p pending %d/%d", t->node, state,
                                 state->pending, state->required);
 
 		if (pw_node_activation_state_dec(state, 1)) {
@@ -634,7 +634,7 @@ static inline int process_node(void *data)
 			this->rt.activation->awake_time - this->rt.activation->signal_time,
 			this->rt.activation->finish_time - this->rt.activation->awake_time);
 
-	if (this != this->driver_node) {
+	if (this != this->driver_node || this->exported) {
 		pw_node_trigger(this, nsec);
 	} else {
 		pw_log_trace("node %p: graph completed", this);
@@ -944,9 +944,7 @@ static int node_ready(void *data, int status)
 	driver->rt.activation->status = TRIGGERED;
 	driver->rt.activation->signal_time = nsec;
 
-	pw_node_trigger(driver, nsec);
-
-	return 0;
+	return pw_node_trigger(driver, nsec);
 }
 
 static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)

@@ -79,9 +79,10 @@ struct mix {
 };
 
 struct link {
+	uint32_t node_id;
+	uint32_t mem_id;
 	struct pw_node_target target;
 	int signalfd;
-	uint32_t mem_id;
 };
 
 struct node_data {
@@ -155,6 +156,17 @@ on_rtsocket_condition(void *user_data, int fd, enum spa_io mask)
 
 		data->node->rt.target.signal(data->node->rt.target.data);
 	}
+}
+
+static struct link *find_activation(struct pw_array *links, uint32_t node_id)
+{
+	struct link *l;
+
+	pw_array_for_each(l, links) {
+		if (l->node_id == node_id)
+			return l;
+	}
+	return NULL;
 }
 
 static struct mem *find_mem(struct node_data *data, uint32_t id)
@@ -957,6 +969,7 @@ client_node_set_activation(void *object,
 	struct pw_node *node = data->node;
 	struct mem *m;
 	struct pw_node_activation *ptr;
+	struct link *link;
 	int res = 0;
 
 	if (memid == SPA_ID_INVALID) {
@@ -982,20 +995,40 @@ client_node_set_activation(void *object,
 	}
 	pw_log_debug("node %p: set activation %d", node, node_id);
 
+	if (data->remote_id == node_id) {
+		pw_log_debug("node %p: our activation %u: %u %u %u %p", node, node_id,
+				memid, offset, size, ptr);
+		return 0;
+	}
+
 	if (ptr) {
-		struct link *link;
 		link = pw_array_add(&data->links, sizeof(struct link));
+		link->node_id = node_id;
+		link->mem_id = memid;
 		link->target.activation = ptr;
 		link->signalfd = signalfd;
 		link->target.signal = link_signal_func;
 		link->target.data = link;
-		link->target.activation->state[0].required--;
-		pw_log_debug("node %p: required %d, pending %d", node,
+		link->target.node = NULL;
+		spa_list_append(&node->rt.target_list, &link->target.link);
+
+		pw_log_debug("node %p: state %p required %d, pending %d", node,
+				&link->target.activation->state[0],
 				link->target.activation->state[0].required,
 				link->target.activation->state[0].pending);
 	} else {
+		link = find_activation(&data->links, node_id);
+		if (link == NULL) {
+			res = -EINVAL;
+			goto exit;
+		}
+		link->node_id = SPA_ID_INVALID;
+		link->target.activation = NULL;
+		close(link->signalfd);
+		spa_list_remove(&link->target.link);
 	}
 
+      exit:
 	return res;
 }
 

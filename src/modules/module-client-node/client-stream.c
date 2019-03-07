@@ -835,8 +835,10 @@ static int impl_node_process(struct spa_node *node)
 	struct spa_io_position *q = impl->this.node->driver_node->rt.position;
 	int status, trigger;
 
-	if (impl->driver)
+	if (impl->driver) {
+		impl->client_node->node->rt.target.signal(impl->client_node->node->rt.target.data);
 		return SPA_STATUS_OK;
+	}
 
 	if (!impl->active)
 		return SPA_STATUS_HAVE_BUFFER;

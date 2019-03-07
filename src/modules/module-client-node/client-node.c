@@ -980,14 +980,13 @@ static int impl_node_process(struct spa_node *node)
 	struct impl *impl = this->impl;
 	struct pw_node *n = impl->this.node;
 	struct timespec ts;
-	uint64_t cmd = 1, nsec;
+	uint64_t cmd = 1;
 
 	spa_log_trace(this->log, "%p: send process %p", this, impl->this.node->driver_node);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	nsec = SPA_TIMESPEC_TO_NSEC(&ts);
 	n->rt.activation->status = TRIGGERED;
-	n->rt.activation->signal_time = nsec;
+	n->rt.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
 	if (write(this->writefd, &cmd, sizeof(cmd)) != sizeof(cmd))
 		spa_log_warn(this->log, "node %p: error %m", this);

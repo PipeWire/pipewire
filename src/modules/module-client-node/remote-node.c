@@ -27,6 +27,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <errno.h>
+#include <time.h>
 #include <sys/mman.h>
 
 #include <spa/pod/parser.h>
@@ -950,7 +951,14 @@ static int link_signal_func(void *user_data)
 {
 	struct link *link = user_data;
 	uint64_t cmd = 1;
+	struct timespec ts;
+
 	pw_log_trace("link %p: signal", link);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	link->target.activation->status = TRIGGERED;
+	link->target.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
+
 	if (write(link->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd))
 		pw_log_warn("link %p: write failed %m", link);
 	return 0;
@@ -1176,14 +1184,21 @@ static int node_ready(void *d, int status)
 {
 	struct node_data *data = d;
 	struct pw_node *node = data->node;
+	struct timespec ts;
 	struct pw_port *p;
 	uint64_t cmd = 1;
 
 	pw_log_trace("node %p: ready driver:%d exported:%d status:%d", node,
 			node->driver, node->exported, status);
 
-	spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
-		spa_node_process(p->mix);
+	if (status == SPA_STATUS_HAVE_BUFFER) {
+		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
+			spa_node_process(p->mix);
+	}
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	node->rt.activation->status = TRIGGERED;
+	node->rt.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
 	if (write(data->rtwritefd, &cmd, sizeof(cmd)) != sizeof(cmd))
 		pw_log_warn("node %p: write failed %m", node);

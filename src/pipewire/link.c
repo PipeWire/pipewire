@@ -52,7 +52,6 @@ struct impl {
 	struct pw_link this;
 
 	bool prepare;
-	bool have_io;
 	bool activated;
 	bool passive;
 
@@ -528,9 +527,6 @@ static int select_io(struct pw_link *this)
 	struct spa_io_buffers *io;
 	int res;
 
-	if (impl->have_io)
-		return 0;
-
 	io = this->rt.in_mix.io;
 	if (io == NULL)
 		io = this->rt.out_mix.io;
@@ -548,9 +544,6 @@ static int select_io(struct pw_link *this)
 		return res;
 
 	this->io = io;
-
-	impl->have_io = true;
-
 	return 0;
 }
 
@@ -738,11 +731,6 @@ static int do_allocation(struct pw_link *this)
 
 	} else {
 		asprintf(&error, "no common buffer alloc found");
-		goto error;
-	}
-
-	if ((res = select_io(this)) < 0) {
-		asprintf(&error, "link %p: error can set io: %s", this, spa_strerror(res));
 		goto error;
 	}
 
@@ -1212,6 +1200,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	struct impl *impl;
 	struct pw_link *this;
 	struct pw_node *input_node, *output_node;
+	int res;
 
 	if (output == input)
 		goto same_ports;
@@ -1277,6 +1266,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	pw_port_init_mix(output, &this->rt.out_mix);
 	pw_port_init_mix(input, &this->rt.in_mix);
 
+	if ((res = select_io(this)) < 0)
+		goto no_io;
+
 	if (this->feedback) {
 		impl->inode = output_node;
 		impl->onode = input_node;
@@ -1304,6 +1296,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	return this;
 
+      no_io:
+	asprintf(error, "can't set io %d (%s)", res, spa_strerror(res));
+	return NULL;
       same_ports:
 	asprintf(error, "can't link the same ports");
 	return NULL;

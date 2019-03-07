@@ -1339,7 +1339,6 @@ do_process(struct spa_loop *loop,
 	struct stream *impl = user_data;
 	struct buffer *b;
 	struct spa_io_buffers *io = impl->io;
-	int res;
 
 	if ((b = pop_queue(impl, &impl->queued)) != NULL) {
 		io->buffer_id = b->id;

@@ -213,6 +213,9 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	pw_log_debug("stream %p: state  '%s'->'%s'", s, pw_stream_state_as_string(old),
 			pw_stream_state_as_string(state));
 
+	if (s->state == PA_STREAM_TERMINATED)
+		return;
+
 	switch(state) {
 	case PW_STREAM_STATE_ERROR:
 		pa_stream_set_state(s, PA_STREAM_FAILED);

@@ -1337,15 +1337,8 @@ do_process(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
-	struct buffer *b;
-	struct spa_io_buffers *io = impl->io;
-
-	if ((b = pop_queue(impl, &impl->queued)) != NULL) {
-		io->buffer_id = b->id;
-		io->status = SPA_STATUS_HAVE_BUFFER;
-		pw_log_trace("stream %p: pop %d %p", impl, b->id, io);
-	}
-	return impl->callbacks->ready(impl->callbacks_data, io->status);
+	int res = impl_node_process_output(&impl->impl_node);
+	return impl->callbacks->ready(impl->callbacks_data, res);
 }
 
 static inline int call_trigger(struct stream *impl)

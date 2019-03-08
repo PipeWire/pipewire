@@ -550,7 +550,7 @@ static int select_io(struct pw_link *this)
 static int do_allocation(struct pw_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	int res;
+	int res, out_res = 0, in_res = 0;
 	uint32_t in_flags, out_flags;
 	char *error = NULL;
 	struct pw_port *input, *output;
@@ -674,14 +674,7 @@ static int do_allocation(struct pw_link *this)
 				asprintf(&error, "error alloc output buffers: %d", res);
 				goto error;
 			}
-			if (SPA_RESULT_IS_ASYNC(res)) {
-				res = spa_node_sync(output->node->node, res),
-				pw_work_queue_add(impl->work, output->node, res,
-						complete_paused, this);
-			} else {
-				complete_paused(output->node, this, res, 0);
-			}
-
+			out_res = res;
 			out_flags &= ~SPA_PORT_FLAG_CAN_USE_BUFFERS;
 			move_allocation(&allocation, &output->allocation);
 
@@ -689,7 +682,6 @@ static int do_allocation(struct pw_link *this)
 				     allocation.n_buffers, allocation.buffers);
 		}
 	}
-
 	if (out_flags & SPA_PORT_FLAG_CAN_USE_BUFFERS) {
 		pw_log_debug("link %p: using %d buffers %p on output port", this,
 			     allocation.n_buffers, allocation.buffers);
@@ -701,13 +693,7 @@ static int do_allocation(struct pw_link *this)
 					spa_strerror(res));
 			goto error;
 		}
-		if (SPA_RESULT_IS_ASYNC(res)) {
-			res = spa_node_sync(output->node->node, res),
-			pw_work_queue_add(impl->work, output->node, res,
-					complete_paused, this);
-		} else {
-			complete_paused(output->node, this, res, 0);
-		}
+		out_res = res;
 		move_allocation(&allocation, &output->allocation);
 	}
 	if (in_flags & SPA_PORT_FLAG_CAN_USE_BUFFERS) {
@@ -721,20 +707,28 @@ static int do_allocation(struct pw_link *this)
 					spa_strerror(res));
 			goto error;
 		}
-		if (SPA_RESULT_IS_ASYNC(res)) {
-			res = spa_node_sync(input->node->node, res),
-			pw_work_queue_add(impl->work, input->node, res,
-					complete_paused, this);
-		} else {
-			complete_paused(input->node, this, res, 0);
-		}
-
+		in_res = res;
 	} else {
 		asprintf(&error, "no common buffer alloc found");
+		res = -EIO;
 		goto error;
 	}
 
-	return res;
+	if (SPA_RESULT_IS_ASYNC(out_res)) {
+		pw_work_queue_add(impl->work, output->node,
+				spa_node_sync(output->node->node, out_res),
+				complete_paused, this);
+	} else {
+		complete_paused(output->node, this, out_res, 0);
+	}
+	if (SPA_RESULT_IS_ASYNC(in_res)) {
+		pw_work_queue_add(impl->work, input->node,
+				spa_node_sync(input->node->node, in_res),
+				complete_paused, this);
+	} else {
+		complete_paused(input->node, this, in_res, 0);
+	}
+	return 0;
 
       error:
 	free_allocation(&output->allocation);

@@ -95,8 +95,7 @@ spa_hook_list_isolate(struct spa_hook_list *list,
 {
 	/* init save list and move hooks to it */
 	spa_hook_list_init(save);
-	if (!spa_list_is_empty(&list->list))
-		spa_list_insert_list(&save->list, &list->list);
+	spa_list_insert_list(&save->list, &list->list);
 	/* init hooks and add single hook */
 	spa_hook_list_init(list);
 	spa_hook_list_append(list, hook, funcs, data);
@@ -106,8 +105,7 @@ static inline void
 spa_hook_list_join(struct spa_hook_list *list,
 		struct spa_hook_list *save)
 {
-	if (!spa_list_is_empty(&save->list))
-		spa_list_insert_list(&list->list, &save->list);
+	spa_list_insert_list(&list->list, &save->list);
 }
 
 #define spa_hook_call(hook,type,method,vers,...)				\

@@ -41,6 +41,8 @@ static inline void spa_list_init(struct spa_list *list)
 	*list = SPA_LIST_INIT(list);
 }
 
+#define spa_list_is_empty(l)  ((l)->next == (l))
+
 static inline void spa_list_insert(struct spa_list *list, struct spa_list *elem)
 {
 	elem->prev = list;
@@ -51,6 +53,8 @@ static inline void spa_list_insert(struct spa_list *list, struct spa_list *elem)
 
 static inline void spa_list_insert_list(struct spa_list *list, struct spa_list *other)
 {
+	if (spa_list_is_empty(other))
+		return;
 	other->next->prev = list;
 	other->prev->next = list->next;
 	list->next->prev = other->prev;
@@ -62,8 +66,6 @@ static inline void spa_list_remove(struct spa_list *elem)
 	elem->prev->next = elem->next;
 	elem->next->prev = elem->prev;
 }
-
-#define spa_list_is_empty(l)  ((l)->next == (l))
 
 #define spa_list_first(head, type, member)				\
 	SPA_CONTAINER_OF((head)->next, type, member)

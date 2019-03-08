@@ -1173,13 +1173,13 @@ static void node_destroy(void *data)
 	struct impl *impl = data;
 	pw_log_debug("client-stream %p: destroy", &impl->this);
 	spa_hook_remove(&impl->client_node_listener);
-	pw_client_node_destroy(impl->client_node);
 }
 
 static void node_free(void *data)
 {
 	struct impl *impl = data;
 	pw_log_debug("client-stream %p: free", &impl->this);
+	pw_client_node_destroy(impl->client_node);
 	spa_hook_remove(&impl->node_listener);
 	cleanup(impl);
 }

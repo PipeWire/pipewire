@@ -833,7 +833,7 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		nsec = SPA_TIMESPEC_TO_NSEC(&ts);
 		c->activation->status = AWAKE;
-		c->activation->finish_time = nsec;
+		c->activation->awake_time = nsec;
 
 		if (buffer_size != c->buffer_size) {
 			pw_log_info("jack %p: buffersize %d", c, buffer_size);

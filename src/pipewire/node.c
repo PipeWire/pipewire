@@ -459,8 +459,8 @@ do_move_nodes(struct spa_loop *loop,
 		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct impl *src = user_data;
-	struct impl *dst = *(struct impl **)data;
-	struct pw_node *this = &src->this, *driver = &dst->this;
+	struct pw_node *driver = *(struct pw_node **)data;
+	struct pw_node *this = &src->this;
 	struct pw_node_target *n, *t;
 
 	pw_log_trace("node %p: driver:%p->%p", this, this, driver);
@@ -500,26 +500,37 @@ SPA_EXPORT
 int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	struct pw_node *n, *t, *old;
+	struct pw_node *n, *old;
+	struct spa_list nodes;
 	int res;
 
 	old = node->driver_node;
 
-	pw_log_debug("node %p: driver:%p current:%p", node, driver, old);
-
 	if (driver == NULL)
 		driver = node;
 
-	spa_list_for_each_safe(n, t, &node->driver_list, driver_link) {
+	/* first move this node to a new list */
+	spa_list_init(&nodes);
+	spa_list_remove(&node->driver_link);
+	spa_list_append(&nodes, &node->driver_link);
+	/* move all nodes managed by this node to list */
+	spa_list_insert_list(&nodes, &node->driver_list);
+	/* clear current node list */
+	spa_list_init(&node->driver_list);
+
+	pw_log_debug("node %p: driver:%p current:%p", node, driver, old);
+
+	/* now move all nodes to the (new) driver node */
+	spa_list_consume(n, &nodes, driver_link) {
 		old = n->driver_node;
 
 		pw_log_debug("driver %p: add %p old %p", driver, n, old);
 
-		if (old == driver)
-			continue;
-
 		spa_list_remove(&n->driver_link);
 		spa_list_append(&driver->driver_list, &n->driver_link);
+		if (n->driver_node == driver)
+			continue;
+
 		n->driver_node = driver;
 		pw_node_emit_driver_changed(n, old, driver);
 
@@ -588,8 +599,7 @@ static void dump_states(struct pw_node *driver)
 
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *a = t->activation;
-
-		pw_log_trace("node %p: required:%d waiting:%"PRIu64
+		pw_log_warn("node %p: required:%d waiting:%"PRIu64
 				" process:%"PRIu64" status:%d",
 				t->node, a->state[0].required,
 				a->awake_time - a->signal_time,
@@ -658,16 +668,16 @@ static inline int process_node(void *data)
 	if (this == this->driver_node && !this->exported) {
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		activation->status = FINISHED;
+		activation->signal_time = activation->finish_time;
 		activation->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
+		activation->running = false;
 		pw_log_trace("node %p: graph completed", this);
-		dump_states(this);
 	} else if (status == SPA_STATUS_OK) {
 		pw_log_trace("node %p: async continue", this);
 	} else {
 		resume_node(this, status);
 	}
 	return 0;
-
 }
 
 static void node_on_fd_events(struct spa_source *source)
@@ -955,10 +965,15 @@ static int node_ready(void *data, int status)
 			node->driver, node->exported, driver, status);
 
 	if (node == driver) {
+		if (node->rt.activation->running) {
+			pw_log_warn("node %p: graph not finished", node);
+			dump_states(node);
+		}
 		spa_list_for_each(t, &driver->rt.target_list, link) {
 			pw_node_activation_state_reset(&t->activation->state[0]);
 			t->activation->status = NOT_TRIGGERED;
 		}
+		node->rt.activation->running = true;
 	}
 	return resume_node(node, status);
 }
@@ -1045,7 +1060,7 @@ SPA_EXPORT
 void pw_node_destroy(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	struct pw_node *n, *t;
+	struct pw_node *n;
 	struct pw_port *port;
 
 	pw_log_debug("node %p: destroy", impl);
@@ -1056,16 +1071,12 @@ void pw_node_destroy(struct pw_node *node)
 
 	pw_log_debug("node %p: driver node %p", impl, node->driver_node);
 
-	/* move all nodes driven by us to their own driver */
-	spa_list_for_each_safe(n, t, &node->driver_list, driver_link)
-		if (n != node)
-			pw_node_set_driver(n, NULL);
+	/* remove ourself from the (other) driver node */
+	spa_list_remove(&node->driver_link);
 
-	if (node->driver_node != node) {
-		/* remove ourself from the (other) driver node */
-		spa_list_remove(&node->driver_link);
-		recalc_quantum(node->driver_node);
-	}
+	/* move all nodes driven by us to their own driver */
+	spa_list_consume(n, &node->driver_list, driver_link)
+		pw_node_set_driver(n, NULL);
 
 	if (node->registered)
 		spa_list_remove(&node->link);

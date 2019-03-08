@@ -1074,6 +1074,8 @@ void pw_node_destroy(struct pw_node *node)
 	/* remove ourself from the (other) driver node */
 	spa_list_remove(&node->driver_link);
 
+	recalc_quantum(node->driver_node);
+
 	/* move all nodes driven by us to their own driver */
 	spa_list_consume(n, &node->driver_list, driver_link)
 		pw_node_set_driver(n, NULL);

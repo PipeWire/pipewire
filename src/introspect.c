@@ -30,8 +30,26 @@
 static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct global *g = object;
+	uint32_t i;
+
 	pw_log_debug("update %d", g->id);
 	g->info = pw_node_info_update(g->info, info);
+
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
+		for (i = 0; i < info->n_params; i++) {
+			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
+				continue;
+
+			switch (info->params[i].id) {
+			case SPA_PARAM_EnumFormat:
+				pw_node_proxy_enum_params((struct pw_node_proxy*)g->proxy,
+					0, SPA_PARAM_EnumFormat, 0, -1, NULL);
+				break;
+			default:
+				break;
+			}
+		}
+	}
 }
 
 static void node_event_param(void *object, int seq,
@@ -151,6 +169,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 {
         struct global *g = object;
 	pa_card_info *i = &g->card_info.info;
+	uint32_t n;
 
 	pw_log_debug("update %d", g->id);
         info = g->info = pw_device_info_update(g->info, info);
@@ -165,6 +184,25 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			pa_proplist_update_dict(i->proplist, info->props);
 		else
 			i->proplist = pa_proplist_new_dict(info->props);
+	}
+	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PARAMS) {
+		for (n = 0; n < info->n_params; n++) {
+			if (!(info->params[n].flags & SPA_PARAM_INFO_READ))
+				continue;
+
+			switch (info->params[n].id) {
+			case SPA_PARAM_EnumProfile:
+				pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
+					0, SPA_PARAM_EnumProfile, 0, -1, NULL);
+				break;
+			case SPA_PARAM_Profile:
+				pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
+					0, SPA_PARAM_Profile, 0, -1, NULL);
+				break;
+			default:
+				break;
+			}
+		}
 	}
 }
 
@@ -257,21 +295,6 @@ static int ensure_global(pa_context *c, struct global *g)
 
 	pw_proxy_add_proxy_listener(g->proxy, &g->proxy_proxy_listener, events, g);
 	g->destroy = destroy;
-
-	switch (g->type) {
-	case PW_TYPE_INTERFACE_Node:
-		pw_node_proxy_enum_params((struct pw_node_proxy*)g->proxy,
-				0, SPA_PARAM_EnumFormat, 0, -1, NULL);
-		break;
-	case PW_TYPE_INTERFACE_Device:
-		pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
-				0, SPA_PARAM_EnumProfile, 0, -1, NULL);
-		pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
-				0, SPA_PARAM_Profile, 0, -1, NULL);
-		break;
-	default:
-		break;
-	}
 	return 0;
 }
 

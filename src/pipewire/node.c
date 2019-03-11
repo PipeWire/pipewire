@@ -1083,7 +1083,10 @@ void pw_node_destroy(struct pw_node *node)
 	if (node->registered)
 		spa_list_remove(&node->link);
 
-	spa_node_set_callbacks(node->node, NULL, NULL);
+	if (node->node) {
+		spa_hook_remove(&node->listener);
+		spa_node_set_callbacks(node->node, NULL, NULL);
+	}
 
 	pw_log_debug("node %p: unlink ports", node);
 	spa_list_for_each(port, &node->input_ports, link)

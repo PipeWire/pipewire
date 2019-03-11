@@ -1114,15 +1114,22 @@ static void clean_node(struct node_data *d)
 static void node_destroy(void *data)
 {
 	struct node_data *d = data;
-	struct pw_remote *remote = d->remote;
-	struct pw_proxy *proxy = (struct pw_proxy*) d->node_proxy;
 
 	pw_log_debug("%p: destroy", d);
 
+	clean_node(d);
+}
+
+static void node_free(void *data)
+{
+	struct node_data *d = data;
+	struct pw_remote *remote = d->remote;
+	struct pw_proxy *proxy = (struct pw_proxy*) d->node_proxy;
+
+	pw_log_debug("%p: free", d);
+
 	if (remote->core_proxy)
 		pw_core_proxy_destroy(remote->core_proxy, proxy);
-
-	clean_node(d);
 
 	spa_hook_remove(&d->proxy_listener);
 }
@@ -1171,6 +1178,7 @@ static void node_active_changed(void *data, bool active)
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.destroy = node_destroy,
+	.free = node_free,
 	.info_changed = node_info_changed,
 	.port_info_changed = node_port_info_changed,
 	.active_changed = node_active_changed,

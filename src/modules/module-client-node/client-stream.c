@@ -1122,6 +1122,7 @@ static void client_node_destroy(void *data)
 
 	spa_hook_remove(&impl->node_listener);
 	pw_node_destroy(impl->this.node);
+	impl->this.node = NULL;
 }
 
 static void client_node_free(void *data)
@@ -1155,7 +1156,8 @@ static void client_node_info_changed(void *data, const struct pw_node_info *info
 
 	pw_log_debug("client-stream %p: info changed", this);
 
-	pw_node_update_properties(this->node, info->props);
+	if (this->node)
+		pw_node_update_properties(this->node, info->props);
 }
 
 static const struct pw_node_events client_node_events = {
@@ -1309,4 +1311,5 @@ void pw_client_stream_destroy(struct pw_client_stream *stream)
 {
 	struct impl *impl = SPA_CONTAINER_OF(stream, struct impl, this);
 	pw_client_node_destroy(impl->client_node);
+	impl->client_node = NULL;
 }

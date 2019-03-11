@@ -489,9 +489,10 @@ static int recalc_quantum(struct pw_node *driver)
 		if (n->quantum_size > 0 && n->quantum_size < quantum)
 			quantum = n->quantum_size;
 	}
-	if (driver->rt.position) {
-		driver->rt.position->size = SPA_MAX(quantum, MIN_QUANTUM);
-		pw_log_info("node %p: driver quantum %d", driver, driver->rt.position->size);
+	quantum = SPA_MAX(quantum, MIN_QUANTUM);
+	if (driver->rt.position && quantum != driver->rt.position->size) {
+		driver->rt.position->size = quantum;
+		pw_log_info("node %p: driver quantum %d", driver, quantum);
 	}
 	return 0;
 }

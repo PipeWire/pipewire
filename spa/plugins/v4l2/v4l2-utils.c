@@ -584,9 +584,11 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 			port->fmtdesc.pixelformat = info->fourcc;
 		} else {
 			if ((res = xioctl(dev->fd, VIDIOC_ENUM_FMT, &port->fmtdesc)) < 0) {
+				if (errno == EINVAL)
+					goto enum_end;
+
 				res = -errno;
-				if (errno != EINVAL)
-					spa_log_error(this->log, "VIDIOC_ENUM_FMT: %m");
+				spa_log_error(this->log, "VIDIOC_ENUM_FMT: %m");
 				goto exit;
 			}
 		}

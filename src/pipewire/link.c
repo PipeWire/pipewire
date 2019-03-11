@@ -175,13 +175,14 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 
 	if (SPA_RESULT_IS_OK(res)) {
 		pw_port_update_state(port, PW_PORT_STATE_PAUSED);
+		mix->have_buffers = true;
 		pw_log_debug("port %p: state PAUSED", port);
 	} else {
 		pw_port_update_state(port, PW_PORT_STATE_ERROR);
+		mix->have_buffers = false;
 		pw_log_warn("port %p: failed to go to PAUSED", port);
 	}
-	if (this->input->state >= PW_PORT_STATE_PAUSED &&
-	    this->output->state >= PW_PORT_STATE_PAUSED)
+	if (this->rt.in_mix.have_buffers && this->rt.out_mix.have_buffers)
 		pw_link_update_state(this, PW_LINK_STATE_PAUSED, NULL);
 
 }

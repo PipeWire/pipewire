@@ -55,7 +55,6 @@ enum pw_port_state {
 	PW_PORT_STATE_CONFIGURE = 1,	/**< the port is ready for format negotiation */
 	PW_PORT_STATE_READY = 2,	/**< the port is ready for buffer allocation */
 	PW_PORT_STATE_PAUSED = 3,	/**< the port is paused */
-	PW_PORT_STATE_STREAMING = 4,	/**< the port is streaming */
 };
 
 /** Port events, use \ref pw_port_add_listener */

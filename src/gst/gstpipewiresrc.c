@@ -430,7 +430,6 @@ on_process (void *_data)
     mem->offset += data->offset;
   }
 
-
   gst_buffer_ref (buf);
   g_queue_push_tail (&pwsrc->queue, buf);
 

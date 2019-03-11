@@ -427,6 +427,7 @@ struct pw_port_mix {
 	} port;
 	struct spa_io_buffers *io;
 	uint32_t id;
+	int have_buffers;
 };
 
 struct pw_port_implementation {
@@ -537,7 +538,7 @@ struct pw_link {
 	struct {
 		struct pw_port_mix out_mix;	/**< port added to the output mixer */
 		struct pw_port_mix in_mix;	/**< port added to the input mixer */
-		struct pw_node_target target;
+		struct pw_node_target target;	/**< target to trigger the input node */
 	} rt;
 
 	void *user_data;

@@ -52,6 +52,7 @@ struct _GstPipeWireClock {
 
   struct pw_stream *stream;
   GstClockTime last_time;
+  GstClockTimeDiff time_offset;
 };
 
 struct _GstPipeWireClockClass {
@@ -62,6 +63,8 @@ GType gst_pipewire_clock_get_type (void);
 
 GstClock *      gst_pipewire_clock_new           (struct pw_stream *stream,
 					          GstClockTime last_time);
+void            gst_pipewire_clock_reset         (GstPipeWireClock *clock,
+					          GstClockTime time);
 
 G_END_DECLS
 

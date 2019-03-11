@@ -416,7 +416,7 @@ on_process (void *_data)
     GST_INFO ("pts %" G_GUINT64_FORMAT ", dts_offset %"G_GUINT64_FORMAT, h->pts, h->dts_offset);
 
     if (GST_CLOCK_TIME_IS_VALID (h->pts)) {
-      GST_BUFFER_PTS (buf) = h->pts;
+      GST_BUFFER_PTS (buf) = h->pts + GST_PIPEWIRE_CLOCK (pwsrc->clock)->time_offset;
       if (GST_BUFFER_PTS (buf) + h->dts_offset > 0)
         GST_BUFFER_DTS (buf) = GST_BUFFER_PTS (buf) + h->dts_offset;
     }
@@ -693,6 +693,8 @@ on_format_changed (void *data,
     pw_stream_finish_format (pwsrc->stream, 0, NULL, 0);
     return;
   }
+
+  gst_pipewire_clock_reset (GST_PIPEWIRE_CLOCK (pwsrc->clock), 0);
 
   caps = gst_caps_from_format (format);
   GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, caps);

@@ -502,6 +502,9 @@ on_format_changed (void *data, const struct spa_pod *format)
 {
   GstPipeWireSink *pwsink = data;
 
+  if (format == NULL)
+	  return;
+
   if (gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pwsink->pool)))
     pool_activated (pwsink->pool, pwsink);
 }

@@ -43,6 +43,7 @@ gst_pipewire_clock_new (struct pw_stream *stream, GstClockTime last_time)
   clock = g_object_new (GST_TYPE_PIPEWIRE_CLOCK, NULL);
   clock->stream = stream;
   clock->last_time = last_time;
+  clock->time_offset = last_time;
 
   return GST_CLOCK_CAST (clock);
 }
@@ -64,12 +65,14 @@ gst_pipewire_clock_get_internal_time (GstClock * clock)
   clock_gettime(CLOCK_MONOTONIC, &ts);
   result += SPA_TIMESPEC_TO_NSEC(&ts) - t.now;
 
+  result += pclock->time_offset;
+  pclock->last_time = result;
+
   GST_DEBUG ("%"PRId64", %d/%d %"PRId64" %"PRId64,
 		  t.ticks, t.rate.num, t.rate.denom, t.now, result);
 
   return result;
 }
-
 
 static void
 gst_pipewire_clock_finalize (GObject * object)
@@ -99,4 +102,22 @@ static void
 gst_pipewire_clock_init (GstPipeWireClock * clock)
 {
   GST_OBJECT_FLAG_SET (clock, GST_CLOCK_FLAG_CAN_SET_MASTER);
+}
+
+void
+gst_pipewire_clock_reset (GstPipeWireClock * clock, GstClockTime time)
+{
+  GstClockTimeDiff time_offset;
+
+  if (clock->last_time >= time)
+    time_offset = clock->last_time - time;
+  else
+    time_offset = -(time - clock->last_time);
+
+  clock->time_offset = time_offset;
+
+  GST_DEBUG_OBJECT (clock,
+      "reset clock to %" GST_TIME_FORMAT ", last %" GST_TIME_FORMAT
+      ", offset %" GST_STIME_FORMAT, GST_TIME_ARGS (time),
+      GST_TIME_ARGS (clock->last_time), GST_STIME_ARGS (time_offset));
 }

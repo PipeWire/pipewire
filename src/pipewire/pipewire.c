@@ -296,6 +296,9 @@ static void configure_debug(struct support *support, const char *str)
 
 	if (n_tokens > 1)
 		support->categories = pw_split_strv(level[1], ",", INT_MAX, &n_tokens);
+
+	if (level)
+		pw_free_strv(level);
 }
 
 /** Get a support interface

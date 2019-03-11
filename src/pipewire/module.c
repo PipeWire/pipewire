@@ -310,7 +310,8 @@ void pw_module_destroy(struct pw_module *module)
 
 	pw_properties_free(module->properties);
 
-	dlclose(impl->hnd);
+	if (dlclose(impl->hnd) != 0)
+		pw_log_warn("dlclose failed: %s", dlerror());
 	free(impl);
 }
 

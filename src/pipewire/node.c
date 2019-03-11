@@ -1108,6 +1108,8 @@ void pw_node_destroy(struct pw_node *node)
 	pw_log_debug("node %p: free", node);
 	pw_node_emit_free(node);
 
+	pw_memblock_free(node->activation);
+
 	pw_work_queue_destroy(impl->work);
 
 	pw_map_clear(&node->input_port_map);

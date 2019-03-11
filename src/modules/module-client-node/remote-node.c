@@ -249,9 +249,18 @@ static void clear_mem(struct node_data *data, struct mem *m)
 	}
 }
 
+static void clear_link(struct node_data *data, struct link *link)
+{
+	link->node_id = SPA_ID_INVALID;
+	link->target.activation = NULL;
+	close(link->signalfd);
+	spa_list_remove(&link->target.link);
+}
+
 static void clean_transport(struct node_data *data)
 {
 	struct mem *m;
+	struct link *l;
 
 	if (data->rtsocket_source == NULL)
 		return;
@@ -261,6 +270,10 @@ static void clean_transport(struct node_data *data)
 	pw_array_for_each(m, &data->mems)
 		clear_mem(data, m);
 	pw_array_clear(&data->mems);
+
+	pw_array_for_each(l, &data->links)
+		clear_link(data, l);
+	pw_array_clear(&data->links);
 
 	close(data->rtwritefd);
 	data->remote_id = SPA_ID_INVALID;
@@ -1030,10 +1043,7 @@ client_node_set_activation(void *object,
 			res = -EINVAL;
 			goto exit;
 		}
-		link->node_id = SPA_ID_INVALID;
-		link->target.activation = NULL;
-		close(link->signalfd);
-		spa_list_remove(&link->target.link);
+		clear_link(data, link);
 	}
 
       exit:

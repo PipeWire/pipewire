@@ -792,13 +792,10 @@ impl_node_port_set_io(struct spa_node *node,
 		      uint32_t id,
 		      void *data, size_t size)
 {
-	struct node *this;
-	struct impl *impl;
-
-	this = SPA_CONTAINER_OF(node, struct node, node);
-	impl = this->impl;
-
-	return do_port_set_io(impl, direction, port_id, SPA_ID_INVALID, id, data, size);
+	/* ignore io on the node itself, weonly care about the io on the
+	 * port mixers, the io on the node ports itself is handled on the
+	 * client side */
+	return 0;
 }
 
 static int

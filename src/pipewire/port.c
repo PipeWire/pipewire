@@ -135,19 +135,6 @@ static int schedule_mix_input(struct spa_node *data)
         return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 }
 
-static int schedule_mix_port_set_param(struct spa_node *data,
-		enum spa_direction direction, uint32_t port_id,
-		uint32_t id, uint32_t flags,
-		const struct spa_pod *param)
-{
-	switch (id) {
-	case SPA_PARAM_Format:
-		pw_log_debug("port %d:%d: set format", direction, port_id);
-		break;
-	}
-	return 0;
-}
-
 static int schedule_mix_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
@@ -165,7 +152,6 @@ static const struct spa_node schedule_mix_node = {
 	SPA_VERSION_NODE,
 	NULL,
 	.process = schedule_mix_input,
-	.port_set_param = schedule_mix_port_set_param,
 	.port_reuse_buffer = schedule_mix_reuse_buffer,
 };
 

@@ -201,7 +201,7 @@ static void *mem_map(struct node_data *data, struct mapping *map,
 	if (map->ptr == NULL || map->map.offset != m.map.offset || map->map.size != m.map.size) {
 		m.ptr = mmap(map->ptr, m.map.size, prot, MAP_SHARED, fd, m.map.offset);
 		if (m.ptr == MAP_FAILED) {
-			pw_log_error("remote %p: Failed to mmap memory %d: %m", data, size);
+			pw_log_error("remote %p: Failed to mmap memory %d size:%d: %m", data, fd, size);
 			return NULL;
 		}
 		map->map = m.map;
@@ -573,8 +573,10 @@ client_node_set_io(void *object,
 		}
 		ptr = mem_map(data, &m->map, m->fd,
 			PROT_READ|PROT_WRITE, offset, size);
-		if (ptr == NULL)
+		if (ptr == NULL) {
+			pw_proxy_error(proxy, -errno, "set_io: mmap failed: %m");
 			return -errno;
+		}
 		m->ref++;
 	}
 
@@ -789,7 +791,7 @@ client_node_port_use_buffers(void *object,
 				buffers[i].offset, buffers[i].size);
 		if (bmem.map.ptr == NULL) {
 			res = -errno;
-			pw_proxy_error(proxy, res, "can't mmap memory: %s", spa_strerror(res));
+			pw_proxy_error(proxy, res, "use_buffers: can't mmap memory: %m");
 			goto cleanup;
 		}
 		if (mlock(bmem.map.ptr, bmem.map.map.size) < 0)
@@ -929,7 +931,7 @@ client_node_port_set_io(void *object,
 			PROT_READ|PROT_WRITE, offset, size);
 		if (ptr == NULL) {
 			res = -errno;
-			pw_proxy_error(proxy, res, "mmap failed: %s", spa_strerror(res));
+			pw_proxy_error(proxy, res, "port_set_io: mmap failed: %m");
 			return res;
 		}
 
@@ -1008,9 +1010,8 @@ client_node_set_activation(void *object,
 		ptr = mem_map(data, &m->map, m->fd,
 			PROT_READ|PROT_WRITE, offset, size);
 		if (ptr == NULL) {
-			res = -errno;
-			pw_proxy_error(proxy, res, "mmap failed: %s", spa_strerror(res));
-			return res;
+			pw_proxy_error(proxy, -errno, "set_activation: mmap failed: %m");
+			return -errno;
 		}
 		m->ref++;
 	}

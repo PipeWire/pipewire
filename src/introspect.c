@@ -30,6 +30,7 @@
 static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct global *g = object;
+	pa_operation *o;
 	uint32_t i;
 
 	pw_log_debug("update %d", g->id);
@@ -50,10 +51,8 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			}
 		}
 	}
-	if (g->operation) {
-		pa_operation_sync(g->operation);
-		g->operation = NULL;
-	}
+	spa_list_for_each(o, &g->operations, owner_link)
+		pa_operation_sync(o);
 }
 
 static void node_event_param(void *object, int seq,
@@ -173,6 +172,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 {
         struct global *g = object;
 	pa_card_info *i = &g->card_info.info;
+	pa_operation *o;
 	uint32_t n;
 
 	pw_log_debug("update %d %"PRIu64, g->id, info->change_mask);
@@ -208,10 +208,8 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			}
 		}
 	}
-	if (g->operation) {
-		pa_operation_sync(g->operation);
-		g->operation = NULL;
-	}
+	spa_list_for_each(o, &g->operations, owner_link)
+		pa_operation_sync(o);
 }
 
 static const struct pw_device_proxy_events device_events = {
@@ -265,6 +263,13 @@ static int ensure_global(pa_context *c, struct global *g, pa_operation *o)
 	const void *events;
 	pw_destroy_t destroy;
 
+	if (o) {
+		if (o->owner)
+			spa_list_remove(&o->owner_link);
+		o->owner = g;
+		spa_list_append(&g->operations, &o->owner_link);
+	}
+
 	if (g->proxy != NULL)
 		return 0;
 
@@ -303,8 +308,6 @@ static int ensure_global(pa_context *c, struct global *g, pa_operation *o)
 
 	pw_proxy_add_proxy_listener(g->proxy, &g->proxy_proxy_listener, events, g);
 	g->destroy = destroy;
-	if (o)
-		g->operation = o;
 
 	return 0;
 }

@@ -88,6 +88,8 @@ static void operation_unlink(pa_operation *o) {
 	}
 	if (o->stream)
 		pa_stream_unref(o->stream);
+	if (o->owner)
+		spa_list_remove(&o->owner_link);
 	o->stream = NULL;
 	o->callback = NULL;
 	o->userdata = NULL;

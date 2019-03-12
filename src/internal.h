@@ -217,7 +217,8 @@ struct global {
 	pa_subscription_mask_t mask;
 	pa_subscription_event_type_t event;
 
-	pa_operation *operation;
+	struct spa_list operations;
+
 	void *info;
 	pw_destroy_t destroy;
 
@@ -389,6 +390,9 @@ struct pa_operation
 	int refcount;
 	pa_context *context;
 	pa_stream *stream;
+
+	struct spa_list owner_link;
+	struct global *owner;
 
 	int seq;
 	pa_operation_state_t state;

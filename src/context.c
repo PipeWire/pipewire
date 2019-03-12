@@ -37,9 +37,17 @@ int pa_context_set_error(pa_context *c, int error) {
 	return error;
 }
 
-static void global_free(struct global *g)
+static void global_free(pa_context *c, struct global *g)
 {
+	pa_operation *o, *t;
+
 	spa_list_remove(&g->link);
+
+	spa_list_for_each_safe(o, t, &g->operations, owner_link)
+		pa_operation_cancel(o);
+
+	if (g->proxy)
+		spa_hook_remove(&g->proxy_proxy_listener);
 	if (g->props)
 		pw_properties_free(g->props);
 	if (g->destroy)
@@ -60,7 +68,7 @@ static void context_unlink(pa_context *c)
 				PA_STREAM_FAILED : PA_STREAM_TERMINATED);
 	}
 	spa_list_consume(g, &c->globals, link)
-		global_free(g);
+		global_free(c, g);
 
 	spa_list_consume(o, &c->operations, link)
 		pa_operation_cancel(o);
@@ -300,10 +308,11 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	g->parent_id = parent_id;
 	g->type = type;
 	g->props = props ? pw_properties_new_dict(props) : NULL;
+	spa_list_init(&g->operations);
 	spa_list_append(&c->globals, &g->link);
 
 	if (set_mask(c, g) == 0) {
-		global_free(g);
+		global_free(c, g);
 		return;
 	}
 
@@ -323,7 +332,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	emit_event(c, g, PA_SUBSCRIPTION_EVENT_REMOVE);
 
 	pw_log_debug("context %p: free %d %p", c, id, g);
-	global_free(g);
+	global_free(c, g);
 }
 
 static const struct pw_registry_proxy_events registry_events =

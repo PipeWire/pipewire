@@ -26,7 +26,7 @@ static int spa_alsa_open(struct state *state)
 
 	CHECK(snd_output_stdio_attach(&state->output, stderr, 0), "attach failed");
 
-	spa_log_info(state->log, "ALSA device open '%s'", props->device);
+	spa_log_info(state->log, "%p: ALSA device open '%s'", state, props->device);
 	CHECK(snd_pcm_open(&state->hndl,
 			   props->device,
 			   state->stream,
@@ -49,7 +49,7 @@ int spa_alsa_close(struct state *state)
 	if (!state->opened)
 		return 0;
 
-	spa_log_info(state->log, "Device '%s' closing", state->props.device);
+	spa_log_info(state->log, "%p: Device '%s' closing", state, state->props.device);
 	CHECK(snd_pcm_close(state->hndl), "close failed");
 
 	close(state->timerfd);
@@ -402,12 +402,12 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	/* set the sample format */
 	format = spa_format_to_alsa(info->format);
 	if (format == SND_PCM_FORMAT_UNKNOWN) {
-		spa_log_warn(state->log, "unknown format %u", info->format);
+		spa_log_warn(state->log, "%p: unknown format %u", state, info->format);
 		return -EINVAL;
 	}
 
-	spa_log_info(state->log, "Stream parameters are %iHz, %s, %i channels", info->rate, snd_pcm_format_name(format),
-		     info->channels);
+	spa_log_info(state->log, "%p: Stream parameters are %iHz, %s, %i channels",
+			state, info->rate, snd_pcm_format_name(format), info->channels);
 	CHECK(snd_pcm_hw_params_set_format(hndl, params, format), "set_format");
 
 	/* set the count of channels */
@@ -445,8 +445,9 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	state->period_frames = period_size;
 	periods = state->buffer_frames / state->period_frames;
 
-	spa_log_info(state->log, "buffer frames %zd, period frames %zd, periods %u, frame_size %zd",
-		     state->buffer_frames, state->period_frames, periods, state->frame_size);
+	spa_log_info(state->log, "%p: buffer frames %zd, period frames %zd, periods %u, frame_size %zd",
+			state, state->buffer_frames, state->period_frames,
+			periods, state->frame_size);
 
 	/* write the parameters to device */
 	CHECK(snd_pcm_hw_params(hndl, params), "set_hw_params");
@@ -525,8 +526,8 @@ static int alsa_recover(struct state *state, int err)
 		xrun = SPA_TIMEVAL_TO_USEC(&diff);
 		missing = xrun * state->rate / SPA_USEC_PER_SEC;
 
-		spa_log_error(state->log, "xrun of %"PRIu64" usec %"PRIu64" %f",
-				xrun, missing, state->safety);
+		spa_log_error(state->log, "%p: xrun of %"PRIu64" usec %"PRIu64" %f",
+				state, xrun, missing, state->safety);
 		break;
 	}
 	default:
@@ -778,7 +779,7 @@ push_frames(struct state *state,
 	snd_pcm_uframes_t total_frames = 0;
 
 	if (spa_list_is_empty(&state->free)) {
-		spa_log_warn(state->log, "no more buffers");
+		spa_log_warn(state->log, "%p: no more buffers", state);
 		total_frames = state->threshold;
 	} else {
 		uint8_t *src;

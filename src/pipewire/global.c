@@ -167,8 +167,6 @@ static int global_unregister(struct pw_global *global)
 		if (PW_PERM_IS_R(permissions))
 			pw_registry_resource_global_remove(resource, global->id);
 	}
-	spa_list_consume(resource, &global->resource_list, link)
-		pw_resource_destroy(resource);
 
 	spa_list_remove(&global->link);
 	pw_map_remove(&core->globals, global->id);

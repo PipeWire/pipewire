@@ -978,6 +978,7 @@ static int node_ready(void *data, int status)
 		if (node->rt.activation->running) {
 			pw_log_warn("node %p: graph not finished", node);
 			dump_states(node);
+	                node->rt.target.signal(node->rt.target.data);
 		}
 		spa_list_for_each(t, &driver->rt.target_list, link) {
 			pw_node_activation_state_reset(&t->activation->state[0]);

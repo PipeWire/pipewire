@@ -178,8 +178,6 @@ static void add_object(struct impl *impl, struct object *obj)
 static void remove_object(struct impl *impl, struct object *obj)
 {
         pw_map_insert_at(&impl->globals, obj->id, NULL);
-	if (obj->proxy)
-		pw_proxy_destroy(obj->proxy);
 }
 
 static void *find_object(struct impl *impl, uint32_t id)
@@ -238,13 +236,11 @@ static void add_idle_timeout(struct session *sess)
 
 static int unlink_session_dsp(struct impl *impl, struct session *session)
 {
-	if (session->link_proxy == NULL)
-		return 0;
-
-	if (impl->core_proxy)
-		pw_core_proxy_destroy(impl->core_proxy, session->link_proxy);
-
-	session->link_proxy = NULL;
+	if (session->link_proxy != NULL) {
+		pw_log_debug(NAME " %p: destroy session dsp link %p", impl, session->link_proxy);
+		pw_proxy_destroy(session->link_proxy);
+		session->link_proxy = NULL;
+	}
 	return 0;
 }
 
@@ -423,8 +419,7 @@ static void remove_session(struct impl *impl, struct session *sess)
 	}
 	if (sess->dsp_proxy) {
 		pw_log_debug(NAME " %p: destroy dsp %p", impl, sess->dsp_proxy);
-		if (impl->core_proxy)
-			pw_core_proxy_destroy(impl->core_proxy, sess->dsp_proxy);
+		pw_proxy_destroy(sess->dsp_proxy);
 		sess->dsp_proxy = NULL;
 	}
 	if (sess->link_proxy) {

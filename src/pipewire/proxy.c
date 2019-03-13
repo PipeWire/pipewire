@@ -136,13 +136,22 @@ SPA_EXPORT
 void pw_proxy_destroy(struct pw_proxy *proxy)
 {
 	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);
+	struct pw_remote *remote = proxy->remote;
 
 	pw_log_debug("proxy %p: destroy %u", proxy, proxy->id);
 	pw_proxy_emit_destroy(proxy);
 
-	pw_map_insert_at(&proxy->remote->objects, proxy->id, NULL);
 	spa_list_remove(&proxy->link);
 
+	if (!proxy->removed) {
+		/* if the server did not remove this proxy, remove ourselves
+		 * from the proxy objects and schedule a destroy, if
+		 * we don't have a remote, we must keep the proxy id
+		 * locked because the server might be using it still. */
+		pw_map_insert_at(&remote->objects, proxy->id, NULL);
+		if (remote->core_proxy)
+			pw_core_proxy_destroy(remote->core_proxy, proxy);
+	}
 	free(impl);
 }
 

@@ -222,9 +222,9 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct p
 	this->fd = fd;
 	spa_hook_list_init(&this->listener_list);
 
-	impl->out.buffer_data = malloc(MAX_BUFFER_SIZE);
+	impl->out.buffer_data = calloc(1, MAX_BUFFER_SIZE);
 	impl->out.buffer_maxsize = MAX_BUFFER_SIZE;
-	impl->in.buffer_data = malloc(MAX_BUFFER_SIZE);
+	impl->in.buffer_data = calloc(1, MAX_BUFFER_SIZE);
 	impl->in.buffer_maxsize = MAX_BUFFER_SIZE;
 	impl->in.update = true;
 	impl->core = core;

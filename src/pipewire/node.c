@@ -600,9 +600,13 @@ static void dump_states(struct pw_node *driver)
 
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *a = t->activation;
-		pw_log_warn("node %p: required:%d waiting:%"PRIu64
-				" process:%"PRIu64" status:%d",
-				t->node, a->state[0].required,
+		pw_log_warn("node %p (%s): required:%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
+				" waiting:%"PRIu64" process:%"PRIu64" status:%d",
+				t->node, t->node ? t->node->info.name : "",
+				a->state[0].required,
+				a->signal_time,
+				a->awake_time,
+				a->finish_time,
 				a->awake_time - a->signal_time,
 				a->finish_time - a->awake_time,
 				t->activation->status);
@@ -651,28 +655,30 @@ static inline int process_node(void *data)
 	struct pw_node *this = data;
 	struct timespec ts;
         struct pw_port *p;
-	struct pw_node_activation *activation = this->rt.activation;
+	struct pw_node_activation *a = this->rt.activation;
 	int status;
 
         pw_log_trace("node %p: process", this);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	activation->status = AWAKE;
-	activation->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
+	a->status = AWAKE;
+	a->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
 	spa_list_for_each(p, &this->rt.input_mix, rt.node_link)
 		spa_node_process(p->mix);
 
 	status = spa_node_process(this->node);
-	activation->state[0].status = status;
+	a->state[0].status = status;
 
 	if (this == this->driver_node && !this->exported) {
 		clock_gettime(CLOCK_MONOTONIC, &ts);
-		activation->status = FINISHED;
-		activation->signal_time = activation->finish_time;
-		activation->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
-		activation->running = false;
-		pw_log_trace("node %p: graph completed", this);
+		a->status = FINISHED;
+		a->signal_time = a->finish_time;
+		a->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
+		a->running = false;
+		pw_log_trace("node %p: graph completed wait:%"PRIu64" run:%"PRIu64, this,
+				a->awake_time - a->signal_time,
+				a->finish_time - a->awake_time);
 	} else if (status == SPA_STATUS_OK) {
 		pw_log_trace("node %p: async continue", this);
 	} else {
@@ -710,17 +716,20 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	struct impl *impl;
 	struct pw_node *this;
 	size_t size;
+	char *n;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		goto error;
 
 	if (name == NULL)
-		name = "node";
+		asprintf(&n, "node");
+	else
+		n = strdup(name);
 
 	this = &impl->this;
 	this->core = core;
-	pw_log_debug("node %p: new \"%s\"", this, name);
+	pw_log_debug("node %p: new \"%s\"", this, n);
 
 	if (user_data_size > 0)
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
@@ -755,7 +764,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	if (impl->work == NULL)
 		goto clean_impl;
 
-	this->info.name = strdup(name);
+	this->info.name = n;
 
 	this->data_loop = core->data_loop;
 

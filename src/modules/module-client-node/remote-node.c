@@ -1131,7 +1131,6 @@ static void node_free(void *data)
 
 	if (remote->core_proxy)
 		pw_core_proxy_destroy(remote->core_proxy, proxy);
-
 	spa_hook_remove(&d->proxy_listener);
 }
 

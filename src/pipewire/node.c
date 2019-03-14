@@ -1160,13 +1160,15 @@ struct result_node_params_data {
 	int (*callback) (void *data, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			struct spa_pod *param);
+	int seq;
 };
 
 static void result_node_params(void *data, int seq, int res, const void *result)
 {
 	struct result_node_params_data *d = data;
 	const struct spa_result_node_params *r = result;
-	d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+	if (d->seq == seq)
+		d->callback(d->data, seq, r->id, r->index, r->next, r->param);
 }
 
 SPA_EXPORT
@@ -1180,7 +1182,7 @@ int pw_node_for_each_param(struct pw_node *node,
 			   void *data)
 {
 	int res;
-	struct result_node_params_data user_data = { data, callback };
+	struct result_node_params_data user_data = { data, callback, seq };
 	struct spa_hook listener;
 	static const struct spa_node_events node_events = {
 		SPA_VERSION_NODE_EVENTS,

@@ -257,6 +257,7 @@ struct global {
 
 struct pa_context {
 	int refcount;
+	uint32_t client_index;
 
 	struct pw_loop *loop;
 	struct pw_core *core;
@@ -284,13 +285,13 @@ struct pa_context {
 	void *subscribe_userdata;
 	pa_subscription_mask_t subscribe_mask;
 
-	bool no_fail;
-	uint32_t client_index;
-
 	struct spa_list globals;
 
 	struct spa_list streams;
 	struct spa_list operations;
+
+	int no_fail:1;
+	int disconnect:1;
 };
 
 struct global *pa_context_find_global(pa_context *c, uint32_t id);

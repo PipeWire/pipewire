@@ -63,6 +63,10 @@ static void context_unlink(pa_context *c)
 
 	pw_log_debug("context %p: unlink %d", c, c->state);
 
+	c->disconnect = true;
+	c->state_callback = NULL;
+	c->state_userdata = NULL;
+
 	spa_list_for_each_safe(s, t, &c->streams, link) {
 		pa_stream_set_state(s, c->state == PA_CONTEXT_FAILED ?
 				PA_STREAM_FAILED : PA_STREAM_TERMINATED);
@@ -397,6 +401,8 @@ static void remote_state_changed(void *data, enum pw_remote_state old,
 		context_fail(c, PA_ERR_CONNECTIONTERMINATED);
 		break;
 	case PW_REMOTE_STATE_UNCONNECTED:
+		if (!c->disconnect)
+			context_fail(c, PA_ERR_CONNECTIONTERMINATED);
 		break;
 	case PW_REMOTE_STATE_CONNECTING:
 		pa_context_set_state(c, PA_CONTEXT_CONNECTING);
@@ -480,6 +486,12 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	return c;
 }
 
+static void do_core_destroy(pa_mainloop_api*m, void *userdata)
+{
+	pa_context *c = userdata;
+	pw_core_destroy(c->core);
+}
+
 static void context_free(pa_context *c)
 {
 	pw_log_debug("context %p: free", c);
@@ -491,7 +503,7 @@ static void context_free(pa_context *c)
 	if (c->core_info)
 		pw_core_info_free(c->core_info);
 
-	pw_core_destroy(c->core);
+	pa_mainloop_api_once(c->mainloop, do_core_destroy, c);
 }
 
 SPA_EXPORT
@@ -598,6 +610,7 @@ void pa_context_disconnect(pa_context *c)
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
 
+	c->disconnect = true;
 	pw_remote_disconnect(c->remote);
 
 	if (PA_CONTEXT_IS_GOOD(c->state))

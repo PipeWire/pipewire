@@ -23,6 +23,7 @@
 #include <pipewire/loop.h>
 
 #include <pulse/mainloop.h>
+#include <pulse/xmalloc.h>
 
 #include "internal.h"
 
@@ -375,4 +376,50 @@ SPA_EXPORT
 void pa_mainloop_set_poll_func(pa_mainloop *m, pa_poll_func poll_func, void *userdata)
 {
 	pw_log_warn("Not Implemented");
+}
+
+
+struct once_info {
+	void (*callback)(pa_mainloop_api*m, void *userdata);
+	void *userdata;
+};
+
+static void once_callback(pa_mainloop_api *m, pa_defer_event *e, void *userdata) {
+	struct once_info *i = userdata;
+
+	pa_assert(m);
+	pa_assert(i);
+
+	pa_assert(i->callback);
+	i->callback(m, i->userdata);
+
+	pa_assert(m->defer_free);
+	m->defer_free(e);
+}
+
+static void free_callback(pa_mainloop_api *m, pa_defer_event *e, void *userdata) {
+	struct once_info *i = userdata;
+
+	pa_assert(m);
+	pa_assert(i);
+	pa_xfree(i);
+}
+
+
+void pa_mainloop_api_once(pa_mainloop_api* m, void (*callback)(pa_mainloop_api *m, void *userdata), void *userdata) {
+	struct once_info *i;
+	pa_defer_event *e;
+
+	pa_assert(m);
+	pa_assert(callback);
+
+	pa_init_i18n();
+
+	i = pa_xnew(struct once_info, 1);
+	i->callback = callback;
+	i->userdata = userdata;
+
+	pa_assert(m->defer_new);
+	pa_assert_se(e = m->defer_new(m, once_callback, i));
+	m->defer_set_destroy(e, free_callback);
 }

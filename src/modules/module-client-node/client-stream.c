@@ -181,6 +181,9 @@ static void try_link_controls(struct impl *impl)
 	if (!impl->use_converter)
 		return;
 
+	if (impl->control.valid || impl->notify.valid)
+		return;
+
 	target = pw_node_find_port(impl->this.node, impl->direction, 0);
 
 	if (target == NULL) {

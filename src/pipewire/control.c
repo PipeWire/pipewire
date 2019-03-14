@@ -92,18 +92,18 @@ pw_control_new(struct pw_core *core,
 void pw_control_destroy(struct pw_control *control)
 {
 	struct impl *impl = SPA_CONTAINER_OF(control, struct impl, this);
-	struct pw_control_link *link, *tmp;
+	struct pw_control_link *link;
 
 	pw_log_debug("control %p: destroy", control);
 
 	pw_control_emit_destroy(control);
 
 	if (control->direction == SPA_DIRECTION_OUTPUT) {
-		spa_list_for_each_safe(link, tmp, &control->links, out_link)
+		spa_list_consume(link, &control->links, out_link)
 			pw_control_remove_link(link);
 	}
 	else {
-		spa_list_for_each_safe(link, tmp, &control->links, in_link)
+		spa_list_consume(link, &control->links, in_link)
 			pw_control_remove_link(link);
 	}
 

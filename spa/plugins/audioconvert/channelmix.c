@@ -521,25 +521,38 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
 	struct props *p = &this->props;
+	int changed = 0;
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:
-			spa_pod_get_float(&prop->value, &p->volume);
+			if (spa_pod_get_float(&prop->value, &p->volume) == 0)
+				changed++;
 			break;
 		case SPA_PROP_mute:
-			spa_pod_get_bool(&prop->value, &p->mute);
+			if (spa_pod_get_bool(&prop->value, &p->mute) == 0)
+				changed++;
 			break;
 		default:
 			break;
 		}
 	}
-	return 0;
+	return changed;
 }
 
 static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
 	return -ENOTSUP;
+}
+
+static void emit_info(struct impl *this, bool full)
+{
+	if (full)
+		this->info.change_mask = this->info_all;
+	if (this->info.change_mask) {
+		spa_node_emit_info(&this->hooks, &this->info);
+		this->info.change_mask = 0;
+	}
 }
 
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
@@ -553,7 +566,12 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 
 	switch (id) {
 	case SPA_PARAM_Props:
-		return apply_props(this, param);
+		if (apply_props(this, param) > 0) {
+			this->info.change_mask = SPA_NODE_CHANGE_MASK_PARAMS;
+			this->params[1].flags ^= SPA_PARAM_INFO_SERIAL;
+			emit_info(this, false);
+		}
+		break;
 	default:
 		return -ENOENT;
 	}
@@ -580,16 +598,6 @@ static int impl_node_send_command(struct spa_node *node, const struct spa_comman
 		return -ENOTSUP;
 	}
 	return 0;
-}
-
-static void emit_info(struct impl *this, bool full)
-{
-	if (full)
-		this->info.change_mask = this->info_all;
-	if (this->info.change_mask) {
-		spa_node_emit_info(&this->hooks, &this->info);
-		this->info.change_mask = 0;
-	}
 }
 
 static void emit_port_info(struct impl *this, struct port *port, bool full)

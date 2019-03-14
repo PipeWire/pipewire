@@ -67,6 +67,10 @@ struct node {
 
 	struct spa_log *log;
 
+	uint64_t info_all;
+	struct spa_node_info info;
+	struct spa_param_info params[4];
+
 	struct spa_hook_list hooks;
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
@@ -210,6 +214,16 @@ static void try_link_controls(struct impl *impl)
 	}
 }
 
+static void emit_node_info(struct node *this, bool full)
+{
+	if (full)
+		this->info.change_mask = this->info_all;
+	if (this->info.change_mask) {
+		spa_node_emit_info(&this->hooks, &this->info);
+		this->info.change_mask = 0;
+	}
+}
+
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -236,6 +250,10 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 		if (impl->adapter && impl->adapter != impl->cnode) {
 			if ((res = spa_node_set_param(impl->adapter, id, flags, param)) < 0)
 				return res;
+
+			this->info.change_mask = SPA_NODE_CHANGE_MASK_PARAMS;
+			this->params[1].flags ^= SPA_PARAM_INFO_SERIAL;
+			emit_node_info(this, false);
 		}
 		break;
 	default:
@@ -314,24 +332,6 @@ static const struct spa_node_events adapter_node_events = {
 	.result = adapter_result,
 };
 
-static void emit_node_info(struct node *this)
-{
-	struct spa_node_info info;
-	struct spa_param_info params[4];
-
-	info = SPA_NODE_INFO_INIT();
-	info.max_input_ports = 0;
-	info.max_output_ports = 0;
-	info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
-	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
-	params[2] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
-	params[3] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
-	info.params = params;
-	info.n_params = 4;
-	spa_node_emit_info(&this->hooks, &info);
-}
-
 static int impl_node_add_listener(struct spa_node *node,
 		struct spa_hook *listener,
 		const struct spa_node_events *events,
@@ -350,7 +350,7 @@ static int impl_node_add_listener(struct spa_node *node,
 	pw_log_debug("%p: add listener %p", this, listener);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	emit_node_info(this);
+	emit_node_info(this, true);
 
 	if (impl->adapter && impl->adapter != impl->cnode) {
 		spa_zero(l);
@@ -922,6 +922,17 @@ node_init(struct node *this,
 	}
 	this->node = impl_node;
 	spa_hook_list_init(&this->hooks);
+
+	this->info_all = SPA_NODE_CHANGE_MASK_PARAMS;
+	this->info = SPA_NODE_INFO_INIT();
+	this->info.max_input_ports = 0;
+	this->info.max_output_ports = 0;
+	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+	this->params[2] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
+	this->params[3] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
+	this->info.params = this->params;
+	this->info.n_params = 4;
 
 	return 0;
 }

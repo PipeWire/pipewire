@@ -1025,6 +1025,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
 
+	result.id = SPA_PARAM_PropInfo;
 	result.next = start;
       next:
 	result.index = result.next;

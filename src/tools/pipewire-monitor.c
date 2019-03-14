@@ -42,6 +42,7 @@ typedef void (*print_func_t) (struct proxy_data *data);
 struct param {
 	struct spa_list link;
 	uint32_t id;
+	int seq;
 	struct spa_pod *param;
 };
 
@@ -120,40 +121,39 @@ static void clear_params(struct proxy_data *data)
 	}
 }
 
-static void remove_params(struct proxy_data *data, uint32_t id)
+static void remove_params(struct proxy_data *data, uint32_t id, int seq)
 {
 	struct param *p, *t;
+
 	spa_list_for_each_safe(p, t, &data->param_list, link) {
-		if (p->id == id) {
+		if (p->id == id && seq != p->seq) {
 			spa_list_remove(&p->link);
 			free(p);
 		}
 	}
 }
 
-static int add_param(struct proxy_data *data, uint32_t id, const struct spa_pod *param)
-{
-	struct param *p;
-
-	p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
-	if (p == NULL)
-		return -ENOMEM;
-
-	p->id = id;
-	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
-	memcpy(p->param, param, SPA_POD_SIZE(param));
-	spa_list_append(&data->param_list, &p->link);
-	return 0;
-}
-
 static void event_param(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
         struct proxy_data *data = object;
-	int res;
+	struct param *p;
 
-	if ((res = add_param(data, id, param)) < 0)
-		pw_log_error("can't add param %d: %s", res, spa_strerror(res));
+	/* remove all params with the same id and older seq */
+	remove_params(data, id, seq);
+
+	/* add new param */
+	p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
+	if (p == NULL) {
+		pw_log_error("can't add param: %m");
+		return;
+	}
+
+	p->id = id;
+	p->seq = seq;
+	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
+	memcpy(p->param, param, SPA_POD_SIZE(param));
+	spa_list_append(&data->param_list, &p->link);
 }
 
 static void print_params(struct proxy_data *data, char mark)
@@ -293,7 +293,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 		for (i = 0; i < info->n_params; i++) {
 			if (old != NULL && info->params[i].flags == old->params[i].flags)
 				continue;
-			remove_params(data, info->params[i].id);
+			remove_params(data, info->params[i].id, 0);
 			if (!SPA_FLAG_CHECK(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
 			pw_node_proxy_enum_params((struct pw_node_proxy*)data->proxy,
@@ -354,7 +354,7 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 		for (i = 0; i < info->n_params; i++) {
 			if (old != NULL && info->params[i].flags == old->params[i].flags)
 				continue;
-			remove_params(data, info->params[i].id);
+			remove_params(data, info->params[i].id, 0);
 			if (!SPA_FLAG_CHECK(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
 			pw_port_proxy_enum_params((struct pw_port_proxy*)data->proxy,
@@ -532,7 +532,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 		for (i = 0; i < info->n_params; i++) {
 			if (old != NULL && info->params[i].flags == old->params[i].flags)
 				continue;
-			remove_params(data, info->params[i].id);
+			remove_params(data, info->params[i].id, 0);
 			if (!SPA_FLAG_CHECK(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
 			pw_device_proxy_enum_params((struct pw_device_proxy*)data->proxy,

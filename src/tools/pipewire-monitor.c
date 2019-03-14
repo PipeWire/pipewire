@@ -162,6 +162,7 @@ static void print_params(struct proxy_data *data, char mark)
 
 	printf("%c\tparams:\n", mark);
 	spa_list_for_each(p, &data->param_list, link) {
+		printf("%c\t  id:%u\n", mark, p->id);
 		if (spa_pod_is_object_type(p->param, SPA_TYPE_OBJECT_Format))
 			spa_debug_format(10, NULL, p->param);
 		else

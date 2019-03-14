@@ -106,6 +106,9 @@ struct impl {
 	struct spa_buffer **buffers;
 	uint32_t n_buffers;
 	struct pw_memblock *mem;
+
+	struct pw_control_link control;
+	struct pw_control_link notify;
 };
 
 /** \endcond */
@@ -187,18 +190,19 @@ static void try_link_controls(struct impl *impl)
 
 	port = impl->client_port;
 
-
 	pw_log_debug(NAME " %p: trying controls", impl);
 	spa_list_for_each(cout, &port->control_list[SPA_DIRECTION_OUTPUT], port_link) {
 		spa_list_for_each(cin, &target->control_list[SPA_DIRECTION_INPUT], port_link) {
-			if ((res = pw_control_link(cout, cin)) < 0)
+			if ((res = pw_control_add_link(cout, 0, cin, 0, &impl->control)) < 0)
 				pw_log_error("failed to link controls: %s", spa_strerror(res));
+			break;
 		}
 	}
 	spa_list_for_each(cin, &port->control_list[SPA_DIRECTION_INPUT], port_link) {
 		spa_list_for_each(cout, &target->control_list[SPA_DIRECTION_OUTPUT], port_link) {
-			if ((res = pw_control_link(cout, cin)) < 0)
+			if ((res = pw_control_add_link(cout, 0, cin, 0, &impl->notify)) < 0)
 				pw_log_error("failed to link controls: %s", spa_strerror(res));
+			break;
 		}
 	}
 }
@@ -868,7 +872,8 @@ static int impl_node_process(struct spa_node *node)
 
 	if (impl->direction == SPA_DIRECTION_OUTPUT) {
 		if (!(status & SPA_STATUS_HAVE_BUFFER))
-			spa_log_warn(this->log, "%p: process underrun", this);
+			spa_log_warn(this->log, "%p: '%s' id:%d underrun",
+					this, impl->this.node->info.name, impl->this.node->info.id);
 		trigger = status & SPA_STATUS_NEED_BUFFER;
 	}
 	else

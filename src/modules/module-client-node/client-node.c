@@ -792,10 +792,10 @@ impl_node_port_set_io(struct spa_node *node,
 		      uint32_t id,
 		      void *data, size_t size)
 {
-	/* ignore io on the node itself, weonly care about the io on the
+	/* ignore io on the node itself, we only care about the io on the
 	 * port mixers, the io on the node ports itself is handled on the
 	 * client side */
-	return 0;
+	return -EINVAL;
 }
 
 static int

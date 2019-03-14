@@ -70,7 +70,7 @@ pw_control_new(struct pw_core *core,
 	this->port = port;
 	this->direction = direction;
 
-	spa_list_init(&this->inputs);
+	spa_list_init(&this->links);
 
         if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
@@ -92,19 +92,19 @@ pw_control_new(struct pw_core *core,
 void pw_control_destroy(struct pw_control *control)
 {
 	struct impl *impl = SPA_CONTAINER_OF(control, struct impl, this);
-	struct pw_control *other, *tmp;
+	struct pw_control_link *link, *tmp;
 
 	pw_log_debug("control %p: destroy", control);
 
 	pw_control_emit_destroy(control);
 
 	if (control->direction == SPA_DIRECTION_OUTPUT) {
-		spa_list_for_each_safe(other, tmp, &control->inputs, inputs_link)
-			pw_control_unlink(control, other);
+		spa_list_for_each_safe(link, tmp, &control->links, out_link)
+			pw_control_remove_link(link);
 	}
 	else {
-		if (control->output)
-			pw_control_unlink(control->output, control);
+		spa_list_for_each_safe(link, tmp, &control->links, in_link)
+			pw_control_remove_link(link);
 	}
 
 	spa_list_remove(&control->link);
@@ -139,25 +139,44 @@ void pw_control_add_listener(struct pw_control *control,
 	spa_hook_list_append(&control->listener_list, listener, events, data);
 }
 
+static int port_set_io(struct pw_port *port, uint32_t mix, uint32_t id, void *data, uint32_t size)
+{
+	struct spa_node *n;
+	uint32_t p;
+	int res;
+
+	if (port->mix && port->mix->port_set_io) {
+		n = port->mix;
+		p = mix;
+	} else {
+		n = port->node->node;
+		p = port->port_id;
+	}
+	if ((res = spa_node_port_set_io(n,
+			port->direction, p,
+			id, data, size)) < 0) {
+		pw_log_warn("port %p: set io failed %d %s", port,
+				res, spa_strerror(res));
+	}
+	return res;
+}
+
 SPA_EXPORT
-int pw_control_link(struct pw_control *control, struct pw_control *other)
+int pw_control_add_link(struct pw_control *control, uint32_t cmix,
+		struct pw_control *other, uint32_t omix,
+		struct pw_control_link *link)
 {
 	int res = 0;
 	struct impl *impl;
 	uint32_t size;
 
 	if (control->direction == SPA_DIRECTION_INPUT) {
-		struct pw_control *tmp = control;
-		control = other;
-		other = tmp;
+		SPA_SWAP(control, other);
+		SPA_SWAP(cmix, omix);
 	}
 	if (control->direction != SPA_DIRECTION_OUTPUT ||
 	    other->direction != SPA_DIRECTION_INPUT)
 		return -EINVAL;
-
-	/* input control already has a linked output control */
-	if (other->output != NULL)
-		return -EEXIST;
 
 	impl = SPA_CONTAINER_OF(control, struct impl, this);
 
@@ -173,43 +192,36 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 					     size,
 					     &impl->mem)) < 0)
 			goto exit;
+	}
 
+	if (spa_list_is_empty(&control->links)) {
+		if (control->port) {
+			if ((res = port_set_io(control->port, cmix,
+						control->id,
+						impl->mem->ptr, size)) < 0) {
+				pw_log_warn("control %p: set io failed %d %s", control,
+					res, spa_strerror(res));
+				goto exit;
+			}
+		}
 	}
 
 	if (other->port) {
-		struct pw_port *port = other->port;
-		if ((res = spa_node_port_set_io(port->node->node,
-				     port->direction, port->port_id,
-				     other->id,
-				     impl->mem->ptr, size)) < 0) {
+		if ((res = port_set_io(other->port, omix,
+				other->id, impl->mem->ptr, size)) < 0) {
 			pw_log_warn("control %p: set io failed %d %s", control,
 					res, spa_strerror(res));
 			goto exit;
 		}
 	}
 
-	if (spa_list_is_empty(&control->inputs)) {
-		if (control->port) {
-			struct pw_port *port = control->port;
-			if ((res = spa_node_port_set_io(port->node->node,
-					     port->direction, port->port_id,
-					     control->id,
-					     impl->mem->ptr, size)) < 0) {
-				pw_log_warn("control %p: set io failed %d %s", control,
-					res, spa_strerror(res));
-				/* undo */
-				port = other->port;
-				spa_node_port_set_io(port->node->node,
-	                                     port->direction, port->port_id,
-	                                     other->id,
-	                                     NULL, 0);
-				goto exit;
-			}
-		}
-	}
-
-	other->output = control;
-	spa_list_append(&control->inputs, &other->inputs_link);
+	link->output = control;
+	link->input = other;
+	link->out_port = cmix;
+	link->in_port = omix;
+	link->valid = true;
+	spa_list_append(&control->links, &link->out_link);
+	spa_list_append(&other->links, &link->in_link);
 
 	pw_control_emit_linked(control, other);
 	pw_control_emit_linked(other, control);
@@ -219,47 +231,34 @@ int pw_control_link(struct pw_control *control, struct pw_control *other)
 }
 
 SPA_EXPORT
-int pw_control_unlink(struct pw_control *control, struct pw_control *other)
+int pw_control_remove_link(struct pw_control_link *link)
 {
 	int res = 0;
+	struct pw_control *output = link->output;
+	struct pw_control *input = link->input;
 
-	pw_log_debug("control %p: unlink from %p", control, other);
+	pw_log_debug("control %p: unlink from %p", output, input);
 
-	if (control->direction == SPA_DIRECTION_INPUT) {
-		struct pw_control *tmp = control;
-		control = other;
-		other = tmp;
-	}
-	if (control->direction != SPA_DIRECTION_OUTPUT ||
-	    other->direction != SPA_DIRECTION_INPUT)
-		return -EINVAL;
+	spa_list_remove(&link->in_link);
+	spa_list_remove(&link->out_link);
+	link->valid = false;
 
-	if (other->output != control)
-		return -EINVAL;
-
-	other->output = NULL;
-	spa_list_remove(&other->inputs_link);
-
-	if (spa_list_is_empty(&control->inputs)) {
-		struct pw_port *port = control->port;
-		if ((res = spa_node_port_set_io(port->node->node,
-				     port->direction, port->port_id,
-				     control->id, NULL, 0)) < 0) {
-			pw_log_warn("control %p: can't unset port control io", control);
+	if (spa_list_is_empty(&output->links)) {
+		if ((res = port_set_io(output->port, link->out_port,
+					output->id, NULL, 0)) < 0) {
+			pw_log_warn("control %p: can't unset port control io", output);
 		}
 	}
 
-	if (other->port) {
-		struct pw_port *port = other->port;
-		if ((res = spa_node_port_set_io(port->node->node,
-				     port->direction, port->port_id,
-				     other->id, NULL, 0)) < 0) {
-			pw_log_warn("control %p: can't unset port control io", control);
+	if (input->port) {
+		if ((res = port_set_io(input->port, link->in_port,
+				     input->id, NULL, 0)) < 0) {
+			pw_log_warn("control %p: can't unset port control io", output);
 		}
 	}
 
-	pw_control_emit_unlinked(control, other);
-	pw_control_emit_unlinked(other, control);
+	pw_control_emit_unlinked(output, input);
+	pw_control_emit_unlinked(input, output);
 
 	return res;
 }

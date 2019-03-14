@@ -74,9 +74,6 @@ void pw_control_add_listener(struct pw_control *control,
 			     const struct pw_control_events *events,
 			     void *data);
 
-int pw_control_link(struct pw_control *control, struct pw_control *other);
-int pw_control_unlink(struct pw_control *control, struct pw_control *other);
-
 #ifdef __cplusplus
 }
 #endif

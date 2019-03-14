@@ -1143,43 +1143,46 @@ static bool pw_node_can_reach(struct pw_node *output, struct pw_node *input)
 	return false;
 }
 
-static void try_link_controls(struct impl *impl, struct pw_port *port, struct pw_port *target)
+static void try_link_controls(struct impl *impl, struct pw_port *output, struct pw_port *input)
 {
 	struct pw_control *cin, *cout;
+	struct pw_link *this = &impl->this;
+	uint32_t omix, imix;
 	int res;
 
+	imix = this->rt.in_mix.port.port_id;
+	omix = this->rt.out_mix.port.port_id;
+
 	pw_log_debug("link %p: trying controls", impl);
-	spa_list_for_each(cout, &port->control_list[SPA_DIRECTION_OUTPUT], port_link) {
-		spa_list_for_each(cin, &target->control_list[SPA_DIRECTION_INPUT], port_link) {
-			if ((res = pw_control_link(cout, cin)) < 0)
+	spa_list_for_each(cout, &output->control_list[SPA_DIRECTION_OUTPUT], port_link) {
+		spa_list_for_each(cin, &input->control_list[SPA_DIRECTION_INPUT], port_link) {
+			if ((res = pw_control_add_link(cout, omix, cin, imix, &this->control)) < 0)
 				pw_log_error("failed to link controls: %s", spa_strerror(res));
+			break;
 		}
 	}
-	spa_list_for_each(cin, &port->control_list[SPA_DIRECTION_INPUT], port_link) {
-		spa_list_for_each(cout, &target->control_list[SPA_DIRECTION_OUTPUT], port_link) {
-			if ((res = pw_control_link(cout, cin)) < 0)
+	spa_list_for_each(cin, &output->control_list[SPA_DIRECTION_INPUT], port_link) {
+		spa_list_for_each(cout, &input->control_list[SPA_DIRECTION_OUTPUT], port_link) {
+			if ((res = pw_control_add_link(cout, imix, cin, omix, &this->notify)) < 0)
 				pw_log_error("failed to link controls: %s", spa_strerror(res));
+			break;
 		}
 	}
 }
 
-static void try_unlink_controls(struct impl *impl, struct pw_port *port, struct pw_port *target)
+static void try_unlink_controls(struct impl *impl, struct pw_port *output, struct pw_port *input)
 {
-	struct pw_control *cin, *cout;
+	struct pw_link *this = &impl->this;
 	int res;
 
 	pw_log_debug("link %p: unlinking controls", impl);
-	spa_list_for_each(cout, &port->control_list[SPA_DIRECTION_OUTPUT], port_link) {
-		spa_list_for_each(cin, &target->control_list[SPA_DIRECTION_INPUT], port_link) {
-			if ((res = pw_control_unlink(cout, cin)) < 0)
-				pw_log_error("failed to unlink controls: %s", spa_strerror(res));
-		}
+	if (this->control.valid) {
+		if ((res = pw_control_remove_link(&this->control)) < 0)
+			pw_log_error("failed to unlink controls: %s", spa_strerror(res));
 	}
-	spa_list_for_each(cin, &port->control_list[SPA_DIRECTION_INPUT], port_link) {
-		spa_list_for_each(cout, &target->control_list[SPA_DIRECTION_OUTPUT], port_link) {
-			if ((res = pw_control_unlink(cout, cin)) < 0)
-				pw_log_error("failed to unlink controls: %s", spa_strerror(res));
-		}
+	if (this->notify.valid) {
+		if ((res = pw_control_remove_link(&this->notify)) < 0)
+			pw_log_error("failed to unlink controls: %s", spa_strerror(res));
 	}
 }
 
@@ -1387,7 +1390,7 @@ void pw_link_destroy(struct pw_link *link)
 
 	pw_node_emit_peer_removed(link->output->node, link->input->node);
 
-	try_unlink_controls(impl, link->input, link->output);
+	try_unlink_controls(impl, link->output, link->input);
 
 	input_remove(link, link->input);
 	output_remove(link, link->output);

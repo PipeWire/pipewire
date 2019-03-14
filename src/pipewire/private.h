@@ -510,6 +510,16 @@ struct pw_port {
         void *user_data;                /**< extra user data */
 };
 
+struct pw_control_link {
+	struct spa_list out_link;
+	struct spa_list in_link;
+	struct pw_control *output;
+	struct pw_control *input;
+	uint32_t out_port;
+	uint32_t in_port;
+	int valid:1;
+};
+
 #define pw_link_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_link_events, m, v, ##__VA_ARGS__)
 #define pw_link_emit_destroy(l)			pw_link_emit(l, destroy, 0)
 #define pw_link_emit_free(l)			pw_link_emit(l, free, 0)
@@ -534,6 +544,9 @@ struct pw_link {
 	struct spa_list input_link;	/**< link in input port links */
 
 	struct spa_hook_list listener_list;
+
+	struct pw_control_link control;
+	struct pw_control_link notify;
 
 	struct {
 		struct pw_port_mix out_mix;	/**< port added to the output mixer */
@@ -690,11 +703,7 @@ struct pw_control {
 	struct spa_list port_link;	/**< link in port control_list */
 
 	enum spa_direction direction;	/**< the direction */
-
-	struct pw_control *output;	/**< pointer to linked output control */
-
-	struct spa_list inputs;		/**< list of linked input controls */
-	struct spa_list inputs_link;	/**< link in linked input control */
+	struct spa_list links;		/**< list of pw_control_link */
 
 	uint32_t id;
 	int32_t size;
@@ -703,7 +712,6 @@ struct pw_control {
 
 	void *user_data;
 };
-
 
 /** Find a good format between 2 ports */
 int pw_core_find_format(struct pw_core *core,
@@ -834,6 +842,12 @@ pw_control_new(struct pw_core *core,
 	       struct pw_port *owner,		/**< can be NULL */
 	       uint32_t id, uint32_t size,
 	       size_t user_data_size		/**< extra user data */);
+
+int pw_control_add_link(struct pw_control *control, uint32_t cmix,
+		struct pw_control *other, uint32_t omix,
+		struct pw_control_link *link);
+
+int pw_control_remove_link(struct pw_control_link *link);
 
 void pw_control_destroy(struct pw_control *control);
 

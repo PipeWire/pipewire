@@ -107,6 +107,12 @@ struct spa_param_info {
 	SPA_MIN(SPA_MAX(_v, _low), _high);		\
 })
 
+#define SPA_SWAP(a,b)					\
+({							\
+	__typeof__(a) _t = (a);				\
+	a = b; b = _t;					\
+})
+
 #define SPA_TYPECHECK(type,x)		\
 ({	type _dummy;			\
 	typeof(x) _dummy2;		\

@@ -69,7 +69,7 @@ struct node {
 
 	uint64_t info_all;
 	struct spa_node_info info;
-	struct spa_param_info params[4];
+	struct spa_param_info params[5];
 
 	struct spa_hook_list hooks;
 	const struct spa_node_callbacks *callbacks;
@@ -144,6 +144,7 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
+	case SPA_PARAM_PropInfo:
 	case SPA_PARAM_Props:
 		if (impl->adapter == impl->cnode)
 			return 0;
@@ -252,7 +253,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 				return res;
 
 			this->info.change_mask = SPA_NODE_CHANGE_MASK_PARAMS;
-			this->params[1].flags ^= SPA_PARAM_INFO_SERIAL;
+			this->params[2].flags ^= SPA_PARAM_INFO_SERIAL;
 			emit_node_info(this, false);
 		}
 		break;
@@ -928,11 +929,12 @@ node_init(struct node *this,
 	this->info.max_input_ports = 0;
 	this->info.max_output_ports = 0;
 	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
-	this->params[2] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
-	this->params[3] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
+	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
+	this->params[2] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+	this->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
+	this->params[4] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
 	this->info.params = this->params;
-	this->info.n_params = 4;
+	this->info.n_params = 5;
 
 	return 0;
 }

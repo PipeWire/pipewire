@@ -40,6 +40,7 @@ static void test_abi(void)
 		void (*destroy) (void *data);
 		void (*state_changed) (void *data, enum pw_stream_state old,
 			enum pw_stream_state state, const char *error);
+	        void (*control_changed) (void *data, uint32_t id, float value);
 		void (*format_changed) (void *data, const struct spa_pod *format);
 		void (*add_buffer) (void *data, struct pw_buffer *buffer);
 		void (*remove_buffer) (void *data, struct pw_buffer *buffer);
@@ -49,6 +50,7 @@ static void test_abi(void)
 
 	TEST_FUNC(ev, test, destroy);
 	TEST_FUNC(ev, test, state_changed);
+	TEST_FUNC(ev, test, control_changed);
 	TEST_FUNC(ev, test, format_changed);
 	TEST_FUNC(ev, test, add_buffer);
 	TEST_FUNC(ev, test, remove_buffer);

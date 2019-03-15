@@ -57,6 +57,12 @@ struct data {
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
 
+	uint64_t info_all;
+	struct spa_port_info info;
+	struct spa_dict_item items[1];
+	struct spa_dict dict;
+	struct spa_param_info params[5];
+
 	struct spa_node impl_node;
 	struct spa_hook_list hooks;
 	struct spa_io_buffers *io;
@@ -106,29 +112,13 @@ static int impl_add_listener(struct spa_node *node,
 		void *data)
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
-	struct spa_port_info info;
-	struct spa_dict_item items[1];
-	struct spa_param_info params[5];
 	struct spa_hook_list save;
 
 	spa_hook_list_isolate(&d->hooks, &save, listener, events, data);
 
-	info = SPA_PORT_INFO_INIT();
-	info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
-	info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
-	info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
-	items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
-	info.props = &SPA_DICT_INIT_ARRAY(items);
-	info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-	params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-	params[3] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
-	params[4] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	info.params = params;
-	info.n_params = 5;
-
-	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_OUTPUT, 0, &info);
+	d->info.change_mask = d->info_all;
+	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_OUTPUT, 0, &d->info);
+	d->info.change_mask = 0;
 
 	spa_hook_list_join(&d->hooks, &save);
 	return 0;
@@ -275,8 +265,12 @@ static int port_set_format(struct spa_node *node,
 {
 	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
 
+	d->info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
 	if (format == NULL) {
 		d->format.format = 0;
+		d->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		d->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+		spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_OUTPUT, 0, &d->info);
 		return 0;
 	}
 
@@ -288,6 +282,10 @@ static int port_set_format(struct spa_node *node,
 	if (d->format.format != SPA_AUDIO_FORMAT_S16 &&
 	    d->format.format != SPA_AUDIO_FORMAT_F32)
 		return -EINVAL;
+
+	d->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
+	d->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_OUTPUT, 0, &d->info);
 
 	return 0;
 }
@@ -514,6 +512,22 @@ int main(int argc, char *argv[])
 	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL, 0);
         data.remote = pw_remote_new(data.core, NULL, 0);
 	data.path = argc > 1 ? argv[1] : NULL;
+
+	data.info_all = SPA_PORT_CHANGE_MASK_FLAGS |
+		SPA_PORT_CHANGE_MASK_PROPS |
+		SPA_PORT_CHANGE_MASK_PARAMS;
+	data.info = SPA_PORT_INFO_INIT();
+	data.info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	data.items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
+	data.dict = SPA_DICT_INIT_ARRAY(data.items);
+	data.info.props = &data.dict;
+	data.params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	data.params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	data.params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	data.params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	data.params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	data.info.params = data.params;
+	data.info.n_params = 5;
 
 	spa_list_init(&data.empty);
 	spa_hook_list_init(&data.hooks);

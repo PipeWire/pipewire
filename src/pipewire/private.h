@@ -645,7 +645,8 @@ struct pw_remote {
 #define pw_stream_emit_add_buffer(s,b)		pw_stream_emit(s, add_buffer, 0, b)
 #define pw_stream_emit_remove_buffer(s,b)	pw_stream_emit(s, remove_buffer, 0, b)
 #define pw_stream_emit_process(s)		pw_stream_emit(s, process, 0)
-#define pw_stream_emit_drained(s)		pw_stream_emit(s, drained, 1)
+#define pw_stream_emit_drained(s)		pw_stream_emit(s, drained,0)
+#define pw_stream_emit_control_changed(s,i,v)	pw_stream_emit(s, control_changed, 0, i, v)
 
 
 struct pw_stream {
@@ -664,6 +665,9 @@ struct pw_stream {
 
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
+
+	struct pw_node_proxy *node;
+	struct spa_hook node_listener;
 };
 
 #define pw_factory_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_factory_events, m, v, ##__VA_ARGS__)

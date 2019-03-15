@@ -178,6 +178,15 @@ struct pw_buffer {
 					  *  returned in the time info. */
 };
 
+struct pw_stream_control {
+	const char *name;
+	uint32_t flags;
+	float value;
+	float def;
+	float min;
+	float max;
+};
+
 /** Events for a stream. These events are always called from the mainloop
  * unless explicitly documented otherwise. */
 struct pw_stream_events {
@@ -188,6 +197,10 @@ struct pw_stream_events {
 	/** when the stream state changes */
 	void (*state_changed) (void *data, enum pw_stream_state old,
 				enum pw_stream_state state, const char *error);
+
+	/** Notify information about a control.  */
+	void (*control_changed) (void *data, uint32_t id, float value);
+
 	/** when the format changed. The listener should call
 	 * pw_stream_finish_format() from within this callback or later to complete
 	 * the format negotiation and start the buffer negotiation. */
@@ -206,6 +219,7 @@ struct pw_stream_events {
 
 	/** The stream is drained */
         void (*drained) (void *data);
+
 };
 
 /** Convert a stream state to a readable string \memberof pw_stream */
@@ -309,19 +323,11 @@ pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 			uint32_t n_params		/**< number of elements in \a params */);
 
 
-/** Audio controls */
-#define PW_STREAM_CONTROL_VOLUME	"volume"
-
-/** Video controls */
-#define PW_STREAM_CONTROL_CONTRAST	"contrast"
-#define PW_STREAM_CONTROL_BRIGHTNESS	"brightness"
-#define PW_STREAM_CONTROL_HUE		"hue"
-#define PW_STREAM_CONTROL_SATURATION	"saturation"
-
 /** Set a control value */
-int pw_stream_set_control(struct pw_stream *stream, const char *name, float value);
-/** Get a control value */
-int pw_stream_get_control(struct pw_stream *stream, const char *name, float *value);
+int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value);
+
+/** Get control information */
+const struct pw_stream_control * pw_stream_get_control(struct pw_stream *stream, uint32_t id);
 
 /** A time structure \memberof pw_stream */
 struct pw_time {

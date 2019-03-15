@@ -165,7 +165,9 @@ struct impl {
 	struct spa_hook resource_listener;
 
 	struct pw_array mems;
-	uint32_t init_seq;
+
+	uint32_t bind_node_version;
+	uint32_t bind_node_id;
 
 	int fds[2];
 	int other_fds[2];
@@ -988,6 +990,20 @@ static int impl_node_process(struct spa_node *node)
 }
 
 static int
+client_node_get_node(void *data,
+		   uint32_t version,
+		   uint32_t new_id)
+{
+	struct impl *impl = data;
+	struct node *this = &impl->node;
+	pw_log_debug("node %p: bind %u/%u", this, new_id, version);
+	impl->bind_node_version = version;
+	impl->bind_node_id = new_id;
+	pw_map_insert_at(&this->resource->client->objects, new_id, NULL);
+	return 0;
+}
+
+static int
 client_node_update(void *data,
 		   uint32_t change_mask,
 		   uint32_t n_params,
@@ -1076,6 +1092,7 @@ static int client_node_event(void *data, struct spa_event *event)
 
 static struct pw_client_node_proxy_methods client_node_methods = {
 	PW_VERSION_CLIENT_NODE_PROXY_METHODS,
+	.get_node = client_node_get_node,
 	.update = client_node_update,
 	.port_update = client_node_port_update,
 	.set_active = client_node_set_active,
@@ -1232,10 +1249,11 @@ static void client_node_resource_pong(void *data, int seq)
 	spa_node_emit_result(&this->hooks, seq, 0, NULL);
 }
 
-void pw_client_node_registered(struct pw_client_node *this, uint32_t node_id)
+void pw_client_node_registered(struct pw_client_node *this, struct pw_global *global)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_node *node = this->node;
+	uint32_t node_id = global->id;
 	struct mem *m;
 
 	pw_log_debug("client-node %p: %d", this, node_id);
@@ -1252,6 +1270,11 @@ void pw_client_node_registered(struct pw_client_node *this, uint32_t node_id)
 					  m->id,
 					  0,
 					  sizeof(struct pw_node_activation));
+
+	if (impl->bind_node_id) {
+		pw_global_bind(global, this->resource->client, PW_PERM_RWX,
+				impl->bind_node_version, impl->bind_node_id);
+	}
 }
 
 static void node_initialized(void *data)
@@ -1287,7 +1310,7 @@ static void node_initialized(void *data)
 	pw_log_debug("client-node %p: io areas %p", node, impl->io_areas->ptr);
 
 	if ((global = pw_node_get_global(node)) != NULL)
-		pw_client_node_registered(this, pw_global_get_id(global));
+		pw_client_node_registered(this, global);
 }
 
 static void node_free(void *data)

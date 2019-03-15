@@ -48,6 +48,21 @@ static void push_dict(struct spa_pod_builder *b, const struct spa_dict *dict)
 }
 
 static int
+client_node_marshal_get_node(void *object, uint32_t version, uint32_t new_id)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_GET_NODE, NULL);
+
+	spa_pod_builder_add_struct(b,
+		       SPA_POD_Int(version),
+		       SPA_POD_Int(new_id));
+
+	return pw_protocol_native_end_proxy(proxy, b);
+}
+
+static int
 client_node_marshal_update(void *object,
 			   uint32_t change_mask,
 			   uint32_t n_params,
@@ -770,6 +785,22 @@ client_node_marshal_set_io(void *object,
 	return pw_protocol_native_end_resource(resource, b);
 }
 
+static int client_node_demarshal_get_node(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	int32_t version, new_id;
+
+	spa_pod_parser_init(&prs, data, size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&version),
+				SPA_POD_Int(&new_id)) < 0)
+		return -EINVAL;
+
+	return pw_resource_do(resource, struct pw_client_node_proxy_methods, get_node, 0,
+			version, new_id);
+}
+
 static int client_node_demarshal_update(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
@@ -966,6 +997,7 @@ static int client_node_demarshal_event_method(void *object, void *data, size_t s
 
 static const struct pw_client_node_proxy_methods pw_protocol_native_client_node_method_marshal = {
 	PW_VERSION_CLIENT_NODE_PROXY_METHODS,
+	&client_node_marshal_get_node,
 	&client_node_marshal_update,
 	&client_node_marshal_port_update,
 	&client_node_marshal_set_active,
@@ -973,6 +1005,7 @@ static const struct pw_client_node_proxy_methods pw_protocol_native_client_node_
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_client_node_method_demarshal[] = {
+	{ &client_node_demarshal_get_node, 0 },
 	{ &client_node_demarshal_update, 0 },
 	{ &client_node_demarshal_port_update, 0 },
 	{ &client_node_demarshal_set_active, 0 },

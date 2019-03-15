@@ -53,7 +53,7 @@ pw_client_node_new(struct pw_resource *resource,
 void
 pw_client_node_destroy(struct pw_client_node *node);
 
-void pw_client_node_registered(struct pw_client_node *node, uint32_t node_id);
+void pw_client_node_registered(struct pw_client_node *node, struct pw_global *global);
 
 #ifdef __cplusplus
 }

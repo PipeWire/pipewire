@@ -48,17 +48,21 @@ struct pw_client_node_buffer {
 	struct spa_buffer *buffer;	/**< buffer describing metadata and buffer memory */
 };
 
-#define PW_CLIENT_NODE_PROXY_METHOD_UPDATE		0
-#define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE		1
-#define PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE		2
-#define PW_CLIENT_NODE_PROXY_METHOD_EVENT		3
-#define PW_CLIENT_NODE_PROXY_METHOD_NUM			4
+#define PW_CLIENT_NODE_PROXY_METHOD_GET_NODE		0
+#define PW_CLIENT_NODE_PROXY_METHOD_UPDATE		1
+#define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE		2
+#define PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE		3
+#define PW_CLIENT_NODE_PROXY_METHOD_EVENT		4
+#define PW_CLIENT_NODE_PROXY_METHOD_NUM			5
 
 /** \ref pw_client_node methods */
 struct pw_client_node_proxy_methods {
 #define PW_VERSION_CLIENT_NODE_PROXY_METHODS		0
 	uint32_t version;
 
+	/** get the node object
+	 */
+	int (*get_node) (void *object, uint32_t version, uint32_t new_id);
 	/**
 	 * Update the node ports and properties
 	 *
@@ -107,6 +111,15 @@ struct pw_client_node_proxy_methods {
 	 */
 	int (*event) (void *object, struct spa_event *event);
 };
+
+static inline struct pw_node_proxy *
+pw_client_node_proxy_get_node(struct pw_client_node_proxy *p, uint32_t version, size_t user_data_size)
+{
+	struct pw_proxy *np = pw_proxy_new((struct pw_proxy*)p, PW_TYPE_INTERFACE_Node, user_data_size);
+	pw_proxy_do((struct pw_proxy*)p, struct pw_client_node_proxy_methods,
+			get_node, version, pw_proxy_get_id(np));
+	return (struct pw_node_proxy *) np;
+}
 
 static inline int
 pw_client_node_proxy_update(struct pw_client_node_proxy *p,

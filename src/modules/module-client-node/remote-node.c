@@ -107,6 +107,7 @@ struct node_data {
         struct pw_client_node_proxy *node_proxy;
 	struct spa_hook node_proxy_listener;
 	struct spa_hook proxy_listener;
+        struct pw_proxy *proxy;
 
 	struct spa_io_position *position;
 
@@ -419,7 +420,7 @@ static int client_node_transport(void *object, uint32_t node_id,
 	if (data->node->active)
 		pw_client_node_proxy_set_active(data->node_proxy, true);
 
-	pw_remote_emit_exported(remote, proxy->id, node_id);
+	pw_remote_emit_exported(remote, data->proxy->id, node_id);
 	return 0;
 }
 
@@ -1282,7 +1283,10 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
 					  proxy);
         do_node_init(proxy);
 
-	return proxy;
+	data->proxy = (struct pw_proxy*) pw_client_node_proxy_get_node(data->node_proxy,
+			PW_VERSION_NODE, 0);
+
+	return data->proxy;
 }
 
 struct pw_proxy *pw_remote_node_export(struct pw_remote *remote,

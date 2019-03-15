@@ -1210,7 +1210,7 @@ static void node_free(void *data)
 static void node_initialized(void *data)
 {
 	struct impl *impl = data;
-	pw_client_node_registered(impl->client_node, impl->this.node->global->id);
+	pw_client_node_registered(impl->client_node, impl->this.node->global);
 }
 
 static const struct pw_node_events node_events = {

@@ -133,6 +133,8 @@ struct stream {
 	uintptr_t seq;
 	struct pw_time time;
 
+	uint32_t param_propinfo;
+
 	int async_connect:1;
 	int disconnecting:1;
 	int free_data:1;
@@ -849,6 +851,69 @@ static const struct pw_proxy_events proxy_events = {
 	.error = proxy_error,
 };
 
+static void node_event_info(void *object, const struct pw_node_info *info)
+{
+	struct pw_stream *stream = object;
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	uint32_t i;
+
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
+		for (i = 0; i < info->n_params; i++) {
+			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
+				continue;
+
+			switch (info->params[i].id) {
+			case SPA_PARAM_PropInfo:
+				if (info->params[i].flags == impl->param_propinfo)
+					break;
+				impl->param_propinfo = info->params[i].flags;
+				/* fallthrough */
+			case SPA_PARAM_Props:
+				pw_node_proxy_enum_params((struct pw_node_proxy*)stream->proxy,
+					0, info->params[i].id, 0, -1, NULL);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+}
+
+static void node_event_param(void *object, int seq,
+		uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+	struct pw_stream *stream = object;
+
+	switch (id) {
+	case SPA_PARAM_PropInfo:
+		pw_log_debug("info");
+		break;
+	case SPA_PARAM_Props:
+	{
+		struct spa_pod_prop *prop;
+		struct spa_pod_object *obj = (struct spa_pod_object *) param;
+		float value;
+
+		SPA_POD_OBJECT_FOREACH(obj, prop) {
+			if (spa_pod_get_float(&prop->value, &value) < 0)
+				continue;
+			pw_log_debug("stream %p: control %d changed %f", stream, prop->key, value);
+			pw_stream_emit_control_changed(stream, prop->key, value);
+		}
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+static const struct pw_node_proxy_events node_events = {
+	PW_VERSION_NODE_PROXY_EVENTS,
+	.info = node_event_info,
+	.param = node_event_param,
+};
+
 static int handle_connect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -879,6 +944,8 @@ static int handle_connect(struct pw_stream *stream)
 		goto no_proxy;
 
 	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
+	pw_node_proxy_add_listener((struct pw_node_proxy*)stream->proxy,
+			&stream->node_listener, &node_events, stream);
 
 	return 0;
 
@@ -1266,35 +1333,26 @@ void pw_stream_finish_format(struct pw_stream *stream,
 }
 
 SPA_EXPORT
-int pw_stream_set_control(struct pw_stream *stream,
-			  const char *name, float value)
+int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	if (strcmp(name, PW_STREAM_CONTROL_VOLUME) == 0) {
+	switch (id) {
+	case SPA_PROP_volume:
 		impl->props.volume = value;
-	}
-	else
+		break;
+	default:
 		return -ENOTSUP;
-
+	}
 	impl->props.changed = true;
 
 	return 0;
 }
 
 SPA_EXPORT
-int pw_stream_get_control(struct pw_stream *stream,
-			  const char *name, float *value)
+const struct pw_stream_control *pw_stream_get_control(struct pw_stream *stream, uint32_t id)
 {
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-
-	if (strcmp(name, PW_STREAM_CONTROL_VOLUME) == 0) {
-		*value = impl->props.volume;
-	}
-	else
-		return -ENOTSUP;
-
-	return 0;
+	return NULL;
 }
 
 SPA_EXPORT

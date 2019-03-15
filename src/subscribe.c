@@ -29,32 +29,6 @@ struct subscribe_data
 	void *userdata;
 };
 
-static void on_subscribed(pa_operation *o, void *userdata)
-{
-	struct subscribe_data *d = userdata;
-	if (d->cb)
-		d->cb(o->context, PA_OK, d->userdata);
-}
-
-SPA_EXPORT
-pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_context_success_cb_t cb, void *userdata)
-{
-	pa_operation *o;
-	struct subscribe_data *d;
-
-	pa_assert(c);
-	pa_assert(c->refcount >= 1);
-
-	c->subscribe_mask = m;
-
-	o = pa_operation_new(c, NULL, on_subscribed, sizeof(struct subscribe_data));
-	d = o->userdata;
-	d->cb = cb;
-	d->userdata = userdata;
-
-	return o;
-}
-
 SPA_EXPORT
 void pa_context_set_subscribe_callback(pa_context *c, pa_context_subscribe_cb_t cb, void *userdata)
 {

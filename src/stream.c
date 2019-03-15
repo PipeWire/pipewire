@@ -703,10 +703,14 @@ pa_context* pa_stream_get_context(pa_stream *s)
 SPA_EXPORT
 uint32_t pa_stream_get_index(pa_stream *s)
 {
+	uint32_t idx;
+
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
-	return pw_stream_get_node_id(s->stream);
+	idx = pw_stream_get_node_id(s->stream);
+	pw_log_debug("stream %p: index %u", s, idx);
+	return idx;
 }
 
 void pa_stream_set_state(pa_stream *s, pa_stream_state_t st) {

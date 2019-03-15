@@ -27,300 +27,6 @@
 
 #include "internal.h"
 
-static void node_event_info(void *object, const struct pw_node_info *info)
-{
-	struct global *g = object;
-	pa_operation *o;
-	uint32_t i;
-
-	pw_log_debug("update %d", g->id);
-	g->info = pw_node_info_update(g->info, info);
-
-	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
-		for (i = 0; i < info->n_params; i++) {
-			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
-				continue;
-
-			switch (info->params[i].id) {
-			case SPA_PARAM_EnumFormat:
-				pw_node_proxy_enum_params((struct pw_node_proxy*)g->proxy,
-					0, SPA_PARAM_EnumFormat, 0, -1, NULL);
-				break;
-			default:
-				break;
-			}
-		}
-	}
-	spa_list_for_each(o, &g->operations, owner_link)
-		pa_operation_sync(o);
-}
-
-static void node_event_param(void *object, int seq,
-		uint32_t id, uint32_t index, uint32_t next,
-		const struct spa_pod *param)
-{
-	struct global *g = object;
-	pw_log_debug("update param %d", g->id);
-}
-
-static const struct pw_node_proxy_events node_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
-	.info = node_event_info,
-	.param = node_event_param,
-};
-
-static void module_event_info(void *object, const struct pw_module_info *info)
-{
-        struct global *g = object;
-	pa_module_info *i = &g->module_info.info;
-
-	pw_log_debug("update %d", g->id);
-
-        info = g->info = pw_module_info_update(g->info, info);
-
-	i->index = g->id;
-	if (info->change_mask & PW_MODULE_CHANGE_MASK_PROPS) {
-		if (i->proplist)
-			pa_proplist_update_dict(i->proplist, info->props);
-		else
-			i->proplist = pa_proplist_new_dict(info->props);
-	}
-
-	if (info->change_mask & PW_MODULE_CHANGE_MASK_NAME)
-		i->name = info->name;
-	if (info->change_mask & PW_MODULE_CHANGE_MASK_ARGS)
-		i->argument = info->args;
-	i->n_used = -1;
-	i->auto_unload = false;
-}
-
-static const struct pw_module_proxy_events module_events = {
-	PW_VERSION_MODULE_PROXY_EVENTS,
-	.info = module_event_info,
-};
-
-static void client_event_info(void *object, const struct pw_client_info *info)
-{
-        struct global *g = object;
-	pa_client_info *i = &g->client_info.info;
-
-	pw_log_debug("update %d", g->id);
-	info = g->info = pw_client_info_update(g->info, info);
-
-	i->index = g->id;
-	i->owner_module = g->parent_id;
-
-	if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
-		if (i->proplist)
-			pa_proplist_update_dict(i->proplist, info->props);
-		else
-			i->proplist = pa_proplist_new_dict(info->props);
-		i->name = info->props ?
-			spa_dict_lookup(info->props, "application.name") : NULL;
-		i->driver = info->props ?
-			spa_dict_lookup(info->props, PW_CLIENT_PROP_PROTOCOL) : NULL;
-	}
-}
-
-static const struct pw_client_proxy_events client_events = {
-	PW_VERSION_CLIENT_PROXY_EVENTS,
-	.info = client_event_info,
-};
-
-static void device_event_param(void *object, int seq,
-		uint32_t id, uint32_t index, uint32_t next,
-		const struct spa_pod *param)
-{
-	struct global *g = object;
-
-	switch (id) {
-	case SPA_PARAM_EnumProfile:
-	{
-		uint32_t id;
-		const char *name;
-
-		if (spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
-				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name)) < 0) {
-			pw_log_warn("device %d: can't parse profile", g->id);
-			return;
-		}
-		pw_array_add_ptr(&g->card_info.profiles, spa_pod_copy(param));
-		pw_log_debug("device %d: enum profile %d: \"%s\"", g->id, id, name);
-		break;
-	}
-	case SPA_PARAM_Profile:
-	{
-		uint32_t id;
-		if (spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id)) < 0) {
-			pw_log_warn("device %d: can't parse profile", g->id);
-			return;
-		}
-		g->card_info.active_profile = id;
-		pw_log_debug("device %d: current profile %d", g->id, id);
-		break;
-	}
-	default:
-		break;
-	}
-}
-
-static void device_event_info(void *object, const struct pw_device_info *info)
-{
-        struct global *g = object;
-	pa_card_info *i = &g->card_info.info;
-	pa_operation *o;
-	uint32_t n;
-
-	pw_log_debug("update %d %"PRIu64, g->id, info->change_mask);
-        info = g->info = pw_device_info_update(g->info, info);
-
-	i->index = g->id;
-	i->name = info->name;
-	i->owner_module = g->parent_id;
-	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
-		i->driver = info->props ?
-			spa_dict_lookup(info->props, "device.api") : NULL;
-		if (i->proplist)
-			pa_proplist_update_dict(i->proplist, info->props);
-		else
-			i->proplist = pa_proplist_new_dict(info->props);
-	}
-	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
-		for (n = 0; n < info->n_params; n++) {
-			if (!(info->params[n].flags & SPA_PARAM_INFO_READ))
-				continue;
-
-			switch (info->params[n].id) {
-			case SPA_PARAM_EnumProfile:
-				pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
-					0, SPA_PARAM_EnumProfile, 0, -1, NULL);
-				break;
-			case SPA_PARAM_Profile:
-				pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
-					0, SPA_PARAM_Profile, 0, -1, NULL);
-				break;
-			default:
-				break;
-			}
-		}
-	}
-	spa_list_for_each(o, &g->operations, owner_link)
-		pa_operation_sync(o);
-}
-
-static const struct pw_device_proxy_events device_events = {
-	PW_VERSION_DEVICE_PROXY_EVENTS,
-	.info = device_event_info,
-	.param = device_event_param,
-};
-
-static void node_destroy(void *data)
-{
-	struct global *global = data;
-	if (global->info)
-		pw_node_info_free(global->info);
-}
-
-static void module_destroy(void *data)
-{
-	struct global *global = data;
-	if (global->module_info.info.proplist)
-		pa_proplist_free(global->module_info.info.proplist);
-	if (global->info)
-		pw_module_info_free(global->info);
-}
-
-static void client_destroy(void *data)
-{
-	struct global *global = data;
-	if (global->client_info.info.proplist)
-		pa_proplist_free(global->client_info.info.proplist);
-	if (global->info)
-		pw_client_info_free(global->info);
-}
-
-static void device_destroy(void *data)
-{
-	struct global *global = data;
-	struct spa_pod **profile;
-
-	if (global->card_info.info.proplist)
-		pa_proplist_free(global->card_info.info.proplist);
-	pw_array_for_each(profile, &global->card_info.profiles)
-		free(*profile);
-	pw_array_clear(&global->card_info.profiles);
-	if (global->info)
-		pw_device_info_free(global->info);
-}
-
-static int ensure_global(pa_context *c, struct global *g, pa_operation *o)
-{
-	uint32_t client_version;
-	const void *events;
-	pw_destroy_t destroy;
-
-	if (o) {
-		if (o->owner)
-			spa_list_remove(&o->owner_link);
-		o->owner = g;
-		spa_list_append(&g->operations, &o->owner_link);
-	}
-
-	if (g->proxy != NULL)
-		return 0;
-
-	switch (g->type) {
-	case PW_TYPE_INTERFACE_Node:
-		events = &node_events;
-                client_version = PW_VERSION_NODE;
-                destroy = node_destroy;
-		break;
-	case PW_TYPE_INTERFACE_Module:
-		events = &module_events;
-                client_version = PW_VERSION_MODULE;
-                destroy = module_destroy;
-		break;
-	case PW_TYPE_INTERFACE_Client:
-		events = &client_events;
-                client_version = PW_VERSION_CLIENT;
-                destroy = client_destroy;
-		break;
-	case PW_TYPE_INTERFACE_Device:
-		events = &device_events;
-                client_version = PW_VERSION_DEVICE;
-                destroy = device_destroy;
-		pw_array_init(&g->card_info.profiles, 64);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	pw_log_debug("bind %d", g->id);
-
-	g->proxy = pw_registry_proxy_bind(c->registry_proxy, g->id, g->type,
-                                      client_version, 0);
-	if (g->proxy == NULL)
-                return -ENOMEM;
-
-	pw_proxy_add_proxy_listener(g->proxy, &g->proxy_proxy_listener, events, g);
-	g->destroy = destroy;
-
-	return 0;
-}
-
-static void ensure_types(pa_context *c, uint32_t mask, pa_operation *o)
-{
-	struct global *g;
-	spa_list_for_each(g, &c->globals, link) {
-		if (g->mask & mask)
-			ensure_global(c, g, o);
-	}
-}
-
 struct success_ack {
 	pa_context_success_cb_t cb;
 	void *userdata;
@@ -360,6 +66,27 @@ static pa_sink_state_t node_state_to_sink(enum pw_node_state s)
 	}
 }
 
+static int wait_global(pa_context *c, struct global *g, pa_operation *o)
+{
+	if (g->init) {
+		pa_operation_sync(o);
+		return -EBUSY;
+	}
+	return 0;
+}
+
+static int wait_globals(pa_context *c, pa_subscription_mask_t mask, pa_operation *o)
+{
+	struct global *g;
+	spa_list_for_each(g, &c->globals, link) {
+		if (!(g->mask & mask))
+			continue;
+		if (wait_global(c, g, o) < 0)
+			return -EBUSY;
+	}
+	return 0;
+}
+
 static void sink_callback(struct sink_data *d)
 {
 	struct global *g = d->global;
@@ -379,8 +106,8 @@ static void sink_callback(struct sink_data *d)
 	i.sample_spec.channels = 2;
 	pa_channel_map_init_auto(&i.channel_map, 2, PA_CHANNEL_MAP_DEFAULT);
 	i.owner_module = g->parent_id;
-	pa_cvolume_set(&i.volume, 2, PA_VOLUME_NORM);
-	i.mute = false;
+	pa_cvolume_set(&i.volume, 2, g->node_info.volume * PA_VOLUME_NORM);
+	i.mute = g->node_info.mute;
 	i.monitor_source = g->node_info.monitor;
 	i.monitor_source_name = "unknown";
 	i.latency = 0;
@@ -411,6 +138,8 @@ static void sink_callback(struct sink_data *d)
 static void sink_info(pa_operation *o, void *userdata)
 {
 	struct sink_data *d = userdata;
+	if (wait_global(d->context, d->global, o) < 0)
+		return;
 	sink_callback(d);
 	d->cb(d->context, NULL, 1, d->userdata);
 	pa_operation_done(o);
@@ -439,7 +168,6 @@ pa_operation* pa_context_get_sink_info_by_name(pa_context *c, const char *name, 
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -464,15 +192,14 @@ pa_operation* pa_context_get_sink_info_by_index(pa_context *c, uint32_t idx, pa_
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK))
 		return NULL;
 
-
 	o = pa_operation_new(c, NULL, sink_info, sizeof(struct sink_data));
 	d = o->userdata;
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
+
 	return o;
 }
 
@@ -482,6 +209,8 @@ static void sink_info_list(pa_operation *o, void *userdata)
 	pa_context *c = d->context;
 	struct global *g;
 
+	if (wait_globals(c, PA_SUBSCRIPTION_MASK_SINK, o) < 0)
+		return;
 	spa_list_for_each(g, &c->globals, link) {
 		if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK))
 			continue;
@@ -509,11 +238,15 @@ pa_operation* pa_context_get_sink_info_list(pa_context *c, pa_sink_info_cb_t cb,
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
-
-	ensure_types(c, PA_SUBSCRIPTION_MASK_SINK, o);
 	pa_operation_sync(o);
 
 	return o;
+}
+
+static void set_stream_volume(pa_context *c, pa_stream *s)
+{
+	float v = s->mute ? 0.0f : s->volume;
+	pw_stream_set_control(s->stream, SPA_PROP_volume, v);
 }
 
 static void set_node_volume(pa_context *c, struct global *g, const pa_cvolume *volume)
@@ -523,8 +256,6 @@ static void set_node_volume(pa_context *c, struct global *g, const pa_cvolume *v
 	float v;
 
 	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-
-	ensure_global(c, g, NULL);
 
 	pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
 		SPA_PARAM_Props, 0,
@@ -537,8 +268,6 @@ static void set_node_mute(pa_context *c, struct global *g, bool mute)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-	ensure_global(c, g, NULL);
 
 	pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
 		SPA_PARAM_Props, 0,
@@ -740,8 +469,8 @@ static void source_callback(struct source_data *d)
 	i.sample_spec.channels = 2;
 	pa_channel_map_init_auto(&i.channel_map, 2, PA_CHANNEL_MAP_DEFAULT);
 	i.owner_module = g->parent_id;
-	pa_cvolume_set(&i.volume, 2, PA_VOLUME_NORM);
-	i.mute = false;
+	pa_cvolume_set(&i.volume, 2, g->node_info.volume * PA_VOLUME_NORM);
+	i.mute = g->node_info.mute;
 	if (g->mask & PA_SUBSCRIPTION_MASK_DSP_SINK) {
 		i.monitor_of_sink = g->dsp_info.session;
 		i.monitor_of_sink_name = "unknown";
@@ -775,6 +504,8 @@ static void source_callback(struct source_data *d)
 static void source_info(pa_operation *o, void *userdata)
 {
 	struct source_data *d = userdata;
+	if (wait_global(d->context, d->global, o) < 0)
+		return;
 	source_callback(d);
 	d->cb(d->context, NULL, 1, d->userdata);
 	pa_operation_done(o);
@@ -803,8 +534,6 @@ pa_operation* pa_context_get_source_info_by_name(pa_context *c, const char *name
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
-
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -834,7 +563,6 @@ pa_operation* pa_context_get_source_info_by_index(pa_context *c, uint32_t idx, p
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -846,6 +574,8 @@ static void source_info_list(pa_operation *o, void *userdata)
 	pa_context *c = d->context;
 	struct global *g;
 
+	if (wait_globals(c, PA_SUBSCRIPTION_MASK_SOURCE, o) < 0)
+		return;
 	spa_list_for_each(g, &c->globals, link) {
 		if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))
 			continue;
@@ -873,8 +603,6 @@ pa_operation* pa_context_get_source_info_list(pa_context *c, pa_source_info_cb_t
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
-
-	ensure_types(c, PA_SUBSCRIPTION_MASK_SOURCE, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -1126,7 +854,6 @@ pa_operation* pa_context_get_module_info(pa_context *c, uint32_t idx, pa_module_
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -1165,8 +892,6 @@ pa_operation* pa_context_get_module_info_list(pa_context *c, pa_module_info_cb_t
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
-
-	ensure_types(c, PA_SUBSCRIPTION_MASK_MODULE, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -1231,7 +956,6 @@ pa_operation* pa_context_get_client_info(pa_context *c, uint32_t idx, pa_client_
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -1270,8 +994,6 @@ pa_operation* pa_context_get_client_info_list(pa_context *c, pa_client_info_cb_t
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
-
-	ensure_types(c, PA_SUBSCRIPTION_MASK_CLIENT, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -1316,27 +1038,29 @@ static void card_callback(struct card_data *d)
 	struct global *g = d->global;
 	pa_card_info *i = &g->card_info.info;
 	int n_profiles, j;
-	struct spa_pod **profiles;
+	struct param *p;
 
-	n_profiles = pw_array_get_len(&g->card_info.profiles, struct spa_pod*);
-	profiles = g->card_info.profiles.data;
+	n_profiles = g->card_info.n_profiles;
 
 	i->profiles = alloca(sizeof(pa_card_profile_info) * n_profiles);
 	i->profiles2 = alloca(sizeof(pa_card_profile_info2 *) * n_profiles);
 	i->n_profiles = 0;
 
-	for (j = 0; j < n_profiles; j++) {
+	pw_log_debug("context %p: info for %d", g->context, g->id);
+
+	spa_list_for_each(p, &g->card_info.profiles, link) {
 		uint32_t id;
 		const char *name;
 
-		if (spa_pod_parse_object(profiles[j],
+		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
 				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
 				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name)) < 0) {
-			pw_log_warn("device %d: can't parse profile %d", g->id, j);
+			pw_log_warn("device %d: can't parse profile", g->id);
 			continue;
 		}
 
+		j = i->n_profiles++;
 		i->profiles[j].name = name;
 		i->profiles[j].description = name;
 		i->profiles[j].n_sinks = 1;
@@ -1355,7 +1079,6 @@ static void card_callback(struct card_data *d)
 			i->active_profile = &i->profiles[j];
 			i->active_profile2 = i->profiles2[j];
 		}
-		i->n_profiles++;
 	}
 	d->cb(d->context, i, 0, d->userdata);
 }
@@ -1363,6 +1086,8 @@ static void card_callback(struct card_data *d)
 static void card_info(pa_operation *o, void *userdata)
 {
 	struct card_data *d = userdata;
+	if (wait_global(d->context, d->global, o) < 0)
+		return;
 	card_callback(d);
 	d->cb(d->context, NULL, 1, d->userdata);
 	pa_operation_done(o);
@@ -1382,6 +1107,8 @@ pa_operation* pa_context_get_card_info_by_index(pa_context *c, uint32_t idx, pa_
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
+	pw_log_debug("context %p: %u", c, idx);
+
 	if ((g = pa_context_find_global(c, idx)) == NULL)
 		return NULL;
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_CARD))
@@ -1393,7 +1120,6 @@ pa_operation* pa_context_get_card_info_by_index(pa_context *c, uint32_t idx, pa_
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
 	return o;
 }
@@ -1412,6 +1138,8 @@ pa_operation* pa_context_get_card_info_by_name(pa_context *c, const char *name, 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
 
+	pw_log_debug("context %p: %s", c, name);
+
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_CARD, name)) == NULL)
 		return NULL;
 
@@ -1421,7 +1149,6 @@ pa_operation* pa_context_get_card_info_by_name(pa_context *c, const char *name, 
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
 	return o;
 }
@@ -1432,6 +1159,8 @@ static void card_info_list(pa_operation *o, void *userdata)
 	pa_context *c = d->context;
 	struct global *g;
 
+	if (wait_globals(c, PA_SUBSCRIPTION_MASK_CARD, o) < 0)
+		return;
 	spa_list_for_each(g, &c->globals, link) {
 		if (!(g->mask & PA_SUBSCRIPTION_MASK_CARD))
 			continue;
@@ -1454,13 +1183,13 @@ pa_operation* pa_context_get_card_info_list(pa_context *c, pa_card_info_cb_t cb,
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
+	pw_log_debug("context %p", c);
+
 	o = pa_operation_new(c, NULL, card_info_list, sizeof(struct card_data));
 	d = o->userdata;
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
-
-	ensure_types(c, PA_SUBSCRIPTION_MASK_CARD, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -1471,25 +1200,21 @@ static void card_profile(pa_operation *o, void *userdata)
 	struct card_data *d = userdata;
 	struct global *g = d->global;
 	pa_context *c = d->context;
-	size_t i, n_profiles;
 	int res = 0;
 	uint32_t id = SPA_ID_INVALID;
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-	struct spa_pod **profiles;
+	struct param *p;
 
-	n_profiles = pw_array_get_len(&g->card_info.profiles, struct spa_pod*);
-	profiles = g->card_info.profiles.data;
-
-	for (i = 0; i < n_profiles; i++) {
+	spa_list_for_each(p, &g->card_info.profiles, link) {
 		uint32_t test_id;
 		const char *name;
 
-		if (spa_pod_parse_object(profiles[i],
+		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
 				SPA_PARAM_PROFILE_index, SPA_POD_Int(&test_id),
 				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name)) < 0) {
-			pw_log_warn("device %d: can't parse profile %zd", g->id, i);
+			pw_log_warn("device %d: can't parse profile", g->id);
 			continue;
 		}
 		if (strcmp(name, d->profile) == 0) {
@@ -1540,7 +1265,6 @@ pa_operation* pa_context_set_card_profile_by_index(pa_context *c, uint32_t idx, 
 	d->userdata = userdata;
 	d->global = g;
 	d->profile = strdup(profile);
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -1571,7 +1295,6 @@ pa_operation* pa_context_set_card_profile_by_name(pa_context *c, const char*name
 	d->userdata = userdata;
 	d->global = g;
 	d->profile = strdup(profile);
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -1637,7 +1360,6 @@ static void sink_input_callback(struct sink_input_data *d)
 		l = pa_context_find_linked(d->context, g->id);
 		i.sink = l ? l->id : PA_INVALID_INDEX;
 	}
-	pa_cvolume_init(&i.volume);
 	if (s && s->sample_spec.channels > 0) {
 		i.sample_spec = s->sample_spec;
 		if (s->channel_map.channels == s->sample_spec.channels)
@@ -1645,7 +1367,6 @@ static void sink_input_callback(struct sink_input_data *d)
 		else
 			pa_channel_map_init_auto(&i.channel_map,
 					i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
-		pa_cvolume_set(&i.volume, i.sample_spec.channels, s->volume * PA_VOLUME_NORM);
 		i.format = s->format;
 	}
 	else {
@@ -1653,16 +1374,17 @@ static void sink_input_callback(struct sink_input_data *d)
 		i.sample_spec.rate = 44100;
 		i.sample_spec.channels = 2;
 		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
-		pa_cvolume_set(&i.volume, i.sample_spec.channels, PA_VOLUME_NORM);
 		ii[0].encoding = PA_ENCODING_PCM;
 		ii[0].plist = pa_proplist_new();
 		i.format = ii;
 	}
+	pa_cvolume_init(&i.volume);
+	pa_cvolume_set(&i.volume, i.sample_spec.channels, g->node_info.volume * PA_VOLUME_NORM);
+	i.mute = g->node_info.mute;
 	i.buffer_usec = 0;
 	i.sink_usec = 0;
 	i.resample_method = "PipeWire resampler";
 	i.driver = "PipeWire";
-	i.mute = false;
 	i.proplist = pa_proplist_new_dict(info->props);
 	if (cl && cl->client_info.info.proplist)
 		pa_proplist_update(i.proplist, PA_UPDATE_MERGE, cl->client_info.info.proplist);
@@ -1678,6 +1400,8 @@ static void sink_input_callback(struct sink_input_data *d)
 static void sink_input_info(pa_operation *o, void *userdata)
 {
 	struct sink_input_data *d = userdata;
+	if (wait_global(d->context, d->global, o) < 0)
+		return;
 	sink_input_callback(d);
 	d->cb(d->context, NULL, 1, d->userdata);
 	pa_operation_done(o);
@@ -1709,8 +1433,8 @@ pa_operation* pa_context_get_sink_input_info(pa_context *c, uint32_t idx, pa_sin
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
+
 	return o;
 }
 
@@ -1720,6 +1444,8 @@ static void sink_input_info_list(pa_operation *o, void *userdata)
 	pa_context *c = d->context;
 	struct global *g;
 
+	if (wait_globals(c, PA_SUBSCRIPTION_MASK_SINK_INPUT, o) < 0)
+		return;
 	spa_list_for_each(g, &c->globals, link) {
 		if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK_INPUT))
 			continue;
@@ -1749,8 +1475,6 @@ pa_operation* pa_context_get_sink_input_info_list(pa_context *c, pa_sink_input_i
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
-
-	ensure_types(c, PA_SUBSCRIPTION_MASK_SINK_INPUT, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -1789,7 +1513,7 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 
 	if (s) {
 		s->volume = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
+		set_stream_volume(c, s);
 	}
 	else if (g) {
 		set_node_volume(c, g, volume);
@@ -1820,7 +1544,7 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 
 	if (s) {
 		s->mute = mute;
-		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
+		set_stream_volume(c, s);
 	}
 	else if (g) {
 		set_node_mute(c, g, mute);
@@ -1908,7 +1632,6 @@ static void source_output_callback(struct source_output_data *d)
 		l = pa_context_find_linked(d->context, g->id);
 		i.source = l ? l->id : PA_INVALID_INDEX;
 	}
-	pa_cvolume_init(&i.volume);
 	if (s && s->sample_spec.channels > 0) {
 		i.sample_spec = s->sample_spec;
 		if (s->channel_map.channels == s->sample_spec.channels)
@@ -1916,7 +1639,6 @@ static void source_output_callback(struct source_output_data *d)
 		else
 			pa_channel_map_init_auto(&i.channel_map,
 					i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
-		pa_cvolume_set(&i.volume, i.sample_spec.channels, s->volume * PA_VOLUME_NORM);
 		i.format = s->format;
 	}
 	else {
@@ -1924,16 +1646,17 @@ static void source_output_callback(struct source_output_data *d)
 		i.sample_spec.rate = 44100;
 		i.sample_spec.channels = 2;
 		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
-		pa_cvolume_set(&i.volume, i.sample_spec.channels, PA_VOLUME_NORM);
 		ii[0].encoding = PA_ENCODING_PCM;
 		ii[0].plist = pa_proplist_new();
 		i.format = ii;
 	}
+	pa_cvolume_init(&i.volume);
+	pa_cvolume_set(&i.volume, i.sample_spec.channels, g->node_info.volume * PA_VOLUME_NORM);
+	i.mute = g->node_info.mute;
 	i.buffer_usec = 0;
 	i.source_usec = 0;
 	i.resample_method = "PipeWire resampler";
 	i.driver = "PipeWire";
-	i.mute = false;
 	i.proplist = pa_proplist_new_dict(info->props);
 	if (cl && cl->client_info.info.proplist)
 		pa_proplist_update(i.proplist, PA_UPDATE_MERGE, cl->client_info.info.proplist);
@@ -1949,6 +1672,8 @@ static void source_output_callback(struct source_output_data *d)
 static void source_output_info(pa_operation *o, void *userdata)
 {
 	struct source_output_data *d = userdata;
+	if (wait_global(d->context, d->global, o) < 0)
+		return;
 	source_output_callback(d);
 	d->cb(d->context, NULL, 1, d->userdata);
 	pa_operation_done(o);
@@ -1978,7 +1703,6 @@ pa_operation* pa_context_get_source_output_info(pa_context *c, uint32_t idx, pa_
 	d->cb = cb;
 	d->userdata = userdata;
 	d->global = g;
-	ensure_global(c, g, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -1989,6 +1713,9 @@ static void source_output_info_list(pa_operation *o, void *userdata)
 	struct source_output_data *d = userdata;
 	pa_context *c = d->context;
 	struct global *g;
+
+	if (wait_globals(c, PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT, o) < 0)
+		return;
 
 	spa_list_for_each(g, &c->globals, link) {
 		if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT))
@@ -2017,8 +1744,6 @@ pa_operation* pa_context_get_source_output_info_list(pa_context *c, pa_source_ou
 	d->context = c;
 	d->cb = cb;
 	d->userdata = userdata;
-
-	ensure_types(c, PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT, o);
 	pa_operation_sync(o);
 
 	return o;
@@ -2057,7 +1782,7 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 
 	if (s) {
 		s->volume = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
+		set_stream_volume(c, s);
 	}
 	else if (g) {
 		set_node_volume(c, g, volume);
@@ -2088,7 +1813,7 @@ pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int
 
 	if (s) {
 		s->mute = mute;
-		pw_stream_set_control(s->stream, PW_STREAM_CONTROL_VOLUME, s->mute ? 0.0 : s->volume);
+		set_stream_volume(c, s);
 	}
 	else if (g) {
 		set_node_mute(c, g, mute);

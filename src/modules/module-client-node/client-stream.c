@@ -361,7 +361,7 @@ static int impl_node_add_listener(struct spa_node *node,
 
 	spa_hook_list_join(&this->hooks, &save);
 
-	return spa_node_sync(impl->cnode, 0);
+	return 0;
 }
 
 static int
@@ -1302,6 +1302,7 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 				     client,
 				     parent,
 				     name,
+				     PW_SPA_NODE_FLAG_ASYNC |
 				     PW_SPA_NODE_FLAG_ACTIVATE,
 				     &impl->node.node,
 				     NULL,

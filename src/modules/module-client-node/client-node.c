@@ -490,7 +490,6 @@ static int impl_node_add_listener(struct spa_node *node,
 	struct node *this;
 	struct spa_hook_list save;
 	uint32_t i;
-	int res = 0;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -505,12 +504,9 @@ static int impl_node_add_listener(struct spa_node *node,
 		if (this->out_ports[i])
 			emit_port_info(this, this->out_ports[i]);
 	}
-	if (this->resource)
-		res = pw_resource_ping(this->resource, 0);
-
 	spa_hook_list_join(&this->hooks, &save);
 
-	return res;
+	return 0;
 }
 
 static int
@@ -1003,7 +999,7 @@ client_node_update(void *data,
 
 	if (change_mask & PW_CLIENT_NODE_UPDATE_PARAMS) {
 		uint32_t i;
-		spa_log_debug(this->log, "node %p: update %d params", this, n_params);
+		pw_log_debug("node %p: update %d params", this, n_params);
 
 		for (i = 0; i < this->n_params; i++)
 			free(this->params[i]);
@@ -1016,7 +1012,7 @@ client_node_update(void *data,
 	if (change_mask & PW_CLIENT_NODE_UPDATE_INFO) {
 		spa_node_emit_info(&this->hooks, info);
 	}
-	spa_log_debug(this->log, "node %p: got node update", this);
+	pw_log_debug("node %p: got node update", this);
 	return 0;
 }
 
@@ -1165,7 +1161,7 @@ node_init(struct node *this,
 	this->data_source.mask = SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP;
 	this->data_source.rmask = 0;
 
-	return 0;
+	return SPA_RESULT_RETURN_ASYNC(0);
 }
 
 static int node_clear(struct node *this)
@@ -1653,6 +1649,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 				     pw_resource_get_client(this->resource),
 				     parent,
 				     name,
+				     PW_SPA_NODE_FLAG_ASYNC |
 				     (do_register ? 0 : PW_SPA_NODE_FLAG_NO_REGISTER),
 				     &impl->node.node,
 				     NULL,

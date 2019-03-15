@@ -151,7 +151,7 @@ pw_spa_node_new(struct pw_core *core,
 	if (res < 0)
 		goto clean_node;
 
-	if (SPA_RESULT_IS_ASYNC(res)) {
+	if (flags & PW_SPA_NODE_FLAG_ASYNC) {
 		impl->init_pending = spa_node_sync(impl->node, res);
 	} else {
 		complete_init(impl);
@@ -307,6 +307,9 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 		pw_log_error("can't make factory instance: %d", res);
 		goto init_failed;
 	}
+
+	if (SPA_RESULT_IS_ASYNC(res))
+		flags |= PW_SPA_NODE_FLAG_ASYNC;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
 		pw_log_error("can't get node interface %d", res);

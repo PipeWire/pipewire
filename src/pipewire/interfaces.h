@@ -428,7 +428,8 @@ pw_registry_proxy_bind(struct pw_registry_proxy *registry,
 {
 	struct pw_proxy *reg = (struct pw_proxy*)registry;
 	struct pw_proxy *p = pw_proxy_new(reg, type, user_data_size);
-	pw_proxy_do(reg, struct pw_registry_proxy_methods, bind, id, type, version, pw_proxy_get_id(p));
+	pw_proxy_do(reg, struct pw_registry_proxy_methods, bind,
+			id, type, version, pw_proxy_get_id(p));
 	return p;
 }
 

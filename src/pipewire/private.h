@@ -668,6 +668,8 @@ struct pw_stream {
 
 	struct pw_node_proxy *node;
 	struct spa_hook node_listener;
+
+	struct spa_list controls;
 };
 
 #define pw_factory_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_factory_events, m, v, ##__VA_ARGS__)

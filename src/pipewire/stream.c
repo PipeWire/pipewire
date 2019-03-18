@@ -78,6 +78,14 @@ struct param {
 	struct spa_pod *param;
 };
 
+struct control {
+	uint32_t id;
+	struct spa_list link;
+	struct pw_stream_control control;
+	struct spa_pod *info;
+	int emitted:1;
+};
+
 #define DEFAULT_VOLUME	1.0
 
 struct props {
@@ -879,6 +887,16 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	}
 }
 
+static struct control *find_control(struct pw_stream *stream, uint32_t id)
+{
+	struct control *c;
+	spa_list_for_each(c, &stream->controls, link) {
+		if (c->id == id)
+			return c;
+	}
+	return NULL;
+}
+
 static void node_event_param(void *object, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
@@ -887,19 +905,92 @@ static void node_event_param(void *object, int seq,
 
 	switch (id) {
 	case SPA_PARAM_PropInfo:
-		pw_log_debug("info");
+	{
+		struct control *c;
+		const struct spa_pod *type, *pod;
+		uint32_t iid, choice, n_vals;
+		float *vals, bool_range[3] = { 1.0, 0.0, 1.0 };
+
+		c = calloc(1, sizeof(*c) + SPA_POD_SIZE(param));
+		c->info = SPA_MEMBER(c, sizeof(*c), struct spa_pod);
+		memcpy(c->info, param, SPA_POD_SIZE(param));
+		spa_list_append(&stream->controls, &c->link);
+
+		if (spa_pod_parse_object(c->info,
+					SPA_TYPE_OBJECT_PropInfo, NULL,
+					SPA_PROP_INFO_id,   SPA_POD_Id(&iid),
+					SPA_PROP_INFO_name, SPA_POD_String(&c->control.name),
+					SPA_PROP_INFO_type, SPA_POD_PodChoice(&type)) < 0)
+			return;
+
+		pod = spa_pod_get_values(type, &n_vals, &choice);
+
+		if (spa_pod_is_float(pod))
+			vals = SPA_POD_BODY(pod);
+		else if (spa_pod_is_bool(pod) && n_vals > 0) {
+			choice = SPA_CHOICE_Range;
+			vals = bool_range;
+			vals[0] = SPA_POD_VALUE(struct spa_pod_bool, pod);
+			n_vals = 3;
+		}
+		else
+			return;
+
+		switch (choice) {
+		case SPA_CHOICE_None:
+			if (n_vals < 1)
+				return;
+			c->control.value = c->control.def = c->control.min = c->control.max = vals[0];
+			break;
+		case SPA_CHOICE_Range:
+			if (n_vals < 3)
+				return;
+			c->control.value = vals[0];
+			c->control.def = vals[0];
+			c->control.min = vals[1];
+			c->control.max = vals[2];
+			break;
+		default:
+			return;
+		}
+
+		c->id = iid;
+		pw_log_debug("stream %p: add control %d (%s) (def:%f min:%f max:%f)",
+				stream, c->id, c->control.name,
+				c->control.def, c->control.min, c->control.max);
 		break;
+	}
 	case SPA_PARAM_Props:
 	{
 		struct spa_pod_prop *prop;
 		struct spa_pod_object *obj = (struct spa_pod_object *) param;
-		float value;
+		union {
+			float f;
+			bool b;
+		} value;
 
 		SPA_POD_OBJECT_FOREACH(obj, prop) {
-			if (spa_pod_get_float(&prop->value, &value) < 0)
+			struct control *c;
+
+			c = find_control(stream, prop->key);
+			if (c == NULL)
 				continue;
-			pw_log_debug("stream %p: control %d changed %f", stream, prop->key, value);
-			pw_stream_emit_control_changed(stream, prop->key, value);
+
+			if (spa_pod_get_float(&prop->value, &value.f) == 0)
+				;
+			else if (spa_pod_get_bool(&prop->value, &value.b) == 0)
+				value.f = value.b ? 1.0 : 0.0;
+			else
+				continue;
+
+			if (c->control.value == value.f && c->emitted)
+				continue;
+
+			c->control.value = value.f;
+			c->emitted = true;
+			pw_log_debug("stream %p: control %d (%s) changed %f", stream,
+					prop->key, c->control.name, value.f);
+			pw_stream_emit_control_changed(stream, prop->key, value.f);
 		}
 		break;
 	}
@@ -1046,6 +1137,7 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	spa_list_init(&impl->param_list);
 
 	spa_hook_list_init(&this->listener_list);
+	spa_list_init(&this->controls);
 
 	this->state = PW_STREAM_STATE_UNCONNECTED;
 
@@ -1124,6 +1216,7 @@ SPA_EXPORT
 void pw_stream_destroy(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	struct control *c;
 
 	pw_log_debug("stream %p: destroy", stream);
 
@@ -1141,6 +1234,11 @@ void pw_stream_destroy(struct pw_stream *stream)
 	pw_properties_free(stream->properties);
 
 	free(stream->name);
+
+	spa_list_consume(c, &stream->controls, link) {
+		spa_list_remove(&c->link);
+		free(c);
+	}
 
 	if (impl->free_data)
 		pw_core_destroy(impl->data.core);
@@ -1200,7 +1298,7 @@ struct pw_remote *pw_stream_get_remote(struct pw_stream *stream)
 	return stream->remote;
 }
 
-static void add_controls(struct pw_stream *stream)
+static void add_params(struct pw_stream *stream)
 {
 	uint8_t buffer[4096];
 	struct spa_pod_builder b;
@@ -1253,7 +1351,7 @@ pw_stream_connect(struct pw_stream *stream,
 	for (i = 0; i < n_params; i++)
 		add_param(stream, PARAM_TYPE_INIT, params[i]);
 
-	add_controls(stream);
+	add_params(stream);
 
 	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, NULL);
 
@@ -1352,6 +1450,14 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value)
 SPA_EXPORT
 const struct pw_stream_control *pw_stream_get_control(struct pw_stream *stream, uint32_t id)
 {
+	struct control *c;
+
+	if (id == 0)
+		return NULL;
+
+	if ((c = find_control(stream, id)))
+		return &c->control;
+
 	return NULL;
 }
 

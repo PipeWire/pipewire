@@ -310,20 +310,23 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	pw_log_debug("update %d %"PRIu64, g->id, info->change_mask);
 	g->info = pw_node_info_update(g->info, info);
 
-	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
-		for (i = 0; i < info->n_params; i++) {
-			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
-				continue;
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS && !g->subscribed) {
+		uint32_t subscribed[32], n_subscribed = 0;
 
+		for (i = 0; i < info->n_params; i++) {
 			switch (info->params[i].id) {
 			case SPA_PARAM_EnumFormat:
 			case SPA_PARAM_Props:
-				pw_node_proxy_enum_params((struct pw_node_proxy*)g->proxy,
-					0, info->params[i].id, 0, -1, NULL);
+				subscribed[n_subscribed++] = info->params[i].id;
 				break;
 			default:
 				break;
 			}
+		}
+		if (n_subscribed > 0) {
+			pw_node_proxy_subscribe_params((struct pw_node_proxy*)g->proxy,
+					subscribed, n_subscribed);
+			g->subscribed = true;
 		}
 	}
 	g->pending_seq = pw_proxy_sync(g->proxy, 0);

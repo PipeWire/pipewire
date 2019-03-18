@@ -219,7 +219,6 @@ struct global {
 	uint32_t id;
 	uint32_t parent_id;
 	uint32_t type;
-	int init:1;
 	struct pw_properties *props;
 
 	pa_context *context;
@@ -227,6 +226,8 @@ struct global {
 	pa_subscription_event_type_t event;
 
 	int pending_seq;
+	int init:1;
+	int subscribed:1;
 
 	void *info;
 	pw_destroy_t destroy;

@@ -243,39 +243,35 @@ pa_operation* pa_context_get_sink_info_list(pa_context *c, pa_sink_info_cb_t cb,
 	return o;
 }
 
-static void set_stream_volume(pa_context *c, pa_stream *s)
+static void set_stream_volume(pa_context *c, pa_stream *s, float volume, bool mute)
 {
-	float v = s->mute ? 0.0f : s->volume;
-	pw_stream_set_control(s->stream, SPA_PROP_volume, v);
+	if (s->volume != volume || s->mute != mute) {
+		s->volume = volume;
+		s->mute = mute;
+
+		pw_stream_set_control(s->stream,
+				SPA_PROP_volume, s->volume,
+				SPA_PROP_mute, s->mute ? 1.0f : 0.0f,
+				0);
+	}
 }
 
-static void set_node_volume(pa_context *c, struct global *g, const pa_cvolume *volume)
-{
-	char buf[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-	float v;
-
-	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-
-	pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
-		SPA_PARAM_Props, 0,
-		spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
-			SPA_PROP_volume,	SPA_POD_Float(v)));
-}
-
-static void set_node_mute(pa_context *c, struct global *g, bool mute)
+static void set_node_volume(pa_context *c, struct global *g, float volume, bool mute)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
-	pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
-		SPA_PARAM_Props, 0,
-		spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
-			SPA_PROP_mute,	SPA_POD_Bool(mute)));
+	if (g->node_info.volume != volume || g->node_info.mute != mute) {
+		g->node_info.volume = volume;
+		g->node_info.mute = mute;
+		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
+			SPA_PARAM_Props, 0,
+			spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
+				SPA_PROP_volume,	SPA_POD_Float(volume),
+				SPA_PROP_mute,		SPA_POD_Bool(mute)));
+	}
 }
-
 
 SPA_EXPORT
 pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
@@ -283,6 +279,7 @@ pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, c
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
+	float v;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -298,7 +295,8 @@ pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, c
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK))
 		return NULL;
 
-	set_node_volume(c, g, volume);
+	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
+	set_node_volume(c, g, v, g->node_info.mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -314,6 +312,7 @@ pa_operation* pa_context_set_sink_volume_by_name(pa_context *c, const char *name
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
+	float v;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -327,7 +326,8 @@ pa_operation* pa_context_set_sink_volume_by_name(pa_context *c, const char *name
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SINK, name)) == NULL)
 		return NULL;
 
-	set_node_volume(c, g, volume);
+	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
+	set_node_volume(c, g, v, g->node_info.mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -357,7 +357,7 @@ pa_operation* pa_context_set_sink_mute_by_index(pa_context *c, uint32_t idx, int
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK))
 		return NULL;
 
-	set_node_mute(c, g, mute);
+	set_node_volume(c, g, g->node_info.volume, mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -385,7 +385,7 @@ pa_operation* pa_context_set_sink_mute_by_name(pa_context *c, const char *name, 
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SINK, name)) == NULL)
 		return NULL;
 
-	set_node_mute(c, g, mute);
+	set_node_volume(c, g, g->node_info.volume, mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -614,6 +614,7 @@ pa_operation* pa_context_set_source_volume_by_index(pa_context *c, uint32_t idx,
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
+	float v;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -629,7 +630,8 @@ pa_operation* pa_context_set_source_volume_by_index(pa_context *c, uint32_t idx,
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))
 		return NULL;
 
-	set_node_volume(c, g, volume);
+	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
+	set_node_volume(c, g, v, g->node_info.mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -645,6 +647,7 @@ pa_operation* pa_context_set_source_volume_by_name(pa_context *c, const char *na
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
+	float v;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -658,7 +661,8 @@ pa_operation* pa_context_set_source_volume_by_name(pa_context *c, const char *na
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SOURCE, name)) == NULL)
 		return NULL;
 
-	set_node_volume(c, g, volume);
+	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
+	set_node_volume(c, g, v, g->node_info.mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -688,7 +692,7 @@ pa_operation* pa_context_set_source_mute_by_index(pa_context *c, uint32_t idx, i
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))
 		return NULL;
 
-	set_node_mute(c, g, mute);
+	set_node_volume(c, g, g->node_info.volume, mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -716,7 +720,7 @@ pa_operation* pa_context_set_source_mute_by_name(pa_context *c, const char *name
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SOURCE, name)) == NULL)
 		return NULL;
 
-	set_node_mute(c, g, mute);
+	set_node_volume(c, g, g->node_info.volume, mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1501,6 +1505,7 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
+	float v;
 
 	pw_log_debug("contex %p: index %d", c, idx);
 
@@ -1511,12 +1516,13 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 			return NULL;
 	}
 
+	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
+
 	if (s) {
-		s->volume = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-		set_stream_volume(c, s);
+		set_stream_volume(c, s, v, s->mute);
 	}
 	else if (g) {
-		set_node_volume(c, g, volume);
+		set_node_volume(c, g, v, g->node_info.mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1535,6 +1541,8 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 	pa_operation *o;
 	struct success_ack *d;
 
+	pw_log_debug("contex %p: index %d", c, idx);
+
 	if ((s = find_stream(c, idx)) == NULL) {
 		if ((g = pa_context_find_global(c, idx)) == NULL)
 			return NULL;
@@ -1543,11 +1551,10 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 	}
 
 	if (s) {
-		s->mute = mute;
-		set_stream_volume(c, s);
+		set_stream_volume(c, s, s->volume, mute);
 	}
 	else if (g) {
-		set_node_mute(c, g, mute);
+		set_node_volume(c, g, g->node_info.volume, mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1770,6 +1777,7 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
+	float v;
 
 	pw_log_debug("contex %p: index %d", c, idx);
 
@@ -1780,12 +1788,13 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 			return NULL;
 	}
 
+	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
+
 	if (s) {
-		s->volume = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-		set_stream_volume(c, s);
+		set_stream_volume(c, s, v, s->mute);
 	}
 	else if (g) {
-		set_node_volume(c, g, volume);
+		set_node_volume(c, g, v, g->node_info.mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1812,11 +1821,10 @@ pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int
 	}
 
 	if (s) {
-		s->mute = mute;
-		set_stream_volume(c, s);
+		set_stream_volume(c, s, s->volume, mute);
 	}
 	else if (g) {
-		set_node_mute(c, g, mute);
+		set_node_volume(c, g, g->node_info.volume, mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;

@@ -80,6 +80,7 @@ struct param {
 
 struct control {
 	uint32_t id;
+	uint32_t type;
 	struct spa_list link;
 	struct pw_stream_control control;
 	struct spa_pod *info;
@@ -120,8 +121,6 @@ struct stream {
 	const struct spa_node_callbacks *callbacks;
 	void *callbacks_data;
 	struct spa_io_buffers *io;
-	struct spa_io_sequence *io_control;
-	struct spa_io_sequence *io_notify;
 	struct spa_io_position *position;
 	uint32_t io_control_size;
 	uint32_t io_notify_size;
@@ -146,6 +145,7 @@ struct stream {
 	int async_connect:1;
 	int disconnecting:1;
 	int free_data:1;
+	int subscribe:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -427,24 +427,6 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 		else
 			impl->io = NULL;
 		break;
-	case SPA_IO_Control:
-		if (data && size >= sizeof(struct spa_io_sequence)) {
-			impl->io_control = data;
-			impl->io_control_size = size;
-		} else {
-			impl->io_control = NULL;
-			impl->io_control_size = 0;
-		}
-		break;
-	case SPA_IO_Notify:
-		if (data && size >= sizeof(struct spa_io_sequence)) {
-			impl->io_notify = data;
-			impl->io_notify_size = size;
-		} else {
-			impl->io_notify = NULL;
-			impl->io_notify_size = 0;
-		}
-		break;
 	default:
 		return -ENOENT;
 	}
@@ -690,36 +672,6 @@ static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint3
 	return 0;
 }
 
-static int process_control(struct stream *impl, void *data, uint32_t size)
-{
-	return 0;
-}
-
-static int process_notify(struct stream *impl, void *data, uint32_t size)
-{
-	struct spa_pod_builder b = { 0 };
-	bool changed;
-	struct spa_pod_frame f[2];
-	struct spa_pod *pod;
-
-        spa_pod_builder_init(&b, data, size);
-	spa_pod_builder_push_sequence(&b, &f[0], 0);
-	if ((changed = impl->props.changed)) {
-		spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
-		spa_pod_builder_push_object(&b, &f[1], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
-		spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
-		spa_pod_builder_float(&b, impl->props.volume);
-		spa_pod_builder_pop(&b, &f[1]);
-		impl->props.changed = false;
-	}
-	pod = spa_pod_builder_pop(&b, &f[0]);
-
-	if (changed && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG) && pod)
-		spa_debug_pod(2, NULL, pod);
-
-	return 0;
-}
-
 static inline void copy_position(struct stream *impl, int64_t queued)
 {
 	struct spa_io_position *p = impl->position;
@@ -732,11 +684,6 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 		impl->time.queued = queued;
 		__atomic_add_fetch(&impl->seq, 1, __ATOMIC_SEQ_CST);
 	}
-
-	if (impl->io_control)
-		process_control(impl, &impl->io_control->sequence, impl->io_control_size);
-	if (impl->io_notify)
-		process_notify(impl, &impl->io_notify->sequence, impl->io_notify_size);
 }
 
 static int impl_node_process_input(struct spa_node *node)
@@ -863,26 +810,25 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct pw_stream *stream = object;
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	uint32_t subscribe[info->n_params], n_subscribe = 0;
 	uint32_t i;
 
-	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS && !impl->subscribe) {
 		for (i = 0; i < info->n_params; i++) {
-			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
-				continue;
 
 			switch (info->params[i].id) {
 			case SPA_PARAM_PropInfo:
-				if (info->params[i].flags == impl->param_propinfo)
-					break;
-				impl->param_propinfo = info->params[i].flags;
-				/* fallthrough */
 			case SPA_PARAM_Props:
-				pw_node_proxy_enum_params((struct pw_node_proxy*)stream->proxy,
-					0, info->params[i].id, 0, -1, NULL);
+				subscribe[n_subscribe++] = info->params[i].id;
 				break;
 			default:
 				break;
 			}
+		}
+		if (n_subscribe > 0) {
+			pw_node_proxy_subscribe_params((struct pw_node_proxy*)stream->proxy,
+					subscribe, n_subscribe);
+			impl->subscribe = true;
 		}
 	}
 }
@@ -925,6 +871,7 @@ static void node_event_param(void *object, int seq,
 
 		pod = spa_pod_get_values(type, &n_vals, &choice);
 
+		c->type = SPA_POD_TYPE(pod);
 		if (spa_pod_is_float(pod))
 			vals = SPA_POD_BODY(pod);
 		else if (spa_pod_is_bool(pod) && n_vals > 0) {
@@ -1310,16 +1257,6 @@ static void add_params(struct pw_stream *stream)
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
 			SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 			SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers))));
-	add_param(stream, PARAM_TYPE_INIT,
-		spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-			SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Notify),
-			SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence) + 1024)));
-	add_param(stream, PARAM_TYPE_INIT,
-		spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-			SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Control),
-			SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence))));
 }
 
 SPA_EXPORT
@@ -1431,18 +1368,43 @@ void pw_stream_finish_format(struct pw_stream *stream,
 }
 
 SPA_EXPORT
-int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value)
+int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value, ...)
 {
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+        va_list varargs;
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct spa_pod_frame f[1];
+	struct spa_pod *pod;
+	struct control *c;
 
-	switch (id) {
-	case SPA_PROP_volume:
-		impl->props.volume = value;
-		break;
-	default:
-		return -ENOTSUP;
+	pw_log_debug("stream %p: set control %d %f", stream, id, value);
+
+        va_start(varargs, value);
+
+	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+	while (1) {
+		if ((c = find_control(stream, id))) {
+			spa_pod_builder_prop(&b, id, 0);
+			switch (c->type) {
+			case SPA_TYPE_Float:
+				spa_pod_builder_float(&b, value);
+				break;
+			case SPA_TYPE_Bool:
+				spa_pod_builder_bool(&b, value < 0.5 ? false : true);
+				break;
+			default:
+				spa_pod_builder_none(&b);
+				break;
+			}
+		}
+		if ((id = va_arg(varargs, uint32_t)) == 0)
+			break;
+		value = va_arg(varargs, double);
 	}
-	impl->props.changed = true;
+	pod = spa_pod_builder_pop(&b, &f[0]);
+
+	pw_node_proxy_set_param((struct pw_node_proxy*)stream->proxy,
+				SPA_PARAM_Props, 0, pod);
 
 	return 0;
 }

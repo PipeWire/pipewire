@@ -621,15 +621,27 @@ pw_device_proxy_add_listener(struct pw_device_proxy *device,
 
 #define PW_VERSION_NODE			0
 
-#define PW_NODE_PROXY_METHOD_ENUM_PARAMS	0
-#define PW_NODE_PROXY_METHOD_SET_PARAM		1
-#define PW_NODE_PROXY_METHOD_SEND_COMMAND	2
-#define PW_NODE_PROXY_METHOD_NUM		3
+#define PW_NODE_PROXY_METHOD_SUBSCRIBE_PARAMS	0
+#define PW_NODE_PROXY_METHOD_ENUM_PARAMS	1
+#define PW_NODE_PROXY_METHOD_SET_PARAM		2
+#define PW_NODE_PROXY_METHOD_SEND_COMMAND	3
+#define PW_NODE_PROXY_METHOD_NUM		4
 
 /** Node methods */
 struct pw_node_proxy_methods {
 #define PW_VERSION_NODE_PROXY_METHODS	0
 	uint32_t version;
+	/**
+	 * Subscribe to parameter changes
+	 *
+	 * Automatically emit param events for the given ids when
+	 * they are changed.
+	 *
+	 * \param ids an array of param ids
+	 * \param n_ids the number of ids in \a ids
+	 */
+	int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
+
 	/**
 	 * Enumerate node parameters
 	 *
@@ -665,6 +677,13 @@ struct pw_node_proxy_methods {
 };
 
 /** Node */
+static inline int
+pw_node_proxy_subscribe_params(struct pw_node_proxy *node, uint32_t *ids, uint32_t n_ids)
+{
+	return pw_proxy_do((struct pw_proxy*)node, struct pw_node_proxy_methods, subscribe_params,
+			ids, n_ids);
+}
+
 static inline int
 pw_node_proxy_enum_params(struct pw_node_proxy *node, int seq, uint32_t id, uint32_t index,
 		uint32_t num, const struct spa_pod *filter)

@@ -323,8 +323,8 @@ pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 			uint32_t n_params		/**< number of elements in \a params */);
 
 
-/** Set a control value */
-int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value);
+/** Set control values */
+int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value, ...);
 
 /** Get control information */
 const struct pw_stream_control * pw_stream_get_control(struct pw_stream *stream, uint32_t id);

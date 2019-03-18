@@ -970,6 +970,38 @@ static int node_demarshal_param(void *object, void *data, size_t size)
 			seq, id, index, next, param);
 }
 
+static int node_marshal_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_NODE_PROXY_METHOD_SUBSCRIBE_PARAMS, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, n_ids, ids));
+
+	return pw_protocol_native_end_proxy(proxy, b);
+}
+
+static int node_demarshal_subscribe_params(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	uint32_t csize, ctype, n_ids;
+	uint32_t *ids;
+
+	spa_pod_parser_init(&prs, data, size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
+		return -EINVAL;
+
+	if (ctype != SPA_TYPE_Id)
+		return -EINVAL;
+
+	return pw_resource_do(resource, struct pw_node_proxy_methods, subscribe_params, 0,
+			ids, n_ids);
+}
+
 static int node_marshal_enum_params(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t num, const struct spa_pod *filter)
 {
@@ -1769,12 +1801,14 @@ static const struct pw_protocol_marshal pw_protocol_native_device_marshal = {
 
 static const struct pw_node_proxy_methods pw_protocol_native_node_method_marshal = {
 	PW_VERSION_NODE_PROXY_METHODS,
+	&node_marshal_subscribe_params,
 	&node_marshal_enum_params,
 	&node_marshal_set_param,
 	&node_marshal_send_command,
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_node_method_demarshal[] = {
+	{ &node_demarshal_subscribe_params, 0, },
 	{ &node_demarshal_enum_params, 0, },
 	{ &node_demarshal_set_param, PW_PERM_W, },
 	{ &node_demarshal_send_command, PW_PERM_W, },

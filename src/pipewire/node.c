@@ -62,6 +62,8 @@ struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_node *node;
 	struct pw_resource *resource;
+	uint32_t subscribe_ids[64];
+	uint32_t n_subscribe_ids;
 };
 
 /** \endcond */
@@ -193,6 +195,62 @@ static void emit_info_changed(struct pw_node *node)
 	node->info.change_mask = 0;
 }
 
+static int resource_is_subscribed(struct pw_resource *resource, uint32_t id)
+{
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	uint32_t i;
+
+	for (i = 0; i < data->n_subscribe_ids; i++) {
+		if (data->subscribe_ids[i] == id)
+			return 1;
+	}
+	return 0;
+}
+
+static int notify_param(void *data, int seq, uint32_t id,
+		uint32_t index, uint32_t next, struct spa_pod *param)
+{
+	struct pw_node *node = data;
+	struct pw_resource *resource;
+
+	spa_list_for_each(resource, &node->global->resource_list, link) {
+		if (!resource_is_subscribed(resource, id))
+			continue;
+
+		pw_log_debug("resource %p: notify param %d", resource, id);
+		pw_node_resource_param(resource, seq, id, index, next, param);
+	}
+	return 0;
+}
+
+static void emit_params(struct pw_node *node, uint32_t *changed_ids, uint32_t n_changed_ids)
+{
+	uint32_t i;
+	int res;
+
+	if (node->global == NULL)
+		return;
+
+	pw_log_debug("node %p: emit %d params", node, n_changed_ids);
+
+	for (i = 0; i < n_changed_ids; i++) {
+		struct pw_resource *resource;
+		int subscribed = 0;
+
+		/* first check if anyone is subscribed */
+		spa_list_for_each(resource, &node->global->resource_list, link) {
+			if ((subscribed = resource_is_subscribed(resource, changed_ids[i])))
+				break;
+		}
+		if (!subscribed)
+			continue;
+
+		if ((res = pw_node_for_each_param(node, 1, changed_ids[i], 0, UINT32_MAX,
+					NULL, notify_param, node)) < 0) {
+			pw_log_error("node %p: error %d (%s)", node, res, spa_strerror(res));
+		}
+	}
+}
 
 static void node_update_state(struct pw_node *node, enum pw_node_state state, char *error)
 {
@@ -302,6 +360,24 @@ static int node_enum_params(void *object, int seq, uint32_t id,
 	return 0;
 }
 
+static int node_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	uint32_t i;
+
+	n_ids = SPA_MIN(n_ids, SPA_N_ELEMENTS(data->subscribe_ids));
+	data->n_subscribe_ids = n_ids;
+
+	for (i = 0; i < n_ids; i++) {
+		data->subscribe_ids[i] = ids[i];
+		pw_log_debug("resource %p: subscribe param %s", resource,
+			spa_debug_type_find_name(spa_type_param, ids[i]));
+		node_enum_params(resource, 1, ids[i], 0, UINT32_MAX, NULL);
+	}
+	return 0;
+}
+
 static int node_set_param(void *object, uint32_t id, uint32_t flags,
 		const struct spa_pod *param)
 {
@@ -309,6 +385,9 @@ static int node_set_param(void *object, uint32_t id, uint32_t flags,
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_node *node = data->node;
 	int res;
+
+	pw_log_debug("resource %p: set param %s %08x", resource,
+			spa_debug_type_find_name(spa_type_param, id), flags);
 
 	if ((res = spa_node_set_param(node->node, id, flags, param)) < 0) {
 		pw_log_error("resource %p: %d error %d (%s)", resource,
@@ -337,6 +416,7 @@ static int node_send_command(void *object, const struct spa_command *command)
 
 static const struct pw_node_proxy_methods node_methods = {
 	PW_VERSION_NODE_PROXY_METHODS,
+	.subscribe_params = node_subscribe_params,
 	.enum_params = node_enum_params,
 	.set_param = node_set_param,
 	.send_command = node_send_command
@@ -869,6 +949,7 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 static void node_info(void *data, const struct spa_node_info *info)
 {
 	struct pw_node *node = data;
+	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
 
 	node->info.max_input_ports = info->max_input_ports;
 	node->info.max_output_ports = info->max_output_ports;
@@ -881,12 +962,25 @@ static void node_info(void *data, const struct spa_node_info *info)
 		update_properties(node, info->props);
 	}
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
+		uint32_t i;
+
 		node->info.change_mask |= PW_NODE_CHANGE_MASK_PARAMS;
 		node->info.n_params = SPA_MIN(info->n_params, SPA_N_ELEMENTS(node->params));
-		memcpy(node->info.params, info->params,
-				node->info.n_params * sizeof(struct spa_param_info));
+
+		for (i = 0; i < node->info.n_params; i++) {
+			if (node->info.params[i].flags == info->params[i].flags)
+				continue;
+
+			if (info->params[i].flags & SPA_PARAM_INFO_READ)
+				changed_ids[n_changed_ids++] = info->params[i].id;
+
+			node->info.params[i] = info->params[i];
+		}
 	}
 	emit_info_changed(node);
+
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS)
+		emit_params(node, changed_ids, n_changed_ids);
 }
 
 static void node_port_info(void *data, enum spa_direction direction, uint32_t port_id,

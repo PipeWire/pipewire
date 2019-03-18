@@ -171,6 +171,7 @@ static void test_node_abi(void)
 	struct pw_node_proxy_events e;
 	struct {
 		uint32_t version;
+		int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
 		int (*enum_params) (void *object, int seq, uint32_t id,
 			uint32_t start, uint32_t num, const struct spa_pod *filter);
 		int (*set_param) (void *object, uint32_t id, uint32_t flags,
@@ -186,6 +187,7 @@ static void test_node_abi(void)
 	} events = { PW_VERSION_NODE_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
+	TEST_FUNC(m, methods, subscribe_params);
 	TEST_FUNC(m, methods, enum_params);
 	TEST_FUNC(m, methods, set_param);
 	TEST_FUNC(m, methods, send_command);
@@ -205,6 +207,7 @@ static void test_port_abi(void)
 	struct pw_port_proxy_events e;
 	struct {
 		uint32_t version;
+		int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
 		int (*enum_params) (void *object, int seq, uint32_t id,
 			uint32_t start, uint32_t num, const struct spa_pod *filter);
 	} methods = { PW_VERSION_PORT_PROXY_METHODS, };

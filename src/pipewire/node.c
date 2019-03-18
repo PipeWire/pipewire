@@ -62,7 +62,7 @@ struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_node *node;
 	struct pw_resource *resource;
-	uint32_t subscribe_ids[64];
+	uint32_t subscribe_ids[MAX_PARAMS];
 	uint32_t n_subscribe_ids;
 };
 

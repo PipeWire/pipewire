@@ -46,6 +46,8 @@ struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_port *port;
 	struct pw_resource *resource;
+	uint32_t subscribe_ids[MAX_PARAMS];
+	uint32_t n_subscribe_ids;
 };
 
 /** \endcond */
@@ -239,8 +241,67 @@ static int update_properties(struct pw_port *port, const struct spa_dict *dict)
 	return changed;
 }
 
+static int resource_is_subscribed(struct pw_resource *resource, uint32_t id)
+{
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	uint32_t i;
+
+	for (i = 0; i < data->n_subscribe_ids; i++) {
+		if (data->subscribe_ids[i] == id)
+			return 1;
+	}
+	return 0;
+}
+
+static int notify_param(void *data, int seq, uint32_t id,
+		uint32_t index, uint32_t next, struct spa_pod *param)
+{
+	struct pw_port *port = data;
+	struct pw_resource *resource;
+
+	spa_list_for_each(resource, &port->global->resource_list, link) {
+		if (!resource_is_subscribed(resource, id))
+			continue;
+
+		pw_log_debug("resource %p: notify param %d", resource, id);
+		pw_port_resource_param(resource, seq, id, index, next, param);
+	}
+	return 0;
+}
+
+static void emit_params(struct pw_port *port, uint32_t *changed_ids, uint32_t n_changed_ids)
+{
+	uint32_t i;
+	int res;
+
+	if (port->global == NULL)
+		return;
+
+	pw_log_debug("port %p: emit %d params", port, n_changed_ids);
+
+	for (i = 0; i < n_changed_ids; i++) {
+		struct pw_resource *resource;
+		int subscribed = 0;
+
+		/* first check if anyone is subscribed */
+		spa_list_for_each(resource, &port->global->resource_list, link) {
+			if ((subscribed = resource_is_subscribed(resource, changed_ids[i])))
+				break;
+		}
+		if (!subscribed)
+			continue;
+
+		if ((res = pw_port_for_each_param(port, 1, changed_ids[i], 0, UINT32_MAX,
+					NULL, notify_param, port)) < 0) {
+			pw_log_error("port %p: error %d (%s)", port, res, spa_strerror(res));
+		}
+	}
+}
+
 static void update_info(struct pw_port *port, const struct spa_port_info *info)
 {
+	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
+
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_FLAGS) {
 		port->spa_flags = info->flags;
 	}
@@ -248,11 +309,24 @@ static void update_info(struct pw_port *port, const struct spa_port_info *info)
 		update_properties(port, info->props);
 	}
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
+		uint32_t i;
+
 		port->info.change_mask |= PW_PORT_CHANGE_MASK_PARAMS;
 		port->info.n_params = SPA_MIN(info->n_params, SPA_N_ELEMENTS(port->params));
-		memcpy(port->info.params, info->params,
-				port->info.n_params * sizeof(struct spa_param_info));
+
+		for (i = 0; i < port->info.n_params; i++) {
+			if (port->info.params[i].flags == info->params[i].flags)
+				continue;
+
+			if (info->params[i].flags & SPA_PARAM_INFO_READ)
+				changed_ids[n_changed_ids++] = info->params[i].id;
+
+			port->info.params[i] = info->params[i];
+		}
 	}
+
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS)
+		emit_params(port, changed_ids, n_changed_ids);
 }
 
 SPA_EXPORT
@@ -481,8 +555,27 @@ static int port_enum_params(void *object, int seq, uint32_t id, uint32_t index, 
 	return res;
 }
 
+static int port_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	uint32_t i;
+
+	n_ids = SPA_MIN(n_ids, SPA_N_ELEMENTS(data->subscribe_ids));
+	data->n_subscribe_ids = n_ids;
+
+	for (i = 0; i < n_ids; i++) {
+		data->subscribe_ids[i] = ids[i];
+		pw_log_debug("resource %p: subscribe param %s", resource,
+			spa_debug_type_find_name(spa_type_param, ids[i]));
+		port_enum_params(resource, 1, ids[i], 0, UINT32_MAX, NULL);
+	}
+	return 0;
+}
+
 static const struct pw_port_proxy_methods port_methods = {
 	PW_VERSION_PORT_PROXY_METHODS,
+	.subscribe_params = port_subscribe_params,
 	.enum_params = port_enum_params
 };
 

@@ -752,13 +752,25 @@ pw_node_proxy_add_listener(struct pw_node_proxy *node,
 
 #define PW_VERSION_PORT			0
 
-#define PW_PORT_PROXY_METHOD_ENUM_PARAMS	0
-#define PW_PORT_PROXY_METHOD_NUM		1
+#define PW_PORT_PROXY_METHOD_SUBSCRIBE_PARAMS	0
+#define PW_PORT_PROXY_METHOD_ENUM_PARAMS	1
+#define PW_PORT_PROXY_METHOD_NUM		2
 
 /** Port methods */
 struct pw_port_proxy_methods {
 #define PW_VERSION_PORT_PROXY_METHODS	0
 	uint32_t version;
+	/**
+	 * Subscribe to parameter changes
+	 *
+	 * Automatically emit param events for the given ids when
+	 * they are changed.
+	 *
+	 * \param ids an array of param ids
+	 * \param n_ids the number of ids in \a ids
+	 */
+	int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
+
 	/**
 	 * Enumerate port parameters
 	 *
@@ -777,6 +789,13 @@ struct pw_port_proxy_methods {
 };
 
 /** Port params */
+static inline int
+pw_port_proxy_subscribe_params(struct pw_port_proxy *port, uint32_t *ids, uint32_t n_ids)
+{
+	return pw_proxy_do((struct pw_proxy*)port, struct pw_port_proxy_methods, subscribe_params,
+			ids, n_ids);
+}
+
 static inline int
 pw_port_proxy_enum_params(struct pw_port_proxy *port, int seq, uint32_t id, uint32_t index,
 		uint32_t num, const struct spa_pod *filter)

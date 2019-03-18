@@ -45,6 +45,8 @@ extern "C" {
 #define spa_debug pw_log_trace
 #endif
 
+#define MAX_PARAMS	32
+
 struct pw_command;
 
 typedef int (*pw_command_func_t) (struct pw_command *command, struct pw_core *core, char **err);
@@ -261,7 +263,7 @@ struct pw_device {
 
 	struct pw_properties *properties;	/**< properties of the device */
 	struct pw_device_info info;		/**< introspectable device info */
-	struct spa_param_info params[32];
+	struct spa_param_info params[MAX_PARAMS];
 
 	struct spa_device *implementation;	/**< implementation */
 	struct spa_hook listener;
@@ -357,7 +359,7 @@ struct pw_node {
 	struct pw_properties *properties;	/**< properties of the node */
 
 	struct pw_node_info info;		/**< introspectable node info */
-	struct spa_param_info params[32];
+	struct spa_param_info params[MAX_PARAMS];
 
 	int registered:1;
 	int enabled:1;			/**< if the node is enabled */
@@ -475,7 +477,7 @@ struct pw_port {
 
 	struct pw_properties *properties;	/**< properties of the port */
 	struct pw_port_info info;
-	struct spa_param_info params[32];
+	struct spa_param_info params[MAX_PARAMS];
 
 	struct allocation allocation;
 

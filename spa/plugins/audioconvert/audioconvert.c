@@ -430,22 +430,10 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 		break;
 
 	case SPA_PARAM_PropInfo:
-		switch (result.index) {
-		case 0:
-			return spa_node_enum_params(this->channelmix, seq, id, start, num, filter);
-		default:
-			return 0;
-		}
-		break;
+		return spa_node_enum_params(this->channelmix, seq, id, start, num, filter);
 
 	case SPA_PARAM_Props:
-		switch (result.index) {
-		case 0:
-			return spa_node_enum_params(this->channelmix, seq, id, start, num, filter);
-		default:
-			return 0;
-		}
-		break;
+		return spa_node_enum_params(this->channelmix, seq, id, start, num, filter);
 
 	default:
 		return -ENOENT;

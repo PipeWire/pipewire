@@ -478,7 +478,7 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_mute),
 				SPA_PROP_INFO_name, SPA_POD_String("Mute"),
-				SPA_PROP_INFO_type, SPA_POD_Bool(p->mute));
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->mute));
 			break;
 		default:
 			return 0;

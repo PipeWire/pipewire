@@ -109,6 +109,13 @@ static void test_read_write(struct pw_protocol_native_connection *in,
 	spa_assert(read_message(in) == 0);
 	spa_assert(read_message(in) == 0);
 	spa_assert(read_message(in) == -1);
+
+	write_message(out, 1);
+	write_message(out, 2);
+	pw_protocol_native_connection_flush(out);
+	spa_assert(read_message(in) == 0);
+	spa_assert(read_message(in) == 0);
+	spa_assert(read_message(in) == -1);
 }
 
 int main(int argc, char *argv[])

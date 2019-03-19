@@ -80,7 +80,11 @@ test('pw-test-protocol-native',
 			c_args : libpipewire_c_args,
 			include_directories : [configinc, spa_inc ],
 			dependencies : [pipewire_dep],
-			install : false))
+			install : false),
+	env : [
+		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
+		'PIPEWIRE_MODULE_DIR=@0@/src/modules/'.format(meson.build_root())
+	])
 
 pipewire_module_audio_dsp = shared_library('pipewire-module-audio-dsp',
   [ 'module-audio-dsp.c',

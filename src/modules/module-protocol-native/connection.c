@@ -61,14 +61,14 @@ struct buffer {
 
 struct impl {
 	struct pw_protocol_native_connection this;
+	struct pw_core *core;
 
 	struct buffer in, out;
 
 	uint32_t dest_id;
 	uint8_t opcode;
-	struct spa_pod_builder builder;
-	struct pw_core *core;
 	uint32_t seq;
+	struct spa_pod_builder builder;
 };
 
 /** \endcond */
@@ -128,7 +128,9 @@ static void *connection_ensure_size(struct pw_protocol_native_connection *conn, 
 		buf->buffer_data = realloc(buf->buffer_data, buf->buffer_maxsize);
 		if (buf->buffer_data == NULL) {
 			buf->buffer_maxsize = 0;
-			spa_hook_list_call(&conn->listener_list, struct pw_protocol_native_connection_events, error, 0, -ENOMEM);
+			spa_hook_list_call(&conn->listener_list,
+					struct pw_protocol_native_connection_events,
+					error, 0, -ENOMEM);
 			return NULL;
 		}
 		pw_log_warn("connection %p: resize buffer to %zd %zd %zd",
@@ -214,6 +216,7 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct p
 		return NULL;
 
 	debug_messages = pw_debug_is_category_enabled("connection");
+	impl->core = core;
 
 	this = &impl->this;
 
@@ -227,7 +230,6 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct p
 	impl->in.buffer_data = calloc(1, MAX_BUFFER_SIZE);
 	impl->in.buffer_maxsize = MAX_BUFFER_SIZE;
 	impl->in.update = true;
-	impl->core = core;
 
 	if (impl->out.buffer_data == NULL || impl->in.buffer_data == NULL)
 		goto no_mem;
@@ -307,7 +309,7 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 	if (buf->offset >= size) {
 		clear_buffer(buf);
 		buf->update = true;
-		return false;
+		goto again;
 	}
 
 	data += buf->offset;

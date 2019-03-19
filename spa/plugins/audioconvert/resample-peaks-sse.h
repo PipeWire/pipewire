@@ -41,7 +41,8 @@ static void impl_peaks_process_sse(struct resample *r, int channel,
 	struct peaks_data *pd = r->data;
 	float *s = src, *d = dst, m;
 	uint32_t i, o, end, chunk, unrolled;
-	__m128 in, max, mask = _mm_set_ps1(-0.0f);
+	__m128 in, max, mask = _mm_andnot_ps(_mm_set_ps1(-0.0f),
+			_mm_cmpeq_ps(_mm_setzero_ps(), _mm_setzero_ps()));
 
 	o = i = 0;
 
@@ -57,8 +58,8 @@ static void impl_peaks_process_sse(struct resample *r, int channel,
 
 		for (; i < unrolled; i+=4) {
 			in = _mm_loadu_ps(&s[i]);
-			in = _mm_andnot_ps(mask, in);
-			max = _mm_max_ps(max, in);
+			in = _mm_and_ps(mask, in);
+			max = _mm_max_ps(in, max);
 		}
 		for (; i < chunk; i++)
 			m = SPA_MAX(fabsf(s[i]), m);

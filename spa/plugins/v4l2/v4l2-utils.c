@@ -1000,7 +1000,7 @@ static uint32_t control_to_prop_id(struct impl *impl, uint32_t control_id)
 	case V4L2_CID_SHARPNESS:
 		return SPA_PROP_sharpness;
 	default:
-		return SPA_PROP_unknown;
+		return SPA_PROP_START_CUSTOM + control_id;
 	}
 }
 

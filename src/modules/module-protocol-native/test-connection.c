@@ -30,14 +30,12 @@
 
 static void test_create(struct pw_protocol_native_connection *conn)
 {
-	uint8_t opcode;
-	uint32_t dest_id, size;
-	void *data;
-	int res, seq;
+	const struct pw_protocol_native_message *msg;
+	int res;
 
-	res = pw_protocol_native_connection_get_next(conn,
-			&opcode, &dest_id, &data, &size, &seq);
-	spa_assert(res == false);
+	res = pw_protocol_native_connection_get_next(conn, &msg);
+	spa_assert(res != 1);
+	spa_assert(msg != NULL);
 
 	res = pw_protocol_native_connection_get_fd(conn, 0);
 	spa_assert(res == -1);
@@ -51,12 +49,15 @@ static void test_create(struct pw_protocol_native_connection *conn)
 
 static void write_message(struct pw_protocol_native_connection *conn, int fd)
 {
+	struct pw_protocol_native_message *msg;
 	struct spa_pod_builder *b;
 	int seq = -1, res;
 
-	b = pw_protocol_native_connection_begin(conn, 1, 5, &seq);
+	b = pw_protocol_native_connection_begin(conn, 1, 5, &msg);
 	spa_assert(b != NULL);
-	spa_assert(seq != -1);
+	spa_assert(msg->seq != -1);
+
+	seq = SPA_RESULT_RETURN_ASYNC(msg->seq);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(42),
@@ -70,23 +71,20 @@ static void write_message(struct pw_protocol_native_connection *conn, int fd)
 static int read_message(struct pw_protocol_native_connection *conn)
 {
         struct spa_pod_parser prs;
-	uint8_t opcode;
-	uint32_t dest_id, size;
-	void *data;
-	int res, seq, fd;
+	const struct pw_protocol_native_message *msg;
+	int res, fd;
 	uint32_t v_int, v_id, fdidx;
 
-	res = pw_protocol_native_connection_get_next(conn,
-			&opcode, &dest_id, &data, &size, &seq);
-	if (!res)
+	res = pw_protocol_native_connection_get_next(conn, &msg);
+	if (res != 1)
 		return -1;
 
-	spa_assert(opcode == 5);
-	spa_assert(dest_id == 1);
-	spa_assert(data != NULL);
-	spa_assert(size > 0);
+	spa_assert(msg->opcode == 5);
+	spa_assert(msg->id == 1);
+	spa_assert(msg->data != NULL);
+	spa_assert(msg->size > 0);
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
                         SPA_POD_Int(&v_int),
                         SPA_POD_Id(&v_id),
@@ -94,7 +92,7 @@ static int read_message(struct pw_protocol_native_connection *conn)
                 spa_assert_not_reached();
 
 	fd = pw_protocol_native_connection_get_fd(conn, fdidx);
-	pw_log_debug("got fd %d", fd);
+	pw_log_debug("got fd %d %d", fdidx, fd);
 	spa_assert(fd != -1);
 	return 0;
 }

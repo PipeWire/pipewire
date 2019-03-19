@@ -216,14 +216,14 @@ static int client_node_marshal_event_method(void *object, struct spa_event *even
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int client_node_demarshal_add_mem(void *object, void *data, size_t size)
+static int client_node_demarshal_add_mem(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	uint32_t mem_id, type, memfd_idx, flags;
 	int memfd;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&mem_id),
 			SPA_POD_Id(&type),
@@ -240,14 +240,14 @@ static int client_node_demarshal_add_mem(void *object, void *data, size_t size)
 	return 0;
 }
 
-static int client_node_demarshal_transport(void *object, void *data, size_t size)
+static int client_node_demarshal_transport(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	uint32_t node_id, ridx, widx;
 	int readfd, writefd;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&node_id),
 			SPA_POD_Int(&ridx),
@@ -265,14 +265,14 @@ static int client_node_demarshal_transport(void *object, void *data, size_t size
 	return 0;
 }
 
-static int client_node_demarshal_set_param(void *object, void *data, size_t size)
+static int client_node_demarshal_set_param(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	uint32_t id, flags;
 	const struct spa_pod *param = NULL;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Id(&id),
 			SPA_POD_Int(&flags),
@@ -283,13 +283,13 @@ static int client_node_demarshal_set_param(void *object, void *data, size_t size
 	return 0;
 }
 
-static int client_node_demarshal_event_event(void *object, void *data, size_t size)
+static int client_node_demarshal_event_event(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	const struct spa_event *event;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 				SPA_POD_PodObject(&event)) < 0)
 		return -EINVAL;
@@ -298,13 +298,13 @@ static int client_node_demarshal_event_event(void *object, void *data, size_t si
 	return 0;
 }
 
-static int client_node_demarshal_command(void *object, void *data, size_t size)
+static int client_node_demarshal_command(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	const struct spa_command *command;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_PodObject(&command)) < 0)
 		return -EINVAL;
@@ -313,7 +313,7 @@ static int client_node_demarshal_command(void *object, void *data, size_t size)
 	return 0;
 }
 
-static int client_node_demarshal_add_port(void *object, void *data, size_t size)
+static int client_node_demarshal_add_port(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -322,7 +322,7 @@ static int client_node_demarshal_add_port(void *object, void *data, size_t size)
 	struct spa_dict props;
 	uint32_t i;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0)
 		return -EINVAL;
 
@@ -351,13 +351,13 @@ static int client_node_demarshal_add_port(void *object, void *data, size_t size)
 	return 0;
 }
 
-static int client_node_demarshal_remove_port(void *object, void *data, size_t size)
+static int client_node_demarshal_remove_port(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	int32_t direction, port_id;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&direction),
 			SPA_POD_Int(&port_id)) < 0)
@@ -367,14 +367,14 @@ static int client_node_demarshal_remove_port(void *object, void *data, size_t si
 	return 0;
 }
 
-static int client_node_demarshal_port_set_param(void *object, void *data, size_t size)
+static int client_node_demarshal_port_set_param(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	uint32_t direction, port_id, id, flags;
 	const struct spa_pod *param = NULL;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&direction),
 			SPA_POD_Int(&port_id),
@@ -388,7 +388,7 @@ static int client_node_demarshal_port_set_param(void *object, void *data, size_t
 	return 0;
 }
 
-static int client_node_demarshal_port_use_buffers(void *object, void *data, size_t size)
+static int client_node_demarshal_port_use_buffers(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
@@ -397,7 +397,7 @@ static int client_node_demarshal_port_use_buffers(void *object, void *data, size
 	struct pw_client_node_buffer *buffers;
 	uint32_t i, j;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f) < 0 ||
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&direction),
@@ -453,13 +453,13 @@ static int client_node_demarshal_port_use_buffers(void *object, void *data, size
 	return 0;
 }
 
-static int client_node_demarshal_port_set_io(void *object, void *data, size_t size)
+static int client_node_demarshal_port_set_io(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	uint32_t direction, port_id, mix_id, id, memid, off, sz;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&direction),
 			SPA_POD_Int(&port_id),
@@ -477,14 +477,14 @@ static int client_node_demarshal_port_set_io(void *object, void *data, size_t si
 	return 0;
 }
 
-static int client_node_demarshal_set_activation(void *object, void *data, size_t size)
+static int client_node_demarshal_set_activation(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	uint32_t node_id, sigidx, memid, off, sz;
 	int signalfd;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&node_id),
 			SPA_POD_Int(&sigidx),
@@ -505,13 +505,13 @@ static int client_node_demarshal_set_activation(void *object, void *data, size_t
 	return 0;
 }
 
-static int client_node_demarshal_set_io(void *object, void *data, size_t size)
+static int client_node_demarshal_set_io(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	uint32_t id, memid, off, sz;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Id(&id),
 			SPA_POD_Int(&memid),
@@ -530,10 +530,11 @@ client_node_marshal_add_mem(void *object,
 			    uint32_t type,
 			    int memfd, uint32_t flags)
 {
+	struct pw_protocol_native_message *msg;
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM, &msg);
 
 	spa_pod_builder_add_struct(b,
 		       SPA_POD_Int(mem_id),
@@ -546,10 +547,11 @@ client_node_marshal_add_mem(void *object,
 
 static int client_node_marshal_transport(void *object, uint32_t node_id, int readfd, int writefd)
 {
+	struct pw_protocol_native_message *msg;
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT, &msg);
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(node_id),
@@ -751,10 +753,11 @@ client_node_marshal_set_activation(void *object,
 				uint32_t offset,
 				uint32_t size)
 {
+	struct pw_protocol_native_message *msg;
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_ACTIVATION, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_SET_ACTIVATION, &msg);
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(node_id),
@@ -785,13 +788,13 @@ client_node_marshal_set_io(void *object,
 	return pw_protocol_native_end_resource(resource, b);
 }
 
-static int client_node_demarshal_get_node(void *object, void *data, size_t size)
+static int client_node_demarshal_get_node(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
 	int32_t version, new_id;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 				SPA_POD_Int(&version),
 				SPA_POD_Int(&new_id)) < 0)
@@ -801,7 +804,7 @@ static int client_node_demarshal_get_node(void *object, void *data, size_t size)
 			version, new_id);
 }
 
-static int client_node_demarshal_update(void *object, void *data, size_t size)
+static int client_node_demarshal_update(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
@@ -813,7 +816,7 @@ static int client_node_demarshal_update(void *object, void *data, size_t size)
 	struct spa_dict props;
 	uint32_t i;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&change_mask),
@@ -881,7 +884,7 @@ static int client_node_demarshal_update(void *object, void *data, size_t size)
 	return 0;
 }
 
-static int client_node_demarshal_port_update(void *object, void *data, size_t size)
+static int client_node_demarshal_port_update(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
@@ -892,7 +895,7 @@ static int client_node_demarshal_port_update(void *object, void *data, size_t si
 	struct spa_pod *ipod;
 	struct spa_dict props;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f) < 0 ||
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&direction),
@@ -965,13 +968,13 @@ static int client_node_demarshal_port_update(void *object, void *data, size_t si
 	return 0;
 }
 
-static int client_node_demarshal_set_active(void *object, void *data, size_t size)
+static int client_node_demarshal_set_active(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
 	int active;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 				SPA_POD_Bool(&active)) < 0)
 		return -EINVAL;
@@ -980,13 +983,13 @@ static int client_node_demarshal_set_active(void *object, void *data, size_t siz
 	return 0;
 }
 
-static int client_node_demarshal_event_method(void *object, void *data, size_t size)
+static int client_node_demarshal_event_method(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
 	struct spa_event *event;
 
-	spa_pod_parser_init(&prs, data, size);
+	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_PodObject(&event)) < 0)
 		return -EINVAL;

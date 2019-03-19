@@ -32,6 +32,8 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 
+#include <extensions/protocol-native.h>
+
 struct pw_protocol_native_connection_events {
 #define PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS	0
 	uint32_t version;
@@ -71,19 +73,17 @@ pw_protocol_native_connection_new(struct pw_core *core, int fd);
 void
 pw_protocol_native_connection_destroy(struct pw_protocol_native_connection *conn);
 
-bool
+int
 pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *conn,
-				       uint8_t *opcode,
-				       uint32_t *dest_id,
-				       void **data, uint32_t *size, int *seq);
+				const struct pw_protocol_native_message **msg);
 
 uint32_t pw_protocol_native_connection_add_fd(struct pw_protocol_native_connection *conn, int fd);
-
 int pw_protocol_native_connection_get_fd(struct pw_protocol_native_connection *conn, uint32_t index);
 
 struct spa_pod_builder *
 pw_protocol_native_connection_begin(struct pw_protocol_native_connection *conn,
-                                    uint32_t id, uint8_t opcode, int *res);
+                                    uint32_t id, uint8_t opcode,
+				    struct pw_protocol_native_message **msg);
 
 int
 pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,

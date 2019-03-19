@@ -114,9 +114,7 @@ process_messages(struct client_data *data)
 	struct pw_protocol_native_connection *conn = data->connection;
 	struct pw_client *client = data->client;
 	struct pw_core *core = client->core;
-	uint8_t opcode;
-	uint32_t id, size;
-	void *message;
+	const struct pw_protocol_native_message *msg;
 	struct pw_resource *resource;
 
 	core->current_client = client;
@@ -127,50 +125,49 @@ process_messages(struct client_data *data)
 		const struct pw_protocol_native_demarshal *demarshal;
 	        const struct pw_protocol_marshal *marshal;
 		uint32_t permissions, required;
-		int seq = 0;
 
-		if (!pw_protocol_native_connection_get_next(conn, &opcode, &id, &message, &size, &seq))
+		if (pw_protocol_native_connection_get_next(conn, &msg) != 1)
 			break;
 
-		client->recv_seq = seq;
+		client->recv_seq = msg->seq;
 
 		pw_log_trace("protocol-native %p: got message %d from %u", client->protocol,
-			     opcode, id);
+			     msg->opcode, msg->id);
 
 		if (debug_messages) {
-			fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", id, opcode, size);
-		        spa_debug_pod(0, NULL, (struct spa_pod *)message);
+			fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", msg->id, msg->opcode, msg->size);
+		        spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
 		}
 
-		resource = pw_client_find_resource(client, id);
+		resource = pw_client_find_resource(client, msg->id);
 		if (resource == NULL) {
 			pw_log_error("protocol-native %p: unknown resource %u",
-				     client->protocol, id);
+				     client->protocol, msg->id);
 			pw_resource_error(client->core_resource,
-					-EINVAL, "unknown resource %u", id);
+					-EINVAL, "unknown resource %u", msg->id);
 			continue;
 		}
 
 		marshal = pw_resource_get_marshal(resource);
-		if (marshal == NULL || opcode >= marshal->n_methods)
+		if (marshal == NULL || msg->opcode >= marshal->n_methods)
 			goto invalid_method;
 
 		demarshal = marshal->method_demarshal;
-		if (!demarshal[opcode].func)
+		if (!demarshal[msg->opcode].func)
 			goto invalid_message;
 
 		permissions = pw_resource_get_permissions(resource);
-		required = demarshal[opcode].permissions | PW_PERM_X;
+		required = demarshal[msg->opcode].permissions | PW_PERM_X;
 
 		if ((required & permissions) != required) {
 			pw_log_error("protocol-native %p: method %u on %u requires %08x, have %08x",
-				     client->protocol, opcode, id, required, permissions);
+				     client->protocol, msg->opcode, msg->id, required, permissions);
 			pw_resource_error(resource,
-				-EACCES, "no permission to call method %u ", opcode, id);
+				-EACCES, "no permission to call method %u ", msg->opcode, msg->id);
 			continue;
 		}
 
-		if (demarshal[opcode].func(resource, message, size) < 0)
+		if (demarshal[msg->opcode].func(resource, msg) < 0)
 			goto invalid_message;
 	}
       done:
@@ -179,15 +176,15 @@ process_messages(struct client_data *data)
 
       invalid_method:
 	pw_log_error("protocol-native %p: invalid method %u on resource %u",
-		     client->protocol, opcode, id);
-	pw_resource_error(resource, -EINVAL, "invalid method %u", opcode);
+		     client->protocol, msg->opcode, msg->id);
+	pw_resource_error(resource, -EINVAL, "invalid method %u", msg->opcode);
 	pw_client_destroy(client);
 	goto done;
       invalid_message:
 	pw_log_error("protocol-native %p: invalid message received %u %u",
-		     client->protocol, id, opcode);
-	pw_resource_error(resource, -EINVAL, "invalid message %u", opcode);
-	spa_debug_pod(0, NULL, (struct spa_pod *)message);
+		     client->protocol, msg->id, msg->opcode);
+	pw_resource_error(resource, -EINVAL, "invalid message %u", msg->opcode);
+	spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
 	pw_client_destroy(client);
 	goto done;
 }
@@ -478,51 +475,49 @@ on_remote_data(void *data, int fd, enum spa_io mask)
         }
 
         if (mask & SPA_IO_IN) {
-                uint8_t opcode;
-                uint32_t id, size;
-                void *message;
-		int seq;
+		const struct pw_protocol_native_message *msg;
 
                 while (!impl->disconnecting
-                       && pw_protocol_native_connection_get_next(conn,
-			       &opcode, &id, &message, &size, &seq)) {
+                       && pw_protocol_native_connection_get_next(conn, &msg) == 1) {
                         struct pw_proxy *proxy;
                         const struct pw_protocol_native_demarshal *demarshal;
 			const struct pw_protocol_marshal *marshal;
 
                         pw_log_trace("protocol-native %p: got message %d from %u seq:%d",
-					this, opcode, id, seq);
+					this, msg->opcode, msg->id, msg->seq);
 
-			this->recv_seq = seq;
+			this->recv_seq = msg->seq;
 
 			if (debug_messages) {
-				fprintf(stderr, "<<<<<<<<< in: %d %d %d %d\n", id, opcode, size, seq);
-			        spa_debug_pod(0, NULL, (struct spa_pod *)message);
+				fprintf(stderr, "<<<<<<<<< in: %d %d %d %d\n",
+						msg->id, msg->opcode, msg->size, msg->seq);
+			        spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
 			}
 
-                        proxy = pw_remote_find_proxy(this, id);
+                        proxy = pw_remote_find_proxy(this, msg->id);
 
                         if (proxy == NULL) {
-                                pw_log_error("protocol-native %p: could not find proxy %u", this, id);
+                                pw_log_error("protocol-native %p: could not find proxy %u", this, msg->id);
                                 continue;
                         }
 
 			marshal = pw_proxy_get_marshal(proxy);
-                        if (marshal == NULL || opcode >= marshal->n_events) {
-                                pw_log_error("protocol-native %p: invalid method %u for %u (%d %d)", this, opcode,
-                                             id, opcode, marshal ? marshal->n_events : (uint32_t)-1);
+                        if (marshal == NULL || msg->opcode >= marshal->n_events) {
+                                pw_log_error("protocol-native %p: invalid method %u for %u (%d)",
+						this, msg->opcode, msg->id,
+						marshal ? marshal->n_events : (uint32_t)-1);
                                 continue;
                         }
 
                         demarshal = marshal->event_demarshal;
-			if (!demarshal[opcode].func) {
-                                pw_log_error("protocol-native %p: function %d not implemented on %u", this,
-                                             opcode, id);
+			if (!demarshal[msg->opcode].func) {
+                                pw_log_error("protocol-native %p: function %d not implemented on %u",
+						this, msg->opcode, msg->id);
 				continue;
 			}
-			if (demarshal[opcode].func(proxy, message, size) < 0) {
-				pw_log_error ("protocol-native %p: invalid message received %u for %u", this,
-					opcode, id);
+			if (demarshal[msg->opcode].func(proxy, msg) < 0) {
+				pw_log_error ("protocol-native %p: invalid message received %u for %u",
+						this, msg->opcode, msg->id);
 				continue;
 			}
                 }
@@ -762,10 +757,10 @@ const static struct pw_protocol_implementaton protocol_impl = {
 };
 
 static struct spa_pod_builder *
-impl_ext_begin_proxy(struct pw_proxy *proxy, uint8_t opcode, int *res)
+impl_ext_begin_proxy(struct pw_proxy *proxy, uint8_t opcode, struct pw_protocol_native_message **msg)
 {
 	struct client *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct client, this);
-	return pw_protocol_native_connection_begin(impl->connection, proxy->id, opcode, res);
+	return pw_protocol_native_connection_begin(impl->connection, proxy->id, opcode, msg);
 }
 
 static uint32_t impl_ext_add_proxy_fd(struct pw_proxy *proxy, int fd)
@@ -789,10 +784,11 @@ static int impl_ext_end_proxy(struct pw_proxy *proxy,
 }
 
 static struct spa_pod_builder *
-impl_ext_begin_resource(struct pw_resource *resource, uint8_t opcode, int *res)
+impl_ext_begin_resource(struct pw_resource *resource,
+		uint8_t opcode, struct pw_protocol_native_message **msg)
 {
 	struct client_data *data = resource->client->user_data;
-	return pw_protocol_native_connection_begin(data->connection, resource->id, opcode, res);
+	return pw_protocol_native_connection_begin(data->connection, resource->id, opcode, msg);
 }
 
 static uint32_t impl_ext_add_resource_fd(struct pw_resource *resource, int fd)
@@ -815,14 +811,14 @@ static int impl_ext_end_resource(struct pw_resource *resource,
 }
 const static struct pw_protocol_native_ext protocol_ext_impl = {
 	PW_VERSION_PROTOCOL_NATIVE_EXT,
-	impl_ext_begin_proxy,
-	impl_ext_add_proxy_fd,
-	impl_ext_get_proxy_fd,
-	impl_ext_end_proxy,
-	impl_ext_begin_resource,
-	impl_ext_add_resource_fd,
-	impl_ext_get_resource_fd,
-	impl_ext_end_resource,
+	.begin_proxy = impl_ext_begin_proxy,
+	.add_proxy_fd = impl_ext_add_proxy_fd,
+	.get_proxy_fd = impl_ext_get_proxy_fd,
+	.end_proxy = impl_ext_end_proxy,
+	.begin_resource = impl_ext_begin_resource,
+	.add_resource_fd = impl_ext_add_resource_fd,
+	.get_resource_fd = impl_ext_get_resource_fd,
+	.end_resource = impl_ext_end_resource,
 };
 
 static void module_destroy(void *data)

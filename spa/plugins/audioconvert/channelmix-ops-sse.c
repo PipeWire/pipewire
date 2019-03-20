@@ -39,7 +39,7 @@ channelmix_copy_sse(void *data, int n_dst, void *dst[n_dst],
 	}
 	else if (v == VOLUME_NORM) {
 		for (i = 0; i < n_dst; i++)
-			memcpy(d[i], s[i], n_samples * sizeof(float));
+			spa_memcpy(d[i], s[i], n_samples * sizeof(float));
 	}
 	else {
 		for (i = 0; i < n_dst; i++) {

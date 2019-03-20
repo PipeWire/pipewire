@@ -95,13 +95,13 @@ conv_copy8d(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src
 {
 	uint32_t i;
 	for (i = 0; i < n_channels; i++)
-		memcpy(dst[i], src[i], n_samples);
+		spa_memcpy(dst[i], src[i], n_samples);
 }
 
 static void
 conv_copy8(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
 {
-	memcpy(dst[0], src[0], n_samples * n_channels);
+	spa_memcpy(dst[0], src[0], n_samples * n_channels);
 }
 
 
@@ -110,13 +110,13 @@ conv_copy16d(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT sr
 {
 	uint32_t i;
 	for (i = 0; i < n_channels; i++)
-		memcpy(dst[i], src[i], n_samples * sizeof(int16_t));
+		spa_memcpy(dst[i], src[i], n_samples * sizeof(int16_t));
 }
 
 static void
 conv_copy16(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
 {
-	memcpy(dst[0], src[0], n_samples * sizeof(int16_t) * n_channels);
+	spa_memcpy(dst[0], src[0], n_samples * sizeof(int16_t) * n_channels);
 }
 
 static void
@@ -124,13 +124,13 @@ conv_copy24d(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT sr
 {
 	uint32_t i;
 	for (i = 0; i < n_channels; i++)
-		memcpy(dst[i], src[i], n_samples * 3);
+		spa_memcpy(dst[i], src[i], n_samples * 3);
 }
 
 static void
 conv_copy24(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
 {
-	memcpy(dst[0], src[0], n_samples * 3 * n_channels);
+	spa_memcpy(dst[0], src[0], n_samples * 3 * n_channels);
 }
 
 static void
@@ -138,13 +138,13 @@ conv_copy32d(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT sr
 {
 	uint32_t i;
 	for (i = 0; i < n_channels; i++)
-		memcpy(dst[i], src[i], n_samples * sizeof(int32_t));
+		spa_memcpy(dst[i], src[i], n_samples * sizeof(int32_t));
 }
 
 static void
 conv_copy32(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
 {
-	memcpy(dst[0], src[0], n_samples * sizeof(int32_t) * n_channels);
+	spa_memcpy(dst[0], src[0], n_samples * sizeof(int32_t) * n_channels);
 }
 
 static void

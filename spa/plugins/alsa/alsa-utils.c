@@ -716,9 +716,9 @@ again:
 		l0 = SPA_MIN(n_bytes, maxsize - offs);
 		l1 = n_bytes - l0;
 
-		memcpy(dst, src + offs, l0);
+		spa_memcpy(dst, src + offs, l0);
 		if (l1 > 0)
-			memcpy(dst + l0, src, l1);
+			spa_memcpy(dst + l0, src, l1);
 
 		state->ready_offset += n_bytes;
 
@@ -811,9 +811,9 @@ push_frames(struct state *state,
 		l0 = SPA_MIN(n_bytes, d[0].maxsize - offs);
 		l1 = n_bytes - l0;
 
-		memcpy(SPA_MEMBER(d[0].data, offs, void), src, l0);
+		spa_memcpy(SPA_MEMBER(d[0].data, offs, void), src, l0);
 		if (l1 > 0)
-			memcpy(d[0].data, src + l0, l1);
+			spa_memcpy(d[0].data, src + l0, l1);
 
 		d[0].chunk->offset = index;
 		d[0].chunk->size = n_bytes;

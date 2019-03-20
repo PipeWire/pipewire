@@ -239,6 +239,17 @@ struct spa_param_info {
 	strerror(_err);			\
 })
 
+#ifdef SPA_DEBUG_MEMCPY
+#define spa_memcpy(d,s,n)						\
+({									\
+	fprintf(stderr, "%s:%u %s() memcpy(%p, %p, %zd)\n",		\
+		__FILE__, __LINE__, __func__, (d), (s), (size_t)(n));	\
+	memcpy(d,s,n);							\
+})
+#else
+#define spa_memcpy(d,s,n)	memcpy(d,s,n)
+#endif
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

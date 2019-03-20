@@ -385,14 +385,12 @@ conv_f32d_to_s32_2_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 		out[1] = _mm_slli_epi32(_mm_cvtps_epi32(in[1]), 8);
 
 		t[0] = _mm_unpacklo_epi32(out[0], out[1]);
-		t[1] = _mm_shuffle_epi32(t[0], _MM_SHUFFLE(0, 0, 2, 2));
-		t[2] = _mm_unpackhi_epi32(out[0], out[1]);
-		t[3] = _mm_shuffle_epi32(t[2], _MM_SHUFFLE(0, 0, 2, 2));
+		t[1] = _mm_unpackhi_epi32(out[0], out[1]);
 
-		_mm_storel_epi64((__m128i*)(d + 0*n_channels), t[0]);
-		_mm_storel_epi64((__m128i*)(d + 1*n_channels), t[1]);
-		_mm_storel_epi64((__m128i*)(d + 2*n_channels), t[2]);
-		_mm_storel_epi64((__m128i*)(d + 3*n_channels), t[3]);
+		_mm_storel_pd((double*)(d + 0*n_channels), (__m128d)t[0]);
+		_mm_storeh_pd((double*)(d + 1*n_channels), (__m128d)t[0]);
+		_mm_storel_pd((double*)(d + 2*n_channels), (__m128d)t[1]);
+		_mm_storeh_pd((double*)(d + 3*n_channels), (__m128d)t[1]);
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {

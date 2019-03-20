@@ -417,7 +417,7 @@ conv_f32d_to_s32_4_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 	int32_t *d = dst;
 	uint32_t n, unrolled;
 	__m128 in[4];
-	__m128i out[4], t[4];
+	__m128i out[4];
 	__m128 int_max = _mm_set1_ps(S24_MAX_F);
         __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
 
@@ -441,20 +441,12 @@ conv_f32d_to_s32_4_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 		in[2] = _mm_min_ps(int_max, _mm_max_ps(in[2], int_min));
 		in[3] = _mm_min_ps(int_max, _mm_max_ps(in[3], int_min));
 
+		_MM_TRANSPOSE4_PS(in[0], in[1], in[2], in[3]);
+
 		out[0] = _mm_slli_epi32(_mm_cvtps_epi32(in[0]), 8);
 		out[1] = _mm_slli_epi32(_mm_cvtps_epi32(in[1]), 8);
 		out[2] = _mm_slli_epi32(_mm_cvtps_epi32(in[2]), 8);
 		out[3] = _mm_slli_epi32(_mm_cvtps_epi32(in[3]), 8);
-
-		/* transpose */
-		t[0] = _mm_unpacklo_epi32(out[0], out[1]);
-		t[1] = _mm_unpacklo_epi32(out[2], out[3]);
-		t[2] = _mm_unpackhi_epi32(out[0], out[1]);
-		t[3] = _mm_unpackhi_epi32(out[2], out[3]);
-		out[0] = _mm_unpacklo_epi64(t[0], t[1]);
-		out[1] = _mm_unpackhi_epi64(t[0], t[1]);
-		out[2] = _mm_unpacklo_epi64(t[2], t[3]);
-		out[3] = _mm_unpackhi_epi64(t[2], t[3]);
 
 		_mm_store_si128((__m128i*)(d + 0*n_channels), out[0]);
 		_mm_store_si128((__m128i*)(d + 1*n_channels), out[1]);

@@ -527,11 +527,11 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 
 static void do_flush_event(void *data, uint64_t count)
 {
-        struct client *impl = data;
+	struct client *impl = data;
 	impl->flush_signaled = false;
-        if (impl->connection)
-                if (pw_protocol_native_connection_flush(impl->connection) < 0)
-                        impl->this.disconnect(&impl->this);
+	if (impl->connection)
+		if (pw_protocol_native_connection_flush(impl->connection) < 0)
+			impl->this.disconnect(&impl->this);
 }
 
 static void on_need_flush(void *data)

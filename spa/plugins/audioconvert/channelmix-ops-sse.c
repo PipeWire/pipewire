@@ -224,7 +224,7 @@ channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void *dst[n_dst],
 	float **s = (float **) src;
         __m128 mix = _mm_set1_ps(v * 0.5f);
         __m128 vol = _mm_set1_ps(v);
-	__m128 avg;
+	__m128 avg[2];
 	float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 	float *dFL = d[0], *dFR = d[1], *dFC = d[2], *dLFE = d[3];
 
@@ -238,7 +238,7 @@ channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void *dst[n_dst],
 	    SPA_IS_ALIGNED(dFR, 16) &&
 	    SPA_IS_ALIGNED(dFC, 16) &&
 	    SPA_IS_ALIGNED(dLFE, 16))
-		unrolled = n_samples / 4;
+		unrolled = n_samples / 8;
 	else
 		unrolled = 0;
 
@@ -247,37 +247,49 @@ channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void *dst[n_dst],
 			memset(d[i], 0, n_samples * sizeof(float));
 	}
 	else if (v == VOLUME_NORM) {
-		for(n = 0; unrolled--; n += 4) {
-			avg = _mm_add_ps(_mm_load_ps(&sFL[n]), _mm_load_ps(&sSL[n]));
-			_mm_store_ps(&dFL[n], _mm_mul_ps(avg, mix));
-			avg = _mm_add_ps(_mm_load_ps(&sFR[n]), _mm_load_ps(&sSR[n]));
-			_mm_store_ps(&dFR[n], _mm_mul_ps(avg, mix));
+		for(n = 0; unrolled--; n += 8) {
+			avg[0] = _mm_add_ps(_mm_load_ps(&sFL[n]), _mm_load_ps(&sSL[n]));
+			avg[1] = _mm_add_ps(_mm_load_ps(&sFL[n+4]), _mm_load_ps(&sSL[n+4]));
+			_mm_store_ps(&dFL[n], _mm_mul_ps(avg[0], mix));
+			_mm_store_ps(&dFL[n+4], _mm_mul_ps(avg[1], mix));
+			avg[0] = _mm_add_ps(_mm_load_ps(&sFR[n]), _mm_load_ps(&sSR[n]));
+			avg[1] = _mm_add_ps(_mm_load_ps(&sFR[n+4]), _mm_load_ps(&sSR[n+4]));
+			_mm_store_ps(&dFR[n], _mm_mul_ps(avg[0], mix));
+			_mm_store_ps(&dFR[n+4], _mm_mul_ps(avg[1], mix));
 			_mm_store_ps(&dFC[n], _mm_load_ps(&sFC[n]));
+			_mm_store_ps(&dFC[n+4], _mm_load_ps(&sFC[n+4]));
 			_mm_store_ps(&dLFE[n], _mm_load_ps(&sLFE[n]));
+			_mm_store_ps(&dLFE[n+4], _mm_load_ps(&sLFE[n+4]));
 		}
 		for(; n < n_samples; n++) {
-			avg = _mm_add_ss(_mm_load_ss(&sFL[n]), _mm_load_ss(&sSL[n]));
-			_mm_store_ss(&dFL[n], _mm_mul_ss(avg, mix));
-			avg = _mm_add_ss(_mm_load_ss(&sFR[n]), _mm_load_ss(&sSR[n]));
-			_mm_store_ss(&dFR[n], _mm_mul_ss(avg, mix));
+			avg[0] = _mm_add_ss(_mm_load_ss(&sFL[n]), _mm_load_ss(&sSL[n]));
+			_mm_store_ss(&dFL[n], _mm_mul_ss(avg[0], mix));
+			avg[0] = _mm_add_ss(_mm_load_ss(&sFR[n]), _mm_load_ss(&sSR[n]));
+			_mm_store_ss(&dFR[n], _mm_mul_ss(avg[0], mix));
 			_mm_store_ss(&dFC[n], _mm_load_ss(&sFC[n]));
 			_mm_store_ss(&dLFE[n], _mm_load_ss(&sLFE[n]));
 		}
 	}
 	else {
-		for(n = 0; unrolled--; n += 4) {
-			avg = _mm_add_ps(_mm_load_ps(&sFL[n]), _mm_load_ps(&sSL[n]));
-			_mm_store_ps(&dFL[n], _mm_mul_ps(avg, mix));
-			avg = _mm_add_ps(_mm_load_ps(&sFR[n]), _mm_load_ps(&sSR[n]));
-			_mm_store_ps(&dFR[n], _mm_mul_ps(avg, mix));
+		for(n = 0; unrolled--; n += 8) {
+			avg[0] = _mm_add_ps(_mm_load_ps(&sFL[n]), _mm_load_ps(&sSL[n]));
+			avg[1] = _mm_add_ps(_mm_load_ps(&sFL[n+4]), _mm_load_ps(&sSL[n+4]));
+			_mm_store_ps(&dFL[n], _mm_mul_ps(avg[0], mix));
+			_mm_store_ps(&dFL[n+4], _mm_mul_ps(avg[1], mix));
+			avg[0] = _mm_add_ps(_mm_load_ps(&sFR[n]), _mm_load_ps(&sSR[n]));
+			avg[1] = _mm_add_ps(_mm_load_ps(&sFR[n+4]), _mm_load_ps(&sSR[n+4]));
+			_mm_store_ps(&dFR[n], _mm_mul_ps(avg[0], mix));
+			_mm_store_ps(&dFR[n+4], _mm_mul_ps(avg[1], mix));
 			_mm_store_ps(&dFC[n], _mm_mul_ps(_mm_load_ps(&sFC[n]), vol));
+			_mm_store_ps(&dFC[n+4], _mm_mul_ps(_mm_load_ps(&sFC[n+4]), vol));
 			_mm_store_ps(&dLFE[n], _mm_mul_ps(_mm_load_ps(&sLFE[n]), vol));
+			_mm_store_ps(&dLFE[n+4], _mm_mul_ps(_mm_load_ps(&sLFE[n+4]), vol));
 		}
 		for(; n < n_samples; n++) {
-			avg = _mm_add_ss(_mm_load_ss(&sFL[n]), _mm_load_ss(&sSL[n]));
-			_mm_store_ss(&dFL[n], _mm_mul_ss(avg, mix));
-			avg = _mm_add_ss(_mm_load_ss(&sFR[n]), _mm_load_ss(&sSR[n]));
-			_mm_store_ss(&dFR[n], _mm_mul_ss(avg, mix));
+			avg[0] = _mm_add_ss(_mm_load_ss(&sFL[n]), _mm_load_ss(&sSL[n]));
+			_mm_store_ss(&dFL[n], _mm_mul_ss(avg[0], mix));
+			avg[0] = _mm_add_ss(_mm_load_ss(&sFR[n]), _mm_load_ss(&sSR[n]));
+			_mm_store_ss(&dFR[n], _mm_mul_ss(avg[0], mix));
 			_mm_store_ss(&dFC[n], _mm_mul_ss(_mm_load_ss(&sFC[n]), vol));
 			_mm_store_ss(&dLFE[n], _mm_mul_ss(_mm_load_ss(&sLFE[n]), vol));
 		}

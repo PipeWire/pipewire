@@ -160,6 +160,14 @@ struct spa_param_info {
 #define SPA_EXPORT
 #endif
 
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#define SPA_RESTRICT restrict
+#elif defined(__GNUC__) && __GNUC__ >= 4
+#define SPA_RESTRICT __restrict__
+#else
+#define SPA_RESTRICT
+#endif
+
 #define SPA_ROUND_DOWN_N(num,align)	((num) & ~((align) - 1))
 #define SPA_ROUND_UP_N(num,align)	SPA_ROUND_DOWN_N((num) + ((align) - 1),align)
 

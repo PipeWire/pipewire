@@ -46,6 +46,7 @@
 
 #define MAX_SAMPLES	2048
 #define MAX_BUFFERS	64
+#define MAX_DATAS	32
 #define MAX_PORTS	128
 
 struct buffer {
@@ -54,6 +55,7 @@ struct buffer {
 	uint32_t flags;
 	struct spa_list link;
 	struct spa_buffer *buf;
+	void *datas[MAX_DATAS];
 };
 
 struct port {
@@ -95,16 +97,16 @@ struct impl {
 	struct spa_hook_list hooks;
 
 	uint32_t port_count;
+	uint32_t monitor_count;
 	struct port in_ports[MAX_PORTS];
 	struct port out_ports[MAX_PORTS + 1];
-	uint32_t monitor_count;
 
-	bool started;
-	uint32_t cpu_flags;
 	convert_func_t convert;
-
-	bool monitor;
-	bool have_profile;
+	uint32_t cpu_flags;
+	int is_passthrough:1;
+	int started:1;
+	int monitor:1;
+	int have_profile:1;
 
 	float empty[MAX_SAMPLES + 15];
 };
@@ -563,6 +565,7 @@ static int setup_convert(struct impl *this)
 				this->cpu_flags, conv->features);
 
 		this->convert = conv->func;
+		this->is_passthrough = src_fmt == dst_fmt;
 		return 0;
 	}
 	return -ENOTSUP;
@@ -784,9 +787,11 @@ impl_node_port_use_buffers(struct spa_node *node,
 						this, j, i, d[j].type, d[j].data);
 				return -EINVAL;
 			}
-			if (!SPA_IS_ALIGNED(d[j].data, 16))
+			if (!SPA_IS_ALIGNED(d[j].data, 16)) {
 				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
 						this, j, i);
+			}
+			b->datas[j] = d[j].data;
 		}
 
 		if (direction == SPA_DIRECTION_OUTPUT)
@@ -907,7 +912,7 @@ static inline int handle_monitor(struct impl *this, const void *data, int n_samp
 	size = SPA_MIN(dd->maxsize, n_samples * outport->stride);
 	dd->chunk->offset = 0;
 	dd->chunk->size = size;
-	memcpy(dd->data, data, size);
+	dd->data = (void*)data;
 
 	return res;
 }
@@ -977,14 +982,15 @@ static int impl_node_process(struct spa_node *node)
 		handle_monitor(this, src_datas[i], n_samples, GET_OUT_PORT(this, i + 1));
 
 	for (i = 0; i < n_dst_datas; i++) {
-		dst_datas[i] = dbuf->buf->datas[i].data;
+		dst_datas[i] = this->is_passthrough ? (void*)src_datas[i] : dbuf->datas[i];
+		dbuf->buf->datas[i].data = dst_datas[i];
 		dbuf->buf->datas[i].chunk->offset = 0;
 		dbuf->buf->datas[i].chunk->size = n_samples * outport->stride;
 		spa_log_trace(this->log, NAME " %p %p %d", this, dst_datas[i],
 				n_samples * outport->stride);
 	}
-
-	this->convert(this, dst_datas, src_datas, SPA_MAX(n_dst_datas, n_src_datas), n_samples);
+	if (!this->is_passthrough)
+		this->convert(this, dst_datas, src_datas, SPA_MAX(n_dst_datas, n_src_datas), n_samples);
 
 	return res | SPA_STATUS_HAVE_BUFFER;
 }

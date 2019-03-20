@@ -43,7 +43,8 @@
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
 
-#define MAX_BUFFERS     32
+#define MAX_BUFFERS	32
+#define MAX_DATAS	32
 
 struct impl;
 
@@ -68,6 +69,7 @@ struct buffer {
 	struct spa_list link;
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
+	void *datas[MAX_DATAS];
 };
 
 struct port {
@@ -912,7 +914,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 {
 	struct impl *this;
 	struct port *port;
-	uint32_t i, size = SPA_ID_INVALID;
+	uint32_t i, j, size = SPA_ID_INVALID;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -930,6 +932,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
+		uint32_t n_datas = buffers[i]->n_datas;
 		struct spa_data *d = buffers[i]->datas;
 
 		b = &port->buffers[i];
@@ -938,18 +941,24 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->outbuf = buffers[i];
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
-		if (size == SPA_ID_INVALID)
-			size = d[0].maxsize;
-		else
-			if (size != d[0].maxsize)
+		for (j = 0; j < n_datas; j++) {
+			if (size == SPA_ID_INVALID)
+				size = d[j].maxsize;
+			else if (size != d[j].maxsize)
 				return -EINVAL;
 
-		if (!((d[0].type == SPA_DATA_MemPtr ||
-		       d[0].type == SPA_DATA_MemFd ||
-		       d[0].type == SPA_DATA_DmaBuf) && d[0].data != NULL)) {
-			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
-				      buffers[i]);
-			return -EINVAL;
+			if (!((d[j].type == SPA_DATA_MemPtr ||
+			       d[j].type == SPA_DATA_MemFd ||
+			       d[j].type == SPA_DATA_DmaBuf) && d[j].data != NULL)) {
+				spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
+					      buffers[i]);
+				return -EINVAL;
+			}
+			if (!SPA_IS_ALIGNED(d[j].data, 16)) {
+				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
+						this, j, i);
+			}
+			b->datas[j] = d[j].data;
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
 			spa_list_append(&port->queue, &b->link);
@@ -1113,20 +1122,25 @@ static int impl_node_process(struct spa_node *node)
 		uint32_t n_dst_datas = db->n_datas;
 		const void *src_datas[n_src_datas];
 		void *dst_datas[n_dst_datas];
+		bool is_passthrough;
+		float v;
 
+		v = this->props.mute ? 0.0f : this->props.volume;
+		is_passthrough = v == 1.0f;
 		n_samples = sb->datas[0].chunk->size / inport->stride;
 
 		for (i = 0; i < n_src_datas; i++)
 			src_datas[i] = sb->datas[i].data;
 		for (i = 0; i < n_dst_datas; i++) {
-			dst_datas[i] = db->datas[i].data;
+			dst_datas[i] = is_passthrough ? (void*)src_datas[i] : dbuf->datas[i];
+			db->datas[i].data = dst_datas[i];
 			db->datas[i].chunk->size = n_samples * outport->stride;
 		}
 
-		this->convert(this, n_dst_datas, dst_datas,
-				    n_src_datas, src_datas,
-				    this->matrix, this->props.mute ? 0.0f : this->props.volume,
-				    n_samples);
+		if (!is_passthrough)
+			this->convert(this, n_dst_datas, dst_datas,
+					    n_src_datas, src_datas,
+					    this->matrix, v, n_samples);
 	}
 
 	outio->status = SPA_STATUS_HAVE_BUFFER;

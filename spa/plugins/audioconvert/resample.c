@@ -46,7 +46,7 @@
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
 
-#define MAX_BUFFERS     32
+#define MAX_BUFFERS	32
 
 struct impl;
 
@@ -562,7 +562,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 {
 	struct impl *this;
 	struct port *port;
-	uint32_t i, size = SPA_ID_INVALID;
+	uint32_t i, j, size = SPA_ID_INVALID;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -588,19 +588,22 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->outbuf = buffers[i];
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
-		if (size == SPA_ID_INVALID)
-			size = d[0].maxsize;
-		else
-			if (size != d[0].maxsize)
-				return -EINVAL;
+		for (j = 0; j < buffers[i]->n_datas; j++) {
+			if (size == SPA_ID_INVALID)
+				size = d[j].maxsize;
+			else
+				if (size != d[j].maxsize)
+					return -EINVAL;
 
-		if (!((d[0].type == SPA_DATA_MemPtr ||
-		       d[0].type == SPA_DATA_MemFd ||
-		       d[0].type == SPA_DATA_DmaBuf) && d[0].data != NULL)) {
-			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
-				      buffers[i]);
-			return -EINVAL;
+			if (!((d[j].type == SPA_DATA_MemPtr ||
+			       d[j].type == SPA_DATA_MemFd ||
+			       d[j].type == SPA_DATA_DmaBuf) && d[j].data != NULL)) {
+				spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
+					      buffers[i]);
+				return -EINVAL;
+			}
 		}
+
 		if (direction == SPA_DIRECTION_OUTPUT)
 			spa_list_append(&port->queue, &b->link);
 		else

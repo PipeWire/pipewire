@@ -25,13 +25,14 @@
 #include <xmmintrin.h>
 
 static void
-channelmix_copy_sse(void *data, int n_dst, void *dst[n_dst],
-	   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
+channelmix_copy_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
+	   int n_src, const void * SPA_RESTRICT src[n_src],
+	   const void *matrix, float v, int n_samples)
 {
 	int i, n, unrolled;
 	float **d = (float **)dst;
-	float **s = (float **)src;
-        __m128 vol = _mm_set1_ps(v);
+	const float **s = (const float **)src;
+	const __m128 vol = _mm_set1_ps(v);
 
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
@@ -43,16 +44,26 @@ channelmix_copy_sse(void *data, int n_dst, void *dst[n_dst],
 	}
 	else {
 		for (i = 0; i < n_dst; i++) {
-			float *di = d[i], *si = s[i];
+			float *di = d[i];
+			const float *si = s[i];
+			__m128 t[4];
 
 			if (SPA_IS_ALIGNED(di, 16) &&
 			    SPA_IS_ALIGNED(si, 16))
-				unrolled = n_samples / 4;
+				unrolled = n_samples / 16;
 			else
 				unrolled = 0;
 
-			for(n = 0; unrolled--; n += 4)
-				_mm_store_ps(&di[n], _mm_mul_ps(_mm_load_ps(&si[n]), vol));
+			for(n = 0; unrolled--; n += 16) {
+				t[0] = _mm_load_ps(&si[n]);
+				t[1] = _mm_load_ps(&si[n+4]);
+				t[2] = _mm_load_ps(&si[n+8]);
+				t[3] = _mm_load_ps(&si[n+12]);
+				_mm_store_ps(&di[n], _mm_mul_ps(t[0], vol));
+				_mm_store_ps(&di[n+4], _mm_mul_ps(t[1], vol));
+				_mm_store_ps(&di[n+8], _mm_mul_ps(t[2], vol));
+				_mm_store_ps(&di[n+12], _mm_mul_ps(t[3], vol));
+			}
 			for(; n < n_samples; n++)
 				_mm_store_ss(&di[n], _mm_mul_ss(_mm_load_ss(&si[n]), vol));
 		}
@@ -60,15 +71,16 @@ channelmix_copy_sse(void *data, int n_dst, void *dst[n_dst],
 }
 
 static void
-channelmix_f32_2_4_sse(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
+channelmix_f32_2_4_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
+		   int n_src, const void * SPA_RESTRICT src[n_src],
+		   const void *matrix, float v, int n_samples)
 {
 	int i, n, unrolled;
 	float **d = (float **)dst;
-	float **s = (float **)src;
-        __m128 vol = _mm_set1_ps(v);
+	const float **s = (const float **)src;
+	const __m128 vol = _mm_set1_ps(v);
 	__m128 in;
-	float *sFL = s[0], *sFR = s[1];
+	const float *sFL = s[0], *sFR = s[1];
 	float *dFL = d[0], *dFR = d[1], *dRL = d[2], *dRR = d[3];
 
 	if (SPA_IS_ALIGNED(sFL, 16) &&
@@ -125,19 +137,20 @@ channelmix_f32_2_4_sse(void *data, int n_dst, void *dst[n_dst],
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR */
 static void
-channelmix_f32_5p1_2_sse(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
+channelmix_f32_5p1_2_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
+		   int n_src, const void * SPA_RESTRICT src[n_src],
+		   const void *matrix, float v, int n_samples)
 {
 	int n, unrolled;
 	float **d = (float **) dst;
-	float **s = (float **) src;
-	float *m = matrix;
-        __m128 clev = _mm_set1_ps(m[2]);
-        __m128 llev = _mm_set1_ps(m[3]);
-        __m128 slev = _mm_set1_ps(m[4]);
-        __m128 vol = _mm_set1_ps(v);
+	const float **s = (const float **) src;
+	const float *m = matrix;
+	const __m128 clev = _mm_set1_ps(m[2]);
+	const __m128 llev = _mm_set1_ps(m[3]);
+	const __m128 slev = _mm_set1_ps(m[4]);
+	const __m128 vol = _mm_set1_ps(v);
 	__m128 in, ctr;
-	float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
+	const float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 	float *dFL = d[0], *dFR = d[1];
 
 	if (SPA_IS_ALIGNED(sFL, 16) &&
@@ -216,16 +229,17 @@ channelmix_f32_5p1_2_sse(void *data, int n_dst, void *dst[n_dst],
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+FC+LFE*/
 static void
-channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
+channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
+		   int n_src, const void * SPA_RESTRICT src[n_src],
+		   const void *matrix, float v, int n_samples)
 {
 	int i, n, unrolled;
 	float **d = (float **) dst;
-	float **s = (float **) src;
-        __m128 mix = _mm_set1_ps(v * 0.5f);
-        __m128 vol = _mm_set1_ps(v);
+	const float **s = (const float **) src;
+	const __m128 mix = _mm_set1_ps(v * 0.5f);
+	const __m128 vol = _mm_set1_ps(v);
 	__m128 avg[2];
-	float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
+	const float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 	float *dFL = d[0], *dFR = d[1], *dFC = d[2], *dLFE = d[3];
 
 	if (SPA_IS_ALIGNED(sFL, 16) &&
@@ -298,18 +312,19 @@ channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void *dst[n_dst],
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+RL+RR*/
 static void
-channelmix_f32_5p1_4_sse(void *data, int n_dst, void *dst[n_dst],
-		   int n_src, const void *src[n_src], void *matrix, float v, int n_samples)
+channelmix_f32_5p1_4_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
+		   int n_src, const void * SPA_RESTRICT src[n_src],
+		   const void *matrix, float v, int n_samples)
 {
 	int i, n, unrolled;
 	float **d = (float **) dst;
-	float **s = (float **) src;
-	float *m = matrix;
-        __m128 clev = _mm_set1_ps(m[2]);
-        __m128 llev = _mm_set1_ps(m[3]);
-        __m128 vol = _mm_set1_ps(v);
+	const float **s = (const float **) src;
+	const float *m = matrix;
+	const __m128 clev = _mm_set1_ps(m[2]);
+	const __m128 llev = _mm_set1_ps(m[3]);
+	const __m128 vol = _mm_set1_ps(v);
 	__m128 ctr;
-	float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
+	const float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 	float *dFL = d[0], *dFR = d[1], *dRL = d[2], *dRR = d[3];
 
 	if (SPA_IS_ALIGNED(sFL, 16) &&

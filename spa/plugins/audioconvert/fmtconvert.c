@@ -44,7 +44,8 @@
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
-#define MAX_BUFFERS     64
+#define MAX_BUFFERS	64
+#define MAX_DATAS	32
 #define MAX_PORTS	128
 
 #define PROP_DEFAULT_TRUNCATE	false
@@ -70,6 +71,7 @@ struct buffer {
 	struct spa_list link;
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
+	void *datas[MAX_DATAS];
 };
 
 struct port {
@@ -119,6 +121,7 @@ struct impl {
 
 	uint32_t cpu_flags;
 	convert_func_t convert;
+	int is_passthrough:1;
 };
 
 #define CHECK_PORT(this,d,id)		(id == 0)
@@ -187,6 +190,7 @@ static int setup_convert(struct impl *this)
 			this->cpu_flags, conv->features);
 
 	this->convert = conv->func;
+	this->is_passthrough = src_fmt == dst_fmt;
 	return 0;
 }
 
@@ -664,16 +668,15 @@ impl_node_port_use_buffers(struct spa_node *node,
 			return -EINVAL;
 		}
 
-		if (size == SPA_ID_INVALID)
-			size = d[0].maxsize;
-		else
-			if (size != d[0].maxsize) {
-				spa_log_error(this->log, NAME " %p: expected size %d on buffer %d", this,
-				      size, i);
+		for (j = 0; j < n_datas; j++) {
+			if (size == SPA_ID_INVALID)
+				size = d[j].maxsize;
+			else if (size != d[j].maxsize) {
+				spa_log_error(this->log, NAME " %p: expected size %d on buffer %d",
+						this, size, i);
 				return -EINVAL;
 			}
 
-		for (j = 0; j < n_datas; j++) {
 			if (!((d[j].type == SPA_DATA_MemPtr ||
 			       d[j].type == SPA_DATA_MemFd ||
 			       d[j].type == SPA_DATA_DmaBuf) && d[j].data != NULL)) {
@@ -685,6 +688,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
 						this, j, i);
 			}
+			b->datas[j] = d[j].data;
 		}
 
 		if (direction == SPA_DIRECTION_OUTPUT)
@@ -794,7 +798,7 @@ static int impl_node_process(struct spa_node *node)
 	struct spa_buffer *inb, *outb;
 	const void **src_datas;
 	void **dst_datas;
-	uint32_t i, n_src_datas, n_dst_datas;
+	uint32_t i, n_src_datas, n_dst_datas, n_datas;
 	int res = 0;
 	uint32_t n_samples, size, maxsize, offs;
 
@@ -853,16 +857,22 @@ static int impl_node_process(struct spa_node *node)
 		maxsize = SPA_MIN(outport->ctrl->max_size, maxsize);
 	n_samples = SPA_MIN(n_samples, maxsize / outport->stride);
 
+	spa_log_trace(this->log, NAME " %p: n_src:%d n_dst:%d size:%d maxsize:%d n_samples:%d",
+			this, n_src_datas, n_dst_datas, size, maxsize, n_samples);
+
+	n_datas = SPA_MAX(n_src_datas, n_dst_datas);
+
 	for (i = 0; i < n_dst_datas; i++) {
-		dst_datas[i] = outb->datas[this->remap[i]].data;
+		dst_datas[i] = this->is_passthrough ?
+			(void*)src_datas[i] :
+			outbuf->datas[this->remap[i]];
+		outb->datas[this->remap[i]].data = dst_datas[i];
 		outb->datas[i].chunk->offset = 0;
 		outb->datas[i].chunk->size = n_samples * outport->stride;
 	}
 
-	spa_log_trace(this->log, NAME " %p: n_src:%d n_dst:%d size:%d maxsize:%d n_samples:%d",
-			this, n_src_datas, n_dst_datas, size, maxsize, n_samples);
-
-	this->convert(this, dst_datas, src_datas, SPA_MAX(n_src_datas, n_dst_datas), n_samples);
+	if (!this->is_passthrough)
+		this->convert(this, dst_datas, src_datas, n_datas, n_samples);
 
 	inio->status = SPA_STATUS_NEED_BUFFER;
 	res |= SPA_STATUS_NEED_BUFFER;

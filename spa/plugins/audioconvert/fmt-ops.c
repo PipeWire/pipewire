@@ -55,7 +55,6 @@
 #define S32_TO_F32(v)	S24_TO_F32((v) >> 8)
 #define F32_TO_S32(v)	(F32_TO_S24(v) << 8)
 
-
 static inline int32_t read_s24(const void *src)
 {
 	const int8_t *s = src;

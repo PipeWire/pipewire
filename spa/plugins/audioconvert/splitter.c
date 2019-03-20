@@ -46,6 +46,7 @@
 
 #define MAX_SAMPLES	2048
 #define MAX_BUFFERS	64
+#define MAX_DATAS	32
 #define MAX_PORTS	128
 
 struct buffer {
@@ -54,6 +55,7 @@ struct buffer {
 	uint32_t flags;
 	struct spa_list link;
 	struct spa_buffer *buf;
+	void *datas[MAX_DATAS];
 };
 
 struct port {
@@ -101,9 +103,10 @@ struct impl {
 	struct port out_ports[MAX_PORTS];
 	uint32_t port_count;
 
-	bool started;
 	uint32_t cpu_flags;
 	convert_func_t convert;
+	int is_passthrough:1;
+	int started:1;
 
 	bool have_profile;
 
@@ -550,6 +553,7 @@ static int setup_convert(struct impl *this)
 				this->cpu_flags, conv->features);
 
 		this->convert = conv->func;
+		this->is_passthrough = src_fmt == dst_fmt;
 		return 0;
 	}
 	return -ENOTSUP;
@@ -712,7 +716,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 {
 	struct impl *this;
 	struct port *port;
-	uint32_t i;
+	uint32_t i, j;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -730,6 +734,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
+		uint32_t n_datas = buffers[i]->n_datas;
 		struct spa_data *d = buffers[i]->datas;
 
 		b = &port->buffers[i];
@@ -737,16 +742,19 @@ impl_node_port_use_buffers(struct spa_node *node,
 		b->buf = buffers[i];
 		b->flags = 0;
 
-		if (!((d[0].type == SPA_DATA_MemPtr ||
-		       d[0].type == SPA_DATA_MemFd ||
-		       d[0].type == SPA_DATA_DmaBuf) && d[0].data != NULL)) {
-			spa_log_error(this->log, NAME " %p: invalid memory on buffer %d %d %p", this,
-				      i, d[0].type, d[0].data);
-			return -EINVAL;
+		for (j = 0; j < n_datas; j++) {
+			if (!((d[j].type == SPA_DATA_MemPtr ||
+			       d[j].type == SPA_DATA_MemFd ||
+			       d[j].type == SPA_DATA_DmaBuf) && d[j].data != NULL)) {
+				spa_log_error(this->log, NAME " %p: invalid memory %d on buffer %d",
+						this, j, i);
+				return -EINVAL;
+			}
+			if (!SPA_IS_ALIGNED(d[j].data, 16))
+				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
+						this, j, i);
+			b->datas[j] = d[j].data;
 		}
-		if (!SPA_IS_ALIGNED(d[0].data, 16))
-			spa_log_warn(this->log, NAME " %p: memory on buffer %d not aligned", this, i);
-
 		if (direction == SPA_DIRECTION_OUTPUT)
 			queue_buffer(this, port, i);
 	}
@@ -895,7 +903,10 @@ static int impl_node_process(struct spa_node *node)
 		n_samples = SPA_MIN(n_samples, maxsize / outport->stride);
 
 		for (j = 0; j < dbuf->buf->n_datas; j++) {
-			dst_datas[n_dst_datas++] = dd[j].data;
+			dst_datas[n_dst_datas] = this->is_passthrough ?
+				(void *)src_datas[n_dst_datas] :
+				dbuf->datas[j];
+			dd[j].data = dst_datas[n_dst_datas++];
 			dd[j].chunk->offset = 0;
 			dd[j].chunk->size = n_samples * outport->stride;
 		}
@@ -907,7 +918,8 @@ static int impl_node_process(struct spa_node *node)
 	spa_log_trace(this->log, NAME " %p: %d %d %d %d %d", this,
 			n_src_datas, n_dst_datas, n_samples, maxsize, inport->stride);
 
-	this->convert(this, dst_datas, src_datas, SPA_MAX(n_dst_datas, n_src_datas), n_samples);
+	if (!this->is_passthrough)
+		this->convert(this, dst_datas, src_datas, SPA_MAX(n_dst_datas, n_src_datas), n_samples);
 
 	inio->status = SPA_STATUS_NEED_BUFFER;
 	res |= SPA_STATUS_NEED_BUFFER;

@@ -634,7 +634,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	}
 #endif
 
-	spa_log_trace(state->log, "%"PRIu64" %f %"PRIi64" %"PRIi64" %"PRIi64" %d %"PRIu64" %f %f", nsec,
+	spa_log_trace_fp(state->log, "%"PRIu64" %f %"PRIi64" %"PRIi64" %"PRIi64" %d %"PRIu64" %f %f", nsec,
 			state->old_dt, delay, elapsed, (int64_t)(nsec - state->last_time),
 			state->threshold, state->next_time, tw, extra);
 
@@ -666,7 +666,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence, bool start)
 		if ((res = update_time(state, nsec, delay, true)) < 0)
 			return res;
 
-		spa_log_trace(state->log, "slave %f %"PRIi64" %"PRIu64" %d",
+		spa_log_trace_fp(state->log, "slave %f %"PRIi64" %"PRIu64" %d",
 				state->dll.dt, nsec, delay, state->rate);
 
 		if (delay > state->threshold * 2) {
@@ -682,7 +682,7 @@ again:
 		spa_log_error(state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(res));
 		return res;
 	}
-	spa_log_trace(state->log, "begin %ld %ld %d", offset, frames, state->threshold);
+	spa_log_trace_fp(state->log, "begin %ld %ld %d", offset, frames, state->threshold);
 
 	silence = SPA_MIN(silence, frames);
 	to_write = frames;
@@ -726,7 +726,7 @@ again:
 			spa_list_remove(&b->link);
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 			state->io->buffer_id = b->id;
-			spa_log_trace(state->log, "alsa-util %p: reuse buffer %u", state, b->id);
+			spa_log_trace_fp(state->log, "alsa-util %p: reuse buffer %u", state, b->id);
 			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->id);
 			state->ready_offset = 0;
 		}
@@ -740,12 +740,12 @@ again:
 	}
 
 	if (silence > 0) {
-		spa_log_trace(state->log, "silence %ld", silence);
+		spa_log_trace_fp(state->log, "silence %ld", silence);
 		snd_pcm_areas_silence(my_areas, off, state->channels, silence, state->format);
 		written += silence;
 	}
 
-	spa_log_trace(state->log, "commit %ld %ld %"PRIi64, offset, written, state->sample_count);
+	spa_log_trace_fp(state->log, "commit %ld %ld %"PRIi64, offset, written, state->sample_count);
 	total_written += written;
 
 	if ((res = snd_pcm_mmap_commit(hndl, offset, written)) < 0) {
@@ -840,7 +840,6 @@ static int handle_play(struct state *state)
 	int res;
 	snd_pcm_sframes_t delay;
 	uint64_t nsec;
-	int64_t jitter;
 
 	if (state->position && state->threshold != state->position->size)
 		state->threshold = state->position->size;
@@ -850,9 +849,9 @@ static int handle_play(struct state *state)
 		return 0;
 
 	nsec = SPA_TIMESPEC_TO_NSEC(&state->now);
-	jitter = nsec - state->next_time;
-	spa_log_trace(state->log, "timeout %ld %"PRIu64" %"PRIu64" %"PRIi64" %d %ld", delay,
-			nsec, state->next_time, jitter, state->threshold, state->sample_count);
+	spa_log_trace_fp(state->log, "timeout %ld %"PRIu64" %"PRIu64" %"PRIi64" %d %ld", delay,
+			nsec, state->next_time, nsec - state->next_time,
+			state->threshold, state->sample_count);
 
 	if (delay >= state->threshold * 2) {
 		spa_log_trace(state->log, "early wakeup %ld %d", delay, state->threshold);
@@ -866,7 +865,7 @@ static int handle_play(struct state *state)
 	if (spa_list_is_empty(&state->ready)) {
 		struct spa_io_buffers *io = state->io;
 
-		spa_log_trace(state->log, "alsa-util %p: %d", state, io->status);
+		spa_log_trace_fp(state->log, "alsa-util %p: %d", state, io->status);
 
 		io->status = SPA_STATUS_NEED_BUFFER;
 		if (state->range) {
@@ -904,7 +903,6 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 	snd_pcm_sframes_t delay;
 	snd_pcm_uframes_t total_read = 0, to_read;
 	const snd_pcm_channel_area_t *my_areas;
-	int64_t jitter;
 
 	if (state->started && read(state->timerfd, &expire, sizeof(uint64_t)) != sizeof(uint64_t))
 		spa_log_warn(state->log, "error reading timerfd: %s", strerror(errno));
@@ -917,9 +915,9 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 		return;
 
 	nsec = SPA_TIMESPEC_TO_NSEC(&state->now);
-	jitter = nsec - state->next_time;
-	spa_log_trace(state->log, "timeout %ld %"PRIu64" %"PRIu64" %"PRIi64" %d %ld", delay,
-			nsec, state->next_time, jitter, state->threshold, state->sample_count);
+	spa_log_trace_fp(state->log, "timeout %ld %"PRIu64" %"PRIu64" %"PRIi64" %d %ld", delay,
+			nsec, state->next_time, nsec - state->next_time,
+			state->threshold, state->sample_count);
 
 	if (delay < state->threshold) {
 		spa_log_trace(state->log, "early wakeup %ld %d", delay, state->threshold);
@@ -936,7 +934,7 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 		snd_pcm_uframes_t read, frames, offset;
 
 		frames = to_read - total_read;
-		spa_log_trace(state->log, "begin %ld %ld %ld %ld", offset, frames, to_read, total_read);
+		spa_log_trace_fp(state->log, "begin %ld %ld %ld %ld", offset, frames, to_read, total_read);
 		if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0) {
 			spa_log_error(state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(res));
 			return;
@@ -946,7 +944,7 @@ static void alsa_on_capture_timeout_event(struct spa_source *source)
 		if (read < frames)
 			to_read = 0;
 
-		spa_log_trace(state->log, "commit %ld %ld", offset, read);
+		spa_log_trace_fp(state->log, "commit %ld %ld", offset, read);
 		if ((res = snd_pcm_mmap_commit(hndl, offset, read)) < 0) {
 			spa_log_error(state->log, "snd_pcm_mmap_commit error: %s", snd_strerror(res));
 			if (res != -EPIPE && res != -ESTRPIPE)

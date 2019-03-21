@@ -683,7 +683,7 @@ static void queue_buffer(struct impl *this, struct port *port, uint32_t id)
 {
 	struct buffer *b = &port->buffers[id];
 
-	spa_log_trace(this->log, NAME " %p: queue buffer %d on port %d %d",
+	spa_log_trace_fp(this->log, NAME " %p: queue buffer %d on port %d %d",
 			this, id, port->id, b->flags);
 	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_QUEUED))
 		return;
@@ -702,7 +702,7 @@ static struct buffer *dequeue_buffer(struct impl *this, struct port *port)
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
 	SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_QUEUED);
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d on port %d %u",
+	spa_log_trace_fp(this->log, NAME " %p: dequeue buffer %d on port %d %u",
 			this, b->id, port->id, b->flags);
 
 	return b;
@@ -848,7 +848,7 @@ static int impl_node_process(struct spa_node *node)
 	spa_return_val_if_fail(inio != NULL, -EIO);
 	spa_return_val_if_fail(this->convert != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: status %p %d %d", this,
+	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d", this,
 			inio, inio->status, inio->buffer_id);
 
 	if (inio->status != SPA_STATUS_HAVE_BUFFER)
@@ -880,7 +880,7 @@ static int impl_node_process(struct spa_node *node)
 		if ((outio = outport->io) == NULL)
 			goto empty;
 
-		spa_log_trace(this->log, NAME " %p: %d %p %d %d %d", this, i,
+		spa_log_trace_fp(this->log, NAME " %p: %d %p %d %d %d", this, i,
 				outio, outio->status, outio->buffer_id, outport->stride);
 
 		if (outio->status == SPA_STATUS_HAVE_BUFFER) {
@@ -920,7 +920,7 @@ static int impl_node_process(struct spa_node *node)
 		res |= SPA_STATUS_HAVE_BUFFER;
 	}
 
-	spa_log_trace(this->log, NAME " %p: %d %d %d %d %d", this,
+	spa_log_trace_fp(this->log, NAME " %p: %d %d %d %d %d", this,
 			n_src_datas, n_dst_datas, n_samples, maxsize, inport->stride);
 
 	if (!this->is_passthrough)

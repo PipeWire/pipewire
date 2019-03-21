@@ -964,7 +964,7 @@ impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t bu
 
 	spa_return_val_if_fail(CHECK_OUT_PORT(this, SPA_DIRECTION_OUTPUT, port_id), -EINVAL);
 
-	spa_log_trace(this->log, "reuse buffer %d", buffer_id);
+	spa_log_trace_fp(this->log, "reuse buffer %d", buffer_id);
 
 	return -ENOTSUP;
 }
@@ -977,7 +977,7 @@ static int impl_node_process(struct spa_node *node)
 	struct timespec ts;
 	uint64_t cmd = 1;
 
-	spa_log_trace(this->log, "%p: send process %p", this, impl->this.node->driver_node);
+	spa_log_trace_fp(this->log, "%p: send process %p", this, impl->this.node->driver_node);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	n->rt.activation->status = TRIGGERED;
@@ -1114,7 +1114,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 		if (read(this->data_source.fd, &cmd, sizeof(cmd)) != sizeof(cmd) || cmd != 1)
 			spa_log_warn(this->log, "node %p: read %"PRIu64" failed %m", this, cmd);
 
-		spa_log_trace(this->log, "node %p: got ready", this);
+		spa_log_trace_fp(this->log, "node %p: got ready", this);
 		if (this->callbacks && this->callbacks->ready)
 			this->callbacks->ready(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
 	}
@@ -1616,7 +1616,7 @@ static const struct pw_resource_events resource_events = {
 static int process_node(void *data)
 {
 	struct impl *impl = data;
-	pw_log_trace("client-node %p: process", impl);
+	pw_log_trace_fp("client-node %p: process", impl);
 	return spa_node_process(&impl->node.node);
 }
 

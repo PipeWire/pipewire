@@ -1028,7 +1028,7 @@ static void recycle_buffer(struct impl *this, uint32_t id)
 	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
 		spa_list_append(&port->queue, &b->link);
 		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
-		spa_log_trace(this->log, NAME " %p: recycle buffer %d", this, id);
+		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %d", this, id);
 	}
 }
 
@@ -1098,7 +1098,7 @@ static int impl_node_process(struct spa_node *node)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: status %d %d", this, inio->status, outio->status);
+	spa_log_trace_fp(this->log, NAME " %p: status %d %d", this, inio->status, outio->status);
 
 	if (outport->control)
 		process_control(this, outport, &outport->control->sequence);

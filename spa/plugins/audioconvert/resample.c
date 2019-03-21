@@ -669,7 +669,7 @@ static void recycle_buffer(struct impl *this, uint32_t id)
 	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
 		spa_list_append(&port->queue, &b->link);
 		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
-		spa_log_trace(this->log, NAME " %p: recycle buffer %d", this, id);
+		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %d", this, id);
 	}
 }
 
@@ -744,7 +744,8 @@ static int impl_node_process(struct spa_node *node)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: status %d %d %p", this, inio->status, outio->status, outport->io_control);
+	spa_log_trace_fp(this->log, NAME " %p: status %d %d %p",
+			this, inio->status, outio->status, outport->io_control);
 
 	if (outport->io_control)
 		process_control(this, outport, &outport->io_control->sequence);
@@ -791,7 +792,7 @@ static int impl_node_process(struct spa_node *node)
 
 		resample_process(&this->resample, i, src, &in_len, dst, &out_len);
 
-		spa_log_trace(this->log, NAME " %p: in %d/%d %ld %d out %d/%d %ld %d",
+		spa_log_trace_fp(this->log, NAME " %p: in %d/%d %ld %d out %d/%d %ld %d",
 				this, pin_len, in_len, size / sizeof(float), inport->offset,
 				pout_len, out_len, maxsize / sizeof(float), outport->offset);
 

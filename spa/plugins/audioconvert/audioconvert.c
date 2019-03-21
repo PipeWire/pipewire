@@ -870,14 +870,14 @@ static int impl_node_process(struct spa_node *node)
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	spa_log_trace(this->log, NAME " %p: process %d", this, this->n_links);
+	spa_log_trace_fp(this->log, NAME " %p: process %d", this, this->n_links);
 
 	while (1) {
 		res = SPA_STATUS_OK;
 		ready = 0;
 		for (i = 0; i < this->n_nodes; i++) {
 			r = spa_node_process(this->nodes[i]);
-			spa_log_trace(this->log, NAME " %p: process %d %d", this, i, r);
+			spa_log_trace_fp(this->log, NAME " %p: process %d %d", this, i, r);
 
 			if (r < 0)
 				return r;
@@ -896,7 +896,7 @@ static int impl_node_process(struct spa_node *node)
 			break;
 	}
 
-	spa_log_trace(this->log, NAME " %p: process result: %d", this, res);
+	spa_log_trace_fp(this->log, NAME " %p: process result: %d", this, res);
 
 	return res;
 }

@@ -78,6 +78,12 @@ pw_log_logv(enum spa_log_level level,
 #define pw_log_debug(...)   pw_log(SPA_LOG_LEVEL_DEBUG,__VA_ARGS__)
 #define pw_log_trace(...)   pw_log(SPA_LOG_LEVEL_TRACE,__VA_ARGS__)
 
+#ifndef FASTPATH
+#define pw_log_trace_fp(...)   pw_log(SPA_LOG_LEVEL_TRACE,__VA_ARGS__)
+#else
+#define pw_log_trace_fp(...)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

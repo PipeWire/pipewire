@@ -46,6 +46,7 @@ if cc.get_id() == 'gcc'
 			'-Wsign-compare',
 			'-Wimplicit-fallthrough',
 			'-Wpointer-arith',
+#			'-DFASTPATH',
 			language : 'c')
 endif
 

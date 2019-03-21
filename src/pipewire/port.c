@@ -88,9 +88,9 @@ static int tee_process(struct spa_node *data)
 	struct pw_port_mix *mix;
 	struct spa_io_buffers *io = &this->rt.io;
 
-	pw_log_trace("port %p: tee input %d %d", this, io->status, io->buffer_id);
+	pw_log_trace_fp("port %p: tee input %d %d", this, io->status, io->buffer_id);
 	spa_list_for_each(mix, &this->rt.mix_list, rt_link) {
-		pw_log_trace("port %p: port %d %p->%p %d", this,
+		pw_log_trace_fp("port %p: port %d %p->%p %d", this,
 				mix->port.port_id, io, mix->io, mix->io->buffer_id);
 		*mix->io = *io;
 	}
@@ -104,7 +104,7 @@ static int tee_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t bu
 	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
 	struct pw_port *this = &impl->this;
 
-	pw_log_trace("port %p: tee reuse buffer %d %d", this, port_id, buffer_id);
+	pw_log_trace_fp("port %p: tee reuse buffer %d %d", this, port_id, buffer_id);
 	spa_node_port_reuse_buffer(this->node->node, this->port_id, buffer_id);
 
 	return 0;
@@ -128,7 +128,7 @@ static int schedule_mix_input(struct spa_node *data)
 		return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 
 	spa_list_for_each(mix, &this->rt.mix_list, rt_link) {
-		pw_log_trace("port %p: mix input %d %p->%p %d %d", this,
+		pw_log_trace_fp("port %p: mix input %d %p->%p %d %d", this,
 				mix->port.port_id, mix->io, io, mix->io->status, mix->io->buffer_id);
 		*io = *mix->io;
 		mix->io->status = SPA_STATUS_NEED_BUFFER;
@@ -144,7 +144,7 @@ static int schedule_mix_reuse_buffer(struct spa_node *data, uint32_t port_id, ui
 	struct pw_port_mix *mix;
 
 	spa_list_for_each(mix, &this->rt.mix_list, rt_link) {
-		pw_log_trace("port %p: reuse buffer %d %d", this, port_id, buffer_id);
+		pw_log_trace_fp("port %p: reuse buffer %d %d", this, port_id, buffer_id);
 		spa_node_port_reuse_buffer(this->node->node, port_id, buffer_id);
 	}
 	return 0;

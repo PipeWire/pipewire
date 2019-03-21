@@ -711,14 +711,14 @@ static inline int resume_node(struct pw_node *this, int status)
 	activation->status = FINISHED;
 	activation->finish_time = nsec;
 
-        pw_log_trace("node %p: trigger peers", this);
+        pw_log_trace_fp("node %p: trigger peers", this);
 
 	spa_list_for_each(t, &this->rt.target_list, link) {
 		struct pw_node_activation_state *state;
 
 		state = &t->activation->state[0];
 
-		spa_debug("node %p: state %p pending %d/%d", t->node, state,
+		pw_log_trace_fp("node %p: state %p pending %d/%d", t->node, state,
                                 state->pending, state->required);
 
 		if (pw_node_activation_state_dec(state, 1)) {
@@ -738,7 +738,7 @@ static inline int process_node(void *data)
 	struct pw_node_activation *a = this->rt.activation;
 	int status;
 
-        pw_log_trace("node %p: process", this);
+        pw_log_trace_fp("node %p: process", this);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	a->status = AWAKE;
@@ -756,11 +756,11 @@ static inline int process_node(void *data)
 		a->signal_time = a->finish_time;
 		a->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
 		a->running = false;
-		pw_log_trace("node %p: graph completed wait:%"PRIu64" run:%"PRIu64, this,
+		pw_log_trace_fp("node %p: graph completed wait:%"PRIu64" run:%"PRIu64, this,
 				a->awake_time - a->signal_time,
 				a->finish_time - a->awake_time);
 	} else if (status == SPA_STATUS_OK) {
-		pw_log_trace("node %p: async continue", this);
+		pw_log_trace_fp("node %p: async continue", this);
 	} else {
 		resume_node(this, status);
 	}
@@ -782,7 +782,7 @@ static void node_on_fd_events(struct spa_source *source)
 		if (read(this->source.fd, &cmd, sizeof(cmd)) != sizeof(cmd) || cmd != 1)
 			pw_log_warn("node %p: read %"PRIu64" failed %m", this, cmd);
 
-		pw_log_trace("node %p: got process", this);
+		pw_log_trace_fp("node %p: got process", this);
 		this->rt.target.signal(this->rt.target.data);
 	}
 }
@@ -1065,7 +1065,7 @@ static int node_ready(void *data, int status)
 	struct pw_node *driver = node->driver_node;
 	struct pw_node_target *t;
 
-	pw_log_trace("node %p: ready driver:%d exported:%d %p status:%d", node,
+	pw_log_trace_fp("node %p: ready driver:%d exported:%d %p status:%d", node,
 			node->driver, node->exported, driver, status);
 
 	if (node == driver) {

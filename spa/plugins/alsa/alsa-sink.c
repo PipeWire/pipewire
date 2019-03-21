@@ -619,7 +619,7 @@ static int impl_node_process(struct spa_node *node)
 	input = this->io;
 	spa_return_val_if_fail(input != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: process %d %d/%d", this, input->status,
+	spa_log_trace_fp(this->log, NAME " %p: process %d %d/%d", this, input->status,
 			input->buffer_id,
 			this->n_buffers);
 
@@ -633,7 +633,7 @@ static int impl_node_process(struct spa_node *node)
 			input->status = -EINVAL;
 			return -EINVAL;
 		}
-		spa_log_trace(this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
+		spa_log_trace_fp(this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
 		spa_list_append(&this->ready, &b->link);
 		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
 		input->buffer_id = SPA_ID_INVALID;

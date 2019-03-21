@@ -465,7 +465,7 @@ static int queue_buffer(struct impl *this, struct port *port, struct buffer *b)
 
 	spa_list_append(&port->queue, &b->link);
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_QUEUED);
-	spa_log_trace(this->log, NAME " %p: queue buffer %d", this, b->id);
+	spa_log_trace_fp(this->log, NAME " %p: queue buffer %d", this, b->id);
 	return 0;
 }
 
@@ -479,7 +479,7 @@ static struct buffer *dequeue_buffer(struct impl *this, struct port *port)
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
 	SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_QUEUED);
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", this, b->id);
+	spa_log_trace_fp(this->log, NAME " %p: dequeue buffer %d", this, b->id);
 	return b;
 }
 
@@ -684,10 +684,11 @@ static int impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, 
 
 #if defined (__SSE__)
 #include <xmmintrin.h>
-static void mix_2(float *dst, float *src1, float *src2, int n_samples)
+static void mix_2(float * dst, const float * SPA_RESTRICT src1,
+		const float * SPA_RESTRICT src2, uint32_t n_samples)
 {
-	int n, unrolled;
-	__m128 in[2];
+	uint32_t n, unrolled;
+	__m128 in1[4], in2[4];
 
 	if (SPA_IS_ALIGNED(src1, 16) &&
 	    SPA_IS_ALIGNED(src2, 16) &&
@@ -697,8 +698,6 @@ static void mix_2(float *dst, float *src1, float *src2, int n_samples)
 		unrolled = 0;
 
 	for (n = 0; unrolled--; n += 16) {
-		__m128 in1[4], in2[4];
-
 		in1[0] = _mm_load_ps(&src1[n+ 0]);
 		in1[1] = _mm_load_ps(&src1[n+ 4]);
 		in1[2] = _mm_load_ps(&src1[n+ 8]);
@@ -720,16 +719,17 @@ static void mix_2(float *dst, float *src1, float *src2, int n_samples)
 		_mm_store_ps(&dst[n+12], in1[3]);
 	}
 	for (; n < n_samples; n++) {
-		in[0] = _mm_load_ss(&src1[n]),
-		in[1] = _mm_load_ss(&src2[n]),
-		in[0] = _mm_add_ss(in[0], in[1]);
-		_mm_store_ss(&dst[n], in[0]);
+		in1[0] = _mm_load_ss(&src1[n]),
+		in2[0] = _mm_load_ss(&src2[n]),
+		in1[0] = _mm_add_ss(in1[0], in2[0]);
+		_mm_store_ss(&dst[n], in1[0]);
 	}
 }
 #else
-static void mix_2(float *dst, float *src1, float *src2, int n_samples)
+static void mix_2(float * dst, const float * SPA_RESTRICT src1,
+		const float * SPA_RESTRICT src2, uint32_t n_samples)
 {
-	int i;
+	uint32_t i;
 	for (i = 0; i < n_samples; i++)
 		dst[i] = src1[i] + src2[i];
 }
@@ -753,7 +753,8 @@ static int impl_node_process(struct spa_node *node)
 	outio = outport->io;
 	spa_return_val_if_fail(outio != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: status %p %d %d", this, outio, outio->status, outio->buffer_id);
+	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d",
+			this, outio, outio->status, outio->buffer_id);
 
 	if (outio->status == SPA_STATUS_HAVE_BUFFER)
 		return outio->status;
@@ -780,7 +781,7 @@ static int impl_node_process(struct spa_node *node)
 		    (inio = inport->io) == NULL ||
 		    inio->buffer_id >= inport->n_buffers ||
 		    inio->status != SPA_STATUS_HAVE_BUFFER) {
-			spa_log_trace(this->log, NAME " %p: skip input %d %d %p %d %d %d", this,
+			spa_log_trace_fp(this->log, NAME " %p: skip input %d %d %p %d %d %d", this,
 				i, inport->valid, inio,
 				inio ? inio->status : -1,
 				inio ? inio->buffer_id : SPA_ID_INVALID,
@@ -788,7 +789,7 @@ static int impl_node_process(struct spa_node *node)
 			continue;
 		}
 
-		spa_log_trace(this->log, NAME " %p: mix input %d %p->%p %d %d", this,
+		spa_log_trace_fp(this->log, NAME " %p: mix input %d %p->%p %d %d", this,
 				i, inio, outio, inio->status, inio->buffer_id);
 
 		inb = &inport->buffers[inio->buffer_id];

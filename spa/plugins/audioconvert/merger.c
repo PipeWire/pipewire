@@ -714,7 +714,7 @@ static void queue_buffer(struct impl *this, struct port *port, uint32_t id)
 {
 	struct buffer *b = &port->buffers[id];
 
-	spa_log_trace(this->log, NAME " %p: queue buffer %d on port %d %d",
+	spa_log_trace_fp(this->log, NAME " %p: queue buffer %d on port %d %d",
 			this, id, port->id, b->flags);
 	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_QUEUED))
 		return;
@@ -733,7 +733,7 @@ static struct buffer *dequeue_buffer(struct impl *this, struct port *port)
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
 	SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_QUEUED);
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d on port %d %u",
+	spa_log_trace_fp(this->log, NAME " %p: dequeue buffer %d on port %d %u",
 			this, b->id, port->id, b->flags);
 
 	return b;
@@ -872,7 +872,7 @@ static inline int get_in_buffer(struct impl *this, struct port *port, struct buf
 	if ((io = port->io) == NULL ||
 	    io->status != SPA_STATUS_HAVE_BUFFER ||
 	    io->buffer_id >= port->n_buffers) {
-		spa_log_trace(this->log, NAME " %p: empty port %d %p %d %d %d",
+		spa_log_trace_fp(this->log, NAME " %p: empty port %d %p %d %d %d",
 				this, port->id, io, io->status, io->buffer_id,
 				port->n_buffers);
 		return -EPIPE;
@@ -944,7 +944,7 @@ static int impl_node_process(struct spa_node *node)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(this->convert != NULL, -EIO);
 
-	spa_log_trace(this->log, NAME " %p: status %d %d", this, outio->status, outio->buffer_id);
+	spa_log_trace_fp(this->log, NAME " %p: status %d %d", this, outio->status, outio->buffer_id);
 
 	if ((res = get_out_buffer(this, outport, &dbuf)) != 0)
 		return res;
@@ -977,7 +977,7 @@ static int impl_node_process(struct spa_node *node)
 
 		n_samples = SPA_MIN(n_samples, sd->chunk->size / inport->stride);
 
-		spa_log_trace(this->log, NAME " %p: %d %d %d %p", this,
+		spa_log_trace_fp(this->log, NAME " %p: %d %d %d %p", this,
 				sd->chunk->size, maxsize, n_samples, src_datas[i]);
 
 		SPA_FLAG_SET(res, SPA_STATUS_NEED_BUFFER);
@@ -991,7 +991,7 @@ static int impl_node_process(struct spa_node *node)
 		dbuf->buf->datas[i].data = dst_datas[i];
 		dbuf->buf->datas[i].chunk->offset = 0;
 		dbuf->buf->datas[i].chunk->size = n_samples * outport->stride;
-		spa_log_trace(this->log, NAME " %p %p %d", this, dst_datas[i],
+		spa_log_trace_fp(this->log, NAME " %p %p %d", this, dst_datas[i],
 				n_samples * outport->stride);
 	}
 	if (!this->is_passthrough)

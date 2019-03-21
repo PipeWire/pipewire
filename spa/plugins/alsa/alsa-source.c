@@ -313,7 +313,7 @@ static void recycle_buffer(struct state *this, uint32_t buffer_id)
 	struct buffer *b = &this->buffers[buffer_id];
 
 	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
-		spa_log_trace(this->log, NAME " %p: recycle buffer %u", this, buffer_id);
+		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %u", this, buffer_id);
 		spa_list_append(&this->free, &b->link);
 		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
 	}
@@ -653,7 +653,7 @@ static int impl_node_process(struct spa_node *node)
 	b = spa_list_first(&this->ready, struct buffer, link);
 	spa_list_remove(&b->link);
 
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", node, b->id);
+	spa_log_trace_fp(this->log, NAME " %p: dequeue buffer %d", node, b->id);
 
 	io->buffer_id = b->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;

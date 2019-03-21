@@ -854,7 +854,7 @@ static int impl_node_process(struct spa_node *node)
 
 	impl->range.min_size = impl->range.max_size = q->size * sizeof(float);
 
-	spa_log_trace(this->log, "%p: process %d", this, impl->range.max_size);
+	spa_log_trace_fp(this->log, "%p: process %d", this, impl->range.max_size);
 
 	if (impl->use_converter) {
 		status = spa_node_process(impl->adapter);
@@ -862,7 +862,7 @@ static int impl_node_process(struct spa_node *node)
 	else {
 		struct spa_io_buffers tmp;
 
-		spa_log_trace(this->log, "%p: process %d/%d %d/%d", this,
+		spa_log_trace_fp(this->log, "%p: process %d/%d %d/%d", this,
 				impl->io->status, impl->io->buffer_id,
 				impl->client_port_mix.io->status,
 				impl->client_port_mix.io->buffer_id);
@@ -873,7 +873,7 @@ static int impl_node_process(struct spa_node *node)
 
 		status = impl->client_port_mix.io->status | impl->io->status;
 	}
-	spa_log_trace(this->log, "%p: process %d", this, status);
+	spa_log_trace_fp(this->log, "%p: process %d", this, status);
 
 	if (impl->direction == SPA_DIRECTION_OUTPUT) {
 		if (!(status & SPA_STATUS_HAVE_BUFFER))
@@ -1225,7 +1225,7 @@ static const struct pw_node_events node_events = {
 static int node_ready(void *data, int status)
 {
 	struct impl *impl = data;
-	pw_log_trace("client-stream %p: ready %d", &impl->this, status);
+	pw_log_trace_fp("client-stream %p: ready %d", &impl->this, status);
 
 	impl->driver = false;
 	impl_node_process(&impl->node.node);
@@ -1234,17 +1234,9 @@ static int node_ready(void *data, int status)
 	return impl->node.callbacks->ready(impl->node.callbacks_data, status);
 }
 
-static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
-{
-	struct impl *impl = data;
-	pw_log_trace("client-stream %p: reuse_buffer %d", &impl->this, buffer_id);
-	return 0;
-}
-
 static const struct spa_node_callbacks node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.ready = node_ready,
-	.reuse_buffer = node_reuse_buffer,
 };
 
 /** Create a new client stream

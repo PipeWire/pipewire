@@ -115,6 +115,12 @@ struct spa_log {
 #define spa_log_debug(l,...)	spa_log_log(l,SPA_LOG_LEVEL_DEBUG,__FILE__,__LINE__,__func__,__VA_ARGS__)
 #define spa_log_trace(l,...)	spa_log_log(l,SPA_LOG_LEVEL_TRACE,__FILE__,__LINE__,__func__,__VA_ARGS__)
 
+#ifndef FASTPATH
+#define spa_log_trace_fp(l,...)	spa_log_log(l,SPA_LOG_LEVEL_TRACE,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#else
+#define spa_log_trace_fp(l,...)
+#endif
+
 #else
 
 #define SPA_LOG_FUNC(name,lev)							\
@@ -133,6 +139,12 @@ SPA_LOG_FUNC(warn, SPA_LOG_LEVEL_WARN)
 SPA_LOG_FUNC(info, SPA_LOG_LEVEL_INFO)
 SPA_LOG_FUNC(debug, SPA_LOG_LEVEL_DEBUG)
 SPA_LOG_FUNC(trace, SPA_LOG_LEVEL_TRACE)
+
+#ifndef FASTPATH
+SPA_LOG_FUNC(trace_fp, SPA_LOG_LEVEL_TRACE)
+#else
+static inline void spa_log_trace_fp (struct spa_log *l, const char *format, ...) { }
+#endif
 
 #endif
 #ifdef __cplusplus

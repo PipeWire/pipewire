@@ -85,14 +85,19 @@ struct spa_port_info {
 #define SPA_PORT_FLAG_CAN_USE_BUFFERS		(1u<<3)	/**< the port can use a provided buffer */
 #define SPA_PORT_FLAG_IN_PLACE			(1u<<4)	/**< the port can process data in-place and
 							 *   will need a writable input buffer */
-#define SPA_PORT_FLAG_NO_REF			(1u<<5)	/**< the port does not keep a ref on the buffer */
+#define SPA_PORT_FLAG_NO_REF			(1u<<5)	/**< the port does not keep a ref on the buffer.
+							 *   This means the node will always completely
+							 *   consume the input buffer and it will be
+							 *   recycled after process. */
 #define SPA_PORT_FLAG_LIVE			(1u<<6)	/**< output buffers from this port are
 							 *   timestamped against a live clock. */
 #define SPA_PORT_FLAG_PHYSICAL			(1u<<7)	/**< connects to some device */
 #define SPA_PORT_FLAG_TERMINAL			(1u<<8)	/**< data was not created from this port
 							 *   or will not be made available on another
 							 *   port */
-#define SPA_PORT_FLAG_DYNAMIC_DATA		(1u<<9)	/**< data pointer on buffers can be changed */
+#define SPA_PORT_FLAG_DYNAMIC_DATA		(1u<<9)	/**< data pointer on buffers can be changed.
+							 *   Only the buffer data marked as DYNAMIC
+							 *   can be changed. */
 	uint64_t flags;				/**< port flags */
 	struct spa_fraction rate;		/**< rate of sequence numbers on port */
 	const struct spa_dict *props;		/**< extra port properties */

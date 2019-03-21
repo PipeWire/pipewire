@@ -62,7 +62,8 @@ struct spa_chunk {
 struct spa_data {
 	uint32_t type;			/**< memory type, one of enum spa_data_type */
 #define SPA_DATA_FLAG_NONE	 0
-#define SPA_DATA_FLAG_CORRUPTED	(1<<0)	/**< data is corrupted in some way */
+#define SPA_DATA_FLAG_CORRUPTED	(1u<<0)	/**< data is corrupted in some way */
+#define SPA_DATA_FLAG_DYNAMIC	(1u<<1)	/**< data pointer can be changed */
 	uint32_t flags;			/**< data flags */
 	int64_t fd;			/**< optional fd for data */
 	uint32_t mapoffset;		/**< offset to map fd at */

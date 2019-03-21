@@ -381,6 +381,7 @@ static int alloc_buffers(struct pw_link *this,
 			 uint32_t *data_sizes,
 			 int32_t *data_strides,
 			 uint32_t *data_aligns,
+			 uint32_t flags,
 			 struct allocation *allocation)
 {
 	int res;
@@ -419,6 +420,7 @@ static int alloc_buffers(struct pw_link *this,
 	for (i = 0; i < n_datas; i++) {
 		struct spa_data *d = &datas[i];
 
+		spa_zero(*d);
 		if (data_sizes[i] > 0) {
 			d->type = SPA_DATA_MemPtr;
 			d->maxsize = data_sizes[i];
@@ -426,6 +428,8 @@ static int alloc_buffers(struct pw_link *this,
 			d->type = SPA_ID_INVALID;
 			d->maxsize = 0;
 		}
+		if (SPA_FLAG_CHECK(flags, SPA_PORT_FLAG_DYNAMIC_DATA))
+			SPA_FLAG_SET(d->flags, SPA_DATA_FLAG_DYNAMIC);
 	}
 
         spa_buffer_alloc_fill_info(&info, n_metas, metas, n_datas, datas, data_aligns);
@@ -579,8 +583,8 @@ static int do_allocation(struct pw_link *this)
 	}
 
 	if (output->allocation.n_buffers) {
-		out_flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
-		in_flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+		SPA_FLAG_UNSET(out_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
+		SPA_FLAG_UNSET(in_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
 
 		move_allocation(&output->allocation, &allocation);
 
@@ -659,6 +663,7 @@ static int do_allocation(struct pw_link *this)
 					 1,
 					 data_sizes, data_strides,
 					 data_aligns,
+					 in_flags & out_flags,
 					 &allocation)) < 0) {
 			asprintf(&error, "error alloc buffers: %d", res);
 			goto error;
@@ -676,7 +681,7 @@ static int do_allocation(struct pw_link *this)
 				goto error;
 			}
 			out_res = res;
-			out_flags &= ~SPA_PORT_FLAG_CAN_USE_BUFFERS;
+			SPA_FLAG_UNSET(out_flags, SPA_PORT_FLAG_CAN_USE_BUFFERS);
 			move_allocation(&allocation, &output->allocation);
 
 			pw_log_debug("link %p: allocated %d buffers %p from output port", this,

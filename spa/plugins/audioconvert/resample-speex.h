@@ -64,9 +64,8 @@ static int impl_speex_init(struct resample *r)
 	r->data = speex_resampler_init_frac(r->channels,
 					    r->i_rate, r->o_rate, r->i_rate, r->o_rate,
 					    SPEEX_RESAMPLER_QUALITY_DEFAULT, &err);
-	if (r->data == NULL) {
+	if (r->data == NULL)
 		return -ENOMEM;
-	}
 
 	return 0;
 }

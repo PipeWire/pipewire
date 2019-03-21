@@ -156,7 +156,8 @@ static int init_port(struct impl *this, enum spa_direction direction,
 			SPA_PORT_CHANGE_MASK_PARAMS;
 
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+			SPA_PORT_FLAG_DYNAMIC_DATA;
 	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
 	port->info_props_items[1] = SPA_DICT_ITEM_INIT("port.channel", port->position);
 	port->info_props = SPA_DICT_INIT(port->info_props_items, 2);
@@ -746,14 +747,18 @@ impl_node_port_use_buffers(struct spa_node *node,
 			if (!((d[j].type == SPA_DATA_MemPtr ||
 			       d[j].type == SPA_DATA_MemFd ||
 			       d[j].type == SPA_DATA_DmaBuf) && d[j].data != NULL)) {
-				spa_log_error(this->log, NAME " %p: invalid memory %d on buffer %d",
-						this, j, i);
+				spa_log_error(this->log, NAME " %p: invalid memory %d on buffer %d %d %p",
+						this, j, i, d[j].type, d[j].data);
 				return -EINVAL;
 			}
-			if (!SPA_IS_ALIGNED(d[j].data, 16))
+			if (!SPA_IS_ALIGNED(d[j].data, 16)) {
 				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
 						this, j, i);
+			}
 			b->datas[j] = d[j].data;
+			if (direction == SPA_DIRECTION_OUTPUT &&
+			    !SPA_FLAG_CHECK(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
+				this->is_passthrough = false;
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
 			queue_buffer(this, port, i);
@@ -1026,7 +1031,9 @@ impl_init(const struct spa_handle_factory *factory,
 	port->direction = SPA_DIRECTION_INPUT;
 	port->id = 0;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+			SPA_PORT_FLAG_NO_REF |
+			SPA_PORT_FLAG_DYNAMIC_DATA;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

@@ -111,12 +111,13 @@ struct impl {
 	struct props props;
 	struct spa_param_info params[8];
 
-	bool started;
 
 	struct port in_port;
 	struct port out_port;
 
 	channelmix_func_t convert;
+	int started:1;
+	int is_passthrough:1;
 	uint32_t cpu_flags;
 	uint32_t n_matrix;
 	float matrix[4096];
@@ -375,9 +376,13 @@ static int make_matrix(struct impl *this,
 		max = SPA_MAX(max, sum);
 	}
 	this->n_matrix = c;
+	this->is_passthrough = dst_chan == src_chan;
 	for (i = 0; i < dst_chan; i++) {
 		for (j = 0; j < src_chan; j++) {
-			spa_log_debug(this->log, "%d %d: %f", i, j, this->matrix[i * src_chan + j]);
+			float v = this->matrix[i * src_chan + j];
+			spa_log_debug(this->log, "%d %d: %f", i, j, v);
+			if (i == j && v != 1.0f)
+				this->is_passthrough = false;
 		}
 	}
 
@@ -959,6 +964,9 @@ impl_node_port_use_buffers(struct spa_node *node,
 						this, j, i);
 			}
 			b->datas[j] = d[j].data;
+			if (direction == SPA_DIRECTION_OUTPUT &&
+			    !SPA_FLAG_CHECK(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
+				this->is_passthrough = false;
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
 			spa_list_append(&port->queue, &b->link);
@@ -1126,7 +1134,7 @@ static int impl_node_process(struct spa_node *node)
 		float v;
 
 		v = this->props.mute ? 0.0f : this->props.volume;
-		is_passthrough = v == 1.0f;
+		is_passthrough = this->is_passthrough && v == 1.0f;
 		n_samples = sb->datas[0].chunk->size / inport->stride;
 
 		for (i = 0; i < n_src_datas; i++)
@@ -1252,7 +1260,8 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+		SPA_PORT_FLAG_DYNAMIC_DATA;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
@@ -1268,7 +1277,9 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+		SPA_PORT_FLAG_NO_REF |
+		SPA_PORT_FLAG_DYNAMIC_DATA;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

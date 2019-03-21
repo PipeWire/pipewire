@@ -80,17 +80,17 @@ struct port {
 	struct spa_io_range *io_range;
 	struct spa_io_sequence *io_control;
 
-	bool have_format;
 	struct spa_audio_info format;
 	uint32_t stride;
 	uint32_t blocks;
 	uint32_t size;
+	int have_format:1;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 
-	struct spa_list queue;
 	uint32_t offset;
+	struct spa_list queue;
 };
 
 struct impl {
@@ -109,8 +109,8 @@ struct impl {
 	struct port in_port;
 	struct port out_port;
 
-	bool started;
-	bool monitor;
+	int started:1;
+	int monitor:1;
 
 	struct resample resample;
 };
@@ -785,6 +785,7 @@ static int impl_node_process(struct spa_node *node)
 
 		in_len = pin_len;
 		out_len = pout_len;
+
 		src = SPA_MEMBER(sb->datas[i].data, inport->offset, void);
 		dst = SPA_MEMBER(db->datas[i].data, outport->offset, void);
 
@@ -940,7 +941,8 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 		SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+			SPA_PORT_FLAG_DYNAMIC_DATA;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

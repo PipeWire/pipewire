@@ -98,7 +98,7 @@ static void init_buffer(struct port *port, uint32_t id)
 	b->buf.n_datas = 1;
 	b->buf.datas = b->datas;
 	b->datas[0].type = SPA_DATA_MemPtr;
-	b->datas[0].flags = 0;
+	b->datas[0].flags = SPA_DATA_FLAG_DYNAMIC;
 	b->datas[0].fd = -1;
 	b->datas[0].mapoffset = 0;
 	b->datas[0].maxsize = SPA_ROUND_DOWN_N(sizeof(port->empty), 16);

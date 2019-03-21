@@ -689,6 +689,9 @@ impl_node_port_use_buffers(struct spa_node *node,
 						this, j, i);
 			}
 			b->datas[j] = d[j].data;
+			if (direction == SPA_DIRECTION_OUTPUT &&
+			    !SPA_FLAG_CHECK(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
+				this->is_passthrough = false;
 		}
 
 		if (direction == SPA_DIRECTION_OUTPUT)
@@ -925,7 +928,7 @@ static int impl_clear(struct spa_handle *handle)
 	return 0;
 }
 
-static int init_port(struct impl *this, enum spa_direction direction, uint32_t port_id, uint32_t flags)
+static int init_port(struct impl *this, enum spa_direction direction, uint32_t port_id)
 {
 	struct port *port;
 
@@ -936,7 +939,9 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	spa_list_init(&port->queue);
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_PROPS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = flags;
+	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+		SPA_PORT_FLAG_NO_REF |
+		SPA_PORT_FLAG_DYNAMIC_DATA;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
@@ -997,8 +1002,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.n_params = 0;
 	props_reset(&this->props);
 
-	init_port(this, SPA_DIRECTION_OUTPUT, 0, SPA_PORT_FLAG_CAN_USE_BUFFERS);
-	init_port(this, SPA_DIRECTION_INPUT, 0, SPA_PORT_FLAG_CAN_USE_BUFFERS);
+	init_port(this, SPA_DIRECTION_OUTPUT, 0);
+	init_port(this, SPA_DIRECTION_INPUT, 0);
 
 	return 0;
 }

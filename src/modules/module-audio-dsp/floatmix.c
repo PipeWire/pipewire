@@ -242,9 +242,10 @@ static int impl_node_add_port(struct spa_node *node, enum spa_direction directio
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
+			   SPA_PORT_FLAG_NO_REF |
+			   SPA_PORT_FLAG_DYNAMIC_DATA |
 			   SPA_PORT_FLAG_REMOVABLE |
-			   SPA_PORT_FLAG_OPTIONAL |
-			   SPA_PORT_FLAG_IN_PLACE;
+			   SPA_PORT_FLAG_OPTIONAL;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
@@ -928,7 +929,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
 	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
-				SPA_PORT_FLAG_NO_REF;
+				SPA_PORT_FLAG_DYNAMIC_DATA;
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);

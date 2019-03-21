@@ -56,9 +56,10 @@ struct link {
 	uint32_t in_port;
 	uint32_t in_flags;
 	struct spa_io_buffers io;
-	bool negotiated;
+	uint32_t min_buffers;
 	uint32_t n_buffers;
 	struct spa_buffer **buffers;
+	int negotiated:1;
 };
 
 struct impl {
@@ -94,21 +95,21 @@ struct impl {
 
 static int make_link(struct impl *this,
 		struct spa_node *out_node, uint32_t out_port,
-		struct spa_node *in_node, uint32_t in_port,
-		struct spa_audio_info *info)
+		struct spa_node *in_node, uint32_t in_port, uint32_t min_buffers)
 {
 	struct link *l = &this->links[this->n_links++];
 
 	l->out_node = out_node;
 	l->out_port = out_port;
+	l->out_flags = 0;
 	l->in_node = in_node;
 	l->in_port = in_port;
+	l->in_flags = 0;
 	l->negotiated = false;
 	l->io.status = SPA_STATUS_NEED_BUFFER;
 	l->io.buffer_id = SPA_ID_INVALID;
 	l->n_buffers = 0;
-	l->out_flags = 0;
-	l->in_flags = 0;
+	l->min_buffers = min_buffers;
 
 	spa_node_port_set_io(out_node,
 			     SPA_DIRECTION_OUTPUT, out_port,
@@ -238,8 +239,9 @@ static int setup_convert(struct impl *this)
 	/* pack */
 	this->nodes[this->n_nodes++] = this->fmt[SPA_DIRECTION_OUTPUT];
 
-	for (i = 0; i < this->n_nodes - 1; i++)
-		make_link(this, this->nodes[i], 0, this->nodes[i+1], 0, NULL);
+	make_link(this, this->nodes[0], 0, this->nodes[1], 0, 2);
+	make_link(this, this->nodes[1], 0, this->nodes[2], 0, 2);
+	make_link(this, this->nodes[2], 0, this->nodes[3], 0, 1);
 
 	for (i = 0, j = this->n_links - 1; j >= i; i++, j--) {
 		spa_log_debug(this->log, "negotiate %d", i);
@@ -258,9 +260,9 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t state;
 	struct spa_pod *param = NULL;
-	int res, i;
+	int res;
 	bool in_alloc, out_alloc;
-	int32_t size, buffers, blocks, align, flags;
+	uint32_t i, size, buffers, blocks, align, flags;
 	uint32_t *aligns;
 	struct spa_data *datas;
 
@@ -316,9 +318,12 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	aligns = alloca(sizeof(uint32_t) * blocks);
 	for (i = 0; i < blocks; i++) {
 		datas[i].type = SPA_DATA_MemPtr;
+		datas[i].flags = SPA_DATA_FLAG_DYNAMIC;
 		datas[i].maxsize = size;
 		aligns[i] = align;
 	}
+
+	buffers = SPA_MAX(link->min_buffers, buffers);
 
 	if (link->buffers)
 		free(link->buffers);

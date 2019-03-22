@@ -37,16 +37,26 @@ static void impl_speex_update_rate(struct resample *r, double rate)
 			r->i_rate * rate, r->o_rate, r->i_rate, r->o_rate);
 }
 
-static void impl_speex_process(struct resample *r, int channel,
-                              void *src, uint32_t *in_len, void *dst, uint32_t *out_len)
+static void impl_speex_process(struct resample *r,
+		const void *SPA_RESTRICT src[], uint32_t *in_len,
+		void * SPA_RESTRICT dst[], uint32_t *out_len)
 {
+	uint32_t c, i, o;
+
 	if (r->i_rate == r->o_rate) {
-		*out_len = *in_len = SPA_MIN(*in_len, *out_len);
-		spa_memcpy(dst, src, *out_len * sizeof(float));
+		o = i = SPA_MIN(*in_len, *out_len);
+		for (c = 0; c < r->channels; c++)
+			spa_memcpy(dst[c], src[c], o * sizeof(float));
 	}
 	else {
-		speex_resampler_process_float(r->data, channel, src, in_len, dst, out_len);
+		for (c = 0; c < r->channels; c++) {
+			i = *in_len;
+			o = *out_len;
+			speex_resampler_process_float(r->data, c, src[c], &i, dst[c], &o);
+		}
 	}
+	*in_len = i;
+	*out_len = o;
 }
 
 static void impl_speex_reset (struct resample *r)

@@ -32,8 +32,9 @@ struct resample {
 
 	void (*free)         (struct resample *r);
 	void (*update_rate)  (struct resample *r, double rate);
-	void (*process)      (struct resample *r, int channel,
-			      void *src, uint32_t *in_len, void *dst, uint32_t *out_len);
+	void (*process)      (struct resample *r,
+			      const void * SPA_RESTRICT src[], uint32_t *in_len,
+			      void * SPA_RESTRICT dst[], uint32_t *out_len);
 	void (*reset)	     (struct resample *r);
 	void *data;
 };

@@ -44,35 +44,45 @@ static void impl_peaks_update_rate(struct resample *r, double rate)
 {
 }
 
-static void impl_peaks_process(struct resample *r, int channel,
-			void *src, uint32_t *in_len, void *dst, uint32_t *out_len)
+static void impl_peaks_process(struct resample *r,
+			const void * SPA_RESTRICT src[], uint32_t *in_len,
+			void * SPA_RESTRICT dst[], uint32_t *out_len)
 {
 	struct peaks_data *pd = r->data;
-	float *s = src, *d = dst, m;
-	uint32_t i, o, end, chunk;
+	uint32_t c, i, o, end, chunk, o_count, i_count;
 
-	o = i = 0;
-	m = pd->max_f[channel];
+	if (r->channels == 0)
+		return;
 
-	while (i < *in_len && o < *out_len) {
-		end = ((uint64_t) (pd->o_count + 1) * r->i_rate) / r->o_rate;
-		end = end > pd->i_count ? end - pd->i_count : 0;
-		chunk = SPA_MIN(end, *in_len);
+	for (c = 0; c < r->channels; c++) {
+		const float *s = src[c];
+		float *d = dst[c], m = pd->max_f[c];
 
-		for (; i < chunk; i++)
-			m = SPA_MAX(fabsf(s[i]), m);
+		o_count = pd->o_count;
+		i_count = pd->i_count;
+		o = i = 0;
 
-		if (i == end) {
-			d[o++] = m;
-			m = 0.0f;
-			pd->o_count++;
+		while (i < *in_len && o < *out_len) {
+			end = ((uint64_t) (o_count + 1) * r->i_rate) / r->o_rate;
+			end = end > i_count ? end - i_count : 0;
+			chunk = SPA_MIN(end, *in_len);
+
+			for (; i < chunk; i++)
+				m = SPA_MAX(fabsf(s[i]), m);
+
+			if (i == end) {
+				d[o++] = m;
+				m = 0.0f;
+				o_count++;
+			}
 		}
+		pd->max_f[c] = m;
 	}
-	pd->max_f[channel] = m;
 
 	*out_len = o;
 	*in_len = i;
-	pd->i_count += i;
+	pd->o_count = o_count;
+	pd->i_count = i_count + i;
 
 	while (pd->i_count >= r->i_rate) {
 		pd->i_count -= r->i_rate;

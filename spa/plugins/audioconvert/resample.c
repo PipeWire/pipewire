@@ -730,6 +730,8 @@ static int impl_node_process(struct spa_node *node)
 	struct spa_buffer *sb, *db;
 	uint32_t i, size, in_len, out_len, pin_len, pout_len, maxsize;
 	int res = 0;
+	const void **src_datas;
+	void **dst_datas;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -781,23 +783,23 @@ static int impl_node_process(struct spa_node *node)
 	pin_len = in_len = (size - inport->offset) / sizeof(float);
 	pout_len = out_len = (maxsize - outport->offset) / sizeof(float);
 
-	for (i = 0; i < sb->n_datas; i++) {
-		void *src, *dst;
+	src_datas = alloca(sizeof(void*) * this->resample.channels);
+	dst_datas = alloca(sizeof(void*) * this->resample.channels);
 
-		in_len = pin_len;
-		out_len = pout_len;
+	for (i = 0; i < sb->n_datas; i++)
+		src_datas[i] = SPA_MEMBER(sb->datas[i].data, inport->offset, void);
+	for (i = 0; i < db->n_datas; i++)
+		dst_datas[i] = SPA_MEMBER(db->datas[i].data, outport->offset, void);
 
-		src = SPA_MEMBER(sb->datas[i].data, inport->offset, void);
-		dst = SPA_MEMBER(db->datas[i].data, outport->offset, void);
+	resample_process(&this->resample, src_datas, &in_len, dst_datas, &out_len);
 
-		resample_process(&this->resample, i, src, &in_len, dst, &out_len);
+	spa_log_trace_fp(this->log, NAME " %p: in %d/%d %ld %d out %d/%d %ld %d",
+			this, pin_len, in_len, size / sizeof(float), inport->offset,
+			pout_len, out_len, maxsize / sizeof(float), outport->offset);
 
-		spa_log_trace_fp(this->log, NAME " %p: in %d/%d %ld %d out %d/%d %ld %d",
-				this, pin_len, in_len, size / sizeof(float), inport->offset,
-				pout_len, out_len, maxsize / sizeof(float), outport->offset);
-
-		db->datas[i].chunk->offset = 0;
+	for (i = 0; i < db->n_datas; i++) {
 		db->datas[i].chunk->size = outport->offset + (out_len * sizeof(float));
+		db->datas[i].chunk->offset = 0;
 	}
 
 	inport->offset += in_len * sizeof(float);

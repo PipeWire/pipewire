@@ -2,7 +2,6 @@
 
 
 alsa_dep = dependency('alsa')
-v4l2_dep = dependency('libv4l2')
 x11_dep = dependency('x11', required : false)
 sdl_dep = dependency('sdl2', required : false)
 avcodec_dep = dependency('libavcodec', required : false)

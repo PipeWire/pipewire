@@ -1,6 +1,6 @@
 /* Spa
  *
- * Copyright © 2018 Wim Taymans
+ * Copyright © 2019 Wim Taymans
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,26 +22,30 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <spa/support/cpu.h>
+static void inner_product_c(float *d, const float * SPA_RESTRICT s,
+		const float * SPA_RESTRICT taps, uint32_t n_taps)
+{
+	float sum = 0.0f;
+	uint32_t i;
 
-struct resample {
-	uint32_t cpu_flags;
-	uint32_t channels;
-	uint32_t i_rate;
-	uint32_t o_rate;
+	for (i = 0; i < n_taps; i++)
+		sum += s[i] * taps[i];
+	*d = sum;
+}
 
-	void (*free)		(struct resample *r);
-	void (*update_rate)	(struct resample *r, double rate);
-	void (*process)		(struct resample *r,
-				 const void * SPA_RESTRICT src[], uint32_t *in_len,
-				 void * SPA_RESTRICT dst[], uint32_t *out_len);
-	void (*reset)		(struct resample *r);
-	uint32_t (*delay)	(struct resample *r);
-	void *data;
-};
+static void inner_product_ip_c(float *d, const float * SPA_RESTRICT s,
+	const float * SPA_RESTRICT t0, const float * SPA_RESTRICT t1, float x,
+	uint32_t n_taps)
+{
+	float sum[2] = { 0.0f, 0.0f };
+	uint32_t i;
 
-#define resample_free(r)		(r)->free(r)
-#define resample_update_rate(r,...)	(r)->update_rate(r,__VA_ARGS__)
-#define resample_process(r,...)		(r)->process(r,__VA_ARGS__)
-#define resample_reset(r)		(r)->reset(r)
-#define resample_delay(r)		(r)->delay(r)
+	for (i = 0; i < n_taps; i++) {
+		sum[0] += s[i] * t0[i];
+		sum[1] += s[i] * t1[i];
+	}
+	*d = (sum[1] - sum[0]) * x + sum[0];
+}
+
+MAKE_RESAMPLER_FULL(c);
+MAKE_RESAMPLER_INTER(c);

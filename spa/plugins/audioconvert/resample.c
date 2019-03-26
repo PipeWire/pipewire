@@ -40,6 +40,7 @@
 
 #include "resample-speex.h"
 #include "resample-peaks.h"
+#include "resample-native.h"
 
 #define NAME "resample"
 
@@ -155,6 +156,8 @@ static int setup_convert(struct impl *this,
 
 	if (this->monitor)
 		err = impl_peaks_init(&this->resample);
+	else if (1)
+		err = impl_native_init(&this->resample);
 	else
 		err = impl_speex_init(&this->resample);
 

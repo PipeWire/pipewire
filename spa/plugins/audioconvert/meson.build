@@ -15,6 +15,7 @@ audioconvertlib = shared_library('spa-audioconvert',
 
 test_apps = [
 	'test-fmt-ops',
+	'test-resample',
 ]
 
 foreach a : test_apps

@@ -171,7 +171,8 @@ struct spa_param_info {
 #define SPA_ROUND_DOWN_N(num,align)	((num) & ~((align) - 1))
 #define SPA_ROUND_UP_N(num,align)	SPA_ROUND_DOWN_N((num) + ((align) - 1),align)
 
-#define SPA_IS_ALIGNED(p,align)		(((intptr_t)(p) & ((align)-1)) == 0)
+#define SPA_PTR_ALIGNMENT(p,align)	((intptr_t)(p) & ((align)-1))
+#define SPA_IS_ALIGNED(p,align)		(SPA_PTR_ALIGNMENT(p,align) == 0)
 #define SPA_PTR_ALIGN(p,align,type)	(type*)SPA_ROUND_UP_N((intptr_t)(p), (intptr_t)(align))
 
 #ifndef SPA_LIKELY

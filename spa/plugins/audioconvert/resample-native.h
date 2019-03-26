@@ -32,6 +32,7 @@ struct native_data {
 	double rate;
 	uint32_t n_taps;
 	uint32_t n_phases;
+	uint32_t oversample;
 	uint32_t in_rate;
 	uint32_t out_rate;
 	uint32_t index;
@@ -95,13 +96,11 @@ static int build_filter(float *taps, uint32_t stride, uint32_t n_taps, uint32_t 
 
 	for (i = 0; i <= n_phases; i++) {
 		double t = (double) i / (double) n_phases;
-		for (j = 0; j < n_taps12; j++, t += 1.0)
+		for (j = 0; j < n_taps12; j++, t += 1.0) {
+			taps[(n_phases - i) * stride + n_taps12 + j] =
 			taps[i * stride + (n_taps12 - j - 1)] =
 				cutoff * sinc(t * cutoff) * blackman(t, n_taps);
-	}
-	for (i = 0; i <= n_phases; i++) {
-		for (j = n_taps12; j < n_taps; j++)
-			taps[i * stride + j] = taps[(n_phases - i) * stride + n_taps - j - 1];
+		}
 	}
 	return 0;
 }
@@ -112,8 +111,48 @@ static void impl_native_free(struct resample *r)
 	r->data = NULL;
 }
 
+static inline uint32_t calc_gcd(uint32_t a, uint32_t b)
+{
+	while (b != 0) {
+		uint32_t temp = a;
+		a = b;
+		b = temp % b;
+	}
+	return a;
+}
+
 static void impl_native_update_rate(struct resample *r, double rate)
 {
+	struct native_data *data = r->data;
+	uint32_t in_rate, out_rate, phase, gcd;
+
+	in_rate = r->i_rate * rate;
+	out_rate = r->o_rate;
+	phase = data->phase;
+
+	gcd = calc_gcd(in_rate, out_rate);
+	gcd = calc_gcd(gcd, phase);
+
+	data->rate = rate;
+	data->phase = phase / gcd;
+	data->in_rate = in_rate / gcd;
+	data->out_rate = out_rate / gcd;
+
+	data->inc = data->in_rate / data->out_rate;
+	data->frac = data->in_rate % data->out_rate;
+
+	fprintf(stderr, "in %d out %d %d %d %d\n",
+			in_rate, out_rate, gcd, data->inc, data->frac);
+
+	data->func = rate == 1.0 ? do_resample_full_c : do_resample_inter_c;
+#if defined (__SSE__)
+	if (r->cpu_flags & SPA_CPU_FLAG_SSE)
+		data->func = rate == 1.0 ? do_resample_full_sse : do_resample_inter_sse;
+#endif
+#if defined (__SSSE3__)
+	if (r->cpu_flags & SPA_CPU_FLAG_SSSE3)
+		data->func = rate == 1.0 ? do_resample_full_ssse3 : do_resample_inter_ssse3;
+#endif
 }
 
 static void impl_native_process(struct resample *r,
@@ -190,23 +229,13 @@ static uint32_t impl_native_delay (struct resample *r)
 	return d->n_taps;
 }
 
-static inline uint32_t calc_gcd(uint32_t a, uint32_t b)
-{
-	while (b != 0) {
-		uint32_t temp = a;
-		a = b;
-		b = b % temp;
-	}
-	return a;
-}
-
 static int impl_native_init(struct resample *r)
 {
 	struct native_data *d;
 	const struct quality *q = &blackman_qualities[DEFAULT_QUALITY];
 	double scale;
 	uint32_t c, n_taps, n_phases, filter_size, in_rate, out_rate, gcd, stride;
-	uint32_t history_stride, history_size;
+	uint32_t history_stride, history_size, oversample;
 
 	r->free = impl_native_free;
 	r->update_rate = impl_native_update_rate;
@@ -216,15 +245,18 @@ static int impl_native_init(struct resample *r)
 
 	gcd = calc_gcd(r->i_rate, r->o_rate);
 
-	in_rate = r->i_rate /= gcd;
-	out_rate = r->o_rate /= gcd;
+	in_rate = r->i_rate / gcd;
+	out_rate = r->o_rate / gcd;
 
-	scale = SPA_MIN(q->cutoff * r->o_rate / r->i_rate, 1.0);
+	scale = SPA_MIN(q->cutoff * out_rate / in_rate, 1.0);
 	n_taps = SPA_ROUND_UP_N((uint32_t)ceil(q->n_taps / scale), 8);
 	stride = n_taps * sizeof(float);
 	n_phases = out_rate;
+	oversample = (255 + n_phases) / n_phases;
+	n_phases *= oversample;
 
-	fprintf(stderr, "in %d  out %d %d %d %d %f\n", in_rate, out_rate, gcd, n_taps, n_phases, scale);
+	fprintf(stderr, "in %d  out %d %d %d %d %f %d\n",
+			in_rate, out_rate, gcd, n_taps, n_phases, scale, oversample);
 
 	filter_size = stride * (n_phases + 1);
 	history_stride = 2 * n_taps * sizeof(float);
@@ -240,7 +272,11 @@ static int impl_native_init(struct resample *r)
 		return -ENOMEM;
 
 	r->data = d;
-	d->rate = 1.0f;
+	d->n_taps = n_taps;
+	d->n_phases = n_phases;
+	d->oversample = oversample;
+	d->in_rate = in_rate;
+	d->out_rate = out_rate;
 	d->filter = SPA_MEMBER(d, sizeof(struct native_data), float);
 	d->filter = SPA_PTR_ALIGN(d->filter, 16, float);
 	d->hist_mem = SPA_MEMBER(d->filter, filter_size, float);
@@ -249,25 +285,10 @@ static int impl_native_init(struct resample *r)
 	for (c = 0; c < r->channels; c++)
 		d->history[c] = SPA_MEMBER(d->hist_mem, c * history_stride, float);
 
-	d->in_rate = in_rate;
-	d->out_rate = out_rate;
-	d->inc = in_rate / out_rate;
-	d->frac = in_rate % out_rate;
-	d->n_taps = n_taps;
-	d->n_phases = n_phases;
-
 	build_filter(d->filter, n_taps, n_taps, n_phases, scale);
 
-	impl_native_reset (r);
+	impl_native_reset(r);
+	impl_native_update_rate(r, 1.0);
 
-	d->func = d->rate == 1.0f ? do_resample_full_c : do_resample_inter_c;
-#if defined (__SSE__)
-	if (r->cpu_flags & SPA_CPU_FLAG_SSE)
-		d->func = d->rate == 1.0f ? do_resample_full_sse : do_resample_inter_sse;
-#endif
-#if defined (__SSSE3__)
-	if (r->cpu_flags & SPA_CPU_FLAG_SSSE3)
-		d->func = d->rate == 1.0f ? do_resample_full_ssse3 : do_resample_inter_ssse3;
-#endif
 	return 0;
 }

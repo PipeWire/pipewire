@@ -28,9 +28,9 @@ static void do_resample_full_##arch(struct resample *r,				\
 	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)		\
 {										\
 	struct native_data *data = r->data;					\
-	uint32_t index, phase;							\
 	uint32_t out_rate = data->out_rate;					\
 	uint32_t n_taps = data->n_taps;						\
+	uint32_t index, phase, stride = data->oversample * n_taps;		\
 	uint32_t c, o, olen = *out_len, ilen = *in_len;				\
 										\
 	if (r->channels == 0)							\
@@ -47,7 +47,7 @@ static void do_resample_full_##arch(struct resample *r,				\
 			const float *ip, *taps;					\
 										\
 			ip = &s[index];						\
-			taps = &data->filter[phase * n_taps];			\
+			taps = &data->filter[phase * stride];			\
 			index += data->inc;					\
 			phase += data->frac;					\
 			if (phase >= out_rate) {				\

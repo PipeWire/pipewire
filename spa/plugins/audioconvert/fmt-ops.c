@@ -51,6 +51,8 @@
 #define S24_TO_F32(v)	(((int32_t)(v)) * (1.0f / S24_SCALE))
 #define F32_TO_S24(v)	(int32_t)(SPA_CLAMP(v, -1.0f, 1.0f) * S24_SCALE)
 
+#define S32_SCALE	2147483648.0f
+#define S32_MIN		2147483520.0f
 
 #define S32_TO_F32(v)	S24_TO_F32((v) >> 8)
 #define F32_TO_S32(v)	(F32_TO_S24(v) << 8)
@@ -734,6 +736,7 @@ static const struct conv_info {
 	uint32_t src_fmt;
 	uint32_t dst_fmt;
 #define FEATURE_SSE2	SPA_CPU_FLAG_SSE2
+#define FEATURE_SSSE3	SPA_CPU_FLAG_SSSE3
 	uint32_t features;
 
 	convert_func_t func;
@@ -770,7 +773,7 @@ static const struct conv_info {
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE2, conv_s24_to_f32d_sse41 },
 #endif
 #if defined (__SSSE3__)
-	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE2, conv_s24_to_f32d_ssse3 },
+	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSSE3, conv_s24_to_f32d_ssse3 },
 #endif
 #if defined (__SSE2__)
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE2, conv_s24_to_f32d_sse2 },

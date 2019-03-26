@@ -24,9 +24,6 @@
 
 #include <xmmintrin.h>
 
-#pragma GCC target("ssse3")
-#include <tmmintrin.h>
-
 static void inner_product_sse(float *d, const float * SPA_RESTRICT s,
 		const float * SPA_RESTRICT taps, uint32_t n_taps)
 {

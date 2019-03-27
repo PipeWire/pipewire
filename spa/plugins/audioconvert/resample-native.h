@@ -32,7 +32,6 @@ struct native_data {
 	double rate;
 	uint32_t n_taps;
 	uint32_t n_phases;
-	uint32_t oversample;
 	uint32_t in_rate;
 	uint32_t out_rate;
 	uint32_t index;
@@ -101,8 +100,8 @@ static int build_filter(float *taps, uint32_t stride, uint32_t n_taps, uint32_t 
 		for (j = 0; j < n_taps12; j++, t += 1.0) {
 			/* exploit symmetry in filter taps */
 			taps[(n_phases - i) * stride + n_taps12 + j] =
-			taps[i * stride + (n_taps12 - j - 1)] =
-				cutoff * sinc(t * cutoff) * blackman(t, n_taps);
+				taps[i * stride + (n_taps12 - j - 1)] =
+					cutoff * sinc(t * cutoff) * blackman(t, n_taps);
 		}
 	}
 	return 0;
@@ -144,15 +143,21 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	data->inc = data->in_rate / data->out_rate;
 	data->frac = data->in_rate % data->out_rate;
 
-	data->func = rate == 1.0 ? do_resample_full_c : do_resample_inter_c;
+	if (data->in_rate == data->out_rate)
+		data->func = do_resample_copy_c;
+	else {
+		bool is_full = r->i_rate == in_rate;
+
+		data->func = is_full ? do_resample_full_c : do_resample_inter_c;
 #if defined (__SSE__)
-	if (r->cpu_flags & SPA_CPU_FLAG_SSE)
-		data->func = rate == 1.0 ? do_resample_full_sse : do_resample_inter_sse;
+		if (r->cpu_flags & SPA_CPU_FLAG_SSE)
+			data->func = is_full ? do_resample_full_sse : do_resample_inter_sse;
 #endif
 #if defined (__SSSE3__)
-	if (r->cpu_flags & SPA_CPU_FLAG_SSSE3)
-		data->func = rate == 1.0 ? do_resample_full_ssse3 : do_resample_inter_ssse3;
+		if (r->cpu_flags & SPA_CPU_FLAG_SSSE3)
+			data->func = is_full ? do_resample_full_ssse3 : do_resample_inter_ssse3;
 #endif
+	}
 }
 
 static void impl_native_process(struct resample *r,
@@ -300,7 +305,6 @@ static int impl_native_init(struct resample *r)
 	r->data = d;
 	d->n_taps = n_taps;
 	d->n_phases = n_phases;
-	d->oversample = oversample;
 	d->in_rate = in_rate;
 	d->out_rate = out_rate;
 	d->filter = SPA_MEMBER(d, sizeof(struct native_data), float);

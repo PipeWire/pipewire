@@ -22,6 +22,35 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#define MAKE_RESAMPLER_COPY(arch)						\
+static void do_resample_copy_##arch(struct resample *r,				\
+	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
+	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)		\
+{										\
+	struct native_data *data = r->data;					\
+	uint32_t index, n_taps = data->n_taps;					\
+	uint32_t c, olen = *out_len, ilen = *in_len;				\
+										\
+	if (r->channels == 0)							\
+		return;								\
+										\
+	index = data->index;							\
+	if (offs < olen && index + n_taps <= ilen) {				\
+		uint32_t to_copy = SPA_MIN(olen - offs,				\
+				ilen - (index + n_taps) + 1);			\
+		for (c = 0; c < r->channels; c++) {				\
+			const float *s = src[c];				\
+			float *d = dst[c];					\
+			memcpy(&d[offs], &s[index], to_copy * sizeof(float));	\
+		}								\
+		index += to_copy;						\
+		offs += to_copy;						\
+	}									\
+	*in_len = index - data->index;						\
+	*out_len = offs;							\
+	data->index = index;							\
+}
+
 #define MAKE_RESAMPLER_FULL(arch)						\
 static void do_resample_full_##arch(struct resample *r,				\
 	const void * SPA_RESTRICT src[], uint32_t *in_len,			\

@@ -47,5 +47,6 @@ static void inner_product_ip_c(float *d, const float * SPA_RESTRICT s,
 	*d = (sum[1] - sum[0]) * x + sum[0];
 }
 
+MAKE_RESAMPLER_COPY(c);
 MAKE_RESAMPLER_FULL(c);
 MAKE_RESAMPLER_INTER(c);

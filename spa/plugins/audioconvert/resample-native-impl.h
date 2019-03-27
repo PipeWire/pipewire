@@ -28,10 +28,10 @@ static void do_resample_full_##arch(struct resample *r,				\
 	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)		\
 {										\
 	struct native_data *data = r->data;					\
-	uint32_t out_rate = data->out_rate;					\
-	uint32_t n_taps = data->n_taps;						\
-	uint32_t index, phase, stride = data->oversample * n_taps;		\
+	uint32_t n_taps = data->n_taps, stride = data->filter_stride_os;	\
+	uint32_t index, phase, n_phases = data->out_rate;			\
 	uint32_t c, o, olen = *out_len, ilen = *in_len;				\
+	uint32_t inc = data->inc, frac = data->frac;				\
 										\
 	if (r->channels == 0)							\
 		return;								\
@@ -48,10 +48,10 @@ static void do_resample_full_##arch(struct resample *r,				\
 										\
 			ip = &s[index];						\
 			taps = &data->filter[phase * stride];			\
-			index += data->inc;					\
-			phase += data->frac;					\
-			if (phase >= out_rate) {				\
-				phase -= out_rate;				\
+			index += inc;						\
+			phase += frac;						\
+			if (phase >= n_phases) {				\
+				phase -= n_phases;				\
 				index += 1;					\
 			}							\
 			inner_product_##arch(&d[o], ip, taps, n_taps);		\
@@ -69,10 +69,11 @@ static void do_resample_inter_##arch(struct resample *r,			\
 	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)		\
 {										\
 	struct native_data *data = r->data;					\
-	uint32_t index, phase;							\
+	uint32_t index, phase, stride = data->filter_stride;			\
 	uint32_t n_phases = data->n_phases, out_rate = data->out_rate;		\
 	uint32_t n_taps = data->n_taps;						\
 	uint32_t c, o, olen = *out_len, ilen = *in_len;				\
+	uint32_t inc = data->inc, frac = data->frac;				\
 										\
 	if (r->channels == 0)							\
 		return;								\
@@ -94,10 +95,10 @@ static void do_resample_inter_##arch(struct resample *r,			\
 			offset = floor(ph);					\
 			x = ph - (float)offset;					\
 										\
-			t0 = &data->filter[(offset + 0) * n_taps];		\
-			t1 = &data->filter[(offset + 1) * n_taps];		\
-			index += data->inc;					\
-			phase += data->frac;					\
+			t0 = &data->filter[(offset + 0) * stride];		\
+			t1 = &data->filter[(offset + 1) * stride];		\
+			index += inc;						\
+			phase += frac;						\
 			if (phase >= out_rate) {				\
 				phase -= out_rate;				\
 				index += 1;					\

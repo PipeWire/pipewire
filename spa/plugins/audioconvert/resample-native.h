@@ -39,6 +39,8 @@ struct native_data {
 	uint32_t phase;
 	uint32_t inc;
 	uint32_t frac;
+	uint32_t filter_stride;
+	uint32_t filter_stride_os;
 	uint32_t hist;
 	float **history;
 	resample_func_t func;
@@ -97,6 +99,7 @@ static int build_filter(float *taps, uint32_t stride, uint32_t n_taps, uint32_t 
 	for (i = 0; i <= n_phases; i++) {
 		double t = (double) i / (double) n_phases;
 		for (j = 0; j < n_taps12; j++, t += 1.0) {
+			/* exploit symmetry in filter taps */
 			taps[(n_phases - i) * stride + n_taps12 + j] =
 			taps[i * stride + (n_taps12 - j - 1)] =
 				cutoff * sinc(t * cutoff) * blackman(t, n_taps);
@@ -141,9 +144,6 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	data->inc = data->in_rate / data->out_rate;
 	data->frac = data->in_rate % data->out_rate;
 
-	fprintf(stderr, "in %d out %d %d %d %d\n",
-			in_rate, out_rate, gcd, data->inc, data->frac);
-
 	data->func = rate == 1.0 ? do_resample_full_c : do_resample_inter_c;
 #if defined (__SSE__)
 	if (r->cpu_flags & SPA_CPU_FLAG_SSE)
@@ -162,55 +162,80 @@ static void impl_native_process(struct resample *r,
 	struct native_data *data = r->data;
 	uint32_t n_taps = data->n_taps;
 	float **history = data->history;
-	const float **s;
+	const float **s = (const float **)src;
 	uint32_t c, refill, hist, in, out, remain;
 
 	out = refill = in = 0;
 	hist = data->hist;
 
 	if (hist) {
+		/* first work on the history if any. */
 		if (hist < n_taps) {
+			/* we need at least n_taps to completely process the
+			 * history before we can work on the new input. When
+			 * we have less, refill the history. */
 			refill = SPA_MIN(*in_len, n_taps);
 			for (c = 0; c < r->channels; c++)
-				memcpy(&history[c][hist], src[c], refill * sizeof(float));
+				memcpy(&history[c][hist], s[c], refill * sizeof(float));
 
 			if (hist + refill < n_taps) {
+				/* not enough in the history, keep the input in
+				 * the history and produce no output */
 				data->hist = hist + refill;
 				*in_len = refill;
 				*out_len = 0;
 				return;
 			}
 		}
+		/* now we have at least n_taps of data in the history
+		 * and we try to process it */
 		in = hist + refill;
 		out = *out_len;
 		data->func(r, (const void**)history, &in, dst, 0, &out);
-		data->index -= hist;
 	}
 
-	if (out < *out_len) {
+	if (data->index >= hist) {
+		/* we are past the history and can now work on the new
+		 * input data */
+		data->index -= hist;
 		in = *in_len;
-		s = (const float **)src;
 		data->func(r, src, &in, dst, out, out_len);
+
 		remain = *in_len - in;
+		if (remain < n_taps) {
+			/* not enough input data remaining for more output,
+			 * copy to history */
+			for (c = 0; c < r->channels; c++)
+				memcpy(history[c], &s[c][in], remain * sizeof(float));
+		} else {
+			/* we have enough input data remaining to produce
+			 * more output ask to resubmit. else we copy the
+			 * remainder to the history */
+			remain = 0;
+			*in_len = in;
+		}
 	} else {
-		s = (const float **)history;
+		/* we are still working on the history */
 		remain = hist - in;
 		if (*in_len < n_taps) {
+			/* not enough input data, add it to the history because
+			 * resubmitting it is not going to make progress.
+			 * We copied this into the history above. */
 			remain += refill;
 			*in_len = refill;
 		} else {
+			/* input has enough data to possibly produce more output
+			 * from the history so ask to resubmit */
 			*in_len = 0;
 		}
+		if (remain) {
+			/* move history */
+			for (c = 0; c < r->channels; c++)
+				memmove(history[c], &history[c][in], remain * sizeof(float));
+		}
 	}
-	if (remain < n_taps) {
-		for (c = 0; c < r->channels; c++)
-			memmove(history[c], &s[c][in], remain * sizeof(float));
-	} else {
-		remain = 0;
-		*in_len = in;
-	}
-	data->index = 0;
 	data->hist = remain;
+	data->index = 0;
 	return;
 }
 
@@ -234,7 +259,7 @@ static int impl_native_init(struct resample *r)
 	struct native_data *d;
 	const struct quality *q = &blackman_qualities[DEFAULT_QUALITY];
 	double scale;
-	uint32_t c, n_taps, n_phases, filter_size, in_rate, out_rate, gcd, stride;
+	uint32_t c, n_taps, n_phases, filter_size, in_rate, out_rate, gcd, filter_stride;
 	uint32_t history_stride, history_size, oversample;
 
 	r->free = impl_native_free;
@@ -249,24 +274,25 @@ static int impl_native_init(struct resample *r)
 	out_rate = r->o_rate / gcd;
 
 	scale = SPA_MIN(q->cutoff * out_rate / in_rate, 1.0);
+	/* multiple of 8 taps to ease simd optimizations */
 	n_taps = SPA_ROUND_UP_N((uint32_t)ceil(q->n_taps / scale), 8);
-	stride = n_taps * sizeof(float);
+
+	/* try to get at least 256 phases so that interpolation is
+	 * accurate enough when activated */
 	n_phases = out_rate;
 	oversample = (255 + n_phases) / n_phases;
 	n_phases *= oversample;
 
-	fprintf(stderr, "in %d  out %d %d %d %d %f %d\n",
-			in_rate, out_rate, gcd, n_taps, n_phases, scale, oversample);
-
-	filter_size = stride * (n_phases + 1);
-	history_stride = 2 * n_taps * sizeof(float);
+	filter_stride = SPA_ROUND_UP_N(n_taps * sizeof(float), 64);
+	filter_size = filter_stride * (n_phases + 1);
+	history_stride = SPA_ROUND_UP_N(2 * n_taps * sizeof(float), 64);
 	history_size = r->channels * history_stride;
 
 	d = malloc(sizeof(struct native_data) +
 			filter_size +
 			history_size +
 			(r->channels * sizeof(float*)) +
-			32);
+			64);
 
 	if (d == NULL)
 		return -ENOMEM;
@@ -278,14 +304,16 @@ static int impl_native_init(struct resample *r)
 	d->in_rate = in_rate;
 	d->out_rate = out_rate;
 	d->filter = SPA_MEMBER(d, sizeof(struct native_data), float);
-	d->filter = SPA_PTR_ALIGN(d->filter, 16, float);
+	d->filter = SPA_PTR_ALIGN(d->filter, 64, float);
 	d->hist_mem = SPA_MEMBER(d->filter, filter_size, float);
-	d->hist_mem = SPA_PTR_ALIGN(d->hist_mem, 16, float);
+	d->hist_mem = SPA_PTR_ALIGN(d->hist_mem, 64, float);
 	d->history = SPA_MEMBER(d->hist_mem, history_size, float*);
+	d->filter_stride = filter_stride / sizeof(float);
+	d->filter_stride_os = d->filter_stride * oversample;
 	for (c = 0; c < r->channels; c++)
 		d->history[c] = SPA_MEMBER(d->hist_mem, c * history_stride, float);
 
-	build_filter(d->filter, n_taps, n_taps, n_phases, scale);
+	build_filter(d->filter, d->filter_stride, n_taps, n_phases, scale);
 
 	impl_native_reset(r);
 	impl_native_update_rate(r, 1.0);

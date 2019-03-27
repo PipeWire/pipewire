@@ -67,15 +67,16 @@ static void test_native(void)
 	r.channels = 1;
 	r.i_rate = 44100;
 	r.o_rate = 44100;
-
 	impl_native_init(&r);
 
 	feed_1(&r);
 
+	r.channels = 1;
+	r.i_rate = 44100;
+	r.o_rate = 48000;
+	impl_native_init(&r);
 
-
-
-
+	feed_1(&r);
 }
 
 int main(int argc, char *argv[])

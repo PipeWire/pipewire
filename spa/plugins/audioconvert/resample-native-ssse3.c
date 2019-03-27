@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "resample-native-impl.h"
+
 #include <tmmintrin.h>
 
 static void inner_product_ssse3(float *d, const float * SPA_RESTRICT s,
@@ -90,8 +92,8 @@ static void inner_product_ssse3(float *d, const float * SPA_RESTRICT s,
 		}
 		break;
 	}
-	sum = _mm_add_ps(sum, _mm_movehl_ps(sum, sum));
-	sum = _mm_add_ss(sum, _mm_shuffle_ps(sum, sum, 0x55));
+	sum = _mm_add_ps(sum, _mm_movehdup_ps(sum));
+	sum = _mm_add_ss(sum, _mm_movehl_ps(sum, sum));
 	_mm_store_ss(d, sum);
 }
 
@@ -99,11 +101,14 @@ static void inner_product_ip_ssse3(float *d, const float * SPA_RESTRICT s,
 	const float * SPA_RESTRICT t0, const float * SPA_RESTRICT t1, float x,
 	uint32_t n_taps)
 {
-#if defined (__SSE__)
-	inner_product_ip_sse(d, s, t0, t1, x, n_taps);
-#else
-	inner_product_ip_c(d, s, t0, t1, x, n_taps);
-#endif
+	float sum[2] = { 0.0f, 0.0f };
+	uint32_t i;
+
+	for (i = 0; i < n_taps; i++) {
+		sum[0] += s[i] * t0[i];
+		sum[1] += s[i] * t1[i];
+	}
+	*d = (sum[1] - sum[0]) * x + sum[0];
 }
 
 MAKE_RESAMPLER_FULL(ssse3);

@@ -22,6 +22,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#ifndef RESAMPLE_H
+#define RESAMPLE_H
+
 #include <spa/support/cpu.h>
 
 struct resample {
@@ -45,3 +48,5 @@ struct resample {
 #define resample_process(r,...)		(r)->process(r,__VA_ARGS__)
 #define resample_reset(r)		(r)->reset(r)
 #define resample_delay(r)		(r)->delay(r)
+
+#endif /* RESAMPLE_H */

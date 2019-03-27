@@ -22,10 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <string.h>
-#include <stdio.h>
-
-#include <spa/utils/defs.h>
+#include "fmt-ops.h"
 
 #include <emmintrin.h>
 
@@ -109,7 +106,7 @@ conv_s16_to_f32d_2_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_
 	}
 }
 
-static void
+void
 conv_s16_to_f32d_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
 {
 	const int16_t *s = src[0];
@@ -301,7 +298,7 @@ conv_s24_to_f32d_4_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_
 	}
 }
 
-static void
+void
 conv_s24_to_f32d_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
 {
 	const int8_t *s = src[0];
@@ -469,7 +466,7 @@ conv_f32d_to_s32_4_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 	}
 }
 
-static void
+void
 conv_f32d_to_s32_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
 {
 	int32_t *d = dst[0];
@@ -638,7 +635,7 @@ conv_f32d_to_s16_4_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 	}
 }
 
-static void
+void
 conv_f32d_to_s16_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
 {
 	int16_t *d = dst[0];

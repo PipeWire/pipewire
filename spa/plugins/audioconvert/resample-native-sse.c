@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "resample-native-impl.h"
+
 #include <xmmintrin.h>
 
 static void inner_product_sse(float *d, const float * SPA_RESTRICT s,

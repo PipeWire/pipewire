@@ -30,66 +30,7 @@
 #include <spa/utils/defs.h>
 #include <spa/param/audio/format-utils.h>
 
-#define U8_MIN		0
-#define U8_MAX		255
-#define U8_SCALE	127.5f
-#define U8_OFFS		128
-#define U8_TO_F32(v)	((((uint8_t)(v)) * (1.0f / U8_OFFS)) - 1.0)
-#define F32_TO_U8(v)	(uint8_t)((SPA_CLAMP(v, -1.0f, 1.0f) * U8_SCALE) + U8_OFFS)
-
-#define S16_MIN		-32767
-#define S16_MAX		32767
-#define S16_MAX_F	32767.0f
-#define S16_SCALE	32767.0f
-#define S16_TO_F32(v)	(((int16_t)(v)) * (1.0f / S16_SCALE))
-#define F32_TO_S16(v)	(int16_t)(SPA_CLAMP(v, -1.0f, 1.0f) * S16_SCALE)
-
-#define S24_MIN		-8388607
-#define S24_MAX		8388607
-#define S24_MAX_F	8388607.0f
-#define S24_SCALE	8388607.0f
-#define S24_TO_F32(v)	(((int32_t)(v)) * (1.0f / S24_SCALE))
-#define F32_TO_S24(v)	(int32_t)(SPA_CLAMP(v, -1.0f, 1.0f) * S24_SCALE)
-
-#define S32_SCALE	2147483648.0f
-#define S32_MIN		2147483520.0f
-
-#define S32_TO_F32(v)	S24_TO_F32((v) >> 8)
-#define F32_TO_S32(v)	(F32_TO_S24(v) << 8)
-
-static inline int32_t read_s24(const void *src)
-{
-	const int8_t *s = src;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	return (((int32_t)s[2] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[0]);
-#else
-	return (((int32_t)s[0] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[2]);
-#endif
-}
-
-static inline void write_s24(void *dst, int32_t val)
-{
-	uint8_t *d = dst;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	d[0] = (uint8_t) (val);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val >> 16);
-#else
-	d[0] = (uint8_t) (val >> 16);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val);
-#endif
-}
-
-#if defined (__SSE2__)
-#include "fmt-ops-sse2.c"
-#endif
-#if defined (__SSSE3__)
-#include "fmt-ops-ssse3.c"
-#endif
-#if defined (__SSE4_1__)
-#include "fmt-ops-sse41.c"
-#endif
+#include "fmt-ops.h"
 
 static void
 conv_copy8d(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
@@ -728,19 +669,18 @@ interleave_32(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT s
 	}
 }
 
-
-typedef void (*convert_func_t) (void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
-		uint32_t n_channels, uint32_t n_samples);
-
-static const struct conv_info {
+struct conv_info {
 	uint32_t src_fmt;
 	uint32_t dst_fmt;
 #define FEATURE_SSE2	SPA_CPU_FLAG_SSE2
+#define FEATURE_SSE41	SPA_CPU_FLAG_SSE41
 #define FEATURE_SSSE3	SPA_CPU_FLAG_SSSE3
 	uint32_t features;
 
 	convert_func_t func;
-} conv_table[] =
+};
+
+static struct conv_info conv_table[] =
 {
 	/* to f32 */
 	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_F32, 0, conv_u8_to_f32 },
@@ -751,7 +691,7 @@ static const struct conv_info {
 
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32, 0, conv_s16_to_f32 },
 	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_F32P, 0, conv_s16d_to_f32d },
-#if defined (__SSE2__)
+#if defined (HAVE_SSE2)
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE2, conv_s16_to_f32d_sse2 },
 #endif
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32P, 0, conv_s16_to_f32d },
@@ -769,13 +709,13 @@ static const struct conv_info {
 
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32, 0, conv_s24_to_f32 },
 	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_F32P, 0, conv_s24d_to_f32d },
-#if defined (__SSE4_1__)
-	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE2, conv_s24_to_f32d_sse41 },
+#if defined (HAVE_SSSE3)
+//	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSSE3, conv_s24_to_f32d_ssse3 },
 #endif
-#if defined (__SSSE3__)
-	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSSE3, conv_s24_to_f32d_ssse3 },
+#if defined (HAVE_SSE41)
+	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE41, conv_s24_to_f32d_sse41 },
 #endif
-#if defined (__SSE2__)
+#if defined (HAVE_SSE2)
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, FEATURE_SSE2, conv_s24_to_f32d_sse2 },
 #endif
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, 0, conv_s24_to_f32d },
@@ -795,7 +735,7 @@ static const struct conv_info {
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S16, 0, conv_f32_to_s16 },
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16P, 0, conv_f32d_to_s16d },
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S16P, 0, conv_f32_to_s16d },
-#if defined (__SSE2__)
+#if defined (HAVE_SSE2)
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16, FEATURE_SSE2, conv_f32d_to_s16_sse2 },
 #endif
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S16, 0, conv_f32d_to_s16 },
@@ -803,7 +743,7 @@ static const struct conv_info {
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S32, 0, conv_f32_to_s32 },
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32P, 0, conv_f32d_to_s32d },
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_S32P, 0, conv_f32_to_s32d },
-#if defined (__SSE2__)
+#if defined (HAVE_SSE2)
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32, FEATURE_SSE2, conv_f32d_to_s32_sse2 },
 #endif
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S32, 0, conv_f32d_to_s32 },

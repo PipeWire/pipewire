@@ -22,39 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <math.h>
-
-typedef void (*resample_func_t)(struct resample *r,
-        const void * SPA_RESTRICT src[], uint32_t *in_len,
-        void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len);
-
-struct native_data {
-	double rate;
-	uint32_t n_taps;
-	uint32_t n_phases;
-	uint32_t in_rate;
-	uint32_t out_rate;
-	uint32_t index;
-	uint32_t phase;
-	uint32_t inc;
-	uint32_t frac;
-	uint32_t filter_stride;
-	uint32_t filter_stride_os;
-	uint32_t hist;
-	float **history;
-	resample_func_t func;
-	float *filter;
-	float *hist_mem;
-};
-
 #include "resample-native-impl.h"
 #include "resample-native-c.h"
-#if defined (__SSE__)
-#include "resample-native-sse.h"
-#endif
-#if defined (__SSSE3__)
-#include "resample-native-ssse3.h"
-#endif
 
 struct quality {
 	uint32_t n_taps;
@@ -149,11 +118,11 @@ static void impl_native_update_rate(struct resample *r, double rate)
 		bool is_full = r->i_rate == in_rate;
 
 		data->func = is_full ? do_resample_full_c : do_resample_inter_c;
-#if defined (__SSE__)
+#if defined (HAVE_SSE)
 		if (r->cpu_flags & SPA_CPU_FLAG_SSE)
 			data->func = is_full ? do_resample_full_sse : do_resample_inter_sse;
 #endif
-#if defined (__SSSE3__)
+#if defined (HAVE_SSSE3)
 		if (r->cpu_flags & SPA_CPU_FLAG_SSSE3)
 			data->func = is_full ? do_resample_full_ssse3 : do_resample_inter_ssse3;
 #endif

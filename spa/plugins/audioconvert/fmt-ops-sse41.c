@@ -22,10 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <string.h>
-#include <stdio.h>
-
-#include <spa/utils/defs.h>
+#include "fmt-ops.h"
 
 #include <smmintrin.h>
 
@@ -53,7 +50,7 @@ conv_s24_to_f32d_1_sse41(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		in = _mm_srai_epi32(in, 8);
 		out = _mm_cvtepi32_ps(in);
 		out = _mm_mul_ps(out, factor);
-		_mm_storeu_ps(&d0[n], out);
+		_mm_store_ps(&d0[n], out);
 		s += 12 * n_channels;
 	}
 	for(; n < n_samples; n++) {
@@ -64,16 +61,23 @@ conv_s24_to_f32d_1_sse41(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	}
 }
 
-static void
+extern void conv_s24_to_f32d_2_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src, uint32_t n_channels, uint32_t n_samples);
+extern void conv_s24_to_f32d_4_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src, uint32_t n_channels, uint32_t n_samples);
+
+void
 conv_s24_to_f32d_sse41(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
 {
 	const int8_t *s = src[0];
 	uint32_t i = 0;
 
+#if defined (HAVE_SSSE3)
 	for(; i + 3 < n_channels; i += 4)
 		conv_s24_to_f32d_4_ssse3(data, &dst[i], &s[3*i], n_channels, n_samples);
+#endif
+#if defined (HAVE_SSE2)
 	for(; i + 1 < n_channels; i += 2)
 		conv_s24_to_f32d_2_sse2(data, &dst[i], &s[3*i], n_channels, n_samples);
+#endif
 	for(; i < n_channels; i++)
 		conv_s24_to_f32d_1_sse41(data, &dst[i], &s[3*i], n_channels, n_samples);
 }

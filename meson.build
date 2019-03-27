@@ -50,6 +50,16 @@ if cc.get_id() == 'gcc'
 			language : 'c')
 endif
 
+sse_args = '-msse'
+sse2_args = '-msse2'
+ssse3_args = '-mssse3'
+sse41_args = '-msse4.1'
+
+have_sse = cc.has_argument(sse_args)
+have_sse2 = cc.has_argument(sse2_args)
+have_ssse3 = cc.has_argument(ssse3_args)
+have_sse41 = cc.has_argument(sse41_args)
+
 cdata = configuration_data()
 cdata.set('PIPEWIRE_VERSION_MAJOR', pipewire_version_major)
 cdata.set('PIPEWIRE_VERSION_MINOR', pipewire_version_minor)

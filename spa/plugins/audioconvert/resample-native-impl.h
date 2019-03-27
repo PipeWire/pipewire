@@ -22,6 +22,45 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <math.h>
+
+#include <spa/utils/defs.h>
+
+#include "resample.h"
+
+typedef void (*resample_func_t)(struct resample *r,
+        const void * SPA_RESTRICT src[], uint32_t *in_len,
+        void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len);
+
+struct native_data {
+	double rate;
+	uint32_t n_taps;
+	uint32_t n_phases;
+	uint32_t in_rate;
+	uint32_t out_rate;
+	uint32_t index;
+	uint32_t phase;
+	uint32_t inc;
+	uint32_t frac;
+	uint32_t filter_stride;
+	uint32_t filter_stride_os;
+	uint32_t hist;
+	float **history;
+	resample_func_t func;
+	float *filter;
+	float *hist_mem;
+};
+
+#define DEFINE_RESAMPLER_FULL(arch)						\
+void do_resample_full_##arch(struct resample *r,				\
+	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
+	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)
+
+#define DEFINE_RESAMPLER_INTER(arch)						\
+void do_resample_inter_##arch(struct resample *r,				\
+	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
+	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)
+
 #define MAKE_RESAMPLER_COPY(arch)						\
 static void do_resample_copy_##arch(struct resample *r,				\
 	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
@@ -52,9 +91,7 @@ static void do_resample_copy_##arch(struct resample *r,				\
 }
 
 #define MAKE_RESAMPLER_FULL(arch)						\
-static void do_resample_full_##arch(struct resample *r,				\
-	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
-	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)		\
+DEFINE_RESAMPLER_FULL(arch)							\
 {										\
 	struct native_data *data = r->data;					\
 	uint32_t n_taps = data->n_taps, stride = data->filter_stride_os;	\
@@ -93,9 +130,7 @@ static void do_resample_full_##arch(struct resample *r,				\
 }
 
 #define MAKE_RESAMPLER_INTER(arch)						\
-static void do_resample_inter_##arch(struct resample *r,			\
-	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
-	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)		\
+DEFINE_RESAMPLER_INTER(arch)							\
 {										\
 	struct native_data *data = r->data;					\
 	uint32_t index, phase, stride = data->filter_stride;			\
@@ -140,3 +175,16 @@ static void do_resample_inter_##arch(struct resample *r,			\
 	data->index = index;							\
 	data->phase = phase;							\
 }
+
+
+DEFINE_RESAMPLER_FULL(c);
+DEFINE_RESAMPLER_INTER(c);
+
+#if defined (HAVE_SSE)
+DEFINE_RESAMPLER_FULL(sse);
+DEFINE_RESAMPLER_INTER(sse);
+#endif
+#if defined (HAVE_SSSE3)
+DEFINE_RESAMPLER_FULL(ssse3);
+DEFINE_RESAMPLER_INTER(ssse3);
+#endif

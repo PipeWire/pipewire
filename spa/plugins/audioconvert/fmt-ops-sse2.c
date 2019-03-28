@@ -37,11 +37,11 @@ conv_s16_to_f32d_1_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_
 	__m128 out, factor = _mm_set1_ps(1.0f / S16_SCALE);
 
 	if (SPA_IS_ALIGNED(d0, 16))
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
 		in = _mm_insert_epi16(in, s[0*n_channels], 1);
 		in = _mm_insert_epi16(in, s[1*n_channels], 3);
 		in = _mm_insert_epi16(in, s[2*n_channels], 5);
@@ -74,11 +74,11 @@ conv_s16_to_f32d_2_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_
 	    SPA_IS_ALIGNED(s, 16) &&
 	    SPA_IS_ALIGNED(d0, 16) &&
 	    SPA_IS_ALIGNED(d1, 16))
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
 		in = _mm_load_si128((__m128i*)s);
 
 		t[0] = _mm_slli_epi32(in, 16);
@@ -129,14 +129,14 @@ conv_s24_to_f32d_1_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_
 	__m128 out, factor = _mm_set1_ps(1.0f / S24_SCALE);
 
 	if (SPA_IS_ALIGNED(d0, 16) && n_samples > 0) {
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 		if ((n_samples & 3) == 0)
-			unrolled--;
+			unrolled -= 4;
 	}
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
 		in = _mm_setr_epi32(
 			*((uint32_t*)&s[0 * n_channels]),
 			*((uint32_t*)&s[3 * n_channels]),
@@ -170,14 +170,14 @@ conv_s24_to_f32d_2_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_
 	if (SPA_IS_ALIGNED(d0, 16) &&
 	    SPA_IS_ALIGNED(d1, 16) &&
 	    n_samples > 0) {
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 		if ((n_samples & 3) == 0)
-			unrolled--;
+			unrolled -= 4;
 	}
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
 		in[0] = _mm_setr_epi32(
 			*((uint32_t*)&s[0 + 0*n_channels]),
 			*((uint32_t*)&s[0 + 3*n_channels]),
@@ -231,14 +231,14 @@ conv_s24_to_f32d_4_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_
 	    SPA_IS_ALIGNED(d2, 16) &&
 	    SPA_IS_ALIGNED(d3, 16) &&
 	    n_samples > 0) {
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 		if ((n_samples & 3) == 0)
-			unrolled--;
+			unrolled -= 4;
 	}
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
 		in[0] = _mm_setr_epi32(
 			*((uint32_t*)&s[0 + 0*n_channels]),
 			*((uint32_t*)&s[0 + 3*n_channels]),
@@ -331,11 +331,11 @@ conv_f32d_to_s32_1_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 	__m128 int_min = _mm_set1_ps(S32_MIN);
 
 	if (SPA_IS_ALIGNED(s0, 16))
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
 		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), scale);
 		in[0] = _mm_min_ps(in[0], int_min);
 		out[0] = _mm_cvtps_epi32(in[0]);
@@ -372,11 +372,11 @@ conv_f32d_to_s32_2_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 
 	if (SPA_IS_ALIGNED(s0, 16) &&
 	    SPA_IS_ALIGNED(s1, 16))
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
 		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), scale);
 		in[1] = _mm_mul_ps(_mm_load_ps(&s1[n]), scale);
 
@@ -425,11 +425,11 @@ conv_f32d_to_s32_4_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 	    SPA_IS_ALIGNED(s1, 16) &&
 	    SPA_IS_ALIGNED(s2, 16) &&
 	    SPA_IS_ALIGNED(s3, 16))
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
 		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), scale);
 		in[1] = _mm_mul_ps(_mm_load_ps(&s1[n]), scale);
 		in[2] = _mm_mul_ps(_mm_load_ps(&s2[n]), scale);
@@ -498,11 +498,11 @@ conv_f32d_to_s16_1_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
         __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
 
 	if (SPA_IS_ALIGNED(s0, 16))
-		unrolled = n_samples / 8;
+		unrolled = n_samples & ~7;
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 8) {
+	for(n = 0; n < unrolled; n += 8) {
 		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), int_max);
 		in[1] = _mm_mul_ps(_mm_load_ps(&s0[n+4]), int_max);
 		out[0] = _mm_cvtps_epi32(in[0]);
@@ -541,11 +541,11 @@ conv_f32d_to_s16_2_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 
 	if (SPA_IS_ALIGNED(s0, 16) &&
 	    SPA_IS_ALIGNED(s1, 16))
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
 		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), int_max);
 		in[1] = _mm_mul_ps(_mm_load_ps(&s1[n]), int_max);
 
@@ -593,11 +593,11 @@ conv_f32d_to_s16_4_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 	    SPA_IS_ALIGNED(s1, 16) &&
 	    SPA_IS_ALIGNED(s2, 16) &&
 	    SPA_IS_ALIGNED(s3, 16))
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
 		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), int_max);
 		in[1] = _mm_mul_ps(_mm_load_ps(&s1[n]), int_max);
 		in[2] = _mm_mul_ps(_mm_load_ps(&s2[n]), int_max);

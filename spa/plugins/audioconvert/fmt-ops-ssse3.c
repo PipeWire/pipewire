@@ -42,11 +42,11 @@ conv_s24_to_f32d_4_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	    SPA_IS_ALIGNED(d1, 16) &&
 	    SPA_IS_ALIGNED(d2, 16) &&
 	    SPA_IS_ALIGNED(d3, 16))
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
                 in[0] = _mm_loadu_si128((__m128i*)(s + 0*n_channels));
                 in[1] = _mm_loadu_si128((__m128i*)(s + 3*n_channels));
                 in[2] = _mm_loadu_si128((__m128i*)(s + 6*n_channels));

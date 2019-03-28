@@ -37,11 +37,11 @@ conv_s24_to_f32d_1_sse41(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	__m128 out, factor = _mm_set1_ps(1.0f / S24_SCALE);
 
 	if (SPA_IS_ALIGNED(d0, 16))
-		unrolled = n_samples / 4;
+		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
 
-	for(n = 0; unrolled--; n += 4) {
+	for(n = 0; n < unrolled; n += 4) {
 		in = _mm_insert_epi32(in, *((uint32_t*)&s[0 * n_channels]), 0);
 		in = _mm_insert_epi32(in, *((uint32_t*)&s[3 * n_channels]), 1);
 		in = _mm_insert_epi32(in, *((uint32_t*)&s[6 * n_channels]), 2);

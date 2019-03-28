@@ -30,9 +30,30 @@ static void inner_product_sse(float *d, const float * SPA_RESTRICT s,
 		const float * SPA_RESTRICT taps, uint32_t n_taps)
 {
 	__m128 sum = _mm_setzero_ps();
-	uint32_t i;
+	uint32_t i = 0;
+#if 0
+	uint32_t unrolled = n_taps & ~15;
 
-	for (i = 0; i < n_taps; i += 8) {
+	for (i = 0; i < unrolled; i += 16) {
+		sum = _mm_add_ps(sum,
+			_mm_mul_ps(
+				_mm_loadu_ps(s + i + 0),
+				_mm_load_ps(taps + i + 0)));
+		sum = _mm_add_ps(sum,
+			_mm_mul_ps(
+				_mm_loadu_ps(s + i + 4),
+				_mm_load_ps(taps + i + 4)));
+		sum = _mm_add_ps(sum,
+			_mm_mul_ps(
+				_mm_loadu_ps(s + i + 8),
+				_mm_load_ps(taps + i + 8)));
+		sum = _mm_add_ps(sum,
+			_mm_mul_ps(
+				_mm_loadu_ps(s + i + 12),
+				_mm_load_ps(taps + i + 12)));
+	}
+#endif
+	for (; i < n_taps; i += 8) {
 		sum = _mm_add_ps(sum,
 			_mm_mul_ps(
 				_mm_loadu_ps(s + i + 0),

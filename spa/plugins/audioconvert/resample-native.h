@@ -126,6 +126,10 @@ static void impl_native_update_rate(struct resample *r, double rate)
 		if (SPA_FLAG_CHECK(r->cpu_flags, SPA_CPU_FLAG_SSSE3 | SPA_CPU_FLAG_SLOW_UNALIGNED))
 			data->func = is_full ? do_resample_full_ssse3 : do_resample_inter_ssse3;
 #endif
+#if defined(HAVE_AVX) && defined(HAVE_FMA)
+		if (SPA_FLAG_CHECK(r->cpu_flags, SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3))
+			data->func = is_full ? do_resample_full_avx : do_resample_inter_avx;
+#endif
 	}
 }
 

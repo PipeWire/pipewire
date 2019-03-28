@@ -54,11 +54,17 @@ sse_args = '-msse'
 sse2_args = '-msse2'
 ssse3_args = '-mssse3'
 sse41_args = '-msse4.1'
+fma_args = '-mfma'
+avx_args = '-mavx'
+avx2_args = '-mavx2'
 
 have_sse = cc.has_argument(sse_args)
 have_sse2 = cc.has_argument(sse2_args)
 have_ssse3 = cc.has_argument(ssse3_args)
 have_sse41 = cc.has_argument(sse41_args)
+have_fma = cc.has_argument(fma_args)
+have_avx = cc.has_argument(avx_args)
+have_avx2 = cc.has_argument(avx2_args)
 
 cdata = configuration_data()
 cdata.set('PIPEWIRE_VERSION_MAJOR', pipewire_version_major)

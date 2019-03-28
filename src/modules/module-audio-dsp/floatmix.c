@@ -693,11 +693,11 @@ static void mix_2(float * dst, const float * SPA_RESTRICT src1,
 	if (SPA_IS_ALIGNED(src1, 16) &&
 	    SPA_IS_ALIGNED(src2, 16) &&
 	    SPA_IS_ALIGNED(dst, 16))
-		unrolled = n_samples / 16;
+		unrolled = n_samples & ~15;
 	else
 		unrolled = 0;
 
-	for (n = 0; unrolled--; n += 16) {
+	for (n = 0; n < unrolled; n += 16) {
 		in1[0] = _mm_load_ps(&src1[n+ 0]);
 		in1[1] = _mm_load_ps(&src1[n+ 4]);
 		in1[2] = _mm_load_ps(&src1[n+ 8]);

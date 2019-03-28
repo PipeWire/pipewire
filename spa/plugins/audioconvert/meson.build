@@ -50,6 +50,16 @@ if have_sse41
 	simd_cargs += ['-DHAVE_SSE41']
 	simd_dependencies += audioconvert_sse41
 endif
+if have_avx and have_fma
+	audioconvert_avx = static_library('audioconvert_avx',
+		['resample-native-avx.c'],
+		c_args : [avx2_args, fma_args],
+		include_directories : [spa_inc],
+		install : false
+	)
+	simd_cargs += ['-DHAVE_AVX', '-DHAVE_FMA']
+	simd_dependencies += audioconvert_avx
+endif
 
 audioconvertlib = shared_library('spa-audioconvert',
                           audioconvert_sources,

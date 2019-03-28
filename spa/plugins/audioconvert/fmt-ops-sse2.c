@@ -118,7 +118,7 @@ conv_s16_to_f32d_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RE
 		conv_s16_to_f32d_1_sse2(data, &dst[i], &s[i], n_channels, n_samples);
 }
 
-static void
+void
 conv_s24_to_f32d_1_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src, uint32_t n_channels, uint32_t n_samples)
 {
 	const uint8_t *s = src;
@@ -128,7 +128,7 @@ conv_s24_to_f32d_1_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_
 	__m128i in;
 	__m128 out, factor = _mm_set1_ps(1.0f / S24_SCALE);
 
-	if (SPA_IS_ALIGNED(d0, 16)) {
+	if (SPA_IS_ALIGNED(d0, 16) && n_samples > 0) {
 		unrolled = n_samples / 4;
 		if ((n_samples & 3) == 0)
 			unrolled--;
@@ -167,7 +167,9 @@ conv_s24_to_f32d_2_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_
 	__m128i in[2];
 	__m128 out[2], factor = _mm_set1_ps(1.0f / S24_SCALE);
 
-	if (SPA_IS_ALIGNED(d0, 16)) {
+	if (SPA_IS_ALIGNED(d0, 16) &&
+	    SPA_IS_ALIGNED(d1, 16) &&
+	    n_samples > 0) {
 		unrolled = n_samples / 4;
 		if ((n_samples & 3) == 0)
 			unrolled--;
@@ -224,7 +226,11 @@ conv_s24_to_f32d_4_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_
 	__m128i in[4];
 	__m128 out[4], factor = _mm_set1_ps(1.0f / S24_SCALE);
 
-	if (SPA_IS_ALIGNED(d0, 16)) {
+	if (SPA_IS_ALIGNED(d0, 16) &&
+	    SPA_IS_ALIGNED(d1, 16) &&
+	    SPA_IS_ALIGNED(d2, 16) &&
+	    SPA_IS_ALIGNED(d3, 16) &&
+	    n_samples > 0) {
 		unrolled = n_samples / 4;
 		if ((n_samples & 3) == 0)
 			unrolled--;
@@ -418,8 +424,7 @@ conv_f32d_to_s32_4_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 	if (SPA_IS_ALIGNED(s0, 16) &&
 	    SPA_IS_ALIGNED(s1, 16) &&
 	    SPA_IS_ALIGNED(s2, 16) &&
-	    SPA_IS_ALIGNED(s3, 16) &&
-	    SPA_IS_ALIGNED(d, 16))
+	    SPA_IS_ALIGNED(s3, 16))
 		unrolled = n_samples / 4;
 	else
 		unrolled = 0;
@@ -442,10 +447,10 @@ conv_f32d_to_s32_4_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RE
 		out[2] = _mm_cvtps_epi32(in[2]);
 		out[3] = _mm_cvtps_epi32(in[3]);
 
-		_mm_store_si128((__m128i*)(d + 0*n_channels), out[0]);
-		_mm_store_si128((__m128i*)(d + 1*n_channels), out[1]);
-		_mm_store_si128((__m128i*)(d + 2*n_channels), out[2]);
-		_mm_store_si128((__m128i*)(d + 3*n_channels), out[3]);
+		_mm_storeu_si128((__m128i*)(d + 0*n_channels), out[0]);
+		_mm_storeu_si128((__m128i*)(d + 1*n_channels), out[1]);
+		_mm_storeu_si128((__m128i*)(d + 2*n_channels), out[2]);
+		_mm_storeu_si128((__m128i*)(d + 3*n_channels), out[3]);
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {

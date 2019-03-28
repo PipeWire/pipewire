@@ -38,7 +38,10 @@ conv_s24_to_f32d_4_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	const __m128i mask = _mm_setr_epi8(-1, 0, 1, 2, -1, 3, 4, 5, -1, 6, 7, 8, -1, 9, 10, 11);
 	//const __m128i mask = _mm_set_epi8(15, 14, 13, -1, 12, 11, 10, -1, 9, 8, 7, -1, 6, 5, 4, -1);
 
-	if (SPA_IS_ALIGNED(d0, 16))
+	if (SPA_IS_ALIGNED(d0, 16) &&
+	    SPA_IS_ALIGNED(d1, 16) &&
+	    SPA_IS_ALIGNED(d2, 16) &&
+	    SPA_IS_ALIGNED(d3, 16))
 		unrolled = n_samples / 4;
 	else
 		unrolled = 0;
@@ -90,8 +93,8 @@ conv_s24_to_f32d_4_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	}
 }
 
-extern void conv_s24_to_f32d_2_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src, uint32_t n_channels, uint32_t n_samples);
-extern void conv_s24_to_f32d_1_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src, uint32_t n_channels, uint32_t n_samples);
+void
+conv_s24_to_f32d_1_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src, uint32_t n_channels, uint32_t n_samples);
 
 void
 conv_s24_to_f32d_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
@@ -101,10 +104,6 @@ conv_s24_to_f32d_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA_R
 
 	for(; i + 3 < n_channels; i += 4)
 		conv_s24_to_f32d_4_ssse3(data, &dst[i], &s[3*i], n_channels, n_samples);
-#if defined (HAVE_SSE2)
-	for(; i + 1 < n_channels; i += 2)
-		conv_s24_to_f32d_2_sse2(data, &dst[i], &s[3*i], n_channels, n_samples);
 	for(; i < n_channels; i++)
 		conv_s24_to_f32d_1_sse2(data, &dst[i], &s[3*i], n_channels, n_samples);
-#endif
 }

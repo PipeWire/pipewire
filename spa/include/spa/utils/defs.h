@@ -121,6 +121,7 @@ struct spa_param_info {
 })
 
 #define SPA_MEMBER(b,o,t) ((t*)((uint8_t*)(b) + (int)(o)))
+#define SPA_MEMBER_ALIGN(b,o,a,t) SPA_PTR_ALIGN(SPA_MEMBER(b,o,t),a,t)
 
 #define SPA_CONTAINER_OF(p,t,m) (t*)((uint8_t*)p - offsetof (t,m))
 

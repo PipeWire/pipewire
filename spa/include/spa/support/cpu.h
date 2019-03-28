@@ -33,38 +33,42 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
-#define SPA_CPU_FLAG_MMX	(1<<0)	/**< standard MMX */
-#define SPA_CPU_FLAG_MMXEXT	(1<<1)	/**< SSE integer or AMD MMX ext */
-#define SPA_CPU_FLAG_3DNOW	(1<<2)	/**< AMD 3DNOW */
-#define SPA_CPU_FLAG_SSE	(1<<3)	/**< SSE */
-#define SPA_CPU_FLAG_SSE2	(1<<4)	/**< SSE2 */
-#define SPA_CPU_FLAG_3DNOWEXT	(1<<5)	/**< AMD 3DNowExt */
-#define SPA_CPU_FLAG_SSE3	(1<<6)	/**< Prescott SSE3 */
-#define SPA_CPU_FLAG_SSSE3	(1<<7)	/**< Conroe SSSE3 */
-#define SPA_CPU_FLAG_SSE41	(1<<8)	/**< Penryn SSE4.1 */
-#define SPA_CPU_FLAG_SSE42	(1<<9)	/**< Nehalem SSE4.2 */
-#define SPA_CPU_FLAG_AESNI	(1<<10)	/**< Advanced Encryption Standard */
-#define SPA_CPU_FLAG_AVX	(1<<11)	/**< AVX */
-#define SPA_CPU_FLAG_XOP	(1<<12)	/**< Bulldozer XOP */
-#define SPA_CPU_FLAG_FMA4	(1<<13)	/**< Bulldozer FMA4 */
-#define SPA_CPU_FLAG_CMOV	(1<<14)	/**< supports cmov */
-#define SPA_CPU_FLAG_AVX2	(1<<15)	/**< AVX2 */
-#define SPA_CPU_FLAG_FMA3	(1<<16)	/**< Haswell FMA3 */
-#define SPA_CPU_FLAG_BMI1	(1<<17)	/**< Bit Manipulation Instruction Set 1 */
-#define SPA_CPU_FLAG_BMI2	(1<<18)	/**< Bit Manipulation Instruction Set 2 */
-#define SPA_CPU_FLAG_AVX512	(1<<19)	/**< AVX-512 */
+/* x86 specific */
+#define SPA_CPU_FLAG_MMX		(1<<0)	/**< standard MMX */
+#define SPA_CPU_FLAG_MMXEXT		(1<<1)	/**< SSE integer or AMD MMX ext */
+#define SPA_CPU_FLAG_3DNOW		(1<<2)	/**< AMD 3DNOW */
+#define SPA_CPU_FLAG_SSE		(1<<3)	/**< SSE */
+#define SPA_CPU_FLAG_SSE2		(1<<4)	/**< SSE2 */
+#define SPA_CPU_FLAG_3DNOWEXT		(1<<5)	/**< AMD 3DNowExt */
+#define SPA_CPU_FLAG_SSE3		(1<<6)	/**< Prescott SSE3 */
+#define SPA_CPU_FLAG_SSSE3		(1<<7)	/**< Conroe SSSE3 */
+#define SPA_CPU_FLAG_SSE41		(1<<8)	/**< Penryn SSE4.1 */
+#define SPA_CPU_FLAG_SSE42		(1<<9)	/**< Nehalem SSE4.2 */
+#define SPA_CPU_FLAG_AESNI		(1<<10)	/**< Advanced Encryption Standard */
+#define SPA_CPU_FLAG_AVX		(1<<11)	/**< AVX */
+#define SPA_CPU_FLAG_XOP		(1<<12)	/**< Bulldozer XOP */
+#define SPA_CPU_FLAG_FMA4		(1<<13)	/**< Bulldozer FMA4 */
+#define SPA_CPU_FLAG_CMOV		(1<<14)	/**< supports cmov */
+#define SPA_CPU_FLAG_AVX2		(1<<15)	/**< AVX2 */
+#define SPA_CPU_FLAG_FMA3		(1<<16)	/**< Haswell FMA3 */
+#define SPA_CPU_FLAG_BMI1		(1<<17)	/**< Bit Manipulation Instruction Set 1 */
+#define SPA_CPU_FLAG_BMI2		(1<<18)	/**< Bit Manipulation Instruction Set 2 */
+#define SPA_CPU_FLAG_AVX512		(1<<19)	/**< AVX-512 */
+#define SPA_CPU_FLAG_SLOW_UNALIGNED	(1<<20)	/**< unaligned loads/stores are slow */
 
-#define SPA_CPU_FLAG_ALTIVEC	(1<<0)	/**< standard */
-#define SPA_CPU_FLAG_VSX	(1<<1)	/**< ISA 2.06 */
-#define SPA_CPU_FLAG_POWER8	(1<<2)	/**< ISA 2.07 */
+/* PPC specific */
+#define SPA_CPU_FLAG_ALTIVEC		(1<<0)	/**< standard */
+#define SPA_CPU_FLAG_VSX		(1<<1)	/**< ISA 2.06 */
+#define SPA_CPU_FLAG_POWER8		(1<<2)	/**< ISA 2.07 */
 
-#define SPA_CPU_FLAG_ARMV5TE	(1 << 0)
-#define SPA_CPU_FLAG_ARMV6	(1 << 1)
-#define SPA_CPU_FLAG_ARMV6T2	(1 << 2)
-#define SPA_CPU_FLAG_VFP	(1 << 3)
-#define SPA_CPU_FLAG_VFPV3	(1 << 4)
-#define SPA_CPU_FLAG_NEON	(1 << 5)
-#define SPA_CPU_FLAG_ARMV8	(1 << 6)
+/* ARM specific */
+#define SPA_CPU_FLAG_ARMV5TE		(1 << 0)
+#define SPA_CPU_FLAG_ARMV6		(1 << 1)
+#define SPA_CPU_FLAG_ARMV6T2		(1 << 2)
+#define SPA_CPU_FLAG_VFP		(1 << 3)
+#define SPA_CPU_FLAG_VFPV3		(1 << 4)
+#define SPA_CPU_FLAG_NEON		(1 << 5)
+#define SPA_CPU_FLAG_ARMV8		(1 << 6)
 
 #define SPA_CPU_FORCE_AUTODETECT	((uint32_t)-1)
 /**

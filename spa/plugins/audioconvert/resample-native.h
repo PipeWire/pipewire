@@ -119,11 +119,11 @@ static void impl_native_update_rate(struct resample *r, double rate)
 
 		data->func = is_full ? do_resample_full_c : do_resample_inter_c;
 #if defined (HAVE_SSE)
-		if (r->cpu_flags & SPA_CPU_FLAG_SSE)
+		if (SPA_FLAG_CHECK(r->cpu_flags, SPA_CPU_FLAG_SSE))
 			data->func = is_full ? do_resample_full_sse : do_resample_inter_sse;
 #endif
 #if defined (HAVE_SSSE3)
-		if (r->cpu_flags & SPA_CPU_FLAG_SSSE3)
+		if (SPA_FLAG_CHECK(r->cpu_flags, SPA_CPU_FLAG_SSSE3 | SPA_CPU_FLAG_SLOW_UNALIGNED))
 			data->func = is_full ? do_resample_full_ssse3 : do_resample_inter_ssse3;
 #endif
 	}
@@ -276,10 +276,8 @@ static int impl_native_init(struct resample *r)
 	d->n_phases = n_phases;
 	d->in_rate = in_rate;
 	d->out_rate = out_rate;
-	d->filter = SPA_MEMBER(d, sizeof(struct native_data), float);
-	d->filter = SPA_PTR_ALIGN(d->filter, 64, float);
-	d->hist_mem = SPA_MEMBER(d->filter, filter_size, float);
-	d->hist_mem = SPA_PTR_ALIGN(d->hist_mem, 64, float);
+	d->filter = SPA_MEMBER_ALIGN(d, sizeof(struct native_data), 64, float);
+	d->hist_mem = SPA_MEMBER_ALIGN(d->filter, filter_size, 64, float);
 	d->history = SPA_MEMBER(d->hist_mem, history_size, float*);
 	d->filter_stride = filter_stride / sizeof(float);
 	d->filter_stride_os = d->filter_stride * oversample;

@@ -79,14 +79,16 @@ endforeach
 
 benchmark_apps = [
 	'benchmark-fmt-ops',
+	'benchmark-resample',
 ]
 
 foreach a : benchmark_apps
   benchmark(a,
 	executable(a, a + '.c',
-		dependencies : [dl_lib, pthread_lib, mathlib ],
+		dependencies : [dl_lib, pthread_lib, mathlib, speexdsp_dep, ],
 		include_directories : [spa_inc ],
-		c_args : [ '-D_GNU_SOURCE' ],
+		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
+		link_with : simd_dependencies,
 		install : false),
 	env : [
 		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),

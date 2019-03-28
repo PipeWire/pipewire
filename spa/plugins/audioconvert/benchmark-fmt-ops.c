@@ -31,6 +31,14 @@
 
 #include "fmt-ops.c"
 
+struct stats {
+	uint32_t n_samples;
+	uint32_t n_channels;
+	uint64_t perf;
+	const char *name;
+	const char *impl;
+};
+
 #define MAX_SAMPLES	4096
 #define MAX_CHANNELS	11
 
@@ -42,8 +50,13 @@ static uint8_t samp_out[MAX_SAMPLES * MAX_CHANNELS * 4];
 static const int sample_sizes[] = { 0, 1, 128, 513, 4096 };
 static const int channel_counts[] = { 1, 2, 4, 6, 8, 11 };
 
-static void run_test1(const char *name, bool in_packed, bool out_packed, convert_func_t func,
-		int n_channels, int n_samples)
+#define MAX_RESULTS	SPA_N_ELEMENTS(sample_sizes) * SPA_N_ELEMENTS(channel_counts) * 60
+
+static uint32_t n_results = 0;
+static struct stats results[MAX_RESULTS];
+
+static void run_test1(const char *name, const char *impl, bool in_packed, bool out_packed,
+		convert_func_t func, int n_channels, int n_samples)
 {
 	int i, j;
 	const void *ip[n_channels];
@@ -67,18 +80,22 @@ static void run_test1(const char *name, bool in_packed, bool out_packed, convert
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	t2 = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	fprintf(stderr, "%s: samples %d, channels %d: elapsed %"PRIu64" count %"
-			PRIu64" = %"PRIu64"/sec\n", name, n_samples, n_channels,
-			t2 - t1, count, count * (uint64_t)SPA_NSEC_PER_SEC / (t2 - t1));
+	results[n_results++] = (struct stats) {
+		.n_samples = n_samples,
+		.n_channels = n_channels,
+		.perf = count * (uint64_t)SPA_NSEC_PER_SEC / (t2 - t1),
+		.name = name,
+		.impl = impl
+	};
 }
 
-static void run_test(const char *name, bool in_packed, bool out_packed, convert_func_t func)
+static void run_test(const char *name, const char *impl, bool in_packed, bool out_packed, convert_func_t func)
 {
 	size_t i, j;
 
 	for (i = 0; i < SPA_N_ELEMENTS(sample_sizes); i++) {
 		for (j = 0; j < SPA_N_ELEMENTS(channel_counts); j++) {
-			run_test1(name, in_packed, out_packed, func, channel_counts[j],
+			run_test1(name, impl, in_packed, out_packed, func, channel_counts[j],
 				(sample_sizes[i] + (channel_counts[j] -1)) / channel_counts[j]);
 		}
 	}
@@ -86,93 +103,124 @@ static void run_test(const char *name, bool in_packed, bool out_packed, convert_
 
 static void test_f32_u8(void)
 {
-	run_test("test_f32_u8", true, true, conv_f32_to_u8);
-	run_test("test_f32d_u8", false, true, conv_f32d_to_u8);
-	run_test("test_f32_u8d", true, false, conv_f32_to_u8d);
-	run_test("test_f32d_u8d", false, false, conv_f32d_to_u8d);
+	run_test("test_f32_u8", "c", true, true, conv_f32_to_u8);
+	run_test("test_f32d_u8", "c", false, true, conv_f32d_to_u8);
+	run_test("test_f32_u8d", "c", true, false, conv_f32_to_u8d);
+	run_test("test_f32d_u8d", "c", false, false, conv_f32d_to_u8d);
 }
 
 static void test_u8_f32(void)
 {
-	run_test("test_u8_f32", true, true, conv_u8_to_f32);
-	run_test("test_u8d_f32", false, true, conv_u8d_to_f32);
-	run_test("test_u8_f32d", true, false, conv_u8_to_f32d);
+	run_test("test_u8_f32", "c", true, true, conv_u8_to_f32);
+	run_test("test_u8d_f32", "c", false, true, conv_u8d_to_f32);
+	run_test("test_u8_f32d", "c", true, false, conv_u8_to_f32d);
 }
 
 static void test_f32_s16(void)
 {
-	run_test("test_f32_s16", true, true, conv_f32_to_s16);
-	run_test("test_f32d_s16", false, true, conv_f32d_to_s16);
-	run_test("test_f32_s16d", true, false, conv_f32_to_s16d);
+	run_test("test_f32_s16", "c", true, true, conv_f32_to_s16);
+	run_test("test_f32d_s16", "c", false, true, conv_f32d_to_s16);
+#if defined (HAVE_SSE2)
+	run_test("test_f32d_s16", "sse2", false, true, conv_f32d_to_s16_sse2);
+#endif
+	run_test("test_f32_s16d", "c", true, false, conv_f32_to_s16d);
 }
 
 static void test_s16_f32(void)
 {
-	run_test("test_s16_f32", true, true, conv_s16_to_f32);
-	run_test("test_s16d_f32", false, true, conv_s16d_to_f32);
-	run_test("test_s16_f32d", true, false, conv_s16_to_f32d);
+	run_test("test_s16_f32", "c", true, true, conv_s16_to_f32);
+	run_test("test_s16d_f32", "c", false, true, conv_s16d_to_f32);
+	run_test("test_s16_f32d", "c", true, false, conv_s16_to_f32d);
+#if defined (HAVE_SSE2)
+	run_test("test_s16_f32d", "sse2", true, false, conv_s16_to_f32d_sse2);
+#endif
 }
 
 static void test_f32_s32(void)
 {
-	run_test("test_f32_s32", true, true, conv_f32_to_s32);
-	run_test("test_f32d_s32", false, true, conv_f32d_to_s32);
-	run_test("test_f32_s32d", true, false, conv_f32_to_s32d);
+	run_test("test_f32_s32", "c", true, true, conv_f32_to_s32);
+	run_test("test_f32d_s32", "c", false, true, conv_f32d_to_s32);
+#if defined (HAVE_SSE2)
+	run_test("test_f32d_s32", "sse2", false, true, conv_f32d_to_s32_sse2);
+#endif
+	run_test("test_f32_s32d", "c", true, false, conv_f32_to_s32d);
 }
 
 static void test_s32_f32(void)
 {
-	run_test("test_s32_f32", true, true, conv_s32_to_f32);
-	run_test("test_s32d_f32", false, true, conv_s32d_to_f32);
-	run_test("test_s32_f32d", true, false, conv_s32_to_f32d);
+	run_test("test_s32_f32", "c", true, true, conv_s32_to_f32);
+	run_test("test_s32d_f32", "c", false, true, conv_s32d_to_f32);
+	run_test("test_s32_f32d", "c", true, false, conv_s32_to_f32d);
 }
 
 static void test_f32_s24(void)
 {
-	run_test("test_f32_s24", true, true, conv_f32_to_s24);
-	run_test("test_f32d_s24", false, true, conv_f32d_to_s24);
-	run_test("test_f32_s24d", true, false, conv_f32_to_s24d);
+	run_test("test_f32_s24", "c", true, true, conv_f32_to_s24);
+	run_test("test_f32d_s24", "c", false, true, conv_f32d_to_s24);
+	run_test("test_f32_s24d", "c", true, false, conv_f32_to_s24d);
 }
 
 static void test_s24_f32(void)
 {
-	run_test("test_s24_f32", true, true, conv_s24_to_f32);
-	run_test("test_s24d_f32", false, true, conv_s24d_to_f32);
-	run_test("test_s24_f32d", true, false, conv_s24_to_f32d);
+	run_test("test_s24_f32", "c", true, true, conv_s24_to_f32);
+	run_test("test_s24d_f32", "c", false, true, conv_s24d_to_f32);
+	run_test("test_s24_f32d", "c", true, false, conv_s24_to_f32d);
+#if defined (HAVE_SSE2)
+	run_test("test_s24_f32d", "sse2", true, false, conv_s24_to_f32d_sse2);
+#endif
+#if defined (HAVE_SSSE3)
+	run_test("test_s24_f32d", "ssse3", true, false, conv_s24_to_f32d_ssse3);
+#endif
+#if defined (HAVE_SSE41)
+	run_test("test_s24_f32d", "sse41", true, false, conv_s24_to_f32d_sse41);
+#endif
 }
 
 static void test_f32_s24_32(void)
 {
-	run_test("test_f32_s24_32", true, true, conv_f32_to_s24_32);
-	run_test("test_f32d_s24_32", false, true, conv_f32d_to_s24_32);
-	run_test("test_f32_s24_32d", true, false, conv_f32_to_s24_32d);
+	run_test("test_f32_s24_32", "c", true, true, conv_f32_to_s24_32);
+	run_test("test_f32d_s24_32", "c", false, true, conv_f32d_to_s24_32);
+	run_test("test_f32_s24_32d", "c", true, false, conv_f32_to_s24_32d);
 }
 
 static void test_s24_32_f32(void)
 {
-	run_test("test_s24_32_f32", true, true, conv_s24_32_to_f32);
-	run_test("test_s24_32d_f32", false, true, conv_s24_32d_to_f32);
-	run_test("test_s24_32_f32d", true, false, conv_s24_32_to_f32d);
+	run_test("test_s24_32_f32", "c", true, true, conv_s24_32_to_f32);
+	run_test("test_s24_32d_f32", "c", false, true, conv_s24_32d_to_f32);
+	run_test("test_s24_32_f32d", "c", true, false, conv_s24_32_to_f32d);
 }
 
 static void test_interleave(void)
 {
-	run_test("test_interleave_8", false, true, interleave_8);
-	run_test("test_interleave_16", false, true, interleave_16);
-	run_test("test_interleave_24", false, true, interleave_24);
-	run_test("test_interleave_32", false, true, interleave_32);
+	run_test("test_interleave_8", "c", false, true, interleave_8);
+	run_test("test_interleave_16", "c", false, true, interleave_16);
+	run_test("test_interleave_24", "c", false, true, interleave_24);
+	run_test("test_interleave_32", "c", false, true, interleave_32);
 }
 
 static void test_deinterleave(void)
 {
-	run_test("test_deinterleave_8", true, false, deinterleave_8);
-	run_test("test_deinterleave_16", true, false, deinterleave_16);
-	run_test("test_deinterleave_24", true, false, deinterleave_24);
-	run_test("test_deinterleave_32", true, false, deinterleave_32);
+	run_test("test_deinterleave_8", "c", true, false, deinterleave_8);
+	run_test("test_deinterleave_16", "c", true, false, deinterleave_16);
+	run_test("test_deinterleave_24", "c", true, false, deinterleave_24);
+	run_test("test_deinterleave_32", "c", true, false, deinterleave_32);
+}
+
+static int compare_func(const void *_a, const void *_b)
+{
+	const struct stats *a = _a, *b = _b;
+	int diff;
+	if ((diff = strcmp(a->name, b->name)) != 0) return diff;
+	if ((diff = a->n_samples - b->n_samples) != 0) return diff;
+	if ((diff = a->n_channels - b->n_channels) != 0) return diff;
+	if ((diff = b->perf - a->perf) != 0) return diff;
+	return 0;
 }
 
 int main(int argc, char *argv[])
 {
+	uint32_t i;
+
 	find_conv_info(0, 0, 0);
 
 	test_f32_u8();
@@ -188,5 +236,14 @@ int main(int argc, char *argv[])
 	test_interleave();
 	test_deinterleave();
 
+	spa_assert(n_results <= MAX_RESULTS);
+
+	qsort(results, n_results, sizeof(struct stats), compare_func);
+
+	for (i = 0; i < n_results; i++) {
+		struct stats *s = &results[i];
+		fprintf(stderr, "%-12."PRIu64" \t%-32.32s %s \t samples %d, channels %d\n",
+				s->perf, s->name, s->impl, s->n_samples, s->n_channels);
+	}
 	return 0;
 }

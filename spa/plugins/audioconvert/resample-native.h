@@ -23,7 +23,6 @@
  */
 
 #include "resample-native-impl.h"
-#include "resample-native-c.h"
 
 struct quality {
 	uint32_t n_taps;

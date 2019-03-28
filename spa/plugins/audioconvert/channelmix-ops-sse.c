@@ -22,9 +22,11 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "channelmix-ops.h"
+
 #include <xmmintrin.h>
 
-static void
+void
 channelmix_copy_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
 	   int n_src, const void * SPA_RESTRICT src[n_src],
 	   const void *matrix, float v, int n_samples)
@@ -70,7 +72,7 @@ channelmix_copy_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
 	}
 }
 
-static void
+void
 channelmix_f32_2_4_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
 		   int n_src, const void * SPA_RESTRICT src[n_src],
 		   const void *matrix, float v, int n_samples)
@@ -136,7 +138,7 @@ channelmix_f32_2_4_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
 }
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR */
-static void
+void
 channelmix_f32_5p1_2_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
 		   int n_src, const void * SPA_RESTRICT src[n_src],
 		   const void *matrix, float v, int n_samples)
@@ -228,7 +230,7 @@ channelmix_f32_5p1_2_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
 }
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+FC+LFE*/
-static void
+void
 channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
 		   int n_src, const void * SPA_RESTRICT src[n_src],
 		   const void *matrix, float v, int n_samples)
@@ -311,7 +313,7 @@ channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst]
 }
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+RL+RR*/
-static void
+void
 channelmix_f32_5p1_4_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
 		   int n_src, const void * SPA_RESTRICT src[n_src],
 		   const void *matrix, float v, int n_samples)

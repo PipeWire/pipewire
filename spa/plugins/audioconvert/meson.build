@@ -9,10 +9,21 @@ audioconvert_sources = ['fmtconvert.c',
 simd_cargs = []
 simd_dependencies = []
 
+audioconvert_c = static_library('audioconvert_c',
+	['resample-native-c.c',
+	 'channelmix-ops-c.c',
+	 'fmt-ops-c.c' ],
+	c_args : ['-O3'],
+	include_directories : [spa_inc],
+	install : false
+)
+simd_dependencies += audioconvert_c
+
 if have_sse
 	audioconvert_sse = static_library('audioconvert_sse',
-		['resample-native-sse.c'],
-		c_args : [sse_args],
+		['resample-native-sse.c',
+		 'channelmix-ops-sse.c' ],
+		c_args : [sse_args, '-O3'],
 		include_directories : [spa_inc],
 		install : false
 	)
@@ -21,8 +32,8 @@ if have_sse
 endif
 if have_sse2
 	audioconvert_sse2 = static_library('audioconvert_sse2',
-		['fmt-ops-sse2.c'],
-		c_args : [sse2_args],
+		['fmt-ops-sse2.c' ],
+		c_args : [sse2_args, '-O3'],
 		include_directories : [spa_inc],
 		install : false
 	)
@@ -33,7 +44,7 @@ if have_ssse3
 	audioconvert_ssse3 = static_library('audioconvert_ssse3',
 		['fmt-ops-ssse3.c',
 		 'resample-native-ssse3.c' ],
-		c_args : [ssse3_args],
+		c_args : [ssse3_args, '-O3'],
 		include_directories : [spa_inc],
 		install : false
 	)
@@ -43,7 +54,7 @@ endif
 if have_sse41
 	audioconvert_sse41 = static_library('audioconvert_sse41',
 		['fmt-ops-sse41.c'],
-		c_args : [sse41_args],
+		c_args : [sse41_args, '-O3'],
 		include_directories : [spa_inc],
 		install : false
 	)
@@ -53,7 +64,7 @@ endif
 if have_avx and have_fma
 	audioconvert_avx = static_library('audioconvert_avx',
 		['resample-native-avx.c'],
-		c_args : [avx2_args, fma_args],
+		c_args : [avx2_args, fma_args, '-O3'],
 		include_directories : [spa_inc],
 		install : false
 	)
@@ -80,6 +91,7 @@ foreach a : test_apps
 	executable(a, a + '.c',
 		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [spa_inc ],
+		link_with : simd_dependencies,
 		c_args : [ '-D_GNU_SOURCE' ],
 		install : false),
 	env : [

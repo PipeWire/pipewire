@@ -62,16 +62,16 @@ static void run_test(const char *name,
 		tp[0] = temp_in;
 		switch(in_size) {
 		case 1:
-			interleave_8(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
+			conv_interleave_8_c(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
 			break;
 		case 2:
-			interleave_16(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
+			conv_interleave_16_c(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
 			break;
 		case 3:
-			interleave_24(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
+			conv_interleave_24_c(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
 			break;
 		case 4:
-			interleave_32(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
+			conv_interleave_32_c(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
 			break;
 		default:
 			fprintf(stderr, "unknown size %zd\n", in_size);
@@ -109,13 +109,13 @@ static void test_f32_u8(void)
 	uint8_t out[] = { 128, 255, 0, 191, 64, 255, 0, };
 
 	run_test("test_f32_u8", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, true, conv_f32_to_u8);
+			true, true, conv_f32_to_u8_c);
 	run_test("test_f32d_u8", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, true, conv_f32d_to_u8);
+			false, true, conv_f32d_to_u8_c);
 	run_test("test_f32_u8d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, false, conv_f32_to_u8d);
+			true, false, conv_f32_to_u8d_c);
 	run_test("test_f32d_u8d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, false, conv_f32d_to_u8d);
+			false, false, conv_f32d_to_u8d_c);
 }
 
 static void test_u8_f32(void)
@@ -124,13 +124,13 @@ static void test_u8_f32(void)
 	const float out[] = { 0.0f, 0.9921875f, -1.0f, 0.5f, -0.5f, };
 
 	run_test("test_u8_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, true, conv_u8_to_f32);
+			true, true, conv_u8_to_f32_c);
 	run_test("test_u8d_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, true, conv_u8d_to_f32);
+			false, true, conv_u8d_to_f32_c);
 	run_test("test_u8_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, false, conv_u8_to_f32d);
+			true, false, conv_u8_to_f32d_c);
 	run_test("test_u8d_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, false, conv_u8d_to_f32d);
+			false, false, conv_u8d_to_f32d_c);
 }
 
 static void test_f32_s16(void)
@@ -139,13 +139,13 @@ static void test_f32_s16(void)
 	const int16_t out[] = { 0, 32767, -32767, 16383, -16383, 32767, -32767 };
 
 	run_test("test_f32_s16", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, true, conv_f32_to_s16);
+			true, true, conv_f32_to_s16_c);
 	run_test("test_f32d_s16", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, true, conv_f32d_to_s16);
+			false, true, conv_f32d_to_s16_c);
 	run_test("test_f32_s16d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, false, conv_f32_to_s16d);
+			true, false, conv_f32_to_s16d_c);
 	run_test("test_f32d_s16d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, false, conv_f32d_to_s16d);
+			false, false, conv_f32d_to_s16d_c);
 }
 
 static void test_s16_f32(void)
@@ -154,13 +154,13 @@ static void test_s16_f32(void)
 	const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999847412f, -0.4999847412f };
 
 	run_test("test_s16_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, false, conv_s16_to_f32d);
+			true, false, conv_s16_to_f32d_c);
 	run_test("test_s16d_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, true, conv_s16d_to_f32);
+			false, true, conv_s16d_to_f32_c);
 	run_test("test_s16_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, true, conv_s16_to_f32);
+			true, true, conv_s16_to_f32_c);
 	run_test("test_s16d_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, false, conv_s16d_to_f32d);
+			false, false, conv_s16d_to_f32d_c);
 }
 
 static void test_f32_s32(void)
@@ -170,13 +170,13 @@ static void test_f32_s32(void)
 					0x7fffff00, 0x80000100 };
 
 	run_test("test_f32_s32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, true, conv_f32_to_s32);
+			true, true, conv_f32_to_s32_c);
 	run_test("test_f32d_s32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, true, conv_f32d_to_s32);
+			false, true, conv_f32d_to_s32_c);
 	run_test("test_f32_s32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, false, conv_f32_to_s32d);
+			true, false, conv_f32_to_s32d_c);
 	run_test("test_f32d_s32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, false, conv_f32d_to_s32d);
+			false, false, conv_f32d_to_s32d_c);
 }
 
 static void test_s32_f32(void)
@@ -185,13 +185,13 @@ static void test_s32_f32(void)
 	const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999999404f, -0.4999999404f, };
 
 	run_test("test_s32_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, false, conv_s32_to_f32d);
+			true, false, conv_s32_to_f32d_c);
 	run_test("test_s32d_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, true, conv_s32d_to_f32);
+			false, true, conv_s32d_to_f32_c);
 	run_test("test_s32_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, true, conv_s32_to_f32);
+			true, true, conv_s32_to_f32_c);
 	run_test("test_s32d_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, false, conv_s32d_to_f32d);
+			false, false, conv_s32d_to_f32d_c);
 }
 
 static void test_f32_s24(void)
@@ -201,13 +201,13 @@ static void test_f32_s24(void)
 		0xff, 0xff, 0x3f, 0x01, 0x00, 0xc0, 0xff, 0xff, 0x7f, 0x01, 0x00, 0x80 };
 
 	run_test("test_f32_s24", in, sizeof(in[0]), out, 3, SPA_N_ELEMENTS(in),
-			true, true, conv_f32_to_s24);
+			true, true, conv_f32_to_s24_c);
 	run_test("test_f32d_s24", in, sizeof(in[0]), out, 3, SPA_N_ELEMENTS(in),
-			false, true, conv_f32d_to_s24);
+			false, true, conv_f32d_to_s24_c);
 	run_test("test_f32_s24d", in, sizeof(in[0]), out, 3, SPA_N_ELEMENTS(in),
-			true, false, conv_f32_to_s24d);
+			true, false, conv_f32_to_s24d_c);
 	run_test("test_f32d_s24d", in, sizeof(in[0]), out, 3, SPA_N_ELEMENTS(in),
-			false, false, conv_f32d_to_s24d);
+			false, false, conv_f32d_to_s24d_c);
 }
 
 static void test_s24_f32(void)
@@ -217,13 +217,13 @@ static void test_s24_f32(void)
 	const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999999404f, -0.4999999404f, };
 
 	run_test("test_s24_f32d", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, false, conv_s24_to_f32d);
+			true, false, conv_s24_to_f32d_c);
 	run_test("test_s24d_f32", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, true, conv_s24d_to_f32);
+			false, true, conv_s24d_to_f32_c);
 	run_test("test_s24_f32", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, true, conv_s24_to_f32);
+			true, true, conv_s24_to_f32_c);
 	run_test("test_s24d_f32d", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, false, conv_s24d_to_f32d);
+			false, false, conv_s24d_to_f32d_c);
 }
 
 static void test_f32_s24_32(void)
@@ -233,13 +233,13 @@ static void test_f32_s24_32(void)
 					0x7fffff, 0xff800001 };
 
 	run_test("test_f32_s24_32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, true, conv_f32_to_s24_32);
+			true, true, conv_f32_to_s24_32_c);
 	run_test("test_f32d_s24_32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, true, conv_f32d_to_s24_32);
+			false, true, conv_f32d_to_s24_32_c);
 	run_test("test_f32_s24_32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, false, conv_f32_to_s24_32d);
+			true, false, conv_f32_to_s24_32d_c);
 	run_test("test_f32d_s24_32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, false, conv_f32d_to_s24_32d);
+			false, false, conv_f32d_to_s24_32d_c);
 }
 
 static void test_s24_32_f32(void)
@@ -248,13 +248,13 @@ static void test_s24_32_f32(void)
 	const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999999404f, -0.4999999404f, };
 
 	run_test("test_s24_32_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, false, conv_s24_32_to_f32d);
+			true, false, conv_s24_32_to_f32d_c);
 	run_test("test_s24_32d_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, true, conv_s24_32d_to_f32);
+			false, true, conv_s24_32d_to_f32_c);
 	run_test("test_s24_32_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			true, true, conv_s24_32_to_f32);
+			true, true, conv_s24_32_to_f32_c);
 	run_test("test_s24_32d_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
-			false, false, conv_s24_32d_to_f32d);
+			false, false, conv_s24_32d_to_f32d_c);
 }
 
 int main(int argc, char *argv[])

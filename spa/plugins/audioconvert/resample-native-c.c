@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "resample-native-impl.h"
+
 static void inner_product_c(float *d, const float * SPA_RESTRICT s,
 		const float * SPA_RESTRICT taps, uint32_t n_taps)
 {

@@ -24,6 +24,7 @@
 
 #include "resample-native-impl.h"
 
+#include <assert.h>
 #include <immintrin.h>
 
 static void inner_product_avx(float *d, const float * SPA_RESTRICT s,
@@ -31,13 +32,15 @@ static void inner_product_avx(float *d, const float * SPA_RESTRICT s,
 {
 	__m256 sy[2] = { _mm256_setzero_ps(), _mm256_setzero_ps() };
 	__m128 sx[2];
-	uint32_t i, n_taps4 = n_taps & ~0xf;
+	uint32_t i = 0;
+	uint32_t n_taps4 = n_taps & ~0xf;
 
-	for (i = 0; i < n_taps4; i += 16) {
+	for (; i < n_taps4; i += 16) {
 		sy[0] = _mm256_fmadd_ps(_mm256_loadu_ps(s + i + 0), _mm256_load_ps(taps + i + 0), sy[0]);
 		sy[1] = _mm256_fmadd_ps(_mm256_loadu_ps(s + i + 8), _mm256_load_ps(taps + i + 8), sy[1]);
 	}
 	sy[0] = _mm256_add_ps(sy[0], sy[1]);
+
 	sx[0] = _mm256_extractf128_ps(sy[0], 0);
 	sx[1] = _mm256_extractf128_ps(sy[0], 1);
 	for (; i < n_taps; i += 8) {

@@ -51,6 +51,11 @@ struct native_data {
 	float *hist_mem;
 };
 
+#define DEFINE_RESAMPLER_COPY(arch)						\
+void do_resample_copy_##arch(struct resample *r,				\
+	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
+	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)
+
 #define DEFINE_RESAMPLER_FULL(arch)						\
 void do_resample_full_##arch(struct resample *r,				\
 	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
@@ -62,9 +67,7 @@ void do_resample_inter_##arch(struct resample *r,				\
 	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)
 
 #define MAKE_RESAMPLER_COPY(arch)						\
-static void do_resample_copy_##arch(struct resample *r,				\
-	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
-	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)		\
+DEFINE_RESAMPLER_COPY(arch)							\
 {										\
 	struct native_data *data = r->data;					\
 	uint32_t index, n_taps = data->n_taps;					\
@@ -177,6 +180,7 @@ DEFINE_RESAMPLER_INTER(arch)							\
 }
 
 
+DEFINE_RESAMPLER_COPY(c);
 DEFINE_RESAMPLER_FULL(c);
 DEFINE_RESAMPLER_INTER(c);
 

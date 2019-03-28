@@ -80,22 +80,78 @@ static inline void write_s24(void *dst, int32_t val)
 typedef void (*convert_func_t) (void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_channels, uint32_t n_samples);
 
+#define DEFINE_FUNCTION(name,arch) \
+void conv_##name##_##arch(void *data, void * SPA_RESTRICT dst[],	\
+		const void * SPA_RESTRICT src[],			\
+		uint32_t n_channels, uint32_t n_samples)
+
+DEFINE_FUNCTION(copy8d, c);
+DEFINE_FUNCTION(copy8, c);
+DEFINE_FUNCTION(copy16d, c);
+DEFINE_FUNCTION(copy16, c);
+DEFINE_FUNCTION(copy24d, c);
+DEFINE_FUNCTION(copy24, c);
+DEFINE_FUNCTION(copy32d, c);
+DEFINE_FUNCTION(copy32, c);
+DEFINE_FUNCTION(u8d_to_f32d, c);
+DEFINE_FUNCTION(u8_to_f32, c);
+DEFINE_FUNCTION(u8_to_f32d, c);
+DEFINE_FUNCTION(u8d_to_f32, c);
+DEFINE_FUNCTION(s16d_to_f32d, c);
+DEFINE_FUNCTION(s16_to_f32, c);
+DEFINE_FUNCTION(s16_to_f32d, c);
+DEFINE_FUNCTION(s16d_to_f32, c);
+DEFINE_FUNCTION(s32d_to_f32d, c);
+DEFINE_FUNCTION(s32_to_f32, c);
+DEFINE_FUNCTION(s32_to_f32d, c);
+DEFINE_FUNCTION(s32d_to_f32, c);
+DEFINE_FUNCTION(s24d_to_f32d, c);
+DEFINE_FUNCTION(s24_to_f32, c);
+DEFINE_FUNCTION(s24_to_f32d, c);
+DEFINE_FUNCTION(s24d_to_f32, c);
+DEFINE_FUNCTION(s24_32d_to_f32d, c);
+DEFINE_FUNCTION(s24_32_to_f32, c);
+DEFINE_FUNCTION(s24_32_to_f32d, c);
+DEFINE_FUNCTION(s24_32d_to_f32, c);
+DEFINE_FUNCTION(f32d_to_u8d, c);
+DEFINE_FUNCTION(f32_to_u8, c);
+DEFINE_FUNCTION(f32_to_u8d, c);
+DEFINE_FUNCTION(f32d_to_u8, c);
+DEFINE_FUNCTION(f32d_to_s16d, c);
+DEFINE_FUNCTION(f32_to_s16, c);
+DEFINE_FUNCTION(f32_to_s16d, c);
+DEFINE_FUNCTION(f32d_to_s16, c);
+DEFINE_FUNCTION(f32d_to_s32d, c);
+DEFINE_FUNCTION(f32_to_s32, c);
+DEFINE_FUNCTION(f32_to_s32d, c);
+DEFINE_FUNCTION(f32d_to_s32, c);
+DEFINE_FUNCTION(f32d_to_s24d, c);
+DEFINE_FUNCTION(f32_to_s24, c);
+DEFINE_FUNCTION(f32_to_s24d, c);
+DEFINE_FUNCTION(f32d_to_s24, c);
+DEFINE_FUNCTION(f32d_to_s24_32d, c);
+DEFINE_FUNCTION(f32_to_s24_32, c);
+DEFINE_FUNCTION(f32_to_s24_32d, c);
+DEFINE_FUNCTION(f32d_to_s24_32, c);
+DEFINE_FUNCTION(deinterleave_8, c);
+DEFINE_FUNCTION(deinterleave_16, c);
+DEFINE_FUNCTION(deinterleave_24, c);
+DEFINE_FUNCTION(deinterleave_32, c);
+DEFINE_FUNCTION(interleave_8, c);
+DEFINE_FUNCTION(interleave_16, c);
+DEFINE_FUNCTION(interleave_24, c);
+DEFINE_FUNCTION(interleave_32, c);
+
 #if defined(HAVE_SSE2)
-void conv_s16_to_f32d_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
-                uint32_t n_channels, uint32_t n_samples);
-void conv_s24_to_f32d_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
-		uint32_t n_channels, uint32_t n_samples);
-void conv_f32d_to_s32_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
-		uint32_t n_channels, uint32_t n_samples);
-void conv_f32d_to_s16_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
-		uint32_t n_channels, uint32_t n_samples);
+DEFINE_FUNCTION(s16_to_f32d, sse2);
+DEFINE_FUNCTION(s24_to_f32d, sse2);
+DEFINE_FUNCTION(f32d_to_s32, sse2);
+DEFINE_FUNCTION(f32d_to_s16, sse2);
 #endif
 #if defined(HAVE_SSSE3)
-void conv_s24_to_f32d_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
-		uint32_t n_channels, uint32_t n_samples);
+DEFINE_FUNCTION(s24_to_f32d, ssse3);
 #endif
 #if defined(HAVE_SSE41)
-void conv_s24_to_f32d_sse41(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
-                uint32_t n_channels, uint32_t n_samples);
+DEFINE_FUNCTION(s24_to_f32d, sse41);
 
 #endif

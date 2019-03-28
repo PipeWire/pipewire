@@ -105,34 +105,34 @@ static void run_test(const char *name, const char *impl, bool in_packed, bool ou
 
 static void test_f32_u8(void)
 {
-	run_test("test_f32_u8", "c", true, true, conv_f32_to_u8);
-	run_test("test_f32d_u8", "c", false, true, conv_f32d_to_u8);
-	run_test("test_f32_u8d", "c", true, false, conv_f32_to_u8d);
-	run_test("test_f32d_u8d", "c", false, false, conv_f32d_to_u8d);
+	run_test("test_f32_u8", "c", true, true, conv_f32_to_u8_c);
+	run_test("test_f32d_u8", "c", false, true, conv_f32d_to_u8_c);
+	run_test("test_f32_u8d", "c", true, false, conv_f32_to_u8d_c);
+	run_test("test_f32d_u8d", "c", false, false, conv_f32d_to_u8d_c);
 }
 
 static void test_u8_f32(void)
 {
-	run_test("test_u8_f32", "c", true, true, conv_u8_to_f32);
-	run_test("test_u8d_f32", "c", false, true, conv_u8d_to_f32);
-	run_test("test_u8_f32d", "c", true, false, conv_u8_to_f32d);
+	run_test("test_u8_f32", "c", true, true, conv_u8_to_f32_c);
+	run_test("test_u8d_f32", "c", false, true, conv_u8d_to_f32_c);
+	run_test("test_u8_f32d", "c", true, false, conv_u8_to_f32d_c);
 }
 
 static void test_f32_s16(void)
 {
-	run_test("test_f32_s16", "c", true, true, conv_f32_to_s16);
-	run_test("test_f32d_s16", "c", false, true, conv_f32d_to_s16);
+	run_test("test_f32_s16", "c", true, true, conv_f32_to_s16_c);
+	run_test("test_f32d_s16", "c", false, true, conv_f32d_to_s16_c);
 #if defined (HAVE_SSE2)
 	run_test("test_f32d_s16", "sse2", false, true, conv_f32d_to_s16_sse2);
 #endif
-	run_test("test_f32_s16d", "c", true, false, conv_f32_to_s16d);
+	run_test("test_f32_s16d", "c", true, false, conv_f32_to_s16d_c);
 }
 
 static void test_s16_f32(void)
 {
-	run_test("test_s16_f32", "c", true, true, conv_s16_to_f32);
-	run_test("test_s16d_f32", "c", false, true, conv_s16d_to_f32);
-	run_test("test_s16_f32d", "c", true, false, conv_s16_to_f32d);
+	run_test("test_s16_f32", "c", true, true, conv_s16_to_f32_c);
+	run_test("test_s16d_f32", "c", false, true, conv_s16d_to_f32_c);
+	run_test("test_s16_f32d", "c", true, false, conv_s16_to_f32d_c);
 #if defined (HAVE_SSE2)
 	run_test("test_s16_f32d", "sse2", true, false, conv_s16_to_f32d_sse2);
 #endif
@@ -140,33 +140,33 @@ static void test_s16_f32(void)
 
 static void test_f32_s32(void)
 {
-	run_test("test_f32_s32", "c", true, true, conv_f32_to_s32);
-	run_test("test_f32d_s32", "c", false, true, conv_f32d_to_s32);
+	run_test("test_f32_s32", "c", true, true, conv_f32_to_s32_c);
+	run_test("test_f32d_s32", "c", false, true, conv_f32d_to_s32_c);
 #if defined (HAVE_SSE2)
 	run_test("test_f32d_s32", "sse2", false, true, conv_f32d_to_s32_sse2);
 #endif
-	run_test("test_f32_s32d", "c", true, false, conv_f32_to_s32d);
+	run_test("test_f32_s32d", "c", true, false, conv_f32_to_s32d_c);
 }
 
 static void test_s32_f32(void)
 {
-	run_test("test_s32_f32", "c", true, true, conv_s32_to_f32);
-	run_test("test_s32d_f32", "c", false, true, conv_s32d_to_f32);
-	run_test("test_s32_f32d", "c", true, false, conv_s32_to_f32d);
+	run_test("test_s32_f32", "c", true, true, conv_s32_to_f32_c);
+	run_test("test_s32d_f32", "c", false, true, conv_s32d_to_f32_c);
+	run_test("test_s32_f32d", "c", true, false, conv_s32_to_f32d_c);
 }
 
 static void test_f32_s24(void)
 {
-	run_test("test_f32_s24", "c", true, true, conv_f32_to_s24);
-	run_test("test_f32d_s24", "c", false, true, conv_f32d_to_s24);
-	run_test("test_f32_s24d", "c", true, false, conv_f32_to_s24d);
+	run_test("test_f32_s24", "c", true, true, conv_f32_to_s24_c);
+	run_test("test_f32d_s24", "c", false, true, conv_f32d_to_s24_c);
+	run_test("test_f32_s24d", "c", true, false, conv_f32_to_s24d_c);
 }
 
 static void test_s24_f32(void)
 {
-	run_test("test_s24_f32", "c", true, true, conv_s24_to_f32);
-	run_test("test_s24d_f32", "c", false, true, conv_s24d_to_f32);
-	run_test("test_s24_f32d", "c", true, false, conv_s24_to_f32d);
+	run_test("test_s24_f32", "c", true, true, conv_s24_to_f32_c);
+	run_test("test_s24d_f32", "c", false, true, conv_s24d_to_f32_c);
+	run_test("test_s24_f32d", "c", true, false, conv_s24_to_f32d_c);
 #if defined (HAVE_SSE2)
 	run_test("test_s24_f32d", "sse2", true, false, conv_s24_to_f32d_sse2);
 #endif
@@ -180,32 +180,32 @@ static void test_s24_f32(void)
 
 static void test_f32_s24_32(void)
 {
-	run_test("test_f32_s24_32", "c", true, true, conv_f32_to_s24_32);
-	run_test("test_f32d_s24_32", "c", false, true, conv_f32d_to_s24_32);
-	run_test("test_f32_s24_32d", "c", true, false, conv_f32_to_s24_32d);
+	run_test("test_f32_s24_32", "c", true, true, conv_f32_to_s24_32_c);
+	run_test("test_f32d_s24_32", "c", false, true, conv_f32d_to_s24_32_c);
+	run_test("test_f32_s24_32d", "c", true, false, conv_f32_to_s24_32d_c);
 }
 
 static void test_s24_32_f32(void)
 {
-	run_test("test_s24_32_f32", "c", true, true, conv_s24_32_to_f32);
-	run_test("test_s24_32d_f32", "c", false, true, conv_s24_32d_to_f32);
-	run_test("test_s24_32_f32d", "c", true, false, conv_s24_32_to_f32d);
+	run_test("test_s24_32_f32", "c", true, true, conv_s24_32_to_f32_c);
+	run_test("test_s24_32d_f32", "c", false, true, conv_s24_32d_to_f32_c);
+	run_test("test_s24_32_f32d", "c", true, false, conv_s24_32_to_f32d_c);
 }
 
 static void test_interleave(void)
 {
-	run_test("test_interleave_8", "c", false, true, interleave_8);
-	run_test("test_interleave_16", "c", false, true, interleave_16);
-	run_test("test_interleave_24", "c", false, true, interleave_24);
-	run_test("test_interleave_32", "c", false, true, interleave_32);
+	run_test("test_interleave_8", "c", false, true, conv_interleave_8_c);
+	run_test("test_interleave_16", "c", false, true, conv_interleave_16_c);
+	run_test("test_interleave_24", "c", false, true, conv_interleave_24_c);
+	run_test("test_interleave_32", "c", false, true, conv_interleave_32_c);
 }
 
 static void test_deinterleave(void)
 {
-	run_test("test_deinterleave_8", "c", true, false, deinterleave_8);
-	run_test("test_deinterleave_16", "c", true, false, deinterleave_16);
-	run_test("test_deinterleave_24", "c", true, false, deinterleave_24);
-	run_test("test_deinterleave_32", "c", true, false, deinterleave_32);
+	run_test("test_deinterleave_8", "c", true, false, conv_deinterleave_8_c);
+	run_test("test_deinterleave_16", "c", true, false, conv_deinterleave_16_c);
+	run_test("test_deinterleave_24", "c", true, false, conv_deinterleave_24_c);
+	run_test("test_deinterleave_32", "c", true, false, conv_deinterleave_32_c);
 }
 
 static int compare_func(const void *_a, const void *_b)

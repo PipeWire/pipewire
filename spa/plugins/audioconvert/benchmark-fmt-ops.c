@@ -80,6 +80,8 @@ static void run_test1(const char *name, const char *impl, bool in_packed, bool o
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	t2 = SPA_TIMESPEC_TO_NSEC(&ts);
 
+	spa_assert(n_results < MAX_RESULTS);
+
 	results[n_results++] = (struct stats) {
 		.n_samples = n_samples,
 		.n_channels = n_channels,
@@ -235,8 +237,6 @@ int main(int argc, char *argv[])
 	test_s24_32_f32();
 	test_interleave();
 	test_deinterleave();
-
-	spa_assert(n_results <= MAX_RESULTS);
 
 	qsort(results, n_results, sizeof(struct stats), compare_func);
 

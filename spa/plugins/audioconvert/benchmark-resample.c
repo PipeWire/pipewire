@@ -56,12 +56,13 @@ static const int in_rates[] = { 44100, 44100, 48000, 96000, 22050, 96000 };
 static const int out_rates[] = { 44100, 48000, 44100, 48000, 48000, 44100 };
 
 
-#define MAX_RESAMPLER	4
+#define MAX_RESAMPLER	5
 #define MAX_SIZES	SPA_N_ELEMENTS(sample_sizes)
 #define MAX_RATES	SPA_N_ELEMENTS(in_rates)
+#define MAX_RESULTS	MAX_RESAMPLER * MAX_SIZES * MAX_RATES
 
 static uint32_t n_results = 0;
-static struct stats results[MAX_RESAMPLER * MAX_SIZES * MAX_RATES];
+static struct stats results[MAX_RESULTS];
 
 static void run_test1(const char *name, const char *impl, struct resample *r, int n_samples)
 {
@@ -89,6 +90,8 @@ static void run_test1(const char *name, const char *impl, struct resample *r, in
 	}
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	t2 = SPA_TIMESPEC_TO_NSEC(&ts);
+
+	spa_assert(n_results < MAX_RESULTS);
 
 	results[n_results++] = (struct stats) {
 		.in_rate = r->i_rate,
@@ -157,6 +160,18 @@ int main(int argc, char *argv[])
 		r.o_rate = out_rates[i];
 		impl_native_init(&r);
 		run_test("native", "ssse3", &r);
+		resample_free(&r);
+	}
+#endif
+#if defined (HAVE_AVX) && defined(HAVE_FMA)
+	for (i = 0; i < SPA_N_ELEMENTS(in_rates); i++) {
+		spa_zero(r);
+		r.channels = 2;
+		r.cpu_flags = SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3;
+		r.i_rate = in_rates[i];
+		r.o_rate = out_rates[i];
+		impl_native_init(&r);
+		run_test("native", "avx", &r);
 		resample_free(&r);
 	}
 #endif

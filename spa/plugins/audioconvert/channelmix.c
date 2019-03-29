@@ -216,8 +216,11 @@ static int setup_convert(struct impl *this,
 	if ((res = channelmix_init(&this->mix)) < 0)
 		return res;
 
-	spa_log_info(this->log, NAME " %p: got channelmix features %08x:%08x",
-			this, this->cpu_flags, this->mix.cpu_flags);
+	spa_log_info(this->log, NAME " %p: got channelmix features %08x:%08x %d",
+			this, this->cpu_flags, this->mix.cpu_flags,
+			this->mix.is_identity);
+
+	this->is_passthrough = this->mix.is_identity;
 
 	return 0;
 }

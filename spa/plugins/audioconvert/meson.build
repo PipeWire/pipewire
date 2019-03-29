@@ -1,5 +1,7 @@
 audioconvert_sources = ['fmtconvert.c',
+			'fmt-ops.c',
 			'channelmix.c',
+			'channelmix-ops.c',
 			'resample.c',
 			'splitter.c',
 			'merger.c',
@@ -23,7 +25,7 @@ if have_sse
 	audioconvert_sse = static_library('audioconvert_sse',
 		['resample-native-sse.c',
 		 'channelmix-ops-sse.c' ],
-		c_args : [sse_args, '-O3'],
+		c_args : [sse_args, '-O3', '-DHAVE_SSE'],
 		include_directories : [spa_inc],
 		install : false
 	)
@@ -33,7 +35,7 @@ endif
 if have_sse2
 	audioconvert_sse2 = static_library('audioconvert_sse2',
 		['fmt-ops-sse2.c' ],
-		c_args : [sse2_args, '-O3'],
+		c_args : [sse2_args, '-O3', '-DHAVE_SSE2'],
 		include_directories : [spa_inc],
 		install : false
 	)
@@ -44,7 +46,7 @@ if have_ssse3
 	audioconvert_ssse3 = static_library('audioconvert_ssse3',
 		['fmt-ops-ssse3.c',
 		 'resample-native-ssse3.c' ],
-		c_args : [ssse3_args, '-O3'],
+		c_args : [ssse3_args, '-O3', '-DHAVE_SSSE3'],
 		include_directories : [spa_inc],
 		install : false
 	)
@@ -54,7 +56,7 @@ endif
 if have_sse41
 	audioconvert_sse41 = static_library('audioconvert_sse41',
 		['fmt-ops-sse41.c'],
-		c_args : [sse41_args, '-O3'],
+		c_args : [sse41_args, '-O3', '-DHAVE_SSE41'],
 		include_directories : [spa_inc],
 		install : false
 	)
@@ -64,7 +66,7 @@ endif
 if have_avx and have_fma
 	audioconvert_avx = static_library('audioconvert_avx',
 		['resample-native-avx.c'],
-		c_args : [avx2_args, fma_args, '-O3'],
+		c_args : [avx2_args, fma_args, '-O3', '-DHAVE_AVX', '-DHAVE_FMA'],
 		include_directories : [spa_inc],
 		install : false
 	)

@@ -49,6 +49,9 @@ static void run_test(const char *name,
 	void *tp[N_CHANNELS];
 	int i, j;
 	const uint8_t *in8 = in, *out8 = out;
+	struct convert conv;
+
+	conv.n_channels = N_CHANNELS;
 
 	for (j = 0; j < N_SAMPLES; j++) {
 		memcpy(&samp_in[j * in_size], &in8[(j % n_samples) * in_size], in_size);
@@ -62,16 +65,16 @@ static void run_test(const char *name,
 		tp[0] = temp_in;
 		switch(in_size) {
 		case 1:
-			conv_interleave_8_c(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
+			conv_interleave_8_c(&conv, tp, ip, N_SAMPLES);
 			break;
 		case 2:
-			conv_interleave_16_c(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
+			conv_interleave_16_c(&conv, tp, ip, N_SAMPLES);
 			break;
 		case 3:
-			conv_interleave_24_c(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
+			conv_interleave_24_c(&conv, tp, ip, N_SAMPLES);
 			break;
 		case 4:
-			conv_interleave_32_c(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
+			conv_interleave_32_c(&conv, tp, ip, N_SAMPLES);
 			break;
 		default:
 			fprintf(stderr, "unknown size %zd\n", in_size);
@@ -84,7 +87,7 @@ static void run_test(const char *name,
 	for (j = 0; j < N_CHANNELS; j++)
 		tp[j] = &temp_out[j * N_SAMPLES * out_size];
 
-	func(NULL, tp, ip, N_CHANNELS, N_SAMPLES);
+	func(&conv, tp, ip, N_SAMPLES);
 
 	fprintf(stderr, "test %s:\n", name);
 	if (out_packed) {
@@ -259,8 +262,6 @@ static void test_s24_32_f32(void)
 
 int main(int argc, char *argv[])
 {
-
-	find_conv_info(0, 0, 0);
 
 	test_f32_u8();
 	test_u8_f32();

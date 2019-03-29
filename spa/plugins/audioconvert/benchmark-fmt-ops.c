@@ -63,6 +63,9 @@ static void run_test1(const char *name, const char *impl, bool in_packed, bool o
 	void *op[n_channels];
 	struct timespec ts;
 	uint64_t count, t1, t2;
+	struct convert conv;
+
+	conv.n_channels = n_channels;
 
 	for (j = 0; j < n_channels; j++) {
 		ip[j] = &samp_in[j * n_samples * 4];
@@ -74,7 +77,7 @@ static void run_test1(const char *name, const char *impl, bool in_packed, bool o
 
 	count = 0;
 	for (i = 0; i < MAX_COUNT; i++) {
-		func(NULL, op, ip, n_channels, n_samples);
+		func(&conv, op, ip, n_samples);
 		count++;
 	}
 	clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -222,8 +225,6 @@ static int compare_func(const void *_a, const void *_b)
 int main(int argc, char *argv[])
 {
 	uint32_t i;
-
-	find_conv_info(0, 0, 0);
 
 	test_f32_u8();
 	test_u8_f32();

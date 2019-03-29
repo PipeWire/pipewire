@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <limits.h>
 
+#include <spa/support/cpu.h>
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
 #include <spa/node/node.h>
@@ -38,6 +39,8 @@
 #include <spa/debug/types.h>
 #include <spa/debug/mem.h>
 #include <spa/debug/pod.h>
+
+#include "fmt-ops.h"
 
 #define NAME "merger"
 
@@ -81,8 +84,6 @@ struct port {
 	struct spa_list queue;
 };
 
-#include "fmt-ops.c"
-
 struct impl {
 	struct spa_handle handle;
 	struct spa_node node;
@@ -101,7 +102,7 @@ struct impl {
 	struct port in_ports[MAX_PORTS];
 	struct port out_ports[MAX_PORTS + 1];
 
-	convert_func_t convert;
+	struct convert conv;
 	uint32_t cpu_flags;
 	int is_passthrough:1;
 	int started:1;
@@ -543,9 +544,9 @@ static int clear_buffers(struct impl *this, struct port *port)
 
 static int setup_convert(struct impl *this)
 {
-	const struct conv_info *conv;
 	struct port *outport;
 	uint32_t src_fmt, dst_fmt;
+	int res;
 
 	outport = GET_OUT_PORT(this, 0);
 
@@ -561,16 +562,20 @@ static int setup_convert(struct impl *this)
 			outport->format.info.raw.channels,
 			outport->format.info.raw.rate);
 
-	conv = find_conv_info(src_fmt, dst_fmt, this->cpu_flags);
-	if (conv != NULL) {
-		spa_log_info(this->log, NAME " %p: got converter features %08x:%08x", this,
-				this->cpu_flags, conv->features);
+	this->conv.src_fmt = src_fmt;
+	this->conv.dst_fmt = dst_fmt;
+	this->conv.n_channels = outport->format.info.raw.channels;
+	this->conv.cpu_flags = this->cpu_flags;
 
-		this->convert = conv->func;
-		this->is_passthrough = src_fmt == dst_fmt;
-		return 0;
-	}
-	return -ENOTSUP;
+	if ((res = convert_init(&this->conv)) < 0)
+		return res;
+
+	spa_log_info(this->log, NAME " %p: got converter features %08x:%08x", this,
+			this->cpu_flags, this->conv.cpu_flags);
+
+	this->is_passthrough = src_fmt == dst_fmt;
+
+	return 0;
 }
 
 static int calc_width(struct spa_audio_info *info)
@@ -942,7 +947,7 @@ static int impl_node_process(struct spa_node *node)
 	outport = GET_OUT_PORT(this, 0);
 	outio = outport->io;
 	spa_return_val_if_fail(outio != NULL, -EIO);
-	spa_return_val_if_fail(this->convert != NULL, -EIO);
+	spa_return_val_if_fail(this->conv.process != NULL, -EIO);
 
 	spa_log_trace_fp(this->log, NAME " %p: status %d %d", this, outio->status, outio->buffer_id);
 
@@ -995,7 +1000,7 @@ static int impl_node_process(struct spa_node *node)
 				n_samples * outport->stride);
 	}
 	if (!this->is_passthrough)
-		this->convert(this, dst_datas, src_datas, SPA_MAX(n_dst_datas, n_src_datas), n_samples);
+		convert_process(&this->conv, dst_datas, src_datas, n_samples);
 
 	return res | SPA_STATUS_HAVE_BUFFER;
 }

@@ -26,14 +26,13 @@
 
 #include <xmmintrin.h>
 
-void
-channelmix_copy_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
-	   int n_src, const void * SPA_RESTRICT src[n_src],
-	   const void *matrix, float v, int n_samples)
+void channelmix_copy_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
+		uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples)
 {
-	int i, n, unrolled;
+	uint32_t i, n, unrolled;
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
+	float v = mix->volume;
 	const __m128 vol = _mm_set1_ps(v);
 
 	if (v <= VOLUME_MIN) {
@@ -73,13 +72,13 @@ channelmix_copy_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
 }
 
 void
-channelmix_f32_2_4_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
-		   int n_src, const void * SPA_RESTRICT src[n_src],
-		   const void *matrix, float v, int n_samples)
+channelmix_f32_2_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
+		uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples)
 {
-	int i, n, unrolled;
+	uint32_t i, n, unrolled;
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
+	float v = mix->volume;
 	const __m128 vol = _mm_set1_ps(v);
 	__m128 in;
 	const float *sFL = s[0], *sFR = s[1];
@@ -139,14 +138,14 @@ channelmix_f32_2_4_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR */
 void
-channelmix_f32_5p1_2_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
-		   int n_src, const void * SPA_RESTRICT src[n_src],
-		   const void *matrix, float v, int n_samples)
+channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
+		uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples)
 {
-	int n, unrolled;
+	uint32_t n, unrolled;
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
-	const float *m = matrix;
+	float v = mix->volume;
+	const float *m = mix->matrix;
 	const __m128 clev = _mm_set1_ps(m[2]);
 	const __m128 llev = _mm_set1_ps(m[3]);
 	const __m128 slev = _mm_set1_ps(m[4]);
@@ -231,14 +230,14 @@ channelmix_f32_5p1_2_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+FC+LFE*/
 void
-channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
-		   int n_src, const void * SPA_RESTRICT src[n_src],
-		   const void *matrix, float v, int n_samples)
+channelmix_f32_5p1_3p1_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
+		uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples)
 {
-	int i, n, unrolled;
+	uint32_t i, n, unrolled;
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
-	const __m128 mix = _mm_set1_ps(v * 0.5f);
+	float v = mix->volume;
+	const __m128 slev = _mm_set1_ps(v * 0.5f);
 	const __m128 vol = _mm_set1_ps(v);
 	__m128 avg[2];
 	const float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
@@ -266,12 +265,12 @@ channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst]
 		for(n = 0; n < unrolled; n += 8) {
 			avg[0] = _mm_add_ps(_mm_load_ps(&sFL[n]), _mm_load_ps(&sSL[n]));
 			avg[1] = _mm_add_ps(_mm_load_ps(&sFL[n+4]), _mm_load_ps(&sSL[n+4]));
-			_mm_store_ps(&dFL[n], _mm_mul_ps(avg[0], mix));
-			_mm_store_ps(&dFL[n+4], _mm_mul_ps(avg[1], mix));
+			_mm_store_ps(&dFL[n], _mm_mul_ps(avg[0], slev));
+			_mm_store_ps(&dFL[n+4], _mm_mul_ps(avg[1], slev));
 			avg[0] = _mm_add_ps(_mm_load_ps(&sFR[n]), _mm_load_ps(&sSR[n]));
 			avg[1] = _mm_add_ps(_mm_load_ps(&sFR[n+4]), _mm_load_ps(&sSR[n+4]));
-			_mm_store_ps(&dFR[n], _mm_mul_ps(avg[0], mix));
-			_mm_store_ps(&dFR[n+4], _mm_mul_ps(avg[1], mix));
+			_mm_store_ps(&dFR[n], _mm_mul_ps(avg[0], slev));
+			_mm_store_ps(&dFR[n+4], _mm_mul_ps(avg[1], slev));
 			_mm_store_ps(&dFC[n], _mm_load_ps(&sFC[n]));
 			_mm_store_ps(&dFC[n+4], _mm_load_ps(&sFC[n+4]));
 			_mm_store_ps(&dLFE[n], _mm_load_ps(&sLFE[n]));
@@ -279,9 +278,9 @@ channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst]
 		}
 		for(; n < n_samples; n++) {
 			avg[0] = _mm_add_ss(_mm_load_ss(&sFL[n]), _mm_load_ss(&sSL[n]));
-			_mm_store_ss(&dFL[n], _mm_mul_ss(avg[0], mix));
+			_mm_store_ss(&dFL[n], _mm_mul_ss(avg[0], slev));
 			avg[0] = _mm_add_ss(_mm_load_ss(&sFR[n]), _mm_load_ss(&sSR[n]));
-			_mm_store_ss(&dFR[n], _mm_mul_ss(avg[0], mix));
+			_mm_store_ss(&dFR[n], _mm_mul_ss(avg[0], slev));
 			_mm_store_ss(&dFC[n], _mm_load_ss(&sFC[n]));
 			_mm_store_ss(&dLFE[n], _mm_load_ss(&sLFE[n]));
 		}
@@ -290,12 +289,12 @@ channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst]
 		for(n = 0; n < unrolled; n += 8) {
 			avg[0] = _mm_add_ps(_mm_load_ps(&sFL[n]), _mm_load_ps(&sSL[n]));
 			avg[1] = _mm_add_ps(_mm_load_ps(&sFL[n+4]), _mm_load_ps(&sSL[n+4]));
-			_mm_store_ps(&dFL[n], _mm_mul_ps(avg[0], mix));
-			_mm_store_ps(&dFL[n+4], _mm_mul_ps(avg[1], mix));
+			_mm_store_ps(&dFL[n], _mm_mul_ps(avg[0], slev));
+			_mm_store_ps(&dFL[n+4], _mm_mul_ps(avg[1], slev));
 			avg[0] = _mm_add_ps(_mm_load_ps(&sFR[n]), _mm_load_ps(&sSR[n]));
 			avg[1] = _mm_add_ps(_mm_load_ps(&sFR[n+4]), _mm_load_ps(&sSR[n+4]));
-			_mm_store_ps(&dFR[n], _mm_mul_ps(avg[0], mix));
-			_mm_store_ps(&dFR[n+4], _mm_mul_ps(avg[1], mix));
+			_mm_store_ps(&dFR[n], _mm_mul_ps(avg[0], slev));
+			_mm_store_ps(&dFR[n+4], _mm_mul_ps(avg[1], slev));
 			_mm_store_ps(&dFC[n], _mm_mul_ps(_mm_load_ps(&sFC[n]), vol));
 			_mm_store_ps(&dFC[n+4], _mm_mul_ps(_mm_load_ps(&sFC[n+4]), vol));
 			_mm_store_ps(&dLFE[n], _mm_mul_ps(_mm_load_ps(&sLFE[n]), vol));
@@ -303,9 +302,9 @@ channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst]
 		}
 		for(; n < n_samples; n++) {
 			avg[0] = _mm_add_ss(_mm_load_ss(&sFL[n]), _mm_load_ss(&sSL[n]));
-			_mm_store_ss(&dFL[n], _mm_mul_ss(avg[0], mix));
+			_mm_store_ss(&dFL[n], _mm_mul_ss(avg[0], slev));
 			avg[0] = _mm_add_ss(_mm_load_ss(&sFR[n]), _mm_load_ss(&sSR[n]));
-			_mm_store_ss(&dFR[n], _mm_mul_ss(avg[0], mix));
+			_mm_store_ss(&dFR[n], _mm_mul_ss(avg[0], slev));
 			_mm_store_ss(&dFC[n], _mm_mul_ss(_mm_load_ss(&sFC[n]), vol));
 			_mm_store_ss(&dLFE[n], _mm_mul_ss(_mm_load_ss(&sLFE[n]), vol));
 		}
@@ -314,14 +313,14 @@ channelmix_f32_5p1_3p1_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst]
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+RL+RR*/
 void
-channelmix_f32_5p1_4_sse(void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
-		   int n_src, const void * SPA_RESTRICT src[n_src],
-		   const void *matrix, float v, int n_samples)
+channelmix_f32_5p1_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
+		uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples)
 {
-	int i, n, unrolled;
+	uint32_t i, n, unrolled;
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
-	const float *m = matrix;
+	const float *m = mix->matrix;
+	float v = mix->volume;
 	const __m128 clev = _mm_set1_ps(m[2]);
 	const __m128 llev = _mm_set1_ps(m[3]);
 	const __m128 vol = _mm_set1_ps(v);

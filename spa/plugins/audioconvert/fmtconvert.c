@@ -39,6 +39,8 @@
 #include <spa/debug/types.h>
 #include <spa/debug/format.h>
 
+#include "fmt-ops.h"
+
 #define NAME "fmtconvert"
 
 #define DEFAULT_RATE		48000
@@ -97,8 +99,6 @@ struct port {
 	struct spa_list queue;
 };
 
-#include "fmt-ops.c"
-
 struct impl {
 	struct spa_handle handle;
 	struct spa_node node;
@@ -120,7 +120,7 @@ struct impl {
 	bool started;
 
 	uint32_t cpu_flags;
-	convert_func_t convert;
+	struct convert conv;
 	int is_passthrough:1;
 };
 
@@ -143,8 +143,8 @@ static int setup_convert(struct impl *this)
 	uint32_t src_fmt, dst_fmt;
 	struct spa_audio_info informat, outformat;
 	struct port *inport, *outport;
-	const struct conv_info *conv;
 	uint32_t i, j;
+	int res;
 
 	inport = GET_IN_PORT(this, 0);
 	outport = GET_OUT_PORT(this, 0);
@@ -181,16 +181,19 @@ static int setup_convert(struct impl *this)
 		}
 	}
 
-	/* find fast path */
-	conv = find_conv_info(src_fmt, dst_fmt, this->cpu_flags);
-	if (conv == NULL)
-		return -ENOTSUP;
+	this->conv.src_fmt = src_fmt;
+	this->conv.dst_fmt = dst_fmt;
+	this->conv.n_channels = outformat.info.raw.channels;
+	this->conv.cpu_flags = this->cpu_flags;
+
+	if ((res = convert_init(&this->conv)) < 0)
+		return res;
 
 	spa_log_info(this->log, NAME " %p: got converter features %08x:%08x", this,
-			this->cpu_flags, conv->features);
+			this->cpu_flags, this->conv.cpu_flags);
 
-	this->convert = conv->func;
-	this->is_passthrough = src_fmt == dst_fmt;
+	this->is_passthrough = this->conv.is_passthrough;
+
 	return 0;
 }
 
@@ -556,7 +559,7 @@ static int port_set_format(struct spa_node *node,
 		if (port->have_format) {
 			port->have_format = false;
 			clear_buffers(this, port);
-			this->convert = NULL;
+			convert_free(&this->conv);
 		}
 	} else {
 		struct spa_audio_info info = { 0 };
@@ -801,7 +804,7 @@ static int impl_node_process(struct spa_node *node)
 	struct spa_buffer *inb, *outb;
 	const void **src_datas;
 	void **dst_datas;
-	uint32_t i, n_src_datas, n_dst_datas, n_datas;
+	uint32_t i, n_src_datas, n_dst_datas;
 	int res = 0;
 	uint32_t n_samples, size, maxsize, offs;
 
@@ -863,8 +866,6 @@ static int impl_node_process(struct spa_node *node)
 	spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d size:%d maxsize:%d n_samples:%d",
 			this, n_src_datas, n_dst_datas, size, maxsize, n_samples);
 
-	n_datas = SPA_MAX(n_src_datas, n_dst_datas);
-
 	for (i = 0; i < n_dst_datas; i++) {
 		dst_datas[i] = this->is_passthrough ?
 			(void*)src_datas[i] :
@@ -875,7 +876,7 @@ static int impl_node_process(struct spa_node *node)
 	}
 
 	if (!this->is_passthrough)
-		this->convert(this, dst_datas, src_datas, n_datas, n_samples);
+		convert_process(&this->conv, dst_datas, src_datas, n_samples);
 
 	inio->status = SPA_STATUS_NEED_BUFFER;
 	res |= SPA_STATUS_NEED_BUFFER;

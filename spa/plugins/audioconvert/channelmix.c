@@ -25,9 +25,10 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
-#include <math.h>
+//#include <math.h>
 
 #include <spa/support/log.h>
+#include <spa/support/cpu.h>
 #include <spa/utils/list.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
@@ -95,7 +96,7 @@ struct port {
 	struct spa_list queue;
 };
 
-#include "channelmix-ops.c"
+#include "channelmix-ops.h"
 
 struct impl {
 	struct spa_handle handle;
@@ -115,12 +116,10 @@ struct impl {
 	struct port in_port;
 	struct port out_port;
 
-	channelmix_func_t convert;
+	struct channelmix mix;
 	int started:1;
 	int is_passthrough:1;
 	uint32_t cpu_flags;
-	uint32_t n_matrix;
-	float matrix[4096];
 };
 
 #define CHECK_PORT(this,d,id)		(id == 0)
@@ -130,35 +129,6 @@ struct impl {
 
 #define _MASK(ch)	(1ULL << SPA_AUDIO_CHANNEL_ ## ch)
 #define STEREO	(_MASK(FL)|_MASK(FR))
-
-#define M		0
-#define FL		1
-#define FR		2
-#define FC		3
-#define LFE		4
-#define SL		5
-#define SR		6
-#define FLC		7
-#define FRC		8
-#define RC		9
-#define RL		10
-#define RR		11
-#define TC		12
-#define TFL		13
-#define TFC		14
-#define TFR		15
-#define TRL		16
-#define TRC		17
-#define TRR		18
-#define NUM_CHAN	19
-
-#define SQRT3_2      1.224744871f  /* sqrt(3/2) */
-#define SQRT1_2      0.707106781f
-#define SQRT2	     1.414213562f
-
-#define MATRIX_NORMAL	0
-#define MATRIX_DOLBY	1
-#define MATRIX_DPLII	2
 
 static uint64_t default_mask(uint32_t channels)
 {
@@ -193,210 +163,14 @@ static uint64_t default_mask(uint32_t channels)
 	return mask;
 }
 
-static int make_matrix(struct impl *this,
-		uint32_t src_chan, uint64_t src_mask,
-		uint32_t dst_chan, uint64_t dst_mask)
-{
-	float matrix[NUM_CHAN][NUM_CHAN] = {{ 0.0f }};
-	uint64_t unassigned;
-	uint32_t i, j, matrix_encoding = MATRIX_NORMAL, c;
-	float clev = SQRT1_2;
-	float slev = SQRT1_2;
-	float llev = 0.5f;
-	float max = 0.0f;
-
-	for (i = 0; i < NUM_CHAN; i++) {
-		if (src_mask & dst_mask & (1ULL << (i + 2)))
-			matrix[i][i]= 1.0f;
-	}
-
-	if ((dst_mask & _MASK(MONO)) ==  _MASK(MONO))
-		dst_mask = _MASK(FC);
-
-	unassigned = src_mask & ~dst_mask;
-
-	spa_log_debug(this->log, "unassigned %08lx", unassigned);
-
-	if (unassigned & _MASK(FC)){
-		if ((dst_mask & STEREO) == STEREO){
-			if(src_mask & STEREO) {
-				matrix[FL][FC] += clev;
-				matrix[FR][FC] += clev;
-			} else {
-				matrix[FL][FC] += SQRT1_2;
-				matrix[FR][FC] += SQRT1_2;
-			}
-		} else {
-			spa_log_warn(this->log, "can't assign FC");
-		}
-	}
-
-	if (unassigned & STEREO){
-		if (dst_mask & _MASK(FC)) {
-			matrix[FC][FL] += SQRT1_2;
-			matrix[FC][FR] += SQRT1_2;
-			if (src_mask & _MASK(FC))
-				matrix[FC][FC] = clev * SQRT2;
-		} else {
-			spa_log_warn(this->log, "can't assign STEREO");
-		}
-	}
-
-	if (unassigned & _MASK(RC)) {
-		if (dst_mask & _MASK(RL)){
-			matrix[RL][RC] += SQRT1_2;
-			matrix[RR][RC] += SQRT1_2;
-		} else if (dst_mask & _MASK(SL)) {
-			matrix[SL][RC] += SQRT1_2;
-			matrix[SR][RC] += SQRT1_2;
-		} else if(dst_mask & _MASK(FL)) {
-			if (matrix_encoding == MATRIX_DOLBY ||
-			    matrix_encoding == MATRIX_DPLII) {
-				if (unassigned & (_MASK(RL)|_MASK(RR))) {
-					matrix[FL][RC] -= slev * SQRT1_2;
-					matrix[FR][RC] += slev * SQRT1_2;
-		                } else {
-					matrix[FL][RC] -= slev;
-					matrix[FR][RC] += slev;
-				}
-			} else {
-				matrix[FL][RC] += slev * SQRT1_2;
-				matrix[FR][RC] += slev * SQRT1_2;
-			}
-		} else if (dst_mask & _MASK(FC)) {
-			matrix[FC][RC] += slev * SQRT1_2;
-		} else {
-			spa_log_warn(this->log, "can't assign RC");
-		}
-	}
-
-	if (unassigned & _MASK(RL)) {
-		if (dst_mask & _MASK(RC)) {
-			matrix[RC][RL] += SQRT1_2;
-			matrix[RC][RR] += SQRT1_2;
-		} else if (dst_mask & _MASK(SL)) {
-			if (src_mask & _MASK(SL)) {
-				matrix[SL][RL] += SQRT1_2;
-				matrix[SR][RR] += SQRT1_2;
-			} else {
-				matrix[SL][RL] += 1.0f;
-				matrix[SR][RR] += 1.0f;
-			}
-		} else if (dst_mask & _MASK(FL)) {
-			if (matrix_encoding == MATRIX_DOLBY) {
-				matrix[FL][RL] -= slev * SQRT1_2;
-				matrix[FL][RR] -= slev * SQRT1_2;
-				matrix[FR][RL] += slev * SQRT1_2;
-				matrix[FR][RR] += slev * SQRT1_2;
-			} else if (matrix_encoding == MATRIX_DPLII) {
-				matrix[FL][RL] -= slev * SQRT3_2;
-				matrix[FL][RR] -= slev * SQRT1_2;
-				matrix[FR][RL] += slev * SQRT1_2;
-				matrix[FR][RR] += slev * SQRT3_2;
-			} else {
-				matrix[FL][RL] += slev;
-				matrix[FR][RR] += slev;
-			}
-		} else if (dst_mask & _MASK(FC)) {
-			matrix[FC][RL]+= slev * SQRT1_2;
-			matrix[FC][RR]+= slev * SQRT1_2;
-		} else {
-			spa_log_warn(this->log, "can't assign RL");
-		}
-	}
-
-	if (unassigned & _MASK(SL)) {
-		if (dst_mask & _MASK(RL)) {
-			if (src_mask & _MASK(RL)) {
-				matrix[RL][SL] += SQRT1_2;
-				matrix[RR][SR] += SQRT1_2;
-			} else {
-				matrix[RL][SL] += 1.0f;
-				matrix[RR][SR] += 1.0f;
-			}
-		} else if (dst_mask & _MASK(RC)) {
-			matrix[RC][SL]+= SQRT1_2;
-			matrix[RC][SR]+= SQRT1_2;
-		} else if (dst_mask & _MASK(FL)) {
-			if (matrix_encoding == MATRIX_DOLBY) {
-				matrix[FL][SL] -= slev * SQRT1_2;
-				matrix[FL][SR] -= slev * SQRT1_2;
-				matrix[FR][SL] += slev * SQRT1_2;
-				matrix[FR][SR] += slev * SQRT1_2;
-			} else if (matrix_encoding == MATRIX_DPLII) {
-				matrix[FL][SL] -= slev * SQRT3_2;
-				matrix[FL][SR] -= slev * SQRT1_2;
-				matrix[FR][SL] += slev * SQRT1_2;
-				matrix[FR][SR] += slev * SQRT3_2;
-			} else {
-				matrix[FL][SL] += slev;
-				matrix[FR][SR] += slev;
-			}
-		} else if (dst_mask & _MASK(FC)) {
-			matrix[FC][SL] += slev * SQRT1_2;
-			matrix[FC][SR] += slev * SQRT1_2;
-		} else {
-			spa_log_warn(this->log, "can't assign SL");
-		}
-	}
-
-	if (unassigned & _MASK(FLC)) {
-		if (dst_mask & _MASK(FL)) {
-			matrix[FC][FLC]+= 1.0f;
-			matrix[FC][FRC]+= 1.0f;
-		} else if(dst_mask & _MASK(FC)) {
-			matrix[FC][FLC]+= SQRT1_2;
-			matrix[FC][FRC]+= SQRT1_2;
-		} else {
-			spa_log_warn(this->log, "can't assign FLC");
-		}
-	}
-	if (unassigned & _MASK(LFE)) {
-		if (dst_mask & _MASK(FC)) {
-			matrix[FC][LFE] += llev;
-		} else if (dst_mask & _MASK(FL)) {
-			matrix[FL][LFE] += llev * SQRT1_2;
-			matrix[FR][LFE] += llev * SQRT1_2;
-		} else {
-			spa_log_warn(this->log, "can't assign LFE");
-		}
-	}
-
-	c = 0;
-	for (i = 0; i < NUM_CHAN; i++) {
-		float sum = 0.0f;
-		if ((dst_mask & (1UL << (i + 2))) == 0)
-			continue;
-		for (j = 0; j < NUM_CHAN; j++) {
-			if ((src_mask & (1UL << (j + 2))) == 0)
-				continue;
-			this->matrix[c++] = matrix[i][j];
-			sum += fabs(matrix[i][j]);
-		}
-		max = SPA_MAX(max, sum);
-	}
-	this->n_matrix = c;
-	this->is_passthrough = dst_chan == src_chan;
-	for (i = 0; i < dst_chan; i++) {
-		for (j = 0; j < src_chan; j++) {
-			float v = this->matrix[i * src_chan + j];
-			spa_log_debug(this->log, "%d %d: %f", i, j, v);
-			if (i == j && v != 1.0f)
-				this->is_passthrough = false;
-		}
-	}
-
-	return 0;
-}
-
 static int setup_convert(struct impl *this,
 		enum spa_direction direction,
 		const struct spa_audio_info *info)
 {
 	const struct spa_audio_info *src_info, *dst_info;
 	uint32_t i, src_chan, dst_chan;
-	const struct channelmix_info *chanmix_info;
 	uint64_t src_mask, dst_mask;
+	int res;
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		src_info = info;
@@ -431,17 +205,21 @@ static int setup_convert(struct impl *this,
 	if (src_info->info.raw.rate != dst_info->info.raw.rate)
 		return -EINVAL;
 
-	/* find convert function */
-	if ((chanmix_info = find_channelmix_info(src_chan, src_mask,
-					dst_chan, dst_mask, this->cpu_flags)) == NULL)
-		return -ENOTSUP;
+	this->mix.src_chan = src_chan;
+	this->mix.src_mask = src_mask;
+	this->mix.dst_chan = dst_chan;
+	this->mix.dst_mask = dst_mask;
+	this->mix.cpu_flags = this->cpu_flags;
+	this->mix.log = this->log;
+	this->mix.volume = this->props.mute ? 0.0f : this->props.volume;
+
+	if ((res = channelmix_init(&this->mix)) < 0)
+		return res;
 
 	spa_log_info(this->log, NAME " %p: got channelmix features %08x:%08x",
-			this, this->cpu_flags, chanmix_info->features);
+			this, this->cpu_flags, this->mix.cpu_flags);
 
-	this->convert = chanmix_info->func;
-
-	return make_matrix(this, src_chan, src_mask, dst_chan, dst_mask);
+	return 0;
 }
 
 static int impl_node_enum_params(struct spa_node *node, int seq,
@@ -544,6 +322,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			break;
 		}
 	}
+	if (changed)
+		this->mix.volume = p->mute ? 0.0f : p->volume;
+
 	return changed;
 }
 
@@ -850,7 +631,7 @@ static int port_set_format(struct spa_node *node,
 			port->have_format = false;
 			clear_buffers(this, port);
 		}
-		this->convert = NULL;
+		channelmix_free(&this->mix);
 	} else {
 		struct spa_audio_info info = { 0 };
 
@@ -1131,10 +912,11 @@ static int impl_node_process(struct spa_node *node)
 		const void *src_datas[n_src_datas];
 		void *dst_datas[n_dst_datas];
 		bool is_passthrough;
-		float v;
 
-		v = this->props.mute ? 0.0f : this->props.volume;
-		is_passthrough = this->is_passthrough && v == 1.0f;
+		is_passthrough = this->is_passthrough &&
+			this->mix.volume == 1.0f &&
+			this->mix.is_identity;
+
 		n_samples = sb->datas[0].chunk->size / inport->stride;
 
 		for (i = 0; i < n_src_datas; i++)
@@ -1146,9 +928,8 @@ static int impl_node_process(struct spa_node *node)
 		}
 
 		if (!is_passthrough)
-			this->convert(this, n_dst_datas, dst_datas,
-					    n_src_datas, src_datas,
-					    this->matrix, v, n_samples);
+			channelmix_process(&this->mix, n_dst_datas, dst_datas,
+				    n_src_datas, src_datas, n_samples);
 	}
 
 	outio->status = SPA_STATUS_HAVE_BUFFER;

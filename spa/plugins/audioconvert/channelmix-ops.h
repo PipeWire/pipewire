@@ -30,6 +30,8 @@
 #define VOLUME_MIN 0.0f
 #define VOLUME_NORM 1.0f
 
+#define MAX_CHANNELS	64
+
 #define _M(ch)		(1UL << SPA_AUDIO_CHANNEL_ ## ch)
 #define MASK_MONO	_M(FC)|_M(MONO)|_M(UNKNOWN)
 #define MASK_STEREO	_M(FL)|_M(FR)|_M(UNKNOWN)
@@ -38,15 +40,37 @@
 #define MASK_5_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)|_M(SL)|_M(SR)|_M(RL)|_M(RR)
 #define MASK_7_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)|_M(SL)|_M(SR)|_M(RL)|_M(RR)
 
-typedef void (*channelmix_func_t) (void *data, int n_dst, void * SPA_RESTRICT dst[n_dst],
-				   int n_src, const void * SPA_RESTRICT src[n_src],
-				   const void * SPA_RESTRICT matrix, float v, int n_samples);
+
+struct channelmix {
+	uint32_t src_chan;
+	uint32_t dst_chan;
+	uint64_t src_mask;
+	uint64_t dst_mask;
+	uint32_t cpu_flags;
+
+	struct spa_log *log;
+
+	int is_identity:1;
+	float volume;
+	float matrix[MAX_CHANNELS * MAX_CHANNELS];
+
+	void (*process) (struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
+			uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples);
+	void (*free) (struct channelmix *mix);
+
+	void *data;
+};
+
+int channelmix_init(struct channelmix *mix);
+
+#define channelmix_process(mix,...)	(mix)->process(mix, __VA_ARGS__)
+#define channelmix_free(mix)		(mix)->free(mix)
 
 #define DEFINE_FUNCTION(name,arch)					\
-void channelmix_##name##_##arch(void *data,				\
-		int n_dst, void * SPA_RESTRICT dst[n_dst],		\
-		int n_src, const void * SPA_RESTRICT src[n_src],	\
-		const void *matrix, float v, int n_samples);
+void channelmix_##name##_##arch(struct channelmix *mix,			\
+		uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],		\
+		uint32_t n_src, const void * SPA_RESTRICT src[n_src],	\
+		uint32_t n_samples);
 
 DEFINE_FUNCTION(copy, c);
 DEFINE_FUNCTION(f32_n_m, c);

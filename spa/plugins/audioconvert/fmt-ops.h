@@ -77,13 +77,32 @@ static inline void write_s24(void *dst, int32_t val)
 #endif
 }
 
-typedef void (*convert_func_t) (void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
-		uint32_t n_channels, uint32_t n_samples);
+#define MAX_NS	64
+
+struct convert {
+	uint32_t src_fmt;
+	uint32_t dst_fmt;
+	uint32_t n_channels;
+	uint32_t cpu_flags;
+
+	int is_passthrough:1;
+	float ns_data[MAX_NS];
+	uint32_t ns_idx;
+	uint32_t ns_size;
+
+	void (*process) (struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+			uint32_t n_samples);
+	void (*free) (struct convert *conv);
+};
+
+int convert_init(struct convert *conv);
+
+#define convert_process(conv,...)	(conv)->process(conv, __VA_ARGS__)
+#define convert_free(conv)		(conv)->free(conv)
 
 #define DEFINE_FUNCTION(name,arch) \
-void conv_##name##_##arch(void *data, void * SPA_RESTRICT dst[],	\
-		const void * SPA_RESTRICT src[],			\
-		uint32_t n_channels, uint32_t n_samples)
+void conv_##name##_##arch(struct convert *conv, void * SPA_RESTRICT dst[],	\
+		const void * SPA_RESTRICT src[], uint32_t n_samples)		\
 
 DEFINE_FUNCTION(copy8d, c);
 DEFINE_FUNCTION(copy8, c);
@@ -143,6 +162,7 @@ DEFINE_FUNCTION(interleave_24, c);
 DEFINE_FUNCTION(interleave_32, c);
 
 #if defined(HAVE_SSE2)
+DEFINE_FUNCTION(s16_to_f32d_2, sse2);
 DEFINE_FUNCTION(s16_to_f32d, sse2);
 DEFINE_FUNCTION(s24_to_f32d, sse2);
 DEFINE_FUNCTION(f32d_to_s32, sse2);

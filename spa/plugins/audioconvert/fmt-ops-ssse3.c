@@ -27,7 +27,8 @@
 #include <tmmintrin.h>
 
 static void
-conv_s24_to_f32d_4_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src, uint32_t n_channels, uint32_t n_samples)
+conv_s24_to_f32d_4s_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples)
 {
 	const uint8_t *s = src;
 	float **d = (float **) dst;
@@ -94,16 +95,18 @@ conv_s24_to_f32d_4_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA
 }
 
 void
-conv_s24_to_f32d_1_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src, uint32_t n_channels, uint32_t n_samples);
+conv_s24_to_f32d_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples);
 
 void
-conv_s24_to_f32d_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[], uint32_t n_channels, uint32_t n_samples)
+conv_s24_to_f32d_ssse3(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
 {
 	const int8_t *s = src[0];
-	uint32_t i = 0;
+	uint32_t i = 0, n_channels = conv->n_channels;
 
 	for(; i + 3 < n_channels; i += 4)
-		conv_s24_to_f32d_4_ssse3(data, &dst[i], &s[3*i], n_channels, n_samples);
+		conv_s24_to_f32d_4s_ssse3(conv, &dst[i], &s[3*i], n_channels, n_samples);
 	for(; i < n_channels; i++)
-		conv_s24_to_f32d_1_sse2(data, &dst[i], &s[3*i], n_channels, n_samples);
+		conv_s24_to_f32d_1s_sse2(conv, &dst[i], &s[3*i], n_channels, n_samples);
 }

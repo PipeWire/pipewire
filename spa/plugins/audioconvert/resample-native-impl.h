@@ -51,23 +51,13 @@ struct native_data {
 	float *hist_mem;
 };
 
-#define DEFINE_RESAMPLER_COPY(arch)						\
-void do_resample_copy_##arch(struct resample *r,				\
-	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
-	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)
-
-#define DEFINE_RESAMPLER_FULL(arch)						\
-void do_resample_full_##arch(struct resample *r,				\
-	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
-	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)
-
-#define DEFINE_RESAMPLER_INTER(arch)						\
-void do_resample_inter_##arch(struct resample *r,				\
+#define DEFINE_RESAMPLER(type,arch)						\
+void do_resample_##type##_##arch(struct resample *r,				\
 	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
 	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)
 
 #define MAKE_RESAMPLER_COPY(arch)						\
-DEFINE_RESAMPLER_COPY(arch)							\
+DEFINE_RESAMPLER(copy,arch)							\
 {										\
 	struct native_data *data = r->data;					\
 	uint32_t index, n_taps = data->n_taps;					\
@@ -94,7 +84,7 @@ DEFINE_RESAMPLER_COPY(arch)							\
 }
 
 #define MAKE_RESAMPLER_FULL(arch)						\
-DEFINE_RESAMPLER_FULL(arch)							\
+DEFINE_RESAMPLER(full,arch)							\
 {										\
 	struct native_data *data = r->data;					\
 	uint32_t n_taps = data->n_taps, stride = data->filter_stride_os;	\
@@ -133,7 +123,7 @@ DEFINE_RESAMPLER_FULL(arch)							\
 }
 
 #define MAKE_RESAMPLER_INTER(arch)						\
-DEFINE_RESAMPLER_INTER(arch)							\
+DEFINE_RESAMPLER(inter,arch)							\
 {										\
 	struct native_data *data = r->data;					\
 	uint32_t index, phase, stride = data->filter_stride;			\
@@ -180,19 +170,19 @@ DEFINE_RESAMPLER_INTER(arch)							\
 }
 
 
-DEFINE_RESAMPLER_COPY(c);
-DEFINE_RESAMPLER_FULL(c);
-DEFINE_RESAMPLER_INTER(c);
+DEFINE_RESAMPLER(copy,c);
+DEFINE_RESAMPLER(full,c);
+DEFINE_RESAMPLER(inter,c);
 
 #if defined (HAVE_SSE)
-DEFINE_RESAMPLER_FULL(sse);
-DEFINE_RESAMPLER_INTER(sse);
+DEFINE_RESAMPLER(full,sse);
+DEFINE_RESAMPLER(inter,sse);
 #endif
 #if defined (HAVE_SSSE3)
-DEFINE_RESAMPLER_FULL(ssse3);
-DEFINE_RESAMPLER_INTER(ssse3);
+DEFINE_RESAMPLER(full,ssse3);
+DEFINE_RESAMPLER(inter,ssse3);
 #endif
 #if defined (HAVE_AVX) && defined(HAVE_FMA)
-DEFINE_RESAMPLER_FULL(avx);
-DEFINE_RESAMPLER_INTER(avx);
+DEFINE_RESAMPLER(full,avx);
+DEFINE_RESAMPLER(inter,avx);
 #endif

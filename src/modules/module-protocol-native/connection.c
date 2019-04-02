@@ -158,7 +158,7 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 
 	while (true) {
 		len = recvmsg(conn->fd, &msg, msg.msg_flags);
-		if (len < 0) {
+		if (len <= 0) {
 			if (errno == EINTR)
 				continue;
 			if (errno != EAGAIN || errno != EWOULDBLOCK)
